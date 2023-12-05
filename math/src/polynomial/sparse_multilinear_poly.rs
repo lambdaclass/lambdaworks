@@ -1,14 +1,13 @@
 use crate::field::element::FieldElement;
 use crate::field::traits::{IsField, IsPrimeField};
 use crate::polynomial::multilinear_term::MultiLinearMonomial;
-use crate::polynomial::term::Term;
 use core::ops::AddAssign;
 use std::fmt::Display;
 
 /// Represents a multilinear polynomials as a collection of multilinear monomials
 // TODO: add checks to track the max degree and number of variables.
 #[derive(Debug, PartialEq, Clone)]
-pub struct MultilinearPolynomial<F: IsPrimeField>
+pub struct SparseMultilinearPolynomial<F: IsPrimeField>
 where
     <F as IsField>::BaseType: Send + Sync,
 {
@@ -16,7 +15,7 @@ where
     pub n_vars: usize, // number of variables
 }
 
-impl<F: IsPrimeField> Display for MultilinearPolynomial<F>
+impl<F: IsPrimeField> Display for SparseMultilinearPolynomial<F>
 where
     <F as IsField>::BaseType: Send + Sync,
 {
@@ -33,7 +32,7 @@ where
     }
 }
 
-impl<F: IsPrimeField> MultilinearPolynomial<F>
+impl<F: IsPrimeField> SparseMultilinearPolynomial<F>
 where
     <F as IsField>::BaseType: Send + Sync,
 {
@@ -67,7 +66,21 @@ where
         self.terms
             .iter()
             .fold(FieldElement::<F>::zero(), |mut acc, term| {
-                acc += term.evaluate(p);
+                acc += {
+                    // Check that p contains the proper amount of elements in dense form.
+                    //assert!(self.max_var() < p.len());
+
+                    if term.vars.is_empty() || p.is_empty() {
+                        return term.coeff.clone();
+                    }
+
+                    // var_id is index of p
+                    let eval = term
+                        .vars
+                        .iter()
+                        .fold(FieldElement::<F>::one(), |acc, x| acc * p[*x].clone());
+                    eval * &term.coeff
+                };
                 acc
             })
     }
@@ -80,14 +93,26 @@ where
         let updated_monomials: Vec<MultiLinearMonomial<F>> = self
             .terms
             .iter()
-            .map(|term| term.partial_evaluate(assignments))
+            .map(|term| {
+                let mut new_coefficient = term.coeff.clone();
+                let mut unassigned_variables = term.vars.to_vec();
+
+                for (var_id, assignment) in assignments {
+                    if unassigned_variables.contains(var_id) {
+                        new_coefficient = new_coefficient * assignment;
+                        unassigned_variables.retain(|&id| id != *var_id);
+                    }
+                }
+
+                MultiLinearMonomial::new((new_coefficient, unassigned_variables))
+            })
             .collect();
         Self::new(updated_monomials)
     }
 
     /// Adds a polynomial
     /// This functions concatenates both vectors of terms
-    pub fn add(&mut self, poly: MultilinearPolynomial<F>) {
+    pub fn add(&mut self, poly: SparseMultilinearPolynomial<F>) {
         for term in poly.terms.iter() {
             self.add_monomial(term);
         }
@@ -133,19 +158,19 @@ mod tests {
     #[test]
     fn test_add() {
         // polynomial 3t_1t_2 + 4t_2t_3
-        let mut poly1 = MultilinearPolynomial::new(vec![
+        let mut poly1 = SparseMultilinearPolynomial::new(vec![
             MultiLinearMonomial::new((FE::new(3), vec![1, 2])),
             MultiLinearMonomial::new((FE::new(4), vec![2, 3])),
         ]);
 
         // polynomial 2t_1t_2 - 4t_2t_3
-        let poly2 = MultilinearPolynomial::new(vec![
+        let poly2 = SparseMultilinearPolynomial::new(vec![
             MultiLinearMonomial::new((FE::new(2), vec![1, 2])),
             MultiLinearMonomial::new((-FE::new(4), vec![2, 3])),
         ]);
 
         // polynomial 5t_1t_2 + 6t_2t_3
-        let expected = MultilinearPolynomial::new(vec![
+        let expected = SparseMultilinearPolynomial::new(vec![
             MultiLinearMonomial::new((FE::new(5), vec![1, 2])),
             MultiLinearMonomial::new((FE::new(0), vec![2, 3])),
         ]);
@@ -154,14 +179,14 @@ mod tests {
         assert_eq!(poly1, expected);
 
         // polynomial 2t_1t_2 - 4t_2t_3
-        let poly2 = MultilinearPolynomial::new(vec![
+        let poly2 = SparseMultilinearPolynomial::new(vec![
             MultiLinearMonomial::new((FE::new(2), vec![1, 2])),
             MultiLinearMonomial::new((-FE::new(4), vec![2, 3])),
         ]);
-        let mut poly_empty = MultilinearPolynomial::<F>::new(vec![]);
+        let mut poly_empty = SparseMultilinearPolynomial::<F>::new(vec![]);
         poly_empty.add(poly2);
         // polynomial 2t_1t_2 - 4t_2t_3
-        let poly2 = MultilinearPolynomial::new(vec![
+        let poly2 = SparseMultilinearPolynomial::new(vec![
             MultiLinearMonomial::new((FE::new(2), vec![1, 2])),
             MultiLinearMonomial::new((-FE::new(4), vec![2, 3])),
         ]);
@@ -171,7 +196,7 @@ mod tests {
     #[test]
     fn test_add_monomial() {
         // polynomial 3t_1t_2 + 4t_2t_3
-        let mut poly = MultilinearPolynomial::new(vec![
+        let mut poly = SparseMultilinearPolynomial::new(vec![
             MultiLinearMonomial::new((FE::new(3), vec![1, 2])),
             MultiLinearMonomial::new((FE::new(4), vec![2, 3])),
         ]);
@@ -180,7 +205,7 @@ mod tests {
         let mono = MultiLinearMonomial::new((FE::new(3), vec![1, 2]));
 
         // expected result 6t_1t_2 + 4t_2t_3
-        let expected = MultilinearPolynomial::new(vec![
+        let expected = SparseMultilinearPolynomial::new(vec![
             MultiLinearMonomial::new((FE::new(6), vec![1, 2])),
             MultiLinearMonomial::new((FE::new(4), vec![2, 3])),
         ]);
@@ -195,7 +220,7 @@ mod tests {
         // partially evaluate b = 2
         // expected result = 6a + 8c
         // a = 0, b = 1, c = 2
-        let poly = MultilinearPolynomial::new(vec![
+        let poly = SparseMultilinearPolynomial::new(vec![
             MultiLinearMonomial::new((FE::new(3), vec![0, 1])),
             MultiLinearMonomial::new((FE::new(4), vec![1, 2])),
         ]);
@@ -203,7 +228,7 @@ mod tests {
         let result = poly.partial_evaluate(&[(1, FE::new(2))]);
         assert_eq!(
             result,
-            MultilinearPolynomial {
+            SparseMultilinearPolynomial {
                 terms: vec![
                     MultiLinearMonomial {
                         coeff: FE::new(6),
@@ -225,7 +250,7 @@ mod tests {
         // evaluate: a = 1, b = 2, c = 3
         // expected result = 42
         // a = 0, b = 1, c = 2
-        let poly = MultilinearPolynomial::new(vec![
+        let poly = SparseMultilinearPolynomial::new(vec![
             MultiLinearMonomial::new((FE::new(3), vec![0, 1, 2])),
             MultiLinearMonomial::new((FE::new(4), vec![0, 1, 2])),
         ]);
@@ -239,7 +264,7 @@ mod tests {
         // evaluate: a = 1, b = 2, c = 3
         // expected result = 30
         // a = 0, b = 1, c = 2
-        let poly = MultilinearPolynomial::new(vec![
+        let poly = SparseMultilinearPolynomial::new(vec![
             MultiLinearMonomial::new((FE::new(3), vec![0, 1])),
             MultiLinearMonomial::new((FE::new(4), vec![1, 2])),
         ]);

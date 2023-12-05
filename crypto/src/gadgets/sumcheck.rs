@@ -4,7 +4,7 @@ use crate::fiat_shamir::default_transcript::DefaultTranscript;
 use crate::fiat_shamir::transcript::Transcript;
 use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::traits::{IsField, IsPrimeField};
-use lambdaworks_math::polynomial::multilinear_poly::MultilinearPolynomial;
+use lambdaworks_math::polynomial::sparse_multilinear_poly::SparseMultilinearPolynomial;
 use lambdaworks_math::traits::ByteConversion;
 
 #[derive(Debug)]
@@ -12,16 +12,16 @@ pub struct SumcheckProof<F: IsPrimeField>
 where
     <F as IsField>::BaseType: Send + Sync,
 {
-    pub poly: MultilinearPolynomial<F>,
+    pub poly: SparseMultilinearPolynomial<F>,
     pub sum: FieldElement<F>,
-    pub uni_polys: Vec<MultilinearPolynomial<F>>,
+    pub uni_polys: Vec<SparseMultilinearPolynomial<F>>,
 }
 
 impl<F: IsPrimeField> SumcheckProof<F>
 where
     <F as IsField>::BaseType: Send + Sync,
 {
-    pub fn new(poly: MultilinearPolynomial<F>, sum: FieldElement<F>) -> SumcheckProof<F> {
+    pub fn new(poly: SparseMultilinearPolynomial<F>, sum: FieldElement<F>) -> SumcheckProof<F> {
         SumcheckProof {
             poly,
             sum,
@@ -48,13 +48,13 @@ where
     /// We assume that the variables in 0..`round` have already been assigned
     #[allow(dead_code)]
     fn fix_and_evaluate_hypercube(
-        poly: &MultilinearPolynomial<F>,
+        poly: &SparseMultilinearPolynomial<F>,
         round: usize,
         r: Vec<FieldElement<F>>,
-    ) -> MultilinearPolynomial<F> {
+    ) -> SparseMultilinearPolynomial<F> {
         let current_poly = poly.partial_evaluate(&(0..round).zip(r).collect::<Vec<_>>());
         (0..2u64.pow((poly.n_vars - round - 1) as u32)).fold(
-            MultilinearPolynomial::new(vec![]),
+            SparseMultilinearPolynomial::new(vec![]),
             |mut acc, value| {
                 let assign = (0..current_poly.n_vars - round - 1)
                     .fold(
@@ -78,7 +78,7 @@ where
     }
 
     #[allow(dead_code)]
-    fn prove(poly: MultilinearPolynomial<F>, sum: FieldElement<F>) -> SumcheckProof<F>
+    fn prove(poly: SparseMultilinearPolynomial<F>, sum: FieldElement<F>) -> SumcheckProof<F>
     where
         <F as IsField>::BaseType: Send + Sync,
         FieldElement<F>: ByteConversion,
@@ -174,7 +174,7 @@ fn pad_evaluation_point<F: IsPrimeField>(
 /// Add a multilinear polynomial to the transcript
 #[allow(dead_code)]
 pub fn add_poly_to_transcript<F: IsPrimeField>(
-    poly: &MultilinearPolynomial<F>,
+    poly: &SparseMultilinearPolynomial<F>,
     transcript: &mut DefaultTranscript,
 ) where
     <F as IsField>::BaseType: Send + Sync,
@@ -194,8 +194,8 @@ mod test {
     use crate::gadgets::sumcheck::Sumcheck;
     use lambdaworks_math::field::element::FieldElement;
     use lambdaworks_math::field::fields::fft_friendly::babybear::Babybear31PrimeField;
-    use lambdaworks_math::polynomial::multilinear_poly::MultilinearPolynomial;
     use lambdaworks_math::polynomial::multilinear_term::MultiLinearMonomial;
+    use lambdaworks_math::polynomial::sparse_multilinear_poly::SparseMultilinearPolynomial;
 
     type F = Babybear31PrimeField;
     type FE = FieldElement<F>;
@@ -205,7 +205,7 @@ mod test {
         // p = 2ab + 3bc
         // [a, b, c] = [0, 1, 2]
         // sum over boolean hypercube = 10
-        let p = MultilinearPolynomial::<F>::new(vec![
+        let p = SparseMultilinearPolynomial::<F>::new(vec![
             MultiLinearMonomial::new((FE::from(2), vec![0, 1])),
             MultiLinearMonomial::new((FE::from(3), vec![1, 2])),
         ]);
