@@ -1,6 +1,6 @@
 use crate::field::{
     element::FieldElement,
-    traits::{IsFFTField, RootsConfig},
+    traits::{IsFFTField, IsField, IsSubFieldOf, RootsConfig},
 };
 use lambdaworks_gpu::metal::abstractions::{errors::MetalError, state::*};
 
