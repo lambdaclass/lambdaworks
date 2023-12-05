@@ -1,5 +1,6 @@
 use crate::{
     field::{
+        traits::{IsField, IsSubFieldOf},
         element::FieldElement,
         traits::{IsFFTField, RootsConfig},
     },
@@ -9,14 +10,15 @@ use lambdaworks_gpu::metal::abstractions::{errors::MetalError, state::MetalState
 
 use super::ops::*;
 
-pub fn evaluate_fft_metal<F>(coeffs: &[FieldElement<F>]) -> Result<Vec<FieldElement<F>>, MetalError>
+pub fn evaluate_fft_metal<F, E>(coeffs: &[FieldElement<E>]) -> Result<Vec<FieldElement<E>>, MetalError>
 where
-    F: IsFFTField,
+    F: IsFFTField + IsSubFieldOf<E>,
+    E: IsField
 {
     let state = MetalState::new(None)?;
 
     let order = coeffs.len().trailing_zeros();
-    let twiddles = gen_twiddles(order.into(), RootsConfig::BitReverse, &state)?;
+    let twiddles = gen_twiddles::<F>(order.into(), RootsConfig::BitReverse, &state)?;
 
     fft(coeffs, &twiddles, &state)
 }
