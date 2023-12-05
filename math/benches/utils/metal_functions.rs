@@ -1,6 +1,5 @@
 use lambdaworks_gpu::metal::abstractions::state::MetalState;
 use lambdaworks_math::fft::gpu::metal::ops::*;
-use lambdaworks_math::fft::polynomial::FFTPoly;
 use lambdaworks_math::{field::traits::RootsConfig, polynomial::Polynomial};
 
 // WARN: These should always be fields supported by Metal, else the last two benches will use CPU FFT.
@@ -22,8 +21,8 @@ pub fn bitrev_permute(input: &[FE]) {
 }
 
 pub fn poly_evaluate_fft(poly: &Polynomial<FE>) {
-    poly.evaluate_fft(1, None).unwrap();
+    Polynomial::evaluate_fft::<F>(poly, 1, None).unwrap();
 }
 pub fn poly_interpolate_fft(evals: &[FE]) {
-    Polynomial::interpolate_fft(evals).unwrap();
+    Polynomial::interpolate_fft::<F>(evals).unwrap();
 }
