@@ -15,11 +15,15 @@ use core::mem;
 /// in this order too. Natural order means that input[i] corresponds to the i-th coefficient,
 /// as opposed to bit-reverse order in which input[bit_rev(i)] corresponds to the i-th
 /// coefficient.
-pub fn fft<F: IsFFTField>(
-    input: &[FieldElement<F>],
+pub fn fft<F, E>(
+    input: &[FieldElement<E>],
     twiddles: &[FieldElement<F>],
     state: &MetalState,
-) -> Result<Vec<FieldElement<F>>, MetalError> {
+) -> Result<Vec<FieldElement<E>>, MetalError>
+where
+    F: IsFFTField + IsSubFieldOf<E>,
+    E: IsField,
+{
     // TODO: make a twiddle factor abstraction for handling invalid twiddles
     if !input.len().is_power_of_two() {
         return Err(MetalError::InputError(input.len()));
