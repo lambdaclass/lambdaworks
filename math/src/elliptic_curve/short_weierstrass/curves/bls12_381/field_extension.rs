@@ -183,9 +183,7 @@ impl ByteConversion for FieldElement<Degree2ExtensionField> {
 ///////////////
 #[derive(Debug, Clone)]
 pub struct LevelTwoResidue;
-impl HasCubicNonResidue for LevelTwoResidue {
-    type BaseField = Degree2ExtensionField;
-
+impl HasCubicNonResidue<Degree2ExtensionField> for LevelTwoResidue {
     fn residue() -> FieldElement<Degree2ExtensionField> {
         FieldElement::new([
             FieldElement::new(U384::from("1")),
@@ -194,7 +192,7 @@ impl HasCubicNonResidue for LevelTwoResidue {
     }
 }
 
-pub type Degree6ExtensionField = CubicExtensionField<LevelTwoResidue>;
+pub type Degree6ExtensionField = CubicExtensionField<Degree2ExtensionField, LevelTwoResidue>;
 
 #[derive(Debug, Clone)]
 pub struct LevelThreeResidue;
