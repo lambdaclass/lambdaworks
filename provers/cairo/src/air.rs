@@ -185,30 +185,45 @@ impl From<&str> for SegmentName {
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Segment {
-    pub begin_addr: u64,
-    pub stop_ptr: u64,
+    pub begin_addr: usize,
+    pub stop_ptr: usize,
 }
 
-impl From<Range<u64>> for Segment {
-    fn from(range: Range<u64>) -> Self {
-        Segment {
-            begin_addr: range.start,
-            stop_ptr: range.end,
+impl Segment {
+    pub fn new(begin_addr: u64, stop_ptr: u64) -> Self {
+        let begin_addr = begin_addr.try_into().unwrap();
+        let stop_ptr = stop_ptr.try_into().unwrap();
+
+        Self {
+            begin_addr,
+            stop_ptr,
         }
     }
-}
-
-impl From<Segment> for Range<u64> {
-    fn from(val: Segment) -> Self {
-        val.begin_addr..val.stop_ptr
+    pub fn segment_size(&self) -> Option<usize> {
+        self.stop_ptr.checked_sub(self.begin_addr - 1)
     }
 }
+
+// impl From<Range<u64>> for Segment {
+//     fn from(range: Range<usize>) -> Self {
+//         Segment {
+//             begin_addr: range.start,
+//             stop_ptr: range.end,
+//         }
+//     }
+// }
+
+// impl From<Segment> for Range<usize> {
+//     fn from(val: Segment) -> Self {
+//         val.begin_addr..val.stop_ptr
+//     }
+// }
 
 impl From<&MemorySegmentAddresses> for Segment {
     fn from(value: &MemorySegmentAddresses) -> Self {
         Self {
-            begin_addr: value.begin_addr as u64,
-            stop_ptr: value.stop_ptr as u64,
+            begin_addr: value.begin_addr,
+            stop_ptr: value.stop_ptr,
         }
     }
 }
@@ -451,7 +466,7 @@ impl Deserializable for PublicInputs {
                     .map_err(|_| DeserializationError::InvalidAmountOfBytes)?,
             );
             bytes = &bytes[8..];
-            memory_segments.insert(segment_type, Segment::from(start..end));
+            memory_segments.insert(segment_type, Segment::new(start, end));
         }
 
         let mut public_memory = HashMap::new();
@@ -531,9 +546,7 @@ fn add_pub_memory_in_public_input_section(
     let mut a_aux = addresses.to_owned();
     let mut v_aux = values.to_owned();
 
-    let output_segment = public_input.memory_segments.get(&SegmentName::Output);
-
-    let pub_addrs = get_pub_memory_addrs(output_segment, public_input);
+    let pub_addrs = get_pub_memory_addrs(public_input);
     let mut pub_addrs_iter = pub_addrs.iter();
 
     // Iterate over addresses
@@ -561,24 +574,23 @@ fn add_pub_memory_in_public_input_section(
 /// incrementally with addresses from `1` to `program_len - 1`, where `program_len` is the length of the program.
 /// If the output builtin is used, `output_range` is `Some(...)` and this function adds incrementally to the resulting
 /// `Vec` addresses from the start to the end of the unwrapped `output_range`.
-fn get_pub_memory_addrs(
-    output_segment: Option<&Segment>,
-    public_input: &PublicInputs,
-) -> Vec<FieldElement<Stark252PrimeField>> {
-    let public_memory_len = public_input.public_memory.len() as u64;
+fn get_pub_memory_addrs(public_input: &PublicInputs) -> Vec<Felt252> {
+    // let public_memory_len = public_input.public_memory.len() as u64;
 
-    if let Some(output_segment) = output_segment {
-        let output_range: Range<u64> = output_segment.clone().into();
-        let output_section = output_range.end - output_range.start;
-        let program_section = public_memory_len - output_section;
+    public_input.public_memory.clone().into_keys().collect()
 
-        (1..=program_section)
-            .map(FieldElement::from)
-            .chain(output_range.clone().map(FieldElement::from))
-            .collect()
-    } else {
-        (1..=public_memory_len).map(FieldElement::from).collect()
-    }
+    // if let Some(output_segment) = output_segment {
+    //     let output_range: Range<u64> = output_segment.clone().into();
+    //     let output_section = output_range.end - output_range.start;
+    //     let program_section = public_memory_len - output_section;
+
+    //     (1..=program_section)
+    //         .map(FieldElement::from)
+    //         .chain(output_range.clone().map(FieldElement::from))
+    //         .collect()
+    // } else {
+    //     (1..=public_memory_len).map(FieldElement::from).collect()
+    // }
 }
 
 fn sort_columns_by_memory_address(
@@ -1423,7 +1435,7 @@ mod test {
             range_check_max: None,
             range_check_min: None,
             num_steps: 1,
-            memory_segments: MemorySegmentMap::from([(SegmentName::Output, Segment::from(20..21))]),
+            memory_segments: MemorySegmentMap::from([(SegmentName::Output, Segment::new(20, 21))]),
         };
 
         let a = vec![
@@ -1624,7 +1636,7 @@ mod prop_test {
             num_steps in any::<usize>(),
         ) -> PublicInputs {
             let public_memory = public_memory.iter().map(|(k, v)| (Felt252::from(*k), Felt252::from(*v))).collect();
-            let memory_segments = MemorySegmentMap::from([(SegmentName::Output, Segment::from(10u64..16u64)), (SegmentName::RangeCheck, Segment::from(20u64..71u64))]);
+            let memory_segments = MemorySegmentMap::from([(SegmentName::Output, Segment::new(10u64, 16u64)), (SegmentName::RangeCheck, Segment::new(20u64, 71u64))]);
             PublicInputs {
                 pc_init,
                 ap_init,
