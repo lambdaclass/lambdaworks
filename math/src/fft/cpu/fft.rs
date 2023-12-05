@@ -1,4 +1,7 @@
-use crate::field::{element::FieldElement, traits::{IsFFTField, IsField, IsSubFieldOf}};
+use crate::field::{
+    element::FieldElement,
+    traits::{IsFFTField, IsField, IsSubFieldOf},
+};
 
 /// In-Place Radix-2 NR DIT FFT algorithm over a slice of two-adic field elements.
 /// It's required that the twiddle factors are in bit-reverse order. Else this function will not
@@ -15,7 +18,7 @@ use crate::field::{element::FieldElement, traits::{IsFFTField, IsField, IsSubFie
 pub fn in_place_nr_2radix_fft<F, E>(input: &mut [FieldElement<E>], twiddles: &[FieldElement<F>])
 where
     F: IsFFTField + IsSubFieldOf<E>,
-    E: IsField
+    E: IsField,
 {
     // divide input in groups, starting with 1, duplicating the number of groups in each stage.
     let mut group_count = 1;

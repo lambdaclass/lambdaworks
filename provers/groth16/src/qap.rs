@@ -1,4 +1,4 @@
-use lambdaworks_math::{fft::polynomial::FFTPoly, polynomial::Polynomial};
+use lambdaworks_math::polynomial::Polynomial;
 
 use crate::common::*;
 

@@ -3,7 +3,7 @@ use std::time::Instant;
 
 use lambdaworks_crypto::merkle_tree::proof::Proof;
 use lambdaworks_math::fft::cpu::bit_reversing::{in_place_bit_reverse_permute, reverse_index};
-use lambdaworks_math::fft::{errors::FFTError, polynomial::FFTPoly};
+use lambdaworks_math::fft::errors::FFTError;
 use lambdaworks_math::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;
 use lambdaworks_math::traits::Serializable;
 use lambdaworks_math::{
@@ -88,9 +88,9 @@ pub fn evaluate_polynomial_on_lde_domain<F>(
 ) -> Result<Vec<FieldElement<F>>, FFTError>
 where
     F: IsFFTField,
-    Polynomial<FieldElement<F>>: FFTPoly<F>,
 {
-    let evaluations = Polynomial::evaluate_offset_fft(&p, blowup_factor, Some(domain_size), offset)?;
+    let evaluations =
+        Polynomial::evaluate_offset_fft(&p, blowup_factor, Some(domain_size), offset)?;
     let step = evaluations.len() / (domain_size * blowup_factor);
     match step {
         1 => Ok(evaluations),

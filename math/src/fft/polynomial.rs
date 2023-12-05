@@ -16,33 +16,12 @@ use crate::fft::gpu::metal::polynomial::{evaluate_fft_metal, interpolate_fft_met
 
 use super::cpu::{ops, roots_of_unity};
 
-pub trait FFTPoly<E: IsField> {
-    fn evaluate_fft<F: IsFFTField + IsSubFieldOf<E>>(
-        poly: &Polynomial<FieldElement<E>>,
-        blowup_factor: usize,
-        domain_size: Option<usize>,
-    ) -> Result<Vec<FieldElement<E>>, FFTError>;
-    fn evaluate_offset_fft<F: IsFFTField + IsSubFieldOf<E>>(
-        poly: &Polynomial<FieldElement<E>>,
-        blowup_factor: usize,
-        domain_size: Option<usize>,
-        offset: &FieldElement<F>,
-    ) -> Result<Vec<FieldElement<E>>, FFTError>;
-    fn interpolate_fft<F: IsFFTField + IsSubFieldOf<E>>(
-        fft_evals: &[FieldElement<E>],
-    ) -> Result<Polynomial<FieldElement<E>>, FFTError>;
-    fn interpolate_offset_fft<F: IsFFTField + IsSubFieldOf<E>>(
-        fft_evals: &[FieldElement<E>],
-        offset: &FieldElement<F>,
-    ) -> Result<Polynomial<FieldElement<E>>, FFTError>;
-}
-
-impl<E: IsField> FFTPoly<E> for Polynomial<FieldElement<E>> {
+impl<E: IsField> Polynomial<FieldElement<E>> {
     /// Returns `N` evaluations of this polynomial using FFT (so the results
     /// are P(w^i), with w being a primitive root of unity).
     /// `N = max(self.coeff_len(), domain_size).next_power_of_two() * blowup_factor`.
     /// If `domain_size` is `None`, it defaults to 0.
-    fn evaluate_fft<F: IsFFTField + IsSubFieldOf<E>>(
+    pub fn evaluate_fft<F: IsFFTField + IsSubFieldOf<E>>(
         poly: &Polynomial<FieldElement<E>>,
         blowup_factor: usize,
         domain_size: Option<usize>,
@@ -91,7 +70,7 @@ impl<E: IsField> FFTPoly<E> for Polynomial<FieldElement<E>> {
     /// (so the results are P(w^i), with w being a primitive root of unity).
     /// `N = max(self.coeff_len(), domain_size).next_power_of_two() * blowup_factor`.
     /// If `domain_size` is `None`, it defaults to 0.
-    fn evaluate_offset_fft<F: IsFFTField + IsSubFieldOf<E>>(
+    pub fn evaluate_offset_fft<F: IsFFTField + IsSubFieldOf<E>>(
         poly: &Polynomial<FieldElement<E>>,
         blowup_factor: usize,
         domain_size: Option<usize>,
@@ -104,7 +83,7 @@ impl<E: IsField> FFTPoly<E> for Polynomial<FieldElement<E>> {
     /// Returns a new polynomial that interpolates `(w^i, fft_evals[i])`, with `w` being a
     /// Nth primitive root of unity, and `i in 0..N`, with `N = fft_evals.len()`.
     /// This is considered to be the inverse operation of [Self::evaluate_fft()].
-    fn interpolate_fft<F: IsFFTField + IsSubFieldOf<E>>(
+    pub fn interpolate_fft<F: IsFFTField + IsSubFieldOf<E>>(
         fft_evals: &[FieldElement<E>],
     ) -> Result<Self, FFTError> {
         #[cfg(feature = "metal")]
@@ -138,7 +117,7 @@ impl<E: IsField> FFTPoly<E> for Polynomial<FieldElement<E>> {
     /// Returns a new polynomial that interpolates offset `(w^i, fft_evals[i])`, with `w` being a
     /// Nth primitive root of unity, and `i in 0..N`, with `N = fft_evals.len()`.
     /// This is considered to be the inverse operation of [Self::evaluate_offset_fft()].
-    fn interpolate_offset_fft<F: IsFFTField + IsSubFieldOf<E>>(
+    pub fn interpolate_offset_fft<F: IsFFTField + IsSubFieldOf<E>>(
         fft_evals: &[FieldElement<E>],
         offset: &FieldElement<F>,
     ) -> Result<Polynomial<FieldElement<E>>, FFTError> {
@@ -244,8 +223,7 @@ mod tests {
             get_powers_of_primitive_root(order, 1 << order, RootsConfig::Natural).unwrap();
 
         let naive_poly = Polynomial::interpolate(&twiddles, fft_evals).unwrap();
-        let fft_poly =
-            Polynomial::interpolate_fft::<F>(fft_evals).unwrap();
+        let fft_poly = Polynomial::interpolate_fft::<F>(fft_evals).unwrap();
 
         (fft_poly, naive_poly)
     }
@@ -266,10 +244,8 @@ mod tests {
     fn gen_fft_interpolate_and_evaluate<F: IsFFTField>(
         poly: Polynomial<FieldElement<F>>,
     ) -> (Polynomial<FieldElement<F>>, Polynomial<FieldElement<F>>) {
-        let eval =
-            Polynomial::evaluate_fft::<F>(&poly, 1, None).unwrap();
-        let new_poly =
-            Polynomial::interpolate_fft::<F>(&eval).unwrap();
+        let eval = Polynomial::evaluate_fft::<F>(&poly, 1, None).unwrap();
+        let new_poly = Polynomial::interpolate_fft::<F>(&eval).unwrap();
 
         (poly, new_poly)
     }

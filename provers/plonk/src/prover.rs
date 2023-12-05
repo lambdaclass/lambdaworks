@@ -1,6 +1,5 @@
 use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 use lambdaworks_math::errors::DeserializationError;
-use lambdaworks_math::fft::polynomial::FFTPoly;
 use lambdaworks_math::field::traits::IsFFTField;
 use lambdaworks_math::traits::{Deserializable, IsRandomFieldElementGenerator, Serializable};
 use std::marker::PhantomData;
@@ -428,7 +427,8 @@ where
         let p_pi_eval = Polynomial::evaluate_offset_fft(&p_pi, 1, Some(degree), offset).unwrap();
         let p_x_eval = Polynomial::evaluate_offset_fft(&p_x, 1, Some(degree), offset).unwrap();
         let p_z_eval = Polynomial::evaluate_offset_fft(&p_z, 1, Some(degree), offset).unwrap();
-        let p_z_x_omega_eval = Polynomial::evaluate_offset_fft(&z_x_omega, 1, Some(degree), offset).unwrap();
+        let p_z_x_omega_eval =
+            Polynomial::evaluate_offset_fft(&z_x_omega, 1, Some(degree), offset).unwrap();
         let p_s1_eval = Polynomial::evaluate_offset_fft(&cpi.s1, 1, Some(degree), offset).unwrap();
         let p_s2_eval = Polynomial::evaluate_offset_fft(&cpi.s2, 1, Some(degree), offset).unwrap();
         let p_s3_eval = Polynomial::evaluate_offset_fft(&cpi.s3, 1, Some(degree), offset).unwrap();

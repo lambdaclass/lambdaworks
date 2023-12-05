@@ -1,6 +1,9 @@
 use crate::{
     fft::errors::FFTError,
-    field::{element::FieldElement, traits::{IsFFTField, IsSubFieldOf, IsField}},
+    field::{
+        element::FieldElement,
+        traits::{IsFFTField, IsField, IsSubFieldOf},
+    },
 };
 
 use super::{bit_reversing::in_place_bit_reverse_permute, fft::in_place_nr_2radix_fft};

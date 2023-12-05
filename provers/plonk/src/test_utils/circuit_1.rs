@@ -2,7 +2,6 @@ use super::utils::{
     generate_domain, generate_permutation_coefficients, ORDER_R_MINUS_1_ROOT_UNITY,
 };
 use crate::setup::{CommonPreprocessedInput, Witness};
-use lambdaworks_math::fft::polynomial::FFTPoly;
 use lambdaworks_math::{
     elliptic_curve::short_weierstrass::curves::bls12_381::default_types::{FrElement, FrField},
     field::{element::FieldElement, traits::IsFFTField},

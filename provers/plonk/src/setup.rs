@@ -5,7 +5,6 @@ use crate::test_utils::utils::{generate_domain, generate_permutation_coefficient
 use lambdaworks_crypto::commitments::traits::IsCommitmentScheme;
 use lambdaworks_crypto::fiat_shamir::default_transcript::DefaultTranscript;
 use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
-use lambdaworks_math::fft::polynomial::FFTPoly;
 use lambdaworks_math::field::traits::IsFFTField;
 use lambdaworks_math::field::{element::FieldElement, traits::IsField};
 use lambdaworks_math::polynomial::Polynomial;

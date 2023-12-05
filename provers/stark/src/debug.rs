@@ -3,7 +3,6 @@ use crate::trace::TraceTable;
 
 use super::domain::Domain;
 use super::traits::AIR;
-use lambdaworks_math::fft::polynomial::FFTPoly;
 use lambdaworks_math::{
     field::{element::FieldElement, traits::IsFFTField},
     polynomial::Polynomial,
@@ -33,8 +32,7 @@ pub fn validate_trace<F: IsFFTField, A: AIR<Field = F>>(
         .get_periodic_column_polynomials()
         .iter()
         .map(|poly| {
-            Polynomial::evaluate_fft::<F>(poly, 1, Some(domain.interpolation_domain_size))
-                .unwrap()
+            Polynomial::evaluate_fft::<F>(poly, 1, Some(domain.interpolation_domain_size)).unwrap()
         })
         .collect();
 

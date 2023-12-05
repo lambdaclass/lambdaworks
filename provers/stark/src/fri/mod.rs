@@ -3,7 +3,6 @@ pub mod fri_decommit;
 mod fri_functions;
 
 use lambdaworks_math::fft::cpu::bit_reversing::in_place_bit_reverse_permute;
-use lambdaworks_math::fft::polynomial::FFTPoly;
 use lambdaworks_math::field::traits::IsFFTField;
 use lambdaworks_math::traits::Serializable;
 pub use lambdaworks_math::{

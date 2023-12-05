@@ -1,6 +1,5 @@
 use crate::table::{Table, TableView};
 use lambdaworks_math::fft::errors::FFTError;
-use lambdaworks_math::fft::polynomial::FFTPoly;
 use lambdaworks_math::{
     field::{element::FieldElement, traits::IsFFTField},
     polynomial::Polynomial,
