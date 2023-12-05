@@ -40,13 +40,13 @@ impl<E: IsField> Polynomial<FieldElement<E>> {
         #[cfg(feature = "metal")]
         {
             if !F::field_name().is_empty() {
-                Ok(evaluate_fft_metal(&coeffs)?)
+                Ok(evaluate_fft_metal::<F, E>(&coeffs)?)
             } else {
                 println!(
                     "GPU evaluation failed for field {}. Program will fallback to CPU.",
                     std::any::type_name::<F>()
                 );
-                evaluate_fft_cpu(&coeffs)
+                evaluate_fft_cpu::<F, E>(&coeffs)
             }
         }
 
@@ -56,7 +56,7 @@ impl<E: IsField> Polynomial<FieldElement<E>> {
             if F::field_name() == "stark256" {
                 Ok(evaluate_fft_cuda(&coeffs)?)
             } else {
-                evaluate_fft_cpu(&coeffs)
+                evaluate_fft_cpu::<F, E>(&coeffs)
             }
         }
 
@@ -89,13 +89,13 @@ impl<E: IsField> Polynomial<FieldElement<E>> {
         #[cfg(feature = "metal")]
         {
             if !F::field_name().is_empty() {
-                Ok(interpolate_fft_metal(fft_evals)?)
+                Ok(interpolate_fft_metal::<F, E>(fft_evals)?)
             } else {
                 println!(
                     "GPU interpolation failed for field {}. Program will fallback to CPU.",
                     std::any::type_name::<F>()
                 );
-                interpolate_fft_cpu(fft_evals)
+                interpolate_fft_cpu::<F, E>(fft_evals)
             }
         }
 
@@ -104,7 +104,7 @@ impl<E: IsField> Polynomial<FieldElement<E>> {
             if !F::field_name().is_empty() {
                 Ok(interpolate_fft_cuda(fft_evals)?)
             } else {
-                interpolate_fft_cpu(fft_evals)
+                interpolate_fft_cpu::<F, E>(fft_evals)
             }
         }
 
