@@ -96,7 +96,6 @@ where
     /// Returns the multiplicative inverse of `a`
     fn inv(a: &[FieldElement<F>; 3]) -> Result<[FieldElement<F>; 3], FieldError> {
         let three = FieldElement::<F>::from(3_u64);
-
         let d = a[0].pow(3_u64)
             + a[1].pow(3_u64) * Q::residue()
             + a[2].pow(3_u64) * Q::residue().pow(2_u64)
