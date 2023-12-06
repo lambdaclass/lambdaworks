@@ -450,7 +450,6 @@ where
         self.value
     }
 
-
     #[inline(always)]
     pub fn to_extension<L: IsField>(self) -> FieldElement<L>
     where
