@@ -14,6 +14,44 @@ pub enum RootsConfig {
     BitReverseInversed, // same as above but exponents are negated.
 }
 
+pub trait IsSubFieldOf<F: IsField>: IsField {
+    fn mul(a: &Self::BaseType, b: &F::BaseType) -> F::BaseType;
+    fn add(a: &Self::BaseType, b: &F::BaseType) -> F::BaseType;
+    fn div(a: &Self::BaseType, b: &F::BaseType) -> F::BaseType;
+    fn sub(a: &Self::BaseType, b: &F::BaseType) -> F::BaseType;
+    fn embed(a: Self::BaseType) -> F::BaseType;
+}
+
+impl<F> IsSubFieldOf<F> for F
+where
+    F: IsField,
+{
+    #[inline(always)]
+    fn mul(a: &Self::BaseType, b: &F::BaseType) -> F::BaseType {
+        F::mul(a, b)
+    }
+
+    #[inline(always)]
+    fn add(a: &Self::BaseType, b: &F::BaseType) -> F::BaseType {
+        F::add(a, b)
+    }
+
+    #[inline(always)]
+    fn sub(a: &Self::BaseType, b: &F::BaseType) -> F::BaseType {
+        F::sub(a, b)
+    }
+
+    #[inline(always)]
+    fn div(a: &Self::BaseType, b: &F::BaseType) -> F::BaseType {
+        F::div(a, b)
+    }
+
+    #[inline(always)]
+    fn embed(a: Self::BaseType) -> F::BaseType {
+        a
+    }
+}
+
 /// Trait to define necessary parameters for FFT-friendly Fields.
 /// Two-Adic fields are ones whose order is of the form  $2^n k + 1$.
 /// Here $n$ is usually called the *two-adicity* of the field. The
@@ -22,7 +60,7 @@ pub enum RootsConfig {
 /// A two-adic primitive root of unity is a number w that satisfies w^(2^n) = 1
 /// and w^(j) != 1 for every j below 2^n. With this primitive root we can generate
 /// any other root of unity we need to perform FFT.
-pub trait IsFFTField: IsPrimeField {
+pub trait IsFFTField: IsField {
     const TWO_ADICITY: u64;
     const TWO_ADIC_PRIMITVE_ROOT_OF_UNITY: Self::BaseType;
 
@@ -33,18 +71,16 @@ pub trait IsFFTField: IsPrimeField {
     }
 
     /// Returns a primitive root of unity of order $2^{order}$.
-    fn get_primitive_root_of_unity<F: IsFFTField>(
-        order: u64,
-    ) -> Result<FieldElement<F>, FieldError> {
+    fn get_primitive_root_of_unity(order: u64) -> Result<FieldElement<Self>, FieldError> {
         let two_adic_primitive_root_of_unity =
-            FieldElement::new(F::TWO_ADIC_PRIMITVE_ROOT_OF_UNITY);
+            FieldElement::new(Self::TWO_ADIC_PRIMITVE_ROOT_OF_UNITY);
         if order == 0 {
             return Ok(FieldElement::one());
         }
-        if order > F::TWO_ADICITY {
+        if order > Self::TWO_ADICITY {
             return Err(FieldError::RootOfUnityError(order));
         }
-        let log_power = F::TWO_ADICITY - order;
+        let log_power = Self::TWO_ADICITY - order;
         let root = (0..log_power).fold(two_adic_primitive_root_of_unity, |acc, _| acc.square());
         Ok(root)
     }
