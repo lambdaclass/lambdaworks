@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1701892095091,
+  "lastUpdate": 1701893220519,
   "repoUrl": "https://github.com/lambdaclass/lambdaworks",
   "entries": {
     "Benchmark": [
@@ -12665,6 +12665,150 @@ window.BENCHMARK_DATA = {
             "name": "Polynomial/div by 'x - b' with Ruffini",
             "value": 10,
             "range": "± 32",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "62400508+juan518munoz@users.noreply.github.com",
+            "name": "juan518munoz",
+            "username": "juan518munoz"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2828a9f21ce69e26c0914f2138faeb9c07aea048",
+          "message": "Public inputs refactor (#676)\n\n* rename MemorySegment to SegmentName\n\n* add SegmentName enum options\n\n* Segment struct declaration\n\n* initial integratation of struct Segment\n\n* rmv comment\n\n* update cairo-vm\n\n* change cairo-vm branch\n\n* add ecdsa & pedersen\n\n* test pub inputs from vm\n\n* public inputs most fields derived from vm\n\n* clippy & fmt\n\n* update cairo-vm dep to latest rev\n\n* get memory segment from vm\n\n* rename data_len to codelen\n\n* Extract public memory directly from public inputs of Cairo VM\n\n* Refactor get_memory_holes function\n\n* Remove unnecessary function and legacy test\n\n* Remove some commented code and fix some tests\n\n* Solve clippy issues\n\n* Remove legacy test\n\n* Fix some comments on tests\n\n* Refactor pub addresses in add_pub_memory_in_public_input_section function\n\n* Refactor segment_size method\n\n* iterate over addr value pairs in add_pub_memory_in_public_input_section function\n\n---------\n\nCo-authored-by: Mariano Nicolini <mariano.nicolini.91@gmail.com>",
+          "timestamp": "2023-12-06T19:56:52Z",
+          "tree_id": "9440f8d1d69f601c0040625a2b8b5cc74f7d44f4",
+          "url": "https://github.com/lambdaclass/lambdaworks/commit/2828a9f21ce69e26c0914f2138faeb9c07aea048"
+        },
+        "date": 1701893215443,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "Ordered FFT/Parallel (Metal)",
+            "value": 72074182,
+            "range": "± 1867784",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #2",
+            "value": 146425982,
+            "range": "± 2857873",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #3",
+            "value": 290439301,
+            "range": "± 7805580",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #4",
+            "value": 603336104,
+            "range": "± 8660213",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal)",
+            "value": 32839706,
+            "range": "± 247137",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #2",
+            "value": 65067154,
+            "range": "± 663511",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #3",
+            "value": 128090832,
+            "range": "± 1313956",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #4",
+            "value": 271692479,
+            "range": "± 6537853",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal)",
+            "value": 28058069,
+            "range": "± 1491256",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #2",
+            "value": 55133882,
+            "range": "± 2856774",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #3",
+            "value": 111417121,
+            "range": "± 5152690",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #4",
+            "value": 237401333,
+            "range": "± 15705200",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal",
+            "value": 111148451,
+            "range": "± 644225",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #2",
+            "value": 223970416,
+            "range": "± 1072989",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #3",
+            "value": 455818541,
+            "range": "± 10352070",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #4",
+            "value": 917819708,
+            "range": "± 12848344",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal",
+            "value": 387474843,
+            "range": "± 7097214",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #2",
+            "value": 772511812,
+            "range": "± 5819870",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #3",
+            "value": 1545946896,
+            "range": "± 14353064",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #4",
+            "value": 3072920437,
+            "range": "± 16699343",
             "unit": "ns/iter"
           }
         ]
