@@ -964,7 +964,7 @@ mod tests {
         for i in 0..(trace_length * blowup_factor) {
             assert_eq!(
                 domain.lde_roots_of_unity_coset[i],
-                FieldElement::from(coset_offset) * primitive_root.pow(i)
+                primitive_root.pow(i) * FieldElement::from(coset_offset)
             );
         }
     }
