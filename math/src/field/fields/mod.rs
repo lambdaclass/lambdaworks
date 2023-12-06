@@ -12,4 +12,4 @@ pub mod u64_goldilocks_field;
 /// Implementation of prime fields over 64 bit unsigned integers.
 pub mod u64_prime_field;
 /// Implemenation of Vesta Prime field (p = 2^254 + 45560315531506369815346746415080538113)
-mod vesta_field;
+pub mod vesta_field;
