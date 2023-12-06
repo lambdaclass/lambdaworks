@@ -1,7 +1,7 @@
 use crate::errors::CreationError;
 use crate::field::errors::FieldError;
 use crate::field::traits::IsField;
-#[cfg(feature = "lambdaworks-serde")]
+#[cfg(feature = "lambdaworks-serde-binary")]
 use crate::traits::ByteConversion;
 use crate::unsigned_integer::element::UnsignedInteger;
 use crate::unsigned_integer::montgomery::MontgomeryAlgorithms;
@@ -9,18 +9,30 @@ use crate::unsigned_integer::traits::IsUnsignedInteger;
 use core::fmt;
 use core::fmt::Debug;
 use core::iter::Sum;
-#[cfg(feature = "lambdaworks-serde")]
+#[cfg(any(
+    feature = "lambdaworks-serde-binary",
+    feature = "lambdaworks-serde-string"
+))]
 use core::marker::PhantomData;
 use core::ops::{Add, AddAssign, Div, Mul, Neg, Sub};
-#[cfg(feature = "lambdaworks-serde")]
+#[cfg(any(
+    feature = "lambdaworks-serde-binary",
+    feature = "lambdaworks-serde-string"
+))]
 use serde::de::{self, Deserializer, MapAccess, SeqAccess, Visitor};
-#[cfg(feature = "lambdaworks-serde")]
+#[cfg(any(
+    feature = "lambdaworks-serde-binary",
+    feature = "lambdaworks-serde-string"
+))]
 use serde::ser::{Serialize, SerializeStruct, Serializer};
-#[cfg(feature = "lambdaworks-serde")]
+#[cfg(any(
+    feature = "lambdaworks-serde-binary",
+    feature = "lambdaworks-serde-string"
+))]
 use serde::Deserialize;
 
 use super::fields::montgomery_backed_prime_fields::{IsModulus, MontgomeryBackendPrimeField};
-use super::traits::{IsPrimeField, LegendreSymbol};
+use super::traits::{IsPrimeField, IsSubFieldOf, LegendreSymbol};
 
 /// A field element with operations algorithms defined in `F`
 #[allow(clippy::derived_hash_with_manual_eq)]
@@ -83,10 +95,8 @@ where
     F::BaseType: Clone,
     F: IsField,
 {
-    pub fn from_raw(value: &F::BaseType) -> Self {
-        Self {
-            value: value.clone(),
-        }
+    pub fn from_raw(value: F::BaseType) -> Self {
+        Self { value }
     }
 
     pub const fn const_from_raw(value: F::BaseType) -> Self {
@@ -107,59 +117,64 @@ where
 impl<F> Eq for FieldElement<F> where F: IsField {}
 
 /// Addition operator overloading for field elements
-impl<F> Add<&FieldElement<F>> for &FieldElement<F>
+impl<F, L> Add<&FieldElement<L>> for &FieldElement<F>
 where
-    F: IsField,
+    F: IsSubFieldOf<L>,
+    L: IsField,
 {
-    type Output = FieldElement<F>;
+    type Output = FieldElement<L>;
 
-    fn add(self, rhs: &FieldElement<F>) -> Self::Output {
+    fn add(self, rhs: &FieldElement<L>) -> Self::Output {
         Self::Output {
-            value: F::add(&self.value, &rhs.value),
+            value: <F as IsSubFieldOf<L>>::add(&self.value, &rhs.value),
         }
     }
 }
 
-impl<F> Add<FieldElement<F>> for FieldElement<F>
+impl<F, L> Add<FieldElement<L>> for FieldElement<F>
 where
-    F: IsField,
+    F: IsSubFieldOf<L>,
+    L: IsField,
 {
-    type Output = FieldElement<F>;
+    type Output = FieldElement<L>;
 
-    fn add(self, rhs: FieldElement<F>) -> Self::Output {
+    fn add(self, rhs: FieldElement<L>) -> Self::Output {
         &self + &rhs
     }
 }
 
-impl<F> Add<&FieldElement<F>> for FieldElement<F>
+impl<F, L> Add<&FieldElement<L>> for FieldElement<F>
 where
-    F: IsField,
+    F: IsSubFieldOf<L>,
+    L: IsField,
 {
-    type Output = FieldElement<F>;
+    type Output = FieldElement<L>;
 
-    fn add(self, rhs: &FieldElement<F>) -> Self::Output {
+    fn add(self, rhs: &FieldElement<L>) -> Self::Output {
         &self + rhs
     }
 }
 
-impl<F> Add<FieldElement<F>> for &FieldElement<F>
+impl<F, L> Add<FieldElement<L>> for &FieldElement<F>
 where
-    F: IsField,
+    F: IsSubFieldOf<L>,
+    L: IsField,
 {
-    type Output = FieldElement<F>;
+    type Output = FieldElement<L>;
 
-    fn add(self, rhs: FieldElement<F>) -> Self::Output {
+    fn add(self, rhs: FieldElement<L>) -> Self::Output {
         self + &rhs
     }
 }
 
 /// AddAssign operator overloading for field elements
-impl<F> AddAssign<FieldElement<F>> for FieldElement<F>
+impl<F, L> AddAssign<FieldElement<F>> for FieldElement<L>
 where
-    F: IsField,
+    F: IsSubFieldOf<L>,
+    L: IsField,
 {
     fn add_assign(&mut self, rhs: FieldElement<F>) {
-        self.value = F::add(&self.value, &rhs.value);
+        self.value = <F as IsSubFieldOf<L>>::add(&rhs.value, &self.value);
     }
 }
 
@@ -174,142 +189,154 @@ where
 }
 
 /// Subtraction operator overloading for field elements*/
-impl<F> Sub<&FieldElement<F>> for &FieldElement<F>
+impl<F, L> Sub<&FieldElement<L>> for &FieldElement<F>
 where
-    F: IsField,
+    F: IsSubFieldOf<L>,
+    L: IsField,
 {
-    type Output = FieldElement<F>;
+    type Output = FieldElement<L>;
 
-    fn sub(self, rhs: &FieldElement<F>) -> Self::Output {
+    fn sub(self, rhs: &FieldElement<L>) -> Self::Output {
         Self::Output {
-            value: F::sub(&self.value, &rhs.value),
+            value: <F as IsSubFieldOf<L>>::sub(&self.value, &rhs.value),
         }
     }
 }
 
-impl<F> Sub<FieldElement<F>> for FieldElement<F>
+impl<F, L> Sub<FieldElement<L>> for FieldElement<F>
 where
-    F: IsField,
+    F: IsSubFieldOf<L>,
+    L: IsField,
 {
-    type Output = FieldElement<F>;
+    type Output = FieldElement<L>;
 
-    fn sub(self, rhs: FieldElement<F>) -> Self::Output {
+    fn sub(self, rhs: FieldElement<L>) -> Self::Output {
         &self - &rhs
     }
 }
 
-impl<F> Sub<&FieldElement<F>> for FieldElement<F>
+impl<F, L> Sub<&FieldElement<L>> for FieldElement<F>
 where
-    F: IsField,
+    F: IsSubFieldOf<L>,
+    L: IsField,
 {
-    type Output = FieldElement<F>;
+    type Output = FieldElement<L>;
 
-    fn sub(self, rhs: &FieldElement<F>) -> Self::Output {
+    fn sub(self, rhs: &FieldElement<L>) -> Self::Output {
         &self - rhs
     }
 }
 
-impl<F> Sub<FieldElement<F>> for &FieldElement<F>
+impl<F, L> Sub<FieldElement<L>> for &FieldElement<F>
 where
-    F: IsField,
+    F: IsSubFieldOf<L>,
+    L: IsField,
 {
-    type Output = FieldElement<F>;
+    type Output = FieldElement<L>;
 
-    fn sub(self, rhs: FieldElement<F>) -> Self::Output {
+    fn sub(self, rhs: FieldElement<L>) -> Self::Output {
         self - &rhs
     }
 }
 
 /// Multiplication operator overloading for field elements*/
-impl<F> Mul<&FieldElement<F>> for &FieldElement<F>
+impl<F, L> Mul<&FieldElement<L>> for &FieldElement<F>
 where
-    F: IsField,
+    F: IsSubFieldOf<L>,
+    L: IsField,
 {
-    type Output = FieldElement<F>;
+    type Output = FieldElement<L>;
 
-    fn mul(self, rhs: &FieldElement<F>) -> Self::Output {
+    fn mul(self, rhs: &FieldElement<L>) -> Self::Output {
         Self::Output {
-            value: F::mul(&self.value, &rhs.value),
+            value: <F as IsSubFieldOf<L>>::mul(&self.value, &rhs.value),
         }
     }
 }
 
-impl<F> Mul<FieldElement<F>> for FieldElement<F>
+impl<F, L> Mul<FieldElement<L>> for FieldElement<F>
 where
-    F: IsField,
+    F: IsSubFieldOf<L>,
+    L: IsField,
 {
-    type Output = FieldElement<F>;
+    type Output = FieldElement<L>;
 
-    fn mul(self, rhs: FieldElement<F>) -> Self::Output {
+    fn mul(self, rhs: FieldElement<L>) -> Self::Output {
         &self * &rhs
     }
 }
 
-impl<F> Mul<&FieldElement<F>> for FieldElement<F>
+impl<F, L> Mul<&FieldElement<L>> for FieldElement<F>
 where
-    F: IsField,
+    F: IsSubFieldOf<L>,
+    L: IsField,
 {
-    type Output = FieldElement<F>;
+    type Output = FieldElement<L>;
 
-    fn mul(self, rhs: &FieldElement<F>) -> Self::Output {
+    fn mul(self, rhs: &FieldElement<L>) -> Self::Output {
         &self * rhs
     }
 }
 
-impl<F> Mul<FieldElement<F>> for &FieldElement<F>
+impl<F, L> Mul<FieldElement<L>> for &FieldElement<F>
 where
-    F: IsField,
+    F: IsSubFieldOf<L>,
+    L: IsField,
 {
-    type Output = FieldElement<F>;
+    type Output = FieldElement<L>;
 
-    fn mul(self, rhs: FieldElement<F>) -> Self::Output {
+    fn mul(self, rhs: FieldElement<L>) -> Self::Output {
         self * &rhs
     }
 }
 
 /// Division operator overloading for field elements*/
-impl<F> Div<&FieldElement<F>> for &FieldElement<F>
+impl<F, L> Div<&FieldElement<L>> for &FieldElement<F>
 where
-    F: IsField,
+    F: IsSubFieldOf<L>,
+    L: IsField,
 {
-    type Output = FieldElement<F>;
+    type Output = FieldElement<L>;
 
-    fn div(self, rhs: &FieldElement<F>) -> Self::Output {
+    fn div(self, rhs: &FieldElement<L>) -> Self::Output {
         Self::Output {
-            value: F::div(&self.value, &rhs.value),
+            value: <F as IsSubFieldOf<L>>::div(&self.value, &rhs.value),
         }
     }
 }
 
-impl<F> Div<FieldElement<F>> for FieldElement<F>
+impl<F, L> Div<FieldElement<L>> for FieldElement<F>
 where
-    F: IsField,
+    F: IsSubFieldOf<L>,
+    L: IsField,
 {
-    type Output = FieldElement<F>;
+    type Output = FieldElement<L>;
 
-    fn div(self, rhs: FieldElement<F>) -> Self::Output {
+    fn div(self, rhs: FieldElement<L>) -> Self::Output {
         &self / &rhs
     }
 }
 
-impl<F> Div<&FieldElement<F>> for FieldElement<F>
+impl<F, L> Div<&FieldElement<L>> for FieldElement<F>
 where
-    F: IsField,
+    F: IsSubFieldOf<L>,
+    L: IsField,
 {
-    type Output = FieldElement<F>;
+    type Output = FieldElement<L>;
 
-    fn div(self, rhs: &FieldElement<F>) -> Self::Output {
+    fn div(self, rhs: &FieldElement<L>) -> Self::Output {
         &self / rhs
     }
 }
 
-impl<F> Div<FieldElement<F>> for &FieldElement<F>
+impl<F, L> Div<FieldElement<L>> for &FieldElement<F>
 where
-    F: IsField,
+    F: IsSubFieldOf<L>,
+    L: IsField,
 {
-    type Output = FieldElement<F>;
+    type Output = FieldElement<L>;
 
-    fn div(self, rhs: FieldElement<F>) -> Self::Output {
+    fn div(self, rhs: FieldElement<L>) -> Self::Output {
         self / &rhs
     }
 }
@@ -406,6 +433,16 @@ where
     pub fn zero() -> Self {
         Self { value: F::zero() }
     }
+
+    #[inline(always)]
+    pub fn to_extension<L: IsField>(self) -> FieldElement<L>
+    where
+        F: IsSubFieldOf<L>,
+    {
+        FieldElement {
+            value: <F as IsSubFieldOf<L>>::embed(self.value),
+        }
+    }
 }
 
 impl<F: IsPrimeField> FieldElement<F> {
@@ -437,8 +474,12 @@ impl<F: IsPrimeField> FieldElement<F> {
     }
 }
 
-#[cfg(feature = "lambdaworks-serde")]
-impl<F: IsPrimeField> Serialize for FieldElement<F> {
+#[cfg(feature = "lambdaworks-serde-binary")]
+impl<F> Serialize for FieldElement<F>
+where
+    F: IsField,
+    F::BaseType: ByteConversion,
+{
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -450,7 +491,92 @@ impl<F: IsPrimeField> Serialize for FieldElement<F> {
     }
 }
 
-#[cfg(feature = "lambdaworks-serde")]
+#[cfg(all(
+    feature = "lambdaworks-serde-string",
+    not(feature = "lambdaworks-serde-binary")
+))]
+impl<F: IsPrimeField> Serialize for FieldElement<F> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut state = serializer.serialize_struct("FieldElement", 1)?;
+        state.serialize_field("value", &F::representative(self.value()).to_string())?;
+        state.end()
+    }
+}
+
+#[cfg(feature = "lambdaworks-serde-binary")]
+impl<'de, F> Deserialize<'de> for FieldElement<F>
+where
+    F: IsField,
+    F::BaseType: ByteConversion,
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(field_identifier, rename_all = "lowercase")]
+        enum Field {
+            Value,
+        }
+
+        struct FieldElementVisitor<F>(PhantomData<fn() -> F>);
+
+        impl<'de, F: IsField> Visitor<'de> for FieldElementVisitor<F> {
+            type Value = FieldElement<F>;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("struct FieldElement")
+            }
+
+            fn visit_map<M>(self, mut map: M) -> Result<FieldElement<F>, M::Error>
+            where
+                M: MapAccess<'de>,
+            {
+                let mut value: Option<Vec<u8>> = None;
+                while let Some(key) = map.next_key()? {
+                    match key {
+                        Field::Value => {
+                            if value.is_some() {
+                                return Err(de::Error::duplicate_field("value"));
+                            }
+                            value = Some(map.next_value()?);
+                        }
+                    }
+                }
+                let value = value.ok_or_else(|| de::Error::missing_field("value"))?;
+                let val = F::BaseType::from_bytes_be(&value).unwrap();
+                Ok(FieldElement::from_raw(val))
+            }
+
+            fn visit_seq<S>(self, mut seq: S) -> Result<FieldElement<F>, S::Error>
+            where
+                S: SeqAccess<'de>,
+            {
+                let mut value: Option<Vec<u8>> = None;
+                while let Some(val) = seq.next_element()? {
+                    if value.is_some() {
+                        return Err(de::Error::duplicate_field("value"));
+                    }
+                    value = Some(val);
+                }
+                let value = value.ok_or_else(|| de::Error::missing_field("value"))?;
+                let val = F::BaseType::from_bytes_be(&value).unwrap();
+                Ok(FieldElement::from_raw(val))
+            }
+        }
+
+        const FIELDS: &[&str] = &["value"];
+        deserializer.deserialize_struct("FieldElement", FIELDS, FieldElementVisitor(PhantomData))
+    }
+}
+
+#[cfg(all(
+    feature = "lambdaworks-serde-string",
+    not(feature = "lambdaworks-serde-binary")
+))]
 impl<'de, F: IsPrimeField> Deserialize<'de> for FieldElement<F> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -475,7 +601,7 @@ impl<'de, F: IsPrimeField> Deserialize<'de> for FieldElement<F> {
             where
                 M: MapAccess<'de>,
             {
-                let mut value: Option<Vec<u8>> = None;
+                let mut value = None;
                 while let Some(key) = map.next_key()? {
                     match key {
                         Field::Value => {
@@ -487,15 +613,14 @@ impl<'de, F: IsPrimeField> Deserialize<'de> for FieldElement<F> {
                     }
                 }
                 let value = value.ok_or_else(|| de::Error::missing_field("value"))?;
-                let val = F::BaseType::from_bytes_be(&value).unwrap();
-                Ok(FieldElement::from_raw(&val))
+                Ok(FieldElement::from_hex(value).unwrap())
             }
 
             fn visit_seq<S>(self, mut seq: S) -> Result<FieldElement<F>, S::Error>
             where
                 S: SeqAccess<'de>,
             {
-                let mut value: Option<Vec<u8>> = None;
+                let mut value = None;
                 while let Some(val) = seq.next_element()? {
                     if value.is_some() {
                         return Err(de::Error::duplicate_field("value"));
@@ -503,8 +628,7 @@ impl<'de, F: IsPrimeField> Deserialize<'de> for FieldElement<F> {
                     value = Some(val);
                 }
                 let value = value.ok_or_else(|| de::Error::missing_field("value"))?;
-                let val = F::BaseType::from_bytes_be(&value).unwrap();
-                Ok(FieldElement::from_raw(&val))
+                Ok(FieldElement::from_hex(value).unwrap())
             }
         }
 

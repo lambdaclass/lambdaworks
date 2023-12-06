@@ -16,7 +16,7 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 rand = "0.8.5"
-lambdaworks-math = { workspace = true , features = ["lambdaworks-serde"] }
+lambdaworks-math = { workspace = true , features = ["lambdaworks-serde-binary"] }
 lambdaworks-crypto = { workspace = true }
 stark-platinum-prover = { workspace = true, features = ["wasm"] }
 thiserror = "1.0.38"

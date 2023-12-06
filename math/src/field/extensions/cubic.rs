@@ -1,6 +1,7 @@
 use crate::field::element::FieldElement;
 use crate::field::errors::FieldError;
 use crate::field::traits::IsField;
+#[cfg(feature = "lambdaworks-serde-binary")]
 use crate::traits::ByteConversion;
 use core::fmt::Debug;
 use core::marker::PhantomData;
@@ -25,6 +26,7 @@ pub trait HasCubicNonResidue {
     fn residue() -> FieldElement<Self::BaseField>;
 }
 
+#[cfg(feature = "lambdaworks-serde-binary")]
 impl<F> ByteConversion for [FieldElement<F>; 3]
 where
     F: IsField,
@@ -104,7 +106,7 @@ where
     fn inv(
         a: &[FieldElement<Q::BaseField>; 3],
     ) -> Result<[FieldElement<Q::BaseField>; 3], FieldError> {
-        let three = FieldElement::from(3_u64);
+        let three = FieldElement::<Q::BaseField>::from(3_u64);
 
         let d = a[0].pow(3_u64)
             + a[1].pow(3_u64) * Q::residue()

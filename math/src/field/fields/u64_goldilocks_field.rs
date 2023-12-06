@@ -1,5 +1,7 @@
 use core::fmt::{self, Display};
 
+#[cfg(feature = "lambdaworks-serde-binary")]
+use crate::traits::ByteConversion;
 use crate::{
     errors::CreationError,
     field::{
@@ -8,7 +10,6 @@ use crate::{
         extensions::quadratic::{HasQuadraticNonResidue, QuadraticExtensionField},
         traits::{IsField, IsPrimeField},
     },
-    traits::ByteConversion,
 };
 
 /// Goldilocks Prime Field F_p where p = 2^64 - 2^32 + 1;
@@ -21,6 +22,7 @@ impl Goldilocks64Field {
     pub const NEG_ORDER: u64 = Self::ORDER.wrapping_neg();
 }
 
+#[cfg(feature = "lambdaworks-serde-binary")]
 impl ByteConversion for u64 {
     #[cfg(feature = "std")]
     fn to_bytes_be(&self) -> Vec<u8> {

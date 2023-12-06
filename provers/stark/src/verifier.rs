@@ -120,9 +120,9 @@ pub trait IsStarkVerifier {
         );
 
         // <<<< Receive values: tⱼ(zgᵏ)
-        for i in 0..proof.trace_ood_frame_evaluations.n_cols() {
-            for j in 0..proof.trace_ood_frame_evaluations.n_rows() {
-                transcript.append_field_element(&proof.trace_ood_frame_evaluations.get_row(j)[i]);
+        for i in 0..proof.trace_ood_evaluations.width {
+            for j in 0..proof.trace_ood_evaluations.height {
+                transcript.append_field_element(&proof.trace_ood_evaluations.get_row(j)[i]);
             }
         }
         // <<<< Receive value: Hᵢ(z^N)
@@ -224,7 +224,7 @@ pub trait IsStarkVerifier {
                 let step = boundary_constraints.constraints[index].step;
                 let point = &domain.trace_primitive_root.pow(step as u64);
                 let trace_idx = boundary_constraints.constraints[index].col;
-                let trace_evaluation = &proof.trace_ood_frame_evaluations.get_row(0)[trace_idx];
+                let trace_evaluation = &proof.trace_ood_evaluations.get_row(0)[trace_idx];
                 let boundary_zerofier_challenges_z_den = &challenges.z - point;
 
                 let boundary_quotient_ood_evaluation_num =
@@ -249,8 +249,15 @@ pub trait IsStarkVerifier {
                 .map(|((num, den), beta)| num * den * beta)
                 .fold(FieldElement::<Self::Field>::zero(), |acc, x| acc + x);
 
+        let periodic_values = air
+            .get_periodic_column_polynomials()
+            .iter()
+            .map(|poly| poly.evaluate(&challenges.z))
+            .collect::<Vec<FieldElement<Self::Field>>>();
+
         let transition_ood_frame_evaluations = air.compute_transition(
-            &proof.trace_ood_frame_evaluations,
+            &(proof.trace_ood_evaluations).into_frame(A::STEP_SIZE),
+            &periodic_values,
             &challenges.rap_challenges,
         );
 
@@ -269,10 +276,9 @@ pub trait IsStarkVerifier {
         let unity = &FieldElement::one();
         let transition_c_i_evaluations_sum = transition_ood_frame_evaluations
             .iter()
-            .zip(&air.context().transition_degrees)
             .zip(&air.context().transition_exemptions)
             .zip(&challenges.transition_coeffs)
-            .fold(FieldElement::zero(), |acc, (((eval, _), except), beta)| {
+            .fold(FieldElement::zero(), |acc, ((eval, except), beta)| {
                 let except = except
                     .checked_sub(1)
                     .map(|i| &exemption[i])
@@ -300,7 +306,7 @@ pub trait IsStarkVerifier {
         challenges: &Challenges<Self::Field, A>,
     ) -> bool
     where
-        FieldElement<Self::Field>: Serializable,
+        FieldElement<Self::Field>: Serializable + Sync + Send,
         A: AIR<Field = Self::Field>,
     {
         let (deep_poly_evaluations, deep_poly_evaluations_sym) =
@@ -361,7 +367,7 @@ pub trait IsStarkVerifier {
         value: &[FieldElement<Self::Field>],
     ) -> bool
     where
-        FieldElement<Self::Field>: Serializable,
+        FieldElement<Self::Field>: Serializable + Sync + Send,
     {
         proof.verify::<BatchedMerkleTreeBackend<Self::Field>>(root, index, &value.to_owned())
     }
@@ -376,7 +382,7 @@ pub trait IsStarkVerifier {
         iota: usize,
     ) -> bool
     where
-        FieldElement<Self::Field>: Serializable,
+        FieldElement<Self::Field>: Serializable + Sync + Send,
     {
         let lde_trace_evaluations = vec![
             deep_poly_openings.lde_trace_evaluations[..num_main_columns].to_vec(),
@@ -419,7 +425,7 @@ pub trait IsStarkVerifier {
         iota: &usize,
     ) -> bool
     where
-        FieldElement<Self::Field>: Serializable,
+        FieldElement<Self::Field>: Serializable + Sync + Send,
     {
         let mut value = deep_poly_openings
             .lde_composition_poly_parts_evaluation
@@ -441,7 +447,7 @@ pub trait IsStarkVerifier {
         challenges: &Challenges<F, A>,
     ) -> bool
     where
-        FieldElement<Self::Field>: Serializable,
+        FieldElement<Self::Field>: Serializable + Sync + Send,
     {
         challenges
             .iotas
@@ -480,7 +486,7 @@ pub trait IsStarkVerifier {
         iota: usize,
     ) -> bool
     where
-        FieldElement<Self::Field>: Serializable,
+        FieldElement<Self::Field>: Serializable + Sync + Send,
     {
         let evaluations = if iota % 2 == 1 {
             vec![evaluation_sym.clone(), evaluation.clone()]
@@ -513,7 +519,7 @@ pub trait IsStarkVerifier {
         deep_composition_evaluation_sym: &FieldElement<Self::Field>,
     ) -> bool
     where
-        FieldElement<Self::Field>: Serializable,
+        FieldElement<Self::Field>: Serializable + Sync + Send,
     {
         let fri_layers_merkle_roots = &proof.fri_layers_merkle_roots;
         let evaluation_point_vec: Vec<FieldElement<Self::Field>> =
@@ -621,22 +627,23 @@ pub trait IsStarkVerifier {
         lde_trace_evaluations: &[FieldElement<Self::Field>],
         lde_composition_poly_parts_evaluation: &[FieldElement<Self::Field>],
     ) -> FieldElement<Self::Field> {
-        let mut denoms_trace = (0..proof.trace_ood_frame_evaluations.n_rows())
+        let mut denoms_trace = (0..proof.trace_ood_evaluations.height)
             .map(|row_idx| evaluation_point - &challenges.z * primitive_root.pow(row_idx as u64))
             .collect::<Vec<FieldElement<Self::Field>>>();
         FieldElement::inplace_batch_inverse(&mut denoms_trace).unwrap();
 
-        let trace_term = (0..proof.trace_ood_frame_evaluations.n_cols())
+        let trace_term = (0..proof.trace_ood_evaluations.width)
             .zip(&challenges.trace_term_coeffs)
             .fold(FieldElement::zero(), |trace_terms, (col_idx, coeff_row)| {
-                let trace_i = (0..proof.trace_ood_frame_evaluations.n_rows())
-                    .zip(coeff_row)
-                    .fold(FieldElement::zero(), |trace_t, (row_idx, coeff)| {
+                let trace_i = (0..proof.trace_ood_evaluations.height).zip(coeff_row).fold(
+                    FieldElement::zero(),
+                    |trace_t, (row_idx, coeff)| {
                         let poly_evaluation = (lde_trace_evaluations[col_idx].clone()
-                            - proof.trace_ood_frame_evaluations.get_row(row_idx)[col_idx].clone())
+                            - proof.trace_ood_evaluations.get_row(row_idx)[col_idx].clone())
                             * &denoms_trace[row_idx];
                         trace_t + &poly_evaluation * coeff
-                    });
+                    },
+                );
                 trace_terms + trace_i
             });
 
@@ -663,7 +670,7 @@ pub trait IsStarkVerifier {
     ) -> bool
     where
         A: AIR<Field = Self::Field>,
-        FieldElement<Self::Field>: Serializable,
+        FieldElement<Self::Field>: Serializable + Sync + Send,
     {
         // Verify there are enough queries
         if proof.query_list.len() < proof_options.fri_number_of_queries {
