@@ -529,8 +529,7 @@ fn add_pub_memory_in_public_input_section(
     let mut a_aux = addresses.to_owned();
     let mut v_aux = values.to_owned();
 
-    let pub_addrs: Vec<Felt252> = public_input.public_memory.clone().into_keys().collect();
-    let mut pub_addrs_iter = pub_addrs.iter();
+    let mut pub_addrs = public_input.public_memory.keys();
 
     // Iterate over addresses
     for (i, a) in a_aux.iter_mut().enumerate() {
@@ -538,7 +537,7 @@ fn add_pub_memory_in_public_input_section(
         if a == &Felt252::zero() {
             // While there are public memory addresses left, overwrite the dummy
             // (addr, value) accesses with the real public memory pairs.
-            if let Some(pub_addr) = pub_addrs_iter.next() {
+            if let Some(pub_addr) = pub_addrs.next() {
                 *a = *pub_addr;
                 v_aux[i] = *public_input.public_memory.get(pub_addr).unwrap();
             } else {
