@@ -142,6 +142,10 @@ impl IsSubFieldOf<Degree2ExtensionField> for BLS12381PrimeField {
     fn embed(a: Self::BaseType) -> <Degree2ExtensionField as IsField>::BaseType {
         [FieldElement::from_raw(a), FieldElement::zero()]
     }
+
+    fn to_subfield_vec(b: <Degree2ExtensionField as IsField>::BaseType) -> Vec<Self::BaseType> {
+        vec![b[0].to_raw(), b[1].to_raw()]
+    }
 }
 
 impl ByteConversion for FieldElement<Degree2ExtensionField> {

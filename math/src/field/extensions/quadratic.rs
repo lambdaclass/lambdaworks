@@ -193,6 +193,12 @@ where
     fn embed(a: Self::BaseType) -> <QuadraticExtensionField<F, Q> as IsField>::BaseType {
         [FieldElement::from_raw(a), FieldElement::zero()]
     }
+
+    fn to_subfield_vec(
+        b: <QuadraticExtensionField<F, Q> as IsField>::BaseType,
+    ) -> Vec<Self::BaseType> {
+        b.into_iter().map(|x| x.to_raw()).collect()
+    }
 }
 
 impl<F: IsField, Q: Clone + Debug + HasQuadraticNonResidue<F>>
