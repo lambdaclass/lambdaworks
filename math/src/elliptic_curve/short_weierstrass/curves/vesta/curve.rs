@@ -1,27 +1,27 @@
 use crate::elliptic_curve::short_weierstrass::point::ShortWeierstrassProjectivePoint;
 use crate::elliptic_curve::traits::IsEllipticCurve;
-use crate::field::fields::pallas_field::Pallas255PrimeField;
+use crate::field::fields::vesta_field::Vesta255PrimeField;
 use crate::{
     elliptic_curve::short_weierstrass::traits::IsShortWeierstrass, field::element::FieldElement,
 };
 
 #[derive(Clone, Debug)]
-pub struct PallasCurve;
+pub struct VestaCurve;
 
-impl IsEllipticCurve for PallasCurve {
-    type BaseField = Pallas255PrimeField;
+impl IsEllipticCurve for VestaCurve {
+    type BaseField = Vesta255PrimeField;
     type PointRepresentation = ShortWeierstrassProjectivePoint<Self>;
 
     fn generator() -> Self::PointRepresentation {
         Self::PointRepresentation::new([
-            -FieldElement::<Self::BaseField>::one(),
+            FieldElement::<Self::BaseField>::from_hex_unchecked("40000000000000000000000000000000224698fc0994a8dd8c46eb2100000000"),
             FieldElement::<Self::BaseField>::from(2),
             FieldElement::one(),
         ])
     }
 }
 
-impl IsShortWeierstrass for PallasCurve {
+impl IsShortWeierstrass for VestaCurve {
     fn a() -> FieldElement<Self::BaseField> {
         FieldElement::from(0)
     }
@@ -39,29 +39,29 @@ mod tests {
         field::element::FieldElement,
     };
 
-    use super::PallasCurve;
+    use super::VestaCurve;
 
     #[allow(clippy::upper_case_acronyms)]
-    type FE = FieldElement<Pallas255PrimeField>;
+    type FE = FieldElement<Vesta255PrimeField>;
 
-    fn point_1() -> ShortWeierstrassProjectivePoint<PallasCurve> {
+    fn point_1() -> ShortWeierstrassProjectivePoint<VestaCurve> {
         let x = FE::from_hex_unchecked(
             "bd1e740e6b1615ae4c508148ca0c53dbd43f7b2e206195ab638d7f45d51d6b5",
         );
         let y = FE::from_hex_unchecked(
             "13aacd107ca10b7f8aab570da1183b91d7d86dd723eaa2306b0ef9c5355b91d8",
         );
-        PallasCurve::create_point_from_affine(x, y).unwrap()
+        VestaCurve::create_point_from_affine(x, y).unwrap()
     }
 
-    fn point_1_times_5() -> ShortWeierstrassProjectivePoint<PallasCurve> {
+    fn point_1_times_5() -> ShortWeierstrassProjectivePoint<VestaCurve> {
         let x = FE::from_hex_unchecked(
             "17a21304fffd6749d6173d4e0acd9724d98a97453b3491c0e5a53b06cf039b13",
         );
         let y = FE::from_hex_unchecked(
             "2f9bde429091a1089e52a6cc5dc789e1a58eeded0cf72dccc33b7af685a982d",
         );
-        PallasCurve::create_point_from_affine(x, y).unwrap()
+        VestaCurve::create_point_from_affine(x, y).unwrap()
     }
 
     #[test]
@@ -92,14 +92,14 @@ mod tests {
     #[test]
     fn create_invalid_points_returns_an_error() {
         assert_eq!(
-            PallasCurve::create_point_from_affine(FE::from(0), FE::from(1)),
+            VestaCurve::create_point_from_affine(FE::from(0), FE::from(1)),
             Err(EllipticCurveError::InvalidPoint)
         );
     }
 
     #[test]
     fn equality_works() {
-        let g = PallasCurve::generator();
+        let g = VestaCurve::generator();
         let g2 = g.operate_with_self(2_u16);
         let g2_other = g.operate_with(&g);
         assert_ne!(&g2, &g);
@@ -109,7 +109,7 @@ mod tests {
 
     #[test]
     fn g_operated_with_g_satifies_ec_equation() {
-        let g = PallasCurve::generator();
+        let g = VestaCurve::generator();
         let g2 = g.operate_with_self(2_u16);
 
         // get x and y from affine coordinates
@@ -118,7 +118,7 @@ mod tests {
         let y = g2_affine.y();
 
         // calculate both sides of Pallas curve equation
-        let five = PallasCurve::b();
+        let five = VestaCurve::b();
         let y_sq_0 = x.pow(3_u16) + five;
         let y_sq_1 = y.pow(2_u16);
 
@@ -127,7 +127,7 @@ mod tests {
 
     #[test]
     fn operate_with_self_works_1() {
-        let g = PallasCurve::generator();
+        let g = VestaCurve::generator();
         assert_eq!(
             g.operate_with(&g).operate_with(&g),
             g.operate_with_self(3_u16)
