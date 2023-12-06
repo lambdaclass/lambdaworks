@@ -177,7 +177,11 @@ mod tests {
     #[cfg(all(not(feature = "metal"), not(feature = "cuda")))]
     use crate::field::traits::IsField;
 
-    use crate::field::traits::RootsConfig;
+    use crate::field::{
+        extensions::quadratic::QuadraticExtensionField,
+        test_fields::u64_test_field::{TestNonResidue, U64TestField, U64TestFieldExtension},
+        traits::RootsConfig,
+    };
     use proptest::{collection, prelude::*};
 
     use roots_of_unity::{get_powers_of_primitive_root, get_powers_of_primitive_root_coset};
@@ -431,5 +435,22 @@ mod tests {
                 prop_assert_eq!(poly, new_poly);
             }
         }
+    }
+
+    #[test]
+    fn test_fft_with_values_in_field_extension_over_domain_in_prime_field() {
+        type TF = U64TestField;
+        type TL = U64TestFieldExtension;
+
+        let a = FieldElement::<TL>::from(&[FieldElement::one(), FieldElement::one()]);
+        let b = FieldElement::<TL>::from(&[-FieldElement::from(2), FieldElement::from(17)]);
+        let c = FieldElement::<TL>::one();
+        let poly = Polynomial::new(&[a, b, c]);
+
+        let eval = Polynomial::evaluate_offset_fft::<TF>(&poly, 8, Some(4), &FieldElement::from(2))
+            .unwrap();
+        let new_poly =
+            Polynomial::interpolate_offset_fft::<TF>(&eval, &FieldElement::from(2)).unwrap();
+        assert_eq!(poly, new_poly);
     }
 }

@@ -1,7 +1,11 @@
 use crate::{
     errors::CreationError,
-    field::errors::FieldError,
-    field::traits::{IsFFTField, IsField, IsPrimeField},
+    field::{
+        element::FieldElement,
+        extensions::quadratic::QuadraticExtensionField,
+        traits::{IsFFTField, IsField, IsPrimeField},
+    },
+    field::{errors::FieldError, extensions::quadratic::HasQuadraticNonResidue},
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -94,9 +98,23 @@ impl IsFFTField for U64TestField {
     const TWO_ADIC_PRIMITVE_ROOT_OF_UNITY: u64 = 1753635133440165772;
 }
 
+#[derive(Clone, Debug)]
+pub struct TestNonResidue;
+impl HasQuadraticNonResidue<U64TestField> for TestNonResidue {
+    fn residue() -> FieldElement<U64TestField> {
+        FieldElement::from(7)
+    }
+}
+
+pub type U64TestFieldExtension = QuadraticExtensionField<U64TestField, TestNonResidue>;
+
 #[cfg(test)]
 mod tests_u64_test_field {
-    use crate::field::{test_fields::u64_test_field::U64TestField, traits::IsPrimeField};
+    use crate::field::{
+        element::FieldElement,
+        test_fields::u64_test_field::{U64TestField, U64TestFieldExtension},
+        traits::IsPrimeField,
+    };
 
     #[test]
     fn from_hex_for_b_is_11() {
@@ -109,5 +127,15 @@ mod tests_u64_test_field {
             <U64TestField as crate::field::traits::IsPrimeField>::field_bit_size(),
             64
         );
+    }
+
+    #[test]
+    fn test_to_subfield_vec() {
+        let a = FieldElement::<U64TestFieldExtension>::from(&[
+            FieldElement::from(1),
+            FieldElement::from(3),
+        ]);
+        let b = a.to_subfield_vec::<U64TestField>();
+        assert_eq!(b, vec![FieldElement::from(1), FieldElement::from(3)]);
     }
 }
