@@ -185,6 +185,10 @@ impl<'t, F: IsFFTField> StepView<'t, F> {
     pub fn get_evaluation_element(&self, row_idx: usize, col_idx: usize) -> &FieldElement<F> {
         self.table_view.get(row_idx, col_idx)
     }
+
+    pub fn get_row(&self, row_idx: usize) -> &[FieldElement<F>] {
+        self.table_view.get_row(row_idx)
+    }
 }
 
 /// Given a slice of trace polynomials, an evaluation point `x`, the frame offsets

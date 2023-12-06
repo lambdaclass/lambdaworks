@@ -22,6 +22,11 @@ pub enum DeserializationError {
     InvalidValue,
 }
 
+#[derive(Debug, PartialEq, Eq)]
+pub enum PairingError {
+    PointNotInSubgroup,
+}
+
 impl From<ByteConversionError> for DeserializationError {
     fn from(error: ByteConversionError) -> Self {
         match error {
