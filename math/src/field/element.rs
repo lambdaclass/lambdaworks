@@ -43,6 +43,10 @@ pub struct FieldElement<F: IsField> {
 
 #[cfg(feature = "std")]
 impl<F: IsField> FieldElement<F> {
+    pub fn to_raw(self) -> Self::BaseType {
+        self.value
+    }
+
     // Source: https://en.wikipedia.org/wiki/Modular_multiplicative_inverse#Multiple_inverses
     pub fn inplace_batch_inverse(numbers: &mut [Self]) -> Result<(), FieldError> {
         if numbers.is_empty() {
@@ -442,6 +446,17 @@ where
         FieldElement {
             value: <F as IsSubFieldOf<L>>::embed(self.value),
         }
+    }
+
+    #[inline(always)]
+    pub fn to_subfield_vec<S>(self) -> Vec<FieldElement<S>>
+    where
+        S: IsSubFieldOf<F>,
+    {
+        S::to_subfield_vec(self.value)
+            .into_iter()
+            .map(|x| FieldElement::from_raw(x))
+            .collect()
     }
 }
 

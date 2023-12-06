@@ -20,6 +20,7 @@ pub trait IsSubFieldOf<F: IsField>: IsField {
     fn div(a: &Self::BaseType, b: &F::BaseType) -> F::BaseType;
     fn sub(a: &Self::BaseType, b: &F::BaseType) -> F::BaseType;
     fn embed(a: Self::BaseType) -> F::BaseType;
+    fn to_subfield_vec(b: F::BaseType) -> Vec<Self::BaseType>;
 }
 
 impl<F> IsSubFieldOf<F> for F
@@ -49,6 +50,10 @@ where
     #[inline(always)]
     fn embed(a: Self::BaseType) -> F::BaseType {
         a
+    }
+
+    fn to_subfield_vec(b: F::BaseType) -> Vec<Self::BaseType> {
+        vec![b]
     }
 }
 
