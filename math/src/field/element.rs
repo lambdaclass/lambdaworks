@@ -43,7 +43,7 @@ pub struct FieldElement<F: IsField> {
 
 #[cfg(feature = "std")]
 impl<F: IsField> FieldElement<F> {
-    pub fn to_raw(self) -> Self::BaseType {
+    pub fn to_raw(self) -> F::BaseType {
         self.value
     }
 
