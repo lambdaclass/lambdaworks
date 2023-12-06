@@ -160,8 +160,8 @@ where
         a: &Self::BaseType,
         b: &<QuadraticExtensionField<F, Q> as IsField>::BaseType,
     ) -> <QuadraticExtensionField<F, Q> as IsField>::BaseType {
-        let c0 = FieldElement::from_raw(F::mul(a, &b[0].value()));
-        let c1 = FieldElement::from_raw(F::mul(a, &b[1].value()));
+        let c0 = FieldElement::from_raw(F::mul(a, b[0].value()));
+        let c1 = FieldElement::from_raw(F::mul(a, b[1].value()));
         [c0, c1]
     }
 
@@ -169,7 +169,7 @@ where
         a: &Self::BaseType,
         b: &<QuadraticExtensionField<F, Q> as IsField>::BaseType,
     ) -> <QuadraticExtensionField<F, Q> as IsField>::BaseType {
-        let c0 = FieldElement::from_raw(F::add(a, &b[0].value()));
+        let c0 = FieldElement::from_raw(F::add(a, b[0].value()));
         [c0, b[1].clone()]
     }
 
@@ -177,7 +177,7 @@ where
         a: &Self::BaseType,
         b: &<QuadraticExtensionField<F, Q> as IsField>::BaseType,
     ) -> <QuadraticExtensionField<F, Q> as IsField>::BaseType {
-        let b_inv = <QuadraticExtensionField<F, Q> as IsField>::inv(&b).unwrap();
+        let b_inv = <QuadraticExtensionField<F, Q> as IsField>::inv(b).unwrap();
         <Self as IsSubFieldOf<QuadraticExtensionField<F, Q>>>::mul(a, &b_inv)
     }
 
@@ -185,8 +185,8 @@ where
         a: &Self::BaseType,
         b: &<QuadraticExtensionField<F, Q> as IsField>::BaseType,
     ) -> <QuadraticExtensionField<F, Q> as IsField>::BaseType {
-        let c0 = FieldElement::from_raw(F::sub(a, &b[0].value()));
-        let c1 = FieldElement::from_raw(F::neg(&b[1].value()));
+        let c0 = FieldElement::from_raw(F::sub(a, b[0].value()));
+        let c1 = FieldElement::from_raw(F::neg(b[1].value()));
         [c0, c1]
     }
 

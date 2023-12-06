@@ -164,9 +164,9 @@ where
         a: &Self::BaseType,
         b: &<CubicExtensionField<F, Q> as IsField>::BaseType,
     ) -> <CubicExtensionField<F, Q> as IsField>::BaseType {
-        let c0 = FieldElement::from_raw(F::mul(a, &b[0].value()));
-        let c1 = FieldElement::from_raw(F::mul(a, &b[1].value()));
-        let c2 = FieldElement::from_raw(F::mul(a, &b[2].value()));
+        let c0 = FieldElement::from_raw(F::mul(a, b[0].value()));
+        let c1 = FieldElement::from_raw(F::mul(a, b[1].value()));
+        let c2 = FieldElement::from_raw(F::mul(a, b[2].value()));
         [c0, c1, c2]
     }
 
@@ -174,7 +174,7 @@ where
         a: &Self::BaseType,
         b: &<CubicExtensionField<F, Q> as IsField>::BaseType,
     ) -> <CubicExtensionField<F, Q> as IsField>::BaseType {
-        let c0 = FieldElement::from_raw(F::add(a, &b[0].value()));
+        let c0 = FieldElement::from_raw(F::add(a, b[0].value()));
         [c0, b[1].clone(), b[2].clone()]
     }
 
@@ -182,7 +182,7 @@ where
         a: &Self::BaseType,
         b: &<CubicExtensionField<F, Q> as IsField>::BaseType,
     ) -> <CubicExtensionField<F, Q> as IsField>::BaseType {
-        let b_inv = <CubicExtensionField<F, Q> as IsField>::inv(&b).unwrap();
+        let b_inv = <CubicExtensionField<F, Q> as IsField>::inv(b).unwrap();
         <Self as IsSubFieldOf<CubicExtensionField<F, Q>>>::mul(a, &b_inv)
     }
 
@@ -190,9 +190,9 @@ where
         a: &Self::BaseType,
         b: &<CubicExtensionField<F, Q> as IsField>::BaseType,
     ) -> <CubicExtensionField<F, Q> as IsField>::BaseType {
-        let c0 = FieldElement::from_raw(F::sub(a, &b[0].value()));
-        let c1 = FieldElement::from_raw(F::neg(&b[1].value()));
-        let c2 = FieldElement::from_raw(F::neg(&b[2].value()));
+        let c0 = FieldElement::from_raw(F::sub(a, b[0].value()));
+        let c1 = FieldElement::from_raw(F::neg(b[1].value()));
+        let c2 = FieldElement::from_raw(F::neg(b[2].value()));
         [c0, c1, c2]
     }
 
