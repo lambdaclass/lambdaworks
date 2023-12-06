@@ -178,8 +178,7 @@ mod tests {
     use crate::field::traits::IsField;
 
     use crate::field::{
-        extensions::quadratic::QuadraticExtensionField,
-        test_fields::u64_test_field::{TestNonResidue, U64TestField, U64TestFieldExtension},
+        test_fields::u64_test_field::{U64TestField, U64TestFieldExtension},
         traits::RootsConfig,
     };
     use proptest::{collection, prelude::*};
