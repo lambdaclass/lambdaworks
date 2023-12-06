@@ -189,16 +189,18 @@ pub struct Segment {
 
 impl Segment {
     pub fn new(begin_addr: u64, stop_ptr: u64) -> Self {
-        let begin_addr = begin_addr.try_into().unwrap();
-        let stop_ptr = stop_ptr.try_into().unwrap();
+        let begin_addr: usize = begin_addr.try_into().unwrap();
+        let stop_ptr: usize = stop_ptr.try_into().unwrap();
+
+        stop_ptr.checked_sub(begin_addr).unwrap();
 
         Self {
             begin_addr,
             stop_ptr,
         }
     }
-    pub fn segment_size(&self) -> Option<usize> {
-        self.stop_ptr.checked_sub(self.begin_addr - 1)
+    pub fn segment_size(&self) -> usize {
+        self.stop_ptr - self.begin_addr - 1
     }
 }
 
