@@ -9,11 +9,9 @@ use processor::ExecutionTrace;
 use stark_platinum_prover::{proof::options::ProofOptions, prover::IsStarkProver};
 use winter_air::FieldExtension;
 use winter_prover::Trace;
-use winterfell_adapter::adapter::air::AirAdapter;
 use winterfell_adapter::adapter::public_inputs::AirAdapterPublicInputs;
-use winterfell_adapter::examples::miden_vm::{
-    ExecutionTraceMetadata, MidenProver, MidenProverTranscript,
-};
+use winterfell_adapter::adapter::{air::AirAdapter, Prover, Transcript};
+use winterfell_adapter::examples::miden_vm::ExecutionTraceMetadata;
 
 struct BenchInstance {
     program: Program,
@@ -104,11 +102,11 @@ pub fn bench_prove_miden_fibonacci(c: &mut Criterion) {
                 );
 
             let _proof = black_box(
-                MidenProver::prove::<AirAdapter<ProcessorAir, ExecutionTrace, Felt, _>>(
+                Prover::prove::<AirAdapter<ProcessorAir, ExecutionTrace, Felt, _>>(
                     &trace,
                     &pub_inputs,
                     &instance.lambda_proof_options,
-                    MidenProverTranscript::new(&[]),
+                    Transcript::new(&[]),
                 )
                 .unwrap(),
             );
