@@ -106,7 +106,7 @@ where
     fn inv(
         a: &[FieldElement<Q::BaseField>; 3],
     ) -> Result<[FieldElement<Q::BaseField>; 3], FieldError> {
-        let three = FieldElement::from(3_u64);
+        let three = FieldElement::<Q::BaseField>::from(3_u64);
 
         let d = a[0].pow(3_u64)
             + a[1].pow(3_u64) * Q::residue()
