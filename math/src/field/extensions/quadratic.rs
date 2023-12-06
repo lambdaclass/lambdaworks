@@ -194,6 +194,7 @@ where
         [FieldElement::from_raw(a), FieldElement::zero()]
     }
 
+    #[cfg(feature = "std")]
     fn to_subfield_vec(
         b: <QuadraticExtensionField<F, Q> as IsField>::BaseType,
     ) -> Vec<Self::BaseType> {

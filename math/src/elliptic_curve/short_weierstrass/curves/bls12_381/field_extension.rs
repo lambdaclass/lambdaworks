@@ -143,6 +143,7 @@ impl IsSubFieldOf<Degree2ExtensionField> for BLS12381PrimeField {
         [FieldElement::from_raw(a), FieldElement::zero()]
     }
 
+    #[cfg(feature = "std")]
     fn to_subfield_vec(b: <Degree2ExtensionField as IsField>::BaseType) -> Vec<Self::BaseType> {
         b.into_iter().map(|x| x.to_raw()).collect()
     }

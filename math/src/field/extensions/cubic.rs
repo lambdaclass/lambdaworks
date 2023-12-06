@@ -204,6 +204,7 @@ where
         ]
     }
 
+    #[cfg(feature = "std")]
     fn to_subfield_vec(b: <CubicExtensionField<F, Q> as IsField>::BaseType) -> Vec<Self::BaseType> {
         b.into_iter().map(|x| x.to_raw()).collect()
     }
