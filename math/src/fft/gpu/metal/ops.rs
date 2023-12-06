@@ -55,7 +55,7 @@ pub fn fft<F: IsFFTField>(
 
     let result = MetalState::retrieve_contents(&input_buffer);
     let result = bitrev_permutation::<F, _>(&result, state)?;
-    Ok(result.iter().map(FieldElement::from_raw).collect())
+    Ok(result.into_iter().map(FieldElement::from_raw).collect())
 }
 
 /// Generates 2^{`order-1`} twiddle factors in parallel, with a certain `config`, in Metal.
@@ -89,7 +89,7 @@ pub fn gen_twiddles<F: IsFFTField>(
         let (command_buffer, command_encoder) =
             state.setup_command(&pipeline, Some(&[(0, &result_buffer)]));
 
-        let root = F::get_primitive_root_of_unity::<F>(order).unwrap();
+        let root = F::get_primitive_root_of_unity(order).unwrap();
         command_encoder.set_bytes(1, mem::size_of::<F::BaseType>() as u64, void_ptr(&root));
 
         let grid_size = MTLSize::new(len as u64, 1, 1);
@@ -103,7 +103,7 @@ pub fn gen_twiddles<F: IsFFTField>(
     });
 
     let result = MetalState::retrieve_contents(&result_buffer);
-    Ok(result.iter().map(FieldElement::from_raw).collect())
+    Ok(result.into_iter().map(FieldElement::from_raw).collect())
 }
 
 /// Executes a parallel bit-reverse permutation with the elements of `input`, in Metal.

@@ -1,17 +1,25 @@
-use super::field_extension::{Degree12ExtensionField, Degree2ExtensionField};
-use crate::{
-    elliptic_curve::short_weierstrass::curves::bls12_381::field_extension::Degree6ExtensionField,
-    field::element::FieldElement, unsigned_integer::element::UnsignedInteger,
+use super::{
+    curve::{BLS12381Curve, MILLER_LOOP_CONSTANT},
+    field_extension::{BLS12381PrimeField, Degree12ExtensionField, Degree2ExtensionField},
+    twist::BLS12381TwistCurve,
 };
-
-use super::{curve::BLS12381Curve, twist::BLS12381TwistCurve};
 use crate::{
     cyclic_group::IsGroup,
-    elliptic_curve::short_weierstrass::curves::bls12_381::field_extension::LevelTwoResidue,
-    elliptic_curve::short_weierstrass::point::ShortWeierstrassProjectivePoint,
-    elliptic_curve::short_weierstrass::traits::IsShortWeierstrass,
-    elliptic_curve::traits::IsPairing, field::extensions::cubic::HasCubicNonResidue,
+    elliptic_curve::{
+        short_weierstrass::{
+            curves::bls12_381::field_extension::{Degree6ExtensionField, LevelTwoResidue},
+            point::ShortWeierstrassProjectivePoint,
+            traits::IsShortWeierstrass,
+        },
+        traits::IsPairing,
+    },
+    errors::PairingError,
+    field::{element::FieldElement, extensions::cubic::HasCubicNonResidue},
+    unsigned_integer::element::{UnsignedInteger, U256},
 };
+
+pub const SUBGROUP_ORDER: U256 =
+    U256::from_hex_unchecked("73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001");
 
 #[derive(Clone)]
 pub struct BLS12381AtePairing;
@@ -23,21 +31,22 @@ impl IsPairing for BLS12381AtePairing {
     /// Compute the product of the ate pairings for a list of point pairs.
     fn compute_batch(
         pairs: &[(&Self::G1Point, &Self::G2Point)],
-    ) -> FieldElement<Self::OutputField> {
+    ) -> Result<FieldElement<Self::OutputField>, PairingError> {
         let mut result = FieldElement::one();
         for (p, q) in pairs {
+            if !p.is_in_subgroup() || !q.is_in_subgroup() {
+                return Err(PairingError::PointNotInSubgroup);
+            }
             if !p.is_neutral_element() && !q.is_neutral_element() {
                 let p = p.to_affine();
                 let q = q.to_affine();
                 result = result * miller(&q, &p);
             }
         }
-        final_exponentiation(&result)
+        Ok(final_exponentiation(&result))
     }
 }
 
-/// This is equal to the frobenius trace of the BLS12 381 curve minus one.
-const MILLER_LOOP_CONSTANT: u64 = 0xd201000000010000;
 fn double_accumulate_line(
     t: &mut ShortWeierstrassProjectivePoint<BLS12381TwistCurve>,
     p: &ShortWeierstrassProjectivePoint<BLS12381Curve>,
@@ -47,22 +56,23 @@ fn double_accumulate_line(
     let [px, py, _] = p.coordinates();
     let residue = LevelTwoResidue::residue();
     let two_inv = FieldElement::<Degree2ExtensionField>::new_base("d0088f51cbff34d258dd3db21a5d66bb23ba5c279c2895fb39869507b587b120f55ffff58a9ffffdcff7fffffffd556");
+    let three = FieldElement::<BLS12381PrimeField>::from(3);
 
     let a = &two_inv * x1 * y1;
     let b = y1.square();
     let c = z1.square();
-    let d = FieldElement::from(3) * &c;
+    let d = &three * &c;
     let e = BLS12381TwistCurve::b() * d;
-    let f = FieldElement::from(3) * &e;
+    let f = &three * &e;
     let g = two_inv * (&b + &f);
     let h = (y1 + z1).square() - (&b + &c);
 
     let x3 = &a * (&b - &f);
-    let y3 = g.square() - (FieldElement::from(3) * e.square());
+    let y3 = g.square() - (&three * e.square());
     let z3 = &b * &h;
 
     let [h0, h1] = h.value();
-    let x1_sq_3 = FieldElement::from(3) * x1.square();
+    let x1_sq_3 = three * x1.square();
     let [x1_sq_30, x1_sq_31] = x1_sq_3.value();
 
     t.0.value = [x3, y3, z3];
@@ -111,7 +121,7 @@ fn add_accumulate_line(
     let e = &lambda * &d;
     let f = z1 * c;
     let g = x1 * d;
-    let h = &e + f - FieldElement::from(2) * &g;
+    let h = &e + f - FieldElement::<BLS12381PrimeField>::from(2) * &g;
     let i = y1 * &e;
 
     let x3 = &lambda * &h;
@@ -186,7 +196,7 @@ fn frobenius_square(
     let f0 = FieldElement::new([a0.clone(), a1 * &omega_3, a2 * &omega_3_squared]);
     let f1 = FieldElement::new([b0.clone(), b1 * omega_3, b2 * omega_3_squared]);
 
-    FieldElement::new([f0, f1 * w_raised_to_p_squared_minus_one])
+    FieldElement::new([f0, w_raised_to_p_squared_minus_one * f1])
 }
 
 // To understand more about how to reduce the final exponentiation
@@ -255,7 +265,8 @@ mod tests {
                 &p.operate_with_self(a * b).to_affine(),
                 &q.neg().to_affine(),
             ),
-        ]);
+        ])
+        .unwrap();
         assert_eq!(result, FieldElement::one());
     }
 
@@ -263,12 +274,24 @@ mod tests {
     fn ate_pairing_returns_one_when_one_element_is_the_neutral_element() {
         let p = BLS12381Curve::generator().to_affine();
         let q = ShortWeierstrassProjectivePoint::neutral_element();
-        let result = BLS12381AtePairing::compute_batch(&[(&p.to_affine(), &q)]);
+        let result = BLS12381AtePairing::compute_batch(&[(&p.to_affine(), &q)]).unwrap();
         assert_eq!(result, FieldElement::one());
 
         let p = ShortWeierstrassProjectivePoint::neutral_element();
         let q = BLS12381TwistCurve::generator();
-        let result = BLS12381AtePairing::compute_batch(&[(&p, &q.to_affine())]);
+        let result = BLS12381AtePairing::compute_batch(&[(&p, &q.to_affine())]).unwrap();
         assert_eq!(result, FieldElement::one());
+    }
+
+    #[test]
+    fn ate_pairing_errors_when_one_element_is_not_in_subgroup() {
+        let p = ShortWeierstrassProjectivePoint::new([
+            FieldElement::one(),
+            FieldElement::one(),
+            FieldElement::one(),
+        ]);
+        let q = ShortWeierstrassProjectivePoint::neutral_element();
+        let result = BLS12381AtePairing::compute_batch(&[(&p.to_affine(), &q)]);
+        assert!(result.is_err())
     }
 }

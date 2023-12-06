@@ -1,12 +1,8 @@
-use crate::hash::poseidon::starknet::parameters::{DefaultPoseidonParams, PermutationParameters};
-use crate::hash::poseidon::starknet::Poseidon;
+use crate::hash::poseidon::Poseidon;
 
 use crate::merkle_tree::traits::IsMerkleTreeBackend;
 use lambdaworks_math::{
-    field::{
-        element::FieldElement,
-        traits::{IsField, IsPrimeField},
-    },
+    field::{element::FieldElement, traits::IsField},
     traits::Serializable,
 };
 use sha3::{
@@ -33,19 +29,19 @@ impl<F, D: Digest, const NUM_BYTES: usize> IsMerkleTreeBackend
     for FieldElementBackend<F, D, NUM_BYTES>
 where
     F: IsField,
-    FieldElement<F>: Serializable,
+    FieldElement<F>: Serializable + Sync + Send,
     [u8; NUM_BYTES]: From<GenericArray<u8, <D as OutputSizeUser>::OutputSize>>,
 {
     type Node = [u8; NUM_BYTES];
     type Data = FieldElement<F>;
 
-    fn hash_data(&self, input: &FieldElement<F>) -> [u8; NUM_BYTES] {
+    fn hash_data(input: &FieldElement<F>) -> [u8; NUM_BYTES] {
         let mut hasher = D::new();
         hasher.update(input.serialize());
         hasher.finalize().into()
     }
 
-    fn hash_new_parent(&self, left: &[u8; NUM_BYTES], right: &[u8; NUM_BYTES]) -> [u8; NUM_BYTES] {
+    fn hash_new_parent(left: &[u8; NUM_BYTES], right: &[u8; NUM_BYTES]) -> [u8; NUM_BYTES] {
         let mut hasher = D::new();
         hasher.update(left);
         hasher.update(right);
@@ -53,36 +49,28 @@ where
     }
 }
 
-#[derive(Clone)]
-pub struct TreePoseidon<F: IsPrimeField> {
-    poseidon: Poseidon<F>,
+#[derive(Clone, Default)]
+pub struct TreePoseidon<P: Poseidon + Default> {
+    _poseidon: PhantomData<P>,
 }
 
-impl<F> Default for TreePoseidon<F>
+impl<P> IsMerkleTreeBackend for TreePoseidon<P>
 where
-    F: IsPrimeField,
+    P: Poseidon + Default,
+    FieldElement<P::F>: Sync + Send,
 {
-    fn default() -> Self {
-        let params = PermutationParameters::new_with(DefaultPoseidonParams::CairoStark252);
-        let poseidon = Poseidon::new_with_params(params);
+    type Node = FieldElement<P::F>;
+    type Data = FieldElement<P::F>;
 
-        Self { poseidon }
-    }
-}
-
-impl<F> IsMerkleTreeBackend for TreePoseidon<F>
-where
-    F: IsPrimeField,
-{
-    type Node = FieldElement<F>;
-    type Data = FieldElement<F>;
-
-    fn hash_data(&self, input: &FieldElement<F>) -> FieldElement<F> {
-        self.poseidon.hash_single(input)
+    fn hash_data(input: &FieldElement<P::F>) -> FieldElement<P::F> {
+        P::hash_single(input)
     }
 
-    fn hash_new_parent(&self, left: &FieldElement<F>, right: &FieldElement<F>) -> FieldElement<F> {
-        self.poseidon.hash(left, right)
+    fn hash_new_parent(
+        left: &FieldElement<P::F>,
+        right: &FieldElement<P::F>,
+    ) -> FieldElement<P::F> {
+        P::hash(left, right)
     }
 }
 

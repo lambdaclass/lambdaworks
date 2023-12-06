@@ -138,7 +138,7 @@ impl IsStarkTranscript<Stark252PrimeField> for StoneProverTranscript {
         while result >= Self::MODULUS_MAX_MULTIPLE {
             result = self.sample_big_int();
         }
-        FieldElement::new(result) * FieldElement::new(Self::R_INV)
+        FieldElement::<Stark252PrimeField>::new(result) * FieldElement::new(Self::R_INV)
     }
 
     fn sample_u64(&mut self, upper_bound: u64) -> u64 {
