@@ -13,5 +13,4 @@ impl IsModulus<U256> for MontgomeryConfigVesta255PrimeField {
     );
 }
 
-pub type Vesta255PrimeField =
-    VestaMontgomeryBackendPrimeField<MontgomeryConfigVesta255PrimeField>;
+pub type Vesta255PrimeField = VestaMontgomeryBackendPrimeField<MontgomeryConfigVesta255PrimeField>;
