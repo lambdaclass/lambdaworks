@@ -68,7 +68,8 @@ impl<E: IsEllipticCurve> Eq for ProjectivePoint<E> {}
 mod tests {
     use crate::cyclic_group::IsGroup;
     use crate::elliptic_curve::short_weierstrass::curves::test_curve_1::{
-        TestCurve1, TestCurveQuadraticNonResidue, TEST_CURVE_1_MAIN_SUBGROUP_ORDER,
+        TestCurve1, TestCurvePrimeField, TestCurveQuadraticNonResidue,
+        TEST_CURVE_1_MAIN_SUBGROUP_ORDER,
     };
     use crate::elliptic_curve::short_weierstrass::curves::test_curve_2::TestCurve2;
     use crate::field::element::FieldElement;
@@ -78,7 +79,7 @@ mod tests {
     use crate::field::extensions::quadratic::QuadraticExtensionFieldElement;
 
     #[allow(clippy::upper_case_acronyms)]
-    type FEE = QuadraticExtensionFieldElement<TestCurveQuadraticNonResidue>;
+    type FEE = QuadraticExtensionFieldElement<TestCurvePrimeField, TestCurveQuadraticNonResidue>;
 
     // This tests only apply for the specific curve found in the configuration file.
     #[test]

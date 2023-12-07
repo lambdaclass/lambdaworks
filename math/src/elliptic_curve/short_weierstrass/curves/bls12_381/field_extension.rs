@@ -142,6 +142,11 @@ impl IsSubFieldOf<Degree2ExtensionField> for BLS12381PrimeField {
     fn embed(a: Self::BaseType) -> <Degree2ExtensionField as IsField>::BaseType {
         [FieldElement::from_raw(a), FieldElement::zero()]
     }
+
+    #[cfg(feature = "std")]
+    fn to_subfield_vec(b: <Degree2ExtensionField as IsField>::BaseType) -> Vec<Self::BaseType> {
+        b.into_iter().map(|x| x.to_raw()).collect()
+    }
 }
 
 impl ByteConversion for FieldElement<Degree2ExtensionField> {
@@ -183,9 +188,7 @@ impl ByteConversion for FieldElement<Degree2ExtensionField> {
 ///////////////
 #[derive(Debug, Clone)]
 pub struct LevelTwoResidue;
-impl HasCubicNonResidue for LevelTwoResidue {
-    type BaseField = Degree2ExtensionField;
-
+impl HasCubicNonResidue<Degree2ExtensionField> for LevelTwoResidue {
     fn residue() -> FieldElement<Degree2ExtensionField> {
         FieldElement::new([
             FieldElement::new(U384::from("1")),
@@ -194,13 +197,11 @@ impl HasCubicNonResidue for LevelTwoResidue {
     }
 }
 
-pub type Degree6ExtensionField = CubicExtensionField<LevelTwoResidue>;
+pub type Degree6ExtensionField = CubicExtensionField<Degree2ExtensionField, LevelTwoResidue>;
 
 #[derive(Debug, Clone)]
 pub struct LevelThreeResidue;
-impl HasQuadraticNonResidue for LevelThreeResidue {
-    type BaseField = Degree6ExtensionField;
-
+impl HasQuadraticNonResidue<Degree6ExtensionField> for LevelThreeResidue {
     fn residue() -> FieldElement<Degree6ExtensionField> {
         FieldElement::new([
             FieldElement::zero(),
@@ -210,7 +211,7 @@ impl HasQuadraticNonResidue for LevelThreeResidue {
     }
 }
 
-pub type Degree12ExtensionField = QuadraticExtensionField<LevelThreeResidue>;
+pub type Degree12ExtensionField = QuadraticExtensionField<Degree6ExtensionField, LevelThreeResidue>;
 
 impl FieldElement<BLS12381PrimeField> {
     pub fn new_base(a_hex: &str) -> Self {
