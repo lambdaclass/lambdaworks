@@ -4,18 +4,18 @@ use crate::field::{
 };
 
 /// Quadratic field extension of Babybear
-pub type QuadraticBabybearField = QuadraticExtensionField<Babybear31PrimeField>;
+pub type QuadraticBabybearField =
+    QuadraticExtensionField<Babybear31PrimeField, Babybear31PrimeField>;
 
-/// Field element type for the quadratic extension of Babybear
-pub type QuadraticBabybearFieldElement = QuadraticExtensionFieldElement<Babybear31PrimeField>;
-
-impl HasQuadraticNonResidue for Babybear31PrimeField {
-    type BaseField = Babybear31PrimeField;
-
+impl HasQuadraticNonResidue<Babybear31PrimeField> for Babybear31PrimeField {
     fn residue() -> FieldElement<Babybear31PrimeField> {
         -FieldElement::one()
     }
 }
+
+/// Field element type for the quadratic extension of Babybear
+pub type QuadraticBabybearFieldElement =
+    QuadraticExtensionFieldElement<Babybear31PrimeField, Babybear31PrimeField>;
 
 #[cfg(test)]
 mod tests {
