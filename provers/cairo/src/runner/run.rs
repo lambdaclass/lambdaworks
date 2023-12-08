@@ -1,8 +1,9 @@
-use crate::air::PublicInputs;
+use crate::air::{PublicInputs, Segment, SegmentName};
 use crate::cairo_layout::CairoLayout;
 use crate::cairo_mem::CairoMemory;
 use crate::execution_trace::build_main_trace;
 use crate::register_states::RegisterStates;
+use crate::Felt252;
 
 use super::vec_writer::VecWriter;
 use cairo_vm::cairo_run::{self, EncodeTraceError};
@@ -13,6 +14,7 @@ use cairo_vm::vm::errors::{
     cairo_run_errors::CairoRunError, trace_errors::TraceError, vm_errors::VirtualMachineError,
 };
 
+use cairo_vm::without_std::collections::HashMap;
 use lambdaworks_math::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;
 use stark_platinum_prover::trace::TraceTable;
 
@@ -79,7 +81,7 @@ pub fn run_program(
     entrypoint_function: Option<&str>,
     layout: CairoLayout,
     program_content: &[u8],
-) -> Result<(RegisterStates, CairoMemory, usize), Error> {
+) -> Result<(RegisterStates, CairoMemory, PublicInputs), Error> {
     // default value for entrypoint is "main"
     let entrypoint = entrypoint_function.unwrap_or("main");
 
@@ -92,6 +94,7 @@ pub fn run_program(
         layout: layout.as_str(),
         proof_mode: true,
         secure_run: None,
+        disable_trace_padding: false,
     };
 
     let (runner, vm) =
@@ -122,22 +125,46 @@ pub fn run_program(
     let cairo_mem = CairoMemory::from_bytes_le(&memory_vec).unwrap();
     let register_states = RegisterStates::from_bytes_le(&trace_vec).unwrap();
 
-    let data_len = runner.get_program().data_len();
+    let vm_pub_inputs = runner.get_air_public_input(&vm).unwrap();
 
-    Ok((register_states, cairo_mem, data_len))
+    let mut pub_memory: HashMap<Felt252, Felt252> = HashMap::new();
+    vm_pub_inputs.public_memory.iter().for_each(|mem_cell| {
+        let addr = Felt252::from(mem_cell.address as u64);
+        let value = Felt252::from_hex_unchecked(&mem_cell.value.as_ref().unwrap().to_str_radix(16));
+        pub_memory.insert(addr, value);
+    });
+
+    let mut memory_segments: HashMap<SegmentName, Segment> = HashMap::new();
+    vm_pub_inputs.memory_segments.iter().for_each(|(k, v)| {
+        memory_segments.insert(SegmentName::from(*k), Segment::from(v));
+    });
+
+    let num_steps = register_states.steps();
+    let public_inputs = PublicInputs {
+        pc_init: Felt252::from(register_states.rows[0].pc),
+        ap_init: Felt252::from(register_states.rows[0].ap),
+        fp_init: Felt252::from(register_states.rows[0].fp),
+        pc_final: Felt252::from(register_states.rows[num_steps - 1].pc),
+        ap_final: Felt252::from(register_states.rows[num_steps - 1].ap),
+        range_check_min: Some(vm_pub_inputs.rc_min as u16),
+        range_check_max: Some(vm_pub_inputs.rc_max as u16),
+        memory_segments,
+        public_memory: pub_memory,
+        num_steps,
+    };
+
+    Ok((register_states, cairo_mem, public_inputs))
 }
 
 pub fn generate_prover_args(
     program_content: &[u8],
     layout: CairoLayout,
 ) -> Result<(TraceTable<Stark252PrimeField>, PublicInputs), Error> {
-    let (register_states, memory, program_size) = run_program(None, layout, program_content)?;
+    let (register_states, memory, mut public_inputs) = run_program(None, layout, program_content)?;
 
-    let mut pub_inputs = PublicInputs::from_regs_and_mem(&register_states, &memory, program_size);
+    let main_trace = build_main_trace(&register_states, &memory, &mut public_inputs);
 
-    let main_trace = build_main_trace(&register_states, &memory, &mut pub_inputs);
-
-    Ok((main_trace, pub_inputs))
+    Ok((main_trace, public_inputs))
 }
 
 pub fn generate_prover_args_from_trace(

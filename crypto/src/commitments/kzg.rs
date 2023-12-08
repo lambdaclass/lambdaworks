@@ -200,7 +200,7 @@ impl<const N: usize, F: IsPrimeField<RepresentativeType = UnsignedInteger<N>>, P
                 &(alpha_g2.operate_with(&(g2.operate_with_self(x.representative())).neg())),
             ),
         ]);
-        e == FieldElement::one()
+        e == Ok(FieldElement::one())
     }
 
     fn open_batch(
