@@ -1,6 +1,6 @@
 use super::trace::TraceTable;
 use crate::trace::StepView;
-use lambdaworks_math::field::traits::{IsField};
+use lambdaworks_math::field::traits::IsField;
 
 /// A frame represents a collection of trace steps.
 /// The collected steps are all the necessary steps for

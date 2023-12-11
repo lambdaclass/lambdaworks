@@ -1,7 +1,4 @@
-use lambdaworks_math::field::{
-    element::FieldElement,
-    traits::{IsField},
-};
+use lambdaworks_math::field::{element::FieldElement, traits::IsField};
 
 use crate::{frame::Frame, trace::StepView};
 
