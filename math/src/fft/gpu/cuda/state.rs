@@ -101,9 +101,9 @@ impl CudaState {
 
         let (root, function_name) = match config {
             RootsConfig::Natural => (root, "calc_twiddles"),
-            RootsConfig::NaturalInversed => (root.inv(), "calc_twiddles"),
+            RootsConfig::NaturalInversed => (root.inv().unwrap(), "calc_twiddles"),
             RootsConfig::BitReverse => (root, "calc_twiddles_bitrev"),
-            RootsConfig::BitReverseInversed => (root.inv(), "calc_twiddles_bitrev"),
+            RootsConfig::BitReverseInversed => (root.inv().unwrap(), "calc_twiddles_bitrev"),
         };
 
         let function = self.get_function::<F>(function_name)?;
