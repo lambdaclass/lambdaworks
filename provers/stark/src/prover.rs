@@ -542,7 +542,10 @@ pub trait IsStarkProver {
         trace_terms_gammas: &[FieldElement<Self::FieldExtension>],
         trace_frame_evaluations: &[Vec<FieldElement<Self::FieldExtension>>],
         transition_offsets: &[usize],
-        (z, primitive_root): (&FieldElement<Self::FieldExtension>, &FieldElement<Self::Field>),
+        (z, primitive_root): (
+            &FieldElement<Self::FieldExtension>,
+            &FieldElement<Self::Field>,
+        ),
     ) -> Polynomial<FieldElement<Self::FieldExtension>>
     where
         FieldElement<Self::Field>: Serializable + Send + Sync,
@@ -603,7 +606,10 @@ pub trait IsStarkProver {
         lde_trace_merkle_trees: &[BatchedMerkleTree<Self::FieldExtension>],
         lde_trace: &TraceTable<Self::FieldExtension>,
         index: usize,
-    ) -> (Vec<Proof<Commitment>>, Vec<FieldElement<Self::FieldExtension>>)
+    ) -> (
+        Vec<Proof<Commitment>>,
+        Vec<FieldElement<Self::FieldExtension>>,
+    )
     where
         FieldElement<Self::Field>: Serializable + Sync + Send,
         FieldElement<Self::FieldExtension>: Serializable + Sync + Send,

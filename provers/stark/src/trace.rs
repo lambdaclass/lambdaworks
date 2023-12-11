@@ -111,7 +111,9 @@ impl<'t, F: IsField> TraceTable<F> {
         self.table.get(row, col)
     }
 
-    pub fn compute_trace_polys<S: IsFFTField + IsSubFieldOf<F>>(&self) -> Vec<Polynomial<FieldElement<F>>>
+    pub fn compute_trace_polys<S: IsFFTField + IsSubFieldOf<F>>(
+        &self,
+    ) -> Vec<Polynomial<FieldElement<F>>>
     where
         FieldElement<F>: Send + Sync,
     {

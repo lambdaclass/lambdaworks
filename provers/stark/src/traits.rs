@@ -110,7 +110,8 @@ pub trait AIR {
         &self,
         root: &FieldElement<Self::Field>,
     ) -> Vec<Polynomial<FieldElement<Self::FieldExtension>>> {
-        let x = Polynomial::<FieldElement<Self::FieldExtension>>::new_monomial(FieldElement::one(), 1);
+        let x =
+            Polynomial::<FieldElement<Self::FieldExtension>>::new_monomial(FieldElement::one(), 1);
 
         let max = self
             .context()

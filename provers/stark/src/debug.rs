@@ -4,7 +4,10 @@ use crate::trace::TraceTable;
 use super::domain::Domain;
 use super::traits::AIR;
 use lambdaworks_math::{
-    field::{element::FieldElement, traits::{IsFFTField, IsField}},
+    field::{
+        element::FieldElement,
+        traits::{IsFFTField, IsField},
+    },
     polynomial::Polynomial,
 };
 use log::{error, info};
@@ -22,7 +25,8 @@ pub fn validate_trace<A: AIR>(
     let trace_columns: Vec<_> = trace_polys
         .iter()
         .map(|poly| {
-            Polynomial::evaluate_fft::<A::Field>(poly, 1, Some(domain.interpolation_domain_size)).unwrap()
+            Polynomial::evaluate_fft::<A::Field>(poly, 1, Some(domain.interpolation_domain_size))
+                .unwrap()
         })
         .collect();
 
@@ -32,7 +36,8 @@ pub fn validate_trace<A: AIR>(
         .get_periodic_column_polynomials()
         .iter()
         .map(|poly| {
-            Polynomial::evaluate_fft::<A::Field>(poly, 1, Some(domain.interpolation_domain_size)).unwrap()
+            Polynomial::evaluate_fft::<A::Field>(poly, 1, Some(domain.interpolation_domain_size))
+                .unwrap()
         })
         .collect();
 
