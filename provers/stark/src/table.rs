@@ -1,6 +1,6 @@
 use lambdaworks_math::field::{
     element::FieldElement,
-    traits::{IsFFTField, IsField},
+    traits::{IsField},
 };
 
 use crate::{frame::Frame, trace::StepView};

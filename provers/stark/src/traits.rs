@@ -143,7 +143,6 @@ pub trait AIR {
                 .cycle()
                 .take(self.trace_length())
                 .cloned()
-                .into_iter()
                 .map(|x| x.to_extension())
                 .collect();
             let poly = Polynomial::interpolate_fft::<Self::Field>(&values).unwrap();

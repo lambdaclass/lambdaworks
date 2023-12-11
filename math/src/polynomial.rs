@@ -1095,7 +1095,7 @@ mod tests {
         }
     }
 
-    use proptest::prelude::*;
+    
     proptest! {
         #[test]
         fn ruffini_inplace_equals_ruffini(p in any::<Vec<u64>>(), b in any::<u64>()) {

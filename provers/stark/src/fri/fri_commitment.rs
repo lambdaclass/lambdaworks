@@ -2,7 +2,7 @@ use lambdaworks_crypto::merkle_tree::{merkle::MerkleTree, traits::IsMerkleTreeBa
 use lambdaworks_math::{
     field::{
         element::FieldElement,
-        traits::{IsFFTField, IsField},
+        traits::{IsField},
     },
     traits::Serializable,
 };
