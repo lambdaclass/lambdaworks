@@ -17,7 +17,7 @@ use crate::fft::gpu::metal::polynomial::{evaluate_fft_metal, interpolate_fft_met
 use super::cpu::{ops, roots_of_unity};
 
 impl<E: IsField> Polynomial<FieldElement<E>> {
-    /// Returns `N` evaluations of this polynomial using FFT (so the results
+    /// Returns `N` evaluations of this polynomial using FFT over a domain in a subfield F of E (so the results
     /// are P(w^i), with w being a primitive root of unity).
     /// `N = max(self.coeff_len(), domain_size).next_power_of_two() * blowup_factor`.
     /// If `domain_size` is `None`, it defaults to 0.
@@ -66,7 +66,7 @@ impl<E: IsField> Polynomial<FieldElement<E>> {
         }
     }
 
-    /// Returns `N` evaluations with an offset of this polynomial using FFT
+    /// Returns `N` evaluations with an offset of this polynomial using FFT over a domain in a subfield F of E
     /// (so the results are P(w^i), with w being a primitive root of unity).
     /// `N = max(self.coeff_len(), domain_size).next_power_of_two() * blowup_factor`.
     /// If `domain_size` is `None`, it defaults to 0.
@@ -81,7 +81,7 @@ impl<E: IsField> Polynomial<FieldElement<E>> {
     }
 
     /// Returns a new polynomial that interpolates `(w^i, fft_evals[i])`, with `w` being a
-    /// Nth primitive root of unity, and `i in 0..N`, with `N = fft_evals.len()`.
+    /// Nth primitive root of unity in a subfield F of E, and `i in 0..N`, with `N = fft_evals.len()`.
     /// This is considered to be the inverse operation of [Self::evaluate_fft()].
     pub fn interpolate_fft<F: IsFFTField + IsSubFieldOf<E>>(
         fft_evals: &[FieldElement<E>],
@@ -115,7 +115,7 @@ impl<E: IsField> Polynomial<FieldElement<E>> {
     }
 
     /// Returns a new polynomial that interpolates offset `(w^i, fft_evals[i])`, with `w` being a
-    /// Nth primitive root of unity, and `i in 0..N`, with `N = fft_evals.len()`.
+    /// Nth primitive root of unity in a subfield F of E, and `i in 0..N`, with `N = fft_evals.len()`.
     /// This is considered to be the inverse operation of [Self::evaluate_offset_fft()].
     pub fn interpolate_offset_fft<F: IsFFTField + IsSubFieldOf<E>>(
         fft_evals: &[FieldElement<E>],
