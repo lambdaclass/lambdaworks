@@ -1,6 +1,6 @@
 use itertools::Itertools;
 use lambdaworks_math::{
-    fft::{cpu::roots_of_unity::get_powers_of_primitive_root_coset, polynomial::FFTPoly},
+    fft::cpu::roots_of_unity::get_powers_of_primitive_root_coset,
     field::{element::FieldElement, traits::IsFFTField},
     polynomial::Polynomial,
 };
@@ -137,7 +137,7 @@ pub trait AIR {
                 .take(self.trace_length())
                 .cloned()
                 .collect();
-            let poly = Polynomial::interpolate_fft(&values).unwrap();
+            let poly = Polynomial::interpolate_fft::<Self::Field>(&values).unwrap();
             result.push(poly);
         }
         result

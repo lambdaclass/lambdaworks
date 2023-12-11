@@ -1,6 +1,5 @@
 use crate::table::{Table, TableView};
 use lambdaworks_math::fft::errors::FFTError;
-use lambdaworks_math::fft::polynomial::FFTPoly;
 use lambdaworks_math::{
     field::{element::FieldElement, traits::IsFFTField},
     polynomial::Polynomial,
@@ -121,7 +120,7 @@ impl<'t, F: IsFFTField> TraceTable<F> {
         #[cfg(not(feature = "parallel"))]
         let iter = columns.iter();
 
-        iter.map(|col| Polynomial::interpolate_fft(col))
+        iter.map(|col| Polynomial::interpolate_fft::<F>(col))
             .collect::<Result<Vec<Polynomial<FieldElement<F>>>, FFTError>>()
             .unwrap()
     }

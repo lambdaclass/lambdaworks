@@ -6,9 +6,7 @@ use lambdaworks_math::fft::cpu::{
     fft::{in_place_nr_2radix_fft, in_place_rn_2radix_fft},
     roots_of_unity::get_twiddles,
 };
-use lambdaworks_math::{
-    fft::polynomial::FFTPoly, field::traits::RootsConfig, polynomial::Polynomial,
-};
+use lambdaworks_math::{field::traits::RootsConfig, polynomial::Polynomial};
 
 use super::stark252_utils::{F, FE};
 
@@ -29,9 +27,9 @@ pub fn bitrev_permute(input: &mut [FE]) {
 }
 
 pub fn poly_evaluate_fft(poly: &Polynomial<FE>) -> Vec<FE> {
-    poly.evaluate_fft(black_box(1), black_box(None)).unwrap()
+    Polynomial::evaluate_fft::<F>(poly, black_box(1), black_box(None)).unwrap()
 }
 
 pub fn poly_interpolate_fft(evals: &[FE]) {
-    Polynomial::interpolate_fft(evals).unwrap();
+    Polynomial::interpolate_fft::<F>(evals).unwrap();
 }

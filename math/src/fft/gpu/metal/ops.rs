@@ -1,6 +1,6 @@
 use crate::field::{
     element::FieldElement,
-    traits::{IsFFTField, RootsConfig},
+    traits::{IsFFTField, IsField, IsSubFieldOf, RootsConfig},
 };
 use lambdaworks_gpu::metal::abstractions::{errors::MetalError, state::*};
 
@@ -15,11 +15,17 @@ use core::mem;
 /// in this order too. Natural order means that input[i] corresponds to the i-th coefficient,
 /// as opposed to bit-reverse order in which input[bit_rev(i)] corresponds to the i-th
 /// coefficient.
-pub fn fft<F: IsFFTField>(
-    input: &[FieldElement<F>],
+///
+/// It supports values in a field E and domain in a subfield F.
+pub fn fft<F, E>(
+    input: &[FieldElement<E>],
     twiddles: &[FieldElement<F>],
     state: &MetalState,
-) -> Result<Vec<FieldElement<F>>, MetalError> {
+) -> Result<Vec<FieldElement<E>>, MetalError>
+where
+    F: IsFFTField + IsSubFieldOf<E>,
+    E: IsField,
+{
     // TODO: make a twiddle factor abstraction for handling invalid twiddles
     if !input.len().is_power_of_two() {
         return Err(MetalError::InputError(input.len()));
@@ -173,7 +179,7 @@ mod tests {
         fn test_metal_fft_matches_sequential(input in field_vec(6)) {
             let metal_state = MetalState::new(None).unwrap();
             let order = input.len().trailing_zeros();
-            let twiddles = get_twiddles(order.into(), RootsConfig::BitReverse).unwrap();
+            let twiddles = get_twiddles::<F>(order.into(), RootsConfig::BitReverse).unwrap();
 
             let metal_result = super::fft(&input, &twiddles, &metal_state).unwrap();
             let sequential_result = crate::fft::cpu::ops::fft(&input, &twiddles).unwrap();
@@ -190,7 +196,7 @@ mod tests {
 
         let metal_state = MetalState::new(None).unwrap();
         let order = input.len().trailing_zeros();
-        let twiddles = get_twiddles(order.into(), RootsConfig::BitReverse).unwrap();
+        let twiddles = get_twiddles::<F>(order.into(), RootsConfig::BitReverse).unwrap();
 
         let metal_result = super::fft(&input, &twiddles, &metal_state).unwrap();
         let sequential_result = crate::fft::cpu::ops::fft(&input, &twiddles).unwrap();
