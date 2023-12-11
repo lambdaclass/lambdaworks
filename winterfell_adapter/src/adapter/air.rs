@@ -62,6 +62,7 @@ where
     T: Trace<BaseField = AdapterFieldElement> + Clone + FromColumns<AdapterFieldElement>,
 {
     type Field = Stark252PrimeField;
+    type FieldExtension = Stark252PrimeField;
     type RAPChallenges = Vec<AdapterFieldElement>;
     type PublicInputs = AirAdapterPublicInputs<A>;
     const STEP_SIZE: usize = 1;

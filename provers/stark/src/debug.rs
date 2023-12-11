@@ -46,7 +46,7 @@ pub fn validate_trace<A: AIR>(
             let boundary_value = constraint.value.clone();
             let trace_value = trace.get(step, col);
 
-            if &boundary_value.to_extension() != trace_value {
+            if &boundary_value.clone().to_extension() != trace_value {
                 ret = false;
                 error!("Boundary constraint inconsistency - Expected value {:?} in step {} and column {}, found: {:?}", boundary_value, step, col, trace_value);
             }

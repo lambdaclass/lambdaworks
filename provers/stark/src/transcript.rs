@@ -25,8 +25,8 @@ pub trait IsStarkTranscript<F: IsField> {
     {
         loop {
             let value: FieldElement<F> = self.sample_field_element();
-            if !lde_roots_of_unity_coset.iter().any(|x| x.to_extension() == value)
-                && !trace_roots_of_unity.iter().any(|x| x.to_extension() == value)
+            if !lde_roots_of_unity_coset.iter().any(|x| x.clone().to_extension() == value)
+                && !trace_roots_of_unity.iter().any(|x| x.clone().to_extension() == value)
             {
                 return value;
             }

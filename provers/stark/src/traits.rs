@@ -55,9 +55,9 @@ pub trait AIR {
     fn boundary_constraints(
         &self,
         rap_challenges: &Self::RAPChallenges,
-    ) -> BoundaryConstraints<Self::Field>;
+    ) -> BoundaryConstraints<Self::FieldExtension>;
 
-    fn transition_exemptions(&self) -> Vec<Polynomial<FieldElement<Self::Field>>> {
+    fn transition_exemptions(&self) -> Vec<Polynomial<FieldElement<Self::FieldExtension>>> {
         let trace_length = self.trace_length();
         let roots_of_unity_order = trace_length.trailing_zeros();
         let roots_of_unity = get_powers_of_primitive_root_coset(
@@ -122,7 +122,7 @@ pub trait AIR {
             .map(|index| {
                 (1..=index).fold(
                     Polynomial::new_monomial(FieldElement::one(), 0),
-                    |acc, k| acc * ( - root.pow(k) + &x),
+                    |acc, k| acc * (&x - root.pow(k).to_extension()),
                 )
             })
             .collect()

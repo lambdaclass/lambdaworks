@@ -48,7 +48,7 @@ where
         domain_size /= 2;
 
         // Compute layer polynomial and domain
-        current_poly = fold_polynomial(&current_poly, &zeta) * FieldElement::from(2);
+        current_poly =  FieldElement::<F>::from(2) * fold_polynomial(&current_poly, &zeta);
         current_layer = new_fri_layer(&current_poly, &coset_offset, domain_size);
         let new_data = &current_layer.merkle_tree.root;
         fri_layer_list.push(current_layer.clone()); // TODO: remove this clone
@@ -60,7 +60,7 @@ where
     // <<<< Receive challenge: 𝜁ₙ₋₁
     let zeta = transcript.sample_field_element();
 
-    let last_poly = fold_polynomial(&current_poly, &zeta) * FieldElement::from(2);
+    let last_poly =  FieldElement::<F>::from(2) * fold_polynomial(&current_poly, &zeta);
 
     let last_value = last_poly
         .coefficients()

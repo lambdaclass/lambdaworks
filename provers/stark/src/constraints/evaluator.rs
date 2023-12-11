@@ -1,7 +1,10 @@
 use itertools::Itertools;
 use lambdaworks_math::{
     fft::{cpu::roots_of_unity::get_powers_of_primitive_root_coset, errors::FFTError},
-    field::{element::FieldElement, traits::IsFFTField},
+    field::{
+        element::FieldElement,
+        traits::{IsFFTField, IsField, IsSubFieldOf},
+    },
     polynomial::Polynomial,
     traits::Serializable,
 };
@@ -20,7 +23,7 @@ use crate::traits::AIR;
 use crate::{frame::Frame, prover::evaluate_polynomial_on_lde_domain};
 
 pub struct ConstraintEvaluator<A: AIR> {
-    boundary_constraints: BoundaryConstraints<A::Field>,
+    boundary_constraints: BoundaryConstraints<A::FieldExtension>,
 }
 impl<A: AIR> ConstraintEvaluator<A> {
     pub fn new(air: &A, rap_challenges: &A::RAPChallenges) -> Self {
@@ -252,10 +255,10 @@ impl<A: AIR> ConstraintEvaluator<A> {
     }
 }
 
-fn evaluate_transition_exemptions<F: IsFFTField>(
-    transition_exemptions: Vec<Polynomial<FieldElement<F>>>,
+fn evaluate_transition_exemptions<F: IsFFTField + IsSubFieldOf<E>, E: IsField>(
+    transition_exemptions: Vec<Polynomial<FieldElement<E>>>,
     domain: &Domain<F>,
-) -> Vec<Vec<FieldElement<F>>>
+) -> Vec<Vec<FieldElement<E>>>
 where
     FieldElement<F>: Send + Sync + Serializable,
     Polynomial<FieldElement<F>>: Send + Sync,
