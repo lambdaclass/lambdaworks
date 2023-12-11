@@ -14,7 +14,7 @@ impl IsEllipticCurve for VestaCurve {
 
     fn generator() -> Self::PointRepresentation {
         Self::PointRepresentation::new([
-            FieldElement::<Self::BaseField>::from_hex_unchecked("40000000000000000000000000000000224698fc0994a8dd8c46eb2100000000"),
+            -FieldElement::<Self::BaseField>::one(),
             FieldElement::<Self::BaseField>::from(2),
             FieldElement::one(),
         ])
@@ -46,20 +46,20 @@ mod tests {
 
     fn point_1() -> ShortWeierstrassProjectivePoint<VestaCurve> {
         let x = FE::from_hex_unchecked(
-            "bd1e740e6b1615ae4c508148ca0c53dbd43f7b2e206195ab638d7f45d51d6b5",
+            "c4e6a8789457a64e1638783181963d4c4399a5a8cdb30af4038664ce431033c",
         );
         let y = FE::from_hex_unchecked(
-            "13aacd107ca10b7f8aab570da1183b91d7d86dd723eaa2306b0ef9c5355b91d8",
+            "2d8c9125be9a3ac50371e462f63dfc3fbbf645e9a93d6b7da71c13d3065e3ce5",
         );
         VestaCurve::create_point_from_affine(x, y).unwrap()
     }
 
     fn point_1_times_5() -> ShortWeierstrassProjectivePoint<VestaCurve> {
         let x = FE::from_hex_unchecked(
-            "17a21304fffd6749d6173d4e0acd9724d98a97453b3491c0e5a53b06cf039b13",
+            "1266f29f1478410eaa62fb1ab064f7d9259f515600544165972a89c9941c72c3",
         );
         let y = FE::from_hex_unchecked(
-            "2f9bde429091a1089e52a6cc5dc789e1a58eeded0cf72dccc33b7af685a982d",
+            "3a893b592bd487cd25c5d4237b02987e1b78206e70989f3209e24a40b89499fd",
         );
         VestaCurve::create_point_from_affine(x, y).unwrap()
     }
@@ -77,13 +77,13 @@ mod tests {
         assert_eq!(
             *p.x(),
             FE::from_hex_unchecked(
-                "bd1e740e6b1615ae4c508148ca0c53dbd43f7b2e206195ab638d7f45d51d6b5"
+                "c4e6a8789457a64e1638783181963d4c4399a5a8cdb30af4038664ce431033c"
             )
         );
         assert_eq!(
             *p.y(),
             FE::from_hex_unchecked(
-                "13aacd107ca10b7f8aab570da1183b91d7d86dd723eaa2306b0ef9c5355b91d8"
+                "2d8c9125be9a3ac50371e462f63dfc3fbbf645e9a93d6b7da71c13d3065e3ce5"
             )
         );
         assert_eq!(*p.z(), FE::from_hex_unchecked("1"));
