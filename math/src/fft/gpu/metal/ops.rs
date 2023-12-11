@@ -15,6 +15,8 @@ use core::mem;
 /// in this order too. Natural order means that input[i] corresponds to the i-th coefficient,
 /// as opposed to bit-reverse order in which input[bit_rev(i)] corresponds to the i-th
 /// coefficient.
+///
+/// It supports values in a field E and domain in a subfield F.
 pub fn fft<F, E>(
     input: &[FieldElement<E>],
     twiddles: &[FieldElement<F>],

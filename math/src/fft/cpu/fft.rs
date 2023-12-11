@@ -15,6 +15,8 @@ use crate::field::{
 /// - NR: natural to reverse order, meaning that the input is naturally ordered and the output will
 /// be bit-reversed ordered.
 /// - DIT: decimation in time
+///
+/// It supports values in a field E and domain in a subfield F.
 pub fn in_place_nr_2radix_fft<F, E>(input: &mut [FieldElement<E>], twiddles: &[FieldElement<F>])
 where
     F: IsFFTField + IsSubFieldOf<E>,
@@ -64,6 +66,8 @@ where
 /// - RN: reverse to natural order, meaning that the input is bit-reversed ordered and the output will
 /// be naturally ordered.
 /// - DIT: decimation in time
+///
+/// It supports values in a field E and domain in a subfield F.
 #[allow(dead_code)]
 pub fn in_place_rn_2radix_fft<F>(input: &mut [FieldElement<F>], twiddles: &[FieldElement<F>])
 where

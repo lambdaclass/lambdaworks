@@ -8,8 +8,8 @@ use crate::{
 
 use super::{bit_reversing::in_place_bit_reverse_permute, fft::in_place_nr_2radix_fft};
 
-/// Executes Fast Fourier Transform over elements of a two-adic finite field `F`. Usually used for
-/// fast polynomial evaluation.
+/// Executes Fast Fourier Transform over elements of a two-adic finite field `E` and domain in a
+/// subfield `F`. Usually used for fast polynomial evaluation.
 pub fn fft<F: IsFFTField + IsSubFieldOf<E>, E: IsField>(
     input: &[FieldElement<E>],
     twiddles: &[FieldElement<F>],
