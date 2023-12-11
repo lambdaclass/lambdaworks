@@ -4,7 +4,7 @@ use lambdaworks_crypto::merkle_tree::proof::Proof;
 use lambdaworks_math::{
     field::{
         element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
-        traits::IsFFTField,
+        traits::{IsFFTField, IsField},
     },
     traits::Serializable,
 };
@@ -22,7 +22,7 @@ use crate::{
 use super::options::ProofOptions;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct DeepPolynomialOpening<F: IsFFTField> {
+pub struct DeepPolynomialOpening<F: IsField> {
     pub lde_composition_poly_proof: Proof<Commitment>,
     pub lde_composition_poly_parts_evaluation: Vec<FieldElement<F>>,
     pub lde_trace_merkle_proofs: Vec<Proof<Commitment>>,
@@ -32,7 +32,7 @@ pub struct DeepPolynomialOpening<F: IsFFTField> {
 pub type DeepPolynomialOpenings<F> = Vec<DeepPolynomialOpening<F>>;
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
-pub struct StarkProof<F: IsFFTField> {
+pub struct StarkProof<F: IsField> {
     // Length of the execution trace
     pub trace_length: usize,
     // Commitments of the trace columns
@@ -69,7 +69,7 @@ impl StoneCompatibleSerializer {
         options: &ProofOptions,
     ) -> Vec<u8>
     where
-        A: AIR<Field = Stark252PrimeField>,
+        A: AIR<Field = Stark252PrimeField, FieldExtension = Stark252PrimeField>,
         A::PublicInputs: Serializable,
     {
         let mut output = Vec::new();
@@ -409,7 +409,7 @@ impl StoneCompatibleSerializer {
         proof_options: &ProofOptions,
     ) -> Vec<usize>
     where
-        A: AIR<Field = Stark252PrimeField>,
+        A: AIR<Field = Stark252PrimeField, FieldExtension = Stark252PrimeField>,
         A::PublicInputs: Serializable,
     {
         let mut transcript = StoneProverTranscript::new(&public_inputs.serialize());

@@ -1,4 +1,4 @@
-use lambdaworks_math::field::{element::FieldElement, traits::IsFFTField};
+use lambdaworks_math::field::{element::FieldElement, traits::{IsFFTField, IsField}};
 
 use crate::{frame::Frame, trace::StepView};
 
@@ -8,13 +8,13 @@ use crate::{frame::Frame, trace::StepView};
 /// Since this struct is a representation of a two-dimensional table, all rows should have the same
 /// length.
 #[derive(Clone, Default, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub struct Table<F: IsFFTField> {
+pub struct Table<F: IsField> {
     pub data: Vec<FieldElement<F>>,
     pub width: usize,
     pub height: usize,
 }
 
-impl<'t, F: IsFFTField> Table<F> {
+impl<'t, F: IsField> Table<F> {
     /// Crates a new Table instance from a one-dimensional array in row major order
     /// and the intended width of the table.
     pub fn new(data: Vec<FieldElement<F>>, width: usize) -> Self {
@@ -141,14 +141,14 @@ impl<'t, F: IsFFTField> Table<F> {
 
 /// A view of a contiguos subset of rows of a table.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct TableView<'t, F: IsFFTField> {
+pub struct TableView<'t, F: IsField> {
     pub data: &'t [FieldElement<F>],
     pub table_row_idx: usize,
     pub width: usize,
     pub height: usize,
 }
 
-impl<'t, F: IsFFTField> TableView<'t, F> {
+impl<'t, F: IsField> TableView<'t, F> {
     pub fn new(
         data: &'t [FieldElement<F>],
         table_row_idx: usize,

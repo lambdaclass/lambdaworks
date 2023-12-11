@@ -53,6 +53,7 @@ where
     F: IsFFTField,
 {
     type Field = F;
+    type FieldExtension = F;
     type RAPChallenges = ();
     type PublicInputs = PublicInputs<Self::Field>;
 
@@ -88,7 +89,7 @@ where
 
     fn build_rap_challenges(
         &self,
-        _transcript: &mut impl IsStarkTranscript<Self::Field>,
+        _transcript: &mut impl IsStarkTranscript<Self::FieldExtension>,
     ) -> Self::RAPChallenges {
     }
 

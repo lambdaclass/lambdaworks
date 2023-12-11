@@ -4,15 +4,15 @@ use crate::trace::TraceTable;
 use super::domain::Domain;
 use super::traits::AIR;
 use lambdaworks_math::{
-    field::{element::FieldElement, traits::IsFFTField},
+    field::{element::FieldElement, traits::{IsFFTField, IsField}},
     polynomial::Polynomial,
 };
 use log::{error, info};
 
 /// Validates that the trace is valid with respect to the supplied AIR constraints
-pub fn validate_trace<F: IsFFTField, A: AIR<Field = F>>(
+pub fn validate_trace<A: AIR>(
     air: &A,
-    trace_polys: &[Polynomial<FieldElement<A::Field>>],
+    trace_polys: &[Polynomial<FieldElement<A::FieldExtension>>],
     domain: &Domain<A::Field>,
     rap_challenges: &A::RAPChallenges,
 ) -> bool {
@@ -22,7 +22,7 @@ pub fn validate_trace<F: IsFFTField, A: AIR<Field = F>>(
     let trace_columns: Vec<_> = trace_polys
         .iter()
         .map(|poly| {
-            Polynomial::evaluate_fft::<F>(poly, 1, Some(domain.interpolation_domain_size)).unwrap()
+            Polynomial::evaluate_fft::<A::Field>(poly, 1, Some(domain.interpolation_domain_size)).unwrap()
         })
         .collect();
 
@@ -32,7 +32,7 @@ pub fn validate_trace<F: IsFFTField, A: AIR<Field = F>>(
         .get_periodic_column_polynomials()
         .iter()
         .map(|poly| {
-            Polynomial::evaluate_fft::<F>(poly, 1, Some(domain.interpolation_domain_size)).unwrap()
+            Polynomial::evaluate_fft::<A::Field>(poly, 1, Some(domain.interpolation_domain_size)).unwrap()
         })
         .collect();
 
@@ -46,7 +46,7 @@ pub fn validate_trace<F: IsFFTField, A: AIR<Field = F>>(
             let boundary_value = constraint.value.clone();
             let trace_value = trace.get(step, col);
 
-            if &boundary_value != trace_value {
+            if &boundary_value.to_extension() != trace_value {
                 ret = false;
                 error!("Boundary constraint inconsistency - Expected value {:?} in step {} and column {}, found: {:?}", boundary_value, step, col, trace_value);
             }
@@ -78,7 +78,7 @@ pub fn validate_trace<F: IsFFTField, A: AIR<Field = F>>(
         evaluations.iter().enumerate().for_each(|(i, eval)| {
             // Check that all the transition constraint evaluations of the trace are zero.
             // We don't take into account the transition exemptions.
-            if step < exemption_steps[i] && eval != &FieldElement::<F>::zero() {
+            if step < exemption_steps[i] && eval != &FieldElement::zero() {
                 ret = false;
                 error!(
                     "Inconsistent evaluation of transition {} in step {} - expected 0, got {:?}",
@@ -111,7 +111,7 @@ pub fn check_boundary_polys_divisibility<F: IsFFTField>(
 /// array, returning a true when valid and false when not.
 pub fn validate_2d_structure<F>(data: &[FieldElement<F>], width: usize) -> bool
 where
-    F: IsFFTField,
+    F: IsField,
 {
     let rows: Vec<Vec<FieldElement<F>>> = data.chunks(width).map(|c| c.to_vec()).collect();
     rows.iter().all(|r| r.len() == rows[0].len())

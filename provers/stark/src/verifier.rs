@@ -9,8 +9,9 @@ use log::error;
 use lambdaworks_math::{
     fft::cpu::bit_reversing::reverse_index,
     field::{
-        element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
-        traits::IsFFTField,
+        element::FieldElement,
+        fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
+        traits::{IsFFTField, IsField, IsSubFieldOf},
     },
     traits::Serializable,
 };
@@ -32,12 +33,13 @@ pub struct Verifier {}
 
 impl IsStarkVerifier for Verifier {
     type Field = Stark252PrimeField;
+    type FieldExtension = Stark252PrimeField;
 }
 
 pub struct Challenges<F, A>
 where
-    F: IsFFTField,
-    A: AIR<Field = F>,
+    F: IsField,
+    A: AIR<FieldExtension = F>,
 {
     pub z: FieldElement<F>,
     pub boundary_coeffs: Vec<FieldElement<F>>,
@@ -53,12 +55,13 @@ where
 pub type DeepPolynomialEvaluations<F> = (Vec<FieldElement<F>>, Vec<FieldElement<F>>);
 
 pub trait IsStarkVerifier {
-    type Field: IsFFTField;
+    type Field: IsFFTField + IsSubFieldOf<Self::FieldExtension>;
+    type FieldExtension: IsField;
 
     fn sample_query_indexes(
         number_of_queries: usize,
         domain: &Domain<Self::Field>,
-        transcript: &mut impl IsStarkTranscript<Self::Field>,
+        transcript: &mut impl IsStarkTranscript<Self::FieldExtension>,
     ) -> Vec<usize> {
         let domain_size = domain.lde_roots_of_unity_coset.len() as u64;
         (0..number_of_queries)
@@ -68,13 +71,14 @@ pub trait IsStarkVerifier {
 
     fn step_1_replay_rounds_and_recover_challenges<A>(
         air: &A,
-        proof: &StarkProof<Self::Field>,
+        proof: &StarkProof<Self::FieldExtension>,
         domain: &Domain<Self::Field>,
-        transcript: &mut impl IsStarkTranscript<Self::Field>,
-    ) -> Challenges<Self::Field, A>
+        transcript: &mut impl IsStarkTranscript<Self::FieldExtension>,
+    ) -> Challenges<Self::FieldExtension, A>
     where
         FieldElement<Self::Field>: Serializable,
-        A: AIR<Field = Self::Field>,
+        FieldElement<Self::FieldExtension>: Serializable,
+        A: AIR<Field = Self::Field, FieldExtension = Self::FieldExtension>,
     {
         // ===================================
         // ==========|   Round 1   |==========
@@ -165,7 +169,7 @@ pub trait IsStarkVerifier {
                 transcript.append_bytes(root);
                 element
             })
-            .collect::<Vec<FieldElement<Self::Field>>>();
+            .collect::<Vec<FieldElement<Self::FieldExtension>>>();
 
         // >>>> Send challenge 𝜁ₙ₋₁
         zetas.push(transcript.sample_field_element());
@@ -203,12 +207,12 @@ pub trait IsStarkVerifier {
 
     fn step_2_verify_claimed_composition_polynomial<A>(
         air: &A,
-        proof: &StarkProof<Self::Field>,
+        proof: &StarkProof<Self::FieldExtension>,
         domain: &Domain<Self::Field>,
-        challenges: &Challenges<Self::Field, A>,
+        challenges: &Challenges<Self::FieldExtension, A>,
     ) -> bool
     where
-        A: AIR<Field = Self::Field>,
+        A: AIR<Field = Self::Field, FieldExtension = Self::FieldExtension>,
     {
         let boundary_constraints = air.boundary_constraints(&challenges.rap_challenges);
 
@@ -217,18 +221,18 @@ pub trait IsStarkVerifier {
 
         #[allow(clippy::type_complexity)]
         let (boundary_c_i_evaluations_num, mut boundary_c_i_evaluations_den): (
-            Vec<FieldElement<Self::Field>>,
-            Vec<FieldElement<Self::Field>>,
+            Vec<FieldElement<Self::FieldExtension>>,
+            Vec<FieldElement<Self::FieldExtension>>,
         ) = (0..number_of_b_constraints)
             .map(|index| {
                 let step = boundary_constraints.constraints[index].step;
                 let point = &domain.trace_primitive_root.pow(step as u64);
                 let trace_idx = boundary_constraints.constraints[index].col;
                 let trace_evaluation = &proof.trace_ood_evaluations.get_row(0)[trace_idx];
-                let boundary_zerofier_challenges_z_den = &challenges.z - point;
+                let boundary_zerofier_challenges_z_den = -point + &challenges.z;
 
                 let boundary_quotient_ood_evaluation_num =
-                    trace_evaluation - &boundary_constraints.constraints[index].value;
+                    -&boundary_constraints.constraints[index].value + trace_evaluation;
 
                 (
                     boundary_quotient_ood_evaluation_num,
@@ -241,19 +245,19 @@ pub trait IsStarkVerifier {
 
         FieldElement::inplace_batch_inverse(&mut boundary_c_i_evaluations_den).unwrap();
 
-        let boundary_quotient_ood_evaluation: FieldElement<Self::Field> =
+        let boundary_quotient_ood_evaluation: FieldElement<Self::FieldExtension> =
             boundary_c_i_evaluations_num
                 .iter()
                 .zip(&boundary_c_i_evaluations_den)
                 .zip(&challenges.boundary_coeffs)
                 .map(|((num, den), beta)| num * den * beta)
-                .fold(FieldElement::<Self::Field>::zero(), |acc, x| acc + x);
+                .fold(FieldElement::<Self::FieldExtension>::zero(), |acc, x| acc + x);
 
         let periodic_values = air
             .get_periodic_column_polynomials()
             .iter()
             .map(|poly| poly.evaluate(&challenges.z))
-            .collect::<Vec<FieldElement<Self::Field>>>();
+            .collect::<Vec<FieldElement<Self::FieldExtension>>>();
 
         let transition_ood_frame_evaluations = air.compute_transition(
             &(proof.trace_ood_evaluations).into_frame(A::STEP_SIZE),
@@ -261,7 +265,7 @@ pub trait IsStarkVerifier {
             &challenges.rap_challenges,
         );
 
-        let denominator = (&challenges.z.pow(trace_length) - FieldElement::<Self::Field>::one())
+        let denominator = (-FieldElement::<Self::Field>::one() + &challenges.z.pow(trace_length))
             .inv()
             .unwrap();
 
@@ -301,13 +305,13 @@ pub trait IsStarkVerifier {
     }
 
     fn step_3_verify_fri<A>(
-        proof: &StarkProof<Self::Field>,
+        proof: &StarkProof<Self::FieldExtension>,
         domain: &Domain<Self::Field>,
-        challenges: &Challenges<Self::Field, A>,
+        challenges: &Challenges<Self::FieldExtension, A>,
     ) -> bool
     where
         FieldElement<Self::Field>: Serializable + Sync + Send,
-        A: AIR<Field = Self::Field>,
+        A: AIR<Field = Self::Field, FieldExtension = Self::FieldExtension>,
     {
         let (deep_poly_evaluations, deep_poly_evaluations_sym) =
             Self::reconstruct_deep_composition_poly_evaluations_for_all_queries(
@@ -441,9 +445,9 @@ pub trait IsStarkVerifier {
             )
     }
 
-    fn step_4_verify_trace_and_composition_openings<F: IsFFTField, A: AIR<Field = F>>(
+    fn step_4_verify_trace_and_composition_openings<F: IsFFTField, A: AIR<FieldExtension = F>>(
         air: &A,
-        proof: &StarkProof<Self::Field>,
+        proof: &StarkProof<Self::FieldExtension>,
         challenges: &Challenges<F, A>,
     ) -> bool
     where
@@ -583,12 +587,12 @@ pub trait IsStarkVerifier {
     }
 
     fn reconstruct_deep_composition_poly_evaluations_for_all_queries<A>(
-        challenges: &Challenges<Self::Field, A>,
+        challenges: &Challenges<Self::FieldExtension, A>,
         domain: &Domain<Self::Field>,
-        proof: &StarkProof<Self::Field>,
+        proof: &StarkProof<Self::FieldExtension>,
     ) -> DeepPolynomialEvaluations<Self::Field>
     where
-        A: AIR<Field = Self::Field>,
+        A: AIR<Field = Self::Field, FieldExtension = Self::FieldExtension>,
     {
         let mut deep_poly_evaluations = Vec::new();
         let mut deep_poly_evaluations_sym = Vec::new();
@@ -619,17 +623,19 @@ pub trait IsStarkVerifier {
         (deep_poly_evaluations, deep_poly_evaluations_sym)
     }
 
-    fn reconstruct_deep_composition_poly_evaluation<A: AIR<Field = Self::Field>>(
+    fn reconstruct_deep_composition_poly_evaluation<
+        A: AIR<Field = Self::Field, FieldExtension = Self::FieldExtension>,
+    >(
         proof: &StarkProof<Self::Field>,
         evaluation_point: &FieldElement<Self::Field>,
         primitive_root: &FieldElement<Self::Field>,
-        challenges: &Challenges<Self::Field, A>,
+        challenges: &Challenges<Self::FieldExtension, A>,
         lde_trace_evaluations: &[FieldElement<Self::Field>],
         lde_composition_poly_parts_evaluation: &[FieldElement<Self::Field>],
     ) -> FieldElement<Self::Field> {
         let mut denoms_trace = (0..proof.trace_ood_evaluations.height)
-            .map(|row_idx| evaluation_point - &challenges.z * primitive_root.pow(row_idx as u64))
-            .collect::<Vec<FieldElement<Self::Field>>>();
+            .map(|row_idx| evaluation_point - primitive_root.pow(row_idx as u64) * &challenges.z)
+            .collect::<Vec<FieldElement<Self::FieldExtension>>>();
         FieldElement::inplace_batch_inverse(&mut denoms_trace).unwrap();
 
         let trace_term = (0..proof.trace_ood_evaluations.width)

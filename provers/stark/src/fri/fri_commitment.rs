@@ -22,7 +22,7 @@ where
 
 impl<F, B> FriLayer<F, B>
 where
-    F: IsField + IsFFTField,
+    F: IsField,
     FieldElement<F>: Serializable,
     B: IsMerkleTreeBackend,
 {

@@ -2,7 +2,7 @@ use lambdaworks_math::{
     field::{
         element::FieldElement,
         fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
-        traits::{IsFFTField, IsField},
+        traits::{IsFFTField, IsField, IsSubFieldOf},
     },
     traits::{ByteConversion, Serializable},
     unsigned_integer::element::U256,
@@ -15,18 +15,18 @@ pub trait IsStarkTranscript<F: IsField> {
     fn state(&self) -> [u8; 32];
     fn sample_field_element(&mut self) -> FieldElement<F>;
     fn sample_u64(&mut self, upper_bound: u64) -> u64;
-    fn sample_z_ood(
+    fn sample_z_ood<S: IsSubFieldOf<F>>(
         &mut self,
-        lde_roots_of_unity_coset: &[FieldElement<F>],
-        trace_roots_of_unity: &[FieldElement<F>],
+        lde_roots_of_unity_coset: &[FieldElement<S>],
+        trace_roots_of_unity: &[FieldElement<S>],
     ) -> FieldElement<F>
     where
         FieldElement<F>: Serializable,
     {
         loop {
             let value: FieldElement<F> = self.sample_field_element();
-            if !lde_roots_of_unity_coset.iter().any(|x| x == &value)
-                && !trace_roots_of_unity.iter().any(|x| x == &value)
+            if !lde_roots_of_unity_coset.iter().any(|x| x.to_extension() == value)
+                && !trace_roots_of_unity.iter().any(|x| x.to_extension() == value)
             {
                 return value;
             }

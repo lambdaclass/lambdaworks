@@ -1,5 +1,6 @@
 use crate::table::{Table, TableView};
 use lambdaworks_math::fft::errors::FFTError;
+use lambdaworks_math::field::traits::{IsField, IsSubFieldOf};
 use lambdaworks_math::{
     field::{element::FieldElement, traits::IsFFTField},
     polynomial::Polynomial,
@@ -15,12 +16,12 @@ use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 /// STARK protocol, such as the step size (number of consecutive rows of the table)
 /// of the computation being proven.
 #[derive(Clone, Default, Debug, PartialEq, Eq)]
-pub struct TraceTable<F: IsFFTField> {
+pub struct TraceTable<F: IsField> {
     pub table: Table<F>,
     pub step_size: usize,
 }
 
-impl<'t, F: IsFFTField> TraceTable<F> {
+impl<'t, F: IsField> TraceTable<F> {
     pub fn new(data: Vec<FieldElement<F>>, n_columns: usize, step_size: usize) -> Self {
         let table = Table::new(data, n_columns);
         Self { table, step_size }
@@ -110,7 +111,7 @@ impl<'t, F: IsFFTField> TraceTable<F> {
         self.table.get(row, col)
     }
 
-    pub fn compute_trace_polys(&self) -> Vec<Polynomial<FieldElement<F>>>
+    pub fn compute_trace_polys<S: IsFFTField + IsSubFieldOf<F>>(&self) -> Vec<Polynomial<FieldElement<F>>>
     where
         FieldElement<F>: Send + Sync,
     {
@@ -120,7 +121,7 @@ impl<'t, F: IsFFTField> TraceTable<F> {
         #[cfg(not(feature = "parallel"))]
         let iter = columns.iter();
 
-        iter.map(|col| Polynomial::interpolate_fft::<F>(col))
+        iter.map(|col| Polynomial::interpolate_fft::<S>(col))
             .collect::<Result<Vec<Polynomial<FieldElement<F>>>, FFTError>>()
             .unwrap()
     }
@@ -167,12 +168,12 @@ impl<'t, F: IsFFTField> TraceTable<F> {
 /// access the steps in a trace, in order to grab elements to calculate
 /// constraint evaluations.
 #[derive(Debug, Clone, PartialEq)]
-pub struct StepView<'t, F: IsFFTField> {
+pub struct StepView<'t, F: IsField> {
     pub table_view: TableView<'t, F>,
     pub step_idx: usize,
 }
 
-impl<'t, F: IsFFTField> StepView<'t, F> {
+impl<'t, F: IsField> StepView<'t, F> {
     pub fn new(table_view: TableView<'t, F>, step_idx: usize) -> Self {
         StepView {
             table_view,
@@ -196,20 +197,20 @@ impl<'t, F: IsFFTField> StepView<'t, F> {
 /// compute a transition.
 /// Example: For a simple Fibonacci computation, if t(x) is the trace polynomial of
 /// the computation, this will output evaluations t(x), t(g * x), t(g^2 * z).
-pub fn get_trace_evaluations<F: IsFFTField>(
-    trace_polys: &[Polynomial<FieldElement<F>>],
-    x: &FieldElement<F>,
+pub fn get_trace_evaluations<E: IsField, F: IsSubFieldOf<E>>(
+    trace_polys: &[Polynomial<FieldElement<E>>],
+    x: &FieldElement<E>,
     frame_offsets: &[usize],
     primitive_root: &FieldElement<F>,
-) -> Vec<Vec<FieldElement<F>>> {
+) -> Vec<Vec<FieldElement<E>>> {
     frame_offsets
         .iter()
-        .map(|offset| x * primitive_root.pow(*offset))
+        .map(|offset| primitive_root.pow(*offset) * x)
         .map(|eval_point| {
             trace_polys
                 .iter()
                 .map(|poly| poly.evaluate(&eval_point))
-                .collect::<Vec<FieldElement<F>>>()
+                .collect::<Vec<FieldElement<E>>>()
         })
         .collect()
 }

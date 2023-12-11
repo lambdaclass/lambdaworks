@@ -2,9 +2,11 @@ pub mod fri_commitment;
 pub mod fri_decommit;
 mod fri_functions;
 
-use lambdaworks_math::fft::cpu::bit_reversing::in_place_bit_reverse_permute;
-use lambdaworks_math::field::traits::IsFFTField;
+use lambdaworks_math::field::traits::{IsFFTField, IsField};
 use lambdaworks_math::traits::Serializable;
+use lambdaworks_math::{
+    fft::cpu::bit_reversing::in_place_bit_reverse_permute, field::traits::IsSubFieldOf,
+};
 pub use lambdaworks_math::{
     field::{element::FieldElement, fields::u64_prime_field::U64PrimeField},
     polynomial::Polynomial,
@@ -17,23 +19,24 @@ use self::fri_commitment::FriLayer;
 use self::fri_decommit::FriDecommitment;
 use self::fri_functions::fold_polynomial;
 
-pub fn commit_phase<F: IsFFTField>(
+pub fn commit_phase<F: IsFFTField + IsSubFieldOf<E>, E: IsField>(
     number_layers: usize,
-    p_0: Polynomial<FieldElement<F>>,
-    transcript: &mut impl IsStarkTranscript<F>,
+    p_0: Polynomial<FieldElement<E>>,
+    transcript: &mut impl IsStarkTranscript<E>,
     coset_offset: &FieldElement<F>,
     domain_size: usize,
 ) -> (
-    FieldElement<F>,
-    Vec<FriLayer<F, BatchedMerkleTreeBackend<F>>>,
+    FieldElement<E>,
+    Vec<FriLayer<E, BatchedMerkleTreeBackend<E>>>,
 )
 where
     FieldElement<F>: Serializable + Sync + Send,
+    FieldElement<E>: Serializable + Sync + Send,
 {
     let mut domain_size = domain_size;
 
     let mut fri_layer_list = Vec::with_capacity(number_layers);
-    let mut current_layer: FriLayer<F, BatchedMerkleTreeBackend<F>>;
+    let mut current_layer: FriLayer<E, BatchedMerkleTreeBackend<E>>;
     let mut current_poly = p_0;
 
     let mut coset_offset = coset_offset.clone();
@@ -71,7 +74,7 @@ where
     (last_value, fri_layer_list)
 }
 
-pub fn query_phase<F: IsFFTField>(
+pub fn query_phase<F: IsField>(
     fri_layers: &Vec<FriLayer<F, BatchedMerkleTreeBackend<F>>>,
     iotas: &[usize],
 ) -> Vec<FriDecommitment<F>>
@@ -109,14 +112,14 @@ where
     }
 }
 
-pub fn new_fri_layer<F: IsFFTField>(
-    poly: &Polynomial<FieldElement<F>>,
+pub fn new_fri_layer<F: IsFFTField + IsSubFieldOf<E>, E: IsField>(
+    poly: &Polynomial<FieldElement<E>>,
     coset_offset: &FieldElement<F>,
     domain_size: usize,
-) -> crate::fri::fri_commitment::FriLayer<F, BatchedMerkleTreeBackend<F>>
+) -> crate::fri::fri_commitment::FriLayer<E, BatchedMerkleTreeBackend<E>>
 where
-    F: IsFFTField,
     FieldElement<F>: Serializable + Sync + Send,
+    FieldElement<E>: Serializable + Sync + Send,
 {
     let mut evaluation =
         Polynomial::evaluate_offset_fft(poly, 1, Some(domain_size), coset_offset).unwrap(); // TODO: return error
@@ -130,5 +133,5 @@ where
 
     let merkle_tree = BatchedMerkleTree::build(&to_commit);
 
-    FriLayer::new(&evaluation, merkle_tree, coset_offset.clone(), domain_size)
+    FriLayer::new(&evaluation, merkle_tree, coset_offset.clone().to_extension(), domain_size)
 }

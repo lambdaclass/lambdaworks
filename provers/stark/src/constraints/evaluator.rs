@@ -19,11 +19,11 @@ use crate::trace::TraceTable;
 use crate::traits::AIR;
 use crate::{frame::Frame, prover::evaluate_polynomial_on_lde_domain};
 
-pub struct ConstraintEvaluator<F: IsFFTField> {
-    boundary_constraints: BoundaryConstraints<F>,
+pub struct ConstraintEvaluator<A: AIR> {
+    boundary_constraints: BoundaryConstraints<A::Field>,
 }
-impl<F: IsFFTField> ConstraintEvaluator<F> {
-    pub fn new<A: AIR<Field = F>>(air: &A, rap_challenges: &A::RAPChallenges) -> Self {
+impl<A: AIR> ConstraintEvaluator<A> {
+    pub fn new(air: &A, rap_challenges: &A::RAPChallenges) -> Self {
         let boundary_constraints = air.boundary_constraints(rap_challenges);
 
         Self {
@@ -31,23 +31,23 @@ impl<F: IsFFTField> ConstraintEvaluator<F> {
         }
     }
 
-    pub fn evaluate<A: AIR<Field = F>>(
+    pub fn evaluate(
         &self,
         air: &A,
-        lde_trace: &TraceTable<F>,
-        domain: &Domain<F>,
-        transition_coefficients: &[FieldElement<F>],
-        boundary_coefficients: &[FieldElement<F>],
+        lde_trace: &TraceTable<A::FieldExtension>,
+        domain: &Domain<A::Field>,
+        transition_coefficients: &[FieldElement<A::FieldExtension>],
+        boundary_coefficients: &[FieldElement<A::FieldExtension>],
         rap_challenges: &A::RAPChallenges,
-    ) -> Vec<FieldElement<F>>
+    ) -> Vec<FieldElement<A::FieldExtension>>
     where
-        FieldElement<F>: Serializable + Send + Sync,
+        FieldElement<A::Field>: Serializable + Send + Sync,
         A: Send + Sync,
         A::RAPChallenges: Send + Sync,
     {
         let boundary_constraints = &self.boundary_constraints;
         let number_of_b_constraints = boundary_constraints.constraints.len();
-        let boundary_zerofiers_inverse_evaluations: Vec<Vec<FieldElement<F>>> =
+        let boundary_zerofiers_inverse_evaluations: Vec<Vec<FieldElement<A::Field>>> =
             boundary_constraints
                 .constraints
                 .iter()
@@ -57,16 +57,16 @@ impl<F: IsFFTField> ConstraintEvaluator<F> {
                         .lde_roots_of_unity_coset
                         .iter()
                         .map(|v| v.clone() - point)
-                        .collect::<Vec<FieldElement<F>>>();
+                        .collect::<Vec<FieldElement<A::Field>>>();
                     FieldElement::inplace_batch_inverse(&mut evals).unwrap();
                     evals
                 })
-                .collect::<Vec<Vec<FieldElement<F>>>>();
+                .collect::<Vec<Vec<FieldElement<A::Field>>>>();
 
         let trace_length = air.trace_length();
 
         #[cfg(all(debug_assertions, not(feature = "parallel")))]
-        let boundary_polys: Vec<Polynomial<FieldElement<F>>> = Vec::new();
+        let boundary_polys: Vec<Polynomial<FieldElement<A::Field>>> = Vec::new();
 
         let lde_periodic_columns = air
             .get_periodic_column_polynomials()
@@ -79,7 +79,7 @@ impl<F: IsFFTField> ConstraintEvaluator<F> {
                     &domain.coset_offset,
                 )
             })
-            .collect::<Result<Vec<Vec<FieldElement<A::Field>>>, FFTError>>()
+            .collect::<Result<Vec<Vec<FieldElement<A::FieldExtension>>>, FFTError>>()
             .unwrap();
 
         let n_col = lde_trace.n_cols();
@@ -96,10 +96,10 @@ impl<F: IsFFTField> ConstraintEvaluator<F> {
                     .skip(col)
                     .step_by(n_col)
                     .take(n_elem)
-                    .map(|v| v - &constraint.value)
-                    .collect::<Vec<FieldElement<F>>>()
+                    .map(|v| -&constraint.value + v)
+                    .collect::<Vec<FieldElement<A::FieldExtension>>>()
             })
-            .collect::<Vec<Vec<FieldElement<F>>>>();
+            .collect::<Vec<Vec<FieldElement<A::FieldExtension>>>>();
 
         #[cfg(feature = "parallel")]
         let boundary_eval_iter = (0..domain.lde_roots_of_unity_coset.len()).into_par_iter();
@@ -117,7 +117,7 @@ impl<F: IsFFTField> ConstraintEvaluator<F> {
                             * &boundary_polys_evaluations[constraint_index][domain_index]
                     })
             })
-            .collect::<Vec<FieldElement<F>>>();
+            .collect::<Vec<FieldElement<A::FieldExtension>>>();
 
         #[cfg(all(debug_assertions, not(feature = "parallel")))]
         let boundary_zerofiers = Vec::new();
@@ -138,10 +138,10 @@ impl<F: IsFFTField> ConstraintEvaluator<F> {
 
         let blowup_factor_order = u64::from(blowup_factor.trailing_zeros());
 
-        let offset = FieldElement::<F>::from(air.context().proof_options.coset_offset);
+        let offset = FieldElement::<A::Field>::from(air.context().proof_options.coset_offset);
         let offset_pow = offset.pow(trace_length);
-        let one = FieldElement::<F>::one();
-        let mut zerofier_evaluations = get_powers_of_primitive_root_coset(
+        let one = FieldElement::one();
+        let mut zerofier_evaluations = get_powers_of_primitive_root_coset::<A::Field>(
             blowup_factor_order,
             blowup_factor as usize,
             &offset_pow,
@@ -187,7 +187,7 @@ impl<F: IsFFTField> ConstraintEvaluator<F> {
 
                 let periodic_values: Vec<_> = lde_periodic_columns
                     .iter()
-                    .map(|col| col[i].clone())
+                    .map(|col| col[i].clone().to_extension())
                     .collect();
 
                 // Compute all the transition constraints at this
@@ -212,14 +212,14 @@ impl<F: IsFFTField> ConstraintEvaluator<F> {
                         // If there's no exemption, then
                         // the zerofier remains as it was.
                         if *exemption == 0 {
-                            acc + zerofier * beta * eval
+                            acc + eval * zerofier * beta
                         } else {
                             //TODO: change how exemptions are indexed!
                             if num_exemptions == 1 {
-                                acc + zerofier
-                                    * beta
-                                    * eval
+                                acc + eval
                                     * &transition_exemptions_evaluations[0][i]
+                                    * beta
+                                    * zerofier
                             } else {
                                 // This case is not used for Cairo Programs, it can be improved in the future
                                 let vector = air
@@ -235,10 +235,10 @@ impl<F: IsFFTField> ConstraintEvaluator<F> {
                                     .position(|elem_2| elem_2 == exemption)
                                     .expect("is there");
 
-                                acc + zerofier
-                                    * beta
-                                    * eval
+                                acc + eval
                                     * &transition_exemptions_evaluations[index][i]
+                                    * zerofier
+                                    * beta
                             }
                         }
                     });
@@ -246,7 +246,7 @@ impl<F: IsFFTField> ConstraintEvaluator<F> {
 
                 acc_transition + boundary
             })
-            .collect::<Vec<FieldElement<F>>>();
+            .collect::<Vec<FieldElement<A::FieldExtension>>>();
 
         evaluations_t
     }
