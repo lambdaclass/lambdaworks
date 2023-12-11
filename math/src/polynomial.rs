@@ -1,5 +1,5 @@
 use super::field::element::FieldElement;
-use crate::field::traits::IsField;
+use crate::field::traits::{IsField, IsSubFieldOf};
 use std::ops;
 
 /// Represents the polynomial c_0 + c_1 * X + c_2 * X^2 + ... + c_n * X^n
@@ -202,7 +202,7 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
         }
     }
 
-    pub fn scale(&self, factor: &FieldElement<F>) -> Self {
+    pub fn scale<S: IsSubFieldOf<F>>(&self, factor: &FieldElement<S>) -> Self {
         let scaled_coefficients = self
             .coefficients
             .iter()

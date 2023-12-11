@@ -1,4 +1,7 @@
-use crate::field::{element::FieldElement, traits::IsFFTField};
+use crate::field::{
+    element::FieldElement,
+    traits::{IsFFTField, IsField, IsSubFieldOf},
+};
 
 /// In-Place Radix-2 NR DIT FFT algorithm over a slice of two-adic field elements.
 /// It's required that the twiddle factors are in bit-reverse order. Else this function will not
@@ -12,9 +15,12 @@ use crate::field::{element::FieldElement, traits::IsFFTField};
 /// - NR: natural to reverse order, meaning that the input is naturally ordered and the output will
 /// be bit-reversed ordered.
 /// - DIT: decimation in time
-pub fn in_place_nr_2radix_fft<F>(input: &mut [FieldElement<F>], twiddles: &[FieldElement<F>])
+///
+/// It supports values in a field E and domain in a subfield F.
+pub fn in_place_nr_2radix_fft<F, E>(input: &mut [FieldElement<E>], twiddles: &[FieldElement<F>])
 where
-    F: IsFFTField,
+    F: IsFFTField + IsSubFieldOf<E>,
+    E: IsField,
 {
     // divide input in groups, starting with 1, duplicating the number of groups in each stage.
     let mut group_count = 1;
@@ -60,6 +66,8 @@ where
 /// - RN: reverse to natural order, meaning that the input is bit-reversed ordered and the output will
 /// be naturally ordered.
 /// - DIT: decimation in time
+///
+/// It supports values in a field E and domain in a subfield F.
 #[allow(dead_code)]
 pub fn in_place_rn_2radix_fft<F>(input: &mut [FieldElement<F>], twiddles: &[FieldElement<F>])
 where
@@ -135,7 +143,7 @@ mod tests {
             let twiddles = get_twiddles(order.into(), RootsConfig::BitReverse).unwrap();
 
             let mut result = coeffs;
-            in_place_nr_2radix_fft(&mut result, &twiddles);
+            in_place_nr_2radix_fft::<F, F>(&mut result, &twiddles);
             in_place_bit_reverse_permute(&mut result);
 
             prop_assert_eq!(expected, result);

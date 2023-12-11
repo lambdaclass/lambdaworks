@@ -1,6 +1,5 @@
 use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 use lambdaworks_math::errors::DeserializationError;
-use lambdaworks_math::fft::polynomial::FFTPoly;
 use lambdaworks_math::field::traits::IsFFTField;
 use lambdaworks_math::traits::{Deserializable, IsRandomFieldElementGenerator, Serializable};
 use std::marker::PhantomData;
@@ -311,11 +310,11 @@ where
         witness: &Witness<F>,
         common_preprocessed_input: &CommonPreprocessedInput<F>,
     ) -> Round1Result<F, CS::Commitment> {
-        let p_a = Polynomial::interpolate_fft(&witness.a)
+        let p_a = Polynomial::interpolate_fft::<F>(&witness.a)
             .expect("xs and ys have equal length and xs are unique");
-        let p_b = Polynomial::interpolate_fft(&witness.b)
+        let p_b = Polynomial::interpolate_fft::<F>(&witness.b)
             .expect("xs and ys have equal length and xs are unique");
-        let p_c = Polynomial::interpolate_fft(&witness.c)
+        let p_c = Polynomial::interpolate_fft::<F>(&witness.c)
             .expect("xs and ys have equal length and xs are unique");
 
         let z_h = Polynomial::new_monomial(FieldElement::one(), common_preprocessed_input.n)
@@ -364,7 +363,7 @@ where
             coefficients.push(new_term);
         }
 
-        let p_z = Polynomial::interpolate_fft(&coefficients)
+        let p_z = Polynomial::interpolate_fft::<F>(&coefficients)
             .expect("xs and ys have equal length and xs are unique");
         let z_h = Polynomial::new_monomial(FieldElement::one(), common_preprocessed_input.n)
             - FieldElement::one();
@@ -392,7 +391,7 @@ where
         let k2 = &cpi.k1 * &cpi.k1;
 
         let one = Polynomial::new_monomial(FieldElement::one(), 0);
-        let p_x = &Polynomial::new_monomial(FieldElement::one(), 1);
+        let p_x = &Polynomial::new_monomial(FieldElement::<F>::one(), 1);
         let zh = Polynomial::new_monomial(FieldElement::one(), cpi.n) - &one;
 
         let z_x_omega_coefficients: Vec<FieldElement<F>> = p_z
@@ -402,13 +401,13 @@ where
             .map(|(i, x)| x * &cpi.domain[i % cpi.n])
             .collect();
         let z_x_omega = Polynomial::new(&z_x_omega_coefficients);
-        let mut e1 = vec![FieldElement::zero(); cpi.domain.len()];
+        let mut e1 = vec![FieldElement::<F>::zero(); cpi.domain.len()];
         e1[0] = FieldElement::one();
-        let l1 = Polynomial::interpolate_fft(&e1)
+        let l1 = Polynomial::interpolate_fft::<F>(&e1)
             .expect("xs and ys have equal length and xs are unique");
         let mut p_pi_y = public_input.to_vec();
         p_pi_y.append(&mut vec![FieldElement::zero(); cpi.n - public_input.len()]);
-        let p_pi = Polynomial::interpolate_fft(&p_pi_y)
+        let p_pi = Polynomial::interpolate_fft::<F>(&p_pi_y)
             .expect("xs and ys have equal length and xs are unique");
 
         // Compute p
@@ -417,24 +416,23 @@ where
         // TODO: check a factor of 4 is a sensible upper bound
         let degree = 4 * cpi.n;
         let offset = &cpi.k1;
-        let p_a_eval = p_a.evaluate_offset_fft(1, Some(degree), offset).unwrap();
-        let p_b_eval = p_b.evaluate_offset_fft(1, Some(degree), offset).unwrap();
-        let p_c_eval = p_c.evaluate_offset_fft(1, Some(degree), offset).unwrap();
-        let ql_eval = cpi.ql.evaluate_offset_fft(1, Some(degree), offset).unwrap();
-        let qr_eval = cpi.qr.evaluate_offset_fft(1, Some(degree), offset).unwrap();
-        let qm_eval = cpi.qm.evaluate_offset_fft(1, Some(degree), offset).unwrap();
-        let qo_eval = cpi.qo.evaluate_offset_fft(1, Some(degree), offset).unwrap();
-        let qc_eval = cpi.qc.evaluate_offset_fft(1, Some(degree), offset).unwrap();
-        let p_pi_eval = p_pi.evaluate_offset_fft(1, Some(degree), offset).unwrap();
-        let p_x_eval = p_x.evaluate_offset_fft(1, Some(degree), offset).unwrap();
-        let p_z_eval = p_z.evaluate_offset_fft(1, Some(degree), offset).unwrap();
-        let p_z_x_omega_eval = z_x_omega
-            .evaluate_offset_fft(1, Some(degree), offset)
-            .unwrap();
-        let p_s1_eval = cpi.s1.evaluate_offset_fft(1, Some(degree), offset).unwrap();
-        let p_s2_eval = cpi.s2.evaluate_offset_fft(1, Some(degree), offset).unwrap();
-        let p_s3_eval = cpi.s3.evaluate_offset_fft(1, Some(degree), offset).unwrap();
-        let l1_eval = l1.evaluate_offset_fft(1, Some(degree), offset).unwrap();
+        let p_a_eval = Polynomial::evaluate_offset_fft(p_a, 1, Some(degree), offset).unwrap();
+        let p_b_eval = Polynomial::evaluate_offset_fft(p_b, 1, Some(degree), offset).unwrap();
+        let p_c_eval = Polynomial::evaluate_offset_fft(p_c, 1, Some(degree), offset).unwrap();
+        let ql_eval = Polynomial::evaluate_offset_fft(&cpi.ql, 1, Some(degree), offset).unwrap();
+        let qr_eval = Polynomial::evaluate_offset_fft(&cpi.qr, 1, Some(degree), offset).unwrap();
+        let qm_eval = Polynomial::evaluate_offset_fft(&cpi.qm, 1, Some(degree), offset).unwrap();
+        let qo_eval = Polynomial::evaluate_offset_fft(&cpi.qo, 1, Some(degree), offset).unwrap();
+        let qc_eval = Polynomial::evaluate_offset_fft(&cpi.qc, 1, Some(degree), offset).unwrap();
+        let p_pi_eval = Polynomial::evaluate_offset_fft(&p_pi, 1, Some(degree), offset).unwrap();
+        let p_x_eval = Polynomial::evaluate_offset_fft(p_x, 1, Some(degree), offset).unwrap();
+        let p_z_eval = Polynomial::evaluate_offset_fft(p_z, 1, Some(degree), offset).unwrap();
+        let p_z_x_omega_eval =
+            Polynomial::evaluate_offset_fft(&z_x_omega, 1, Some(degree), offset).unwrap();
+        let p_s1_eval = Polynomial::evaluate_offset_fft(&cpi.s1, 1, Some(degree), offset).unwrap();
+        let p_s2_eval = Polynomial::evaluate_offset_fft(&cpi.s2, 1, Some(degree), offset).unwrap();
+        let p_s3_eval = Polynomial::evaluate_offset_fft(&cpi.s3, 1, Some(degree), offset).unwrap();
+        let l1_eval = Polynomial::evaluate_offset_fft(&l1, 1, Some(degree), offset).unwrap();
 
         let p_constraints_eval: Vec<_> = p_a_eval
             .iter()
@@ -496,7 +494,7 @@ where
             .map(|((p2, p1), co)| (p2 * &alpha + p1) * &alpha + co)
             .collect();
 
-        let mut zh_eval = zh.evaluate_offset_fft(1, Some(degree), offset).unwrap();
+        let mut zh_eval = Polynomial::evaluate_offset_fft(&zh, 1, Some(degree), offset).unwrap();
         FieldElement::inplace_batch_inverse(&mut zh_eval).unwrap();
         let c: Vec<_> = p_eval
             .iter()
