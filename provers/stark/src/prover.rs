@@ -163,6 +163,7 @@ pub trait IsStarkProver {
     ) -> Vec<Vec<FieldElement<Self::FieldExtension>>>
     where
         FieldElement<Self::Field>: Send + Sync,
+        FieldElement<Self::FieldExtension>: Send + Sync,
     {
         #[cfg(not(feature = "parallel"))]
         let trace_polys_iter = trace_polys.iter();

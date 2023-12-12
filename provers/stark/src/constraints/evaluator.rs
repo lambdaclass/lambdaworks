@@ -45,6 +45,7 @@ impl<A: AIR> ConstraintEvaluator<A> {
     ) -> Vec<FieldElement<A::FieldExtension>>
     where
         FieldElement<A::Field>: Serializable + Send + Sync,
+        FieldElement<A::FieldExtension>: Serializable + Send + Sync,
         A: Send + Sync,
         A::RAPChallenges: Send + Sync,
     {
@@ -261,6 +262,7 @@ fn evaluate_transition_exemptions<F: IsFFTField + IsSubFieldOf<E>, E: IsField>(
 ) -> Vec<Vec<FieldElement<E>>>
 where
     FieldElement<F>: Send + Sync + Serializable,
+    FieldElement<E>: Send + Sync + Serializable,
     Polynomial<FieldElement<F>>: Send + Sync,
 {
     #[cfg(feature = "parallel")]
