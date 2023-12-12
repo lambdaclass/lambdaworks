@@ -284,7 +284,7 @@ mod tests {
             trace_info: TraceInfo::new(2, 8),
         };
 
-        let proof = Prover::prove::<AirAdapter<FibAir2Terms, TraceTable<_>>>(
+        let proof = Prover::<AirAdapter<FibAir2Terms, TraceTable<_>>>::prove(
             &trace,
             &pub_inputs,
             &lambda_proof_options,
@@ -316,7 +316,7 @@ mod tests {
             trace_info,
         };
 
-        let proof = Prover::prove::<AirAdapter<FibonacciRAP, RapTraceTable<_>>>(
+        let proof = Prover::<AirAdapter<FibonacciRAP, RapTraceTable<_>>>::prove(
             &trace,
             &pub_inputs,
             &lambda_proof_options,

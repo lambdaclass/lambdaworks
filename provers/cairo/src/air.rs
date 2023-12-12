@@ -1276,7 +1276,7 @@ pub fn generate_cairo_proof(
     pub_input: &PublicInputs,
     proof_options: &ProofOptions,
 ) -> Result<StarkProof<Stark252PrimeField>, ProvingError> {
-    Prover::prove::<CairoAIR>(
+    Prover::<CairoAIR>::prove(
         trace,
         pub_input,
         proof_options,

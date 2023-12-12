@@ -454,7 +454,7 @@ mod tests {
             claimed_index,
         };
 
-        let proof = Prover::prove::<Fibonacci2ColsShifted<_>>(
+        let proof = Prover::<Fibonacci2ColsShifted<_>>::prove(
             &trace,
             &pub_inputs,
             &proof_options,
@@ -532,7 +532,7 @@ mod tests {
             claimed_index,
         };
 
-        let proof = Prover::prove::<Fibonacci2ColsShifted<_>>(
+        let proof = Prover::<Fibonacci2ColsShifted<_>>::prove(
             &trace,
             &pub_inputs,
             &proof_options,
@@ -624,7 +624,7 @@ mod tests {
             claimed_index,
         };
 
-        let proof = Prover::prove::<Fibonacci2ColsShifted<_>>(
+        let proof = Prover::<Fibonacci2ColsShifted<_>>::prove(
             &trace,
             &pub_inputs,
             &proof_options,
@@ -888,7 +888,7 @@ mod tests {
             claimed_index,
         };
 
-        let proof = Prover::prove::<Fibonacci2ColsShifted<_>>(
+        let proof = Prover::<Fibonacci2ColsShifted<_>>::prove(
             &trace,
             &pub_inputs,
             &proof_options,
@@ -966,7 +966,7 @@ mod tests {
             claimed_index,
         };
 
-        let proof = Prover::prove::<Fibonacci2ColsShifted<_>>(
+        let proof = Prover::<Fibonacci2ColsShifted<_>>::prove(
             &trace,
             &pub_inputs,
             &proof_options,
