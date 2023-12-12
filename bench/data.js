@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1702322464495,
+  "lastUpdate": 1702395621414,
   "repoUrl": "https://github.com/lambdaclass/lambdaworks",
   "entries": {
     "Benchmark": [
@@ -14417,6 +14417,150 @@ window.BENCHMARK_DATA = {
             "name": "Polynomial/div by 'x - b' with Ruffini",
             "value": 109,
             "range": "± 0",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "ajgarassino@gmail.com",
+            "name": "Agustín Garassino",
+            "username": "ajgara"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "606319702d15482877a05f1c47f98ca9161130b9",
+          "message": "Miden adapter (#681)\n\n* Add winterfell adapter in other crate\n\n* Add README\n\n* Better README\n\n* Reestructure files\n\n* Remove unnecessary code\n\n* todo's at the end\n\n* Reorder code\n\n* Clippy\n\n* cargo format\n\n* Improve readme\n\n* remove from workspace dependencies\n\n* Fix\n\n* Fixes\n\n* Fix for new frame\n\n* Many changes for a proof of concept of miden compatibility\n\n* Add periodic columns and a Fibonacci example using a periodic column\n\n* Format and better code\n\n* Clippy\n\n* Cargo fmt\n\n* Adding periodic values, adding degree bound for composition polynomial\n\n* Add num_transition_exemptions to air adapter\n\n* Fix in compute transitions of adapter and add tests for fibnacci miden/cubic air\n\n* Fix bug in constraint indexing. Cargo fmt and clippy.\n\n* Benches\n\n* Use same proof options for winterfell and lambdaworks in benchmark\n\n* Update fibonacci size, add benches to readme\n\n* put winterfell and miden as optional dependencies in the math and provers lambdaworks packages\n\n* add metadata to fromcolumns\n\n* add metadata to air adapter\n\n* Transcript is not a fixed number\n\n* remove trace from air adapter public inputs\n\n* move files to examples\n\n* move winterfell field to fields dir\n\n* use winterfell fork\n\n* fix dependencies to use forked miden and winterfell\n\n* Delete provers/stark/src/examples/fibonacci_periodic_cols.rs\n\n* Update mod.rs\n\n* move tests to correct files\n\n* fmt\n\n* fix benches\n\n---------\n\nCo-authored-by: Sergio Chouhy <sergio.chouhy@gmail.com>\nCo-authored-by: Sergio Chouhy <41742639+schouhy@users.noreply.github.com>",
+          "timestamp": "2023-12-12T15:29:03Z",
+          "tree_id": "e127070877d4288a3854aedf029a2169d86eb6ab",
+          "url": "https://github.com/lambdaclass/lambdaworks/commit/606319702d15482877a05f1c47f98ca9161130b9"
+        },
+        "date": 1702395616563,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "Ordered FFT/Parallel (Metal)",
+            "value": 73758801,
+            "range": "± 2601908",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #2",
+            "value": 146733194,
+            "range": "± 3144256",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #3",
+            "value": 288552552,
+            "range": "± 6381632",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #4",
+            "value": 609024354,
+            "range": "± 20619901",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal)",
+            "value": 32879026,
+            "range": "± 338550",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #2",
+            "value": 65353906,
+            "range": "± 665640",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #3",
+            "value": 127914036,
+            "range": "± 1289959",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #4",
+            "value": 260084948,
+            "range": "± 4062189",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal)",
+            "value": 27069462,
+            "range": "± 380298",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #2",
+            "value": 50047478,
+            "range": "± 2138734",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #3",
+            "value": 110646293,
+            "range": "± 4728311",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #4",
+            "value": 248330541,
+            "range": "± 15093965",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal",
+            "value": 111053168,
+            "range": "± 1136675",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #2",
+            "value": 224909652,
+            "range": "± 1323859",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #3",
+            "value": 461718302,
+            "range": "± 4781246",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #4",
+            "value": 925973583,
+            "range": "± 13311581",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal",
+            "value": 402301135,
+            "range": "± 2624222",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #2",
+            "value": 782641750,
+            "range": "± 4284075",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #3",
+            "value": 1548040625,
+            "range": "± 8092862",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #4",
+            "value": 3067938458,
+            "range": "± 8814850",
             "unit": "ns/iter"
           }
         ]
