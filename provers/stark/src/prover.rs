@@ -34,7 +34,7 @@ use super::trace::TraceTable;
 use super::traits::AIR;
 
 pub struct Prover<A: AIR> {
-    phantom: A,
+    _phantom: A,
 }
 
 impl<A: AIR> IsStarkProver<A> for Prover<A> {}
