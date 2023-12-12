@@ -1,3 +1,4 @@
+use std::marker::PhantomData;
 #[cfg(feature = "instruments")]
 use std::time::Instant;
 
@@ -13,8 +14,7 @@ use lambdaworks_math::{
     fft::cpu::bit_reversing::reverse_index,
     field::{
         element::FieldElement,
-        fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
-        traits::{IsFFTField, IsField, IsSubFieldOf},
+        traits::{IsFFTField, IsField},
     },
     traits::Serializable,
 };
@@ -29,7 +29,7 @@ use super::{
 };
 
 pub struct Verifier<A: AIR> {
-    phantom: A,
+    phantom: PhantomData<A>,
 }
 
 impl<A: AIR> IsStarkVerifier<A> for Verifier<A> {}
