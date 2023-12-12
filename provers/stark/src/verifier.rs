@@ -66,7 +66,7 @@ pub trait IsStarkVerifier<A: AIR> {
 
     fn step_1_replay_rounds_and_recover_challenges(
         air: &A,
-        proof: &StarkProof<A::FieldExtension>,
+        proof: &StarkProof<A::Field, A::FieldExtension>,
         domain: &Domain<A::Field>,
         transcript: &mut impl IsStarkTranscript<A::FieldExtension>,
     ) -> Challenges<A::FieldExtension, A>
@@ -201,7 +201,7 @@ pub trait IsStarkVerifier<A: AIR> {
 
     fn step_2_verify_claimed_composition_polynomial(
         air: &A,
-        proof: &StarkProof<A::FieldExtension>,
+        proof: &StarkProof<A::Field, A::FieldExtension>,
         domain: &Domain<A::Field>,
         challenges: &Challenges<A::FieldExtension, A>,
     ) -> bool {
@@ -296,7 +296,7 @@ pub trait IsStarkVerifier<A: AIR> {
     }
 
     fn step_3_verify_fri(
-        proof: &StarkProof<A::FieldExtension>,
+        proof: &StarkProof<A::Field, A::FieldExtension>,
         domain: &Domain<A::Field>,
         challenges: &Challenges<A::FieldExtension, A>,
     ) -> bool
@@ -372,9 +372,9 @@ pub trait IsStarkVerifier<A: AIR> {
     /// where 𝜐 and -𝜐 are the elements corresponding to the index challenge `iota`.
     fn verify_trace_openings(
         num_main_columns: usize,
-        proof: &StarkProof<A::FieldExtension>,
-        deep_poly_openings: &DeepPolynomialOpening<A::FieldExtension>,
-        deep_poly_openings_sym: &DeepPolynomialOpening<A::FieldExtension>,
+        proof: &StarkProof<A::Field, A::FieldExtension>,
+        deep_poly_openings: &DeepPolynomialOpening<A::Field, A::FieldExtension>,
+        deep_poly_openings_sym: &DeepPolynomialOpening<A::Field, A::FieldExtension>,
         iota: usize,
     ) -> bool
     where
@@ -416,8 +416,8 @@ pub trait IsStarkVerifier<A: AIR> {
     /// Verify opening Open(Hᵢ(D_LDE), 𝜐) and Open(Hᵢ(D_LDE), -𝜐) for all parts Hᵢof the composition
     /// polynomial, where 𝜐 and -𝜐 are the elements corresponding to the index challenge `iota`.
     fn verify_composition_poly_opening(
-        deep_poly_openings: &DeepPolynomialOpening<A::FieldExtension>,
-        deep_poly_openings_sym: &DeepPolynomialOpening<A::FieldExtension>,
+        deep_poly_openings: &DeepPolynomialOpening<A::Field, A::FieldExtension>,
+        deep_poly_openings_sym: &DeepPolynomialOpening<A::Field, A::FieldExtension>,
         composition_poly_merkle_root: &Commitment,
         iota: &usize,
     ) -> bool
@@ -441,7 +441,7 @@ pub trait IsStarkVerifier<A: AIR> {
 
     fn step_4_verify_trace_and_composition_openings(
         air: &A,
-        proof: &StarkProof<A::FieldExtension>,
+        proof: &StarkProof<A::Field, A::FieldExtension>,
         challenges: &Challenges<A::FieldExtension, A>,
     ) -> bool
     where
@@ -510,7 +510,7 @@ pub trait IsStarkVerifier<A: AIR> {
     /// `deep_composition_evaluation`: precomputed value of p₀(𝜐), where p₀ is the deep composition polynomial.
     /// `deep_composition_evaluation_sym`: precomputed value of p₀(-𝜐), where p₀ is the deep composition polynomial.
     fn verify_query_and_sym_openings(
-        proof: &StarkProof<A::FieldExtension>,
+        proof: &StarkProof<A::Field, A::FieldExtension>,
         zetas: &[FieldElement<A::FieldExtension>],
         iota: usize,
         fri_decommitment: &FriDecommitment<A::FieldExtension>,
@@ -586,7 +586,7 @@ pub trait IsStarkVerifier<A: AIR> {
     fn reconstruct_deep_composition_poly_evaluations_for_all_queries(
         challenges: &Challenges<A::FieldExtension, A>,
         domain: &Domain<A::Field>,
-        proof: &StarkProof<A::FieldExtension>,
+        proof: &StarkProof<A::Field, A::FieldExtension>,
     ) -> DeepPolynomialEvaluations<A::FieldExtension> {
         let mut deep_poly_evaluations = Vec::new();
         let mut deep_poly_evaluations_sym = Vec::new();
@@ -618,7 +618,7 @@ pub trait IsStarkVerifier<A: AIR> {
     }
 
     fn reconstruct_deep_composition_poly_evaluation(
-        proof: &StarkProof<A::FieldExtension>,
+        proof: &StarkProof<A::Field, A::FieldExtension>,
         evaluation_point: &FieldElement<A::Field>,
         primitive_root: &FieldElement<A::Field>,
         challenges: &Challenges<A::FieldExtension, A>,
@@ -661,7 +661,7 @@ pub trait IsStarkVerifier<A: AIR> {
     }
 
     fn verify(
-        proof: &StarkProof<A::FieldExtension>,
+        proof: &StarkProof<A::Field, A::FieldExtension>,
         pub_input: &A::PublicInputs,
         proof_options: &ProofOptions,
         mut transcript: impl IsStarkTranscript<A::FieldExtension>,

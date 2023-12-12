@@ -7,7 +7,7 @@ use lambdaworks_math::fft::cpu::bit_reversing::{in_place_bit_reverse_permute, re
 use lambdaworks_math::fft::errors::FFTError;
 
 use lambdaworks_math::field::traits::{IsField, IsSubFieldOf};
-use lambdaworks_math::traits::Serializable;
+use lambdaworks_math::traits::{ByteConversion, Serializable};
 use lambdaworks_math::{
     field::{element::FieldElement, traits::IsFFTField},
     polynomial::Polynomial,
@@ -20,7 +20,7 @@ use rayon::prelude::{IndexedParallelIterator, IntoParallelRefIterator, ParallelI
 #[cfg(debug_assertions)]
 use crate::debug::validate_trace;
 use crate::fri;
-use crate::proof::stark::DeepPolynomialOpenings;
+use crate::proof::stark::{DeepPolynomialOpenings, PolynomialOpenings};
 use crate::table::Table;
 use crate::transcript::IsStarkTranscript;
 
@@ -45,18 +45,66 @@ pub enum ProvingError {
     WrongParameter(String),
 }
 
+pub struct Round1CommitmentData<F>
+where
+    F: IsField,
+    FieldElement<F>: Serializable + Send + Sync,
+{
+    pub(crate) trace_polys: Vec<Polynomial<FieldElement<F>>>,
+    pub(crate) lde_trace: TraceTable<F>,
+    pub(crate) lde_trace_merkle_tree: BatchedMerkleTree<F>,
+    pub(crate) lde_trace_merkle_root: Commitment,
+}
+
 pub struct Round1<A>
 where
     A: AIR,
     FieldElement<A::FieldExtension>: Serializable + Sync + Send,
+    FieldElement<A::Field>: Serializable + Sync + Send,
 {
-    pub(crate) trace_polys: Vec<Polynomial<FieldElement<A::FieldExtension>>>,
-    pub(crate) lde_trace: TraceTable<A::FieldExtension>,
-    pub(crate) lde_trace_merkle_trees: Vec<BatchedMerkleTree<A::FieldExtension>>,
-    pub(crate) lde_trace_merkle_roots: Vec<Commitment>,
+    pub(crate) main: Round1CommitmentData<A::Field>,
+    pub(crate) aux: Option<Round1CommitmentData<A::FieldExtension>>,
     pub(crate) rap_challenges: A::RAPChallenges,
 }
 
+impl<A> Round1<A>
+where
+    A: AIR,
+    FieldElement<A::FieldExtension>: Serializable + Sync + Send,
+    FieldElement<A::Field>: Serializable + Sync + Send,
+{
+    fn all_trace_polys(&self) -> Vec<Polynomial<FieldElement<A::FieldExtension>>> {
+        let mut trace_polys: Vec<_> = self
+            .main
+            .trace_polys
+            .clone()
+            .into_iter()
+            .map(|poly| poly.to_extension())
+            .collect();
+
+        if let Some(aux) = self.aux {
+            trace_polys.extend_from_slice(&aux.trace_polys.to_owned())
+        }
+        trace_polys
+    }
+
+    fn all_evaluations(&self) -> TraceTable<A::FieldExtension> {
+        let mut evaluations: Vec<Vec<FieldElement<A::FieldExtension>>> = self
+            .main
+            .lde_trace
+            .columns()
+            .clone()
+            .into_iter()
+            .map(|col| col.into_iter().map(|x| x.to_extension()).collect())
+            .collect();
+
+        if let Some(aux) = self.aux {
+            evaluations.extend_from_slice(&aux.lde_trace.columns())
+        }
+
+        TraceTable::from_columns(evaluations, A::STEP_SIZE)
+    }
+}
 pub struct Round2<F>
 where
     F: IsField,
@@ -73,12 +121,11 @@ pub struct Round3<F: IsField> {
     composition_poly_parts_ood_evaluation: Vec<FieldElement<F>>,
 }
 
-pub struct Round4<F: IsField> {
-    fri_last_value: FieldElement<F>,
+pub struct Round4<F: IsSubFieldOf<E>, E: IsField> {
+    fri_last_value: FieldElement<E>,
     fri_layers_merkle_roots: Vec<Commitment>,
-    deep_poly_openings: DeepPolynomialOpenings<F>,
-    deep_poly_openings_sym: DeepPolynomialOpenings<F>,
-    query_list: Vec<FriDecommitment<F>>,
+    deep_poly_openings: DeepPolynomialOpenings<F, E>,
+    query_list: Vec<FriDecommitment<E>>,
     nonce: Option<u64>,
 }
 pub fn evaluate_polynomial_on_lde_domain<F, E>(
@@ -100,32 +147,36 @@ where
 }
 
 pub trait IsStarkProver<A: AIR> {
-    fn batch_commit(
-        vectors: &[Vec<FieldElement<A::FieldExtension>>],
-    ) -> (BatchedMerkleTree<A::FieldExtension>, Commitment)
+    fn batch_commit<E>(vectors: &[Vec<FieldElement<E>>]) -> (BatchedMerkleTree<E>, Commitment)
     where
         FieldElement<A::Field>: Serializable + Sync + Send,
         FieldElement<A::FieldExtension>: Serializable + Sync + Send,
+        FieldElement<E>: Serializable + Sync + Send,
+        E: IsSubFieldOf<A::FieldExtension>,
+        A::Field: IsSubFieldOf<E>,
     {
-        let tree = BatchedMerkleTree::<A::FieldExtension>::build(vectors);
+        let tree = BatchedMerkleTree::<E>::build(vectors);
         let commitment = tree.root;
         (tree, commitment)
     }
 
     #[allow(clippy::type_complexity)]
-    fn interpolate_and_commit(
-        trace: &TraceTable<A::FieldExtension>,
+    fn interpolate_and_commit<E>(
+        trace: &TraceTable<E>,
         domain: &Domain<A::Field>,
         transcript: &mut impl IsStarkTranscript<A::FieldExtension>,
     ) -> (
-        Vec<Polynomial<FieldElement<A::FieldExtension>>>,
-        Vec<Vec<FieldElement<A::FieldExtension>>>,
-        BatchedMerkleTree<A::FieldExtension>,
+        Vec<Polynomial<FieldElement<E>>>,
+        Vec<Vec<FieldElement<E>>>,
+        BatchedMerkleTree<E>,
         Commitment,
     )
     where
         FieldElement<A::Field>: Serializable + Send + Sync,
+        FieldElement<E>: Serializable + Send + Sync,
         FieldElement<A::FieldExtension>: Serializable + Send + Sync,
+        E: IsSubFieldOf<A::FieldExtension>,
+        A::Field: IsSubFieldOf<E>,
     {
         let trace_polys = trace.compute_trace_polys::<A::Field>();
 
@@ -153,13 +204,15 @@ pub trait IsStarkProver<A: AIR> {
         )
     }
 
-    fn compute_lde_trace_evaluations(
-        trace_polys: &[Polynomial<FieldElement<A::FieldExtension>>],
+    fn compute_lde_trace_evaluations<E>(
+        trace_polys: &[Polynomial<FieldElement<E>>],
         domain: &Domain<A::Field>,
-    ) -> Vec<Vec<FieldElement<A::FieldExtension>>>
+    ) -> Vec<Vec<FieldElement<E>>>
     where
         FieldElement<A::Field>: Send + Sync,
         FieldElement<A::FieldExtension>: Send + Sync,
+        E: IsSubFieldOf<A::FieldExtension>,
+        A::Field: IsSubFieldOf<E>,
     {
         #[cfg(not(feature = "parallel"))]
         let trace_polys_iter = trace_polys.iter();
@@ -175,13 +228,13 @@ pub trait IsStarkProver<A: AIR> {
                     &domain.coset_offset,
                 )
             })
-            .collect::<Result<Vec<Vec<FieldElement<A::FieldExtension>>>, FFTError>>()
+            .collect::<Result<Vec<Vec<FieldElement<E>>>, FFTError>>()
             .unwrap()
     }
 
     fn round_1_randomized_air_with_preprocessing(
         air: &A,
-        main_trace: &TraceTable<A::FieldExtension>,
+        main_trace: &TraceTable<A::Field>,
         domain: &Domain<A::Field>,
         transcript: &mut impl IsStarkTranscript<A::FieldExtension>,
     ) -> Result<Round1<A>, ProvingError>
@@ -189,32 +242,36 @@ pub trait IsStarkProver<A: AIR> {
         FieldElement<A::Field>: Serializable + Send + Sync,
         FieldElement<A::FieldExtension>: Serializable + Send + Sync,
     {
-        let (mut trace_polys, mut evaluations, main_merkle_tree, main_merkle_root) =
-            Self::interpolate_and_commit(main_trace, domain, transcript);
+        let (trace_polys, evaluations, main_merkle_tree, main_merkle_root) =
+            Self::interpolate_and_commit::<A::Field>(main_trace, domain, transcript);
+
+        let main = Round1CommitmentData::<A::Field> {
+            trace_polys,
+            lde_trace: TraceTable::from_columns(evaluations, A::STEP_SIZE),
+            lde_trace_merkle_tree: main_merkle_tree,
+            lde_trace_merkle_root: main_merkle_root,
+        };
 
         let rap_challenges = air.build_rap_challenges(transcript);
 
         let aux_trace = air.build_auxiliary_trace(main_trace, &rap_challenges);
-
-        let mut lde_trace_merkle_trees = vec![main_merkle_tree];
-        let mut lde_trace_merkle_roots = vec![main_merkle_root];
-        if !aux_trace.is_empty() {
+        let aux = if !aux_trace.is_empty() {
             // Check that this is valid for interpolation
             let (aux_trace_polys, aux_trace_polys_evaluations, aux_merkle_tree, aux_merkle_root) =
                 Self::interpolate_and_commit(&aux_trace, domain, transcript);
-            trace_polys.extend_from_slice(&aux_trace_polys);
-            evaluations.extend_from_slice(&aux_trace_polys_evaluations);
-            lde_trace_merkle_trees.push(aux_merkle_tree);
-            lde_trace_merkle_roots.push(aux_merkle_root);
-        }
-
-        let lde_trace = TraceTable::from_columns(evaluations, A::STEP_SIZE);
+            Some(Round1CommitmentData::<A::FieldExtension> {
+                trace_polys: aux_trace_polys,
+                lde_trace: TraceTable::from_columns(aux_trace_polys_evaluations, A::STEP_SIZE),
+                lde_trace_merkle_tree: aux_merkle_tree,
+                lde_trace_merkle_root: aux_merkle_root,
+            })
+        } else {
+            None
+        };
 
         Ok(Round1 {
-            trace_polys,
-            lde_trace,
-            lde_trace_merkle_roots,
-            lde_trace_merkle_trees,
+            main,
+            aux,
             rap_challenges,
         })
     }
@@ -266,7 +323,7 @@ pub trait IsStarkProver<A: AIR> {
 
         let constraint_evaluations = evaluator.evaluate(
             air,
-            &round_1_result.lde_trace,
+            &round_1_result.all_evaluations(),
             domain,
             transition_coefficients,
             boundary_coefficients,
@@ -333,8 +390,9 @@ pub trait IsStarkProver<A: AIR> {
         //
         // In the fibonacci example, the ood frame is simply the evaluations `[t(z), t(z * g), t(z * g^2)]`, where `t` is the trace
         // polynomial and `g` is the primitive root of unity used when interpolating `t`.
+
         let trace_ood_evaluations = crate::trace::get_trace_evaluations(
-            &round_1_result.trace_polys,
+            &round_1_result.all_trace_polys(),
             z,
             &air.context().transition_offsets,
             &domain.trace_primitive_root,
@@ -354,7 +412,7 @@ pub trait IsStarkProver<A: AIR> {
         round_3_result: &Round3<A::FieldExtension>,
         z: &FieldElement<A::FieldExtension>,
         transcript: &mut impl IsStarkTranscript<A::FieldExtension>,
-    ) -> Round4<A::FieldExtension>
+    ) -> Round4<A::Field, A::FieldExtension>
     where
         FieldElement<A::Field>: Serializable + Send + Sync,
         FieldElement<A::FieldExtension>: Serializable + Send + Sync,
@@ -382,7 +440,7 @@ pub trait IsStarkProver<A: AIR> {
         // Compute p₀ (deep composition polynomial)
         let deep_composition_poly = Self::compute_deep_composition_poly(
             air,
-            &round_1_result.trace_polys,
+            &round_1_result.all_trace_polys(),
             round_2_result,
             round_3_result,
             z,
@@ -421,14 +479,13 @@ pub trait IsStarkProver<A: AIR> {
             .map(|layer| layer.merkle_tree.root)
             .collect();
 
-        let (deep_poly_openings, deep_poly_openings_sym) =
+        let deep_poly_openings =
             Self::open_deep_composition_poly(domain, round_1_result, round_2_result, &iotas);
 
         Round4 {
             fri_last_value,
             fri_layers_merkle_roots,
             deep_poly_openings,
-            deep_poly_openings_sym,
             query_list,
             nonce,
         }
@@ -569,7 +626,7 @@ pub trait IsStarkProver<A: AIR> {
         composition_poly_merkle_tree: &BatchedMerkleTree<A::FieldExtension>,
         lde_composition_poly_evaluations: &[Vec<FieldElement<A::FieldExtension>>],
         index: usize,
-    ) -> (Proof<Commitment>, Vec<FieldElement<A::FieldExtension>>)
+    ) -> PolynomialOpenings<A::FieldExtension>
     where
         FieldElement<A::Field>: Serializable + Sync + Send,
         FieldElement<A::FieldExtension>: Serializable + Sync + Send,
@@ -588,35 +645,48 @@ pub trait IsStarkProver<A: AIR> {
             })
             .collect();
 
-        (proof, lde_composition_poly_parts_evaluation)
+        PolynomialOpenings {
+            proof: proof.clone(),
+            proof_sym: proof,
+            evaluations: lde_composition_poly_parts_evaluation
+                .clone()
+                .into_iter()
+                .step_by(2)
+                .collect(),
+            evaluations_sym: lde_composition_poly_parts_evaluation
+                .into_iter()
+                .skip(1)
+                .step_by(2)
+                .collect(),
+        }
     }
 
-    fn open_trace_polys(
+    fn open_trace_polys<E>(
         domain: &Domain<A::Field>,
-        lde_trace_merkle_trees: &[BatchedMerkleTree<A::FieldExtension>],
-        lde_trace: &TraceTable<A::FieldExtension>,
-        index: usize,
-    ) -> (Vec<Proof<Commitment>>, Vec<FieldElement<A::FieldExtension>>)
+        tree: &BatchedMerkleTree<E>,
+        lde_trace: &TraceTable<E>,
+        challenge: usize,
+    ) -> PolynomialOpenings<E>
     where
         FieldElement<A::Field>: Serializable + Sync + Send,
-        FieldElement<A::FieldExtension>: Serializable + Sync + Send,
+        FieldElement<E>: Serializable + Sync + Send,
+        A::Field: IsSubFieldOf<E>,
+        E: IsField,
     {
         let domain_size = domain.lde_roots_of_unity_coset.len();
-        let lde_trace_evaluations = lde_trace
-            .get_row(reverse_index(index, domain_size as u64))
-            .to_vec();
 
-        // Trace polynomials openings
-        #[cfg(feature = "parallel")]
-        let merkle_trees_iter = lde_trace_merkle_trees.par_iter();
-        #[cfg(not(feature = "parallel"))]
-        let merkle_trees_iter = lde_trace_merkle_trees.iter();
-
-        let lde_trace_merkle_proofs: Vec<Proof<[u8; 32]>> = merkle_trees_iter
-            .map(|tree| tree.get_proof_by_pos(index).unwrap())
-            .collect();
-
-        (lde_trace_merkle_proofs, lde_trace_evaluations)
+        let index = challenge * 2;
+        let index_sym = challenge * 2 + 1;
+        PolynomialOpenings {
+            proof: tree.get_proof_by_pos(index).unwrap(),
+            proof_sym: tree.get_proof_by_pos(index_sym).unwrap(),
+            evaluations: lde_trace
+                .get_row(reverse_index(index, domain_size as u64))
+                .to_vec(),
+            evaluations_sym: lde_trace
+                .get_row(reverse_index(index_sym, domain_size as u64))
+                .to_vec(),
+        }
     }
 
     /// Open the deep composition polynomial on a list of indexes
@@ -626,63 +696,35 @@ pub trait IsStarkProver<A: AIR> {
         round_1_result: &Round1<A>,
         round_2_result: &Round2<A::FieldExtension>,
         indexes_to_open: &[usize],
-    ) -> (
-        DeepPolynomialOpenings<A::FieldExtension>,
-        DeepPolynomialOpenings<A::FieldExtension>,
-    )
+    ) -> DeepPolynomialOpenings<A::Field, A::FieldExtension>
     where
         FieldElement<A::Field>: Serializable + Send + Sync,
         FieldElement<A::FieldExtension>: Serializable + Send + Sync,
     {
         let mut openings = Vec::new();
-        let mut openings_symmetric = Vec::new();
 
         for index in indexes_to_open.iter() {
-            let (lde_trace_merkle_proofs, lde_trace_evaluations) = Self::open_trace_polys(
+            let main_trace_opening = Self::open_trace_polys::<A::Field>(
                 domain,
-                &round_1_result.lde_trace_merkle_trees,
-                &round_1_result.lde_trace,
-                index * 2,
+                &round_1_result.main.lde_trace_merkle_tree,
+                &round_1_result.main.lde_trace,
+                *index,
             );
 
-            let (lde_trace_sym_merkle_proofs, lde_trace_sym_evaluations) = Self::open_trace_polys(
-                domain,
-                &round_1_result.lde_trace_merkle_trees,
-                &round_1_result.lde_trace,
-                index * 2 + 1,
+            let composition_openings = Self::open_composition_poly(
+                &round_2_result.composition_poly_merkle_tree,
+                &round_2_result.lde_composition_poly_evaluations,
+                *index,
             );
-
-            let (lde_composition_poly_proof, lde_composition_poly_parts_evaluation) =
-                Self::open_composition_poly(
-                    &round_2_result.composition_poly_merkle_tree,
-                    &round_2_result.lde_composition_poly_evaluations,
-                    *index,
-                );
 
             openings.push(DeepPolynomialOpening {
-                lde_composition_poly_proof: lde_composition_poly_proof.clone(),
-                lde_composition_poly_parts_evaluation: lde_composition_poly_parts_evaluation
-                    .clone()
-                    .into_iter()
-                    .step_by(2)
-                    .collect(),
-                lde_trace_merkle_proofs,
-                lde_trace_evaluations,
-            });
-
-            openings_symmetric.push(DeepPolynomialOpening {
-                lde_composition_poly_proof,
-                lde_composition_poly_parts_evaluation: lde_composition_poly_parts_evaluation
-                    .into_iter()
-                    .skip(1)
-                    .step_by(2)
-                    .collect(),
-                lde_trace_merkle_proofs: lde_trace_sym_merkle_proofs,
-                lde_trace_evaluations: lde_trace_sym_evaluations,
+                composition_poly: composition_openings,
+                main_trace_polys: main_trace_opening,
+                aux_trace_polys: None,
             });
         }
 
-        (openings, openings_symmetric)
+        openings
     }
 
     // FIXME remove unwrap() calls and return errors
@@ -691,7 +733,7 @@ pub trait IsStarkProver<A: AIR> {
         pub_inputs: &A::PublicInputs,
         proof_options: &ProofOptions,
         mut transcript: impl IsStarkTranscript<A::FieldExtension>,
-    ) -> Result<StarkProof<A::FieldExtension>, ProvingError>
+    ) -> Result<StarkProof<A::Field, A::FieldExtension>, ProvingError>
     where
         A: Send + Sync,
         A::RAPChallenges: Send + Sync,
@@ -704,15 +746,15 @@ pub trait IsStarkProver<A: AIR> {
         #[cfg(feature = "instruments")]
         let timer0 = Instant::now();
 
-        let main_trace = TraceTable::<A::FieldExtension>::from_columns(
-            main_trace
-                .columns()
-                .clone()
-                .into_iter()
-                .map(|col| col.into_iter().map(|x| x.to_extension()).collect())
-                .collect(),
-            A::STEP_SIZE,
-        );
+        // let main_trace = TraceTable::<A::FieldExtension>::from_columns(
+        //     main_trace
+        //         .columns()
+        //         .clone()
+        //         .into_iter()
+        //         .map(|col| col.into_iter().map(|x| x.to_extension()).collect())
+        //         .collect(),
+        //     A::STEP_SIZE,
+        // );
 
         let air = A::new(main_trace.n_rows(), pub_inputs, proof_options);
         let domain = Domain::new(&air);
@@ -741,7 +783,7 @@ pub trait IsStarkProver<A: AIR> {
         #[cfg(debug_assertions)]
         validate_trace(
             &air,
-            &round_1_result.trace_polys,
+            &round_1_result.all_trace_polys(),
             &domain,
             &round_1_result.rap_challenges,
         );
@@ -882,12 +924,14 @@ pub trait IsStarkProver<A: AIR> {
                 .into_iter()
                 .flatten()
                 .collect(),
-            round_1_result.trace_polys.len(),
+            air.context().trace_columns,
         );
 
-        Ok(StarkProof::<A::FieldExtension> {
+        Ok(StarkProof::<A::Field, A::FieldExtension> {
             // [tⱼ]
-            lde_trace_merkle_roots: round_1_result.lde_trace_merkle_roots,
+            lde_trace_main_merkle_root: round_1_result.main.lde_trace_merkle_root,
+            // [tⱼ]
+            lde_trace_aux_merkle_root: round_1_result.aux.map(|x| x.lde_trace_merkle_root),
             // tⱼ(zgᵏ)
             trace_ood_evaluations,
             // [H₁] and [H₂]
@@ -902,9 +946,8 @@ pub trait IsStarkProver<A: AIR> {
             // Open(p₀(D₀), 𝜐ₛ), Open(pₖ(Dₖ), −𝜐ₛ^(2ᵏ))
             query_list: round_4_result.query_list,
             // Open(H₁(D_LDE, 𝜐₀), Open(H₂(D_LDE, 𝜐₀), Open(tⱼ(D_LDE), 𝜐₀)
+            // Open(H₁(D_LDE, -𝜐ᵢ), Open(H₂(D_LDE, -𝜐ᵢ), Open(tⱼ(D_LDE), -𝜐ᵢ)
             deep_poly_openings: round_4_result.deep_poly_openings,
-            // Open(H₁(D_LDE, 𝜐₀), Open(H₂(D_LDE, 𝜐₀), Open(tⱼ(D_LDE), 𝜐₀)
-            deep_poly_openings_sym: round_4_result.deep_poly_openings_sym,
             // nonce obtained from grinding
             nonce: round_4_result.nonce,
 
@@ -1037,7 +1080,7 @@ mod tests {
     }
 
     fn proof_parts_stone_compatibility_case_1() -> (
-        StarkProof<Stark252PrimeField>,
+        StarkProof<Stark252PrimeField, Stark252PrimeField>,
         fibonacci_2_cols_shifted::PublicInputs<Stark252PrimeField>,
         ProofOptions,
         [u8; 4],
@@ -1069,7 +1112,7 @@ mod tests {
         (proof, pub_inputs, proof_options, transcript_init_seed)
     }
 
-    fn stone_compatibility_case_1_proof() -> StarkProof<Stark252PrimeField> {
+    fn stone_compatibility_case_1_proof() -> StarkProof<Stark252PrimeField, Stark252PrimeField> {
         let (proof, _, _, _) = proof_parts_stone_compatibility_case_1();
         proof
     }
@@ -1104,7 +1147,7 @@ mod tests {
         let proof = stone_compatibility_case_1_proof();
 
         assert_eq!(
-            proof.lde_trace_merkle_roots[0].to_vec(),
+            proof.lde_trace_main_merkle_root.to_vec(),
             decode_hex("0eb9dcc0fb1854572a01236753ce05139d392aa3aeafe72abff150fe21175594").unwrap()
         );
     }
@@ -1268,7 +1311,7 @@ mod tests {
 
         // Trace Col 0
         assert_eq!(
-            proof.deep_poly_openings[0].lde_trace_evaluations[0],
+            proof.deep_poly_openings[0].main_trace_polys.evaluations[0],
             FieldElement::from_hex_unchecked(
                 "4de0d56f9cf97dff326c26592fbd4ae9ee756080b12c51cfe4864e9b8734f43"
             )
@@ -1276,7 +1319,7 @@ mod tests {
 
         // Trace Col 1
         assert_eq!(
-            proof.deep_poly_openings[0].lde_trace_evaluations[1],
+            proof.deep_poly_openings[0].main_trace_polys.evaluations[1],
             FieldElement::from_hex_unchecked(
                 "1bc1aadf39f2faee64d84cb25f7a95d3dceac1016258a39fc90c9d370e69e8e"
             )
@@ -1284,7 +1327,7 @@ mod tests {
 
         // Trace Col 0 symmetric
         assert_eq!(
-            proof.deep_poly_openings_sym[0].lde_trace_evaluations[0],
+            proof.deep_poly_openings[0].main_trace_polys.evaluations_sym[0],
             FieldElement::from_hex_unchecked(
                 "321f2a9063068310cd93d9a6d042b516118a9f7f4ed3ae301b79b16478cb0c6"
             )
@@ -1292,7 +1335,7 @@ mod tests {
 
         // Trace Col 1 symmetric
         assert_eq!(
-            proof.deep_poly_openings_sym[0].lde_trace_evaluations[1],
+            proof.deep_poly_openings[0].main_trace_polys.evaluations_sym[1],
             FieldElement::from_hex_unchecked(
                 "643e5520c60d06219b27b34da0856a2c23153efe9da75c6036f362c8f196186"
             )
@@ -1305,19 +1348,31 @@ mod tests {
 
         // Trace poly auth path level 1
         assert_eq!(
-            proof.deep_poly_openings[0].lde_trace_merkle_proofs[0].merkle_path[1].to_vec(),
+            proof.deep_poly_openings[0]
+                .main_trace_polys
+                .proof
+                .merkle_path[1]
+                .to_vec(),
             decode_hex("91b0c0b24b9d00067b0efab50832b76cf97192091624d42b86740666c5d369e6").unwrap()
         );
 
         // Trace poly auth path level 2
         assert_eq!(
-            proof.deep_poly_openings[0].lde_trace_merkle_proofs[0].merkle_path[2].to_vec(),
+            proof.deep_poly_openings[0]
+                .main_trace_polys
+                .proof
+                .merkle_path[2]
+                .to_vec(),
             decode_hex("993b044db22444c0c0ebf1095b9a51faeb001c9b4dea36abe905f7162620dbbd").unwrap()
         );
 
         // Trace poly auth path level 3
         assert_eq!(
-            proof.deep_poly_openings[0].lde_trace_merkle_proofs[0].merkle_path[3].to_vec(),
+            proof.deep_poly_openings[0]
+                .main_trace_polys
+                .proof
+                .merkle_path[3]
+                .to_vec(),
             decode_hex("5017abeca33fa82576b5c5c2c61792693b48c9d4414a407eef66b6029dae07ea").unwrap()
         );
     }
@@ -1328,14 +1383,14 @@ mod tests {
 
         // Composition poly
         assert_eq!(
-            proof.deep_poly_openings[0].lde_composition_poly_parts_evaluation[0],
+            proof.deep_poly_openings[0].composition_poly.evaluations[0],
             FieldElement::from_hex_unchecked(
                 "2b54852557db698e97253e9d110d60e9bf09f1d358b4c1a96f9f3cf9d2e8755"
             )
         );
         // Composition poly sym
         assert_eq!(
-            proof.deep_poly_openings_sym[0].lde_composition_poly_parts_evaluation[0],
+            proof.deep_poly_openings[0].composition_poly.evaluations_sym[0],
             FieldElement::from_hex_unchecked(
                 "190f1b0acb7858bd3f5285b68befcf32b436a5f1e3a280e1f42565c1f35c2c3"
             )
@@ -1349,7 +1404,8 @@ mod tests {
         // Composition poly auth path level 0
         assert_eq!(
             proof.deep_poly_openings[0]
-                .lde_composition_poly_proof
+                .composition_poly
+                .proof
                 .merkle_path[0]
                 .to_vec(),
             decode_hex("403b75a122eaf90a298e5d3db2cc7ca096db478078122379a6e3616e72da7546").unwrap()
@@ -1358,7 +1414,8 @@ mod tests {
         // Composition poly auth path level 1
         assert_eq!(
             proof.deep_poly_openings[0]
-                .lde_composition_poly_proof
+                .composition_poly
+                .proof
                 .merkle_path[1]
                 .to_vec(),
             decode_hex("07950888c0355c204a1e83ecbee77a0a6a89f93d41cc2be6b39ddd1e727cc965").unwrap()
@@ -1367,7 +1424,8 @@ mod tests {
         // Composition poly auth path level 2
         assert_eq!(
             proof.deep_poly_openings[0]
-                .lde_composition_poly_proof
+                .composition_poly
+                .proof
                 .merkle_path[2]
                 .to_vec(),
             decode_hex("58befe2c5de74cc5a002aa82ea219c5b242e761b45fd266eb95521e9f53f44eb").unwrap()
@@ -1418,7 +1476,7 @@ mod tests {
     }
 
     fn proof_parts_stone_compatibility_case_2() -> (
-        StarkProof<Stark252PrimeField>,
+        StarkProof<Stark252PrimeField, Stark252PrimeField>,
         fibonacci_2_cols_shifted::PublicInputs<Stark252PrimeField>,
         ProofOptions,
         [u8; 4],
@@ -1450,7 +1508,7 @@ mod tests {
         (proof, pub_inputs, proof_options, transcript_init_seed)
     }
 
-    fn stone_compatibility_case_2_proof() -> StarkProof<Stark252PrimeField> {
+    fn stone_compatibility_case_2_proof() -> StarkProof<Stark252PrimeField, Stark252PrimeField> {
         let (proof, _, _, _) = proof_parts_stone_compatibility_case_2();
         proof
     }
@@ -1474,7 +1532,7 @@ mod tests {
         let proof = stone_compatibility_case_2_proof();
 
         assert_eq!(
-            proof.lde_trace_merkle_roots[0].to_vec(),
+            proof.lde_trace_main_merkle_root.to_vec(),
             decode_hex("6d31dd00038974bde5fe0c5e3a765f8ddc822a5df3254fca85a1950ae0208cbe").unwrap()
         );
     }
