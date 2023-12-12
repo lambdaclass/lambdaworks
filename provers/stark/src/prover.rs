@@ -1090,7 +1090,7 @@ mod tests {
     #[test]
     fn stone_compatibility_case_1_proof_is_valid() {
         let (proof, public_inputs, options, seed) = proof_parts_stone_compatibility_case_1();
-        assert!(Verifier::verify::<Fibonacci2ColsShifted<_>>(
+        assert!(Verifier::<Fibonacci2ColsShifted<_>>::verify(
             &proof,
             &public_inputs,
             &options,

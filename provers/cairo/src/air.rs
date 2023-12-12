@@ -1292,7 +1292,7 @@ pub fn verify_cairo_proof(
     pub_input: &PublicInputs,
     proof_options: &ProofOptions,
 ) -> bool {
-    Verifier::verify::<CairoAIR>(
+    Verifier::<CairoAIR>::verify(
         proof,
         pub_input,
         proof_options,

@@ -291,7 +291,7 @@ mod tests {
             StoneProverTranscript::new(&[]),
         )
         .unwrap();
-        assert!(Verifier::verify::<AirAdapter<FibAir2Terms, TraceTable<_>>>(
+        assert!(Verifier::<AirAdapter<FibAir2Terms, TraceTable<_>>>::verify(
             &proof,
             &pub_inputs,
             &lambda_proof_options,
@@ -324,7 +324,7 @@ mod tests {
         )
         .unwrap();
         assert!(
-            Verifier::verify::<AirAdapter<FibonacciRAP, RapTraceTable<_>>>(
+            Verifier::<AirAdapter<FibonacciRAP, RapTraceTable<_>>>::verify(
                 &proof,
                 &pub_inputs,
                 &lambda_proof_options,
