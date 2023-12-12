@@ -10,22 +10,19 @@ use winter_prover::TraceTable;
 /// at each step. This was taken from the original winterfell
 /// repository and adapted to work with lambdaworks.
 #[derive(Clone)]
-pub struct FibAir2Terms {
+pub struct Cubic {
     context: AirContext<Felt>,
     result: Felt,
 }
 
-impl Air for FibAir2Terms {
+impl Air for Cubic {
     type BaseField = Felt;
     type PublicInputs = Felt;
 
     fn new(trace_info: TraceInfo, pub_inputs: Self::BaseField, options: ProofOptions) -> Self {
-        let degrees = vec![
-            TransitionConstraintDegree::new(1),
-            TransitionConstraintDegree::new(1),
-        ];
-        FibAir2Terms {
-            context: AirContext::new(trace_info, degrees, 3, options),
+        let degrees = vec![TransitionConstraintDegree::new(3)];
+        Cubic {
+            context: AirContext::new(trace_info, degrees, 2, options),
             result: pub_inputs,
         }
     }
@@ -43,11 +40,8 @@ impl Air for FibAir2Terms {
         let current = frame.current();
         let next = frame.next();
 
-        // Constraints of Fibonacci sequence (2 terms per step):
-        // s_{0, i+1} = s_{0, i} + s_{1, i}
-        // s_{1, i+1} = s_{1, i} + s_{0, i+1}
-        result[0] = next[0] - (current[0] + current[1]);
-        result[1] = next[1] - (current[1] + next[0]);
+        // s_i = (s_{i-1})³
+        result[0] = next[0] - (current[0] * current[0] * current[0]);
     }
 
     fn get_assertions(&self) -> Vec<Assertion<Self::BaseField>> {
@@ -55,9 +49,8 @@ impl Air for FibAir2Terms {
         // the expected result
         let last_step = self.trace_length() - 1;
         vec![
-            Assertion::single(0, 0, Self::BaseField::ONE),
-            Assertion::single(1, 0, Self::BaseField::ONE),
-            Assertion::single(1, last_step, self.result),
+            Assertion::single(0, 0, Self::BaseField::from(2u16)),
+            Assertion::single(0, last_step, self.result),
         ]
     }
 }
@@ -68,19 +61,13 @@ pub fn build_trace(sequence_length: usize) -> TraceTable<Felt> {
         "sequence length must be a power of 2"
     );
 
-    let mut trace = TraceTable::new(2, sequence_length / 2);
-    trace.fill(
-        |state| {
-            state[0] = Felt::ONE;
-            state[1] = Felt::ONE;
-        },
-        |_, state| {
-            state[0] += state[1];
-            state[1] += state[0];
-        },
-    );
-
-    trace
+    let mut accum = Felt::from(2u16);
+    let mut column = vec![accum];
+    while column.len() < sequence_length {
+        accum = accum * accum * accum;
+        column.push(accum);
+    }
+    TraceTable::init(vec![column])
 }
 
 #[cfg(test)]
@@ -96,40 +83,38 @@ mod tests {
         adapter::{
             air::AirAdapter, public_inputs::AirAdapterPublicInputs, Prover, Transcript, Verifier,
         },
-        examples::fibonacci_2_terms::{self, FibAir2Terms},
+        examples::cubic::{self, Cubic},
     };
 
     #[test]
-    fn prove_and_verify_a_winterfell_fibonacci_2_terms_air() {
+    fn prove_and_verify_a_winterfell_cubic_air() {
         let lambda_proof_options = ProofOptions::default_test_options();
-        let winter_trace = fibonacci_2_terms::build_trace(16);
-        let trace =
-            AirAdapter::<FibAir2Terms, TraceTable<_>, Felt, ()>::convert_winterfell_trace_table(
-                winter_trace.main_segment().clone(),
-            );
+        let winter_trace = cubic::build_trace(16);
+        let trace = AirAdapter::<Cubic, TraceTable<_>, Felt, ()>::convert_winterfell_trace_table(
+            winter_trace.main_segment().clone(),
+        );
         let pub_inputs = AirAdapterPublicInputs {
-            winterfell_public_inputs: *trace.columns()[1][7].value(),
-            transition_exemptions: vec![1, 1],
+            winterfell_public_inputs: *trace.columns()[0][15].value(),
+            transition_exemptions: vec![1],
             transition_offsets: vec![0, 1],
-            trace_info: TraceInfo::new(2, 8),
+            trace_info: TraceInfo::new(1, 16),
             metadata: (),
         };
 
-        let proof = Prover::prove::<AirAdapter<FibAir2Terms, TraceTable<_>, Felt, _>>(
+        let proof = Prover::prove::<AirAdapter<Cubic, TraceTable<_>, Felt, _>>(
             &trace,
             &pub_inputs,
             &lambda_proof_options,
             Transcript::new(&[]),
         )
         .unwrap();
-
-        assert!(Verifier::verify::<
-            AirAdapter<FibAir2Terms, TraceTable<_>, Felt, _>,
-        >(
-            &proof,
-            &pub_inputs,
-            &lambda_proof_options,
-            Transcript::new(&[]),
-        ));
+        assert!(
+            Verifier::verify::<AirAdapter<Cubic, TraceTable<_>, Felt, _>>(
+                &proof,
+                &pub_inputs,
+                &lambda_proof_options,
+                Transcript::new(&[]),
+            )
+        );
     }
 }

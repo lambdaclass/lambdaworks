@@ -1,69 +1,87 @@
-use crate::field_element::element::AdapterFieldElement;
-use crate::utils::{matrix_adapter2field, matrix_field2adapter, vec_field2adapter};
-use lambdaworks_math::field::{
-    element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
+use crate::utils::{
+    matrix_lambda2winter, matrix_winter2lambda, vec_lambda2winter, vec_winter2lambda,
 };
+use lambdaworks_math::field::element::FieldElement;
+use lambdaworks_math::field::traits::{IsFFTField, IsField};
+use lambdaworks_math::traits::ByteConversion;
+use miden_core::Felt;
 use stark_platinum_prover::{
     constraints::boundary::{BoundaryConstraint, BoundaryConstraints},
     traits::AIR,
 };
 use std::marker::PhantomData;
-use winterfell::{
-    Air, AuxTraceRandElements, EvaluationFrame, FieldExtension, ProofOptions, Trace, TraceTable,
-};
+use winter_air::{Air, AuxTraceRandElements, EvaluationFrame, FieldExtension, ProofOptions};
+use winter_math::{FieldElement as IsWinterfellFieldElement, StarkField};
+use winter_prover::{ColMatrix, Trace, TraceTable};
 
 use super::public_inputs::AirAdapterPublicInputs;
 
-pub trait FromColumns<A> {
-    fn from_cols(columns: Vec<Vec<A>>) -> Self;
+pub trait FromColumns<A, M> {
+    fn from_cols(columns: Vec<Vec<A>>, metadata: &M) -> Self;
 }
 
-impl FromColumns<AdapterFieldElement> for TraceTable<AdapterFieldElement> {
-    fn from_cols(columns: Vec<Vec<AdapterFieldElement>>) -> Self {
+impl FromColumns<Felt, ()> for TraceTable<Felt> {
+    fn from_cols(columns: Vec<Vec<Felt>>, _: &()) -> Self {
         TraceTable::init(columns)
     }
 }
 
 #[derive(Clone)]
-pub struct AirAdapter<A, T>
+pub struct AirAdapter<A, T, FE, M>
 where
-    A: Air<BaseField = AdapterFieldElement>,
+    FE: IsWinterfellFieldElement + StarkField + ByteConversion + Unpin + IsFFTField,
+    A: Air<BaseField = FE>,
     A::PublicInputs: Clone,
-    T: Trace<BaseField = AdapterFieldElement> + Clone + FromColumns<AdapterFieldElement>,
+    T: Trace<BaseField = FE> + Clone + FromColumns<FE, M>,
+    M: Clone,
 {
     winterfell_air: A,
-    public_inputs: AirAdapterPublicInputs<A>,
+    public_inputs: AirAdapterPublicInputs<A, M>,
     air_context: stark_platinum_prover::context::AirContext,
     phantom: PhantomData<T>,
 }
 
-impl<A, T> AirAdapter<A, T>
+impl<A, T, FE, M> AirAdapter<A, T, FE, M>
 where
-    A: Air<BaseField = AdapterFieldElement> + Clone,
+    FE: IsWinterfellFieldElement
+        + StarkField
+        + ByteConversion
+        + Unpin
+        + IsFFTField
+        + IsField<BaseType = FE>,
+    A: Air<BaseField = FE> + Clone,
     A::PublicInputs: Clone,
-    T: Trace<BaseField = AdapterFieldElement> + Clone + FromColumns<AdapterFieldElement>,
+    T: Trace<BaseField = FE> + Clone + FromColumns<FE, M>,
+    M: Clone,
 {
     pub fn convert_winterfell_trace_table(
-        trace: TraceTable<AdapterFieldElement>,
-    ) -> stark_platinum_prover::trace::TraceTable<Stark252PrimeField> {
+        trace: ColMatrix<FE>,
+    ) -> stark_platinum_prover::trace::TraceTable<FE> {
         let mut columns = Vec::new();
-        for i in 0..trace.width() {
+        for i in 0..trace.num_cols() {
             columns.push(trace.get_column(i).to_owned());
         }
 
-        stark_platinum_prover::trace::TraceTable::from_columns(matrix_adapter2field(&columns), 1)
+        stark_platinum_prover::trace::TraceTable::from_columns(matrix_winter2lambda(&columns), 1)
     }
 }
 
-impl<A, T> AIR for AirAdapter<A, T>
+impl<A, T, FE, M> AIR for AirAdapter<A, T, FE, M>
 where
-    A: Air<BaseField = AdapterFieldElement> + Clone,
+    FE: IsWinterfellFieldElement
+        + StarkField
+        + ByteConversion
+        + Unpin
+        + IsFFTField
+        + IsField<BaseType = FE>,
+    A: Air<BaseField = FE> + Clone,
     A::PublicInputs: Clone,
-    T: Trace<BaseField = AdapterFieldElement> + Clone + FromColumns<AdapterFieldElement>,
+    T: Trace<BaseField = FE> + Clone + FromColumns<FE, M>,
+    M: Clone,
 {
-    type Field = Stark252PrimeField;
-    type RAPChallenges = Vec<AdapterFieldElement>;
-    type PublicInputs = AirAdapterPublicInputs<A>;
+    type Field = FE;
+    type RAPChallenges = Vec<FE>;
+    type PublicInputs = AirAdapterPublicInputs<A, M>;
     const STEP_SIZE: usize = 1;
 
     fn new(
@@ -109,19 +127,22 @@ where
         rap_challenges: &Self::RAPChallenges,
     ) -> stark_platinum_prover::trace::TraceTable<Self::Field> {
         // We support at most a one-stage RAP. This covers most use cases.
-        if let Some(winter_trace) = T::from_cols(matrix_field2adapter(&main_trace.columns()))
-            .build_aux_segment(&[], rap_challenges)
+        if let Some(winter_trace) = T::from_cols(
+            matrix_lambda2winter(&main_trace.columns()),
+            &self.pub_inputs().metadata,
+        )
+        .build_aux_segment(&[], rap_challenges)
         {
             let mut columns = Vec::new();
             for i in 0..winter_trace.num_cols() {
                 columns.push(winter_trace.get_column(i).to_owned());
             }
             stark_platinum_prover::trace::TraceTable::from_columns(
-                matrix_adapter2field(&columns),
+                matrix_winter2lambda(&columns),
                 1,
             )
         } else {
-            stark_platinum_prover::trace::TraceTable::empty()
+            stark_platinum_prover::trace::TraceTable::<FE>::empty()
         }
     }
 
@@ -137,7 +158,7 @@ where
             for _ in 0..trace_layout.get_aux_segment_rand_elements(0) {
                 result.push(transcript.sample_field_element());
             }
-            vec_field2adapter(&result)
+            vec_lambda2winter(&result)
         } else if num_segments == 0 {
             Vec::new()
         } else {
@@ -150,13 +171,16 @@ where
     }
 
     fn composition_poly_degree_bound(&self) -> usize {
-        self.public_inputs.composition_poly_degree_bound
+        self.winterfell_air
+            .context()
+            .num_constraint_composition_columns()
+            * self.trace_length()
     }
 
     fn compute_transition(
         &self,
         frame: &stark_platinum_prover::frame::Frame<Self::Field>,
-        _periodic_values: &[FieldElement<Self::Field>],
+        periodic_values: &[FieldElement<Self::Field>],
         rap_challenges: &Self::RAPChallenges,
     ) -> Vec<FieldElement<Self::Field>> {
         let num_aux_columns = self.number_auxiliary_rap_columns();
@@ -166,9 +190,11 @@ where
         let second_step = frame.get_evaluation_step(1);
 
         let main_frame = EvaluationFrame::from_rows(
-            vec_field2adapter(&first_step.get_row(0)[..num_main_columns]),
-            vec_field2adapter(&second_step.get_row(0)[..num_main_columns]),
+            vec_lambda2winter(&first_step.get_row(0)[..num_main_columns]),
+            vec_lambda2winter(&second_step.get_row(0)[..num_main_columns]),
         );
+
+        let periodic_values = vec_lambda2winter(periodic_values);
 
         let mut main_result = vec![
             FieldElement::zero();
@@ -176,12 +202,15 @@ where
                 .context()
                 .num_main_transition_constraints()
         ];
-        self.winterfell_air
-            .evaluate_transition::<AdapterFieldElement>(
-                &main_frame,
-                &[],
-                &mut vec_field2adapter(&main_result),
-            ); // Periodic values not supported
+
+        let mut main_result_winter = vec_lambda2winter(&main_result);
+        self.winterfell_air.evaluate_transition::<FE>(
+            &main_frame,
+            &periodic_values,
+            &mut main_result_winter,
+        ); // Periodic values not supported
+
+        main_result = vec_winter2lambda(&main_result_winter);
 
         if self.winterfell_air.trace_layout().num_aux_segments() == 1 {
             let mut rand_elements = AuxTraceRandElements::new();
@@ -191,24 +220,25 @@ where
             let second_step = frame.get_evaluation_step(1);
 
             let aux_frame = EvaluationFrame::from_rows(
-                vec_field2adapter(&first_step.get_row(0)[num_main_columns..]),
-                vec_field2adapter(&second_step.get_row(0)[num_main_columns..]),
+                vec_lambda2winter(&first_step.get_row(0)[num_main_columns..]),
+                vec_lambda2winter(&second_step.get_row(0)[num_main_columns..]),
             );
 
-            let aux_result = vec![
+            let mut aux_result = vec![
                 FieldElement::zero();
                 self.winterfell_air
                     .context()
                     .num_aux_transition_constraints()
             ];
+            let mut winter_aux_result = vec_lambda2winter(&aux_result);
             self.winterfell_air.evaluate_aux_transition(
                 &main_frame,
                 &aux_frame,
-                &[],
+                &periodic_values,
                 &rand_elements,
-                &mut vec_field2adapter(&aux_result),
+                &mut winter_aux_result,
             );
-
+            aux_result = vec_winter2lambda(&winter_aux_result);
             main_result.extend_from_slice(&aux_result);
         }
         main_result
@@ -217,14 +247,17 @@ where
     fn boundary_constraints(
         &self,
         rap_challenges: &Self::RAPChallenges,
-    ) -> stark_platinum_prover::constraints::boundary::BoundaryConstraints<Self::Field> {
+    ) -> stark_platinum_prover::constraints::boundary::BoundaryConstraints<FE> {
+        let num_aux_columns = self.number_auxiliary_rap_columns();
+        let num_main_columns = self.context().trace_columns - num_aux_columns;
+
         let mut result = Vec::new();
         for assertion in self.winterfell_air.get_assertions() {
             assert!(assertion.is_single());
             result.push(BoundaryConstraint::new(
                 assertion.column(),
                 assertion.first_step(),
-                assertion.values()[0].0,
+                FieldElement::<FE>::const_from_raw(assertion.values()[0]),
             ));
         }
 
@@ -234,9 +267,9 @@ where
         for assertion in self.winterfell_air.get_aux_assertions(&rand_elements) {
             assert!(assertion.is_single());
             result.push(BoundaryConstraint::new(
-                assertion.column(),
+                assertion.column() + num_main_columns,
                 assertion.first_step(),
-                assertion.values()[0].0,
+                FieldElement::<FE>::const_from_raw(assertion.values()[0]),
             ));
         }
 
@@ -254,81 +287,8 @@ where
     fn pub_inputs(&self) -> &Self::PublicInputs {
         &self.public_inputs
     }
-}
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::examples::fibonacci_2_terms::{self, FibAir2Terms};
-    use crate::examples::fibonacci_rap::{self, FibonacciRAP, RapTraceTable};
-    use stark_platinum_prover::{
-        proof::options::ProofOptions,
-        prover::{IsStarkProver, Prover},
-        transcript::StoneProverTranscript,
-        verifier::{IsStarkVerifier, Verifier},
-    };
-    use winterfell::{TraceInfo, TraceLayout};
-
-    #[test]
-    fn prove_and_verify_a_winterfell_fibonacci_2_terms_air() {
-        let lambda_proof_options = ProofOptions::default_test_options();
-        let trace = AirAdapter::<FibAir2Terms, TraceTable<_>>::convert_winterfell_trace_table(
-            fibonacci_2_terms::build_trace(16),
-        );
-        let pub_inputs = AirAdapterPublicInputs {
-            winterfell_public_inputs: AdapterFieldElement(trace.columns()[1][7]),
-            transition_exemptions: vec![1, 1],
-            transition_offsets: vec![0, 1],
-            composition_poly_degree_bound: 8,
-            trace_info: TraceInfo::new(2, 8),
-        };
-
-        let proof = Prover::prove::<AirAdapter<FibAir2Terms, TraceTable<_>>>(
-            &trace,
-            &pub_inputs,
-            &lambda_proof_options,
-            StoneProverTranscript::new(&[]),
-        )
-        .unwrap();
-        assert!(Verifier::verify::<AirAdapter<FibAir2Terms, TraceTable<_>>>(
-            &proof,
-            &pub_inputs,
-            &lambda_proof_options,
-            StoneProverTranscript::new(&[]),
-        ));
-    }
-
-    #[test]
-    fn prove_and_verify_a_winterfell_fibonacci_rap_air() {
-        let lambda_proof_options = ProofOptions::default_test_options();
-        let trace = AirAdapter::<FibonacciRAP, RapTraceTable<_>>::convert_winterfell_trace_table(
-            fibonacci_rap::build_trace(16),
-        );
-        let trace_layout = TraceLayout::new(3, [1], [1]);
-        let trace_info = TraceInfo::new_multi_segment(trace_layout, 16, vec![]);
-        let fibonacci_result = trace.columns()[1][15];
-        let pub_inputs = AirAdapterPublicInputs {
-            winterfell_public_inputs: AdapterFieldElement(fibonacci_result),
-            transition_exemptions: vec![1, 1, 1],
-            transition_offsets: vec![0, 1],
-            composition_poly_degree_bound: 32,
-            trace_info,
-        };
-
-        let proof = Prover::prove::<AirAdapter<FibonacciRAP, RapTraceTable<_>>>(
-            &trace,
-            &pub_inputs,
-            &lambda_proof_options,
-            StoneProverTranscript::new(&[]),
-        )
-        .unwrap();
-        assert!(
-            Verifier::verify::<AirAdapter<FibonacciRAP, RapTraceTable<_>>>(
-                &proof,
-                &pub_inputs,
-                &lambda_proof_options,
-                StoneProverTranscript::new(&[]),
-            )
-        );
+    fn get_periodic_column_values(&self) -> Vec<Vec<FieldElement<Self::Field>>> {
+        matrix_winter2lambda(&self.winterfell_air.get_periodic_column_values())
     }
 }

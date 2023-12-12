@@ -6,6 +6,9 @@ use lambdaworks_crypto::merkle_tree::proof::Proof;
 #[cfg(not(feature = "test_fiat_shamir"))]
 use log::error;
 
+use crate::{
+    config::Commitment, proof::stark::DeepPolynomialOpening, transcript::IsStarkTranscript,
+};
 use lambdaworks_math::{
     fft::cpu::bit_reversing::reverse_index,
     field::{
@@ -13,10 +16,6 @@ use lambdaworks_math::{
         traits::IsFFTField,
     },
     traits::Serializable,
-};
-
-use crate::{
-    config::Commitment, proof::stark::DeepPolynomialOpening, transcript::IsStarkTranscript,
 };
 
 use super::{
