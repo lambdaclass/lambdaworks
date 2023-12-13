@@ -82,7 +82,7 @@ where
             .map(|poly| poly.to_extension())
             .collect();
 
-        if let Some(aux) = self.aux {
+        if let Some(aux) = &self.aux {
             trace_polys.extend_from_slice(&aux.trace_polys.to_owned())
         }
         trace_polys
@@ -98,7 +98,7 @@ where
             .map(|col| col.into_iter().map(|x| x.to_extension()).collect())
             .collect();
 
-        if let Some(aux) = self.aux {
+        if let Some(aux) = &self.aux {
             evaluations.extend_from_slice(&aux.lde_trace.columns())
         }
 
@@ -717,10 +717,21 @@ pub trait IsStarkProver<A: AIR> {
                 *index,
             );
 
+            let aux_trace_polys = if let Some(aux) = &round_1_result.aux {
+                Some(Self::open_trace_polys::<A::FieldExtension>(
+                    domain,
+                    &aux.lde_trace_merkle_tree,
+                    &aux.lde_trace,
+                    *index,
+                ))
+            } else {
+                None
+            };
+
             openings.push(DeepPolynomialOpening {
                 composition_poly: composition_openings,
                 main_trace_polys: main_trace_opening,
-                aux_trace_polys: None,
+                aux_trace_polys,
             });
         }
 

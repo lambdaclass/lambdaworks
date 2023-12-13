@@ -14,7 +14,7 @@ use lambdaworks_math::{
     fft::cpu::bit_reversing::reverse_index,
     field::{
         element::FieldElement,
-        traits::{IsFFTField, IsField},
+        traits::{IsFFTField, IsField, IsSubFieldOf},
     },
     traits::Serializable,
 };
@@ -79,12 +79,12 @@ pub trait IsStarkVerifier<A: AIR> {
         // ===================================
 
         // <<<< Receive commitments:[tⱼ]
-        transcript.append_bytes(&proof.lde_trace_merkle_roots[0]);
+        transcript.append_bytes(&proof.lde_trace_main_merkle_root);
 
         let rap_challenges = air.build_rap_challenges(transcript);
 
-        if let Some(root) = proof.lde_trace_merkle_roots.get(1) {
-            transcript.append_bytes(root);
+        if let Some(root) = proof.lde_trace_aux_merkle_root {
+            transcript.append_bytes(&root);
         }
 
         // ===================================
@@ -355,69 +355,103 @@ pub trait IsStarkVerifier<A: AIR> {
         .clone()
     }
 
-    fn verify_opening(
+    fn verify_opening<E>(
         proof: &Proof<Commitment>,
         root: &Commitment,
         index: usize,
-        value: &[FieldElement<A::FieldExtension>],
+        value: &[FieldElement<E>],
     ) -> bool
     where
         FieldElement<A::Field>: Serializable + Sync + Send,
-        FieldElement<A::FieldExtension>: Serializable + Sync + Send,
+        FieldElement<E>: Serializable + Sync + Send,
+        E: IsField,
+        A::Field: IsSubFieldOf<E>,
     {
-        proof.verify::<BatchedMerkleTreeBackend<A::FieldExtension>>(root, index, &value.to_owned())
+        proof.verify::<BatchedMerkleTreeBackend<E>>(root, index, &value.to_owned())
     }
 
     /// Verify opening Open(tⱼ(D_LDE), 𝜐) and Open(tⱼ(D_LDE), -𝜐) for all trace polynomials tⱼ,
     /// where 𝜐 and -𝜐 are the elements corresponding to the index challenge `iota`.
     fn verify_trace_openings(
-        num_main_columns: usize,
         proof: &StarkProof<A::Field, A::FieldExtension>,
         deep_poly_openings: &DeepPolynomialOpening<A::Field, A::FieldExtension>,
-        deep_poly_openings_sym: &DeepPolynomialOpening<A::Field, A::FieldExtension>,
         iota: usize,
     ) -> bool
     where
         FieldElement<A::Field>: Serializable + Sync + Send,
         FieldElement<A::FieldExtension>: Serializable + Sync + Send,
     {
-        let lde_trace_evaluations = vec![
-            deep_poly_openings.lde_trace_evaluations[..num_main_columns].to_vec(),
-            deep_poly_openings.lde_trace_evaluations[num_main_columns..].to_vec(),
-        ];
-
         let index = iota * 2;
-        let openings_are_valid = proof
-            .lde_trace_merkle_roots
-            .iter()
-            .zip(&deep_poly_openings.lde_trace_merkle_proofs)
-            .zip(lde_trace_evaluations)
-            .fold(true, |acc, ((merkle_root, merkle_proof), evaluation)| {
-                acc & Self::verify_opening(merkle_proof, merkle_root, index, &evaluation)
-            });
-
-        let lde_trace_evaluations_sym = vec![
-            deep_poly_openings_sym.lde_trace_evaluations[..num_main_columns].to_vec(),
-            deep_poly_openings_sym.lde_trace_evaluations[num_main_columns..].to_vec(),
-        ];
-
         let index_sym = iota * 2 + 1;
-        let openings_sym_are_valid = proof
-            .lde_trace_merkle_roots
-            .iter()
-            .zip(&deep_poly_openings_sym.lde_trace_merkle_proofs)
-            .zip(lde_trace_evaluations_sym)
-            .fold(true, |acc, ((merkle_root, merkle_proof), evaluation)| {
-                acc & Self::verify_opening(merkle_proof, merkle_root, index_sym, &evaluation)
-            });
-        openings_are_valid & openings_sym_are_valid
+        let mut result = true;
+
+        result &= Self::verify_opening::<A::Field>(
+            &deep_poly_openings.main_trace_polys.proof,
+            &proof.lde_trace_main_merkle_root,
+            index,
+            &deep_poly_openings.main_trace_polys.evaluations,
+        );
+        result &= Self::verify_opening::<A::Field>(
+            &deep_poly_openings.main_trace_polys.proof_sym,
+            &proof.lde_trace_main_merkle_root,
+            index_sym,
+            &deep_poly_openings.main_trace_polys.evaluations_sym,
+        );
+
+        match (
+            proof.lde_trace_aux_merkle_root,
+            &deep_poly_openings.aux_trace_polys,
+        ) {
+            (None, Some(_)) => result = false,
+            (Some(_), None) => result = false,
+            (Some(aux_root), Some(aux_trace_polys_opening)) => {
+                result &= Self::verify_opening::<A::FieldExtension>(
+                    &aux_trace_polys_opening.proof,
+                    &aux_root,
+                    index,
+                    &aux_trace_polys_opening.evaluations,
+                );
+                result &= Self::verify_opening::<A::FieldExtension>(
+                    &aux_trace_polys_opening.proof_sym,
+                    &aux_root,
+                    index_sym,
+                    &aux_trace_polys_opening.evaluations_sym,
+                );
+            }
+            _ => {}
+        }
+
+        result
+        // let openings_are_valid = proof
+        //     .lde_trace_merkle_roots
+        //     .iter()
+        //     .zip(&deep_poly_openings.lde_trace_merkle_proofs)
+        //     .zip(lde_trace_evaluations)
+        //     .fold(true, |acc, ((merkle_root, merkle_proof), evaluation)| {
+        //         acc & Self::verify_opening(merkle_proof, merkle_root, index, &evaluation)
+        //     });
+        //
+        // let lde_trace_evaluations_sym = vec![
+        //     deep_poly_openings_sym.lde_trace_evaluations[..num_main_columns].to_vec(),
+        //     deep_poly_openings_sym.lde_trace_evaluations[num_main_columns..].to_vec(),
+        // ];
+        //
+        // let index_sym = iota * 2 + 1;
+        // let openings_sym_are_valid = proof
+        //     .lde_trace_merkle_roots
+        //     .iter()
+        //     .zip(&deep_poly_openings_sym.lde_trace_merkle_proofs)
+        //     .zip(lde_trace_evaluations_sym)
+        //     .fold(true, |acc, ((merkle_root, merkle_proof), evaluation)| {
+        //         acc & Self::verify_opening(merkle_proof, merkle_root, index_sym, &evaluation)
+        //     });
+        // openings_are_valid & openings_sym_are_valid
     }
 
     /// Verify opening Open(Hᵢ(D_LDE), 𝜐) and Open(Hᵢ(D_LDE), -𝜐) for all parts Hᵢof the composition
     /// polynomial, where 𝜐 and -𝜐 are the elements corresponding to the index challenge `iota`.
     fn verify_composition_poly_opening(
         deep_poly_openings: &DeepPolynomialOpening<A::Field, A::FieldExtension>,
-        deep_poly_openings_sym: &DeepPolynomialOpening<A::Field, A::FieldExtension>,
         composition_poly_merkle_root: &Commitment,
         iota: &usize,
     ) -> bool
@@ -425,13 +459,12 @@ pub trait IsStarkVerifier<A: AIR> {
         FieldElement<A::Field>: Serializable + Sync + Send,
         FieldElement<A::FieldExtension>: Serializable + Sync + Send,
     {
-        let mut value = deep_poly_openings
-            .lde_composition_poly_parts_evaluation
-            .clone();
-        value.extend_from_slice(&deep_poly_openings_sym.lde_composition_poly_parts_evaluation);
+        let mut value = deep_poly_openings.composition_poly.evaluations.clone();
+        value.extend_from_slice(&deep_poly_openings.composition_poly.evaluations_sym);
 
         deep_poly_openings
-            .lde_composition_poly_proof
+            .composition_poly
+            .proof
             .verify::<BatchedMerkleTreeBackend<A::FieldExtension>>(
                 composition_poly_merkle_root,
                 *iota,
@@ -448,33 +481,19 @@ pub trait IsStarkVerifier<A: AIR> {
         FieldElement<A::Field>: Serializable + Sync + Send,
         FieldElement<A::FieldExtension>: Serializable + Sync + Send,
     {
-        challenges
-            .iotas
-            .iter()
-            .zip(&proof.deep_poly_openings)
-            .zip(&proof.deep_poly_openings_sym)
-            .fold(
-                true,
-                |mut result, ((iota_n, deep_poly_opening), deep_poly_openings_sym)| {
-                    result &= Self::verify_composition_poly_opening(
-                        deep_poly_opening,
-                        deep_poly_openings_sym,
-                        &proof.composition_poly_root,
-                        iota_n,
-                    );
+        challenges.iotas.iter().zip(&proof.deep_poly_openings).fold(
+            true,
+            |mut result, (iota_n, deep_poly_opening)| {
+                result &= Self::verify_composition_poly_opening(
+                    deep_poly_opening,
+                    &proof.composition_poly_root,
+                    iota_n,
+                );
 
-                    let num_main_columns =
-                        air.context().trace_columns - air.number_auxiliary_rap_columns();
-                    result &= Self::verify_trace_openings(
-                        num_main_columns,
-                        proof,
-                        deep_poly_opening,
-                        deep_poly_openings_sym,
-                        *iota_n,
-                    );
-                    result
-                },
-            )
+                result &= Self::verify_trace_openings(proof, deep_poly_opening, *iota_n);
+                result
+            },
+        )
     }
 
     fn verify_fri_layer_openings(
@@ -594,15 +613,38 @@ pub trait IsStarkVerifier<A: AIR> {
             let primitive_root =
                 &A::Field::get_primitive_root_of_unity(domain.root_order as u64).unwrap();
 
+            let mut evaluations: Vec<FieldElement<A::FieldExtension>> = proof.deep_poly_openings[i]
+                .main_trace_polys
+                .evaluations
+                .clone()
+                .into_iter()
+                .map(|x| x.to_extension())
+                .collect();
+            if let Some(aux_trace_polys) = &proof.deep_poly_openings[i].aux_trace_polys {
+                evaluations.extend_from_slice(&aux_trace_polys.evaluations);
+            }
+
             let evaluation_point = Self::query_challenge_to_evaluation_point(*iota, domain);
             deep_poly_evaluations.push(Self::reconstruct_deep_composition_poly_evaluation(
                 proof,
                 &evaluation_point,
                 primitive_root,
                 challenges,
-                &proof.deep_poly_openings[i].lde_trace_evaluations,
-                &proof.deep_poly_openings[i].lde_composition_poly_parts_evaluation,
+                &evaluations,
+                &proof.deep_poly_openings[i].composition_poly.evaluations,
             ));
+
+            let mut evaluations_sym: Vec<FieldElement<A::FieldExtension>> = proof
+                .deep_poly_openings[i]
+                .main_trace_polys
+                .evaluations_sym
+                .clone()
+                .into_iter()
+                .map(|x| x.to_extension())
+                .collect();
+            if let Some(aux_trace_polys) = &proof.deep_poly_openings[i].aux_trace_polys {
+                evaluations_sym.extend_from_slice(&aux_trace_polys.evaluations_sym);
+            }
 
             let evaluation_point = Self::query_challenge_to_evaluation_point_sym(*iota, domain);
             deep_poly_evaluations_sym.push(Self::reconstruct_deep_composition_poly_evaluation(
@@ -610,8 +652,8 @@ pub trait IsStarkVerifier<A: AIR> {
                 &evaluation_point,
                 primitive_root,
                 challenges,
-                &proof.deep_poly_openings_sym[i].lde_trace_evaluations,
-                &proof.deep_poly_openings_sym[i].lde_composition_poly_parts_evaluation,
+                &evaluations_sym,
+                &proof.deep_poly_openings[i].composition_poly.evaluations_sym,
             ));
         }
         (deep_poly_evaluations, deep_poly_evaluations_sym)
