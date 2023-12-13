@@ -238,6 +238,7 @@ impl StoneCompatibleSerializer {
             .collect();
 
         // Append TraceMergedPaths
+        //    Main trace
         let fri_trace_paths: Vec<_> = proof
             .deep_poly_openings
             .iter()
@@ -253,26 +254,18 @@ impl StoneCompatibleSerializer {
             output.extend_from_slice(node);
         }
 
-        let all_openings_aux_trace_polys_are_some = proof
-            .deep_poly_openings
-            .iter()
-            .map(|opening| opening.aux_trace_polys.is_some())
-            .collect::<Vec<_>>()
-            .iter()
-            .fold(true, |acc, x| acc & x);
-
+        //    Aux trace
+        let mut all_openings_aux_trace_polys_are_some = true;
+        let mut fri_trace_paths: Vec<&Proof<Commitment>> = Vec::new();
+        for opening in proof.deep_poly_openings.iter() {
+            if let Some(aux_trace_polys) = &opening.aux_trace_polys {
+                fri_trace_paths.push(&aux_trace_polys.proof);
+                fri_trace_paths.push(&aux_trace_polys.proof_sym);
+            } else {
+                all_openings_aux_trace_polys_are_some = false;
+            }
+        }
         if all_openings_aux_trace_polys_are_some {
-            let fri_trace_paths: Vec<&Proof<Commitment>> = proof
-                .deep_poly_openings
-                .iter()
-                .flat_map(|opening| {
-                    vec![
-                        // These unwraps cannot panic in this scope
-                        &opening.aux_trace_polys.as_ref().unwrap().proof,
-                        &opening.aux_trace_polys.as_ref().unwrap().proof_sym,
-                    ]
-                })
-                .collect();
             let nodes =
                 Self::merge_authentication_paths(&fri_trace_paths, &fri_trace_query_indexes);
             for node in nodes.iter() {

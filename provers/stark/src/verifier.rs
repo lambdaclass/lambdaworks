@@ -473,7 +473,6 @@ pub trait IsStarkVerifier<A: AIR> {
     }
 
     fn step_4_verify_trace_and_composition_openings(
-        air: &A,
         proof: &StarkProof<A::Field, A::FieldExtension>,
         challenges: &Challenges<A::FieldExtension, A>,
     ) -> bool
@@ -786,7 +785,7 @@ pub trait IsStarkVerifier<A: AIR> {
         let timer4 = Instant::now();
 
         #[allow(clippy::let_and_return)]
-        if !Self::step_4_verify_trace_and_composition_openings(&air, proof, &challenges) {
+        if !Self::step_4_verify_trace_and_composition_openings(proof, &challenges) {
             error!("DEEP Composition Polynomial verification failed");
             return false;
         }
