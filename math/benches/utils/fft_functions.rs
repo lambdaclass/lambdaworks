@@ -3,7 +3,7 @@
 use criterion::black_box;
 use lambdaworks_math::fft::cpu::{
     bit_reversing::in_place_bit_reverse_permute,
-    fft::{in_place_nr_2radix_fft, in_place_rn_2radix_fft},
+    fft::{in_place_nr_2radix_fft, in_place_rn_2radix_fft, in_place_nr_4radix_fft},
     roots_of_unity::get_twiddles,
 };
 use lambdaworks_math::{field::traits::RootsConfig, polynomial::Polynomial};
@@ -16,6 +16,10 @@ pub fn ordered_fft_nr(input: &mut [FE], twiddles: &[FE]) {
 
 pub fn ordered_fft_rn(input: &mut [FE], twiddles: &[FE]) {
     in_place_rn_2radix_fft(input, twiddles);
+}
+
+pub fn ordered_fft_nr4(input: &mut [FE], twiddles: &[FE]) {
+    in_place_nr_4radix_fft(input, twiddles);
 }
 
 pub fn twiddles_generation(order: u64, config: RootsConfig) {
