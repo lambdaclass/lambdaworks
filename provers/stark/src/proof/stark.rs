@@ -253,13 +253,21 @@ impl StoneCompatibleSerializer {
             output.extend_from_slice(node);
         }
 
-        // TODO: Remove unwraps!!
-        if let Some(lde_trace_aux_merkle_root) = proof.lde_trace_aux_merkle_root {
+        let all_openings_aux_trace_polys_are_some = proof
+            .deep_poly_openings
+            .iter()
+            .map(|opening| opening.aux_trace_polys.is_some())
+            .collect::<Vec<_>>()
+            .iter()
+            .fold(true, |acc, x| acc & x);
+
+        if all_openings_aux_trace_polys_are_some {
             let fri_trace_paths: Vec<&Proof<Commitment>> = proof
                 .deep_poly_openings
                 .iter()
                 .flat_map(|opening| {
                     vec![
+                        // These unwraps cannot panic in this scope
                         &opening.aux_trace_polys.as_ref().unwrap().proof,
                         &opening.aux_trace_polys.as_ref().unwrap().proof_sym,
                     ]
