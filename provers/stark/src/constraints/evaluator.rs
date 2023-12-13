@@ -201,23 +201,19 @@ impl<F: IsFFTField> ConstraintEvaluator<F> {
                 // Add each term of the transition constraints to the
                 // composition polynomial, including the zerofier, the
                 // challenge and the exemption polynomial if it is necessary.
-                let acc_transition = evaluations_transition
+                let acc_transition = zerofier * evaluations_transition
                     .iter()
                     .zip(&air.context().transition_exemptions)
                     .zip(transition_coefficients)
                     .fold(FieldElement::zero(), |acc, ((eval, exemption), beta)| {
-                        #[cfg(feature = "parallel")]
-                        let zerofier = zerofier.clone();
-
                         // If there's no exemption, then
                         // the zerofier remains as it was.
                         if *exemption == 0 {
-                            acc + zerofier * beta * eval
+                            acc + beta * eval
                         } else {
                             //TODO: change how exemptions are indexed!
                             if num_exemptions == 1 {
-                                acc + zerofier
-                                    * beta
+                                acc + beta
                                     * eval
                                     * &transition_exemptions_evaluations[0][i]
                             } else {
@@ -235,8 +231,7 @@ impl<F: IsFFTField> ConstraintEvaluator<F> {
                                     .position(|elem_2| elem_2 == exemption)
                                     .expect("is there");
 
-                                acc + zerofier
-                                    * beta
+                                acc + beta
                                     * eval
                                     * &transition_exemptions_evaluations[index][i]
                             }
