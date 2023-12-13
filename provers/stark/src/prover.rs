@@ -209,7 +209,6 @@ pub trait IsStarkProver<A: AIR> {
     ) -> Vec<Vec<FieldElement<E>>>
     where
         FieldElement<A::Field>: Send + Sync,
-        FieldElement<A::FieldExtension>: Send + Sync,
         FieldElement<E>: Send + Sync,
         E: IsSubFieldOf<A::FieldExtension>,
         A::Field: IsSubFieldOf<E>,
