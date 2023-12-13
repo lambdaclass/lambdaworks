@@ -422,30 +422,6 @@ pub trait IsStarkVerifier<A: AIR> {
         }
 
         result
-        // let openings_are_valid = proof
-        //     .lde_trace_merkle_roots
-        //     .iter()
-        //     .zip(&deep_poly_openings.lde_trace_merkle_proofs)
-        //     .zip(lde_trace_evaluations)
-        //     .fold(true, |acc, ((merkle_root, merkle_proof), evaluation)| {
-        //         acc & Self::verify_opening(merkle_proof, merkle_root, index, &evaluation)
-        //     });
-        //
-        // let lde_trace_evaluations_sym = vec![
-        //     deep_poly_openings_sym.lde_trace_evaluations[..num_main_columns].to_vec(),
-        //     deep_poly_openings_sym.lde_trace_evaluations[num_main_columns..].to_vec(),
-        // ];
-        //
-        // let index_sym = iota * 2 + 1;
-        // let openings_sym_are_valid = proof
-        //     .lde_trace_merkle_roots
-        //     .iter()
-        //     .zip(&deep_poly_openings_sym.lde_trace_merkle_proofs)
-        //     .zip(lde_trace_evaluations_sym)
-        //     .fold(true, |acc, ((merkle_root, merkle_proof), evaluation)| {
-        //         acc & Self::verify_opening(merkle_proof, merkle_root, index_sym, &evaluation)
-        //     });
-        // openings_are_valid & openings_sym_are_valid
     }
 
     /// Verify opening Open(Hᵢ(D_LDE), 𝜐) and Open(Hᵢ(D_LDE), -𝜐) for all parts Hᵢof the composition

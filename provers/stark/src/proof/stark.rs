@@ -176,10 +176,10 @@ impl StoneCompatibleSerializer {
     /// Each FRI query index `i` determines a pair of elements `d_i` and `-d_i` on the domain of the
     /// first layer.
     /// Let BT_i be the concatenation of the bytes of the following values
-    /// t_1(d_i), t_1(-d_i), t_2(d_i), t_2(-d_i), ..., t_m(d_i), t_m(-d_i),
+    /// t_1(d_i), t_2(d_i), ..., t_m(d_i), t_1(-d_i), t_2(-d_i), ..., t_m(-d_i),
     /// where m is the total number of columns, including RAP extended ones.
     /// Similarly, let BH_i be the concatenation of the bytes of the following elements
-    /// H_1(d_i), H_1(-d_i), ..., H_s(d_i), H_s(-d_i),
+    /// H_1(d_i), ..., H_s(d_i), H_1(-d_i), ..., H_s(-d_i),
     /// where s is the number of parts into which the composition polynomial was broken.
     ///
     /// If i_1, ..., i_k are all the FRI query indexes sorted in increasing order and without repeated
