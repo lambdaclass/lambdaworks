@@ -86,7 +86,6 @@ impl<A: AIR> ConstraintEvaluator<A> {
             .collect::<Result<Vec<Vec<FieldElement<A::FieldExtension>>>, FFTError>>()
             .unwrap();
 
-
         let n_col = lde_trace.n_cols();
         let n_elem = domain.lde_roots_of_unity_coset.len();
         let boundary_polys_evaluations = boundary_constraints

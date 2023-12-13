@@ -13,7 +13,12 @@ use stark_platinum_prover::proof::{
 
 pub mod functions;
 
-fn load_proof_and_pub_inputs(input_path: &str) -> (StarkProof<Stark252PrimeField, Stark252PrimeField>, PublicInputs) {
+fn load_proof_and_pub_inputs(
+    input_path: &str,
+) -> (
+    StarkProof<Stark252PrimeField, Stark252PrimeField>,
+    PublicInputs,
+) {
     let program_content = std::fs::read(input_path).unwrap();
     let mut bytes = program_content.as_slice();
     let proof_len = usize::from_be_bytes(bytes[0..8].try_into().unwrap());

@@ -2,12 +2,11 @@ use std::marker::PhantomData;
 #[cfg(feature = "instruments")]
 use std::time::Instant;
 
-use lambdaworks_crypto::merkle_tree::proof::Proof;
 use lambdaworks_math::fft::cpu::bit_reversing::{in_place_bit_reverse_permute, reverse_index};
 use lambdaworks_math::fft::errors::FFTError;
 
 use lambdaworks_math::field::traits::{IsField, IsSubFieldOf};
-use lambdaworks_math::traits::{ByteConversion, Serializable};
+use lambdaworks_math::traits::Serializable;
 use lambdaworks_math::{
     field::{element::FieldElement, traits::IsFFTField},
     polynomial::Polynomial,
@@ -717,16 +716,14 @@ pub trait IsStarkProver<A: AIR> {
                 *index,
             );
 
-            let aux_trace_polys = if let Some(aux) = &round_1_result.aux {
-                Some(Self::open_trace_polys::<A::FieldExtension>(
+            let aux_trace_polys = round_1_result.aux.as_ref().map(|aux| {
+                Self::open_trace_polys::<A::FieldExtension>(
                     domain,
                     &aux.lde_trace_merkle_tree,
                     &aux.lde_trace,
                     *index,
-                ))
-            } else {
-                None
-            };
+                )
+            });
 
             openings.push(DeepPolynomialOpening {
                 composition_poly: composition_openings,
@@ -776,7 +773,7 @@ pub trait IsStarkProver<A: AIR> {
 
         let round_1_result = Self::round_1_randomized_air_with_preprocessing(
             &air,
-            &main_trace,
+            main_trace,
             &domain,
             &mut transcript,
         )?;
