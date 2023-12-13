@@ -757,16 +757,6 @@ pub trait IsStarkProver<A: AIR> {
         #[cfg(feature = "instruments")]
         let timer0 = Instant::now();
 
-        // let main_trace = TraceTable::<A::FieldExtension>::from_columns(
-        //     main_trace
-        //         .columns()
-        //         .clone()
-        //         .into_iter()
-        //         .map(|col| col.into_iter().map(|x| x.to_extension()).collect())
-        //         .collect(),
-        //     A::STEP_SIZE,
-        // );
-
         let air = A::new(main_trace.n_rows(), pub_inputs, proof_options);
         let domain = Domain::new(&air);
 

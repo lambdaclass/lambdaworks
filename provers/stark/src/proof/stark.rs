@@ -104,6 +104,7 @@ impl StoneCompatibleSerializer {
         output: &mut Vec<u8>,
     ) {
         output.extend_from_slice(&proof.lde_trace_main_merkle_root);
+
         if let Some(lde_trace_aux_merkle_root) = proof.lde_trace_aux_merkle_root {
             output.extend_from_slice(&lde_trace_aux_merkle_root);
         }
@@ -199,73 +200,98 @@ impl StoneCompatibleSerializer {
         fri_query_indexes: &[usize],
         output: &mut Vec<u8>,
     ) {
-        // let mut fri_first_layer_openings: Vec<_> = proof
-        //     .deep_poly_openings
-        //     .iter()
-        //     .zip(proof.deep_poly_openings_sym.iter())
-        //     .zip(fri_query_indexes.iter())
-        //     .collect();
-        // // Remove repeated values
-        // let mut seen = HashSet::new();
-        // fri_first_layer_openings.retain(|&(_, index)| seen.insert(index));
-        // // Sort by increasing value of query
-        // fri_first_layer_openings.sort_by(|a, b| a.1.cmp(b.1));
-        //
-        // // Append BT_{i_1} | BT_{i_2} | ... | BT_{i_k}
-        // for ((opening, opening_sym), _) in fri_first_layer_openings.iter() {
-        //     for elem in opening.main_trace_polys.evaluations.iter() {
-        //         output.extend_from_slice(&elem.serialize());
-        //     }
-        //     for elem in opening_sym.main_trace_polys.evaluations.iter() {
-        //         output.extend_from_slice(&elem.serialize());
-        //     }
-        // }
+        let mut fri_first_layer_openings: Vec<_> = proof
+            .deep_poly_openings
+            .iter()
+            .zip(fri_query_indexes.iter())
+            .collect();
+        // Remove repeated values
+        let mut seen = HashSet::new();
+        fri_first_layer_openings.retain(|&(_, index)| seen.insert(index));
+        // Sort by increasing value of query
+        fri_first_layer_openings.sort_by(|a, b| a.1.cmp(b.1));
+
+        // Append BT_{i_1} | BT_{i_2} | ... | BT_{i_k}
+        for (opening, _) in fri_first_layer_openings.iter() {
+            for elem in opening.main_trace_polys.evaluations.iter() {
+                output.extend_from_slice(&elem.serialize());
+            }
+            if let Some(aux) = &opening.aux_trace_polys {
+                for elem in aux.evaluations.iter() {
+                    output.extend_from_slice(&elem.serialize());
+                }
+            }
+
+            for elem in opening.main_trace_polys.evaluations_sym.iter() {
+                output.extend_from_slice(&elem.serialize());
+            }
+            if let Some(aux) = &opening.aux_trace_polys {
+                for elem in aux.evaluations_sym.iter() {
+                    output.extend_from_slice(&elem.serialize());
+                }
+            }
+        }
 
         let fri_trace_query_indexes: Vec<_> = fri_query_indexes
             .iter()
             .flat_map(|query| vec![query * 2, query * 2 + 1])
             .collect();
 
-        // // Append TraceMergedPaths
-        // for i in 0..proof.deep_poly_openings[0].lde_trace_merkle_proofs.len() {
-        //     let fri_trace_paths: Vec<_> = proof
-        //         .deep_poly_openings
-        //         .iter()
-        //         .zip(proof.deep_poly_openings_sym.iter())
-        //         .flat_map(|(opening, opening_sym)| {
-        //             vec![
-        //                 &opening.lde_trace_merkle_proofs[i],
-        //                 &opening_sym.lde_trace_merkle_proofs[i],
-        //             ]
-        //         })
-        //         .collect();
-        //     let nodes =
-        //         Self::merge_authentication_paths(&fri_trace_paths, &fri_trace_query_indexes);
-        //     for node in nodes.iter() {
-        //         output.extend_from_slice(node);
-        //     }
-        // }
-        //
-        // // Append BH_{i_1} | BH_{i_2} | ... | B_{i_k}
-        // for ((opening, opening_sym), _) in fri_first_layer_openings.iter() {
-        //     for elem in opening.lde_composition_poly_parts_evaluation.iter() {
-        //         output.extend_from_slice(&elem.serialize());
-        //     }
-        //     for elem in opening_sym.lde_composition_poly_parts_evaluation.iter() {
-        //         output.extend_from_slice(&elem.serialize());
-        //     }
-        // }
-        //
-        // // Append CompositionMergedPaths
-        // let fri_composition_paths: Vec<_> = proof
-        //     .deep_poly_openings
-        //     .iter()
-        //     .map(|opening| &opening.lde_composition_poly_proof)
-        //     .collect();
-        // let nodes = Self::merge_authentication_paths(&fri_composition_paths, fri_query_indexes);
-        // for node in nodes.iter() {
-        //     output.extend_from_slice(node);
-        // }
+        // Append TraceMergedPaths
+        let fri_trace_paths: Vec<_> = proof
+            .deep_poly_openings
+            .iter()
+            .flat_map(|opening| {
+                vec![
+                    &opening.main_trace_polys.proof,
+                    &opening.main_trace_polys.proof_sym,
+                ]
+            })
+            .collect();
+        let nodes = Self::merge_authentication_paths(&fri_trace_paths, &fri_trace_query_indexes);
+        for node in nodes.iter() {
+            output.extend_from_slice(node);
+        }
+
+        // TODO: Remove unwraps!!
+        if let Some(lde_trace_aux_merkle_root) = proof.lde_trace_aux_merkle_root {
+            let fri_trace_paths: Vec<&Proof<Commitment>> = proof
+                .deep_poly_openings
+                .iter()
+                .flat_map(|opening| {
+                    vec![
+                        &opening.aux_trace_polys.as_ref().unwrap().proof,
+                        &opening.aux_trace_polys.as_ref().unwrap().proof_sym,
+                    ]
+                })
+                .collect();
+            let nodes =
+                Self::merge_authentication_paths(&fri_trace_paths, &fri_trace_query_indexes);
+            for node in nodes.iter() {
+                output.extend_from_slice(node);
+            }
+        }
+
+        // Append BH_{i_1} | BH_{i_2} | ... | B_{i_k}
+        for (opening, _) in fri_first_layer_openings.iter() {
+            for elem in opening.composition_poly.evaluations.iter() {
+                output.extend_from_slice(&elem.serialize());
+            }
+            for elem in opening.composition_poly.evaluations_sym.iter() {
+                output.extend_from_slice(&elem.serialize());
+            }
+        }
+
+        // Append CompositionMergedPaths
+        let fri_composition_paths: Vec<_> = proof
+            .deep_poly_openings
+            .iter()
+            .map(|opening| &opening.composition_poly.proof)
+            .collect();
+        let nodes = Self::merge_authentication_paths(&fri_composition_paths, fri_query_indexes);
+        for node in nodes.iter() {
+            output.extend_from_slice(node);
+        }
     }
 
     /// Appends the values and authentication paths needed for the inner layers of FRI.
