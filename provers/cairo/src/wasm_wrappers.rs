@@ -45,7 +45,7 @@ pub fn verify_cairo_proof_wasm(proof_bytes: &[u8], proof_options: &ProofOptions)
         return false;
     };
 
-    Verifier::verify::<CairoAIR>(
+    Verifier::<CairoAIR>::verify(
         &proof,
         &pub_inputs,
         proof_options,
