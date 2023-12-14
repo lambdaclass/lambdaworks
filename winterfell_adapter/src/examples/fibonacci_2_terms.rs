@@ -96,7 +96,7 @@ mod tests {
     use winter_prover::{Trace, TraceTable};
 
     use crate::{
-        adapter::{air::AirAdapter, public_inputs::AirAdapterPublicInputs, Transcript, QuadTranscript},
+        adapter::{air::AirAdapter, public_inputs::AirAdapterPublicInputs, FeltTranscript, QuadFeltTranscript},
         examples::fibonacci_2_terms::{self, FibAir2Terms},
     };
 
@@ -120,7 +120,7 @@ mod tests {
             &trace,
             &pub_inputs,
             &lambda_proof_options,
-            QuadTranscript::new(&[]),
+            QuadFeltTranscript::new(&[]),
         )
         .unwrap();
 
@@ -129,7 +129,7 @@ mod tests {
                 &proof,
                 &pub_inputs,
                 &lambda_proof_options,
-                QuadTranscript::new(&[]),
+                QuadFeltTranscript::new(&[]),
             )
         );
     }

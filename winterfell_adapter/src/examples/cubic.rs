@@ -83,7 +83,7 @@ mod tests {
     use winter_prover::{Trace, TraceTable};
 
     use crate::{
-        adapter::{air::AirAdapter, public_inputs::AirAdapterPublicInputs, Transcript, QuadTranscript},
+        adapter::{air::AirAdapter, public_inputs::AirAdapterPublicInputs, FeltTranscript, QuadFeltTranscript},
         examples::cubic::{self, Cubic},
     };
 
@@ -107,7 +107,7 @@ mod tests {
             &trace,
             &pub_inputs,
             &lambda_proof_options,
-            QuadTranscript::new(&[]),
+            QuadFeltTranscript::new(&[]),
         )
         .unwrap();
         assert!(
@@ -115,7 +115,7 @@ mod tests {
                 &proof,
                 &pub_inputs,
                 &lambda_proof_options,
-                QuadTranscript::new(&[]),
+                QuadFeltTranscript::new(&[]),
             )
         );
     }

@@ -7,11 +7,11 @@ use winter_math::StarkField;
 pub mod air;
 pub mod public_inputs;
 
-pub struct Transcript {
+pub struct FeltTranscript {
     hasher: Keccak256,
 }
 
-impl Transcript {
+impl FeltTranscript {
     pub fn new(data: &[u8]) -> Self {
         let mut res = Self {
             hasher: Keccak256::new(),
@@ -21,7 +21,7 @@ impl Transcript {
     }
 }
 
-impl IsStarkTranscript<Felt> for Transcript {
+impl IsStarkTranscript<Felt> for FeltTranscript {
     fn append_field_element(&mut self, element: &FieldElement<Felt>) {
         self.append_bytes(&element.value().to_bytes_be());
     }
@@ -50,19 +50,19 @@ impl IsStarkTranscript<Felt> for Transcript {
     }
 }
 
-pub struct QuadTranscript {
-    felt_transcript: Transcript,
+pub struct QuadFeltTranscript {
+    felt_transcript: FeltTranscript,
 }
 
-impl QuadTranscript {
+impl QuadFeltTranscript {
     pub fn new(data: &[u8]) -> Self {
         Self {
-            felt_transcript: Transcript::new(data),
+            felt_transcript: FeltTranscript::new(data),
         }
     }
 }
 
-impl IsStarkTranscript<QuadFelt> for QuadTranscript {
+impl IsStarkTranscript<QuadFelt> for QuadFeltTranscript {
     fn append_field_element(&mut self, element: &FieldElement<QuadFelt>) {
         self.append_bytes(&element.value().to_bytes_be());
     }

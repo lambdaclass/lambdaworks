@@ -126,11 +126,17 @@ impl ByteConversion for Felt {
 
 impl ByteConversion for QuadFelt {
     fn to_bytes_be(&self) -> Vec<u8> {
-        todo!()
+        let [b0, b1] = self.to_base_elements();
+        let mut bytes = b0.to_bytes_be();
+        bytes.extend(&b1.to_bytes_be());
+        bytes
     }
 
     fn to_bytes_le(&self) -> Vec<u8> {
-        todo!()
+        let [b0, b1] = self.to_base_elements();
+        let mut bytes = b0.to_bytes_le();
+        bytes.extend(&b1.to_bytes_be());
+        bytes
     }
 
     fn from_bytes_be(bytes: &[u8]) -> Result<Self, ByteConversionError>
@@ -150,7 +156,10 @@ impl ByteConversion for QuadFelt {
 
 impl Serializable for FieldElement<QuadFelt> {
     fn serialize(&self) -> Vec<u8> {
-        todo!()
+        let [b0, b1] = self.value().to_base_elements();
+        let mut bytes = b0.to_bytes_be();
+        bytes.extend(&b1.to_bytes_be());
+        bytes
     }
 }
 
@@ -231,7 +240,7 @@ impl IsSubFieldOf<QuadFelt> for Felt {
         b: &<QuadFelt as IsField>::BaseType,
     ) -> <QuadFelt as IsField>::BaseType {
         let [b0, b1] = b.to_base_elements();
-        QuadFelt::new(b0.add(-(*a)), -b1)
+        QuadFelt::new(a.add(-(b0)), -b1)
     }
 
     fn embed(a: Self::BaseType) -> <QuadFelt as IsField>::BaseType {

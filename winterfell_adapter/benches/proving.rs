@@ -11,9 +11,9 @@ use stark_platinum_prover::proof::options::ProofOptions;
 use stark_platinum_prover::prover::{IsStarkProver, Prover};
 use winter_air::FieldExtension;
 use winter_prover::Trace;
-use winterfell_adapter::adapter::QuadTranscript;
+use winterfell_adapter::adapter::QuadFeltTranscript;
 use winterfell_adapter::adapter::public_inputs::AirAdapterPublicInputs;
-use winterfell_adapter::adapter::{air::AirAdapter, Transcript};
+use winterfell_adapter::adapter::{air::AirAdapter, FeltTranscript};
 use winterfell_adapter::examples::miden_vm::ExecutionTraceMetadata;
 
 struct BenchInstance {
@@ -109,7 +109,7 @@ pub fn bench_prove_miden_fibonacci(c: &mut Criterion) {
                     &trace,
                     &pub_inputs,
                     &instance.lambda_proof_options,
-                    QuadTranscript::new(&[]),
+                    QuadFeltTranscript::new(&[]),
                 )
                 .unwrap(),
             );
