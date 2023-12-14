@@ -7,7 +7,8 @@ use winter_prover::ColMatrix;
 
 use crate::adapter::air::{AirAdapter, FromColumns};
 
-pub type MidenVMQuadFeltAir = AirAdapter<ProcessorAir, ExecutionTrace, Felt, QuadFelt, ExecutionTraceMetadata>;
+pub type MidenVMQuadFeltAir =
+    AirAdapter<ProcessorAir, ExecutionTrace, Felt, QuadFelt, ExecutionTraceMetadata>;
 
 #[derive(Clone)]
 pub struct ExecutionTraceMetadata {

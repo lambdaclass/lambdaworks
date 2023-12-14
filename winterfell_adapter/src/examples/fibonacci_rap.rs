@@ -251,7 +251,10 @@ mod tests {
     use winter_prover::Trace;
 
     use crate::{
-        adapter::{air::AirAdapter, public_inputs::AirAdapterPublicInputs, FeltTranscript, QuadFeltTranscript},
+        adapter::{
+            air::AirAdapter, public_inputs::AirAdapterPublicInputs, FeltTranscript,
+            QuadFeltTranscript,
+        },
         examples::fibonacci_rap::{self, FibonacciRAP, RapTraceTable},
     };
 

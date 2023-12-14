@@ -11,8 +11,8 @@ use stark_platinum_prover::proof::options::ProofOptions;
 use stark_platinum_prover::prover::{IsStarkProver, Prover};
 use winter_air::FieldExtension;
 use winter_prover::Trace;
-use winterfell_adapter::adapter::QuadFeltTranscript;
 use winterfell_adapter::adapter::public_inputs::AirAdapterPublicInputs;
+use winterfell_adapter::adapter::QuadFeltTranscript;
 use winterfell_adapter::adapter::{air::AirAdapter, FeltTranscript};
 use winterfell_adapter::examples::miden_vm::ExecutionTraceMetadata;
 

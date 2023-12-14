@@ -139,14 +139,14 @@ impl ByteConversion for QuadFelt {
         bytes
     }
 
-    fn from_bytes_be(bytes: &[u8]) -> Result<Self, ByteConversionError>
+    fn from_bytes_be(_bytes: &[u8]) -> Result<Self, ByteConversionError>
     where
         Self: Sized,
     {
         todo!()
     }
 
-    fn from_bytes_le(bytes: &[u8]) -> Result<Self, ByteConversionError>
+    fn from_bytes_le(_bytes: &[u8]) -> Result<Self, ByteConversionError>
     where
         Self: Sized,
     {

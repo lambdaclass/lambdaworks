@@ -83,7 +83,10 @@ mod tests {
     use winter_prover::{Trace, TraceTable};
 
     use crate::{
-        adapter::{air::AirAdapter, public_inputs::AirAdapterPublicInputs, FeltTranscript, QuadFeltTranscript},
+        adapter::{
+            air::AirAdapter, public_inputs::AirAdapterPublicInputs, FeltTranscript,
+            QuadFeltTranscript,
+        },
         examples::cubic::{self, Cubic},
     };
 
@@ -110,13 +113,13 @@ mod tests {
             QuadFeltTranscript::new(&[]),
         )
         .unwrap();
-        assert!(
-            Verifier::<AirAdapter<Cubic, TraceTable<_>, Felt, QuadFelt, _>>::verify(
-                &proof,
-                &pub_inputs,
-                &lambda_proof_options,
-                QuadFeltTranscript::new(&[]),
-            )
-        );
+        assert!(Verifier::<
+            AirAdapter<Cubic, TraceTable<_>, Felt, QuadFelt, _>,
+        >::verify(
+            &proof,
+            &pub_inputs,
+            &lambda_proof_options,
+            QuadFeltTranscript::new(&[]),
+        ));
     }
 }

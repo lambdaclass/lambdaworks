@@ -96,7 +96,10 @@ mod tests {
     use winter_prover::{Trace, TraceTable};
 
     use crate::{
-        adapter::{air::AirAdapter, public_inputs::AirAdapterPublicInputs, FeltTranscript, QuadFeltTranscript},
+        adapter::{
+            air::AirAdapter, public_inputs::AirAdapterPublicInputs, FeltTranscript,
+            QuadFeltTranscript,
+        },
         examples::fibonacci_2_terms::{self, FibAir2Terms},
     };
 
@@ -116,7 +119,7 @@ mod tests {
             metadata: (),
         };
 
-        let proof = Prover::<AirAdapter<FibAir2Terms, TraceTable<_>, Felt,QuadFelt,  _>>::prove(
+        let proof = Prover::<AirAdapter<FibAir2Terms, TraceTable<_>, Felt, QuadFelt, _>>::prove(
             &trace,
             &pub_inputs,
             &lambda_proof_options,
@@ -124,13 +127,13 @@ mod tests {
         )
         .unwrap();
 
-        assert!(
-            Verifier::<AirAdapter<FibAir2Terms, TraceTable<_>, Felt, QuadFelt, _>>::verify(
-                &proof,
-                &pub_inputs,
-                &lambda_proof_options,
-                QuadFeltTranscript::new(&[]),
-            )
-        );
+        assert!(Verifier::<
+            AirAdapter<FibAir2Terms, TraceTable<_>, Felt, QuadFelt, _>,
+        >::verify(
+            &proof,
+            &pub_inputs,
+            &lambda_proof_options,
+            QuadFeltTranscript::new(&[]),
+        ));
     }
 }
