@@ -1,7 +1,10 @@
-use lambdaworks_math::field::{element::FieldElement, traits::IsFFTField};
+use std::marker::PhantomData;
 
 use crate::{
-    constraints::boundary::{BoundaryConstraint, BoundaryConstraints},
+    constraints::{
+        boundary::{BoundaryConstraint, BoundaryConstraints},
+        transition::TransitionConstraint,
+    },
     context::AirContext,
     frame::Frame,
     proof::options::ProofOptions,
@@ -9,6 +12,52 @@ use crate::{
     traits::AIR,
     transcript::IsStarkTranscript,
 };
+use lambdaworks_math::field::{element::FieldElement, traits::IsFFTField};
+
+struct FibConstraint<F: IsFFTField> {
+    phantom: PhantomData<F>,
+}
+impl<F: IsFFTField> TransitionConstraint<F> for FibConstraint {
+    fn degree(&self) -> usize {
+        1
+    }
+
+    fn constraint_index(&self) -> usize {
+        0
+    }
+
+    fn period(&self) -> usize {
+        1
+    }
+
+    fn exemptions_period(&self) -> Option<usize> {
+        None
+    }
+
+    fn end_exemptions(&self) -> usize {
+        2
+    }
+
+    fn evaluate(
+        &self,
+        frame: &Frame<F>,
+        transition_evaluations: &mut [FieldElement<F>],
+        _periodic_values: &[FieldElement<F>],
+        _rap_challenges: &[FieldElement<F>],
+    ) {
+        let first_step = frame.get_evaluation_step(0);
+        let second_step = frame.get_evaluation_step(1);
+        let third_step = frame.get_evaluation_step(2);
+
+        let a0 = first_step.get_evaluation_element(0, 0);
+        let a1 = second_step.get_evaluation_element(0, 0);
+        let a2 = third_step.get_evaluation_element(0, 0);
+
+        let res = a2 - a1 - a0;
+
+        transition_evaluations[self.constraint_idx()] = res;
+    }
+}
 
 #[derive(Clone)]
 pub struct FibonacciAIR<F>

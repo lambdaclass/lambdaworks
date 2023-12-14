@@ -130,17 +130,18 @@ impl<F: IsFFTField> ConstraintEvaluator<F> {
         #[cfg(all(debug_assertions, not(feature = "parallel")))]
         let mut transition_evaluations = Vec::new();
 
-        let transition_exemptions_polys = air.transition_exemptions();
+        // let transition_exemptions_polys = air.transition_exemptions();
 
-        let transition_exemptions_evaluations =
-            evaluate_transition_exemptions(transition_exemptions_polys, domain);
-        let num_exemptions = air.context().num_transition_exemptions();
+        // let transition_exemptions_evaluations =
+        //     evaluate_transition_exemptions(transition_exemptions_polys, domain);
+        // let num_exemptions = air.context().num_transition_exemptions();
 
         let blowup_factor_order = u64::from(blowup_factor.trailing_zeros());
 
         let offset = FieldElement::<F>::from(air.context().proof_options.coset_offset);
         let offset_pow = offset.pow(trace_length);
         let one = FieldElement::<F>::one();
+
         let mut zerofier_evaluations = get_powers_of_primitive_root_coset(
             blowup_factor_order,
             blowup_factor as usize,
@@ -150,6 +151,8 @@ impl<F: IsFFTField> ConstraintEvaluator<F> {
         .iter()
         .map(|v| v - &one)
         .collect::<Vec<_>>();
+
+        let mut zerofer_evaluations = air.transition_zerofier_evaluations();
 
         FieldElement::inplace_batch_inverse(&mut zerofier_evaluations).unwrap();
 
@@ -242,7 +245,6 @@ impl<F: IsFFTField> ConstraintEvaluator<F> {
                             }
                         }
                     });
-                // TODO: Remove clones
 
                 acc_transition + boundary
             })

@@ -5,7 +5,7 @@ use lambdaworks_math::{
     polynomial::Polynomial,
 };
 
-use crate::transcript::IsStarkTranscript;
+use crate::{constraints::transition::TransitionConstraint, transcript::IsStarkTranscript};
 
 use super::{
     constraints::boundary::BoundaryConstraints, context::AirContext, frame::Frame,
@@ -84,6 +84,7 @@ pub trait AIR {
             })
             .collect()
     }
+
     fn context(&self) -> &AirContext;
 
     fn trace_length(&self) -> usize;
@@ -142,4 +143,8 @@ pub trait AIR {
         }
         result
     }
+
+    fn transition_constraints<T: TransitionConstraint<Self::Field>>(&self) -> Vec<T>;
+
+    fn transition_zerofier_evaluations(&self) -> Vec<Vec<Self::Field>>;
 }
