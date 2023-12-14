@@ -72,7 +72,6 @@ pub fn build_trace(sequence_length: usize) -> TraceTable<Felt> {
 
 #[cfg(test)]
 mod tests {
-    use lambdaworks_math::field::fields::winterfell::QuadFelt;
     use miden_core::Felt;
     use stark_platinum_prover::{
         proof::options::ProofOptions,
@@ -83,10 +82,7 @@ mod tests {
     use winter_prover::{Trace, TraceTable};
 
     use crate::{
-        adapter::{
-            air::AirAdapter, public_inputs::AirAdapterPublicInputs, FeltTranscript,
-            QuadFeltTranscript,
-        },
+        adapter::{air::AirAdapter, public_inputs::AirAdapterPublicInputs, FeltTranscript},
         examples::cubic::{self, Cubic},
     };
 
@@ -95,7 +91,7 @@ mod tests {
         let lambda_proof_options = ProofOptions::default_test_options();
         let winter_trace = cubic::build_trace(16);
         let trace =
-            AirAdapter::<Cubic, TraceTable<_>, Felt, QuadFelt, ()>::convert_winterfell_trace_table(
+            AirAdapter::<Cubic, TraceTable<_>, Felt, Felt, ()>::convert_winterfell_trace_table(
                 winter_trace.main_segment().clone(),
             );
         let pub_inputs = AirAdapterPublicInputs {
@@ -106,20 +102,20 @@ mod tests {
             metadata: (),
         };
 
-        let proof = Prover::<AirAdapter<Cubic, TraceTable<_>, Felt, QuadFelt, _>>::prove(
+        let proof = Prover::<AirAdapter<Cubic, TraceTable<_>, Felt, Felt, _>>::prove(
             &trace,
             &pub_inputs,
             &lambda_proof_options,
-            QuadFeltTranscript::new(&[]),
+            FeltTranscript::new(&[]),
         )
         .unwrap();
-        assert!(Verifier::<
-            AirAdapter<Cubic, TraceTable<_>, Felt, QuadFelt, _>,
-        >::verify(
-            &proof,
-            &pub_inputs,
-            &lambda_proof_options,
-            QuadFeltTranscript::new(&[]),
-        ));
+        assert!(
+            Verifier::<AirAdapter<Cubic, TraceTable<_>, Felt, Felt, _>>::verify(
+                &proof,
+                &pub_inputs,
+                &lambda_proof_options,
+                FeltTranscript::new(&[]),
+            )
+        );
     }
 }

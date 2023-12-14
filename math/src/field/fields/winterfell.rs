@@ -20,8 +20,6 @@ impl IsFFTField for Felt {
     const TWO_ADIC_PRIMITVE_ROOT_OF_UNITY: Self::BaseType = Felt::TWO_ADIC_ROOT_OF_UNITY;
 }
 
-pub type QuadFelt = QuadExtension<Felt>;
-
 impl IsPrimeField for Felt {
     type RepresentativeType = U256;
 
@@ -123,6 +121,8 @@ impl ByteConversion for Felt {
         }
     }
 }
+
+pub type QuadFelt = QuadExtension<Felt>;
 
 impl ByteConversion for QuadFelt {
     fn to_bytes_be(&self) -> Vec<u8> {

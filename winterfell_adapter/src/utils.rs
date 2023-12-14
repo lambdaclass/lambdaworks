@@ -1,6 +1,5 @@
-use lambdaworks_math::{field::traits::IsField};
+use lambdaworks_math::field::traits::IsField;
 use stark_platinum_prover::fri::FieldElement;
-
 
 pub fn vec_lambda2winter<FE: IsField<BaseType = FE> + Copy>(input: &[FieldElement<FE>]) -> Vec<FE> {
     input.iter().map(|&e| *e.value()).collect()
