@@ -1,4 +1,4 @@
-use lambdaworks_math::traits::ByteConversion;
+use lambdaworks_math::{field::fields::winterfell::QuadFelt, traits::ByteConversion};
 use miden_core::Felt;
 use sha3::{Digest, Keccak256};
 use stark_platinum_prover::{fri::FieldElement, transcript::IsStarkTranscript};
@@ -43,6 +43,42 @@ impl IsStarkTranscript<Felt> for Transcript {
             x = u64::from_be_bytes(bytes);
         }
         FieldElement::const_from_raw(Felt::new(x))
+    }
+
+    fn sample_u64(&mut self, upper_bound: u64) -> u64 {
+        u64::from_be_bytes(self.state()[..8].try_into().unwrap()) % upper_bound
+    }
+}
+
+pub struct QuadTranscript {
+    felt_transcript: Transcript,
+}
+
+impl QuadTranscript {
+    pub fn new(data: &[u8]) -> Self {
+        Self {
+            felt_transcript: Transcript::new(data),
+        }
+    }
+}
+
+impl IsStarkTranscript<QuadFelt> for QuadTranscript {
+    fn append_field_element(&mut self, element: &FieldElement<QuadFelt>) {
+        self.append_bytes(&element.value().to_bytes_be());
+    }
+
+    fn append_bytes(&mut self, new_bytes: &[u8]) {
+        self.felt_transcript.append_bytes(new_bytes);
+    }
+
+    fn state(&self) -> [u8; 32] {
+        self.felt_transcript.state()
+    }
+
+    fn sample_field_element(&mut self) -> FieldElement<QuadFelt> {
+        let x = self.felt_transcript.sample_field_element();
+        let y = self.felt_transcript.sample_field_element();
+        FieldElement::const_from_raw(QuadFelt::new(*x.value(), *y.value()))
     }
 
     fn sample_u64(&mut self, upper_bound: u64) -> u64 {

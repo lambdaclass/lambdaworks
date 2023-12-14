@@ -3,7 +3,7 @@ use stark_platinum_prover::fri::FieldElement;
 use winter_math::FieldElement as IsWinterfellFieldElement;
 
 pub fn vec_lambda2winter<
-    FE: IsField<BaseType = FE> + IsWinterfellFieldElement + ByteConversion + Unpin,
+    FE: IsField<BaseType = FE> + Copy,
 >(
     input: &[FieldElement<FE>],
 ) -> Vec<FE> {
@@ -11,7 +11,7 @@ pub fn vec_lambda2winter<
 }
 
 pub fn vec_winter2lambda<
-    FE: IsField<BaseType = FE> + IsWinterfellFieldElement + ByteConversion + Unpin,
+    FE: IsField<BaseType = FE> + Copy,
 >(
     input: &[FE],
 ) -> Vec<FieldElement<FE>> {
@@ -22,7 +22,7 @@ pub fn vec_winter2lambda<
 }
 
 pub fn matrix_lambda2winter<
-    FE: IsField<BaseType = FE> + IsWinterfellFieldElement + ByteConversion + Unpin,
+    FE: IsField<BaseType = FE> + Copy,
 >(
     input: &[Vec<FieldElement<FE>>],
 ) -> Vec<Vec<FE>> {
@@ -30,7 +30,7 @@ pub fn matrix_lambda2winter<
 }
 
 pub fn matrix_winter2lambda<
-    FE: IsField<BaseType = FE> + IsWinterfellFieldElement + ByteConversion + Unpin,
+    FE: IsField<BaseType = FE> + Copy,
 >(
     input: &[Vec<FE>],
 ) -> Vec<Vec<FieldElement<FE>>> {

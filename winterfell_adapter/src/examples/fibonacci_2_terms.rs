@@ -85,6 +85,7 @@ pub fn build_trace(sequence_length: usize) -> TraceTable<Felt> {
 
 #[cfg(test)]
 mod tests {
+    use lambdaworks_math::field::fields::winterfell::QuadFelt;
     use miden_core::Felt;
     use stark_platinum_prover::{
         proof::options::ProofOptions,
@@ -95,7 +96,7 @@ mod tests {
     use winter_prover::{Trace, TraceTable};
 
     use crate::{
-        adapter::{air::AirAdapter, public_inputs::AirAdapterPublicInputs, Transcript},
+        adapter::{air::AirAdapter, public_inputs::AirAdapterPublicInputs, Transcript, QuadTranscript},
         examples::fibonacci_2_terms::{self, FibAir2Terms},
     };
 
@@ -104,7 +105,7 @@ mod tests {
         let lambda_proof_options = ProofOptions::default_test_options();
         let winter_trace = fibonacci_2_terms::build_trace(16);
         let trace =
-            AirAdapter::<FibAir2Terms, TraceTable<_>, Felt, ()>::convert_winterfell_trace_table(
+            AirAdapter::<FibAir2Terms, TraceTable<_>, Felt, QuadFelt, ()>::convert_winterfell_trace_table(
                 winter_trace.main_segment().clone(),
             );
         let pub_inputs = AirAdapterPublicInputs {
@@ -115,20 +116,20 @@ mod tests {
             metadata: (),
         };
 
-        let proof = Prover::<AirAdapter<FibAir2Terms, TraceTable<_>, Felt, _>>::prove(
+        let proof = Prover::<AirAdapter<FibAir2Terms, TraceTable<_>, Felt,QuadFelt,  _>>::prove(
             &trace,
             &pub_inputs,
             &lambda_proof_options,
-            Transcript::new(&[]),
+            QuadTranscript::new(&[]),
         )
         .unwrap();
 
         assert!(
-            Verifier::<AirAdapter<FibAir2Terms, TraceTable<_>, Felt, _>>::verify(
+            Verifier::<AirAdapter<FibAir2Terms, TraceTable<_>, Felt, QuadFelt, _>>::verify(
                 &proof,
                 &pub_inputs,
                 &lambda_proof_options,
-                Transcript::new(&[]),
+                QuadTranscript::new(&[]),
             )
         );
     }

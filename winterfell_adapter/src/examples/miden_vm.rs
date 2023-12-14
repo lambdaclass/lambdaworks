@@ -46,8 +46,9 @@ impl FromColumns<Felt, ExecutionTraceMetadata> for ExecutionTrace {
 mod tests {
     use crate::adapter::air::AirAdapter;
     use crate::adapter::public_inputs::AirAdapterPublicInputs;
-    use crate::adapter::Transcript;
+    use crate::adapter::{Transcript, QuadTranscript};
     use crate::examples::fibonacci_2_terms::FibAir2Terms;
+    use lambdaworks_math::field::fields::winterfell::QuadFelt;
     use miden_air::{ProcessorAir, ProvingOptions, PublicInputs};
     use miden_assembly::Assembler;
     use miden_core::{Felt, StackInputs};
@@ -91,24 +92,24 @@ mod tests {
         };
 
         let trace =
-            AirAdapter::<FibAir2Terms, ExecutionTrace, Felt, _>::convert_winterfell_trace_table(
+            AirAdapter::<FibAir2Terms, ExecutionTrace, Felt, QuadFelt, _>::convert_winterfell_trace_table(
                 winter_trace.main_segment().clone(),
             );
 
-        let proof = Prover::<AirAdapter<ProcessorAir, ExecutionTrace, Felt, _>>::prove(
+        let proof = Prover::<AirAdapter<ProcessorAir, ExecutionTrace, Felt, QuadFelt, _>>::prove(
             &trace,
             &pub_inputs,
             &lambda_proof_options,
-            Transcript::new(&[]),
+            QuadTranscript::new(&[]),
         )
         .unwrap();
 
         assert!(
-            Verifier::<AirAdapter<ProcessorAir, ExecutionTrace, Felt, _>>::verify(
+            Verifier::<AirAdapter<ProcessorAir, ExecutionTrace, Felt, QuadFelt, _>>::verify(
                 &proof,
                 &pub_inputs,
                 &lambda_proof_options,
-                Transcript::new(&[]),
+                QuadTranscript::new(&[]),
             )
         );
     }
@@ -169,24 +170,24 @@ mod tests {
         };
 
         let trace =
-            AirAdapter::<ProcessorAir, ExecutionTrace, Felt, _>::convert_winterfell_trace_table(
+            AirAdapter::<ProcessorAir, ExecutionTrace, Felt, QuadFelt, _>::convert_winterfell_trace_table(
                 winter_trace.main_segment().clone(),
             );
 
-        let proof = Prover::<AirAdapter<ProcessorAir, ExecutionTrace, Felt, _>>::prove(
+        let proof = Prover::<AirAdapter<ProcessorAir, ExecutionTrace, Felt, QuadFelt, _>>::prove(
             &trace,
             &pub_inputs,
             &lambda_proof_options,
-            Transcript::new(&[]),
+            QuadTranscript::new(&[]),
         )
         .unwrap();
 
         assert!(
-            Verifier::<AirAdapter<ProcessorAir, ExecutionTrace, Felt, _>>::verify(
+            Verifier::<AirAdapter<ProcessorAir, ExecutionTrace, Felt, QuadFelt, _>>::verify(
                 &proof,
                 &pub_inputs,
                 &lambda_proof_options,
-                Transcript::new(&[]),
+                QuadTranscript::new(&[]),
             )
         );
     }

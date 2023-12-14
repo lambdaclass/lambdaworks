@@ -1,4 +1,5 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use lambdaworks_math::field::fields::winterfell::QuadFelt;
 use miden_air::{HashFunction, ProcessorAir, ProvingOptions, PublicInputs};
 use miden_assembly::Assembler;
 use miden_core::{Felt, Program, StackInputs};
@@ -10,6 +11,7 @@ use stark_platinum_prover::proof::options::ProofOptions;
 use stark_platinum_prover::prover::{IsStarkProver, Prover};
 use winter_air::FieldExtension;
 use winter_prover::Trace;
+use winterfell_adapter::adapter::QuadTranscript;
 use winterfell_adapter::adapter::public_inputs::AirAdapterPublicInputs;
 use winterfell_adapter::adapter::{air::AirAdapter, Transcript};
 use winterfell_adapter::examples::miden_vm::ExecutionTraceMetadata;
@@ -98,16 +100,16 @@ pub fn bench_prove_miden_fibonacci(c: &mut Criterion) {
             );
 
             let trace =
-                AirAdapter::<ProcessorAir, ExecutionTrace, Felt, _>::convert_winterfell_trace_table(
+                AirAdapter::<ProcessorAir, ExecutionTrace, Felt, QuadFelt, _>::convert_winterfell_trace_table(
                     winter_trace.main_segment().clone(),
                 );
 
             let _proof = black_box(
-                Prover::<AirAdapter<ProcessorAir, ExecutionTrace, Felt, _>>::prove(
+                Prover::<AirAdapter<ProcessorAir, ExecutionTrace, Felt, QuadFelt, _>>::prove(
                     &trace,
                     &pub_inputs,
                     &instance.lambda_proof_options,
-                    Transcript::new(&[]),
+                    QuadTranscript::new(&[]),
                 )
                 .unwrap(),
             );
