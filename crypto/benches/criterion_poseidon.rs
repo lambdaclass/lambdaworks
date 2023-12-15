@@ -1,22 +1,21 @@
-use criterion::{criterion_group, criterion_main, Criterion};
+use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use lambdaworks_benches::utils::{generate_random_elements, to_lambdaworks_vec};
 use lambdaworks_crypto::hash::poseidon::starknet::PoseidonCairoStark252;
 use lambdaworks_crypto::hash::poseidon::Poseidon;
 use lambdaworks_math::field::element::FieldElement;
-use lambdaworks_math::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;
-use std::time::Duration;
+use lambdaworks_math::field::fields::fft_friendly::stark_252_prime_field::MontgomeryConfigStark252PrimeField;
+use lambdaworks_math::field::fields::montgomery_backed_prime_fields::MontgomeryBackendPrimeField;
 
-type F = Stark252PrimeField;
-type FE = FieldElement<F>;
+type F = MontgomeryBackendPrimeField<MontgomeryConfigStark252PrimeField, 4>;
+fn generate_points() -> Vec<FieldElement<F>> {
+    let random_points = generate_random_elements(2);
+    to_lambdaworks_vec(&random_points)
+}
 fn poseidon_benchmarks(c: &mut Criterion) {
-    let mut group = c.benchmark_group("Poseidon batch");
-    group.sample_size(10);
-    group.measurement_time(Duration::from_secs(30));
-    let points_x: Vec<_> = core::iter::successors(Some(FE::zero()), |s| Some(s + FE::one()))
-        // `(1 << 20) + 1` exploits worst cases in terms of rounding up to powers of 2.
-        .take((1 << 20) + 1)
-        .collect();
-    group.bench_with_input("build", points_x.as_slice(), |bench, points_x| {
-        bench.iter_with_large_drop(|| PoseidonCairoStark252::hash_many(points_x));
+    let mut group = c.benchmark_group("Poseidon Benchmark".to_string());
+    let points = generate_points();
+    group.bench_function("Merkle hashing ", |bench| {
+        bench.iter(|| black_box(PoseidonCairoStark252::hash(&points[0], &points[1])))
     });
 }
 criterion_group!(poseidon, poseidon_benchmarks);

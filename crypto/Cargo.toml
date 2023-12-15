@@ -14,7 +14,7 @@ sha2 = "0.10"
 thiserror = "1.0.38"
 serde = { version = "1.0", features = ["derive"] }
 rayon = { version = "1.8.0", optional = true }
-
+lambdaworks-benches = { path = "../benches" }
 [dev-dependencies]
 criterion = "0.4"
 iai-callgrind.workspace = true
