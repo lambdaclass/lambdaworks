@@ -54,7 +54,7 @@ pub fn get_powers_of_primitive_root_coset<F: IsFFTField>(
     offset: &FieldElement<F>,
 ) -> Result<Vec<FieldElement<F>>, FFTError> {
     let root = F::get_primitive_root_of_unity(n)?;
-    let results = (0..count).map(|i| root.pow(i) * offset);
+    let results = (0..count).map(|i| offset * root.pow(i));
 
     Ok(results.collect())
 }

@@ -12,7 +12,8 @@ pub fn naive_matrix_dft_test<F: IsFFTField>(input: &[FieldElement<F>]) -> Vec<Fi
     assert!(n.is_power_of_two());
     let order = n.trailing_zeros();
 
-    let twiddles = get_powers_of_primitive_root(order.into(), n, RootsConfig::Natural).unwrap();
+    let twiddles =
+        get_powers_of_primitive_root::<F>(order.into(), n, RootsConfig::Natural).unwrap();
 
     let mut output = Vec::with_capacity(n);
     for row in 0..n {

@@ -63,6 +63,17 @@ impl<F: IsField> FieldElement<F> {
         numbers[0] = bi_inv;
         Ok(())
     }
+
+    #[inline(always)]
+    pub fn to_subfield_vec<S>(self) -> Vec<FieldElement<S>>
+    where
+        S: IsSubFieldOf<F>,
+    {
+        S::to_subfield_vec(self.value)
+            .into_iter()
+            .map(|x| FieldElement::from_raw(x))
+            .collect()
+    }
 }
 
 /// From overloading for field elements
@@ -432,6 +443,11 @@ where
     #[inline(always)]
     pub fn zero() -> Self {
         Self { value: F::zero() }
+    }
+
+    /// Returns the raw base type
+    pub fn to_raw(self) -> F::BaseType {
+        self.value
     }
 
     #[inline(always)]
