@@ -107,9 +107,9 @@ where
         1
     }
 
-    fn compute_transition(
+    fn compute_transition_prover(
         &self,
-        frame: &Frame<Self::Field>,
+        frame: &Frame<Self::Field, Self::FieldExtension>,
         _periodic_values: &[FieldElement<Self::Field>],
         gamma: &Self::RAPChallenges,
     ) -> Vec<FieldElement<Self::Field>> {
@@ -118,18 +118,18 @@ where
         let second_step = frame.get_evaluation_step(1);
         let third_step = frame.get_evaluation_step(2);
 
-        let a0 = first_step.get_evaluation_element(0, 0);
-        let a1 = second_step.get_evaluation_element(0, 0);
-        let a2 = third_step.get_evaluation_element(0, 0);
+        let a0 = first_step.get_main_evaluation_element(0, 0);
+        let a1 = second_step.get_main_evaluation_element(0, 0);
+        let a2 = third_step.get_main_evaluation_element(0, 0);
 
         let mut constraints = vec![a2 - a1 - a0];
 
         // Auxiliary constraints
-        let z_i = first_step.get_evaluation_element(0, 2);
-        let z_i_plus_one = second_step.get_evaluation_element(0, 2);
+        let z_i = first_step.get_aux_evaluation_element(0, 0);
+        let z_i_plus_one = second_step.get_aux_evaluation_element(0, 0);
 
-        let a_i = first_step.get_evaluation_element(0, 0);
-        let b_i = first_step.get_evaluation_element(0, 1);
+        let a_i = first_step.get_main_evaluation_element(0, 0);
+        let b_i = first_step.get_main_evaluation_element(0, 1);
 
         let eval = z_i_plus_one * (b_i + gamma) - z_i * (a_i + gamma);
 
@@ -165,6 +165,15 @@ where
 
     fn pub_inputs(&self) -> &Self::PublicInputs {
         &self.pub_inputs
+    }
+
+    fn compute_transition_verifier(
+        &self,
+        frame: &Frame<Self::FieldExtension, Self::FieldExtension>,
+        periodic_values: &[FieldElement<Self::FieldExtension>],
+        rap_challenges: &Self::RAPChallenges,
+    ) -> Vec<FieldElement<Self::Field>> {
+        self.compute_transition_prover(frame, periodic_values, rap_challenges)
     }
 }
 

@@ -20,7 +20,7 @@ use rayon::prelude::{IndexedParallelIterator, IntoParallelRefIterator, ParallelI
 use crate::debug::validate_trace;
 use crate::fri;
 use crate::proof::stark::{DeepPolynomialOpenings, PolynomialOpenings};
-use crate::table::Table;
+use crate::table::{LDETable, Table};
 use crate::transcript::IsStarkTranscript;
 
 use super::config::{BatchedMerkleTree, Commitment};
@@ -50,7 +50,6 @@ where
     FieldElement<F>: Serializable + Send + Sync,
 {
     pub(crate) trace_polys: Vec<Polynomial<FieldElement<F>>>,
-    pub(crate) lde_trace: TraceTable<F>,
     pub(crate) lde_trace_merkle_tree: BatchedMerkleTree<F>,
     pub(crate) lde_trace_merkle_root: Commitment,
 }
@@ -61,6 +60,7 @@ where
     FieldElement<A::FieldExtension>: Serializable + Sync + Send,
     FieldElement<A::Field>: Serializable + Sync + Send,
 {
+    pub(crate) lde_table: LDETable<A::Field, A::FieldExtension>,
     pub(crate) main: Round1CommitmentData<A::Field>,
     pub(crate) aux: Option<Round1CommitmentData<A::FieldExtension>>,
     pub(crate) rap_challenges: A::RAPChallenges,
@@ -87,22 +87,22 @@ where
         trace_polys
     }
 
-    fn all_evaluations(&self) -> TraceTable<A::FieldExtension> {
-        let mut evaluations: Vec<Vec<FieldElement<A::FieldExtension>>> = self
-            .main
-            .lde_trace
-            .columns()
-            .clone()
-            .into_iter()
-            .map(|col| col.into_iter().map(|x| x.to_extension()).collect())
-            .collect();
-
-        if let Some(aux) = &self.aux {
-            evaluations.extend_from_slice(&aux.lde_trace.columns())
-        }
-
-        TraceTable::from_columns(evaluations, A::STEP_SIZE)
-    }
+    // fn all_evaluations(&self) -> TraceTable<A::FieldExtension> {
+    //     let mut evaluations: Vec<Vec<FieldElement<A::FieldExtension>>> = self
+    //         .main
+    //         .lde_trace
+    //         .columns()
+    //         .clone()
+    //         .into_iter()
+    //         .map(|col| col.into_iter().map(|x| x.to_extension()).collect())
+    //         .collect();
+    //
+    //     if let Some(aux) = &self.aux {
+    //         evaluations.extend_from_slice(&aux.lde_trace.columns())
+    //     }
+    //
+    //     TraceTable::from_columns(evaluations, A::STEP_SIZE)
+    // }
 }
 pub struct Round2<F>
 where
@@ -246,7 +246,7 @@ pub trait IsStarkProver<A: AIR> {
 
         let main = Round1CommitmentData::<A::Field> {
             trace_polys,
-            lde_trace: TraceTable::from_columns(evaluations, A::STEP_SIZE),
+            // lde_trace: TraceTable::from_columns(evaluations, A::STEP_SIZE),
             lde_trace_merkle_tree: main_merkle_tree,
             lde_trace_merkle_root: main_merkle_root,
         };
@@ -254,21 +254,26 @@ pub trait IsStarkProver<A: AIR> {
         let rap_challenges = air.build_rap_challenges(transcript);
 
         let aux_trace = air.build_auxiliary_trace(main_trace, &rap_challenges);
+        let mut aux_evaluations;
         let aux = if !aux_trace.is_empty() {
             // Check that this is valid for interpolation
             let (aux_trace_polys, aux_trace_polys_evaluations, aux_merkle_tree, aux_merkle_root) =
                 Self::interpolate_and_commit(&aux_trace, domain, transcript);
+            aux_evaluations = aux_trace_polys_evaluations;
             Some(Round1CommitmentData::<A::FieldExtension> {
                 trace_polys: aux_trace_polys,
-                lde_trace: TraceTable::from_columns(aux_trace_polys_evaluations, A::STEP_SIZE),
+                // lde_trace: TraceTable::from_columns(aux_trace_polys_evaluations, A::STEP_SIZE),
                 lde_trace_merkle_tree: aux_merkle_tree,
                 lde_trace_merkle_root: aux_merkle_root,
             })
         } else {
+            aux_evaluations = Vec::new();
             None
         };
+        let lde_table = LDETable::from_columns(evaluations, aux_evaluations, A::STEP_SIZE);
 
         Ok(Round1 {
+            lde_table,
             main,
             aux,
             rap_challenges,
@@ -322,7 +327,7 @@ pub trait IsStarkProver<A: AIR> {
 
         let constraint_evaluations = evaluator.evaluate(
             air,
-            &round_1_result.all_evaluations(),
+            &round_1_result.lde_table,
             domain,
             transition_coefficients,
             boundary_coefficients,
@@ -663,7 +668,7 @@ pub trait IsStarkProver<A: AIR> {
     fn open_trace_polys<E>(
         domain: &Domain<A::Field>,
         tree: &BatchedMerkleTree<E>,
-        lde_trace: &TraceTable<E>,
+        lde_trace: &Table<E>,
         challenge: usize,
     ) -> PolynomialOpenings<E>
     where
@@ -706,7 +711,7 @@ pub trait IsStarkProver<A: AIR> {
             let main_trace_opening = Self::open_trace_polys::<A::Field>(
                 domain,
                 &round_1_result.main.lde_trace_merkle_tree,
-                &round_1_result.main.lde_trace,
+                &round_1_result.lde_table.main_table,
                 *index,
             );
 
@@ -720,7 +725,7 @@ pub trait IsStarkProver<A: AIR> {
                 Self::open_trace_polys::<A::FieldExtension>(
                     domain,
                     &aux.lde_trace_merkle_tree,
-                    &aux.lde_trace,
+                    &round_1_result.lde_table.aux_table,
                     *index,
                 )
             });
@@ -781,7 +786,11 @@ pub trait IsStarkProver<A: AIR> {
         #[cfg(debug_assertions)]
         validate_trace(
             &air,
-            &round_1_result.all_trace_polys(),
+            &round_1_result.main.trace_polys,
+            &round_1_result
+                .aux
+                .map(|a| &a.trace_polys)
+                .unwrap_or(&vec![]),
             &domain,
             &round_1_result.rap_challenges,
         );
@@ -916,7 +925,7 @@ pub trait IsStarkProver<A: AIR> {
 
         info!("End proof generation");
 
-        let trace_ood_evaluations = Table::new(
+        let trace_ood_evaluations = LDETable::new(
             round_3_result
                 .trace_ood_evaluations
                 .into_iter()

@@ -1,6 +1,120 @@
-use lambdaworks_math::field::{element::FieldElement, traits::IsField};
+use lambdaworks_math::field::{
+    element::FieldElement,
+    traits::{IsField, IsSubFieldOf},
+};
 
 use crate::{frame::Frame, trace::StepView};
+
+#[derive(Clone, Default, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub(crate) struct LDETable<F: IsSubFieldOf<E>, E: IsField> {
+    pub(crate) main_table: Table<F>,
+    pub(crate) aux_table: Table<E>,
+    pub(crate) step_size: usize,
+}
+
+impl<'t, F: IsSubFieldOf<E>, E: IsField> LDETable<F, E> {
+    pub fn new(
+        main_data: Vec<FieldElement<F>>,
+        aux_data: Vec<FieldElement<E>>,
+        n_main_columns: usize,
+        n_aux_colmns: usize,
+        step_size: usize,
+    ) -> Self {
+        Self {
+            main_table: Table::new(main_data, n_main_columns),
+            aux_table: Table::new(aux_data, n_aux_colmns),
+            step_size,
+        }
+    }
+
+    /// Creates a Table instance from a vector of the intended columns.
+    pub fn from_columns(
+        main_columns: Vec<Vec<FieldElement<F>>>,
+        aux_columns: Vec<Vec<FieldElement<E>>>,
+        step_size: usize,
+    ) -> Self {
+        Self {
+            main_table: Table::from_columns(main_columns),
+            aux_table: Table::from_columns(aux_columns),
+            step_size,
+        }
+    }
+
+    pub fn n_main_cols(&self) -> usize {
+        self.main_table.width
+    }
+
+    pub fn n_aux_cols(&self) -> usize {
+        self.aux_table.width
+    }
+
+    pub fn n_cols(&self) -> usize {
+        self.n_main_cols() + self.n_aux_cols()
+    }
+
+    pub fn data(&self) -> Vec<FieldElement<E>> {
+        let mut data: Vec<_> = self
+            .main_table
+            .data
+            .iter()
+            .map(|x| x.clone().to_extension())
+            .collect();
+        data.extend_from_slice(&self.aux_table.data);
+        data
+    }
+
+    pub fn num_steps(&self) -> usize {
+        debug_assert!((self.main_table.height % self.step_size) == 0);
+        debug_assert_eq!(self.main_table.height, self.aux_table.height);
+        self.main_table.height / self.step_size
+    }
+
+    /// Given a particular step of the computation represented on the trace,
+    /// returns the row of the underlying table.
+    pub fn step_to_row(&self, step: usize) -> usize {
+        self.step_size * step
+    }
+
+    /// Given a step index, return the step view of the trace for that index
+    pub fn step_view(&'t self, step_idx: usize) -> StepView<'t, F, E> {
+        let row_idx = self.step_to_row(step_idx);
+        let main_table_view = self.main_table.table_view(row_idx, self.step_size);
+        let aux_table_view = self.aux_table.table_view(row_idx, self.step_size);
+
+        StepView {
+            main_table_view,
+            aux_table_view,
+            step_idx,
+        }
+    }
+
+    /// Given a row and a column index, gives stored value in that position
+    pub fn get_main(&self, row: usize, col: usize) -> &FieldElement<F> {
+        self.main_table.get(row, col)
+    }
+
+    /// Given a row and a column index, gives stored value in that position
+    pub fn get_aux(&self, row: usize, col: usize) -> &FieldElement<E> {
+        self.aux_table.get(row, col)
+    }
+
+    /// Given a row index, returns a reference to that row in the main tableas a slice of field elements.
+    pub fn get_row_main(&self, row_idx: usize) -> &[FieldElement<F>] {
+        let row_offset = row_idx * self.main_table.width;
+        &self.main_table.data[row_offset..row_offset + self.main_table.width]
+    }
+
+    /// Given a row index, returns a reference to that row in the aux tableas a slice of field elements.
+    pub fn get_row_aux(&self, row_idx: usize) -> &[FieldElement<E>] {
+        let row_offset = row_idx * self.aux_table.width;
+        &self.aux_table.data[row_offset..row_offset + self.aux_table.width]
+    }
+
+    pub fn n_rows(&self) -> usize {
+        debug_assert_eq!(self.main_table.height, self.aux_table.height);
+        self.main_table.height
+    }
+}
 
 /// A two-dimensional Table holding field elements, arranged in a row-major order.
 /// This is the basic underlying data structure used for any two-dimensional component in the
@@ -123,20 +237,20 @@ impl<'t, F: IsField> Table<F> {
         &self.data[idx]
     }
 
-    /// Given a step size, converts the given table into a `Frame`.
-    pub fn into_frame(&'t self, step_size: usize) -> Frame<'t, F> {
-        debug_assert!(self.height % step_size == 0);
-        let steps = (0..self.height)
-            .step_by(step_size)
-            .enumerate()
-            .map(|(step_idx, row_idx)| {
-                let table_view = self.table_view(row_idx, step_size);
-                StepView::new(table_view, step_idx)
-            })
-            .collect();
-
-        Frame::new(steps)
-    }
+    // /// Given a step size, converts the given table into a `Frame`.
+    // pub fn into_frame(&'t self, step_size: usize) -> Frame<'t, F> {
+    //     debug_assert!(self.height % step_size == 0);
+    //     let steps = (0..self.height)
+    //         .step_by(step_size)
+    //         .enumerate()
+    //         .map(|(step_idx, row_idx)| {
+    //             let table_view = self.table_view(row_idx, step_size);
+    //             StepView::new(table_view, step_idx)
+    //         })
+    //         .collect();
+    //
+    //     Frame::new(steps)
+    // }
 }
 
 /// A view of a contiguos subset of rows of a table.

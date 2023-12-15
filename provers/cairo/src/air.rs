@@ -787,7 +787,7 @@ impl AIR for CairoAIR {
         23
     }
 
-    fn compute_transition(
+    fn compute_transition_prover(
         &self,
         frame: &Frame<Self::Field>,
         _periodic_values: &[FieldElement<Self::Field>],

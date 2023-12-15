@@ -55,17 +55,6 @@ impl<'t, F: IsField> TraceTable<F> {
         self.step_size * step
     }
 
-    /// Given a step index, return the step view of the trace for that index
-    pub fn step_view(&'t self, step_idx: usize) -> StepView<'t, F> {
-        let row_idx = self.step_to_row(step_idx);
-        let table_view = self.table.table_view(row_idx, self.step_size);
-
-        StepView {
-            table_view,
-            step_idx,
-        }
-    }
-
     pub fn n_cols(&self) -> usize {
         self.table.width
     }
@@ -104,11 +93,6 @@ impl<'t, F: IsField> TraceTable<F> {
             }
         }
         data
-    }
-
-    /// Given a row and a column index, gives stored value in that position
-    pub fn get(&self, row: usize, col: usize) -> &FieldElement<F> {
-        self.table.get(row, col)
     }
 
     pub fn compute_trace_polys<S: IsFFTField + IsSubFieldOf<F>>(
@@ -170,26 +154,41 @@ impl<'t, F: IsField> TraceTable<F> {
 /// access the steps in a trace, in order to grab elements to calculate
 /// constraint evaluations.
 #[derive(Debug, Clone, PartialEq)]
-pub struct StepView<'t, F: IsField> {
-    pub table_view: TableView<'t, F>,
+pub struct StepView<'t, F: IsSubFieldOf<E>, E: IsField> {
+    pub main_table_view: TableView<'t, F>,
+    pub aux_table_view: TableView<'t, E>,
     pub step_idx: usize,
 }
 
-impl<'t, F: IsField> StepView<'t, F> {
-    pub fn new(table_view: TableView<'t, F>, step_idx: usize) -> Self {
+impl<'t, F: IsSubFieldOf<E>, E: IsField> StepView<'t, F, E> {
+    pub fn new(
+        main_table_view: TableView<'t, F>,
+        aux_table_view: TableView<'t, E>,
+        step_idx: usize,
+    ) -> Self {
         StepView {
-            table_view,
+            main_table_view,
+            aux_table_view,
             step_idx,
         }
     }
 
-    /// Gets the evaluation element specified by `row_idx` and `col_idx` of this step
-    pub fn get_evaluation_element(&self, row_idx: usize, col_idx: usize) -> &FieldElement<F> {
-        self.table_view.get(row_idx, col_idx)
+    /// Gets the evaluation element of the main table specified by `row_idx` and `col_idx` of this step
+    pub fn get_main_evaluation_element(&self, row_idx: usize, col_idx: usize) -> &FieldElement<F> {
+        self.main_table_view.get(row_idx, col_idx)
     }
 
-    pub fn get_row(&self, row_idx: usize) -> &[FieldElement<F>] {
-        self.table_view.get_row(row_idx)
+    /// Gets the evaluation element of the aux table specified by `row_idx` and `col_idx` of this step
+    pub fn get_aux_evaluation_element(&self, row_idx: usize, col_idx: usize) -> &FieldElement<E> {
+        self.aux_table_view.get(row_idx, col_idx)
+    }
+
+    pub fn get_row_main(&self, row_idx: usize) -> &[FieldElement<F>] {
+        self.main_table_view.get_row(row_idx)
+    }
+
+    pub fn get_row_aux(&self, row_idx: usize) -> &[FieldElement<E>] {
+        self.aux_table_view.get_row(row_idx)
     }
 }
 
@@ -200,7 +199,8 @@ impl<'t, F: IsField> StepView<'t, F> {
 /// Example: For a simple Fibonacci computation, if t(x) is the trace polynomial of
 /// the computation, this will output evaluations t(x), t(g * x), t(g^2 * z).
 pub fn get_trace_evaluations<E: IsField, F: IsSubFieldOf<E>>(
-    trace_polys: &[Polynomial<FieldElement<E>>],
+    main_trace_polys: &[Polynomial<FieldElement<E>>],
+    aux_trace_polys: &[Polynomial<FieldElement<E>>],
     x: &FieldElement<E>,
     frame_offsets: &[usize],
     primitive_root: &FieldElement<F>,

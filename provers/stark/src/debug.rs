@@ -1,5 +1,5 @@
-use crate::frame::Frame;
 use crate::trace::TraceTable;
+use crate::{frame::Frame, table::LDETable};
 
 use super::domain::Domain;
 use super::traits::AIR;
@@ -15,14 +15,26 @@ use log::{error, info};
 /// Validates that the trace is valid with respect to the supplied AIR constraints
 pub fn validate_trace<A: AIR>(
     air: &A,
-    trace_polys: &[Polynomial<FieldElement<A::FieldExtension>>],
+    main_trace_polys: &[Polynomial<FieldElement<A::Field>>],
+    aux_trace_polys: &[Polynomial<FieldElement<A::FieldExtension>>],
     domain: &Domain<A::Field>,
     rap_challenges: &A::RAPChallenges,
 ) -> bool {
     info!("Starting constraints validation over trace...");
     let mut ret = true;
 
-    let trace_columns: Vec<_> = trace_polys
+    let main_trace_columns: Vec<_> = main_trace_polys
+        .iter()
+        .map(|poly| {
+            Polynomial::<FieldElement<A::Field>>::evaluate_fft::<A::Field>(
+                poly,
+                1,
+                Some(domain.interpolation_domain_size),
+            )
+            .unwrap()
+        })
+        .collect();
+    let aux_trace_columns: Vec<_> = aux_trace_polys
         .iter()
         .map(|poly| {
             Polynomial::evaluate_fft::<A::Field>(poly, 1, Some(domain.interpolation_domain_size))
@@ -30,7 +42,7 @@ pub fn validate_trace<A: AIR>(
         })
         .collect();
 
-    let trace = TraceTable::from_columns(trace_columns, A::STEP_SIZE);
+    let lde_table = LDETable::from_columns(main_trace_columns, aux_trace_columns, A::STEP_SIZE);
 
     let periodic_columns: Vec<_> = air
         .get_periodic_column_polynomials()
@@ -49,9 +61,14 @@ pub fn validate_trace<A: AIR>(
             let col = constraint.col;
             let step = constraint.step;
             let boundary_value = constraint.value.clone();
-            let trace_value = trace.get(step, col);
 
-            if &boundary_value.clone().to_extension() != trace_value {
+            let trace_value = if col < lde_table.n_main_cols() {
+                lde_table.get_main(step, col).clone().to_extension()
+            } else {
+                *lde_table.get_aux(step, col)
+            };
+
+            if boundary_value.clone().to_extension() != trace_value {
                 ret = false;
                 error!("Boundary constraint inconsistency - Expected value {:?} in step {} and column {}, found: {:?}", boundary_value, step, col, trace_value);
             }
@@ -61,21 +78,22 @@ pub fn validate_trace<A: AIR>(
     let n_transition_constraints = air.context().num_transition_constraints();
     let transition_exemptions = &air.context().transition_exemptions;
 
-    let exemption_steps: Vec<usize> = vec![trace.n_rows(); n_transition_constraints]
+    let exemption_steps: Vec<usize> = vec![lde_table.n_rows(); n_transition_constraints]
         .iter()
         .zip(transition_exemptions)
         .map(|(trace_steps, exemptions)| trace_steps - exemptions)
         .collect();
 
     // Iterate over trace and compute transitions
-    for step in 0..trace.num_steps() {
-        let frame = Frame::read_from_trace(&trace, step, 1, &air.context().transition_offsets);
+    for step in 0..lde_table.num_steps() {
+        let frame =
+            Frame::read_from_lde_table(&lde_table, step, 1, &air.context().transition_offsets);
 
         let periodic_values: Vec<_> = periodic_columns
             .iter()
             .map(|col| col[step].clone())
             .collect();
-        let evaluations = air.compute_transition(&frame, &periodic_values, rap_challenges);
+        let evaluations = air.compute_transition_prover(&frame, &periodic_values, rap_challenges);
 
         // Iterate over each transition evaluation. When the evaluated step is not from
         // the exemption steps corresponding to the transition, it should have zero as a

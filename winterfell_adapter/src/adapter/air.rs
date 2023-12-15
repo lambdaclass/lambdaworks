@@ -178,7 +178,7 @@ where
             * self.trace_length()
     }
 
-    fn compute_transition(
+    fn compute_transition_prover(
         &self,
         frame: &stark_platinum_prover::frame::Frame<Self::Field>,
         periodic_values: &[FieldElement<Self::Field>],

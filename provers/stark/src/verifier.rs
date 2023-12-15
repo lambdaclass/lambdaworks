@@ -250,7 +250,7 @@ pub trait IsStarkVerifier<A: AIR> {
             .map(|poly| poly.evaluate(&challenges.z))
             .collect::<Vec<FieldElement<A::FieldExtension>>>();
 
-        let transition_ood_frame_evaluations = air.compute_transition(
+        let transition_ood_frame_evaluations = air.compute_transition_verifier(
             &(proof.trace_ood_evaluations).into_frame(A::STEP_SIZE),
             &periodic_values,
             &challenges.rap_challenges,

@@ -69,9 +69,9 @@ where
     ) -> Self::RAPChallenges {
     }
 
-    fn compute_transition(
+    fn compute_transition_prover(
         &self,
-        frame: &Frame<Self::Field>,
+        frame: &Frame<Self::Field, Self::FieldExtension>,
         _periodic_values: &[FieldElement<Self::Field>],
         _rap_challenges: &Self::RAPChallenges,
     ) -> Vec<FieldElement<Self::Field>> {
@@ -81,10 +81,10 @@ where
         // constraints of Fibonacci sequence (2 terms per step):
         // s_{0, i+1} = s_{0, i} + s_{1, i}
         // s_{1, i+1} = s_{1, i} + s_{0, i+1}
-        let s0_0 = first_step.get_evaluation_element(0, 0);
-        let s0_1 = first_step.get_evaluation_element(0, 1);
-        let s1_0 = second_step.get_evaluation_element(0, 0);
-        let s1_1 = second_step.get_evaluation_element(0, 1);
+        let s0_0 = first_step.get_main_evaluation_element(0, 0);
+        let s0_1 = first_step.get_main_evaluation_element(0, 1);
+        let s1_0 = second_step.get_main_evaluation_element(0, 0);
+        let s1_1 = second_step.get_main_evaluation_element(0, 1);
 
         let first_transition = s1_0 - s0_0 - s0_1;
         let second_transition = s1_1 - s0_1 - s1_0;
@@ -120,6 +120,15 @@ where
 
     fn pub_inputs(&self) -> &Self::PublicInputs {
         &self.pub_inputs
+    }
+
+    fn compute_transition_verifier(
+        &self,
+        frame: &Frame<Self::FieldExtension, Self::FieldExtension>,
+        periodic_values: &[FieldElement<Self::FieldExtension>],
+        rap_challenges: &Self::RAPChallenges,
+    ) -> Vec<FieldElement<Self::Field>> {
+        self.compute_transition_prover(frame, periodic_values, rap_challenges)
     }
 }
 

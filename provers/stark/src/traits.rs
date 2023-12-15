@@ -45,9 +45,16 @@ pub trait AIR {
 
     fn composition_poly_degree_bound(&self) -> usize;
 
-    fn compute_transition(
+    fn compute_transition_prover(
         &self,
-        frame: &Frame<Self::FieldExtension>,
+        frame: &Frame<Self::Field, Self::FieldExtension>,
+        periodic_values: &[FieldElement<Self::FieldExtension>],
+        rap_challenges: &Self::RAPChallenges,
+    ) -> Vec<FieldElement<Self::Field>>;
+
+    fn compute_transition_verifier(
+        &self,
+        frame: &Frame<Self::FieldExtension, Self::FieldExtension>,
         periodic_values: &[FieldElement<Self::FieldExtension>],
         rap_challenges: &Self::RAPChallenges,
     ) -> Vec<FieldElement<Self::Field>>;

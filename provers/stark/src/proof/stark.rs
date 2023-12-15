@@ -14,7 +14,7 @@ use crate::{
     config::Commitment,
     domain::Domain,
     fri::fri_decommit::FriDecommitment,
-    table::Table,
+    table::{Table, LDETable},
     traits::AIR,
     transcript::StoneProverTranscript,
     verifier::{IsStarkVerifier, Verifier},
@@ -50,7 +50,7 @@ pub struct StarkProof<F: IsSubFieldOf<E>, E: IsField> {
     // [tⱼ]
     pub lde_trace_aux_merkle_root: Option<Commitment>,
     // tⱼ(zgᵏ)
-    pub trace_ood_evaluations: Table<E>,
+    pub trace_ood_evaluations: LDETable<E, E>,
     // Commitments to Hᵢ
     pub composition_poly_root: Commitment,
     // Hᵢ(z^N)
@@ -131,8 +131,8 @@ impl StoneCompatibleSerializer {
         proof: &StarkProof<Stark252PrimeField, Stark252PrimeField>,
         output: &mut Vec<u8>,
     ) {
-        for i in 0..proof.trace_ood_evaluations.width {
-            for j in 0..proof.trace_ood_evaluations.height {
+        for i in 0..proof.trace_ood_evaluations.n_cols() {
+            for j in 0..proof.trace_ood_evaluations.n_rows() {
                 output.extend_from_slice(&proof.trace_ood_evaluations.get_row(j)[i].serialize());
             }
         }

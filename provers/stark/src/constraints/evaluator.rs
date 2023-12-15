@@ -17,9 +17,8 @@ use rayon::prelude::{
 use super::boundary::BoundaryConstraints;
 #[cfg(all(debug_assertions, not(feature = "parallel")))]
 use crate::debug::check_boundary_polys_divisibility;
-use crate::domain::Domain;
-use crate::trace::TraceTable;
 use crate::traits::AIR;
+use crate::{domain::Domain, table::LDETable};
 use crate::{frame::Frame, prover::evaluate_polynomial_on_lde_domain};
 
 pub struct ConstraintEvaluator<A: AIR> {
@@ -37,7 +36,7 @@ impl<A: AIR> ConstraintEvaluator<A> {
     pub fn evaluate(
         &self,
         air: &A,
-        lde_trace: &TraceTable<A::FieldExtension>,
+        lde_table: &LDETable<A::Field, A::FieldExtension>,
         domain: &Domain<A::Field>,
         transition_coefficients: &[FieldElement<A::FieldExtension>],
         boundary_coefficients: &[FieldElement<A::FieldExtension>],
@@ -86,16 +85,15 @@ impl<A: AIR> ConstraintEvaluator<A> {
             .collect::<Result<Vec<Vec<FieldElement<A::FieldExtension>>>, FFTError>>()
             .unwrap();
 
-        let n_col = lde_trace.n_cols();
+        let n_col = lde_table.n_cols();
         let n_elem = domain.lde_roots_of_unity_coset.len();
         let boundary_polys_evaluations = boundary_constraints
             .constraints
             .iter()
             .map(|constraint| {
                 let col = constraint.col;
-                lde_trace
-                    .table
-                    .data
+                lde_table
+                    .data()
                     .iter()
                     .skip(col)
                     .step_by(n_col)
@@ -182,8 +180,8 @@ impl<A: AIR> ConstraintEvaluator<A> {
             .zip(&boundary_evaluation)
             .zip(zerofier_iter)
             .map(|((i, boundary), zerofier)| {
-                let frame = Frame::read_from_trace(
-                    lde_trace,
+                let frame = Frame::<A::Field, A::FieldExtension>::read_from_lde_table(
+                    lde_table,
                     i,
                     blowup_factor,
                     &air.context().transition_offsets,
@@ -197,7 +195,7 @@ impl<A: AIR> ConstraintEvaluator<A> {
                 // Compute all the transition constraints at this
                 // point of the LDE domain.
                 let evaluations_transition =
-                    air.compute_transition(&frame, &periodic_values, rap_challenges);
+                    air.compute_transition_prover(&frame, &periodic_values, rap_challenges);
 
                 #[cfg(all(debug_assertions, not(feature = "parallel")))]
                 transition_evaluations.push(evaluations_transition.clone());
