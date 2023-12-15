@@ -20,6 +20,7 @@ pub trait AIR {
     type Field: IsFFTField;
     type RAPChallenges;
     type PublicInputs;
+    type TransitionConstraints: TransitionConstraint<Self::Field>;
 
     const STEP_SIZE: usize;
 
@@ -158,12 +159,11 @@ pub trait AIR {
         result
     }
 
-    fn transition_constraints<T: TransitionConstraint<Self::Field>>(&self) -> Vec<T>;
+    // NOTE: Remember to index constraints correctly!!!!
+    // fn transition_constraints<T: TransitionConstraint<Self::Field>>(&self) -> Vec<T>;
+    fn transition_constraints(&self) -> Vec<Self::TransitionConstraints>;
 
-    fn transition_zerofier_evaluations<'a, T>(&'a self) -> TransitionZerofiersIter<'a, Self::Field>
-    where
-        T: TransitionConstraint<Self::Field>,
-    {
+    fn transition_zerofier_evaluations<'a>(&'a self) -> TransitionZerofiersIter<'a, Self::Field> {
         let trace_length = self.trace_length();
         let blowup_factor = usize::from(self.blowup_factor());
         let offset = self.coset_offset();
@@ -172,7 +172,7 @@ pub trait AIR {
         let evals: Vec<_> = self
             .transition_constraints()
             .iter()
-            .map(|c: &T| {
+            .map(|c| {
                 c.zerofier_evaluations(blowup_factor, &offset, trace_length, &trace_primitive_root)
             })
             .collect();
