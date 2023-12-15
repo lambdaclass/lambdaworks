@@ -142,19 +142,19 @@ impl<F: IsFFTField> ConstraintEvaluator<F> {
         let offset_pow = offset.pow(trace_length);
         let one = FieldElement::<F>::one();
 
-        let mut zerofier_evaluations = get_powers_of_primitive_root_coset(
-            blowup_factor_order,
-            blowup_factor as usize,
-            &offset_pow,
-        )
-        .unwrap()
-        .iter()
-        .map(|v| v - &one)
-        .collect::<Vec<_>>();
+        // let mut zerofier_evaluations = get_powers_of_primitive_root_coset(
+        //     blowup_factor_order,
+        //     blowup_factor as usize,
+        //     &offset_pow,
+        // )
+        // .unwrap()
+        // .iter()
+        // .map(|v| v - &one)
+        // .collect::<Vec<_>>();
 
         let mut zerofer_evaluations = air.transition_zerofier_evaluations();
 
-        FieldElement::inplace_batch_inverse(&mut zerofier_evaluations).unwrap();
+        // FieldElement::inplace_batch_inverse(&mut zerofier_evaluations).unwrap();
 
         // Iterate over trace and domain and compute transitions
         let evaluations_t_iter;

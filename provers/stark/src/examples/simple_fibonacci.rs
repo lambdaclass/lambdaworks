@@ -1,5 +1,3 @@
-use std::marker::PhantomData;
-
 use crate::{
     constraints::{
         boundary::{BoundaryConstraint, BoundaryConstraints},
@@ -13,16 +11,17 @@ use crate::{
     transcript::IsStarkTranscript,
 };
 use lambdaworks_math::field::{element::FieldElement, traits::IsFFTField};
+use std::marker::PhantomData;
 
 struct FibConstraint<F: IsFFTField> {
     phantom: PhantomData<F>,
 }
-impl<F: IsFFTField> TransitionConstraint<F> for FibConstraint {
+impl<F: IsFFTField> TransitionConstraint<F> for FibConstraint<F> {
     fn degree(&self) -> usize {
         1
     }
 
-    fn constraint_index(&self) -> usize {
+    fn constraint_idx(&self) -> usize {
         0
     }
 

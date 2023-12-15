@@ -5,7 +5,10 @@ use lambdaworks_math::{
     polynomial::Polynomial,
 };
 
-use crate::{constraints::transition::TransitionConstraint, transcript::IsStarkTranscript};
+use crate::{
+    constraints::transition::{TransitionConstraint, TransitionZerofiersIter},
+    transcript::IsStarkTranscript,
+};
 
 use super::{
     constraints::boundary::BoundaryConstraints, context::AirContext, frame::Frame,
@@ -97,6 +100,17 @@ pub trait AIR {
         self.options().blowup_factor
     }
 
+    fn coset_offset(&self) -> FieldElement<Self::Field> {
+        FieldElement::from(self.options().coset_offset)
+    }
+
+    fn trace_primitive_root(&self) -> FieldElement<Self::Field> {
+        let trace_length = self.trace_length();
+        let root_of_unity_order = u64::from(trace_length.trailing_zeros());
+
+        Self::Field::get_primitive_root_of_unity(root_of_unity_order).unwrap()
+    }
+
     fn num_transition_constraints(&self) -> usize {
         self.context().num_transition_constraints
     }
@@ -146,5 +160,23 @@ pub trait AIR {
 
     fn transition_constraints<T: TransitionConstraint<Self::Field>>(&self) -> Vec<T>;
 
-    fn transition_zerofier_evaluations(&self) -> Vec<Vec<Self::Field>>;
+    fn transition_zerofier_evaluations<'a, T>(&'a self) -> TransitionZerofiersIter<'a, Self::Field>
+    where
+        T: TransitionConstraint<Self::Field>,
+    {
+        let trace_length = self.trace_length();
+        let blowup_factor = usize::from(self.blowup_factor());
+        let offset = self.coset_offset();
+        let trace_primitive_root = self.trace_primitive_root();
+
+        let evals: Vec<_> = self
+            .transition_constraints()
+            .iter()
+            .map(|c: &T| {
+                c.zerofier_evaluations(blowup_factor, &offset, trace_length, &trace_primitive_root)
+            })
+            .collect();
+
+        TransitionZerofiersIter::new(evals)
+    }
 }
