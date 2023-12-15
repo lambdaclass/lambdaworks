@@ -25,14 +25,6 @@ impl<F: IsFFTField> TransitionConstraint<F> for FibConstraint<F> {
         0
     }
 
-    fn period(&self) -> usize {
-        1
-    }
-
-    fn exemptions_period(&self) -> Option<usize> {
-        None
-    }
-
     fn end_exemptions(&self) -> usize {
         2
     }

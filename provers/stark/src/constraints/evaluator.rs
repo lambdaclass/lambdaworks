@@ -1,4 +1,4 @@
-use super::{boundary::BoundaryConstraints, transition::TransitionConstraint};
+use super::boundary::BoundaryConstraints;
 #[cfg(all(debug_assertions, not(feature = "parallel")))]
 use crate::debug::check_boundary_polys_divisibility;
 use crate::domain::Domain;
