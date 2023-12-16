@@ -37,7 +37,7 @@ Such a scheme consists of the commit and the open protocols. STARK uses a univar
 
 ## Vector commitments
 
-Given a vector $Y = (y_0, \dots, y_M)$, commiting to $Y$ means the following. The prover builds a Merkle tree out of it and sends its root to the verifier. The verifier can then ask the prover to reveal, or _open_, the value of the vector $Y$ at some index $i$. The prover won't have any choice except to send the correct value. The verifier will expect the corresponding value $y_i$ and the authentication path to the tree's root to check its authenticity. The authentication path also encodes the vector's position $i$ and its length $M$.
+Given a vector $Y = (y_0, \dots, y_M)$, committing to $Y$ means the following. The prover builds a Merkle tree out of it and sends its root to the verifier. The verifier can then ask the prover to reveal, or _open_, the value of the vector $Y$ at some index $i$. The prover won't have any choice except to send the correct value. The verifier will expect the corresponding value $y_i$ and the authentication path to the tree's root to check its authenticity. The authentication path also encodes the vector's position $i$ and its length $M$.
 
 The root of the Merkle tree is said to be the **commitment** of $Y$, and we denote it here by $[Y]$.
 

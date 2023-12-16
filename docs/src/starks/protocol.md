@@ -62,7 +62,7 @@ For $i\in[0,2^{n+k})$, the operation $\text{Open}(A, i)$ returns the pair $(y_i,
 The operation $\text{Verify}(i,y,r,s)$ returns _Accept_ or _Reject_ depending on whether the $i$-th element of $A$ is $y$. It checks whether the authentication path $s$ is compatible with $i$, $y$ and the Merkle tree root $r$.
 
 
-In our cases the sets $A$ will be of the form $A=(f(a), f(ab), f(ab^2), \dots, f(ab^L))$ for some elements $a,b\in\mathbb{F}$. It will be convenient to use the following abuse of notation. We will write $\text{Open}(A, ab^i)$ to mean $\text{Open}(A, i)$. Similarly, we will write $\text{Verify}(ab^i, y, r, s)$ instead of $\text{Verify}(i, y, r, s)$. Note that this is only notation and $\text{Verify}(ab^i, y, r, s)$ is only checking that the $y$ is the $i$-th element of the commited vector. 
+In our cases the sets $A$ will be of the form $A=(f(a), f(ab), f(ab^2), \dots, f(ab^L))$ for some elements $a,b\in\mathbb{F}$. It will be convenient to use the following abuse of notation. We will write $\text{Open}(A, ab^i)$ to mean $\text{Open}(A, i)$. Similarly, we will write $\text{Verify}(ab^i, y, r, s)$ instead of $\text{Verify}(i, y, r, s)$. Note that this is only notation and $\text{Verify}(ab^i, y, r, s)$ is only checking that the $y$ is the $i$-th element of the committed vector. 
 
 ##### Batch
 As we mentioned in the [protocol overview](protocol_overview.html#batch). When committing to multiple vectors $A_1, \dots, A_k$, where $A_i = (y_0^{(i), \dots, y_L^{(i)}})$ one can build a single Merkle tree. Its $j$-th leaf is the concatenation of all the $j$-th coordinates of all vectors, that is, $(y_j^{(1)}||\dots||y_j^{(k)})$. The commitment to this batch of vectors is the root of this Merkle tree.
