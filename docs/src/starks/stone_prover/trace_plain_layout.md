@@ -98,7 +98,7 @@ For example, if the public memory is:
         (3, 3245444)
 ```
 
-and the total dummy accesses are (in total, one more than the actual publc memory):
+and the total dummy accesses are (in total, one more than the actual public memory):
 ```
         (0, 0)
         (0, 0)
