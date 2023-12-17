@@ -1,4 +1,4 @@
-// https://github.com/andrewmilson/ministark/blob/main/gpu-poly/src/metal/u128.h.metal
+// https://github.com/andrewmilson/ministark/blob/main/gpu/src/metal/u128.h.metal
 
 #ifndef u128_h
 #define u128_h

@@ -1,4 +1,4 @@
-// https://github.com/andrewmilson/ministark/blob/main/gpu-poly/src/metal/felt_u256.h.metal
+// https://github.com/andrewmilson/ministark/blob/main/gpu/src/metal/felt_u256.h.metal
 
 #ifndef felt_u256_h
 #define felt_u256_h
