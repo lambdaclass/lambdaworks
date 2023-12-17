@@ -5,10 +5,10 @@ The following links, repos and projects have been important in the development o
 - [zkcrypto](https://github.com/zkcrypto/ff)
 - [Nilfoundation's crypto 3 multiprecision](https://github.com/nilfoundation/crypto3-multiprecision)
 - [Montgomery REDC](https://jeffhurchalla.com/2022/04/28/montgomery-redc-using-the-positive-inverse-mod-r/)
-- [Domb's fast modular multiplication](http://ingonyama.com/s/modular_multiplication.pdf)
+- [Domb's fast modular multiplication](https://www.ingonyama.com/blog/fast-modular-multiplication)
 - [Rust crypto bigint](https://github.com/RustCrypto/crypto-bigint)
 - [Cairo felt](https://github.com/lambdaclass/cairo-rs/blob/main/felt/src/lib.rs)
-- [Various optimizations](https://github.com/mratsim/constantine/blob/master/docs/optimizations.md)
+- [Various optimizations](https://github.com/mratsim/constantine/blob/master/docs/crypto-optimizations.md)
 
 ## PLONK
 - [Simplified Plonk](https://hackmd.io/vUGG8CO_Rk2iEjruBL_gGw?view#Note-A-Mind-Boggling-Issue-with-Ultra-Plonk)
