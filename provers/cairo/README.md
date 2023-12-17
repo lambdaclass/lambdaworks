@@ -26,7 +26,7 @@ When using Docker, start by creating the container image with:
   make docker_build_cairo_compiler
 ```
 
-Examples of Cairo 0 programs can be found [here](https://github.com/lambdaclass/lambdaworks/tree/main/provers/cairo/cairo-prover-lib/cairo_programs/cairo0)
+Examples of Cairo 0 programs can be found [here](https://github.com/lambdaclass/lambdaworks/tree/main/provers/cairo/cairo_programs/cairo0)
 
 
 **To compile and generate a proof you can use:**
