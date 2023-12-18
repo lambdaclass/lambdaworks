@@ -141,7 +141,7 @@ fn check_simple_cairo_trace_evaluates_to_zero() {
     let program_content = std::fs::read(cairo0_program_path("simple_program.json")).unwrap();
     let (main_trace, public_input) =
         generate_prover_args(&program_content, CairoLayout::Plain).unwrap();
-    let mut trace_polys = main_trace.compute_trace_polys();
+    let mut trace_polys = main_trace.compute_trace_polys::<Stark252PrimeField>();
     let mut transcript = StoneProverTranscript::new(&[]);
 
     let proof_options = ProofOptions::default_test_options();
@@ -149,7 +149,7 @@ fn check_simple_cairo_trace_evaluates_to_zero() {
     let rap_challenges = cairo_air.build_rap_challenges(&mut transcript);
 
     let aux_trace = cairo_air.build_auxiliary_trace(&main_trace, &rap_challenges);
-    let aux_polys = aux_trace.compute_trace_polys();
+    let aux_polys = aux_trace.compute_trace_polys::<Stark252PrimeField>();
 
     trace_polys.extend_from_slice(&aux_polys);
 
