@@ -1,6 +1,7 @@
 use std::iter::Cycle;
 use std::ops::Div;
 use std::slice::Iter;
+use std::vec::IntoIter;
 
 use crate::frame::Frame;
 use lambdaworks_math::field::element::FieldElement;
@@ -44,18 +45,16 @@ pub trait TransitionConstraint<F: IsFFTField> {
     ) -> Vec<FieldElement<F>> {
         let root_order = u64::from((blowup_factor * trace_length).trailing_zeros());
         let root = F::get_primitive_root_of_unity(root_order).unwrap();
-        let one = FieldElement::<F>::one();
 
         let end_exemptions_poly = if self.end_exemptions() == 0 {
-            Polynomial::new(&[one])
+            Polynomial::new(&[FieldElement::<F>::one()])
         } else {
             let period = self.period();
             let one_poly = Polynomial::new_monomial(FieldElement::<F>::one(), 0);
             (1..self.end_exemptions())
-                // .rev()
                 .map(|exemption| trace_primitive_root.pow(trace_length - exemption * period))
                 .fold(one_poly, |acc, offset| {
-                    acc * Polynomial::new_monomial(one, trace_length / period)
+                    acc * (Polynomial::new_monomial(FieldElement::<F>::one(), 1) - offset)
                 })
         };
 
@@ -72,11 +71,12 @@ pub trait TransitionConstraint<F: IsFFTField> {
             (0..last_exponent)
                 .map(|exponent| {
                     let x = root.pow(exponent);
-                    let offset_times_x = offset * x;
+                    let offset_times_x = offset * &x;
                     let offset_exponent = trace_length * self.periodic_exemptions_offset().unwrap()
                         / exemptions_period;
 
-                    let denominator = offset_times_x.pow(trace_length / self.period()) - &one;
+                    let denominator = offset_times_x.pow(trace_length / self.period())
+                        - &FieldElement::<F>::one();
                     let numerator = offset_times_x.pow(trace_length / exemptions_period)
                         - trace_primitive_root.pow(offset_exponent);
 
@@ -92,7 +92,8 @@ pub trait TransitionConstraint<F: IsFFTField> {
             let (mut evaluations, xs): (Vec<_>, Vec<_>) = (0..last_exponent)
                 .map(|exponent| {
                     let x = root.pow(exponent);
-                    let eval = (offset * x).pow(trace_length / self.period()) - &one;
+                    let eval =
+                        (offset * &x).pow(trace_length / self.period()) - FieldElement::<F>::one();
                     (eval, x)
                 })
                 .unzip();
@@ -108,12 +109,12 @@ pub trait TransitionConstraint<F: IsFFTField> {
     }
 }
 
-pub(crate) struct TransitionZerofiersIter<'z, F: IsFFTField> {
+pub(crate) struct TransitionZerofiersIter<F: IsFFTField> {
     num_constraints: usize,
-    zerofier_eval_cycles: Vec<Cycle<Iter<'z, FieldElement<F>>>>,
+    zerofier_eval_cycles: Vec<Cycle<IntoIter<FieldElement<F>>>>,
 }
 
-impl<'z, F> TransitionZerofiersIter<'z, F>
+impl<F> TransitionZerofiersIter<F>
 where
     F: IsFFTField,
 {
@@ -121,7 +122,7 @@ where
         let num_constraints = zerofier_evals.len();
         let zerofier_eval_cycles = zerofier_evals
             .into_iter()
-            .map(|evals| evals.iter().cycle())
+            .map(|evals| evals.into_iter().cycle())
             .collect();
 
         Self {
@@ -131,16 +132,16 @@ where
     }
 }
 
-impl<'z, F> Iterator for TransitionZerofiersIter<'z, F>
+impl<F> Iterator for TransitionZerofiersIter<F>
 where
     F: IsFFTField,
 {
-    type Item = Vec<&'z FieldElement<F>>;
+    type Item = Vec<FieldElement<F>>;
 
     fn next(&mut self) -> Option<Self::Item> {
         let next_evals_cycle = self
             .zerofier_eval_cycles
-            .iter()
+            .iter_mut()
             .map(|eval_cycle| eval_cycle.next().unwrap())
             .collect();
 

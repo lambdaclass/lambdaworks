@@ -13,9 +13,19 @@ use crate::{
 use lambdaworks_math::field::{element::FieldElement, traits::IsFFTField};
 use std::marker::PhantomData;
 
+#[derive(Clone)]
 struct FibConstraint<F: IsFFTField> {
     phantom: PhantomData<F>,
 }
+
+impl<F: IsFFTField> FibConstraint<F> {
+    pub fn new() -> Self {
+        Self {
+            phantom: PhantomData,
+        }
+    }
+}
+
 impl<F: IsFFTField> TransitionConstraint<F> for FibConstraint<F> {
     fn degree(&self) -> usize {
         1
@@ -58,6 +68,7 @@ where
     context: AirContext,
     trace_length: usize,
     pub_inputs: FibonacciPublicInputs<F>,
+    constraint: FibConstraint<F>,
 }
 
 #[derive(Clone, Debug)]
@@ -75,7 +86,7 @@ where
 {
     type Field = F;
     type RAPChallenges = ();
-    type PublicInputs = FibonacciPublicInputs<Self::Field>;
+    type PublicInputs = FibonacciPublicInputs<F>;
 
     const STEP_SIZE: usize = 1;
 
@@ -92,10 +103,13 @@ where
             num_transition_constraints: 1,
         };
 
+        let constraint = FibConstraint::new();
+
         Self {
             pub_inputs: pub_inputs.clone(),
             context,
             trace_length,
+            constraint,
         }
     }
 
@@ -115,6 +129,10 @@ where
         &self,
         _transcript: &mut impl IsStarkTranscript<Self::Field>,
     ) -> Self::RAPChallenges {
+    }
+
+    fn transition_constraints(&self) -> Vec<Box<&dyn TransitionConstraint<F>>> {
+        vec![Box::new(&self.constraint as &dyn TransitionConstraint<F>)]
     }
 
     fn compute_transition(

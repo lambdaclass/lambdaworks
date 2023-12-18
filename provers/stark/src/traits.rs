@@ -159,9 +159,10 @@ pub trait AIR {
     }
 
     // NOTE: Remember to index constraints correctly!!!!
-    fn transition_constraints<T: TransitionConstraint<Self::Field>>(&self) -> Vec<T>;
+    // fn transition_constraints<T: TransitionConstraint<Self::Field>>(&self) -> Vec<Box<dyn T>>;
+    fn transition_constraints(&self) -> Vec<Box<&dyn TransitionConstraint<Self::Field>>>;
 
-    fn transition_zerofier_evaluations<'a>(&'a self) -> TransitionZerofiersIter<'a, Self::Field> {
+    fn transition_zerofier_evaluations(&self) -> TransitionZerofiersIter<Self::Field> {
         let trace_length = self.trace_length();
         let blowup_factor = usize::from(self.blowup_factor());
         let offset = self.coset_offset();

@@ -60,7 +60,7 @@ impl<F: IsFFTField> ConstraintEvaluator<F> {
                 })
                 .collect::<Vec<Vec<FieldElement<F>>>>();
 
-        let trace_length = air.trace_length();
+        // let trace_length = air.trace_length();
 
         #[cfg(all(debug_assertions, not(feature = "parallel")))]
         let boundary_polys: Vec<Polynomial<FieldElement<F>>> = Vec::new();
