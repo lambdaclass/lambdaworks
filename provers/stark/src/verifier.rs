@@ -219,9 +219,14 @@ pub trait IsStarkVerifier<A: AIR> {
         ) = (0..number_of_b_constraints)
             .map(|index| {
                 let step = boundary_constraints.constraints[index].step;
+                let is_aux = boundary_constraints.constraints[index].is_aux;
                 let point = &domain.trace_primitive_root.pow(step as u64);
                 let trace_idx = boundary_constraints.constraints[index].col;
-                let trace_evaluation = &proof.trace_ood_evaluations.get_row(0)[trace_idx];
+                let trace_evaluation = if is_aux {
+                    &proof.trace_ood_evaluations.get_row_aux(0)[trace_idx]
+                } else {
+                    &proof.trace_ood_evaluations.get_row_main(0)[trace_idx]
+                };
                 let boundary_zerofier_challenges_z_den = -point + &challenges.z;
 
                 let boundary_quotient_ood_evaluation_num =
@@ -253,11 +258,8 @@ pub trait IsStarkVerifier<A: AIR> {
             .collect::<Vec<FieldElement<A::FieldExtension>>>();
 
         let transition_ood_frame_evaluations = air.compute_transition_verifier(
-            // &(proof.trace_ood_evaluations).into_frame(A::STEP_SIZE),
-            &Frame::read_from_lde_table(
+            &Frame::read_from_ood_table(
                 &proof.trace_ood_evaluations,
-                A::STEP_SIZE,
-                1,
                 &air.context().transition_offsets,
             ),
             &periodic_values,
@@ -658,15 +660,14 @@ pub trait IsStarkVerifier<A: AIR> {
         let trace_term = (0..proof.trace_ood_evaluations.n_cols())
             .zip(&challenges.trace_term_coeffs)
             .fold(FieldElement::zero(), |trace_terms, (col_idx, coeff_row)| {
-                let trace_i = (0..proof.trace_ood_evaluations.n_rows()).zip(coeff_row).fold(
-                    FieldElement::zero(),
-                    |trace_t, (row_idx, coeff)| {
+                let trace_i = (0..proof.trace_ood_evaluations.n_rows())
+                    .zip(coeff_row)
+                    .fold(FieldElement::zero(), |trace_t, (row_idx, coeff)| {
                         let poly_evaluation = (lde_trace_evaluations[col_idx].clone()
                             - proof.trace_ood_evaluations.get_row(row_idx)[col_idx].clone())
                             * &denoms_trace[row_idx];
                         trace_t + &poly_evaluation * coeff
-                    },
-                );
+                    });
                 trace_terms + trace_i
             });
 

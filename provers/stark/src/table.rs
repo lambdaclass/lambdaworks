@@ -93,20 +93,6 @@ impl<'t, E: IsField> LDETable<E, E> {
 }
 
 impl<'t, F: IsSubFieldOf<E>, E: IsField> LDETable<F, E> {
-    pub fn new(
-        main_data: Vec<FieldElement<F>>,
-        aux_data: Vec<FieldElement<E>>,
-        n_main_columns: usize,
-        n_aux_colmns: usize,
-        step_size: usize,
-    ) -> Self {
-        Self {
-            main_table: Table::new(main_data, n_main_columns),
-            aux_table: Table::new(aux_data, n_aux_colmns),
-            step_size,
-        }
-    }
-
     /// Creates a Table instance from a vector of the intended columns.
     pub fn from_columns(
         main_columns: Vec<Vec<FieldElement<F>>>,
@@ -132,20 +118,9 @@ impl<'t, F: IsSubFieldOf<E>, E: IsField> LDETable<F, E> {
         self.n_main_cols() + self.n_aux_cols()
     }
 
-    pub fn data(&self) -> Vec<FieldElement<E>> {
-        let mut data: Vec<_> = self
-            .main_table
-            .data
-            .iter()
-            .map(|x| x.clone().to_extension())
-            .collect();
-        data.extend_from_slice(&self.aux_table.data);
-        data
-    }
-
     pub fn num_steps(&self) -> usize {
         debug_assert!((self.main_table.height % self.step_size) == 0);
-        debug_assert_eq!(self.main_table.height, self.aux_table.height);
+        debug_assert!(self.aux_table.height == 0 || (self.main_table.height == self.aux_table.height));
         self.main_table.height / self.step_size
     }
 
@@ -211,7 +186,9 @@ impl<'t, F: IsSubFieldOf<E>, E: IsField> LDETable<F, E> {
     }
 
     pub fn n_rows(&self) -> usize {
-        debug_assert_eq!(self.main_table.height, self.aux_table.height);
+        debug_assert!(
+            self.aux_table.height == 0 || (self.main_table.height == self.aux_table.height)
+        );
         self.main_table.height
     }
 

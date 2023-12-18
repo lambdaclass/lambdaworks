@@ -62,11 +62,10 @@ pub fn validate_trace<A: AIR>(
             let step = constraint.step;
             let boundary_value = constraint.value.clone();
 
-            let n_main_cols = lde_table.n_main_cols();
-            let trace_value = if col < n_main_cols {
+            let trace_value = if !constraint.is_aux {
                 lde_table.get_main(step, col).clone().to_extension()
             } else {
-                lde_table.get_aux(step,  col - n_main_cols).clone()
+                lde_table.get_aux(step,  col).clone()
             };
 
             if boundary_value.clone().to_extension() != trace_value {

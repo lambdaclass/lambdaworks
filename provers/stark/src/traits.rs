@@ -57,7 +57,7 @@ pub trait AIR {
         frame: &Frame<Self::FieldExtension, Self::FieldExtension>,
         periodic_values: &[FieldElement<Self::FieldExtension>],
         rap_challenges: &Self::RAPChallenges,
-    ) -> Vec<FieldElement<Self::Field>>;
+    ) -> Vec<FieldElement<Self::FieldExtension>>;
 
     fn boundary_constraints(
         &self,

@@ -133,7 +133,7 @@ impl StoneCompatibleSerializer {
     ) {
         for i in 0..proof.trace_ood_evaluations.n_cols() {
             for j in 0..proof.trace_ood_evaluations.n_rows() {
-                output.extend_from_slice(&proof.trace_ood_evaluations.get_row(j)[i].serialize());
+                output.extend_from_slice(&proof.trace_ood_evaluations.get_row_main(j)[i].serialize());
             }
         }
 

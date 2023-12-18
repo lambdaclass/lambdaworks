@@ -85,23 +85,25 @@ impl<A: AIR> ConstraintEvaluator<A> {
             .collect::<Result<Vec<Vec<FieldElement<A::FieldExtension>>>, FFTError>>()
             .unwrap();
 
-        let n_col = lde_table.n_cols();
-        let n_elem = domain.lde_roots_of_unity_coset.len();
         let boundary_polys_evaluations = boundary_constraints
             .constraints
             .iter()
             .map(|constraint| {
-                let col = constraint.col;
-                lde_table
-                    .data()
-                    .iter()
-                    .skip(col)
-                    .step_by(n_col)
-                    .take(n_elem)
-                    .map(|v| -&constraint.value + v)
-                    .collect::<Vec<FieldElement<A::FieldExtension>>>()
+                if constraint.is_aux {
+                    lde_table
+                        .get_col_aux(constraint.col)
+                        .iter()
+                        .map(|&v| v - &constraint.value)
+                        .collect::<Vec<FieldElement<_>>>()
+                } else {
+                    lde_table
+                        .get_col_main(constraint.col)
+                        .iter()
+                        .map(|&v| v - &constraint.value)
+                        .collect::<Vec<FieldElement<_>>>()
+                }
             })
-            .collect::<Vec<Vec<FieldElement<A::FieldExtension>>>>();
+            .collect::<Vec<Vec<FieldElement<_>>>>();
 
         #[cfg(feature = "parallel")]
         let boundary_eval_iter = (0..domain.lde_roots_of_unity_coset.len()).into_par_iter();

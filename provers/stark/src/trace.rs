@@ -227,15 +227,27 @@ pub fn get_trace_evaluations<F: IsSubFieldOf<E>, E: IsField>(
                 .collect()
         })
         .collect();
-    // frame_offsets
+
+    // let main_evaluations = frame_offsets
     //     .iter()
     //     .map(|offset| primitive_root.pow(*offset) * x)
-    //     .for_each(|eval_point| {
-    //         let main_evaluations = main_trace_polys
+    //     .map(|eval_point| {
+    //         main_trace_polys
     //             .iter()
     //             .map(|poly| poly.evaluate(&eval_point))
-    //             .collect::<Vec<FieldElement<E>>>();
-    //     });
+    //             .collect::<Vec<FieldElement<E>>>()
+    //     })
+    //     .collect::<Vec<Vec<_>>>();
+    // let aux_evaluations = frame_offsets
+    //     .iter()
+    //     .map(|offset| primitive_root.pow(*offset) * x)
+    //     .map(|eval_point| {
+    //         aux_trace_polys
+    //             .iter()
+    //             .map(|poly| poly.evaluate(&eval_point))
+    //             .collect::<Vec<FieldElement<E>>>()
+    //     })
+    //     .collect::<Vec<Vec<_>>>();
     (main_evaluations, aux_evaluations)
 }
 

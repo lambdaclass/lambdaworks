@@ -1,5 +1,8 @@
 use super::trace::TraceTable;
-use crate::{table::LDETable, trace::StepView};
+use crate::{
+    table::{LDETable, OODTable},
+    trace::StepView,
+};
 use lambdaworks_math::field::traits::{IsField, IsSubFieldOf};
 
 /// A frame represents a collection of trace steps.
@@ -36,6 +39,16 @@ impl<'t, F: IsSubFieldOf<E>, E: IsField> Frame<'t, F, E> {
             })
             .collect();
 
+        Self::new(steps)
+    }
+}
+
+impl<'t, E: IsField> Frame<'t, E, E> {
+    pub fn read_from_ood_table(ood_table: &'t OODTable<E>, offsets: &[usize]) -> Self {
+        let steps: Vec<_> = offsets
+            .iter()
+            .map(|offset| ood_table.step_view(*offset))
+            .collect();
         Self::new(steps)
     }
 }
