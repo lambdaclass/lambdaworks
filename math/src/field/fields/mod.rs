@@ -11,5 +11,10 @@ pub mod pallas_field;
 pub mod u64_goldilocks_field;
 /// Implementation of prime fields over 64 bit unsigned integers.
 pub mod u64_prime_field;
+
+/// Winterfell and miden field compatibility
+#[cfg(feature = "winter_compatibility")]
+pub mod winterfell;
+
 /// Implemenation of Vesta Prime field (p = 2^254 + 45560315531506369815346746415080538113)
 mod vesta_field;

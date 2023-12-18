@@ -3,7 +3,6 @@ pub mod fri_decommit;
 mod fri_functions;
 
 use lambdaworks_math::fft::cpu::bit_reversing::in_place_bit_reverse_permute;
-use lambdaworks_math::fft::polynomial::FFTPoly;
 use lambdaworks_math::field::traits::IsFFTField;
 use lambdaworks_math::traits::Serializable;
 pub use lambdaworks_math::{
@@ -119,9 +118,8 @@ where
     F: IsFFTField,
     FieldElement<F>: Serializable + Sync + Send,
 {
-    let mut evaluation = poly
-        .evaluate_offset_fft(1, Some(domain_size), coset_offset)
-        .unwrap(); // TODO: return error
+    let mut evaluation =
+        Polynomial::evaluate_offset_fft(poly, 1, Some(domain_size), coset_offset).unwrap(); // TODO: return error
 
     in_place_bit_reverse_permute(&mut evaluation);
 
