@@ -142,11 +142,11 @@ where
         _rap_challenges: &Self::RAPChallenges,
     ) -> BoundaryConstraints<Self::Field> {
         // Main boundary constraints
-        let a0 = BoundaryConstraint::new_simple(0, FieldElement::<Self::Field>::one());
-        let a1 = BoundaryConstraint::new_simple(1, FieldElement::<Self::Field>::one());
+        let a0 = BoundaryConstraint::new_simple_main(0, FieldElement::<Self::Field>::one());
+        let a1 = BoundaryConstraint::new_simple_main(1, FieldElement::<Self::Field>::one());
 
         // Auxiliary boundary constraints
-        let a0_aux = BoundaryConstraint::new(2, 0, FieldElement::<Self::Field>::one());
+        let a0_aux = BoundaryConstraint::new_main(2, 0, FieldElement::<Self::Field>::one());
 
         BoundaryConstraints::from_constraints(vec![a0, a1, a0_aux])
     }

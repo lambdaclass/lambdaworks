@@ -86,23 +86,6 @@ where
         }
         trace_polys
     }
-
-    // fn all_evaluations(&self) -> TraceTable<A::FieldExtension> {
-    //     let mut evaluations: Vec<Vec<FieldElement<A::FieldExtension>>> = self
-    //         .main
-    //         .lde_trace
-    //         .columns()
-    //         .clone()
-    //         .into_iter()
-    //         .map(|col| col.into_iter().map(|x| x.to_extension()).collect())
-    //         .collect();
-    //
-    //     if let Some(aux) = &self.aux {
-    //         evaluations.extend_from_slice(&aux.lde_trace.columns())
-    //     }
-    //
-    //     TraceTable::from_columns(evaluations, A::STEP_SIZE)
-    // }
 }
 pub struct Round2<F>
 where
@@ -1202,25 +1185,25 @@ mod tests {
         let proof = stone_compatibility_case_1_proof();
 
         assert_eq!(
-            proof.trace_ood_evaluations.get_row(0)[0],
+            proof.trace_ood_evaluations.get_row_main(0)[0],
             FieldElement::from_hex_unchecked(
                 "70d8181785336cc7e0a0a1078a79ee6541ca0803ed3ff716de5a13c41684037",
             )
         );
         assert_eq!(
-            proof.trace_ood_evaluations.get_row(1)[0],
+            proof.trace_ood_evaluations.get_row_main(1)[0],
             FieldElement::from_hex_unchecked(
                 "29808fc8b7480a69295e4b61600480ae574ca55f8d118100940501b789c1630",
             )
         );
         assert_eq!(
-            proof.trace_ood_evaluations.get_row(0)[1],
+            proof.trace_ood_evaluations.get_row_main(0)[1],
             FieldElement::from_hex_unchecked(
                 "7d8110f21d1543324cc5e472ab82037eaad785707f8cae3d64c5b9034f0abd2",
             )
         );
         assert_eq!(
-            proof.trace_ood_evaluations.get_row(1)[1],
+            proof.trace_ood_evaluations.get_row_main(1)[1],
             FieldElement::from_hex_unchecked(
                 "1b58470130218c122f71399bf1e04cf75a6e8556c4751629d5ce8c02cc4e62d",
             )

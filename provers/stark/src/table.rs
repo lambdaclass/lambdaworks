@@ -78,8 +78,10 @@ pub(crate) struct LDETable<F: IsSubFieldOf<E>, E: IsField> {
     pub(crate) step_size: usize,
 }
 impl<'t, E: IsField> LDETable<E, E> {
-    pub fn get_row(&self, row_idx: usize) -> &[FieldElement<E>] {
-        self.get_row_main(row_idx)
+    pub fn get_row(&self, row_idx: usize) -> Vec<FieldElement<E>> {
+        let mut row: Vec<_> = self.get_row_main(row_idx).iter().cloned().collect();
+        row.extend_from_slice(self.get_row_aux(row_idx));
+        row
     }
 
     pub fn columns(&self) -> Vec<Vec<FieldElement<E>>> {
@@ -186,6 +188,26 @@ impl<'t, F: IsSubFieldOf<E>, E: IsField> LDETable<F, E> {
     pub fn get_row_aux(&self, row_idx: usize) -> &[FieldElement<E>] {
         let row_offset = row_idx * self.aux_table.width;
         &self.aux_table.data[row_offset..row_offset + self.aux_table.width]
+    }
+
+    pub fn get_col_main(&self, col_idx: usize) -> Vec<&FieldElement<F>> {
+        self.main_table
+            .data
+            .iter()
+            .skip(col_idx)
+            .step_by(self.main_table.width)
+            .take(self.main_table.height)
+            .collect()
+    }
+
+    pub fn get_col_aux(&self, col_idx: usize) -> Vec<&FieldElement<E>> {
+        self.aux_table
+            .data
+            .iter()
+            .skip(col_idx)
+            .step_by(self.aux_table.width)
+            .take(self.aux_table.height)
+            .collect()
     }
 
     pub fn n_rows(&self) -> usize {

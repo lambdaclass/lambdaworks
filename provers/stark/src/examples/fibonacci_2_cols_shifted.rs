@@ -122,8 +122,8 @@ where
         &self,
         _rap_challenges: &Self::RAPChallenges,
     ) -> BoundaryConstraints<Self::Field> {
-        let initial_condition = BoundaryConstraint::new(0, 0, FieldElement::one());
-        let claimed_value_constraint = BoundaryConstraint::new(
+        let initial_condition = BoundaryConstraint::new_main(0, 0, FieldElement::one());
+        let claimed_value_constraint = BoundaryConstraint::new_main(
             0,
             self.pub_inputs.claimed_index,
             self.pub_inputs.claimed_value.clone(),

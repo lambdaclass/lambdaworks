@@ -819,15 +819,15 @@ impl AIR for CairoAIR {
         &self,
         rap_challenges: &Self::RAPChallenges,
     ) -> BoundaryConstraints<Self::Field> {
-        let initial_pc = BoundaryConstraint::new(MEM_A_TRACE_OFFSET, 0, self.pub_inputs.pc_init);
-        let initial_ap = BoundaryConstraint::new(MEM_P_TRACE_OFFSET, 0, self.pub_inputs.ap_init);
+        let initial_pc = BoundaryConstraint::new_main(MEM_A_TRACE_OFFSET, 0, self.pub_inputs.pc_init);
+        let initial_ap = BoundaryConstraint::new_main(MEM_P_TRACE_OFFSET, 0, self.pub_inputs.ap_init);
 
-        let final_pc = BoundaryConstraint::new(
+        let final_pc = BoundaryConstraint::new_main(
             MEM_A_TRACE_OFFSET,
             self.pub_inputs.num_steps - 1,
             self.pub_inputs.pc_final,
         );
-        let final_ap = BoundaryConstraint::new(
+        let final_ap = BoundaryConstraint::new_main(
             MEM_P_TRACE_OFFSET,
             self.pub_inputs.num_steps - 1,
             self.pub_inputs.ap_final,
@@ -853,19 +853,19 @@ impl AIR for CairoAIR {
             * cumulative_product;
 
         let permutation_final_constraint =
-            BoundaryConstraint::new(PERMUTATION_ARGUMENT_COL_4, final_index, permutation_final);
+            BoundaryConstraint::new_aux(PERMUTATION_ARGUMENT_COL_4, final_index, permutation_final);
 
         let one: FieldElement<Self::Field> = FieldElement::one();
         let range_check_final_constraint =
-            BoundaryConstraint::new(PERMUTATION_ARGUMENT_RANGE_CHECK_COL_4, final_index, one);
+            BoundaryConstraint::new_aux(PERMUTATION_ARGUMENT_RANGE_CHECK_COL_4, final_index, one);
 
-        let range_check_min = BoundaryConstraint::new(
+        let range_check_min = BoundaryConstraint::new_aux(
             RANGE_CHECK_COL_1,
             0,
             FieldElement::from(self.pub_inputs.range_check_min.unwrap() as u64),
         );
 
-        let range_check_max = BoundaryConstraint::new(
+        let range_check_max = BoundaryConstraint::new_aux(
             RANGE_CHECK_COL_4,
             final_index,
             FieldElement::from(self.pub_inputs.range_check_max.unwrap() as u64),

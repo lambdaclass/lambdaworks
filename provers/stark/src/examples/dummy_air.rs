@@ -85,8 +85,8 @@ impl AIR for DummyAIR {
         &self,
         _rap_challenges: &Self::RAPChallenges,
     ) -> BoundaryConstraints<Self::Field> {
-        let a0 = BoundaryConstraint::new(1, 0, FieldElement::<Self::Field>::one());
-        let a1 = BoundaryConstraint::new(1, 1, FieldElement::<Self::Field>::one());
+        let a0 = BoundaryConstraint::new_main(1, 0, FieldElement::<Self::Field>::one());
+        let a1 = BoundaryConstraint::new_main(1, 1, FieldElement::<Self::Field>::one());
 
         BoundaryConstraints::from_constraints(vec![a0, a1])
     }

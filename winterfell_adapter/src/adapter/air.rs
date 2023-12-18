@@ -255,7 +255,7 @@ where
         let mut result = Vec::new();
         for assertion in self.winterfell_air.get_assertions() {
             assert!(assertion.is_single());
-            result.push(BoundaryConstraint::new(
+            result.push(BoundaryConstraint::new_main(
                 assertion.column(),
                 assertion.first_step(),
                 FieldElement::<FE>::const_from_raw(assertion.values()[0]),
@@ -267,7 +267,7 @@ where
 
         for assertion in self.winterfell_air.get_aux_assertions(&rand_elements) {
             assert!(assertion.is_single());
-            result.push(BoundaryConstraint::new(
+            result.push(BoundaryConstraint::new_main(
                 assertion.column() + num_main_columns,
                 assertion.first_step(),
                 FieldElement::<FE>::const_from_raw(assertion.values()[0]),

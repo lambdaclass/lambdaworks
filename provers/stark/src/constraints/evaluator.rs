@@ -33,7 +33,7 @@ impl<A: AIR> ConstraintEvaluator<A> {
         }
     }
 
-    pub fn evaluate(
+    pub(crate) fn evaluate(
         &self,
         air: &A,
         lde_table: &LDETable<A::Field, A::FieldExtension>,
