@@ -146,7 +146,7 @@ where
         let a1 = BoundaryConstraint::new_simple_main(1, FieldElement::<Self::Field>::one());
 
         // Auxiliary boundary constraints
-        let a0_aux = BoundaryConstraint::new_main(2, 0, FieldElement::<Self::Field>::one());
+        let a0_aux = BoundaryConstraint::new_aux(0, 0, FieldElement::<Self::Field>::one());
 
         BoundaryConstraints::from_constraints(vec![a0, a1, a0_aux])
     }

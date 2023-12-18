@@ -859,9 +859,9 @@ pub trait IsStarkProver<A: AIR> {
 
         // >>>> Send values: tⱼ(zgᵏ)
         let trace_ood_evaluations_columns = round_3_result.trace_ood_evaluations.columns();
-        for i in 0..trace_ood_evaluations_columns[0].len() {
-            for j in 0..trace_ood_evaluations_columns.len() {
-                transcript.append_field_element(&trace_ood_evaluations_columns[j][i]);
+        for col in trace_ood_evaluations_columns.iter() {
+            for elem in col.iter() {
+                transcript.append_field_element(elem);
             }
         }
 
