@@ -1,5 +1,8 @@
 use super::Polynomial;
-use lambdaworks_math::field::{element::FieldElement, traits::IsField};
+use lambdaworks_math::{
+    field::{element::FieldElement, traits::IsField},
+    polynomial,
+};
 
 pub fn fold_polynomial<F>(
     poly: &Polynomial<FieldElement<F>>,
@@ -19,7 +22,7 @@ where
         .map(|v| (v.clone()) * beta)
         .collect();
 
-    let (even_poly, odd_poly) = Polynomial::pad_with_zero_coefficients(
+    let (even_poly, odd_poly) = polynomial::pad_with_zero_coefficients(
         &Polynomial::new(&even_coef),
         &Polynomial::new(&odd_coef_mul_beta),
     );

@@ -42,6 +42,7 @@ where
     FieldElement<F>: ByteConversion,
 {
     type Field = F;
+    type FieldExtension = F;
     type RAPChallenges = FieldElement<Self::Field>;
     type PublicInputs = FibonacciRAPPublicInputs<Self::Field>;
 
