@@ -180,7 +180,7 @@ where
 
     fn compute_transition_prover(
         &self,
-        frame: &stark_platinum_prover::frame::Frame<Self::Field>,
+        frame: &stark_platinum_prover::frame::Frame<Self::Field, Self::FieldExtension>,
         periodic_values: &[FieldElement<Self::Field>],
         rap_challenges: &Self::RAPChallenges,
     ) -> Vec<FieldElement<Self::Field>> {
@@ -191,8 +191,8 @@ where
         let second_step = frame.get_evaluation_step(1);
 
         let main_frame = EvaluationFrame::from_rows(
-            vec_lambda2winter(&first_step.get_row(0)[..num_main_columns]),
-            vec_lambda2winter(&second_step.get_row(0)[..num_main_columns]),
+            vec_lambda2winter(&first_step.get_row_main(0)),
+            vec_lambda2winter(&second_step.get_row_main(0)),
         );
 
         let periodic_values = vec_lambda2winter(periodic_values);
@@ -221,8 +221,8 @@ where
             let second_step = frame.get_evaluation_step(1);
 
             let aux_frame = EvaluationFrame::from_rows(
-                vec_lambda2winter(&first_step.get_row(0)[num_main_columns..]),
-                vec_lambda2winter(&second_step.get_row(0)[num_main_columns..]),
+                vec_lambda2winter(&first_step.get_row_aux(0)),
+                vec_lambda2winter(&second_step.get_row_aux(0)),
             );
 
             let mut aux_result = vec![
@@ -291,5 +291,14 @@ where
 
     fn get_periodic_column_values(&self) -> Vec<Vec<FieldElement<Self::Field>>> {
         matrix_winter2lambda(&self.winterfell_air.get_periodic_column_values())
+    }
+
+    fn compute_transition_verifier(
+        &self,
+        frame: &stark_platinum_prover::frame::Frame<Self::FieldExtension, Self::FieldExtension>,
+        periodic_values: &[FieldElement<Self::FieldExtension>],
+        rap_challenges: &Self::RAPChallenges,
+    ) -> Vec<FieldElement<Self::Field>> {
+        todo!()
     }
 }

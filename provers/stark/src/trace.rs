@@ -198,23 +198,45 @@ impl<'t, F: IsSubFieldOf<E>, E: IsField> StepView<'t, F, E> {
 /// compute a transition.
 /// Example: For a simple Fibonacci computation, if t(x) is the trace polynomial of
 /// the computation, this will output evaluations t(x), t(g * x), t(g^2 * z).
-pub fn get_trace_evaluations<E: IsField, F: IsSubFieldOf<E>>(
-    main_trace_polys: &[Polynomial<FieldElement<E>>],
+pub fn get_trace_evaluations<F: IsSubFieldOf<E>, E: IsField>(
+    main_trace_polys: &[Polynomial<FieldElement<F>>],
     aux_trace_polys: &[Polynomial<FieldElement<E>>],
     x: &FieldElement<E>,
     frame_offsets: &[usize],
     primitive_root: &FieldElement<F>,
-) -> Vec<Vec<FieldElement<E>>> {
-    frame_offsets
+) -> (Vec<Vec<FieldElement<E>>>, Vec<Vec<FieldElement<E>>>) {
+    let evaluation_points: Vec<_> = frame_offsets
         .iter()
         .map(|offset| primitive_root.pow(*offset) * x)
-        .map(|eval_point| {
-            trace_polys
+        .collect();
+    let main_evaluations = main_trace_polys
+        .iter()
+        .map(|poly| {
+            evaluation_points
                 .iter()
-                .map(|poly| poly.evaluate(&eval_point))
-                .collect::<Vec<FieldElement<E>>>()
+                .map(|eval_point| poly.evaluate(&eval_point))
+                .collect()
         })
-        .collect()
+        .collect();
+    let aux_evaluations = aux_trace_polys
+        .iter()
+        .map(|poly| {
+            evaluation_points
+                .iter()
+                .map(|eval_point| poly.evaluate(&eval_point))
+                .collect()
+        })
+        .collect();
+    // frame_offsets
+    //     .iter()
+    //     .map(|offset| primitive_root.pow(*offset) * x)
+    //     .for_each(|eval_point| {
+    //         let main_evaluations = main_trace_polys
+    //             .iter()
+    //             .map(|poly| poly.evaluate(&eval_point))
+    //             .collect::<Vec<FieldElement<E>>>();
+    //     });
+    (main_evaluations, aux_evaluations)
 }
 
 #[cfg(test)]

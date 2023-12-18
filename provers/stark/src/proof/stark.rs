@@ -14,7 +14,7 @@ use crate::{
     config::Commitment,
     domain::Domain,
     fri::fri_decommit::FriDecommitment,
-    table::{Table, LDETable},
+    table::{Table, LDETable, OODTable},
     traits::AIR,
     transcript::StoneProverTranscript,
     verifier::{IsStarkVerifier, Verifier},
@@ -50,7 +50,7 @@ pub struct StarkProof<F: IsSubFieldOf<E>, E: IsField> {
     // [tⱼ]
     pub lde_trace_aux_merkle_root: Option<Commitment>,
     // tⱼ(zgᵏ)
-    pub trace_ood_evaluations: LDETable<E, E>,
+    pub trace_ood_evaluations: OODTable<E>,
     // Commitments to Hᵢ
     pub composition_poly_root: Commitment,
     // Hᵢ(z^N)

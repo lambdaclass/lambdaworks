@@ -161,6 +161,7 @@ fn check_simple_cairo_trace_evaluates_to_zero() {
     assert!(validate_trace(
         &cairo_air,
         &trace_polys,
+        &aux_polys,
         &domain,
         &rap_challenges
     ));

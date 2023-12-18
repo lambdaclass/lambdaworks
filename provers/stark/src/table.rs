@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use lambdaworks_math::field::{
     element::FieldElement,
     traits::{IsField, IsSubFieldOf},
@@ -5,11 +7,87 @@ use lambdaworks_math::field::{
 
 use crate::{frame::Frame, trace::StepView};
 
+pub(crate) type OODTable<E> = LDETable<E, E>;
+
+// #[derive(Clone, Default, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+// pub(crate) struct OODTable<E: IsField> {
+//     pub(crate) table: Table<E>,
+//     pub(crate) num_main_columns: usize,
+//     pub(crate) num_aux_columns: usize,
+// }
+//
+// impl<'t, E: IsField> OODTable<E> {
+//     pub fn new(table: Table<E>, num_main_columns: usize, num_aux_columns: usize) -> Self {
+//         Self {
+//             table,
+//             num_main_columns,
+//             num_aux_columns,
+//         }
+//     }
+//
+//     pub fn n_cols(&self) -> usize {
+//         self.num_main_columns + self.num_aux_columns
+//     }
+//
+//     pub fn n_rows(&self) -> usize {
+//         self.table.height
+//     }
+//
+//     pub fn get_row(&self, row_idx: usize) -> &[FieldElement<E>] {
+//         self.table.get_row(row_idx)
+//     }
+//
+//     pub fn columns(&self) -> Vec<Vec<FieldElement<E>>> {
+//         self.table.columns()
+//     }
+//
+//     /// Creates a Table instance from a vector of the intended columns.
+//     pub fn from_columns(columns: Vec<Vec<FieldElement<E>>>, num_main_columns: usize) -> Self {
+//         if columns.is_empty() {
+//             return Self::new(Table::new(Vec::new(), 0), 0, 0);
+//         }
+//         let height = columns[0].len();
+//
+//         // Check that all columns have the same length for integrity
+//         debug_assert!(columns.iter().all(|c| c.len() == height));
+//
+//         let width = columns.len();
+//
+//         debug_assert!(width >= num_main_columns);
+//         let mut data = Vec::with_capacity(width * height);
+//
+//         for row_idx in 0..height {
+//             for column in columns.iter() {
+//                 data.push(column[row_idx].clone());
+//             }
+//         }
+//
+//         Self::new(
+//             Table::new(data, width),
+//             num_main_columns,
+//             width - num_main_columns,
+//         )
+//     }
+//
+// }
+
 #[derive(Clone, Default, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub(crate) struct LDETable<F: IsSubFieldOf<E>, E: IsField> {
     pub(crate) main_table: Table<F>,
     pub(crate) aux_table: Table<E>,
     pub(crate) step_size: usize,
+}
+impl<'t, E: IsField> LDETable<E, E> {
+    pub fn get_row(&self, row_idx: usize) -> &[FieldElement<E>] {
+        self.get_row_main(row_idx)
+    }
+
+    pub fn columns(&self) -> Vec<Vec<FieldElement<E>>> {
+        let mut columns = self.main_table.columns();
+        let aux_columns = self.aux_table.columns();
+        columns.extend(aux_columns);
+        columns
+    }
 }
 
 impl<'t, F: IsSubFieldOf<E>, E: IsField> LDETable<F, E> {
@@ -114,6 +192,21 @@ impl<'t, F: IsSubFieldOf<E>, E: IsField> LDETable<F, E> {
         debug_assert_eq!(self.main_table.height, self.aux_table.height);
         self.main_table.height
     }
+
+    // /// Given a step size, converts the given table into a `Frame`.
+    // pub fn into_frame(&'t self, step_size: usize) -> Frame<'t, F, E> {
+    //     debug_assert!(self.table.height % step_size == 0);
+    //     let steps = (0..self.table.height)
+    //         .step_by(step_size)
+    //         .enumerate()
+    //         .map(|(step_idx, row_idx)| {
+    //             let table_view = self.table.table_view(row_idx, step_size);
+    //             StepView::new(table_view, step_idx)
+    //         })
+    //         .collect();
+    //
+    //     Frame::new(steps)
+    // }
 }
 
 /// A two-dimensional Table holding field elements, arranged in a row-major order.
@@ -236,21 +329,6 @@ impl<'t, F: IsField> Table<F> {
         let idx = row * self.width + col;
         &self.data[idx]
     }
-
-    // /// Given a step size, converts the given table into a `Frame`.
-    // pub fn into_frame(&'t self, step_size: usize) -> Frame<'t, F> {
-    //     debug_assert!(self.height % step_size == 0);
-    //     let steps = (0..self.height)
-    //         .step_by(step_size)
-    //         .enumerate()
-    //         .map(|(step_idx, row_idx)| {
-    //             let table_view = self.table_view(row_idx, step_size);
-    //             StepView::new(table_view, step_idx)
-    //         })
-    //         .collect();
-    //
-    //     Frame::new(steps)
-    // }
 }
 
 /// A view of a contiguos subset of rows of a table.

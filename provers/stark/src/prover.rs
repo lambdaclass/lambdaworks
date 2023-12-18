@@ -6,7 +6,7 @@ use lambdaworks_math::fft::cpu::bit_reversing::{in_place_bit_reverse_permute, re
 use lambdaworks_math::fft::errors::FFTError;
 
 use lambdaworks_math::field::traits::{IsField, IsSubFieldOf};
-use lambdaworks_math::traits::Serializable;
+use lambdaworks_math::traits::{ByteConversion, Serializable};
 use lambdaworks_math::{
     field::{element::FieldElement, traits::IsFFTField},
     polynomial::Polynomial,
@@ -20,7 +20,7 @@ use rayon::prelude::{IndexedParallelIterator, IntoParallelRefIterator, ParallelI
 use crate::debug::validate_trace;
 use crate::fri;
 use crate::proof::stark::{DeepPolynomialOpenings, PolynomialOpenings};
-use crate::table::{LDETable, Table};
+use crate::table::{LDETable, OODTable, Table};
 use crate::transcript::IsStarkTranscript;
 
 use super::config::{BatchedMerkleTree, Commitment};
@@ -116,7 +116,7 @@ where
 }
 
 pub struct Round3<F: IsField> {
-    trace_ood_evaluations: Vec<Vec<FieldElement<F>>>,
+    trace_ood_evaluations: OODTable<F>,
     composition_poly_parts_ood_evaluation: Vec<FieldElement<F>>,
 }
 
@@ -254,13 +254,14 @@ pub trait IsStarkProver<A: AIR> {
         let rap_challenges = air.build_rap_challenges(transcript);
 
         let aux_trace = air.build_auxiliary_trace(main_trace, &rap_challenges);
-        let mut aux_evaluations;
-        let aux = if !aux_trace.is_empty() {
+        let aux_evaluations;
+        let aux;
+        if !aux_trace.is_empty() {
             // Check that this is valid for interpolation
             let (aux_trace_polys, aux_trace_polys_evaluations, aux_merkle_tree, aux_merkle_root) =
                 Self::interpolate_and_commit(&aux_trace, domain, transcript);
             aux_evaluations = aux_trace_polys_evaluations;
-            Some(Round1CommitmentData::<A::FieldExtension> {
+            aux = Some(Round1CommitmentData::<A::FieldExtension> {
                 trace_polys: aux_trace_polys,
                 // lde_trace: TraceTable::from_columns(aux_trace_polys_evaluations, A::STEP_SIZE),
                 lde_trace_merkle_tree: aux_merkle_tree,
@@ -268,7 +269,7 @@ pub trait IsStarkProver<A: AIR> {
             })
         } else {
             aux_evaluations = Vec::new();
-            None
+            aux = None
         };
         let lde_table = LDETable::from_columns(evaluations, aux_evaluations, A::STEP_SIZE);
 
@@ -395,12 +396,20 @@ pub trait IsStarkProver<A: AIR> {
         // In the fibonacci example, the ood frame is simply the evaluations `[t(z), t(z * g), t(z * g^2)]`, where `t` is the trace
         // polynomial and `g` is the primitive root of unity used when interpolating `t`.
 
-        let trace_ood_evaluations = crate::trace::get_trace_evaluations(
-            &round_1_result.all_trace_polys(),
+        let (main_ood_evaluations, aux_ood_evaluations) = crate::trace::get_trace_evaluations(
+            &round_1_result.main.trace_polys,
+            &round_1_result
+                .aux
+                .as_ref()
+                .map(|aux| aux.trace_polys.clone())
+                .unwrap_or(vec![]),
             z,
             &air.context().transition_offsets,
             &domain.trace_primitive_root,
         );
+
+        let trace_ood_evaluations =
+            OODTable::from_columns(main_ood_evaluations, aux_ood_evaluations, A::STEP_SIZE);
 
         Round3 {
             trace_ood_evaluations,
@@ -547,7 +556,7 @@ pub trait IsStarkProver<A: AIR> {
         // ∑ ⱼₖ [ 𝛾ₖ ( tⱼ − tⱼ(z) ) / ( X − zgᵏ )]
 
         // @@@ this could be const
-        let trace_frame_length = trace_frame_evaluations.len();
+        let trace_frame_length = trace_frame_evaluations.n_rows();
 
         #[cfg(feature = "parallel")]
         let trace_terms = trace_polys
@@ -580,7 +589,7 @@ pub trait IsStarkProver<A: AIR> {
                         (i, t_j),
                         trace_frame_length,
                         trace_terms_gammas,
-                        trace_frame_evaluations,
+                        &trace_frame_evaluations.columns(),
                         transition_offsets,
                         (z, primitive_root),
                     )
@@ -606,15 +615,13 @@ pub trait IsStarkProver<A: AIR> {
         let iter_trace_gammas = trace_terms_gammas
             .iter()
             .skip(i_times_trace_frame_evaluation);
-        let trace_int = trace_frame_evaluations
+        let trace_int = trace_frame_evaluations[i]
             .iter()
             .zip(transition_offsets)
             .zip(iter_trace_gammas)
             .fold(
                 Polynomial::zero(),
-                |trace_agg, ((eval, offset), trace_gamma)| {
-                    // @@@ we can avoid this clone
-                    let t_j_z = &eval[i];
+                |trace_agg, ((t_j_z, offset), trace_gamma)| {
                     // @@@ this can be pre-computed
                     let z_shifted = primitive_root.pow(*offset) * z;
                     let mut poly = t_j - t_j_z;
@@ -789,8 +796,9 @@ pub trait IsStarkProver<A: AIR> {
             &round_1_result.main.trace_polys,
             &round_1_result
                 .aux
-                .map(|a| &a.trace_polys)
-                .unwrap_or(&vec![]),
+                .as_ref()
+                .map(|a| a.trace_polys.clone())
+                .unwrap_or(vec![]),
             &domain,
             &round_1_result.rap_challenges,
         );
@@ -867,9 +875,10 @@ pub trait IsStarkProver<A: AIR> {
         );
 
         // >>>> Send values: tⱼ(zgᵏ)
-        for i in 0..round_3_result.trace_ood_evaluations[0].len() {
-            for j in 0..round_3_result.trace_ood_evaluations.len() {
-                transcript.append_field_element(&round_3_result.trace_ood_evaluations[j][i]);
+        let trace_ood_evaluations_columns = round_3_result.trace_ood_evaluations.columns();
+        for i in 0..trace_ood_evaluations_columns[0].len() {
+            for j in 0..trace_ood_evaluations_columns.len() {
+                transcript.append_field_element(&trace_ood_evaluations_columns[j][i]);
             }
         }
 
@@ -925,22 +934,13 @@ pub trait IsStarkProver<A: AIR> {
 
         info!("End proof generation");
 
-        let trace_ood_evaluations = LDETable::new(
-            round_3_result
-                .trace_ood_evaluations
-                .into_iter()
-                .flatten()
-                .collect(),
-            air.context().trace_columns,
-        );
-
         Ok(StarkProof::<A::Field, A::FieldExtension> {
             // [tⱼ]
             lde_trace_main_merkle_root: round_1_result.main.lde_trace_merkle_root,
             // [tⱼ]
             lde_trace_aux_merkle_root: round_1_result.aux.map(|x| x.lde_trace_merkle_root),
             // tⱼ(zgᵏ)
-            trace_ood_evaluations,
+            trace_ood_evaluations: round_3_result.trace_ood_evaluations,
             // [H₁] and [H₂]
             composition_poly_root: round_2_result.composition_poly_root,
             // Hᵢ(z^N)
