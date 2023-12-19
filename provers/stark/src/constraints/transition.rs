@@ -1,6 +1,5 @@
 use std::iter::Cycle;
 use std::ops::Div;
-use std::slice::Iter;
 use std::vec::IntoIter;
 
 use crate::frame::Frame;
@@ -98,7 +97,7 @@ pub trait TransitionConstraint<F: IsFFTField> {
                 })
                 .unzip();
 
-            FieldElement::inplace_batch_inverse(&mut evaluations);
+            FieldElement::inplace_batch_inverse(&mut evaluations).unwrap();
 
             evaluations
                 .iter()

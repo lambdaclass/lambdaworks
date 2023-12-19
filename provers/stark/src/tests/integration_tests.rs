@@ -37,6 +37,7 @@ fn test_prove_fib() {
         StoneProverTranscript::new(&[]),
     )
     .unwrap();
+
     assert!(Verifier::verify::<FibonacciAIR<Stark252PrimeField>>(
         &proof,
         &pub_inputs,
@@ -69,6 +70,7 @@ fn test_prove_fib17() {
         StoneProverTranscript::new(&[]),
     )
     .unwrap();
+
     assert!(Verifier::verify::<FibonacciAIR<_>>(
         &proof,
         &pub_inputs,

@@ -196,10 +196,24 @@ impl<F: IsFFTField> ConstraintEvaluator<F> {
                 let evaluations_transition =
                     air.compute_transition(&frame, &periodic_values, rap_challenges);
 
+                if i == 0 {
+                    println!("TRANSITION {i} EVALUATIONS: ");
+                    for (j, eval) in evaluations_transition.iter().enumerate() {
+                        println!("CONSTRAINT {} EVALUATION: {:#?}", j, eval);
+                    }
+                }
+
                 #[cfg(all(debug_assertions, not(feature = "parallel")))]
                 transition_evaluations.push(evaluations_transition.clone());
 
                 let transition_zerofiers_eval = transition_zerofiers_evals.next().unwrap();
+
+                if i == 0 {
+                    println!("ZEROFIER EVALUATIONS STEP {i}: ");
+                    for (j, eval) in transition_zerofiers_eval.iter().enumerate() {
+                        println!("CONSTRAINT {} ZEROFIER EVALUATION: {:#?}", j, eval);
+                    }
+                }
 
                 // Add each term of the transition constraints to the
                 // composition polynomial, including the zerofier, the

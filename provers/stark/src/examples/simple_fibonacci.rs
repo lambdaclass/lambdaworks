@@ -8,7 +8,6 @@ use crate::{
     proof::options::ProofOptions,
     trace::TraceTable,
     traits::AIR,
-    transcript::IsStarkTranscript,
 };
 use lambdaworks_math::field::{element::FieldElement, traits::IsFFTField};
 use std::marker::PhantomData;
@@ -120,22 +119,22 @@ where
         vec![Box::new(&self.constraint as &dyn TransitionConstraint<F>)]
     }
 
-    fn compute_transition(
-        &self,
-        frame: &Frame<Self::Field>,
-        _periodic_values: &[FieldElement<Self::Field>],
-        _rap_challenges: &[FieldElement<Self::Field>],
-    ) -> Vec<FieldElement<Self::Field>> {
-        let first_step = frame.get_evaluation_step(0);
-        let second_step = frame.get_evaluation_step(1);
-        let third_step = frame.get_evaluation_step(2);
+    // fn compute_transition(
+    //     &self,
+    //     frame: &Frame<Self::Field>,
+    //     _periodic_values: &[FieldElement<Self::Field>],
+    //     _rap_challenges: &[FieldElement<Self::Field>],
+    // ) -> Vec<FieldElement<Self::Field>> {
+    //     let first_step = frame.get_evaluation_step(0);
+    //     let second_step = frame.get_evaluation_step(1);
+    //     let third_step = frame.get_evaluation_step(2);
 
-        let a0 = first_step.get_evaluation_element(0, 0);
-        let a1 = second_step.get_evaluation_element(0, 0);
-        let a2 = third_step.get_evaluation_element(0, 0);
+    //     let a0 = first_step.get_evaluation_element(0, 0);
+    //     let a1 = second_step.get_evaluation_element(0, 0);
+    //     let a2 = third_step.get_evaluation_element(0, 0);
 
-        vec![a2 - a1 - a0]
-    }
+    //     vec![a2 - a1 - a0]
+    // }
 
     fn boundary_constraints(
         &self,
@@ -145,10 +144,6 @@ where
         let a1 = BoundaryConstraint::new_simple(1, self.pub_inputs.a1.clone());
 
         BoundaryConstraints::from_constraints(vec![a0, a1])
-    }
-
-    fn number_auxiliary_rap_columns(&self) -> usize {
-        0
     }
 
     fn context(&self) -> &AirContext {

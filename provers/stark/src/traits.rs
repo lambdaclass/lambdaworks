@@ -1,7 +1,4 @@
-use itertools::Itertools;
-use lambdaworks_math::field::traits::IsField;
 use lambdaworks_math::{
-    fft::cpu::roots_of_unity::get_powers_of_primitive_root_coset,
     field::{element::FieldElement, traits::IsFFTField},
     polynomial::Polynomial,
 };
@@ -39,12 +36,14 @@ pub trait AIR {
 
     fn build_rap_challenges(
         &self,
-        transcript: &mut impl IsStarkTranscript<Self::Field>,
+        _transcript: &mut impl IsStarkTranscript<Self::Field>,
     ) -> Vec<FieldElement<Self::Field>> {
         Vec::new()
     }
 
-    fn number_auxiliary_rap_columns(&self) -> usize;
+    fn number_auxiliary_rap_columns(&self) -> usize {
+        0
+    }
 
     fn composition_poly_degree_bound(&self) -> usize;
 
