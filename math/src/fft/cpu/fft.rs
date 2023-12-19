@@ -202,7 +202,7 @@ mod tests {
         }
     }
     prop_compose! {
-        fn field_vec_r4(max_exp: u8)(vec in (1..max_exp).prop_flat_map(|i| collection::vec(field_element(), 1 << 2 * i))) -> Vec<FE> {
+        fn field_vec_r4(max_exp: u8)(vec in (1..max_exp).prop_flat_map(|i| collection::vec(field_element(), 1 << (2 * i)))) -> Vec<FE> {
             vec
         }
     }
