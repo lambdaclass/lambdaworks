@@ -19,7 +19,6 @@ use super::{
 /// AIR is a representation of the Constraints
 pub trait AIR {
     type Field: IsFFTField;
-    type RAPChallenges;
     type PublicInputs;
 
     const STEP_SIZE: usize;
@@ -32,14 +31,18 @@ pub trait AIR {
 
     fn build_auxiliary_trace(
         &self,
-        main_trace: &TraceTable<Self::Field>,
-        rap_challenges: &Self::RAPChallenges,
-    ) -> TraceTable<Self::Field>;
+        _main_trace: &TraceTable<Self::Field>,
+        _rap_challenges: &[FieldElement<Self::Field>],
+    ) -> TraceTable<Self::Field> {
+        TraceTable::empty()
+    }
 
     fn build_rap_challenges(
         &self,
         transcript: &mut impl IsStarkTranscript<Self::Field>,
-    ) -> Self::RAPChallenges;
+    ) -> Vec<FieldElement<Self::Field>> {
+        Vec::new()
+    }
 
     fn number_auxiliary_rap_columns(&self) -> usize;
 
@@ -51,7 +54,8 @@ pub trait AIR {
         periodic_values: &[FieldElement<Self::Field>],
         rap_challenges: &[FieldElement<Self::Field>],
     ) -> Vec<FieldElement<Self::Field>> {
-        let mut evaluations = vec![Self::Field::zero(); self.num_transition_constraints()];
+        let mut evaluations =
+            vec![FieldElement::<Self::Field>::zero(); self.num_transition_constraints()];
         self.transition_constraints()
             .iter()
             .for_each(|c| c.evaluate(frame, &mut evaluations, periodic_values, rap_challenges));
@@ -61,7 +65,7 @@ pub trait AIR {
 
     fn boundary_constraints(
         &self,
-        rap_challenges: &Self::RAPChallenges,
+        rap_challenges: &[FieldElement<Self::Field>],
     ) -> BoundaryConstraints<Self::Field>;
 
     // fn transition_exemptions(&self) -> Vec<Polynomial<FieldElement<Self::Field>>> {

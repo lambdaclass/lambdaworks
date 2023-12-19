@@ -14,7 +14,7 @@ pub fn validate_trace<F: IsFFTField, A: AIR<Field = F>>(
     air: &A,
     trace_polys: &[Polynomial<FieldElement<A::Field>>],
     domain: &Domain<A::Field>,
-    rap_challenges: &A::RAPChallenges,
+    rap_challenges: &[FieldElement<F>],
 ) -> bool {
     info!("Starting constraints validation over trace...");
     let mut ret = true;

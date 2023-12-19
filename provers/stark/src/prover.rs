@@ -43,17 +43,16 @@ pub enum ProvingError {
     WrongParameter(String),
 }
 
-pub struct Round1<F, A>
+pub struct Round1<F>
 where
     F: IsFFTField,
-    A: AIR<Field = F>,
     FieldElement<F>: Serializable + Sync + Send,
 {
     pub(crate) trace_polys: Vec<Polynomial<FieldElement<F>>>,
     pub(crate) lde_trace: TraceTable<F>,
     pub(crate) lde_trace_merkle_trees: Vec<BatchedMerkleTree<F>>,
     pub(crate) lde_trace_merkle_roots: Vec<Commitment>,
-    pub(crate) rap_challenges: A::RAPChallenges,
+    pub(crate) rap_challenges: Vec<FieldElement<F>>,
 }
 
 pub struct Round2<F>
@@ -182,7 +181,7 @@ pub trait IsStarkProver {
         main_trace: &TraceTable<Self::Field>,
         domain: &Domain<Self::Field>,
         transcript: &mut impl IsStarkTranscript<Self::Field>,
-    ) -> Result<Round1<Self::Field, A>, ProvingError>
+    ) -> Result<Round1<Self::Field>, ProvingError>
     where
         A: AIR<Field = Self::Field>,
         FieldElement<Self::Field>: Serializable + Send + Sync,
@@ -248,13 +247,12 @@ pub trait IsStarkProver {
     fn round_2_compute_composition_polynomial<A>(
         air: &A,
         domain: &Domain<Self::Field>,
-        round_1_result: &Round1<Self::Field, A>,
+        round_1_result: &Round1<Self::Field>,
         transition_coefficients: &[FieldElement<Self::Field>],
         boundary_coefficients: &[FieldElement<Self::Field>],
     ) -> Round2<Self::Field>
     where
         A: AIR<Field = Self::Field> + Send + Sync,
-        A::RAPChallenges: Send + Sync,
         FieldElement<Self::Field>: Serializable + Send + Sync,
     {
         // Create evaluation table
@@ -304,7 +302,7 @@ pub trait IsStarkProver {
     fn round_3_evaluate_polynomials_in_out_of_domain_element<A: AIR<Field = Self::Field>>(
         air: &A,
         domain: &Domain<Self::Field>,
-        round_1_result: &Round1<Self::Field, A>,
+        round_1_result: &Round1<Self::Field>,
         round_2_result: &Round2<Self::Field>,
         z: &FieldElement<Self::Field>,
     ) -> Round3<Self::Field>
@@ -344,7 +342,7 @@ pub trait IsStarkProver {
     fn round_4_compute_and_run_fri_on_the_deep_composition_polynomial<A: AIR<Field = Self::Field>>(
         air: &A,
         domain: &Domain<Self::Field>,
-        round_1_result: &Round1<Self::Field, A>,
+        round_1_result: &Round1<Self::Field>,
         round_2_result: &Round2<Self::Field>,
         round_3_result: &Round3<Self::Field>,
         z: &FieldElement<Self::Field>,
@@ -416,7 +414,7 @@ pub trait IsStarkProver {
             .collect();
 
         let (deep_poly_openings, deep_poly_openings_sym) =
-            Self::open_deep_composition_poly(domain, round_1_result, round_2_result, &iotas);
+            Self::open_deep_composition_poly::<A>(domain, round_1_result, round_2_result, &iotas);
 
         Round4 {
             fri_last_value,
@@ -614,7 +612,7 @@ pub trait IsStarkProver {
     /// and their symmetric elements.
     fn open_deep_composition_poly<A: AIR<Field = Self::Field>>(
         domain: &Domain<Self::Field>,
-        round_1_result: &Round1<Self::Field, A>,
+        round_1_result: &Round1<Self::Field>,
         round_2_result: &Round2<Self::Field>,
         indexes_to_open: &[usize],
     ) -> (
@@ -684,7 +682,6 @@ pub trait IsStarkProver {
     ) -> Result<StarkProof<Self::Field>, ProvingError>
     where
         A: AIR<Field = Self::Field> + Send + Sync,
-        A::RAPChallenges: Send + Sync,
         FieldElement<Self::Field>: Serializable + Send + Sync,
     {
         info!("Started proof generation...");

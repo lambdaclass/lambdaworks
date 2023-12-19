@@ -34,10 +34,9 @@ impl IsStarkVerifier for Verifier {
     type Field = Stark252PrimeField;
 }
 
-pub struct Challenges<F, A>
+pub struct Challenges<F>
 where
     F: IsFFTField,
-    A: AIR<Field = F>,
 {
     pub z: FieldElement<F>,
     pub boundary_coeffs: Vec<FieldElement<F>>,
@@ -46,7 +45,7 @@ where
     pub gammas: Vec<FieldElement<F>>,
     pub zetas: Vec<FieldElement<F>>,
     pub iotas: Vec<usize>,
-    pub rap_challenges: A::RAPChallenges,
+    pub rap_challenges: Vec<FieldElement<F>>,
     pub grinding_seed: [u8; 32],
 }
 
@@ -71,7 +70,7 @@ pub trait IsStarkVerifier {
         proof: &StarkProof<Self::Field>,
         domain: &Domain<Self::Field>,
         transcript: &mut impl IsStarkTranscript<Self::Field>,
-    ) -> Challenges<Self::Field, A>
+    ) -> Challenges<Self::Field>
     where
         FieldElement<Self::Field>: Serializable,
         A: AIR<Field = Self::Field>,
@@ -205,7 +204,7 @@ pub trait IsStarkVerifier {
         air: &A,
         proof: &StarkProof<Self::Field>,
         domain: &Domain<Self::Field>,
-        challenges: &Challenges<Self::Field, A>,
+        challenges: &Challenges<Self::Field>,
     ) -> bool
     where
         A: AIR<Field = Self::Field>,
@@ -300,14 +299,13 @@ pub trait IsStarkVerifier {
         composition_poly_claimed_ood_evaluation == composition_poly_ood_evaluation
     }
 
-    fn step_3_verify_fri<A>(
+    fn step_3_verify_fri(
         proof: &StarkProof<Self::Field>,
         domain: &Domain<Self::Field>,
-        challenges: &Challenges<Self::Field, A>,
+        challenges: &Challenges<Self::Field>,
     ) -> bool
     where
         FieldElement<Self::Field>: Serializable + Sync + Send,
-        A: AIR<Field = Self::Field>,
     {
         let (deep_poly_evaluations, deep_poly_evaluations_sym) =
             Self::reconstruct_deep_composition_poly_evaluations_for_all_queries(
@@ -444,7 +442,7 @@ pub trait IsStarkVerifier {
     fn step_4_verify_trace_and_composition_openings<F: IsFFTField, A: AIR<Field = F>>(
         air: &A,
         proof: &StarkProof<Self::Field>,
-        challenges: &Challenges<F, A>,
+        challenges: &Challenges<F>,
     ) -> bool
     where
         FieldElement<Self::Field>: Serializable + Sync + Send,
@@ -582,14 +580,11 @@ pub trait IsStarkVerifier {
             )
     }
 
-    fn reconstruct_deep_composition_poly_evaluations_for_all_queries<A>(
-        challenges: &Challenges<Self::Field, A>,
+    fn reconstruct_deep_composition_poly_evaluations_for_all_queries(
+        challenges: &Challenges<Self::Field>,
         domain: &Domain<Self::Field>,
         proof: &StarkProof<Self::Field>,
-    ) -> DeepPolynomialEvaluations<Self::Field>
-    where
-        A: AIR<Field = Self::Field>,
-    {
+    ) -> DeepPolynomialEvaluations<Self::Field> {
         let mut deep_poly_evaluations = Vec::new();
         let mut deep_poly_evaluations_sym = Vec::new();
         for (i, iota) in challenges.iotas.iter().enumerate() {
@@ -619,11 +614,11 @@ pub trait IsStarkVerifier {
         (deep_poly_evaluations, deep_poly_evaluations_sym)
     }
 
-    fn reconstruct_deep_composition_poly_evaluation<A: AIR<Field = Self::Field>>(
+    fn reconstruct_deep_composition_poly_evaluation(
         proof: &StarkProof<Self::Field>,
         evaluation_point: &FieldElement<Self::Field>,
         primitive_root: &FieldElement<Self::Field>,
-        challenges: &Challenges<Self::Field, A>,
+        challenges: &Challenges<Self::Field>,
         lde_trace_evaluations: &[FieldElement<Self::Field>],
         lde_composition_poly_parts_evaluation: &[FieldElement<Self::Field>],
     ) -> FieldElement<Self::Field> {

@@ -85,7 +85,6 @@ where
     F: IsFFTField,
 {
     type Field = F;
-    type RAPChallenges = ();
     type PublicInputs = FibonacciPublicInputs<F>;
 
     const STEP_SIZE: usize = 1;
@@ -117,20 +116,6 @@ where
         self.trace_length()
     }
 
-    fn build_auxiliary_trace(
-        &self,
-        _main_trace: &TraceTable<Self::Field>,
-        _rap_challenges: &Self::RAPChallenges,
-    ) -> TraceTable<Self::Field> {
-        TraceTable::empty()
-    }
-
-    fn build_rap_challenges(
-        &self,
-        _transcript: &mut impl IsStarkTranscript<Self::Field>,
-    ) -> Self::RAPChallenges {
-    }
-
     fn transition_constraints(&self) -> Vec<Box<&dyn TransitionConstraint<F>>> {
         vec![Box::new(&self.constraint as &dyn TransitionConstraint<F>)]
     }
@@ -139,7 +124,7 @@ where
         &self,
         frame: &Frame<Self::Field>,
         _periodic_values: &[FieldElement<Self::Field>],
-        _rap_challenges: &Self::RAPChallenges,
+        _rap_challenges: &[FieldElement<Self::Field>],
     ) -> Vec<FieldElement<Self::Field>> {
         let first_step = frame.get_evaluation_step(0);
         let second_step = frame.get_evaluation_step(1);
@@ -154,7 +139,7 @@ where
 
     fn boundary_constraints(
         &self,
-        _rap_challenges: &Self::RAPChallenges,
+        _rap_challenges: &[FieldElement<Self::Field>],
     ) -> BoundaryConstraints<Self::Field> {
         let a0 = BoundaryConstraint::new_simple(0, self.pub_inputs.a0.clone());
         let a1 = BoundaryConstraint::new_simple(1, self.pub_inputs.a1.clone());

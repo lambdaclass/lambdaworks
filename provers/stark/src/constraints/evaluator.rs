@@ -20,7 +20,7 @@ pub struct ConstraintEvaluator<F: IsFFTField> {
     boundary_constraints: BoundaryConstraints<F>,
 }
 impl<F: IsFFTField> ConstraintEvaluator<F> {
-    pub fn new<A: AIR<Field = F>>(air: &A, rap_challenges: &A::RAPChallenges) -> Self {
+    pub fn new<A: AIR<Field = F>>(air: &A, rap_challenges: &[FieldElement<A::Field>]) -> Self {
         let boundary_constraints = air.boundary_constraints(rap_challenges);
 
         Self {
@@ -35,12 +35,11 @@ impl<F: IsFFTField> ConstraintEvaluator<F> {
         domain: &Domain<F>,
         transition_coefficients: &[FieldElement<F>],
         boundary_coefficients: &[FieldElement<F>],
-        rap_challenges: &A::RAPChallenges,
+        rap_challenges: &[FieldElement<F>],
     ) -> Vec<FieldElement<F>>
     where
         A: AIR<Field = F> + Send + Sync,
         FieldElement<F>: Serializable + Send + Sync,
-        A::RAPChallenges: Send + Sync,
     {
         let boundary_constraints = &self.boundary_constraints;
         let number_of_b_constraints = boundary_constraints.constraints.len();
