@@ -1,4 +1,3 @@
-
 use crate::{frame::Frame, table::LDETable};
 
 use super::domain::Domain;

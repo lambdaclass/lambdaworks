@@ -1,4 +1,3 @@
-
 use crate::{
     table::{LDETable, OODTable},
     trace::StepView,

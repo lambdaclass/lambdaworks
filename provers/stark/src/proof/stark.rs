@@ -14,7 +14,7 @@ use crate::{
     config::Commitment,
     domain::Domain,
     fri::fri_decommit::FriDecommitment,
-    table::{OODTable},
+    table::OODTable,
     traits::AIR,
     transcript::StoneProverTranscript,
     verifier::{IsStarkVerifier, Verifier},
