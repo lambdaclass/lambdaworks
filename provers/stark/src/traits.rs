@@ -1,4 +1,5 @@
 use itertools::Itertools;
+use lambdaworks_math::field::traits::IsField;
 use lambdaworks_math::{
     fft::cpu::roots_of_unity::get_powers_of_primitive_root_coset,
     field::{element::FieldElement, traits::IsFFTField},
@@ -48,8 +49,15 @@ pub trait AIR {
         &self,
         frame: &Frame<Self::Field>,
         periodic_values: &[FieldElement<Self::Field>],
-        rap_challenges: &Self::RAPChallenges,
-    ) -> Vec<FieldElement<Self::Field>>;
+        rap_challenges: &[FieldElement<Self::Field>],
+    ) -> Vec<FieldElement<Self::Field>> {
+        let mut evaluations = vec![Self::Field::zero(); self.num_transition_constraints()];
+        self.transition_constraints()
+            .iter()
+            .for_each(|c| c.evaluate(frame, &mut evaluations, periodic_values, rap_challenges));
+
+        evaluations
+    }
 
     fn boundary_constraints(
         &self,
