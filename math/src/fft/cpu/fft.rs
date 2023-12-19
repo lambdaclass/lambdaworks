@@ -122,16 +122,20 @@ where
     E: IsField,
 {
     debug_assert!(input.len().is_power_of_two());
-    //debug_assert!(input.len().ilog2() % 2 == 0); // let k = log2(x), k.is_even() => 2^k == 2^2*k'
-    // with k' = k / 2 => x is power of 4
+    debug_assert!(input.len().ilog2() % 2 == 0); // Even power of 2 => x is power of 4
+
     // divide input in groups, starting with 1, duplicating the number of groups in each stage.
     let mut group_count = 1;
     let mut group_size = input.len();
 
     // for each group, there'll be group_size / 4 butterflies.
-    // a butterfly is the atomic operation of a FFT, e.g: (a, b) = (a + wb, a - wb).
-    // The 0.5 factor is what gives FFT its performance, it recursively halves the problem size
-    // (group size).
+    // a butterfly is the atomic operation of a FFT, e.g:
+    // x' = x + yw2 + zw1 + tw1w2
+    // y' = x - yw2 + zw1 - tw1w2
+    // z' = x + yw3 - zw1 - tw1w3
+    // t' = x - yw3 - zw1 + tw1w3
+    // The 0.25 factor is what gives FFT its performance, it recursively divides the problem size
+    // by 4 (group size).
 
     while group_count < input.len() {
         #[allow(clippy::needless_range_loop)] // the suggestion would obfuscate a bit the algorithm
