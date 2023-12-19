@@ -5,6 +5,7 @@ use lambdaworks_math::{
 
 use crate::{
     constraints::transition::{TransitionConstraint, TransitionZerofiersIter},
+    domain::Domain,
     transcript::IsStarkTranscript,
 };
 
@@ -173,18 +174,14 @@ pub trait AIR {
     // fn transition_constraints<T: TransitionConstraint<Self::Field>>(&self) -> Vec<Box<dyn T>>;
     fn transition_constraints(&self) -> Vec<Box<&dyn TransitionConstraint<Self::Field>>>;
 
-    fn transition_zerofier_evaluations(&self) -> TransitionZerofiersIter<Self::Field> {
-        let trace_length = self.trace_length();
-        let blowup_factor = usize::from(self.blowup_factor());
-        let offset = self.coset_offset();
-        let trace_primitive_root = self.trace_primitive_root();
-
+    fn transition_zerofier_evaluations(
+        &self,
+        domain: &Domain<Self::Field>,
+    ) -> TransitionZerofiersIter<Self::Field> {
         let evals: Vec<_> = self
             .transition_constraints()
             .iter()
-            .map(|c| {
-                c.zerofier_evaluations(blowup_factor, &offset, trace_length, &trace_primitive_root)
-            })
+            .map(|c| c.zerofier_evaluations_on_extended_domain(&domain))
             .collect();
 
         TransitionZerofiersIter::new(evals)

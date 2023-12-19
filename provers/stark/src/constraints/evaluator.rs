@@ -148,7 +148,7 @@ impl<F: IsFFTField> ConstraintEvaluator<F> {
         // .map(|v| v - &one)
         // .collect::<Vec<_>>();
 
-        let mut transition_zerofiers_evals = air.transition_zerofier_evaluations();
+        let mut transition_zerofiers_evals = air.transition_zerofier_evaluations(domain);
 
         // FieldElement::inplace_batch_inverse(&mut zerofier_evaluations).unwrap();
 
