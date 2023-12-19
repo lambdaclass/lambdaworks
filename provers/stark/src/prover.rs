@@ -6,7 +6,7 @@ use lambdaworks_math::fft::cpu::bit_reversing::{in_place_bit_reverse_permute, re
 use lambdaworks_math::fft::errors::FFTError;
 
 use lambdaworks_math::field::traits::{IsField, IsSubFieldOf};
-use lambdaworks_math::traits::{ByteConversion, Serializable};
+use lambdaworks_math::traits::{Serializable};
 use lambdaworks_math::{
     field::{element::FieldElement, traits::IsFFTField},
     polynomial::Polynomial,
@@ -385,7 +385,7 @@ pub trait IsStarkProver<A: AIR> {
                 .aux
                 .as_ref()
                 .map(|aux| aux.trace_polys.clone())
-                .unwrap_or(vec![]),
+                .unwrap_or_default(),
             z,
             &air.context().transition_offsets,
             &domain.trace_primitive_root,

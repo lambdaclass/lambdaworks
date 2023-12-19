@@ -214,7 +214,7 @@ pub fn get_trace_evaluations<F: IsSubFieldOf<E>, E: IsField>(
         .map(|poly| {
             evaluation_points
                 .iter()
-                .map(|eval_point| poly.evaluate(&eval_point))
+                .map(|eval_point| poly.evaluate(eval_point))
                 .collect()
         })
         .collect();
@@ -223,7 +223,7 @@ pub fn get_trace_evaluations<F: IsSubFieldOf<E>, E: IsField>(
         .map(|poly| {
             evaluation_points
                 .iter()
-                .map(|eval_point| poly.evaluate(&eval_point))
+                .map(|eval_point| poly.evaluate(eval_point))
                 .collect()
         })
         .collect();

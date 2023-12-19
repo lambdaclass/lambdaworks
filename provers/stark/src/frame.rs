@@ -1,4 +1,4 @@
-use super::trace::TraceTable;
+
 use crate::{
     table::{LDETable, OODTable},
     trace::StepView,

@@ -188,8 +188,8 @@ where
         let second_step = frame.get_evaluation_step(1);
 
         let main_frame = EvaluationFrame::from_rows(
-            vec_lambda2winter(&first_step.get_row_main(0)),
-            vec_lambda2winter(&second_step.get_row_main(0)),
+            vec_lambda2winter(first_step.get_row_main(0)),
+            vec_lambda2winter(second_step.get_row_main(0)),
         );
 
         let periodic_values = vec_lambda2winter(periodic_values);
@@ -218,8 +218,8 @@ where
             let second_step = frame.get_evaluation_step(1);
 
             let aux_frame = EvaluationFrame::from_rows(
-                vec_lambda2winter(&first_step.get_row_aux(0)),
-                vec_lambda2winter(&second_step.get_row_aux(0)),
+                vec_lambda2winter(first_step.get_row_aux(0)),
+                vec_lambda2winter(second_step.get_row_aux(0)),
             );
 
             let mut aux_result = vec![
@@ -297,8 +297,8 @@ where
         let second_step = frame.get_evaluation_step(1);
 
         let main_frame = EvaluationFrame::from_rows(
-            vec_lambda2winter(&first_step.get_row_main(0)),
-            vec_lambda2winter(&second_step.get_row_main(0)),
+            vec_lambda2winter(first_step.get_row_main(0)),
+            vec_lambda2winter(second_step.get_row_main(0)),
         );
 
         let periodic_values = vec_lambda2winter(periodic_values);
@@ -327,8 +327,8 @@ where
             let second_step = frame.get_evaluation_step(1);
 
             let aux_frame = EvaluationFrame::from_rows(
-                vec_lambda2winter(&first_step.get_row_aux(0)),
-                vec_lambda2winter(&second_step.get_row_aux(0)),
+                vec_lambda2winter(first_step.get_row_aux(0)),
+                vec_lambda2winter(second_step.get_row_aux(0)),
             );
 
             let mut aux_result = vec![

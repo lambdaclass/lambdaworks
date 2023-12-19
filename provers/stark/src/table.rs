@@ -1,11 +1,11 @@
-use std::collections::HashSet;
+
 
 use lambdaworks_math::field::{
     element::FieldElement,
     traits::{IsField, IsSubFieldOf},
 };
 
-use crate::{frame::Frame, trace::StepView};
+use crate::{trace::StepView};
 
 pub(crate) type OODTable<E> = LDETable<E, E>;
 
@@ -79,7 +79,7 @@ pub(crate) struct LDETable<F: IsSubFieldOf<E>, E: IsField> {
 }
 impl<'t, E: IsField> LDETable<E, E> {
     pub fn get_row(&self, row_idx: usize) -> Vec<FieldElement<E>> {
-        let mut row: Vec<_> = self.get_row_main(row_idx).iter().cloned().collect();
+        let mut row: Vec<_> = self.get_row_main(row_idx).to_vec();
         row.extend_from_slice(self.get_row_aux(row_idx));
         row
     }
