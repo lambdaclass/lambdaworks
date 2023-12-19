@@ -47,6 +47,13 @@ pub trait TransitionConstraint<F: IsFFTField> {
 
         println!("OMEGA TO THE N POWER: {:?}", root.pow(trace_length));
 
+        println!(
+            "ROOT TO THE NxBETA POWER: {:?}",
+            root.pow(trace_length * blowup_factor)
+        );
+
+        println!("OMEGA TO THE BETA POWER: {:?}", root.pow(blowup_factor));
+
         let end_exemptions_poly = if self.end_exemptions() == 0 {
             Polynomial::new(&[FieldElement::<F>::one()])
         } else {
