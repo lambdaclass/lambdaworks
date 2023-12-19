@@ -5,15 +5,13 @@ use lambdaworks_math::field::{
 
 use crate::trace::StepView;
 
-pub type OODTable<E> = LDETable<E, E>;
-
 #[derive(Clone, Default, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub struct LDETable<F: IsSubFieldOf<E>, E: IsField> {
+pub struct EvaluationTable<F: IsSubFieldOf<E>, E: IsField> {
     pub(crate) main_table: Table<F>,
     pub(crate) aux_table: Table<E>,
     pub(crate) step_size: usize,
 }
-impl<E: IsField> OODTable<E> {
+impl<E: IsField> EvaluationTable<E, E> {
     pub fn get_row(&self, row_idx: usize) -> Vec<FieldElement<E>> {
         let mut row: Vec<_> = self.get_row_main(row_idx).to_vec();
         row.extend_from_slice(self.get_row_aux(row_idx));
@@ -28,7 +26,7 @@ impl<E: IsField> OODTable<E> {
     }
 }
 
-impl<F: IsSubFieldOf<E>, E: IsField> LDETable<F, E> {
+impl<F: IsSubFieldOf<E>, E: IsField> EvaluationTable<F, E> {
     /// Creates a Table instance from a vector of the intended columns.
     pub fn from_columns(
         main_columns: Vec<Vec<FieldElement<F>>>,

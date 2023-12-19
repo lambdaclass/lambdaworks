@@ -1,4 +1,4 @@
-use crate::table::{OODTable, Table, TableView};
+use crate::table::{EvaluationTable, Table, TableView};
 use lambdaworks_math::fft::errors::FFTError;
 use lambdaworks_math::field::traits::{IsField, IsSubFieldOf};
 use lambdaworks_math::{
@@ -205,7 +205,7 @@ pub(crate) fn get_trace_evaluations<F: IsSubFieldOf<E>, E: IsField>(
     frame_offsets: &[usize],
     primitive_root: &FieldElement<F>,
     step_size: usize,
-) -> OODTable<E> {
+) -> EvaluationTable<E, E> {
     let evaluation_points: Vec<_> = frame_offsets
         .iter()
         .map(|offset| primitive_root.pow(*offset) * x)
@@ -229,7 +229,7 @@ pub(crate) fn get_trace_evaluations<F: IsSubFieldOf<E>, E: IsField>(
         })
         .collect();
 
-    OODTable::from_columns(main_evaluations, aux_evaluations, step_size)
+    EvaluationTable::from_columns(main_evaluations, aux_evaluations, step_size)
 }
 
 #[cfg(test)]

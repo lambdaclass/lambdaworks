@@ -1,4 +1,4 @@
-use crate::{frame::Frame, table::LDETable};
+use crate::{frame::Frame, table::EvaluationTable};
 
 use super::domain::Domain;
 use super::traits::AIR;
@@ -41,7 +41,8 @@ pub fn validate_trace<A: AIR>(
         })
         .collect();
 
-    let lde_table = LDETable::from_columns(main_trace_columns, aux_trace_columns, A::STEP_SIZE);
+    let lde_table =
+        EvaluationTable::from_columns(main_trace_columns, aux_trace_columns, A::STEP_SIZE);
 
     let periodic_columns: Vec<_> = air
         .get_periodic_column_polynomials()

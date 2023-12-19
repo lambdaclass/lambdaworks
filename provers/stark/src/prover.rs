@@ -20,7 +20,7 @@ use rayon::prelude::{IndexedParallelIterator, IntoParallelRefIterator, ParallelI
 use crate::debug::validate_trace;
 use crate::fri;
 use crate::proof::stark::{DeepPolynomialOpenings, PolynomialOpenings};
-use crate::table::{LDETable, OODTable, Table};
+use crate::table::{EvaluationTable, Table};
 use crate::transcript::IsStarkTranscript;
 
 use super::config::{BatchedMerkleTree, Commitment};
@@ -60,7 +60,7 @@ where
     FieldElement<A::FieldExtension>: Serializable + Sync + Send,
     FieldElement<A::Field>: Serializable + Sync + Send,
 {
-    pub(crate) lde_table: LDETable<A::Field, A::FieldExtension>,
+    pub(crate) lde_table: EvaluationTable<A::Field, A::FieldExtension>,
     pub(crate) main: Round1CommitmentData<A::Field>,
     pub(crate) aux: Option<Round1CommitmentData<A::FieldExtension>>,
     pub(crate) rap_challenges: A::RAPChallenges,
@@ -99,7 +99,7 @@ where
 }
 
 pub struct Round3<F: IsField> {
-    trace_ood_evaluations: OODTable<F>,
+    trace_ood_evaluations: EvaluationTable<F, F>,
     composition_poly_parts_ood_evaluation: Vec<FieldElement<F>>,
 }
 
@@ -253,7 +253,7 @@ pub trait IsStarkProver<A: AIR> {
             aux_evaluations = Vec::new();
             None
         };
-        let lde_table = LDETable::from_columns(evaluations, aux_evaluations, A::STEP_SIZE);
+        let lde_table = EvaluationTable::from_columns(evaluations, aux_evaluations, A::STEP_SIZE);
 
         Ok(Round1 {
             lde_table,

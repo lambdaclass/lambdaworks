@@ -1,7 +1,4 @@
-use crate::{
-    table::{LDETable, OODTable},
-    trace::StepView,
-};
+use crate::{table::EvaluationTable, trace::StepView};
 use lambdaworks_math::field::traits::{IsField, IsSubFieldOf};
 
 /// A frame represents a collection of trace steps.
@@ -22,7 +19,7 @@ impl<'t, F: IsSubFieldOf<E>, E: IsField> Frame<'t, F, E> {
     }
 
     pub fn read_from_lde_table(
-        lde_table: &'t LDETable<F, E>,
+        lde_table: &'t EvaluationTable<F, E>,
         step: usize,
         blowup: u8,
         offsets: &[usize],
@@ -43,7 +40,7 @@ impl<'t, F: IsSubFieldOf<E>, E: IsField> Frame<'t, F, E> {
 }
 
 impl<'t, E: IsField> Frame<'t, E, E> {
-    pub fn read_from_ood_table(ood_table: &'t OODTable<E>, offsets: &[usize]) -> Self {
+    pub fn read_from_ood_table(ood_table: &'t EvaluationTable<E, E>, offsets: &[usize]) -> Self {
         let steps: Vec<_> = offsets
             .iter()
             .map(|offset| ood_table.step_view(*offset))

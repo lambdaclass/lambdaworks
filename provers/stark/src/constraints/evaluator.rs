@@ -18,7 +18,7 @@ use super::boundary::BoundaryConstraints;
 #[cfg(all(debug_assertions, not(feature = "parallel")))]
 use crate::debug::check_boundary_polys_divisibility;
 use crate::traits::AIR;
-use crate::{domain::Domain, table::LDETable};
+use crate::{domain::Domain, table::EvaluationTable};
 use crate::{frame::Frame, prover::evaluate_polynomial_on_lde_domain};
 
 pub struct ConstraintEvaluator<A: AIR> {
@@ -36,7 +36,7 @@ impl<A: AIR> ConstraintEvaluator<A> {
     pub(crate) fn evaluate(
         &self,
         air: &A,
-        lde_table: &LDETable<A::Field, A::FieldExtension>,
+        lde_table: &EvaluationTable<A::Field, A::FieldExtension>,
         domain: &Domain<A::Field>,
         transition_coefficients: &[FieldElement<A::FieldExtension>],
         boundary_coefficients: &[FieldElement<A::FieldExtension>],
