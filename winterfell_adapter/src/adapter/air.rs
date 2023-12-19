@@ -184,9 +184,6 @@ where
         periodic_values: &[FieldElement<Self::Field>],
         rap_challenges: &Self::RAPChallenges,
     ) -> Vec<FieldElement<Self::Field>> {
-        let num_aux_columns = self.number_auxiliary_rap_columns();
-        let num_main_columns = self.context().trace_columns - num_aux_columns;
-
         let first_step = frame.get_evaluation_step(0);
         let second_step = frame.get_evaluation_step(1);
 
@@ -249,9 +246,6 @@ where
         &self,
         rap_challenges: &Self::RAPChallenges,
     ) -> stark_platinum_prover::constraints::boundary::BoundaryConstraints<FE> {
-        let num_aux_columns = self.number_auxiliary_rap_columns();
-        let num_main_columns = self.context().trace_columns - num_aux_columns;
-
         let mut result = Vec::new();
         for assertion in self.winterfell_air.get_assertions() {
             assert!(assertion.is_single());
@@ -267,8 +261,8 @@ where
 
         for assertion in self.winterfell_air.get_aux_assertions(&rand_elements) {
             assert!(assertion.is_single());
-            result.push(BoundaryConstraint::new_main(
-                assertion.column() + num_main_columns,
+            result.push(BoundaryConstraint::new_aux(
+                assertion.column(),
                 assertion.first_step(),
                 FieldElement::<FE>::const_from_raw(assertion.values()[0]),
             ));
@@ -298,7 +292,62 @@ where
         frame: &stark_platinum_prover::frame::Frame<Self::FieldExtension, Self::FieldExtension>,
         periodic_values: &[FieldElement<Self::FieldExtension>],
         rap_challenges: &Self::RAPChallenges,
-    ) -> Vec<FieldElement<Self::Field>> {
-        todo!()
+    ) -> Vec<FieldElement<Self::FieldExtension>> {
+        let first_step = frame.get_evaluation_step(0);
+        let second_step = frame.get_evaluation_step(1);
+
+        let main_frame = EvaluationFrame::from_rows(
+            vec_lambda2winter(&first_step.get_row_main(0)),
+            vec_lambda2winter(&second_step.get_row_main(0)),
+        );
+
+        let periodic_values = vec_lambda2winter(periodic_values);
+
+        let mut main_result = vec![
+            FieldElement::zero();
+            self.winterfell_air
+                .context()
+                .num_main_transition_constraints()
+        ];
+
+        let mut main_result_winter = vec_lambda2winter(&main_result);
+        self.winterfell_air.evaluate_transition::<FE>(
+            &main_frame,
+            &periodic_values,
+            &mut main_result_winter,
+        ); // Periodic values not supported
+
+        main_result = vec_winter2lambda(&main_result_winter);
+
+        if self.winterfell_air.trace_layout().num_aux_segments() == 1 {
+            let mut rand_elements = AuxTraceRandElements::new();
+            rand_elements.add_segment_elements(rap_challenges.clone());
+
+            let first_step = frame.get_evaluation_step(0);
+            let second_step = frame.get_evaluation_step(1);
+
+            let aux_frame = EvaluationFrame::from_rows(
+                vec_lambda2winter(&first_step.get_row_aux(0)),
+                vec_lambda2winter(&second_step.get_row_aux(0)),
+            );
+
+            let mut aux_result = vec![
+                FieldElement::zero();
+                self.winterfell_air
+                    .context()
+                    .num_aux_transition_constraints()
+            ];
+            let mut winter_aux_result = vec_lambda2winter(&aux_result);
+            self.winterfell_air.evaluate_aux_transition(
+                &main_frame,
+                &aux_frame,
+                &periodic_values,
+                &rand_elements,
+                &mut winter_aux_result,
+            );
+            aux_result = vec_winter2lambda(&winter_aux_result);
+            main_result.extend_from_slice(&aux_result);
+        }
+        main_result
     }
 }

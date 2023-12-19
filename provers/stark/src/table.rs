@@ -120,7 +120,9 @@ impl<'t, F: IsSubFieldOf<E>, E: IsField> LDETable<F, E> {
 
     pub fn num_steps(&self) -> usize {
         debug_assert!((self.main_table.height % self.step_size) == 0);
-        debug_assert!(self.aux_table.height == 0 || (self.main_table.height == self.aux_table.height));
+        debug_assert!(
+            self.aux_table.height == 0 || (self.main_table.height == self.aux_table.height)
+        );
         self.main_table.height / self.step_size
     }
 

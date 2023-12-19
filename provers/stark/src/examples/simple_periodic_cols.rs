@@ -116,8 +116,10 @@ where
         _rap_challenges: &Self::RAPChallenges,
     ) -> BoundaryConstraints<Self::Field> {
         let a0 = BoundaryConstraint::new_simple_main(0, self.pub_inputs.a0.clone());
-        let a1 =
-            BoundaryConstraint::new_simple_main(self.trace_length() - 1, self.pub_inputs.a1.clone());
+        let a1 = BoundaryConstraint::new_simple_main(
+            self.trace_length() - 1,
+            self.pub_inputs.a1.clone(),
+        );
 
         BoundaryConstraints::from_constraints(vec![a0, a1])
     }

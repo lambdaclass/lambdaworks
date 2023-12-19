@@ -14,16 +14,26 @@ pub struct BoundaryConstraint<F: IsField> {
     pub col: usize,
     pub step: usize,
     pub value: FieldElement<F>,
-    pub is_aux: bool
+    pub is_aux: bool,
 }
 
 impl<F: IsField> BoundaryConstraint<F> {
     pub fn new_main(col: usize, step: usize, value: FieldElement<F>) -> Self {
-        Self { col, step, value, is_aux: false }
+        Self {
+            col,
+            step,
+            value,
+            is_aux: false,
+        }
     }
 
     pub fn new_aux(col: usize, step: usize, value: FieldElement<F>) -> Self {
-        Self { col, step, value, is_aux: true }
+        Self {
+            col,
+            step,
+            value,
+            is_aux: true,
+        }
     }
 
     /// Used for creating boundary constraints for a trace with only one column
@@ -32,7 +42,7 @@ impl<F: IsField> BoundaryConstraint<F> {
             col: 0,
             step,
             value,
-            is_aux: false
+            is_aux: false,
         }
     }
 
@@ -42,7 +52,7 @@ impl<F: IsField> BoundaryConstraint<F> {
             col: 0,
             step,
             value,
-            is_aux: true
+            is_aux: true,
         }
     }
 }

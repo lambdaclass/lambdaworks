@@ -47,40 +47,40 @@ const MEMORY_INCREASING_2: usize = 33;
 const MEMORY_INCREASING_3: usize = 34;
 const MEMORY_INCREASING_4: usize = 35;
 
-const MEMORY_CONSISTENCY_0: usize = 36; 
-const MEMORY_CONSISTENCY_1: usize = 37; 
-const MEMORY_CONSISTENCY_2: usize = 38; 
-const MEMORY_CONSISTENCY_3: usize = 39; 
-const MEMORY_CONSISTENCY_4: usize = 40; 
+const MEMORY_CONSISTENCY_0: usize = 36;
+const MEMORY_CONSISTENCY_1: usize = 37;
+const MEMORY_CONSISTENCY_2: usize = 38;
+const MEMORY_CONSISTENCY_3: usize = 39;
+const MEMORY_CONSISTENCY_4: usize = 40;
 
-const PERMUTATION_ARGUMENT_0: usize = 41; 
-const PERMUTATION_ARGUMENT_1: usize = 42; 
-const PERMUTATION_ARGUMENT_2: usize = 43; 
-const PERMUTATION_ARGUMENT_3: usize = 44; 
-const PERMUTATION_ARGUMENT_4: usize = 45; 
+const PERMUTATION_ARGUMENT_0: usize = 41;
+const PERMUTATION_ARGUMENT_1: usize = 42;
+const PERMUTATION_ARGUMENT_2: usize = 43;
+const PERMUTATION_ARGUMENT_3: usize = 44;
+const PERMUTATION_ARGUMENT_4: usize = 45;
 
-const RANGE_CHECK_INCREASING_0: usize = 46; 
-const RANGE_CHECK_INCREASING_1: usize = 47; 
-const RANGE_CHECK_INCREASING_2: usize = 48; 
-const RANGE_CHECK_INCREASING_3: usize = 49; 
+const RANGE_CHECK_INCREASING_0: usize = 46;
+const RANGE_CHECK_INCREASING_1: usize = 47;
+const RANGE_CHECK_INCREASING_2: usize = 48;
+const RANGE_CHECK_INCREASING_3: usize = 49;
 
-const RANGE_CHECK_0: usize = 50; 
-const RANGE_CHECK_1: usize = 51; 
-const RANGE_CHECK_2: usize = 52; 
-const RANGE_CHECK_3: usize = 53; 
+const RANGE_CHECK_0: usize = 50;
+const RANGE_CHECK_1: usize = 51;
+const RANGE_CHECK_2: usize = 52;
+const RANGE_CHECK_3: usize = 53;
 
-const FLAG_OP1_BASE_OP0_BIT: usize = 54; 
-const FLAG_RES_OP1_BIT: usize = 55; 
-const FLAG_PC_UPDATE_REGULAR_BIT: usize = 56; 
-const FLAG_FP_UPDATE_REGULAR_BIT: usize = 57; 
+const FLAG_OP1_BASE_OP0_BIT: usize = 54;
+const FLAG_RES_OP1_BIT: usize = 55;
+const FLAG_PC_UPDATE_REGULAR_BIT: usize = 56;
+const FLAG_FP_UPDATE_REGULAR_BIT: usize = 57;
 
-const OPCODES_CALL_OFF0: usize = 58; 
-const OPCODES_CALL_OFF1: usize = 59; 
-const OPCODES_CALL_FLAGS: usize = 60; 
+const OPCODES_CALL_OFF0: usize = 58;
+const OPCODES_CALL_OFF1: usize = 59;
+const OPCODES_CALL_FLAGS: usize = 60;
 
-const OPCODES_RET_OFF0: usize = 61; 
-const OPCODES_RET_OFF2: usize = 62; 
-const OPCODES_RET_FLAGS: usize = 63; 
+const OPCODES_RET_OFF0: usize = 61;
+const OPCODES_RET_OFF2: usize = 62;
+const OPCODES_RET_FLAGS: usize = 63;
 
 // Frame row identifiers
 //  - Flags
@@ -124,34 +124,34 @@ pub const EXTRA_VAL: usize = 34;
 pub const RC_HOLES: usize = 35;
 
 // Auxiliary range check columns
-pub const RANGE_CHECK_COL_1: usize = 36-36;
-pub const RANGE_CHECK_COL_2: usize = 37-36;
-pub const RANGE_CHECK_COL_3: usize = 38-36;
-pub const RANGE_CHECK_COL_4: usize = 39-36;
+pub const RANGE_CHECK_COL_1: usize = 36 - 36;
+pub const RANGE_CHECK_COL_2: usize = 37 - 36;
+pub const RANGE_CHECK_COL_3: usize = 38 - 36;
+pub const RANGE_CHECK_COL_4: usize = 39 - 36;
 
 // Auxiliary memory columns
-pub const MEMORY_ADDR_SORTED_0: usize = 40-36;
-pub const MEMORY_ADDR_SORTED_1: usize = 41-36;
-pub const MEMORY_ADDR_SORTED_2: usize = 42-36;
-pub const MEMORY_ADDR_SORTED_3: usize = 43-36;
-pub const MEMORY_ADDR_SORTED_4: usize = 44-36;
+pub const MEMORY_ADDR_SORTED_0: usize = 40 - 36;
+pub const MEMORY_ADDR_SORTED_1: usize = 41 - 36;
+pub const MEMORY_ADDR_SORTED_2: usize = 42 - 36;
+pub const MEMORY_ADDR_SORTED_3: usize = 43 - 36;
+pub const MEMORY_ADDR_SORTED_4: usize = 44 - 36;
 
-pub const MEMORY_VALUES_SORTED_0: usize = 45-36;
-pub const MEMORY_VALUES_SORTED_1: usize = 46-36;
-pub const MEMORY_VALUES_SORTED_2: usize = 47-36;
-pub const MEMORY_VALUES_SORTED_3: usize = 48-36;
-pub const MEMORY_VALUES_SORTED_4: usize = 49-36;
+pub const MEMORY_VALUES_SORTED_0: usize = 45 - 36;
+pub const MEMORY_VALUES_SORTED_1: usize = 46 - 36;
+pub const MEMORY_VALUES_SORTED_2: usize = 47 - 36;
+pub const MEMORY_VALUES_SORTED_3: usize = 48 - 36;
+pub const MEMORY_VALUES_SORTED_4: usize = 49 - 36;
 
-pub const PERMUTATION_ARGUMENT_COL_0: usize = 50-36;
-pub const PERMUTATION_ARGUMENT_COL_1: usize = 51-36;
-pub const PERMUTATION_ARGUMENT_COL_2: usize = 52-36;
-pub const PERMUTATION_ARGUMENT_COL_3: usize = 53-36;
-pub const PERMUTATION_ARGUMENT_COL_4: usize = 54-36;
+pub const PERMUTATION_ARGUMENT_COL_0: usize = 50 - 36;
+pub const PERMUTATION_ARGUMENT_COL_1: usize = 51 - 36;
+pub const PERMUTATION_ARGUMENT_COL_2: usize = 52 - 36;
+pub const PERMUTATION_ARGUMENT_COL_3: usize = 53 - 36;
+pub const PERMUTATION_ARGUMENT_COL_4: usize = 54 - 36;
 
-pub const PERMUTATION_ARGUMENT_RANGE_CHECK_COL_1: usize = 55-36;
-pub const PERMUTATION_ARGUMENT_RANGE_CHECK_COL_2: usize = 56-36;
-pub const PERMUTATION_ARGUMENT_RANGE_CHECK_COL_3: usize = 57-36;
-pub const PERMUTATION_ARGUMENT_RANGE_CHECK_COL_4: usize = 58-36;
+pub const PERMUTATION_ARGUMENT_RANGE_CHECK_COL_1: usize = 55 - 36;
+pub const PERMUTATION_ARGUMENT_RANGE_CHECK_COL_2: usize = 56 - 36;
+pub const PERMUTATION_ARGUMENT_RANGE_CHECK_COL_3: usize = 57 - 36;
+pub const PERMUTATION_ARGUMENT_RANGE_CHECK_COL_4: usize = 58 - 36;
 
 // Trace layout
 pub const MEM_P_TRACE_OFFSET: usize = 17;
@@ -819,8 +819,10 @@ impl AIR for CairoAIR {
         &self,
         rap_challenges: &Self::RAPChallenges,
     ) -> BoundaryConstraints<Self::Field> {
-        let initial_pc = BoundaryConstraint::new_main(MEM_A_TRACE_OFFSET, 0, self.pub_inputs.pc_init);
-        let initial_ap = BoundaryConstraint::new_main(MEM_P_TRACE_OFFSET, 0, self.pub_inputs.ap_init);
+        let initial_pc =
+            BoundaryConstraint::new_main(MEM_A_TRACE_OFFSET, 0, self.pub_inputs.pc_init);
+        let initial_ap =
+            BoundaryConstraint::new_main(MEM_P_TRACE_OFFSET, 0, self.pub_inputs.ap_init);
 
         let final_pc = BoundaryConstraint::new_main(
             MEM_A_TRACE_OFFSET,

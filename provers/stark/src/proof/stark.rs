@@ -14,7 +14,7 @@ use crate::{
     config::Commitment,
     domain::Domain,
     fri::fri_decommit::FriDecommitment,
-    table::{Table, LDETable, OODTable},
+    table::{LDETable, OODTable, Table},
     traits::AIR,
     transcript::StoneProverTranscript,
     verifier::{IsStarkVerifier, Verifier},
@@ -133,7 +133,8 @@ impl StoneCompatibleSerializer {
     ) {
         for i in 0..proof.trace_ood_evaluations.n_cols() {
             for j in 0..proof.trace_ood_evaluations.n_rows() {
-                output.extend_from_slice(&proof.trace_ood_evaluations.get_row_main(j)[i].serialize());
+                output
+                    .extend_from_slice(&proof.trace_ood_evaluations.get_row_main(j)[i].serialize());
             }
         }
 
