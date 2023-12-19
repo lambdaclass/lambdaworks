@@ -124,34 +124,34 @@ pub const EXTRA_VAL: usize = 34;
 pub const RC_HOLES: usize = 35;
 
 // Auxiliary range check columns
-pub const RANGE_CHECK_COL_1: usize = 36 - 36;
-pub const RANGE_CHECK_COL_2: usize = 37 - 36;
-pub const RANGE_CHECK_COL_3: usize = 38 - 36;
-pub const RANGE_CHECK_COL_4: usize = 39 - 36;
+pub const RANGE_CHECK_COL_1: usize = 0;
+pub const RANGE_CHECK_COL_2: usize = 1;
+pub const RANGE_CHECK_COL_3: usize = 2;
+pub const RANGE_CHECK_COL_4: usize = 3;
 
 // Auxiliary memory columns
-pub const MEMORY_ADDR_SORTED_0: usize = 40 - 36;
-pub const MEMORY_ADDR_SORTED_1: usize = 41 - 36;
-pub const MEMORY_ADDR_SORTED_2: usize = 42 - 36;
-pub const MEMORY_ADDR_SORTED_3: usize = 43 - 36;
-pub const MEMORY_ADDR_SORTED_4: usize = 44 - 36;
+pub const MEMORY_ADDR_SORTED_0: usize = 4;
+pub const MEMORY_ADDR_SORTED_1: usize = 5;
+pub const MEMORY_ADDR_SORTED_2: usize = 6;
+pub const MEMORY_ADDR_SORTED_3: usize = 7;
+pub const MEMORY_ADDR_SORTED_4: usize = 8;
 
-pub const MEMORY_VALUES_SORTED_0: usize = 45 - 36;
-pub const MEMORY_VALUES_SORTED_1: usize = 46 - 36;
-pub const MEMORY_VALUES_SORTED_2: usize = 47 - 36;
-pub const MEMORY_VALUES_SORTED_3: usize = 48 - 36;
-pub const MEMORY_VALUES_SORTED_4: usize = 49 - 36;
+pub const MEMORY_VALUES_SORTED_0: usize = 9;
+pub const MEMORY_VALUES_SORTED_1: usize = 10;
+pub const MEMORY_VALUES_SORTED_2: usize = 11;
+pub const MEMORY_VALUES_SORTED_3: usize = 12;
+pub const MEMORY_VALUES_SORTED_4: usize = 13;
 
-pub const PERMUTATION_ARGUMENT_COL_0: usize = 50 - 36;
-pub const PERMUTATION_ARGUMENT_COL_1: usize = 51 - 36;
-pub const PERMUTATION_ARGUMENT_COL_2: usize = 52 - 36;
-pub const PERMUTATION_ARGUMENT_COL_3: usize = 53 - 36;
-pub const PERMUTATION_ARGUMENT_COL_4: usize = 54 - 36;
+pub const PERMUTATION_ARGUMENT_COL_0: usize = 14;
+pub const PERMUTATION_ARGUMENT_COL_1: usize = 15;
+pub const PERMUTATION_ARGUMENT_COL_2: usize = 16;
+pub const PERMUTATION_ARGUMENT_COL_3: usize = 17;
+pub const PERMUTATION_ARGUMENT_COL_4: usize = 18;
 
-pub const PERMUTATION_ARGUMENT_RANGE_CHECK_COL_1: usize = 55 - 36;
-pub const PERMUTATION_ARGUMENT_RANGE_CHECK_COL_2: usize = 56 - 36;
-pub const PERMUTATION_ARGUMENT_RANGE_CHECK_COL_3: usize = 57 - 36;
-pub const PERMUTATION_ARGUMENT_RANGE_CHECK_COL_4: usize = 58 - 36;
+pub const PERMUTATION_ARGUMENT_RANGE_CHECK_COL_1: usize = 19;
+pub const PERMUTATION_ARGUMENT_RANGE_CHECK_COL_2: usize = 20;
+pub const PERMUTATION_ARGUMENT_RANGE_CHECK_COL_3: usize = 21;
+pub const PERMUTATION_ARGUMENT_RANGE_CHECK_COL_4: usize = 22;
 
 // Trace layout
 pub const MEM_P_TRACE_OFFSET: usize = 17;

@@ -21,7 +21,7 @@ pub struct TraceTable<F: IsField> {
     pub step_size: usize,
 }
 
-impl<'t, F: IsField> TraceTable<F> {
+impl<F: IsField> TraceTable<F> {
     pub fn new(data: Vec<FieldElement<F>>, n_columns: usize, step_size: usize) -> Self {
         let table = Table::new(data, n_columns);
         Self { table, step_size }
@@ -198,7 +198,7 @@ impl<'t, F: IsSubFieldOf<E>, E: IsField> StepView<'t, F, E> {
 /// compute a transition.
 /// Example: For a simple Fibonacci computation, if t(x) is the trace polynomial of
 /// the computation, this will output evaluations t(x), t(g * x), t(g^2 * z).
-pub fn get_trace_evaluations<F: IsSubFieldOf<E>, E: IsField>(
+pub(crate) fn get_trace_evaluations<F: IsSubFieldOf<E>, E: IsField>(
     main_trace_polys: &[Polynomial<FieldElement<F>>],
     aux_trace_polys: &[Polynomial<FieldElement<E>>],
     x: &FieldElement<E>,

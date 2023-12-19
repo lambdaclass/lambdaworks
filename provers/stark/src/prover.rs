@@ -238,13 +238,12 @@ pub trait IsStarkProver<A: AIR> {
 
         let aux_trace = air.build_auxiliary_trace(main_trace, &rap_challenges);
         let aux_evaluations;
-        let aux;
-        if !aux_trace.is_empty() {
+        let aux = if !aux_trace.is_empty() {
             // Check that this is valid for interpolation
             let (aux_trace_polys, aux_trace_polys_evaluations, aux_merkle_tree, aux_merkle_root) =
                 Self::interpolate_and_commit(&aux_trace, domain, transcript);
             aux_evaluations = aux_trace_polys_evaluations;
-            aux = Some(Round1CommitmentData::<A::FieldExtension> {
+            Some(Round1CommitmentData::<A::FieldExtension> {
                 trace_polys: aux_trace_polys,
                 // lde_trace: TraceTable::from_columns(aux_trace_polys_evaluations, A::STEP_SIZE),
                 lde_trace_merkle_tree: aux_merkle_tree,
@@ -252,7 +251,7 @@ pub trait IsStarkProver<A: AIR> {
             })
         } else {
             aux_evaluations = Vec::new();
-            aux = None
+            None
         };
         let lde_table = LDETable::from_columns(evaluations, aux_evaluations, A::STEP_SIZE);
 

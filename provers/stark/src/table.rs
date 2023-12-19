@@ -1,83 +1,19 @@
-
-
 use lambdaworks_math::field::{
     element::FieldElement,
     traits::{IsField, IsSubFieldOf},
 };
 
-use crate::{trace::StepView};
+use crate::trace::StepView;
 
-pub(crate) type OODTable<E> = LDETable<E, E>;
-
-// #[derive(Clone, Default, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-// pub(crate) struct OODTable<E: IsField> {
-//     pub(crate) table: Table<E>,
-//     pub(crate) num_main_columns: usize,
-//     pub(crate) num_aux_columns: usize,
-// }
-//
-// impl<'t, E: IsField> OODTable<E> {
-//     pub fn new(table: Table<E>, num_main_columns: usize, num_aux_columns: usize) -> Self {
-//         Self {
-//             table,
-//             num_main_columns,
-//             num_aux_columns,
-//         }
-//     }
-//
-//     pub fn n_cols(&self) -> usize {
-//         self.num_main_columns + self.num_aux_columns
-//     }
-//
-//     pub fn n_rows(&self) -> usize {
-//         self.table.height
-//     }
-//
-//     pub fn get_row(&self, row_idx: usize) -> &[FieldElement<E>] {
-//         self.table.get_row(row_idx)
-//     }
-//
-//     pub fn columns(&self) -> Vec<Vec<FieldElement<E>>> {
-//         self.table.columns()
-//     }
-//
-//     /// Creates a Table instance from a vector of the intended columns.
-//     pub fn from_columns(columns: Vec<Vec<FieldElement<E>>>, num_main_columns: usize) -> Self {
-//         if columns.is_empty() {
-//             return Self::new(Table::new(Vec::new(), 0), 0, 0);
-//         }
-//         let height = columns[0].len();
-//
-//         // Check that all columns have the same length for integrity
-//         debug_assert!(columns.iter().all(|c| c.len() == height));
-//
-//         let width = columns.len();
-//
-//         debug_assert!(width >= num_main_columns);
-//         let mut data = Vec::with_capacity(width * height);
-//
-//         for row_idx in 0..height {
-//             for column in columns.iter() {
-//                 data.push(column[row_idx].clone());
-//             }
-//         }
-//
-//         Self::new(
-//             Table::new(data, width),
-//             num_main_columns,
-//             width - num_main_columns,
-//         )
-//     }
-//
-// }
+pub type OODTable<E> = LDETable<E, E>;
 
 #[derive(Clone, Default, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub(crate) struct LDETable<F: IsSubFieldOf<E>, E: IsField> {
+pub struct LDETable<F: IsSubFieldOf<E>, E: IsField> {
     pub(crate) main_table: Table<F>,
     pub(crate) aux_table: Table<E>,
     pub(crate) step_size: usize,
 }
-impl<'t, E: IsField> LDETable<E, E> {
+impl<E: IsField> LDETable<E, E> {
     pub fn get_row(&self, row_idx: usize) -> Vec<FieldElement<E>> {
         let mut row: Vec<_> = self.get_row_main(row_idx).to_vec();
         row.extend_from_slice(self.get_row_aux(row_idx));
