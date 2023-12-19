@@ -45,6 +45,8 @@ pub trait TransitionConstraint<F: IsFFTField> {
         let root_order = u64::from((blowup_factor * trace_length).trailing_zeros());
         let root = F::get_primitive_root_of_unity(root_order).unwrap();
 
+        println!("OMEGA TO THE N POWER: {:?}", root.pow(trace_length));
+
         let end_exemptions_poly = if self.end_exemptions() == 0 {
             Polynomial::new(&[FieldElement::<F>::one()])
         } else {
