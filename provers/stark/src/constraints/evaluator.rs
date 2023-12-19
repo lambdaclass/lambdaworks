@@ -90,17 +90,19 @@ impl<A: AIR> ConstraintEvaluator<A> {
             .iter()
             .map(|constraint| {
                 if constraint.is_aux {
-                    lde_table
-                        .get_col_aux(constraint.col)
-                        .iter()
-                        .map(|&v| v - &constraint.value)
-                        .collect::<Vec<FieldElement<_>>>()
+                    (0..lde_table.n_rows())
+                        .map(|row| {
+                            let v = lde_table.get_aux(row, constraint.col);
+                            v - &constraint.value
+                        })
+                        .collect()
                 } else {
-                    lde_table
-                        .get_col_main(constraint.col)
-                        .iter()
-                        .map(|&v| v - &constraint.value)
-                        .collect::<Vec<FieldElement<_>>>()
+                    (0..lde_table.n_rows())
+                        .map(|row| {
+                            let v = lde_table.get_main(row, constraint.col);
+                            v - &constraint.value
+                        })
+                        .collect()
                 }
             })
             .collect::<Vec<Vec<FieldElement<_>>>>();

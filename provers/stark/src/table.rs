@@ -13,7 +13,7 @@ pub struct LDETable<F: IsSubFieldOf<E>, E: IsField> {
     pub(crate) aux_table: Table<E>,
     pub(crate) step_size: usize,
 }
-impl<E: IsField> LDETable<E, E> {
+impl<E: IsField> OODTable<E> {
     pub fn get_row(&self, row_idx: usize) -> Vec<FieldElement<E>> {
         let mut row: Vec<_> = self.get_row_main(row_idx).to_vec();
         row.extend_from_slice(self.get_row_aux(row_idx));
@@ -28,7 +28,7 @@ impl<E: IsField> LDETable<E, E> {
     }
 }
 
-impl<'t, F: IsSubFieldOf<E>, E: IsField> LDETable<F, E> {
+impl<F: IsSubFieldOf<E>, E: IsField> LDETable<F, E> {
     /// Creates a Table instance from a vector of the intended columns.
     pub fn from_columns(
         main_columns: Vec<Vec<FieldElement<F>>>,
@@ -69,7 +69,7 @@ impl<'t, F: IsSubFieldOf<E>, E: IsField> LDETable<F, E> {
     }
 
     /// Given a step index, return the step view of the trace for that index
-    pub fn step_view(&'t self, step_idx: usize) -> StepView<'t, F, E> {
+    pub fn step_view<'t>(&'t self, step_idx: usize) -> StepView<'t, F, E> {
         let row_idx = self.step_to_row(step_idx);
         let main_table_view = self.main_table.table_view(row_idx, self.step_size);
         let aux_table_view = self.aux_table.table_view(row_idx, self.step_size);
@@ -91,36 +91,16 @@ impl<'t, F: IsSubFieldOf<E>, E: IsField> LDETable<F, E> {
         self.aux_table.get(row, col)
     }
 
-    /// Given a row index, returns a reference to that row in the main tableas a slice of field elements.
+    /// Given a row index, returns a reference to that row in the main table as a slice of field elements.
     pub fn get_row_main(&self, row_idx: usize) -> &[FieldElement<F>] {
         let row_offset = row_idx * self.main_table.width;
         &self.main_table.data[row_offset..row_offset + self.main_table.width]
     }
 
-    /// Given a row index, returns a reference to that row in the aux tableas a slice of field elements.
+    /// Given a row index, returns a reference to that row in the aux table as a slice of field elements.
     pub fn get_row_aux(&self, row_idx: usize) -> &[FieldElement<E>] {
         let row_offset = row_idx * self.aux_table.width;
         &self.aux_table.data[row_offset..row_offset + self.aux_table.width]
-    }
-
-    pub fn get_col_main(&self, col_idx: usize) -> Vec<&FieldElement<F>> {
-        self.main_table
-            .data
-            .iter()
-            .skip(col_idx)
-            .step_by(self.main_table.width)
-            .take(self.main_table.height)
-            .collect()
-    }
-
-    pub fn get_col_aux(&self, col_idx: usize) -> Vec<&FieldElement<E>> {
-        self.aux_table
-            .data
-            .iter()
-            .skip(col_idx)
-            .step_by(self.aux_table.width)
-            .take(self.aux_table.height)
-            .collect()
     }
 
     pub fn n_rows(&self) -> usize {
@@ -129,21 +109,6 @@ impl<'t, F: IsSubFieldOf<E>, E: IsField> LDETable<F, E> {
         );
         self.main_table.height
     }
-
-    // /// Given a step size, converts the given table into a `Frame`.
-    // pub fn into_frame(&'t self, step_size: usize) -> Frame<'t, F, E> {
-    //     debug_assert!(self.table.height % step_size == 0);
-    //     let steps = (0..self.table.height)
-    //         .step_by(step_size)
-    //         .enumerate()
-    //         .map(|(step_idx, row_idx)| {
-    //             let table_view = self.table.table_view(row_idx, step_size);
-    //             StepView::new(table_view, step_idx)
-    //         })
-    //         .collect();
-    //
-    //     Frame::new(steps)
-    // }
 }
 
 /// A two-dimensional Table holding field elements, arranged in a row-major order.
