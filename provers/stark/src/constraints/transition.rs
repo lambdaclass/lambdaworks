@@ -38,7 +38,7 @@ pub trait TransitionConstraint<F: IsFFTField> {
     fn zerofier_evaluations(
         &self,
         blowup_factor: usize,
-        offset: &FieldElement<F>,
+        coset_offset: &FieldElement<F>,
         trace_length: usize,
         trace_primitive_root: &FieldElement<F>,
     ) -> Vec<FieldElement<F>> {
@@ -54,12 +54,12 @@ pub trait TransitionConstraint<F: IsFFTField> {
 
         println!("OMEGA TO THE BETA POWER: {:?}", root.pow(blowup_factor));
 
+        let one_poly = Polynomial::new_monomial(FieldElement::<F>::one(), 0);
         let end_exemptions_poly = if self.end_exemptions() == 0 {
-            Polynomial::new(&[FieldElement::<F>::one()])
+            one_poly
         } else {
             let period = self.period();
-            let one_poly = Polynomial::new_monomial(FieldElement::<F>::one(), 0);
-            (1..self.end_exemptions())
+            (1..=self.end_exemptions())
                 .map(|exemption| trace_primitive_root.pow(trace_length - exemption * period))
                 .fold(one_poly, |acc, offset| {
                     acc * (Polynomial::new_monomial(FieldElement::<F>::one(), 1) - offset)
@@ -79,7 +79,7 @@ pub trait TransitionConstraint<F: IsFFTField> {
             (0..last_exponent)
                 .map(|exponent| {
                     let x = root.pow(exponent);
-                    let offset_times_x = offset * &x;
+                    let offset_times_x = coset_offset * &x;
                     let offset_exponent = trace_length * self.periodic_exemptions_offset().unwrap()
                         / exemptions_period;
 
@@ -100,17 +100,20 @@ pub trait TransitionConstraint<F: IsFFTField> {
             let (mut evaluations, xs): (Vec<_>, Vec<_>) = (0..last_exponent)
                 .map(|exponent| {
                     let x = root.pow(exponent);
-                    let eval =
-                        (offset * &x).pow(trace_length / self.period()) - FieldElement::<F>::one();
+                    let eval = (coset_offset * &x).pow(trace_length / self.period())
+                        - FieldElement::<F>::one();
                     (eval, x)
                 })
                 .unzip();
 
             FieldElement::inplace_batch_inverse(&mut evaluations).unwrap();
 
-            evaluations
-                .iter()
-                .zip(xs)
+            println!("ZEROFIER EVALS");
+            for (i, eval) in evaluations.iter().enumerate() {
+                println!("ZEROFIER EVAL {} - {:?}", i, eval);
+            }
+
+            std::iter::zip(evaluations, xs)
                 .map(|(eval, x)| eval * end_exemptions_poly.evaluate(&x))
                 .collect()
         }
