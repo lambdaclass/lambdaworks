@@ -21,6 +21,7 @@ pub struct DummyAIR {
 
 impl AIR for DummyAIR {
     type Field = Stark252PrimeField;
+    type FieldExtension = Stark252PrimeField;
     type RAPChallenges = ();
     type PublicInputs = ();
 
@@ -55,7 +56,7 @@ impl AIR for DummyAIR {
 
     fn build_rap_challenges(
         &self,
-        _transcript: &mut impl IsStarkTranscript<Self::Field>,
+        _transcript: &mut impl IsStarkTranscript<Self::FieldExtension>,
     ) -> Self::RAPChallenges {
     }
     fn compute_transition(

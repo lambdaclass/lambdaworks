@@ -80,6 +80,7 @@ where
     M: Clone,
 {
     type Field = FE;
+    type FieldExtension = FE;
     type RAPChallenges = Vec<FE>;
     type PublicInputs = AirAdapterPublicInputs<A, M>;
     const STEP_SIZE: usize = 1;

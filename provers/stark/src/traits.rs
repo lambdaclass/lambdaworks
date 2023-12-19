@@ -1,7 +1,10 @@
 use itertools::Itertools;
 use lambdaworks_math::{
     fft::cpu::roots_of_unity::get_powers_of_primitive_root_coset,
-    field::{element::FieldElement, traits::IsFFTField},
+    field::{
+        element::FieldElement,
+        traits::{IsFFTField, IsField, IsSubFieldOf},
+    },
     polynomial::Polynomial,
 };
 
@@ -14,7 +17,8 @@ use super::{
 
 /// AIR is a representation of the Constraints
 pub trait AIR {
-    type Field: IsFFTField;
+    type Field: IsFFTField + IsSubFieldOf<Self::FieldExtension>;
+    type FieldExtension: IsField;
     type RAPChallenges;
     type PublicInputs;
 
@@ -28,13 +32,13 @@ pub trait AIR {
 
     fn build_auxiliary_trace(
         &self,
-        main_trace: &TraceTable<Self::Field>,
+        main_trace: &TraceTable<Self::FieldExtension>,
         rap_challenges: &Self::RAPChallenges,
-    ) -> TraceTable<Self::Field>;
+    ) -> TraceTable<Self::FieldExtension>;
 
     fn build_rap_challenges(
         &self,
-        transcript: &mut impl IsStarkTranscript<Self::Field>,
+        transcript: &mut impl IsStarkTranscript<Self::FieldExtension>,
     ) -> Self::RAPChallenges;
 
     fn number_auxiliary_rap_columns(&self) -> usize;
@@ -43,17 +47,17 @@ pub trait AIR {
 
     fn compute_transition(
         &self,
-        frame: &Frame<Self::Field>,
-        periodic_values: &[FieldElement<Self::Field>],
+        frame: &Frame<Self::FieldExtension>,
+        periodic_values: &[FieldElement<Self::FieldExtension>],
         rap_challenges: &Self::RAPChallenges,
     ) -> Vec<FieldElement<Self::Field>>;
 
     fn boundary_constraints(
         &self,
         rap_challenges: &Self::RAPChallenges,
-    ) -> BoundaryConstraints<Self::Field>;
+    ) -> BoundaryConstraints<Self::FieldExtension>;
 
-    fn transition_exemptions(&self) -> Vec<Polynomial<FieldElement<Self::Field>>> {
+    fn transition_exemptions(&self) -> Vec<Polynomial<FieldElement<Self::FieldExtension>>> {
         let trace_length = self.trace_length();
         let roots_of_unity_order = trace_length.trailing_zeros();
         let roots_of_unity = get_powers_of_primitive_root_coset(
@@ -105,8 +109,9 @@ pub trait AIR {
     fn transition_exemptions_verifier(
         &self,
         root: &FieldElement<Self::Field>,
-    ) -> Vec<Polynomial<FieldElement<Self::Field>>> {
-        let x = Polynomial::new_monomial(FieldElement::one(), 1);
+    ) -> Vec<Polynomial<FieldElement<Self::FieldExtension>>> {
+        let x =
+            Polynomial::<FieldElement<Self::FieldExtension>>::new_monomial(FieldElement::one(), 1);
 
         let max = self
             .context()
@@ -118,7 +123,7 @@ pub trait AIR {
             .map(|index| {
                 (1..=index).fold(
                     Polynomial::new_monomial(FieldElement::one(), 0),
-                    |acc, k| acc * (&x - root.pow(k)),
+                    |acc, k| acc * (&x - root.pow(k).to_extension()),
                 )
             })
             .collect()
@@ -128,7 +133,9 @@ pub trait AIR {
         vec![]
     }
 
-    fn get_periodic_column_polynomials(&self) -> Vec<Polynomial<FieldElement<Self::Field>>> {
+    fn get_periodic_column_polynomials(
+        &self,
+    ) -> Vec<Polynomial<FieldElement<Self::FieldExtension>>> {
         let mut result = Vec::new();
         for periodic_column in self.get_periodic_column_values() {
             let values: Vec<_> = periodic_column
@@ -136,6 +143,7 @@ pub trait AIR {
                 .cycle()
                 .take(self.trace_length())
                 .cloned()
+                .map(|x| x.to_extension())
                 .collect();
             let poly = Polynomial::interpolate_fft::<Self::Field>(&values).unwrap();
             result.push(poly);

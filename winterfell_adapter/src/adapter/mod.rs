@@ -13,11 +13,13 @@ pub mod public_inputs;
 pub struct Prover;
 impl IsStarkProver for Prover {
     type Field = Felt;
+    type FieldExtension = Felt;
 }
 
 pub struct Verifier {}
 impl IsStarkVerifier for Verifier {
     type Field = Felt;
+    type FieldExtension = Felt;
 }
 
 pub struct Transcript {
