@@ -6,7 +6,7 @@ use lambdaworks_math::fft::cpu::bit_reversing::{in_place_bit_reverse_permute, re
 use lambdaworks_math::fft::errors::FFTError;
 
 use lambdaworks_math::field::traits::{IsField, IsSubFieldOf};
-use lambdaworks_math::traits::{Serializable};
+use lambdaworks_math::traits::Serializable;
 use lambdaworks_math::{
     field::{element::FieldElement, traits::IsFFTField},
     polynomial::Polynomial,
@@ -379,7 +379,7 @@ pub trait IsStarkProver<A: AIR> {
         // In the fibonacci example, the ood frame is simply the evaluations `[t(z), t(z * g), t(z * g^2)]`, where `t` is the trace
         // polynomial and `g` is the primitive root of unity used when interpolating `t`.
 
-        let (main_ood_evaluations, aux_ood_evaluations) = crate::trace::get_trace_evaluations(
+        let trace_ood_evaluations = crate::trace::get_trace_evaluations(
             &round_1_result.main.trace_polys,
             &round_1_result
                 .aux
@@ -389,10 +389,8 @@ pub trait IsStarkProver<A: AIR> {
             z,
             &air.context().transition_offsets,
             &domain.trace_primitive_root,
+            A::STEP_SIZE,
         );
-
-        let trace_ood_evaluations =
-            OODTable::from_columns(main_ood_evaluations, aux_ood_evaluations, A::STEP_SIZE);
 
         Round3 {
             trace_ood_evaluations,

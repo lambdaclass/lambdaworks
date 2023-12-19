@@ -1,4 +1,4 @@
-use crate::table::{Table, TableView};
+use crate::table::{OODTable, Table, TableView};
 use lambdaworks_math::fft::errors::FFTError;
 use lambdaworks_math::field::traits::{IsField, IsSubFieldOf};
 use lambdaworks_math::{
@@ -204,7 +204,8 @@ pub fn get_trace_evaluations<F: IsSubFieldOf<E>, E: IsField>(
     x: &FieldElement<E>,
     frame_offsets: &[usize],
     primitive_root: &FieldElement<F>,
-) -> (Vec<Vec<FieldElement<E>>>, Vec<Vec<FieldElement<E>>>) {
+    step_size: usize,
+) -> OODTable<E> {
     let evaluation_points: Vec<_> = frame_offsets
         .iter()
         .map(|offset| primitive_root.pow(*offset) * x)
@@ -228,27 +229,7 @@ pub fn get_trace_evaluations<F: IsSubFieldOf<E>, E: IsField>(
         })
         .collect();
 
-    // let main_evaluations = frame_offsets
-    //     .iter()
-    //     .map(|offset| primitive_root.pow(*offset) * x)
-    //     .map(|eval_point| {
-    //         main_trace_polys
-    //             .iter()
-    //             .map(|poly| poly.evaluate(&eval_point))
-    //             .collect::<Vec<FieldElement<E>>>()
-    //     })
-    //     .collect::<Vec<Vec<_>>>();
-    // let aux_evaluations = frame_offsets
-    //     .iter()
-    //     .map(|offset| primitive_root.pow(*offset) * x)
-    //     .map(|eval_point| {
-    //         aux_trace_polys
-    //             .iter()
-    //             .map(|poly| poly.evaluate(&eval_point))
-    //             .collect::<Vec<FieldElement<E>>>()
-    //     })
-    //     .collect::<Vec<Vec<_>>>();
-    (main_evaluations, aux_evaluations)
+    OODTable::from_columns(main_evaluations, aux_evaluations, step_size)
 }
 
 #[cfg(test)]
