@@ -123,7 +123,7 @@ where
 {
     debug_assert!(input.len().is_power_of_two());
     //debug_assert!(input.len().ilog2() % 2 == 0); // let k = log2(x), k.is_even() => 2^k == 2^2*k'
-                                                   // with k' = k / 2 => x is power of 4
+    // with k' = k / 2 => x is power of 4
     // divide input in groups, starting with 1, duplicating the number of groups in each stage.
     let mut group_count = 1;
     let mut group_size = input.len();
@@ -139,10 +139,18 @@ where
             let first_in_group = group * group_size;
             let first_in_next_group = first_in_group + group_size / 4;
 
-            let (w1, w2, w3) = (&twiddles[group], &twiddles[2 * group], &twiddles[2 * group + 1]);
+            let (w1, w2, w3) = (
+                &twiddles[group],
+                &twiddles[2 * group],
+                &twiddles[2 * group + 1],
+            );
 
             for i in first_in_group..first_in_next_group {
-                let (j, k, l) = (i + group_size / 4, i + group_size / 2, i + 3 * group_size / 4);
+                let (j, k, l) = (
+                    i + group_size / 4,
+                    i + group_size / 2,
+                    i + 3 * group_size / 4,
+                );
 
                 let zw1 = w1 * &input[k];
                 let tw1 = w1 * &input[l];
