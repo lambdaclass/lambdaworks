@@ -45,6 +45,9 @@ pub trait AIR {
 
     fn composition_poly_degree_bound(&self) -> usize;
 
+    /// The method called by the prover to evaluate the transitions corresponding to an evaluation frame.
+    /// In the case of the prover, the main evaluation table of the frame takes values in
+    /// `Self::Field`, since they are the evaluations of the main trace at the LDE domain.
     fn compute_transition_prover(
         &self,
         frame: &Frame<Self::Field, Self::FieldExtension>,
@@ -52,6 +55,12 @@ pub trait AIR {
         rap_challenges: &Self::RAPChallenges,
     ) -> Vec<FieldElement<Self::Field>>;
 
+    /// The method called by the verifier to evaluate the transitions at the out of domain frame.
+    /// In the case of the verifier, both main and auxiliary tables of the evaluation frame take
+    /// values in `Self::FieldExtension`, since they are the evaluations of the trace polynomials
+    /// at the out of domain challenge.
+    /// In case `Self::Field` coincides with `Self::FieldExtension`, this method and
+    /// `compute_transition_prover` should return the same values.
     fn compute_transition_verifier(
         &self,
         frame: &Frame<Self::FieldExtension, Self::FieldExtension>,
