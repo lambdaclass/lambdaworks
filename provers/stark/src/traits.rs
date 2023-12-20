@@ -51,9 +51,9 @@ pub trait AIR {
     fn compute_transition_prover(
         &self,
         frame: &Frame<Self::Field, Self::FieldExtension>,
-        periodic_values: &[FieldElement<Self::FieldExtension>],
+        periodic_values: &[FieldElement<Self::Field>],
         rap_challenges: &Self::RAPChallenges,
-    ) -> Vec<FieldElement<Self::Field>>;
+    ) -> Vec<FieldElement<Self::FieldExtension>>;
 
     /// The method called by the verifier to evaluate the transitions at the out of domain frame.
     /// In the case of the verifier, both main and auxiliary tables of the evaluation frame take
@@ -149,9 +149,7 @@ pub trait AIR {
         vec![]
     }
 
-    fn get_periodic_column_polynomials(
-        &self,
-    ) -> Vec<Polynomial<FieldElement<Self::FieldExtension>>> {
+    fn get_periodic_column_polynomials(&self) -> Vec<Polynomial<FieldElement<Self::Field>>> {
         let mut result = Vec::new();
         for periodic_column in self.get_periodic_column_values() {
             let values: Vec<_> = periodic_column
@@ -159,9 +157,10 @@ pub trait AIR {
                 .cycle()
                 .take(self.trace_length())
                 .cloned()
-                .map(|x| x.to_extension())
                 .collect();
-            let poly = Polynomial::interpolate_fft::<Self::Field>(&values).unwrap();
+            let poly =
+                Polynomial::<FieldElement<Self::Field>>::interpolate_fft::<Self::Field>(&values)
+                    .unwrap();
             result.push(poly);
         }
         result

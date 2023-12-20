@@ -104,6 +104,79 @@ where
     }
 }
 
+/// In-Place Radix-4 NR DIT FFT algorithm over a slice of two-adic field elements.
+/// It's required that the twiddle factors are in bit-reverse order. Else this function will not
+/// return fourier transformed values.
+/// Also the input size needs to be a power of two.
+/// It's recommended to use the current safe abstractions instead of this function.
+///
+/// Performs a fast fourier transform with the next attributes:
+/// - In-Place: an auxiliary vector of data isn't needed for the algorithm.
+/// - Radix-4: the algorithm halves the problem size log(n) times.
+/// - NR: natural to reverse order, meaning that the input is naturally ordered and the output will
+/// be bit-reversed ordered.
+/// - DIT: decimation in time
+pub fn in_place_nr_4radix_fft<F, E>(input: &mut [FieldElement<E>], twiddles: &[FieldElement<F>])
+where
+    F: IsFFTField + IsSubFieldOf<E>,
+    E: IsField,
+{
+    debug_assert!(input.len().is_power_of_two());
+    debug_assert!(input.len().ilog2() % 2 == 0); // Even power of 2 => x is power of 4
+
+    // divide input in groups, starting with 1, duplicating the number of groups in each stage.
+    let mut group_count = 1;
+    let mut group_size = input.len();
+
+    // for each group, there'll be group_size / 4 butterflies.
+    // a butterfly is the atomic operation of a FFT, e.g:
+    // x' = x + yw2 + zw1 + tw1w2
+    // y' = x - yw2 + zw1 - tw1w2
+    // z' = x + yw3 - zw1 - tw1w3
+    // t' = x - yw3 - zw1 + tw1w3
+    // The 0.25 factor is what gives FFT its performance, it recursively divides the problem size
+    // by 4 (group size).
+
+    while group_count < input.len() {
+        #[allow(clippy::needless_range_loop)] // the suggestion would obfuscate a bit the algorithm
+        for group in 0..group_count {
+            let first_in_group = group * group_size;
+            let first_in_next_group = first_in_group + group_size / 4;
+
+            let (w1, w2, w3) = (
+                &twiddles[group],
+                &twiddles[2 * group],
+                &twiddles[2 * group + 1],
+            );
+
+            for i in first_in_group..first_in_next_group {
+                let (j, k, l) = (
+                    i + group_size / 4,
+                    i + group_size / 2,
+                    i + 3 * group_size / 4,
+                );
+
+                let zw1 = w1 * &input[k];
+                let tw1 = w1 * &input[l];
+                let a = w2 * (&input[j] + &tw1);
+                let b = w3 * (&input[j] - &tw1);
+
+                let x = &input[i] + &zw1 + &a;
+                let y = &input[i] + &zw1 - &a;
+                let z = &input[i] - &zw1 + &b;
+                let t = &input[i] - &zw1 - &b;
+
+                input[i] = x;
+                input[j] = y;
+                input[k] = z;
+                input[l] = t;
+            }
+        }
+        group_count *= 4;
+        group_size /= 4;
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::fft::cpu::bit_reversing::in_place_bit_reverse_permute;
@@ -128,7 +201,12 @@ mod tests {
         }
     }
     prop_compose! {
-        fn field_vec(max_exp: u8)(vec in collection::vec(field_element(), 2..1<<max_exp).prop_filter("Avoid polynomials of size not power of two", |vec| vec.len().is_power_of_two())) -> Vec<FE> {
+        fn field_vec(max_exp: u8)(vec in (1..max_exp).prop_flat_map(|i| collection::vec(field_element(), 1 << i))) -> Vec<FE> {
+            vec
+        }
+    }
+    prop_compose! {
+        fn field_vec_r4(max_exp: u8)(vec in (1..max_exp).prop_flat_map(|i| collection::vec(field_element(), 1 << (2 * i)))) -> Vec<FE> {
             vec
         }
     }
@@ -162,6 +240,21 @@ mod tests {
             in_place_rn_2radix_fft(&mut result, &twiddles);
 
             prop_assert_eq!(result, expected);
+        }
+
+        // Property-based test that ensures NR Radix-2 FFT gives the same result as a naive DFT.
+        #[test]
+        fn test_nr_4radix_fft_matches_naive_eval(coeffs in field_vec_r4(5)) {
+            let expected = naive_matrix_dft_test(&coeffs);
+
+            let order = coeffs.len().trailing_zeros();
+            let twiddles = get_twiddles(order.into(), RootsConfig::BitReverse).unwrap();
+
+            let mut result = coeffs;
+            in_place_nr_4radix_fft::<F, F>(&mut result, &twiddles);
+            in_place_bit_reverse_permute(&mut result);
+
+            prop_assert_eq!(expected, result);
         }
     }
 }

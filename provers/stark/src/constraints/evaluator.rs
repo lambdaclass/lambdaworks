@@ -82,7 +82,7 @@ impl<A: AIR> ConstraintEvaluator<A> {
                     &domain.coset_offset,
                 )
             })
-            .collect::<Result<Vec<Vec<FieldElement<A::FieldExtension>>>, FFTError>>()
+            .collect::<Result<Vec<Vec<FieldElement<A::Field>>>, FFTError>>()
             .unwrap();
 
         let boundary_polys_evaluations = boundary_constraints
@@ -193,7 +193,7 @@ impl<A: AIR> ConstraintEvaluator<A> {
 
                 let periodic_values: Vec<_> = lde_periodic_columns
                     .iter()
-                    .map(|col| col[i].clone().to_extension())
+                    .map(|col| col[i].clone())
                     .collect();
 
                 // Compute all the transition constraints at this

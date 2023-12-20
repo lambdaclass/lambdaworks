@@ -48,8 +48,12 @@ pub fn validate_trace<A: AIR>(
         .get_periodic_column_polynomials()
         .iter()
         .map(|poly| {
-            Polynomial::evaluate_fft::<A::Field>(poly, 1, Some(domain.interpolation_domain_size))
-                .unwrap()
+            Polynomial::<FieldElement<A::Field>>::evaluate_fft::<A::Field>(
+                poly,
+                1,
+                Some(domain.interpolation_domain_size),
+            )
+            .unwrap()
         })
         .collect();
 
