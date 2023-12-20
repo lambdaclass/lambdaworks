@@ -157,7 +157,7 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
                 coefficients.push(c.clone());
                 c = coeff + c * b;
             }
-            coefficients = coefficients.into_iter().rev().collect();
+            coefficients.reverse();
             Polynomial::new(&coefficients)
         } else {
             Polynomial::zero()
