@@ -1,4 +1,3 @@
-use std::iter::Cycle;
 use std::ops::Div;
 use std::vec::IntoIter;
 
@@ -10,7 +9,7 @@ use lambdaworks_math::field::traits::IsFFTField;
 use lambdaworks_math::polynomial::Polynomial;
 use num_integer::Integer;
 
-pub trait TransitionConstraint<F: IsFFTField> {
+pub trait TransitionConstraint<F: IsFFTField>: Send + Sync {
     fn degree(&self) -> usize;
 
     fn constraint_idx(&self) -> usize;
@@ -80,26 +79,44 @@ pub trait TransitionConstraint<F: IsFFTField> {
         if let Some(exemptions_period) = self.exemptions_period() {
             // FIXME: Rather than making this assertions here, it would be better to handle these
             // errors or make these checks when the AIR is initialized.
-            debug_assert!(self.period().is_multiple_of(&exemptions_period));
+            debug_assert!(exemptions_period.is_multiple_of(&self.period()));
             debug_assert!(self.periodic_exemptions_offset().is_some());
 
             let last_exponent = blowup_factor * exemptions_period;
 
-            (0..last_exponent)
+            let evaluations: Vec<_> = (0..last_exponent)
                 .map(|exponent| {
                     let x = root.pow(exponent);
                     let offset_times_x = coset_offset * &x;
                     let offset_exponent = trace_length * self.periodic_exemptions_offset().unwrap()
                         / exemptions_period;
 
-                    let denominator = offset_times_x.pow(trace_length / self.period())
-                        - &FieldElement::<F>::one();
                     let numerator = offset_times_x.pow(trace_length / exemptions_period)
                         - trace_primitive_root.pow(offset_exponent);
+                    let denominator = offset_times_x.pow(trace_length / self.period())
+                        - &FieldElement::<F>::one();
 
-                    numerator.div(denominator) * end_exemptions_poly.evaluate(&x)
+                    numerator.div(denominator)
                 })
+                .collect();
+
+            let end_exemption_evaluations = evaluate_polynomial_on_lde_domain(
+                &end_exemptions_poly,
+                blowup_factor,
+                domain.interpolation_domain_size,
+                coset_offset,
+            )
+            .unwrap();
+
+            let cycled_evaluations = evaluations
+                .iter()
+                .cycle()
+                .take(end_exemption_evaluations.len());
+
+            std::iter::zip(cycled_evaluations, end_exemption_evaluations)
+                .map(|(eval, exemption_eval)| eval * exemption_eval)
                 .collect()
+
         // In this else branch, the zerofiers are computed as the numerator, then inverted
         // using batch inverse and then multiplied by P_exemptions(x). This way we don't do
         // useless divisions.
@@ -115,16 +132,16 @@ pub trait TransitionConstraint<F: IsFFTField> {
 
             FieldElement::inplace_batch_inverse(&mut evaluations).unwrap();
 
-            println!("ZEROFIER EVALS");
-            for (i, eval) in evaluations.iter().enumerate() {
-                println!("ZEROFIER EVAL {} - {:?}", i, eval);
-            }
+            // println!("ZEROFIER EVALS");
+            // for (i, eval) in evaluations.iter().enumerate() {
+            //     println!("ZEROFIER EVAL {} - {:?}", i, eval);
+            // }
 
             let end_exemption_evaluations = evaluate_polynomial_on_lde_domain(
                 &end_exemptions_poly,
                 blowup_factor,
                 domain.interpolation_domain_size,
-                &coset_offset,
+                coset_offset,
             )
             .unwrap();
 
@@ -140,7 +157,7 @@ pub trait TransitionConstraint<F: IsFFTField> {
     }
 }
 
-pub(crate) struct TransitionZerofiersIter<F: IsFFTField> {
+pub struct TransitionZerofiersIter<F: IsFFTField> {
     num_constraints: usize,
     zerofier_evals: Vec<IntoIter<FieldElement<F>>>,
 }
@@ -151,9 +168,10 @@ where
 {
     pub(crate) fn new(zerofier_evals: Vec<Vec<FieldElement<F>>>) -> Self {
         let first_evals_len = zerofier_evals[0].len();
-        debug_assert!(zerofier_evals
-            .iter()
-            .all(|evals| evals.len() == first_evals_len));
+        debug_assert!(zerofier_evals.iter().all(|evals| {
+            println!("EVALS LEN: {}", evals.len());
+            evals.len() == first_evals_len
+        }));
 
         let num_constraints = zerofier_evals.len();
         let zerofier_evals = zerofier_evals

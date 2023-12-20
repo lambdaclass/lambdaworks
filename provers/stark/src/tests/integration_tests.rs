@@ -4,13 +4,14 @@ use lambdaworks_math::field::{
 
 use crate::{
     examples::{
+        bit_flags::{self, BitFlagsAIR},
+        //     simple_periodic_cols::{self, SimplePeriodicAIR, SimplePeriodicPublicInputs},
         // dummy_air::{self, DummyAIR},
         // fibonacci_2_cols_shifted::{self, Fibonacci2ColsShifted},
         // fibonacci_2_columns::{self, Fibonacci2ColsAIR},
         // fibonacci_rap::{fibonacci_rap_trace, FibonacciRAP, FibonacciRAPPublicInputs},
         // quadratic_air::{self, QuadraticAIR, QuadraticPublicInputs},
         simple_fibonacci::{self, FibonacciAIR, FibonacciPublicInputs},
-        //     simple_periodic_cols::{self, SimplePeriodicAIR, SimplePeriodicPublicInputs},
     },
     proof::options::ProofOptions,
     prover::{IsStarkProver, Prover},
@@ -255,3 +256,20 @@ fn test_prove_fib17() {
 //         StoneProverTranscript::new(&[])
 //     ));
 // }
+
+#[test_log::test]
+fn test_prove_bit_flags() {
+    let trace = bit_flags::bit_prefix_flag_trace(32);
+    let proof_options = ProofOptions::default_test_options();
+
+    let proof =
+        Prover::prove::<BitFlagsAIR>(&trace, &(), &proof_options, StoneProverTranscript::new(&[]))
+            .unwrap();
+
+    assert!(Verifier::verify::<BitFlagsAIR>(
+        &proof,
+        &(),
+        &proof_options,
+        StoneProverTranscript::new(&[]),
+    ));
+}

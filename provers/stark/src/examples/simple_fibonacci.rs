@@ -25,7 +25,10 @@ impl<F: IsFFTField> FibConstraint<F> {
     }
 }
 
-impl<F: IsFFTField> TransitionConstraint<F> for FibConstraint<F> {
+impl<F> TransitionConstraint<F> for FibConstraint<F>
+where
+    F: IsFFTField + Send + Sync,
+{
     fn degree(&self) -> usize {
         1
     }
@@ -59,7 +62,7 @@ impl<F: IsFFTField> TransitionConstraint<F> for FibConstraint<F> {
     }
 }
 
-#[derive(Clone)]
+// #[derive(Clone)]
 pub struct FibonacciAIR<F>
 where
     F: IsFFTField,
@@ -67,7 +70,7 @@ where
     context: AirContext,
     trace_length: usize,
     pub_inputs: FibonacciPublicInputs<F>,
-    constraint: FibConstraint<F>,
+    constraints: Vec<Box<dyn TransitionConstraint<F>>>,
 }
 
 #[derive(Clone, Debug)]
@@ -81,7 +84,7 @@ where
 
 impl<F> AIR for FibonacciAIR<F>
 where
-    F: IsFFTField,
+    F: IsFFTField + Send + Sync + 'static,
 {
     type Field = F;
     type PublicInputs = FibonacciPublicInputs<F>;
@@ -101,13 +104,14 @@ where
             num_transition_constraints: 1,
         };
 
-        let constraint = FibConstraint::new();
+        let constraints: Vec<Box<dyn TransitionConstraint<F>>> =
+            vec![Box::new(FibConstraint::new())];
 
         Self {
             pub_inputs: pub_inputs.clone(),
             context,
             trace_length,
-            constraint,
+            constraints,
         }
     }
 
@@ -115,8 +119,8 @@ where
         self.trace_length()
     }
 
-    fn transition_constraints(&self) -> Vec<Box<&dyn TransitionConstraint<F>>> {
-        vec![Box::new(&self.constraint as &dyn TransitionConstraint<F>)]
+    fn transition_constraints(&self) -> &Vec<Box<dyn TransitionConstraint<F>>> {
+        &self.constraints
     }
 
     // fn compute_transition(
