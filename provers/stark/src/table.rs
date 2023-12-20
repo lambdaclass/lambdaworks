@@ -17,6 +17,18 @@ pub struct Table<F: IsField> {
     pub height: usize,
 }
 
+/// A view of a contiguos subset of rows of a table.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct TableView<'t, F: IsField> {
+    pub data: &'t [FieldElement<F>],
+    pub table_row_idx: usize,
+    pub width: usize,
+    pub height: usize,
+}
+
+/// A pair of tables corresponding to evaluations of the main and auxiliary traces.
+/// It supports main and auxiliary tables taking values in different fields.
+/// Both tables must have the same number of rows.
 #[derive(Clone, Default, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct EvaluationTable<F: IsSubFieldOf<E>, E: IsField> {
     pub(crate) main_table: Table<F>,
@@ -135,12 +147,17 @@ impl<'t, F: IsField> Table<F> {
 }
 
 impl<E: IsField> EvaluationTable<E, E> {
+    /// Returns a single vector of elements with the concatenation of the corresponding rows
+    /// in the main and auxiliary tables.
     pub fn get_row(&self, row_idx: usize) -> Vec<FieldElement<E>> {
         let mut row: Vec<_> = self.get_row_main(row_idx).to_vec();
         row.extend_from_slice(self.get_row_aux(row_idx));
         row
     }
 
+    /// Returns the values of the tables as a single list of columns containing both main and
+    /// auxiliary tables. The first `self.n_main_cols()` are the columns of the main trace and the
+    /// rest are the auxiliary table columns.
     pub fn columns(&self) -> Vec<Vec<FieldElement<E>>> {
         let mut columns = self.main_table.columns();
         let aux_columns = self.aux_table.columns();
@@ -150,31 +167,46 @@ impl<E: IsField> EvaluationTable<E, E> {
 }
 
 impl<F: IsSubFieldOf<E>, E: IsField> EvaluationTable<F, E> {
-    /// Creates a Table instance from a vector of the intended columns.
+    /// Creates an EvaluationTable instance from a vector of columns.
     pub fn from_columns(
         main_columns: Vec<Vec<FieldElement<F>>>,
         aux_columns: Vec<Vec<FieldElement<E>>>,
         step_size: usize,
     ) -> Self {
+        let main_table = Table::from_columns(main_columns);
+        let aux_table = Table::from_columns(aux_columns);
+        debug_assert_eq!(main_table.height, aux_table.height);
         Self {
-            main_table: Table::from_columns(main_columns),
-            aux_table: Table::from_columns(aux_columns),
+            main_table,
+            aux_table,
             step_size,
         }
     }
 
+    /// Returns the number of columns of the main table.
     pub fn n_main_cols(&self) -> usize {
         self.main_table.width
     }
 
+    /// Returns the number of columns of the auxiliary table.
     pub fn n_aux_cols(&self) -> usize {
         self.aux_table.width
     }
 
+    /// Returns the total number of columns in both tables.
     pub fn n_cols(&self) -> usize {
         self.n_main_cols() + self.n_aux_cols()
     }
 
+    /// Returns the total number of rows.
+    pub fn n_rows(&self) -> usize {
+        debug_assert!(
+            self.aux_table.height == 0 || (self.main_table.height == self.aux_table.height)
+        );
+        self.main_table.height
+    }
+
+    /// Returns the total number of steps.
     pub fn num_steps(&self) -> usize {
         debug_assert!((self.main_table.height % self.step_size) == 0);
         debug_assert!(
@@ -223,22 +255,6 @@ impl<F: IsSubFieldOf<E>, E: IsField> EvaluationTable<F, E> {
         let row_offset = row_idx * self.aux_table.width;
         &self.aux_table.data[row_offset..row_offset + self.aux_table.width]
     }
-
-    pub fn n_rows(&self) -> usize {
-        debug_assert!(
-            self.aux_table.height == 0 || (self.main_table.height == self.aux_table.height)
-        );
-        self.main_table.height
-    }
-}
-
-/// A view of a contiguos subset of rows of a table.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct TableView<'t, F: IsField> {
-    pub data: &'t [FieldElement<F>],
-    pub table_row_idx: usize,
-    pub width: usize,
-    pub height: usize,
 }
 
 impl<'t, F: IsField> TableView<'t, F> {
