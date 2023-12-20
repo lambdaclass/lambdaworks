@@ -1,26 +1,11 @@
 use lambdaworks_math::traits::ByteConversion;
 use miden_core::Felt;
 use sha3::{Digest, Keccak256};
-use stark_platinum_prover::{
-    fri::FieldElement, prover::IsStarkProver, transcript::IsStarkTranscript,
-    verifier::IsStarkVerifier,
-};
+use stark_platinum_prover::{fri::FieldElement, transcript::IsStarkTranscript};
 use winter_math::StarkField;
 
 pub mod air;
 pub mod public_inputs;
-
-pub struct Prover;
-impl IsStarkProver for Prover {
-    type Field = Felt;
-    type FieldExtension = Felt;
-}
-
-pub struct Verifier {}
-impl IsStarkVerifier for Verifier {
-    type Field = Felt;
-    type FieldExtension = Felt;
-}
 
 pub struct Transcript {
     hasher: Keccak256,

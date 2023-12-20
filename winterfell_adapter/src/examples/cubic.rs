@@ -74,15 +74,15 @@ pub fn build_trace(sequence_length: usize) -> TraceTable<Felt> {
 mod tests {
     use miden_core::Felt;
     use stark_platinum_prover::{
-        proof::options::ProofOptions, prover::IsStarkProver, verifier::IsStarkVerifier,
+        proof::options::ProofOptions,
+        prover::{IsStarkProver, Prover},
+        verifier::{IsStarkVerifier, Verifier},
     };
     use winter_air::TraceInfo;
     use winter_prover::{Trace, TraceTable};
 
     use crate::{
-        adapter::{
-            air::AirAdapter, public_inputs::AirAdapterPublicInputs, Prover, Transcript, Verifier,
-        },
+        adapter::{air::AirAdapter, public_inputs::AirAdapterPublicInputs, Transcript},
         examples::cubic::{self, Cubic},
     };
 
@@ -101,7 +101,7 @@ mod tests {
             metadata: (),
         };
 
-        let proof = Prover::prove::<AirAdapter<Cubic, TraceTable<_>, Felt, _>>(
+        let proof = Prover::<AirAdapter<Cubic, TraceTable<_>, Felt, _>>::prove(
             &trace,
             &pub_inputs,
             &lambda_proof_options,
@@ -109,7 +109,7 @@ mod tests {
         )
         .unwrap();
         assert!(
-            Verifier::verify::<AirAdapter<Cubic, TraceTable<_>, Felt, _>>(
+            Verifier::<AirAdapter<Cubic, TraceTable<_>, Felt, _>>::verify(
                 &proof,
                 &pub_inputs,
                 &lambda_proof_options,

@@ -46,7 +46,7 @@ impl FromColumns<Felt, ExecutionTraceMetadata> for ExecutionTrace {
 mod tests {
     use crate::adapter::air::AirAdapter;
     use crate::adapter::public_inputs::AirAdapterPublicInputs;
-    use crate::adapter::{Prover, Transcript, Verifier};
+    use crate::adapter::Transcript;
     use crate::examples::fibonacci_2_terms::FibAir2Terms;
     use miden_air::{ProcessorAir, ProvingOptions, PublicInputs};
     use miden_assembly::Assembler;
@@ -54,6 +54,8 @@ mod tests {
     use miden_processor::DefaultHost;
     use miden_processor::{self as processor};
     use processor::ExecutionTrace;
+    use stark_platinum_prover::prover::Prover;
+    use stark_platinum_prover::verifier::Verifier;
     use stark_platinum_prover::{
         proof::options::ProofOptions, prover::IsStarkProver, verifier::IsStarkVerifier,
     };
@@ -93,7 +95,7 @@ mod tests {
                 winter_trace.main_segment().clone(),
             );
 
-        let proof = Prover::prove::<AirAdapter<ProcessorAir, ExecutionTrace, Felt, _>>(
+        let proof = Prover::<AirAdapter<ProcessorAir, ExecutionTrace, Felt, _>>::prove(
             &trace,
             &pub_inputs,
             &lambda_proof_options,
@@ -101,14 +103,14 @@ mod tests {
         )
         .unwrap();
 
-        assert!(Verifier::verify::<
-            AirAdapter<ProcessorAir, ExecutionTrace, Felt, _>,
-        >(
-            &proof,
-            &pub_inputs,
-            &lambda_proof_options,
-            Transcript::new(&[]),
-        ));
+        assert!(
+            Verifier::<AirAdapter<ProcessorAir, ExecutionTrace, Felt, _>>::verify(
+                &proof,
+                &pub_inputs,
+                &lambda_proof_options,
+                Transcript::new(&[]),
+            )
+        );
     }
 
     fn compute_fibonacci(n: usize) -> Felt {
@@ -171,7 +173,7 @@ mod tests {
                 winter_trace.main_segment().clone(),
             );
 
-        let proof = Prover::prove::<AirAdapter<ProcessorAir, ExecutionTrace, Felt, _>>(
+        let proof = Prover::<AirAdapter<ProcessorAir, ExecutionTrace, Felt, _>>::prove(
             &trace,
             &pub_inputs,
             &lambda_proof_options,
@@ -179,13 +181,13 @@ mod tests {
         )
         .unwrap();
 
-        assert!(Verifier::verify::<
-            AirAdapter<ProcessorAir, ExecutionTrace, Felt, _>,
-        >(
-            &proof,
-            &pub_inputs,
-            &lambda_proof_options,
-            Transcript::new(&[]),
-        ));
+        assert!(
+            Verifier::<AirAdapter<ProcessorAir, ExecutionTrace, Felt, _>>::verify(
+                &proof,
+                &pub_inputs,
+                &lambda_proof_options,
+                Transcript::new(&[]),
+            )
+        );
     }
 }

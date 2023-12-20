@@ -6,11 +6,12 @@ use miden_processor::DefaultHost;
 use miden_processor::{self as processor};
 use miden_prover::prove;
 use processor::ExecutionTrace;
-use stark_platinum_prover::{proof::options::ProofOptions, prover::IsStarkProver};
+use stark_platinum_prover::proof::options::ProofOptions;
+use stark_platinum_prover::prover::{IsStarkProver, Prover};
 use winter_air::FieldExtension;
 use winter_prover::Trace;
 use winterfell_adapter::adapter::public_inputs::AirAdapterPublicInputs;
-use winterfell_adapter::adapter::{air::AirAdapter, Prover, Transcript};
+use winterfell_adapter::adapter::{air::AirAdapter, Transcript};
 use winterfell_adapter::examples::miden_vm::ExecutionTraceMetadata;
 
 struct BenchInstance {
@@ -102,7 +103,7 @@ pub fn bench_prove_miden_fibonacci(c: &mut Criterion) {
                 );
 
             let _proof = black_box(
-                Prover::prove::<AirAdapter<ProcessorAir, ExecutionTrace, Felt, _>>(
+                Prover::<AirAdapter<ProcessorAir, ExecutionTrace, Felt, _>>::prove(
                     &trace,
                     &pub_inputs,
                     &instance.lambda_proof_options,

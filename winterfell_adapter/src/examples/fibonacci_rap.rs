@@ -242,15 +242,15 @@ pub fn build_trace(sequence_length: usize) -> TraceTable<Felt> {
 mod tests {
     use miden_core::Felt;
     use stark_platinum_prover::{
-        proof::options::ProofOptions, prover::IsStarkProver, verifier::IsStarkVerifier,
+        proof::options::ProofOptions,
+        prover::{IsStarkProver, Prover},
+        verifier::{IsStarkVerifier, Verifier},
     };
     use winter_air::{TraceInfo, TraceLayout};
     use winter_prover::Trace;
 
     use crate::{
-        adapter::{
-            air::AirAdapter, public_inputs::AirAdapterPublicInputs, Prover, Transcript, Verifier,
-        },
+        adapter::{air::AirAdapter, public_inputs::AirAdapterPublicInputs, Transcript},
         examples::fibonacci_rap::{self, FibonacciRAP, RapTraceTable},
     };
 
@@ -273,16 +273,16 @@ mod tests {
             metadata: (),
         };
 
-        let proof = Prover::prove::<AirAdapter<FibonacciRAP, RapTraceTable<_>, Felt, _>>(
+        let proof = Prover::<AirAdapter<FibonacciRAP, RapTraceTable<_>, Felt, _>>::prove(
             &trace,
             &pub_inputs,
             &lambda_proof_options,
             Transcript::new(&[]),
         )
         .unwrap();
-        assert!(Verifier::verify::<
+        assert!(Verifier::<
             AirAdapter<FibonacciRAP, RapTraceTable<_>, Felt, _>,
-        >(
+        >::verify(
             &proof,
             &pub_inputs,
             &lambda_proof_options,
