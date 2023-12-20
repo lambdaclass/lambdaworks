@@ -229,7 +229,6 @@ pub trait IsStarkProver<A: AIR> {
 
         let main = Round1CommitmentData::<A::Field> {
             trace_polys,
-            // lde_trace: TraceTable::from_columns(evaluations, A::STEP_SIZE),
             lde_trace_merkle_tree: main_merkle_tree,
             lde_trace_merkle_root: main_merkle_root,
         };
@@ -237,21 +236,18 @@ pub trait IsStarkProver<A: AIR> {
         let rap_challenges = air.build_rap_challenges(transcript);
 
         let aux_trace = air.build_auxiliary_trace(main_trace, &rap_challenges);
-        let aux_evaluations;
-        let aux = if !aux_trace.is_empty() {
-            // Check that this is valid for interpolation
+        let (aux, aux_evaluations) = if !aux_trace.is_empty() {
             let (aux_trace_polys, aux_trace_polys_evaluations, aux_merkle_tree, aux_merkle_root) =
                 Self::interpolate_and_commit(&aux_trace, domain, transcript);
-            aux_evaluations = aux_trace_polys_evaluations;
-            Some(Round1CommitmentData::<A::FieldExtension> {
+            let aux_evaluations = aux_trace_polys_evaluations;
+            let aux = Some(Round1CommitmentData::<A::FieldExtension> {
                 trace_polys: aux_trace_polys,
-                // lde_trace: TraceTable::from_columns(aux_trace_polys_evaluations, A::STEP_SIZE),
                 lde_trace_merkle_tree: aux_merkle_tree,
                 lde_trace_merkle_root: aux_merkle_root,
-            })
+            });
+            (aux, aux_evaluations)
         } else {
-            aux_evaluations = Vec::new();
-            None
+            (None, Vec::new())
         };
         let lde_table = EvaluationTable::from_columns(evaluations, aux_evaluations, A::STEP_SIZE);
 
@@ -383,8 +379,8 @@ pub trait IsStarkProver<A: AIR> {
             &round_1_result
                 .aux
                 .as_ref()
-                .map(|aux| aux.trace_polys.clone())
-                .unwrap_or_default(),
+                .map(|aux| &aux.trace_polys)
+                .unwrap_or(&vec![]),
             z,
             &air.context().transition_offsets,
             &domain.trace_primitive_root,
