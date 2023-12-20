@@ -545,7 +545,7 @@ pub trait IsStarkProver<A: AIR> {
                         (i, t_j),
                         trace_frame_length,
                         trace_terms_gammas,
-                        trace_frame_evaluations,
+                        &trace_frame_evaluations.columns(),
                         transition_offsets,
                         (z, primitive_root),
                     )
