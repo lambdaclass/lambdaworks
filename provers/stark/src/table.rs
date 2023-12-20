@@ -222,7 +222,7 @@ impl<F: IsSubFieldOf<E>, E: IsField> EvaluationTable<F, E> {
     }
 
     /// Given a step index, return the step view of the trace for that index
-    pub fn step_view<'t>(&'t self, step_idx: usize) -> StepView<'t, F, E> {
+    pub fn step_view(&self, step_idx: usize) -> StepView<'_, F, E> {
         let row_idx = self.step_to_row(step_idx);
         let main_table_view = self.main_table.table_view(row_idx, self.step_size);
         let aux_table_view = self.aux_table.table_view(row_idx, self.step_size);

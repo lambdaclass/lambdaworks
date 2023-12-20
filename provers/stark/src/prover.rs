@@ -375,7 +375,7 @@ pub trait IsStarkProver<A: AIR> {
 
         let trace_ood_evaluations = crate::trace::get_trace_evaluations(
             &round_1_result.main.trace_polys,
-            &round_1_result
+            round_1_result
                 .aux
                 .as_ref()
                 .map(|aux| &aux.trace_polys)
@@ -769,7 +769,7 @@ pub trait IsStarkProver<A: AIR> {
         validate_trace(
             &air,
             &round_1_result.main.trace_polys,
-            &round_1_result
+            round_1_result
                 .aux
                 .as_ref()
                 .map(|a| &a.trace_polys)
