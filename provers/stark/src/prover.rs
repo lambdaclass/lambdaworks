@@ -301,9 +301,8 @@ pub trait IsStarkProver<A: AIR> {
         FieldElement<A::Field>: Serializable + Send + Sync,
         FieldElement<A::FieldExtension>: Serializable + Send + Sync,
     {
-        // Create evaluation table
+        // Compute the evaluations of the composition polynomial on the LDE domain.
         let evaluator = ConstraintEvaluator::new(air, &round_1_result.rap_challenges);
-
         let constraint_evaluations = evaluator.evaluate(
             air,
             &round_1_result.lde_table,
@@ -313,7 +312,7 @@ pub trait IsStarkProver<A: AIR> {
             &round_1_result.rap_challenges,
         );
 
-        // Get the composition poly H
+        // Get coefficients of the composition poly H
         let composition_poly =
             Polynomial::interpolate_offset_fft(&constraint_evaluations, &domain.coset_offset)
                 .unwrap();
@@ -773,8 +772,8 @@ pub trait IsStarkProver<A: AIR> {
             &round_1_result
                 .aux
                 .as_ref()
-                .map(|a| a.trace_polys.clone())
-                .unwrap_or(vec![]),
+                .map(|a| &a.trace_polys)
+                .unwrap_or(&vec![]),
             &domain,
             &round_1_result.rap_challenges,
         );
