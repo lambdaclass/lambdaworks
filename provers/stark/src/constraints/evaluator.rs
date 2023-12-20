@@ -59,8 +59,6 @@ impl<F: IsFFTField> ConstraintEvaluator<F> {
                 })
                 .collect::<Vec<Vec<FieldElement<F>>>>();
 
-        // let trace_length = air.trace_length();
-
         #[cfg(all(debug_assertions, not(feature = "parallel")))]
         let boundary_polys: Vec<Polynomial<FieldElement<F>>> = Vec::new();
 
@@ -102,7 +100,7 @@ impl<F: IsFFTField> ConstraintEvaluator<F> {
         #[cfg(not(feature = "parallel"))]
         let boundary_eval_iter = 0..domain.lde_roots_of_unity_coset.len();
 
-        let boundary_evaluation = boundary_eval_iter
+        let boundary_evaluation: Vec<_> = boundary_eval_iter
             .map(|domain_index| {
                 (0..number_of_b_constraints)
                     .zip(boundary_coefficients)
@@ -113,7 +111,7 @@ impl<F: IsFFTField> ConstraintEvaluator<F> {
                             * &boundary_polys_evaluations[constraint_index][domain_index]
                     })
             })
-            .collect::<Vec<FieldElement<F>>>();
+            .collect();
 
         #[cfg(all(debug_assertions, not(feature = "parallel")))]
         let boundary_zerofiers = Vec::new();
@@ -126,47 +124,7 @@ impl<F: IsFFTField> ConstraintEvaluator<F> {
         #[cfg(all(debug_assertions, not(feature = "parallel")))]
         let mut transition_evaluations = Vec::new();
 
-        // let transition_exemptions_polys = air.transition_exemptions();
-
-        // let transition_exemptions_evaluations =
-        //     evaluate_transition_exemptions(transition_exemptions_polys, domain);
-        // let num_exemptions = air.context().num_transition_exemptions();
-
-        // let blowup_factor_order = u64::from(blowup_factor.trailing_zeros());
-
-        // let offset = FieldElement::<F>::from(air.context().proof_options.coset_offset);
-        // let offset_pow = offset.pow(trace_length);
-        // let one = FieldElement::<F>::one();
-
-        // let mut zerofier_evaluations = get_powers_of_primitive_root_coset(
-        //     blowup_factor_order,
-        //     blowup_factor as usize,
-        //     &offset_pow,
-        // )
-        // .unwrap()
-        // .iter()
-        // .map(|v| v - &one)
-        // .collect::<Vec<_>>();
-
         let mut transition_zerofiers_evals = air.transition_zerofier_evaluations(domain);
-
-        // FieldElement::inplace_batch_inverse(&mut zerofier_evaluations).unwrap();
-
-        // Iterate over trace and domain and compute transitions
-        // let evaluations_t_iter;
-        // let zerofier_iter;
-        // #[cfg(feature = "parallel")]
-        // {
-        //     evaluations_t_iter = (0..domain.lde_roots_of_unity_coset.len()).into_par_iter();
-        //     zerofier_iter = evaluations_t_iter
-        //         .clone()
-        //         .map(|i| zerofier_evaluations[i % zerofier_evaluations.len()].clone());
-        // }
-        // #[cfg(not(feature = "parallel"))]
-        // {
-        //     evaluations_t_iter = 0..domain.lde_roots_of_unity_coset.len();
-        //     zerofier_iter = zerofier_evaluations.iter().cycle();
-        // }
 
         // Iterate over all LDE domain and compute
         // the part of the composition polynomial
@@ -221,75 +179,16 @@ impl<F: IsFFTField> ConstraintEvaluator<F> {
                 let acc_transition = itertools::izip!(
                     evaluations_transition,
                     transition_zerofiers_eval,
-                    // .zip(&air.context().transition_exemptions)
                     transition_coefficients
                 )
                 .fold(FieldElement::zero(), |acc, (eval, zerof_eval, beta)| {
                     acc + beta * eval * zerof_eval
-                    // #[cfg(feature = "parallel")]
-                    // let zerofier = zerofier.clone();
-
-                    // If there's no exemption, then
-                    // the zerofier remains as it was.
-                    //     if *exemption == 0 {
-                    //         acc + zerofier * beta * eval
-                    //     } else {
-                    //         //TODO: change how exemptions are indexed!
-                    //         if num_exemptions == 1 {
-                    //             acc + zerofier * beta * eval * &transition_exemptions_evaluations[0][i]
-                    //         } else {
-                    //             // This case is not used for Cairo Programs, it can be improved in the future
-                    //             let vector = air
-                    //                 .context()
-                    //                 .transition_exemptions
-                    //                 .iter()
-                    //                 .cloned()
-                    //                 .filter(|elem| elem > &0)
-                    //                 .unique_by(|elem| *elem)
-                    //                 .collect::<Vec<usize>>();
-                    //             let index = vector
-                    //                 .iter()
-                    //                 .position(|elem_2| elem_2 == exemption)
-                    //                 .expect("is there");
-
-                    //             acc + zerofier
-                    //                 * beta
-                    //                 * eval
-                    //                 * &transition_exemptions_evaluations[index][i]
-                    //         }
-                    //     }
                 });
 
                 acc_transition + boundary
             })
-            .collect::<Vec<FieldElement<F>>>();
+            .collect();
 
         evaluations_t
     }
-}
-
-fn evaluate_transition_exemptions<F: IsFFTField>(
-    transition_exemptions: Vec<Polynomial<FieldElement<F>>>,
-    domain: &Domain<F>,
-) -> Vec<Vec<FieldElement<F>>>
-where
-    FieldElement<F>: Send + Sync + Serializable,
-    Polynomial<FieldElement<F>>: Send + Sync,
-{
-    #[cfg(feature = "parallel")]
-    let exemptions_iter = transition_exemptions.par_iter();
-    #[cfg(not(feature = "parallel"))]
-    let exemptions_iter = transition_exemptions.iter();
-
-    exemptions_iter
-        .map(|exemption| {
-            evaluate_polynomial_on_lde_domain(
-                exemption,
-                domain.blowup_factor,
-                domain.interpolation_domain_size,
-                &domain.coset_offset,
-            )
-            .unwrap()
-        })
-        .collect()
 }

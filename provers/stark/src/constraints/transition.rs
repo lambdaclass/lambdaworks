@@ -73,17 +73,6 @@ pub trait TransitionConstraint<F: IsFFTField> {
 
         println!("OMEGA TO THE BETA POWER: {:?}", root.pow(blowup_factor));
 
-        // let one_poly = Polynomial::new_monomial(FieldElement::<F>::one(), 0);
-        // let end_exemptions_poly = if self.end_exemptions() == 0 {
-        //     one_poly
-        // } else {
-        //     let period = self.period();
-        //     (1..=self.end_exemptions())
-        //         .map(|exemption| trace_primitive_root.pow(trace_length - exemption * period))
-        //         .fold(one_poly, |acc, offset| {
-        //             acc * (Polynomial::new_monomial(FieldElement::<F>::one(), 1) - offset)
-        //         })
-        // };
         let end_exemptions_poly = self.end_exemptions_poly(trace_primitive_root, trace_length);
 
         // In the first branch of this if statement, the evaluations are calculated directly
