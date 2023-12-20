@@ -14,7 +14,7 @@ use core::iter::Sum;
     feature = "lambdaworks-serde-string"
 ))]
 use core::marker::PhantomData;
-use core::ops::{Add, AddAssign, Div, Mul, Neg, Sub};
+use core::ops::{Add, AddAssign, Div, Mul, Neg, Sub, SubAssign, MulAssign};
 #[cfg(any(
     feature = "lambdaworks-serde-binary",
     feature = "lambdaworks-serde-string"
@@ -250,6 +250,28 @@ where
     }
 }
 
+/// SubAssign operator overloading for field elements
+impl<F, L> SubAssign<FieldElement<F>> for FieldElement<L>
+where
+    F: IsSubFieldOf<L>,
+    L: IsField,
+{
+    fn sub_assign(&mut self, rhs: FieldElement<F>) {
+        self.value = <F as IsSubFieldOf<L>>::sub(&rhs.value, &self.value);
+    }
+}
+
+/// SubAssign operator overloading for field elements
+impl<F, L> SubAssign<&FieldElement<F>> for FieldElement<L>
+where
+    F: IsSubFieldOf<L>,
+    L: IsField,
+{
+    fn sub_assign(&mut self, rhs: &FieldElement<F>) {
+        self.value = <F as IsSubFieldOf<L>>::sub(&rhs.value, &self.value);
+    }
+}
+
 /// Multiplication operator overloading for field elements*/
 impl<F, L> Mul<&FieldElement<L>> for &FieldElement<F>
 where
@@ -300,6 +322,29 @@ where
         self * &rhs
     }
 }
+
+/// MulAssign operator overloading for field elements
+impl<F, L> MulAssign<FieldElement<F>> for FieldElement<L>
+where
+    F: IsSubFieldOf<L>,
+    L: IsField,
+{
+    fn mul_assign(&mut self, rhs: FieldElement<F>) {
+        self.value = <F as IsSubFieldOf<L>>::mul(&rhs.value, &self.value);
+    }
+}
+
+/// MulAssign operator overloading for field elements
+impl<F, L> MulAssign<&FieldElement<F>> for FieldElement<L>
+where
+    F: IsSubFieldOf<L>,
+    L: IsField,
+{
+    fn mul_assign(&mut self, rhs: &FieldElement<F>) {
+        self.value = <F as IsSubFieldOf<L>>::mul(&rhs.value, &self.value);
+    }
+}
+
 
 /// Division operator overloading for field elements*/
 impl<F, L> Div<&FieldElement<L>> for &FieldElement<F>
