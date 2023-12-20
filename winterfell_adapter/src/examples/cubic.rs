@@ -82,7 +82,7 @@ mod tests {
     use winter_prover::{Trace, TraceTable};
 
     use crate::{
-        adapter::{air::AirAdapter, public_inputs::AirAdapterPublicInputs, Transcript},
+        adapter::{air::AirAdapter, public_inputs::AirAdapterPublicInputs, FeltTranscript},
         examples::cubic::{self, Cubic},
     };
 
@@ -90,9 +90,10 @@ mod tests {
     fn prove_and_verify_a_winterfell_cubic_air() {
         let lambda_proof_options = ProofOptions::default_test_options();
         let winter_trace = cubic::build_trace(16);
-        let trace = AirAdapter::<Cubic, TraceTable<_>, Felt, ()>::convert_winterfell_trace_table(
-            winter_trace.main_segment().clone(),
-        );
+        let trace =
+            AirAdapter::<Cubic, TraceTable<_>, Felt, Felt, ()>::convert_winterfell_trace_table(
+                winter_trace.main_segment().clone(),
+            );
         let pub_inputs = AirAdapterPublicInputs {
             winterfell_public_inputs: *trace.columns()[0][15].value(),
             transition_exemptions: vec![1],
@@ -101,19 +102,19 @@ mod tests {
             metadata: (),
         };
 
-        let proof = Prover::<AirAdapter<Cubic, TraceTable<_>, Felt, _>>::prove(
+        let proof = Prover::<AirAdapter<Cubic, TraceTable<_>, Felt, Felt, _>>::prove(
             &trace,
             &pub_inputs,
             &lambda_proof_options,
-            Transcript::new(&[]),
+            FeltTranscript::new(&[]),
         )
         .unwrap();
         assert!(
-            Verifier::<AirAdapter<Cubic, TraceTable<_>, Felt, _>>::verify(
+            Verifier::<AirAdapter<Cubic, TraceTable<_>, Felt, Felt, _>>::verify(
                 &proof,
                 &pub_inputs,
                 &lambda_proof_options,
-                Transcript::new(&[]),
+                FeltTranscript::new(&[]),
             )
         );
     }

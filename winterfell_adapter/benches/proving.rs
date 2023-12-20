@@ -1,18 +1,17 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use miden_air::{HashFunction, ProcessorAir, ProvingOptions, PublicInputs};
 use miden_assembly::Assembler;
-use miden_core::{Felt, Program, StackInputs};
+use miden_core::{Program, StackInputs};
 use miden_processor::DefaultHost;
 use miden_processor::{self as processor};
 use miden_prover::prove;
-use processor::ExecutionTrace;
 use stark_platinum_prover::proof::options::ProofOptions;
 use stark_platinum_prover::prover::{IsStarkProver, Prover};
 use winter_air::FieldExtension;
 use winter_prover::Trace;
 use winterfell_adapter::adapter::public_inputs::AirAdapterPublicInputs;
-use winterfell_adapter::adapter::{air::AirAdapter, Transcript};
-use winterfell_adapter::examples::miden_vm::ExecutionTraceMetadata;
+use winterfell_adapter::adapter::QuadFeltTranscript;
+use winterfell_adapter::examples::miden_vm::{ExecutionTraceMetadata, MidenVMQuadFeltAir};
 
 struct BenchInstance {
     program: Program,
@@ -50,7 +49,7 @@ pub fn bench_prove_miden_fibonacci(c: &mut Criterion) {
                 instance.lambda_proof_options.fri_number_of_queries,
                 instance.lambda_proof_options.blowup_factor as usize,
                 instance.lambda_proof_options.grinding_factor as u32,
-                FieldExtension::None,
+                FieldExtension::Quadratic,
                 2,
                 0,
                 HashFunction::Blake3_192,
@@ -97,17 +96,16 @@ pub fn bench_prove_miden_fibonacci(c: &mut Criterion) {
                 winter_trace.clone().into(),
             );
 
-            let trace =
-                AirAdapter::<ProcessorAir, ExecutionTrace, Felt, _>::convert_winterfell_trace_table(
-                    winter_trace.main_segment().clone(),
-                );
+            let trace = MidenVMQuadFeltAir::convert_winterfell_trace_table(
+                winter_trace.main_segment().clone(),
+            );
 
             let _proof = black_box(
-                Prover::<AirAdapter<ProcessorAir, ExecutionTrace, Felt, _>>::prove(
+                Prover::<MidenVMQuadFeltAir>::prove(
                     &trace,
                     &pub_inputs,
                     &instance.lambda_proof_options,
-                    Transcript::new(&[]),
+                    QuadFeltTranscript::new(&[]),
                 )
                 .unwrap(),
             );
