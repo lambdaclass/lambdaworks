@@ -175,7 +175,7 @@ impl<F: IsSubFieldOf<E>, E: IsField> EvaluationTable<F, E> {
     ) -> Self {
         let main_table = Table::from_columns(main_columns);
         let aux_table = Table::from_columns(aux_columns);
-        debug_assert_eq!(main_table.height, aux_table.height);
+        debug_assert!(aux_table.height == 0 || (main_table.height == aux_table.height));
         Self {
             main_table,
             aux_table,
