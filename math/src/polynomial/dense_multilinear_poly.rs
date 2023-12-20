@@ -1,7 +1,7 @@
-use core::ops::{Add, Index, Mul};
-use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use crate::field::element::FieldElement;
 use crate::field::traits::IsField;
+use core::ops::{Add, Index, Mul};
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
 /// Represents a multilinear polynomials as a vector of evaluations (FieldElements) in lagrange basis
 #[derive(Debug, PartialEq, Clone)]
@@ -13,7 +13,6 @@ where
     n_vars: usize, // number of variables
     len: usize,
 }
-
 
 impl<F: IsField> DenseMultilinearPolynomial<F>
 where
@@ -54,7 +53,8 @@ where
         // r must have a value for each variable
         assert_eq!(r.len(), self.num_vars());
 
-        let mut chis: Vec<FieldElement<F>> = vec![FieldElement::one(); (2usize).pow(r.len() as u32)];
+        let mut chis: Vec<FieldElement<F>> =
+            vec![FieldElement::one(); (2usize).pow(r.len() as u32)];
         let mut size = 1;
         for j in 0..r.len() {
             size *= 2;
@@ -66,14 +66,14 @@ where
         }
         assert_eq!(chis.len(), self.evals.len());
         (0..chis.len())
-        .into_par_iter()
+            .into_par_iter()
             .map(|i| &self.evals[i] * &chis[i])
             .sum()
     }
 
     pub fn evaluate_with(evals: &[FieldElement<F>], r: &[FieldElement<F>]) -> FieldElement<F> {
-
-        let mut chis: Vec<FieldElement<F>> = vec![FieldElement::one(); (2usize).pow(r.len() as u32)];
+        let mut chis: Vec<FieldElement<F>> =
+            vec![FieldElement::one(); (2usize).pow(r.len() as u32)];
         let mut size = 1;
         for j in 0..r.len() {
             size *= 2;
@@ -84,9 +84,7 @@ where
             }
         }
         assert_eq!(chis.len(), evals.len());
-        (0..evals.len())
-            .map(|i| &evals[i] * &chis[i])
-            .sum()
+        (0..evals.len()).map(|i| &evals[i] * &chis[i]).sum()
     }
 
     pub fn extend(&mut self, other: &DenseMultilinearPolynomial<F>) {
@@ -124,7 +122,6 @@ where
         new_poly.evals.iter_mut().for_each(|eval| *eval *= scalar);
         new_poly
     }
-
 }
 
 impl<F: IsField> Index<usize> for DenseMultilinearPolynomial<F>
@@ -132,10 +129,10 @@ where
     <F as IsField>::BaseType: Send + Sync,
 {
     type Output = FieldElement<F>;
-  
+
     #[inline(always)]
     fn index(&self, _index: usize) -> &FieldElement<F> {
-      &(self.evals[_index])
+        &(self.evals[_index])
     }
 }
 
@@ -146,20 +143,20 @@ where
     <F as IsField>::BaseType: Send + Sync,
 {
     type Output = Result<Self, &'static str>;
-  
+
     fn add(self, other: Self) -> Self::Output {
-      if self.num_vars() != other.num_vars() {
-        return Err("Polynomials must have the same number of variables");
-      }
-  
-      let sum: Vec<FieldElement<F>> = self
-        .evals
-        .iter()
-        .zip(other.evals.iter())
-        .map(|(a, b)| a + b)
-        .collect();
-  
-      Ok(DenseMultilinearPolynomial::new(sum))
+        if self.num_vars() != other.num_vars() {
+            return Err("Polynomials must have the same number of variables");
+        }
+
+        let sum: Vec<FieldElement<F>> = self
+            .evals
+            .iter()
+            .zip(other.evals.iter())
+            .map(|(a, b)| a + b)
+            .collect();
+
+        Ok(DenseMultilinearPolynomial::new(sum))
     }
 }
 
@@ -297,5 +294,4 @@ mod tests {
     fn extend() {
         todo!()
     }
-
 }

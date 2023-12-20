@@ -14,7 +14,7 @@ use core::iter::Sum;
     feature = "lambdaworks-serde-string"
 ))]
 use core::marker::PhantomData;
-use core::ops::{Add, AddAssign, Div, Mul, Neg, Sub, SubAssign, MulAssign};
+use core::ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Sub, SubAssign};
 #[cfg(any(
     feature = "lambdaworks-serde-binary",
     feature = "lambdaworks-serde-string"
@@ -344,7 +344,6 @@ where
         self.value = <F as IsSubFieldOf<L>>::mul(&rhs.value, &self.value);
     }
 }
-
 
 /// Division operator overloading for field elements*/
 impl<F, L> Div<&FieldElement<L>> for &FieldElement<F>
