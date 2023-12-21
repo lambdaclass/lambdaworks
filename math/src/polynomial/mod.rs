@@ -4,6 +4,7 @@ use alloc::{borrow::ToOwned, vec, vec::Vec};
 use core::{fmt::Display, ops};
 
 pub mod dense_multilinear_poly;
+mod error;
 
 /// Represents the polynomial c_0 + c_1 * X + c_2 * X^2 + ... + c_n * X^n
 /// as a vector of coefficients `[c_0, c_1, ... , c_n]`

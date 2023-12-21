@@ -1,5 +1,6 @@
 use crate::field::element::FieldElement;
 use crate::field::traits::IsField;
+use super::error::Polynomial as PolynomialError;
 use core::ops::{Add, Index, Mul};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
@@ -10,7 +11,7 @@ where
     <F as IsField>::BaseType: Send + Sync,
 {
     evals: Vec<FieldElement<F>>,
-    n_vars: usize, // number of variables
+    n_vars: usize,
     len: usize,
 }
 
@@ -97,7 +98,7 @@ where
         assert_eq!(self.evals.len(), self.len);
     }
 
-    pub fn merge(polys: &[DenseMultilinearPolynomial<F>]) -> DenseMultilinearPolynomial<F> {
+    pub fn merge(polys: &[DenseMultilinearPolynomial<F>]) -> Result<DenseMultilinearPolynomial<F>, PolynomialError> {
         let mut z: Vec<FieldElement<F>> = Vec::new();
         for poly in polys.iter() {
             z.extend(poly.evals().clone().into_iter());
@@ -106,7 +107,7 @@ where
         // pad the polynomial with zero polynomial at the end
         z.resize(z.len().next_power_of_two(), FieldElement::zero());
 
-        DenseMultilinearPolynomial::new(z)
+        Ok(DenseMultilinearPolynomial::new(z))
     }
 
     pub fn from_u64(evals: &[u64]) -> Self {
@@ -257,13 +258,13 @@ mod tests {
     #[test]
     fn evaluation() {
         // Z = [1, 2, 1, 4]
-        let Z = vec![FE::one(), FE::from(2u64), FE::one(), FE::from(4u64)];
+        let z = vec![FE::one(), FE::from(2u64), FE::one(), FE::from(4u64)];
 
         // r = [4,3]
         let r = vec![FE::from(4u64), FE::from(3u64)];
 
-        let eval_with_lr = evaluate_with_lr(&Z, &r);
-        let poly = DenseMultilinearPolynomial::new(Z);
+        let eval_with_lr = evaluate_with_lr(&z, &r);
+        let poly = DenseMultilinearPolynomial::new(z);
 
         let eval = poly.evaluate(r);
         assert_eq!(eval, FE::from(28u64));
@@ -272,26 +273,72 @@ mod tests {
 
     #[test]
     fn evaluate_with() {
-        todo!()
+
+    let two = FE::from(2);
+
+    let z = vec![
+      FE::zero(),
+      FE::zero(),
+      FE::zero(),
+      FE::one(),
+      FE::one(),
+      FE::one(),
+      FE::zero(),
+      two,
+    ];
+    let x = vec![FE::one(), FE::one(), FE::one()];
+
+    let y = DenseMultilinearPolynomial::<F>::evaluate_with(z.as_slice(), x.as_slice());
+    assert_eq!(y, two);
     }
 
     #[test]
     fn add() {
-        todo!()
+        let a = DenseMultilinearPolynomial::new(vec![FE::from(3); 4]);
+        let b = DenseMultilinearPolynomial::new(vec![FE::from(7); 4]);
+    
+        let c = a.add(b).unwrap();
+    
+        assert_eq!(*c.evals(), vec![FE::from(10); 4]);
     }
 
     #[test]
     fn mul() {
-        todo!()
+        let a = DenseMultilinearPolynomial::new(vec![FE::from(3); 4]);
+        let b = a.mul(&FE::from(2));
+    
+        assert_eq!(*b.evals(), vec![FE::from(6); 4]);
     }
 
+    // Take a muultilinear polynomial of length 2^2 and merge with a polynomial of 2^1. The resulting polynomial should be padded to len 2^3 = 8 and the last two evals should be FE::zero().
     #[test]
     fn merge() {
-        todo!()
+        let a = DenseMultilinearPolynomial::new(vec![FE::from(3); 4]);
+        let b = DenseMultilinearPolynomial::new(vec![FE::from(3); 2]);
+
+        let c = DenseMultilinearPolynomial::merge(&[a, b]).unwrap();
+
+        assert_eq!(c.len(), 8);
+        assert_eq!(c[c.len() - 1], FE::zero());
+        assert_eq!(c[c.len() - 2], FE::zero());
     }
 
     #[test]
     fn extend() {
-        todo!()
+        let mut a = DenseMultilinearPolynomial::new(vec![FE::from(3); 4]);
+        let b = DenseMultilinearPolynomial::new(vec![FE::from(3); 4]);
+
+        a.extend(&b);
+
+        assert_eq!(a.len(), 8);
+        assert_eq!(a.num_vars(), 3);
+    }
+
+    #[test]
+    #[should_panic]
+    fn extend_unequal() {
+        let mut a = DenseMultilinearPolynomial::new(vec![FE::from(3); 4]);
+        let b = DenseMultilinearPolynomial::new(vec![FE::from(3); 2]);
+        a.extend(&b);
     }
 }
