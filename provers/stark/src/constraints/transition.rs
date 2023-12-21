@@ -14,6 +14,8 @@ pub trait TransitionConstraint<F: IsFFTField>: Send + Sync {
 
     fn constraint_idx(&self) -> usize;
 
+    fn mask(&self) -> Vec<(usize, usize, usize)>;
+
     fn evaluate(
         &self,
         frame: &Frame<F>,

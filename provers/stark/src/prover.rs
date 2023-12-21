@@ -326,7 +326,8 @@ pub trait IsStarkProver {
         //
         // In the fibonacci example, the ood frame is simply the evaluations `[t(z), t(z * g), t(z * g^2)]`, where `t` is the trace
         // polynomial and `g` is the primitive root of unity used when interpolating `t`.
-        let trace_ood_evaluations = crate::trace::get_trace_evaluations(
+        println!("TRACE POLYS LEN: {}", round_1_result.trace_polys.len());
+        let trace_ood_evaluations = crate::trace::get_trace_evaluations::<A>(
             &round_1_result.trace_polys,
             z,
             &air.context().transition_offsets,
@@ -852,14 +853,16 @@ pub trait IsStarkProver {
 
         info!("End proof generation");
 
-        let trace_ood_evaluations = Table::new(
-            round_3_result
-                .trace_ood_evaluations
-                .into_iter()
-                .flatten()
-                .collect(),
-            round_1_result.trace_polys.len(),
-        );
+        let trace_ood_evaluations: Vec<_> = round_3_result
+            .trace_ood_evaluations
+            .into_iter()
+            .flatten()
+            .collect();
+
+        println!("TRACE OOD EVALS LEN: {}", trace_ood_evaluations.len());
+
+        let trace_ood_evaluations =
+            Table::new(trace_ood_evaluations, round_1_result.trace_polys.len());
 
         Ok(StarkProof {
             // [tⱼ]

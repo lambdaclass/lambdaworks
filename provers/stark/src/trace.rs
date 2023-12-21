@@ -1,4 +1,5 @@
 use crate::table::{Table, TableView};
+use crate::traits::AIR;
 use lambdaworks_math::fft::errors::FFTError;
 use lambdaworks_math::{
     field::{element::FieldElement, traits::IsFFTField},
@@ -196,20 +197,37 @@ impl<'t, F: IsFFTField> StepView<'t, F> {
 /// compute a transition.
 /// Example: For a simple Fibonacci computation, if t(x) is the trace polynomial of
 /// the computation, this will output evaluations t(x), t(g * x), t(g^2 * z).
-pub fn get_trace_evaluations<F: IsFFTField>(
-    trace_polys: &[Polynomial<FieldElement<F>>],
-    x: &FieldElement<F>,
+pub fn get_trace_evaluations<A: AIR>(
+    trace_polys: &[Polynomial<FieldElement<A::Field>>],
+    x: &FieldElement<A::Field>,
     frame_offsets: &[usize],
-    primitive_root: &FieldElement<F>,
-) -> Vec<Vec<FieldElement<F>>> {
+    primitive_root: &FieldElement<A::Field>,
+) -> Vec<Vec<FieldElement<A::Field>>> {
+    // frame_offsets
+    //     .iter()
+    //     .map(|offset| x * primitive_root.pow(*offset))
+    //     .map(|eval_point| {
+    //         trace_polys
+    //             .iter()
+    //             .map(|poly| poly.evaluate(&eval_point))
+    //             .collect::<Vec<FieldElement<A::Field>>>()
+    //     })
+    //     .collect()
+
     frame_offsets
         .iter()
-        .map(|offset| x * primitive_root.pow(*offset))
+        .map(|offset| {
+            let exponents_range_start = offset * A::STEP_SIZE;
+            let exponents_range_end = (offset + 1) * A::STEP_SIZE;
+            (exponents_range_start..exponents_range_end).collect::<Vec<_>>()
+        })
+        .flatten()
+        .map(|exponent| x * primitive_root.pow(exponent))
         .map(|eval_point| {
             trace_polys
                 .iter()
                 .map(|poly| poly.evaluate(&eval_point))
-                .collect::<Vec<FieldElement<F>>>()
+                .collect::<Vec<FieldElement<A::Field>>>()
         })
         .collect()
 }

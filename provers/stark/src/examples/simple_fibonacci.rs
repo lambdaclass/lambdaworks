@@ -41,6 +41,10 @@ where
         2
     }
 
+    fn mask(&self) -> Vec<(usize, usize, usize)> {
+        vec![(0, 0, 0), (1, 0, 0), (2, 0, 0)]
+    }
+
     fn evaluate(
         &self,
         frame: &Frame<F>,

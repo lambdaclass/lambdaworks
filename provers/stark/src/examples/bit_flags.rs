@@ -43,6 +43,10 @@ impl TransitionConstraint<Stark252PrimeField> for BitConstraint {
         0
     }
 
+    fn mask(&self) -> Vec<(usize, usize, usize)> {
+        vec![(0, 0, 0), (0, 1, 0)]
+    }
+
     fn evaluate(
         &self,
         frame: &Frame<Stark252PrimeField>,
@@ -88,6 +92,10 @@ impl TransitionConstraint<Stark252PrimeField> for ZeroFlagConstraint {
 
     fn period(&self) -> usize {
         16
+    }
+
+    fn mask(&self) -> Vec<(usize, usize, usize)> {
+        vec![(0, 15, 0)]
     }
 
     fn evaluate(

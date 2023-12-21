@@ -1,3 +1,4 @@
+use itertools::Itertools;
 use lambdaworks_math::{
     field::{element::FieldElement, traits::IsFFTField},
     polynomial::Polynomial,
@@ -154,4 +155,19 @@ pub trait AIR {
 
         TransitionZerofiersIter::new(evals)
     }
+
+    fn mask(&self) -> Vec<(usize, usize, usize)> {
+        self.transition_constraints()
+            .iter()
+            .map(|c| c.mask())
+            .flatten()
+            .unique()
+            .collect()
+    }
+
+    // fn mask_trace_evaluations(
+    //     &self,
+    //     trace_polys: &[Polynomial<FieldElement<Self::Field>>],
+    //     x: &FieldElement<Self::Field>,
+    // );
 }
