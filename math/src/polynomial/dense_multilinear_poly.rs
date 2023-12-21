@@ -1,6 +1,6 @@
+use super::error::Polynomial as PolynomialError;
 use crate::field::element::FieldElement;
 use crate::field::traits::IsField;
-use super::error::Polynomial as PolynomialError;
 use core::ops::{Add, Index, Mul};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
@@ -98,7 +98,9 @@ where
         assert_eq!(self.evals.len(), self.len);
     }
 
-    pub fn merge(polys: &[DenseMultilinearPolynomial<F>]) -> Result<DenseMultilinearPolynomial<F>, PolynomialError> {
+    pub fn merge(
+        polys: &[DenseMultilinearPolynomial<F>],
+    ) -> Result<DenseMultilinearPolynomial<F>, PolynomialError> {
         let mut z: Vec<FieldElement<F>> = Vec::new();
         for poly in polys.iter() {
             z.extend(poly.evals().clone().into_iter());
@@ -273,32 +275,31 @@ mod tests {
 
     #[test]
     fn evaluate_with() {
+        let two = FE::from(2);
 
-    let two = FE::from(2);
+        let z = vec![
+            FE::zero(),
+            FE::zero(),
+            FE::zero(),
+            FE::one(),
+            FE::one(),
+            FE::one(),
+            FE::zero(),
+            two,
+        ];
+        let x = vec![FE::one(), FE::one(), FE::one()];
 
-    let z = vec![
-      FE::zero(),
-      FE::zero(),
-      FE::zero(),
-      FE::one(),
-      FE::one(),
-      FE::one(),
-      FE::zero(),
-      two,
-    ];
-    let x = vec![FE::one(), FE::one(), FE::one()];
-
-    let y = DenseMultilinearPolynomial::<F>::evaluate_with(z.as_slice(), x.as_slice());
-    assert_eq!(y, two);
+        let y = DenseMultilinearPolynomial::<F>::evaluate_with(z.as_slice(), x.as_slice());
+        assert_eq!(y, two);
     }
 
     #[test]
     fn add() {
         let a = DenseMultilinearPolynomial::new(vec![FE::from(3); 4]);
         let b = DenseMultilinearPolynomial::new(vec![FE::from(7); 4]);
-    
+
         let c = a.add(b).unwrap();
-    
+
         assert_eq!(*c.evals(), vec![FE::from(10); 4]);
     }
 
@@ -306,7 +307,7 @@ mod tests {
     fn mul() {
         let a = DenseMultilinearPolynomial::new(vec![FE::from(3); 4]);
         let b = a.mul(&FE::from(2));
-    
+
         assert_eq!(*b.evals(), vec![FE::from(6); 4]);
     }
 
