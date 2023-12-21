@@ -125,7 +125,7 @@ where
         // pad the polynomial with zero polynomial at the end
         z.resize(z.len().next_power_of_two(), FieldElement::zero());
 
-        DenseMultilinearPolynomial::new(z)
+        Ok(DenseMultilinearPolynomial::new(z))
     }
 
     pub fn from_u64(evals: &[u64]) -> Self {
