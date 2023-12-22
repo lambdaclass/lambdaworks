@@ -1275,8 +1275,8 @@ pub fn generate_cairo_proof(
     trace: &TraceTable<Stark252PrimeField>,
     pub_input: &PublicInputs,
     proof_options: &ProofOptions,
-) -> Result<StarkProof<Stark252PrimeField>, ProvingError> {
-    Prover::prove::<CairoAIR>(
+) -> Result<StarkProof<Stark252PrimeField, Stark252PrimeField>, ProvingError> {
+    Prover::<CairoAIR>::prove(
         trace,
         pub_input,
         proof_options,
@@ -1288,11 +1288,11 @@ pub fn generate_cairo_proof(
 /// concrete types.
 /// The field is set to Stark252PrimeField and the AIR to CairoAIR.
 pub fn verify_cairo_proof(
-    proof: &StarkProof<Stark252PrimeField>,
+    proof: &StarkProof<Stark252PrimeField, Stark252PrimeField>,
     pub_input: &PublicInputs,
     proof_options: &ProofOptions,
 ) -> bool {
-    Verifier::verify::<CairoAIR>(
+    Verifier::<CairoAIR>::verify(
         proof,
         pub_input,
         proof_options,
@@ -1481,7 +1481,8 @@ mod prop_test {
 
         // At this point, the verifier only knows about the serialized proof, the proof options
         // and the public inputs.
-        let proof: StarkProof<Stark252PrimeField> = serde_cbor::from_slice(&proof_bytes).unwrap();
+        let proof: StarkProof<Stark252PrimeField, Stark252PrimeField> =
+            serde_cbor::from_slice(&proof_bytes).unwrap();
 
         // The proof is verified successfully.
         assert!(verify_cairo_proof(&proof, &pub_inputs, &proof_options));

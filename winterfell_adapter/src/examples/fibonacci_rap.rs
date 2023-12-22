@@ -240,17 +240,18 @@ pub fn build_trace(sequence_length: usize) -> TraceTable<Felt> {
 
 #[cfg(test)]
 mod tests {
+    use lambdaworks_math::field::fields::winterfell::QuadFelt;
     use miden_core::Felt;
     use stark_platinum_prover::{
-        proof::options::ProofOptions, prover::IsStarkProver, verifier::IsStarkVerifier,
+        proof::options::ProofOptions,
+        prover::{IsStarkProver, Prover},
+        verifier::{IsStarkVerifier, Verifier},
     };
     use winter_air::{TraceInfo, TraceLayout};
     use winter_prover::Trace;
 
     use crate::{
-        adapter::{
-            air::AirAdapter, public_inputs::AirAdapterPublicInputs, Prover, Transcript, Verifier,
-        },
+        adapter::{air::AirAdapter, public_inputs::AirAdapterPublicInputs, QuadFeltTranscript},
         examples::fibonacci_rap::{self, FibonacciRAP, RapTraceTable},
     };
 
@@ -259,7 +260,7 @@ mod tests {
         let lambda_proof_options = ProofOptions::default_test_options();
         let winter_trace = fibonacci_rap::build_trace(16);
         let trace =
-            AirAdapter::<FibonacciRAP, RapTraceTable<_>, Felt, ()>::convert_winterfell_trace_table(
+            AirAdapter::<FibonacciRAP, RapTraceTable<_>, Felt, QuadFelt, ()>::convert_winterfell_trace_table(
                 winter_trace.main_segment().clone(),
             );
         let trace_layout = TraceLayout::new(3, [1], [1]);
@@ -273,20 +274,20 @@ mod tests {
             metadata: (),
         };
 
-        let proof = Prover::prove::<AirAdapter<FibonacciRAP, RapTraceTable<_>, Felt, _>>(
+        let proof = Prover::<AirAdapter<FibonacciRAP, RapTraceTable<_>, Felt, QuadFelt, _>>::prove(
             &trace,
             &pub_inputs,
             &lambda_proof_options,
-            Transcript::new(&[]),
+            QuadFeltTranscript::new(&[]),
         )
         .unwrap();
-        assert!(Verifier::verify::<
-            AirAdapter<FibonacciRAP, RapTraceTable<_>, Felt, _>,
-        >(
+        assert!(Verifier::<
+            AirAdapter<FibonacciRAP, RapTraceTable<_>, Felt, QuadFelt, _>,
+        >::verify(
             &proof,
             &pub_inputs,
             &lambda_proof_options,
-            Transcript::new(&[]),
+            QuadFeltTranscript::new(&[]),
         ));
     }
 }

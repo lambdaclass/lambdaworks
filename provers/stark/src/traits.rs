@@ -32,7 +32,7 @@ pub trait AIR {
 
     fn build_auxiliary_trace(
         &self,
-        main_trace: &TraceTable<Self::FieldExtension>,
+        main_trace: &TraceTable<Self::Field>,
         rap_challenges: &Self::RAPChallenges,
     ) -> TraceTable<Self::FieldExtension>;
 
@@ -50,7 +50,7 @@ pub trait AIR {
         frame: &Frame<Self::FieldExtension>,
         periodic_values: &[FieldElement<Self::FieldExtension>],
         rap_challenges: &Self::RAPChallenges,
-    ) -> Vec<FieldElement<Self::Field>>;
+    ) -> Vec<FieldElement<Self::FieldExtension>>;
 
     fn boundary_constraints(
         &self,

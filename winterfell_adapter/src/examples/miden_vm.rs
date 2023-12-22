@@ -1,9 +1,14 @@
+use lambdaworks_math::field::fields::winterfell::QuadFelt;
+use miden_air::ProcessorAir;
 use miden_core::{Felt, ProgramInfo, StackOutputs};
 use miden_processor::{AuxTraceHints, ExecutionTrace, TraceLenSummary};
 use winter_air::TraceLayout;
 use winter_prover::ColMatrix;
 
-use crate::adapter::air::FromColumns;
+use crate::adapter::air::{AirAdapter, FromColumns};
+
+pub type MidenVMQuadFeltAir =
+    AirAdapter<ProcessorAir, ExecutionTrace, Felt, QuadFelt, ExecutionTraceMetadata>;
 
 #[derive(Clone)]
 pub struct ExecutionTraceMetadata {
@@ -44,16 +49,16 @@ impl FromColumns<Felt, ExecutionTraceMetadata> for ExecutionTrace {
 
 #[cfg(test)]
 mod tests {
-    use crate::adapter::air::AirAdapter;
     use crate::adapter::public_inputs::AirAdapterPublicInputs;
-    use crate::adapter::{Prover, Transcript, Verifier};
-    use crate::examples::fibonacci_2_terms::FibAir2Terms;
-    use miden_air::{ProcessorAir, ProvingOptions, PublicInputs};
+    use crate::adapter::QuadFeltTranscript;
+    use crate::examples::miden_vm::MidenVMQuadFeltAir;
+    use miden_air::{ProvingOptions, PublicInputs};
     use miden_assembly::Assembler;
     use miden_core::{Felt, StackInputs};
     use miden_processor::DefaultHost;
     use miden_processor::{self as processor};
-    use processor::ExecutionTrace;
+    use stark_platinum_prover::prover::Prover;
+    use stark_platinum_prover::verifier::Verifier;
     use stark_platinum_prover::{
         proof::options::ProofOptions, prover::IsStarkProver, verifier::IsStarkVerifier,
     };
@@ -89,25 +94,21 @@ mod tests {
         };
 
         let trace =
-            AirAdapter::<FibAir2Terms, ExecutionTrace, Felt, _>::convert_winterfell_trace_table(
-                winter_trace.main_segment().clone(),
-            );
+            MidenVMQuadFeltAir::convert_winterfell_trace_table(winter_trace.main_segment().clone());
 
-        let proof = Prover::prove::<AirAdapter<ProcessorAir, ExecutionTrace, Felt, _>>(
+        let proof = Prover::<MidenVMQuadFeltAir>::prove(
             &trace,
             &pub_inputs,
             &lambda_proof_options,
-            Transcript::new(&[]),
+            QuadFeltTranscript::new(&[]),
         )
         .unwrap();
 
-        assert!(Verifier::verify::<
-            AirAdapter<ProcessorAir, ExecutionTrace, Felt, _>,
-        >(
+        assert!(Verifier::<MidenVMQuadFeltAir>::verify(
             &proof,
             &pub_inputs,
             &lambda_proof_options,
-            Transcript::new(&[]),
+            QuadFeltTranscript::new(&[]),
         ));
     }
 
@@ -167,25 +168,21 @@ mod tests {
         };
 
         let trace =
-            AirAdapter::<ProcessorAir, ExecutionTrace, Felt, _>::convert_winterfell_trace_table(
-                winter_trace.main_segment().clone(),
-            );
+            MidenVMQuadFeltAir::convert_winterfell_trace_table(winter_trace.main_segment().clone());
 
-        let proof = Prover::prove::<AirAdapter<ProcessorAir, ExecutionTrace, Felt, _>>(
+        let proof = Prover::<MidenVMQuadFeltAir>::prove(
             &trace,
             &pub_inputs,
             &lambda_proof_options,
-            Transcript::new(&[]),
+            QuadFeltTranscript::new(&[]),
         )
         .unwrap();
 
-        assert!(Verifier::verify::<
-            AirAdapter<ProcessorAir, ExecutionTrace, Felt, _>,
-        >(
+        assert!(Verifier::<MidenVMQuadFeltAir>::verify(
             &proof,
             &pub_inputs,
             &lambda_proof_options,
-            Transcript::new(&[]),
+            QuadFeltTranscript::new(&[]),
         ));
     }
 }
