@@ -1,6 +1,6 @@
-use super::error::Polynomial as PolynomialError;
-use crate::field::element::FieldElement;
+use super::error::{DenseMultilinear, Polynomial as PolynomialError};
 use crate::field::traits::IsField;
+use crate::{field::element::FieldElement, polynomial::error::Multilinear};
 use core::ops::{Add, Index, Mul};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
@@ -50,9 +50,13 @@ where
     /// Note: assumes p contains points for all variables aka is not sparse.
     // Ported from a16z/Lasso
     #[allow(dead_code)]
-    pub fn evaluate(&self, r: Vec<FieldElement<F>>) -> FieldElement<F> {
+    pub fn evaluate(&self, r: Vec<FieldElement<F>>) -> Result<FieldElement<F>, PolynomialError> {
         // r must have a value for each variable
-        assert_eq!(r.len(), self.num_vars());
+        if r.len() != self.num_vars() {
+            return Err(PolynomialError::Multilinear(Multilinear::DenseMultilinear(
+                DenseMultilinear::IncorrectNumberofEvaluationPoints(r.len(), self.num_vars()),
+            )));
+        }
 
         let mut chis: Vec<FieldElement<F>> =
             vec![FieldElement::one(); (2usize).pow(r.len() as u32)];
@@ -65,14 +69,21 @@ where
                 chis[i - 1] = scalar - &chis[i];
             }
         }
-        assert_eq!(chis.len(), self.evals.len());
-        (0..chis.len())
+        if chis.len() != self.evals.len() {
+            return Err(PolynomialError::Multilinear(Multilinear::DenseMultilinear(
+                DenseMultilinear::ChisAndEvalsMismatch(chis.len(), self.evals.len()),
+            )));
+        }
+        Ok((0..chis.len())
             .into_par_iter()
             .map(|i| &self.evals[i] * &chis[i])
-            .sum()
+            .sum())
     }
 
-    pub fn evaluate_with(evals: &[FieldElement<F>], r: &[FieldElement<F>]) -> FieldElement<F> {
+    pub fn evaluate_with(
+        evals: &[FieldElement<F>],
+        r: &[FieldElement<F>],
+    ) -> Result<FieldElement<F>, PolynomialError> {
         let mut chis: Vec<FieldElement<F>> =
             vec![FieldElement::one(); (2usize).pow(r.len() as u32)];
         let mut size = 1;
@@ -84,8 +95,12 @@ where
                 chis[i - 1] = scalar - &chis[i];
             }
         }
-        assert_eq!(chis.len(), evals.len());
-        (0..evals.len()).map(|i| &evals[i] * &chis[i]).sum()
+        if chis.len() != evals.len() {
+            return Err(PolynomialError::Multilinear(Multilinear::DenseMultilinear(
+                DenseMultilinear::ChisAndEvalsMismatch(chis.len(), evals.len()),
+            )));
+        }
+        Ok((0..evals.len()).map(|i| &evals[i] * &chis[i]).sum())
     }
 
     pub fn extend(&mut self, other: &DenseMultilinearPolynomial<F>) {
@@ -185,8 +200,11 @@ where
     }
 }
 
+// returns 0 if n is 0
 fn log_2(n: usize) -> usize {
-    assert_ne!(n, 0);
+    if n == 0 {
+        return 0;
+    }
 
     if n.is_power_of_two() {
         (1usize.leading_zeros() - n.leading_zeros()) as usize
@@ -226,10 +244,10 @@ mod tests {
         let size = r.len();
         let (left_num_vars, _right_num_vars) = (size / 2, size - size / 2);
 
-        let L = evals(r[..left_num_vars].to_vec());
-        let R = evals(r[left_num_vars..size].to_vec());
+        let l = evals(r[..left_num_vars].to_vec());
+        let r = evals(r[left_num_vars..size].to_vec());
 
-        (L, R)
+        (l, r)
     }
 
     fn evaluate_with_lr(z: &[FE], r: &[FE]) -> FE {
@@ -268,7 +286,7 @@ mod tests {
         let eval_with_lr = evaluate_with_lr(&z, &r);
         let poly = DenseMultilinearPolynomial::new(z);
 
-        let eval = poly.evaluate(r);
+        let eval = poly.evaluate(r).unwrap();
         assert_eq!(eval, FE::from(28u64));
         assert_eq!(eval_with_lr, eval);
     }
@@ -289,7 +307,7 @@ mod tests {
         ];
         let x = vec![FE::one(), FE::one(), FE::one()];
 
-        let y = DenseMultilinearPolynomial::<F>::evaluate_with(z.as_slice(), x.as_slice());
+        let y = DenseMultilinearPolynomial::<F>::evaluate_with(z.as_slice(), x.as_slice()).unwrap();
         assert_eq!(y, two);
     }
 
