@@ -19,7 +19,7 @@ impl<F: IsField> DenseMultilinearPolynomial<F>
 where
     <F as IsField>::BaseType: Send + Sync,
 {
-    /// Build a new multilinear polynomial, from collection of multilinear monomials
+    /// Build a new multilinear polynomial, from collection of evaluations
     pub fn new(evals: Vec<FieldElement<F>>) -> Self {
         // Pad non-power-2 evaluations to fill out the dense multilinear polynomial
         let mut poly_evals = evals;
