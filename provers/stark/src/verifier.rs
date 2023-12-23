@@ -254,36 +254,47 @@ pub trait IsStarkVerifier {
             .map(|poly| poly.evaluate(&challenges.z))
             .collect::<Vec<FieldElement<Self::Field>>>();
 
-        let transition_ood_frame_evaluations = air.compute_transition(
-            &(proof.trace_ood_evaluations).into_frame(A::STEP_SIZE),
-            &periodic_values,
-            &challenges.rap_challenges,
+        println!(
+            "TRACE OOD EVALS HEIGHT: {}",
+            proof.trace_ood_evaluations.height
         );
 
-        let denominator = (&challenges.z.pow(trace_length) - FieldElement::<Self::Field>::one())
-            .inv()
-            .unwrap();
+        println!(
+            "TRACE OOD EVALS WIDTH: {}",
+            proof.trace_ood_evaluations.width
+        );
 
-        let exemption = air
-            .transition_exemptions_verifier(
-                domain.trace_roots_of_unity.iter().last().expect("has last"),
-            )
-            .iter()
-            .map(|poly| poly.evaluate(&challenges.z))
-            .collect::<Vec<FieldElement<Self::Field>>>();
+        let ood_frame = (proof.trace_ood_evaluations).into_frame(A::STEP_SIZE);
+        let transition_ood_frame_evaluations =
+            air.compute_transition(&ood_frame, &periodic_values, &challenges.rap_challenges);
 
-        let unity = &FieldElement::one();
-        let transition_c_i_evaluations_sum = transition_ood_frame_evaluations
+        let denominators: Vec<_> = air
+            .transition_constraints()
             .iter()
-            .zip(&air.context().transition_exemptions)
-            .zip(&challenges.transition_coeffs)
-            .fold(FieldElement::zero(), |acc, ((eval, except), beta)| {
-                let except = except
-                    .checked_sub(1)
-                    .map(|i| &exemption[i])
-                    .unwrap_or(unity);
-                acc + &denominator * eval * beta * except
-            });
+            .map(|c| c.evaluate_zerofier(&challenges.z, &domain.trace_primitive_root, trace_length))
+            .collect();
+
+        // let exemption = air
+        //     .transition_exemptions_verifier(
+        //         domain.trace_roots_of_unity.iter().last().expect("has last"),
+        //     )
+        //     .iter()
+        //     .map(|poly| poly.evaluate(&challenges.z))
+        //     .collect::<Vec<FieldElement<Self::Field>>>();
+
+        // let unity = &FieldElement::one();
+        let transition_c_i_evaluations_sum = itertools::izip!(
+            transition_ood_frame_evaluations, // .zip(&air.context().transition_exemptions)
+            &challenges.transition_coeffs,
+            denominators
+        )
+        .fold(FieldElement::zero(), |acc, (eval, beta, denominator)| {
+            // let except = except
+            //     .checked_sub(1)
+            //     .map(|i| &exemption[i])
+            //     .unwrap_or(unity);
+            acc + beta * eval * &denominator
+        });
 
         let composition_poly_ood_evaluation =
             &boundary_quotient_ood_evaluation + transition_c_i_evaluations_sum;

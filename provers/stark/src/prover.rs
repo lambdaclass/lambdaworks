@@ -1,3 +1,4 @@
+use std::fmt::Display;
 #[cfg(feature = "instruments")]
 use std::time::Instant;
 
@@ -272,6 +273,19 @@ pub trait IsStarkProver {
             Polynomial::interpolate_offset_fft(&constraint_evaluations, &domain.coset_offset)
                 .unwrap();
 
+        println!("COMPOSITION POLY DEGREE: {}", composition_poly.degree());
+
+        // # ----------- DEBUG ----------------#
+
+        // EVALUAR EL COMPOSITION POLY EN Z, FIJARSE QUE EVALUANDO LAS PARTS Y LA SUMA DA TODO IGUAL
+        // let zeta = FieldElement::<Self::Field>::from_hex_unchecked(
+        //     "0x6bdb26aeb9dfe56a3f4b6d510eaef7c7d84ce78d805cf9fc88544f89ee37323",
+        // );
+
+        // let zeta_eval = composition_poly.evaluate(&zeta);
+
+        // # -----------------------------------#
+
         let number_of_parts = air.composition_poly_degree_bound() / air.trace_length();
         let composition_poly_parts = composition_poly.break_in_parts(number_of_parts);
 
@@ -307,9 +321,11 @@ pub trait IsStarkProver {
         z: &FieldElement<Self::Field>,
     ) -> Round3<Self::Field>
     where
-        FieldElement<Self::Field>: Serializable + Sync + Send,
+        FieldElement<Self::Field>: Serializable + Sync + Send + Display,
     {
         let z_power = z.pow(round_2_result.composition_poly_parts.len());
+
+        println!("Z PROVER: {}", z);
 
         // Evaluate H_i in z^N for all i, where N is the number of parts the composition poly was
         // broken into.
@@ -326,7 +342,6 @@ pub trait IsStarkProver {
         //
         // In the fibonacci example, the ood frame is simply the evaluations `[t(z), t(z * g), t(z * g^2)]`, where `t` is the trace
         // polynomial and `g` is the primitive root of unity used when interpolating `t`.
-        println!("TRACE POLYS LEN: {}", round_1_result.trace_polys.len());
         let trace_ood_evaluations = crate::trace::get_trace_evaluations::<A>(
             &round_1_result.trace_polys,
             z,
@@ -683,7 +698,7 @@ pub trait IsStarkProver {
     ) -> Result<StarkProof<Self::Field>, ProvingError>
     where
         A: AIR<Field = Self::Field> + Send + Sync,
-        FieldElement<Self::Field>: Serializable + Send + Sync,
+        FieldElement<Self::Field>: Serializable + Send + Sync + Display,
     {
         info!("Started proof generation...");
         #[cfg(feature = "instruments")]

@@ -125,7 +125,6 @@ impl<'t, F: IsFFTField> Table<F> {
 
     /// Given a step size, converts the given table into a `Frame`.
     pub fn into_frame(&'t self, step_size: usize) -> Frame<'t, F> {
-        println!("FRAME HEIGH: {}", self.height);
         debug_assert!(self.height % step_size == 0);
         let steps = (0..self.height)
             .step_by(step_size)

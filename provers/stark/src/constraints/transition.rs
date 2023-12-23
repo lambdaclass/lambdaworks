@@ -65,14 +65,14 @@ pub trait TransitionConstraint<F: IsFFTField>: Send + Sync {
         let root_order = u64::from((blowup_factor * trace_length).trailing_zeros());
         let root = F::get_primitive_root_of_unity(root_order).unwrap();
 
-        println!("OMEGA TO THE N POWER: {:?}", root.pow(trace_length));
+        // println!("OMEGA TO THE N POWER: {:?}", root.pow(trace_length));
 
-        println!(
-            "ROOT TO THE NxBETA POWER: {:?}",
-            root.pow(trace_length * blowup_factor)
-        );
+        // println!(
+        //     "ROOT TO THE NxBETA POWER: {:?}",
+        //     root.pow(trace_length * blowup_factor)
+        // );
 
-        println!("OMEGA TO THE BETA POWER: {:?}", root.pow(blowup_factor));
+        // println!("OMEGA TO THE BETA POWER: {:?}", root.pow(blowup_factor));
 
         let end_exemptions_poly = self.end_exemptions_poly(trace_primitive_root, trace_length);
 
@@ -157,6 +157,34 @@ pub trait TransitionConstraint<F: IsFFTField>: Send + Sync {
                 .collect()
         }
     }
+
+    fn evaluate_zerofier(
+        &self,
+        z: &FieldElement<F>,
+        trace_primitive_root: &FieldElement<F>,
+        trace_length: usize,
+    ) -> FieldElement<F> {
+        let end_exemptions_poly = self.end_exemptions_poly(trace_primitive_root, trace_length);
+
+        if let Some(exemptions_period) = self.exemptions_period() {
+            debug_assert!(exemptions_period.is_multiple_of(&self.period()));
+            debug_assert!(self.periodic_exemptions_offset().is_some());
+
+            let periodic_exemptions_offset = self.periodic_exemptions_offset().unwrap();
+            let offset_exponent = trace_length * periodic_exemptions_offset / exemptions_period;
+
+            let numerator =
+                z.pow(trace_length / exemptions_period) - trace_primitive_root.pow(offset_exponent);
+            let denominator = z.pow(trace_length / self.period()) - &FieldElement::<F>::one();
+
+            return numerator.div(denominator) * end_exemptions_poly.evaluate(z);
+        }
+
+        (z.pow(trace_length) - FieldElement::<F>::one())
+            .inv()
+            .unwrap()
+            * end_exemptions_poly.evaluate(z)
+    }
 }
 
 pub struct TransitionZerofiersIter<F: IsFFTField> {
@@ -171,7 +199,7 @@ where
     pub(crate) fn new(zerofier_evals: Vec<Vec<FieldElement<F>>>) -> Self {
         let first_evals_len = zerofier_evals[0].len();
         debug_assert!(zerofier_evals.iter().all(|evals| {
-            println!("EVALS LEN: {}", evals.len());
+            // println!("EVALS LEN: {}", evals.len());
             evals.len() == first_evals_len
         }));
 

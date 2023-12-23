@@ -203,17 +203,6 @@ pub fn get_trace_evaluations<A: AIR>(
     frame_offsets: &[usize],
     primitive_root: &FieldElement<A::Field>,
 ) -> Vec<Vec<FieldElement<A::Field>>> {
-    // frame_offsets
-    //     .iter()
-    //     .map(|offset| x * primitive_root.pow(*offset))
-    //     .map(|eval_point| {
-    //         trace_polys
-    //             .iter()
-    //             .map(|poly| poly.evaluate(&eval_point))
-    //             .collect::<Vec<FieldElement<A::Field>>>()
-    //     })
-    //     .collect()
-
     frame_offsets
         .iter()
         .map(|offset| {

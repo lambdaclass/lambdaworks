@@ -1,6 +1,9 @@
 use itertools::Itertools;
 use lambdaworks_math::{
-    field::{element::FieldElement, traits::IsFFTField},
+    field::{
+        element::FieldElement,
+        traits::{IsFFTField, IsField},
+    },
     polynomial::Polynomial,
 };
 
