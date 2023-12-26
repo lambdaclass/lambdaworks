@@ -14,6 +14,7 @@ pub enum RootsConfig {
     BitReverseInversed, // same as above but exponents are negated.
 }
 
+/// Represents the subfield relation between two fields.
 pub trait IsSubFieldOf<F: IsField>: IsField {
     fn mul(a: &Self::BaseType, b: &F::BaseType) -> F::BaseType;
     fn add(a: &Self::BaseType, b: &F::BaseType) -> F::BaseType;
