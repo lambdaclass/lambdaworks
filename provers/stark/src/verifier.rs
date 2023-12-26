@@ -29,30 +29,44 @@ use super::{
     traits::AIR,
 };
 
+/// A default STARK verifier implementing `IsStarkVerifier`.
 pub struct Verifier<A: AIR> {
     phantom: PhantomData<A>,
 }
 
 impl<A: AIR> IsStarkVerifier<A> for Verifier<A> {}
 
+/// A container holding the complete list of challenges sent to the prover along with the seed used
+/// to validate the proof-of-work nonce.
 pub struct Challenges<F, A>
 where
     F: IsField,
     A: AIR<FieldExtension = F>,
 {
+    /// The out-of-domain challenge.
     pub z: FieldElement<F>,
+    /// The composition polynomial coefficients corresponding to the boundary constraints terms.
     pub boundary_coeffs: Vec<FieldElement<F>>,
+    /// The composition polynomial coefficients corresponding to the transition constraints terms.
     pub transition_coeffs: Vec<FieldElement<F>>,
+    /// The deep composition polynomial coefficients corresponding to the trace polynomial terms.
     pub trace_term_coeffs: Vec<Vec<FieldElement<F>>>,
+    /// The deep composition polynomial coefficients corresponding to the composition polynomial parts terms.
     pub gammas: Vec<FieldElement<F>>,
+    /// The list of FRI commit phase folding challenges.
     pub zetas: Vec<FieldElement<F>>,
+    /// The list of FRI query phase index challenges.
     pub iotas: Vec<usize>,
+    /// The challenges used to build the auxiliary trace.
     pub rap_challenges: A::RAPChallenges,
+    /// The seed used to verify the proof-of-work nonce.
     pub grinding_seed: [u8; 32],
 }
 
 pub type DeepPolynomialEvaluations<F> = (Vec<FieldElement<F>>, Vec<FieldElement<F>>);
 
+/// The functionality of a STARK verifier providing methods to run the STARK Verify protocol
+/// https://lambdaclass.github.io/lambdaworks/starks/protocol.html
 pub trait IsStarkVerifier<A: AIR> {
     fn sample_query_indexes(
         number_of_queries: usize,
@@ -65,6 +79,7 @@ pub trait IsStarkVerifier<A: AIR> {
             .collect::<Vec<usize>>()
     }
 
+    /// Returns the list of challenges sent to the prover.
     fn step_1_replay_rounds_and_recover_challenges(
         air: &A,
         proof: &StarkProof<A::Field, A::FieldExtension>,
@@ -201,6 +216,9 @@ pub trait IsStarkVerifier<A: AIR> {
         }
     }
 
+    /// Checks whether the purported evaluations of the composition polynomial parts and the trace
+    /// polynomials at the out-of-domain challenge are consistent.
+    /// See https://lambdaclass.github.io/lambdaworks/starks/protocol.html#step-2-verify-claimed-composition-polynomial
     fn step_2_verify_claimed_composition_polynomial(
         air: &A,
         proof: &StarkProof<A::Field, A::FieldExtension>,
@@ -305,6 +323,9 @@ pub trait IsStarkVerifier<A: AIR> {
         composition_poly_claimed_ood_evaluation == composition_poly_ood_evaluation
     }
 
+    /// Reconstructs the Deep composition polynomial evaluations at the challenge indices values using the provided
+    /// openings of the trace polynomials and the composition polynomial parts. It then uses these to verify that the
+    /// FRI decommitments are valid and correspond to the Deep composition polynomial.
     fn step_3_verify_fri(
         proof: &StarkProof<A::Field, A::FieldExtension>,
         domain: &Domain<A::Field>,
@@ -333,7 +354,6 @@ pub trait IsStarkVerifier<A: AIR> {
             .zip(evaluation_point_inverse)
             .enumerate()
             .fold(true, |mut result, (i, ((proof_s, iota_s), eval))| {
-                // this is done in constant time
                 result &= Self::verify_query_and_sym_openings(
                     proof,
                     &challenges.zetas,
@@ -347,6 +367,7 @@ pub trait IsStarkVerifier<A: AIR> {
             })
     }
 
+    /// Returns the field element element of the domain `domain` corresponding to the given FRI query index challenge `iota`.
     fn query_challenge_to_evaluation_point(
         iota: usize,
         domain: &Domain<A::Field>,
@@ -356,6 +377,7 @@ pub trait IsStarkVerifier<A: AIR> {
         .clone()
     }
 
+    /// Returns the symmetric field element element of the domain `domain` corresponding to the given FRI query index challenge `iota`.
     fn query_challenge_to_evaluation_point_sym(
         iota: usize,
         domain: &Domain<A::Field>,
@@ -365,6 +387,7 @@ pub trait IsStarkVerifier<A: AIR> {
         .clone()
     }
 
+    /// Verifies the validity of the opening proof.
     fn verify_opening<E>(
         proof: &Proof<Commitment>,
         root: &Commitment,
@@ -458,6 +481,9 @@ pub trait IsStarkVerifier<A: AIR> {
             )
     }
 
+    /// Verifies the validity of the purported values of the trace polynomials and the composition polynomial
+    /// parts at the domain elements and their symmetric counterparts corresponding to all the FRI query
+    /// index challenges.
     fn step_4_verify_trace_and_composition_openings(
         proof: &StarkProof<A::Field, A::FieldExtension>,
         challenges: &Challenges<A::FieldExtension, A>,
@@ -481,6 +507,7 @@ pub trait IsStarkVerifier<A: AIR> {
         )
     }
 
+    /// Verifies the openings of a fold polynomial of an inner layer of FRI.
     fn verify_fri_layer_openings(
         merkle_root: &Commitment,
         auth_path_sym: &Proof<Commitment>,
@@ -686,6 +713,8 @@ pub trait IsStarkVerifier<A: AIR> {
         trace_term + h_terms
     }
 
+    /// Verifies a STARK proof with public inputs `pub_inputs`.
+    /// Warning: the transcript must be safely initializated before passing it to this method.
     fn verify(
         proof: &StarkProof<A::Field, A::FieldExtension>,
         pub_input: &A::PublicInputs,

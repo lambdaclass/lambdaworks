@@ -163,8 +163,10 @@ where
     }
 }
 
-/// The functionality of a STARK prover providing methods to run the STARK Prove protocol (https://lambdaclass.github.io/lambdaworks/starks/protocol.html)
-/// The default implementation is complete and is compatible with Stone prover (https://github.com/starkware-libs/stone-prover).
+/// The functionality of a STARK prover providing methods to run the STARK Prove protocol
+/// https://lambdaclass.github.io/lambdaworks/starks/protocol.html
+/// The default implementation is complete and is compatible with Stone prover
+/// https://github.com/starkware-libs/stone-prover
 pub trait IsStarkProver<A: AIR> {
     /// Returns the Merkle tree and the commitment to the vectors `vectors`.
     fn batch_commit<E>(vectors: &[Vec<FieldElement<E>>]) -> (BatchedMerkleTree<E>, Commitment)

@@ -54,7 +54,7 @@ pub struct StoneProverTranscript {
 }
 
 impl StoneProverTranscript {
-    /// The maximum multiple of the modulus of `p` that fits in 256 bits, where 
+    /// The maximum multiple of the modulus of `p` that fits in 256 bits, where
     /// `p = 0x800000000000011000000000000000000000000000000000000000000000001`
     const MODULUS_MAX_MULTIPLE: U256 = U256::from_hex_unchecked(
         "f80000000000020f00000000000000000000000000000000000000000000001f",
