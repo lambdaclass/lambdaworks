@@ -33,6 +33,7 @@ use super::proof::stark::{DeepPolynomialOpening, StarkProof};
 use super::trace::TraceTable;
 use super::traits::AIR;
 
+/// A default STARK prover implementing `IsStarkProver`.
 pub struct Prover<A: AIR> {
     phantom: PhantomData<A>,
 }
@@ -44,25 +45,35 @@ pub enum ProvingError {
     WrongParameter(String),
 }
 
+/// A container for the intermediate results of the commitments to a trace table, main or auxiliary in case of RAP,
+/// in the first round of the STARK Prove protocol.
 pub struct Round1CommitmentData<F>
 where
     F: IsField,
     FieldElement<F>: Serializable + Send + Sync,
 {
+    /// The result of the interpolation of the columns of the trace table.
     pub(crate) trace_polys: Vec<Polynomial<FieldElement<F>>>,
+    /// The Merkle trees constructed to obtain the commitment of the entire trace table.
     pub(crate) lde_trace_merkle_tree: BatchedMerkleTree<F>,
+    /// The root of the Merkle tree in `lde_trace_merkle_tree`.
     pub(crate) lde_trace_merkle_root: Commitment,
 }
 
+/// A container for the results of the first round of the STARK Prove protocol.
 pub struct Round1<A>
 where
     A: AIR,
     FieldElement<A::FieldExtension>: Serializable + Sync + Send,
     FieldElement<A::Field>: Serializable + Sync + Send,
 {
+    /// The table of evaluations over the LDE of the main and auxiliary trace tables.
     pub(crate) lde_table: EvaluationTable<A::Field, A::FieldExtension>,
+    /// The intermediate results of the commitment to the main trace table.
     pub(crate) main: Round1CommitmentData<A::Field>,
+    /// The intermediate results of the commitment to the auxiliary trace table in case of RAP.
     pub(crate) aux: Option<Round1CommitmentData<A::FieldExtension>>,
+    /// The challenges of the RAP round.
     pub(crate) rap_challenges: A::RAPChallenges,
 }
 
@@ -72,6 +83,9 @@ where
     FieldElement<A::FieldExtension>: Serializable + Sync + Send,
     FieldElement<A::Field>: Serializable + Sync + Send,
 {
+    /// Returns the full list of the polynomials interpolating the trace. It includes both
+    /// main and auxiliary trace polynomials. The main trace polynomials are casted to
+    /// polynomials with coefficients over `Self::FieldExtension`.
     fn all_trace_polys(&self) -> Vec<Polynomial<FieldElement<A::FieldExtension>>> {
         let mut trace_polys: Vec<_> = self
             .main
@@ -87,29 +101,50 @@ where
         trace_polys
     }
 }
+
+/// A container for the results of the second round of the STARK Prove protocol.
 pub struct Round2<F>
 where
     F: IsField,
     FieldElement<F>: Serializable + Sync + Send,
 {
+    /// The list of polynomials `H₀, ..., Hₙ` such that `H = ∑ᵢXⁱH(Xⁿ)`, where H is the composition polynomial.
     pub(crate) composition_poly_parts: Vec<Polynomial<FieldElement<F>>>,
+    /// Evaluations of the composition polynomial parts over the LDE domain.
     pub(crate) lde_composition_poly_evaluations: Vec<Vec<FieldElement<F>>>,
+    /// The Merkle tree built to compute the commitment to the composition polynomial parts.
     pub(crate) composition_poly_merkle_tree: BatchedMerkleTree<F>,
+    /// The commitment to the composition polynomial parts.
     pub(crate) composition_poly_root: Commitment,
 }
 
+/// A container for the results of the third round of the STARK Prove protocol.
 pub struct Round3<F: IsField> {
+    /// Evaluations of the trace polynomials, main ans auxiliary, at the out-of-domain challenge.
     trace_ood_evaluations: EvaluationTable<F, F>,
+    /// Evaluations of the composition polynomial parts at the out-of-domain challenge.
     composition_poly_parts_ood_evaluation: Vec<FieldElement<F>>,
 }
 
+/// A container for the results of the fourth round of the STARK Prove protocol.
 pub struct Round4<F: IsSubFieldOf<E>, E: IsField> {
+    /// The final value resulting from folding the Deep composition polynomial all the way down to a constant value.
     fri_last_value: FieldElement<E>,
+    /// The commitments to the fold polynomials of the inner layers of FRI.
     fri_layers_merkle_roots: Vec<Commitment>,
+    /// The values and proofs of validity of the evaluations of the trace polynomials and the composition polynomials
+    /// parts at the domain values corresponding to the FRI query challenges and their symmetric counterparts.
     deep_poly_openings: DeepPolynomialOpenings<F, E>,
+    /// The values and proofs of validity of the evaluations of the fold polynomials of the inner
+    /// layers of FRI at the values corresponding to the symmetrics of the FRI query challenges.
     query_list: Vec<FriDecommitment<E>>,
+    /// The proof of work nonce.
     nonce: Option<u64>,
 }
+
+/// Returns the evaluations of the polynomial `p` over the lde domain defined by the given
+/// `blowup_factor`, `domain_size` and `offset`. The number of evaluations returned is `domain_size
+/// * blowup_factor`. The domain generator used is the one given by the implementation of `F` as `IsFFTField`.
 pub fn evaluate_polynomial_on_lde_domain<F, E>(
     p: &Polynomial<FieldElement<E>>,
     blowup_factor: usize,
@@ -128,7 +163,10 @@ where
     }
 }
 
+/// The functionality of a STARK prover providing methods to run the STARK Prove protocol (https://lambdaclass.github.io/lambdaworks/starks/protocol.html)
+/// The default implementation is complete and is compatible with Stone prover (https://github.com/starkware-libs/stone-prover).
 pub trait IsStarkProver<A: AIR> {
+    /// Returns the Merkle tree and the commitment to the vectors `vectors`.
     fn batch_commit<E>(vectors: &[Vec<FieldElement<E>>]) -> (BatchedMerkleTree<E>, Commitment)
     where
         FieldElement<A::Field>: Serializable + Sync + Send,
@@ -142,6 +180,13 @@ pub trait IsStarkProver<A: AIR> {
         (tree, commitment)
     }
 
+    /// Given a `TraceTable`, this method interpolates its columns, computes the commitment to the
+    /// table and appends it to the transcript.
+    /// Output: a touple of length 4 with the following:
+    /// • The polynomials interpolating the columns of `trace`.
+    /// • The evaluations of the above polynomials over the domain `domain`.
+    /// • The Merkle tree of evaluations of the above polynomials over the domain `domain`.
+    /// • The roots of the above Merkle trees.
     #[allow(clippy::type_complexity)]
     fn interpolate_and_commit<E>(
         trace: &TraceTable<E>,
@@ -160,6 +205,7 @@ pub trait IsStarkProver<A: AIR> {
         E: IsSubFieldOf<A::FieldExtension>,
         A::Field: IsSubFieldOf<E>,
     {
+        // Interpolate columns of `trace`.
         let trace_polys = trace.compute_trace_polys::<A::Field>();
 
         // Evaluate those polynomials t_j on the large domain D_LDE.
@@ -171,11 +217,11 @@ pub trait IsStarkProver<A: AIR> {
             in_place_bit_reverse_permute(col);
         }
 
-        // Compute commitments [t_j].
+        // Compute commitment.
         let lde_trace = TraceTable::from_columns(lde_trace_permuted, A::STEP_SIZE);
         let (lde_trace_merkle_tree, lde_trace_merkle_root) = Self::batch_commit(&lde_trace.rows());
 
-        // >>>> Send commitments: [tⱼ]
+        // >>>> Send commitment.
         transcript.append_bytes(&lde_trace_merkle_root);
 
         (
@@ -186,6 +232,8 @@ pub trait IsStarkProver<A: AIR> {
         )
     }
 
+    /// Evaluate polynomials `trace_polys` over the domain `domain`.
+    /// The i-th entry of the returned vector contains the evaluations of the i-th polynomial in `trace_polys`.
     fn compute_lde_trace_evaluations<E>(
         trace_polys: &[Polynomial<FieldElement<E>>],
         domain: &Domain<A::Field>,
@@ -214,6 +262,7 @@ pub trait IsStarkProver<A: AIR> {
             .unwrap()
     }
 
+    /// Returns the result of the first round of the STARK Prove protocol.
     fn round_1_randomized_air_with_preprocessing(
         air: &A,
         main_trace: &TraceTable<A::Field>,
@@ -259,6 +308,8 @@ pub trait IsStarkProver<A: AIR> {
         })
     }
 
+    /// Returns the Merkle tree and the commitment to the evaluations of the parts of the
+    /// composition polynomial.
     fn commit_composition_polynomial(
         lde_composition_poly_parts_evaluations: &[Vec<FieldElement<A::FieldExtension>>],
     ) -> (BatchedMerkleTree<A::FieldExtension>, Commitment)
@@ -288,6 +339,7 @@ pub trait IsStarkProver<A: AIR> {
         Self::batch_commit(&lde_composition_poly_evaluations_merged)
     }
 
+    /// Returns the result of the second round of the STARK Prove protocol.
     fn round_2_compute_composition_polynomial(
         air: &A,
         domain: &Domain<A::Field>,
@@ -344,6 +396,7 @@ pub trait IsStarkProver<A: AIR> {
         }
     }
 
+    /// Returns the result of the third round of the STARK Prove protocol.
     fn round_3_evaluate_polynomials_in_out_of_domain_element(
         air: &A,
         domain: &Domain<A::Field>,
@@ -392,6 +445,7 @@ pub trait IsStarkProver<A: AIR> {
         }
     }
 
+    /// Returns the result of the fourth round of the STARK Prove protocol.
     fn round_4_compute_and_run_fri_on_the_deep_composition_polynomial(
         air: &A,
         domain: &Domain<A::Field>,
@@ -573,9 +627,12 @@ pub trait IsStarkProver<A: AIR> {
         h_terms + trace_terms
     }
 
+    /// Adds to `accumulator` the term corresponding to the trace polynomial `t_j` of the Deep
+    /// composition polynomial. That is, returns `accumulator + \sum_i \gamma_i \frac{ t_j - t_j(zg^i) }{ X - zg^i }`,
+    /// where `i` ranges from `T * j` to `T * j + T - 1`, where `T` is the number of offsets in every frame.
     fn compute_trace_term(
-        trace_terms: &Polynomial<FieldElement<A::FieldExtension>>,
-        (i, t_j): (usize, &Polynomial<FieldElement<A::FieldExtension>>),
+        accumulator: &Polynomial<FieldElement<A::FieldExtension>>,
+        (j, t_j): (usize, &Polynomial<FieldElement<A::FieldExtension>>),
         trace_frame_length: usize,
         trace_terms_gammas: &[FieldElement<A::FieldExtension>],
         trace_frame_evaluations: &[Vec<FieldElement<A::FieldExtension>>],
@@ -586,11 +643,8 @@ pub trait IsStarkProver<A: AIR> {
         FieldElement<A::Field>: Serializable + Send + Sync,
         FieldElement<A::FieldExtension>: Serializable + Send + Sync,
     {
-        let i_times_trace_frame_evaluation = i * trace_frame_length;
-        let iter_trace_gammas = trace_terms_gammas
-            .iter()
-            .skip(i_times_trace_frame_evaluation);
-        let trace_int = trace_frame_evaluations[i]
+        let iter_trace_gammas = trace_terms_gammas.iter().skip(j * trace_frame_length);
+        let trace_int = trace_frame_evaluations[j]
             .iter()
             .zip(transition_offsets)
             .zip(iter_trace_gammas)
@@ -605,9 +659,12 @@ pub trait IsStarkProver<A: AIR> {
                 },
             );
 
-        trace_terms + trace_int
+        accumulator + trace_int
     }
 
+    /// Computes values and validity proofs of the evaluations of the composition polynomial parts
+    /// at the domain value corresponding to the FRI query challenge `index` and its symmetric
+    /// element.
     fn open_composition_poly(
         composition_poly_merkle_tree: &BatchedMerkleTree<A::FieldExtension>,
         lde_composition_poly_evaluations: &[Vec<FieldElement<A::FieldExtension>>],
@@ -647,6 +704,9 @@ pub trait IsStarkProver<A: AIR> {
         }
     }
 
+    /// Computes values and validity proofs of the evaluations of the trace polynomials
+    /// at the domain value corresponding to the FRI query challenge `index` and its symmetric
+    /// element.
     fn open_trace_polys<E>(
         domain: &Domain<A::Field>,
         tree: &BatchedMerkleTree<E>,
@@ -675,8 +735,7 @@ pub trait IsStarkProver<A: AIR> {
         }
     }
 
-    /// Open the deep composition polynomial on a list of indexes
-    /// and their symmetric elements.
+    /// Open the deep composition polynomial on a list of indexes and their symmetric elements.
     fn open_deep_composition_poly(
         domain: &Domain<A::Field>,
         round_1_result: &Round1<A>,
@@ -723,6 +782,8 @@ pub trait IsStarkProver<A: AIR> {
     }
 
     // FIXME remove unwrap() calls and return errors
+    /// Generates a STARK proof for the trace `main_trace` with public inputs `pub_inputs`.
+    /// Warning: the transcript must be safely initializated before passing it to this method.
     fn prove(
         main_trace: &TraceTable<A::Field>,
         pub_inputs: &A::PublicInputs,
@@ -910,9 +971,9 @@ pub trait IsStarkProver<A: AIR> {
         info!("End proof generation");
 
         Ok(StarkProof::<A::Field, A::FieldExtension> {
-            // [tⱼ]
+            // [t]
             lde_trace_main_merkle_root: round_1_result.main.lde_trace_merkle_root,
-            // [tⱼ]
+            // [t]
             lde_trace_aux_merkle_root: round_1_result.aux.map(|x| x.lde_trace_merkle_root),
             // tⱼ(zgᵏ)
             trace_ood_evaluations: round_3_result.trace_ood_evaluations,
