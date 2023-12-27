@@ -6,7 +6,7 @@ use utils::stark252_utils;
 
 mod utils;
 
-const SIZE_ORDERS: [u64; 4] = [21, 22, 23, 24];
+const SIZE_ORDERS: [u64; 5] = [20, 21, 22, 23, 24];
 
 pub fn fft_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("Ordered FFT");
@@ -22,7 +22,7 @@ pub fn fft_benchmarks(c: &mut Criterion) {
 
         group.bench_with_input(
             "Sequential from NR radix2",
-            &(input_nat, twiddles_bitrev),
+            &(input_nat.clone(), twiddles_bitrev.clone()),
             |bench, (input, twiddles)| {
                 bench.iter_batched(
                     || input.clone(),
@@ -46,6 +46,21 @@ pub fn fft_benchmarks(c: &mut Criterion) {
                 );
             },
         );
+        if order % 2 == 0 {
+            group.bench_with_input(
+                "Sequential from NR radix4",
+                &(input_nat, twiddles_bitrev),
+                |bench, (input, twiddles)| {
+                    bench.iter_batched(
+                        || input.clone(),
+                        |mut input| {
+                            fft_functions::ordered_fft_nr4(&mut input, twiddles);
+                        },
+                        BatchSize::LargeInput,
+                    );
+                },
+            );
+        }
     }
 
     group.finish();

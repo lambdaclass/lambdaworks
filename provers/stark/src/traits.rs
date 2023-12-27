@@ -1,7 +1,10 @@
 use itertools::Itertools;
 use lambdaworks_math::{
     fft::cpu::roots_of_unity::get_powers_of_primitive_root_coset,
-    field::{element::FieldElement, traits::IsFFTField},
+    field::{
+        element::FieldElement,
+        traits::{IsFFTField, IsField, IsSubFieldOf},
+    },
     polynomial::Polynomial,
 };
 
@@ -14,7 +17,8 @@ use super::{
 
 /// AIR is a representation of the Constraints
 pub trait AIR {
-    type Field: IsFFTField;
+    type Field: IsFFTField + IsSubFieldOf<Self::FieldExtension>;
+    type FieldExtension: IsField;
     type RAPChallenges;
     type PublicInputs;
 
@@ -30,30 +34,46 @@ pub trait AIR {
         &self,
         main_trace: &TraceTable<Self::Field>,
         rap_challenges: &Self::RAPChallenges,
-    ) -> TraceTable<Self::Field>;
+    ) -> TraceTable<Self::FieldExtension>;
 
     fn build_rap_challenges(
         &self,
-        transcript: &mut impl IsStarkTranscript<Self::Field>,
+        transcript: &mut impl IsStarkTranscript<Self::FieldExtension>,
     ) -> Self::RAPChallenges;
 
     fn number_auxiliary_rap_columns(&self) -> usize;
 
     fn composition_poly_degree_bound(&self) -> usize;
 
-    fn compute_transition(
+    /// The method called by the prover to evaluate the transitions corresponding to an evaluation frame.
+    /// In the case of the prover, the main evaluation table of the frame takes values in
+    /// `Self::Field`, since they are the evaluations of the main trace at the LDE domain.
+    fn compute_transition_prover(
         &self,
-        frame: &Frame<Self::Field>,
+        frame: &Frame<Self::Field, Self::FieldExtension>,
         periodic_values: &[FieldElement<Self::Field>],
         rap_challenges: &Self::RAPChallenges,
-    ) -> Vec<FieldElement<Self::Field>>;
+    ) -> Vec<FieldElement<Self::FieldExtension>>;
+
+    /// The method called by the verifier to evaluate the transitions at the out of domain frame.
+    /// In the case of the verifier, both main and auxiliary tables of the evaluation frame take
+    /// values in `Self::FieldExtension`, since they are the evaluations of the trace polynomials
+    /// at the out of domain challenge.
+    /// In case `Self::Field` coincides with `Self::FieldExtension`, this method and
+    /// `compute_transition_prover` should return the same values.
+    fn compute_transition_verifier(
+        &self,
+        frame: &Frame<Self::FieldExtension, Self::FieldExtension>,
+        periodic_values: &[FieldElement<Self::FieldExtension>],
+        rap_challenges: &Self::RAPChallenges,
+    ) -> Vec<FieldElement<Self::FieldExtension>>;
 
     fn boundary_constraints(
         &self,
         rap_challenges: &Self::RAPChallenges,
-    ) -> BoundaryConstraints<Self::Field>;
+    ) -> BoundaryConstraints<Self::FieldExtension>;
 
-    fn transition_exemptions(&self) -> Vec<Polynomial<FieldElement<Self::Field>>> {
+    fn transition_exemptions(&self) -> Vec<Polynomial<FieldElement<Self::FieldExtension>>> {
         let trace_length = self.trace_length();
         let roots_of_unity_order = trace_length.trailing_zeros();
         let roots_of_unity = get_powers_of_primitive_root_coset(
@@ -105,8 +125,9 @@ pub trait AIR {
     fn transition_exemptions_verifier(
         &self,
         root: &FieldElement<Self::Field>,
-    ) -> Vec<Polynomial<FieldElement<Self::Field>>> {
-        let x = Polynomial::new_monomial(FieldElement::one(), 1);
+    ) -> Vec<Polynomial<FieldElement<Self::FieldExtension>>> {
+        let x =
+            Polynomial::<FieldElement<Self::FieldExtension>>::new_monomial(FieldElement::one(), 1);
 
         let max = self
             .context()
@@ -118,7 +139,7 @@ pub trait AIR {
             .map(|index| {
                 (1..=index).fold(
                     Polynomial::new_monomial(FieldElement::one(), 0),
-                    |acc, k| acc * (&x - root.pow(k)),
+                    |acc, k| acc * (&x - root.pow(k).to_extension()),
                 )
             })
             .collect()
@@ -137,7 +158,9 @@ pub trait AIR {
                 .take(self.trace_length())
                 .cloned()
                 .collect();
-            let poly = Polynomial::interpolate_fft::<Self::Field>(&values).unwrap();
+            let poly =
+                Polynomial::<FieldElement<Self::Field>>::interpolate_fft::<Self::Field>(&values)
+                    .unwrap();
             result.push(poly);
         }
         result

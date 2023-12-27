@@ -1,5 +1,6 @@
-use crate::table::{Table, TableView};
+use crate::table::{EvaluationTable, Table, TableView};
 use lambdaworks_math::fft::errors::FFTError;
+use lambdaworks_math::field::traits::{IsField, IsSubFieldOf};
 use lambdaworks_math::{
     field::{element::FieldElement, traits::IsFFTField},
     polynomial::Polynomial,
@@ -15,12 +16,12 @@ use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 /// STARK protocol, such as the step size (number of consecutive rows of the table)
 /// of the computation being proven.
 #[derive(Clone, Default, Debug, PartialEq, Eq)]
-pub struct TraceTable<F: IsFFTField> {
+pub struct TraceTable<F: IsField> {
     pub table: Table<F>,
     pub step_size: usize,
 }
 
-impl<'t, F: IsFFTField> TraceTable<F> {
+impl<F: IsField> TraceTable<F> {
     pub fn new(data: Vec<FieldElement<F>>, n_columns: usize, step_size: usize) -> Self {
         let table = Table::new(data, n_columns);
         Self { table, step_size }
@@ -52,17 +53,6 @@ impl<'t, F: IsFFTField> TraceTable<F> {
     /// returns the row of the underlying table.
     pub fn step_to_row(&self, step: usize) -> usize {
         self.step_size * step
-    }
-
-    /// Given a step index, return the step view of the trace for that index
-    pub fn step_view(&'t self, step_idx: usize) -> StepView<'t, F> {
-        let row_idx = self.step_to_row(step_idx);
-        let table_view = self.table.table_view(row_idx, self.step_size);
-
-        StepView {
-            table_view,
-            step_idx,
-        }
     }
 
     pub fn n_cols(&self) -> usize {
@@ -105,12 +95,9 @@ impl<'t, F: IsFFTField> TraceTable<F> {
         data
     }
 
-    /// Given a row and a column index, gives stored value in that position
-    pub fn get(&self, row: usize, col: usize) -> &FieldElement<F> {
-        self.table.get(row, col)
-    }
-
-    pub fn compute_trace_polys(&self) -> Vec<Polynomial<FieldElement<F>>>
+    pub fn compute_trace_polys<S: IsFFTField + IsSubFieldOf<F>>(
+        &self,
+    ) -> Vec<Polynomial<FieldElement<F>>>
     where
         FieldElement<F>: Send + Sync,
     {
@@ -120,7 +107,7 @@ impl<'t, F: IsFFTField> TraceTable<F> {
         #[cfg(not(feature = "parallel"))]
         let iter = columns.iter();
 
-        iter.map(|col| Polynomial::interpolate_fft::<F>(col))
+        iter.map(|col| Polynomial::interpolate_fft::<S>(col))
             .collect::<Result<Vec<Polynomial<FieldElement<F>>>, FFTError>>()
             .unwrap()
     }
@@ -167,26 +154,41 @@ impl<'t, F: IsFFTField> TraceTable<F> {
 /// access the steps in a trace, in order to grab elements to calculate
 /// constraint evaluations.
 #[derive(Debug, Clone, PartialEq)]
-pub struct StepView<'t, F: IsFFTField> {
-    pub table_view: TableView<'t, F>,
+pub struct StepView<'t, F: IsSubFieldOf<E>, E: IsField> {
+    pub main_table_view: TableView<'t, F>,
+    pub aux_table_view: TableView<'t, E>,
     pub step_idx: usize,
 }
 
-impl<'t, F: IsFFTField> StepView<'t, F> {
-    pub fn new(table_view: TableView<'t, F>, step_idx: usize) -> Self {
+impl<'t, F: IsSubFieldOf<E>, E: IsField> StepView<'t, F, E> {
+    pub fn new(
+        main_table_view: TableView<'t, F>,
+        aux_table_view: TableView<'t, E>,
+        step_idx: usize,
+    ) -> Self {
         StepView {
-            table_view,
+            main_table_view,
+            aux_table_view,
             step_idx,
         }
     }
 
-    /// Gets the evaluation element specified by `row_idx` and `col_idx` of this step
-    pub fn get_evaluation_element(&self, row_idx: usize, col_idx: usize) -> &FieldElement<F> {
-        self.table_view.get(row_idx, col_idx)
+    /// Gets the evaluation element of the main table specified by `row_idx` and `col_idx` of this step
+    pub fn get_main_evaluation_element(&self, row_idx: usize, col_idx: usize) -> &FieldElement<F> {
+        self.main_table_view.get(row_idx, col_idx)
     }
 
-    pub fn get_row(&self, row_idx: usize) -> &[FieldElement<F>] {
-        self.table_view.get_row(row_idx)
+    /// Gets the evaluation element of the aux table specified by `row_idx` and `col_idx` of this step
+    pub fn get_aux_evaluation_element(&self, row_idx: usize, col_idx: usize) -> &FieldElement<E> {
+        self.aux_table_view.get(row_idx, col_idx)
+    }
+
+    pub fn get_row_main(&self, row_idx: usize) -> &[FieldElement<F>] {
+        self.main_table_view.get_row(row_idx)
+    }
+
+    pub fn get_row_aux(&self, row_idx: usize) -> &[FieldElement<E>] {
+        self.aux_table_view.get_row(row_idx)
     }
 }
 
@@ -196,22 +198,38 @@ impl<'t, F: IsFFTField> StepView<'t, F> {
 /// compute a transition.
 /// Example: For a simple Fibonacci computation, if t(x) is the trace polynomial of
 /// the computation, this will output evaluations t(x), t(g * x), t(g^2 * z).
-pub fn get_trace_evaluations<F: IsFFTField>(
-    trace_polys: &[Polynomial<FieldElement<F>>],
-    x: &FieldElement<F>,
+pub(crate) fn get_trace_evaluations<F: IsSubFieldOf<E>, E: IsField>(
+    main_trace_polys: &[Polynomial<FieldElement<F>>],
+    aux_trace_polys: &[Polynomial<FieldElement<E>>],
+    x: &FieldElement<E>,
     frame_offsets: &[usize],
     primitive_root: &FieldElement<F>,
-) -> Vec<Vec<FieldElement<F>>> {
-    frame_offsets
+    step_size: usize,
+) -> EvaluationTable<E, E> {
+    let evaluation_points: Vec<_> = frame_offsets
         .iter()
-        .map(|offset| x * primitive_root.pow(*offset))
-        .map(|eval_point| {
-            trace_polys
+        .map(|offset| primitive_root.pow(*offset) * x)
+        .collect();
+    let main_evaluations = main_trace_polys
+        .iter()
+        .map(|poly| {
+            evaluation_points
                 .iter()
-                .map(|poly| poly.evaluate(&eval_point))
-                .collect::<Vec<FieldElement<F>>>()
+                .map(|eval_point| poly.evaluate(eval_point))
+                .collect()
         })
-        .collect()
+        .collect();
+    let aux_evaluations = aux_trace_polys
+        .iter()
+        .map(|poly| {
+            evaluation_points
+                .iter()
+                .map(|eval_point| poly.evaluate(eval_point))
+                .collect()
+        })
+        .collect();
+
+    EvaluationTable::from_columns(main_evaluations, aux_evaluations, step_size)
 }
 
 #[cfg(test)]
