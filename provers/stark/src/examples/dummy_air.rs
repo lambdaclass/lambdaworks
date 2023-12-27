@@ -59,20 +59,20 @@ impl AIR for DummyAIR {
         _transcript: &mut impl IsStarkTranscript<Self::FieldExtension>,
     ) -> Self::RAPChallenges {
     }
-    fn compute_transition(
+    fn compute_transition_prover(
         &self,
-        frame: &Frame<Self::Field>,
+        frame: &Frame<Self::Field, Self::FieldExtension>,
         _periodic_values: &[FieldElement<Self::Field>],
         _rap_challenges: &Self::RAPChallenges,
-    ) -> Vec<FieldElement<Self::Field>> {
+    ) -> Vec<FieldElement<Self::FieldExtension>> {
         let first_step = frame.get_evaluation_step(0);
         let second_step = frame.get_evaluation_step(1);
         let third_step = frame.get_evaluation_step(2);
 
-        let flag = first_step.get_evaluation_element(0, 0);
-        let a0 = first_step.get_evaluation_element(0, 1);
-        let a1 = second_step.get_evaluation_element(0, 1);
-        let a2 = third_step.get_evaluation_element(0, 1);
+        let flag = first_step.get_main_evaluation_element(0, 0);
+        let a0 = first_step.get_main_evaluation_element(0, 1);
+        let a1 = second_step.get_main_evaluation_element(0, 1);
+        let a2 = third_step.get_main_evaluation_element(0, 1);
 
         let f_constraint = flag * (flag - FieldElement::one());
 
@@ -85,8 +85,8 @@ impl AIR for DummyAIR {
         &self,
         _rap_challenges: &Self::RAPChallenges,
     ) -> BoundaryConstraints<Self::Field> {
-        let a0 = BoundaryConstraint::new(1, 0, FieldElement::<Self::Field>::one());
-        let a1 = BoundaryConstraint::new(1, 1, FieldElement::<Self::Field>::one());
+        let a0 = BoundaryConstraint::new_main(1, 0, FieldElement::<Self::Field>::one());
+        let a1 = BoundaryConstraint::new_main(1, 1, FieldElement::<Self::Field>::one());
 
         BoundaryConstraints::from_constraints(vec![a0, a1])
     }
@@ -109,6 +109,15 @@ impl AIR for DummyAIR {
 
     fn pub_inputs(&self) -> &Self::PublicInputs {
         &()
+    }
+
+    fn compute_transition_verifier(
+        &self,
+        frame: &Frame<Self::FieldExtension, Self::FieldExtension>,
+        periodic_values: &[FieldElement<Self::FieldExtension>],
+        rap_challenges: &Self::RAPChallenges,
+    ) -> Vec<FieldElement<Self::Field>> {
+        self.compute_transition_prover(frame, periodic_values, rap_challenges)
     }
 }
 

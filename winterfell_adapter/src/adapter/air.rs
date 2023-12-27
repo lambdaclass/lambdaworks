@@ -190,26 +190,23 @@ where
             * self.trace_length()
     }
 
-    fn compute_transition(
+    fn compute_transition_prover(
         &self,
-        frame: &stark_platinum_prover::frame::Frame<Self::FieldExtension>,
-        periodic_values: &[FieldElement<Self::FieldExtension>],
+        frame: &stark_platinum_prover::frame::Frame<Self::Field, Self::FieldExtension>,
+        periodic_values: &[FieldElement<Self::Field>],
         rap_challenges: &Self::RAPChallenges,
     ) -> Vec<FieldElement<Self::FieldExtension>> {
-        let num_aux_columns = self.number_auxiliary_rap_columns();
-        let num_main_columns = self.context().trace_columns - num_aux_columns;
-
         let first_step = frame.get_evaluation_step(0);
         let second_step = frame.get_evaluation_step(1);
 
         let main_frame = EvaluationFrame::from_rows(
-            vec_lambda2winter(&first_step.get_row(0)[..num_main_columns]),
-            vec_lambda2winter(&second_step.get_row(0)[..num_main_columns]),
+            vec_lambda2winter(first_step.get_row_main(0)),
+            vec_lambda2winter(second_step.get_row_main(0)),
         );
 
         let periodic_values = vec_lambda2winter(periodic_values);
 
-        let mut main_result = vec![
+        let main_result = vec![
             FieldElement::zero();
             self.winterfell_air
                 .context()
@@ -217,13 +214,16 @@ where
         ];
 
         let mut main_result_winter = vec_lambda2winter(&main_result);
-        self.winterfell_air.evaluate_transition::<E>(
+        self.winterfell_air.evaluate_transition::<FE>(
             &main_frame,
             &periodic_values,
             &mut main_result_winter,
-        ); // Periodic values not supported
+        );
 
-        main_result = vec_winter2lambda(&main_result_winter);
+        let mut result: Vec<_> = vec_winter2lambda(&main_result_winter)
+            .into_iter()
+            .map(|element| element.to_extension())
+            .collect();
 
         if self.winterfell_air.trace_layout().num_aux_segments() == 1 {
             let mut rand_elements = AuxTraceRandElements::new();
@@ -233,8 +233,8 @@ where
             let second_step = frame.get_evaluation_step(1);
 
             let aux_frame = EvaluationFrame::from_rows(
-                vec_lambda2winter(&first_step.get_row(0)[num_main_columns..]),
-                vec_lambda2winter(&second_step.get_row(0)[num_main_columns..]),
+                vec_lambda2winter(first_step.get_row_aux(0)),
+                vec_lambda2winter(second_step.get_row_aux(0)),
             );
 
             let mut aux_result = vec![
@@ -252,22 +252,19 @@ where
                 &mut winter_aux_result,
             );
             aux_result = vec_winter2lambda(&winter_aux_result);
-            main_result.extend_from_slice(&aux_result);
+            result.extend_from_slice(&aux_result);
         }
-        main_result
+        result
     }
 
     fn boundary_constraints(
         &self,
         rap_challenges: &Self::RAPChallenges,
     ) -> stark_platinum_prover::constraints::boundary::BoundaryConstraints<E> {
-        let num_aux_columns = self.number_auxiliary_rap_columns();
-        let num_main_columns = self.context().trace_columns - num_aux_columns;
-
         let mut result = Vec::new();
         for assertion in self.winterfell_air.get_assertions() {
             assert!(assertion.is_single());
-            result.push(BoundaryConstraint::<E>::new(
+            result.push(BoundaryConstraint::new_main(
                 assertion.column(),
                 assertion.first_step(),
                 FieldElement::<FE>::const_from_raw(assertion.values()[0]).to_extension(),
@@ -279,8 +276,8 @@ where
 
         for assertion in self.winterfell_air.get_aux_assertions(&rand_elements) {
             assert!(assertion.is_single());
-            result.push(BoundaryConstraint::new(
-                assertion.column() + num_main_columns,
+            result.push(BoundaryConstraint::new_aux(
+                assertion.column(),
                 assertion.first_step(),
                 FieldElement::<E>::const_from_raw(assertion.values()[0]),
             ));
@@ -303,5 +300,69 @@ where
 
     fn get_periodic_column_values(&self) -> Vec<Vec<FieldElement<Self::Field>>> {
         matrix_winter2lambda(&self.winterfell_air.get_periodic_column_values())
+    }
+
+    fn compute_transition_verifier(
+        &self,
+        frame: &stark_platinum_prover::frame::Frame<Self::FieldExtension, Self::FieldExtension>,
+        periodic_values: &[FieldElement<Self::FieldExtension>],
+        rap_challenges: &Self::RAPChallenges,
+    ) -> Vec<FieldElement<Self::FieldExtension>> {
+        let first_step = frame.get_evaluation_step(0);
+        let second_step = frame.get_evaluation_step(1);
+
+        let main_frame = EvaluationFrame::from_rows(
+            vec_lambda2winter(first_step.get_row_main(0)),
+            vec_lambda2winter(second_step.get_row_main(0)),
+        );
+
+        let periodic_values = vec_lambda2winter(periodic_values);
+
+        let main_result = vec![
+            FieldElement::zero();
+            self.winterfell_air
+                .context()
+                .num_main_transition_constraints()
+        ];
+
+        let mut main_result_winter = vec_lambda2winter(&main_result);
+        self.winterfell_air.evaluate_transition::<E>(
+            &main_frame,
+            &periodic_values,
+            &mut main_result_winter,
+        );
+
+        let mut result: Vec<FieldElement<E>> = vec_winter2lambda(&main_result_winter);
+
+        if self.winterfell_air.trace_layout().num_aux_segments() == 1 {
+            let mut rand_elements = AuxTraceRandElements::new();
+            rand_elements.add_segment_elements(rap_challenges.clone());
+
+            let first_step = frame.get_evaluation_step(0);
+            let second_step = frame.get_evaluation_step(1);
+
+            let aux_frame = EvaluationFrame::from_rows(
+                vec_lambda2winter(first_step.get_row_aux(0)),
+                vec_lambda2winter(second_step.get_row_aux(0)),
+            );
+
+            let mut aux_result = vec![
+                FieldElement::zero();
+                self.winterfell_air
+                    .context()
+                    .num_aux_transition_constraints()
+            ];
+            let mut winter_aux_result = vec_lambda2winter(&aux_result);
+            self.winterfell_air.evaluate_aux_transition(
+                &main_frame,
+                &aux_frame,
+                &periodic_values,
+                &rand_elements,
+                &mut winter_aux_result,
+            );
+            aux_result = vec_winter2lambda(&winter_aux_result);
+            result.extend_from_slice(&aux_result);
+        }
+        result
     }
 }
