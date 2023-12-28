@@ -31,7 +31,7 @@ impl IsPrimeField for Felt {
         todo!()
     }
 
-    fn to_hex(a: &Self::BaseType) -> String {
+    fn to_hex(_a: &Self::BaseType) -> String {
         todo!()
     }
 
