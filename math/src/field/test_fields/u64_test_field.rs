@@ -134,7 +134,7 @@ mod tests_u64_test_field {
         );
     }
 
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     #[test]
     fn test_to_subfield_vec() {
         let a = FieldElement::<U64TestFieldExtension>::from(&[

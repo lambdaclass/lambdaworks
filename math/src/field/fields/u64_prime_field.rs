@@ -346,28 +346,28 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     fn to_bytes_from_bytes_be_is_the_identity() {
         let x = FE::new(12345);
         assert_eq!(FE::from_bytes_be(&x.to_bytes_be()).unwrap(), x);
     }
 
     #[test]
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     fn from_bytes_to_bytes_be_is_the_identity_for_one() {
         let bytes = [0, 0, 0, 0, 0, 0, 0, 1];
         assert_eq!(FE::from_bytes_be(&bytes).unwrap().to_bytes_be(), bytes);
     }
 
     #[test]
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     fn to_bytes_from_bytes_le_is_the_identity() {
         let x = FE::new(12345);
         assert_eq!(FE::from_bytes_le(&x.to_bytes_le()).unwrap(), x);
     }
 
     #[test]
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     fn from_bytes_to_bytes_le_is_the_identity_for_one() {
         let bytes = [1, 0, 0, 0, 0, 0, 0, 0];
         assert_eq!(FE::from_bytes_le(&bytes).unwrap().to_bytes_le(), bytes);

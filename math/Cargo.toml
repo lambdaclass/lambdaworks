@@ -8,8 +8,8 @@ license.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-serde = { version = "1.0", features = ["derive"], optional = true }
-serde_json = { version = "1.0", optional = true }
+serde = { version = "1.0", default-features = false, features = ["derive"], optional = true }
+serde_json = { version = "1.0", default-features = false, features = ["alloc"], optional = true }
 proptest = { version = "1.1.0", optional = true }
 winter-math = { package = "winter-math", version = "0.6.4", default-features = false, optional = true }
 miden-core = { package = "miden-core" , version = "0.7", default-features = false, optional = true }
@@ -37,11 +37,11 @@ pprof = { version = "0.13.0", features = ["criterion","flamegraph"] }
 
 [features]
 default = ["rayon", "alloc"]
-std = ["alloc"]
+std = ["alloc", "serde/std", "serde_json/std"]
 alloc = []
 rayon = ["dep:rayon"]
-lambdaworks-serde-binary = ["dep:serde", "std"]
-lambdaworks-serde-string = ["dep:serde", "dep:serde_json", "std"]
+lambdaworks-serde-binary = ["dep:serde", "alloc"]
+lambdaworks-serde-string = ["dep:serde", "dep:serde_json", "alloc"]
 proptest = ["dep:proptest"]
 winter_compatibility = ["winter-math", "miden-core"]
 

@@ -371,24 +371,24 @@ mod tests {
     use super::*;
     use crate::elliptic_curve::short_weierstrass::curves::bls12_381::curve::BLS12381Curve;
 
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     use crate::{
         elliptic_curve::short_weierstrass::curves::bls12_381::field_extension::BLS12381PrimeField,
         field::element::FieldElement,
     };
 
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     #[allow(clippy::upper_case_acronyms)]
     type FEE = FieldElement<BLS12381PrimeField>;
 
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     fn point() -> ShortWeierstrassProjectivePoint<BLS12381Curve> {
         let x = FEE::new_base("36bb494facde72d0da5c770c4b16d9b2d45cfdc27604a25a1a80b020798e5b0dbd4c6d939a8f8820f042a29ce552ee5");
         let y = FEE::new_base("7acf6e49cc000ff53b06ee1d27056734019c0a1edfa16684da41ebb0c56750f73bc1b0eae4c6c241808a5e485af0ba0");
         BLS12381Curve::create_point_from_affine(x, y).unwrap()
     }
 
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     #[test]
     fn byte_conversion_from_and_to_be_projective() {
         let expected_point = point();
@@ -402,7 +402,7 @@ mod tests {
         assert_eq!(expected_point, result.unwrap());
     }
 
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     #[test]
     fn byte_conversion_from_and_to_be_uncompressed() {
         let expected_point = point();
@@ -415,7 +415,7 @@ mod tests {
         assert_eq!(expected_point, result.unwrap());
     }
 
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     #[test]
     fn byte_conversion_from_and_to_le_projective() {
         let expected_point = point();
@@ -429,7 +429,7 @@ mod tests {
         assert_eq!(expected_point, result.unwrap());
     }
 
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     #[test]
     fn byte_conversion_from_and_to_le_uncompressed() {
         let expected_point = point();
@@ -444,7 +444,7 @@ mod tests {
         assert_eq!(expected_point, result.unwrap());
     }
 
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     #[test]
     fn byte_conversion_from_and_to_with_mixed_le_and_be_does_not_work_projective() {
         let bytes = point().serialize(PointFormat::Projective, Endianness::LittleEndian);
@@ -461,7 +461,7 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     #[test]
     fn byte_conversion_from_and_to_with_mixed_le_and_be_does_not_work_uncompressed() {
         let bytes = point().serialize(PointFormat::Uncompressed, Endianness::LittleEndian);
@@ -478,7 +478,7 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     #[test]
     fn byte_conversion_from_and_to_with_mixed_be_and_le_does_not_work_projective() {
         let bytes = point().serialize(PointFormat::Projective, Endianness::BigEndian);
@@ -495,7 +495,7 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     #[test]
     fn byte_conversion_from_and_to_with_mixed_be_and_le_does_not_work_uncompressed() {
         let bytes = point().serialize(PointFormat::Uncompressed, Endianness::BigEndian);

@@ -24,13 +24,13 @@ impl Goldilocks64Field {
 
 #[cfg(feature = "lambdaworks-serde-binary")]
 impl ByteConversion for u64 {
-    #[cfg(feature = "std")]
-    fn to_bytes_be(&self) -> Vec<u8> {
+    #[cfg(feature = "alloc")]
+    fn to_bytes_be(&self) -> alloc::vec::Vec<u8> {
         unimplemented!()
     }
 
-    #[cfg(feature = "std")]
-    fn to_bytes_le(&self) -> Vec<u8> {
+    #[cfg(feature = "alloc")]
+    fn to_bytes_le(&self) -> alloc::vec::Vec<u8> {
         unimplemented!()
     }
 

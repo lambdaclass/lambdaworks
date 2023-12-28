@@ -381,7 +381,7 @@ mod tests_u384_prime_fields {
     };
     use crate::field::traits::IsField;
     use crate::field::traits::IsPrimeField;
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     use crate::traits::ByteConversion;
     use crate::unsigned_integer::element::U384;
     use crate::unsigned_integer::element::{UnsignedInteger, U256};
@@ -717,7 +717,7 @@ mod tests_u384_prime_fields {
     }
 
     #[test]
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     fn to_bytes_from_bytes_be_is_the_identity() {
         let x = U384FP2Element::new(UnsignedInteger::from_hex_unchecked(
             "5f103b0bd4397d4df560eb559f38353f80eeb6",
@@ -726,7 +726,7 @@ mod tests_u384_prime_fields {
     }
 
     #[test]
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     fn from_bytes_to_bytes_be_is_the_identity_for_one() {
         let bytes = [
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -739,7 +739,7 @@ mod tests_u384_prime_fields {
     }
 
     #[test]
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     fn to_bytes_from_bytes_le_is_the_identity() {
         let x = U384FP2Element::new(UnsignedInteger::from_hex_unchecked(
             "5f103b0bd4397d4df560eb559f38353f80eeb6",
@@ -748,7 +748,7 @@ mod tests_u384_prime_fields {
     }
 
     #[test]
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     fn from_bytes_to_bytes_le_is_the_identity_for_one() {
         let bytes = [
             1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -768,7 +768,7 @@ mod tests_u256_prime_fields {
     use crate::field::fields::montgomery_backed_prime_fields::{IsModulus, U256PrimeField};
     use crate::field::traits::IsField;
     use crate::field::traits::IsPrimeField;
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     use crate::traits::ByteConversion;
     use crate::unsigned_integer::element::U256;
     use crate::unsigned_integer::element::{UnsignedInteger, U64};
@@ -1053,7 +1053,7 @@ mod tests_u256_prime_fields {
     }
 
     #[test]
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     fn to_bytes_from_bytes_be_is_the_identity() {
         let x = FP2Element::new(UnsignedInteger::from_hex_unchecked(
             "5f103b0bd4397d4df560eb559f38353f80eeb6",
@@ -1062,7 +1062,7 @@ mod tests_u256_prime_fields {
     }
 
     #[test]
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     fn from_bytes_to_bytes_be_is_the_identity_for_one() {
         let bytes = [
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -1075,7 +1075,7 @@ mod tests_u256_prime_fields {
     }
 
     #[test]
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     fn to_bytes_from_bytes_le_is_the_identity() {
         let x = FP2Element::new(UnsignedInteger::from_hex_unchecked(
             "5f103b0bd4397d4df560eb559f38353f80eeb6",
@@ -1084,7 +1084,7 @@ mod tests_u256_prime_fields {
     }
 
     #[test]
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     fn from_bytes_to_bytes_le_is_the_identity_for_one() {
         let bytes = [
             1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -1097,7 +1097,7 @@ mod tests_u256_prime_fields {
     }
 
     #[test]
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     fn creating_a_field_element_from_its_representative_returns_the_same_element_1() {
         let change = U256::from_u64(1);
         let f1 = U256FP1Element::new(U256ModulusP1::MODULUS + change);

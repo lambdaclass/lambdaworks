@@ -156,6 +156,7 @@ fn add_accumulate_line(
 /// Based on algorithm 9.2, page 212 of the book
 /// "Topics in computational number theory" by W. Bons and K. Lenstra
 #[allow(unused)]
+#[cfg(feature = "alloc")]
 fn miller(
     q: &ShortWeierstrassProjectivePoint<BLS12381TwistCurve>,
     p: &ShortWeierstrassProjectivePoint<BLS12381Curve>,
@@ -163,7 +164,7 @@ fn miller(
     let mut r = q.clone();
     let mut f = FieldElement::<Degree12ExtensionField>::one();
     let mut miller_loop_constant = MILLER_LOOP_CONSTANT;
-    let mut miller_loop_constant_bits: Vec<bool> = vec![];
+    let mut miller_loop_constant_bits: alloc::vec::Vec<bool> = alloc::vec![];
 
     while miller_loop_constant > 0 {
         miller_loop_constant_bits.insert(0, (miller_loop_constant & 1) == 1);
