@@ -2,6 +2,7 @@ use crate::field::{
     element::FieldElement,
     traits::{IsFFTField, RootsConfig},
 };
+use alloc::vec::Vec;
 
 use crate::fft::errors::FFTError;
 

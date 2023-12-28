@@ -14,7 +14,6 @@ pub mod unsigned_integer;
 pub mod gpu;
 
 // These modules don't work in no-std mode
-#[cfg(feature = "std")]
 pub mod fft;
 pub mod msm;
 #[cfg(feature = "alloc")]

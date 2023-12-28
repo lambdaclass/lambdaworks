@@ -8,6 +8,7 @@ use crate::{
     },
     polynomial::Polynomial,
 };
+use alloc::{vec, vec::Vec};
 
 #[cfg(feature = "cuda")]
 use crate::fft::gpu::cuda::polynomial::{evaluate_fft_cuda, interpolate_fft_cuda};
@@ -27,7 +28,7 @@ impl<E: IsField> Polynomial<FieldElement<E>> {
         domain_size: Option<usize>,
     ) -> Result<Vec<FieldElement<E>>, FFTError> {
         let domain_size = domain_size.unwrap_or(0);
-        let len = std::cmp::max(poly.coeff_len(), domain_size).next_power_of_two() * blowup_factor;
+        let len = core::cmp::max(poly.coeff_len(), domain_size).next_power_of_two() * blowup_factor;
 
         if poly.coefficients().is_empty() {
             return Ok(vec![FieldElement::zero(); len]);
@@ -44,7 +45,7 @@ impl<E: IsField> Polynomial<FieldElement<E>> {
             } else {
                 println!(
                     "GPU evaluation failed for field {}. Program will fallback to CPU.",
-                    std::any::type_name::<F>()
+                    core::any::type_name::<F>()
                 );
                 evaluate_fft_cpu::<F, E>(&coeffs)
             }
@@ -93,7 +94,7 @@ impl<E: IsField> Polynomial<FieldElement<E>> {
             } else {
                 println!(
                     "GPU interpolation failed for field {}. Program will fallback to CPU.",
-                    std::any::type_name::<F>()
+                    core::any::type_name::<F>()
                 );
                 interpolate_fft_cpu::<F, E>(fft_evals)
             }
