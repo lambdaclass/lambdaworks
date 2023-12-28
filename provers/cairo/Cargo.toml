@@ -3,7 +3,7 @@ name = "cairo-platinum-prover"
 rust-version = "1.66"
 version.workspace = true
 edition.workspace = true
-license.workspace = true
+# license.workspace = true
 
 [[bin]]
 name = "platinum-prover"
@@ -16,8 +16,8 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 rand = "0.8.5"
-lambdaworks-math = { workspace = true , features = ["lambdaworks-serde-binary"] }
-lambdaworks-crypto = { workspace = true }
+lambdaworks-math = { workspace = true, default-features = true, features = ["lambdaworks-serde-binary"] }
+lambdaworks-crypto = { workspace = true, default-features = true }
 stark-platinum-prover = { workspace = true, features = ["wasm"] }
 thiserror = "1.0.38"
 log = "0.4.17"

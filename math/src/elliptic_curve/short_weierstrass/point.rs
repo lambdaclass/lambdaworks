@@ -11,8 +11,10 @@ use crate::{
 
 use super::traits::IsShortWeierstrass;
 
-#[cfg(feature = "std")]
+#[cfg(feature = "alloc")]
 use crate::traits::Serializable;
+#[cfg(feature = "alloc")]
+use alloc::vec::Vec;
 
 #[derive(Clone, Debug)]
 pub struct ShortWeierstrassProjectivePoint<E: IsEllipticCurve>(pub ProjectivePoint<E>);
@@ -231,7 +233,7 @@ where
     FieldElement<E::BaseField>: ByteConversion,
 {
     /// Serialize the points in the given format
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     pub fn serialize(&self, point_format: PointFormat, endianness: Endianness) -> Vec<u8> {
         // TODO: Add more compact serialization formats
         // Uncompressed affine / Compressed
@@ -340,7 +342,7 @@ where
     }
 }
 
-#[cfg(feature = "std")]
+#[cfg(feature = "alloc")]
 impl<E> Serializable for ShortWeierstrassProjectivePoint<E>
 where
     E: IsShortWeierstrass,

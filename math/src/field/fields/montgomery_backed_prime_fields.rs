@@ -1,7 +1,9 @@
 use crate::field::element::FieldElement;
 use crate::field::errors::FieldError;
 use crate::field::traits::IsPrimeField;
-use crate::traits::{ByteConversion, Serializable};
+use crate::traits::ByteConversion;
+#[cfg(feature = "alloc")]
+use crate::traits::Serializable;
 use crate::{
     field::traits::IsField, unsigned_integer::element::UnsignedInteger,
     unsigned_integer::montgomery::MontgomeryAlgorithms,
@@ -326,8 +328,8 @@ impl<M, const NUM_LIMBS: usize> ByteConversion
 where
     M: IsModulus<UnsignedInteger<NUM_LIMBS>> + Clone + Debug,
 {
-    #[cfg(feature = "std")]
-    fn to_bytes_be(&self) -> Vec<u8> {
+    #[cfg(feature = "alloc")]
+    fn to_bytes_be(&self) -> alloc::vec::Vec<u8> {
         MontgomeryAlgorithms::cios(
             self.value(),
             &UnsignedInteger::from_u64(1),
@@ -337,8 +339,8 @@ where
         .to_bytes_be()
     }
 
-    #[cfg(feature = "std")]
-    fn to_bytes_le(&self) -> Vec<u8> {
+    #[cfg(feature = "alloc")]
+    fn to_bytes_le(&self) -> alloc::vec::Vec<u8> {
         MontgomeryAlgorithms::cios(
             self.value(),
             &UnsignedInteger::from_u64(1),
@@ -359,13 +361,13 @@ where
     }
 }
 
+#[cfg(feature = "alloc")]
 impl<M, const NUM_LIMBS: usize> Serializable
     for FieldElement<MontgomeryBackendPrimeField<M, NUM_LIMBS>>
 where
     M: IsModulus<UnsignedInteger<NUM_LIMBS>> + Clone + Debug,
 {
-    #[cfg(feature = "std")]
-    fn serialize(&self) -> Vec<u8> {
+    fn serialize(&self) -> alloc::vec::Vec<u8> {
         self.value().to_bytes_be()
     }
 }

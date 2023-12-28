@@ -6,6 +6,9 @@ edition = "2021"
 
 [dependencies]
 lambdaworks-math = { path = "../math", default-features = false }
+lambdaworks-crypto = { path = "../crypto", default-features = false }
+
+wee_alloc = "0.4.5"
 
 [profile.dev]
 panic = "abort"

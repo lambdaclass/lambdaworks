@@ -1,5 +1,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
+#[cfg(feature = "alloc")]
+extern crate alloc;
+
 pub mod cyclic_group;
 pub mod elliptic_curve;
 pub mod errors;

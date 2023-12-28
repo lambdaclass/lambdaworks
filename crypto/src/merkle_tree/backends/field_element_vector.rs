@@ -1,7 +1,8 @@
-use std::marker::PhantomData;
+use core::marker::PhantomData;
 
 use crate::hash::poseidon::Poseidon;
 use crate::merkle_tree::traits::IsMerkleTreeBackend;
+use alloc::vec::Vec;
 use lambdaworks_math::{
     field::{element::FieldElement, traits::IsField},
     traits::Serializable,
