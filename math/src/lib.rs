@@ -16,7 +16,6 @@ pub mod gpu;
 // These modules don't work in no-std mode
 #[cfg(feature = "std")]
 pub mod fft;
-#[cfg(feature = "std")]
 pub mod msm;
 #[cfg(feature = "alloc")]
 pub mod polynomial;
