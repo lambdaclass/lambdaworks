@@ -1,3 +1,5 @@
+use alloc::vec::Vec;
+
 #[cfg(feature = "parallel")]
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 

@@ -1,6 +1,8 @@
-use crate::errors::SrsFromFileError;
+use alloc::borrow::ToOwned;
+use alloc::vec::Vec;
 
 use super::traits::IsCommitmentScheme;
+use core::{marker::PhantomData, mem};
 use lambdaworks_math::{
     cyclic_group::IsGroup,
     elliptic_curve::traits::IsPairing,
@@ -11,7 +13,6 @@ use lambdaworks_math::{
     traits::{Deserializable, Serializable},
     unsigned_integer::element::UnsignedInteger,
 };
-use std::{marker::PhantomData, mem};
 
 #[derive(PartialEq, Clone, Debug)]
 pub struct StructuredReferenceString<G1Point, G2Point> {
@@ -32,12 +33,13 @@ where
     }
 }
 
+#[cfg(feature = "std")]
 impl<G1Point, G2Point> StructuredReferenceString<G1Point, G2Point>
 where
     G1Point: IsGroup + Deserializable,
     G2Point: IsGroup + Deserializable,
 {
-    pub fn from_file(file_path: &str) -> Result<Self, SrsFromFileError> {
+    pub fn from_file(file_path: &str) -> Result<Self, crate::errors::SrsFromFileError> {
         let bytes = std::fs::read(file_path)?;
         Ok(Self::deserialize(&bytes)?)
     }

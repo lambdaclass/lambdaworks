@@ -1,3 +1,4 @@
+use alloc::vec::Vec;
 use lambdaworks_math::{
     errors::DeserializationError,
     traits::{Deserializable, Serializable},
@@ -10,7 +11,8 @@ use super::traits::IsMerkleTreeBackend;
 /// `merkle_path` field, in such a way that, if the merkle tree is of height `n`, the
 /// `i`-th element of `merkle_path` is the sibling node in the `n - 1 - i`-th check
 /// when verifying.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Proof<T: PartialEq + Eq> {
     pub merkle_path: Vec<T>,
 }

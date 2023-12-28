@@ -2,6 +2,8 @@ use super::{element::FieldElement, errors::FieldError};
 #[cfg(feature = "lambdaworks-serde-binary")]
 use crate::traits::ByteConversion;
 use crate::{errors::CreationError, unsigned_integer::traits::IsUnsignedInteger};
+#[cfg(feature = "alloc")]
+use alloc::vec::Vec;
 use core::fmt::Debug;
 
 /// Represents different configurations that powers of roots of unity can be in. Some of these may
@@ -20,7 +22,7 @@ pub trait IsSubFieldOf<F: IsField>: IsField {
     fn div(a: &Self::BaseType, b: &F::BaseType) -> F::BaseType;
     fn sub(a: &Self::BaseType, b: &F::BaseType) -> F::BaseType;
     fn embed(a: Self::BaseType) -> F::BaseType;
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     fn to_subfield_vec(b: F::BaseType) -> Vec<Self::BaseType>;
 }
 
@@ -53,7 +55,7 @@ where
         a
     }
 
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     fn to_subfield_vec(b: F::BaseType) -> Vec<Self::BaseType> {
         vec![b]
     }

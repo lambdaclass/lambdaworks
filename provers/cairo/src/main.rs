@@ -207,7 +207,7 @@ fn write_proof(
         bincode::serde::encode_to_vec(proof, bincode::config::standard()).unwrap();
 
     let pub_inputs_bytes: Vec<u8> =
-        bincode::serde::encode_to_vec(&pub_inputs, bincode::config::standard()).unwrap();
+        bincode::serde::encode_to_vec(pub_inputs, bincode::config::standard()).unwrap();
 
     // This should be reworked
     // Public inputs shouldn't be stored in the proof if the verifier wants to check them

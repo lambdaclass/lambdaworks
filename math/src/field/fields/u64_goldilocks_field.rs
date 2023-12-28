@@ -12,6 +12,9 @@ use crate::{
     },
 };
 
+#[cfg(feature = "alloc")]
+use alloc::vec::Vec;
+
 /// Goldilocks Prime Field F_p where p = 2^64 - 2^32 + 1;
 #[derive(Debug, Clone, Copy, Hash, PartialOrd, Ord, PartialEq, Eq)]
 pub struct Goldilocks64Field;
@@ -24,12 +27,12 @@ impl Goldilocks64Field {
 
 #[cfg(feature = "lambdaworks-serde-binary")]
 impl ByteConversion for u64 {
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     fn to_bytes_be(&self) -> Vec<u8> {
         unimplemented!()
     }
 
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     fn to_bytes_le(&self) -> Vec<u8> {
         unimplemented!()
     }

@@ -1,4 +1,5 @@
-use std::marker::PhantomData;
+use alloc::vec::Vec;
+use core::marker::PhantomData;
 
 use crate::hash::poseidon::Poseidon;
 use crate::merkle_tree::traits::IsMerkleTreeBackend;

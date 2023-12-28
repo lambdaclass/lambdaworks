@@ -7,7 +7,7 @@ edition.workspace = true
 cargo-fuzz = true
 
 [dependencies]
-lambdaworks-math = { workspace = true, features = ["cuda"] }
+lambdaworks-math = { workspace = true, features = ["std", "cuda"] }
 lambdaworks-gpu = { workspace = true, features = ["cuda"] }
 honggfuzz = "0.5.55"
 

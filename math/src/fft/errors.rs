@@ -1,5 +1,5 @@
 use crate::field::errors::FieldError;
-use thiserror::Error;
+use thiserror_no_std::Error;
 
 #[cfg(feature = "metal")]
 use lambdaworks_gpu::metal::abstractions::errors::MetalError;

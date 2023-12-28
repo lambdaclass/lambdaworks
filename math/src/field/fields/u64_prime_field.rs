@@ -1,14 +1,16 @@
 use crate::cyclic_group::IsGroup;
-#[cfg(feature = "std")]
 use crate::errors::ByteConversionError::{FromBEBytesError, FromLEBytesError};
 use crate::errors::CreationError;
-#[cfg(feature = "std")]
+#[cfg(feature = "alloc")]
 use crate::errors::DeserializationError;
 use crate::field::element::FieldElement;
 use crate::field::errors::FieldError;
 use crate::field::traits::{IsFFTField, IsField, IsPrimeField};
-#[cfg(feature = "std")]
-use crate::traits::{ByteConversion, Deserializable, Serializable};
+use crate::traits::ByteConversion;
+#[cfg(feature = "alloc")]
+use crate::traits::{Deserializable, Serializable};
+#[cfg(feature = "alloc")]
+use alloc::vec::Vec;
 
 /// Type representing prime fields over unsigned 64-bit integers.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -119,14 +121,13 @@ impl<const MODULUS: u64> IsGroup for U64FieldElement<MODULUS> {
     }
 }
 
-#[cfg(feature = "std")]
 impl<const MODULUS: u64> ByteConversion for U64FieldElement<MODULUS> {
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     fn to_bytes_be(&self) -> Vec<u8> {
         u64::to_be_bytes(*self.value()).into()
     }
 
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     fn to_bytes_le(&self) -> Vec<u8> {
         u64::to_le_bytes(*self.value()).into()
     }
@@ -142,14 +143,14 @@ impl<const MODULUS: u64> ByteConversion for U64FieldElement<MODULUS> {
     }
 }
 
-#[cfg(feature = "std")]
+#[cfg(feature = "alloc")]
 impl<const MODULUS: u64> Serializable for FieldElement<U64PrimeField<MODULUS>> {
     fn serialize(&self) -> Vec<u8> {
         self.to_bytes_be()
     }
 }
 
-#[cfg(feature = "std")]
+#[cfg(feature = "alloc")]
 impl<const MODULUS: u64> Deserializable for FieldElement<U64PrimeField<MODULUS>> {
     fn deserialize(bytes: &[u8]) -> Result<Self, DeserializationError>
     where

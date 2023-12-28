@@ -1,6 +1,9 @@
 use super::field::element::FieldElement;
 use crate::field::traits::{IsField, IsSubFieldOf};
-use std::ops;
+use core::ops;
+
+#[cfg(feature = "alloc")]
+use alloc::{borrow::ToOwned, vec::Vec};
 
 /// Represents the polynomial c_0 + c_1 * X + c_2 * X^2 + ... + c_n * X^n
 /// as a vector of coefficients `[c_0, c_1, ... , c_n]`
@@ -779,7 +782,7 @@ where
     }
 }
 
-use thiserror::Error;
+use thiserror_no_std::Error;
 
 #[derive(Debug, Error)]
 pub enum InterpolateError {

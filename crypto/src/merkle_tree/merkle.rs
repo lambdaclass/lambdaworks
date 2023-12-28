@@ -1,12 +1,21 @@
 use super::{proof::Proof, traits::IsMerkleTreeBackend, utils::*};
+use alloc::{vec, vec::Vec};
+use thiserror_no_std::Error;
 
-#[derive(Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct MerkleTree<B: IsMerkleTreeBackend> {
     pub root: B::Node,
     nodes: Vec<B::Node>,
 }
 
 const ROOT: usize = 0;
+
+#[derive(Debug, Error)]
+pub enum Error {
+    #[error("Accessed node was out of boud")]
+    OutOfBounds,
+}
 
 impl<B> MerkleTree<B>
 where
@@ -46,14 +55,14 @@ where
         Some(Proof { merkle_path })
     }
 
-    fn build_merkle_path(&self, pos: usize) -> Result<Vec<B::Node>, std::io::Error> {
+    fn build_merkle_path(&self, pos: usize) -> Result<Vec<B::Node>, Error> {
         let mut merkle_path = Vec::new();
         let mut pos = pos;
 
         while pos != ROOT {
             let Some(node) = self.nodes.get(sibling_index(pos)) else {
                 // out of bounds, exit returning the current merkle_path
-                return Err(std::io::Error::from(std::io::ErrorKind::InvalidInput));
+                return Err(Error::OutOfBounds);
             };
             merkle_path.push(node.clone());
 

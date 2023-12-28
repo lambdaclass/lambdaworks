@@ -5,6 +5,9 @@ use crate::field::traits::{IsField, IsPrimeField};
 use crate::traits::ByteConversion;
 use crate::unsigned_integer::element::UnsignedInteger;
 
+#[cfg(feature = "alloc")]
+use alloc::vec::Vec;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct P448GoldilocksPrimeField;
 pub type U448 = UnsignedInteger<7>;
@@ -23,12 +26,12 @@ pub struct U56x8 {
 
 #[cfg(feature = "lambdaworks-serde-binary")]
 impl ByteConversion for U56x8 {
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     fn to_bytes_be(&self) -> Vec<u8> {
         unimplemented!()
     }
 
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     fn to_bytes_le(&self) -> Vec<u8> {
         unimplemented!()
     }

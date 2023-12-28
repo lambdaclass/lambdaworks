@@ -1,4 +1,5 @@
 use super::traits::IsMerkleTreeBackend;
+use alloc::vec::Vec;
 
 pub fn sibling_index(node_index: usize) -> usize {
     if node_index % 2 == 0 {

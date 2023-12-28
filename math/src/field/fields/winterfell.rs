@@ -84,6 +84,7 @@ impl IsField for Felt {
     }
 }
 
+#[cfg(feature = "alloc")]
 impl Serializable for FieldElement<Felt> {
     fn serialize(&self) -> Vec<u8> {
         Felt::elements_as_bytes(&[*self.value()]).to_vec()
@@ -91,10 +92,12 @@ impl Serializable for FieldElement<Felt> {
 }
 
 impl ByteConversion for Felt {
+    #[cfg(feature = "alloc")]
     fn to_bytes_be(&self) -> Vec<u8> {
         Felt::elements_as_bytes(&[*self]).to_vec()
     }
 
+    #[cfg(feature = "alloc")]
     fn to_bytes_le(&self) -> Vec<u8> {
         Felt::elements_as_bytes(&[*self]).to_vec()
     }
@@ -125,6 +128,7 @@ impl ByteConversion for Felt {
 pub type QuadFelt = QuadExtension<Felt>;
 
 impl ByteConversion for QuadFelt {
+    #[cfg(feature = "alloc")]
     fn to_bytes_be(&self) -> Vec<u8> {
         let [b0, b1] = self.to_base_elements();
         let mut bytes = b0.to_bytes_be();
@@ -132,6 +136,7 @@ impl ByteConversion for QuadFelt {
         bytes
     }
 
+    #[cfg(feature = "alloc")]
     fn to_bytes_le(&self) -> Vec<u8> {
         let [b0, b1] = self.to_base_elements();
         let mut bytes = b0.to_bytes_le();
@@ -154,6 +159,7 @@ impl ByteConversion for QuadFelt {
     }
 }
 
+#[cfg(feature = "alloc")]
 impl Serializable for FieldElement<QuadFelt> {
     fn serialize(&self) -> Vec<u8> {
         let [b0, b1] = self.value().to_base_elements();
@@ -247,6 +253,7 @@ impl IsSubFieldOf<QuadFelt> for Felt {
         QuadFelt::new(a, Felt::ZERO)
     }
 
+    #[cfg(feature = "alloc")]
     fn to_subfield_vec(b: <QuadFelt as IsField>::BaseType) -> Vec<Self::BaseType> {
         b.to_base_elements().to_vec()
     }

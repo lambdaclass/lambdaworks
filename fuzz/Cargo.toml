@@ -8,7 +8,7 @@ publish = false
 version = "0.1.1"
 
 [workspace.dependencies]
-lambdaworks-math = { path = "../math" }
+lambdaworks-math = { path = "../math", features = ["std"] }
 lambdaworks-gpu = { path = "../gpu" }
 stark-platinum-prover = { path = "../provers/stark" }
 libfuzzer-sys = "0.4"

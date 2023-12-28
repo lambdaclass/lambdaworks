@@ -7,18 +7,21 @@ use crate::{
 #[cfg(feature = "lambdaworks-serde-binary")]
 use crate::traits::ByteConversion;
 
+#[cfg(feature = "alloc")]
+use alloc::vec::Vec;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 
 pub struct U32Field<const MODULUS: u32>;
 
 #[cfg(feature = "lambdaworks-serde-binary")]
 impl ByteConversion for u32 {
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     fn to_bytes_be(&self) -> Vec<u8> {
         unimplemented!()
     }
 
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     fn to_bytes_le(&self) -> Vec<u8> {
         unimplemented!()
     }

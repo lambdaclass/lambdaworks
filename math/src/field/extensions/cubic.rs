@@ -6,6 +6,9 @@ use crate::traits::ByteConversion;
 use core::fmt::Debug;
 use core::marker::PhantomData;
 
+#[cfg(feature = "alloc")]
+use alloc::vec::Vec;
+
 /// A general cubic extension field over `F`
 /// with cubic non residue `Q::residue()`
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -30,12 +33,12 @@ impl<F> ByteConversion for [FieldElement<F>; 3]
 where
     F: IsField,
 {
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     fn to_bytes_be(&self) -> Vec<u8> {
         unimplemented!()
     }
 
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     fn to_bytes_le(&self) -> Vec<u8> {
         unimplemented!()
     }
@@ -203,7 +206,7 @@ where
         ]
     }
 
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     fn to_subfield_vec(b: <CubicExtensionField<F, Q> as IsField>::BaseType) -> Vec<Self::BaseType> {
         b.into_iter().map(|x| x.to_raw()).collect()
     }

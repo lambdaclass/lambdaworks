@@ -6,6 +6,8 @@ use crate::traits::ByteConversion;
 use crate::unsigned_integer::element::UnsignedInteger;
 use crate::unsigned_integer::montgomery::MontgomeryAlgorithms;
 use crate::unsigned_integer::traits::IsUnsignedInteger;
+#[cfg(feature = "alloc")]
+use alloc::vec::Vec;
 use core::fmt;
 use core::fmt::Debug;
 use core::iter::Sum;
@@ -41,7 +43,7 @@ pub struct FieldElement<F: IsField> {
     value: F::BaseType,
 }
 
-#[cfg(feature = "std")]
+#[cfg(feature = "alloc")]
 impl<F: IsField> FieldElement<F> {
     // Source: https://en.wikipedia.org/wiki/Modular_multiplicative_inverse#Multiple_inverses
     pub fn inplace_batch_inverse(numbers: &mut [Self]) -> Result<(), FieldError> {

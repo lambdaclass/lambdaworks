@@ -1,4 +1,5 @@
 use crate::{cyclic_group::IsGroup, unsigned_integer::element::UnsignedInteger};
+use alloc::vec;
 
 use super::naive::MSMError;
 

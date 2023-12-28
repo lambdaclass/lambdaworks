@@ -1,3 +1,5 @@
+use alloc::string::String;
+use alloc::{vec, vec::Vec};
 use lambdaworks_math::{
     field::{
         element::FieldElement,

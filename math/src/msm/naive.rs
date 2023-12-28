@@ -1,7 +1,8 @@
 use crate::cyclic_group::IsGroup;
 use crate::unsigned_integer::traits::IsUnsignedInteger;
+use thiserror_no_std::Error;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, Error)]
 pub enum MSMError {
     #[error("`cs` and `points` must be of the same length to compute `msm`. Got: {0} and {1}")]
     LengthMismatch(usize, usize),

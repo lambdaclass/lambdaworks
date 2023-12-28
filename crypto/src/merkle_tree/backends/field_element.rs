@@ -1,6 +1,7 @@
 use crate::hash::poseidon::Poseidon;
 
 use crate::merkle_tree::traits::IsMerkleTreeBackend;
+use core::marker::PhantomData;
 use lambdaworks_math::{
     field::{element::FieldElement, traits::IsField},
     traits::Serializable,
@@ -9,7 +10,7 @@ use sha3::{
     digest::{generic_array::GenericArray, OutputSizeUser},
     Digest,
 };
-use std::marker::PhantomData;
+
 #[derive(Clone)]
 pub struct FieldElementBackend<F, D: Digest, const NUM_BYTES: usize> {
     phantom1: PhantomData<F>,

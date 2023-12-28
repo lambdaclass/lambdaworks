@@ -1,4 +1,5 @@
 use super::transcript::Transcript;
+use alloc::borrow::ToOwned;
 use sha3::{Digest, Keccak256};
 
 pub struct DefaultTranscript {

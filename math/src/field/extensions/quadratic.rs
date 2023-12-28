@@ -6,6 +6,9 @@ use crate::traits::ByteConversion;
 use core::fmt::Debug;
 use core::marker::PhantomData;
 
+#[cfg(feature = "alloc")]
+use alloc::vec::Vec;
+
 /// A general quadratic extension field over `F`
 /// with quadratic non residue `Q::residue()`
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -43,12 +46,12 @@ impl<F> ByteConversion for [FieldElement<F>; 2]
 where
     F: IsField,
 {
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     fn to_bytes_be(&self) -> Vec<u8> {
         unimplemented!()
     }
 
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     fn to_bytes_le(&self) -> Vec<u8> {
         unimplemented!()
     }
@@ -194,7 +197,7 @@ where
         [FieldElement::from_raw(a), FieldElement::zero()]
     }
 
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     fn to_subfield_vec(
         b: <QuadraticExtensionField<F, Q> as IsField>::BaseType,
     ) -> Vec<Self::BaseType> {

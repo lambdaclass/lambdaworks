@@ -11,11 +11,11 @@ repository = "https://github.com/lambdaclass/lambdaworks"
 
 [workspace.dependencies]
 iai-callgrind = "0.3.1"
-lambdaworks-crypto = { path = "./crypto", version = "0.3.0" }
-lambdaworks-gpu = { path = "./gpu", version = "0.3.0" }
-lambdaworks-math = { path = "./math", version = "0.3.0" }
-stark-platinum-prover = { path = "./provers/stark", version = "0.3.0" }
-cairo-platinum-prover = { path = "./provers/cairo", version = "0.3.0" }
+lambdaworks-crypto = { path = "./crypto", default-features = false }
+lambdaworks-gpu = { path = "./gpu" }
+lambdaworks-math = { path = "./math", default-features = false }
+stark-platinum-prover = { path = "./provers/stark" }
+cairo-platinum-prover = { path = "./provers/cairo" }
 
 [patch.crates-io]
 winter-air = { git = "https://github.com/lambdaclass/winterfell-for-lambdaworks.git", branch = "derive-clone-v6.4"}

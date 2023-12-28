@@ -7,7 +7,7 @@ edition.workspace = true
 cargo-fuzz = true
 
 [dependencies]
-lambdaworks-math = { workspace = true, features = ["metal"] }
+lambdaworks-math = { workspace = true, features = ["std", "metal"] }
 lambdaworks-gpu = { workspace = true, features = ["metal"] }
 libfuzzer-sys = { workspace = true }
 
