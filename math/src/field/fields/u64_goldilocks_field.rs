@@ -177,6 +177,10 @@ impl IsPrimeField for Goldilocks64Field {
         }
         u64::from_str_radix(hex_string, 16).map_err(|_| CreationError::InvalidHexString)
     }
+
+    fn to_hex(x: &u64) -> String {
+        format!("{:X}", x)
+    }
 }
 
 #[inline(always)]
@@ -472,5 +476,11 @@ mod tests {
     fn from_base_type_test() {
         let b = F::from_base_type(1u64);
         assert_eq!(b, F::one());
+    }
+
+    #[test]
+    fn to_hex_test() {
+        let num = F::from_hex("B").unwrap();
+        assert_eq!(F::to_hex(&num), "B");
     }
 }

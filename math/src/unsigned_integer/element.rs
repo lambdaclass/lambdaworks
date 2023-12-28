@@ -486,6 +486,14 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
         UnsignedInteger { limbs: result }
     }
 
+    pub fn to_hex(&self) -> String {
+        let mut hex_string = String::new();
+        for &limb in self.limbs.iter() {
+            hex_string.push_str(&format!("{:014X}", limb));
+        }
+        hex_string.trim_start_matches('0').to_string()
+    }
+
     pub const fn const_ne(a: &UnsignedInteger<NUM_LIMBS>, b: &UnsignedInteger<NUM_LIMBS>) -> bool {
         let mut i = 0;
         while i < NUM_LIMBS {
@@ -2967,5 +2975,11 @@ mod tests_u256 {
                 U256::from_u128(12368508650766)
             )
         );
+    }
+
+    #[test]
+    fn to_hex_test() {
+        let a = U256::from_hex_unchecked("390aa99bead76bc0093b1bc1a8101f5ce");
+        assert_eq!(U256::to_hex(&a), "390AA99BEAD76BC0093B1BC1A8101F5CE")
     }
 }

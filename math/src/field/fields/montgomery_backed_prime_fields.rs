@@ -309,6 +309,10 @@ where
             &MontgomeryBackendPrimeField::<M, NUM_LIMBS>::MU,
         ))
     }
+
+    fn to_hex(x: &Self::BaseType) -> String {
+        Self::BaseType::to_hex(x)
+    }
 }
 
 impl<M, const NUM_LIMBS: usize> FieldElement<MontgomeryBackendPrimeField<M, NUM_LIMBS>> where
@@ -1127,6 +1131,32 @@ mod tests_u256_prime_fields {
         let a = U256F29Element::from_hex_unchecked("1d");
         let b = U256F29Element::zero();
         assert_eq!(a, b);
+    }
+
+    #[test]
+    fn to_hex_test_works_1() {
+        let a = U256FP1Element::from_hex_unchecked("eb235f6144d9e91f4b14");
+        let b = U256FP1Element::new(U256 {
+            limbs: [0, 0, 60195, 6872850209053821716],
+        });
+
+        assert_eq!(U256FP1Element::to_hex(&a), U256FP1Element::to_hex(&b));
+    }
+
+    #[test]
+    fn to_hex_test_works_2() {
+        let a = U256F29Element::from_hex_unchecked("1d");
+        let b = U256F29Element::zero();
+
+        assert_eq!(U256F29Element::to_hex(&a), U256F29Element::to_hex(&b));
+    }
+
+    #[test]
+    fn to_hex_test_works_3() {
+        let a = U256F29Element::from_hex_unchecked("aa");
+        let b = U256F29Element::from(25);
+
+        assert_eq!(U256F29Element::to_hex(&a), U256F29Element::to_hex(&b));
     }
 
     // Goldilocks

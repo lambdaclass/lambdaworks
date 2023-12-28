@@ -102,6 +102,10 @@ impl<const MODULUS: u64> IsPrimeField for U64PrimeField<MODULUS> {
 
         u64::from_str_radix(hex_string, 16).map_err(|_| CreationError::InvalidHexString)
     }
+
+    fn to_hex(x: &u64) -> String {
+        format!("{:X}", x)
+    }
 }
 
 /// Represents an element in Fp. (E.g: 0, 1, 2 are the elements of F3)
@@ -174,6 +178,18 @@ mod tests {
     #[test]
     fn from_hex_for_0x1_a_is_26() {
         assert_eq!(F::from_hex("0x1a").unwrap(), 26);
+    }
+
+    #[test]
+    fn to_hex_test_works_1() {
+        let num = F::from_hex("B").unwrap();
+        assert_eq!(F::to_hex(&num), "B");
+    }
+
+    #[test]
+    fn to_hex_test_works_2() {
+        let num = F::from_hex("0x1a").unwrap();
+        assert_eq!(F::to_hex(&num), "1A");
     }
 
     #[test]
