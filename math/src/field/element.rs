@@ -41,7 +41,7 @@ pub struct FieldElement<F: IsField> {
     value: F::BaseType,
 }
 
-#[cfg(feature = "std")]
+#[cfg(feature = "alloc")]
 impl<F: IsField> FieldElement<F> {
     // Source: https://en.wikipedia.org/wiki/Modular_multiplicative_inverse#Multiple_inverses
     pub fn inplace_batch_inverse(numbers: &mut [Self]) -> Result<(), FieldError> {
@@ -49,7 +49,7 @@ impl<F: IsField> FieldElement<F> {
             return Ok(());
         }
         let count = numbers.len();
-        let mut prod_prefix = Vec::with_capacity(count);
+        let mut prod_prefix = alloc::vec::Vec::with_capacity(count);
         prod_prefix.push(numbers[0].clone());
         for i in 1..count {
             prod_prefix.push(&prod_prefix[i - 1] * &numbers[i]);
@@ -65,7 +65,7 @@ impl<F: IsField> FieldElement<F> {
     }
 
     #[inline(always)]
-    pub fn to_subfield_vec<S>(self) -> Vec<FieldElement<S>>
+    pub fn to_subfield_vec<S>(self) -> alloc::vec::Vec<FieldElement<S>>
     where
         S: IsSubFieldOf<F>,
     {

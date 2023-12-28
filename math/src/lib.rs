@@ -18,5 +18,5 @@ pub mod gpu;
 pub mod fft;
 #[cfg(feature = "std")]
 pub mod msm;
-#[cfg(feature = "std")]
+#[cfg(feature = "alloc")]
 pub mod polynomial;
