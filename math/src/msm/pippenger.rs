@@ -2,6 +2,8 @@ use crate::{cyclic_group::IsGroup, unsigned_integer::element::UnsignedInteger};
 
 use super::naive::MSMError;
 
+use alloc::vec;
+
 /// This function computes the multiscalar multiplication (MSM).
 ///
 /// Assume a group G of order r is given.
@@ -37,7 +39,6 @@ fn optimum_window_size(data_length: usize) -> usize {
     (len_isqrt as usize * SCALE_FACTORS.0) / SCALE_FACTORS.1
 }
 
-#[cfg(feature = "alloc")]
 pub fn msm_with<const NUM_LIMBS: usize, G>(
     cs: &[UnsignedInteger<NUM_LIMBS>],
     points: &[G],
@@ -63,7 +64,7 @@ where
     // avoiding the heap allocation. We should be aware if that might be too agressive for
     // the stack and cause a potential stack overflow.
     let n_buckets = (1 << window_size) - 1;
-    let mut buckets = alloc::vec![G::neutral_element(); n_buckets];
+    let mut buckets = vec![G::neutral_element(); n_buckets];
 
     (0..num_windows)
         .rev()
@@ -169,6 +170,7 @@ mod tests {
         },
         unsigned_integer::element::UnsignedInteger,
     };
+    use alloc::{format, vec::Vec};
     use proptest::{collection, prelude::*, prop_assert_eq, prop_compose, proptest};
 
     const _CASES: u32 = 20;

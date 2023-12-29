@@ -732,6 +732,8 @@ mod tests {
     #[cfg(feature = "alloc")]
     #[test]
     fn test_display_montgomery_field() {
+        use alloc::format;
+
         let zero_field_element = FieldElement::<Stark252PrimeField>::from(0);
         assert_eq!(format!("{}", zero_field_element), "0x0");
 
@@ -861,6 +863,8 @@ mod tests {
         #[cfg(feature = "alloc")]
         #[test]
         fn test_inplace_batch_inverse_returns_inverses(vec in field_vec(10)) {
+            use alloc::format;
+
             let input: Vec<_> = vec.into_iter().filter(|x| x != &FieldElement::<Stark252PrimeField>::zero()).collect();
             let mut inverses = input.clone();
             FieldElement::inplace_batch_inverse(&mut inverses).unwrap();

@@ -1,19 +1,17 @@
+use super::curve::MILLER_LOOP_CONSTANT;
 use super::{
-    curve::{BLS12381Curve, MILLER_LOOP_CONSTANT},
+    curve::BLS12381Curve,
     field_extension::{BLS12381PrimeField, Degree12ExtensionField, Degree2ExtensionField},
     twist::BLS12381TwistCurve,
 };
+use crate::{cyclic_group::IsGroup, elliptic_curve::traits::IsPairing, errors::PairingError};
+
 use crate::{
-    cyclic_group::IsGroup,
-    elliptic_curve::{
-        short_weierstrass::{
-            curves::bls12_381::field_extension::{Degree6ExtensionField, LevelTwoResidue},
-            point::ShortWeierstrassProjectivePoint,
-            traits::IsShortWeierstrass,
-        },
-        traits::IsPairing,
+    elliptic_curve::short_weierstrass::{
+        curves::bls12_381::field_extension::{Degree6ExtensionField, LevelTwoResidue},
+        point::ShortWeierstrassProjectivePoint,
+        traits::IsShortWeierstrass,
     },
-    errors::PairingError,
     field::{element::FieldElement, extensions::cubic::HasCubicNonResidue},
     unsigned_integer::element::{UnsignedInteger, U256},
 };
@@ -23,6 +21,7 @@ pub const SUBGROUP_ORDER: U256 =
 
 #[derive(Clone)]
 pub struct BLS12381AtePairing;
+
 impl IsPairing for BLS12381AtePairing {
     type G1Point = ShortWeierstrassProjectivePoint<BLS12381Curve>;
     type G2Point = ShortWeierstrassProjectivePoint<BLS12381TwistCurve>;
@@ -101,6 +100,7 @@ fn double_accumulate_line(
         ]),
     ]);
 }
+
 fn add_accumulate_line(
     t: &mut ShortWeierstrassProjectivePoint<BLS12381TwistCurve>,
     q: &ShortWeierstrassProjectivePoint<BLS12381TwistCurve>,
@@ -156,7 +156,6 @@ fn add_accumulate_line(
 /// Based on algorithm 9.2, page 212 of the book
 /// "Topics in computational number theory" by W. Bons and K. Lenstra
 #[allow(unused)]
-#[cfg(feature = "alloc")]
 fn miller(
     q: &ShortWeierstrassProjectivePoint<BLS12381TwistCurve>,
     p: &ShortWeierstrassProjectivePoint<BLS12381Curve>,

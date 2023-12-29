@@ -1,5 +1,4 @@
 use crate::cyclic_group::IsGroup;
-#[cfg(feature = "alloc")]
 use crate::errors::ByteConversionError::{FromBEBytesError, FromLEBytesError};
 use crate::errors::CreationError;
 use crate::errors::DeserializationError;
@@ -153,7 +152,6 @@ impl<const MODULUS: u64> Serializable for FieldElement<U64PrimeField<MODULUS>> {
     }
 }
 
-#[cfg(feature = "alloc")]
 impl<const MODULUS: u64> Deserializable for FieldElement<U64PrimeField<MODULUS>> {
     fn deserialize(bytes: &[u8]) -> Result<Self, DeserializationError>
     where

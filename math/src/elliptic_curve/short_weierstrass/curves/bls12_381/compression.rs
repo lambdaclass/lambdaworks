@@ -5,10 +5,8 @@ use crate::{
     },
     field::element::FieldElement,
 };
-#[cfg(feature = "alloc")]
-use core::{cmp::Ordering, ops::Neg};
+use core::cmp::Ordering;
 
-#[cfg(feature = "alloc")]
 use crate::{
     cyclic_group::IsGroup, elliptic_curve::traits::FromAffine, errors::ByteConversionError,
     traits::ByteConversion,
@@ -86,7 +84,7 @@ pub fn compress_g1_point(point: &G1Point) -> alloc::vec::Vec<u8> {
         // Set first bit to to 1 indicate this is compressed element.
         x_bytes[0] |= 1 << 7;
 
-        let y_neg = y.neg();
+        let y_neg = core::ops::Neg::neg(y);
         if y_neg.representative() < y.representative() {
             x_bytes[0] |= 1 << 5;
         }
@@ -101,8 +99,8 @@ mod tests {
     use crate::elliptic_curve::traits::{FromAffine, IsEllipticCurve};
 
     #[cfg(feature = "alloc")]
-    use super::{compress_g1_point, decompress_g1_point};
-    #[cfg(feature = "alloc")]
+    use super::compress_g1_point;
+    use super::decompress_g1_point;
     use crate::{
         cyclic_group::IsGroup, traits::ByteConversion, unsigned_integer::element::UnsignedInteger,
     };
