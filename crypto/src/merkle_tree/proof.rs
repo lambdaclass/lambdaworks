@@ -69,6 +69,7 @@ where
 #[cfg(test)]
 mod tests {
 
+    #[cfg(feature = "alloc")]
     use super::Proof;
     use alloc::vec::Vec;
     use lambdaworks_math::field::{element::FieldElement, fields::u64_prime_field::U64PrimeField};
@@ -83,6 +84,7 @@ mod tests {
     pub type Ecgfp5 = U64PrimeField<0xFFFF_FFFF_0000_0001_u64>;
     pub type Ecgfp5FE = FieldElement<Ecgfp5>;
     pub type TestMerkleTreeEcgfp = MerkleTree<TestBackend<Ecgfp5>>;
+    #[cfg(feature = "alloc")]
     pub type TestProofEcgfp5 = Proof<Ecgfp5FE>;
 
     const MODULUS: u64 = 13;
