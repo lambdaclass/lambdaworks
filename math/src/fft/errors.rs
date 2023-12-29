@@ -54,6 +54,20 @@ impl std::error::Error for FFTError {
     }
 }
 
+#[cfg(feature = "metal")]
+impl From<MetalError> for FFTError {
+    fn from(error: MetalError) -> Self {
+        Self::MetalError(error)
+    }
+}
+
+#[cfg(feature = "cuda")]
+impl From<CudaError> for FFTError {
+    fn from(error: CudaError) -> Self {
+        Self::CudaError(error)
+    }
+}
+
 impl From<FieldError> for FFTError {
     fn from(error: FieldError) -> Self {
         match error {
