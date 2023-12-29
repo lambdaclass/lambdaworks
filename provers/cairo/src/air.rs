@@ -124,34 +124,34 @@ pub const EXTRA_VAL: usize = 34;
 pub const RC_HOLES: usize = 35;
 
 // Auxiliary range check columns
-pub const RANGE_CHECK_COL_1: usize = 36;
-pub const RANGE_CHECK_COL_2: usize = 37;
-pub const RANGE_CHECK_COL_3: usize = 38;
-pub const RANGE_CHECK_COL_4: usize = 39;
+pub const RANGE_CHECK_COL_1: usize = 0;
+pub const RANGE_CHECK_COL_2: usize = 1;
+pub const RANGE_CHECK_COL_3: usize = 2;
+pub const RANGE_CHECK_COL_4: usize = 3;
 
 // Auxiliary memory columns
-pub const MEMORY_ADDR_SORTED_0: usize = 40;
-pub const MEMORY_ADDR_SORTED_1: usize = 41;
-pub const MEMORY_ADDR_SORTED_2: usize = 42;
-pub const MEMORY_ADDR_SORTED_3: usize = 43;
-pub const MEMORY_ADDR_SORTED_4: usize = 44;
+pub const MEMORY_ADDR_SORTED_0: usize = 4;
+pub const MEMORY_ADDR_SORTED_1: usize = 5;
+pub const MEMORY_ADDR_SORTED_2: usize = 6;
+pub const MEMORY_ADDR_SORTED_3: usize = 7;
+pub const MEMORY_ADDR_SORTED_4: usize = 8;
 
-pub const MEMORY_VALUES_SORTED_0: usize = 45;
-pub const MEMORY_VALUES_SORTED_1: usize = 46;
-pub const MEMORY_VALUES_SORTED_2: usize = 47;
-pub const MEMORY_VALUES_SORTED_3: usize = 48;
-pub const MEMORY_VALUES_SORTED_4: usize = 49;
+pub const MEMORY_VALUES_SORTED_0: usize = 9;
+pub const MEMORY_VALUES_SORTED_1: usize = 10;
+pub const MEMORY_VALUES_SORTED_2: usize = 11;
+pub const MEMORY_VALUES_SORTED_3: usize = 12;
+pub const MEMORY_VALUES_SORTED_4: usize = 13;
 
-pub const PERMUTATION_ARGUMENT_COL_0: usize = 50;
-pub const PERMUTATION_ARGUMENT_COL_1: usize = 51;
-pub const PERMUTATION_ARGUMENT_COL_2: usize = 52;
-pub const PERMUTATION_ARGUMENT_COL_3: usize = 53;
-pub const PERMUTATION_ARGUMENT_COL_4: usize = 54;
+pub const PERMUTATION_ARGUMENT_COL_0: usize = 14;
+pub const PERMUTATION_ARGUMENT_COL_1: usize = 15;
+pub const PERMUTATION_ARGUMENT_COL_2: usize = 16;
+pub const PERMUTATION_ARGUMENT_COL_3: usize = 17;
+pub const PERMUTATION_ARGUMENT_COL_4: usize = 18;
 
-pub const PERMUTATION_ARGUMENT_RANGE_CHECK_COL_1: usize = 55;
-pub const PERMUTATION_ARGUMENT_RANGE_CHECK_COL_2: usize = 56;
-pub const PERMUTATION_ARGUMENT_RANGE_CHECK_COL_3: usize = 57;
-pub const PERMUTATION_ARGUMENT_RANGE_CHECK_COL_4: usize = 58;
+pub const PERMUTATION_ARGUMENT_RANGE_CHECK_COL_1: usize = 19;
+pub const PERMUTATION_ARGUMENT_RANGE_CHECK_COL_2: usize = 20;
+pub const PERMUTATION_ARGUMENT_RANGE_CHECK_COL_3: usize = 21;
+pub const PERMUTATION_ARGUMENT_RANGE_CHECK_COL_4: usize = 22;
 
 // Trace layout
 pub const MEM_P_TRACE_OFFSET: usize = 17;
@@ -787,9 +787,9 @@ impl AIR for CairoAIR {
         23
     }
 
-    fn compute_transition(
+    fn compute_transition_prover(
         &self,
-        frame: &Frame<Self::Field>,
+        frame: &Frame<Self::Field, Self::FieldExtension>,
         _periodic_values: &[FieldElement<Self::Field>],
         rap_challenges: &Self::RAPChallenges,
     ) -> Vec<FieldElement<Self::Field>> {
@@ -819,15 +819,17 @@ impl AIR for CairoAIR {
         &self,
         rap_challenges: &Self::RAPChallenges,
     ) -> BoundaryConstraints<Self::Field> {
-        let initial_pc = BoundaryConstraint::new(MEM_A_TRACE_OFFSET, 0, self.pub_inputs.pc_init);
-        let initial_ap = BoundaryConstraint::new(MEM_P_TRACE_OFFSET, 0, self.pub_inputs.ap_init);
+        let initial_pc =
+            BoundaryConstraint::new_main(MEM_A_TRACE_OFFSET, 0, self.pub_inputs.pc_init);
+        let initial_ap =
+            BoundaryConstraint::new_main(MEM_P_TRACE_OFFSET, 0, self.pub_inputs.ap_init);
 
-        let final_pc = BoundaryConstraint::new(
+        let final_pc = BoundaryConstraint::new_main(
             MEM_A_TRACE_OFFSET,
             self.pub_inputs.num_steps - 1,
             self.pub_inputs.pc_final,
         );
-        let final_ap = BoundaryConstraint::new(
+        let final_ap = BoundaryConstraint::new_main(
             MEM_P_TRACE_OFFSET,
             self.pub_inputs.num_steps - 1,
             self.pub_inputs.ap_final,
@@ -853,19 +855,19 @@ impl AIR for CairoAIR {
             * cumulative_product;
 
         let permutation_final_constraint =
-            BoundaryConstraint::new(PERMUTATION_ARGUMENT_COL_4, final_index, permutation_final);
+            BoundaryConstraint::new_aux(PERMUTATION_ARGUMENT_COL_4, final_index, permutation_final);
 
         let one: FieldElement<Self::Field> = FieldElement::one();
         let range_check_final_constraint =
-            BoundaryConstraint::new(PERMUTATION_ARGUMENT_RANGE_CHECK_COL_4, final_index, one);
+            BoundaryConstraint::new_aux(PERMUTATION_ARGUMENT_RANGE_CHECK_COL_4, final_index, one);
 
-        let range_check_min = BoundaryConstraint::new(
+        let range_check_min = BoundaryConstraint::new_aux(
             RANGE_CHECK_COL_1,
             0,
             FieldElement::from(self.pub_inputs.range_check_min.unwrap() as u64),
         );
 
-        let range_check_max = BoundaryConstraint::new(
+        let range_check_max = BoundaryConstraint::new_aux(
             RANGE_CHECK_COL_4,
             final_index,
             FieldElement::from(self.pub_inputs.range_check_max.unwrap() as u64),
@@ -900,17 +902,29 @@ impl AIR for CairoAIR {
     fn pub_inputs(&self) -> &Self::PublicInputs {
         &self.pub_inputs
     }
+
+    fn compute_transition_verifier(
+        &self,
+        frame: &Frame<Self::FieldExtension, Self::FieldExtension>,
+        periodic_values: &[FieldElement<Self::FieldExtension>],
+        rap_challenges: &Self::RAPChallenges,
+    ) -> Vec<FieldElement<Self::Field>> {
+        self.compute_transition_prover(frame, periodic_values, rap_challenges)
+    }
 }
 
 /// From the Cairo whitepaper, section 9.10
-fn compute_instr_constraints(constraints: &mut [Felt252], frame: &Frame<Stark252PrimeField>) {
+fn compute_instr_constraints(
+    constraints: &mut [Felt252],
+    frame: &Frame<Stark252PrimeField, Stark252PrimeField>,
+) {
     // These constraints are only applied over elements of the same row.
     let curr = frame.get_evaluation_step(0);
 
     // Bit-prefixes constraints.
     // See section 9.4 of Cairo whitepaper https://eprint.iacr.org/2021/1063.pdf.
     let flags: Vec<&Felt252> = (0..16)
-        .map(|col_idx| curr.get_evaluation_element(0, col_idx))
+        .map(|col_idx| curr.get_main_evaluation_element(0, col_idx))
         .collect();
 
     let one = Felt252::one();
@@ -965,10 +979,10 @@ fn compute_instr_constraints(constraints: &mut [Felt252], frame: &Frame<Stark252
     // Named like this to match the Cairo whitepaper's notation.
     let f0_squiggle = flags[0];
 
-    let off_dst = curr.get_evaluation_element(0, OFF_DST);
-    let off_op0 = curr.get_evaluation_element(0, OFF_OP0);
-    let off_op1 = curr.get_evaluation_element(0, OFF_OP1);
-    let instruction = curr.get_evaluation_element(0, FRAME_INST);
+    let off_dst = curr.get_main_evaluation_element(0, OFF_DST);
+    let off_op0 = curr.get_main_evaluation_element(0, OFF_OP0);
+    let off_op1 = curr.get_main_evaluation_element(0, OFF_OP1);
+    let instruction = curr.get_main_evaluation_element(0, FRAME_INST);
 
     constraints[INST] = off_dst + b16 * off_op0 + b32 * off_op1 + b48 * f0_squiggle - instruction;
 
@@ -989,28 +1003,31 @@ fn compute_instr_constraints(constraints: &mut [Felt252], frame: &Frame<Stark252
         f_opcode_ret * (bit_flags[7] + bit_flags[0] + bit_flags[3] + f_res_op1_bit - two - two);
 }
 
-fn compute_operand_constraints(constraints: &mut [Felt252], frame: &Frame<Stark252PrimeField>) {
+fn compute_operand_constraints(
+    constraints: &mut [Felt252],
+    frame: &Frame<Stark252PrimeField, Stark252PrimeField>,
+) {
     // These constraints are only applied over elements of the same row.
     let curr = frame.get_evaluation_step(0);
 
-    let ap = curr.get_evaluation_element(0, FRAME_AP);
-    let fp = curr.get_evaluation_element(0, FRAME_FP);
-    let pc = curr.get_evaluation_element(0, FRAME_PC);
+    let ap = curr.get_main_evaluation_element(0, FRAME_AP);
+    let fp = curr.get_main_evaluation_element(0, FRAME_FP);
+    let pc = curr.get_main_evaluation_element(0, FRAME_PC);
 
     let dst_fp = into_bit_flag(curr, F_DST_FP);
-    let off_dst = curr.get_evaluation_element(0, OFF_DST);
-    let dst_addr = curr.get_evaluation_element(0, FRAME_DST_ADDR);
+    let off_dst = curr.get_main_evaluation_element(0, OFF_DST);
+    let dst_addr = curr.get_main_evaluation_element(0, FRAME_DST_ADDR);
 
     let op0_fp = into_bit_flag(curr, F_OP_0_FP);
-    let off_op0 = curr.get_evaluation_element(0, OFF_OP0);
-    let op0_addr = curr.get_evaluation_element(0, FRAME_OP0_ADDR);
+    let off_op0 = curr.get_main_evaluation_element(0, OFF_OP0);
+    let op0_addr = curr.get_main_evaluation_element(0, FRAME_OP0_ADDR);
 
     let op1_val = into_bit_flag(curr, F_OP_1_VAL);
     let op1_ap = into_bit_flag(curr, F_OP_1_AP);
     let op1_fp = into_bit_flag(curr, F_OP_1_FP);
-    let op0 = curr.get_evaluation_element(0, FRAME_OP0);
-    let off_op1 = curr.get_evaluation_element(0, OFF_OP1);
-    let op1_addr = curr.get_evaluation_element(0, FRAME_OP1_ADDR);
+    let op0 = curr.get_main_evaluation_element(0, FRAME_OP0);
+    let off_op1 = curr.get_main_evaluation_element(0, OFF_OP1);
+    let op1_addr = curr.get_main_evaluation_element(0, FRAME_OP1_ADDR);
 
     let one = Felt252::one();
     let b15 = Felt252::from(2).pow(15u32);
@@ -1030,37 +1047,43 @@ fn compute_operand_constraints(constraints: &mut [Felt252], frame: &Frame<Stark2
 /// Given a step and the index of the bit-prefix format flag, gives the bit representation
 /// of that flag, needed for the evaluation of some constraints.
 #[inline(always)]
-fn into_bit_flag(step: &StepView<Stark252PrimeField>, element_idx: usize) -> Felt252 {
-    step.get_evaluation_element(0, element_idx)
-        - Felt252::from(2) * step.get_evaluation_element(0, element_idx + 1)
+fn into_bit_flag(
+    step: &StepView<Stark252PrimeField, Stark252PrimeField>,
+    element_idx: usize,
+) -> Felt252 {
+    step.get_main_evaluation_element(0, element_idx)
+        - Felt252::from(2) * step.get_main_evaluation_element(0, element_idx + 1)
 }
 
-fn compute_register_constraints(constraints: &mut [Felt252], frame: &Frame<Stark252PrimeField>) {
+fn compute_register_constraints(
+    constraints: &mut [Felt252],
+    frame: &Frame<Stark252PrimeField, Stark252PrimeField>,
+) {
     let curr = frame.get_evaluation_step(0);
     let next = frame.get_evaluation_step(1);
 
     let one = Felt252::one();
     let two = Felt252::from(2);
 
-    let ap = curr.get_evaluation_element(0, FRAME_AP);
-    let next_ap = next.get_evaluation_element(0, FRAME_AP);
+    let ap = curr.get_main_evaluation_element(0, FRAME_AP);
+    let next_ap = next.get_main_evaluation_element(0, FRAME_AP);
     let ap_add = into_bit_flag(curr, F_AP_ADD);
-    let res = curr.get_evaluation_element(0, FRAME_RES);
+    let res = curr.get_main_evaluation_element(0, FRAME_RES);
     let ap_one = into_bit_flag(curr, F_AP_ONE);
 
     let opc_ret = into_bit_flag(curr, F_OPC_RET);
     let opc_call = into_bit_flag(curr, F_OPC_CALL);
-    let dst = curr.get_evaluation_element(0, FRAME_DST);
-    let fp = curr.get_evaluation_element(0, FRAME_FP);
-    let next_fp = next.get_evaluation_element(0, FRAME_FP);
+    let dst = curr.get_main_evaluation_element(0, FRAME_DST);
+    let fp = curr.get_main_evaluation_element(0, FRAME_FP);
+    let next_fp = next.get_main_evaluation_element(0, FRAME_FP);
 
-    let t1 = curr.get_evaluation_element(0, FRAME_T1);
+    let t1 = curr.get_main_evaluation_element(0, FRAME_T1);
     let pc_jnz = into_bit_flag(curr, F_PC_JNZ);
-    let pc = curr.get_evaluation_element(0, FRAME_PC);
-    let next_pc = next.get_evaluation_element(0, FRAME_PC);
+    let pc = curr.get_main_evaluation_element(0, FRAME_PC);
+    let next_pc = next.get_main_evaluation_element(0, FRAME_PC);
 
-    let t0 = curr.get_evaluation_element(0, FRAME_T0);
-    let op1 = curr.get_evaluation_element(0, FRAME_OP1);
+    let t0 = curr.get_main_evaluation_element(0, FRAME_T0);
+    let op1 = curr.get_main_evaluation_element(0, FRAME_OP1);
     let pc_abs = into_bit_flag(curr, F_PC_ABS);
     let pc_rel = into_bit_flag(curr, F_PC_REL);
 
@@ -1082,23 +1105,26 @@ fn compute_register_constraints(constraints: &mut [Felt252], frame: &Frame<Stark
     constraints[T1] = t0 * res - t1;
 }
 
-fn compute_opcode_constraints(constraints: &mut [Felt252], frame: &Frame<Stark252PrimeField>) {
+fn compute_opcode_constraints(
+    constraints: &mut [Felt252],
+    frame: &Frame<Stark252PrimeField, Stark252PrimeField>,
+) {
     let curr = frame.get_evaluation_step(0);
     let one = Felt252::one();
 
-    let mul = curr.get_evaluation_element(0, FRAME_MUL);
-    let op0 = curr.get_evaluation_element(0, FRAME_OP0);
-    let op1 = curr.get_evaluation_element(0, FRAME_OP1);
+    let mul = curr.get_main_evaluation_element(0, FRAME_MUL);
+    let op0 = curr.get_main_evaluation_element(0, FRAME_OP0);
+    let op1 = curr.get_main_evaluation_element(0, FRAME_OP1);
 
     let res_add = into_bit_flag(curr, F_RES_ADD);
     let res_mul = into_bit_flag(curr, F_RES_MUL);
     let pc_jnz = into_bit_flag(curr, F_PC_JNZ);
-    let res = curr.get_evaluation_element(0, FRAME_RES);
+    let res = curr.get_main_evaluation_element(0, FRAME_RES);
 
     let opc_call = into_bit_flag(curr, F_OPC_CALL);
-    let dst = curr.get_evaluation_element(0, FRAME_DST);
-    let fp = curr.get_evaluation_element(0, FRAME_FP);
-    let pc = curr.get_evaluation_element(0, FRAME_PC);
+    let dst = curr.get_main_evaluation_element(0, FRAME_DST);
+    let fp = curr.get_main_evaluation_element(0, FRAME_FP);
+    let pc = curr.get_main_evaluation_element(0, FRAME_PC);
 
     let opc_aeq = into_bit_flag(curr, F_OPC_AEQ);
 
@@ -1115,24 +1141,27 @@ fn compute_opcode_constraints(constraints: &mut [Felt252], frame: &Frame<Stark25
     constraints[ASSERT_EQ] = opc_aeq * (dst - res);
 }
 
-fn memory_is_increasing(constraints: &mut [Felt252], frame: &Frame<Stark252PrimeField>) {
+fn memory_is_increasing(
+    constraints: &mut [Felt252],
+    frame: &Frame<Stark252PrimeField, Stark252PrimeField>,
+) {
     let curr = frame.get_evaluation_step(0);
     let next = frame.get_evaluation_step(1);
     let one = FieldElement::one();
 
-    let mem_addr_sorted_0 = curr.get_evaluation_element(0, MEMORY_ADDR_SORTED_0);
-    let mem_addr_sorted_1 = curr.get_evaluation_element(0, MEMORY_ADDR_SORTED_1);
-    let mem_addr_sorted_2 = curr.get_evaluation_element(0, MEMORY_ADDR_SORTED_2);
-    let mem_addr_sorted_3 = curr.get_evaluation_element(0, MEMORY_ADDR_SORTED_3);
-    let mem_addr_sorted_4 = curr.get_evaluation_element(0, MEMORY_ADDR_SORTED_4);
-    let next_mem_addr_sorted_0 = next.get_evaluation_element(0, MEMORY_ADDR_SORTED_0);
+    let mem_addr_sorted_0 = curr.get_aux_evaluation_element(0, MEMORY_ADDR_SORTED_0);
+    let mem_addr_sorted_1 = curr.get_aux_evaluation_element(0, MEMORY_ADDR_SORTED_1);
+    let mem_addr_sorted_2 = curr.get_aux_evaluation_element(0, MEMORY_ADDR_SORTED_2);
+    let mem_addr_sorted_3 = curr.get_aux_evaluation_element(0, MEMORY_ADDR_SORTED_3);
+    let mem_addr_sorted_4 = curr.get_aux_evaluation_element(0, MEMORY_ADDR_SORTED_4);
+    let next_mem_addr_sorted_0 = next.get_aux_evaluation_element(0, MEMORY_ADDR_SORTED_0);
 
-    let mem_val_sorted_0 = curr.get_evaluation_element(0, MEMORY_VALUES_SORTED_0);
-    let mem_val_sorted_1 = curr.get_evaluation_element(0, MEMORY_VALUES_SORTED_1);
-    let mem_val_sorted_2 = curr.get_evaluation_element(0, MEMORY_VALUES_SORTED_2);
-    let mem_val_sorted_3 = curr.get_evaluation_element(0, MEMORY_VALUES_SORTED_3);
-    let mem_val_sorted_4 = curr.get_evaluation_element(0, MEMORY_VALUES_SORTED_4);
-    let next_mem_val_sorted_0 = next.get_evaluation_element(0, MEMORY_VALUES_SORTED_0);
+    let mem_val_sorted_0 = curr.get_aux_evaluation_element(0, MEMORY_VALUES_SORTED_0);
+    let mem_val_sorted_1 = curr.get_aux_evaluation_element(0, MEMORY_VALUES_SORTED_1);
+    let mem_val_sorted_2 = curr.get_aux_evaluation_element(0, MEMORY_VALUES_SORTED_2);
+    let mem_val_sorted_3 = curr.get_aux_evaluation_element(0, MEMORY_VALUES_SORTED_3);
+    let mem_val_sorted_4 = curr.get_aux_evaluation_element(0, MEMORY_VALUES_SORTED_4);
+    let next_mem_val_sorted_0 = next.get_aux_evaluation_element(0, MEMORY_VALUES_SORTED_0);
 
     constraints[MEMORY_INCREASING_0] =
         (mem_addr_sorted_0 - mem_addr_sorted_1) * (mem_addr_sorted_1 - mem_addr_sorted_0 - one);
@@ -1167,7 +1196,7 @@ fn memory_is_increasing(constraints: &mut [Felt252], frame: &Frame<Stark252Prime
 
 fn permutation_argument(
     constraints: &mut [Felt252],
-    frame: &Frame<Stark252PrimeField>,
+    frame: &Frame<Stark252PrimeField, Stark252PrimeField>,
     rap_challenges: &CairoRAPChallenges,
 ) {
     let curr = frame.get_evaluation_step(0);
@@ -1176,36 +1205,36 @@ fn permutation_argument(
     let z = &rap_challenges.z_memory;
     let alpha = &rap_challenges.alpha_memory;
 
-    let p0 = curr.get_evaluation_element(0, PERMUTATION_ARGUMENT_COL_0);
-    let next_p0 = next.get_evaluation_element(0, PERMUTATION_ARGUMENT_COL_0);
-    let p1 = curr.get_evaluation_element(0, PERMUTATION_ARGUMENT_COL_1);
-    let p2 = curr.get_evaluation_element(0, PERMUTATION_ARGUMENT_COL_2);
-    let p3 = curr.get_evaluation_element(0, PERMUTATION_ARGUMENT_COL_3);
-    let p4 = curr.get_evaluation_element(0, PERMUTATION_ARGUMENT_COL_4);
+    let p0 = curr.get_aux_evaluation_element(0, PERMUTATION_ARGUMENT_COL_0);
+    let next_p0 = next.get_aux_evaluation_element(0, PERMUTATION_ARGUMENT_COL_0);
+    let p1 = curr.get_aux_evaluation_element(0, PERMUTATION_ARGUMENT_COL_1);
+    let p2 = curr.get_aux_evaluation_element(0, PERMUTATION_ARGUMENT_COL_2);
+    let p3 = curr.get_aux_evaluation_element(0, PERMUTATION_ARGUMENT_COL_3);
+    let p4 = curr.get_aux_evaluation_element(0, PERMUTATION_ARGUMENT_COL_4);
 
-    let next_ap0 = next.get_evaluation_element(0, MEMORY_ADDR_SORTED_0);
-    let ap1 = curr.get_evaluation_element(0, MEMORY_ADDR_SORTED_1);
-    let ap2 = curr.get_evaluation_element(0, MEMORY_ADDR_SORTED_2);
-    let ap3 = curr.get_evaluation_element(0, MEMORY_ADDR_SORTED_3);
-    let ap4 = curr.get_evaluation_element(0, MEMORY_ADDR_SORTED_4);
+    let next_ap0 = next.get_aux_evaluation_element(0, MEMORY_ADDR_SORTED_0);
+    let ap1 = curr.get_aux_evaluation_element(0, MEMORY_ADDR_SORTED_1);
+    let ap2 = curr.get_aux_evaluation_element(0, MEMORY_ADDR_SORTED_2);
+    let ap3 = curr.get_aux_evaluation_element(0, MEMORY_ADDR_SORTED_3);
+    let ap4 = curr.get_aux_evaluation_element(0, MEMORY_ADDR_SORTED_4);
 
-    let next_vp0 = next.get_evaluation_element(0, MEMORY_VALUES_SORTED_0);
-    let vp1 = curr.get_evaluation_element(0, MEMORY_VALUES_SORTED_1);
-    let vp2 = curr.get_evaluation_element(0, MEMORY_VALUES_SORTED_2);
-    let vp3 = curr.get_evaluation_element(0, MEMORY_VALUES_SORTED_3);
-    let vp4 = curr.get_evaluation_element(0, MEMORY_VALUES_SORTED_4);
+    let next_vp0 = next.get_aux_evaluation_element(0, MEMORY_VALUES_SORTED_0);
+    let vp1 = curr.get_aux_evaluation_element(0, MEMORY_VALUES_SORTED_1);
+    let vp2 = curr.get_aux_evaluation_element(0, MEMORY_VALUES_SORTED_2);
+    let vp3 = curr.get_aux_evaluation_element(0, MEMORY_VALUES_SORTED_3);
+    let vp4 = curr.get_aux_evaluation_element(0, MEMORY_VALUES_SORTED_4);
 
-    let next_a0 = next.get_evaluation_element(0, FRAME_PC);
-    let a1 = curr.get_evaluation_element(0, FRAME_DST_ADDR);
-    let a2 = curr.get_evaluation_element(0, FRAME_OP0_ADDR);
-    let a3 = curr.get_evaluation_element(0, FRAME_OP1_ADDR);
-    let a4 = curr.get_evaluation_element(0, EXTRA_ADDR);
+    let next_a0 = next.get_main_evaluation_element(0, FRAME_PC);
+    let a1 = curr.get_main_evaluation_element(0, FRAME_DST_ADDR);
+    let a2 = curr.get_main_evaluation_element(0, FRAME_OP0_ADDR);
+    let a3 = curr.get_main_evaluation_element(0, FRAME_OP1_ADDR);
+    let a4 = curr.get_main_evaluation_element(0, EXTRA_ADDR);
 
-    let next_v0 = next.get_evaluation_element(0, FRAME_INST);
-    let v1 = curr.get_evaluation_element(0, FRAME_DST);
-    let v2 = curr.get_evaluation_element(0, FRAME_OP0);
-    let v3 = curr.get_evaluation_element(0, FRAME_OP1);
-    let v4 = curr.get_evaluation_element(0, EXTRA_VAL);
+    let next_v0 = next.get_main_evaluation_element(0, FRAME_INST);
+    let v1 = curr.get_main_evaluation_element(0, FRAME_DST);
+    let v2 = curr.get_main_evaluation_element(0, FRAME_OP0);
+    let v3 = curr.get_main_evaluation_element(0, FRAME_OP1);
+    let v4 = curr.get_main_evaluation_element(0, EXTRA_VAL);
 
     constraints[PERMUTATION_ARGUMENT_0] =
         (z - (ap1 + alpha * vp1)) * p1 - (z - (a1 + alpha * v1)) * p0;
@@ -1221,7 +1250,7 @@ fn permutation_argument(
 
 fn permutation_argument_range_check(
     constraints: &mut [Felt252],
-    frame: &Frame<Stark252PrimeField>,
+    frame: &Frame<Stark252PrimeField, Stark252PrimeField>,
     rap_challenges: &CairoRAPChallenges,
 ) {
     let curr = frame.get_evaluation_step(0);
@@ -1229,11 +1258,11 @@ fn permutation_argument_range_check(
     let one = FieldElement::one();
     let z = &rap_challenges.z_range_check;
 
-    let rc_col_1 = curr.get_evaluation_element(0, RANGE_CHECK_COL_1);
-    let rc_col_2 = curr.get_evaluation_element(0, RANGE_CHECK_COL_2);
-    let rc_col_3 = curr.get_evaluation_element(0, RANGE_CHECK_COL_3);
-    let rc_col_4 = curr.get_evaluation_element(0, RANGE_CHECK_COL_4);
-    let next_rc_col_1 = next.get_evaluation_element(0, RANGE_CHECK_COL_1);
+    let rc_col_1 = curr.get_aux_evaluation_element(0, RANGE_CHECK_COL_1);
+    let rc_col_2 = curr.get_aux_evaluation_element(0, RANGE_CHECK_COL_2);
+    let rc_col_3 = curr.get_aux_evaluation_element(0, RANGE_CHECK_COL_3);
+    let rc_col_4 = curr.get_aux_evaluation_element(0, RANGE_CHECK_COL_4);
+    let next_rc_col_1 = next.get_aux_evaluation_element(0, RANGE_CHECK_COL_1);
 
     constraints[RANGE_CHECK_INCREASING_0] = (rc_col_1 - rc_col_2) * (rc_col_2 - rc_col_1 - one);
     constraints[RANGE_CHECK_INCREASING_1] = (rc_col_2 - rc_col_3) * (rc_col_3 - rc_col_2 - one);
@@ -1241,21 +1270,21 @@ fn permutation_argument_range_check(
     constraints[RANGE_CHECK_INCREASING_3] =
         (rc_col_4 - next_rc_col_1) * (next_rc_col_1 - rc_col_4 - one);
 
-    let p0 = curr.get_evaluation_element(0, PERMUTATION_ARGUMENT_RANGE_CHECK_COL_1);
-    let next_p0 = next.get_evaluation_element(0, PERMUTATION_ARGUMENT_RANGE_CHECK_COL_1);
-    let p1 = curr.get_evaluation_element(0, PERMUTATION_ARGUMENT_RANGE_CHECK_COL_2);
-    let p2 = curr.get_evaluation_element(0, PERMUTATION_ARGUMENT_RANGE_CHECK_COL_3);
-    let p3 = curr.get_evaluation_element(0, PERMUTATION_ARGUMENT_RANGE_CHECK_COL_4);
+    let p0 = curr.get_aux_evaluation_element(0, PERMUTATION_ARGUMENT_RANGE_CHECK_COL_1);
+    let next_p0 = next.get_aux_evaluation_element(0, PERMUTATION_ARGUMENT_RANGE_CHECK_COL_1);
+    let p1 = curr.get_aux_evaluation_element(0, PERMUTATION_ARGUMENT_RANGE_CHECK_COL_2);
+    let p2 = curr.get_aux_evaluation_element(0, PERMUTATION_ARGUMENT_RANGE_CHECK_COL_3);
+    let p3 = curr.get_aux_evaluation_element(0, PERMUTATION_ARGUMENT_RANGE_CHECK_COL_4);
 
-    let next_ap0 = next.get_evaluation_element(0, RANGE_CHECK_COL_1);
-    let ap1 = curr.get_evaluation_element(0, RANGE_CHECK_COL_2);
-    let ap2 = curr.get_evaluation_element(0, RANGE_CHECK_COL_3);
-    let ap3 = curr.get_evaluation_element(0, RANGE_CHECK_COL_4);
+    let next_ap0 = next.get_aux_evaluation_element(0, RANGE_CHECK_COL_1);
+    let ap1 = curr.get_aux_evaluation_element(0, RANGE_CHECK_COL_2);
+    let ap2 = curr.get_aux_evaluation_element(0, RANGE_CHECK_COL_3);
+    let ap3 = curr.get_aux_evaluation_element(0, RANGE_CHECK_COL_4);
 
-    let a0_next = next.get_evaluation_element(0, OFF_DST);
-    let a1 = curr.get_evaluation_element(0, OFF_OP0);
-    let a2 = curr.get_evaluation_element(0, OFF_OP1);
-    let a3 = curr.get_evaluation_element(0, RC_HOLES);
+    let a0_next = next.get_main_evaluation_element(0, OFF_DST);
+    let a1 = curr.get_main_evaluation_element(0, OFF_OP0);
+    let a2 = curr.get_main_evaluation_element(0, OFF_OP1);
+    let a3 = curr.get_main_evaluation_element(0, RC_HOLES);
 
     constraints[RANGE_CHECK_0] = (z - ap1) * p1 - (z - a1) * p0;
     constraints[RANGE_CHECK_1] = (z - ap2) * p2 - (z - a2) * p1;
@@ -1263,7 +1292,7 @@ fn permutation_argument_range_check(
     constraints[RANGE_CHECK_3] = (z - next_ap0) * next_p0 - (z - a0_next) * p3;
 }
 
-fn frame_inst_size(step: &StepView<Stark252PrimeField>) -> Felt252 {
+fn frame_inst_size(step: &StepView<Stark252PrimeField, Stark252PrimeField>) -> Felt252 {
     let op1_val = into_bit_flag(step, F_OP_1_VAL);
     op1_val + Felt252::one()
 }

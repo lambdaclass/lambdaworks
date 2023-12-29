@@ -8,7 +8,8 @@ use lambdaworks_crypto::merkle_tree::proof::Proof;
 use log::error;
 
 use crate::{
-    config::Commitment, proof::stark::DeepPolynomialOpening, transcript::IsStarkTranscript,
+    config::Commitment, frame::Frame, proof::stark::DeepPolynomialOpening,
+    transcript::IsStarkTranscript,
 };
 use lambdaworks_math::{
     fft::cpu::bit_reversing::reverse_index,
@@ -118,9 +119,10 @@ pub trait IsStarkVerifier<A: AIR> {
         );
 
         // <<<< Receive values: tⱼ(zgᵏ)
-        for i in 0..proof.trace_ood_evaluations.width {
-            for j in 0..proof.trace_ood_evaluations.height {
-                transcript.append_field_element(&proof.trace_ood_evaluations.get_row(j)[i]);
+        let trace_ood_evaluations_columns = proof.trace_ood_evaluations.columns();
+        for col in trace_ood_evaluations_columns.iter() {
+            for elem in col.iter() {
+                transcript.append_field_element(elem);
             }
         }
         // <<<< Receive value: Hᵢ(z^N)
@@ -217,9 +219,14 @@ pub trait IsStarkVerifier<A: AIR> {
         ) = (0..number_of_b_constraints)
             .map(|index| {
                 let step = boundary_constraints.constraints[index].step;
+                let is_aux = boundary_constraints.constraints[index].is_aux;
                 let point = &domain.trace_primitive_root.pow(step as u64);
                 let trace_idx = boundary_constraints.constraints[index].col;
-                let trace_evaluation = &proof.trace_ood_evaluations.get_row(0)[trace_idx];
+                let trace_evaluation = if is_aux {
+                    &proof.trace_ood_evaluations.get_row_aux(0)[trace_idx]
+                } else {
+                    &proof.trace_ood_evaluations.get_row_main(0)[trace_idx]
+                };
                 let boundary_zerofier_challenges_z_den = -point + &challenges.z;
 
                 let boundary_quotient_ood_evaluation_num =
@@ -250,8 +257,11 @@ pub trait IsStarkVerifier<A: AIR> {
             .map(|poly| poly.evaluate(&challenges.z))
             .collect::<Vec<FieldElement<A::FieldExtension>>>();
 
-        let transition_ood_frame_evaluations = air.compute_transition(
-            &(proof.trace_ood_evaluations).into_frame(A::STEP_SIZE),
+        let transition_ood_frame_evaluations = air.compute_transition_verifier(
+            &Frame::read_from_ood_table(
+                &proof.trace_ood_evaluations,
+                &air.context().transition_offsets,
+            ),
             &periodic_values,
             &challenges.rap_challenges,
         );
@@ -642,23 +652,22 @@ pub trait IsStarkVerifier<A: AIR> {
         lde_trace_evaluations: &[FieldElement<A::FieldExtension>],
         lde_composition_poly_parts_evaluation: &[FieldElement<A::FieldExtension>],
     ) -> FieldElement<A::FieldExtension> {
-        let mut denoms_trace = (0..proof.trace_ood_evaluations.height)
+        let mut denoms_trace = (0..proof.trace_ood_evaluations.n_rows())
             .map(|row_idx| evaluation_point - primitive_root.pow(row_idx as u64) * &challenges.z)
             .collect::<Vec<FieldElement<A::FieldExtension>>>();
         FieldElement::inplace_batch_inverse(&mut denoms_trace).unwrap();
 
-        let trace_term = (0..proof.trace_ood_evaluations.width)
+        let trace_term = (0..proof.trace_ood_evaluations.n_cols())
             .zip(&challenges.trace_term_coeffs)
             .fold(FieldElement::zero(), |trace_terms, (col_idx, coeff_row)| {
-                let trace_i = (0..proof.trace_ood_evaluations.height).zip(coeff_row).fold(
-                    FieldElement::zero(),
-                    |trace_t, (row_idx, coeff)| {
+                let trace_i = (0..proof.trace_ood_evaluations.n_rows())
+                    .zip(coeff_row)
+                    .fold(FieldElement::zero(), |trace_t, (row_idx, coeff)| {
                         let poly_evaluation = (lde_trace_evaluations[col_idx].clone()
                             - proof.trace_ood_evaluations.get_row(row_idx)[col_idx].clone())
                             * &denoms_trace[row_idx];
                         trace_t + &poly_evaluation * coeff
-                    },
-                );
+                    });
                 trace_terms + trace_i
             });
 
