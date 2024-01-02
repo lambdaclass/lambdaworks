@@ -9,12 +9,19 @@ use lambdaworks_math::{
 };
 use sha3::{Digest, Keccak256};
 
+/// The functionality of a transcript to be used in the STARK Prove and Verify protocols.
 pub trait IsStarkTranscript<F: IsField> {
+    /// Appends a field element to the transcript.
     fn append_field_element(&mut self, element: &FieldElement<F>);
+    /// Appends a bytes to the transcript.
     fn append_bytes(&mut self, new_bytes: &[u8]);
+    /// Returns the inner state of the transcript that fully determines its outputs.
     fn state(&self) -> [u8; 32];
+    /// Returns a random field element.
     fn sample_field_element(&mut self) -> FieldElement<F>;
+    /// Returns a random index between 0 and `upper_bound`.
     fn sample_u64(&mut self, upper_bound: u64) -> u64;
+    /// Returns a field element not contained in `lde_roots_of_unity_coset` or `trace_roots_of_unity`.
     fn sample_z_ood<S: IsSubFieldOf<F>>(
         &mut self,
         lde_roots_of_unity_coset: &[FieldElement<S>],
@@ -38,6 +45,7 @@ pub trait IsStarkTranscript<F: IsField> {
     }
 }
 
+/// A transcript implementing `IsStarkTranscript` and compatible with Stone (https://github.com/starkware-libs/stone-prover).
 pub struct StoneProverTranscript {
     state: [u8; 32],
     seed_increment: U256,
@@ -46,9 +54,14 @@ pub struct StoneProverTranscript {
 }
 
 impl StoneProverTranscript {
+    /// The maximum multiple of the modulus of `p` that fits in 256 bits, where
+    /// `p = 0x800000000000011000000000000000000000000000000000000000000000001`
     const MODULUS_MAX_MULTIPLE: U256 = U256::from_hex_unchecked(
         "f80000000000020f00000000000000000000000000000000000000000000001f",
     );
+
+    /// The value of `2^{-256} mod p`, where
+    /// `p = 0x800000000000011000000000000000000000000000000000000000000000001`
     const R_INV: U256 = U256::from_hex_unchecked(
         "0x40000000000001100000000000012100000000000000000000000000000000",
     );
@@ -154,6 +167,7 @@ impl IsStarkTranscript<Stark252PrimeField> for StoneProverTranscript {
     }
 }
 
+/// Returns a batch of size `size` of field elements sampled from the transcript `transcript`.
 pub fn batch_sample_challenges<F: IsFFTField>(
     size: usize,
     transcript: &mut impl IsStarkTranscript<F>,
