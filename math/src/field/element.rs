@@ -63,6 +63,17 @@ impl<F: IsField> FieldElement<F> {
         numbers[0] = bi_inv;
         Ok(())
     }
+
+    #[inline(always)]
+    pub fn to_subfield_vec<S>(self) -> Vec<FieldElement<S>>
+    where
+        S: IsSubFieldOf<F>,
+    {
+        S::to_subfield_vec(self.value)
+            .into_iter()
+            .map(|x| FieldElement::from_raw(x))
+            .collect()
+    }
 }
 
 /// From overloading for field elements
@@ -434,6 +445,11 @@ where
         Self { value: F::zero() }
     }
 
+    /// Returns the raw base type
+    pub fn to_raw(self) -> F::BaseType {
+        self.value
+    }
+
     #[inline(always)]
     pub fn to_extension<L: IsField>(self) -> FieldElement<L>
     where
@@ -471,6 +487,12 @@ impl<F: IsPrimeField> FieldElement<F> {
         Ok(Self {
             value: F::from_hex(hex_string)?,
         })
+    }
+
+    #[cfg(feature = "std")]
+    /// Creates a hexstring from a `FieldElement` without `0x`.
+    pub fn to_hex(&self) -> String {
+        F::to_hex(&self.value)
     }
 }
 
