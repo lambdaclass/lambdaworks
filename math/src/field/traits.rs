@@ -204,6 +204,10 @@ pub trait IsPrimeField: IsField {
     /// Returns an `CreationError::InvalidHexString`if the value is not a hexstring
     fn from_hex(hex_string: &str) -> Result<Self::BaseType, CreationError>;
 
+    #[cfg(feature = "std")]
+    /// Creates a hexstring from a `FieldElement` without `0x`.
+    fn to_hex(a: &Self::BaseType) -> String;
+
     /// Returns the number of bits of the max element of the field, as per field documentation, not internal representation.
     /// This is `log2(max FE)` rounded up
     fn field_bit_size() -> usize;

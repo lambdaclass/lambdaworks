@@ -34,6 +34,10 @@ impl IsPrimeField for Felt {
         todo!()
     }
 
+    fn to_hex(_a: &Self::BaseType) -> String {
+        todo!()
+    }
+
     fn field_bit_size() -> usize {
         128 // TODO
     }
