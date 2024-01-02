@@ -11,6 +11,7 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 lambdaworks-math = { workspace = true , features = ["lambdaworks-serde-binary"] }
 lambdaworks-crypto.workspace = true
+miden-core = { git="https://github.com/lambdaclass/miden-vm", optional=true}
 
 rand = "0.8.5"
 thiserror = "1.0.38"
@@ -47,6 +48,7 @@ instruments = []                   # This enables timing prints in prover and ve
 metal = ["lambdaworks-math/metal"]
 parallel = ["dep:rayon", "lambdaworks-crypto/parallel"]
 wasm = ["dep:wasm-bindgen", "dep:serde-wasm-bindgen", "dep:web-sys"]
+winter_compatibility = ["miden-core"]
 
 [target.'cfg(not(all(target_arch = "wasm32", target_os = "unknown")))'.dev-dependencies]
 proptest = "1.2.0"

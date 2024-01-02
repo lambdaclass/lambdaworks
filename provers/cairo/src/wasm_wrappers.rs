@@ -10,7 +10,7 @@ use std::collections::HashMap;
 use wasm_bindgen::prelude::wasm_bindgen;
 
 #[wasm_bindgen]
-pub struct Stark252PrimeFieldProof(StarkProof<Stark252PrimeField>);
+pub struct Stark252PrimeFieldProof(StarkProof<Stark252PrimeField, Stark252PrimeField>);
 
 #[wasm_bindgen]
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Eq, PartialEq, Hash)]
@@ -45,7 +45,7 @@ pub fn verify_cairo_proof_wasm(proof_bytes: &[u8], proof_options: &ProofOptions)
         return false;
     };
 
-    Verifier::verify::<CairoAIR>(
+    Verifier::<CairoAIR>::verify(
         &proof,
         &pub_inputs,
         proof_options,

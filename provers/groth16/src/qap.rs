@@ -1,4 +1,4 @@
-use lambdaworks_math::{fft::polynomial::FFTPoly, polynomial::Polynomial};
+use lambdaworks_math::polynomial::Polynomial;
 
 use crate::{common::*, r1cs::R1CS};
 
@@ -19,10 +19,9 @@ impl QuadraticArithmeticProgram {
         let [l, r, o] = self.scale_and_accumulate_variable_polynomials(w, degree, offset);
 
         // TODO: Change to a vector of offsetted evaluations of x^N-1
-        let mut t = (Polynomial::new_monomial(FrElement::one(), self.num_of_gates)
-            - FrElement::one())
-        .evaluate_offset_fft(1, Some(degree), offset)
-        .unwrap();
+        let t_poly =
+            Polynomial::new_monomial(FrElement::one(), self.num_of_gates) - FrElement::one();
+        let mut t = Polynomial::evaluate_offset_fft(&t_poly, 1, Some(degree), offset).unwrap();
         FrElement::inplace_batch_inverse(&mut t).unwrap();
 
         let h_evaluated = l
@@ -49,14 +48,20 @@ impl QuadraticArithmeticProgram {
         offset: &FrElement,
     ) -> [Vec<FrElement>; 3] {
         [&self.l, &self.r, &self.o].map(|var_polynomials| {
-            var_polynomials
-                .iter()
-                .zip(w)
-                .map(|(poly, coeff)| poly.mul_with_ref(&Polynomial::new_monomial(coeff.clone(), 0)))
-                .reduce(|poly1, poly2| poly1 + poly2)
-                .unwrap()
-                .evaluate_offset_fft(1, Some(degree), offset)
-                .unwrap()
+            Polynomial::evaluate_offset_fft(
+                &(var_polynomials
+                    .iter()
+                    .zip(w)
+                    .map(|(poly, coeff)| {
+                        poly.mul_with_ref(&Polynomial::new_monomial(coeff.clone(), 0))
+                    })
+                    .reduce(|poly1, poly2| poly1 + poly2)
+                    .unwrap()),
+                1,
+                Some(degree),
+                offset,
+            )
+            .unwrap()
         })
     }
 }
@@ -133,7 +138,7 @@ fn apply_padding(columns: &[Vec<FrElement>], pad_zeroes: usize) -> Vec<Vec<FrEle
 fn build_variable_polynomials(from_matrix: &[Vec<FrElement>]) -> Vec<Polynomial<FrElement>> {
     from_matrix
         .iter()
-        .map(|row| Polynomial::interpolate_fft(row).unwrap())
+        .map(|row| Polynomial::interpolate_fft::<FrField>(row).unwrap())
         .collect()
 }
 
@@ -154,5 +159,6 @@ fn get_variable_lro_polynomials_from_r1cs(
         current_var_o[i] = c.c[var_idx].clone();
     }
 
-    [current_var_l, current_var_r, current_var_o].map(|e| Polynomial::interpolate_fft(&e).unwrap())
+    [current_var_l, current_var_r, current_var_o]
+        .map(|e| Polynomial::interpolate_fft::<FrField>(&e).unwrap())
 }
