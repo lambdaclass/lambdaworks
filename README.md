@@ -87,6 +87,7 @@ List of symbols:
 Additionally, provers are compatible with the following frontends and VMs:
 
 | Backend | Frontend | Status |
+|---------|----------|--------|
 | Groth16 | Arkworks | :heavy_check_mark: |
 | Groth16 | Gnark    | :x: |
 | Groth16 | Circom   | 🏗️  |
