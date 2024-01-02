@@ -3,12 +3,21 @@ mod integration_tests;
 
 use ark_ff::PrimeField;
 use ark_relations::r1cs::{ConstraintSystemRef, Field};
-use lambdaworks_groth16::{common::*, r1cs::R1CS};
+use lambdaworks_groth16::{common::*, r1cs::R1CS, QuadraticArithmeticProgram};
 use lambdaworks_math::traits::ByteConversion;
 
 use std::ops::Deref;
 
-pub fn r1cs_from_arkworks_cs<F: Field>(cs: &ConstraintSystemRef<F>) -> R1CS {
+pub fn to_lambda<F: PrimeField>(
+    cs: &ConstraintSystemRef<F>,
+) -> (QuadraticArithmeticProgram, Vec<FrElement>) {
+    return (
+        QuadraticArithmeticProgram::from_r1cs(r1cs_from_arkworks_cs(cs)),
+        extract_witness_from_arkworks_cs(cs),
+    );
+}
+
+fn r1cs_from_arkworks_cs<F: PrimeField>(cs: &ConstraintSystemRef<F>) -> R1CS {
     cs.inline_all_lcs();
 
     let r1cs_matrices = cs.to_matrices().unwrap();
@@ -24,9 +33,7 @@ pub fn r1cs_from_arkworks_cs<F: Field>(cs: &ConstraintSystemRef<F>) -> R1CS {
     )
 }
 
-pub fn extract_witness_from_arkworks_cs<F: PrimeField>(
-    cs: &ConstraintSystemRef<F>,
-) -> Vec<FrElement> {
+fn extract_witness_from_arkworks_cs<F: PrimeField>(cs: &ConstraintSystemRef<F>) -> Vec<FrElement> {
     let binding = cs.borrow().unwrap();
     let borrowed_cs_ref = binding.deref();
 

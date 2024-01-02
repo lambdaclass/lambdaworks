@@ -1,7 +1,8 @@
-use crate::{extract_witness_from_arkworks_cs, r1cs_from_arkworks_cs};
+use crate::to_lambda;
 use ark_bls12_381::Fr;
 use ark_relations::{lc, r1cs::ConstraintSystem, r1cs::Variable};
-use lambdaworks_groth16::{setup, verify, Prover, QuadraticArithmeticProgram};
+use lambdaworks_groth16::{setup, verify, Prover};
+use rand::Rng;
 
 #[test]
 fn pinocchio_paper_example() {
@@ -34,10 +35,8 @@ fn pinocchio_paper_example() {
     cs.enforce_constraint(lc!() + a + b, lc!() + e, lc!() + result)
         .unwrap();
 
-    let r1cs = r1cs_from_arkworks_cs(&cs);
-    let w = extract_witness_from_arkworks_cs(&cs);
+    let (qap, w) = to_lambda(&cs);
 
-    let qap = QuadraticArithmeticProgram::from_r1cs(r1cs);
     let (pk, vk) = setup(&qap);
 
     let accept = verify(
@@ -89,10 +88,7 @@ fn vitalik_example() {
     )
     .unwrap();
 
-    let r1cs = r1cs_from_arkworks_cs(&cs);
-    let w = extract_witness_from_arkworks_cs(&cs);
-
-    let qap = QuadraticArithmeticProgram::from_r1cs(r1cs);
+    let (qap, w) = to_lambda(&cs);
 
     let (pk, vk) = setup(&qap);
 
@@ -103,8 +99,6 @@ fn vitalik_example() {
     );
     assert!(accept);
 }
-
-use rand::Rng;
 
 #[test]
 fn exponentiation_example() {
@@ -136,17 +130,13 @@ fn exponentiation_example() {
     cs.enforce_constraint(lc!() + _out, lc!() + Variable::One, lc!() + _acc)
         .unwrap();
 
-    let r1cs = r1cs_from_arkworks_cs(&cs);
-    let w = extract_witness_from_arkworks_cs(&cs);
-
-    let qap = QuadraticArithmeticProgram::from_r1cs(r1cs);
+    let (qap, w) = to_lambda(&cs);
 
     let (pk, vk) = setup(&qap);
 
-    let accept = verify(
-        &vk,
-        &Prover::prove(&w, &qap, &pk),
-        &w[..qap.num_of_public_inputs],
-    );
+    let proof = Prover::prove(&w, &qap, &pk);
+
+    let public_inputs = &w[..qap.num_of_public_inputs];
+    let accept = verify(&vk, &proof, public_inputs);
     assert!(accept);
 }
