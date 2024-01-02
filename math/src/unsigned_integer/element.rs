@@ -486,6 +486,7 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
         UnsignedInteger { limbs: result }
     }
 
+    /// Creates a hexstring from a `FieldElement` without `0x`.
     #[cfg(feature = "std")]
     pub fn to_hex(&self) -> String {
         let mut hex_string = String::new();
