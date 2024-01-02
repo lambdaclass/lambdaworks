@@ -29,19 +29,19 @@ impl<F, D: Digest, const NUM_BYTES: usize> IsMerkleTreeBackend
     for FieldElementBackend<F, D, NUM_BYTES>
 where
     F: IsField,
-    FieldElement<F>: Serializable,
+    FieldElement<F>: Serializable + Sync + Send,
     [u8; NUM_BYTES]: From<GenericArray<u8, <D as OutputSizeUser>::OutputSize>>,
 {
     type Node = [u8; NUM_BYTES];
     type Data = FieldElement<F>;
 
-    fn hash_data(&self, input: &FieldElement<F>) -> [u8; NUM_BYTES] {
+    fn hash_data(input: &FieldElement<F>) -> [u8; NUM_BYTES] {
         let mut hasher = D::new();
         hasher.update(input.serialize());
         hasher.finalize().into()
     }
 
-    fn hash_new_parent(&self, left: &[u8; NUM_BYTES], right: &[u8; NUM_BYTES]) -> [u8; NUM_BYTES] {
+    fn hash_new_parent(left: &[u8; NUM_BYTES], right: &[u8; NUM_BYTES]) -> [u8; NUM_BYTES] {
         let mut hasher = D::new();
         hasher.update(left);
         hasher.update(right);
@@ -57,16 +57,16 @@ pub struct TreePoseidon<P: Poseidon + Default> {
 impl<P> IsMerkleTreeBackend for TreePoseidon<P>
 where
     P: Poseidon + Default,
+    FieldElement<P::F>: Sync + Send,
 {
     type Node = FieldElement<P::F>;
     type Data = FieldElement<P::F>;
 
-    fn hash_data(&self, input: &FieldElement<P::F>) -> FieldElement<P::F> {
+    fn hash_data(input: &FieldElement<P::F>) -> FieldElement<P::F> {
         P::hash_single(input)
     }
 
     fn hash_new_parent(
-        &self,
         left: &FieldElement<P::F>,
         right: &FieldElement<P::F>,
     ) -> FieldElement<P::F> {

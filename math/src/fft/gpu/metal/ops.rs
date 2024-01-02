@@ -1,6 +1,6 @@
 use crate::field::{
     element::FieldElement,
-    traits::{IsFFTField, RootsConfig},
+    traits::{IsFFTField, IsField, IsSubFieldOf, RootsConfig},
 };
 use lambdaworks_gpu::metal::abstractions::{errors::MetalError, state::*};
 
@@ -15,11 +15,17 @@ use core::mem;
 /// in this order too. Natural order means that input[i] corresponds to the i-th coefficient,
 /// as opposed to bit-reverse order in which input[bit_rev(i)] corresponds to the i-th
 /// coefficient.
-pub fn fft<F: IsFFTField>(
-    input: &[FieldElement<F>],
+///
+/// It supports values in a field E and domain in a subfield F.
+pub fn fft<F, E>(
+    input: &[FieldElement<E>],
     twiddles: &[FieldElement<F>],
     state: &MetalState,
-) -> Result<Vec<FieldElement<F>>, MetalError> {
+) -> Result<Vec<FieldElement<E>>, MetalError>
+where
+    F: IsFFTField + IsSubFieldOf<E>,
+    E: IsField,
+{
     // TODO: make a twiddle factor abstraction for handling invalid twiddles
     if !input.len().is_power_of_two() {
         return Err(MetalError::InputError(input.len()));
@@ -55,7 +61,7 @@ pub fn fft<F: IsFFTField>(
 
     let result = MetalState::retrieve_contents(&input_buffer);
     let result = bitrev_permutation::<F, _>(&result, state)?;
-    Ok(result.iter().map(FieldElement::from_raw).collect())
+    Ok(result.into_iter().map(FieldElement::from_raw).collect())
 }
 
 /// Generates 2^{`order-1`} twiddle factors in parallel, with a certain `config`, in Metal.
@@ -89,7 +95,7 @@ pub fn gen_twiddles<F: IsFFTField>(
         let (command_buffer, command_encoder) =
             state.setup_command(&pipeline, Some(&[(0, &result_buffer)]));
 
-        let root = F::get_primitive_root_of_unity::<F>(order).unwrap();
+        let root = F::get_primitive_root_of_unity(order).unwrap();
         command_encoder.set_bytes(1, mem::size_of::<F::BaseType>() as u64, void_ptr(&root));
 
         let grid_size = MTLSize::new(len as u64, 1, 1);
@@ -103,7 +109,7 @@ pub fn gen_twiddles<F: IsFFTField>(
     });
 
     let result = MetalState::retrieve_contents(&result_buffer);
-    Ok(result.iter().map(FieldElement::from_raw).collect())
+    Ok(result.into_iter().map(FieldElement::from_raw).collect())
 }
 
 /// Executes a parallel bit-reverse permutation with the elements of `input`, in Metal.
@@ -173,7 +179,7 @@ mod tests {
         fn test_metal_fft_matches_sequential(input in field_vec(6)) {
             let metal_state = MetalState::new(None).unwrap();
             let order = input.len().trailing_zeros();
-            let twiddles = get_twiddles(order.into(), RootsConfig::BitReverse).unwrap();
+            let twiddles = get_twiddles::<F>(order.into(), RootsConfig::BitReverse).unwrap();
 
             let metal_result = super::fft(&input, &twiddles, &metal_state).unwrap();
             let sequential_result = crate::fft::cpu::ops::fft(&input, &twiddles).unwrap();
@@ -190,7 +196,7 @@ mod tests {
 
         let metal_state = MetalState::new(None).unwrap();
         let order = input.len().trailing_zeros();
-        let twiddles = get_twiddles(order.into(), RootsConfig::BitReverse).unwrap();
+        let twiddles = get_twiddles::<F>(order.into(), RootsConfig::BitReverse).unwrap();
 
         let metal_result = super::fft(&input, &twiddles, &metal_state).unwrap();
         let sequential_result = crate::fft::cpu::ops::fft(&input, &twiddles).unwrap();
