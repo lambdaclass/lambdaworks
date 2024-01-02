@@ -76,13 +76,13 @@ impl<F: IsField + IsFFTField, CS: IsCommitmentScheme<F>> Verifier<F, CS> {
     {
         // TODO: First three steps are validations: belonging to main subgroup, belonging to prime field.
         let [beta, gamma, alpha, zeta, upsilon] = self.compute_challenges(p, vk, public_input);
-        let zh_zeta = zeta.pow(input.n) - FieldElement::one();
+        let zh_zeta = zeta.pow(input.n) - FieldElement::<F>::one();
 
         let k1 = &input.k1;
         let k2 = k1 * k1;
 
-        let l1_zeta = (zeta.pow(input.n as u64) - FieldElement::one())
-            / (&zeta - FieldElement::one())
+        let l1_zeta = (zeta.pow(input.n as u64) - FieldElement::<F>::one())
+            / (&zeta - FieldElement::<F>::one())
             / FieldElement::from(input.n as u64);
 
         // Use the following equality to compute PI(ζ)

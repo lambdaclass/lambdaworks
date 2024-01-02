@@ -211,11 +211,9 @@ fn exp_power_of_2<const POWER_LOG: usize>(base: &u64) -> u64 {
     res
 }
 
-pub type Goldilocks64ExtensionField = QuadraticExtensionField<Goldilocks64Field>;
+pub type Goldilocks64ExtensionField = QuadraticExtensionField<Goldilocks64Field, Goldilocks64Field>;
 
-impl HasQuadraticNonResidue for Goldilocks64Field {
-    type BaseField = Goldilocks64Field;
-
+impl HasQuadraticNonResidue<Goldilocks64Field> for Goldilocks64Field {
     // Verifiable in Sage with
     // `R.<x> = GF(p)[]; assert (x^2 - 7).is_irreducible()`
     fn residue() -> FieldElement<Goldilocks64Field> {
