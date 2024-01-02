@@ -117,6 +117,7 @@ impl<const MODULUS: u32> IsPrimeField for U32Field<MODULUS> {
         u32::from_str_radix(hex_string, 16).map_err(|_| CreationError::InvalidHexString)
     }
 
+    #[cfg(feature = "std")]
     fn to_hex(x: &u32) -> String {
         format!("{:X}", x)
     }
@@ -140,6 +141,7 @@ mod tests_u32_test_field {
         assert_eq!(U32TestField::from_hex("B").unwrap(), 11);
     }
 
+    #[cfg(feature = "std")]
     #[test]
     fn to_hex_test() {
         let num = U32TestField::from_hex("B").unwrap();

@@ -310,6 +310,7 @@ where
         ))
     }
 
+    #[cfg(feature = "std")]
     fn to_hex(x: &Self::BaseType) -> String {
         Self::BaseType::to_hex(x)
     }
@@ -1133,6 +1134,7 @@ mod tests_u256_prime_fields {
         assert_eq!(a, b);
     }
 
+    #[cfg(feature = "std")]
     #[test]
     fn to_hex_test_works_1() {
         let a = U256FP1Element::from_hex_unchecked("eb235f6144d9e91f4b14");
@@ -1143,6 +1145,7 @@ mod tests_u256_prime_fields {
         assert_eq!(U256FP1Element::to_hex(&a), U256FP1Element::to_hex(&b));
     }
 
+    #[cfg(feature = "std")]
     #[test]
     fn to_hex_test_works_2() {
         let a = U256F29Element::from_hex_unchecked("1d");
@@ -1151,6 +1154,7 @@ mod tests_u256_prime_fields {
         assert_eq!(U256F29Element::to_hex(&a), U256F29Element::to_hex(&b));
     }
 
+    #[cfg(feature = "std")]
     #[test]
     fn to_hex_test_works_3() {
         let a = U256F29Element::from_hex_unchecked("aa");

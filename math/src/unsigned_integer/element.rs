@@ -486,6 +486,7 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
         UnsignedInteger { limbs: result }
     }
 
+    #[cfg(feature = "std")]
     pub fn to_hex(&self) -> String {
         let mut hex_string = String::new();
         for &limb in self.limbs.iter() {
@@ -2977,6 +2978,7 @@ mod tests_u256 {
         );
     }
 
+    #[cfg(feature = "std")]
     #[test]
     fn to_hex_test() {
         let a = U256::from_hex_unchecked("390aa99bead76bc0093b1bc1a8101f5ce");

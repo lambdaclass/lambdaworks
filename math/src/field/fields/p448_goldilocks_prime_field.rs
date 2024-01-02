@@ -217,6 +217,7 @@ impl IsPrimeField for P448GoldilocksPrimeField {
         U56x8::from_hex(hex_string)
     }
 
+    #[cfg(feature = "std")]
     fn to_hex(x: &U56x8) -> String {
         U56x8::to_hex(x)
     }
@@ -315,6 +316,7 @@ impl U56x8 {
         Ok(U56x8 { limbs: result })
     }
 
+    #[cfg(feature = "std")]
     pub fn to_hex(&self) -> String {
         let mut hex_string = String::new();
         for &limb in self.limbs.iter().rev() {
@@ -448,6 +450,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "std")]
     #[test]
     fn to_hex_test() {
         let mut limbs = [0u64; 8];

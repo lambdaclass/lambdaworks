@@ -89,6 +89,7 @@ impl<const MODULUS: u64> IsPrimeField for U64Field<MODULUS> {
         u64::from_str_radix(hex_string, 16).map_err(|_| CreationError::InvalidHexString)
     }
 
+    #[cfg(feature = "std")]
     fn to_hex(x: &u64) -> String {
         format!("{:X}", x)
     }
@@ -144,6 +145,7 @@ mod tests_u64_test_field {
         assert_eq!(b, vec![FieldElement::from(1), FieldElement::from(3)]);
     }
 
+    #[cfg(feature = "std")]
     #[test]
     fn to_hex_test() {
         let num = U64TestField::from_hex("B").unwrap();

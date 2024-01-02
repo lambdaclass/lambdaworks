@@ -488,8 +488,9 @@ impl<F: IsPrimeField> FieldElement<F> {
             value: F::from_hex(hex_string)?,
         })
     }
-
+    
     /// Creates a hexstring from a `FieldElement` without `0x`.
+    #[cfg(feature = "std")]
     pub fn to_hex(&self) -> String {
         F::to_hex(&self.value)
     }
