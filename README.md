@@ -9,6 +9,7 @@ This library provides efficient implementation of cryptographic primitives used 
 - [Our vision on ZKP](https://blog.lambdaclass.com/transforming-the-future-with-zero-knowledge-proofs-fully-homomorphic-encryption-and-new-distributed-systems-algorithms/)
 - [Lambda Crypto Doctrine](https://blog.lambdaclass.com/lambda-crypto-doctrine/)
 
+## Table of contents
 <div>
 <!-- TOC -->
 
@@ -95,7 +96,7 @@ Additionally, provers are compatible with the following frontends and VMs:
 | Stark   | Miden | :heavy_check_mark: |
 | Stark   | Cairo | :heavy_check_mark: |
 
-This can be used in a multi prover setting for extra security. Or as a standalone to be used with Rust. 
+This can be used in a multi prover setting for extra security, or as a standalone to be used with Rust. 
 
 ## Main crates
 
