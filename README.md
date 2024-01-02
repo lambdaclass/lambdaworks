@@ -126,6 +126,8 @@ Both Math and Crypto support wasm with target `wasm32-unknown-unknown` by defaul
 - [Lambdaworks exercises and challenges](https://github.com/lambdaclass/lambdaworks_exercises/tree/main)
 - [Roadmap for Sparkling Water Bootcamp](https://github.com/lambdaclass/sparkling_water_bootcamp/blob/main/README.md)
 
+## Citing Lambdaworks
+
 If you use ```Lambdaworks``` libraries in your research projects, please cite them using the following template:
 
 ``` bibtex
