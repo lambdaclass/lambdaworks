@@ -61,8 +61,8 @@ List of symbols:
 | BLS12-381       | :heavy_check_mark: | :heavy_check_mark: |     |                    |             |
 | BLS12-377       | 🏗️           | :heavy_check_mark: |     | :heavy_check_mark: |             |
 | BN-254          | :x:                | :heavy_check_mark: |     |                    |             |
-| Pallas          | 🏗️                | :heavy_check_mark: |     |                    |             |
-| Vesta           | 🏗️                | :heavy_check_mark: |     |                    |             |
+| Pallas          | :heavy_check_mark:                | :heavy_check_mark: |     |                    |             |
+| Vesta           | :heavy_check_mark:                | :heavy_check_mark: |     |                    |             |
 | Bandersnatch    | 🏗️           | :heavy_check_mark: |     |                    |             |
 | **STARKs**       | **Lambdaworks** | **Arkworks** | **Halo2** | **gnark** | **Constantine** |
 | STARK Prover | :heavy_check_mark: | :x:      |     | :x:   |             |
@@ -102,6 +102,7 @@ This can be used in a multi prover setting for extra security, or as a standalon
 
 - [Math](https://github.com/lambdaclass/lambdaworks/tree/main/math)
 - [Crypto primitives](https://github.com/lambdaclass/lambdaworks/tree/main/crypto)
+- [STARK Prover](https://github.com/lambdaclass/lambdaworks/tree/main/provers/stark)
 - [Plonk Prover](https://github.com/lambdaclass/lambdaworks/tree/main/provers/plonk)
 - [Cairo Prover](https://github.com/lambdaclass/lambdaworks/tree/main/provers/cairo)
 - [Groth 16](https://github.com/lambdaclass/lambdaworks/tree/main/provers/groth16)
