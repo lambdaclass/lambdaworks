@@ -11,10 +11,10 @@ use std::ops::Deref;
 pub fn to_lambda<F: PrimeField>(
     cs: &ConstraintSystemRef<F>,
 ) -> (QuadraticArithmeticProgram, Vec<FrElement>) {
-    return (
+    (
         QuadraticArithmeticProgram::from_r1cs(r1cs_from_arkworks_cs(cs)),
         extract_witness_from_arkworks_cs(cs),
-    );
+    )
 }
 
 fn r1cs_from_arkworks_cs<F: PrimeField>(cs: &ConstraintSystemRef<F>) -> R1CS {
