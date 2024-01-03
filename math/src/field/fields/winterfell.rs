@@ -15,6 +15,9 @@ use miden_core::QuadExtension;
 pub use winter_math::fields::f128::BaseElement;
 use winter_math::{ExtensionOf, FieldElement as IsWinterfellFieldElement, StarkField};
 
+// Implementation of Lambdaworks' different field traits for Miden's base field element `Felt` and
+// its quadratic extension `QuadFelt`.
+
 impl IsFFTField for Felt {
     const TWO_ADICITY: u64 = <Felt as StarkField>::TWO_ADICITY as u64;
     const TWO_ADIC_PRIMITVE_ROOT_OF_UNITY: Self::BaseType = Felt::TWO_ADIC_ROOT_OF_UNITY;
@@ -28,6 +31,10 @@ impl IsPrimeField for Felt {
     }
 
     fn from_hex(_hex_string: &str) -> Result<Self::BaseType, crate::errors::CreationError> {
+        todo!()
+    }
+
+    fn to_hex(_a: &Self::BaseType) -> String {
         todo!()
     }
 
