@@ -36,8 +36,8 @@ proptest = "1.1.0"
 pprof = { version = "0.13.0", features = ["criterion","flamegraph"] }
 
 [features]
-default = ["rayon", "alloc"]
-std = ["alloc", "serde/std", "serde_json/std"]
+default = ["rayon", "std"]
+std = ["alloc", "serde?/std", "serde_json?/std"]
 alloc = []
 rayon = ["dep:rayon"]
 lambdaworks-serde-binary = ["dep:serde", "alloc"]

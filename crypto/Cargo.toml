@@ -23,7 +23,7 @@ rand = "0.8.5"
 
 [features]
 default = ["std"]
-std = ["lambdaworks-math/std", "sha2/std", "sha3/std", "serde/std"]
+std = ["lambdaworks-math/std", "sha2/std", "sha3/std", "serde?/std"]
 serde = ["dep:serde"]
 test_fiat_shamir = []
 parallel = ["dep:rayon"]
