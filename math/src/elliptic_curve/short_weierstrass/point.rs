@@ -50,7 +50,7 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
         Self(self.0.to_affine())
     }
 
-    fn double(&self) -> Self {
+    pub fn double(&self) -> Self {
         let [px, py, pz] = self.coordinates();
 
         let px_square = px * px;

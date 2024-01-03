@@ -64,7 +64,7 @@ where
 
     let last_value = last_poly
         .coefficients()
-        .get(0)
+        .first()
         .unwrap_or(&FieldElement::zero())
         .clone();
 
