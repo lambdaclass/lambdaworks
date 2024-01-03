@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1704320424694,
+  "lastUpdate": 1704320427645,
   "repoUrl": "https://github.com/lambdaclass/lambdaworks",
   "entries": {
     "Benchmark": [
@@ -20459,6 +20459,150 @@ window.BENCHMARK_DATA = {
             "name": "Polynomial/interpolate_fft_metal #4",
             "value": 7211416063,
             "range": "± 550948070",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "41742639+schouhy@users.noreply.github.com",
+            "name": "Sergio Chouhy",
+            "username": "schouhy"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7aa42400c3579385b274cd76ef13dca9c7550fc4",
+          "message": "Stark: Add Prover and Verifier docs (#732)\n\n* wip\n\n* cast to fieldextension\n\n* fmt\n\n* clippy\n\n* fmt\n\n* fix parallel\n\n* prover with generic air argument\n\n* verifier with generic argument\n\n* clippy, fmt\n\n* wip, prover refactor\n\n* wip\n\n* fix stone serialization\n\n* add safe scope for unwraps\n\n* minor refactor\n\n* clippy, fmt\n\n* remove commented code. Fix typo in docs\n\n* fix compilation error\n\n* fmt\n\n* fix parallel\n\n* remove unnecessary trait bound\n\n* fix wasm\n\n* fix wasm\n\n* change wasm proof bytes\n\n* fix number of bytes\n\n* fix wasm proof\n\n* fix number of bytes\n\n* wip\n\n* wip, compiles\n\n* wip\n\n* wip. valid proofs\n\n* fix trace ood element send order\n\n* fix adapter\n\n* clippy\n\n* clippy\n\n* clippy\n\n* fmt\n\n* remove unnecessary methods\n\n* rename\n\n* minor refactor. Avoid clone\n\n* minor refactor\n\n* add docstrings\n\n* fix parallel\n\n* add docstrings\n\n* clippy\n\n* fix test\n\n* fix debug assert\n\n* add prover docs\n\n* add docs for transcript\n\n* add verifier docs\n\n* minor comments on fields\n\n* Apply clippy suggestion\n\n---------\n\nCo-authored-by: Mariano Nicolini <mariano.nicolini.91@gmail.com>",
+          "timestamp": "2024-01-02T20:56:54Z",
+          "tree_id": "7421db80c4f3267fa565ab00ff49f3a2eda84343",
+          "url": "https://github.com/lambdaclass/lambdaworks/commit/7aa42400c3579385b274cd76ef13dca9c7550fc4"
+        },
+        "date": 1704320418912,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "Ordered FFT/Parallel (Metal)",
+            "value": 115726208,
+            "range": "± 9831080",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #2",
+            "value": 221517701,
+            "range": "± 19548817",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #3",
+            "value": 402243469,
+            "range": "± 13332821",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #4",
+            "value": 818943583,
+            "range": "± 41657352",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal)",
+            "value": 57466406,
+            "range": "± 5452102",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #2",
+            "value": 96848675,
+            "range": "± 9375369",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #3",
+            "value": 187453257,
+            "range": "± 9170203",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #4",
+            "value": 447605708,
+            "range": "± 20527142",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal)",
+            "value": 47072402,
+            "range": "± 2290023",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #2",
+            "value": 82543191,
+            "range": "± 3798189",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #3",
+            "value": 153607382,
+            "range": "± 6940451",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #4",
+            "value": 297370739,
+            "range": "± 24393400",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal",
+            "value": 176291624,
+            "range": "± 15959616",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #2",
+            "value": 311847906,
+            "range": "± 32212032",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #3",
+            "value": 692130271,
+            "range": "± 65849865",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #4",
+            "value": 1145830437,
+            "range": "± 101504876",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal",
+            "value": 696151000,
+            "range": "± 113031323",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #2",
+            "value": 1514553771,
+            "range": "± 194161152",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #3",
+            "value": 3075287583,
+            "range": "± 426751080",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #4",
+            "value": 7255239249,
+            "range": "± 639021668",
             "unit": "ns/iter"
           }
         ]
