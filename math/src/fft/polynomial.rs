@@ -6,7 +6,7 @@ use crate::{
         element::FieldElement,
         traits::{IsFFTField, RootsConfig},
     },
-    polynomial::Polynomial,
+    polynomial::polynomial::Polynomial,
 };
 use alloc::{vec, vec::Vec};
 

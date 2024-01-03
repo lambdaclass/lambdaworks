@@ -1,6 +1,6 @@
 use lambdaworks_math::{
     field::{element::FieldElement, traits::IsField},
-    polynomial::Polynomial,
+    polynomial::polynomial::Polynomial,
 };
 
 pub trait IsCommitmentScheme<F: IsField> {

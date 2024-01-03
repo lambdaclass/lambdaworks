@@ -4,7 +4,7 @@ use lambdaworks_math::{
     field::fields::{
         fft_friendly::stark_252_prime_field::Stark252PrimeField, u64_prime_field::U64FieldElement,
     },
-    polynomial::Polynomial,
+    polynomial::polynomial::Polynomial,
 };
 use rand::random;
 

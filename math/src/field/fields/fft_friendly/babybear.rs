@@ -105,7 +105,7 @@ mod tests {
         use crate::field::element::FieldElement;
         #[cfg(not(any(feature = "metal", feature = "cuda")))]
         use crate::field::traits::{IsFFTField, RootsConfig};
-        use crate::polynomial::Polynomial;
+        use crate::polynomial::polynomial::Polynomial;
         use proptest::{collection, prelude::*, std_facade::Vec};
 
         #[cfg(not(any(feature = "metal", feature = "cuda")))]
