@@ -1,4 +1,4 @@
-use super::transcript::{Transcript, ToTranscript};
+use super::transcript::{ToTranscript, Transcript};
 use sha3::{Digest, Keccak256};
 
 pub struct DefaultTranscript {

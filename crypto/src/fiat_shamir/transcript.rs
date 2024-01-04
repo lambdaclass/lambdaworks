@@ -1,4 +1,8 @@
-use lambdaworks_math::{field::{traits::IsField, element::FieldElement}, polynomial::Polynomial, traits::ByteConversion};
+use lambdaworks_math::{
+    field::{element::FieldElement, traits::IsField},
+    polynomial::Polynomial,
+    traits::ByteConversion,
+};
 
 pub trait Transcript {
     fn append(&mut self, new_data: &impl ToTranscript);
@@ -50,10 +54,9 @@ where
     <F as IsField>::BaseType: Send + Sync,
 {
     fn to_transcript(&self) -> Vec<u8> {
-        self.iter()
-            .fold(Vec::new(), |mut acc, val| {
-                acc.extend_from_slice(&val.to_transcript());
-                acc
-            })
+        self.iter().fold(Vec::new(), |mut acc, val| {
+            acc.extend_from_slice(&val.to_transcript());
+            acc
+        })
     }
 }
