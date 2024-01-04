@@ -265,12 +265,11 @@ pub fn get_trace_evaluations<A: AIR>(
 ) -> Vec<Vec<FieldElement<A::Field>>> {
     frame_offsets
         .iter()
-        .map(|offset| {
+        .flat_map(|offset| {
             let exponents_range_start = offset * A::STEP_SIZE;
             let exponents_range_end = (offset + 1) * A::STEP_SIZE;
             (exponents_range_start..exponents_range_end).collect::<Vec<_>>()
         })
-        .flatten()
         .map(|exponent| x * primitive_root.pow(exponent))
         .map(|eval_point| {
             trace_polys

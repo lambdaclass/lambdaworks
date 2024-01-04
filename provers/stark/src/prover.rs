@@ -280,6 +280,10 @@ pub trait IsStarkProver {
                 .unwrap();
 
         println!("COMPOSITION POLY DEGREE: {}", composition_poly.degree());
+        // println!(
+        //     "COMPOSITION POLY COEFFS: {:?}",
+        //     composition_poly.coefficients()
+        // );
 
         // # ----------- DEBUG ----------------#
 
@@ -331,7 +335,7 @@ pub trait IsStarkProver {
     {
         let z_power = z.pow(round_2_result.composition_poly_parts.len());
 
-        println!("Z PROVER: {}", z);
+        // println!("Z PROVER: {:?}", z);
 
         // Evaluate H_i in z^N for all i, where N is the number of parts the composition poly was
         // broken into.

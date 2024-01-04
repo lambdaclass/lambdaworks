@@ -54,6 +54,7 @@ pub trait TransitionConstraint<F: IsFFTField>: Send + Sync {
         }
 
         let period = self.period();
+        // FIXME: CHECK IF WE NEED TO CHANGE THE NEW MONOMIAL'S ARGUMENTS TO trace_root^(offset * trace_length / period) INSTEAD OF ONE!!!!
         (1..=self.end_exemptions())
             .map(|exemption| trace_primitive_root.pow(trace_length - exemption * period))
             .fold(one_poly, |acc, offset| {
@@ -68,8 +69,8 @@ pub trait TransitionConstraint<F: IsFFTField>: Send + Sync {
         let trace_primitive_root = &domain.trace_primitive_root;
         let coset_offset = &domain.coset_offset;
 
-        let root_order = u64::from((blowup_factor * trace_length).trailing_zeros());
-        let root = F::get_primitive_root_of_unity(root_order).unwrap();
+        let lde_root_order = u64::from((blowup_factor * trace_length).trailing_zeros());
+        let lde_root = F::get_primitive_root_of_unity(lde_root_order).unwrap();
 
         // println!("OMEGA TO THE N POWER: {:?}", root.pow(trace_length));
 
@@ -95,7 +96,7 @@ pub trait TransitionConstraint<F: IsFFTField>: Send + Sync {
 
             let evaluations: Vec<_> = (0..last_exponent)
                 .map(|exponent| {
-                    let x = root.pow(exponent);
+                    let x = lde_root.pow(exponent);
                     let offset_times_x = coset_offset * &x;
                     let offset_exponent = trace_length * self.periodic_exemptions_offset().unwrap()
                         / exemptions_period;
@@ -104,7 +105,7 @@ pub trait TransitionConstraint<F: IsFFTField>: Send + Sync {
                         - trace_primitive_root.pow(offset_exponent);
                     let denominator = offset_times_x.pow(trace_length / self.period())
                         // - &FieldElement::<F>::one();
-                        - root.pow(self.offset() * trace_length / self.period());
+                        - trace_primitive_root.pow(self.offset() * trace_length / self.period());
 
                     numerator.div(denominator)
                 })
@@ -135,9 +136,9 @@ pub trait TransitionConstraint<F: IsFFTField>: Send + Sync {
 
             let mut evaluations = (0..last_exponent)
                 .map(|exponent| {
-                    let x = root.pow(exponent);
+                    let x = lde_root.pow(exponent);
                     (coset_offset * &x).pow(trace_length / self.period())
-                        - root.pow(self.offset() * trace_length / self.period())
+                        - trace_primitive_root.pow(self.offset() * trace_length / self.period())
                 })
                 .collect_vec();
 
@@ -190,7 +191,7 @@ pub trait TransitionConstraint<F: IsFFTField>: Send + Sync {
             return numerator.div(denominator) * end_exemptions_poly.evaluate(z);
         }
 
-        (z.pow(trace_length)
+        (z.pow(trace_length / self.period())
             - trace_primitive_root.pow(self.offset() * trace_length / self.period()))
         .inv()
         .unwrap()

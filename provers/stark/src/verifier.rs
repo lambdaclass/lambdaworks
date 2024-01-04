@@ -118,6 +118,8 @@ pub trait IsStarkVerifier {
             &domain.trace_roots_of_unity,
         );
 
+        // println!("Z VERIFIER: {:?}", z);
+
         // <<<< Receive values: tⱼ(zgᵏ)
         for i in 0..proof.trace_ood_evaluations.width {
             for j in 0..proof.trace_ood_evaluations.height {
