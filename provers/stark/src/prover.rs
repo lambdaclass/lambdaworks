@@ -593,20 +593,17 @@ pub trait IsStarkProver<A: AIR> {
         let trace_terms = trace_polys
             .par_iter()
             .enumerate()
-            .fold(
-                Polynomial::zero,
-                |trace_terms, (i, t_j)| {
-                    Self::compute_trace_term(
-                        &trace_terms,
-                        (i, t_j),
-                        trace_frame_length,
-                        trace_terms_gammas,
-                        &trace_frame_evaluations.columns(),
-                        transition_offsets,
-                        (z, primitive_root),
-                    )
-                },
-            )
+            .fold(Polynomial::zero, |trace_terms, (i, t_j)| {
+                Self::compute_trace_term(
+                    &trace_terms,
+                    (i, t_j),
+                    trace_frame_length,
+                    trace_terms_gammas,
+                    &trace_frame_evaluations.columns(),
+                    transition_offsets,
+                    (z, primitive_root),
+                )
+            })
             .reduce(Polynomial::zero, |a, b| a + b);
 
         #[cfg(not(feature = "parallel"))]
