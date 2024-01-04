@@ -21,6 +21,7 @@ use crate::debug::validate_trace;
 use crate::fri;
 use crate::proof::stark::DeepPolynomialOpenings;
 use crate::table::Table;
+use crate::trace::LDETraceTable;
 use crate::transcript::IsStarkTranscript;
 
 use super::config::{BatchedMerkleTree, Commitment};
@@ -50,7 +51,7 @@ where
     FieldElement<F>: Serializable + Sync + Send,
 {
     pub(crate) trace_polys: Vec<Polynomial<FieldElement<F>>>,
-    pub(crate) lde_trace: TraceTable<F>,
+    pub(crate) lde_trace: LDETraceTable<F>,
     pub(crate) lde_trace_merkle_trees: Vec<BatchedMerkleTree<F>>,
     pub(crate) lde_trace_merkle_roots: Vec<Commitment>,
     pub(crate) rap_challenges: Vec<FieldElement<F>>,
@@ -206,7 +207,8 @@ pub trait IsStarkProver {
             lde_trace_merkle_roots.push(aux_merkle_root);
         }
 
-        let lde_trace = TraceTable::from_columns(evaluations, A::STEP_SIZE);
+        let lde_trace =
+            LDETraceTable::from_columns(evaluations, A::STEP_SIZE, domain.blowup_factor);
 
         Ok(Round1 {
             trace_polys,
@@ -600,7 +602,7 @@ pub trait IsStarkProver {
     fn open_trace_polys(
         domain: &Domain<Self::Field>,
         lde_trace_merkle_trees: &[BatchedMerkleTree<Self::Field>],
-        lde_trace: &TraceTable<Self::Field>,
+        lde_trace: &LDETraceTable<Self::Field>,
         index: usize,
     ) -> (Vec<Proof<Commitment>>, Vec<FieldElement<Self::Field>>)
     where

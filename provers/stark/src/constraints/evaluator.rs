@@ -2,7 +2,7 @@ use super::boundary::BoundaryConstraints;
 #[cfg(all(debug_assertions, not(feature = "parallel")))]
 use crate::debug::check_boundary_polys_divisibility;
 use crate::domain::Domain;
-use crate::trace::TraceTable;
+use crate::trace::{LDETraceTable, TraceTable};
 use crate::traits::AIR;
 use crate::{frame::Frame, prover::evaluate_polynomial_on_lde_domain};
 use lambdaworks_math::{
@@ -31,7 +31,7 @@ impl<F: IsFFTField> ConstraintEvaluator<F> {
     pub fn evaluate<A>(
         &self,
         air: &A,
-        lde_trace: &TraceTable<F>,
+        lde_trace: &LDETraceTable<F>,
         domain: &Domain<F>,
         transition_coefficients: &[FieldElement<F>],
         boundary_coefficients: &[FieldElement<F>],
@@ -76,7 +76,7 @@ impl<F: IsFFTField> ConstraintEvaluator<F> {
             .collect::<Result<Vec<Vec<FieldElement<A::Field>>>, FFTError>>()
             .unwrap();
 
-        let n_col = lde_trace.n_cols();
+        let n_col = lde_trace.num_cols();
         let n_elem = domain.lde_roots_of_unity_coset.len();
         let boundary_polys_evaluations = boundary_constraints
             .constraints
@@ -137,12 +137,7 @@ impl<F: IsFFTField> ConstraintEvaluator<F> {
             .zip(&boundary_evaluation)
             // .zip(zerofier_iter)
             .map(|(i, boundary)| {
-                let frame = Frame::read_from_trace(
-                    lde_trace,
-                    i,
-                    blowup_factor,
-                    &air.context().transition_offsets,
-                );
+                let frame = Frame::read_from_lde(lde_trace, i, &air.context().transition_offsets);
 
                 let periodic_values: Vec<_> = lde_periodic_columns
                     .iter()

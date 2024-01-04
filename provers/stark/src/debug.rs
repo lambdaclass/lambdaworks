@@ -64,8 +64,7 @@ pub fn validate_trace<F: IsFFTField, A: AIR<Field = F>>(
 
     // Iterate over trace and compute transitions
     for step in 0..trace.num_steps() {
-        let frame = Frame::read_from_trace(&trace, step, 1, &air.context().transition_offsets);
-
+        let frame = Frame::read_from_trace(&trace, step, &air.context().transition_offsets);
         let periodic_values: Vec<_> = periodic_columns
             .iter()
             .map(|col| col[step].clone())

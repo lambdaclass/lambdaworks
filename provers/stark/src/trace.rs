@@ -55,16 +55,16 @@ impl<'t, F: IsFFTField> TraceTable<F> {
         self.step_size * step
     }
 
-    /// Given a step index, return the step view of the trace for that index
-    pub fn step_view(&'t self, step_idx: usize) -> StepView<'t, F> {
-        let row_idx = self.step_to_row(step_idx);
-        let table_view = self.table.table_view(row_idx, self.step_size);
+    // /// Given a step index, return the step view of the trace for that index
+    // pub fn step_view(&'t self, step_idx: usize) -> StepView<'t, F> {
+    //     let row_idx = self.step_to_row(step_idx);
+    //     let table_view = self.table.table_view(row_idx, self.step_size);
 
-        StepView {
-            table_view,
-            step_idx,
-        }
-    }
+    //     StepView {
+    //         table_view,
+    //         step_idx,
+    //     }
+    // }
 
     pub fn n_cols(&self) -> usize {
         self.table.width
@@ -161,6 +161,66 @@ impl<'t, F: IsFFTField> TraceTable<F> {
     }
 }
 
+pub struct LDETraceTable<F: IsFFTField> {
+    pub table: Table<F>,
+    pub lde_step_size: usize,
+    pub blowup_factor: usize,
+}
+
+impl<F: IsFFTField> LDETraceTable<F> {
+    pub fn new(
+        data: Vec<FieldElement<F>>,
+        n_columns: usize,
+        trace_step_size: usize,
+        blowup_factor: usize,
+    ) -> Self {
+        let table = Table::new(data, n_columns);
+        let lde_step_size = trace_step_size * blowup_factor;
+        Self {
+            table,
+            lde_step_size,
+            blowup_factor,
+        }
+    }
+
+    pub fn from_columns(
+        columns: Vec<Vec<FieldElement<F>>>,
+        trace_step_size: usize,
+        blowup_factor: usize,
+    ) -> Self {
+        let table = Table::from_columns(columns);
+        let lde_step_size = trace_step_size * blowup_factor;
+        Self {
+            table,
+            lde_step_size,
+            blowup_factor,
+        }
+    }
+
+    pub fn num_cols(&self) -> usize {
+        self.table.width
+    }
+
+    pub fn num_rows(&self) -> usize {
+        self.table.height
+    }
+
+    pub fn get_row(&self, row_idx: usize) -> &[FieldElement<F>] {
+        self.table.get_row(row_idx)
+    }
+
+    // / Given a step index, return the step view of the trace for that index
+    // pub fn step_view(&'t self, row_idx: usize) -> StepView<'t, F> {
+    //     let row_idx = self.step_to_row(row_idx);
+    //     let table_view = self.table.table_view(row_idx, self.step_size);
+
+    //     StepView {
+    //         table_view,
+    //         step_idx,
+    //     }
+    // }
+}
+
 /// A view into a step of the trace. In general, a step over the trace
 /// can be thought as a fixed size subset of trace rows
 ///
@@ -181,14 +241,14 @@ impl<'t, F: IsFFTField> StepView<'t, F> {
         }
     }
 
-    /// Gets the evaluation element specified by `row_idx` and `col_idx` of this step
-    pub fn get_evaluation_element(&self, row_idx: usize, col_idx: usize) -> &FieldElement<F> {
-        self.table_view.get(row_idx, col_idx)
-    }
+    // /// Gets the evaluation element specified by `row_idx` and `col_idx` of this step
+    // pub fn get_evaluation_element(&self, row_idx: usize, col_idx: usize) -> &FieldElement<F> {
+    //     self.table_view.get(row_idx, col_idx)
+    // }
 
-    pub fn get_row(&self, row_idx: usize) -> &[FieldElement<F>] {
-        self.table_view.get_row(row_idx)
-    }
+    // pub fn get_row(&self, row_idx: usize) -> &[FieldElement<F>] {
+    //     self.table_view.get_row(row_idx)
+    // }
 }
 
 /// Given a slice of trace polynomials, an evaluation point `x`, the frame offsets

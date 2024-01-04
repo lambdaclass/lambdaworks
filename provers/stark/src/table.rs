@@ -1,3 +1,4 @@
+use itertools::Itertools;
 use lambdaworks_math::field::{element::FieldElement, traits::IsFFTField};
 
 use crate::{frame::Frame, trace::StepView};
@@ -78,19 +79,18 @@ impl<'t, F: IsFFTField> Table<F> {
         &mut self.data[row_offset..row_offset + n_cols]
     }
 
-    /// Given a row index and a number of rows, returns a view of a subset of contiguous rows
-    /// of the table, starting from that index.
-    pub fn table_view(&'t self, from_idx: usize, num_rows: usize) -> TableView<'t, F> {
-        let from_offset = from_idx * self.width;
-        let data = &self.data[from_offset..from_offset + self.width * num_rows];
+    // /// Given a row index and a number of rows, returns a view of a subset of contiguous rows
+    // /// of the table, starting from that index.
+    // pub fn table_view(&'t self, from_idx: usize, num_rows: usize) -> TableView<'t, F> {
+    //     let from_offset = from_idx * self.width;
+    //     let data = &self.data[from_offset..from_offset + self.width * num_rows];
 
-        TableView {
-            data,
-            table_row_idx: from_idx,
-            width: self.width,
-            height: num_rows,
-        }
-    }
+    //     TableView {
+    //         data,
+    //         width: self.width,
+    //         height: num_rows,
+    //     }
+    // }
 
     /// Given a slice of field elements representing a row, appends it to
     /// the end of the table.
@@ -128,10 +128,12 @@ impl<'t, F: IsFFTField> Table<F> {
         debug_assert!(self.height % step_size == 0);
         let steps = (0..self.height)
             .step_by(step_size)
-            .enumerate()
-            .map(|(step_idx, row_idx)| {
-                let table_view = self.table_view(row_idx, step_size);
-                StepView::new(table_view, step_idx)
+            .map(|initial_row_idx| {
+                let end_row_idx = initial_row_idx + step_size;
+                let step_data = (initial_row_idx..end_row_idx)
+                    .map(|row_idx| self.get_row(row_idx))
+                    .collect_vec();
+                TableView::new(step_data, self.width, step_size)
             })
             .collect();
 
@@ -142,51 +144,38 @@ impl<'t, F: IsFFTField> Table<F> {
 /// A view of a contiguos subset of rows of a table.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct TableView<'t, F: IsFFTField> {
-    pub data: &'t [FieldElement<F>],
-    pub table_row_idx: usize,
+    pub data: Vec<&'t [FieldElement<F>]>,
     pub width: usize,
     pub height: usize,
 }
 
 impl<'t, F: IsFFTField> TableView<'t, F> {
-    pub fn new(
-        data: &'t [FieldElement<F>],
-        table_row_idx: usize,
-        width: usize,
-        height: usize,
-    ) -> Self {
+    pub fn new(data: Vec<&'t [FieldElement<F>]>, width: usize, height: usize) -> Self {
         Self {
             data,
             width,
-            table_row_idx,
             height,
         }
     }
 
-    pub fn get(&self, row: usize, col: usize) -> &FieldElement<F> {
-        let idx = row * self.width + col;
-        &self.data[idx]
-    }
-
-    pub fn get_row(&self, row: usize) -> &[FieldElement<F>] {
-        let first = row * self.width;
-        &self.data[first..first + self.width]
+    pub fn get_evaluation_element(&self, row: usize, col: usize) -> &FieldElement<F> {
+        &self.data[row][col]
     }
 }
 
-#[cfg(test)]
-mod test {
-    use super::*;
-    use crate::Felt252;
+// #[cfg(test)]
+// mod test {
+//     use super::*;
+//     use crate::Felt252;
 
-    #[test]
-    fn get_rows_slice_works() {
-        let data: Vec<Felt252> = (0..=11).map(Felt252::from).collect();
-        let table = Table::new(data, 3);
+//     #[test]
+//     fn get_rows_slice_works() {
+//         let data: Vec<Felt252> = (0..=11).map(Felt252::from).collect();
+//         let table = Table::new(data, 3);
 
-        let slice = table.table_view(1, 2);
-        let expected_data: Vec<Felt252> = (3..=8).map(Felt252::from).collect();
+//         let slice = table.table_view(1, 2);
+//         let expected_data: Vec<Felt252> = (3..=8).map(Felt252::from).collect();
 
-        assert_eq!(slice.data, expected_data);
-    }
-}
+//         assert_eq!(slice.data, expected_data);
+//     }
+// }
