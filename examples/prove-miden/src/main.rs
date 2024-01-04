@@ -1,13 +1,20 @@
 use std::time::Instant;
 
-use lambdaworks_winterfell_adapter::{adapter::{public_inputs::AirAdapterPublicInputs, QuadFeltTranscript}, examples::miden_vm::MidenVMQuadFeltAir};
-use winter_prover::Trace;
-use miden_air::{PublicInputs, ProvingOptions};
+use lambdaworks_winterfell_adapter::{
+    adapter::{public_inputs::AirAdapterPublicInputs, QuadFeltTranscript},
+    examples::miden_vm::MidenVMQuadFeltAir,
+};
+use miden_air::{ProvingOptions, PublicInputs};
 use miden_assembly::Assembler;
-use miden_core::{StackInputs, Felt, FieldElement, StarkField};
-use processor::DefaultHost;
-use stark_platinum_prover::{proof::options::{ProofOptions, SecurityLevel}, prover::{Prover, IsStarkProver}, verifier::{Verifier, IsStarkVerifier}};
+use miden_core::{Felt, FieldElement, StackInputs, StarkField};
 use miden_processor::{self as processor};
+use processor::DefaultHost;
+use stark_platinum_prover::{
+    proof::options::{ProofOptions, SecurityLevel},
+    prover::{IsStarkProver, Prover},
+    verifier::{IsStarkVerifier, Verifier},
+};
+use winter_prover::Trace;
 
 fn compute_fibonacci(n: usize) -> Felt {
     let mut t0 = Felt::ZERO;
@@ -38,7 +45,7 @@ fn main() {
     let expected_result = vec![compute_fibonacci(fibonacci_number).as_int()];
     let stack_inputs = StackInputs::try_from_values([0, 1]).unwrap();
 
-    let mut lambda_proof_options = ProofOptions::new_secure(SecurityLevel::Conjecturable100Bits , 3);
+    let mut lambda_proof_options = ProofOptions::new_secure(SecurityLevel::Conjecturable100Bits, 3);
     lambda_proof_options.blowup_factor = 8;
 
     println!("\nExecuting program in Miden VM");
@@ -59,7 +66,6 @@ fn main() {
         stack_outputs.clone().stack_truncated(1),
         "Program result was computed incorrectly"
     );
-
 
     let pub_inputs = AirAdapterPublicInputs::new(
         pub_inputs,
@@ -98,5 +104,4 @@ fn main() {
     println!("Total time spent verifying: {:?}", elapsed0);
 
     println!("\nDone!");
-
 }
