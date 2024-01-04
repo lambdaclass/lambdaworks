@@ -14,6 +14,7 @@ pub trait IsGroup: Clone + PartialEq + Eq {
     /// Applies the group operation `times` times with itself
     /// The operation can be addition or multiplication depending on
     /// the notation of the particular group.
+    #[cfg(not(feature = "constant-time"))]
     fn operate_with_self<T: IsUnsignedInteger>(&self, mut exponent: T) -> Self {
         let mut result = Self::neutral_element();
         let mut base = self.clone();
@@ -24,6 +25,27 @@ pub trait IsGroup: Clone + PartialEq + Eq {
             }
             exponent = exponent >> 1;
             base = Self::operate_with(&base, &base);
+        }
+        result
+    }
+    #[cfg(feature = "constant-time")]
+    fn operate_with_self<T: IsUnsignedInteger>(&self, exponent: T) -> Self {
+        let mut result = Self::neutral_element();
+        let mut base = self.clone();
+
+        let num_bits = std::mem::size_of::<T>() * 8;
+
+        for i in (0..num_bits).rev() {
+            let mask = T::from(1) << i;
+            let bit = (exponent & mask) >> i;
+
+            if bit == T::from(1) {
+                result = Self::operate_with(&result, &base);
+                base = Self::operate_with(&base, &base);
+            } else {
+                base = Self::operate_with(&base, &result);
+                result = Self::operate_with(&result, &result);
+            }
         }
         result
     }
