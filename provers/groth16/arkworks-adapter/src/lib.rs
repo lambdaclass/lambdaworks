@@ -17,6 +17,28 @@ pub fn to_lambda<F: PrimeField>(
     )
 }
 
+fn extract_witness_from_arkworks_cs<F: PrimeField>(cs: &ConstraintSystemRef<F>) -> Vec<FrElement> {
+    let binding = cs.borrow().unwrap();
+    let borrowed_cs_ref = binding.deref();
+
+    // Place public variables first, then witness assignments.
+    // That's how Lambdaworks Groth16 expects the witness vector.
+    let mut witness = vec![];
+    witness.extend(
+        borrowed_cs_ref
+            .instance_assignment
+            .iter()
+            .map(ark_fr_to_fr_element),
+    );
+    witness.extend(
+        borrowed_cs_ref
+            .witness_assignment
+            .iter()
+            .map(ark_fr_to_fr_element),
+    );
+    witness
+}
+
 fn r1cs_from_arkworks_cs<F: PrimeField>(cs: &ConstraintSystemRef<F>) -> R1CS {
     cs.inline_all_lcs();
 
@@ -31,20 +53,6 @@ fn r1cs_from_arkworks_cs<F: PrimeField>(cs: &ConstraintSystemRef<F>) -> R1CS {
         num_pub_vars - 1,
         0,
     )
-}
-
-fn extract_witness_from_arkworks_cs<F: PrimeField>(cs: &ConstraintSystemRef<F>) -> Vec<FrElement> {
-    let binding = cs.borrow().unwrap();
-    let borrowed_cs_ref = binding.deref();
-
-    let ark_witness = &borrowed_cs_ref.witness_assignment;
-    let ark_io = &borrowed_cs_ref.instance_assignment[1..].to_vec();
-
-    let mut witness = vec![FrElement::one()];
-    witness.extend(ark_io.iter().map(ark_fr_to_fr_element));
-    witness.extend(ark_witness.iter().map(ark_fr_to_fr_element));
-
-    witness
 }
 
 fn ark_to_lambda_matrix<F: Field>(
