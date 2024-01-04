@@ -594,7 +594,7 @@ pub trait IsStarkProver<A: AIR> {
             .par_iter()
             .enumerate()
             .fold(
-                || Polynomial::zero(),
+                Polynomial::zero,
                 |trace_terms, (i, t_j)| {
                     Self::compute_trace_term(
                         &trace_terms,
@@ -607,7 +607,7 @@ pub trait IsStarkProver<A: AIR> {
                     )
                 },
             )
-            .reduce(|| Polynomial::zero(), |a, b| a + b);
+            .reduce(Polynomial::zero, |a, b| a + b);
 
         #[cfg(not(feature = "parallel"))]
         let trace_terms =
