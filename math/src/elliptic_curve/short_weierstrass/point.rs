@@ -84,7 +84,7 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
         Self::new([xp, yp, zp])
     }
 
-    // #[cfg(not(feature = "constant-time"))]
+    #[cfg(not(feature = "constant-time"))]
     pub fn operate_with_affine(&self, other: &Self) -> Self {
         let [px, py, pz] = self.coordinates();
         let [qx, qy, _qz] = other.coordinates();
@@ -123,6 +123,49 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
         let z = &vvv * pz;
 
         Self::new([x, y, z])
+    }
+    #[cfg(feature = "constant-time")]
+    pub fn operate_with_affine(&self, other: &Self) -> Self {
+        let [px, py, pz] = self.coordinates();
+        let [qx, qy, _qz] = other.coordinates();
+
+        let b3 = FieldElement::<E::BaseField>::from(3) * E::b();
+
+        let mut t0 = px * qx;
+        let mut t1 = py * qy;
+        let mut t3 = qx + qy;
+        let mut t4 = px + py;
+        t3 = &t3 * &t4;
+        t4 = &t0 + &t1;
+        t3 = &t3 - &t4;
+        t4 = qx * pz;
+        t4 = &t4 + px;
+        let mut t5 = qy * pz;
+        t5 = &t5 + py;
+        let mut z3 = E::a() * &t4;
+        let mut x3 = &b3 * pz;
+        z3 = &x3 + &z3;
+        x3 = &t1 - &z3;
+        z3 = &t1 + &z3;
+        let mut y3 = &x3 * &z3;
+        t1 = &t0 + &t0;
+        t1 = &t1 + &t0;
+        let mut t2 = E::a() * pz;
+        t4 = &b3 * &t4;
+        t1  = &t1 + &t2;
+        t2 = &t0 - &t2;
+        t2 = E::a() * &t2;
+        t4 = &t4 + &t2;
+        t0 = &t1 * &t4;
+        y3 = &y3 + &t0;
+        t0 = &t5 * &t4;
+        x3 = &t3 * &x3;
+        x3 = &x3 - &t0;
+        t0 = &t3 * &t1;
+        z3 = &t5 * &z3;
+        z3 += t0;
+
+        Self::new([x3, y3, z3])
     }
 
 }
