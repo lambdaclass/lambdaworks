@@ -1,4 +1,4 @@
-use super::transcript::Transcript;
+use super::transcript::{Transcript, ToTranscript};
 use sha3::{Digest, Keccak256};
 
 pub struct DefaultTranscript {
@@ -6,8 +6,8 @@ pub struct DefaultTranscript {
 }
 
 impl Transcript for DefaultTranscript {
-    fn append(&mut self, new_data: &[u8]) {
-        self.hasher.update(&mut new_data.to_owned());
+    fn append(&mut self, new_data: &impl ToTranscript) {
+        self.hasher.update(&mut new_data.to_transcript());
     }
 
     fn challenge(&mut self) -> [u8; 32] {
@@ -41,7 +41,7 @@ mod tests {
     fn basic_challenge() {
         let mut transcript = DefaultTranscript::new();
 
-        let point_a: Vec<u8> = vec![0xFF, 0xAB];
+        let oint_a: Vec<u8> = vec![0xFF, 0xAB];
         let point_b: Vec<u8> = vec![0xDD, 0x8C, 0x9D];
 
         transcript.append(&point_a); // point_a
