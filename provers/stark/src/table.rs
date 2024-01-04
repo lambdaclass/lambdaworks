@@ -1,7 +1,7 @@
 use itertools::Itertools;
 use lambdaworks_math::field::{element::FieldElement, traits::IsFFTField};
 
-use crate::{frame::Frame, trace::StepView};
+use crate::frame::Frame;
 
 /// A two-dimensional Table holding field elements, arranged in a row-major order.
 /// This is the basic underlying data structure used for any two-dimensional component in the

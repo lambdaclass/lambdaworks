@@ -208,47 +208,6 @@ impl<F: IsFFTField> LDETraceTable<F> {
     pub fn get_row(&self, row_idx: usize) -> &[FieldElement<F>] {
         self.table.get_row(row_idx)
     }
-
-    // / Given a step index, return the step view of the trace for that index
-    // pub fn step_view(&'t self, row_idx: usize) -> StepView<'t, F> {
-    //     let row_idx = self.step_to_row(row_idx);
-    //     let table_view = self.table.table_view(row_idx, self.step_size);
-
-    //     StepView {
-    //         table_view,
-    //         step_idx,
-    //     }
-    // }
-}
-
-/// A view into a step of the trace. In general, a step over the trace
-/// can be thought as a fixed size subset of trace rows
-///
-/// The main purpose of this data structure is to have a way to
-/// access the steps in a trace, in order to grab elements to calculate
-/// constraint evaluations.
-#[derive(Debug, Clone, PartialEq)]
-pub struct StepView<'t, F: IsFFTField> {
-    pub table_view: TableView<'t, F>,
-    pub step_idx: usize,
-}
-
-impl<'t, F: IsFFTField> StepView<'t, F> {
-    pub fn new(table_view: TableView<'t, F>, step_idx: usize) -> Self {
-        StepView {
-            table_view,
-            step_idx,
-        }
-    }
-
-    // /// Gets the evaluation element specified by `row_idx` and `col_idx` of this step
-    // pub fn get_evaluation_element(&self, row_idx: usize, col_idx: usize) -> &FieldElement<F> {
-    //     self.table_view.get(row_idx, col_idx)
-    // }
-
-    // pub fn get_row(&self, row_idx: usize) -> &[FieldElement<F>] {
-    //     self.table_view.get_row(row_idx)
-    // }
 }
 
 /// Given a slice of trace polynomials, an evaluation point `x`, the frame offsets

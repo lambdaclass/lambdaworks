@@ -1,6 +1,6 @@
 use crate::{
     table::TableView,
-    trace::{LDETraceTable, StepView, TraceTable},
+    trace::{LDETraceTable, TraceTable},
 };
 use itertools::Itertools;
 use lambdaworks_math::field::{element::FieldElement, traits::IsFFTField};
@@ -63,29 +63,21 @@ impl<'t, F: IsFFTField> Frame<'t, F> {
         let num_cols = lde_trace.num_cols();
         let step_size = lde_trace.lde_step_size;
 
-        // println!("READ FROM LDE - ROW: {}", row);
-
         let lde_steps = offsets
             .iter()
             .map(|offset| {
-                // println!();
                 let initial_step_row = row + offset * step_size;
                 let end_step_row = initial_step_row + step_size;
-                // println!("INITIAL STEP ROW: {}", initial_step_row);
-                // println!("END STEP ROW: {}", end_step_row);
                 let data = (initial_step_row..end_step_row)
                     .step_by(blowup_factor)
                     .map(|step_row| {
                         let step_row = step_row % num_rows;
-                        // println!("STEP ROW: {}", step_row);
                         lde_trace.get_row(step_row)
                     })
                     .collect_vec();
                 TableView::new(data, num_cols, num_rows)
             })
             .collect_vec();
-
-        // println!();
 
         Frame::new(lde_steps)
     }
