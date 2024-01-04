@@ -1,3 +1,5 @@
+use std::time::Instant;
+
 use lambdaworks_winterfell_adapter::{adapter::{public_inputs::AirAdapterPublicInputs, QuadFeltTranscript}, examples::miden_vm::MidenVMQuadFeltAir};
 use winter_prover::Trace;
 use miden_air::{PublicInputs, ProvingOptions};
@@ -73,6 +75,7 @@ fn main() {
 
     println!("\nProving ");
 
+    let timer0 = Instant::now();
     let proof = Prover::<MidenVMQuadFeltAir>::prove(
         &trace,
         &pub_inputs,
@@ -80,15 +83,19 @@ fn main() {
         QuadFeltTranscript::new(&[]),
     )
     .unwrap();
+    let elapsed0 = timer0.elapsed();
+    println!("Total time spent proving: {:?}", elapsed0);
 
     println!("\nVerifying ");
-
+    let timer0 = Instant::now();
     assert!(Verifier::<MidenVMQuadFeltAir>::verify(
         &proof,
         &pub_inputs,
         &lambda_proof_options,
         QuadFeltTranscript::new(&[]),
     ));
+    let elapsed0 = timer0.elapsed();
+    println!("Total time spent verifying: {:?}", elapsed0);
 
     println!("\nDone!");
 
