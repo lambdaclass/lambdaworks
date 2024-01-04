@@ -83,7 +83,7 @@ impl TransitionConstraint<Stark252PrimeField> for ZeroFlagConstraint {
     }
 
     fn constraint_idx(&self) -> usize {
-        1
+        0
     }
 
     fn end_exemptions(&self) -> usize {
@@ -92,6 +92,10 @@ impl TransitionConstraint<Stark252PrimeField> for ZeroFlagConstraint {
 
     fn period(&self) -> usize {
         16
+    }
+
+    fn offset(&self) -> usize {
+        15
     }
 
     fn mask(&self) -> Vec<(usize, usize, usize)> {
@@ -129,10 +133,12 @@ impl AIR for BitFlagsAIR {
         _pub_inputs: &Self::PublicInputs,
         proof_options: &ProofOptions,
     ) -> Self {
-        let bit_constraint = Box::new(BitConstraint::new());
+        // let bit_constraint = Box::new(BitConstraint::new());
         let flag_constraint = Box::new(ZeroFlagConstraint::new());
         let constraints: Vec<Box<dyn TransitionConstraint<Self::Field>>> =
-            vec![bit_constraint, flag_constraint];
+            // vec![bit_constraint, flag_constraint];
+        vec![flag_constraint];
+        // vec![bit_constraint];
 
         let num_transition_constraints = constraints.len();
         let transition_exemptions: Vec<_> =

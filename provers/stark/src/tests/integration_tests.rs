@@ -22,7 +22,7 @@ use crate::{
 
 #[test_log::test]
 fn test_prove_fib() {
-    let trace = simple_fibonacci::fibonacci_trace([Felt252::from(1), Felt252::from(1)], 8);
+    let trace = simple_fibonacci::fibonacci_trace([Felt252::from(1), Felt252::from(1)], 1024);
 
     let proof_options = ProofOptions::default_test_options();
 

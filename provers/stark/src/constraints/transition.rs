@@ -4,6 +4,7 @@ use std::vec::IntoIter;
 use crate::domain::Domain;
 use crate::frame::Frame;
 use crate::prover::evaluate_polynomial_on_lde_domain;
+use itertools::Itertools;
 use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::traits::IsFFTField;
 use lambdaworks_math::polynomial::Polynomial;
@@ -26,6 +27,10 @@ pub trait TransitionConstraint<F: IsFFTField>: Send + Sync {
 
     fn period(&self) -> usize {
         1
+    }
+
+    fn offset(&self) -> usize {
+        0
     }
 
     fn exemptions_period(&self) -> Option<usize> {
@@ -53,6 +58,7 @@ pub trait TransitionConstraint<F: IsFFTField>: Send + Sync {
             .map(|exemption| trace_primitive_root.pow(trace_length - exemption * period))
             .fold(one_poly, |acc, offset| {
                 acc * (Polynomial::new_monomial(FieldElement::<F>::one(), 1) - offset)
+                // acc * (Polynomial::new_monomial(FieldElement::<F>::one(), 1) - offset)
             })
     }
 
@@ -83,6 +89,7 @@ pub trait TransitionConstraint<F: IsFFTField>: Send + Sync {
             // errors or make these checks when the AIR is initialized.
             debug_assert!(exemptions_period.is_multiple_of(&self.period()));
             debug_assert!(self.periodic_exemptions_offset().is_some());
+            // debug_assert_eq!(self.offset(), self.periodic_exemptions_offset().unwrap());
 
             let last_exponent = blowup_factor * exemptions_period;
 
@@ -96,7 +103,8 @@ pub trait TransitionConstraint<F: IsFFTField>: Send + Sync {
                     let numerator = offset_times_x.pow(trace_length / exemptions_period)
                         - trace_primitive_root.pow(offset_exponent);
                     let denominator = offset_times_x.pow(trace_length / self.period())
-                        - &FieldElement::<F>::one();
+                        // - &FieldElement::<F>::one();
+                        - root.pow(self.offset() * trace_length / self.period());
 
                     numerator.div(denominator)
                 })
@@ -125,12 +133,13 @@ pub trait TransitionConstraint<F: IsFFTField>: Send + Sync {
         } else {
             let last_exponent = blowup_factor * self.period();
 
-            let mut evaluations: Vec<_> = (0..last_exponent)
+            let mut evaluations = (0..last_exponent)
                 .map(|exponent| {
                     let x = root.pow(exponent);
-                    (coset_offset * &x).pow(trace_length / self.period()) - FieldElement::<F>::one()
+                    (coset_offset * &x).pow(trace_length / self.period())
+                        - root.pow(self.offset() * trace_length / self.period())
                 })
-                .collect();
+                .collect_vec();
 
             FieldElement::inplace_batch_inverse(&mut evaluations).unwrap();
 
@@ -175,14 +184,16 @@ pub trait TransitionConstraint<F: IsFFTField>: Send + Sync {
 
             let numerator =
                 z.pow(trace_length / exemptions_period) - trace_primitive_root.pow(offset_exponent);
-            let denominator = z.pow(trace_length / self.period()) - &FieldElement::<F>::one();
+            let denominator = z.pow(trace_length / self.period())
+                - trace_primitive_root.pow(self.offset() * trace_length / self.period());
 
             return numerator.div(denominator) * end_exemptions_poly.evaluate(z);
         }
 
-        (z.pow(trace_length) - FieldElement::<F>::one())
-            .inv()
-            .unwrap()
+        (z.pow(trace_length)
+            - trace_primitive_root.pow(self.offset() * trace_length / self.period()))
+        .inv()
+        .unwrap()
             * end_exemptions_poly.evaluate(z)
     }
 }

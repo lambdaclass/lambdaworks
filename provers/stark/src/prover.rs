@@ -18,11 +18,11 @@ use rayon::prelude::{IndexedParallelIterator, IntoParallelRefIterator, ParallelI
 
 #[cfg(debug_assertions)]
 use crate::debug::validate_trace;
-use crate::fri;
 use crate::proof::stark::DeepPolynomialOpenings;
 use crate::table::Table;
 use crate::trace::LDETraceTable;
 use crate::transcript::IsStarkTranscript;
+use crate::{fri, trace};
 
 use super::config::{BatchedMerkleTree, Commitment};
 use super::constraints::evaluator::ConstraintEvaluator;
@@ -190,6 +190,10 @@ pub trait IsStarkProver {
     {
         let (mut trace_polys, mut evaluations, main_merkle_tree, main_merkle_root) =
             Self::interpolate_and_commit::<A>(main_trace, domain, transcript);
+
+        trace_polys
+            .iter()
+            .for_each(|poly| println!("TRACE POLY DEGREE: {}", poly.degree()));
 
         let rap_challenges = air.build_rap_challenges(transcript);
 

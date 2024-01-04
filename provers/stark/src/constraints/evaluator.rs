@@ -177,7 +177,9 @@ impl<F: IsFFTField> ConstraintEvaluator<F> {
                     transition_coefficients
                 )
                 .fold(FieldElement::zero(), |acc, (eval, zerof_eval, beta)| {
+                    // .fold(FieldElement::zero(), |acc, (eval, beta)| {
                     acc + beta * eval * zerof_eval
+                    // acc + beta * eval
                 });
 
                 acc_transition + boundary
