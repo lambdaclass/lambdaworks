@@ -84,6 +84,7 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
         Self::new([xp, yp, zp])
     }
 
+    // #[cfg(not(feature = "constant-time"))]
     pub fn operate_with_affine(&self, other: &Self) -> Self {
         let [px, py, pz] = self.coordinates();
         let [qx, qy, _qz] = other.coordinates();
@@ -123,6 +124,7 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
 
         Self::new([x, y, z])
     }
+
 }
 
 impl<E: IsEllipticCurve> PartialEq for ShortWeierstrassProjectivePoint<E> {
@@ -164,6 +166,7 @@ impl<E: IsShortWeierstrass> IsGroup for ShortWeierstrassProjectivePoint<E> {
 
     /// Computes the addition of `self` and `other`.
     /// Taken from "Moonmath" (Algorithm 7, page 89)
+    #[cfg(not(feature = "constant-time"))]
     fn operate_with(&self, other: &Self) -> Self {
         if other.is_neutral_element() {
             self.clone()
@@ -200,6 +203,58 @@ impl<E: IsShortWeierstrass> IsGroup for ShortWeierstrassProjectivePoint<E> {
                 Self::new([xp, yp, zp])
             }
         }
+    }
+    // Constant time projective point addition
+    // referenced from https://eprint.iacr.org/2015/1060.pdf
+    #[cfg(feature = "constant-time")]
+    fn operate_with(&self, other: &Self) -> Self {
+        let [px, py, pz] = self.coordinates();
+        let [qx, qy, qz] = other.coordinates();
+
+        let b3 = FieldElement::<E::BaseField>::from(3) * E::b();
+
+        let mut t0 = px * qx;
+        let mut t1 = py * qy;
+        let mut t2 = pz * qz;
+        let mut t3 = px + py;
+        let mut t4 = qx + qy;
+        t3 = &t3 * &t4;
+        t4 = &t0 + &t1;
+        t3 = &t3 - &t4;
+        t4 = px + pz;
+        let mut t5 = qx + qz;
+        t4 = &t4 * &t5;
+        t5 = &t0 + &t2;
+        t4 = &t4 - &t5;
+        t5 = py + pz;
+        let mut x3 = qy + qz;
+        t5 = &t5 * &x3;
+        x3 = &t1 + &t2;
+        t5 = &t5 - &x3;
+        let mut z3 = E::a() * &t4;
+        x3 = &b3 * &t2;
+        z3 = &x3 + &z3;
+        x3 = &t1 - &z3;
+        z3 = &t1 + &z3;
+        let mut y3 = &x3 * &z3;
+        t1 = &t0 + &t0;
+        t1 = &t1 + &t0;
+        t2 = E::a() * &t2;
+        t4 = &b3 * &t4;
+        t1  = &t1 + &t2;
+        t2 = &t0 - &t2;
+        t2 = E::a() * &t2;
+        t4 = &t4 + &t2;
+        t0 = &t1 * &t4;
+        y3 = &y3 + &t0;
+        t0 = &t5 * &t4;
+        x3 = &t3 * &x3;
+        x3 = &x3 - &t0;
+        t0 = &t3 * &t1;
+        z3 = &t5 * &z3;
+        z3 += t0;
+
+        Self::new([x3, y3, z3])
     }
 
     /// Returns the additive inverse of the projective point `p`
