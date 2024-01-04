@@ -177,12 +177,13 @@ where
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "alloc"))]
 mod tests {
     use crate::fft::cpu::bit_reversing::in_place_bit_reverse_permute;
     use crate::fft::cpu::roots_of_unity::get_twiddles;
     use crate::fft::test_helpers::naive_matrix_dft_test;
     use crate::field::{test_fields::u64_test_field::U64TestField, traits::RootsConfig};
+    use alloc::format;
     use proptest::{collection, prelude::*};
 
     use super::*;
@@ -201,12 +202,12 @@ mod tests {
         }
     }
     prop_compose! {
-        fn field_vec(max_exp: u8)(vec in (1..max_exp).prop_flat_map(|i| collection::vec(field_element(), 1 << i))) -> Vec<FE> {
+        fn field_vec(max_exp: u8)(vec in (1..max_exp).prop_flat_map(|i| collection::vec(field_element(), 1 << i))) -> alloc::vec::Vec<FE> {
             vec
         }
     }
     prop_compose! {
-        fn field_vec_r4(max_exp: u8)(vec in (1..max_exp).prop_flat_map(|i| collection::vec(field_element(), 1 << (2 * i)))) -> Vec<FE> {
+        fn field_vec_r4(max_exp: u8)(vec in (1..max_exp).prop_flat_map(|i| collection::vec(field_element(), 1 << (2 * i)))) -> alloc::vec::Vec<FE> {
             vec
         }
     }

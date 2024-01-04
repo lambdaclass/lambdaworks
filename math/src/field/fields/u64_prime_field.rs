@@ -1,14 +1,13 @@
 use crate::cyclic_group::IsGroup;
-#[cfg(feature = "std")]
 use crate::errors::ByteConversionError::{FromBEBytesError, FromLEBytesError};
 use crate::errors::CreationError;
-#[cfg(feature = "std")]
 use crate::errors::DeserializationError;
 use crate::field::element::FieldElement;
 use crate::field::errors::FieldError;
 use crate::field::traits::{IsFFTField, IsField, IsPrimeField};
-#[cfg(feature = "std")]
-use crate::traits::{ByteConversion, Deserializable, Serializable};
+#[cfg(feature = "alloc")]
+use crate::traits::Serializable;
+use crate::traits::{ByteConversion, Deserializable};
 
 /// Type representing prime fields over unsigned 64-bit integers.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -124,15 +123,14 @@ impl<const MODULUS: u64> IsGroup for U64FieldElement<MODULUS> {
     }
 }
 
-#[cfg(feature = "std")]
 impl<const MODULUS: u64> ByteConversion for U64FieldElement<MODULUS> {
-    #[cfg(feature = "std")]
-    fn to_bytes_be(&self) -> Vec<u8> {
+    #[cfg(feature = "alloc")]
+    fn to_bytes_be(&self) -> alloc::vec::Vec<u8> {
         u64::to_be_bytes(*self.value()).into()
     }
 
-    #[cfg(feature = "std")]
-    fn to_bytes_le(&self) -> Vec<u8> {
+    #[cfg(feature = "alloc")]
+    fn to_bytes_le(&self) -> alloc::vec::Vec<u8> {
         u64::to_le_bytes(*self.value()).into()
     }
 
@@ -147,14 +145,13 @@ impl<const MODULUS: u64> ByteConversion for U64FieldElement<MODULUS> {
     }
 }
 
-#[cfg(feature = "std")]
+#[cfg(feature = "alloc")]
 impl<const MODULUS: u64> Serializable for FieldElement<U64PrimeField<MODULUS>> {
-    fn serialize(&self) -> Vec<u8> {
+    fn serialize(&self) -> alloc::vec::Vec<u8> {
         self.to_bytes_be()
     }
 }
 
-#[cfg(feature = "std")]
 impl<const MODULUS: u64> Deserializable for FieldElement<U64PrimeField<MODULUS>> {
     fn deserialize(bytes: &[u8]) -> Result<Self, DeserializationError>
     where
@@ -347,28 +344,28 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     fn to_bytes_from_bytes_be_is_the_identity() {
         let x = FE::new(12345);
         assert_eq!(FE::from_bytes_be(&x.to_bytes_be()).unwrap(), x);
     }
 
     #[test]
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     fn from_bytes_to_bytes_be_is_the_identity_for_one() {
         let bytes = [0, 0, 0, 0, 0, 0, 0, 1];
         assert_eq!(FE::from_bytes_be(&bytes).unwrap().to_bytes_be(), bytes);
     }
 
     #[test]
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     fn to_bytes_from_bytes_le_is_the_identity() {
         let x = FE::new(12345);
         assert_eq!(FE::from_bytes_le(&x.to_bytes_le()).unwrap(), x);
     }
 
     #[test]
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     fn from_bytes_to_bytes_le_is_the_identity_for_one() {
         let bytes = [1, 0, 0, 0, 0, 0, 0, 0];
         assert_eq!(FE::from_bytes_le(&bytes).unwrap().to_bytes_le(), bytes);
