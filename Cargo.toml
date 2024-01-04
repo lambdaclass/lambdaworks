@@ -1,5 +1,5 @@
 [workspace]
-members = ["math", "crypto", "gpu", "benches", "provers/plonk", "provers/stark", "provers/cairo", "provers/groth16", "examples/merkle-tree-cli", "winterfell_adapter"]
+members = ["math", "crypto", "gpu", "benches", "provers/plonk", "provers/stark", "provers/cairo", "provers/groth16", "examples/merkle-tree-cli", "examples/prove-miden", "winterfell_adapter"]
 exclude = ["ensure-no_std"]
 resolver = "2"
 
@@ -16,7 +16,7 @@ lambdaworks-gpu = { path = "./gpu" }
 lambdaworks-math = { path = "./math", default-features = false }
 stark-platinum-prover = { path = "./provers/stark" }
 cairo-platinum-prover = { path = "./provers/cairo" }
-
+lambdaworks-winterfell-adapter = { path = "./winterfell_adapter"}
 [patch.crates-io]
 winter-air = { git = "https://github.com/lambdaclass/winterfell-for-lambdaworks.git", branch = "derive-clone-v6.4"}
 winter-prover = { git = "https://github.com/lambdaclass/winterfell-for-lambdaworks.git", branch = "derive-clone-v6.4"}
