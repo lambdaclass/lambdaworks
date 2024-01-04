@@ -2,10 +2,11 @@ use std::marker::PhantomData;
 
 use crate::fiat_shamir::transcript::Transcript;
 use lambdaworks_math::field::element::FieldElement;
-use lambdaworks_math::field::traits::{IsPrimeField, IsField};
-use lambdaworks_math::polynomial::{dense_multilinear_poly::DenseMultilinearPolynomial, polynomial::Polynomial};
+use lambdaworks_math::field::traits::{IsField, IsPrimeField};
+use lambdaworks_math::polynomial::{
+    dense_multilinear_poly::DenseMultilinearPolynomial, polynomial::Polynomial,
+};
 use lambdaworks_math::traits::ByteConversion;
-
 
 // Proof attesting to sum over the boolean hypercube
 #[derive(Debug)]
@@ -31,10 +32,9 @@ where
 
 impl<F: IsField + IsPrimeField> Sumcheck<F>
 where
-    <F as IsField>::BaseType: Send + Sync, 
-    FieldElement<F>: ByteConversion
+    <F as IsField>::BaseType: Send + Sync,
+    FieldElement<F>: ByteConversion,
 {
-
     pub fn prove_quadratic() -> SumcheckProof<F> {
         todo!();
     }
@@ -55,12 +55,17 @@ where
         todo!()
     }
 
-    pub fn prove_single(poly: &DenseMultilinearPolynomial<F>, sum: &FieldElement<F>, transcript: &mut impl Transcript) -> SumcheckProof<F> {
-
-        let round_uni_polys: Vec<Polynomial<FieldElement<F>>> = Vec::with_capacity(poly.num_vars());
+    // Create a test for this
+    pub fn prove_single(
+        poly: &DenseMultilinearPolynomial<F>,
+        sum: &FieldElement<F>,
+        transcript: &mut impl Transcript,
+    ) -> SumcheckProof<F> {
+        let mut round_uni_polys: Vec<Polynomial<FieldElement<F>>> =
+            Vec::with_capacity(poly.num_vars());
         let mut challenges = Vec::with_capacity(poly.num_vars());
 
-        let mut claim = *sum;
+        let mut prev_round_claim = *sum;
         let mut round_poly = *poly;
 
         // Number round = num vars
@@ -70,9 +75,14 @@ where
             // Compute evaluation points of the Dense Multilinear Poly
             let round_uni_poly = {
                 let mle_half = poly.len() / 2;
-                // TODO: evaluate
-                let eval_0 = (0..mle_half).map(|i| {});
-                let evals = vec![eval_0, claim - eval_0];
+                // TODO: push check/error for empty poly to start of proving or into multilinear poly so we eliminate this problem entirely.
+                let eval_0 = (0..mle_half)
+                    .map(|i| poly[i])
+                    .reduce(|a, b| (a + b))
+                    .unwrap();
+                // We evaluate the poly at each round and each random challenge at 0, 1 we can compute both of these evaluations by summing over the boolearn hypercube for 0, 1 at the fixed point
+                // An additional optimization is to sum over eval_0 and compute eval_1 = prev_round_claim - eval_0;
+                let evals = vec![eval_0, prev_round_claim - eval_0];
                 Polynomial::new(&eval_points)
             };
 
@@ -99,8 +109,11 @@ where
     }
 
     // Verifies a sumcheck proof returning the claimed evaluation and random points used during sumcheck rounds
-    pub fn verify(proof: SumcheckProof<F>, transcript: &mut impl Transcript) -> Result<(FieldElement<F>, Vec<FieldElement<F>>), SumcheckError> {
-        let mut e = proof.sum.clone();            
+    pub fn verify(
+        proof: SumcheckProof<F>,
+        transcript: &mut impl Transcript,
+    ) -> Result<(FieldElement<F>, Vec<FieldElement<F>>), SumcheckError> {
+        let mut e = proof.sum.clone();
         let mut r: Vec<FieldElement<F>> = Vec::with_capacity(proof.poly.num_vars());
 
         // verify there is a univariate polynomial for each round
@@ -108,11 +121,13 @@ where
         assert_eq!(proof.round_uni_polys.len(), proof.poly.num_vars());
 
         for poly in proof.round_uni_polys {
-
             // Verify degree bound
 
             // check if G_k(0) + G_k(1) = e
-            assert_eq!(poly.evaluate(&FieldElement::<F>::zero()) + poly.evaluate(&FieldElement::one()), e);
+            assert_eq!(
+                poly.evaluate(&FieldElement::<F>::zero()) + poly.evaluate(&FieldElement::one()),
+                e
+            );
             //transcript.append(poly);
 
             let challenge = FieldElement::from_bytes_be(&transcript.challenge()).unwrap();
@@ -122,7 +137,6 @@ where
         }
         Ok((proof.sum, r))
     }
-
 }
 
 #[cfg(test)]
@@ -141,10 +155,7 @@ mod test {
         // p = 2ab + 3bc
         // [a, b, c] = [0, 1, 2]
         // sum over boolean hypercube = 10
-        let p = DenseMultilinearPolynomial::<F>::new(vec![
-            FE::from(2),
-            FE::from(3)
-        ]);
+        let p = DenseMultilinearPolynomial::<F>::new(vec![FE::from(2), FE::from(3)]);
         let prover_transcript = DefaultTranscript::default();
         let proof = Sumcheck::<F>::prove_single(&p, &FE::from(10), &mut prover_transcript);
         assert_eq!(proof.round_uni_polys.len(), 3);

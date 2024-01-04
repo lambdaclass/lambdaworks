@@ -1,4 +1,7 @@
-use crate::field::{element::FieldElement, traits::{IsField, IsSubFieldOf}};
+use crate::field::{
+    element::FieldElement,
+    traits::{IsField, IsSubFieldOf},
+};
 use std::ops;
 
 /// Represents the polynomial c_0 + c_1 * X + c_2 * X^2 + ... + c_n * X^n

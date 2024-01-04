@@ -4,6 +4,8 @@ use alloc::{borrow::ToOwned, vec, vec::Vec};
 use core::{fmt::Display, ops};
 
 pub mod dense_multilinear_poly;
+mod error;
+pub mod polynomial;
 pub mod sparse_multilinear_poly;
 pub mod polynomial;
 mod error;
