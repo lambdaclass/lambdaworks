@@ -124,6 +124,8 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
 
         Self::new([x, y, z])
     }
+    // Constant time affine point addition
+    // referenced from https://eprint.iacr.org/2015/1060.pdf
     #[cfg(feature = "constant-time")]
     pub fn operate_with_affine(&self, other: &Self) -> Self {
         let [px, py, pz] = self.coordinates();
