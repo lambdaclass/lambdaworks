@@ -43,13 +43,13 @@ impl<F> ByteConversion for [FieldElement<F>; 2]
 where
     F: IsField,
 {
-    #[cfg(feature = "std")]
-    fn to_bytes_be(&self) -> Vec<u8> {
+    #[cfg(feature = "alloc")]
+    fn to_bytes_be(&self) -> alloc::vec::Vec<u8> {
         unimplemented!()
     }
 
-    #[cfg(feature = "std")]
-    fn to_bytes_le(&self) -> Vec<u8> {
+    #[cfg(feature = "alloc")]
+    fn to_bytes_le(&self) -> alloc::vec::Vec<u8> {
         unimplemented!()
     }
 
@@ -194,10 +194,10 @@ where
         [FieldElement::from_raw(a), FieldElement::zero()]
     }
 
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     fn to_subfield_vec(
         b: <QuadraticExtensionField<F, Q> as IsField>::BaseType,
-    ) -> Vec<Self::BaseType> {
+    ) -> alloc::vec::Vec<Self::BaseType> {
         b.into_iter().map(|x| x.to_raw()).collect()
     }
 }

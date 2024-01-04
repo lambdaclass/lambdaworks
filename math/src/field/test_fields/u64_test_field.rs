@@ -134,7 +134,7 @@ mod tests_u64_test_field {
         );
     }
 
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     #[test]
     fn test_to_subfield_vec() {
         let a = FieldElement::<U64TestFieldExtension>::from(&[
@@ -142,7 +142,7 @@ mod tests_u64_test_field {
             FieldElement::from(3),
         ]);
         let b = a.to_subfield_vec::<U64TestField>();
-        assert_eq!(b, vec![FieldElement::from(1), FieldElement::from(3)]);
+        assert_eq!(b, alloc::vec![FieldElement::from(1), FieldElement::from(3)]);
     }
 
     #[cfg(feature = "std")]

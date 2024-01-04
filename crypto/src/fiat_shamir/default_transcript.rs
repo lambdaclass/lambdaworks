@@ -1,4 +1,5 @@
 use super::transcript::Transcript;
+use alloc::borrow::ToOwned;
 use sha3::{Digest, Keccak256};
 
 pub struct DefaultTranscript {
@@ -35,6 +36,8 @@ impl DefaultTranscript {
 
 #[cfg(test)]
 mod tests {
+    use alloc::vec::Vec;
+
     use super::*;
 
     #[test]

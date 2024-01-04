@@ -9,12 +9,12 @@ use crate::errors::ByteConversionError;
 /// little-endian order.
 pub trait ByteConversion {
     /// Returns the byte representation of the element in big-endian order.}
-    #[cfg(feature = "std")]
-    fn to_bytes_be(&self) -> Vec<u8>;
+    #[cfg(feature = "alloc")]
+    fn to_bytes_be(&self) -> alloc::vec::Vec<u8>;
 
     /// Returns the byte representation of the element in little-endian order.
-    #[cfg(feature = "std")]
-    fn to_bytes_le(&self) -> Vec<u8>;
+    #[cfg(feature = "alloc")]
+    fn to_bytes_le(&self) -> alloc::vec::Vec<u8>;
 
     /// Returns the element from its byte representation in big-endian order.
     fn from_bytes_be(bytes: &[u8]) -> Result<Self, ByteConversionError>
@@ -29,10 +29,10 @@ pub trait ByteConversion {
 
 /// Serialize function without args
 /// Used for serialization when formatting options are not relevant
+#[cfg(feature = "alloc")]
 pub trait Serializable {
     /// Default serialize without args
-    #[cfg(feature = "std")]
-    fn serialize(&self) -> Vec<u8>;
+    fn serialize(&self) -> alloc::vec::Vec<u8>;
 }
 
 /// Deserialize function without args

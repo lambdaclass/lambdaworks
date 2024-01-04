@@ -17,9 +17,10 @@ pub fn reverse_index(i: usize, size: u64) -> usize {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "alloc"))]
 mod test {
     use super::*;
+    use alloc::vec::Vec;
 
     // TODO: proptest would be better.
     #[test]
