@@ -1,4 +1,3 @@
-use itertools::Itertools;
 use lambdaworks_math::{
     field::{
         element::FieldElement,
