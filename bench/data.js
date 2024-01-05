@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1704401398590,
+  "lastUpdate": 1704467054957,
   "repoUrl": "https://github.com/lambdaclass/lambdaworks",
   "entries": {
     "Benchmark": [
@@ -23219,6 +23219,150 @@ window.BENCHMARK_DATA = {
             "name": "Polynomial/div by 'x - b' with Ruffini",
             "value": 1138,
             "range": "± 10",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "irbozk@gmail.com",
+            "name": "irfan",
+            "username": "irfanbozkurt"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5f3ffd2c953076db19a5950348f6bab6dcf24375",
+          "message": "Arkworks adapter for Groth16 Backend (#701)\n\n* csv -> qap\n\n* load from csv\n\n* works but for what\n\n* roll back to beginning\n\n* Revert \"works but for what\"\n\nThis reverts commit b1fc5b56fb817469d1e3ba287b34e2aa7dbbeb50.\n\n* Revert \"load from csv\"\n\nThis reverts commit 015a1b879fc73a46083f8366754887e4a60f15b0.\n\n* Revert \"csv -> qap\"\n\nThis reverts commit d4700e69285a73151fa910f3ad02731ec41a8b73.\n\n* arkworks-adapter-init\n\n* more examples\n\n* bugfix + linear exponentiation example\n\n* minor refactor\n\n* reorg\n\n* reorg\n\n* clippy\n\n* readd winterfell\n\n* added readme to the adapter\n\n* Update README.md\n\n* make clippy happy\n\n* extract_witness_from_arkworks_cs more clear\n\n* almost all reviews done\n\n* remove unnecessary \"1\"\n\n* get rid of unecessary \"1\"s\n\n* failing test\n\n* Add docs to \"arkworks_cs_to_lambda_cs\"\n\n* add move test utils to correct place + #[cfg(test)]\n\n---------\n\nCo-authored-by: Mauro Toscano <12560266+MauroToscano@users.noreply.github.com>\nCo-authored-by: Diego K <43053772+diegokingston@users.noreply.github.com>",
+          "timestamp": "2024-01-05T14:52:10Z",
+          "tree_id": "7d7d902982b2f403e0e80451935c364d544f1f25",
+          "url": "https://github.com/lambdaclass/lambdaworks/commit/5f3ffd2c953076db19a5950348f6bab6dcf24375"
+        },
+        "date": 1704467051080,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "Ordered FFT/Parallel (Metal)",
+            "value": 78231008,
+            "range": "± 6155200",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #2",
+            "value": 148876972,
+            "range": "± 6443723",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #3",
+            "value": 302893156,
+            "range": "± 2649891",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #4",
+            "value": 602096479,
+            "range": "± 20566155",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal)",
+            "value": 32926239,
+            "range": "± 365109",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #2",
+            "value": 65554299,
+            "range": "± 736837",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #3",
+            "value": 127864611,
+            "range": "± 822397",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #4",
+            "value": 266492312,
+            "range": "± 1727451",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal)",
+            "value": 27274251,
+            "range": "± 708954",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #2",
+            "value": 50873337,
+            "range": "± 1923396",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #3",
+            "value": 115559409,
+            "range": "± 4135579",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #4",
+            "value": 239661187,
+            "range": "± 10401379",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal",
+            "value": 111952858,
+            "range": "± 2898715",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #2",
+            "value": 224166631,
+            "range": "± 2525780",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #3",
+            "value": 458136291,
+            "range": "± 9215950",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #4",
+            "value": 900920521,
+            "range": "± 5838841",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal",
+            "value": 398275666,
+            "range": "± 1910001",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #2",
+            "value": 773636208,
+            "range": "± 12237358",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #3",
+            "value": 1542281270,
+            "range": "± 17234287",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #4",
+            "value": 3057346458,
+            "range": "± 20024574",
             "unit": "ns/iter"
           }
         ]
