@@ -23,7 +23,7 @@ fn r1cs_from_arkworks_cs<F: PrimeField>(cs: &ConstraintSystemRef<F>) -> R1CS {
 
     let r1cs_matrices = cs.to_matrices().unwrap();
     let num_pub_vars = cs.num_instance_variables();
-    let total_variables = cs.num_witness_variables() + num_pub_vars - 1;
+    let total_variables = cs.num_witness_variables() + num_pub_vars;
 
     R1CS::from_matrices(
         ark_to_lambda_matrix(&r1cs_matrices.a, total_variables),
@@ -96,7 +96,7 @@ fn sparse_matrix_to_dense(
 
 #[inline]
 fn sparse_row_to_dense(row: &[(FrElement, usize)], total_variables: usize) -> Vec<FrElement> {
-    let mut dense_row = vec![FrElement::from(0); total_variables + 1];
+    let mut dense_row = vec![FrElement::from(0); total_variables];
     row.iter().for_each(|e| {
         dense_row[e.1] = e.0.clone();
     });
