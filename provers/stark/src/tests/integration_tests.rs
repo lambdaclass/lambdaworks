@@ -9,8 +9,8 @@ use crate::{
         // dummy_air::{self, DummyAIR},
         // fibonacci_2_cols_shifted::{self, Fibonacci2ColsShifted},
         fibonacci_2_columns::{self, Fibonacci2ColsAIR},
+        fibonacci_rap::{fibonacci_rap_trace, FibonacciRAP, FibonacciRAPPublicInputs},
         quadratic_air::{self, QuadraticAIR, QuadraticPublicInputs},
-        // fibonacci_rap::{fibonacci_rap_trace, FibonacciRAP, FibonacciRAPPublicInputs},
         simple_fibonacci::{self, FibonacciAIR, FibonacciPublicInputs},
     },
     proof::options::ProofOptions,
@@ -211,33 +211,35 @@ fn test_prove_quadratic() {
     ));
 }
 
-// #[test_log::test]
-// fn test_prove_rap_fib() {
-//     let steps = 16;
-//     let trace = fibonacci_rap_trace([Felt252::from(1), Felt252::from(1)], steps);
+#[test_log::test]
+fn test_prove_rap_fib() {
+    let steps = 16;
+    let trace = fibonacci_rap_trace([Felt252::from(1), Felt252::from(1)], steps);
 
-//     let proof_options = ProofOptions::default_test_options();
+    println!("TRACE LEN: {}", trace.n_rows());
 
-//     let pub_inputs = FibonacciRAPPublicInputs {
-//         steps,
-//         a0: Felt252::one(),
-//         a1: Felt252::one(),
-//     };
+    let proof_options = ProofOptions::default_test_options();
 
-//     let proof = Prover::prove::<FibonacciRAP<Stark252PrimeField>>(
-//         &trace,
-//         &pub_inputs,
-//         &proof_options,
-//         StoneProverTranscript::new(&[]),
-//     )
-//     .unwrap();
-//     assert!(Verifier::verify::<FibonacciRAP<Stark252PrimeField>>(
-//         &proof,
-//         &pub_inputs,
-//         &proof_options,
-//         StoneProverTranscript::new(&[])
-//     ));
-// }
+    let pub_inputs = FibonacciRAPPublicInputs {
+        steps,
+        a0: Felt252::one(),
+        a1: Felt252::one(),
+    };
+
+    let proof = Prover::prove::<FibonacciRAP<Stark252PrimeField>>(
+        &trace,
+        &pub_inputs,
+        &proof_options,
+        StoneProverTranscript::new(&[]),
+    )
+    .unwrap();
+    assert!(Verifier::verify::<FibonacciRAP<Stark252PrimeField>>(
+        &proof,
+        &pub_inputs,
+        &proof_options,
+        StoneProverTranscript::new(&[])
+    ));
+}
 
 // #[test_log::test]
 // fn test_prove_dummy() {
