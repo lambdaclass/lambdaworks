@@ -118,8 +118,6 @@ pub trait IsStarkVerifier {
             &domain.trace_roots_of_unity,
         );
 
-        // println!("Z VERIFIER: {:?}", z);
-
         // <<<< Receive values: tⱼ(zgᵏ)
         for i in 0..proof.trace_ood_evaluations.width {
             for j in 0..proof.trace_ood_evaluations.height {
@@ -256,16 +254,6 @@ pub trait IsStarkVerifier {
             .map(|poly| poly.evaluate(&challenges.z))
             .collect::<Vec<FieldElement<Self::Field>>>();
 
-        println!(
-            "TRACE OOD EVALS HEIGHT: {}",
-            proof.trace_ood_evaluations.height
-        );
-
-        println!(
-            "TRACE OOD EVALS WIDTH: {}",
-            proof.trace_ood_evaluations.width
-        );
-
         let ood_frame = (proof.trace_ood_evaluations).into_frame(A::STEP_SIZE);
         let transition_ood_frame_evaluations =
             air.compute_transition(&ood_frame, &periodic_values, &challenges.rap_challenges);
@@ -276,25 +264,12 @@ pub trait IsStarkVerifier {
             .map(|c| c.evaluate_zerofier(&challenges.z, &domain.trace_primitive_root, trace_length))
             .collect();
 
-        // let exemption = air
-        //     .transition_exemptions_verifier(
-        //         domain.trace_roots_of_unity.iter().last().expect("has last"),
-        //     )
-        //     .iter()
-        //     .map(|poly| poly.evaluate(&challenges.z))
-        //     .collect::<Vec<FieldElement<Self::Field>>>();
-
-        // let unity = &FieldElement::one();
         let transition_c_i_evaluations_sum = itertools::izip!(
             transition_ood_frame_evaluations, // .zip(&air.context().transition_exemptions)
             &challenges.transition_coeffs,
             denominators
         )
         .fold(FieldElement::zero(), |acc, (eval, beta, denominator)| {
-            // let except = except
-            //     .checked_sub(1)
-            //     .map(|i| &exemption[i])
-            //     .unwrap_or(unity);
             acc + beta * eval * &denominator
         });
 

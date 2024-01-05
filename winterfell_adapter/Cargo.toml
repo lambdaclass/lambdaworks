@@ -5,8 +5,8 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
-lambdaworks-math = { path = "../math" }
-stark-platinum-prover = { path = "../provers/stark" }
+lambdaworks-math = { git = "https://github.com/lambdaclass/lambdaworks", rev = "5f3ffd2c953076db19a5950348f6bab6dcf24375"}
+stark-platinum-prover = { git = "https://github.com/lambdaclass/lambdaworks", rev = "5f3ffd2c953076db19a5950348f6bab6dcf24375"}
 winterfell = { git = "https://github.com/facebook/winterfell" }
 winter-utils = { git = "https://github.com/facebook/winterfell" }
 rand = "0.8.5"
