@@ -29,7 +29,7 @@ fn r1cs_from_arkworks_cs<F: PrimeField>(cs: &ConstraintSystemRef<F>) -> R1CS {
         ark_to_lambda_matrix(&r1cs_matrices.a, total_variables),
         ark_to_lambda_matrix(&r1cs_matrices.b, total_variables),
         ark_to_lambda_matrix(&r1cs_matrices.c, total_variables),
-        num_pub_vars - 1,
+        num_pub_vars,
     )
 }
 
