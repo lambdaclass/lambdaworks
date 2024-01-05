@@ -15,8 +15,6 @@ pub trait TransitionConstraint<F: IsFFTField>: Send + Sync {
 
     fn constraint_idx(&self) -> usize;
 
-    fn mask(&self) -> Vec<(usize, usize, usize)>;
-
     fn evaluate(
         &self,
         frame: &Frame<F>,
@@ -71,15 +69,6 @@ pub trait TransitionConstraint<F: IsFFTField>: Send + Sync {
 
         let lde_root_order = u64::from((blowup_factor * trace_length).trailing_zeros());
         let lde_root = F::get_primitive_root_of_unity(lde_root_order).unwrap();
-
-        // println!("OMEGA TO THE N POWER: {:?}", root.pow(trace_length));
-
-        // println!(
-        //     "ROOT TO THE NxBETA POWER: {:?}",
-        //     root.pow(trace_length * blowup_factor)
-        // );
-
-        // println!("OMEGA TO THE BETA POWER: {:?}", root.pow(blowup_factor));
 
         let end_exemptions_poly = self.end_exemptions_poly(trace_primitive_root, trace_length);
 
@@ -143,11 +132,6 @@ pub trait TransitionConstraint<F: IsFFTField>: Send + Sync {
                 .collect_vec();
 
             FieldElement::inplace_batch_inverse(&mut evaluations).unwrap();
-
-            // println!("ZEROFIER EVALS");
-            // for (i, eval) in evaluations.iter().enumerate() {
-            //     println!("ZEROFIER EVAL {} - {:?}", i, eval);
-            // }
 
             let end_exemption_evaluations = evaluate_polynomial_on_lde_domain(
                 &end_exemptions_poly,

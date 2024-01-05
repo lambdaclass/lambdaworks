@@ -43,10 +43,6 @@ impl TransitionConstraint<Stark252PrimeField> for BitConstraint {
         0
     }
 
-    fn mask(&self) -> Vec<(usize, usize, usize)> {
-        vec![(0, 0, 0), (0, 1, 0)]
-    }
-
     fn evaluate(
         &self,
         frame: &Frame<Stark252PrimeField>,
@@ -96,10 +92,6 @@ impl TransitionConstraint<Stark252PrimeField> for ZeroFlagConstraint {
 
     fn offset(&self) -> usize {
         15
-    }
-
-    fn mask(&self) -> Vec<(usize, usize, usize)> {
-        vec![(0, 15, 0)]
     }
 
     fn evaluate(
@@ -175,7 +167,7 @@ impl AIR for BitFlagsAIR {
     }
 
     fn composition_poly_degree_bound(&self) -> usize {
-        self.trace_length
+        self.trace_length * 2
     }
 
     fn trace_length(&self) -> usize {
@@ -196,7 +188,8 @@ pub fn bit_prefix_flag_trace(num_steps: usize) -> TraceTable<Stark252PrimeField>
     .map(|t| Felt252::from(*t))
     .collect();
 
-    let data: Vec<Felt252> = iter::repeat(step).take(num_steps).flatten().collect();
+    let mut data: Vec<Felt252> = iter::repeat(step).take(num_steps).flatten().collect();
+    data[0] = Felt252::from(1030);
 
     TraceTable::new(data, 1, 16)
 }

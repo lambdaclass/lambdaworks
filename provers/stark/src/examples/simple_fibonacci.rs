@@ -41,10 +41,6 @@ where
         2
     }
 
-    fn mask(&self) -> Vec<(usize, usize, usize)> {
-        vec![(0, 0, 0), (1, 0, 0), (2, 0, 0)]
-    }
-
     fn evaluate(
         &self,
         frame: &Frame<F>,
@@ -126,23 +122,6 @@ where
     fn transition_constraints(&self) -> &Vec<Box<dyn TransitionConstraint<F>>> {
         &self.constraints
     }
-
-    // fn compute_transition(
-    //     &self,
-    //     frame: &Frame<Self::Field>,
-    //     _periodic_values: &[FieldElement<Self::Field>],
-    //     _rap_challenges: &[FieldElement<Self::Field>],
-    // ) -> Vec<FieldElement<Self::Field>> {
-    //     let first_step = frame.get_evaluation_step(0);
-    //     let second_step = frame.get_evaluation_step(1);
-    //     let third_step = frame.get_evaluation_step(2);
-
-    //     let a0 = first_step.get_evaluation_element(0, 0);
-    //     let a1 = second_step.get_evaluation_element(0, 0);
-    //     let a2 = third_step.get_evaluation_element(0, 0);
-
-    //     vec![a2 - a1 - a0]
-    // }
 
     fn boundary_constraints(
         &self,
