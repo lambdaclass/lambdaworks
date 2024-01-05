@@ -105,6 +105,53 @@ fn vitalik_example() {
 }
 
 #[test]
+fn failing_vitalik() {
+    // Same circuit as vitalik_example, but with an incorrect witness assignment.
+    let cs = ConstraintSystem::<Fr>::new_ref();
+
+    //["0x1", "0x3", "0x23", "0x9", "0x1b", "0x1e"]
+    let _x = Fr::from(3);
+    let _sym_1 = Fr::from(10); // should be have been 9
+    let _y = Fr::from(27);
+    let _sym_2 = Fr::from(30);
+
+    let _out = Fr::from(35);
+
+    let x = cs.new_witness_variable(|| Ok(_x)).unwrap();
+    let sym_1 = cs.new_witness_variable(|| Ok(_sym_1)).unwrap();
+    let y = cs.new_witness_variable(|| Ok(_y)).unwrap();
+    let sym_2 = cs.new_witness_variable(|| Ok(_sym_2)).unwrap();
+
+    let out = cs.new_input_variable(|| Ok(_out)).unwrap();
+
+    cs.enforce_constraint(lc!() + x, lc!() + x, lc!() + sym_1)
+        .unwrap();
+    cs.enforce_constraint(lc!() + sym_1, lc!() + x, lc!() + y)
+        .unwrap();
+    cs.enforce_constraint(lc!() + y + x, lc!() + Variable::One, lc!() + sym_2)
+        .unwrap();
+    cs.enforce_constraint(
+        lc!() + sym_2 + (Fr::from(5), Variable::One),
+        lc!() + Variable::One,
+        lc!() + out,
+    )
+    .unwrap();
+
+    let lambda_cs = arkworks_cs_to_lambda_cs(&cs);
+
+    let qap = QuadraticArithmeticProgram::from_r1cs(lambda_cs.constraints);
+
+    let (pk, vk) = setup(&qap);
+
+    let accept = verify(
+        &vk,
+        &Prover::prove(&lambda_cs.witness, &qap, &pk),
+        &lambda_cs.witness[..qap.num_of_public_inputs],
+    );
+    assert!(!accept);
+}
+
+#[test]
 fn exponentiation_example() {
     /*
         Generates a "linear exponentiation" circuit with a random base and a random exponent.
