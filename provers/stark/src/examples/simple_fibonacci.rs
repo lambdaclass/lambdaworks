@@ -62,7 +62,6 @@ where
     }
 }
 
-// #[derive(Clone)]
 pub struct FibonacciAIR<F>
 where
     F: IsFFTField,
@@ -96,16 +95,16 @@ where
         pub_inputs: &Self::PublicInputs,
         proof_options: &ProofOptions,
     ) -> Self {
+        let constraints: Vec<Box<dyn TransitionConstraint<F>>> =
+            vec![Box::new(FibConstraint::new())];
+
         let context = AirContext {
             proof_options: proof_options.clone(),
             trace_columns: 1,
             transition_exemptions: vec![2],
             transition_offsets: vec![0, 1, 2],
-            num_transition_constraints: 1,
+            num_transition_constraints: constraints.len(),
         };
-
-        let constraints: Vec<Box<dyn TransitionConstraint<F>>> =
-            vec![Box::new(FibConstraint::new())];
 
         Self {
             pub_inputs: pub_inputs.clone(),
