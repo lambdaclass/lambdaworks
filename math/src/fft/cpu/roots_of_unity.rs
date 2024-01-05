@@ -2,6 +2,7 @@ use crate::field::{
     element::FieldElement,
     traits::{IsFFTField, RootsConfig},
 };
+use alloc::vec::Vec;
 
 use crate::fft::errors::FFTError;
 
@@ -54,7 +55,7 @@ pub fn get_powers_of_primitive_root_coset<F: IsFFTField>(
     offset: &FieldElement<F>,
 ) -> Result<Vec<FieldElement<F>>, FFTError> {
     let root = F::get_primitive_root_of_unity(n)?;
-    let results = (0..count).map(|i| root.pow(i) * offset);
+    let results = (0..count).map(|i| offset * root.pow(i));
 
     Ok(results.collect())
 }
@@ -82,6 +83,7 @@ mod tests {
         },
         field::{test_fields::u64_test_field::U64TestField, traits::RootsConfig},
     };
+    use alloc::format;
     use proptest::prelude::*;
 
     type F = U64TestField;

@@ -1,6 +1,7 @@
 use super::field::element::FieldElement;
-use crate::field::traits::IsField;
-use std::ops;
+use crate::field::traits::{IsField, IsSubFieldOf};
+use alloc::{borrow::ToOwned, vec, vec::Vec};
+use core::{fmt::Display, ops};
 
 /// Represents the polynomial c_0 + c_1 * X + c_2 * X^2 + ... + c_n * X^n
 /// as a vector of coefficients `[c_0, c_1, ... , c_n]`
@@ -90,12 +91,16 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
         Ok(result)
     }
 
-    pub fn evaluate(&self, x: &FieldElement<F>) -> FieldElement<F> {
+    pub fn evaluate<E>(&self, x: &FieldElement<E>) -> FieldElement<E>
+    where
+        E: IsField,
+        F: IsSubFieldOf<E>,
+    {
         self.coefficients
             .iter()
             .rev()
             .fold(FieldElement::zero(), |acc, coeff| {
-                acc * x.to_owned() + coeff
+                coeff + acc * x.to_owned()
             })
     }
 
@@ -131,23 +136,6 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
         self.coefficients().len()
     }
 
-    pub fn pad_with_zero_coefficients_to_length(pa: &mut Self, n: usize) {
-        pa.coefficients.resize(n, FieldElement::zero());
-    }
-
-    /// Pads polynomial representations with minimum number of zeros to match lengths.
-    pub fn pad_with_zero_coefficients(pa: &Self, pb: &Self) -> (Self, Self) {
-        let mut pa = pa.clone();
-        let mut pb = pb.clone();
-
-        if pa.coefficients.len() > pb.coefficients.len() {
-            Self::pad_with_zero_coefficients_to_length(&mut pb, pa.coefficients.len());
-        } else {
-            Self::pad_with_zero_coefficients_to_length(&mut pa, pb.coefficients.len());
-        }
-        (pa, pb)
-    }
-
     /// Computes quotient with `x - b` in place.
     pub fn ruffini_division_inplace(&mut self, b: &FieldElement<F>) {
         let mut c = FieldElement::zero();
@@ -156,6 +144,25 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
             core::mem::swap(coeff, &mut c);
         }
         self.coefficients.pop();
+    }
+
+    pub fn ruffini_division<L>(&self, b: &FieldElement<L>) -> Polynomial<FieldElement<L>>
+    where
+        L: IsField,
+        F: IsSubFieldOf<L>,
+    {
+        if let Some(c) = self.coefficients.last() {
+            let mut c = c.clone().to_extension();
+            let mut coefficients = Vec::with_capacity(self.degree());
+            for coeff in self.coefficients.iter().rev().skip(1) {
+                coefficients.push(c.clone());
+                c = coeff + c * b;
+            }
+            coefficients = coefficients.into_iter().rev().collect();
+            Polynomial::new(&coefficients)
+        } else {
+            Polynomial::zero()
+        }
     }
 
     /// Computes quotient and remainder of polynomial division.
@@ -202,7 +209,7 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
         }
     }
 
-    pub fn scale(&self, factor: &FieldElement<F>) -> Self {
+    pub fn scale<S: IsSubFieldOf<F>>(&self, factor: &FieldElement<S>) -> Self {
         let scaled_coefficients = self
             .coefficients
             .iter()
@@ -246,6 +253,42 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
         }
         parts
     }
+
+    pub fn to_extension<L: IsField>(self) -> Polynomial<FieldElement<L>>
+    where
+        F: IsSubFieldOf<L>,
+    {
+        Polynomial {
+            coefficients: self
+                .coefficients
+                .into_iter()
+                .map(|x| x.to_extension::<L>())
+                .collect(),
+        }
+    }
+}
+
+pub fn pad_with_zero_coefficients_to_length<F: IsField>(
+    pa: &mut Polynomial<FieldElement<F>>,
+    n: usize,
+) {
+    pa.coefficients.resize(n, FieldElement::zero());
+}
+
+/// Pads polynomial representations with minimum number of zeros to match lengths.
+pub fn pad_with_zero_coefficients<L: IsField, F: IsSubFieldOf<L>>(
+    pa: &Polynomial<FieldElement<F>>,
+    pb: &Polynomial<FieldElement<L>>,
+) -> (Polynomial<FieldElement<F>>, Polynomial<FieldElement<L>>) {
+    let mut pa = pa.clone();
+    let mut pb = pb.clone();
+
+    if pa.coefficients.len() > pb.coefficients.len() {
+        pad_with_zero_coefficients_to_length(&mut pb, pa.coefficients.len());
+    } else {
+        pad_with_zero_coefficients_to_length(&mut pa, pb.coefficients.len());
+    }
+    (pa, pb)
 }
 
 pub fn compose<F>(
@@ -274,39 +317,55 @@ where
         .expect("xs and ys have equal length and xs are unique")
 }
 
-impl<F: IsField> ops::Add<&Polynomial<FieldElement<F>>> for &Polynomial<FieldElement<F>> {
-    type Output = Polynomial<FieldElement<F>>;
+impl<F, L> ops::Add<&Polynomial<FieldElement<L>>> for &Polynomial<FieldElement<F>>
+where
+    L: IsField,
+    F: IsSubFieldOf<L>,
+{
+    type Output = Polynomial<FieldElement<L>>;
 
-    fn add(self, a_polynomial: &Polynomial<FieldElement<F>>) -> Self::Output {
-        let (pa, pb) = Polynomial::pad_with_zero_coefficients(self, a_polynomial);
+    fn add(self, a_polynomial: &Polynomial<FieldElement<L>>) -> Self::Output {
+        let (pa, pb) = pad_with_zero_coefficients(self, a_polynomial);
         let iter_coeff_pa = pa.coefficients.iter();
         let iter_coeff_pb = pb.coefficients.iter();
         let new_coefficients = iter_coeff_pa.zip(iter_coeff_pb).map(|(x, y)| x + y);
-        let new_coefficients_vec = new_coefficients.collect::<Vec<FieldElement<F>>>();
+        let new_coefficients_vec = new_coefficients.collect::<Vec<FieldElement<L>>>();
         Polynomial::new(&new_coefficients_vec)
     }
 }
 
-impl<F: IsField> ops::Add<Polynomial<FieldElement<F>>> for Polynomial<FieldElement<F>> {
-    type Output = Polynomial<FieldElement<F>>;
+impl<F, L> ops::Add<Polynomial<FieldElement<L>>> for Polynomial<FieldElement<F>>
+where
+    L: IsField,
+    F: IsSubFieldOf<L>,
+{
+    type Output = Polynomial<FieldElement<L>>;
 
-    fn add(self, a_polynomial: Polynomial<FieldElement<F>>) -> Polynomial<FieldElement<F>> {
+    fn add(self, a_polynomial: Polynomial<FieldElement<L>>) -> Polynomial<FieldElement<L>> {
         &self + &a_polynomial
     }
 }
 
-impl<F: IsField> ops::Add<&Polynomial<FieldElement<F>>> for Polynomial<FieldElement<F>> {
-    type Output = Polynomial<FieldElement<F>>;
+impl<F, L> ops::Add<&Polynomial<FieldElement<L>>> for Polynomial<FieldElement<F>>
+where
+    L: IsField,
+    F: IsSubFieldOf<L>,
+{
+    type Output = Polynomial<FieldElement<L>>;
 
-    fn add(self, a_polynomial: &Polynomial<FieldElement<F>>) -> Polynomial<FieldElement<F>> {
+    fn add(self, a_polynomial: &Polynomial<FieldElement<L>>) -> Polynomial<FieldElement<L>> {
         &self + a_polynomial
     }
 }
 
-impl<F: IsField> ops::Add<Polynomial<FieldElement<F>>> for &Polynomial<FieldElement<F>> {
-    type Output = Polynomial<FieldElement<F>>;
+impl<F, L> ops::Add<Polynomial<FieldElement<L>>> for &Polynomial<FieldElement<F>>
+where
+    L: IsField,
+    F: IsSubFieldOf<L>,
+{
+    type Output = Polynomial<FieldElement<L>>;
 
-    fn add(self, a_polynomial: Polynomial<FieldElement<F>>) -> Polynomial<FieldElement<F>> {
+    fn add(self, a_polynomial: Polynomial<FieldElement<L>>) -> Polynomial<FieldElement<L>> {
         self + &a_polynomial
     }
 }
@@ -332,39 +391,58 @@ impl<F: IsField> ops::Neg for Polynomial<FieldElement<F>> {
     }
 }
 
-impl<F: IsField> ops::Sub<Polynomial<FieldElement<F>>> for Polynomial<FieldElement<F>> {
-    type Output = Polynomial<FieldElement<F>>;
+impl<F, L> ops::Sub<&Polynomial<FieldElement<L>>> for &Polynomial<FieldElement<F>>
+where
+    L: IsField,
+    F: IsSubFieldOf<L>,
+{
+    type Output = Polynomial<FieldElement<L>>;
 
-    fn sub(self, substrahend: Polynomial<FieldElement<F>>) -> Polynomial<FieldElement<F>> {
-        &self - &substrahend
-    }
-}
-
-impl<F: IsField> ops::Sub<&Polynomial<FieldElement<F>>> for Polynomial<FieldElement<F>> {
-    type Output = Polynomial<FieldElement<F>>;
-
-    fn sub(self, substrahend: &Polynomial<FieldElement<F>>) -> Polynomial<FieldElement<F>> {
-        &self - substrahend
-    }
-}
-
-impl<F: IsField> ops::Sub<Polynomial<FieldElement<F>>> for &Polynomial<FieldElement<F>> {
-    type Output = Polynomial<FieldElement<F>>;
-
-    fn sub(self, substrahend: Polynomial<FieldElement<F>>) -> Polynomial<FieldElement<F>> {
-        self - &substrahend
-    }
-}
-
-impl<F: IsField> ops::Sub<&Polynomial<FieldElement<F>>> for &Polynomial<FieldElement<F>> {
-    type Output = Polynomial<FieldElement<F>>;
-
-    fn sub(self, substrahend: &Polynomial<FieldElement<F>>) -> Polynomial<FieldElement<F>> {
+    fn sub(self, substrahend: &Polynomial<FieldElement<L>>) -> Polynomial<FieldElement<L>> {
         self + (-substrahend)
     }
 }
 
-impl<F: IsField> ops::Div<Polynomial<FieldElement<F>>> for Polynomial<FieldElement<F>> {
+impl<F, L> ops::Sub<Polynomial<FieldElement<L>>> for Polynomial<FieldElement<F>>
+where
+    L: IsField,
+    F: IsSubFieldOf<L>,
+{
+    type Output = Polynomial<FieldElement<L>>;
+
+    fn sub(self, substrahend: Polynomial<FieldElement<L>>) -> Polynomial<FieldElement<L>> {
+        &self - &substrahend
+    }
+}
+
+impl<F, L> ops::Sub<&Polynomial<FieldElement<L>>> for Polynomial<FieldElement<F>>
+where
+    L: IsField,
+    F: IsSubFieldOf<L>,
+{
+    type Output = Polynomial<FieldElement<L>>;
+
+    fn sub(self, substrahend: &Polynomial<FieldElement<L>>) -> Polynomial<FieldElement<L>> {
+        &self - substrahend
+    }
+}
+
+impl<F, L> ops::Sub<Polynomial<FieldElement<L>>> for &Polynomial<FieldElement<F>>
+where
+    L: IsField,
+    F: IsSubFieldOf<L>,
+{
+    type Output = Polynomial<FieldElement<L>>;
+
+    fn sub(self, substrahend: Polynomial<FieldElement<L>>) -> Polynomial<FieldElement<L>> {
+        self - &substrahend
+    }
+}
+
+impl<F> ops::Div<Polynomial<FieldElement<F>>> for Polynomial<FieldElement<F>>
+where
+    F: IsField,
+{
     type Output = Polynomial<FieldElement<F>>;
 
     fn div(self, dividend: Polynomial<FieldElement<F>>) -> Polynomial<FieldElement<F>> {
@@ -402,14 +480,18 @@ impl<F: IsField> ops::Mul<&Polynomial<FieldElement<F>>> for Polynomial<FieldElem
 
 /* Operations between Polynomials and field elements */
 /* Multiplication field element at left */
-impl<F: IsField> ops::Mul<FieldElement<F>> for Polynomial<FieldElement<F>> {
-    type Output = Polynomial<FieldElement<F>>;
+impl<F, L> ops::Mul<FieldElement<F>> for Polynomial<FieldElement<L>>
+where
+    L: IsField,
+    F: IsSubFieldOf<L>,
+{
+    type Output = Polynomial<FieldElement<L>>;
 
-    fn mul(self, multiplicand: FieldElement<F>) -> Polynomial<FieldElement<F>> {
+    fn mul(self, multiplicand: FieldElement<F>) -> Polynomial<FieldElement<L>> {
         let new_coefficients = self
             .coefficients
             .iter()
-            .map(|value| value * &multiplicand)
+            .map(|value| &multiplicand * value)
             .collect();
         Polynomial {
             coefficients: new_coefficients,
@@ -417,204 +499,306 @@ impl<F: IsField> ops::Mul<FieldElement<F>> for Polynomial<FieldElement<F>> {
     }
 }
 
-impl<F: IsField> ops::Mul<&FieldElement<F>> for &Polynomial<FieldElement<F>> {
-    type Output = Polynomial<FieldElement<F>>;
+impl<F, L> ops::Mul<&FieldElement<F>> for &Polynomial<FieldElement<L>>
+where
+    L: IsField,
+    F: IsSubFieldOf<L>,
+{
+    type Output = Polynomial<FieldElement<L>>;
 
-    fn mul(self, multiplicand: &FieldElement<F>) -> Polynomial<FieldElement<F>> {
+    fn mul(self, multiplicand: &FieldElement<F>) -> Polynomial<FieldElement<L>> {
         self.clone() * multiplicand.clone()
     }
 }
 
-impl<F: IsField> ops::Mul<FieldElement<F>> for &Polynomial<FieldElement<F>> {
-    type Output = Polynomial<FieldElement<F>>;
+impl<F, L> ops::Mul<FieldElement<F>> for &Polynomial<FieldElement<L>>
+where
+    L: IsField,
+    F: IsSubFieldOf<L>,
+{
+    type Output = Polynomial<FieldElement<L>>;
 
-    fn mul(self, multiplicand: FieldElement<F>) -> Polynomial<FieldElement<F>> {
+    fn mul(self, multiplicand: FieldElement<F>) -> Polynomial<FieldElement<L>> {
         self * &multiplicand
     }
 }
 
-impl<F: IsField> ops::Mul<&FieldElement<F>> for Polynomial<FieldElement<F>> {
-    type Output = Polynomial<FieldElement<F>>;
+impl<F, L> ops::Mul<&FieldElement<F>> for Polynomial<FieldElement<L>>
+where
+    L: IsField,
+    F: IsSubFieldOf<L>,
+{
+    type Output = Polynomial<FieldElement<L>>;
 
-    fn mul(self, multiplicand: &FieldElement<F>) -> Polynomial<FieldElement<F>> {
+    fn mul(self, multiplicand: &FieldElement<F>) -> Polynomial<FieldElement<L>> {
         &self * multiplicand
     }
 }
 
 /* Multiplication field element at right */
-impl<F: IsField> ops::Mul<&Polynomial<FieldElement<F>>> for &FieldElement<F> {
-    type Output = Polynomial<FieldElement<F>>;
+impl<F, L> ops::Mul<&Polynomial<FieldElement<L>>> for &FieldElement<F>
+where
+    L: IsField,
+    F: IsSubFieldOf<L>,
+{
+    type Output = Polynomial<FieldElement<L>>;
 
-    fn mul(self, multiplicand: &Polynomial<FieldElement<F>>) -> Polynomial<FieldElement<F>> {
+    fn mul(self, multiplicand: &Polynomial<FieldElement<L>>) -> Polynomial<FieldElement<L>> {
         multiplicand * self
     }
 }
 
-impl<F: IsField> ops::Mul<Polynomial<FieldElement<F>>> for &FieldElement<F> {
-    type Output = Polynomial<FieldElement<F>>;
+impl<F, L> ops::Mul<Polynomial<FieldElement<L>>> for &FieldElement<F>
+where
+    L: IsField,
+    F: IsSubFieldOf<L>,
+{
+    type Output = Polynomial<FieldElement<L>>;
 
-    fn mul(self, multiplicand: Polynomial<FieldElement<F>>) -> Polynomial<FieldElement<F>> {
+    fn mul(self, multiplicand: Polynomial<FieldElement<L>>) -> Polynomial<FieldElement<L>> {
         &multiplicand * self
     }
 }
 
-impl<F: IsField> ops::Mul<&Polynomial<FieldElement<F>>> for FieldElement<F> {
-    type Output = Polynomial<FieldElement<F>>;
+impl<F, L> ops::Mul<&Polynomial<FieldElement<L>>> for FieldElement<F>
+where
+    L: IsField,
+    F: IsSubFieldOf<L>,
+{
+    type Output = Polynomial<FieldElement<L>>;
 
-    fn mul(self, multiplicand: &Polynomial<FieldElement<F>>) -> Polynomial<FieldElement<F>> {
+    fn mul(self, multiplicand: &Polynomial<FieldElement<L>>) -> Polynomial<FieldElement<L>> {
         multiplicand * self
     }
 }
 
-impl<F: IsField> ops::Mul<Polynomial<FieldElement<F>>> for FieldElement<F> {
-    type Output = Polynomial<FieldElement<F>>;
+impl<F, L> ops::Mul<Polynomial<FieldElement<L>>> for FieldElement<F>
+where
+    L: IsField,
+    F: IsSubFieldOf<L>,
+{
+    type Output = Polynomial<FieldElement<L>>;
 
-    fn mul(self, multiplicand: Polynomial<FieldElement<F>>) -> Polynomial<FieldElement<F>> {
+    fn mul(self, multiplicand: Polynomial<FieldElement<L>>) -> Polynomial<FieldElement<L>> {
         &multiplicand * &self
     }
 }
 
 /* Addition field element at left */
-impl<F: IsField> ops::Add<&FieldElement<F>> for &Polynomial<FieldElement<F>> {
-    type Output = Polynomial<FieldElement<F>>;
+impl<F, L> ops::Add<&FieldElement<F>> for &Polynomial<FieldElement<L>>
+where
+    L: IsField,
+    F: IsSubFieldOf<L>,
+{
+    type Output = Polynomial<FieldElement<L>>;
 
-    fn add(self, other: &FieldElement<F>) -> Polynomial<FieldElement<F>> {
+    fn add(self, other: &FieldElement<F>) -> Polynomial<FieldElement<L>> {
         Polynomial::new_monomial(other.clone(), 0) + self
     }
 }
 
-impl<F: IsField> ops::Add<FieldElement<F>> for Polynomial<FieldElement<F>> {
-    type Output = Polynomial<FieldElement<F>>;
+impl<F, L> ops::Add<FieldElement<F>> for Polynomial<FieldElement<L>>
+where
+    L: IsField,
+    F: IsSubFieldOf<L>,
+{
+    type Output = Polynomial<FieldElement<L>>;
 
-    fn add(self, other: FieldElement<F>) -> Polynomial<FieldElement<F>> {
+    fn add(self, other: FieldElement<F>) -> Polynomial<FieldElement<L>> {
         &self + &other
     }
 }
 
-impl<F: IsField> ops::Add<FieldElement<F>> for &Polynomial<FieldElement<F>> {
-    type Output = Polynomial<FieldElement<F>>;
+impl<F, L> ops::Add<FieldElement<F>> for &Polynomial<FieldElement<L>>
+where
+    L: IsField,
+    F: IsSubFieldOf<L>,
+{
+    type Output = Polynomial<FieldElement<L>>;
 
-    fn add(self, other: FieldElement<F>) -> Polynomial<FieldElement<F>> {
+    fn add(self, other: FieldElement<F>) -> Polynomial<FieldElement<L>> {
         self + &other
     }
 }
 
-impl<F: IsField> ops::Add<&FieldElement<F>> for Polynomial<FieldElement<F>> {
-    type Output = Polynomial<FieldElement<F>>;
+impl<F, L> ops::Add<&FieldElement<F>> for Polynomial<FieldElement<L>>
+where
+    L: IsField,
+    F: IsSubFieldOf<L>,
+{
+    type Output = Polynomial<FieldElement<L>>;
 
-    fn add(self, other: &FieldElement<F>) -> Polynomial<FieldElement<F>> {
+    fn add(self, other: &FieldElement<F>) -> Polynomial<FieldElement<L>> {
         &self + other
     }
 }
 
 /* Addition field element at right */
-impl<F: IsField> ops::Add<&Polynomial<FieldElement<F>>> for &FieldElement<F> {
-    type Output = Polynomial<FieldElement<F>>;
+impl<F, L> ops::Add<&Polynomial<FieldElement<L>>> for &FieldElement<F>
+where
+    L: IsField,
+    F: IsSubFieldOf<L>,
+{
+    type Output = Polynomial<FieldElement<L>>;
 
-    fn add(self, other: &Polynomial<FieldElement<F>>) -> Polynomial<FieldElement<F>> {
+    fn add(self, other: &Polynomial<FieldElement<L>>) -> Polynomial<FieldElement<L>> {
         Polynomial::new_monomial(self.clone(), 0) + other
     }
 }
 
-impl<F: IsField> ops::Add<Polynomial<FieldElement<F>>> for FieldElement<F> {
-    type Output = Polynomial<FieldElement<F>>;
+impl<F, L> ops::Add<Polynomial<FieldElement<L>>> for FieldElement<F>
+where
+    L: IsField,
+    F: IsSubFieldOf<L>,
+{
+    type Output = Polynomial<FieldElement<L>>;
 
-    fn add(self, other: Polynomial<FieldElement<F>>) -> Polynomial<FieldElement<F>> {
+    fn add(self, other: Polynomial<FieldElement<L>>) -> Polynomial<FieldElement<L>> {
         &self + &other
     }
 }
 
-impl<F: IsField> ops::Add<Polynomial<FieldElement<F>>> for &FieldElement<F> {
-    type Output = Polynomial<FieldElement<F>>;
+impl<F, L> ops::Add<Polynomial<FieldElement<L>>> for &FieldElement<F>
+where
+    L: IsField,
+    F: IsSubFieldOf<L>,
+{
+    type Output = Polynomial<FieldElement<L>>;
 
-    fn add(self, other: Polynomial<FieldElement<F>>) -> Polynomial<FieldElement<F>> {
+    fn add(self, other: Polynomial<FieldElement<L>>) -> Polynomial<FieldElement<L>> {
         self + &other
     }
 }
 
-impl<F: IsField> ops::Add<&Polynomial<FieldElement<F>>> for FieldElement<F> {
-    type Output = Polynomial<FieldElement<F>>;
+impl<F, L> ops::Add<&Polynomial<FieldElement<L>>> for FieldElement<F>
+where
+    L: IsField,
+    F: IsSubFieldOf<L>,
+{
+    type Output = Polynomial<FieldElement<L>>;
 
-    fn add(self, other: &Polynomial<FieldElement<F>>) -> Polynomial<FieldElement<F>> {
+    fn add(self, other: &Polynomial<FieldElement<L>>) -> Polynomial<FieldElement<L>> {
         &self + other
     }
 }
 
 /* Substraction field element at left */
-impl<F: IsField> ops::Sub<&FieldElement<F>> for &Polynomial<FieldElement<F>> {
-    type Output = Polynomial<FieldElement<F>>;
+impl<F, L> ops::Sub<&FieldElement<F>> for &Polynomial<FieldElement<L>>
+where
+    L: IsField,
+    F: IsSubFieldOf<L>,
+{
+    type Output = Polynomial<FieldElement<L>>;
 
-    fn sub(self, other: &FieldElement<F>) -> Polynomial<FieldElement<F>> {
-        self - Polynomial::new_monomial(other.clone(), 0)
+    fn sub(self, other: &FieldElement<F>) -> Polynomial<FieldElement<L>> {
+        -Polynomial::new_monomial(other.clone(), 0) + self
     }
 }
 
-impl<F: IsField> ops::Sub<FieldElement<F>> for Polynomial<FieldElement<F>> {
-    type Output = Polynomial<FieldElement<F>>;
+impl<F, L> ops::Sub<FieldElement<F>> for Polynomial<FieldElement<L>>
+where
+    L: IsField,
+    F: IsSubFieldOf<L>,
+{
+    type Output = Polynomial<FieldElement<L>>;
 
-    fn sub(self, other: FieldElement<F>) -> Polynomial<FieldElement<F>> {
+    fn sub(self, other: FieldElement<F>) -> Polynomial<FieldElement<L>> {
         &self - &other
     }
 }
 
-impl<F: IsField> ops::Sub<FieldElement<F>> for &Polynomial<FieldElement<F>> {
-    type Output = Polynomial<FieldElement<F>>;
+impl<F, L> ops::Sub<FieldElement<F>> for &Polynomial<FieldElement<L>>
+where
+    L: IsField,
+    F: IsSubFieldOf<L>,
+{
+    type Output = Polynomial<FieldElement<L>>;
 
-    fn sub(self, other: FieldElement<F>) -> Polynomial<FieldElement<F>> {
+    fn sub(self, other: FieldElement<F>) -> Polynomial<FieldElement<L>> {
         self - &other
     }
 }
 
-impl<F: IsField> ops::Sub<&FieldElement<F>> for Polynomial<FieldElement<F>> {
-    type Output = Polynomial<FieldElement<F>>;
+impl<F, L> ops::Sub<&FieldElement<F>> for Polynomial<FieldElement<L>>
+where
+    L: IsField,
+    F: IsSubFieldOf<L>,
+{
+    type Output = Polynomial<FieldElement<L>>;
 
-    fn sub(self, other: &FieldElement<F>) -> Polynomial<FieldElement<F>> {
+    fn sub(self, other: &FieldElement<F>) -> Polynomial<FieldElement<L>> {
         &self - other
     }
 }
 
 /* Substraction field element at right */
-impl<F: IsField> ops::Sub<&Polynomial<FieldElement<F>>> for &FieldElement<F> {
-    type Output = Polynomial<FieldElement<F>>;
+impl<F, L> ops::Sub<&Polynomial<FieldElement<L>>> for &FieldElement<F>
+where
+    L: IsField,
+    F: IsSubFieldOf<L>,
+{
+    type Output = Polynomial<FieldElement<L>>;
 
-    fn sub(self, other: &Polynomial<FieldElement<F>>) -> Polynomial<FieldElement<F>> {
+    fn sub(self, other: &Polynomial<FieldElement<L>>) -> Polynomial<FieldElement<L>> {
         Polynomial::new_monomial(self.clone(), 0) - other
     }
 }
 
-impl<F: IsField> ops::Sub<Polynomial<FieldElement<F>>> for FieldElement<F> {
-    type Output = Polynomial<FieldElement<F>>;
+impl<F, L> ops::Sub<Polynomial<FieldElement<L>>> for FieldElement<F>
+where
+    L: IsField,
+    F: IsSubFieldOf<L>,
+{
+    type Output = Polynomial<FieldElement<L>>;
 
-    fn sub(self, other: Polynomial<FieldElement<F>>) -> Polynomial<FieldElement<F>> {
+    fn sub(self, other: Polynomial<FieldElement<L>>) -> Polynomial<FieldElement<L>> {
         &self - &other
     }
 }
 
-impl<F: IsField> ops::Sub<Polynomial<FieldElement<F>>> for &FieldElement<F> {
-    type Output = Polynomial<FieldElement<F>>;
+impl<F, L> ops::Sub<Polynomial<FieldElement<L>>> for &FieldElement<F>
+where
+    L: IsField,
+    F: IsSubFieldOf<L>,
+{
+    type Output = Polynomial<FieldElement<L>>;
 
-    fn sub(self, other: Polynomial<FieldElement<F>>) -> Polynomial<FieldElement<F>> {
+    fn sub(self, other: Polynomial<FieldElement<L>>) -> Polynomial<FieldElement<L>> {
         self - &other
     }
 }
 
-impl<F: IsField> ops::Sub<&Polynomial<FieldElement<F>>> for FieldElement<F> {
-    type Output = Polynomial<FieldElement<F>>;
+impl<F, L> ops::Sub<&Polynomial<FieldElement<L>>> for FieldElement<F>
+where
+    L: IsField,
+    F: IsSubFieldOf<L>,
+{
+    type Output = Polynomial<FieldElement<L>>;
 
-    fn sub(self, other: &Polynomial<FieldElement<F>>) -> Polynomial<FieldElement<F>> {
+    fn sub(self, other: &Polynomial<FieldElement<L>>) -> Polynomial<FieldElement<L>> {
         &self - other
     }
 }
 
-use thiserror::Error;
-
-#[derive(Debug, Error)]
+#[derive(Debug)]
 pub enum InterpolateError {
-    #[error("xs and ys must be the same length. Got: {0} != {1}")]
     UnequalLengths(usize, usize),
-    #[error("xs values should be unique.")]
     NonUniqueXs,
 }
+
+impl Display for InterpolateError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            InterpolateError::UnequalLengths(x, y) => {
+                write!(f, "xs and ys must be the same length. Got: {x} != {y}")
+            }
+            InterpolateError::NonUniqueXs => write!(f, "xs values should be unique."),
+        }
+    }
+}
+
+#[cfg(feature = "std")]
+impl std::error::Error for InterpolateError {}
 
 #[cfg(test)]
 mod tests {
@@ -711,7 +895,7 @@ mod tests {
         let p2 = Polynomial::new(&[FE::new(3)]);
 
         assert_eq!(p2.coefficients, &[FE::new(3)]);
-        let (pp1, pp2) = Polynomial::pad_with_zero_coefficients(&p1, &p2);
+        let (pp1, pp2) = pad_with_zero_coefficients(&p1, &p2);
         assert_eq!(pp1, p1);
         assert_eq!(pp2.coefficients, &[FE::new(3), FE::new(0)]);
     }
@@ -906,10 +1090,11 @@ mod tests {
         assert_eq!(p1, &p1_expected);
     }
 
+    use alloc::format;
     use proptest::prelude::*;
     proptest! {
         #[test]
-        fn ruffini_equals_division(p in any::<Vec<u64>>(), b in any::<u64>()) {
+        fn ruffini_inplace_equals_division(p in any::<Vec<u64>>(), b in any::<u64>()) {
             let p: Vec<_> = p.into_iter().map(FE::from).collect();
             let mut p = Polynomial::new(&p);
             let b = FE::from(b);
@@ -919,6 +1104,18 @@ mod tests {
 
             p.ruffini_division_inplace(&b);
             prop_assert_eq!(p, p_ref / m);
+        }
+    }
+
+    proptest! {
+        #[test]
+        fn ruffini_inplace_equals_ruffini(p in any::<Vec<u64>>(), b in any::<u64>()) {
+            let p: Vec<_> = p.into_iter().map(FE::from).collect();
+            let mut p = Polynomial::new(&p);
+            let b = FE::from(b);
+            let q = p.ruffini_division(&b);
+            p.ruffini_division_inplace(&b);
+            prop_assert_eq!(q, p);
         }
     }
 }

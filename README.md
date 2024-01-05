@@ -1,8 +1,33 @@
 # LambdaWorks
-From the heights of these towers of fields, forty centuries of mathematics look down on us. The library for kids who wanna learn how to do STARKs, SNARKs and learn other cryptographic stuff too.
 
+The library for kids who wanna learn how to do STARKs, SNARKs and learn other cryptographic stuff too.
+
+> From the heights of these towers of fields, forty centuries of mathematics look down on us. 
+
+This library provides efficient implementation of cryptographic primitives used to build proving systems. Along with it, many backends for proving systems are shipped, and compatibility with different frontends is supported.
+
+- [Our vision on ZKP](https://blog.lambdaclass.com/transforming-the-future-with-zero-knowledge-proofs-fully-homomorphic-encryption-and-new-distributed-systems-algorithms/)
+- [Lambda Crypto Doctrine](https://blog.lambdaclass.com/lambda-crypto-doctrine/)
+
+## Table of contents
 <div>
+<!-- TOC -->
 
+- [LambdaWorks](#lambdaworks)
+  - [Documentation](#documentation)
+  - [List of features](#list-of-features)
+  - [Main crates](#main-crates)
+    - [Crypto](#crypto)
+  - [Examples - mini apps](#examples---mini-apps)
+  - [Exercises and Challenges](#exercises-and-challenges)
+  - [Why did we build lambdaworks](#why-did-we-build-lambdaworks)
+  - [Additional tooling usage](#additional-tooling-usage)
+    - [Fuzzers](#fuzzers)
+    - [Documentation building](#documentation-building)
+  - [📊 Benchmarks](#-benchmarks)
+  - [📚 References](#-references)
+
+<!-- /TOC -->
 [![Telegram Chat][tg-badge]][tg-url]
 [![codecov](https://img.shields.io/codecov/c/github/lambdaclass/lambdaworks)](https://codecov.io/gh/lambdaclass/lambdaworks)
 
@@ -14,6 +39,7 @@ From the heights of these towers of fields, forty centuries of mathematics look 
 ## [Documentation](https://lambdaclass.github.io/lambdaworks)
 
 ## List of features
+
 Disclaimer: This list contains cryptographic primitives and mathematical structures that we want to support in Lambdaworks. It can be expanded later to include new primitives. If you find there is a mistake or there has been an update in another library, please let us know.
 
 List of symbols:
@@ -35,8 +61,8 @@ List of symbols:
 | BLS12-381       | :heavy_check_mark: | :heavy_check_mark: |     |                    |             |
 | BLS12-377       | 🏗️           | :heavy_check_mark: |     | :heavy_check_mark: |             |
 | BN-254          | :x:                | :heavy_check_mark: |     |                    |             |
-| Pallas          | 🏗️                | :heavy_check_mark: |     |                    |             |
-| Vesta           | 🏗️                | :heavy_check_mark: |     |                    |             |
+| Pallas          | :heavy_check_mark:                | :heavy_check_mark: |     |                    |             |
+| Vesta           | :heavy_check_mark:                | :heavy_check_mark: |     |                    |             |
 | Bandersnatch    | 🏗️           | :heavy_check_mark: |     |                    |             |
 | **STARKs**       | **Lambdaworks** | **Arkworks** | **Halo2** | **gnark** | **Constantine** |
 | STARK Prover | :heavy_check_mark: | :x:      |     | :x:   |             |
@@ -58,16 +84,26 @@ List of symbols:
 | Protostar       | :x:         |          |       |       |             |
 | Protogalaxy     | :x:         |          |       |       |             |
 
+Additionally, provers are compatible with the following frontends and VMs:
 
-Zero-Knowledge and Validity Proofs have gained a lot of attention over the last few years. We strongly believe in this potential and that is why we decided to start working in this challenging ecosystem, where math, cryptography and distributed systems meet. The main barrier in the beginning was not the cryptography or math but the lack of good libraries which are performant and developer friendly. There are some exceptions, though, like gnark or halo2. Some have nice APIs and are easy to work with, but they are not written in Rust, and some are written in Rust but have poor programming and engineering practices. Most of them don't have support for CUDA, Metal and WebGPU or distributed FFT calculation using schedulers like Dask.
+| Backend | Frontend | Status |
+|---------|----------|--------|
+| Groth16 | Arkworks | :heavy_check_mark: |
+| Groth16 | Gnark    | :x: |
+| Groth16 | Circom   | 🏗️  |
+| Plonk   | Gnark    | 🏗️  |
+| Plonk   | Noir    | :x: |
+| Stark   | Winterfell | :heavy_check_mark: | 
+| Stark   | Miden | :heavy_check_mark: |
+| Stark   | Cairo | :heavy_check_mark: |
 
-So, we decided to build our library, focusing on performance, with clear documentation and developer-focused. Our core team is a group of passionate people from different backgrounds and different strengths; we think that the whole is greater than just the addition of the parts. We don't want to be a compilation of every research result in the ZK space. We want this to be a library that can be used in production, not just in academic research. We want to offer developers the main building blocks and proof systems so that they can build their applications on top of this library.
-
+This can be used in a multi prover setting for extra security, or as a standalone to be used with Rust. 
 
 ## Main crates
 
 - [Math](https://github.com/lambdaclass/lambdaworks/tree/main/math)
 - [Crypto primitives](https://github.com/lambdaclass/lambdaworks/tree/main/crypto)
+- [STARK Prover](https://github.com/lambdaclass/lambdaworks/tree/main/provers/stark)
 - [Plonk Prover](https://github.com/lambdaclass/lambdaworks/tree/main/provers/plonk)
 - [Cairo Prover](https://github.com/lambdaclass/lambdaworks/tree/main/provers/cairo)
 - [Groth 16](https://github.com/lambdaclass/lambdaworks/tree/main/provers/groth16)
@@ -77,6 +113,7 @@ If you are interested in proving Cairo programs, use the Cairo Prover CLI.
 ### Crypto
 - [Elliptic curves](https://github.com/lambdaclass/lambdaworks/tree/main/math/src/elliptic_curve)
 - [Multiscalar multiplication](https://github.com/lambdaclass/lambdaworks/tree/main/math/src/msm)
+- [Hashes](https://github.com/lambdaclass/lambdaworks/tree/main/crypto/src/hash)
 
 Finite Field crate fully supports no-std with `no-default-features`
 
@@ -87,6 +124,9 @@ Both Math and Crypto support wasm with target `wasm32-unknown-unknown` by defaul
 
 ## Exercises and Challenges
 - [Lambdaworks exercises and challenges](https://github.com/lambdaclass/lambdaworks_exercises/tree/main)
+- [Roadmap for Sparkling Water Bootcamp](https://github.com/lambdaclass/sparkling_water_bootcamp/blob/main/README.md)
+
+## Citing Lambdaworks
 
 If you use ```Lambdaworks``` libraries in your research projects, please cite them using the following template:
 
@@ -99,9 +139,15 @@ If you use ```Lambdaworks``` libraries in your research projects, please cite th
 }
 ```
 
-### Gadgets
+## Why we built Lambdaworks
 
-## Fuzzers
+Zero-Knowledge and Validity Proofs have gained a lot of attention over the last few years. We strongly believe in this potential and that is why we decided to start working in this challenging ecosystem, where math, cryptography and distributed systems meet. The main barrier in the beginning was not the cryptography or math but the lack of good libraries which are performant and developer friendly. There are some exceptions, though, like gnark or halo2. Some have nice APIs and are easy to work with, but they are not written in Rust, and some are written in Rust but have poor programming and engineering practices. Most of them don't have support for CUDA, Metal and WebGPU or distributed FFT calculation using schedulers like Dask.
+
+So, we decided to build our library, focusing on performance, with clear documentation and developer-focused. Our core team is a group of passionate people from different backgrounds and different strengths; we think that the whole is greater than just the addition of the parts. We don't want to be a compilation of every research result in the ZK space. We want this to be a library that can be used in production, not just in academic research. We want to offer developers the main building blocks and proof systems so that they can build their applications on top of this library.
+
+## Additional tooling usage
+
+### Fuzzers
 
 Fuzzers are divided between the ones that use only the CPU, the ones that use Metal, and the ones that use CUDA.
 
@@ -124,7 +170,7 @@ Run a specific fuzzer from the ones contained in **fuzz/fuzz_targets/** folder w
 make run-fuzzer FUZZER=field_from_hex
 ```
 
-## Documentation
+### Documentation building
 
 To serve the documentation locally, first install both [mdbook](https://rust-lang.github.io/mdBook/guide/installation.html) and the [Katex preprocessor](https://github.com/lzanini/mdbook-katex#getting-started) to render LaTeX, then run
 

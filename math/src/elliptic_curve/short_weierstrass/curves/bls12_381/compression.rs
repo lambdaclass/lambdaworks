@@ -1,29 +1,20 @@
 use super::field_extension::BLS12381PrimeField;
-use crate::cyclic_group::IsGroup;
-use crate::elliptic_curve::short_weierstrass::curves::bls12_381::curve::BLS12381Curve;
-use crate::elliptic_curve::short_weierstrass::point::ShortWeierstrassProjectivePoint;
-use crate::field::element::FieldElement;
-use crate::unsigned_integer::element::U256;
-
-#[cfg(feature = "std")]
 use crate::{
-    elliptic_curve::traits::FromAffine, errors::ByteConversionError, traits::ByteConversion,
+    elliptic_curve::short_weierstrass::{
+        curves::bls12_381::curve::BLS12381Curve, point::ShortWeierstrassProjectivePoint,
+    },
+    field::element::FieldElement,
 };
-#[cfg(feature = "std")]
-use std::{cmp::Ordering, ops::Neg};
+use core::cmp::Ordering;
+
+use crate::{
+    cyclic_group::IsGroup, elliptic_curve::traits::FromAffine, errors::ByteConversionError,
+    traits::ByteConversion,
+};
 
 pub type G1Point = ShortWeierstrassProjectivePoint<BLS12381Curve>;
 pub type BLS12381FieldElement = FieldElement<BLS12381PrimeField>;
-const MODULUS: U256 =
-    U256::from_hex_unchecked("73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001");
 
-pub fn check_point_is_in_subgroup(point: &G1Point) -> bool {
-    let inf = G1Point::neutral_element();
-    let aux_point = point.operate_with_self(MODULUS);
-    inf == aux_point
-}
-
-#[cfg(feature = "std")]
 pub fn decompress_g1_point(input_bytes: &mut [u8; 48]) -> Result<G1Point, ByteConversionError> {
     let first_byte = input_bytes.first().unwrap();
     // We get the 3 most significant bits
@@ -68,16 +59,17 @@ pub fn decompress_g1_point(input_bytes: &mut [u8; 48]) -> Result<G1Point, ByteCo
     let point =
         G1Point::from_affine(x, y.clone()).map_err(|_| ByteConversionError::InvalidValue)?;
 
-    check_point_is_in_subgroup(&point)
+    point
+        .is_in_subgroup()
         .then_some(point)
         .ok_or(ByteConversionError::PointNotInSubgroup)
 }
 
-#[cfg(feature = "std")]
-pub fn compress_g1_point(point: &G1Point) -> Vec<u8> {
+#[cfg(feature = "alloc")]
+pub fn compress_g1_point(point: &G1Point) -> alloc::vec::Vec<u8> {
     if *point == G1Point::neutral_element() {
         // point is at infinity
-        let mut x_bytes = vec![0_u8; 48];
+        let mut x_bytes = alloc::vec![0_u8; 48];
         x_bytes[0] |= 1 << 7;
         x_bytes[0] |= 1 << 6;
         x_bytes
@@ -92,7 +84,7 @@ pub fn compress_g1_point(point: &G1Point) -> Vec<u8> {
         // Set first bit to to 1 indicate this is compressed element.
         x_bytes[0] |= 1 << 7;
 
-        let y_neg = y.neg();
+        let y_neg = core::ops::Neg::neg(y);
         if y_neg.representative() < y.representative() {
             x_bytes[0] |= 1 << 5;
         }
@@ -106,9 +98,9 @@ mod tests {
     use crate::elliptic_curve::short_weierstrass::curves::bls12_381::curve::BLS12381Curve;
     use crate::elliptic_curve::traits::{FromAffine, IsEllipticCurve};
 
-    #[cfg(feature = "std")]
-    use super::{compress_g1_point, decompress_g1_point};
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
+    use super::compress_g1_point;
+    use super::decompress_g1_point;
     use crate::{
         cyclic_group::IsGroup, traits::ByteConversion, unsigned_integer::element::UnsignedInteger,
     };
@@ -117,16 +109,16 @@ mod tests {
     fn test_zero_point() {
         let g1 = BLS12381Curve::generator();
 
-        assert!(super::check_point_is_in_subgroup(&g1));
+        assert!(g1.is_in_subgroup());
         let new_x = BLS12381FieldElement::zero();
         let new_y = BLS12381FieldElement::one() + BLS12381FieldElement::one();
 
         let false_point2 = G1Point::from_affine(new_x, new_y).unwrap();
 
-        assert!(!super::check_point_is_in_subgroup(&false_point2));
+        assert!(!false_point2.is_in_subgroup());
     }
 
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     #[test]
     fn test_g1_compress_generator() {
         let g = BLS12381Curve::generator();
@@ -142,7 +134,7 @@ mod tests {
         assert_eq!(*g_x, compressed_g_x);
     }
 
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     #[test]
     fn test_g1_compress_point_at_inf() {
         let inf = G1Point::neutral_element();
@@ -152,7 +144,7 @@ mod tests {
         assert_eq!(*first_byte >> 6, 3_u8);
     }
 
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     #[test]
     fn test_compress_decompress_generator() {
         let g = BLS12381Curve::generator();
@@ -164,7 +156,7 @@ mod tests {
         assert_eq!(g, decompressed_g);
     }
 
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     #[test]
     fn test_compress_decompress_2g() {
         let g = BLS12381Curve::generator();

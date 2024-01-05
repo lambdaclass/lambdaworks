@@ -19,15 +19,15 @@ pub const TEST_CURVE_1_PRIME_FIELD_ORDER: u64 = 59;
 /// Order of the subgroup of the curve.
 pub const TEST_CURVE_1_MAIN_SUBGROUP_ORDER: u64 = 5;
 
+pub type TestCurvePrimeField = U64PrimeField<TEST_CURVE_1_PRIME_FIELD_ORDER>;
+
 /// In F59 the element -1 is not a square. We use this property
 /// to construct a Quadratic Field Extension out of it by adding
 /// its square root.
 #[derive(Debug, Clone)]
 pub struct TestCurveQuadraticNonResidue;
-impl HasQuadraticNonResidue for TestCurveQuadraticNonResidue {
-    type BaseField = U64PrimeField<TEST_CURVE_1_PRIME_FIELD_ORDER>;
-
-    fn residue() -> FieldElement<U64PrimeField<TEST_CURVE_1_PRIME_FIELD_ORDER>> {
+impl HasQuadraticNonResidue<TestCurvePrimeField> for TestCurveQuadraticNonResidue {
+    fn residue() -> FieldElement<TestCurvePrimeField> {
         -FieldElement::one()
     }
 }
@@ -37,7 +37,7 @@ impl HasQuadraticNonResidue for TestCurveQuadraticNonResidue {
 pub struct TestCurve1;
 
 impl IsEllipticCurve for TestCurve1 {
-    type BaseField = QuadraticExtensionField<TestCurveQuadraticNonResidue>;
+    type BaseField = QuadraticExtensionField<TestCurvePrimeField, TestCurveQuadraticNonResidue>;
     type PointRepresentation = ShortWeierstrassProjectivePoint<Self>;
 
     fn generator() -> Self::PointRepresentation {

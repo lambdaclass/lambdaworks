@@ -1,9 +1,6 @@
 use lambdaworks_crypto::merkle_tree::{merkle::MerkleTree, traits::IsMerkleTreeBackend};
 use lambdaworks_math::{
-    field::{
-        element::FieldElement,
-        traits::{IsFFTField, IsField},
-    },
+    field::{element::FieldElement, traits::IsField},
     traits::Serializable,
 };
 
@@ -22,7 +19,7 @@ where
 
 impl<F, B> FriLayer<F, B>
 where
-    F: IsField + IsFFTField,
+    F: IsField,
     FieldElement<F>: Serializable,
     B: IsMerkleTreeBackend,
 {

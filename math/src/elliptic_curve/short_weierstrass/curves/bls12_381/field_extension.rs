@@ -6,7 +6,7 @@ use crate::field::{
         quadratic::{HasQuadraticNonResidue, QuadraticExtensionField},
     },
     fields::montgomery_backed_prime_fields::{IsModulus, MontgomeryBackendPrimeField},
-    traits::IsField,
+    traits::{IsField, IsSubFieldOf},
 };
 use crate::traits::ByteConversion;
 use crate::unsigned_integer::element::U384;
@@ -71,7 +71,7 @@ impl IsField for Degree2ExtensionField {
 
     /// Returns the division of `a` and `b`
     fn div(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
-        Self::mul(a, &Self::inv(b).unwrap())
+        <Self as IsField>::mul(a, &Self::inv(b).unwrap())
     }
 
     /// Returns a boolean indicating whether `a` and `b` are equal component wise.
@@ -103,16 +103,64 @@ impl IsField for Degree2ExtensionField {
     }
 }
 
+impl IsSubFieldOf<Degree2ExtensionField> for BLS12381PrimeField {
+    fn mul(
+        a: &Self::BaseType,
+        b: &<Degree2ExtensionField as IsField>::BaseType,
+    ) -> <Degree2ExtensionField as IsField>::BaseType {
+        let c0 = FieldElement::from_raw(<Self as IsField>::mul(a, b[0].value()));
+        let c1 = FieldElement::from_raw(<Self as IsField>::mul(a, b[1].value()));
+        [c0, c1]
+    }
+
+    fn add(
+        a: &Self::BaseType,
+        b: &<Degree2ExtensionField as IsField>::BaseType,
+    ) -> <Degree2ExtensionField as IsField>::BaseType {
+        let c0 = FieldElement::from_raw(<Self as IsField>::add(a, b[0].value()));
+        let c1 = FieldElement::from_raw(*b[1].value());
+        [c0, c1]
+    }
+
+    fn div(
+        a: &Self::BaseType,
+        b: &<Degree2ExtensionField as IsField>::BaseType,
+    ) -> <Degree2ExtensionField as IsField>::BaseType {
+        let b_inv = Degree2ExtensionField::inv(b).unwrap();
+        <Self as IsSubFieldOf<Degree2ExtensionField>>::mul(a, &b_inv)
+    }
+
+    fn sub(
+        a: &Self::BaseType,
+        b: &<Degree2ExtensionField as IsField>::BaseType,
+    ) -> <Degree2ExtensionField as IsField>::BaseType {
+        let c0 = FieldElement::from_raw(<Self as IsField>::sub(a, b[0].value()));
+        let c1 = FieldElement::from_raw(<Self as IsField>::neg(b[1].value()));
+        [c0, c1]
+    }
+
+    fn embed(a: Self::BaseType) -> <Degree2ExtensionField as IsField>::BaseType {
+        [FieldElement::from_raw(a), FieldElement::zero()]
+    }
+
+    #[cfg(feature = "alloc")]
+    fn to_subfield_vec(
+        b: <Degree2ExtensionField as IsField>::BaseType,
+    ) -> alloc::vec::Vec<Self::BaseType> {
+        b.into_iter().map(|x| x.to_raw()).collect()
+    }
+}
+
 impl ByteConversion for FieldElement<Degree2ExtensionField> {
-    #[cfg(feature = "std")]
-    fn to_bytes_be(&self) -> Vec<u8> {
+    #[cfg(feature = "alloc")]
+    fn to_bytes_be(&self) -> alloc::vec::Vec<u8> {
         let mut byte_slice = ByteConversion::to_bytes_be(&self.value()[0]);
         byte_slice.extend(ByteConversion::to_bytes_be(&self.value()[1]));
         byte_slice
     }
 
-    #[cfg(feature = "std")]
-    fn to_bytes_le(&self) -> Vec<u8> {
+    #[cfg(feature = "alloc")]
+    fn to_bytes_le(&self) -> alloc::vec::Vec<u8> {
         let mut byte_slice = ByteConversion::to_bytes_le(&self.value()[0]);
         byte_slice.extend(ByteConversion::to_bytes_le(&self.value()[1]));
         byte_slice
@@ -142,9 +190,7 @@ impl ByteConversion for FieldElement<Degree2ExtensionField> {
 ///////////////
 #[derive(Debug, Clone)]
 pub struct LevelTwoResidue;
-impl HasCubicNonResidue for LevelTwoResidue {
-    type BaseField = Degree2ExtensionField;
-
+impl HasCubicNonResidue<Degree2ExtensionField> for LevelTwoResidue {
     fn residue() -> FieldElement<Degree2ExtensionField> {
         FieldElement::new([
             FieldElement::new(U384::from("1")),
@@ -153,13 +199,11 @@ impl HasCubicNonResidue for LevelTwoResidue {
     }
 }
 
-pub type Degree6ExtensionField = CubicExtensionField<LevelTwoResidue>;
+pub type Degree6ExtensionField = CubicExtensionField<Degree2ExtensionField, LevelTwoResidue>;
 
 #[derive(Debug, Clone)]
 pub struct LevelThreeResidue;
-impl HasQuadraticNonResidue for LevelThreeResidue {
-    type BaseField = Degree6ExtensionField;
-
+impl HasQuadraticNonResidue<Degree6ExtensionField> for LevelThreeResidue {
     fn residue() -> FieldElement<Degree6ExtensionField> {
         FieldElement::new([
             FieldElement::zero(),
@@ -169,7 +213,7 @@ impl HasQuadraticNonResidue for LevelThreeResidue {
     }
 }
 
-pub type Degree12ExtensionField = QuadraticExtensionField<LevelThreeResidue>;
+pub type Degree12ExtensionField = QuadraticExtensionField<Degree6ExtensionField, LevelThreeResidue>;
 
 impl FieldElement<BLS12381PrimeField> {
     pub fn new_base(a_hex: &str) -> Self {
@@ -180,6 +224,11 @@ impl FieldElement<BLS12381PrimeField> {
 impl FieldElement<Degree2ExtensionField> {
     pub fn new_base(a_hex: &str) -> Self {
         Self::new([FieldElement::new(U384::from(a_hex)), FieldElement::zero()])
+    }
+
+    pub fn conjugate(&self) -> Self {
+        let [a, b] = self.value();
+        Self::new([a.clone(), -b])
     }
 }
 
@@ -322,5 +371,44 @@ mod tests {
         let [g_to_fp12_x, g_to_fp12_y] = g.to_fp12_unnormalized();
         assert_eq!(g_to_fp12_x, expectedx);
         assert_eq!(g_to_fp12_y, expectedy);
+    }
+
+    #[test]
+    fn add_base_field_with_degree_2_extension() {
+        let a = FieldElement::<BLS12381PrimeField>::from(3);
+        let a_extension = FieldElement::<Degree2ExtensionField>::from(3);
+        let b = FieldElement::<Degree2ExtensionField>::from(2);
+        assert_eq!(a + &b, a_extension + b);
+    }
+
+    #[test]
+    fn mul_base_field_with_degree_2_extension() {
+        let a = FieldElement::<BLS12381PrimeField>::from(3);
+        let a_extension = FieldElement::<Degree2ExtensionField>::from(3);
+        let b = FieldElement::<Degree2ExtensionField>::from(2);
+        assert_eq!(a * &b, a_extension * b);
+    }
+
+    #[test]
+    fn sub_base_field_with_degree_2_extension() {
+        let a = FieldElement::<BLS12381PrimeField>::from(3);
+        let a_extension = FieldElement::<Degree2ExtensionField>::from(3);
+        let b = FieldElement::<Degree2ExtensionField>::from(2);
+        assert_eq!(a - &b, a_extension - b);
+    }
+
+    #[test]
+    fn div_base_field_with_degree_2_extension() {
+        let a = FieldElement::<BLS12381PrimeField>::from(3);
+        let a_extension = FieldElement::<Degree2ExtensionField>::from(3);
+        let b = FieldElement::<Degree2ExtensionField>::from(2);
+        assert_eq!(a / &b, a_extension / b);
+    }
+
+    #[test]
+    fn embed_base_field_with_degree_2_extension() {
+        let a = FieldElement::<BLS12381PrimeField>::from(3);
+        let a_extension = FieldElement::<Degree2ExtensionField>::from(3);
+        assert_eq!(a.to_extension::<Degree2ExtensionField>(), a_extension);
     }
 }

@@ -1,6 +1,25 @@
+use core::fmt::Display;
+
+use alloc::vec::Vec;
+
 use super::{proof::Proof, traits::IsMerkleTreeBackend, utils::*};
 
-#[derive(Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug)]
+pub enum Error {
+    OutOfBounds,
+}
+
+impl Display for Error {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "Accessed node was out of bound")
+    }
+}
+
+#[cfg(feature = "std")]
+impl std::error::Error for Error {}
+
+#[derive(Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct MerkleTree<B: IsMerkleTreeBackend> {
     pub root: B::Node,
     nodes: Vec<B::Node>,
@@ -13,8 +32,7 @@ where
     B: IsMerkleTreeBackend,
 {
     pub fn build(unhashed_leaves: &[B::Data]) -> Self {
-        let hasher = B::default();
-        let mut hashed_leaves: Vec<B::Node> = hasher.hash_leaves(unhashed_leaves);
+        let mut hashed_leaves: Vec<B::Node> = B::hash_leaves(unhashed_leaves);
 
         //The leaf must be a power of 2 set
         hashed_leaves = complete_until_power_of_two(&mut hashed_leaves);
@@ -26,7 +44,7 @@ where
         inner_nodes.extend(hashed_leaves);
 
         //Build the inner nodes of the tree
-        build(&mut inner_nodes, ROOT, &hasher);
+        build::<B>(&mut inner_nodes, ROOT);
 
         MerkleTree {
             root: inner_nodes[ROOT].clone(),
@@ -47,14 +65,14 @@ where
         Some(Proof { merkle_path })
     }
 
-    fn build_merkle_path(&self, pos: usize) -> Result<Vec<B::Node>, std::io::Error> {
+    fn build_merkle_path(&self, pos: usize) -> Result<Vec<B::Node>, Error> {
         let mut merkle_path = Vec::new();
         let mut pos = pos;
 
         while pos != ROOT {
             let Some(node) = self.nodes.get(sibling_index(pos)) else {
                 // out of bounds, exit returning the current merkle_path
-                return Err(std::io::Error::from(std::io::ErrorKind::InvalidInput));
+                return Err(Error::OutOfBounds);
             };
             merkle_path.push(node.clone());
 
@@ -67,6 +85,7 @@ where
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use lambdaworks_math::field::{element::FieldElement, fields::u64_prime_field::U64PrimeField};
 
     use crate::merkle_tree::{merkle::MerkleTree, test_merkle::TestBackend};
