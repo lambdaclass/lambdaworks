@@ -3,20 +3,58 @@ mod integration_tests;
 
 use ark_ff::PrimeField;
 use ark_relations::r1cs::{ConstraintSystemRef, Field};
-use lambdaworks_groth16::{common::*, r1cs::R1CS, QuadraticArithmeticProgram};
+use lambdaworks_groth16::{common::*, r1cs::R1CS, ConstraintSystem};
 use lambdaworks_math::traits::ByteConversion;
 
 use std::ops::Deref;
 
-pub fn to_lambda<F: PrimeField>(
-    cs: &ConstraintSystemRef<F>,
-) -> (QuadraticArithmeticProgram, Vec<FrElement>) {
-    (
-        QuadraticArithmeticProgram::from_r1cs(r1cs_from_arkworks_cs(cs)),
-        extract_witness_from_arkworks_cs(cs),
+pub fn arkworks_cs_to_lambda_cs<ArkF: PrimeField>(
+    cs: &ConstraintSystemRef<ArkF>,
+) -> ConstraintSystem<FrField> {
+    ConstraintSystem {
+        constraints: r1cs_from_arkworks_cs(cs),
+        witness: extract_witness_from_arkworks_cs(cs),
+    }
+}
+
+#[inline]
+fn r1cs_from_arkworks_cs<F: PrimeField>(cs: &ConstraintSystemRef<F>) -> R1CS {
+    cs.inline_all_lcs();
+
+    let r1cs_matrices = cs.to_matrices().unwrap();
+    let num_pub_vars = cs.num_instance_variables();
+    let total_variables = cs.num_witness_variables() + num_pub_vars - 1;
+
+    R1CS::from_matrices(
+        ark_to_lambda_matrix(&r1cs_matrices.a, total_variables),
+        ark_to_lambda_matrix(&r1cs_matrices.b, total_variables),
+        ark_to_lambda_matrix(&r1cs_matrices.c, total_variables),
+        num_pub_vars - 1,
     )
 }
 
+#[inline]
+fn ark_to_lambda_matrix<F: Field>(
+    m: &[Vec<(F, usize)>],
+    total_variables: usize,
+) -> Vec<Vec<FrElement>> {
+    sparse_matrix_to_dense(&arkworks_matrix_fps_to_fr_elements(m), total_variables)
+}
+
+#[inline]
+fn arkworks_matrix_fps_to_fr_elements<F: Field>(
+    m: &[Vec<(F, usize)>],
+) -> Vec<Vec<(FrElement, usize)>> {
+    m.iter()
+        .map(|x| {
+            x.iter()
+                .map(|(x, y)| (ark_fr_to_fr_element(x), *y))
+                .collect()
+        })
+        .collect()
+}
+
+#[inline]
 fn extract_witness_from_arkworks_cs<F: PrimeField>(cs: &ConstraintSystemRef<F>) -> Vec<FrElement> {
     let binding = cs.borrow().unwrap();
     let borrowed_cs_ref = binding.deref();
@@ -39,47 +77,14 @@ fn extract_witness_from_arkworks_cs<F: PrimeField>(cs: &ConstraintSystemRef<F>) 
     witness
 }
 
-fn r1cs_from_arkworks_cs<F: PrimeField>(cs: &ConstraintSystemRef<F>) -> R1CS {
-    cs.inline_all_lcs();
-
-    let r1cs_matrices = cs.to_matrices().unwrap();
-    let num_pub_vars = cs.num_instance_variables();
-    let total_variables = cs.num_witness_variables() + num_pub_vars - 1;
-
-    R1CS::from_matrices(
-        ark_to_lambda_matrix(&r1cs_matrices.a, total_variables),
-        ark_to_lambda_matrix(&r1cs_matrices.b, total_variables),
-        ark_to_lambda_matrix(&r1cs_matrices.c, total_variables),
-        num_pub_vars - 1,
-        0,
-    )
-}
-
-fn ark_to_lambda_matrix<F: Field>(
-    m: &[Vec<(F, usize)>],
-    total_variables: usize,
-) -> Vec<Vec<FrElement>> {
-    sparse_matrix_to_dense(&arkworks_matrix_fps_to_fr_elements(m), total_variables)
-}
-
-fn arkworks_matrix_fps_to_fr_elements<F: Field>(
-    m: &[Vec<(F, usize)>],
-) -> Vec<Vec<(FrElement, usize)>> {
-    m.iter()
-        .map(|x| {
-            x.iter()
-                .map(|(x, y)| (ark_fr_to_fr_element(x), *y))
-                .collect()
-        })
-        .collect()
-}
-
+#[inline]
 fn ark_fr_to_fr_element<F: Field>(ark_fq: &F) -> FrElement {
     let mut buff = Vec::<u8>::new();
     ark_fq.serialize_compressed(&mut buff).unwrap();
     FrElement::from_bytes_le(&buff).unwrap()
 }
 
+#[inline]
 fn sparse_matrix_to_dense(
     m: &[Vec<(FrElement, usize)>],
     total_variables: usize,
@@ -89,6 +94,7 @@ fn sparse_matrix_to_dense(
         .collect()
 }
 
+#[inline]
 fn sparse_row_to_dense(row: &[(FrElement, usize)], total_variables: usize) -> Vec<FrElement> {
     let mut dense_row = vec![FrElement::from(0); total_variables + 1];
     row.iter().for_each(|e| {

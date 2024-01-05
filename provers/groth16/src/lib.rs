@@ -9,6 +9,7 @@ mod verifier;
 
 pub use prover::{Proof, Prover};
 pub use qap::QuadraticArithmeticProgram;
+pub use r1cs::*;
 pub use setup::*;
 pub use verifier::verify;
 

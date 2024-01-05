@@ -1,7 +1,7 @@
-use crate::to_lambda;
+use crate::arkworks_cs_to_lambda_cs;
 use ark_bls12_381::Fr;
 use ark_relations::{lc, r1cs::ConstraintSystem, r1cs::Variable};
-use lambdaworks_groth16::{setup, verify, Prover};
+use lambdaworks_groth16::{setup, verify, Prover, QuadraticArithmeticProgram};
 use rand::Rng;
 
 #[test]
@@ -35,14 +35,16 @@ fn pinocchio_paper_example() {
     cs.enforce_constraint(lc!() + a + b, lc!() + e, lc!() + result)
         .unwrap();
 
-    let (qap, w) = to_lambda(&cs);
+    let lambda_cs = arkworks_cs_to_lambda_cs(&cs);
+
+    let qap = QuadraticArithmeticProgram::from_r1cs(lambda_cs.constraints);
 
     let (pk, vk) = setup(&qap);
 
     let accept = verify(
         &vk,
-        &Prover::prove(&w, &qap, &pk),
-        &w[..qap.num_of_public_inputs],
+        &Prover::prove(&lambda_cs.witness, &qap, &pk),
+        &lambda_cs.witness[..qap.num_of_public_inputs],
     );
     assert!(accept);
 }
@@ -88,14 +90,16 @@ fn vitalik_example() {
     )
     .unwrap();
 
-    let (qap, w) = to_lambda(&cs);
+    let lambda_cs = arkworks_cs_to_lambda_cs(&cs);
+
+    let qap = QuadraticArithmeticProgram::from_r1cs(lambda_cs.constraints);
 
     let (pk, vk) = setup(&qap);
 
     let accept = verify(
         &vk,
-        &Prover::prove(&w, &qap, &pk),
-        &w[..qap.num_of_public_inputs],
+        &Prover::prove(&lambda_cs.witness, &qap, &pk),
+        &lambda_cs.witness[..qap.num_of_public_inputs],
     );
     assert!(accept);
 }
@@ -130,13 +134,15 @@ fn exponentiation_example() {
     cs.enforce_constraint(lc!() + _out, lc!() + Variable::One, lc!() + _acc)
         .unwrap();
 
-    let (qap, w) = to_lambda(&cs);
+    let lambda_cs = arkworks_cs_to_lambda_cs(&cs);
+
+    let qap = QuadraticArithmeticProgram::from_r1cs(lambda_cs.constraints);
 
     let (pk, vk) = setup(&qap);
 
-    let proof = Prover::prove(&w, &qap, &pk);
+    let proof = Prover::prove(&lambda_cs.witness, &qap, &pk);
 
-    let public_inputs = &w[..qap.num_of_public_inputs];
+    let public_inputs = &lambda_cs.witness[..qap.num_of_public_inputs];
     let accept = verify(&vk, &proof, public_inputs);
     assert!(accept);
 }

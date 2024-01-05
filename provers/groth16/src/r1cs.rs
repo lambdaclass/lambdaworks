@@ -1,4 +1,13 @@
 use crate::common::FrElement;
+use lambdaworks_math::field::{element::FieldElement, traits::IsField};
+
+// To be improved with a front-end implementation
+// TODO: Use CS in Groth16 tests instead of a plain QAP
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ConstraintSystem<F: IsField> {
+    pub constraints: R1CS,
+    pub witness: Vec<FieldElement<F>>,
+}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Constraint {
@@ -10,7 +19,6 @@ pub struct Constraint {
 pub struct R1CS {
     pub constraints: Vec<Constraint>,
     pub number_of_inputs: usize,
-    pub number_of_outputs: usize,
 }
 
 impl R1CS {
@@ -19,7 +27,6 @@ impl R1CS {
         b: Vec<Vec<FrElement>>,
         c: Vec<Vec<FrElement>>,
         number_of_inputs: usize,
-        number_of_outputs: usize,
     ) -> Self {
         Self {
             constraints: (0..a.len())
@@ -30,7 +37,6 @@ impl R1CS {
                 })
                 .collect(),
             number_of_inputs,
-            number_of_outputs,
         }
     }
 
