@@ -1,4 +1,4 @@
-use crate::{common::*, QuadraticArithmeticProgram};
+use lambdaworks_groth16::{common::*, QuadraticArithmeticProgram};
 
 mod utils;
 use utils::*;
@@ -10,6 +10,7 @@ Represents x^3 + x + 5 = 35, based on https://vitalik.ca/general/2016/12/10/qap.
     (y + x) * 1 = sym_2
     (sym_2 + 5) * 1 = ~out
 */
+#[cfg(test)]
 pub fn vitalik_qap() -> QuadraticArithmeticProgram {
     let num_of_public_inputs = 1;
     let [l, r, o] = [
@@ -53,7 +54,8 @@ Represents x^2 = 25 or y^2 = 9
     sym_4 = sym_2 - 9
 
     ~out = sym_3 * sym_4 -> needs to be zero
-*///
+*/
+#[cfg(test)]
 pub fn test_qap_2() -> QuadraticArithmeticProgram {
     let num_of_public_inputs = 2;
     let [l, r, o] = [

@@ -1,6 +1,7 @@
-use crate::{common::*, QuadraticArithmeticProgram};
+use lambdaworks_groth16::{common::*, QuadraticArithmeticProgram};
 use lambdaworks_math::polynomial::Polynomial;
 
+#[cfg(test)]
 pub fn qap_from_variable_matrices(
     num_of_public_inputs: usize,
     l: &[Vec<FrElement>],
@@ -26,6 +27,7 @@ pub fn qap_from_variable_matrices(
     }
 }
 
+#[cfg(test)]
 pub fn build_variable_polynomials(from_matrix: &[Vec<FrElement>]) -> Vec<Polynomial<FrElement>> {
     from_matrix
         .iter()
@@ -33,6 +35,7 @@ pub fn build_variable_polynomials(from_matrix: &[Vec<FrElement>]) -> Vec<Polynom
         .collect()
 }
 
+#[cfg(test)]
 pub fn apply_padding(columns: &[Vec<FrElement>], pad_zeroes: usize) -> Vec<Vec<FrElement>> {
     columns
         .iter()

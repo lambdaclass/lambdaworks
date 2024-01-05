@@ -1,8 +1,11 @@
-use lambdaworks_groth16::{common::*, setup, test_circuits::*, verify, Proof, Prover};
+use lambdaworks_groth16::{common::*, setup, verify, Proof, Prover};
+
+mod test_circuits;
+use test_circuits::*;
 
 #[test]
 fn vitalik() {
-    let qap = vitalik_qap(); // x^3 + x + 5 = 35
+    let qap = test_circuits::vitalik_qap(); // x^3 + x + 5 = 35
 
     let (pk, vk) = setup(&qap);
 
