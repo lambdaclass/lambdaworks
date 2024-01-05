@@ -8,6 +8,9 @@ use lambdaworks_math::traits::ByteConversion;
 
 use std::ops::Deref;
 
+/// Accepts an Arkworks circuit as a ConstraintSystem reference, and creates a
+/// Lambdaworks ConstraintSystem, which can then be used with the Lambdaworks
+/// Groth16 backend for setup, proving, and verification.
 pub fn arkworks_cs_to_lambda_cs<ArkF: PrimeField>(
     cs: &ConstraintSystemRef<ArkF>,
 ) -> ConstraintSystem<FrField> {
