@@ -1,6 +1,6 @@
-use crate::errors::SrsFromFileError;
-
 use super::traits::IsCommitmentScheme;
+use alloc::{borrow::ToOwned, vec::Vec};
+use core::{marker::PhantomData, mem};
 use lambdaworks_math::{
     cyclic_group::IsGroup,
     elliptic_curve::traits::IsPairing,
@@ -11,7 +11,6 @@ use lambdaworks_math::{
     traits::{Deserializable, Serializable},
     unsigned_integer::element::UnsignedInteger,
 };
-use std::{marker::PhantomData, mem};
 
 #[derive(PartialEq, Clone, Debug)]
 pub struct StructuredReferenceString<G1Point, G2Point> {
@@ -32,12 +31,13 @@ where
     }
 }
 
+#[cfg(feature = "std")]
 impl<G1Point, G2Point> StructuredReferenceString<G1Point, G2Point>
 where
     G1Point: IsGroup + Deserializable,
     G2Point: IsGroup + Deserializable,
 {
-    pub fn from_file(file_path: &str) -> Result<Self, SrsFromFileError> {
+    pub fn from_file(file_path: &str) -> Result<Self, crate::errors::SrsFromFileError> {
         let bytes = std::fs::read(file_path)?;
         Ok(Self::deserialize(&bytes)?)
     }
@@ -252,6 +252,7 @@ impl<const N: usize, F: IsPrimeField<RepresentativeType = UnsignedInteger<N>>, P
 
 #[cfg(test)]
 mod tests {
+    use alloc::vec::Vec;
     use lambdaworks_math::{
         cyclic_group::IsGroup,
         elliptic_curve::{
@@ -413,6 +414,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "std")]
     fn load_srs_from_file() {
         type TestSrsType = StructuredReferenceString<
             ShortWeierstrassProjectivePoint<BLS12381Curve>,
