@@ -60,7 +60,7 @@ The files `srs` and `proof` can be deserialized using Lambdaworks methods as fol
 use std::{fs, io::{BufReader, Read}};
 use lambdaworks_plonk::prover::Proof;
 use lambdaworks_crypto::commitments::kzg::StructuredReferenceString;
-use lambdaworks_math::traits::{Deserializable, Serializable};
+use lambdaworks_math::traits::{Deserializable, AsBytes};
 use crate::sith_generate_proof::{SithProof, SithSRS};
 
 fn read_challenge_data_from_files() -> (SithSRS, SithProof) {

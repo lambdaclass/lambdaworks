@@ -12,7 +12,7 @@ use crate::{
 use super::traits::IsShortWeierstrass;
 
 #[cfg(feature = "alloc")]
-use crate::traits::Serializable;
+use crate::traits::AsBytes;
 #[cfg(feature = "alloc")]
 use alloc::vec::Vec;
 
@@ -343,13 +343,24 @@ where
 }
 
 #[cfg(feature = "alloc")]
-impl<E> Serializable for ShortWeierstrassProjectivePoint<E>
+impl<E> AsBytes for ShortWeierstrassProjectivePoint<E>
 where
     E: IsShortWeierstrass,
     FieldElement<E::BaseField>: ByteConversion,
 {
-    fn serialize(&self) -> Vec<u8> {
+    fn as_bytes(&self) -> alloc::vec::Vec<u8> {
         self.serialize(PointFormat::Projective, Endianness::LittleEndian)
+    }
+}
+
+#[cfg(feature = "alloc")]
+impl<E> From<ShortWeierstrassProjectivePoint<E>> for alloc::vec::Vec<u8>
+where
+    E: IsShortWeierstrass,
+    FieldElement<E::BaseField>: ByteConversion,
+{
+    fn from(value: ShortWeierstrassProjectivePoint<E>) -> Self {
+        value.as_bytes()
     }
 }
 

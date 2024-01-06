@@ -1,7 +1,7 @@
 use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 use lambdaworks_math::errors::DeserializationError;
 use lambdaworks_math::field::traits::IsFFTField;
-use lambdaworks_math::traits::{Deserializable, IsRandomFieldElementGenerator, Serializable};
+use lambdaworks_math::traits::{AsBytes, Deserializable, IsRandomFieldElementGenerator};
 use std::marker::PhantomData;
 use std::mem::size_of;
 
@@ -78,14 +78,14 @@ pub struct Proof<F: IsField, CS: IsCommitmentScheme<F>> {
     pub w_zeta_omega_1: CS::Commitment,
 }
 
-impl<F, CS> Serializable for Proof<F, CS>
+impl<F, CS> AsBytes for Proof<F, CS>
 where
     F: IsField,
     CS: IsCommitmentScheme<F>,
     FieldElement<F>: ByteConversion,
-    CS::Commitment: Serializable,
+    CS::Commitment: AsBytes,
 {
-    fn serialize(&self) -> Vec<u8> {
+    fn as_bytes(&self) -> Vec<u8> {
         let field_elements = [
             &self.a_zeta,
             &self.b_zeta,
@@ -117,7 +117,7 @@ where
         });
 
         commitments.iter().for_each(|commitment| {
-            let serialized_commitment = commitment.serialize();
+            let serialized_commitment = commitment.as_bytes();
             serialized_proof.extend_from_slice(&(serialized_commitment.len() as u32).to_be_bytes());
             serialized_proof.extend_from_slice(&serialized_commitment);
         });
@@ -282,7 +282,7 @@ where
     F: IsField + IsFFTField,
     CS: IsCommitmentScheme<F>,
     FieldElement<F>: ByteConversion,
-    CS::Commitment: Serializable,
+    CS::Commitment: AsBytes,
     R: IsRandomFieldElementGenerator<F>,
 {
     pub fn new(commitment_scheme: CS, random_generator: R) -> Self {
@@ -638,9 +638,9 @@ where
 
         // Round 1
         let round_1 = self.round_1(witness, common_preprocessed_input);
-        transcript.append(&round_1.a_1.serialize());
-        transcript.append(&round_1.b_1.serialize());
-        transcript.append(&round_1.c_1.serialize());
+        transcript.append(&round_1.a_1.as_bytes());
+        transcript.append(&round_1.b_1.as_bytes());
+        transcript.append(&round_1.c_1.as_bytes());
 
         // Round 2
         // TODO: Handle error
@@ -648,7 +648,7 @@ where
         let gamma = FieldElement::from_bytes_be(&transcript.challenge()).unwrap();
 
         let round_2 = self.round_2(witness, common_preprocessed_input, beta, gamma);
-        transcript.append(&round_2.z_1.serialize());
+        transcript.append(&round_2.z_1.as_bytes());
 
         // Round 3
         let alpha = FieldElement::from_bytes_be(&transcript.challenge()).unwrap();
@@ -659,9 +659,9 @@ where
             &round_2,
             alpha,
         );
-        transcript.append(&round_3.t_lo_1.serialize());
-        transcript.append(&round_3.t_mid_1.serialize());
-        transcript.append(&round_3.t_hi_1.serialize());
+        transcript.append(&round_3.t_lo_1.as_bytes());
+        transcript.append(&round_3.t_mid_1.as_bytes());
+        transcript.append(&round_3.t_hi_1.as_bytes());
 
         // Round 4
         let zeta = FieldElement::from_bytes_be(&transcript.challenge()).unwrap();

@@ -8,7 +8,7 @@ use lambdaworks_math::{
     field::{element::FieldElement, traits::IsPrimeField},
     msm::pippenger::msm,
     polynomial::Polynomial,
-    traits::{Deserializable, Serializable},
+    traits::{AsBytes, Deserializable},
     unsigned_integer::element::UnsignedInteger,
 };
 
@@ -43,12 +43,12 @@ where
     }
 }
 
-impl<G1Point, G2Point> Serializable for StructuredReferenceString<G1Point, G2Point>
+impl<G1Point, G2Point> AsBytes for StructuredReferenceString<G1Point, G2Point>
 where
-    G1Point: IsGroup + Serializable,
-    G2Point: IsGroup + Serializable,
+    G1Point: IsGroup + AsBytes,
+    G2Point: IsGroup + AsBytes,
 {
-    fn serialize(&self) -> Vec<u8> {
+    fn as_bytes(&self) -> Vec<u8> {
         let mut serialized_data: Vec<u8> = Vec::new();
         // First 4 bytes encodes protocol version
         let protocol_version: [u8; 4] = [0; 4];
@@ -68,12 +68,12 @@ where
 
         // G1 elements
         for point in &self.powers_main_group {
-            serialized_data.extend(point.serialize());
+            serialized_data.extend(point.as_bytes());
         }
 
         // G2 elements
         for point in &self.powers_secondary_group {
-            serialized_data.extend(point.serialize());
+            serialized_data.extend(point.as_bytes());
         }
 
         serialized_data
@@ -269,7 +269,7 @@ mod tests {
         },
         field::element::FieldElement,
         polynomial::Polynomial,
-        traits::{Deserializable, Serializable},
+        traits::{AsBytes, Deserializable},
         unsigned_integer::element::U256,
     };
 
@@ -404,7 +404,7 @@ mod tests {
     #[test]
     fn serialize_deserialize_srs() {
         let srs = create_srs();
-        let bytes = srs.serialize();
+        let bytes = srs.as_bytes();
         let deserialized: StructuredReferenceString<
             ShortWeierstrassProjectivePoint<BLS12381Curve>,
             ShortWeierstrassProjectivePoint<BLS12381TwistCurve>,

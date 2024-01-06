@@ -1,6 +1,6 @@
 use lambdaworks_math::{
     field::{element::FieldElement, traits::IsFFTField},
-    traits::Serializable,
+    traits::AsBytes,
 };
 
 use crate::{
@@ -22,14 +22,14 @@ where
     pub claimed_index: usize,
 }
 
-impl<F> Serializable for PublicInputs<F>
+impl<F> AsBytes for PublicInputs<F>
 where
     F: IsFFTField,
-    FieldElement<F>: Serializable,
+    FieldElement<F>: AsBytes,
 {
-    fn serialize(&self) -> Vec<u8> {
+    fn as_bytes(&self) -> Vec<u8> {
         let mut transcript_init_seed = self.claimed_index.to_be_bytes().to_vec();
-        transcript_init_seed.extend_from_slice(&self.claimed_value.serialize());
+        transcript_init_seed.extend_from_slice(&self.claimed_value.as_bytes());
         transcript_init_seed
     }
 }
