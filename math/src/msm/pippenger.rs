@@ -2,6 +2,8 @@ use crate::{cyclic_group::IsGroup, unsigned_integer::element::UnsignedInteger};
 
 use super::naive::MSMError;
 
+use alloc::vec;
+
 /// This function computes the multiscalar multiplication (MSM).
 ///
 /// Assume a group G of order r is given.
@@ -168,6 +170,7 @@ mod tests {
         },
         unsigned_integer::element::UnsignedInteger,
     };
+    use alloc::{format, vec::Vec};
     use proptest::{collection, prelude::*, prop_assert_eq, prop_compose, proptest};
 
     const _CASES: u32 = 20;

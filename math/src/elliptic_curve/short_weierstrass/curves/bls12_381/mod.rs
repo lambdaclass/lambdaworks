@@ -5,5 +5,5 @@ pub mod field_extension;
 pub mod sqrt;
 pub mod twist;
 
-#[cfg(feature = "std")]
+#[cfg(feature = "alloc")]
 pub mod pairing;

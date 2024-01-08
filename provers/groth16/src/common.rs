@@ -1,10 +1,8 @@
 use lambdaworks_math::{
     elliptic_curve::{
         short_weierstrass::curves::bls12_381::{
-            curve::BLS12381Curve,
-            default_types::{FrElement as FE, FrField as FrF},
-            pairing::BLS12381AtePairing,
-            twist::BLS12381TwistCurve,
+            curve::BLS12381Curve, default_types::FrElement as FE, default_types::FrField as FrF,
+            pairing::BLS12381AtePairing, twist::BLS12381TwistCurve,
         },
         traits::{IsEllipticCurve, IsPairing},
     },

@@ -1,7 +1,7 @@
-use lambdaworks_math::{
-    errors::DeserializationError,
-    traits::{Deserializable, Serializable},
-};
+use alloc::vec::Vec;
+#[cfg(feature = "alloc")]
+use lambdaworks_math::traits::Serializable;
+use lambdaworks_math::{errors::DeserializationError, traits::Deserializable};
 
 use super::traits::IsMerkleTreeBackend;
 
@@ -10,7 +10,8 @@ use super::traits::IsMerkleTreeBackend;
 /// `merkle_path` field, in such a way that, if the merkle tree is of height `n`, the
 /// `i`-th element of `merkle_path` is the sibling node in the `n - 1 - i`-th check
 /// when verifying.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Proof<T: PartialEq + Eq> {
     pub merkle_path: Vec<T>,
 }
@@ -36,6 +37,7 @@ impl<T: PartialEq + Eq> Proof<T> {
     }
 }
 
+#[cfg(feature = "alloc")]
 impl<T> Serializable for Proof<T>
 where
     T: Serializable + PartialEq + Eq,
@@ -67,11 +69,12 @@ where
 #[cfg(test)]
 mod tests {
 
+    #[cfg(feature = "alloc")]
     use super::Proof;
-    use lambdaworks_math::{
-        field::{element::FieldElement, fields::u64_prime_field::U64PrimeField},
-        traits::{Deserializable, Serializable},
-    };
+    use alloc::vec::Vec;
+    use lambdaworks_math::field::{element::FieldElement, fields::u64_prime_field::U64PrimeField};
+    #[cfg(feature = "alloc")]
+    use lambdaworks_math::traits::{Deserializable, Serializable};
 
     use crate::merkle_tree::{merkle::MerkleTree, test_merkle::TestBackend};
 
@@ -81,6 +84,7 @@ mod tests {
     pub type Ecgfp5 = U64PrimeField<0xFFFF_FFFF_0000_0001_u64>;
     pub type Ecgfp5FE = FieldElement<Ecgfp5>;
     pub type TestMerkleTreeEcgfp = MerkleTree<TestBackend<Ecgfp5>>;
+    #[cfg(feature = "alloc")]
     pub type TestProofEcgfp5 = Proof<Ecgfp5FE>;
 
     const MODULUS: u64 = 13;
@@ -88,6 +92,7 @@ mod tests {
     type FE = FieldElement<U64PF>;
 
     #[test]
+    #[cfg(feature = "alloc")]
     fn serialize_proof_and_deserialize_using_be_it_get_a_consistent_proof() {
         let merkle_path = [Ecgfp5FE::new(2), Ecgfp5FE::new(1), Ecgfp5FE::new(1)].to_vec();
         let original_proof = TestProofEcgfp5 { merkle_path };
@@ -100,6 +105,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "alloc")]
     fn serialize_proof_and_deserialize_using_le_it_get_a_consistent_proof() {
         let merkle_path = [Ecgfp5FE::new(2), Ecgfp5FE::new(1), Ecgfp5FE::new(1)].to_vec();
         let original_proof = TestProofEcgfp5 { merkle_path };
@@ -123,6 +129,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "alloc")]
     fn merkle_proof_verifies_after_serialization_and_deserialization() {
         let values: Vec<Ecgfp5FE> = (1..6).map(Ecgfp5FE::new).collect();
         let merkle_tree = TestMerkleTreeEcgfp::build(&values);

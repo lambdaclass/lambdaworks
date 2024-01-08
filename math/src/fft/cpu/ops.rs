@@ -13,7 +13,7 @@ use super::{bit_reversing::in_place_bit_reverse_permute, fft::in_place_nr_2radix
 pub fn fft<F: IsFFTField + IsSubFieldOf<E>, E: IsField>(
     input: &[FieldElement<E>],
     twiddles: &[FieldElement<F>],
-) -> Result<Vec<FieldElement<E>>, FFTError> {
+) -> Result<alloc::vec::Vec<FieldElement<E>>, FFTError> {
     if !input.len().is_power_of_two() {
         return Err(FFTError::InputError(input.len()));
     }
