@@ -13,6 +13,7 @@ serde_json = { version = "1.0", default-features = false, features = ["alloc"], 
 proptest = { version = "1.1.0", optional = true }
 winter-math = { package = "winter-math", version = "0.6.4", default-features = false, optional = true }
 miden-core = { package = "miden-core" , version = "0.7", default-features = false, optional = true }
+thiserror = "1.0.38"
 
 # rayon
 rayon = { version = "1.7", optional = true }
