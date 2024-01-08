@@ -7,7 +7,7 @@ use crate::{
         errors::FieldError,
         traits::{IsFFTField, IsField, IsPrimeField, IsSubFieldOf},
     },
-    traits::{ByteConversion, Serializable},
+    traits::{AsBytes, ByteConversion},
     unsigned_integer::element::U256,
 };
 pub use miden_core::Felt;
@@ -92,9 +92,16 @@ impl IsField for Felt {
 }
 
 #[cfg(feature = "alloc")]
-impl Serializable for FieldElement<Felt> {
-    fn serialize(&self) -> Vec<u8> {
+impl AsBytes for FieldElement<Felt> {
+    fn as_bytes(&self) -> Vec<u8> {
         Felt::elements_as_bytes(&[*self.value()]).to_vec()
+    }
+}
+
+#[cfg(feature = "alloc")]
+impl From<FieldElement<Felt>> for alloc::vec::Vec<u8> {
+    fn from(value: FieldElement<Felt>) -> Self {
+        value.as_bytes()
     }
 }
 
@@ -167,12 +174,19 @@ impl ByteConversion for QuadFelt {
 }
 
 #[cfg(feature = "alloc")]
-impl Serializable for FieldElement<QuadFelt> {
-    fn serialize(&self) -> Vec<u8> {
+impl AsBytes for FieldElement<QuadFelt> {
+    fn as_bytes(&self) -> Vec<u8> {
         let [b0, b1] = self.value().to_base_elements();
         let mut bytes = b0.to_bytes_be();
         bytes.extend(&b1.to_bytes_be());
         bytes
+    }
+}
+
+#[cfg(feature = "alloc")]
+impl From<FieldElement<QuadFelt>> for alloc::vec::Vec<u8> {
+    fn from(value: FieldElement<QuadFelt>) -> Self {
+        value.as_bytes()
     }
 }
 
