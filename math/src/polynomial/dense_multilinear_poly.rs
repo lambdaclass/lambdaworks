@@ -1,8 +1,11 @@
-use super::error::{DenseMultilinear, Polynomial as PolynomialError};
-use crate::field::traits::IsField;
-use crate::{field::element::FieldElement, polynomial::error::Multilinear};
+use crate::{
+    field::{element::FieldElement, traits::IsField},
+    polynomial::error::MultilinearError,
+};
+use alloc::{vec, vec::Vec};
 use core::ops::{Add, Index, Mul};
-use rayon::iter::{IntoParallelIterator, ParallelIterator};
+#[cfg(feature = "rayon")]
+use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
 
 /// Represents a multilinear polynomials as a vector of evaluations (FieldElements) in lagrange basis
 #[derive(Debug, PartialEq, Clone)]
@@ -50,12 +53,10 @@ where
     /// Note: assumes p contains points for all variables aka is not sparse.
     // Ported from a16z/Lasso
     #[allow(dead_code)]
-    pub fn evaluate(&self, r: Vec<FieldElement<F>>) -> Result<FieldElement<F>, PolynomialError> {
+    pub fn evaluate(&self, r: Vec<FieldElement<F>>) -> Result<FieldElement<F>, MultilinearError> {
         // r must have a value for each variable
         if r.len() != self.num_vars() {
-            return Err(PolynomialError::Multilinear(Multilinear::DenseMultilinear(
-                DenseMultilinear::IncorrectNumberofEvaluationPoints(r.len(), self.num_vars()),
-            )));
+            return Err(MultilinearError::IncorrectNumberofEvaluationPoints);
         }
 
         let mut chis: Vec<FieldElement<F>> =
@@ -70,20 +71,21 @@ where
             }
         }
         if chis.len() != self.evals.len() {
-            return Err(PolynomialError::Multilinear(Multilinear::DenseMultilinear(
-                DenseMultilinear::ChisAndEvalsMismatch(chis.len(), self.evals.len()),
-            )));
+            return Err(MultilinearError::ChisAndEvalsMismatch);
         }
-        Ok((0..chis.len())
-            .into_par_iter()
-            .map(|i| &self.evals[i] * &chis[i])
-            .sum())
+        #[cfg(feature = "rayon")]
+        let iter = (0..chis.len()).into_par_iter();
+
+        #[cfg(not(feature = "rayon"))]
+        let iter = 0..chis.len();
+        Ok(iter.map(|i| &self.evals[i] * &chis[i]).sum())
     }
 
     pub fn evaluate_with(
         evals: &[FieldElement<F>],
         r: &[FieldElement<F>],
-    ) -> Result<FieldElement<F>, PolynomialError> {
+    ) -> Result<FieldElement<F>, MultilinearError> {
+        //#[cfg(feature = "rayon")]
         let mut chis: Vec<FieldElement<F>> =
             vec![FieldElement::one(); (2usize).pow(r.len() as u32)];
         let mut size = 1;
@@ -96,9 +98,7 @@ where
             }
         }
         if chis.len() != evals.len() {
-            return Err(PolynomialError::Multilinear(Multilinear::DenseMultilinear(
-                DenseMultilinear::ChisAndEvalsMismatch(chis.len(), evals.len()),
-            )));
+            return Err(MultilinearError::ChisAndEvalsMismatch);
         }
         Ok((0..evals.len()).map(|i| &evals[i] * &chis[i]).sum())
     }
@@ -115,7 +115,7 @@ where
 
     pub fn merge(
         polys: &[DenseMultilinearPolynomial<F>],
-    ) -> Result<DenseMultilinearPolynomial<F>, PolynomialError> {
+    ) -> Result<DenseMultilinearPolynomial<F>, MultilinearError> {
         let mut z: Vec<FieldElement<F>> = Vec::new();
         for poly in polys.iter() {
             z.extend(poly.evals().clone().into_iter());
@@ -167,12 +167,12 @@ where
             return Err("Polynomials must have the same number of variables");
         }
 
-        let sum: Vec<FieldElement<F>> = self
-            .evals
-            .iter()
-            .zip(other.evals.iter())
-            .map(|(a, b)| a + b)
-            .collect();
+        #[cfg(feature = "rayon")]
+        let evals = self.evals.into_par_iter().zip(other.evals.into_par_iter());
+
+        #[cfg(not(feature = "rayon"))]
+        let evals = self.evals.iter().zip(other.evals.iter());
+        let sum: Vec<FieldElement<F>> = evals.map(|(a, b)| a + b).collect();
 
         Ok(DenseMultilinearPolynomial::new(sum))
     }
@@ -272,7 +272,7 @@ mod tests {
             .collect::<Vec<FE>>();
 
         // compute dot product between LZ and R
-        (0..lz.len()).map(|i| &lz[i] * &r[i]).sum()
+        (0..lz.len()).map(|i| lz[i] * r[i]).sum()
     }
 
     #[test]
