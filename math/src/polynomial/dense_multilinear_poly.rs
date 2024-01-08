@@ -50,13 +50,11 @@ where
     }
 
     /// Evaluates `self` at the point `p` in O(n) time.
-    /// Note: assumes p contains points for all variables aka is not sparse.
-    // Ported from a16z/Lasso
     #[allow(dead_code)]
     pub fn evaluate(&self, r: Vec<FieldElement<F>>) -> Result<FieldElement<F>, MultilinearError> {
         // r must have a value for each variable
         if r.len() != self.num_vars() {
-            return Err(MultilinearError::IncorrectNumberofEvaluationPoints);
+            return Err(MultilinearError::IncorrectNumberofEvaluationPoints(r.len(), self.num_vars()));
         }
 
         let mut chis: Vec<FieldElement<F>> =
@@ -71,7 +69,7 @@ where
             }
         }
         if chis.len() != self.evals.len() {
-            return Err(MultilinearError::ChisAndEvalsMismatch);
+            return Err(MultilinearError::ChisAndEvalsMismatch(chis.len(), self.evals.len()));
         }
         #[cfg(feature = "rayon")]
         let iter = (0..chis.len()).into_par_iter();
@@ -85,7 +83,6 @@ where
         evals: &[FieldElement<F>],
         r: &[FieldElement<F>],
     ) -> Result<FieldElement<F>, MultilinearError> {
-        //#[cfg(feature = "rayon")]
         let mut chis: Vec<FieldElement<F>> =
             vec![FieldElement::one(); (2usize).pow(r.len() as u32)];
         let mut size = 1;
@@ -98,7 +95,7 @@ where
             }
         }
         if chis.len() != evals.len() {
-            return Err(MultilinearError::ChisAndEvalsMismatch);
+            return Err(MultilinearError::ChisAndEvalsMismatch(chis.len(), evals.len()));
         }
         Ok((0..evals.len()).map(|i| &evals[i] * &chis[i]).sum())
     }
@@ -329,7 +326,7 @@ mod tests {
         assert_eq!(*b.evals(), vec![FE::from(6); 4]);
     }
 
-    // Take a muultilinear polynomial of length 2^2 and merge with a polynomial of 2^1. The resulting polynomial should be padded to len 2^3 = 8 and the last two evals should be FE::zero().
+    // Take a multilinear polynomial of length 2^2 and merge with a polynomial of 2^1. The resulting polynomial should be padded to len 2^3 = 8 and the last two evals should be FE::zero().
     #[test]
     fn merge() {
         let a = DenseMultilinearPolynomial::new(vec![FE::from(3); 4]);
