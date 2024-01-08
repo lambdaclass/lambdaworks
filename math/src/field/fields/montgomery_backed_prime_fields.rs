@@ -1,9 +1,9 @@
 use crate::field::element::FieldElement;
 use crate::field::errors::FieldError;
 use crate::field::traits::IsPrimeField;
-use crate::traits::ByteConversion;
 #[cfg(feature = "alloc")]
-use crate::traits::Serializable;
+use crate::traits::AsBytes;
+use crate::traits::ByteConversion;
 use crate::{
     field::traits::IsField, unsigned_integer::element::UnsignedInteger,
     unsigned_integer::montgomery::MontgomeryAlgorithms,
@@ -362,15 +362,26 @@ where
 }
 
 #[cfg(feature = "alloc")]
-impl<M, const NUM_LIMBS: usize> Serializable
-    for FieldElement<MontgomeryBackendPrimeField<M, NUM_LIMBS>>
+impl<M, const NUM_LIMBS: usize> AsBytes for FieldElement<MontgomeryBackendPrimeField<M, NUM_LIMBS>>
 where
     M: IsModulus<UnsignedInteger<NUM_LIMBS>> + Clone + Debug,
 {
-    fn serialize(&self) -> alloc::vec::Vec<u8> {
+    fn as_bytes(&self) -> alloc::vec::Vec<u8> {
         self.value().to_bytes_be()
     }
 }
+
+#[cfg(feature = "alloc")]
+impl<M, const NUM_LIMBS: usize> From<FieldElement<MontgomeryBackendPrimeField<M, NUM_LIMBS>>>
+    for alloc::vec::Vec<u8>
+where
+    M: IsModulus<UnsignedInteger<NUM_LIMBS>> + Clone + Debug,
+{
+    fn from(value: FieldElement<MontgomeryBackendPrimeField<M, NUM_LIMBS>>) -> alloc::vec::Vec<u8> {
+        value.value().to_bytes_be()
+    }
+}
+
 #[cfg(test)]
 mod tests_u384_prime_fields {
     use crate::field::element::FieldElement;

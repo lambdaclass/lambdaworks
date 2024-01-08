@@ -4,7 +4,7 @@ use lambdaworks_math::{
         fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
         traits::{IsFFTField, IsField, IsSubFieldOf},
     },
-    traits::{ByteConversion, Serializable},
+    traits::{AsBytes, ByteConversion},
     unsigned_integer::element::U256,
 };
 use sha3::{Digest, Keccak256};
@@ -28,7 +28,7 @@ pub trait IsStarkTranscript<F: IsField> {
         trace_roots_of_unity: &[FieldElement<S>],
     ) -> FieldElement<F>
     where
-        FieldElement<F>: Serializable,
+        FieldElement<F>: AsBytes,
     {
         loop {
             let value: FieldElement<F> = self.sample_field_element();
@@ -173,7 +173,7 @@ pub fn batch_sample_challenges<F: IsFFTField>(
     transcript: &mut impl IsStarkTranscript<F>,
 ) -> Vec<FieldElement<F>>
 where
-    FieldElement<F>: Serializable,
+    FieldElement<F>: AsBytes,
 {
     (0..size)
         .map(|_| transcript.sample_field_element())

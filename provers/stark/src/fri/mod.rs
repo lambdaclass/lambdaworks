@@ -3,7 +3,7 @@ pub mod fri_decommit;
 mod fri_functions;
 
 use lambdaworks_math::field::traits::{IsFFTField, IsField};
-use lambdaworks_math::traits::Serializable;
+use lambdaworks_math::traits::AsBytes;
 use lambdaworks_math::{
     fft::cpu::bit_reversing::in_place_bit_reverse_permute, field::traits::IsSubFieldOf,
 };
@@ -30,8 +30,8 @@ pub fn commit_phase<F: IsFFTField + IsSubFieldOf<E>, E: IsField>(
     Vec<FriLayer<E, BatchedMerkleTreeBackend<E>>>,
 )
 where
-    FieldElement<F>: Serializable + Sync + Send,
-    FieldElement<E>: Serializable + Sync + Send,
+    FieldElement<F>: AsBytes + Sync + Send,
+    FieldElement<E>: AsBytes + Sync + Send,
 {
     let mut domain_size = domain_size;
 
@@ -79,7 +79,7 @@ pub fn query_phase<F: IsField>(
     iotas: &[usize],
 ) -> Vec<FriDecommitment<F>>
 where
-    FieldElement<F>: Serializable + Sync + Send,
+    FieldElement<F>: AsBytes + Sync + Send,
 {
     if !fri_layers.is_empty() {
         let query_list = iotas
@@ -118,8 +118,8 @@ pub fn new_fri_layer<F: IsFFTField + IsSubFieldOf<E>, E: IsField>(
     domain_size: usize,
 ) -> crate::fri::fri_commitment::FriLayer<E, BatchedMerkleTreeBackend<E>>
 where
-    FieldElement<F>: Serializable + Sync + Send,
-    FieldElement<E>: Serializable + Sync + Send,
+    FieldElement<F>: AsBytes + Sync + Send,
+    FieldElement<E>: AsBytes + Sync + Send,
 {
     let mut evaluation =
         Polynomial::evaluate_offset_fft(poly, 1, Some(domain_size), coset_offset).unwrap(); // TODO: return error

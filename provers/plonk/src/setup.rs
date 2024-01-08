@@ -8,7 +8,7 @@ use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 use lambdaworks_math::field::traits::IsFFTField;
 use lambdaworks_math::field::{element::FieldElement, traits::IsField};
 use lambdaworks_math::polynomial::Polynomial;
-use lambdaworks_math::traits::{ByteConversion, Serializable};
+use lambdaworks_math::traits::{AsBytes, ByteConversion};
 
 // TODO: implement getters
 pub struct Witness<F: IsField> {
@@ -137,18 +137,18 @@ where
     F: IsField,
     FieldElement<F>: ByteConversion,
     CS: IsCommitmentScheme<F>,
-    CS::Commitment: Serializable,
+    CS::Commitment: AsBytes,
 {
     let mut transcript = DefaultTranscript::new();
 
-    transcript.append(&vk.s1_1.serialize());
-    transcript.append(&vk.s2_1.serialize());
-    transcript.append(&vk.s3_1.serialize());
-    transcript.append(&vk.ql_1.serialize());
-    transcript.append(&vk.qr_1.serialize());
-    transcript.append(&vk.qm_1.serialize());
-    transcript.append(&vk.qo_1.serialize());
-    transcript.append(&vk.qc_1.serialize());
+    transcript.append(&vk.s1_1.as_bytes());
+    transcript.append(&vk.s2_1.as_bytes());
+    transcript.append(&vk.s3_1.as_bytes());
+    transcript.append(&vk.ql_1.as_bytes());
+    transcript.append(&vk.qr_1.as_bytes());
+    transcript.append(&vk.qm_1.as_bytes());
+    transcript.append(&vk.qo_1.as_bytes());
+    transcript.append(&vk.qc_1.as_bytes());
 
     for value in public_input.iter() {
         transcript.append(&value.to_bytes_be());

@@ -14,6 +14,8 @@ use proptest::{
 
 use crate::errors::ByteConversionError;
 use crate::errors::CreationError;
+#[cfg(feature = "alloc")]
+use crate::traits::AsBytes;
 use crate::traits::ByteConversion;
 use crate::unsigned_integer::traits::IsUnsignedInteger;
 
@@ -959,6 +961,25 @@ impl<const NUM_LIMBS: usize> ByteConversion for UnsignedInteger<NUM_LIMBS> {
 impl<const NUM_LIMBS: usize> From<UnsignedInteger<NUM_LIMBS>> for u16 {
     fn from(value: UnsignedInteger<NUM_LIMBS>) -> Self {
         value.limbs[NUM_LIMBS - 1] as u16
+    }
+}
+
+#[cfg(feature = "alloc")]
+impl<const NUM_LIMBS: usize> AsBytes for UnsignedInteger<NUM_LIMBS> {
+    fn as_bytes(&self) -> alloc::vec::Vec<u8> {
+        self.limbs
+            .into_iter()
+            .fold(alloc::vec::Vec::new(), |mut acc, limb| {
+                acc.extend_from_slice(&limb.as_bytes());
+                acc
+            })
+    }
+}
+
+#[cfg(feature = "alloc")]
+impl<const NUM_LIMBS: usize> From<UnsignedInteger<NUM_LIMBS>> for alloc::vec::Vec<u8> {
+    fn from(val: UnsignedInteger<NUM_LIMBS>) -> Self {
+        val.as_bytes()
     }
 }
 

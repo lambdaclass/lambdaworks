@@ -4,7 +4,7 @@ use lambdaworks_math::{
     field::{
         element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
     },
-    traits::{ByteConversion, Deserializable, Serializable},
+    traits::{AsBytes, ByteConversion, Deserializable},
 };
 use stark_platinum_prover::{
     constraints::boundary::{BoundaryConstraint, BoundaryConstraints},
@@ -266,8 +266,8 @@ impl PublicInputs {
     }
 }
 
-impl Serializable for PublicInputs {
-    fn serialize(&self) -> Vec<u8> {
+impl AsBytes for PublicInputs {
+    fn as_bytes(&self) -> Vec<u8> {
         let mut bytes = vec![];
         let pc_init_bytes = self.pc_init.to_bytes_be();
         let felt_length = pc_init_bytes.len();
@@ -1420,7 +1420,7 @@ mod test {
 mod prop_test {
     use lambdaworks_math::{
         field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
-        traits::{Deserializable, Serializable},
+        traits::{AsBytes, Deserializable},
     };
     use proptest::{prelude::*, prop_compose, proptest};
     use stark_platinum_prover::proof::{options::ProofOptions, stark::StarkProof};
@@ -1476,7 +1476,7 @@ mod prop_test {
         fn test_public_inputs_serialization(
             public_inputs in some_public_inputs(),
         ){
-            let serialized = Serializable::serialize(&public_inputs);
+            let serialized = AsBytes::as_bytes(&public_inputs);
             let deserialized: PublicInputs = Deserializable::deserialize(&serialized).unwrap();
             prop_assert_eq!(public_inputs.pc_init, deserialized.pc_init);
             prop_assert_eq!(public_inputs.ap_init, deserialized.ap_init);

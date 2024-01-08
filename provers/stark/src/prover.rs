@@ -6,7 +6,7 @@ use lambdaworks_math::fft::cpu::bit_reversing::{in_place_bit_reverse_permute, re
 use lambdaworks_math::fft::errors::FFTError;
 
 use lambdaworks_math::field::traits::{IsField, IsSubFieldOf};
-use lambdaworks_math::traits::Serializable;
+use lambdaworks_math::traits::AsBytes;
 use lambdaworks_math::{
     field::{element::FieldElement, traits::IsFFTField},
     polynomial::Polynomial,
@@ -50,7 +50,7 @@ pub enum ProvingError {
 pub struct Round1CommitmentData<F>
 where
     F: IsField,
-    FieldElement<F>: Serializable + Send + Sync,
+    FieldElement<F>: AsBytes + Send + Sync,
 {
     /// The result of the interpolation of the columns of the trace table.
     pub(crate) trace_polys: Vec<Polynomial<FieldElement<F>>>,
@@ -64,8 +64,8 @@ where
 pub struct Round1<A>
 where
     A: AIR,
-    FieldElement<A::FieldExtension>: Serializable + Sync + Send,
-    FieldElement<A::Field>: Serializable + Sync + Send,
+    FieldElement<A::FieldExtension>: AsBytes + Sync + Send,
+    FieldElement<A::Field>: AsBytes + Sync + Send,
 {
     /// The table of evaluations over the LDE of the main and auxiliary trace tables.
     pub(crate) lde_table: EvaluationTable<A::Field, A::FieldExtension>,
@@ -80,8 +80,8 @@ where
 impl<A> Round1<A>
 where
     A: AIR,
-    FieldElement<A::FieldExtension>: Serializable + Sync + Send,
-    FieldElement<A::Field>: Serializable + Sync + Send,
+    FieldElement<A::FieldExtension>: AsBytes + Sync + Send,
+    FieldElement<A::Field>: AsBytes + Sync + Send,
 {
     /// Returns the full list of the polynomials interpolating the trace. It includes both
     /// main and auxiliary trace polynomials. The main trace polynomials are casted to
@@ -106,7 +106,7 @@ where
 pub struct Round2<F>
 where
     F: IsField,
-    FieldElement<F>: Serializable + Sync + Send,
+    FieldElement<F>: AsBytes + Sync + Send,
 {
     /// The list of polynomials `H₀, ..., Hₙ` such that `H = ∑ᵢXⁱH(Xⁿ)`, where H is the composition polynomial.
     pub(crate) composition_poly_parts: Vec<Polynomial<FieldElement<F>>>,
@@ -171,9 +171,9 @@ pub trait IsStarkProver<A: AIR> {
     /// Returns the Merkle tree and the commitment to the vectors `vectors`.
     fn batch_commit<E>(vectors: &[Vec<FieldElement<E>>]) -> (BatchedMerkleTree<E>, Commitment)
     where
-        FieldElement<A::Field>: Serializable + Sync + Send,
-        FieldElement<A::FieldExtension>: Serializable + Sync + Send,
-        FieldElement<E>: Serializable + Sync + Send,
+        FieldElement<A::Field>: AsBytes + Sync + Send,
+        FieldElement<A::FieldExtension>: AsBytes + Sync + Send,
+        FieldElement<E>: AsBytes + Sync + Send,
         E: IsSubFieldOf<A::FieldExtension>,
         A::Field: IsSubFieldOf<E>,
     {
@@ -201,9 +201,9 @@ pub trait IsStarkProver<A: AIR> {
         Commitment,
     )
     where
-        FieldElement<A::Field>: Serializable + Send + Sync,
-        FieldElement<E>: Serializable + Send + Sync,
-        FieldElement<A::FieldExtension>: Serializable + Send + Sync,
+        FieldElement<A::Field>: AsBytes + Send + Sync,
+        FieldElement<E>: AsBytes + Send + Sync,
+        FieldElement<A::FieldExtension>: AsBytes + Send + Sync,
         E: IsSubFieldOf<A::FieldExtension>,
         A::Field: IsSubFieldOf<E>,
     {
@@ -272,8 +272,8 @@ pub trait IsStarkProver<A: AIR> {
         transcript: &mut impl IsStarkTranscript<A::FieldExtension>,
     ) -> Result<Round1<A>, ProvingError>
     where
-        FieldElement<A::Field>: Serializable + Send + Sync,
-        FieldElement<A::FieldExtension>: Serializable + Send + Sync,
+        FieldElement<A::Field>: AsBytes + Send + Sync,
+        FieldElement<A::FieldExtension>: AsBytes + Send + Sync,
     {
         let (trace_polys, evaluations, main_merkle_tree, main_merkle_root) =
             Self::interpolate_and_commit::<A::Field>(main_trace, domain, transcript);
@@ -316,8 +316,8 @@ pub trait IsStarkProver<A: AIR> {
         lde_composition_poly_parts_evaluations: &[Vec<FieldElement<A::FieldExtension>>],
     ) -> (BatchedMerkleTree<A::FieldExtension>, Commitment)
     where
-        FieldElement<A::Field>: Serializable + Sync + Send,
-        FieldElement<A::FieldExtension>: Serializable + Sync + Send,
+        FieldElement<A::Field>: AsBytes + Sync + Send,
+        FieldElement<A::FieldExtension>: AsBytes + Sync + Send,
     {
         // TODO: Remove clones
         let mut lde_composition_poly_evaluations = Vec::new();
@@ -352,8 +352,8 @@ pub trait IsStarkProver<A: AIR> {
     where
         A: Send + Sync,
         A::RAPChallenges: Send + Sync,
-        FieldElement<A::Field>: Serializable + Send + Sync,
-        FieldElement<A::FieldExtension>: Serializable + Send + Sync,
+        FieldElement<A::Field>: AsBytes + Send + Sync,
+        FieldElement<A::FieldExtension>: AsBytes + Send + Sync,
     {
         // Compute the evaluations of the composition polynomial on the LDE domain.
         let evaluator = ConstraintEvaluator::new(air, &round_1_result.rap_challenges);
@@ -407,8 +407,8 @@ pub trait IsStarkProver<A: AIR> {
         z: &FieldElement<A::FieldExtension>,
     ) -> Round3<A::FieldExtension>
     where
-        FieldElement<A::Field>: Serializable + Sync + Send,
-        FieldElement<A::FieldExtension>: Serializable + Sync + Send,
+        FieldElement<A::Field>: AsBytes + Sync + Send,
+        FieldElement<A::FieldExtension>: AsBytes + Sync + Send,
     {
         let z_power = z.pow(round_2_result.composition_poly_parts.len());
 
@@ -458,8 +458,8 @@ pub trait IsStarkProver<A: AIR> {
         transcript: &mut impl IsStarkTranscript<A::FieldExtension>,
     ) -> Round4<A::Field, A::FieldExtension>
     where
-        FieldElement<A::Field>: Serializable + Send + Sync,
-        FieldElement<A::FieldExtension>: Serializable + Send + Sync,
+        FieldElement<A::Field>: AsBytes + Send + Sync,
+        FieldElement<A::FieldExtension>: AsBytes + Send + Sync,
     {
         let coset_offset_u64 = air.context().proof_options.coset_offset;
         let coset_offset = FieldElement::<A::Field>::from(coset_offset_u64);
@@ -561,8 +561,8 @@ pub trait IsStarkProver<A: AIR> {
         trace_terms_gammas: &[FieldElement<A::FieldExtension>],
     ) -> Polynomial<FieldElement<A::FieldExtension>>
     where
-        FieldElement<A::Field>: Serializable + Send + Sync,
-        FieldElement<A::FieldExtension>: Serializable + Send + Sync,
+        FieldElement<A::Field>: AsBytes + Send + Sync,
+        FieldElement<A::FieldExtension>: AsBytes + Send + Sync,
     {
         let z_power = z.pow(round_2_result.composition_poly_parts.len());
 
@@ -639,8 +639,8 @@ pub trait IsStarkProver<A: AIR> {
         (z, primitive_root): (&FieldElement<A::FieldExtension>, &FieldElement<A::Field>),
     ) -> Polynomial<FieldElement<A::FieldExtension>>
     where
-        FieldElement<A::Field>: Serializable + Send + Sync,
-        FieldElement<A::FieldExtension>: Serializable + Send + Sync,
+        FieldElement<A::Field>: AsBytes + Send + Sync,
+        FieldElement<A::FieldExtension>: AsBytes + Send + Sync,
     {
         let iter_trace_gammas = trace_terms_gammas.iter().skip(j * trace_frame_length);
         let trace_int = trace_frame_evaluations[j]
@@ -670,8 +670,8 @@ pub trait IsStarkProver<A: AIR> {
         index: usize,
     ) -> PolynomialOpenings<A::FieldExtension>
     where
-        FieldElement<A::Field>: Serializable + Sync + Send,
-        FieldElement<A::FieldExtension>: Serializable + Sync + Send,
+        FieldElement<A::Field>: AsBytes + Sync + Send,
+        FieldElement<A::FieldExtension>: AsBytes + Sync + Send,
     {
         let proof = composition_poly_merkle_tree
             .get_proof_by_pos(index)
@@ -713,8 +713,8 @@ pub trait IsStarkProver<A: AIR> {
         challenge: usize,
     ) -> PolynomialOpenings<E>
     where
-        FieldElement<A::Field>: Serializable + Sync + Send,
-        FieldElement<E>: Serializable + Sync + Send,
+        FieldElement<A::Field>: AsBytes + Sync + Send,
+        FieldElement<E>: AsBytes + Sync + Send,
         A::Field: IsSubFieldOf<E>,
         E: IsField,
     {
@@ -742,8 +742,8 @@ pub trait IsStarkProver<A: AIR> {
         indexes_to_open: &[usize],
     ) -> DeepPolynomialOpenings<A::Field, A::FieldExtension>
     where
-        FieldElement<A::Field>: Serializable + Send + Sync,
-        FieldElement<A::FieldExtension>: Serializable + Send + Sync,
+        FieldElement<A::Field>: AsBytes + Send + Sync,
+        FieldElement<A::FieldExtension>: AsBytes + Send + Sync,
     {
         let mut openings = Vec::new();
 
@@ -792,8 +792,8 @@ pub trait IsStarkProver<A: AIR> {
     where
         A: Send + Sync,
         A::RAPChallenges: Send + Sync,
-        FieldElement<A::Field>: Serializable + Send + Sync,
-        FieldElement<A::FieldExtension>: Serializable + Send + Sync,
+        FieldElement<A::Field>: AsBytes + Send + Sync,
+        FieldElement<A::FieldExtension>: AsBytes + Send + Sync,
     {
         info!("Started proof generation...");
         #[cfg(feature = "instruments")]

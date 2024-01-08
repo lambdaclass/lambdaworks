@@ -6,7 +6,7 @@ use lambdaworks_math::{
         traits::{IsFFTField, IsField, IsSubFieldOf},
     },
     polynomial::Polynomial,
-    traits::Serializable,
+    traits::AsBytes,
 };
 
 #[cfg(feature = "parallel")]
@@ -43,8 +43,8 @@ impl<A: AIR> ConstraintEvaluator<A> {
         rap_challenges: &A::RAPChallenges,
     ) -> Vec<FieldElement<A::FieldExtension>>
     where
-        FieldElement<A::Field>: Serializable + Send + Sync,
-        FieldElement<A::FieldExtension>: Serializable + Send + Sync,
+        FieldElement<A::Field>: AsBytes + Send + Sync,
+        FieldElement<A::FieldExtension>: AsBytes + Send + Sync,
         A: Send + Sync,
         A::RAPChallenges: Send + Sync,
     {
@@ -263,8 +263,8 @@ fn evaluate_transition_exemptions<F: IsFFTField + IsSubFieldOf<E>, E: IsField>(
     domain: &Domain<F>,
 ) -> Vec<Vec<FieldElement<E>>>
 where
-    FieldElement<F>: Send + Sync + Serializable,
-    FieldElement<E>: Send + Sync + Serializable,
+    FieldElement<F>: Send + Sync + AsBytes,
+    FieldElement<E>: Send + Sync + AsBytes,
     Polynomial<FieldElement<F>>: Send + Sync,
 {
     #[cfg(feature = "parallel")]
