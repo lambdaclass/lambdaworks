@@ -1555,7 +1555,7 @@ impl CpuUpdateRegistersPcCondPositive {
     }
 }
 
-impl TransitionConstraint<Stark252PrimeField> for CpuUpdateRegistersPcCondPoisitive {
+impl TransitionConstraint<Stark252PrimeField> for CpuUpdateRegistersPcCondPositive {
     fn degree(&self) -> usize {
         2
     }
@@ -1678,6 +1678,232 @@ impl TransitionConstraint<Stark252PrimeField> for CpuUpdateRegistersUpdatePcTmp1
         let transition_res = t0 * res - t1;
 
         transition_evaluations[self.constraint_idx()] = transition_res;
+    }
+
+    fn end_exemptions(&self) -> usize {
+        0
+    }
+}
+
+pub struct CpuOperandsOpsMul;
+impl CpuOperandsOpsMul {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+impl TransitionConstraint<Stark252PrimeField> for CpuOperandsOpsMul {
+    fn degree(&self) -> usize {
+        2
+    }
+
+    fn constraint_idx(&self) -> usize {
+        26
+    }
+
+    fn evaluate(
+        &self,
+        frame: &Frame<Stark252PrimeField>,
+        transition_evaluations: &mut [stark_platinum_prover::fri::FieldElement<
+            Stark252PrimeField,
+        >],
+        periodic_values: &[stark_platinum_prover::fri::FieldElement<Stark252PrimeField>],
+        rap_challenges: &[stark_platinum_prover::fri::FieldElement<Stark252PrimeField>],
+    ) {
+        let current_step = frame.get_evaluation_step(0);
+
+        let mul = current_step.get_evaluation_element(0, 32);
+        let op0 = current_step.get_evaluation_element(0, 25);
+        let op1 = current_step.get_evaluation_element(0, 26);
+
+        transition_evaluations[self.constraint_idx()] = mul - op0 * op1;
+    }
+
+    fn end_exemptions(&self) -> usize {
+        0
+    }
+}
+
+// cpu/operands/res
+pub struct CpuOperandsRes;
+impl CpuOperandsRes {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+impl TransitionConstraint<Stark252PrimeField> for CpuOperandsRes {
+    fn degree(&self) -> usize {
+        2
+    }
+
+    fn constraint_idx(&self) -> usize {
+        27
+    }
+
+    fn evaluate(
+        &self,
+        frame: &Frame<Stark252PrimeField>,
+        transition_evaluations: &mut [stark_platinum_prover::fri::FieldElement<
+            Stark252PrimeField,
+        >],
+        periodic_values: &[stark_platinum_prover::fri::FieldElement<Stark252PrimeField>],
+        rap_challenges: &[stark_platinum_prover::fri::FieldElement<Stark252PrimeField>],
+    ) {
+        let current_step = frame.get_evaluation_step(0);
+        let one = Felt252::one();
+        let two = Felt252::from(2);
+
+        let mul = current_step.get_evaluation_element(0, 32);
+        let op0 = current_step.get_evaluation_element(0, 25);
+        let op1 = current_step.get_evaluation_element(0, 26);
+        let res = current_step.get_evaluation_element(0, 16);
+
+        let res_add = current_step.get_evaluation_element(0, 5)
+            - two * current_step.get_evaluation_element(0, 6);
+        let res_mul = current_step.get_evaluation_element(0, 6)
+            - two * current_step.get_evaluation_element(0, 7);
+        let pc_jnz = current_step.get_evaluation_element(0, 9)
+            - two * current_step.get_evaluation_element(0, 10);
+
+        let transition_res =
+            res_add * (op0 + op1) + res_mul * mul + (one - res_add - res_mul - pc_jnz) * op1
+                - (one - pc_jnz) * res;
+
+        transition_evaluations[self.constraint_idx()] = transition_res;
+    }
+
+    fn end_exemptions(&self) -> usize {
+        0
+    }
+}
+
+// cpu/opcodes/call/push_fp
+pub struct CpuOpcodesCallPushFp;
+impl CpuOpcodesCallPushFp {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+impl TransitionConstraint<Stark252PrimeField> for CpuOpcodesCallPushFp {
+    fn degree(&self) -> usize {
+        2
+    }
+
+    fn constraint_idx(&self) -> usize {
+        28
+    }
+
+    fn evaluate(
+        &self,
+        frame: &Frame<Stark252PrimeField>,
+        transition_evaluations: &mut [stark_platinum_prover::fri::FieldElement<
+            Stark252PrimeField,
+        >],
+        periodic_values: &[stark_platinum_prover::fri::FieldElement<Stark252PrimeField>],
+        rap_challenges: &[stark_platinum_prover::fri::FieldElement<Stark252PrimeField>],
+    ) {
+        let current_step = frame.get_evaluation_step(0);
+
+        let two = Felt252::from(2);
+
+        let opc_call = current_step.get_evaluation_element(0, 12)
+            - two * current_step.get_evaluation_element(0, 13);
+
+        let dst = current_step.get_evaluation_element(0, 24);
+        let fp = current_step.get_evaluation_element(0, 18);
+
+        transition_evaluations[self.constraint_idx()] = opc_call * (dst - fp);
+    }
+
+    fn end_exemptions(&self) -> usize {
+        0
+    }
+}
+
+pub struct CpuOpcodesCallPushPc;
+impl CpuOpcodesCallPushPc {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+impl TransitionConstraint<Stark252PrimeField> for CpuOpcodesCallPushPc {
+    fn degree(&self) -> usize {
+        2
+    }
+
+    fn constraint_idx(&self) -> usize {
+        29
+    }
+
+    fn evaluate(
+        &self,
+        frame: &Frame<Stark252PrimeField>,
+        transition_evaluations: &mut [stark_platinum_prover::fri::FieldElement<
+            Stark252PrimeField,
+        >],
+        periodic_values: &[stark_platinum_prover::fri::FieldElement<Stark252PrimeField>],
+        rap_challenges: &[stark_platinum_prover::fri::FieldElement<Stark252PrimeField>],
+    ) {
+        let current_step = frame.get_evaluation_step(0);
+
+        let two = Felt252::from(2);
+
+        let opc_call = current_step.get_evaluation_element(0, 12)
+            - two * current_step.get_evaluation_element(0, 13);
+
+        let op0 = current_step.get_evaluation_element(0, 25);
+        let pc = current_step.get_evaluation_element(0, 19);
+
+        opc_call * (op0 - (pc + frame_inst_size(current_step)));
+
+        transition_evaluations[self.constraint_idx()] =
+            opc_call * (op0 - (pc + frame_inst_size(current_step)));
+    }
+
+    fn end_exemptions(&self) -> usize {
+        0
+    }
+}
+
+// cpu/opcodes/assert_eq/assert_eq
+pub struct CpuOpcodesAssertEq;
+impl CpuOpcodesAssertEq {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+impl TransitionConstraint<Stark252PrimeField> for CpuOpcodesAssertEq {
+    fn degree(&self) -> usize {
+        2
+    }
+
+    fn constraint_idx(&self) -> usize {
+        30
+    }
+
+    fn evaluate(
+        &self,
+        frame: &Frame<Stark252PrimeField>,
+        transition_evaluations: &mut [stark_platinum_prover::fri::FieldElement<
+            Stark252PrimeField,
+        >],
+        periodic_values: &[stark_platinum_prover::fri::FieldElement<Stark252PrimeField>],
+        rap_challenges: &[stark_platinum_prover::fri::FieldElement<Stark252PrimeField>],
+    ) {
+        let current_step = frame.get_evaluation_step(0);
+
+        let two = Felt252::from(2);
+
+        let opc_aeq = current_step.get_evaluation_element(0, 14)
+            - two * current_step.get_evaluation_element(0, 15);
+        let dst = current_step.get_evaluation_element(0, 24);
+        let res = current_step.get_evaluation_element(0, 16);
+
+        transition_evaluations[self.constraint_idx()] = opc_aeq * (dst - res)
     }
 
     fn end_exemptions(&self) -> usize {
