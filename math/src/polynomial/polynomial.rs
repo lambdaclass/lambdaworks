@@ -2,6 +2,7 @@ use crate::field::{
     element::FieldElement,
     traits::{IsField, IsSubFieldOf},
 };
+use core::fmt::Display;
 use std::ops;
 
 /// Represents the polynomial c_0 + c_1 * X + c_2 * X^2 + ... + c_n * X^n
@@ -781,15 +782,25 @@ where
     }
 }
 
-use thiserror::Error;
-
-#[derive(Debug, Error)]
+#[derive(Debug)]
 pub enum InterpolateError {
-    #[error("xs and ys must be the same length. Got: {0} != {1}")]
     UnequalLengths(usize, usize),
-    #[error("xs values should be unique.")]
     NonUniqueXs,
 }
+
+impl Display for InterpolateError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            InterpolateError::UnequalLengths(x, y) => {
+                write!(f, "xs and ys must be the same length. Got: {x} != {y}")
+            }
+            InterpolateError::NonUniqueXs => write!(f, "xs values should be unique."),
+        }
+    }
+}
+
+#[cfg(feature = "std")]
+impl std::error::Error for InterpolateError {}
 
 #[cfg(test)]
 mod tests {
