@@ -8,13 +8,18 @@
 
 This prover is still in development and may contain bugs. It is not intended to be used in production yet.
 
-Please check issues under security label, and wait for them to be resolved if they are relevant to your project.
-
-Output builtin is finished, and range check is supported but it's not sound yet.
-
-CLI currently runs with 100 bits of conjecturable security
+Please check issues under security label, and wait for them to be resolved if they are relevant to your project. Currently builtins are not proven, and checks over public inputs are not enforced.
 
 ## [Cairo Platinum Prover Docs](<[lambdaclass.github.io/lambdaworks/](https://github.com/lambdaclass/lambdaworks/blob/main/provers/cairo/README.md)>)
+
+
+### Cairo Platinum Prover - Introduction
+
+Cairo Platinum Prover is an easy to use prover to prove CairoZero and Cairo programs, with support for a web verifier. 
+
+CLI currently runs with 100 bits of conjecturable security. 
+
+Cairo / Cairo1 programs full integration is on the way. It can already be used generating a trace and a memory with the Cairo VM Runner, and fed to the prover with the prove command. 
 
 ### Usage:
 
