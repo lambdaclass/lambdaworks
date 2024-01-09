@@ -7,19 +7,20 @@ use lambdaworks_math::polynomial::{
     dense_multilinear_poly::DenseMultilinearPolynomial, polynomial::Polynomial,
 };
 use lambdaworks_math::traits::ByteConversion;
-use sha3::digest::typenum::NonZero;
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
-fn eval_points_quadratic(
+fn eval_points_quadratic<F: IsField + IsPrimeField, E>(
     poly_a: &DenseMultilinearPolynomial<F>,
     poly_b: &DenseMultilinearPolynomial<F>,
-    comb_func: &F,
-) -> (&FieldElement<F>, &FieldElement<F>)
+    comb_func: E,
+) -> (FieldElement<F>, FieldElement<F>)
 where
-    F: Fn(&FieldElement<F>, &FieldElement<F>) -> FieldElement<F> + Sync,
+    <F as IsField>::BaseType: Send + Sync,
+    E: Fn(&FieldElement<F>, &FieldElement<F>) -> FieldElement<F> + Sync + Send,
 {
     let len = poly_a.len() / 2;
     (0..len)
-        .iter()
+        .into_par_iter()
         .map(|i| {
             // eval_0: A(low)
             let eval_0 = comb_func(&poly_a[i], &poly_b[i]);
@@ -31,23 +32,24 @@ where
             (eval_0, eval_2)
         })
         .reduce(
-            || (&FieldElement::<F>::zero(), &FieldElement::<F>::zero()),
+            || (FieldElement::<F>::zero(), FieldElement::<F>::zero()),
             |a, b| (a.0 + b.0, a.1 + b.1),
         )
 }
 
-fn eval_points_cubic(
+fn eval_points_cubic<F: IsField, E>(
     poly_a: &DenseMultilinearPolynomial<F>,
     poly_b: &DenseMultilinearPolynomial<F>,
     poly_c: &DenseMultilinearPolynomial<F>,
-    comb_func: &F,
-) -> (&FieldElement<F>, &FieldElement<F>)
+    comb_func: E,
+) -> (FieldElement<F>, FieldElement<F>, FieldElement<F>)
 where
-    F: Fn(&FieldElement<F>, &FieldElement<F>, &FieldElement<F>) -> FieldElement<F> + Sync,
+    <F as IsField>::BaseType: Send + Sync,
+    E: Fn(&FieldElement<F>, &FieldElement<F>, &FieldElement<F>) -> FieldElement<F> + Sync,
 {
     let len = poly_a.len() / 2;
     (0..len)
-        .iter()
+        .into_par_iter()
         .map(|i| {
             // eval_0: A(low)
             let eval_0 = comb_func(&poly_a[i], &poly_b[i], &poly_c[i]);
@@ -56,22 +58,22 @@ where
             let poly_a_eval_2 = poly_a[len + i] + poly_a[len + i] - poly_a[i];
             let poly_b_eval_2 = poly_b[len + i] + poly_b[len + i] - poly_b[i];
             let poly_c_eval_2 = poly_c[len + i] + poly_c[len + i] - poly_c[i];
-            let eval_2 = comb_func(&poly_a_eval_2, &poly_b_eval_2, poly_c_eval_2);
+            let eval_2 = comb_func(&poly_a_eval_2, &poly_b_eval_2, &poly_c_eval_2);
 
             // eval 3: bound_func is -2A(low) + 3A(high); computed incrementally with bound_func applied to eval(2)
             let poly_a_eval_3 = poly_a_eval_2 + poly_a[len + i] - poly_a[i];
             let poly_b_eval_3 = poly_b_eval_2 + poly_b[len + i] - poly_b[i];
             let poly_c_eval_3 = poly_c_eval_2 + poly_c[len + i] - poly_c[i];
-            let eval_3 = comb_func(&poly_a_eval_2, &poly_b_eval_2, poly_c_eval_2);
+            let eval_3 = comb_func(&poly_a_eval_2, &poly_b_eval_2, &poly_c_eval_2);
 
             (eval_0, eval_2, eval_3)
         })
         .reduce(
             || {
                 (
-                    &FieldElement::<F>::zero(),
-                    &FieldElement::<F>::zero(),
-                    &FieldElement::<F>::zero(),
+                    FieldElement::<F>::zero(),
+                    FieldElement::<F>::zero(),
+                    FieldElement::<F>::zero(),
                 )
             },
             |a, b| (a.0 + b.0, a.1 + b.1, a.2 + b.2),
@@ -106,25 +108,25 @@ where
     FieldElement<F>: ByteConversion,
 {
     //Used for sum_{(a * b)}
-    pub fn prove_quadratic<F>(
+    pub fn prove_quadratic<E>(
         sum: &FieldElement<F>,
         poly_a: &mut DenseMultilinearPolynomial<F>,
         poly_b: &mut DenseMultilinearPolynomial<F>,
-        comb_func: F,
+        comb_func: E,
         transcript: &mut impl Transcript,
     ) -> SumcheckProof<F>
     where
-        F: Fn(&FieldElement<F>, &FieldElement<F>) -> FieldElement<F> + Sync,
+        E: Fn(&FieldElement<F>, &FieldElement<F>) -> FieldElement<F> + Sync,
     {
         let mut round_uni_polys: Vec<Polynomial<FieldElement<F>>> =
-            Vec::with_capacity(poly.num_vars());
-        let mut challenges = Vec::with_capacity(poly.num_vars());
+            Vec::with_capacity(poly_a.num_vars());
+        let mut challenges = Vec::with_capacity(poly_a.num_vars());
         let mut prev_round_claim = *sum;
 
-        for _ in poly_a.num_vars() {
+        for _ in 0..poly_a.num_vars() {
             let poly = {
                 let len = poly_a.len() / 2;
-                let (eval_0, eval_2) = eval_points_quadratic(poly_a[i], poly_b[i], &comb_func);
+                let (eval_0, eval_2) = eval_points_quadratic(poly_a, poly_b, &comb_func);
                 let evals = vec![eval_0, prev_round_claim - eval_0, eval_2];
                 Polynomial::new(&evals)
             };
@@ -147,41 +149,47 @@ where
         }
 
         SumcheckProof {
-            poly: poly.clone(),
+            poly: poly_a.clone(),
             sum: sum.clone(),
             round_uni_polys,
         }
     }
 
-    pub fn prove_quadratic_batched(
+    pub fn prove_quadratic_batched<E>(
         sum: &FieldElement<F>,
         poly_a: &mut Vec<DenseMultilinearPolynomial<F>>,
         poly_b: &mut Vec<DenseMultilinearPolynomial<F>>,
-        /// Optional Powers of rho used for RLC
-        powers: &[FieldElement<F>],
-        comb_func: F,
+        powers: Option<&[FieldElement<F>]>,
+        comb_func: E,
         transcript: &mut impl Transcript,
     ) -> SumcheckProof<F>
     where
-        F: Fn(&FieldElement<F>, &FieldElement<F>) -> FieldElement<F> + Sync,
+        E: Fn(&FieldElement<F>, &FieldElement<F>) -> FieldElement<F> + Sync,
     {
         let mut round_uni_polys: Vec<Polynomial<FieldElement<F>>> =
-            Vec::with_capacity(poly.num_vars());
-        let mut challenges = Vec::with_capacity(poly.num_vars());
+            Vec::with_capacity(poly_a[0].num_vars());
+        let mut challenges = Vec::with_capacity(poly_a[0].num_vars());
         let mut prev_round_claim = *sum;
 
-        for _ in poly_a.num_vars() {
-            let mut evals: Vec<(G::Scalar, G::Scalar)> = Vec::new();
+        for _ in 0..poly_a[0].num_vars() {
+            let mut evals: Vec<(FieldElement<F>, FieldElement<F>)> = Vec::new();
 
             for (poly_a, poly_b) in poly_a.iter().zip(poly_b.iter()) {
                 let (eval_point_0, eval_point_2) =
-                    Self::compute_eval_points_quadratic(poly_a, poly_b, &comb_func);
+                    eval_points_quadratic(poly_a, poly_b, &comb_func);
                 evals.push((eval_point_0, eval_point_2));
             }
 
             // TODO: make optional as we want to perform a batched check outside of this
-            let evals_combined_0 = (0..evals.len()).map(|i| evals[i].0 * powers[i]).sum();
-            let evals_combined_2 = (0..evals.len()).map(|i| evals[i].1 * powers[i]).sum();
+            let mut evals_combined_0;
+            let mut evals_combined_2;
+            if let Some(powers) = powers {
+                evals_combined_0 = (0..evals.len()).map(|i| evals[i].0 * powers[i]).sum();
+                evals_combined_2 = (0..evals.len()).map(|i| evals[i].1 * powers[i]).sum();
+            } else {
+                evals_combined_0 = (0..evals.len()).map(|i| evals[i].0).sum();
+                evals_combined_2 = (0..evals.len()).map(|i| evals[i].1).sum();
+            }
 
             let evals = vec![
                 evals_combined_0,
@@ -190,7 +198,7 @@ where
             ];
             let poly = Polynomial::new(&evals);
 
-            // append the prover's message to the transcript
+            // TODO append the prover's message to the transcript
 
             // Squeeze Verifier Challenge for next round
             let challenge = FieldElement::from_bytes_be(&transcript.challenge()).unwrap();
@@ -198,12 +206,74 @@ where
 
             // bound all tables to the verifier's challenege
             for (poly_a, poly_b) in poly_a.iter_mut().zip(poly_b.iter_mut()) {
-                poly_a.fix_variable(&r_i);
-                poly_b.fix_variable(&r_i);
+                poly_a.fix_variable(&challenge);
+                poly_b.fix_variable(&challenge);
             }
 
-            prev_round_claim = poly.evaluate(&r_i);
-            quad_polys.push(poly.compress());
+            prev_round_claim = poly.evaluate(&challenge);
+            round_uni_polys.push(poly);
+        }
+
+        SumcheckProof {
+            poly: poly_a[0].clone(),
+            sum: sum.clone(),
+            round_uni_polys,
+        }
+    }
+
+    pub fn prove_cubic<E>(
+        sum: &FieldElement<F>,
+        poly_a: &DenseMultilinearPolynomial<F>,
+        poly_b: &DenseMultilinearPolynomial<F>,
+        poly_c: &DenseMultilinearPolynomial<F>,
+        comb_func: E,
+        transcript: &mut impl Transcript,
+    ) -> SumcheckProof<F>
+    where
+        E: Fn(&FieldElement<F>, &FieldElement<F>) -> FieldElement<F> + Sync, {
+        let mut round_uni_polys: Vec<Polynomial<FieldElement<F>>> =
+            Vec::with_capacity(poly_a.num_vars());
+        let mut challenges = Vec::with_capacity(poly_a.num_vars());
+        let mut prev_round_claim = *sum;
+
+        for _ in 0..poly_a.num_vars() {
+            let mut evals: Vec<(FieldElement<F>, FieldElement<F>, FieldElement<F>)> = Vec::new();
+
+            #[cfg(feature = "rayon")]
+
+            #[cfg(not(feature = "rayon"))]
+
+            for (poly_a, poly_b) in poly_a.iter().zip(poly_b.iter()) {
+                let (eval_point_0, eval_point_2, eval_point_3) =
+                    eval_points_cubic(poly_a, poly_b, poly_c, &comb_func);
+                evals.push((eval_point_0, eval_point_2, eval_point_3));
+            }
+
+            // TODO: make optional as we want to perform a batched check outside of this
+            let mut evals_combined_0;
+            let mut evals_combined_2;
+
+            let evals = vec![
+                evals_combined_0,
+                prev_round_claim - evals_combined_0,
+                evals_combined_2,
+            ];
+            let poly = Polynomial::new(&evals);
+
+            // TODO append the prover's message to the transcript
+
+            // Squeeze Verifier Challenge for next round
+            let challenge = FieldElement::from_bytes_be(&transcript.challenge()).unwrap();
+            challenges.push(challenge.clone());
+
+            // bound all tables to the verifier's challenege
+            for (poly_a, poly_b) in poly_a.iter_mut().zip(poly_b.iter_mut()) {
+                poly_a.fix_variable(&challenge);
+                poly_b.fix_variable(&challenge);
+            }
+
+            prev_round_claim = poly.evaluate(&challenge);
+            round_uni_polys.push(poly);
         }
 
         SumcheckProof {
@@ -213,43 +283,85 @@ where
         }
     }
 
-    pub fn prove_cubic(
+    pub fn prove_cubic_batched<E>(
         sum: &FieldElement<F>,
-        poly_a: &mut DenseMultilinearPolynomial<F>,
-        poly_b: &mut DenseMultilinearPolynomial<F>,
-        poly_c: &mut DenseMultilinearPolynomial<F>,
-        comb_func: F,
+        poly_a: &Vec<DenseMultilinearPolynomial<F>>,
+        poly_b: &Vec<DenseMultilinearPolynomial<F>>,
+        poly_c: &DenseMultilinearPolynomial<F>,
+        powers: &[FieldElement<F>],
+        comb_func: E,
         transcript: &mut impl Transcript,
-    ) -> SumcheckProof<F> {
-        todo!()
-    }
+    ) -> SumcheckProof<F>
+    where
+        E: Fn(&FieldElement<F>, &FieldElement<F>) -> FieldElement<F> + Sync, {
+        let mut round_uni_polys: Vec<Polynomial<FieldElement<F>>> =
+            Vec::with_capacity(poly_a[0].num_vars());
+        let mut challenges = Vec::with_capacity(poly_a[0].num_vars());
+        let mut prev_round_claim = *sum;
 
-    pub fn prove_cubic_batched(
-        sum: &FieldElement<F>,
-        poly_a: &mut Vec<DenseMultilinearPolynomial<F>>,
-        poly_b: &mut Vec<DenseMultilinearPolynomial<F>>,
-        poly_c: &mut DenseMultilinearPolynomial<F>,
-        comb_func: F,
-        transcript: &mut impl Transcript,
-    ) -> SumcheckProof<F> {
-        todo!()
+        for _ in 0..poly_a[0].num_vars() {
+            let mut evals: Vec<(FieldElement<F>, FieldElement<F>)> = Vec::new();
+
+            for (poly_a, poly_b) in poly_a.iter().zip(poly_b.iter()) {
+                let (eval_point_0, eval_point_2) =
+                    eval_points_quadratic(poly_a, poly_b, &comb_func);
+                evals.push((eval_point_0, eval_point_2));
+            }
+
+            // TODO: make optional as we want to perform a batched check outside of this
+            let mut evals_combined_0;
+            let mut evals_combined_2;
+            if let Some(powers) = powers {
+                evals_combined_0 = (0..evals.len()).map(|i| evals[i].0 * powers[i]).sum();
+                evals_combined_2 = (0..evals.len()).map(|i| evals[i].1 * powers[i]).sum();
+            } else {
+                evals_combined_0 = (0..evals.len()).map(|i| evals[i].0).sum();
+                evals_combined_2 = (0..evals.len()).map(|i| evals[i].1).sum();
+            }
+
+            let evals = vec![
+                evals_combined_0,
+                prev_round_claim - evals_combined_0,
+                evals_combined_2,
+            ];
+            let poly = Polynomial::new(&evals);
+
+            // TODO append the prover's message to the transcript
+
+            // Squeeze Verifier Challenge for next round
+            let challenge = FieldElement::from_bytes_be(&transcript.challenge()).unwrap();
+            challenges.push(challenge.clone());
+
+            // bound all tables to the verifier's challenege
+            for (poly_a, poly_b) in poly_a.iter_mut().zip(poly_b.iter_mut()) {
+                poly_a.fix_variable(&challenge);
+                poly_b.fix_variable(&challenge);
+            }
+
+            prev_round_claim = poly.evaluate(&challenge);
+            round_uni_polys.push(poly);
+        }
+
+        SumcheckProof {
+            poly: poly_a[0].clone(),
+            sum: sum.clone(),
+            round_uni_polys,
+        }
     }
 
     // Special instance of sumcheck for a cubic polynomial with an additional additive term:
     // this is used in Spartan: (a * ((b * c) - d))
-    pub fn prove_cubic_additive_term(
+    pub fn prove_cubic_additive_term<E>(
         sum: &FieldElement<F>,
-        poly_a: &mut DenseMultilinearPolynomial<F>,
-        poly_b: &mut DenseMultilinearPolynomial<F>,
-        poly_c: &mut DenseMultilinearPolynomial<F>,
-        poly_d: &mut DenseMultilinearPolynomial<F>,
+        poly_a: &DenseMultilinearPolynomial<F>,
+        poly_b: &DenseMultilinearPolynomial<F>,
+        poly_c: &DenseMultilinearPolynomial<F>,
+        poly_d: &DenseMultilinearPolynomial<F>,
         comb_func: F,
         transcript: &mut impl Transcript,
-    ) -> SumcheckProof<F> {
-        todo!()
-    }
-
-    pub fn prove_product() -> SumcheckProof<F> {
+    ) -> SumcheckProof<F>
+    where
+        E: Fn(&FieldElement<F>, &FieldElement<F>) -> FieldElement<F> + Sync, {
         todo!()
     }
 
@@ -284,7 +396,6 @@ where
                 Polynomial::new(&eval_points)
             };
 
-            // TODO: add polynomial compression
             // TODO: Append poly to transcript -> Modify Transcript
 
             let challenge = FieldElement::from_bytes_be(&transcript.challenge()).unwrap();
@@ -313,13 +424,12 @@ where
     pub fn verify(
         proof: SumcheckProof<F>,
         transcript: &mut impl Transcript,
-    ) -> Result<(FieldElement<F>, Vec<FieldElement<F>>), SumcheckError> {
+    ) -> (FieldElement<F>, Vec<FieldElement<F>>) {
         let mut e = proof.sum.clone();
         let mut r: Vec<FieldElement<F>> = Vec::with_capacity(proof.poly.num_vars());
 
         // verify there is a univariate polynomial for each round
         // TODO: push this if up so that the proof struct enforces this invariant
-        assert_eq!(proof.round_uni_polys.len(), proof.poly.num_vars());
 
         for poly in proof.round_uni_polys {
             // Verify degree bound
@@ -336,31 +446,100 @@ where
 
             e = poly.evaluate(&challenge);
         }
-        Ok((proof.sum, r))
+        (proof.sum, r)
     }
 }
 
 #[cfg(test)]
 mod test {
+    use core::num;
+
     use crate::fiat_shamir::default_transcript::DefaultTranscript;
-    use crate::subprotocols::sumcheck::Sumcheck;
+    use crate::subprotocols::sumcheck::{Sumcheck, SumcheckProof};
     use lambdaworks_math::field::element::FieldElement;
     use lambdaworks_math::field::fields::fft_friendly::babybear::Babybear31PrimeField;
+    use lambdaworks_math::field::traits::IsField;
     use lambdaworks_math::polynomial::dense_multilinear_poly::DenseMultilinearPolynomial;
 
     type F = Babybear31PrimeField;
     type FE = FieldElement<F>;
 
+    pub fn index_to_field_bitvector<F: IsField>( value: usize, bits: usize) -> Vec<FieldElement<F>> {
+        let mut vec: Vec<FieldElement<F>> = Vec::with_capacity(bits);
+
+        for i in (0..bits).rev() {
+            if (value >> i) & 1 == 1 {
+                vec.push(FieldElement::one());
+            } else {
+                vec.push(FieldElement::zero());
+            }
+        }
+        vec
+    }
+
     #[test]
-    fn test_sumcheck_prover_verifier_correct_sum() {
-        // p = 2ab + 3bc
-        // [a, b, c] = [0, 1, 2]
-        // sum over boolean hypercube = 10
-        let p = DenseMultilinearPolynomial::<F>::new(vec![FE::from(2), FE::from(3)]);
-        let prover_transcript = DefaultTranscript::default();
-        let proof = Sumcheck::<F>::prove_single(&p, &FE::from(10), &mut prover_transcript);
-        assert_eq!(proof.round_uni_polys.len(), 3);
-        let verifier_transcript = DefaultTranscript::default();
-        assert!(Sumcheck::verify(proof, &mut verifier_transcript));
+    fn prove_cubic() {
+    // Create three dense polynomials (all the same)
+    let num_vars = 3;
+    let num_evals = (2usize).pow(num_vars as u32);
+    let mut evals: Vec<FieldElement<F>> = Vec::with_capacity(num_evals);
+    for i in 0..num_evals {
+     evals.push(FieldElement::from(8 + i as u64));
+    }
+
+    let a: DenseMultilinearPolynomial<F> = DenseMultilinearPolynomial::new(evals.clone());
+    let b: DenseMultilinearPolynomial<F> = DenseMultilinearPolynomial::new(evals.clone());
+    let c: DenseMultilinearPolynomial<F> = DenseMultilinearPolynomial::new(evals.clone());
+
+    let mut claim = FieldElement::<F>::zero();
+    for i in 0..num_evals {
+
+      claim += a.evaluate(&index_to_field_bitvector(i, num_vars)).unwrap()
+        * b.evaluate(&index_to_field_bitvector(i, num_vars)).unwrap()
+        * c.evaluate(&index_to_field_bitvector(i, num_vars)).unwrap();
+    }
+    let mut polys = [a.clone(), b.clone(), c.clone()];
+
+    let comb_func_prod =
+      |polys: &[FieldElement<F>; 3]| -> FieldElement<F> { polys.iter().fold(FieldElement::one(), |acc, poly| acc * *poly) };
+
+    let r = vec![FieldElement::from(3), FieldElement::from(1), FieldElement::from(3)]; // point 0,0,0 within the boolean hypercube
+
+    let mut transcript = DefaultTranscript::new();
+    let proof =
+      Sumcheck::<F>::prove_cubic(
+        &claim,
+        &poly_a,
+        &poly_b,
+        &poly_c,
+        comb_func_prod,
+        &mut transcript,
+      );
+
+    let mut transcript = DefaultTranscript::new();
+    let verify_result = Sumcheck::verify(proof, &mut transcript);
+    assert!(verify_result.is_ok());
+
+    let (verify_evaluation, verify_randomness) = verify_result.unwrap();
+    assert_eq!(prove_randomness, verify_randomness);
+    assert_eq!(prove_randomness, r);
+
+    // Consider this the opening proof to a(r) * b(r) * c(r)
+    let a = a.evaluate(prove_randomness.as_slice()).unwrap();
+    let b = b.evaluate(prove_randomness.as_slice()).unwrap();
+    let c = c.evaluate(prove_randomness.as_slice()).unwrap();
+
+    let oracle_query = a * b * c;
+    assert_eq!(verify_evaluation, oracle_query);
+    }
+
+    #[test]
+    fn prove_quad() {
+        
+    }
+
+    #[test]
+    fn prove_single() {
+
     }
 }

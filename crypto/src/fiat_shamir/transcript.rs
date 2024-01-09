@@ -8,7 +8,7 @@ use lambdaworks_math::{
 };
 
 pub trait Transcript {
-    fn append(&mut self, new_data: &impl ToTranscript);
+    fn append(&mut self, new_data: &[u8]);
 
     fn challenge(&mut self) -> [u8; 32];
 }
