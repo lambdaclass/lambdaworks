@@ -189,7 +189,7 @@ fn verify_proof(
     println!("  Time spent in verifying: {:?} \n", timer.elapsed());
 
     if proof_verified {
-        println!("Verification succeded");
+        println!("Verification succeeded");
     } else {
         println!("Verification failed");
     }
