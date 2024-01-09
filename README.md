@@ -14,13 +14,15 @@ This library provides efficient implementation of cryptographic primitives used 
 <!-- TOC -->
 
 - [LambdaWorks](#lambdaworks)
+  - [Table of contents](#table-of-contents)
   - [Documentation](#documentation)
   - [List of features](#list-of-features)
   - [Main crates](#main-crates)
     - [Crypto](#crypto)
   - [Examples - mini apps](#examples---mini-apps)
   - [Exercises and Challenges](#exercises-and-challenges)
-  - [Why did we build lambdaworks](#why-did-we-build-lambdaworks)
+  - [Citing Lambdaworks](#citing-lambdaworks)
+  - [Why we built Lambdaworks](#why-we-built-lambdaworks)
   - [Additional tooling usage](#additional-tooling-usage)
     - [Fuzzers](#fuzzers)
     - [Documentation building](#documentation-building)
@@ -108,16 +110,14 @@ This can be used in a multi prover setting for extra security, or as a standalon
 - [Cairo Prover](https://github.com/lambdaclass/lambdaworks/tree/main/provers/cairo)
 - [Groth 16](https://github.com/lambdaclass/lambdaworks/tree/main/provers/groth16)
 
-If you are interested in proving Cairo programs, use the Cairo Prover CLI. 
-
 ### Crypto
 - [Elliptic curves](https://github.com/lambdaclass/lambdaworks/tree/main/math/src/elliptic_curve)
 - [Multiscalar multiplication](https://github.com/lambdaclass/lambdaworks/tree/main/math/src/msm)
 - [Hashes](https://github.com/lambdaclass/lambdaworks/tree/main/crypto/src/hash)
 
-Finite Field crate fully supports no-std with `no-default-features`
+Most of math and crypto crates supports no-std without allocation with `no-default-features`. A few functions and modules require the `alloc` feature.
 
-Both Math and Crypto support wasm with target `wasm32-unknown-unknown` by default, with `std` feature.
+Both Math and Crypto support wasm with target `wasm32-unknown-unknown`. To see an example of how to use this to deploy a verifier in a browser, check the Cairo Prover wasm-pack verifier.
 
 ## Examples - mini apps
 - [Merkle Tree CLI](https://github.com/lambdaclass/lambdaworks/tree/main/examples/merkle-tree-cli)
