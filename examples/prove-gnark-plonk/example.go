@@ -75,20 +75,28 @@ func ToJSON(_r1cs *cs.SparseR1CS, pk *plonk_bls12381.ProvingKey, fullWitness wit
 	constraint_list := _r1cs.GetSparseR1Cs()
 
 	fmt.Println("Coeffs")
-	fmt.Println(_r1cs.Coefficients)
+	fmt.Println(_r1cs.Coefficients[0].Text(16))
+	fmt.Println(_r1cs.Coefficients[1].Text(16))
+	fmt.Println(_r1cs.Coefficients[2].Text(16))
+	fmt.Println(_r1cs.Coefficients[3].Text(16))
+	fmt.Println("")
 
 	for i := 0; i < nbConstraints; i++ { // constraints
 		Ql = append(Ql, _r1cs.Coefficients[int(constraint_list[i].QL)].Text(16))
 
-		fmt.Println("Index QL,QR,QO")
+		fmt.Println("Constraint")
+		fmt.Println("Index QL,QR,QO, QM, QC")
 		fmt.Println(constraint_list[i].QL)
 		fmt.Println(constraint_list[i].QR)
 		fmt.Println(constraint_list[i].QO)
+		fmt.Println(constraint_list[i].QM)
+		fmt.Println(constraint_list[i].QC)
 
 		fmt.Println("Values")
-		fmt.Println(_r1cs.Coefficients[int(constraint_list[i].QL)])
-		fmt.Println(_r1cs.Coefficients[int(constraint_list[i].QR)])
-		fmt.Println(_r1cs.Coefficients[int(constraint_list[i].QO)])
+		fmt.Println(_r1cs.Coefficients[int(constraint_list[i].QL)].Text(16))
+		fmt.Println(_r1cs.Coefficients[int(constraint_list[i].QR)].Text(16))
+		fmt.Println(_r1cs.Coefficients[int(constraint_list[i].QO)].Text(16))
+		fmt.Println("")
 
 		Qr = append(Qr, _r1cs.Coefficients[int(constraint_list[i].QR)].Text(16))
 
@@ -99,7 +107,7 @@ func ToJSON(_r1cs *cs.SparseR1CS, pk *plonk_bls12381.ProvingKey, fullWitness wit
 
 		*/
 		new_Qm.Set(&_r1cs.Coefficients[int(constraint_list[i].QM)])
-		new_Qm.Double(&new_Qm)
+		// new_Qm.Double(&new_Qm)
 		Qm = append(Qm, new_Qm.Text(16))
 
 		Qo = append(Qo, _r1cs.Coefficients[int(constraint_list[i].QO)].Text(16))
@@ -111,18 +119,34 @@ func ToJSON(_r1cs *cs.SparseR1CS, pk *plonk_bls12381.ProvingKey, fullWitness wit
 	var _solution, _ = _r1cs.Solve(fullWitness)
 	abc := _solution.(*cs.SparseR1CSSolution)
 
+	fmt.Println("L = A")
+	fmt.Println(abc.L)
+	fmt.Println("R = B")
+	fmt.Println(abc.R)
+	fmt.Println("O = C")
+	fmt.Println(abc.O)
+
 	var a, b, c []string
-	for i := 0; i < len(_r1cs.Public); i++ {
-		a = append(a, witnessPublic[i].Text(16))
-		b = append(b, witnessPublic[0].Text(16))
-		c = append(c, witnessPublic[0].Text(16))
-	}
-	for i := 0; i < nbConstraints; i++ { // constraints
+
+	for i := 0; i < abc.L.Len(); i++ {
 		a = append(a, abc.L[i].Text(16))
 		b = append(b, abc.R[i].Text(16))
 		c = append(c, abc.O[i].Text(16))
 	}
+	/*
+		var a, b, c []string
+		for i := 0; i < len(_r1cs.Public); i++ {
+			a = append(a, witnessPublic[i].Text(16))
+			b = append(b, witnessPublic[0].Text(16))
+			c = append(c, witnessPublic[0].Text(16))
+		}
 
+		for i := 0; i < nbConstraints; i++ { // constraints
+			a = append(a, abc.L[i].Text(16))
+			b = append(b, abc.R[i].Text(16))
+			c = append(c, abc.O[i].Text(16))
+		}
+	*/
 	var input []string
 	for i := 0; i < len(_r1cs.Public); i++ {
 		input = append(input, witnessPublic[i].Text(16))
@@ -143,7 +167,8 @@ func ToJSON(_r1cs *cs.SparseR1CS, pk *plonk_bls12381.ProvingKey, fullWitness wit
 	var trace_pointer plonk_bls12381.Trace = rf.Interface().(plonk_bls12381.Trace)
 
 	s := trace_pointer.S
-	log.Println(s)
+	fmt.Println("Trace Permutation")
+	fmt.Println(s)
 
 	data := SerializedCircuit{
 		N:           n,
@@ -179,7 +204,7 @@ type Circuit struct {
 // Define declares the circuit's constraints
 // y == x**e
 func (circuit *Circuit) Define(api frontend.API) error {
-	api.AssertIsEqual(circuit.Y, api.Add(circuit.X, circuit.X))
+	api.AssertIsEqual(circuit.Y, api.Mul(circuit.X, circuit.X))
 	return nil
 }
 
@@ -215,8 +240,8 @@ func main() {
 		// Witnesses instantiation. Witness is known only by the prover,
 		// while public w is a public data known by the verifier.
 		var w Circuit
-		w.X = 1
-		w.Y = 2
+		w.X = 3
+		w.Y = 9
 
 		witnessFull, err := frontend.NewWitness(&w, ecc.BLS12_381.ScalarField())
 
