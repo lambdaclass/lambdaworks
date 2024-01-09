@@ -54,7 +54,10 @@ where
     pub fn evaluate(&self, r: Vec<FieldElement<F>>) -> Result<FieldElement<F>, MultilinearError> {
         // r must have a value for each variable
         if r.len() != self.num_vars() {
-            return Err(MultilinearError::IncorrectNumberofEvaluationPoints(r.len(), self.num_vars()));
+            return Err(MultilinearError::IncorrectNumberofEvaluationPoints(
+                r.len(),
+                self.num_vars(),
+            ));
         }
 
         let mut chis: Vec<FieldElement<F>> =
@@ -69,7 +72,10 @@ where
             }
         }
         if chis.len() != self.evals.len() {
-            return Err(MultilinearError::ChisAndEvalsMismatch(chis.len(), self.evals.len()));
+            return Err(MultilinearError::ChisAndEvalsMismatch(
+                chis.len(),
+                self.evals.len(),
+            ));
         }
         #[cfg(feature = "rayon")]
         let iter = (0..chis.len()).into_par_iter();
@@ -95,11 +101,15 @@ where
             }
         }
         if chis.len() != evals.len() {
-            return Err(MultilinearError::ChisAndEvalsMismatch(chis.len(), evals.len()));
+            return Err(MultilinearError::ChisAndEvalsMismatch(
+                chis.len(),
+                evals.len(),
+            ));
         }
         Ok((0..evals.len()).map(|i| &evals[i] * &chis[i]).sum())
     }
 
+    //TODO; remove asserts
     pub fn extend(&mut self, other: &DenseMultilinearPolynomial<F>) {
         assert_eq!(self.evals.len(), self.len);
         let other = other.evals.clone();
