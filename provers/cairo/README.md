@@ -8,7 +8,7 @@
 
 This prover is still in development and may contain bugs. It is not intended to be used in production yet.
 
-Please check issues under security label, and wait for them to be resolved if they are relevant to your project. Currently builtins are not proven, and checks over public inputs are not enforced.
+Please check issues under security label, and wait for them to be resolved if they are relevant to your project.
 
 ## [Cairo Platinum Prover Docs](<[lambdaclass.github.io/lambdaworks/](https://github.com/lambdaclass/lambdaworks/blob/main/provers/cairo/README.md)>)
 
@@ -120,6 +120,10 @@ For example:
 ```bash
 cargo run --release --features=cli,instruments,parallel compile-prove-and-verify cairo_programs/cairo0/fibonacci_5.cairo
 ```
+
+### Build Package for web verifier 
+
+To build the node library to use the verifier on the browser, use `build_wasm`. Using as proof options the ones that match the CLI, or your configuration, you can send the proof to the exposed function and verify it seamlessly.
 
 ### Run CLI as a binary
 
