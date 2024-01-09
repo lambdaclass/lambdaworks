@@ -1,9 +1,8 @@
+use crate::Felt252;
 use lambdaworks_math::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;
 use stark_platinum_prover::{
     constraints::transition::TransitionConstraint, frame::Frame, table::TableView,
 };
-
-use crate::Felt252;
 
 #[derive(Clone)]
 pub struct BitPrefixFlag0;
@@ -72,7 +71,7 @@ impl TransitionConstraint<Stark252PrimeField> for BitPrefixFlag1 {
         &self,
         frame: &stark_platinum_prover::frame::Frame<Stark252PrimeField>,
         transition_evaluations: &mut [Felt252],
-        periodic_values: &[Felt252],
+        _periodic_values: &[Felt252],
         rap_challenges: &[Felt252],
     ) {
         let current_step = frame.get_evaluation_step(0);
@@ -118,7 +117,7 @@ impl TransitionConstraint<Stark252PrimeField> for BitPrefixFlag2 {
         &self,
         frame: &stark_platinum_prover::frame::Frame<Stark252PrimeField>,
         transition_evaluations: &mut [Felt252],
-        periodic_values: &[Felt252],
+        _periodic_values: &[Felt252],
         rap_challenges: &[Felt252],
     ) {
         let current_step = frame.get_evaluation_step(0);
@@ -211,7 +210,7 @@ impl TransitionConstraint<Stark252PrimeField> for BitPrefixFlag4 {
         frame: &stark_platinum_prover::frame::Frame<Stark252PrimeField>,
         transition_evaluations: &mut [Felt252],
         _periodic_values: &[Felt252],
-        rap_challenges: &[Felt252],
+        _rap_challenges: &[Felt252],
     ) {
         let current_step = frame.get_evaluation_step(0);
 
@@ -1279,11 +1278,14 @@ impl TransitionConstraint<Stark252PrimeField> for CpuOperandsMem0Addr {
         let two = Felt252::from(2);
         let one = Felt252::one();
         let b15 = two.pow(15u32);
+
         let op0_fp = current_step.get_evaluation_element(0, 1)
             - two * current_step.get_evaluation_element(0, 2);
+
         let ap = current_step.get_evaluation_element(0, 17);
         let fp = current_step.get_evaluation_element(0, 18);
-        let off_op0 = current_step.get_evaluation_element(0, 29);
+
+        let off_op0 = current_step.get_evaluation_element(0, 28);
         let op0_addr = current_step.get_evaluation_element(0, 21);
 
         let res = op0_fp * fp + (one - op0_fp) * ap + (off_op0 - b15) - op0_addr;
@@ -2283,7 +2285,7 @@ impl TransitionConstraint<Stark252PrimeField> for MemoryMultiColumnPermStep0_0 {
         &self,
         frame: &Frame<Stark252PrimeField>,
         transition_evaluations: &mut [Felt252],
-        periodic_values: &[Felt252],
+        _periodic_values: &[Felt252],
         rap_challenges: &[Felt252],
     ) {
         let current_step = frame.get_evaluation_step(0);
@@ -2327,7 +2329,7 @@ impl TransitionConstraint<Stark252PrimeField> for MemoryMultiColumnPermStep0_1 {
         &self,
         frame: &Frame<Stark252PrimeField>,
         transition_evaluations: &mut [Felt252],
-        periodic_values: &[Felt252],
+        _periodic_values: &[Felt252],
         rap_challenges: &[Felt252],
     ) {
         let current_step = frame.get_evaluation_step(0);
@@ -2371,7 +2373,7 @@ impl TransitionConstraint<Stark252PrimeField> for MemoryMultiColumnPermStep0_2 {
         &self,
         frame: &Frame<Stark252PrimeField>,
         transition_evaluations: &mut [Felt252],
-        periodic_values: &[Felt252],
+        _periodic_values: &[Felt252],
         rap_challenges: &[Felt252],
     ) {
         let current_step = frame.get_evaluation_step(0);
@@ -2415,7 +2417,7 @@ impl TransitionConstraint<Stark252PrimeField> for MemoryMultiColumnPermStep0_3 {
         &self,
         frame: &Frame<Stark252PrimeField>,
         transition_evaluations: &mut [Felt252],
-        periodic_values: &[Felt252],
+        _periodic_values: &[Felt252],
         rap_challenges: &[Felt252],
     ) {
         let current_step = frame.get_evaluation_step(0);
@@ -2459,7 +2461,7 @@ impl TransitionConstraint<Stark252PrimeField> for MemoryMultiColumnPermStep0_4 {
         &self,
         frame: &Frame<Stark252PrimeField>,
         transition_evaluations: &mut [Felt252],
-        periodic_values: &[Felt252],
+        _periodic_values: &[Felt252],
         rap_challenges: &[Felt252],
     ) {
         let current_step = frame.get_evaluation_step(0);
@@ -2505,7 +2507,7 @@ impl TransitionConstraint<Stark252PrimeField> for Rc16DiffIsBit0 {
         &self,
         frame: &Frame<Stark252PrimeField>,
         transition_evaluations: &mut [Felt252],
-        periodic_values: &[Felt252],
+        _periodic_values: &[Felt252],
         rap_challenges: &[Felt252],
     ) {
         let current_step = frame.get_evaluation_step(0);
@@ -2544,7 +2546,7 @@ impl TransitionConstraint<Stark252PrimeField> for Rc16DiffIsBit1 {
         &self,
         frame: &Frame<Stark252PrimeField>,
         transition_evaluations: &mut [Felt252],
-        periodic_values: &[Felt252],
+        _periodic_values: &[Felt252],
         rap_challenges: &[Felt252],
     ) {
         let current_step = frame.get_evaluation_step(0);
@@ -2583,7 +2585,7 @@ impl TransitionConstraint<Stark252PrimeField> for Rc16DiffIsBit2 {
         &self,
         frame: &Frame<Stark252PrimeField>,
         transition_evaluations: &mut [Felt252],
-        periodic_values: &[Felt252],
+        _periodic_values: &[Felt252],
         rap_challenges: &[Felt252],
     ) {
         let current_step = frame.get_evaluation_step(0);
@@ -2622,7 +2624,7 @@ impl TransitionConstraint<Stark252PrimeField> for Rc16DiffIsBit3 {
         &self,
         frame: &Frame<Stark252PrimeField>,
         transition_evaluations: &mut [Felt252],
-        periodic_values: &[Felt252],
+        _periodic_values: &[Felt252],
         rap_challenges: &[Felt252],
     ) {
         let current_step = frame.get_evaluation_step(0);
@@ -2663,7 +2665,7 @@ impl TransitionConstraint<Stark252PrimeField> for Rc16PermStep0_0 {
         &self,
         frame: &Frame<Stark252PrimeField>,
         transition_evaluations: &mut [Felt252],
-        periodic_values: &[Felt252],
+        _periodic_values: &[Felt252],
         rap_challenges: &[Felt252],
     ) {
         let current_step = frame.get_evaluation_step(0);
@@ -2703,7 +2705,7 @@ impl TransitionConstraint<Stark252PrimeField> for Rc16PermStep0_1 {
         &self,
         frame: &Frame<Stark252PrimeField>,
         transition_evaluations: &mut [Felt252],
-        periodic_values: &[Felt252],
+        _periodic_values: &[Felt252],
         rap_challenges: &[Felt252],
     ) {
         let current_step = frame.get_evaluation_step(0);
@@ -2743,7 +2745,7 @@ impl TransitionConstraint<Stark252PrimeField> for Rc16PermStep0_2 {
         &self,
         frame: &Frame<Stark252PrimeField>,
         transition_evaluations: &mut [Felt252],
-        periodic_values: &[Felt252],
+        _periodic_values: &[Felt252],
         rap_challenges: &[Felt252],
     ) {
         let current_step = frame.get_evaluation_step(0);
@@ -2783,7 +2785,7 @@ impl TransitionConstraint<Stark252PrimeField> for Rc16PermStep0_3 {
         &self,
         frame: &Frame<Stark252PrimeField>,
         transition_evaluations: &mut [Felt252],
-        periodic_values: &[Felt252],
+        _periodic_values: &[Felt252],
         rap_challenges: &[Felt252],
     ) {
         let current_step = frame.get_evaluation_step(0);
