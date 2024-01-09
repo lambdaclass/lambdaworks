@@ -635,6 +635,8 @@ impl AIR for CairoAIR {
     ) -> Self {
         debug_assert!(trace_length.is_power_of_two());
 
+        println!("TRACE LENGTH: {}", trace_length);
+
         let trace_columns = 59;
         let transition_exemptions = vec![
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // flags (16)
@@ -691,9 +693,9 @@ impl AIR for CairoAIR {
             Box::new(CpuOperandsMemDstAddr::new()),
             Box::new(CpuOperandsMem0Addr::new()),
             Box::new(CpuOperandsMem1Addr::new()),
-            Box::new(CpuUpdateRegistersApUpdate::new()),
+            // Box::new(CpuUpdateRegistersApUpdate::new()),
             Box::new(CpuUpdateRegistersFpUpdate::new()),
-            Box::new(CpuUpdateRegistersPcCondNegative::new()),
+            // Box::new(CpuUpdateRegistersPcCondNegative::new()),
             Box::new(CpuUpdateRegistersPcCondPositive::new()),
             Box::new(CpuUpdateRegistersUpdatePcTmp0::new()),
             Box::new(CpuUpdateRegistersUpdatePcTmp1::new()),
@@ -706,28 +708,28 @@ impl AIR for CairoAIR {
             Box::new(MemoryDiffIsBit1::new()),
             Box::new(MemoryDiffIsBit2::new()),
             Box::new(MemoryDiffIsBit3::new()),
-            Box::new(MemoryDiffIsBit4::new()),
+            // Box::new(MemoryDiffIsBit4::new()),
             Box::new(MemoryIsFunc0::new()),
             Box::new(MemoryIsFunc1::new()),
             Box::new(MemoryIsFunc2::new()),
             Box::new(MemoryIsFunc3::new()),
-            Box::new(MemoryIsFunc4::new()),
+            // Box::new(MemoryIsFunc4::new()),
             Box::new(MemoryMultiColumnPermStep0_0::new()),
             Box::new(MemoryMultiColumnPermStep0_1::new()),
             Box::new(MemoryMultiColumnPermStep0_2::new()),
             Box::new(MemoryMultiColumnPermStep0_3::new()),
-            Box::new(MemoryMultiColumnPermStep0_4::new()),
+            // Box::new(MemoryMultiColumnPermStep0_4::new()),
             Box::new(Rc16DiffIsBit0::new()),
             Box::new(Rc16DiffIsBit1::new()),
             Box::new(Rc16DiffIsBit2::new()),
-            Box::new(Rc16DiffIsBit3::new()),
+            // Box::new(Rc16DiffIsBit3::new()),
             Box::new(Rc16PermStep0_0::new()),
             Box::new(Rc16PermStep0_1::new()),
             Box::new(Rc16PermStep0_2::new()),
             Box::new(Rc16PermStep0_3::new()),
         ];
 
-        assert_eq!(transition_constraints.len(), 64);
+        // assert_eq!(transition_constraints.len(), 64);
 
         let context = AirContext {
             proof_options: proof_options.clone(),
@@ -1185,54 +1187,164 @@ impl AIR for CairoAIR {
 //     constraints[ASSERT_EQ] = opc_aeq * (dst - res);
 // }
 
-// fn memory_is_increasing(constraints: &mut [Felt252], frame: &Frame<Stark252PrimeField>) {
+fn memory_is_increasing(constraints: &mut [Felt252], frame: &Frame<Stark252PrimeField>) {
+    let curr = frame.get_evaluation_step(0);
+    let next = frame.get_evaluation_step(1);
+    let one = FieldElement::one();
+
+    let mem_addr_sorted_0 = curr.get_evaluation_element(0, MEMORY_ADDR_SORTED_0);
+    let mem_addr_sorted_1 = curr.get_evaluation_element(0, MEMORY_ADDR_SORTED_1);
+    let mem_addr_sorted_2 = curr.get_evaluation_element(0, MEMORY_ADDR_SORTED_2);
+    let mem_addr_sorted_3 = curr.get_evaluation_element(0, MEMORY_ADDR_SORTED_3);
+    let mem_addr_sorted_4 = curr.get_evaluation_element(0, MEMORY_ADDR_SORTED_4);
+    let next_mem_addr_sorted_0 = next.get_evaluation_element(0, MEMORY_ADDR_SORTED_0);
+
+    let mem_val_sorted_0 = curr.get_evaluation_element(0, MEMORY_VALUES_SORTED_0);
+    let mem_val_sorted_1 = curr.get_evaluation_element(0, MEMORY_VALUES_SORTED_1);
+    let mem_val_sorted_2 = curr.get_evaluation_element(0, MEMORY_VALUES_SORTED_2);
+    let mem_val_sorted_3 = curr.get_evaluation_element(0, MEMORY_VALUES_SORTED_3);
+    let mem_val_sorted_4 = curr.get_evaluation_element(0, MEMORY_VALUES_SORTED_4);
+    let next_mem_val_sorted_0 = next.get_evaluation_element(0, MEMORY_VALUES_SORTED_0);
+
+    constraints[MEMORY_INCREASING_0] =
+        (mem_addr_sorted_0 - mem_addr_sorted_1) * (mem_addr_sorted_1 - mem_addr_sorted_0 - one);
+
+    constraints[MEMORY_INCREASING_1] =
+        (mem_addr_sorted_1 - mem_addr_sorted_2) * (mem_addr_sorted_2 - mem_addr_sorted_1 - one);
+
+    constraints[MEMORY_INCREASING_2] =
+        (mem_addr_sorted_2 - mem_addr_sorted_3) * (mem_addr_sorted_3 - mem_addr_sorted_2 - one);
+
+    constraints[MEMORY_INCREASING_3] =
+        (mem_addr_sorted_3 - mem_addr_sorted_4) * (mem_addr_sorted_4 - mem_addr_sorted_3 - one);
+
+    constraints[MEMORY_INCREASING_4] = (mem_addr_sorted_4 - next_mem_addr_sorted_0)
+        * (next_mem_addr_sorted_0 - mem_addr_sorted_4 - one);
+
+    constraints[MEMORY_CONSISTENCY_0] =
+        (mem_val_sorted_0 - mem_val_sorted_1) * (mem_addr_sorted_1 - mem_addr_sorted_0 - one);
+
+    constraints[MEMORY_CONSISTENCY_1] =
+        (mem_val_sorted_1 - mem_val_sorted_2) * (mem_addr_sorted_2 - mem_addr_sorted_1 - one);
+
+    constraints[MEMORY_CONSISTENCY_2] =
+        (mem_val_sorted_2 - mem_val_sorted_3) * (mem_addr_sorted_3 - mem_addr_sorted_2 - one);
+
+    constraints[MEMORY_CONSISTENCY_3] =
+        (mem_val_sorted_3 - mem_val_sorted_4) * (mem_addr_sorted_4 - mem_addr_sorted_3 - one);
+
+    constraints[MEMORY_CONSISTENCY_4] = (mem_val_sorted_4 - next_mem_val_sorted_0)
+        * (next_mem_addr_sorted_0 - mem_addr_sorted_4 - one);
+}
+
+// fn permutation_argument(
+//     constraints: &mut [Felt252],
+//     frame: &Frame<Stark252PrimeField>,
+//     rap_challenges: &CairoRAPChallenges,
+// ) {
 //     let curr = frame.get_evaluation_step(0);
 //     let next = frame.get_evaluation_step(1);
-//     let one = FieldElement::one();
 
-//     let mem_addr_sorted_0 = curr.get_evaluation_element(0, MEMORY_ADDR_SORTED_0);
-//     let mem_addr_sorted_1 = curr.get_evaluation_element(0, MEMORY_ADDR_SORTED_1);
-//     let mem_addr_sorted_2 = curr.get_evaluation_element(0, MEMORY_ADDR_SORTED_2);
-//     let mem_addr_sorted_3 = curr.get_evaluation_element(0, MEMORY_ADDR_SORTED_3);
-//     let mem_addr_sorted_4 = curr.get_evaluation_element(0, MEMORY_ADDR_SORTED_4);
-//     let next_mem_addr_sorted_0 = next.get_evaluation_element(0, MEMORY_ADDR_SORTED_0);
+//     let z = &rap_challenges.z_memory;
+//     let alpha = &rap_challenges.alpha_memory;
 
-//     let mem_val_sorted_0 = curr.get_evaluation_element(0, MEMORY_VALUES_SORTED_0);
-//     let mem_val_sorted_1 = curr.get_evaluation_element(0, MEMORY_VALUES_SORTED_1);
-//     let mem_val_sorted_2 = curr.get_evaluation_element(0, MEMORY_VALUES_SORTED_2);
-//     let mem_val_sorted_3 = curr.get_evaluation_element(0, MEMORY_VALUES_SORTED_3);
-//     let mem_val_sorted_4 = curr.get_evaluation_element(0, MEMORY_VALUES_SORTED_4);
-//     let next_mem_val_sorted_0 = next.get_evaluation_element(0, MEMORY_VALUES_SORTED_0);
+//     let p0 = curr.get_evaluation_element(0, PERMUTATION_ARGUMENT_COL_0);
+//     let next_p0 = next.get_evaluation_element(0, PERMUTATION_ARGUMENT_COL_0);
+//     let p1 = curr.get_evaluation_element(0, PERMUTATION_ARGUMENT_COL_1);
+//     let p2 = curr.get_evaluation_element(0, PERMUTATION_ARGUMENT_COL_2);
+//     let p3 = curr.get_evaluation_element(0, PERMUTATION_ARGUMENT_COL_3);
+//     let p4 = curr.get_evaluation_element(0, PERMUTATION_ARGUMENT_COL_4);
 
-//     constraints[MEMORY_INCREASING_0] =
-//         (mem_addr_sorted_0 - mem_addr_sorted_1) * (mem_addr_sorted_1 - mem_addr_sorted_0 - one);
+//     let next_ap0 = next.get_evaluation_element(0, MEMORY_ADDR_SORTED_0);
+//     let ap1 = curr.get_evaluation_element(0, MEMORY_ADDR_SORTED_1);
+//     let ap2 = curr.get_evaluation_element(0, MEMORY_ADDR_SORTED_2);
+//     let ap3 = curr.get_evaluation_element(0, MEMORY_ADDR_SORTED_3);
+//     let ap4 = curr.get_evaluation_element(0, MEMORY_ADDR_SORTED_4);
 
-//     constraints[MEMORY_INCREASING_1] =
-//         (mem_addr_sorted_1 - mem_addr_sorted_2) * (mem_addr_sorted_2 - mem_addr_sorted_1 - one);
+//     let next_vp0 = next.get_evaluation_element(0, MEMORY_VALUES_SORTED_0);
+//     let vp1 = curr.get_evaluation_element(0, MEMORY_VALUES_SORTED_1);
+//     let vp2 = curr.get_evaluation_element(0, MEMORY_VALUES_SORTED_2);
+//     let vp3 = curr.get_evaluation_element(0, MEMORY_VALUES_SORTED_3);
+//     let vp4 = curr.get_evaluation_element(0, MEMORY_VALUES_SORTED_4);
 
-//     constraints[MEMORY_INCREASING_2] =
-//         (mem_addr_sorted_2 - mem_addr_sorted_3) * (mem_addr_sorted_3 - mem_addr_sorted_2 - one);
+//     let next_a0 = next.get_evaluation_element(0, FRAME_PC);
+//     let a1 = curr.get_evaluation_element(0, FRAME_DST_ADDR);
+//     let a2 = curr.get_evaluation_element(0, FRAME_OP0_ADDR);
+//     let a3 = curr.get_evaluation_element(0, FRAME_OP1_ADDR);
+//     let a4 = curr.get_evaluation_element(0, EXTRA_ADDR);
 
-//     constraints[MEMORY_INCREASING_3] =
-//         (mem_addr_sorted_3 - mem_addr_sorted_4) * (mem_addr_sorted_4 - mem_addr_sorted_3 - one);
+//     let next_v0 = next.get_evaluation_element(0, FRAME_INST);
+//     let v1 = curr.get_evaluation_element(0, FRAME_DST);
+//     let v2 = curr.get_evaluation_element(0, FRAME_OP0);
+//     let v3 = curr.get_evaluation_element(0, FRAME_OP1);
+//     let v4 = curr.get_evaluation_element(0, EXTRA_VAL);
 
-//     constraints[MEMORY_INCREASING_4] = (mem_addr_sorted_4 - next_mem_addr_sorted_0)
-//         * (next_mem_addr_sorted_0 - mem_addr_sorted_4 - one);
+//     constraints[PERMUTATION_ARGUMENT_0] =
+//         (z - (ap1 + alpha * vp1)) * p1 - (z - (a1 + alpha * v1)) * p0;
+//     constraints[PERMUTATION_ARGUMENT_1] =
+//         (z - (ap2 + alpha * vp2)) * p2 - (z - (a2 + alpha * v2)) * p1;
+//     constraints[PERMUTATION_ARGUMENT_2] =
+//         (z - (ap3 + alpha * vp3)) * p3 - (z - (a3 + alpha * v3)) * p2;
+//     constraints[PERMUTATION_ARGUMENT_3] =
+//         (z - (ap4 + alpha * vp4)) * p4 - (z - (a4 + alpha * v4)) * p3;
+//     constraints[PERMUTATION_ARGUMENT_4] =
+//         (z - (next_ap0 + alpha * next_vp0)) * next_p0 - (z - (next_a0 + alpha * next_v0)) * p4;
+// }
+// }
 
-//     constraints[MEMORY_CONSISTENCY_0] =
-//         (mem_val_sorted_0 - mem_val_sorted_1) * (mem_addr_sorted_1 - mem_addr_sorted_0 - one);
+// fn permutation_argument(
+//     constraints: &mut [Felt252],
+//     frame: &Frame<Stark252PrimeField>,
+//     rap_challenges: &CairoRAPChallenges,
+// ) {
+//     let curr = frame.get_evaluation_step(0);
+//     let next = frame.get_evaluation_step(1);
 
-//     constraints[MEMORY_CONSISTENCY_1] =
-//         (mem_val_sorted_1 - mem_val_sorted_2) * (mem_addr_sorted_2 - mem_addr_sorted_1 - one);
+//     let z = &rap_challenges.z_memory;
+//     let alpha = &rap_challenges.alpha_memory;
 
-//     constraints[MEMORY_CONSISTENCY_2] =
-//         (mem_val_sorted_2 - mem_val_sorted_3) * (mem_addr_sorted_3 - mem_addr_sorted_2 - one);
+//     let p0 = curr.get_evaluation_element(0, PERMUTATION_ARGUMENT_COL_0);
+//     let next_p0 = next.get_evaluation_element(0, PERMUTATION_ARGUMENT_COL_0);
+//     let p1 = curr.get_evaluation_element(0, PERMUTATION_ARGUMENT_COL_1);
+//     let p2 = curr.get_evaluation_element(0, PERMUTATION_ARGUMENT_COL_2);
+//     let p3 = curr.get_evaluation_element(0, PERMUTATION_ARGUMENT_COL_3);
+//     let p4 = curr.get_evaluation_element(0, PERMUTATION_ARGUMENT_COL_4);
 
-//     constraints[MEMORY_CONSISTENCY_3] =
-//         (mem_val_sorted_3 - mem_val_sorted_4) * (mem_addr_sorted_4 - mem_addr_sorted_3 - one);
+//     let next_ap0 = next.get_evaluation_element(0, MEMORY_ADDR_SORTED_0);
+//     let ap1 = curr.get_evaluation_element(0, MEMORY_ADDR_SORTED_1);
+//     let ap2 = curr.get_evaluation_element(0, MEMORY_ADDR_SORTED_2);
+//     let ap3 = curr.get_evaluation_element(0, MEMORY_ADDR_SORTED_3);
+//     let ap4 = curr.get_evaluation_element(0, MEMORY_ADDR_SORTED_4);
 
-//     constraints[MEMORY_CONSISTENCY_4] = (mem_val_sorted_4 - next_mem_val_sorted_0)
-//         * (next_mem_addr_sorted_0 - mem_addr_sorted_4 - one);
+//     let next_vp0 = next.get_evaluation_element(0, MEMORY_VALUES_SORTED_0);
+//     let vp1 = curr.get_evaluation_element(0, MEMORY_VALUES_SORTED_1);
+//     let vp2 = curr.get_evaluation_element(0, MEMORY_VALUES_SORTED_2);
+//     let vp3 = curr.get_evaluation_element(0, MEMORY_VALUES_SORTED_3);
+//     let vp4 = curr.get_evaluation_element(0, MEMORY_VALUES_SORTED_4);
+
+//     let next_a0 = next.get_evaluation_element(0, FRAME_PC);
+//     let a1 = curr.get_evaluation_element(0, FRAME_DST_ADDR);
+//     let a2 = curr.get_evaluation_element(0, FRAME_OP0_ADDR);
+//     let a3 = curr.get_evaluation_element(0, FRAME_OP1_ADDR);
+//     let a4 = curr.get_evaluation_element(0, EXTRA_ADDR);
+
+//     let next_v0 = next.get_evaluation_element(0, FRAME_INST);
+//     let v1 = curr.get_evaluation_element(0, FRAME_DST);
+//     let v2 = curr.get_evaluation_element(0, FRAME_OP0);
+//     let v3 = curr.get_evaluation_element(0, FRAME_OP1);
+//     let v4 = curr.get_evaluation_element(0, EXTRA_VAL);
+
+//     constraints[PERMUTATION_ARGUMENT_0] =
+//         (z - (ap1 + alpha * vp1)) * p1 - (z - (a1 + alpha * v1)) * p0;
+//     constraints[PERMUTATION_ARGUMENT_1] =
+//         (z - (ap2 + alpha * vp2)) * p2 - (z - (a2 + alpha * v2)) * p1;
+//     constraints[PERMUTATION_ARGUMENT_2] =
+//         (z - (ap3 + alpha * vp3)) * p3 - (z - (a3 + alpha * v3)) * p2;
+//     constraints[PERMUTATION_ARGUMENT_3] =
+//         (z - (ap4 + alpha * vp4)) * p4 - (z - (a4 + alpha * v4)) * p3;
+//     constraints[PERMUTATION_ARGUMENT_4] =
+//         (z - (next_ap0 + alpha * next_vp0)) * next_p0 - (z - (next_a0 + alpha * next_v0)) * p4;
+// }
 // }
 
 // fn permutation_argument(

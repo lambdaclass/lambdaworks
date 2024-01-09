@@ -751,10 +751,14 @@ impl TransitionConstraint<Stark252PrimeField> for FlagOp1BaseOp0BitConstraint {
         let current_step = frame.get_evaluation_step(0);
 
         let one = Felt252::one();
+        let two = Felt252::from(2);
 
-        let f_op1_imm = current_step.get_evaluation_element(0, 2);
-        let f_op1_fp = current_step.get_evaluation_element(0, 3);
-        let f_op1_ap = current_step.get_evaluation_element(0, 4);
+        let f_op1_imm = current_step.get_evaluation_element(0, 2)
+            - two * current_step.get_evaluation_element(0, 3);
+        let f_op1_fp = current_step.get_evaluation_element(0, 3)
+            - two * current_step.get_evaluation_element(0, 4);
+        let f_op1_ap = current_step.get_evaluation_element(0, 4)
+            - two * current_step.get_evaluation_element(0, 5);
 
         let f_op1_base_op0_bit = one - f_op1_imm - f_op1_fp - f_op1_ap;
 
@@ -794,10 +798,14 @@ impl TransitionConstraint<Stark252PrimeField> for FlagResOp1BitConstraint {
         let current_step = frame.get_evaluation_step(0);
 
         let one = Felt252::one();
+        let two = Felt252::from(2);
 
-        let f_res_add = current_step.get_evaluation_element(0, 5);
-        let f_res_mul = current_step.get_evaluation_element(0, 6);
-        let f_pc_jnz = current_step.get_evaluation_element(0, 9);
+        let f_res_add = current_step.get_evaluation_element(0, 5)
+            - two * current_step.get_evaluation_element(0, 6);
+        let f_res_mul = current_step.get_evaluation_element(0, 6)
+            - two * current_step.get_evaluation_element(0, 7);
+        let f_pc_jnz = current_step.get_evaluation_element(0, 9)
+            - two * current_step.get_evaluation_element(0, 10);
 
         let f_res_op1_bit = one - f_res_add - f_res_mul - f_pc_jnz;
 
@@ -837,10 +845,14 @@ impl TransitionConstraint<Stark252PrimeField> for FlagPcUpdateRegularBit {
         let current_step = frame.get_evaluation_step(0);
 
         let one = Felt252::one();
+        let two = Felt252::from(2);
 
-        let f_jump_abs = current_step.get_evaluation_element(0, 7);
-        let f_jump_rel = current_step.get_evaluation_element(0, 8);
-        let f_pc_jnz = current_step.get_evaluation_element(0, 9);
+        let f_jump_abs = current_step.get_evaluation_element(0, 7)
+            - two * current_step.get_evaluation_element(0, 8);
+        let f_jump_rel = current_step.get_evaluation_element(0, 8)
+            - two * current_step.get_evaluation_element(0, 9);
+        let f_pc_jnz = current_step.get_evaluation_element(0, 9)
+            - two * current_step.get_evaluation_element(0, 10);
 
         let flag_pc_update_regular_bit = one - f_jump_abs - f_jump_rel - f_pc_jnz;
 
@@ -880,9 +892,12 @@ impl TransitionConstraint<Stark252PrimeField> for FlagFpUpdateRegularBit {
         let current_step = frame.get_evaluation_step(0);
 
         let one = Felt252::one();
+        let two = Felt252::from(2);
 
-        let f_opcode_call = current_step.get_evaluation_element(0, 12);
-        let f_opcode_ret = current_step.get_evaluation_element(0, 13);
+        let f_opcode_call = current_step.get_evaluation_element(0, 12)
+            - two * current_step.get_evaluation_element(0, 13);
+        let f_opcode_ret = current_step.get_evaluation_element(0, 13)
+            - two * current_step.get_evaluation_element(0, 14);
 
         let flag_fp_update_regular_bit = one - f_opcode_call - f_opcode_ret;
 
@@ -973,7 +988,9 @@ impl TransitionConstraint<Stark252PrimeField> for CpuOpcodesCallOff0 {
         let two = Felt252::from(2);
         let b15 = two.pow(15u32);
 
-        let f_opcode_call = current_step.get_evaluation_element(0, 12);
+        let f_opcode_call = current_step.get_evaluation_element(0, 12)
+            - two * current_step.get_evaluation_element(0, 13);
+
         let off_dst = current_step.get_evaluation_element(0, 27);
 
         let res = f_opcode_call * (off_dst - b15);
@@ -1015,7 +1032,8 @@ impl TransitionConstraint<Stark252PrimeField> for CpuOpcodesCallOff1 {
         let two = Felt252::from(2);
         let b15 = two.pow(15u32);
 
-        let f_opcode_call = current_step.get_evaluation_element(0, 12);
+        let f_opcode_call = current_step.get_evaluation_element(0, 12)
+            - two * current_step.get_evaluation_element(0, 13);
         let off_op0 = current_step.get_evaluation_element(0, 28);
 
         let res = f_opcode_call * (off_op0 - b15 - one);
@@ -1055,13 +1073,17 @@ impl TransitionConstraint<Stark252PrimeField> for CpuOpcodesCallFlags {
 
         let one = Felt252::one();
         let two = Felt252::from(2);
-        let b15 = two.pow(15u32);
 
-        let f_opcode_call = current_step.get_evaluation_element(0, 12);
-        let flag0 = current_step.get_evaluation_element(0, 0);
-        let flag1 = current_step.get_evaluation_element(0, 1);
+        let f_opcode_call = current_step.get_evaluation_element(0, 12)
+            - two * current_step.get_evaluation_element(0, 13);
 
-        let res = f_opcode_call * (two * f_opcode_call + one + one - flag0 - flag1 - two - two);
+        let bit_flag0 = current_step.get_evaluation_element(0, 0)
+            - two * current_step.get_evaluation_element(0, 1);
+        let bit_flag1 = current_step.get_evaluation_element(0, 1)
+            - two * current_step.get_evaluation_element(0, 2);
+
+        let res =
+            f_opcode_call * (two * f_opcode_call + one + one - bit_flag0 - bit_flag1 - two - two);
 
         transition_evaluations[self.constraint_idx()] = res;
     }
@@ -1096,11 +1118,11 @@ impl TransitionConstraint<Stark252PrimeField> for CpuOpcodesRetOff0 {
     ) {
         let current_step = frame.get_evaluation_step(0);
 
-        let one = Felt252::one();
         let two = Felt252::from(2);
         let b15 = two.pow(15u32);
 
-        let f_opcode_ret = current_step.get_evaluation_element(0, 13);
+        let f_opcode_ret = current_step.get_evaluation_element(0, 13)
+            - two * current_step.get_evaluation_element(0, 14);
         let off_dst = current_step.get_evaluation_element(0, 27);
 
         let res = f_opcode_ret * (off_dst + two - b15);
@@ -1142,7 +1164,8 @@ impl TransitionConstraint<Stark252PrimeField> for CpuOpcodesRetOff2 {
         let two = Felt252::from(2);
         let b15 = two.pow(15u32);
 
-        let f_opcode_ret = current_step.get_evaluation_element(0, 13);
+        let f_opcode_ret = current_step.get_evaluation_element(0, 13)
+            - two * current_step.get_evaluation_element(0, 14);
         let off_op1 = current_step.get_evaluation_element(0, 29);
 
         let res = f_opcode_ret * (off_op1 + one - b15);
@@ -1182,16 +1205,22 @@ impl TransitionConstraint<Stark252PrimeField> for CpuOpcodesRetFlags {
 
         let one = Felt252::one();
         let two = Felt252::from(2);
-        let b15 = two.pow(15u32);
 
-        let f_opcode_ret = current_step.get_evaluation_element(0, 13);
-        let flag0 = current_step.get_evaluation_element(0, 0);
-        let flag3 = current_step.get_evaluation_element(0, 3);
-        let flag7 = current_step.get_evaluation_element(0, 7);
+        let f_opcode_ret = current_step.get_evaluation_element(0, 13)
+            - two * current_step.get_evaluation_element(0, 14);
+        let flag0 = current_step.get_evaluation_element(0, 0)
+            - two * current_step.get_evaluation_element(0, 1);
+        let flag3 = current_step.get_evaluation_element(0, 3)
+            - two * current_step.get_evaluation_element(0, 4);
+        let flag7 = current_step.get_evaluation_element(0, 7)
+            - two * current_step.get_evaluation_element(0, 8);
 
-        let f_res_add = current_step.get_evaluation_element(0, 5);
-        let f_res_mul = current_step.get_evaluation_element(0, 6);
-        let f_pc_jnz = current_step.get_evaluation_element(0, 9);
+        let f_res_add = current_step.get_evaluation_element(0, 5)
+            - two * current_step.get_evaluation_element(0, 6);
+        let f_res_mul = current_step.get_evaluation_element(0, 6)
+            - two * current_step.get_evaluation_element(0, 7);
+        let f_pc_jnz = current_step.get_evaluation_element(0, 9)
+            - two * current_step.get_evaluation_element(0, 10);
 
         let f_res_op1_bit = one - f_res_add - f_res_mul - f_pc_jnz;
 
@@ -1441,8 +1470,6 @@ impl TransitionConstraint<Stark252PrimeField> for CpuUpdateRegistersFpUpdate {
         let next_fp = next_step.get_evaluation_element(0, 18);
         let dst = current_step.get_evaluation_element(0, 24);
 
-        let ap_one = current_step.get_evaluation_element(0, 11)
-            - two * current_step.get_evaluation_element(0, 12);
         let opc_call = current_step.get_evaluation_element(0, 12)
             - two * current_step.get_evaluation_element(0, 13);
         let opc_ret = current_step.get_evaluation_element(0, 13)
@@ -2249,11 +2276,11 @@ impl TransitionConstraint<Stark252PrimeField> for MemoryIsFunc4 {
 
         let one = Felt252::one();
 
-        let next_mem_addr_sorted_0 = current_step.get_evaluation_element(0, 40);
-        let mem_addr_sorted_4 = current_step.get_evaluation_element(0, 41);
+        let next_mem_addr_sorted_0 = next_step.get_evaluation_element(0, 40);
+        let mem_addr_sorted_4 = current_step.get_evaluation_element(0, 44);
 
-        let next_mem_val_sorted_0 = current_step.get_evaluation_element(0, 45);
-        let mem_val_sorted_4 = current_step.get_evaluation_element(0, 46);
+        let next_mem_val_sorted_0 = next_step.get_evaluation_element(0, 45);
+        let mem_val_sorted_4 = current_step.get_evaluation_element(0, 49);
 
         transition_evaluations[self.constraint_idx()] = (mem_val_sorted_4 - next_mem_val_sorted_0)
             * (next_mem_addr_sorted_0 - mem_addr_sorted_4 - one);
@@ -2427,8 +2454,8 @@ impl TransitionConstraint<Stark252PrimeField> for MemoryMultiColumnPermStep0_3 {
 
         let p3 = current_step.get_evaluation_element(0, 53);
         let p4 = current_step.get_evaluation_element(0, 54);
-        let a4 = current_step.get_evaluation_element(0, 23);
-        let v4 = current_step.get_evaluation_element(0, 27);
+        let a4 = current_step.get_evaluation_element(0, 33);
+        let v4 = current_step.get_evaluation_element(0, 34);
         let ap4 = current_step.get_evaluation_element(0, 44);
         let vp4 = current_step.get_evaluation_element(0, 49);
 
@@ -2454,7 +2481,7 @@ impl TransitionConstraint<Stark252PrimeField> for MemoryMultiColumnPermStep0_4 {
     }
 
     fn constraint_idx(&self) -> usize {
-        44
+        45
     }
 
     fn evaluate(
@@ -2470,12 +2497,13 @@ impl TransitionConstraint<Stark252PrimeField> for MemoryMultiColumnPermStep0_4 {
         let alpha = rap_challenges[0];
         let z = rap_challenges[1];
 
-        let p4 = current_step.get_evaluation_element(0, 54);
-        let next_v0 = current_step.get_evaluation_element(0, 23);
-        let next_a0 = current_step.get_evaluation_element(0, 19);
-        let next_p0 = current_step.get_evaluation_element(0, 50);
         let next_ap0 = next_step.get_evaluation_element(0, 40);
-        let next_vp0 = current_step.get_evaluation_element(0, 45);
+        let next_vp0 = next_step.get_evaluation_element(0, 45);
+        let next_p0 = next_step.get_evaluation_element(0, 50);
+        let next_a0 = next_step.get_evaluation_element(0, 19);
+        let next_v0 = next_step.get_evaluation_element(0, 23);
+
+        let p4 = current_step.get_evaluation_element(0, 54);
 
         transition_evaluations[self.constraint_idx()] =
             (z - (next_ap0 + alpha * next_vp0)) * next_p0 - (z - (next_a0 + alpha * next_v0)) * p4;
@@ -2755,7 +2783,7 @@ impl TransitionConstraint<Stark252PrimeField> for Rc16PermStep0_2 {
         let ap3 = current_step.get_evaluation_element(0, 39);
         let p3 = current_step.get_evaluation_element(0, 58);
         let p2 = current_step.get_evaluation_element(0, 57);
-        let a3 = current_step.get_evaluation_element(0, 30);
+        let a3 = current_step.get_evaluation_element(0, 35);
 
         transition_evaluations[self.constraint_idx()] = (z - ap3) * p3 - (z - a3) * p2;
     }
