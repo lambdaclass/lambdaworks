@@ -74,12 +74,25 @@ func ToJSON(_r1cs *cs.SparseR1CS, pk *plonk_bls12381.ProvingKey, fullWitness wit
 
 	constraint_list := _r1cs.GetSparseR1Cs()
 
+	fmt.Println("Coeffs")
+	fmt.Println(_r1cs.Coefficients)
+
 	for i := 0; i < nbConstraints; i++ { // constraints
 		Ql = append(Ql, _r1cs.Coefficients[int(constraint_list[i].QL)].Text(16))
+
+		fmt.Println("Index QL,QR,QO")
+		fmt.Println(constraint_list[i].QL)
+		fmt.Println(constraint_list[i].QR)
+		fmt.Println(constraint_list[i].QO)
+
+		fmt.Println("Values")
+		fmt.Println(_r1cs.Coefficients[int(constraint_list[i].QL)])
+		fmt.Println(_r1cs.Coefficients[int(constraint_list[i].QR)])
+		fmt.Println(_r1cs.Coefficients[int(constraint_list[i].QO)])
+
 		Qr = append(Qr, _r1cs.Coefficients[int(constraint_list[i].QR)].Text(16))
 
 		var new_Qm fr_bls12381.Element
-
 		/*
 			var new_Qm fr_bls12381.Element
 			new_Qm.Set(&_r1cs.Coefficients[_r1cs.Constraints[i].M[0].CoeffID()]).Mul(&new_Qm, &_r1cs.Coefficients[_r1cs.Constraints[i].M[1].CoeffID()])
@@ -238,5 +251,4 @@ func main() {
 
 		ToJSON(_r1cs, pk.(*plonk_bls12381.ProvingKey), witnessFull, publicWitness)
 	}
-
 }
