@@ -1,189 +1,189 @@
-// use crate::{
-//     air::{generate_cairo_proof, verify_cairo_proof, CairoAIR},
-//     cairo_layout::CairoLayout,
-//     runner::run::generate_prover_args,
-//     tests::utils::{
-//         cairo0_program_path, test_prove_cairo_program, test_prove_cairo_program_from_trace,
-//     },
-//     Felt252,
-// };
-// use lambdaworks_math::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;
-// use stark_platinum_prover::{
-//     debug::validate_trace,
-//     domain::Domain,
-//     proof::{
-//         options::{ProofOptions, SecurityLevel},
-//         stark::StarkProof,
-//     },
-//     traits::AIR,
-//     transcript::StoneProverTranscript,
-// };
+use crate::{
+    air::{generate_cairo_proof, verify_cairo_proof, CairoAIR},
+    cairo_layout::CairoLayout,
+    runner::run::generate_prover_args,
+    tests::utils::{
+        cairo0_program_path, test_prove_cairo_program, test_prove_cairo_program_from_trace,
+    },
+    Felt252,
+};
+use lambdaworks_math::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;
+use stark_platinum_prover::{
+    debug::validate_trace,
+    domain::Domain,
+    proof::{
+        options::{ProofOptions, SecurityLevel},
+        stark::StarkProof,
+    },
+    traits::AIR,
+    transcript::StoneProverTranscript,
+};
 
+#[test_log::test]
+fn test_prove_cairo_simple_program() {
+    let layout = CairoLayout::Plain;
+    test_prove_cairo_program(&cairo0_program_path("simple_program.json"), layout);
+}
+
+#[test_log::test]
+fn test_prove_cairo_fibonacci_5() {
+    let layout = CairoLayout::Plain;
+    test_prove_cairo_program(&cairo0_program_path("fibonacci_5.json"), layout);
+}
+
+#[test_log::test]
+fn test_prove_cairo_fibonacci_5_from_trace() {
+    test_prove_cairo_program_from_trace(
+        &cairo0_program_path("fibonacci_5_trace.bin"),
+        &cairo0_program_path("fibonacci_5_memory.bin"),
+    );
+}
+
+#[test_log::test]
+fn test_verifier_rejects_wrong_authentication_paths() {
+    // Setup
+    let proof_options = ProofOptions::default_test_options();
+    let program_content = std::fs::read(cairo0_program_path("fibonacci_5.json")).unwrap();
+    let (main_trace, pub_inputs) =
+        generate_prover_args(&program_content, CairoLayout::Plain).unwrap();
+
+    // Generate the proof
+    let mut proof = generate_cairo_proof(&main_trace, &pub_inputs, &proof_options).unwrap();
+
+    // Change order of authentication path hashes
+    let query = 0;
+    let merkle_tree = 0;
+    let mut original_path = proof.deep_poly_openings[query].lde_trace_merkle_proofs[merkle_tree]
+        .merkle_path
+        .clone();
+    original_path.swap(0, 1);
+    // For the test to make sense, we have to make sure
+    // that the two hashes are different.
+    assert_ne!(original_path[0], original_path[1]);
+    proof.deep_poly_openings[query].lde_trace_merkle_proofs[merkle_tree].merkle_path =
+        original_path;
+
+    // Verifier should reject the proof
+    assert!(!verify_cairo_proof(&proof, &pub_inputs, &proof_options));
+}
+
+#[test_log::test]
+fn test_prove_cairo_fibonacci_1000() {
+    let layout = CairoLayout::Plain;
+    test_prove_cairo_program(&cairo0_program_path("fibonacci_1000.json"), layout);
+}
+
+// #[cfg_attr(feature = "metal", ignore)]
 // #[test_log::test]
-// fn test_prove_cairo_simple_program() {
+// fn test_prove_cairo_fibonacci_casm() {
 //     let layout = CairoLayout::Plain;
-//     test_prove_cairo_program(&cairo0_program_path("simple_program.json"), layout);
+//     test_prove_cairo1_program(&cairo1_program_path("fibonacci_cairo1_mod.casm"), layout);
 // }
 
-// #[test_log::test]
-// fn test_prove_cairo_fibonacci_5() {
-//     let layout = CairoLayout::Plain;
-//     test_prove_cairo_program(&cairo0_program_path("fibonacci_5.json"), layout);
-// }
+#[test_log::test]
+fn test_verifier_rejects_proof_of_a_slightly_different_program() {
+    let program_content = std::fs::read(cairo0_program_path("simple_program.json")).unwrap();
+    let (main_trace, mut pub_input) =
+        generate_prover_args(&program_content, CairoLayout::Plain).unwrap();
 
-// #[test_log::test]
-// fn test_prove_cairo_fibonacci_5_from_trace() {
-//     test_prove_cairo_program_from_trace(
-//         &cairo0_program_path("fibonacci_5_trace.bin"),
-//         &cairo0_program_path("fibonacci_5_memory.bin"),
-//     );
-// }
+    let proof_options = ProofOptions::default_test_options();
 
-// #[test_log::test]
-// fn test_verifier_rejects_wrong_authentication_paths() {
-//     // Setup
-//     let proof_options = ProofOptions::default_test_options();
-//     let program_content = std::fs::read(cairo0_program_path("fibonacci_5.json")).unwrap();
-//     let (main_trace, pub_inputs) =
-//         generate_prover_args(&program_content, CairoLayout::Plain).unwrap();
+    let proof = generate_cairo_proof(&main_trace, &pub_input, &proof_options).unwrap();
 
-//     // Generate the proof
-//     let mut proof = generate_cairo_proof(&main_trace, &pub_inputs, &proof_options).unwrap();
+    // We modify the original program and verify using this new "corrupted" version
+    let mut corrupted_program = pub_input.public_memory.clone();
+    corrupted_program.insert(Felt252::one(), Felt252::from(5));
+    corrupted_program.insert(Felt252::from(3), Felt252::from(5));
 
-//     // Change order of authentication path hashes
-//     let query = 0;
-//     let merkle_tree = 0;
-//     let mut original_path = proof.deep_poly_openings[query].lde_trace_merkle_proofs[merkle_tree]
-//         .merkle_path
-//         .clone();
-//     original_path.swap(0, 1);
-//     // For the test to make sense, we have to make sure
-//     // that the two hashes are different.
-//     assert_ne!(original_path[0], original_path[1]);
-//     proof.deep_poly_openings[query].lde_trace_merkle_proofs[merkle_tree].merkle_path =
-//         original_path;
+    // Here we use the corrupted version of the program in the public inputs
+    pub_input.public_memory = corrupted_program;
+    assert!(!verify_cairo_proof(&proof, &pub_input, &proof_options));
+}
 
-//     // Verifier should reject the proof
-//     assert!(!verify_cairo_proof(&proof, &pub_inputs, &proof_options));
-// }
+#[test_log::test]
+fn test_verifier_rejects_proof_with_different_range_bounds() {
+    let program_content = std::fs::read(cairo0_program_path("simple_program.json")).unwrap();
+    let (main_trace, mut pub_inputs) =
+        generate_prover_args(&program_content, CairoLayout::Plain).unwrap();
 
-// #[test_log::test]
-// fn test_prove_cairo_fibonacci_1000() {
-//     let layout = CairoLayout::Plain;
-//     test_prove_cairo_program(&cairo0_program_path("fibonacci_1000.json"), layout);
-// }
+    let proof_options = ProofOptions::default_test_options();
+    let proof = generate_cairo_proof(&main_trace, &pub_inputs, &proof_options).unwrap();
 
-// // #[cfg_attr(feature = "metal", ignore)]
-// // #[test_log::test]
-// // fn test_prove_cairo_fibonacci_casm() {
-// //     let layout = CairoLayout::Plain;
-// //     test_prove_cairo1_program(&cairo1_program_path("fibonacci_cairo1_mod.casm"), layout);
-// // }
+    pub_inputs.range_check_min = Some(pub_inputs.range_check_min.unwrap() + 1);
+    assert!(!verify_cairo_proof(&proof, &pub_inputs, &proof_options));
 
-// #[test_log::test]
-// fn test_verifier_rejects_proof_of_a_slightly_different_program() {
-//     let program_content = std::fs::read(cairo0_program_path("simple_program.json")).unwrap();
-//     let (main_trace, mut pub_input) =
-//         generate_prover_args(&program_content, CairoLayout::Plain).unwrap();
+    pub_inputs.range_check_min = Some(pub_inputs.range_check_min.unwrap() - 1);
+    pub_inputs.range_check_max = Some(pub_inputs.range_check_max.unwrap() - 1);
+    assert!(!verify_cairo_proof(&proof, &pub_inputs, &proof_options));
+}
 
-//     let proof_options = ProofOptions::default_test_options();
+#[test_log::test]
+fn test_verifier_rejects_proof_with_different_security_params() {
+    let program_content = std::fs::read(cairo0_program_path("fibonacci_5.json")).unwrap();
+    let (main_trace, pub_inputs) =
+        generate_prover_args(&program_content, CairoLayout::Plain).unwrap();
 
-//     let proof = generate_cairo_proof(&main_trace, &pub_input, &proof_options).unwrap();
+    let proof_options_prover = ProofOptions::new_secure(SecurityLevel::Conjecturable80Bits, 3);
 
-//     // We modify the original program and verify using this new "corrupted" version
-//     let mut corrupted_program = pub_input.public_memory.clone();
-//     corrupted_program.insert(Felt252::one(), Felt252::from(5));
-//     corrupted_program.insert(Felt252::from(3), Felt252::from(5));
+    let proof = generate_cairo_proof(&main_trace, &pub_inputs, &proof_options_prover).unwrap();
 
-//     // Here we use the corrupted version of the program in the public inputs
-//     pub_input.public_memory = corrupted_program;
-//     assert!(!verify_cairo_proof(&proof, &pub_input, &proof_options));
-// }
+    let proof_options_verifier = ProofOptions::new_secure(SecurityLevel::Conjecturable128Bits, 3);
 
-// #[test_log::test]
-// fn test_verifier_rejects_proof_with_different_range_bounds() {
-//     let program_content = std::fs::read(cairo0_program_path("simple_program.json")).unwrap();
-//     let (main_trace, mut pub_inputs) =
-//         generate_prover_args(&program_content, CairoLayout::Plain).unwrap();
+    assert!(!verify_cairo_proof(
+        &proof,
+        &pub_inputs,
+        &proof_options_verifier
+    ));
+}
 
-//     let proof_options = ProofOptions::default_test_options();
-//     let proof = generate_cairo_proof(&main_trace, &pub_inputs, &proof_options).unwrap();
+#[test]
+fn check_simple_cairo_trace_evaluates_to_zero() {
+    let program_content = std::fs::read(cairo0_program_path("simple_program.json")).unwrap();
+    let (main_trace, public_input) =
+        generate_prover_args(&program_content, CairoLayout::Plain).unwrap();
+    let mut trace_polys = main_trace.compute_trace_polys();
+    let mut transcript = StoneProverTranscript::new(&[]);
 
-//     pub_inputs.range_check_min = Some(pub_inputs.range_check_min.unwrap() + 1);
-//     assert!(!verify_cairo_proof(&proof, &pub_inputs, &proof_options));
+    let proof_options = ProofOptions::default_test_options();
+    let cairo_air = CairoAIR::new(main_trace.n_rows(), &public_input, &proof_options);
+    let rap_challenges = cairo_air.build_rap_challenges(&mut transcript);
 
-//     pub_inputs.range_check_min = Some(pub_inputs.range_check_min.unwrap() - 1);
-//     pub_inputs.range_check_max = Some(pub_inputs.range_check_max.unwrap() - 1);
-//     assert!(!verify_cairo_proof(&proof, &pub_inputs, &proof_options));
-// }
+    let aux_trace = cairo_air.build_auxiliary_trace(&main_trace, &rap_challenges);
+    let aux_polys = aux_trace.compute_trace_polys();
 
-// #[test_log::test]
-// fn test_verifier_rejects_proof_with_different_security_params() {
-//     let program_content = std::fs::read(cairo0_program_path("fibonacci_5.json")).unwrap();
-//     let (main_trace, pub_inputs) =
-//         generate_prover_args(&program_content, CairoLayout::Plain).unwrap();
+    trace_polys.extend_from_slice(&aux_polys);
 
-//     let proof_options_prover = ProofOptions::new_secure(SecurityLevel::Conjecturable80Bits, 3);
+    let domain = Domain::new(&cairo_air);
 
-//     let proof = generate_cairo_proof(&main_trace, &pub_inputs, &proof_options_prover).unwrap();
+    assert!(validate_trace(
+        &cairo_air,
+        &trace_polys,
+        &domain,
+        &rap_challenges
+    ));
+}
 
-//     let proof_options_verifier = ProofOptions::new_secure(SecurityLevel::Conjecturable128Bits, 3);
+#[test]
+fn deserialize_and_verify() {
+    let program_content = std::fs::read(cairo0_program_path("fibonacci_10.json")).unwrap();
+    let (main_trace, pub_inputs) =
+        generate_prover_args(&program_content, CairoLayout::Plain).unwrap();
 
-//     assert!(!verify_cairo_proof(
-//         &proof,
-//         &pub_inputs,
-//         &proof_options_verifier
-//     ));
-// }
+    let proof_options = ProofOptions::default_test_options();
 
-// #[test]
-// fn check_simple_cairo_trace_evaluates_to_zero() {
-//     let program_content = std::fs::read(cairo0_program_path("simple_program.json")).unwrap();
-//     let (main_trace, public_input) =
-//         generate_prover_args(&program_content, CairoLayout::Plain).unwrap();
-//     let mut trace_polys = main_trace.compute_trace_polys();
-//     let mut transcript = StoneProverTranscript::new(&[]);
+    // The proof is generated and serialized.
+    let proof = generate_cairo_proof(&main_trace, &pub_inputs, &proof_options).unwrap();
+    let proof_bytes: Vec<u8> = serde_cbor::to_vec(&proof).unwrap();
 
-//     let proof_options = ProofOptions::default_test_options();
-//     let cairo_air = CairoAIR::new(main_trace.n_rows(), &public_input, &proof_options);
-//     let rap_challenges = cairo_air.build_rap_challenges(&mut transcript);
+    // The trace and original proof are dropped to show that they are decoupled from
+    // the verifying process.
+    drop(main_trace);
+    drop(proof);
 
-//     let aux_trace = cairo_air.build_auxiliary_trace(&main_trace, &rap_challenges);
-//     let aux_polys = aux_trace.compute_trace_polys();
+    // At this point, the verifier only knows about the serialized proof, the proof options
+    // and the public inputs.
+    let proof: StarkProof<Stark252PrimeField> = serde_cbor::from_slice(&proof_bytes).unwrap();
 
-//     trace_polys.extend_from_slice(&aux_polys);
-
-//     let domain = Domain::new(&cairo_air);
-
-//     assert!(validate_trace(
-//         &cairo_air,
-//         &trace_polys,
-//         &domain,
-//         &rap_challenges
-//     ));
-// }
-
-// #[test]
-// fn deserialize_and_verify() {
-//     let program_content = std::fs::read(cairo0_program_path("fibonacci_10.json")).unwrap();
-//     let (main_trace, pub_inputs) =
-//         generate_prover_args(&program_content, CairoLayout::Plain).unwrap();
-
-//     let proof_options = ProofOptions::default_test_options();
-
-//     // The proof is generated and serialized.
-//     let proof = generate_cairo_proof(&main_trace, &pub_inputs, &proof_options).unwrap();
-//     let proof_bytes: Vec<u8> = serde_cbor::to_vec(&proof).unwrap();
-
-//     // The trace and original proof are dropped to show that they are decoupled from
-//     // the verifying process.
-//     drop(main_trace);
-//     drop(proof);
-
-//     // At this point, the verifier only knows about the serialized proof, the proof options
-//     // and the public inputs.
-//     let proof: StarkProof<Stark252PrimeField> = serde_cbor::from_slice(&proof_bytes).unwrap();
-
-//     // The proof is verified successfully.
-//     assert!(verify_cairo_proof(&proof, &pub_inputs, &proof_options));
-// }
+    // The proof is verified successfully.
+    assert!(verify_cairo_proof(&proof, &pub_inputs, &proof_options));
+}
