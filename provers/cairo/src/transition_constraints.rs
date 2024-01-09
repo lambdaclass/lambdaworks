@@ -2735,6 +2735,178 @@ impl TransitionConstraint<Stark252PrimeField> for Rc16DiffIsBit3 {
     }
 }
 
+// rc16/perm/step0
+pub struct Rc16PermStep0_0;
+impl Rc16PermStep0_0 {
+    fn new() -> Self {
+        Self
+    }
+}
+
+impl TransitionConstraint<Stark252PrimeField> for Rc16PermStep0_0 {
+    fn degree(&self) -> usize {
+        2
+    }
+
+    fn constraint_idx(&self) -> usize {
+        50
+    }
+
+    fn evaluate(
+        &self,
+        frame: &Frame<Stark252PrimeField>,
+        transition_evaluations: &mut [stark_platinum_prover::fri::FieldElement<
+            Stark252PrimeField,
+        >],
+        periodic_values: &[stark_platinum_prover::fri::FieldElement<Stark252PrimeField>],
+        rap_challenges: &[stark_platinum_prover::fri::FieldElement<Stark252PrimeField>],
+    ) {
+        let current_step = frame.get_evaluation_step(0);
+
+        let z = rap_challenges[2];
+
+        let ap1 = current_step.get_evaluation_element(0, 37);
+        let p1 = current_step.get_evaluation_element(0, 56);
+        let p0 = current_step.get_evaluation_element(0, 55);
+        let a1 = current_step.get_evaluation_element(0, 28);
+
+        transition_evaluations[self.constraint_idx()] = (z - ap1) * p1 - (z - a1) * p0;
+    }
+
+    fn end_exemptions(&self) -> usize {
+        0
+    }
+}
+
+pub struct Rc16PermStep0_1;
+impl Rc16PermStep0_1 {
+    fn new() -> Self {
+        Self
+    }
+}
+
+impl TransitionConstraint<Stark252PrimeField> for Rc16PermStep0_1 {
+    fn degree(&self) -> usize {
+        2
+    }
+
+    fn constraint_idx(&self) -> usize {
+        51
+    }
+
+    fn evaluate(
+        &self,
+        frame: &Frame<Stark252PrimeField>,
+        transition_evaluations: &mut [stark_platinum_prover::fri::FieldElement<
+            Stark252PrimeField,
+        >],
+        periodic_values: &[stark_platinum_prover::fri::FieldElement<Stark252PrimeField>],
+        rap_challenges: &[stark_platinum_prover::fri::FieldElement<Stark252PrimeField>],
+    ) {
+        let current_step = frame.get_evaluation_step(0);
+
+        let z = rap_challenges[2];
+
+        let ap2 = current_step.get_evaluation_element(0, 38);
+        let p2 = current_step.get_evaluation_element(0, 57);
+        let p1 = current_step.get_evaluation_element(0, 56);
+        let a2 = current_step.get_evaluation_element(0, 29);
+
+        transition_evaluations[self.constraint_idx()] = (z - ap2) * p2 - (z - a2) * p1;
+    }
+
+    fn end_exemptions(&self) -> usize {
+        0
+    }
+}
+
+pub struct Rc16PermStep0_2;
+impl Rc16PermStep0_2 {
+    fn new() -> Self {
+        Self
+    }
+}
+
+impl TransitionConstraint<Stark252PrimeField> for Rc16PermStep0_2 {
+    fn degree(&self) -> usize {
+        2
+    }
+
+    fn constraint_idx(&self) -> usize {
+        52
+    }
+
+    fn evaluate(
+        &self,
+        frame: &Frame<Stark252PrimeField>,
+        transition_evaluations: &mut [stark_platinum_prover::fri::FieldElement<
+            Stark252PrimeField,
+        >],
+        periodic_values: &[stark_platinum_prover::fri::FieldElement<Stark252PrimeField>],
+        rap_challenges: &[stark_platinum_prover::fri::FieldElement<Stark252PrimeField>],
+    ) {
+        let current_step = frame.get_evaluation_step(0);
+
+        let z = rap_challenges[2];
+
+        let ap3 = current_step.get_evaluation_element(0, 39);
+        let p3 = current_step.get_evaluation_element(0, 58);
+        let p2 = current_step.get_evaluation_element(0, 57);
+        let a3 = current_step.get_evaluation_element(0, 30);
+
+        transition_evaluations[self.constraint_idx()] = (z - ap3) * p3 - (z - a3) * p2;
+    }
+
+    fn end_exemptions(&self) -> usize {
+        0
+    }
+}
+
+pub struct Rc16PermStep0_3;
+impl Rc16PermStep0_3 {
+    fn new() -> Self {
+        Self
+    }
+}
+
+impl TransitionConstraint<Stark252PrimeField> for Rc16PermStep0_3 {
+    fn degree(&self) -> usize {
+        2
+    }
+
+    fn constraint_idx(&self) -> usize {
+        53
+    }
+
+    fn evaluate(
+        &self,
+        frame: &Frame<Stark252PrimeField>,
+        transition_evaluations: &mut [stark_platinum_prover::fri::FieldElement<
+            Stark252PrimeField,
+        >],
+        periodic_values: &[stark_platinum_prover::fri::FieldElement<Stark252PrimeField>],
+        rap_challenges: &[stark_platinum_prover::fri::FieldElement<Stark252PrimeField>],
+    ) {
+        let current_step = frame.get_evaluation_step(0);
+        let next_step = frame.get_evaluation_step(1);
+
+        let z = rap_challenges[2];
+
+        let p3 = current_step.get_evaluation_element(0, 58);
+
+        let next_a0 = next_step.get_evaluation_element(0, 27);
+        let next_ap0 = next_step.get_evaluation_element(0, 36);
+        let next_p0 = next_step.get_evaluation_element(0, 55);
+
+        transition_evaluations[self.constraint_idx()] =
+            (z - next_ap0) * next_p0 - (z - next_a0) * p3;
+    }
+
+    fn end_exemptions(&self) -> usize {
+        1
+    }
+}
+
 fn frame_inst_size(step: &TableView<Stark252PrimeField>) -> Felt252 {
     let op1_val =
         step.get_evaluation_element(0, 2) - Felt252::from(2) * step.get_evaluation_element(0, 3);
