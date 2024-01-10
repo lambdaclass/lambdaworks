@@ -1,16 +1,3 @@
-# [package]
-# name = "winterfell_adapter"
-# version.workspace = true
-# edition.workspace = true
-# license.workspace = true
-
-# [dependencies]
-# lambdaworks-math = { git = "https://github.com/lambdaclass/lambdaworks", rev = "5f3ffd2c953076db19a5950348f6bab6dcf24375"}
-# stark-platinum-prover = { git = "https://github.com/lambdaclass/lambdaworks", rev = "5f3ffd2c953076db19a5950348f6bab6dcf24375"}
-# winterfell = { git = "https://github.com/facebook/winterfell" }
-# winter-utils = { git = "https://github.com/facebook/winterfell" }
-# rand = "0.8.5"
-
 [package]
 name = "lambdaworks-winterfell-adapter"
 version.workspace = true
@@ -18,16 +5,14 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
-winterfell = { git = "https://github.com/facebook/winterfell" }
-winter-utils = { git = "https://github.com/facebook/winterfell" }
-lambdaworks-math = { git = "https://github.com/lambdaclass/lambdaworks", rev = "5f3ffd2c953076db19a5950348f6bab6dcf24375", features = ["winter_compatibility"]}
-stark-platinum-prover = { git = "https://github.com/lambdaclass/lambdaworks", rev = "5f3ffd2c953076db19a5950348f6bab6dcf24375", features = ["winter_compatibility"]}
+lambdaworks-math = { git = "https://github.com/lambdaclass/lambdaworks", rev = "3da725de1e6f76c04ddbb3ccb67e6038a7663134", features=["winter_compatibility"] }
 # stark-platinum-prover = { path = "../provers/stark" , features=["winter_compatibility"]}
+stark-platinum-prover = { git = "https://github.com/lambdaclass/lambdaworks" , rev = "3da725de1e6f76c04ddbb3ccb67e6038a7663134", features=["winter_compatibility"] }
 rand = "0.8.5"
 winter-air = { package = "winter-air", version = "0.6.4", default-features = false }
 winter-prover = { package = "winter-prover", version = "0.6.4", default-features = false }
 winter-math = { package = "winter-math", version = "0.6.4", default-features = false }
-# winter-utils = { package = "winter-utils", version = "0.6.4", default-features = false }
+winter-utils = { package = "winter-utils", version = "0.6.4", default-features = false }
 miden-air = { package = "miden-air", version = "0.7", default-features = false }
 miden-core = { package = "miden-core" , version = "0.7", default-features = false }
 miden-assembly = { package = "miden-assembly", version = "0.7", default-features = false }
@@ -40,7 +25,7 @@ criterion = { version = "0.4", default-features = false }
 miden-prover = { package = "miden-prover", version = "0.7", default-features = false }
 
 
-# [[bench]]
-# name = "proving"
-# harness = false
+[[bench]]
+name = "proving"
+harness = false
 

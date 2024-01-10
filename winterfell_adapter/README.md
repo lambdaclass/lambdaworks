@@ -51,3 +51,16 @@ let proof = Prover::prove::<AirAdapter<FibonacciAIR, TraceTable<_>>>(
 ```
 
 Here `TraceTable` is the Winterfell type that represents your trace table. To check more examples you can see the `examples` folder inside this crate.
+
+# Benchmarks
+To run the fibonacci Miden benchmark run:
+
+```rust
+cargo bench
+```
+
+To run it with parallelization run:
+
+```rust
+cargo bench --features stark-platinum-prover/parallel,winter-prover/concurrent
+```
