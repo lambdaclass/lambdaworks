@@ -30,13 +30,26 @@ pub trait ByteConversion {
 /// Serialize function without args
 /// Used for serialization when formatting options are not relevant
 #[cfg(feature = "alloc")]
-pub trait Serializable {
+pub trait AsBytes {
     /// Default serialize without args
-    fn serialize(&self) -> alloc::vec::Vec<u8>;
+    fn as_bytes(&self) -> alloc::vec::Vec<u8>;
+}
+
+#[cfg(feature = "alloc")]
+impl AsBytes for u32 {
+    fn as_bytes(&self) -> alloc::vec::Vec<u8> {
+        self.to_le_bytes().to_vec()
+    }
+}
+
+#[cfg(feature = "alloc")]
+impl AsBytes for u64 {
+    fn as_bytes(&self) -> alloc::vec::Vec<u8> {
+        self.to_le_bytes().to_vec()
+    }
 }
 
 /// Deserialize function without args
-/// Used along with the Serializable trait
 pub trait Deserializable {
     fn deserialize(bytes: &[u8]) -> Result<Self, DeserializationError>
     where

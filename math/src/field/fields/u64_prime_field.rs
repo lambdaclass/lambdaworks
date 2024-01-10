@@ -5,8 +5,6 @@ use crate::errors::DeserializationError;
 use crate::field::element::FieldElement;
 use crate::field::errors::FieldError;
 use crate::field::traits::{IsFFTField, IsField, IsPrimeField};
-#[cfg(feature = "alloc")]
-use crate::traits::Serializable;
 use crate::traits::{ByteConversion, Deserializable};
 
 /// Type representing prime fields over unsigned 64-bit integers.
@@ -142,13 +140,6 @@ impl<const MODULUS: u64> ByteConversion for U64FieldElement<MODULUS> {
     fn from_bytes_le(bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError> {
         let bytes: [u8; 8] = bytes[0..8].try_into().map_err(|_| FromLEBytesError)?;
         Ok(Self::from(u64::from_le_bytes(bytes)))
-    }
-}
-
-#[cfg(feature = "alloc")]
-impl<const MODULUS: u64> Serializable for FieldElement<U64PrimeField<MODULUS>> {
-    fn serialize(&self) -> alloc::vec::Vec<u8> {
-        self.to_bytes_be()
     }
 }
 

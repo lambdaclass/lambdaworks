@@ -17,7 +17,7 @@ use lambdaworks_math::{
         element::FieldElement,
         traits::{IsFFTField, IsField, IsSubFieldOf},
     },
-    traits::Serializable,
+    traits::AsBytes,
 };
 
 use super::{
@@ -87,8 +87,8 @@ pub trait IsStarkVerifier<A: AIR> {
         transcript: &mut impl IsStarkTranscript<A::FieldExtension>,
     ) -> Challenges<A::FieldExtension, A>
     where
-        FieldElement<A::Field>: Serializable,
-        FieldElement<A::FieldExtension>: Serializable,
+        FieldElement<A::Field>: AsBytes,
+        FieldElement<A::FieldExtension>: AsBytes,
     {
         // ===================================
         // ==========|   Round 1   |==========
@@ -332,8 +332,8 @@ pub trait IsStarkVerifier<A: AIR> {
         challenges: &Challenges<A::FieldExtension, A>,
     ) -> bool
     where
-        FieldElement<A::Field>: Serializable + Sync + Send,
-        FieldElement<A::FieldExtension>: Serializable + Sync + Send,
+        FieldElement<A::Field>: AsBytes + Sync + Send,
+        FieldElement<A::FieldExtension>: AsBytes + Sync + Send,
     {
         let (deep_poly_evaluations, deep_poly_evaluations_sym) =
             Self::reconstruct_deep_composition_poly_evaluations_for_all_queries(
@@ -395,8 +395,8 @@ pub trait IsStarkVerifier<A: AIR> {
         value: &[FieldElement<E>],
     ) -> bool
     where
-        FieldElement<A::Field>: Serializable + Sync + Send,
-        FieldElement<E>: Serializable + Sync + Send,
+        FieldElement<A::Field>: AsBytes + Sync + Send,
+        FieldElement<E>: AsBytes + Sync + Send,
         E: IsField,
         A::Field: IsSubFieldOf<E>,
     {
@@ -411,8 +411,8 @@ pub trait IsStarkVerifier<A: AIR> {
         iota: usize,
     ) -> bool
     where
-        FieldElement<A::Field>: Serializable + Sync + Send,
-        FieldElement<A::FieldExtension>: Serializable + Sync + Send,
+        FieldElement<A::Field>: AsBytes + Sync + Send,
+        FieldElement<A::FieldExtension>: AsBytes + Sync + Send,
     {
         let index = iota * 2;
         let index_sym = iota * 2 + 1;
@@ -465,8 +465,8 @@ pub trait IsStarkVerifier<A: AIR> {
         iota: &usize,
     ) -> bool
     where
-        FieldElement<A::Field>: Serializable + Sync + Send,
-        FieldElement<A::FieldExtension>: Serializable + Sync + Send,
+        FieldElement<A::Field>: AsBytes + Sync + Send,
+        FieldElement<A::FieldExtension>: AsBytes + Sync + Send,
     {
         let mut value = deep_poly_openings.composition_poly.evaluations.clone();
         value.extend_from_slice(&deep_poly_openings.composition_poly.evaluations_sym);
@@ -489,8 +489,8 @@ pub trait IsStarkVerifier<A: AIR> {
         challenges: &Challenges<A::FieldExtension, A>,
     ) -> bool
     where
-        FieldElement<A::Field>: Serializable + Sync + Send,
-        FieldElement<A::FieldExtension>: Serializable + Sync + Send,
+        FieldElement<A::Field>: AsBytes + Sync + Send,
+        FieldElement<A::FieldExtension>: AsBytes + Sync + Send,
     {
         challenges.iotas.iter().zip(&proof.deep_poly_openings).fold(
             true,
@@ -516,8 +516,8 @@ pub trait IsStarkVerifier<A: AIR> {
         iota: usize,
     ) -> bool
     where
-        FieldElement<A::Field>: Serializable + Sync + Send,
-        FieldElement<A::FieldExtension>: Serializable + Sync + Send,
+        FieldElement<A::Field>: AsBytes + Sync + Send,
+        FieldElement<A::FieldExtension>: AsBytes + Sync + Send,
     {
         let evaluations = if iota % 2 == 1 {
             vec![evaluation_sym.clone(), evaluation.clone()]
@@ -550,8 +550,8 @@ pub trait IsStarkVerifier<A: AIR> {
         deep_composition_evaluation_sym: &FieldElement<A::FieldExtension>,
     ) -> bool
     where
-        FieldElement<A::Field>: Serializable + Sync + Send,
-        FieldElement<A::FieldExtension>: Serializable + Sync + Send,
+        FieldElement<A::Field>: AsBytes + Sync + Send,
+        FieldElement<A::FieldExtension>: AsBytes + Sync + Send,
     {
         let fri_layers_merkle_roots = &proof.fri_layers_merkle_roots;
         let evaluation_point_vec: Vec<FieldElement<A::Field>> =
@@ -722,8 +722,8 @@ pub trait IsStarkVerifier<A: AIR> {
         mut transcript: impl IsStarkTranscript<A::FieldExtension>,
     ) -> bool
     where
-        FieldElement<A::Field>: Serializable + Sync + Send,
-        FieldElement<A::FieldExtension>: Serializable + Sync + Send,
+        FieldElement<A::Field>: AsBytes + Sync + Send,
+        FieldElement<A::FieldExtension>: AsBytes + Sync + Send,
     {
         // Verify there are enough queries
         if proof.query_list.len() < proof_options.fri_number_of_queries {

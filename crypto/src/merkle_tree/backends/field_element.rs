@@ -4,7 +4,7 @@ use crate::merkle_tree::traits::IsMerkleTreeBackend;
 use core::marker::PhantomData;
 use lambdaworks_math::{
     field::{element::FieldElement, traits::IsField},
-    traits::Serializable,
+    traits::AsBytes,
 };
 use sha3::{
     digest::{generic_array::GenericArray, OutputSizeUser},
@@ -30,7 +30,7 @@ impl<F, D: Digest, const NUM_BYTES: usize> IsMerkleTreeBackend
     for FieldElementBackend<F, D, NUM_BYTES>
 where
     F: IsField,
-    FieldElement<F>: Serializable + Sync + Send,
+    FieldElement<F>: AsBytes + Sync + Send,
     [u8; NUM_BYTES]: From<GenericArray<u8, <D as OutputSizeUser>::OutputSize>>,
 {
     type Node = [u8; NUM_BYTES];
@@ -38,7 +38,7 @@ where
 
     fn hash_data(input: &FieldElement<F>) -> [u8; NUM_BYTES] {
         let mut hasher = D::new();
-        hasher.update(input.serialize());
+        hasher.update(input.as_bytes());
         hasher.finalize().into()
     }
 
