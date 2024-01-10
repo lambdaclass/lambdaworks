@@ -267,7 +267,7 @@ where
             challenges.push(challenge.clone());
 
             // bound all tables to the verifier's challenege
-            for (poly_a, poly_b) in poly_a.iter_mut().zip(poly_b.iter_mut()) {
+            for (poly_a, poly_b) in poly_a.iter().zip(poly_b.iter()) {
                 poly_a.fix_variable(&challenge);
                 poly_b.fix_variable(&challenge);
             }
@@ -288,7 +288,7 @@ where
         poly_a: &Vec<DenseMultilinearPolynomial<F>>,
         poly_b: &Vec<DenseMultilinearPolynomial<F>>,
         poly_c: &DenseMultilinearPolynomial<F>,
-        powers: &[FieldElement<F>],
+        powers: Option<&[FieldElement<F>]>,
         comb_func: E,
         transcript: &mut impl Transcript,
     ) -> SumcheckProof<F>
