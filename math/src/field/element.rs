@@ -250,28 +250,6 @@ where
     }
 }
 
-/// SubAssign operator overloading for field elements
-impl<F, L> SubAssign<FieldElement<F>> for FieldElement<L>
-where
-    F: IsSubFieldOf<L>,
-    L: IsField,
-{
-    fn sub_assign(&mut self, rhs: FieldElement<F>) {
-        self.value = <F as IsSubFieldOf<L>>::sub(&rhs.value, &self.value);
-    }
-}
-
-/// SubAssign operator overloading for field elements
-impl<F, L> SubAssign<&FieldElement<F>> for FieldElement<L>
-where
-    F: IsSubFieldOf<L>,
-    L: IsField,
-{
-    fn sub_assign(&mut self, rhs: &FieldElement<F>) {
-        self.value = <F as IsSubFieldOf<L>>::sub(&rhs.value, &self.value);
-    }
-}
-
 /// Multiplication operator overloading for field elements*/
 impl<F, L> Mul<&FieldElement<L>> for &FieldElement<F>
 where
