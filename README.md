@@ -121,7 +121,7 @@ List of symbols:
 | GKR     | :x:                | :heavy_check_mark: |     | :heavy_check_mark: |             |
 | **Polynomial Commitment Schemes** | **Lambdaworks** | **Arkworks** | **Halo2** | **gnark** | **Constantine** |
 | FRI                           | 🏗️                  |   :x:        | :x:       | :heavy_check_mark: |             |
-| IPA                           | :x:                |   ✔️           | :heavy_check_mark: |           |             |
+| IPA                           | 🏗️                  |   ✔️           | :heavy_check_mark: |           |             |
 | Hyrax                         | :x:                |               | :x:       |                    |             |
 | KZG10                         | :heavy_check_mark: |   ✔️  | :heavy_check_mark: | :heavy_check_mark: |             |
 | **Folding Schemes** | **Lambdaworks** | **Arkworks** | **Halo2** | **gnark** | **Constantine** |
