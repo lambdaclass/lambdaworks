@@ -92,6 +92,7 @@ mod test {
     #[test]
     fn evaluate() {
         use crate::field::fields::u64_prime_field::U64PrimeField;
+        use alloc::vec;
 
         use super::*;
 

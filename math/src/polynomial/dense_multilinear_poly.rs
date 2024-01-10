@@ -45,6 +45,7 @@ where
         &self.evals
     }
 
+    #[allow(clippy::len_without_is_empty)]
     pub fn len(&self) -> usize {
         self.len
     }
@@ -63,11 +64,11 @@ where
         let mut chis: Vec<FieldElement<F>> =
             vec![FieldElement::one(); (2usize).pow(r.len() as u32)];
         let mut size = 1;
-        for j in 0..r.len() {
+        for j in r {
             size *= 2;
             for i in (0..size).rev().step_by(2) {
                 let scalar = &chis[i / 2].clone();
-                chis[i] = scalar * &r[j];
+                chis[i] = scalar * &j;
                 chis[i - 1] = scalar - &chis[i];
             }
         }
@@ -92,11 +93,11 @@ where
         let mut chis: Vec<FieldElement<F>> =
             vec![FieldElement::one(); (2usize).pow(r.len() as u32)];
         let mut size = 1;
-        for j in 0..r.len() {
+        for j in r {
             size *= 2;
             for i in (0..size).rev().step_by(2) {
                 let scalar = &chis[i / 2].clone();
-                chis[i] = scalar * &r[j];
+                chis[i] = scalar * j;
                 chis[i - 1] = scalar - &chis[i];
             }
         }
@@ -232,15 +233,13 @@ mod tests {
     type FE = FieldElement<F>;
 
     pub fn evals(r: Vec<FE>) -> Vec<FE> {
-        let ell = r.len();
-
         let mut evals: Vec<FE> = vec![FE::one(); (2usize).pow(r.len() as u32)];
         let mut size = 1;
-        for j in 0..ell {
+        for j in r {
             size *= 2;
             for i in (0..size).rev().step_by(2) {
                 let scalar = evals[i / 2];
-                evals[i] = scalar * r[j];
+                evals[i] = scalar * j;
                 evals[i - 1] = scalar - evals[i];
             }
         }
