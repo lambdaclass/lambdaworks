@@ -1,4 +1,4 @@
-use crate::table::{Table, TableView};
+use crate::table::Table;
 use crate::traits::AIR;
 use lambdaworks_math::fft::errors::FFTError;
 use lambdaworks_math::{
@@ -54,17 +54,6 @@ impl<'t, F: IsFFTField> TraceTable<F> {
     pub fn step_to_row(&self, step: usize) -> usize {
         self.step_size * step
     }
-
-    // /// Given a step index, return the step view of the trace for that index
-    // pub fn step_view(&'t self, step_idx: usize) -> StepView<'t, F> {
-    //     let row_idx = self.step_to_row(step_idx);
-    //     let table_view = self.table.table_view(row_idx, self.step_size);
-
-    //     StepView {
-    //         table_view,
-    //         step_idx,
-    //     }
-    // }
 
     pub fn n_cols(&self) -> usize {
         self.table.width

@@ -133,7 +133,6 @@ impl<F: IsFFTField> ConstraintEvaluator<F> {
 
         let evaluations_t = evaluations_t_iter
             .zip(&boundary_evaluation)
-            // .zip(zerofier_iter)
             .map(|(i, boundary)| {
                 let frame = Frame::read_from_lde(lde_trace, i, &air.context().transition_offsets);
 
@@ -161,9 +160,7 @@ impl<F: IsFFTField> ConstraintEvaluator<F> {
                     transition_coefficients
                 )
                 .fold(FieldElement::zero(), |acc, (eval, zerof_eval, beta)| {
-                    // .fold(FieldElement::zero(), |acc, (eval, beta)| {
                     acc + beta * eval * zerof_eval
-                    // acc + beta * eval
                 });
 
                 acc_transition + boundary
