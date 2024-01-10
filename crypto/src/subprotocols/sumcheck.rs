@@ -26,8 +26,8 @@ where
             let eval_0 = comb_func(&poly_a[i], &poly_b[i]);
 
             // eval_2: -A(low) + 2*A(high)
-            let poly_a_eval_2 = poly_a[len + i] + poly_a[len + i] - poly_a[i];
-            let poly_b_eval_2 = poly_b[len + i] + poly_b[len + i] - poly_b[i];
+            let poly_a_eval_2 = &poly_a[len + i] + &poly_a[len + i] - &poly_a[i];
+            let poly_b_eval_2 = &poly_b[len + i] + &poly_b[len + i] - &poly_b[i];
             let eval_2 = comb_func(&poly_a_eval_2, &poly_b_eval_2);
             (eval_0, eval_2)
         })
@@ -55,16 +55,16 @@ where
             let eval_0 = comb_func(&poly_a[i], &poly_b[i], &poly_c[i]);
 
             // eval_2: -A(low) + 2*A(high)
-            let poly_a_eval_2 = poly_a[len + i] + poly_a[len + i] - poly_a[i];
-            let poly_b_eval_2 = poly_b[len + i] + poly_b[len + i] - poly_b[i];
-            let poly_c_eval_2 = poly_c[len + i] + poly_c[len + i] - poly_c[i];
+            let poly_a_eval_2 = &poly_a[len + i] + &poly_a[len + i] - &poly_a[i];
+            let poly_b_eval_2 = &poly_b[len + i] + &poly_b[len + i] - &poly_b[i];
+            let poly_c_eval_2 = &poly_c[len + i] + &poly_c[len + i] - &poly_c[i];
             let eval_2 = comb_func(&poly_a_eval_2, &poly_b_eval_2, &poly_c_eval_2);
 
             // eval 3: bound_func is -2A(low) + 3A(high); computed incrementally with bound_func applied to eval(2)
-            let poly_a_eval_3 = poly_a_eval_2 + poly_a[len + i] - poly_a[i];
-            let poly_b_eval_3 = poly_b_eval_2 + poly_b[len + i] - poly_b[i];
-            let poly_c_eval_3 = poly_c_eval_2 + poly_c[len + i] - poly_c[i];
-            let eval_3 = comb_func(&poly_a_eval_2, &poly_b_eval_2, &poly_c_eval_2);
+            let poly_a_eval_3 = poly_a_eval_2 + &poly_a[len + i] - &poly_a[i];
+            let poly_b_eval_3 = poly_b_eval_2 + &poly_b[len + i] - &poly_b[i];
+            let poly_c_eval_3 = poly_c_eval_2 + &poly_c[len + i] - &poly_c[i];
+            let eval_3 = comb_func(&poly_a_eval_3, &poly_b_eval_3, &poly_c_eval_3);
 
             (eval_0, eval_2, eval_3)
         })
@@ -121,13 +121,12 @@ where
         let mut round_uni_polys: Vec<Polynomial<FieldElement<F>>> =
             Vec::with_capacity(poly_a.num_vars());
         let mut challenges = Vec::with_capacity(poly_a.num_vars());
-        let mut prev_round_claim = *sum;
+        let mut prev_round_claim = sum.clone();
 
         for _ in 0..poly_a.num_vars() {
             let poly = {
-                let len = poly_a.len() / 2;
                 let (eval_0, eval_2) = eval_points_quadratic(poly_a, poly_b, &comb_func);
-                let evals = vec![eval_0, prev_round_claim - eval_0, eval_2];
+                let evals = vec![eval_0.clone(), prev_round_claim - eval_0, eval_2];
                 Polynomial::new(&evals)
             };
 
@@ -137,11 +136,11 @@ where
             let challenge = FieldElement::from_bytes_be(&transcript.challenge()).unwrap();
             challenges.push(challenge.clone());
 
-            // add univariate polynomial for this round to the proof
-            round_uni_polys.push(poly);
-
             // compute next claim
             prev_round_claim = poly.evaluate(&challenge);
+
+            // add univariate polynomial for this round to the proof
+            round_uni_polys.push(poly);
 
             // fix next variable of poly
             poly_a.fix_variable(&challenge);
@@ -169,7 +168,7 @@ where
         let mut round_uni_polys: Vec<Polynomial<FieldElement<F>>> =
             Vec::with_capacity(poly_a[0].num_vars());
         let mut challenges = Vec::with_capacity(poly_a[0].num_vars());
-        let mut prev_round_claim = *sum;
+        let mut prev_round_claim = sum.clone();
 
         for _ in 0..poly_a[0].num_vars() {
             let mut evals: Vec<(FieldElement<F>, FieldElement<F>)> = Vec::new();
@@ -181,18 +180,19 @@ where
             }
 
             // TODO: make optional as we want to perform a batched check outside of this
-            let mut evals_combined_0;
-            let mut evals_combined_2;
+            let evals_combined_0: FieldElement<F>;
+            let evals_combined_2;
             if let Some(powers) = powers {
-                evals_combined_0 = (0..evals.len()).map(|i| evals[i].0 * powers[i]).sum();
-                evals_combined_2 = (0..evals.len()).map(|i| evals[i].1 * powers[i]).sum();
+                evals_combined_0 = (0..evals.len()).map(|i| &evals[i].0 * &powers[i]).sum();
+                evals_combined_2 = (0..evals.len()).map(|i| &evals[i].1 * &powers[i]).sum();
             } else {
-                evals_combined_0 = (0..evals.len()).map(|i| evals[i].0).sum();
-                evals_combined_2 = (0..evals.len()).map(|i| evals[i].1).sum();
+                //TODO: Implement Sum
+                evals_combined_0 = (0..evals.len()).map(|i| evals[i].0.clone()).sum();
+                evals_combined_2 = (0..evals.len()).map(|i| evals[i].1.clone()).sum();
             }
 
             let evals = vec![
-                evals_combined_0,
+                evals_combined_0.clone(),
                 prev_round_claim - evals_combined_0,
                 evals_combined_2,
             ];
@@ -223,42 +223,31 @@ where
 
     pub fn prove_cubic<E>(
         sum: &FieldElement<F>,
-        poly_a: &DenseMultilinearPolynomial<F>,
-        poly_b: &DenseMultilinearPolynomial<F>,
-        poly_c: &DenseMultilinearPolynomial<F>,
+        poly_a: &mut DenseMultilinearPolynomial<F>,
+        poly_b: &mut DenseMultilinearPolynomial<F>,
+        poly_c: &mut DenseMultilinearPolynomial<F>,
         comb_func: E,
         transcript: &mut impl Transcript,
     ) -> SumcheckProof<F>
     where
-        E: Fn(&FieldElement<F>, &FieldElement<F>) -> FieldElement<F> + Sync, {
+        E: Fn(&FieldElement<F>, &FieldElement<F>, &FieldElement<F>) -> FieldElement<F> + Sync, {
         let mut round_uni_polys: Vec<Polynomial<FieldElement<F>>> =
             Vec::with_capacity(poly_a.num_vars());
         let mut challenges = Vec::with_capacity(poly_a.num_vars());
-        let mut prev_round_claim = *sum;
+        let mut prev_round_claim = sum.clone();
 
         for _ in 0..poly_a.num_vars() {
-            let mut evals: Vec<(FieldElement<F>, FieldElement<F>, FieldElement<F>)> = Vec::new();
 
-            #[cfg(feature = "rayon")]
-
-            #[cfg(not(feature = "rayon"))]
-
-            for (poly_a, poly_b) in poly_a.iter().zip(poly_b.iter()) {
-                let (eval_point_0, eval_point_2, eval_point_3) =
-                    eval_points_cubic(poly_a, poly_b, poly_c, &comb_func);
-                evals.push((eval_point_0, eval_point_2, eval_point_3));
-            }
-
-            // TODO: make optional as we want to perform a batched check outside of this
-            let mut evals_combined_0;
-            let mut evals_combined_2;
-
-            let evals = vec![
-                evals_combined_0,
-                prev_round_claim - evals_combined_0,
-                evals_combined_2,
-            ];
-            let poly = Polynomial::new(&evals);
+            let poly = {
+                let (eval_point_0, eval_point_2, eval_point_3) = eval_points_cubic(poly_a, poly_b, poly_c, &comb_func);
+                let evals = vec![
+                    eval_point_0.clone(),
+                    prev_round_claim - eval_point_0,
+                    eval_point_2,
+                    eval_point_3,
+                ];
+                Polynomial::new(&evals)
+            };
 
             // TODO append the prover's message to the transcript
 
@@ -267,10 +256,9 @@ where
             challenges.push(challenge.clone());
 
             // bound all tables to the verifier's challenege
-            for (poly_a, poly_b) in poly_a.iter().zip(poly_b.iter()) {
-                poly_a.fix_variable(&challenge);
-                poly_b.fix_variable(&challenge);
-            }
+            poly_a.fix_variable(&challenge);
+            poly_b.fix_variable(&challenge);
+            poly_c.fix_variable(&challenge);
 
             prev_round_claim = poly.evaluate(&challenge);
             round_uni_polys.push(poly);
@@ -285,44 +273,48 @@ where
 
     pub fn prove_cubic_batched<E>(
         sum: &FieldElement<F>,
-        poly_a: &Vec<DenseMultilinearPolynomial<F>>,
-        poly_b: &Vec<DenseMultilinearPolynomial<F>>,
+        poly_a: &mut Vec<DenseMultilinearPolynomial<F>>,
+        poly_b: &mut Vec<DenseMultilinearPolynomial<F>>,
         poly_c: &DenseMultilinearPolynomial<F>,
         powers: Option<&[FieldElement<F>]>,
         comb_func: E,
         transcript: &mut impl Transcript,
     ) -> SumcheckProof<F>
     where
-        E: Fn(&FieldElement<F>, &FieldElement<F>) -> FieldElement<F> + Sync, {
+        E: Fn(&FieldElement<F>, &FieldElement<F>, &FieldElement<F>) -> FieldElement<F> + Sync, {
         let mut round_uni_polys: Vec<Polynomial<FieldElement<F>>> =
             Vec::with_capacity(poly_a[0].num_vars());
         let mut challenges = Vec::with_capacity(poly_a[0].num_vars());
-        let mut prev_round_claim = *sum;
+        let mut prev_round_claim = sum.clone();
 
         for _ in 0..poly_a[0].num_vars() {
-            let mut evals: Vec<(FieldElement<F>, FieldElement<F>)> = Vec::new();
+            let mut evals: Vec<(FieldElement<F>, FieldElement<F>, FieldElement<F>)> = Vec::new();
 
             for (poly_a, poly_b) in poly_a.iter().zip(poly_b.iter()) {
-                let (eval_point_0, eval_point_2) =
-                    eval_points_quadratic(poly_a, poly_b, &comb_func);
-                evals.push((eval_point_0, eval_point_2));
+                let (eval_point_0, eval_point_2, eval_point_3) =
+                    eval_points_cubic(poly_a, poly_b, poly_c, &comb_func);
+                evals.push((eval_point_0, eval_point_2, eval_point_3));
             }
 
             // TODO: make optional as we want to perform a batched check outside of this
-            let mut evals_combined_0;
-            let mut evals_combined_2;
+            let evals_combined_0: FieldElement<F>;
+            let evals_combined_2: FieldElement<F>;
+            let evals_combined_3: FieldElement<F>;
             if let Some(powers) = powers {
-                evals_combined_0 = (0..evals.len()).map(|i| evals[i].0 * powers[i]).sum();
-                evals_combined_2 = (0..evals.len()).map(|i| evals[i].1 * powers[i]).sum();
+                evals_combined_0 = (0..evals.len()).map(|i| &evals[i].0 * &powers[i]).sum();
+                evals_combined_2 = (0..evals.len()).map(|i| &evals[i].1 * &powers[i]).sum();
+                evals_combined_3 = (0..evals.len()).map(|i| &evals[i].2 * &powers[i]).sum();
             } else {
-                evals_combined_0 = (0..evals.len()).map(|i| evals[i].0).sum();
-                evals_combined_2 = (0..evals.len()).map(|i| evals[i].1).sum();
+                evals_combined_0 = (0..evals.len()).map(|i| evals[i].0.clone()).sum();
+                evals_combined_2 = (0..evals.len()).map(|i| evals[i].1.clone()).sum();
+                evals_combined_3 = (0..evals.len()).map(|i| evals[i].2.clone()).sum();
             }
 
             let evals = vec![
-                evals_combined_0,
+                evals_combined_0.clone(),
                 prev_round_claim - evals_combined_0,
                 evals_combined_2,
+                evals_combined_3
             ];
             let poly = Polynomial::new(&evals);
 
@@ -367,7 +359,7 @@ where
 
     // Create a test for this
     pub fn prove_single(
-        poly: &DenseMultilinearPolynomial<F>,
+        poly: &mut DenseMultilinearPolynomial<F>,
         sum: &FieldElement<F>,
         transcript: &mut impl Transcript,
     ) -> SumcheckProof<F> {
@@ -375,25 +367,22 @@ where
             Vec::with_capacity(poly.num_vars());
         let mut challenges = Vec::with_capacity(poly.num_vars());
 
-        let mut prev_round_claim = *sum;
-        let mut round_poly = *poly;
+        let mut prev_round_claim = sum.clone();
 
         // Number round = num vars
         for _ in 0..poly.num_vars() {
-            let mut eval_points = vec![FieldElement::zero(); round_poly.num_vars() + 1];
-            // TODO: add multicore by flagging
             // Compute evaluation points of the Dense Multilinear Poly
-            let round_uni_poly = {
+            let round_poly = {
                 let mle_half = poly.len() / 2;
                 // TODO: push check/error for empty poly to start of proving or into multilinear poly so we eliminate this problem entirely.
                 let eval_0 = (0..mle_half)
-                    .map(|i| poly[i])
+                    .map(|i| poly[i].clone())
                     .reduce(|a, b| (a + b))
                     .unwrap();
                 // We evaluate the poly at each round and each random challenge at 0, 1 we can compute both of these evaluations by summing over the boolearn hypercube for 0, 1 at the fixed point
                 // An additional optimization is to sum over eval_0 and compute eval_1 = prev_round_claim - eval_0;
-                let evals = vec![eval_0, prev_round_claim - eval_0];
-                Polynomial::new(&eval_points)
+                let evals = vec![eval_0.clone(), prev_round_claim - eval_0];
+                Polynomial::new(&evals)
             };
 
             // TODO: Append poly to transcript -> Modify Transcript
@@ -401,11 +390,11 @@ where
             let challenge = FieldElement::from_bytes_be(&transcript.challenge()).unwrap();
             challenges.push(challenge.clone());
 
-            // add univariate polynomial for this round to the proof
-            round_uni_polys.push(round_uni_poly);
-
             // grab next claim
-            prev_round_claim = round_uni_poly.evaluate(&challenge);
+            prev_round_claim = round_poly.evaluate(&challenge);
+
+            // add univariate polynomial for this round to the proof
+            round_uni_polys.push(round_poly);
 
             // takes mutable reference and fixes poly at challenge
             // On each round we evaluate over the hypercube to generate the univariate polynomial for this round. Then we fix the challenge for the next variable,
