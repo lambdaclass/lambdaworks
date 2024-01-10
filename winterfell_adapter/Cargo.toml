@@ -5,9 +5,8 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
-lambdaworks-math = { git = "https://github.com/lambdaclass/lambdaworks", rev = "3da725de1e6f76c04ddbb3ccb67e6038a7663134", features=["winter_compatibility"] }
-# stark-platinum-prover = { path = "../provers/stark" , features=["winter_compatibility"]}
-stark-platinum-prover = { git = "https://github.com/lambdaclass/lambdaworks" , rev = "3da725de1e6f76c04ddbb3ccb67e6038a7663134", features=["winter_compatibility"] }
+lambdaworks-math = { git = "https://github.com/lambdaclass/lambdaworks", rev = "3da725de1e6f76c04ddbb3ccb67e6038a7663134", features = ["winter_compatibility"] }
+stark-platinum-prover = { git = "https://github.com/lambdaclass/lambdaworks" , rev = "3da725de1e6f76c04ddbb3ccb67e6038a7663134", features = ["winter_compatibility"] }
 rand = "0.8.5"
 winter-air = { package = "winter-air", version = "0.6.4", default-features = false }
 winter-prover = { package = "winter-prover", version = "0.6.4", default-features = false }
