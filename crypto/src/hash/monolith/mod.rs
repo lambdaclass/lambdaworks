@@ -11,45 +11,46 @@ use utils::*;
 
 // Ported from https://github.com/Plonky3/Plonky3/blob/main/monolith
 
-pub const NUM_FULL_ROUNDS: usize = 5;
+pub const NUM_BARS: usize = 8;
+const MATRIX_CIRC_MDS_16_MERSENNE31_MONOLITH: [u32; 16] = [
+    61402, 17845, 26798, 59689, 12021, 40901, 41351, 27521, 56951, 12034, 53865, 43244, 7454,
+    33823, 28750, 1108,
+];
 
-pub struct MonolithMersenne31 {
-    width: u8,
-    num_bars: usize,
+pub struct MonolithMersenne31<const WIDTH: usize, const NUM_FULL_ROUNDS: usize> {
     round_constants: Vec<Vec<u32>>,
     lookup1: Vec<u16>,
     lookup2: Vec<u16>,
 }
 
-impl Default for MonolithMersenne31 {
+impl<const WIDTH: usize, const NUM_FULL_ROUNDS: usize> Default
+    for MonolithMersenne31<WIDTH, NUM_FULL_ROUNDS>
+{
     fn default() -> Self {
-        Self::new(16)
+        Self::new()
     }
 }
 
-// Initialization
-impl MonolithMersenne31 {
-    pub fn new(width: u8) -> Self {
-        assert!(width >= 8);
-        assert!(width <= 24);
-        assert!(width % 4 == 0);
+impl<const WIDTH: usize, const NUM_FULL_ROUNDS: usize> MonolithMersenne31<WIDTH, NUM_FULL_ROUNDS> {
+    pub fn new() -> Self {
+        assert!(WIDTH >= 8);
+        assert!(WIDTH <= 24);
+        assert!(WIDTH % 4 == 0);
         Self {
-            width,
-            num_bars: 8, // Suggested
-            round_constants: Self::instantiate_round_constants(width),
+            round_constants: Self::instantiate_round_constants(),
             lookup1: Self::instantiate_lookup1(),
             lookup2: Self::instantiate_lookup2(),
         }
     }
 
-    fn instantiate_round_constants(width: u8) -> Vec<Vec<u32>> {
+    fn instantiate_round_constants() -> Vec<Vec<u32>> {
         let mut shake = Shake128::default();
         shake.update("Monolith".as_bytes());
-        shake.update(&[width, (NUM_FULL_ROUNDS + 1) as u8]);
+        shake.update(&[WIDTH as u8, (NUM_FULL_ROUNDS + 1) as u8]);
         shake.update(&MERSENNE_31_PRIME_FIELD_ORDER.to_le_bytes());
         shake.update(&[8, 8, 8, 7]);
         let mut shake_finalized = shake.finalize_xof();
-        random_matrix(&mut shake_finalized, NUM_FULL_ROUNDS, width as usize)
+        random_matrix(&mut shake_finalized, NUM_FULL_ROUNDS, WIDTH as usize)
     }
 
     fn instantiate_lookup1() -> Vec<u16> {
@@ -101,18 +102,12 @@ impl MonolithMersenne31 {
 
     // MDS matrix
     fn concrete(&self, state: &mut Vec<u32>) {
-        *state = if self.width == 16 {
-            Self::apply_circulant(
-                &mut [
-                    61402, 17845, 26798, 59689, 12021, 40901, 41351, 27521, 56951, 12034, 53865,
-                    43244, 7454, 33823, 28750, 1108,
-                ],
-                state,
-            )
+        *state = if WIDTH == 16 {
+            Self::apply_circulant(&mut MATRIX_CIRC_MDS_16_MERSENNE31_MONOLITH.clone(), state)
         } else {
             let mut shake = Shake128::default();
             shake.update("Monolith".as_bytes());
-            shake.update(&[self.width, (NUM_FULL_ROUNDS + 1) as u8]);
+            shake.update(&[WIDTH as u8, (NUM_FULL_ROUNDS + 1) as u8]);
             shake.update(&MERSENNE_31_PRIME_FIELD_ORDER.to_le_bytes());
             shake.update(&[16, 15]);
             shake.update("MDS".as_bytes());
@@ -123,7 +118,7 @@ impl MonolithMersenne31 {
 
     // S-box lookups
     fn bars(&self, state: &mut [u32]) {
-        for state in state.iter_mut().take(self.num_bars) {
+        for state in state.iter_mut().take(NUM_BARS) {
             *state = (self.lookup2[(*state >> 16) as u16 as usize] as u32) << 16
                 | self.lookup1[*state as u16 as usize] as u32;
         }
@@ -144,19 +139,17 @@ impl MonolithMersenne31 {
 
     // O(n²)
     fn apply_circulant(circ_matrix: &mut [u32], input: &[u32]) -> Vec<u32> {
-        let width = input.len();
-        let mut output = vec![F::zero(); width];
-        for out_i in output.iter_mut().take(width - 1) {
+        let mut output = vec![F::zero(); WIDTH];
+        for out_i in output.iter_mut().take(WIDTH - 1) {
             *out_i = dot_product(circ_matrix, input);
             circ_matrix.rotate_right(1);
         }
-        output[width - 1] = dot_product(circ_matrix, input);
+        output[WIDTH - 1] = dot_product(circ_matrix, input);
         output
     }
 
     fn apply_cauchy_mds_matrix(shake: &mut Shake128Reader, to_multiply: &[u32]) -> Vec<u32> {
-        let width = to_multiply.len();
-        let mut output = vec![F::zero(); width];
+        let mut output = vec![F::zero(); WIDTH];
 
         let bits: u32 = u64::BITS
             - (MERSENNE_31_PRIME_FIELD_ORDER as u64)
@@ -166,7 +159,7 @@ impl MonolithMersenne31 {
         let x_mask = (1 << (bits - 9)) - 1;
         let y_mask = ((1 << bits) - 1) >> 2;
 
-        let y = get_random_y_i(shake, width, x_mask, y_mask);
+        let y = get_random_y_i(shake, WIDTH, x_mask, y_mask);
         let mut x = y.clone();
         x.iter_mut().for_each(|x_i| *x_i &= x_mask);
 
@@ -191,7 +184,7 @@ mod tests {
     #[test]
     fn from_plonky3_concrete_width_16() {
         let mut input = get_test_input(16);
-        MonolithMersenne31::new(16).concrete(&mut input);
+        MonolithMersenne31::<16, 5>::new().concrete(&mut input);
         assert_eq!(
             input,
             [
@@ -204,7 +197,7 @@ mod tests {
     #[test]
     fn from_plonky3_concrete_width_12() {
         let mut input = get_test_input(12);
-        MonolithMersenne31::new(12).concrete(&mut input);
+        MonolithMersenne31::<12, 5>::new().concrete(&mut input);
         assert_eq!(
             input,
             [
@@ -217,7 +210,7 @@ mod tests {
     #[test]
     fn from_plonky3_width_16() {
         let mut input = get_test_input(16);
-        MonolithMersenne31::new(16).permutation(&mut input);
+        MonolithMersenne31::<16, 5>::new().permutation(&mut input);
         assert_eq!(
             input,
             [
