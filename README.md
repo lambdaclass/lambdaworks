@@ -1,7 +1,4 @@
 # lambdaworks
-
-The library for kids who wanna learn how to do STARKs, SNARKs and learn other cryptographic stuff too.
-
 > From the heights of these towers of fields, forty centuries of mathematics look down on us. 
 
 This library provides efficient implementation of cryptographic primitives used to build proving systems. Along with it, many backends for proving systems are shipped, and compatibility with different frontends is supported.
