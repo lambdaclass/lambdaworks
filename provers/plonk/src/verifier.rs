@@ -108,7 +108,7 @@ impl<F: IsField + IsFFTField, CS: IsCommitmentScheme<F>> Verifier<F, CS> {
             * (&p.c_zeta + &gamma)
             * (&p.a_zeta + &beta * &p.s1_zeta + &gamma)
             * (&p.b_zeta + &beta * &p.s2_zeta + &gamma);
-        p_constant_zeta = p_constant_zeta - &l1_zeta * &alpha * &alpha;
+        p_constant_zeta -= &l1_zeta * &alpha * &alpha;
         p_constant_zeta += p_pi_zeta;
 
         let p_zeta = p_constant_zeta + &p.p_non_constant_zeta;

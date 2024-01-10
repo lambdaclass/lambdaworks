@@ -708,7 +708,7 @@ pub trait IsStarkVerifier<A: AIR> {
             let h_i_term = (h_i_upsilon - h_i_zpower) * &challenges.gammas[j];
             h_terms += h_i_term;
         }
-        h_terms = h_terms * denom_composition;
+        h_terms *= denom_composition;
 
         trace_term + h_terms
     }
