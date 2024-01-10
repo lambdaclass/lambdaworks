@@ -16,6 +16,7 @@ lambdaworks-gpu = { path = "./gpu", version = "0.3.0" }
 lambdaworks-math = { path = "./math", version = "0.3.0" }
 stark-platinum-prover = { path = "./provers/stark", version = "0.3.0" }
 cairo-platinum-prover = { path = "./provers/cairo", version = "0.3.0" }
+
 [patch.crates-io]
 winter-air = { git = "https://github.com/lambdaclass/winterfell-for-lambdaworks.git", branch = "derive-clone-v6.4"}
 winter-prover = { git = "https://github.com/lambdaclass/winterfell-for-lambdaworks.git", branch = "derive-clone-v6.4"}
