@@ -40,6 +40,50 @@ This library provides efficient implementation of cryptographic primitives used 
 
 ## [Documentation](https://lambdaclass.github.io/lambdaworks)
 
+## Main crates
+
+- [Math](https://github.com/lambdaclass/lambdaworks/tree/main/math)
+- [Crypto primitives](https://github.com/lambdaclass/lambdaworks/tree/main/crypto)
+- [STARK Prover](https://github.com/lambdaclass/lambdaworks/tree/main/provers/stark)
+- [Plonk Prover](https://github.com/lambdaclass/lambdaworks/tree/main/provers/plonk)
+- [Cairo Prover](https://github.com/lambdaclass/lambdaworks/tree/main/provers/cairo)
+- [Groth 16](https://github.com/lambdaclass/lambdaworks/tree/main/provers/groth16)
+
+### Crypto
+- [Elliptic curves](https://github.com/lambdaclass/lambdaworks/tree/main/math/src/elliptic_curve)
+- [Multiscalar multiplication](https://github.com/lambdaclass/lambdaworks/tree/main/math/src/msm)
+- [Hashes](https://github.com/lambdaclass/lambdaworks/tree/main/crypto/src/hash)
+
+Most of math and crypto crates supports no-std without allocation with `no-default-features`. A few functions and modules require the `alloc` feature.
+
+Both Math and Crypto support wasm with target `wasm32-unknown-unknown`. To see an example of how to use this to deploy a verifier in a browser, check the Cairo Prover wasm-pack verifier.
+
+## Examples - mini apps
+- [Merkle Tree CLI](https://github.com/lambdaclass/lambdaworks/tree/main/examples/merkle-tree-cli)
+
+## Exercises and Challenges
+- [Lambdaworks exercises and challenges](https://github.com/lambdaclass/lambdaworks_exercises/tree/main)
+- [Roadmap for Sparkling Water Bootcamp](https://github.com/lambdaclass/sparkling_water_bootcamp/blob/main/README.md)
+
+## Citing Lambdaworks
+
+If you use ```Lambdaworks``` libraries in your research projects, please cite them using the following template:
+
+``` bibtex
+@software{Lambdaworks,
+  author={Lambdaworks contributors},
+  title={Lambdaworks},
+  url={https://github.com/lambdaclass/lambdaworks},
+  year={2023}
+}
+```
+
+## Why we built Lambdaworks
+
+Zero-Knowledge and Validity Proofs have gained a lot of attention over the last few years. We strongly believe in this potential and that is why we decided to start working in this challenging ecosystem, where math, cryptography and distributed systems meet. The main barrier in the beginning was not the cryptography or math but the lack of good libraries which are performant and developer friendly. There are some exceptions, though, like gnark or halo2. Some have nice APIs and are easy to work with, but they are not written in Rust, and some are written in Rust but have poor programming and engineering practices. Most of them don't have support for CUDA, Metal and WebGPU or distributed FFT calculation using schedulers like Dask.
+
+So, we decided to build our library, focusing on performance, with clear documentation and developer-focused. Our core team is a group of passionate people from different backgrounds and different strengths; we think that the whole is greater than just the addition of the parts. We don't want to be a compilation of every research result in the ZK space. We want this to be a library that can be used in production, not just in academic research. We want to offer developers the main building blocks and proof systems so that they can build their applications on top of this library.
+
 ## List of features
 
 Disclaimer: This list contains cryptographic primitives and mathematical structures that we want to support in Lambdaworks. It can be expanded later to include new primitives. If you find there is a mistake or there has been an update in another library, please let us know.
@@ -100,50 +144,6 @@ Additionally, provers are compatible with the following frontends and VMs:
 | Stark   | Cairo | :heavy_check_mark: |
 
 This can be used in a multi prover setting for extra security, or as a standalone to be used with Rust. 
-
-## Main crates
-
-- [Math](https://github.com/lambdaclass/lambdaworks/tree/main/math)
-- [Crypto primitives](https://github.com/lambdaclass/lambdaworks/tree/main/crypto)
-- [STARK Prover](https://github.com/lambdaclass/lambdaworks/tree/main/provers/stark)
-- [Plonk Prover](https://github.com/lambdaclass/lambdaworks/tree/main/provers/plonk)
-- [Cairo Prover](https://github.com/lambdaclass/lambdaworks/tree/main/provers/cairo)
-- [Groth 16](https://github.com/lambdaclass/lambdaworks/tree/main/provers/groth16)
-
-### Crypto
-- [Elliptic curves](https://github.com/lambdaclass/lambdaworks/tree/main/math/src/elliptic_curve)
-- [Multiscalar multiplication](https://github.com/lambdaclass/lambdaworks/tree/main/math/src/msm)
-- [Hashes](https://github.com/lambdaclass/lambdaworks/tree/main/crypto/src/hash)
-
-Most of math and crypto crates supports no-std without allocation with `no-default-features`. A few functions and modules require the `alloc` feature.
-
-Both Math and Crypto support wasm with target `wasm32-unknown-unknown`. To see an example of how to use this to deploy a verifier in a browser, check the Cairo Prover wasm-pack verifier.
-
-## Examples - mini apps
-- [Merkle Tree CLI](https://github.com/lambdaclass/lambdaworks/tree/main/examples/merkle-tree-cli)
-
-## Exercises and Challenges
-- [Lambdaworks exercises and challenges](https://github.com/lambdaclass/lambdaworks_exercises/tree/main)
-- [Roadmap for Sparkling Water Bootcamp](https://github.com/lambdaclass/sparkling_water_bootcamp/blob/main/README.md)
-
-## Citing Lambdaworks
-
-If you use ```Lambdaworks``` libraries in your research projects, please cite them using the following template:
-
-``` bibtex
-@software{Lambdaworks,
-  author={Lambdaworks contributors},
-  title={Lambdaworks},
-  url={https://github.com/lambdaclass/lambdaworks},
-  year={2023}
-}
-```
-
-## Why we built Lambdaworks
-
-Zero-Knowledge and Validity Proofs have gained a lot of attention over the last few years. We strongly believe in this potential and that is why we decided to start working in this challenging ecosystem, where math, cryptography and distributed systems meet. The main barrier in the beginning was not the cryptography or math but the lack of good libraries which are performant and developer friendly. There are some exceptions, though, like gnark or halo2. Some have nice APIs and are easy to work with, but they are not written in Rust, and some are written in Rust but have poor programming and engineering practices. Most of them don't have support for CUDA, Metal and WebGPU or distributed FFT calculation using schedulers like Dask.
-
-So, we decided to build our library, focusing on performance, with clear documentation and developer-focused. Our core team is a group of passionate people from different backgrounds and different strengths; we think that the whole is greater than just the addition of the parts. We don't want to be a compilation of every research result in the ZK space. We want this to be a library that can be used in production, not just in academic research. We want to offer developers the main building blocks and proof systems so that they can build their applications on top of this library.
 
 ## Additional tooling usage
 
