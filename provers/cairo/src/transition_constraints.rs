@@ -1639,7 +1639,7 @@ impl TransitionConstraint<Stark252PrimeField> for CpuUpdateRegistersUpdatePcTmp1
     }
 
     fn constraint_idx(&self) -> usize {
-        24
+        25
     }
 
     fn evaluate(

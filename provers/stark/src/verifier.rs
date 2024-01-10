@@ -258,11 +258,12 @@ pub trait IsStarkVerifier {
         let transition_ood_frame_evaluations =
             air.compute_transition(&ood_frame, &periodic_values, &challenges.rap_challenges);
 
-        let denominators: Vec<_> = air
-            .transition_constraints()
-            .iter()
-            .map(|c| c.evaluate_zerofier(&challenges.z, &domain.trace_primitive_root, trace_length))
-            .collect();
+        let mut denominators =
+            vec![FieldElement::<Self::Field>::zero(); air.num_transition_constraints()];
+        air.transition_constraints().iter().for_each(|c| {
+            denominators[c.constraint_idx()] =
+                c.evaluate_zerofier(&challenges.z, &domain.trace_primitive_root, trace_length);
+        });
 
         let transition_c_i_evaluations_sum = itertools::izip!(
             transition_ood_frame_evaluations, // .zip(&air.context().transition_exemptions)

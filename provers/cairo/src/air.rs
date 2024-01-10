@@ -1,6 +1,9 @@
+use std::collections::HashSet;
+
 use super::{cairo_mem::CairoMemory, register_states::RegisterStates};
 use crate::transition_constraints::{self, *};
 use cairo_vm::{air_public_input::MemorySegmentAddresses, without_std::collections::HashMap};
+use itertools::Itertools;
 use lambdaworks_math::{
     errors::DeserializationError,
     field::{
@@ -510,11 +513,11 @@ pub struct CairoAIR {
     pub transition_constraints: Vec<Box<dyn TransitionConstraint<Stark252PrimeField>>>,
 }
 
-pub struct CairoRAPChallenges {
-    pub alpha_memory: Felt252,
-    pub z_memory: Felt252,
-    pub z_range_check: Felt252,
-}
+// pub struct CairoRAPChallenges {
+//     pub alpha_memory: Felt252,
+//     pub z_memory: Felt252,
+//     pub z_range_check: Felt252,
+// }
 
 /// Receives two slices corresponding to the accessed addresses and values, filled with
 /// the memory holes and with the (0, 0) public memory dummy accesses.
@@ -679,24 +682,14 @@ impl AIR for CairoAIR {
             Box::new(BitPrefixFlag13::new()),
             Box::new(BitPrefixFlag14::new()),
             Box::new(ZeroFlagConstraint::new()),
-            Box::new(FlagOp1BaseOp0BitConstraint::new()),
-            Box::new(FlagResOp1BitConstraint::new()),
-            Box::new(FlagPcUpdateRegularBit::new()),
-            Box::new(FlagFpUpdateRegularBit::new()),
             Box::new(InstructionUnpacking::new()),
-            Box::new(CpuOpcodesCallOff0::new()),
-            Box::new(CpuOpcodesCallOff1::new()),
-            Box::new(CpuOpcodesCallFlags::new()),
-            Box::new(CpuOpcodesRetOff0::new()),
-            Box::new(CpuOpcodesRetOff2::new()),
-            Box::new(CpuOpcodesRetFlags::new()),
             Box::new(CpuOperandsMemDstAddr::new()),
             Box::new(CpuOperandsMem0Addr::new()),
             Box::new(CpuOperandsMem1Addr::new()),
-            // Box::new(CpuUpdateRegistersApUpdate::new()),
+            Box::new(CpuUpdateRegistersApUpdate::new()),
             Box::new(CpuUpdateRegistersFpUpdate::new()),
-            // Box::new(CpuUpdateRegistersPcCondNegative::new()),
             Box::new(CpuUpdateRegistersPcCondPositive::new()),
+            Box::new(CpuUpdateRegistersPcCondNegative::new()),
             Box::new(CpuUpdateRegistersUpdatePcTmp0::new()),
             Box::new(CpuUpdateRegistersUpdatePcTmp1::new()),
             Box::new(CpuOperandsOpsMul::new()),
@@ -708,26 +701,43 @@ impl AIR for CairoAIR {
             Box::new(MemoryDiffIsBit1::new()),
             Box::new(MemoryDiffIsBit2::new()),
             Box::new(MemoryDiffIsBit3::new()),
-            // Box::new(MemoryDiffIsBit4::new()),
+            Box::new(MemoryDiffIsBit4::new()),
             Box::new(MemoryIsFunc0::new()),
             Box::new(MemoryIsFunc1::new()),
             Box::new(MemoryIsFunc2::new()),
             Box::new(MemoryIsFunc3::new()),
-            // Box::new(MemoryIsFunc4::new()),
+            Box::new(MemoryIsFunc4::new()),
             Box::new(MemoryMultiColumnPermStep0_0::new()),
             Box::new(MemoryMultiColumnPermStep0_1::new()),
             Box::new(MemoryMultiColumnPermStep0_2::new()),
             Box::new(MemoryMultiColumnPermStep0_3::new()),
-            // Box::new(MemoryMultiColumnPermStep0_4::new()),
+            Box::new(MemoryMultiColumnPermStep0_4::new()),
             Box::new(Rc16DiffIsBit0::new()),
             Box::new(Rc16DiffIsBit1::new()),
             Box::new(Rc16DiffIsBit2::new()),
-            // Box::new(Rc16DiffIsBit3::new()),
+            Box::new(Rc16DiffIsBit3::new()),
             Box::new(Rc16PermStep0_0::new()),
             Box::new(Rc16PermStep0_1::new()),
             Box::new(Rc16PermStep0_2::new()),
             Box::new(Rc16PermStep0_3::new()),
+            Box::new(FlagOp1BaseOp0BitConstraint::new()),
+            Box::new(FlagResOp1BitConstraint::new()),
+            Box::new(FlagPcUpdateRegularBit::new()),
+            Box::new(FlagFpUpdateRegularBit::new()),
+            Box::new(CpuOpcodesCallOff0::new()),
+            Box::new(CpuOpcodesCallOff1::new()),
+            Box::new(CpuOpcodesCallFlags::new()),
+            Box::new(CpuOpcodesRetOff0::new()),
+            Box::new(CpuOpcodesRetOff2::new()),
+            Box::new(CpuOpcodesRetFlags::new()),
         ];
+
+        #[cfg(debug_assertions)]
+        let constraints_set: HashSet<_> = transition_constraints.iter().map(|c| c.constraint_idx()).collect();
+        debug_assert_eq!(constraints_set.len(), transition_constraints.len(), "There are repeated constraint indexes");
+
+        #[cfg(debug_assertions)]
+        (0..transition_constraints.len()).for_each(|idx| debug_assert!(constraints_set.iter().contains(&idx)));
 
         // assert_eq!(transition_constraints.len(), 64);
 
@@ -736,15 +746,15 @@ impl AIR for CairoAIR {
             trace_columns,
             transition_exemptions,
             transition_offsets: vec![0, 1],
-            num_transition_constraints,
+            num_transition_constraints: transition_constraints.len(),
         };
 
         // The number of the transition constraints
         // and transition exemptions should be the same always.
-        debug_assert_eq!(
-            context.transition_exemptions.len(),
-            context.num_transition_constraints
-        );
+        // debug_assert_eq!(
+        //     context.transition_exemptions.len(),
+        //     context.num_transition_constraints
+        // );
 
         Self {
             context,

@@ -149,12 +149,10 @@ pub trait AIR {
         &self,
         domain: &Domain<Self::Field>,
     ) -> TransitionZerofiersIter<Self::Field> {
-        let evals: Vec<_> = self
-            .transition_constraints()
-            .iter()
-            .map(|c| c.zerofier_evaluations_on_extended_domain(domain))
-            .collect();
-
+        let mut evals = vec![Vec::new(); self.num_transition_constraints()];
+        self.transition_constraints().iter().for_each(|c| {
+            evals[c.constraint_idx()] = c.zerofier_evaluations_on_extended_domain(domain)
+        });
         TransitionZerofiersIter::new(evals)
     }
 }
