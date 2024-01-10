@@ -647,10 +647,10 @@ impl AIR for CairoAIR {
             context.transition_degrees.len(),
             context.num_transition_constraints
         );
-        // debug_assert_eq!(
-        //     context.transition_exemptions.len(),
-        //     context.num_transition_constraints
-        // );
+        debug_assert_eq!(
+            context.transition_exemptions.len(),
+            context.num_transition_constraints
+        );
 
         Self {
             context,
