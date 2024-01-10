@@ -2,7 +2,7 @@ use super::boundary::BoundaryConstraints;
 #[cfg(all(debug_assertions, not(feature = "parallel")))]
 use crate::debug::check_boundary_polys_divisibility;
 use crate::domain::Domain;
-use crate::trace::{LDETraceTable, TraceTable};
+use crate::trace::LDETraceTable;
 use crate::traits::AIR;
 use crate::{frame::Frame, prover::evaluate_polynomial_on_lde_domain};
 use lambdaworks_math::{
@@ -119,8 +119,6 @@ impl<F: IsFFTField> ConstraintEvaluator<F> {
         #[cfg(all(debug_assertions, not(feature = "parallel")))]
         check_boundary_polys_divisibility(boundary_polys, boundary_zerofiers);
 
-        let blowup_factor = air.blowup_factor();
-
         #[cfg(all(debug_assertions, not(feature = "parallel")))]
         let mut transition_evaluations = Vec::new();
 
@@ -149,24 +147,10 @@ impl<F: IsFFTField> ConstraintEvaluator<F> {
                 let evaluations_transition =
                     air.compute_transition(&frame, &periodic_values, rap_challenges);
 
-                // if i == 0 {
-                //     println!("TRANSITION {i} EVALUATIONS: ");
-                //     for (j, eval) in evaluations_transition.iter().enumerate() {
-                //         println!("CONSTRAINT {} EVALUATION: {:#?}", j, eval);
-                //     }
-                // }
-
                 #[cfg(all(debug_assertions, not(feature = "parallel")))]
                 transition_evaluations.push(evaluations_transition.clone());
 
                 let transition_zerofiers_eval = transition_zerofiers_evals.next().unwrap();
-
-                // if i == 0 {
-                //     println!("ZEROFIER EVALUATIONS STEP {i}: ");
-                //     for (j, eval) in transition_zerofiers_eval.iter().enumerate() {
-                //         println!("CONSTRAINT {} ZEROFIER EVALUATION: {:#?}", j, eval);
-                //     }
-                // }
 
                 // Add each term of the transition constraints to the
                 // composition polynomial, including the zerofier, the

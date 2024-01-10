@@ -72,7 +72,7 @@ impl TransitionConstraint<Stark252PrimeField> for BitPrefixFlag1 {
         frame: &stark_platinum_prover::frame::Frame<Stark252PrimeField>,
         transition_evaluations: &mut [Felt252],
         _periodic_values: &[Felt252],
-        rap_challenges: &[Felt252],
+        _rap_challenges: &[Felt252],
     ) {
         let current_step = frame.get_evaluation_step(0);
 
@@ -118,7 +118,7 @@ impl TransitionConstraint<Stark252PrimeField> for BitPrefixFlag2 {
         frame: &stark_platinum_prover::frame::Frame<Stark252PrimeField>,
         transition_evaluations: &mut [Felt252],
         _periodic_values: &[Felt252],
-        rap_challenges: &[Felt252],
+        _rap_challenges: &[Felt252],
     ) {
         let current_step = frame.get_evaluation_step(0);
 
@@ -937,8 +937,6 @@ impl TransitionConstraint<Stark252PrimeField> for InstructionUnpacking {
         let current_step = frame.get_evaluation_step(0);
 
         let two = Felt252::from(2);
-
-        let b15 = two.pow(15u32);
         let b16 = two.pow(16u32);
         let b32 = two.pow(32u32);
         let b48 = two.pow(48u32);
@@ -1651,14 +1649,8 @@ impl TransitionConstraint<Stark252PrimeField> for CpuUpdateRegistersUpdatePcTmp1
     ) {
         let current_step = frame.get_evaluation_step(0);
 
-        let two = Felt252::from(2);
-
         let t1 = current_step.get_evaluation_element(0, 31);
-
-        let dst = current_step.get_evaluation_element(0, 24);
         let t0 = current_step.get_evaluation_element(0, 30);
-        let pc_jnz = current_step.get_evaluation_element(0, 9)
-            - two * current_step.get_evaluation_element(0, 10);
         let res = current_step.get_evaluation_element(0, 16);
 
         let transition_res = t0 * res - t1;
@@ -2536,11 +2528,10 @@ impl TransitionConstraint<Stark252PrimeField> for Rc16DiffIsBit0 {
         frame: &Frame<Stark252PrimeField>,
         transition_evaluations: &mut [Felt252],
         _periodic_values: &[Felt252],
-        rap_challenges: &[Felt252],
+        _rap_challenges: &[Felt252],
     ) {
         let current_step = frame.get_evaluation_step(0);
         let one = Felt252::one();
-        let z = rap_challenges[2];
 
         let rc_col_1 = current_step.get_evaluation_element(0, 36);
         let rc_col_2 = current_step.get_evaluation_element(0, 37);
@@ -2575,11 +2566,10 @@ impl TransitionConstraint<Stark252PrimeField> for Rc16DiffIsBit1 {
         frame: &Frame<Stark252PrimeField>,
         transition_evaluations: &mut [Felt252],
         _periodic_values: &[Felt252],
-        rap_challenges: &[Felt252],
+        _rap_challenges: &[Felt252],
     ) {
         let current_step = frame.get_evaluation_step(0);
         let one = Felt252::one();
-        let z = rap_challenges[2];
 
         let rc_col_2 = current_step.get_evaluation_element(0, 37);
         let rc_col_3 = current_step.get_evaluation_element(0, 38);
@@ -2614,11 +2604,10 @@ impl TransitionConstraint<Stark252PrimeField> for Rc16DiffIsBit2 {
         frame: &Frame<Stark252PrimeField>,
         transition_evaluations: &mut [Felt252],
         _periodic_values: &[Felt252],
-        rap_challenges: &[Felt252],
+        _rap_challenges: &[Felt252],
     ) {
         let current_step = frame.get_evaluation_step(0);
         let one = Felt252::one();
-        let z = rap_challenges[2];
 
         let rc_col_3 = current_step.get_evaluation_element(0, 38);
         let rc_col_4 = current_step.get_evaluation_element(0, 39);
@@ -2653,12 +2642,11 @@ impl TransitionConstraint<Stark252PrimeField> for Rc16DiffIsBit3 {
         frame: &Frame<Stark252PrimeField>,
         transition_evaluations: &mut [Felt252],
         _periodic_values: &[Felt252],
-        rap_challenges: &[Felt252],
+        _rap_challenges: &[Felt252],
     ) {
         let current_step = frame.get_evaluation_step(0);
         let next_step = frame.get_evaluation_step(1);
         let one = Felt252::one();
-        let z = rap_challenges[2];
 
         let rc_col_4 = current_step.get_evaluation_element(0, 39);
         let next_rc_col_1 = next_step.get_evaluation_element(0, 36);
