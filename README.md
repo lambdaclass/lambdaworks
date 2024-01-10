@@ -96,9 +96,9 @@ List of symbols:
 | Finite Fields  | Lambdaworks        | Arkworks           | Halo2    | gnark | Constantine |
 | -------------- | ------------------ | ------------------ | --- | ----- | ----------- |
 | StarkField 252 | :heavy_check_mark: | :heavy_check_mark: |     |       |             |
-| Mersenne 31    | 🏗️                 |                    |     |       |             |
-| Baby Bear      | 🏗️                 |                    |     |       |             |
-| MiniGoldilocks | 🏗️                 |                    |     |       |             |
+| Mersenne 31    | :heavy_check_mark: |                    |     |       |             |
+| Baby Bear      | :heavy_check_mark: |                    |     |       |             |
+| MiniGoldilocks | :heavy_check_mark: |                    |     |       |             |
 | **ZK friendly Hash function** | **Lambdaworks** | **Arkworks** | **Halo2** | **gnark** | **Constantine** |
 | Poseidon                  | 🏗️    | :heavy_check_mark: |     |       |             |
 | Pedersen                  | 🏗️    | :heavy_check_mark: |     |       |             |
@@ -106,7 +106,7 @@ List of symbols:
 | **Elliptic Curves** | **Lambdaworks** | **Arkworks** | **Halo2** | **gnark** | **Constantine** |
 | BLS12-381       | :heavy_check_mark: | :heavy_check_mark: |     |                    |             |
 | BLS12-377       | 🏗️           | :heavy_check_mark: |     | :heavy_check_mark: |             |
-| BN-254          | :x:                | :heavy_check_mark: |     |                    |             |
+| BN-254          | 🏗️              | :heavy_check_mark: |     |                    |             |
 | Pallas          | :heavy_check_mark:                | :heavy_check_mark: |     |                    |             |
 | Vesta           | :heavy_check_mark:                | :heavy_check_mark: |     |                    |             |
 | Bandersnatch    | 🏗️           | :heavy_check_mark: |     |                    |             |
@@ -114,11 +114,11 @@ List of symbols:
 | STARK Prover | :heavy_check_mark: | :x:      |     | :x:   |             |
 | CAIRO Prover | 🏗️           | :x:      |     | :x:   |             |
 | **SNARKs**  |**Lambdaworks** | **Arkworks** | **Halo2** | **gnark** | **Constantine** |
-| Groth16 | 🏗️          | :heavy_check_mark: |     | :heavy_check_mark: |             |
-| Plonk   | 🏗️          | :x:                | ✔️    | :heavy_check_mark: |             |
-| Spartan | :x:         | :heavy_check_mark: |     |                    |             |
-| Marlin  | :x:         | :heavy_check_mark: |     |                    |             |
-| GKR     | :x:         | :heavy_check_mark: |     | :heavy_check_mark: |             |
+| Groth16 | :heavy_check_mark: | :heavy_check_mark: |     | :heavy_check_mark: |             |
+| Plonk   | 🏗️                 | :x:                | ✔️    | :heavy_check_mark: |             |
+| Spartan | :x:                | :heavy_check_mark: |     |                    |             |
+| Marlin  | :x:                | :heavy_check_mark: |     |                    |             |
+| GKR     | :x:                | :heavy_check_mark: |     | :heavy_check_mark: |             |
 | **Polynomial Commitment Schemes** | **Lambdaworks** | **Arkworks** | **Halo2** | **gnark** | **Constantine** |
 | FRI                           | 🏗️                  |   :x:        | :x:       | :heavy_check_mark: |             |
 | IPA                           | :x:                |   ✔️           | :heavy_check_mark: |           |             |
