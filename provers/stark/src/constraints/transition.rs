@@ -184,7 +184,6 @@ pub trait TransitionConstraint<F: IsFFTField>: Send + Sync {
 }
 
 pub struct TransitionZerofiersIter<F: IsFFTField> {
-    num_constraints: usize,
     zerofier_evals: Vec<IntoIter<FieldElement<F>>>,
 }
 
@@ -194,21 +193,16 @@ where
 {
     pub(crate) fn new(zerofier_evals: Vec<Vec<FieldElement<F>>>) -> Self {
         let first_evals_len = zerofier_evals[0].len();
-        debug_assert!(zerofier_evals.iter().all(|evals| {
-            // println!("EVALS LEN: {}", evals.len());
-            evals.len() == first_evals_len
-        }));
+        debug_assert!(zerofier_evals
+            .iter()
+            .all(|evals| { evals.len() == first_evals_len }));
 
-        let num_constraints = zerofier_evals.len();
         let zerofier_evals = zerofier_evals
             .into_iter()
             .map(|evals| evals.into_iter())
             .collect();
 
-        Self {
-            num_constraints,
-            zerofier_evals,
-        }
+        Self { zerofier_evals }
     }
 }
 

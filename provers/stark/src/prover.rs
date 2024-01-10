@@ -191,10 +191,6 @@ pub trait IsStarkProver {
         let (mut trace_polys, mut evaluations, main_merkle_tree, main_merkle_root) =
             Self::interpolate_and_commit::<A>(main_trace, domain, transcript);
 
-        trace_polys
-            .iter()
-            .for_each(|poly| println!("TRACE POLY DEGREE: {}", poly.degree()));
-
         let rap_challenges = air.build_rap_challenges(transcript);
 
         let aux_trace = air.build_auxiliary_trace(main_trace, &rap_challenges);
@@ -279,23 +275,6 @@ pub trait IsStarkProver {
             Polynomial::interpolate_offset_fft(&constraint_evaluations, &domain.coset_offset)
                 .unwrap();
 
-        println!("COMPOSITION POLY DEGREE: {}", composition_poly.degree());
-        // println!(
-        //     "COMPOSITION POLY COEFFS: {:?}",
-        //     composition_poly.coefficients()
-        // );
-
-        // # ----------- DEBUG ----------------#
-
-        // EVALUAR EL COMPOSITION POLY EN Z, FIJARSE QUE EVALUANDO LAS PARTS Y LA SUMA DA TODO IGUAL
-        // let zeta = FieldElement::<Self::Field>::from_hex_unchecked(
-        //     "0x6bdb26aeb9dfe56a3f4b6d510eaef7c7d84ce78d805cf9fc88544f89ee37323",
-        // );
-
-        // let zeta_eval = composition_poly.evaluate(&zeta);
-
-        // # -----------------------------------#
-
         let number_of_parts = air.composition_poly_degree_bound() / air.trace_length();
         let composition_poly_parts = composition_poly.break_in_parts(number_of_parts);
 
@@ -334,8 +313,6 @@ pub trait IsStarkProver {
         FieldElement<Self::Field>: Serializable + Sync + Send + Display,
     {
         let z_power = z.pow(round_2_result.composition_poly_parts.len());
-
-        // println!("Z PROVER: {:?}", z);
 
         // Evaluate H_i in z^N for all i, where N is the number of parts the composition poly was
         // broken into.
@@ -883,8 +860,6 @@ pub trait IsStarkProver {
             .into_iter()
             .flatten()
             .collect();
-
-        println!("TRACE OOD EVALS LEN: {}", trace_ood_evaluations.len());
 
         let trace_ood_evaluations =
             Table::new(trace_ood_evaluations, round_1_result.trace_polys.len());
