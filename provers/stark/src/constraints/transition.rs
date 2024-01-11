@@ -10,9 +10,9 @@ use lambdaworks_math::field::traits::{IsFFTField, IsField, IsSubFieldOf};
 use lambdaworks_math::polynomial::Polynomial;
 use num_integer::Integer;
 
-pub trait TransitionConstraint<F, E>
+pub trait TransitionConstraint<F, E>: Send + Sync
 where
-    F: IsSubFieldOf<E> + Send + Sync,
+    F: IsSubFieldOf<E> + IsFFTField + Send + Sync,
     E: IsField + Send + Sync,
 {
     fn degree(&self) -> usize;
@@ -21,10 +21,10 @@ where
 
     fn evaluate(
         &self,
-        frame: &Frame<F, F>,
-        transition_evaluations: &mut [FieldElement<F>],
+        frame: &Frame<F, E>,
+        transition_evaluations: &mut [FieldElement<E>],
         periodic_values: &[FieldElement<F>],
-        rap_challenges: &[FieldElement<F>],
+        rap_challenges: &[FieldElement<E>],
     );
 
     fn period(&self) -> usize {
@@ -158,10 +158,10 @@ where
 
     fn evaluate_zerofier(
         &self,
-        z: &FieldElement<F>,
+        z: &FieldElement<E>,
         trace_primitive_root: &FieldElement<F>,
         trace_length: usize,
-    ) -> FieldElement<F> {
+    ) -> FieldElement<E> {
         let end_exemptions_poly = self.end_exemptions_poly(trace_primitive_root, trace_length);
 
         if let Some(exemptions_period) = self.exemptions_period() {
@@ -172,15 +172,16 @@ where
             let offset_exponent = trace_length * periodic_exemptions_offset / exemptions_period;
 
             let numerator =
-                z.pow(trace_length / exemptions_period) - trace_primitive_root.pow(offset_exponent);
-            let denominator = z.pow(trace_length / self.period())
-                - trace_primitive_root.pow(self.offset() * trace_length / self.period());
+                trace_primitive_root.pow(offset_exponent) + z.pow(trace_length / exemptions_period);
+            let denominator = trace_primitive_root
+                .pow(self.offset() * trace_length / self.period())
+                + z.pow(trace_length / self.period());
 
             return numerator.div(denominator) * end_exemptions_poly.evaluate(z);
         }
 
-        (z.pow(trace_length / self.period())
-            - trace_primitive_root.pow(self.offset() * trace_length / self.period()))
+        (-trace_primitive_root.pow(self.offset() * trace_length / self.period())
+            + z.pow(trace_length / self.period()))
         .inv()
         .unwrap()
             * end_exemptions_poly.evaluate(z)

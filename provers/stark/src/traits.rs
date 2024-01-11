@@ -19,8 +19,8 @@ use super::{
 
 /// AIR is a representation of the Constraints
 pub trait AIR {
-    type Field: IsFFTField + IsSubFieldOf<Self::FieldExtension>;
-    type FieldExtension: IsField;
+    type Field: IsFFTField + IsSubFieldOf<Self::FieldExtension> + Send + Sync;
+    type FieldExtension: IsField + Send + Sync;
     type PublicInputs;
 
     const STEP_SIZE: usize;
@@ -62,7 +62,7 @@ pub trait AIR {
         rap_challenges: &[FieldElement<Self::FieldExtension>],
     ) -> Vec<FieldElement<Self::FieldExtension>> {
         let mut evaluations =
-            vec![FieldElement::<Self::Field>::zero(); self.num_transition_constraints()];
+            vec![FieldElement::<Self::FieldExtension>::zero(); self.num_transition_constraints()];
         self.transition_constraints()
             .iter()
             .for_each(|c| c.evaluate(frame, &mut evaluations, periodic_values, rap_challenges));
@@ -85,7 +85,7 @@ pub trait AIR {
         &self,
         frame: &Frame<Self::FieldExtension, Self::FieldExtension>,
         periodic_values: &[FieldElement<Self::FieldExtension>],
-        rap_challenges: &[Vec<FieldElement<Self::FieldExtension>>],
+        rap_challenges: &[FieldElement<Self::FieldExtension>],
     ) -> Vec<FieldElement<Self::FieldExtension>>;
 
     // fn transition_exemptions(&self) -> Vec<Polynomial<FieldElement<Self::FieldExtension>>> {

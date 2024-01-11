@@ -1,55 +1,50 @@
-// use lambdaworks_math::field::{
-//     element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
-// };
+use lambdaworks_math::field::{
+    element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
+};
 
-// use crate::{
-//     examples::{
-//         bit_flags::{self, BitFlagsAIR},
-//         //     simple_periodic_cols::{self, SimplePeriodicAIR, SimplePeriodicPublicInputs},
-//         dummy_air::{self, DummyAIR},
-//         fibonacci_2_cols_shifted::{self, Fibonacci2ColsShifted},
-//         fibonacci_2_columns::{self, Fibonacci2ColsAIR},
-//         fibonacci_rap::{fibonacci_rap_trace, FibonacciRAP, FibonacciRAPPublicInputs},
-//         quadratic_air::{self, QuadraticAIR, QuadraticPublicInputs},
-//         simple_fibonacci::{self, FibonacciAIR, FibonacciPublicInputs},
-//     },
-//     proof::options::ProofOptions,
-//     prover::{IsStarkProver, Prover},
-//     transcript::StoneProverTranscript,
-//     verifier::{IsStarkVerifier, Verifier},
-//     Felt252,
-// };
+use crate::{
+    examples::{
+        // bit_flags::{self, BitFlagsAIR},
+        //     simple_periodic_cols::{self, SimplePeriodicAIR, SimplePeriodicPublicInputs},
+        // dummy_air::{self, DummyAIR},
+        // fibonacci_2_cols_shifted::{self, Fibonacci2ColsShifted},
+        // fibonacci_2_columns::{self, Fibonacci2ColsAIR},
+        // fibonacci_rap::{fibonacci_rap_trace, FibonacciRAP, FibonacciRAPPublicInputs},
+        // quadratic_air::{self, QuadraticAIR, QuadraticPublicInputs},
+        simple_fibonacci::{self, FibonacciAIR, FibonacciPublicInputs},
+    },
+    proof::options::ProofOptions,
+    prover::{IsStarkProver, Prover},
+    transcript::StoneProverTranscript,
+    verifier::{IsStarkVerifier, Verifier},
+    Felt252,
+};
 
-// #[test_log::test]
-// fn test_prove_fib() {
-//     let trace = simple_fibonacci::fibonacci_trace([Felt252::from(1), Felt252::from(1)], 1024);
+#[test_log::test]
+fn test_prove_fib() {
+    let trace = simple_fibonacci::fibonacci_trace([Felt252::from(1), Felt252::from(1)], 1024);
 
-//     let proof_options = ProofOptions::default_test_options();
+    let proof_options = ProofOptions::default_test_options();
 
-//     let pub_inputs = FibonacciPublicInputs {
-//         a0: Felt252::one(),
-//         a1: Felt252::one(),
-//     };
+    let pub_inputs = FibonacciPublicInputs {
+        a0: Felt252::one(),
+        a1: Felt252::one(),
+    };
 
-//     let proof = Prover::<FibonacciAIR<Stark252PrimeField>>::prove(
-//         &trace,
-//         &pub_inputs,
-//         &proof_options,
-//         StoneProverTranscript::new(&[]),
-//     )
-//     .unwrap();
-// <<<<<<< HEAD
-
-//     assert!(Verifier::verify::<FibonacciAIR<Stark252PrimeField>>(
-// =======
-//     assert!(Verifier::<FibonacciAIR<Stark252PrimeField>>::verify(
-// >>>>>>> main
-//         &proof,
-//         &pub_inputs,
-//         &proof_options,
-//         StoneProverTranscript::new(&[]),
-//     ));
-// }
+    let proof = Prover::<FibonacciAIR<Stark252PrimeField>>::prove(
+        &trace,
+        &pub_inputs,
+        &proof_options,
+        StoneProverTranscript::new(&[]),
+    )
+    .unwrap();
+    assert!(Verifier::<FibonacciAIR<Stark252PrimeField>>::verify(
+        &proof,
+        &pub_inputs,
+        &proof_options,
+        StoneProverTranscript::new(&[]),
+    ));
+}
 
 // #[test_log::test]
 // fn test_prove_fib17() {

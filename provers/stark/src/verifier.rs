@@ -239,11 +239,12 @@ pub trait IsStarkVerifier<A: AIR> {
                 let is_aux = boundary_constraints.constraints[index].is_aux;
                 let point = &domain.trace_primitive_root.pow(step as u64);
                 let trace_idx = boundary_constraints.constraints[index].col;
-                let trace_evaluation = if is_aux {
-                    &proof.trace_ood_evaluations.get_row_aux(0)[trace_idx]
-                } else {
-                    &proof.trace_ood_evaluations.get_row_main(0)[trace_idx]
-                };
+                let trace_evaluation = &proof.trace_ood_evaluations.get_row(0)[trace_idx];
+                // let trace_evaluation = if is_aux {
+                //     &proof.trace_ood_evaluations.get_row_aux(0)[trace_idx]
+                // } else {
+                //     &proof.trace_ood_evaluations.get_row_main(0)[trace_idx]
+                // };
                 let boundary_zerofier_challenges_z_den = -point + &challenges.z;
 
                 let boundary_quotient_ood_evaluation_num =
@@ -274,12 +275,19 @@ pub trait IsStarkVerifier<A: AIR> {
             .map(|poly| poly.evaluate(&challenges.z))
             .collect::<Vec<FieldElement<A::FieldExtension>>>();
 
-        let ood_frame = (proof.trace_ood_evaluations).into_frame(A::STEP_SIZE);
-        let transition_ood_frame_evaluations =
-            air.compute_transition(&ood_frame, &periodic_values, &challenges.rap_challenges);
+        let num_main_trace_columns =
+            proof.trace_ood_evaluations.width - air.num_auxiliary_rap_columns();
+
+        let ood_frame =
+            (proof.trace_ood_evaluations).into_frame(num_main_trace_columns, A::STEP_SIZE);
+        let transition_ood_frame_evaluations = air.compute_transition_verifier(
+            &ood_frame,
+            &periodic_values,
+            &challenges.rap_challenges,
+        );
 
         let mut denominators =
-            vec![FieldElement::<Self::Field>::zero(); air.num_transition_constraints()];
+            vec![FieldElement::<A::FieldExtension>::zero(); air.num_transition_constraints()];
         air.transition_constraints().iter().for_each(|c| {
             denominators[c.constraint_idx()] =
                 c.evaluate_zerofier(&challenges.z, &domain.trace_primitive_root, trace_length);
@@ -698,22 +706,23 @@ pub trait IsStarkVerifier<A: AIR> {
         lde_trace_evaluations: &[FieldElement<A::FieldExtension>],
         lde_composition_poly_parts_evaluation: &[FieldElement<A::FieldExtension>],
     ) -> FieldElement<A::FieldExtension> {
-        let mut denoms_trace = (0..proof.trace_ood_evaluations.n_rows())
+        let mut denoms_trace = (0..proof.trace_ood_evaluations.width)
             .map(|row_idx| evaluation_point - primitive_root.pow(row_idx as u64) * &challenges.z)
             .collect::<Vec<FieldElement<A::FieldExtension>>>();
         FieldElement::inplace_batch_inverse(&mut denoms_trace).unwrap();
 
-        let trace_term = (0..proof.trace_ood_evaluations.n_cols())
+        let trace_term = (0..proof.trace_ood_evaluations.width)
             .zip(&challenges.trace_term_coeffs)
             .fold(FieldElement::zero(), |trace_terms, (col_idx, coeff_row)| {
-                let trace_i = (0..proof.trace_ood_evaluations.n_rows())
-                    .zip(coeff_row)
-                    .fold(FieldElement::zero(), |trace_t, (row_idx, coeff)| {
+                let trace_i = (0..proof.trace_ood_evaluations.height).zip(coeff_row).fold(
+                    FieldElement::zero(),
+                    |trace_t, (row_idx, coeff)| {
                         let poly_evaluation = (lde_trace_evaluations[col_idx].clone()
                             - proof.trace_ood_evaluations.get_row(row_idx)[col_idx].clone())
                             * &denoms_trace[row_idx];
                         trace_t + &poly_evaluation * coeff
-                    });
+                    },
+                );
                 trace_terms + trace_i
             });
 

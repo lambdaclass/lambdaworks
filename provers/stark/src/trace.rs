@@ -225,15 +225,15 @@ where
     }
 
     pub fn num_cols(&self) -> usize {
-        self.table.width
+        self.main_table.width + self.aux_table.width
     }
 
     pub fn num_rows(&self) -> usize {
-        self.table.height
+        self.main_table.height
     }
 
     pub fn get_main_row(&self, row_idx: usize) -> &[FieldElement<F>] {
-        self.table.get_row(row_idx)
+        self.main_table.get_row(row_idx)
     }
 
     pub fn get_aux_row(&self, row_idx: usize) -> &[FieldElement<E>] {
