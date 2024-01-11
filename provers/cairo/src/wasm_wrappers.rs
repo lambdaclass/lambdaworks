@@ -7,6 +7,7 @@ use stark_platinum_prover::proof::stark::StarkProof;
 use stark_platinum_prover::transcript::StoneProverTranscript;
 use stark_platinum_prover::verifier::{IsStarkVerifier, Verifier};
 use std::collections::HashMap;
+use stark_platinum_prover::proof::options::SecurityLevel;
 use wasm_bindgen::prelude::wasm_bindgen;
 
 #[wasm_bindgen]
