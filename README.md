@@ -69,6 +69,43 @@ List of symbols:
 - 🏗️ means that the feature is partially implemented or is under active construction.
 - :x: means that the feature is not currently supported.
 
+| Finite Fields  | Lambdaworks        | Arkworks           | Halo2    | gnark              | Constantine |
+| -------------- | ------------------ | ------------------ | -------- | ------------------ | ----------- |
+| StarkField 252 | :heavy_check_mark: | :heavy_check_mark: | :x:      | :heavy_check_mark: | :x:         |
+| Mersenne 31    | :heavy_check_mark: | :x:                | :x:      | :x:                | :x:         |
+| Baby Bear      | :heavy_check_mark: | :x:                | :x:      | :x:                | :x:         |
+| MiniGoldilocks | :heavy_check_mark: | :x:                | :x:      | :heavy_check_mark: | :x:         |
+| **ZK friendly Hash function** | **Lambdaworks** | **Arkworks**       | **Halo2**          | **gnark** | **Constantine** |
+| Poseidon                      | 🏗️              | :heavy_check_mark: | :heavy_check_mark: | :x:       | :x:             |
+| Pedersen                      | 🏗️              | :heavy_check_mark: | :heavy_check_mark: | :x:       | :x:             |
+| Rescue Prime XLIX             | :x:             | :x:                | :x:                | :x:       | :x:             |
+| **Elliptic Curves** | **Lambdaworks** | **Arkworks**          | **Halo2**          | **gnark**          | **Constantine**    |
+| BLS12-381           | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |
+| BLS12-377           | 🏗️                 | :heavy_check_mark: | :x:                | :heavy_check_mark: | :heavy_check_mark: |
+| BN-254              | 🏗️                 | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |
+| Pallas              | :heavy_check_mark: | :heavy_check_mark: | :x:                | :x:                | :heavy_check_mark: |
+| Vesta               | :heavy_check_mark: | :heavy_check_mark: | :x:                | :x:                | :heavy_check_mark: |
+| Bandersnatch        | 🏗️                 | :heavy_check_mark: | :x:                | :heavy_check_mark:  | :heavy_check_mark: |
+| **STARKs**       | **Lambdaworks**     | **Arkworks** | **Halo2** | **gnark** | **Constantine** |
+| STARK Prover     | :heavy_check_mark:  | :x:          | :x:       | :x:       | :x:             |
+| CAIRO Prover     | 🏗️                  | :x:          | :x:       | :x:       | :x:             |
+| **SNARKs** | **Lambdaworks**    | **Arkworks**       | **Halo2** | **gnark**          | **Constantine** |
+| Groth16    | :heavy_check_mark: | :heavy_check_mark: | :x:       | :heavy_check_mark: | :x:             |
+| Plonk      | 🏗️                 | :heavy_check_mark: | ✔️         | :heavy_check_mark: | :x:             |
+| Spartan    | :x:                | :heavy_check_mark: | :x:       | :x:                | :x:             |
+| Marlin     | :x:                | :heavy_check_mark: | :x:       | :x:                | :x:             |
+| GKR        | :x:                | :heavy_check_mark: | :x:       | :heavy_check_mark: | :x:             |
+| **Polynomial Commitment Schemes** | **Lambdaworks**    | **Arkworks**       | **Halo2**          | **gnark**          | **Constantine** |
+| FRI                               | 🏗️                 | :x:                | :x:                | :heavy_check_mark: | :x:             |
+| IPA                               | 🏗️                 | ✔️                  | :heavy_check_mark: | :x:                | :x:             |
+| Hyrax                             | :x:                | :heavy_check_mark: | :x:                | :x:                | :x:             |
+| KZG10                             | :heavy_check_mark: | ✔️                  | :heavy_check_mark: | :heavy_check_mark: | :x:             |
+| **Folding Schemes** | **Lambdaworks** | **Arkworks**       | **Halo2** | **gnark** | **Constantine** |
+| Nova                | :x:             | :heavy_check_mark: | :x:       | :x:       | :x:             |
+| Supernova           | :x:             | :x:                | :x:       | :x:       | :x:             |
+| Protostar           | :x:             | :x:                | :x:       | :x:       | :x:             |
+| Protogalaxy         | :x:             | :heavy_check_mark: | :x:       | :x:       | :x:             |
+=======
 | Finite Fields  | lambdaworks        | Arkworks           | Halo2    | gnark | Constantine |
 | -------------- | ------------------ | ------------------ | --- | ----- | ----------- |
 | StarkField 252 | :heavy_check_mark: | :heavy_check_mark: |     |       |             |
