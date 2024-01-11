@@ -53,6 +53,7 @@ pub fn verify_cairo_proof_wasm(proof_bytes: &[u8], proof_options: &ProofOptions)
     )
 }
 
+/// WASM Function for verifying a proof with default 100 bits of security
 #[wasm_bindgen]
 pub fn verify_cairo_proof_wasm_100_bits(proof_bytes: &[u8]) -> bool {
     let proof_options = ProofOptions::new_secure(SecurityLevel::Conjecturable100Bits, 3);
