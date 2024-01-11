@@ -54,6 +54,12 @@ pub fn verify_cairo_proof_wasm(proof_bytes: &[u8], proof_options: &ProofOptions)
 }
 
 #[wasm_bindgen]
+pub fn verify_cairo_proof_wasm_default(proof_bytes: &[u8]) -> bool {
+    let proof_options = ProofOptions::new_secure(SecurityLevel::Conjecturable100Bits, 3);
+    verify_cairo_proof_wasm(proof_bytes, &proof_options)
+}
+
+#[wasm_bindgen]
 pub fn new_proof_options(
     blowup_factor: u8,
     fri_number_of_queries: usize,
