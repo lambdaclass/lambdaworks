@@ -105,43 +105,6 @@ List of symbols:
 | Supernova           | :x:             | :x:                | :x:       | :x:       | :x:             |
 | Protostar           | :x:             | :x:                | :x:       | :x:       | :x:             |
 | Protogalaxy         | :x:             | :heavy_check_mark: | :x:       | :x:       | :x:             |
-=======
-| Finite Fields  | lambdaworks        | Arkworks           | Halo2    | gnark | Constantine |
-| -------------- | ------------------ | ------------------ | --- | ----- | ----------- |
-| StarkField 252 | :heavy_check_mark: | :heavy_check_mark: |     |       |             |
-| Mersenne 31    | :heavy_check_mark: |                    |     |       |             |
-| Baby Bear      | :heavy_check_mark: |                    |     |       |             |
-| MiniGoldilocks | :heavy_check_mark: |                    |     |       |             |
-| **ZK friendly Hash function** | **lambdaworks** | **Arkworks** | **Halo2** | **gnark** | **Constantine** |
-| Poseidon                  | 🏗️    | :heavy_check_mark: |     |       |             |
-| Pedersen                  | 🏗️    | :heavy_check_mark: |     |       |             |
-| Rescue Prime XLIX         | :x:         |                    |     |       |             |
-| **Elliptic Curves** | **lambdaworks** | **Arkworks** | **Halo2** | **gnark** | **Constantine** |
-| BLS12-381       | :heavy_check_mark: | :heavy_check_mark: |     |                    |             |
-| BLS12-377       | 🏗️           | :heavy_check_mark: |     | :heavy_check_mark: |             |
-| BN-254          | 🏗️              | :heavy_check_mark: |     |                    |             |
-| Pallas          | :heavy_check_mark:                | :heavy_check_mark: |     |                    |             |
-| Vesta           | :heavy_check_mark:                | :heavy_check_mark: |     |                    |             |
-| Bandersnatch    | 🏗️           | :heavy_check_mark: |     |                    |             |
-| **STARKs**       | **lambdaworks** | **Arkworks** | **Halo2** | **gnark** | **Constantine** |
-| STARK Prover | :heavy_check_mark: | :x:      |     | :x:   |             |
-| CAIRO Prover | 🏗️           | :x:      |     | :x:   |             |
-| **SNARKs**  |**lambdaworks** | **Arkworks** | **Halo2** | **gnark** | **Constantine** |
-| Groth16 | :heavy_check_mark: | :heavy_check_mark: |     | :heavy_check_mark: |             |
-| Plonk   | 🏗️                 | :x:                | ✔️    | :heavy_check_mark: |             |
-| Spartan | :x:                | :heavy_check_mark: |     |                    |             |
-| Marlin  | :x:                | :heavy_check_mark: |     |                    |             |
-| GKR     | :x:                | :heavy_check_mark: |     | :heavy_check_mark: |             |
-| **Polynomial Commitment Schemes** | **lambdaworks** | **Arkworks** | **Halo2** | **gnark** | **Constantine** |
-| FRI                           | 🏗️                  |   :x:        | :x:       | :heavy_check_mark: |             |
-| IPA                           | 🏗️                  |   ✔️           | :heavy_check_mark: |           |             |
-| Hyrax                         | :x:                |               | :x:       |                    |             |
-| KZG10                         | :heavy_check_mark: |   ✔️  | :heavy_check_mark: | :heavy_check_mark: |             |
-| **Folding Schemes** | **lambdaworks** | **Arkworks** | **Halo2** | **gnark** | **Constantine** |
-| Nova            | :x:         |          |       |       |             |
-| Supernova       | :x:         |          |       |       |             |
-| Protostar       | :x:         |          |       |       |             |
-| Protogalaxy     | :x:         |          |       |       |             |
 
 Additionally, provers are compatible with the following frontends and VMs:
 
