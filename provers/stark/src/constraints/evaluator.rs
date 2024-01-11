@@ -6,21 +6,19 @@ use crate::trace::LDETraceTable;
 use crate::traits::AIR;
 use crate::{frame::Frame, prover::evaluate_polynomial_on_lde_domain};
 use lambdaworks_math::{
-    fft::errors::FFTError,
-    field::{element::FieldElement, traits::IsFFTField},
-    polynomial::Polynomial,
-    traits::Serializable,
+    fft::errors::FFTError, field::element::FieldElement, polynomial::Polynomial, traits::AsBytes,
 };
 #[cfg(feature = "parallel")]
-use rayon::prelude::{
-    IndexedParallelIterator, IntoParallelIterator, IntoParallelRefIterator, ParallelIterator,
-};
+use rayon::prelude::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
 
-pub struct ConstraintEvaluator<F: IsFFTField> {
-    boundary_constraints: BoundaryConstraints<F>,
+#[cfg(all(debug_assertions, not(feature = "parallel")))]
+use crate::debug::check_boundary_polys_divisibility;
+
+pub struct ConstraintEvaluator<A: AIR> {
+    boundary_constraints: BoundaryConstraints<A::FieldExtension>,
 }
-impl<F: IsFFTField> ConstraintEvaluator<F> {
-    pub fn new<A: AIR<Field = F>>(air: &A, rap_challenges: &[FieldElement<A::Field>]) -> Self {
+impl<A: AIR> ConstraintEvaluator<A> {
+    pub fn new(air: &A, rap_challenges: &[FieldElement<A::FieldExtension>]) -> Self {
         let boundary_constraints = air.boundary_constraints(rap_challenges);
 
         Self {
@@ -28,22 +26,23 @@ impl<F: IsFFTField> ConstraintEvaluator<F> {
         }
     }
 
-    pub fn evaluate<A>(
+    pub(crate) fn evaluate(
         &self,
         air: &A,
-        lde_trace: &LDETraceTable<F>,
-        domain: &Domain<F>,
-        transition_coefficients: &[FieldElement<F>],
-        boundary_coefficients: &[FieldElement<F>],
-        rap_challenges: &[FieldElement<F>],
-    ) -> Vec<FieldElement<F>>
+        lde_trace: &LDETraceTable<A::Field, A::FieldExtension>,
+        domain: &Domain<A::Field>,
+        transition_coefficients: &[FieldElement<A::FieldExtension>],
+        boundary_coefficients: &[FieldElement<A::FieldExtension>],
+        rap_challenges: &[FieldElement<A::FieldExtension>],
+    ) -> Vec<FieldElement<A::FieldExtension>>
     where
-        A: AIR<Field = F> + Send + Sync,
-        FieldElement<F>: Serializable + Send + Sync,
+        FieldElement<A::Field>: AsBytes + Send + Sync,
+        FieldElement<A::FieldExtension>: AsBytes + Send + Sync,
+        A: Send + Sync,
     {
         let boundary_constraints = &self.boundary_constraints;
         let number_of_b_constraints = boundary_constraints.constraints.len();
-        let boundary_zerofiers_inverse_evaluations: Vec<Vec<FieldElement<F>>> =
+        let boundary_zerofiers_inverse_evaluations: Vec<Vec<FieldElement<A::Field>>> =
             boundary_constraints
                 .constraints
                 .iter()
@@ -53,14 +52,14 @@ impl<F: IsFFTField> ConstraintEvaluator<F> {
                         .lde_roots_of_unity_coset
                         .iter()
                         .map(|v| v.clone() - point)
-                        .collect::<Vec<FieldElement<F>>>();
+                        .collect::<Vec<FieldElement<A::Field>>>();
                     FieldElement::inplace_batch_inverse(&mut evals).unwrap();
                     evals
                 })
-                .collect::<Vec<Vec<FieldElement<F>>>>();
+                .collect::<Vec<Vec<FieldElement<A::Field>>>>();
 
         #[cfg(all(debug_assertions, not(feature = "parallel")))]
-        let boundary_polys: Vec<Polynomial<FieldElement<F>>> = Vec::new();
+        let boundary_polys: Vec<Polynomial<FieldElement<A::Field>>> = Vec::new();
 
         let lde_periodic_columns = air
             .get_periodic_column_polynomials()
@@ -76,24 +75,29 @@ impl<F: IsFFTField> ConstraintEvaluator<F> {
             .collect::<Result<Vec<Vec<FieldElement<A::Field>>>, FFTError>>()
             .unwrap();
 
-        let n_col = lde_trace.num_cols();
-        let n_elem = domain.lde_roots_of_unity_coset.len();
+        // let n_col = lde_trace.num_cols();
+        // let n_elem = domain.lde_roots_of_unity_coset.len();
         let boundary_polys_evaluations = boundary_constraints
             .constraints
             .iter()
             .map(|constraint| {
-                let col = constraint.col;
-                lde_trace
-                    .table
-                    .data
-                    .iter()
-                    .skip(col)
-                    .step_by(n_col)
-                    .take(n_elem)
-                    .map(|v| v - &constraint.value)
-                    .collect::<Vec<FieldElement<F>>>()
+                if constraint.is_aux {
+                    (0..lde_trace.num_rows())
+                        .map(|row| {
+                            let v = lde_trace.get_aux(row, constraint.col);
+                            v - &constraint.value
+                        })
+                        .collect()
+                } else {
+                    (0..lde_trace.num_rows())
+                        .map(|row| {
+                            let v = lde_trace.get_main(row, constraint.col);
+                            v - &constraint.value
+                        })
+                        .collect()
+                }
             })
-            .collect::<Vec<Vec<FieldElement<F>>>>();
+            .collect::<Vec<Vec<FieldElement<_>>>>();
 
         #[cfg(feature = "parallel")]
         let boundary_eval_iter = (0..domain.lde_roots_of_unity_coset.len()).into_par_iter();
@@ -111,7 +115,7 @@ impl<F: IsFFTField> ConstraintEvaluator<F> {
                             * &boundary_polys_evaluations[constraint_index][domain_index]
                     })
             })
-            .collect();
+            .collect::<Vec<FieldElement<A::FieldExtension>>>(); // CHECK IF THIS TYPE DECLARATION IS NEEDED?
 
         #[cfg(all(debug_assertions, not(feature = "parallel")))]
         let boundary_zerofiers = Vec::new();
@@ -144,7 +148,7 @@ impl<F: IsFFTField> ConstraintEvaluator<F> {
                 // Compute all the transition constraints at this
                 // point of the LDE domain.
                 let evaluations_transition =
-                    air.compute_transition(&frame, &periodic_values, rap_challenges);
+                    air.compute_transition_prover(&frame, &periodic_values, rap_challenges);
 
                 #[cfg(all(debug_assertions, not(feature = "parallel")))]
                 transition_evaluations.push(evaluations_transition.clone());
@@ -160,7 +164,7 @@ impl<F: IsFFTField> ConstraintEvaluator<F> {
                     transition_coefficients
                 )
                 .fold(FieldElement::zero(), |acc, (eval, zerof_eval, beta)| {
-                    acc + beta * eval * zerof_eval
+                    acc + zerof_eval * eval * beta
                 });
 
                 acc_transition + boundary

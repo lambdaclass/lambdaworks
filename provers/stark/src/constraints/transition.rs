@@ -6,18 +6,22 @@ use crate::frame::Frame;
 use crate::prover::evaluate_polynomial_on_lde_domain;
 use itertools::Itertools;
 use lambdaworks_math::field::element::FieldElement;
-use lambdaworks_math::field::traits::IsFFTField;
+use lambdaworks_math::field::traits::{IsFFTField, IsField, IsSubFieldOf};
 use lambdaworks_math::polynomial::Polynomial;
 use num_integer::Integer;
 
-pub trait TransitionConstraint<F: IsFFTField>: Send + Sync {
+pub trait TransitionConstraint<F, E>
+where
+    F: IsSubFieldOf<E> + Send + Sync,
+    E: IsField + Send + Sync,
+{
     fn degree(&self) -> usize;
 
     fn constraint_idx(&self) -> usize;
 
     fn evaluate(
         &self,
-        frame: &Frame<F>,
+        frame: &Frame<F, F>,
         transition_evaluations: &mut [FieldElement<F>],
         periodic_values: &[FieldElement<F>],
         rap_challenges: &[FieldElement<F>],

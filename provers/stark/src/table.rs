@@ -1,7 +1,9 @@
-use itertools::Itertools;
-use lambdaworks_math::field::{element::FieldElement, traits::IsFFTField};
-
 use crate::frame::Frame;
+use itertools::Itertools;
+use lambdaworks_math::field::{
+    element::FieldElement,
+    traits::{IsField, IsSubFieldOf},
+};
 
 /// A two-dimensional Table holding field elements, arranged in a row-major order.
 /// This is the basic underlying data structure used for any two-dimensional component in the
@@ -9,13 +11,32 @@ use crate::frame::Frame;
 /// Since this struct is a representation of a two-dimensional table, all rows should have the same
 /// length.
 #[derive(Clone, Default, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub struct Table<F: IsFFTField> {
+pub struct Table<F: IsField> {
     pub data: Vec<FieldElement<F>>,
     pub width: usize,
     pub height: usize,
 }
 
-impl<'t, F: IsFFTField> Table<F> {
+/// A view of a contiguos subset of rows of a table.
+// #[derive(Clone, Debug, PartialEq, Eq)]
+// pub struct TableView<'t, F: IsField> {
+//     pub data: &'t [FieldElement<F>],
+//     pub table_row_idx: usize,
+//     pub width: usize,
+//     pub height: usize,
+// }
+
+// /// A pair of tables corresponding to evaluations of the main and auxiliary traces.
+// /// It supports main and auxiliary tables taking values in different fields.
+// /// Both tables must have the same number of rows.
+// #[derive(Clone, Default, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+// pub struct EvaluationTable<F: IsSubFieldOf<E>, E: IsField> {
+//     pub(crate) main_table: Table<F>,
+//     pub(crate) aux_table: Table<E>,
+//     pub(crate) step_size: usize,
+// }
+
+impl<'t, F: IsField> Table<F> {
     /// Crates a new Table instance from a one-dimensional array in row major order
     /// and the intended width of the table.
     pub fn new(data: Vec<FieldElement<F>>, width: usize) -> Self {
@@ -79,19 +100,6 @@ impl<'t, F: IsFFTField> Table<F> {
         &mut self.data[row_offset..row_offset + n_cols]
     }
 
-    // /// Given a row index and a number of rows, returns a view of a subset of contiguous rows
-    // /// of the table, starting from that index.
-    // pub fn table_view(&'t self, from_idx: usize, num_rows: usize) -> TableView<'t, F> {
-    //     let from_offset = from_idx * self.width;
-    //     let data = &self.data[from_offset..from_offset + self.width * num_rows];
-
-    //     TableView {
-    //         data,
-    //         width: self.width,
-    //         height: num_rows,
-    //     }
-    // }
-
     /// Given a slice of field elements representing a row, appends it to
     /// the end of the table.
     pub fn append_row(&mut self, row: &[FieldElement<F>]) {
@@ -124,42 +132,78 @@ impl<'t, F: IsFFTField> Table<F> {
     }
 
     /// Given a step size, converts the given table into a `Frame`.
-    pub fn into_frame(&'t self, step_size: usize) -> Frame<'t, F> {
+    pub fn into_frame(&'t self, main_trace_columns: usize, step_size: usize) -> Frame<'t, F, F> {
         debug_assert!(self.height % step_size == 0);
         let steps = (0..self.height)
             .step_by(step_size)
             .map(|initial_row_idx| {
                 let end_row_idx = initial_row_idx + step_size;
-                let step_data = (initial_row_idx..end_row_idx)
-                    .map(|row_idx| self.get_row(row_idx))
-                    .collect_vec();
-                TableView::new(step_data, self.width, step_size)
+
+                let mut step_main_data: Vec<&'t [FieldElement<F>]> = Vec::new();
+                let mut step_aux_data: Vec<&'t [FieldElement<F>]> = Vec::new();
+
+                (initial_row_idx..end_row_idx).for_each(|row_idx| {
+                    let row = self.get_row(row_idx);
+                    step_main_data.push(&row[..main_trace_columns]);
+                    step_aux_data.push(&row[main_trace_columns..]);
+                });
+
+                TableView::new(step_main_data, step_aux_data)
             })
             .collect();
 
         Frame::new(steps)
     }
+
+    // /// Returns the values of the tables as a single list of columns containing both main and
+    // /// auxiliary tables. The first `self.n_main_cols()` are the columns of the main trace and the
+    // /// rest are the auxiliary table columns.
+    // pub fn columns(&self) -> Vec<Vec<FieldElement<F>>> {
+    //     let mut columns = self.main_table.columns();
+    //     let aux_columns = self.aux_table.columns();
+    //     columns.extend(aux_columns);
+    //     columns
+    // }
 }
 
 /// A view of a contiguos subset of rows of a table.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct TableView<'t, F: IsFFTField> {
+pub struct TableView<'t, F, E>
+where
+    E: IsField,
+    F: IsSubFieldOf<F>,
+{
     pub data: Vec<&'t [FieldElement<F>]>,
-    pub width: usize,
-    pub height: usize,
+    pub aux_data: Vec<&'t [FieldElement<E>]>,
+    // pub width: usize,
+    // pub height: usize,
 }
 
-impl<'t, F: IsFFTField> TableView<'t, F> {
-    pub fn new(data: Vec<&'t [FieldElement<F>]>, width: usize, height: usize) -> Self {
+impl<'t, F, E> TableView<'t, F, E>
+where
+    E: IsField,
+    F: IsSubFieldOf<F>,
+{
+    pub fn new(
+        data: Vec<&'t [FieldElement<F>]>,
+        aux_data: Vec<&'t [FieldElement<E>]>,
+        // _width: usize,
+        // _height: usize,
+    ) -> Self {
         Self {
             data,
-            width,
-            height,
+            aux_data,
+            // width,
+            // height,
         }
     }
 
-    pub fn get_evaluation_element(&self, row: usize, col: usize) -> &FieldElement<F> {
+    pub fn get_main_evaluation_element(&self, row: usize, col: usize) -> &FieldElement<F> {
         &self.data[row][col]
+    }
+
+    pub fn get_aux_evaluation_element(&self, row: usize, col: usize) -> &FieldElement<E> {
+        &self.aux_data[row][col]
     }
 }
 

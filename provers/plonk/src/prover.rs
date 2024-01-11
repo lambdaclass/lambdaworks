@@ -1,7 +1,7 @@
 use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 use lambdaworks_math::errors::DeserializationError;
 use lambdaworks_math::field::traits::IsFFTField;
-use lambdaworks_math::traits::{Deserializable, IsRandomFieldElementGenerator, Serializable};
+use lambdaworks_math::traits::{AsBytes, Deserializable, IsRandomFieldElementGenerator};
 use std::marker::PhantomData;
 use std::mem::size_of;
 
@@ -9,7 +9,10 @@ use crate::setup::{
     new_strong_fiat_shamir_transcript, CommonPreprocessedInput, VerificationKey, Witness,
 };
 use lambdaworks_crypto::commitments::traits::IsCommitmentScheme;
-use lambdaworks_math::{field::element::FieldElement, polynomial::Polynomial};
+use lambdaworks_math::{
+    field::element::FieldElement,
+    polynomial::{self, Polynomial},
+};
 use lambdaworks_math::{field::traits::IsField, traits::ByteConversion};
 
 /// Plonk proof.
@@ -75,14 +78,14 @@ pub struct Proof<F: IsField, CS: IsCommitmentScheme<F>> {
     pub w_zeta_omega_1: CS::Commitment,
 }
 
-impl<F, CS> Serializable for Proof<F, CS>
+impl<F, CS> AsBytes for Proof<F, CS>
 where
     F: IsField,
     CS: IsCommitmentScheme<F>,
     FieldElement<F>: ByteConversion,
-    CS::Commitment: Serializable,
+    CS::Commitment: AsBytes,
 {
-    fn serialize(&self) -> Vec<u8> {
+    fn as_bytes(&self) -> Vec<u8> {
         let field_elements = [
             &self.a_zeta,
             &self.b_zeta,
@@ -114,7 +117,7 @@ where
         });
 
         commitments.iter().for_each(|commitment| {
-            let serialized_commitment = commitment.serialize();
+            let serialized_commitment = commitment.as_bytes();
             serialized_proof.extend_from_slice(&(serialized_commitment.len() as u32).to_be_bytes());
             serialized_proof.extend_from_slice(&serialized_commitment);
         });
@@ -279,7 +282,7 @@ where
     F: IsField + IsFFTField,
     CS: IsCommitmentScheme<F>,
     FieldElement<F>: ByteConversion,
-    CS::Commitment: Serializable,
+    CS::Commitment: AsBytes,
     R: IsRandomFieldElementGenerator<F>,
 {
     pub fn new(commitment_scheme: CS, random_generator: R) -> Self {
@@ -318,7 +321,7 @@ where
             .expect("xs and ys have equal length and xs are unique");
 
         let z_h = Polynomial::new_monomial(FieldElement::one(), common_preprocessed_input.n)
-            - FieldElement::one();
+            - FieldElement::<F>::one();
         let p_a = self.blind_polynomial(&p_a, &z_h, 2);
         let p_b = self.blind_polynomial(&p_b, &z_h, 2);
         let p_c = self.blind_polynomial(&p_c, &z_h, 2);
@@ -366,7 +369,7 @@ where
         let p_z = Polynomial::interpolate_fft::<F>(&coefficients)
             .expect("xs and ys have equal length and xs are unique");
         let z_h = Polynomial::new_monomial(FieldElement::one(), common_preprocessed_input.n)
-            - FieldElement::one();
+            - FieldElement::<F>::one();
         let p_z = self.blind_polynomial(&p_z, &z_h, 3);
         let z_1 = self.commitment_scheme.commit(&p_z);
         Round2Result {
@@ -392,7 +395,7 @@ where
 
         let one = Polynomial::new_monomial(FieldElement::one(), 0);
         let p_x = &Polynomial::new_monomial(FieldElement::<F>::one(), 1);
-        let zh = Polynomial::new_monomial(FieldElement::one(), cpi.n) - &one;
+        let zh = Polynomial::new_monomial(FieldElement::<F>::one(), cpi.n) - &one;
 
         let z_x_omega_coefficients: Vec<FieldElement<F>> = p_z
             .coefficients()
@@ -503,7 +506,7 @@ where
             .collect();
         let mut t = Polynomial::interpolate_offset_fft(&c, offset).unwrap();
 
-        Polynomial::pad_with_zero_coefficients_to_length(&mut t, 3 * (&cpi.n + 2));
+        polynomial::pad_with_zero_coefficients_to_length(&mut t, 3 * (&cpi.n + 2));
         let p_t_lo = Polynomial::new(&t.coefficients[..&cpi.n + 2]);
         let p_t_mid = Polynomial::new(&t.coefficients[&cpi.n + 2..2 * (&cpi.n + 2)]);
         let p_t_hi = Polynomial::new(&t.coefficients[2 * (&cpi.n + 2)..3 * (&cpi.n + 2)]);
@@ -573,7 +576,7 @@ where
 
         let l1_zeta = (&r4.zeta.pow(cpi.n as u64) - FieldElement::<F>::one())
             / (&r4.zeta - FieldElement::<F>::one())
-            / FieldElement::from(cpi.n as u64);
+            / FieldElement::<F>::from(cpi.n as u64);
 
         let mut p_non_constant = &cpi.qm * &r4.a_zeta * &r4.b_zeta
             + &r4.a_zeta * &cpi.ql
@@ -635,9 +638,9 @@ where
 
         // Round 1
         let round_1 = self.round_1(witness, common_preprocessed_input);
-        transcript.append(&round_1.a_1.serialize());
-        transcript.append(&round_1.b_1.serialize());
-        transcript.append(&round_1.c_1.serialize());
+        transcript.append(&round_1.a_1.as_bytes());
+        transcript.append(&round_1.b_1.as_bytes());
+        transcript.append(&round_1.c_1.as_bytes());
 
         // Round 2
         // TODO: Handle error
@@ -645,7 +648,7 @@ where
         let gamma = FieldElement::from_bytes_be(&transcript.challenge()).unwrap();
 
         let round_2 = self.round_2(witness, common_preprocessed_input, beta, gamma);
-        transcript.append(&round_2.z_1.serialize());
+        transcript.append(&round_2.z_1.as_bytes());
 
         // Round 3
         let alpha = FieldElement::from_bytes_be(&transcript.challenge()).unwrap();
@@ -656,9 +659,9 @@ where
             &round_2,
             alpha,
         );
-        transcript.append(&round_3.t_lo_1.serialize());
-        transcript.append(&round_3.t_mid_1.serialize());
-        transcript.append(&round_3.t_hi_1.serialize());
+        transcript.append(&round_3.t_lo_1.as_bytes());
+        transcript.append(&round_3.t_mid_1.as_bytes());
+        transcript.append(&round_3.t_hi_1.as_bytes());
 
         // Round 4
         let zeta = FieldElement::from_bytes_be(&transcript.challenge()).unwrap();

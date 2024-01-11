@@ -1,7 +1,9 @@
 use crate::field::element::FieldElement;
 use crate::field::errors::FieldError;
 use crate::field::traits::IsPrimeField;
-use crate::traits::{ByteConversion, Serializable};
+#[cfg(feature = "alloc")]
+use crate::traits::AsBytes;
+use crate::traits::ByteConversion;
 use crate::{
     field::traits::IsField, unsigned_integer::element::UnsignedInteger,
     unsigned_integer::montgomery::MontgomeryAlgorithms,
@@ -309,6 +311,11 @@ where
             &MontgomeryBackendPrimeField::<M, NUM_LIMBS>::MU,
         ))
     }
+
+    #[cfg(feature = "std")]
+    fn to_hex(x: &Self::BaseType) -> String {
+        Self::BaseType::to_hex(x)
+    }
 }
 
 impl<M, const NUM_LIMBS: usize> FieldElement<MontgomeryBackendPrimeField<M, NUM_LIMBS>> where
@@ -321,8 +328,8 @@ impl<M, const NUM_LIMBS: usize> ByteConversion
 where
     M: IsModulus<UnsignedInteger<NUM_LIMBS>> + Clone + Debug,
 {
-    #[cfg(feature = "std")]
-    fn to_bytes_be(&self) -> Vec<u8> {
+    #[cfg(feature = "alloc")]
+    fn to_bytes_be(&self) -> alloc::vec::Vec<u8> {
         MontgomeryAlgorithms::cios(
             self.value(),
             &UnsignedInteger::from_u64(1),
@@ -332,8 +339,8 @@ where
         .to_bytes_be()
     }
 
-    #[cfg(feature = "std")]
-    fn to_bytes_le(&self) -> Vec<u8> {
+    #[cfg(feature = "alloc")]
+    fn to_bytes_le(&self) -> alloc::vec::Vec<u8> {
         MontgomeryAlgorithms::cios(
             self.value(),
             &UnsignedInteger::from_u64(1),
@@ -354,16 +361,27 @@ where
     }
 }
 
-impl<M, const NUM_LIMBS: usize> Serializable
-    for FieldElement<MontgomeryBackendPrimeField<M, NUM_LIMBS>>
+#[cfg(feature = "alloc")]
+impl<M, const NUM_LIMBS: usize> AsBytes for FieldElement<MontgomeryBackendPrimeField<M, NUM_LIMBS>>
 where
     M: IsModulus<UnsignedInteger<NUM_LIMBS>> + Clone + Debug,
 {
-    #[cfg(feature = "std")]
-    fn serialize(&self) -> Vec<u8> {
+    fn as_bytes(&self) -> alloc::vec::Vec<u8> {
         self.value().to_bytes_be()
     }
 }
+
+#[cfg(feature = "alloc")]
+impl<M, const NUM_LIMBS: usize> From<FieldElement<MontgomeryBackendPrimeField<M, NUM_LIMBS>>>
+    for alloc::vec::Vec<u8>
+where
+    M: IsModulus<UnsignedInteger<NUM_LIMBS>> + Clone + Debug,
+{
+    fn from(value: FieldElement<MontgomeryBackendPrimeField<M, NUM_LIMBS>>) -> alloc::vec::Vec<u8> {
+        value.value().to_bytes_be()
+    }
+}
+
 #[cfg(test)]
 mod tests_u384_prime_fields {
     use crate::field::element::FieldElement;
@@ -374,7 +392,7 @@ mod tests_u384_prime_fields {
     };
     use crate::field::traits::IsField;
     use crate::field::traits::IsPrimeField;
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     use crate::traits::ByteConversion;
     use crate::unsigned_integer::element::U384;
     use crate::unsigned_integer::element::{UnsignedInteger, U256};
@@ -710,7 +728,7 @@ mod tests_u384_prime_fields {
     }
 
     #[test]
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     fn to_bytes_from_bytes_be_is_the_identity() {
         let x = U384FP2Element::new(UnsignedInteger::from_hex_unchecked(
             "5f103b0bd4397d4df560eb559f38353f80eeb6",
@@ -719,7 +737,7 @@ mod tests_u384_prime_fields {
     }
 
     #[test]
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     fn from_bytes_to_bytes_be_is_the_identity_for_one() {
         let bytes = [
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -732,7 +750,7 @@ mod tests_u384_prime_fields {
     }
 
     #[test]
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     fn to_bytes_from_bytes_le_is_the_identity() {
         let x = U384FP2Element::new(UnsignedInteger::from_hex_unchecked(
             "5f103b0bd4397d4df560eb559f38353f80eeb6",
@@ -741,7 +759,7 @@ mod tests_u384_prime_fields {
     }
 
     #[test]
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     fn from_bytes_to_bytes_le_is_the_identity_for_one() {
         let bytes = [
             1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -761,7 +779,7 @@ mod tests_u256_prime_fields {
     use crate::field::fields::montgomery_backed_prime_fields::{IsModulus, U256PrimeField};
     use crate::field::traits::IsField;
     use crate::field::traits::IsPrimeField;
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     use crate::traits::ByteConversion;
     use crate::unsigned_integer::element::U256;
     use crate::unsigned_integer::element::{UnsignedInteger, U64};
@@ -1046,7 +1064,7 @@ mod tests_u256_prime_fields {
     }
 
     #[test]
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     fn to_bytes_from_bytes_be_is_the_identity() {
         let x = FP2Element::new(UnsignedInteger::from_hex_unchecked(
             "5f103b0bd4397d4df560eb559f38353f80eeb6",
@@ -1055,7 +1073,7 @@ mod tests_u256_prime_fields {
     }
 
     #[test]
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     fn from_bytes_to_bytes_be_is_the_identity_for_one() {
         let bytes = [
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -1068,7 +1086,7 @@ mod tests_u256_prime_fields {
     }
 
     #[test]
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     fn to_bytes_from_bytes_le_is_the_identity() {
         let x = FP2Element::new(UnsignedInteger::from_hex_unchecked(
             "5f103b0bd4397d4df560eb559f38353f80eeb6",
@@ -1077,7 +1095,7 @@ mod tests_u256_prime_fields {
     }
 
     #[test]
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     fn from_bytes_to_bytes_le_is_the_identity_for_one() {
         let bytes = [
             1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -1090,7 +1108,7 @@ mod tests_u256_prime_fields {
     }
 
     #[test]
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     fn creating_a_field_element_from_its_representative_returns_the_same_element_1() {
         let change = U256::from_u64(1);
         let f1 = U256FP1Element::new(U256ModulusP1::MODULUS + change);
@@ -1127,6 +1145,35 @@ mod tests_u256_prime_fields {
         let a = U256F29Element::from_hex_unchecked("1d");
         let b = U256F29Element::zero();
         assert_eq!(a, b);
+    }
+
+    #[cfg(feature = "std")]
+    #[test]
+    fn to_hex_test_works_1() {
+        let a = U256FP1Element::from_hex_unchecked("eb235f6144d9e91f4b14");
+        let b = U256FP1Element::new(U256 {
+            limbs: [0, 0, 60195, 6872850209053821716],
+        });
+
+        assert_eq!(U256FP1Element::to_hex(&a), U256FP1Element::to_hex(&b));
+    }
+
+    #[cfg(feature = "std")]
+    #[test]
+    fn to_hex_test_works_2() {
+        let a = U256F29Element::from_hex_unchecked("1d");
+        let b = U256F29Element::zero();
+
+        assert_eq!(U256F29Element::to_hex(&a), U256F29Element::to_hex(&b));
+    }
+
+    #[cfg(feature = "std")]
+    #[test]
+    fn to_hex_test_works_3() {
+        let a = U256F29Element::from_hex_unchecked("aa");
+        let b = U256F29Element::from(25);
+
+        assert_eq!(U256F29Element::to_hex(&a), U256F29Element::to_hex(&b));
     }
 
     // Goldilocks

@@ -1,6 +1,6 @@
 use crate::{common::*, ProvingKey, QuadraticArithmeticProgram};
 use lambdaworks_math::errors::DeserializationError;
-use lambdaworks_math::traits::{Deserializable, Serializable};
+use lambdaworks_math::traits::{AsBytes, Deserializable};
 use lambdaworks_math::{cyclic_group::IsGroup, msm::pippenger::msm};
 use std::mem::size_of;
 
@@ -36,8 +36,8 @@ impl Proof {
         Ok(Self { pi1, pi2, pi3 })
     }
 
-    fn serialize_commitment<Commitment: Serializable>(cm: &Commitment) -> Vec<u8> {
-        cm.serialize()
+    fn serialize_commitment<Commitment: AsBytes>(cm: &Commitment) -> Vec<u8> {
+        cm.as_bytes()
     }
 
     // Repetitive. Same as in plonk/src/prover.rs
