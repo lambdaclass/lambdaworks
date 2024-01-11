@@ -54,7 +54,7 @@ pub fn verify_cairo_proof_wasm(proof_bytes: &[u8], proof_options: &ProofOptions)
 }
 
 #[wasm_bindgen]
-pub fn verify_cairo_proof_wasm_default(proof_bytes: &[u8]) -> bool {
+pub fn verify_cairo_proof_wasm_100_bits(proof_bytes: &[u8]) -> bool {
     let proof_options = ProofOptions::new_secure(SecurityLevel::Conjecturable100Bits, 3);
     verify_cairo_proof_wasm(proof_bytes, &proof_options)
 }
