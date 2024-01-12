@@ -20,6 +20,7 @@ import (
 	"log"
 	"os"
 	"reflect"
+	"strconv"
 	"unsafe"
 
 	"encoding/json"
@@ -50,6 +51,38 @@ type SerializedCircuit struct {
 	B           []string
 	C           []string
 	Permutation []int64
+}
+
+func witness_to_json_array(fullWitness witness.Witness) string {
+
+	witnessVec := fullWitness.Vector()
+	witnessVecString := fmt.Sprint(witnessVec)
+	inputJSON := fmt.Sprint("{\"witness\": ", witnessVecString, "}\n")
+
+	fmt.Println("Witness json")
+	fmt.Println(inputJSON)
+
+	// Unmarshal JSON into a map
+	var data map[string]interface{}
+	json.Unmarshal([]byte(inputJSON), &data)
+
+	// Convert array values to strings
+	witnessArray, _ := data["witness"].([]interface{})
+
+	var witnessStrings []string
+	for _, value := range witnessArray {
+		// Convert the value to a string
+		strValue := strconv.Itoa(int(value.(float64)))
+		witnessStrings = append(witnessStrings, strValue)
+	}
+
+	// Update the map with the converted array
+	data["witness"] = witnessStrings
+
+	// Marshal the updated map back to JSON
+	outputJSON, _ := json.Marshal(data)
+
+	return string(outputJSON)
 }
 
 func ToJSON(_r1cs *cs.SparseR1CS, pk *plonk_bls12381.ProvingKey, fullWitness witness.Witness, witnessPublic fr_bls12381.Vector) { // n
@@ -176,14 +209,12 @@ func ToJSON(_r1cs *cs.SparseR1CS, pk *plonk_bls12381.ProvingKey, fullWitness wit
 
 	witnessVec := fullWitness.Vector()
 	println()
-
 	witnessVecString := fmt.Sprint(witnessVec)
 
 	fmt.Println(witnessVecString)
 
-	jsonWitness := fmt.Sprint("{ \"witness\" :  ", witnessVecString, " }\n")
 	f, _ := os.Create("witness.json")
-	fmt.Fprintf(f, jsonWitness)
+	fmt.Fprintf(f, witness_to_json_array(fullWitness))
 
 	// witnessFormatted := fmt.Sprintln(witnessVec)
 
