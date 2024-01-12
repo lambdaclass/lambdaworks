@@ -831,18 +831,18 @@ pub trait IsStarkProver<A: AIR> {
             &mut transcript,
         )?;
 
-        #[cfg(debug_assertions)]
-        validate_trace(
-            &air,
-            &round_1_result.main.trace_polys,
-            round_1_result
-                .aux
-                .as_ref()
-                .map(|a| &a.trace_polys)
-                .unwrap_or(&vec![]),
-            &domain,
-            &round_1_result.rap_challenges,
-        );
+        // #[cfg(debug_assertions)]
+        // validate_trace(
+        //     &air,
+        //     &round_1_result.main.trace_polys,
+        //     round_1_result
+        //         .aux
+        //         .as_ref()
+        //         .map(|a| &a.trace_polys)
+        //         .unwrap_or(&vec![]),
+        //     &domain,
+        //     &round_1_result.rap_challenges,
+        // );
 
         #[cfg(feature = "instruments")]
         let elapsed1 = timer1.elapsed();

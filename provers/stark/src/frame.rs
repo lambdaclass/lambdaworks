@@ -80,8 +80,8 @@ impl<'t, F: IsSubFieldOf<E>, E: IsField> Frame<'t, F, E> {
                     .step_by(blowup_factor)
                     .map(|step_row| {
                         let step_row_idx = step_row % num_rows;
-                        let main_row = lde_trace.get_main_row(step_row);
-                        let aux_row = lde_trace.get_aux_row(step_row);
+                        let main_row = lde_trace.get_main_row(step_row_idx);
+                        let aux_row = lde_trace.get_aux_row(step_row_idx);
                         (main_row, aux_row)
                     })
                     .unzip();
