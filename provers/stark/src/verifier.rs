@@ -706,11 +706,6 @@ pub trait IsStarkVerifier<A: AIR> {
         lde_trace_evaluations: &[FieldElement<A::FieldExtension>],
         lde_composition_poly_parts_evaluation: &[FieldElement<A::FieldExtension>],
     ) -> FieldElement<A::FieldExtension> {
-        println!(
-            "TRACE OOD EVALUATIONS WIDTH: {}",
-            proof.trace_ood_evaluations.width
-        );
-
         let mut denoms_trace = (0..proof.trace_ood_evaluations.height)
             .map(|row_idx| evaluation_point - primitive_root.pow(row_idx as u64) * &challenges.z)
             .collect::<Vec<FieldElement<A::FieldExtension>>>();

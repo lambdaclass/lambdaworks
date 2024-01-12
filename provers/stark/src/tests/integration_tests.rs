@@ -8,7 +8,7 @@ use crate::{
         //     simple_periodic_cols::{self, SimplePeriodicAIR, SimplePeriodicPublicInputs},
         // dummy_air::{self, DummyAIR},
         // fibonacci_2_cols_shifted::{self, Fibonacci2ColsShifted},
-        // fibonacci_2_columns::{self, Fibonacci2ColsAIR},
+        fibonacci_2_columns::{self, Fibonacci2ColsAIR},
         // fibonacci_rap::{fibonacci_rap_trace, FibonacciRAP, FibonacciRAPPublicInputs},
         // quadratic_air::{self, QuadraticAIR, QuadraticPublicInputs},
         simple_fibonacci::{self, FibonacciAIR, FibonacciPublicInputs},
@@ -46,42 +46,37 @@ fn test_prove_fib() {
     ));
 }
 
-// #[test_log::test]
-// fn test_prove_fib17() {
-//     type FE = FieldElement<Stark252PrimeField>;
-//     let trace = simple_fibonacci::fibonacci_trace([FE::from(1), FE::from(1)], 4);
+#[test_log::test]
+fn test_prove_fib17() {
+    type FE = FieldElement<Stark252PrimeField>;
+    let trace = simple_fibonacci::fibonacci_trace([FE::from(1), FE::from(1)], 4);
 
-//     let proof_options = ProofOptions {
-//         blowup_factor: 2,
-//         fri_number_of_queries: 7,
-//         coset_offset: 3,
-//         grinding_factor: 1,
-//     };
+    let proof_options = ProofOptions {
+        blowup_factor: 2,
+        fri_number_of_queries: 7,
+        coset_offset: 3,
+        grinding_factor: 1,
+    };
 
-//     let pub_inputs = FibonacciPublicInputs {
-//         a0: FE::one(),
-//         a1: FE::one(),
-//     };
+    let pub_inputs = FibonacciPublicInputs {
+        a0: FE::one(),
+        a1: FE::one(),
+    };
 
-//     let proof = Prover::<FibonacciAIR<_>>::prove(
-//         &trace,
-//         &pub_inputs,
-//         &proof_options,
-//         StoneProverTranscript::new(&[]),
-//     )
-//     .unwrap();
-// <<<<<<< HEAD
-
-//     assert!(Verifier::verify::<FibonacciAIR<_>>(
-// =======
-//     assert!(Verifier::<FibonacciAIR<_>>::verify(
-// >>>>>>> main
-//         &proof,
-//         &pub_inputs,
-//         &proof_options,
-//         StoneProverTranscript::new(&[]),
-//     ));
-// }
+    let proof = Prover::<FibonacciAIR<_>>::prove(
+        &trace,
+        &pub_inputs,
+        &proof_options,
+        StoneProverTranscript::new(&[]),
+    )
+    .unwrap();
+    assert!(Verifier::<FibonacciAIR<_>>::verify(
+        &proof,
+        &pub_inputs,
+        &proof_options,
+        StoneProverTranscript::new(&[]),
+    ));
+}
 
 // // #[test_log::test]
 // // fn test_prove_simple_periodic_8() {
@@ -169,31 +164,30 @@ fn test_prove_fib() {
 // }
 // >>>>>>> main
 
-// #[test_log::test]
-// fn test_prove_fib_2_cols() {
-//     let trace = fibonacci_2_columns::compute_trace([Felt252::from(1), Felt252::from(1)], 16);
+#[test_log::test]
+fn test_prove_fib_2_cols() {
+    let trace = fibonacci_2_columns::compute_trace([Felt252::from(1), Felt252::from(1)], 16);
+    let proof_options = ProofOptions::default_test_options();
+    let pub_inputs = FibonacciPublicInputs {
+        a0: Felt252::one(),
+        a1: Felt252::one(),
+    };
 
-//     let proof_options = ProofOptions::default_test_options();
+    let proof = Prover::<Fibonacci2ColsAIR<Stark252PrimeField>>::prove(
+        &trace,
+        &pub_inputs,
+        &proof_options,
+        StoneProverTranscript::new(&[]),
+    )
+    .unwrap();
 
-//     let pub_inputs = FibonacciPublicInputs {
-//         a0: Felt252::one(),
-//         a1: Felt252::one(),
-//     };
-
-//     let proof = Prover::<Fibonacci2ColsAIR<Stark252PrimeField>>::prove(
-//         &trace,
-//         &pub_inputs,
-//         &proof_options,
-//         StoneProverTranscript::new(&[]),
-//     )
-//     .unwrap();
-//     assert!(Verifier::<Fibonacci2ColsAIR<Stark252PrimeField>>::verify(
-//         &proof,
-//         &pub_inputs,
-//         &proof_options,
-//         StoneProverTranscript::new(&[])
-//     ));
-// }
+    assert!(Verifier::<Fibonacci2ColsAIR<Stark252PrimeField>>::verify(
+        &proof,
+        &pub_inputs,
+        &proof_options,
+        StoneProverTranscript::new(&[])
+    ));
+}
 
 // #[test_log::test]
 // fn test_prove_fib_2_cols_shifted() {
