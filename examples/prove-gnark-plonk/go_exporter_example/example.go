@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"os"
 	"reflect"
 	"unsafe"
 
@@ -133,26 +134,11 @@ func ToJSON(_r1cs *cs.SparseR1CS, pk *plonk_bls12381.ProvingKey, fullWitness wit
 		b = append(b, abc.R[i].Text(16))
 		c = append(c, abc.O[i].Text(16))
 	}
-	/*
-		var a, b, c []string
-		for i := 0; i < len(_r1cs.Public); i++ {
-			a = append(a, witnessPublic[i].Text(16))
-			b = append(b, witnessPublic[0].Text(16))
-			c = append(c, witnessPublic[0].Text(16))
-		}
 
-		for i := 0; i < nbConstraints; i++ { // constraints
-			a = append(a, abc.L[i].Text(16))
-			b = append(b, abc.R[i].Text(16))
-			c = append(c, abc.O[i].Text(16))
-		}
-	*/
 	var input []string
 	for i := 0; i < len(_r1cs.Public); i++ {
 		input = append(input, witnessPublic[i].Text(16))
 	}
-
-	// TODO: Compute the permutation in lambdaworks as to aoid using reflection to get the private field
 
 	/*
 		Permutation is a private field, and for a reason, they are changing the API a lot here. It's a bit different in the current main.
@@ -187,6 +173,27 @@ func ToJSON(_r1cs *cs.SparseR1CS, pk *plonk_bls12381.ProvingKey, fullWitness wit
 	}
 	file, _ := json.MarshalIndent(data, "", " ")
 	_ = ioutil.WriteFile("frontend_precomputed_values.json", file, 0644)
+
+	witnessVec := fullWitness.Vector()
+	println()
+
+	witnessVecString := fmt.Sprint(witnessVec)
+
+	fmt.Println(witnessVecString)
+
+	jsonWitness := fmt.Sprint("{ \"witness\" :  ", witnessVecString, " }\n")
+	f, _ := os.Create("witness.json")
+	fmt.Fprintf(f, jsonWitness)
+
+	// witnessFormatted := fmt.Sprintln(witnessVec)
+
+	// f, _ := os.Create("witness.json")
+	// fmt.Fprintln(f, witnessVec)
+
+	// schema, _ := frontend.NewSchema(&fullWitness)
+	// json_wit, _ := fullWitness.ToJSON(schema)
+	// _ = ioutil.WriteFile("witness.json", witnessFormatted, 0644)
+
 }
 
 // In this example we show how to use PLONK with KZG commitments. The circuit that is
@@ -202,9 +209,9 @@ type Circuit struct {
 }
 
 // Define declares the circuit's constraints
-// y == x**e
+// y == x*x*x
 func (circuit *Circuit) Define(api frontend.API) error {
-	api.AssertIsEqual(circuit.Y, api.Mul(circuit.X, circuit.X))
+	api.AssertIsEqual(circuit.Y, api.Mul(circuit.X, circuit.X, circuit.X))
 	return nil
 }
 
@@ -212,13 +219,8 @@ func main() {
 
 	var circuit Circuit
 
-	// // building the circuit...
+	// building the circuit...
 	ccs, err := frontend.Compile(ecc.BLS12_381.ScalarField(), scs.NewBuilder, &circuit)
-
-	// var buf bytes.Buffer
-	// ccs.WriteTo(&buf)
-
-	// fmt.Println(json.Marshal(ccs))
 
 	if err != nil {
 		fmt.Println("circuit compilation error")
@@ -241,7 +243,7 @@ func main() {
 		// while public w is a public data known by the verifier.
 		var w Circuit
 		w.X = 3
-		w.Y = 9
+		w.Y = 27
 
 		witnessFull, err := frontend.NewWitness(&w, ecc.BLS12_381.ScalarField())
 
