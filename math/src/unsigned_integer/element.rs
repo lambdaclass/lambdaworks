@@ -1001,18 +1001,26 @@ impl<const NUM_LIMBS: usize> Arbitrary for UnsignedInteger<NUM_LIMBS> {
 
 #[cfg(test)]
 mod tests_u384 {
-
+    use proptest::prelude::*;
     use crate::traits::ByteConversion;
     use crate::unsigned_integer::element::{UnsignedInteger, U384};
+    use std::ops::Shr;
+
+    #[cfg(feature = "proptest")]
+    const N_LIMBS: usize = 8;
+
+    #[cfg(feature = "proptest")]
+    type Uint = UnsignedInteger<N_LIMBS>;
+
 
     #[cfg(feature = "proptest")]
     proptest! {
         #[test]
         fn bitand(a in any::<Uint>(), b in any::<Uint>()) {
-            let result = Uint::from_limbs(a) & Uint::from_limbs(b);
+            let result = a & b;
 
             for i in 0..N_LIMBS {
-                assert_eq!(result.limbs[i], a[i] & b[i]);
+                assert_eq!(result.limbs[i], a.limbs[i] & b.limbs[i]);
             }
         }
 
@@ -2052,10 +2060,15 @@ mod tests_u384 {
 
 #[cfg(test)]
 mod tests_u256 {
-
+    use proptest::prelude::*;
     use crate::unsigned_integer::element::{UnsignedInteger, U256};
-
     use crate::unsigned_integer::element::ByteConversion;
+    use std::ops::Shr;
+
+    #[cfg(feature = "proptest")]
+    const N_LIMBS: usize = 4;
+    #[cfg(feature = "proptest")]
+    type Uint = UnsignedInteger<N_LIMBS>;
 
     #[cfg(feature = "proptest")]
     proptest! {
