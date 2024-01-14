@@ -1008,10 +1008,8 @@ mod tests_u384 {
 
     #[cfg(feature = "proptest")]
     const N_LIMBS: usize = 8;
-
     #[cfg(feature = "proptest")]
     type Uint = UnsignedInteger<N_LIMBS>;
-
 
     #[cfg(feature = "proptest")]
     proptest! {
