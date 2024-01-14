@@ -985,7 +985,7 @@ impl<const NUM_LIMBS: usize> From<UnsignedInteger<NUM_LIMBS>> for alloc::vec::Ve
 
 #[cfg(feature = "proptest")]
 fn any_uint<const NUM_LIMBS: usize>() -> impl Strategy<Value = UnsignedInteger<NUM_LIMBS>> {
-    any::<[u64; NUM_LIMBS]>().prop_map(|limbs| UnsignedInteger::from_limbs(limbs))
+    any::<[u64; NUM_LIMBS]>().prop_map(UnsignedInteger::from_limbs)
 }
 
 #[cfg(feature = "proptest")]
