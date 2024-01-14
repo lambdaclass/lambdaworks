@@ -18,6 +18,7 @@ use crate::traits::ByteConversion;
 use crate::unsigned_integer::traits::IsUnsignedInteger;
 
 use core::fmt::{self, Debug, Display};
+use subtle::{Choice, ConditionallySelectable};
 
 pub type U384 = UnsignedInteger<6>;
 pub type U256 = UnsignedInteger<4>;
@@ -32,6 +33,16 @@ pub type U64 = UnsignedInteger<1>;
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct UnsignedInteger<const NUM_LIMBS: usize> {
     pub limbs: [u64; NUM_LIMBS],
+}
+
+impl<const NUM_LIMBS: usize> ConditionallySelectable for UnsignedInteger<NUM_LIMBS> {
+    fn conditional_select(a: &Self, b: &Self, choice: Choice) -> Self {
+        let mut limbs = [0u64; NUM_LIMBS];
+        for i in 0..NUM_LIMBS {
+            limbs[i] = u64::conditional_select(&a.limbs[i], &b.limbs[i], choice);
+        }
+        Self { limbs }
+    }
 }
 
 // NOTE: manually implementing `PartialOrd` may seem unorthodox, but the

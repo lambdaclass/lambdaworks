@@ -8,7 +8,7 @@ use crate::{
     },
 };
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct StarkCurve;
 
 impl StarkCurve {

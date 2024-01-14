@@ -4,7 +4,7 @@ use core::fmt::Debug;
 
 /// Trait to add elliptic curves behaviour to a struct.
 /// We use the short Weierstrass form equation: `y^2 = x^3 + a * x  + b`.
-pub trait IsShortWeierstrass: IsEllipticCurve + Clone + Debug {
+pub trait IsShortWeierstrass: IsEllipticCurve + Clone + Copy + Debug {
     /// `a` coefficient for the equation `y^2 = x^3 + a * x  + b`.
     fn a() -> FieldElement<Self::BaseField>;
 

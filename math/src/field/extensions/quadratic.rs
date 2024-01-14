@@ -8,7 +8,7 @@ use core::marker::PhantomData;
 
 /// A general quadratic extension field over `F`
 /// with quadratic non residue `Q::residue()`
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy,  PartialEq, Eq)]
 pub struct QuadraticExtensionField<F, T>
 where
     F: IsField,
@@ -30,7 +30,7 @@ pub trait HasQuadraticNonResidue<F: IsField> {
 impl<F, Q> FieldElement<QuadraticExtensionField<F, Q>>
 where
     F: IsField,
-    Q: Clone + Debug + HasQuadraticNonResidue<F>,
+    Q: Clone + Copy + Debug + HasQuadraticNonResidue<F>,
 {
     pub fn conjugate(&self) -> Self {
         let [a, b] = self.value();
@@ -71,7 +71,7 @@ where
 impl<F, Q> IsField for QuadraticExtensionField<F, Q>
 where
     F: IsField,
-    Q: Clone + Debug + HasQuadraticNonResidue<F>,
+    Q: Clone + Copy + Debug + HasQuadraticNonResidue<F>,
 {
     type BaseType = [FieldElement<F>; 2];
 
@@ -154,7 +154,7 @@ where
 impl<F, Q> IsSubFieldOf<QuadraticExtensionField<F, Q>> for F
 where
     F: IsField,
-    Q: Clone + Debug + HasQuadraticNonResidue<F>,
+    Q: Clone + Copy + Debug + HasQuadraticNonResidue<F>,
 {
     fn mul(
         a: &Self::BaseType,
@@ -202,7 +202,7 @@ where
     }
 }
 
-impl<F: IsField, Q: Clone + Debug + HasQuadraticNonResidue<F>>
+impl<F: IsField, Q: Clone + Copy + Debug + HasQuadraticNonResidue<F>>
     FieldElement<QuadraticExtensionField<F, Q>>
 {
 }
@@ -215,7 +215,7 @@ mod tests {
 
     use super::*;
 
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Copy, Clone)]
     struct MyQuadraticNonResidue;
     impl HasQuadraticNonResidue<U64PrimeField<ORDER_P>> for MyQuadraticNonResidue {
         fn residue() -> FieldElement<U64PrimeField<ORDER_P>> {

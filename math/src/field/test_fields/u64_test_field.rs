@@ -8,7 +8,7 @@ use crate::{
     field::{errors::FieldError, extensions::quadratic::HasQuadraticNonResidue},
 };
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct U64Field<const MODULUS: u64>;
 
 impl<const MODULUS: u64> IsField for U64Field<MODULUS> {
@@ -98,7 +98,7 @@ impl IsFFTField for U64TestField {
     const TWO_ADIC_PRIMITVE_ROOT_OF_UNITY: u64 = 1753635133440165772;
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct TestNonResidue;
 impl HasQuadraticNonResidue<U64TestField> for TestNonResidue {
     fn residue() -> FieldElement<U64TestField> {

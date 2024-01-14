@@ -12,7 +12,7 @@ use super::field::Mersenne31Field;
 
 //Note: The inverse calculation in mersenne31/plonky3 differs from the default quadratic extension so I implemented the complex extension.
 //////////////////
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct Mersenne31Complex;
 
 impl IsField for Mersenne31Complex {

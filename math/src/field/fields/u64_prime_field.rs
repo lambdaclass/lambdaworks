@@ -11,7 +11,7 @@ use crate::field::traits::{IsFFTField, IsField, IsPrimeField};
 use crate::traits::{ByteConversion, Deserializable, Serializable};
 
 /// Type representing prime fields over unsigned 64-bit integers.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct U64PrimeField<const MODULUS: u64>;
 pub type U64FieldElement<const MODULUS: u64> = FieldElement<U64PrimeField<MODULUS>>;
 
@@ -73,8 +73,6 @@ impl<const MODULUS: u64> IsField for U64PrimeField<MODULUS> {
         Self::from_u64(x)
     }
 }
-
-impl<const MODULUS: u64> Copy for U64FieldElement<MODULUS> {}
 
 impl<const MODULUS: u64> IsPrimeField for U64PrimeField<MODULUS> {
     type RepresentativeType = u64;

@@ -5,7 +5,7 @@ use crate::{
     elliptic_curve::short_weierstrass::traits::IsShortWeierstrass, field::element::FieldElement,
 };
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct PallasCurve;
 
 impl IsEllipticCurve for PallasCurve {

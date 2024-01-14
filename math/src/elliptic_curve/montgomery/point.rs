@@ -1,3 +1,4 @@
+use subtle::{Choice, ConditionallySelectable};
 use crate::{
     cyclic_group::IsGroup,
     elliptic_curve::{
@@ -9,7 +10,7 @@ use crate::{
 
 use super::traits::IsMontgomery;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct MontgomeryProjectivePoint<E: IsEllipticCurve>(ProjectivePoint<E>);
 
 impl<E: IsEllipticCurve> MontgomeryProjectivePoint<E> {
@@ -68,7 +69,23 @@ impl<E: IsMontgomery> FromAffine<E::BaseField> for MontgomeryProjectivePoint<E> 
 
 impl<E: IsEllipticCurve> Eq for MontgomeryProjectivePoint<E> {}
 
-impl<E: IsMontgomery> IsGroup for MontgomeryProjectivePoint<E> {
+impl<E: IsMontgomery + Copy> ConditionallySelectable for MontgomeryProjectivePoint<E> {
+    fn conditional_select(a: &Self, b: &Self, choice: Choice) -> Self {
+        let res: [FieldElement<E::BaseField>; 3] = [
+            FieldElement::conditional_select(&a.x(), &b.x(), choice),
+            FieldElement::conditional_select(&a.y(), &b.y(), choice),
+            FieldElement::conditional_select(&a.z(), &b.z(), choice),
+        ];
+
+        Self{
+            0: ProjectivePoint {
+                value: res
+            }
+        }
+    }
+}
+
+impl<E: IsMontgomery + Copy> IsGroup for MontgomeryProjectivePoint<E> {
     /// The point at infinity.
     fn neutral_element() -> Self {
         Self::new([

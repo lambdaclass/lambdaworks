@@ -1,3 +1,4 @@
+use subtle::{Choice, ConditionallySelectable};
 use crate::{
     cyclic_group::IsGroup,
     elliptic_curve::{
@@ -9,7 +10,7 @@ use crate::{
 
 use super::traits::IsEdwards;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct EdwardsProjectivePoint<E: IsEllipticCurve>(ProjectivePoint<E>);
 
 impl<E: IsEllipticCurve> EdwardsProjectivePoint<E> {
@@ -68,7 +69,19 @@ impl<E: IsEdwards> FromAffine<E::BaseField> for EdwardsProjectivePoint<E> {
 
 impl<E: IsEllipticCurve> Eq for EdwardsProjectivePoint<E> {}
 
-impl<E: IsEdwards> IsGroup for EdwardsProjectivePoint<E> {
+impl<E: IsEdwards + Copy> ConditionallySelectable for EdwardsProjectivePoint<E> {
+    fn conditional_select(a: &Self, b: &Self, choice: Choice) -> Self {
+        let res: [FieldElement<E::BaseField>; 3] = [
+            FieldElement::conditional_select(a.x(), b.x(), choice),
+            FieldElement::conditional_select(a.y(), b.y(), choice),
+            FieldElement::conditional_select(a.z(), b.z(), choice),
+        ];
+
+        Self(ProjectivePoint::new(res))
+    }
+}
+
+impl<E: IsEdwards + Copy> IsGroup for EdwardsProjectivePoint<E> {
     /// The point at infinity.
     fn neutral_element() -> Self {
         Self::new([

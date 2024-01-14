@@ -1,3 +1,4 @@
+use subtle::{Choice, ConditionallySelectable};
 use crate::errors::CreationError;
 use crate::field::errors::FieldError;
 use crate::field::traits::{IsField, IsPrimeField};
@@ -5,7 +6,7 @@ use crate::field::traits::{IsField, IsPrimeField};
 use crate::traits::ByteConversion;
 use crate::unsigned_integer::element::UnsignedInteger;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct P448GoldilocksPrimeField;
 pub type U448 = UnsignedInteger<7>;
 
@@ -19,6 +20,16 @@ pub const P448_GOLDILOCKS_PRIME_FIELD_ORDER: U448 =
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct U56x8 {
     limbs: [u64; 8],
+}
+
+impl ConditionallySelectable for U56x8 {
+    fn conditional_select(a: &Self, b: &Self, choice: Choice) -> Self {
+        let mut limbs = [0u64; 8];
+        for i in 0..8 {
+            limbs[i] = u64::conditional_select(&a.limbs[i], &b.limbs[i], choice);
+        }
+        U56x8 { limbs }
+    }
 }
 
 #[cfg(feature = "lambdaworks-serde-binary")]

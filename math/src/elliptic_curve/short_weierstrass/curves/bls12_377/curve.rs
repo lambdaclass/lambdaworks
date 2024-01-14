@@ -6,7 +6,7 @@ use crate::{
 };
 
 /// The description of the curve.
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct BLS12377Curve;
 
 impl IsEllipticCurve for BLS12377Curve {

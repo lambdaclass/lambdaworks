@@ -4,7 +4,7 @@ use core::fmt::Debug;
 /// Represents an elliptic curve point using the projective short Weierstrass form:
 /// y^2 * z = x^3 + a * x * z^2 + b * z^3,
 /// where `x`, `y` and `z` variables are field elements.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct ProjectivePoint<E: IsEllipticCurve> {
     pub value: [FieldElement<E::BaseField>; 3],
 }

@@ -24,7 +24,7 @@ pub type TestCurvePrimeField = U64PrimeField<TEST_CURVE_1_PRIME_FIELD_ORDER>;
 /// In F59 the element -1 is not a square. We use this property
 /// to construct a Quadratic Field Extension out of it by adding
 /// its square root.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct TestCurveQuadraticNonResidue;
 impl HasQuadraticNonResidue<TestCurvePrimeField> for TestCurveQuadraticNonResidue {
     fn residue() -> FieldElement<TestCurvePrimeField> {
@@ -33,7 +33,7 @@ impl HasQuadraticNonResidue<TestCurvePrimeField> for TestCurveQuadraticNonResidu
 }
 
 /// The description of the curve.
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct TestCurve1;
 
 impl IsEllipticCurve for TestCurve1 {

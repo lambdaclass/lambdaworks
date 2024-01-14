@@ -7,7 +7,7 @@ use crate::{
 };
 
 /// Taken from moonmath manual page 91
-#[derive(Debug, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct TinyJubJubMontgomery;
 
 impl IsEllipticCurve for TinyJubJubMontgomery {

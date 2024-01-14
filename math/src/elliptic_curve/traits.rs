@@ -13,7 +13,7 @@ pub enum EllipticCurveError {
 pub trait IsEllipticCurve {
     /// BaseField is the field used for each of the coordinates of a point p
     /// belonging to the curve.
-    type BaseField: IsField + Clone + Debug;
+    type BaseField: IsField + Clone + Copy +  Debug;
 
     /// The representation of the point. For example it can be projective
     /// coordinates, affine coordinates, XYZZ, depending on the curve and its

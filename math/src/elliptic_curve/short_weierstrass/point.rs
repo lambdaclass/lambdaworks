@@ -1,3 +1,4 @@
+use subtle::{Choice, ConditionallySelectable};
 use crate::{
     cyclic_group::IsGroup,
     elliptic_curve::{
@@ -14,7 +15,7 @@ use super::traits::IsShortWeierstrass;
 #[cfg(feature = "std")]
 use crate::traits::Serializable;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct ShortWeierstrassProjectivePoint<E: IsEllipticCurve>(pub ProjectivePoint<E>);
 
 impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
@@ -50,6 +51,7 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
         Self(self.0.to_affine())
     }
 
+    #[cfg(not(feature = "constant-time"))]
     fn double(&self) -> Self {
         let [px, py, pz] = self.coordinates();
 
@@ -191,6 +193,20 @@ impl<E: IsShortWeierstrass> FromAffine<E::BaseField> for ShortWeierstrassProject
             let coordinates = [x, y, FieldElement::one()];
             Ok(ShortWeierstrassProjectivePoint::new(coordinates))
         }
+    }
+}
+
+impl<E: IsShortWeierstrass> ConditionallySelectable for ShortWeierstrassProjectivePoint<E> {
+    fn conditional_select(a: &Self, b: &Self, choice: Choice) -> Self {
+        let res: [FieldElement<E::BaseField>; 3] = [
+            FieldElement::conditional_select(&a.0.value[0], &b.0.value[0], choice),
+            FieldElement::conditional_select(&a.0.value[1], &b.0.value[1], choice),
+            FieldElement::conditional_select(&a.0.value[2], &b.0.value[2], choice),
+        ];
+
+        Self(ProjectivePoint {
+            value: res,
+        })
     }
 }
 

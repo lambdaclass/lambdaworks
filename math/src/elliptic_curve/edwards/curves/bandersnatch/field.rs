@@ -11,7 +11,7 @@ use crate::{
 pub const BANDERSNATCH_PRIME_FIELD_ORDER: U256 =
     U256::from_hex_unchecked("73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001");
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct FqConfig;
 
 impl IsModulus<U256> for FqConfig {

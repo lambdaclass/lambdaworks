@@ -3,6 +3,7 @@ use super::{element::FieldElement, errors::FieldError};
 use crate::traits::ByteConversion;
 use crate::{errors::CreationError, unsigned_integer::traits::IsUnsignedInteger};
 use core::fmt::Debug;
+use subtle::{ConditionallySelectable};
 
 /// Represents different configurations that powers of roots of unity can be in. Some of these may
 /// be necessary for FFT (as twiddle factors).
@@ -94,13 +95,13 @@ pub trait IsFFTField: IsField {
 }
 
 /// Trait to add field behaviour to a struct.
-pub trait IsField: Debug + Clone {
+pub trait IsField: Debug + Clone + Copy {
     /// The underlying base type for representing elements from the field.
     // TODO: Relax Unpin for non cuda usage
     #[cfg(feature = "lambdaworks-serde-binary")]
-    type BaseType: Clone + Debug + Unpin + ByteConversion;
+    type BaseType: Clone + Copy + Debug + Unpin + ByteConversion + ConditionallySelectable;
     #[cfg(not(feature = "lambdaworks-serde-binary"))]
-    type BaseType: Clone + Debug + Unpin;
+    type BaseType: Clone + Copy + Debug + Unpin + ConditionallySelectable;
 
     /// Returns the sum of `a` and `b`.
     fn add(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType;

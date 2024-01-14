@@ -8,7 +8,7 @@ use core::marker::PhantomData;
 
 /// A general cubic extension field over `F`
 /// with cubic non residue `Q::residue()`
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct CubicExtensionField<F, T> {
     field: PhantomData<F>,
     non_residue: PhantomData<T>,
@@ -58,7 +58,7 @@ where
 impl<F, Q> IsField for CubicExtensionField<F, Q>
 where
     F: IsField,
-    Q: Clone + Debug + HasCubicNonResidue<F>,
+    Q: Clone + Copy + Debug + HasCubicNonResidue<F>,
 {
     type BaseType = [FieldElement<F>; 3];
 
@@ -157,7 +157,7 @@ where
 impl<F, Q> IsSubFieldOf<CubicExtensionField<F, Q>> for F
 where
     F: IsField,
-    Q: Clone + Debug + HasCubicNonResidue<F>,
+    Q: Clone + Copy + Debug + HasCubicNonResidue<F>,
 {
     fn mul(
         a: &Self::BaseType,
@@ -217,7 +217,7 @@ mod tests {
 
     use super::*;
 
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Copy, Clone)]
     struct MyCubicNonResidue;
     impl HasCubicNonResidue<U64PrimeField<ORDER_P>> for MyCubicNonResidue {
         fn residue() -> FieldElement<U64PrimeField<ORDER_P>> {

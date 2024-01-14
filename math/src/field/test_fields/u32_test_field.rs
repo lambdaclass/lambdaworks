@@ -7,8 +7,7 @@ use crate::{
 #[cfg(feature = "lambdaworks-serde-binary")]
 use crate::traits::ByteConversion;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct U32Field<const MODULUS: u32>;
 
 #[cfg(feature = "lambdaworks-serde-binary")]

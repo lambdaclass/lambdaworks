@@ -7,7 +7,7 @@ use crate::{
     unsigned_integer::element::{UnsignedInteger, U256},
 };
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct FrConfig;
 
 /// Modulus of bls 12 381 subgroup
