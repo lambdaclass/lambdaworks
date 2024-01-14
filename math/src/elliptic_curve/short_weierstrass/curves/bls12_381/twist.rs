@@ -97,7 +97,7 @@ mod tests {
     type Level0FE = FieldElement<BLS12381PrimeField>;
     type Level1FE = FieldElement<Degree2ExtensionField>;
 
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     use crate::elliptic_curve::short_weierstrass::point::{
         Endianness, PointFormat, ShortWeierstrassProjectivePoint,
     };
@@ -112,7 +112,7 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     #[test]
     fn serialize_deserialize_generator() {
         let g = BLS12381TwistCurve::generator();

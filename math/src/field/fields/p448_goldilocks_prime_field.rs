@@ -34,13 +34,13 @@ impl ConditionallySelectable for U56x8 {
 
 #[cfg(feature = "lambdaworks-serde-binary")]
 impl ByteConversion for U56x8 {
-    #[cfg(feature = "std")]
-    fn to_bytes_be(&self) -> Vec<u8> {
+    #[cfg(feature = "alloc")]
+    fn to_bytes_be(&self) -> alloc::vec::Vec<u8> {
         unimplemented!()
     }
 
-    #[cfg(feature = "std")]
-    fn to_bytes_le(&self) -> Vec<u8> {
+    #[cfg(feature = "alloc")]
+    fn to_bytes_le(&self) -> alloc::vec::Vec<u8> {
         unimplemented!()
     }
 
@@ -228,6 +228,11 @@ impl IsPrimeField for P448GoldilocksPrimeField {
         U56x8::from_hex(hex_string)
     }
 
+    #[cfg(feature = "std")]
+    fn to_hex(x: &U56x8) -> String {
+        U56x8::to_hex(x)
+    }
+
     fn field_bit_size() -> usize {
         448
     }
@@ -320,6 +325,15 @@ impl U56x8 {
         result[limb_index] = limb;
 
         Ok(U56x8 { limbs: result })
+    }
+
+    #[cfg(feature = "std")]
+    pub fn to_hex(&self) -> String {
+        let mut hex_string = String::new();
+        for &limb in self.limbs.iter().rev() {
+            hex_string.push_str(&format!("{:014X}", limb));
+        }
+        hex_string.trim_start_matches('0').to_string()
     }
 }
 
@@ -445,5 +459,15 @@ mod tests {
             num2,
             U56x8::from_hex("564a75b90ae34f8155d5821d7e9484").unwrap()
         );
+    }
+
+    #[cfg(feature = "std")]
+    #[test]
+    fn to_hex_test() {
+        let mut limbs = [0u64; 8];
+        limbs[0] = 15372427657916355716u64;
+        limbs[1] = 6217911673150459564u64;
+        let num = U56x8::from_hex("564A75B90AE34F8155D5821D7E9484").unwrap();
+        assert_eq!(U56x8::to_hex(&num), "564A75B90AE34F8155D5821D7E9484")
     }
 }

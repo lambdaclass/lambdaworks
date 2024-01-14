@@ -15,14 +15,15 @@ pub enum RootsConfig {
     BitReverseInversed, // same as above but exponents are negated.
 }
 
+/// Represents the subfield relation between two fields.
 pub trait IsSubFieldOf<F: IsField>: IsField {
     fn mul(a: &Self::BaseType, b: &F::BaseType) -> F::BaseType;
     fn add(a: &Self::BaseType, b: &F::BaseType) -> F::BaseType;
     fn div(a: &Self::BaseType, b: &F::BaseType) -> F::BaseType;
     fn sub(a: &Self::BaseType, b: &F::BaseType) -> F::BaseType;
     fn embed(a: Self::BaseType) -> F::BaseType;
-    #[cfg(feature = "std")]
-    fn to_subfield_vec(b: F::BaseType) -> Vec<Self::BaseType>;
+    #[cfg(feature = "alloc")]
+    fn to_subfield_vec(b: F::BaseType) -> alloc::vec::Vec<Self::BaseType>;
 }
 
 impl<F> IsSubFieldOf<F> for F
@@ -54,9 +55,9 @@ where
         a
     }
 
-    #[cfg(feature = "std")]
-    fn to_subfield_vec(b: F::BaseType) -> Vec<Self::BaseType> {
-        vec![b]
+    #[cfg(feature = "alloc")]
+    fn to_subfield_vec(b: F::BaseType) -> alloc::vec::Vec<Self::BaseType> {
+        alloc::vec![b]
     }
 }
 
@@ -203,6 +204,10 @@ pub trait IsPrimeField: IsField {
     /// 0x is optional
     /// Returns an `CreationError::InvalidHexString`if the value is not a hexstring
     fn from_hex(hex_string: &str) -> Result<Self::BaseType, CreationError>;
+
+    #[cfg(feature = "std")]
+    /// Creates a hexstring from a `FieldElement` without `0x`.
+    fn to_hex(a: &Self::BaseType) -> String;
 
     /// Returns the number of bits of the max element of the field, as per field documentation, not internal representation.
     /// This is `log2(max FE)` rounded up

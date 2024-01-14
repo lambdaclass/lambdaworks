@@ -1,4 +1,4 @@
-use std::marker::PhantomData;
+use core::marker::PhantomData;
 
 use lambdaworks_math::field::{element::FieldElement, traits::IsField};
 

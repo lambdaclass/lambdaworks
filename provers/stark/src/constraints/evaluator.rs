@@ -6,7 +6,7 @@ use lambdaworks_math::{
         traits::{IsFFTField, IsField, IsSubFieldOf},
     },
     polynomial::Polynomial,
-    traits::Serializable,
+    traits::AsBytes,
 };
 
 #[cfg(feature = "parallel")]
@@ -17,9 +17,8 @@ use rayon::prelude::{
 use super::boundary::BoundaryConstraints;
 #[cfg(all(debug_assertions, not(feature = "parallel")))]
 use crate::debug::check_boundary_polys_divisibility;
-use crate::domain::Domain;
-use crate::trace::TraceTable;
 use crate::traits::AIR;
+use crate::{domain::Domain, table::EvaluationTable};
 use crate::{frame::Frame, prover::evaluate_polynomial_on_lde_domain};
 
 pub struct ConstraintEvaluator<A: AIR> {
@@ -34,18 +33,18 @@ impl<A: AIR> ConstraintEvaluator<A> {
         }
     }
 
-    pub fn evaluate(
+    pub(crate) fn evaluate(
         &self,
         air: &A,
-        lde_trace: &TraceTable<A::FieldExtension>,
+        lde_table: &EvaluationTable<A::Field, A::FieldExtension>,
         domain: &Domain<A::Field>,
         transition_coefficients: &[FieldElement<A::FieldExtension>],
         boundary_coefficients: &[FieldElement<A::FieldExtension>],
         rap_challenges: &A::RAPChallenges,
     ) -> Vec<FieldElement<A::FieldExtension>>
     where
-        FieldElement<A::Field>: Serializable + Send + Sync,
-        FieldElement<A::FieldExtension>: Serializable + Send + Sync,
+        FieldElement<A::Field>: AsBytes + Send + Sync,
+        FieldElement<A::FieldExtension>: AsBytes + Send + Sync,
         A: Send + Sync,
         A::RAPChallenges: Send + Sync,
     {
@@ -83,27 +82,30 @@ impl<A: AIR> ConstraintEvaluator<A> {
                     &domain.coset_offset,
                 )
             })
-            .collect::<Result<Vec<Vec<FieldElement<A::FieldExtension>>>, FFTError>>()
+            .collect::<Result<Vec<Vec<FieldElement<A::Field>>>, FFTError>>()
             .unwrap();
 
-        let n_col = lde_trace.n_cols();
-        let n_elem = domain.lde_roots_of_unity_coset.len();
         let boundary_polys_evaluations = boundary_constraints
             .constraints
             .iter()
             .map(|constraint| {
-                let col = constraint.col;
-                lde_trace
-                    .table
-                    .data
-                    .iter()
-                    .skip(col)
-                    .step_by(n_col)
-                    .take(n_elem)
-                    .map(|v| -&constraint.value + v)
-                    .collect::<Vec<FieldElement<A::FieldExtension>>>()
+                if constraint.is_aux {
+                    (0..lde_table.n_rows())
+                        .map(|row| {
+                            let v = lde_table.get_aux(row, constraint.col);
+                            v - &constraint.value
+                        })
+                        .collect()
+                } else {
+                    (0..lde_table.n_rows())
+                        .map(|row| {
+                            let v = lde_table.get_main(row, constraint.col);
+                            v - &constraint.value
+                        })
+                        .collect()
+                }
             })
-            .collect::<Vec<Vec<FieldElement<A::FieldExtension>>>>();
+            .collect::<Vec<Vec<FieldElement<_>>>>();
 
         #[cfg(feature = "parallel")]
         let boundary_eval_iter = (0..domain.lde_roots_of_unity_coset.len()).into_par_iter();
@@ -182,8 +184,8 @@ impl<A: AIR> ConstraintEvaluator<A> {
             .zip(&boundary_evaluation)
             .zip(zerofier_iter)
             .map(|((i, boundary), zerofier)| {
-                let frame = Frame::read_from_trace(
-                    lde_trace,
+                let frame = Frame::<A::Field, A::FieldExtension>::read_from_lde_table(
+                    lde_table,
                     i,
                     blowup_factor,
                     &air.context().transition_offsets,
@@ -191,13 +193,13 @@ impl<A: AIR> ConstraintEvaluator<A> {
 
                 let periodic_values: Vec<_> = lde_periodic_columns
                     .iter()
-                    .map(|col| col[i].clone().to_extension())
+                    .map(|col| col[i].clone())
                     .collect();
 
                 // Compute all the transition constraints at this
                 // point of the LDE domain.
                 let evaluations_transition =
-                    air.compute_transition(&frame, &periodic_values, rap_challenges);
+                    air.compute_transition_prover(&frame, &periodic_values, rap_challenges);
 
                 #[cfg(all(debug_assertions, not(feature = "parallel")))]
                 transition_evaluations.push(evaluations_transition.clone());
@@ -261,8 +263,8 @@ fn evaluate_transition_exemptions<F: IsFFTField + IsSubFieldOf<E>, E: IsField>(
     domain: &Domain<F>,
 ) -> Vec<Vec<FieldElement<E>>>
 where
-    FieldElement<F>: Send + Sync + Serializable,
-    FieldElement<E>: Send + Sync + Serializable,
+    FieldElement<F>: Send + Sync + AsBytes,
+    FieldElement<E>: Send + Sync + AsBytes,
     Polynomial<FieldElement<F>>: Send + Sync,
 {
     #[cfg(feature = "parallel")]

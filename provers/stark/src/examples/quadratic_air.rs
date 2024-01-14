@@ -73,17 +73,17 @@ where
     ) -> Self::RAPChallenges {
     }
 
-    fn compute_transition(
+    fn compute_transition_prover(
         &self,
-        frame: &Frame<Self::Field>,
+        frame: &Frame<Self::Field, Self::FieldExtension>,
         _periodic_values: &[FieldElement<Self::Field>],
         _rap_challenges: &Self::RAPChallenges,
     ) -> Vec<FieldElement<Self::Field>> {
         let first_step = frame.get_evaluation_step(0);
         let second_step = frame.get_evaluation_step(1);
 
-        let x = first_step.get_evaluation_element(0, 0);
-        let x_squared = second_step.get_evaluation_element(0, 0);
+        let x = first_step.get_main_evaluation_element(0, 0);
+        let x_squared = second_step.get_main_evaluation_element(0, 0);
 
         vec![x_squared - x * x]
     }
@@ -96,7 +96,7 @@ where
         &self,
         _rap_challenges: &Self::RAPChallenges,
     ) -> BoundaryConstraints<Self::Field> {
-        let a0 = BoundaryConstraint::new_simple(0, self.pub_inputs.a0.clone());
+        let a0 = BoundaryConstraint::new_simple_main(0, self.pub_inputs.a0.clone());
 
         BoundaryConstraints::from_constraints(vec![a0])
     }
@@ -115,6 +115,15 @@ where
 
     fn pub_inputs(&self) -> &Self::PublicInputs {
         &self.pub_inputs
+    }
+
+    fn compute_transition_verifier(
+        &self,
+        frame: &Frame<Self::FieldExtension, Self::FieldExtension>,
+        periodic_values: &[FieldElement<Self::FieldExtension>],
+        rap_challenges: &Self::RAPChallenges,
+    ) -> Vec<FieldElement<Self::Field>> {
+        self.compute_transition_prover(frame, periodic_values, rap_challenges)
     }
 }
 

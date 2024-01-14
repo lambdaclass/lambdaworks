@@ -7,13 +7,16 @@ use crate::{
         errors::FieldError,
         traits::{IsFFTField, IsField, IsPrimeField, IsSubFieldOf},
     },
-    traits::{ByteConversion, Serializable},
+    traits::{AsBytes, ByteConversion},
     unsigned_integer::element::U256,
 };
 pub use miden_core::Felt;
 use miden_core::QuadExtension;
 pub use winter_math::fields::f128::BaseElement;
 use winter_math::{ExtensionOf, FieldElement as IsWinterfellFieldElement, StarkField};
+
+// Implementation of Lambdaworks' different field traits for Miden's base field element `Felt` and
+// its quadratic extension `QuadFelt`.
 
 impl IsFFTField for Felt {
     const TWO_ADICITY: u64 = <Felt as StarkField>::TWO_ADICITY as u64;
@@ -28,6 +31,10 @@ impl IsPrimeField for Felt {
     }
 
     fn from_hex(_hex_string: &str) -> Result<Self::BaseType, crate::errors::CreationError> {
+        todo!()
+    }
+
+    fn to_hex(_a: &Self::BaseType) -> String {
         todo!()
     }
 
@@ -84,17 +91,27 @@ impl IsField for Felt {
     }
 }
 
-impl Serializable for FieldElement<Felt> {
-    fn serialize(&self) -> Vec<u8> {
+#[cfg(feature = "alloc")]
+impl AsBytes for FieldElement<Felt> {
+    fn as_bytes(&self) -> Vec<u8> {
         Felt::elements_as_bytes(&[*self.value()]).to_vec()
     }
 }
 
+#[cfg(feature = "alloc")]
+impl From<FieldElement<Felt>> for alloc::vec::Vec<u8> {
+    fn from(value: FieldElement<Felt>) -> Self {
+        value.as_bytes()
+    }
+}
+
 impl ByteConversion for Felt {
+    #[cfg(feature = "alloc")]
     fn to_bytes_be(&self) -> Vec<u8> {
         Felt::elements_as_bytes(&[*self]).to_vec()
     }
 
+    #[cfg(feature = "alloc")]
     fn to_bytes_le(&self) -> Vec<u8> {
         Felt::elements_as_bytes(&[*self]).to_vec()
     }
@@ -125,6 +142,7 @@ impl ByteConversion for Felt {
 pub type QuadFelt = QuadExtension<Felt>;
 
 impl ByteConversion for QuadFelt {
+    #[cfg(feature = "alloc")]
     fn to_bytes_be(&self) -> Vec<u8> {
         let [b0, b1] = self.to_base_elements();
         let mut bytes = b0.to_bytes_be();
@@ -132,6 +150,7 @@ impl ByteConversion for QuadFelt {
         bytes
     }
 
+    #[cfg(feature = "alloc")]
     fn to_bytes_le(&self) -> Vec<u8> {
         let [b0, b1] = self.to_base_elements();
         let mut bytes = b0.to_bytes_le();
@@ -154,12 +173,20 @@ impl ByteConversion for QuadFelt {
     }
 }
 
-impl Serializable for FieldElement<QuadFelt> {
-    fn serialize(&self) -> Vec<u8> {
+#[cfg(feature = "alloc")]
+impl AsBytes for FieldElement<QuadFelt> {
+    fn as_bytes(&self) -> Vec<u8> {
         let [b0, b1] = self.value().to_base_elements();
         let mut bytes = b0.to_bytes_be();
         bytes.extend(&b1.to_bytes_be());
         bytes
+    }
+}
+
+#[cfg(feature = "alloc")]
+impl From<FieldElement<QuadFelt>> for alloc::vec::Vec<u8> {
+    fn from(value: FieldElement<QuadFelt>) -> Self {
+        value.as_bytes()
     }
 }
 

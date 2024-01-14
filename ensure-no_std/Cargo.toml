@@ -5,7 +5,10 @@ edition = "2021"
 
 
 [dependencies]
-lambdaworks-math = { path = "../math", default-features = false }
+lambdaworks-math = { path = "../math", default-features = false, features = ["alloc", "lambdaworks-serde-binary", "lambdaworks-serde-string"] }
+lambdaworks-crypto = { path = "../crypto", default-features = false, features = ["serde"] }
+
+wee_alloc = "0.4.5"
 
 [profile.dev]
 panic = "abort"

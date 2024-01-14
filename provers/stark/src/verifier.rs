@@ -8,7 +8,8 @@ use lambdaworks_crypto::merkle_tree::proof::Proof;
 use log::error;
 
 use crate::{
-    config::Commitment, proof::stark::DeepPolynomialOpening, transcript::IsStarkTranscript,
+    config::Commitment, frame::Frame, proof::stark::DeepPolynomialOpening,
+    transcript::IsStarkTranscript,
 };
 use lambdaworks_math::{
     fft::cpu::bit_reversing::reverse_index,
@@ -16,7 +17,7 @@ use lambdaworks_math::{
         element::FieldElement,
         traits::{IsFFTField, IsField, IsSubFieldOf},
     },
-    traits::Serializable,
+    traits::AsBytes,
 };
 
 use super::{
@@ -28,30 +29,44 @@ use super::{
     traits::AIR,
 };
 
+/// A default STARK verifier implementing `IsStarkVerifier`.
 pub struct Verifier<A: AIR> {
     phantom: PhantomData<A>,
 }
 
 impl<A: AIR> IsStarkVerifier<A> for Verifier<A> {}
 
+/// A container holding the complete list of challenges sent to the prover along with the seed used
+/// to validate the proof-of-work nonce.
 pub struct Challenges<F, A>
 where
     F: IsField,
     A: AIR<FieldExtension = F>,
 {
+    /// The out-of-domain challenge.
     pub z: FieldElement<F>,
+    /// The composition polynomial coefficients corresponding to the boundary constraints terms.
     pub boundary_coeffs: Vec<FieldElement<F>>,
+    /// The composition polynomial coefficients corresponding to the transition constraints terms.
     pub transition_coeffs: Vec<FieldElement<F>>,
+    /// The deep composition polynomial coefficients corresponding to the trace polynomial terms.
     pub trace_term_coeffs: Vec<Vec<FieldElement<F>>>,
+    /// The deep composition polynomial coefficients corresponding to the composition polynomial parts terms.
     pub gammas: Vec<FieldElement<F>>,
+    /// The list of FRI commit phase folding challenges.
     pub zetas: Vec<FieldElement<F>>,
+    /// The list of FRI query phase index challenges.
     pub iotas: Vec<usize>,
+    /// The challenges used to build the auxiliary trace.
     pub rap_challenges: A::RAPChallenges,
+    /// The seed used to verify the proof-of-work nonce.
     pub grinding_seed: [u8; 32],
 }
 
 pub type DeepPolynomialEvaluations<F> = (Vec<FieldElement<F>>, Vec<FieldElement<F>>);
 
+/// The functionality of a STARK verifier providing methods to run the STARK Verify protocol
+/// https://lambdaclass.github.io/lambdaworks/starks/protocol.html
 pub trait IsStarkVerifier<A: AIR> {
     fn sample_query_indexes(
         number_of_queries: usize,
@@ -64,6 +79,7 @@ pub trait IsStarkVerifier<A: AIR> {
             .collect::<Vec<usize>>()
     }
 
+    /// Returns the list of challenges sent to the prover.
     fn step_1_replay_rounds_and_recover_challenges(
         air: &A,
         proof: &StarkProof<A::Field, A::FieldExtension>,
@@ -71,8 +87,8 @@ pub trait IsStarkVerifier<A: AIR> {
         transcript: &mut impl IsStarkTranscript<A::FieldExtension>,
     ) -> Challenges<A::FieldExtension, A>
     where
-        FieldElement<A::Field>: Serializable,
-        FieldElement<A::FieldExtension>: Serializable,
+        FieldElement<A::Field>: AsBytes,
+        FieldElement<A::FieldExtension>: AsBytes,
     {
         // ===================================
         // ==========|   Round 1   |==========
@@ -118,9 +134,10 @@ pub trait IsStarkVerifier<A: AIR> {
         );
 
         // <<<< Receive values: tⱼ(zgᵏ)
-        for i in 0..proof.trace_ood_evaluations.width {
-            for j in 0..proof.trace_ood_evaluations.height {
-                transcript.append_field_element(&proof.trace_ood_evaluations.get_row(j)[i]);
+        let trace_ood_evaluations_columns = proof.trace_ood_evaluations.columns();
+        for col in trace_ood_evaluations_columns.iter() {
+            for elem in col.iter() {
+                transcript.append_field_element(elem);
             }
         }
         // <<<< Receive value: Hᵢ(z^N)
@@ -199,6 +216,9 @@ pub trait IsStarkVerifier<A: AIR> {
         }
     }
 
+    /// Checks whether the purported evaluations of the composition polynomial parts and the trace
+    /// polynomials at the out-of-domain challenge are consistent.
+    /// See https://lambdaclass.github.io/lambdaworks/starks/protocol.html#step-2-verify-claimed-composition-polynomial
     fn step_2_verify_claimed_composition_polynomial(
         air: &A,
         proof: &StarkProof<A::Field, A::FieldExtension>,
@@ -217,9 +237,14 @@ pub trait IsStarkVerifier<A: AIR> {
         ) = (0..number_of_b_constraints)
             .map(|index| {
                 let step = boundary_constraints.constraints[index].step;
+                let is_aux = boundary_constraints.constraints[index].is_aux;
                 let point = &domain.trace_primitive_root.pow(step as u64);
                 let trace_idx = boundary_constraints.constraints[index].col;
-                let trace_evaluation = &proof.trace_ood_evaluations.get_row(0)[trace_idx];
+                let trace_evaluation = if is_aux {
+                    &proof.trace_ood_evaluations.get_row_aux(0)[trace_idx]
+                } else {
+                    &proof.trace_ood_evaluations.get_row_main(0)[trace_idx]
+                };
                 let boundary_zerofier_challenges_z_den = -point + &challenges.z;
 
                 let boundary_quotient_ood_evaluation_num =
@@ -250,8 +275,11 @@ pub trait IsStarkVerifier<A: AIR> {
             .map(|poly| poly.evaluate(&challenges.z))
             .collect::<Vec<FieldElement<A::FieldExtension>>>();
 
-        let transition_ood_frame_evaluations = air.compute_transition(
-            &(proof.trace_ood_evaluations).into_frame(A::STEP_SIZE),
+        let transition_ood_frame_evaluations = air.compute_transition_verifier(
+            &Frame::read_from_ood_table(
+                &proof.trace_ood_evaluations,
+                &air.context().transition_offsets,
+            ),
             &periodic_values,
             &challenges.rap_challenges,
         );
@@ -295,14 +323,17 @@ pub trait IsStarkVerifier<A: AIR> {
         composition_poly_claimed_ood_evaluation == composition_poly_ood_evaluation
     }
 
+    /// Reconstructs the Deep composition polynomial evaluations at the challenge indices values using the provided
+    /// openings of the trace polynomials and the composition polynomial parts. It then uses these to verify that the
+    /// FRI decommitments are valid and correspond to the Deep composition polynomial.
     fn step_3_verify_fri(
         proof: &StarkProof<A::Field, A::FieldExtension>,
         domain: &Domain<A::Field>,
         challenges: &Challenges<A::FieldExtension, A>,
     ) -> bool
     where
-        FieldElement<A::Field>: Serializable + Sync + Send,
-        FieldElement<A::FieldExtension>: Serializable + Sync + Send,
+        FieldElement<A::Field>: AsBytes + Sync + Send,
+        FieldElement<A::FieldExtension>: AsBytes + Sync + Send,
     {
         let (deep_poly_evaluations, deep_poly_evaluations_sym) =
             Self::reconstruct_deep_composition_poly_evaluations_for_all_queries(
@@ -323,7 +354,6 @@ pub trait IsStarkVerifier<A: AIR> {
             .zip(evaluation_point_inverse)
             .enumerate()
             .fold(true, |mut result, (i, ((proof_s, iota_s), eval))| {
-                // this is done in constant time
                 result &= Self::verify_query_and_sym_openings(
                     proof,
                     &challenges.zetas,
@@ -337,6 +367,7 @@ pub trait IsStarkVerifier<A: AIR> {
             })
     }
 
+    /// Returns the field element element of the domain `domain` corresponding to the given FRI query index challenge `iota`.
     fn query_challenge_to_evaluation_point(
         iota: usize,
         domain: &Domain<A::Field>,
@@ -346,6 +377,7 @@ pub trait IsStarkVerifier<A: AIR> {
         .clone()
     }
 
+    /// Returns the symmetric field element element of the domain `domain` corresponding to the given FRI query index challenge `iota`.
     fn query_challenge_to_evaluation_point_sym(
         iota: usize,
         domain: &Domain<A::Field>,
@@ -355,6 +387,7 @@ pub trait IsStarkVerifier<A: AIR> {
         .clone()
     }
 
+    /// Verifies the validity of the opening proof.
     fn verify_opening<E>(
         proof: &Proof<Commitment>,
         root: &Commitment,
@@ -362,8 +395,8 @@ pub trait IsStarkVerifier<A: AIR> {
         value: &[FieldElement<E>],
     ) -> bool
     where
-        FieldElement<A::Field>: Serializable + Sync + Send,
-        FieldElement<E>: Serializable + Sync + Send,
+        FieldElement<A::Field>: AsBytes + Sync + Send,
+        FieldElement<E>: AsBytes + Sync + Send,
         E: IsField,
         A::Field: IsSubFieldOf<E>,
     {
@@ -378,8 +411,8 @@ pub trait IsStarkVerifier<A: AIR> {
         iota: usize,
     ) -> bool
     where
-        FieldElement<A::Field>: Serializable + Sync + Send,
-        FieldElement<A::FieldExtension>: Serializable + Sync + Send,
+        FieldElement<A::Field>: AsBytes + Sync + Send,
+        FieldElement<A::FieldExtension>: AsBytes + Sync + Send,
     {
         let index = iota * 2;
         let index_sym = iota * 2 + 1;
@@ -432,8 +465,8 @@ pub trait IsStarkVerifier<A: AIR> {
         iota: &usize,
     ) -> bool
     where
-        FieldElement<A::Field>: Serializable + Sync + Send,
-        FieldElement<A::FieldExtension>: Serializable + Sync + Send,
+        FieldElement<A::Field>: AsBytes + Sync + Send,
+        FieldElement<A::FieldExtension>: AsBytes + Sync + Send,
     {
         let mut value = deep_poly_openings.composition_poly.evaluations.clone();
         value.extend_from_slice(&deep_poly_openings.composition_poly.evaluations_sym);
@@ -448,13 +481,16 @@ pub trait IsStarkVerifier<A: AIR> {
             )
     }
 
+    /// Verifies the validity of the purported values of the trace polynomials and the composition polynomial
+    /// parts at the domain elements and their symmetric counterparts corresponding to all the FRI query
+    /// index challenges.
     fn step_4_verify_trace_and_composition_openings(
         proof: &StarkProof<A::Field, A::FieldExtension>,
         challenges: &Challenges<A::FieldExtension, A>,
     ) -> bool
     where
-        FieldElement<A::Field>: Serializable + Sync + Send,
-        FieldElement<A::FieldExtension>: Serializable + Sync + Send,
+        FieldElement<A::Field>: AsBytes + Sync + Send,
+        FieldElement<A::FieldExtension>: AsBytes + Sync + Send,
     {
         challenges.iotas.iter().zip(&proof.deep_poly_openings).fold(
             true,
@@ -471,6 +507,7 @@ pub trait IsStarkVerifier<A: AIR> {
         )
     }
 
+    /// Verifies the openings of a fold polynomial of an inner layer of FRI.
     fn verify_fri_layer_openings(
         merkle_root: &Commitment,
         auth_path_sym: &Proof<Commitment>,
@@ -479,8 +516,8 @@ pub trait IsStarkVerifier<A: AIR> {
         iota: usize,
     ) -> bool
     where
-        FieldElement<A::Field>: Serializable + Sync + Send,
-        FieldElement<A::FieldExtension>: Serializable + Sync + Send,
+        FieldElement<A::Field>: AsBytes + Sync + Send,
+        FieldElement<A::FieldExtension>: AsBytes + Sync + Send,
     {
         let evaluations = if iota % 2 == 1 {
             vec![evaluation_sym.clone(), evaluation.clone()]
@@ -513,8 +550,8 @@ pub trait IsStarkVerifier<A: AIR> {
         deep_composition_evaluation_sym: &FieldElement<A::FieldExtension>,
     ) -> bool
     where
-        FieldElement<A::Field>: Serializable + Sync + Send,
-        FieldElement<A::FieldExtension>: Serializable + Sync + Send,
+        FieldElement<A::Field>: AsBytes + Sync + Send,
+        FieldElement<A::FieldExtension>: AsBytes + Sync + Send,
     {
         let fri_layers_merkle_roots = &proof.fri_layers_merkle_roots;
         let evaluation_point_vec: Vec<FieldElement<A::Field>> =
@@ -642,23 +679,22 @@ pub trait IsStarkVerifier<A: AIR> {
         lde_trace_evaluations: &[FieldElement<A::FieldExtension>],
         lde_composition_poly_parts_evaluation: &[FieldElement<A::FieldExtension>],
     ) -> FieldElement<A::FieldExtension> {
-        let mut denoms_trace = (0..proof.trace_ood_evaluations.height)
+        let mut denoms_trace = (0..proof.trace_ood_evaluations.n_rows())
             .map(|row_idx| evaluation_point - primitive_root.pow(row_idx as u64) * &challenges.z)
             .collect::<Vec<FieldElement<A::FieldExtension>>>();
         FieldElement::inplace_batch_inverse(&mut denoms_trace).unwrap();
 
-        let trace_term = (0..proof.trace_ood_evaluations.width)
+        let trace_term = (0..proof.trace_ood_evaluations.n_cols())
             .zip(&challenges.trace_term_coeffs)
             .fold(FieldElement::zero(), |trace_terms, (col_idx, coeff_row)| {
-                let trace_i = (0..proof.trace_ood_evaluations.height).zip(coeff_row).fold(
-                    FieldElement::zero(),
-                    |trace_t, (row_idx, coeff)| {
+                let trace_i = (0..proof.trace_ood_evaluations.n_rows())
+                    .zip(coeff_row)
+                    .fold(FieldElement::zero(), |trace_t, (row_idx, coeff)| {
                         let poly_evaluation = (lde_trace_evaluations[col_idx].clone()
                             - proof.trace_ood_evaluations.get_row(row_idx)[col_idx].clone())
                             * &denoms_trace[row_idx];
                         trace_t + &poly_evaluation * coeff
-                    },
-                );
+                    });
                 trace_terms + trace_i
             });
 
@@ -677,6 +713,8 @@ pub trait IsStarkVerifier<A: AIR> {
         trace_term + h_terms
     }
 
+    /// Verifies a STARK proof with public inputs `pub_inputs`.
+    /// Warning: the transcript must be safely initializated before passing it to this method.
     fn verify(
         proof: &StarkProof<A::Field, A::FieldExtension>,
         pub_input: &A::PublicInputs,
@@ -684,8 +722,8 @@ pub trait IsStarkVerifier<A: AIR> {
         mut transcript: impl IsStarkTranscript<A::FieldExtension>,
     ) -> bool
     where
-        FieldElement<A::Field>: Serializable + Sync + Send,
-        FieldElement<A::FieldExtension>: Serializable + Sync + Send,
+        FieldElement<A::Field>: AsBytes + Sync + Send,
+        FieldElement<A::FieldExtension>: AsBytes + Sync + Send,
     {
         // Verify there are enough queries
         if proof.query_list.len() < proof_options.fri_number_of_queries {

@@ -1,4 +1,9 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use lambdaworks_winterfell_adapter::adapter::public_inputs::AirAdapterPublicInputs;
+use lambdaworks_winterfell_adapter::adapter::QuadFeltTranscript;
+use lambdaworks_winterfell_adapter::examples::miden_vm::{
+    ExecutionTraceMetadata, MidenVMQuadFeltAir,
+};
 use miden_air::{HashFunction, ProcessorAir, ProvingOptions, PublicInputs};
 use miden_assembly::Assembler;
 use miden_core::{Program, StackInputs};
@@ -9,9 +14,6 @@ use stark_platinum_prover::proof::options::ProofOptions;
 use stark_platinum_prover::prover::{IsStarkProver, Prover};
 use winter_air::FieldExtension;
 use winter_prover::Trace;
-use winterfell_adapter::adapter::public_inputs::AirAdapterPublicInputs;
-use winterfell_adapter::adapter::QuadFeltTranscript;
-use winterfell_adapter::examples::miden_vm::{ExecutionTraceMetadata, MidenVMQuadFeltAir};
 
 struct BenchInstance {
     program: Program,

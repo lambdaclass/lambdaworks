@@ -56,7 +56,7 @@ mod tests {
         use crate::{field::element::FieldElement, traits::ByteConversion};
 
         #[test]
-        #[cfg(feature = "std")]
+        #[cfg(feature = "alloc")]
         fn byte_serialization_for_a_number_matches_with_byte_conversion_implementation_le() {
             let element =
                 FieldElement::<Babybear31PrimeField>::from_hex_unchecked("0123456701234567");
@@ -66,7 +66,7 @@ mod tests {
         }
 
         #[test]
-        #[cfg(feature = "std")]
+        #[cfg(feature = "alloc")]
         fn byte_serialization_for_a_number_matches_with_byte_conversion_implementation_be() {
             let element =
                 FieldElement::<Babybear31PrimeField>::from_hex_unchecked("0123456701234567");

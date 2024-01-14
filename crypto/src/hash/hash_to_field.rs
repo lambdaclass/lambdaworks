@@ -1,3 +1,4 @@
+use alloc::{string::String, vec::Vec};
 use lambdaworks_math::{
     field::{
         element::FieldElement,
@@ -67,6 +68,7 @@ fn build_two_to_the_nth<M: IsModulus<UnsignedInteger<N>> + Clone, const N: usize
 
 #[cfg(test)]
 mod tests {
+    use alloc::vec::Vec;
     use lambdaworks_math::{
         field::{
             element::FieldElement,
