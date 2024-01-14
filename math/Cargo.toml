@@ -14,7 +14,7 @@ serde_json = { version = "1.0", optional = true }
 proptest = { version = "1.1.0", optional = true }
 winter-math = { package = "winter-math", version = "0.6.4", default-features = false, optional = true }
 miden-core = { package = "miden-core" , version = "0.7", default-features = false, optional = true }
-subtle = "0.2.4"
+subtle = {version = "2.5.0", features = ["const-generics"]}
 
 # rayon
 rayon = { version = "1.7", optional = true }
