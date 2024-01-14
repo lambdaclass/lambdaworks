@@ -1,7 +1,7 @@
 use crate::unsigned_integer::traits::IsUnsignedInteger;
-use crate::subtle::ConditionallySelectable;
+use subtle::ConditionallySelectable;
 
-pub trait IsGroup: Clone + PartialEq + Eq {
+pub trait IsGroup: Clone + PartialEq + Eq + ConditionallySelectable {
     /// Returns the neutral element of the group. The equality
     /// `neutral_element().operate_with(g) == g` must hold
     /// for every group element `g`.
@@ -38,12 +38,12 @@ pub trait IsGroup: Clone + PartialEq + Eq {
 
         for i in (0..num_bits).rev() {
             let mask = T::from(1) << i;
-            let bit = ((exponent & mask) >> i) == T::from(1);
+            let bit = (((exponent & mask) >> i) == T::from(1)) as u8;
 
-            // conditional_swap(r0, r1, bit);
-            r1 = Self::operate_with(r0, r1);            // r1 = r0 + r1;
-            r0 = Self::operate_with(r0, r0);            // r0 = 2r0;
-            // cconditional_swap(r0, r1, bit);
+            Self::conditional_swap(&mut r0, &mut r1, bit.into());
+            r1 = Self::operate_with(&r0, &r1);            // r1 = r0 + r1;
+            r0 = Self::operate_with(&r0, &r0);            // r0 = 2r0;
+            Self::conditional_swap(&mut r0, &mut r1, bit.into());
         }
         r0
     }
