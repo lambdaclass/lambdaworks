@@ -296,46 +296,13 @@ pub trait IsStarkVerifier<A: AIR> {
         });
 
         let transition_c_i_evaluations_sum = itertools::izip!(
-            transition_ood_frame_evaluations, // .zip(&air.context().transition_exemptions)
+            transition_ood_frame_evaluations,
             &challenges.transition_coeffs,
             denominators
         )
         .fold(FieldElement::zero(), |acc, (eval, beta, denominator)| {
             acc + beta * eval * &denominator
         });
-        // let transition_ood_frame_evaluations = air.compute_transition_verifier(
-        //     &Frame::read_from_ood_table(
-        //         &proof.trace_ood_evaluations,
-        //         &air.context().transition_offsets,
-        //     ),
-        //     &periodic_values,
-        //     &challenges.rap_challenges,
-        // );
-
-        // let denominator = (-FieldElement::<A::Field>::one() + &challenges.z.pow(trace_length))
-        //     .inv()
-        //     .unwrap();
-
-        // let exemption = air
-        //     .transition_exemptions_verifier(
-        //         domain.trace_roots_of_unity.iter().last().expect("has last"),
-        //     )
-        //     .iter()
-        //     .map(|poly| poly.evaluate(&challenges.z))
-        //     .collect::<Vec<FieldElement<A::FieldExtension>>>();
-
-        // let unity = &FieldElement::one();
-        // let transition_c_i_evaluations_sum = transition_ood_frame_evaluations
-        //     .iter()
-        //     .zip(&air.context().transition_exemptions)
-        //     .zip(&challenges.transition_coeffs)
-        //     .fold(FieldElement::zero(), |acc, ((eval, except), beta)| {
-        //         let except = except
-        //             .checked_sub(1)
-        //             .map(|i| &exemption[i])
-        //             .unwrap_or(unity);
-        //         acc + eval * &denominator * beta * except
-        //     });
 
         let composition_poly_ood_evaluation =
             &boundary_quotient_ood_evaluation + transition_c_i_evaluations_sum;

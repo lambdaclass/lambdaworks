@@ -171,9 +171,9 @@ where
             let periodic_exemptions_offset = self.periodic_exemptions_offset().unwrap();
             let offset_exponent = trace_length * periodic_exemptions_offset / exemptions_period;
 
-            let numerator =
-                trace_primitive_root.pow(offset_exponent) + z.pow(trace_length / exemptions_period);
-            let denominator = trace_primitive_root
+            let numerator = -trace_primitive_root.pow(offset_exponent)
+                + z.pow(trace_length / exemptions_period);
+            let denominator = -trace_primitive_root
                 .pow(self.offset() * trace_length / self.period())
                 + z.pow(trace_length / self.period());
 
