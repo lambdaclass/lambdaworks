@@ -6,7 +6,7 @@ use crate::{
     examples::{
         bit_flags::{self, BitFlagsAIR},
         //     simple_periodic_cols::{self, SimplePeriodicAIR, SimplePeriodicPublicInputs},
-        // dummy_air::{self, DummyAIR},
+        dummy_air::{self, DummyAIR},
         fibonacci_2_cols_shifted::{self, Fibonacci2ColsShifted},
         fibonacci_2_columns::{self, Fibonacci2ColsAIR},
         fibonacci_rap::{fibonacci_rap_trace, FibonacciRAP, FibonacciRAPPublicInputs},
@@ -270,28 +270,23 @@ fn test_prove_rap_fib() {
     ));
 }
 
-// #[test_log::test]
-// fn test_prove_dummy() {
-//     let trace_length = 16;
-//     let trace = dummy_air::dummy_trace(trace_length);
+#[test_log::test]
+fn test_prove_dummy() {
+    let trace_length = 16;
+    let trace = dummy_air::dummy_trace(trace_length);
 
-//     let proof_options = ProofOptions::default_test_options();
+    let proof_options = ProofOptions::default_test_options();
 
-//     let proof =
-//         Prover::<DummyAIR>::prove(&trace, &(), &proof_options, StoneProverTranscript::new(&[]))
-//             .unwrap();
-// <<<<<<< HEAD
-
-//     assert!(Verifier::verify::<DummyAIR>(
-// =======
-//     assert!(Verifier::<DummyAIR>::verify(
-// >>>>>>> main
-//         &proof,
-//         &(),
-//         &proof_options,
-//         StoneProverTranscript::new(&[])
-//     ));
-// }
+    let proof =
+        Prover::<DummyAIR>::prove(&trace, &(), &proof_options, StoneProverTranscript::new(&[]))
+            .unwrap();
+    assert!(Verifier::<DummyAIR>::verify(
+        &proof,
+        &(),
+        &proof_options,
+        StoneProverTranscript::new(&[])
+    ));
+}
 
 #[test_log::test]
 fn test_prove_bit_flags() {
