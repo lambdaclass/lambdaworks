@@ -1,35 +1,35 @@
-// use crate::{
-//     air::{generate_cairo_proof, verify_cairo_proof, CairoAIR},
-//     cairo_layout::CairoLayout,
-//     runner::run::generate_prover_args,
-//     tests::utils::{
-//         cairo0_program_path, test_prove_cairo_program, test_prove_cairo_program_from_trace,
-//     },
-//     Felt252,
-// };
-// use lambdaworks_math::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;
-// use stark_platinum_prover::{
-//     debug::validate_trace,
-//     domain::Domain,
-//     proof::{
-//         options::{ProofOptions, SecurityLevel},
-//         stark::StarkProof,
-//     },
-//     traits::AIR,
-//     transcript::StoneProverTranscript,
-// };
+use crate::{
+    air::{generate_cairo_proof, verify_cairo_proof, CairoAIR},
+    cairo_layout::CairoLayout,
+    runner::run::generate_prover_args,
+    tests::utils::{
+        cairo0_program_path, test_prove_cairo_program, test_prove_cairo_program_from_trace,
+    },
+    Felt252,
+};
+use lambdaworks_math::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;
+use stark_platinum_prover::{
+    debug::validate_trace,
+    domain::Domain,
+    proof::{
+        options::{ProofOptions, SecurityLevel},
+        stark::StarkProof,
+    },
+    traits::AIR,
+    transcript::StoneProverTranscript,
+};
 
-// #[test_log::test]
-// fn test_prove_cairo_simple_program() {
-//     let layout = CairoLayout::Plain;
-//     test_prove_cairo_program(&cairo0_program_path("simple_program.json"), layout);
-// }
+#[test_log::test]
+fn test_prove_cairo_simple_program() {
+    let layout = CairoLayout::Plain;
+    test_prove_cairo_program(&cairo0_program_path("simple_program.json"), layout);
+}
 
-// #[test_log::test]
-// fn test_prove_cairo_fibonacci_5() {
-//     let layout = CairoLayout::Plain;
-//     test_prove_cairo_program(&cairo0_program_path("fibonacci_5.json"), layout);
-// }
+#[test_log::test]
+fn test_prove_cairo_fibonacci_5() {
+    let layout = CairoLayout::Plain;
+    test_prove_cairo_program(&cairo0_program_path("fibonacci_5.json"), layout);
+}
 
 // #[test_log::test]
 // fn test_prove_cairo_fibonacci_5_from_trace() {

@@ -280,6 +280,7 @@ fn test_prove_dummy() {
     let proof =
         Prover::<DummyAIR>::prove(&trace, &(), &proof_options, StoneProverTranscript::new(&[]))
             .unwrap();
+
     assert!(Verifier::<DummyAIR>::verify(
         &proof,
         &(),
