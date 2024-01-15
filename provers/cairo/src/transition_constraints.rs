@@ -2234,11 +2234,11 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for MemoryIsFu
 
         let one = Felt252::one();
 
-        let mem_addr_sorted_3 = current_step.get_main_evaluation_element(0, 7);
-        let mem_addr_sorted_4 = current_step.get_main_evaluation_element(0, 8);
+        let mem_addr_sorted_3 = current_step.get_aux_evaluation_element(0, 7);
+        let mem_addr_sorted_4 = current_step.get_aux_evaluation_element(0, 8);
 
-        let mem_val_sorted_3 = current_step.get_main_evaluation_element(0, 12);
-        let mem_val_sorted_4 = current_step.get_main_evaluation_element(0, 13);
+        let mem_val_sorted_3 = current_step.get_aux_evaluation_element(0, 12);
+        let mem_val_sorted_4 = current_step.get_aux_evaluation_element(0, 13);
 
         transition_evaluations[self.constraint_idx()] =
             (mem_val_sorted_3 - mem_val_sorted_4) * (mem_addr_sorted_4 - mem_addr_sorted_3 - one);
