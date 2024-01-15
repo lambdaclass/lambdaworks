@@ -31,50 +31,50 @@ fn test_prove_cairo_fibonacci_5() {
     test_prove_cairo_program(&cairo0_program_path("fibonacci_5.json"), layout);
 }
 
-// #[test_log::test]
-// fn test_prove_cairo_fibonacci_5_from_trace() {
-//     test_prove_cairo_program_from_trace(
-//         &cairo0_program_path("fibonacci_5_trace.bin"),
-//         &cairo0_program_path("fibonacci_5_memory.bin"),
-//     );
-// }
+#[test_log::test]
+fn test_prove_cairo_fibonacci_5_from_trace() {
+    test_prove_cairo_program_from_trace(
+        &cairo0_program_path("fibonacci_5_trace.bin"),
+        &cairo0_program_path("fibonacci_5_memory.bin"),
+    );
+}
 
-// #[test_log::test]
-// fn test_verifier_rejects_wrong_authentication_paths() {
-//     // Setup
-//     let proof_options = ProofOptions::default_test_options();
-//     let program_content = std::fs::read(cairo0_program_path("fibonacci_5.json")).unwrap();
-//     let (main_trace, pub_inputs) =
-//         generate_prover_args(&program_content, CairoLayout::Plain).unwrap();
+#[test_log::test]
+fn test_verifier_rejects_wrong_authentication_paths() {
+    // Setup
+    let proof_options = ProofOptions::default_test_options();
+    let program_content = std::fs::read(cairo0_program_path("fibonacci_5.json")).unwrap();
+    let (main_trace, pub_inputs) =
+        generate_prover_args(&program_content, CairoLayout::Plain).unwrap();
 
-//     // Generate the proof
-//     let mut proof = generate_cairo_proof(&main_trace, &pub_inputs, &proof_options).unwrap();
+    // Generate the proof
+    let mut proof = generate_cairo_proof(&main_trace, &pub_inputs, &proof_options).unwrap();
 
-//     // Change order of authentication path hashes
-//     let query = 0;
-//     let mut original_path = proof.deep_poly_openings[query]
-//         .main_trace_polys
-//         .proof
-//         .merkle_path
-//         .clone();
-//     original_path.swap(0, 1);
-//     // For the test to make sense, we have to make sure
-//     // that the two hashes are different.
-//     assert_ne!(original_path[0], original_path[1]);
-//     proof.deep_poly_openings[query]
-//         .main_trace_polys
-//         .proof
-//         .merkle_path = original_path;
+    // Change order of authentication path hashes
+    let query = 0;
+    let mut original_path = proof.deep_poly_openings[query]
+        .main_trace_polys
+        .proof
+        .merkle_path
+        .clone();
+    original_path.swap(0, 1);
+    // For the test to make sense, we have to make sure
+    // that the two hashes are different.
+    assert_ne!(original_path[0], original_path[1]);
+    proof.deep_poly_openings[query]
+        .main_trace_polys
+        .proof
+        .merkle_path = original_path;
 
-//     // Verifier should reject the proof
-//     assert!(!verify_cairo_proof(&proof, &pub_inputs, &proof_options));
-// }
+    // Verifier should reject the proof
+    assert!(!verify_cairo_proof(&proof, &pub_inputs, &proof_options));
+}
 
-// #[test_log::test]
-// fn test_prove_cairo_fibonacci_1000() {
-//     let layout = CairoLayout::Plain;
-//     test_prove_cairo_program(&cairo0_program_path("fibonacci_1000.json"), layout);
-// }
+#[test_log::test]
+fn test_prove_cairo_fibonacci_1000() {
+    let layout = CairoLayout::Plain;
+    test_prove_cairo_program(&cairo0_program_path("fibonacci_1000.json"), layout);
+}
 
 // // #[cfg_attr(feature = "metal", ignore)]
 // // #[test_log::test]
@@ -83,25 +83,25 @@ fn test_prove_cairo_fibonacci_5() {
 // //     test_prove_cairo1_program(&cairo1_program_path("fibonacci_cairo1_mod.casm"), layout);
 // // }
 
-// #[test_log::test]
-// fn test_verifier_rejects_proof_of_a_slightly_different_program() {
-//     let program_content = std::fs::read(cairo0_program_path("simple_program.json")).unwrap();
-//     let (main_trace, mut pub_input) =
-//         generate_prover_args(&program_content, CairoLayout::Plain).unwrap();
+#[test_log::test]
+fn test_verifier_rejects_proof_of_a_slightly_different_program() {
+    let program_content = std::fs::read(cairo0_program_path("simple_program.json")).unwrap();
+    let (main_trace, mut pub_input) =
+        generate_prover_args(&program_content, CairoLayout::Plain).unwrap();
 
-//     let proof_options = ProofOptions::default_test_options();
+    let proof_options = ProofOptions::default_test_options();
 
-//     let proof = generate_cairo_proof(&main_trace, &pub_input, &proof_options).unwrap();
+    let proof = generate_cairo_proof(&main_trace, &pub_input, &proof_options).unwrap();
 
-//     // We modify the original program and verify using this new "corrupted" version
-//     let mut corrupted_program = pub_input.public_memory.clone();
-//     corrupted_program.insert(Felt252::one(), Felt252::from(5));
-//     corrupted_program.insert(Felt252::from(3), Felt252::from(5));
+    // We modify the original program and verify using this new "corrupted" version
+    let mut corrupted_program = pub_input.public_memory.clone();
+    corrupted_program.insert(Felt252::one(), Felt252::from(5));
+    corrupted_program.insert(Felt252::from(3), Felt252::from(5));
 
-//     // Here we use the corrupted version of the program in the public inputs
-//     pub_input.public_memory = corrupted_program;
-//     assert!(!verify_cairo_proof(&proof, &pub_input, &proof_options));
-// }
+    // Here we use the corrupted version of the program in the public inputs
+    pub_input.public_memory = corrupted_program;
+    assert!(!verify_cairo_proof(&proof, &pub_input, &proof_options));
+}
 
 // #[test_log::test]
 // fn test_verifier_rejects_proof_with_different_range_bounds() {
