@@ -1,3 +1,5 @@
+use std::num;
+
 use crate::table::Table;
 use crate::traits::AIR;
 use itertools::Itertools;
@@ -48,8 +50,23 @@ impl<F: IsField> TraceTable<F> {
         num_main_columns: usize,
         step_size: usize,
     ) -> Self {
+        println!("COLUMNS LEN: {}", columns.len());
+        println!("NUM MAIN COLUMNS: {}", num_main_columns);
         let num_aux_columns = columns.len() - num_main_columns;
         let table = Table::from_columns(columns);
+        Self {
+            table,
+            num_main_columns,
+            num_aux_columns,
+            step_size,
+        }
+    }
+
+    pub fn from_columns_main(columns: Vec<Vec<FieldElement<F>>>, step_size: usize) -> Self {
+        let num_main_columns = columns.len();
+        let num_aux_columns = 0;
+        let table = Table::from_columns(columns);
+
         Self {
             table,
             num_main_columns,
@@ -328,6 +345,19 @@ where
     let table_width = main_trace_width + aux_trace_width;
 
     Table::new(table_data, table_width)
+}
+
+pub fn columns2rows<F: IsField>(columns: Vec<Vec<FieldElement<F>>>) -> Vec<Vec<FieldElement<F>>> {
+    let num_rows = columns[0].len();
+    let num_cols = columns.len();
+
+    (0..num_rows)
+        .map(|row_index| {
+            (0..num_cols)
+                .map(|col_index| columns[col_index][row_index].clone())
+                .collect()
+        })
+        .collect()
 }
 
 #[cfg(test)]

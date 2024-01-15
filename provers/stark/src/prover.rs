@@ -21,7 +21,7 @@ use crate::debug::validate_trace;
 use crate::fri;
 use crate::proof::stark::{DeepPolynomialOpenings, PolynomialOpenings};
 use crate::table::Table;
-use crate::trace::LDETraceTable;
+use crate::trace::{columns2rows, LDETraceTable};
 use crate::transcript::IsStarkTranscript;
 
 use super::config::{BatchedMerkleTree, Commitment};
@@ -222,9 +222,12 @@ pub trait IsStarkProver<A: AIR> {
         // Compute commitment.
         // FIXME: We should think of a better way to compute the LDE trace commitment. It does not
         // make sense to instantiate a TraceTable struct just to call batch_commit.
-        let lde_trace =
-            TraceTable::from_columns(lde_trace_permuted, trace.num_main_columns, A::STEP_SIZE);
-        let (lde_trace_merkle_tree, lde_trace_merkle_root) = Self::batch_commit(&lde_trace.rows());
+        // let lde_trace =
+        //     TraceTable::from_columns(lde_trace_permuted, trace.num_main_columns, A::STEP_SIZE);
+
+        let lde_trace_permuted_rows = columns2rows(lde_trace_permuted);
+        let (lde_trace_merkle_tree, lde_trace_merkle_root) =
+            Self::batch_commit(&lde_trace_permuted_rows);
 
         // >>>> Send commitment.
         transcript.append_bytes(&lde_trace_merkle_root);
