@@ -229,6 +229,7 @@ where
     }
 
     pub fn num_rows(&self) -> usize {
+        // debug_assert_eq!(self.main_table.height, self.aux_table.height);
         self.main_table.height
     }
 
@@ -253,6 +254,15 @@ where
 
     pub fn get_aux(&self, row: usize, col: usize) -> &FieldElement<E> {
         self.aux_table.get(row, col)
+    }
+
+    pub fn num_steps(&self) -> usize {
+        debug_assert!((self.main_table.height % self.lde_step_size) == 0);
+        self.main_table.height / self.lde_step_size
+    }
+
+    pub fn step_to_row(&self, step: usize) -> usize {
+        self.lde_step_size * step
     }
 }
 
@@ -306,7 +316,6 @@ where
         .collect_vec();
 
     debug_assert_eq!(main_evaluations.len(), aux_evaluations.len());
-
     let mut main_evaluations = main_evaluations;
     let mut table_data = Vec::new();
     for (main_row, aux_row) in main_evaluations.iter_mut().zip(aux_evaluations) {

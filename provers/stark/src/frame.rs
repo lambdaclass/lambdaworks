@@ -75,6 +75,48 @@ impl<'t, F: IsSubFieldOf<E>, E: IsField> Frame<'t, F, E> {
             .iter()
             .map(|offset| {
                 let initial_step_row = row + offset * step_size;
+                println!();
+                // println!("INITIAL STEP ROW: {}", initial_step_row);
+                let end_step_row = initial_step_row + step_size;
+                // println!("END STEP ROW: {}", end_step_row);
+                let (table_view_main_data, table_view_aux_data) = (initial_step_row..end_step_row)
+                    .step_by(blowup_factor)
+                    .map(|step_row| {
+                        let step_row_idx = step_row % num_rows;
+                        // println!("STEP IDX: {}", step_row_idx);
+                        // println!();
+                        let main_row = lde_trace.get_main_row(step_row_idx);
+                        let aux_row = lde_trace.get_aux_row(step_row_idx);
+                        (main_row, aux_row)
+                    })
+                    .unzip();
+
+                TableView::new(
+                    table_view_main_data,
+                    table_view_aux_data,
+                    // num_cols,
+                    // num_rows,
+                )
+            })
+            .collect_vec();
+
+        Frame::new(lde_steps)
+    }
+
+    pub fn read_step_from_lde(
+        lde_trace: &'t LDETraceTable<F, E>,
+        step: usize,
+        offsets: &[usize],
+    ) -> Self {
+        let blowup_factor = lde_trace.blowup_factor;
+        let num_rows = lde_trace.num_rows();
+        let step_size = lde_trace.lde_step_size;
+        let row = lde_trace.step_to_row(step);
+
+        let lde_steps = offsets
+            .iter()
+            .map(|offset| {
+                let initial_step_row = row + offset * step_size;
                 let end_step_row = initial_step_row + step_size;
                 let (table_view_main_data, table_view_aux_data) = (initial_step_row..end_step_row)
                     .step_by(blowup_factor)

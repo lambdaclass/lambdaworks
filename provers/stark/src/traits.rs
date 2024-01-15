@@ -46,8 +46,10 @@ pub trait AIR {
         Vec::new()
     }
 
+    fn trace_layout(&self) -> (usize, usize);
+
     fn num_auxiliary_rap_columns(&self) -> usize {
-        0
+        self.trace_layout().1
     }
 
     fn composition_poly_degree_bound(&self) -> usize;

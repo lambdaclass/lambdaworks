@@ -4,12 +4,12 @@ use lambdaworks_math::field::{
 
 use crate::{
     examples::{
-        // bit_flags::{self, BitFlagsAIR},
+        bit_flags::{self, BitFlagsAIR},
         //     simple_periodic_cols::{self, SimplePeriodicAIR, SimplePeriodicPublicInputs},
         // dummy_air::{self, DummyAIR},
         fibonacci_2_cols_shifted::{self, Fibonacci2ColsShifted},
         fibonacci_2_columns::{self, Fibonacci2ColsAIR},
-        // fibonacci_rap::{fibonacci_rap_trace, FibonacciRAP, FibonacciRAPPublicInputs},
+        fibonacci_rap::{fibonacci_rap_trace, FibonacciRAP, FibonacciRAPPublicInputs},
         // quadratic_air::{self, QuadraticAIR, QuadraticPublicInputs},
         simple_fibonacci::{self, FibonacciAIR, FibonacciPublicInputs},
     },
@@ -242,33 +242,33 @@ fn test_prove_fib_2_cols_shifted() {
 //     ));
 // }
 
-// #[test_log::test]
-// fn test_prove_rap_fib() {
-//     let steps = 16;
-//     let trace = fibonacci_rap_trace([Felt252::from(1), Felt252::from(1)], steps);
+#[test_log::test]
+fn test_prove_rap_fib() {
+    let steps = 16;
+    let trace = fibonacci_rap_trace([Felt252::from(1), Felt252::from(1)], steps);
 
-//     let proof_options = ProofOptions::default_test_options();
+    let proof_options = ProofOptions::default_test_options();
 
-//     let pub_inputs = FibonacciRAPPublicInputs {
-//         steps,
-//         a0: Felt252::one(),
-//         a1: Felt252::one(),
-//     };
+    let pub_inputs = FibonacciRAPPublicInputs {
+        steps,
+        a0: Felt252::one(),
+        a1: Felt252::one(),
+    };
 
-//     let proof = Prover::<FibonacciRAP<Stark252PrimeField>>::prove(
-//         &trace,
-//         &pub_inputs,
-//         &proof_options,
-//         StoneProverTranscript::new(&[]),
-//     )
-//     .unwrap();
-//     assert!(Verifier::<FibonacciRAP<Stark252PrimeField>>::verify(
-//         &proof,
-//         &pub_inputs,
-//         &proof_options,
-//         StoneProverTranscript::new(&[])
-//     ));
-// }
+    let proof = Prover::<FibonacciRAP<Stark252PrimeField>>::prove(
+        &trace,
+        &pub_inputs,
+        &proof_options,
+        StoneProverTranscript::new(&[]),
+    )
+    .unwrap();
+    assert!(Verifier::<FibonacciRAP<Stark252PrimeField>>::verify(
+        &proof,
+        &pub_inputs,
+        &proof_options,
+        StoneProverTranscript::new(&[])
+    ));
+}
 
 // #[test_log::test]
 // fn test_prove_dummy() {
@@ -293,19 +293,19 @@ fn test_prove_fib_2_cols_shifted() {
 //     ));
 // }
 
-// #[test_log::test]
-// fn test_prove_bit_flags() {
-//     let trace = bit_flags::bit_prefix_flag_trace(32);
-//     let proof_options = ProofOptions::default_test_options();
+#[test_log::test]
+fn test_prove_bit_flags() {
+    let trace = bit_flags::bit_prefix_flag_trace(32);
+    let proof_options = ProofOptions::default_test_options();
 
-//     let proof =
-//         Prover::prove::<BitFlagsAIR>(&trace, &(), &proof_options, StoneProverTranscript::new(&[]))
-//             .unwrap();
+    let proof =
+        Prover::<BitFlagsAIR>::prove(&trace, &(), &proof_options, StoneProverTranscript::new(&[]))
+            .unwrap();
 
-//     assert!(Verifier::verify::<BitFlagsAIR>(
-//         &proof,
-//         &(),
-//         &proof_options,
-//         StoneProverTranscript::new(&[]),
-//     ));
-// }
+    assert!(Verifier::<BitFlagsAIR>::verify(
+        &proof,
+        &(),
+        &proof_options,
+        StoneProverTranscript::new(&[]),
+    ));
+}

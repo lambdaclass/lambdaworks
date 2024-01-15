@@ -303,6 +303,7 @@ pub trait IsStarkProver<A: AIR> {
         } else {
             (None, Vec::new())
         };
+
         let lde_trace = LDETraceTable::from_columns(
             evaluations,
             aux_evaluations,
@@ -377,6 +378,8 @@ pub trait IsStarkProver<A: AIR> {
         let composition_poly =
             Polynomial::interpolate_offset_fft(&constraint_evaluations, &domain.coset_offset)
                 .unwrap();
+
+        println!("COMPOSITION POLY DEGREE: {}", composition_poly.degree());
 
         let number_of_parts = air.composition_poly_degree_bound() / air.trace_length();
         let composition_poly_parts = composition_poly.break_in_parts(number_of_parts);
@@ -831,18 +834,20 @@ pub trait IsStarkProver<A: AIR> {
             &mut transcript,
         )?;
 
-        // #[cfg(debug_assertions)]
-        // validate_trace(
-        //     &air,
-        //     &round_1_result.main.trace_polys,
-        //     round_1_result
-        //         .aux
-        //         .as_ref()
-        //         .map(|a| &a.trace_polys)
-        //         .unwrap_or(&vec![]),
-        //     &domain,
-        //     &round_1_result.rap_challenges,
-        // );
+        #[cfg(debug_assertions)]
+        validate_trace(
+            &air,
+            &round_1_result.main.trace_polys,
+            round_1_result
+                .aux
+                .as_ref()
+                .map(|a| &a.trace_polys)
+                .unwrap_or(&vec![]),
+            &domain,
+            &round_1_result.rap_challenges,
+        );
+
+        // panic!("ACAA");
 
         #[cfg(feature = "instruments")]
         let elapsed1 = timer1.elapsed();

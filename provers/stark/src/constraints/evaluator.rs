@@ -5,6 +5,7 @@ use crate::domain::Domain;
 use crate::trace::LDETraceTable;
 use crate::traits::AIR;
 use crate::{frame::Frame, prover::evaluate_polynomial_on_lde_domain};
+use itertools::Itertools;
 use lambdaworks_math::{
     fft::errors::FFTError, field::element::FieldElement, polynomial::Polynomial, traits::AsBytes,
 };
@@ -87,17 +88,17 @@ impl<A: AIR> ConstraintEvaluator<A> {
                             let v = lde_trace.get_aux(row, constraint.col);
                             v - &constraint.value
                         })
-                        .collect()
+                        .collect_vec()
                 } else {
                     (0..lde_trace.num_rows())
                         .map(|row| {
                             let v = lde_trace.get_main(row, constraint.col);
                             v - &constraint.value
                         })
-                        .collect()
+                        .collect_vec()
                 }
             })
-            .collect::<Vec<Vec<FieldElement<_>>>>();
+            .collect_vec();
 
         #[cfg(feature = "parallel")]
         let boundary_eval_iter = (0..domain.lde_roots_of_unity_coset.len()).into_par_iter();
@@ -165,6 +166,7 @@ impl<A: AIR> ConstraintEvaluator<A> {
                 )
                 .fold(FieldElement::zero(), |acc, (eval, zerof_eval, beta)| {
                     acc + zerof_eval * eval * beta
+                    // acc + eval * beta
                 });
 
                 acc_transition + boundary

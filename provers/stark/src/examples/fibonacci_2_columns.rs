@@ -188,6 +188,10 @@ where
         self.trace_length
     }
 
+    fn trace_layout(&self) -> (usize, usize) {
+        (2, 0)
+    }
+
     fn pub_inputs(&self) -> &Self::PublicInputs {
         &self.pub_inputs
     }

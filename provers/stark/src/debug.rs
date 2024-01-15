@@ -33,6 +33,10 @@ pub fn validate_trace<A: AIR>(
         })
         .collect();
 
+    // main_trace_columns[0]
+    //     .iter()
+    //     .for_each(|v| println!("TRACE VALUE: {}", v.value()));
+
     let aux_trace_columns: Vec<_> = aux_trace_polys
         .iter()
         .map(|poly| {
@@ -89,8 +93,8 @@ pub fn validate_trace<A: AIR>(
         .collect();
 
     // Iterate over trace and compute transitions
-    for step in 0..lde_trace.num_rows() {
-        let frame = Frame::read_from_lde(&lde_trace, step, &air.context().transition_offsets);
+    for step in 0..lde_trace.num_steps() {
+        let frame = Frame::read_step_from_lde(&lde_trace, step, &air.context().transition_offsets);
         let periodic_values: Vec<_> = periodic_columns
             .iter()
             .map(|col| col[step].clone())

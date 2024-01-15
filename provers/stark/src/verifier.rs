@@ -98,6 +98,8 @@ pub trait IsStarkVerifier<A: AIR> {
 
         let rap_challenges = air.build_rap_challenges(transcript);
 
+        println!("TRACE LENGTH: {}", air.trace_length());
+
         if let Some(root) = proof.lde_trace_aux_merkle_root {
             transcript.append_bytes(&root);
         }
@@ -238,13 +240,13 @@ pub trait IsStarkVerifier<A: AIR> {
                 let step = boundary_constraints.constraints[index].step;
                 let is_aux = boundary_constraints.constraints[index].is_aux;
                 let point = &domain.trace_primitive_root.pow(step as u64);
-                let trace_idx = boundary_constraints.constraints[index].col;
-                let trace_evaluation = &proof.trace_ood_evaluations.get_row(0)[trace_idx];
-                // let trace_evaluation = if is_aux {
-                //     &proof.trace_ood_evaluations.get_row_aux(0)[trace_idx]
-                // } else {
-                //     &proof.trace_ood_evaluations.get_row_main(0)[trace_idx]
-                // };
+                let column_idx = boundary_constraints.constraints[index].col;
+                let trace_evaluation = if is_aux {
+                    let column_idx = air.trace_layout().0 + column_idx;
+                    &proof.trace_ood_evaluations.get_row(0)[column_idx]
+                } else {
+                    &proof.trace_ood_evaluations.get_row(0)[column_idx]
+                };
                 let boundary_zerofier_challenges_z_den = -point + &challenges.z;
 
                 let boundary_quotient_ood_evaluation_num =
