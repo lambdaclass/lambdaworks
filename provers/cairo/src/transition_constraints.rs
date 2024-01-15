@@ -2323,10 +2323,10 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for MemoryMult
         let a1 = current_step.get_main_evaluation_element(0, 20);
         let v1 = current_step.get_main_evaluation_element(0, 24);
 
-        let p0 = current_step.get_aux_evaluation_element(0, 9);
-        let ap1 = current_step.get_aux_evaluation_element(0, 18);
-        let vp1 = current_step.get_aux_evaluation_element(0, 13);
-        let p1 = current_step.get_aux_evaluation_element(0, 8);
+        let p0 = current_step.get_aux_evaluation_element(0, 14);
+        let ap1 = current_step.get_aux_evaluation_element(0, 5);
+        let vp1 = current_step.get_aux_evaluation_element(0, 10);
+        let p1 = current_step.get_aux_evaluation_element(0, 15);
 
         transition_evaluations[self.constraint_idx()] =
             (z - (ap1 + alpha * vp1)) * p1 - (z - (a1 + alpha * v1)) * p0;
