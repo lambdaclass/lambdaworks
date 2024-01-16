@@ -845,8 +845,6 @@ pub trait IsStarkProver<A: AIR> {
             &round_1_result.rap_challenges,
         );
 
-        // panic!("ACAA");
-
         #[cfg(feature = "instruments")]
         let elapsed1 = timer1.elapsed();
         #[cfg(feature = "instruments")]
@@ -978,18 +976,6 @@ pub trait IsStarkProver<A: AIR> {
 
         info!("End proof generation");
 
-        // let trace_ood_evaluations: Vec<_> = round_3_result
-        //     .trace_ood_evaluations
-        //     .into_iter()
-        //     .flatten()
-        //     .collect();
-
-        // let trace_ood_evaluations =
-        //     Table::new(trace_ood_evaluations, round_1_result.trace_polys.len());
-
-        // Ok(StarkProof {
-        // [tⱼ]
-        // lde_trace_merkle_roots: round_1_result.lde_trace_merkle_roots,
         Ok(StarkProof::<A::Field, A::FieldExtension> {
             // [t]
             lde_trace_main_merkle_root: round_1_result.main.lde_trace_merkle_root,

@@ -242,7 +242,6 @@ where
     }
 
     pub fn num_rows(&self) -> usize {
-        // debug_assert_eq!(self.main_table.height, self.aux_table.height);
         self.main_table.height
     }
 
