@@ -3,7 +3,6 @@ use platinum_prover::air::{generate_cairo_proof, verify_cairo_proof, PublicInput
 use platinum_prover::cairo_layout::CairoLayout;
 use platinum_prover::runner::run::generate_prover_args;
 use platinum_prover::runner::run::generate_prover_args_from_trace;
-use serde::Serialize;
 use stark_platinum_prover::proof::options::{ProofOptions, SecurityLevel};
 use stark_platinum_prover::proof::stark::StarkProof;
 mod commands;
