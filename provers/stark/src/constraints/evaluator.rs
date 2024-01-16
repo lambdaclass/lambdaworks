@@ -99,7 +99,7 @@ impl<A: AIR> ConstraintEvaluator<A> {
         #[cfg(not(feature = "parallel"))]
         let boundary_eval_iter = 0..domain.lde_roots_of_unity_coset.len();
 
-        let boundary_evaluation: Vec<_> = boundary_eval_iter
+        let boundary_evaluation = boundary_eval_iter
             .map(|domain_index| {
                 (0..number_of_b_constraints)
                     .zip(boundary_coefficients)
@@ -110,7 +110,7 @@ impl<A: AIR> ConstraintEvaluator<A> {
                             * &boundary_polys_evaluations[constraint_index][domain_index]
                     })
             })
-            .collect::<Vec<FieldElement<A::FieldExtension>>>(); // CHECK IF THIS TYPE DECLARATION IS NEEDED?
+            .collect_vec();
 
         #[cfg(all(debug_assertions, not(feature = "parallel")))]
         let boundary_zerofiers = Vec::new();

@@ -76,12 +76,12 @@ fn test_prove_cairo_fibonacci_1000() {
     test_prove_cairo_program(&cairo0_program_path("fibonacci_1000.json"), layout);
 }
 
-// // #[cfg_attr(feature = "metal", ignore)]
-// // #[test_log::test]
-// // fn test_prove_cairo_fibonacci_casm() {
-// //     let layout = CairoLayout::Plain;
-// //     test_prove_cairo1_program(&cairo1_program_path("fibonacci_cairo1_mod.casm"), layout);
-// // }
+// #[cfg_attr(feature = "metal", ignore)]
+// #[test_log::test]
+// fn test_prove_cairo_fibonacci_casm() {
+//     let layout = CairoLayout::Plain;
+//     test_prove_cairo1_program(&cairo1_program_path("fibonacci_cairo1_mod.casm"), layout);
+// }
 
 #[test_log::test]
 fn test_verifier_rejects_proof_of_a_slightly_different_program() {
@@ -167,28 +167,28 @@ fn check_simple_cairo_trace_evaluates_to_zero() {
     ));
 }
 
-// #[test]
-// fn deserialize_and_verify() {
-//     let program_content = std::fs::read(cairo0_program_path("fibonacci_10.json")).unwrap();
-//     let (main_trace, pub_inputs) =
-//         generate_prover_args(&program_content, CairoLayout::Plain).unwrap();
+#[test]
+fn deserialize_and_verify() {
+    let program_content = std::fs::read(cairo0_program_path("fibonacci_10.json")).unwrap();
+    let (main_trace, pub_inputs) =
+        generate_prover_args(&program_content, CairoLayout::Plain).unwrap();
 
-//     let proof_options = ProofOptions::default_test_options();
+    let proof_options = ProofOptions::default_test_options();
 
-//     // The proof is generated and serialized.
-//     let proof = generate_cairo_proof(&main_trace, &pub_inputs, &proof_options).unwrap();
-//     let proof_bytes: Vec<u8> = serde_cbor::to_vec(&proof).unwrap();
+    // The proof is generated and serialized.
+    let proof = generate_cairo_proof(&main_trace, &pub_inputs, &proof_options).unwrap();
+    let proof_bytes: Vec<u8> = serde_cbor::to_vec(&proof).unwrap();
 
-//     // The trace and original proof are dropped to show that they are decoupled from
-//     // the verifying process.
-//     drop(main_trace);
-//     drop(proof);
+    // The trace and original proof are dropped to show that they are decoupled from
+    // the verifying process.
+    drop(main_trace);
+    drop(proof);
 
-//     // At this point, the verifier only knows about the serialized proof, the proof options
-//     // and the public inputs.
-//     let proof: StarkProof<Stark252PrimeField, Stark252PrimeField> =
-//         serde_cbor::from_slice(&proof_bytes).unwrap();
+    // At this point, the verifier only knows about the serialized proof, the proof options
+    // and the public inputs.
+    let proof: StarkProof<Stark252PrimeField, Stark252PrimeField> =
+        serde_cbor::from_slice(&proof_bytes).unwrap();
 
-//     // The proof is verified successfully.
-//     assert!(verify_cairo_proof(&proof, &pub_inputs, &proof_options));
-// }
+    // The proof is verified successfully.
+    assert!(verify_cairo_proof(&proof, &pub_inputs, &proof_options));
+}

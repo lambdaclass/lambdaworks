@@ -33,10 +33,6 @@ pub fn validate_trace<A: AIR>(
         })
         .collect();
 
-    // main_trace_columns[0]
-    //     .iter()
-    //     .for_each(|v| println!("TRACE VALUE: {}", v.value()));
-
     let aux_trace_columns: Vec<_> = aux_trace_polys
         .iter()
         .map(|poly| {

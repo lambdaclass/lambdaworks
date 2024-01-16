@@ -301,9 +301,6 @@ pub fn build_cairo_execution_trace(
     trace_cols.push(extra_vals);
     trace_cols.push(rc_holes);
 
-    // NOTE: This is only valid for Plain layout
-    // let num_main_columns = 36;
-
     TraceTable::from_columns_main(trace_cols, 1)
 }
 
