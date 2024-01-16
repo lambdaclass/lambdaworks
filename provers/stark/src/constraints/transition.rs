@@ -61,7 +61,6 @@ where
             .map(|exemption| trace_primitive_root.pow(trace_length - exemption * period))
             .fold(one_poly, |acc, offset| {
                 acc * (Polynomial::new_monomial(FieldElement::<F>::one(), 1) - offset)
-                // acc * (Polynomial::new_monomial(FieldElement::<F>::one(), 1) - offset)
             })
     }
 
@@ -83,7 +82,6 @@ where
             // errors or make these checks when the AIR is initialized.
             debug_assert!(exemptions_period.is_multiple_of(&self.period()));
             debug_assert!(self.periodic_exemptions_offset().is_some());
-            // debug_assert_eq!(self.offset(), self.periodic_exemptions_offset().unwrap());
 
             let last_exponent = blowup_factor * exemptions_period;
 
@@ -97,7 +95,6 @@ where
                     let numerator = offset_times_x.pow(trace_length / exemptions_period)
                         - trace_primitive_root.pow(offset_exponent);
                     let denominator = offset_times_x.pow(trace_length / self.period())
-                        // - &FieldElement::<F>::one();
                         - trace_primitive_root.pow(self.offset() * trace_length / self.period());
 
                     numerator.div(denominator)
