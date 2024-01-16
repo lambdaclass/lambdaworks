@@ -625,19 +625,21 @@ impl AIR for CairoAIR {
         ];
 
         #[cfg(debug_assertions)]
-        let constraints_set: HashSet<_> = transition_constraints
-            .iter()
-            .map(|c| c.constraint_idx())
-            .collect();
-        debug_assert_eq!(
-            constraints_set.len(),
-            transition_constraints.len(),
-            "There are repeated constraint indexes"
-        );
+        {
+            let constraints_set: HashSet<_> = transition_constraints
+                .iter()
+                .map(|c| c.constraint_idx())
+                .collect();
+            debug_assert_eq!(
+                constraints_set.len(),
+                transition_constraints.len(),
+                "There are repeated constraint indexes"
+            );
+            (0..transition_constraints.len())
+                .for_each(|idx| debug_assert!(constraints_set.iter().contains(&idx)));
 
-        #[cfg(debug_assertions)]
-        (0..transition_constraints.len())
-            .for_each(|idx| debug_assert!(constraints_set.iter().contains(&idx)));
+            assert_eq!(transition_constraints.len(), 64);
+        }
 
         assert_eq!(transition_constraints.len(), 64);
 

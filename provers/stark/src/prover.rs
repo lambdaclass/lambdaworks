@@ -377,8 +377,6 @@ pub trait IsStarkProver<A: AIR> {
             Polynomial::interpolate_offset_fft(&constraint_evaluations, &domain.coset_offset)
                 .unwrap();
 
-        println!("COMPOSITION POLY DEGREE: {}", composition_poly.degree());
-
         let number_of_parts = air.composition_poly_degree_bound() / air.trace_length();
         let composition_poly_parts = composition_poly.break_in_parts(number_of_parts);
 
