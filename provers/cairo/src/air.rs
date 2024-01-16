@@ -1,5 +1,3 @@
-use std::collections::HashSet;
-
 use super::{cairo_mem::CairoMemory, register_states::RegisterStates};
 use crate::transition_constraints::*;
 use cairo_vm::{air_public_input::MemorySegmentAddresses, without_std::collections::HashMap};
@@ -626,6 +624,7 @@ impl AIR for CairoAIR {
 
         #[cfg(debug_assertions)]
         {
+            use std::collections::HashSet;
             let constraints_set: HashSet<_> = transition_constraints
                 .iter()
                 .map(|c| c.constraint_idx())
