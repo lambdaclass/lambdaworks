@@ -10,15 +10,29 @@ use lambdaworks_math::field::traits::{IsFFTField, IsField, IsSubFieldOf};
 use lambdaworks_math::polynomial::Polynomial;
 use num_integer::Integer;
 
+/// TransitionConstraint represents a transition constraint over the computation that
+/// wants to be proven.
 pub trait TransitionConstraint<F, E>: Send + Sync
 where
     F: IsSubFieldOf<E> + IsFFTField + Send + Sync,
     E: IsField + Send + Sync,
 {
+    /// The degree of the constraint interpreting it as a multivariate polynomial.
     fn degree(&self) -> usize;
 
+    /// The index of the constraint.
+    /// Each transition constraint should have one index in the range [0, N),
+    /// where N is the total number of transition constraints.
     fn constraint_idx(&self) -> usize;
 
+    /// The function representing the evaluation of the constraint over elements
+    /// of the trace table.
+    ///
+    /// Elements of the trace table are found in the `frame` input, and depending on the
+    /// constraint, elements of `periodic_values` and `rap_challenges` may be used in
+    /// the evaluation.
+    /// Once computed, the evaluation should be inserted in the `transition_evaluations`
+    /// vector, in the index corresponding to the constraint as given by `constraint_idx()`.
     fn evaluate(
         &self,
         frame: &Frame<F, E>,
@@ -27,18 +41,37 @@ where
         rap_challenges: &[FieldElement<E>],
     );
 
+    /// The periodicity the constraint is applied over the trace.
+    ///
+    /// Default value is 1, meaning that the constraint is applied to every
+    /// step of the trace.
     fn period(&self) -> usize {
         1
     }
 
+    /// The offset with respect to the first trace row, where the constraint
+    /// is applied.
+    /// For example, if the constraint has periodicity 2 and offset 1, this means
+    /// the constraint will be applied over trace rows of index 1, 3, 5, etc.
+    ///
+    /// Default value is 0, meaning that the constraint is applied from the first
+    /// element of the trace on.
     fn offset(&self) -> usize {
         0
     }
 
+    /// For a more fine-grained description of where the constraint should apply,
+    /// an exemptions period can be defined.
+    /// This specifies the periodicity of the row indexes where the constraint should
+    /// NOT apply, within the row indexes where the constraint applies, as specified by
+    /// `period()` and `offset()`.
+    ///
+    /// Default value is None.
     fn exemptions_period(&self) -> Option<usize> {
         None
     }
 
+    ///
     fn periodic_exemptions_offset(&self) -> Option<usize> {
         None
     }
@@ -54,7 +87,6 @@ where
         if self.end_exemptions() == 0 {
             return one_poly;
         }
-
         let period = self.period();
         // FIXME: CHECK IF WE NEED TO CHANGE THE NEW MONOMIAL'S ARGUMENTS TO trace_root^(offset * trace_length / period) INSTEAD OF ONE!!!!
         (1..=self.end_exemptions())
