@@ -10,8 +10,8 @@ use lambdaworks_math::field::traits::{IsFFTField, IsField, IsSubFieldOf};
 use lambdaworks_math::polynomial::Polynomial;
 use num_integer::Integer;
 
-/// TransitionConstraint represents a transition constraint over the computation that
-/// wants to be proven.
+/// TransitionConstraint represents the behaviour that a transition constraint
+/// over the computation that wants to be proven must comply with.
 pub trait TransitionConstraint<F, E>: Send + Sync
 where
     F: IsSubFieldOf<E> + IsFFTField + Send + Sync,
