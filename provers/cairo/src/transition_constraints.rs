@@ -363,6 +363,12 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for BitPrefixF
 
 #[derive(Clone)]
 pub struct BitPrefixFlag7;
+impl Default for BitPrefixFlag7 {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl BitPrefixFlag7 {
     pub fn new() -> Self {
         Self
@@ -409,6 +415,12 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for BitPrefixF
 
 #[derive(Clone)]
 pub struct BitPrefixFlag8;
+impl Default for BitPrefixFlag8 {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl BitPrefixFlag8 {
     pub fn new() -> Self {
         Self
@@ -455,6 +467,12 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for BitPrefixF
 
 #[derive(Clone)]
 pub struct BitPrefixFlag9;
+impl Default for BitPrefixFlag9 {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl BitPrefixFlag9 {
     pub fn new() -> Self {
         Self
@@ -501,6 +519,12 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for BitPrefixF
 
 #[derive(Clone)]
 pub struct BitPrefixFlag10;
+impl Default for BitPrefixFlag10 {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl BitPrefixFlag10 {
     pub fn new() -> Self {
         Self
@@ -546,6 +570,12 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for BitPrefixF
 }
 
 pub struct BitPrefixFlag11;
+impl Default for BitPrefixFlag11 {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl BitPrefixFlag11 {
     pub fn new() -> Self {
         Self
@@ -591,6 +621,12 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for BitPrefixF
 }
 
 pub struct BitPrefixFlag12;
+impl Default for BitPrefixFlag12 {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl BitPrefixFlag12 {
     pub fn new() -> Self {
         Self
@@ -636,6 +672,12 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for BitPrefixF
 }
 
 pub struct BitPrefixFlag13;
+impl Default for BitPrefixFlag13 {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl BitPrefixFlag13 {
     pub fn new() -> Self {
         Self
@@ -681,6 +723,12 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for BitPrefixF
 }
 
 pub struct BitPrefixFlag14;
+impl Default for BitPrefixFlag14 {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl BitPrefixFlag14 {
     pub fn new() -> Self {
         Self
@@ -726,6 +774,12 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for BitPrefixF
 }
 
 pub struct ZeroFlagConstraint;
+impl Default for ZeroFlagConstraint {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ZeroFlagConstraint {
     pub fn new() -> Self {
         Self
@@ -761,6 +815,12 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for ZeroFlagCo
 }
 
 pub struct FlagOp1BaseOp0BitConstraint;
+impl Default for FlagOp1BaseOp0BitConstraint {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl FlagOp1BaseOp0BitConstraint {
     pub fn new() -> Self {
         Self
@@ -808,6 +868,12 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for FlagOp1Bas
 }
 
 pub struct FlagResOp1BitConstraint;
+impl Default for FlagResOp1BitConstraint {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl FlagResOp1BitConstraint {
     pub fn new() -> Self {
         Self
@@ -855,6 +921,12 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for FlagResOp1
 }
 
 pub struct FlagPcUpdateRegularBit;
+impl Default for FlagPcUpdateRegularBit {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl FlagPcUpdateRegularBit {
     pub fn new() -> Self {
         Self
@@ -902,6 +974,12 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for FlagPcUpda
 }
 
 pub struct FlagFpUpdateRegularBit;
+impl Default for FlagFpUpdateRegularBit {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl FlagFpUpdateRegularBit {
     pub fn new() -> Self {
         Self
@@ -947,6 +1025,12 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for FlagFpUpda
 }
 
 pub struct InstructionUnpacking;
+impl Default for InstructionUnpacking {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl InstructionUnpacking {
     pub fn new() -> Self {
         Self
@@ -995,6 +1079,12 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for Instructio
 }
 
 pub struct CpuOpcodesCallOff0;
+impl Default for CpuOpcodesCallOff0 {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CpuOpcodesCallOff0 {
     pub fn new() -> Self {
         Self
@@ -1037,6 +1127,12 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for CpuOpcodes
 }
 
 pub struct CpuOpcodesCallOff1;
+impl Default for CpuOpcodesCallOff1 {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CpuOpcodesCallOff1 {
     pub fn new() -> Self {
         Self
@@ -1080,6 +1176,12 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for CpuOpcodes
 }
 
 pub struct CpuOpcodesCallFlags;
+impl Default for CpuOpcodesCallFlags {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CpuOpcodesCallFlags {
     pub fn new() -> Self {
         Self
@@ -1127,6 +1229,12 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for CpuOpcodes
 }
 
 pub struct CpuOpcodesRetOff0;
+impl Default for CpuOpcodesRetOff0 {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CpuOpcodesRetOff0 {
     pub fn new() -> Self {
         Self
@@ -1169,6 +1277,12 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for CpuOpcodes
 }
 
 pub struct CpuOpcodesRetOff2;
+impl Default for CpuOpcodesRetOff2 {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CpuOpcodesRetOff2 {
     pub fn new() -> Self {
         Self
@@ -1212,6 +1326,12 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for CpuOpcodes
 }
 
 pub struct CpuOpcodesRetFlags;
+impl Default for CpuOpcodesRetFlags {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CpuOpcodesRetFlags {
     pub fn new() -> Self {
         Self
@@ -1268,6 +1388,12 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for CpuOpcodes
 }
 
 pub struct CpuOperandsMemDstAddr;
+impl Default for CpuOperandsMemDstAddr {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CpuOperandsMemDstAddr {
     pub fn new() -> Self {
         Self
@@ -1313,6 +1439,12 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for CpuOperand
 }
 
 pub struct CpuOperandsMem0Addr;
+impl Default for CpuOperandsMem0Addr {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CpuOperandsMem0Addr {
     pub fn new() -> Self {
         Self
@@ -1361,6 +1493,12 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for CpuOperand
 }
 
 pub struct CpuOperandsMem1Addr;
+impl Default for CpuOperandsMem1Addr {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CpuOperandsMem1Addr {
     pub fn new() -> Self {
         Self
@@ -1421,6 +1559,12 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for CpuOperand
 
 // cpu/update_registers/update_ap/ap_update
 pub struct CpuUpdateRegistersApUpdate;
+impl Default for CpuUpdateRegistersApUpdate {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CpuUpdateRegistersApUpdate {
     pub fn new() -> Self {
         Self
@@ -1470,6 +1614,12 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for CpuUpdateR
 }
 
 pub struct CpuUpdateRegistersFpUpdate;
+impl Default for CpuUpdateRegistersFpUpdate {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CpuUpdateRegistersFpUpdate {
     pub fn new() -> Self {
         Self
@@ -1520,6 +1670,12 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for CpuUpdateR
 
 // cpu/update_registers/update_pc/pc_cond_negative:
 pub struct CpuUpdateRegistersPcCondNegative;
+impl Default for CpuUpdateRegistersPcCondNegative {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CpuUpdateRegistersPcCondNegative {
     pub fn new() -> Self {
         Self
@@ -1576,6 +1732,12 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField>
 }
 
 pub struct CpuUpdateRegistersPcCondPositive;
+impl Default for CpuUpdateRegistersPcCondPositive {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CpuUpdateRegistersPcCondPositive {
     pub fn new() -> Self {
         Self
@@ -1623,6 +1785,12 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField>
 
 //cpu/update_registers/update_pc/tmp0
 pub struct CpuUpdateRegistersUpdatePcTmp0;
+impl Default for CpuUpdateRegistersUpdatePcTmp0 {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CpuUpdateRegistersUpdatePcTmp0 {
     pub fn new() -> Self {
         Self
@@ -1666,6 +1834,12 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField>
 }
 
 pub struct CpuUpdateRegistersUpdatePcTmp1;
+impl Default for CpuUpdateRegistersUpdatePcTmp1 {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CpuUpdateRegistersUpdatePcTmp1 {
     pub fn new() -> Self {
         Self
@@ -1707,6 +1881,12 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField>
 }
 
 pub struct CpuOperandsOpsMul;
+impl Default for CpuOperandsOpsMul {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CpuOperandsOpsMul {
     pub fn new() -> Self {
         Self
@@ -1745,6 +1925,12 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for CpuOperand
 
 // cpu/operands/res
 pub struct CpuOperandsRes;
+impl Default for CpuOperandsRes {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CpuOperandsRes {
     pub fn new() -> Self {
         Self
@@ -1797,6 +1983,12 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for CpuOperand
 
 // cpu/opcodes/call/push_fp
 pub struct CpuOpcodesCallPushFp;
+impl Default for CpuOpcodesCallPushFp {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CpuOpcodesCallPushFp {
     pub fn new() -> Self {
         Self
@@ -1838,6 +2030,12 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for CpuOpcodes
 }
 
 pub struct CpuOpcodesCallPushPc;
+impl Default for CpuOpcodesCallPushPc {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CpuOpcodesCallPushPc {
     pub fn new() -> Self {
         Self
@@ -1881,6 +2079,12 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for CpuOpcodes
 
 // cpu/opcodes/assert_eq/assert_eq
 pub struct CpuOpcodesAssertEq;
+impl Default for CpuOpcodesAssertEq {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CpuOpcodesAssertEq {
     pub fn new() -> Self {
         Self
@@ -1922,6 +2126,12 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for CpuOpcodes
 
 // memory/diff_is_bit
 pub struct MemoryDiffIsBit0;
+impl Default for MemoryDiffIsBit0 {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MemoryDiffIsBit0 {
     pub fn new() -> Self {
         Self
@@ -1961,6 +2171,12 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for MemoryDiff
 }
 
 pub struct MemoryDiffIsBit1;
+impl Default for MemoryDiffIsBit1 {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MemoryDiffIsBit1 {
     pub fn new() -> Self {
         Self
@@ -1999,6 +2215,12 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for MemoryDiff
     }
 }
 pub struct MemoryDiffIsBit2;
+impl Default for MemoryDiffIsBit2 {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MemoryDiffIsBit2 {
     pub fn new() -> Self {
         Self
@@ -2037,6 +2259,12 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for MemoryDiff
     }
 }
 pub struct MemoryDiffIsBit3;
+impl Default for MemoryDiffIsBit3 {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MemoryDiffIsBit3 {
     pub fn new() -> Self {
         Self
@@ -2075,6 +2303,12 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for MemoryDiff
     }
 }
 pub struct MemoryDiffIsBit4;
+impl Default for MemoryDiffIsBit4 {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MemoryDiffIsBit4 {
     pub fn new() -> Self {
         Self
@@ -2117,6 +2351,12 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for MemoryDiff
 
 // memory/is_func (single-valued)
 pub struct MemoryIsFunc0;
+impl Default for MemoryIsFunc0 {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MemoryIsFunc0 {
     pub fn new() -> Self {
         Self
@@ -2159,6 +2399,12 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for MemoryIsFu
 }
 
 pub struct MemoryIsFunc1;
+impl Default for MemoryIsFunc1 {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MemoryIsFunc1 {
     pub fn new() -> Self {
         Self
@@ -2201,6 +2447,12 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for MemoryIsFu
 }
 
 pub struct MemoryIsFunc2;
+impl Default for MemoryIsFunc2 {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MemoryIsFunc2 {
     pub fn new() -> Self {
         Self
@@ -2243,6 +2495,12 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for MemoryIsFu
 }
 
 pub struct MemoryIsFunc3;
+impl Default for MemoryIsFunc3 {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MemoryIsFunc3 {
     pub fn new() -> Self {
         Self
@@ -2284,6 +2542,12 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for MemoryIsFu
     }
 }
 pub struct MemoryIsFunc4;
+impl Default for MemoryIsFunc4 {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MemoryIsFunc4 {
     pub fn new() -> Self {
         Self
@@ -2328,6 +2592,12 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for MemoryIsFu
 
 // memory/multi_column_perm/perm/step0
 pub struct MemoryMultiColumnPermStep0_0;
+impl Default for MemoryMultiColumnPermStep0_0 {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MemoryMultiColumnPermStep0_0 {
     pub fn new() -> Self {
         Self
@@ -2373,6 +2643,12 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for MemoryMult
 }
 
 pub struct MemoryMultiColumnPermStep0_1;
+impl Default for MemoryMultiColumnPermStep0_1 {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MemoryMultiColumnPermStep0_1 {
     pub fn new() -> Self {
         Self
@@ -2418,6 +2694,12 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for MemoryMult
 }
 
 pub struct MemoryMultiColumnPermStep0_2;
+impl Default for MemoryMultiColumnPermStep0_2 {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MemoryMultiColumnPermStep0_2 {
     pub fn new() -> Self {
         Self
@@ -2462,6 +2744,12 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for MemoryMult
 }
 
 pub struct MemoryMultiColumnPermStep0_3;
+impl Default for MemoryMultiColumnPermStep0_3 {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MemoryMultiColumnPermStep0_3 {
     pub fn new() -> Self {
         Self
@@ -2506,6 +2794,12 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for MemoryMult
 }
 
 pub struct MemoryMultiColumnPermStep0_4;
+impl Default for MemoryMultiColumnPermStep0_4 {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MemoryMultiColumnPermStep0_4 {
     pub fn new() -> Self {
         Self
@@ -2552,6 +2846,12 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for MemoryMult
 
 // rc16/diff_is_bit
 pub struct Rc16DiffIsBit0;
+impl Default for Rc16DiffIsBit0 {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Rc16DiffIsBit0 {
     pub fn new() -> Self {
         Self
@@ -2590,6 +2890,12 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for Rc16DiffIs
 }
 
 pub struct Rc16DiffIsBit1;
+impl Default for Rc16DiffIsBit1 {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Rc16DiffIsBit1 {
     pub fn new() -> Self {
         Self
@@ -2628,6 +2934,12 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for Rc16DiffIs
 }
 
 pub struct Rc16DiffIsBit2;
+impl Default for Rc16DiffIsBit2 {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Rc16DiffIsBit2 {
     pub fn new() -> Self {
         Self
@@ -2666,6 +2978,12 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for Rc16DiffIs
 }
 
 pub struct Rc16DiffIsBit3;
+impl Default for Rc16DiffIsBit3 {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Rc16DiffIsBit3 {
     pub fn new() -> Self {
         Self
@@ -2706,6 +3024,12 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for Rc16DiffIs
 
 // rc16/perm/step0
 pub struct Rc16PermStep0_0;
+impl Default for Rc16PermStep0_0 {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Rc16PermStep0_0 {
     pub fn new() -> Self {
         Self
@@ -2746,6 +3070,12 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for Rc16PermSt
 }
 
 pub struct Rc16PermStep0_1;
+impl Default for Rc16PermStep0_1 {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Rc16PermStep0_1 {
     pub fn new() -> Self {
         Self
@@ -2787,6 +3117,12 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for Rc16PermSt
 }
 
 pub struct Rc16PermStep0_2;
+impl Default for Rc16PermStep0_2 {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Rc16PermStep0_2 {
     pub fn new() -> Self {
         Self
@@ -2827,6 +3163,12 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for Rc16PermSt
 }
 
 pub struct Rc16PermStep0_3;
+impl Default for Rc16PermStep0_3 {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Rc16PermStep0_3 {
     pub fn new() -> Self {
         Self
