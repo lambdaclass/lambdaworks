@@ -1,5 +1,4 @@
 use crate::frame::Frame;
-use itertools::Itertools;
 use lambdaworks_math::field::{
     element::FieldElement,
     traits::{IsField, IsSubFieldOf},
@@ -16,25 +15,6 @@ pub struct Table<F: IsField> {
     pub width: usize,
     pub height: usize,
 }
-
-/// A view of a contiguos subset of rows of a table.
-// #[derive(Clone, Debug, PartialEq, Eq)]
-// pub struct TableView<'t, F: IsField> {
-//     pub data: &'t [FieldElement<F>],
-//     pub table_row_idx: usize,
-//     pub width: usize,
-//     pub height: usize,
-// }
-
-// /// A pair of tables corresponding to evaluations of the main and auxiliary traces.
-// /// It supports main and auxiliary tables taking values in different fields.
-// /// Both tables must have the same number of rows.
-// #[derive(Clone, Default, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-// pub struct EvaluationTable<F: IsSubFieldOf<E>, E: IsField> {
-//     pub(crate) main_table: Table<F>,
-//     pub(crate) aux_table: Table<E>,
-//     pub(crate) step_size: usize,
-// }
 
 impl<'t, F: IsField> Table<F> {
     /// Crates a new Table instance from a one-dimensional array in row major order
@@ -154,16 +134,6 @@ impl<'t, F: IsField> Table<F> {
 
         Frame::new(steps)
     }
-
-    // /// Returns the values of the tables as a single list of columns containing both main and
-    // /// auxiliary tables. The first `self.n_main_cols()` are the columns of the main trace and the
-    // /// rest are the auxiliary table columns.
-    // pub fn columns(&self) -> Vec<Vec<FieldElement<F>>> {
-    //     let mut columns = self.main_table.columns();
-    //     let aux_columns = self.aux_table.columns();
-    //     columns.extend(aux_columns);
-    //     columns
-    // }
 }
 
 /// A view of a contiguos subset of rows of a table.

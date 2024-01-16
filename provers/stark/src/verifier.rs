@@ -1,25 +1,3 @@
-use std::marker::PhantomData;
-#[cfg(feature = "instruments")]
-use std::time::Instant;
-
-use lambdaworks_crypto::merkle_tree::proof::Proof;
-//use itertools::multizip;
-#[cfg(not(feature = "test_fiat_shamir"))]
-use log::error;
-
-use crate::{
-    config::Commitment, frame::Frame, proof::stark::DeepPolynomialOpening,
-    transcript::IsStarkTranscript,
-};
-use lambdaworks_math::{
-    fft::cpu::bit_reversing::reverse_index,
-    field::{
-        element::FieldElement,
-        traits::{IsFFTField, IsField, IsSubFieldOf},
-    },
-    traits::AsBytes,
-};
-
 use super::{
     config::BatchedMerkleTreeBackend,
     domain::Domain,
@@ -28,6 +6,23 @@ use super::{
     proof::{options::ProofOptions, stark::StarkProof},
     traits::AIR,
 };
+use crate::{
+    config::Commitment, proof::stark::DeepPolynomialOpening, transcript::IsStarkTranscript,
+};
+use lambdaworks_crypto::merkle_tree::proof::Proof;
+use lambdaworks_math::{
+    fft::cpu::bit_reversing::reverse_index,
+    field::{
+        element::FieldElement,
+        traits::{IsFFTField, IsField, IsSubFieldOf},
+    },
+    traits::AsBytes,
+};
+#[cfg(not(feature = "test_fiat_shamir"))]
+use log::error;
+use std::marker::PhantomData;
+#[cfg(feature = "instruments")]
+use std::time::Instant;
 
 /// A default STARK verifier implementing `IsStarkVerifier`.
 pub struct Verifier<A: AIR> {

@@ -1,7 +1,4 @@
-use std::num;
-
 use crate::table::Table;
-use crate::traits::AIR;
 use itertools::Itertools;
 use lambdaworks_math::fft::errors::FFTError;
 use lambdaworks_math::field::traits::{IsField, IsSubFieldOf};
@@ -11,7 +8,6 @@ use lambdaworks_math::{
 };
 #[cfg(feature = "parallel")]
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
-use web_sys::console::trace;
 
 /// A two-dimensional representation of an execution trace of the STARK
 /// protocol.

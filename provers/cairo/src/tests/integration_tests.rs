@@ -103,69 +103,69 @@ fn test_verifier_rejects_proof_of_a_slightly_different_program() {
     assert!(!verify_cairo_proof(&proof, &pub_input, &proof_options));
 }
 
-// #[test_log::test]
-// fn test_verifier_rejects_proof_with_different_range_bounds() {
-//     let program_content = std::fs::read(cairo0_program_path("simple_program.json")).unwrap();
-//     let (main_trace, mut pub_inputs) =
-//         generate_prover_args(&program_content, CairoLayout::Plain).unwrap();
+#[test_log::test]
+fn test_verifier_rejects_proof_with_different_range_bounds() {
+    let program_content = std::fs::read(cairo0_program_path("simple_program.json")).unwrap();
+    let (main_trace, mut pub_inputs) =
+        generate_prover_args(&program_content, CairoLayout::Plain).unwrap();
 
-//     let proof_options = ProofOptions::default_test_options();
-//     let proof = generate_cairo_proof(&main_trace, &pub_inputs, &proof_options).unwrap();
+    let proof_options = ProofOptions::default_test_options();
+    let proof = generate_cairo_proof(&main_trace, &pub_inputs, &proof_options).unwrap();
 
-//     pub_inputs.range_check_min = Some(pub_inputs.range_check_min.unwrap() + 1);
-//     assert!(!verify_cairo_proof(&proof, &pub_inputs, &proof_options));
+    pub_inputs.range_check_min = Some(pub_inputs.range_check_min.unwrap() + 1);
+    assert!(!verify_cairo_proof(&proof, &pub_inputs, &proof_options));
 
-//     pub_inputs.range_check_min = Some(pub_inputs.range_check_min.unwrap() - 1);
-//     pub_inputs.range_check_max = Some(pub_inputs.range_check_max.unwrap() - 1);
-//     assert!(!verify_cairo_proof(&proof, &pub_inputs, &proof_options));
-// }
+    pub_inputs.range_check_min = Some(pub_inputs.range_check_min.unwrap() - 1);
+    pub_inputs.range_check_max = Some(pub_inputs.range_check_max.unwrap() - 1);
+    assert!(!verify_cairo_proof(&proof, &pub_inputs, &proof_options));
+}
 
-// #[test_log::test]
-// fn test_verifier_rejects_proof_with_different_security_params() {
-//     let program_content = std::fs::read(cairo0_program_path("fibonacci_5.json")).unwrap();
-//     let (main_trace, pub_inputs) =
-//         generate_prover_args(&program_content, CairoLayout::Plain).unwrap();
+#[test_log::test]
+fn test_verifier_rejects_proof_with_different_security_params() {
+    let program_content = std::fs::read(cairo0_program_path("fibonacci_5.json")).unwrap();
+    let (main_trace, pub_inputs) =
+        generate_prover_args(&program_content, CairoLayout::Plain).unwrap();
 
-//     let proof_options_prover = ProofOptions::new_secure(SecurityLevel::Conjecturable80Bits, 3);
+    let proof_options_prover = ProofOptions::new_secure(SecurityLevel::Conjecturable80Bits, 3);
 
-//     let proof = generate_cairo_proof(&main_trace, &pub_inputs, &proof_options_prover).unwrap();
+    let proof = generate_cairo_proof(&main_trace, &pub_inputs, &proof_options_prover).unwrap();
 
-//     let proof_options_verifier = ProofOptions::new_secure(SecurityLevel::Conjecturable128Bits, 3);
+    let proof_options_verifier = ProofOptions::new_secure(SecurityLevel::Conjecturable128Bits, 3);
 
-//     assert!(!verify_cairo_proof(
-//         &proof,
-//         &pub_inputs,
-//         &proof_options_verifier
-//     ));
-// }
+    assert!(!verify_cairo_proof(
+        &proof,
+        &pub_inputs,
+        &proof_options_verifier
+    ));
+}
 
-// #[test]
-// fn check_simple_cairo_trace_evaluates_to_zero() {
-//     let program_content = std::fs::read(cairo0_program_path("simple_program.json")).unwrap();
-//     let (main_trace, public_input) =
-//         generate_prover_args(&program_content, CairoLayout::Plain).unwrap();
-//     let mut trace_polys = main_trace.compute_trace_polys::<Stark252PrimeField>();
-//     let mut transcript = StoneProverTranscript::new(&[]);
+#[test]
+fn check_simple_cairo_trace_evaluates_to_zero() {
+    let program_content = std::fs::read(cairo0_program_path("simple_program.json")).unwrap();
+    let (main_trace, public_input) =
+        generate_prover_args(&program_content, CairoLayout::Plain).unwrap();
+    let mut trace_polys = main_trace.compute_trace_polys::<Stark252PrimeField>();
+    let mut transcript = StoneProverTranscript::new(&[]);
 
-//     let proof_options = ProofOptions::default_test_options();
-//     let cairo_air = CairoAIR::new(main_trace.n_rows(), &public_input, &proof_options);
-//     let rap_challenges = cairo_air.build_rap_challenges(&mut transcript);
+    let proof_options = ProofOptions::default_test_options();
+    let cairo_air = CairoAIR::new(main_trace.n_rows(), &public_input, &proof_options);
+    let rap_challenges = cairo_air.build_rap_challenges(&mut transcript);
 
-//     let aux_trace = cairo_air.build_auxiliary_trace(&main_trace, &rap_challenges);
-//     let aux_polys = aux_trace.compute_trace_polys::<Stark252PrimeField>();
+    let aux_trace = cairo_air.build_auxiliary_trace(&main_trace, &rap_challenges);
+    let aux_polys = aux_trace.compute_trace_polys::<Stark252PrimeField>();
 
-//     trace_polys.extend_from_slice(&aux_polys);
+    trace_polys.extend_from_slice(&aux_polys);
 
-//     let domain = Domain::new(&cairo_air);
+    let domain = Domain::new(&cairo_air);
 
-//     assert!(validate_trace(
-//         &cairo_air,
-//         &trace_polys,
-//         &aux_polys,
-//         &domain,
-//         &rap_challenges
-//     ));
-// }
+    assert!(validate_trace(
+        &cairo_air,
+        &trace_polys,
+        &aux_polys,
+        &domain,
+        &rap_challenges
+    ));
+}
 
 // #[test]
 // fn deserialize_and_verify() {

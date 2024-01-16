@@ -6,14 +6,9 @@ use crate::trace::LDETraceTable;
 use crate::traits::AIR;
 use crate::{frame::Frame, prover::evaluate_polynomial_on_lde_domain};
 use itertools::Itertools;
-use lambdaworks_math::{
-    fft::errors::FFTError, field::element::FieldElement, polynomial::Polynomial, traits::AsBytes,
-};
+use lambdaworks_math::{fft::errors::FFTError, field::element::FieldElement, traits::AsBytes};
 #[cfg(feature = "parallel")]
-use rayon::prelude::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
-
-#[cfg(all(debug_assertions, not(feature = "parallel")))]
-use crate::debug::check_boundary_polys_divisibility;
+use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 
 pub struct ConstraintEvaluator<A: AIR> {
     boundary_constraints: BoundaryConstraints<A::FieldExtension>,
@@ -76,8 +71,6 @@ impl<A: AIR> ConstraintEvaluator<A> {
             .collect::<Result<Vec<Vec<FieldElement<A::Field>>>, FFTError>>()
             .unwrap();
 
-        // let n_col = lde_trace.num_cols();
-        // let n_elem = domain.lde_roots_of_unity_coset.len();
         let boundary_polys_evaluations = boundary_constraints
             .constraints
             .iter()
@@ -129,13 +122,10 @@ impl<A: AIR> ConstraintEvaluator<A> {
 
         let mut transition_zerofiers_evals = air.transition_zerofier_evaluations(domain);
 
-        // Iterate over all LDE domain and compute
-        // the part of the composition polynomial
-        // related to the transition constraints and
-        // add it to the already computed part of the
+        // Iterate over all LDE domain and compute the part of the composition polynomial
+        // related to the transition constraints and add it to the already computed part of the
         // boundary constraints.
         let evaluations_t_iter = 0..domain.lde_roots_of_unity_coset.len();
-
         let evaluations_t = evaluations_t_iter
             .zip(&boundary_evaluation)
             .map(|(i, boundary)| {
@@ -146,8 +136,7 @@ impl<A: AIR> ConstraintEvaluator<A> {
                     .map(|col| col[i].clone())
                     .collect();
 
-                // Compute all the transition constraints at this
-                // point of the LDE domain.
+                // Compute all the transition constraints at this point of the LDE domain.
                 let evaluations_transition =
                     air.compute_transition_prover(&frame, &periodic_values, rap_challenges);
 
@@ -156,9 +145,8 @@ impl<A: AIR> ConstraintEvaluator<A> {
 
                 let transition_zerofiers_eval = transition_zerofiers_evals.next().unwrap();
 
-                // Add each term of the transition constraints to the
-                // composition polynomial, including the zerofier, the
-                // challenge and the exemption polynomial if it is necessary.
+                // Add each term of the transition constraints to the composition polynomial, including the zerofier,
+                // the challenge and the exemption polynomial if it is necessary.
                 let acc_transition = itertools::izip!(
                     evaluations_transition,
                     transition_zerofiers_eval,
@@ -166,7 +154,6 @@ impl<A: AIR> ConstraintEvaluator<A> {
                 )
                 .fold(FieldElement::zero(), |acc, (eval, zerof_eval, beta)| {
                     acc + zerof_eval * eval * beta
-                    // acc + eval * beta
                 });
 
                 acc_transition + boundary
