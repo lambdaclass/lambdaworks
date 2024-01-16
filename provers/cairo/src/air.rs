@@ -427,7 +427,6 @@ impl Deserializable for PublicInputs {
     }
 }
 
-// #[derive(Clone)]
 pub struct CairoAIR {
     pub context: AirContext,
     pub trace_length: usize,

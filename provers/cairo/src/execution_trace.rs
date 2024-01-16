@@ -728,26 +728,26 @@ mod test {
         assert_eq!(expected_memory_holes, calculated_memory_holes);
     }
 
-    // #[test]
-    // fn test_fill_memory_holes() {
-    //     const TRACE_COL_LEN: usize = 2;
-    //     const NUM_TRACE_COLS: usize = EXTRA_VAL + 1;
+    #[test]
+    fn test_fill_memory_holes() {
+        const TRACE_COL_LEN: usize = 2;
+        const NUM_TRACE_COLS: usize = EXTRA_VAL + 1;
 
-    //     let mut trace_cols = vec![vec![Felt252::zero(); TRACE_COL_LEN]; NUM_TRACE_COLS];
-    //     trace_cols[FRAME_PC][0] = Felt252::one();
-    //     trace_cols[FRAME_DST_ADDR][0] = Felt252::from(2);
-    //     trace_cols[FRAME_OP0_ADDR][0] = Felt252::from(3);
-    //     trace_cols[FRAME_OP1_ADDR][0] = Felt252::from(5);
-    //     trace_cols[FRAME_PC][1] = Felt252::from(6);
-    //     trace_cols[FRAME_DST_ADDR][1] = Felt252::from(9);
-    //     trace_cols[FRAME_OP0_ADDR][1] = Felt252::from(10);
-    //     trace_cols[FRAME_OP1_ADDR][1] = Felt252::from(11);
-    //     let mut trace = TraceTable::from_columns(trace_cols, 1);
+        let mut trace_cols = vec![vec![Felt252::zero(); TRACE_COL_LEN]; NUM_TRACE_COLS];
+        trace_cols[FRAME_PC][0] = Felt252::one();
+        trace_cols[FRAME_DST_ADDR][0] = Felt252::from(2);
+        trace_cols[FRAME_OP0_ADDR][0] = Felt252::from(3);
+        trace_cols[FRAME_OP1_ADDR][0] = Felt252::from(5);
+        trace_cols[FRAME_PC][1] = Felt252::from(6);
+        trace_cols[FRAME_DST_ADDR][1] = Felt252::from(9);
+        trace_cols[FRAME_OP0_ADDR][1] = Felt252::from(10);
+        trace_cols[FRAME_OP1_ADDR][1] = Felt252::from(11);
+        let mut trace = TraceTable::from_columns(trace_cols, 2, 1);
 
-    //     let memory_holes = vec![Felt252::from(4), Felt252::from(7), Felt252::from(8)];
-    //     fill_memory_holes(&mut trace, &memory_holes);
+        let memory_holes = vec![Felt252::from(4), Felt252::from(7), Felt252::from(8)];
+        fill_memory_holes(&mut trace, &memory_holes);
 
-    //     let extra_addr = &trace.columns()[EXTRA_ADDR];
-    //     assert_eq!(extra_addr, &memory_holes)
-    // }
+        let extra_addr = &trace.columns()[EXTRA_ADDR];
+        assert_eq!(extra_addr, &memory_holes);
+    }
 }
