@@ -3,6 +3,7 @@ use platinum_prover::air::{generate_cairo_proof, verify_cairo_proof, PublicInput
 use platinum_prover::cairo_layout::CairoLayout;
 use platinum_prover::runner::run::generate_prover_args;
 use platinum_prover::runner::run::generate_prover_args_from_trace;
+use serde::Serialize;
 use stark_platinum_prover::proof::options::{ProofOptions, SecurityLevel};
 use stark_platinum_prover::proof::stark::StarkProof;
 mod commands;
@@ -220,6 +221,8 @@ fn write_proof(
     bytes.extend(proof_bytes);
     bytes.extend(pub_inputs_bytes);
 
+    println!("PROOF BYTES: {:?}", bytes);
+
     let Ok(()) = std::fs::write(&proof_path, bytes) else {
         eprintln!("Error writing proof to file: {}", &proof_path);
         return;
@@ -229,7 +232,9 @@ fn write_proof(
 }
 
 fn main() {
-    let proof_options = ProofOptions::new_secure(SecurityLevel::Conjecturable100Bits, 3);
+    // let proof_options = ProofOptions::new_secure(SecurityLevel::Conjecturable100Bits, 3);
+
+    let proof_options = ProofOptions::default_test_options();
 
     let args: commands::ProverArgs = commands::ProverArgs::parse();
     match args.entity {
