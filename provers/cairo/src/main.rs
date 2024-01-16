@@ -221,8 +221,6 @@ fn write_proof(
     bytes.extend(proof_bytes);
     bytes.extend(pub_inputs_bytes);
 
-    println!("PROOF BYTES: {:?}", bytes);
-
     let Ok(()) = std::fs::write(&proof_path, bytes) else {
         eprintln!("Error writing proof to file: {}", &proof_path);
         return;
@@ -232,10 +230,7 @@ fn write_proof(
 }
 
 fn main() {
-    // let proof_options = ProofOptions::new_secure(SecurityLevel::Conjecturable100Bits, 3);
-
-    let proof_options = ProofOptions::default_test_options();
-
+    let proof_options = ProofOptions::new_secure(SecurityLevel::Conjecturable100Bits, 3);
     let args: commands::ProverArgs = commands::ProverArgs::parse();
     match args.entity {
         commands::ProverEntity::Compile(args) => {
