@@ -284,7 +284,6 @@ pub fn get_trace_evaluations<F, E>(
     frame_offsets: &[usize],
     primitive_root: &FieldElement<F>,
     step_size: usize,
-    // ) -> (Vec<Vec<FieldElement<E>>>, Vec<Vec<FieldElement<E>>>)
 ) -> Table<E>
 where
     F: IsSubFieldOf<E>,

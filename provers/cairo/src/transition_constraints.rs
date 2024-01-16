@@ -11,6 +11,11 @@ impl BitPrefixFlag0 {
         Self
     }
 }
+impl Default for BitPrefixFlag0 {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for BitPrefixFlag0 {
     fn degree(&self) -> usize {
@@ -55,6 +60,11 @@ pub struct BitPrefixFlag1;
 impl BitPrefixFlag1 {
     pub fn new() -> Self {
         Self
+    }
+}
+impl Default for BitPrefixFlag1 {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -103,6 +113,11 @@ impl BitPrefixFlag2 {
         Self
     }
 }
+impl Default for BitPrefixFlag2 {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for BitPrefixFlag2 {
     fn degree(&self) -> usize {
@@ -147,6 +162,11 @@ pub struct BitPrefixFlag3;
 impl BitPrefixFlag3 {
     pub fn new() -> Self {
         Self
+    }
+}
+impl Default for BitPrefixFlag3 {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -195,6 +215,11 @@ impl BitPrefixFlag4 {
         Self
     }
 }
+impl Default for BitPrefixFlag4 {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for BitPrefixFlag4 {
     fn degree(&self) -> usize {
@@ -241,6 +266,11 @@ impl BitPrefixFlag5 {
         Self
     }
 }
+impl Default for BitPrefixFlag5 {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for BitPrefixFlag5 {
     fn degree(&self) -> usize {
@@ -285,6 +315,11 @@ pub struct BitPrefixFlag6;
 impl BitPrefixFlag6 {
     pub fn new() -> Self {
         Self
+    }
+}
+impl Default for BitPrefixFlag6 {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

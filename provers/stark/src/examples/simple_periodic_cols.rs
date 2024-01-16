@@ -23,6 +23,11 @@ impl<F: IsFFTField> PeriodicConstraint<F> {
         }
     }
 }
+impl<F: IsFFTField> Default for PeriodicConstraint<F> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl<F> TransitionConstraint<F, F> for PeriodicConstraint<F>
 where
