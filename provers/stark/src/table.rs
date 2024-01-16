@@ -145,8 +145,6 @@ where
 {
     pub data: Vec<&'t [FieldElement<F>]>,
     pub aux_data: Vec<&'t [FieldElement<E>]>,
-    // pub width: usize,
-    // pub height: usize,
 }
 
 impl<'t, F, E> TableView<'t, F, E>
@@ -154,18 +152,8 @@ where
     E: IsField,
     F: IsSubFieldOf<F>,
 {
-    pub fn new(
-        data: Vec<&'t [FieldElement<F>]>,
-        aux_data: Vec<&'t [FieldElement<E>]>,
-        // _width: usize,
-        // _height: usize,
-    ) -> Self {
-        Self {
-            data,
-            aux_data,
-            // width,
-            // height,
-        }
+    pub fn new(data: Vec<&'t [FieldElement<F>]>, aux_data: Vec<&'t [FieldElement<E>]>) -> Self {
+        Self { data, aux_data }
     }
 
     pub fn get_main_evaluation_element(&self, row: usize, col: usize) -> &FieldElement<F> {
@@ -176,20 +164,3 @@ where
         &self.aux_data[row][col]
     }
 }
-
-// #[cfg(test)]
-// mod test {
-//     use super::*;
-//     use crate::Felt252;
-
-//     #[test]
-//     fn get_rows_slice_works() {
-//         let data: Vec<Felt252> = (0..=11).map(Felt252::from).collect();
-//         let table = Table::new(data, 3);
-
-//         let slice = table.table_view(1, 2);
-//         let expected_data: Vec<Felt252> = (3..=8).map(Felt252::from).collect();
-
-//         assert_eq!(slice.data, expected_data);
-//     }
-// }

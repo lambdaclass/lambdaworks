@@ -90,37 +90,6 @@ pub trait AIR {
         rap_challenges: &[FieldElement<Self::FieldExtension>],
     ) -> Vec<FieldElement<Self::FieldExtension>>;
 
-    // fn transition_exemptions(&self) -> Vec<Polynomial<FieldElement<Self::FieldExtension>>> {
-    //     let trace_length = self.trace_length();
-    //     let roots_of_unity_order = trace_length.trailing_zeros();
-    //     let roots_of_unity = get_powers_of_primitive_root_coset(
-    //         roots_of_unity_order as u64,
-    //         self.trace_length(),
-    //         &FieldElement::<Self::Field>::one(),
-    //     )
-    //     .unwrap();
-    //     let root_of_unity_len = roots_of_unity.len();
-
-    //     let x = Polynomial::new_monomial(FieldElement::one(), 1);
-
-    //     self.context()
-    //         .transition_exemptions
-    //         .iter()
-    //         .unique_by(|elem| *elem)
-    //         .filter(|v| *v > &0_usize)
-    //         .map(|cant_take| {
-    //             roots_of_unity
-    //                 .iter()
-    //                 .take(root_of_unity_len)
-    //                 .rev()
-    //                 .take(*cant_take)
-    //                 .fold(
-    //                     Polynomial::new_monomial(FieldElement::one(), 0),
-    //                     |acc, root| acc * (&x - root),
-    //                 )
-    //         })
-    //         .collect()
-    // }
     fn context(&self) -> &AirContext;
 
     fn trace_length(&self) -> usize;
@@ -194,8 +163,6 @@ pub trait AIR {
         result
     }
 
-    // NOTE: Remember to index constraints correctly!!!!
-    // fn transition_constraints<T: TransitionConstraint<Self::Field>>(&self) -> Vec<Box<dyn T>>;
     fn transition_constraints(
         &self,
     ) -> &Vec<Box<dyn TransitionConstraint<Self::Field, Self::FieldExtension>>>;

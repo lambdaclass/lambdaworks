@@ -93,8 +93,6 @@ pub trait IsStarkVerifier<A: AIR> {
 
         let rap_challenges = air.build_rap_challenges(transcript);
 
-        println!("TRACE LENGTH: {}", air.trace_length());
-
         if let Some(root) = proof.lde_trace_aux_merkle_root {
             transcript.append_bytes(&root);
         }

@@ -254,13 +254,6 @@ where
         self.aux_table.get_row(row_idx)
     }
 
-    /*
-        /// Given row and column indexes, returns the stored field element in that position of the table.
-    pub fn get(&self, row: usize, col: usize) -> &FieldElement<F> {
-        let idx = row * self.width + col;
-        &self.data[idx]
-    }
-    */
     pub fn get_main(&self, row: usize, col: usize) -> &FieldElement<F> {
         self.main_table.get(row, col)
     }
