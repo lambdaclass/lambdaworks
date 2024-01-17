@@ -19,6 +19,8 @@ use super::{
     proof::options::ProofOptions, trace::TraceTable,
 };
 
+type ZerofierGroupKey = (usize, usize, Option<usize>, Option<usize>, usize);
+
 /// AIR is a representation of the Constraints
 pub trait AIR {
     type Field: IsFFTField + IsSubFieldOf<Self::FieldExtension> + Send + Sync;
@@ -152,10 +154,8 @@ pub trait AIR {
     ) -> TransitionZerofiersIter<Self::Field> {
         let mut evals = vec![Vec::new(); self.num_transition_constraints()];
 
-        let mut zerofier_groups: HashMap<
-            (usize, usize, Option<usize>, Option<usize>, usize),
-            Vec<FieldElement<Self::Field>>,
-        > = HashMap::new();
+        let mut zerofier_groups: HashMap<ZerofierGroupKey, Vec<FieldElement<Self::Field>>> =
+            HashMap::new();
 
         self.transition_constraints().iter().for_each(|c| {
             let period = c.period();
@@ -175,10 +175,9 @@ pub trait AIR {
                 periodic_exemptions_offset,
                 end_exemptions,
             );
-            if !zerofier_groups.contains_key(&zerofier_group_key) {
-                let zerofier_evaluations = c.zerofier_evaluations_on_extended_domain(domain);
-                zerofier_groups.insert(zerofier_group_key, zerofier_evaluations);
-            };
+            zerofier_groups
+                .entry(zerofier_group_key)
+                .or_insert_with(|| c.zerofier_evaluations_on_extended_domain(domain));
 
             let zerofier_evaluations = zerofier_groups.get(&zerofier_group_key).unwrap();
             evals[c.constraint_idx()] = zerofier_evaluations.clone();
