@@ -71,13 +71,24 @@ where
         None
     }
 
-    ///
+    /// The offset value for periodic exemptions. Check documentation of `period()`,
+    /// `offset()` and `exemptions_period` for a better understanding.
     fn periodic_exemptions_offset(&self) -> Option<usize> {
         None
     }
 
+    /// The number of exemptions at the end of the trace.
+    ///
+    /// This method's output defines what trace elements should not be considered for
+    /// the constraint evaluation at the end of the trace. For example, for a fibonacci
+    /// computation that has to use the result 2 following steps, this method is defined
+    /// to return the value 2.
     fn end_exemptions(&self) -> usize;
 
+    /// Method for calculating the end exemptions polynomial.
+    ///
+    /// This polynomial is used to compute zerofiers of the constraint, and the default
+    /// implementation should normally not be changed.
     fn end_exemptions_poly(
         &self,
         trace_primitive_root: &FieldElement<F>,
@@ -96,18 +107,18 @@ where
             })
     }
 
+    /// Compute evaluations of the constraints zerofier over a LDE domain.
     fn zerofier_evaluations_on_extended_domain(&self, domain: &Domain<F>) -> Vec<FieldElement<F>> {
         let blowup_factor = domain.blowup_factor;
         let trace_length = domain.trace_roots_of_unity.len();
         let trace_primitive_root = &domain.trace_primitive_root;
         let coset_offset = &domain.coset_offset;
-
         let lde_root_order = u64::from((blowup_factor * trace_length).trailing_zeros());
         let lde_root = F::get_primitive_root_of_unity(lde_root_order).unwrap();
 
         let end_exemptions_poly = self.end_exemptions_poly(trace_primitive_root, trace_length);
 
-        // In the first branch of this if statement, the evaluations are calculated directly
+        // If there is an exemptions period defined for this constraint, the evaluations are calculated directly
         // by computing P_exemptions(x) / Zerofier(x)
         if let Some(exemptions_period) = self.exemptions_period() {
             // FIXME: Rather than making this assertions here, it would be better to handle these
@@ -115,6 +126,9 @@ where
             debug_assert!(exemptions_period.is_multiple_of(&self.period()));
             debug_assert!(self.periodic_exemptions_offset().is_some());
 
+            // The elements of the domain have order `trace_length * blowup_factor`, so the zerofier evaluations
+            // without the end exemptions, repeat their values after `blowup_factor * exemptions_period` iterations,
+            // so we only need to compute those.
             let last_exponent = blowup_factor * exemptions_period;
 
             let evaluations: Vec<_> = (0..last_exponent)
@@ -185,6 +199,8 @@ where
         }
     }
 
+    /// Returns the evaluation of the zerofier corresponding to this constraint in some point
+    /// `z`, which could be in a field extension.
     fn evaluate_zerofier(
         &self,
         z: &FieldElement<E>,
@@ -217,6 +233,11 @@ where
     }
 }
 
+/// An iterator over the evaluations of all transition constraint zerofiers
+/// of a given AIR.
+///
+/// It is composed of a vector of iterators, each one built from a vector of
+/// the zerofier evaluations of each constraint.
 pub struct TransitionZerofiersIter<F: IsFFTField> {
     zerofier_evals: Vec<IntoIter<FieldElement<F>>>,
 }
