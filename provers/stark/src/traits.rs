@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use lambdaworks_math::{
     field::{
         element::FieldElement,
@@ -172,9 +174,38 @@ pub trait AIR {
         domain: &Domain<Self::Field>,
     ) -> TransitionZerofiersIter<Self::Field> {
         let mut evals = vec![Vec::new(); self.num_transition_constraints()];
+
+        let mut zerofier_groups: HashMap<
+            (usize, usize, Option<usize>, Option<usize>, usize),
+            Vec<FieldElement<Self::Field>>,
+        > = HashMap::new();
+
         self.transition_constraints().iter().for_each(|c| {
-            evals[c.constraint_idx()] = c.zerofier_evaluations_on_extended_domain(domain)
+            let period = c.period();
+            let offset = c.offset();
+            let exemptions_period = c.exemptions_period();
+            let periodic_exemptions_offset = c.periodic_exemptions_offset();
+            let end_exemptions = c.end_exemptions();
+
+            let hashmap_index = (
+                period,
+                offset,
+                exemptions_period,
+                periodic_exemptions_offset,
+                end_exemptions,
+            );
+            if !zerofier_groups.contains_key(&hashmap_index) {
+                let zerofier_evaluations = c.zerofier_evaluations_on_extended_domain(domain);
+                zerofier_groups.insert(hashmap_index, zerofier_evaluations);
+            };
+
+            let zerofier_evaluations = zerofier_groups.get(&hashmap_index).unwrap();
+            evals[c.constraint_idx()] = zerofier_evaluations.clone();
         });
+
+        // self.transition_constraints().iter().for_each(|c| {
+        //     evals[c.constraint_idx()] = c.zerofier_evaluations_on_extended_domain(domain)
+        // });
         TransitionZerofiersIter::new(evals)
     }
 }
