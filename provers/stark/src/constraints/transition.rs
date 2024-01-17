@@ -147,6 +147,9 @@ where
                 })
                 .collect();
 
+            // FIXME: Instead of computing this evaluations for each constraint, they can be computed
+            // once for every constraint with the same end exemptions (combination of end_exemptions()
+            // and period).
             let end_exemption_evaluations = evaluate_polynomial_on_lde_domain(
                 &end_exemptions_poly,
                 blowup_factor,
@@ -180,6 +183,9 @@ where
 
             FieldElement::inplace_batch_inverse(&mut evaluations).unwrap();
 
+            // FIXME: Instead of computing this evaluations for each constraint, they can be computed
+            // once for every constraint with the same end exemptions (combination of end_exemptions()
+            // and period).
             let end_exemption_evaluations = evaluate_polynomial_on_lde_domain(
                 &end_exemptions_poly,
                 blowup_factor,

@@ -164,6 +164,10 @@ pub trait AIR {
             let periodic_exemptions_offset = c.periodic_exemptions_offset();
             let end_exemptions = c.end_exemptions();
 
+            // This hashmap is used to avoid recomputing with an fft the same zerofier evaluation
+            // If there are multiple domain and subdomains it can be further optimized
+            // as to share computation between them
+
             let zerofier_group_key = (
                 period,
                 offset,
