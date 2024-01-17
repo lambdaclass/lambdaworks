@@ -121,29 +121,6 @@ pub trait AIR {
 
     fn pub_inputs(&self) -> &Self::PublicInputs;
 
-    fn transition_exemptions_verifier(
-        &self,
-        root: &FieldElement<Self::Field>,
-    ) -> Vec<Polynomial<FieldElement<Self::FieldExtension>>> {
-        let x =
-            Polynomial::<FieldElement<Self::FieldExtension>>::new_monomial(FieldElement::one(), 1);
-
-        let max = self
-            .context()
-            .transition_exemptions
-            .iter()
-            .max()
-            .expect("has maximum");
-        (1..=*max)
-            .map(|index| {
-                (1..=index).fold(
-                    Polynomial::new_monomial(FieldElement::one(), 0),
-                    |acc, k| acc * (&x - root.pow(k).to_extension()),
-                )
-            })
-            .collect()
-    }
-
     fn get_periodic_column_values(&self) -> Vec<Vec<FieldElement<Self::Field>>> {
         vec![]
     }
@@ -187,25 +164,22 @@ pub trait AIR {
             let periodic_exemptions_offset = c.periodic_exemptions_offset();
             let end_exemptions = c.end_exemptions();
 
-            let hashmap_index = (
+            let zerofier_group_key = (
                 period,
                 offset,
                 exemptions_period,
                 periodic_exemptions_offset,
                 end_exemptions,
             );
-            if !zerofier_groups.contains_key(&hashmap_index) {
+            if !zerofier_groups.contains_key(&zerofier_group_key) {
                 let zerofier_evaluations = c.zerofier_evaluations_on_extended_domain(domain);
-                zerofier_groups.insert(hashmap_index, zerofier_evaluations);
+                zerofier_groups.insert(zerofier_group_key, zerofier_evaluations);
             };
 
-            let zerofier_evaluations = zerofier_groups.get(&hashmap_index).unwrap();
+            let zerofier_evaluations = zerofier_groups.get(&zerofier_group_key).unwrap();
             evals[c.constraint_idx()] = zerofier_evaluations.clone();
         });
 
-        // self.transition_constraints().iter().for_each(|c| {
-        //     evals[c.constraint_idx()] = c.zerofier_evaluations_on_extended_domain(domain)
-        // });
         TransitionZerofiersIter::new(evals)
     }
 }
