@@ -89,51 +89,40 @@ impl MontgomeryAlgorithms {
         q: &UnsignedInteger<NUM_LIMBS>,
         mu: &u64,
     ) -> UnsignedInteger<NUM_LIMBS> {
+        let mut temp;
+
         let mut t = [0_u64; NUM_LIMBS];
-        let mut t_extra;
-        let mut i: usize = NUM_LIMBS;
+        let mut i = NUM_LIMBS;
         while i > 0 {
             i -= 1;
-            // C := 0
-            let mut c: u128 = 0;
 
-            // for j=N-1 to 0
-            //    (C,t[j]) := t[j] + a[j]*b[i] + C
-            let mut cs: u128;
-            let mut j: usize = NUM_LIMBS;
+            let mut aa: u64;
+            temp =
+                t[NUM_LIMBS - 1] as u128 + (a.limbs[NUM_LIMBS - 1] as u128) * (b.limbs[i] as u128);
+            aa = (temp >> 64) as u64;
+            t[NUM_LIMBS - 1] = temp as u64;
+
+            let m = (t[NUM_LIMBS - 1] as u128 * *mu as u128) as u64;
+            let mut c = ((t[NUM_LIMBS - 1] as u128 + m as u128 * q.limbs[NUM_LIMBS - 1] as u128)
+                >> 64) as u64;
+
+            let mut j = NUM_LIMBS - 1;
             while j > 0 {
                 j -= 1;
-                cs = t[j] as u128 + (a.limbs[j] as u128) * (b.limbs[i] as u128) + c;
-                c = cs >> 64;
-                t[j] = cs as u64;
+
+                temp = t[j] as u128 + (a.limbs[j] as u128) * (b.limbs[i] as u128) + aa as u128;
+                aa = (temp >> 64) as u64;
+                t[j] = temp as u64;
+
+                temp = t[j] as u128 + (m as u128) * (q.limbs[j] as u128) + c as u128;
+                c = (temp >> 64) as u64;
+                t[j + 1] = temp as u64;
             }
 
-            t_extra = c as u64;
-
-            let mut c: u128;
-
-            // m := t[N-1]*q'[N-1] mod D
-            let m = ((t[NUM_LIMBS - 1] as u128 * *mu as u128) << 64) >> 64;
-
-            // (C,_) := t[0] + m*q[0]
-            c = (t[NUM_LIMBS - 1] as u128 + m * (q.limbs[NUM_LIMBS - 1] as u128)) >> 64;
-
-            // for j=N-1 to 1
-            //    (C,t[j+1]) := t[j] + m*q[j] + C
-            let mut j: usize = NUM_LIMBS - 1;
-            while j > 0 {
-                j -= 1;
-                cs = t[j] as u128 + m * (q.limbs[j] as u128) + c;
-                c = cs >> 64;
-                t[j + 1] = ((cs << 64) >> 64) as u64;
-            }
-
-            // (C,t[0]) := t_extra + C
-            cs = (t_extra as u128) + c;
-            t[0] = ((cs << 64) >> 64) as u64;
+            t[0] = c + aa;
         }
-        let mut result = UnsignedInteger { limbs: t };
 
+        let mut result = UnsignedInteger { limbs: t };
         if UnsignedInteger::const_le(q, &result) {
             (result, _) = UnsignedInteger::sub(&result, q);
         }
