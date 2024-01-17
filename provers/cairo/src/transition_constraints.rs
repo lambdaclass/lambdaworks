@@ -3196,14 +3196,6 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for Rc16PermSt
 
         let z = rap_challenges[2];
 
-        /*
-        let p3 = current_step.get_evaluation_element(0, 58);
-
-        let next_a0 = next_step.get_evaluation_element(0, 27);
-        let next_ap0 = next_step.get_evaluation_element(0, 36);
-        let next_p0 = next_step.get_evaluation_element(0, 55);
-        */
-
         let p3 = current_step.get_aux_evaluation_element(0, 22);
 
         let next_a0 = next_step.get_main_evaluation_element(0, 27);
