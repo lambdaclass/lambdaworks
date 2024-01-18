@@ -108,7 +108,10 @@ fn try_compile(program_path: &String, out_file_path: &String) -> Result<(), Erro
 fn generate_proof(
     input_path: &String,
     proof_options: &ProofOptions,
-) -> Option<(StarkProof<Stark252PrimeField>, PublicInputs)> {
+) -> Option<(
+    StarkProof<Stark252PrimeField, Stark252PrimeField>,
+    PublicInputs,
+)> {
     let timer = Instant::now();
 
     let Ok(program_content) = std::fs::read(input_path) else {
@@ -145,7 +148,10 @@ fn generate_proof_from_trace(
     trace_bin_path: &str,
     memory_bin_path: &str,
     proof_options: &ProofOptions,
-) -> Option<(StarkProof<Stark252PrimeField>, PublicInputs)> {
+) -> Option<(
+    StarkProof<Stark252PrimeField, Stark252PrimeField>,
+    PublicInputs,
+)> {
     // ## Generating the prover args
     let timer = Instant::now();
     let Ok((main_trace, pub_inputs)) =
@@ -172,7 +178,7 @@ fn generate_proof_from_trace(
 }
 
 fn verify_proof(
-    proof: StarkProof<Stark252PrimeField>,
+    proof: StarkProof<Stark252PrimeField, Stark252PrimeField>,
     pub_inputs: PublicInputs,
     proof_options: &ProofOptions,
 ) -> bool {
@@ -183,7 +189,7 @@ fn verify_proof(
     println!("  Time spent in verifying: {:?} \n", timer.elapsed());
 
     if proof_verified {
-        println!("Verification succeded");
+        println!("Verification succeeded");
     } else {
         println!("Verification failed");
     }
@@ -192,7 +198,7 @@ fn verify_proof(
 }
 
 fn write_proof(
-    proof: StarkProof<Stark252PrimeField>,
+    proof: StarkProof<Stark252PrimeField, Stark252PrimeField>,
     pub_inputs: PublicInputs,
     proof_path: String,
 ) {

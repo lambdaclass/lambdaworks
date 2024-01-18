@@ -1,4 +1,4 @@
-use std::marker::PhantomData;
+use core::marker::PhantomData;
 
 use lambdaworks_math::field::{element::FieldElement, traits::IsField};
 
@@ -23,15 +23,18 @@ impl<F: IsField> Default for TestBackend<F> {
     }
 }
 
-impl<F: IsField> IsMerkleTreeBackend for TestBackend<F> {
+impl<F: IsField> IsMerkleTreeBackend for TestBackend<F>
+where
+    FieldElement<F>: Sync + Send,
+{
     type Node = FieldElement<F>;
     type Data = FieldElement<F>;
 
-    fn hash_data(&self, input: &Self::Data) -> Self::Node {
+    fn hash_data(input: &Self::Data) -> Self::Node {
         input + input
     }
 
-    fn hash_new_parent(&self, left: &Self::Node, right: &Self::Node) -> Self::Node {
+    fn hash_new_parent(left: &Self::Node, right: &Self::Node) -> Self::Node {
         left + right
     }
 }

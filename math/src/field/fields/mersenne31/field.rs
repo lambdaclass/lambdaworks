@@ -173,24 +173,28 @@ impl IsPrimeField for Mersenne31Field {
         }
         u32::from_str_radix(hex_string, 16).map_err(|_| CreationError::InvalidHexString)
     }
+
+    #[cfg(feature = "std")]
+    fn to_hex(x: &u32) -> String {
+        format!("{:X}", x)
+    }
 }
 
 impl FieldElement<Mersenne31Field> {
-    #[cfg(feature = "std")]
-    pub fn to_bytes_le(&self) -> Vec<u8> {
+    #[cfg(feature = "alloc")]
+    pub fn to_bytes_le(&self) -> alloc::vec::Vec<u8> {
         self.representative().to_le_bytes().to_vec()
     }
 
-    #[cfg(feature = "std")]
-    pub fn to_bytes_be(&self) -> Vec<u8> {
+    #[cfg(feature = "alloc")]
+    pub fn to_bytes_be(&self) -> alloc::vec::Vec<u8> {
         self.representative().to_be_bytes().to_vec()
     }
 }
 
 impl Display for FieldElement<Mersenne31Field> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{:x}", self.representative())?;
-        Ok(())
+        write!(f, "{:x}", self.representative())
     }
 }
 
@@ -398,5 +402,12 @@ mod tests {
     fn from_base_type_test() {
         let b = F::from_base_type(1u32);
         assert_eq!(b, F::one());
+    }
+
+    #[cfg(feature = "std")]
+    #[test]
+    fn to_hex_test() {
+        let num = F::from_hex("B").unwrap();
+        assert_eq!(F::to_hex(&num), "B");
     }
 }

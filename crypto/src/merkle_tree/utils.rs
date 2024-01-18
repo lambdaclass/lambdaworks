@@ -1,3 +1,5 @@
+use alloc::vec::Vec;
+
 use super::traits::IsMerkleTreeBackend;
 
 pub fn sibling_index(node_index: usize) -> usize {
@@ -28,7 +30,7 @@ pub fn is_power_of_two(x: usize) -> bool {
     (x != 0) && ((x & (x - 1)) == 0)
 }
 
-pub fn build<B: IsMerkleTreeBackend>(nodes: &mut Vec<B::Node>, parent_index: usize, hasher: &B)
+pub fn build<B: IsMerkleTreeBackend>(nodes: &mut Vec<B::Node>, parent_index: usize)
 where
     B::Node: Clone,
 {
@@ -39,11 +41,10 @@ where
     let left_child_index = left_child_index(parent_index);
     let right_child_index = right_child_index(parent_index);
 
-    build(nodes, left_child_index, hasher);
-    build(nodes, right_child_index, hasher);
+    build::<B>(nodes, left_child_index);
+    build::<B>(nodes, right_child_index);
 
-    nodes[parent_index] =
-        hasher.hash_new_parent(&nodes[left_child_index], &nodes[right_child_index]);
+    nodes[parent_index] = B::hash_new_parent(&nodes[left_child_index], &nodes[right_child_index]);
 }
 
 pub fn is_leaf(lenght: usize, node_index: usize) -> bool {
@@ -60,6 +61,7 @@ pub fn right_child_index(parent_index: usize) -> usize {
 
 #[cfg(test)]
 mod tests {
+    use alloc::vec::Vec;
     use lambdaworks_math::field::{element::FieldElement, fields::u64_prime_field::U64PrimeField};
 
     use crate::merkle_tree::{test_merkle::TestBackend, traits::IsMerkleTreeBackend};
@@ -73,8 +75,7 @@ mod tests {
     // expected |2|4|6|8|
     fn hash_leaves_from_a_list_of_field_elemnts() {
         let values: Vec<FE> = (1..5).map(FE::new).collect();
-        let hasher = TestBackend::default();
-        let hashed_leaves = hasher.hash_leaves(&values);
+        let hashed_leaves = TestBackend::hash_leaves(&values);
         let list_of_nodes = &[FE::new(2), FE::new(4), FE::new(6), FE::new(8)];
         for (leaf, expected_leaf) in hashed_leaves.iter().zip(list_of_nodes) {
             assert_eq!(leaf, expected_leaf);
@@ -105,8 +106,7 @@ mod tests {
         let mut nodes = vec![FE::zero(); leaves.len() - 1];
         nodes.extend(leaves);
 
-        let hasher = TestBackend::default();
-        build::<TestBackend<U64PF>>(&mut nodes, ROOT, &hasher);
+        build::<TestBackend<U64PF>>(&mut nodes, ROOT);
         assert_eq!(nodes[ROOT], FE::new(10));
     }
 }

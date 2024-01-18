@@ -5,11 +5,10 @@ use crate::test_utils::utils::{generate_domain, generate_permutation_coefficient
 use lambdaworks_crypto::commitments::traits::IsCommitmentScheme;
 use lambdaworks_crypto::fiat_shamir::default_transcript::DefaultTranscript;
 use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
-use lambdaworks_math::fft::polynomial::FFTPoly;
 use lambdaworks_math::field::traits::IsFFTField;
 use lambdaworks_math::field::{element::FieldElement, traits::IsField};
 use lambdaworks_math::polynomial::Polynomial;
-use lambdaworks_math::traits::{ByteConversion, Serializable};
+use lambdaworks_math::traits::{AsBytes, ByteConversion};
 
 // TODO: implement getters
 pub struct Witness<F: IsField> {
@@ -86,14 +85,14 @@ impl<F: IsFFTField> CommonPreprocessedInput<F> {
             n,
             omega,
             k1: order_r_minus_1_root_unity.clone(),
-            ql: Polynomial::interpolate_fft(&ql).unwrap(), // TODO: Remove unwraps
-            qr: Polynomial::interpolate_fft(&qr).unwrap(),
-            qo: Polynomial::interpolate_fft(&qo).unwrap(),
-            qm: Polynomial::interpolate_fft(&qm).unwrap(),
-            qc: Polynomial::interpolate_fft(&qc).unwrap(),
-            s1: Polynomial::interpolate_fft(&s1_lagrange).unwrap(),
-            s2: Polynomial::interpolate_fft(&s2_lagrange).unwrap(),
-            s3: Polynomial::interpolate_fft(&s3_lagrange).unwrap(),
+            ql: Polynomial::interpolate_fft::<F>(&ql).unwrap(), // TODO: Remove unwraps
+            qr: Polynomial::interpolate_fft::<F>(&qr).unwrap(),
+            qo: Polynomial::interpolate_fft::<F>(&qo).unwrap(),
+            qm: Polynomial::interpolate_fft::<F>(&qm).unwrap(),
+            qc: Polynomial::interpolate_fft::<F>(&qc).unwrap(),
+            s1: Polynomial::interpolate_fft::<F>(&s1_lagrange).unwrap(),
+            s2: Polynomial::interpolate_fft::<F>(&s2_lagrange).unwrap(),
+            s3: Polynomial::interpolate_fft::<F>(&s3_lagrange).unwrap(),
             s1_lagrange,
             s2_lagrange,
             s3_lagrange,
@@ -138,18 +137,18 @@ where
     F: IsField,
     FieldElement<F>: ByteConversion,
     CS: IsCommitmentScheme<F>,
-    CS::Commitment: Serializable,
+    CS::Commitment: AsBytes,
 {
     let mut transcript = DefaultTranscript::new();
 
-    transcript.append(&vk.s1_1.serialize());
-    transcript.append(&vk.s2_1.serialize());
-    transcript.append(&vk.s3_1.serialize());
-    transcript.append(&vk.ql_1.serialize());
-    transcript.append(&vk.qr_1.serialize());
-    transcript.append(&vk.qm_1.serialize());
-    transcript.append(&vk.qo_1.serialize());
-    transcript.append(&vk.qc_1.serialize());
+    transcript.append(&vk.s1_1.as_bytes());
+    transcript.append(&vk.s2_1.as_bytes());
+    transcript.append(&vk.s3_1.as_bytes());
+    transcript.append(&vk.ql_1.as_bytes());
+    transcript.append(&vk.qr_1.as_bytes());
+    transcript.append(&vk.qm_1.as_bytes());
+    transcript.append(&vk.qo_1.as_bytes());
+    transcript.append(&vk.qc_1.as_bytes());
 
     for value in public_input.iter() {
         transcript.append(&value.to_bytes_be());

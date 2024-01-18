@@ -1,6 +1,6 @@
 use lambdaworks_math::{
     field::{element::FieldElement, traits::IsFFTField},
-    traits::Serializable,
+    traits::AsBytes,
 };
 
 use crate::{
@@ -22,14 +22,14 @@ where
     pub claimed_index: usize,
 }
 
-impl<F> Serializable for PublicInputs<F>
+impl<F> AsBytes for PublicInputs<F>
 where
     F: IsFFTField,
-    FieldElement<F>: Serializable,
+    FieldElement<F>: AsBytes,
 {
-    fn serialize(&self) -> Vec<u8> {
+    fn as_bytes(&self) -> Vec<u8> {
         let mut transcript_init_seed = self.claimed_index.to_be_bytes().to_vec();
-        transcript_init_seed.extend_from_slice(&self.claimed_value.serialize());
+        transcript_init_seed.extend_from_slice(&self.claimed_value.as_bytes());
         transcript_init_seed
     }
 }
@@ -53,6 +53,7 @@ where
     F: IsFFTField,
 {
     type Field = F;
+    type FieldExtension = F;
     type RAPChallenges = ();
     type PublicInputs = PublicInputs<Self::Field>;
 
@@ -88,24 +89,24 @@ where
 
     fn build_rap_challenges(
         &self,
-        _transcript: &mut impl IsStarkTranscript<Self::Field>,
+        _transcript: &mut impl IsStarkTranscript<Self::FieldExtension>,
     ) -> Self::RAPChallenges {
     }
 
-    fn compute_transition(
+    fn compute_transition_prover(
         &self,
-        frame: &Frame<Self::Field>,
+        frame: &Frame<Self::Field, Self::FieldExtension>,
         _periodic_values: &[FieldElement<Self::Field>],
         _rap_challenges: &Self::RAPChallenges,
     ) -> Vec<FieldElement<Self::Field>> {
         let first_row = frame.get_evaluation_step(0);
         let second_row = frame.get_evaluation_step(1);
 
-        let a0_0 = first_row.get_evaluation_element(0, 0);
-        let a0_1 = first_row.get_evaluation_element(0, 1);
+        let a0_0 = first_row.get_main_evaluation_element(0, 0);
+        let a0_1 = first_row.get_main_evaluation_element(0, 1);
 
-        let a1_0 = second_row.get_evaluation_element(0, 0);
-        let a1_1 = second_row.get_evaluation_element(0, 1);
+        let a1_0 = second_row.get_main_evaluation_element(0, 0);
+        let a1_1 = second_row.get_main_evaluation_element(0, 1);
 
         let first_transition = a1_0 - a0_1;
         let second_transition = a1_1 - a0_0 - a0_1;
@@ -121,8 +122,8 @@ where
         &self,
         _rap_challenges: &Self::RAPChallenges,
     ) -> BoundaryConstraints<Self::Field> {
-        let initial_condition = BoundaryConstraint::new(0, 0, FieldElement::one());
-        let claimed_value_constraint = BoundaryConstraint::new(
+        let initial_condition = BoundaryConstraint::new_main(0, 0, FieldElement::one());
+        let claimed_value_constraint = BoundaryConstraint::new_main(
             0,
             self.pub_inputs.claimed_index,
             self.pub_inputs.claimed_value.clone(),
@@ -145,6 +146,15 @@ where
 
     fn pub_inputs(&self) -> &Self::PublicInputs {
         &self.pub_inputs
+    }
+
+    fn compute_transition_verifier(
+        &self,
+        frame: &Frame<Self::FieldExtension, Self::FieldExtension>,
+        periodic_values: &[FieldElement<Self::FieldExtension>],
+        rap_challenges: &Self::RAPChallenges,
+    ) -> Vec<FieldElement<Self::Field>> {
+        self.compute_transition_prover(frame, periodic_values, rap_challenges)
     }
 }
 

@@ -34,9 +34,7 @@ type TestCurve2PrimeField = MontgomeryBackendPrimeField<TestCurve2Modulus, 6>;
 /// its square root.
 #[derive(Debug, Clone)]
 pub struct TestCurve2QuadraticNonResidue;
-impl HasQuadraticNonResidue for TestCurve2QuadraticNonResidue {
-    type BaseField = TestCurve2PrimeField;
-
+impl HasQuadraticNonResidue<TestCurve2PrimeField> for TestCurve2QuadraticNonResidue {
     fn residue() -> FieldElement<TestCurve2PrimeField> {
         -FieldElement::one()
     }
@@ -47,7 +45,7 @@ impl HasQuadraticNonResidue for TestCurve2QuadraticNonResidue {
 pub struct TestCurve2;
 
 impl IsEllipticCurve for TestCurve2 {
-    type BaseField = QuadraticExtensionField<TestCurve2QuadraticNonResidue>;
+    type BaseField = QuadraticExtensionField<TestCurve2PrimeField, TestCurve2QuadraticNonResidue>;
     type PointRepresentation = ShortWeierstrassProjectivePoint<Self>;
 
     fn generator() -> Self::PointRepresentation {

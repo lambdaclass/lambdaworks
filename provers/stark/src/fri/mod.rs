@@ -2,10 +2,11 @@ pub mod fri_commitment;
 pub mod fri_decommit;
 mod fri_functions;
 
-use lambdaworks_math::fft::cpu::bit_reversing::in_place_bit_reverse_permute;
-use lambdaworks_math::fft::polynomial::FFTPoly;
-use lambdaworks_math::field::traits::IsFFTField;
-use lambdaworks_math::traits::Serializable;
+use lambdaworks_math::field::traits::{IsFFTField, IsField};
+use lambdaworks_math::traits::AsBytes;
+use lambdaworks_math::{
+    fft::cpu::bit_reversing::in_place_bit_reverse_permute, field::traits::IsSubFieldOf,
+};
 pub use lambdaworks_math::{
     field::{element::FieldElement, fields::u64_prime_field::U64PrimeField},
     polynomial::Polynomial,
@@ -18,23 +19,24 @@ use self::fri_commitment::FriLayer;
 use self::fri_decommit::FriDecommitment;
 use self::fri_functions::fold_polynomial;
 
-pub fn commit_phase<F: IsFFTField>(
+pub fn commit_phase<F: IsFFTField + IsSubFieldOf<E>, E: IsField>(
     number_layers: usize,
-    p_0: Polynomial<FieldElement<F>>,
-    transcript: &mut impl IsStarkTranscript<F>,
+    p_0: Polynomial<FieldElement<E>>,
+    transcript: &mut impl IsStarkTranscript<E>,
     coset_offset: &FieldElement<F>,
     domain_size: usize,
 ) -> (
-    FieldElement<F>,
-    Vec<FriLayer<F, BatchedMerkleTreeBackend<F>>>,
+    FieldElement<E>,
+    Vec<FriLayer<E, BatchedMerkleTreeBackend<E>>>,
 )
 where
-    FieldElement<F>: Serializable,
+    FieldElement<F>: AsBytes + Sync + Send,
+    FieldElement<E>: AsBytes + Sync + Send,
 {
     let mut domain_size = domain_size;
 
     let mut fri_layer_list = Vec::with_capacity(number_layers);
-    let mut current_layer: FriLayer<F, BatchedMerkleTreeBackend<F>>;
+    let mut current_layer: FriLayer<E, BatchedMerkleTreeBackend<E>>;
     let mut current_poly = p_0;
 
     let mut coset_offset = coset_offset.clone();
@@ -46,7 +48,7 @@ where
         domain_size /= 2;
 
         // Compute layer polynomial and domain
-        current_poly = fold_polynomial(&current_poly, &zeta) * FieldElement::from(2);
+        current_poly = FieldElement::<F>::from(2) * fold_polynomial(&current_poly, &zeta);
         current_layer = new_fri_layer(&current_poly, &coset_offset, domain_size);
         let new_data = &current_layer.merkle_tree.root;
         fri_layer_list.push(current_layer.clone()); // TODO: remove this clone
@@ -58,11 +60,11 @@ where
     // <<<< Receive challenge: 𝜁ₙ₋₁
     let zeta = transcript.sample_field_element();
 
-    let last_poly = fold_polynomial(&current_poly, &zeta) * FieldElement::from(2);
+    let last_poly = FieldElement::<F>::from(2) * fold_polynomial(&current_poly, &zeta);
 
     let last_value = last_poly
         .coefficients()
-        .get(0)
+        .first()
         .unwrap_or(&FieldElement::zero())
         .clone();
 
@@ -72,12 +74,12 @@ where
     (last_value, fri_layer_list)
 }
 
-pub fn query_phase<F: IsFFTField>(
+pub fn query_phase<F: IsField>(
     fri_layers: &Vec<FriLayer<F, BatchedMerkleTreeBackend<F>>>,
     iotas: &[usize],
 ) -> Vec<FriDecommitment<F>>
 where
-    FieldElement<F>: Serializable,
+    FieldElement<F>: AsBytes + Sync + Send,
 {
     if !fri_layers.is_empty() {
         let query_list = iotas
@@ -110,18 +112,17 @@ where
     }
 }
 
-pub fn new_fri_layer<F: IsFFTField>(
-    poly: &Polynomial<FieldElement<F>>,
+pub fn new_fri_layer<F: IsFFTField + IsSubFieldOf<E>, E: IsField>(
+    poly: &Polynomial<FieldElement<E>>,
     coset_offset: &FieldElement<F>,
     domain_size: usize,
-) -> crate::fri::fri_commitment::FriLayer<F, BatchedMerkleTreeBackend<F>>
+) -> crate::fri::fri_commitment::FriLayer<E, BatchedMerkleTreeBackend<E>>
 where
-    F: IsFFTField,
-    FieldElement<F>: Serializable,
+    FieldElement<F>: AsBytes + Sync + Send,
+    FieldElement<E>: AsBytes + Sync + Send,
 {
-    let mut evaluation = poly
-        .evaluate_offset_fft(1, Some(domain_size), coset_offset)
-        .unwrap(); // TODO: return error
+    let mut evaluation =
+        Polynomial::evaluate_offset_fft(poly, 1, Some(domain_size), coset_offset).unwrap(); // TODO: return error
 
     in_place_bit_reverse_permute(&mut evaluation);
 
@@ -132,5 +133,10 @@ where
 
     let merkle_tree = BatchedMerkleTree::build(&to_commit);
 
-    FriLayer::new(&evaluation, merkle_tree, coset_offset.clone(), domain_size)
+    FriLayer::new(
+        &evaluation,
+        merkle_tree,
+        coset_offset.clone().to_extension(),
+        domain_size,
+    )
 }

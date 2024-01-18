@@ -52,16 +52,19 @@ fn test_verifier_rejects_wrong_authentication_paths() {
 
     // Change order of authentication path hashes
     let query = 0;
-    let merkle_tree = 0;
-    let mut original_path = proof.deep_poly_openings[query].lde_trace_merkle_proofs[merkle_tree]
+    let mut original_path = proof.deep_poly_openings[query]
+        .main_trace_polys
+        .proof
         .merkle_path
         .clone();
     original_path.swap(0, 1);
     // For the test to make sense, we have to make sure
     // that the two hashes are different.
     assert_ne!(original_path[0], original_path[1]);
-    proof.deep_poly_openings[query].lde_trace_merkle_proofs[merkle_tree].merkle_path =
-        original_path;
+    proof.deep_poly_openings[query]
+        .main_trace_polys
+        .proof
+        .merkle_path = original_path;
 
     // Verifier should reject the proof
     assert!(!verify_cairo_proof(&proof, &pub_inputs, &proof_options));
@@ -141,7 +144,7 @@ fn check_simple_cairo_trace_evaluates_to_zero() {
     let program_content = std::fs::read(cairo0_program_path("simple_program.json")).unwrap();
     let (main_trace, public_input) =
         generate_prover_args(&program_content, CairoLayout::Plain).unwrap();
-    let mut trace_polys = main_trace.compute_trace_polys();
+    let mut trace_polys = main_trace.compute_trace_polys::<Stark252PrimeField>();
     let mut transcript = StoneProverTranscript::new(&[]);
 
     let proof_options = ProofOptions::default_test_options();
@@ -149,7 +152,7 @@ fn check_simple_cairo_trace_evaluates_to_zero() {
     let rap_challenges = cairo_air.build_rap_challenges(&mut transcript);
 
     let aux_trace = cairo_air.build_auxiliary_trace(&main_trace, &rap_challenges);
-    let aux_polys = aux_trace.compute_trace_polys();
+    let aux_polys = aux_trace.compute_trace_polys::<Stark252PrimeField>();
 
     trace_polys.extend_from_slice(&aux_polys);
 
@@ -158,6 +161,7 @@ fn check_simple_cairo_trace_evaluates_to_zero() {
     assert!(validate_trace(
         &cairo_air,
         &trace_polys,
+        &aux_polys,
         &domain,
         &rap_challenges
     ));
@@ -182,7 +186,8 @@ fn deserialize_and_verify() {
 
     // At this point, the verifier only knows about the serialized proof, the proof options
     // and the public inputs.
-    let proof: StarkProof<Stark252PrimeField> = serde_cbor::from_slice(&proof_bytes).unwrap();
+    let proof: StarkProof<Stark252PrimeField, Stark252PrimeField> =
+        serde_cbor::from_slice(&proof_bytes).unwrap();
 
     // The proof is verified successfully.
     assert!(verify_cairo_proof(&proof, &pub_inputs, &proof_options));

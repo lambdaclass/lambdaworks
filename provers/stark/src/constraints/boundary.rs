@@ -14,19 +14,45 @@ pub struct BoundaryConstraint<F: IsField> {
     pub col: usize,
     pub step: usize,
     pub value: FieldElement<F>,
+    pub is_aux: bool,
 }
 
 impl<F: IsField> BoundaryConstraint<F> {
-    pub fn new(col: usize, step: usize, value: FieldElement<F>) -> Self {
-        Self { col, step, value }
+    pub fn new_main(col: usize, step: usize, value: FieldElement<F>) -> Self {
+        Self {
+            col,
+            step,
+            value,
+            is_aux: false,
+        }
+    }
+
+    pub fn new_aux(col: usize, step: usize, value: FieldElement<F>) -> Self {
+        Self {
+            col,
+            step,
+            value,
+            is_aux: true,
+        }
     }
 
     /// Used for creating boundary constraints for a trace with only one column
-    pub fn new_simple(step: usize, value: FieldElement<F>) -> Self {
+    pub fn new_simple_main(step: usize, value: FieldElement<F>) -> Self {
         Self {
             col: 0,
             step,
             value,
+            is_aux: false,
+        }
+    }
+
+    /// Used for creating boundary constraints for a trace with only one column
+    pub fn new_simple_aux(step: usize, value: FieldElement<F>) -> Self {
+        Self {
+            col: 0,
+            step,
+            value,
+            is_aux: true,
         }
     }
 }
@@ -150,9 +176,9 @@ mod test {
         //   * a0 = 1
         //   * a1 = 1
         //   * a7 = 32
-        let a0 = BoundaryConstraint::new_simple(0, one);
-        let a1 = BoundaryConstraint::new_simple(1, one);
-        let result = BoundaryConstraint::new_simple(7, FieldElement::<PrimeField>::from(32));
+        let a0 = BoundaryConstraint::new_simple_main(0, one);
+        let a1 = BoundaryConstraint::new_simple_main(1, one);
+        let result = BoundaryConstraint::new_simple_main(7, FieldElement::<PrimeField>::from(32));
 
         let constraints = BoundaryConstraints::from_constraints(vec![a0, a1, result]);
 
