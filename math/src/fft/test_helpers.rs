@@ -5,6 +5,7 @@ use crate::{
         traits::{IsFFTField, RootsConfig},
     },
 };
+use alloc::vec::Vec;
 
 /// Calculates the (non-unitary) Discrete Fourier Transform of `input` via the DFT matrix.
 pub fn naive_matrix_dft_test<F: IsFFTField>(input: &[FieldElement<F>]) -> Vec<FieldElement<F>> {
@@ -12,7 +13,8 @@ pub fn naive_matrix_dft_test<F: IsFFTField>(input: &[FieldElement<F>]) -> Vec<Fi
     assert!(n.is_power_of_two());
     let order = n.trailing_zeros();
 
-    let twiddles = get_powers_of_primitive_root(order.into(), n, RootsConfig::Natural).unwrap();
+    let twiddles =
+        get_powers_of_primitive_root::<F>(order.into(), n, RootsConfig::Natural).unwrap();
 
     let mut output = Vec::with_capacity(n);
     for row in 0..n {
@@ -31,10 +33,11 @@ pub fn naive_matrix_dft_test<F: IsFFTField>(input: &[FieldElement<F>]) -> Vec<Fi
 
 #[cfg(test)]
 mod fft_helpers_test {
-    use crate::{field::test_fields::u64_test_field::U64TestField, polynomial::Polynomial};
-    use proptest::{collection, prelude::*};
-
     use super::*;
+    use crate::{field::test_fields::u64_test_field::U64TestField, polynomial::Polynomial};
+
+    use alloc::format;
+    use proptest::{collection, prelude::*};
 
     type F = U64TestField;
     type FE = FieldElement<F>;

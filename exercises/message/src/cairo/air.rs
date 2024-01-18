@@ -485,8 +485,7 @@ fn add_pub_memory_in_public_input_section(
     let mut v_aux = values.to_owned();
 
     let public_input_section = addresses.len() - public_input.public_memory.len();
-    let output_range = public_input.memory_segments.get(&MemorySegment::Output);
-    let pub_memory_addrs = get_pub_memory_addrs(output_range, public_input);
+    let pub_memory_addrs = public_input.public_memory.keys().cloned().collect();
 
     a_aux.splice(public_input_section.., pub_memory_addrs);
     for i in public_input_section..a_aux.len() {

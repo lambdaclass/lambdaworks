@@ -1,19 +1,17 @@
+use super::curve::MILLER_LOOP_CONSTANT;
 use super::{
-    curve::{BLS12381Curve, MILLER_LOOP_CONSTANT},
+    curve::BLS12381Curve,
     field_extension::{BLS12381PrimeField, Degree12ExtensionField, Degree2ExtensionField},
     twist::BLS12381TwistCurve,
 };
+use crate::{cyclic_group::IsGroup, elliptic_curve::traits::IsPairing, errors::PairingError};
+
 use crate::{
-    cyclic_group::IsGroup,
-    elliptic_curve::{
-        short_weierstrass::{
-            curves::bls12_381::field_extension::{Degree6ExtensionField, LevelTwoResidue},
-            point::ShortWeierstrassProjectivePoint,
-            traits::IsShortWeierstrass,
-        },
-        traits::IsPairing,
+    elliptic_curve::short_weierstrass::{
+        curves::bls12_381::field_extension::{Degree6ExtensionField, LevelTwoResidue},
+        point::ShortWeierstrassProjectivePoint,
+        traits::IsShortWeierstrass,
     },
-    errors::PairingError,
     field::{element::FieldElement, extensions::cubic::HasCubicNonResidue},
     unsigned_integer::element::{UnsignedInteger, U256},
 };
@@ -23,6 +21,7 @@ pub const SUBGROUP_ORDER: U256 =
 
 #[derive(Clone)]
 pub struct BLS12381AtePairing;
+
 impl IsPairing for BLS12381AtePairing {
     type G1Point = ShortWeierstrassProjectivePoint<BLS12381Curve>;
     type G2Point = ShortWeierstrassProjectivePoint<BLS12381TwistCurve>;
@@ -87,7 +86,7 @@ fn double_accumulate_line(
     let [a1, a3, a5] = y.value();
     let b0 = e - b;
     let b2 = FieldElement::new([x1_sq_30 * px, x1_sq_31 * px]);
-    let b3 = FieldElement::new([-h0 * py, -h1 * py]);
+    let b3 = FieldElement::<Degree2ExtensionField>::new([-h0 * py, -h1 * py]);
     *accumulator = FieldElement::new([
         FieldElement::new([
             a0 * &b0 + &residue * (a3 * &b3 + a4 * &b2), // w0
@@ -101,6 +100,7 @@ fn double_accumulate_line(
         ]),
     ]);
 }
+
 fn add_accumulate_line(
     t: &mut ShortWeierstrassProjectivePoint<BLS12381TwistCurve>,
     q: &ShortWeierstrassProjectivePoint<BLS12381TwistCurve>,
@@ -138,7 +138,7 @@ fn add_accumulate_line(
     let [a1, a3, a5] = y.value();
     let b0 = -lambda.clone() * y2 + theta.clone() * x2;
     let b2 = FieldElement::new([-theta0 * px, -theta1 * px]);
-    let b3 = FieldElement::new([lambda0 * py, lambda1 * py]);
+    let b3 = FieldElement::<Degree2ExtensionField>::new([lambda0 * py, lambda1 * py]);
     *accumulator = FieldElement::new([
         FieldElement::new([
             a0 * &b0 + &residue * (a3 * &b3 + a4 * &b2), // w0
@@ -163,7 +163,7 @@ fn miller(
     let mut r = q.clone();
     let mut f = FieldElement::<Degree12ExtensionField>::one();
     let mut miller_loop_constant = MILLER_LOOP_CONSTANT;
-    let mut miller_loop_constant_bits: Vec<bool> = vec![];
+    let mut miller_loop_constant_bits: alloc::vec::Vec<bool> = alloc::vec![];
 
     while miller_loop_constant > 0 {
         miller_loop_constant_bits.insert(0, (miller_loop_constant & 1) == 1);

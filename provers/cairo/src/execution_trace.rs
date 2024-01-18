@@ -9,13 +9,15 @@ use super::{
     },
     register_states::RegisterStates,
 };
+use crate::air::{EXTRA_ADDR, RC_HOLES};
 use crate::{
     air::{
-        PublicInputs, EXTRA_ADDR, FRAME_DST_ADDR, FRAME_OP0_ADDR, FRAME_OP1_ADDR, FRAME_PC,
-        OFF_DST, OFF_OP0, OFF_OP1, RC_HOLES,
+        PublicInputs, FRAME_DST_ADDR, FRAME_OP0_ADDR, FRAME_OP1_ADDR, FRAME_PC, OFF_DST, OFF_OP0,
+        OFF_OP1,
     },
     Felt252,
 };
+use cairo_vm::without_std::collections::HashMap;
 use lambdaworks_math::{
     field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
     unsigned_integer::element::UnsignedInteger,
@@ -55,11 +57,15 @@ pub fn build_main_trace(
     address_cols.sort_by_key(|x| x.representative());
 
     let (rc_holes, rc_min, rc_max) = get_rc_holes(&main_trace, &[OFF_DST, OFF_OP0, OFF_OP1]);
-    public_input.range_check_min = Some(rc_min);
-    public_input.range_check_max = Some(rc_max);
+
+    // this will avaluate to true if the public inputs weren't obtained from the run_program() function
+    if public_input.range_check_min.is_none() && public_input.range_check_max.is_none() {
+        public_input.range_check_min = Some(rc_min);
+        public_input.range_check_max = Some(rc_max);
+    }
     fill_rc_holes(&mut main_trace, &rc_holes);
 
-    let memory_holes = get_memory_holes(&address_cols, public_input.codelen);
+    let memory_holes = get_memory_holes(&address_cols, &public_input.public_memory);
 
     if !memory_holes.is_empty() {
         fill_memory_holes(&mut main_trace, &memory_holes);
@@ -152,8 +158,11 @@ fn fill_rc_holes(trace: &mut CairoTraceTable, holes: &[Felt252]) {
 /// # Arguments
 ///
 /// * `sorted_addrs` - Vector of sorted memory addresses.
-/// * `codelen` - the length of the Cairo program instructions.
-fn get_memory_holes(sorted_addrs: &[Felt252], codelen: usize) -> Vec<Felt252> {
+/// * `pub_memory` - The public memory of the executed program.
+fn get_memory_holes(
+    sorted_addrs: &[Felt252],
+    pub_memory: &HashMap<Felt252, Felt252>,
+) -> Vec<Felt252> {
     let mut memory_holes = Vec::new();
     let mut prev_addr = &sorted_addrs[0];
 
@@ -163,14 +172,11 @@ fn get_memory_holes(sorted_addrs: &[Felt252], codelen: usize) -> Vec<Felt252> {
         // If the candidate memory hole has an address belonging to the program segment (public
         // memory), that is not accounted here since public memory is added in a posterior step of
         // the protocol.
-        if addr_diff != Felt252::one()
-            && addr_diff != Felt252::zero()
-            && addr.representative() > (codelen as u64).into()
-        {
+        if addr_diff != Felt252::one() && addr_diff != Felt252::zero() {
             let mut hole_addr = prev_addr + Felt252::one();
 
             while hole_addr.representative() < addr.representative() {
-                if hole_addr.representative() > (codelen as u64).into() {
+                if !pub_memory.contains_key(&hole_addr) {
                     memory_holes.push(hole_addr);
                 }
                 hole_addr += Felt252::one();
@@ -650,16 +656,16 @@ mod test {
     }
 
     #[test]
-    fn test_get_memory_holes_no_codelen() {
+    fn test_get_memory_holes_empty_pub_memory() {
         // We construct a sorted addresses list [1, 2, 3, 6, 7, 8, 9, 13, 14, 15], and
-        // set codelen = 0. With this value of codelen, any holes present between
+        // an empty public memory. This way, any holes present between
         // the min and max addresses should be returned by the function.
         let mut addrs: Vec<Felt252> = (1..4).map(Felt252::from).collect();
         let addrs_extension: Vec<Felt252> = (6..10).map(Felt252::from).collect();
         addrs.extend_from_slice(&addrs_extension);
         let addrs_extension: Vec<Felt252> = (13..16).map(Felt252::from).collect();
         addrs.extend_from_slice(&addrs_extension);
-        let codelen = 0;
+        let pub_memory = HashMap::new();
 
         let expected_memory_holes = vec![
             Felt252::from(4),
@@ -668,7 +674,7 @@ mod test {
             Felt252::from(11),
             Felt252::from(12),
         ];
-        let calculated_memory_holes = get_memory_holes(&addrs, codelen);
+        let calculated_memory_holes = get_memory_holes(&addrs, &pub_memory);
 
         assert_eq!(expected_memory_holes, calculated_memory_holes);
     }
@@ -676,15 +682,20 @@ mod test {
     #[test]
     fn test_get_memory_holes_inside_program_section() {
         // We construct a sorted addresses list [1, 2, 3, 8, 9] and we
-        // set a codelen of 9. Since all the holes will be inside the
+        // set public memory from address 1 to 9. Since all the holes will be inside the
         // program segment (meaning from addresses 1 to 9), the function
         // should not return any of them.
         let mut addrs: Vec<Felt252> = (1..4).map(Felt252::from).collect();
         let addrs_extension: Vec<Felt252> = (8..10).map(Felt252::from).collect();
         addrs.extend_from_slice(&addrs_extension);
-        let codelen = 9;
 
-        let calculated_memory_holes = get_memory_holes(&addrs, codelen);
+        let mut pub_memory = HashMap::new();
+        (1..=9).for_each(|k| {
+            let addr = Felt252::from(k);
+            pub_memory.insert(addr, addr * Felt252::from(2));
+        });
+
+        let calculated_memory_holes = get_memory_holes(&addrs, &pub_memory);
         let expected_memory_holes: Vec<Felt252> = Vec::new();
 
         assert_eq!(expected_memory_holes, calculated_memory_holes);
@@ -693,15 +704,20 @@ mod test {
     #[test]
     fn test_get_memory_holes_outside_program_section() {
         // We construct a sorted addresses list [1, 2, 3, 8, 9] and we
-        // set a codelen of 6. The holes found inside the program section,
+        // set public memory from addresses 1 to 6. The holes found inside the program section,
         // i.e. in the address range between 1 to 6, should not be returned.
         // So addresses 4, 5 and 6 will no be returned, only address 7.
         let mut addrs: Vec<Felt252> = (1..4).map(Felt252::from).collect();
         let addrs_extension: Vec<Felt252> = (8..10).map(Felt252::from).collect();
         addrs.extend_from_slice(&addrs_extension);
-        let codelen = 6;
 
-        let calculated_memory_holes = get_memory_holes(&addrs, codelen);
+        let mut pub_memory = HashMap::new();
+        (1..=6).for_each(|k| {
+            let addr = Felt252::from(k);
+            pub_memory.insert(addr, addr * Felt252::from(2));
+        });
+
+        let calculated_memory_holes = get_memory_holes(&addrs, &pub_memory);
         let expected_memory_holes = vec![Felt252::from(7)];
 
         assert_eq!(expected_memory_holes, calculated_memory_holes);

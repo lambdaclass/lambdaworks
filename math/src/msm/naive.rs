@@ -1,11 +1,23 @@
+use core::fmt::Display;
+
 use crate::cyclic_group::IsGroup;
 use crate::unsigned_integer::traits::IsUnsignedInteger;
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug)]
 pub enum MSMError {
-    #[error("`cs` and `points` must be of the same length to compute `msm`. Got: {0} and {1}")]
     LengthMismatch(usize, usize),
 }
+
+impl Display for MSMError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            MSMError::LengthMismatch(cs, points) => write!(f, "`cs` and `points` must be of the same length to compute `msm`. Got: {cs} and {points}"),
+        }
+    }
+}
+
+#[cfg(feature = "std")]
+impl std::error::Error for MSMError {}
 
 /// This function computes the multiscalar multiplication (MSM).
 ///

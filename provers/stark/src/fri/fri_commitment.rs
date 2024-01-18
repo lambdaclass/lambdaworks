@@ -1,17 +1,14 @@
 use lambdaworks_crypto::merkle_tree::{merkle::MerkleTree, traits::IsMerkleTreeBackend};
 use lambdaworks_math::{
-    field::{
-        element::FieldElement,
-        traits::{IsFFTField, IsField},
-    },
-    traits::Serializable,
+    field::{element::FieldElement, traits::IsField},
+    traits::AsBytes,
 };
 
 #[derive(Clone)]
 pub struct FriLayer<F, B>
 where
     F: IsField,
-    FieldElement<F>: Serializable,
+    FieldElement<F>: AsBytes,
     B: IsMerkleTreeBackend,
 {
     pub evaluation: Vec<FieldElement<F>>,
@@ -22,8 +19,8 @@ where
 
 impl<F, B> FriLayer<F, B>
 where
-    F: IsField + IsFFTField,
-    FieldElement<F>: Serializable,
+    F: IsField,
+    FieldElement<F>: AsBytes,
     B: IsMerkleTreeBackend,
 {
     pub fn new(
