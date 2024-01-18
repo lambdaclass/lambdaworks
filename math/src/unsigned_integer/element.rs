@@ -2062,7 +2062,9 @@ mod tests_u384 {
 mod tests_u256 {
     use crate::unsigned_integer::element::ByteConversion;
     use crate::unsigned_integer::element::{UnsignedInteger, U256};
+    #[cfg(feature = "proptest")]
     use proptest::prelude::*;
+    #[cfg(feature = "proptest")]
     use std::ops::Shr;
 
     #[cfg(feature = "proptest")]
