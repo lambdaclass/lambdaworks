@@ -1,24 +1,23 @@
-use lambdaworks_math::field::element::FieldElement;
-use winterfell::math::FieldElement as IsWinterfellFieldElement;
-use winterfell::{
-    Air, AirContext, Assertion, EvaluationFrame, ProofOptions, TraceInfo, TraceTable,
+use miden_core::Felt;
+use winter_air::{
+    Air, AirContext, Assertion, EvaluationFrame, ProofOptions, TraceInfo,
     TransitionConstraintDegree,
 };
-
-use crate::field_element::element::AdapterFieldElement;
+use winter_math::FieldElement as IsWinterfellFieldElement;
+use winter_prover::TraceTable;
 
 /// A fibonacci winterfell AIR example. Two terms are computed
 /// at each step. This was taken from the original winterfell
 /// repository and adapted to work with lambdaworks.
 #[derive(Clone)]
 pub struct FibAir2Terms {
-    context: AirContext<AdapterFieldElement>,
-    result: AdapterFieldElement,
+    context: AirContext<Felt>,
+    result: Felt,
 }
 
 impl Air for FibAir2Terms {
-    type BaseField = AdapterFieldElement;
-    type PublicInputs = AdapterFieldElement;
+    type BaseField = Felt;
+    type PublicInputs = Felt;
 
     fn new(trace_info: TraceInfo, pub_inputs: Self::BaseField, options: ProofOptions) -> Self {
         let degrees = vec![
@@ -63,7 +62,7 @@ impl Air for FibAir2Terms {
     }
 }
 
-pub fn build_trace(sequence_length: usize) -> TraceTable<AdapterFieldElement> {
+pub fn build_trace(sequence_length: usize) -> TraceTable<Felt> {
     assert!(
         sequence_length.is_power_of_two(),
         "sequence length must be a power of 2"
@@ -72,8 +71,8 @@ pub fn build_trace(sequence_length: usize) -> TraceTable<AdapterFieldElement> {
     let mut trace = TraceTable::new(2, sequence_length / 2);
     trace.fill(
         |state| {
-            state[0] = AdapterFieldElement(FieldElement::one());
-            state[1] = AdapterFieldElement(FieldElement::one());
+            state[0] = Felt::ONE;
+            state[1] = Felt::ONE;
         },
         |_, state| {
             state[0] += state[1];
@@ -82,4 +81,55 @@ pub fn build_trace(sequence_length: usize) -> TraceTable<AdapterFieldElement> {
     );
 
     trace
+}
+
+#[cfg(test)]
+mod tests {
+    use miden_core::Felt;
+    use stark_platinum_prover::{
+        proof::options::ProofOptions,
+        prover::{IsStarkProver, Prover},
+        verifier::{IsStarkVerifier, Verifier},
+    };
+    use winter_air::TraceInfo;
+    use winter_prover::{Trace, TraceTable};
+
+    use crate::{
+        adapter::{air::AirAdapter, public_inputs::AirAdapterPublicInputs, FeltTranscript},
+        examples::fibonacci_2_terms::{self, FibAir2Terms},
+    };
+
+    #[test]
+    fn prove_and_verify_a_winterfell_fibonacci_2_terms_air() {
+        let lambda_proof_options = ProofOptions::default_test_options();
+        let winter_trace = fibonacci_2_terms::build_trace(16);
+        let trace =
+            AirAdapter::<FibAir2Terms, TraceTable<_>, Felt, Felt, ()>::convert_winterfell_trace_table(
+                winter_trace.main_segment().clone(),
+            );
+        let pub_inputs = AirAdapterPublicInputs {
+            winterfell_public_inputs: *trace.columns()[1][7].value(),
+            transition_exemptions: vec![1, 1],
+            transition_offsets: vec![0, 1],
+            trace_info: TraceInfo::new(2, 8),
+            metadata: (),
+        };
+
+        let proof = Prover::<AirAdapter<FibAir2Terms, TraceTable<_>, Felt, Felt, _>>::prove(
+            &trace,
+            &pub_inputs,
+            &lambda_proof_options,
+            FeltTranscript::new(&[]),
+        )
+        .unwrap();
+
+        assert!(Verifier::<
+            AirAdapter<FibAir2Terms, TraceTable<_>, Felt, Felt, _>,
+        >::verify(
+            &proof,
+            &pub_inputs,
+            &lambda_proof_options,
+            FeltTranscript::new(&[]),
+        ));
+    }
 }

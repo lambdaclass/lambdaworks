@@ -56,7 +56,7 @@ mod tests {
         use crate::{field::element::FieldElement, traits::ByteConversion};
 
         #[test]
-        #[cfg(feature = "std")]
+        #[cfg(feature = "alloc")]
         fn byte_serialization_for_a_number_matches_with_byte_conversion_implementation_le() {
             let element =
                 FieldElement::<Babybear31PrimeField>::from_hex_unchecked("0123456701234567");
@@ -66,7 +66,7 @@ mod tests {
         }
 
         #[test]
-        #[cfg(feature = "std")]
+        #[cfg(feature = "alloc")]
         fn byte_serialization_for_a_number_matches_with_byte_conversion_implementation_be() {
             let element =
                 FieldElement::<Babybear31PrimeField>::from_hex_unchecked("0123456701234567");
@@ -102,7 +102,6 @@ mod tests {
             get_powers_of_primitive_root, get_powers_of_primitive_root_coset,
         };
         #[cfg(not(any(feature = "metal", feature = "cuda")))]
-        use crate::fft::polynomial::FFTPoly;
         use crate::field::element::FieldElement;
         #[cfg(not(any(feature = "metal", feature = "cuda")))]
         use crate::field::traits::{IsFFTField, RootsConfig};
@@ -118,7 +117,7 @@ mod tests {
             let twiddles =
                 get_powers_of_primitive_root(order.into(), len, RootsConfig::Natural).unwrap();
 
-            let fft_eval = poly.evaluate_fft(1, None).unwrap();
+            let fft_eval = Polynomial::evaluate_fft::<F>(&poly, 1, None).unwrap();
             let naive_eval = poly.evaluate_slice(&twiddles);
 
             (fft_eval, naive_eval)
@@ -136,9 +135,8 @@ mod tests {
                 get_powers_of_primitive_root_coset(order.into(), len * blowup_factor, &offset)
                     .unwrap();
 
-            let fft_eval = poly
-                .evaluate_offset_fft(blowup_factor, None, &offset)
-                .unwrap();
+            let fft_eval =
+                Polynomial::evaluate_offset_fft::<F>(&poly, blowup_factor, None, &offset).unwrap();
             let naive_eval = poly.evaluate_slice(&twiddles);
 
             (fft_eval, naive_eval)
@@ -153,7 +151,7 @@ mod tests {
                 get_powers_of_primitive_root(order, 1 << order, RootsConfig::Natural).unwrap();
 
             let naive_poly = Polynomial::interpolate(&twiddles, fft_evals).unwrap();
-            let fft_poly = Polynomial::interpolate_fft(fft_evals).unwrap();
+            let fft_poly = Polynomial::interpolate_fft::<F>(fft_evals).unwrap();
 
             (fft_poly, naive_poly)
         }
@@ -176,8 +174,8 @@ mod tests {
         fn gen_fft_interpolate_and_evaluate<F: IsFFTField>(
             poly: Polynomial<FieldElement<F>>,
         ) -> (Polynomial<FieldElement<F>>, Polynomial<FieldElement<F>>) {
-            let eval = poly.evaluate_fft(1, None).unwrap();
-            let new_poly = Polynomial::interpolate_fft(&eval).unwrap();
+            let eval = Polynomial::evaluate_fft::<F>(&poly, 1, None).unwrap();
+            let new_poly = Polynomial::interpolate_fft::<F>(&eval).unwrap();
 
             (poly, new_poly)
         }

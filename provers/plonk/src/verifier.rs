@@ -3,7 +3,7 @@ use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
 use lambdaworks_math::cyclic_group::IsGroup;
 use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::traits::{IsFFTField, IsField, IsPrimeField};
-use lambdaworks_math::traits::{ByteConversion, Serializable};
+use lambdaworks_math::traits::{AsBytes, ByteConversion};
 use std::marker::PhantomData;
 
 use crate::prover::Proof;
@@ -31,23 +31,23 @@ impl<F: IsField + IsFFTField, CS: IsCommitmentScheme<F>> Verifier<F, CS> {
     where
         F: IsField,
         CS: IsCommitmentScheme<F>,
-        CS::Commitment: Serializable,
+        CS::Commitment: AsBytes,
         FieldElement<F>: ByteConversion,
     {
         let mut transcript = new_strong_fiat_shamir_transcript::<F, CS>(vk, public_input);
 
-        transcript.append(&p.a_1.serialize());
-        transcript.append(&p.b_1.serialize());
-        transcript.append(&p.c_1.serialize());
+        transcript.append(&p.a_1.as_bytes());
+        transcript.append(&p.b_1.as_bytes());
+        transcript.append(&p.c_1.as_bytes());
         let beta = FieldElement::from_bytes_be(&transcript.challenge()).unwrap();
         let gamma = FieldElement::from_bytes_be(&transcript.challenge()).unwrap();
 
-        transcript.append(&p.z_1.serialize());
+        transcript.append(&p.z_1.as_bytes());
         let alpha = FieldElement::from_bytes_be(&transcript.challenge()).unwrap();
 
-        transcript.append(&p.t_lo_1.serialize());
-        transcript.append(&p.t_mid_1.serialize());
-        transcript.append(&p.t_hi_1.serialize());
+        transcript.append(&p.t_lo_1.as_bytes());
+        transcript.append(&p.t_mid_1.as_bytes());
+        transcript.append(&p.t_hi_1.as_bytes());
         let zeta = FieldElement::from_bytes_be(&transcript.challenge()).unwrap();
 
         transcript.append(&p.a_zeta.to_bytes_be());
@@ -71,7 +71,7 @@ impl<F: IsField + IsFFTField, CS: IsCommitmentScheme<F>> Verifier<F, CS> {
     where
         F: IsPrimeField + IsFFTField,
         CS: IsCommitmentScheme<F>,
-        CS::Commitment: Serializable + IsGroup,
+        CS::Commitment: AsBytes + IsGroup,
         FieldElement<F>: ByteConversion,
     {
         // TODO: First three steps are validations: belonging to main subgroup, belonging to prime field.
@@ -409,7 +409,7 @@ mod tests {
             &verifying_key,
         );
 
-        let serialized_proof = proof.serialize();
+        let serialized_proof = proof.as_bytes();
         let deserialized_proof = Proof::deserialize(&serialized_proof).unwrap();
 
         let verifier = Verifier::new(kzg);
