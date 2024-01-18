@@ -67,6 +67,7 @@ fn get_memory_holes(
 ) -> VecDeque<Felt252> {
     let mut memory_holes = VecDeque::new();
     let mut prev_addr = &sorted_addrs[0];
+    let one = Felt252::one();
 
     for addr in sorted_addrs.iter() {
         let addr_diff = addr - prev_addr;
@@ -74,18 +75,21 @@ fn get_memory_holes(
         // If the candidate memory hole has an address belonging to the program segment (public
         // memory), that is not accounted here since public memory is added in a posterior step of
         // the protocol.
-        if addr_diff != Felt252::one() && addr_diff != Felt252::zero() {
-            let mut hole_addr = prev_addr + Felt252::one();
+        if addr_diff != one && addr_diff != Felt252::zero() {
+            let mut hole_addr = prev_addr + one;
 
             while hole_addr.representative() < addr.representative() {
                 if !pub_memory.contains_key(&hole_addr) {
                     memory_holes.push_back(hole_addr);
                 }
-                hole_addr += Felt252::one();
+                hole_addr += one;
             }
         }
         prev_addr = addr;
     }
+
+    let max_addr_plus_one = sorted_addrs.last().unwrap() + one;
+    memory_holes.push_back(max_addr_plus_one);
 
     memory_holes
 }
@@ -1107,7 +1111,7 @@ mod test {
         //     .for_each(|(i, v)| println!("ROW {} - VALUE: {}", i, v));
 
         set_sorted_mem_pool(&mut trace, pub_inputs.public_memory);
-        trace.table.columns()[4][4..700]
+        trace.table.columns()[4][..700]
             // trace.table.columns()[4]
             .iter()
             .enumerate()
