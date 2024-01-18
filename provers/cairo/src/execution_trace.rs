@@ -1045,25 +1045,12 @@ mod test {
         let (register_states, memory, pub_inputs) =
             run_program(None, CairoLayout::Plain, &program_content).unwrap();
 
-        let program_segment = pub_inputs
-            .memory_segments
-            .get(&SegmentName::Program)
-            .unwrap();
-
-        let execution_segment = pub_inputs
-            .memory_segments
-            .get(&SegmentName::Execution)
-            .unwrap();
-
-        let codelen = execution_segment.begin_addr - program_segment.stop_ptr;
-
-        let mut pub_inputs = PublicInputs::from_regs_and_mem(&register_states, &memory, codelen);
-        pub_inputs
-            .public_memory
-            .insert(Felt252::from(31), Felt252::from(33));
-        pub_inputs
-            .public_memory
-            .insert(Felt252::from(32), Felt252::zero());
+        // pub_inputs
+        //     .public_memory
+        //     .insert(Felt252::from(31), Felt252::from(33));
+        // pub_inputs
+        //     .public_memory
+        //     .insert(Felt252::from(32), Felt252::zero());
 
         let (flags, biased_offsets): (Vec<CairoInstructionFlags>, Vec<InstructionOffsets>) =
             register_states
