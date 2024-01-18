@@ -677,6 +677,9 @@ fn set_sorted_mem_pool(trace: &mut CairoTraceTable, pub_memory: HashMap<Felt252,
     let first_pub_memory_addr = Felt252::one();
     let first_pub_memory_value = *pub_memory.get(&first_pub_memory_addr).unwrap();
     let first_pub_memory_entry_padding_len = 2 * trace.num_steps() - pub_memory.len();
+
+    println!("Pub memory len: {}", pub_memory.len());
+
     let padding_num_steps = first_pub_memory_entry_padding_len.div_ceil(2);
     let mut first_addr_padding =
         iter::repeat(first_pub_memory_addr).take(first_pub_memory_entry_padding_len);
@@ -1042,11 +1045,17 @@ mod test {
         let (register_states, memory, pub_inputs) =
             run_program(None, CairoLayout::Plain, &program_content).unwrap();
 
-        let codelen = pub_inputs
+        let program_segment = pub_inputs
             .memory_segments
             .get(&SegmentName::Program)
-            .map(|segment| segment.stop_ptr - segment.begin_addr)
             .unwrap();
+
+        let execution_segment = pub_inputs
+            .memory_segments
+            .get(&SegmentName::Execution)
+            .unwrap();
+
+        let codelen = execution_segment.begin_addr - program_segment.stop_ptr;
 
         let mut pub_inputs = PublicInputs::from_regs_and_mem(&register_states, &memory, codelen);
         pub_inputs

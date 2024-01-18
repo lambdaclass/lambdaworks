@@ -125,6 +125,36 @@ pub fn run_program(
     let register_states = RegisterStates::from_bytes_le(&trace_vec).unwrap();
 
     let vm_pub_inputs = runner.get_air_public_input(&vm).unwrap();
+    let prog_begin_addr = vm_pub_inputs
+        .memory_segments
+        .get("program")
+        .unwrap()
+        .begin_addr;
+    let prog_stop_ptr = vm_pub_inputs
+        .memory_segments
+        .get("program")
+        .unwrap()
+        .stop_ptr;
+
+    let ex_begin_addr = vm_pub_inputs
+        .memory_segments
+        .get("execution")
+        .unwrap()
+        .begin_addr;
+    let ex_stop_ptr = vm_pub_inputs
+        .memory_segments
+        .get("execution")
+        .unwrap()
+        .stop_ptr;
+
+    println!(
+        "PROGRAM SECTION - BEGGIN ADDR: {}, STOP_PTR: {}",
+        prog_begin_addr, prog_stop_ptr
+    );
+    println!(
+        "EXECUTION SECTION - BEGGIN ADDR: {}, STOP_PTR: {}",
+        ex_begin_addr, ex_stop_ptr
+    );
 
     let mut pub_memory: HashMap<Felt252, Felt252> = HashMap::new();
     vm_pub_inputs.public_memory.iter().for_each(|mem_cell| {
