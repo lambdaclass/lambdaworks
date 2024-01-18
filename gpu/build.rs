@@ -84,8 +84,8 @@ fn compile_metal_shaders() {
 }
 
 fn main() {
-    //#[cfg(feature = "cuda")]
-    //compile_cuda_shaders();
+    #[cfg(feature = "cuda")]
+    compile_cuda_shaders();
 
     #[cfg(feature = "metal")]
     compile_metal_shaders();
