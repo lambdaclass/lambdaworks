@@ -1001,9 +1001,11 @@ impl<const NUM_LIMBS: usize> Arbitrary for UnsignedInteger<NUM_LIMBS> {
 
 #[cfg(test)]
 mod tests_u384 {
-    use proptest::prelude::*;
     use crate::traits::ByteConversion;
     use crate::unsigned_integer::element::{UnsignedInteger, U384};
+    #[cfg(feature = "proptest")]
+    use proptest::prelude::*;
+    #[cfg(feature = "proptest")]
     use std::ops::Shr;
 
     #[cfg(feature = "proptest")]
@@ -2058,9 +2060,9 @@ mod tests_u384 {
 
 #[cfg(test)]
 mod tests_u256 {
-    use proptest::prelude::*;
-    use crate::unsigned_integer::element::{UnsignedInteger, U256};
     use crate::unsigned_integer::element::ByteConversion;
+    use crate::unsigned_integer::element::{UnsignedInteger, U256};
+    use proptest::prelude::*;
     use std::ops::Shr;
 
     #[cfg(feature = "proptest")]
