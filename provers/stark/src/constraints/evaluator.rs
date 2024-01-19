@@ -1,13 +1,13 @@
 use super::boundary::BoundaryConstraints;
 #[cfg(all(debug_assertions, not(feature = "parallel")))]
 use crate::debug::check_boundary_polys_divisibility;
-#[cfg(all(debug_assertions, not(feature = "parallel")))]
-use lambdaworks_math::polynomial::Polynomial;
 use crate::domain::Domain;
 use crate::trace::LDETraceTable;
 use crate::traits::AIR;
 use crate::{frame::Frame, prover::evaluate_polynomial_on_lde_domain};
 use itertools::Itertools;
+#[cfg(all(debug_assertions, not(feature = "parallel")))]
+use lambdaworks_math::polynomial::Polynomial;
 use lambdaworks_math::{fft::errors::FFTError, field::element::FieldElement, traits::AsBytes};
 #[cfg(feature = "parallel")]
 use rayon::prelude::{IntoParallelIterator, ParallelIterator};
@@ -61,7 +61,6 @@ impl<A: AIR> ConstraintEvaluator<A> {
         #[cfg(all(debug_assertions, not(feature = "parallel")))]
         let boundary_polys: Vec<Polynomial<FieldElement<A::Field>>> = Vec::new();
 
-
         #[cfg(feature = "instruments")]
         let timer = Instant::now();
 
@@ -80,7 +79,10 @@ impl<A: AIR> ConstraintEvaluator<A> {
             .unwrap();
 
         #[cfg(feature = "instruments")]
-        println!("     Evaluating periodic columns on lde: {:#?}", timer.elapsed());
+        println!(
+            "     Evaluating periodic columns on lde: {:#?}",
+            timer.elapsed()
+        );
 
         #[cfg(feature = "instruments")]
         let timer = Instant::now();
@@ -112,7 +114,6 @@ impl<A: AIR> ConstraintEvaluator<A> {
         #[cfg(feature = "instruments")]
         let timer = Instant::now();
 
-
         #[cfg(feature = "parallel")]
         let boundary_eval_iter = (0..domain.lde_roots_of_unity_coset.len()).into_par_iter();
         #[cfg(not(feature = "parallel"))]
@@ -132,7 +133,10 @@ impl<A: AIR> ConstraintEvaluator<A> {
             .collect();
 
         #[cfg(feature = "instruments")]
-        println!("     Evaluated boundary polynomials on LDE: {:#?}", timer.elapsed());
+        println!(
+            "     Evaluated boundary polynomials on LDE: {:#?}",
+            timer.elapsed()
+        );
 
         #[cfg(all(debug_assertions, not(feature = "parallel")))]
         let boundary_zerofiers = Vec::new();
@@ -143,12 +147,14 @@ impl<A: AIR> ConstraintEvaluator<A> {
         #[cfg(all(debug_assertions, not(feature = "parallel")))]
         let mut transition_evaluations = Vec::new();
 
-
         #[cfg(feature = "instruments")]
         let timer = Instant::now();
         let transition_zerofiers_evals = air.transition_zerofier_evaluations(domain);
         #[cfg(feature = "instruments")]
-        println!("     Evaluated transition zerofiers: {:#?}", timer.elapsed());
+        println!(
+            "     Evaluated transition zerofiers: {:#?}",
+            timer.elapsed()
+        );
 
         // Iterate over all LDE domain and compute the part of the composition polynomial
         // related to the transition constraints and add it to the already computed part of the
@@ -158,9 +164,10 @@ impl<A: AIR> ConstraintEvaluator<A> {
         let timer = Instant::now();
         let evaluations_t_iter = 0..domain.lde_roots_of_unity_coset.len();
 
-        let evaluations_t =
-            evaluations_t_iter.zip(boundary_evaluation).zip(transition_zerofiers_evals)
-            .map(|((i, boundary),zerofier_evals)| {
+        let evaluations_t = evaluations_t_iter
+            .zip(boundary_evaluation)
+            .zip(transition_zerofiers_evals)
+            .map(|((i, boundary), zerofier_evals)| {
                 let frame = Frame::read_from_lde(lde_trace, i, &air.context().transition_offsets);
 
                 let periodic_values: Vec<_> = lde_periodic_columns
@@ -191,7 +198,10 @@ impl<A: AIR> ConstraintEvaluator<A> {
             .collect();
 
         #[cfg(feature = "instruments")]
-        println!("     Evaluated transitions and accumulated results: {:#?}", timer.elapsed());
+        println!(
+            "     Evaluated transitions and accumulated results: {:#?}",
+            timer.elapsed()
+        );
 
         evaluations_t
     }
