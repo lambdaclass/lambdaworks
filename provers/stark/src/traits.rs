@@ -9,9 +9,7 @@ use lambdaworks_math::{
 };
 
 use crate::{
-    constraints::transition::{TransitionConstraint, TransitionZerofiersIter},
-    domain::Domain,
-    transcript::IsStarkTranscript,
+    constraints::transition::TransitionConstraint, domain::Domain, transcript::IsStarkTranscript,
 };
 
 use super::{
@@ -148,10 +146,12 @@ pub trait AIR {
         &self,
     ) -> &Vec<Box<dyn TransitionConstraint<Self::Field, Self::FieldExtension>>>;
 
+    /// Computes the unique zerofier evaluations for all transitions constraints.
+    /// Returns a vector of vectors, where each inner vector contains the unique zerofier evaluations for a given constraint
     fn transition_zerofier_evaluations(
         &self,
         domain: &Domain<Self::Field>,
-    ) -> TransitionZerofiersIter<Self::Field> {
+    ) -> Vec<Vec<FieldElement<Self::Field>>> {
         let mut evals = vec![Vec::new(); self.num_transition_constraints()];
 
         let mut zerofier_groups: HashMap<ZerofierGroupKey, Vec<FieldElement<Self::Field>>> =
@@ -183,6 +183,6 @@ pub trait AIR {
             evals[c.constraint_idx()] = zerofier_evaluations.clone();
         });
 
-        TransitionZerofiersIter::new(evals)
+        evals
     }
 }
