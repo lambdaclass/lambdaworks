@@ -18,7 +18,7 @@ use stark_platinum_prover::{
     verifier::{IsStarkVerifier, Verifier},
 };
 
-use crate::execution_trace::set_rc_permutation_column;
+use crate::execution_trace::{set_mem_permutation_column, set_rc_permutation_column};
 use crate::{cairo_mem::CairoMemory, register_states::RegisterStates, Felt252};
 use stark_platinum_prover::table::Table;
 
@@ -689,84 +689,88 @@ impl AIR for CairoAIR {
         rap_challenges: &Self::RAPChallenges,
     ) -> TraceTable<Self::Field> {
         let z_rc = rap_challenges.z_range_check;
+        let z_mem = rap_challenges.z_memory;
+        let alpha_mem = rap_challenges.alpha_memory;
 
         set_rc_permutation_column(main_trace, &z_rc);
+        set_mem_permutation_column(main_trace, &alpha_mem, &z_mem);
 
-        let addresses_original = main_trace.merge_columns(&[
-            FRAME_PC,
-            FRAME_DST_ADDR,
-            FRAME_OP0_ADDR,
-            FRAME_OP1_ADDR,
-            EXTRA_ADDR,
-        ]);
+        // let addresses_original = main_trace.merge_columns(&[
+        //     FRAME_PC,
+        //     FRAME_DST_ADDR,
+        //     FRAME_OP0_ADDR,
+        //     FRAME_OP1_ADDR,
+        //     EXTRA_ADDR,
+        // ]);
 
-        let values_original =
-            main_trace.merge_columns(&[FRAME_INST, FRAME_DST, FRAME_OP0, FRAME_OP1, EXTRA_VAL]);
+        // let values_original =
+        //     main_trace.merge_columns(&[FRAME_INST, FRAME_DST, FRAME_OP0, FRAME_OP1, EXTRA_VAL]);
 
-        let (addresses, values) = add_pub_memory_in_public_input_section(
-            &addresses_original,
-            &values_original,
-            &self.pub_inputs,
-        );
+        // let (addresses, values) = add_pub_memory_in_public_input_section(
+        //     &addresses_original,
+        //     &values_original,
+        //     &self.pub_inputs,
+        // );
 
-        let (addresses, values) = sort_columns_by_memory_address(addresses, values);
+        // let (addresses, values) = sort_columns_by_memory_address(addresses, values);
 
-        let permutation_col = generate_memory_permutation_argument_column(
-            addresses_original,
-            values_original,
-            &addresses,
-            &values,
-            rap_challenges,
-        );
+        // let permutation_col = generate_memory_permutation_argument_column(
+        //     addresses_original,
+        //     values_original,
+        //     &addresses,
+        //     &values,
+        //     rap_challenges,
+        // );
 
-        // Range Check
-        let offsets_original = main_trace.merge_columns(&[OFF_DST, OFF_OP0, OFF_OP1, RC_HOLES]);
+        // // Range Check
+        // let offsets_original = main_trace.merge_columns(&[OFF_DST, OFF_OP0, OFF_OP1, RC_HOLES]);
 
-        let mut offsets_sorted: Vec<u16> = offsets_original
-            .iter()
-            .map(|x| x.representative().into())
-            .collect();
-        offsets_sorted.sort();
-        let offsets_sorted: Vec<_> = offsets_sorted
-            .iter()
-            .map(|x| FieldElement::from(*x as u64))
-            .collect();
+        // let mut offsets_sorted: Vec<u16> = offsets_original
+        //     .iter()
+        //     .map(|x| x.representative().into())
+        //     .collect();
+        // offsets_sorted.sort();
 
-        let range_check_permutation_col = generate_range_check_permutation_argument_column(
-            &offsets_original,
-            &offsets_sorted,
-            rap_challenges,
-        );
+        // let offsets_sorted: Vec<_> = offsets_sorted
+        //     .iter()
+        //     .map(|x| FieldElement::from(*x as u64))
+        //     .collect();
 
-        // Convert from long-format to wide-format again
-        let mut aux_data = Vec::new();
-        for i in 0..main_trace.num_rows() {
-            aux_data.push(offsets_sorted[4 * i]);
-            aux_data.push(offsets_sorted[4 * i + 1]);
-            aux_data.push(offsets_sorted[4 * i + 2]);
-            aux_data.push(offsets_sorted[4 * i + 3]);
-            aux_data.push(addresses[5 * i]);
-            aux_data.push(addresses[5 * i + 1]);
-            aux_data.push(addresses[5 * i + 2]);
-            aux_data.push(addresses[5 * i + 3]);
-            aux_data.push(addresses[5 * i + 4]);
-            aux_data.push(values[5 * i]);
-            aux_data.push(values[5 * i + 1]);
-            aux_data.push(values[5 * i + 2]);
-            aux_data.push(values[5 * i + 3]);
-            aux_data.push(values[5 * i + 4]);
-            aux_data.push(permutation_col[5 * i]);
-            aux_data.push(permutation_col[5 * i + 1]);
-            aux_data.push(permutation_col[5 * i + 2]);
-            aux_data.push(permutation_col[5 * i + 3]);
-            aux_data.push(permutation_col[5 * i + 4]);
-            aux_data.push(range_check_permutation_col[4 * i]);
-            aux_data.push(range_check_permutation_col[4 * i + 1]);
-            aux_data.push(range_check_permutation_col[4 * i + 2]);
-            aux_data.push(range_check_permutation_col[4 * i + 3]);
-        }
+        // let range_check_permutation_col = generate_range_check_permutation_argument_column(
+        //     &offsets_original,
+        //     &offsets_sorted,
+        //     rap_challenges,
+        // );
 
-        let aux_table = Table::new(aux_data, self.number_auxiliary_rap_columns());
+        // // Convert from long-format to wide-format again
+        // let mut aux_data = Vec::new();
+        // for i in 0..main_trace.num_rows() {
+        //     aux_data.push(offsets_sorted[4 * i]);
+        //     aux_data.push(offsets_sorted[4 * i + 1]);
+        //     aux_data.push(offsets_sorted[4 * i + 2]);
+        //     aux_data.push(offsets_sorted[4 * i + 3]);
+        //     aux_data.push(addresses[5 * i]);
+        //     aux_data.push(addresses[5 * i + 1]);
+        //     aux_data.push(addresses[5 * i + 2]);
+        //     aux_data.push(addresses[5 * i + 3]);
+        //     aux_data.push(addresses[5 * i + 4]);
+        //     aux_data.push(values[5 * i]);
+        //     aux_data.push(values[5 * i + 1]);
+        //     aux_data.push(values[5 * i + 2]);
+        //     aux_data.push(values[5 * i + 3]);
+        //     aux_data.push(values[5 * i + 4]);
+        //     aux_data.push(permutation_col[5 * i]);
+        //     aux_data.push(permutation_col[5 * i + 1]);
+        //     aux_data.push(permutation_col[5 * i + 2]);
+        //     aux_data.push(permutation_col[5 * i + 3]);
+        //     aux_data.push(permutation_col[5 * i + 4]);
+        //     aux_data.push(range_check_permutation_col[4 * i]);
+        //     aux_data.push(range_check_permutation_col[4 * i + 1]);
+        //     aux_data.push(range_check_permutation_col[4 * i + 2]);
+        //     aux_data.push(range_check_permutation_col[4 * i + 3]);
+        // }
+
+        // let aux_table = Table::new(aux_data, self.number_auxiliary_rap_columns());
 
         TraceTable {
             table: aux_table,

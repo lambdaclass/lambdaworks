@@ -767,7 +767,7 @@ pub(crate) fn set_rc_permutation_column(trace: &mut CairoTraceTable, z: &Felt252
         .collect_vec();
     FieldElement::inplace_batch_inverse(&mut denominator_evaluations).unwrap();
 
-    let rc_permutation_argument_evaluations = trace
+    let rc_cumulative_procuts = trace
         .get_column(0)
         .iter()
         .zip(&denominator_evaluations)
@@ -778,7 +778,7 @@ pub(crate) fn set_rc_permutation_column(trace: &mut CairoTraceTable, z: &Felt252
         })
         .collect_vec();
 
-    for (i, rc_perm_i) in rc_permutation_argument_evaluations.into_iter().enumerate() {
+    for (i, rc_perm_i) in rc_cumulative_procuts.into_iter().enumerate() {
         trace.set(i, 6, rc_perm_i)
     }
 }
@@ -788,7 +788,31 @@ pub(crate) fn set_mem_permutation_column(
     alpha_mem: &Felt252,
     z_mem: &Felt252,
 ) {
-    todo!()
+    let sorted_mem_pool = trace.get_column(4);
+    let sorted_addrs = sorted_mem_pool.iter().step_by(2).collect_vec();
+    let sorted_values = sorted_mem_pool[1..].iter().step_by(2).collect_vec();
+
+    let mut denominator = std::iter::zip(sorted_addrs, sorted_values)
+        .map(|(ap, vp)| z_mem - (ap + alpha_mem * vp))
+        .collect_vec();
+    FieldElement::inplace_batch_inverse(&mut denominator).unwrap();
+
+    let mem_pool = trace.get_column(3);
+    let addrs = mem_pool.iter().step_by(2).collect_vec();
+    let values = mem_pool[1..].iter().step_by(2).collect_vec();
+
+    let mem_cumulative_products = itertools::izip!(addrs, values, denominator)
+        .scan(Felt252::one(), |product, (a_i, v_i, den_i)| {
+            let ret = *product;
+            *product = ret * ((z_mem - (a_i + alpha_mem * v_i)) * den_i);
+            Some(*product)
+        })
+        .collect_vec();
+
+    for (i, row_idx) in (0..trace.num_rows()).step_by(2).enumerate() {
+        let mem_cumul_prod = mem_cumulative_products[i];
+        trace.set(row_idx, 7, mem_cumul_prod);
+    }
 }
 
 #[cfg(test)]
@@ -1071,13 +1095,6 @@ mod test {
         let (register_states, memory, pub_inputs) =
             run_program(None, CairoLayout::Plain, &program_content).unwrap();
 
-        // pub_inputs
-        //     .public_memory
-        //     .insert(Felt252::from(31), Felt252::from(33));
-        // pub_inputs
-        //     .public_memory
-        //     .insert(Felt252::from(32), Felt252::zero());
-
         let (flags, biased_offsets): (Vec<CairoInstructionFlags>, Vec<InstructionOffsets>) =
             register_states
                 .flags_and_offsets(&memory)
@@ -1125,10 +1142,23 @@ mod test {
 
         set_sorted_mem_pool(&mut trace, pub_inputs.public_memory);
 
-        trace.table.columns()[4][..700]
+        // trace.table.columns()[4][..700]
+        //     .iter()
+        //     .enumerate()
+        //     .for_each(|(i, v)| println!("ROW {} - VALUE: {}", i, v));
+
+        let z = Felt252::from_hex_unchecked(
+            "0x6896a2e62f03d4d1f625efb97468ef93f31105bb51a83d550bca6fdebd035de",
+        );
+        let alpha = Felt252::from_hex_unchecked(
+            "0x64de8f5be59594e112d438c13ec4916e138b013e7d388b681c11b03ede7962e",
+        );
+        set_mem_permutation_column(&mut trace, &alpha, &z);
+
+        trace.table.columns()[7][..20]
             .iter()
             .enumerate()
-            .for_each(|(i, v)| println!("ROW {} - VALUE: {}", i, v));
+            .for_each(|(i, v)| println!("ROW {} - MEM CUMUL PROD: {}", i, v));
     }
 
     #[test]
