@@ -148,10 +148,12 @@ pub trait AIR {
         &self,
     ) -> &Vec<Box<dyn TransitionConstraint<Self::Field, Self::FieldExtension>>>;
 
+    /// Computes the unique zerofier evaluations for all transitions constraints.
+    /// Returns a vector of vectors, where each inner vector contains the unique zerofier evaluations for a given constraint 
     fn transition_zerofier_evaluations(
         &self,
         domain: &Domain<Self::Field>,
-    ) -> Vec<IntoIter<FieldElement<Self::Field>>> {
+    ) -> Vec<Vec<FieldElement<Self::Field>>> {
         let mut evals = vec![Vec::new(); self.num_transition_constraints()];
 
         let mut zerofier_groups: HashMap<ZerofierGroupKey, Vec<FieldElement<Self::Field>>> =
@@ -183,11 +185,6 @@ pub trait AIR {
             evals[c.constraint_idx()] = zerofier_evaluations.clone();
         });
 
-        let zerofier_evals = evals
-            .into_iter()
-            .map(|evals| evals.into_iter())
-            .collect();
-
-        zerofier_evals
+        evals
     }
 }

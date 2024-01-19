@@ -149,7 +149,7 @@ impl<A: AIR> ConstraintEvaluator<A> {
 
         #[cfg(feature = "instruments")]
         let timer = Instant::now();
-        let mut zerofiers_evals = air.transition_zerofier_evaluations(domain);
+        let zerofiers_evals = air.transition_zerofier_evaluations(domain);
         #[cfg(feature = "instruments")]
         println!(
             "     Evaluated transition zerofiers: {:#?}",
@@ -164,12 +164,10 @@ impl<A: AIR> ConstraintEvaluator<A> {
         let timer = Instant::now();
         let evaluations_t_iter = 0..domain.lde_roots_of_unity_coset.len();
 
-        // #[cfg(feature = "parallel")]
-        // let transition_zerofiers_evals = transition_zerofiers_evals.into_par_iter();
-        // #[cfg(feature = "parallel")]
-        // let boundary_evaluation = boundary_evaluation.into_par_iter();
-        // #[cfg(feature = "parallel")]
-        // let evaluations_t_iter = evaluations_t_iter.into_par_iter();
+        #[cfg(feature = "parallel")]
+        let boundary_evaluation = boundary_evaluation.into_par_iter();
+        #[cfg(feature = "parallel")]
+        let evaluations_t_iter = evaluations_t_iter.into_par_iter();
 
         let evaluations_t = evaluations_t_iter
             .zip(boundary_evaluation)
@@ -192,11 +190,17 @@ impl<A: AIR> ConstraintEvaluator<A> {
                 // the challenge and the exemption polynomial if it is necessary.
                 let acc_transition = itertools::izip!(
                     evaluations_transition,
-                    zerofiers_evals.clone(),
+                    &zerofiers_evals,
                     transition_coefficients
                 )
-                .fold(FieldElement::zero(), |acc, (eval, mut zerof_eval, beta)| {
-                    acc + zerof_eval.next().unwrap() * eval * beta
+                .fold(FieldElement::zero(), |acc, (eval, zerof_eval, beta)| {
+                    // Zerofier evaluations are cyclical, so we only calculate one cycle. 
+                    // This means that here we have to wrap around
+                    // Ex: Suppose the full zerofier vector is Z = [1,2,3,1,2,3]
+                    // we will instead have calculated Z' = [1,2,3]
+                    // Now if you need Z[4] this is equal to Z'[1]
+                    let wrapped_idx = i % zerof_eval.len();
+                    acc + &zerof_eval[wrapped_idx] * eval * beta
                 });
 
                 acc_transition + boundary
