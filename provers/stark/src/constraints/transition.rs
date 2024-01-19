@@ -1,6 +1,4 @@
 use std::ops::Div;
-use std::vec::IntoIter;
-
 use crate::domain::Domain;
 use crate::frame::Frame;
 use crate::prover::evaluate_polynomial_on_lde_domain;

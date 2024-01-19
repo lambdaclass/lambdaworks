@@ -10,7 +10,7 @@ use itertools::Itertools;
 use lambdaworks_math::polynomial::Polynomial;
 use lambdaworks_math::{fft::errors::FFTError, field::element::FieldElement, traits::AsBytes};
 #[cfg(feature = "parallel")]
-use rayon::{prelude::{IntoParallelIterator, ParallelIterator}, iter::{ParallelBridge,IndexedParallelIterator}};
+use rayon::{prelude::{IntoParallelIterator, ParallelIterator}, iter::IndexedParallelIterator};
 #[cfg(feature = "instruments")]
 use std::time::Instant;
 
@@ -194,7 +194,7 @@ impl<A: AIR> ConstraintEvaluator<A> {
                     transition_coefficients
                 )
                 .fold(FieldElement::zero(), |acc, (eval, zerof_eval, beta)| {
-                    // Zerofier evaluations are cyclical, so we only calculate one cycle. 
+                    // Zerofier evaluations are cyclical, so we only calculate one cycle.
                     // This means that here we have to wrap around
                     // Ex: Suppose the full zerofier vector is Z = [1,2,3,1,2,3]
                     // we will instead have calculated Z' = [1,2,3]

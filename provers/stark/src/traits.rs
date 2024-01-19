@@ -1,4 +1,4 @@
-use std::{collections::HashMap, vec::IntoIter};
+use std::collections::HashMap;
 
 use lambdaworks_math::{
     field::{
