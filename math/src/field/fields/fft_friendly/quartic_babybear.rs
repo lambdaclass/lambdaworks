@@ -8,14 +8,14 @@ use crate::field::{
 };
 
 /// Quartic field extension of Babybear
-pub type QuarticBabybearField = QuadraticExtensionField<QuadraticBabybearField>;
+pub type QuarticBabybearField =
+    QuadraticExtensionField<QuadraticBabybearField, QuadraticBabybearField>;
 
 /// Field element type for the quartic extension of Babybear
-pub type QuarticBabybearFieldElement = QuadraticExtensionFieldElement<QuadraticBabybearField>;
+pub type QuarticBabybearFieldElement =
+    QuadraticExtensionFieldElement<QuadraticBabybearField, QuadraticBabybearField>;
 
-impl HasQuadraticNonResidue for QuadraticBabybearField {
-    type BaseField = QuadraticBabybearField;
-
+impl HasQuadraticNonResidue<QuadraticBabybearField> for QuadraticBabybearField {
     fn residue() -> QuadraticBabybearFieldElement {
         -FieldElement::one()
     }
