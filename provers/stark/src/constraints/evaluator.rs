@@ -10,7 +10,10 @@ use itertools::Itertools;
 use lambdaworks_math::polynomial::Polynomial;
 use lambdaworks_math::{fft::errors::FFTError, field::element::FieldElement, traits::AsBytes};
 #[cfg(feature = "parallel")]
-use rayon::{prelude::{IntoParallelIterator, ParallelIterator}, iter::IndexedParallelIterator};
+use rayon::{
+    iter::IndexedParallelIterator,
+    prelude::{IntoParallelIterator, ParallelIterator},
+};
 #[cfg(feature = "instruments")]
 use std::time::Instant;
 

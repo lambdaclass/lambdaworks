@@ -1,4 +1,3 @@
-use std::ops::Div;
 use crate::domain::Domain;
 use crate::frame::Frame;
 use crate::prover::evaluate_polynomial_on_lde_domain;
@@ -7,6 +6,7 @@ use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::traits::{IsFFTField, IsField, IsSubFieldOf};
 use lambdaworks_math::polynomial::Polynomial;
 use num_integer::Integer;
+use std::ops::Div;
 /// TransitionConstraint represents the behaviour that a transition constraint
 /// over the computation that wants to be proven must comply with.
 pub trait TransitionConstraint<F, E>: Send + Sync
