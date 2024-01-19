@@ -9,7 +9,6 @@ use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::traits::{IsFFTField, IsField, IsSubFieldOf};
 use lambdaworks_math::polynomial::Polynomial;
 use num_integer::Integer;
-
 /// TransitionConstraint represents the behaviour that a transition constraint
 /// over the computation that wants to be proven must comply with.
 pub trait TransitionConstraint<F, E>: Send + Sync
@@ -239,6 +238,7 @@ where
     }
 }
 
+/* 
 /// An iterator over the evaluations of all transition constraint zerofiers
 /// of a given AIR.
 ///
@@ -283,3 +283,104 @@ where
         Some(next_evals)
     }
 }
+*/
+
+/*
+ 
+#[cfg(feature = "parallel")]
+use rayon::prelude::IndexedParallelIterator;
+#[cfg(feature = "parallel")]
+use rayon::iter::plumbing::ProducerCallback;
+#[cfg(feature = "parallel")]
+use rayon::iter::plumbing::Consumer;
+#[cfg(feature = "parallel")]
+use rayon::iter::plumbing::UnindexedConsumer;
+#[cfg(feature = "parallel")]
+use rayon::prelude::ParallelIterator;
+#[cfg(feature = "parallel")]
+use rayon::iter::plumbing::bridge;
+#[cfg(feature = "parallel")]
+use rayon::iter::plumbing::Producer;
+
+#[cfg(feature = "parallel")]
+impl<F> ParallelIterator for TransitionZerofiersIter<F> where
+F: IsFFTField,
+F::BaseType: Send + Sync
+{
+    type Item = Vec<IntoIter<FieldElement<F>>>;
+
+    fn drive_unindexed<C>(self, consumer: C) -> C::Result
+    where C: UnindexedConsumer<Self::Item> {
+        bridge(self,consumer)
+    }
+
+
+    fn opt_len(&self) -> Option<usize> {
+        Some(self.len())
+    }
+}
+
+#[cfg(feature = "parallel")]
+impl<F> IndexedParallelIterator for TransitionZerofiersIter<F> where
+F: IsFFTField,
+F::BaseType: Send + Sync
+{   
+    fn with_producer<CB: ProducerCallback<Self::Item>>(
+        self,
+        callback: CB,
+    ) -> CB::Output {
+        let producer = DataProducer::<F>::from(self);
+        callback.callback(producer)
+    }
+
+    fn drive<C: Consumer<Self::Item>>(self, consumer: C) -> C::Result {
+        bridge(self,consumer)
+    }
+
+    fn len(&self) -> usize {
+        self.zerofier_evals.len()
+    }
+}
+
+#[cfg(feature = "parallel")]
+struct DataProducer<'a, F>where
+F: IsFFTField,
+F::BaseType: Send + Sync {
+    data_slice : &'a[IntoIter<FieldElement<F>>]
+}
+
+#[cfg(feature = "parallel")]
+use core::slice::Iter;
+
+#[cfg(feature = "parallel")]
+impl <'a,F> Producer for DataProducer<'a,F>
+where
+F: IsFFTField,
+F::BaseType: Send + Sync {
+    type Item = IntoIter<FieldElement<F>>;
+    type IntoIter = IntoIter<IntoIter<FieldElement<F>>>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.data_slice.into_iter()
+    }
+
+    fn split_at(self, index: usize) -> (Self, Self) {
+        let (left, right) = self.data_slice.split_at(index);
+        (
+            DataProducer { data_slice: left },
+            DataProducer { data_slice: right },
+        )
+    }
+}
+
+#[cfg(feature = "parallel")]
+impl<F> From<TransitionZerofiersIter<F>> for DataProducer<'_,F> where
+F: IsFFTField,
+F::BaseType: Send + Sync {
+    fn from(iterator: TransitionZerofiersIter<F>) -> Self {
+        Self {
+            data_slice: &iterator.zerofier_evals,
+        }
+    }
+}
+*/

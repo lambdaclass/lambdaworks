@@ -10,7 +10,7 @@ use itertools::Itertools;
 use lambdaworks_math::polynomial::Polynomial;
 use lambdaworks_math::{fft::errors::FFTError, field::element::FieldElement, traits::AsBytes};
 #[cfg(feature = "parallel")]
-use rayon::prelude::{IntoParallelIterator, ParallelIterator};
+use rayon::{prelude::{IntoParallelIterator, ParallelIterator}, iter::{ParallelBridge,IndexedParallelIterator}};
 #[cfg(feature = "instruments")]
 use std::time::Instant;
 
@@ -149,7 +149,7 @@ impl<A: AIR> ConstraintEvaluator<A> {
 
         #[cfg(feature = "instruments")]
         let timer = Instant::now();
-        let transition_zerofiers_evals = air.transition_zerofier_evaluations(domain);
+        let mut zerofiers_evals = air.transition_zerofier_evaluations(domain);
         #[cfg(feature = "instruments")]
         println!(
             "     Evaluated transition zerofiers: {:#?}",
@@ -164,10 +164,16 @@ impl<A: AIR> ConstraintEvaluator<A> {
         let timer = Instant::now();
         let evaluations_t_iter = 0..domain.lde_roots_of_unity_coset.len();
 
+        // #[cfg(feature = "parallel")]
+        // let transition_zerofiers_evals = transition_zerofiers_evals.into_par_iter();
+        // #[cfg(feature = "parallel")]
+        // let boundary_evaluation = boundary_evaluation.into_par_iter();
+        // #[cfg(feature = "parallel")]
+        // let evaluations_t_iter = evaluations_t_iter.into_par_iter();
+
         let evaluations_t = evaluations_t_iter
             .zip(boundary_evaluation)
-            .zip(transition_zerofiers_evals)
-            .map(|((i, boundary), zerofier_evals)| {
+            .map(|(i, boundary)| {
                 let frame = Frame::read_from_lde(lde_trace, i, &air.context().transition_offsets);
 
                 let periodic_values: Vec<_> = lde_periodic_columns
@@ -186,11 +192,11 @@ impl<A: AIR> ConstraintEvaluator<A> {
                 // the challenge and the exemption polynomial if it is necessary.
                 let acc_transition = itertools::izip!(
                     evaluations_transition,
-                    zerofier_evals,
+                    zerofiers_evals.clone(),
                     transition_coefficients
                 )
-                .fold(FieldElement::zero(), |acc, (eval, zerof_eval, beta)| {
-                    acc + zerof_eval * eval * beta
+                .fold(FieldElement::zero(), |acc, (eval, mut zerof_eval, beta)| {
+                    acc + zerof_eval.next().unwrap() * eval * beta
                 });
 
                 acc_transition + boundary

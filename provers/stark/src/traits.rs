@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, vec::IntoIter};
 
 use lambdaworks_math::{
     field::{
@@ -9,7 +9,7 @@ use lambdaworks_math::{
 };
 
 use crate::{
-    constraints::transition::{TransitionConstraint, TransitionZerofiersIter},
+    constraints::transition::{TransitionConstraint},
     domain::Domain,
     transcript::IsStarkTranscript,
 };
@@ -151,7 +151,7 @@ pub trait AIR {
     fn transition_zerofier_evaluations(
         &self,
         domain: &Domain<Self::Field>,
-    ) -> TransitionZerofiersIter<Self::Field> {
+    ) -> Vec<IntoIter<FieldElement<Self::Field>>> {
         let mut evals = vec![Vec::new(); self.num_transition_constraints()];
 
         let mut zerofier_groups: HashMap<ZerofierGroupKey, Vec<FieldElement<Self::Field>>> =
@@ -183,6 +183,11 @@ pub trait AIR {
             evals[c.constraint_idx()] = zerofier_evaluations.clone();
         });
 
-        TransitionZerofiersIter::new(evals)
+        let zerofier_evals = evals
+            .into_iter()
+            .map(|evals| evals.into_iter())
+            .collect();
+
+        zerofier_evals
     }
 }
