@@ -18,6 +18,7 @@ use stark_platinum_prover::{
     verifier::{IsStarkVerifier, Verifier},
 };
 
+use crate::execution_trace::set_rc_permutation_column;
 use crate::{cairo_mem::CairoMemory, register_states::RegisterStates, Felt252};
 use stark_platinum_prover::table::Table;
 
@@ -684,9 +685,13 @@ impl AIR for CairoAIR {
 
     fn build_auxiliary_trace(
         &self,
-        main_trace: &TraceTable<Self::Field>,
+        main_trace: &mut TraceTable<Self::Field>,
         rap_challenges: &Self::RAPChallenges,
     ) -> TraceTable<Self::Field> {
+        let z_rc = rap_challenges.z_range_check;
+
+        set_rc_permutation_column(&mut main_trace, &z_rc);
+
         let addresses_original = main_trace.merge_columns(&[
             FRAME_PC,
             FRAME_DST_ADDR,

@@ -32,7 +32,7 @@ pub trait AIR {
 
     fn build_auxiliary_trace(
         &self,
-        main_trace: &TraceTable<Self::Field>,
+        main_trace: &mut TraceTable<Self::Field>,
         rap_challenges: &Self::RAPChallenges,
     ) -> TraceTable<Self::FieldExtension>;
 
