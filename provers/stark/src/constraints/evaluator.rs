@@ -1,15 +1,18 @@
 use super::boundary::BoundaryConstraints;
 #[cfg(all(debug_assertions, not(feature = "parallel")))]
 use crate::debug::check_boundary_polys_divisibility;
+#[cfg(all(debug_assertions, not(feature = "parallel")))]
+use lambdaworks_math::polynomial::Polynomial;
 use crate::domain::Domain;
 use crate::trace::LDETraceTable;
 use crate::traits::AIR;
 use crate::{frame::Frame, prover::evaluate_polynomial_on_lde_domain};
 use itertools::Itertools;
-use lambdaworks_math::polynomial::Polynomial;
 use lambdaworks_math::{fft::errors::FFTError, field::element::FieldElement, traits::AsBytes};
 #[cfg(feature = "parallel")]
 use rayon::prelude::{IntoParallelIterator, ParallelIterator};
+#[cfg(feature = "instruments")]
+use std::time::Instant;
 
 pub struct ConstraintEvaluator<A: AIR> {
     boundary_constraints: BoundaryConstraints<A::FieldExtension>,
@@ -58,6 +61,10 @@ impl<A: AIR> ConstraintEvaluator<A> {
         #[cfg(all(debug_assertions, not(feature = "parallel")))]
         let boundary_polys: Vec<Polynomial<FieldElement<A::Field>>> = Vec::new();
 
+
+        #[cfg(feature = "instruments")]
+        let timer = Instant::now();
+
         let lde_periodic_columns = air
             .get_periodic_column_polynomials()
             .iter()
@@ -71,6 +78,12 @@ impl<A: AIR> ConstraintEvaluator<A> {
             })
             .collect::<Result<Vec<Vec<FieldElement<A::Field>>>, FFTError>>()
             .unwrap();
+
+        #[cfg(feature = "instruments")]
+        println!("     Evaluating periodic columns on lde: {:#?}", timer.elapsed());
+
+        #[cfg(feature = "instruments")]
+        let timer = Instant::now();
 
         let boundary_polys_evaluations = boundary_constraints
             .constraints
@@ -94,6 +107,12 @@ impl<A: AIR> ConstraintEvaluator<A> {
             })
             .collect_vec();
 
+        #[cfg(feature = "instruments")]
+        println!("     Created boundary polynomials: {:#?}", timer.elapsed());
+        #[cfg(feature = "instruments")]
+        let timer = Instant::now();
+
+
         #[cfg(feature = "parallel")]
         let boundary_eval_iter = (0..domain.lde_roots_of_unity_coset.len()).into_par_iter();
         #[cfg(not(feature = "parallel"))]
@@ -112,6 +131,9 @@ impl<A: AIR> ConstraintEvaluator<A> {
             })
             .collect();
 
+        #[cfg(feature = "instruments")]
+        println!("     Evaluated boundary polynomials on LDE: {:#?}", timer.elapsed());
+
         #[cfg(all(debug_assertions, not(feature = "parallel")))]
         let boundary_zerofiers = Vec::new();
 
@@ -121,15 +143,24 @@ impl<A: AIR> ConstraintEvaluator<A> {
         #[cfg(all(debug_assertions, not(feature = "parallel")))]
         let mut transition_evaluations = Vec::new();
 
-        let mut transition_zerofiers_evals = air.transition_zerofier_evaluations(domain);
+
+        #[cfg(feature = "instruments")]
+        let timer = Instant::now();
+        let transition_zerofiers_evals = air.transition_zerofier_evaluations(domain);
+        #[cfg(feature = "instruments")]
+        println!("     Evaluated transition zerofiers: {:#?}", timer.elapsed());
 
         // Iterate over all LDE domain and compute the part of the composition polynomial
         // related to the transition constraints and add it to the already computed part of the
         // boundary constraints.
+
+        #[cfg(feature = "instruments")]
+        let timer = Instant::now();
         let evaluations_t_iter = 0..domain.lde_roots_of_unity_coset.len();
-        let evaluations_t = evaluations_t_iter
-            .zip(&boundary_evaluation)
-            .map(|(i, boundary)| {
+
+        let evaluations_t =
+            evaluations_t_iter.zip(boundary_evaluation).zip(transition_zerofiers_evals)
+            .map(|((i, boundary),zerofier_evals)| {
                 let frame = Frame::read_from_lde(lde_trace, i, &air.context().transition_offsets);
 
                 let periodic_values: Vec<_> = lde_periodic_columns
@@ -144,13 +175,11 @@ impl<A: AIR> ConstraintEvaluator<A> {
                 #[cfg(all(debug_assertions, not(feature = "parallel")))]
                 transition_evaluations.push(evaluations_transition.clone());
 
-                let transition_zerofiers_eval = transition_zerofiers_evals.next().unwrap();
-
                 // Add each term of the transition constraints to the composition polynomial, including the zerofier,
                 // the challenge and the exemption polynomial if it is necessary.
                 let acc_transition = itertools::izip!(
                     evaluations_transition,
-                    transition_zerofiers_eval,
+                    zerofier_evals,
                     transition_coefficients
                 )
                 .fold(FieldElement::zero(), |acc, (eval, zerof_eval, beta)| {
@@ -160,6 +189,9 @@ impl<A: AIR> ConstraintEvaluator<A> {
                 acc_transition + boundary
             })
             .collect();
+
+        #[cfg(feature = "instruments")]
+        println!("     Evaluated transitions and accumulated results: {:#?}", timer.elapsed());
 
         evaluations_t
     }

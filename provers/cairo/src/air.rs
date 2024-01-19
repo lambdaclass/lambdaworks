@@ -1,7 +1,8 @@
 use super::{cairo_mem::CairoMemory, register_states::RegisterStates};
 use crate::transition_constraints::*;
-use cairo_vm::{air_public_input::MemorySegmentAddresses, without_std::collections::HashMap};
+#[cfg(debug_assertions)]
 use itertools::Itertools;
+use cairo_vm::{air_public_input::MemorySegmentAddresses, without_std::collections::HashMap};
 use lambdaworks_math::{
     errors::DeserializationError,
     field::{
