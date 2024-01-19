@@ -51,7 +51,6 @@ where
     }
 
     /// Evaluates `self` at the point `p` in O(n) time.
-    #[allow(dead_code)]
     pub fn evaluate(&self, r: Vec<FieldElement<F>>) -> Result<FieldElement<F>, MultilinearError> {
         // r must have a value for each variable
         if r.len() != self.num_vars() {
@@ -72,12 +71,6 @@ where
                 chis[i - 1] = scalar - &chis[i];
             }
         }
-        if chis.len() != self.evals.len() {
-            return Err(MultilinearError::ChisAndEvalsMismatch(
-                chis.len(),
-                self.evals.len(),
-            ));
-        }
         #[cfg(feature = "rayon")]
         let iter = (0..chis.len()).into_par_iter();
 
@@ -92,6 +85,12 @@ where
     ) -> Result<FieldElement<F>, MultilinearError> {
         let mut chis: Vec<FieldElement<F>> =
             vec![FieldElement::one(); (2usize).pow(r.len() as u32)];
+        if chis.len() != evals.len() {
+            return Err(MultilinearError::ChisAndEvalsLengthMismatch(
+                chis.len(),
+                evals.len(),
+            ));
+        }
         let mut size = 1;
         for j in r {
             size *= 2;
@@ -101,29 +100,23 @@ where
                 chis[i - 1] = scalar - &chis[i];
             }
         }
-        if chis.len() != evals.len() {
-            return Err(MultilinearError::ChisAndEvalsMismatch(
-                chis.len(),
-                evals.len(),
-            ));
-        }
         Ok((0..evals.len()).map(|i| &evals[i] * &chis[i]).sum())
     }
 
-    //TODO; remove asserts
+    /// Extends a DenseMultilinearPolynomial by concatenating `other` polynomial of the same length.
     pub fn extend(&mut self, other: &DenseMultilinearPolynomial<F>) {
-        assert_eq!(self.evals.len(), self.len);
+        debug_assert_eq!(self.evals.len(), self.len);
         let other = other.evals.clone();
-        assert_eq!(other.len(), self.len);
+        debug_assert_eq!(other.len(), self.len);
         self.evals.extend(other);
         self.n_vars += 1;
         self.len *= 2;
-        assert_eq!(self.evals.len(), self.len);
+        debug_assert_eq!(self.evals.len(), self.len);
     }
 
-    pub fn merge(
-        polys: &[DenseMultilinearPolynomial<F>],
-    ) -> Result<DenseMultilinearPolynomial<F>, MultilinearError> {
+    /// Merges a series of DenseMultilienarPolynomials into one polynomial. Zero-pads the final merged polynomial to the next power_of_two length if necessary.
+    pub fn merge(polys: &[DenseMultilinearPolynomial<F>]) -> DenseMultilinearPolynomial<F> {
+        // TODO (performance): pre-allocate vector we are resizing two bench to see if it is faster than naively calling resize.
         let mut z: Vec<FieldElement<F>> = Vec::new();
         for poly in polys.iter() {
             z.extend(poly.evals().clone().into_iter());
@@ -132,7 +125,7 @@ where
         // pad the polynomial with zero polynomial at the end
         z.resize(z.len().next_power_of_two(), FieldElement::zero());
 
-        Ok(DenseMultilinearPolynomial::new(z))
+        DenseMultilinearPolynomial::new(z)
     }
 
     pub fn from_u64(evals: &[u64]) -> Self {
@@ -261,6 +254,7 @@ mod tests {
 
         let size = r.len();
         // ensure size is even
+        //TODO
         assert!(size % 2 == 0);
         // n = 2^size
         let n = (2usize).pow(size as u32);
@@ -341,7 +335,7 @@ mod tests {
         let a = DenseMultilinearPolynomial::new(vec![FE::from(3); 4]);
         let b = DenseMultilinearPolynomial::new(vec![FE::from(3); 2]);
 
-        let c = DenseMultilinearPolynomial::merge(&[a, b]).unwrap();
+        let c = DenseMultilinearPolynomial::merge(&[a, b]);
 
         assert_eq!(c.len(), 8);
         assert_eq!(c[c.len() - 1], FE::zero());
