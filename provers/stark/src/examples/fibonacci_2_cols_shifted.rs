@@ -81,7 +81,7 @@ where
 
     fn build_auxiliary_trace(
         &self,
-        _main_trace: &TraceTable<Self::Field>,
+        _main_trace: &mut TraceTable<Self::Field>,
         _rap_challenges: &Self::RAPChallenges,
     ) -> TraceTable<Self::Field> {
         TraceTable::empty()

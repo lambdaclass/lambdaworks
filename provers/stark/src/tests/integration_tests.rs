@@ -21,7 +21,7 @@ use crate::{
 
 #[test_log::test]
 fn test_prove_fib() {
-    let trace = simple_fibonacci::fibonacci_trace([Felt252::from(1), Felt252::from(1)], 8);
+    let mut trace = simple_fibonacci::fibonacci_trace([Felt252::from(1), Felt252::from(1)], 8);
 
     let proof_options = ProofOptions::default_test_options();
 
@@ -31,7 +31,7 @@ fn test_prove_fib() {
     };
 
     let proof = Prover::<FibonacciAIR<Stark252PrimeField>>::prove(
-        &trace,
+        &mut trace,
         &pub_inputs,
         &proof_options,
         StoneProverTranscript::new(&[]),
@@ -48,7 +48,7 @@ fn test_prove_fib() {
 #[test_log::test]
 fn test_prove_fib17() {
     type FE = FieldElement<Stark252PrimeField>;
-    let trace = simple_fibonacci::fibonacci_trace([FE::from(1), FE::from(1)], 4);
+    let mut trace = simple_fibonacci::fibonacci_trace([FE::from(1), FE::from(1)], 4);
 
     let proof_options = ProofOptions {
         blowup_factor: 2,
@@ -63,7 +63,7 @@ fn test_prove_fib17() {
     };
 
     let proof = Prover::<FibonacciAIR<_>>::prove(
-        &trace,
+        &mut trace,
         &pub_inputs,
         &proof_options,
         StoneProverTranscript::new(&[]),
@@ -79,7 +79,7 @@ fn test_prove_fib17() {
 
 #[test_log::test]
 fn test_prove_simple_periodic_8() {
-    let trace = simple_periodic_cols::simple_periodic_trace::<Stark252PrimeField>(8);
+    let mut trace = simple_periodic_cols::simple_periodic_trace::<Stark252PrimeField>(8);
 
     let proof_options = ProofOptions::default_test_options();
 
@@ -89,7 +89,7 @@ fn test_prove_simple_periodic_8() {
     };
 
     let proof = Prover::<SimplePeriodicAIR<Stark252PrimeField>>::prove(
-        &trace,
+        &mut trace,
         &pub_inputs,
         &proof_options,
         StoneProverTranscript::new(&[]),
@@ -105,7 +105,7 @@ fn test_prove_simple_periodic_8() {
 
 #[test_log::test]
 fn test_prove_simple_periodic_32() {
-    let trace = simple_periodic_cols::simple_periodic_trace::<Stark252PrimeField>(32);
+    let mut trace = simple_periodic_cols::simple_periodic_trace::<Stark252PrimeField>(32);
 
     let proof_options = ProofOptions::default_test_options();
 
@@ -115,7 +115,7 @@ fn test_prove_simple_periodic_32() {
     };
 
     let proof = Prover::<SimplePeriodicAIR<Stark252PrimeField>>::prove(
-        &trace,
+        &mut trace,
         &pub_inputs,
         &proof_options,
         StoneProverTranscript::new(&[]),
@@ -131,7 +131,7 @@ fn test_prove_simple_periodic_32() {
 
 #[test_log::test]
 fn test_prove_fib_2_cols() {
-    let trace = fibonacci_2_columns::compute_trace([Felt252::from(1), Felt252::from(1)], 16);
+    let mut trace = fibonacci_2_columns::compute_trace([Felt252::from(1), Felt252::from(1)], 16);
 
     let proof_options = ProofOptions::default_test_options();
 
@@ -141,7 +141,7 @@ fn test_prove_fib_2_cols() {
     };
 
     let proof = Prover::<Fibonacci2ColsAIR<Stark252PrimeField>>::prove(
-        &trace,
+        &mut trace,
         &pub_inputs,
         &proof_options,
         StoneProverTranscript::new(&[]),
@@ -157,7 +157,7 @@ fn test_prove_fib_2_cols() {
 
 #[test_log::test]
 fn test_prove_fib_2_cols_shifted() {
-    let trace = fibonacci_2_cols_shifted::compute_trace(FieldElement::one(), 16);
+    let mut trace = fibonacci_2_cols_shifted::compute_trace(FieldElement::one(), 16);
 
     let claimed_index = 14;
     let claimed_value = trace.get_row(claimed_index)[0];
@@ -169,7 +169,7 @@ fn test_prove_fib_2_cols_shifted() {
     };
 
     let proof = Prover::<Fibonacci2ColsShifted<_>>::prove(
-        &trace,
+        &mut trace,
         &pub_inputs,
         &proof_options,
         StoneProverTranscript::new(&[]),
@@ -185,7 +185,7 @@ fn test_prove_fib_2_cols_shifted() {
 
 #[test_log::test]
 fn test_prove_quadratic() {
-    let trace = quadratic_air::quadratic_trace(Felt252::from(3), 4);
+    let mut trace = quadratic_air::quadratic_trace(Felt252::from(3), 4);
 
     let proof_options = ProofOptions::default_test_options();
 
@@ -194,7 +194,7 @@ fn test_prove_quadratic() {
     };
 
     let proof = Prover::<QuadraticAIR<Stark252PrimeField>>::prove(
-        &trace,
+        &mut trace,
         &pub_inputs,
         &proof_options,
         StoneProverTranscript::new(&[]),
@@ -211,7 +211,7 @@ fn test_prove_quadratic() {
 #[test_log::test]
 fn test_prove_rap_fib() {
     let steps = 16;
-    let trace = fibonacci_rap_trace([Felt252::from(1), Felt252::from(1)], steps);
+    let mut trace = fibonacci_rap_trace([Felt252::from(1), Felt252::from(1)], steps);
 
     let proof_options = ProofOptions::default_test_options();
 
@@ -222,7 +222,7 @@ fn test_prove_rap_fib() {
     };
 
     let proof = Prover::<FibonacciRAP<Stark252PrimeField>>::prove(
-        &trace,
+        &mut trace,
         &pub_inputs,
         &proof_options,
         StoneProverTranscript::new(&[]),
@@ -239,13 +239,17 @@ fn test_prove_rap_fib() {
 #[test_log::test]
 fn test_prove_dummy() {
     let trace_length = 16;
-    let trace = dummy_air::dummy_trace(trace_length);
+    let mut trace = dummy_air::dummy_trace(trace_length);
 
     let proof_options = ProofOptions::default_test_options();
 
-    let proof =
-        Prover::<DummyAIR>::prove(&trace, &(), &proof_options, StoneProverTranscript::new(&[]))
-            .unwrap();
+    let proof = Prover::<DummyAIR>::prove(
+        &mut trace,
+        &(),
+        &proof_options,
+        StoneProverTranscript::new(&[]),
+    )
+    .unwrap();
     assert!(Verifier::<DummyAIR>::verify(
         &proof,
         &(),

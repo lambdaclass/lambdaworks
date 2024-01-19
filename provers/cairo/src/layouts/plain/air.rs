@@ -690,7 +690,7 @@ impl AIR for CairoAIR {
     ) -> TraceTable<Self::Field> {
         let z_rc = rap_challenges.z_range_check;
 
-        set_rc_permutation_column(&mut main_trace, &z_rc);
+        set_rc_permutation_column(main_trace, &z_rc);
 
         let addresses_original = main_trace.merge_columns(&[
             FRAME_PC,
@@ -1305,7 +1305,7 @@ fn frame_inst_size(step: &StepView<Stark252PrimeField, Stark252PrimeField>) -> F
 /// concrete types.
 /// The field is set to Stark252PrimeField and the AIR to CairoAIR.
 pub fn generate_cairo_proof(
-    trace: &TraceTable<Stark252PrimeField>,
+    trace: &mut TraceTable<Stark252PrimeField>,
     pub_input: &PublicInputs,
     proof_options: &ProofOptions,
 ) -> Result<StarkProof<Stark252PrimeField, Stark252PrimeField>, ProvingError> {
@@ -1498,13 +1498,13 @@ mod prop_test {
     #[test]
     fn deserialize_and_verify() {
         let program_content = std::fs::read(cairo0_program_path("fibonacci_10.json")).unwrap();
-        let (main_trace, pub_inputs) =
+        let (mut main_trace, pub_inputs) =
             generate_prover_args(&program_content, CairoLayout::Plain).unwrap();
 
         let proof_options = ProofOptions::default_test_options();
 
         // The proof is generated and serialized.
-        let proof = generate_cairo_proof(&main_trace, &pub_inputs, &proof_options).unwrap();
+        let proof = generate_cairo_proof(&mut main_trace, &pub_inputs, &proof_options).unwrap();
         let proof_bytes: Vec<u8> = serde_cbor::to_vec(&proof).unwrap();
 
         // The trace and original proof are dropped to show that they are decoupled from

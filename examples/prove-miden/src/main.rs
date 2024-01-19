@@ -76,14 +76,14 @@ fn main() {
     );
 
     println!("\nImporting trace to lambdaworks");
-    let trace =
+    let mut trace =
         MidenVMQuadFeltAir::convert_winterfell_trace_table(winter_trace.main_segment().clone());
 
     println!("\nProving ");
 
     let timer0 = Instant::now();
     let proof = Prover::<MidenVMQuadFeltAir>::prove(
-        &trace,
+        &mut trace,
         &pub_inputs,
         &lambda_proof_options,
         QuadFeltTranscript::new(&[]),

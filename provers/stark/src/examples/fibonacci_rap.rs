@@ -72,7 +72,7 @@ where
 
     fn build_auxiliary_trace(
         &self,
-        main_trace: &TraceTable<Self::Field>,
+        main_trace: &mut TraceTable<Self::Field>,
         gamma: &Self::RAPChallenges,
     ) -> TraceTable<Self::Field> {
         let main_segment_cols = main_trace.columns();

@@ -478,7 +478,7 @@ mod tests {
 
     #[test]
     fn test_serialization_compatible_with_stone_1() {
-        let trace = fibonacci_2_cols_shifted::compute_trace(FieldElement::one(), 4);
+        let mut trace = fibonacci_2_cols_shifted::compute_trace(FieldElement::one(), 4);
 
         let claimed_index = 3;
         let claimed_value = trace.get_row(claimed_index)[0];
@@ -495,7 +495,7 @@ mod tests {
         };
 
         let proof = Prover::<Fibonacci2ColsShifted<_>>::prove(
-            &trace,
+            &mut trace,
             &pub_inputs,
             &proof_options,
             StoneProverTranscript::new(&pub_inputs.as_bytes()),
@@ -556,7 +556,7 @@ mod tests {
 
     #[test]
     fn test_serialization_compatible_with_stone_case_2() {
-        let trace = fibonacci_2_cols_shifted::compute_trace(FieldElement::one(), 4);
+        let mut trace = fibonacci_2_cols_shifted::compute_trace(FieldElement::one(), 4);
 
         let claimed_index = 2;
         let claimed_value = trace.get_row(claimed_index)[0];
@@ -573,7 +573,7 @@ mod tests {
         };
 
         let proof = Prover::<Fibonacci2ColsShifted<_>>::prove(
-            &trace,
+            &mut trace,
             &pub_inputs,
             &proof_options,
             StoneProverTranscript::new(&pub_inputs.as_bytes()),
@@ -648,7 +648,7 @@ mod tests {
 
     #[test]
     fn test_serialization_compatible_with_stone_case_3() {
-        let trace = fibonacci_2_cols_shifted::compute_trace(FieldElement::from(12345), 512);
+        let mut trace = fibonacci_2_cols_shifted::compute_trace(FieldElement::from(12345), 512);
 
         let claimed_index = 420;
         let claimed_value = trace.get_row(claimed_index)[0];
@@ -665,7 +665,7 @@ mod tests {
         };
 
         let proof = Prover::<Fibonacci2ColsShifted<_>>::prove(
-            &trace,
+            &mut trace,
             &pub_inputs,
             &proof_options,
             StoneProverTranscript::new(&pub_inputs.as_bytes()),
@@ -912,7 +912,7 @@ mod tests {
 
     #[test]
     fn test_serialization_compatible_with_stone_4() {
-        let trace = fibonacci_2_cols_shifted::compute_trace(FieldElement::one(), 4);
+        let mut trace = fibonacci_2_cols_shifted::compute_trace(FieldElement::one(), 4);
 
         let claimed_index = 2;
         let claimed_value = trace.get_row(claimed_index)[0];
@@ -929,7 +929,7 @@ mod tests {
         };
 
         let proof = Prover::<Fibonacci2ColsShifted<_>>::prove(
-            &trace,
+            &mut trace,
             &pub_inputs,
             &proof_options,
             StoneProverTranscript::new(&pub_inputs.as_bytes()),
@@ -990,7 +990,7 @@ mod tests {
 
     #[test]
     fn test_serialization_compatible_with_stone_5() {
-        let trace = fibonacci_2_cols_shifted::compute_trace(FieldElement::one(), 128);
+        let mut trace = fibonacci_2_cols_shifted::compute_trace(FieldElement::one(), 128);
 
         let claimed_index = 111;
         let claimed_value = trace.get_row(claimed_index)[0];
@@ -1007,7 +1007,7 @@ mod tests {
         };
 
         let proof = Prover::<Fibonacci2ColsShifted<_>>::prove(
-            &trace,
+            &mut trace,
             &pub_inputs,
             &proof_options,
             StoneProverTranscript::new(&pub_inputs.as_bytes()),

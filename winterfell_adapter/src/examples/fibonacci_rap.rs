@@ -259,7 +259,7 @@ mod tests {
     fn prove_and_verify_a_winterfell_fibonacci_rap_air() {
         let lambda_proof_options = ProofOptions::default_test_options();
         let winter_trace = fibonacci_rap::build_trace(16);
-        let trace =
+        let mut trace =
             AirAdapter::<FibonacciRAP, RapTraceTable<_>, Felt, QuadFelt, ()>::convert_winterfell_trace_table(
                 winter_trace.main_segment().clone(),
             );
@@ -275,7 +275,7 @@ mod tests {
         };
 
         let proof = Prover::<AirAdapter<FibonacciRAP, RapTraceTable<_>, Felt, QuadFelt, _>>::prove(
-            &trace,
+            &mut trace,
             &pub_inputs,
             &lambda_proof_options,
             QuadFeltTranscript::new(&[]),

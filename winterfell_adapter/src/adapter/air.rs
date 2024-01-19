@@ -136,7 +136,7 @@ where
 
     fn build_auxiliary_trace(
         &self,
-        main_trace: &stark_platinum_prover::trace::TraceTable<Self::Field>,
+        main_trace: &mut stark_platinum_prover::trace::TraceTable<Self::Field>,
         rap_challenges: &Self::RAPChallenges,
     ) -> stark_platinum_prover::trace::TraceTable<Self::FieldExtension> {
         // We support at most a one-stage RAP. This covers most use cases.

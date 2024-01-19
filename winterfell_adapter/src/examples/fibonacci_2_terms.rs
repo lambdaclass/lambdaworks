@@ -103,7 +103,7 @@ mod tests {
     fn prove_and_verify_a_winterfell_fibonacci_2_terms_air() {
         let lambda_proof_options = ProofOptions::default_test_options();
         let winter_trace = fibonacci_2_terms::build_trace(16);
-        let trace =
+        let mut trace =
             AirAdapter::<FibAir2Terms, TraceTable<_>, Felt, Felt, ()>::convert_winterfell_trace_table(
                 winter_trace.main_segment().clone(),
             );
@@ -116,7 +116,7 @@ mod tests {
         };
 
         let proof = Prover::<AirAdapter<FibAir2Terms, TraceTable<_>, Felt, Felt, _>>::prove(
-            &trace,
+            &mut trace,
             &pub_inputs,
             &lambda_proof_options,
             FeltTranscript::new(&[]),

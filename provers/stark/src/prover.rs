@@ -267,7 +267,7 @@ pub trait IsStarkProver<A: AIR> {
     /// Returns the result of the first round of the STARK Prove protocol.
     fn round_1_randomized_air_with_preprocessing(
         air: &A,
-        main_trace: &TraceTable<A::Field>,
+        main_trace: &mut TraceTable<A::Field>,
         domain: &Domain<A::Field>,
         transcript: &mut impl IsStarkTranscript<A::FieldExtension>,
     ) -> Result<Round1<A>, ProvingError>
@@ -784,7 +784,7 @@ pub trait IsStarkProver<A: AIR> {
     /// Generates a STARK proof for the trace `main_trace` with public inputs `pub_inputs`.
     /// Warning: the transcript must be safely initializated before passing it to this method.
     fn prove(
-        main_trace: &TraceTable<A::Field>,
+        trace: &mut TraceTable<A::Field>,
         pub_inputs: &A::PublicInputs,
         proof_options: &ProofOptions,
         mut transcript: impl IsStarkTranscript<A::FieldExtension>,
@@ -801,7 +801,7 @@ pub trait IsStarkProver<A: AIR> {
         #[cfg(feature = "instruments")]
         let timer0 = Instant::now();
 
-        let air = A::new(main_trace.num_rows(), pub_inputs, proof_options);
+        let air = A::new(trace.num_rows(), pub_inputs, proof_options);
         let domain = Domain::new(&air);
 
         #[cfg(feature = "instruments")]
@@ -818,12 +818,8 @@ pub trait IsStarkProver<A: AIR> {
         #[cfg(feature = "instruments")]
         let timer1 = Instant::now();
 
-        let round_1_result = Self::round_1_randomized_air_with_preprocessing(
-            &air,
-            main_trace,
-            &domain,
-            &mut transcript,
-        )?;
+        let round_1_result =
+            Self::round_1_randomized_air_with_preprocessing(&air, trace, &domain, &mut transcript)?;
 
         #[cfg(debug_assertions)]
         validate_trace(
@@ -1127,7 +1123,7 @@ mod tests {
         ProofOptions,
         [u8; 4],
     ) {
-        let trace = fibonacci_2_cols_shifted::compute_trace(FieldElement::one(), 4);
+        let mut trace = fibonacci_2_cols_shifted::compute_trace(FieldElement::one(), 4);
 
         let claimed_index = 3;
         let claimed_value = trace.get_row(claimed_index)[0];
@@ -1145,7 +1141,7 @@ mod tests {
         let transcript_init_seed = [0xca, 0xfe, 0xca, 0xfe];
 
         let proof = Prover::<Fibonacci2ColsShifted<_>>::prove(
-            &trace,
+            &mut trace,
             &pub_inputs,
             &proof_options,
             StoneProverTranscript::new(&transcript_init_seed),
@@ -1523,7 +1519,7 @@ mod tests {
         ProofOptions,
         [u8; 4],
     ) {
-        let trace = fibonacci_2_cols_shifted::compute_trace(FieldElement::from(12345), 512);
+        let mut trace = fibonacci_2_cols_shifted::compute_trace(FieldElement::from(12345), 512);
 
         let claimed_index = 420;
         let claimed_value = trace.get_row(claimed_index)[0];
@@ -1541,7 +1537,7 @@ mod tests {
         let transcript_init_seed = [0xfa, 0xfa, 0xfa, 0xee];
 
         let proof = Prover::<Fibonacci2ColsShifted<_>>::prove(
-            &trace,
+            &mut trace,
             &pub_inputs,
             &proof_options,
             StoneProverTranscript::new(&transcript_init_seed),

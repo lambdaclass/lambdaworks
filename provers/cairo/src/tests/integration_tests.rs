@@ -44,11 +44,11 @@ fn test_verifier_rejects_wrong_authentication_paths() {
     // Setup
     let proof_options = ProofOptions::default_test_options();
     let program_content = std::fs::read(cairo0_program_path("fibonacci_5.json")).unwrap();
-    let (main_trace, pub_inputs) =
+    let (mut main_trace, pub_inputs) =
         generate_prover_args(&program_content, CairoLayout::Plain).unwrap();
 
     // Generate the proof
-    let mut proof = generate_cairo_proof(&main_trace, &pub_inputs, &proof_options).unwrap();
+    let mut proof = generate_cairo_proof(&mut main_trace, &pub_inputs, &proof_options).unwrap();
 
     // Change order of authentication path hashes
     let query = 0;
@@ -86,12 +86,12 @@ fn test_prove_cairo_fibonacci_1000() {
 #[test_log::test]
 fn test_verifier_rejects_proof_of_a_slightly_different_program() {
     let program_content = std::fs::read(cairo0_program_path("simple_program.json")).unwrap();
-    let (main_trace, mut pub_input) =
+    let (mut main_trace, mut pub_input) =
         generate_prover_args(&program_content, CairoLayout::Plain).unwrap();
 
     let proof_options = ProofOptions::default_test_options();
 
-    let proof = generate_cairo_proof(&main_trace, &pub_input, &proof_options).unwrap();
+    let proof = generate_cairo_proof(&mut main_trace, &pub_input, &proof_options).unwrap();
 
     // We modify the original program and verify using this new "corrupted" version
     let mut corrupted_program = pub_input.public_memory.clone();
@@ -106,11 +106,11 @@ fn test_verifier_rejects_proof_of_a_slightly_different_program() {
 #[test_log::test]
 fn test_verifier_rejects_proof_with_different_range_bounds() {
     let program_content = std::fs::read(cairo0_program_path("simple_program.json")).unwrap();
-    let (main_trace, mut pub_inputs) =
+    let (mut main_trace, mut pub_inputs) =
         generate_prover_args(&program_content, CairoLayout::Plain).unwrap();
 
     let proof_options = ProofOptions::default_test_options();
-    let proof = generate_cairo_proof(&main_trace, &pub_inputs, &proof_options).unwrap();
+    let proof = generate_cairo_proof(&mut main_trace, &pub_inputs, &proof_options).unwrap();
 
     pub_inputs.range_check_min = Some(pub_inputs.range_check_min.unwrap() + 1);
     assert!(!verify_cairo_proof(&proof, &pub_inputs, &proof_options));
@@ -123,12 +123,12 @@ fn test_verifier_rejects_proof_with_different_range_bounds() {
 #[test_log::test]
 fn test_verifier_rejects_proof_with_different_security_params() {
     let program_content = std::fs::read(cairo0_program_path("fibonacci_5.json")).unwrap();
-    let (main_trace, pub_inputs) =
+    let (mut main_trace, pub_inputs) =
         generate_prover_args(&program_content, CairoLayout::Plain).unwrap();
 
     let proof_options_prover = ProofOptions::new_secure(SecurityLevel::Conjecturable80Bits, 3);
 
-    let proof = generate_cairo_proof(&main_trace, &pub_inputs, &proof_options_prover).unwrap();
+    let proof = generate_cairo_proof(&mut main_trace, &pub_inputs, &proof_options_prover).unwrap();
 
     let proof_options_verifier = ProofOptions::new_secure(SecurityLevel::Conjecturable128Bits, 3);
 
@@ -142,7 +142,7 @@ fn test_verifier_rejects_proof_with_different_security_params() {
 #[test]
 fn check_simple_cairo_trace_evaluates_to_zero() {
     let program_content = std::fs::read(cairo0_program_path("simple_program.json")).unwrap();
-    let (main_trace, public_input) =
+    let (mut main_trace, public_input) =
         generate_prover_args(&program_content, CairoLayout::Plain).unwrap();
     let mut trace_polys = main_trace.compute_trace_polys::<Stark252PrimeField>();
     let mut transcript = StoneProverTranscript::new(&[]);
@@ -151,7 +151,7 @@ fn check_simple_cairo_trace_evaluates_to_zero() {
     let cairo_air = CairoAIR::new(main_trace.num_rows(), &public_input, &proof_options);
     let rap_challenges = cairo_air.build_rap_challenges(&mut transcript);
 
-    let aux_trace = cairo_air.build_auxiliary_trace(&main_trace, &rap_challenges);
+    let aux_trace = cairo_air.build_auxiliary_trace(&mut main_trace, &rap_challenges);
     let aux_polys = aux_trace.compute_trace_polys::<Stark252PrimeField>();
 
     trace_polys.extend_from_slice(&aux_polys);
@@ -170,13 +170,13 @@ fn check_simple_cairo_trace_evaluates_to_zero() {
 #[test]
 fn deserialize_and_verify() {
     let program_content = std::fs::read(cairo0_program_path("fibonacci_10.json")).unwrap();
-    let (main_trace, pub_inputs) =
+    let (mut main_trace, pub_inputs) =
         generate_prover_args(&program_content, CairoLayout::Plain).unwrap();
 
     let proof_options = ProofOptions::default_test_options();
 
     // The proof is generated and serialized.
-    let proof = generate_cairo_proof(&main_trace, &pub_inputs, &proof_options).unwrap();
+    let proof = generate_cairo_proof(&mut main_trace, &pub_inputs, &proof_options).unwrap();
     let proof_bytes: Vec<u8> = serde_cbor::to_vec(&proof).unwrap();
 
     // The trace and original proof are dropped to show that they are decoupled from

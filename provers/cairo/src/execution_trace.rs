@@ -784,7 +784,7 @@ pub(crate) fn set_rc_permutation_column(trace: &mut CairoTraceTable, z: &Felt252
 }
 
 pub(crate) fn set_mem_permutation_column(
-    &mut trace: CairoTraceTable,
+    trace: &mut CairoTraceTable,
     alpha_mem: &Felt252,
     z_mem: &Felt252,
 ) {
