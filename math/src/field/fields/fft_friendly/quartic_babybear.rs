@@ -7,6 +7,8 @@ use crate::field::{
     },
 };
 
+use super::babybear::Babybear31PrimeField;
+
 /// Quartic field extension of Babybear
 pub type QuarticBabybearField =
     QuadraticExtensionField<QuadraticBabybearField, QuadraticBabybearField>;
@@ -17,7 +19,10 @@ pub type QuarticBabybearFieldElement =
 
 impl HasQuadraticNonResidue<QuadraticBabybearField> for QuadraticBabybearField {
     fn residue() -> QuadraticBabybearFieldElement {
-        -FieldElement::one()
+        QuadraticBabybearFieldElement::new([
+            -FieldElement::<Babybear31PrimeField>::from(1),
+            -FieldElement::<Babybear31PrimeField>::from(1),
+        ])
     }
 }
 
@@ -28,14 +33,15 @@ mod tests {
     use crate::field::fields::fft_friendly::babybear::Babybear31PrimeField;
 
     type FE = FieldElement<Babybear31PrimeField>;
-    type Fee = QuadraticBabybearFieldElement;
+    #[allow(non_camel_case_types)]
+    type FEE = QuadraticBabybearFieldElement;
 
     #[test]
     fn test_add_quartic() {
-        let a = Fee::new([FE::from(0), FE::from(3)]);
-        let b = Fee::new([-FE::from(2), FE::from(8)]);
-        let c = Fee::new([FE::from(3), FE::from(5)]);
-        let d = Fee::new([-FE::from(2), FE::from(8)]);
+        let a = FEE::new([FE::from(0), FE::from(3)]);
+        let b = FEE::new([-FE::from(2), FE::from(8)]);
+        let c = FEE::new([FE::from(3), FE::from(5)]);
+        let d = FEE::new([-FE::from(2), FE::from(8)]);
 
         let x = QuarticBabybearFieldElement::new([a.clone(), b.clone()]);
         let y = QuarticBabybearFieldElement::new([c.clone(), d.clone()]);
@@ -45,10 +51,10 @@ mod tests {
 
     #[test]
     fn test_sub_quartic() {
-        let a = Fee::new([FE::from(0), FE::from(3)]);
-        let b = Fee::new([-FE::from(2), FE::from(8)]);
-        let c = Fee::new([FE::from(3), FE::from(5)]);
-        let d = Fee::new([-FE::from(2), FE::from(8)]);
+        let a = FEE::new([FE::from(0), FE::from(3)]);
+        let b = FEE::new([-FE::from(2), FE::from(8)]);
+        let c = FEE::new([FE::from(3), FE::from(5)]);
+        let d = FEE::new([-FE::from(2), FE::from(8)]);
 
         let x = QuarticBabybearFieldElement::new([a.clone(), b.clone()]);
         let y = QuarticBabybearFieldElement::new([c.clone(), d.clone()]);
@@ -59,10 +65,10 @@ mod tests {
 
     #[test]
     fn test_mul_quartic() {
-        let a = Fee::new([FE::from(0), FE::from(3)]);
-        let b = Fee::new([-FE::from(2), FE::from(8)]);
-        let c = Fee::new([FE::from(3), FE::from(5)]);
-        let d = Fee::new([-FE::from(2), FE::from(8)]);
+        let a = FEE::new([FE::from(0), FE::from(3)]);
+        let b = FEE::new([-FE::from(2), FE::from(8)]);
+        let c = FEE::new([FE::from(3), FE::from(5)]);
+        let d = FEE::new([-FE::from(2), FE::from(8)]);
 
         let x = QuarticBabybearFieldElement::new([a.clone(), b.clone()]);
         let y = QuarticBabybearFieldElement::new([c.clone(), d.clone()]);
@@ -76,8 +82,8 @@ mod tests {
 
     #[test]
     fn test_inv_quartic() {
-        let a = Fee::new([FE::from(0), FE::from(3)]);
-        let b = Fee::new([-FE::from(2), FE::from(8)]);
+        let a = FEE::new([FE::from(0), FE::from(3)]);
+        let b = FEE::new([-FE::from(2), FE::from(8)]);
 
         let x = QuarticBabybearFieldElement::new([a.clone(), b.clone()]);
         let inv_norm = (a.pow(2_u64) - QuadraticBabybearField::residue() * b.pow(2_u64))
@@ -89,10 +95,10 @@ mod tests {
 
     #[test]
     fn test_div_quartic() {
-        let a = Fee::new([FE::from(0), FE::from(3)]);
-        let b = Fee::new([-FE::from(2), FE::from(8)]);
-        let c = Fee::new([FE::from(3), FE::from(5)]);
-        let d = Fee::new([-FE::from(2), FE::from(8)]);
+        let a = FEE::new([FE::from(0), FE::from(3)]);
+        let b = FEE::new([-FE::from(2), FE::from(8)]);
+        let c = FEE::new([FE::from(3), FE::from(5)]);
+        let d = FEE::new([-FE::from(2), FE::from(8)]);
 
         let x = QuarticBabybearFieldElement::new([a.clone(), b.clone()]);
         let y = QuarticBabybearFieldElement::new([c.clone(), d.clone()]);
@@ -103,8 +109,8 @@ mod tests {
 
     #[test]
     fn test_conjugate_quartic() {
-        let a = Fee::new([FE::from(0), FE::from(3)]);
-        let b = Fee::new([-FE::from(2), FE::from(8)]);
+        let a = FEE::new([FE::from(0), FE::from(3)]);
+        let b = FEE::new([-FE::from(2), FE::from(8)]);
 
         let x = QuarticBabybearFieldElement::new([a.clone(), b.clone()]);
         let expected_result = QuarticBabybearFieldElement::new([a, -b]);
