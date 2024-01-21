@@ -1,4 +1,3 @@
-use subtle::{Choice, ConditionallySelectable};
 use crate::{
     cyclic_group::IsGroup,
     elliptic_curve::{
@@ -9,6 +8,8 @@ use crate::{
     field::element::FieldElement,
     traits::{ByteConversion, Deserializable},
 };
+#[cfg(feature = "constant-time")]
+use subtle::{Choice, ConditionallySelectable};
 
 use super::traits::IsShortWeierstrass;
 
@@ -17,7 +18,8 @@ use crate::traits::AsBytes;
 #[cfg(feature = "alloc")]
 use alloc::vec::Vec;
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "constant-time", derive(Copy))]
 pub struct ShortWeierstrassProjectivePoint<E: IsEllipticCurve>(pub ProjectivePoint<E>);
 
 impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
@@ -197,6 +199,7 @@ impl<E: IsShortWeierstrass> FromAffine<E::BaseField> for ShortWeierstrassProject
     }
 }
 
+#[cfg(feature = "constant-time")]
 impl<E: IsShortWeierstrass> ConditionallySelectable for ShortWeierstrassProjectivePoint<E> {
     fn conditional_select(a: &Self, b: &Self, choice: Choice) -> Self {
         let res: [FieldElement<E::BaseField>; 3] = [

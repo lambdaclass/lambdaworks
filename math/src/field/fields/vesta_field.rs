@@ -6,6 +6,7 @@ use crate::{
 type VestaMontgomeryBackendPrimeField<T> = MontgomeryBackendPrimeField<T, 4>;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "constant-time", derive(Copy))]
 pub struct MontgomeryConfigVesta255PrimeField;
 impl IsModulus<U256> for MontgomeryConfigVesta255PrimeField {
     const MODULUS: U256 = U256::from_hex_unchecked(

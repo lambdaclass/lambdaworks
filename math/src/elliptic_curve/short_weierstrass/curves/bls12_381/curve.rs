@@ -17,7 +17,8 @@ pub type BLS12381FieldElement = FieldElement<BLS12381PrimeField>;
 pub type BLS12381TwistCurveFieldElement = FieldElement<Degree2ExtensionField>;
 
 /// The description of the curve.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "constant-time", derive(Copy))]
 pub struct BLS12381Curve;
 
 impl IsEllipticCurve for BLS12381Curve {

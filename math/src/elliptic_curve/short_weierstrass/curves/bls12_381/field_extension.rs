@@ -14,7 +14,8 @@ use crate::unsigned_integer::element::U384;
 pub const BLS12381_PRIME_FIELD_ORDER: U384 = U384::from_hex_unchecked("1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaab");
 
 // FPBLS12381
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "constant-time", derive(Copy))]
 pub struct BLS12381FieldModulus;
 impl IsModulus<U384> for BLS12381FieldModulus {
     const MODULUS: U384 = BLS12381_PRIME_FIELD_ORDER;
@@ -23,7 +24,8 @@ impl IsModulus<U384> for BLS12381FieldModulus {
 pub type BLS12381PrimeField = MontgomeryBackendPrimeField<BLS12381FieldModulus, 6>;
 
 //////////////////
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "constant-time", derive(Copy))]
 pub struct Degree2ExtensionField;
 
 impl IsField for Degree2ExtensionField {
@@ -188,7 +190,8 @@ impl ByteConversion for FieldElement<Degree2ExtensionField> {
 }
 
 ///////////////
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "constant-time", derive(Copy))]
 pub struct LevelTwoResidue;
 impl HasCubicNonResidue<Degree2ExtensionField> for LevelTwoResidue {
     fn residue() -> FieldElement<Degree2ExtensionField> {
@@ -201,7 +204,8 @@ impl HasCubicNonResidue<Degree2ExtensionField> for LevelTwoResidue {
 
 pub type Degree6ExtensionField = CubicExtensionField<Degree2ExtensionField, LevelTwoResidue>;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "constant-time", derive(Copy))]
 pub struct LevelThreeResidue;
 impl HasQuadraticNonResidue<Degree6ExtensionField> for LevelThreeResidue {
     fn residue() -> FieldElement<Degree6ExtensionField> {

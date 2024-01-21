@@ -5,7 +5,8 @@ use crate::{elliptic_curve::edwards::traits::IsEdwards, field::element::FieldEle
 
 pub type BaseBandersnatchFieldElement = FqField;
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "constant-time", derive(Copy))]
 pub struct BandersnatchCurve;
 
 impl IsEllipticCurve for BandersnatchCurve {

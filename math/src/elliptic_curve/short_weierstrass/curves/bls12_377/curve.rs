@@ -6,7 +6,8 @@ use crate::{
 };
 
 /// The description of the curve.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "constant-time", derive(Copy))]
 pub struct BLS12377Curve;
 
 impl IsEllipticCurve for BLS12377Curve {

@@ -6,7 +6,8 @@ use crate::{
     field::{element::FieldElement, fields::p448_goldilocks_prime_field::P448GoldilocksPrimeField},
 };
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "constant-time", derive(Copy))]
 pub struct Ed448Goldilocks;
 
 impl IsEllipticCurve for Ed448Goldilocks {

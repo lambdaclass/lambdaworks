@@ -7,7 +7,8 @@ use crate::{
 };
 
 /// Taken from moonmath manual page 97
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "constant-time", derive(Copy))]
 pub struct TinyJubJubEdwards;
 
 impl IsEllipticCurve for TinyJubJubEdwards {

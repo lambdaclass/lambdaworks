@@ -8,7 +8,8 @@ use core::marker::PhantomData;
 
 /// A general cubic extension field over `F`
 /// with cubic non residue `Q::residue()`
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "constant-time", derive(Copy))]
 pub struct CubicExtensionField<F, T> {
     field: PhantomData<F>,
     non_residue: PhantomData<T>,
@@ -19,9 +20,14 @@ pub type CubicExtensionFieldElement<F, T> = FieldElement<CubicExtensionField<F, 
 /// Trait to fix a cubic non residue.
 /// Used to construct a cubic extension field by adding
 /// a square root of `residue()`.
+#[cfg(not(feature = "constant-time"))]
 pub trait HasCubicNonResidue<F: IsField> {
     /// This function must return an element that is not a cube in Fp,
     /// that is, a cubic non-residue.
+    fn residue() -> FieldElement<F>;
+}
+#[cfg(feature = "constant-time")]
+pub trait HasCubicNonResidue<F: IsField>: Copy {
     fn residue() -> FieldElement<F>;
 }
 
@@ -58,7 +64,7 @@ where
 impl<F, Q> IsField for CubicExtensionField<F, Q>
 where
     F: IsField,
-    Q: Clone + Copy + Debug + HasCubicNonResidue<F>,
+    Q: Clone + Debug + HasCubicNonResidue<F>,
 {
     type BaseType = [FieldElement<F>; 3];
 
@@ -157,7 +163,7 @@ where
 impl<F, Q> IsSubFieldOf<CubicExtensionField<F, Q>> for F
 where
     F: IsField,
-    Q: Clone + Copy + Debug + HasCubicNonResidue<F>,
+    Q: Clone + Debug + HasCubicNonResidue<F>,
 {
     fn mul(
         a: &Self::BaseType,

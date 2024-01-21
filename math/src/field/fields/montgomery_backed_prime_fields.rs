@@ -19,7 +19,12 @@ pub type U64PrimeField<M> = MontgomeryBackendPrimeField<M, 1>;
 /// This trait is necessary for us to be able to use unsigned integer types bigger than
 /// `u128` (the biggest native `unit`) as constant generics.
 /// This trait should be removed when Rust supports this feature.
+#[cfg(not(feature = "constant-time"))]
 pub trait IsModulus<U>: Debug {
+    const MODULUS: U;
+}
+#[cfg(feature = "constant-time")]
+pub trait IsModulus<U>: Debug + Copy {
     const MODULUS: U;
 }
 
@@ -30,7 +35,7 @@ pub trait IsModulus<U>: Debug {
     ),
     derive(serde::Serialize, serde::Deserialize)
 )]
-#[derive(Clone, Debug, Hash, Copy)]
+#[derive(Clone, Debug, Copy, Hash)]
 pub struct MontgomeryBackendPrimeField<M, const NUM_LIMBS: usize> {
     phantom: PhantomData<M>,
 }
@@ -113,7 +118,7 @@ where
 
 impl<M, const NUM_LIMBS: usize> IsField for MontgomeryBackendPrimeField<M, NUM_LIMBS>
 where
-    M: IsModulus<UnsignedInteger<NUM_LIMBS>> + Clone + Copy + Debug,
+    M: IsModulus<UnsignedInteger<NUM_LIMBS>> + Clone + Debug,
 {
     type BaseType = UnsignedInteger<NUM_LIMBS>;
 
@@ -282,7 +287,7 @@ where
 
 impl<M, const NUM_LIMBS: usize> IsPrimeField for MontgomeryBackendPrimeField<M, NUM_LIMBS>
 where
-    M: IsModulus<UnsignedInteger<NUM_LIMBS>> + Clone + Copy + Debug,
+    M: IsModulus<UnsignedInteger<NUM_LIMBS>> + Clone + Debug,
 {
     type RepresentativeType = Self::BaseType;
 
@@ -319,14 +324,14 @@ where
 }
 
 impl<M, const NUM_LIMBS: usize> FieldElement<MontgomeryBackendPrimeField<M, NUM_LIMBS>> where
-    M: IsModulus<UnsignedInteger<NUM_LIMBS>> + Clone + Copy + Debug
+    M: IsModulus<UnsignedInteger<NUM_LIMBS>> + Clone + Debug
 {
 }
 
 impl<M, const NUM_LIMBS: usize> ByteConversion
     for FieldElement<MontgomeryBackendPrimeField<M, NUM_LIMBS>>
 where
-    M: IsModulus<UnsignedInteger<NUM_LIMBS>> + Clone + Copy + Debug,
+    M: IsModulus<UnsignedInteger<NUM_LIMBS>> + Clone + Debug,
 {
     #[cfg(feature = "alloc")]
     fn to_bytes_be(&self) -> alloc::vec::Vec<u8> {
@@ -364,7 +369,7 @@ where
 #[cfg(feature = "alloc")]
 impl<M, const NUM_LIMBS: usize> AsBytes for FieldElement<MontgomeryBackendPrimeField<M, NUM_LIMBS>>
 where
-    M: IsModulus<UnsignedInteger<NUM_LIMBS>> + Clone + Copy + Debug,
+    M: IsModulus<UnsignedInteger<NUM_LIMBS>> + Clone + Debug,
 {
     fn as_bytes(&self) -> alloc::vec::Vec<u8> {
         self.value().to_bytes_be()

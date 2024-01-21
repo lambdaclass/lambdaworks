@@ -30,6 +30,7 @@ use serde::ser::{Serialize, SerializeStruct, Serializer};
     feature = "lambdaworks-serde-string"
 ))]
 use serde::Deserialize;
+#[cfg(feature = "constant-time")]
 use subtle::{Choice, ConditionallySelectable};
 
 use super::fields::montgomery_backed_prime_fields::{IsModulus, MontgomeryBackendPrimeField};
@@ -37,7 +38,7 @@ use super::traits::{IsPrimeField, IsSubFieldOf, LegendreSymbol};
 
 /// A field element with operations algorithms defined in `F`
 #[allow(clippy::derived_hash_with_manual_eq)]
-#[derive(Debug, Clone, Hash, Copy)]
+#[derive(Debug, Clone, Copy, Hash)]
 pub struct FieldElement<F: IsField> {
     value: F::BaseType,
 }
@@ -77,6 +78,7 @@ impl<F: IsField> FieldElement<F> {
     }
 }
 
+#[cfg(feature = "constant-time")]
 impl<F: IsField> ConditionallySelectable for FieldElement<F> {
     fn conditional_select(a: &Self, b: &Self, choice: Choice) -> Self {
         Self {
@@ -671,7 +673,7 @@ impl<'de, F: IsPrimeField> Deserialize<'de> for FieldElement<F> {
 impl<M, const NUM_LIMBS: usize> fmt::Display
     for FieldElement<MontgomeryBackendPrimeField<M, NUM_LIMBS>>
 where
-    M: IsModulus<UnsignedInteger<NUM_LIMBS>> + Clone + Copy + Debug,
+    M: IsModulus<UnsignedInteger<NUM_LIMBS>> + Clone + Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let value: UnsignedInteger<NUM_LIMBS> = self.representative();
@@ -681,7 +683,7 @@ where
 
 impl<M, const NUM_LIMBS: usize> FieldElement<MontgomeryBackendPrimeField<M, NUM_LIMBS>>
 where
-    M: IsModulus<UnsignedInteger<NUM_LIMBS>> + Clone + Copy + Debug,
+    M: IsModulus<UnsignedInteger<NUM_LIMBS>> + Clone + Debug,
 {
     /// Creates a `FieldElement` from a hexstring. It can contain `0x` or not.
     /// # Panics

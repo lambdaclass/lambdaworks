@@ -7,7 +7,8 @@ use crate::unsigned_integer::element::U384;
 pub const BLS12377_PRIME_FIELD_ORDER: U384 = U384::from_hex_unchecked("1ae3a4617c510eac63b05c06ca1493b1a22d9f300f5138f1ef3622fba094800170b5d44300000008508c00000000001");
 
 // FPBLS12377
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "constant-time", derive(Copy))]
 pub struct BLS12377FieldModulus;
 impl IsModulus<U384> for BLS12377FieldModulus {
     const MODULUS: U384 = BLS12377_PRIME_FIELD_ORDER;

@@ -6,6 +6,7 @@ use crate::{
 };
 
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "constant-time", derive(Copy))]
 pub struct VestaCurve;
 
 impl IsEllipticCurve for VestaCurve {

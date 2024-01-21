@@ -14,7 +14,8 @@ const GENERATOR_Y_0: U384 = U384::from_hex_unchecked("0ce5d527727d6e118cc9cdc6da
 const GENERATOR_Y_1: U384 = U384::from_hex_unchecked("0606c4a02ea734cc32acd2b02bc28b99cb3e287e85a763af267492ab572e99ab3f370d275cec1da1aaa9075ff05f79be");
 
 /// The description of the curve.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "constant-time", derive(Copy))]
 pub struct BLS12381TwistCurve;
 
 impl IsEllipticCurve for BLS12381TwistCurve {

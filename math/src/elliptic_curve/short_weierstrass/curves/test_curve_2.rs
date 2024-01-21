@@ -21,7 +21,8 @@ pub const TEST_CURVE_2_MAIN_SUBGROUP_ORDER: U384 =
     U384::from_hex_unchecked("40a065fb5a76390de709fb229");
 
 // FPBLS12381
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "constant-time", derive(Copy))]
 pub struct TestCurve2Modulus;
 impl IsModulus<U384> for TestCurve2Modulus {
     const MODULUS: U384 = TEST_CURVE_2_PRIME_FIELD_ORDER;
@@ -32,7 +33,8 @@ type TestCurve2PrimeField = MontgomeryBackendPrimeField<TestCurve2Modulus, 6>;
 /// In F59 the element -1 is not a square. We use this property
 /// to construct a Quadratic Field Extension out of it by adding
 /// its square root.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "constant-time", derive(Copy))]
 pub struct TestCurve2QuadraticNonResidue;
 impl HasQuadraticNonResidue<TestCurve2PrimeField> for TestCurve2QuadraticNonResidue {
     fn residue() -> FieldElement<TestCurve2PrimeField> {
@@ -41,7 +43,8 @@ impl HasQuadraticNonResidue<TestCurve2PrimeField> for TestCurve2QuadraticNonResi
 }
 
 /// The description of the curve.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "constant-time", derive(Copy))]
 pub struct TestCurve2;
 
 impl IsEllipticCurve for TestCurve2 {

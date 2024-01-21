@@ -7,7 +7,8 @@ use crate::{
     unsigned_integer::element::{UnsignedInteger, U256},
 };
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "constant-time", derive(Copy))]
 pub struct FrConfig;
 
 /// Modulus of bls 12 381 subgroup
