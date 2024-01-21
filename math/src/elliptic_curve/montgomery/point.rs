@@ -80,10 +80,8 @@ impl<E: IsMontgomery> ConditionallySelectable for MontgomeryProjectivePoint<E> {
             FieldElement::conditional_select(&a.z(), &b.z(), choice),
         ];
 
-        Self{
-            0: ProjectivePoint {
-                value: res
-            }
+        Self {
+            0: ProjectivePoint { value: res },
         }
     }
 }

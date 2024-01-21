@@ -5,7 +5,8 @@ use crate::{
 
 type PallasMontgomeryBackendPrimeField<T> = MontgomeryBackendPrimeField<T, 4>;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "constant-time", derive(Copy))]
 pub struct MontgomeryConfigPallas255PrimeField;
 impl IsModulus<U256> for MontgomeryConfigPallas255PrimeField {
     const MODULUS: U256 = U256::from_hex_unchecked(

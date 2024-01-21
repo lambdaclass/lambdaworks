@@ -159,7 +159,7 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
         t1 = &t1 + &t0;
         let mut t2 = E::a() * pz;
         t4 = &b3 * &t4;
-        t1  = &t1 + &t2;
+        t1 = &t1 + &t2;
         t2 = &t0 - &t2;
         t2 = E::a() * &t2;
         t4 = &t4 + &t2;
@@ -174,7 +174,6 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
 
         Self::new([x3, y3, z3])
     }
-
 }
 
 impl<E: IsEllipticCurve> PartialEq for ShortWeierstrassProjectivePoint<E> {
@@ -208,9 +207,7 @@ impl<E: IsShortWeierstrass> ConditionallySelectable for ShortWeierstrassProjecti
             FieldElement::conditional_select(&a.0.value[2], &b.0.value[2], choice),
         ];
 
-        Self(ProjectivePoint {
-            value: res,
-        })
+        Self(ProjectivePoint { value: res })
     }
 }
 
@@ -306,7 +303,7 @@ impl<E: IsShortWeierstrass> IsGroup for ShortWeierstrassProjectivePoint<E> {
         t1 = &t1 + &t0;
         t2 = E::a() * &t2;
         t4 = &b3 * &t4;
-        t1  = &t1 + &t2;
+        t1 = &t1 + &t2;
         t2 = &t0 - &t2;
         t2 = E::a() * &t2;
         t4 = &t4 + &t2;

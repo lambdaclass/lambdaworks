@@ -4,7 +4,7 @@ use crate::traits::ByteConversion;
 use crate::{errors::CreationError, unsigned_integer::traits::IsUnsignedInteger};
 use core::fmt::Debug;
 #[cfg(feature = "constant-time")]
-use subtle::{ConditionallySelectable};
+use subtle::ConditionallySelectable;
 
 /// Represents different configurations that powers of roots of unity can be in. Some of these may
 /// be necessary for FFT (as twiddle factors).
