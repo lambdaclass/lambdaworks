@@ -225,7 +225,8 @@ mod tests {
 
     use super::*;
 
-    #[derive(Debug, Copy, Clone)]
+    #[derive(Debug, Clone)]
+    #[cfg_attr(feature = "constant-time", derive(Copy))]
     struct MyCubicNonResidue;
     impl HasCubicNonResidue<U64PrimeField<ORDER_P>> for MyCubicNonResidue {
         fn residue() -> FieldElement<U64PrimeField<ORDER_P>> {

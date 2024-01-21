@@ -402,7 +402,8 @@ mod tests_u384_prime_fields {
     use crate::unsigned_integer::element::U384;
     use crate::unsigned_integer::element::{UnsignedInteger, U256};
 
-    #[derive(Clone, Copy, Debug)]
+    #[derive(Clone, Debug)]
+    #[cfg_attr(feature = "constant-time", derive(Copy))]
     struct U384Modulus23;
     impl IsModulus<U384> for U384Modulus23 {
         const MODULUS: U384 = UnsignedInteger::from_u64(23);
@@ -423,7 +424,8 @@ mod tests_u384_prime_fields {
 
     #[test]
     fn u256_mod_2_uses_1_bit() {
-        #[derive(Clone, Copy, Debug)]
+        #[derive(Clone, Debug)]
+        #[cfg_attr(feature = "constant-time", derive(Copy))]
         struct U256Modulus1;
         impl IsModulus<U256> for U256Modulus1 {
             const MODULUS: U256 = UnsignedInteger::from_u64(2);
@@ -434,7 +436,8 @@ mod tests_u384_prime_fields {
 
     #[test]
     fn u256_with_first_bit_set_uses_256_bit() {
-        #[derive(Clone, Copy, Debug)]
+        #[derive(Clone, Debug)]
+        #[cfg_attr(feature = "constant-time", derive(Copy))]
         struct U256ModulusBig;
         impl IsModulus<U256> for U256ModulusBig {
             const MODULUS: U256 = UnsignedInteger::from_hex_unchecked(
@@ -639,7 +642,8 @@ mod tests_u384_prime_fields {
     }
 
     // FP1
-    #[derive(Clone, Copy, Debug)]
+    #[derive(Clone, Debug)]
+    #[cfg_attr(feature = "constant-time", derive(Copy))]
     struct U384ModulusP1;
     impl IsModulus<U384> for U384ModulusP1 {
         const MODULUS: U384 = UnsignedInteger {
@@ -791,7 +795,8 @@ mod tests_u256_prime_fields {
 
     use super::U64PrimeField;
 
-    #[derive(Clone, Copy, Debug)]
+    #[derive(Clone, Debug)]
+    #[cfg_attr(feature = "constant-time", derive(Copy))]
     struct U256Modulus29;
     impl IsModulus<U256> for U256Modulus29 {
         const MODULUS: U256 = UnsignedInteger::from_u64(29);
@@ -979,7 +984,8 @@ mod tests_u256_prime_fields {
     }
 
     // FP1
-    #[derive(Clone, Copy, Debug)]
+    #[derive(Clone, Debug)]
+    #[cfg_attr(feature = "constant-time", derive(Copy))]
     struct U256ModulusP1;
     impl IsModulus<U256> for U256ModulusP1 {
         const MODULUS: U256 = UnsignedInteger {
@@ -1024,7 +1030,8 @@ mod tests_u256_prime_fields {
     }
 
     // FP2
-    #[derive(Clone, Copy, Debug)]
+    #[derive(Clone, Debug)]
+    #[cfg_attr(feature = "constant-time", derive(Copy))]
     struct ModulusP2;
     impl IsModulus<U256> for ModulusP2 {
         const MODULUS: U256 = UnsignedInteger {
@@ -1182,7 +1189,8 @@ mod tests_u256_prime_fields {
     }
 
     // Goldilocks
-    #[derive(Clone, Copy, Debug)]
+    #[derive(Clone, Debug)]
+    #[cfg_attr(feature = "constant-time", derive(Copy))]
     struct GoldilocksModulus;
     impl IsModulus<U64> for GoldilocksModulus {
         const MODULUS: U64 = UnsignedInteger {

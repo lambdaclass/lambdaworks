@@ -12,7 +12,8 @@ use super::field::Mersenne31Field;
 
 //Note: The inverse calculation in mersenne31/plonky3 differs from the default quadratic extension so I implemented the complex extension.
 //////////////////
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "constant-time", derive(Copy))]
 pub struct Mersenne31Complex;
 
 impl IsField for Mersenne31Complex {
