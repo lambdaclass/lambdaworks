@@ -3,6 +3,7 @@ use super::{element::FieldElement, errors::FieldError};
 use crate::traits::ByteConversion;
 use crate::{errors::CreationError, unsigned_integer::traits::IsUnsignedInteger};
 use core::fmt::Debug;
+#[cfg(feature = "constant-time")]
 use subtle::{ConditionallySelectable};
 
 /// Represents different configurations that powers of roots of unity can be in. Some of these may
@@ -95,92 +96,106 @@ pub trait IsFFTField: IsField {
     }
 }
 
-/// Trait to add field behaviour to a struct.
-pub trait IsField: Debug + Clone + Copy {
-    /// The underlying base type for representing elements from the field.
-    // TODO: Relax Unpin for non cuda usage
-    #[cfg(feature = "lambdaworks-serde-binary")]
-    type BaseType: Clone + Copy + Debug + Unpin + ByteConversion + ConditionallySelectable;
-    #[cfg(not(feature = "lambdaworks-serde-binary"))]
-    type BaseType: Clone + Copy + Debug + Unpin + ConditionallySelectable;
+macro_rules! define_field_trait {
+    ($($bound:ident),*) => {
+        /// Trait to add field behaviour to a struct.
+        pub trait IsField: $($bound +)* {
+            /// The underlying base type for representing elements from the field.
+            // TODO: Relax Unpin for non cuda usage
+            #[cfg(all(feature = "lambdaworks-serde-binary", feature = "constant-time"))]
+            type BaseType: Clone + Copy + Debug + Unpin + ByteConversion + ConditionallySelectable;
+            #[cfg(all(feature = "lambdaworks-serde-binary", not(feature = "constant-time")))]
+            type BaseType: Clone + Debug + Unpin + ByteConversion;
+            #[cfg(all(not(feature = "lambdaworks-serde-binary"), feature = "constant-time"))]
+            type BaseType: Clone + Copy + Debug + Unpin + ConditionallySelectable;
+            #[cfg(all(not(feature = "lambdaworks-serde-binary"), not(feature = "constant-time")))]
+            type BaseType: Clone + Debug + Unpin;
 
-    /// Returns the sum of `a` and `b`.
-    fn add(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType;
+            /// Returns the sum of `a` and `b`.
+            fn add(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType;
 
-    /// Returns the multiplication of `a` and `b`.
-    fn mul(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType;
+            /// Returns the multiplication of `a` and `b`.
+            fn mul(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType;
 
-    /// Returns the multiplication of `a` and `a`.
-    fn square(a: &Self::BaseType) -> Self::BaseType {
-        Self::mul(a, a)
-    }
-
-    fn pow<T>(a: &Self::BaseType, mut exponent: T) -> Self::BaseType
-    where
-        T: IsUnsignedInteger,
-    {
-        let zero = T::from(0);
-        let one = T::from(1);
-
-        if exponent == zero {
-            Self::one()
-        } else if exponent == one {
-            a.clone()
-        } else {
-            let mut result = a.clone();
-
-            while exponent & one == zero {
-                result = Self::square(&result);
-                exponent = exponent >> 1;
+            /// Returns the multiplication of `a` and `a`.
+            fn square(a: &Self::BaseType) -> Self::BaseType {
+                Self::mul(a, a)
             }
 
-            if exponent == zero {
-                result
-            } else {
-                let mut base = result.clone();
-                exponent = exponent >> 1;
+            fn pow<T>(a: &Self::BaseType, mut exponent: T) -> Self::BaseType
+            where
+                T: IsUnsignedInteger,
+            {
+                let zero = T::from(0);
+                let one = T::from(1);
 
-                while exponent != zero {
-                    base = Self::square(&base);
-                    if exponent & one == one {
-                        result = Self::mul(&result, &base);
+                if exponent == zero {
+                    Self::one()
+                } else if exponent == one {
+                    a.clone()
+                } else {
+                    let mut result = a.clone();
+
+                    while exponent & one == zero {
+                        result = Self::square(&result);
+                        exponent = exponent >> 1;
                     }
-                    exponent = exponent >> 1;
+
+                    if exponent == zero {
+                        result
+                    } else {
+                        let mut base = result.clone();
+                        exponent = exponent >> 1;
+
+                        while exponent != zero {
+                            base = Self::square(&base);
+                            if exponent & one == one {
+                                result = Self::mul(&result, &base);
+                            }
+                            exponent = exponent >> 1;
+                        }
+
+                        result
+                    }
                 }
-
-                result
             }
+
+            /// Returns the subtraction of `a` and `b`.
+            fn sub(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType;
+
+            /// Returns the additive inverse of `a`.
+            fn neg(a: &Self::BaseType) -> Self::BaseType;
+
+            /// Returns the multiplicative inverse of `a`.
+            fn inv(a: &Self::BaseType) -> Result<Self::BaseType, FieldError>;
+
+            /// Returns the division of `a` and `b`.
+            fn div(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType;
+
+            /// Returns a boolean indicating whether `a` and `b` are equal or not.
+            fn eq(a: &Self::BaseType, b: &Self::BaseType) -> bool;
+
+            /// Returns the additive neutral element.
+            fn zero() -> Self::BaseType;
+
+            /// Returns the multiplicative neutral element.
+            fn one() -> Self::BaseType;
+
+            /// Returns the element `x * 1` where 1 is the multiplicative neutral element.
+            fn from_u64(x: u64) -> Self::BaseType;
+
+            /// Takes as input an element of BaseType and returns the internal representation
+            /// of that element in the field.
+            fn from_base_type(x: Self::BaseType) -> Self::BaseType;
         }
-    }
-
-    /// Returns the subtraction of `a` and `b`.
-    fn sub(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType;
-
-    /// Returns the additive inverse of `a`.
-    fn neg(a: &Self::BaseType) -> Self::BaseType;
-
-    /// Returns the multiplicative inverse of `a`.
-    fn inv(a: &Self::BaseType) -> Result<Self::BaseType, FieldError>;
-
-    /// Returns the division of `a` and `b`.
-    fn div(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType;
-
-    /// Returns a boolean indicating whether `a` and `b` are equal or not.
-    fn eq(a: &Self::BaseType, b: &Self::BaseType) -> bool;
-
-    /// Returns the additive neutral element.
-    fn zero() -> Self::BaseType;
-
-    /// Returns the multiplicative neutral element.
-    fn one() -> Self::BaseType;
-
-    /// Returns the element `x * 1` where 1 is the multiplicative neutral element.
-    fn from_u64(x: u64) -> Self::BaseType;
-
-    /// Takes as input an element of BaseType and returns the internal representation
-    /// of that element in the field.
-    fn from_base_type(x: Self::BaseType) -> Self::BaseType;
+    };
 }
+
+#[cfg(not(feature = "constant-time"))]
+define_field_trait!(Debug, Clone);
+
+#[cfg(feature = "constant-time")]
+define_field_trait!(Debug, Clone, Copy);
 
 #[derive(PartialEq)]
 pub enum LegendreSymbol {
