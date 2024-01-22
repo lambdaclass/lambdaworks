@@ -230,7 +230,6 @@ fn write_proof(
 
 fn main() {
     let proof_options = ProofOptions::new_secure(SecurityLevel::Conjecturable100Bits, 3);
-
     let args: commands::ProverArgs = commands::ProverArgs::parse();
     match args.entity {
         commands::ProverEntity::Compile(args) => {

@@ -38,10 +38,10 @@ pprof = { version = "0.13.0", features = ["criterion","flamegraph"] }
 
 [features]
 constant-time = []
-rayon = ["dep:rayon"]
-default = ["rayon", "std"]
+default = ["parallel", "std"]
 std = ["alloc", "serde?/std", "serde_json?/std"]
 alloc = []
+parallel = ["dep:rayon"]
 lambdaworks-serde-binary = ["dep:serde", "alloc"]
 lambdaworks-serde-string = ["dep:serde", "dep:serde_json", "alloc"]
 proptest = ["dep:proptest"]
@@ -79,7 +79,7 @@ harness = false
 [[bench]]
 name = "criterion_msm"
 harness = false
-required-features = ["rayon"]
+required-features = ["parallel"]
 
 [[bench]]
 name = "criterion_fft"

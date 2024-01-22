@@ -24,6 +24,7 @@ clippy:
 	cargo clippy --workspace --all-targets -- -D warnings
 	cargo clippy --workspace --all-targets --features wasm -- -D warnings
 	cargo clippy --workspace --all-targets --features cli -- -D warnings
+	cargo clippy --workspace --all-targets --features parallel -- -D warnings
 	cargo clippy --tests
 	cargo clippy -p lambdaworks-math --features constant-time -- -A clippy::op_ref -A clippy::clone_on_copy -A clippy::needless_borrow -D warnings
 
