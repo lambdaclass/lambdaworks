@@ -4,6 +4,7 @@ use lambdaworks_math::field::{
 
 use crate::{
     examples::{
+        bit_flags::{self, BitFlagsAIR},
         dummy_air::{self, DummyAIR},
         fibonacci_2_cols_shifted::{self, Fibonacci2ColsShifted},
         fibonacci_2_columns::{self, Fibonacci2ColsAIR},
@@ -21,7 +22,7 @@ use crate::{
 
 #[test_log::test]
 fn test_prove_fib() {
-    let trace = simple_fibonacci::fibonacci_trace([Felt252::from(1), Felt252::from(1)], 8);
+    let trace = simple_fibonacci::fibonacci_trace([Felt252::from(1), Felt252::from(1)], 1024);
 
     let proof_options = ProofOptions::default_test_options();
 
@@ -132,9 +133,7 @@ fn test_prove_simple_periodic_32() {
 #[test_log::test]
 fn test_prove_fib_2_cols() {
     let trace = fibonacci_2_columns::compute_trace([Felt252::from(1), Felt252::from(1)], 16);
-
     let proof_options = ProofOptions::default_test_options();
-
     let pub_inputs = FibonacciPublicInputs {
         a0: Felt252::one(),
         a1: Felt252::one(),
@@ -147,6 +146,7 @@ fn test_prove_fib_2_cols() {
         StoneProverTranscript::new(&[]),
     )
     .unwrap();
+
     assert!(Verifier::<Fibonacci2ColsAIR<Stark252PrimeField>>::verify(
         &proof,
         &pub_inputs,
@@ -185,7 +185,7 @@ fn test_prove_fib_2_cols_shifted() {
 
 #[test_log::test]
 fn test_prove_quadratic() {
-    let trace = quadratic_air::quadratic_trace(Felt252::from(3), 4);
+    let trace = quadratic_air::quadratic_trace(Felt252::from(3), 32);
 
     let proof_options = ProofOptions::default_test_options();
 
@@ -246,10 +246,28 @@ fn test_prove_dummy() {
     let proof =
         Prover::<DummyAIR>::prove(&trace, &(), &proof_options, StoneProverTranscript::new(&[]))
             .unwrap();
+
     assert!(Verifier::<DummyAIR>::verify(
         &proof,
         &(),
         &proof_options,
         StoneProverTranscript::new(&[])
+    ));
+}
+
+#[test_log::test]
+fn test_prove_bit_flags() {
+    let trace = bit_flags::bit_prefix_flag_trace(32);
+    let proof_options = ProofOptions::default_test_options();
+
+    let proof =
+        Prover::<BitFlagsAIR>::prove(&trace, &(), &proof_options, StoneProverTranscript::new(&[]))
+            .unwrap();
+
+    assert!(Verifier::<BitFlagsAIR>::verify(
+        &proof,
+        &(),
+        &proof_options,
+        StoneProverTranscript::new(&[]),
     ));
 }
