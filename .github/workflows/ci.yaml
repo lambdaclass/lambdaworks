@@ -118,7 +118,10 @@ jobs:
         run: cargo test --package lambdaworks-math --package lambdaworks-crypto --no-default-features
         
       - name: Run tests for math with no std + alloc
-        run: cargo test --package lambdaworks-math --no-default-features --features=alloc,lambdaworks-serde-string,lambdaworks-serde-binary 
+        run: cargo test --package lambdaworks-math --no-default-features --features=alloc,lambdaworks-serde-string,lambdaworks-serde-binary
+
+      - name: Run tests with no std + constant-time
+        run: cargo test --package lambdaworks-math --package lambdaworks-crypto --no-default-features --features=constant-time
 
       - name: Run tests and generate code coverage
         run: make coverage
