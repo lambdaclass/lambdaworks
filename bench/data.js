@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1705681997436,
+  "lastUpdate": 1705933171153,
   "repoUrl": "https://github.com/lambdaclass/lambdaworks",
   "entries": {
     "Benchmark": [
@@ -31379,6 +31379,150 @@ window.BENCHMARK_DATA = {
             "name": "Polynomial/div by 'x - b' with Ruffini",
             "value": 542,
             "range": "± 6",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mariano.nicolini.91@gmail.com",
+            "name": "Mariano A. Nicolini",
+            "username": "entropidelic"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c4586a75cb75493c19865d17b0c678fc7f88e8cf",
+          "message": "refactor: transition constraints (#721)\n\n* Start refactor\n\n* Add TransitionZerofiersIter and implement Iterator trait\n\n* Stark prover code compiling\n\n* Save progress\n\n* Refactor is compiling\n\n* Comment code to run only fibonacci AIR tests\n\n* Change compute_transition function\n\n* Code is compiling\n\n* Add some debug prints\n\n* Dummy commit\n\n* Dummy commit\n\n* Dummy commit\n\n* Fix zerofier evaluations bugs and make fibonacci AIR test pass\n\n* Remove commented code\n\n* Implement bit flags AIR and test\n\n* Add bit flag AIR example file\n\n* Fix get_trace_evaluations function for multi-row step AIRs\n\n* Save debugging process\n\n* Refactor step view functionality\n\n* Save work in progress\n\n* Bugs fixed and bit flags AIR integration test pussing\n\n* Remove unused code\n\n* Fix fibonacci 2 cols to new constraints design\n\n* Fix quadratic AIRs to new constraints design\n\n* Fix fibonacci RAP AIR\n\n* Fix shifted 2 columns fibonacci AIR to new constraints design\n\n* Fix dummy AIR to new constraints design\n\n* Remove unused code and fix winterfell adapter version of lambdaworks platinum prover\n\n* Implement some Cairo constraints with the new constraints model\n\n* Add some more constraints\n\n* Finish operand constraints\n\n* Add some more constraints\n\n* Finish porting all constraints\n\n* Make Cairo prover compile\n\n* Make Cairo prover compile\n\n* Cairo tests running but not passing with some constraints enabled\n\n* Make zerofier evaluations independent of constraint index in constraints vector\n\n* Remove unused code\n\n* Remove more unused code\n\n* Rollback change in exercises file\n\n* Uncomment winterfell adapter\n\n* Update winterfell adapter AI\n\n* Update winterfell adapter example\n\n* Fix TOML\n\n* Save changes in winterfell adapter\n\n* Save changes in winterfell adapter\n\n* Fix TOML\n\n* Fix winterfell adapter crate\n\n* Minor fix\n\n* Save work in progress - code compiling, fibonacci test failing\n\n* Fix some bugs\n\n* Make 2 columns fibonacci test pass\n\n* Make 2 columns shifted fibonacci test pass\n\n* Save work in progress\n\n* Fix bug and make bit flags AIR test pass\n\n* Make quadratic AIR test pass\n\n* Fix dummy AIR test\n\n* Save work in progress\n\n* Fix some bugs\n\n* Fix some more bugs\n\n* Fix some more bugs\n\n* Fix some more bugs\n\n* Make Cairo tests pass\n\n* Remove commented code\n\n* Pin winterfell adapter and miden example to version of lambdaworks\n\n* Polish code\n\n* Polish more code\n\n* Fix periodic columns AIR example and tests\n\n* Remove some useless code\n\n* Fix some clippy warnings\n\n* Apply clippy fix\n\n* Rearrange debug code in Cairo AIR\n\n* Fix wasm test\n\n* Import module inside debug scope\n\n* Fix code\n\n* Fix lint\n\n* Remove useless comments\n\n* Add some docs for transition constraints trait\n\n* Polish docs a bit\n\n* Add more comments to code\n\n* Remove unused code\n\n* Apply optimization\n\n* Remove unused code\n\n* Add some comments\n\n* Add type alias for ZerofierGroupKey\n\n* Add instruments, use iterators in last eval loop\n\n* Fmt\n\n* Constraint refactor parallel (#773)\n\nAdd parallel to the last step\n\n---------\n\nCo-authored-by: MauroFab <maurotoscano2@gmail.com>\nCo-authored-by: Mauro Toscano <12560266+MauroToscano@users.noreply.github.com>",
+          "timestamp": "2024-01-22T14:02:46Z",
+          "tree_id": "fc9e635cf69e3339891420320bc10e431acaf5bb",
+          "url": "https://github.com/lambdaclass/lambdaworks/commit/c4586a75cb75493c19865d17b0c678fc7f88e8cf"
+        },
+        "date": 1705933164809,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "Ordered FFT/Parallel (Metal)",
+            "value": 98100987,
+            "range": "± 7580444",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #2",
+            "value": 196682423,
+            "range": "± 17568961",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #3",
+            "value": 410089416,
+            "range": "± 29787296",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #4",
+            "value": 878017979,
+            "range": "± 50528264",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal)",
+            "value": 40324847,
+            "range": "± 1212093",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #2",
+            "value": 76531202,
+            "range": "± 1822520",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #3",
+            "value": 139523074,
+            "range": "± 5756739",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #4",
+            "value": 282453323,
+            "range": "± 12476044",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal)",
+            "value": 42322684,
+            "range": "± 2099187",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #2",
+            "value": 73728608,
+            "range": "± 4805511",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #3",
+            "value": 132755482,
+            "range": "± 7534011",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #4",
+            "value": 316761687,
+            "range": "± 26358902",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal",
+            "value": 165070467,
+            "range": "± 17329666",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #2",
+            "value": 267480812,
+            "range": "± 33400001",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #3",
+            "value": 534125979,
+            "range": "± 42791305",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #4",
+            "value": 1087471812,
+            "range": "± 60590020",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal",
+            "value": 453277145,
+            "range": "± 7843696",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #2",
+            "value": 878341542,
+            "range": "± 28254440",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #3",
+            "value": 1768241520,
+            "range": "± 53710373",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #4",
+            "value": 3533598854,
+            "range": "± 131993149",
             "unit": "ns/iter"
           }
         ]
