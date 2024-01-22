@@ -733,7 +733,7 @@ mod tests_u384_prime_fields {
         let y = U384FP2Element::new(UnsignedInteger::from_hex_unchecked(
             "5f103b0bd4397d4df560eb559f38353f80eeb6",
         ));
-        assert_eq!(&y * x, y);
+        assert_eq!(y * x, y);
     }
 
     #[test]
