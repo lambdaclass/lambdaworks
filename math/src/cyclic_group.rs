@@ -37,7 +37,7 @@ macro_rules! define_group_trait {
                 let mut r0 = Self::neutral_element();
                 let mut r1 = self.clone();
 
-                let num_bits = std::mem::size_of::<T>() * 8;
+                let num_bits = core::mem::size_of::<T>() * 8;
 
                 for i in (0..num_bits).rev() {
                     let mask = T::from(1) << i;

@@ -3,6 +3,9 @@
 #[cfg(feature = "alloc")]
 extern crate alloc;
 
+#[cfg(all(any(feature = "winter_compatibility", feature = "winter-math", feature = "miden-core"), feature = "constant-time"))]
+compile_error!("Feature winter_compatibility and constant-time are mutually exclusive and cannot be enabled together");
+
 pub mod cyclic_group;
 pub mod elliptic_curve;
 pub mod errors;

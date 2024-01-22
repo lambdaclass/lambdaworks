@@ -28,8 +28,8 @@ pub struct U56x8 {
 impl ConditionallySelectable for U56x8 {
     fn conditional_select(a: &Self, b: &Self, choice: Choice) -> Self {
         let mut limbs = [0u64; 8];
-        for i in 0..8 {
-            limbs[i] = u64::conditional_select(&a.limbs[i], &b.limbs[i], choice);
+        for (i, limb) in limbs.iter_mut().enumerate() {
+            *limb = u64::conditional_select(&a.limbs[i], &b.limbs[i], choice);
         }
         U56x8 { limbs }
     }
