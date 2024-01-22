@@ -81,7 +81,7 @@ mod tests {
 
     type F = MontgomeryBackendPrimeField<U64, 1>;
 
-    #[derive(Clone, Debug)]
+    #[derive(Clone, Copy, Debug)]
     struct U64;
     impl IsModulus<UnsignedInteger<1>> for U64 {
         const MODULUS: UnsignedInteger<1> = UnsignedInteger::from_u64(18446744069414584321_u64);
