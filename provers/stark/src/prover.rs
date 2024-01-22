@@ -20,7 +20,8 @@ use rayon::prelude::{IndexedParallelIterator, IntoParallelRefIterator, ParallelI
 use crate::debug::validate_trace;
 use crate::fri;
 use crate::proof::stark::{DeepPolynomialOpenings, PolynomialOpenings};
-use crate::table::{EvaluationTable, Table};
+use crate::table::Table;
+use crate::trace::{columns2rows, LDETraceTable};
 use crate::transcript::IsStarkTranscript;
 
 use super::config::{BatchedMerkleTree, Commitment};
@@ -68,13 +69,13 @@ where
     FieldElement<A::Field>: AsBytes + Sync + Send,
 {
     /// The table of evaluations over the LDE of the main and auxiliary trace tables.
-    pub(crate) lde_table: EvaluationTable<A::Field, A::FieldExtension>,
+    pub(crate) lde_trace: LDETraceTable<A::Field, A::FieldExtension>,
     /// The intermediate results of the commitment to the main trace table.
     pub(crate) main: Round1CommitmentData<A::Field>,
     /// The intermediate results of the commitment to the auxiliary trace table in case of RAP.
     pub(crate) aux: Option<Round1CommitmentData<A::FieldExtension>>,
     /// The challenges of the RAP round.
-    pub(crate) rap_challenges: A::RAPChallenges,
+    pub(crate) rap_challenges: Vec<FieldElement<A::FieldExtension>>,
 }
 
 impl<A> Round1<A>
@@ -121,7 +122,7 @@ where
 /// A container for the results of the third round of the STARK Prove protocol.
 pub struct Round3<F: IsField> {
     /// Evaluations of the trace polynomials, main ans auxiliary, at the out-of-domain challenge.
-    trace_ood_evaluations: EvaluationTable<F, F>,
+    trace_ood_evaluations: Table<F>,
     /// Evaluations of the composition polynomial parts at the out-of-domain challenge.
     composition_poly_parts_ood_evaluation: Vec<FieldElement<F>>,
 }
@@ -214,14 +215,14 @@ pub trait IsStarkProver<A: AIR> {
         let lde_trace_evaluations = Self::compute_lde_trace_evaluations(&trace_polys, domain);
 
         let mut lde_trace_permuted = lde_trace_evaluations.clone();
-
         for col in lde_trace_permuted.iter_mut() {
             in_place_bit_reverse_permute(col);
         }
 
         // Compute commitment.
-        let lde_trace = TraceTable::from_columns(lde_trace_permuted, A::STEP_SIZE);
-        let (lde_trace_merkle_tree, lde_trace_merkle_root) = Self::batch_commit(&lde_trace.rows());
+        let lde_trace_permuted_rows = columns2rows(lde_trace_permuted);
+        let (lde_trace_merkle_tree, lde_trace_merkle_root) =
+            Self::batch_commit(&lde_trace_permuted_rows);
 
         // >>>> Send commitment.
         transcript.append_bytes(&lde_trace_merkle_root);
@@ -300,10 +301,16 @@ pub trait IsStarkProver<A: AIR> {
         } else {
             (None, Vec::new())
         };
-        let lde_table = EvaluationTable::from_columns(evaluations, aux_evaluations, A::STEP_SIZE);
+
+        let lde_trace = LDETraceTable::from_columns(
+            evaluations,
+            aux_evaluations,
+            A::STEP_SIZE,
+            domain.blowup_factor,
+        );
 
         Ok(Round1 {
-            lde_table,
+            lde_trace,
             main,
             aux,
             rap_challenges,
@@ -351,7 +358,6 @@ pub trait IsStarkProver<A: AIR> {
     ) -> Round2<A::FieldExtension>
     where
         A: Send + Sync,
-        A::RAPChallenges: Send + Sync,
         FieldElement<A::Field>: AsBytes + Send + Sync,
         FieldElement<A::FieldExtension>: AsBytes + Send + Sync,
     {
@@ -359,7 +365,7 @@ pub trait IsStarkProver<A: AIR> {
         let evaluator = ConstraintEvaluator::new(air, &round_1_result.rap_challenges);
         let constraint_evaluations = evaluator.evaluate(
             air,
-            &round_1_result.lde_table,
+            &round_1_result.lde_trace,
             domain,
             transition_coefficients,
             boundary_coefficients,
@@ -427,19 +433,19 @@ pub trait IsStarkProver<A: AIR> {
         //
         // In the fibonacci example, the ood frame is simply the evaluations `[t(z), t(z * g), t(z * g^2)]`, where `t` is the trace
         // polynomial and `g` is the primitive root of unity used when interpolating `t`.
-
-        let trace_ood_evaluations = crate::trace::get_trace_evaluations(
-            &round_1_result.main.trace_polys,
-            round_1_result
-                .aux
-                .as_ref()
-                .map(|aux| &aux.trace_polys)
-                .unwrap_or(&vec![]),
-            z,
-            &air.context().transition_offsets,
-            &domain.trace_primitive_root,
-            A::STEP_SIZE,
-        );
+        let trace_ood_evaluations =
+            crate::trace::get_trace_evaluations::<A::Field, A::FieldExtension>(
+                &round_1_result.main.trace_polys,
+                round_1_result
+                    .aux
+                    .as_ref()
+                    .map(|aux| &aux.trace_polys)
+                    .unwrap_or(&vec![]),
+                z,
+                &air.context().transition_offsets,
+                &domain.trace_primitive_root,
+                A::STEP_SIZE,
+            );
 
         Round3 {
             trace_ood_evaluations,
@@ -587,7 +593,7 @@ pub trait IsStarkProver<A: AIR> {
         // ∑ ⱼₖ [ 𝛾ₖ ( tⱼ − tⱼ(z) ) / ( X − zgᵏ )]
 
         // @@@ this could be const
-        let trace_frame_length = trace_frame_evaluations.n_rows();
+        let trace_frame_length = trace_frame_evaluations.height;
 
         #[cfg(feature = "parallel")]
         let trace_terms = trace_polys
@@ -751,7 +757,7 @@ pub trait IsStarkProver<A: AIR> {
             let main_trace_opening = Self::open_trace_polys::<A::Field>(
                 domain,
                 &round_1_result.main.lde_trace_merkle_tree,
-                &round_1_result.lde_table.main_table,
+                &round_1_result.lde_trace.main_table,
                 *index,
             );
 
@@ -765,7 +771,7 @@ pub trait IsStarkProver<A: AIR> {
                 Self::open_trace_polys::<A::FieldExtension>(
                     domain,
                     &aux.lde_trace_merkle_tree,
-                    &round_1_result.lde_table.aux_table,
+                    &round_1_result.lde_trace.aux_table,
                     *index,
                 )
             });
@@ -791,7 +797,6 @@ pub trait IsStarkProver<A: AIR> {
     ) -> Result<StarkProof<A::Field, A::FieldExtension>, ProvingError>
     where
         A: Send + Sync,
-        A::RAPChallenges: Send + Sync,
         FieldElement<A::Field>: AsBytes + Send + Sync,
         FieldElement<A::FieldExtension>: AsBytes + Send + Sync,
     {
@@ -997,6 +1002,7 @@ pub trait IsStarkProver<A: AIR> {
         })
     }
 }
+
 #[cfg(test)]
 mod tests {
     use std::num::ParseIntError;
@@ -1160,7 +1166,7 @@ mod tests {
     }
 
     fn stone_compatibility_case_1_challenges(
-    ) -> Challenges<Stark252PrimeField, Fibonacci2ColsShifted<Stark252PrimeField>> {
+    ) -> Challenges<Fibonacci2ColsShifted<Stark252PrimeField>> {
         let (proof, public_inputs, options, seed) = proof_parts_stone_compatibility_case_1();
 
         let air = Fibonacci2ColsShifted::new(proof.trace_length, &public_inputs, &options);
@@ -1237,25 +1243,25 @@ mod tests {
         let proof = stone_compatibility_case_1_proof();
 
         assert_eq!(
-            proof.trace_ood_evaluations.get_row_main(0)[0],
+            proof.trace_ood_evaluations.get_row(0)[0],
             FieldElement::from_hex_unchecked(
                 "70d8181785336cc7e0a0a1078a79ee6541ca0803ed3ff716de5a13c41684037",
             )
         );
         assert_eq!(
-            proof.trace_ood_evaluations.get_row_main(1)[0],
+            proof.trace_ood_evaluations.get_row(1)[0],
             FieldElement::from_hex_unchecked(
                 "29808fc8b7480a69295e4b61600480ae574ca55f8d118100940501b789c1630",
             )
         );
         assert_eq!(
-            proof.trace_ood_evaluations.get_row_main(0)[1],
+            proof.trace_ood_evaluations.get_row(0)[1],
             FieldElement::from_hex_unchecked(
                 "7d8110f21d1543324cc5e472ab82037eaad785707f8cae3d64c5b9034f0abd2",
             )
         );
         assert_eq!(
-            proof.trace_ood_evaluations.get_row_main(1)[1],
+            proof.trace_ood_evaluations.get_row(1)[1],
             FieldElement::from_hex_unchecked(
                 "1b58470130218c122f71399bf1e04cf75a6e8556c4751629d5ce8c02cc4e62d",
             )
@@ -1556,7 +1562,7 @@ mod tests {
     }
 
     fn stone_compatibility_case_2_challenges(
-    ) -> Challenges<Stark252PrimeField, Fibonacci2ColsShifted<Stark252PrimeField>> {
+    ) -> Challenges<Fibonacci2ColsShifted<Stark252PrimeField>> {
         let (proof, public_inputs, options, seed) = proof_parts_stone_compatibility_case_2();
 
         let air = Fibonacci2ColsShifted::new(proof.trace_length, &public_inputs, &options);
