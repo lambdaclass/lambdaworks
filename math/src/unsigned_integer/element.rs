@@ -40,8 +40,8 @@ pub struct UnsignedInteger<const NUM_LIMBS: usize> {
 impl<const NUM_LIMBS: usize> ConditionallySelectable for UnsignedInteger<NUM_LIMBS> {
     fn conditional_select(a: &Self, b: &Self, choice: Choice) -> Self {
         let mut limbs = [0u64; NUM_LIMBS];
-        for i in 0..NUM_LIMBS {
-            limbs[i] = u64::conditional_select(&a.limbs[i], &b.limbs[i], choice);
+        for (i, limb) in limbs.iter_mut().enumerate() {
+            *limb = u64::conditional_select(&a.limbs[i], &b.limbs[i], choice);
         }
         Self { limbs }
     }
