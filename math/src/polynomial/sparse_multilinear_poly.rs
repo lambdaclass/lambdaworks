@@ -105,6 +105,7 @@ where
     }
 }
 
+/// Returns the bit decomposition (Vec<bool>) of the `index` of an evaluation within the sparse multilinear polynomial.
 fn get_bits(n: usize, num_bits: usize) -> Vec<bool> {
     (0..num_bits)
         .map(|shift_amount| ((n & (1 << (num_bits - shift_amount - 1))) > 0))
