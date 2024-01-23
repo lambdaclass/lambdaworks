@@ -1,9 +1,8 @@
+use crate::frame::Frame;
 use lambdaworks_math::field::{
     element::FieldElement,
     traits::{IsField, IsSubFieldOf},
 };
-
-use crate::trace::StepView;
 
 /// A two-dimensional Table holding field elements, arranged in a row-major order.
 /// This is the basic underlying data structure used for any two-dimensional component in the
@@ -15,25 +14,6 @@ pub struct Table<F: IsField> {
     pub data: Vec<FieldElement<F>>,
     pub width: usize,
     pub height: usize,
-}
-
-/// A view of a contiguos subset of rows of a table.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct TableView<'t, F: IsField> {
-    pub data: &'t [FieldElement<F>],
-    pub table_row_idx: usize,
-    pub width: usize,
-    pub height: usize,
-}
-
-/// A pair of tables corresponding to evaluations of the main and auxiliary traces.
-/// It supports main and auxiliary tables taking values in different fields.
-/// Both tables must have the same number of rows.
-#[derive(Clone, Default, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub struct EvaluationTable<F: IsSubFieldOf<E>, E: IsField> {
-    pub(crate) main_table: Table<F>,
-    pub(crate) aux_table: Table<E>,
-    pub(crate) step_size: usize,
 }
 
 impl<'t, F: IsField> Table<F> {
@@ -100,20 +80,6 @@ impl<'t, F: IsField> Table<F> {
         &mut self.data[row_offset..row_offset + n_cols]
     }
 
-    /// Given a row index and a number of rows, returns a view of a subset of contiguous rows
-    /// of the table, starting from that index.
-    pub fn table_view(&'t self, from_idx: usize, num_rows: usize) -> TableView<'t, F> {
-        let from_offset = from_idx * self.width;
-        let data = &self.data[from_offset..from_offset + self.width * num_rows];
-
-        TableView {
-            data,
-            table_row_idx: from_idx,
-            width: self.width,
-            height: num_rows,
-        }
-    }
-
     /// Given a slice of field elements representing a row, appends it to
     /// the end of the table.
     pub fn append_row(&mut self, row: &[FieldElement<F>]) {
@@ -155,169 +121,57 @@ impl<'t, F: IsField> Table<F> {
         let idx = row * self.width + col;
         self.data[idx] = value;
     }
-}
 
-// /// Given a step size, converts the given table into a `Frame`.
-// pub fn into_frame(&'t self, step_size: usize) -> Frame<'t, F> {
-//     debug_assert!(self.height % step_size == 0);
-//     let steps = (0..self.height)
-//         .step_by(step_size)
-//         .enumerate()
-//         .map(|(step_idx, row_idx)| {
-//             let table_view = self.table_view(row_idx, step_size);
-//             StepView::new(table_view, step_idx)
-//         })
-//         .collect();
-impl<E: IsField> EvaluationTable<E, E> {
-    /// Returns a single vector of elements with the concatenation of the corresponding rows
-    /// in the main and auxiliary tables.
-    pub fn get_row(&self, row_idx: usize) -> Vec<FieldElement<E>> {
-        let mut row: Vec<_> = self.get_row_main(row_idx).to_vec();
-        row.extend_from_slice(self.get_row_aux(row_idx));
-        row
-    }
+    /// Given a step size, converts the given table into a `Frame`.
+    pub fn into_frame(&'t self, main_trace_columns: usize, step_size: usize) -> Frame<'t, F, F> {
+        debug_assert!(self.height % step_size == 0);
+        let steps = (0..self.height)
+            .step_by(step_size)
+            .map(|initial_row_idx| {
+                let end_row_idx = initial_row_idx + step_size;
 
-    /// Returns the values of the tables as a single list of columns containing both main and
-    /// auxiliary tables. The first `self.n_main_cols()` are the columns of the main trace and the
-    /// rest are the auxiliary table columns.
-    pub fn columns(&self) -> Vec<Vec<FieldElement<E>>> {
-        let mut columns = self.main_table.columns();
-        let aux_columns = self.aux_table.columns();
-        columns.extend(aux_columns);
-        columns
+                let mut step_main_data: Vec<&'t [FieldElement<F>]> = Vec::new();
+                let mut step_aux_data: Vec<&'t [FieldElement<F>]> = Vec::new();
+
+                (initial_row_idx..end_row_idx).for_each(|row_idx| {
+                    let row = self.get_row(row_idx);
+                    step_main_data.push(&row[..main_trace_columns]);
+                    step_aux_data.push(&row[main_trace_columns..]);
+                });
+
+                TableView::new(step_main_data, step_aux_data)
+            })
+            .collect();
+
+        Frame::new(steps)
     }
 }
 
-impl<F: IsSubFieldOf<E>, E: IsField> EvaluationTable<F, E> {
-    /// Creates an EvaluationTable instance from a vector of columns.
-    pub fn from_columns(
-        main_columns: Vec<Vec<FieldElement<F>>>,
-        aux_columns: Vec<Vec<FieldElement<E>>>,
-        step_size: usize,
-    ) -> Self {
-        let main_table = Table::from_columns(main_columns);
-        let aux_table = Table::from_columns(aux_columns);
-        debug_assert!(aux_table.height == 0 || (main_table.height == aux_table.height));
-        Self {
-            main_table,
-            aux_table,
-            step_size,
-        }
-    }
-
-    /// Returns the number of columns of the main table.
-    pub fn n_main_cols(&self) -> usize {
-        self.main_table.width
-    }
-
-    /// Returns the number of columns of the auxiliary table.
-    pub fn n_aux_cols(&self) -> usize {
-        self.aux_table.width
-    }
-
-    /// Returns the total number of columns in both tables.
-    pub fn n_cols(&self) -> usize {
-        self.n_main_cols() + self.n_aux_cols()
-    }
-
-    /// Returns the total number of rows.
-    pub fn n_rows(&self) -> usize {
-        debug_assert!(
-            self.aux_table.height == 0 || (self.main_table.height == self.aux_table.height)
-        );
-        self.main_table.height
-    }
-
-    /// Returns the total number of steps.
-    pub fn num_steps(&self) -> usize {
-        debug_assert!((self.main_table.height % self.step_size) == 0);
-        debug_assert!(
-            self.aux_table.height == 0 || (self.main_table.height == self.aux_table.height)
-        );
-        self.main_table.height / self.step_size
-    }
-
-    /// Given a particular step of the computation represented on the trace,
-    /// returns the row of the underlying table.
-    pub fn step_to_row(&self, step: usize) -> usize {
-        self.step_size * step
-    }
-
-    /// Given a step index, return the step view of the trace for that index
-    pub fn step_view(&self, step_idx: usize) -> StepView<'_, F, E> {
-        let row_idx = self.step_to_row(step_idx);
-        let main_table_view = self.main_table.table_view(row_idx, self.step_size);
-        let aux_table_view = self.aux_table.table_view(row_idx, self.step_size);
-
-        StepView {
-            main_table_view,
-            aux_table_view,
-            step_idx,
-        }
-    }
-
-    /// Given a row and a column index, gives stored value in that position
-    pub fn get_main(&self, row: usize, col: usize) -> &FieldElement<F> {
-        self.main_table.get(row, col)
-    }
-
-    /// Given a row and a column index, gives stored value in that position
-    pub fn get_aux(&self, row: usize, col: usize) -> &FieldElement<E> {
-        self.aux_table.get(row, col)
-    }
-
-    /// Given a row index, returns a reference to that row in the main table as a slice of field elements.
-    pub fn get_row_main(&self, row_idx: usize) -> &[FieldElement<F>] {
-        let row_offset = row_idx * self.main_table.width;
-        &self.main_table.data[row_offset..row_offset + self.main_table.width]
-    }
-
-    /// Given a row index, returns a reference to that row in the aux table as a slice of field elements.
-    pub fn get_row_aux(&self, row_idx: usize) -> &[FieldElement<E>] {
-        let row_offset = row_idx * self.aux_table.width;
-        &self.aux_table.data[row_offset..row_offset + self.aux_table.width]
-    }
+/// A view of a contiguos subset of rows of a table.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct TableView<'t, F, E>
+where
+    E: IsField,
+    F: IsSubFieldOf<F>,
+{
+    pub data: Vec<&'t [FieldElement<F>]>,
+    pub aux_data: Vec<&'t [FieldElement<E>]>,
 }
 
-impl<'t, F: IsField> TableView<'t, F> {
-    pub fn new(
-        data: &'t [FieldElement<F>],
-        table_row_idx: usize,
-        width: usize,
-        height: usize,
-    ) -> Self {
-        Self {
-            data,
-            width,
-            table_row_idx,
-            height,
-        }
+impl<'t, F, E> TableView<'t, F, E>
+where
+    E: IsField,
+    F: IsSubFieldOf<F>,
+{
+    pub fn new(data: Vec<&'t [FieldElement<F>]>, aux_data: Vec<&'t [FieldElement<E>]>) -> Self {
+        Self { data, aux_data }
     }
 
-    pub fn get(&self, row: usize, col: usize) -> &FieldElement<F> {
-        let idx = row * self.width + col;
-        &self.data[idx]
+    pub fn get_main_evaluation_element(&self, row: usize, col: usize) -> &FieldElement<F> {
+        &self.data[row][col]
     }
 
-    pub fn get_row(&self, row: usize) -> &[FieldElement<F>] {
-        let first = row * self.width;
-        &self.data[first..first + self.width]
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-    use crate::Felt252;
-
-    #[test]
-    fn get_rows_slice_works() {
-        let data: Vec<Felt252> = (0..=11).map(Felt252::from).collect();
-        let table = Table::new(data, 3);
-
-        let slice = table.table_view(1, 2);
-        let expected_data: Vec<Felt252> = (3..=8).map(Felt252::from).collect();
-
-        assert_eq!(slice.data, expected_data);
+    pub fn get_aux_evaluation_element(&self, row: usize, col: usize) -> &FieldElement<E> {
+        &self.aux_data[row][col]
     }
 }

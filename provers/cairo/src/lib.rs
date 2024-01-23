@@ -10,6 +10,7 @@ pub mod execution_trace;
 pub mod layouts;
 pub mod register_states;
 pub mod runner;
+pub mod transition_constraints;
 
 #[cfg(test)]
 pub mod tests;

@@ -1,173 +1,242 @@
-use lambdaworks_math::field::{element::FieldElement, traits::IsFFTField};
+// use std::marker::PhantomData;
 
-use crate::{
-    constraints::boundary::{BoundaryConstraint, BoundaryConstraints},
-    context::AirContext,
-    frame::Frame,
-    proof::options::ProofOptions,
-    trace::TraceTable,
-    traits::AIR,
-    transcript::IsStarkTranscript,
-};
+// use crate::{
+//     constraints::{
+//         boundary::{BoundaryConstraint, BoundaryConstraints},
+//         transition::TransitionConstraint,
+//     },
+//     context::AirContext,
+//     frame::Frame,
+//     proof::options::ProofOptions,
+//     trace::TraceTable,
+//     traits::AIR,
+// };
+// use lambdaworks_math::field::{element::FieldElement, traits::IsFFTField};
 
-/// A sequence that uses periodic columns. It has two columns
-/// - C1: at each step adds the last two values or does
-///       nothing depending on C2.
-/// - C2: it is a binary column that cycles around [0, 1]
-///
-///   C1   |   C2
-///   1    |   0     Boundary col1 = 1
-///   1    |   1     Boundary col1 = 1
-///   1    |   0     Does nothing
-///   2    |   1     Adds 1 + 1
-///   2    |   0     Does nothing
-///   4    |   1     Adds 2 + 2
-///   4    |   0     ...
-///   8    |   1
-#[derive(Clone)]
-pub struct SimplePeriodicAIR<F>
-where
-    F: IsFFTField,
-{
-    context: AirContext,
-    trace_length: usize,
-    pub_inputs: SimplePeriodicPublicInputs<F>,
-}
+// pub struct PeriodicConstraint<F: IsFFTField> {
+//     phantom: PhantomData<F>,
+// }
+// impl<F: IsFFTField> PeriodicConstraint<F> {
+//     pub fn new() -> Self {
+//         Self {
+//             phantom: PhantomData,
+//         }
+//     }
+// }
+// impl<F: IsFFTField> Default for PeriodicConstraint<F> {
+//     fn default() -> Self {
+//         Self::new()
+//     }
+// }
 
-#[derive(Clone, Debug)]
-pub struct SimplePeriodicPublicInputs<F>
-where
-    F: IsFFTField,
-{
-    pub a0: FieldElement<F>,
-    pub a1: FieldElement<F>,
-}
+// impl<F> TransitionConstraint<F, F> for PeriodicConstraint<F>
+// where
+//     F: IsFFTField + Send + Sync,
+// {
+//     fn degree(&self) -> usize {
+//         1
+//     }
 
-impl<F> AIR for SimplePeriodicAIR<F>
-where
-    F: IsFFTField,
-{
-    type Field = F;
-    type FieldExtension = F;
-    type RAPChallenges = ();
-    type PublicInputs = SimplePeriodicPublicInputs<Self::Field>;
+//     fn constraint_idx(&self) -> usize {
+//         0
+//     }
 
-    const STEP_SIZE: usize = 1;
+//     fn end_exemptions(&self) -> usize {
+//         2
+//     }
 
-    fn new(
-        trace_length: usize,
-        pub_inputs: &Self::PublicInputs,
-        proof_options: &ProofOptions,
-    ) -> Self {
-        let context = AirContext {
-            proof_options: proof_options.clone(),
-            trace_columns: 1,
-            transition_exemptions: vec![2],
-            transition_offsets: vec![0, 1, 2],
-            num_transition_constraints: 1,
-        };
+//     fn evaluate(
+//         &self,
+//         frame: &Frame<F, F>,
+//         transition_evaluations: &mut [FieldElement<F>],
+//         periodic_values: &[FieldElement<F>],
+//         _rap_challenges: &[FieldElement<F>],
+//     ) {
+//         let first_step = frame.get_evaluation_step(0);
+//         let second_step = frame.get_evaluation_step(1);
+//         let third_step = frame.get_evaluation_step(2);
 
-        Self {
-            pub_inputs: pub_inputs.clone(),
-            context,
-            trace_length,
-        }
-    }
+//         let a0 = first_step.get_main_evaluation_element(0, 0);
+//         let a1 = second_step.get_main_evaluation_element(0, 0);
+//         let a2 = third_step.get_main_evaluation_element(0, 0);
 
-    fn composition_poly_degree_bound(&self) -> usize {
-        self.trace_length()
-    }
+//         let s = &periodic_values[0];
 
-    fn build_auxiliary_trace(
-        &self,
-        _main_trace: &mut TraceTable<Self::Field>,
-        _rap_challenges: &Self::RAPChallenges,
-    ) -> TraceTable<Self::Field> {
-        TraceTable::empty()
-    }
+//         transition_evaluations[self.constraint_idx()] = s * (a2 - a1 - a0);
+//     }
+// }
 
-    fn build_rap_challenges(
-        &self,
-        _transcript: &mut impl IsStarkTranscript<Self::FieldExtension>,
-    ) -> Self::RAPChallenges {
-    }
+// /// A sequence that uses periodic columns. It has two columns
+// /// - C1: at each step adds the last two values or does
+// ///       nothing depending on C2.
+// /// - C2: it is a binary column that cycles around [0, 1]
+// ///
+// ///   C1   |   C2
+// ///   1    |   0     Boundary col1 = 1
+// ///   1    |   1     Boundary col1 = 1
+// ///   1    |   0     Does nothing
+// ///   2    |   1     Adds 1 + 1
+// ///   2    |   0     Does nothing
+// ///   4    |   1     Adds 2 + 2
+// ///   4    |   0     ...
+// ///   8    |   1
+// pub struct SimplePeriodicAIR<F>
+// where
+//     F: IsFFTField,
+// {
+//     context: AirContext,
+//     trace_length: usize,
+//     pub_inputs: SimplePeriodicPublicInputs<F>,
+//     transition_constraints: Vec<Box<dyn TransitionConstraint<F, F>>>,
+// }
 
-    fn compute_transition_prover(
-        &self,
-        frame: &Frame<Self::Field, Self::FieldExtension>,
-        periodic_values: &[FieldElement<Self::Field>],
-        _rap_challenges: &Self::RAPChallenges,
-    ) -> Vec<FieldElement<Self::Field>> {
-        let first_step = frame.get_evaluation_step(0);
-        let second_step = frame.get_evaluation_step(1);
-        let third_step = frame.get_evaluation_step(2);
+// #[derive(Clone, Debug)]
+// pub struct SimplePeriodicPublicInputs<F>
+// where
+//     F: IsFFTField,
+// {
+//     pub a0: FieldElement<F>,
+//     pub a1: FieldElement<F>,
+// }
 
-        let a0 = first_step.get_main_evaluation_element(0, 0);
-        let a1 = second_step.get_main_evaluation_element(0, 0);
-        let a2 = third_step.get_main_evaluation_element(0, 0);
+// impl<F> AIR for SimplePeriodicAIR<F>
+// where
+//     F: IsFFTField + Send + Sync + 'static,
+// {
+//     type Field = F;
+//     type FieldExtension = F;
+//     type PublicInputs = SimplePeriodicPublicInputs<Self::Field>;
 
-        let s = &periodic_values[0];
+//     const STEP_SIZE: usize = 1;
 
-        vec![s * (a2 - a1 - a0)]
-    }
+//     fn new(
+//         trace_length: usize,
+//         pub_inputs: &Self::PublicInputs,
+//         proof_options: &ProofOptions,
+//     ) -> Self {
+//         let transition_constraints: Vec<
+//             Box<dyn TransitionConstraint<Self::Field, Self::FieldExtension>>,
+//         > = vec![Box::new(PeriodicConstraint::new())];
 
-    fn boundary_constraints(
-        &self,
-        _rap_challenges: &Self::RAPChallenges,
-    ) -> BoundaryConstraints<Self::Field> {
-        let a0 = BoundaryConstraint::new_simple_main(0, self.pub_inputs.a0.clone());
-        let a1 = BoundaryConstraint::new_simple_main(
-            self.trace_length() - 1,
-            self.pub_inputs.a1.clone(),
-        );
+//         let context = AirContext {
+//             proof_options: proof_options.clone(),
+//             trace_columns: 1,
+//             transition_exemptions: vec![2],
+//             transition_offsets: vec![0, 1, 2],
+//             num_transition_constraints: transition_constraints.len(),
+//         };
 
-        BoundaryConstraints::from_constraints(vec![a0, a1])
-    }
+//         Self {
+//             pub_inputs: pub_inputs.clone(),
+//             context,
+//             trace_length,
+//             transition_constraints,
+//         }
+//     }
 
-    fn number_auxiliary_rap_columns(&self) -> usize {
-        0
-    }
+//     fn composition_poly_degree_bound(&self) -> usize {
+//         self.trace_length()
+//     }
 
-    fn get_periodic_column_values(&self) -> Vec<Vec<FieldElement<Self::Field>>> {
-        vec![vec![FieldElement::zero(), FieldElement::one()]]
-    }
+// <<<<<<< HEAD
+//     fn build_auxiliary_trace(
+//         &self,
+//         _main_trace: &mut TraceTable<Self::Field>,
+//         _rap_challenges: &Self::RAPChallenges,
+//     ) -> TraceTable<Self::Field> {
+//         TraceTable::empty()
+//     }
 
-    fn context(&self) -> &AirContext {
-        &self.context
-    }
+//     fn build_rap_challenges(
+//         &self,
+//         _transcript: &mut impl IsStarkTranscript<Self::FieldExtension>,
+//     ) -> Self::RAPChallenges {
+//     }
 
-    fn trace_length(&self) -> usize {
-        self.trace_length
-    }
+//     fn compute_transition_prover(
+//         &self,
+//         frame: &Frame<Self::Field, Self::FieldExtension>,
+//         periodic_values: &[FieldElement<Self::Field>],
+//         _rap_challenges: &Self::RAPChallenges,
+//     ) -> Vec<FieldElement<Self::Field>> {
+//         let first_step = frame.get_evaluation_step(0);
+//         let second_step = frame.get_evaluation_step(1);
+//         let third_step = frame.get_evaluation_step(2);
 
-    fn pub_inputs(&self) -> &Self::PublicInputs {
-        &self.pub_inputs
-    }
+//         let a0 = first_step.get_main_evaluation_element(0, 0);
+//         let a1 = second_step.get_main_evaluation_element(0, 0);
+//         let a2 = third_step.get_main_evaluation_element(0, 0);
 
-    fn compute_transition_verifier(
-        &self,
-        frame: &Frame<Self::FieldExtension, Self::FieldExtension>,
-        periodic_values: &[FieldElement<Self::FieldExtension>],
-        rap_challenges: &Self::RAPChallenges,
-    ) -> Vec<FieldElement<Self::Field>> {
-        self.compute_transition_prover(frame, periodic_values, rap_challenges)
-    }
-}
+//         let s = &periodic_values[0];
 
-pub fn simple_periodic_trace<F: IsFFTField>(trace_length: usize) -> TraceTable<F> {
-    let mut ret: Vec<FieldElement<F>> = vec![];
+//         vec![s * (a2 - a1 - a0)]
+//     }
 
-    ret.push(FieldElement::one());
-    ret.push(FieldElement::one());
-    ret.push(FieldElement::one());
+// =======
+// >>>>>>> constraints-refactor
+//     fn boundary_constraints(
+//         &self,
+//         _rap_challenges: &[FieldElement<Self::FieldExtension>],
+//     ) -> BoundaryConstraints<Self::Field> {
+//         let a0 = BoundaryConstraint::new_simple_main(0, self.pub_inputs.a0.clone());
+//         let a1 = BoundaryConstraint::new_simple_main(
+//             self.trace_length() - 1,
+//             self.pub_inputs.a1.clone(),
+//         );
 
-    let mut accum = FieldElement::from(2);
-    while ret.len() < trace_length - 1 {
-        ret.push(accum.clone());
-        ret.push(accum.clone());
-        accum = &accum + &accum;
-    }
-    ret.push(accum);
+//         BoundaryConstraints::from_constraints(vec![a0, a1])
+//     }
 
-    TraceTable::from_columns(vec![ret], 1)
-}
+//     fn transition_constraints(
+//         &self,
+//     ) -> &Vec<Box<dyn TransitionConstraint<Self::Field, Self::FieldExtension>>> {
+//         &self.transition_constraints
+//     }
+
+//     fn get_periodic_column_values(&self) -> Vec<Vec<FieldElement<Self::Field>>> {
+//         vec![vec![FieldElement::zero(), FieldElement::one()]]
+//     }
+
+//     fn context(&self) -> &AirContext {
+//         &self.context
+//     }
+
+//     fn trace_length(&self) -> usize {
+//         self.trace_length
+//     }
+
+//     fn trace_layout(&self) -> (usize, usize) {
+//         (1, 0)
+//     }
+
+//     fn pub_inputs(&self) -> &Self::PublicInputs {
+//         &self.pub_inputs
+//     }
+
+//     fn compute_transition_verifier(
+//         &self,
+//         frame: &Frame<Self::FieldExtension, Self::FieldExtension>,
+//         periodic_values: &[FieldElement<Self::FieldExtension>],
+//         rap_challenges: &[FieldElement<Self::FieldExtension>],
+//     ) -> Vec<FieldElement<Self::Field>> {
+//         self.compute_transition_prover(frame, periodic_values, rap_challenges)
+//     }
+// }
+
+// pub fn simple_periodic_trace<F: IsFFTField>(trace_length: usize) -> TraceTable<F> {
+//     let mut ret: Vec<FieldElement<F>> = vec![];
+
+//     ret.push(FieldElement::one());
+//     ret.push(FieldElement::one());
+//     ret.push(FieldElement::one());
+
+//     let mut accum = FieldElement::from(2);
+//     while ret.len() < trace_length - 1 {
+//         ret.push(accum.clone());
+//         ret.push(accum.clone());
+//         accum = &accum + &accum;
+//     }
+//     ret.push(accum);
+
+//     TraceTable::from_columns_main(vec![ret], 1)
+// }
