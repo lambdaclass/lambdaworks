@@ -4,7 +4,7 @@ use crate::{
 };
 use alloc::{vec, vec::Vec};
 use core::ops::{Add, Index, Mul};
-#[cfg(feature = "rayon")]
+#[cfg(feature = "parallel")]
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
 
 /// Represents a multilinear polynomials as a vector of evaluations (FieldElements) in lagrange basis
@@ -71,10 +71,10 @@ where
                 chis[i - 1] = scalar - &chis[i];
             }
         }
-        #[cfg(feature = "rayon")]
+        #[cfg(feature = "parallel")]
         let iter = (0..chis.len()).into_par_iter();
 
-        #[cfg(not(feature = "rayon"))]
+        #[cfg(not(feature = "parallel"))]
         let iter = 0..chis.len();
         Ok(iter.map(|i| &self.evals[i] * &chis[i]).sum())
     }
@@ -168,10 +168,10 @@ where
             return Err("Polynomials must have the same number of variables");
         }
 
-        #[cfg(feature = "rayon")]
+        #[cfg(feature = "parallel")]
         let evals = self.evals.into_par_iter().zip(other.evals.into_par_iter());
 
-        #[cfg(not(feature = "rayon"))]
+        #[cfg(not(feature = "parallel"))]
         let evals = self.evals.iter().zip(other.evals.iter());
         let sum: Vec<FieldElement<F>> = evals.map(|(a, b)| a + b).collect();
 

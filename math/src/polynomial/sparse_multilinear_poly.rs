@@ -1,4 +1,4 @@
-#[cfg(feature = "rayon")]
+#[cfg(feature = "parallel")]
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
 use crate::field::{element::FieldElement, traits::IsField};
@@ -55,10 +55,10 @@ where
             ));
         }
 
-        #[cfg(feature = "rayon")]
+        #[cfg(feature = "parallel")]
         let iter = (0..self.evals.len()).into_par_iter();
 
-        #[cfg(not(feature = "rayon"))]
+        #[cfg(not(feature = "parallel"))]
         let iter = 0..self.evals.len();
 
         Ok(iter
@@ -91,10 +91,10 @@ where
             ));
         }
 
-        #[cfg(feature = "rayon")]
+        #[cfg(feature = "parallel")]
         let iter = (0..evals.len()).into_par_iter();
 
-        #[cfg(not(feature = "rayon"))]
+        #[cfg(not(feature = "parallel"))]
         let iter = 0..evals.len();
         Ok(iter
             .map(|i| {
