@@ -1,16 +1,16 @@
 #![allow(clippy::too_many_arguments)]
 #![allow(clippy::type_complexity)]
 
-use std::{borrow::Borrow, iter, marker::PhantomData, sync::Mutex};
-use alloc::sync::Arc;
+use std::{borrow::Borrow, iter, marker::PhantomData,};
 use lambdaworks_math::{
     cyclic_group::IsGroup, elliptic_curve::{traits::IsPairing, short_weierstrass::curves::bls12_381::pairing::BLS12381AtePairing}, field::{element::FieldElement, traits::{IsField, IsPrimeField}}, msm::pippenger::msm, polynomial::{Polynomial, dense_multilinear_poly::DenseMultilinearPolynomial}, traits::{AsBytes, ByteConversion}, unsigned_integer::element::UnsignedInteger
 };
-use crate::{commitments::{kzg::StructuredReferenceString, traits::PolynomialCommitmentScheme}, fiat_shamir::{default_transcript::DefaultTranscript, transcript::Transcript}};
+use crate::{commitments::{traits::PolynomialCommitmentScheme}, fiat_shamir::{default_transcript::DefaultTranscript, transcript::Transcript}};
 
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
 
+//TODO: gate with alloc
 #[derive(Debug, Clone, Default)]
 pub struct ZeromorphSRS<P: IsPairing> {
   pub g1_powers: Vec<P::G1Point>,
@@ -20,7 +20,6 @@ pub struct ZeromorphSRS<P: IsPairing> {
 impl<P: IsPairing> ZeromorphSRS<P> {
 
   pub fn setup() -> ZeromorphSRS<P> {
-    //TODO: Fuck this pig
     todo!()
   }
 
@@ -289,7 +288,7 @@ FieldElement<<P as IsPairing>::BaseField>: ByteConversion,
         FieldElement::zero(),
       ),
       |(mut f_batched, mut batched_evaluation), i| {
-        f_batched += polys[i].clone() * scalar;
+        f_batched = (f_batched + polys[i].clone() * scalar).unwrap();
         batched_evaluation += scalar * evals[i];
         scalar *= rho;
         (f_batched, batched_evaluation)
@@ -331,8 +330,8 @@ FieldElement<<P as IsPairing>::BaseField>: ByteConversion,
     let (eval_scalar, (zeta_degree_check_q_scalars, z_zmpoly_q_scalars)) =
       eval_and_quotient_scalars::<P>(y_challenge, x_challenge, z_challenge, &challenge);
     // f = z * x * poly.Z + q_hat + (-z * x * Φ_n(x) * e) + x * ∑_k (q_scalars_k * q_k)
-    pi_poly *= &z_challenge;
-    pi_poly += &q_hat;
+    pi_poly = pi_poly * &z_challenge;
+    pi_poly = pi_poly + &q_hat;
     pi_poly[0] += &(batched_evaluation * eval_scalar);
     quotients
       .into_iter()
@@ -385,7 +384,7 @@ FieldElement<<P as IsPairing>::BaseField>: ByteConversion,
       (FieldElement::zero(), FieldElement::zero()),
       |(mut batched_evaluation, mut batched_commitment), (eval, commitment)| {
         batched_evaluation += scalar * eval;
-        batched_commitment += *commitment * scalar;
+        batched_commitment += commitment.operate_with_self(scalar.representative());
         scalar *= rho;
         (batched_evaluation, batched_commitment)
       },
@@ -427,8 +426,8 @@ FieldElement<<P as IsPairing>::BaseField>: ByteConversion,
     ]
     .concat();
     let zeta_z_com = msm(
-            &bases,
-            &scalars
+            &scalars,
+            &bases
         )
         .expect("`points` is sliced by `cs`'s length");
 
@@ -442,18 +441,16 @@ FieldElement<<P as IsPairing>::BaseField>: ByteConversion,
 #[cfg(test)]
 mod test {
 
-    use crate::fiat_shamir::transcript::Transcript;
-
     use super::*;
 
     // Evaluate Phi_k(x) = \sum_{i=0}^k x^i using the direct inefficent formula
-    fn phi<F: IsField>(challenge: &FieldElement<F>, subscript: usize) -> FieldElement<F> {
+    fn phi<P: IsPairing>(challenge: &FieldElement<P::BaseField>, subscript: usize) -> FieldElement<P::BaseField> {
     let len = (1 << subscript) as u64;
     (0..len)
         .into_iter()
-        .fold(FieldElement::<F>::zero(), |mut acc, i| {
+        .fold(FieldElement::<P::BaseField>::zero(), |mut acc, i| {
         //Note this is ridiculous DevX
-        acc += challenge.pow(BigInt::<1>::from(i));
+        acc += challenge.pow(i);
         acc
         })
     }
@@ -478,12 +475,12 @@ mod test {
         let challenges = (0..num_vars)
         .map(|_| Fr::rand(&mut rng))
         .collect::<Vec<_>>();
-        let evals = polys.evaluate(&challenges);
+        let evals = polys.evaluate(&challenges).unwrap();
 
         // Commit and open
         let commitments = Zeromorph::<BLS12381AtePairing>::commit(vec![polys.clone()], &pk.g1_powers).unwrap();
 
-        let mut prover_transcript = Transcript::new(b"example");
+        let mut prover_transcript = DefaultTranscript::new();
         let proof = Zeromorph::<BLS12381AtePairing>::prove(
         vec![polys],
         vec![evals],
@@ -493,7 +490,7 @@ mod test {
         )
         .unwrap();
 
-        let mut verifier_transcript = Transcript::new(b"example");
+        let mut verifier_transcript = DefaultTranscript::new();
         Zeromorph::<BLS12381AtePairing>::verify(
         commitments,
         vec![evals],
@@ -513,7 +510,7 @@ fn prove_verify_batched() {
 let max_vars = 16;
 let mut rng = test_rng();
 let num_polys = 8;
-let srs = ;
+let srs = ZeromorphSRS;
 
 for num_vars in 3..max_vars {
     // Setup
@@ -521,7 +518,7 @@ for num_vars in 3..max_vars {
     let poly_size = 1 << (num_vars + 1);
     srs.trim(poly_size - 1).unwrap()
     };
-    let polys: Vec<DenseMultilinearPolynomial<Fr>> = (0..num_polys)
+    let polys: Vec<DenseMultilinearPolynomial<_>> = (0..num_polys)
     .map(|_| {
         DenseMultilinearPolynomial::new(
         (0..(1 << num_vars))
@@ -537,17 +534,17 @@ for num_vars in 3..max_vars {
     let evals = polys
     .clone()
     .into_iter()
-    .map(|poly| poly.evaluate(&challenges))
+    .map(|poly| poly.evaluate(&challenges).unwrap())
     .collect::<Vec<_>>();
 
     // Commit and open
     let commitments = Zeromorph::<BLS12381AtePairing>::commit(polys, &pk.g1_powers).unwrap();
 
-    let mut prover_transcript = Transcript::new(b"example");
+    let mut prover_transcript = DefaultTranscript::new();
     let proof =
     Zeromorph::<BLS12381AtePairing>::prove(polys, evals, challenges, &pk, &mut prover_transcript).unwrap();
 
-    let mut verifier_transcript = Transcript::new(b"example");
+    let mut verifier_transcript = DefaultTranscript::new();
     Zeromorph::<BLS12381AtePairing>::verify(
     commitments,
     evals,
@@ -581,7 +578,7 @@ let u_challenge = (0..num_vars)
     .into_iter()
     .map(|_| Fr::rand(&mut rng))
     .collect::<Vec<_>>();
-let v_evaluation = multilinear_f.evaluate(&u_challenge);
+let v_evaluation = multilinear_f.evaluate(&u_challenge).unwrap();
 
 // Compute multilinear quotients `qₖ(𝑋₀, …, 𝑋ₖ₋₁)`
 let (quotients, constant_term) =
@@ -599,19 +596,19 @@ let z_challenge = (0..num_vars)
     .map(|_| Fr::rand(&mut rng))
     .collect::<Vec<_>>();
 
-let mut res = multilinear_f.evaluate(&z_challenge);
-res -= v_evaluation;
+let mut res = multilinear_f.evaluate(&z_challenge).unwrap();
+res = res - v_evaluation;
 
 for (k, q_k_uni) in quotients.iter().enumerate() {
     let z_partial = &z_challenge[&z_challenge.len() - k..];
     //This is a weird consequence of how things are done.. the univariate polys are of the multilinear commitment in lagrange basis. Therefore we evaluate as multilinear
-    let q_k = DenseMultilinearPolynomial::new(q_k_uni.coeffs.clone());
+    let q_k = DenseMultilinearPolynomial::new(q_k_uni.coefficients.clone());
     let q_k_eval = q_k.evaluate(z_partial);
 
     res -= (z_challenge[z_challenge.len() - k - 1] - u_challenge[z_challenge.len() - k - 1])
     * q_k_eval;
 }
-assert!(res.is_zero());
+assert_eq!(res, FieldElement::zero());
 }
 
 /// Test for construction of batched lifted degree quotient:
@@ -622,13 +619,13 @@ let num_vars = 3;
 let n = 1 << num_vars;
 
 // Define mock qₖ with deg(qₖ) = 2ᵏ⁻¹
-let q_0 = Polynomial::from_coeff(vec![Fr::one()]);
-let q_1 = Polynomial::from_coeff(vec![Fr::from(2u64), Fr::from(3u64)]);
-let q_2 = Polynomial::from_coeff(vec![
-    Fr::from(4u64),
-    Fr::from(5u64),
-    Fr::from(6u64),
-    Fr::from(7u64),
+let q_0 = Polynomial::new(&[FieldElement::one()]);
+let q_1 = Polynomial::new(&[FieldElement::from(2u64), FieldElement::from(3u64)]);
+let q_2 = Polynomial::new(&[
+    FieldElement::from(4u64),
+    FieldElement::from(5u64),
+    FieldElement::from(6u64),
+    FieldElement::from(7u64),
 ]);
 let quotients = vec![q_0, q_1, q_2];
 
@@ -640,35 +637,35 @@ let batched_quotient =
     compute_batched_lifted_degree_quotient::<BLS12381AtePairing>(n, &quotients, &y_challenge);
 
 //Explicitly define q_k_lifted = X^{N-2^k} * q_k and compute the expected batched result
-let q_0_lifted = Polynomial::from_coeff(vec![
-    Fr::zero(),
-    Fr::zero(),
-    Fr::zero(),
-    Fr::zero(),
-    Fr::zero(),
-    Fr::zero(),
-    Fr::zero(),
-    Fr::one(),
+let q_0_lifted = Polynomial::new(&[
+    FieldElement::zero(),
+    FieldElement::zero(),
+    FieldElement::zero(),
+    FieldElement::zero(),
+    FieldElement::zero(),
+    FieldElement::zero(),
+    FieldElement::zero(),
+    FieldElement::one(),
 ]);
-let q_1_lifted = Polynomial::from_coeff(vec![
-    Fr::zero(),
-    Fr::zero(),
-    Fr::zero(),
-    Fr::zero(),
-    Fr::zero(),
-    Fr::zero(),
-    Fr::from(2u64),
-    Fr::from(3u64),
+let q_1_lifted = Polynomial::new(&[
+    FieldElement::zero(),
+    FieldElement::zero(),
+    FieldElement::zero(),
+    FieldElement::zero(),
+    FieldElement::zero(),
+    FieldElement::zero(),
+    FieldElement::from(2u64),
+    FieldElement::from(3u64),
 ]);
-let q_2_lifted = Polynomial::from_coeff(vec![
-    Fr::zero(),
-    Fr::zero(),
-    Fr::zero(),
-    Fr::zero(),
-    Fr::from(4u64),
-    Fr::from(5u64),
-    Fr::from(6u64),
-    Fr::from(7u64),
+let q_2_lifted = Polynomial::new(&[
+    FieldElement::zero(),
+    FieldElement::zero(),
+    FieldElement::zero(),
+    FieldElement::zero(),
+    FieldElement::from(4u64),
+    FieldElement::from(5u64),
+    FieldElement::from(6u64),
+    FieldElement::from(7u64),
 ]);
 
 //Explicitly compute  ̂q i.e. RLC of lifted polys
@@ -704,17 +701,17 @@ let (_, (zeta_x_scalars, _)) =
 // 𝜁 =  ̂q - ∑ₖ₌₀ⁿ⁻¹ yᵏ Xᵐ⁻ᵈᵏ⁻¹ ̂qₖ, m = N
 assert_eq!(
     zeta_x_scalars[0],
-    -x_challenge.pow(BigInt::<1>::from((n - 1) as u64))
+    -x_challenge.pow((n - 1) as u64)
 );
 
 assert_eq!(
     zeta_x_scalars[1],
-    -y_challenge * x_challenge.pow(BigInt::<1>::from((n - 1 - 1) as u64))
+    -y_challenge * x_challenge.pow((n - 1 - 1) as u64)
 );
 
 assert_eq!(
     zeta_x_scalars[2],
-    -y_challenge * y_challenge * x_challenge.pow(BigInt::<1>::from((n - 3 - 1) as u64))
+    -y_challenge * y_challenge * x_challenge.pow((n - 3 - 1) as u64)
 );
 }
 
@@ -729,9 +726,9 @@ let log_N = (N as usize).log_2();
 let mut rng = test_rng();
 let x_challenge = Fr::rand(&mut rng);
 
-let efficient = (x_challenge.pow(BigInt::<1>::from((1 << log_N) as u64)) - Fr::one())
-    / (x_challenge - Fr::one());
-let expected: Fr = phi::<BLS12381AtePairing>(&x_challenge, log_N);
+let efficient = (x_challenge.pow((1 << log_N) as u64) - FieldElement::one())
+    / (x_challenge - FieldElement::one());
+let expected: FieldElement<_> = phi::<BLS12381AtePairing>(&x_challenge, log_N);
 assert_eq!(efficient, expected);
 }
 
@@ -748,12 +745,12 @@ let x_challenge = Fr::rand(&mut rng);
 let k = 2;
 
 //𝑥²^ᵏ⁺¹
-let x_pow = x_challenge.pow(BigInt::<1>::from((1 << (k + 1)) as u64));
+let x_pow = x_challenge.pow((1 << (k + 1)) as u64);
 
 //(𝑥²^ⁿ − 1) / (𝑥²^ᵏ⁺¹ − 1)
 let efficient =
-    (x_challenge.pow(BigInt::<1>::from((1 << log_N) as u64)) - Fr::one()) / (x_pow - Fr::one());
-let expected: Fr = phi::<Bn254>(&x_challenge, log_N - k - 1);
+    (x_challenge.pow((1 << log_N) as u64) - FieldElement::one()) / (x_pow - FieldElement::one());
+let expected: FieldElement<_> = phi::<BLS12381AtePairing>(&x_challenge, log_N - k - 1);
 assert_eq!(efficient, expected);
 }
 
@@ -782,16 +779,16 @@ let z_challenge = Fr::rand(&mut rng);
 
 // Construct Z_x scalars
 let (_, (_, z_x_scalars)) =
-    eval_and_quotient_scalars::<Bn254>(y_challenge, x_challenge, z_challenge, &challenges);
+    eval_and_quotient_scalars::<BLS12381AtePairing>(y_challenge, x_challenge, z_challenge, &challenges);
 
 for k in 0..num_vars {
-    let x_pow_2k = x_challenge.pow(BigInt::<1>::from((1 << k) as u64)); // x^{2^k}
-    let x_pow_2kp1 = x_challenge.pow(BigInt::<1>::from((1 << (k + 1)) as u64)); // x^{2^{k+1}}
+    let x_pow_2k = x_challenge.pow((1 << k) as u64); // x^{2^k}
+    let x_pow_2kp1 = x_challenge.pow((1 << (k + 1)) as u64); // x^{2^{k+1}}
                                                                                 // x^{2^k} * \Phi_{n-k-1}(x^{2^{k+1}}) - u_k *  \Phi_{n-k}(x^{2^k})
-    let mut scalar = x_pow_2k * &phi::<Bn254>(&x_pow_2kp1, num_vars - k - 1)
-    - u_rev[k] * &phi::<Bn254>(&x_pow_2k, num_vars - k);
+    let mut scalar = x_pow_2k * &phi::<BLS12381AtePairing>(&x_pow_2kp1, num_vars - k - 1)
+    - u_rev[k] * &phi::<BLS12381AtePairing>(&x_pow_2k, num_vars - k);
     scalar *= z_challenge;
-    scalar *= Fr::from(-1);
+    scalar *= FieldElement::from(1).neg();
     assert_eq!(z_x_scalars[k], scalar);
 }
 }
