@@ -301,7 +301,7 @@ pub fn build_cairo_execution_trace(
     trace_cols.push(extra_vals);
     trace_cols.push(rc_holes);
 
-    TraceTable::from_columns(trace_cols, 1)
+    TraceTable::from_columns_main(trace_cols, 1)
 }
 
 /// Returns the vector of res values.
@@ -523,7 +523,7 @@ fn update_values(
 }
 
 /// Utility function to change from a rows representation to a columns
-/// representation of a slice of arrays.   
+/// representation of a slice of arrays.
 fn rows_to_cols<const N: usize>(rows: &[[Felt252; N]]) -> Vec<Vec<Felt252>> {
     let n_cols = rows[0].len();
 
@@ -608,7 +608,7 @@ mod test {
             FieldElement::from(7),
             FieldElement::from(7),
         ];
-        let table = TraceTable::<Stark252PrimeField>::from_columns(columns, 1);
+        let table = TraceTable::<Stark252PrimeField>::from_columns(columns, 3, 1);
 
         let (col, rc_min, rc_max) = get_rc_holes(&table, &[0, 1, 2]);
         assert_eq!(col, expected_col);
@@ -625,6 +625,8 @@ mod test {
 
         let mut main_trace = TraceTable::<Stark252PrimeField> {
             table,
+            num_main_columns: 36,
+            num_aux_columns: 23,
             step_size: 1,
         };
 
@@ -737,12 +739,12 @@ mod test {
         trace_cols[FRAME_DST_ADDR][1] = Felt252::from(9);
         trace_cols[FRAME_OP0_ADDR][1] = Felt252::from(10);
         trace_cols[FRAME_OP1_ADDR][1] = Felt252::from(11);
-        let mut trace = TraceTable::from_columns(trace_cols, 1);
+        let mut trace = TraceTable::from_columns(trace_cols, 2, 1);
 
         let memory_holes = vec![Felt252::from(4), Felt252::from(7), Felt252::from(8)];
         fill_memory_holes(&mut trace, &memory_holes);
 
         let extra_addr = &trace.columns()[EXTRA_ADDR];
-        assert_eq!(extra_addr, &memory_holes)
+        assert_eq!(extra_addr, &memory_holes);
     }
 }
