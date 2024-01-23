@@ -2,7 +2,7 @@ use wasm_bindgen_test::wasm_bindgen_test_configure;
 wasm_bindgen_test_configure!(run_in_browser);
 
 #[cfg(feature = "wasm")]
-use platinum_prover::wasm_wrappers::verify_cairo_proof_wasm;
+use platinum_prover::wasm_wrappers::{verify_cairo_proof_wasm, verify_cairo_proof_wasm_100_bits};
 #[cfg(feature = "wasm")]
 use stark_platinum_prover::proof::options::ProofOptions;
 
@@ -15,6 +15,13 @@ use wasm_bindgen_test::*;
 fn test_prove_cairo1_program_wasm() {
     let proof_options = ProofOptions::default_test_options();
     assert!(verify_cairo_proof_wasm(&PROOF, &proof_options));
+}
+
+#[cfg(feature = "wasm")]
+#[wasm_bindgen_test]
+#[test]
+fn test_prove_cairo1_program_wasm_100_bits() {
+    assert!(verify_cairo_proof_wasm_100_bits(&PROOF));
 }
 
 // Test case is fibo5, with default test options
