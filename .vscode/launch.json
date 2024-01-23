@@ -1,0 +1,803 @@
+{
+	// Use IntelliSense to learn about possible attributes.
+	// Hover to view descriptions of existing attributes.
+	// For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+	"version": "0.2.0",
+	"configurations": [
+		{
+			"type": "lldb",
+			"request": "launch",
+			"name": "Debug unit tests in library 'lambdaworks-math'",
+			"cargo": {
+				"args": [
+					"test",
+					"--no-run",
+					"--lib",
+					"--package=lambdaworks-math"
+				],
+				"filter": {
+					"name": "lambdaworks-math",
+					"kind": "lib"
+				}
+			},
+			"args": [],
+			"cwd": "${workspaceFolder}"
+		},
+		{
+			"type": "lldb",
+			"request": "launch",
+			"name": "Debug benchmark 'criterion_elliptic_curve'",
+			"cargo": {
+				"args": [
+					"test",
+					"--no-run",
+					"--bench=criterion_elliptic_curve",
+					"--package=lambdaworks-math"
+				],
+				"filter": {
+					"name": "criterion_elliptic_curve",
+					"kind": "bench"
+				}
+			},
+			"args": [],
+			"cwd": "${workspaceFolder}"
+		},
+		{
+			"type": "lldb",
+			"request": "launch",
+			"name": "Debug benchmark 'criterion_polynomial'",
+			"cargo": {
+				"args": [
+					"test",
+					"--no-run",
+					"--bench=criterion_polynomial",
+					"--package=lambdaworks-math"
+				],
+				"filter": {
+					"name": "criterion_polynomial",
+					"kind": "bench"
+				}
+			},
+			"args": [],
+			"cwd": "${workspaceFolder}"
+		},
+		{
+			"type": "lldb",
+			"request": "launch",
+			"name": "Debug benchmark 'iai_polynomial'",
+			"cargo": {
+				"args": [
+					"test",
+					"--no-run",
+					"--bench=iai_polynomial",
+					"--package=lambdaworks-math"
+				],
+				"filter": {
+					"name": "iai_polynomial",
+					"kind": "bench"
+				}
+			},
+			"args": [],
+			"cwd": "${workspaceFolder}"
+		},
+		{
+			"type": "lldb",
+			"request": "launch",
+			"name": "Debug benchmark 'criterion_field'",
+			"cargo": {
+				"args": [
+					"test",
+					"--no-run",
+					"--bench=criterion_field",
+					"--package=lambdaworks-math"
+				],
+				"filter": {
+					"name": "criterion_field",
+					"kind": "bench"
+				}
+			},
+			"args": [],
+			"cwd": "${workspaceFolder}"
+		},
+		{
+			"type": "lldb",
+			"request": "launch",
+			"name": "Debug benchmark 'iai_field'",
+			"cargo": {
+				"args": [
+					"test",
+					"--no-run",
+					"--bench=iai_field",
+					"--package=lambdaworks-math"
+				],
+				"filter": {
+					"name": "iai_field",
+					"kind": "bench"
+				}
+			},
+			"args": [],
+			"cwd": "${workspaceFolder}"
+		},
+		{
+			"type": "lldb",
+			"request": "launch",
+			"name": "Debug benchmark 'criterion_msm'",
+			"cargo": {
+				"args": [
+					"test",
+					"--no-run",
+					"--bench=criterion_msm",
+					"--package=lambdaworks-math"
+				],
+				"filter": {
+					"name": "criterion_msm",
+					"kind": "bench"
+				}
+			},
+			"args": [],
+			"cwd": "${workspaceFolder}"
+		},
+		{
+			"type": "lldb",
+			"request": "launch",
+			"name": "Debug benchmark 'criterion_fft'",
+			"cargo": {
+				"args": [
+					"test",
+					"--no-run",
+					"--bench=criterion_fft",
+					"--package=lambdaworks-math"
+				],
+				"filter": {
+					"name": "criterion_fft",
+					"kind": "bench"
+				}
+			},
+			"args": [],
+			"cwd": "${workspaceFolder}"
+		},
+		{
+			"type": "lldb",
+			"request": "launch",
+			"name": "Debug benchmark 'iai_fft'",
+			"cargo": {
+				"args": [
+					"test",
+					"--no-run",
+					"--bench=iai_fft",
+					"--package=lambdaworks-math"
+				],
+				"filter": {
+					"name": "iai_fft",
+					"kind": "bench"
+				}
+			},
+			"args": [],
+			"cwd": "${workspaceFolder}"
+		},
+		{
+			"type": "lldb",
+			"request": "launch",
+			"name": "Debug benchmark 'criterion_metal'",
+			"cargo": {
+				"args": [
+					"test",
+					"--no-run",
+					"--bench=criterion_metal",
+					"--package=lambdaworks-math"
+				],
+				"filter": {
+					"name": "criterion_metal",
+					"kind": "bench"
+				}
+			},
+			"args": [],
+			"cwd": "${workspaceFolder}"
+		},
+		{
+			"type": "lldb",
+			"request": "launch",
+			"name": "Debug unit tests in library 'lambdaworks-gpu'",
+			"cargo": {
+				"args": [
+					"test",
+					"--no-run",
+					"--lib",
+					"--package=lambdaworks-gpu"
+				],
+				"filter": {
+					"name": "lambdaworks-gpu",
+					"kind": "lib"
+				}
+			},
+			"args": [],
+			"cwd": "${workspaceFolder}"
+		},
+		{
+			"type": "lldb",
+			"request": "launch",
+			"name": "Debug unit tests in library 'lambdaworks-crypto'",
+			"cargo": {
+				"args": [
+					"test",
+					"--no-run",
+					"--lib",
+					"--package=lambdaworks-crypto"
+				],
+				"filter": {
+					"name": "lambdaworks-crypto",
+					"kind": "lib"
+				}
+			},
+			"args": [],
+			"cwd": "${workspaceFolder}"
+		},
+		{
+			"type": "lldb",
+			"request": "launch",
+			"name": "Debug benchmark 'criterion_merkle'",
+			"cargo": {
+				"args": [
+					"test",
+					"--no-run",
+					"--bench=criterion_merkle",
+					"--package=lambdaworks-crypto"
+				],
+				"filter": {
+					"name": "criterion_merkle",
+					"kind": "bench"
+				}
+			},
+			"args": [],
+			"cwd": "${workspaceFolder}"
+		},
+		{
+			"type": "lldb",
+			"request": "launch",
+			"name": "Debug benchmark 'iai_merkle'",
+			"cargo": {
+				"args": [
+					"test",
+					"--no-run",
+					"--bench=iai_merkle",
+					"--package=lambdaworks-crypto"
+				],
+				"filter": {
+					"name": "iai_merkle",
+					"kind": "bench"
+				}
+			},
+			"args": [],
+			"cwd": "${workspaceFolder}"
+		},
+		{
+			"type": "lldb",
+			"request": "launch",
+			"name": "Debug benchmark 'add'",
+			"cargo": {
+				"args": [
+					"test",
+					"--no-run",
+					"--bench=add",
+					"--package=lambdaworks-benches"
+				],
+				"filter": {
+					"name": "add",
+					"kind": "bench"
+				}
+			},
+			"args": [],
+			"cwd": "${workspaceFolder}"
+		},
+		{
+			"type": "lldb",
+			"request": "launch",
+			"name": "Debug benchmark 'mul'",
+			"cargo": {
+				"args": [
+					"test",
+					"--no-run",
+					"--bench=mul",
+					"--package=lambdaworks-benches"
+				],
+				"filter": {
+					"name": "mul",
+					"kind": "bench"
+				}
+			},
+			"args": [],
+			"cwd": "${workspaceFolder}"
+		},
+		{
+			"type": "lldb",
+			"request": "launch",
+			"name": "Debug benchmark 'sub'",
+			"cargo": {
+				"args": [
+					"test",
+					"--no-run",
+					"--bench=sub",
+					"--package=lambdaworks-benches"
+				],
+				"filter": {
+					"name": "sub",
+					"kind": "bench"
+				}
+			},
+			"args": [],
+			"cwd": "${workspaceFolder}"
+		},
+		{
+			"type": "lldb",
+			"request": "launch",
+			"name": "Debug benchmark 'invert'",
+			"cargo": {
+				"args": [
+					"test",
+					"--no-run",
+					"--bench=invert",
+					"--package=lambdaworks-benches"
+				],
+				"filter": {
+					"name": "invert",
+					"kind": "bench"
+				}
+			},
+			"args": [],
+			"cwd": "${workspaceFolder}"
+		},
+		{
+			"type": "lldb",
+			"request": "launch",
+			"name": "Debug benchmark 'sqrt'",
+			"cargo": {
+				"args": [
+					"test",
+					"--no-run",
+					"--bench=sqrt",
+					"--package=lambdaworks-benches"
+				],
+				"filter": {
+					"name": "sqrt",
+					"kind": "bench"
+				}
+			},
+			"args": [],
+			"cwd": "${workspaceFolder}"
+		},
+		{
+			"type": "lldb",
+			"request": "launch",
+			"name": "Debug benchmark 'pow'",
+			"cargo": {
+				"args": [
+					"test",
+					"--no-run",
+					"--bench=pow",
+					"--package=lambdaworks-benches"
+				],
+				"filter": {
+					"name": "pow",
+					"kind": "bench"
+				}
+			},
+			"args": [],
+			"cwd": "${workspaceFolder}"
+		},
+		{
+			"type": "lldb",
+			"request": "launch",
+			"name": "Debug benchmark 'point'",
+			"cargo": {
+				"args": [
+					"test",
+					"--no-run",
+					"--bench=point",
+					"--package=lambdaworks-benches"
+				],
+				"filter": {
+					"name": "point",
+					"kind": "bench"
+				}
+			},
+			"args": [],
+			"cwd": "${workspaceFolder}"
+		},
+		{
+			"type": "lldb",
+			"request": "launch",
+			"name": "Debug benchmark 'utils'",
+			"cargo": {
+				"args": [
+					"test",
+					"--no-run",
+					"--bench=utils",
+					"--package=lambdaworks-benches"
+				],
+				"filter": {
+					"name": "utils",
+					"kind": "bench"
+				}
+			},
+			"args": [],
+			"cwd": "${workspaceFolder}"
+		},
+		{
+			"type": "lldb",
+			"request": "launch",
+			"name": "Debug unit tests in library 'lambdaworks-plonk'",
+			"cargo": {
+				"args": [
+					"test",
+					"--no-run",
+					"--lib",
+					"--package=lambdaworks-plonk"
+				],
+				"filter": {
+					"name": "lambdaworks-plonk",
+					"kind": "lib"
+				}
+			},
+			"args": [],
+			"cwd": "${workspaceFolder}"
+		},
+		{
+			"type": "lldb",
+			"request": "launch",
+			"name": "Debug unit tests in library 'stark-platinum-prover'",
+			"cargo": {
+				"args": [
+					"test",
+					"--no-run",
+					"--lib",
+					"--package=stark-platinum-prover"
+				],
+				"filter": {
+					"name": "stark-platinum-prover",
+					"kind": "lib"
+				}
+			},
+			"args": [],
+			"cwd": "${workspaceFolder}"
+		},
+		{
+			"type": "lldb",
+			"request": "launch",
+			"name": "Debug unit tests in library 'platinum_prover'",
+			"cargo": {
+				"args": [
+					"test",
+					"--no-run",
+					"--lib",
+					"--package=cairo-platinum-prover"
+				],
+				"filter": {
+					"name": "platinum_prover",
+					"kind": "lib"
+				}
+			},
+			"args": [],
+			"cwd": "${workspaceFolder}"
+		},
+		{
+			"type": "lldb",
+			"request": "launch",
+			"name": "Debug executable 'platinum-prover'",
+			"cargo": {
+				"args": [
+					"build",
+					"--bin=platinum-prover",
+					"--package=cairo-platinum-prover"
+				],
+				"filter": {
+					"name": "platinum-prover",
+					"kind": "bin"
+				}
+			},
+			"args": [],
+			"cwd": "${workspaceFolder}"
+		},
+		{
+			"type": "lldb",
+			"request": "launch",
+			"name": "Debug unit tests in executable 'platinum-prover'",
+			"cargo": {
+				"args": [
+					"test",
+					"--no-run",
+					"--bin=platinum-prover",
+					"--package=cairo-platinum-prover"
+				],
+				"filter": {
+					"name": "platinum-prover",
+					"kind": "bin"
+				}
+			},
+			"args": [],
+			"cwd": "${workspaceFolder}"
+		},
+		{
+			"type": "lldb",
+			"request": "launch",
+			"name": "Debug integration test 'wasm'",
+			"cargo": {
+				"args": [
+					"test",
+					"--no-run",
+					"--test=wasm",
+					"--package=cairo-platinum-prover"
+				],
+				"filter": {
+					"name": "wasm",
+					"kind": "test"
+				}
+			},
+			"args": [],
+			"cwd": "${workspaceFolder}"
+		},
+		{
+			"type": "lldb",
+			"request": "launch",
+			"name": "Debug benchmark 'criterion_prover'",
+			"cargo": {
+				"args": [
+					"test",
+					"--no-run",
+					"--bench=criterion_prover",
+					"--package=cairo-platinum-prover"
+				],
+				"filter": {
+					"name": "criterion_prover",
+					"kind": "bench"
+				}
+			},
+			"args": [],
+			"cwd": "${workspaceFolder}"
+		},
+		{
+			"type": "lldb",
+			"request": "launch",
+			"name": "Debug benchmark 'criterion_prover_70k'",
+			"cargo": {
+				"args": [
+					"test",
+					"--no-run",
+					"--bench=criterion_prover_70k",
+					"--package=cairo-platinum-prover"
+				],
+				"filter": {
+					"name": "criterion_prover_70k",
+					"kind": "bench"
+				}
+			},
+			"args": [],
+			"cwd": "${workspaceFolder}"
+		},
+		{
+			"type": "lldb",
+			"request": "launch",
+			"name": "Debug benchmark 'criterion_verifier'",
+			"cargo": {
+				"args": [
+					"test",
+					"--no-run",
+					"--bench=criterion_verifier",
+					"--package=cairo-platinum-prover"
+				],
+				"filter": {
+					"name": "criterion_verifier",
+					"kind": "bench"
+				}
+			},
+			"args": [],
+			"cwd": "${workspaceFolder}"
+		},
+		{
+			"type": "lldb",
+			"request": "launch",
+			"name": "Debug benchmark 'criterion_verifier_70k'",
+			"cargo": {
+				"args": [
+					"test",
+					"--no-run",
+					"--bench=criterion_verifier_70k",
+					"--package=cairo-platinum-prover"
+				],
+				"filter": {
+					"name": "criterion_verifier_70k",
+					"kind": "bench"
+				}
+			},
+			"args": [],
+			"cwd": "${workspaceFolder}"
+		},
+		{
+			"type": "lldb",
+			"request": "launch",
+			"name": "Debug unit tests in library 'lambdaworks-groth16'",
+			"cargo": {
+				"args": [
+					"test",
+					"--no-run",
+					"--lib",
+					"--package=lambdaworks-groth16"
+				],
+				"filter": {
+					"name": "lambdaworks-groth16",
+					"kind": "lib"
+				}
+			},
+			"args": [],
+			"cwd": "${workspaceFolder}"
+		},
+		{
+			"type": "lldb",
+			"request": "launch",
+			"name": "Debug integration test 'groth16'",
+			"cargo": {
+				"args": [
+					"test",
+					"--no-run",
+					"--test=groth16",
+					"--package=lambdaworks-groth16"
+				],
+				"filter": {
+					"name": "groth16",
+					"kind": "test"
+				}
+			},
+			"args": [],
+			"cwd": "${workspaceFolder}"
+		},
+		{
+			"type": "lldb",
+			"request": "launch",
+			"name": "Debug unit tests in library 'arkworks_adapter'",
+			"cargo": {
+				"args": [
+					"test",
+					"--no-run",
+					"--lib",
+					"--package=arkworks_adapter"
+				],
+				"filter": {
+					"name": "arkworks_adapter",
+					"kind": "lib"
+				}
+			},
+			"args": [],
+			"cwd": "${workspaceFolder}"
+		},
+		{
+			"type": "lldb",
+			"request": "launch",
+			"name": "Debug unit tests in library 'circom-adapter'",
+			"cargo": {
+				"args": [
+					"test",
+					"--no-run",
+					"--lib",
+					"--package=circom-adapter"
+				],
+				"filter": {
+					"name": "circom-adapter",
+					"kind": "lib"
+				}
+			},
+			"args": [],
+			"cwd": "${workspaceFolder}"
+		},
+		{
+			"type": "lldb",
+			"request": "launch",
+			"name": "Debug executable 'merkle-tree-cli'",
+			"cargo": {
+				"args": [
+					"build",
+					"--bin=merkle-tree-cli",
+					"--package=merkle-tree-cli"
+				],
+				"filter": {
+					"name": "merkle-tree-cli",
+					"kind": "bin"
+				}
+			},
+			"args": [],
+			"cwd": "${workspaceFolder}"
+		},
+		{
+			"type": "lldb",
+			"request": "launch",
+			"name": "Debug unit tests in executable 'merkle-tree-cli'",
+			"cargo": {
+				"args": [
+					"test",
+					"--no-run",
+					"--bin=merkle-tree-cli",
+					"--package=merkle-tree-cli"
+				],
+				"filter": {
+					"name": "merkle-tree-cli",
+					"kind": "bin"
+				}
+			},
+			"args": [],
+			"cwd": "${workspaceFolder}"
+		},
+		{
+			"type": "lldb",
+			"request": "launch",
+			"name": "Debug executable 'prove-miden'",
+			"cargo": {
+				"args": [
+					"build",
+					"--bin=prove-miden",
+					"--package=prove-miden"
+				],
+				"filter": {
+					"name": "prove-miden",
+					"kind": "bin"
+				}
+			},
+			"args": [],
+			"cwd": "${workspaceFolder}"
+		},
+		{
+			"type": "lldb",
+			"request": "launch",
+			"name": "Debug unit tests in executable 'prove-miden'",
+			"cargo": {
+				"args": [
+					"test",
+					"--no-run",
+					"--bin=prove-miden",
+					"--package=prove-miden"
+				],
+				"filter": {
+					"name": "prove-miden",
+					"kind": "bin"
+				}
+			},
+			"args": [],
+			"cwd": "${workspaceFolder}"
+		},
+		{
+			"type": "lldb",
+			"request": "launch",
+			"name": "Debug unit tests in library 'lambdaworks-winterfell-adapter'",
+			"cargo": {
+				"args": [
+					"test",
+					"--no-run",
+					"--lib",
+					"--package=lambdaworks-winterfell-adapter"
+				],
+				"filter": {
+					"name": "lambdaworks-winterfell-adapter",
+					"kind": "lib"
+				}
+			},
+			"args": [],
+			"cwd": "${workspaceFolder}"
+		},
+		{
+			"type": "lldb",
+			"request": "launch",
+			"name": "Debug benchmark 'proving'",
+			"cargo": {
+				"args": [
+					"test",
+					"--no-run",
+					"--bench=proving",
+					"--package=lambdaworks-winterfell-adapter"
+				],
+				"filter": {
+					"name": "proving",
+					"kind": "bench"
+				}
+			},
+			"args": [],
+			"cwd": "${workspaceFolder}"
+		}
+	]
+}

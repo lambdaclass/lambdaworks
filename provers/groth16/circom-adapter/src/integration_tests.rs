@@ -1,16 +1,19 @@
-use lambdaworks_groth16::common::FrField;
-use lambdaworks_math::elliptic_curve::short_weierstrass::curves::bls12_381::default_types::FrElement;
-use lambdaworks_math::traits::ByteConversion;
-use lambdaworks_math::unsigned_integer::element::UnsignedInteger;
-
-pub type U256 = UnsignedInteger<4>;
-
-use crate::r1cs::*;
+use crate::*;
 use lambdaworks_groth16::*;
 
 #[test]
 fn init() {
-    read_circom_r1cs("src/circuit.r1cs.json");
+    let qap = circom_r1cs_to_lambda_qap("test.r1cs.json");
+    let (pk, vk) = setup(&qap);
+
+    let witness = read_circom_witness("witness.json");
+
+    let accept = verify(
+        &vk,
+        &Prover::prove(&witness, &qap, &pk),
+        &witness[..qap.num_of_public_inputs],
+    );
+    assert!(accept);
 }
 
 #[test]

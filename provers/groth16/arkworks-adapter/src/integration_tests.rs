@@ -37,7 +37,7 @@ fn pinocchio_paper_example() {
 
     let lambda_cs = arkworks_cs_to_lambda_cs(&cs);
 
-    let qap = QuadraticArithmeticProgram::from_r1cs(lambda_cs.constraints);
+    let qap = QuadraticArithmeticProgram::from_r1cs(lambda_cs.r1cs);
 
     let (pk, vk) = setup(&qap);
 
@@ -92,7 +92,7 @@ fn vitalik_example() {
 
     let lambda_cs = arkworks_cs_to_lambda_cs(&cs);
 
-    let qap = QuadraticArithmeticProgram::from_r1cs(lambda_cs.constraints);
+    let qap = QuadraticArithmeticProgram::from_r1cs(lambda_cs.r1cs);
 
     let (pk, vk) = setup(&qap);
 
@@ -139,7 +139,7 @@ fn failing_vitalik() {
 
     let lambda_cs = arkworks_cs_to_lambda_cs(&cs);
 
-    let qap = QuadraticArithmeticProgram::from_r1cs(lambda_cs.constraints);
+    let qap = QuadraticArithmeticProgram::from_r1cs(lambda_cs.r1cs);
 
     let (pk, vk) = setup(&qap);
 
@@ -183,7 +183,7 @@ fn exponentiation_example() {
 
     let lambda_cs = arkworks_cs_to_lambda_cs(&cs);
 
-    let qap = QuadraticArithmeticProgram::from_r1cs(lambda_cs.constraints);
+    let qap = QuadraticArithmeticProgram::from_r1cs(lambda_cs.r1cs);
 
     let (pk, vk) = setup(&qap);
 

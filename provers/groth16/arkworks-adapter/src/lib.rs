@@ -15,7 +15,7 @@ pub fn arkworks_cs_to_lambda_cs<ArkF: PrimeField>(
     cs: &ConstraintSystemRef<ArkF>,
 ) -> ConstraintSystem<FrField> {
     ConstraintSystem {
-        constraints: r1cs_from_arkworks_cs(cs),
+        r1cs: r1cs_from_arkworks_cs(cs),
         witness: extract_witness_from_arkworks_cs(cs),
     }
 }
@@ -29,9 +29,9 @@ fn r1cs_from_arkworks_cs<F: PrimeField>(cs: &ConstraintSystemRef<F>) -> R1CS {
     let total_variables = cs.num_witness_variables() + num_pub_vars;
 
     R1CS::from_matrices(
-        ark_to_lambda_matrix(&r1cs_matrices.a, total_variables),
-        ark_to_lambda_matrix(&r1cs_matrices.b, total_variables),
-        ark_to_lambda_matrix(&r1cs_matrices.c, total_variables),
+        &ark_to_lambda_matrix(&r1cs_matrices.a, total_variables),
+        &ark_to_lambda_matrix(&r1cs_matrices.b, total_variables),
+        &ark_to_lambda_matrix(&r1cs_matrices.c, total_variables),
         num_pub_vars,
     )
 }
