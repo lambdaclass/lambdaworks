@@ -1,13 +1,10 @@
-use std::ops::Div;
-
-use lambdaworks_math::{
-    field::{element::FieldElement, traits::IsFFTField},
-    helpers::resize_to_next_power_of_two,
-    traits::ByteConversion,
-};
+use std::{marker::PhantomData, ops::Div};
 
 use crate::{
-    constraints::boundary::{BoundaryConstraint, BoundaryConstraints},
+    constraints::{
+        boundary::{BoundaryConstraint, BoundaryConstraints},
+        transition::TransitionConstraint,
+    },
     context::AirContext,
     frame::Frame,
     proof::options::ProofOptions,
@@ -15,8 +12,117 @@ use crate::{
     traits::AIR,
     transcript::IsStarkTranscript,
 };
+use lambdaworks_math::{
+    field::{element::FieldElement, traits::IsFFTField},
+    helpers::resize_to_next_power_of_two,
+    traits::ByteConversion,
+};
 
 #[derive(Clone)]
+struct FibConstraint<F: IsFFTField> {
+    phantom: PhantomData<F>,
+}
+
+impl<F: IsFFTField> FibConstraint<F> {
+    pub fn new() -> Self {
+        Self {
+            phantom: PhantomData,
+        }
+    }
+}
+
+impl<F> TransitionConstraint<F, F> for FibConstraint<F>
+where
+    F: IsFFTField + Send + Sync,
+{
+    fn degree(&self) -> usize {
+        1
+    }
+
+    fn constraint_idx(&self) -> usize {
+        0
+    }
+
+    fn end_exemptions(&self) -> usize {
+        // NOTE: This is hard-coded for the example of steps = 16 in the integration tests.
+        // If that number changes in the test, this should be changed too or the test will fail.
+        3 + 32 - 16 - 1
+    }
+
+    fn evaluate(
+        &self,
+        frame: &Frame<F, F>,
+        transition_evaluations: &mut [FieldElement<F>],
+        _periodic_values: &[FieldElement<F>],
+        _rap_challenges: &[FieldElement<F>],
+    ) {
+        let first_step = frame.get_evaluation_step(0);
+        let second_step = frame.get_evaluation_step(1);
+        let third_step = frame.get_evaluation_step(2);
+
+        let a0 = first_step.get_main_evaluation_element(0, 0);
+        let a1 = second_step.get_main_evaluation_element(0, 0);
+        let a2 = third_step.get_main_evaluation_element(0, 0);
+
+        let res = a2 - a1 - a0;
+
+        transition_evaluations[self.constraint_idx()] = res;
+    }
+}
+
+#[derive(Clone)]
+struct PermutationConstraint<F: IsFFTField> {
+    phantom: PhantomData<F>,
+}
+
+impl<F: IsFFTField> PermutationConstraint<F> {
+    pub fn new() -> Self {
+        Self {
+            phantom: PhantomData,
+        }
+    }
+}
+
+impl<F> TransitionConstraint<F, F> for PermutationConstraint<F>
+where
+    F: IsFFTField + Send + Sync,
+{
+    fn degree(&self) -> usize {
+        2
+    }
+
+    fn constraint_idx(&self) -> usize {
+        1
+    }
+
+    fn end_exemptions(&self) -> usize {
+        1
+    }
+
+    fn evaluate(
+        &self,
+        frame: &Frame<F, F>,
+        transition_evaluations: &mut [FieldElement<F>],
+        _periodic_values: &[FieldElement<F>],
+        rap_challenges: &[FieldElement<F>],
+    ) {
+        let first_step = frame.get_evaluation_step(0);
+        let second_step = frame.get_evaluation_step(1);
+
+        // Auxiliary constraints
+        let z_i = first_step.get_aux_evaluation_element(0, 0);
+        let z_i_plus_one = second_step.get_aux_evaluation_element(0, 0);
+        let gamma = &rap_challenges[0];
+
+        let a_i = first_step.get_main_evaluation_element(0, 0);
+        let b_i = first_step.get_main_evaluation_element(0, 1);
+
+        let res = z_i_plus_one * (b_i + gamma) - z_i * (a_i + gamma);
+
+        transition_evaluations[self.constraint_idx()] = res;
+    }
+}
+
 pub struct FibonacciRAP<F>
 where
     F: IsFFTField,
@@ -24,6 +130,7 @@ where
     context: AirContext,
     trace_length: usize,
     pub_inputs: FibonacciRAPPublicInputs<F>,
+    transition_constraints: Vec<Box<dyn TransitionConstraint<F, F>>>,
 }
 
 #[derive(Clone, Debug)]
@@ -38,12 +145,11 @@ where
 
 impl<F> AIR for FibonacciRAP<F>
 where
-    F: IsFFTField,
+    F: IsFFTField + Send + Sync + 'static,
     FieldElement<F>: ByteConversion,
 {
     type Field = F;
     type FieldExtension = F;
-    type RAPChallenges = FieldElement<Self::Field>;
     type PublicInputs = FibonacciRAPPublicInputs<Self::Field>;
 
     const STEP_SIZE: usize = 1;
@@ -53,6 +159,13 @@ where
         pub_inputs: &Self::PublicInputs,
         proof_options: &ProofOptions,
     ) -> Self {
+        let transition_constraints: Vec<
+            Box<dyn TransitionConstraint<Self::Field, Self::FieldExtension>>,
+        > = vec![
+            Box::new(FibConstraint::new()),
+            Box::new(PermutationConstraint::new()),
+        ];
+
         let exemptions = 3 + trace_length - pub_inputs.steps - 1;
 
         let context = AirContext {
@@ -60,24 +173,26 @@ where
             trace_columns: 3,
             transition_offsets: vec![0, 1, 2],
             transition_exemptions: vec![exemptions, 1],
-            num_transition_constraints: 2,
+            num_transition_constraints: transition_constraints.len(),
         };
 
         Self {
             context,
             trace_length,
             pub_inputs: pub_inputs.clone(),
+            transition_constraints,
         }
     }
 
     fn build_auxiliary_trace(
         &self,
         main_trace: &TraceTable<Self::Field>,
-        gamma: &Self::RAPChallenges,
+        challenges: &[FieldElement<F>],
     ) -> TraceTable<Self::Field> {
         let main_segment_cols = main_trace.columns();
         let not_perm = &main_segment_cols[0];
         let perm = &main_segment_cols[1];
+        let gamma = &challenges[0];
 
         let trace_len = main_trace.n_rows();
 
@@ -93,62 +208,41 @@ where
                 aux_col.push(z_i * n_p_term.div(p_term));
             }
         }
-        TraceTable::from_columns(vec![aux_col], 1)
+        TraceTable::from_columns(vec![aux_col], 0, 1)
     }
 
     fn build_rap_challenges(
         &self,
-        transcript: &mut impl IsStarkTranscript<F>,
-    ) -> Self::RAPChallenges {
-        transcript.sample_field_element()
+        transcript: &mut impl IsStarkTranscript<Self::Field>,
+    ) -> Vec<FieldElement<Self::FieldExtension>> {
+        vec![transcript.sample_field_element()]
     }
 
-    fn number_auxiliary_rap_columns(&self) -> usize {
-        1
-    }
-
-    fn compute_transition_prover(
-        &self,
-        frame: &Frame<Self::Field, Self::FieldExtension>,
-        _periodic_values: &[FieldElement<Self::Field>],
-        gamma: &Self::RAPChallenges,
-    ) -> Vec<FieldElement<Self::Field>> {
-        // Main constraints
-        let first_step = frame.get_evaluation_step(0);
-        let second_step = frame.get_evaluation_step(1);
-        let third_step = frame.get_evaluation_step(2);
-
-        let a0 = first_step.get_main_evaluation_element(0, 0);
-        let a1 = second_step.get_main_evaluation_element(0, 0);
-        let a2 = third_step.get_main_evaluation_element(0, 0);
-
-        let mut constraints = vec![a2 - a1 - a0];
-
-        // Auxiliary constraints
-        let z_i = first_step.get_aux_evaluation_element(0, 0);
-        let z_i_plus_one = second_step.get_aux_evaluation_element(0, 0);
-
-        let a_i = first_step.get_main_evaluation_element(0, 0);
-        let b_i = first_step.get_main_evaluation_element(0, 1);
-
-        let eval = z_i_plus_one * (b_i + gamma) - z_i * (a_i + gamma);
-
-        constraints.push(eval);
-        constraints
+    fn trace_layout(&self) -> (usize, usize) {
+        (2, 1)
     }
 
     fn boundary_constraints(
         &self,
-        _rap_challenges: &Self::RAPChallenges,
-    ) -> BoundaryConstraints<Self::Field> {
+        _rap_challenges: &[FieldElement<Self::FieldExtension>],
+    ) -> BoundaryConstraints<Self::FieldExtension> {
         // Main boundary constraints
-        let a0 = BoundaryConstraint::new_simple_main(0, FieldElement::<Self::Field>::one());
-        let a1 = BoundaryConstraint::new_simple_main(1, FieldElement::<Self::Field>::one());
+        let a0 =
+            BoundaryConstraint::new_simple_main(0, FieldElement::<Self::FieldExtension>::one());
+        let a1 =
+            BoundaryConstraint::new_simple_main(1, FieldElement::<Self::FieldExtension>::one());
 
         // Auxiliary boundary constraints
-        let a0_aux = BoundaryConstraint::new_aux(0, 0, FieldElement::<Self::Field>::one());
+        let a0_aux = BoundaryConstraint::new_aux(0, 0, FieldElement::<Self::FieldExtension>::one());
 
         BoundaryConstraints::from_constraints(vec![a0, a1, a0_aux])
+        // BoundaryConstraints::from_constraints(vec![a0, a1])
+    }
+
+    fn transition_constraints(
+        &self,
+    ) -> &Vec<Box<dyn TransitionConstraint<Self::Field, Self::FieldExtension>>> {
+        &self.transition_constraints
     }
 
     fn context(&self) -> &AirContext {
@@ -171,7 +265,7 @@ where
         &self,
         frame: &Frame<Self::FieldExtension, Self::FieldExtension>,
         periodic_values: &[FieldElement<Self::FieldExtension>],
-        rap_challenges: &Self::RAPChallenges,
+        rap_challenges: &[FieldElement<Self::FieldExtension>],
     ) -> Vec<FieldElement<Self::Field>> {
         self.compute_transition_prover(frame, periodic_values, rap_challenges)
     }
@@ -200,7 +294,7 @@ pub fn fibonacci_rap_trace<F: IsFFTField>(
     let mut trace_cols = vec![fib_seq, fib_permuted];
     resize_to_next_power_of_two(&mut trace_cols);
 
-    TraceTable::from_columns(trace_cols, 1)
+    TraceTable::from_columns(trace_cols, 2, 1)
 }
 
 #[cfg(test)]

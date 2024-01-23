@@ -1,7 +1,6 @@
-use crate::{frame::Frame, table::EvaluationTable};
-
 use super::domain::Domain;
 use super::traits::AIR;
+use crate::{frame::Frame, trace::LDETraceTable};
 use lambdaworks_math::{
     field::{
         element::FieldElement,
@@ -17,7 +16,7 @@ pub fn validate_trace<A: AIR>(
     main_trace_polys: &[Polynomial<FieldElement<A::Field>>],
     aux_trace_polys: &[Polynomial<FieldElement<A::FieldExtension>>],
     domain: &Domain<A::Field>,
-    rap_challenges: &A::RAPChallenges,
+    rap_challenges: &[FieldElement<A::FieldExtension>],
 ) -> bool {
     info!("Starting constraints validation over trace...");
     let mut ret = true;
@@ -33,6 +32,7 @@ pub fn validate_trace<A: AIR>(
             .unwrap()
         })
         .collect();
+
     let aux_trace_columns: Vec<_> = aux_trace_polys
         .iter()
         .map(|poly| {
@@ -41,8 +41,8 @@ pub fn validate_trace<A: AIR>(
         })
         .collect();
 
-    let lde_table =
-        EvaluationTable::from_columns(main_trace_columns, aux_trace_columns, A::STEP_SIZE);
+    let lde_trace =
+        LDETraceTable::from_columns(main_trace_columns, aux_trace_columns, A::STEP_SIZE, 1);
 
     let periodic_columns: Vec<_> = air
         .get_periodic_column_polynomials()
@@ -67,9 +67,9 @@ pub fn validate_trace<A: AIR>(
             let boundary_value = constraint.value.clone();
 
             let trace_value = if !constraint.is_aux {
-                lde_table.get_main(step, col).clone().to_extension()
+                lde_trace.get_main(step, col).clone().to_extension()
             } else {
-                lde_table.get_aux(step,  col).clone()
+                lde_trace.get_aux(step,  col).clone()
             };
 
             if boundary_value.clone().to_extension() != trace_value {
@@ -82,17 +82,15 @@ pub fn validate_trace<A: AIR>(
     let n_transition_constraints = air.context().num_transition_constraints();
     let transition_exemptions = &air.context().transition_exemptions;
 
-    let exemption_steps: Vec<usize> = vec![lde_table.n_rows(); n_transition_constraints]
+    let exemption_steps: Vec<usize> = vec![lde_trace.num_rows(); n_transition_constraints]
         .iter()
         .zip(transition_exemptions)
         .map(|(trace_steps, exemptions)| trace_steps - exemptions)
         .collect();
 
     // Iterate over trace and compute transitions
-    for step in 0..lde_table.num_steps() {
-        let frame =
-            Frame::read_from_lde_table(&lde_table, step, 1, &air.context().transition_offsets);
-
+    for step in 0..lde_trace.num_steps() {
+        let frame = Frame::read_step_from_lde(&lde_trace, step, &air.context().transition_offsets);
         let periodic_values: Vec<_> = periodic_columns
             .iter()
             .map(|col| col[step].clone())
