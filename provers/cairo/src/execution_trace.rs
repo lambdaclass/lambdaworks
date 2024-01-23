@@ -24,7 +24,8 @@ type CairoTraceTable = TraceTable<Stark252PrimeField>;
 // NOTE: This should be deleted and use CairoAIR::STEP_SIZE once it is set to 16
 const CAIRO_STEP: usize = 16;
 
-const PLAIN_LAYOUT_NUM_COLUMNS: usize = 8;
+const PLAIN_LAYOUT_NUM_MAIN_COLUMNS: usize = 6;
+const PLAIN_LAYOUT_NUM_AUX_COLUMNS: usize = 2;
 
 /// Gets holes from the range-checked columns. These holes must be filled for the
 /// permutation range-checks, as can be read in section 9.9 of the Cairo whitepaper.
@@ -174,8 +175,12 @@ pub fn build_cairo_execution_trace(
     let t1: Vec<Felt252> = t0.iter().zip(&res).map(|(t, r)| t * r).collect();
     let mul: Vec<Felt252> = op0s.iter().zip(&op1s).map(|(op0, op1)| op0 * op1).collect();
 
-    let mut trace: CairoTraceTable =
-        TraceTable::allocate_with_zeros(num_steps, PLAIN_LAYOUT_NUM_COLUMNS, CAIRO_STEP);
+    let mut trace: CairoTraceTable = TraceTable::allocate_with_zeros(
+        num_steps,
+        PLAIN_LAYOUT_NUM_MAIN_COLUMNS,
+        PLAIN_LAYOUT_NUM_AUX_COLUMNS,
+        CAIRO_STEP,
+    );
 
     let rc_values = set_rc_pool(&mut trace, unbiased_offsets);
     set_bit_prefix_flags(&mut trace, bit_prefix_flags);
@@ -206,7 +211,7 @@ pub fn build_cairo_execution_trace(
     // Get all rc values.
     // NOTE: We are sorting these values again, once for finding rc holes and one for the sorted column construction.
     // This could be rethinked for better performance
-    let mut sorted_rc_column = trace.get_column(0);
+    let mut sorted_rc_column = trace.get_column_main(0);
     sorted_rc_column.sort_by_key(|x| x.representative());
     set_sorted_rc_pool(&mut trace, sorted_rc_column);
 
@@ -481,7 +486,7 @@ fn decompose_rc_values_into_trace_columns(rc_values: &[&Felt252]) -> [Vec<Felt25
 fn set_bit_prefix_flags(trace: &mut CairoTraceTable, bit_prefix_flags: Vec<[Felt252; 16]>) {
     for (step_idx, flags) in bit_prefix_flags.into_iter().enumerate() {
         for (flag_idx, flag) in flags.into_iter().enumerate() {
-            trace.set(flag_idx + CAIRO_STEP * step_idx, 1, flag);
+            trace.set_main(flag_idx + CAIRO_STEP * step_idx, 1, flag);
         }
     }
 }
@@ -498,9 +503,9 @@ fn set_rc_pool(
 
     let mut rc_values = Vec::new();
     for (step_idx, (off_dst, off_op0, off_op1)) in offsets.into_iter().enumerate() {
-        trace.set(OFF_DST_OFFSET + CAIRO_STEP * step_idx, 0, off_dst);
-        trace.set(OFF_OP0_OFFSET + CAIRO_STEP * step_idx, 0, off_op0);
-        trace.set(OFF_OP1_OFFSET + CAIRO_STEP * step_idx, 0, off_op1);
+        trace.set_main(OFF_DST_OFFSET + CAIRO_STEP * step_idx, 0, off_dst);
+        trace.set_main(OFF_OP0_OFFSET + CAIRO_STEP * step_idx, 0, off_op0);
+        trace.set_main(OFF_OP1_OFFSET + CAIRO_STEP * step_idx, 0, off_op1);
 
         rc_values.push(off_dst);
         rc_values.push(off_op0);
@@ -546,14 +551,14 @@ fn set_mem_pool(
         )
         .enumerate()
     {
-        trace.set(PC_OFFSET + CAIRO_STEP * step_idx, 3, pc);
-        trace.set(INST_OFFSET + CAIRO_STEP * step_idx, 3, inst);
-        trace.set(OP0_ADDR_OFFSET + CAIRO_STEP * step_idx, 3, op0_addr);
-        trace.set(OP0_VAL_OFFSET + CAIRO_STEP * step_idx, 3, op0_val);
-        trace.set(DST_ADDR_OFFSET + CAIRO_STEP * step_idx, 3, dst_addr);
-        trace.set(DST_VAL_OFFSET + CAIRO_STEP * step_idx, 3, dst_val);
-        trace.set(OP1_ADDR_OFFSET + CAIRO_STEP * step_idx, 3, op1_addr);
-        trace.set(OP1_VAL_OFFSET + CAIRO_STEP * step_idx, 3, op1_val);
+        trace.set_main(PC_OFFSET + CAIRO_STEP * step_idx, 3, pc);
+        trace.set_main(INST_OFFSET + CAIRO_STEP * step_idx, 3, inst);
+        trace.set_main(OP0_ADDR_OFFSET + CAIRO_STEP * step_idx, 3, op0_addr);
+        trace.set_main(OP0_VAL_OFFSET + CAIRO_STEP * step_idx, 3, op0_val);
+        trace.set_main(DST_ADDR_OFFSET + CAIRO_STEP * step_idx, 3, dst_addr);
+        trace.set_main(DST_VAL_OFFSET + CAIRO_STEP * step_idx, 3, dst_val);
+        trace.set_main(OP1_ADDR_OFFSET + CAIRO_STEP * step_idx, 3, op1_addr);
+        trace.set_main(OP1_VAL_OFFSET + CAIRO_STEP * step_idx, 3, op1_val);
 
         addrs.push(pc);
         addrs.push(op0_addr);
@@ -584,12 +589,12 @@ fn set_update_pc(
     for (step_idx, (ap, tmp0, m, fp, tmp1, res)) in
         itertools::izip!(aps, t0s, mul, fps, t1s, res).enumerate()
     {
-        trace.set(AP_OFFSET + CAIRO_STEP * step_idx, 5, ap);
-        trace.set(TMP0_OFFSET + CAIRO_STEP * step_idx, 5, tmp0);
-        trace.set(OPS_MUL_OFFSET + CAIRO_STEP * step_idx, 5, m);
-        trace.set(FP_OFFSET + CAIRO_STEP * step_idx, 5, fp);
-        trace.set(TMP1_OFFSET + CAIRO_STEP * step_idx, 5, tmp1);
-        trace.set(RES_OFFSET + CAIRO_STEP * step_idx, 5, res);
+        trace.set_main(AP_OFFSET + CAIRO_STEP * step_idx, 5, ap);
+        trace.set_main(TMP0_OFFSET + CAIRO_STEP * step_idx, 5, tmp0);
+        trace.set_main(OPS_MUL_OFFSET + CAIRO_STEP * step_idx, 5, m);
+        trace.set_main(FP_OFFSET + CAIRO_STEP * step_idx, 5, fp);
+        trace.set_main(TMP1_OFFSET + CAIRO_STEP * step_idx, 5, tmp1);
+        trace.set_main(RES_OFFSET + CAIRO_STEP * step_idx, 5, res);
     }
 }
 
@@ -604,23 +609,23 @@ fn finalize_mem_pool(trace: &mut CairoTraceTable, memory_holes: VecDeque<Felt252
 
     for step_idx in 0..trace.num_steps() {
         if let Some(hole_addr) = memory_holes.pop_front() {
-            trace.set(
+            trace.set_main(
                 MEM_POOL_UNUSED_ADDR_OFFSET + CAIRO_STEP * step_idx,
                 3,
                 hole_addr,
             );
-            trace.set(
+            trace.set_main(
                 MEM_POOL_UNUSED_VALUE_OFFSET + CAIRO_STEP * step_idx,
                 3,
                 Felt252::zero(),
             );
         } else {
-            trace.set(
+            trace.set_main(
                 MEM_POOL_UNUSED_ADDR_OFFSET + CAIRO_STEP * step_idx,
                 3,
                 last_hole_addr,
             );
-            trace.set(
+            trace.set_main(
                 MEM_POOL_UNUSED_VALUE_OFFSET + CAIRO_STEP * step_idx,
                 3,
                 Felt252::zero(),
@@ -628,23 +633,23 @@ fn finalize_mem_pool(trace: &mut CairoTraceTable, memory_holes: VecDeque<Felt252
         }
 
         if let Some(hole_addr) = memory_holes.pop_front() {
-            trace.set(
+            trace.set_main(
                 MEM_POOL_UNUSED_ADDR_OFFSET + MEM_POOL_UNUSED_CELL_STEP + CAIRO_STEP * step_idx,
                 3,
                 hole_addr,
             );
-            trace.set(
+            trace.set_main(
                 MEM_POOL_UNUSED_VALUE_OFFSET + MEM_POOL_UNUSED_CELL_STEP + CAIRO_STEP * step_idx,
                 3,
                 Felt252::zero(),
             );
         } else {
-            trace.set(
+            trace.set_main(
                 MEM_POOL_UNUSED_ADDR_OFFSET + MEM_POOL_UNUSED_CELL_STEP + CAIRO_STEP * step_idx,
                 3,
                 last_hole_addr,
             );
-            trace.set(
+            trace.set_main(
                 MEM_POOL_UNUSED_VALUE_OFFSET + MEM_POOL_UNUSED_CELL_STEP + CAIRO_STEP * step_idx,
                 3,
                 Felt252::zero(),
@@ -657,7 +662,7 @@ fn finalize_mem_pool(trace: &mut CairoTraceTable, memory_holes: VecDeque<Felt252
 
 fn set_sorted_rc_pool(trace: &mut CairoTraceTable, sorted_rc_column: Vec<Felt252>) {
     for (row_idx, rc_value) in sorted_rc_column.into_iter().enumerate() {
-        trace.set(row_idx, 2, rc_value);
+        trace.set_main(row_idx, 2, rc_value);
     }
 }
 
@@ -671,9 +676,9 @@ fn finalize_rc_pool(trace: &mut CairoTraceTable, rc_holes: VecDeque<Felt252>, rc
                 continue;
             };
             if let Some(rc_hole) = rc_holes.pop_front() {
-                trace.set(step_idx * CAIRO_STEP + step_cell_idx, 0, rc_hole);
+                trace.set_main(step_idx * CAIRO_STEP + step_cell_idx, 0, rc_hole);
             } else {
-                trace.set(step_idx * CAIRO_STEP + step_cell_idx, 0, rc_max);
+                trace.set_main(step_idx * CAIRO_STEP + step_cell_idx, 0, rc_max);
             }
         }
     }
@@ -688,7 +693,7 @@ fn set_sorted_mem_pool(trace: &mut CairoTraceTable, pub_memory: HashMap<Felt252,
 
     assert!(2 * trace.num_steps() >= pub_memory.len());
 
-    let mut mem_pool = trace.get_column(3);
+    let mut mem_pool = trace.get_column_main(3);
     let first_pub_memory_addr = Felt252::one();
     let first_pub_memory_value = *pub_memory.get(&first_pub_memory_addr).unwrap();
     let first_pub_memory_entry_padding_len = 2 * trace.num_steps() - pub_memory.len();
@@ -765,24 +770,24 @@ fn set_sorted_mem_pool(trace: &mut CairoTraceTable, pub_memory: HashMap<Felt252,
     for row_idx in 0..trace.num_rows() {
         if row_idx % 2 == 0 {
             let addr = sorted_addrs_iter.next().unwrap();
-            trace.set(row_idx, 4, addr);
+            trace.set_main(row_idx, 4, addr);
         } else {
             let value = sorted_values_iter.next().unwrap();
-            trace.set(row_idx, 4, value);
+            trace.set_main(row_idx, 4, value);
         }
     }
 }
 
 pub(crate) fn set_rc_permutation_column(trace: &mut CairoTraceTable, z: &Felt252) {
     let mut denominator_evaluations = trace
-        .get_column(2)
+        .get_column_main(2)
         .iter()
         .map(|a_prime| z - a_prime)
         .collect_vec();
     FieldElement::inplace_batch_inverse(&mut denominator_evaluations).unwrap();
 
     let rc_cumulative_procuts = trace
-        .get_column(0)
+        .get_column_main(0)
         .iter()
         .zip(&denominator_evaluations)
         .scan(Felt252::one(), |product, (num_i, den_i)| {
@@ -793,7 +798,7 @@ pub(crate) fn set_rc_permutation_column(trace: &mut CairoTraceTable, z: &Felt252
         .collect_vec();
 
     for (i, rc_perm_i) in rc_cumulative_procuts.into_iter().enumerate() {
-        trace.set(i, 6, rc_perm_i)
+        trace.set_aux(i, 0, rc_perm_i)
     }
 }
 
@@ -802,7 +807,7 @@ pub(crate) fn set_mem_permutation_column(
     alpha_mem: &Felt252,
     z_mem: &Felt252,
 ) {
-    let sorted_mem_pool = trace.get_column(4);
+    let sorted_mem_pool = trace.get_column_main(4);
     let sorted_addrs = sorted_mem_pool.iter().step_by(2).collect_vec();
     let sorted_values = sorted_mem_pool[1..].iter().step_by(2).collect_vec();
 
@@ -811,7 +816,7 @@ pub(crate) fn set_mem_permutation_column(
         .collect_vec();
     FieldElement::inplace_batch_inverse(&mut denominator).unwrap();
 
-    let mem_pool = trace.get_column(3);
+    let mem_pool = trace.get_column_main(3);
     let addrs = mem_pool.iter().step_by(2).collect_vec();
     let values = mem_pool[1..].iter().step_by(2).collect_vec();
 
@@ -825,7 +830,7 @@ pub(crate) fn set_mem_permutation_column(
 
     for (i, row_idx) in (0..trace.num_rows()).step_by(2).enumerate() {
         let mem_cumul_prod = mem_cumulative_products[i];
-        trace.set(row_idx, 7, mem_cumul_prod);
+        trace.set_aux(row_idx, 1, mem_cumul_prod);
     }
 }
 
@@ -1008,7 +1013,7 @@ mod test {
     #[test]
     fn set_rc_pool_works() {
         let program_content = std::fs::read(cairo0_program_path("fibonacci_stone.json")).unwrap();
-        let mut trace: CairoTraceTable = TraceTable::allocate_with_zeros(128, 8, 16);
+        let mut trace: CairoTraceTable = TraceTable::allocate_with_zeros(128, 6, 2, 16);
         let (register_states, memory, _) =
             run_program(None, CairoLayout::Plain, &program_content).unwrap();
 
@@ -1034,11 +1039,11 @@ mod test {
         let rc_max = Felt252::from(*(sorted_rc_values.last().unwrap()) as u64);
         finalize_rc_pool(&mut trace, rc_holes, rc_max);
 
-        let mut sorted_rc_column = trace.get_column(0);
+        let mut sorted_rc_column = trace.get_column_main(0);
         sorted_rc_column.sort_by_key(|x| x.representative());
         set_sorted_rc_pool(&mut trace, sorted_rc_column);
 
-        trace.table.columns()[2]
+        trace.main_table.columns()[2]
             .iter()
             .enumerate()
             .for_each(|(i, v)| println!("SORTED RC VAL {} - {}", i, v));
@@ -1047,7 +1052,7 @@ mod test {
     #[test]
     fn set_update_pc_works() {
         let program_content = std::fs::read(cairo0_program_path("fibonacci_stone.json")).unwrap();
-        let mut trace: CairoTraceTable = TraceTable::allocate_with_zeros(128, 8, 16);
+        let mut trace: CairoTraceTable = TraceTable::allocate_with_zeros(128, 6, 2, 16);
         let (register_states, memory, _) =
             run_program(None, CairoLayout::Plain, &program_content).unwrap();
 
@@ -1096,7 +1101,7 @@ mod test {
 
         set_update_pc(&mut trace, aps, t0, t1, mul, fps, res);
 
-        trace.table.columns()[5][0..50]
+        trace.main_table.columns()[5][0..50]
             .iter()
             .enumerate()
             .for_each(|(i, v)| println!("ROW {} - VALUE: {}", i, v));
@@ -1105,7 +1110,7 @@ mod test {
     #[test]
     fn set_mem_pool_works() {
         let program_content = std::fs::read(cairo0_program_path("fibonacci_stone.json")).unwrap();
-        let mut trace: CairoTraceTable = TraceTable::allocate_with_zeros(128, 8, 16);
+        let mut trace: CairoTraceTable = TraceTable::allocate_with_zeros(128, 6, 2, 16);
         let (register_states, memory, pub_inputs) =
             run_program(None, CairoLayout::Plain, &program_content).unwrap();
 
@@ -1169,7 +1174,7 @@ mod test {
         );
         set_mem_permutation_column(&mut trace, &alpha, &z);
 
-        trace.table.columns()[7][..20]
+        trace.aux_table.columns()[1][..20]
             .iter()
             .enumerate()
             .for_each(|(i, v)| println!("ROW {} - MEM CUMUL PROD: {}", i, v));
@@ -1178,7 +1183,7 @@ mod test {
     #[test]
     fn set_bit_prefix_flags_works() {
         let program_content = std::fs::read(cairo0_program_path("fibonacci_stone.json")).unwrap();
-        let mut trace: CairoTraceTable = TraceTable::allocate_with_zeros(128, 8, 16);
+        let mut trace: CairoTraceTable = TraceTable::allocate_with_zeros(128, 6, 2, 16);
         let (register_states, memory, _) =
             run_program(None, CairoLayout::Plain, &program_content).unwrap();
 
@@ -1196,7 +1201,7 @@ mod test {
 
         set_bit_prefix_flags(&mut trace, bit_prefix_flags);
 
-        trace.table.columns()[1][0..50]
+        trace.main_table.columns()[1][0..50]
             .iter()
             .enumerate()
             .for_each(|(i, v)| println!("ROW {} - VALUE: {}", i, v));
@@ -1205,7 +1210,7 @@ mod test {
     #[test]
     fn set_rc_permutation_col_works() {
         let program_content = std::fs::read(cairo0_program_path("fibonacci_stone.json")).unwrap();
-        let mut trace: CairoTraceTable = TraceTable::allocate_with_zeros(128, 8, 16);
+        let mut trace: CairoTraceTable = TraceTable::allocate_with_zeros(128, 6, 2, 16);
         let (register_states, memory, _) =
             run_program(None, CairoLayout::Plain, &program_content).unwrap();
 
@@ -1232,7 +1237,7 @@ mod test {
         let rc_max = Felt252::from(*(sorted_rc_values.last().unwrap()) as u64);
         finalize_rc_pool(&mut trace, rc_holes, rc_max);
 
-        let mut sorted_rc_column = trace.get_column(0);
+        let mut sorted_rc_column = trace.get_column_main(0);
         sorted_rc_column.sort_by_key(|x| x.representative());
         set_sorted_rc_pool(&mut trace, sorted_rc_column);
 
@@ -1242,7 +1247,7 @@ mod test {
 
         set_rc_permutation_column(&mut trace, &z);
 
-        trace.table.columns()[6][..20]
+        trace.aux_table.columns()[0][..20]
             .iter()
             .enumerate()
             .for_each(|(i, v)| println!("RC PERMUTATION ARG {} - {}", i, v));

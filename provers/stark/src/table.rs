@@ -73,12 +73,12 @@ impl<'t, F: IsField> Table<F> {
         &self.data[row_offset..row_offset + self.width]
     }
 
-    /// Given a row index, returns a mutable reference to that row as a slice of field elements.
-    pub fn get_row_mut(&mut self, row_idx: usize) -> &mut [FieldElement<F>] {
-        let n_cols = self.width;
-        let row_offset = row_idx * n_cols;
-        &mut self.data[row_offset..row_offset + n_cols]
-    }
+    // /// Given a row index, returns a mutable reference to that row as a slice of field elements.
+    // pub fn get_row_mut(&mut self, row_idx: usize) -> &mut [FieldElement<F>] {
+    //     let n_cols = self.width;
+    //     let row_offset = row_idx * n_cols;
+    //     &mut self.data[row_offset..row_offset + n_cols]
+    // }
 
     /// Given a slice of field elements representing a row, appends it to
     /// the end of the table.

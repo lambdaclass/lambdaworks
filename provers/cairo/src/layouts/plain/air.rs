@@ -1,5 +1,9 @@
-use super::{cairo_mem::CairoMemory, register_states::RegisterStates};
-use crate::transition_constraints::*;
+use crate::{
+    cairo_mem::CairoMemory,
+    execution_trace::{set_mem_permutation_column, set_rc_permutation_column},
+    register_states::RegisterStates,
+    transition_constraints::*,
+};
 use cairo_vm::{air_public_input::MemorySegmentAddresses, without_std::collections::HashMap};
 use itertools::Itertools;
 use lambdaworks_math::{
@@ -9,6 +13,7 @@ use lambdaworks_math::{
     },
     traits::{AsBytes, ByteConversion, Deserializable},
 };
+use stark_platinum_prover::constraints::transition::TransitionConstraint;
 use stark_platinum_prover::{
     constraints::boundary::{BoundaryConstraint, BoundaryConstraints},
     context::AirContext,
@@ -21,7 +26,6 @@ use stark_platinum_prover::{
     verifier::{IsStarkVerifier, Verifier},
     Felt252,
 };
-use stark_platinum_prover::{constraints::transition::TransitionConstraint, table::Table};
 
 // TODO: These should probably be in the TraceTable module.
 pub const FRAME_RES: usize = 16;
@@ -675,15 +679,13 @@ impl AIR for CairoAIR {
         &self,
         trace: &mut TraceTable<Self::Field>,
         rap_challenges: &[Felt252],
-    ) -> TraceTable<Self::Field> {
+    ) {
         let alpha_mem = rap_challenges[0];
-        let z_mem = rap_challenges.z_memory[1];
-        let z_rc = rap_challenges.z_range_check[2];
+        let z_mem = rap_challenges[1];
+        let z_rc = rap_challenges[2];
 
         set_rc_permutation_column(trace, &z_rc);
         set_mem_permutation_column(trace, &alpha_mem, &z_mem);
-
-        trace
     }
 
     fn build_rap_challenges(

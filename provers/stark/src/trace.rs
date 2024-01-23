@@ -17,18 +17,26 @@ use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 /// STARK protocol, such as the step size (number of consecutive rows of the table)
 /// of the computation being proven.
 #[derive(Clone, Default, Debug, PartialEq, Eq)]
-pub struct TraceTable<F: IsField> {
+pub struct TraceTable<F, E>
+where
+    E: IsField,
+    F: IsSubFieldOf<E>,
+{
     pub main_table: Table<F>,
-    pub aux_table: Table<F>,
+    pub aux_table: Table<E>,
     pub num_main_columns: usize,
     pub num_aux_columns: usize,
     pub step_size: usize,
 }
 
-impl<F: IsField> TraceTable<F> {
+impl<F, E> TraceTable<F, E>
+where
+    E: IsField,
+    F: IsSubFieldOf<E>,
+{
     pub fn new(
         main_data: Vec<FieldElement<F>>,
-        aux_data: Vec<FieldElement<F>>,
+        aux_data: Vec<FieldElement<E>>,
         num_main_columns: usize,
         num_aux_columns: usize,
         step_size: usize,
@@ -119,13 +127,13 @@ impl<F: IsField> TraceTable<F> {
         main_row
     }
 
-    pub fn get_row_mut(&mut self, row_idx: usize) -> &mut [FieldElement<F>] {
-        let mut main_row = self.main_table.get_row_mut(row_idx).to_owned();
-        let aux_row = self.aux_table.get_row_mut(row_idx);
+    // pub fn get_row_mut(&mut self, row_idx: usize) -> &mut [FieldElement<F>] {
+    //     let mut main_row = self.main_table.get_row_mut(row_idx).to_owned();
+    //     let aux_row = self.aux_table.get_row_mut(row_idx);
 
-        main_row.extend_from_slice(aux_row);
-        &mut main_row
-    }
+    //     main_row.extend_from_slice(aux_row);
+    //     &mut main_row
+    // }
 
     pub fn last_row(&self) -> Vec<FieldElement<F>> {
         self.get_row(self.num_rows() - 1)
@@ -137,6 +145,14 @@ impl<F: IsField> TraceTable<F> {
 
         columns.extend_from_slice(&aux_columns);
         columns
+    }
+
+    pub fn columns_main(&self) -> Vec<Vec<FieldElement<F>>> {
+        self.main_table.columns()
+    }
+
+    pub fn columns_aux(&self) -> Vec<Vec<FieldElement<F>>> {
+        self.aux_table.columns()
     }
 
     // /// Given a slice of integer numbers representing column indexes, merge these columns into
@@ -178,9 +194,9 @@ impl<F: IsField> TraceTable<F> {
         num_main_columns: usize,
         num_aux_columns: usize,
         step_size: usize,
-    ) -> TraceTable<F> {
+    ) -> TraceTable<F, E> {
         let main_data = vec![FieldElement::<F>::zero(); step_size * num_steps * num_main_columns];
-        let aux_data = vec![FieldElement::<F>::zero(); step_size * num_steps * num_aux_columns];
+        let aux_data = vec![FieldElement::<E>::zero(); step_size * num_steps * num_aux_columns];
         TraceTable::new(
             main_data,
             aux_data,
@@ -190,12 +206,28 @@ impl<F: IsField> TraceTable<F> {
         )
     }
 
-    pub fn compute_trace_polys<S>(&self) -> Vec<Polynomial<FieldElement<F>>>
+    pub fn compute_trace_polys_main<S>(&self) -> Vec<Polynomial<FieldElement<F>>>
     where
         S: IsFFTField + IsSubFieldOf<F>,
         FieldElement<F>: Send + Sync,
     {
-        let columns = self.columns();
+        let columns = self.columns_main();
+        #[cfg(feature = "parallel")]
+        let iter = columns.par_iter();
+        #[cfg(not(feature = "parallel"))]
+        let iter = columns.iter();
+
+        iter.map(|col| Polynomial::interpolate_fft::<S>(col))
+            .collect::<Result<Vec<Polynomial<FieldElement<F>>>, FFTError>>()
+            .unwrap()
+    }
+
+    pub fn compute_trace_polys_aux<S>(&self) -> Vec<Polynomial<FieldElement<F>>>
+    where
+        S: IsFFTField + IsSubFieldOf<F>,
+        FieldElement<F>: Send + Sync,
+    {
+        let columns = self.columns_aux();
         #[cfg(feature = "parallel")]
         let iter = columns.par_iter();
         #[cfg(not(feature = "parallel"))]

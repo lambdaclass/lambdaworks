@@ -37,10 +37,10 @@ pub trait AIR {
 
     fn build_auxiliary_trace(
         &self,
-        _main_trace: &mut TraceTable<Self::Field>,
+        _main_trace: &mut TraceTable<Self::Field, Self::FieldExtension>,
         _rap_challenges: &[FieldElement<Self::FieldExtension>],
-    ) -> TraceTable<Self::FieldExtension> {
-        TraceTable::empty()
+    ) {
+        ()
     }
 
     fn build_rap_challenges(
@@ -51,6 +51,11 @@ pub trait AIR {
     }
 
     fn trace_layout(&self) -> (usize, usize);
+
+    fn has_trace_interaction(&self) -> bool {
+        let (_main_trace_columns, aux_trace_columns) = self.trace_layout();
+        aux_trace_columns != 0
+    }
 
     fn num_auxiliary_rap_columns(&self) -> usize {
         self.trace_layout().1
