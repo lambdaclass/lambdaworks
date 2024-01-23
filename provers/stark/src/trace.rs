@@ -19,7 +19,7 @@ use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 #[derive(Clone, Default, Debug, PartialEq, Eq)]
 pub struct TraceTable<F, E>
 where
-    E: IsFFTField,
+    E: IsField,
     F: IsSubFieldOf<E>,
 {
     pub main_table: Table<F>,
@@ -31,8 +31,8 @@ where
 
 impl<F, E> TraceTable<F, E>
 where
-    E: IsFFTField,
-    F: IsSubFieldOf<E>,
+    E: IsField,
+    F: IsSubFieldOf<E> + IsFFTField,
 {
     pub fn new(
         main_data: Vec<FieldElement<F>>,
@@ -139,19 +139,19 @@ where
         self.get_row(self.num_rows() - 1)
     }
 
-    pub fn columns(&self) -> Vec<Vec<FieldElement<F>>> {
-        let mut columns = self.main_table.columns();
-        let aux_columns = self.aux_table.columns();
+    // pub fn columns(&self) -> Vec<Vec<FieldElement<F>>> {
+    //     let mut columns = self.main_table.columns();
+    //     let aux_columns = self.aux_table.columns();
 
-        columns.extend_from_slice(&aux_columns);
-        columns
-    }
+    //     columns.extend_from_slice(&aux_columns);
+    //     columns
+    // }
 
     pub fn columns_main(&self) -> Vec<Vec<FieldElement<F>>> {
         self.main_table.columns()
     }
 
-    pub fn columns_aux(&self) -> Vec<Vec<FieldElement<F>>> {
+    pub fn columns_aux(&self) -> Vec<Vec<FieldElement<E>>> {
         self.aux_table.columns()
     }
 
@@ -177,7 +177,7 @@ where
     }
 
     /// Given a row and a column index, gives stored value in that position
-    pub fn get_aux(&self, row: usize, col: usize) -> &FieldElement<F> {
+    pub fn get_aux(&self, row: usize, col: usize) -> &FieldElement<E> {
         self.aux_table.get(row, col)
     }
 
@@ -206,9 +206,9 @@ where
         )
     }
 
-    pub fn compute_trace_polys_main(&self) -> Vec<Polynomial<FieldElement<F>>>
+    pub fn compute_trace_polys_main<S>(&self) -> Vec<Polynomial<FieldElement<F>>>
     where
-        // S: IsFFTField + IsSubFieldOf<F>,
+        S: IsFFTField + IsSubFieldOf<F>,
         FieldElement<F>: Send + Sync,
     {
         let columns = self.columns_main();
@@ -217,12 +217,12 @@ where
         #[cfg(not(feature = "parallel"))]
         let iter = columns.iter();
 
-        iter.map(|col| Polynomial::interpolate_fft::<E>(col))
+        iter.map(|col| Polynomial::interpolate_fft::<S>(col))
             .collect::<Result<Vec<Polynomial<FieldElement<F>>>, FFTError>>()
             .unwrap()
     }
 
-    pub fn compute_trace_polys_aux<S>(&self) -> Vec<Polynomial<FieldElement<F>>>
+    pub fn compute_trace_polys_aux<S>(&self) -> Vec<Polynomial<FieldElement<E>>>
     where
         S: IsFFTField + IsSubFieldOf<F>,
         FieldElement<F>: Send + Sync,
@@ -233,8 +233,8 @@ where
         #[cfg(not(feature = "parallel"))]
         let iter = columns.iter();
 
-        iter.map(|col| Polynomial::interpolate_fft::<S>(col))
-            .collect::<Result<Vec<Polynomial<FieldElement<F>>>, FFTError>>()
+        iter.map(|col| Polynomial::interpolate_fft::<F>(col))
+            .collect::<Result<Vec<Polynomial<FieldElement<E>>>, FFTError>>()
             .unwrap()
     }
 
