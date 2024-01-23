@@ -39,7 +39,9 @@ pub trait AIR {
         &self,
         _main_trace: &mut TraceTable<Self::Field, Self::FieldExtension>,
         _rap_challenges: &[FieldElement<Self::FieldExtension>],
-    ) {
+    ) where
+        Self::FieldExtension: IsFFTField,
+    {
         ()
     }
 

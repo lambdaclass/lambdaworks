@@ -171,15 +171,31 @@ where
 /// https://github.com/starkware-libs/stone-prover
 pub trait IsStarkProver<A: AIR> {
     /// Returns the Merkle tree and the commitment to the vectors `vectors`.
-    fn batch_commit<E>(vectors: &[Vec<FieldElement<E>>]) -> (BatchedMerkleTree<E>, Commitment)
+    fn batch_commit_main(
+        vectors: &[Vec<FieldElement<A::Field>>],
+    ) -> (BatchedMerkleTree<A::Field>, Commitment)
     where
         FieldElement<A::Field>: AsBytes + Sync + Send,
         FieldElement<A::FieldExtension>: AsBytes + Sync + Send,
-        FieldElement<E>: AsBytes + Sync + Send,
-        E: IsSubFieldOf<A::FieldExtension>,
-        A::Field: IsSubFieldOf<E>,
+        // E: IsSubFieldOf<A::FieldExtension>,
+        // A::Field: IsSubFieldOf<E>,
     {
-        let tree = BatchedMerkleTree::<E>::build(vectors);
+        let tree = BatchedMerkleTree::build(vectors);
+        let commitment = tree.root;
+        (tree, commitment)
+    }
+
+    /// Returns the Merkle tree and the commitment to the vectors `vectors`.
+    fn batch_commit_aux(
+        vectors: &[Vec<FieldElement<A::FieldExtension>>],
+    ) -> (BatchedMerkleTree<A::FieldExtension>, Commitment)
+    where
+        FieldElement<A::Field>: AsBytes + Sync + Send,
+        FieldElement<A::FieldExtension>: AsBytes + Sync + Send,
+        // E: IsSubFieldOf<A::FieldExtension>,
+        // A::Field: IsSubFieldOf<E>,
+    {
+        let tree = BatchedMerkleTree::build(vectors);
         let commitment = tree.root;
         (tree, commitment)
     }
@@ -192,25 +208,25 @@ pub trait IsStarkProver<A: AIR> {
     /// • The Merkle tree of evaluations of the above polynomials over the domain `domain`.
     /// • The roots of the above Merkle trees.
     #[allow(clippy::type_complexity)]
-    fn interpolate_and_commit_main(
-        trace: &TraceTable<A::Field, A::FieldExtension>,
+    fn interpolate_and_commit_main<E>(
+        trace: &TraceTable<A::Field, E>,
         domain: &Domain<A::Field>,
         transcript: &mut impl IsStarkTranscript<A::FieldExtension>,
     ) -> (
-        Vec<Polynomial<FieldElement<A::FieldExtension>>>,
-        Vec<Vec<FieldElement<A::FieldExtension>>>,
-        BatchedMerkleTree<A::FieldExtension>,
+        Vec<Polynomial<FieldElement<E>>>,
+        Vec<Vec<FieldElement<A::Field>>>,
+        BatchedMerkleTree<A::Field>,
         Commitment,
     )
     where
         FieldElement<A::Field>: AsBytes + Send + Sync,
-        // FieldElement<E>: AsBytes + Send + Sync,
+        FieldElement<E>: AsBytes + Send + Sync,
         FieldElement<A::FieldExtension>: AsBytes + Send + Sync,
-        // E: IsSubFieldOf<A::FieldExtension>,
-        // A::Field: IsSubFieldOf<E>,
+        E: IsSubFieldOf<A::FieldExtension> + IsFFTField,
+        A::Field: IsSubFieldOf<E>,
     {
         // Interpolate columns of `trace`.
-        let trace_polys = trace.compute_trace_polys_main::<A::Field>();
+        let trace_polys = trace.compute_trace_polys_main();
 
         // Evaluate those polynomials t_j on the large domain D_LDE.
         let lde_trace_evaluations = Self::compute_lde_trace_evaluations(&trace_polys, domain);
@@ -223,7 +239,7 @@ pub trait IsStarkProver<A: AIR> {
         // Compute commitment.
         let lde_trace_permuted_rows = columns2rows(lde_trace_permuted);
         let (lde_trace_merkle_tree, lde_trace_merkle_root) =
-            Self::batch_commit(&lde_trace_permuted_rows);
+            Self::batch_commit_main(&lde_trace_permuted_rows);
 
         // >>>> Send commitment.
         transcript.append_bytes(&lde_trace_merkle_root);
@@ -244,8 +260,8 @@ pub trait IsStarkProver<A: AIR> {
     /// • The Merkle tree of evaluations of the above polynomials over the domain `domain`.
     /// • The roots of the above Merkle trees.
     #[allow(clippy::type_complexity)]
-    fn interpolate_and_commit_aux(
-        trace: &TraceTable<A::Field, A::FieldExtension>,
+    fn interpolate_and_commit_aux<E>(
+        trace: &TraceTable<A::Field, E>,
         domain: &Domain<A::Field>,
         transcript: &mut impl IsStarkTranscript<A::FieldExtension>,
     ) -> (
@@ -258,8 +274,8 @@ pub trait IsStarkProver<A: AIR> {
         FieldElement<A::Field>: AsBytes + Send + Sync,
         // FieldElement<E>: AsBytes + Send + Sync,
         FieldElement<A::FieldExtension>: AsBytes + Send + Sync,
-        // E: IsSubFieldOf<A::FieldExtension>,
-        // A::Field: IsSubFieldOf<E>,
+        E: IsSubFieldOf<A::FieldExtension> + IsFFTField,
+        A::Field: IsSubFieldOf<E>,
     {
         // Interpolate columns of `trace`.
         let trace_polys = trace.compute_trace_polys_aux::<A::Field>();
@@ -275,7 +291,7 @@ pub trait IsStarkProver<A: AIR> {
         // Compute commitment.
         let lde_trace_permuted_rows = columns2rows(lde_trace_permuted);
         let (lde_trace_merkle_tree, lde_trace_merkle_root) =
-            Self::batch_commit(&lde_trace_permuted_rows);
+            Self::batch_commit_aux(&lde_trace_permuted_rows);
 
         // >>>> Send commitment.
         transcript.append_bytes(&lde_trace_merkle_root);
@@ -290,16 +306,16 @@ pub trait IsStarkProver<A: AIR> {
 
     /// Evaluate polynomials `trace_polys` over the domain `domain`.
     /// The i-th entry of the returned vector contains the evaluations of the i-th polynomial in `trace_polys`.
-    fn compute_lde_trace_evaluations<F>(
-        trace_polys: &[Polynomial<FieldElement<F>>],
-        domain: &Domain<F>,
-    ) -> Vec<Vec<FieldElement<F>>>
+    fn compute_lde_trace_evaluations<E>(
+        trace_polys: &[Polynomial<FieldElement<E>>],
+        domain: &Domain<A::Field>,
+    ) -> Vec<Vec<FieldElement<E>>>
     where
-        // FieldElement<A::Field>: Send + Sync,
-        FieldElement<F>: Send + Sync,
-        // E: IsSubFieldOf<A::FieldExtension>,
-        // A::Field: IsSubFieldOf<E>,
-        F: IsFFTField,
+        FieldElement<E>: Send + Sync,
+        FieldElement<A::Field>: Send + Sync,
+        E: IsSubFieldOf<A::FieldExtension>,
+        A::Field: IsSubFieldOf<E>,
+        // F: IsFFTField,
     {
         #[cfg(not(feature = "parallel"))]
         let trace_polys_iter = trace_polys.iter();
@@ -315,7 +331,7 @@ pub trait IsStarkProver<A: AIR> {
                     &domain.coset_offset,
                 )
             })
-            .collect::<Result<Vec<Vec<FieldElement<F>>>, FFTError>>()
+            .collect::<Result<Vec<Vec<FieldElement<E>>>, FFTError>>()
             .unwrap()
     }
 
@@ -328,10 +344,12 @@ pub trait IsStarkProver<A: AIR> {
     ) -> Result<Round1<A>, ProvingError>
     where
         FieldElement<A::Field>: AsBytes + Send + Sync,
+        A::FieldExtension: IsFFTField,
         FieldElement<A::FieldExtension>: AsBytes + Send + Sync,
     {
         let (trace_polys, evaluations, main_merkle_tree, main_merkle_root) =
-            Self::interpolate_and_commit_main::<A::Field>(trace, domain, transcript);
+            // Self::interpolate_and_commit_main::<A::Field>(trace, domain, transcript);
+            Self::interpolate_and_commit_main>(trace, domain, transcript);
 
         let main = Round1CommitmentData::<A::Field> {
             trace_polys,
@@ -851,6 +869,7 @@ pub trait IsStarkProver<A: AIR> {
     where
         A: Send + Sync,
         FieldElement<A::Field>: AsBytes + Send + Sync,
+        A::FieldExtension: IsFFTField,
         FieldElement<A::FieldExtension>: AsBytes + Send + Sync,
     {
         info!("Started proof generation...");
