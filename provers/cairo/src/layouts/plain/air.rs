@@ -541,7 +541,7 @@ impl AIR for CairoAIR {
     type FieldExtension = Stark252PrimeField;
     type PublicInputs = PublicInputs;
 
-    const STEP_SIZE: usize = 1;
+    const STEP_SIZE: usize = 16;
 
     /// Creates a new CairoAIR from proof_options
     ///
@@ -556,75 +556,75 @@ impl AIR for CairoAIR {
         proof_options: &ProofOptions,
     ) -> Self {
         debug_assert!(trace_length.is_power_of_two());
-        let trace_columns = 59;
+        let trace_columns = 8;
 
         let transition_constraints: Vec<
             Box<dyn TransitionConstraint<Stark252PrimeField, Stark252PrimeField>>,
         > = vec![
             Box::new(BitPrefixFlag0::new()),
-            Box::new(BitPrefixFlag1::new()),
-            Box::new(BitPrefixFlag2::new()),
-            Box::new(BitPrefixFlag3::new()),
-            Box::new(BitPrefixFlag4::new()),
-            Box::new(BitPrefixFlag5::new()),
-            Box::new(BitPrefixFlag6::new()),
-            Box::new(BitPrefixFlag7::new()),
-            Box::new(BitPrefixFlag8::new()),
-            Box::new(BitPrefixFlag9::new()),
-            Box::new(BitPrefixFlag10::new()),
-            Box::new(BitPrefixFlag11::new()),
-            Box::new(BitPrefixFlag12::new()),
-            Box::new(BitPrefixFlag13::new()),
-            Box::new(BitPrefixFlag14::new()),
-            Box::new(ZeroFlagConstraint::new()),
-            Box::new(InstructionUnpacking::new()),
-            Box::new(CpuOperandsMemDstAddr::new()),
-            Box::new(CpuOperandsMem0Addr::new()),
-            Box::new(CpuOperandsMem1Addr::new()),
-            Box::new(CpuUpdateRegistersApUpdate::new()),
-            Box::new(CpuUpdateRegistersFpUpdate::new()),
-            Box::new(CpuUpdateRegistersPcCondPositive::new()),
-            Box::new(CpuUpdateRegistersPcCondNegative::new()),
-            Box::new(CpuUpdateRegistersUpdatePcTmp0::new()),
-            Box::new(CpuUpdateRegistersUpdatePcTmp1::new()),
-            Box::new(CpuOperandsOpsMul::new()),
-            Box::new(CpuOperandsRes::new()),
-            Box::new(CpuOpcodesCallPushFp::new()),
-            Box::new(CpuOpcodesCallPushPc::new()),
-            Box::new(CpuOpcodesAssertEq::new()),
-            Box::new(MemoryDiffIsBit0::new()),
-            Box::new(MemoryDiffIsBit1::new()),
-            Box::new(MemoryDiffIsBit2::new()),
-            Box::new(MemoryDiffIsBit3::new()),
-            Box::new(MemoryDiffIsBit4::new()),
-            Box::new(MemoryIsFunc0::new()),
-            Box::new(MemoryIsFunc1::new()),
-            Box::new(MemoryIsFunc2::new()),
-            Box::new(MemoryIsFunc3::new()),
-            Box::new(MemoryIsFunc4::new()),
-            Box::new(MemoryMultiColumnPermStep0_0::new()),
-            Box::new(MemoryMultiColumnPermStep0_1::new()),
-            Box::new(MemoryMultiColumnPermStep0_2::new()),
-            Box::new(MemoryMultiColumnPermStep0_3::new()),
-            Box::new(MemoryMultiColumnPermStep0_4::new()),
-            Box::new(Rc16DiffIsBit0::new()),
-            Box::new(Rc16DiffIsBit1::new()),
-            Box::new(Rc16DiffIsBit2::new()),
-            Box::new(Rc16DiffIsBit3::new()),
-            Box::new(Rc16PermStep0_0::new()),
-            Box::new(Rc16PermStep0_1::new()),
-            Box::new(Rc16PermStep0_2::new()),
-            Box::new(Rc16PermStep0_3::new()),
-            Box::new(FlagOp1BaseOp0BitConstraint::new()),
-            Box::new(FlagResOp1BitConstraint::new()),
-            Box::new(FlagPcUpdateRegularBit::new()),
-            Box::new(FlagFpUpdateRegularBit::new()),
-            Box::new(CpuOpcodesCallOff0::new()),
-            Box::new(CpuOpcodesCallOff1::new()),
-            Box::new(CpuOpcodesCallFlags::new()),
-            Box::new(CpuOpcodesRetOff0::new()),
-            Box::new(CpuOpcodesRetOff2::new()),
-            Box::new(CpuOpcodesRetFlags::new()),
+            // Box::new(BitPrefixFlag1::new()),
+            // Box::new(BitPrefixFlag2::new()),
+            // Box::new(BitPrefixFlag3::new()),
+            // Box::new(BitPrefixFlag4::new()),
+            // Box::new(BitPrefixFlag5::new()),
+            // Box::new(BitPrefixFlag6::new()),
+            // Box::new(BitPrefixFlag7::new()),
+            // Box::new(BitPrefixFlag8::new()),
+            // Box::new(BitPrefixFlag9::new()),
+            // Box::new(BitPrefixFlag10::new()),
+            // Box::new(BitPrefixFlag11::new()),
+            // Box::new(BitPrefixFlag12::new()),
+            // Box::new(BitPrefixFlag13::new()),
+            // Box::new(BitPrefixFlag14::new()),
+            // Box::new(ZeroFlagConstraint::new()),
+            // Box::new(InstructionUnpacking::new()),
+            // Box::new(CpuOperandsMemDstAddr::new()),
+            // Box::new(CpuOperandsMem0Addr::new()),
+            // Box::new(CpuOperandsMem1Addr::new()),
+            // Box::new(CpuUpdateRegistersApUpdate::new()),
+            // Box::new(CpuUpdateRegistersFpUpdate::new()),
+            // Box::new(CpuUpdateRegistersPcCondPositive::new()),
+            // Box::new(CpuUpdateRegistersPcCondNegative::new()),
+            // Box::new(CpuUpdateRegistersUpdatePcTmp0::new()),
+            // Box::new(CpuUpdateRegistersUpdatePcTmp1::new()),
+            // Box::new(CpuOperandsOpsMul::new()),
+            // Box::new(CpuOperandsRes::new()),
+            // Box::new(CpuOpcodesCallPushFp::new()),
+            // Box::new(CpuOpcodesCallPushPc::new()),
+            // Box::new(CpuOpcodesAssertEq::new()),
+            // Box::new(MemoryDiffIsBit0::new()),
+            // Box::new(MemoryDiffIsBit1::new()),
+            // Box::new(MemoryDiffIsBit2::new()),
+            // Box::new(MemoryDiffIsBit3::new()),
+            // Box::new(MemoryDiffIsBit4::new()),
+            // Box::new(MemoryIsFunc0::new()),
+            // Box::new(MemoryIsFunc1::new()),
+            // Box::new(MemoryIsFunc2::new()),
+            // Box::new(MemoryIsFunc3::new()),
+            // Box::new(MemoryIsFunc4::new()),
+            // Box::new(MemoryMultiColumnPermStep0_0::new()),
+            // Box::new(MemoryMultiColumnPermStep0_1::new()),
+            // Box::new(MemoryMultiColumnPermStep0_2::new()),
+            // Box::new(MemoryMultiColumnPermStep0_3::new()),
+            // Box::new(MemoryMultiColumnPermStep0_4::new()),
+            // Box::new(Rc16DiffIsBit0::new()),
+            // Box::new(Rc16DiffIsBit1::new()),
+            // Box::new(Rc16DiffIsBit2::new()),
+            // Box::new(Rc16DiffIsBit3::new()),
+            // Box::new(Rc16PermStep0_0::new()),
+            // Box::new(Rc16PermStep0_1::new()),
+            // Box::new(Rc16PermStep0_2::new()),
+            // Box::new(Rc16PermStep0_3::new()),
+            // Box::new(FlagOp1BaseOp0BitConstraint::new()),
+            // Box::new(FlagResOp1BitConstraint::new()),
+            // Box::new(FlagPcUpdateRegularBit::new()),
+            // Box::new(FlagFpUpdateRegularBit::new()),
+            // Box::new(CpuOpcodesCallOff0::new()),
+            // Box::new(CpuOpcodesCallOff1::new()),
+            // Box::new(CpuOpcodesCallFlags::new()),
+            // Box::new(CpuOpcodesRetOff0::new()),
+            // Box::new(CpuOpcodesRetOff2::new()),
+            // Box::new(CpuOpcodesRetFlags::new()),
         ];
 
         #[cfg(debug_assertions)]
@@ -642,10 +642,8 @@ impl AIR for CairoAIR {
             (0..transition_constraints.len())
                 .for_each(|idx| debug_assert!(constraints_set.iter().contains(&idx)));
 
-            assert_eq!(transition_constraints.len(), 64);
+            // assert_eq!(transition_constraints.len(), 64);
         }
-
-        assert_eq!(transition_constraints.len(), 64);
 
         let transition_exemptions = transition_constraints
             .iter()
@@ -701,6 +699,10 @@ impl AIR for CairoAIR {
 
     fn trace_layout(&self) -> (usize, usize) {
         (6, 2)
+    }
+
+    fn has_trace_interaction(&self) -> bool {
+        false
     }
 
     /// From the Cairo whitepaper, section 9.10.
@@ -777,7 +779,8 @@ impl AIR for CairoAIR {
             range_check_max,
         ];
 
-        BoundaryConstraints::from_constraints(constraints)
+        // BoundaryConstraints::from_constraints(constraints)
+        BoundaryConstraints::from_constraints(Vec::new())
     }
 
     fn transition_constraints(

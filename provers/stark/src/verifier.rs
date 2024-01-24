@@ -585,6 +585,8 @@ pub trait IsStarkVerifier<A: AIR> {
                         index,
                     );
 
+                    println!("OPENINGS OK: {}", openings_ok);
+
                     // Update `v` with next value pᵢ₊₁(𝜐^(2ⁱ⁺¹)).
                     v = (&v + evaluation_sym) + evaluation_point_inv * &zetas[i + 1] * (&v - evaluation_sym);
 

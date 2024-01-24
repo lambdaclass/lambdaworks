@@ -53,6 +53,24 @@ where
         }
     }
 
+    pub fn new_main(
+        main_data: Vec<FieldElement<F>>,
+        num_main_columns: usize,
+        step_size: usize,
+    ) -> Self {
+        let num_aux_columns = 0;
+        let main_table = Table::new(main_data, num_main_columns);
+        let aux_table = Table::new(Vec::new(), num_aux_columns);
+
+        Self {
+            main_table,
+            aux_table,
+            num_main_columns,
+            num_aux_columns,
+            step_size,
+        }
+    }
+
     pub fn from_columns(
         main_columns: Vec<Vec<FieldElement<F>>>,
         aux_columns: Vec<Vec<FieldElement<E>>>,

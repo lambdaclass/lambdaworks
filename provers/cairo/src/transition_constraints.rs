@@ -37,8 +37,13 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for BitPrefixF
 
         let constraint_idx = self.constraint_idx();
 
-        let current_flag = current_step.get_main_evaluation_element(0, constraint_idx);
-        let next_flag = current_step.get_main_evaluation_element(0, constraint_idx + 1);
+        let current_flag = current_step.get_main_evaluation_element(0, 1);
+        let next_flag = current_step.get_main_evaluation_element(1, 1);
+
+        // println!("CURRENT FLAG: {}", current_flag.representative());
+        // println!("NEXT FLAG: {}", next_flag.representative());
+
+        // panic!("LALA");
 
         let one = Felt252::one();
         let two = Felt252::from(2);
@@ -48,6 +53,14 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for BitPrefixF
         let res = bit * (bit - one);
 
         transition_evaluations[constraint_idx] = res;
+    }
+
+    fn exemptions_period(&self) -> Option<usize> {
+        Some(16)
+    }
+
+    fn periodic_exemptions_offset(&self) -> Option<usize> {
+        Some(15)
     }
 
     fn end_exemptions(&self) -> usize {
