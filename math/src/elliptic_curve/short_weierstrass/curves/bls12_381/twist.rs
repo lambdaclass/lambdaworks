@@ -160,7 +160,6 @@ mod tests {
         assert_eq!(p.operate_with(&q), expected);
     }
 
-
     #[test]
     // Numbers checked in SAGE
     fn add_points2() {
@@ -173,7 +172,6 @@ mod tests {
             Level0FE::new(U384::from_hex_unchecked("0x98d34282ed5a2e265e455af63c66f7b5dd1557296f775463bcea891a14a801baa172e923055c4bb0fd5343e86294f41"))
         ]);
 
-        
         let qx = Level1FE::new([
             Level0FE::new(U384::from_hex_unchecked("0xae980b8c7483736e1904a1643e7a46f9980e52a5e65f0c5f7d195b30efd7173adea992c49a9073572d64ba67470e406")),
             Level0FE::new(U384::from_hex_unchecked("0x57d195c5f11d93558b52a74be27ae07f82f908ce35fabe58ce212c6d0bcef4a9f25e31fe92b2a49ea3fbc5d6c8cde99"))
@@ -198,7 +196,6 @@ mod tests {
         assert_eq!(p.operate_with(&q), expected);
     }
 
-
     #[test]
     // Numbers checked in SAGE
     fn operate_with_self_test() {
@@ -206,7 +203,7 @@ mod tests {
             Level0FE::new(U384::from_hex_unchecked("0x1414a51107b5ca989957046a1126425d371f5124215e294770f67fbf14dd92bbf1c9c2dbf35441769fa88427c17f0bb5")),
             Level0FE::new(U384::from_hex_unchecked("0x6224c8c8d6ecb882197551c68a25340be33975948d7da7568f6e00131307dc3688d320ad3c3c7cb95625082a47908f2"))
         ]);
-        
+
         let py = Level1FE::new([
             Level0FE::new(U384::from_hex_unchecked("0xa69bb992a48dabcc49ab3fa1508bbc1acae14a9af09db39290b303de518806cec0067486adb6044f936d4bd2e5a151")),
             Level0FE::new(U384::from_hex_unchecked("0x98d34282ed5a2e265e455af63c66f7b5dd1557296f775463bcea891a14a801baa172e923055c4bb0fd5343e86294f41"))
@@ -216,17 +213,19 @@ mod tests {
             Level0FE::new(U384::from_hex_unchecked("0x16ba99ac9a28190dd74b8988e7a833f60e398472c363c2254c7db3138aff3a0858fb23e6cd2ca814a021b6b3b983f14a")),
             Level0FE::new(U384::from_hex_unchecked("0xe1356660c4a00b7ba5021f81949bd96680df9fa464a70d257c7b1bcae0e28ec15d84ddcef2ca2e4e8531f50177685dd"))
         ]);
-        
+
         let qy = Level1FE::new([
             Level0FE::new(U384::from_hex_unchecked("0x9883c1c7d10c32d584f1cf5f0a7c0742f9b283144290afd6871abcb585e434516cefd2b159d99d75771f5658f0af628")),
             Level0FE::new(U384::from_hex_unchecked("0x13e5df65d734c9decf24356dacfcf9c4a317e5d21a7d1ada728f59e46ddfb137214bab47e8629a8016b6e508cafe141a"))
         ]);
 
-        let scalar = U384::from_hex_unchecked("0x1752428b56412bc55b5c6aca6e1811d1b5d810afd55169d8cffeae326bc8d6ea");
+        let scalar = U384::from_hex_unchecked(
+            "0x1752428b56412bc55b5c6aca6e1811d1b5d810afd55169d8cffeae326bc8d6ea",
+        );
 
         let p = BLS12381TwistCurve::create_point_from_affine(px, py).unwrap();
         let q = BLS12381TwistCurve::create_point_from_affine(qx, qy).unwrap();
 
-       assert_eq!(p.operate_with_self(scalar), q);
+        assert_eq!(p.operate_with_self(scalar), q);
     }
 }
