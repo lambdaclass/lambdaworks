@@ -13,7 +13,7 @@ use lambdaworks_math::{
     },
     msm::pippenger::msm,
     polynomial::{dense_multilinear_poly::DenseMultilinearPolynomial, Polynomial},
-    traits::ByteConversion,
+    traits::{AsBytes, ByteConversion},
     unsigned_integer::element::UnsignedInteger,
 };
 use std::{borrow::Borrow, iter, marker::PhantomData};
@@ -196,9 +196,11 @@ impl<P: IsPairing> Zeromorph<P> {}
 impl<const N: usize, P: IsPairing> IsPolynomialCommitmentScheme<P::BaseField> for Zeromorph<P>
 where
     <<P as IsPairing>::BaseField as IsField>::BaseType: Send + Sync,
+    <P as IsPairing>::G1Point: AsBytes,
+    <P as IsPairing>::G2Point: AsBytes,
+    <P as IsPairing>::BaseField: IsPrimeField<RepresentativeType = UnsignedInteger<N>>,
     FieldElement<<P as IsPairing>::BaseField>: ByteConversion,
     //TODO: how to eliminate this complication in the trait interface
-    <P as IsPairing>::BaseField: IsPrimeField<RepresentativeType = UnsignedInteger<N>>,
 {
     type Polynomial = DenseMultilinearPolynomial<P::BaseField>;
     type Commitment = P::G1Point;
@@ -239,7 +241,15 @@ where
         let q_k_commitments: Vec<_> = quotients
             .iter()
             .map(|q| {
-                let q_k_commitment = self.commit(q);
+                let q_k_commitment = {
+                    //TODO: we only need to convert the offset scalars
+                    let scalars: Vec<_> = q
+                        .coefficients
+                        .iter()
+                        .map(|eval| eval.representative())
+                        .collect();
+                    msm(&scalars, &self.srs.g1_powers[..pi_poly.coeff_len()]).unwrap()
+                };
                 transcript.append(&q_k_commitment.as_bytes());
                 q_k_commitment
             })
@@ -434,10 +444,10 @@ where
     ) -> bool {
         debug_assert_eq!(evals.len(), p_commitments.len());
         // Compute powers of batching challenge rho
-        let rho = FieldElement::from_bytes_be(&transcript.challenge()).unwrap();
+        let rho = FieldElement::from_bytes_be(&transcript.expect("oh no! No transcript").challenge()).unwrap();
 
         // Compute batching of unshifted polynomials f_i:
-        let mut scalar = FieldElement::one();
+        let mut scalar = FieldElement::<P::BaseField>::one();
         let (batched_eval, batched_commitment) = evals.iter().zip(p_commitments.iter()).fold(
             (FieldElement::zero(), P::G1Point::neutral_element()),
             |(mut batched_eval, mut batched_commitment), (eval, commitment)| {
@@ -467,7 +477,7 @@ mod test {
     use crate::fiat_shamir::default_transcript::DefaultTranscript;
 
     use super::*;
-    use lambdaworks_math::elliptic_curve::short_weierstrass::curves::bls12_381::pairing::BLS12381AtePairing;
+    use lambdaworks_math::{elliptic_curve::short_weierstrass::curves::bls12_381::pairing::BLS12381AtePairing, polynomial::dense_multilinear_poly::log_2};
     use rand_chacha::{
         rand_core::{RngCore, SeedableRng},
         ChaCha20Rng,
@@ -501,7 +511,7 @@ mod test {
     fn prove_verify_single() {
         let max_vars = 16;
         let mut rng = &mut ChaCha20Rng::from_seed(*b"zeromorph_poly_commitment_scheme");
-        let srs = todo!();
+        let srs = ;
         let zm = Zeromorph::<BLS12381AtePairing>::new();
 
         for num_vars in 3..max_vars {
@@ -546,7 +556,7 @@ mod test {
         let max_vars = 16;
         let mut rng = &mut ChaCha20Rng::from_seed(*b"zeromorph_poly_commitment_scheme");
         let num_polys = 8;
-        let srs = todo!();
+        let srs = ;
         let zm = Zeromorph::<BLS12381AtePairing>::new();
 
         for num_vars in 3..max_vars {
@@ -559,14 +569,14 @@ mod test {
                 .map(|_| {
                     DenseMultilinearPolynomial::new(
                         (0..(1 << num_vars))
-                            .map(|_| Fr::rand(&mut rng))
+                            .map(|_| rand_fr(&mut rng))
                             .collect::<Vec<_>>(),
                     )
                 })
                 .collect::<Vec<_>>();
             let challenges = (0..num_vars)
                 .into_iter()
-                .map(|_| Fr::rand(&mut rng))
+                .map(|_| rand_fr(&mut rng))
                 .collect::<Vec<_>>();
             let evals = polys
                 .clone()
@@ -612,12 +622,12 @@ mod test {
         // Construct a random multilinear polynomial f, and (u,v) such that f(u) = v
         let mut rng = &mut ChaCha20Rng::from_seed(*b"zeromorph_poly_commitment_scheme");
         let multilinear_f =
-            DenseMultilinearPolynomial::new((0..n).map(|_| Fr::rand(&mut rng)).collect::<Vec<_>>());
+            DenseMultilinearPolynomial::new((0..n).map(|_| rand_fr::<BLS12381AtePairing, &mut ChaCha20Rng>(&mut rng)).collect::<Vec<_>>());
         let u_challenge = (0..num_vars)
             .into_iter()
-            .map(|_| rand_fr(&mut rng))
+            .map(|_| rand_fr::<BLS12381AtePairing, &mut ChaCha20Rng>(&mut rng))
             .collect::<Vec<_>>();
-        let v_evaluation = multilinear_f.evaluate(&u_challenge).unwrap();
+        let v_evaluation = multilinear_f.evaluate(u_challenge).unwrap();
 
         // Compute multilinear quotients `qₖ(𝑋₀, …, 𝑋ₖ₋₁)`
         let (quotients, constant_term) =
@@ -632,19 +642,19 @@ mod test {
         //To demonstrate that q_k was properly constructd we show that the identity holds at a random multilinear challenge
         // i.e. 𝑓(𝑧) − 𝑣 − ∑ₖ₌₀ᵈ⁻¹ (𝑧ₖ − 𝑢ₖ)𝑞ₖ(𝑧) = 0
         let z_challenge = (0..num_vars)
-            .map(|_| Fr::rand(&mut rng))
+            .map(|_| rand_fr::<BLS12381AtePairing, &mut ChaCha20Rng>(&mut rng))
             .collect::<Vec<_>>();
 
-        let mut res = multilinear_f.evaluate(&z_challenge).unwrap();
+        let mut res = multilinear_f.evaluate(z_challenge).unwrap();
         res = res - v_evaluation;
 
         for (k, q_k_uni) in quotients.iter().enumerate() {
-            let z_partial = &z_challenge[&z_challenge.len() - k..];
+            let z_partial = z_challenge[&z_challenge.len() - k..].to_vec();
             //This is a weird consequence of how things are done.. the univariate polys are of the multilinear commitment in lagrange basis. Therefore we evaluate as multilinear
             let q_k = DenseMultilinearPolynomial::new(q_k_uni.coefficients.clone());
-            let q_k_eval = q_k.evaluate(z_partial);
+            let q_k_eval = q_k.evaluate(z_partial).unwrap();
 
-            res -= (z_challenge[z_challenge.len() - k - 1]
+            res = res - (z_challenge[z_challenge.len() - k - 1]
                 - u_challenge[z_challenge.len() - k - 1])
                 * q_k_eval;
         }
@@ -670,7 +680,7 @@ mod test {
         let quotients = vec![q_0, q_1, q_2];
 
         let mut rng = &mut ChaCha20Rng::from_seed(*b"zeromorph_poly_commitment_scheme");
-        let y_challenge = rand_fr(&mut rng);
+        let y_challenge = rand_fr::<BLS12381AtePairing, ChaCha20Rng>(&mut rng);
 
         //Compute batched quptient  ̂q
         let batched_quotient = compute_batched_lifted_degree_quotient::<BLS12381AtePairing>(
@@ -767,15 +777,15 @@ mod test {
     #[test]
     fn phi_n_x_evaluation() {
         const N: u64 = 8u64;
-        let log_N = (N as usize).log_2();
+        let log_n = log_2(N as usize);
 
         // 𝛷ₖ(𝑥)
         let mut rng = &mut ChaCha20Rng::from_seed(*b"zeromorph_poly_commitment_scheme");
-        let x_challenge = rand_fr(&mut rng);
+        let x_challenge = rand_fr::<BLS12381AtePairing, &mut ChaCha20Rng>(&mut rng);
 
-        let efficient = (x_challenge.pow((1 << log_N) as u64) - FieldElement::one())
+        let efficient = (x_challenge.pow((1 << log_n) as u64) - FieldElement::<<BLS12381AtePairing as IsPairing>::BaseField>::one())
             / (x_challenge - FieldElement::one());
-        let expected: FieldElement<_> = phi::<BLS12381AtePairing>(&x_challenge, log_N);
+        let expected: FieldElement<_> = phi::<BLS12381AtePairing>(&x_challenge, log_n);
         assert_eq!(efficient, expected);
     }
 
@@ -784,20 +794,20 @@ mod test {
     #[test]
     fn phi_n_k_1_x_evaluation() {
         const N: u64 = 8u64;
-        let log_N = (N as usize).log_2();
+        let log_n = log_2(N as usize);
 
         // 𝛷ₖ(𝑥)
         let mut rng = &mut ChaCha20Rng::from_seed(*b"zeromorph_poly_commitment_scheme");
-        let x_challenge = rand_fr(&mut rng);
+        let x_challenge = rand_fr::<BLS12381AtePairing, &mut ChaCha20Rng>(&mut rng);
         let k = 2;
 
         //𝑥²^ᵏ⁺¹
         let x_pow = x_challenge.pow((1 << (k + 1)) as u64);
 
         //(𝑥²^ⁿ − 1) / (𝑥²^ᵏ⁺¹ − 1)
-        let efficient = (x_challenge.pow((1 << log_N) as u64) - FieldElement::one())
+        let efficient = (x_challenge.pow((1 << log_n) as u64) - FieldElement::<<BLS12381AtePairing as IsPairing>::BaseField>::one())
             / (x_pow - FieldElement::one());
-        let expected: FieldElement<_> = phi::<BLS12381AtePairing>(&x_challenge, log_N - k - 1);
+        let expected: FieldElement<_> = phi::<BLS12381AtePairing>(&x_challenge, log_n - k - 1);
         assert_eq!(efficient, expected);
     }
 
