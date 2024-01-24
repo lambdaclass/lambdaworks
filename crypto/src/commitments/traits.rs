@@ -1,81 +1,59 @@
 use lambdaworks_math::{
     field::{element::FieldElement, traits::IsField},
-    polynomial::Polynomial,
 };
 use std::borrow::Borrow;
 
-use crate::fiat_shamir::transcript::Transcript;
+use crate::fiat_shamir::transcript::{self, Transcript};
 
-pub trait IsCommitmentScheme<F: IsField> {
+// For Non-Hiding
+// For batching operations we use a transcript to supply random values. In the case of kzg
+// - Using an option for the transcript was the simplest way to enforce domain separation (prover/verifier) 
+//  for the future I think each protocol should have its own domain separated transcript within its instance variables
+pub trait IsPolynomialCommitmentScheme<F: IsField> {
+    /// Allows for Univariate vs Multilinear PCS
+    type Polynomial;
+    /// Point the polynomial is evaluated at
+    type Point;
+    /// Commitment to a Polynomial
     type Commitment;
+    /// Allows for different proof structures
+    type Proof;
 
-    fn commit(&self, p: &Polynomial<FieldElement<F>>) -> Self::Commitment;
+    fn commit(&self, p: &Self::Polynomial) -> Self::Commitment;
 
     fn open(
         &self,
-        x: &FieldElement<F>,
-        y: &FieldElement<F>,
-        p: &Polynomial<FieldElement<F>>,
-    ) -> Self::Commitment;
+        point: impl Borrow<Self::Point>,
+        eval: &FieldElement<F>,
+        poly: &Self::Polynomial,
+        transcript: Option<&mut dyn Transcript>,
+    ) -> Self::Proof;
+
     fn open_batch(
         &self,
-        x: &FieldElement<F>,
-        y: &[FieldElement<F>],
-        p: &[Polynomial<FieldElement<F>>],
+        point: impl Borrow<Self::Point>,
+        eval: &[FieldElement<F>],
+        polys: &[Self::Polynomial],
         upsilon: &FieldElement<F>,
-    ) -> Self::Commitment;
+        transcript: Option<&mut dyn Transcript>,
+    ) -> Self::Proof;
 
     fn verify(
         &self,
-        x: &FieldElement<F>,
-        y: &FieldElement<F>,
+        point: impl Borrow<Self::Point>,
+        eval: &FieldElement<F>,
         p_commitment: &Self::Commitment,
-        proof: &Self::Commitment,
+        proof: &Self::Proof,
+        transcript: Option<&mut dyn Transcript>,
     ) -> bool;
 
     fn verify_batch(
         &self,
-        x: &FieldElement<F>,
-        ys: &[FieldElement<F>],
+        point: impl Borrow<Self::Point>,
+        evals: &[FieldElement<F>],
         p_commitments: &[Self::Commitment],
-        proof: &Self::Commitment,
+        proof: &Self::Proof,
         upsilon: &FieldElement<F>,
+        transcript: Option<&mut dyn Transcript>,
     ) -> bool;
-}
-
-pub trait PolynomialCommitmentScheme {
-    // Abstracting over Polynomial allows us to have batched and non-batched PCS
-    type Polynomial;
-    type Commitment;
-    type Evaluation;
-    type Challenge;
-    type Proof;
-    type Error;
-
-    type ProverKey;
-    type CommitmentKey;
-    type VerifierKey;
-
-    //TODO: convert to impl IntoIterator<Item = Self::Polynomial>
-    fn commit(
-        poly: Self::Polynomial,
-        ck: impl Borrow<Self::CommitmentKey>,
-    ) -> Result<Self::Commitment, Self::Error>;
-
-    fn prove(
-        poly: Self::Polynomial,
-        evals: Self::Evaluation,
-        challenges: Self::Challenge,
-        pk: impl Borrow<Self::ProverKey>,
-        transcript: &mut impl Transcript,
-    ) -> Result<Self::Proof, Self::Error>;
-
-    fn verify(
-        commitments: Self::Commitment,
-        evals: Self::Evaluation,
-        challenges: Self::Challenge,
-        vk: impl Borrow<Self::VerifierKey>,
-        transcript: &mut impl Transcript,
-        proof: Self::Proof,
-    ) -> Result<(), Self::Error>;
 }

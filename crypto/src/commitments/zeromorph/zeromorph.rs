@@ -1,22 +1,17 @@
 #![allow(clippy::too_many_arguments)]
 #![allow(clippy::type_complexity)]
 
-use crate::{
-    commitments::traits::PolynomialCommitmentScheme,
-    fiat_shamir::{default_transcript::DefaultTranscript, transcript::Transcript},
-};
+use crate::{commitments::traits::IsPolynomialCommitmentScheme, fiat_shamir::transcript::Transcript};
 use lambdaworks_math::{
     cyclic_group::IsGroup,
-    elliptic_curve::{
-        short_weierstrass::curves::bls12_381::pairing::BLS12381AtePairing, traits::IsPairing,
-    },
+    elliptic_curve::traits::IsPairing,
     field::{
         element::FieldElement,
         traits::{IsField, IsPrimeField},
     },
     msm::pippenger::msm,
     polynomial::{dense_multilinear_poly::DenseMultilinearPolynomial, Polynomial},
-    traits::{AsBytes, ByteConversion},
+    traits::ByteConversion,
     unsigned_integer::element::UnsignedInteger,
 };
 use std::{borrow::Borrow, iter, marker::PhantomData};
@@ -24,58 +19,7 @@ use std::{borrow::Borrow, iter, marker::PhantomData};
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
 
-//TODO: gate with alloc
-#[derive(Debug, Clone, Default)]
-pub struct ZeromorphSRS<P: IsPairing> {
-    pub g1_powers: Vec<P::G1Point>,
-    pub g2_powers: Vec<P::G2Point>,
-}
-
-impl<P: IsPairing> ZeromorphSRS<P> {
-    pub fn setup() -> ZeromorphSRS<P> {
-        todo!()
-    }
-
-    pub fn trim(
-        &self,
-        max_degree: usize,
-    ) -> Result<(ZeromorphProverKey<P>, ZeromorphVerifierKey<P>), ZeromorphError> {
-        if max_degree > self.g1_powers.len() {
-            return Err(ZeromorphError::KeyLengthError(
-                max_degree,
-                self.g1_powers.len(),
-            ));
-        }
-        let offset = self.g1_powers.len() - max_degree;
-        let offset_g1_powers = self.g1_powers[offset..].to_vec();
-        Ok((
-            ZeromorphProverKey {
-                g1_powers: self.g1_powers.clone(),
-                offset_g1_powers: offset_g1_powers,
-            },
-            ZeromorphVerifierKey {
-                g1: self.g1_powers[0],
-                g2: self.g2_powers[0],
-                tau_2: self.g2_powers[1],
-                tau_n_max_sub_2_n: self.g2_powers[offset],
-            },
-        ))
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct ZeromorphProverKey<P: IsPairing> {
-    pub g1_powers: Vec<P::G1Point>,
-    pub offset_g1_powers: Vec<P::G1Point>,
-}
-
-#[derive(Copy, Clone, Debug)]
-pub struct ZeromorphVerifierKey<P: IsPairing> {
-    pub g1: P::G1Point,
-    pub g2: P::G2Point,
-    pub tau_2: P::G2Point,
-    pub tau_n_max_sub_2_n: P::G2Point,
-}
+use super::structs::ZeromorphSRS;
 
 #[derive(Clone, Debug)]
 pub struct ZeromorphProof<P: IsPairing> {
@@ -239,94 +183,63 @@ fn eval_and_quotient_scalars<P: IsPairing>(
     (-vs[0] * z_challenge, q_scalars)
 }
 
+// TODO: how to handle the case in batching that the polynomials each have unique num_vars
 pub struct Zeromorph<P: IsPairing> {
+    srs: ZeromorphSRS<P>,
     _phantom: PhantomData<P>,
 }
 
-impl<const N: usize, P: IsPairing> PolynomialCommitmentScheme for Zeromorph<P>
+impl<P: IsPairing> Zeromorph<P> {
+
+}
+
+impl<const N: usize, P: IsPairing> IsPolynomialCommitmentScheme<P::BaseField> for Zeromorph<P>
 where
     <<P as IsPairing>::BaseField as IsField>::BaseType: Send + Sync,
     FieldElement<<P as IsPairing>::BaseField>: ByteConversion,
     //TODO: how to eliminate this complication in the trait interface
     <P as IsPairing>::BaseField: IsPrimeField<RepresentativeType = UnsignedInteger<N>>,
 {
-    type Commitment = Vec<P::G1Point>;
-    type Polynomial = Vec<DenseMultilinearPolynomial<P::BaseField>>;
-    type Evaluation = Vec<FieldElement<P::BaseField>>;
-    type Challenge = Vec<FieldElement<P::BaseField>>;
+    type Polynomial = DenseMultilinearPolynomial<P::BaseField>;
+    type Commitment = P::G1Point;
     type Proof = ZeromorphProof<P>;
-    type Error = ZeromorphError;
+    type Point = Vec<FieldElement<P::BaseField>>;
 
-    type ProverKey = ZeromorphProverKey<P>;
-    type CommitmentKey = Self::Commitment;
-    type VerifierKey = ZeromorphVerifierKey<P>;
-
-    fn commit(
-        polys: Self::Polynomial,
-        ck: impl Borrow<Self::CommitmentKey>,
-    ) -> Result<Self::Commitment, Self::Error> {
-        let ck = ck.borrow();
+    //TODO: errors
+    fn commit(&self, poly: &Self::Polynomial) -> Self::Commitment {
         // TODO: assert lengths are valid
-        #[cfg(feature = "parallel")]
-        let iter = polys.par_iter();
-        #[cfg(not(feature = "parallel"))]
-        let iter = polys.iter();
-        Ok(iter
-            .map(|poly| {
-                let evals: Vec<_> = poly
-                    .evals()
-                    .iter()
-                    .map(|eval| eval.representative())
-                    .collect();
-                msm(&evals, &ck[..poly.len()]).unwrap()
-            })
-            .collect::<Vec<_>>())
+        let scalars: Vec<_> = poly
+            .evals()
+            .iter()
+            .map(|eval| eval.representative())
+            .collect();
+        msm(&scalars, &self.srs.g1_powers[..poly.len()]).unwrap()
     }
 
-    fn prove(
-        polys: Self::Polynomial,
-        evals: Self::Evaluation,
-        challenge: Self::Challenge,
-        pk: impl Borrow<Self::ProverKey>,
-        transcript: &mut impl Transcript,
-    ) -> Result<Self::Proof, Self::Error> {
-        let num_vars = challenge.len();
+    fn open(
+        &self,
+        point: impl Borrow<Self::Point>,
+        eval: &FieldElement<P::BaseField>,
+        poly: &Self::Polynomial,
+        transcript: Option<&mut dyn Transcript>
+    ) -> Self::Proof {
+        let point = point.borrow();
+        //TODO: error or interface or something
+        let transcript = transcript.expect("Oh no, there isn't a transcript");
+        let num_vars = point.len();
         let n: usize = 1 << num_vars;
-        let pk = pk.borrow();
-
-        for (poly, eval) in polys.iter().zip(evals.iter()) {
-            // Note by evaluating we confirm the number of challenges is valid
-            debug_assert_eq!(poly.evaluate(challenge).unwrap(), *eval);
-        }
-
-        // Generate batching challenge \rho and powers 1,...,\rho^{m-1}
-        let rho = FieldElement::from_bytes_be(&transcript.challenge()).unwrap();
-        // Compute batching of unshifted polynomials f_i:
-        let mut scalar = FieldElement::one();
-        let (f_batched, batched_evaluation) = (0..polys.len()).fold(
-            (
-                DenseMultilinearPolynomial::new(vec![FieldElement::zero(); n]),
-                FieldElement::zero(),
-            ),
-            |(mut f_batched, mut batched_evaluation), i| {
-                f_batched = (f_batched + polys[i].clone() * scalar).unwrap();
-                batched_evaluation += scalar * evals[i];
-                scalar *= rho;
-                (f_batched, batched_evaluation)
-            },
-        );
-        let mut pi_poly = Polynomial::new(&f_batched.evals());
+        let mut pi_poly = Polynomial::new(&poly.evals());
 
         // Compute the multilinear quotients q_k = q_k(X_0, ..., X_{k-1})
-        let (quotients, remainder) = compute_multilinear_quotients::<P>(&f_batched, &challenge);
-        debug_assert_eq!(quotients.len(), f_batched.num_vars());
-        debug_assert_eq!(remainder, batched_evaluation);
+        let (quotients, remainder) = compute_multilinear_quotients::<P>(&poly, &point);
+        debug_assert_eq!(quotients.len(), poly.num_vars());
+        debug_assert_eq!(remainder, *eval);
 
         // Compute and send commitments C_{q_k} = [q_k], k = 0, ..., d-1
         let q_k_commitments: Vec<_> = quotients
             .iter()
             .map(|q| {
-                let q_k_commitment = UnivariateKZG::<P>::commit(&pk.g1_powers, q).unwrap();
+                let q_k_commitment = self.commit(q);
                 transcript.append(&q_k_commitment.as_bytes());
                 q_k_commitment
             })
@@ -341,7 +254,18 @@ where
         // Compute and send the commitment C_q = [\hat{q}]
         // commit at offset
         let offset = 1 << (quotients.len() - 1);
-        let q_hat_com = UnivariateKZG::<P>::commit_offset(&pk.g1_powers, &q_hat, offset).unwrap();
+
+        // We perform an offset commitment here; This could be abstracted but its very small
+        let q_hat_com = {
+            //TODO: we only need to convert the offset scalars
+            let scalars: Vec<_> = q_hat
+                .coefficients
+                .iter()
+                .map(|eval| eval.representative())
+                .collect();
+            msm(&scalars[offset..], &self.srs.g1_powers[offset..q_hat.coeff_len()]).unwrap()
+        };
+
         transcript.append(&q_hat_com.as_bytes());
 
         // Get challenges x and z
@@ -349,18 +273,18 @@ where
         let z_challenge = FieldElement::from_bytes_be(&transcript.challenge()).unwrap();
 
         let (eval_scalar, (zeta_degree_check_q_scalars, z_zmpoly_q_scalars)) =
-            eval_and_quotient_scalars::<P>(y_challenge, x_challenge, z_challenge, &challenge);
+            eval_and_quotient_scalars::<P>(y_challenge, x_challenge, z_challenge, &point);
         // f = z * x * poly.Z + q_hat + (-z * x * Φ_n(x) * e) + x * ∑_k (q_scalars_k * q_k)
         pi_poly = pi_poly * &z_challenge;
         pi_poly = pi_poly + &q_hat;
-        pi_poly[0] += &(batched_evaluation * eval_scalar);
+        pi_poly[0] += eval * eval_scalar;
         quotients
             .into_iter()
             .zip(zeta_degree_check_q_scalars)
             .zip(z_zmpoly_q_scalars)
             .for_each(|((mut q, zeta_degree_check_q_scalar), z_zmpoly_q_scalar)| {
-                q *= &(zeta_degree_check_q_scalar + z_zmpoly_q_scalar);
-                pi_poly += &q;
+                q = q * &(zeta_degree_check_q_scalar + z_zmpoly_q_scalar);
+                pi_poly = pi_poly + &q;
             });
 
         debug_assert_eq!(
@@ -369,51 +293,81 @@ where
         );
 
         // Compute the KZG opening proof pi_poly; -> TODO should abstract into separate trait
-        let (pi, _) =
-            UnivariateKZG::<P>::open(&pk.offset_g1_powers, &pi_poly, &x_challenge).unwrap();
+        let pi = {
+            pi_poly.ruffini_division_inplace(&x_challenge);
+            let scalars: Vec<_> = pi_poly
+                .coefficients
+                .iter()
+                .map(|eval| eval.representative())
+                .collect();
+            msm(&scalars, &self.srs.g1_powers[..pi_poly.coeff_len()]).unwrap()
+        };
 
-        Ok(ZeromorphProof {
+        ZeromorphProof {
             pi,
             q_hat_com,
             q_k_com: q_k_commitments,
-        })
+        }
+    }
+
+    fn open_batch(
+        &self,
+        point: impl Borrow<Self::Point>,
+        evals: &[FieldElement<P::BaseField>],
+        polys: &[Self::Polynomial],
+        upsilon: &FieldElement<P::BaseField>,
+        transcript: Option<&mut dyn Transcript>,
+    ) -> Self::Proof {
+        for (poly, eval) in polys.iter().zip(evals.iter()) {
+            // Note by evaluating we confirm the number of challenges is valid
+            debug_assert_eq!(poly.evaluate(point.borrow().clone()).unwrap(), *eval);
+        }
+
+        // Generate batching challenge \rho and powers 1,...,\rho^{m-1}
+        let rho = FieldElement::from_bytes_be(&transcript.unwrap().challenge()).unwrap();
+        // Compute batching of unshifted polynomials f_i:
+        let mut scalar = FieldElement::one();
+        let (f_batched, batched_evaluation) = (0..polys.len()).fold(
+            (
+                DenseMultilinearPolynomial::new(vec![FieldElement::zero(); 1 << polys[0].num_vars()]),
+                FieldElement::zero(),
+            ),
+            |(mut f_batched, mut batched_evaluation), i| {
+                f_batched = (f_batched + polys[i].clone() * scalar).unwrap();
+                batched_evaluation += scalar * evals[i];
+                scalar *= rho;
+                (f_batched, batched_evaluation)
+            },
+        );
+        Self::open(&self, point, &batched_evaluation, &f_batched, transcript)
     }
 
     fn verify(
-        commitments: Self::Commitment,
-        evals: Self::Evaluation,
-        challenges: Self::Challenge,
-        vk: impl Borrow<Self::VerifierKey>,
-        transcript: &mut impl Transcript,
-        proof: Self::Proof,
-    ) -> Result<(), Self::Error> {
-        debug_assert_eq!(evals.len(), commitments.len());
-        let vk = vk.borrow();
+        &self,
+        point: impl Borrow<Self::Point>,
+        eval: &FieldElement<P::BaseField>,
+        p_commitment: &Self::Commitment,
+        proof: &Self::Proof,
+        transcript: Option<&mut dyn Transcript>,
+    ) -> bool {
         let ZeromorphProof {
             pi,
             q_k_com,
             q_hat_com,
         } = proof;
 
+        let transcript = transcript.expect("Oh no, there isn't a transcript");
+        let point = point.borrow();
+        let g1 = self.srs.g1_powers[0];
+        let g2 = &self.srs.g2_powers[0];
+        let tau_g2 = &self.srs.g2_powers[1];
+        // offset power of tau
+        let tau_n_max_sub_2_n = self.srs.g2_powers[2];
+
         //Receive q_k commitments
         q_k_com
             .iter()
             .for_each(|c| transcript.append(&c.as_bytes()));
-
-        // Compute powers of batching challenge rho
-        let rho = FieldElement::from_bytes_be(&transcript.challenge()).unwrap();
-
-        // Compute batching of unshifted polynomials f_i:
-        let mut scalar = FieldElement::<P::BaseField>::one();
-        let (batched_evaluation, batched_commitment) = evals.iter().zip(commitments.iter()).fold(
-            (FieldElement::zero(), FieldElement::zero()),
-            |(mut batched_evaluation, mut batched_commitment), (eval, commitment)| {
-                batched_evaluation += scalar * eval;
-                batched_commitment += commitment.operate_with_self(scalar.representative());
-                scalar *= rho;
-                (batched_evaluation, batched_commitment)
-            },
-        );
 
         // Challenge y
         let y_challenge = FieldElement::from_bytes_be(&transcript.challenge()).unwrap();
@@ -426,7 +380,7 @@ where
         let z_challenge = FieldElement::from_bytes_be(&transcript.challenge()).unwrap();
 
         let (eval_scalar, (mut q_scalars, zm_poly_q_scalars)) =
-            eval_and_quotient_scalars::<P>(y_challenge, x_challenge, z_challenge, &challenges);
+            eval_and_quotient_scalars::<P>(y_challenge, x_challenge, z_challenge, &point);
 
         q_scalars
             .iter_mut()
@@ -439,33 +393,72 @@ where
             vec![
                 FieldElement::one(),
                 z_challenge,
-                batched_evaluation * eval_scalar,
+                (eval * eval_scalar),
             ],
             q_scalars,
         ]
         .concat();
 
-        let bases = [vec![q_hat_com, batched_commitment, vk.g1], q_k_com].concat();
-        let zeta_z_com = msm(&scalars, &bases).expect("`points` is sliced by `cs`'s length");
+        let bases = [vec![*q_hat_com, *p_commitment, g1], *q_k_com].concat();
+        let zeta_z_com = {
+            let scalars: Vec<_> = scalars
+            .iter()
+            .map(|scalar| scalar.representative())
+            .collect();
+            msm(&scalars, &bases).expect("`points` is sliced by `cs`'s length")
+        };
 
         // e(pi, [tau]_2 - x * [1]_2) == e(C_{\zeta,Z}, [X^(N_max - 2^n - 1)]_2) <==> e(C_{\zeta,Z} - x * pi, [X^{N_max - 2^n - 1}]_2) * e(-pi, [tau_2]) == 1
         let e = P::compute_batch(&[
             (
                 &pi,
-                &(vk.tau_2 - (vk.g2.operate_with_self(x_challenge.representative()))),
+                &tau_g2.operate_with(&g2.operate_with_self(x_challenge.representative()).neg()),
             ),
-            (&zeta_z_com, &vk.tau_N_max_sub_2_N),
+            (&zeta_z_com, &tau_n_max_sub_2_n),
         ])
         .unwrap();
-        assert_eq!(e, FieldElement::one());
-        Ok(())
+        e == FieldElement::one()
     }
+
+    fn verify_batch(
+        &self,
+        point: impl Borrow<Self::Point>,
+        evals: &[FieldElement<P::BaseField>],
+        p_commitments: &[Self::Commitment],
+        proof: &Self::Proof,
+        upsilon: &FieldElement<P::BaseField>,
+        transcript: Option<&mut dyn Transcript>,
+    ) -> bool {
+        debug_assert_eq!(evals.len(), p_commitments.len());
+        // Compute powers of batching challenge rho
+        let rho = FieldElement::from_bytes_be(&transcript.challenge()).unwrap();
+
+        // Compute batching of unshifted polynomials f_i:
+        let mut scalar = FieldElement::one();
+        let (batched_eval, batched_commitment) = evals.iter().zip(p_commitments.iter()).fold(
+            (FieldElement::zero(), P::G1Point::neutral_element()),
+            |(mut batched_eval, mut batched_commitment), (eval, commitment)| {
+                batched_eval += scalar * eval;
+                batched_commitment.operate_with(&commitment.operate_with_self(scalar.representative()));
+                scalar *= rho;
+                (batched_eval, batched_commitment)
+            },
+        );
+        Self::verify(&self, point, &batched_eval, &batched_commitment, proof, transcript)
+    }
+
 }
 
 #[cfg(test)]
 mod test {
 
+    use core::ops::Neg;
+
+    use crate::fiat_shamir::default_transcript::DefaultTranscript;
+
     use super::*;
+    use lambdaworks_math::elliptic_curve::short_weierstrass::curves::bls12_381::pairing::BLS12381AtePairing;
+    use rand_chacha::{rand_core::{RngCore, SeedableRng}, ChaCha20Rng};
 
     // Evaluate Phi_k(x) = \sum_{i=0}^k x^i using the direct inefficent formula
     fn phi<P: IsPairing>(
@@ -475,18 +468,28 @@ mod test {
         let len = (1 << subscript) as u64;
         (0..len)
             .into_iter()
-            .fold(FieldElement::<P::BaseField>::zero(), |mut acc, i| {
+            .fold(FieldElement::zero(), |mut acc, i| {
                 //Note this is ridiculous DevX
                 acc += challenge.pow(i);
                 acc
             })
     }
 
+    fn rand_fr<P: IsPairing, R: RngCore>(mut rng: &mut R) -> FieldElement<P::BaseField>
+    where
+        FieldElement<<P as IsPairing>::BaseField>: ByteConversion,
+    {
+        let mut bytes = [0u8; 384];
+        rng.fill_bytes(&mut bytes);
+        FieldElement::<P::BaseField>::from_bytes_be(&bytes).unwrap()
+    }
+
     #[test]
     fn prove_verify_single() {
         let max_vars = 16;
-        let mut rng = test_rng();
-        let srs = ZEROMORPH_SRS.lock().unwrap();
+        let mut rng = &mut ChaCha20Rng::from_seed(*b"zeromorph_poly_commitment_scheme");
+        let srs = todo!();
+        let zm = Zeromorph::<BLS12381AtePairing>::new();
 
         for num_vars in 3..max_vars {
             // Setup
@@ -494,36 +497,33 @@ mod test {
                 let poly_size = 1 << (num_vars + 1);
                 srs.trim(poly_size - 1).unwrap()
             };
-            let polys = DenseMultilinearPolynomial::new(
+            let poly = DenseMultilinearPolynomial::new(
                 (0..(1 << num_vars))
-                    .map(|_| Fr::rand(&mut rng))
+                    .map(|_| rand_fr(&mut rng))
                     .collect::<Vec<_>>(),
             );
-            let challenges = (0..num_vars)
-                .map(|_| Fr::rand(&mut rng))
+            let point = (0..num_vars)
+                .map(|_| rand_fr(&mut rng))
                 .collect::<Vec<_>>();
-            let evals = polys.evaluate(&challenges).unwrap();
+            let eval = poly.evaluate(point).unwrap();
 
             // Commit and open
-            let commitments =
-                Zeromorph::<BLS12381AtePairing>::commit(vec![polys.clone()], &pk.g1_powers)
-                    .unwrap();
+            let commitments = zm.commit(poly.clone());
 
             let mut prover_transcript = DefaultTranscript::new();
-            let proof = Zeromorph::<BLS12381AtePairing>::prove(
-                vec![polys],
-                vec![evals],
-                challenges,
-                &pk,
-                &mut prover_transcript,
+            let proof = zm.open(
+                point,
+                eval,
+                poly,
+                Some(&mut prover_transcript),
             )
             .unwrap();
 
             let mut verifier_transcript = DefaultTranscript::new();
-            Zeromorph::<BLS12381AtePairing>::verify(
+            zm.verify(
                 commitments,
-                vec![evals],
-                challenges,
+                eval,
+                point,
                 &vk,
                 &mut verifier_transcript,
                 proof,
@@ -537,9 +537,10 @@ mod test {
     #[test]
     fn prove_verify_batched() {
         let max_vars = 16;
-        let mut rng = test_rng();
+        let mut rng = &mut ChaCha20Rng::from_seed(*b"zeromorph_poly_commitment_scheme");
         let num_polys = 8;
-        let srs = ZeromorphSRS;
+        let srs = todo!();
+        let zm = Zeromorph::<BLS12381AtePairing>::new();
 
         for num_vars in 3..max_vars {
             // Setup
@@ -571,26 +572,24 @@ mod test {
                 Zeromorph::<BLS12381AtePairing>::commit(polys, &pk.g1_powers).unwrap();
 
             let mut prover_transcript = DefaultTranscript::new();
-            let proof = Zeromorph::<BLS12381AtePairing>::prove(
-                polys,
+            let proof = zm.open_batch(
                 evals,
                 challenges,
                 &pk,
-                &mut prover_transcript,
+                polys,
+                Some(&mut prover_transcript),
             )
             .unwrap();
 
             let mut verifier_transcript = DefaultTranscript::new();
-            Zeromorph::<BLS12381AtePairing>::verify(
+            assert!(zm.verify_batch(
                 commitments,
                 evals,
                 challenges,
                 &vk,
-                &mut verifier_transcript,
                 proof,
-            )
-            .unwrap();
-
+                Some(&mut verifier_transcript),
+            ) == true)
             //TODO: check both random oracles are synced
         }
     }
@@ -607,12 +606,12 @@ mod test {
         let n: u64 = 1 << num_vars;
 
         // Construct a random multilinear polynomial f, and (u,v) such that f(u) = v
-        let mut rng = test_rng();
+        let mut rng = &mut ChaCha20Rng::from_seed(*b"zeromorph_poly_commitment_scheme");
         let multilinear_f =
             DenseMultilinearPolynomial::new((0..n).map(|_| Fr::rand(&mut rng)).collect::<Vec<_>>());
         let u_challenge = (0..num_vars)
             .into_iter()
-            .map(|_| Fr::rand(&mut rng))
+            .map(|_| rand_fr(&mut rng))
             .collect::<Vec<_>>();
         let v_evaluation = multilinear_f.evaluate(&u_challenge).unwrap();
 
@@ -652,8 +651,8 @@ mod test {
     ///  ̂q = ∑ₖ₌₀ⁿ⁻¹ yᵏ Xᵐ⁻ᵈᵏ⁻¹ ̂qₖ, 𝑑ₖ = deg(̂q), 𝑚 = 𝑁
     #[test]
     fn batched_lifted_degree_quotient() {
-        let num_vars = 3;
-        let n = 1 << num_vars;
+        const NUM_VARS: usize = 3;
+        const N: usize = 1 << NUM_VARS;
 
         // Define mock qₖ with deg(qₖ) = 2ᵏ⁻¹
         let q_0 = Polynomial::new(&[FieldElement::one()]);
@@ -666,12 +665,12 @@ mod test {
         ]);
         let quotients = vec![q_0, q_1, q_2];
 
-        let mut rng = test_rng();
-        let y_challenge = Fr::rand(&mut rng);
+        let mut rng = &mut ChaCha20Rng::from_seed(*b"zeromorph_poly_commitment_scheme");
+        let y_challenge = rand_fr(&mut rng);
 
         //Compute batched quptient  ̂q
         let batched_quotient = compute_batched_lifted_degree_quotient::<BLS12381AtePairing>(
-            n,
+            N,
             &quotients,
             &y_challenge,
         );
@@ -709,11 +708,11 @@ mod test {
         ]);
 
         //Explicitly compute  ̂q i.e. RLC of lifted polys
-        let mut batched_quotient_expected = Polynomial::from_coeff(vec![Fr::zero(); n]);
+        let mut batched_quotient_expected = Polynomial::zero();
 
-        batched_quotient_expected += &q_0_lifted;
-        batched_quotient_expected += &(q_1_lifted * y_challenge);
-        batched_quotient_expected += &(q_2_lifted * (y_challenge * y_challenge));
+        batched_quotient_expected = batched_quotient_expected + &q_0_lifted;
+        batched_quotient_expected = batched_quotient_expected + &(q_1_lifted * y_challenge);
+        batched_quotient_expected = batched_quotient_expected + &(q_2_lifted * (y_challenge * y_challenge));
         assert_eq!(batched_quotient, batched_quotient_expected);
     }
 
@@ -727,12 +726,12 @@ mod test {
         let num_vars = 3;
         let n: u64 = 1 << num_vars;
 
-        let mut rng = test_rng();
-        let x_challenge = Fr::rand(&mut rng);
-        let y_challenge = Fr::rand(&mut rng);
+        let mut rng = &mut ChaCha20Rng::from_seed(*b"zeromorph_poly_commitment_scheme");
+        let x_challenge = rand_fr::<BLS12381AtePairing, &mut ChaCha20Rng>(&mut rng);
+        let y_challenge = rand_fr::<BLS12381AtePairing, &mut ChaCha20Rng>(&mut rng);
 
-        let challenges: Vec<_> = (0..num_vars).map(|_| Fr::rand(&mut rng)).collect();
-        let z_challenge = Fr::rand(&mut rng);
+        let challenges: Vec<_> = (0..num_vars).map(|_| rand_fr::<BLS12381AtePairing, &mut ChaCha20Rng>(&mut rng)).collect();
+        let z_challenge = rand_fr::<BLS12381AtePairing, &mut ChaCha20Rng>(&mut rng);
 
         let (_, (zeta_x_scalars, _)) = eval_and_quotient_scalars::<BLS12381AtePairing>(
             y_challenge,
@@ -764,8 +763,8 @@ mod test {
         let log_N = (N as usize).log_2();
 
         // 𝛷ₖ(𝑥)
-        let mut rng = test_rng();
-        let x_challenge = Fr::rand(&mut rng);
+        let mut rng = &mut ChaCha20Rng::from_seed(*b"zeromorph_poly_commitment_scheme");
+        let x_challenge = rand_fr(&mut rng);
 
         let efficient = (x_challenge.pow((1 << log_N) as u64) - FieldElement::one())
             / (x_challenge - FieldElement::one());
@@ -781,8 +780,8 @@ mod test {
         let log_N = (N as usize).log_2();
 
         // 𝛷ₖ(𝑥)
-        let mut rng = test_rng();
-        let x_challenge = Fr::rand(&mut rng);
+        let mut rng = &mut ChaCha20Rng::from_seed(*b"zeromorph_poly_commitment_scheme");
+        let x_challenge = rand_fr(&mut rng);
         let k = 2;
 
         //𝑥²^ᵏ⁺¹
@@ -802,10 +801,10 @@ mod test {
         let num_vars = 3;
 
         // Construct a random multilinear polynomial f, and (u,v) such that f(u) = v.
-        let mut rng = test_rng();
+        let mut rng = &mut ChaCha20Rng::from_seed(*b"zeromorph_poly_commitment_scheme");
         let challenges: Vec<_> = (0..num_vars)
             .into_iter()
-            .map(|_| Fr::rand(&mut rng))
+            .map(|_| rand_fr::<BLS12381AtePairing, &mut ChaCha20Rng>(&mut rng))
             .collect();
 
         let u_rev = {
@@ -814,9 +813,9 @@ mod test {
             res
         };
 
-        let x_challenge = Fr::rand(&mut rng);
-        let y_challenge = Fr::rand(&mut rng);
-        let z_challenge = Fr::rand(&mut rng);
+        let x_challenge = rand_fr::<BLS12381AtePairing, &mut ChaCha20Rng>(&mut rng);
+        let y_challenge = rand_fr::<BLS12381AtePairing, &mut ChaCha20Rng>(&mut rng);
+        let z_challenge = rand_fr::<BLS12381AtePairing, &mut ChaCha20Rng>(&mut rng);
 
         // Construct Z_x scalars
         let (_, (_, z_x_scalars)) = eval_and_quotient_scalars::<BLS12381AtePairing>(
@@ -833,7 +832,8 @@ mod test {
             let mut scalar = x_pow_2k * &phi::<BLS12381AtePairing>(&x_pow_2kp1, num_vars - k - 1)
                 - u_rev[k] * &phi::<BLS12381AtePairing>(&x_pow_2k, num_vars - k);
             scalar *= z_challenge;
-            scalar *= FieldElement::from(1).neg();
+            //TODO: this could be a trouble spot
+            scalar.neg();
             assert_eq!(z_x_scalars[k], scalar);
         }
     }
