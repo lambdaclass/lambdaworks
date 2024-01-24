@@ -444,7 +444,9 @@ where
     ) -> bool {
         debug_assert_eq!(evals.len(), p_commitments.len());
         // Compute powers of batching challenge rho
-        let rho = FieldElement::from_bytes_be(&transcript.expect("oh no! No transcript").challenge()).unwrap();
+        let rho =
+            FieldElement::from_bytes_be(&transcript.expect("oh no! No transcript").challenge())
+                .unwrap();
 
         // Compute batching of unshifted polynomials f_i:
         let mut scalar = FieldElement::<P::BaseField>::one();
@@ -477,7 +479,10 @@ mod test {
     use crate::fiat_shamir::default_transcript::DefaultTranscript;
 
     use super::*;
-    use lambdaworks_math::{elliptic_curve::short_weierstrass::curves::bls12_381::pairing::BLS12381AtePairing, polynomial::dense_multilinear_poly::log_2};
+    use lambdaworks_math::{
+        elliptic_curve::short_weierstrass::curves::bls12_381::pairing::BLS12381AtePairing,
+        polynomial::dense_multilinear_poly::log_2,
+    };
     use rand_chacha::{
         rand_core::{RngCore, SeedableRng},
         ChaCha20Rng,
@@ -511,7 +516,7 @@ mod test {
     fn prove_verify_single() {
         let max_vars = 16;
         let mut rng = &mut ChaCha20Rng::from_seed(*b"zeromorph_poly_commitment_scheme");
-        let srs = ;
+        let srs = 9;
         let zm = Zeromorph::<BLS12381AtePairing>::new();
 
         for num_vars in 3..max_vars {
@@ -556,7 +561,7 @@ mod test {
         let max_vars = 16;
         let mut rng = &mut ChaCha20Rng::from_seed(*b"zeromorph_poly_commitment_scheme");
         let num_polys = 8;
-        let srs = ;
+        let srs = 9;
         let zm = Zeromorph::<BLS12381AtePairing>::new();
 
         for num_vars in 3..max_vars {
@@ -621,8 +626,11 @@ mod test {
 
         // Construct a random multilinear polynomial f, and (u,v) such that f(u) = v
         let mut rng = &mut ChaCha20Rng::from_seed(*b"zeromorph_poly_commitment_scheme");
-        let multilinear_f =
-            DenseMultilinearPolynomial::new((0..n).map(|_| rand_fr::<BLS12381AtePairing, &mut ChaCha20Rng>(&mut rng)).collect::<Vec<_>>());
+        let multilinear_f = DenseMultilinearPolynomial::new(
+            (0..n)
+                .map(|_| rand_fr::<BLS12381AtePairing, &mut ChaCha20Rng>(&mut rng))
+                .collect::<Vec<_>>(),
+        );
         let u_challenge = (0..num_vars)
             .into_iter()
             .map(|_| rand_fr::<BLS12381AtePairing, &mut ChaCha20Rng>(&mut rng))
@@ -654,9 +662,9 @@ mod test {
             let q_k = DenseMultilinearPolynomial::new(q_k_uni.coefficients.clone());
             let q_k_eval = q_k.evaluate(z_partial).unwrap();
 
-            res = res - (z_challenge[z_challenge.len() - k - 1]
-                - u_challenge[z_challenge.len() - k - 1])
-                * q_k_eval;
+            res = res
+                - (z_challenge[z_challenge.len() - k - 1] - u_challenge[z_challenge.len() - k - 1])
+                    * q_k_eval;
         }
         assert_eq!(res, FieldElement::zero());
     }
@@ -783,7 +791,8 @@ mod test {
         let mut rng = &mut ChaCha20Rng::from_seed(*b"zeromorph_poly_commitment_scheme");
         let x_challenge = rand_fr::<BLS12381AtePairing, &mut ChaCha20Rng>(&mut rng);
 
-        let efficient = (x_challenge.pow((1 << log_n) as u64) - FieldElement::<<BLS12381AtePairing as IsPairing>::BaseField>::one())
+        let efficient = (x_challenge.pow((1 << log_n) as u64)
+            - FieldElement::<<BLS12381AtePairing as IsPairing>::BaseField>::one())
             / (x_challenge - FieldElement::one());
         let expected: FieldElement<_> = phi::<BLS12381AtePairing>(&x_challenge, log_n);
         assert_eq!(efficient, expected);
@@ -805,7 +814,8 @@ mod test {
         let x_pow = x_challenge.pow((1 << (k + 1)) as u64);
 
         //(𝑥²^ⁿ − 1) / (𝑥²^ᵏ⁺¹ − 1)
-        let efficient = (x_challenge.pow((1 << log_n) as u64) - FieldElement::<<BLS12381AtePairing as IsPairing>::BaseField>::one())
+        let efficient = (x_challenge.pow((1 << log_n) as u64)
+            - FieldElement::<<BLS12381AtePairing as IsPairing>::BaseField>::one())
             / (x_pow - FieldElement::one());
         let expected: FieldElement<_> = phi::<BLS12381AtePairing>(&x_challenge, log_n - k - 1);
         assert_eq!(efficient, expected);
