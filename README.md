@@ -98,7 +98,8 @@ List of symbols:
 | **Polynomial Commitment Schemes** | **Lambdaworks**    | **Arkworks**       | **Halo2**          | **gnark**          | **Constantine** |
 | FRI                               | 🏗️                 | :x:                | :x:                | :heavy_check_mark: | :x:             |
 | IPA                               | 🏗️                 | ✔️                  | :heavy_check_mark: | :x:                | :x:             |
-| Hyrax                             | :x:                | :heavy_check_mark: | :x:                | :x:                | :x:             |
+| Brakedown                         | :x:                | :x: | :x:                | :x:                | :x:             |
+| Basefold                          | :x:                | :x: | :x:                | :x:                | :x:             |
 | KZG10                             | :heavy_check_mark: | ✔️                  | :heavy_check_mark: | :heavy_check_mark: | :x:             |
 | **Folding Schemes** | **Lambdaworks** | **Arkworks**       | **Halo2** | **gnark** | **Constantine** |
 | Nova                | :x:             | :heavy_check_mark: | :x:       | :x:       | :x:             |
