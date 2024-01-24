@@ -1,7 +1,10 @@
 use super::field::element::FieldElement;
 use crate::field::traits::{IsField, IsSubFieldOf};
 use alloc::{borrow::ToOwned, vec, vec::Vec};
-use core::{fmt::Display, ops::{self, Index}};
+use core::{
+    fmt::Display,
+    ops::{self, Index},
+};
 
 pub mod dense_multilinear_poly;
 mod error;

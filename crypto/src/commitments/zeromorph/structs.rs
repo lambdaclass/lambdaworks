@@ -1,8 +1,10 @@
 use core::mem;
 
-use lambdaworks_math::{elliptic_curve::traits::IsPairing, errors::DeserializationError, traits::{AsBytes, Deserializable}};
-
-use super::zeromorph::ZeromorphError;
+use lambdaworks_math::{
+    elliptic_curve::traits::IsPairing,
+    errors::DeserializationError,
+    traits::{AsBytes, Deserializable},
+};
 
 //TODO: gate with alloc
 #[derive(Debug, Clone, Default)]
@@ -12,8 +14,7 @@ pub struct ZeromorphSRS<P: IsPairing> {
     pub g2_powers: [P::G2Point; 3],
 }
 
-impl<P: IsPairing> ZeromorphSRS<P>
-{
+impl<P: IsPairing> ZeromorphSRS<P> {
     pub fn new(g1_powers: &[P::G1Point], g2_powers: &[P::G2Point; 3]) -> Self {
         Self {
             g1_powers: g1_powers.into(),
@@ -148,13 +149,16 @@ where
             secondary_group.push(point);
         }
 
-        let secondary_group_slice = [secondary_group[0].clone(), secondary_group[1].clone(), secondary_group[2].clone()];
+        let secondary_group_slice = [
+            secondary_group[0].clone(),
+            secondary_group[1].clone(),
+            secondary_group[2].clone(),
+        ];
 
         let srs = ZeromorphSRS::new(&main_group, &secondary_group_slice);
         Ok(srs)
     }
 }
-
 
 #[derive(Clone, Debug)]
 pub struct ZeromorphProverKey<P: IsPairing> {

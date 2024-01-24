@@ -1,13 +1,11 @@
-use lambdaworks_math::{
-    field::{element::FieldElement, traits::IsField},
-};
+use lambdaworks_math::field::{element::FieldElement, traits::IsField};
 use std::borrow::Borrow;
 
-use crate::fiat_shamir::transcript::{self, Transcript};
+use crate::fiat_shamir::transcript::Transcript;
 
 // For Non-Hiding
 // For batching operations we use a transcript to supply random values. In the case of kzg
-// - Using an option for the transcript was the simplest way to enforce domain separation (prover/verifier) 
+// - Using an option for the transcript was the simplest way to enforce domain separation (prover/verifier)
 //  for the future I think each protocol should have its own domain separated transcript within its instance variables
 pub trait IsPolynomialCommitmentScheme<F: IsField> {
     /// Allows for Univariate vs Multilinear PCS

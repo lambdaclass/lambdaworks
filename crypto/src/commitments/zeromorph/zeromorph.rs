@@ -1,7 +1,9 @@
 #![allow(clippy::too_many_arguments)]
 #![allow(clippy::type_complexity)]
 
-use crate::{commitments::traits::IsPolynomialCommitmentScheme, fiat_shamir::transcript::Transcript};
+use crate::{
+    commitments::traits::IsPolynomialCommitmentScheme, fiat_shamir::transcript::Transcript,
+};
 use lambdaworks_math::{
     cyclic_group::IsGroup,
     elliptic_curve::traits::IsPairing,
@@ -189,9 +191,7 @@ pub struct Zeromorph<P: IsPairing> {
     _phantom: PhantomData<P>,
 }
 
-impl<P: IsPairing> Zeromorph<P> {
-
-}
+impl<P: IsPairing> Zeromorph<P> {}
 
 impl<const N: usize, P: IsPairing> IsPolynomialCommitmentScheme<P::BaseField> for Zeromorph<P>
 where
@@ -221,7 +221,7 @@ where
         point: impl Borrow<Self::Point>,
         eval: &FieldElement<P::BaseField>,
         poly: &Self::Polynomial,
-        transcript: Option<&mut dyn Transcript>
+        transcript: Option<&mut dyn Transcript>,
     ) -> Self::Proof {
         let point = point.borrow();
         //TODO: error or interface or something
@@ -263,7 +263,11 @@ where
                 .iter()
                 .map(|eval| eval.representative())
                 .collect();
-            msm(&scalars[offset..], &self.srs.g1_powers[offset..q_hat.coeff_len()]).unwrap()
+            msm(
+                &scalars[offset..],
+                &self.srs.g1_powers[offset..q_hat.coeff_len()],
+            )
+            .unwrap()
         };
 
         transcript.append(&q_hat_com.as_bytes());
@@ -329,7 +333,10 @@ where
         let mut scalar = FieldElement::one();
         let (f_batched, batched_evaluation) = (0..polys.len()).fold(
             (
-                DenseMultilinearPolynomial::new(vec![FieldElement::zero(); 1 << polys[0].num_vars()]),
+                DenseMultilinearPolynomial::new(vec![
+                    FieldElement::zero();
+                    1 << polys[0].num_vars()
+                ]),
                 FieldElement::zero(),
             ),
             |(mut f_batched, mut batched_evaluation), i| {
@@ -390,11 +397,7 @@ where
             });
 
         let scalars = [
-            vec![
-                FieldElement::one(),
-                z_challenge,
-                (eval * eval_scalar),
-            ],
+            vec![FieldElement::one(), z_challenge, (eval * eval_scalar)],
             q_scalars,
         ]
         .concat();
@@ -402,9 +405,9 @@ where
         let bases = [vec![*q_hat_com, *p_commitment, g1], *q_k_com].concat();
         let zeta_z_com = {
             let scalars: Vec<_> = scalars
-            .iter()
-            .map(|scalar| scalar.representative())
-            .collect();
+                .iter()
+                .map(|scalar| scalar.representative())
+                .collect();
             msm(&scalars, &bases).expect("`points` is sliced by `cs`'s length")
         };
 
@@ -439,14 +442,21 @@ where
             (FieldElement::zero(), P::G1Point::neutral_element()),
             |(mut batched_eval, mut batched_commitment), (eval, commitment)| {
                 batched_eval += scalar * eval;
-                batched_commitment.operate_with(&commitment.operate_with_self(scalar.representative()));
+                batched_commitment
+                    .operate_with(&commitment.operate_with_self(scalar.representative()));
                 scalar *= rho;
                 (batched_eval, batched_commitment)
             },
         );
-        Self::verify(&self, point, &batched_eval, &batched_commitment, proof, transcript)
+        Self::verify(
+            &self,
+            point,
+            &batched_eval,
+            &batched_commitment,
+            proof,
+            transcript,
+        )
     }
-
 }
 
 #[cfg(test)]
@@ -458,7 +468,10 @@ mod test {
 
     use super::*;
     use lambdaworks_math::elliptic_curve::short_weierstrass::curves::bls12_381::pairing::BLS12381AtePairing;
-    use rand_chacha::{rand_core::{RngCore, SeedableRng}, ChaCha20Rng};
+    use rand_chacha::{
+        rand_core::{RngCore, SeedableRng},
+        ChaCha20Rng,
+    };
 
     // Evaluate Phi_k(x) = \sum_{i=0}^k x^i using the direct inefficent formula
     fn phi<P: IsPairing>(
@@ -502,22 +515,16 @@ mod test {
                     .map(|_| rand_fr(&mut rng))
                     .collect::<Vec<_>>(),
             );
-            let point = (0..num_vars)
-                .map(|_| rand_fr(&mut rng))
-                .collect::<Vec<_>>();
+            let point = (0..num_vars).map(|_| rand_fr(&mut rng)).collect::<Vec<_>>();
             let eval = poly.evaluate(point).unwrap();
 
             // Commit and open
             let commitments = zm.commit(poly.clone());
 
             let mut prover_transcript = DefaultTranscript::new();
-            let proof = zm.open(
-                point,
-                eval,
-                poly,
-                Some(&mut prover_transcript),
-            )
-            .unwrap();
+            let proof = zm
+                .open(point, eval, poly, Some(&mut prover_transcript))
+                .unwrap();
 
             let mut verifier_transcript = DefaultTranscript::new();
             zm.verify(
@@ -572,24 +579,21 @@ mod test {
                 Zeromorph::<BLS12381AtePairing>::commit(polys, &pk.g1_powers).unwrap();
 
             let mut prover_transcript = DefaultTranscript::new();
-            let proof = zm.open_batch(
-                evals,
-                challenges,
-                &pk,
-                polys,
-                Some(&mut prover_transcript),
-            )
-            .unwrap();
+            let proof = zm
+                .open_batch(evals, challenges, &pk, polys, Some(&mut prover_transcript))
+                .unwrap();
 
             let mut verifier_transcript = DefaultTranscript::new();
-            assert!(zm.verify_batch(
-                commitments,
-                evals,
-                challenges,
-                &vk,
-                proof,
-                Some(&mut verifier_transcript),
-            ) == true)
+            assert!(
+                zm.verify_batch(
+                    commitments,
+                    evals,
+                    challenges,
+                    &vk,
+                    proof,
+                    Some(&mut verifier_transcript),
+                ) == true
+            )
             //TODO: check both random oracles are synced
         }
     }
@@ -712,7 +716,8 @@ mod test {
 
         batched_quotient_expected = batched_quotient_expected + &q_0_lifted;
         batched_quotient_expected = batched_quotient_expected + &(q_1_lifted * y_challenge);
-        batched_quotient_expected = batched_quotient_expected + &(q_2_lifted * (y_challenge * y_challenge));
+        batched_quotient_expected =
+            batched_quotient_expected + &(q_2_lifted * (y_challenge * y_challenge));
         assert_eq!(batched_quotient, batched_quotient_expected);
     }
 
@@ -730,7 +735,9 @@ mod test {
         let x_challenge = rand_fr::<BLS12381AtePairing, &mut ChaCha20Rng>(&mut rng);
         let y_challenge = rand_fr::<BLS12381AtePairing, &mut ChaCha20Rng>(&mut rng);
 
-        let challenges: Vec<_> = (0..num_vars).map(|_| rand_fr::<BLS12381AtePairing, &mut ChaCha20Rng>(&mut rng)).collect();
+        let challenges: Vec<_> = (0..num_vars)
+            .map(|_| rand_fr::<BLS12381AtePairing, &mut ChaCha20Rng>(&mut rng))
+            .collect();
         let z_challenge = rand_fr::<BLS12381AtePairing, &mut ChaCha20Rng>(&mut rng);
 
         let (_, (zeta_x_scalars, _)) = eval_and_quotient_scalars::<BLS12381AtePairing>(

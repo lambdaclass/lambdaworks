@@ -1,4 +1,4 @@
-use crate::fiat_shamir::transcript::{Transcript};
+use crate::fiat_shamir::transcript::Transcript;
 
 use super::traits::IsPolynomialCommitmentScheme;
 use alloc::{borrow::ToOwned, vec::Vec};
@@ -207,7 +207,8 @@ impl<const N: usize, F: IsPrimeField<RepresentativeType = UnsignedInteger<N>>, P
             ),
             (
                 &proof.neg(),
-                &(alpha_g2.operate_with(&(g2.operate_with_self(point.borrow().representative())).neg())),
+                &(alpha_g2
+                    .operate_with(&(g2.operate_with_self(point.borrow().representative())).neg())),
             ),
         ]);
         e == Ok(FieldElement::one())
@@ -371,7 +372,13 @@ mod tests {
         let y0 = FieldElement::from(9000);
         let upsilon = &FieldElement::from(1);
 
-        let proof = kzg.open_batch(&x, &[y0.clone(), y0.clone()], &[p0.clone(), p0], upsilon, None);
+        let proof = kzg.open_batch(
+            &x,
+            &[y0.clone(), y0.clone()],
+            &[p0.clone(), p0],
+            upsilon,
+            None,
+        );
 
         assert!(kzg.verify_batch(
             &x,
