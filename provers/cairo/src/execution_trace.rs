@@ -19,7 +19,7 @@ use lambdaworks_math::{
     unsigned_integer::element::UnsignedInteger,
 };
 use stark_platinum_prover::{fri::FieldElement, trace::TraceTable, Felt252};
-type CairoTraceTable = TraceTable<Stark252PrimeField>;
+pub type CairoTraceTable = TraceTable<Stark252PrimeField, Stark252PrimeField>;
 
 // NOTE: This should be deleted and use CairoAIR::STEP_SIZE once it is set to 16
 const CAIRO_STEP: usize = 16;

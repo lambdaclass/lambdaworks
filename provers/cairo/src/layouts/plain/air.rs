@@ -1,6 +1,6 @@
 use crate::{
     cairo_mem::CairoMemory,
-    execution_trace::{set_mem_permutation_column, set_rc_permutation_column},
+    execution_trace::{set_mem_permutation_column, set_rc_permutation_column, CairoTraceTable},
     register_states::RegisterStates,
     transition_constraints::*,
 };
@@ -677,7 +677,7 @@ impl AIR for CairoAIR {
 
     fn build_auxiliary_trace(
         &self,
-        trace: &mut TraceTable<Self::Field>,
+        trace: &mut TraceTable<Self::Field, Self::FieldExtension>,
         rap_challenges: &[Felt252],
     ) {
         let alpha_mem = rap_challenges[0];
@@ -816,7 +816,7 @@ impl AIR for CairoAIR {
 /// concrete types.
 /// The field is set to Stark252PrimeField and the AIR to CairoAIR.
 pub fn generate_cairo_proof(
-    trace: &mut TraceTable<Stark252PrimeField>,
+    trace: &mut CairoTraceTable,
     pub_input: &PublicInputs,
     proof_options: &ProofOptions,
 ) -> Result<StarkProof<Stark252PrimeField, Stark252PrimeField>, ProvingError> {

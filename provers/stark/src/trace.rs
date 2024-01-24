@@ -20,7 +20,7 @@ use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 pub struct TraceTable<F, E>
 where
     E: IsField,
-    F: IsSubFieldOf<E>,
+    F: IsSubFieldOf<E> + IsField,
 {
     pub main_table: Table<F>,
     pub aux_table: Table<E>,
@@ -119,13 +119,13 @@ where
     //     self.main_table.rows()
     // }
 
-    pub fn get_row(&self, row_idx: usize) -> Vec<FieldElement<F>> {
-        let mut main_row = self.main_table.get_row(row_idx).to_owned();
-        let aux_row = self.aux_table.get_row(row_idx);
+    // pub fn get_row(&self, row_idx: usize) -> Vec<FieldElement<F>> {
+    //     let mut main_row = self.main_table.get_row(row_idx).to_owned();
+    //     let aux_row = self.aux_table.get_row(row_idx);
 
-        main_row.extend_from_slice(aux_row);
-        main_row
-    }
+    //     main_row.extend_from_slice(aux_row);
+    //     main_row
+    // }
 
     // pub fn get_row_mut(&mut self, row_idx: usize) -> &mut [FieldElement<F>] {
     //     let mut main_row = self.main_table.get_row_mut(row_idx).to_owned();
@@ -135,9 +135,9 @@ where
     //     &mut main_row
     // }
 
-    pub fn last_row(&self) -> Vec<FieldElement<F>> {
-        self.get_row(self.num_rows() - 1)
-    }
+    // pub fn last_row(&self) -> Vec<FieldElement<F>> {
+    //     self.get_row(self.num_rows() - 1)
+    // }
 
     // pub fn columns(&self) -> Vec<Vec<FieldElement<F>>> {
     //     let mut columns = self.main_table.columns();
@@ -185,7 +185,7 @@ where
         self.main_table.set(row, col, value);
     }
 
-    pub fn set_aux(&mut self, row: usize, col: usize, value: FieldElement<F>) {
+    pub fn set_aux(&mut self, row: usize, col: usize, value: FieldElement<E>) {
         self.aux_table.set(row, col, value);
     }
 
@@ -276,14 +276,14 @@ where
         self.main_table.get_column(col_idx)
     }
 
-    pub fn get_column_aux(&self, col_idx: usize) -> Vec<FieldElement<F>> {
+    pub fn get_column_aux(&self, col_idx: usize) -> Vec<FieldElement<E>> {
         self.aux_table.get_column(col_idx)
     }
 }
 pub struct LDETraceTable<F, E>
 where
     E: IsField,
-    F: IsSubFieldOf<E>,
+    F: IsSubFieldOf<E> + IsField,
 {
     pub(crate) main_table: Table<F>,
     pub(crate) aux_table: Table<E>,

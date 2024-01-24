@@ -186,7 +186,7 @@ pub trait IsStarkProver<A: AIR> {
     }
 
     /// Returns the Merkle tree and the commitment to the vectors `vectors`.
-    fn batch_commit_aux(
+    fn batch_commit_extension(
         vectors: &[Vec<FieldElement<A::FieldExtension>>],
     ) -> (BatchedMerkleTree<A::FieldExtension>, Commitment)
     where
@@ -291,7 +291,7 @@ pub trait IsStarkProver<A: AIR> {
         // Compute commitment.
         let lde_trace_permuted_rows = columns2rows(lde_trace_permuted);
         let (lde_trace_merkle_tree, lde_trace_merkle_root) =
-            Self::batch_commit_aux(&lde_trace_permuted_rows);
+            Self::batch_commit_extension(&lde_trace_permuted_rows);
 
         // >>>> Send commitment.
         transcript.append_bytes(&lde_trace_merkle_root);
@@ -360,7 +360,7 @@ pub trait IsStarkProver<A: AIR> {
         let rap_challenges = air.build_rap_challenges(transcript);
         let (aux, aux_evaluations) = if air.has_trace_interaction() {
             air.build_auxiliary_trace(trace, &rap_challenges);
-            let trace = *trace;
+            let trace = trace;
             let (aux_trace_polys, aux_trace_polys_evaluations, aux_merkle_tree, aux_merkle_root) =
                 Self::interpolate_and_commit_aux(&trace, domain, transcript);
             let aux_evaluations = aux_trace_polys_evaluations;
@@ -417,7 +417,7 @@ pub trait IsStarkProver<A: AIR> {
             lde_composition_poly_evaluations_merged.push(chunk0);
         }
 
-        Self::batch_commit(&lde_composition_poly_evaluations_merged)
+        Self::batch_commit_extension(&lde_composition_poly_evaluations_merged)
     }
 
     /// Returns the result of the second round of the STARK Prove protocol.
