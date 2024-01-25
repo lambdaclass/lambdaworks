@@ -5,7 +5,7 @@ use lambdaworks_math::field::{element::FieldElement, traits::IsField};
 // TODO: Use CS in Groth16 tests instead of a plain QAP
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ConstraintSystem<F: IsField> {
-    pub r1cs: R1CS,
+    pub constraints: R1CS,
     pub witness: Vec<FieldElement<F>>,
 }
 
@@ -15,7 +15,6 @@ pub struct Constraint {
     pub b: Vec<FrElement>,
     pub c: Vec<FrElement>,
 }
-
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct R1CS {
     pub constraints: Vec<Constraint>,
@@ -24,9 +23,9 @@ pub struct R1CS {
 
 impl R1CS {
     pub fn from_matrices(
-        a: &[Vec<FrElement>],
-        b: &[Vec<FrElement>],
-        c: &[Vec<FrElement>],
+        a: Vec<Vec<FrElement>>,
+        b: Vec<Vec<FrElement>>,
+        c: Vec<Vec<FrElement>>,
         number_of_inputs: usize,
     ) -> Self {
         Self {
