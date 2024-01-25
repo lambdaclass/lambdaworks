@@ -1541,7 +1541,11 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for CpuOperand
     }
 
     fn constraint_idx(&self) -> usize {
-        19
+        5
+    }
+
+    fn period(&self) -> usize {
+        16
     }
 
     fn evaluate(
@@ -1557,20 +1561,20 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for CpuOperand
         let two = Felt252::from(2);
         let b15 = two.pow(15u32);
 
-        let op1_val = current_step.get_main_evaluation_element(0, 2)
-            - two * current_step.get_main_evaluation_element(0, 3);
-        let op1_fp = current_step.get_main_evaluation_element(0, 3)
-            - two * current_step.get_main_evaluation_element(0, 4);
-        let op1_ap = current_step.get_main_evaluation_element(0, 4)
-            - two * current_step.get_main_evaluation_element(0, 5);
+        let op1_val = current_step.get_main_evaluation_element(2, 1)
+            - two * current_step.get_main_evaluation_element(3, 1);
+        let op1_fp = current_step.get_main_evaluation_element(3, 1)
+            - two * current_step.get_main_evaluation_element(4, 1);
+        let op1_ap = current_step.get_main_evaluation_element(4, 1)
+            - two * current_step.get_main_evaluation_element(5, 1);
 
-        let op0 = current_step.get_main_evaluation_element(0, 25);
-        let off_op1 = current_step.get_main_evaluation_element(0, 29);
-        let op1_addr = current_step.get_main_evaluation_element(0, 22);
+        let op0 = current_step.get_main_evaluation_element(5, 3);
+        let off_op1 = current_step.get_main_evaluation_element(4, 0);
+        let op1_addr = current_step.get_main_evaluation_element(12, 3);
 
-        let ap = current_step.get_main_evaluation_element(0, 17);
-        let fp = current_step.get_main_evaluation_element(0, 18);
-        let pc = current_step.get_main_evaluation_element(0, 19);
+        let ap = current_step.get_main_evaluation_element(0, 5);
+        let fp = current_step.get_main_evaluation_element(8, 5);
+        let pc = current_step.get_main_evaluation_element(0, 3);
 
         let res = op1_val * pc
             + op1_ap * ap
@@ -1607,7 +1611,11 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for CpuUpdateR
     }
 
     fn constraint_idx(&self) -> usize {
-        20
+        6
+    }
+
+    fn period(&self) -> usize {
+        16
     }
 
     fn evaluate(
@@ -1622,16 +1630,16 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for CpuUpdateR
 
         let two = Felt252::from(2);
 
-        let ap = current_step.get_main_evaluation_element(0, 17);
-        let next_ap = next_step.get_main_evaluation_element(0, 17);
-        let res = current_step.get_main_evaluation_element(0, 16);
+        let ap = current_step.get_main_evaluation_element(0, 5);
+        let next_ap = next_step.get_main_evaluation_element(0, 5);
+        let res = current_step.get_main_evaluation_element(12, 5);
 
-        let ap_one = current_step.get_main_evaluation_element(0, 11)
-            - two * current_step.get_main_evaluation_element(0, 12);
-        let opc_call = current_step.get_main_evaluation_element(0, 12)
-            - two * current_step.get_main_evaluation_element(0, 13);
-        let ap_add = current_step.get_main_evaluation_element(0, 10)
-            - two * current_step.get_main_evaluation_element(0, 11);
+        let ap_one = current_step.get_main_evaluation_element(11, 1)
+            - two * current_step.get_main_evaluation_element(12, 1);
+        let opc_call = current_step.get_main_evaluation_element(12, 1)
+            - two * current_step.get_main_evaluation_element(13, 1);
+        let ap_add = current_step.get_main_evaluation_element(10, 1)
+            - two * current_step.get_main_evaluation_element(11, 1);
 
         let res = ap + ap_add * res + ap_one + opc_call * two - next_ap;
 
