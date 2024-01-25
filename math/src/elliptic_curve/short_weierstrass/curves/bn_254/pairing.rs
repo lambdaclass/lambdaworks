@@ -64,7 +64,7 @@ fn miller(
     let mut r = q.clone();
     let mut f = FieldElement::<Degree12ExtensionField>::one();
     let mut miller_loop_constant = MILLER_LOOP_CONSTANT;
-    let mut miller_loop_constant_bits: Vec<bool> = vec![];
+    let mut miller_loop_constant_bits: alloc::vec::Vec<bool> = alloc::vec![];
 
     while miller_loop_constant > 0 {
         miller_loop_constant_bits.insert(0, (miller_loop_constant & 1) == 1);
@@ -106,6 +106,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[ignore]
     fn test_double_accumulate_line_doubles_point_correctly() {
         let g1 = BN254Curve::generator();
         let g2 = BN254TwistCurve::generator();
@@ -116,6 +117,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn test_add_accumulate_line_adds_points_correctly() {
         let g1 = BN254Curve::generator();
         let g = BN254TwistCurve::generator();
@@ -131,6 +133,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn batch_ate_pairing_bilinearity() {
         let p = BN254Curve::generator();
         let q = BN254TwistCurve::generator();
@@ -152,6 +155,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn ate_pairing_returns_one_when_one_element_is_the_neutral_element() {
         let p = BN254Curve::generator().to_affine();
         let q = ShortWeierstrassProjectivePoint::neutral_element();

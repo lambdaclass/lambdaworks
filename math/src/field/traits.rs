@@ -1,7 +1,4 @@
 use super::{element::FieldElement, errors::FieldError};
-use crate::{
-    errors::CreationError, traits::ByteConversion, unsigned_integer::traits::IsUnsignedInteger,
-};
 #[cfg(feature = "lambdaworks-serde-binary")]
 use crate::traits::ByteConversion;
 use crate::{errors::CreationError, unsigned_integer::traits::IsUnsignedInteger};

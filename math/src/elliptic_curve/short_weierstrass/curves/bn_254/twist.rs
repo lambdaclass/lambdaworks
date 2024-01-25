@@ -88,7 +88,7 @@ mod tests {
             traits::IsEllipticCurve,
         },
         field::element::FieldElement,
-        unsigned_integer::element::{U256, U384},
+        unsigned_integer::element::U256,
     };
 
     use super::BN254TwistCurve;
