@@ -1,5 +1,5 @@
 [package]
-name = "circom-adapter"
+name = "lambdaworks-circom-adapter"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
