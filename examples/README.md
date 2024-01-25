@@ -127,3 +127,15 @@ impl IsShortWeierstrass for PallasCurve {
 ```
 
 All curve models have their `defining_equation` method, which allows us to check whether a given $(x,y)$ belongs to the elliptic curve. The `BaseField` is where the coordinates $x,y$ of the curve live. `generator()` provides a point $P$ in the elliptic curve such that, by repeatedly adding $P$ to itself, we can obtain all the points in the elliptic curve group.
+
+The `generator()` returns a vector with three components $(x,y,z)$, instead of the two $(x,y)$. lambdaworks represents points in projective coordinates, where operations like scalar multiplication are much faster. We can generate points by providing $(x,y)$
+```rust
+let x = FE::from_hex_unchecked(
+            "bd1e740e6b1615ae4c508148ca0c53dbd43f7b2e206195ab638d7f45d51d6b5",
+        );
+let y = FE::from_hex_unchecked(
+            "13aacd107ca10b7f8aab570da1183b91d7d86dd723eaa2306b0ef9c5355b91d8",
+        );
+PallasCurve::create_point_from_affine(x, y).unwrap()
+```
+If you provide an invalid point, there will be an error. 
