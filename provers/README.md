@@ -19,3 +19,8 @@ Using one prover or another depends on usecase and other desired properties. We 
 - Groth 16: Shortest proof length. Security depends on pairing-friendly elliptic curves. Needs a new trusted setup for every program you want to prove.
 - Plonk (using KZG as commitment scheme): Short proof length. Security depends on pairing-friendly elliptic curves. Universal trusted setup.
 - STARKs: longer proof length. Security depends on collision-resistant hash functions. Conjectured to be post-quantum secure. Transparent (no trusted setup).
+
+## Using provers
+
+- [Cairo prover](https://github.com/lambdaclass/lambdaworks/blob/main/provers/cairo/README.md)
+- [Plonk prover](https://github.com/lambdaclass/lambdaworks/blob/main/provers/plonk/README.md)
