@@ -1957,7 +1957,11 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for CpuOperand
     }
 
     fn constraint_idx(&self) -> usize {
-        26
+        12
+    }
+
+    fn period(&self) -> usize {
+        16
     }
 
     fn evaluate(
@@ -1969,9 +1973,9 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for CpuOperand
     ) {
         let current_step = frame.get_evaluation_step(0);
 
-        let mul = current_step.get_main_evaluation_element(0, 32);
-        let op0 = current_step.get_main_evaluation_element(0, 25);
-        let op1 = current_step.get_main_evaluation_element(0, 26);
+        let mul = current_step.get_main_evaluation_element(4, 5);
+        let op0 = current_step.get_main_evaluation_element(5, 3);
+        let op1 = current_step.get_main_evaluation_element(13, 3);
 
         transition_evaluations[self.constraint_idx()] = mul - op0 * op1;
     }
