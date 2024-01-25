@@ -1855,7 +1855,11 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField>
     }
 
     fn constraint_idx(&self) -> usize {
-        24
+        10
+    }
+
+    fn period(&self) -> usize {
+        16
     }
 
     fn evaluate(
@@ -1868,10 +1872,10 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField>
         let current_step = frame.get_evaluation_step(0);
 
         let two = Felt252::from(2);
-        let dst = current_step.get_main_evaluation_element(0, 24);
-        let t0 = current_step.get_main_evaluation_element(0, 30);
-        let pc_jnz = current_step.get_main_evaluation_element(0, 9)
-            - two * current_step.get_main_evaluation_element(0, 10);
+        let dst = current_step.get_main_evaluation_element(9, 3);
+        let t0 = current_step.get_main_evaluation_element(2, 5);
+        let pc_jnz = current_step.get_main_evaluation_element(9, 1)
+            - two * current_step.get_main_evaluation_element(10, 1);
 
         let res = pc_jnz * dst - t0;
 
@@ -1904,7 +1908,11 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField>
     }
 
     fn constraint_idx(&self) -> usize {
-        25
+        11
+    }
+
+    fn period(&self) -> usize {
+        16
     }
 
     fn evaluate(
@@ -1916,9 +1924,9 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField>
     ) {
         let current_step = frame.get_evaluation_step(0);
 
-        let t1 = current_step.get_main_evaluation_element(0, 31);
-        let t0 = current_step.get_main_evaluation_element(0, 30);
-        let res = current_step.get_main_evaluation_element(0, 16);
+        let t1 = current_step.get_main_evaluation_element(10, 5);
+        let t0 = current_step.get_main_evaluation_element(2, 5);
+        let res = current_step.get_main_evaluation_element(12, 5);
 
         let transition_res = t0 * res - t1;
 
