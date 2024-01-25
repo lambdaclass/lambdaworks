@@ -100,11 +100,11 @@ impl QuadraticArithmeticProgram {
         r: &[Vec<FrElement>],
         o: &[Vec<FrElement>],
     ) -> QuadraticArithmeticProgram {
-        let num_of_total_inputs = l.len();
-        assert_eq!(num_of_total_inputs, r.len());
-        assert_eq!(num_of_total_inputs, o.len());
-        assert!(num_of_total_inputs > 0);
-        assert!(num_of_public_inputs <= num_of_total_inputs);
+        let num_of_vars = l.len();
+        assert!(num_of_vars > 0);
+        assert_eq!(num_of_vars, r.len());
+        assert_eq!(num_of_vars, o.len());
+        assert!(num_of_public_inputs <= num_of_vars);
 
         let num_of_gates = l[0].len();
         let next_power_of_two = num_of_gates.next_power_of_two();
