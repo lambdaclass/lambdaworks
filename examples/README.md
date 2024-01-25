@@ -148,4 +148,4 @@ let g = PallasCurve::generator();
 let g2 = g.operate_with_self(2_u16);
 let g3 = g.operate_with_other(&g2);
 ```
-`operate_with_self` takes as argument anything that implements the `IsUnsignedInteger` trait. This operator represents scalar multiplication. `operate_with_other` takes as argument another point in the elliptic curve.
+`operate_with_self` takes as argument anything that implements the `IsUnsignedInteger` trait. This operator represents scalar multiplication. `operate_with_other` takes as argument another point in the elliptic curve. When we operate this way, the $z$ coordinate in the result may be different from $1$. We can transform it back to affine form by using `to_affine`.
