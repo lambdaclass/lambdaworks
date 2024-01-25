@@ -89,3 +89,10 @@ let const_intstantiated = FE::from_hex_unchecked("A1B2C3");
 ```
 
 You will notice traits are followed by an `Is`, so instead of accepting something of the form `IsField`, you can use `IsPrimeField` and access more functions. The most relevant is `.representative()`. This function returns a canonical representation of the element as a number, not a field.
+
+## Basic use of Elliptic curves
+
+lambdaworks supports different elliptic curves. Currently, we support the following elliptic curve types:
+- Short Weiestrass: points $(x, y)$ satisfy the equation $y^2 = x^3 + a x + b$. The curve parameters are $a$ and $b$. All elliptic curves can be cast in this form.
+- Edwards: points $(x, y)$ satisfy the equation $a x^2 + y^2 = 1 + d x^2 y^2$. The curve parameters are $a$ and $d$.
+- Montgomery: points (x, y)$ satisfy the equation $b y^2 = x^3 + a x^2 + x$. The curve parameters are $b$ and $a$.
