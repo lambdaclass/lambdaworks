@@ -2451,7 +2451,11 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for MemoryIsFu
     }
 
     fn constraint_idx(&self) -> usize {
-        36
+        18
+    }
+
+    fn period(&self) -> usize {
+        2
     }
 
     fn evaluate(
@@ -2465,18 +2469,18 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for MemoryIsFu
 
         let one = Felt252::one();
 
-        let mem_addr_sorted_0 = current_step.get_aux_evaluation_element(0, 4);
-        let mem_addr_sorted_1 = current_step.get_aux_evaluation_element(0, 5);
+        let mem_addr_sorted = current_step.get_main_evaluation_element(0, 4);
+        let mem_addr_sorted_next = current_step.get_main_evaluation_element(2, 4);
 
-        let mem_val_sorted_0 = current_step.get_aux_evaluation_element(0, 9);
-        let mem_val_sorted_1 = current_step.get_aux_evaluation_element(0, 10);
+        let mem_val_sorted = current_step.get_main_evaluation_element(1, 4);
+        let mem_val_sorted_next = current_step.get_main_evaluation_element(3, 4);
 
         transition_evaluations[self.constraint_idx()] =
-            (mem_val_sorted_0 - mem_val_sorted_1) * (mem_addr_sorted_1 - mem_addr_sorted_0 - one);
+            (mem_val_sorted - mem_val_sorted_next) * (mem_addr_sorted_next - mem_addr_sorted - one);
     }
 
     fn end_exemptions(&self) -> usize {
-        0
+        1
     }
 }
 
@@ -2692,7 +2696,11 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for MemoryMult
     }
 
     fn constraint_idx(&self) -> usize {
-        41
+        19
+    }
+
+    fn period(&self) -> usize {
+        2
     }
 
     fn evaluate(
@@ -2707,20 +2715,20 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for MemoryMult
         let alpha = rap_challenges[0];
         let z = rap_challenges[1];
 
-        let a1 = current_step.get_main_evaluation_element(0, 20);
-        let v1 = current_step.get_main_evaluation_element(0, 24);
+        let a1 = current_step.get_main_evaluation_element(2, 3);
+        let v1 = current_step.get_main_evaluation_element(3, 3);
 
-        let p0 = current_step.get_aux_evaluation_element(0, 14);
-        let ap1 = current_step.get_aux_evaluation_element(0, 5);
-        let vp1 = current_step.get_aux_evaluation_element(0, 10);
-        let p1 = current_step.get_aux_evaluation_element(0, 15);
+        let ap1 = current_step.get_main_evaluation_element(2, 4);
+        let vp1 = current_step.get_main_evaluation_element(3, 4);
+        let p0 = current_step.get_aux_evaluation_element(0, 1);
+        let p1 = current_step.get_aux_evaluation_element(2, 1);
 
         transition_evaluations[self.constraint_idx()] =
             (z - (ap1 + alpha * vp1)) * p1 - (z - (a1 + alpha * v1)) * p0;
     }
 
     fn end_exemptions(&self) -> usize {
-        0
+        1
     }
 }
 
