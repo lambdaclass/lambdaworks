@@ -584,7 +584,7 @@ impl AIR for CairoAIR {
             Box::new(CpuUpdateRegistersApUpdate::new()),
             Box::new(CpuUpdateRegistersFpUpdate::new()),
             Box::new(CpuUpdateRegistersPcCondPositive::new()),
-            // Box::new(CpuUpdateRegistersPcCondNegative::new()),
+            Box::new(CpuUpdateRegistersPcCondNegative::new()),
             // Box::new(CpuUpdateRegistersUpdatePcTmp0::new()),
             // Box::new(CpuUpdateRegistersUpdatePcTmp1::new()),
             // Box::new(CpuOperandsOpsMul::new()),

@@ -1732,7 +1732,11 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField>
     }
 
     fn constraint_idx(&self) -> usize {
-        23
+        9
+    }
+
+    fn period(&self) -> usize {
+        16
     }
 
     fn evaluate(
@@ -1748,18 +1752,18 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField>
         let one = Felt252::one();
         let two = Felt252::from(2);
 
-        let t0 = current_step.get_main_evaluation_element(0, 30);
-        let pc = current_step.get_main_evaluation_element(0, 19);
-        let next_pc = next_step.get_main_evaluation_element(0, 19);
-        let op1 = current_step.get_main_evaluation_element(0, 26);
+        let t0 = current_step.get_main_evaluation_element(2, 5);
+        let pc = current_step.get_main_evaluation_element(0, 3);
+        let next_pc = next_step.get_main_evaluation_element(0, 3);
+        let op1 = current_step.get_main_evaluation_element(13, 3);
 
-        let pc_jnz = current_step.get_main_evaluation_element(0, 9)
-            - two * current_step.get_main_evaluation_element(0, 10);
-        let pc_abs = current_step.get_main_evaluation_element(0, 7)
-            - two * current_step.get_main_evaluation_element(0, 8);
-        let pc_rel = current_step.get_main_evaluation_element(0, 8)
-            - two * current_step.get_main_evaluation_element(0, 9);
-        let res = current_step.get_main_evaluation_element(0, 16);
+        let pc_jnz = current_step.get_main_evaluation_element(9, 1)
+            - two * current_step.get_main_evaluation_element(10, 1);
+        let pc_abs = current_step.get_main_evaluation_element(7, 1)
+            - two * current_step.get_main_evaluation_element(8, 1);
+        let pc_rel = current_step.get_main_evaluation_element(8, 1)
+            - two * current_step.get_main_evaluation_element(9, 1);
+        let res = current_step.get_main_evaluation_element(12, 5);
 
         let res = t0 * (next_pc - (pc + op1)) + (one - pc_jnz) * next_pc
             - ((one - pc_abs - pc_rel - pc_jnz) * (pc + frame_inst_size(current_step))
