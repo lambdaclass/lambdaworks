@@ -2005,7 +2005,11 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for CpuOperand
     }
 
     fn constraint_idx(&self) -> usize {
-        27
+        13
+    }
+
+    fn period(&self) -> usize {
+        16
     }
 
     fn evaluate(
@@ -2019,17 +2023,17 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for CpuOperand
         let one = Felt252::one();
         let two = Felt252::from(2);
 
-        let mul = current_step.get_main_evaluation_element(0, 32);
-        let op0 = current_step.get_main_evaluation_element(0, 25);
-        let op1 = current_step.get_main_evaluation_element(0, 26);
-        let res = current_step.get_main_evaluation_element(0, 16);
+        let mul = current_step.get_main_evaluation_element(4, 5);
+        let op0 = current_step.get_main_evaluation_element(5, 3);
+        let op1 = current_step.get_main_evaluation_element(13, 3);
+        let res = current_step.get_main_evaluation_element(12, 5);
 
-        let res_add = current_step.get_main_evaluation_element(0, 5)
-            - two * current_step.get_main_evaluation_element(0, 6);
-        let res_mul = current_step.get_main_evaluation_element(0, 6)
-            - two * current_step.get_main_evaluation_element(0, 7);
-        let pc_jnz = current_step.get_main_evaluation_element(0, 9)
-            - two * current_step.get_main_evaluation_element(0, 10);
+        let res_add = current_step.get_main_evaluation_element(5, 1)
+            - two * current_step.get_main_evaluation_element(6, 1);
+        let res_mul = current_step.get_main_evaluation_element(6, 1)
+            - two * current_step.get_main_evaluation_element(7, 1);
+        let pc_jnz = current_step.get_main_evaluation_element(9, 1)
+            - two * current_step.get_main_evaluation_element(10, 1);
 
         let transition_res =
             res_add * (op0 + op1) + res_mul * mul + (one - res_add - res_mul - pc_jnz) * op1
@@ -2063,7 +2067,11 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for CpuOpcodes
     }
 
     fn constraint_idx(&self) -> usize {
-        28
+        14
+    }
+
+    fn period(&self) -> usize {
+        16
     }
 
     fn evaluate(
@@ -2077,11 +2085,11 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for CpuOpcodes
 
         let two = Felt252::from(2);
 
-        let opc_call = current_step.get_main_evaluation_element(0, 12)
-            - two * current_step.get_main_evaluation_element(0, 13);
+        let opc_call = current_step.get_main_evaluation_element(12, 1)
+            - two * current_step.get_main_evaluation_element(13, 1);
 
-        let dst = current_step.get_main_evaluation_element(0, 24);
-        let fp = current_step.get_main_evaluation_element(0, 18);
+        let dst = current_step.get_main_evaluation_element(9, 3);
+        let fp = current_step.get_main_evaluation_element(8, 5);
 
         transition_evaluations[self.constraint_idx()] = opc_call * (dst - fp);
     }
@@ -2110,7 +2118,11 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for CpuOpcodes
     }
 
     fn constraint_idx(&self) -> usize {
-        29
+        15
+    }
+
+    fn period(&self) -> usize {
+        16
     }
 
     fn evaluate(
@@ -2124,11 +2136,11 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for CpuOpcodes
 
         let two = Felt252::from(2);
 
-        let opc_call = current_step.get_main_evaluation_element(0, 12)
-            - two * current_step.get_main_evaluation_element(0, 13);
+        let opc_call = current_step.get_main_evaluation_element(12, 1)
+            - two * current_step.get_main_evaluation_element(13, 1);
 
-        let op0 = current_step.get_main_evaluation_element(0, 25);
-        let pc = current_step.get_main_evaluation_element(0, 19);
+        let op0 = current_step.get_main_evaluation_element(5, 3);
+        let pc = current_step.get_main_evaluation_element(0, 3);
 
         transition_evaluations[self.constraint_idx()] =
             opc_call * (op0 - (pc + frame_inst_size(current_step)));
@@ -2159,7 +2171,11 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for CpuOpcodes
     }
 
     fn constraint_idx(&self) -> usize {
-        30
+        16
+    }
+
+    fn period(&self) -> usize {
+        16
     }
 
     fn evaluate(
@@ -2173,10 +2189,10 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for CpuOpcodes
 
         let two = Felt252::from(2);
 
-        let opc_aeq = current_step.get_main_evaluation_element(0, 14)
-            - two * current_step.get_main_evaluation_element(0, 15);
-        let dst = current_step.get_main_evaluation_element(0, 24);
-        let res = current_step.get_main_evaluation_element(0, 16);
+        let opc_aeq = current_step.get_main_evaluation_element(14, 1)
+            - two * current_step.get_main_evaluation_element(15, 1);
+        let dst = current_step.get_main_evaluation_element(9, 3);
+        let res = current_step.get_main_evaluation_element(12, 5);
 
         transition_evaluations[self.constraint_idx()] = opc_aeq * (dst - res)
     }
@@ -2206,7 +2222,11 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for MemoryDiff
     }
 
     fn constraint_idx(&self) -> usize {
-        31
+        17
+    }
+
+    fn period(&self) -> usize {
+        2
     }
 
     fn evaluate(
@@ -2220,15 +2240,15 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for MemoryDiff
 
         let one = Felt252::one();
 
-        let mem_addr_sorted_0 = current_step.get_aux_evaluation_element(0, 4);
-        let mem_addr_sorted_1 = current_step.get_aux_evaluation_element(0, 5);
+        let mem_addr_sorted = current_step.get_main_evaluation_element(0, 4);
+        let mem_addr_sorted_next = current_step.get_main_evaluation_element(2, 4);
 
-        transition_evaluations[self.constraint_idx()] =
-            (mem_addr_sorted_0 - mem_addr_sorted_1) * (mem_addr_sorted_1 - mem_addr_sorted_0 - one);
+        transition_evaluations[self.constraint_idx()] = (mem_addr_sorted - mem_addr_sorted_next)
+            * (mem_addr_sorted_next - mem_addr_sorted - one);
     }
 
     fn end_exemptions(&self) -> usize {
-        0
+        1
     }
 }
 
