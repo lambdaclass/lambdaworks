@@ -138,4 +138,14 @@ let y = FE::from_hex_unchecked(
         );
 PallasCurve::create_point_from_affine(x, y).unwrap()
 ```
-If you provide an invalid point, there will be an error. 
+If you provide an invalid point, there will be an error. You can obtain the point at infinity (which is the neutral element for the curve operation) by doing
+```rust
+let point_at_infinity = PallasCurve::neutral_element()
+```
+Once we have points, we can do operations between points. We have the methods `operate_with_self` and `operate_with_other`. For example,
+```rust
+let g = PallasCurve::generator();
+let g2 = g.operate_with_self(2_u16);
+let g3 = g.operate_with_other(&g2);
+```
+`operate_with_self` takes as argument anything that implements the `IsUnsignedInteger` trait. This operator represents scalar multiplication. `operate_with_other` takes as argument another point in the elliptic curve.
