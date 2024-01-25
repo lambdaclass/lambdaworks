@@ -1,5 +1,7 @@
 # lambdaworks Provers
 
+Provers allow one party, the prover, to show to other parties, the verifiers, that a given computer program has been executed correctly by means of a cryptographic proof. This proof ideally satisfies the following two properties: it is fast to verify and its size is small (smaller than the size of the witness). 
+
 This folder contains the different provers currently supported by lambdaworks:
 - Groth 16
 - Plonk
