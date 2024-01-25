@@ -14,7 +14,7 @@ This library works with [finite fields](https://en.wikipedia.org/wiki/Finite_fie
 
 We usually create a new `Field` by instantiating an optimized backend. For example, this is the definition of the Pallas field:
 
-```rust=
+```rust
 // 4 is the number of 64-bit limbs needed to represent the field
 type PallasMontgomeryBackendPrimeField<T> = MontgomeryBackendPrimeField<T, 4>;
 
@@ -48,7 +48,7 @@ type FE = FieldElement::<Stark252PrimeField>;
 
 Once we have a field, we can make all the operations. We usually suggest working with references, but copies work too.
 
-```rust=
+```rust
 let field_a = FE::from_hex("3").unwrap();
 let field_b = FE::from_hex("7").unwrap();
 
@@ -61,7 +61,7 @@ let operation_result = field_a * field_b
 
 Sometimes, optimized operations are preferred. For example,
 
-```rust=
+```rust
 // We can make a square multiplying two numbers
 let squared = field_a * field_a;
 // Using exponentiation
