@@ -9,10 +9,10 @@ pub fn circom_to_lambda(
     r1cs_file_content: &str,
     witness_file_content: &str,
 ) -> (QAP, Vec<FrElement>) {
-    let circom_r1cs: Value = serde_json::from_str(&r1cs_file_content).expect("Error parsing JSON");
+    let circom_r1cs: Value = serde_json::from_str(r1cs_file_content).expect("Error parsing JSON");
     let [mut l, mut r, mut o] = build_lro_from_circom_r1cs(&circom_r1cs);
 
-    let mut witness: Vec<_> = serde_json::from_str::<Vec<String>>(&witness_file_content)
+    let mut witness: Vec<_> = serde_json::from_str::<Vec<String>>(witness_file_content)
         .expect("Error parsing JSON")
         .iter()
         .map(|num_str| circom_str_to_lambda_field_element(num_str))
@@ -69,10 +69,10 @@ fn build_lro_from_circom_r1cs(circom_r1cs: &Value) -> [Vec<Vec<FrElement>>; 3] {
 #[inline]
 fn adjust_lro_and_witness(
     circom_r1cs: &Value,
-    l: &mut Vec<Vec<FrElement>>,
-    r: &mut Vec<Vec<FrElement>>,
-    o: &mut Vec<Vec<FrElement>>,
-    witness: &mut Vec<FrElement>,
+    l: &mut [Vec<FrElement>],
+    r: &mut [Vec<FrElement>],
+    o: &mut [Vec<FrElement>],
+    witness: &mut [FrElement],
 ) {
     let num_of_private_inputs = circom_r1cs["nPrvInputs"].as_u64().unwrap() as usize;
     let num_of_pub_inputs = circom_r1cs["nPubInputs"].as_u64().unwrap() as usize;
