@@ -158,6 +158,7 @@ impl<A: AIR> ConstraintEvaluator<A> {
                 )
                 .fold(FieldElement::zero(), |acc, (eval, zerof_eval, beta)| {
                     acc + zerof_eval * eval * beta
+                    // acc + eval * beta
                 });
 
                 acc_transition + boundary

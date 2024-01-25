@@ -576,10 +576,10 @@ impl AIR for CairoAIR {
             // Box::new(BitPrefixFlag12::new()),
             // Box::new(BitPrefixFlag13::new()),
             // Box::new(BitPrefixFlag14::new()),
-            // Box::new(ZeroFlagConstraint::new()),
-            // Box::new(InstructionUnpacking::new()),
-            // Box::new(CpuOperandsMemDstAddr::new()),
-            // Box::new(CpuOperandsMem0Addr::new()),
+            Box::new(ZeroFlagConstraint::new()),
+            Box::new(InstructionUnpacking::new()),
+            Box::new(CpuOperandsMemDstAddr::new()),
+            Box::new(CpuOperandsMem0Addr::new()),
             // Box::new(CpuOperandsMem1Addr::new()),
             // Box::new(CpuUpdateRegistersApUpdate::new()),
             // Box::new(CpuUpdateRegistersFpUpdate::new()),
@@ -654,7 +654,8 @@ impl AIR for CairoAIR {
             proof_options: proof_options.clone(),
             trace_columns,
             transition_exemptions,
-            transition_offsets: vec![0, 1],
+            transition_offsets: vec![0],
+            // transition_offsets: vec![0],
             num_transition_constraints: transition_constraints.len(),
         };
 
@@ -701,9 +702,9 @@ impl AIR for CairoAIR {
         (6, 2)
     }
 
-    fn has_trace_interaction(&self) -> bool {
-        false
-    }
+    // fn has_trace_interaction(&self) -> bool {
+    //     false
+    // }
 
     /// From the Cairo whitepaper, section 9.10.
     /// These are part of the register constraints.

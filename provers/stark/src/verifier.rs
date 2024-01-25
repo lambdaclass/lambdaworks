@@ -9,6 +9,7 @@ use super::{
 use crate::{
     config::Commitment, proof::stark::DeepPolynomialOpening, transcript::IsStarkTranscript,
 };
+use itertools::Itertools;
 use lambdaworks_crypto::merkle_tree::proof::Proof;
 use lambdaworks_math::{
     fft::cpu::bit_reversing::reverse_index,
@@ -45,6 +46,7 @@ where
     pub transition_coeffs: Vec<FieldElement<A::FieldExtension>>,
     /// The deep composition polynomial coefficients corresponding to the trace polynomial terms.
     pub trace_term_coeffs: Vec<Vec<FieldElement<A::FieldExtension>>>,
+    // pub trace_term_coeffs: Vec<FieldElement<A::FieldExtension>>,
     /// The deep composition polynomial coefficients corresponding to the composition polynomial parts terms.
     pub gammas: Vec<FieldElement<A::FieldExtension>>,
     /// The list of FRI commit phase folding challenges.
@@ -143,20 +145,21 @@ pub trait IsStarkVerifier<A: AIR> {
         // ==========|   Round 4   |==========
         // ===================================
 
-        let n_terms_composition_poly = proof.composition_poly_parts_ood_evaluation.len();
-        let n_terms_trace = air.context().transition_offsets.len() * air.context().trace_columns;
+        let num_terms_composition_poly = proof.composition_poly_parts_ood_evaluation.len();
+        let num_terms_trace =
+            air.context().transition_offsets.len() * A::STEP_SIZE * air.context().trace_columns;
         let gamma = transcript.sample_field_element();
 
         // <<<< Receive challenges: 𝛾, 𝛾'
         let mut deep_composition_coefficients: Vec<_> =
             core::iter::successors(Some(FieldElement::one()), |x| Some(x * &gamma))
-                .take(n_terms_composition_poly + n_terms_trace)
+                .take(num_terms_composition_poly + num_terms_trace)
                 .collect();
 
         let trace_term_coeffs: Vec<_> = deep_composition_coefficients
-            .drain(..n_terms_trace)
+            .drain(..num_terms_trace)
             .collect::<Vec<_>>()
-            .chunks(air.context().transition_offsets.len())
+            .chunks(air.context().transition_offsets.len() * A::STEP_SIZE)
             .map(|chunk| chunk.to_vec())
             .collect();
 
@@ -670,15 +673,23 @@ pub trait IsStarkVerifier<A: AIR> {
         lde_trace_evaluations: &[FieldElement<A::FieldExtension>],
         lde_composition_poly_parts_evaluation: &[FieldElement<A::FieldExtension>],
     ) -> FieldElement<A::FieldExtension> {
-        let mut denoms_trace = (0..proof.trace_ood_evaluations.height)
+        let ood_evaluations_table_height = proof.trace_ood_evaluations.height;
+        let ood_evaluations_table_width = proof.trace_ood_evaluations.width;
+        let trace_term_coeffs = &challenges.trace_term_coeffs;
+        debug_assert_eq!(
+            ood_evaluations_table_height * ood_evaluations_table_width,
+            trace_term_coeffs.len() * trace_term_coeffs[0].len()
+        );
+
+        let mut denoms_trace = (0..ood_evaluations_table_height)
             .map(|row_idx| evaluation_point - primitive_root.pow(row_idx as u64) * &challenges.z)
             .collect::<Vec<FieldElement<A::FieldExtension>>>();
         FieldElement::inplace_batch_inverse(&mut denoms_trace).unwrap();
 
-        let trace_term = (0..proof.trace_ood_evaluations.width)
+        let trace_term = (0..ood_evaluations_table_width)
             .zip(&challenges.trace_term_coeffs)
             .fold(FieldElement::zero(), |trace_terms, (col_idx, coeff_row)| {
-                let trace_i = (0..proof.trace_ood_evaluations.height).zip(coeff_row).fold(
+                let trace_i = (0..ood_evaluations_table_height).zip(coeff_row).fold(
                     FieldElement::zero(),
                     |trace_t, (row_idx, coeff)| {
                         let poly_evaluation = (lde_trace_evaluations[col_idx].clone()
@@ -689,6 +700,22 @@ pub trait IsStarkVerifier<A: AIR> {
                 );
                 trace_terms + trace_i
             });
+
+        // `trace_ood_evaluations` table is splitted into columns and flattened into
+        // a single vector.
+        // let ood_evaluations_merged_columns = proof
+        //     .trace_ood_evaluations
+        //     .columns()
+        //     .into_iter()
+        //     .flatten()
+        //     .collect_vec();
+
+        // let lde_evaluations
+
+        // let trace_term = std::iter::zip(trace_term_coeffs, ood_evaluations_merged_columns).fold(
+        //     FieldElement::zero(),
+        //     |trace_term, (trace_gamma, ood_evaluation)| trace_term + ood_evaluation * trace_gamma,
+        // );
 
         let number_of_parts = lde_composition_poly_parts_evaluation.len();
         let z_pow = &challenges.z.pow(number_of_parts);

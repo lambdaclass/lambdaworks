@@ -508,14 +508,6 @@ pub trait IsStarkProver<A: AIR> {
         //
         // In the fibonacci example, the ood frame is simply the evaluations `[t(z), t(z * g), t(z * g^2)]`, where `t` is the trace
         // polynomial and `g` is the primitive root of unity used when interpolating `t`.
-        println!(
-            "AUX TRACE POLYS: {:?}",
-            round_1_result
-                .aux
-                .as_ref()
-                .map(|aux| aux.trace_polys.clone())
-        );
-
         let trace_ood_evaluations =
             crate::trace::get_trace_evaluations::<A::Field, A::FieldExtension>(
                 &round_1_result.main.trace_polys,
@@ -556,20 +548,30 @@ pub trait IsStarkProver<A: AIR> {
         let gamma = transcript.sample_field_element();
 
         let n_terms_composition_poly = round_2_result.lde_composition_poly_evaluations.len();
-        let n_terms_trace = air.context().transition_offsets.len() * air.context().trace_columns;
+        let num_terms_trace =
+            air.context().transition_offsets.len() * A::STEP_SIZE * air.context().trace_columns;
 
         // <<<< Receive challenges: 𝛾, 𝛾'
         let mut deep_composition_coefficients: Vec<_> =
             core::iter::successors(Some(FieldElement::one()), |x| Some(x * &gamma))
-                .take(n_terms_composition_poly + n_terms_trace)
+                .take(n_terms_composition_poly + num_terms_trace)
                 .collect();
 
-        let trace_poly_coeffients: Vec<_> = deep_composition_coefficients
-            .drain(..n_terms_trace)
+        // let trace_poly_coeffients: Vec<_> = deep_composition_coefficients
+        //     .drain(..num_terms_trace)
+        //     .collect();
+
+        let trace_term_coeffs: Vec<_> = deep_composition_coefficients
+            .drain(..num_terms_trace)
+            .collect::<Vec<_>>()
+            .chunks(air.context().transition_offsets.len() * A::STEP_SIZE)
+            .map(|chunk| chunk.to_vec())
             .collect();
 
         // <<<< Receive challenges: 𝛾ⱼ, 𝛾ⱼ'
         let gammas = deep_composition_coefficients;
+        // println!("COMPOSITION GAMMAS SIZE: {}", gammas.len());
+        // println!("TRACE GAMMAS SIZE: {}", trace_poly_coeffients.len());
 
         // Compute p₀ (deep composition polynomial)
         let deep_composition_poly = Self::compute_deep_composition_poly(
@@ -580,7 +582,7 @@ pub trait IsStarkProver<A: AIR> {
             z,
             &domain.trace_primitive_root,
             &gammas,
-            &trace_poly_coeffients,
+            &trace_term_coeffs,
         );
 
         let domain_size = domain.lde_roots_of_unity_coset.len();
@@ -649,7 +651,7 @@ pub trait IsStarkProver<A: AIR> {
         z: &FieldElement<A::FieldExtension>,
         primitive_root: &FieldElement<A::Field>,
         composition_poly_gammas: &[FieldElement<A::FieldExtension>],
-        trace_terms_gammas: &[FieldElement<A::FieldExtension>],
+        trace_terms_gammas: &[Vec<FieldElement<A::FieldExtension>>],
     ) -> Polynomial<FieldElement<A::FieldExtension>>
     where
         FieldElement<A::Field>: AsBytes + Send + Sync,
@@ -680,6 +682,9 @@ pub trait IsStarkProver<A: AIR> {
         // @@@ this could be const
         let trace_frame_length = trace_frame_evaluations.height;
 
+        println!("TRACE TERM GAMMAS LENGTH: {}", trace_terms_gammas.len());
+        let trace_evaluations_columns = &trace_frame_evaluations.columns();
+
         #[cfg(feature = "parallel")]
         let trace_terms = trace_polys
             .par_iter()
@@ -697,22 +702,29 @@ pub trait IsStarkProver<A: AIR> {
             })
             .reduce(Polynomial::zero, |a, b| a + b);
 
+        // let trace_polys = vec![trace_polys[0].clone()];
+
         #[cfg(not(feature = "parallel"))]
         let trace_terms =
             trace_polys
                 .iter()
                 .enumerate()
                 .fold(Polynomial::zero(), |trace_terms, (i, t_j)| {
+                    // println!("TRACE TERM INDEX: {}", i);
+                    let gammas_i = &trace_terms_gammas[i];
+                    let trace_evaluations_i = &trace_evaluations_columns[i];
                     Self::compute_trace_term(
                         &trace_terms,
                         (i, t_j),
                         trace_frame_length,
-                        trace_terms_gammas,
-                        &trace_frame_evaluations.columns(),
+                        gammas_i,
+                        trace_evaluations_i,
                         transition_offsets,
                         (z, primitive_root),
                     )
                 });
+
+        // println!("TRACE TERMS: {:?}", trace_terms.coefficients());
 
         h_terms + trace_terms
     }
@@ -725,7 +737,8 @@ pub trait IsStarkProver<A: AIR> {
         (j, t_j): (usize, &Polynomial<FieldElement<A::FieldExtension>>),
         trace_frame_length: usize,
         trace_terms_gammas: &[FieldElement<A::FieldExtension>],
-        trace_frame_evaluations: &[Vec<FieldElement<A::FieldExtension>>],
+        trace_frame_evaluations: &[FieldElement<A::FieldExtension>],
+        // trace_frame_evaluations: &[Vec<FieldElement<A::FieldExtension>>],
         transition_offsets: &[usize],
         (z, primitive_root): (&FieldElement<A::FieldExtension>, &FieldElement<A::Field>),
     ) -> Polynomial<FieldElement<A::FieldExtension>>
@@ -733,16 +746,25 @@ pub trait IsStarkProver<A: AIR> {
         FieldElement<A::Field>: AsBytes + Send + Sync,
         FieldElement<A::FieldExtension>: AsBytes + Send + Sync,
     {
-        let iter_trace_gammas = trace_terms_gammas.iter().skip(j * trace_frame_length);
-        let trace_int = trace_frame_evaluations[j]
+        // HERE IS THE BUG!!!
+        // let iter_trace_gammas = trace_terms_gammas.iter().skip(j * trace_frame_length);
+
+        // let lala: Vec<_> = iter_trace_gammas.clone().collect();
+
+        // lala.iter()
+        //     .enumerate()
+        // .for_each(|(i, l)| println!("ITER TRACE GAMMA TRACE TERM {j}, {} - {:?}", i, l));
+
+        let trace_int = trace_frame_evaluations
             .iter()
-            .zip(transition_offsets)
-            .zip(iter_trace_gammas)
+            // .zip(transition_offsets)
+            .enumerate()
+            .zip(trace_terms_gammas)
             .fold(
                 Polynomial::zero(),
-                |trace_agg, ((t_j_z, offset), trace_gamma)| {
+                |trace_agg, ((offset, t_j_z), trace_gamma)| {
                     // @@@ this can be pre-computed
-                    let z_shifted = primitive_root.pow(*offset) * z;
+                    let z_shifted = primitive_root.pow(offset) * z;
                     let mut poly = t_j - t_j_z;
                     poly.ruffini_division_inplace(&z_shifted);
                     trace_agg + poly * trace_gamma

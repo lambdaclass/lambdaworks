@@ -486,6 +486,7 @@ fn decompose_rc_values_into_trace_columns(rc_values: &[&Felt252]) -> [Vec<Felt25
 fn set_bit_prefix_flags(trace: &mut CairoTraceTable, bit_prefix_flags: Vec<[Felt252; 16]>) {
     for (step_idx, flags) in bit_prefix_flags.into_iter().enumerate() {
         for (flag_idx, flag) in flags.into_iter().enumerate() {
+            // println!("BIT PREFIX FLAG {flag_idx}: {flag:?}");
             trace.set_main(flag_idx + CAIRO_STEP * step_idx, 1, flag);
         }
     }

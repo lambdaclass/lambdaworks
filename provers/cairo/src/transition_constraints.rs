@@ -805,7 +805,7 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for ZeroFlagCo
     }
 
     fn constraint_idx(&self) -> usize {
-        15
+        1
     }
 
     fn evaluate(
@@ -817,9 +817,13 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for ZeroFlagCo
     ) {
         let current_step = frame.get_evaluation_step(0);
 
-        let zero_flag = current_step.get_main_evaluation_element(0, 15);
+        let zero_flag = current_step.get_main_evaluation_element(15, 1);
 
         transition_evaluations[self.constraint_idx()] = *zero_flag;
+    }
+
+    fn period(&self) -> usize {
+        16
     }
 
     fn end_exemptions(&self) -> usize {
@@ -1056,6 +1060,10 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for Instructio
     }
 
     fn constraint_idx(&self) -> usize {
+        2
+    }
+
+    fn period(&self) -> usize {
         16
     }
 
@@ -1074,12 +1082,12 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for Instructio
         let b48 = two.pow(48u32);
 
         // Named like this to match the Cairo whitepaper's notation.
-        let f0_squiggle = current_step.get_main_evaluation_element(0, 0);
+        let f0_squiggle = current_step.get_main_evaluation_element(0, 1);
 
-        let instruction = current_step.get_main_evaluation_element(0, 23);
-        let off_dst = current_step.get_main_evaluation_element(0, 27);
-        let off_op0 = current_step.get_main_evaluation_element(0, 28);
-        let off_op1 = current_step.get_main_evaluation_element(0, 29);
+        let instruction = current_step.get_main_evaluation_element(1, 3);
+        let off_dst = current_step.get_main_evaluation_element(0, 0);
+        let off_op0 = current_step.get_main_evaluation_element(8, 0);
+        let off_op1 = current_step.get_main_evaluation_element(4, 0);
 
         let res = off_dst + b16 * off_op0 + b32 * off_op1 + b48 * f0_squiggle - instruction;
 
@@ -1419,7 +1427,11 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for CpuOperand
     }
 
     fn constraint_idx(&self) -> usize {
-        17
+        3
+    }
+
+    fn period(&self) -> usize {
+        16
     }
 
     fn evaluate(
@@ -1434,12 +1446,13 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for CpuOperand
         let two = Felt252::from(2);
         let one = Felt252::one();
         let b15 = two.pow(15u32);
-        let dst_fp = current_step.get_main_evaluation_element(0, 0)
-            - two * current_step.get_main_evaluation_element(0, 1);
-        let ap = current_step.get_main_evaluation_element(0, 17);
-        let fp = current_step.get_main_evaluation_element(0, 18);
-        let off_dst = current_step.get_main_evaluation_element(0, 27);
-        let dst_addr = current_step.get_main_evaluation_element(0, 20);
+
+        let dst_fp = current_step.get_main_evaluation_element(0, 1)
+            - two * current_step.get_main_evaluation_element(1, 1);
+        let ap = current_step.get_main_evaluation_element(0, 5);
+        let fp = current_step.get_main_evaluation_element(8, 5);
+        let off_dst = current_step.get_main_evaluation_element(0, 0);
+        let dst_addr = current_step.get_main_evaluation_element(8, 3);
 
         let res = dst_fp * fp + (one - dst_fp) * ap + (off_dst - b15) - dst_addr;
 
@@ -1470,7 +1483,11 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for CpuOperand
     }
 
     fn constraint_idx(&self) -> usize {
-        18
+        4
+    }
+
+    fn period(&self) -> usize {
+        16
     }
 
     fn evaluate(
@@ -1486,14 +1503,14 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for CpuOperand
         let one = Felt252::one();
         let b15 = two.pow(15u32);
 
-        let op0_fp = current_step.get_main_evaluation_element(0, 1)
-            - two * current_step.get_main_evaluation_element(0, 2);
+        let op0_fp = current_step.get_main_evaluation_element(1, 1)
+            - two * current_step.get_main_evaluation_element(2, 1);
 
-        let ap = current_step.get_main_evaluation_element(0, 17);
-        let fp = current_step.get_main_evaluation_element(0, 18);
+        let ap = current_step.get_main_evaluation_element(0, 5);
+        let fp = current_step.get_main_evaluation_element(8, 5);
 
-        let off_op0 = current_step.get_main_evaluation_element(0, 28);
-        let op0_addr = current_step.get_main_evaluation_element(0, 21);
+        let off_op0 = current_step.get_main_evaluation_element(8, 0);
+        let op0_addr = current_step.get_main_evaluation_element(4, 3);
 
         let res = op0_fp * fp + (one - op0_fp) * ap + (off_op0 - b15) - op0_addr;
 
