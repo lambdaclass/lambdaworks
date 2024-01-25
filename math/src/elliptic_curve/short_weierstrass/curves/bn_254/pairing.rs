@@ -4,6 +4,7 @@ use crate::{
     elliptic_curve::{
         short_weierstrass::point::ShortWeierstrassProjectivePoint, traits::IsPairing,
     },
+    errors::PairingError,
     field::element::FieldElement,
 };
 
@@ -17,7 +18,7 @@ impl IsPairing for BN254AtePairing {
     /// Compute the product of the ate pairings for a list of point pairs.
     fn compute_batch(
         pairs: &[(&Self::G1Point, &Self::G2Point)],
-    ) -> FieldElement<Self::OutputField> {
+    ) -> Result<FieldElement<Self::OutputField>, PairingError> {
         let mut result = FieldElement::one();
         for (p, q) in pairs {
             if !p.is_neutral_element() && !q.is_neutral_element() {
@@ -26,7 +27,7 @@ impl IsPairing for BN254AtePairing {
                 result = result * miller(&q, &p);
             }
         }
-        final_exponentiation(&result)
+        Ok(final_exponentiation(&result))
     }
 }
 
@@ -145,7 +146,8 @@ mod tests {
                 &p.operate_with_self(a * b).to_affine(),
                 &q.neg().to_affine(),
             ),
-        ]);
+        ])
+        .unwrap();
         assert_eq!(result, FieldElement::one());
     }
 
@@ -153,12 +155,12 @@ mod tests {
     fn ate_pairing_returns_one_when_one_element_is_the_neutral_element() {
         let p = BN254Curve::generator().to_affine();
         let q = ShortWeierstrassProjectivePoint::neutral_element();
-        let result = BN254AtePairing::compute_batch(&[(&p.to_affine(), &q)]);
+        let result = BN254AtePairing::compute_batch(&[(&p.to_affine(), &q)]).unwrap();
         assert_eq!(result, FieldElement::one());
 
         let p = ShortWeierstrassProjectivePoint::neutral_element();
         let q = BN254TwistCurve::generator();
-        let result = BN254AtePairing::compute_batch(&[(&p, &q.to_affine())]);
+        let result = BN254AtePairing::compute_batch(&[(&p, &q.to_affine())]).unwrap();
         assert_eq!(result, FieldElement::one());
     }
 }

@@ -21,16 +21,13 @@ impl IsModulus<U256> for BN254FieldModulus {
     const MODULUS: U256 = BN254_PRIME_FIELD_ORDER;
 }
 
-//Note this should implement IsField to optimize operations
 pub type BN254PrimeField = MontgomeryBackendPrimeField<BN254FieldModulus, 4>;
 
-pub type Degree2ExtensionField = QuadraticExtensionField<BN254PrimeField>;
+pub type Degree2ExtensionField = QuadraticExtensionField<BN254PrimeField, BN254Residue>;
 
-//Note: This should imple IsField for optimization purposes
-impl HasQuadraticNonResidue for BN254PrimeField {
-    type BaseField = BN254PrimeField;
-
-    //TODO: add sage
+#[derive(Debug, Clone)]
+pub struct BN254Residue;
+impl HasQuadraticNonResidue<BN254PrimeField> for BN254Residue {
     fn residue() -> FieldElement<BN254PrimeField> {
         -FieldElement::one()
     }
@@ -38,18 +35,21 @@ impl HasQuadraticNonResidue for BN254PrimeField {
 
 #[cfg(feature = "std")]
 impl ByteConversion for FieldElement<Degree2ExtensionField> {
+    #[cfg(feature = "std")]
     fn to_bytes_be(&self) -> Vec<u8> {
         let mut byte_slice = ByteConversion::to_bytes_be(&self.value()[0]);
         byte_slice.extend(ByteConversion::to_bytes_be(&self.value()[1]));
         byte_slice
     }
 
+    #[cfg(feature = "std")]
     fn to_bytes_le(&self) -> Vec<u8> {
         let mut byte_slice = ByteConversion::to_bytes_le(&self.value()[0]);
         byte_slice.extend(ByteConversion::to_bytes_le(&self.value()[1]));
         byte_slice
     }
 
+    #[cfg(feature = "std")]
     fn from_bytes_be(bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError>
     where
         Self: std::marker::Sized,
@@ -60,6 +60,7 @@ impl ByteConversion for FieldElement<Degree2ExtensionField> {
         Ok(Self::new([x0, x1]))
     }
 
+    #[cfg(feature = "std")]
     fn from_bytes_le(bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError>
     where
         Self: std::marker::Sized,
@@ -73,22 +74,17 @@ impl ByteConversion for FieldElement<Degree2ExtensionField> {
 
 #[derive(Debug, Clone)]
 pub struct LevelTwoResidue;
-impl HasCubicNonResidue for LevelTwoResidue {
-    type BaseField = Degree2ExtensionField;
-
-    //TODO: add sage
+impl HasCubicNonResidue<Degree2ExtensionField> for LevelTwoResidue {
     fn residue() -> FieldElement<Degree2ExtensionField> {
         FieldElement::new([FieldElement::from(9), FieldElement::one()])
     }
 }
 
-pub type Degree6ExtensionField = CubicExtensionField<LevelTwoResidue>;
+pub type Degree6ExtensionField = CubicExtensionField<Degree2ExtensionField, LevelTwoResidue>;
 
 #[derive(Debug, Clone)]
 pub struct LevelThreeResidue;
-impl HasQuadraticNonResidue for LevelThreeResidue {
-    type BaseField = Degree6ExtensionField;
-
+impl HasQuadraticNonResidue<Degree6ExtensionField> for LevelThreeResidue {
     fn residue() -> FieldElement<Degree6ExtensionField> {
         FieldElement::new([
             FieldElement::zero(),
@@ -98,7 +94,7 @@ impl HasQuadraticNonResidue for LevelThreeResidue {
     }
 }
 
-pub type Degree12ExtensionField = QuadraticExtensionField<LevelThreeResidue>;
+pub type Degree12ExtensionField = QuadraticExtensionField<Degree6ExtensionField, LevelThreeResidue>;
 
 impl FieldElement<BN254PrimeField> {
     pub fn new_base(a_hex: &str) -> Self {
