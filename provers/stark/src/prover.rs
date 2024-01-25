@@ -449,10 +449,7 @@ pub trait IsStarkProver<A: AIR> {
             Polynomial::interpolate_offset_fft(&constraint_evaluations, &domain.coset_offset)
                 .unwrap();
 
-        println!("COMPOSITION POLY DEGREE: {}", composition_poly.degree());
-
         let number_of_parts = air.composition_poly_degree_bound() / air.trace_length();
-        println!("NUMBER OF PARTS BREAK: {}", number_of_parts);
         let composition_poly_parts = composition_poly.break_in_parts(number_of_parts);
 
         let lde_composition_poly_parts_evaluations: Vec<_> = composition_poly_parts
@@ -570,8 +567,6 @@ pub trait IsStarkProver<A: AIR> {
 
         // <<<< Receive challenges: 𝛾ⱼ, 𝛾ⱼ'
         let gammas = deep_composition_coefficients;
-        // println!("COMPOSITION GAMMAS SIZE: {}", gammas.len());
-        // println!("TRACE GAMMAS SIZE: {}", trace_poly_coeffients.len());
 
         // Compute p₀ (deep composition polynomial)
         let deep_composition_poly = Self::compute_deep_composition_poly(
@@ -682,7 +677,6 @@ pub trait IsStarkProver<A: AIR> {
         // @@@ this could be const
         let trace_frame_length = trace_frame_evaluations.height;
 
-        println!("TRACE TERM GAMMAS LENGTH: {}", trace_terms_gammas.len());
         let trace_evaluations_columns = &trace_frame_evaluations.columns();
 
         #[cfg(feature = "parallel")]
@@ -710,7 +704,6 @@ pub trait IsStarkProver<A: AIR> {
                 .iter()
                 .enumerate()
                 .fold(Polynomial::zero(), |trace_terms, (i, t_j)| {
-                    // println!("TRACE TERM INDEX: {}", i);
                     let gammas_i = &trace_terms_gammas[i];
                     let trace_evaluations_i = &trace_evaluations_columns[i];
                     Self::compute_trace_term(
@@ -723,8 +716,6 @@ pub trait IsStarkProver<A: AIR> {
                         (z, primitive_root),
                     )
                 });
-
-        // println!("TRACE TERMS: {:?}", trace_terms.coefficients());
 
         h_terms + trace_terms
     }
@@ -746,15 +737,6 @@ pub trait IsStarkProver<A: AIR> {
         FieldElement<A::Field>: AsBytes + Send + Sync,
         FieldElement<A::FieldExtension>: AsBytes + Send + Sync,
     {
-        // HERE IS THE BUG!!!
-        // let iter_trace_gammas = trace_terms_gammas.iter().skip(j * trace_frame_length);
-
-        // let lala: Vec<_> = iter_trace_gammas.clone().collect();
-
-        // lala.iter()
-        //     .enumerate()
-        // .for_each(|(i, l)| println!("ITER TRACE GAMMA TRACE TERM {j}, {} - {:?}", i, l));
-
         let trace_int = trace_frame_evaluations
             .iter()
             // .zip(transition_offsets)

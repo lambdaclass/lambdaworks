@@ -40,11 +40,6 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for BitPrefixF
         let current_flag = current_step.get_main_evaluation_element(0, 1);
         let next_flag = current_step.get_main_evaluation_element(1, 1);
 
-        // println!("CURRENT FLAG: {}", current_flag.representative());
-        // println!("NEXT FLAG: {}", next_flag.representative());
-
-        // panic!("LALA");
-
         let one = Felt252::one();
         let two = Felt252::from(2);
 

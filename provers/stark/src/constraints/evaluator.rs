@@ -40,8 +40,6 @@ impl<A: AIR> ConstraintEvaluator<A> {
         let boundary_constraints = &self.boundary_constraints;
         let number_of_b_constraints = boundary_constraints.constraints.len();
 
-        println!("TRACE LENGTH: {}", air.trace_length());
-
         let boundary_zerofiers_inverse_evaluations: Vec<Vec<FieldElement<A::Field>>> =
             boundary_constraints
                 .constraints

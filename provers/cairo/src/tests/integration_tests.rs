@@ -95,7 +95,7 @@ fn test_verifier_rejects_proof_of_a_slightly_different_program() {
 
     // We modify the original program and verify using this new "corrupted" version
     let mut corrupted_program = pub_input.public_memory.clone();
-    corrupted_program.insert(Felt252::one(), Felt252::from(5));
+    corrupted_program.insert(Felt252::one(), Felt252::from(6));
     corrupted_program.insert(Felt252::from(3), Felt252::from(5));
 
     // Here we use the corrupted version of the program in the public inputs

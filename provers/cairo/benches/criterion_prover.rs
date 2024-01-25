@@ -54,12 +54,12 @@ fn run_cairo_bench(
 ) {
     let program_content = std::fs::read(program_path).unwrap();
     let proof_options = ProofOptions::new_secure(SecurityLevel::Provable80Bits, 3);
-    let (main_trace, pub_inputs) = generate_prover_args(&program_content, layout).unwrap();
-    println!("Generated main trace with {} rows", main_trace.n_rows());
+    let (mut main_trace, pub_inputs) = generate_prover_args(&program_content, layout).unwrap();
+    println!("Generated main trace with {} rows", main_trace.num_rows());
 
     group.bench_function(benchname, |bench| {
         bench.iter(|| {
-            black_box(generate_cairo_proof(&main_trace, &pub_inputs, &proof_options).unwrap())
+            black_box(generate_cairo_proof(&mut main_trace, &pub_inputs, &proof_options).unwrap())
         });
     });
 }
