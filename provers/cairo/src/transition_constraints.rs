@@ -3132,7 +3132,7 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for Rc16PermSt
     }
 
     fn constraint_idx(&self) -> usize {
-        50
+        21
     }
 
     fn evaluate(
@@ -3145,17 +3145,17 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for Rc16PermSt
         let current_step = frame.get_evaluation_step(0);
 
         let z = rap_challenges[2];
-        let a1 = current_step.get_main_evaluation_element(0, 28);
+        let a1 = current_step.get_main_evaluation_element(1, 0);
+        let ap1 = current_step.get_main_evaluation_element(1, 2);
 
-        let ap1 = current_step.get_aux_evaluation_element(0, 1);
-        let p1 = current_step.get_aux_evaluation_element(0, 20);
-        let p0 = current_step.get_aux_evaluation_element(0, 19);
+        let p0 = current_step.get_aux_evaluation_element(0, 0);
+        let p1 = current_step.get_aux_evaluation_element(1, 0);
 
         transition_evaluations[self.constraint_idx()] = (z - ap1) * p1 - (z - a1) * p0;
     }
 
     fn end_exemptions(&self) -> usize {
-        0
+        1
     }
 }
 

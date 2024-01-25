@@ -611,7 +611,7 @@ impl AIR for CairoAIR {
             // Box::new(Rc16DiffIsBit1::new()),
             // Box::new(Rc16DiffIsBit2::new()),
             // Box::new(Rc16DiffIsBit3::new()),
-            // Box::new(Rc16PermStep0_0::new()),
+            Box::new(Rc16PermStep0_0::new()),
             // Box::new(Rc16PermStep0_1::new()),
             // Box::new(Rc16PermStep0_2::new()),
             // Box::new(Rc16PermStep0_3::new()),
