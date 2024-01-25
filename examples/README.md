@@ -95,4 +95,35 @@ You will notice traits are followed by an `Is`, so instead of accepting somethin
 lambdaworks supports different elliptic curves. Currently, we support the following elliptic curve types:
 - Short Weiestrass: points $(x, y)$ satisfy the equation $y^2 = x^3 + a x + b$. The curve parameters are $a$ and $b$. All elliptic curves can be cast in this form.
 - Edwards: points $(x, y)$ satisfy the equation $a x^2 + y^2 = 1 + d x^2 y^2$. The curve parameters are $a$ and $d$.
-- Montgomery: points (x, y)$ satisfy the equation $b y^2 = x^3 + a x^2 + x$. The curve parameters are $b$ and $a$.
+- Montgomery: points $(x, y)$ satisfy the equation $b y^2 = x^3 + a x^2 + x$. The curve parameters are $b$ and $a$.
+
+To create an elliptic curve in Short Weiestrass form, we have to implement the traits `IsEllipticCurve` and `IsShortWeierstrass`. Below we show how the Pallas curve is defined:
+```rust
+#[derive(Clone, Debug)]
+pub struct PallasCurve;
+
+impl IsEllipticCurve for PallasCurve {
+    type BaseField = Pallas255PrimeField;
+    type PointRepresentation = ShortWeierstrassProjectivePoint<Self>;
+
+    fn generator() -> Self::PointRepresentation {
+        Self::PointRepresentation::new([
+            -FieldElement::<Self::BaseField>::one(),
+            FieldElement::<Self::BaseField>::from(2),
+            FieldElement::one(),
+        ])
+    }
+}
+
+impl IsShortWeierstrass for PallasCurve {
+    fn a() -> FieldElement<Self::BaseField> {
+        FieldElement::from(0)
+    }
+
+    fn b() -> FieldElement<Self::BaseField> {
+        FieldElement::from(5)
+    }
+}
+```
+
+All curve models have their `defining_equation` method, which allows us to check whether a given $(x,y)$ belongs to the elliptic curve. The `BaseField` is where the coordinates $x,y$ of the curve live. `generator()` provides a point $P$ in the elliptic curve such that, by repeatedly adding $P$ to itself, we can obtain all the points in the elliptic curve group.
