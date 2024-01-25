@@ -1,9 +1,20 @@
+use std::fs;
+
 use crate::*;
 use lambdaworks_groth16::*;
 
+const TEST_DIR: &str = "src/test_files/";
+
+// Proves & verifies a Poseidon circuit with 1 input and 2 outputs. The input is decimal 100.
 #[test]
-fn init() {
-    let (w, qap) = circom_r1cs_to_lambda_qap("test.r1cs.json", "witness.json");
+fn poseidon_parse_prove_verify() {
+    let test_dir = format!("{TEST_DIR}poseidon/");
+
+    let (qap, w) = circom_to_lambda(
+        &fs::read_to_string(format!("{test_dir}test.r1cs.json")).expect("Error reading the file"),
+        &fs::read_to_string(format!("{test_dir}witness.json")).expect("Error reading the file"),
+    );
+
     let (pk, vk) = setup(&qap);
 
     let accept = verify(
