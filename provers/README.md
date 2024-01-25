@@ -10,3 +10,5 @@ The reference papers for each of the provers is given below:
 - [Groth 16](https://eprint.iacr.org/2016/260)
 - [Plonk](https://eprint.iacr.org/2019/953)
 - [STARKs](https://eprint.iacr.org/2018/046.pdf)
+
+A brief description of the Plonk and STARKs provers can be found [here](https://github.com/lambdaclass/lambdaworks/tree/main/docs/src)
