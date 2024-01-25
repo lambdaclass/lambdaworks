@@ -607,7 +607,7 @@ impl AIR for CairoAIR {
             // Box::new(MemoryMultiColumnPermStep0_2::new()),
             // Box::new(MemoryMultiColumnPermStep0_3::new()),
             // Box::new(MemoryMultiColumnPermStep0_4::new()),
-            // Box::new(Rc16DiffIsBit0::new()),
+            Box::new(Rc16DiffIsBit0::new()),
             // Box::new(Rc16DiffIsBit1::new()),
             // Box::new(Rc16DiffIsBit2::new()),
             // Box::new(Rc16DiffIsBit3::new()),

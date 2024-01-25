@@ -2954,7 +2954,7 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for Rc16DiffIs
     }
 
     fn constraint_idx(&self) -> usize {
-        46
+        20
     }
 
     fn evaluate(
@@ -2967,15 +2967,15 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for Rc16DiffIs
         let current_step = frame.get_evaluation_step(0);
         let one = Felt252::one();
 
-        let rc_col_1 = current_step.get_aux_evaluation_element(0, 0);
-        let rc_col_2 = current_step.get_aux_evaluation_element(0, 1);
+        let rc_col_1 = current_step.get_main_evaluation_element(0, 2);
+        let rc_col_2 = current_step.get_main_evaluation_element(1, 2);
 
         transition_evaluations[self.constraint_idx()] =
             (rc_col_1 - rc_col_2) * (rc_col_2 - rc_col_1 - one);
     }
 
     fn end_exemptions(&self) -> usize {
-        0
+        1
     }
 }
 
