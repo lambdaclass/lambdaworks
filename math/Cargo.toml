@@ -25,6 +25,7 @@ objc = { version = "0.2.7", optional = true }
 # cuda
 cudarc = { version = "0.9.7", optional = true }
 
+
 lambdaworks-gpu = { workspace = true, optional = true }
 
 [dev-dependencies]

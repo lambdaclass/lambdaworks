@@ -14,7 +14,7 @@ use core::iter::Sum;
     feature = "lambdaworks-serde-string"
 ))]
 use core::marker::PhantomData;
-use core::ops::{Add, AddAssign, Div, Mul, Neg, Sub};
+use core::ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Sub};
 #[cfg(any(
     feature = "lambdaworks-serde-binary",
     feature = "lambdaworks-serde-string"
@@ -309,6 +309,28 @@ where
 
     fn mul(self, rhs: FieldElement<L>) -> Self::Output {
         self * &rhs
+    }
+}
+
+/// MulAssign operator overloading for field elements
+impl<F, L> MulAssign<FieldElement<F>> for FieldElement<L>
+where
+    F: IsSubFieldOf<L>,
+    L: IsField,
+{
+    fn mul_assign(&mut self, rhs: FieldElement<F>) {
+        self.value = <F as IsSubFieldOf<L>>::mul(&rhs.value, &self.value);
+    }
+}
+
+/// MulAssign operator overloading for field elements
+impl<F, L> MulAssign<&FieldElement<F>> for FieldElement<L>
+where
+    F: IsSubFieldOf<L>,
+    L: IsField,
+{
+    fn mul_assign(&mut self, rhs: &FieldElement<F>) {
+        self.value = <F as IsSubFieldOf<L>>::mul(&rhs.value, &self.value);
     }
 }
 
