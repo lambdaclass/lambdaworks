@@ -4,16 +4,18 @@
 use crate::{
     commitments::traits::IsPolynomialCommitmentScheme, fiat_shamir::transcript::Transcript,
 };
+use core::mem;
 use lambdaworks_math::{
     cyclic_group::IsGroup,
     elliptic_curve::traits::IsPairing,
+    errors::DeserializationError,
     field::{
         element::FieldElement,
         traits::{IsField, IsPrimeField},
     },
     msm::pippenger::msm,
     polynomial::{dense_multilinear_poly::DenseMultilinearPolynomial, Polynomial},
-    traits::{AsBytes, ByteConversion},
+    traits::{AsBytes, ByteConversion, Deserializable},
     unsigned_integer::element::UnsignedInteger,
 };
 use std::{borrow::Borrow, iter, marker::PhantomData};
@@ -21,20 +23,7 @@ use std::{borrow::Borrow, iter, marker::PhantomData};
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
 
-use super::structs::ZeromorphSRS;
-
-#[derive(Clone, Debug)]
-pub struct ZeromorphProof<P: IsPairing> {
-    pub pi: P::G1Point,
-    pub q_hat_com: P::G1Point,
-    pub q_k_com: Vec<P::G1Point>,
-}
-
-#[derive(Debug)]
-pub enum ZeromorphError {
-    //#[error("Length Error: SRS Length: {0}, Key Length: {0}")]
-    KeyLengthError(usize, usize),
-}
+use super::structs::{ZeromorphProof, ZeromorphProverKey, ZeromorphVerifierKey};
 
 fn compute_multilinear_quotients<P: IsPairing>(
     poly: &DenseMultilinearPolynomial<P::BaseField>,
@@ -66,7 +55,7 @@ where
                 .zip(&*g_lo)
                 .zip(&*g_hi)
                 .for_each(|((q, g_lo), g_hi)| {
-                    *q = *g_hi - *g_lo;
+                    *q = g_hi - g_lo;
                 });
 
             #[cfg(feature = "parallel")]
@@ -75,7 +64,7 @@ where
             #[cfg(not(feature = "parallel"))]
             let g_lo_iter = g_lo.iter_mut();
             g_lo_iter.zip(g_hi).for_each(|(g_lo, g_hi)| {
-                *g_lo += (*g_hi - g_lo as &_) * x_i;
+                *g_lo += (&*g_hi - g_lo as &_) * x_i;
             });
 
             g.truncate(1 << (poly.num_vars() - 1 - i));
@@ -84,7 +73,7 @@ where
         })
         .collect();
     quotients.reverse();
-    (quotients, g[0])
+    (quotients, g[0].clone())
 }
 
 fn compute_batched_lifted_degree_quotient<P: IsPairing>(
@@ -107,7 +96,7 @@ fn compute_batched_lifted_degree_quotient<P: IsPairing>(
                 #[cfg(not(feature = "parallel"))]
                 let q_hat_iter = q_hat[n - (1 << idx)..].iter_mut();
                 q_hat_iter.zip(&q.coefficients).for_each(|(q_hat, q)| {
-                    *q_hat += scalar * q;
+                    *q_hat += &scalar * q;
                 });
                 scalar *= y_challenge;
                 q_hat
@@ -117,9 +106,9 @@ fn compute_batched_lifted_degree_quotient<P: IsPairing>(
 }
 
 fn eval_and_quotient_scalars<P: IsPairing>(
-    y_challenge: FieldElement<P::BaseField>,
-    x_challenge: FieldElement<P::BaseField>,
-    z_challenge: FieldElement<P::BaseField>,
+    y_challenge: &FieldElement<P::BaseField>,
+    x_challenge: &FieldElement<P::BaseField>,
+    z_challenge: &FieldElement<P::BaseField>,
     challenges: &[FieldElement<P::BaseField>],
 ) -> (
     FieldElement<P::BaseField>,
@@ -131,7 +120,7 @@ fn eval_and_quotient_scalars<P: IsPairing>(
     let num_vars = challenges.len();
 
     // squares of x = [x, x^2, .. x^{2^k}, .. x^{2^num_vars}]
-    let squares_of_x: Vec<_> = iter::successors(Some(x_challenge), |&x| Some(x.square()))
+    let squares_of_x: Vec<_> = iter::successors(Some(x_challenge.clone()), |x| Some(x.square()))
         .take(num_vars + 1)
         .collect();
 
@@ -143,7 +132,7 @@ fn eval_and_quotient_scalars<P: IsPairing>(
             .skip(1)
             .scan(FieldElement::one(), |acc, pow_x| {
                 *acc *= pow_x;
-                Some(*acc)
+                Some(acc.clone())
             })
             .collect::<Vec<_>>();
         offsets_of_x.reverse();
@@ -151,20 +140,21 @@ fn eval_and_quotient_scalars<P: IsPairing>(
     };
 
     let vs = {
-        let v_numer: FieldElement<P::BaseField> = squares_of_x[num_vars] - FieldElement::one();
+        let v_numer: FieldElement<P::BaseField> =
+            squares_of_x[num_vars].clone() - FieldElement::one();
         let mut v_denoms = squares_of_x
             .iter()
-            .map(|squares_of_x| *squares_of_x - FieldElement::one())
+            .map(|square_of_x| square_of_x - FieldElement::one())
             .collect::<Vec<_>>();
         //TODO: catch this unwrap()
         FieldElement::inplace_batch_inverse(&mut v_denoms).unwrap();
         v_denoms
             .iter()
-            .map(|v_denom| v_numer * v_denom)
+            .map(|v_denom| &v_numer * v_denom)
             .collect::<Vec<_>>()
     };
 
-    let q_scalars = iter::successors(Some(FieldElement::one()), |acc| Some(*acc * y_challenge))
+    let q_scalars = iter::successors(Some(FieldElement::one()), |acc| Some(acc * y_challenge))
         .take(num_vars)
         .zip(offsets_of_x)
         .zip(squares_of_x)
@@ -175,23 +165,195 @@ fn eval_and_quotient_scalars<P: IsPairing>(
             |(((((power_of_y, offset_of_x), square_of_x), v_i), v_j), u_i)| {
                 (
                     -(power_of_y * offset_of_x),
-                    -(z_challenge * (square_of_x * v_j - *u_i * v_i)),
+                    -(z_challenge * (square_of_x * v_j - u_i * v_i)),
                 )
             },
         )
         .unzip();
 
     // -vs[0] * z = -z * (x^(2^num_vars) - 1) / (x - 1) = -z Φ_n(x)
-    (-vs[0] * z_challenge, q_scalars)
+    (-vs[0].clone() * z_challenge, q_scalars)
 }
 
-// TODO: how to handle the case in batching that the polynomials each have unique num_vars
 pub struct Zeromorph<P: IsPairing> {
-    srs: ZeromorphSRS<P>,
+    pk: ZeromorphProverKey<P>,
+    vk: ZeromorphVerifierKey<P>,
     _phantom: PhantomData<P>,
 }
 
-impl<P: IsPairing> Zeromorph<P> {}
+impl<'a, P: IsPairing> Zeromorph<P>
+where
+    <P as IsPairing>::G1Point: Deserializable,
+    <P as IsPairing>::G2Point: Deserializable,
+{
+    //TODO: should we derive the pk and ck within this function directly from srs
+    pub fn new(pk: ZeromorphProverKey<P>, vk: ZeromorphVerifierKey<P>) -> Self {
+        Self {
+            pk,
+            vk,
+            _phantom: PhantomData,
+        }
+    }
+
+    /// Extracts pk and vk from binary file
+    pub fn from_file(
+        file_path: &str,
+    ) -> Result<Self, crate::errors::ProverVerifyKeysFromFileError> {
+        let bytes = std::fs::read(file_path)?;
+        Ok(Self::deserialize(&bytes)?)
+    }
+}
+
+impl<P: IsPairing> AsBytes for Zeromorph<P>
+where
+    <P as IsPairing>::G1Point: AsBytes,
+    <P as IsPairing>::G2Point: AsBytes,
+{
+    fn as_bytes(&self) -> Vec<u8> {
+        let mut serialized_data: Vec<u8> = Vec::new();
+        // First 4 bytes encodes protocol version
+        let protocol_version: [u8; 4] = [0; 4];
+
+        serialized_data.extend(&protocol_version);
+
+        // Second 8 bytes store the amount of G1 elements to be stored, this is more than can be indexed with a 64-bit architecture, and some millions of terabytes of data if the points were compressed
+        let mut g1_powers_len_bytes: Vec<u8> = self.pk.g1_powers.len().to_le_bytes().to_vec();
+
+        // For architectures with less than 64 bits for pointers
+        // We add extra zeros at the end
+        while g1_powers_len_bytes.len() < 8 {
+            g1_powers_len_bytes.push(0)
+        }
+
+        serialized_data.extend(&g1_powers_len_bytes);
+
+        // third 8 bytes store the amount of G1 offset elements to be stored, this is more than can be indexed with a 64-bit architecture, and some millions of terabytes of data if the points were compressed
+        let mut offset_g1_powers_len_bytes: Vec<u8> =
+            self.pk.offset_g1_powers.len().to_le_bytes().to_vec();
+
+        // For architectures with less than 64 bits for pointers
+        // We add extra zeros at the end
+        while offset_g1_powers_len_bytes.len() < 8 {
+            offset_g1_powers_len_bytes.push(0)
+        }
+
+        serialized_data.extend(&offset_g1_powers_len_bytes);
+
+        // G1 elements
+        for point in &self.pk.g1_powers {
+            serialized_data.extend(point.as_bytes());
+        }
+
+        // G2 elements
+        for point in &self.pk.offset_g1_powers {
+            serialized_data.extend(point.as_bytes());
+        }
+
+        // NOTE: this could potentially be recycled from the g1_powers but being explicit reduces complexity
+        serialized_data.extend(&self.vk.g1.as_bytes());
+        serialized_data.extend(&self.vk.g2.as_bytes());
+        serialized_data.extend(&self.vk.tau_g2.as_bytes());
+        serialized_data.extend(&self.vk.tau_n_max_sub_2_n.as_bytes());
+
+        serialized_data
+    }
+}
+
+impl<P: IsPairing> Deserializable for Zeromorph<P>
+where
+    <P as IsPairing>::G1Point: Deserializable,
+    <P as IsPairing>::G2Point: Deserializable,
+{
+    fn deserialize(bytes: &[u8]) -> Result<Self, DeserializationError> {
+        const VERSION_OFFSET: usize = 4;
+        const G1_LEN_OFFSET: usize = 12;
+        const OFFSET_G1_LEN_OFFSET: usize = 20;
+
+        let g1_powers_len_u64 = u64::from_le_bytes(
+            // This unwrap can't fail since we are fixing the size of the slice
+            bytes[VERSION_OFFSET..G1_LEN_OFFSET].try_into().unwrap(),
+        );
+
+        let g1_powers_len = usize::try_from(g1_powers_len_u64)
+            .map_err(|_| DeserializationError::PointerSizeError)?;
+
+        let offset_g1_powers_len_u64 = u64::from_le_bytes(
+            // This unwrap can't fail since we are fixing the size of the slice
+            bytes[G1_LEN_OFFSET..OFFSET_G1_LEN_OFFSET]
+                .try_into()
+                .unwrap(),
+        );
+
+        let offset_g1_powers_len = usize::try_from(offset_g1_powers_len_u64)
+            .map_err(|_| DeserializationError::PointerSizeError)?;
+
+        let mut g1_powers: Vec<P::G1Point> = Vec::new();
+        let mut offset_g1_powers: Vec<P::G1Point> = Vec::new();
+
+        let size_g1_point = mem::size_of::<P::G1Point>();
+        let size_g2_point = mem::size_of::<P::G2Point>();
+
+        for i in 0..g1_powers_len {
+            // The second unwrap shouldn't fail since the amount of bytes is fixed
+            let point = P::G1Point::deserialize(
+                bytes[i * size_g1_point + OFFSET_G1_LEN_OFFSET
+                    ..i * size_g1_point + size_g1_point + OFFSET_G1_LEN_OFFSET]
+                    .try_into()
+                    .unwrap(),
+            )?;
+            g1_powers.push(point);
+        }
+
+        let offset_g1_offset = size_g1_point * g1_powers_len + OFFSET_G1_LEN_OFFSET;
+        for i in 0..g1_powers_len {
+            // The second unwrap shouldn't fail since the amount of bytes is fixed
+            let point = P::G1Point::deserialize(
+                bytes[i * size_g1_point + offset_g1_offset
+                    ..i * size_g1_point + size_g1_point + offset_g1_offset]
+                    .try_into()
+                    .unwrap(),
+            )?;
+            offset_g1_powers.push(point);
+        }
+        let pk = ZeromorphProverKey {
+            g1_powers,
+            offset_g1_powers,
+        };
+
+        let vk_offset = size_g1_point * g1_powers_len
+            + size_g1_point * offset_g1_powers_len
+            + OFFSET_G1_LEN_OFFSET;
+        let g1 = P::G1Point::deserialize(
+            bytes[vk_offset..size_g1_point + vk_offset]
+                .try_into()
+                .unwrap(),
+        )?;
+        let g2 = P::G2Point::deserialize(
+            bytes[size_g2_point + vk_offset..size_g2_point + vk_offset]
+                .try_into()
+                .unwrap(),
+        )?;
+        let tau_g2 = P::G2Point::deserialize(
+            bytes[2 * size_g2_point + vk_offset..2 * size_g2_point + vk_offset]
+                .try_into()
+                .unwrap(),
+        )?;
+        let tau_n_max_sub_2_n = P::G2Point::deserialize(
+            bytes[3 * size_g2_point + vk_offset..3 * size_g2_point + vk_offset]
+                .try_into()
+                .unwrap(),
+        )?;
+
+        let vk = ZeromorphVerifierKey {
+            g1,
+            g2,
+            tau_g2,
+            tau_n_max_sub_2_n,
+        };
+
+        Ok(Zeromorph::new(pk, vk))
+    }
+}
 
 impl<const N: usize, P: IsPairing> IsPolynomialCommitmentScheme<P::BaseField> for Zeromorph<P>
 where
@@ -207,17 +369,17 @@ where
     type Proof = ZeromorphProof<P>;
     type Point = Vec<FieldElement<P::BaseField>>;
 
-    //TODO: errors
+    // TODO: errors lengths are valid
     fn commit(&self, poly: &Self::Polynomial) -> Self::Commitment {
-        // TODO: assert lengths are valid
         let scalars: Vec<_> = poly
             .evals()
             .iter()
             .map(|eval| eval.representative())
             .collect();
-        msm(&scalars, &self.srs.g1_powers[..poly.len()]).unwrap()
+        msm(&scalars, &self.pk.g1_powers[..poly.len()]).unwrap()
     }
 
+    // TODO: errors lengths are valid
     fn open(
         &self,
         point: impl Borrow<Self::Point>,
@@ -248,7 +410,7 @@ where
                         .iter()
                         .map(|eval| eval.representative())
                         .collect();
-                    msm(&scalars, &self.srs.g1_powers[..pi_poly.coeff_len()]).unwrap()
+                    msm(&scalars, &self.pk.g1_powers[..pi_poly.coeff_len()]).unwrap()
                 };
                 transcript.append(&q_k_commitment.as_bytes());
                 q_k_commitment
@@ -275,7 +437,7 @@ where
                 .collect();
             msm(
                 &scalars[offset..],
-                &self.srs.g1_powers[offset..q_hat.coeff_len()],
+                &self.pk.offset_g1_powers[offset..q_hat.coeff_len()],
             )
             .unwrap()
         };
@@ -287,7 +449,7 @@ where
         let z_challenge = FieldElement::from_bytes_be(&transcript.challenge()).unwrap();
 
         let (eval_scalar, (zeta_degree_check_q_scalars, z_zmpoly_q_scalars)) =
-            eval_and_quotient_scalars::<P>(y_challenge, x_challenge, z_challenge, &point);
+            eval_and_quotient_scalars::<P>(&y_challenge, &x_challenge, &z_challenge, &point);
         // f = z * x * poly.Z + q_hat + (-z * x * Φ_n(x) * e) + x * ∑_k (q_scalars_k * q_k)
         pi_poly = pi_poly * &z_challenge;
         pi_poly = pi_poly + &q_hat;
@@ -298,7 +460,7 @@ where
             .zip(z_zmpoly_q_scalars)
             .for_each(|((mut q, zeta_degree_check_q_scalar), z_zmpoly_q_scalar)| {
                 q = q * &(zeta_degree_check_q_scalar + z_zmpoly_q_scalar);
-                pi_poly = pi_poly + &q;
+                pi_poly = &pi_poly + &q;
             });
 
         debug_assert_eq!(
@@ -314,7 +476,7 @@ where
                 .iter()
                 .map(|eval| eval.representative())
                 .collect();
-            msm(&scalars, &self.srs.g1_powers[..pi_poly.coeff_len()]).unwrap()
+            msm(&scalars, &self.pk.g1_powers[..pi_poly.coeff_len()]).unwrap()
         };
 
         ZeromorphProof {
@@ -324,21 +486,22 @@ where
         }
     }
 
+    // TODO: errors lengths are valid
     fn open_batch(
         &self,
         point: impl Borrow<Self::Point>,
         evals: &[FieldElement<P::BaseField>],
         polys: &[Self::Polynomial],
-        upsilon: &FieldElement<P::BaseField>,
-        transcript: Option<&mut dyn Transcript>,
+        mut transcript: Option<&mut dyn Transcript>,
     ) -> Self::Proof {
+        let transcrpt = transcript.take().unwrap();
         for (poly, eval) in polys.iter().zip(evals.iter()) {
             // Note by evaluating we confirm the number of challenges is valid
             debug_assert_eq!(poly.evaluate(point.borrow().clone()).unwrap(), *eval);
         }
 
         // Generate batching challenge \rho and powers 1,...,\rho^{m-1}
-        let rho = FieldElement::from_bytes_be(&transcript.unwrap().challenge()).unwrap();
+        let rho = FieldElement::from_bytes_be(&transcrpt.challenge()).unwrap();
         // Compute batching of unshifted polynomials f_i:
         let mut scalar = FieldElement::one();
         let (f_batched, batched_evaluation) = (0..polys.len()).fold(
@@ -350,15 +513,16 @@ where
                 FieldElement::zero(),
             ),
             |(mut f_batched, mut batched_evaluation), i| {
-                f_batched = (f_batched + polys[i].clone() * scalar).unwrap();
-                batched_evaluation += scalar * evals[i];
-                scalar *= rho;
+                f_batched = (f_batched + polys[i].clone() * &scalar).unwrap();
+                batched_evaluation += &scalar * &evals[i];
+                scalar *= &rho;
                 (f_batched, batched_evaluation)
             },
         );
         Self::open(&self, point, &batched_evaluation, &f_batched, transcript)
     }
 
+    // TODO: errors lengths are valid
     fn verify(
         &self,
         point: impl Borrow<Self::Point>,
@@ -375,11 +539,6 @@ where
 
         let transcript = transcript.expect("Oh no, there isn't a transcript");
         let point = point.borrow();
-        let g1 = self.srs.g1_powers[0];
-        let g2 = &self.srs.g2_powers[0];
-        let tau_g2 = &self.srs.g2_powers[1];
-        // offset power of tau
-        let tau_n_max_sub_2_n = self.srs.g2_powers[2];
 
         //Receive q_k commitments
         q_k_com
@@ -397,7 +556,7 @@ where
         let z_challenge = FieldElement::from_bytes_be(&transcript.challenge()).unwrap();
 
         let (eval_scalar, (mut q_scalars, zm_poly_q_scalars)) =
-            eval_and_quotient_scalars::<P>(y_challenge, x_challenge, z_challenge, &point);
+            eval_and_quotient_scalars::<P>(&y_challenge, &x_challenge, &z_challenge, &point);
 
         q_scalars
             .iter_mut()
@@ -412,7 +571,11 @@ where
         ]
         .concat();
 
-        let bases = [vec![*q_hat_com, *p_commitment, g1], *q_k_com].concat();
+        let bases = [
+            vec![q_hat_com.clone(), p_commitment.clone(), self.vk.g1.clone()],
+            q_k_com.to_vec(),
+        ]
+        .concat();
         let zeta_z_com = {
             let scalars: Vec<_> = scalars
                 .iter()
@@ -425,9 +588,15 @@ where
         let e = P::compute_batch(&[
             (
                 &pi,
-                &tau_g2.operate_with(&g2.operate_with_self(x_challenge.representative()).neg()),
+                &self.vk.tau_g2.operate_with(
+                    &self
+                        .vk
+                        .g2
+                        .operate_with_self(x_challenge.representative())
+                        .neg(),
+                ),
             ),
-            (&zeta_z_com, &tau_n_max_sub_2_n),
+            (&zeta_z_com, &self.vk.tau_n_max_sub_2_n),
         ])
         .unwrap();
         e == FieldElement::one()
@@ -439,24 +608,22 @@ where
         evals: &[FieldElement<P::BaseField>],
         p_commitments: &[Self::Commitment],
         proof: &Self::Proof,
-        upsilon: &FieldElement<P::BaseField>,
-        transcript: Option<&mut dyn Transcript>,
+        mut transcript: Option<&mut dyn Transcript>,
     ) -> bool {
         debug_assert_eq!(evals.len(), p_commitments.len());
+        let transcrpt = transcript.take().unwrap();
         // Compute powers of batching challenge rho
-        let rho =
-            FieldElement::from_bytes_be(&transcript.expect("oh no! No transcript").challenge())
-                .unwrap();
+        let rho = FieldElement::from_bytes_be(&transcrpt.challenge()).unwrap();
 
         // Compute batching of unshifted polynomials f_i:
         let mut scalar = FieldElement::<P::BaseField>::one();
         let (batched_eval, batched_commitment) = evals.iter().zip(p_commitments.iter()).fold(
             (FieldElement::zero(), P::G1Point::neutral_element()),
-            |(mut batched_eval, mut batched_commitment), (eval, commitment)| {
-                batched_eval += scalar * eval;
+            |(mut batched_eval, batched_commitment), (eval, commitment)| {
+                batched_eval += &scalar * eval;
                 batched_commitment
                     .operate_with(&commitment.operate_with_self(scalar.representative()));
-                scalar *= rho;
+                scalar *= &rho;
                 (batched_eval, batched_commitment)
             },
         );
@@ -476,7 +643,10 @@ mod test {
 
     use core::ops::Neg;
 
-    use crate::fiat_shamir::default_transcript::DefaultTranscript;
+    use crate::{
+        commitments::zeromorph::structs::ZeromorphSRS,
+        fiat_shamir::default_transcript::DefaultTranscript,
+    };
 
     use super::*;
     use lambdaworks_math::{
@@ -503,7 +673,7 @@ mod test {
             })
     }
 
-    fn rand_fr<P: IsPairing, R: RngCore>(mut rng: &mut R) -> FieldElement<P::BaseField>
+    fn rand_fr<P: IsPairing, R: RngCore>(rng: &mut R) -> FieldElement<P::BaseField>
     where
         FieldElement<<P as IsPairing>::BaseField>: ByteConversion,
     {
@@ -516,8 +686,7 @@ mod test {
     fn prove_verify_single() {
         let max_vars = 16;
         let mut rng = &mut ChaCha20Rng::from_seed(*b"zeromorph_poly_commitment_scheme");
-        let srs = 9;
-        let zm = Zeromorph::<BLS12381AtePairing>::new();
+        let srs = ZeromorphSRS::setup(17, rng);
 
         for num_vars in 3..max_vars {
             // Setup
@@ -525,32 +694,31 @@ mod test {
                 let poly_size = 1 << (num_vars + 1);
                 srs.trim(poly_size - 1).unwrap()
             };
+            let zm = Zeromorph::<BLS12381AtePairing>::new(pk, vk);
             let poly = DenseMultilinearPolynomial::new(
                 (0..(1 << num_vars))
-                    .map(|_| rand_fr(&mut rng))
+                    .map(|_| rand_fr::<BLS12381AtePairing, &mut ChaCha20Rng>(&mut rng))
                     .collect::<Vec<_>>(),
             );
-            let point = (0..num_vars).map(|_| rand_fr(&mut rng)).collect::<Vec<_>>();
-            let eval = poly.evaluate(point).unwrap();
+            let point = (0..num_vars)
+                .map(|_| rand_fr::<BLS12381AtePairing, &mut ChaCha20Rng>(&mut rng))
+                .collect::<Vec<_>>();
+            let eval = poly.evaluate(point.clone()).unwrap();
 
             // Commit and open
-            let commitments = zm.commit(poly.clone());
+            let commitments = zm.commit(&poly);
 
             let mut prover_transcript = DefaultTranscript::new();
-            let proof = zm
-                .open(point, eval, poly, Some(&mut prover_transcript))
-                .unwrap();
+            let proof = zm.open(&point, &eval, &poly, Some(&mut prover_transcript));
 
             let mut verifier_transcript = DefaultTranscript::new();
-            zm.verify(
-                commitments,
-                eval,
-                point,
-                &vk,
-                &mut verifier_transcript,
-                proof,
-            )
-            .unwrap();
+            assert!(zm.verify(
+                &point,
+                &eval,
+                &commitments,
+                &proof,
+                Some(&mut verifier_transcript),
+            ));
 
             //TODO: check both random oracles are synced
         }
@@ -559,10 +727,9 @@ mod test {
     #[test]
     fn prove_verify_batched() {
         let max_vars = 16;
-        let mut rng = &mut ChaCha20Rng::from_seed(*b"zeromorph_poly_commitment_scheme");
         let num_polys = 8;
-        let srs = 9;
-        let zm = Zeromorph::<BLS12381AtePairing>::new();
+        let mut rng = &mut ChaCha20Rng::from_seed(*b"zeromorph_poly_commitment_scheme");
+        let srs = ZeromorphSRS::setup(17, rng);
 
         for num_vars in 3..max_vars {
             // Setup
@@ -570,45 +737,40 @@ mod test {
                 let poly_size = 1 << (num_vars + 1);
                 srs.trim(poly_size - 1).unwrap()
             };
+            let zm = Zeromorph::<BLS12381AtePairing>::new(pk, vk);
             let polys: Vec<DenseMultilinearPolynomial<_>> = (0..num_polys)
                 .map(|_| {
                     DenseMultilinearPolynomial::new(
                         (0..(1 << num_vars))
-                            .map(|_| rand_fr(&mut rng))
+                            .map(|_| rand_fr::<BLS12381AtePairing, &mut ChaCha20Rng>(&mut rng))
                             .collect::<Vec<_>>(),
                     )
                 })
                 .collect::<Vec<_>>();
-            let challenges = (0..num_vars)
+            let point = (0..num_vars)
                 .into_iter()
-                .map(|_| rand_fr(&mut rng))
+                .map(|_| rand_fr::<BLS12381AtePairing, &mut ChaCha20Rng>(&mut rng))
                 .collect::<Vec<_>>();
             let evals = polys
                 .clone()
                 .into_iter()
-                .map(|poly| poly.evaluate(&challenges).unwrap())
+                .map(|poly| poly.evaluate(point.clone()).unwrap())
                 .collect::<Vec<_>>();
 
             // Commit and open
-            let commitments =
-                Zeromorph::<BLS12381AtePairing>::commit(polys, &pk.g1_powers).unwrap();
+            let commitments: Vec<_> = polys.iter().map(|poly| zm.commit(poly)).collect();
 
             let mut prover_transcript = DefaultTranscript::new();
-            let proof = zm
-                .open_batch(evals, challenges, &pk, polys, Some(&mut prover_transcript))
-                .unwrap();
+            let proof = zm.open_batch(&point, &evals, &polys, Some(&mut prover_transcript));
 
             let mut verifier_transcript = DefaultTranscript::new();
-            assert!(
-                zm.verify_batch(
-                    commitments,
-                    evals,
-                    challenges,
-                    &vk,
-                    proof,
-                    Some(&mut verifier_transcript),
-                ) == true
-            )
+            assert!(zm.verify_batch(
+                &point,
+                &evals,
+                &commitments,
+                &proof,
+                Some(&mut verifier_transcript),
+            ))
             //TODO: check both random oracles are synced
         }
     }
@@ -635,7 +797,7 @@ mod test {
             .into_iter()
             .map(|_| rand_fr::<BLS12381AtePairing, &mut ChaCha20Rng>(&mut rng))
             .collect::<Vec<_>>();
-        let v_evaluation = multilinear_f.evaluate(u_challenge).unwrap();
+        let v_evaluation = multilinear_f.evaluate(u_challenge.clone()).unwrap();
 
         // Compute multilinear quotients `qₖ(𝑋₀, …, 𝑋ₖ₋₁)`
         let (quotients, constant_term) =
@@ -653,7 +815,7 @@ mod test {
             .map(|_| rand_fr::<BLS12381AtePairing, &mut ChaCha20Rng>(&mut rng))
             .collect::<Vec<_>>();
 
-        let mut res = multilinear_f.evaluate(z_challenge).unwrap();
+        let mut res = multilinear_f.evaluate(z_challenge.clone()).unwrap();
         res = res - v_evaluation;
 
         for (k, q_k_uni) in quotients.iter().enumerate() {
@@ -663,7 +825,8 @@ mod test {
             let q_k_eval = q_k.evaluate(z_partial).unwrap();
 
             res = res
-                - (z_challenge[z_challenge.len() - k - 1] - u_challenge[z_challenge.len() - k - 1])
+                - (&z_challenge[z_challenge.len() - k - 1]
+                    - &u_challenge[z_challenge.len() - k - 1])
                     * q_k_eval;
         }
         assert_eq!(res, FieldElement::zero());
@@ -733,9 +896,9 @@ mod test {
         let mut batched_quotient_expected = Polynomial::zero();
 
         batched_quotient_expected = batched_quotient_expected + &q_0_lifted;
-        batched_quotient_expected = batched_quotient_expected + &(q_1_lifted * y_challenge);
+        batched_quotient_expected = batched_quotient_expected + &(q_1_lifted * y_challenge.clone());
         batched_quotient_expected =
-            batched_quotient_expected + &(q_2_lifted * (y_challenge * y_challenge));
+            batched_quotient_expected + &(q_2_lifted * (&y_challenge * &y_challenge));
         assert_eq!(batched_quotient, batched_quotient_expected);
     }
 
@@ -759,9 +922,9 @@ mod test {
         let z_challenge = rand_fr::<BLS12381AtePairing, &mut ChaCha20Rng>(&mut rng);
 
         let (_, (zeta_x_scalars, _)) = eval_and_quotient_scalars::<BLS12381AtePairing>(
-            y_challenge,
-            x_challenge,
-            z_challenge,
+            &y_challenge,
+            &x_challenge,
+            &z_challenge,
             &challenges,
         );
 
@@ -771,12 +934,12 @@ mod test {
 
         assert_eq!(
             zeta_x_scalars[1],
-            -y_challenge * x_challenge.pow((n - 1 - 1) as u64)
+            -&y_challenge * x_challenge.pow((n - 1 - 1) as u64)
         );
 
         assert_eq!(
             zeta_x_scalars[2],
-            -y_challenge * y_challenge * x_challenge.pow((n - 3 - 1) as u64)
+            -&y_challenge * y_challenge * x_challenge.pow((n - 3 - 1) as u64)
         );
     }
 
@@ -793,7 +956,7 @@ mod test {
 
         let efficient = (x_challenge.pow((1 << log_n) as u64)
             - FieldElement::<<BLS12381AtePairing as IsPairing>::BaseField>::one())
-            / (x_challenge - FieldElement::one());
+            / (&x_challenge - FieldElement::one());
         let expected: FieldElement<_> = phi::<BLS12381AtePairing>(&x_challenge, log_n);
         assert_eq!(efficient, expected);
     }
@@ -846,9 +1009,9 @@ mod test {
 
         // Construct Z_x scalars
         let (_, (_, z_x_scalars)) = eval_and_quotient_scalars::<BLS12381AtePairing>(
-            y_challenge,
-            x_challenge,
-            z_challenge,
+            &y_challenge,
+            &x_challenge,
+            &z_challenge,
             &challenges,
         );
 
@@ -856,11 +1019,11 @@ mod test {
             let x_pow_2k = x_challenge.pow((1 << k) as u64); // x^{2^k}
             let x_pow_2kp1 = x_challenge.pow((1 << (k + 1)) as u64); // x^{2^{k+1}}
                                                                      // x^{2^k} * \Phi_{n-k-1}(x^{2^{k+1}}) - u_k *  \Phi_{n-k}(x^{2^k})
-            let mut scalar = x_pow_2k * &phi::<BLS12381AtePairing>(&x_pow_2kp1, num_vars - k - 1)
-                - u_rev[k] * &phi::<BLS12381AtePairing>(&x_pow_2k, num_vars - k);
-            scalar *= z_challenge;
+            let mut scalar = &x_pow_2k * &phi::<BLS12381AtePairing>(&x_pow_2kp1, num_vars - k - 1)
+                - &u_rev[k] * &phi::<BLS12381AtePairing>(&x_pow_2k, num_vars - k);
+            scalar *= &z_challenge;
             //TODO: this could be a trouble spot
-            scalar.neg();
+            scalar = scalar.neg();
             assert_eq!(z_x_scalars[k], scalar);
         }
     }

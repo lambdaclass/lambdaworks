@@ -32,7 +32,6 @@ pub trait IsPolynomialCommitmentScheme<F: IsField> {
         point: impl Borrow<Self::Point>,
         eval: &[FieldElement<F>],
         polys: &[Self::Polynomial],
-        upsilon: &FieldElement<F>,
         transcript: Option<&mut dyn Transcript>,
     ) -> Self::Proof;
 
@@ -51,7 +50,6 @@ pub trait IsPolynomialCommitmentScheme<F: IsField> {
         evals: &[FieldElement<F>],
         p_commitments: &[Self::Commitment],
         proof: &Self::Proof,
-        upsilon: &FieldElement<F>,
         transcript: Option<&mut dyn Transcript>,
     ) -> bool;
 }
