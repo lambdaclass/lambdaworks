@@ -493,7 +493,7 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
     pub fn to_hex(&self) -> String {
         let mut hex_string = String::new();
         for &limb in self.limbs.iter() {
-            hex_string.push_str(&format!("{:014X}", limb));
+            hex_string.push_str(&format!("{:016X}", limb));
         }
         hex_string.trim_start_matches('0').to_string()
     }
