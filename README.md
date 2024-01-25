@@ -96,7 +96,7 @@ List of symbols:
 | Marlin     | :x:                | :heavy_check_mark: | :x:       | :x:                | :x:             |
 | GKR        | :x:                | :heavy_check_mark: | :x:       | :heavy_check_mark: | :x:             |
 | **Polynomial Commitment Schemes** | **Lambdaworks**    | **Arkworks**       | **Halo2**          | **gnark**          | **Constantine** |
-| KZG10                             | :heavy_check_mark: | ✔️                  | :heavy_check_mark: | :heavy_check_mark: | :heave_check_mark:             |
+| KZG10                             | :heavy_check_mark: | ✔️                  | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark:             |
 | FRI                               | 🏗️                 | :x:                | :x:                | :heavy_check_mark: | :x:             |
 | IPA                               | 🏗️                 | ✔️                  | :heavy_check_mark: | :x:                | :x:             |
 | Brakedown                         | :x:                | :x: | :x:                | :x:                | :x:             |
