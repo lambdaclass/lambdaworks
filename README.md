@@ -36,6 +36,8 @@ Both Math and Crypto support wasm with target `wasm32-unknown-unknown`. To see a
 
 ## Examples - mini apps
 - [Merkle Tree CLI](https://github.com/lambdaclass/lambdaworks/tree/main/examples/merkle-tree-cli)
+- [Proving Miden](https://github.com/lambdaclass/lambdaworks/tree/main/examples/prove-miden)
+- [Shamir's secret sharing](https://github.com/lambdaclass/lambdaworks/tree/main/examples/shamir_secret_sharing)
 
 ## Exercises and Challenges
 - [lambdaworks exercises and challenges](https://github.com/lambdaclass/lambdaworks_exercises/tree/main)
