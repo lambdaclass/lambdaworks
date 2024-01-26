@@ -657,15 +657,14 @@ impl<'de, F: IsPrimeField> Deserialize<'de> for FieldElement<F> {
                     }
                 }
                 let value = value.ok_or_else(|| de::Error::missing_field("value"))?;
-                let val = F::BaseType::from_bytes_be(&value).unwrap();
-                Ok(FieldElement::from_raw(&val))
+                Ok(FieldElement::from_bytes_be(&value).unwrap())
             }
 
             fn visit_seq<S>(self, mut seq: S) -> Result<FieldElement<F>, S::Error>
             where
                 S: SeqAccess<'de>,
             {
-                let mut value: Option<Vec<u8>> = None;
+                let mut value = None;
                 while let Some(val) = seq.next_element()? {
                     if value.is_some() {
                         return Err(de::Error::duplicate_field("value"));
