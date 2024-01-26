@@ -9,7 +9,6 @@ use super::{
 use crate::{
     config::Commitment, proof::stark::DeepPolynomialOpening, transcript::IsStarkTranscript,
 };
-use itertools::Itertools;
 use lambdaworks_crypto::merkle_tree::proof::Proof;
 use lambdaworks_math::{
     fft::cpu::bit_reversing::reverse_index,

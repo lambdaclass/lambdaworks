@@ -93,11 +93,11 @@ mod tests {
             metadata: winter_trace.clone().into(),
         };
 
-        let mut trace =
+        let trace =
             MidenVMQuadFeltAir::convert_winterfell_trace_table(winter_trace.main_segment().clone());
 
         let proof = Prover::<MidenVMQuadFeltAir>::prove(
-            &mut trace,
+            &trace,
             &pub_inputs,
             &lambda_proof_options,
             QuadFeltTranscript::new(&[]),
@@ -167,11 +167,11 @@ mod tests {
             metadata: winter_trace.clone().into(),
         };
 
-        let mut trace =
+        let trace =
             MidenVMQuadFeltAir::convert_winterfell_trace_table(winter_trace.main_segment().clone());
 
         let proof = Prover::<MidenVMQuadFeltAir>::prove(
-            &mut trace,
+            &trace,
             &pub_inputs,
             &lambda_proof_options,
             QuadFeltTranscript::new(&[]),

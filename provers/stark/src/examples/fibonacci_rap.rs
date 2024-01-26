@@ -209,8 +209,8 @@ where
             }
         }
 
-        for i in 0..trace.num_rows() {
-            trace.set_aux(i, 0, aux_col[i].clone())
+        for (i, aux_elem) in aux_col.iter().enumerate().take(trace.num_rows()) {
+            trace.set_aux(i, 0, aux_elem.clone())
         }
     }
 

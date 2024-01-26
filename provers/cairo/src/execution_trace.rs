@@ -1,4 +1,4 @@
-use std::{collections::VecDeque, iter, mem};
+use std::{collections::VecDeque, iter};
 
 use super::{
     cairo_mem::CairoMemory,
@@ -205,7 +205,6 @@ pub fn build_cairo_execution_trace(
     sorted_rc_value_representatives.sort();
     let rc_holes = get_rc_holes(&sorted_rc_value_representatives);
     let rc_max = Felt252::from(*(sorted_rc_value_representatives.last().unwrap()) as u64);
-    let rc_min = Felt252::from(sorted_rc_value_representatives[0] as u64);
     finalize_rc_pool(&mut trace, rc_holes, rc_max);
 
     // Get all rc values.
@@ -502,6 +501,7 @@ fn set_rc_pool(
 }
 
 // Column 3
+#[allow(clippy::too_many_arguments)]
 fn set_mem_pool(
     trace: &mut CairoTraceTable,
     pcs: Vec<Felt252>,
@@ -523,7 +523,6 @@ fn set_mem_pool(
     const OP1_VAL_OFFSET: usize = 13;
 
     let mut addrs: Vec<Felt252> = Vec::new();
-    let mut values: Vec<Felt252> = Vec::new();
     for (step_idx, (pc, inst, op0_addr, op0_val, dst_addr, dst_val, op1_addr, op1_val)) in
         itertools::izip!(
             pcs,
@@ -734,12 +733,12 @@ fn set_sorted_mem_pool(trace: &mut CairoTraceTable, pub_memory: HashMap<Felt252,
     let mut values = Vec::with_capacity(trace.num_rows() / 2);
     let mut sorted_addrs = Vec::with_capacity(trace.num_rows() / 2);
     let mut sorted_values = Vec::with_capacity(trace.num_rows() / 2);
-    for idx in 0..mem_pool.len() {
+    for (idx, mem_cell) in mem_pool.into_iter().enumerate() {
         if idx % 2 == 0 {
-            let addr = mem_pool[idx];
+            let addr = mem_cell;
             addrs.push(addr);
         } else {
-            let value = mem_pool[idx];
+            let value = mem_cell;
             values.push(value);
         }
     }

@@ -1,5 +1,4 @@
 use std::marker::PhantomData;
-use std::ops::DerefMut;
 #[cfg(feature = "instruments")]
 use std::time::Instant;
 
@@ -360,9 +359,8 @@ pub trait IsStarkProver<A: AIR> {
         let rap_challenges = air.build_rap_challenges(transcript);
         let (aux, aux_evaluations) = if air.has_trace_interaction() {
             air.build_auxiliary_trace(trace, &rap_challenges);
-            let trace = trace;
             let (aux_trace_polys, aux_trace_polys_evaluations, aux_merkle_tree, aux_merkle_root) =
-                Self::interpolate_and_commit_aux(&trace, domain, transcript);
+                Self::interpolate_and_commit_aux(trace, domain, transcript);
             let aux_evaluations = aux_trace_polys_evaluations;
             let aux = Some(Round1CommitmentData::<A::FieldExtension> {
                 trace_polys: aux_trace_polys,
@@ -570,7 +568,6 @@ pub trait IsStarkProver<A: AIR> {
 
         // Compute p₀ (deep composition polynomial)
         let deep_composition_poly = Self::compute_deep_composition_poly(
-            air,
             &round_1_result.all_trace_polys(),
             round_2_result,
             round_3_result,
@@ -639,7 +636,6 @@ pub trait IsStarkProver<A: AIR> {
     /// composition polynomial, with coefficients sampled by the verifier (i.e. using Fiat-Shamir).
     #[allow(clippy::too_many_arguments)]
     fn compute_deep_composition_poly(
-        air: &A,
         trace_polys: &[Polynomial<FieldElement<A::FieldExtension>>],
         round_2_result: &Round2<A::FieldExtension>,
         round_3_result: &Round3<A::FieldExtension>,
@@ -667,15 +663,11 @@ pub trait IsStarkProver<A: AIR> {
         h_terms.ruffini_division_inplace(&z_power);
 
         // Get trace evaluations needed for the trace terms of the deep composition polynomial
-        let transition_offsets = &air.context().transition_offsets;
         let trace_frame_evaluations = &round_3_result.trace_ood_evaluations;
 
         // Compute the sum of all the trace terms of the deep composition polynomial.
         // There is one term for every trace polynomial and for every row in the frame.
         // ∑ ⱼₖ [ 𝛾ₖ ( tⱼ − tⱼ(z) ) / ( X − zgᵏ )]
-
-        // @@@ this could be const
-        let trace_frame_length = trace_frame_evaluations.height;
 
         let trace_evaluations_columns = &trace_frame_evaluations.columns();
 
@@ -683,20 +675,18 @@ pub trait IsStarkProver<A: AIR> {
         let trace_terms = trace_polys
             .par_iter()
             .enumerate()
-            .fold(Polynomial::zero, |trace_terms, (i, t_j)| {
+            .fold(Polynomial::zero(), |trace_terms, (i, t_j)| {
+                let gammas_i = &trace_terms_gammas[i];
+                let trace_evaluations_i = &trace_evaluations_columns[i];
                 Self::compute_trace_term(
                     &trace_terms,
-                    (i, t_j),
-                    trace_frame_length,
-                    trace_terms_gammas,
-                    &trace_frame_evaluations.columns(),
-                    transition_offsets,
+                    t_j,
+                    gammas_i,
+                    trace_evaluations_i,
                     (z, primitive_root),
                 )
             })
             .reduce(Polynomial::zero, |a, b| a + b);
-
-        // let trace_polys = vec![trace_polys[0].clone()];
 
         #[cfg(not(feature = "parallel"))]
         let trace_terms =
@@ -708,11 +698,9 @@ pub trait IsStarkProver<A: AIR> {
                     let trace_evaluations_i = &trace_evaluations_columns[i];
                     Self::compute_trace_term(
                         &trace_terms,
-                        (i, t_j),
-                        trace_frame_length,
+                        t_j,
                         gammas_i,
                         trace_evaluations_i,
-                        transition_offsets,
                         (z, primitive_root),
                     )
                 });
@@ -720,17 +708,15 @@ pub trait IsStarkProver<A: AIR> {
         h_terms + trace_terms
     }
 
+    // FIXME: FIX THIS DOCS!
     /// Adds to `accumulator` the term corresponding to the trace polynomial `t_j` of the Deep
     /// composition polynomial. That is, returns `accumulator + \sum_i \gamma_i \frac{ t_j - t_j(zg^i) }{ X - zg^i }`,
     /// where `i` ranges from `T * j` to `T * j + T - 1`, where `T` is the number of offsets in every frame.
     fn compute_trace_term(
         accumulator: &Polynomial<FieldElement<A::FieldExtension>>,
-        (j, t_j): (usize, &Polynomial<FieldElement<A::FieldExtension>>),
-        trace_frame_length: usize,
+        trace_term_poly: &Polynomial<FieldElement<A::FieldExtension>>,
         trace_terms_gammas: &[FieldElement<A::FieldExtension>],
         trace_frame_evaluations: &[FieldElement<A::FieldExtension>],
-        // trace_frame_evaluations: &[Vec<FieldElement<A::FieldExtension>>],
-        transition_offsets: &[usize],
         (z, primitive_root): (&FieldElement<A::FieldExtension>, &FieldElement<A::Field>),
     ) -> Polynomial<FieldElement<A::FieldExtension>>
     where
@@ -739,15 +725,14 @@ pub trait IsStarkProver<A: AIR> {
     {
         let trace_int = trace_frame_evaluations
             .iter()
-            // .zip(transition_offsets)
             .enumerate()
             .zip(trace_terms_gammas)
             .fold(
                 Polynomial::zero(),
-                |trace_agg, ((offset, t_j_z), trace_gamma)| {
+                |trace_agg, ((offset, trace_term_poly_evaluation), trace_gamma)| {
                     // @@@ this can be pre-computed
                     let z_shifted = primitive_root.pow(offset) * z;
-                    let mut poly = t_j - t_j_z;
+                    let mut poly = trace_term_poly - trace_term_poly_evaluation;
                     poly.ruffini_division_inplace(&z_shifted);
                     trace_agg + poly * trace_gamma
                 },

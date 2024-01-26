@@ -90,7 +90,7 @@ mod tests {
     fn prove_and_verify_a_winterfell_cubic_air() {
         let lambda_proof_options = ProofOptions::default_test_options();
         let winter_trace = cubic::build_trace(16);
-        let mut trace =
+        let trace =
             AirAdapter::<Cubic, TraceTable<_>, Felt, Felt, ()>::convert_winterfell_trace_table(
                 winter_trace.main_segment().clone(),
             );
@@ -103,7 +103,7 @@ mod tests {
         };
 
         let proof = Prover::<AirAdapter<Cubic, TraceTable<_>, Felt, Felt, _>>::prove(
-            &mut trace,
+            &trace,
             &pub_inputs,
             &lambda_proof_options,
             FeltTranscript::new(&[]),

@@ -40,7 +40,6 @@ pub trait AIR {
     ) where
         Self::FieldExtension: IsFFTField,
     {
-        ()
     }
 
     fn build_rap_challenges(
