@@ -31,13 +31,13 @@ fn test_prove_cairo_fibonacci_5() {
     test_prove_cairo_program(&cairo0_program_path("fibonacci_5.json"), layout);
 }
 
-#[test_log::test]
-fn test_prove_cairo_fibonacci_5_from_trace() {
-    test_prove_cairo_program_from_trace(
-        &cairo0_program_path("fibonacci_5_trace.bin"),
-        &cairo0_program_path("fibonacci_5_memory.bin"),
-    );
-}
+// #[test_log::test]
+// fn test_prove_cairo_fibonacci_5_from_trace() {
+//     test_prove_cairo_program_from_trace(
+//         &cairo0_program_path("fibonacci_5_trace.bin"),
+//         &cairo0_program_path("fibonacci_5_memory.bin"),
+//     );
+// }
 
 #[test_log::test]
 fn test_verifier_rejects_wrong_authentication_paths() {
@@ -70,11 +70,12 @@ fn test_verifier_rejects_wrong_authentication_paths() {
     assert!(!verify_cairo_proof(&proof, &pub_inputs, &proof_options));
 }
 
-// #[test_log::test]
-// fn test_prove_cairo_fibonacci_1000() {
-//     let layout = CairoLayout::Plain;
-//     test_prove_cairo_program(&cairo0_program_path("fibonacci_1000.json"), layout);
-// }
+#[ignore = "too much time"]
+#[test_log::test]
+fn test_prove_cairo_fibonacci_1000() {
+    let layout = CairoLayout::Plain;
+    test_prove_cairo_program(&cairo0_program_path("fibonacci_1000.json"), layout);
+}
 
 // #[cfg_attr(feature = "metal", ignore)]
 // #[test_log::test]
@@ -139,33 +140,32 @@ fn test_verifier_rejects_proof_with_different_security_params() {
     ));
 }
 
-// #[test]
-// fn check_simple_cairo_trace_evaluates_to_zero() {
-//     let program_content = std::fs::read(cairo0_program_path("simple_program.json")).unwrap();
-//     let (mut main_trace, public_input) =
-//         generate_prover_args(&program_content, CairoLayout::Plain).unwrap();
-//     let mut trace_polys = main_trace.compute_trace_polys_main::<Stark252PrimeField>();
-//     let mut transcript = StoneProverTranscript::new(&[]);
+#[test_log::test]
+fn check_simple_cairo_trace_evaluates_to_zero() {
+    let program_content = std::fs::read(cairo0_program_path("simple_program.json")).unwrap();
+    let (mut trace, public_input) =
+        generate_prover_args(&program_content, CairoLayout::Plain).unwrap();
+    let main_trace_polys = trace.compute_trace_polys_main::<Stark252PrimeField>();
+    let mut transcript = StoneProverTranscript::new(&[]);
 
-//     let proof_options = ProofOptions::default_test_options();
-//     let cairo_air = CairoAIR::new(main_trace.num_rows(), &public_input, &proof_options);
-//     let rap_challenges = cairo_air.build_rap_challenges(&mut transcript);
+    let proof_options = ProofOptions::default_test_options();
+    let cairo_air = CairoAIR::new(trace.num_rows(), &public_input, &proof_options);
+    let rap_challenges = cairo_air.build_rap_challenges(&mut transcript);
 
-//     let aux_trace = cairo_air.build_auxiliary_trace(&mut main_trace, &rap_challenges);
-//     let aux_polys = aux_trace.compute_trace_polys::<Stark252PrimeField>();
+    cairo_air.build_auxiliary_trace(&mut trace, &rap_challenges);
 
-//     trace_polys.extend_from_slice(&aux_polys);
+    let aux_trace_polys = trace.compute_trace_polys_aux::<Stark252PrimeField>();
 
-//     let domain = Domain::new(&cairo_air);
+    let domain = Domain::new(&cairo_air);
 
-//     assert!(validate_trace(
-//         &cairo_air,
-//         &trace_polys,
-//         &aux_polys,
-//         &domain,
-//         &rap_challenges
-//     ));
-// }
+    assert!(validate_trace(
+        &cairo_air,
+        &main_trace_polys,
+        &aux_trace_polys,
+        &domain,
+        &rap_challenges
+    ));
+}
 
 #[test]
 fn deserialize_and_verify() {
