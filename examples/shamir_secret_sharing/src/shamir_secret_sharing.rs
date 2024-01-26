@@ -1,14 +1,11 @@
 use lambdaworks_math::{
-    field::{
-        element::FieldElement,
-        traits::IsField
-    },
+    field::{element::FieldElement, traits::IsField},
     polynomial::Polynomial,
 };
 
-use rand::random;
-use rand::prelude::Distribution;
 use rand::distributions::Standard;
+use rand::prelude::Distribution;
+use rand::random;
 
 pub struct ShamirSecretSharing<F: IsField> {
     secret: FieldElement<F>,
@@ -61,8 +58,7 @@ impl<F: IsField> ShamirSecretSharing<F> {
         x: Vec<FieldElement<F>>,
         y: Vec<FieldElement<F>>,
     ) -> Polynomial<FieldElement<F>> {
-        let poly_reconstructed = Polynomial::interpolate(&x, &y).unwrap();
-        poly_reconstructed
+        Polynomial::interpolate(&x, &y).unwrap()
     }
 
     pub fn recover(&self, polynomial: &Polynomial<FieldElement<F>>) -> FieldElement<F> {
@@ -74,30 +70,29 @@ impl<F: IsField> ShamirSecretSharing<F> {
 #[allow(non_snake_case)]
 mod tests {
 
-    use lambdaworks_math::field::element::FieldElement;
     use crate::shamir_secret_sharing::ShamirSecretSharing;
+    use lambdaworks_math::field::element::FieldElement;
     use lambdaworks_math::field::fields::u64_prime_field::U64PrimeField;
 
     #[test]
     fn shamir_secret_sharing_works() {
+        const ORDER: u64 = 1613;
+        type F = U64PrimeField<ORDER>;
+        type FE = FieldElement<F>;
 
-    const ORDER: u64 = 1613;
-    type F = U64PrimeField<ORDER>;
-    type FE = FieldElement<F>;
+        let sss = ShamirSecretSharing {
+            secret: FE::new(1234),
+            n: 6,
+            k: 3,
+        };
 
-    let sss = ShamirSecretSharing {
-        secret: FE::new(1234),
-        n: 6,
-        k: 3,
-    };
-
-    let polynomial = sss.calculate_polynomial();
-    let shares = sss.generating_shares(polynomial.clone());
-    let shares_to_use_x = vec![shares.x[1], shares.x[3], shares.x[4]];
-    let shares_to_use_y = vec![shares.y[1], shares.y[3], shares.y[4]];
-    let poly_2 = sss.reconstructing(shares_to_use_x, shares_to_use_y);
-    let secret_recovered = sss.recover(&poly_2);
-    assert_eq!(polynomial, poly_2);
-    assert_eq!(sss.secret, secret_recovered);
-    }    
+        let polynomial = sss.calculate_polynomial();
+        let shares = sss.generating_shares(polynomial.clone());
+        let shares_to_use_x = vec![shares.x[1], shares.x[3], shares.x[4]];
+        let shares_to_use_y = vec![shares.y[1], shares.y[3], shares.y[4]];
+        let poly_2 = sss.reconstructing(shares_to_use_x, shares_to_use_y);
+        let secret_recovered = sss.recover(&poly_2);
+        assert_eq!(polynomial, poly_2);
+        assert_eq!(sss.secret, secret_recovered);
+    }
 }
