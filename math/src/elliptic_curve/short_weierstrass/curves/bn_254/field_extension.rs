@@ -159,37 +159,3 @@ impl FieldElement<Degree12ExtensionField> {
         ])
     }
 }
-
-#[cfg(test)]
-mod tests {
-
-    use super::*;
-    type Fp12E = FieldElement<Degree12ExtensionField>;
-
-    //TODO: Compute and add coeffs for squaring an element tests
-    #[test]
-    #[ignore]
-    fn element_squared_1() {
-        // base = 1 + u + (1 + u)v + (1 + u)v^2 + ((1+u) + (1 + u)v + (1+ u)v^2)w
-        let element_ones =
-            Fp12E::from_coefficients(&["1", "1", "1", "1", "1", "1", "1", "1", "1", "1", "1", "1"]);
-        let element_ones_squared =
-            Fp12E::from_coefficients(&["", "", "", "", "", "", "", "", "", "", "", ""]);
-        assert_eq!(element_ones.pow(2_u16), element_ones_squared);
-        assert_eq!(element_ones.square(), element_ones_squared);
-    }
-
-    #[test]
-    #[ignore]
-    fn element_squared_2() {
-        // base = 1 + u + (1 + u)v + (1 + u)v^2 + ((1+u) + (1 + u)v + (1+ u)v^2)w
-        let element_sequence =
-            Fp12E::from_coefficients(&["1", "2", "5", "6", "9", "a", "3", "4", "7", "8", "b", "c"]);
-
-        let element_sequence_squared =
-            Fp12E::from_coefficients(&["", "", "", "", "", "", "", "", "", "", "", ""]);
-
-        assert_eq!(element_sequence.pow(2_u16), element_sequence_squared);
-        assert_eq!(element_sequence.square(), element_sequence_squared);
-    }
-}
