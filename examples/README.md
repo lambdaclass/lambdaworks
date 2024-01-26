@@ -5,7 +5,8 @@ This folder contains examples designed to learn how to use the different tools i
 ## Examples
 
 Below is a list of all lambdaworks examples in the folder:
-- [Merkle tree CLI](https://github.com/lambdaclass/lambdaworks/tree/main/examples/merkle-tree-cli): generate inclusion proofs for an element inside a Merkle tree and verify them using a CLI
+- [Shamir Secret Sharing](https://github.com/lambdaclass/lambdaworks/tree/main/examples/shamir_secret_sharing): implements example of [Shamir's secret sharing](https://en.wikipedia.org/wiki/Shamir%27s_secret_sharing). Shows use of polynomials and finite fields in lambdaworks.
+- [Merkle tree CLI](https://github.com/lambdaclass/lambdaworks/tree/main/examples/merkle-tree-cli): generate inclusion proofs for an element inside a Merkle tree and verify them using a CLI.
 - [Proving Miden using lambdaworks STARK Platinum prover](https://github.com/lambdaclass/lambdaworks/tree/main/examples/prove-miden): Executes a Miden vm Fibonacci program, gets the execution trace and generates a proof (and verifies it) using STARK Platinum.
 
 You can also check [lambdaworks exercises](https://github.com/lambdaclass/lambdaworks/tree/main/exercises) to learn more.
