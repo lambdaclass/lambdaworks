@@ -822,15 +822,15 @@ pub(crate) fn set_mem_permutation_column(
 
 #[cfg(test)]
 mod test {
+    use std::hash::Hash;
+
+    use super::*;
     use crate::{
         cairo_layout::CairoLayout,
         layouts::plain::air::{SegmentName, EXTRA_VAL},
         runner::run::run_program,
         tests::utils::cairo0_program_path,
     };
-
-    use super::*;
-    use lambdaworks_math::field::element::FieldElement;
     use stark_platinum_prover::table::Table;
 
     #[test]
@@ -923,6 +923,8 @@ mod test {
         // We construct a sorted addresses list [1, 2, 3, 6, 7, 8, 9, 13, 14, 15], and
         // an empty public memory. This way, any holes present between
         // the min and max addresses should be returned by the function.
+        // NOTE: The memory hole at address 16 will also be returned because the max addr
+        // +1 is considered a memory hole too.
         let mut addrs: Vec<Felt252> = (1..4).map(Felt252::from).collect();
         let addrs_extension: Vec<Felt252> = (6..10).map(Felt252::from).collect();
         addrs.extend_from_slice(&addrs_extension);
@@ -936,66 +938,59 @@ mod test {
             Felt252::from(10),
             Felt252::from(11),
             Felt252::from(12),
+            Felt252::from(16),
         ]);
         let calculated_memory_holes = get_memory_holes(&addrs, &pub_memory);
 
         assert_eq!(expected_memory_holes, calculated_memory_holes);
     }
 
-    // #[test]
-    // fn test_get_memory_holes_inside_program_section() {
-    //     // We construct a sorted addresses list [1, 2, 3, 8, 9] and we
-    //     // set public memory from address 1 to 9. Since all the holes will be inside the
-    //     // program segment (meaning from addresses 1 to 9), the function
-    //     // should not return any of them.
-    //     let mut addrs: Vec<Felt252> = (1..4).map(Felt252::from).collect();
-    //     let addrs_extension: Vec<Felt252> = (8..10).map(Felt252::from).collect();
-    //     addrs.extend_from_slice(&addrs_extension);
+    #[test]
+    fn test_get_memory_holes_inside_program_section() {
+        // We construct a sorted addresses list [1, 2, 3, 8, 9] and we
+        // set public memory from address 1 to 9. Since all the holes will be inside the
+        // program segment (meaning from addresses 1 to 9), the function
+        // should not return any of them.
+        let mut addrs: Vec<Felt252> = (1..4).map(Felt252::from).collect();
+        let addrs_extension: Vec<Felt252> = (8..10).map(Felt252::from).collect();
+        addrs.extend_from_slice(&addrs_extension);
 
-    //     let calculated_memory_holes = get_memory_holes(&addrs, codelen);
-    //     let expected_memory_holes = VecDeque::new();
+        let mut pub_memory = HashMap::new();
+        for addr in 1..=9 {
+            let addr = Felt252::from(addr);
+            pub_memory.insert(addr, Felt252::zero());
+        }
 
-    //     assert_eq!(expected_memory_holes, calculated_memory_holes);
-    // }
+        let calculated_memory_holes = get_memory_holes(&addrs, &pub_memory);
 
-    // #[test]
-    // fn test_get_memory_holes_outside_program_section() {
-    //     // We construct a sorted addresses list [1, 2, 3, 8, 9] and we
-    //     // set public memory from addresses 1 to 6. The holes found inside the program section,
-    //     // i.e. in the address range between 1 to 6, should not be returned.
-    //     // So addresses 4, 5 and 6 will no be returned, only address 7.
-    //     let mut addrs: Vec<Felt252> = (1..4).map(Felt252::from).collect();
-    //     let addrs_extension: Vec<Felt252> = (8..10).map(Felt252::from).collect();
-    //     addrs.extend_from_slice(&addrs_extension);
+        // max_addr + 1 (10, in this case) is always returned by the get_memory_holes function
+        let expected_memory_holes = VecDeque::from([Felt252::from(10)]);
 
-    //     let calculated_memory_holes = get_memory_holes(&addrs, codelen);
-    //     let expected_memory_holes = VecDeque::from([Felt252::from(7)]);
+        assert_eq!(expected_memory_holes, calculated_memory_holes);
+    }
 
-    //     assert_eq!(expected_memory_holes, calculated_memory_holes);
-    // }
+    #[test]
+    fn test_get_memory_holes_outside_program_section() {
+        // We construct a sorted addresses list [1, 2, 3, 8, 9] and we
+        // set public memory from addresses 1 to 6. The holes found inside the program section,
+        // i.e. in the address range between 1 to 6, should not be returned.
+        // So addresses 4, 5 and 6 will no be returned, only address 7.
+        let mut addrs: Vec<Felt252> = (1..4).map(Felt252::from).collect();
+        let addrs_extension: Vec<Felt252> = (8..10).map(Felt252::from).collect();
+        addrs.extend_from_slice(&addrs_extension);
 
-    // #[test]
-    // fn test_fill_memory_holes() {
-    //     const TRACE_COL_LEN: usize = 2;
-    //     const NUM_TRACE_COLS: usize = EXTRA_VAL + 1;
+        let mut pub_memory = HashMap::new();
+        for addr in 0..=6 {
+            let addr = Felt252::from(addr);
+            pub_memory.insert(addr, Felt252::zero());
+        }
 
-    //     let mut trace_cols = vec![vec![Felt252::zero(); TRACE_COL_LEN]; NUM_TRACE_COLS];
-    //     trace_cols[FRAME_PC][0] = Felt252::one();
-    //     trace_cols[FRAME_DST_ADDR][0] = Felt252::from(2);
-    //     trace_cols[FRAME_OP0_ADDR][0] = Felt252::from(3);
-    //     trace_cols[FRAME_OP1_ADDR][0] = Felt252::from(5);
-    //     trace_cols[FRAME_PC][1] = Felt252::from(6);
-    //     trace_cols[FRAME_DST_ADDR][1] = Felt252::from(9);
-    //     trace_cols[FRAME_OP0_ADDR][1] = Felt252::from(10);
-    //     trace_cols[FRAME_OP1_ADDR][1] = Felt252::from(11);
-    //     let mut trace = TraceTable::from_columns(trace_cols, 1);
+        let calculated_memory_holes = get_memory_holes(&addrs, &pub_memory);
+        let expected_memory_holes = VecDeque::from([Felt252::from(7), Felt252::from(10)]);
 
-    //     let memory_holes = vec![Felt252::from(4), Felt252::from(7), Felt252::from(8)];
-    //     fill_memory_holes(&mut trace, &memory_holes);
+        assert_eq!(expected_memory_holes, calculated_memory_holes);
+    }
 
-    //     let extra_addr = &trace.columns()[EXTRA_ADDR];
-    //     assert_eq!(extra_addr, &memory_holes)
-    // }
     #[test]
     fn set_rc_pool_works() {
         let program_content = std::fs::read(cairo0_program_path("fibonacci_stone.json")).unwrap();
