@@ -672,7 +672,7 @@ impl<'de, F: IsPrimeField> Deserialize<'de> for FieldElement<F> {
                     value = Some(val);
                 }
                 let value = value.ok_or_else(|| de::Error::missing_field("value"))?;
-                Ok(FieldElement::from_hex(value).unwrap())
+                Ok(FieldElement::from_hex(&value).unwrap())
             }
         }
 
