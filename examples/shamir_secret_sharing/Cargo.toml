@@ -1,0 +1,13 @@
+[package]
+name = "shamir_secret_sharing"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+
+lambdaworks-math = { git = "https://github.com/lambdaclass/lambdaworks.git" }
+rand = { version = "0.8", features = [ "std", "std_rng" ] }
