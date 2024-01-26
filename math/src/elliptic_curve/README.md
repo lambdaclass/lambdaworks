@@ -67,6 +67,10 @@ impl IsShortWeierstrass for PallasCurve {
 
 Here, $a$ and $b$ are the parameters for the Elliptic Curve in Weiestrass form. All curve models have their `defining_equation` method, which allows us to check whether a given $(x,y)$ belongs to the elliptic curve. The `BaseField` is where the coordinates $x,y$ of the curve live. `generator()` gives a point $P$, such that, by doing $P, 2P, 3P, ... , nP$ ($2 P = P \oplus P$) we span all the elements that belong to the Elliptic Curve.
 
+To implement the `IsShortWeierstrass`, you need to first implement `IsEllipticCurve`. It has 3 methods, two of which need to be implemented for each curve `fn a()` and `fn b()` (the curve parameters) and `fn defining_equation()`, which computes $y^2 - x^3 - a x - b$. If this result is equal to the base field element 0, then the point satisfies the curve equation and is valid (note, however, that the point may not be in the appropriate subgroup of the curve!)
+
+## Defining points and operating with the curves
+
 ```rust
 fn do_something_with_an_elliptic_curve<T: EllipticCurve + Pairing>(curve: T) {
     let g1 = T::subgroup_generator(); // EllipticCurve trait
