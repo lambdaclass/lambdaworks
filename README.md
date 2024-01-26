@@ -101,7 +101,6 @@ List of symbols:
 | IPA                               | 🏗️                 | ✔️                  | :heavy_check_mark: | :x:                | :x:             |
 | Brakedown                         | :x:                | :x: | :x:                | :x:                | :x:             |
 | Basefold                          | :x:                | :x: | :x:                | :x:                | :x:             |
-
 | **Folding Schemes** | **Lambdaworks** | **Arkworks**       | **Halo2** | **gnark** | **Constantine** |
 | Nova                | :x:             | :heavy_check_mark: | :x:       | :x:       | :x:             |
 | Supernova           | :x:             | :x:                | :x:       | :x:       | :x:             |
