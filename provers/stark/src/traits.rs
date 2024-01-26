@@ -9,9 +9,7 @@ use lambdaworks_math::{
 };
 
 use crate::{
-    constraints::transition::{TransitionConstraint, TransitionZerofiersIter},
-    domain::Domain,
-    transcript::IsStarkTranscript,
+    constraints::transition::TransitionConstraint, domain::Domain, transcript::IsStarkTranscript,
 };
 
 use super::{
@@ -158,7 +156,7 @@ pub trait AIR {
     fn transition_zerofier_evaluations(
         &self,
         domain: &Domain<Self::Field>,
-    ) -> TransitionZerofiersIter<Self::Field> {
+    ) -> Vec<Vec<FieldElement<Self::Field>>> {
         let mut evals = vec![Vec::new(); self.num_transition_constraints()];
 
         let mut zerofier_groups: HashMap<ZerofierGroupKey, Vec<FieldElement<Self::Field>>> =
