@@ -27,6 +27,8 @@ where
     pub num_main_columns: usize,
     pub num_aux_columns: usize,
     pub step_size: usize,
+    pub num_main_columns: usize,
+    pub num_aux_columns: usize,
 }
 
 impl<F, E> TraceTable<F, E>

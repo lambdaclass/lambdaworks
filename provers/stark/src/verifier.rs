@@ -46,7 +46,6 @@ where
     pub transition_coeffs: Vec<FieldElement<A::FieldExtension>>,
     /// The deep composition polynomial coefficients corresponding to the trace polynomial terms.
     pub trace_term_coeffs: Vec<Vec<FieldElement<A::FieldExtension>>>,
-    // pub trace_term_coeffs: Vec<FieldElement<A::FieldExtension>>,
     /// The deep composition polynomial coefficients corresponding to the composition polynomial parts terms.
     pub gammas: Vec<FieldElement<A::FieldExtension>>,
     /// The list of FRI commit phase folding challenges.
@@ -699,22 +698,6 @@ pub trait IsStarkVerifier<A: AIR> {
                 trace_terms + trace_i
             });
 
-        // `trace_ood_evaluations` table is splitted into columns and flattened into
-        // a single vector.
-        // let ood_evaluations_merged_columns = proof
-        //     .trace_ood_evaluations
-        //     .columns()
-        //     .into_iter()
-        //     .flatten()
-        //     .collect_vec();
-
-        // let lde_evaluations
-
-        // let trace_term = std::iter::zip(trace_term_coeffs, ood_evaluations_merged_columns).fold(
-        //     FieldElement::zero(),
-        //     |trace_term, (trace_gamma, ood_evaluation)| trace_term + ood_evaluation * trace_gamma,
-        // );
-
         let number_of_parts = lde_composition_poly_parts_evaluation.len();
         let z_pow = &challenges.z.pow(number_of_parts);
 
@@ -725,7 +708,7 @@ pub trait IsStarkVerifier<A: AIR> {
             let h_i_term = (h_i_upsilon - h_i_zpower) * &challenges.gammas[j];
             h_terms += h_i_term;
         }
-        h_terms = h_terms * denom_composition;
+        h_terms *= denom_composition;
 
         trace_term + h_terms
     }

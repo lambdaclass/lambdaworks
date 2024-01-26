@@ -820,11 +820,8 @@ impl TransitionConstraint<Stark252PrimeField, Stark252PrimeField> for ZeroFlagCo
     fn period(&self) -> usize {
         16
     }
-
     fn end_exemptions(&self) -> usize {
         0
-    }
-}
 
 pub struct FlagOp1BaseOp0BitConstraint;
 impl Default for FlagOp1BaseOp0BitConstraint {

@@ -298,3 +298,24 @@ fn test_prove_bit_flags() {
         StoneProverTranscript::new(&[]),
     ));
 }
+
+#[test_log::test]
+fn test_prove_bit_flags() {
+    let mut trace = bit_flags::bit_prefix_flag_trace(32);
+    let proof_options = ProofOptions::default_test_options();
+
+    let proof = Prover::<BitFlagsAIR>::prove(
+        &mut trace,
+        &(),
+        &proof_options,
+        StoneProverTranscript::new(&[]),
+    )
+    .unwrap();
+
+    assert!(Verifier::<BitFlagsAIR>::verify(
+        &proof,
+        &(),
+        &proof_options,
+        StoneProverTranscript::new(&[]),
+    ));
+}

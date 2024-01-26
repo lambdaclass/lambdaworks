@@ -9,7 +9,6 @@ use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::traits::{IsFFTField, IsField, IsSubFieldOf};
 use lambdaworks_math::polynomial::Polynomial;
 use num_integer::Integer;
-
 /// TransitionConstraint represents the behaviour that a transition constraint
 /// over the computation that wants to be proven must comply with.
 pub trait TransitionConstraint<F, E>: Send + Sync
@@ -236,50 +235,5 @@ where
         .inv()
         .unwrap()
             * end_exemptions_poly.evaluate(z)
-    }
-}
-
-/// An iterator over the evaluations of all transition constraint zerofiers
-/// of a given AIR.
-///
-/// It is composed of a vector of iterators, each one built from a vector of
-/// the zerofier evaluations of each constraint.
-pub struct TransitionZerofiersIter<F: IsFFTField> {
-    zerofier_evals: Vec<IntoIter<FieldElement<F>>>,
-}
-
-impl<F> TransitionZerofiersIter<F>
-where
-    F: IsFFTField,
-{
-    pub(crate) fn new(zerofier_evals: Vec<Vec<FieldElement<F>>>) -> Self {
-        let first_evals_len = zerofier_evals[0].len();
-        debug_assert!(zerofier_evals
-            .iter()
-            .all(|evals| { evals.len() == first_evals_len }));
-
-        let zerofier_evals = zerofier_evals
-            .into_iter()
-            .map(|evals| evals.into_iter())
-            .collect();
-
-        Self { zerofier_evals }
-    }
-}
-
-impl<F> Iterator for TransitionZerofiersIter<F>
-where
-    F: IsFFTField,
-{
-    type Item = Vec<FieldElement<F>>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let next_evals = self
-            .zerofier_evals
-            .iter_mut()
-            .map(|evals| evals.next().unwrap())
-            .collect();
-
-        Some(next_evals)
     }
 }

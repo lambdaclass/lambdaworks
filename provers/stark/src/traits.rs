@@ -190,6 +190,6 @@ pub trait AIR {
             evals[c.constraint_idx()] = zerofier_evaluations.clone();
         });
 
-        TransitionZerofiersIter::new(evals)
+        evals
     }
 }

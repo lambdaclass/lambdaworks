@@ -59,6 +59,9 @@ impl<A: AIR> ConstraintEvaluator<A> {
         #[cfg(all(debug_assertions, not(feature = "parallel")))]
         let boundary_polys: Vec<Polynomial<FieldElement<A::Field>>> = Vec::new();
 
+        #[cfg(feature = "instruments")]
+        let timer = Instant::now();
+
         let lde_periodic_columns = air
             .get_periodic_column_polynomials()
             .iter()
@@ -72,6 +75,15 @@ impl<A: AIR> ConstraintEvaluator<A> {
             })
             .collect::<Result<Vec<Vec<FieldElement<A::Field>>>, FFTError>>()
             .unwrap();
+
+        #[cfg(feature = "instruments")]
+        println!(
+            "     Evaluating periodic columns on lde: {:#?}",
+            timer.elapsed()
+        );
+
+        #[cfg(feature = "instruments")]
+        let timer = Instant::now();
 
         let boundary_polys_evaluations = boundary_constraints
             .constraints
@@ -95,6 +107,11 @@ impl<A: AIR> ConstraintEvaluator<A> {
             })
             .collect_vec();
 
+        #[cfg(feature = "instruments")]
+        println!("     Created boundary polynomials: {:#?}", timer.elapsed());
+        #[cfg(feature = "instruments")]
+        let timer = Instant::now();
+
         #[cfg(feature = "parallel")]
         let boundary_eval_iter = (0..domain.lde_roots_of_unity_coset.len()).into_par_iter();
         #[cfg(not(feature = "parallel"))]
@@ -113,6 +130,12 @@ impl<A: AIR> ConstraintEvaluator<A> {
             })
             .collect();
 
+        #[cfg(feature = "instruments")]
+        println!(
+            "     Evaluated boundary polynomials on LDE: {:#?}",
+            timer.elapsed()
+        );
+
         #[cfg(all(debug_assertions, not(feature = "parallel")))]
         let boundary_zerofiers = Vec::new();
 
@@ -122,14 +145,30 @@ impl<A: AIR> ConstraintEvaluator<A> {
         #[cfg(all(debug_assertions, not(feature = "parallel")))]
         let mut transition_evaluations = Vec::new();
 
-        let mut transition_zerofiers_evals = air.transition_zerofier_evaluations(domain);
+        #[cfg(feature = "instruments")]
+        let timer = Instant::now();
+        let zerofiers_evals = air.transition_zerofier_evaluations(domain);
+        #[cfg(feature = "instruments")]
+        println!(
+            "     Evaluated transition zerofiers: {:#?}",
+            timer.elapsed()
+        );
 
         // Iterate over all LDE domain and compute the part of the composition polynomial
         // related to the transition constraints and add it to the already computed part of the
         // boundary constraints.
+
+        #[cfg(feature = "instruments")]
+        let timer = Instant::now();
         let evaluations_t_iter = 0..domain.lde_roots_of_unity_coset.len();
+
+        #[cfg(feature = "parallel")]
+        let boundary_evaluation = boundary_evaluation.into_par_iter();
+        #[cfg(feature = "parallel")]
+        let evaluations_t_iter = evaluations_t_iter.into_par_iter();
+
         let evaluations_t = evaluations_t_iter
-            .zip(&boundary_evaluation)
+            .zip(boundary_evaluation)
             .map(|(i, boundary)| {
                 let frame = Frame::read_from_lde(lde_trace, i, &air.context().transition_offsets);
 
@@ -145,23 +184,32 @@ impl<A: AIR> ConstraintEvaluator<A> {
                 #[cfg(all(debug_assertions, not(feature = "parallel")))]
                 transition_evaluations.push(evaluations_transition.clone());
 
-                let transition_zerofiers_eval = transition_zerofiers_evals.next().unwrap();
-
                 // Add each term of the transition constraints to the composition polynomial, including the zerofier,
                 // the challenge and the exemption polynomial if it is necessary.
                 let acc_transition = itertools::izip!(
                     evaluations_transition,
-                    transition_zerofiers_eval,
+                    &zerofiers_evals,
                     transition_coefficients
                 )
                 .fold(FieldElement::zero(), |acc, (eval, zerof_eval, beta)| {
-                    acc + zerof_eval * eval * beta
-                    // acc + eval * beta
+                    // Zerofier evaluations are cyclical, so we only calculate one cycle.
+                    // This means that here we have to wrap around
+                    // Ex: Suppose the full zerofier vector is Z = [1,2,3,1,2,3]
+                    // we will instead have calculated Z' = [1,2,3]
+                    // Now if you need Z[4] this is equal to Z'[1]
+                    let wrapped_idx = i % zerof_eval.len();
+                    acc + &zerof_eval[wrapped_idx] * eval * beta
                 });
 
                 acc_transition + boundary
             })
             .collect();
+
+        #[cfg(feature = "instruments")]
+        println!(
+            "     Evaluated transitions and accumulated results: {:#?}",
+            timer.elapsed()
+        );
 
         evaluations_t
     }
