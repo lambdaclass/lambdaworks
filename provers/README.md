@@ -3,10 +3,10 @@
 Provers allow one party, the prover, to show to other parties, the verifiers, that a given computer program has been executed correctly by means of a cryptographic proof. This proof ideally satisfies the following two properties: it is fast to verify and its size is small (smaller than the size of the witness). All provers have a `prove` function, which takes some description of the program and other input and outputs a proof. There is also a `verify` function which takes the proof and other input and accepts or rejects the proof.
 
 This folder contains the different provers currently supported by lambdaworks:
-- Groth 16
-- Plonk
-- STARKs
-- Cairo
+- [Groth 16](https://github.com/lambdaclass/lambdaworks/tree/main/provers/groth16)
+- [Plonk](https://github.com/lambdaclass/lambdaworks/tree/main/provers/plonk)
+- [STARKs](https://github.com/lambdaclass/lambdaworks/tree/main/provers/stark)
+- [Cairo](https://github.com/lambdaclass/lambdaworks/tree/main/provers/cairo)
 
 The reference papers for each of the provers is given below:
 - [Groth 16](https://eprint.iacr.org/2016/260)
