@@ -1,4 +1,5 @@
-use crate::table::{EvaluationTable, Table, TableView};
+use crate::table::Table;
+use itertools::Itertools;
 use lambdaworks_math::fft::errors::FFTError;
 use lambdaworks_math::field::traits::{IsField, IsSubFieldOf};
 use lambdaworks_math::{
@@ -19,21 +20,59 @@ use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 pub struct TraceTable<F: IsField> {
     pub table: Table<F>,
     pub step_size: usize,
+    pub num_main_columns: usize,
+    pub num_aux_columns: usize,
 }
 
 impl<F: IsField> TraceTable<F> {
-    pub fn new(data: Vec<FieldElement<F>>, n_columns: usize, step_size: usize) -> Self {
-        let table = Table::new(data, n_columns);
-        Self { table, step_size }
+    pub fn new(
+        data: Vec<FieldElement<F>>,
+        num_main_columns: usize,
+        num_aux_columns: usize,
+        step_size: usize,
+    ) -> Self {
+        let num_columns = num_main_columns + num_aux_columns;
+        let table = Table::new(data, num_columns);
+        Self {
+            table,
+            num_main_columns,
+            num_aux_columns,
+            step_size,
+        }
     }
 
-    pub fn from_columns(columns: Vec<Vec<FieldElement<F>>>, step_size: usize) -> Self {
+    pub fn from_columns(
+        columns: Vec<Vec<FieldElement<F>>>,
+        num_main_columns: usize,
+        step_size: usize,
+    ) -> Self {
+        println!("COLUMNS LEN: {}", columns.len());
+        println!("NUM MAIN COLUMNS: {}", num_main_columns);
+        let num_aux_columns = columns.len() - num_main_columns;
         let table = Table::from_columns(columns);
-        Self { table, step_size }
+        Self {
+            table,
+            num_main_columns,
+            num_aux_columns,
+            step_size,
+        }
+    }
+
+    pub fn from_columns_main(columns: Vec<Vec<FieldElement<F>>>, step_size: usize) -> Self {
+        let num_main_columns = columns.len();
+        let num_aux_columns = 0;
+        let table = Table::from_columns(columns);
+
+        Self {
+            table,
+            num_main_columns,
+            num_aux_columns,
+            step_size,
+        }
     }
 
     pub fn empty() -> Self {
-        Self::new(Vec::new(), 0, 0)
+        Self::new(Vec::new(), 0, 0, 0)
     }
 
     pub fn is_empty(&self) -> bool {
@@ -95,10 +134,9 @@ impl<F: IsField> TraceTable<F> {
         data
     }
 
-    pub fn compute_trace_polys<S: IsFFTField + IsSubFieldOf<F>>(
-        &self,
-    ) -> Vec<Polynomial<FieldElement<F>>>
+    pub fn compute_trace_polys<S>(&self) -> Vec<Polynomial<FieldElement<F>>>
     where
+        S: IsFFTField + IsSubFieldOf<F>,
         FieldElement<F>: Send + Sync,
     {
         let columns = self.columns();
@@ -146,49 +184,90 @@ impl<F: IsField> TraceTable<F> {
         }
     }
 }
-
-/// A view into a step of the trace. In general, a step over the trace
-/// can be thought as a fixed size subset of trace rows
-///
-/// The main purpose of this data structure is to have a way to
-/// access the steps in a trace, in order to grab elements to calculate
-/// constraint evaluations.
-#[derive(Debug, Clone, PartialEq)]
-pub struct StepView<'t, F: IsSubFieldOf<E>, E: IsField> {
-    pub main_table_view: TableView<'t, F>,
-    pub aux_table_view: TableView<'t, E>,
-    pub step_idx: usize,
+pub struct LDETraceTable<F, E>
+where
+    E: IsField,
+    F: IsSubFieldOf<E>,
+{
+    pub(crate) main_table: Table<F>,
+    pub(crate) aux_table: Table<E>,
+    pub(crate) lde_step_size: usize,
+    pub(crate) blowup_factor: usize,
 }
 
-impl<'t, F: IsSubFieldOf<E>, E: IsField> StepView<'t, F, E> {
+impl<F, E> LDETraceTable<F, E>
+where
+    E: IsField,
+    F: IsSubFieldOf<E>,
+{
     pub fn new(
-        main_table_view: TableView<'t, F>,
-        aux_table_view: TableView<'t, E>,
-        step_idx: usize,
+        main_data: Vec<FieldElement<F>>,
+        aux_data: Vec<FieldElement<E>>,
+        n_columns: usize,
+        trace_step_size: usize,
+        blowup_factor: usize,
     ) -> Self {
-        StepView {
-            main_table_view,
-            aux_table_view,
-            step_idx,
+        let main_table = Table::new(main_data, n_columns);
+        let aux_table = Table::new(aux_data, n_columns);
+        let lde_step_size = trace_step_size * blowup_factor;
+
+        Self {
+            main_table,
+            aux_table,
+            lde_step_size,
+            blowup_factor,
         }
     }
 
-    /// Gets the evaluation element of the main table specified by `row_idx` and `col_idx` of this step
-    pub fn get_main_evaluation_element(&self, row_idx: usize, col_idx: usize) -> &FieldElement<F> {
-        self.main_table_view.get(row_idx, col_idx)
+    pub fn from_columns(
+        main_columns: Vec<Vec<FieldElement<F>>>,
+        aux_columns: Vec<Vec<FieldElement<E>>>,
+        trace_step_size: usize,
+        blowup_factor: usize,
+    ) -> Self {
+        let main_table = Table::from_columns(main_columns);
+        let aux_table = Table::from_columns(aux_columns);
+        let lde_step_size = trace_step_size * blowup_factor;
+
+        Self {
+            main_table,
+            aux_table,
+            lde_step_size,
+            blowup_factor,
+        }
     }
 
-    /// Gets the evaluation element of the aux table specified by `row_idx` and `col_idx` of this step
-    pub fn get_aux_evaluation_element(&self, row_idx: usize, col_idx: usize) -> &FieldElement<E> {
-        self.aux_table_view.get(row_idx, col_idx)
+    pub fn num_cols(&self) -> usize {
+        self.main_table.width + self.aux_table.width
     }
 
-    pub fn get_row_main(&self, row_idx: usize) -> &[FieldElement<F>] {
-        self.main_table_view.get_row(row_idx)
+    pub fn num_rows(&self) -> usize {
+        self.main_table.height
     }
 
-    pub fn get_row_aux(&self, row_idx: usize) -> &[FieldElement<E>] {
-        self.aux_table_view.get_row(row_idx)
+    pub fn get_main_row(&self, row_idx: usize) -> &[FieldElement<F>] {
+        self.main_table.get_row(row_idx)
+    }
+
+    pub fn get_aux_row(&self, row_idx: usize) -> &[FieldElement<E>] {
+        self.aux_table.get_row(row_idx)
+    }
+
+    pub fn get_main(&self, row: usize, col: usize) -> &FieldElement<F> {
+        self.main_table.get(row, col)
+    }
+
+    pub fn get_aux(&self, row: usize, col: usize) -> &FieldElement<E> {
+        self.aux_table.get(row, col)
+    }
+
+    pub fn num_steps(&self) -> usize {
+        debug_assert!((self.main_table.height % self.lde_step_size) == 0);
+        self.main_table.height / self.lde_step_size
+    }
+
+    pub fn step_to_row(&self, step: usize) -> usize {
+        self.lde_step_size * step
     }
 }
 
@@ -198,38 +277,74 @@ impl<'t, F: IsSubFieldOf<E>, E: IsField> StepView<'t, F, E> {
 /// compute a transition.
 /// Example: For a simple Fibonacci computation, if t(x) is the trace polynomial of
 /// the computation, this will output evaluations t(x), t(g * x), t(g^2 * z).
-pub(crate) fn get_trace_evaluations<F: IsSubFieldOf<E>, E: IsField>(
+pub fn get_trace_evaluations<F, E>(
     main_trace_polys: &[Polynomial<FieldElement<F>>],
     aux_trace_polys: &[Polynomial<FieldElement<E>>],
     x: &FieldElement<E>,
     frame_offsets: &[usize],
     primitive_root: &FieldElement<F>,
     step_size: usize,
-) -> EvaluationTable<E, E> {
-    let evaluation_points: Vec<_> = frame_offsets
+) -> Table<E>
+where
+    F: IsSubFieldOf<E>,
+    E: IsField,
+{
+    let evaluation_points = frame_offsets
         .iter()
-        .map(|offset| primitive_root.pow(*offset) * x)
-        .collect();
-    let main_evaluations = main_trace_polys
-        .iter()
-        .map(|poly| {
-            evaluation_points
-                .iter()
-                .map(|eval_point| poly.evaluate(eval_point))
-                .collect()
+        .flat_map(|offset| {
+            let exponents_range_start = offset * step_size;
+            let exponents_range_end = (offset + 1) * step_size;
+            (exponents_range_start..exponents_range_end).collect_vec()
         })
-        .collect();
-    let aux_evaluations = aux_trace_polys
-        .iter()
-        .map(|poly| {
-            evaluation_points
-                .iter()
-                .map(|eval_point| poly.evaluate(eval_point))
-                .collect()
-        })
-        .collect();
+        .map(|exponent| primitive_root.pow(exponent) * x)
+        .collect_vec();
 
-    EvaluationTable::from_columns(main_evaluations, aux_evaluations, step_size)
+    let main_evaluations = evaluation_points
+        .iter()
+        .map(|eval_point| {
+            main_trace_polys
+                .iter()
+                .map(|main_poly| main_poly.evaluate(eval_point))
+                .collect_vec()
+        })
+        .collect_vec();
+
+    let aux_evaluations = evaluation_points
+        .iter()
+        .map(|eval_point| {
+            aux_trace_polys
+                .iter()
+                .map(|aux_poly| aux_poly.evaluate(eval_point))
+                .collect_vec()
+        })
+        .collect_vec();
+
+    debug_assert_eq!(main_evaluations.len(), aux_evaluations.len());
+    let mut main_evaluations = main_evaluations;
+    let mut table_data = Vec::new();
+    for (main_row, aux_row) in main_evaluations.iter_mut().zip(aux_evaluations) {
+        main_row.extend_from_slice(&aux_row);
+        table_data.extend_from_slice(main_row);
+    }
+
+    let main_trace_width = main_trace_polys.len();
+    let aux_trace_width = aux_trace_polys.len();
+    let table_width = main_trace_width + aux_trace_width;
+
+    Table::new(table_data, table_width)
+}
+
+pub fn columns2rows<F: IsField>(columns: Vec<Vec<FieldElement<F>>>) -> Vec<Vec<FieldElement<F>>> {
+    let num_rows = columns[0].len();
+    let num_cols = columns.len();
+
+    (0..num_rows)
+        .map(|row_index| {
+            (0..num_cols)
+                .map(|col_index| columns[col_index][row_index].clone())
+                .collect()
+        })
+        .collect()
 }
 
 #[cfg(test)]
@@ -243,7 +358,7 @@ mod test {
         let col_1 = vec![FE::from(1), FE::from(2), FE::from(5), FE::from(13)];
         let col_2 = vec![FE::from(1), FE::from(3), FE::from(8), FE::from(21)];
 
-        let trace_table = TraceTable::from_columns(vec![col_1.clone(), col_2.clone()], 1);
+        let trace_table = TraceTable::from_columns(vec![col_1.clone(), col_2.clone()], 2, 1);
         let res_cols = trace_table.columns();
 
         assert_eq!(res_cols, vec![col_1, col_2]);

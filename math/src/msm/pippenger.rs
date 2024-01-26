@@ -102,7 +102,7 @@ where
         .unwrap_or_else(G::neutral_element)
 }
 
-#[cfg(feature = "rayon")]
+#[cfg(feature = "parallel")]
 // It has the following differences with the sequential one:
 //  1. It uses one vec per thread to store buckets.
 //  2. It reduces all window results via a different method.
@@ -220,7 +220,7 @@ mod tests {
 
         // Property-based test that ensures `pippenger::msm_with` gives same result as `pippenger::parallel_msm_with`.
         #[test]
-        #[cfg(feature = "rayon")]
+        #[cfg(feature = "parallel")]
         fn test_parallel_pippenger_matches_sequential(window_size in 1.._MAX_WSIZE, cs in unsigned_integer_vec(), points in points_vec()) {
             let min_len = cs.len().min(points.len());
             let cs = cs[..min_len].to_vec();
