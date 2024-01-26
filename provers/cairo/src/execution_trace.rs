@@ -1,4 +1,4 @@
-use std::{collections::VecDeque, iter};
+use std::{collections::VecDeque, iter, mem};
 
 use super::{
     cairo_mem::CairoMemory,
@@ -11,7 +11,7 @@ use super::{
     },
     register_states::RegisterStates,
 };
-use crate::layouts::plain::air::{CairoAIR, PublicInputs};
+use crate::layouts::plain::air::PublicInputs;
 use cairo_vm::without_std::collections::HashMap;
 use itertools::Itertools;
 use lambdaworks_math::{
@@ -826,9 +826,7 @@ mod test {
 
     use super::*;
     use crate::{
-        cairo_layout::CairoLayout,
-        layouts::plain::air::{SegmentName, EXTRA_VAL},
-        runner::run::run_program,
+        cairo_layout::CairoLayout, layouts::plain::air::SegmentName, runner::run::run_program,
         tests::utils::cairo0_program_path,
     };
     use stark_platinum_prover::table::Table;
@@ -857,67 +855,6 @@ mod test {
         assert_eq!(decomposition_columns[7][2], Felt252::from_hex("1").unwrap());
     }
 
-    // #[test]
-    // fn test_fill_range_check_values() {
-    //     let columns = vec![
-    //         vec![FieldElement::from(1); 3],
-    //         vec![FieldElement::from(4); 3],
-    //         vec![FieldElement::from(7); 3],
-    //     ];
-    //     let expected_col = vec![
-    //         FieldElement::from(2),
-    //         FieldElement::from(3),
-    //         FieldElement::from(5),
-    //         FieldElement::from(6),
-    //         FieldElement::from(7),
-    //         FieldElement::from(7),
-    //     ];
-    //     let table = TraceTable::<Stark252PrimeField>::from_columns(columns, 1);
-
-    //     let (col, rc_min, rc_max) = get_rc_holes(&table, &[0, 1, 2]);
-    //     assert_eq!(col, expected_col);
-    //     assert_eq!(rc_min, 1);
-    //     assert_eq!(rc_max, 7);
-    // }
-
-    // #[test]
-    // fn test_add_missing_values_to_rc_holes_column() {
-    //     let mut row = vec![Felt252::from(5); 36];
-    //     row[35] = Felt252::zero();
-    //     let data = row.repeat(8);
-    //     let table = Table::new(data, 36);
-
-    //     let mut main_trace = TraceTable::<Stark252PrimeField> {
-    //         table,
-    //         step_size: 1,
-    //     };
-
-    //     let rc_holes = vec![
-    //         Felt252::from(1),
-    //         Felt252::from(2),
-    //         Felt252::from(3),
-    //         Felt252::from(4),
-    //         Felt252::from(5),
-    //         Felt252::from(6),
-    //     ];
-
-    //     fill_rc_holes(&mut main_trace, &rc_holes);
-
-    //     let expected_rc_holes_column = vec![
-    //         Felt252::from(1),
-    //         Felt252::from(2),
-    //         Felt252::from(3),
-    //         Felt252::from(4),
-    //         Felt252::from(5),
-    //         Felt252::from(6),
-    //         Felt252::from(6),
-    //         Felt252::from(6),
-    //     ];
-
-    //     let rc_holes_column = main_trace.columns()[35].clone();
-
-    //     assert_eq!(expected_rc_holes_column, rc_holes_column);
-    // }
     #[test]
     fn test_get_memory_holes_empty_pub_memory() {
         // We construct a sorted addresses list [1, 2, 3, 6, 7, 8, 9, 13, 14, 15], and
@@ -1142,11 +1079,6 @@ mod test {
 
         set_sorted_mem_pool(&mut trace, pub_inputs.public_memory);
 
-        // trace.table.columns()[4][..700]
-        //     .iter()
-        //     .enumerate()
-        //     .for_each(|(i, v)| println!("ROW {} - VALUE: {}", i, v));
-
         let z = Felt252::from_hex_unchecked(
             "0x6896a2e62f03d4d1f625efb97468ef93f31105bb51a83d550bca6fdebd035de",
         );
@@ -1155,7 +1087,7 @@ mod test {
         );
         set_mem_permutation_column(&mut trace, &alpha, &z);
 
-        trace.aux_table.columns()[1][..20]
+        trace.aux_table.columns()[1]
             .iter()
             .enumerate()
             .for_each(|(i, v)| println!("ROW {} - MEM CUMUL PROD: {}", i, v));

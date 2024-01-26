@@ -27,62 +27,6 @@ use stark_platinum_prover::{
     Felt252,
 };
 
-// TODO: These should probably be in the TraceTable module.
-pub const FRAME_RES: usize = 16;
-pub const FRAME_AP: usize = 17;
-pub const FRAME_FP: usize = 18;
-pub const FRAME_PC: usize = 19;
-pub const FRAME_DST_ADDR: usize = 20;
-pub const FRAME_OP0_ADDR: usize = 21;
-pub const FRAME_OP1_ADDR: usize = 22;
-pub const FRAME_INST: usize = 23;
-pub const FRAME_DST: usize = 24;
-pub const FRAME_OP0: usize = 25;
-pub const FRAME_OP1: usize = 26;
-pub const OFF_DST: usize = 27;
-pub const OFF_OP0: usize = 28;
-pub const OFF_OP1: usize = 29;
-pub const FRAME_T0: usize = 30;
-pub const FRAME_T1: usize = 31;
-pub const FRAME_MUL: usize = 32;
-pub const EXTRA_ADDR: usize = 33;
-pub const EXTRA_VAL: usize = 34;
-pub const RC_HOLES: usize = 35;
-
-// Auxiliary range check columns
-pub const RANGE_CHECK_COL_1: usize = 0;
-pub const RANGE_CHECK_COL_2: usize = 1;
-pub const RANGE_CHECK_COL_3: usize = 2;
-pub const RANGE_CHECK_COL_4: usize = 3;
-
-// Auxiliary memory columns
-pub const MEMORY_ADDR_SORTED_0: usize = 4;
-pub const MEMORY_ADDR_SORTED_1: usize = 5;
-pub const MEMORY_ADDR_SORTED_2: usize = 6;
-pub const MEMORY_ADDR_SORTED_3: usize = 7;
-pub const MEMORY_ADDR_SORTED_4: usize = 8;
-
-pub const MEMORY_VALUES_SORTED_0: usize = 9;
-pub const MEMORY_VALUES_SORTED_1: usize = 10;
-pub const MEMORY_VALUES_SORTED_2: usize = 11;
-pub const MEMORY_VALUES_SORTED_3: usize = 12;
-pub const MEMORY_VALUES_SORTED_4: usize = 13;
-
-pub const PERMUTATION_ARGUMENT_COL_0: usize = 14;
-pub const PERMUTATION_ARGUMENT_COL_1: usize = 15;
-pub const PERMUTATION_ARGUMENT_COL_2: usize = 16;
-pub const PERMUTATION_ARGUMENT_COL_3: usize = 17;
-pub const PERMUTATION_ARGUMENT_COL_4: usize = 18;
-
-pub const PERMUTATION_ARGUMENT_RANGE_CHECK_COL_1: usize = 19;
-pub const PERMUTATION_ARGUMENT_RANGE_CHECK_COL_2: usize = 20;
-pub const PERMUTATION_ARGUMENT_RANGE_CHECK_COL_3: usize = 21;
-pub const PERMUTATION_ARGUMENT_RANGE_CHECK_COL_4: usize = 22;
-
-// Trace layout
-pub const MEM_P_TRACE_OFFSET: usize = 17;
-pub const MEM_A_TRACE_OFFSET: usize = 19;
-
 #[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum SegmentName {
     RangeCheck,
@@ -511,7 +455,7 @@ impl AIR for CairoAIR {
             (0..transition_constraints.len())
                 .for_each(|idx| debug_assert!(constraints_set.iter().contains(&idx)));
 
-            // assert_eq!(transition_constraints.len(), 64);
+            assert_eq!(transition_constraints.len(), 32);
         }
 
         let transition_exemptions = transition_constraints
@@ -579,57 +523,60 @@ impl AIR for CairoAIR {
     ///  * pc_0 = pc_i
     ///  * pc_t = pc_f
     fn boundary_constraints(&self, rap_challenges: &[Felt252]) -> BoundaryConstraints<Self::Field> {
-        let initial_pc =
-            BoundaryConstraint::new_main(MEM_A_TRACE_OFFSET, 0, self.pub_inputs.pc_init);
-        let initial_ap =
-            BoundaryConstraint::new_main(MEM_P_TRACE_OFFSET, 0, self.pub_inputs.ap_init);
+        let initial_pc = BoundaryConstraint::new_main(3, 0, self.pub_inputs.pc_init);
+        let initial_ap = BoundaryConstraint::new_main(5, 0, self.pub_inputs.ap_init);
 
         let final_pc = BoundaryConstraint::new_main(
-            MEM_A_TRACE_OFFSET,
-            self.pub_inputs.num_steps - 1,
+            3,
+            self.trace_length - Self::STEP_SIZE,
             self.pub_inputs.pc_final,
         );
         let final_ap = BoundaryConstraint::new_main(
-            MEM_P_TRACE_OFFSET,
-            self.pub_inputs.num_steps - 1,
+            5,
+            self.trace_length - Self::STEP_SIZE,
             self.pub_inputs.ap_final,
         );
 
-        // Auxiliary constraint: permutation argument final value
-        let final_index = self.trace_length - 1;
-
         let z_memory = rap_challenges[1];
         let alpha_memory = rap_challenges[0];
+        let one: FieldElement<Self::Field> = FieldElement::one();
 
-        let cumulative_product = self
+        let mem_cumul_prod_denominator_no_padding = self
             .pub_inputs
             .public_memory
             .iter()
-            .fold(FieldElement::one(), |product, (address, value)| {
+            .fold(one, |product, (address, value)| {
                 product * (z_memory - (address + alpha_memory * value))
-            })
+            });
+
+        const PUB_MEMORY_ADDR_OFFSET: usize = 8;
+        let pad_addr = Felt252::one();
+        let pad_value = self.pub_inputs.public_memory.get(&pad_addr).unwrap();
+        let val = z_memory - (pad_addr + alpha_memory * pad_value);
+        let mem_cumul_prod_denominator_pad = val
+            .pow(self.trace_length / PUB_MEMORY_ADDR_OFFSET - self.pub_inputs.public_memory.len());
+        let mem_cumul_prod_denominator = (mem_cumul_prod_denominator_no_padding
+            * mem_cumul_prod_denominator_pad)
             .inv()
             .unwrap();
+        let mem_cumul_prod_final =
+            z_memory.pow(self.trace_length / PUB_MEMORY_ADDR_OFFSET) * mem_cumul_prod_denominator;
 
-        let permutation_final =
-            z_memory.pow(self.pub_inputs.public_memory.len()) * cumulative_product;
+        let mem_cumul_prod_final_constraint =
+            BoundaryConstraint::new_aux(1, self.trace_length - 2, mem_cumul_prod_final);
 
-        let permutation_final_constraint =
-            BoundaryConstraint::new_aux(PERMUTATION_ARGUMENT_COL_4, final_index, permutation_final);
+        let rc_cumul_prod_final_constraint =
+            BoundaryConstraint::new_aux(0, self.trace_length - 1, one);
 
-        let one: FieldElement<Self::Field> = FieldElement::one();
-        let range_check_final_constraint =
-            BoundaryConstraint::new_aux(PERMUTATION_ARGUMENT_RANGE_CHECK_COL_4, final_index, one);
-
-        let range_check_min = BoundaryConstraint::new_aux(
-            RANGE_CHECK_COL_1,
+        let rc_min_constraint = BoundaryConstraint::new_main(
+            2,
             0,
             FieldElement::from(self.pub_inputs.range_check_min.unwrap() as u64),
         );
 
-        let range_check_max = BoundaryConstraint::new_aux(
-            RANGE_CHECK_COL_4,
-            final_index,
+        let rc_max_constraint = BoundaryConstraint::new_main(
+            2,
+            self.trace_length - 1,
             FieldElement::from(self.pub_inputs.range_check_max.unwrap() as u64),
         );
 
@@ -638,14 +585,13 @@ impl AIR for CairoAIR {
             initial_ap,
             final_pc,
             final_ap,
-            permutation_final_constraint,
-            range_check_final_constraint,
-            range_check_min,
-            range_check_max,
+            mem_cumul_prod_final_constraint,
+            rc_cumul_prod_final_constraint,
+            rc_min_constraint,
+            rc_max_constraint,
         ];
 
-        // BoundaryConstraints::from_constraints(constraints)
-        BoundaryConstraints::from_constraints(Vec::new())
+        BoundaryConstraints::from_constraints(constraints)
     }
 
     fn transition_constraints(

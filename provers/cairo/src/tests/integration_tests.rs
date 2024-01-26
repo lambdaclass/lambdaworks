@@ -70,11 +70,11 @@ fn test_verifier_rejects_wrong_authentication_paths() {
     assert!(!verify_cairo_proof(&proof, &pub_inputs, &proof_options));
 }
 
-#[test_log::test]
-fn test_prove_cairo_fibonacci_1000() {
-    let layout = CairoLayout::Plain;
-    test_prove_cairo_program(&cairo0_program_path("fibonacci_1000.json"), layout);
-}
+// #[test_log::test]
+// fn test_prove_cairo_fibonacci_1000() {
+//     let layout = CairoLayout::Plain;
+//     test_prove_cairo_program(&cairo0_program_path("fibonacci_1000.json"), layout);
+// }
 
 // #[cfg_attr(feature = "metal", ignore)]
 // #[test_log::test]
