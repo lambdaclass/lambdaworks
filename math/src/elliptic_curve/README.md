@@ -128,14 +128,7 @@ fn commit(&self, p: &Polynomial<FieldElement<F>>) -> Self::Commitment {
 ```
 ## Pairing-friendly elliptic curves
 
-```rust
-fn do_something_with_an_elliptic_curve<T: EllipticCurve + Pairing>(curve: T) {
-    let g1 = T::subgroup_generator(); // EllipticCurve trait
-    let g2 = T::secondary_subgroup_generator(); // Pairing trait
-    T::pairing(g1, g2); // Pairing trait
-
-    let p1 = T::create_point_from_affine(12, 12); // EllipticCurve trait
-
-    let s = g1.operate_with(g2); // IsGroup trait
-}
-```
+Pairings are an important calculation for BLS signatures and the KZG polynomial commitment scheme. These are functions mapping elements from groups of order $r$ belonging to an elliptic curve to the set of $r$-th roots of unity, $e: G_1 \times G_2 \rightarrow G_t$. They satisfy two properties:
+1. Bilinearity
+2. Non-degeneracy
+Not all elliptic curves have efficiently computable pairings. If the curve is pairing-friendly, we can implement the trait `IsPairing`. Examples of pairing-friendly curves are BLS12-381, BLS12-377, BN254. Curves such as Pallas, Vesta, secp256k1 are not pairing-friendly.
