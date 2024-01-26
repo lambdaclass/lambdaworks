@@ -821,14 +821,14 @@ pub(crate) fn set_mem_permutation_column(
 
 #[cfg(test)]
 mod test {
-    use std::hash::Hash;
+    
 
     use super::*;
     use crate::{
-        cairo_layout::CairoLayout, layouts::plain::air::SegmentName, runner::run::run_program,
+        cairo_layout::CairoLayout, runner::run::run_program,
         tests::utils::cairo0_program_path,
     };
-    use stark_platinum_prover::table::Table;
+    
 
     #[test]
     fn test_rc_decompose() {
