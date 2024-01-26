@@ -36,6 +36,8 @@ Both Math and Crypto support wasm with target `wasm32-unknown-unknown`. To see a
 
 ## Examples - mini apps
 - [Merkle Tree CLI](https://github.com/lambdaclass/lambdaworks/tree/main/examples/merkle-tree-cli)
+- [Proving Miden](https://github.com/lambdaclass/lambdaworks/tree/main/examples/prove-miden)
+- [Shamir's secret sharing](https://github.com/lambdaclass/lambdaworks/tree/main/examples/shamir_secret_sharing)
 
 ## Exercises and Challenges
 - [lambdaworks exercises and challenges](https://github.com/lambdaclass/lambdaworks_exercises/tree/main)
@@ -96,11 +98,11 @@ List of symbols:
 | Marlin     | :x:                | :heavy_check_mark: | :x:       | :x:                | :x:             |
 | GKR        | :x:                | :heavy_check_mark: | :x:       | :heavy_check_mark: | :x:             |
 | **Polynomial Commitment Schemes** | **Lambdaworks**    | **Arkworks**       | **Halo2**          | **gnark**          | **Constantine** |
+| KZG10                             | :heavy_check_mark: | ✔️                  | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark:             |
 | FRI                               | 🏗️                 | :x:                | :x:                | :heavy_check_mark: | :x:             |
 | IPA                               | 🏗️                 | ✔️                  | :heavy_check_mark: | :x:                | :x:             |
 | Brakedown                         | :x:                | :x: | :x:                | :x:                | :x:             |
 | Basefold                          | :x:                | :x: | :x:                | :x:                | :x:             |
-| KZG10                             | :heavy_check_mark: | ✔️                  | :heavy_check_mark: | :heavy_check_mark: | :x:             |
 | **Folding Schemes** | **Lambdaworks** | **Arkworks**       | **Halo2** | **gnark** | **Constantine** |
 | Nova                | :x:             | :heavy_check_mark: | :x:       | :x:       | :x:             |
 | Supernova           | :x:             | :x:                | :x:       | :x:       | :x:             |
