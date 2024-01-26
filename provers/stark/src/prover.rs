@@ -675,7 +675,7 @@ pub trait IsStarkProver<A: AIR> {
         let trace_terms = trace_polys
             .par_iter()
             .enumerate()
-            .fold(Polynomial::zero(), |trace_terms, (i, t_j)| {
+            .fold(Polynomial::zero, |trace_terms, (i, t_j)| {
                 let gammas_i = &trace_terms_gammas[i];
                 let trace_evaluations_i = &trace_evaluations_columns[i];
                 Self::compute_trace_term(

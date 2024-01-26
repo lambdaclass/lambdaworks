@@ -195,7 +195,7 @@ where
     pub fn compute_trace_polys_aux<S>(&self) -> Vec<Polynomial<FieldElement<E>>>
     where
         S: IsFFTField + IsSubFieldOf<F>,
-        FieldElement<F>: Send + Sync,
+        FieldElement<E>: Send + Sync,
     {
         let columns = self.columns_aux();
         #[cfg(feature = "parallel")]
