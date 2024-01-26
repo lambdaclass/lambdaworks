@@ -133,38 +133,6 @@ where
         self.main_table.width + self.aux_table.width
     }
 
-    // pub fn rows(&self) -> Vec<Vec<FieldElement<F>>> {
-    //     self.main_table.rows()
-    // }
-
-    // pub fn get_row(&self, row_idx: usize) -> Vec<FieldElement<F>> {
-    //     let mut main_row = self.main_table.get_row(row_idx).to_owned();
-    //     let aux_row = self.aux_table.get_row(row_idx);
-
-    //     main_row.extend_from_slice(aux_row);
-    //     main_row
-    // }
-
-    // pub fn get_row_mut(&mut self, row_idx: usize) -> &mut [FieldElement<F>] {
-    //     let mut main_row = self.main_table.get_row_mut(row_idx).to_owned();
-    //     let aux_row = self.aux_table.get_row_mut(row_idx);
-
-    //     main_row.extend_from_slice(aux_row);
-    //     &mut main_row
-    // }
-
-    // pub fn last_row(&self) -> Vec<FieldElement<F>> {
-    //     self.get_row(self.num_rows() - 1)
-    // }
-
-    // pub fn columns(&self) -> Vec<Vec<FieldElement<F>>> {
-    //     let mut columns = self.main_table.columns();
-    //     let aux_columns = self.aux_table.columns();
-
-    //     columns.extend_from_slice(&aux_columns);
-    //     columns
-    // }
-
     pub fn columns_main(&self) -> Vec<Vec<FieldElement<F>>> {
         self.main_table.columns()
     }
@@ -172,22 +140,6 @@ where
     pub fn columns_aux(&self) -> Vec<Vec<FieldElement<E>>> {
         self.aux_table.columns()
     }
-
-    // /// Given a slice of integer numbers representing column indexes, merge these columns into
-    // /// a one-dimensional vector.
-    // ///
-    // /// The particular way they are merged is not really important since this function is used to
-    // /// aggreagate values distributed across various columns with no importance on their ordering,
-    // /// such as to sort them.
-    // pub fn merge_columns(&self, column_indexes: &[usize]) -> Vec<FieldElement<F>> {
-    //     let mut data = Vec::with_capacity(self.num_rows() * column_indexes.len());
-    //     for row_index in 0..self.num_rows() {
-    //         for column in column_indexes {
-    //             data.push(self.table.data[row_index * self.n_cols() + column].clone());
-    //         }
-    //     }
-    //     data
-    // }
 
     /// Given a row and a column index, gives stored value in that position
     pub fn get_main(&self, row: usize, col: usize) -> &FieldElement<F> {
@@ -255,40 +207,6 @@ where
             .collect::<Result<Vec<Polynomial<FieldElement<E>>>, FFTError>>()
             .unwrap()
     }
-
-    // /// Given the padding length, appends the last row of the trace table
-    // /// that many times.
-    // /// This is useful for example when the desired trace length should be power
-    // /// of two, and only the last row is the one that can be appended without affecting
-    // /// the integrity of the constraints.
-    // pub fn pad_with_last_row(&mut self, padding_len: usize) {
-    //     let last_row = self.last_row().to_vec();
-    //     (0..padding_len).for_each(|_| {
-    //         self.table.append_row(&last_row);
-    //     })
-    // }
-
-    // /// Given a row index, a column index and a value, tries to set that location
-    // /// of the trace with the given value.
-    // /// The row_idx passed as argument may be greater than the max row index by 1. In this case,
-    // /// last row of the trace is cloned, and the value is set in that cloned row. Then, the row is
-    // /// appended to the end of the trace.
-    // pub fn set_or_extend(&mut self, row_idx: usize, col_idx: usize, value: &FieldElement<F>) {
-    //     debug_assert!(col_idx < self.n_cols());
-    //     // NOTE: This is not very nice, but for how the function is being used at the moment,
-    //     // the passed `row_idx` should never be greater than `self.n_rows() + 1`. This is just
-    //     // an integrity check for ease in the developing process, we should think a better alternative
-    //     // in the future.
-    //     debug_assert!(row_idx <= self.num_rows() + 1);
-    //     if row_idx >= self.num_rows() {
-    //         let mut last_row = self.last_row().to_vec();
-    //         last_row[col_idx] = value.clone();
-    //         self.table.append_row(&last_row)
-    //     } else {
-    //         let row = self.get_row_mut(row_idx);
-    //         row[col_idx] = value.clone();
-    //     }
-    // }
 
     pub fn get_column_main(&self, col_idx: usize) -> Vec<FieldElement<F>> {
         self.main_table.get_column(col_idx)

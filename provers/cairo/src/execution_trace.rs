@@ -443,20 +443,6 @@ fn update_values(
     }
 }
 
-/// Utility function to change from a rows representation to a columns
-/// representation of a slice of arrays.
-fn rows_to_cols<const N: usize>(rows: &[[Felt252; N]]) -> Vec<Vec<Felt252>> {
-    let n_cols = rows[0].len();
-
-    (0..n_cols)
-        .map(|col_idx| {
-            rows.iter()
-                .map(|elem| elem[col_idx])
-                .collect::<Vec<Felt252>>()
-        })
-        .collect::<Vec<Vec<Felt252>>>()
-}
-
 // NOTE: Leaving this function despite not being used anywhere. It could be useful once
 // we implement layouts with the range-check builtin.
 #[allow(dead_code)]
