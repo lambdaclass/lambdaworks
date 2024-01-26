@@ -107,6 +107,27 @@ let x = g2_affine.x();
 let y = g2_affine.y();
 ```
 
+## Multiscalar multiplication
+
+One common operation for different proof systems is the Mutiscalar Multiplication (MSM), which is given by a set of points $P_0 , P_1 , P_2 , ... , P_n$ and scalars $a_0 , a_1 , a_2 ... n_n$ (the scalars belong to the scalar field of the elliptic curve, which is the field whose size matches the size of the elliptic curve's group):
+$$R = \sum_k a_k P_k$$ 
+This operation could be implemented by using `operate_with_self` with each point and scalar and then add the results using `operate_with`, but this is not efficient. lambdaworks provides an optimized [MSM using Pippenger's algorithm](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/msm/pippenger.rs). A naïve version is given [here](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/msm/naive.rs). Below we show how to use MSM in the context of a polynomial commitment scheme: the scalars are the coefficients of the polynomials and the points are provided by an SRS.
+```rust
+fn commit(&self, p: &Polynomial<FieldElement<F>>) -> Self::Commitment {
+        let coefficients: Vec<_> = p
+            .coefficients
+            .iter()
+            .map(|coefficient| coefficient.representative())
+            .collect();
+        msm(
+            &coefficients,
+            &self.srs.powers_main_group[..coefficients.len()],
+        )
+        .expect("`points` is sliced by `cs`'s length")
+    }
+```
+## Pairing-friendly elliptic curves
+
 ```rust
 fn do_something_with_an_elliptic_curve<T: EllipticCurve + Pairing>(curve: T) {
     let g1 = T::subgroup_generator(); // EllipticCurve trait
