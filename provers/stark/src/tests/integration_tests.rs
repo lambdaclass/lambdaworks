@@ -5,7 +5,7 @@ use lambdaworks_math::field::{
 use crate::{
     examples::{
         bit_flags::{self, BitFlagsAIR},
-        //         dummy_air::{self, DummyAIR},
+        dummy_air::{self, DummyAIR},
         //         fibonacci_2_cols_shifted::{self, Fibonacci2ColsShifted},
         fibonacci_2_columns::{self, Fibonacci2ColsAIR},
         fibonacci_rap::{fibonacci_rap_trace, FibonacciRAP, FibonacciRAPPublicInputs},
@@ -205,34 +205,27 @@ fn test_prove_rap_fib() {
     ));
 }
 
-// #[test_log::test]
-// fn test_prove_dummy() {
-//     let trace_length = 16;
-//     let mut trace = dummy_air::dummy_trace(trace_length);
+#[test_log::test]
+fn test_prove_dummy() {
+    let trace_length = 16;
+    let mut trace = dummy_air::dummy_trace(trace_length);
 
-//     let proof_options = ProofOptions::default_test_options();
+    let proof_options = ProofOptions::default_test_options();
 
-// <<<<<<< HEAD
-//     let proof = Prover::<DummyAIR>::prove(
-//         &mut trace,
-//         &(),
-//         &proof_options,
-//         StoneProverTranscript::new(&[]),
-//     )
-//     .unwrap();
-// =======
-//     let proof =
-//         Prover::<DummyAIR>::prove(&trace, &(), &proof_options, StoneProverTranscript::new(&[]))
-//             .unwrap();
-
-// >>>>>>> constraints-refactor
-//     assert!(Verifier::<DummyAIR>::verify(
-//         &proof,
-//         &(),
-//         &proof_options,
-//         StoneProverTranscript::new(&[])
-//     ));
-// }
+    let proof = Prover::<DummyAIR>::prove(
+        &mut trace,
+        &(),
+        &proof_options,
+        StoneProverTranscript::new(&[]),
+    )
+    .unwrap();
+    assert!(Verifier::<DummyAIR>::verify(
+        &proof,
+        &(),
+        &proof_options,
+        StoneProverTranscript::new(&[])
+    ));
+}
 
 #[test_log::test]
 fn test_prove_bit_flags() {
