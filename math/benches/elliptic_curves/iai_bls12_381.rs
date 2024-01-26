@@ -4,7 +4,7 @@ use lambdaworks_math::{
     elliptic_curve::{
         short_weierstrass::{
             curves::bls12_381::{
-                compression::{check_point_is_in_subgroup, compress_g1_point, decompress_g1_point},
+                compression::{compress_g1_point, decompress_g1_point},
                 curve::BLS12381Curve,
                 pairing::BLS12381AtePairing,
                 twist::BLS12381TwistCurve,
@@ -115,7 +115,7 @@ pub fn bls12_381_decompress_g1() {
 #[allow(dead_code)]
 pub fn bls12_381_subgroup_check_g1() {
     let (a, _, _, _) = rand_points_g1();
-    let _ = black_box(check_point_is_in_subgroup(black_box(&a)));
+    let _ = black_box(black_box(&a.is_in_subgroup()));
 }
 
 #[inline(never)]
@@ -123,5 +123,5 @@ pub fn bls12_381_subgroup_check_g1() {
 pub fn bls12_381_ate_pairing() {
     let (a, _, _, _) = rand_points_g1();
     let (_, b, _, _) = rand_points_g2();
-    black_box(BLS12381AtePairing::compute(black_box(&a), black_box(&b)));
+    let _ = black_box(BLS12381AtePairing::compute(black_box(&a), black_box(&b)));
 }

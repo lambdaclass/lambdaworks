@@ -3,7 +3,7 @@ use lambdaworks_math::{
     cyclic_group::IsGroup,
     elliptic_curve::{
         short_weierstrass::curves::bls12_381::{
-            compression::{check_point_is_in_subgroup, compress_g1_point, decompress_g1_point},
+            compression::{compress_g1_point, decompress_g1_point},
             curve::BLS12381Curve,
             pairing::BLS12381AtePairing,
             twist::BLS12381TwistCurve,
@@ -81,7 +81,7 @@ pub fn bls12_381_elliptic_curve_benchmarks(c: &mut Criterion) {
 
     // Subgroup Check G1
     group.bench_function("Subgroup Check G1", |bencher| {
-        bencher.iter(|| black_box(check_point_is_in_subgroup(black_box(&a_g1))));
+        bencher.iter(|| (black_box(a_g1.is_in_subgroup())));
     });
 
     // Ate Pairing
