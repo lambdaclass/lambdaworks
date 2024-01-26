@@ -80,10 +80,8 @@ pub fn validate_trace<A: AIR>(
 
     // --------- VALIDATE TRANSITION CONSTRAINTS -----------
     let n_transition_constraints = air.context().num_transition_constraints();
-    let transition_exemptions = &air.context().transition_exemptions;
-
-    let exemption_steps: Vec<usize> = vec![lde_trace.num_steps(); n_transition_constraints]
-        .iter()
+    let exemption_steps: Vec<usize> = std::iter::repeat(lde_trace.num_steps())
+        .take(n_transition_constraints)
         .zip(air.transition_constraints())
         .map(|(trace_steps, constraint)| trace_steps - constraint.end_exemptions())
         .collect();
