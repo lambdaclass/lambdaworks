@@ -6,7 +6,7 @@ use crate::{
     examples::{
         bit_flags::{self, BitFlagsAIR},
         dummy_air::{self, DummyAIR},
-        //         fibonacci_2_cols_shifted::{self, Fibonacci2ColsShifted},
+        fibonacci_2_cols_shifted::{self, Fibonacci2ColsShifted},
         fibonacci_2_columns::{self, Fibonacci2ColsAIR},
         fibonacci_rap::{fibonacci_rap_trace, FibonacciRAP, FibonacciRAPPublicInputs},
         quadratic_air::{self, QuadraticAIR, QuadraticPublicInputs},
@@ -124,33 +124,33 @@ fn test_prove_fib_2_cols() {
     ));
 }
 
-// #[test_log::test]
-// fn test_prove_fib_2_cols_shifted() {
-//     let mut trace = fibonacci_2_cols_shifted::compute_trace(FieldElement::one(), 16);
+#[test_log::test]
+fn test_prove_fib_2_cols_shifted() {
+    let mut trace = fibonacci_2_cols_shifted::compute_trace(FieldElement::one(), 16);
 
-//     let claimed_index = 14;
-//     let claimed_value = trace.get_row(claimed_index)[0];
-//     let proof_options = ProofOptions::default_test_options();
+    let claimed_index = 14;
+    let claimed_value = trace.main_table.get_row(claimed_index)[0];
+    let proof_options = ProofOptions::default_test_options();
 
-//     let pub_inputs = fibonacci_2_cols_shifted::PublicInputs {
-//         claimed_value,
-//         claimed_index,
-//     };
+    let pub_inputs = fibonacci_2_cols_shifted::PublicInputs {
+        claimed_value,
+        claimed_index,
+    };
 
-//     let proof = Prover::<Fibonacci2ColsShifted<_>>::prove(
-//         &mut trace,
-//         &pub_inputs,
-//         &proof_options,
-//         StoneProverTranscript::new(&[]),
-//     )
-//     .unwrap();
-//     assert!(Verifier::<Fibonacci2ColsShifted<_>>::verify(
-//         &proof,
-//         &pub_inputs,
-//         &proof_options,
-//         StoneProverTranscript::new(&[])
-//     ));
-// }
+    let proof = Prover::<Fibonacci2ColsShifted<_>>::prove(
+        &mut trace,
+        &pub_inputs,
+        &proof_options,
+        StoneProverTranscript::new(&[]),
+    )
+    .unwrap();
+    assert!(Verifier::<Fibonacci2ColsShifted<_>>::verify(
+        &proof,
+        &pub_inputs,
+        &proof_options,
+        StoneProverTranscript::new(&[])
+    ));
+}
 
 #[test_log::test]
 fn test_prove_quadratic() {
@@ -247,24 +247,3 @@ fn test_prove_bit_flags() {
         StoneProverTranscript::new(&[]),
     ));
 }
-
-// #[test_log::test]
-// fn test_prove_bit_flags() {
-//     let mut trace = bit_flags::bit_prefix_flag_trace(32);
-//     let proof_options = ProofOptions::default_test_options();
-
-//     let proof = Prover::<BitFlagsAIR>::prove(
-//         &mut trace,
-//         &(),
-//         &proof_options,
-//         StoneProverTranscript::new(&[]),
-//     )
-//     .unwrap();
-
-//     assert!(Verifier::<BitFlagsAIR>::verify(
-//         &proof,
-//         &(),
-//         &proof_options,
-//         StoneProverTranscript::new(&[]),
-//     ));
-// }
