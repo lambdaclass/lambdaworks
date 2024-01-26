@@ -23,4 +23,15 @@ This creates the polynomial $p(x) = 1 + 2 x + 3 x^2$. If we provide additional z
 ```rust
 let my_poly = Polynomial::new(&[FE::new(1), FE::new(2), FE::new(3), FE::ZERO])
 ```
-generates the same polynomial as before.
+generates the same polynomial as before. We can also create a monomial, such as $5 x^4$ or $27 x^{120}$, which can be simpler sometimes (instead of providing a long list of zeros). To define a monomial, simply
+```rust
+let my_monomial = Polynomial::new_monomial(FE::new(27),6)
+```
+generates the monomial $p(x) = 27 x^6$, which has a representation as polynomial $(0,0,0,0,0,0,27)$.
+
+Univariate polynomials have a [ring structure](https://en.wikipedia.org/wiki/Ring_(mathematics)): we can add, subtract, multiply and divide as we did with integers. For example,
+```rust
+let p_1 = Polynomial::new(&[FE::new(3), FE::new(4), FE::new(5)])
+let p_2 = Polynomial::new(&[FE::new(4), FE::new(6), FE::new(8)])
+let p_a = p_1 + p_2
+```
