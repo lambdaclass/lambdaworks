@@ -71,6 +71,32 @@ To implement the `IsShortWeierstrass`, you need to first implement `IsEllipticCu
 
 ## Defining points and operating with the curves
 
+All curves implement the trait `FromAffine`, which lets us define points by providing the pair of values $(x,y)$, where $x$ and $y$ should be in the `BaseField` of the curve. For example
+```rust
+let x = FE::from_hex_unchecked(
+            "bd1e740e6b1615ae4c508148ca0c53dbd43f7b2e206195ab638d7f45d51d6b5",
+        );
+let y = FE::from_hex_unchecked(
+            "13aacd107ca10b7f8aab570da1183b91d7d86dd723eaa2306b0ef9c5355b91d8",
+        );
+PallasCurve::create_point_from_affine(x, y).unwrap()
+```
+The function has to check whether the point is valid, and, if not, returns an error.
+
+Each form and coordinate model has to implement the `IsGroup` trait, which will give us all the necessary operations for the group. We need to provide expressions for:
+- `fn neutral_element()`, the neutral element for the group operation. In the case of elliptic curves, this is the point at infinity.
+- `fn operate_with`, which defines the group operation; it takes two elements in the group and outputs a third one.
+- `fn neg`, which gives the inverse of the element.
+It also provides the method `fn operate_with_self`, which is used to indicate that repeteadly add one element against itself $n$ times. Here, $n$ should implement the `IsUnsignedInteger` trait. In the case of elliptic curves, this provides the scalar multiplication, $n P$, based on the double and add algorithm (square and multiply).
+
+Operating is done in the following way:
+```rust
+// We get a point
+let g = PallasCurve::generator();
+let g2 = g.operate_with_self(2_u16);
+let g3 = g.operate_with_other(&g2);
+```
+
 ```rust
 fn do_something_with_an_elliptic_curve<T: EllipticCurve + Pairing>(curve: T) {
     let g1 = T::subgroup_generator(); // EllipticCurve trait
