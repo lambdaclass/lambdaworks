@@ -15,6 +15,9 @@ use rayon::{
     prelude::{IntoParallelIterator, ParallelIterator},
 };
 
+#[cfg(feature = "instruments")]
+use std::time::Instant;
+
 pub struct ConstraintEvaluator<A: AIR> {
     boundary_constraints: BoundaryConstraints<A::FieldExtension>,
 }
