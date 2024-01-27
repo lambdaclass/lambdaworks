@@ -1,11 +1,10 @@
-use core::{cmp::max, mem};
+use core::mem;
 
 use lambdaworks_math::{
     cyclic_group::IsGroup,
     elliptic_curve::traits::IsPairing,
     errors::DeserializationError,
     field::{element::FieldElement, traits::IsPrimeField},
-    msm::pippenger::msm,
     traits::{AsBytes, ByteConversion, Deserializable},
 };
 

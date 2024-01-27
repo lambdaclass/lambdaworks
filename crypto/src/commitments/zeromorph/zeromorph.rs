@@ -1,9 +1,7 @@
 #![allow(clippy::too_many_arguments)]
 #![allow(clippy::type_complexity)]
 
-use crate::{
-    commitments::traits::IsPolynomialCommitmentScheme, fiat_shamir::transcript::Transcript,
-};
+use crate::{commitments::traits::IsPolynomialCommitmentScheme, fiat_shamir::transcript::Transcript};
 use core::mem;
 use lambdaworks_math::{
     cyclic_group::IsGroup,
@@ -389,7 +387,7 @@ where
     ) -> Self::Proof {
         let point = point.borrow();
         //TODO: error or interface or something
-        let transcript = transcript.expect("Oh no, there isn't a transcript");
+        let transcript = transcript.unwrap();
         let num_vars = point.len();
         let n: usize = 1 << num_vars;
         let mut pi_poly = Polynomial::new(&poly.evals());
@@ -410,7 +408,7 @@ where
                         .iter()
                         .map(|eval| eval.representative())
                         .collect();
-                    msm(&scalars, &self.pk.g1_powers[..pi_poly.coeff_len()]).unwrap()
+                    msm(&scalars, &self.pk.g1_powers[..q.coeff_len()]).unwrap()
                 };
                 transcript.append(&q_k_commitment.as_bytes());
                 q_k_commitment
@@ -492,16 +490,16 @@ where
         point: impl Borrow<Self::Point>,
         evals: &[FieldElement<P::BaseField>],
         polys: &[Self::Polynomial],
-        mut transcript: Option<&mut dyn Transcript>,
+        transcript: Option<&mut dyn Transcript>,
     ) -> Self::Proof {
-        let transcrpt = transcript.take().unwrap();
+        let transcript = transcript.unwrap();
         for (poly, eval) in polys.iter().zip(evals.iter()) {
             // Note by evaluating we confirm the number of challenges is valid
             debug_assert_eq!(poly.evaluate(point.borrow().clone()).unwrap(), *eval);
         }
 
         // Generate batching challenge \rho and powers 1,...,\rho^{m-1}
-        let rho = FieldElement::from_bytes_be(&transcrpt.challenge()).unwrap();
+        let rho = FieldElement::from_bytes_be(&transcript.challenge()).unwrap();
         // Compute batching of unshifted polynomials f_i:
         let mut scalar = FieldElement::one();
         let (f_batched, batched_evaluation) = (0..polys.len()).fold(
@@ -519,7 +517,7 @@ where
                 (f_batched, batched_evaluation)
             },
         );
-        Self::open(&self, point, &batched_evaluation, &f_batched, transcript)
+        Self::open(&self, point, &batched_evaluation, &f_batched, Some(transcript))
     }
 
     // TODO: errors lengths are valid
@@ -537,7 +535,7 @@ where
             q_hat_com,
         } = proof;
 
-        let transcript = transcript.expect("Oh no, there isn't a transcript");
+        let transcript = transcript.unwrap();
         let point = point.borrow();
 
         //Receive q_k commitments
@@ -548,7 +546,7 @@ where
         // Challenge y
         let y_challenge = FieldElement::from_bytes_be(&transcript.challenge()).unwrap();
 
-        // Receive commitment C_{q} -> Since our transcript does not support appending and receiving data we instead store these commitments in a zeromorph proof struct
+        // Receive commitment C_{q} -> Since our transcriptcript does not support appending and receiving data we instead store these commitments in a zeromorph proof struct
         transcript.append(&q_hat_com.as_bytes());
 
         // Challenge x, z
@@ -608,12 +606,12 @@ where
         evals: &[FieldElement<P::BaseField>],
         p_commitments: &[Self::Commitment],
         proof: &Self::Proof,
-        mut transcript: Option<&mut dyn Transcript>,
+        transcript: Option<&mut dyn Transcript>,
     ) -> bool {
         debug_assert_eq!(evals.len(), p_commitments.len());
-        let transcrpt = transcript.take().unwrap();
+        let transcript = transcript.unwrap();
         // Compute powers of batching challenge rho
-        let rho = FieldElement::from_bytes_be(&transcrpt.challenge()).unwrap();
+        let rho = FieldElement::from_bytes_be(&transcript.challenge()).unwrap();
 
         // Compute batching of unshifted polynomials f_i:
         let mut scalar = FieldElement::<P::BaseField>::one();
@@ -633,7 +631,7 @@ where
             &batched_eval,
             &batched_commitment,
             proof,
-            transcript,
+            Some(transcript),
         )
     }
 }
@@ -643,10 +641,7 @@ mod test {
 
     use core::ops::Neg;
 
-    use crate::{
-        commitments::zeromorph::structs::ZeromorphSRS,
-        fiat_shamir::default_transcript::DefaultTranscript,
-    };
+    use crate::{commitments::zeromorph::structs::ZeromorphSRS, fiat_shamir::default_transcript::DefaultTranscript};
 
     use super::*;
     use lambdaworks_math::{
@@ -686,7 +681,7 @@ mod test {
     fn prove_verify_single() {
         let max_vars = 16;
         let mut rng = &mut ChaCha20Rng::from_seed(*b"zeromorph_poly_commitment_scheme");
-        let srs = ZeromorphSRS::setup(17, rng);
+        let srs = ZeromorphSRS::setup( 1 << (max_vars + 1), rng);
 
         for num_vars in 3..max_vars {
             // Setup
@@ -708,16 +703,16 @@ mod test {
             // Commit and open
             let commitments = zm.commit(&poly);
 
-            let mut prover_transcript = DefaultTranscript::new();
-            let proof = zm.open(&point, &eval, &poly, Some(&mut prover_transcript));
+            let mut prover_transcriptcript = DefaultTranscript::new();
+            let proof = zm.open(&point, &eval, &poly, Some(&mut prover_transcriptcript));
 
-            let mut verifier_transcript = DefaultTranscript::new();
+            let mut verifier_transcriptcript = DefaultTranscript::new();
             assert!(zm.verify(
                 &point,
                 &eval,
                 &commitments,
                 &proof,
-                Some(&mut verifier_transcript),
+                Some(&mut verifier_transcriptcript),
             ));
 
             //TODO: check both random oracles are synced
@@ -729,7 +724,7 @@ mod test {
         let max_vars = 16;
         let num_polys = 8;
         let mut rng = &mut ChaCha20Rng::from_seed(*b"zeromorph_poly_commitment_scheme");
-        let srs = ZeromorphSRS::setup(17, rng);
+        let srs = ZeromorphSRS::setup(1 <<(max_vars + 1), rng);
 
         for num_vars in 3..max_vars {
             // Setup
@@ -760,16 +755,16 @@ mod test {
             // Commit and open
             let commitments: Vec<_> = polys.iter().map(|poly| zm.commit(poly)).collect();
 
-            let mut prover_transcript = DefaultTranscript::new();
-            let proof = zm.open_batch(&point, &evals, &polys, Some(&mut prover_transcript));
+            let mut prover_transcriptcript = DefaultTranscript::new();
+            let proof = zm.open_batch(&point, &evals, &polys, Some(&mut prover_transcriptcript));
 
-            let mut verifier_transcript = DefaultTranscript::new();
+            let mut verifier_transcriptcript = DefaultTranscript::new();
             assert!(zm.verify_batch(
                 &point,
                 &evals,
                 &commitments,
                 &proof,
-                Some(&mut verifier_transcript),
+                Some(&mut verifier_transcriptcript),
             ))
             //TODO: check both random oracles are synced
         }

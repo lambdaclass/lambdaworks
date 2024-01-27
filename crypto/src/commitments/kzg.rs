@@ -366,13 +366,13 @@ mod tests {
         let mut prover_transcript = DefaultTranscript::new();
         let proof = kzg.open_batch(&x, &[y0.clone()], &[p0], Some(&mut prover_transcript));
 
-        let mut verifer_transcript = DefaultTranscript::new();
+        let mut verifier_transcript = DefaultTranscript::new();
         assert!(kzg.verify_batch(
             &x,
             &[y0],
             &[p0_commitment],
             &proof,
-            Some(&mut verifer_transcript)
+            Some(&mut verifier_transcript),
         ));
     }
 
@@ -393,13 +393,13 @@ mod tests {
             Some(&mut prover_transcript),
         );
 
-        let mut verifer_transcript = DefaultTranscript::new();
+        let mut verifier_transcript = DefaultTranscript::new();
         assert!(kzg.verify_batch(
             &x,
             &[y0.clone(), y0],
             &[p0_commitment.clone(), p0_commitment],
             &proof,
-            Some(&mut verifer_transcript),
+            Some(&mut verifier_transcript),
         ));
     }
 
@@ -429,13 +429,13 @@ mod tests {
             Some(&mut prover_transcript),
         );
 
-        let mut verifer_transcript = DefaultTranscript::new();
+        let mut verifier_transcript = DefaultTranscript::new();
         assert!(kzg.verify_batch(
             &x,
             &[y0, y1],
             &[p0_commitment, p1_commitment],
             &proof,
-            Some(&mut verifer_transcript)
+            Some(&mut verifier_transcript),
         ));
     }
 

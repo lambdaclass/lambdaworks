@@ -178,6 +178,7 @@ impl<F: IsField + IsFFTField, CS: IsPolynomialCommitmentScheme<F>> Verifier<F, C
             vk.s1_1.clone(),
             vk.s2_1.clone(),
         ];
+        let upsilon = FieldElement::from_bytes_be(&transcript.challenge()).unwrap();
         let batch_openings_check = self.commitment_scheme.verify_batch(
             zeta.clone(),
             &ys,

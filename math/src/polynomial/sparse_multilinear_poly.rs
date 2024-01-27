@@ -95,9 +95,9 @@ mod test {
         let m_poly = SparseMultilinearPolynomial::<F>::new(3, z.clone());
 
         let x = vec![FE::one(), FE::one(), FE::one()];
-        assert_eq!(m_poly.evaluate(x.as_slice()).unwrap(), two);
+        assert_eq!(m_poly.evaluate(x.as_slice()), two);
         assert_eq!(
-            SparseMultilinearPolynomial::evaluate_with(3, &z, x.as_slice()).unwrap(),
+            SparseMultilinearPolynomial::evaluate_with(3, &z, x.as_slice()),
             two
         );
 
