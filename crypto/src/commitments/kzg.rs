@@ -183,7 +183,7 @@ where
         eval: &FieldElement<F>,
         // polynomial proof is being generated with respect to.
         poly: &Polynomial<FieldElement<F>>,
-        transcript: Option<&mut dyn Transcript>,
+        _transcript: Option<&mut dyn Transcript>,
     ) -> Self::Commitment {
         let mut poly_to_commit = poly - eval;
         poly_to_commit.ruffini_division_inplace(point.borrow());
@@ -196,7 +196,7 @@ where
         eval: &FieldElement<F>,
         p_commitment: &Self::Commitment,
         proof: &Self::Proof,
-        transcript: Option<&mut dyn Transcript>,
+        _transcript: Option<&mut dyn Transcript>,
     ) -> bool {
         let g1 = &self.srs.powers_main_group[0];
         let g2 = &self.srs.powers_secondary_group[0];

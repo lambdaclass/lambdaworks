@@ -1,7 +1,9 @@
 #![allow(clippy::too_many_arguments)]
 #![allow(clippy::type_complexity)]
 
-use crate::{commitments::traits::IsPolynomialCommitmentScheme, fiat_shamir::transcript::Transcript};
+use crate::{
+    commitments::traits::IsPolynomialCommitmentScheme, fiat_shamir::transcript::Transcript,
+};
 use core::mem;
 use lambdaworks_math::{
     cyclic_group::IsGroup,
@@ -517,7 +519,13 @@ where
                 (f_batched, batched_evaluation)
             },
         );
-        Self::open(&self, point, &batched_evaluation, &f_batched, Some(transcript))
+        Self::open(
+            &self,
+            point,
+            &batched_evaluation,
+            &f_batched,
+            Some(transcript),
+        )
     }
 
     // TODO: errors lengths are valid
@@ -641,7 +649,10 @@ mod test {
 
     use core::ops::Neg;
 
-    use crate::{commitments::zeromorph::structs::ZeromorphSRS, fiat_shamir::default_transcript::DefaultTranscript};
+    use crate::{
+        commitments::zeromorph::structs::ZeromorphSRS,
+        fiat_shamir::default_transcript::DefaultTranscript,
+    };
 
     use super::*;
     use lambdaworks_math::{
@@ -681,7 +692,7 @@ mod test {
     fn prove_verify_single() {
         let max_vars = 16;
         let mut rng = &mut ChaCha20Rng::from_seed(*b"zeromorph_poly_commitment_scheme");
-        let srs = ZeromorphSRS::setup( 1 << (max_vars + 1), rng);
+        let srs = ZeromorphSRS::setup(1 << (max_vars + 1), rng);
 
         for num_vars in 3..max_vars {
             // Setup
@@ -724,7 +735,7 @@ mod test {
         let max_vars = 16;
         let num_polys = 8;
         let mut rng = &mut ChaCha20Rng::from_seed(*b"zeromorph_poly_commitment_scheme");
-        let srs = ZeromorphSRS::setup(1 <<(max_vars + 1), rng);
+        let srs = ZeromorphSRS::setup(1 << (max_vars + 1), rng);
 
         for num_vars in 3..max_vars {
             // Setup

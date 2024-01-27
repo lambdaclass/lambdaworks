@@ -1,6 +1,6 @@
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
-use crate::field::{traits::IsField, element::FieldElement};
+use crate::field::{element::FieldElement, traits::IsField};
 
 pub struct SparseMultilinearPolynomial<F: IsField>
 where
@@ -17,57 +17,61 @@ where
     pub fn new(num_vars: usize, evals: Vec<(usize, FieldElement<F>)>) -> Self {
         SparseMultilinearPolynomial { num_vars, evals }
     }
-  
+
     /// Computes the eq extension polynomial of the polynomial.
     /// return 1 when a == r, otherwise return 0.
     fn compute_chi(a: &[bool], r: &[FieldElement<F>]) -> FieldElement<F> {
-      assert_eq!(a.len(), r.len());
-      let mut chi_i = FieldElement::one();
-      for j in 0..r.len() {
-        if a[j] {
-          chi_i *= &r[j];
-        } else {
-          chi_i *= FieldElement::<F>::one() - &r[j];
+        assert_eq!(a.len(), r.len());
+        let mut chi_i = FieldElement::one();
+        for j in 0..r.len() {
+            if a[j] {
+                chi_i *= &r[j];
+            } else {
+                chi_i *= FieldElement::<F>::one() - &r[j];
+            }
         }
-      }
-      chi_i
+        chi_i
     }
 
     // Takes O(n log n)
     pub fn evaluate(&self, r: &[FieldElement<F>]) -> FieldElement<F> {
-    assert_eq!(self.num_vars, r.len());
+        assert_eq!(self.num_vars, r.len());
         (0..self.evals.len())
-        .into_par_iter()
-        .map(|i| {
-            let bits = get_bits(self.evals[i].0,r.len());
-            let mut chi_i = FieldElement::<F>::one();
-            for j in 0..r.len() {
-                if bits[j] {
-                chi_i *= &r[j];
-                } else {
-                chi_i *= FieldElement::<F>::one() - &r[j];
+            .into_par_iter()
+            .map(|i| {
+                let bits = get_bits(self.evals[i].0, r.len());
+                let mut chi_i = FieldElement::<F>::one();
+                for j in 0..r.len() {
+                    if bits[j] {
+                        chi_i *= &r[j];
+                    } else {
+                        chi_i *= FieldElement::<F>::one() - &r[j];
+                    }
                 }
-            }
-            chi_i * &self.evals[i].1
-        })
-        .sum()
+                chi_i * &self.evals[i].1
+            })
+            .sum()
     }
 
     // Takes O(n log n)
-    pub fn evaluate_with(num_vars: usize, evals: &[(usize, FieldElement<F>)], r: &[FieldElement<F>]) -> FieldElement<F> {
-      assert_eq!(num_vars, r.len());
-  
-      (0..evals.len())
-        .into_par_iter()
-        .map(|i| {
-          let bits = get_bits(evals[i].0,r.len());
-          SparseMultilinearPolynomial::compute_chi(&bits, r) * &evals[i].1
-        })
-        .sum()
+    pub fn evaluate_with(
+        num_vars: usize,
+        evals: &[(usize, FieldElement<F>)],
+        r: &[FieldElement<F>],
+    ) -> FieldElement<F> {
+        assert_eq!(num_vars, r.len());
+
+        (0..evals.len())
+            .into_par_iter()
+            .map(|i| {
+                let bits = get_bits(evals[i].0, r.len());
+                SparseMultilinearPolynomial::compute_chi(&bits, r) * &evals[i].1
+            })
+            .sum()
     }
 }
 
-  fn get_bits(n: usize, num_bits: usize) -> Vec<bool> {
+fn get_bits(n: usize, num_bits: usize) -> Vec<bool> {
     (0..num_bits)
         .map(|shift_amount| ((n & (1 << (num_bits - shift_amount - 1))) > 0))
         .collect::<Vec<bool>>()
@@ -103,7 +107,9 @@ mod test {
 
         let x = vec![FE::one(), FE::zero(), FE::one()];
         assert_eq!(m_poly.evaluate(x.as_slice()), FE::one());
-        assert_eq!(SparseMultilinearPolynomial::evaluate_with(3, &z, x.as_slice()), FE::one());
-
+        assert_eq!(
+            SparseMultilinearPolynomial::evaluate_with(3, &z, x.as_slice()),
+            FE::one()
+        );
     }
 }
