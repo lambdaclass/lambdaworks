@@ -80,4 +80,4 @@ fn poseidon_parse_prove_verify() {
 }
 ```
 
-For convenience, one can look up to [integration_tests.rs](integration_tests.rs) file and see an example where the Poseidon hash of "100" is proven and verified.
+For convenience, one can look up to [integration_tests.rs](integration_tests.rs) file and see an example where the Poseidon hash of "100" is proven and verified. The **vitalik_w_and_qap** example issues an example one can investigate with pen and paper, giving a clearer idea what the adapter does.
