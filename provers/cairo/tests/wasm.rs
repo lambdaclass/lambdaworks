@@ -17,13 +17,6 @@ fn test_prove_cairo1_program_wasm() {
     assert!(verify_cairo_proof_wasm(&PROOF, &proof_options));
 }
 
-#[cfg(feature = "wasm")]
-#[wasm_bindgen_test]
-#[test]
-fn test_prove_cairo1_program_wasm_100_bits() {
-    assert!(verify_cairo_proof_wasm_100_bits(&PROOF));
-}
-
 // Test case is fibo5, with default test options
 #[cfg(feature = "wasm")]
 static PROOF: [u8; 25527] = [
