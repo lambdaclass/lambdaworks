@@ -1,0 +1,25 @@
+[package]
+name = "prove-miden"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "prove-miden"
+path = "src/main.rs"
+
+[dependencies]
+lambdaworks-crypto = { workspace = true }
+lambdaworks-math = { workspace = true, features = ["lambdaworks-serde-string"] }
+lambdaworks-winterfell-adapter = { workspace = true }
+stark-platinum-prover = { git = "https://github.com/lambdaclass/lambdaworks" , rev = "3da725de1e6f76c04ddbb3ccb67e6038a7663134", features = ["winter_compatibility"] }
+
+serde = { version = "1.0" }
+serde_json = "1"
+bincode = { version = "2.0.0-rc.2", tag = "v2.0.0-rc.2", git = "https://github.com/bincode-org/bincode.git", features= ['serde'] }
+miden-core = { package = "miden-core" , version = "0.7"}
+miden-assembly = { package = "miden-assembly", version = "0.7" }
+miden-processor = { package = "miden-processor", version = "0.7" }
+miden-air = { package = "miden-air", version = "0.7"}
+winter-prover = { package = "winter-prover", version = "0.6.4" }

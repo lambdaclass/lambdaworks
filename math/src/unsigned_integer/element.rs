@@ -14,6 +14,8 @@ use proptest::{
 
 use crate::errors::ByteConversionError;
 use crate::errors::CreationError;
+#[cfg(feature = "alloc")]
+use crate::traits::AsBytes;
 use crate::traits::ByteConversion;
 use crate::unsigned_integer::traits::IsUnsignedInteger;
 
@@ -486,6 +488,16 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
         UnsignedInteger { limbs: result }
     }
 
+    /// Creates a hexstring from a `FieldElement` without `0x`.
+    #[cfg(feature = "std")]
+    pub fn to_hex(&self) -> String {
+        let mut hex_string = String::new();
+        for &limb in self.limbs.iter() {
+            hex_string.push_str(&format!("{:016X}", limb));
+        }
+        hex_string.trim_start_matches('0').to_string()
+    }
+
     pub const fn const_ne(a: &UnsignedInteger<NUM_LIMBS>, b: &UnsignedInteger<NUM_LIMBS>) -> bool {
         let mut i = 0;
         while i < NUM_LIMBS {
@@ -878,16 +890,16 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
 impl<const NUM_LIMBS: usize> IsUnsignedInteger for UnsignedInteger<NUM_LIMBS> {}
 
 impl<const NUM_LIMBS: usize> ByteConversion for UnsignedInteger<NUM_LIMBS> {
-    #[cfg(feature = "std")]
-    fn to_bytes_be(&self) -> Vec<u8> {
+    #[cfg(feature = "alloc")]
+    fn to_bytes_be(&self) -> alloc::vec::Vec<u8> {
         self.limbs
             .iter()
             .flat_map(|limb| limb.to_be_bytes())
             .collect()
     }
 
-    #[cfg(feature = "std")]
-    fn to_bytes_le(&self) -> Vec<u8> {
+    #[cfg(feature = "alloc")]
+    fn to_bytes_le(&self) -> alloc::vec::Vec<u8> {
         self.limbs
             .iter()
             .rev()
@@ -952,9 +964,28 @@ impl<const NUM_LIMBS: usize> From<UnsignedInteger<NUM_LIMBS>> for u16 {
     }
 }
 
+#[cfg(feature = "alloc")]
+impl<const NUM_LIMBS: usize> AsBytes for UnsignedInteger<NUM_LIMBS> {
+    fn as_bytes(&self) -> alloc::vec::Vec<u8> {
+        self.limbs
+            .into_iter()
+            .fold(alloc::vec::Vec::new(), |mut acc, limb| {
+                acc.extend_from_slice(&limb.as_bytes());
+                acc
+            })
+    }
+}
+
+#[cfg(feature = "alloc")]
+impl<const NUM_LIMBS: usize> From<UnsignedInteger<NUM_LIMBS>> for alloc::vec::Vec<u8> {
+    fn from(val: UnsignedInteger<NUM_LIMBS>) -> Self {
+        val.as_bytes()
+    }
+}
+
 #[cfg(feature = "proptest")]
 fn any_uint<const NUM_LIMBS: usize>() -> impl Strategy<Value = UnsignedInteger<NUM_LIMBS>> {
-    any::<[u64; NUM_LIMBS]>().prop_map(|limbs| UnsignedInteger::from_limbs(limbs))
+    any::<[u64; NUM_LIMBS]>().prop_map(UnsignedInteger::from_limbs)
 }
 
 #[cfg(feature = "proptest")]
@@ -970,18 +1001,26 @@ impl<const NUM_LIMBS: usize> Arbitrary for UnsignedInteger<NUM_LIMBS> {
 
 #[cfg(test)]
 mod tests_u384 {
-
     use crate::traits::ByteConversion;
     use crate::unsigned_integer::element::{UnsignedInteger, U384};
+    #[cfg(feature = "proptest")]
+    use proptest::prelude::*;
+    #[cfg(feature = "proptest")]
+    use std::ops::Shr;
+
+    #[cfg(feature = "proptest")]
+    const N_LIMBS: usize = 8;
+    #[cfg(feature = "proptest")]
+    type Uint = UnsignedInteger<N_LIMBS>;
 
     #[cfg(feature = "proptest")]
     proptest! {
         #[test]
         fn bitand(a in any::<Uint>(), b in any::<Uint>()) {
-            let result = Uint::from_limbs(a) & Uint::from_limbs(b);
+            let result = a & b;
 
             for i in 0..N_LIMBS {
-                assert_eq!(result.limbs[i], a[i] & b[i]);
+                assert_eq!(result.limbs[i], a.limbs[i] & b.limbs[i]);
             }
         }
 
@@ -1854,7 +1893,7 @@ mod tests_u384 {
     }
 
     #[test]
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     fn to_be_bytes_works() {
         let number = U384::from_u64(1);
         let expected_bytes = [
@@ -1866,7 +1905,7 @@ mod tests_u384 {
     }
 
     #[test]
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     fn to_le_bytes_works() {
         let number = U384::from_u64(1);
         let expected_bytes = [
@@ -2021,10 +2060,17 @@ mod tests_u384 {
 
 #[cfg(test)]
 mod tests_u256 {
-
-    use crate::unsigned_integer::element::{UnsignedInteger, U256};
-
     use crate::unsigned_integer::element::ByteConversion;
+    use crate::unsigned_integer::element::{UnsignedInteger, U256};
+    #[cfg(feature = "proptest")]
+    use proptest::prelude::*;
+    #[cfg(feature = "proptest")]
+    use std::ops::Shr;
+
+    #[cfg(feature = "proptest")]
+    const N_LIMBS: usize = 4;
+    #[cfg(feature = "proptest")]
+    type Uint = UnsignedInteger<N_LIMBS>;
 
     #[cfg(feature = "proptest")]
     proptest! {
@@ -2836,7 +2882,7 @@ mod tests_u256 {
     }
 
     #[test]
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     fn to_be_bytes_works() {
         let number = U256::from_u64(1);
         let expected_bytes = [
@@ -2848,7 +2894,7 @@ mod tests_u256 {
     }
 
     #[test]
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     fn to_le_bytes_works() {
         let number = U256::from_u64(1);
         let expected_bytes = [
@@ -2967,5 +3013,12 @@ mod tests_u256 {
                 U256::from_u128(12368508650766)
             )
         );
+    }
+
+    #[cfg(feature = "std")]
+    #[test]
+    fn to_hex_test() {
+        let a = U256::from_hex_unchecked("390aa99bead76bc0093b1bc1a8101f5ce");
+        assert_eq!(U256::to_hex(&a), "390AA99BEAD76BC0093B1BC1A8101F5CE")
     }
 }

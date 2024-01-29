@@ -14,7 +14,7 @@ use core::iter::Sum;
     feature = "lambdaworks-serde-string"
 ))]
 use core::marker::PhantomData;
-use core::ops::{Add, AddAssign, Div, Mul, Neg, Sub};
+use core::ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Sub};
 #[cfg(any(
     feature = "lambdaworks-serde-binary",
     feature = "lambdaworks-serde-string"
@@ -41,7 +41,7 @@ pub struct FieldElement<F: IsField> {
     value: F::BaseType,
 }
 
-#[cfg(feature = "std")]
+#[cfg(feature = "alloc")]
 impl<F: IsField> FieldElement<F> {
     // Source: https://en.wikipedia.org/wiki/Modular_multiplicative_inverse#Multiple_inverses
     pub fn inplace_batch_inverse(numbers: &mut [Self]) -> Result<(), FieldError> {
@@ -49,7 +49,7 @@ impl<F: IsField> FieldElement<F> {
             return Ok(());
         }
         let count = numbers.len();
-        let mut prod_prefix = Vec::with_capacity(count);
+        let mut prod_prefix = alloc::vec::Vec::with_capacity(count);
         prod_prefix.push(numbers[0].clone());
         for i in 1..count {
             prod_prefix.push(&prod_prefix[i - 1] * &numbers[i]);
@@ -65,7 +65,7 @@ impl<F: IsField> FieldElement<F> {
     }
 
     #[inline(always)]
-    pub fn to_subfield_vec<S>(self) -> Vec<FieldElement<S>>
+    pub fn to_subfield_vec<S>(self) -> alloc::vec::Vec<FieldElement<S>>
     where
         S: IsSubFieldOf<F>,
     {
@@ -301,6 +301,28 @@ where
     }
 }
 
+/// MulAssign operator overloading for field elements
+impl<F, L> MulAssign<FieldElement<F>> for FieldElement<L>
+where
+    F: IsSubFieldOf<L>,
+    L: IsField,
+{
+    fn mul_assign(&mut self, rhs: FieldElement<F>) {
+        self.value = <F as IsSubFieldOf<L>>::mul(&rhs.value, &self.value);
+    }
+}
+
+/// MulAssign operator overloading for field elements
+impl<F, L> MulAssign<&FieldElement<F>> for FieldElement<L>
+where
+    F: IsSubFieldOf<L>,
+    L: IsField,
+{
+    fn mul_assign(&mut self, rhs: &FieldElement<F>) {
+        self.value = <F as IsSubFieldOf<L>>::mul(&rhs.value, &self.value);
+    }
+}
+
 /// Division operator overloading for field elements*/
 impl<F, L> Div<&FieldElement<L>> for &FieldElement<F>
 where
@@ -488,6 +510,12 @@ impl<F: IsPrimeField> FieldElement<F> {
             value: F::from_hex(hex_string)?,
         })
     }
+
+    #[cfg(feature = "std")]
+    /// Creates a hexstring from a `FieldElement` without `0x`.
+    pub fn to_hex(&self) -> String {
+        F::to_hex(&self.value)
+    }
 }
 
 #[cfg(feature = "lambdaworks-serde-binary")]
@@ -551,7 +579,7 @@ where
             where
                 M: MapAccess<'de>,
             {
-                let mut value: Option<Vec<u8>> = None;
+                let mut value: Option<alloc::vec::Vec<u8>> = None;
                 while let Some(key) = map.next_key()? {
                     match key {
                         Field::Value => {
@@ -571,7 +599,7 @@ where
             where
                 S: SeqAccess<'de>,
             {
-                let mut value: Option<Vec<u8>> = None;
+                let mut value: Option<alloc::vec::Vec<u8>> = None;
                 while let Some(val) = seq.next_element()? {
                     if value.is_some() {
                         return Err(de::Error::duplicate_field("value"));
@@ -690,9 +718,11 @@ mod tests {
     use crate::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;
     use crate::field::fields::u64_prime_field::U64PrimeField;
     use crate::field::test_fields::u64_test_field::U64TestField;
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     use crate::unsigned_integer::element::UnsignedInteger;
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
+    use alloc::vec::Vec;
+    #[cfg(feature = "alloc")]
     use proptest::collection;
     use proptest::{prelude::*, prop_compose, proptest, strategy::Strategy};
 
@@ -721,9 +751,11 @@ mod tests {
         );
     }
 
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     #[test]
     fn test_display_montgomery_field() {
+        use alloc::format;
+
         let zero_field_element = FieldElement::<Stark252PrimeField>::from(0);
         assert_eq!(format!("{}", zero_field_element), "0x0");
 
@@ -843,16 +875,18 @@ mod tests {
     }
 
     prop_compose! {
-        #[cfg(feature = "std")]
+        #[cfg(feature = "alloc")]
         fn field_vec(max_exp: u8)(vec in collection::vec(field_element(), 0..1 << max_exp)) -> Vec<FieldElement::<Stark252PrimeField>> {
             vec
         }
     }
 
     proptest! {
-        #[cfg(feature = "std")]
+        #[cfg(feature = "alloc")]
         #[test]
         fn test_inplace_batch_inverse_returns_inverses(vec in field_vec(10)) {
+            use alloc::format;
+
             let input: Vec<_> = vec.into_iter().filter(|x| x != &FieldElement::<Stark252PrimeField>::zero()).collect();
             let mut inverses = input.clone();
             FieldElement::inplace_batch_inverse(&mut inverses).unwrap();

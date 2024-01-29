@@ -9,12 +9,12 @@ use crate::errors::ByteConversionError;
 /// little-endian order.
 pub trait ByteConversion {
     /// Returns the byte representation of the element in big-endian order.}
-    #[cfg(feature = "std")]
-    fn to_bytes_be(&self) -> Vec<u8>;
+    #[cfg(feature = "alloc")]
+    fn to_bytes_be(&self) -> alloc::vec::Vec<u8>;
 
     /// Returns the byte representation of the element in little-endian order.
-    #[cfg(feature = "std")]
-    fn to_bytes_le(&self) -> Vec<u8>;
+    #[cfg(feature = "alloc")]
+    fn to_bytes_le(&self) -> alloc::vec::Vec<u8>;
 
     /// Returns the element from its byte representation in big-endian order.
     fn from_bytes_be(bytes: &[u8]) -> Result<Self, ByteConversionError>
@@ -29,14 +29,27 @@ pub trait ByteConversion {
 
 /// Serialize function without args
 /// Used for serialization when formatting options are not relevant
-pub trait Serializable {
+#[cfg(feature = "alloc")]
+pub trait AsBytes {
     /// Default serialize without args
-    #[cfg(feature = "std")]
-    fn serialize(&self) -> Vec<u8>;
+    fn as_bytes(&self) -> alloc::vec::Vec<u8>;
+}
+
+#[cfg(feature = "alloc")]
+impl AsBytes for u32 {
+    fn as_bytes(&self) -> alloc::vec::Vec<u8> {
+        self.to_le_bytes().to_vec()
+    }
+}
+
+#[cfg(feature = "alloc")]
+impl AsBytes for u64 {
+    fn as_bytes(&self) -> alloc::vec::Vec<u8> {
+        self.to_le_bytes().to_vec()
+    }
 }
 
 /// Deserialize function without args
-/// Used along with the Serializable trait
 pub trait Deserializable {
     fn deserialize(bytes: &[u8]) -> Result<Self, DeserializationError>
     where

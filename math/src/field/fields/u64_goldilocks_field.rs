@@ -24,13 +24,13 @@ impl Goldilocks64Field {
 
 #[cfg(feature = "lambdaworks-serde-binary")]
 impl ByteConversion for u64 {
-    #[cfg(feature = "std")]
-    fn to_bytes_be(&self) -> Vec<u8> {
+    #[cfg(feature = "alloc")]
+    fn to_bytes_be(&self) -> alloc::vec::Vec<u8> {
         unimplemented!()
     }
 
-    #[cfg(feature = "std")]
-    fn to_bytes_le(&self) -> Vec<u8> {
+    #[cfg(feature = "alloc")]
+    fn to_bytes_le(&self) -> alloc::vec::Vec<u8> {
         unimplemented!()
     }
 
@@ -176,6 +176,11 @@ impl IsPrimeField for Goldilocks64Field {
             hex_string = &hex_string[2..];
         }
         u64::from_str_radix(hex_string, 16).map_err(|_| CreationError::InvalidHexString)
+    }
+
+    #[cfg(feature = "std")]
+    fn to_hex(x: &u64) -> String {
+        format!("{:X}", x)
     }
 }
 
@@ -472,5 +477,12 @@ mod tests {
     fn from_base_type_test() {
         let b = F::from_base_type(1u64);
         assert_eq!(b, F::one());
+    }
+
+    #[cfg(feature = "std")]
+    #[test]
+    fn to_hex_test() {
+        let num = F::from_hex("B").unwrap();
+        assert_eq!(F::to_hex(&num), "B");
     }
 }

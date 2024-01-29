@@ -7,14 +7,14 @@ use lambdaworks_math::{
         fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
         traits::{IsField, IsSubFieldOf},
     },
-    traits::Serializable,
+    traits::AsBytes,
 };
 
 use crate::{
     config::Commitment,
     domain::Domain,
     fri::fri_decommit::FriDecommitment,
-    table::EvaluationTable,
+    table::Table,
     traits::AIR,
     transcript::StoneProverTranscript,
     verifier::{IsStarkVerifier, Verifier},
@@ -50,7 +50,7 @@ pub struct StarkProof<F: IsSubFieldOf<E>, E: IsField> {
     // [tⱼ]
     pub lde_trace_aux_merkle_root: Option<Commitment>,
     // tⱼ(zgᵏ)
-    pub trace_ood_evaluations: EvaluationTable<E, E>,
+    pub trace_ood_evaluations: Table<E>,
     // Commitments to Hᵢ
     pub composition_poly_root: Commitment,
     // Hᵢ(z^N)
@@ -80,7 +80,7 @@ impl StoneCompatibleSerializer {
     ) -> Vec<u8>
     where
         A: AIR<Field = Stark252PrimeField, FieldExtension = Stark252PrimeField>,
-        A::PublicInputs: Serializable,
+        A::PublicInputs: AsBytes,
     {
         let mut output = Vec::new();
 
@@ -131,15 +131,14 @@ impl StoneCompatibleSerializer {
         proof: &StarkProof<Stark252PrimeField, Stark252PrimeField>,
         output: &mut Vec<u8>,
     ) {
-        for i in 0..proof.trace_ood_evaluations.n_cols() {
-            for j in 0..proof.trace_ood_evaluations.n_rows() {
-                output
-                    .extend_from_slice(&proof.trace_ood_evaluations.get_row_main(j)[i].serialize());
+        for i in 0..proof.trace_ood_evaluations.width {
+            for j in 0..proof.trace_ood_evaluations.height {
+                output.extend_from_slice(&proof.trace_ood_evaluations.get_row(j)[i].as_bytes());
             }
         }
 
         for elem in proof.composition_poly_parts_ood_evaluation.iter() {
-            output.extend_from_slice(&elem.serialize());
+            output.extend_from_slice(&elem.as_bytes());
         }
     }
 
@@ -157,7 +156,7 @@ impl StoneCompatibleSerializer {
                 .collect::<Vec<_>>(),
         );
 
-        output.extend_from_slice(&proof.fri_last_value.serialize());
+        output.extend_from_slice(&proof.fri_last_value.as_bytes());
     }
 
     /// Appends the proof of work nonce in case there is one. There could be none if the `grinding_factor`
@@ -215,20 +214,20 @@ impl StoneCompatibleSerializer {
         // Append BT_{i_1} | BT_{i_2} | ... | BT_{i_k}
         for (opening, _) in fri_first_layer_openings.iter() {
             for elem in opening.main_trace_polys.evaluations.iter() {
-                output.extend_from_slice(&elem.serialize());
+                output.extend_from_slice(&elem.as_bytes());
             }
             if let Some(aux) = &opening.aux_trace_polys {
                 for elem in aux.evaluations.iter() {
-                    output.extend_from_slice(&elem.serialize());
+                    output.extend_from_slice(&elem.as_bytes());
                 }
             }
 
             for elem in opening.main_trace_polys.evaluations_sym.iter() {
-                output.extend_from_slice(&elem.serialize());
+                output.extend_from_slice(&elem.as_bytes());
             }
             if let Some(aux) = &opening.aux_trace_polys {
                 for elem in aux.evaluations_sym.iter() {
-                    output.extend_from_slice(&elem.serialize());
+                    output.extend_from_slice(&elem.as_bytes());
                 }
             }
         }
@@ -277,10 +276,10 @@ impl StoneCompatibleSerializer {
         // Append BH_{i_1} | BH_{i_2} | ... | B_{i_k}
         for (opening, _) in fri_first_layer_openings.iter() {
             for elem in opening.composition_poly.evaluations.iter() {
-                output.extend_from_slice(&elem.serialize());
+                output.extend_from_slice(&elem.as_bytes());
             }
             for elem in opening.composition_poly.evaluations_sym.iter() {
-                output.extend_from_slice(&elem.serialize());
+                output.extend_from_slice(&elem.as_bytes());
             }
         }
 
@@ -363,7 +362,7 @@ impl StoneCompatibleSerializer {
                 .iter()
                 .map(|(row, col)| &fri_layers_evaluations[&(i as u64, *row, *col)])
             {
-                output.extend_from_slice(&element.serialize());
+                output.extend_from_slice(&element.as_bytes());
             }
 
             indexes_previous_layer = indexes_previous_layer
@@ -450,9 +449,9 @@ impl StoneCompatibleSerializer {
     ) -> Vec<usize>
     where
         A: AIR<Field = Stark252PrimeField, FieldExtension = Stark252PrimeField>,
-        A::PublicInputs: Serializable,
+        A::PublicInputs: AsBytes,
     {
-        let mut transcript = StoneProverTranscript::new(&public_inputs.serialize());
+        let mut transcript = StoneProverTranscript::new(&public_inputs.as_bytes());
         let air = A::new(proof.trace_length, public_inputs, proof_options);
         let domain = Domain::<Stark252PrimeField>::new(&air);
         let challenges = Verifier::step_1_replay_rounds_and_recover_challenges(
@@ -467,7 +466,7 @@ impl StoneCompatibleSerializer {
 
 #[cfg(test)]
 mod tests {
-    use lambdaworks_math::{field::element::FieldElement, traits::Serializable};
+    use lambdaworks_math::{field::element::FieldElement, traits::AsBytes};
 
     use crate::{
         examples::fibonacci_2_cols_shifted::{self, Fibonacci2ColsShifted},
@@ -498,7 +497,7 @@ mod tests {
             &trace,
             &pub_inputs,
             &proof_options,
-            StoneProverTranscript::new(&pub_inputs.serialize()),
+            StoneProverTranscript::new(&pub_inputs.as_bytes()),
         )
         .unwrap();
 
@@ -576,7 +575,7 @@ mod tests {
             &trace,
             &pub_inputs,
             &proof_options,
-            StoneProverTranscript::new(&pub_inputs.serialize()),
+            StoneProverTranscript::new(&pub_inputs.as_bytes()),
         )
         .unwrap();
         let expected_bytes = [
@@ -668,7 +667,7 @@ mod tests {
             &trace,
             &pub_inputs,
             &proof_options,
-            StoneProverTranscript::new(&pub_inputs.serialize()),
+            StoneProverTranscript::new(&pub_inputs.as_bytes()),
         )
         .unwrap();
 
@@ -932,7 +931,7 @@ mod tests {
             &trace,
             &pub_inputs,
             &proof_options,
-            StoneProverTranscript::new(&pub_inputs.serialize()),
+            StoneProverTranscript::new(&pub_inputs.as_bytes()),
         )
         .unwrap();
 
@@ -1010,7 +1009,7 @@ mod tests {
             &trace,
             &pub_inputs,
             &proof_options,
-            StoneProverTranscript::new(&pub_inputs.serialize()),
+            StoneProverTranscript::new(&pub_inputs.as_bytes()),
         )
         .unwrap();
 

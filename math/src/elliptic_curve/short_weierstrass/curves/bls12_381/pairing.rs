@@ -1,19 +1,17 @@
+use super::curve::MILLER_LOOP_CONSTANT;
 use super::{
-    curve::{BLS12381Curve, MILLER_LOOP_CONSTANT},
+    curve::BLS12381Curve,
     field_extension::{BLS12381PrimeField, Degree12ExtensionField, Degree2ExtensionField},
     twist::BLS12381TwistCurve,
 };
+use crate::{cyclic_group::IsGroup, elliptic_curve::traits::IsPairing, errors::PairingError};
+
 use crate::{
-    cyclic_group::IsGroup,
-    elliptic_curve::{
-        short_weierstrass::{
-            curves::bls12_381::field_extension::{Degree6ExtensionField, LevelTwoResidue},
-            point::ShortWeierstrassProjectivePoint,
-            traits::IsShortWeierstrass,
-        },
-        traits::IsPairing,
+    elliptic_curve::short_weierstrass::{
+        curves::bls12_381::field_extension::{Degree6ExtensionField, LevelTwoResidue},
+        point::ShortWeierstrassProjectivePoint,
+        traits::IsShortWeierstrass,
     },
-    errors::PairingError,
     field::{element::FieldElement, extensions::cubic::HasCubicNonResidue},
     unsigned_integer::element::{UnsignedInteger, U256},
 };
@@ -23,6 +21,7 @@ pub const SUBGROUP_ORDER: U256 =
 
 #[derive(Clone)]
 pub struct BLS12381AtePairing;
+
 impl IsPairing for BLS12381AtePairing {
     type G1Point = ShortWeierstrassProjectivePoint<BLS12381Curve>;
     type G2Point = ShortWeierstrassProjectivePoint<BLS12381TwistCurve>;
@@ -40,7 +39,7 @@ impl IsPairing for BLS12381AtePairing {
             if !p.is_neutral_element() && !q.is_neutral_element() {
                 let p = p.to_affine();
                 let q = q.to_affine();
-                result = result * miller(&q, &p);
+                result *= miller(&q, &p);
             }
         }
         Ok(final_exponentiation(&result))
@@ -101,6 +100,7 @@ fn double_accumulate_line(
         ]),
     ]);
 }
+
 fn add_accumulate_line(
     t: &mut ShortWeierstrassProjectivePoint<BLS12381TwistCurve>,
     q: &ShortWeierstrassProjectivePoint<BLS12381TwistCurve>,
@@ -163,7 +163,7 @@ fn miller(
     let mut r = q.clone();
     let mut f = FieldElement::<Degree12ExtensionField>::one();
     let mut miller_loop_constant = MILLER_LOOP_CONSTANT;
-    let mut miller_loop_constant_bits: Vec<bool> = vec![];
+    let mut miller_loop_constant_bits: alloc::vec::Vec<bool> = alloc::vec![];
 
     while miller_loop_constant > 0 {
         miller_loop_constant_bits.insert(0, (miller_loop_constant & 1) == 1);

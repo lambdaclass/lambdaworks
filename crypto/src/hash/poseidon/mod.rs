@@ -1,3 +1,4 @@
+use alloc::{borrow::ToOwned, vec::Vec};
 use lambdaworks_math::field::element::FieldElement as FE;
 
 pub mod parameters;
@@ -64,7 +65,7 @@ impl<P: PermutationParameters> Poseidon for P {
             let mut new_e = FE::zero();
             for (j, current_state) in state.iter().enumerate() {
                 let mut mij = P::MDS_MATRIX[i * P::N_MDS_MATRIX_COLS + j].clone();
-                mij = mij * current_state;
+                mij *= current_state;
                 new_e += mij;
             }
             new_state.push(new_e);

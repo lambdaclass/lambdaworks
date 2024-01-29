@@ -143,22 +143,24 @@ impl IsSubFieldOf<Degree2ExtensionField> for BLS12381PrimeField {
         [FieldElement::from_raw(a), FieldElement::zero()]
     }
 
-    #[cfg(feature = "std")]
-    fn to_subfield_vec(b: <Degree2ExtensionField as IsField>::BaseType) -> Vec<Self::BaseType> {
+    #[cfg(feature = "alloc")]
+    fn to_subfield_vec(
+        b: <Degree2ExtensionField as IsField>::BaseType,
+    ) -> alloc::vec::Vec<Self::BaseType> {
         b.into_iter().map(|x| x.to_raw()).collect()
     }
 }
 
 impl ByteConversion for FieldElement<Degree2ExtensionField> {
-    #[cfg(feature = "std")]
-    fn to_bytes_be(&self) -> Vec<u8> {
+    #[cfg(feature = "alloc")]
+    fn to_bytes_be(&self) -> alloc::vec::Vec<u8> {
         let mut byte_slice = ByteConversion::to_bytes_be(&self.value()[0]);
         byte_slice.extend(ByteConversion::to_bytes_be(&self.value()[1]));
         byte_slice
     }
 
-    #[cfg(feature = "std")]
-    fn to_bytes_le(&self) -> Vec<u8> {
+    #[cfg(feature = "alloc")]
+    fn to_bytes_le(&self) -> alloc::vec::Vec<u8> {
         let mut byte_slice = ByteConversion::to_bytes_le(&self.value()[0]);
         byte_slice.extend(ByteConversion::to_bytes_le(&self.value()[1]));
         byte_slice

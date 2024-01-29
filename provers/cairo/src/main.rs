@@ -189,7 +189,7 @@ fn verify_proof(
     println!("  Time spent in verifying: {:?} \n", timer.elapsed());
 
     if proof_verified {
-        println!("Verification succeded");
+        println!("Verification succeeded");
     } else {
         println!("Verification failed");
     }
@@ -230,7 +230,6 @@ fn write_proof(
 
 fn main() {
     let proof_options = ProofOptions::new_secure(SecurityLevel::Conjecturable100Bits, 3);
-
     let args: commands::ProverArgs = commands::ProverArgs::parse();
     match args.entity {
         commands::ProverEntity::Compile(args) => {
