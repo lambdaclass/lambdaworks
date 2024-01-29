@@ -39,7 +39,7 @@ impl IsPairing for BLS12381AtePairing {
             if !p.is_neutral_element() && !q.is_neutral_element() {
                 let p = p.to_affine();
                 let q = q.to_affine();
-                result = result * miller(&q, &p);
+                result *= miller(&q, &p);
             }
         }
         Ok(final_exponentiation(&result))

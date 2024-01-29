@@ -14,6 +14,12 @@ This library provides efficient implementation of cryptographic primitives used 
 
 </div>
 
+## Why we built lambdaworks
+
+Zero-Knowledge and Validity Proofs have gained a lot of attention over the last few years. We strongly believe in this potential and that is why we decided to start working in this challenging ecosystem, where math, cryptography and distributed systems meet. The main barrier in the beginning was not the cryptography or math but the lack of good libraries which are performant and developer friendly. There are some exceptions, though, like gnark or halo2. Some have nice APIs and are easy to work with, but they are not written in Rust, and some are written in Rust but have poor programming and engineering practices. Most of them don't have support for CUDA, Metal and WebGPU or distributed FFT calculation using schedulers like Dask.
+
+So, we decided to build our library, focusing on performance, with clear documentation and developer-focused. Our core team is a group of passionate people from different backgrounds and different strengths; we think that the whole is greater than just the addition of the parts. We don't want to be a compilation of every research result in the ZK space. We want this to be a library that can be used in production, not just in academic research. We want to offer developers the main building blocks and proof systems so that they can build their applications on top of this library.
+
 ## [Documentation](https://lambdaclass.github.io/lambdaworks)
 
 ## Main crates
@@ -36,6 +42,8 @@ Both Math and Crypto support wasm with target `wasm32-unknown-unknown`. To see a
 
 ## Examples - mini apps
 - [Merkle Tree CLI](https://github.com/lambdaclass/lambdaworks/tree/main/examples/merkle-tree-cli)
+- [Proving Miden](https://github.com/lambdaclass/lambdaworks/tree/main/examples/prove-miden)
+- [Shamir's secret sharing](https://github.com/lambdaclass/lambdaworks/tree/main/examples/shamir_secret_sharing)
 
 ## Exercises and Challenges
 - [lambdaworks exercises and challenges](https://github.com/lambdaclass/lambdaworks_exercises/tree/main)
@@ -54,12 +62,6 @@ If you use ```lambdaworks``` libraries in your research projects, please cite th
 }
 ```
 
-## Why we built lambdaworks
-
-Zero-Knowledge and Validity Proofs have gained a lot of attention over the last few years. We strongly believe in this potential and that is why we decided to start working in this challenging ecosystem, where math, cryptography and distributed systems meet. The main barrier in the beginning was not the cryptography or math but the lack of good libraries which are performant and developer friendly. There are some exceptions, though, like gnark or halo2. Some have nice APIs and are easy to work with, but they are not written in Rust, and some are written in Rust but have poor programming and engineering practices. Most of them don't have support for CUDA, Metal and WebGPU or distributed FFT calculation using schedulers like Dask.
-
-So, we decided to build our library, focusing on performance, with clear documentation and developer-focused. Our core team is a group of passionate people from different backgrounds and different strengths; we think that the whole is greater than just the addition of the parts. We don't want to be a compilation of every research result in the ZK space. We want this to be a library that can be used in production, not just in academic research. We want to offer developers the main building blocks and proof systems so that they can build their applications on top of this library.
-
 ## List of features
 
 Disclaimer: This list contains cryptographic primitives and mathematical structures that we want to support in lambdaworks. It can be expanded later to include new primitives. If you find there is a mistake or there has been an update in another library, please let us know.
@@ -69,42 +71,43 @@ List of symbols:
 - 🏗️ means that the feature is partially implemented or is under active construction.
 - :x: means that the feature is not currently supported.
 
-| Finite Fields  | lambdaworks        | Arkworks           | Halo2    | gnark | Constantine |
-| -------------- | ------------------ | ------------------ | --- | ----- | ----------- |
-| StarkField 252 | :heavy_check_mark: | :heavy_check_mark: |     |       |             |
-| Mersenne 31    | :heavy_check_mark: |                    |     |       |             |
-| Baby Bear      | :heavy_check_mark: |                    |     |       |             |
-| MiniGoldilocks | :heavy_check_mark: |                    |     |       |             |
-| **ZK friendly Hash function** | **lambdaworks** | **Arkworks** | **Halo2** | **gnark** | **Constantine** |
-| Poseidon                  | 🏗️    | :heavy_check_mark: |     |       |             |
-| Pedersen                  | 🏗️    | :heavy_check_mark: |     |       |             |
-| Rescue Prime XLIX         | :x:         |                    |     |       |             |
-| **Elliptic Curves** | **lambdaworks** | **Arkworks** | **Halo2** | **gnark** | **Constantine** |
-| BLS12-381       | :heavy_check_mark: | :heavy_check_mark: |     |                    |             |
-| BLS12-377       | 🏗️           | :heavy_check_mark: |     | :heavy_check_mark: |             |
-| BN-254          | 🏗️              | :heavy_check_mark: |     |                    |             |
-| Pallas          | :heavy_check_mark:                | :heavy_check_mark: |     |                    |             |
-| Vesta           | :heavy_check_mark:                | :heavy_check_mark: |     |                    |             |
-| Bandersnatch    | 🏗️           | :heavy_check_mark: |     |                    |             |
-| **STARKs**       | **lambdaworks** | **Arkworks** | **Halo2** | **gnark** | **Constantine** |
-| STARK Prover | :heavy_check_mark: | :x:      |     | :x:   |             |
-| CAIRO Prover | 🏗️           | :x:      |     | :x:   |             |
-| **SNARKs**  |**lambdaworks** | **Arkworks** | **Halo2** | **gnark** | **Constantine** |
-| Groth16 | :heavy_check_mark: | :heavy_check_mark: |     | :heavy_check_mark: |             |
-| Plonk   | 🏗️                 | :x:                | ✔️    | :heavy_check_mark: |             |
-| Spartan | :x:                | :heavy_check_mark: |     |                    |             |
-| Marlin  | :x:                | :heavy_check_mark: |     |                    |             |
-| GKR     | :x:                | :heavy_check_mark: |     | :heavy_check_mark: |             |
-| **Polynomial Commitment Schemes** | **lambdaworks** | **Arkworks** | **Halo2** | **gnark** | **Constantine** |
-| FRI                           | 🏗️                  |   :x:        | :x:       | :heavy_check_mark: |             |
-| IPA                           | 🏗️                  |   ✔️           | :heavy_check_mark: |           |             |
-| Hyrax                         | :x:                |               | :x:       |                    |             |
-| KZG10                         | :heavy_check_mark: |   ✔️  | :heavy_check_mark: | :heavy_check_mark: |             |
-| **Folding Schemes** | **lambdaworks** | **Arkworks** | **Halo2** | **gnark** | **Constantine** |
-| Nova            | :x:         |          |       |       |             |
-| Supernova       | :x:         |          |       |       |             |
-| Protostar       | :x:         |          |       |       |             |
-| Protogalaxy     | :x:         |          |       |       |             |
+| Finite Fields  | Lambdaworks        | Arkworks           | Halo2    | gnark              | Constantine |
+| -------------- | ------------------ | ------------------ | -------- | ------------------ | ----------- |
+| StarkField 252 | :heavy_check_mark: | :heavy_check_mark: | :x:      | :heavy_check_mark: | :x:         |
+| Mersenne 31    | :heavy_check_mark: | :x:                | :x:      | :x:                | :x:         |
+| Baby Bear      | :heavy_check_mark: | :x:                | :x:      | :x:                | :x:         |
+| MiniGoldilocks | :heavy_check_mark: | :x:                | :x:      | :heavy_check_mark: | :x:         |
+| **ZK friendly Hash function** | **Lambdaworks** | **Arkworks**       | **Halo2**          | **gnark** | **Constantine** |
+| Poseidon                      | 🏗️              | :heavy_check_mark: | :heavy_check_mark: | :x:       | :x:             |
+| Pedersen                      | 🏗️              | :heavy_check_mark: | :heavy_check_mark: | :x:       | :x:             |
+| Rescue Prime XLIX             | :x:             | :x:                | :x:                | :x:       | :x:             |
+| **Elliptic Curves** | **Lambdaworks** | **Arkworks**          | **Halo2**          | **gnark**          | **Constantine**    |
+| BLS12-381           | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |
+| BLS12-377           | 🏗️                 | :heavy_check_mark: | :x:                | :heavy_check_mark: | :heavy_check_mark: |
+| BN-254              | 🏗️                 | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |
+| Pallas              | :heavy_check_mark: | :heavy_check_mark: | :x:                | :x:                | :heavy_check_mark: |
+| Vesta               | :heavy_check_mark: | :heavy_check_mark: | :x:                | :x:                | :heavy_check_mark: |
+| Bandersnatch        | 🏗️                 | :heavy_check_mark: | :x:                | :heavy_check_mark:  | :heavy_check_mark: |
+| **STARKs**       | **Lambdaworks**     | **Arkworks** | **Halo2** | **gnark** | **Constantine** |
+| STARK Prover     | :heavy_check_mark:  | :x:          | :x:       | :x:       | :x:             |
+| CAIRO Prover     | 🏗️                  | :x:          | :x:       | :x:       | :x:             |
+| **SNARKs** | **Lambdaworks**    | **Arkworks**       | **Halo2** | **gnark**          | **Constantine** |
+| Groth16    | :heavy_check_mark: | :heavy_check_mark: | :x:       | :heavy_check_mark: | :x:             |
+| Plonk      | 🏗️                 | :heavy_check_mark: | ✔️         | :heavy_check_mark: | :x:             |
+| Spartan    | :x:                | :heavy_check_mark: | :x:       | :x:                | :x:             |
+| Marlin     | :x:                | :heavy_check_mark: | :x:       | :x:                | :x:             |
+| GKR        | :x:                | :heavy_check_mark: | :x:       | :heavy_check_mark: | :x:             |
+| **Polynomial Commitment Schemes** | **Lambdaworks**    | **Arkworks**       | **Halo2**          | **gnark**          | **Constantine** |
+| KZG10                             | :heavy_check_mark: | ✔️                  | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark:             |
+| FRI                               | 🏗️                 | :x:                | :x:                | :heavy_check_mark: | :x:             |
+| IPA                               | 🏗️                 | ✔️                  | :heavy_check_mark: | :x:                | :x:             |
+| Brakedown                         | :x:                | :x: | :x:                | :x:                | :x:             |
+| Basefold                          | :x:                | :x: | :x:                | :x:                | :x:             |
+| **Folding Schemes** | **Lambdaworks** | **Arkworks**       | **Halo2** | **gnark** | **Constantine** |
+| Nova                | :x:             | :heavy_check_mark: | :x:       | :x:       | :x:             |
+| Supernova           | :x:             | :x:                | :x:       | :x:       | :x:             |
+| Protostar           | :x:             | :x:                | :x:       | :x:       | :x:             |
+| Protogalaxy         | :x:             | :heavy_check_mark: | :x:       | :x:       | :x:             |
 
 Additionally, provers are compatible with the following frontends and VMs:
 
@@ -153,56 +156,6 @@ To serve the documentation locally, first install both [mdbook](https://rust-lan
 ``` shell
 make docs
 ```
-
-## 📊 Benchmarks
-
-Benchmark results are hosted [here](https://lambdaclass.github.io/lambdaworks/bench).
-
-These are the results of execution of the benchmarks for finite field arithmetic using the STARK field prime (p = 3618502788666131213697322783095070105623107215331596699973092056135872020481). 
-
-Differences of 3% are common for some measurements, so small differences are not statistically relevant.
-
-ARM - M1
-
-| Operation| N    | Arkworks  | lambdaworks |
-| -------- | --- | --------- | ----------- |
-| `mul`    |   10k  | 112 μs | 115 μs   |
-| `add`    |   1M  | 8.5 ms  | 7.0 ms    |
-| `sub`    |   1M  | 7.53 ms   | 7.12 ms     |
-| `pow`    |   10k  | 11.2 ms   | 12.4 ms    |
-| `invert` |  10k   | 30.0 ms  | 27.2 ms   |
-
-x86 - AMD Ryzen 7 PRO 
-
-| Operation | N    | Arkworks (ASM)*  | lambdaworks |
-| -------- | --- | --------- | ----------- |
-| `mul`    |   10k  | 118.9 us | 95.7 us   |
-| `add`    |   1M  | 6.8 ms  | 5.4 ms    |
-| `sub`    |   1M  |  6.6 ms  |  5.2 ms   |
-| `pow`    |   10k  |  10.6 ms   | 9.4 ms    |
-| `invert` |  10k   | 34.2 ms  | 35.74 ms |
-
-*assembly feature was enabled manually for that bench, and is not activated by default when running criterion
-
-To run them locally, you will need `cargo-criterion` and `cargo-flamegraph`. Install it with:
-
-```bash
-cargo install cargo-criterion
-```
-
-Run the complete benchmark suite with:
-
-```bash
-make benchmarks
-```
-
-Run a specific benchmark suite with `cargo`, for example to run the one for `field`:
-
-```bash
-make benchmark BENCH=field
-```
-
-You can check the generated HTML report in `target/criterion/reports/index.html`
 
 ## 📚 References
 
