@@ -40,7 +40,7 @@ mod fft_helpers_test {
         field::{
             element::FieldElement, test_fields::u64_test_field::U64TestField, traits::RootsConfig,
         },
-        polynomial::polynomial::Polynomial,
+        polynomial::Polynomial,
     };
     use proptest::{collection, prelude::*};
 
