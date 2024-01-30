@@ -109,7 +109,7 @@ mod tests {
 
     /*
     Sage script:
-
+    
     a = 0
     b = 3
     p = 21888242871839275222246405745257275088696311157297823662689037894645226208583
@@ -119,9 +119,8 @@ mod tests {
     Fp = GF(p)
     K.<u> = PolynomialRing(Fp)
     non_residue_fp = -1
-    non_residue_twist = fp2([9, 1])
-
     fp2.<beta> = Fp.extension(u^2 - non_residue_fp)
+    non_residue_twist = fp2([9, 1])
 
     g1 = EllipticCurve(Fp, [a, b])
     g2 = EllipticCurve(fp2, [0, b/fp2(non_residue_twist)])
@@ -136,6 +135,8 @@ mod tests {
     p = g2(px,py)
     q = g2(qx,qy)
     r = g2(rx,ry)
+
+    p + q  == r
     */
 
     #[test]
