@@ -3,6 +3,7 @@ use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;
 use serde::{Deserialize, Serialize};
 use stark_platinum_prover::proof::options::ProofOptions;
+use stark_platinum_prover::proof::options::SecurityLevel;
 use stark_platinum_prover::proof::stark::StarkProof;
 use stark_platinum_prover::transcript::StoneProverTranscript;
 use stark_platinum_prover::verifier::{IsStarkVerifier, Verifier};
@@ -51,6 +52,13 @@ pub fn verify_cairo_proof_wasm(proof_bytes: &[u8], proof_options: &ProofOptions)
         proof_options,
         StoneProverTranscript::new(&[]),
     )
+}
+
+/// WASM Function for verifying a proof with default 100 bits of security
+#[wasm_bindgen]
+pub fn verify_cairo_proof_wasm_100_bits(proof_bytes: &[u8]) -> bool {
+    let proof_options = ProofOptions::new_secure(SecurityLevel::Conjecturable100Bits, 3);
+    verify_cairo_proof_wasm(proof_bytes, &proof_options)
 }
 
 #[wasm_bindgen]
