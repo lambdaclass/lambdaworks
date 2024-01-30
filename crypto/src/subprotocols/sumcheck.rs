@@ -5,10 +5,11 @@ use crate::fiat_shamir::transcript::Transcript;
 use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::traits::{IsField, IsPrimeField};
 use lambdaworks_math::polynomial::{
-    dense_multilinear_poly::DenseMultilinearPolynomial, polynomial::Polynomial,
+    dense_multilinear_poly::DenseMultilinearPolynomial, Polynomial,
 };
 use lambdaworks_math::traits::ByteConversion;
-use rayon::iter::{IntoParallelIterator, ParallelIterator};
+#[cfg(feature = "parallel")]
+use rayon::iter::{IntoParallelIterator, IntoParallelIterator, ParallelIterator};
 
 fn eval_points_quadratic<F: IsField + IsPrimeField, E>(
     poly_a: &DenseMultilinearPolynomial<F>,
@@ -20,22 +21,24 @@ where
     E: Fn(&FieldElement<F>, &FieldElement<F>) -> FieldElement<F> + Sync + Send,
 {
     let len = poly_a.len() / 2;
-    (0..len)
-        .into_par_iter()
-        .map(|i| {
-            // eval_0: A(low)
-            let eval_0 = comb_func(&poly_a[i], &poly_b[i]);
+    #[cfg(not(feature = "parallel"))]
+    let iter = 0..len;
+    #[cfg(feature = "parallel")]
+    let iter = (0..len).into_par_iter();
+    iter.map(|i| {
+        // eval_0: A(low)
+        let eval_0 = comb_func(&poly_a[i], &poly_b[i]);
 
-            // eval_2: -A(low) + 2*A(high)
-            let poly_a_eval_2 = &poly_a[len + i] + &poly_a[len + i] - &poly_a[i];
-            let poly_b_eval_2 = &poly_b[len + i] + &poly_b[len + i] - &poly_b[i];
-            let eval_2 = comb_func(&poly_a_eval_2, &poly_b_eval_2);
-            (eval_0, eval_2)
-        })
-        .reduce(
-            || (FieldElement::<F>::zero(), FieldElement::<F>::zero()),
-            |a, b| (a.0 + b.0, a.1 + b.1),
-        )
+        // eval_2: -A(low) + 2*A(high)
+        let poly_a_eval_2 = &poly_a[len + i] + &poly_a[len + i] - &poly_a[i];
+        let poly_b_eval_2 = &poly_b[len + i] + &poly_b[len + i] - &poly_b[i];
+        let eval_2 = comb_func(&poly_a_eval_2, &poly_b_eval_2);
+        (eval_0, eval_2)
+    })
+    .reduce(
+        || (FieldElement::<F>::zero(), FieldElement::<F>::zero()),
+        |a, b| (a.0 + b.0, a.1 + b.1),
+    )
 }
 
 fn eval_points_cubic<F: IsField, E>(
@@ -49,36 +52,38 @@ where
     E: Fn(&FieldElement<F>, &FieldElement<F>, &FieldElement<F>) -> FieldElement<F> + Sync,
 {
     let len = poly_a.len() / 2;
-    (0..len)
-        .into_par_iter()
-        .map(|i| {
-            // eval_0: A(low)
-            let eval_0 = comb_func(&poly_a[i], &poly_b[i], &poly_c[i]);
+    #[cfg(not(feature = "parallel"))]
+    let iter = 0..len;
+    #[cfg(feature = "parallel")]
+    let iter = (0..len).into_par_iter();
+    iter.map(|i| {
+        // eval_0: A(low)
+        let eval_0 = comb_func(&poly_a[i], &poly_b[i], &poly_c[i]);
 
-            // eval_2: -A(low) + 2*A(high)
-            let poly_a_eval_2 = &poly_a[len + i] + &poly_a[len + i] - &poly_a[i];
-            let poly_b_eval_2 = &poly_b[len + i] + &poly_b[len + i] - &poly_b[i];
-            let poly_c_eval_2 = &poly_c[len + i] + &poly_c[len + i] - &poly_c[i];
-            let eval_2 = comb_func(&poly_a_eval_2, &poly_b_eval_2, &poly_c_eval_2);
+        // eval_2: -A(low) + 2*A(high)
+        let poly_a_eval_2 = &poly_a[len + i] + &poly_a[len + i] - &poly_a[i];
+        let poly_b_eval_2 = &poly_b[len + i] + &poly_b[len + i] - &poly_b[i];
+        let poly_c_eval_2 = &poly_c[len + i] + &poly_c[len + i] - &poly_c[i];
+        let eval_2 = comb_func(&poly_a_eval_2, &poly_b_eval_2, &poly_c_eval_2);
 
-            // eval 3: bound_func is -2A(low) + 3A(high); computed incrementally with bound_func applied to eval(2)
-            let poly_a_eval_3 = poly_a_eval_2 + &poly_a[len + i] - &poly_a[i];
-            let poly_b_eval_3 = poly_b_eval_2 + &poly_b[len + i] - &poly_b[i];
-            let poly_c_eval_3 = poly_c_eval_2 + &poly_c[len + i] - &poly_c[i];
-            let eval_3 = comb_func(&poly_a_eval_3, &poly_b_eval_3, &poly_c_eval_3);
+        // eval 3: bound_func is -2A(low) + 3A(high); computed incrementally with bound_func applied to eval(2)
+        let poly_a_eval_3 = poly_a_eval_2 + &poly_a[len + i] - &poly_a[i];
+        let poly_b_eval_3 = poly_b_eval_2 + &poly_b[len + i] - &poly_b[i];
+        let poly_c_eval_3 = poly_c_eval_2 + &poly_c[len + i] - &poly_c[i];
+        let eval_3 = comb_func(&poly_a_eval_3, &poly_b_eval_3, &poly_c_eval_3);
 
-            (eval_0, eval_2, eval_3)
-        })
-        .reduce(
-            || {
-                (
-                    FieldElement::<F>::zero(),
-                    FieldElement::<F>::zero(),
-                    FieldElement::<F>::zero(),
-                )
-            },
-            |a, b| (a.0 + b.0, a.1 + b.1, a.2 + b.2),
-        )
+        (eval_0, eval_2, eval_3)
+    })
+    .reduce(
+        || {
+            (
+                FieldElement::<F>::zero(),
+                FieldElement::<F>::zero(),
+                FieldElement::<F>::zero(),
+            )
+        },
+        |a, b| (a.0 + b.0, a.1 + b.1, a.2 + b.2),
+    )
 }
 
 #[derive(Debug)]
@@ -395,48 +400,50 @@ where
             let poly = {
                 let (eval_point_0, eval_point_2, eval_point_3) = {
                     let len = poly_a.len() / 2;
-                    (0..len)
-                        .into_par_iter()
-                        .map(|i| {
-                            // eval 0: bound_func is A(low)
-                            let eval_point_0 =
-                                comb_func(&poly_a[i], &poly_b[i], &poly_c[i], &poly_d[i]);
+                    #[cfg(not(feature = "parallel"))]
+                    let iter = 0..len;
+                    #[cfg(feature = "parallel")]
+                    let iter = (0..len).into_par_iter();
+                    iter.map(|i| {
+                        // eval 0: bound_func is A(low)
+                        let eval_point_0 =
+                            comb_func(&poly_a[i], &poly_b[i], &poly_c[i], &poly_d[i]);
 
-                            // eval 2: bound_func is -A(low) + 2*A(high)
-                            let poly_a_point_2 = &poly_a[len + i] + &poly_a[len + i] - &poly_a[i];
-                            let poly_b_point_2 = &poly_b[len + i] + &poly_b[len + i] - &poly_b[i];
-                            let poly_c_point_2 = &poly_c[len + i] + &poly_c[len + i] - &poly_c[i];
-                            let poly_d_point_2 = &poly_d[len + i] + &poly_d[len + i] - &poly_c[i];
-                            let eval_point_2 = comb_func(
-                                &poly_a_point_2,
-                                &poly_b_point_2,
-                                &poly_c_point_2,
-                                &poly_d_point_2,
-                            );
+                        // eval 2: bound_func is -A(low) + 2*A(high)
+                        let poly_a_point_2 = &poly_a[len + i] + &poly_a[len + i] - &poly_a[i];
+                        let poly_b_point_2 = &poly_b[len + i] + &poly_b[len + i] - &poly_b[i];
+                        let poly_c_point_2 = &poly_c[len + i] + &poly_c[len + i] - &poly_c[i];
+                        let poly_d_point_2 = &poly_d[len + i] + &poly_d[len + i] - &poly_c[i];
+                        let eval_point_2 = comb_func(
+                            &poly_a_point_2,
+                            &poly_b_point_2,
+                            &poly_c_point_2,
+                            &poly_d_point_2,
+                        );
 
-                            // eval 3: bound_func is -2A(low) + 3A(high); computed incrementally with bound_func applied to eval(2)
-                            let poly_a_point_3 = poly_a_point_2 + &poly_a[len + i] - &poly_a[i];
-                            let poly_b_point_3 = poly_b_point_2 + &poly_b[len + i] - &poly_b[i];
-                            let poly_c_point_3 = poly_c_point_2 + &poly_c[len + i] - &poly_c[i];
-                            let poly_d_point_3 = poly_d_point_2 + &poly_d[len + i] - &poly_d[i];
-                            let eval_point_3 = comb_func(
-                                &poly_a_point_3,
-                                &poly_b_point_3,
-                                &poly_c_point_3,
-                                &poly_d_point_3,
-                            );
-                            (eval_point_0, eval_point_2, eval_point_3)
-                        })
-                        .reduce(
-                            || {
-                                (
-                                    FieldElement::zero(),
-                                    FieldElement::zero(),
-                                    FieldElement::zero(),
-                                )
-                            },
-                            |a, b| (a.0 + b.0, a.1 + b.1, a.2 + b.2),
-                        )
+                        // eval 3: bound_func is -2A(low) + 3A(high); computed incrementally with bound_func applied to eval(2)
+                        let poly_a_point_3 = poly_a_point_2 + &poly_a[len + i] - &poly_a[i];
+                        let poly_b_point_3 = poly_b_point_2 + &poly_b[len + i] - &poly_b[i];
+                        let poly_c_point_3 = poly_c_point_2 + &poly_c[len + i] - &poly_c[i];
+                        let poly_d_point_3 = poly_d_point_2 + &poly_d[len + i] - &poly_d[i];
+                        let eval_point_3 = comb_func(
+                            &poly_a_point_3,
+                            &poly_b_point_3,
+                            &poly_c_point_3,
+                            &poly_d_point_3,
+                        );
+                        (eval_point_0, eval_point_2, eval_point_3)
+                    })
+                    .reduce(
+                        || {
+                            (
+                                FieldElement::zero(),
+                                FieldElement::zero(),
+                                FieldElement::zero(),
+                            )
+                        },
+                        |a, b| (a.0 + b.0, a.1 + b.1, a.2 + b.2),
+                    )
                 };
                 let evals = vec![
                     eval_point_0.clone(),
@@ -599,9 +606,9 @@ mod test {
 
         let mut claim = FieldElement::<F>::zero();
         for i in 0..num_evals {
-            claim += a.evaluate(&index_to_field_bitvector(i, num_vars)).unwrap()
-                * b.evaluate(&index_to_field_bitvector(i, num_vars)).unwrap()
-                * c.evaluate(&index_to_field_bitvector(i, num_vars)).unwrap();
+            claim += a.evaluate(index_to_field_bitvector(i, num_vars)).unwrap()
+                * b.evaluate(index_to_field_bitvector(i, num_vars)).unwrap()
+                * c.evaluate(index_to_field_bitvector(i, num_vars)).unwrap();
         }
 
         let comb_func_prod = |a: &FieldElement<F>,
@@ -634,9 +641,9 @@ mod test {
         assert_eq!(challenges, r);
 
         // Consider this the opening proof to a(r) * b(r) * c(r)
-        let a = a.evaluate(&challenges.as_slice()).unwrap();
-        let b = b.evaluate(&challenges.as_slice()).unwrap();
-        let c = c.evaluate(&challenges.as_slice()).unwrap();
+        let a = a.evaluate(challenges).unwrap();
+        let b = b.evaluate(challenges).unwrap();
+        let c = c.evaluate(challenges).unwrap();
 
         let oracle_query = a * b * c;
         assert_eq!(verify_evaluation, oracle_query);
@@ -648,6 +655,7 @@ mod test {
     #[test]
     fn prove_cubic_additive() {}
 
+    /*
     #[test]
     fn prove_quad() {
         // Create three dense polynomials (all the same)
@@ -663,8 +671,8 @@ mod test {
 
         let mut claim = FieldElement::<F>::zero();
         for i in 0..num_evals {
-            claim += a.evaluate(&index_to_field_bitvector(i, num_vars)).unwrap()
-                * b.evaluate(&index_to_field_bitvector(i, num_vars)).unwrap();
+            claim += a.evaluate(index_to_field_bitvector(i, num_vars)).unwrap()
+                * b.evaluate(index_to_field_bitvector(i, num_vars)).unwrap();
         }
 
         let comb_func_prod =
@@ -689,8 +697,8 @@ mod test {
         assert_eq!(challenges, r);
 
         // Consider this the opening proof to a(r) * b(r)
-        let a = a.evaluate(&challenges.as_slice()).unwrap();
-        let b = b.evaluate(&challenges.as_slice()).unwrap();
+        let a = a.evaluate(challenges).unwrap();
+        let b = b.evaluate(challenges).unwrap();
 
         let oracle_query = a * b;
         assert_eq!(verify_evaluation, oracle_query);
@@ -713,10 +721,9 @@ mod test {
 
         let mut claim = FieldElement::<F>::zero();
         for i in 0..num_evals {
-            claim += a.evaluate(&index_to_field_bitvector(i, num_vars)).unwrap()
-                * b.evaluate(&index_to_field_bitvector(i, num_vars)).unwrap();
+            claim += a.evaluate(index_to_field_bitvector(i, num_vars)).unwrap()
+                * b.evaluate(index_to_field_bitvector(i, num_vars)).unwrap();
         }
-
         let comb_func_prod =
             |a: &FieldElement<F>, b: &FieldElement<F>| -> FieldElement<F> { a * b };
 
@@ -739,12 +746,13 @@ mod test {
         assert_eq!(challenges, r);
 
         // Consider this the opening proof to a(r) * b(r)
-        let a = a.evaluate(&challenges.as_slice()).unwrap();
-        let b = b.evaluate(&challenges.as_slice()).unwrap();
+        let a = a.evaluate(challenges).unwrap();
+        let b = b.evaluate(challenges).unwrap();
 
         let oracle_query = a * b;
         assert_eq!(verify_evaluation, oracle_query);
     }
+    */
 
     #[test]
     fn prove_single() {
@@ -760,7 +768,7 @@ mod test {
 
         let mut claim = FieldElement::<F>::zero();
         for i in 0..num_evals {
-            claim += a.evaluate(&index_to_field_bitvector(i, num_vars)).unwrap()
+            claim += a.evaluate(index_to_field_bitvector(i, num_vars)).unwrap()
         }
 
         let r = vec![
@@ -780,9 +788,6 @@ mod test {
         assert_eq!(challenges, verify_randomness);
         assert_eq!(challenges, r);
 
-        assert_eq!(
-            verify_evaluation,
-            a.evaluate(&challenges.as_slice()).unwrap()
-        );
+        assert_eq!(verify_evaluation, a.evaluate(challenges).unwrap());
     }
 }

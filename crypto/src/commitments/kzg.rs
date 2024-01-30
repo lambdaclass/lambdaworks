@@ -7,7 +7,7 @@ use lambdaworks_math::{
     errors::DeserializationError,
     field::{element::FieldElement, traits::IsPrimeField},
     msm::pippenger::msm,
-    polynomial::polynomial::Polynomial,
+    polynomial::Polynomial,
     traits::{AsBytes, Deserializable},
     unsigned_integer::element::UnsignedInteger,
 };
@@ -268,7 +268,7 @@ mod tests {
             traits::{IsEllipticCurve, IsPairing},
         },
         field::element::FieldElement,
-        polynomial::polynomial::Polynomial,
+        polynomial::Polynomial,
         traits::{AsBytes, Deserializable},
         unsigned_integer::element::U256,
     };
