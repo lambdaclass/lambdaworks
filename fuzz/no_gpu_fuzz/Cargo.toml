@@ -15,8 +15,13 @@ stark-platinum-prover = { workspace = true }
 num-traits = "0.2"
 ibig = "0.3.6"
 p3-goldilocks = { git = "https://github.com/Plonky3/Plonky3", rev = "41cd843" }
-p3-field = { git = "https://github.com/Plonky3/Plonky3", rev = "41cd843" }
 p3-mersenne-31 = { git = "https://github.com/Plonky3/Plonky3", rev = "41cd843" }
+
+[[bin]]
+name = "curve_bn254"
+path = "fuzz_targets/curve_bn254.rs"
+test = false
+doc = false
 
 [[bin]]
 name = "field_fuzzer"
