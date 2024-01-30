@@ -50,7 +50,7 @@ add_constant(var1,constant)
 div(var1,var2)
 // c1 * v1 + c2 * v2 + b = w
 // hinted value can be w,v1, or v2
-let w linear_combination(&v1, c1, &v2, c2, b, Option(hint))
+let w = linear_combination(&v1, c1, &v2, c2, b, Option(hint))
 ```
 
 All the variables and constants are finite fields. Abstractions like integers are not implemented yet.
