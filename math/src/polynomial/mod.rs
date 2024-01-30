@@ -1,5 +1,8 @@
-use super::field::element::FieldElement;
-use crate::field::traits::{IsField, IsSubFieldOf};
+use crate::{
+    traits::AsBytes,
+    field::element::FieldElement,
+    field::traits::{IsField, IsSubFieldOf}
+};
 use alloc::{borrow::ToOwned, vec, vec::Vec};
 use core::{fmt::Display, ops};
 
@@ -803,6 +806,20 @@ impl Display for InterpolateError {
 
 #[cfg(feature = "std")]
 impl std::error::Error for InterpolateError {}
+
+impl<F: IsField> AsBytes for Polynomial<FieldElement<F>> 
+where
+    FieldElement<F>: AsBytes
+{
+    fn as_bytes(&self) -> Vec<u8> {
+        self.coefficients().into_iter().fold(Vec::new(), |mut acc, coeff| {
+                acc.extend_from_slice(&coeff.as_bytes());
+                acc
+            }
+        )
+    }
+
+}
 
 #[cfg(test)]
 mod tests {
