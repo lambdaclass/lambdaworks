@@ -45,9 +45,11 @@ mod tests {
     use super::BN254Curve;
 
     #[allow(clippy::upper_case_acronyms)]
-    type FEE = FieldElement<BN254PrimeField>;
+    type FE = FieldElement<BN254PrimeField>;
 
     /*
+    Sage script: 
+
     p = 21888242871839275222246405745257275088696311157297823662689037894645226208583
     Fbn128base = GF(p)
     bn128 = EllipticCurve(Fbn128base,[0,3])
@@ -57,23 +59,36 @@ mod tests {
     1)
     */
     fn point() -> ShortWeierstrassProjectivePoint<BN254Curve> {
-        let x = FEE::new_base("27749cb56beffb211b6622d7366253aa8208cf0aff7867d7945f53f3997cfedb");
-        let y = FEE::new_base("2598371545fd02273e206c4a3e5e6d062c46baade65567b817c343170a15ff0d");
+        let x = FE::from_hex_unchecked("27749cb56beffb211b6622d7366253aa8208cf0aff7867d7945f53f3997cfedb");
+        let y = FE::from_hex_unchecked("2598371545fd02273e206c4a3e5e6d062c46baade65567b817c343170a15ff0d");
         BN254Curve::create_point_from_affine(x, y).unwrap()
     }
 
     /*
-    x = bn128(17846236917809265466108795494334003231858579470112820692700477163012827709147:
-    17004516321005754027668809192838483252304167776681765357426682819242643291917 :
-    1)
-    x * 5
-    (10253039145495711056399135467328321588927131913042076209148619870699206197155 :
-    16767740621810149881158172518644598727924612864724721353109859494126614321586 :
-    1)
+    Sage script:
+
+    p = 21888242871839275222246405745257275088696311157297823662689037894645226208583
+    a = 0
+    b = 3
+    Fp = GF(p)
+    G1 = EllipticCurve(Fp, [a, b])
+
+    P = G1(17846236917809265466108795494334003231858579470112820692700477163012827709147,17004516321005754027668809192838483252304167776681765357426682819242643291917)
+
+    P * 5
+
+    (10253039145495711056399135467328321588927131913042076209148619870699206197155 : 16767740621810149881158172518644598727924612864724721353109859494126614321586 : 1)
+
+    hex(10253039145495711056399135467328321588927131913042076209148619870699206197155)
+    = 0x16ab03b69dfb4f870b0143ebf6a71b7b2e4053ca7a4421d09a913b8b834bbfa3
+
+    hex(16767740621810149881158172518644598727924612864724721353109859494126614321586) =
+    0x2512347279ba1049ef97d4ec348d838f939d2b7623e88f4826643cf3889599b2
     */
+
     fn point_times_5() -> ShortWeierstrassProjectivePoint<BN254Curve> {
-        let x = FEE::new_base("16ab03b69dfb4f870b0143ebf6a71b7b2e4053ca7a4421d09a913b8b834bbfa3");
-        let y = FEE::new_base("2512347279ba1049ef97d4ec348d838f939d2b7623e88f4826643cf3889599b2");
+        let x = FE::from_hex_unchecked("16ab03b69dfb4f870b0143ebf6a71b7b2e4053ca7a4421d09a913b8b834bbfa3");
+        let y = FE::from_hex_unchecked("2512347279ba1049ef97d4ec348d838f939d2b7623e88f4826643cf3889599b2");
         BN254Curve::create_point_from_affine(x, y).unwrap()
     }
 
@@ -86,22 +101,49 @@ mod tests {
 
     #[test]
     fn create_valid_point_works() {
+
         let p = point();
         assert_eq!(
             *p.x(),
-            FEE::new_base("27749cb56beffb211b6622d7366253aa8208cf0aff7867d7945f53f3997cfedb")
+            FE::new_base("27749cb56beffb211b6622d7366253aa8208cf0aff7867d7945f53f3997cfedb")
         );
         assert_eq!(
             *p.y(),
-            FEE::new_base("2598371545fd02273e206c4a3e5e6d062c46baade65567b817c343170a15ff0d")
+            FE::new_base("2598371545fd02273e206c4a3e5e6d062c46baade65567b817c343170a15ff0d")
         );
-        assert_eq!(*p.z(), FEE::one());
+        assert_eq!(*p.z(), FE::one());
     }
+
+    #[test]
+    fn addition_with_neutral_element_returns_same_element() {
+        let p = point();
+        assert_eq!(
+            *p.x(),
+            FE::new_base("27749cb56beffb211b6622d7366253aa8208cf0aff7867d7945f53f3997cfedb")
+        );
+        assert_eq!(
+            *p.y(),
+            FE::new_base("2598371545fd02273e206c4a3e5e6d062c46baade65567b817c343170a15ff0d")
+        );
+
+        let neutral_element = ShortWeierstrassProjectivePoint::<BN254Curve>::neutral_element();
+
+        assert_eq!(p.operate_with(&neutral_element), p);
+    }
+
+    #[test]
+    fn neutral_element_plus_neutral_element_is_neutral_element() {
+
+        let neutral_element = ShortWeierstrassProjectivePoint::<BN254Curve>::neutral_element();
+
+        assert_eq!(neutral_element.operate_with(&neutral_element), neutral_element);
+    }
+
 
     #[test]
     fn create_invalid_points_returns_an_error() {
         assert_eq!(
-            BN254Curve::create_point_from_affine(FEE::from(0), FEE::from(1)),
+            BN254Curve::create_point_from_affine(FE::from(0), FE::from(1)),
             Err(EllipticCurveError::InvalidPoint)
         );
     }
