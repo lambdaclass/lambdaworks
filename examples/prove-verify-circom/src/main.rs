@@ -25,6 +25,5 @@ fn main() {
     let accept = verify(&vk, &proof, &w[..qap.num_of_public_inputs]);
 
     assert!(accept);
-   
     println!("Proof verified!");
 }
