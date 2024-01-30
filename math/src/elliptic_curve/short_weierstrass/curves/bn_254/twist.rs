@@ -107,7 +107,6 @@ mod tests {
         assert_eq!(deserialized, g);
     }
 
-
     /*
     Sage script:
 

@@ -48,7 +48,7 @@ mod tests {
     type FE = FieldElement<BN254PrimeField>;
 
     /*
-    Sage script: 
+    Sage script:
 
     p = 21888242871839275222246405745257275088696311157297823662689037894645226208583
     Fbn128base = GF(p)
@@ -59,8 +59,12 @@ mod tests {
     1)
     */
     fn point() -> ShortWeierstrassProjectivePoint<BN254Curve> {
-        let x = FE::from_hex_unchecked("27749cb56beffb211b6622d7366253aa8208cf0aff7867d7945f53f3997cfedb");
-        let y = FE::from_hex_unchecked("2598371545fd02273e206c4a3e5e6d062c46baade65567b817c343170a15ff0d");
+        let x = FE::from_hex_unchecked(
+            "27749cb56beffb211b6622d7366253aa8208cf0aff7867d7945f53f3997cfedb",
+        );
+        let y = FE::from_hex_unchecked(
+            "2598371545fd02273e206c4a3e5e6d062c46baade65567b817c343170a15ff0d",
+        );
         BN254Curve::create_point_from_affine(x, y).unwrap()
     }
 
@@ -87,8 +91,12 @@ mod tests {
     */
 
     fn point_times_5() -> ShortWeierstrassProjectivePoint<BN254Curve> {
-        let x = FE::from_hex_unchecked("16ab03b69dfb4f870b0143ebf6a71b7b2e4053ca7a4421d09a913b8b834bbfa3");
-        let y = FE::from_hex_unchecked("2512347279ba1049ef97d4ec348d838f939d2b7623e88f4826643cf3889599b2");
+        let x = FE::from_hex_unchecked(
+            "16ab03b69dfb4f870b0143ebf6a71b7b2e4053ca7a4421d09a913b8b834bbfa3",
+        );
+        let y = FE::from_hex_unchecked(
+            "2512347279ba1049ef97d4ec348d838f939d2b7623e88f4826643cf3889599b2",
+        );
         BN254Curve::create_point_from_affine(x, y).unwrap()
     }
 
@@ -101,7 +109,6 @@ mod tests {
 
     #[test]
     fn create_valid_point_works() {
-
         let p = point();
         assert_eq!(
             *p.x(),
@@ -133,12 +140,13 @@ mod tests {
 
     #[test]
     fn neutral_element_plus_neutral_element_is_neutral_element() {
-
         let neutral_element = ShortWeierstrassProjectivePoint::<BN254Curve>::neutral_element();
 
-        assert_eq!(neutral_element.operate_with(&neutral_element), neutral_element);
+        assert_eq!(
+            neutral_element.operate_with(&neutral_element),
+            neutral_element
+        );
     }
-
 
     #[test]
     fn create_invalid_points_returns_an_error() {
