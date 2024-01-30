@@ -53,7 +53,7 @@ fn vitalik_w_and_qap() {
     assert_eq!(
         w,
         ["1", "3", "23", "9"]
-            .map(|e| FrElement::from_hex_unchecked(e))
+            .map(FrElement::from_hex_unchecked)
             .to_vec()
     );
 
