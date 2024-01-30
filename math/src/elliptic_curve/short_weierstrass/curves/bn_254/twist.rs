@@ -160,7 +160,6 @@ mod tests {
         ]);
         let p = BN254TwistCurve::create_point_from_affine(px, py).unwrap();
         let q = BN254TwistCurve::create_point_from_affine(qx, qy).unwrap();
-        //let expected = BN254TwistCurve::create_point_from_affine(expectedx, expectedy).unwrap();
         let expected = BN254TwistCurve::create_point_from_affine(expectedx, expectedy).unwrap();
         assert_eq!(p.operate_with(&q), expected);
     }
