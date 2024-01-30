@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1706550050193,
+  "lastUpdate": 1706639404924,
   "repoUrl": "https://github.com/lambdaclass/lambdaworks",
   "entries": {
     "Benchmark": [
@@ -39875,6 +39875,150 @@ window.BENCHMARK_DATA = {
             "name": "Polynomial/evaluate 10",
             "value": 1,
             "range": "± 0",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "33334338+PatStiles@users.noreply.github.com",
+            "name": "PatStiles",
+            "username": "PatStiles"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "e1a4aaf80484e7923736ce7a846bd1bbce34846e",
+          "message": "Feat/bn 254 (#646)\n\n* inti\n\n* compiles\n\n* unused\n\n* curve unit tests passing\n\n* implement ByteConversion\n\n* (rebase): Adding real points\n\n* (rebase): Adding real points over fp2\n\n* (fix): params for BN254 Twust\n\n* (fix): Fix generation of twisted bn254 and tests\n\n* fixed byte conversion tests\n\n* rm unneeded test case\n\n* fmt lint clippy\n\n* fmt\n\n* Proof serialization fix alt (#657)\n\n* initial commit\n\n* change serde_cbor for serde_bare\n\n* bincode de/ser\n\n* remove comparison\n\n* fmt\n\n* restore flag\n\n* fix failing test\n\n* add std feature flag\n\n* conditional  use\n\n* rmv conditional use\n\n* replace std for core\n\n* add cond import\n\n* rmv unused import\n\n* rplc todo w unimplemented\n\n* Update provers/cairo/src/main.rs\n\n---------\n\nCo-authored-by: Mauro Toscano <12560266+MauroToscano@users.noreply.github.com>\n\n* add diff fuzzer\n\n* Proof serialization fix alt (#657)\n\n* initial commit\n\n* change serde_cbor for serde_bare\n\n* bincode de/ser\n\n* remove comparison\n\n* fmt\n\n* restore flag\n\n* fix failing test\n\n* add std feature flag\n\n* conditional  use\n\n* rmv conditional use\n\n* replace std for core\n\n* add cond import\n\n* rmv unused import\n\n* rplc todo w unimplemented\n\n* Update provers/cairo/src/main.rs\n\n---------\n\nCo-authored-by: Mauro Toscano <12560266+MauroToscano@users.noreply.github.com>\n\n* Wasm Pack Fixes (#609)\n\n* update wasm with new verifier api\n\n* fmt\n\n* Re add wasm compile and test\n\n* Add wasm commands to makefile\n\n* Add wasm commands to makefile\n\n* Fix wasm commands\n\n* Fix wasm\n\n* Fix wasm CI\n\n* Fmt\n\n* Fmt + fmt ci wasm\n\n* Compatibility with main\n\n* Fix\n\n* Fmt\n\n* Remove unnecesary clone\n\n* Fix linters\n\n* Raise security\n\n* Re add dep\n\n* Wasm\n\n---------\n\nCo-authored-by: Mauro Toscano <12560266+MauroToscano@users.noreply.github.com>\nCo-authored-by: MauroFab <maurotoscano2@gmail.com>\n\n* remove diff fuzzing for fuzzer\n\n* fix toml\n\n* fix cmt\n\n* inti\n\n* compiles\n\n* implement ByteConversion\n\n* (rebase): Adding real points\n\n* (feature): Instantiate pairings\n\n* (fix): params for BN254 Twust\n\n* (fix): Fix generation of twisted bn254 and tests\n\n* add pairing fuzz\n\n* Testing\n\n* fixes and cleanup\n\n* fix merge issues ugghg and ci\n\n* ci\n\n* rm pairing\n\n* nits\n\n* resolve missed merge conflict\n\n* nit\n\n* nit\n\n* add ref\n\n* rm fp12 squared tests\n\n* fix feature gate\n\n* fmt\n\n* Update math/src/elliptic_curve/short_weierstrass/curves/bn_254/twist.rs\n\n---------\n\nCo-authored-by: Theprotocolwhisperer <chrismata10@gmail.com>\nCo-authored-by: juan518munoz <62400508+juan518munoz@users.noreply.github.com>\nCo-authored-by: Mauro Toscano <12560266+MauroToscano@users.noreply.github.com>\nCo-authored-by: Sergio Chouhy <41742639+schouhy@users.noreply.github.com>\nCo-authored-by: MauroFab <maurotoscano2@gmail.com>\nCo-authored-by: Diego K <43053772+diegokingston@users.noreply.github.com>",
+          "timestamp": "2024-01-30T18:17:39Z",
+          "tree_id": "6f90ee9be68509e65625f273bf7d0963434e7dc6",
+          "url": "https://github.com/lambdaclass/lambdaworks/commit/e1a4aaf80484e7923736ce7a846bd1bbce34846e"
+        },
+        "date": 1706639400934,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "Ordered FFT/Parallel (Metal)",
+            "value": 75326827,
+            "range": "± 10301542",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #2",
+            "value": 148080097,
+            "range": "± 762007",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #3",
+            "value": 292051802,
+            "range": "± 7658760",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #4",
+            "value": 571096166,
+            "range": "± 16047567",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal)",
+            "value": 33023277,
+            "range": "± 621131",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #2",
+            "value": 65560459,
+            "range": "± 663190",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #3",
+            "value": 127711399,
+            "range": "± 1009089",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #4",
+            "value": 267605041,
+            "range": "± 4287867",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal)",
+            "value": 30568894,
+            "range": "± 196607",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #2",
+            "value": 57144085,
+            "range": "± 3194800",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #3",
+            "value": 108672525,
+            "range": "± 4118376",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #4",
+            "value": 227527430,
+            "range": "± 15515844",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal",
+            "value": 111564751,
+            "range": "± 1450896",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #2",
+            "value": 223962118,
+            "range": "± 828620",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #3",
+            "value": 459880760,
+            "range": "± 4304288",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #4",
+            "value": 908249562,
+            "range": "± 7483795",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal",
+            "value": 391726270,
+            "range": "± 6721812",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #2",
+            "value": 803978562,
+            "range": "± 11448015",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #3",
+            "value": 1622504854,
+            "range": "± 85236672",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #4",
+            "value": 3223469625,
+            "range": "± 288084924",
             "unit": "ns/iter"
           }
         ]
