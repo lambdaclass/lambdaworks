@@ -4,7 +4,8 @@ A fast implementation of the [Plonk](https://eprint.iacr.org/2019/953) zk-protoc
 This prover is still in development and may contain bugs. It is not intended to be used in production yet.
 
 ## Building a circuit
-The following code creates a circuit with two public inputs `x`, `y` and asserts `x * e = y`:
+
+Starting with an example, the following code creates a circuit with two public inputs `x`, `y` and asserts `x * e = y`:
 
 ```rust
 let system = &mut ConstraintSystem::<FrField>::new();
@@ -15,6 +16,44 @@ let e = system.new_variable();
 let z = system.mul(&x, &e);    
 system.assert_eq(&y, &z);;
 ```
+
+By placing this logic under one function, one can create "gadgets" to abstract functionality.
+
+```Rust
+/// A square and multiply implementation.
+pub fn pow<F: IsPrimeField>(
+    system: &mut ConstraintSystem<F>,
+    base: Variable,
+    exponent: Variable,
+) -> Variable {
+    let exponent_bits = system.new_u32(&exponent);
+    let mut result = system.new_constant(FE::one());
+
+    assert_eq!(exponent_bits.len(), 32);
+    for (i, bit) in exponent_bits.iter().enumerate() {
+        if i != 0 {
+            result = system.mul(&result, &result);
+        }
+        let result_times_base = system.mul(&result, &base);
+        result = system.if_else(bit, &result_times_base, &result);
+    }
+    result
+}
+```
+
+The core operations supported by plonk and our prove system are:
+
+```rust
+mul(var1,var2)
+add(var1,var2)
+add_constant(var1,constant)
+div(var1,var2)
+// c1 * v1 + c2 * v2 + b = w
+// hinted value can be w,v1, or v2
+let w = linear_combination(&v1, c1, &v2, c2, b, Option(hint))
+```
+
+All the variables and constants are finite fields. Abstractions like integers are not implemented yet.
 
 ## Generating a proof
 ### Setup

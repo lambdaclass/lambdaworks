@@ -657,7 +657,7 @@ impl<'de, F: IsPrimeField> Deserialize<'de> for FieldElement<F> {
                     }
                 }
                 let value = value.ok_or_else(|| de::Error::missing_field("value"))?;
-                Ok(FieldElement::from_hex(value).unwrap())
+                Ok(FieldElement::from_hex(&value).unwrap())
             }
 
             fn visit_seq<S>(self, mut seq: S) -> Result<FieldElement<F>, S::Error>
@@ -672,7 +672,7 @@ impl<'de, F: IsPrimeField> Deserialize<'de> for FieldElement<F> {
                     value = Some(val);
                 }
                 let value = value.ok_or_else(|| de::Error::missing_field("value"))?;
-                Ok(FieldElement::from_hex(value).unwrap())
+                Ok(FieldElement::from_hex(&value).unwrap())
             }
         }
 
