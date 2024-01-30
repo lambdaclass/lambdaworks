@@ -134,7 +134,7 @@ where
         // pad the polynomial with zero polynomial at the end
         z.resize(z.len().next_power_of_two(), FieldElement::zero());
 
-        Ok(DenseMultilinearPolynomial::new(z))
+        DenseMultilinearPolynomial::new(z)
     }
 
     pub fn from_u64(evals: &[u64]) -> Self {
@@ -294,7 +294,7 @@ mod tests {
         let eval_with_lr = evaluate_with_lr(&z, &r);
         let poly = DenseMultilinearPolynomial::new(z);
 
-        let eval = poly.evaluate(r.as_slice()).unwrap();
+        let eval = poly.evaluate(r).unwrap();
         assert_eq!(eval, FE::from(28u64));
         assert_eq!(eval_with_lr, eval);
     }

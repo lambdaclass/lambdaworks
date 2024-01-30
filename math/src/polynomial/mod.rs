@@ -5,10 +5,6 @@ use core::{fmt::Display, ops};
 
 pub mod dense_multilinear_poly;
 mod error;
-pub mod polynomial;
-pub mod sparse_multilinear_poly;
-pub mod polynomial;
-mod error;
 pub mod sparse_multilinear_poly;
 
 /// Represents the polynomial c_0 + c_1 * X + c_2 * X^2 + ... + c_n * X^n
