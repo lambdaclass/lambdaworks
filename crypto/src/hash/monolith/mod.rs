@@ -50,7 +50,7 @@ impl<const WIDTH: usize, const NUM_FULL_ROUNDS: usize> MonolithMersenne31<WIDTH,
         shake.update(&MERSENNE_31_PRIME_FIELD_ORDER.to_le_bytes());
         shake.update(&[8, 8, 8, 7]);
         let mut shake_finalized = shake.finalize_xof();
-        random_matrix(&mut shake_finalized, NUM_FULL_ROUNDS, WIDTH as usize)
+        random_matrix(&mut shake_finalized, NUM_FULL_ROUNDS, WIDTH)
     }
 
     fn instantiate_lookup1() -> Vec<u16> {
