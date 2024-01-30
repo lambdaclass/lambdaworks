@@ -107,6 +107,38 @@ mod tests {
         assert_eq!(deserialized, g);
     }
 
+    /*
+    Sage script:
+
+    a = 0
+    b = 3
+    p = 21888242871839275222246405745257275088696311157297823662689037894645226208583
+    Fp = GF(p)
+    G1 = EllipticCurve(Fp, [a, b])
+
+    Fp = GF(p)
+    K.<u> = PolynomialRing(Fp)
+    non_residue_fp = -1
+    fp2.<beta> = Fp.extension(u^2 - non_residue_fp)
+    non_residue_twist = fp2([9, 1])
+
+    g1 = EllipticCurve(Fp, [a, b])
+    g2 = EllipticCurve(fp2, [0, b/fp2(non_residue_twist)])
+
+    px = fp2([0x8ae7459fe0d23419ec54b150574b77b1d0aa0785ce98d43365898a1d9168a2a,0x235ec75b0bbcca3f1bab9f3aa4c65d52ccb479cb398b54bd4b0f7e3a24454b44])
+    py = fp2([0x214ebea9c718706be05072da305b74c1585f9e75dbf99c7859bf2292e07c1691, 0x2efdafd49b6e2d718b4e3b3d78939a6463f5f84f4343ec6b1161971dd38af12f])
+    qx = fp2([0x2b87b85159311f97b20b4c0e27eed978cf94984b06203f853c43192de1579324, 0x27b8bc83db0109e29df764a1379a0b9ba3dab41db33aa9be4aef88d4dd9cb275])
+    qy = fp2([0x18e358db9be18771bb6d8ba89a7be0d521782f10af8398e981b1dd252d114bed, 0x8aa3f8a241032d3832b0f52403eb4ea852e23ec4c1e6d39b08de5ac36a2d43b])
+    rx = fp2([0x27e1bb6cb3f893ef4af84ff82bd36b0c0832e3c5d4649da024b41bfecdc74233,0xb04a4feada4eba73191184c5f39f98e7319dc888a2b258697511a2035723656])
+    ry = fp2([0xa5490e3b00bc8e434f9a1ba734b05c27c525889bf117bb4d293f5aa54b238c5,0x136ce0ba382e5d37c3e05eff8365e0e6857eefa150096af33bdbdf327649c0eb])
+
+    p = g2(px,py)
+    q = g2(qx,qy)
+    r = g2(rx,ry)
+
+    p + q  == r
+    */
+
     #[test]
     fn add_points() {
         let px = Level1FE::new([
