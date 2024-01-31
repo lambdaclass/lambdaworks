@@ -4,13 +4,7 @@ use lambdaworks_math::field::{
 
 use crate::{
     examples::{
-        bit_flags::{self, BitFlagsAIR},
-        dummy_air::{self, DummyAIR},
-        fibonacci_2_cols_shifted::{self, Fibonacci2ColsShifted},
-        fibonacci_2_columns::{self, Fibonacci2ColsAIR},
-        fibonacci_rap::{fibonacci_rap_trace, FibonacciRAP, FibonacciRAPPublicInputs},
-        quadratic_air::{self, QuadraticAIR, QuadraticPublicInputs},
-        simple_fibonacci::{self, FibonacciAIR, FibonacciPublicInputs},
+        bit_flags::{self, BitFlagsAIR}, dummy_air::{self, DummyAIR}, fibonacci_2_cols_shifted::{self, Fibonacci2ColsShifted}, fibonacci_2_columns::{self, Fibonacci2ColsAIR}, fibonacci_rap::{fibonacci_rap_trace, FibonacciRAP, FibonacciRAPPublicInputs}, quadratic_air::{self, QuadraticAIR, QuadraticPublicInputs}, simple_fibonacci::{self, FibonacciAIR, FibonacciPublicInputs}, simple_periodic_cols::{self, SimplePeriodicAIR, SimplePeriodicPublicInputs}
         //         simple_periodic_cols::{self, SimplePeriodicAIR, SimplePeriodicPublicInputs},
     },
     proof::options::ProofOptions,
@@ -46,57 +40,57 @@ fn test_prove_fib() {
     ));
 }
 
-// #[test_log::test]
-// fn test_prove_simple_periodic_8() {
-//     let mut trace = simple_periodic_cols::simple_periodic_trace::<Stark252PrimeField>(8);
+#[test_log::test]
+fn test_prove_simple_periodic_8() {
+    let mut trace = simple_periodic_cols::simple_periodic_trace::<Stark252PrimeField>(8);
 
-//     let proof_options = ProofOptions::default_test_options();
+    let proof_options = ProofOptions::default_test_options();
 
-//     let pub_inputs = SimplePeriodicPublicInputs {
-//         a0: Felt252::one(),
-//         a1: Felt252::from(8),
-//     };
+    let pub_inputs = SimplePeriodicPublicInputs {
+        a0: Felt252::one(),
+        a1: Felt252::from(8),
+    };
 
-//     let proof = Prover::<SimplePeriodicAIR<Stark252PrimeField>>::prove(
-//         &mut trace,
-//         &pub_inputs,
-//         &proof_options,
-//         StoneProverTranscript::new(&[]),
-//     )
-//     .unwrap();
-//     assert!(Verifier::<SimplePeriodicAIR<Stark252PrimeField>>::verify(
-//         &proof,
-//         &pub_inputs,
-//         &proof_options,
-//         StoneProverTranscript::new(&[]),
-//     ));
-// }
+    let proof = Prover::<SimplePeriodicAIR<Stark252PrimeField>>::prove(
+        &mut trace,
+        &pub_inputs,
+        &proof_options,
+        StoneProverTranscript::new(&[]),
+    )
+    .unwrap();
+    assert!(Verifier::<SimplePeriodicAIR<Stark252PrimeField>>::verify(
+        &proof,
+        &pub_inputs,
+        &proof_options,
+        StoneProverTranscript::new(&[]),
+    ));
+}
 
-// #[test_log::test]
-// fn test_prove_simple_periodic_32() {
-//     let mut trace = simple_periodic_cols::simple_periodic_trace::<Stark252PrimeField>(32);
+#[test_log::test]
+fn test_prove_simple_periodic_32() {
+    let mut trace = simple_periodic_cols::simple_periodic_trace::<Stark252PrimeField>(32);
 
-//     let proof_options = ProofOptions::default_test_options();
+    let proof_options = ProofOptions::default_test_options();
 
-//     let pub_inputs = SimplePeriodicPublicInputs {
-//         a0: Felt252::one(),
-//         a1: Felt252::from(32768),
-//     };
+    let pub_inputs = SimplePeriodicPublicInputs {
+        a0: Felt252::one(),
+        a1: Felt252::from(32768),
+    };
 
-//     let proof = Prover::<SimplePeriodicAIR<Stark252PrimeField>>::prove(
-//         &mut trace,
-//         &pub_inputs,
-//         &proof_options,
-//         StoneProverTranscript::new(&[]),
-//     )
-//     .unwrap();
-//     assert!(Verifier::<SimplePeriodicAIR<Stark252PrimeField>>::verify(
-//         &proof,
-//         &pub_inputs,
-//         &proof_options,
-//         StoneProverTranscript::new(&[]),
-//     ));
-// }
+    let proof = Prover::<SimplePeriodicAIR<Stark252PrimeField>>::prove(
+        &mut trace,
+        &pub_inputs,
+        &proof_options,
+        StoneProverTranscript::new(&[]),
+    )
+    .unwrap();
+    assert!(Verifier::<SimplePeriodicAIR<Stark252PrimeField>>::verify(
+        &proof,
+        &pub_inputs,
+        &proof_options,
+        StoneProverTranscript::new(&[]),
+    ));
+}
 
 #[test_log::test]
 fn test_prove_fib_2_cols() {
