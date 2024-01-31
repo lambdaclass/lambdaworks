@@ -4,9 +4,7 @@ This folder contains the [fast Fourier transform](https://en.wikipedia.org/wiki/
 - Cooley-Tukey Radix-2
 - Cooley-Tukey Radix-4
 
-We are also planning on adding a mixed radix algorithm. To use the FFT, the length of the vector, $n$, should be a power of $2$ (or $4$), that is, $2^m = n$. The FFT should be used with fields implementing the `IsFFTFriendly` trait.
-
-The core operation of the FFT is the butterfly. To combine the elements, we need to sample the twiddle factors, which we obtain from the roots of unity.
+We are also planning on adding a mixed radix algorithm. To use the FFT, the length of the vector, $n$, should be a power of $2$ (or $4$), that is, $2^m = n$. The FFT should be used with fields implementing the `IsFFTFriendly` trait. The FFT works by recursively breaking a length $n$ FFT into $2$ $n/2$ FFTs, until we reach a sufficiently small size that can be solved. The core operation of the FFT is the butterfly. To combine the elements, we need to sample the twiddle factors, which we obtain from the roots of unity. The FFT can accept the input in natural order and returns the output in reverse order (nr) or the input is in reverse order and the output is in natural order (rn).
 
 Since the main applications of the FFT are related to polynomial evaluation and interpolation, we provide functions describing these operations, which call the FFT under the hood:
 - `evaluate_fft`
