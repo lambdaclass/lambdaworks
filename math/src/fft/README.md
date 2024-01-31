@@ -13,3 +13,9 @@ Since the main applications of the FFT are related to polynomial evaluation and 
 - `evaluate_offset_fft`
 - `interpolate_fft`
 - `interpolate_offset_fft`
+
+These functions can be used with [univariate polynomials](https://github.com/lambdaclass/lambdaworks/tree/main/math/src/polynomial). To use the functions,
+```rust
+let p_1 = Polynomial::new(&[FE::new(3), FE::new(4), FE::new(5) FE::new(6)])
+let evaluations = Polynomial::evaluate_offset_fft(p_1, 4, 4, FE::new(3))?
+```
