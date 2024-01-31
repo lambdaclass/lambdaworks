@@ -147,7 +147,7 @@ impl ProofOptions {
     pub fn default_test_options() -> Self {
         Self {
             blowup_factor: 4,
-            fri_number_of_queries: 1,
+            fri_number_of_queries: 3,
             coset_offset: 3,
             grinding_factor: 1,
         }
