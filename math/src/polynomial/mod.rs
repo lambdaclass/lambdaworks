@@ -273,6 +273,14 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
                 .collect(),
         }
     }
+
+    pub fn eval_at_zero(&self) -> FieldElement<F> {
+        self.coefficients[0].clone()
+      }
+
+    pub fn eval_at_one(&self) -> FieldElement<F> {
+        self.coefficients.clone().into_iter().sum()
+    }
 }
 
 pub fn pad_with_zero_coefficients_to_length<F: IsField>(
