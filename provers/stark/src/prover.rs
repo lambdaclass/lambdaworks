@@ -1074,614 +1074,619 @@ pub trait IsStarkProver<A: AIR> {
     }
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use std::num::ParseIntError;
-
-//     fn decode_hex(s: &str) -> Result<Vec<u8>, ParseIntError> {
-//         (0..s.len())
-//             .step_by(2)
-//             .map(|i| u8::from_str_radix(&s[i..i + 2], 16))
-//             .collect()
-//     }
-
-//     use crate::{
-//         examples::{
-//             fibonacci_2_cols_shifted::{self, Fibonacci2ColsShifted},
-//             simple_fibonacci::{self, FibonacciPublicInputs},
-//         },
-//         proof::options::ProofOptions,
-//         transcript::StoneProverTranscript,
-//         verifier::{Challenges, IsStarkVerifier, Verifier},
-//         Felt252,
-//     };
-
-//     use super::*;
-//     use lambdaworks_math::{
-//         field::{
-//             element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
-//             traits::IsFFTField,
-//         },
-//         polynomial::Polynomial,
-//     };
-
-//     #[test]
-//     fn test_domain_constructor() {
-//         let pub_inputs = FibonacciPublicInputs {
-//             a0: Felt252::one(),
-//             a1: Felt252::one(),
-//         };
-//         let trace = simple_fibonacci::fibonacci_trace([Felt252::from(1), Felt252::from(1)], 8);
-//         let trace_length = trace.num_rows();
-//         let coset_offset = 3;
-//         let blowup_factor: usize = 2;
-//         let grinding_factor = 20;
-
-//         let proof_options = ProofOptions {
-//             blowup_factor: blowup_factor as u8,
-//             fri_number_of_queries: 1,
-//             coset_offset,
-//             grinding_factor,
-//         };
-
-//         let domain = Domain::new(&simple_fibonacci::FibonacciAIR::new(
-//             trace_length,
-//             &pub_inputs,
-//             &proof_options,
-//         ));
-//         assert_eq!(domain.blowup_factor, 2);
-//         assert_eq!(domain.interpolation_domain_size, trace_length);
-//         assert_eq!(domain.root_order, trace_length.trailing_zeros());
-//         assert_eq!(domain.coset_offset, FieldElement::from(coset_offset));
-
-//         let primitive_root = Stark252PrimeField::get_primitive_root_of_unity(
-//             (trace_length * blowup_factor).trailing_zeros() as u64,
-//         )
-//         .unwrap();
-
-//         assert_eq!(
-//             domain.trace_primitive_root,
-//             primitive_root.pow(blowup_factor)
-//         );
-//         for i in 0..(trace_length * blowup_factor) {
-//             assert_eq!(
-//                 domain.lde_roots_of_unity_coset[i],
-//                 primitive_root.pow(i) * FieldElement::from(coset_offset)
-//             );
-//         }
-//     }
-
-//     #[test]
-//     fn test_evaluate_polynomial_on_lde_domain_on_trace_polys() {
-//         let trace = simple_fibonacci::fibonacci_trace([Felt252::from(1), Felt252::from(1)], 8);
-//         let trace_length = trace.num_rows();
-//         let trace_polys = trace.compute_trace_polys::<Stark252PrimeField>();
-//         let coset_offset = Felt252::from(3);
-//         let blowup_factor: usize = 2;
-//         let domain_size = 8;
-
-//         let primitive_root = Stark252PrimeField::get_primitive_root_of_unity(
-//             (trace_length * blowup_factor).trailing_zeros() as u64,
-//         )
-//         .unwrap();
-
-//         for poly in trace_polys.iter() {
-//             let lde_evaluation =
-//                 evaluate_polynomial_on_lde_domain(poly, blowup_factor, domain_size, &coset_offset)
-//                     .unwrap();
-//             assert_eq!(lde_evaluation.len(), trace_length * blowup_factor);
-//             for (i, evaluation) in lde_evaluation.iter().enumerate() {
-//                 assert_eq!(
-//                     *evaluation,
-//                     poly.evaluate(&(coset_offset * primitive_root.pow(i)))
-//                 );
-//             }
-//         }
-//     }
-
-//     #[test]
-//     fn test_evaluate_polynomial_on_lde_domain_edge_case() {
-//         let poly = Polynomial::new_monomial(Felt252::one(), 8);
-//         let blowup_factor: usize = 4;
-//         let domain_size: usize = 8;
-//         let offset = Felt252::from(3);
-//         let evaluations =
-//             evaluate_polynomial_on_lde_domain(&poly, blowup_factor, domain_size, &offset).unwrap();
-//         assert_eq!(evaluations.len(), domain_size * blowup_factor);
-
-//         let primitive_root: Felt252 = Stark252PrimeField::get_primitive_root_of_unity(
-//             (domain_size * blowup_factor).trailing_zeros() as u64,
-//         )
-//         .unwrap();
-//         for (i, eval) in evaluations.iter().enumerate() {
-//             assert_eq!(*eval, poly.evaluate(&(offset * primitive_root.pow(i))));
-//         }
-//     }
-
-//     fn proof_parts_stone_compatibility_case_1() -> (
-//         StarkProof<Stark252PrimeField, Stark252PrimeField>,
-//         fibonacci_2_cols_shifted::PublicInputs<Stark252PrimeField>,
-//         ProofOptions,
-//         [u8; 4],
-//     ) {
-//         let mut trace = fibonacci_2_cols_shifted::compute_trace(FieldElement::one(), 4);
-
-//         let claimed_index = 3;
-//         let claimed_value = trace.get_row(claimed_index)[0];
-//         let mut proof_options = ProofOptions::default_test_options();
-//         proof_options.blowup_factor = 4;
-//         proof_options.coset_offset = 3;
-//         proof_options.grinding_factor = 0;
-//         proof_options.fri_number_of_queries = 1;
-
-//         let pub_inputs = fibonacci_2_cols_shifted::PublicInputs {
-//             claimed_value,
-//             claimed_index,
-//         };
-
-//         let transcript_init_seed = [0xca, 0xfe, 0xca, 0xfe];
-
-//         let proof = Prover::<Fibonacci2ColsShifted<_>>::prove(
-//             &mut trace,
-//             &pub_inputs,
-//             &proof_options,
-//             StoneProverTranscript::new(&transcript_init_seed),
-//         )
-//         .unwrap();
-//         (proof, pub_inputs, proof_options, transcript_init_seed)
-//     }
-
-//     fn stone_compatibility_case_1_proof() -> StarkProof<Stark252PrimeField, Stark252PrimeField> {
-//         let (proof, _, _, _) = proof_parts_stone_compatibility_case_1();
-//         proof
-//     }
-
-//     fn stone_compatibility_case_1_challenges(
-//     ) -> Challenges<Fibonacci2ColsShifted<Stark252PrimeField>> {
-//         let (proof, public_inputs, options, seed) = proof_parts_stone_compatibility_case_1();
-
-//         let air = Fibonacci2ColsShifted::new(proof.trace_length, &public_inputs, &options);
-//         let domain = Domain::new(&air);
-//         Verifier::step_1_replay_rounds_and_recover_challenges(
-//             &air,
-//             &proof,
-//             &domain,
-//             &mut StoneProverTranscript::new(&seed),
-//         )
-//     }
-
-//     #[test]
-//     fn stone_compatibility_case_1_proof_is_valid() {
-//         let (proof, public_inputs, options, seed) = proof_parts_stone_compatibility_case_1();
-//         assert!(Verifier::<Fibonacci2ColsShifted<_>>::verify(
-//             &proof,
-//             &public_inputs,
-//             &options,
-//             StoneProverTranscript::new(&seed)
-//         ));
-//     }
-
-//     #[test]
-//     fn stone_compatibility_case_1_trace_commitment() {
-//         let proof = stone_compatibility_case_1_proof();
-
-//         assert_eq!(
-//             proof.lde_trace_main_merkle_root.to_vec(),
-//             decode_hex("0eb9dcc0fb1854572a01236753ce05139d392aa3aeafe72abff150fe21175594").unwrap()
-//         );
-//     }
-
-//     #[test]
-//     fn stone_compatibility_case_1_composition_poly_challenges() {
-//         let challenges = stone_compatibility_case_1_challenges();
-
-//         assert_eq!(challenges.transition_coeffs[0], FieldElement::one());
-//         let beta = challenges.transition_coeffs[1];
-//         assert_eq!(
-//             beta,
-//             FieldElement::from_hex_unchecked(
-//                 "86105fff7b04ed4068ecccb8dbf1ed223bd45cd26c3532d6c80a818dbd4fa7"
-//             ),
-//         );
-
-//         assert_eq!(challenges.boundary_coeffs[0], beta.pow(2u64));
-//         assert_eq!(challenges.boundary_coeffs[1], beta.pow(3u64));
-//     }
-
-//     #[test]
-//     fn stone_compatibility_case_1_composition_poly_commitment() {
-//         let proof = stone_compatibility_case_1_proof();
-//         // Composition polynomial commitment
-//         assert_eq!(
-//             proof.composition_poly_root.to_vec(),
-//             decode_hex("7cdd8d5fe3bd62254a417e2e260e0fed4fccdb6c9005e828446f645879394f38").unwrap()
-//         );
-//     }
-
-//     #[test]
-//     fn stone_compatibility_case_1_out_of_domain_challenge() {
-//         let challenges = stone_compatibility_case_1_challenges();
-//         assert_eq!(
-//             challenges.z,
-//             FieldElement::from_hex_unchecked(
-//                 "317629e783794b52cd27ac3a5e418c057fec9dd42f2b537cdb3f24c95b3e550"
-//             )
-//         );
-//     }
-
-//     #[test]
-//     fn stone_compatibility_case_1_out_of_domain_trace_evaluation() {
-//         let proof = stone_compatibility_case_1_proof();
-
-//         assert_eq!(
-//             proof.trace_ood_evaluations.get_row(0)[0],
-//             FieldElement::from_hex_unchecked(
-//                 "70d8181785336cc7e0a0a1078a79ee6541ca0803ed3ff716de5a13c41684037",
-//             )
-//         );
-//         assert_eq!(
-//             proof.trace_ood_evaluations.get_row(1)[0],
-//             FieldElement::from_hex_unchecked(
-//                 "29808fc8b7480a69295e4b61600480ae574ca55f8d118100940501b789c1630",
-//             )
-//         );
-//         assert_eq!(
-//             proof.trace_ood_evaluations.get_row(0)[1],
-//             FieldElement::from_hex_unchecked(
-//                 "7d8110f21d1543324cc5e472ab82037eaad785707f8cae3d64c5b9034f0abd2",
-//             )
-//         );
-//         assert_eq!(
-//             proof.trace_ood_evaluations.get_row(1)[1],
-//             FieldElement::from_hex_unchecked(
-//                 "1b58470130218c122f71399bf1e04cf75a6e8556c4751629d5ce8c02cc4e62d",
-//             )
-//         );
-//     }
-
-//     #[test]
-//     fn stone_compatibility_case_1_out_of_domain_composition_poly_evaluation() {
-//         let proof = stone_compatibility_case_1_proof();
-
-//         assert_eq!(
-//             proof.composition_poly_parts_ood_evaluation[0],
-//             FieldElement::from_hex_unchecked(
-//                 "1c0b7c2275e36d62dfb48c791be122169dcc00c616c63f8efb2c2a504687e85",
-//             )
-//         );
-//     }
-
-//     #[test]
-//     fn stone_compatibility_case_1_deep_composition_poly_challenges() {
-//         let challenges = stone_compatibility_case_1_challenges();
-
-//         // Trace terms coefficients
-//         assert_eq!(challenges.trace_term_coeffs[0][0], FieldElement::one());
-//         let gamma = challenges.trace_term_coeffs[0][1];
-//         assert_eq!(
-//             &gamma,
-//             &FieldElement::from_hex_unchecked(
-//                 "a0c79c1c77ded19520873d9c2440451974d23302e451d13e8124cf82fc15dd"
-//             )
-//         );
-//         assert_eq!(&challenges.trace_term_coeffs[1][0], &gamma.pow(2_u64));
-//         assert_eq!(&challenges.trace_term_coeffs[1][1], &gamma.pow(3_u64));
-
-//         // Composition polynomial parts terms coefficient
-//         assert_eq!(&challenges.gammas[0], &gamma.pow(4_u64));
-//     }
-
-//     #[test]
-//     fn stone_compatibility_case_1_fri_commit_phase_challenge_0() {
-//         let challenges = stone_compatibility_case_1_challenges();
-
-//         // Challenge to fold FRI polynomial
-//         assert_eq!(
-//             challenges.zetas[0],
-//             FieldElement::from_hex_unchecked(
-//                 "5c6b5a66c9fda19f583f0b10edbaade98d0e458288e62c2fa40e3da2b293cef"
-//             )
-//         );
-//     }
-
-//     #[test]
-//     fn stone_compatibility_case_1_fri_commit_phase_layer_1_commitment() {
-//         let proof = stone_compatibility_case_1_proof();
-
-//         // Commitment of first layer of FRI
-//         assert_eq!(
-//             proof.fri_layers_merkle_roots[0].to_vec(),
-//             decode_hex("327d47da86f5961ee012b2b0e412de16023ffba97c82bfe85102f00daabd49fb").unwrap()
-//         );
-//     }
-
-//     #[test]
-//     fn stone_compatibility_case_1_fri_commit_phase_challenge_1() {
-//         let challenges = stone_compatibility_case_1_challenges();
-//         assert_eq!(
-//             challenges.zetas[1],
-//             FieldElement::from_hex_unchecked(
-//                 "13c337c9dc727bea9eef1f82cab86739f17acdcef562f9e5151708f12891295"
-//             )
-//         );
-//     }
-
-//     #[test]
-//     fn stone_compatibility_case_1_fri_commit_phase_last_value() {
-//         let proof = stone_compatibility_case_1_proof();
-
-//         assert_eq!(
-//             proof.fri_last_value,
-//             FieldElement::from_hex_unchecked(
-//                 "43fedf9f9e3d1469309862065c7d7ca0e7e9ce451906e9c01553056f695aec9"
-//             )
-//         );
-//     }
-
-//     #[test]
-//     fn stone_compatibility_case_1_fri_query_iota_challenge() {
-//         let challenges = stone_compatibility_case_1_challenges();
-//         assert_eq!(challenges.iotas[0], 1);
-//     }
-
-//     #[test]
-//     fn stone_compatibility_case_1_fri_query_phase_trace_openings() {
-//         let proof = stone_compatibility_case_1_proof();
-
-//         // Trace Col 0
-//         assert_eq!(
-//             proof.deep_poly_openings[0].main_trace_polys.evaluations[0],
-//             FieldElement::from_hex_unchecked(
-//                 "4de0d56f9cf97dff326c26592fbd4ae9ee756080b12c51cfe4864e9b8734f43"
-//             )
-//         );
-
-//         // Trace Col 1
-//         assert_eq!(
-//             proof.deep_poly_openings[0].main_trace_polys.evaluations[1],
-//             FieldElement::from_hex_unchecked(
-//                 "1bc1aadf39f2faee64d84cb25f7a95d3dceac1016258a39fc90c9d370e69e8e"
-//             )
-//         );
-
-//         // Trace Col 0 symmetric
-//         assert_eq!(
-//             proof.deep_poly_openings[0].main_trace_polys.evaluations_sym[0],
-//             FieldElement::from_hex_unchecked(
-//                 "321f2a9063068310cd93d9a6d042b516118a9f7f4ed3ae301b79b16478cb0c6"
-//             )
-//         );
-
-//         // Trace Col 1 symmetric
-//         assert_eq!(
-//             proof.deep_poly_openings[0].main_trace_polys.evaluations_sym[1],
-//             FieldElement::from_hex_unchecked(
-//                 "643e5520c60d06219b27b34da0856a2c23153efe9da75c6036f362c8f196186"
-//             )
-//         );
-//     }
-
-//     #[test]
-//     fn stone_compatibility_case_1_fri_query_phase_trace_terms_authentication_path() {
-//         let proof = stone_compatibility_case_1_proof();
-
-//         // Trace poly auth path level 1
-//         assert_eq!(
-//             proof.deep_poly_openings[0]
-//                 .main_trace_polys
-//                 .proof
-//                 .merkle_path[1]
-//                 .to_vec(),
-//             decode_hex("91b0c0b24b9d00067b0efab50832b76cf97192091624d42b86740666c5d369e6").unwrap()
-//         );
-
-//         // Trace poly auth path level 2
-//         assert_eq!(
-//             proof.deep_poly_openings[0]
-//                 .main_trace_polys
-//                 .proof
-//                 .merkle_path[2]
-//                 .to_vec(),
-//             decode_hex("993b044db22444c0c0ebf1095b9a51faeb001c9b4dea36abe905f7162620dbbd").unwrap()
-//         );
-
-//         // Trace poly auth path level 3
-//         assert_eq!(
-//             proof.deep_poly_openings[0]
-//                 .main_trace_polys
-//                 .proof
-//                 .merkle_path[3]
-//                 .to_vec(),
-//             decode_hex("5017abeca33fa82576b5c5c2c61792693b48c9d4414a407eef66b6029dae07ea").unwrap()
-//         );
-//     }
-
-//     #[test]
-//     fn stone_compatibility_case_1_fri_query_phase_composition_poly_openings() {
-//         let proof = stone_compatibility_case_1_proof();
-
-//         // Composition poly
-//         assert_eq!(
-//             proof.deep_poly_openings[0].composition_poly.evaluations[0],
-//             FieldElement::from_hex_unchecked(
-//                 "2b54852557db698e97253e9d110d60e9bf09f1d358b4c1a96f9f3cf9d2e8755"
-//             )
-//         );
-//         // Composition poly sym
-//         assert_eq!(
-//             proof.deep_poly_openings[0].composition_poly.evaluations_sym[0],
-//             FieldElement::from_hex_unchecked(
-//                 "190f1b0acb7858bd3f5285b68befcf32b436a5f1e3a280e1f42565c1f35c2c3"
-//             )
-//         );
-//     }
-
-//     #[test]
-//     fn stone_compatibility_case_1_fri_query_phase_composition_poly_authentication_path() {
-//         let proof = stone_compatibility_case_1_proof();
-
-//         // Composition poly auth path level 0
-//         assert_eq!(
-//             proof.deep_poly_openings[0]
-//                 .composition_poly
-//                 .proof
-//                 .merkle_path[0]
-//                 .to_vec(),
-//             decode_hex("403b75a122eaf90a298e5d3db2cc7ca096db478078122379a6e3616e72da7546").unwrap()
-//         );
-
-//         // Composition poly auth path level 1
-//         assert_eq!(
-//             proof.deep_poly_openings[0]
-//                 .composition_poly
-//                 .proof
-//                 .merkle_path[1]
-//                 .to_vec(),
-//             decode_hex("07950888c0355c204a1e83ecbee77a0a6a89f93d41cc2be6b39ddd1e727cc965").unwrap()
-//         );
-
-//         // Composition poly auth path level 2
-//         assert_eq!(
-//             proof.deep_poly_openings[0]
-//                 .composition_poly
-//                 .proof
-//                 .merkle_path[2]
-//                 .to_vec(),
-//             decode_hex("58befe2c5de74cc5a002aa82ea219c5b242e761b45fd266eb95521e9f53f44eb").unwrap()
-//         );
-//     }
-
-//     #[test]
-//     fn stone_compatibility_case_1_fri_query_phase_query_lengths() {
-//         let proof = stone_compatibility_case_1_proof();
-
-//         assert_eq!(proof.query_list.len(), 1);
-
-//         assert_eq!(proof.query_list[0].layers_evaluations_sym.len(), 1);
-
-//         assert_eq!(
-//             proof.query_list[0].layers_auth_paths[0].merkle_path.len(),
-//             2
-//         );
-//     }
-
-//     #[test]
-//     fn stone_compatibility_case_1_fri_query_phase_layer_1_evaluation_symmetric() {
-//         let proof = stone_compatibility_case_1_proof();
-
-//         assert_eq!(
-//             proof.query_list[0].layers_evaluations_sym[0],
-//             FieldElement::from_hex_unchecked(
-//                 "0684991e76e5c08db17f33ea7840596be876d92c143f863e77cad10548289fd0"
-//             )
-//         );
-//     }
-
-//     #[test]
-//     fn stone_compatibility_case_1_fri_query_phase_layer_1_authentication_path() {
-//         let proof = stone_compatibility_case_1_proof();
-
-//         // FRI layer 1 auth path level 0
-//         assert_eq!(
-//             proof.query_list[0].layers_auth_paths[0].merkle_path[0].to_vec(),
-//             decode_hex("0683622478e9e93cc2d18754872f043619f030b494d7ec8e003b1cbafe83b67b").unwrap()
-//         );
-
-//         // FRI layer 1 auth path level 1
-//         assert_eq!(
-//             proof.query_list[0].layers_auth_paths[0].merkle_path[1].to_vec(),
-//             decode_hex("7985d945abe659a7502698051ec739508ed6bab594984c7f25e095a0a57a2e55").unwrap()
-//         );
-//     }
-
-//     fn proof_parts_stone_compatibility_case_2() -> (
-//         StarkProof<Stark252PrimeField, Stark252PrimeField>,
-//         fibonacci_2_cols_shifted::PublicInputs<Stark252PrimeField>,
-//         ProofOptions,
-//         [u8; 4],
-//     ) {
-//         let mut trace = fibonacci_2_cols_shifted::compute_trace(FieldElement::from(12345), 512);
-
-//         let claimed_index = 420;
-//         let claimed_value = trace.get_row(claimed_index)[0];
-//         let mut proof_options = ProofOptions::default_test_options();
-//         proof_options.blowup_factor = 1 << 6;
-//         proof_options.coset_offset = 3;
-//         proof_options.grinding_factor = 0;
-//         proof_options.fri_number_of_queries = 1;
-
-//         let pub_inputs = fibonacci_2_cols_shifted::PublicInputs {
-//             claimed_value,
-//             claimed_index,
-//         };
-
-//         let transcript_init_seed = [0xfa, 0xfa, 0xfa, 0xee];
-
-//         let proof = Prover::<Fibonacci2ColsShifted<_>>::prove(
-//             &mut trace,
-//             &pub_inputs,
-//             &proof_options,
-//             StoneProverTranscript::new(&transcript_init_seed),
-//         )
-//         .unwrap();
-//         (proof, pub_inputs, proof_options, transcript_init_seed)
-//     }
-
-//     fn stone_compatibility_case_2_proof() -> StarkProof<Stark252PrimeField, Stark252PrimeField> {
-//         let (proof, _, _, _) = proof_parts_stone_compatibility_case_2();
-//         proof
-//     }
-
-//     fn stone_compatibility_case_2_challenges(
-//     ) -> Challenges<Fibonacci2ColsShifted<Stark252PrimeField>> {
-//         let (proof, public_inputs, options, seed) = proof_parts_stone_compatibility_case_2();
-
-//         let air = Fibonacci2ColsShifted::new(proof.trace_length, &public_inputs, &options);
-//         let domain = Domain::new(&air);
-//         Verifier::step_1_replay_rounds_and_recover_challenges(
-//             &air,
-//             &proof,
-//             &domain,
-//             &mut StoneProverTranscript::new(&seed),
-//         )
-//     }
-
-//     #[test]
-//     fn stone_compatibility_case_2_trace_commitment() {
-//         let proof = stone_compatibility_case_2_proof();
-
-//         assert_eq!(
-//             proof.lde_trace_main_merkle_root.to_vec(),
-//             decode_hex("6d31dd00038974bde5fe0c5e3a765f8ddc822a5df3254fca85a1950ae0208cbe").unwrap()
-//         );
-//     }
-
-//     #[test]
-//     fn stone_compatibility_case_2_fri_query_iota_challenge() {
-//         let challenges = stone_compatibility_case_2_challenges();
-//         assert_eq!(challenges.iotas[0], 4239);
-//     }
-
-//     #[test]
-//     fn stone_compatibility_case_2_fri_query_phase_layer_7_evaluation_symmetric() {
-//         let proof = stone_compatibility_case_2_proof();
-
-//         assert_eq!(
-//             proof.query_list[0].layers_evaluations_sym[7],
-//             FieldElement::from_hex_unchecked(
-//                 "7aa40c5a4e30b44fee5bcc47c54072a435aa35c1a31b805cad8126118cc6860"
-//             )
-//         );
-//     }
-
-//     #[test]
-//     fn stone_compatibility_case_2_fri_query_phase_layer_8_authentication_path() {
-//         let proof = stone_compatibility_case_2_proof();
-
-//         // FRI layer 7 auth path level 5
-//         assert_eq!(
-//             proof.query_list[0].layers_auth_paths[7].merkle_path[5].to_vec(),
-//             decode_hex("f12f159b548ca2c571a270870d43e7ec2ead78b3e93b635738c31eb9bcda3dda").unwrap()
-//         );
-//     }
-// }
+#[cfg(test)]
+mod tests {
+    use std::num::ParseIntError;
+
+    fn decode_hex(s: &str) -> Result<Vec<u8>, ParseIntError> {
+        (0..s.len())
+            .step_by(2)
+            .map(|i| u8::from_str_radix(&s[i..i + 2], 16))
+            .collect()
+    }
+
+    use crate::{
+        examples::{
+            fibonacci_2_cols_shifted::{self, Fibonacci2ColsShifted},
+            simple_fibonacci::{self, FibonacciPublicInputs},
+        },
+        proof::options::ProofOptions,
+        transcript::StoneProverTranscript,
+        verifier::{Challenges, IsStarkVerifier, Verifier},
+        Felt252,
+    };
+
+    use super::*;
+    use lambdaworks_math::{
+        field::{
+            element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
+            traits::IsFFTField,
+        },
+        polynomial::Polynomial,
+    };
+
+    #[test]
+    fn test_domain_constructor() {
+        let pub_inputs = FibonacciPublicInputs {
+            a0: Felt252::one(),
+            a1: Felt252::one(),
+        };
+        let trace = simple_fibonacci::fibonacci_trace([Felt252::from(1), Felt252::from(1)], 8);
+        let trace_length = trace.num_rows();
+        let coset_offset = 3;
+        let blowup_factor: usize = 2;
+        let grinding_factor = 20;
+
+        let proof_options = ProofOptions {
+            blowup_factor: blowup_factor as u8,
+            fri_number_of_queries: 1,
+            coset_offset,
+            grinding_factor,
+        };
+
+        let domain = Domain::new(&simple_fibonacci::FibonacciAIR::new(
+            trace_length,
+            &pub_inputs,
+            &proof_options,
+        ));
+        assert_eq!(domain.blowup_factor, 2);
+        assert_eq!(domain.interpolation_domain_size, trace_length);
+        assert_eq!(domain.root_order, trace_length.trailing_zeros());
+        assert_eq!(domain.coset_offset, FieldElement::from(coset_offset));
+
+        let primitive_root = Stark252PrimeField::get_primitive_root_of_unity(
+            (trace_length * blowup_factor).trailing_zeros() as u64,
+        )
+        .unwrap();
+
+        assert_eq!(
+            domain.trace_primitive_root,
+            primitive_root.pow(blowup_factor)
+        );
+        for i in 0..(trace_length * blowup_factor) {
+            assert_eq!(
+                domain.lde_roots_of_unity_coset[i],
+                primitive_root.pow(i) * FieldElement::from(coset_offset)
+            );
+        }
+    }
+
+    #[test]
+    fn test_evaluate_polynomial_on_lde_domain_on_trace_polys() {
+
+        let trace = simple_fibonacci::fibonacci_trace([Felt252::from(1), Felt252::from(1)], 8);
+
+        let trace_length = trace.num_rows();
+
+        let trace_polys = trace.compute_trace_polys_main::<Stark252PrimeField>();
+        let coset_offset = Felt252::from(3);
+        let blowup_factor: usize = 2;
+        let domain_size = 8;
+
+        let primitive_root = Stark252PrimeField::get_primitive_root_of_unity(
+            (trace_length * blowup_factor).trailing_zeros() as u64,
+        )
+        .unwrap();
+
+        for poly in trace_polys.iter() {
+            let lde_evaluation =
+                evaluate_polynomial_on_lde_domain(poly, blowup_factor, domain_size, &coset_offset)
+                    .unwrap();
+            assert_eq!(lde_evaluation.len(), trace_length * blowup_factor);
+            for (i, evaluation) in lde_evaluation.iter().enumerate() {
+                assert_eq!(
+                    *evaluation,
+                    poly.evaluate(&(coset_offset * primitive_root.pow(i)))
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_evaluate_polynomial_on_lde_domain_edge_case() {
+        let poly = Polynomial::new_monomial(Felt252::one(), 8);
+        let blowup_factor: usize = 4;
+        let domain_size: usize = 8;
+        let offset = Felt252::from(3);
+        let evaluations =
+            evaluate_polynomial_on_lde_domain(&poly, blowup_factor, domain_size, &offset).unwrap();
+        assert_eq!(evaluations.len(), domain_size * blowup_factor);
+
+        let primitive_root: Felt252 = Stark252PrimeField::get_primitive_root_of_unity(
+            (domain_size * blowup_factor).trailing_zeros() as u64,
+        )
+        .unwrap();
+        for (i, eval) in evaluations.iter().enumerate() {
+            assert_eq!(*eval, poly.evaluate(&(offset * primitive_root.pow(i))));
+        }
+    }
+
+    fn proof_parts_stone_compatibility_case_1() -> (
+        StarkProof<Stark252PrimeField, Stark252PrimeField>,
+        fibonacci_2_cols_shifted::PublicInputs<Stark252PrimeField>,
+        ProofOptions,
+        [u8; 4],
+    ) {
+        let mut trace = fibonacci_2_cols_shifted::compute_trace(FieldElement::one(), 4);
+
+        let claimed_index = 3;
+        let col = 0;
+        let claimed_value = trace.get_main(claimed_index, col).clone();
+        let mut proof_options = ProofOptions::default_test_options();
+        proof_options.blowup_factor = 4;
+        proof_options.coset_offset = 3;
+        proof_options.grinding_factor = 0;
+        proof_options.fri_number_of_queries = 1;
+
+        let pub_inputs = fibonacci_2_cols_shifted::PublicInputs {
+            claimed_value,
+            claimed_index,
+        };
+
+        let transcript_init_seed = [0xca, 0xfe, 0xca, 0xfe];
+
+        let proof = Prover::<Fibonacci2ColsShifted<_>>::prove(
+            &mut trace,
+            &pub_inputs,
+            &proof_options,
+            StoneProverTranscript::new(&transcript_init_seed),
+        )
+        .unwrap();
+        (proof, pub_inputs, proof_options, transcript_init_seed)
+    }
+
+    fn stone_compatibility_case_1_proof() -> StarkProof<Stark252PrimeField, Stark252PrimeField> {
+        let (proof, _, _, _) = proof_parts_stone_compatibility_case_1();
+        proof
+    }
+
+    fn stone_compatibility_case_1_challenges(
+    ) -> Challenges<Fibonacci2ColsShifted<Stark252PrimeField>> {
+        let (proof, public_inputs, options, seed) = proof_parts_stone_compatibility_case_1();
+
+        let air = Fibonacci2ColsShifted::new(proof.trace_length, &public_inputs, &options);
+        let domain = Domain::new(&air);
+        Verifier::step_1_replay_rounds_and_recover_challenges(
+            &air,
+            &proof,
+            &domain,
+            &mut StoneProverTranscript::new(&seed),
+        )
+    }
+
+    #[test]
+    fn stone_compatibility_case_1_proof_is_valid() {
+        let (proof, public_inputs, options, seed) = proof_parts_stone_compatibility_case_1();
+        assert!(Verifier::<Fibonacci2ColsShifted<_>>::verify(
+            &proof,
+            &public_inputs,
+            &options,
+            StoneProverTranscript::new(&seed)
+        ));
+    }
+
+    #[test]
+    fn stone_compatibility_case_1_trace_commitment() {
+        let proof = stone_compatibility_case_1_proof();
+
+        assert_eq!(
+            proof.lde_trace_main_merkle_root.to_vec(),
+            decode_hex("0eb9dcc0fb1854572a01236753ce05139d392aa3aeafe72abff150fe21175594").unwrap()
+        );
+    }
+
+    #[test]
+    fn stone_compatibility_case_1_composition_poly_challenges() {
+        let challenges = stone_compatibility_case_1_challenges();
+
+        assert_eq!(challenges.transition_coeffs[0], FieldElement::one());
+        let beta = challenges.transition_coeffs[1];
+        assert_eq!(
+            beta,
+            FieldElement::from_hex_unchecked(
+                "86105fff7b04ed4068ecccb8dbf1ed223bd45cd26c3532d6c80a818dbd4fa7"
+            ),
+        );
+
+        assert_eq!(challenges.boundary_coeffs[0], beta.pow(2u64));
+        assert_eq!(challenges.boundary_coeffs[1], beta.pow(3u64));
+    }
+
+    #[test]
+    fn stone_compatibility_case_1_composition_poly_commitment() {
+        let proof = stone_compatibility_case_1_proof();
+        // Composition polynomial commitment
+        assert_eq!(
+            proof.composition_poly_root.to_vec(),
+            decode_hex("7cdd8d5fe3bd62254a417e2e260e0fed4fccdb6c9005e828446f645879394f38").unwrap()
+        );
+    }
+
+    #[test]
+    fn stone_compatibility_case_1_out_of_domain_challenge() {
+        let challenges = stone_compatibility_case_1_challenges();
+        assert_eq!(
+            challenges.z,
+            FieldElement::from_hex_unchecked(
+                "317629e783794b52cd27ac3a5e418c057fec9dd42f2b537cdb3f24c95b3e550"
+            )
+        );
+    }
+
+    #[test]
+    fn stone_compatibility_case_1_out_of_domain_trace_evaluation() {
+        let proof = stone_compatibility_case_1_proof();
+
+        assert_eq!(
+            proof.trace_ood_evaluations.get_row(0)[0],
+            FieldElement::from_hex_unchecked(
+                "70d8181785336cc7e0a0a1078a79ee6541ca0803ed3ff716de5a13c41684037",
+            )
+        );
+        assert_eq!(
+            proof.trace_ood_evaluations.get_row(1)[0],
+            FieldElement::from_hex_unchecked(
+                "29808fc8b7480a69295e4b61600480ae574ca55f8d118100940501b789c1630",
+            )
+        );
+        assert_eq!(
+            proof.trace_ood_evaluations.get_row(0)[1],
+            FieldElement::from_hex_unchecked(
+                "7d8110f21d1543324cc5e472ab82037eaad785707f8cae3d64c5b9034f0abd2",
+            )
+        );
+        assert_eq!(
+            proof.trace_ood_evaluations.get_row(1)[1],
+            FieldElement::from_hex_unchecked(
+                "1b58470130218c122f71399bf1e04cf75a6e8556c4751629d5ce8c02cc4e62d",
+            )
+        );
+    }
+
+    #[test]
+    fn stone_compatibility_case_1_out_of_domain_composition_poly_evaluation() {
+        let proof = stone_compatibility_case_1_proof();
+
+        assert_eq!(
+            proof.composition_poly_parts_ood_evaluation[0],
+            FieldElement::from_hex_unchecked(
+                "1c0b7c2275e36d62dfb48c791be122169dcc00c616c63f8efb2c2a504687e85",
+            )
+        );
+    }
+
+    #[test]
+    fn stone_compatibility_case_1_deep_composition_poly_challenges() {
+        let challenges = stone_compatibility_case_1_challenges();
+
+        // Trace terms coefficients
+        assert_eq!(challenges.trace_term_coeffs[0][0], FieldElement::one());
+        let gamma = challenges.trace_term_coeffs[0][1];
+        assert_eq!(
+            &gamma,
+            &FieldElement::from_hex_unchecked(
+                "a0c79c1c77ded19520873d9c2440451974d23302e451d13e8124cf82fc15dd"
+            )
+        );
+        assert_eq!(&challenges.trace_term_coeffs[1][0], &gamma.pow(2_u64));
+        assert_eq!(&challenges.trace_term_coeffs[1][1], &gamma.pow(3_u64));
+
+        // Composition polynomial parts terms coefficient
+        assert_eq!(&challenges.gammas[0], &gamma.pow(4_u64));
+    }
+
+    #[test]
+    fn stone_compatibility_case_1_fri_commit_phase_challenge_0() {
+        let challenges = stone_compatibility_case_1_challenges();
+
+        // Challenge to fold FRI polynomial
+        assert_eq!(
+            challenges.zetas[0],
+            FieldElement::from_hex_unchecked(
+                "5c6b5a66c9fda19f583f0b10edbaade98d0e458288e62c2fa40e3da2b293cef"
+            )
+        );
+    }
+
+    #[test]
+    fn stone_compatibility_case_1_fri_commit_phase_layer_1_commitment() {
+        let proof = stone_compatibility_case_1_proof();
+
+        // Commitment of first layer of FRI
+        assert_eq!(
+            proof.fri_layers_merkle_roots[0].to_vec(),
+            decode_hex("327d47da86f5961ee012b2b0e412de16023ffba97c82bfe85102f00daabd49fb").unwrap()
+        );
+    }
+
+    #[test]
+    fn stone_compatibility_case_1_fri_commit_phase_challenge_1() {
+        let challenges = stone_compatibility_case_1_challenges();
+        assert_eq!(
+            challenges.zetas[1],
+            FieldElement::from_hex_unchecked(
+                "13c337c9dc727bea9eef1f82cab86739f17acdcef562f9e5151708f12891295"
+            )
+        );
+    }
+
+    #[test]
+    fn stone_compatibility_case_1_fri_commit_phase_last_value() {
+        let proof = stone_compatibility_case_1_proof();
+
+        assert_eq!(
+            proof.fri_last_value,
+            FieldElement::from_hex_unchecked(
+                "43fedf9f9e3d1469309862065c7d7ca0e7e9ce451906e9c01553056f695aec9"
+            )
+        );
+    }
+
+    #[test]
+    fn stone_compatibility_case_1_fri_query_iota_challenge() {
+        let challenges = stone_compatibility_case_1_challenges();
+        assert_eq!(challenges.iotas[0], 1);
+    }
+
+    #[test]
+    fn stone_compatibility_case_1_fri_query_phase_trace_openings() {
+        let proof = stone_compatibility_case_1_proof();
+
+        // Trace Col 0
+        assert_eq!(
+            proof.deep_poly_openings[0].main_trace_polys.evaluations[0],
+            FieldElement::from_hex_unchecked(
+                "4de0d56f9cf97dff326c26592fbd4ae9ee756080b12c51cfe4864e9b8734f43"
+            )
+        );
+
+        // Trace Col 1
+        assert_eq!(
+            proof.deep_poly_openings[0].main_trace_polys.evaluations[1],
+            FieldElement::from_hex_unchecked(
+                "1bc1aadf39f2faee64d84cb25f7a95d3dceac1016258a39fc90c9d370e69e8e"
+            )
+        );
+
+        // Trace Col 0 symmetric
+        assert_eq!(
+            proof.deep_poly_openings[0].main_trace_polys.evaluations_sym[0],
+            FieldElement::from_hex_unchecked(
+                "321f2a9063068310cd93d9a6d042b516118a9f7f4ed3ae301b79b16478cb0c6"
+            )
+        );
+
+        // Trace Col 1 symmetric
+        assert_eq!(
+            proof.deep_poly_openings[0].main_trace_polys.evaluations_sym[1],
+            FieldElement::from_hex_unchecked(
+                "643e5520c60d06219b27b34da0856a2c23153efe9da75c6036f362c8f196186"
+            )
+        );
+    }
+
+    #[test]
+    fn stone_compatibility_case_1_fri_query_phase_trace_terms_authentication_path() {
+        let proof = stone_compatibility_case_1_proof();
+
+        // Trace poly auth path level 1
+        assert_eq!(
+            proof.deep_poly_openings[0]
+                .main_trace_polys
+                .proof
+                .merkle_path[1]
+                .to_vec(),
+            decode_hex("91b0c0b24b9d00067b0efab50832b76cf97192091624d42b86740666c5d369e6").unwrap()
+        );
+
+        // Trace poly auth path level 2
+        assert_eq!(
+            proof.deep_poly_openings[0]
+                .main_trace_polys
+                .proof
+                .merkle_path[2]
+                .to_vec(),
+            decode_hex("993b044db22444c0c0ebf1095b9a51faeb001c9b4dea36abe905f7162620dbbd").unwrap()
+        );
+
+        // Trace poly auth path level 3
+        assert_eq!(
+            proof.deep_poly_openings[0]
+                .main_trace_polys
+                .proof
+                .merkle_path[3]
+                .to_vec(),
+            decode_hex("5017abeca33fa82576b5c5c2c61792693b48c9d4414a407eef66b6029dae07ea").unwrap()
+        );
+    }
+
+    #[test]
+    fn stone_compatibility_case_1_fri_query_phase_composition_poly_openings() {
+        let proof = stone_compatibility_case_1_proof();
+
+        // Composition poly
+        assert_eq!(
+            proof.deep_poly_openings[0].composition_poly.evaluations[0],
+            FieldElement::from_hex_unchecked(
+                "2b54852557db698e97253e9d110d60e9bf09f1d358b4c1a96f9f3cf9d2e8755"
+            )
+        );
+        // Composition poly sym
+        assert_eq!(
+            proof.deep_poly_openings[0].composition_poly.evaluations_sym[0],
+            FieldElement::from_hex_unchecked(
+                "190f1b0acb7858bd3f5285b68befcf32b436a5f1e3a280e1f42565c1f35c2c3"
+            )
+        );
+    }
+
+    #[test]
+    fn stone_compatibility_case_1_fri_query_phase_composition_poly_authentication_path() {
+        let proof = stone_compatibility_case_1_proof();
+
+        // Composition poly auth path level 0
+        assert_eq!(
+            proof.deep_poly_openings[0]
+                .composition_poly
+                .proof
+                .merkle_path[0]
+                .to_vec(),
+            decode_hex("403b75a122eaf90a298e5d3db2cc7ca096db478078122379a6e3616e72da7546").unwrap()
+        );
+
+        // Composition poly auth path level 1
+        assert_eq!(
+            proof.deep_poly_openings[0]
+                .composition_poly
+                .proof
+                .merkle_path[1]
+                .to_vec(),
+            decode_hex("07950888c0355c204a1e83ecbee77a0a6a89f93d41cc2be6b39ddd1e727cc965").unwrap()
+        );
+
+        // Composition poly auth path level 2
+        assert_eq!(
+            proof.deep_poly_openings[0]
+                .composition_poly
+                .proof
+                .merkle_path[2]
+                .to_vec(),
+            decode_hex("58befe2c5de74cc5a002aa82ea219c5b242e761b45fd266eb95521e9f53f44eb").unwrap()
+        );
+    }
+
+    #[test]
+    fn stone_compatibility_case_1_fri_query_phase_query_lengths() {
+        let proof = stone_compatibility_case_1_proof();
+
+        assert_eq!(proof.query_list.len(), 1);
+
+        assert_eq!(proof.query_list[0].layers_evaluations_sym.len(), 1);
+
+        assert_eq!(
+            proof.query_list[0].layers_auth_paths[0].merkle_path.len(),
+            2
+        );
+    }
+
+    #[test]
+    fn stone_compatibility_case_1_fri_query_phase_layer_1_evaluation_symmetric() {
+        let proof = stone_compatibility_case_1_proof();
+
+        assert_eq!(
+            proof.query_list[0].layers_evaluations_sym[0],
+            FieldElement::from_hex_unchecked(
+                "0684991e76e5c08db17f33ea7840596be876d92c143f863e77cad10548289fd0"
+            )
+        );
+    }
+
+    #[test]
+    fn stone_compatibility_case_1_fri_query_phase_layer_1_authentication_path() {
+        let proof = stone_compatibility_case_1_proof();
+
+        // FRI layer 1 auth path level 0
+        assert_eq!(
+            proof.query_list[0].layers_auth_paths[0].merkle_path[0].to_vec(),
+            decode_hex("0683622478e9e93cc2d18754872f043619f030b494d7ec8e003b1cbafe83b67b").unwrap()
+        );
+
+        // FRI layer 1 auth path level 1
+        assert_eq!(
+            proof.query_list[0].layers_auth_paths[0].merkle_path[1].to_vec(),
+            decode_hex("7985d945abe659a7502698051ec739508ed6bab594984c7f25e095a0a57a2e55").unwrap()
+        );
+    }
+
+    fn proof_parts_stone_compatibility_case_2() -> (
+        StarkProof<Stark252PrimeField, Stark252PrimeField>,
+        fibonacci_2_cols_shifted::PublicInputs<Stark252PrimeField>,
+        ProofOptions,
+        [u8; 4],
+    ) {
+        let mut trace = fibonacci_2_cols_shifted::compute_trace(FieldElement::from(12345), 512);
+
+        let claimed_index = 420;
+        let col = 0;
+        let claimed_value = trace.get_main(claimed_index, col).clone();
+        let mut proof_options = ProofOptions::default_test_options();
+        proof_options.blowup_factor = 1 << 6;
+        proof_options.coset_offset = 3;
+        proof_options.grinding_factor = 0;
+        proof_options.fri_number_of_queries = 1;
+
+        let pub_inputs = fibonacci_2_cols_shifted::PublicInputs {
+            claimed_value,
+            claimed_index,
+        };
+
+        let transcript_init_seed = [0xfa, 0xfa, 0xfa, 0xee];
+
+        let proof = Prover::<Fibonacci2ColsShifted<_>>::prove(
+            &mut trace,
+            &pub_inputs,
+            &proof_options,
+            StoneProverTranscript::new(&transcript_init_seed),
+        )
+        .unwrap();
+        (proof, pub_inputs, proof_options, transcript_init_seed)
+    }
+
+    fn stone_compatibility_case_2_proof() -> StarkProof<Stark252PrimeField, Stark252PrimeField> {
+        let (proof, _, _, _) = proof_parts_stone_compatibility_case_2();
+        proof
+    }
+
+    fn stone_compatibility_case_2_challenges(
+    ) -> Challenges<Fibonacci2ColsShifted<Stark252PrimeField>> {
+        let (proof, public_inputs, options, seed) = proof_parts_stone_compatibility_case_2();
+
+        let air = Fibonacci2ColsShifted::new(proof.trace_length, &public_inputs, &options);
+        let domain = Domain::new(&air);
+        Verifier::step_1_replay_rounds_and_recover_challenges(
+            &air,
+            &proof,
+            &domain,
+            &mut StoneProverTranscript::new(&seed),
+        )
+    }
+
+    #[test]
+    fn stone_compatibility_case_2_trace_commitment() {
+        let proof = stone_compatibility_case_2_proof();
+
+        assert_eq!(
+            proof.lde_trace_main_merkle_root.to_vec(),
+            decode_hex("6d31dd00038974bde5fe0c5e3a765f8ddc822a5df3254fca85a1950ae0208cbe").unwrap()
+        );
+    }
+
+    #[test]
+    fn stone_compatibility_case_2_fri_query_iota_challenge() {
+        let challenges = stone_compatibility_case_2_challenges();
+        assert_eq!(challenges.iotas[0], 4239);
+    }
+
+    #[test]
+    fn stone_compatibility_case_2_fri_query_phase_layer_7_evaluation_symmetric() {
+        let proof = stone_compatibility_case_2_proof();
+
+        assert_eq!(
+            proof.query_list[0].layers_evaluations_sym[7],
+            FieldElement::from_hex_unchecked(
+                "7aa40c5a4e30b44fee5bcc47c54072a435aa35c1a31b805cad8126118cc6860"
+            )
+        );
+    }
+
+    #[test]
+    fn stone_compatibility_case_2_fri_query_phase_layer_8_authentication_path() {
+        let proof = stone_compatibility_case_2_proof();
+
+        // FRI layer 7 auth path level 5
+        assert_eq!(
+            proof.query_list[0].layers_auth_paths[7].merkle_path[5].to_vec(),
+            decode_hex("f12f159b548ca2c571a270870d43e7ec2ead78b3e93b635738c31eb9bcda3dda").unwrap()
+        );
+    }
+}
