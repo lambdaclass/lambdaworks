@@ -156,8 +156,6 @@ pub fn generate_prover_args(
 ) -> Result<(CairoTraceTable, PublicInputs), Error> {
     let (register_states, memory, mut pub_inputs) = run_program(None, layout, program_content)?;
 
-    // let main_trace = build_main_trace(&register_states, &memory, &mut public_inputs);
-
     let main_trace = build_cairo_execution_trace(&register_states, &memory, &mut pub_inputs);
 
     Ok((main_trace, pub_inputs))
