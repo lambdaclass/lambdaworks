@@ -4,8 +4,14 @@ use lambdaworks_math::field::{
 
 use crate::{
     examples::{
-        bit_flags::{self, BitFlagsAIR}, dummy_air::{self, DummyAIR}, fibonacci_2_cols_shifted::{self, Fibonacci2ColsShifted}, fibonacci_2_columns::{self, Fibonacci2ColsAIR}, fibonacci_rap::{fibonacci_rap_trace, FibonacciRAP, FibonacciRAPPublicInputs}, quadratic_air::{self, QuadraticAIR, QuadraticPublicInputs}, simple_fibonacci::{self, FibonacciAIR, FibonacciPublicInputs}, simple_periodic_cols::{self, SimplePeriodicAIR, SimplePeriodicPublicInputs}
-        //         simple_periodic_cols::{self, SimplePeriodicAIR, SimplePeriodicPublicInputs},
+        bit_flags::{self, BitFlagsAIR},
+        dummy_air::{self, DummyAIR},
+        fibonacci_2_cols_shifted::{self, Fibonacci2ColsShifted},
+        fibonacci_2_columns::{self, Fibonacci2ColsAIR},
+        fibonacci_rap::{fibonacci_rap_trace, FibonacciRAP, FibonacciRAPPublicInputs},
+        quadratic_air::{self, QuadraticAIR, QuadraticPublicInputs},
+        simple_fibonacci::{self, FibonacciAIR, FibonacciPublicInputs},
+        simple_periodic_cols::{self, SimplePeriodicAIR, SimplePeriodicPublicInputs}, //         simple_periodic_cols::{self, SimplePeriodicAIR, SimplePeriodicPublicInputs},
     },
     proof::options::ProofOptions,
     prover::{IsStarkProver, Prover},

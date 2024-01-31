@@ -821,14 +821,11 @@ pub(crate) fn set_mem_permutation_column(
 
 #[cfg(test)]
 mod test {
-    
 
     use super::*;
     use crate::{
-        cairo_layout::CairoLayout, runner::run::run_program,
-        tests::utils::cairo0_program_path,
+        cairo_layout::CairoLayout, runner::run::run_program, tests::utils::cairo0_program_path,
     };
-    
 
     #[test]
     fn test_rc_decompose() {

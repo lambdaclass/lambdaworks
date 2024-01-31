@@ -2,9 +2,7 @@ use crate::{
     cairo_layout::CairoLayout,
     layouts::plain::air::{generate_cairo_proof, verify_cairo_proof, CairoAIR},
     runner::run::generate_prover_args,
-    tests::utils::{
-        cairo0_program_path, test_prove_cairo_program,
-    },
+    tests::utils::{cairo0_program_path, test_prove_cairo_program},
     Felt252,
 };
 use lambdaworks_math::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;

@@ -1153,7 +1153,6 @@ mod tests {
 
     #[test]
     fn test_evaluate_polynomial_on_lde_domain_on_trace_polys() {
-
         let trace = simple_fibonacci::fibonacci_trace([Felt252::from(1), Felt252::from(1)], 8);
 
         let trace_length = trace.num_rows();
