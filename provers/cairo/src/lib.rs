@@ -11,6 +11,7 @@ pub mod execution_trace;
 pub mod register_states;
 pub mod runner;
 pub mod transition_constraints;
+pub mod ffi_wrappers;
 
 #[cfg(test)]
 pub mod tests;
