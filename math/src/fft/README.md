@@ -14,8 +14,8 @@ Since the main applications of the FFT are related to polynomial evaluation and 
 
 These functions can be used with [univariate polynomials](https://github.com/lambdaclass/lambdaworks/tree/main/math/src/polynomial). To use the functions,
 ```rust
-let p_1 = Polynomial::new(&[FE::new(3), FE::new(4), FE::new(5) FE::new(6)])
-let evaluations = Polynomial::evaluate_offset_fft(p_1, 4, 4, FE::new(3))?
+let p_1 = Polynomial::new(&[FE::new(3), FE::new(4), FE::new(5) FE::new(6)]);
+let evaluations = Polynomial::evaluate_offset_fft(p_1, 4, 4, FE::new(3))?;
 ```
 Interpolate takes a vector of length $2^m$, which we take them to be the evaluations of a polynomial $p$ over values of $x$ of the form $\{ offset.g^0, offset.g, offset.g^2 \dots offset.g^{n - 1} \}$, where $g$ is a generator of the $n$-th roots of unity. For example,
 ```rust
