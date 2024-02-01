@@ -19,8 +19,8 @@ let evaluations = Polynomial::evaluate_offset_fft(p_1, 4, 4, FE::new(3))?;
 ```
 Interpolate takes a vector of length $2^m$, which we take them to be the evaluations of a polynomial $p$ over values of $x$ of the form $\{ offset.g^0, offset.g, offset.g^2 \dots offset.g^{n - 1} \}$, where $g$ is a generator of the $n$-th roots of unity. For example,
 ```rust
-let evaluations = [FE::new(1), FE::new(2), FE::new(3) FE::new(4)]
-let poly = Polynomial::interpolate_fft(&evaluations).unwrap()
+let evaluations = [FE::new(1), FE::new(2), FE::new(3) FE::new(4)];
+let poly = Polynomial::interpolate_fft(&evaluations).unwrap();
 ```
 
 These building blocks are used, for example, in the computation of the trace polynomials in the STARK protocol. The following function computes the polynomials whose evaluations coincide with the trace columns:
