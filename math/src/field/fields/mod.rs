@@ -18,3 +18,6 @@ pub mod winterfell;
 
 /// Implemenation of Vesta Prime field (p = 2^254 + 45560315531506369815346746415080538113)
 pub mod vesta_field;
+
+/// Implemenation of Vesta Prime field (p = 2^255 − 19)
+pub mod curve25519_field;
