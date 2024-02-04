@@ -5,7 +5,6 @@ use lambdaworks_math::{
     },
     traits::AsBytes,
 };
-use sha3::{Digest, Keccak256};
 
 /// The functionality of a transcript to be used in the STARK Prove and Verify protocols.
 pub trait IsTranscript<F: IsField> {
@@ -40,13 +39,5 @@ pub trait IsTranscript<F: IsField> {
                 return value;
             }
         }
-    }
-
-    fn keccak_hash(data: &[u8]) -> [u8; 32] {
-        let mut hasher = Keccak256::new();
-        hasher.update(data);
-        let mut result_hash = [0_u8; 32];
-        result_hash.copy_from_slice(&hasher.finalize_reset());
-        result_hash
     }
 }

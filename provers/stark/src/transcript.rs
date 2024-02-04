@@ -7,6 +7,7 @@ use lambdaworks_math::{
     traits::{AsBytes, ByteConversion},
     unsigned_integer::element::U256,
 };
+use sha3::{Digest, Keccak256};
 
 /// A transcript implementing `IsStarkTranscript` and compatible with Stone (https://github.com/starkware-libs/stone-prover).
 pub struct StoneProverTranscript {
@@ -72,6 +73,14 @@ impl StoneProverTranscript {
 
     pub fn sample_big_int(&mut self) -> U256 {
         U256::from_bytes_be(&self.sample(32)).unwrap()
+    }
+
+    fn keccak_hash(data: &[u8]) -> [u8; 32] {
+        let mut hasher = Keccak256::new();
+        hasher.update(data);
+        let mut result_hash = [0_u8; 32];
+        result_hash.copy_from_slice(&hasher.finalize_reset());
+        result_hash
     }
 }
 
