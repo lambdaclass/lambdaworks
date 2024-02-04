@@ -139,7 +139,7 @@ where
     CS: IsCommitmentScheme<F>,
     CS::Commitment: AsBytes,
 {
-    let mut transcript = PlonkTranscript::new();
+    let mut transcript = PlonkTranscript::default();
 
     transcript.append_bytes(&vk.s1_1.as_bytes());
     transcript.append_bytes(&vk.s2_1.as_bytes());
@@ -151,7 +151,7 @@ where
     transcript.append_bytes(&vk.qc_1.as_bytes());
 
     for value in public_input.iter() {
-        transcript.append_bytes(&value.to_bytes_be());
+        transcript.append_field_element(&value);
     }
 
     transcript

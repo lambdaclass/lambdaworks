@@ -644,14 +644,14 @@ where
 
         // Round 2
         // TODO: Handle error
-        let beta = FieldElement::from_bytes_be(&transcript.sample(32)).unwrap();
-        let gamma = FieldElement::from_bytes_be(&transcript.sample(32)).unwrap();
+        let beta = transcript.sample_field_element();
+        let gamma = transcript.sample_field_element();
 
         let round_2 = self.round_2(witness, common_preprocessed_input, beta, gamma);
         transcript.append_bytes(&round_2.z_1.as_bytes());
 
         // Round 3
-        let alpha = FieldElement::from_bytes_be(&transcript.sample(32)).unwrap();
+        let alpha = transcript.sample_field_element();
         let round_3 = self.round_3(
             common_preprocessed_input,
             public_input,
@@ -664,18 +664,18 @@ where
         transcript.append_bytes(&round_3.t_hi_1.as_bytes());
 
         // Round 4
-        let zeta = FieldElement::from_bytes_be(&transcript.sample(32)).unwrap();
+        let zeta = transcript.sample_field_element();
         let round_4 = self.round_4(common_preprocessed_input, &round_1, &round_2, zeta);
 
-        transcript.append_bytes(&round_4.a_zeta.to_bytes_be());
-        transcript.append_bytes(&round_4.b_zeta.to_bytes_be());
-        transcript.append_bytes(&round_4.c_zeta.to_bytes_be());
-        transcript.append_bytes(&round_4.s1_zeta.to_bytes_be());
-        transcript.append_bytes(&round_4.s2_zeta.to_bytes_be());
-        transcript.append_bytes(&round_4.z_zeta_omega.to_bytes_be());
+        transcript.append_field_element(&round_4.a_zeta);
+        transcript.append_field_element(&round_4.b_zeta);
+        transcript.append_field_element(&round_4.c_zeta);
+        transcript.append_field_element(&round_4.s1_zeta);
+        transcript.append_field_element(&round_4.s2_zeta);
+        transcript.append_field_element(&round_4.z_zeta_omega);
 
         // Round 5
-        let upsilon = FieldElement::from_bytes_be(&transcript.sample(32)).unwrap();
+        let upsilon = transcript.sample_field_element();
         let round_5 = self.round_5(
             common_preprocessed_input,
             &round_1,

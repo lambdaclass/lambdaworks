@@ -39,24 +39,24 @@ impl<F: IsField + IsFFTField, CS: IsCommitmentScheme<F>> Verifier<F, CS> {
         transcript.append_bytes(&p.a_1.as_bytes());
         transcript.append_bytes(&p.b_1.as_bytes());
         transcript.append_bytes(&p.c_1.as_bytes());
-        let beta = FieldElement::from_bytes_be(&transcript.sample(32)).unwrap();
-        let gamma = FieldElement::from_bytes_be(&transcript.sample(32)).unwrap();
+        let beta = transcript.sample_field_element();
+        let gamma = transcript.sample_field_element();
 
         transcript.append_bytes(&p.z_1.as_bytes());
-        let alpha = FieldElement::from_bytes_be(&transcript.sample(32)).unwrap();
+        let alpha = transcript.sample_field_element();
 
         transcript.append_bytes(&p.t_lo_1.as_bytes());
         transcript.append_bytes(&p.t_mid_1.as_bytes());
         transcript.append_bytes(&p.t_hi_1.as_bytes());
-        let zeta = FieldElement::from_bytes_be(&transcript.sample(32)).unwrap();
+        let zeta = transcript.sample_field_element();
 
-        transcript.append_bytes(&p.a_zeta.to_bytes_be());
-        transcript.append_bytes(&p.b_zeta.to_bytes_be());
-        transcript.append_bytes(&p.c_zeta.to_bytes_be());
-        transcript.append_bytes(&p.s1_zeta.to_bytes_be());
-        transcript.append_bytes(&p.s2_zeta.to_bytes_be());
-        transcript.append_bytes(&p.z_zeta_omega.to_bytes_be());
-        let upsilon = FieldElement::from_bytes_be(&transcript.sample(32)).unwrap();
+        transcript.append_field_element(&p.a_zeta);
+        transcript.append_field_element(&p.b_zeta);
+        transcript.append_field_element(&p.c_zeta);
+        transcript.append_field_element(&p.s1_zeta);
+        transcript.append_field_element(&p.s2_zeta);
+        transcript.append_field_element(&p.z_zeta_omega);
+        let upsilon = transcript.sample_field_element();
 
         [beta, gamma, alpha, zeta, upsilon]
     }

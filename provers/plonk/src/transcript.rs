@@ -1,103 +1,72 @@
-use std::marker::PhantomData;
-
 use lambdaworks_crypto::fiat_shamir::is_transcript::IsTranscript;
 use lambdaworks_math::{
-    field::{element::*, traits::IsField},
+    field::{element::FieldElement, traits::IsField},
     traits::ByteConversion,
-    unsigned_integer::element::U256,
 };
+use sha3::{Digest, Keccak256};
+use std::marker::PhantomData;
 
 pub struct PlonkTranscript<F: IsField> {
-    state: [u8; 32],
-    seed_increment: U256,
-    counter: u32,
-    spare_bytes: Vec<u8>,
+    hasher: Keccak256,
     phantom: PhantomData<F>,
 }
 
-impl<F: IsField> PlonkTranscript<F> {
-    pub fn new() -> Self {
-        Self {
-            state: Self::keccak_hash(&[]),
-            seed_increment: U256::from_hex_unchecked("1"),
-            counter: 0,
-            spare_bytes: vec![],
+impl<F> PlonkTranscript<F>
+where
+    F: IsField,
+    FieldElement<F>: ByteConversion,
+{
+    pub fn new(data: &[u8]) -> Self {
+        let mut res = Self {
+            hasher: Keccak256::new(),
             phantom: PhantomData,
-        }
+        };
+        res.append_bytes(data);
+        res
     }
 
-    pub fn sample_block(&mut self, used_bytes: usize) -> Vec<u8> {
-        let mut first_part: Vec<u8> = self.state.to_vec();
-        let mut counter_bytes: Vec<u8> = vec![0; 28]
-            .into_iter()
-            .chain(self.counter.to_be_bytes().to_vec())
-            .collect();
-        self.counter += 1;
-        first_part.append(&mut counter_bytes);
-        let block = Self::keccak_hash(&first_part);
-        self.spare_bytes.extend(&block[used_bytes..]);
-        block[..used_bytes].to_vec()
-    }
-
-    pub fn sample(&mut self, num_bytes: usize) -> Vec<u8> {
-        let num_blocks = num_bytes / 32;
-        let mut result: Vec<u8> = Vec::new();
-
-        for _ in 0..num_blocks {
-            let mut block = self.sample_block(32);
-            result.append(&mut block);
-        }
-
-        let rest = num_bytes % 32;
-        if rest <= self.spare_bytes.len() {
-            result.append(&mut self.spare_bytes[..rest].to_vec());
-            self.spare_bytes.drain(..rest);
-        } else {
-            let mut block = self.sample_block(rest);
-            result.append(&mut block);
-        }
-
-        result
+    pub fn sample(&mut self) -> [u8; 32] {
+        let mut result_hash = [0_u8; 32];
+        result_hash.copy_from_slice(&self.hasher.finalize_reset());
+        result_hash.reverse();
+        self.hasher.update(result_hash);
+        result_hash
     }
 }
 
 impl<F> Default for PlonkTranscript<F>
 where
     F: IsField,
+    FieldElement<F>: ByteConversion,
 {
     fn default() -> Self {
-        Self::new()
+        Self::new(&[])
     }
 }
 
-impl<F: IsField> IsTranscript<F> for PlonkTranscript<F> {
+impl<F> IsTranscript<F> for PlonkTranscript<F>
+where
+    F: IsField,
+    FieldElement<F>: ByteConversion,
+{
     fn append_bytes(&mut self, new_bytes: &[u8]) {
-        let mut result_hash = [0_u8; 32];
-        result_hash.copy_from_slice(&self.state);
-        result_hash.reverse();
-
-        let digest = U256::from_bytes_be(&self.state).unwrap();
-        let new_seed = (digest + self.seed_increment).to_bytes_be();
-        self.state = Self::keccak_hash(&[&new_seed, new_bytes].concat());
-        self.counter = 0;
-        self.spare_bytes.clear();
+        self.hasher.update(&mut new_bytes.to_owned());
     }
 
     fn append_field_element(&mut self, element: &FieldElement<F>) {
-        // Self::append_bytes(self, &element.value().to_bytes_be());
-        todo!()
+        self.append_bytes(&element.to_bytes_be());
     }
 
     fn state(&self) -> [u8; 32] {
-        self.state
+        self.hasher.clone().finalize().into()
     }
 
     fn sample_field_element(&mut self) -> FieldElement<F> {
-        todo!()
+        FieldElement::from_bytes_be(&self.sample()).unwrap()
     }
 
     fn sample_u64(&mut self, upper_bound: u64) -> u64 {
-        todo!()
+        u64::from_be_bytes(self.state()[..8].try_into().unwrap()) % upper_bound
     }
 }
 
@@ -111,7 +80,7 @@ mod tests {
 
     #[test]
     fn basic_challenge() {
-        let mut transcript = PlonkTranscript::<FrField>::new();
+        let mut transcript = PlonkTranscript::<FrField>::default();
 
         let point_a: Vec<u8> = vec![0xFF, 0xAB];
         let point_b: Vec<u8> = vec![0xDD, 0x8C, 0x9D];
@@ -119,7 +88,7 @@ mod tests {
         transcript.append_bytes(&point_a); // point_a
         transcript.append_bytes(&point_b); // point_a + point_b
 
-        let challenge1 = transcript.sample(32); // Hash(point_a  + point_b)
+        let challenge1 = transcript.sample(); // Hash(point_a  + point_b)
 
         assert_eq!(
             challenge1,
@@ -136,7 +105,7 @@ mod tests {
         transcript.append_bytes(&point_c); // Hash(point_a  + point_b) + point_c
         transcript.append_bytes(&point_d); // Hash(point_a  + point_b) + point_c + point_d
 
-        let challenge2 = transcript.sample(32); // Hash(Hash(point_a  + point_b) + point_c + point_d)
+        let challenge2 = transcript.sample(); // Hash(Hash(point_a  + point_b) + point_c + point_d)
         assert_eq!(
             challenge2,
             [
