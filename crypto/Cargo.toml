@@ -11,13 +11,12 @@ license.workspace = true
 lambdaworks-math = { workspace = true, features = ["alloc"] }
 sha3 = { version = "0.10", default-features = false }
 sha2 = { version = "0.10", default-features = false }
+rand_chacha = "0.3.1"
+rand = "0.8.5"
 
 # Optional
 serde = { version = "1.0", default-features = false, features = ["derive", "alloc"], optional = true }
 rayon = { version = "1.8.0", optional = true }
-num-bigint = { version = "0.4", features = ["rand"] }
-num-traits = "0.2"
-rand = { version = "0.8", features = [ "std", "std_rng" ] }
 
 [dev-dependencies]
 criterion = "0.4"
@@ -38,3 +37,7 @@ harness = false
 [[bench]]
 name = "iai_merkle"
 harness = false
+
+[[bench]]
+name= "criterion_poseidon"
+harness=false
