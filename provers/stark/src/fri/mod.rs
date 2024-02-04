@@ -2,7 +2,7 @@ pub mod fri_commitment;
 pub mod fri_decommit;
 mod fri_functions;
 
-use lambdaworks_crypto::fiat_shamir::is_transcript::IsTranscript;
+use lambdaworks_crypto::fiat_shamir::IsTranscript;
 use lambdaworks_math::field::traits::{IsFFTField, IsField};
 use lambdaworks_math::traits::AsBytes;
 use lambdaworks_math::{

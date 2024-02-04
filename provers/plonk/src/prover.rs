@@ -1,4 +1,4 @@
-use lambdaworks_crypto::fiat_shamir::is_transcript::IsTranscript;
+use lambdaworks_crypto::fiat_shamir::IsTranscript;
 use lambdaworks_math::errors::DeserializationError;
 use lambdaworks_math::field::traits::IsFFTField;
 use lambdaworks_math::traits::{AsBytes, Deserializable, IsRandomFieldElementGenerator};

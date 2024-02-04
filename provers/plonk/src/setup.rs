@@ -4,7 +4,7 @@ use crate::constraint_system::{get_permutation, ConstraintSystem, Variable};
 use crate::test_utils::utils::{generate_domain, generate_permutation_coefficients};
 use crate::transcript::PlonkTranscript;
 use lambdaworks_crypto::commitments::traits::IsCommitmentScheme;
-use lambdaworks_crypto::fiat_shamir::is_transcript::IsTranscript;
+use lambdaworks_crypto::fiat_shamir::IsTranscript;
 use lambdaworks_math::field::traits::IsFFTField;
 use lambdaworks_math::field::{element::FieldElement, traits::IsField};
 use lambdaworks_math::polynomial::Polynomial;

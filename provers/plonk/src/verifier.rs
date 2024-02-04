@@ -1,5 +1,5 @@
 use lambdaworks_crypto::commitments::traits::IsCommitmentScheme;
-use lambdaworks_crypto::fiat_shamir::is_transcript::IsTranscript;
+use lambdaworks_crypto::fiat_shamir::IsTranscript;
 use lambdaworks_math::cyclic_group::IsGroup;
 use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::traits::{IsFFTField, IsField, IsPrimeField};

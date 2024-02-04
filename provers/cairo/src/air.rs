@@ -3,7 +3,7 @@ use crate::transition_constraints::*;
 use cairo_vm::{air_public_input::MemorySegmentAddresses, without_std::collections::HashMap};
 #[cfg(debug_assertions)]
 use itertools::Itertools;
-use lambdaworks_crypto::fiat_shamir::is_transcript::IsTranscript;
+use lambdaworks_crypto::fiat_shamir::IsTranscript;
 use lambdaworks_math::{
     errors::DeserializationError,
     field::{
