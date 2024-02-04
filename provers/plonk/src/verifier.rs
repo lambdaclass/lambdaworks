@@ -1,5 +1,5 @@
 use lambdaworks_crypto::commitments::traits::IsCommitmentScheme;
-use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
+use lambdaworks_crypto::fiat_shamir::is_transcript::IsTranscript;
 use lambdaworks_math::cyclic_group::IsGroup;
 use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::traits::{IsFFTField, IsField, IsPrimeField};
@@ -36,27 +36,27 @@ impl<F: IsField + IsFFTField, CS: IsCommitmentScheme<F>> Verifier<F, CS> {
     {
         let mut transcript = new_strong_fiat_shamir_transcript::<F, CS>(vk, public_input);
 
-        transcript.append(&p.a_1.as_bytes());
-        transcript.append(&p.b_1.as_bytes());
-        transcript.append(&p.c_1.as_bytes());
-        let beta = FieldElement::from_bytes_be(&transcript.challenge()).unwrap();
-        let gamma = FieldElement::from_bytes_be(&transcript.challenge()).unwrap();
+        transcript.append_bytes(&p.a_1.as_bytes());
+        transcript.append_bytes(&p.b_1.as_bytes());
+        transcript.append_bytes(&p.c_1.as_bytes());
+        let beta = FieldElement::from_bytes_be(&transcript.sample(32)).unwrap();
+        let gamma = FieldElement::from_bytes_be(&transcript.sample(32)).unwrap();
 
-        transcript.append(&p.z_1.as_bytes());
-        let alpha = FieldElement::from_bytes_be(&transcript.challenge()).unwrap();
+        transcript.append_bytes(&p.z_1.as_bytes());
+        let alpha = FieldElement::from_bytes_be(&transcript.sample(32)).unwrap();
 
-        transcript.append(&p.t_lo_1.as_bytes());
-        transcript.append(&p.t_mid_1.as_bytes());
-        transcript.append(&p.t_hi_1.as_bytes());
-        let zeta = FieldElement::from_bytes_be(&transcript.challenge()).unwrap();
+        transcript.append_bytes(&p.t_lo_1.as_bytes());
+        transcript.append_bytes(&p.t_mid_1.as_bytes());
+        transcript.append_bytes(&p.t_hi_1.as_bytes());
+        let zeta = FieldElement::from_bytes_be(&transcript.sample(32)).unwrap();
 
-        transcript.append(&p.a_zeta.to_bytes_be());
-        transcript.append(&p.b_zeta.to_bytes_be());
-        transcript.append(&p.c_zeta.to_bytes_be());
-        transcript.append(&p.s1_zeta.to_bytes_be());
-        transcript.append(&p.s2_zeta.to_bytes_be());
-        transcript.append(&p.z_zeta_omega.to_bytes_be());
-        let upsilon = FieldElement::from_bytes_be(&transcript.challenge()).unwrap();
+        transcript.append_bytes(&p.a_zeta.to_bytes_be());
+        transcript.append_bytes(&p.b_zeta.to_bytes_be());
+        transcript.append_bytes(&p.c_zeta.to_bytes_be());
+        transcript.append_bytes(&p.s1_zeta.to_bytes_be());
+        transcript.append_bytes(&p.s2_zeta.to_bytes_be());
+        transcript.append_bytes(&p.z_zeta_omega.to_bytes_be());
+        let upsilon = FieldElement::from_bytes_be(&transcript.sample(32)).unwrap();
 
         [beta, gamma, alpha, zeta, upsilon]
     }

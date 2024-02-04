@@ -1,4 +1,4 @@
-use lambdaworks_crypto::fiat_shamir::transcript::Transcript;
+use lambdaworks_crypto::fiat_shamir::is_transcript::IsTranscript;
 use lambdaworks_math::errors::DeserializationError;
 use lambdaworks_math::field::traits::IsFFTField;
 use lambdaworks_math::traits::{AsBytes, Deserializable, IsRandomFieldElementGenerator};
@@ -638,20 +638,20 @@ where
 
         // Round 1
         let round_1 = self.round_1(witness, common_preprocessed_input);
-        transcript.append(&round_1.a_1.as_bytes());
-        transcript.append(&round_1.b_1.as_bytes());
-        transcript.append(&round_1.c_1.as_bytes());
+        transcript.append_bytes(&round_1.a_1.as_bytes());
+        transcript.append_bytes(&round_1.b_1.as_bytes());
+        transcript.append_bytes(&round_1.c_1.as_bytes());
 
         // Round 2
         // TODO: Handle error
-        let beta = FieldElement::from_bytes_be(&transcript.challenge()).unwrap();
-        let gamma = FieldElement::from_bytes_be(&transcript.challenge()).unwrap();
+        let beta = FieldElement::from_bytes_be(&transcript.sample(32)).unwrap();
+        let gamma = FieldElement::from_bytes_be(&transcript.sample(32)).unwrap();
 
         let round_2 = self.round_2(witness, common_preprocessed_input, beta, gamma);
-        transcript.append(&round_2.z_1.as_bytes());
+        transcript.append_bytes(&round_2.z_1.as_bytes());
 
         // Round 3
-        let alpha = FieldElement::from_bytes_be(&transcript.challenge()).unwrap();
+        let alpha = FieldElement::from_bytes_be(&transcript.sample(32)).unwrap();
         let round_3 = self.round_3(
             common_preprocessed_input,
             public_input,
@@ -659,23 +659,23 @@ where
             &round_2,
             alpha,
         );
-        transcript.append(&round_3.t_lo_1.as_bytes());
-        transcript.append(&round_3.t_mid_1.as_bytes());
-        transcript.append(&round_3.t_hi_1.as_bytes());
+        transcript.append_bytes(&round_3.t_lo_1.as_bytes());
+        transcript.append_bytes(&round_3.t_mid_1.as_bytes());
+        transcript.append_bytes(&round_3.t_hi_1.as_bytes());
 
         // Round 4
-        let zeta = FieldElement::from_bytes_be(&transcript.challenge()).unwrap();
+        let zeta = FieldElement::from_bytes_be(&transcript.sample(32)).unwrap();
         let round_4 = self.round_4(common_preprocessed_input, &round_1, &round_2, zeta);
 
-        transcript.append(&round_4.a_zeta.to_bytes_be());
-        transcript.append(&round_4.b_zeta.to_bytes_be());
-        transcript.append(&round_4.c_zeta.to_bytes_be());
-        transcript.append(&round_4.s1_zeta.to_bytes_be());
-        transcript.append(&round_4.s2_zeta.to_bytes_be());
-        transcript.append(&round_4.z_zeta_omega.to_bytes_be());
+        transcript.append_bytes(&round_4.a_zeta.to_bytes_be());
+        transcript.append_bytes(&round_4.b_zeta.to_bytes_be());
+        transcript.append_bytes(&round_4.c_zeta.to_bytes_be());
+        transcript.append_bytes(&round_4.s1_zeta.to_bytes_be());
+        transcript.append_bytes(&round_4.s2_zeta.to_bytes_be());
+        transcript.append_bytes(&round_4.z_zeta_omega.to_bytes_be());
 
         // Round 5
-        let upsilon = FieldElement::from_bytes_be(&transcript.challenge()).unwrap();
+        let upsilon = FieldElement::from_bytes_be(&transcript.sample(32)).unwrap();
         let round_5 = self.round_5(
             common_preprocessed_input,
             &round_1,
