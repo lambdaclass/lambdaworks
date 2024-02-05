@@ -1,7 +1,4 @@
-use lambdaworks_groth16::{common::*, QuadraticArithmeticProgram};
-
-mod utils;
-use utils::*;
+use lambdaworks_groth16::{common::*, QuadraticArithmeticProgram as QAP};
 
 /*
 Represents x^3 + x + 5 = 35, based on https://vitalik.ca/general/2016/12/10/qap.html
@@ -11,7 +8,7 @@ Represents x^3 + x + 5 = 35, based on https://vitalik.ca/general/2016/12/10/qap.
     (sym_2 + 5) * 1 = ~out
 */
 #[cfg(test)]
-pub fn vitalik_qap() -> QuadraticArithmeticProgram {
+pub fn vitalik_qap() -> QAP {
     let num_of_public_inputs = 1;
     let [l, r, o] = [
         [
@@ -40,7 +37,7 @@ pub fn vitalik_qap() -> QuadraticArithmeticProgram {
         ],
     ]
     .map(|matrix| matrix.map(|row| row.map(FrElement::from_hex_unchecked).to_vec()));
-    qap_from_variable_matrices(num_of_public_inputs, &l, &r, &o)
+    QAP::from_variable_matrices(num_of_public_inputs, &l, &r, &o)
 }
 
 /*
@@ -56,7 +53,7 @@ Represents x^2 = 25 or y^2 = 9
     ~out = sym_3 * sym_4 -> needs to be zero
 */
 #[cfg(test)]
-pub fn test_qap_2() -> QuadraticArithmeticProgram {
+pub fn test_qap_2() -> QAP {
     let num_of_public_inputs = 2;
     let [l, r, o] = [
         [
@@ -102,5 +99,5 @@ pub fn test_qap_2() -> QuadraticArithmeticProgram {
             .to_vec()
         })
     });
-    qap_from_variable_matrices(num_of_public_inputs, &l, &r, &o)
+    QAP::from_variable_matrices(num_of_public_inputs, &l, &r, &o)
 }
