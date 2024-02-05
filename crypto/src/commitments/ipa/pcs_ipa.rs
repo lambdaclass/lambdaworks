@@ -1,6 +1,9 @@
+use crate::alloc::borrow::ToOwned;
 use crate::commitments::ipa::traits::IsCommitmentSchemeIPA;
 use crate::fiat_shamir::default_transcript::DefaultTranscript;
 use crate::fiat_shamir::transcript::Transcript;
+use alloc::string::String;
+use alloc::vec::Vec;
 use lambdaworks_math::cyclic_group::IsGroup;
 use lambdaworks_math::elliptic_curve::short_weierstrass::point::ShortWeierstrassProjectivePoint;
 use lambdaworks_math::elliptic_curve::short_weierstrass::traits::IsShortWeierstrass;
@@ -425,30 +428,29 @@ mod tests {
         E: IsEllipticCurve<BaseField = MontgomeryBackendPrimeField<BLS12381FieldModulus, 6>>
             + IsShortWeierstrass,
     >() -> ShortWeierstrassProjectivePoint<E> {
-        let point = ShortWeierstrassProjectivePoint::new([
+        ShortWeierstrassProjectivePoint::new([
             FieldElement::<BaseField>::new_base("0"),
             FieldElement::<BaseField>::new_base("1"),
             FieldElement::<BaseField>::new_base("0"),
-        ]);
-        point
+        ])
     }
 
     #[test]
     fn inner_product_field_works() {
         let a = vec![
-            FE_1::from(1 as u64),
-            FE_1::from(2 as u64),
-            FE_1::from(3 as u64),
-            FE_1::from(4 as u64),
+            FE_1::from(1_u64),
+            FE_1::from(2_u64),
+            FE_1::from(3_u64),
+            FE_1::from(4_u64),
         ];
         let b = vec![
-            FE_1::from(1 as u64),
-            FE_1::from(2 as u64),
-            FE_1::from(3 as u64),
-            FE_1::from(4 as u64),
+            FE_1::from(1_u64),
+            FE_1::from(2_u64),
+            FE_1::from(3_u64),
+            FE_1::from(4_u64),
         ];
         let c = inner_product_field(&a, &b).unwrap();
-        assert_eq!(c, FE_1::from(30 as u64));
+        assert_eq!(c, FE_1::from(30_u64));
     }
 
     #[test]
@@ -469,10 +471,10 @@ mod tests {
     fn inner_product_point_works() {
         let gen = BLS12381Curve::generator();
         let a = Polynomial::new(&[
-            FE_1::from(1 as u64),
-            FE_1::from(2 as u64),
-            FE_1::from(3 as u64),
-            FE_1::from(4 as u64),
+            FE_1::from(1_u64),
+            FE_1::from(2_u64),
+            FE_1::from(3_u64),
+            FE_1::from(4_u64),
         ]);
         let coef = a.clone().coefficients;
         let b = vec![
@@ -496,14 +498,14 @@ mod tests {
         let d = 8;
         let ipa = IPA::new(d, gen);
         let a = Polynomial::new(&[
-            FE_1::from(1 as u64),
-            FE_1::from(2 as u64),
-            FE_1::from(3 as u64),
-            FE_1::from(4 as u64),
-            FE_1::from(5 as u64),
-            FE_1::from(6 as u64),
-            FE_1::from(7 as u64),
-            FE_1::from(8 as u64),
+            FE_1::from(1_u64),
+            FE_1::from(2_u64),
+            FE_1::from(3_u64),
+            FE_1::from(4_u64),
+            FE_1::from(5_u64),
+            FE_1::from(6_u64),
+            FE_1::from(7_u64),
+            FE_1::from(8_u64),
         ]);
         let b = a.clone();
         let coef_a = a.clone().coefficients;
@@ -534,14 +536,14 @@ mod tests {
         let d = 8;
         let mut ipa = IPA::new(d, gen.clone());
         let a = Polynomial::new(&[
-            FE_1::from(1 as u64),
-            FE_1::from(2 as u64),
-            FE_1::from(3 as u64),
-            FE_1::from(4 as u64),
-            FE_1::from(5 as u64),
-            FE_1::from(6 as u64),
-            FE_1::from(7 as u64),
-            FE_1::from(8 as u64),
+            FE_1::from(1_u64),
+            FE_1::from(2_u64),
+            FE_1::from(3_u64),
+            FE_1::from(4_u64),
+            FE_1::from(5_u64),
+            FE_1::from(6_u64),
+            FE_1::from(7_u64),
+            FE_1::from(8_u64),
         ]);
         let coef_a = a.clone().coefficients;
         let r = generate_random_element();
@@ -551,14 +553,14 @@ mod tests {
         let mut rng = rand::thread_rng();
         let vector: Vec<u8> = (0..32).map(|_| rng.gen::<u8>()).collect();
         let _u = build_group_challenge::<Fr_1, M, BLS12381Curve>(vector, gen);
-        let k = (f64::from(ipa.d as u32).log2()) as usize;
+        let k = (f64::from(ipa.d).log2()) as usize;
         let mut u: Vec<FE_1> = vec![FE_1::zero(); k];
-        for j in 0..k {
+        for (_, item) in u.iter_mut().take(k).enumerate() {
             let mut rng = rand::thread_rng();
             let vector: Vec<u8> = (0..32).map(|_| rng.gen::<u8>()).collect();
-            u[j] = build_field_challenge(vector);
+            *item = build_field_challenge(vector);
         }
-        let x = FE_1::from(3 as u64);
+        let x = FE_1::from(3_u64);
         let b = powers_of(&x.clone(), ipa.d.try_into().unwrap());
         let v = inner_product_field(&coef_a, &b).unwrap();
         let proof = ipa
@@ -591,12 +593,11 @@ mod tests {
         E: IsEllipticCurve<BaseField = MontgomeryBackendPrimeField<BN254FieldModulus, 4>>
             + IsShortWeierstrass,
     >() -> ShortWeierstrassProjectivePoint<E> {
-        let point = ShortWeierstrassProjectivePoint::new([
+        ShortWeierstrassProjectivePoint::new([
             FieldElement::<BaseField2>::new_base("0"),
             FieldElement::<BaseField2>::new_base("1"),
             FieldElement::<BaseField2>::new_base("0"),
-        ]);
-        point
+        ])
     }
 
     #[test]
@@ -619,14 +620,14 @@ mod tests {
         let d = 8;
         let ipa = IPA::new(d, gen);
         let a = Polynomial::new(&[
-            FE_2::from(1 as u64),
-            FE_2::from(2 as u64),
-            FE_2::from(3 as u64),
-            FE_2::from(4 as u64),
-            FE_2::from(5 as u64),
-            FE_2::from(6 as u64),
-            FE_2::from(7 as u64),
-            FE_2::from(8 as u64),
+            FE_2::from(1_u64),
+            FE_2::from(2_u64),
+            FE_2::from(3_u64),
+            FE_2::from(4_u64),
+            FE_2::from(5_u64),
+            FE_2::from(6_u64),
+            FE_2::from(7_u64),
+            FE_2::from(8_u64),
         ]);
         let b = a.clone();
         let coef_a = a.clone().coefficients;
@@ -657,14 +658,14 @@ mod tests {
         let d = 8;
         let mut ipa = IPA::new(d, gen.clone());
         let a = Polynomial::new(&[
-            FE_2::from(1 as u64),
-            FE_2::from(2 as u64),
-            FE_2::from(3 as u64),
-            FE_2::from(4 as u64),
-            FE_2::from(5 as u64),
-            FE_2::from(6 as u64),
-            FE_2::from(7 as u64),
-            FE_2::from(8 as u64),
+            FE_2::from(1_u64),
+            FE_2::from(2_u64),
+            FE_2::from(3_u64),
+            FE_2::from(4_u64),
+            FE_2::from(5_u64),
+            FE_2::from(6_u64),
+            FE_2::from(7_u64),
+            FE_2::from(8_u64),
         ]);
         let coef_a = a.clone().coefficients;
         let r = generate_random_element();
@@ -674,14 +675,14 @@ mod tests {
         let mut rng = rand::thread_rng();
         let vector: Vec<u8> = (0..32).map(|_| rng.gen::<u8>()).collect();
         let _u = build_group_challenge::<Fr_2, M, BN254Curve>(vector, gen);
-        let k = (f64::from(ipa.d as u32).log2()) as usize;
+        let k = (f64::from(ipa.d).log2()) as usize;
         let mut u: Vec<FE_2> = vec![FE_2::zero(); k];
-        for j in 0..k {
+        for (_, item) in u.iter_mut().take(k).enumerate() {
             let mut rng = rand::thread_rng();
             let vector: Vec<u8> = (0..32).map(|_| rng.gen::<u8>()).collect();
-            u[j] = build_field_challenge(vector);
+            *item = build_field_challenge(vector);
         }
-        let x = FE_2::from(3 as u64);
+        let x = FE_2::from(3_u64);
         let b = powers_of(&x.clone(), ipa.d.try_into().unwrap());
         let v = inner_product_field(&coef_a, &b).unwrap();
         let proof = ipa
