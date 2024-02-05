@@ -1,4 +1,4 @@
-use crate::commitments::ipa::ipa::Proof;
+use crate::commitments::ipa::pcs_ipa::Proof;
 use lambdaworks_math::elliptic_curve::short_weierstrass::point::ShortWeierstrassProjectivePoint;
 use lambdaworks_math::elliptic_curve::short_weierstrass::traits::IsShortWeierstrass;
 use lambdaworks_math::elliptic_curve::traits::IsEllipticCurve;
@@ -25,10 +25,11 @@ pub trait IsCommitmentSchemeIPA<F: IsField + IsPrimeField, E: IsEllipticCurve + 
         a: &[FieldElement<F>],
         b: &[FieldElement<F>],
         u: &[FieldElement<F>],
-        _u: &ShortWeierstrassProjectivePoint<E>,
+        u_point: &ShortWeierstrassProjectivePoint<E>,
         neutral_element: ShortWeierstrassProjectivePoint<E>,
     ) -> Self::OpenIPA;
 
+    #[allow(clippy::too_many_arguments)]
     fn verify_open(
         &self,
         x: &FieldElement<F>,
@@ -37,7 +38,7 @@ pub trait IsCommitmentSchemeIPA<F: IsField + IsPrimeField, E: IsEllipticCurve + 
         p: &Proof<F, E>,
         r: &FieldElement<F>,
         u: &[FieldElement<F>],
-        _u: &ShortWeierstrassProjectivePoint<E>,
+        u_point: &ShortWeierstrassProjectivePoint<E>,
         neutral_element: ShortWeierstrassProjectivePoint<E>,
     ) -> Self::VerifyOpen;
 }
