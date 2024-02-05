@@ -94,14 +94,14 @@ impl<
         a: &[FieldElement<F>],
         b: &[FieldElement<F>],
         u: &[FieldElement<F>],
-        _u: &ShortWeierstrassProjectivePoint<E>,
+        u_point: &ShortWeierstrassProjectivePoint<E>,
         neutral_element: ShortWeierstrassProjectivePoint<E>,
     ) -> Self::OpenIPA {
         let mut a = a.to_owned();
         let mut b = b.to_owned();
         let mut _g = self._gs.clone();
 
-        let k = (f64::from(self.d as u32).log2()) as usize;
+        let k = (f64::from(self.d).log2()) as usize;
         let mut l: Vec<FieldElement<F>> = vec![FieldElement::<F>::zero(); k];
         let mut r: Vec<FieldElement<F>> = vec![FieldElement::<F>::zero(); k];
         let mut _l: Vec<ShortWeierstrassProjectivePoint<E>> = vec![neutral_element.clone(); k];
@@ -126,7 +126,7 @@ impl<
             )?)
             .operate_with(&(self._h.operate_with_self(l[j].representative()))))
             .operate_with(
-                &(_u.operate_with_self(inner_product_field(&a_lo, &b_hi)?.representative())),
+                &(u_point.operate_with_self(inner_product_field(&a_lo, &b_hi)?.representative())),
             );
             _r[j] = ((inner_product_point::<F, E>(
                 &Polynomial::new(&a_hi),
@@ -135,23 +135,23 @@ impl<
             )?)
             .operate_with(&(self._h.operate_with_self(r[j].representative()))))
             .operate_with(
-                &(_u.operate_with_self(inner_product_field(&a_hi, &b_lo)?.representative())),
+                &(u_point.operate_with_self(inner_product_field(&a_hi, &b_lo)?.representative())),
             );
 
             let uj = &u[j];
             let uj_inv = u[j].inv().unwrap();
 
             a = vec_add(
-                &vec_scalar_mul_field(&a_lo, &uj),
+                &vec_scalar_mul_field(&a_lo, uj),
                 &vec_scalar_mul_field(&a_hi, &uj_inv),
             )?;
             b = vec_add(
                 &vec_scalar_mul_field(&b_lo, &uj_inv),
-                &vec_scalar_mul_field(&b_hi, &uj),
+                &vec_scalar_mul_field(&b_hi, uj),
             )?;
             _g = vec_add_point::<E>(
                 &vec_scalar_mul_point::<F, E>(&_g_lo, &uj_inv, neutral_element.clone()),
-                &vec_scalar_mul_point::<F, E>(&_g_hi, &uj, neutral_element.clone()),
+                &vec_scalar_mul_point::<F, E>(&_g_hi, uj, neutral_element.clone()),
                 neutral_element.clone(),
             )?;
         }
@@ -183,10 +183,10 @@ impl<
         p: &Proof<F, E>,
         r: &FieldElement<F>,
         u: &[FieldElement<F>],
-        _u: &ShortWeierstrassProjectivePoint<E>,
+        u_point: &ShortWeierstrassProjectivePoint<E>,
         neutral_element: ShortWeierstrassProjectivePoint<E>,
     ) -> Self::VerifyOpen {
-        let _p = (*_p).operate_with(&(_u.operate_with_self(v.representative())));
+        let _p = (*_p).operate_with(&(u_point.operate_with_self(v.representative())));
 
         let mut q_0 = _p;
         let mut r = r.clone();
@@ -196,9 +196,9 @@ impl<
         let b = inner_product_field(&s, &bs)?;
         let _g = inner_product_point::<F, E>(&Polynomial::new(&s), &self._gs, neutral_element)?;
 
-        for j in 0..u.len() {
-            let uj2 = u[j].square();
-            let uj_inv2 = u[j].inv().unwrap().square();
+        for (j, item) in u.iter().enumerate() {
+            let uj2 = item.square();
+            let uj_inv2 = item.inv().unwrap().square();
 
             q_0 = (q_0)
                 .operate_with(&(p._l[j].operate_with_self(uj2.representative())))
@@ -208,7 +208,7 @@ impl<
 
         let q_1 = (_g.operate_with_self(p.a.clone().representative()))
             .operate_with(&(self._h.operate_with_self((r).representative())))
-            .operate_with(&(_u.operate_with_self((&p.a * b).representative())));
+            .operate_with(&(u_point.operate_with_self((&p.a * b).representative())));
         Ok(q_0 == q_1)
     }
 }
@@ -337,9 +337,9 @@ fn vec_scalar_mul_point<F: IsPrimeField, E: IsEllipticCurve + IsShortWeierstrass
 }
 
 fn powers_of<F: IsField>(x: &FieldElement<F>, d: usize) -> Vec<FieldElement<F>> {
-    let mut c: Vec<FieldElement<F>> = vec![FieldElement::zero(); d as usize];
+    let mut c: Vec<FieldElement<F>> = vec![FieldElement::zero(); d];
     c[0] = x.clone();
-    for i in 1..d as usize {
+    for i in 1..d {
         c[i] = c[i - 1].clone() * x.clone();
     }
     c
