@@ -35,3 +35,7 @@ harness = false
 [[bench]]
 name = "iai_merkle"
 harness = false
+
+[[bench]]
+name= "criterion_poseidon"
+harness=false
