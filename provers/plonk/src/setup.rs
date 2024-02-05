@@ -151,7 +151,7 @@ where
     transcript.append_bytes(&vk.qc_1.as_bytes());
 
     for value in public_input.iter() {
-        transcript.append_field_element(&value);
+        transcript.append_field_element(value);
     }
 
     transcript
