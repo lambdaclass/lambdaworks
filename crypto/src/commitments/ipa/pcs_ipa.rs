@@ -555,7 +555,7 @@ mod tests {
         let _u = build_group_challenge::<Fr_1, M, BLS12381Curve>(vector, gen);
         let k = (f64::from(ipa.d).log2()) as usize;
         let mut u: Vec<FE_1> = vec![FE_1::zero(); k];
-        for (_, item) in u.iter_mut().take(k).enumerate() {
+        for item in u.iter_mut().take(k) {
             let mut rng = rand::thread_rng();
             let vector: Vec<u8> = (0..32).map(|_| rng.gen::<u8>()).collect();
             *item = build_field_challenge(vector);
@@ -677,7 +677,7 @@ mod tests {
         let _u = build_group_challenge::<Fr_2, M, BN254Curve>(vector, gen);
         let k = (f64::from(ipa.d).log2()) as usize;
         let mut u: Vec<FE_2> = vec![FE_2::zero(); k];
-        for (_, item) in u.iter_mut().take(k).enumerate() {
+        for item in u.iter_mut().take(k) {
             let mut rng = rand::thread_rng();
             let vector: Vec<u8> = (0..32).map(|_| rng.gen::<u8>()).collect();
             *item = build_field_challenge(vector);
