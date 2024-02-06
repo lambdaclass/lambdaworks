@@ -12,6 +12,16 @@ Please check issues under security label, and wait for them to be resolved if th
 
 ## [Cairo Platinum Prover Docs](<[lambdaclass.github.io/lambdaworks/](https://github.com/lambdaclass/lambdaworks/blob/main/provers/cairo/README.md)>)
 
+## Proof file
+
+Currently, the .proof file contains the following elements concatenated:
+- Proof size
+- Proof
+- Public inputs
+
+It uses the bincode as protocol to encode the structs of the files. Fields are stored as the bytes of canonical non-Montgomery form. It is in full big-endian form. Limbs are ordered in big-endian, and each u64 of the Montgomery field is in big-endian.
+
+⚠️: There may be changes to how this file represents the proof, always check here to ensure you have the latest encoding. We will add presets of verifications to the public inputs so you should not need to handle the file, just enable them.
 
 ### Cairo Platinum Prover - Introduction
 
