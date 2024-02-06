@@ -11,7 +11,7 @@ use crate::{
     trace::TraceTable,
     traits::AIR,
 };
-use lambdaworks_crypto::fiat_shamir::IsTranscript;
+use lambdaworks_crypto::fiat_shamir::is_transcript::IsTranscript;
 use lambdaworks_math::{
     field::{element::FieldElement, traits::IsFFTField},
     helpers::resize_to_next_power_of_two,

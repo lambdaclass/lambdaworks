@@ -3,4 +3,3 @@
 pub mod test_transcript;
 
 pub mod is_transcript;
-pub use is_transcript::*;

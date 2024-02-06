@@ -1,4 +1,4 @@
-use lambdaworks_crypto::fiat_shamir::IsTranscript;
+use lambdaworks_crypto::fiat_shamir::is_transcript::IsTranscript;
 use lambdaworks_math::{
     field::{element::FieldElement, traits::IsField},
     traits::ByteConversion,
