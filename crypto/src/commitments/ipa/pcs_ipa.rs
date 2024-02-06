@@ -4,6 +4,7 @@ use crate::fiat_shamir::default_transcript::DefaultTranscript;
 use crate::fiat_shamir::transcript::Transcript;
 use alloc::string::String;
 use alloc::vec::Vec;
+use core::marker::PhantomData;
 use lambdaworks_math::cyclic_group::IsGroup;
 use lambdaworks_math::elliptic_curve::short_weierstrass::point::ShortWeierstrassProjectivePoint;
 use lambdaworks_math::elliptic_curve::short_weierstrass::traits::IsShortWeierstrass;
@@ -15,7 +16,6 @@ use lambdaworks_math::polynomial::Polynomial;
 use lambdaworks_math::traits::ByteConversion;
 use lambdaworks_math::unsigned_integer::element::UnsignedInteger;
 use rand::Rng;
-use std::marker::PhantomData;
 
 pub struct IPA<F: IsField + IsPrimeField, E: IsEllipticCurve + IsShortWeierstrass> {
     d: u32,
