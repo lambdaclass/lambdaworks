@@ -1,12 +1,11 @@
+use super::is_transcript::IsTranscript;
+use crate::alloc::borrow::ToOwned;
 use core::marker::PhantomData;
-
 use lambdaworks_math::{
     field::{element::FieldElement, traits::IsField},
     traits::ByteConversion,
 };
 use sha3::{Digest, Keccak256};
-
-use super::is_transcript::IsTranscript;
 
 pub struct DefaultTranscript<F: IsField> {
     hasher: Keccak256,
