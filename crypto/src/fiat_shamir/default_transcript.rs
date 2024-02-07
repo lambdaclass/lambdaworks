@@ -1,9 +1,10 @@
+use core::marker::PhantomData;
+
 use lambdaworks_math::{
     field::{element::FieldElement, traits::IsField},
     traits::ByteConversion,
 };
 use sha3::{Digest, Keccak256};
-use std::marker::PhantomData;
 
 use super::is_transcript::IsTranscript;
 
