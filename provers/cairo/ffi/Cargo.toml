@@ -1,0 +1,15 @@
+[package]
+name = "cairo-platinum-ffi"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+# libc = "0.2"
+stark-platinum-prover = { path = "../../stark" }
+cairo-platinum-prover = { path = "../" }
+bincode = { version = "2.0.0-rc.2", tag = "v2.0.0-rc.2", git = "https://github.com/bincode-org/bincode.git", features = ['serde'] }
+
+[lib]
+crate-type = ["cdylib", "staticlib", "lib"]
