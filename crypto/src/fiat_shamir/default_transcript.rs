@@ -1,4 +1,3 @@
-use lambdaworks_crypto::fiat_shamir::is_transcript::IsTranscript;
 use lambdaworks_math::{
     field::{element::FieldElement, traits::IsField},
     traits::ByteConversion,
@@ -6,12 +5,14 @@ use lambdaworks_math::{
 use sha3::{Digest, Keccak256};
 use std::marker::PhantomData;
 
-pub struct PlonkTranscript<F: IsField> {
+use super::is_transcript::IsTranscript;
+
+pub struct DefaultTranscript<F: IsField> {
     hasher: Keccak256,
     phantom: PhantomData<F>,
 }
 
-impl<F> PlonkTranscript<F>
+impl<F> DefaultTranscript<F>
 where
     F: IsField,
     FieldElement<F>: ByteConversion,
@@ -34,7 +35,7 @@ where
     }
 }
 
-impl<F> Default for PlonkTranscript<F>
+impl<F> Default for DefaultTranscript<F>
 where
     F: IsField,
     FieldElement<F>: ByteConversion,
@@ -44,7 +45,7 @@ where
     }
 }
 
-impl<F> IsTranscript<F> for PlonkTranscript<F>
+impl<F> IsTranscript<F> for DefaultTranscript<F>
 where
     F: IsField,
     FieldElement<F>: ByteConversion,
@@ -80,7 +81,7 @@ mod tests {
 
     #[test]
     fn basic_challenge() {
-        let mut transcript = PlonkTranscript::<FrField>::default();
+        let mut transcript = DefaultTranscript::<FrField>::default();
 
         let point_a: Vec<u8> = vec![0xFF, 0xAB];
         let point_b: Vec<u8> = vec![0xDD, 0x8C, 0x9D];

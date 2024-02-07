@@ -2,9 +2,10 @@ use std::collections::HashMap;
 
 use crate::constraint_system::{get_permutation, ConstraintSystem, Variable};
 use crate::test_utils::utils::{generate_domain, generate_permutation_coefficients};
-use crate::transcript::PlonkTranscript;
 use lambdaworks_crypto::commitments::traits::IsCommitmentScheme;
-use lambdaworks_crypto::fiat_shamir::is_transcript::IsTranscript;
+use lambdaworks_crypto::fiat_shamir::{
+    default_transcript::DefaultTranscript, is_transcript::IsTranscript,
+};
 use lambdaworks_math::field::traits::IsFFTField;
 use lambdaworks_math::field::{element::FieldElement, traits::IsField};
 use lambdaworks_math::polynomial::Polynomial;
@@ -132,14 +133,14 @@ pub fn setup<F: IsField, CS: IsCommitmentScheme<F>>(
 pub fn new_strong_fiat_shamir_transcript<F, CS>(
     vk: &VerificationKey<CS::Commitment>,
     public_input: &[FieldElement<F>],
-) -> PlonkTranscript<F>
+) -> DefaultTranscript<F>
 where
     F: IsField,
     FieldElement<F>: ByteConversion,
     CS: IsCommitmentScheme<F>,
     CS::Commitment: AsBytes,
 {
-    let mut transcript = PlonkTranscript::default();
+    let mut transcript = DefaultTranscript::default();
 
     transcript.append_bytes(&vk.s1_1.as_bytes());
     transcript.append_bytes(&vk.s2_1.as_bytes());
