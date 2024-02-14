@@ -12,7 +12,7 @@ pub fn linear_combination_u64(u: &[u64], v: &[FieldElement<Mersenne31Field>]) ->
     let mut result = FieldElement::<Mersenne31Field>::zero();
     
     for (ui, vi) in u.iter().zip(v.iter()) {
-        // Perform the field multiplication and addition
+        
         result = result + FieldElement::<Mersenne31Field>::from(*ui) * vi;
     }
 
@@ -21,7 +21,7 @@ pub fn linear_combination_u64(u: &[u64], v: &[FieldElement<Mersenne31Field>]) ->
 
 pub fn rotate_right<const N: usize>(input: [u64; N], offset: usize) -> [u64; N] {
     let mut output = [0u64; N];
-    let offset = offset % N; // Ensure the offset is within the bounds of the array size
+    let offset = offset % N; 
     for (i, item) in input.iter().enumerate() {
         output[(i + offset) % N] = *item;
     }
@@ -101,7 +101,7 @@ pub fn binomial(mut n: UnsignedInteger<4>, k: UnsignedInteger<4>) -> UnsignedInt
 }
 
 fn multiply_and_divide(a: UnsignedInteger<4>, b: UnsignedInteger<4>, c: UnsignedInteger<4>) -> UnsignedInteger<4> {
-    let a_mul_b = a * b; // Assuming `*` operation is defined for UnsignedInteger<4>
+    let a_mul_b = a * b; 
     let (quotient, _remainder) = a_mul_b.div_rem(&c);
     quotient
 }
