@@ -1,7 +1,4 @@
 use stark_platinum_prover::Felt252;
-use std::io;
-
-use crate::air::CairoAIR;
 
 #[derive(Debug, Clone)]
 pub struct CairoPublicInput {
@@ -31,25 +28,3 @@ pub struct SegmentInfo {
     pub begin_addr: Felt252,
     pub stop_ptr: Felt252,
 }
-
-// impl TryFrom<&CairoAIR> for CairoPublicInput
-// {
-//     type Error = io::Error;
-//     fn try_from(air: &CairoAIR) -> Result<Self, Self::Error> {
-//         Ok(CairoPublicInput{
-//             log_n_steps: ((air.trace_length as u64).ilog2() as u64).into(),
-//             range_check_min: (air.pub_inputs.range_check_min.ok_or(io::Error::from(io::ErrorKind::InvalidData))? as u64).into(),
-//             range_check_max: (air.pub_inputs.range_check_max.ok_or(io::Error::from(io::ErrorKind::InvalidData))? as u64).into(),
-//             layout:
-//             dynamic_params:
-//             n_segments:
-//             segments:
-//             padding_addr:
-//             padding_value:
-//             main_page_len:
-//             main_page:
-//             n_continuous_pages:
-//             continuous_page_headers:
-//         })
-//     }
-// }

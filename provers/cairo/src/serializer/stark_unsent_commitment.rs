@@ -29,11 +29,10 @@ pub struct ProofOfWorkUnsentCommitment {
     pub nonce: u64,
 }
 
-impl TryFrom<&StarkProof<Stark252PrimeField, Stark252PrimeField>> for StarkUnsentCommitment {
-    type Error = io::Error;
-    fn try_from(
+impl StarkUnsentCommitment {
+    pub fn convert(
         proof: &StarkProof<Stark252PrimeField, Stark252PrimeField>,
-    ) -> Result<Self, Self::Error> {
+    ) -> Result<Self, io::Error> {
         let mut oods_values = vec![];
 
         for i in 0..proof.trace_ood_evaluations.width {
@@ -47,20 +46,19 @@ impl TryFrom<&StarkProof<Stark252PrimeField, Stark252PrimeField>> for StarkUnsen
         }
 
         Ok(StarkUnsentCommitment {
-            traces: TracesUnsentCommitment::try_from(proof)?,
+            traces: TracesUnsentCommitment::convert(proof)?,
             composition: proof.composition_poly_root,
             oods_values,
-            fri: FriUnsentCommitment::from(proof),
-            proof_of_work: ProofOfWorkUnsentCommitment::try_from(proof)?,
+            fri: FriUnsentCommitment::convert(proof),
+            proof_of_work: ProofOfWorkUnsentCommitment::convert(proof)?,
         })
     }
 }
 
-impl TryFrom<&StarkProof<Stark252PrimeField, Stark252PrimeField>> for TracesUnsentCommitment {
-    type Error = io::Error;
-    fn try_from(
+impl TracesUnsentCommitment {
+    pub fn convert(
         proof: &StarkProof<Stark252PrimeField, Stark252PrimeField>,
-    ) -> Result<Self, Self::Error> {
+    ) -> Result<Self, io::Error> {
         Ok(TracesUnsentCommitment {
             original: proof.lde_trace_main_merkle_root,
             interaction: proof
@@ -70,8 +68,8 @@ impl TryFrom<&StarkProof<Stark252PrimeField, Stark252PrimeField>> for TracesUnse
     }
 }
 
-impl From<&StarkProof<Stark252PrimeField, Stark252PrimeField>> for FriUnsentCommitment {
-    fn from(proof: &StarkProof<Stark252PrimeField, Stark252PrimeField>) -> Self {
+impl FriUnsentCommitment {
+    pub fn convert(proof: &StarkProof<Stark252PrimeField, Stark252PrimeField>) -> Self {
         FriUnsentCommitment {
             inner_layers: proof.fri_layers_merkle_roots.to_owned(),
             last_layer_coefficients: vec![proof.fri_last_value],
@@ -79,11 +77,10 @@ impl From<&StarkProof<Stark252PrimeField, Stark252PrimeField>> for FriUnsentComm
     }
 }
 
-impl TryFrom<&StarkProof<Stark252PrimeField, Stark252PrimeField>> for ProofOfWorkUnsentCommitment {
-    type Error = io::Error;
-    fn try_from(
+impl ProofOfWorkUnsentCommitment {
+    pub fn convert(
         proof: &StarkProof<Stark252PrimeField, Stark252PrimeField>,
-    ) -> Result<Self, Self::Error> {
+    ) -> Result<Self, io::Error> {
         Ok(ProofOfWorkUnsentCommitment {
             nonce: proof
                 .nonce
