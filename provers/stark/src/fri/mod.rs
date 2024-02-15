@@ -2,6 +2,7 @@ pub mod fri_commitment;
 pub mod fri_decommit;
 mod fri_functions;
 
+use lambdaworks_crypto::fiat_shamir::is_transcript::IsTranscript;
 use lambdaworks_math::field::traits::{IsFFTField, IsField};
 use lambdaworks_math::traits::AsBytes;
 use lambdaworks_math::{
@@ -13,7 +14,6 @@ pub use lambdaworks_math::{
 };
 
 use crate::config::{BatchedMerkleTree, BatchedMerkleTreeBackend};
-use crate::transcript::IsStarkTranscript;
 
 use self::fri_commitment::FriLayer;
 use self::fri_decommit::FriDecommitment;
@@ -22,7 +22,7 @@ use self::fri_functions::fold_polynomial;
 pub fn commit_phase<F: IsFFTField + IsSubFieldOf<E>, E: IsField>(
     number_layers: usize,
     p_0: Polynomial<FieldElement<E>>,
-    transcript: &mut impl IsStarkTranscript<E>,
+    transcript: &mut impl IsTranscript<E>,
     coset_offset: &FieldElement<F>,
     domain_size: usize,
 ) -> (
