@@ -10,7 +10,7 @@ This prover is still in development and may contain bugs. It is not intended to 
 
 Please check issues under security label, and wait for them to be resolved if they are relevant to your project.
 
-## [Cairo Platinum Prover Docs]([<[lambdaclass.github.io/lambdaworks/](https://github.com/lambdaclass/lambdaworks/blob/main/provers/cairo/README.md)>](https://lambdaclass.github.io/lambdaworks/))
+## [Cairo Platinum Prover Docs]([https://lambdaclass.github.io/lambdaworks/](https://lambdaclass.github.io/lambdaworks/starks/cairo.html))
 
 ## Proof file
 
