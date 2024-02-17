@@ -1,7 +1,12 @@
 use std::io;
 
-use lambdaworks_math::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;
+use itertools::Itertools;
+use lambdaworks_math::{
+    field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField, traits::ByteConversion,
+};
 use stark_platinum_prover::{config::Commitment, proof::stark::StarkProof, Felt252};
+
+use super::ast::{Expr, IntoAst};
 
 #[derive(Debug, Clone)]
 pub struct StarkUnsentCommitment {
@@ -55,6 +60,24 @@ impl StarkUnsentCommitment {
     }
 }
 
+impl IntoAst for StarkUnsentCommitment {
+    fn into_ast(&self) -> Vec<Expr> {
+        let mut exprs = vec![];
+
+        exprs.extend(self.traces.into_ast());
+        exprs.extend(
+            Felt252::from_bytes_le(&self.composition)
+                .unwrap()
+                .into_ast(),
+        );
+        exprs.extend(self.oods_values.into_ast());
+        exprs.extend(self.fri.into_ast());
+        exprs.extend(self.proof_of_work.into_ast());
+
+        exprs
+    }
+}
+
 impl TracesUnsentCommitment {
     pub fn convert(
         proof: &StarkProof<Stark252PrimeField, Stark252PrimeField>,
@@ -68,12 +91,50 @@ impl TracesUnsentCommitment {
     }
 }
 
+impl IntoAst for TracesUnsentCommitment {
+    fn into_ast(&self) -> Vec<Expr> {
+        let mut exprs = vec![];
+
+        exprs.extend(Felt252::from_bytes_le(&self.original).unwrap().into_ast());
+        exprs.extend(
+            Felt252::from_bytes_le(&self.interaction)
+                .unwrap()
+                .into_ast(),
+        );
+
+        exprs
+    }
+}
+
 impl FriUnsentCommitment {
     pub fn convert(proof: &StarkProof<Stark252PrimeField, Stark252PrimeField>) -> Self {
         FriUnsentCommitment {
             inner_layers: proof.fri_layers_merkle_roots.to_owned(),
             last_layer_coefficients: vec![proof.fri_last_value],
         }
+    }
+}
+
+impl IntoAst for FriUnsentCommitment {
+    fn into_ast(&self) -> Vec<Expr> {
+        let mut exprs = vec![];
+
+        exprs.extend(
+            self.inner_layers
+                .iter()
+                .map(|v| Felt252::from_bytes_le(v).unwrap())
+                .collect_vec()
+                .into_ast(),
+        );
+
+        exprs.extend(
+            self.last_layer_coefficients
+                .iter()
+                .map(|v| Felt252::from_bytes_le(&v.to_bytes_le()).unwrap())
+                .collect_vec()
+                .into_ast(),
+        );
+        exprs
     }
 }
 
@@ -86,5 +147,25 @@ impl ProofOfWorkUnsentCommitment {
                 .nonce
                 .ok_or(io::Error::from(io::ErrorKind::InvalidData))?,
         })
+    }
+}
+
+impl IntoAst for ProofOfWorkUnsentCommitment {
+    fn into_ast(&self) -> Vec<Expr> {
+        Felt252::from(self.nonce).into_ast()
+    }
+}
+
+impl IntoAst for Vec<Felt252> {
+    fn into_ast(&self) -> Vec<Expr> {
+        vec![Expr::Array(
+            self.iter().flat_map(|v| v.into_ast()).collect_vec(),
+        )]
+    }
+}
+
+impl IntoAst for Felt252 {
+    fn into_ast(&self) -> Vec<Expr> {
+        vec![Expr::Value(hex::encode(self.to_bytes_be()))]
     }
 }

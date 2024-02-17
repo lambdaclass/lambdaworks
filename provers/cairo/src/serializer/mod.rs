@@ -14,14 +14,14 @@ use stark_platinum_prover::{
 };
 
 use self::{
-    stark_config::StarkConfig, stark_public_input::CairoPublicInput,
-    stark_unsent_commitment::StarkUnsentCommitment, stark_witness::StarkWitness,
+    ast::IntoAst, stark_config::StarkConfig, stark_public_input::CairoPublicInput, stark_unsent_commitment::StarkUnsentCommitment, stark_witness::StarkWitness
 };
 
 pub mod stark_config;
 pub mod stark_public_input;
 pub mod stark_unsent_commitment;
 pub mod stark_witness;
+pub mod ast;
 
 pub struct CairoStarkProof {
     pub stark_config: StarkConfig,
@@ -36,16 +36,25 @@ pub struct CairoCompatibleSerializer;
 impl CairoCompatibleSerializer {}
 
 impl CairoCompatibleSerializer {
-    pub fn convert_proof<A>(
+    pub fn convert<A>(
         proof: &StarkProof<Stark252PrimeField, Stark252PrimeField>,
         public_inputs: &A::PublicInputs,
         options: &ProofOptions,
-    ) -> CairoStarkProof
+    ) -> ()
     where
         A: AIR<Field = Stark252PrimeField, FieldExtension = Stark252PrimeField>,
         A::PublicInputs: AsBytes,
     {
-        todo!()
+        let unsent_commitment = StarkUnsentCommitment::convert(proof).unwrap();
+        let fri_query_indexes = Self::get_fri_query_indexes::<A>(proof, public_inputs, options);
+        let witness = StarkWitness::convert(proof, &fri_query_indexes);
+
+        let exprs = unsent_commitment.into_ast();
+        // let exprs = witness.into_ast();
+
+        let serialized = serde_json::to_string(&exprs).unwrap();
+
+        println!("{:#?}", serialized);
     }
 
     /// Merges `n` authentication paths for `n` leaves into a list of the minimal number of nodes

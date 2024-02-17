@@ -1,14 +1,16 @@
+use super::ast::Expr;
+use itertools::Itertools;
 use lambdaworks_crypto::merkle_tree::proof::Proof;
 use lambdaworks_math::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;
+use lambdaworks_math::traits::ByteConversion;
+use stark_platinum_prover::Felt252;
 use stark_platinum_prover::{config::Commitment, fri::FieldElement, proof::stark::StarkProof};
 use std::{
     collections::{BTreeSet, HashMap, HashSet},
     vec,
 };
 
-use crate::Felt252;
-
-use super::CairoCompatibleSerializer;
+use super::{ast::IntoAst, CairoCompatibleSerializer};
 
 #[derive(Debug, Clone)]
 pub struct StarkWitness {
@@ -390,5 +392,96 @@ impl FriWitness {
         }
 
         fri_witness
+    }
+}
+
+impl IntoAst for StarkWitness {
+    fn into_ast(&self) -> Vec<Expr> {
+        let mut exprs = vec![];
+
+        exprs.extend(self.traces_decommitment.into_ast());
+        exprs.extend(self.traces_witness.into_ast());
+        exprs.extend(self.composition_decommitment.into_ast());
+        exprs.extend(self.composition_witness.into_ast());
+        exprs.extend(self.fri_witness.into_ast());
+
+        exprs
+    }
+}
+
+impl IntoAst for TracesDecommitment {
+    fn into_ast(&self) -> Vec<Expr> {
+        let mut exprs = vec![];
+
+        exprs.extend(self.original.into_ast());
+        exprs.extend(self.interaction.into_ast());
+
+        exprs
+    }
+}
+
+impl IntoAst for TracesWitness {
+    fn into_ast(&self) -> Vec<Expr> {
+        let mut exprs = vec![];
+
+        exprs.extend(self.original.into_ast());
+        exprs.extend(self.interaction.into_ast());
+
+        exprs
+    }
+}
+
+impl IntoAst for TableCommitmentWitness {
+    fn into_ast(&self) -> Vec<Expr> {
+        self.vector.into_ast()
+    }
+}
+
+impl IntoAst for VectorCommitmentWitness {
+    fn into_ast(&self) -> Vec<Expr> {
+        let mut exprs = vec![];
+
+        exprs.extend(self.n_authentications.into_ast());
+        exprs.extend(
+            self.authentications
+                .merkle_path
+                .iter()
+                .map(|v| Felt252::from_bytes_le(v).unwrap())
+                .collect_vec()
+                .into_ast(),
+        );
+
+        exprs
+    }
+}
+
+impl IntoAst for TableDecommitment {
+    fn into_ast(&self) -> Vec<Expr> {
+        let mut exprs = vec![];
+
+        exprs.extend(self.n_values.into_ast());
+        exprs.extend(self.values.into_ast());
+
+        exprs
+    }
+}
+
+impl IntoAst for FriWitness {
+    fn into_ast(&self) -> Vec<Expr> {
+        vec![Expr::Array(
+            self.layers.iter().flat_map(|v| v.into_ast()).collect_vec(),
+        )]
+    }
+}
+
+impl IntoAst for FriLayerWitness {
+    fn into_ast(&self) -> Vec<Expr> {
+        let mut exprs = vec![];
+
+        exprs.extend(self.n_leaves.into_ast());
+        exprs.extend(self.leaves.into_ast());
+        exprs.extend(self.table_witness.into_ast());
+
+        exprs
     }
 }

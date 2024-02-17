@@ -1,5 +1,5 @@
 use super::{cairo_mem::CairoMemory, register_states::RegisterStates};
-use crate::transition_constraints::*;
+use crate::{serializer::CairoCompatibleSerializer, transition_constraints::*};
 use cairo_vm::{air_public_input::MemorySegmentAddresses, without_std::collections::HashMap};
 #[cfg(debug_assertions)]
 use itertools::Itertools;
@@ -893,12 +893,16 @@ pub fn generate_cairo_proof(
     pub_input: &PublicInputs,
     proof_options: &ProofOptions,
 ) -> Result<StarkProof<Stark252PrimeField, Stark252PrimeField>, ProvingError> {
-    Prover::<CairoAIR>::prove(
+    let proof = Prover::<CairoAIR>::prove(
         trace,
         pub_input,
         proof_options,
         StoneProverTranscript::new(&[]),
-    )
+    )?;
+
+    CairoCompatibleSerializer::convert::<CairoAIR>(&proof, &pub_input, &proof_options);
+
+    Ok(proof)
 }
 
 /// Wrapper function for verifying Cairo proofs without the need to specify

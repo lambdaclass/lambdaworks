@@ -15,6 +15,7 @@ name = "cairo_platinum_prover"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
+hex = "0.4.3"
 rand = "0.8.5"
 lambdaworks-math = { workspace = true, default-features = true, features = ["lambdaworks-serde-binary"] }
 lambdaworks-crypto = { workspace = true, default-features = true }
@@ -41,7 +42,6 @@ serde-wasm-bindgen = { version = "0.5", optional = true }
 web-sys = { version = "0.3.64", features = ['console'], optional = true }
 
 [dev-dependencies]
-hex = "0.4.3"
 criterion = { version = "0.4", default-features = false }
 env_logger = "*"
 test-log = { version = "0.2.11", features = ["log"] }
