@@ -54,4 +54,10 @@ pub trait IsPairing {
     ) -> Result<FieldElement<Self::OutputField>, PairingError> {
         Self::compute_batch(&[(p, q)])
     }
+
+    /// Returns the generator of the g1 curve subgroup.
+    fn g1_generator() -> Self::G1Point;
+
+    /// Returns the generator of the g2 curve subgroup.
+    fn g2_generator() -> Self::G2Point;
 }

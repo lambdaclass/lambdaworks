@@ -1,4 +1,4 @@
-use core::mem;
+use core::{cmp::max, mem};
 
 use lambdaworks_math::{
     cyclic_group::IsGroup,
@@ -34,35 +34,25 @@ impl<P: IsPairing> ZeromorphSRS<P> {
         let tau = FieldElement::<P::BaseField>::from_bytes_be(&bytes).unwrap();
         rng.fill_bytes(&mut bytes);
         let g1_scalar = FieldElement::<P::BaseField>::from_bytes_be(&bytes).unwrap();
-        let g1 = P::G1Point::neutral_element().operate_with_self(g1_scalar.representative());
+        let g1 = P::g1_generator().operate_with_self(g1_scalar.representative());
         rng.fill_bytes(&mut bytes);
         let g2_scalar = FieldElement::<P::BaseField>::from_bytes_be(&bytes).unwrap();
-        let g2 = P::G2Point::neutral_element().operate_with_self(g2_scalar.representative());
+        let g2 = P::g2_generator().operate_with_self(g2_scalar.representative());
 
-        //TODO: Add window table for msm this is slow af
-        let tau_powers = (0..=max_degree)
-            .scan(tau.clone(), |state, _| {
-                let val = state.clone();
-                *state *= &tau;
-                Some(val)
-            })
-            .map(|scalar| scalar.representative())
-            .collect::<Vec<_>>();
+        let g1_powers: Vec<FieldElement<P::BaseField>> = vec![FieldElement::zero(); max_degree];
+        let g2_powers: Vec<FieldElement<P::BaseField>> = vec![FieldElement::zero(); max_degree];
 
-        let g1s: Vec<_> = (0..=max_degree).map(|e| g1.operate_with_self(e)).collect();
-        let g2s: Vec<_> = (0..=max_degree).map(|e| g2.operate_with_self(e)).collect();
+        let g1_powers: Vec<P::G1Point> = std::iter::once(g1.clone()).chain(g1_powers.iter().scan(g1, |state, _| {
+            let val = state.clone();
+            *state = state.operate_with_self(tau.representative());
+            Some(val)
+        })).collect();
 
-        //TODO: gate with rayon
-        let g1_powers = g1s
-            .iter()
-            .zip(tau_powers.iter())
-            .map(|(g1, tau)| g1.operate_with_self(*tau))
-            .collect();
-        let g2_powers = g2s
-            .iter()
-            .zip(tau_powers.iter())
-            .map(|(g2, tau)| g2.operate_with_self(*tau))
-            .collect();
+        let g2_powers: Vec<P::G2Point> = std::iter::once(g2.clone()).chain(g2_powers.iter().scan(g2, |state, _| {
+            let val = state.clone();
+            *state = state.operate_with_self(tau.representative());
+            Some(val)
+        })).collect();
 
         ZeromorphSRS {
             g1_powers,
@@ -89,11 +79,9 @@ impl<P: IsPairing> ZeromorphSRS<P> {
             ));
         }
         let offset = self.g1_powers.len() - max_degree;
-        let offset_g1_powers = self.g1_powers[offset..].to_vec();
         Ok((
             ZeromorphProverKey {
                 g1_powers: self.g1_powers.clone(),
-                offset_g1_powers: offset_g1_powers,
             },
             ZeromorphVerifierKey {
                 g1: self.g1_powers[0].clone(),
@@ -234,7 +222,6 @@ pub struct ZeromorphProof<P: IsPairing> {
 #[derive(Clone, Debug)]
 pub struct ZeromorphProverKey<P: IsPairing> {
     pub g1_powers: Vec<P::G1Point>,
-    pub offset_g1_powers: Vec<P::G1Point>,
 }
 
 #[derive(Copy, Clone, Debug)]

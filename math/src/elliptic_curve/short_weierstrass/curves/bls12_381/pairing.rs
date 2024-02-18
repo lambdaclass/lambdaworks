@@ -5,6 +5,7 @@ use super::{
     field_extension::{BLS12381PrimeField, Degree12ExtensionField, Degree2ExtensionField},
     twist::BLS12381TwistCurve,
 };
+use crate::elliptic_curve::traits::IsEllipticCurve;
 use crate::{cyclic_group::IsGroup, elliptic_curve::traits::IsPairing, errors::PairingError};
 
 use crate::{
@@ -45,6 +46,14 @@ impl IsPairing for BLS12381AtePairing {
             }
         }
         Ok(final_exponentiation(&result))
+    }
+
+    fn g1_generator() -> Self::G1Point {
+        BLS12381Curve::generator()
+    }
+
+    fn g2_generator() -> Self::G2Point {
+        BLS12381TwistCurve::generator()
     }
 }
 

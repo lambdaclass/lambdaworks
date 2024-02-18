@@ -77,24 +77,24 @@ where
 }
 
 fn compute_batched_lifted_degree_quotient<P: IsPairing>(
-    n: usize,
     quotients: &Vec<Polynomial<FieldElement<P::BaseField>>>,
     y_challenge: &FieldElement<P::BaseField>,
 ) -> Polynomial<FieldElement<P::BaseField>> {
     // Compute \hat{q} = \sum_k y^k * X^{N - d_k - 1} * q_k
     let mut scalar = FieldElement::<P::BaseField>::one(); // y^k
+    let num_vars = quotients.len();
                                                           // Rather than explicitly computing the shifts of q_k by N - d_k - 1 (i.e. multiplying q_k by X^{N - d_k - 1})
                                                           // then accumulating them, we simply accumulate y^k*q_k into \hat{q} at the index offset N - d_k - 1
     let q_hat =
         quotients
             .iter()
             .enumerate()
-            .fold(vec![FieldElement::zero(); n], |mut q_hat, (idx, q)| {
+            .fold(vec![FieldElement::zero(); 1 << num_vars], |mut q_hat, (idx, q)| {
                 #[cfg(feature = "parallel")]
-                let q_hat_iter = q_hat[n - (1 << idx)..].par_iter_mut();
+                let q_hat_iter = q_hat[(1 << num_vars) - (1 << idx)..].par_iter_mut();
 
                 #[cfg(not(feature = "parallel"))]
-                let q_hat_iter = q_hat[n - (1 << idx)..].iter_mut();
+                let q_hat_iter = q_hat[(1 << num_vars) - (1 << idx)..].iter_mut();
                 q_hat_iter.zip(&q.coefficients).for_each(|(q_hat, q)| {
                     *q_hat += &scalar * q;
                 });
@@ -227,25 +227,8 @@ where
 
         serialized_data.extend(&g1_powers_len_bytes);
 
-        // third 8 bytes store the amount of G1 offset elements to be stored, this is more than can be indexed with a 64-bit architecture, and some millions of terabytes of data if the points were compressed
-        let mut offset_g1_powers_len_bytes: Vec<u8> =
-            self.pk.offset_g1_powers.len().to_le_bytes().to_vec();
-
-        // For architectures with less than 64 bits for pointers
-        // We add extra zeros at the end
-        while offset_g1_powers_len_bytes.len() < 8 {
-            offset_g1_powers_len_bytes.push(0)
-        }
-
-        serialized_data.extend(&offset_g1_powers_len_bytes);
-
         // G1 elements
         for point in &self.pk.g1_powers {
-            serialized_data.extend(point.as_bytes());
-        }
-
-        // G2 elements
-        for point in &self.pk.offset_g1_powers {
             serialized_data.extend(point.as_bytes());
         }
 
@@ -267,7 +250,6 @@ where
     fn deserialize(bytes: &[u8]) -> Result<Self, DeserializationError> {
         const VERSION_OFFSET: usize = 4;
         const G1_LEN_OFFSET: usize = 12;
-        const OFFSET_G1_LEN_OFFSET: usize = 20;
 
         let g1_powers_len_u64 = u64::from_le_bytes(
             // This unwrap can't fail since we are fixing the size of the slice
@@ -277,18 +259,7 @@ where
         let g1_powers_len = usize::try_from(g1_powers_len_u64)
             .map_err(|_| DeserializationError::PointerSizeError)?;
 
-        let offset_g1_powers_len_u64 = u64::from_le_bytes(
-            // This unwrap can't fail since we are fixing the size of the slice
-            bytes[G1_LEN_OFFSET..OFFSET_G1_LEN_OFFSET]
-                .try_into()
-                .unwrap(),
-        );
-
-        let offset_g1_powers_len = usize::try_from(offset_g1_powers_len_u64)
-            .map_err(|_| DeserializationError::PointerSizeError)?;
-
         let mut g1_powers: Vec<P::G1Point> = Vec::new();
-        let mut offset_g1_powers: Vec<P::G1Point> = Vec::new();
 
         let size_g1_point = mem::size_of::<P::G1Point>();
         let size_g2_point = mem::size_of::<P::G2Point>();
@@ -296,33 +267,20 @@ where
         for i in 0..g1_powers_len {
             // The second unwrap shouldn't fail since the amount of bytes is fixed
             let point = P::G1Point::deserialize(
-                bytes[i * size_g1_point + OFFSET_G1_LEN_OFFSET
-                    ..i * size_g1_point + size_g1_point + OFFSET_G1_LEN_OFFSET]
+                bytes[i * size_g1_point + G1_LEN_OFFSET
+                    ..i * size_g1_point + size_g1_point + G1_LEN_OFFSET]
                     .try_into()
                     .unwrap(),
             )?;
             g1_powers.push(point);
         }
 
-        let offset_g1_offset = size_g1_point * g1_powers_len + OFFSET_G1_LEN_OFFSET;
-        for i in 0..g1_powers_len {
-            // The second unwrap shouldn't fail since the amount of bytes is fixed
-            let point = P::G1Point::deserialize(
-                bytes[i * size_g1_point + offset_g1_offset
-                    ..i * size_g1_point + size_g1_point + offset_g1_offset]
-                    .try_into()
-                    .unwrap(),
-            )?;
-            offset_g1_powers.push(point);
-        }
         let pk = ZeromorphProverKey {
             g1_powers,
-            offset_g1_powers,
         };
 
         let vk_offset = size_g1_point * g1_powers_len
-            + size_g1_point * offset_g1_powers_len
-            + OFFSET_G1_LEN_OFFSET;
+            + G1_LEN_OFFSET;
         let g1 = P::G1Point::deserialize(
             bytes[vk_offset..size_g1_point + vk_offset]
                 .try_into()
@@ -390,8 +348,6 @@ where
         let point = point.borrow();
         //TODO: error or interface or something
         let transcript = transcript.unwrap();
-        let num_vars = point.len();
-        let n: usize = 1 << num_vars;
         let mut pi_poly = Polynomial::new(&poly.evals());
 
         // Compute the multilinear quotients q_k = q_k(X_0, ..., X_{k-1})
@@ -421,7 +377,7 @@ where
         let y_challenge = FieldElement::from_bytes_be(&transcript.challenge()).unwrap();
 
         // Compute the batched, lifted-degree quotient \hat{q}
-        let q_hat = compute_batched_lifted_degree_quotient::<P>(n, &quotients, &y_challenge);
+        let q_hat = compute_batched_lifted_degree_quotient::<P>(&quotients, &y_challenge);
 
         // Compute and send the commitment C_q = [\hat{q}]
         // commit at offset
@@ -437,7 +393,7 @@ where
                 .collect();
             msm(
                 &scalars[offset..],
-                &self.pk.offset_g1_powers[offset..q_hat.coeff_len()],
+                &self.pk.g1_powers[offset..q_hat.coeff_len()],
             )
             .unwrap()
         };
@@ -463,21 +419,23 @@ where
                 pi_poly = &pi_poly + &q;
             });
 
-        debug_assert_eq!(
+        assert_eq!(
             pi_poly.evaluate(&x_challenge),
             FieldElement::<P::BaseField>::zero()
         );
 
         // Compute the KZG opening proof pi_poly; -> TODO should abstract into separate trait
-        let pi = {
-            pi_poly.ruffini_division_inplace(&x_challenge);
-            let scalars: Vec<_> = pi_poly
+        let (pi, ueval) = {
+            let divisor = Polynomial::new(&[-x_challenge.clone(), FieldElement::one()]);
+            let (witness, _) = pi_poly.clone().long_division_with_remainder(&divisor);
+            let scalars: Vec<_> = witness
                 .coefficients
                 .iter()
                 .map(|eval| eval.representative())
                 .collect();
-            msm(&scalars, &self.pk.g1_powers[..pi_poly.coeff_len()]).unwrap()
+            (msm(&scalars, &self.pk.g1_powers[..witness.coeff_len()]).unwrap(), pi_poly.evaluate(&x_challenge))
         };
+        assert_eq!(ueval, FieldElement::zero());
 
         ZeromorphProof {
             pi,
@@ -554,7 +512,7 @@ where
         // Challenge y
         let y_challenge = FieldElement::from_bytes_be(&transcript.challenge()).unwrap();
 
-        // Receive commitment C_{q} -> Since our transcriptcript does not support appending and receiving data we instead store these commitments in a zeromorph proof struct
+        // Receive commitment C_{q} -> Since our transcript does not support appending and receiving data we instead store these commitments in a zeromorph proof struct
         transcript.append(&q_hat_com.as_bytes());
 
         // Challenge x, z
@@ -572,7 +530,7 @@ where
             });
 
         let scalars = [
-            vec![FieldElement::one(), z_challenge, (eval * eval_scalar)],
+            vec![FieldElement::one(), z_challenge, (eval_scalar * eval)],
             q_scalars,
         ]
         .concat();
@@ -592,6 +550,7 @@ where
 
         // e(pi, [tau]_2 - x * [1]_2) == e(C_{\zeta,Z}, [X^(N_max - 2^n - 1)]_2) <==> e(C_{\zeta,Z} - x * pi, [X^{N_max - 2^n - 1}]_2) * e(-pi, [tau_2]) == 1
         let e = P::compute_batch(&[
+            (&zeta_z_com, &self.vk.tau_n_max_sub_2_n.neg()),
             (
                 &pi,
                 &self.vk.tau_g2.operate_with(
@@ -602,7 +561,6 @@ where
                         .neg(),
                 ),
             ),
-            (&zeta_z_com, &self.vk.tau_n_max_sub_2_n),
         ])
         .unwrap();
         e == FieldElement::one()
@@ -690,7 +648,7 @@ mod test {
 
     #[test]
     fn prove_verify_single() {
-        let max_vars = 16;
+        let max_vars = 8;
         let mut rng = &mut ChaCha20Rng::from_seed(*b"zeromorph_poly_commitment_scheme");
         let srs = ZeromorphSRS::setup(1 << (max_vars + 1), rng);
 
@@ -714,16 +672,16 @@ mod test {
             // Commit and open
             let commitments = zm.commit(&poly);
 
-            let mut prover_transcriptcript = DefaultTranscript::new();
-            let proof = zm.open(&point, &eval, &poly, Some(&mut prover_transcriptcript));
+            let mut prover_transcript = DefaultTranscript::new();
+            let proof = zm.open(&point, &eval, &poly, Some(&mut prover_transcript));
 
-            let mut verifier_transcriptcript = DefaultTranscript::new();
+            let mut verifier_transcript = DefaultTranscript::new();
             assert!(zm.verify(
                 &point,
                 &eval,
                 &commitments,
                 &proof,
-                Some(&mut verifier_transcriptcript),
+                Some(&mut verifier_transcript),
             ));
 
             //TODO: check both random oracles are synced
@@ -842,9 +800,6 @@ mod test {
     ///  ̂q = ∑ₖ₌₀ⁿ⁻¹ yᵏ Xᵐ⁻ᵈᵏ⁻¹ ̂qₖ, 𝑑ₖ = deg(̂q), 𝑚 = 𝑁
     #[test]
     fn batched_lifted_degree_quotient() {
-        const NUM_VARS: usize = 3;
-        const N: usize = 1 << NUM_VARS;
-
         // Define mock qₖ with deg(qₖ) = 2ᵏ⁻¹
         let q_0 = Polynomial::new(&[FieldElement::one()]);
         let q_1 = Polynomial::new(&[FieldElement::from(2u64), FieldElement::from(3u64)]);
@@ -861,7 +816,6 @@ mod test {
 
         //Compute batched quptient  ̂q
         let batched_quotient = compute_batched_lifted_degree_quotient::<BLS12381AtePairing>(
-            N,
             &quotients,
             &y_challenge,
         );
