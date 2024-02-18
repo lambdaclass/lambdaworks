@@ -79,9 +79,11 @@ impl<P: IsPairing> ZeromorphSRS<P> {
             ));
         }
         let offset = self.g1_powers.len() - max_degree;
+        let offset_g1_powers = self.g1_powers[offset..offset + max_degree].to_vec();
         Ok((
             ZeromorphProverKey {
                 g1_powers: self.g1_powers.clone(),
+                offset_g1_powers
             },
             ZeromorphVerifierKey {
                 g1: self.g1_powers[0].clone(),
@@ -222,6 +224,7 @@ pub struct ZeromorphProof<P: IsPairing> {
 #[derive(Clone, Debug)]
 pub struct ZeromorphProverKey<P: IsPairing> {
     pub g1_powers: Vec<P::G1Point>,
+    pub offset_g1_powers: Vec<P::G1Point>,
 }
 
 #[derive(Copy, Clone, Debug)]

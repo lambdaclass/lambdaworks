@@ -275,8 +275,11 @@ where
             g1_powers.push(point);
         }
 
+        let offset_g1_powers = Vec::new();
+
         let pk = ZeromorphProverKey {
             g1_powers,
+            offset_g1_powers
         };
 
         let vk_offset = size_g1_point * g1_powers_len
@@ -393,7 +396,7 @@ where
                 .collect();
             msm(
                 &scalars[offset..],
-                &self.pk.g1_powers[offset..q_hat.coeff_len()],
+                &self.pk.offset_g1_powers[offset..scalars.len()],
             )
             .unwrap()
         };
