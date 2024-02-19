@@ -31,6 +31,10 @@ CLI currently runs with 100 bits of conjecturable security.
 
 Cairo / Cairo1 programs full integration is on the way. It can already be used generating a trace and a memory with the Cairo VM Runner, and fed to the prover with the prove command. 
 
+For using Cairo1, use the following [VM version](https://github.com/lambdaclass/cairo-vm/commit/070aeb9dbaf55875bf1cba2cef36fccafbb4851a) until it gets fixed in main
+
+Notice in this version you don't need the flag ```--proof_mode``` and it's working by default.
+
 ### Usage:
 
 To prove Cairo programs, they first need to be compiled. For compilation you need to have `cairo-lang` or `docker` installed.
