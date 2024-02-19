@@ -33,7 +33,7 @@ Cairo / Cairo1 programs full integration is on the way. It can already be used g
 
 For using Cairo1, use the following [VM version](https://github.com/lambdaclass/cairo-vm/commit/070aeb9dbaf55875bf1cba2cef36fccafbb4851a) until it gets fixed in main
 
-Notice in this version you don't need the flag ```--proof_mode``` and it's working by default.
+Notice in this version you don't need the flag ```--proof_mode``` as  it's enabled by default.
 
 ### Usage:
 
