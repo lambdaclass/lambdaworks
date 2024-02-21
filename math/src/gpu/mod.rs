@@ -7,5 +7,5 @@ If you were using the `--all-features` flag please read this crate's Cargo.toml"
 #[cfg(feature = "cuda")]
 pub mod cuda;
 
-#[cfg(all(feature = "icicle", feature = "alloc"))]
+#[cfg(feature = "icicle")]
 pub mod icicle;
