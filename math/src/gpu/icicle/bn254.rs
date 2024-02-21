@@ -94,7 +94,6 @@ mod test {
         msm::pippenger::msm,
     };
 
-
     impl ShortWeierstrassProjectivePoint<BN254Curve> {
         fn from_icicle_affine(
             icicle: &curve::G1Affine,
@@ -155,24 +154,4 @@ mod test {
         let res = bn254_g1_msm(&lambda_scalars, &lambda_points, None).unwrap();
         assert_eq!(res, expected);
     }
-
-    /*
-    #[test]
-    fn icicle_1_ntt() {
-        const len: usize = 20;
-        let eight: BN254FieldElement = FieldElement::from(8);
-        let lambda_scalars = &vec![eight; len];
-        let expected = Polynomial::evaluate_fft::<BN254PrimeField>(
-            &Polynomial::new(lambda_scalars), 1, None,
-        ).unwrap();
-        let icicle_scalars = lambda_scalars.as_slice().iter()
-            .map(|scalar| scalar.to_icicle_scalar())
-            .collect::<Vec<_>>();
-        println!("expected {:?}", expected);
-        let res = bn254_g1_ntt(&lambda_scalars, None, 4u64, false).unwrap();
-        println!();
-        println!("res {:?}", res);
-        assert_eq!(res, expected);
-    }
-    */
 }

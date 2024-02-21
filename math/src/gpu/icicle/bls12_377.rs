@@ -42,7 +42,6 @@ impl ShortWeierstrassProjectivePoint<BLS12377Curve> {
         }
     }
 
-
     fn from_icicle(icicle: &curve::G1Projective) -> Result<Self, ByteConversionError> {
         Ok(Self::new([
             FieldElement::<BLS12377PrimeField>::from_icicle(&icicle.x).unwrap(),
@@ -89,14 +88,14 @@ mod test {
     use super::*;
     use crate::{
         elliptic_curve::{
-            short_weierstrass::curves::bls12_377::curve::BLS12377FieldElement, traits::IsEllipticCurve,
+            short_weierstrass::curves::bls12_377::curve::BLS12377FieldElement,
+            traits::IsEllipticCurve,
         },
         field::element::FieldElement,
         msm::pippenger::msm,
     };
 
     impl ShortWeierstrassProjectivePoint<BLS12377Curve> {
-
         fn from_icicle_affine(
             icicle: &curve::G1Affine,
         ) -> Result<ShortWeierstrassProjectivePoint<BLS12377Curve>, ByteConversionError> {
@@ -123,8 +122,9 @@ mod test {
         // convert value of 5 to icicle and back again and that icicle 5 matches
         let point = point_times_5();
         let icicle_point = point.to_icicle();
-        let res = ShortWeierstrassProjectivePoint::<BLS12377Curve>::from_icicle_affine(&icicle_point)
-            .unwrap();
+        let res =
+            ShortWeierstrassProjectivePoint::<BLS12377Curve>::from_icicle_affine(&icicle_point)
+                .unwrap();
         assert_eq!(point, res)
     }
 
@@ -133,8 +133,9 @@ mod test {
         // Convert generator and see that it matches
         let point = BLS12377Curve::generator();
         let icicle_point = point.to_icicle();
-        let res = ShortWeierstrassProjectivePoint::<BLS12377Curve>::from_icicle_affine(&icicle_point)
-            .unwrap();
+        let res =
+            ShortWeierstrassProjectivePoint::<BLS12377Curve>::from_icicle_affine(&icicle_point)
+                .unwrap();
         assert_eq!(point, res)
     }
 
@@ -156,24 +157,4 @@ mod test {
         let res = bls12_377_g1_msm(&lambda_scalars, &lambda_points, None).unwrap();
         assert_eq!(res, expected);
     }
-
-    /*
-    #[test]
-    fn icicle_1_ntt() {
-        const len: usize = 20;
-        let eight: BLS12377FieldElement = FieldElement::from(8);
-        let lambda_scalars = &vec![eight; len];
-        let expected = Polynomial::evaluate_fft::<BLS12377PrimeField>(
-            &Polynomial::new(lambda_scalars), 1, None,
-        ).unwrap();
-        let icicle_scalars = lambda_scalars.as_slice().iter()
-            .map(|scalar| scalar.to_icicle_scalar())
-            .collect::<Vec<_>>();
-        println!("expected {:?}", expected);
-        let res = bls12_381_g1_ntt(&lambda_scalars, None, 4u64, false).unwrap();
-        println!();
-        println!("res {:?}", res);
-        assert_eq!(res, expected);
-    }
-    */
 }
