@@ -64,6 +64,67 @@ impl<E: IsEllipticCurve> PartialEq for ProjectivePoint<E> {
 
 impl<E: IsEllipticCurve> Eq for ProjectivePoint<E> {}
 
+pub struct JacobianPoint<E: IsEllipticCurve> {
+        pub value: [FieldElement<E::BaseField>; 3],
+}
+
+impl<E: IsEllipticCurve> JacobianPoint<E> {
+    /// Creates an elliptic curve point giving the jacobian [x: y: z] coordinates.
+    pub const fn new(value: [FieldElement<E::BaseField>; 3]) -> Self {
+        Self { value }
+    }
+
+    /// Returns the `x` coordinate of the point.
+    pub fn x(&self) -> &FieldElement<E::BaseField> {
+        &self.value[0]
+    }
+
+    /// Returns the `y` coordinate of the point.
+    pub fn y(&self) -> &FieldElement<E::BaseField> {
+        &self.value[1]
+    }
+
+    /// Returns the `z` coordinate of the point.
+    pub fn z(&self) -> &FieldElement<E::BaseField> {
+        &self.value[2]
+    }
+
+    /// Returns a tuple [x, y, z] with the coordinates of the point.
+    pub fn coordinates(&self) -> &[FieldElement<E::BaseField>; 3] {
+        &self.value
+    }
+
+    /// Creates the same point in affine coordinates. That is,
+    /// returns [x / z: y / z: 1] where `self` is [x: y: z].
+    /// Panics if `self` is the point at infinity.
+    pub fn to_affine(&self) -> Self {
+        let [x, y, z] = self.coordinates();
+        // If it's the point at infinite
+        if z == &FieldElement::zero() {
+            // We make sure all the points in the infinite have the same values
+            return Self::new([
+                FieldElement::zero(),
+                FieldElement::one(),
+                FieldElement::zero(),
+            ]);
+        };
+        let inv_z = z.inv().unwrap();
+        JacobianPoint::new([x * &inv_z.pow(2 as usize) * &inv_z, y * inv_z.pow(3 as usize), FieldElement::one()])
+    }
+}
+
+
+impl<E: IsEllipticCurve> PartialEq for JacobianPoint<E> {
+    fn eq(&self, other: &Self) -> bool {
+        let [px, py, pz] = self.coordinates();
+        let [qx, qy, qz] = other.coordinates();
+        (px * qz.pow(2 as usize) == pz.pow(2 as usize) * qx) && 
+        (py * qz.pow(3 as usize) == qy * pz.pow(3 as usize))
+    }
+}
+
+impl<E: IsEllipticCurve> Eq for JacobianPoint<E> {}
+
 #[cfg(test)]
 mod tests {
     use crate::cyclic_group::IsGroup;
