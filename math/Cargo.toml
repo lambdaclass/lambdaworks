@@ -25,12 +25,11 @@ objc = { version = "0.2.7", optional = true }
 cudarc = { version = "0.9.7", optional = true }
 
 # Icicle integration
-icicle-cuda-runtime = { git = "https://github.com/ingonyama-zk/icicle.git", tag = "v1.0.0" }
-icicle-core = { git = "https://github.com/ingonyama-zk/icicle.git", tag = "v1.1.0" }
-icicle-bls12-377 = { git = "https://github.com/ingonyama-zk/icicle.git", tag = "v1.1.0" }
-icicle-bn254 = { git = "https://github.com/ingonyama-zk/icicle.git", tag = "v1.1.0" }
-icicle-bw6-761 = { git = "https://github.com/ingonyama-zk/icicle.git", tag = "v1.1.0" }
-
+icicle-cuda-runtime = { git = "https://github.com/ingonyama-zk/icicle.git", tag = "v1.4.0", optional = true }
+icicle-core = { git = "https://github.com/ingonyama-zk/icicle.git", tag = "v1.4.0", optional = true }
+icicle-bls12-377 = { git = "https://github.com/ingonyama-zk/icicle.git", tag = "v1.4.0", optional = true }
+icicle-bls12-381 = { git = "https://github.com/ingonyama-zk/icicle.git", tag = "v1.4.0", optional = true }
+icicle-bn254 = { git = "https://github.com/ingonyama-zk/icicle.git", tag = "v1.4.0", optional = true }
 
 lambdaworks-gpu = { workspace = true, optional = true }
 
@@ -52,6 +51,7 @@ lambdaworks-serde-binary = ["dep:serde", "alloc"]
 lambdaworks-serde-string = ["dep:serde", "dep:serde_json", "alloc"]
 proptest = ["dep:proptest"]
 winter_compatibility = ["winter-math", "miden-core"]
+icicle = ["dep:icicle-cuda-runtime", "icicle-core", "icicle-bls12-377", "icicle-bls12-381", "icicle-bn254"]
 
 # gpu
 metal = [
@@ -61,15 +61,6 @@ metal = [
     "lambdaworks-gpu?/metal",
 ]
 cuda = ["dep:cudarc", "dep:lambdaworks-gpu"]
-
-
-#icicle = ["dep:icicle-cuda-runtime",
-#"dep:icicle-cuda-runtime",
-#"dep:icicle-core",
-#"dep:icicle-bn254",
-#"dep:icicle-bls12-381",
-#"icicle-bw6-761"
-#]
 
 [[bench]]
 name = "criterion_elliptic_curve"
