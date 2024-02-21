@@ -83,46 +83,6 @@ pub fn bn254_g1_msm(
     Ok(res)
 }
 
-/*
-fn bn254_g1_ntt(
-    scalars: &[BN254FieldElement],
-    config: Option<ntt::NTTConfig<curve::ScalarField>>,
-    order: u64,
-    inverse_fft: bool,
-) -> Result<Vec<BN254FieldElement>, IcicleError> {
-    let size = scalars.len();
-    let mut cfg = config.unwrap_or(ntt::NTTConfig::default());
-    let dir = if inverse_fft {
-        ntt::NTTDir::kInverse
-    } else {
-        ntt::NTTDir::kForward
-    };
-    let scalars = HostOrDeviceSlice::Host(
-        scalars
-            .iter()
-            .map(|scalar| scalar.to_icicle_scalar())
-            .collect::<Vec<_>>(),
-    );
-    let mut ntt_results = HostOrDeviceSlice::cuda_malloc(size).unwrap();
-    let stream = CudaStream::create().unwrap();
-    cfg.ctx.stream = &stream;
-    cfg.is_async = true;
-    let root_of_unity = BN254PrimeField::get_primitive_root_of_unity(order).unwrap().to_icicle_scalar();
-    curve::ScalarCfg::initialize_domain(root_of_unity, &cfg.ctx).unwrap();
-    ntt::ntt(&scalars, dir, &cfg, &mut ntt_results).unwrap();
-    stream.synchronize().unwrap();
-    let mut ntt_host_results = vec![curve::ScalarField::zero(); size];
-    ntt_results.copy_to_host(&mut ntt_host_results[..]).unwrap();
-    stream.destroy().unwrap();
-    let res = ntt_host_results
-        .as_slice()
-        .iter()
-        .map(|scalar| BN254FieldElement::from_icicle_scalar(&scalar).unwrap())
-        .collect::<Vec<_>>();
-    Ok(res)
-}
-*/
-
 #[cfg(test)]
 mod test {
     use super::*;
