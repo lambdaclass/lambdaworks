@@ -27,10 +27,6 @@ impl BLS12377FieldElement {
     fn from_icicle(icicle: &curve::BaseField) -> Result<Self, ByteConversionError> {
         Self::from_bytes_le(&icicle.to_bytes_le())
     }
-
-    fn from_icicle_scalar(icicle: &curve::ScalarField) -> Result<Self, ByteConversionError> {
-        Self::from_bytes_le(&icicle.to_bytes_le())
-    }
 }
 
 impl ShortWeierstrassProjectivePoint<BLS12377Curve> {
