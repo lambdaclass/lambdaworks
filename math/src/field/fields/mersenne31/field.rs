@@ -36,12 +36,7 @@ impl Mersenne31Field {
     }
 
     #[inline]
-    fn from_u32(x: u32) -> u32 {
-        Self::weak_reduce(x)
-    }
-
-    #[inline]
-    fn sum<I: Iterator<Item = <Self as IsField>::BaseType>>(
+    pub fn sum<I: Iterator<Item = <Self as IsField>::BaseType>>(
         iter: I,
     ) -> <Self as IsField>::BaseType {
         // Delayed reduction
@@ -221,7 +216,7 @@ mod tests {
         let up_to = u32::pow(2, 23);
         let pow = u64::pow(2, 60);
 
-        let iter = (0..up_to).map(F::from_u32).map(|e| F::pow(&e, pow));
+        let iter = (0..up_to).map(F::weak_reduce).map(|e| F::pow(&e, pow));
 
         assert_eq!(F::from_u64(1314320703), F::sum(iter));
     }
