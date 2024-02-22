@@ -64,8 +64,9 @@ impl<E: IsEllipticCurve> PartialEq for ProjectivePoint<E> {
 
 impl<E: IsEllipticCurve> Eq for ProjectivePoint<E> {}
 
+#[derive(Debug, Clone)]
 pub struct JacobianPoint<E: IsEllipticCurve> {
-        pub value: [FieldElement<E::BaseField>; 3],
+    pub value: [FieldElement<E::BaseField>; 3],
 }
 
 impl<E: IsEllipticCurve> JacobianPoint<E> {
@@ -109,17 +110,20 @@ impl<E: IsEllipticCurve> JacobianPoint<E> {
             ]);
         };
         let inv_z = z.inv().unwrap();
-        JacobianPoint::new([x * &inv_z.pow(2 as usize) * &inv_z, y * inv_z.pow(3 as usize), FieldElement::one()])
+        JacobianPoint::new([
+            x * &inv_z.pow(2 as usize) * &inv_z,
+            y * inv_z.pow(3 as usize),
+            FieldElement::one(),
+        ])
     }
 }
-
 
 impl<E: IsEllipticCurve> PartialEq for JacobianPoint<E> {
     fn eq(&self, other: &Self) -> bool {
         let [px, py, pz] = self.coordinates();
         let [qx, qy, qz] = other.coordinates();
-        (px * qz.pow(2 as usize) == pz.pow(2 as usize) * qx) && 
-        (py * qz.pow(3 as usize) == qy * pz.pow(3 as usize))
+        (px * qz.pow(2 as usize) == pz.pow(2 as usize) * qx)
+            && (py * qz.pow(3 as usize) == qy * pz.pow(3 as usize))
     }
 }
 
