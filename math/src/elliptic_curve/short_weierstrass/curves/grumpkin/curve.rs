@@ -1,6 +1,8 @@
 use crate::elliptic_curve::short_weierstrass::point::ShortWeierstrassProjectivePoint;
 use crate::elliptic_curve::traits::IsEllipticCurve;
-use crate::field::fields::montgomery_backed_prime_fields::{IsModulus, MontgomeryBackendPrimeField};
+use crate::field::fields::montgomery_backed_prime_fields::{
+    IsModulus, MontgomeryBackendPrimeField,
+};
 use crate::unsigned_integer::element::U256;
 use crate::{
     elliptic_curve::short_weierstrass::traits::IsShortWeierstrass, field::element::FieldElement,
@@ -24,7 +26,9 @@ impl IsEllipticCurve for GrumpkinCurve {
     fn generator() -> Self::PointRepresentation {
         Self::PointRepresentation::new([
             FieldElement::<Self::BaseField>::one(),
-            FieldElement::<Self::BaseField>::from_hex_unchecked("0x2cf135e7506a45d632d270d45f1181294833fc48d823f272c"),
+            FieldElement::<Self::BaseField>::from_hex_unchecked(
+                "0x2cf135e7506a45d632d270d45f1181294833fc48d823f272c",
+            ),
             FieldElement::one(),
         ])
     }
@@ -75,7 +79,7 @@ impl IsModulus<U256> for FrConfig {
     );
 }
 
-/// Grumpkin Fr 
+/// Grumpkin Fr
 /// Equal to BN254 Fp
 pub type FrField = MontgomeryBackendPrimeField<FrConfig, 4>;
 /// FrElement using MontgomeryBackend for Bn254
@@ -101,13 +105,13 @@ mod tests {
     a = Fp(0)
     b = Fp(-17)
     Grumpkin = EllipticCurve(Fp, [a, b])
-    P = Grumpkin.random_point() 
+    P = Grumpkin.random_point()
     P
-    (15485117031023686537706709698619053905755909389649581280762364787786480506330 : 
-    8998283053861550708725041915039948040873858194502192019982314435709819336827 : 
+    (15485117031023686537706709698619053905755909389649581280762364787786480506330 :
+    8998283053861550708725041915039948040873858194502192019982314435709819336827 :
     1)
     hex(15485117031023686537706709698619053905755909389649581280762364787786480506330) = 0x223c44015b1ab0705802e079ad06dc25f608633c83192ed0720bd396ab3a55da
-    hex(8998283053861550708725041915039948040873858194502192019982314435709819336827) = 0x13e4d9047d76f812c834a27f2bbaab6ca5fd62ed34ac2e1ff1870ab083f2b87b 
+    hex(8998283053861550708725041915039948040873858194502192019982314435709819336827) = 0x13e4d9047d76f812c834a27f2bbaab6ca5fd62ed34ac2e1ff1870ab083f2b87b
     */
     fn point() -> ShortWeierstrassProjectivePoint<GrumpkinCurve> {
         let x = FE::from_hex_unchecked(
@@ -126,7 +130,7 @@ mod tests {
     a = Fp(0)
     b = Fp(-17)
     Grumpkin = EllipticCurve(Fp, [a, b])
-    P = Grumpkin.random_point() 
+    P = Grumpkin.random_point()
     P * 5
     (15046418650485865292177180299665505401798701105523584252220614421753423008361 : 17852720053004908540584849282553401192842244835354847668310708345588581105130 : 1)
     hex(15046418650485865292177180299665505401798701105523584252220614421753423008361) = 0x2143f89e0ac0942ed1a891a83b5e5b3d4ed46722c24f72dfbdd5fedad27d1269
