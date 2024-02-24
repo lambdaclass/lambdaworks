@@ -387,7 +387,7 @@ mod tests_u384_prime_fields {
     use crate::field::element::FieldElement;
     use crate::field::errors::FieldError;
     use crate::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;
-    use crate::field::fields::montgomery_backed_prime_fields::{
+    use crate::field::fields::montgomery_backend_prime_fields::{
         IsModulus, U256PrimeField, U384PrimeField,
     };
     use crate::field::traits::IsField;
@@ -776,7 +776,7 @@ mod tests_u384_prime_fields {
 mod tests_u256_prime_fields {
     use crate::field::element::FieldElement;
     use crate::field::errors::FieldError;
-    use crate::field::fields::montgomery_backed_prime_fields::{IsModulus, U256PrimeField};
+    use crate::field::fields::montgomery_backend_prime_fields::{IsModulus, U256PrimeField};
     use crate::field::traits::IsField;
     use crate::field::traits::IsPrimeField;
     #[cfg(feature = "alloc")]

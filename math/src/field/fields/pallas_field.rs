@@ -1,5 +1,5 @@
 use crate::{
-    field::fields::montgomery_backed_prime_fields::{IsModulus, MontgomeryBackendPrimeField},
+    field::fields::montgomery_backend_prime_fields::{IsModulus, MontgomeryBackendPrimeField},
     unsigned_integer::element::U256,
 };
 

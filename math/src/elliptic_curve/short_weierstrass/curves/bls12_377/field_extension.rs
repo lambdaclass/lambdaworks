@@ -1,6 +1,6 @@
 use crate::field::{
     element::FieldElement,
-    fields::montgomery_backed_prime_fields::{IsModulus, MontgomeryBackendPrimeField},
+    fields::montgomery_backend_prime_fields::{IsModulus, MontgomeryBackendPrimeField},
 };
 use crate::unsigned_integer::element::U384;
 

@@ -8,7 +8,7 @@ use lambdaworks_math::{
             fft_friendly::u64_goldilocks::{
                 MontgomeryConfigU64GoldilocksPrimeField, U64GoldilocksPrimeField,
             },
-            montgomery_backed_prime_fields::IsModulus,
+            montgomery_backend_prime_fields::IsModulus,
         },
     },
     unsigned_integer::{

@@ -8,7 +8,7 @@ use lambdaworks_math::{
             fft_friendly::stark_252_prime_field::{
                 MontgomeryConfigStark252PrimeField, Stark252PrimeField,
             },
-            montgomery_backed_prime_fields::IsModulus,
+            montgomery_backend_prime_fields::IsModulus,
         },
     },
     unsigned_integer::{

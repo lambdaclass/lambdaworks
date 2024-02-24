@@ -31,7 +31,7 @@ use serde::ser::{Serialize, SerializeStruct, Serializer};
 ))]
 use serde::Deserialize;
 
-use super::fields::montgomery_backed_prime_fields::{IsModulus, MontgomeryBackendPrimeField};
+use super::fields::montgomery_backend_prime_fields::{IsModulus, MontgomeryBackendPrimeField};
 use super::traits::{IsPrimeField, IsSubFieldOf, LegendreSymbol};
 
 /// A field element with operations algorithms defined in `F`

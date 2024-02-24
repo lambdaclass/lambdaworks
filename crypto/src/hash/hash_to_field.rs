@@ -2,7 +2,7 @@ use alloc::{string::String, vec::Vec};
 use lambdaworks_math::{
     field::{
         element::FieldElement,
-        fields::montgomery_backed_prime_fields::{IsModulus, MontgomeryBackendPrimeField},
+        fields::montgomery_backend_prime_fields::{IsModulus, MontgomeryBackendPrimeField},
     },
     unsigned_integer::element::UnsignedInteger,
 };
@@ -72,7 +72,7 @@ mod tests {
     use lambdaworks_math::{
         field::{
             element::FieldElement,
-            fields::montgomery_backed_prime_fields::{IsModulus, MontgomeryBackendPrimeField},
+            fields::montgomery_backend_prime_fields::{IsModulus, MontgomeryBackendPrimeField},
         },
         unsigned_integer::element::UnsignedInteger,
     };

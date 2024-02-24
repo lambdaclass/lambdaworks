@@ -2,7 +2,7 @@
 pub mod fft_friendly;
 /// Implementation of the 32-bit Mersenne Prime field (p = 2^31 - 1)
 pub mod mersenne31;
-pub mod montgomery_backed_prime_fields;
+pub mod montgomery_backend_prime_fields;
 /// Implementation of the Goldilocks Prime field (p = 2^448 - 2^224 - 1)
 pub mod p448_goldilocks_prime_field;
 /// Implemenation of Pallas field

@@ -1,7 +1,7 @@
 use crate::{
     field::{
         element::FieldElement,
-        fields::montgomery_backed_prime_fields::{IsModulus, MontgomeryBackendPrimeField},
+        fields::montgomery_backend_prime_fields::{IsModulus, MontgomeryBackendPrimeField},
         traits::IsFFTField,
     },
     unsigned_integer::element::{UnsignedInteger, U64},
@@ -17,13 +17,13 @@ impl IsModulus<U64> for MontgomeryConfigBabybear31PrimeField {
 }
 
 pub type Babybear31PrimeField =
-    U64MontgomeryBackendPrimeField<MontgomeryConfigBabybear31PrimeField>;
+U64MontgomeryBackendPrimeField<MontgomeryConfigBabybear31PrimeField>;
 
 //a two-adic primitive root of unity is 21^(2^24)
-// 21^(2^24)=1 mod 2013265921
-// 2^27(2^4-1)+1 where n=27 (two-adicity) and k=2^4+1
+// 21^(2^24) = 1 mod 2013265921
+// 2^27 * (2^4-1) + 1 where n=27 (two-adicity) and k=2^4+1
 
-//In the future we should allow this with metal and cuda feature, and just dispatch it to the CPU until the implementation is done
+// In the future we should allow this with metal and cuda feature, and just dispatch it to the CPU until the implementation is done
 #[cfg(any(not(feature = "metal"), not(feature = "cuda")))]
 impl IsFFTField for Babybear31PrimeField {
     const TWO_ADICITY: u64 = 24;

@@ -4,3 +4,5 @@
 pub mod element;
 pub mod montgomery;
 pub mod traits;
+
+pub mod babybear;
