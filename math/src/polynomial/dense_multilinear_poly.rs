@@ -141,6 +141,31 @@ where
         new_poly.evals.iter_mut().for_each(|eval| *eval *= scalar);
         new_poly
     }
+
+}
+
+pub fn compute_chis<F: IsField>(r: &[FieldElement<F>]) -> Vec<FieldElement<F>> {
+    let mut chis: Vec<FieldElement<F>> = vec![FieldElement::one(); (2usize).pow(r.len() as u32)];
+    let mut size = 1;
+    for j in r {
+        size *= 2;
+        for i in (0..size).rev().step_by(2) {
+            let scalar = &chis[i / 2].clone();
+            chis[i] = scalar * j;
+            chis[i - 1] = scalar - &chis[i];
+        }
+    }
+    chis
+}
+
+pub fn compute_factored_chis<F: IsField>(evals: &[FieldElement<F>]) -> (Vec<FieldElement<F>>, Vec<FieldElement<F>>) {
+    let size = evals.len();
+    let (left_num_vars, _right_num_vars) = (size / 2, size - size / 2);
+
+    let l = compute_chis(&evals[..left_num_vars].to_vec()).to_vec();
+    let r = compute_chis(&evals[left_num_vars..size].to_vec()).to_vec();
+
+    (l, r)
 }
 
 impl<F: IsField> Index<usize> for DenseMultilinearPolynomial<F>
@@ -225,32 +250,8 @@ mod tests {
     type F = U64PrimeField<ORDER>;
     type FE = FieldElement<F>;
 
-    pub fn evals(r: Vec<FE>) -> Vec<FE> {
-        let mut evals: Vec<FE> = vec![FE::one(); (2usize).pow(r.len() as u32)];
-        let mut size = 1;
-        for j in r {
-            size *= 2;
-            for i in (0..size).rev().step_by(2) {
-                let scalar = evals[i / 2];
-                evals[i] = scalar * j;
-                evals[i - 1] = scalar - evals[i];
-            }
-        }
-        evals
-    }
-
-    pub fn compute_factored_evals(r: Vec<FE>) -> (Vec<FE>, Vec<FE>) {
-        let size = r.len();
-        let (left_num_vars, _right_num_vars) = (size / 2, size - size / 2);
-
-        let l = evals(r[..left_num_vars].to_vec());
-        let r = evals(r[left_num_vars..size].to_vec());
-
-        (l, r)
-    }
-
     fn evaluate_with_lr(z: &[FE], r: &[FE]) -> FE {
-        let (l, r) = compute_factored_evals(r.to_vec());
+        let (l, r) = compute_factored_chis(r);
 
         let size = r.len();
         // ensure size is even

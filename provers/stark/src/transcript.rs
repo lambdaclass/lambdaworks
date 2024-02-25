@@ -1,4 +1,4 @@
-use lambdaworks_crypto::fiat_shamir::is_transcript::IsTranscript;
+use lambdaworks_crypto::fiat_shamir::is_transcript::{IsStarkTranscript, IsTranscript};
 use lambdaworks_math::{
     field::{
         element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
@@ -130,6 +130,8 @@ impl IsTranscript<Stark252PrimeField> for StoneProverTranscript {
         u64_val % upper_bound
     }
 }
+
+impl IsStarkTranscript<Stark252PrimeField> for StoneProverTranscript {}
 
 /// Returns a batch of size `size` of field elements sampled from the transcript `transcript`.
 pub fn batch_sample_challenges<F: IsFFTField>(

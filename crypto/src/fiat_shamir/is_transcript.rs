@@ -18,6 +18,9 @@ pub trait IsTranscript<F: IsField> {
     fn sample_field_element(&mut self) -> FieldElement<F>;
     /// Returns a random index between 0 and `upper_bound`.
     fn sample_u64(&mut self, upper_bound: u64) -> u64;
+}
+
+pub trait IsStarkTranscript<F: IsField>: IsTranscript<F> {
     /// Returns a field element not contained in `lde_roots_of_unity_coset` or `trace_roots_of_unity`.
     fn sample_z_ood<S: IsSubFieldOf<F>>(
         &mut self,
@@ -40,4 +43,5 @@ pub trait IsTranscript<F: IsField> {
             }
         }
     }
+
 }
