@@ -1,5 +1,5 @@
 use lambdaworks_math::{
-    elliptic_curve::traits::IsEllipticCurve, field::{element::FieldElement, traits::{IsField, IsPrimeField}}, msm::pippenger::msm, polynomial::dense_multilinear_poly::{compute_factored_chis, DenseMultilinearPolynomial}, unsigned_integer::{element::UnsignedInteger, traits::IsUnsignedInteger}
+    elliptic_curve::traits::IsEllipticCurve, field::{element::FieldElement, traits::{IsField, IsPrimeField}}, msm::pippenger::msm, polynomial::dense_multilinear_poly::{compute_factored_chis, DenseMultilinearPolynomial}, unsigned_integer::element::UnsignedInteger
 };
 
 use crate::commitments::pedersen::PedersenCommitment;
@@ -179,7 +179,10 @@ pub fn matrix_dimensions(num_vars: usize) -> (usize, usize) {
 
 pub fn compute_dotproduct<F: IsField>(a: &[FieldElement<F>], b: &[FieldElement<F>]) -> FieldElement<F> {
     assert_eq!(a.len(), b.len());
-    (0..a.len()).map(|i| &a[i] * &b[i]).sum()
+    a.par_iter()
+        .zip(b.par_iter())
+        .map(|(a_i, b_i)| *a_i * b_i)
+        .sum()
 }
 
 #[cfg(test)]
