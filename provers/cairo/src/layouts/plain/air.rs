@@ -6,6 +6,7 @@ use crate::{
 };
 use cairo_vm::{air_public_input::MemorySegmentAddresses, without_std::collections::HashMap};
 use itertools::Itertools;
+use lambdaworks_crypto::fiat_shamir::is_transcript::IsTranscript;
 use lambdaworks_math::{
     errors::DeserializationError,
     field::{
@@ -22,7 +23,7 @@ use stark_platinum_prover::{
     prover::{IsStarkProver, Prover, ProvingError},
     trace::TraceTable,
     traits::AIR,
-    transcript::{IsStarkTranscript, StoneProverTranscript},
+    transcript::StoneProverTranscript,
     verifier::{IsStarkVerifier, Verifier},
     Felt252,
 };
@@ -501,7 +502,7 @@ impl AIR for CairoAIR {
 
     fn build_rap_challenges(
         &self,
-        transcript: &mut impl IsStarkTranscript<Self::Field>,
+        transcript: &mut impl IsTranscript<Self::Field>,
     ) -> Vec<Felt252> {
         let alpha_memory = transcript.sample_field_element();
         let z_memory = transcript.sample_field_element();

@@ -1,17 +1,32 @@
-use super::transcript::Transcript;
-use alloc::borrow::ToOwned;
+use super::is_transcript::IsTranscript;
+use crate::alloc::borrow::ToOwned;
+use core::marker::PhantomData;
+use lambdaworks_math::{
+    field::{element::FieldElement, traits::IsField},
+    traits::ByteConversion,
+};
 use sha3::{Digest, Keccak256};
 
-pub struct DefaultTranscript {
+pub struct DefaultTranscript<F: IsField> {
     hasher: Keccak256,
+    phantom: PhantomData<F>,
 }
 
-impl Transcript for DefaultTranscript {
-    fn append(&mut self, new_data: &[u8]) {
-        self.hasher.update(&mut new_data.to_owned());
+impl<F> DefaultTranscript<F>
+where
+    F: IsField,
+    FieldElement<F>: ByteConversion,
+{
+    pub fn new(data: &[u8]) -> Self {
+        let mut res = Self {
+            hasher: Keccak256::new(),
+            phantom: PhantomData,
+        };
+        res.append_bytes(data);
+        res
     }
 
-    fn challenge(&mut self) -> [u8; 32] {
+    pub fn sample(&mut self) -> [u8; 32] {
         let mut result_hash = [0_u8; 32];
         result_hash.copy_from_slice(&self.hasher.finalize_reset());
         result_hash.reverse();
@@ -20,37 +35,61 @@ impl Transcript for DefaultTranscript {
     }
 }
 
-impl Default for DefaultTranscript {
+impl<F> Default for DefaultTranscript<F>
+where
+    F: IsField,
+    FieldElement<F>: ByteConversion,
+{
     fn default() -> Self {
-        Self::new()
+        Self::new(&[])
     }
 }
 
-impl DefaultTranscript {
-    pub fn new() -> Self {
-        Self {
-            hasher: Keccak256::new(),
-        }
+impl<F> IsTranscript<F> for DefaultTranscript<F>
+where
+    F: IsField,
+    FieldElement<F>: ByteConversion,
+{
+    fn append_bytes(&mut self, new_bytes: &[u8]) {
+        self.hasher.update(&mut new_bytes.to_owned());
+    }
+
+    fn append_field_element(&mut self, element: &FieldElement<F>) {
+        self.append_bytes(&element.to_bytes_be());
+    }
+
+    fn state(&self) -> [u8; 32] {
+        self.hasher.clone().finalize().into()
+    }
+
+    fn sample_field_element(&mut self) -> FieldElement<F> {
+        FieldElement::from_bytes_be(&self.sample()).unwrap()
+    }
+
+    fn sample_u64(&mut self, upper_bound: u64) -> u64 {
+        u64::from_be_bytes(self.state()[..8].try_into().unwrap()) % upper_bound
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use alloc::vec::Vec;
-
     use super::*;
+
+    extern crate alloc;
+    use alloc::vec::Vec;
+    use lambdaworks_math::elliptic_curve::short_weierstrass::curves::bls12_381::default_types::FrField;
 
     #[test]
     fn basic_challenge() {
-        let mut transcript = DefaultTranscript::new();
+        let mut transcript = DefaultTranscript::<FrField>::default();
 
         let point_a: Vec<u8> = vec![0xFF, 0xAB];
         let point_b: Vec<u8> = vec![0xDD, 0x8C, 0x9D];
 
-        transcript.append(&point_a); // point_a
-        transcript.append(&point_b); // point_a + point_b
+        transcript.append_bytes(&point_a); // point_a
+        transcript.append_bytes(&point_b); // point_a + point_b
 
-        let challenge1 = transcript.challenge(); // Hash(point_a  + point_b)
+        let challenge1 = transcript.sample(); // Hash(point_a  + point_b)
 
         assert_eq!(
             challenge1,
@@ -64,10 +103,10 @@ mod tests {
         let point_c: Vec<u8> = vec![0xFF, 0xAB];
         let point_d: Vec<u8> = vec![0xDD, 0x8C, 0x9D];
 
-        transcript.append(&point_c); // Hash(point_a  + point_b) + point_c
-        transcript.append(&point_d); // Hash(point_a  + point_b) + point_c + point_d
+        transcript.append_bytes(&point_c); // Hash(point_a  + point_b) + point_c
+        transcript.append_bytes(&point_d); // Hash(point_a  + point_b) + point_c + point_d
 
-        let challenge2 = transcript.challenge(); // Hash(Hash(point_a  + point_b) + point_c + point_d)
+        let challenge2 = transcript.sample(); // Hash(Hash(point_a  + point_b) + point_c + point_d)
         assert_eq!(
             challenge2,
             [

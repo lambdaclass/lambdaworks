@@ -1,9 +1,9 @@
+use cairo_platinum_prover::cairo_layout::CairoLayout;
+use cairo_platinum_prover::{air::generate_cairo_proof, runner::run::generate_prover_args};
 use criterion::{
     black_box, criterion_group, criterion_main, measurement::WallTime, BenchmarkGroup, Criterion,
     SamplingMode,
 };
-use platinum_prover::runner::run::generate_prover_args;
-use platinum_prover::{cairo_layout::CairoLayout, layouts::plain::air::generate_cairo_proof};
 use stark_platinum_prover::proof::options::{ProofOptions, SecurityLevel};
 
 pub mod functions;

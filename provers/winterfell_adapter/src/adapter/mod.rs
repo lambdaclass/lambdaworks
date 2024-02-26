@@ -21,7 +21,7 @@ impl FeltTranscript {
     }
 }
 
-impl IsTranscript<Felt> for FeltTranscript {
+impl IsStarkTranscript<Felt> for FeltTranscript {
     fn append_field_element(&mut self, element: &FieldElement<Felt>) {
         self.append_bytes(&element.value().to_bytes_be());
     }
@@ -62,7 +62,7 @@ impl QuadFeltTranscript {
     }
 }
 
-impl IsTranscript<QuadFelt> for QuadFeltTranscript {
+impl IsStarkTranscript<QuadFelt> for QuadFeltTranscript {
     fn append_field_element(&mut self, element: &FieldElement<QuadFelt>) {
         self.append_bytes(&element.value().to_bytes_be());
     }

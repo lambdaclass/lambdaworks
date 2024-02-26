@@ -1,10 +1,17 @@
+use cairo_platinum_prover::air::{generate_cairo_proof, verify_cairo_proof, PublicInputs};
+use cairo_platinum_prover::cairo_layout::CairoLayout;
+use cairo_platinum_prover::runner::run::generate_prover_args;
+use cairo_platinum_prover::runner::run::generate_prover_args_from_trace;
 use lambdaworks_math::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;
+<<<<<<< HEAD
 use platinum_prover::cairo_layout::CairoLayout;
 use platinum_prover::layouts::plain::air::{
     generate_cairo_proof, verify_cairo_proof, PublicInputs,
 };
 use platinum_prover::runner::run::generate_prover_args;
 use platinum_prover::runner::run::generate_prover_args_from_trace;
+=======
+>>>>>>> main
 use stark_platinum_prover::proof::options::{ProofOptions, SecurityLevel};
 use stark_platinum_prover::proof::stark::StarkProof;
 mod commands;
