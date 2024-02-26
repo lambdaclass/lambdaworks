@@ -1,0 +1,13 @@
+[package]
+name = "mini_air_vm"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "mini-air-cli"
+path = "src/main.rs"
+
+[dependencies]
+lambdaworks-math = { workspace = true }
