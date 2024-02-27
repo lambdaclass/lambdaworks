@@ -76,7 +76,7 @@ where
     }
 
     fn constraint_idx(&self) -> usize {
-        todo!()
+        1
     }
 
     fn end_exemptions(&self) -> usize {
