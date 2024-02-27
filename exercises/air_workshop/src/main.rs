@@ -109,13 +109,13 @@ where
 #[derive(Clone, Debug)]
 pub struct VM0PubInputs<F> 
 where F: IsFFTField {
-    dummy:  FieldElement<F>
+    _dummy:  FieldElement<F>
 }
 
 impl<F> VM0PubInputs<F> where F: IsFFTField {
     pub fn default() -> Self {
         Self {
-            dummy: FieldElement::<F>::zero()
+            _dummy: FieldElement::<F>::zero()
         }
     }
 
@@ -283,7 +283,7 @@ fn main() {
 
     let proof = match proof_result {
         Ok(x)  => x,
-        Err(e) => {
+        Err(_) => {
             println!("Error while generating the proof");
             return  
         },
