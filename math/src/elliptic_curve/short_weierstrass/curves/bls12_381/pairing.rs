@@ -13,7 +13,7 @@ use crate::{
         traits::IsShortWeierstrass,
     },
     field::{element::FieldElement, extensions::cubic::HasCubicNonResidue},
-    unsigned_integer::element::{UnsignedInteger, U256},
+    unsigned_integer::u64::element::{UnsignedInteger, U256},
 };
 
 pub const SUBGROUP_ORDER: U256 =
@@ -219,7 +219,7 @@ fn final_exponentiation(
 mod tests {
     use crate::{
         cyclic_group::IsGroup, elliptic_curve::traits::IsEllipticCurve,
-        unsigned_integer::element::U384,
+        unsigned_integer::u64::element::U384,
     };
 
     use super::*;

@@ -102,7 +102,7 @@ mod tests {
     use super::compress_g1_point;
     use super::decompress_g1_point;
     use crate::{
-        cyclic_group::IsGroup, traits::ByteConversion, unsigned_integer::element::UnsignedInteger,
+        cyclic_group::IsGroup, traits::ByteConversion, unsigned_integer::u64::element::UnsignedInteger,
     };
 
     #[test]

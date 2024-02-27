@@ -2,7 +2,7 @@
 mod integration_tests;
 
 use lambdaworks_groth16::{common::FrElement, QuadraticArithmeticProgram as QAP};
-use lambdaworks_math::unsigned_integer::element::UnsignedInteger;
+use lambdaworks_math::unsigned_integer::u64::element::UnsignedInteger;
 use serde_json::Value;
 
 pub fn circom_to_lambda(

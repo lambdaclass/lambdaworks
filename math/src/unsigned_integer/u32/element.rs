@@ -21,19 +21,20 @@ use crate::unsigned_integer::traits::IsUnsignedInteger;
 
 use core::fmt::{self, Debug, Display};
 
-pub type U384 = UnsignedInteger<6>;
-pub type U256 = UnsignedInteger<4>;
-pub type U128 = UnsignedInteger<2>;
-pub type U64 = UnsignedInteger<1>;
+pub type U384 = UnsignedInteger<12>;
+pub type U256 = UnsignedInteger<8>;
+pub type U128 = UnsignedInteger<4>;
+pub type U64 = UnsignedInteger<2>;
+pub type U32 = UnsignedInteger<1>;
 
-/// A big unsigned integer in base 2^{64} represented
-/// as fixed-size array `limbs` of `u64` components.
+/// A big unsigned integer in base 2^{32} represented
+/// as fixed-size array `limbs` of `u32` components.
 /// The most significant bit is in the left-most position.
 /// That is, the array `[a_n, ..., a_0]` represents the
-/// integer 2^{64 * n} * a_n + ... + 2^{64} * a_1 + a_0.
+/// integer 2^{32 * n} * a_n + ... + 2^{32} * a_1 + a_0.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct UnsignedInteger<const NUM_LIMBS: usize> {
-    pub limbs: [u64; NUM_LIMBS],
+    pub limbs: [u32; NUM_LIMBS],
 }
 
 // NOTE: manually implementing `PartialOrd` may seem unorthodox, but the
@@ -69,23 +70,34 @@ impl<const NUM_LIMBS: usize> Ord for UnsignedInteger<NUM_LIMBS> {
 
 impl<const NUM_LIMBS: usize> From<u128> for UnsignedInteger<NUM_LIMBS> {
     fn from(value: u128) -> Self {
-        let mut limbs = [0u64; NUM_LIMBS];
-        limbs[NUM_LIMBS - 1] = value as u64;
-        limbs[NUM_LIMBS - 2] = (value >> 64) as u64;
+        let mut limbs = [0u32; NUM_LIMBS];
+        limbs[NUM_LIMBS - 1] = value as u32;
+        limbs[NUM_LIMBS - 2] = (value >> 32) as u32;
+        limbs[NUM_LIMBS - 3] = (value >> 64) as u32;
+        limbs[NUM_LIMBS - 4] = (value >> 96) as u32;
         UnsignedInteger { limbs }
     }
 }
 
 impl<const NUM_LIMBS: usize> From<u64> for UnsignedInteger<NUM_LIMBS> {
     fn from(value: u64) -> Self {
-        Self::from_u64(value)
+        let mut limbs = [0u32; NUM_LIMBS];
+        limbs[NUM_LIMBS - 1] = value as u32;
+        limbs[NUM_LIMBS - 2] = (value >> 32) as u32;
+        UnsignedInteger { limbs }
+    }
+}
+
+impl<const NUM_LIMBS: usize> From<u32> for UnsignedInteger<NUM_LIMBS> {
+    fn from(value: u32) -> Self {
+        Self::from_u32(value)
     }
 }
 
 impl<const NUM_LIMBS: usize> From<u16> for UnsignedInteger<NUM_LIMBS> {
     fn from(value: u16) -> Self {
-        let mut limbs = [0u64; NUM_LIMBS];
-        limbs[NUM_LIMBS - 1] = value as u64;
+        let mut limbs = [0u32; NUM_LIMBS];
+        limbs[NUM_LIMBS - 1] = value as u32;
         UnsignedInteger { limbs }
     }
 }
@@ -198,10 +210,10 @@ impl<const NUM_LIMBS: usize> Mul<&UnsignedInteger<NUM_LIMBS>> for &UnsignedInteg
     fn mul(self, other: &UnsignedInteger<NUM_LIMBS>) -> UnsignedInteger<NUM_LIMBS> {
         let (mut n, mut t) = (0, 0);
         for i in (0..NUM_LIMBS).rev() {
-            if self.limbs[i] != 0u64 {
+            if self.limbs[i] != 0u32 {
                 n = NUM_LIMBS - 1 - i;
             }
-            if other.limbs[i] != 0u64 {
+            if other.limbs[i] != 0u32 {
                 t = NUM_LIMBS - 1 - i;
             }
         }
@@ -211,22 +223,22 @@ impl<const NUM_LIMBS: usize> Mul<&UnsignedInteger<NUM_LIMBS>> for &UnsignedInteg
         );
 
         // 1.
-        let mut limbs = [0u64; NUM_LIMBS];
+        let mut limbs = [0u32; NUM_LIMBS];
         // 2.
-        let mut carry = 0u128;
+        let mut carry = 0u64;
         for i in 0..=t {
             // 2.2
             for j in 0..=n {
-                let uv = (limbs[NUM_LIMBS - 1 - (i + j)] as u128)
-                    + (self.limbs[NUM_LIMBS - 1 - j] as u128)
-                        * (other.limbs[NUM_LIMBS - 1 - i] as u128)
+                let uv = (limbs[NUM_LIMBS - 1 - (i + j)] as u64)
+                    + (self.limbs[NUM_LIMBS - 1 - j] as u64)
+                        * (other.limbs[NUM_LIMBS - 1 - i] as u64)
                     + carry;
-                carry = uv >> 64;
-                limbs[NUM_LIMBS - 1 - (i + j)] = uv as u64;
+                carry = uv >> 32;
+                limbs[NUM_LIMBS - 1 - (i + j)] = uv as u32;
             }
             if i + n + 1 < NUM_LIMBS {
                 // 2.3
-                limbs[NUM_LIMBS - 1 - (i + n + 1)] = carry as u64;
+                limbs[NUM_LIMBS - 1 - (i + n + 1)] = carry as u32;
                 carry = 0;
             }
         }
@@ -297,17 +309,17 @@ impl<const NUM_LIMBS: usize> Shr<usize> for UnsignedInteger<NUM_LIMBS> {
 impl<const NUM_LIMBS: usize> ShrAssign<usize> for UnsignedInteger<NUM_LIMBS> {
     fn shr_assign(&mut self, times: usize) {
         debug_assert!(
-            times < 64 * NUM_LIMBS,
+            times < 32 * NUM_LIMBS,
             "UnsignedInteger shift left overflows."
         );
 
-        let (a, b) = (times / 64, times % 64);
+        let (a, b) = (times / 32, times % 32);
 
         if b == 0 {
             self.limbs.copy_within(..NUM_LIMBS - a, a);
         } else {
             for i in (a + 1..NUM_LIMBS).rev() {
-                self.limbs[i] = (self.limbs[i - a] >> b) | (self.limbs[i - a - 1] << (64 - b));
+                self.limbs[i] = (self.limbs[i - a] >> b) | (self.limbs[i - a - 1] << (32 - b));
             }
             self.limbs[a] = self.limbs[0] >> b;
         }
@@ -390,22 +402,32 @@ impl<const NUM_LIMBS: usize> BitXorAssign for UnsignedInteger<NUM_LIMBS> {
 }
 
 impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
-    pub const fn from_limbs(limbs: [u64; NUM_LIMBS]) -> Self {
+    pub const fn from_limbs(limbs: [u32; NUM_LIMBS]) -> Self {
         Self { limbs }
     }
 
     #[inline(always)]
-    pub const fn from_u64(value: u64) -> Self {
-        let mut limbs = [0u64; NUM_LIMBS];
+    pub const fn from_u32(value: u32) -> Self {
+        let mut limbs = [0u32; NUM_LIMBS];
         limbs[NUM_LIMBS - 1] = value;
         UnsignedInteger { limbs }
     }
 
     #[inline(always)]
+    pub const fn from_u64(value: u64) -> Self {
+        let mut limbs = [0u32; NUM_LIMBS];
+        limbs[NUM_LIMBS - 1] = value as u32;
+        limbs[NUM_LIMBS - 2] = (value >> 32) as u32;
+        UnsignedInteger { limbs }
+    }
+
+    #[inline(always)]
     pub const fn from_u128(value: u128) -> Self {
-        let mut limbs = [0u64; NUM_LIMBS];
-        limbs[NUM_LIMBS - 1] = value as u64;
-        limbs[NUM_LIMBS - 2] = (value >> 64) as u64;
+        let mut limbs = [0u32; NUM_LIMBS];
+        limbs[NUM_LIMBS - 1] = value as u32;
+        limbs[NUM_LIMBS - 2] = (value >> 32) as u32;
+        limbs[NUM_LIMBS - 3] = (value >> 64) as u32;
+        limbs[NUM_LIMBS - 4] = (value >> 96) as u32;
         UnsignedInteger { limbs }
     }
 
@@ -453,7 +475,7 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
     /// # Panics
     /// Panics if value is not a hexstring. It can contain `0x` or not.
     pub const fn from_hex_unchecked(value: &str) -> Self {
-        let mut result = [0u64; NUM_LIMBS];
+        let mut result = [0u32; NUM_LIMBS];
         let mut limb = 0;
         let mut limb_index = NUM_LIMBS - 1;
         let mut shift = 0;
@@ -470,13 +492,13 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
         while j > i {
             j -= 1;
             limb |= match value_bytes[j] {
-                c @ b'0'..=b'9' => (c as u64 - b'0' as u64) << shift,
-                c @ b'a'..=b'f' => (c as u64 - b'a' as u64 + 10) << shift,
-                c @ b'A'..=b'F' => (c as u64 - b'A' as u64 + 10) << shift,
+                c @ b'0'..=b'9' => (c as u32 - b'0' as u32) << shift,
+                c @ b'a'..=b'f' => (c as u32 - b'a' as u32 + 10) << shift,
+                c @ b'A'..=b'F' => (c as u32 - b'A' as u32 + 10) << shift,
                 _ => panic!("Malformed hex expression."),
             };
             shift += 4;
-            if shift == 64 && limb_index > 0 {
+            if shift == 32 && limb_index > 0 {
                 result[limb_index] = limb;
                 limb = 0;
                 limb_index -= 1;
@@ -524,11 +546,11 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
 
     pub const fn const_shl(self, times: usize) -> Self {
         debug_assert!(
-            times < 64 * NUM_LIMBS,
+            times < 32 * NUM_LIMBS,
             "UnsignedInteger shift left overflows."
         );
-        let mut limbs = [0u64; NUM_LIMBS];
-        let (a, b) = (times / 64, times % 64);
+        let mut limbs = [0u32; NUM_LIMBS];
+        let (a, b) = (times / 32, times % 32);
 
         if b == 0 {
             let mut i = 0;
@@ -542,7 +564,7 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
             let mut i = a + 1;
             while i < NUM_LIMBS {
                 limbs[NUM_LIMBS - 1 - i] = (self.limbs[NUM_LIMBS - 1 - i + a] << b)
-                    | (self.limbs[NUM_LIMBS - i + a] >> (64 - b));
+                    | (self.limbs[NUM_LIMBS - i + a] >> (32 - b));
                 i += 1;
             }
             Self { limbs }
@@ -551,12 +573,12 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
 
     pub const fn const_shr(self, times: usize) -> UnsignedInteger<NUM_LIMBS> {
         debug_assert!(
-            times < 64 * NUM_LIMBS,
+            times < 32 * NUM_LIMBS,
             "UnsignedInteger shift right overflows."
         );
 
-        let mut limbs = [0u64; NUM_LIMBS];
-        let (a, b) = (times / 64, times % 64);
+        let mut limbs = [0u32; NUM_LIMBS];
+        let (a, b) = (times / 32, times % 32);
 
         if b == 0 {
             let mut i = 0;
@@ -569,7 +591,7 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
             limbs[a] = self.limbs[0] >> b;
             let mut i = a + 1;
             while i < NUM_LIMBS {
-                limbs[i] = (self.limbs[i - a - 1] << (64 - b)) | (self.limbs[i - a] >> b);
+                limbs[i] = (self.limbs[i - a - 1] << (32 - b)) | (self.limbs[i - a] >> b);
                 i += 1;
             }
             Self { limbs }
@@ -580,14 +602,14 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
         a: &UnsignedInteger<NUM_LIMBS>,
         b: &UnsignedInteger<NUM_LIMBS>,
     ) -> (UnsignedInteger<NUM_LIMBS>, bool) {
-        let mut limbs = [0u64; NUM_LIMBS];
-        let mut carry = 0u64;
+        let mut limbs = [0u32; NUM_LIMBS];
+        let mut carry = 0u32;
         let mut i = NUM_LIMBS;
         while i > 0 {
             let (x, cb) = a.limbs[i - 1].overflowing_add(b.limbs[i - 1]);
             let (x, cc) = x.overflowing_add(carry);
             limbs[i - 1] = x;
-            carry = (cb | cc) as u64;
+            carry = (cb | cc) as u32;
             i -= 1;
         }
         (UnsignedInteger { limbs }, carry > 0)
@@ -601,7 +623,7 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
         a: &UnsignedInteger<NUM_LIMBS>,
         b: &UnsignedInteger<NUM_LIMBS>,
     ) -> (UnsignedInteger<NUM_LIMBS>, bool) {
-        let mut limbs = [0u64; NUM_LIMBS];
+        let mut limbs = [0u32; NUM_LIMBS];
         // 1.
         let mut carry = false;
         // 2.
@@ -609,9 +631,9 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
         while i > 0 {
             i -= 1;
             let (x, cb) = a.limbs[i].overflowing_sub(b.limbs[i]);
-            let (x, cc) = x.overflowing_sub(carry as u64);
-            // Casting i128 to u64 drops the most significant bits of i128,
-            // which effectively computes residue modulo 2^{64}
+            let (x, cc) = x.overflowing_sub(carry as u32);
+            // Casting i64 to u32 drops the most significant bits of i64,
+            // which effectively computes residue modulo 2^{32}
             // 2.1
             limbs[i] = x;
             // 2.2
@@ -628,8 +650,8 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
         b: &UnsignedInteger<NUM_LIMBS>,
     ) -> (UnsignedInteger<NUM_LIMBS>, UnsignedInteger<NUM_LIMBS>) {
         // 1.
-        let mut hi = [0u64; NUM_LIMBS];
-        let mut lo = [0u64; NUM_LIMBS];
+        let mut hi = [0u32; NUM_LIMBS];
+        let mut lo = [0u32; NUM_LIMBS];
         // Const functions don't support for loops so we use whiles
         // this is equivalent to:
         // for i in (0..NUM_LIMBS).rev()
@@ -638,7 +660,7 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
         while i > 0 {
             i -= 1;
             // 2.1
-            let mut carry = 0u128;
+            let mut carry = 0u64;
             let mut j = NUM_LIMBS;
             // 2.2
             while j > 0 {
@@ -646,20 +668,20 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
                 let mut k = i + j;
                 if k >= NUM_LIMBS - 1 {
                     k -= NUM_LIMBS - 1;
-                    let uv = (lo[k] as u128) + (a.limbs[j] as u128) * (b.limbs[i] as u128) + carry;
-                    carry = uv >> 64;
-                    // Casting u128 to u64 takes modulo 2^{64}
-                    lo[k] = uv as u64;
+                    let uv = (lo[k] as u64) + (a.limbs[j] as u64) * (b.limbs[i] as u64) + carry;
+                    carry = uv >> 32;
+                    // Casting u64 to u32 takes modulo 2^{32}
+                    lo[k] = uv as u32;
                 } else {
                     let uv =
-                        (hi[k + 1] as u128) + (a.limbs[j] as u128) * (b.limbs[i] as u128) + carry;
-                    carry = uv >> 64;
-                    // Casting u128 to u64 takes modulo 2^{64}
-                    hi[k + 1] = uv as u64;
+                        (hi[k + 1] as u64) + (a.limbs[j] as u64) * (b.limbs[i] as u64) + carry;
+                    carry = uv >> 32;
+                    // Casting u128 to u32 takes modulo 2^{32}
+                    hi[k + 1] = uv as u32;
                 }
             }
             // 2.3
-            hi[i] = carry as u64;
+            hi[i] = carry as u32;
         }
         // 3.
         (Self { limbs: hi }, Self { limbs: lo })
@@ -673,10 +695,10 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
         // at iterators of the form `(<x>..<y>).rev()` as the main performance bottleneck.
 
         let mut hi = Self {
-            limbs: [0u64; NUM_LIMBS],
+            limbs: [0u32; NUM_LIMBS],
         };
         let mut lo = Self {
-            limbs: [0u64; NUM_LIMBS],
+            limbs: [0u32; NUM_LIMBS],
         };
 
         // Compute products between a[i] and a[j] when i != j.
@@ -685,29 +707,29 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
         let mut i = NUM_LIMBS;
         while i > 1 {
             i -= 1;
-            let mut c: u128 = 0;
+            let mut c: u64 = 0;
             let mut j = i;
             while j > 0 {
                 j -= 1;
                 let k = i + j;
                 if k >= NUM_LIMBS - 1 {
                     let index = k + 1 - NUM_LIMBS;
-                    let cs = lo.limbs[index] as u128 + a.limbs[i] as u128 * a.limbs[j] as u128 + c;
-                    c = cs >> 64;
-                    lo.limbs[index] = cs as u64;
+                    let cs = lo.limbs[index] as u64 + a.limbs[i] as u64 * a.limbs[j] as u64 + c;
+                    c = cs >> 32;
+                    lo.limbs[index] = cs as u32;
                 } else {
                     let index = k + 1;
-                    let cs = hi.limbs[index] as u128 + a.limbs[i] as u128 * a.limbs[j] as u128 + c;
-                    c = cs >> 64;
-                    hi.limbs[index] = cs as u64;
+                    let cs = hi.limbs[index] as u64 + a.limbs[i] as u64 * a.limbs[j] as u64 + c;
+                    c = cs >> 32;
+                    hi.limbs[index] = cs as u32;
                 }
             }
-            hi.limbs[i] = c as u64;
+            hi.limbs[i] = c as u32;
         }
 
         // All these terms should appear twice each,
         // so we have to multiply what we got so far by two.
-        let carry = lo.limbs[0] >> 63;
+        let carry = lo.limbs[0] >> 31;
         lo = lo << 1;
         hi = hi << 1;
         hi.limbs[NUM_LIMBS - 1] |= carry;
@@ -721,25 +743,25 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
             i -= 1;
             if NUM_LIMBS - 1 <= i * 2 {
                 let index = 2 * i + 1 - NUM_LIMBS;
-                let cs = lo.limbs[index] as u128 + a.limbs[i] as u128 * a.limbs[i] as u128 + c;
-                c = cs >> 64;
-                lo.limbs[index] = cs as u64;
+                let cs = lo.limbs[index] as u64 + a.limbs[i] as u64 * a.limbs[i] as u64 + c;
+                c = cs >> 32;
+                lo.limbs[index] = cs as u32;
             } else {
                 let index = 2 * i + 1;
-                let cs = hi.limbs[index] as u128 + a.limbs[i] as u128 * a.limbs[i] as u128 + c;
-                c = cs >> 64;
-                hi.limbs[index] = cs as u64;
+                let cs = hi.limbs[index] as u64 + a.limbs[i] as u64 * a.limbs[i] as u64 + c;
+                c = cs >> 32;
+                hi.limbs[index] = cs as u32;
             }
             if NUM_LIMBS - 1 < i * 2 {
                 let index = 2 * i - NUM_LIMBS;
-                let cs = lo.limbs[index] as u128 + c;
-                c = cs >> 64;
-                lo.limbs[index] = cs as u64;
+                let cs = lo.limbs[index] as u64 + c;
+                c = cs >> 32;
+                lo.limbs[index] = cs as u32;
             } else {
                 let index = 2 * i;
-                let cs = hi.limbs[index] as u128 + c;
-                c = cs >> 64;
-                hi.limbs[index] = cs as u64;
+                let cs = hi.limbs[index] as u64 + c;
+                c = cs >> 32;
+                hi.limbs[index] = cs as u32;
             }
         }
         debug_assert_eq!(c, 0);
@@ -753,7 +775,7 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
         let mut i = NUM_LIMBS;
         while i > 0 {
             if self.limbs[i - 1] != 0 {
-                return i as u32 * u64::BITS - self.limbs[i - 1].leading_zeros();
+                return i as u32 * u32::BITS - self.limbs[i - 1].leading_zeros();
             }
             i -= 1;
         }
@@ -762,27 +784,27 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
 
     /// Returns the truthy value if `self != 0` and the falsy value otherwise.
     #[inline]
-    const fn ct_is_nonzero(ct: u64) -> u64 {
-        Self::ct_from_lsb((ct | ct.wrapping_neg()) >> (u64::BITS - 1))
+    const fn ct_is_nonzero(ct: u32) -> u32 {
+        Self::ct_from_lsb((ct | ct.wrapping_neg()) >> (u32::BITS - 1))
     }
 
     /// Returns the truthy value if `value == 1`, and the falsy value if `value == 0`.
     /// Panics for other values.
-    const fn ct_from_lsb(value: u64) -> u64 {
+    const fn ct_from_lsb(value: u32) -> u32 {
         debug_assert!(value == 0 || value == 1);
         value.wrapping_neg()
     }
 
     /// Return `b` if `c` is truthy, otherwise return `a`.
     #[inline]
-    const fn ct_select_limb(a: u64, b: u64, ct: u64) -> u64 {
+    const fn ct_select_limb(a: u32, b: u32, ct: u32) -> u32 {
         a ^ (ct & (a ^ b))
     }
 
     /// Return `b` if `c` is truthy, otherwise return `a`.
     #[inline]
-    const fn ct_select(a: &Self, b: &Self, c: u64) -> Self {
-        let mut limbs = [0_u64; NUM_LIMBS];
+    const fn ct_select(a: &Self, b: &Self, c: u32) -> Self {
+        let mut limbs = [0_u32; NUM_LIMBS];
 
         let mut i = 0;
         while i < NUM_LIMBS {
@@ -795,17 +817,17 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
 
     /// Computes `self - (rhs + borrow)`, returning the result along with the new borrow.
     #[inline(always)]
-    const fn sbb_limbs(lhs: u64, rhs: u64, borrow: u64) -> (u64, u64) {
-        let a = lhs as u128;
-        let b = rhs as u128;
-        let borrow = (borrow >> (u64::BITS - 1)) as u128;
+    const fn sbb_limbs(lhs: u32, rhs: u32, borrow: u32) -> (u32, u32) {
+        let a = lhs as u64;
+        let b = rhs as u64;
+        let borrow = (borrow >> (u32::BITS - 1)) as u64;
         let ret = a.wrapping_sub(b + borrow);
-        (ret as u64, (ret >> u64::BITS) as u64)
+        (ret as u32, (ret >> u32::BITS) as u32)
     }
 
     #[inline(always)]
     /// Computes `a - (b + borrow)`, returning the result along with the new borrow.
-    pub fn sbb(&self, rhs: &Self, mut borrow: u64) -> (Self, u64) {
+    pub fn sbb(&self, rhs: &Self, mut borrow: u32) -> (Self, u32) {
         let mut limbs = [0; NUM_LIMBS];
 
         for i in (0..NUM_LIMBS).rev() {
@@ -823,7 +845,7 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
         let mut i = 0;
         while i < NUM_LIMBS {
             if self.limbs[i] != 0 {
-                return u64::BITS as usize * (NUM_LIMBS - i)
+                return u32::BITS as usize * (NUM_LIMBS - i)
                     - self.limbs[i].leading_zeros() as usize;
             }
             i += 1;
@@ -834,20 +856,20 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
     /// Computes self / rhs, returns the quotient, remainder.
     pub fn div_rem(&self, rhs: &Self) -> (Self, Self) {
         debug_assert!(
-            *rhs != UnsignedInteger::from_u64(0),
+            *rhs != UnsignedInteger::from_u32(0),
             "Attempted to divide by zero"
         );
         let mb = rhs.bits_le();
-        let mut bd = (NUM_LIMBS * u64::BITS as usize) - mb;
+        let mut bd = (NUM_LIMBS * u32::BITS as usize) - mb;
         let mut rem = *self;
-        let mut quo = Self::from_u64(0);
+        let mut quo = Self::from_u32(0);
         let mut c = rhs.shl(bd);
 
         loop {
             let (mut r, borrow) = rem.sbb(&c, 0);
-            debug_assert!(borrow == 0 || borrow == u64::MAX);
+            debug_assert!(borrow == 0 || borrow == u32::MAX);
             rem = Self::ct_select(&r, &rem, borrow);
-            r = quo.bitor(Self::from_u64(1));
+            r = quo.bitor(Self::from_u32(1));
             quo = Self::ct_select(&r, &quo, borrow);
             if bd == 0 {
                 break;
@@ -857,8 +879,8 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
             quo = quo.shl(1);
         }
 
-        let is_some = Self::ct_is_nonzero(mb as u64);
-        quo = Self::ct_select(&Self::from_u64(0), &quo, is_some);
+        let is_some = Self::ct_is_nonzero(mb as u32);
+        quo = Self::ct_select(&Self::from_u32(0), &quo, is_some);
         (quo, rem)
     }
 
@@ -867,23 +889,23 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
         if value.is_empty() {
             return Err(CreationError::InvalidDecString);
         }
-        let mut res = Self::from_u64(0);
+        let mut res = Self::from_u32(0);
         for b in value.bytes().map(|b| b.wrapping_sub(b'0')) {
             if b > 9 {
                 return Err(CreationError::InvalidDecString);
             }
-            let (high, low) = Self::mul(&res, &Self::from(10_u64));
-            if high > Self::from_u64(0) {
+            let (high, low) = Self::mul(&res, &Self::from(10_u32));
+            if high > Self::from_u32(0) {
                 return Err(CreationError::InvalidDecString);
             }
-            res = low + Self::from(b as u64);
+            res = low + Self::from(b as u32);
         }
         Ok(res)
     }
 
     #[cfg(feature = "proptest")]
     pub fn nonzero_uint() -> impl Strategy<Value = UnsignedInteger<NUM_LIMBS>> {
-        any_uint::<NUM_LIMBS>().prop_filter("is_zero", |&x| x != UnsignedInteger::from_u64(0))
+        any_uint::<NUM_LIMBS>().prop_filter("is_zero", |&x| x != UnsignedInteger::from_u32(0))
     }
 }
 
@@ -912,16 +934,16 @@ impl<const NUM_LIMBS: usize> ByteConversion for UnsignedInteger<NUM_LIMBS> {
         // In the future with the right algorithm this shouldn't be needed
 
         let needed_bytes = bytes
-            .get(0..NUM_LIMBS * 8)
+            .get(0..NUM_LIMBS * 4)
             .ok_or(ByteConversionError::FromBEBytesError)?;
 
-        let mut limbs: [u64; NUM_LIMBS] = [0; NUM_LIMBS];
+        let mut limbs: [u32; NUM_LIMBS] = [0; NUM_LIMBS];
 
         needed_bytes
-            .chunks_exact(8)
+            .chunks_exact(4)
             .enumerate()
             .try_for_each(|(i, chunk)| {
-                let limb = u64::from_be_bytes(
+                let limb = u32::from_be_bytes(
                     chunk
                         .try_into()
                         .map_err(|_| ByteConversionError::FromBEBytesError)?,
@@ -935,17 +957,17 @@ impl<const NUM_LIMBS: usize> ByteConversion for UnsignedInteger<NUM_LIMBS> {
 
     fn from_bytes_le(bytes: &[u8]) -> Result<Self, ByteConversionError> {
         let needed_bytes = bytes
-            .get(0..NUM_LIMBS * 8)
+            .get(0..NUM_LIMBS * 4)
             .ok_or(ByteConversionError::FromBEBytesError)?;
 
-        let mut limbs: [u64; NUM_LIMBS] = [0; NUM_LIMBS];
+        let mut limbs: [u32; NUM_LIMBS] = [0; NUM_LIMBS];
 
         needed_bytes
-            .chunks_exact(8)
+            .chunks_exact(4)
             .rev()
             .enumerate()
             .try_for_each(|(i, chunk)| {
-                let limb = u64::from_le_bytes(
+                let limb = u32::from_le_bytes(
                     chunk
                         .try_into()
                         .map_err(|_| ByteConversionError::FromLEBytesError)?,
@@ -985,7 +1007,7 @@ impl<const NUM_LIMBS: usize> From<UnsignedInteger<NUM_LIMBS>> for alloc::vec::Ve
 
 #[cfg(feature = "proptest")]
 fn any_uint<const NUM_LIMBS: usize>() -> impl Strategy<Value = UnsignedInteger<NUM_LIMBS>> {
-    any::<[u64; NUM_LIMBS]>().prop_map(UnsignedInteger::from_limbs)
+    any::<[u32; NUM_LIMBS]>().prop_map(UnsignedInteger::from_limbs)
 }
 
 #[cfg(feature = "proptest")]
@@ -1002,7 +1024,7 @@ impl<const NUM_LIMBS: usize> Arbitrary for UnsignedInteger<NUM_LIMBS> {
 #[cfg(test)]
 mod tests_u384 {
     use crate::traits::ByteConversion;
-    use crate::unsigned_integer::element::{UnsignedInteger, U384};
+    use crate::unsigned_integer::u32::element::{UnsignedInteger, U384};
     #[cfg(feature = "proptest")]
     use proptest::prelude::*;
     #[cfg(feature = "proptest")]
@@ -1076,87 +1098,94 @@ mod tests_u384 {
         fn div_rem(a in any::<Uint>(), b in any::<Uint>()) {
             let a = a.shr(256);
             let b = b.shr(256);
-            assert_eq!((a * b).div_rem(&b), (a, Uint::from_u64(0)));
+            assert_eq!((a * b).div_rem(&b), (a, Uint::from_u32(0)));
         }
     }
 
     #[test]
     fn construct_new_integer_from_limbs() {
         let a: U384 = UnsignedInteger {
-            limbs: [0, 1, 2, 3, 4, 5],
+            limbs: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
         };
-        assert_eq!(U384::from_limbs([0, 1, 2, 3, 4, 5]), a);
+        assert_eq!(U384::from_limbs([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]), a);
     }
 
     #[test]
-    fn construct_new_integer_from_u64_1() {
-        let a = U384::from_u64(1_u64);
-        assert_eq!(a.limbs, [0, 0, 0, 0, 0, 1]);
+    fn construct_new_integer_from_u32_1() {
+        let a = U384::from_u32(1_u32);
+        assert_eq!(a.limbs, [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]);
     }
 
+    //TODO:
     #[test]
     fn construct_new_integer_from_u54_2() {
-        let a = U384::from_u64(u64::MAX);
-        assert_eq!(a.limbs, [0, 0, 0, 0, 0, u64::MAX]);
+        let a = U384::from_u32(u32::MAX);
+        assert_eq!(a.limbs, [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, u32::MAX]);
     }
 
+    //TODO:
     #[test]
     fn construct_new_integer_from_u128_1() {
         let a = U384::from_u128(u128::MAX);
-        assert_eq!(a.limbs, [0, 0, 0, 0, u64::MAX, u64::MAX]);
+        assert_eq!(a.limbs, [0, 0, 0, 0, 0, 0, 0, 0, u32::MAX, u32::MAX, u32::MAX, u32::MAX]);
     }
 
+    //TODO:
     #[test]
     fn construct_new_integer_from_u128_2() {
         let a = U384::from_u128(276371540478856090688472252609570374439);
         assert_eq!(
             a.limbs,
-            [0, 0, 0, 0, 14982131230017065096, 14596400355126379303]
+            [0, 0, 0, 0, 0, 0, 0, 0, 3488299257, 2540966024, 3398489289, 3065086759]
         );
     }
 
     #[test]
     fn construct_new_integer_from_hex_1() {
         let a = U384::from_hex_unchecked("1");
-        assert_eq!(a.limbs, [0, 0, 0, 0, 0, 1]);
+        assert_eq!(a.limbs, [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]);
     }
 
     #[test]
     fn construct_new_integer_from_zero_x_1() {
         let a = U384::from_hex_unchecked("0x1");
-        assert_eq!(a.limbs, [0, 0, 0, 0, 0, 1]);
+        assert_eq!(a.limbs, [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]);
     }
 
     #[test]
     fn construct_new_integer_from_hex_2() {
         let a = U384::from_hex_unchecked("f");
-        assert_eq!(a.limbs, [0, 0, 0, 0, 0, 15]);
+        assert_eq!(a.limbs, [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 15]);
     }
 
     #[test]
     fn construct_new_integer_from_hex_3() {
         let a = U384::from_hex_unchecked("10000000000000000");
-        assert_eq!(a.limbs, [0, 0, 0, 0, 1, 0]);
+        assert_eq!(a.limbs, [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0]);
     }
 
+    //TODO:
     #[test]
     fn construct_new_integer_from_hex_4() {
         let a = U384::from_hex_unchecked("a0000000000000000");
-        assert_eq!(a.limbs, [0, 0, 0, 0, 10, 0]);
+        assert_eq!(a.limbs, [0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 0, 0]);
     }
 
+    //TODO:
     #[test]
     fn construct_new_integer_from_hex_5() {
         let a = U384::from_hex_unchecked("ffffffffffffffffff");
-        assert_eq!(a.limbs, [0, 0, 0, 0, 255, u64::MAX]);
+        assert_eq!(a.limbs, [0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 4294967295, 4294967295]);
     }
 
+    //TODO:
     #[test]
     fn construct_new_integer_from_hex_6() {
         let a = U384::from_hex_unchecked("eb235f6144d9e91f4b14");
-        assert_eq!(a.limbs, [0, 0, 0, 0, 60195, 6872850209053821716]);
+        assert_eq!(a.limbs, [0, 0, 0, 0, 0, 0, 0, 0, 0, 60195, 1600210137, 3911142164]);
     }
 
+    //TODO:
     #[test]
     fn construct_new_integer_from_hex_7() {
         let a = U384::from_hex_unchecked("2b20aaa5cf482b239e2897a787faf4660cc95597854beb2");
@@ -1166,13 +1195,15 @@ mod tests_u384 {
                 0,
                 0,
                 0,
-                194229460750598834,
-                4171047363999149894,
-                6975114134393503410
+                0,
+                0,
+                0,
+                45222570, 1559528114, 971147642, 2021633862, 1624020313, 2018819762
             ]
         );
     }
 
+    //TODO:
     #[test]
     fn construct_new_integer_from_hex_checked_7() {
         let a = U384::from_hex("2b20aaa5cf482b239e2897a787faf4660cc95597854beb2").unwrap();
@@ -1182,13 +1213,15 @@ mod tests_u384 {
                 0,
                 0,
                 0,
-                194229460750598834,
-                4171047363999149894,
-                6975114134393503410
+                0,
+                0,
+                0,
+                45222570, 1559528114, 971147642, 2021633862, 1624020313, 2018819762
             ]
         );
     }
 
+    //TODO:
     #[test]
     fn construct_new_integer_from_hex_checked_7_with_zero_x() {
         let a = U384::from_hex("0x2b20aaa5cf482b239e2897a787faf4660cc95597854beb2").unwrap();
@@ -1198,9 +1231,10 @@ mod tests_u384 {
                 0,
                 0,
                 0,
-                194229460750598834,
-                4171047363999149894,
-                6975114134393503410
+                0,
+                0,
+                0,
+                45222570, 1559528114, 971147642, 2021633862, 1624020313, 2018819762
             ]
         );
     }
@@ -1221,12 +1255,7 @@ mod tests_u384 {
         assert_eq!(
             a.limbs,
             [
-                1445463580056702870,
-                13122285128622708909,
-                3107671372009581347,
-                11396525602857743462,
-                921361708038744867,
-                6872850209053821716
+                336548215, 3104526230, 3055270092, 3035797677, 723561125, 3477613347, 2653460391, 2281370726, 214521239, 2236345123, 1600210137, 3911142164
             ]
         );
     }
@@ -1237,12 +1266,7 @@ mod tests_u384 {
         assert_eq!(
             a.limbs,
             [
-                1445463580056702870,
-                13122285128622708909,
-                3107671372009581347,
-                11396525602857743462,
-                921361708038744867,
-                6872850209053821716
+                336548215, 3104526230, 3055270092, 3035797677, 723561125, 3477613347, 2653460391, 2281370726, 214521239, 2236345123, 1600210137, 3911142164
             ]
         );
     }
@@ -1250,68 +1274,69 @@ mod tests_u384 {
     #[test]
     fn construct_new_integer_from_dec_1() {
         let a = U384::from_dec_str("1").unwrap();
-        assert_eq!(a.limbs, [0, 0, 0, 0, 0, 1]);
+        assert_eq!(a.limbs, [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]);
     }
 
     #[test]
     fn construct_new_integer_from_dec_2() {
         let a = U384::from_dec_str("15").unwrap();
-        assert_eq!(a.limbs, [0, 0, 0, 0, 0, 15]);
+        assert_eq!(a.limbs, [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 15]);
     }
 
+    //TODO:
     #[test]
     fn construct_new_integer_from_dec_3() {
         let a = U384::from_dec_str("18446744073709551616").unwrap();
-        assert_eq!(a.limbs, [0, 0, 0, 0, 1, 0]);
+        assert_eq!(a.limbs, [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0]);
     }
 
+    //TODO:
     #[test]
     fn construct_new_integer_from_dec_4() {
         let a = U384::from_dec_str("184467440737095516160").unwrap();
-        assert_eq!(a.limbs, [0, 0, 0, 0, 10, 0]);
+        assert_eq!(a.limbs, [0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 0, 0]);
     }
 
+    //TODO:
     #[test]
     fn construct_new_integer_from_dec_5() {
-        let a = U384::from_dec_str("4722366482869645213695").unwrap();
-        assert_eq!(a.limbs, [0, 0, 0, 0, 255, u64::MAX]);
+        let a = U384::from_dec_str("4722363282869325213695").unwrap();
+        assert_eq!(a.limbs, [0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 4294222237, 3718590463]);
     }
 
+    //TODO:
     #[test]
     fn construct_new_integer_from_dec_6() {
         let a = U384::from_dec_str("1110408632367155513346836").unwrap();
-        assert_eq!(a.limbs, [0, 0, 0, 0, 60195, 6872850209053821716]);
+        assert_eq!(a.limbs, [0, 0, 0, 0, 0, 0, 0, 0, 0, 60195, 1600210137, 3911142164]);
     }
 
+    //TODO:
     #[test]
     fn construct_new_integer_from_dec_7() {
         let a =
-            U384::from_dec_str("66092860629991288370279803883558073888453977263446474418").unwrap();
+            U384::from_dec_str("66092860629991288370279803883558073888453977263443274418").unwrap();
         assert_eq!(
             a.limbs,
             [
                 0,
                 0,
                 0,
-                194229460750598834,
-                4171047363999149894,
-                6975114134393503410
+                0,
+                0,
+                0,
+                45222570, 1559528114, 971147642, 2021633862, 1624020313, 2015619762
             ]
         );
     }
 
     #[test]
     fn construct_new_integer_from_dec_8() {
-        let a = U384::from_dec_str("3087491467896943881295768554872271030441880044814691421073017731442549147034464936390742057449079000462340371991316").unwrap();
+        let a = U384::from_dec_str("3087491467896943881295768554872271030441880044814691421073017731442549147034432936390742057449079000462340371991316").unwrap();
         assert_eq!(
             a.limbs,
             [
-                1445463580056702870,
-                13122285128622708909,
-                3107671372009581347,
-                11396525602857743462,
-                921361708038744867,
-                6872850209053821716
+                336548215, 3104526230, 3055270092, 3035797677, 723561125, 3477613347, 2653460391, 2281370725, 4105591752, 204146796, 4125975257, 3911142164
             ]
         );
     }
@@ -1330,7 +1355,7 @@ mod tests_u384 {
     fn equality_works_1() {
         let a = U384::from_hex_unchecked("1");
         let b = U384 {
-            limbs: [0, 0, 0, 0, 0, 1],
+            limbs: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
         };
         assert_eq!(a, b);
     }
@@ -1338,7 +1363,7 @@ mod tests_u384 {
     fn equality_works_2() {
         let a = U384::from_hex_unchecked("f");
         let b = U384 {
-            limbs: [0, 0, 0, 0, 0, 15],
+            limbs: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 15],
         };
         assert_eq!(a, b);
     }
@@ -1347,7 +1372,7 @@ mod tests_u384 {
     fn equality_works_3() {
         let a = U384::from_hex_unchecked("10000000000000000");
         let b = U384 {
-            limbs: [0, 0, 0, 0, 1, 0],
+            limbs: [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0],
         };
         assert_eq!(a, b);
     }
@@ -1356,7 +1381,7 @@ mod tests_u384 {
     fn equality_works_4() {
         let a = U384::from_hex_unchecked("a0000000000000000");
         let b = U384 {
-            limbs: [0, 0, 0, 0, 10, 0],
+            limbs: [0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 0, 0],
         };
         assert_eq!(a, b);
     }
@@ -1365,7 +1390,7 @@ mod tests_u384 {
     fn equality_works_5() {
         let a = U384::from_hex_unchecked("ffffffffffffffffff");
         let b = U384 {
-            limbs: [0, 0, 0, 0, u8::MAX as u64, u64::MAX],
+            limbs: [0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 4294967295, 4294967295],
         };
         assert_eq!(a, b);
     }
@@ -1374,7 +1399,7 @@ mod tests_u384 {
     fn equality_works_6() {
         let a = U384::from_hex_unchecked("eb235f6144d9e91f4b14");
         let b = U384 {
-            limbs: [0, 0, 0, 0, 60195, 6872850209053821716],
+            limbs: [0, 0, 0, 0, 0, 0, 0, 0, 0, 60195, 1600210137, 3911142164],
         };
         assert_eq!(a, b);
     }
@@ -1387,9 +1412,10 @@ mod tests_u384 {
                 0,
                 0,
                 0,
-                194229460750598834,
-                4171047363999149894,
-                6975114134393503410,
+                0,
+                0,
+                0,
+                45222570, 1559528114, 971147642, 2021633862, 1624020313, 2018819762
             ],
         };
         assert_eq!(a, b);
@@ -1400,12 +1426,7 @@ mod tests_u384 {
         let a = U384::from_hex_unchecked("140f5177b90b4f96b61bb8ccb4f298ad2b20aaa5cf482b239e2897a787faf4660cc95597854beb235f6144d9e91f4b14");
         let b = U384 {
             limbs: [
-                1445463580056702870,
-                13122285128622708909,
-                3107671372009581347,
-                11396525602857743462,
-                921361708038744867,
-                6872850209053821716,
+                336548215, 3104526230, 3055270092, 3035797677, 723561125, 3477613347, 2653460391, 2281370726, 214521239, 2236345123, 1600210137, 3911142164
             ],
         };
         assert_eq!(a, b);
@@ -1437,12 +1458,7 @@ mod tests_u384 {
         let a = U384::from_hex_unchecked("140f5177b90b4f96b61bb8ccb4f298ad2b20aaa5cf482b239e2897a787faf4660cc95597854beb235f6144d9e91f4b14");
         let b = U384 {
             limbs: [
-                1445463580056702870,
-                13122285128622708909,
-                3107671372009581347,
-                11396525602857743462,
-                921361708038744867,
-                6872850209053821716,
+                336548215, 3104526230, 3055270092, 3035797677, 723561125, 3477613347, 2653460391, 2281370726, 214521239, 2236345123, 1600210137, 3911142164
             ],
         };
         assert!(!U384::const_ne(&a, &b));
@@ -1450,17 +1466,17 @@ mod tests_u384 {
 
     #[test]
     fn add_two_384_bit_integers_1() {
-        let a = U384::from_u64(2);
-        let b = U384::from_u64(5);
-        let c = U384::from_u64(7);
+        let a = U384::from_u32(2);
+        let b = U384::from_u32(5);
+        let c = U384::from_u32(7);
         assert_eq!(a + b, c);
     }
 
     #[test]
     fn add_two_384_bit_integers_2() {
-        let a = U384::from_u64(334);
-        let b = U384::from_u64(666);
-        let c = U384::from_u64(1000);
+        let a = U384::from_u32(334);
+        let b = U384::from_u32(666);
+        let c = U384::from_u32(1000);
         assert_eq!(a + b, c);
     }
 
@@ -1490,7 +1506,7 @@ mod tests_u384 {
 
     #[test]
     fn add_two_384_bit_integers_6() {
-        let a = U384::from_hex_unchecked("9adf291af3a64d59e14e7b440c850508014c551ed5");
+        let a = U384::from_hex_unchecked("9adf291af3a32d59e14e7b440c850508014c551ed5");
         let b = U384::from_hex_unchecked("e7948474bce907f0feaf7e5d741a8cd2f6d1fb9448");
         let c = U384::from_hex_unchecked("18273ad8fb08f554adffdf9a1809f91daf81e50b31d");
         assert_eq!(a + b, c);
@@ -1499,13 +1515,13 @@ mod tests_u384 {
     #[test]
     fn add_two_384_bit_integers_7() {
         let a = U384::from_hex_unchecked(
-            "f866aef803c92bf02e85c7fad0eccb4881c59825e499fa22f98e1a8fefed4cd9a03647cd3cc84",
+            "f866aef803c92bf02e85c7fad0eccb4881c59825e499fa22f98e1a8fefed4cd9a03327cd3cc84",
         );
         let b = U384::from_hex_unchecked(
             "9b4000dccf01a010e196154a1b998408f949d734389626ba97cb3331ee87e01dd5badc58f41b2",
         );
         let c = U384::from_hex_unchecked(
-            "193a6afd4d2cacc01101bdd44ec864f517b0f6f5a1d3020dd91594dc1de752cf775f1242630e36",
+            "193a6afd4d2cacc01101bdd44ec832f517b0f6f5a1d3020dd91594dc1de752cf775f1242630e36",
         );
         assert_eq!(a + b, c);
     }
@@ -1513,8 +1529,8 @@ mod tests_u384 {
     #[test]
     fn add_two_384_bit_integers_8() {
         let a = U384::from_hex_unchecked("07df9c74fa9d5aafa74a87dbbf93215659d8a3e1706d4b06de9512284802580eb36ae12ea59f90db5b1799d0970a42e");
-        let b = U384::from_hex_unchecked("d515e54973f0643a6a9957579c1f84020a6a91d5d5f27b75401c7538d2c9ea9cafff44a2c606877d46c49a3433cc85e");
-        let c = U384::from_hex_unchecked("dcf581be6e8dbeea11e3df335bb2a558644335b7465fc67c1eb187611acc42ab636a25d16ba61858a1dc3404cad6c8c");
+        let b = U384::from_hex_unchecked("d515e54973f0323a6a9957579c1f84020a6a91d5d5f27b75401c7538d2c9ea9cafff44a2c606877d46c49a3433cc85e");
+        let c = U384::from_hex_unchecked("dcf581be6e8dbeea11e3df335bb2a558324335b7465fc67c1eb187611acc42ab636a25d16ba61858a1dc3404cad6c8c");
         assert_eq!(a + b, c);
     }
 
@@ -1529,8 +1545,8 @@ mod tests_u384 {
     #[test]
     fn add_two_384_bit_integers_10() {
         let a = U384::from_hex_unchecked("07df9c74fa9d5aafa74a87dbbf93215659d8a3e1706d4b06de9512284802580eb36ae12ea59f90db5b1799d0970a42e");
-        let b = U384::from_hex_unchecked("d515e54973f0643a6a9957579c1f84020a6a91d5d5f27b75401c7538d2c9ea9cafff44a2c606877d46c49a3433cc85e");
-        let c_expected = U384::from_hex_unchecked("dcf581be6e8dbeea11e3df335bb2a558644335b7465fc67c1eb187611acc42ab636a25d16ba61858a1dc3404cad6c8c");
+        let b = U384::from_hex_unchecked("d515e54973f0323a6a9957579c1f84020a6a91d5d5f27b75401c7538d2c9ea9cafff44a2c606877d46c49a3433cc85e");
+        let c_expected = U384::from_hex_unchecked("dcf581be6e8dbeea11e3df335bb2a558324335b7465fc67c1eb187611acc42ab636a25d16ba61858a1dc3404cad6c8c");
         let (c, overflow) = U384::add(&a, &b);
         assert_eq!(c, c_expected);
         assert!(!overflow);
@@ -1548,7 +1564,7 @@ mod tests_u384 {
 
     #[test]
     fn add_two_384_bit_integers_12_with_overflow() {
-        let a = U384::from_hex_unchecked("b07bc844363dd56467d9ebdd5929e9bb34a8e2577db77df6cf8f2ac45bd3d0bc2fc3078d265fe761af51d6aec5b59428");
+        let a = U384::from_hex_unchecked("b07bc844363dd53267d9ebdd5929e9bb34a8e2577db77df6cf8f2ac45bd3d0bc2fc3078d265fe761af51d6aec5b59428");
         let b = U384::from_hex_unchecked("cbbc474761bb7995ff54e25fa5d30295604fe3545d0cde405e72d8c0acebb119e9158131679b6c34483a3dafb49deeea");
         let c_expected = U384::from_hex_unchecked("7c380f8b97f94efa672ece3cfefcec5094f8c5abdac45c372e02038508bf81d618d888be8dfb5395f78c145e7a538312");
         let (c, overflow) = U384::add(&a, &b);
@@ -1558,17 +1574,17 @@ mod tests_u384 {
 
     #[test]
     fn sub_two_384_bit_integers_1() {
-        let a = U384::from_u64(2);
-        let b = U384::from_u64(5);
-        let c = U384::from_u64(7);
+        let a = U384::from_u32(2);
+        let b = U384::from_u32(5);
+        let c = U384::from_u32(7);
         assert_eq!(c - a, b);
     }
 
     #[test]
     fn sub_two_384_bit_integers_2() {
-        let a = U384::from_u64(334);
-        let b = U384::from_u64(666);
-        let c = U384::from_u64(1000);
+        let a = U384::from_u32(334);
+        let b = U384::from_u32(666);
+        let c = U384::from_u32(1000);
         assert_eq!(c - a, b);
     }
 
@@ -1598,7 +1614,7 @@ mod tests_u384 {
 
     #[test]
     fn sub_two_384_bit_integers_6() {
-        let a = U384::from_hex_unchecked("9adf291af3a64d59e14e7b440c850508014c551ed5");
+        let a = U384::from_hex_unchecked("9adf291af3a32d59e14e7b440c850508014c551ed5");
         let b = U384::from_hex_unchecked("e7948474bce907f0feaf7e5d741a8cd2f6d1fb9448");
         let c = U384::from_hex_unchecked("18273ad8fb08f554adffdf9a1809f91daf81e50b31d");
         assert_eq!(c - a, b);
@@ -1607,13 +1623,13 @@ mod tests_u384 {
     #[test]
     fn sub_two_384_bit_integers_7() {
         let a = U384::from_hex_unchecked(
-            "f866aef803c92bf02e85c7fad0eccb4881c59825e499fa22f98e1a8fefed4cd9a03647cd3cc84",
+            "f866aef803c92bf02e85c7fad0eccb4881c59825e499fa22f98e1a8fefed4cd9a03327cd3cc84",
         );
         let b = U384::from_hex_unchecked(
             "9b4000dccf01a010e196154a1b998408f949d734389626ba97cb3331ee87e01dd5badc58f41b2",
         );
         let c = U384::from_hex_unchecked(
-            "193a6afd4d2cacc01101bdd44ec864f517b0f6f5a1d3020dd91594dc1de752cf775f1242630e36",
+            "193a6afd4d2cacc01101bdd44ec832f517b0f6f5a1d3020dd91594dc1de752cf775f1242630e36",
         );
         assert_eq!(c - a, b);
     }
@@ -1621,8 +1637,8 @@ mod tests_u384 {
     #[test]
     fn sub_two_384_bit_integers_8() {
         let a = U384::from_hex_unchecked("07df9c74fa9d5aafa74a87dbbf93215659d8a3e1706d4b06de9512284802580eb36ae12ea59f90db5b1799d0970a42e");
-        let b = U384::from_hex_unchecked("d515e54973f0643a6a9957579c1f84020a6a91d5d5f27b75401c7538d2c9ea9cafff44a2c606877d46c49a3433cc85e");
-        let c = U384::from_hex_unchecked("dcf581be6e8dbeea11e3df335bb2a558644335b7465fc67c1eb187611acc42ab636a25d16ba61858a1dc3404cad6c8c");
+        let b = U384::from_hex_unchecked("d515e54973f0323a6a9957579c1f84020a6a91d5d5f27b75401c7538d2c9ea9cafff44a2c606877d46c49a3433cc85e");
+        let c = U384::from_hex_unchecked("dcf581be6e8dbeea11e3df335bb2a558324335b7465fc67c1eb187611acc42ab636a25d16ba61858a1dc3404cad6c8c");
         assert_eq!(c - a, b);
     }
 
@@ -1636,9 +1652,9 @@ mod tests_u384 {
 
     #[test]
     fn sub_two_384_bit_integers_11_without_overflow() {
-        let a = U384::from_u64(334);
-        let b_expected = U384::from_u64(666);
-        let c = U384::from_u64(1000);
+        let a = U384::from_u32(334);
+        let b_expected = U384::from_u32(666);
+        let c = U384::from_u32(1000);
         let (b, underflow) = U384::sub(&c, &a);
         assert!(!underflow);
         assert_eq!(b_expected, b);
@@ -1646,9 +1662,9 @@ mod tests_u384 {
 
     #[test]
     fn sub_two_384_bit_integers_11_with_overflow() {
-        let a = U384::from_u64(334);
+        let a = U384::from_u32(334);
         let b_expected = U384::from_hex_unchecked("fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffd66");
-        let c = U384::from_u64(1000);
+        let c = U384::from_u32(1000);
         let (b, underflow) = U384::sub(&a, &c);
         assert!(underflow);
         assert_eq!(b_expected, b);
@@ -1656,13 +1672,13 @@ mod tests_u384 {
 
     #[test]
     fn partial_order_works() {
-        assert!(U384::from_u64(10) <= U384::from_u64(10));
-        assert!(U384::from_u64(1) < U384::from_u64(2));
-        assert!(U384::from_u64(2) >= U384::from_u64(1));
+        assert!(U384::from_u32(10) <= U384::from_u32(10));
+        assert!(U384::from_u32(1) < U384::from_u32(2));
+        assert!(U384::from_u32(2) >= U384::from_u32(1));
 
-        assert!(U384::from_u64(10) >= U384::from_u64(10));
-        assert!(U384::from_u64(2) > U384::from_u64(1));
-        assert!(U384::from_u64(1) <= U384::from_u64(2));
+        assert!(U384::from_u32(10) >= U384::from_u32(10));
+        assert!(U384::from_u32(2) > U384::from_u32(1));
+        assert!(U384::from_u32(1) <= U384::from_u32(2));
 
         let a = U384::from_hex_unchecked("92977527a0f8ba00d18c1b2f1900d965d4a70e5f5f54468ffb2d4d41519385f24b078a0e7d0281d5ad0c36724dc4233");
         let c = U384::from_hex_unchecked("d99244c0f4a20348f44b33b288fe57bb99323f09e135c631a80e01b452e68dd6ad3315e5776b713af4a2d7f5f9a2a75");
@@ -1671,10 +1687,10 @@ mod tests_u384 {
         assert!(&a >= &a);
         assert!(&a >= &a);
         assert!(&a <= &a);
-        assert!(&a < &(&a + U384::from_u64(1)));
-        assert!(&a <= &(&a + U384::from_u64(1)));
-        assert!(&a + U384::from_u64(1) > a);
-        assert!((&a + U384::from_u64(1) >= a));
+        assert!(&a < &(&a + U384::from_u32(1)));
+        assert!(&a <= &(&a + U384::from_u32(1)));
+        assert!(&a + U384::from_u32(1) > a);
+        assert!((&a + U384::from_u32(1) >= a));
         assert!(&a <= &c);
         assert!(&a < &c);
         assert!(&a < &c);
@@ -1688,9 +1704,9 @@ mod tests_u384 {
 
     #[test]
     fn mul_two_384_bit_integers_works_1() {
-        let a = U384::from_u64(3);
-        let b = U384::from_u64(8);
-        let c = U384::from_u64(3 * 8);
+        let a = U384::from_u32(3);
+        let b = U384::from_u32(8);
+        let c = U384::from_u32(3 * 8);
         assert_eq!(a * b, c);
     }
 
@@ -1713,7 +1729,7 @@ mod tests_u384 {
     #[test]
     fn mul_two_384_bit_integers_works_4() {
         let a = U384::from_hex_unchecked("04050753dd7c0b06c404633016f87040");
-        let b = U384::from_hex_unchecked("dc3830be041b3b4476445fcad3dac0f6f3a53e4ba12da");
+        let b = U384::from_hex_unchecked("dc3830be041b3b4473245fcad3dac0f6f3a53e4ba12da");
         let c = U384::from_hex_unchecked(
             "375342999dab7f52f4010c4abc2e18b55218015931a55d6053ac39e86e2a47d6b1cb95f41680",
         );
@@ -1741,7 +1757,7 @@ mod tests_u384 {
     #[test]
     fn mul_two_384_bit_integers_works_7_hi_lo() {
         let a = U384::from_hex_unchecked("04050753dd7c0b06c404633016f87040");
-        let b = U384::from_hex_unchecked("dc3830be041b3b4476445fcad3dac0f6f3a53e4ba12da");
+        let b = U384::from_hex_unchecked("dc3830be041b3b4473245fcad3dac0f6f3a53e4ba12da");
         let hi_expected = U384::from_hex_unchecked("0");
         let lo_expected = U384::from_hex_unchecked(
             "375342999dab7f52f4010c4abc2e18b55218015931a55d6053ac39e86e2a47d6b1cb95f41680",
@@ -1756,7 +1772,7 @@ mod tests_u384 {
         let a = U384::from_hex_unchecked("5e2d939b602a50911232731d04fe6f40c05f97da0602307099fb991f9b414e2d52bef130349ec18db1a0215ea6caf76");
         let b = U384::from_hex_unchecked("3f3ad1611ab58212f92a2484e9560935b9ac4615fe61cfed1a4861e193a74d20c94f9f88d8b2cc089543c3f699969d9");
         let hi_expected = U384::from_hex_unchecked(
-            "1742daad9c7861dd3499e7ece65467e337937b27e20d641b225bfe00323d33ed62715654eadc092b057a5f19f2ad6c",
+            "1742daad9c7861dd3499e7ece65467e337937b27e20d321b225bfe00323d33ed62715654eadc092b057a5f19f2ad6c",
         );
         let lo_expected = U384::from_hex_unchecked("9969c0417b9304d9c16b046c860447d3533999e16710d2e90a44959a168816c015ffb44b987e8cbb82bd46b08d9e2106");
         let (hi, lo) = U384::mul(&a, &b);
@@ -1784,9 +1800,9 @@ mod tests_u384 {
 
     #[test]
     fn shift_left_on_384_bit_integer_works_2() {
-        let a = U384::from_u64(1);
-        let b = U384::from_u128(1_u128 << 64);
-        assert_eq!(a << 64, b);
+        let a = U384::from_u32(1);
+        let b = U384::from_u128(1_u128 << 32);
+        assert_eq!(a << 32, b);
     }
 
     #[test]
@@ -1799,7 +1815,7 @@ mod tests_u384 {
     #[test]
     fn shift_left_on_384_bit_integer_works_4() {
         let a = U384::from_hex_unchecked("e45542992b6844553f3cb1c5ac33e7fa5");
-        let b = U384::from_hex_unchecked("391550a64ada11154fcf2c716b0cf9fe940");
+        let b = U384::from_hex_unchecked("391550a32ada11154fcf2c716b0cf9fe940");
         assert_eq!(a << 6, b);
     }
 
@@ -1847,7 +1863,7 @@ mod tests_u384 {
     #[test]
     fn shift_right_on_384_bit_integer_works_3() {
         let a = U384::from_hex_unchecked("e45542992b6844553f3cb1c5ac33e7fa5");
-        let b = U384::from_hex_unchecked("391550a64ada11154fcf2c716b0cf9fe940");
+        let b = U384::from_hex_unchecked("391550a32ada11154fcf2c716b0cf9fe940");
         assert_eq!(b >> 6, a);
     }
 
@@ -1881,7 +1897,7 @@ mod tests_u384 {
     fn shift_right_on_384_bit_integer_works_7() {
         let a = U384::from_hex_unchecked("6a9ce35d8940a5ebd29604ce9a182ade76f03f7e9965760b84a8cfd1d3dd2e612669fe000e58b2af688fd90");
         let b = U384::from_hex_unchecked("6a9ce35d8940a5ebd29604ce9a182ade76f03f7");
-        assert_eq!(&a >> (64 * 3), b);
+        assert_eq!(&a >> (32 * 6), b);
     }
 
     #[test]
@@ -1889,13 +1905,13 @@ mod tests_u384 {
         let a = U384::from_hex_unchecked("5322c128ec84081b6c376c108ebd7fd36bbd44f71ee5e6ad6bcb3dd1c5265bd7db75c90b2665a0826d17600f0e9");
         let b =
             U384::from_hex_unchecked("5322c128ec84081b6c376c108ebd7fd36bbd44f71ee5e6ad6bcb3dd1c52");
-        assert_eq!(&a >> (64 * 2), b);
+        assert_eq!(&a >> (32 * 4), b);
     }
 
     #[test]
     #[cfg(feature = "alloc")]
     fn to_be_bytes_works() {
-        let number = U384::from_u64(1);
+        let number = U384::from_u32(1);
         let expected_bytes = [
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
@@ -1907,7 +1923,7 @@ mod tests_u384 {
     #[test]
     #[cfg(feature = "alloc")]
     fn to_le_bytes_works() {
-        let number = U384::from_u64(1);
+        let number = U384::from_u32(1);
         let expected_bytes = [
             1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -1922,7 +1938,7 @@ mod tests_u384 {
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
         ];
-        let expected_number = U384::from_u64(1);
+        let expected_number = U384::from_u32(1);
 
         assert_eq!(U384::from_bytes_be(&bytes).unwrap(), expected_number);
     }
@@ -1933,7 +1949,7 @@ mod tests_u384 {
             1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         ];
-        let expected_number = U384::from_u64(1);
+        let expected_number = U384::from_u32(1);
 
         assert_eq!(U384::from_bytes_le(&bytes).unwrap(), expected_number);
     }
@@ -1944,7 +1960,7 @@ mod tests_u384 {
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         ];
-        let expected_number = U384::from_u64(0);
+        let expected_number = U384::from_u32(0);
 
         assert_eq!(U384::from_bytes_be(&bytes).unwrap(), expected_number);
     }
@@ -1969,22 +1985,22 @@ mod tests_u384 {
             1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1,
         ];
-        let expected_number = U384::from_u64(1);
+        let expected_number = U384::from_u32(1);
 
         assert_eq!(U384::from_bytes_le(&bytes).unwrap(), expected_number);
     }
 
     #[test]
     fn test_square_0() {
-        let a = U384::from_hex_unchecked("362e35606447fb568704026c25da7a304bc7bd0aea36a61d77d4151395078cfa332b9d4928a60721eece725bbc81e158");
+        let a = U384::from_hex_unchecked("362e35603247fb568704026c25da7a304bc7bd0aea36a61d77d4151395078cfa332b9d4928a60721eece725bbc81e158");
         let (hi, lo) = U384::square(&a);
         assert_eq!(lo, U384::from_hex_unchecked("11724caeb10c4bce5319097d74aed2246e2942b56b7365b5b2f8ceb3bb847db4828862043299d798577996e210bce40"));
-        assert_eq!(hi, U384::from_hex_unchecked("b7786dbe41375b7ff64dbdc65152ef7d3fdbf499485e26486201cdbfb71b5673c77eb355a1274d08cbfbc1a4cdfdfad"));
+        assert_eq!(hi, U384::from_hex_unchecked("b7786dbe41375b7ff32dbdc65152ef7d3fdbf499485e23286201cdbfb71b5673c77eb355a1274d08cbfbc1a4cdfdfad"));
     }
 
     #[test]
     fn test_square_1() {
-        let a = U384::from_limbs([0, 0, 0, 0, 0, u64::MAX]);
+        let a = U384::from_limbs([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, u32::MAX, u32::MAX]);
         let (hi, lo) = U384::square(&a);
         assert_eq!(
             lo,
@@ -1995,7 +2011,7 @@ mod tests_u384 {
 
     #[test]
     fn test_square_2() {
-        let a = U384::from_limbs([0, 0, 0, 0, u64::MAX, 0]);
+        let a = U384::from_limbs([0, 0, 0, 0, 0, 0, 0, 0, u32::MAX, u32::MAX, 0, 0]);
         let (hi, lo) = U384::square(&a);
         assert_eq!(
             lo,
@@ -2008,7 +2024,7 @@ mod tests_u384 {
 
     #[test]
     fn test_square_3() {
-        let a = U384::from_limbs([0, 0, 0, u64::MAX, 0, 0]);
+        let a = U384::from_limbs([0, 0, 0, 0, 0, 0, u32::MAX, u32::MAX, 0, 0, 0, 0]);
         let (hi, lo) = U384::square(&a);
         assert_eq!(lo, U384::from_hex_unchecked("fffffffffffffffe00000000000000010000000000000000000000000000000000000000000000000000000000000000"));
         assert_eq!(hi, U384::from_hex_unchecked("0"));
@@ -2016,7 +2032,7 @@ mod tests_u384 {
 
     #[test]
     fn test_square_4() {
-        let a = U384::from_limbs([0, 0, u64::MAX, 0, 0, 0]);
+        let a = U384::from_limbs([0, 0, 0, 0, u32::MAX, u32::MAX, 0, 0, 0, 0, 0, 0]);
         let (hi, lo) = U384::square(&a);
         assert_eq!(lo, U384::from_hex_unchecked("0"));
         assert_eq!(
@@ -2027,7 +2043,7 @@ mod tests_u384 {
 
     #[test]
     fn test_square_5() {
-        let a = U384::from_limbs([0, 0, u64::MAX, u64::MAX, u64::MAX, u64::MAX]);
+        let a = U384::from_limbs([0, 0, 0, 0, u32::MAX, u32::MAX, u32::MAX, u32::MAX, u32::MAX, u32::MAX, u32::MAX, u32::MAX]);
         let (hi, lo) = U384::square(&a);
         assert_eq!(lo, U384::from_hex_unchecked("fffffffffffffffffffffffffffffffe0000000000000000000000000000000000000000000000000000000000000001"));
         assert_eq!(
@@ -2038,7 +2054,7 @@ mod tests_u384 {
 
     #[test]
     fn test_square_6() {
-        let a = U384::from_limbs([0, u64::MAX, u64::MAX, u64::MAX, u64::MAX, u64::MAX]);
+        let a = U384::from_limbs([0, 0, u32::MAX, u32::MAX, u32::MAX, u32::MAX, u32::MAX, u32::MAX, u32::MAX, u32::MAX, u32::MAX, u32::MAX]);
         let (hi, lo) = U384::square(&a);
         assert_eq!(lo, U384::from_hex_unchecked("fffffffffffffffe00000000000000000000000000000000000000000000000000000000000000000000000000000001"));
         assert_eq!(
@@ -2051,7 +2067,7 @@ mod tests_u384 {
 
     #[test]
     fn test_square_7() {
-        let a = U384::from_limbs([u64::MAX, u64::MAX, u64::MAX, u64::MAX, u64::MAX, u64::MAX]);
+        let a = U384::from_limbs([u32::MAX, u32::MAX, u32::MAX, u32::MAX, u32::MAX, u32::MAX, u32::MAX, u32::MAX, u32::MAX, u32::MAX, u32::MAX, u32::MAX]);
         let (hi, lo) = U384::square(&a);
         assert_eq!(lo, U384::from_hex_unchecked("1"));
         assert_eq!(hi, U384::from_hex_unchecked("fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe"));
@@ -2060,8 +2076,8 @@ mod tests_u384 {
 
 #[cfg(test)]
 mod tests_u256 {
-    use crate::unsigned_integer::element::ByteConversion;
-    use crate::unsigned_integer::element::{UnsignedInteger, U256};
+    use crate::traits::ByteConversion;
+    use crate::unsigned_integer::u32::element::{UnsignedInteger, U256};
     #[cfg(feature = "proptest")]
     use proptest::prelude::*;
     #[cfg(feature = "proptest")]
@@ -2135,76 +2151,76 @@ mod tests_u256 {
         fn div_rem(a in any::<Uint>(), b in any::<Uint>()) {
             let a = a.shr(128);
             let b = b.shr(128);
-            assert_eq!((a * b).div_rem(&b), (a, Uint::from_u64(0)));
+            assert_eq!((a * b).div_rem(&b), (a, Uint::from_u32(0)));
         }
     }
 
     #[test]
     fn construct_new_integer_from_limbs() {
         let a: U256 = UnsignedInteger {
-            limbs: [0, 1, 2, 3],
+            limbs: [0, 1, 2, 3, 4, 5, 6, 7],
         };
-        assert_eq!(U256::from_limbs([0, 1, 2, 3]), a);
+        assert_eq!(U256::from_limbs([0, 1, 2, 3, 4, 5, 6, 7]), a);
     }
 
     #[test]
-    fn construct_new_integer_from_u64_1() {
-        let a = U256::from_u64(1_u64);
-        assert_eq!(a.limbs, [0, 0, 0, 1]);
+    fn construct_new_integer_from_u32_1() {
+        let a = U256::from_u32(1_u32);
+        assert_eq!(a.limbs, [0, 0, 0, 0, 0, 0, 0, 1]);
     }
 
     #[test]
-    fn construct_new_integer_from_u64_2() {
-        let a = U256::from_u64(u64::MAX);
-        assert_eq!(a.limbs, [0, 0, 0, u64::MAX]);
+    fn construct_new_integer_from_u32_2() {
+        let a = U256::from_u32(u32::MAX);
+        assert_eq!(a.limbs, [0, 0, 0, 0, 0, 0, 0, u32::MAX]);
     }
 
     #[test]
     fn construct_new_integer_from_u128_1() {
         let a = U256::from_u128(u128::MAX);
-        assert_eq!(a.limbs, [0, 0, u64::MAX, u64::MAX]);
+        assert_eq!(a.limbs, [0, 0, 0, 0, u32::MAX, u32::MAX, u32::MAX, u32::MAX]);
     }
 
     #[test]
     fn construct_new_integer_from_u128_4() {
         let a = U256::from_u128(276371540478856090688472252609570374439);
-        assert_eq!(a.limbs, [0, 0, 14982131230017065096, 14596400355126379303]);
+        assert_eq!(a.limbs, [0, 0, 0, 0, 3488299257, 2540966024, 3398489289, 3065086759]);
     }
 
     #[test]
     fn construct_new_integer_from_hex_1() {
         let a = U256::from_hex_unchecked("1");
-        assert_eq!(a.limbs, [0, 0, 0, 1]);
+        assert_eq!(a.limbs, [0, 0, 0, 0, 0, 0, 0, 1]);
     }
 
     #[test]
     fn construct_new_integer_from_hex_2() {
         let a = U256::from_hex_unchecked("f");
-        assert_eq!(a.limbs, [0, 0, 0, 15]);
+        assert_eq!(a.limbs, [0, 0, 0, 0, 0, 0, 0, 15]);
     }
 
     #[test]
     fn construct_new_integer_from_hex_3() {
         let a = U256::from_hex_unchecked("10000000000000000");
-        assert_eq!(a.limbs, [0, 0, 1, 0]);
+        assert_eq!(a.limbs, [0, 0, 0, 0, 0, 1, 0, 0]);
     }
 
     #[test]
     fn construct_new_integer_from_hex_4() {
         let a = U256::from_hex_unchecked("a0000000000000000");
-        assert_eq!(a.limbs, [0, 0, 10, 0]);
+        assert_eq!(a.limbs, [0, 0, 0, 0, 0, 10, 0, 0]);
     }
 
     #[test]
     fn construct_new_integer_from_hex_5() {
         let a = U256::from_hex_unchecked("ffffffffffffffffff");
-        assert_eq!(a.limbs, [0, 0, 255, u64::MAX]);
+        assert_eq!(a.limbs, [0, 0, 0, 0, 0, 255, 4294967295, 4294967295]);
     }
 
     #[test]
     fn construct_new_integer_from_hex_6() {
         let a = U256::from_hex_unchecked("eb235f6144d9e91f4b14");
-        assert_eq!(a.limbs, [0, 0, 60195, 6872850209053821716]);
+        assert_eq!(a.limbs, [0, 0, 0, 0, 0, 60195, 1600210137, 3911142164]);
     }
 
     #[test]
@@ -2213,10 +2229,7 @@ mod tests_u256 {
         assert_eq!(
             a.limbs,
             [
-                0,
-                194229460750598834,
-                4171047363999149894,
-                6975114134393503410
+                0, 0, 45222570, 1559528114, 971147642, 2021633862, 1624020313, 2018819762
             ]
         );
     }
@@ -2229,10 +2242,7 @@ mod tests_u256 {
         assert_eq!(
             a.limbs,
             [
-                3107671372009581347,
-                11396525602857743462,
-                921361708038744867,
-                6872850209053821716
+                723561125, 3477613347, 2653460391, 2281370726, 214521239, 2236345123, 1600210137, 3911142164
             ]
         );
     }
@@ -2240,50 +2250,49 @@ mod tests_u256 {
     #[test]
     fn construct_new_integer_from_dec_1() {
         let a = U256::from_dec_str("1").unwrap();
-        assert_eq!(a.limbs, [0, 0, 0, 1]);
+        assert_eq!(a.limbs, [0, 0, 0, 0, 0, 0, 0, 1]);
     }
 
     #[test]
     fn construct_new_integer_from_dec_2() {
         let a = U256::from_dec_str("15").unwrap();
-        assert_eq!(a.limbs, [0, 0, 0, 15]);
+        assert_eq!(a.limbs, [0, 0, 0, 0, 0, 0, 0, 15]);
     }
 
     #[test]
     fn construct_new_integer_from_dec_3() {
         let a = U256::from_dec_str("18446744073709551616").unwrap();
-        assert_eq!(a.limbs, [0, 0, 1, 0]);
+        assert_eq!(a.limbs, [0, 0, 0, 0, 0, 1, 0, 0]);
     }
 
     #[test]
     fn construct_new_integer_from_dec_4() {
         let a = U256::from_dec_str("184467440737095516160").unwrap();
-        assert_eq!(a.limbs, [0, 0, 10, 0]);
+        assert_eq!(a.limbs, [0, 0, 0, 0, 0, 10, 0, 0]);
     }
 
     #[test]
     fn construct_new_integer_from_dec_5() {
-        let a = U256::from_dec_str("4722366482869645213695").unwrap();
-        assert_eq!(a.limbs, [0, 0, 255, u64::MAX]);
+        let a = U256::from_dec_str("4722363282869325213695").unwrap();
+        assert_eq!(a.limbs, [0, 0, 0, 0, 0, 255, 4294222237, 3718590463]);
     }
 
     #[test]
     fn construct_new_integer_from_dec_6() {
         let a = U256::from_dec_str("1110408632367155513346836").unwrap();
-        assert_eq!(a.limbs, [0, 0, 60195, 6872850209053821716]);
+        assert_eq!(a.limbs, [0, 0, 0, 0, 0, 60195, 1600210137, 3911142164]);
     }
 
     #[test]
     fn construct_new_integer_from_dec_7() {
         let a =
-            U256::from_dec_str("66092860629991288370279803883558073888453977263446474418").unwrap();
+            U256::from_dec_str("66092860629991288370279803883558073888453977263443274418").unwrap();
         assert_eq!(
             a.limbs,
             [
                 0,
-                194229460750598834,
-                4171047363999149894,
-                6975114134393503410
+                0,
+                45222570, 1559528114, 971147642, 2021633862, 1624020313, 2015619762
             ]
         );
     }
@@ -2297,10 +2306,7 @@ mod tests_u256 {
         assert_eq!(
             a.limbs,
             [
-                3107671372009581347,
-                11396525602857743462,
-                921361708038744867,
-                6872850209053821716
+                723561125, 3477613347, 2653460391, 2281370726, 214521239, 2236345123, 1600210137, 3911142164
             ]
         );
     }
@@ -2319,7 +2325,7 @@ mod tests_u256 {
     fn equality_works_1() {
         let a = U256::from_hex_unchecked("1");
         let b = U256 {
-            limbs: [0, 0, 0, 1],
+            limbs: [0, 0, 0, 0, 0, 0, 0, 1],
         };
         assert_eq!(a, b);
     }
@@ -2327,7 +2333,7 @@ mod tests_u256 {
     fn equality_works_2() {
         let a = U256::from_hex_unchecked("f");
         let b = U256 {
-            limbs: [0, 0, 0, 15],
+            limbs: [0, 0, 0, 0, 0, 0, 0, 15],
         };
         assert_eq!(a, b);
     }
@@ -2336,7 +2342,7 @@ mod tests_u256 {
     fn equality_works_3() {
         let a = U256::from_hex_unchecked("10000000000000000");
         let b = U256 {
-            limbs: [0, 0, 1, 0],
+            limbs: [0, 0, 0, 0, 0, 1, 0, 0],
         };
         assert_eq!(a, b);
     }
@@ -2345,7 +2351,7 @@ mod tests_u256 {
     fn equality_works_4() {
         let a = U256::from_hex_unchecked("a0000000000000000");
         let b = U256 {
-            limbs: [0, 0, 10, 0],
+            limbs: [0, 0, 0, 0, 0, 10, 0, 0],
         };
         assert_eq!(a, b);
     }
@@ -2354,7 +2360,7 @@ mod tests_u256 {
     fn equality_works_5() {
         let a = U256::from_hex_unchecked("ffffffffffffffffff");
         let b = U256 {
-            limbs: [0, 0, u8::MAX as u64, u64::MAX],
+            limbs: [0, 0, 0, 0, 0, 255, 4294967295, 4294967295],
         };
         assert_eq!(a, b);
     }
@@ -2363,7 +2369,7 @@ mod tests_u256 {
     fn equality_works_6() {
         let a = U256::from_hex_unchecked("eb235f6144d9e91f4b14");
         let b = U256 {
-            limbs: [0, 0, 60195, 6872850209053821716],
+            limbs: [0, 0, 0, 0, 0, 60195, 1600210137, 3911142164],
         };
         assert_eq!(a, b);
     }
@@ -2374,9 +2380,8 @@ mod tests_u256 {
         let b = U256 {
             limbs: [
                 0,
-                194229460750598834,
-                4171047363999149894,
-                6975114134393503410,
+                0,
+                45222570, 1559528114, 971147642, 2021633862, 1624020313, 2018819762
             ],
         };
         assert_eq!(a, b);
@@ -2389,10 +2394,7 @@ mod tests_u256 {
         );
         let b = U256 {
             limbs: [
-                3107671372009581347,
-                11396525602857743462,
-                921361708038744867,
-                6872850209053821716,
+                723561125, 3477613347, 2653460391, 2281370726, 214521239, 2236345123, 1600210137, 3911142164
             ],
         };
         assert_eq!(a, b);
@@ -2414,17 +2416,17 @@ mod tests_u256 {
 
     #[test]
     fn add_two_256_bit_integers_1() {
-        let a = U256::from_u64(2);
-        let b = U256::from_u64(5);
-        let c = U256::from_u64(7);
+        let a = U256::from_u32(2);
+        let b = U256::from_u32(5);
+        let c = U256::from_u32(7);
         assert_eq!(a + b, c);
     }
 
     #[test]
     fn add_two_256_bit_integers_2() {
-        let a = U256::from_u64(334);
-        let b = U256::from_u64(666);
-        let c = U256::from_u64(1000);
+        let a = U256::from_u32(334);
+        let b = U256::from_u32(666);
+        let c = U256::from_u32(1000);
         assert_eq!(a + b, c);
     }
 
@@ -2452,9 +2454,10 @@ mod tests_u256 {
         assert_eq!(a + b, c);
     }
 
+    //THIS IS WEIRD
     #[test]
     fn add_two_256_bit_integers_6() {
-        let a = U256::from_hex_unchecked("9adf291af3a64d59e14e7b440c850508014c551ed5");
+        let a = U256::from_hex_unchecked("9adf291af3a32d59e14e7b440c850508014c551ed5");
         let b = U256::from_hex_unchecked("e7948474bce907f0feaf7e5d741a8cd2f6d1fb9448");
         let c = U256::from_hex_unchecked("18273ad8fb08f554adffdf9a1809f91daf81e50b31d");
         assert_eq!(a + b, c);
@@ -2469,7 +2472,7 @@ mod tests_u256 {
             "0866aef803c92bf02e85c7fad0eccb4881c59825e499fa22f98e1a8fefed4cd9",
         );
         let c = U256::from_hex_unchecked(
-            "193a6afd4d2cacc01101bdd44ec864f517b0f6f5a1d3020dd91594dc1de752cf",
+            "193a6afd4d2cacc01101bdd44ec832f517b0f6f5a1d3020dd91594dc1de752cf",
         );
         assert_eq!(a + b, c);
     }
@@ -2480,10 +2483,10 @@ mod tests_u256 {
             "07df9c74fa9d5aafa74a87dbbf93215659d8a3e1706d4b06de9512284802580f",
         );
         let b = U256::from_hex_unchecked(
-            "d515e54973f0643a6a9957579c1f84020a6a91d5d5f27b75401c7538d2c9ea9c",
+            "d515e54973f0323a6a9957579c1f84020a6a91d5d5f27b75401c7538d2c9ea9c",
         );
         let c = U256::from_hex_unchecked(
-            "dcf581be6e8dbeea11e3df335bb2a558644335b7465fc67c1eb187611acc42ab",
+            "dcf581be6e8dbeea11e3df335bb2a558324335b7465fc67c1eb187611acc42ab",
         );
         assert_eq!(a + b, c);
     }
@@ -2508,10 +2511,10 @@ mod tests_u256 {
             "07df9c74fa9d5aafa74a87dbbf93215659d8a3e1706d4b06de9512284802580f",
         );
         let b = U256::from_hex_unchecked(
-            "d515e54973f0643a6a9957579c1f84020a6a91d5d5f27b75401c7538d2c9ea9c",
+            "d515e54973f0323a6a9957579c1f84020a6a91d5d5f27b75401c7538d2c9ea9c",
         );
         let c_expected = U256::from_hex_unchecked(
-            "dcf581be6e8dbeea11e3df335bb2a558644335b7465fc67c1eb187611acc42ab",
+            "dcf581be6e8dbeea11e3df335bb2a558324335b7465fc67c1eb187611acc42ab",
         );
         let (c, overflow) = U256::add(&a, &b);
         assert_eq!(c, c_expected);
@@ -2537,7 +2540,7 @@ mod tests_u256 {
     #[test]
     fn add_two_256_bit_integers_12_with_overflow() {
         let a = U256::from_hex_unchecked(
-            "b07bc844363dd56467d9ebdd5929e9bb34a8e2577db77df6cf8f2ac45bd3d0bc",
+            "b07bc844363dd53267d9ebdd5929e9bb34a8e2577db77df6cf8f2ac45bd3d0bc",
         );
         let b = U256::from_hex_unchecked(
             "cbbc474761bb7995ff54e25fa5d30295604fe3545d0cde405e72d8c0acebb119",
@@ -2552,17 +2555,17 @@ mod tests_u256 {
 
     #[test]
     fn sub_two_256_bit_integers_1() {
-        let a = U256::from_u64(2);
-        let b = U256::from_u64(5);
-        let c = U256::from_u64(7);
+        let a = U256::from_u32(2);
+        let b = U256::from_u32(5);
+        let c = U256::from_u32(7);
         assert_eq!(c - a, b);
     }
 
     #[test]
     fn sub_two_256_bit_integers_2() {
-        let a = U256::from_u64(334);
-        let b = U256::from_u64(666);
-        let c = U256::from_u64(1000);
+        let a = U256::from_u32(334);
+        let b = U256::from_u32(666);
+        let c = U256::from_u32(1000);
         assert_eq!(c - a, b);
     }
 
@@ -2592,7 +2595,7 @@ mod tests_u256 {
 
     #[test]
     fn sub_two_256_bit_integers_6() {
-        let a = U256::from_hex_unchecked("9adf291af3a64d59e14e7b440c850508014c551ed5");
+        let a = U256::from_hex_unchecked("9adf291af3a32d59e14e7b440c850508014c551ed5");
         let b = U256::from_hex_unchecked("e7948474bce907f0feaf7e5d741a8cd2f6d1fb9448");
         let c = U256::from_hex_unchecked("18273ad8fb08f554adffdf9a1809f91daf81e50b31d");
         assert_eq!(c - a, b);
@@ -2618,10 +2621,10 @@ mod tests_u256 {
             "07df9c74fa9d5aafa74a87dbbf93215659d8a3e1706d4b06de9512284802580e",
         );
         let b = U256::from_hex_unchecked(
-            "d515e54973f0643a6a9957579c1f84020a6a91d5d5f27b75401c7538d2c9ea9d",
+            "d515e54973f0323a6a9957579c1f84020a6a91d5d5f27b75401c7538d2c9ea9d",
         );
         let c = U256::from_hex_unchecked(
-            "dcf581be6e8dbeea11e3df335bb2a558644335b7465fc67c1eb187611acc42ab",
+            "dcf581be6e8dbeea11e3df335bb2a558324335b7465fc67c1eb187611acc42ab",
         );
         assert_eq!(c - a, b);
     }
@@ -2642,9 +2645,9 @@ mod tests_u256 {
 
     #[test]
     fn sub_two_256_bit_integers_11_without_overflow() {
-        let a = U256::from_u64(334);
-        let b_expected = U256::from_u64(666);
-        let c = U256::from_u64(1000);
+        let a = U256::from_u32(334);
+        let b_expected = U256::from_u32(666);
+        let c = U256::from_u32(1000);
         let (b, overflow) = U256::sub(&c, &a);
         assert!(!overflow);
         assert_eq!(b_expected, b);
@@ -2652,11 +2655,11 @@ mod tests_u256 {
 
     #[test]
     fn sub_two_256_bit_integers_11_with_overflow() {
-        let a = U256::from_u64(334);
+        let a = U256::from_u32(334);
         let b_expected = U256::from_hex_unchecked(
             "fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffd66",
         );
-        let c = U256::from_u64(1000);
+        let c = U256::from_u32(1000);
         let (b, overflow) = U256::sub(&a, &c);
         assert!(overflow);
         assert_eq!(b_expected, b);
@@ -2664,7 +2667,7 @@ mod tests_u256 {
 
     #[test]
     fn const_le_works() {
-        let a = U256::from_u64(334);
+        let a = U256::from_u32(334);
         let b = U256::from_u128(333);
         assert!(U256::const_le(&b, &a));
         assert!(U256::const_le(&a, &a));
@@ -2673,13 +2676,13 @@ mod tests_u256 {
 
     #[test]
     fn partial_order_works() {
-        assert!(U256::from_u64(10) <= U256::from_u64(10));
-        assert!(U256::from_u64(1) < U256::from_u64(2));
-        assert!(U256::from_u64(2) >= U256::from_u64(1));
+        assert!(U256::from_u32(10) <= U256::from_u32(10));
+        assert!(U256::from_u32(1) < U256::from_u32(2));
+        assert!(U256::from_u32(2) >= U256::from_u32(1));
 
-        assert!(U256::from_u64(10) >= U256::from_u64(10));
-        assert!(U256::from_u64(2) > U256::from_u64(1));
-        assert!(U256::from_u64(1) <= U256::from_u64(2));
+        assert!(U256::from_u32(10) >= U256::from_u32(10));
+        assert!(U256::from_u32(2) > U256::from_u32(1));
+        assert!(U256::from_u32(1) <= U256::from_u32(2));
 
         let a = U256::from_hex_unchecked(
             "5d4a70e5f5f54468ffb2d4d41519385f24b078a0e7d0281d5ad0c36724dc4233",
@@ -2692,10 +2695,10 @@ mod tests_u256 {
         assert!(&a >= &a);
         assert!(&a >= &a);
         assert!(&a <= &a);
-        assert!(&a < &(&a + U256::from_u64(1)));
-        assert!(&a <= &(&a + U256::from_u64(1)));
-        assert!(&a + U256::from_u64(1) > a);
-        assert!((&a + U256::from_u64(1) >= a));
+        assert!(&a < &(&a + U256::from_u32(1)));
+        assert!(&a <= &(&a + U256::from_u32(1)));
+        assert!(&a + U256::from_u32(1) > a);
+        assert!((&a + U256::from_u32(1) >= a));
         assert!(&a <= &c);
         assert!(&a < &c);
         assert!(&a < &c);
@@ -2709,9 +2712,9 @@ mod tests_u256 {
 
     #[test]
     fn mul_two_256_bit_integers_works_1() {
-        let a = U256::from_u64(3);
-        let b = U256::from_u64(8);
-        let c = U256::from_u64(3 * 8);
+        let a = U256::from_u32(3);
+        let b = U256::from_u32(8);
+        let c = U256::from_u32(3 * 8);
         assert_eq!(a * b, c);
     }
 
@@ -2750,7 +2753,7 @@ mod tests_u256 {
             "7f3ad1611ab58212f92a2484e9560935b9ac4615fe61cfed1a4861e193a74d20",
         );
         let hi_expected = U256::from_hex_unchecked(
-            "46A946D6A984FE6507DE6B8D1354256D7A7BAE4283404733BDC876A264BCE5EE",
+            "46A946D6A984FE6507DE6B8D1354256D7A7BAE4283404733BDC876A232BCE5EE",
         );
         let lo_expected = U256::from_hex_unchecked(
             "43F24263F10930EBE3EA0307466C19B13B9C7DBA6B3F7604B7F32FB0E3084EA0",
@@ -2769,9 +2772,9 @@ mod tests_u256 {
 
     #[test]
     fn shift_left_on_256_bit_integer_works_2() {
-        let a = U256::from_u64(1);
-        let b = U256::from_u128(1_u128 << 64);
-        assert_eq!(a << 64, b);
+        let a = U256::from_u32(1);
+        let b = U256::from_u128(1_u128 << 32);
+        assert_eq!(a << 32, b);
     }
 
     #[test]
@@ -2784,7 +2787,7 @@ mod tests_u256 {
     #[test]
     fn shift_left_on_256_bit_integer_works_4() {
         let a = U256::from_hex_unchecked("e45542992b6844553f3cb1c5ac33e7fa5");
-        let b = U256::from_hex_unchecked("391550a64ada11154fcf2c716b0cf9fe940");
+        let b = U256::from_hex_unchecked("391550a32ada11154fcf2c716b0cf9fe940");
         assert_eq!(a << 6, b);
     }
 
@@ -2803,7 +2806,7 @@ mod tests_u256 {
         let b = U256::from_hex_unchecked(
             "2ed786ab132f0b5b0cacd385dd51de3a00000000000000000000000000000000",
         );
-        assert_eq!(&a << (64 * 2), b);
+        assert_eq!(&a << (32 * 4), b);
     }
 
     #[test]
@@ -2812,7 +2815,7 @@ mod tests_u256 {
         let b = U256::from_hex_unchecked(
             "90823e0bd707f000000000000000000000000000000000000000000000000",
         );
-        assert_eq!(&a << (64 * 3), b);
+        assert_eq!(&a << (32 * 6), b);
     }
 
     #[test]
@@ -2832,7 +2835,7 @@ mod tests_u256 {
     #[test]
     fn shift_right_on_256_bit_integer_works_3() {
         let a = U256::from_hex_unchecked("e45542992b6844553f3cb1c5ac33e7fa5");
-        let b = U256::from_hex_unchecked("391550a64ada11154fcf2c716b0cf9fe940");
+        let b = U256::from_hex_unchecked("391550a32ada11154fcf2c716b0cf9fe940");
         assert_eq!(b >> 6, a);
     }
 
@@ -2869,7 +2872,7 @@ mod tests_u256 {
             "6a9ce35d8940a5ebd29604ce9a182ade76f03f7e9965760b84a8cfd1d3dd2e61",
         );
         let b = U256::from_hex_unchecked("6a9ce35d8940a5eb");
-        assert_eq!(&a >> (64 * 3), b);
+        assert_eq!(&a >> (32 * 6), b);
     }
 
     #[test]
@@ -2878,13 +2881,13 @@ mod tests_u256 {
             "5322c128ec84081b6c376c108ebd7fd36bbd44f71ee5e6ad6bcb3dd1c5265bd7",
         );
         let b = U256::from_hex_unchecked("5322c128ec84081b6c376c108ebd7fd3");
-        assert_eq!(&a >> (64 * 2), b);
+        assert_eq!(&a >> (32 * 4), b);
     }
 
     #[test]
     #[cfg(feature = "alloc")]
     fn to_be_bytes_works() {
-        let number = U256::from_u64(1);
+        let number = U256::from_u32(1);
         let expected_bytes = [
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 1,
@@ -2896,7 +2899,7 @@ mod tests_u256 {
     #[test]
     #[cfg(feature = "alloc")]
     fn to_le_bytes_works() {
-        let number = U256::from_u64(1);
+        let number = U256::from_u32(1);
         let expected_bytes = [
             1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0,
@@ -2911,7 +2914,7 @@ mod tests_u256 {
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 1,
         ];
-        let expected_number = U256::from_u64(1);
+        let expected_number = U256::from_u32(1);
         assert_eq!(U256::from_bytes_be(&bytes).unwrap(), expected_number);
     }
 
@@ -2921,22 +2924,23 @@ mod tests_u256 {
             1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0,
         ];
-        let expected_number = U256::from_u64(1);
+        let expected_number = U256::from_u32(1);
         assert_eq!(U256::from_bytes_le(&bytes).unwrap(), expected_number);
     }
 
     #[test]
     fn shr_inplace_works_1() {
-        let mut n = UnsignedInteger::<3>::from(4u64);
+        let mut n = UnsignedInteger::<3>::from(4u32);
         n >>= 1;
 
-        assert_eq!(n, UnsignedInteger::<3>::from(2u64));
+        assert_eq!(n, UnsignedInteger::<3>::from(2u32));
     }
 
+    // THIS IS WEIRD
     #[test]
     fn shr_inplace_on_256_bit_integer_works_1() {
         let a = U256::from_hex_unchecked("e45542992b6844553f3cb1c5ac33e7fa5");
-        let mut b = U256::from_hex_unchecked("391550a64ada11154fcf2c716b0cf9fe940");
+        let mut b = U256::from_hex_unchecked("391550a32ada11154fcf2c716b0cf9fe940");
         b >>= 6;
         assert_eq!(a, b);
     }
@@ -2957,7 +2961,7 @@ mod tests_u256 {
         let mut b = U256::from_hex_unchecked(
             "2ed786ab132f0b5b0cacd385dd51de3a00000000000000000000000000000000",
         );
-        b >>= 64 * 2;
+        b >>= 32 * 4;
         assert_eq!(a, b);
     }
 
@@ -2967,7 +2971,7 @@ mod tests_u256 {
         let mut b = U256::from_hex_unchecked(
             "90823e0bd707f000000000000000000000000000000000000000000000000",
         );
-        b >>= 64 * 3;
+        b >>= 32 * 6;
         assert_eq!(a, b);
     }
 
@@ -2985,21 +2989,21 @@ mod tests_u256 {
     fn multiplying_and_dividing_for_number_is_number_with_remainder_0() {
         let a = U256::from_u128(12678920202929299999999999282828);
         let b = U256::from_u128(9000000000000);
-        assert_eq!((a * b).div_rem(&b), (a, U256::from_u64(0)));
+        assert_eq!((a * b).div_rem(&b), (a, U256::from_u32(0)));
     }
 
     #[test]
     fn unsigned_int_8_div_rem_3_is_2_2() {
-        let a: UnsignedInteger<4> = U256::from_u64(8);
-        let b = U256::from_u64(3);
-        assert_eq!(a.div_rem(&b), (U256::from_u64(2), U256::from_u64(2)));
+        let a: UnsignedInteger<8> = U256::from_u32(8);
+        let b = U256::from_u32(3);
+        assert_eq!(a.div_rem(&b), (U256::from_u32(2), U256::from_u32(2)));
     }
 
     #[test]
     fn unsigned_int_500721_div_rem_5_is_100144_1() {
-        let a = U256::from_u64(500721);
-        let b = U256::from_u64(5);
-        assert_eq!(a.div_rem(&b), (U256::from_u64(100144), U256::from_u64(1)));
+        let a = U256::from_u32(500721);
+        let b = U256::from_u32(5);
+        assert_eq!(a.div_rem(&b), (U256::from_u32(100144), U256::from_u32(1)));
     }
 
     #[test]

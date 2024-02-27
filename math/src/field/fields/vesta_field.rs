@@ -1,6 +1,6 @@
 use crate::{
-    field::fields::montgomery_backed_prime_fields::{IsModulus, MontgomeryBackendPrimeField},
-    unsigned_integer::element::U256,
+    field::fields::u64_montgomery_backend_prime_fields::{IsModulus, MontgomeryBackendPrimeField},
+    unsigned_integer::u64::element::U256,
 };
 
 type VestaMontgomeryBackendPrimeField<T> = MontgomeryBackendPrimeField<T, 4>;

@@ -20,7 +20,7 @@ use crate::{
 use cairo_vm::without_std::collections::HashMap;
 use lambdaworks_math::{
     field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
-    unsigned_integer::element::UnsignedInteger,
+    unsigned_integer::u64::element::UnsignedInteger,
 };
 use stark_platinum_prover::trace::TraceTable;
 

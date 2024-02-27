@@ -9,7 +9,7 @@ use lambdaworks_math::{
     msm::pippenger::msm,
     polynomial::Polynomial,
     traits::{AsBytes, Deserializable},
-    unsigned_integer::element::UnsignedInteger,
+    unsigned_integer::u64::element::UnsignedInteger,
 };
 
 #[derive(PartialEq, Clone, Debug)]
@@ -270,7 +270,7 @@ mod tests {
         field::element::FieldElement,
         polynomial::Polynomial,
         traits::{AsBytes, Deserializable},
-        unsigned_integer::element::U256,
+        unsigned_integer::u64::element::U256,
     };
 
     use crate::commitments::traits::IsCommitmentScheme;

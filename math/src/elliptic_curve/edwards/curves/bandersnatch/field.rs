@@ -3,9 +3,9 @@
 use crate::{
     field::{
         element::FieldElement,
-        fields::montgomery_backed_prime_fields::{IsModulus, MontgomeryBackendPrimeField},
+        fields::u64_montgomery_backend_prime_fields::{IsModulus, MontgomeryBackendPrimeField},
     },
-    unsigned_integer::element::U256,
+    unsigned_integer::u64::element::U256,
 };
 
 pub const BANDERSNATCH_PRIME_FIELD_ORDER: U256 =

@@ -5,7 +5,7 @@ use lambdaworks_math::{
         traits::IsFFTField,
     },
     traits::{AsBytes, ByteConversion},
-    unsigned_integer::element::U256,
+    unsigned_integer::u64::element::U256,
 };
 use sha3::{Digest, Keccak256};
 

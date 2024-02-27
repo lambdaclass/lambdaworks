@@ -3,8 +3,8 @@ use crate::field::errors::FieldError;
 use crate::field::traits::IsField;
 #[cfg(feature = "lambdaworks-serde-binary")]
 use crate::traits::ByteConversion;
-use crate::unsigned_integer::element::UnsignedInteger;
-use crate::unsigned_integer::montgomery::MontgomeryAlgorithms;
+use crate::unsigned_integer::u64::element::UnsignedInteger;
+use crate::unsigned_integer::u64::montgomery::MontgomeryAlgorithms;
 use crate::unsigned_integer::traits::IsUnsignedInteger;
 use core::fmt;
 use core::fmt::Debug;
@@ -31,7 +31,7 @@ use serde::ser::{Serialize, SerializeStruct, Serializer};
 ))]
 use serde::Deserialize;
 
-use super::fields::montgomery_backed_prime_fields::{IsModulus, MontgomeryBackendPrimeField};
+use super::fields::u64_montgomery_backend_prime_fields::{IsModulus, MontgomeryBackendPrimeField};
 use super::traits::{IsPrimeField, IsSubFieldOf, LegendreSymbol};
 
 /// A field element with operations algorithms defined in `F`
@@ -719,7 +719,7 @@ mod tests {
     use crate::field::fields::u64_prime_field::U64PrimeField;
     use crate::field::test_fields::u64_test_field::U64TestField;
     #[cfg(feature = "alloc")]
-    use crate::unsigned_integer::element::UnsignedInteger;
+    use crate::unsigned_integer::u64::element::UnsignedInteger;
     #[cfg(feature = "alloc")]
     use alloc::vec::Vec;
     #[cfg(feature = "alloc")]

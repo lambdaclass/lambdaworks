@@ -7,7 +7,7 @@ use lambdaworks_math::{
         traits::{IsEllipticCurve, IsPairing},
     },
     field::element::FieldElement,
-    unsigned_integer::element::U256,
+    unsigned_integer::u64::element::U256,
 };
 use rand::{Rng, SeedableRng};
 

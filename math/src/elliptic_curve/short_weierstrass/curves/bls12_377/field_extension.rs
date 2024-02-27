@@ -1,8 +1,8 @@
 use crate::field::{
     element::FieldElement,
-    fields::montgomery_backed_prime_fields::{IsModulus, MontgomeryBackendPrimeField},
+    fields::u64_montgomery_backend_prime_fields::{IsModulus, MontgomeryBackendPrimeField},
 };
-use crate::unsigned_integer::element::U384;
+use crate::unsigned_integer::u64::element::U384;
 
 pub const BLS12377_PRIME_FIELD_ORDER: U384 = U384::from_hex_unchecked("1ae3a4617c510eac63b05c06ca1493b1a22d9f300f5138f1ef3622fba094800170b5d44300000008508c00000000001");
 

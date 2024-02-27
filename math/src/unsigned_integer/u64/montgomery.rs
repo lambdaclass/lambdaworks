@@ -207,7 +207,7 @@ impl MontgomeryAlgorithms {
 
 #[cfg(test)]
 mod tests {
-    use crate::unsigned_integer::{element::U384, montgomery::MontgomeryAlgorithms};
+    use crate::unsigned_integer::u64::{element::U384, montgomery::MontgomeryAlgorithms};
 
     use proptest::prelude::*;
 

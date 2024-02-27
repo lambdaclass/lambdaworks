@@ -2,9 +2,9 @@ use alloc::{string::String, vec::Vec};
 use lambdaworks_math::{
     field::{
         element::FieldElement,
-        fields::montgomery_backed_prime_fields::{IsModulus, MontgomeryBackendPrimeField},
+        fields::u64_montgomery_backend_prime_fields::{IsModulus, MontgomeryBackendPrimeField},
     },
-    unsigned_integer::element::UnsignedInteger,
+    unsigned_integer::u64::element::UnsignedInteger,
 };
 
 /// Converts a hash, represented by an array of bytes, into a vector of field elements
@@ -72,9 +72,9 @@ mod tests {
     use lambdaworks_math::{
         field::{
             element::FieldElement,
-            fields::montgomery_backed_prime_fields::{IsModulus, MontgomeryBackendPrimeField},
+            fields::u64_montgomery_backend_prime_fields::{IsModulus, MontgomeryBackendPrimeField},
         },
-        unsigned_integer::element::UnsignedInteger,
+        unsigned_integer::u64::element::UnsignedInteger,
     };
 
     use crate::hash::{hash_to_field::hash_to_field, sha3::Sha3Hasher};

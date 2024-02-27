@@ -5,7 +5,7 @@ use super::{
 use crate::cyclic_group::IsGroup;
 use crate::elliptic_curve::short_weierstrass::point::ShortWeierstrassProjectivePoint;
 use crate::elliptic_curve::traits::IsEllipticCurve;
-use crate::unsigned_integer::element::U256;
+use crate::unsigned_integer::u64::element::U256;
 use crate::{
     elliptic_curve::short_weierstrass::traits::IsShortWeierstrass, field::element::FieldElement,
 };
@@ -116,7 +116,7 @@ mod tests {
             traits::EllipticCurveError,
         },
         field::element::FieldElement,
-        unsigned_integer::element::U384,
+        unsigned_integer::u64::element::U384,
     };
 
     // -15132376222941642751 = MILLER_LOOP_CONSTANT + 1 = -d20100000000ffff

@@ -4,9 +4,9 @@ use crate::field::{
         cubic::{CubicExtensionField, HasCubicNonResidue},
         quadratic::{HasQuadraticNonResidue, QuadraticExtensionField},
     },
-    fields::montgomery_backed_prime_fields::{IsModulus, MontgomeryBackendPrimeField},
+    fields::u64_montgomery_backend_prime_fields::{IsModulus, MontgomeryBackendPrimeField},
 };
-use crate::unsigned_integer::element::U256;
+use crate::unsigned_integer::u64::element::U256;
 
 #[cfg(feature = "std")]
 use crate::traits::ByteConversion;

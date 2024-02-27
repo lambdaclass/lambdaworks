@@ -5,8 +5,8 @@ use crate::field::traits::IsPrimeField;
 use crate::traits::AsBytes;
 use crate::traits::ByteConversion;
 use crate::{
-    field::traits::IsField, unsigned_integer::element::UnsignedInteger,
-    unsigned_integer::montgomery::MontgomeryAlgorithms,
+    field::traits::IsField, unsigned_integer::u64::element::UnsignedInteger,
+    unsigned_integer::u64::montgomery::MontgomeryAlgorithms,
 };
 
 use core::fmt::Debug;
@@ -387,15 +387,15 @@ mod tests_u384_prime_fields {
     use crate::field::element::FieldElement;
     use crate::field::errors::FieldError;
     use crate::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;
-    use crate::field::fields::montgomery_backed_prime_fields::{
+    use crate::field::fields::u64_montgomery_backend_prime_fields::{
         IsModulus, U256PrimeField, U384PrimeField,
     };
     use crate::field::traits::IsField;
     use crate::field::traits::IsPrimeField;
     #[cfg(feature = "alloc")]
     use crate::traits::ByteConversion;
-    use crate::unsigned_integer::element::U384;
-    use crate::unsigned_integer::element::{UnsignedInteger, U256};
+    use crate::unsigned_integer::u64::element::U384;
+    use crate::unsigned_integer::u64::element::{UnsignedInteger, U256};
 
     #[derive(Clone, Debug)]
     struct U384Modulus23;
@@ -776,13 +776,13 @@ mod tests_u384_prime_fields {
 mod tests_u256_prime_fields {
     use crate::field::element::FieldElement;
     use crate::field::errors::FieldError;
-    use crate::field::fields::montgomery_backed_prime_fields::{IsModulus, U256PrimeField};
+    use crate::field::fields::u64_montgomery_backend_prime_fields::{IsModulus, U256PrimeField};
     use crate::field::traits::IsField;
     use crate::field::traits::IsPrimeField;
     #[cfg(feature = "alloc")]
     use crate::traits::ByteConversion;
-    use crate::unsigned_integer::element::U256;
-    use crate::unsigned_integer::element::{UnsignedInteger, U64};
+    use crate::unsigned_integer::u64::element::U256;
+    use crate::unsigned_integer::u64::element::{UnsignedInteger, U64};
 
     use super::U64PrimeField;
 
