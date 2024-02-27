@@ -85,8 +85,8 @@ where
 
     fn evaluate(
         &self,
-        frame: &Frame<F, F>,
-        transition_evaluations: &mut [FieldElement<F>],
+        _frame: &Frame<F, F>,
+        _transition_evaluations: &mut [FieldElement<F>],
         _periodic_values: &[FieldElement<F>],
         _rap_challenges: &[FieldElement<F>],
     ) {
@@ -148,7 +148,8 @@ where
         let context = AirContext {
             proof_options: proof_options.clone(),
             trace_columns: NUMBER_OF_COLUMNS,
-            transition_offsets: vec![0, 1, 2],
+            // These are the relative indexes of rows needed to evaluate the constraints, in this case we need two consecutives rows so 0 and 1 is good.  
+            transition_offsets: vec![0, 1],
             num_transition_constraints: constraints.len(),
         };
 
