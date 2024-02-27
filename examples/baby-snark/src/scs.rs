@@ -15,20 +15,16 @@ pub struct Constraint {
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SquareConstraintSystem {
+    /// A constraint is a row in the matrix
     pub constraints: Vec<Constraint>,
     pub number_of_inputs: usize,
 }
 
 impl SquareConstraintSystem {
-    pub fn from_matrices(
-        u: Vec<Vec<FrElement>>,
-        number_of_inputs: usize,
-    ) -> Self {
+    pub fn from_matrices(u: Vec<Vec<FrElement>>, number_of_inputs: usize) -> Self {
         Self {
             constraints: (0..u.len())
-                .map(|i| Constraint {
-                    u: u[i].clone(),
-                })
+                .map(|i| Constraint { u: u[i].clone() })
                 .collect(),
             number_of_inputs,
         }
@@ -38,6 +34,7 @@ impl SquareConstraintSystem {
         self.constraints.len()
     }
 
+    /// The size of a constraint represents the number of u polynomials
     pub fn witness_size(&self) -> usize {
         self.constraints[0].u.len()
     }
