@@ -61,8 +61,7 @@ where
     let last_poly = fold_polynomial(&current_poly, &zeta) * FieldElement::from(2);
 
     let last_value = last_poly
-        .coefficients()
-        .get(0)
+        .coefficients().first()
         .unwrap_or(&FieldElement::zero())
         .clone();
 
