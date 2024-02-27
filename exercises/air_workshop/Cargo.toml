@@ -11,3 +11,5 @@ path = "src/main.rs"
 
 [dependencies]
 lambdaworks-math = { workspace = true }
+lambdaworks-crypto = { workspace = true }
+stark-platinum-prover = {workspace = true }

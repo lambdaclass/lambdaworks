@@ -127,7 +127,6 @@ let context = AirContext {
     },
     trace_columns: trace_table.n_cols,
     transition_degrees: vec![1],
-    transition_exemptions: vec![2],
     transition_offsets: vec![0, 1, 2],
     num_transition_constraints: 1,
 };

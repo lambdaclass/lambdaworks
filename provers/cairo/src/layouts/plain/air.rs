@@ -458,26 +458,22 @@ impl AIR for CairoAIR {
 
             assert_eq!(transition_constraints.len(), 32);
         }
-
-        let transition_exemptions = transition_constraints
-            .iter()
-            .map(|c| c.end_exemptions())
-            .collect();
-
+        
         let context = AirContext {
             proof_options: proof_options.clone(),
             trace_columns,
-            transition_exemptions,
             transition_offsets: vec![0, 1],
             num_transition_constraints: transition_constraints.len(),
         };
 
         // The number of the transition constraints
         // and transition exemptions should be the same always.
+        /*  
         debug_assert_eq!(
             context.transition_exemptions.len(),
             context.num_transition_constraints
         );
+        */
 
         Self {
             context,
