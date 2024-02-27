@@ -1,5 +1,3 @@
-use std::collections::HashSet;
-
 use super::proof::options::ProofOptions;
 
 #[derive(Clone, Debug)]

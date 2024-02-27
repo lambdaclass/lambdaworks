@@ -166,8 +166,6 @@ where
             Box::new(PermutationConstraint::new()),
         ];
 
-        let exemptions = 3 + trace_length - pub_inputs.steps - 1;
-
         let context = AirContext {
             proof_options: proof_options.clone(),
             trace_columns: 3,
