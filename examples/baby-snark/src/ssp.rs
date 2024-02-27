@@ -72,6 +72,10 @@ impl SquareSpanProgram {
             u_poly,
         }
     }
+
+    pub fn num_of_private_inputs(&self) -> usize {
+        self.u_poly.len() - self.num_of_public_inputs
+    }
 }
 
 #[inline]
