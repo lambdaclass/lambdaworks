@@ -171,7 +171,6 @@ where
 
         let context = AirContext {
             proof_options: proof_options.clone(),
-            transition_exemptions: vec![1, 1],
             transition_offsets: vec![0, 1],
             num_transition_constraints: 2,
             trace_columns: 2,

@@ -172,7 +172,6 @@ where
             proof_options: proof_options.clone(),
             trace_columns: 3,
             transition_offsets: vec![0, 1, 2],
-            transition_exemptions: vec![exemptions, 1],
             num_transition_constraints: transition_constraints.len(),
         };
 

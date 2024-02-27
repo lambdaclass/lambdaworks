@@ -100,7 +100,6 @@ where
         let context = AirContext {
             proof_options: proof_options.clone(),
             trace_columns: 1,
-            transition_exemptions: vec![1],
             transition_offsets: vec![0, 1],
             num_transition_constraints: constraints.len(),
         };

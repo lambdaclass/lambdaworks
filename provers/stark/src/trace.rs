@@ -53,6 +53,8 @@ where
         }
     }
 
+    /// Creates a new TraceTable from from a one-dimensional array in row major order and the intended width of the table.
+    /// Step size is how many are needed to represent a state of the VM
     pub fn new_main(
         main_data: Vec<FieldElement<F>>,
         num_main_columns: usize,
@@ -71,6 +73,8 @@ where
         }
     }
 
+    /// Creates a new TraceTable from its colummns
+    /// Step size is how many are needed to represent a state of the VM
     pub fn from_columns(
         main_columns: Vec<Vec<FieldElement<F>>>,
         aux_columns: Vec<Vec<FieldElement<E>>>,

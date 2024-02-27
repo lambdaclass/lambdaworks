@@ -128,13 +128,11 @@ impl AIR for BitFlagsAIR {
             vec![bit_constraint, flag_constraint];
 
         let num_transition_constraints = constraints.len();
-        let transition_exemptions: Vec<_> =
-            constraints.iter().map(|c| c.end_exemptions()).collect();
+
 
         let context = AirContext {
             proof_options: proof_options.clone(),
             trace_columns: 2,
-            transition_exemptions,
             transition_offsets: vec![0],
             num_transition_constraints,
         };

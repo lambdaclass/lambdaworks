@@ -48,6 +48,7 @@ pub trait AIR {
         Vec::new()
     }
 
+    /// Returns the amount main trace columns and auxiliary trace columns
     fn trace_layout(&self) -> (usize, usize);
 
     fn has_trace_interaction(&self) -> bool {
