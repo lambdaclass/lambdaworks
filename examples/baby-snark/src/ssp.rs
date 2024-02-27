@@ -14,14 +14,14 @@ impl SquareSpanProgram {
         let offset = &ORDER_R_MINUS_1_ROOT_UNITY;
         let degree = self.num_of_gates * 2;
 
-        let u_eval = self.scale_and_accumulate_variable_polynomials(w, degree, offset);
+        let u = self.scale_and_accumulate_variable_polynomials(w, degree, offset);
 
         let t_poly =
             Polynomial::new_monomial(FrElement::one(), self.num_of_gates) - FrElement::one();
         let mut t = Polynomial::evaluate_offset_fft(&t_poly, 1, Some(degree), offset).unwrap();
         FrElement::inplace_batch_inverse(&mut t).unwrap();
 
-        let h_evaluated = u_eval
+        let h_evaluated = u
             .iter()
             .zip(&t)
             .map(|(u, t)| (u * u - FrElement::one()) * t)
