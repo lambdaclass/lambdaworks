@@ -5,12 +5,12 @@ use lambdaworks_math::{
             curves::bls12_381::curve::BLS12381Curve,
             point::ShortWeierstrassProjectivePoint,
         },
-        traits::IsEllipticCurve,
+        traits::{ IsEllipticCurve, IsPairing, }
     },
 };
 
 use crate::{
-    common::{ sample_fr_elem, Curve, FrElement, G1Point, G2Point, PairingOutput, TwistedCurve },
+    common::{ sample_fr_elem, Curve, FrElement, G1Point, G2Point, PairingOutput, TwistedCurve, Pairing },
     ssp::SquareSpanProgram,
 };
 
@@ -66,8 +66,8 @@ fn setup(u: SquareSpanProgram) {
         .iter()
         .map(|p| p.evaluate(&tw.tau));
 
-    vk = VerifyingKey{
-        u_tau_g1: u_tau.map(
+    let vk = VerifyingKey{
+        u_tau_g1: u_tau.clone().map(
             |ui|
             g1.operate_with_self(ui.representative())
         ).collect(),
@@ -75,8 +75,8 @@ fn setup(u: SquareSpanProgram) {
             |ui|
             g2.operate_with_self(ui.representative())
         ).collect(),
-        t_tau_g2: ,
-        inv_pairing_g1_g2: ,
+        t_tau_g2: g2.operate_with_self((tw.tau.pow(u.num_of_gates) - FrElement::one()).representative()),
+        inv_pairing_g1_g2: Pairing::compute(&g1, &g2).unwrap().inv().unwrap(),
         beta_gamma_g2: g2.operate_with_self((&tw.beta * &tw.gamma).representative()),
         gamma_g1: g1.operate_with_self(tw.gamma.representative())
     };
