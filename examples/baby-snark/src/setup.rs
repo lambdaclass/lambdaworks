@@ -90,5 +90,40 @@ fn setup(u: SquareSpanProgram) {
         beta_gamma_g2: g2.operate_with_self((&tw.beta * &tw.gamma).representative()),
         gamma_g1: g1.operate_with_self(tw.gamma.representative())
     };
+
+    let pk = ProvingKey{
+        k_powers_of_tau_g1: (0..u.num_of_gates).map(|k| g1.operate_with_self(tw.tau.pow(k).representative())).collect(),
+        u_tau_g1: 
+            u_tau.clone().enumerate().filter_map(
+                |(i, ui)|
+                if i>=u.num_of_public_inputs && i<=u.num_of_gates{
+                    Some(g1.operate_with_self(ui.representative()))
+                }
+                else {
+                    None
+                }
+            ).collect(),
+        u_tau_g2: 
+        u_tau.clone().enumerate().filter_map(
+            |(i, ui)|
+            if i>=u.num_of_public_inputs && i<=u.num_of_gates{
+                Some(g2.operate_with_self(ui.representative()))
+            }
+            else {
+                None
+            }
+        ).collect(),
+        beta_u_tau_g1:
+        u_tau.clone().enumerate().filter_map(
+            |(i, ui)|
+            if i>=u.num_of_public_inputs && i<=u.num_of_gates{
+                Some(g1.operate_with_self((ui*(&tw.beta)).representative()))
+            }
+            else {
+                None
+            }
+        ).collect(),
+    };
+
 }
 
