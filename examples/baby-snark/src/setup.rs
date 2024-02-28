@@ -34,6 +34,10 @@ pub struct ProvingKey {
     pub u_tau_g2: Vec<G2Point>,
     // β * Ui(τ) * g1, l <= i <= m
     pub beta_u_tau_g1: Vec<G1Point>,
+    // t(τ) * g1
+    pub t_tau_g1: G1Point,
+    // t(τ) * g2
+    pub t_tau_g2: G2Point,
 }
 
 struct ToxicWaste {
@@ -127,6 +131,11 @@ fn setup(u: SquareSpanProgram) -> (ProvingKey, VerifyingKey) {
                 }
             })
             .collect(),
+        t_tau_g1: g1
+            .operate_with_self((tw.tau.pow(u.num_of_gates) - FrElement::one()).representative()),
+        t_tau_g2: g2
+            .operate_with_self((tw.tau.pow(u.num_of_gates) - FrElement::one()).representative()),
+
     };
     (pk, vk)
 }
