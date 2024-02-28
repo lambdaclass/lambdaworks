@@ -67,13 +67,23 @@ fn setup(u: SquareSpanProgram) {
         .map(|p| p.evaluate(&tw.tau));
 
     let vk = VerifyingKey{
-        u_tau_g1: u_tau.clone().map(
-            |ui|
-            g1.operate_with_self(ui.representative())
+        u_tau_g1: u_tau.clone().enumerate().filter_map(
+            |(i, ui)|
+            if i<u.num_of_public_inputs{
+                Some(g1.operate_with_self(ui.representative()))
+            }
+            else {
+                None
+            }
         ).collect(),
-        u_tau_g2: u_tau.map(
-            |ui|
-            g2.operate_with_self(ui.representative())
+        u_tau_g2: u_tau.clone().enumerate().filter_map(
+            |(i, ui)|
+            if i<u.num_of_public_inputs{
+                Some(g2.operate_with_self(ui.representative()))
+            }
+            else {
+                None
+            }
         ).collect(),
         t_tau_g2: g2.operate_with_self((tw.tau.pow(u.num_of_gates) - FrElement::one()).representative()),
         inv_pairing_g1_g2: Pairing::compute(&g1, &g2).unwrap().inv().unwrap(),
