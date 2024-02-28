@@ -9,5 +9,6 @@ repository.workspace = true
 
 [dependencies]
 lambdaworks-math = { workspace = true }
+lambdaworks-crypto = { workspace = true }
 rand_chacha = "0.3.1"
 rand = "0.8.5"
