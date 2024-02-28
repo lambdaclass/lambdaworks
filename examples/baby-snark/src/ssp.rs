@@ -10,7 +10,7 @@ pub struct SquareSpanProgram {
 }
 
 impl SquareSpanProgram {
-    pub fn calculate_h_coefficients(&self, w: &[FrElement]) -> Vec<FrElement> {
+    pub fn calculate_h_coefficients(&self, w: &[FrElement], delta:&FrElement) -> Vec<FrElement> {
         let offset = &ORDER_R_MINUS_1_ROOT_UNITY;
         let degree = self.num_of_gates * 2;
 
@@ -18,14 +18,18 @@ impl SquareSpanProgram {
 
         let t_poly =
             Polynomial::new_monomial(FrElement::one(), self.num_of_gates) - FrElement::one();
-        let mut t = Polynomial::evaluate_offset_fft(&t_poly, 1, Some(degree), offset).unwrap();
-        FrElement::inplace_batch_inverse(&mut t).unwrap();
+        let t = Polynomial::evaluate_offset_fft(&t_poly, 1, Some(degree), offset).unwrap();
+        let mut t_inv = t.clone();
+        FrElement::inplace_batch_inverse(&mut t_inv).unwrap();
 
         let h_evaluated = u
             .iter()
             .zip(&t)
-            .map(|(u, t)| (u * u - FrElement::one()) * t)
-            .collect::<Vec<_>>();
+            .zip(&t_inv)
+            .map(|((u, t),t_inv)| (((u * u - FrElement::one()) * t_inv) + FrElement::from(2) * delta * u + delta * delta * t))
+            .collect::<Vec<_>>(); 
+        
+
 
         Polynomial::interpolate_offset_fft(&h_evaluated, offset)
             .unwrap()
