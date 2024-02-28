@@ -23,10 +23,10 @@ pub struct VerifyingKey {
     pub t_tau_g2: G2Point,
     // e(g1, g2)^-1
     pub inv_pairing_g1_g2: PairingOutput,
-    // β * γ * g2
-    pub beta_gamma_g2: G2Point,
-    // γ * g1
-    pub gamma_g1: G1Point,
+    // β * γ * g1
+    pub beta_gamma_g1: G1Point,
+    // γ * g2
+    pub gamma_g2: G2Point,
 }
 
 pub struct ProvingKey {
@@ -87,8 +87,8 @@ fn setup(u: SquareSpanProgram) {
         ).collect(),
         t_tau_g2: g2.operate_with_self((tw.tau.pow(u.num_of_gates) - FrElement::one()).representative()),
         inv_pairing_g1_g2: Pairing::compute(&g1, &g2).unwrap().inv().unwrap(),
-        beta_gamma_g2: g2.operate_with_self((&tw.beta * &tw.gamma).representative()),
-        gamma_g1: g1.operate_with_self(tw.gamma.representative())
+        beta_gamma_g1: g1.operate_with_self((&tw.beta * &tw.gamma).representative()),
+        gamma_g2: g2.operate_with_self(tw.gamma.representative())
     };
 
     let pk = ProvingKey{
