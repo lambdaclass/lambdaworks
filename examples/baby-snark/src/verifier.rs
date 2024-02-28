@@ -16,6 +16,7 @@ pub fn verify(vk: &VerifyingKey, proof: &Proof, pub_inputs: &[FrElement]) -> boo
 
     let mut accept = true;
     accept &= Pairing::compute(b_w, &vk.gamma_g2) == Pairing::compute(&vk.beta_gamma_g1, v_w_prime);
+
     accept &= Pairing::compute(v_w, &TwistedCurve::generator())
         == Pairing::compute(&Curve::generator(), v_w_prime);
 

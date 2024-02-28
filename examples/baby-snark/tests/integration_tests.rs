@@ -11,17 +11,18 @@ fn test_simple_circuit() {
     u[0][0] = FrElement::from(1).neg();
     u[1][0] = FrElement::from(1).neg();
     u[2][0] = FrElement::from(1).neg();
-    u[3][0] = FrElement::from(4);
+    u[3][0] = FrElement::from(1).neg();
     u[0][1] = FrElement::from(2);
+    u[3][1] = FrElement::from(2);
     u[1][2] = FrElement::from(2);
     u[3][2] = FrElement::from(2);
     u[2][3] = FrElement::from(2);
-    u[3][3] = FrElement::from(5).neg();
+    u[3][3] = FrElement::from(4).neg();
 
     let ssp = SquareSpanProgram::from_scs(SquareConstraintSystem::from_matrices(u, 1));
     let (pk, vk) = setup(&ssp);
     let proof = Prover::prove(
-        &[FrElement::one(), FrElement::one(), FrElement::zero()],
+        &[FrElement::one(), FrElement::one(), FrElement::one()],
         &ssp,
         &pk,
     );
