@@ -2,15 +2,14 @@ use lambdaworks_math::{
     cyclic_group::IsGroup,
     elliptic_curve::{
         short_weierstrass::{
-            curves::bls12_381::curve::BLS12381Curve,
-            point::ShortWeierstrassProjectivePoint,
+            curves::bls12_381::curve::BLS12381Curve, point::ShortWeierstrassProjectivePoint,
         },
         traits::IsEllipticCurve,
     },
 };
 
 use crate::{
-    common::{ sample_fr_elem, Curve, FrElement, G1Point, G2Point, PairingOutput, TwistedCurve },
+    common::{sample_fr_elem, Curve, FrElement, G1Point, G2Point, PairingOutput, TwistedCurve},
     ssp::SquareSpanProgram,
 };
 
@@ -23,10 +22,10 @@ pub struct VerifyingKey {
     pub t_tau_g2: G2Point,
     // e(g1, g2)^-1
     pub inv_pairing_g1_g2: PairingOutput,
-    // β * γ * g2
-    pub beta_gamma_g2: G2Point,
-    // γ * g1
-    pub gamma_g1: G1Point,
+    // β * γ * g1
+    pub beta_gamma_g1: G1Point,
+    // γ * g2
+    pub gamma_g2: G2Point,
 }
 
 pub struct ProvingKey {
@@ -55,5 +54,3 @@ impl ToxicWaste {
         }
     }
 }
-
-
