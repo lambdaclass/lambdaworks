@@ -35,12 +35,9 @@ pub fn verify(vk: &VerifyingKey, proof: &Proof, pub_inputs: &[FrElement]) -> boo
         &vk.u_tau_g2,
     )
     .unwrap();
-    accept &= Pairing::compute(
-        &v_u.operate_with(v_w),
-        &v_u_prime.operate_with_affine(v_w_prime),
-    )
-    .unwrap()
-    .mul(&vk.inv_pairing_g1_g2)
+    accept &= Pairing::compute(&v_u.operate_with(v_w), &v_u_prime.operate_with(v_w_prime))
+        .unwrap()
+        .mul(&vk.inv_pairing_g1_g2)
         == Pairing::compute(h, &vk.t_tau_g2).unwrap();
 
     accept
