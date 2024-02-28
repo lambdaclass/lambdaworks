@@ -1,11 +1,6 @@
 use lambdaworks_math::{
     cyclic_group::IsGroup,
-    elliptic_curve::{
-        short_weierstrass::{
-            curves::bls12_381::curve::BLS12381Curve, point::ShortWeierstrassProjectivePoint,
-        },
-        traits::{IsEllipticCurve, IsPairing},
-    },
+    elliptic_curve::traits::{IsEllipticCurve, IsPairing},
 };
 
 use crate::{
