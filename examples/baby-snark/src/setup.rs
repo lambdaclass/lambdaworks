@@ -56,4 +56,29 @@ impl ToxicWaste {
     }
 }
 
+fn setup(u: SquareSpanProgram) {
+    let g1: G1Point = Curve::generator();
+    let g2: G2Point = TwistedCurve::generator();
+
+    let tw = ToxicWaste::new();
+
+    let u_tau = u.u_poly
+        .iter()
+        .map(|p| p.evaluate(&tw.tau));
+
+    vk = VerifyingKey{
+        u_tau_g1: u_tau.map(
+            |ui|
+            g1.operate_with_self(ui.representative())
+        ).collect(),
+        u_tau_g2: u_tau.map(
+            |ui|
+            g2.operate_with_self(ui.representative())
+        ).collect(),
+        t_tau_g2: ,
+        inv_pairing_g1_g2: ,
+        beta_gamma_g2: g2.operate_with_self((&tw.beta * &tw.gamma).representative()),
+        gamma_g1: g1.operate_with_self(tw.gamma.representative())
+    };
+}
 
