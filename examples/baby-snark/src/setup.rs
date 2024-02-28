@@ -52,7 +52,7 @@ impl ToxicWaste {
     }
 }
 
-fn setup(u: SquareSpanProgram) -> (ProvingKey, VerifyingKey) {
+pub fn setup(u: SquareSpanProgram) -> (ProvingKey, VerifyingKey) {
     let g1: G1Point = Curve::generator();
     let g2: G2Point = TwistedCurve::generator();
 
