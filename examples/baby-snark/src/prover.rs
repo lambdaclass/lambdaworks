@@ -16,8 +16,6 @@ impl Prover {
             .map(|elem| elem.representative())
             .collect::<Vec<_>>();
 
-        dbg!(&h_coefficients);
-
         let h = msm(&h_coefficients, &pk.k_powers_of_tau_g1).unwrap();
         let w = inputs
             .iter()
