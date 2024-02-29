@@ -36,6 +36,8 @@ pub struct ProvingKey {
     pub beta_u_tau_g1: Vec<G1Point>,
     // t(τ) * g1
     pub t_tau_g1: G1Point,
+    // β * t(τ) * g1
+    pub beta_t_tau_g1: G1Point,
     // t(τ) * g2
     pub t_tau_g2: G2Point,
 }
@@ -56,7 +58,7 @@ impl ToxicWaste {
     }
 }
 
-fn setup(u: SquareSpanProgram) -> (ProvingKey, VerifyingKey) {
+pub fn setup(u: &SquareSpanProgram) -> (ProvingKey, VerifyingKey) {
     let g1: G1Point = Curve::generator();
     let g2: G2Point = TwistedCurve::generator();
 
@@ -95,7 +97,7 @@ fn setup(u: SquareSpanProgram) -> (ProvingKey, VerifyingKey) {
     };
 
     let pk = ProvingKey {
-        k_powers_of_tau_g1: (0..u.num_of_gates)
+        k_powers_of_tau_g1: (0..u.num_of_gates + 1)
             .map(|k| g1.operate_with_self(tw.tau.pow(k).representative()))
             .collect(),
         u_tau_g1: u_tau
@@ -133,9 +135,11 @@ fn setup(u: SquareSpanProgram) -> (ProvingKey, VerifyingKey) {
             .collect(),
         t_tau_g1: g1
             .operate_with_self((tw.tau.pow(u.num_of_gates) - FrElement::one()).representative()),
+        beta_t_tau_g1: g1.operate_with_self(
+            ((&tw.beta) * (tw.tau.pow(u.num_of_gates) - FrElement::one())).representative(),
+        ),
         t_tau_g2: g2
             .operate_with_self((tw.tau.pow(u.num_of_gates) - FrElement::one()).representative()),
-
     };
     (pk, vk)
 }

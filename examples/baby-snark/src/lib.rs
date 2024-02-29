@@ -1,7 +1,11 @@
+pub mod common;
 pub mod scs;
 pub mod ssp;
 
-mod common;
 mod prover;
 mod setup;
 mod verifier;
+
+pub use prover::{Proof, Prover};
+pub use setup::{setup, ProvingKey, VerifyingKey};
+pub use verifier::verify;

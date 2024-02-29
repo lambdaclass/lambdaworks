@@ -10,9 +10,9 @@ pub struct SquareSpanProgram {
 }
 
 impl SquareSpanProgram {
-    pub fn calculate_h_coefficients(&self, w: &[FrElement], delta:&FrElement) -> Vec<FrElement> {
+    pub fn calculate_h_coefficients(&self, w: &[FrElement], delta: &FrElement) -> Vec<FrElement> {
         let offset = &ORDER_R_MINUS_1_ROOT_UNITY;
-        let degree = self.num_of_gates * 2;
+        let degree = 2 * self.num_of_gates;
 
         let u = self.scale_and_accumulate_variable_polynomials(w, degree, offset);
 
@@ -26,15 +26,22 @@ impl SquareSpanProgram {
             .iter()
             .zip(&t)
             .zip(&t_inv)
-            .map(|((u, t),t_inv)| (((u * u - FrElement::one()) * t_inv) + FrElement::from(2) * delta * u + delta * delta * t))
-            .collect::<Vec<_>>(); 
-        
+            .map(|((u, t), t_inv)| {
+                ((u * u - FrElement::one()) * t_inv)
+                    + FrElement::from(2) * delta * u
+                    + delta * delta * t
+            })
+            .collect::<Vec<_>>();
 
-
-        Polynomial::interpolate_offset_fft(&h_evaluated, offset)
+        let mut h_coefficients = Polynomial::interpolate_offset_fft(&h_evaluated, offset)
             .unwrap()
             .coefficients()
-            .to_vec()
+            .to_vec();
+
+        let mut pad = vec![FrElement::zero(); self.num_of_gates + 1 - h_coefficients.len()];
+        h_coefficients.append(&mut pad);
+
+        h_coefficients
     }
 
     // Compute U.w by summing up polynomials U[0].w_0, U[1].w_1, ..., U[n].w_n
