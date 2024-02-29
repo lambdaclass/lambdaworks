@@ -10,15 +10,16 @@ pub struct SquareSpanProgram {
 }
 
 impl SquareSpanProgram {
-    pub fn calculate_h_coefficients(&self, w: &[FrElement]) -> Vec<FrElement> {
+    pub fn calculate_h_coefficients(&self, input: &[FrElement]) -> Vec<FrElement> {
         let offset = &ORDER_R_MINUS_1_ROOT_UNITY;
-        let degree = 2 * self.num_of_gates - 2;
+        let p_degree = 2 * self.num_of_gates - 2;
+        let h_degree = self.num_of_gates - 2;
 
-        let u = self.scale_and_accumulate_variable_polynomials(w, degree, offset);
+        let u = self.scale_and_accumulate_variable_polynomials(input, p_degree, offset);
 
         let t_poly =
             Polynomial::new_monomial(FrElement::one(), self.num_of_gates) - FrElement::one();
-        let mut t = Polynomial::evaluate_offset_fft(&t_poly, 1, Some(degree), offset).unwrap();
+        let mut t = Polynomial::evaluate_offset_fft(&t_poly, 1, Some(p_degree), offset).unwrap();
         FrElement::inplace_batch_inverse(&mut t).unwrap();
 
         let h_evaluated = u
@@ -32,8 +33,8 @@ impl SquareSpanProgram {
             .coefficients()
             .to_vec();
 
-        let mut pad = vec![FrElement::zero(); self.num_of_gates - h_coefficients.len()];
-        h_coefficients.append(&mut pad);
+        let pad = vec![FrElement::zero(); h_degree + 1 - h_coefficients.len()];
+        h_coefficients.extend(pad);
 
         h_coefficients
     }
@@ -45,19 +46,15 @@ impl SquareSpanProgram {
         degree: usize,
         offset: &FrElement,
     ) -> Vec<FrElement> {
-        Polynomial::evaluate_offset_fft(
-            &(self
-                .u_poly
-                .iter()
-                .zip(w)
-                .map(|(poly, coeff)| poly.mul_with_ref(&Polynomial::new_monomial(coeff.clone(), 0)))
-                .reduce(|poly1, poly2| poly1 + poly2)
-                .unwrap()),
-            1,
-            Some(degree),
-            offset,
-        )
-        .unwrap()
+        let scaled_and_accumulated = self
+            .u_poly
+            .iter()
+            .zip(w)
+            .map(|(poly, coeff)| poly.mul_with_ref(&Polynomial::new_monomial(coeff.clone(), 0)))
+            .reduce(|poly1, poly2| poly1 + poly2)
+            .unwrap();
+
+        Polynomial::evaluate_offset_fft(&scaled_and_accumulated, 1, Some(degree), offset).unwrap()
     }
 
     pub fn from_scs(scs: SquareConstraintSystem) -> Self {
