@@ -10,16 +10,8 @@ fn test_simplest_circuit() {
     let u = vec![i64_vec_to_field(&[1, 0]), i64_vec_to_field(&[0, 1])];
     let witness = i64_vec_to_field(&[1, 1]);
     let public = i64_vec_to_field(&[]);
-    let mut input = public.clone();
-    input.extend(witness.clone());
 
-    let ssp = SquareSpanProgram::from_scs(SquareConstraintSystem::from_matrix(u, public.len()));
-    let (pk, vk) = setup(&ssp);
-
-    let proof = Prover::prove(&input, &ssp, &pk);
-    let verified = verify(&vk, &proof, &public);
-
-    assert!(verified);
+    test_integration(u, witness, public)
 }
 
 #[test]
@@ -32,14 +24,19 @@ fn test_simple_circuit() {
     ];
     let witness = i64_vec_to_field(&[1, 1, 1]);
     let public = i64_vec_to_field(&[1]);
+
+    test_integration(u, witness, public)
+}
+
+fn test_integration(u: Vec<Vec<FrElement>>, witness: Vec<FrElement>, public: Vec<FrElement>) {
     let mut input = public.clone();
     input.extend(witness.clone());
 
-    let ssp = SquareSpanProgram::from_scs(SquareConstraintSystem::from_matrix(u, 1));
-    let (pk, vk) = setup(&ssp);
+    let ssp = SquareSpanProgram::from_scs(SquareConstraintSystem::from_matrix(u, public.len()));
+    let (proving_key, verifying_key) = setup(&ssp);
 
-    let proof = Prover::prove(&input, &ssp, &pk);
-    let verified = verify(&vk, &proof, &public);
+    let proof = Prover::prove(&input, &ssp, &proving_key);
+    let verified = verify(&verifying_key, &proof, &public);
 
     assert!(verified);
 }
