@@ -121,7 +121,11 @@ fn get_u_polynomial_from_scs(
     polynomial_index: usize,
     number_of_constraints: usize,
 ) -> Polynomial<FrElement> {
-    let mut u_polynomial = vec![FrElement::zero(); number_of_constraints];
+    let mut u_polynomial = if polynomial_index == 0 {
+        vec![FrElement::one(); number_of_constraints]
+    } else {
+        vec![FrElement::zero(); number_of_constraints]
+    };
 
     for (constraint_index, constraint) in scs.constraints.iter().enumerate() {
         u_polynomial[constraint_index] = constraint[polynomial_index].clone();

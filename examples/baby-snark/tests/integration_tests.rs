@@ -15,6 +15,25 @@ fn test_simplest_circuit() {
 }
 
 #[test]
+fn size_not_pow2() {
+    let u: &[&[i64]] = &[
+        &[1, 3, 2, 4, 5],
+        &[-1, -2, 3, 4, -2],
+        &[1, 2, 3, 2, 2],
+        &[-3, -2, 0, 0, 0],
+        &[0, 9, 2, -1, 3],
+    ];
+    let input: &[i64] = &[1, 2, 3, 4, 5];
+    let witness = i64_vec_to_field(&[3, 4, 5]);
+    let public = i64_vec_to_field(&[1, 2]);
+    let mut u_field = i64_matrix_to_field(u);
+    let input_field = i64_vec_to_field(input);
+    normalize(&mut u_field, &input_field);
+
+    test_integration(u_field, witness, public);
+}
+
+#[test]
 fn test_simple_circuit() {
     let u = vec![
         i64_vec_to_field(&[-1, 2, 0, 0]),
@@ -52,4 +71,24 @@ fn i64_to_field(element: &i64) -> FrElement {
 
 fn i64_vec_to_field(elements: &[i64]) -> Vec<FrElement> {
     elements.iter().map(i64_to_field).collect()
+}
+
+fn i64_matrix_to_field(elements: &[&[i64]]) -> Vec<Vec<FrElement>> {
+    let mut matrix = Vec::new();
+    for f in elements {
+        matrix.push(i64_vec_to_field(f));
+    }
+    matrix
+}
+
+fn normalize(matrix: &mut Vec<Vec<FrElement>>, input: &Vec<FrElement>) {
+    for i in 0..matrix.len() {
+        let coef = matrix[i]
+            .iter()
+            .zip(input)
+            .map(|(a, b)| a * b)
+            .reduce(|a, b| a + b)
+            .unwrap();
+        matrix[i] = matrix[i].iter().map(|x| x * coef.inv().unwrap()).collect();
+    }
 }
