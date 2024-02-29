@@ -22,7 +22,7 @@ impl Prover {
         let h = msm(&h_coefficients, &pk.k_powers_of_tau_g1).unwrap();
         let w = inputs
             .iter()
-            .skip(ssp.num_of_public_inputs)
+            .skip(ssp.number_of_public_inputs)
             .map(|elem| elem.representative())
             .collect::<Vec<_>>();
 
