@@ -58,46 +58,47 @@ pub fn setup(u: &SquareSpanProgram) -> (ProvingKey, VerifyingKey) {
 
     let tw = ToxicWaste::new();
 
-    let u_tau = u.u_poly.iter().map(|p| p.evaluate(&tw.tau));
+    let u_tau = u.u_polynomials.iter().map(|p| p.evaluate(&tw.tau));
 
     let vk = VerifyingKey {
         u_tau_g1: u_tau
             .clone()
-            .take(u.num_of_public_inputs)
+            .take(u.number_of_public_inputs)
             .map(|ui| g1.operate_with_self(ui.representative()))
             .collect(),
         u_tau_g2: u_tau
             .clone()
-            .take(u.num_of_public_inputs)
+            .take(u.number_of_public_inputs)
             .map(|ui| g2.operate_with_self(ui.representative()))
             .collect(),
-        t_tau_g2: g2
-            .operate_with_self((tw.tau.pow(u.num_of_gates) - FrElement::one()).representative()),
+        t_tau_g2: g2.operate_with_self(
+            (tw.tau.pow(u.number_of_constraints) - FrElement::one()).representative(),
+        ),
         inv_pairing_g1_g2: Pairing::compute(&g1, &g2).unwrap().inv().unwrap(),
         beta_gamma_g1: g1.operate_with_self((&tw.beta * &tw.gamma).representative()),
         gamma_g2: g2.operate_with_self(tw.gamma.representative()),
     };
 
     let pk = ProvingKey {
-        k_powers_of_tau_g1: (0..u.num_of_gates - 1)
+        k_powers_of_tau_g1: (0..u.number_of_constraints - 1)
             .map(|k| g1.operate_with_self(tw.tau.pow(k).representative()))
             .collect(),
         u_tau_g1: u_tau
             .clone()
-            .take(u.num_of_gates + 1)
-            .skip(u.num_of_public_inputs)
+            .take(u.number_of_constraints + 1)
+            .skip(u.number_of_public_inputs)
             .map(|ui| g1.operate_with_self(ui.representative()))
             .collect(),
         u_tau_g2: u_tau
             .clone()
-            .take(u.num_of_gates + 1)
-            .skip(u.num_of_public_inputs)
+            .take(u.number_of_constraints + 1)
+            .skip(u.number_of_public_inputs)
             .map(|ui| g2.operate_with_self(ui.representative()))
             .collect(),
         beta_u_tau_g1: u_tau
             .clone()
-            .take(u.num_of_gates + 1)
-            .skip(u.num_of_public_inputs)
+            .take(u.number_of_constraints + 1)
+            .skip(u.number_of_public_inputs)
             .map(|ui| g1.operate_with_self((ui * (&tw.beta)).representative()))
             .collect(),
     };
