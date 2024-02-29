@@ -27,10 +27,15 @@ impl SquareSpanProgram {
             .map(|(u, t)| (u * u - FrElement::one()) * t)
             .collect::<Vec<_>>();
 
-        Polynomial::interpolate_offset_fft(&h_evaluated, offset)
+        let mut h_coefficients = Polynomial::interpolate_offset_fft(&h_evaluated, offset)
             .unwrap()
             .coefficients()
-            .to_vec()
+            .to_vec();
+
+        let mut pad = vec![FrElement::zero(); self.num_of_gates - h_coefficients.len()];
+        h_coefficients.append(&mut pad);
+
+        h_coefficients
     }
 
     // Compute U.w by summing up polynomials U[0].w_0, U[1].w_1, ..., U[n].w_n
