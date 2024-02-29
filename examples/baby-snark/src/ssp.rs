@@ -12,7 +12,7 @@ pub struct SquareSpanProgram {
 impl SquareSpanProgram {
     pub fn calculate_h_coefficients(&self, w: &[FrElement]) -> Vec<FrElement> {
         let offset = &ORDER_R_MINUS_1_ROOT_UNITY;
-        let degree = self.num_of_gates;
+        let degree = 2 * self.num_of_gates - 2;
 
         let u = self.scale_and_accumulate_variable_polynomials(w, degree, offset);
 

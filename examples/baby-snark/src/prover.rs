@@ -9,16 +9,17 @@ pub struct Proof {
 
 pub struct Prover;
 impl Prover {
-    pub fn prove(w: &[FrElement], ssp: &SquareSpanProgram, pk: &ProvingKey) -> Proof {
+    pub fn prove(inputs: &[FrElement], ssp: &SquareSpanProgram, pk: &ProvingKey) -> Proof {
         let h_coefficients = ssp
-            .calculate_h_coefficients(w)
+            .calculate_h_coefficients(inputs)
             .iter()
             .map(|elem| elem.representative())
             .collect::<Vec<_>>();
 
         let h = msm(&h_coefficients, &pk.k_powers_of_tau_g1).unwrap();
-        let w = w
+        let w = inputs
             .iter()
+            .skip(ssp.num_of_public_inputs)
             .map(|elem| elem.representative())
             .collect::<Vec<_>>();
 

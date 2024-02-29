@@ -19,7 +19,6 @@ pub fn verify(vk: &VerifyingKey, proof: &Proof, pub_inputs: &[FrElement]) -> boo
 
     accept &= Pairing::compute(v_w, &TwistedCurve::generator())
         == Pairing::compute(&Curve::generator(), v_w_prime);
-
     let v_u = msm(
         &pub_inputs
             .iter()
@@ -36,10 +35,10 @@ pub fn verify(vk: &VerifyingKey, proof: &Proof, pub_inputs: &[FrElement]) -> boo
         &vk.u_tau_g2,
     )
     .unwrap();
+
     accept &= Pairing::compute(&v_u.operate_with(v_w), &v_u_prime.operate_with(v_w_prime))
         .unwrap()
         .mul(&vk.inv_pairing_g1_g2)
         == Pairing::compute(h, &vk.t_tau_g2).unwrap();
-
     accept
 }

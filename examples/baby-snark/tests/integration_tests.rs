@@ -15,11 +15,13 @@ fn test_simple_circuit() {
     ];
     let witness = i64_vec_to_field(&[1, 1, 1]);
     let public = i64_vec_to_field(&[1]);
+    let mut input = public.clone();
+    input.extend(witness.clone());
 
     let ssp = SquareSpanProgram::from_scs(SquareConstraintSystem::from_matrices(u, 1));
     let (pk, vk) = setup(&ssp);
 
-    let proof = Prover::prove(&witness, &ssp, &pk);
+    let proof = Prover::prove(&input, &ssp, &pk);
     let verified = verify(&vk, &proof, &public);
 
     assert!(verified);

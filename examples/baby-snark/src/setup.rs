@@ -91,7 +91,7 @@ pub fn setup(u: &SquareSpanProgram) -> (ProvingKey, VerifyingKey) {
     };
 
     let pk = ProvingKey {
-        k_powers_of_tau_g1: (0..u.num_of_gates)
+        k_powers_of_tau_g1: (0..u.num_of_gates - 1)
             .map(|k| g1.operate_with_self(tw.tau.pow(k).representative()))
             .collect(),
         u_tau_g1: u_tau
