@@ -42,7 +42,7 @@ fn test_integration(u: Vec<Vec<FrElement>>, witness: Vec<FrElement>, public: Vec
 }
 
 fn i64_to_field(element: &i64) -> FrElement {
-    let mut fr_element = FrElement::from(element.abs() as u64);
+    let mut fr_element = FrElement::from(element.unsigned_abs());
     if element.is_negative() {
         fr_element = fr_element.neg()
     }
