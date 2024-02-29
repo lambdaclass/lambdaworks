@@ -63,25 +63,13 @@ pub fn setup(u: &SquareSpanProgram) -> (ProvingKey, VerifyingKey) {
     let vk = VerifyingKey {
         u_tau_g1: u_tau
             .clone()
-            .enumerate()
-            .filter_map(|(i, ui)| {
-                if i < u.num_of_public_inputs {
-                    Some(g1.operate_with_self(ui.representative()))
-                } else {
-                    None
-                }
-            })
+            .take(u.num_of_public_inputs)
+            .map(|ui| g1.operate_with_self(ui.representative()))
             .collect(),
         u_tau_g2: u_tau
             .clone()
-            .enumerate()
-            .filter_map(|(i, ui)| {
-                if i < u.num_of_public_inputs {
-                    Some(g2.operate_with_self(ui.representative()))
-                } else {
-                    None
-                }
-            })
+            .take(u.num_of_public_inputs)
+            .map(|ui| g2.operate_with_self(ui.representative()))
             .collect(),
         t_tau_g2: g2
             .operate_with_self((tw.tau.pow(u.num_of_gates) - FrElement::one()).representative()),
@@ -96,37 +84,23 @@ pub fn setup(u: &SquareSpanProgram) -> (ProvingKey, VerifyingKey) {
             .collect(),
         u_tau_g1: u_tau
             .clone()
-            .enumerate()
-            .filter_map(|(i, ui)| {
-                if i >= u.num_of_public_inputs && i <= u.num_of_gates {
-                    Some(g1.operate_with_self(ui.representative()))
-                } else {
-                    None
-                }
-            })
+            .take(u.num_of_gates + 1)
+            .skip(u.num_of_public_inputs)
+            .map(|ui| g1.operate_with_self(ui.representative()))
             .collect(),
         u_tau_g2: u_tau
             .clone()
-            .enumerate()
-            .filter_map(|(i, ui)| {
-                if i >= u.num_of_public_inputs && i <= u.num_of_gates {
-                    Some(g2.operate_with_self(ui.representative()))
-                } else {
-                    None
-                }
-            })
+            .take(u.num_of_gates + 1)
+            .skip(u.num_of_public_inputs)
+            .map(|ui| g2.operate_with_self(ui.representative()))
             .collect(),
         beta_u_tau_g1: u_tau
             .clone()
-            .enumerate()
-            .filter_map(|(i, ui)| {
-                if i >= u.num_of_public_inputs && i <= u.num_of_gates {
-                    Some(g1.operate_with_self((ui * (&tw.beta)).representative()))
-                } else {
-                    None
-                }
-            })
+            .take(u.num_of_gates + 1)
+            .skip(u.num_of_public_inputs)
+            .map(|ui| g1.operate_with_self((ui * (&tw.beta)).representative()))
             .collect(),
     };
+
     (pk, vk)
 }
