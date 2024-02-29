@@ -13,7 +13,7 @@ fn test_simplest_circuit() {
     let mut input = public.clone();
     input.extend(witness.clone());
 
-    let ssp = SquareSpanProgram::from_scs(SquareConstraintSystem::from_matrices(u, public.len()));
+    let ssp = SquareSpanProgram::from_scs(SquareConstraintSystem::from_matrix(u, public.len()));
     let (pk, vk) = setup(&ssp);
 
     let proof = Prover::prove(&input, &ssp, &pk);
@@ -35,7 +35,7 @@ fn test_simple_circuit() {
     let mut input = public.clone();
     input.extend(witness.clone());
 
-    let ssp = SquareSpanProgram::from_scs(SquareConstraintSystem::from_matrices(u, 1));
+    let ssp = SquareSpanProgram::from_scs(SquareConstraintSystem::from_matrix(u, 1));
     let (pk, vk) = setup(&ssp);
 
     let proof = Prover::prove(&input, &ssp, &pk);

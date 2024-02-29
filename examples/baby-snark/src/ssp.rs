@@ -62,14 +62,14 @@ impl SquareSpanProgram {
 
         let mut u_poly: Vec<Polynomial<FrElement>> = vec![];
 
-        for var_idx in 0..scs.witness_size() {
+        for var_idx in 0..scs.input_size() {
             let poly = get_var_poly_from_scs(&scs, var_idx, num_of_gates);
 
             u_poly.push(poly);
         }
 
         Self {
-            num_of_public_inputs: scs.number_of_inputs,
+            num_of_public_inputs: scs.number_of_public_inputs,
             num_of_gates,
             u_poly,
         }
@@ -89,7 +89,7 @@ fn get_var_poly_from_scs(
     let mut var_u = vec![FrElement::zero(); num_of_gates];
 
     for (constraint_idx, constraint) in scs.constraints.iter().enumerate() {
-        var_u[constraint_idx] = constraint.u[var_idx].clone();
+        var_u[constraint_idx] = constraint[var_idx].clone();
     }
 
     Polynomial::interpolate_fft::<FrField>(&var_u).unwrap()
