@@ -76,7 +76,7 @@ where
         //TODO: make error
         assert_eq!(n, 2_u32.pow(ell as u32) as usize);
 
-        let (left_num_vars, right_num_vars) = matrix_dimensions(p.num_vars());
+        let (left_num_vars, right_num_vars) = matrix_dimensions(ell);
         //TODO: address whether size and num_vars constants should be explicit primitive in LW not usize
         let l_size = 2_u32.pow(left_num_vars as u32) as usize;
         let r_size = 2_u32.pow(right_num_vars as u32) as usize;
@@ -85,7 +85,7 @@ where
         // compute the L and R vectors
         // compute vector-matrix product between L and Z viewed as a matrix
         #[cfg(feature = "parallel")]
-        let row_commitments = p.evals().par_chunks(r_size).map(|row| PedersenCommitment::commit_vector(row, self.gens).unwrap()).collect();
+        let row_commitments = p.evals().par_chunks(r_size).map(|row| PedersenCommitment::<G>::commit_vector(row, self.gens).unwrap()).collect();
         #[cfg(not(feature = "parallel"))]
         let row_commitments = p.evals().chunks(r_size).map(|row| PedersenCommitment::<G>::commit(row, &self.gens).unwrap()).collect::<Vec<_>>();
 
@@ -101,7 +101,7 @@ where
     ) -> Self::Proof {
         assert_eq!(poly.num_vars(), point.len());
 
-        let (left_num_vars, right_num_vars) = matrix_dimensions(poly.num_vars());
+        let (left_num_vars, right_num_vars) = matrix_dimensions(point.len());
         //TODO: address whether size and num_vars constants should be explicit primitive in LW not usize
         let l_size = 2_u32.pow(left_num_vars as u32) as usize;
         let r_size = 2_u32.pow(right_num_vars as u32) as usize;
@@ -140,7 +140,7 @@ where
         proof: &Self::Proof,
         _transcript: &Option<&mut dyn crate::fiat_shamir::is_transcript::IsTranscript<G::BaseField>>,
     ) -> bool {
-        // Copmute L and R
+        // Compute L and R
         let (l, r) = compute_factored_chis(point.as_slice());
 
         // Verifier-derived commitment to u * a = prod( Com(u_j)^{a_j})
@@ -179,9 +179,11 @@ pub fn matrix_dimensions(num_vars: usize) -> (usize, usize) {
 
 pub fn compute_dotproduct<F: IsField>(a: &[FieldElement<F>], b: &[FieldElement<F>]) -> FieldElement<F> {
     assert_eq!(a.len(), b.len());
-    a.par_iter()
-        .zip(b.par_iter())
-        .map(|(a_i, b_i)| *a_i * b_i)
+    #[cfg(feature = "parallel")]
+    let iter = a.par_ter().zip(b.par_iter());
+    #[cfg(not(feature = "parallel"))]
+    let iter = a.iter().zip(b.iter());
+    iter.map(|(a_i, b_i)| a_i * b_i)
         .sum()
 }
 
@@ -209,12 +211,11 @@ mod tests {
         let eval = poly.evaluate(point.clone()).unwrap();
         assert_eq!(eval, FieldElement::from(28u64));
 
-        let gens = (0..(1u64 << 8u64)).map(|i| {BN254Curve::generator().operate_with_self(i)}).collect::<Vec<_>>();
+        let gens = (0..(1u64 << 8u64)).map(|i| {BN254Curve::generator().operate_with_self(i + 3)}).collect::<Vec<_>>();
         let hyrax = Hyrax::<BN254Curve>::new(poly.num_vars(), gens);
         let poly_commitment = hyrax.commit(&poly);
 
         let proof = hyrax.open(&point, &eval, &poly, &None);
-
 
         assert!(
             hyrax.verify(&point, &eval, &poly_commitment, &proof, &None))

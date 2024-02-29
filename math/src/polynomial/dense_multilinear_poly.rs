@@ -145,13 +145,14 @@ where
 }
 
 pub fn compute_chis<F: IsField>(r: &[FieldElement<F>]) -> Vec<FieldElement<F>> {
-    let mut chis: Vec<FieldElement<F>> = vec![FieldElement::one(); (2usize).pow(r.len() as u32)];
+    let ell = r.len();
+    let mut chis: Vec<FieldElement<F>> = vec![FieldElement::one(); (2usize).pow(ell as u32)];
     let mut size = 1;
-    for j in r {
+    for j in 0..ell {
         size *= 2;
         for i in (0..size).rev().step_by(2) {
-            let scalar = &chis[i / 2].clone();
-            chis[i] = scalar * j;
+            let scalar = chis[i / 2].clone();
+            chis[i] = scalar.clone() * &r[j];
             chis[i - 1] = scalar - &chis[i];
         }
     }
@@ -162,8 +163,8 @@ pub fn compute_factored_chis<F: IsField>(evals: &[FieldElement<F>]) -> (Vec<Fiel
     let size = evals.len();
     let (left_num_vars, _right_num_vars) = (size / 2, size - size / 2);
 
-    let l = compute_chis(&evals[..left_num_vars].to_vec()).to_vec();
-    let r = compute_chis(&evals[left_num_vars..size].to_vec()).to_vec();
+    let l = compute_chis(&evals[..left_num_vars]);
+    let r = compute_chis(&evals[left_num_vars..size]);
 
     (l, r)
 }
