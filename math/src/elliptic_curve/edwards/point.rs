@@ -189,26 +189,26 @@ impl<E: IsEdwards> IsGroup for EdwardsJacobianPoint<E> {
     }
 
     /// Computes the addition of `self` and `other`.
-    /// Taken from "Moonmath" (Eq 5.38, page 97)
+    /// Taken from Hyperelliptic Explicit Formula database
     fn operate_with(&self, other: &Self) -> Self {
         // This avoids dropping, which in turn saves us from having to clone the coordinates.
         let (s_affine, o_affine) = (self.to_affine(), other.to_affine());
 
-        let [x1, y1, _] = s_affine.coordinates();
-        let [x2, y2, _] = o_affine.coordinates();
+        let [x1, y1, z1] = self.coordinates();
+        let [x2, y2, z2] = other.coordinates();
 
         let one = FieldElement::one();
-        let (x1y2, y1x2) = (x1 * y2, y1 * x2);
-        let (x1x2, y1y2) = (x1 * x2, y1 * y2);
-        let dx1x2y1y2 = E::d() * &x1x2 * &y1y2;
 
-        let num_s1 = &x1y2 + &y1x2;
-        let den_s1 = &one + &dx1x2y1y2;
+        let (u1, u2) = (x1 * z2.pow(2), x2 * z1.pow(2));
+        let (s1, s2) = (y1 * z2.pow(3), y2 * z1.pow(3));
 
-        let num_s2 = &y1y2 - E::a() * &x1x2;
-        let den_s2 = &one - &dx1x2y1y2;
+        let (P, R) = (u2 - u1, s2 - s1);
 
-        Self::new([&num_s1 / &den_s1, &num_s2 / &den_s2, one])
+        let x3 = -(u1 + u2) * P.pow(2) * R.pow(2);
+        let y3 = -s1 * P.pow(3) + R * (u1 * P.pow(2) - x3);
+        let z3 = z1 * z2 * P;
+
+        Self::new([x3, y3, z3])
     }
 
     /// Returns the additive inverse of the projective point `p`
