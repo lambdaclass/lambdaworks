@@ -121,7 +121,7 @@ impl<const NUM_LIMBS: usize> Display for UnsignedInteger<NUM_LIMBS> {
             }
 
             for limb in limbs_iterator {
-                write!(f, "{:016x}", limb)?;
+                write!(f, "{:08x}", limb)?;
             }
         }
 
@@ -515,7 +515,7 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
     pub fn to_hex(&self) -> String {
         let mut hex_string = String::new();
         for &limb in self.limbs.iter() {
-            hex_string.push_str(&format!("{:016X}", limb));
+            hex_string.push_str(&format!("{:08X}", limb));
         }
         hex_string.trim_start_matches('0').to_string()
     }
@@ -676,7 +676,7 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
                     let uv =
                         (hi[k + 1] as u64) + (a.limbs[j] as u64) * (b.limbs[i] as u64) + carry;
                     carry = uv >> 32;
-                    // Casting u128 to u32 takes modulo 2^{32}
+                    // Casting u64 to u32 takes modulo 2^{32}
                     hi[k + 1] = uv as u32;
                 }
             }
@@ -3023,6 +3023,7 @@ mod tests_u256 {
     #[test]
     fn to_hex_test() {
         let a = U256::from_hex_unchecked("390aa99bead76bc0093b1bc1a8101f5ce");
+        println!("{:?}", a);
         assert_eq!(U256::to_hex(&a), "390AA99BEAD76BC0093B1BC1A8101F5CE")
     }
 }
