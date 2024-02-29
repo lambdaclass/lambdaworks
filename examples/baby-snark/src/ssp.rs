@@ -18,9 +18,8 @@ impl SquareSpanProgram {
         let t_evaluated = self.evaluate_t(p_degree, offset);
 
         let h_degree = self.number_of_constraints - 2;
-        let h_coefficients = calculate_h_coefficients(u_evaluated, t_evaluated, h_degree, offset);
 
-        h_coefficients
+        calculate_h_coefficients(u_evaluated, t_evaluated, h_degree, offset)
     }
 
     fn evaluate_t(&self, degree: usize, offset: &FrElement) -> Vec<FrElement> {
