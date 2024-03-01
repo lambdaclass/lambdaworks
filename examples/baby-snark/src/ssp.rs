@@ -108,7 +108,6 @@ fn calculate_h_coefficients(
         .coefficients()
         .to_vec();
 
-    println!("{} -- {}", degree, h_coefficients.len());
     let pad = vec![FrElement::zero(); degree - h_coefficients.len()];
     h_coefficients.extend(pad);
 
