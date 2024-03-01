@@ -192,20 +192,16 @@ impl<E: IsEdwards> IsGroup for EdwardsJacobianPoint<E> {
     /// Taken from Hyperelliptic Explicit Formula database
     fn operate_with(&self, other: &Self) -> Self {
         // This avoids dropping, which in turn saves us from having to clone the coordinates.
-        let (s_affine, o_affine) = (self.to_affine(), other.to_affine());
-
         let [x1, y1, z1] = self.coordinates();
         let [x2, y2, z2] = other.coordinates();
 
-        let one = FieldElement::one();
-
-        let (u1, u2) = (x1 * z2.pow(2), x2 * z1.pow(2));
-        let (s1, s2) = (y1 * z2.pow(3), y2 * z1.pow(3));
+        let (u1, u2) = (x1 * z2.pow(2 as usize), x2 * z1.pow(2 as usize));
+        let (s1, s2) = (y1 * z2.pow(3 as usize), y2 * z1.pow(3 as usize));
 
         let (P, R) = (u2 - u1, s2 - s1);
 
-        let x3 = -(u1 + u2) * P.pow(2) * R.pow(2);
-        let y3 = -s1 * P.pow(3) + R * (u1 * P.pow(2) - x3);
+        let x3 = -(u1 + u2) * P.pow(2 as usize) * R.pow(2 as usize);
+        let y3 = -s1 * P.pow(3 as usize) + R * (u1 * P.pow(2 as usize) - x3);
         let z3 = z1 * z2 * P;
 
         Self::new([x3, y3, z3])

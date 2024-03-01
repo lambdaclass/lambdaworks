@@ -1,7 +1,7 @@
 use crate::{
     cyclic_group::IsGroup,
     elliptic_curve::{
-        point::{ProjectivePoint, JacobianPoint},
+        point::{JacobianPoint, ProjectivePoint},
         traits::{EllipticCurveError, FromAffine, IsEllipticCurve},
     },
     errors::DeserializationError,
@@ -215,9 +215,9 @@ impl<E: IsShortWeierstrass> IsGroup for ShortWeierstrassProjectivePoint<E> {
 pub struct ShortWeierstrassJacobianPoint<E: IsEllipticCurve>(pub JacobianPoint<E>);
 
 impl<E: IsShortWeierstrass> ShortWeierstrassJacobianPoint<E> {
-    /// Creates an elliptic curve point giving the projective [x: y: z] coordinates.
+    /// Creates an elliptic curve point giving the jacobian [x: y: z] coordinates.
     pub const fn new(value: [FieldElement<E::BaseField>; 3]) -> Self {
-        Self(ProjectivePoint::new(value))
+        Self(JacobianPoint::new(value))
     }
 
     /// Returns the `x` coordinate of the point.
@@ -248,89 +248,49 @@ impl<E: IsShortWeierstrass> ShortWeierstrassJacobianPoint<E> {
     }
 
     pub fn double(&self) -> Self {
-        let [px, py, pz] = self.coordinates();
+        let [x1, y1, z1] = self.coordinates();
 
-        let px_square = px * px;
-        let three_px_square = &px_square + &px_square + &px_square;
-        let w = E::a() * pz * pz + three_px_square;
-        let w_square = &w * &w;
+        let s = x1 * y1.pow(2 as usize) * FieldElement::<E::BaseField>::from(4);
+        let m = FieldElement::<E::BaseField>::from(3) * x1.pow(2 as usize) + E::a() * z1.pow(4 as usize);
+        let t = m.pow(2 as usize) - FieldElement::<E::BaseField>::from(2) * &s;
 
-        let s = py * pz;
-        let s_square = &s * &s;
-        let s_cube = &s * &s_square;
-        let two_s_cube = &s_cube + &s_cube;
-        let four_s_cube = &two_s_cube + &two_s_cube;
-        let eight_s_cube = &four_s_cube + &four_s_cube;
+        let y3 = m * (s - &t) - FieldElement::<E::BaseField>::from(8) * y1.pow(4 as usize);
+        let x3 = t;
+        let z3 = FieldElement::<E::BaseField>::from(2) * y1 * z1;
 
-        let b = px * py * &s;
-        let two_b = &b + &b;
-        let four_b = &two_b + &two_b;
-        let eight_b = &four_b + &four_b;
-
-        let h = &w_square - eight_b;
-        let hs = &h * &s;
-
-        let pys_square = py * py * s_square;
-        let two_pys_square = &pys_square + &pys_square;
-        let four_pys_square = &two_pys_square + &two_pys_square;
-        let eight_pys_square = &four_pys_square + &four_pys_square;
-
-        let xp = &hs + &hs;
-        let yp = w * (four_b - &h) - eight_pys_square;
-        let zp = eight_s_cube;
-        Self::new([xp, yp, zp])
+        Self::new([x3, y3, z3])
     }
 
     pub fn operate_with_affine(&self, other: &Self) -> Self {
-        let [px, py, pz] = self.coordinates();
-        let [qx, qy, _qz] = other.coordinates();
-        let u = qy * pz;
-        let v = qx * pz;
+        let [x1, y1, z1] = self.coordinates();
+        let [x2, y2, _z2] = other.coordinates();
 
-        if self.is_neutral_element() {
-            return other.clone();
-        }
-        if other.is_neutral_element() {
-            return self.clone();
-        }
+        let z1z1 = z1.pow(2 as usize);
+        let u2 = x2 * &z1z1;
+        let s2 = y2 * z1 * z1z1;
+        let h = u2 - x1;
+        let i = (FieldElement::<E::BaseField>::from(2) * h).pow(2 as usize);
+        let j = h * i;
+        let r = FieldElement::<E::BaseField>::from(2) * (s2 - y1);
+        let v = x1 * i;
+        
+        let x3 = r.pow(2 as usize) - j - FieldElement::<E::BaseField>::from(2)*v;
+        let y3 = r * (v - x3) - FieldElement::<E::BaseField>::from(2) * y1 * j;
+        let z3 = FieldElement::<E::BaseField>::from(2) * z1 * h;
 
-        if u == *py {
-            if v != *px || *py == FieldElement::zero() {
-                return Self::new([
-                    FieldElement::zero(),
-                    FieldElement::one(),
-                    FieldElement::zero(),
-                ]);
-            } else {
-                return self.double();
-            }
-        }
-
-        let u = &u - py;
-        let v = &v - px;
-        let vv = &v * &v;
-        let uu = &u * &u;
-        let vvv = &v * &vv;
-        let r = &vv * px;
-        let a = &uu * pz - &vvv - &r - &r;
-
-        let x = &v * &a;
-        let y = &u * (&r - &a) - &vvv * py;
-        let z = &vvv * pz;
-
-        Self::new([x, y, z])
+        Self::new([x3, y3, z3])
     }
 }
 
-impl<E: IsEllipticCurve> PartialEq for ShortWeierstrassProjectivePoint<E> {
+impl<E: IsEllipticCurve> PartialEq for ShortWeierstrassJacobianPoint<E> {
     fn eq(&self, other: &Self) -> bool {
         self.0 == other.0
     }
 }
 
-impl<E: IsEllipticCurve> Eq for ShortWeierstrassProjectivePoint<E> {}
+impl<E: IsEllipticCurve> Eq for ShortWeierstrassJacobianPoint<E> {}
 
-impl<E: IsShortWeierstrass> FromAffine<E::BaseField> for ShortWeierstrassProjectivePoint<E> {
+impl<E: IsShortWeierstrass> FromAffine<E::BaseField> for ShortWeierstrassJacobianPoint<E> {
     fn from_affine(
         x: FieldElement<E::BaseField>,
         y: FieldElement<E::BaseField>,
@@ -339,12 +299,12 @@ impl<E: IsShortWeierstrass> FromAffine<E::BaseField> for ShortWeierstrassProject
             Err(EllipticCurveError::InvalidPoint)
         } else {
             let coordinates = [x, y, FieldElement::one()];
-            Ok(ShortWeierstrassProjectivePoint::new(coordinates))
+            Ok(ShortWeierstrassJacobianPoint::new(coordinates))
         }
     }
 }
 
-impl<E: IsShortWeierstrass> IsGroup for ShortWeierstrassProjectivePoint<E> {
+impl<E: IsShortWeierstrass> IsGroup for ShortWeierstrassJacobianPoint<E> {
     /// The point at infinity.
     fn neutral_element() -> Self {
         Self::new([
@@ -361,43 +321,23 @@ impl<E: IsShortWeierstrass> IsGroup for ShortWeierstrassProjectivePoint<E> {
 
     /// Computes the addition of `self` and `other`.
     /// Taken from "Moonmath" (Algorithm 7, page 89)
-    fn operate_with(&self, other: &Self) -> Self {
-        if other.is_neutral_element() {
-            self.clone()
-        } else if self.is_neutral_element() {
-            other.clone()
-        } else {
-            let [px, py, pz] = self.coordinates();
-            let [qx, qy, qz] = other.coordinates();
-            let u1 = qy * pz;
-            let u2 = py * qz;
-            let v1 = qx * pz;
-            let v2 = px * qz;
-            if v1 == v2 {
-                if u1 != u2 || *py == FieldElement::zero() {
-                    Self::neutral_element()
-                } else {
-                    self.double()
-                }
-            } else {
-                let u = u1 - &u2;
-                let v = v1 - &v2;
-                let w = pz * qz;
+        fn operate_with(&self, other: &Self) -> Self {
+        // This avoids dropping, which in turn saves us from having to clone the coordinates.
+        let [x1, y1, z1] = self.coordinates();
+        let [x2, y2, z2] = other.coordinates();
 
-                let u_square = &u * &u;
-                let v_square = &v * &v;
-                let v_cube = &v * &v_square;
-                let v_square_v2 = &v_square * &v2;
+        let (u1, u2) = (x1 * z2.pow(2 as usize), x2 * z1.pow(2 as usize));
+        let (s1, s2) = (y1 * z2.pow(3 as usize), y2 * z1.pow(3 as usize));
 
-                let a = &u_square * &w - &v_cube - (&v_square_v2 + &v_square_v2);
+        let (P, R) = (u2 - u1, s2 - s1);
 
-                let xp = &v * &a;
-                let yp = u * (&v_square_v2 - a) - &v_cube * u2;
-                let zp = &v_cube * w;
-                Self::new([xp, yp, zp])
-            }
-        }
+        let x3 = -(u1 + u2) * P.pow(2 as usize) * R.pow(2 as usize);
+        let y3 = -s1 * P.pow(3 as usize) + R * (u1 * P.pow(2 as usize) - x3);
+        let z3 = z1 * z2 * P;
+
+        Self::new([x3, y3, z3])
     }
+
 
     /// Returns the additive inverse of the projective point `p`
     fn neg(&self) -> Self {
