@@ -1,4 +1,3 @@
-use std::env;
 use std::fs::File;
 use std::{io, ops::Neg};
 
@@ -13,10 +12,17 @@ struct Solution {
     public: Vec<i64>,
     witness: Vec<i64>,
 }
+use clap::Parser;
+
+#[derive(Parser, Debug)]
+struct Args {
+    #[arg(short, long)]
+    file: String,
+}
 
 fn main() {
-    let filename = env::args().nth(1).unwrap();
-    let file = File::open(filename).unwrap();
+    let args = Args::parse();
+    let file = File::open(args.file).unwrap();
     let reader = io::BufReader::new(file);
 
     let sol: Solution = serde_json::from_reader(reader).unwrap();
