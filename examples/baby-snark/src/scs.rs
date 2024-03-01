@@ -8,10 +8,6 @@ pub struct SquareConstraintSystem {
     pub number_of_public_inputs: usize,
 }
 
-enum Error {
-    WrongWitness,
-}
-
 impl SquareConstraintSystem {
     pub fn from_matrix(matrix: Vec<Vec<FrElement>>, number_of_public_inputs: usize) -> Self {
         Self {

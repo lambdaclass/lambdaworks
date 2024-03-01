@@ -9,10 +9,6 @@ pub struct SquareSpanProgram {
     pub u_polynomials: Vec<Polynomial<FrElement>>,
 }
 
-enum Error {
-    WrongWitness,
-}
-
 impl SquareSpanProgram {
     pub fn calculate_h_coefficients(
         &self,
