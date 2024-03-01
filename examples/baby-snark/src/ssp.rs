@@ -1,3 +1,5 @@
+use std::ops::Mul;
+
 use lambdaworks_math::polynomial::Polynomial;
 
 use crate::{common::*, scs::SquareConstraintSystem};
@@ -81,6 +83,30 @@ impl SquareSpanProgram {
 
     pub fn number_of_private_inputs(&self) -> usize {
         self.u_polynomials.len() - self.number_of_public_inputs
+    }
+
+    pub fn check_valid(&self, input: &[FrElement]) -> bool {
+        let mut p = self
+            .u_polynomials
+            .iter()
+            .zip(input)
+            .map(|(g, a)| Polynomial::new_monomial(a.clone(), 0).mul(g))
+            .reduce(|a, b| a + b)
+            .unwrap();
+        p = p.clone().mul(p);
+        let evaluations = Polynomial::evaluate_offset_fft(
+            &p,
+            1,
+            Some(self.number_of_constraints),
+            &FrElement::one(),
+        )
+        .unwrap();
+        for e in evaluations {
+            if e.ne(&FrElement::one()) {
+                return false;
+            }
+        }
+        true
     }
 }
 

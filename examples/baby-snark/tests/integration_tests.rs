@@ -9,7 +9,7 @@ fn identity_matrix() {
     let witness = i64_vec_to_field(&[1, 1]);
     let public = i64_vec_to_field(&[]);
 
-    test_integration(u, witness, public, true)
+    test_integration(u, witness, public)
 }
 
 #[test]
@@ -28,7 +28,7 @@ fn size_not_pow2() {
     let input_field = i64_vec_to_field(input);
     let u_field = normalize(i64_matrix_to_field(u), &input_field);
 
-    test_integration(u_field, witness, public, true);
+    test_integration(u_field, witness, public);
 }
 
 #[test]
@@ -42,7 +42,7 @@ fn and_gate() {
     let witness = i64_vec_to_field(&[1, 1, 1]);
     let public = i64_vec_to_field(&[1]);
 
-    test_integration(u, witness, public, true)
+    test_integration(u, witness, public)
 }
 
 #[test]
@@ -56,14 +56,44 @@ fn invalid_proof() {
         &[3, 9, 2, -1, 3],
     ];
     let input: &[i64] = &[1, 4, 6, 0, 5];
-    let mut witness = i64_vec_to_field(&[0, 5]);
+    let witness = i64_vec_to_field(&[0, 5]);
+    let public = i64_vec_to_field(&[1, 4, 6]);
+    let mut input_field = i64_vec_to_field(input);
+    let u_field = normalize(i64_matrix_to_field(u), &input_field);
+    test_integration(u_field.clone(), witness.clone(), public.clone());
+
+    input_field = i64_vec_to_field(&[1, 4, 6, 0, 3]);
+
+    let ssp =
+        SquareSpanProgram::from_scs(SquareConstraintSystem::from_matrix(u_field, public.len()));
+    let (proving_key, _verifying_key) = setup(&ssp);
+    let proof = Prover::prove(&input_field, &ssp, &proving_key);
+    assert!(proof.is_err());
+}
+
+#[test]
+fn corrupted_proof() {
+    let u: &[&[i64]] = &[
+        &[1, 3, 2, 4, 5],
+        &[-1, 8, 3, 4, -2],
+        &[1, 2, 3, 2, 2],
+        &[-3, -2, 0, 0, 0],
+        &[0, 9, 2, -1, 3],
+        &[3, 9, 2, -1, 3],
+    ];
+    let input: &[i64] = &[1, 4, 6, 0, 5];
     let public = i64_vec_to_field(&[1, 4, 6]);
     let input_field = i64_vec_to_field(input);
     let u_field = normalize(i64_matrix_to_field(u), &input_field);
-    test_integration(u_field.clone(), witness.clone(), public.clone(), true);
 
-    witness = i64_vec_to_field(&[0, 3]);
-    test_integration(u_field, witness, public, false);
+    let ssp =
+        SquareSpanProgram::from_scs(SquareConstraintSystem::from_matrix(u_field, public.len()));
+    let (proving_key, verifying_key) = setup(&ssp);
+
+    let mut proof = Prover::prove(&input_field, &ssp, &proving_key).unwrap();
+    proof.b_w = proof.b_w.double();
+    let verified = verify(&verifying_key, &proof, &public);
+    assert!(!verified);
 }
 
 fn normalize(matrix: Vec<Vec<FrElement>>, input: &Vec<FrElement>) -> Vec<Vec<FrElement>> {
@@ -83,23 +113,15 @@ fn normalize(matrix: Vec<Vec<FrElement>>, input: &Vec<FrElement>) -> Vec<Vec<FrE
     new_matrix
 }
 
-pub fn test_integration(
-    u: Vec<Vec<FrElement>>,
-    witness: Vec<FrElement>,
-    public: Vec<FrElement>,
-    pass: bool,
-) {
+pub fn test_integration(u: Vec<Vec<FrElement>>, witness: Vec<FrElement>, public: Vec<FrElement>) {
     let mut input = public.clone();
     input.extend(witness.clone());
 
     let ssp = SquareSpanProgram::from_scs(SquareConstraintSystem::from_matrix(u, public.len()));
     let (proving_key, verifying_key) = setup(&ssp);
 
-    let proof = Prover::prove(&input, &ssp, &proving_key);
+    let proof = Prover::prove(&input, &ssp, &proving_key).unwrap();
+
     let verified = verify(&verifying_key, &proof, &public);
-    if pass {
-        assert!(verified);
-    } else {
-        assert!(!verified);
-    }
+    assert!(verified);
 }
