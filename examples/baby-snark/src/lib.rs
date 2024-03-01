@@ -1,6 +1,7 @@
 pub mod common;
 pub mod scs;
 pub mod ssp;
+pub mod utils;
 
 mod prover;
 mod setup;
