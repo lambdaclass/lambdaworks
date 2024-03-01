@@ -35,7 +35,7 @@ pub fn is_power_of_two(x: usize) -> bool {
 // ! CAUTION !
 // Make sure n=nodes.len()+1 is a power of two, and the last n/2 elements (leaves) are populated with hashes.
 // This function takes no precautions for other cases.
-pub fn build<B: IsMerkleTreeBackend>(nodes: &mut Vec<B::Node>, leaf_length: usize)
+pub fn build<B: IsMerkleTreeBackend>(nodes: &mut [B::Node], leaf_length: usize)
 where
     B::Node: Clone,
 {
@@ -53,9 +53,8 @@ where
             .into_par_iter()
             .zip(children_iter.par_chunks_exact(2));
         #[cfg(not(feature = "parallel"))]
-        let parent_and_children_zipped_iter = new_level_iter
-            .into_iter()
-            .zip(children_iter.chunks_exact(2));
+        let parent_and_children_zipped_iter =
+            new_level_iter.iter_mut().zip(children_iter.chunks_exact(2));
 
         parent_and_children_zipped_iter.for_each(|(new_parent, children)| {
             *new_parent = B::hash_new_parent(&children[0], &children[1]);
@@ -110,7 +109,6 @@ mod tests {
     const ROOT: usize = 0;
 
     #[test]
-    // expected |10|10|13|3|7|11|2|1|2|3|4|5|6|7|8|
     fn compleate_a_merkle_tree_from_a_set_of_leaves() {
         let leaves: Vec<FE> = (0..u64::pow(2, 16)).map(FE::new).collect();
         let leaf_length = leaves.len();
