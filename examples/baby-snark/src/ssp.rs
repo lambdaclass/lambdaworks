@@ -9,6 +9,7 @@ pub struct SquareSpanProgram {
     pub number_of_public_inputs: usize,
     pub number_of_constraints: usize,
     pub u_polynomials: Vec<Polynomial<FrElement>>,
+    pub matrix: Vec<Vec<FrElement>>,
 }
 
 impl SquareSpanProgram {
@@ -74,10 +75,12 @@ impl SquareSpanProgram {
             })
             .collect();
 
+        let matrix = scs.constraints;
         Self {
             number_of_public_inputs: scs.number_of_public_inputs,
             number_of_constraints,
             u_polynomials,
+            matrix,
         }
     }
 
@@ -86,23 +89,15 @@ impl SquareSpanProgram {
     }
 
     pub fn check_valid(&self, input: &[FrElement]) -> bool {
-        let mut p = self
-            .u_polynomials
-            .iter()
-            .zip(input)
-            .map(|(g, a)| Polynomial::new_monomial(a.clone(), 0).mul(g))
-            .reduce(|a, b| a + b)
-            .unwrap();
-        p = p.clone().mul(p);
-        let evaluations = Polynomial::evaluate_offset_fft(
-            &p,
-            1,
-            Some(self.number_of_constraints),
-            &FrElement::one(),
-        )
-        .unwrap();
-        for e in evaluations {
-            if e.ne(&FrElement::one()) {
+        for row in &self.matrix {
+            let coef = row
+                .iter()
+                .zip(input)
+                .map(|(a, b)| a * b)
+                .reduce(|a, b| a + b)
+                .unwrap();
+
+            if (&coef * &coef).ne(&FrElement::one()) {
                 return false;
             }
         }
