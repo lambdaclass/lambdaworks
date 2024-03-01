@@ -1,7 +1,7 @@
 use core::fmt::Display;
 use std::marker::PhantomData;
 
-use crate::fiat_shamir::transcript::Transcript;
+use crate::fiat_shamir::is_transcript::IsTranscript;
 use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::traits::{IsField, IsPrimeField};
 use lambdaworks_math::polynomial::{
@@ -150,7 +150,7 @@ where
         poly_a: &mut DenseMultilinearPolynomial<F>,
         poly_b: &mut DenseMultilinearPolynomial<F>,
         comb_func: E,
-        transcript: &mut impl Transcript,
+        transcript: &mut impl IsTranscript<F>,
     ) -> (SumcheckProof<F>, Vec<FieldElement<F>>)
     where
         E: Fn(&FieldElement<F>, &FieldElement<F>) -> FieldElement<F> + Sync,
@@ -168,10 +168,10 @@ where
             };
 
             // append round's Univariate polynomial to transcript
-            transcript.append(&round_poly.as_bytes());
+            transcript.append_bytes(&round_poly.as_bytes());
 
             // Squeeze Verifier Challenge for next round
-            let challenge = FieldElement::from_bytes_be(&transcript.challenge()).unwrap();
+            let challenge = &transcript.sample_field_element();
             challenges.push(challenge.clone());
 
             // compute next claim
@@ -200,7 +200,7 @@ where
         poly_b: &mut Vec<DenseMultilinearPolynomial<F>>,
         powers: Option<&[FieldElement<F>]>,
         comb_func: E,
-        transcript: &mut impl Transcript,
+        transcript: &mut impl IsTranscript<F>,
     ) -> SumcheckProof<F>
     where
         E: Fn(&FieldElement<F>, &FieldElement<F>) -> FieldElement<F> + Sync,
@@ -239,10 +239,10 @@ where
             let round_poly = Polynomial::new(&evals);
 
             // TODO append the prover's message to the transcript
-            transcript.append(&round_poly.as_bytes());
+            transcript.append_bytes(&round_poly.as_bytes());
 
             // Squeeze Verifier Challenge for next round
-            let challenge = FieldElement::from_bytes_be(&transcript.challenge()).unwrap();
+            let challenge = &transcript.sample_field_element();
             challenges.push(challenge.clone());
 
             // bound all tables to the verifier's challenege
@@ -267,7 +267,7 @@ where
         poly_b: &mut DenseMultilinearPolynomial<F>,
         poly_c: &mut DenseMultilinearPolynomial<F>,
         comb_func: E,
-        transcript: &mut impl Transcript,
+        transcript: &mut impl IsTranscript<F>,
     ) -> (SumcheckProof<F>, Vec<FieldElement<F>>)
     where
         E: Fn(&FieldElement<F>, &FieldElement<F>, &FieldElement<F>) -> FieldElement<F> + Sync,
@@ -291,10 +291,10 @@ where
             };
 
             // TODO append the prover's message to the transcript
-            transcript.append(&round_poly.as_bytes());
+            transcript.append_bytes(&round_poly.as_bytes());
 
             // Squeeze Verifier Challenge for next round
-            let challenge = FieldElement::from_bytes_be(&transcript.challenge()).unwrap();
+            let challenge = transcript.sample_field_element();
             challenges.push(challenge.clone());
 
             // bound all tables to the verifier's challenege
@@ -322,7 +322,7 @@ where
         poly_c: &DenseMultilinearPolynomial<F>,
         powers: Option<&[FieldElement<F>]>,
         comb_func: E,
-        transcript: &mut impl Transcript,
+        transcript: &mut impl IsTranscript<F>,
     ) -> (SumcheckProof<F>, Vec<FieldElement<F>>)
     where
         E: Fn(&FieldElement<F>, &FieldElement<F>, &FieldElement<F>) -> FieldElement<F> + Sync,
@@ -364,10 +364,10 @@ where
             let round_poly = Polynomial::new(&evals);
 
             // TODO: Check if order matters
-            transcript.append(&round_poly.as_bytes());
+            transcript.append_bytes(&round_poly.as_bytes());
 
             // Squeeze Verifier Challenge for next round
-            let challenge = FieldElement::from_bytes_be(&transcript.challenge()).unwrap();
+            let challenge = &transcript.sample_field_element();
             challenges.push(challenge.clone());
 
             // TODO: rayon::join and gate
@@ -399,7 +399,7 @@ where
         poly_c: &mut DenseMultilinearPolynomial<F>,
         poly_d: &mut DenseMultilinearPolynomial<F>,
         comb_func: E,
-        transcript: &mut impl Transcript,
+        transcript: &mut impl IsTranscript<F>,
     ) -> (SumcheckProof<F>, Vec<FieldElement<F>>)
     where
         E: Fn(
@@ -486,10 +486,10 @@ where
             };
 
             // TODO: Does it matter that its before the challenge???? -> Should be I believe
-            transcript.append(&round_poly.as_bytes());
+            transcript.append_bytes(&round_poly.as_bytes());
 
             // Squeeze Verifier Challenge for next round
-            let challenge = FieldElement::from_bytes_be(&transcript.challenge()).unwrap();
+            let challenge = transcript.sample_field_element();
             challenges.push(challenge.clone());
 
             prev_round_claim = round_poly.evaluate(&challenge);
@@ -516,7 +516,7 @@ where
     pub fn prove_single(
         poly: &mut DenseMultilinearPolynomial<F>,
         sum: &FieldElement<F>,
-        transcript: &mut impl Transcript,
+        transcript: &mut impl IsTranscript<F>,
     ) -> (SumcheckProof<F>, Vec<FieldElement<F>>) {
         let mut round_uni_polys: Vec<Polynomial<FieldElement<F>>> =
             Vec::with_capacity(poly.num_vars());
@@ -537,9 +537,9 @@ where
             };
 
             // TODO: Append poly to transcript -> Modify Transcript
-            transcript.append(&round_poly.as_bytes());
+            transcript.append_bytes(&round_poly.as_bytes());
 
-            let challenge = FieldElement::from_bytes_be(&transcript.challenge()).unwrap();
+            let challenge = &transcript.sample_field_element();
             challenges.push(challenge.clone());
 
             // grab next claim
@@ -570,7 +570,7 @@ where
     pub fn verify(
         proof: SumcheckProof<F>,
         num_vars: usize,
-        transcript: &mut impl Transcript,
+        transcript: &mut impl IsTranscript<F>,
     ) -> Result<(FieldElement<F>, Vec<FieldElement<F>>), SumcheckError> {
         let mut e = proof.sum.clone();
         let mut r: Vec<FieldElement<F>> = Vec::with_capacity(num_vars);
@@ -588,9 +588,9 @@ where
                 println!("Oh No");
                 return Err(SumcheckError::InvalidProof);
             }
-            transcript.append(&poly.as_bytes());
+            transcript.append_bytes(&poly.as_bytes());
 
-            let challenge = FieldElement::from_bytes_be(&transcript.challenge()).unwrap();
+            let challenge = &transcript.sample_field_element();
             r.push(challenge.clone());
 
             e = poly.evaluate(&challenge);
@@ -655,7 +655,7 @@ mod test {
             FieldElement::from(3),
         ]; // point 0,0,0 within the boolean hypercube
 
-        let mut transcript = DefaultTranscript::new();
+        let mut transcript = DefaultTranscript::new(b"prove_cubic");
         let (proof, challenges) = Sumcheck::<F>::prove_cubic(
             &claim,
             &mut a,
@@ -665,7 +665,7 @@ mod test {
             &mut transcript,
         );
 
-        let mut transcript = DefaultTranscript::new();
+        let mut transcript = DefaultTranscript::new(b"prove cubic");
         let verify_result = Sumcheck::verify(proof, num_vars, &mut transcript);
         assert!(verify_result.is_ok());
 
@@ -718,11 +718,11 @@ mod test {
         ]; // point 0,0,0 within the boolean hypercube
         */
 
-        let mut transcript = DefaultTranscript::new();
+        let mut transcript = DefaultTranscript::new(b"prove_quad");
         let (proof, challenges) =
             Sumcheck::<F>::prove_quadratic(&claim, &mut a, &mut b, comb_func_prod, &mut transcript);
 
-        let mut transcript = DefaultTranscript::new();
+        let mut transcript = DefaultTranscript::new(b"prove_quad");
         let verify = Sumcheck::verify(proof, num_vars,  &mut transcript).unwrap();
 
         /*
@@ -766,10 +766,10 @@ mod test {
             FieldElement::from(3),
         ]; // point 0,0,0 within the boolean hypercube
 
-        let mut transcript = DefaultTranscript::new();
+        let mut transcript = DefaultTranscript::new(b"prove_single");
         let (proof, challenges) = Sumcheck::<F>::prove_single(&mut a, &claim, &mut transcript);
 
-        let mut transcript = DefaultTranscript::new();
+        let mut transcript = DefaultTranscript::new(b"prove_single");
         let verify_result = Sumcheck::verify(proof, a.num_vars(), &mut transcript);
         assert!(verify_result.is_ok());
 
