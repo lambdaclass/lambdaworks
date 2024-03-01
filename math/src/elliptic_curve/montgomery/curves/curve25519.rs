@@ -142,21 +142,20 @@ mod tests {
             FE::new_base("0x100891500644f6850e25d95925ab209aaf7e5e1fa5d8036f07725063e0543046")
         );
 
-        let neutral_element = ShortWeierstrassProjectivePoint::<Curve25519>::neutral_element();
+        let neutral_element = MontgomeryProjectivePoint::<Curve25519>::neutral_element();
 
         assert_eq!(p.operate_with(&neutral_element), p);
     }
 
     #[test]
     fn neutral_element_plus_neutral_element_is_neutral_element() {
-        let neutral_element = ShortWeierstrassProjectivePoint::<BN254Curve>::neutral_element();
+        let neutral_element = MontgomeryProjectivePoint::<Curve25519>::neutral_element();
 
         assert_eq!(
             neutral_element.operate_with(&neutral_element),
             neutral_element
         );
     }
-
 
     #[test]
     fn create_invalid_points_returns_an_error() {
