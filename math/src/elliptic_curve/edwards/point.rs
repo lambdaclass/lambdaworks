@@ -198,11 +198,11 @@ impl<E: IsEdwards> IsGroup for EdwardsJacobianPoint<E> {
         let (u1, u2) = (x1 * z2.pow(2 as usize), x2 * z1.pow(2 as usize));
         let (s1, s2) = (y1 * z2.pow(3 as usize), y2 * z1.pow(3 as usize));
 
-        let (P, R) = (&u2 - &u1, &s2 - &s1);
+        let (p, r) = (&u2 - &u1, &s2 - &s1);
 
-        let x3 = -(&u1 + u2) * P.pow(2 as usize) * R.pow(2 as usize);
-        let y3 = -s1 * P.pow(3 as usize) + R * (u1 * P.pow(2 as usize) - &x3);
-        let z3 = z1 * z2 * P;
+        let x3 = -(&u1 + u2) * p.pow(2 as usize) * r.pow(2 as usize);
+        let y3 = -s1 * p.pow(3 as usize) + r * (u1 * p.pow(2 as usize) - &x3);
+        let z3 = z1 * z2 * p;
 
         Self::new([x3, y3, z3])
     }

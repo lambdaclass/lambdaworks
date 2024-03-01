@@ -273,8 +273,8 @@ impl<E: IsShortWeierstrass> ShortWeierstrassJacobianPoint<E> {
         let j = &h * &i;
         let r = FieldElement::<E::BaseField>::from(2) * (s2 - y1);
         let v = x1 * i;
-        
-        let x3 = r.pow(2 as usize) - &j - FieldElement::<E::BaseField>::from(2)*&v;
+
+        let x3 = r.pow(2 as usize) - &j - FieldElement::<E::BaseField>::from(2) * &v;
         let y3 = r * (v - &x3) - FieldElement::<E::BaseField>::from(2) * y1 * j;
         let z3 = FieldElement::<E::BaseField>::from(2) * z1 * h;
 
@@ -321,7 +321,7 @@ impl<E: IsShortWeierstrass> IsGroup for ShortWeierstrassJacobianPoint<E> {
 
     /// Computes the addition of `self` and `other`.
     /// Taken from "Moonmath" (Algorithm 7, page 89)
-        fn operate_with(&self, other: &Self) -> Self {
+    fn operate_with(&self, other: &Self) -> Self {
         // This avoids dropping, which in turn saves us from having to clone the coordinates.
         let [x1, y1, z1] = self.coordinates();
         let [x2, y2, z2] = other.coordinates();
@@ -329,15 +329,14 @@ impl<E: IsShortWeierstrass> IsGroup for ShortWeierstrassJacobianPoint<E> {
         let (u1, u2) = (x1 * z2.pow(2 as usize), x2 * z1.pow(2 as usize));
         let (s1, s2) = (y1 * z2.pow(3 as usize), y2 * z1.pow(3 as usize));
 
-        let (P, R) = (&u2 - &u1, &s2 - &s1);
+        let (p, r) = (&u2 - &u1, &s2 - &s1);
 
-        let x3 = -(&u1 + u2) * P.pow(2 as usize) * R.pow(2 as usize);
-        let y3 = -s1 * P.pow(3 as usize) + R * (u1 * P.pow(2 as usize) - &x3);
-        let z3 = z1 * z2 * P;
+        let x3 = -(&u1 + u2) * p.pow(2 as usize) * r.pow(2 as usize);
+        let y3 = -s1 * p.pow(3 as usize) + r * (u1 * p.pow(2 as usize) - &x3);
+        let z3 = z1 * z2 * p;
 
         Self::new([x3, y3, z3])
     }
-
 
     /// Returns the additive inverse of the projective point `p`
     fn neg(&self) -> Self {
