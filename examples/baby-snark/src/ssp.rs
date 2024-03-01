@@ -10,28 +10,39 @@ pub struct SquareSpanProgram {
 }
 
 impl SquareSpanProgram {
-    pub fn calculate_h_coefficients(&self, input: &[FrElement]) -> Vec<FrElement> {
+    pub fn calculate_h_coefficients(
+        &self,
+        input: &[FrElement],
+        delta: &FrElement,
+    ) -> Vec<FrElement> {
         let offset = &ORDER_R_MINUS_1_ROOT_UNITY;
-        let p_degree = 2 * self.number_of_constraints - 2;
+        let p_degree = 2 * self.number_of_constraints;
 
         let u_evaluated = self.evaluate_scaled_and_acumulated_u(input, p_degree, offset);
-        let t_evaluated = self.evaluate_t(p_degree, offset);
+        let (t_evaluated, t_inv_evaluated) = self.evaluate_t(p_degree, offset);
 
-        let h_degree = self.number_of_constraints - 2;
+        let h_degree = self.number_of_constraints + 1;
 
-        calculate_h_coefficients(u_evaluated, t_evaluated, h_degree, offset)
+        calculate_h_coefficients(
+            u_evaluated,
+            t_evaluated,
+            t_inv_evaluated,
+            h_degree,
+            offset,
+            delta,
+        )
     }
 
-    fn evaluate_t(&self, degree: usize, offset: &FrElement) -> Vec<FrElement> {
+    fn evaluate_t(&self, degree: usize, offset: &FrElement) -> (Vec<FrElement>, Vec<FrElement>) {
         let one_polynomial = Polynomial::new_monomial(FrElement::one(), self.number_of_constraints);
         let t_polynomial = one_polynomial - FrElement::one();
 
-        let mut t_evaluated =
+        let t_evaluated =
             Polynomial::evaluate_offset_fft(&t_polynomial, 1, Some(degree), offset).unwrap();
+        let mut t_inv_evaluated = t_evaluated.clone();
+        FrElement::inplace_batch_inverse(&mut t_inv_evaluated).unwrap();
 
-        FrElement::inplace_batch_inverse(&mut t_evaluated).unwrap();
-
-        t_evaluated
+        (t_evaluated, t_inv_evaluated)
     }
 
     // Compute U.w by summing up polynomials U[0].w_0, U[1].w_1, ..., U[n].w_n
@@ -76,13 +87,20 @@ impl SquareSpanProgram {
 fn calculate_h_coefficients(
     u_evaluated: Vec<FrElement>,
     t_evaluated: Vec<FrElement>,
+    t_inv_evaluated: Vec<FrElement>,
     degree: usize,
     offset: &FrElement,
+    delta: &FrElement,
 ) -> Vec<FrElement> {
     let h_evaluated: Vec<_> = u_evaluated
         .iter()
         .zip(&t_evaluated)
-        .map(|(ui, ti)| (ui * ui - FrElement::one()) * ti)
+        .zip(&t_inv_evaluated)
+        .map(|((ui, ti), ti_inv)| {
+            (ui * ui - FrElement::one()) * ti_inv
+                + FrElement::from(2) * delta * ui
+                + delta * delta * ti
+        })
         .collect();
 
     let mut h_coefficients = Polynomial::interpolate_offset_fft(&h_evaluated, offset)
@@ -90,7 +108,7 @@ fn calculate_h_coefficients(
         .coefficients()
         .to_vec();
 
-    let pad = vec![FrElement::zero(); degree + 1 - h_coefficients.len()];
+    let pad = vec![FrElement::zero(); degree - h_coefficients.len()];
     h_coefficients.extend(pad);
 
     h_coefficients
