@@ -34,6 +34,12 @@ pub struct ProvingKey {
     pub u_tau_g2: Vec<G2Point>,
     // β * Ui(τ) * g1, l <= i <= m
     pub beta_u_tau_g1: Vec<G1Point>,
+    // t(τ) * g1
+    pub t_tau_g1: G1Point,
+    // β * t(τ) * g1
+    pub beta_t_tau_g1: G1Point,
+    // t(τ) * g2
+    pub t_tau_g2: G2Point,
 }
 
 struct ToxicWaste {
@@ -80,7 +86,7 @@ pub fn setup(u: &SquareSpanProgram) -> (ProvingKey, VerifyingKey) {
     };
 
     let pk = ProvingKey {
-        k_powers_of_tau_g1: (0..u.number_of_constraints - 1)
+        k_powers_of_tau_g1: (0..u.number_of_constraints + 1)
             .map(|k| g1.operate_with_self(tw.tau.pow(k).representative()))
             .collect(),
         u_tau_g1: u_tau
@@ -101,6 +107,16 @@ pub fn setup(u: &SquareSpanProgram) -> (ProvingKey, VerifyingKey) {
             .skip(u.number_of_public_inputs)
             .map(|ui| g1.operate_with_self((ui * (&tw.beta)).representative()))
             .collect(),
+        t_tau_g1: g1.operate_with_self(
+            (tw.tau.pow(u.number_of_constraints) - FrElement::one()).representative(),
+        ),
+        beta_t_tau_g1: g1.operate_with_self(
+            ((&tw.beta) * (tw.tau.pow(u.number_of_constraints) - FrElement::one()))
+                .representative(),
+        ),
+        t_tau_g2: g2.operate_with_self(
+            (tw.tau.pow(u.number_of_constraints) - FrElement::one()).representative(),
+        ),
     };
 
     (pk, vk)

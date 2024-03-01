@@ -22,11 +22,11 @@ fn size_not_pow2() {
         &[0, 9, 2, -1, 3],
     ];
     let input: &[i64] = &[1, 2, 3, 4, 5];
-    let witness = utils::i64_vec_to_field(&[3, 4, 5]);
-    let public = utils::i64_vec_to_field(&[1, 2]);
-    let mut u_field = utils::i64_matrix_to_field(u);
-    let input_field = utils::i64_vec_to_field(input);
-    utils::normalize(&mut u_field, &input_field);
+
+    let witness = i64_vec_to_field(&[3, 4, 5]);
+    let public = i64_vec_to_field(&[1, 2]);
+    let input_field = i64_vec_to_field(input);
+    let u_field = normalize(i64_matrix_to_field(u), &input_field);
 
     utils::test_integration(u_field, witness, public, true);
 }
@@ -67,14 +67,19 @@ fn invalid_proof() {
     utils::test_integration(u_field, witness, public, false);
 }
 
-pub fn normalize(matrix: &mut Vec<Vec<FrElement>>, input: &Vec<FrElement>) {
-    for i in 0..matrix.len() {
-        let coef = matrix[i]
+fn normalize(matrix: Vec<Vec<FrElement>>, input: &Vec<FrElement>) -> Vec<Vec<FrElement>> {
+    let mut new_matrix = Vec::new();
+
+    for row in matrix {
+        let coef = row
             .iter()
             .zip(input)
             .map(|(a, b)| a * b)
             .reduce(|a, b| a + b)
             .unwrap();
-        matrix[i] = matrix[i].iter().map(|x| x * coef.inv().unwrap()).collect();
+        let new_row: Vec<FrElement> = row.iter().map(|x| x * coef.inv().unwrap()).collect();
+        new_matrix.push(new_row);
     }
+
+    new_matrix
 }
