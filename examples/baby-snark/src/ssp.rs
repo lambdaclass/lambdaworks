@@ -1,5 +1,3 @@
-use std::ops::Mul;
-
 use lambdaworks_math::polynomial::Polynomial;
 
 use crate::{common::*, scs::SquareConstraintSystem};
