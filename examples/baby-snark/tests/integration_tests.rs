@@ -1,5 +1,5 @@
+use baby_snark::common::FrElement;
 use baby_snark::utils;
-
 #[test]
 fn identity_matrix() {
     let u = vec![
@@ -65,4 +65,16 @@ fn invalid_proof() {
 
     witness = utils::i64_vec_to_field(&[0, 3]);
     utils::test_integration(u_field, witness, public, false);
+}
+
+pub fn normalize(matrix: &mut Vec<Vec<FrElement>>, input: &Vec<FrElement>) {
+    for i in 0..matrix.len() {
+        let coef = matrix[i]
+            .iter()
+            .zip(input)
+            .map(|(a, b)| a * b)
+            .reduce(|a, b| a + b)
+            .unwrap();
+        matrix[i] = matrix[i].iter().map(|x| x * coef.inv().unwrap()).collect();
+    }
 }
