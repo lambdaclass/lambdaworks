@@ -269,13 +269,13 @@ impl<E: IsShortWeierstrass> ShortWeierstrassJacobianPoint<E> {
         let u2 = x2 * &z1z1;
         let s2 = y2 * z1 * z1z1;
         let h = u2 - x1;
-        let i = (FieldElement::<E::BaseField>::from(2) * h).pow(2 as usize);
-        let j = h * i;
+        let i = (FieldElement::<E::BaseField>::from(2) * &h).pow(2 as usize);
+        let j = &h * &i;
         let r = FieldElement::<E::BaseField>::from(2) * (s2 - y1);
         let v = x1 * i;
         
-        let x3 = r.pow(2 as usize) - j - FieldElement::<E::BaseField>::from(2)*v;
-        let y3 = r * (v - x3) - FieldElement::<E::BaseField>::from(2) * y1 * j;
+        let x3 = r.pow(2 as usize) - &j - FieldElement::<E::BaseField>::from(2)*&v;
+        let y3 = r * (v - &x3) - FieldElement::<E::BaseField>::from(2) * y1 * j;
         let z3 = FieldElement::<E::BaseField>::from(2) * z1 * h;
 
         Self::new([x3, y3, z3])
