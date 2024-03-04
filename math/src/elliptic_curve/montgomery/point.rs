@@ -1,8 +1,7 @@
 use crate::{
     cyclic_group::IsGroup,
     elliptic_curve::{
-        point::ProjectivePoint,
-        point::JacobianPoint,
+        point::{JacobianPoint, ProjectivePoint},
         traits::{EllipticCurveError, FromAffine, IsEllipticCurve},
     },
     field::element::FieldElement,
