@@ -353,6 +353,13 @@ pub enum PointFormat {
 }
 
 #[derive(PartialEq)]
+pub enum PointFormat1 {
+    Jacobian,
+    Uncompressed,
+    // Compressed,
+}
+
+#[derive(PartialEq)]
 /// Describes the endianess of the internal types of the types
 /// For example, in a field made with limbs of u64
 /// this is the endianess of those u64
@@ -450,6 +457,120 @@ where
                 }
             }
             PointFormat::Uncompressed => {
+                if bytes.len() % 2 != 0 {
+                    return Err(DeserializationError::InvalidAmountOfBytes);
+                }
+
+                let len = bytes.len() / 2;
+                let x: FieldElement<E::BaseField>;
+                let y: FieldElement<E::BaseField>;
+
+                if endianness == Endianness::BigEndian {
+                    x = ByteConversion::from_bytes_be(&bytes[..len])?;
+                    y = ByteConversion::from_bytes_be(&bytes[len..])?;
+                } else {
+                    x = ByteConversion::from_bytes_le(&bytes[..len])?;
+                    y = ByteConversion::from_bytes_le(&bytes[len..])?;
+                }
+
+                if E::defining_equation(&x, &y) == FieldElement::zero() {
+                    Ok(Self::new([x, y, FieldElement::one()]))
+                } else {
+                    Err(DeserializationError::FieldFromBytesError)
+                }
+            }
+        }
+    }
+}
+impl<E> ShortWeierstrassJacobianPoint<E>
+where
+    E: IsShortWeierstrass,
+    FieldElement<E::BaseField>: ByteConversion,
+{
+    /// Serialize the points in the given format
+    #[cfg(feature = "alloc")]
+    pub fn serialize(&self, point_format: PointFormat1, endianness: Endianness) -> Vec<u8> {
+        // TODO: Add more compact serialization formats
+        // Uncompressed affine / Compressed
+
+        let mut bytes: Vec<u8> = Vec::new();
+        let x_bytes: Vec<u8>;
+        let y_bytes: Vec<u8>;
+        let z_bytes: Vec<u8>;
+
+        match point_format {
+            PointFormat1::Jacobian => {
+                let [x, y, z] = self.coordinates();
+                if endianness == Endianness::BigEndian {
+                    x_bytes = x.to_bytes_be();
+                    y_bytes = y.to_bytes_be();
+                    z_bytes = z.to_bytes_be();
+                } else {
+                    x_bytes = x.to_bytes_le();
+                    y_bytes = y.to_bytes_le();
+                    z_bytes = z.to_bytes_le();
+                }
+                bytes.extend(&x_bytes);
+                bytes.extend(&y_bytes);
+                bytes.extend(&z_bytes);
+            }
+            PointFormat1::Uncompressed => {
+                let affine_representation = self.to_affine();
+                let [x, y, _z] = affine_representation.coordinates();
+                if endianness == Endianness::BigEndian {
+                    x_bytes = x.to_bytes_be();
+                    y_bytes = y.to_bytes_be();
+                } else {
+                    x_bytes = x.to_bytes_le();
+                    y_bytes = y.to_bytes_le();
+                }
+                bytes.extend(&x_bytes);
+                bytes.extend(&y_bytes);
+            }
+        }
+        bytes
+    }
+
+    pub fn deserialize(
+        bytes: &[u8],
+        point_format: PointFormat1,
+        endianness: Endianness,
+    ) -> Result<Self, DeserializationError> {
+        match point_format {
+            PointFormat1::Jacobian => {
+                if bytes.len() % 3 != 0 {
+                    return Err(DeserializationError::InvalidAmountOfBytes);
+                }
+
+                let len = bytes.len() / 3;
+                let x: FieldElement<E::BaseField>;
+                let y: FieldElement<E::BaseField>;
+                let z: FieldElement<E::BaseField>;
+
+                if endianness == Endianness::BigEndian {
+                    x = ByteConversion::from_bytes_be(&bytes[..len])?;
+                    y = ByteConversion::from_bytes_be(&bytes[len..len * 2])?;
+                    z = ByteConversion::from_bytes_be(&bytes[len * 2..])?;
+                } else {
+                    x = ByteConversion::from_bytes_le(&bytes[..len])?;
+                    y = ByteConversion::from_bytes_le(&bytes[len..len * 2])?;
+                    z = ByteConversion::from_bytes_le(&bytes[len * 2..])?;
+                }
+
+                if z == FieldElement::zero() {
+                    let point = Self::new([x, y, z]);
+                    if point.is_neutral_element() {
+                        Ok(point)
+                    } else {
+                        Err(DeserializationError::FieldFromBytesError)
+                    }
+                } else if E::defining_equation(&(&x / &z), &(&y / &z)) == FieldElement::zero() {
+                    Ok(Self::new([x, y, z]))
+                } else {
+                    Err(DeserializationError::FieldFromBytesError)
+                }
+            }
+            PointFormat1::Uncompressed => {
                 if bytes.len() % 2 != 0 {
                     return Err(DeserializationError::InvalidAmountOfBytes);
                 }
