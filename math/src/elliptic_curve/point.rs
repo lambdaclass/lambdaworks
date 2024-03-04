@@ -111,7 +111,7 @@ impl<E: IsEllipticCurve> JacobianPoint<E> {
         };
         let inv_z = z.inv().unwrap();
         JacobianPoint::new([
-            x * &inv_z.pow(2 as usize) * &inv_z,
+            x * &inv_z.pow(2 as usize),
             y * inv_z.pow(3 as usize),
             FieldElement::one(),
         ])
