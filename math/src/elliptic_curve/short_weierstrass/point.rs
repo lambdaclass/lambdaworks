@@ -607,6 +607,16 @@ where
         self.serialize(PointFormat::Projective, Endianness::LittleEndian)
     }
 }
+#[cfg(feature = "alloc")]
+impl<E> AsBytes for ShortWeierstrassJacobianPoint<E>
+where
+    E: IsShortWeierstrass,
+    FieldElement<E::BaseField>: ByteConversion,
+{
+    fn as_bytes(&self) -> alloc::vec::Vec<u8> {
+        self.serialize(PointFormat1::Jacobian, Endianness::LittleEndian)
+    }
+}
 
 #[cfg(feature = "alloc")]
 impl<E> From<ShortWeierstrassProjectivePoint<E>> for alloc::vec::Vec<u8>
@@ -615,6 +625,16 @@ where
     FieldElement<E::BaseField>: ByteConversion,
 {
     fn from(value: ShortWeierstrassProjectivePoint<E>) -> Self {
+        value.as_bytes()
+    }
+}
+#[cfg(feature = "alloc")]
+impl<E> From<ShortWeierstrassJacobianPoint<E>> for alloc::vec::Vec<u8>
+where
+    E: IsShortWeierstrass,
+    FieldElement<E::BaseField>: ByteConversion,
+{
+    fn from(value: ShortWeierstrassJacobianPoint<E>) -> Self {
         value.as_bytes()
     }
 }
@@ -629,6 +649,18 @@ where
         Self: Sized,
     {
         Self::deserialize(bytes, PointFormat::Projective, Endianness::LittleEndian)
+    }
+}
+impl<E> Deserializable for ShortWeierstrassJacobianPoint<E>
+where
+    E: IsShortWeierstrass,
+    FieldElement<E::BaseField>: ByteConversion,
+{
+    fn deserialize(bytes: &[u8]) -> Result<Self, DeserializationError>
+    where
+        Self: Sized,
+    {
+        Self::deserialize(bytes, PointFormat1::Jacobian, Endianness::LittleEndian)
     }
 }
 
