@@ -98,6 +98,20 @@ mod tests {
     #[allow(clippy::upper_case_acronyms)]
     type FE = GrumpkinFieldElement;
 
+
+    /*
+    TODO:
+        in subgroup
+        not in subgroup
+        arbitrary point is not in subgroup
+        operate with self works -> see bls12-381
+        https://github.com/Consensys/gnark-crypto/blob/master/ecc/bn254/g1_test.go#L85
+        https://github.com/Consensys/gnark-crypto/blob/master/ecc/bn254/g1_test.go#L109
+        https://github.com/Consensys/gnark-crypto/blob/master/ecc/bn254/g1_test.go#L250
+        https://github.com/Consensys/gnark-crypto/blob/master/ecc/bn254/g1_test.go#L306
+        https://github.com/Consensys/gnark-crypto/blob/master/ecc/bn254/g1_test.go#L294
+        https://github.com/Consensys/gnark-crypto/blob/master/ecc/bn254/g1_test.go#L368
+     */
     /*
     Sage script:
     p = 21888242871839275222246405745257275088548364400416034343698204186575808495617
@@ -136,7 +150,6 @@ mod tests {
     hex(15046418650485865292177180299665505401798701105523584252220614421753423008361) = 0x2143f89e0ac0942ed1a891a83b5e5b3d4ed46722c24f72dfbdd5fedad27d1269
     hex(17852720053004908540584849282553401192842244835354847668310708345588581105130) = 0x2778480e45647fbe25e497e995c2ac24b6e0411fb01c657460412c142d2f7dea
     */
-
     fn point_times_5() -> ShortWeierstrassProjectivePoint<GrumpkinCurve> {
         let x = FE::from_hex_unchecked(
             "0x2143f89e0ac0942ed1a891a83b5e5b3d4ed46722c24f72dfbdd5fedad27d1269",
