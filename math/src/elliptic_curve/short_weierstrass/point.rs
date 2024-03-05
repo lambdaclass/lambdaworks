@@ -331,7 +331,7 @@ impl<E: IsShortWeierstrass> IsGroup for ShortWeierstrassJacobianPoint<E> {
 
         let (p, r) = (&u2 - &u1, &s2 - &s1);
 
-        let x3 = -(&u1 + u2) * p.pow(2 as usize) * r.pow(2 as usize);
+        let x3 = -(&u1 + u2) * p.pow(2 as usize) + r.pow(2 as usize);
         let y3 = -s1 * p.pow(3 as usize) + r * (u1 * p.pow(2 as usize) - &x3);
         let z3 = z1 * z2 * p;
 
