@@ -21,7 +21,6 @@ impl IsEllipticCurve for GrumpkinCurve {
     type BaseField = GrumpkinPrimeField;
     type PointRepresentation = ShortWeierstrassProjectivePoint<Self>;
 
-    // Same Generator as BN254
     // G = (1, sprt(-16)) = (1, 17631683881184975370165255887551781615748388533673675138860) = (0x1, 0x2cf135e7506a45d632d270d45f1181294833fc48d823f272c)
     fn generator() -> Self::PointRepresentation {
         Self::PointRepresentation::new([
@@ -82,7 +81,7 @@ impl IsModulus<U256> for FrConfig {
 /// Grumpkin Fr
 /// Equal to BN254 Fp
 pub type FrField = MontgomeryBackendPrimeField<FrConfig, 4>;
-/// FrElement using MontgomeryBackend for Bn254
+/// FrElement using MontgomeryBackend for Grumpkin
 pub type FrElement = FieldElement<FrField>;
 
 #[cfg(test)]
@@ -97,6 +96,7 @@ mod tests {
 
     #[allow(clippy::upper_case_acronyms)]
     type FE = GrumpkinFieldElement;
+    type G = ShortWeierstrassProjectivePoint<GrumpkinCurve>;
 
 
     /*
@@ -105,14 +105,11 @@ mod tests {
         not in subgroup
         arbitrary point is not in subgroup
         operate with self works -> see bls12-381
-        https://github.com/Consensys/gnark-crypto/blob/master/ecc/bn254/g1_test.go#L85
         https://github.com/Consensys/gnark-crypto/blob/master/ecc/bn254/g1_test.go#L109
-        https://github.com/Consensys/gnark-crypto/blob/master/ecc/bn254/g1_test.go#L250
+        https://github.com/Consensys/gnark-crypto/blob/master/ecc/bn254/g1_test.go#L250 -> Doesn't work as -s
         https://github.com/Consensys/gnark-crypto/blob/master/ecc/bn254/g1_test.go#L306
         https://github.com/Consensys/gnark-crypto/blob/master/ecc/bn254/g1_test.go#L294
         https://github.com/Consensys/gnark-crypto/blob/master/ecc/bn254/g1_test.go#L368
-     */
-    /*
     Sage script:
     p = 21888242871839275222246405745257275088548364400416034343698204186575808495617
     Fp = GF(p)
@@ -242,6 +239,53 @@ mod tests {
         let y_sq_1 = y.pow(2_u16);
 
         assert_eq!(y_sq_0, y_sq_1);
+    }
+
+    // P * O = O * P
+    #[test]
+    fn add_inf_to_point_should_not_modify_point() {
+        // Pick an arbitrary point
+        let point = point();
+        // P * O
+        let left = point.operate_with(&G::neutral_element());
+        // O * P
+        let right =  G::neutral_element().operate_with(&point);
+        assert_eq!(left, point);
+        assert_eq!(right, point);
+    }
+
+    // P * -P = O
+    #[test]
+    fn add_opposite_of_a_point_to_itself_gives_neutral_element() {
+        // Pick an arbitrary point
+        let point = point();
+        // P * O
+        let neg_point = point.neg();
+        let res = point.operate_with(&neg_point);
+        assert_eq!(res, G::neutral_element());
+    }
+
+    //Scalar mul depends only on the scalar mod r
+    #[test]
+    fn scalar_mul_depends_on_scalar_mod_r() {
+        let r = FrConfig::MODULUS;
+        let gen = GrumpkinCurve::generator();
+        let gen_neg = gen.neg();
+        let g = gen.operate_with_self(r);
+
+        let r_sub_one = r - U256::from(1u64);
+        let op3 = gen.operate_with_self(r_sub_one);
+
+        // random scalar value
+        let s = U256::from(3u64);
+        let blinded_scalar = (s * r) + s;
+        let op1 = gen.operate_with_self(s);
+        let op2 = gen.operate_with_self(blinded_scalar);
+
+        assert_eq!(op1, op2);
+        assert_eq!(g, G::neutral_element());
+        assert_ne!(op1, G::neutral_element());
+        assert_eq!(gen_neg, op3);
     }
 
     #[test]
