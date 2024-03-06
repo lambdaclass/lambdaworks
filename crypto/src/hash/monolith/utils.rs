@@ -24,11 +24,7 @@ fn random_field_element(shake: &mut Shake128Reader) -> u32 {
 }
 
 pub fn dot_product(u: &[u32], v: &[u32]) -> u32 {
-    u.iter()
-        .zip(v)
-        .map(|(x, y)| F::mul(x, y))
-        .reduce(|a, b| F::add(&a, &b))
-        .unwrap()
+    Mersenne31Field::sum(u.iter().zip(v).map(|(x, y)| F::mul(x, y)))
 }
 
 pub fn get_random_y_i(
