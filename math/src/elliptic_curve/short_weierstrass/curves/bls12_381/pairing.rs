@@ -9,7 +9,7 @@ use crate::{cyclic_group::IsGroup, elliptic_curve::traits::IsPairing, errors::Pa
 use crate::{
     elliptic_curve::short_weierstrass::{
         curves::bls12_381::field_extension::{Degree6ExtensionField, LevelTwoResidue},
-        point::ShortWeierstrassProjectivePoint,
+        point::ShortWeierstrassJacobianPoint,
         traits::IsShortWeierstrass,
     },
     field::{element::FieldElement, extensions::cubic::HasCubicNonResidue},
@@ -23,8 +23,8 @@ pub const SUBGROUP_ORDER: U256 =
 pub struct BLS12381AtePairing;
 
 impl IsPairing for BLS12381AtePairing {
-    type G1Point = ShortWeierstrassProjectivePoint<BLS12381Curve>;
-    type G2Point = ShortWeierstrassProjectivePoint<BLS12381TwistCurve>;
+    type G1Point = ShortWeierstrassJacobianPoint<BLS12381Curve>;
+    type G2Point = ShortWeierstrassJacobianPoint<BLS12381TwistCurve>;
     type OutputField = Degree12ExtensionField;
 
     /// Compute the product of the ate pairings for a list of point pairs.
@@ -47,8 +47,8 @@ impl IsPairing for BLS12381AtePairing {
 }
 
 fn double_accumulate_line(
-    t: &mut ShortWeierstrassProjectivePoint<BLS12381TwistCurve>,
-    p: &ShortWeierstrassProjectivePoint<BLS12381Curve>,
+    t: &mut ShortWeierstrassJacobianPoint<BLS12381TwistCurve>,
+    p: &ShortWeierstrassJacobianPoint<BLS12381Curve>,
     accumulator: &mut FieldElement<Degree12ExtensionField>,
 ) {
     let [x1, y1, z1] = t.coordinates();
@@ -102,9 +102,9 @@ fn double_accumulate_line(
 }
 
 fn add_accumulate_line(
-    t: &mut ShortWeierstrassProjectivePoint<BLS12381TwistCurve>,
-    q: &ShortWeierstrassProjectivePoint<BLS12381TwistCurve>,
-    p: &ShortWeierstrassProjectivePoint<BLS12381Curve>,
+    t: &mut ShortWeierstrassJacobianPoint<BLS12381TwistCurve>,
+    q: &ShortWeierstrassJacobianPoint<BLS12381TwistCurve>,
+    p: &ShortWeierstrassJacobianPoint<BLS12381Curve>,
     accumulator: &mut FieldElement<Degree12ExtensionField>,
 ) {
     let [x1, y1, z1] = t.coordinates();
@@ -157,8 +157,8 @@ fn add_accumulate_line(
 /// "Topics in computational number theory" by W. Bons and K. Lenstra
 #[allow(unused)]
 fn miller(
-    q: &ShortWeierstrassProjectivePoint<BLS12381TwistCurve>,
-    p: &ShortWeierstrassProjectivePoint<BLS12381Curve>,
+    q: &ShortWeierstrassJacobianPoint<BLS12381TwistCurve>,
+    p: &ShortWeierstrassJacobianPoint<BLS12381Curve>,
 ) -> FieldElement<Degree12ExtensionField> {
     let mut r = q.clone();
     let mut f = FieldElement::<Degree12ExtensionField>::one();
@@ -273,11 +273,11 @@ mod tests {
     #[test]
     fn ate_pairing_returns_one_when_one_element_is_the_neutral_element() {
         let p = BLS12381Curve::generator().to_affine();
-        let q = ShortWeierstrassProjectivePoint::neutral_element();
+        let q = ShortWeierstrassJacobianPoint::neutral_element();
         let result = BLS12381AtePairing::compute_batch(&[(&p.to_affine(), &q)]).unwrap();
         assert_eq!(result, FieldElement::one());
 
-        let p = ShortWeierstrassProjectivePoint::neutral_element();
+        let p = ShortWeierstrassJacobianPoint::neutral_element();
         let q = BLS12381TwistCurve::generator();
         let result = BLS12381AtePairing::compute_batch(&[(&p, &q.to_affine())]).unwrap();
         assert_eq!(result, FieldElement::one());
@@ -285,12 +285,12 @@ mod tests {
 
     #[test]
     fn ate_pairing_errors_when_one_element_is_not_in_subgroup() {
-        let p = ShortWeierstrassProjectivePoint::new([
+        let p = ShortWeierstrassJacobianPoint::new([
             FieldElement::one(),
             FieldElement::one(),
             FieldElement::one(),
         ]);
-        let q = ShortWeierstrassProjectivePoint::neutral_element();
+        let q = ShortWeierstrassJacobianPoint::neutral_element();
         let result = BLS12381AtePairing::compute_batch(&[(&p.to_affine(), &q)]);
         assert!(result.is_err())
     }

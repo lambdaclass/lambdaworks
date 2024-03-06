@@ -680,7 +680,7 @@ mod tests {
     type FEE = FieldElement<BLS12381PrimeField>;
 
     #[cfg(feature = "alloc")]
-    fn point() -> ShortWeierstrassProjectivePoint<BLS12381Curve> {
+    fn point() -> ShortWeierstrassJacobianPoint<BLS12381Curve> {
         let x = FEE::new_base("36bb494facde72d0da5c770c4b16d9b2d45cfdc27604a25a1a80b020798e5b0dbd4c6d939a8f8820f042a29ce552ee5");
         let y = FEE::new_base("7acf6e49cc000ff53b06ee1d27056734019c0a1edfa16684da41ebb0c56750f73bc1b0eae4c6c241808a5e485af0ba0");
         BLS12381Curve::create_point_from_affine(x, y).unwrap()
@@ -690,11 +690,11 @@ mod tests {
     #[test]
     fn byte_conversion_from_and_to_be_projective() {
         let expected_point = point();
-        let bytes_be = expected_point.serialize(PointFormat::Projective, Endianness::BigEndian);
+        let bytes_be = expected_point.serialize(PointFormat1::Jacobian, Endianness::BigEndian);
 
-        let result = ShortWeierstrassProjectivePoint::deserialize(
+        let result = ShortWeierstrassJacobianPoint::deserialize(
             &bytes_be,
-            PointFormat::Projective,
+            PointFormat1::Jacobian,
             Endianness::BigEndian,
         );
         assert_eq!(expected_point, result.unwrap());
@@ -704,10 +704,10 @@ mod tests {
     #[test]
     fn byte_conversion_from_and_to_be_uncompressed() {
         let expected_point = point();
-        let bytes_be = expected_point.serialize(PointFormat::Uncompressed, Endianness::BigEndian);
-        let result = ShortWeierstrassProjectivePoint::deserialize(
+        let bytes_be = expected_point.serialize(PointFormat1::Uncompressed, Endianness::BigEndian);
+        let result = ShortWeierstrassJacobianPoint::deserialize(
             &bytes_be,
-            PointFormat::Uncompressed,
+            PointFormat1::Uncompressed,
             Endianness::BigEndian,
         );
         assert_eq!(expected_point, result.unwrap());
@@ -717,11 +717,11 @@ mod tests {
     #[test]
     fn byte_conversion_from_and_to_le_projective() {
         let expected_point = point();
-        let bytes_be = expected_point.serialize(PointFormat::Projective, Endianness::LittleEndian);
+        let bytes_be = expected_point.serialize(PointFormat1::Jacobian, Endianness::LittleEndian);
 
-        let result = ShortWeierstrassProjectivePoint::deserialize(
+        let result = ShortWeierstrassJacobianPoint::deserialize(
             &bytes_be,
-            PointFormat::Projective,
+            PointFormat1::Jacobian,
             Endianness::LittleEndian,
         );
         assert_eq!(expected_point, result.unwrap());
@@ -732,11 +732,11 @@ mod tests {
     fn byte_conversion_from_and_to_le_uncompressed() {
         let expected_point = point();
         let bytes_be =
-            expected_point.serialize(PointFormat::Uncompressed, Endianness::LittleEndian);
+            expected_point.serialize(PointFormat1::Uncompressed, Endianness::LittleEndian);
 
-        let result = ShortWeierstrassProjectivePoint::deserialize(
+        let result = ShortWeierstrassJacobianPoint::deserialize(
             &bytes_be,
-            PointFormat::Uncompressed,
+            PointFormat1::Uncompressed,
             Endianness::LittleEndian,
         );
         assert_eq!(expected_point, result.unwrap());
@@ -745,11 +745,11 @@ mod tests {
     #[cfg(feature = "alloc")]
     #[test]
     fn byte_conversion_from_and_to_with_mixed_le_and_be_does_not_work_projective() {
-        let bytes = point().serialize(PointFormat::Projective, Endianness::LittleEndian);
+        let bytes = point().serialize(PointFormat1::Jacobian, Endianness::LittleEndian);
 
-        let result = ShortWeierstrassProjectivePoint::<BLS12381Curve>::deserialize(
+        let result = ShortWeierstrassJacobianPoint::<BLS12381Curve>::deserialize(
             &bytes,
-            PointFormat::Projective,
+            PointFormat1::Jacobian,
             Endianness::BigEndian,
         );
 
@@ -762,11 +762,11 @@ mod tests {
     #[cfg(feature = "alloc")]
     #[test]
     fn byte_conversion_from_and_to_with_mixed_le_and_be_does_not_work_uncompressed() {
-        let bytes = point().serialize(PointFormat::Uncompressed, Endianness::LittleEndian);
+        let bytes = point().serialize(PointFormat1::Uncompressed, Endianness::LittleEndian);
 
-        let result = ShortWeierstrassProjectivePoint::<BLS12381Curve>::deserialize(
+        let result = ShortWeierstrassJacobianPoint::<BLS12381Curve>::deserialize(
             &bytes,
-            PointFormat::Uncompressed,
+            PointFormat1::Uncompressed,
             Endianness::BigEndian,
         );
 
@@ -779,11 +779,11 @@ mod tests {
     #[cfg(feature = "alloc")]
     #[test]
     fn byte_conversion_from_and_to_with_mixed_be_and_le_does_not_work_projective() {
-        let bytes = point().serialize(PointFormat::Projective, Endianness::BigEndian);
+        let bytes = point().serialize(PointFormat1::Jacobian, Endianness::BigEndian);
 
-        let result = ShortWeierstrassProjectivePoint::<BLS12381Curve>::deserialize(
+        let result = ShortWeierstrassJacobianPoint::<BLS12381Curve>::deserialize(
             &bytes,
-            PointFormat::Projective,
+            PointFormat1::Jacobian,
             Endianness::LittleEndian,
         );
 
@@ -796,11 +796,11 @@ mod tests {
     #[cfg(feature = "alloc")]
     #[test]
     fn byte_conversion_from_and_to_with_mixed_be_and_le_does_not_work_uncompressed() {
-        let bytes = point().serialize(PointFormat::Uncompressed, Endianness::BigEndian);
+        let bytes = point().serialize(PointFormat1::Uncompressed, Endianness::BigEndian);
 
-        let result = ShortWeierstrassProjectivePoint::<BLS12381Curve>::deserialize(
+        let result = ShortWeierstrassJacobianPoint::<BLS12381Curve>::deserialize(
             &bytes,
-            PointFormat::Uncompressed,
+            PointFormat1::Uncompressed,
             Endianness::LittleEndian,
         );
 
@@ -814,9 +814,9 @@ mod tests {
     fn cannot_create_point_from_wrong_number_of_bytes_le_projective() {
         let bytes = &[0_u8; 13];
 
-        let result = ShortWeierstrassProjectivePoint::<BLS12381Curve>::deserialize(
+        let result = ShortWeierstrassJacobianPoint::<BLS12381Curve>::deserialize(
             bytes,
-            PointFormat::Projective,
+            PointFormat1::Jacobian,
             Endianness::LittleEndian,
         );
 
@@ -830,9 +830,9 @@ mod tests {
     fn cannot_create_point_from_wrong_number_of_bytes_le_uncompressed() {
         let bytes = &[0_u8; 13];
 
-        let result = ShortWeierstrassProjectivePoint::<BLS12381Curve>::deserialize(
+        let result = ShortWeierstrassJacobianPoint::<BLS12381Curve>::deserialize(
             bytes,
-            PointFormat::Uncompressed,
+            PointFormat1::Uncompressed,
             Endianness::LittleEndian,
         );
 
@@ -846,9 +846,9 @@ mod tests {
     fn cannot_create_point_from_wrong_number_of_bytes_be_projective() {
         let bytes = &[0_u8; 13];
 
-        let result = ShortWeierstrassProjectivePoint::<BLS12381Curve>::deserialize(
+        let result = ShortWeierstrassJacobianPoint::<BLS12381Curve>::deserialize(
             bytes,
-            PointFormat::Projective,
+            PointFormat1::Jacobian,
             Endianness::BigEndian,
         );
 
@@ -862,9 +862,9 @@ mod tests {
     fn cannot_create_point_from_wrong_number_of_bytes_be_uncompressed() {
         let bytes = &[0_u8; 13];
 
-        let result = ShortWeierstrassProjectivePoint::<BLS12381Curve>::deserialize(
+        let result = ShortWeierstrassJacobianPoint::<BLS12381Curve>::deserialize(
             bytes,
-            PointFormat::Uncompressed,
+            PointFormat1::Uncompressed,
             Endianness::BigEndian,
         );
 

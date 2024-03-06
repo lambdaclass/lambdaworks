@@ -1,5 +1,5 @@
 use crate::cyclic_group::IsGroup;
-use crate::elliptic_curve::short_weierstrass::point::ShortWeierstrassProjectivePoint;
+use crate::elliptic_curve::short_weierstrass::point::ShortWeierstrassJacobianPoint;
 use crate::elliptic_curve::traits::IsEllipticCurve;
 use crate::unsigned_integer::element::U384;
 use crate::{
@@ -19,7 +19,7 @@ pub struct BLS12381TwistCurve;
 
 impl IsEllipticCurve for BLS12381TwistCurve {
     type BaseField = Degree2ExtensionField;
-    type PointRepresentation = ShortWeierstrassProjectivePoint<Self>;
+    type PointRepresentation = ShortWeierstrassJacobianPoint<Self>;
 
     fn generator() -> Self::PointRepresentation {
         Self::PointRepresentation::new([
@@ -46,7 +46,7 @@ impl IsShortWeierstrass for BLS12381TwistCurve {
     }
 }
 
-impl ShortWeierstrassProjectivePoint<BLS12381TwistCurve> {
+impl ShortWeierstrassJacobianPoint<BLS12381TwistCurve> {
     /// This function is related to the map ψ: E_twist(𝔽p²) -> E(𝔽p¹²).
     /// Given an affine point G in E_twist(𝔽p²) returns x, y such that
     /// ψ(G) = (x', y', 1) with x' = x * x'' and y' = y * y''
@@ -99,7 +99,7 @@ mod tests {
 
     #[cfg(feature = "alloc")]
     use crate::elliptic_curve::short_weierstrass::point::{
-        Endianness, PointFormat, ShortWeierstrassProjectivePoint,
+        Endianness, PointFormat1, ShortWeierstrassJacobianPoint,
     };
 
     #[test]
@@ -116,11 +116,11 @@ mod tests {
     #[test]
     fn serialize_deserialize_generator() {
         let g = BLS12381TwistCurve::generator();
-        let bytes = g.serialize(PointFormat::Projective, Endianness::LittleEndian);
+        let bytes = g.serialize(PointFormat1::Jacobian, Endianness::LittleEndian);
 
-        let deserialized = ShortWeierstrassProjectivePoint::<BLS12381TwistCurve>::deserialize(
+        let deserialized = ShortWeierstrassJacobianPoint::<BLS12381TwistCurve>::deserialize(
             &bytes,
-            PointFormat::Projective,
+            PointFormat1::Jacobian,
             Endianness::LittleEndian,
         )
         .unwrap();

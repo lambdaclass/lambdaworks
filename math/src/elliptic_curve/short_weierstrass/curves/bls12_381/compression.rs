@@ -1,7 +1,7 @@
 use super::field_extension::BLS12381PrimeField;
 use crate::{
     elliptic_curve::short_weierstrass::{
-        curves::bls12_381::curve::BLS12381Curve, point::ShortWeierstrassProjectivePoint,
+        curves::bls12_381::curve::BLS12381Curve, point::ShortWeierstrassJacobianPoint,
     },
     field::element::FieldElement,
 };
@@ -12,7 +12,7 @@ use crate::{
     traits::ByteConversion,
 };
 
-pub type G1Point = ShortWeierstrassProjectivePoint<BLS12381Curve>;
+pub type G1Point = ShortWeierstrassJacobianPoint<BLS12381Curve>;
 pub type BLS12381FieldElement = FieldElement<BLS12381PrimeField>;
 
 pub fn decompress_g1_point(input_bytes: &mut [u8; 48]) -> Result<G1Point, ByteConversionError> {

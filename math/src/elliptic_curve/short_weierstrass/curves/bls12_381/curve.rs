@@ -3,7 +3,7 @@ use super::{
     twist::BLS12381TwistCurve,
 };
 use crate::cyclic_group::IsGroup;
-use crate::elliptic_curve::short_weierstrass::point::ShortWeierstrassProjectivePoint;
+use crate::elliptic_curve::short_weierstrass::point::ShortWeierstrassJacobianPoint;
 use crate::elliptic_curve::traits::IsEllipticCurve;
 use crate::unsigned_integer::element::U256;
 use crate::{
@@ -22,7 +22,7 @@ pub struct BLS12381Curve;
 
 impl IsEllipticCurve for BLS12381Curve {
     type BaseField = BLS12381PrimeField;
-    type PointRepresentation = ShortWeierstrassProjectivePoint<Self>;
+    type PointRepresentation = ShortWeierstrassJacobianPoint<Self>;
 
     fn generator() -> Self::PointRepresentation {
         Self::PointRepresentation::new([
@@ -66,7 +66,7 @@ BLS12381TwistCurveFieldElement::const_from_raw([
     FieldElement::from_hex_unchecked("6af0e0437ff400b6831e36d6bd17ffe48395dabc2d3435e77f76e17009241c5ee67992f72ec05f4c81084fbede3cc09")
 ]);
 
-impl ShortWeierstrassProjectivePoint<BLS12381Curve> {
+impl ShortWeierstrassJacobianPoint<BLS12381Curve> {
     /// Returns 𝜙(P) = (𝑥, 𝑦) ⇒ (𝛽𝑥, 𝑦), where 𝛽 is the Cube Root of Unity in the base prime field
     /// https://eprint.iacr.org/2022/352.pdf 2 Preliminaries
     fn phi(&self) -> Self {
@@ -86,7 +86,7 @@ impl ShortWeierstrassProjectivePoint<BLS12381Curve> {
     }
 }
 
-impl ShortWeierstrassProjectivePoint<BLS12381TwistCurve> {
+impl ShortWeierstrassJacobianPoint<BLS12381TwistCurve> {
     /// 𝜓(P) = 𝜁 ∘ 𝜋ₚ ∘ 𝜁⁻¹, where 𝜁 is the isomorphism u:E'(𝔽ₚ₆) −> E(𝔽ₚ₁₂) from the twist to E,, 𝜋ₚ is the p-power frobenius endomorphism
     /// and 𝜓 satisifies minmal equation 𝑋² + 𝑡𝑋 + 𝑞 = 𝑂
     /// https://eprint.iacr.org/2022/352.pdf 4.2 (7)
@@ -137,11 +137,11 @@ mod tests {
 
     // Cmoputes the psi^2() 'Untwist Frobenius Endomorphism'
     fn psi_square(
-        p: &ShortWeierstrassProjectivePoint<BLS12381TwistCurve>,
-    ) -> ShortWeierstrassProjectivePoint<BLS12381TwistCurve> {
+        p: &ShortWeierstrassJacobianPoint<BLS12381TwistCurve>,
+    ) -> ShortWeierstrassJacobianPoint<BLS12381TwistCurve> {
         let [x, y, z] = p.coordinates();
         // Since power of frobenius map is 2 we apply once as applying twice is inverse
-        ShortWeierstrassProjectivePoint::new([x * ENDO_U_2, y * ENDO_V_2, z.clone()])
+        ShortWeierstrassJacobianPoint::new([x * ENDO_U_2, y * ENDO_V_2, z.clone()])
     }
 
     #[allow(clippy::upper_case_acronyms)]
@@ -149,13 +149,13 @@ mod tests {
     #[allow(clippy::upper_case_acronyms)]
     type FTE = FieldElement<Degree2ExtensionField>;
 
-    fn point_1() -> ShortWeierstrassProjectivePoint<BLS12381Curve> {
+    fn point_1() -> ShortWeierstrassJacobianPoint<BLS12381Curve> {
         let x = FEE::new_base("36bb494facde72d0da5c770c4b16d9b2d45cfdc27604a25a1a80b020798e5b0dbd4c6d939a8f8820f042a29ce552ee5");
         let y = FEE::new_base("7acf6e49cc000ff53b06ee1d27056734019c0a1edfa16684da41ebb0c56750f73bc1b0eae4c6c241808a5e485af0ba0");
         BLS12381Curve::create_point_from_affine(x, y).unwrap()
     }
 
-    fn point_1_times_5() -> ShortWeierstrassProjectivePoint<BLS12381Curve> {
+    fn point_1_times_5() -> ShortWeierstrassJacobianPoint<BLS12381Curve> {
         let x = FEE::new_base("32bcce7e71eb50384918e0c9809f73bde357027c6bf15092dd849aa0eac274d43af4c68a65fb2cda381734af5eecd5c");
         let y = FEE::new_base("11e48467b19458aabe7c8a42dc4b67d7390fdf1e150534caadddc7e6f729d8890b68a5ea6885a21b555186452b954d88");
         BLS12381Curve::create_point_from_affine(x, y).unwrap()
