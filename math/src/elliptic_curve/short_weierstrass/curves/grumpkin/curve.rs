@@ -106,20 +106,77 @@ mod tests {
     a = Fp(0)
     b = Fp(-17)
     Grumpkin = EllipticCurve(Fp, [a, b])
-    P = Grumpkin.random_point()
-    P
+    A = Grumpkin.random_point()
+    A
     (15485117031023686537706709698619053905755909389649581280762364787786480506330 :
     8998283053861550708725041915039948040873858194502192019982314435709819336827 :
     1)
     hex(15485117031023686537706709698619053905755909389649581280762364787786480506330) = 0x223c44015b1ab0705802e079ad06dc25f608633c83192ed0720bd396ab3a55da
     hex(8998283053861550708725041915039948040873858194502192019982314435709819336827) = 0x13e4d9047d76f812c834a27f2bbaab6ca5fd62ed34ac2e1ff1870ab083f2b87b
     */
-    fn point() -> ShortWeierstrassProjectivePoint<GrumpkinCurve> {
+    fn point_a() -> ShortWeierstrassProjectivePoint<GrumpkinCurve> {
         let x = FE::from_hex_unchecked(
             "0x223c44015b1ab0705802e079ad06dc25f608633c83192ed0720bd396ab3a55da",
         );
         let y = FE::from_hex_unchecked(
             "0x13e4d9047d76f812c834a27f2bbaab6ca5fd62ed34ac2e1ff1870ab083f2b87b",
+        );
+        GrumpkinCurve::create_point_from_affine(x, y).unwrap()
+    }
+
+    /*
+    Sage script:
+    p = 21888242871839275222246405745257275088548364400416034343698204186575808495617
+    Fp = GF(p)
+    a = Fp(0)
+    b = Fp(-17)
+    Grumpkin = EllipticCurve(Fp, [a, b])
+    B = Grumpkin.random_point()
+    B
+    (3268464931655688768836539556233897014960714449731494149362780603936864794149 :
+    21602298792738915452436924250014118513160691830629170285452329874861320517987 : 
+    1)
+    hex(3268464931655688768836539556233897014960714449731494149362780603936864794149) = 0x739e2b6472d405bbc4263464866a15483858b3083004a4246834e8fbba0f625 
+    hex(21602298792738915452436924250014118513160691830629170285452329874861320517987) = 0x2fc277c38298f4cca2798dcf7f8cc4e943c3e913fff7f8adca03db5920073963
+    */
+    fn point_b() -> ShortWeierstrassProjectivePoint<GrumpkinCurve> {
+        let x = FE::from_hex_unchecked(
+            "0x739e2b6472d405bbc4263464866a15483858b3083004a4246834e8fbba0f625",
+        );
+        let y = FE::from_hex_unchecked(
+            "0x2fc277c38298f4cca2798dcf7f8cc4e943c3e913fff7f8adca03db5920073963",
+        );
+        GrumpkinCurve::create_point_from_affine(x, y).unwrap()
+    }
+
+    /*
+    Sage script:
+    p = 21888242871839275222246405745257275088548364400416034343698204186575808495617
+    Fp = GF(p)
+    a = Fp(0)
+    b = Fp(-17)
+    Grumpkin = EllipticCurve(Fp, [a, b])
+    A = Grumpkin(15485117031023686537706709698619053905755909389649581280762364787786480506330 :
+    8998283053861550708725041915039948040873858194502192019982314435709819336827 :
+    1)
+    B = Grumpkin(
+    3268464931655688768836539556233897014960714449731494149362780603936864794149 :
+    21602298792738915452436924250014118513160691830629170285452329874861320517987 : 
+    1)
+    C = A + B
+    C
+    (19589511723685515259809937322960156453150080799519189498903102061830421386151 :
+    8780443621842377450927011336607258768303562920725643392690114380788691381924 : 
+    1)
+    hex(19589511723685515259809937322960156453150080799519189498903102061830421386151) = 0x2b4f454dbe9c92fa321542229d214338d5459b71e9e2d995318d9358256093a7 
+    hex(8780443621842377450927011336607258768303562920725643392690114380788691381924) = 0x13698e12e1076132830116e982f293dd07271f34aa03ebfe23eb9301229c2ea4
+    */
+    fn point_c() -> ShortWeierstrassProjectivePoint<GrumpkinCurve> {
+        let x = FE::from_hex_unchecked(
+            "0x2b4f454dbe9c92fa321542229d214338d5459b71e9e2d995318d9358256093a7",
+        );
+        let y = FE::from_hex_unchecked(
+            "0x13698e12e1076132830116e982f293dd07271f34aa03ebfe23eb9301229c2ea4",
         );
         GrumpkinCurve::create_point_from_affine(x, y).unwrap()
     }
@@ -137,7 +194,7 @@ mod tests {
     hex(15046418650485865292177180299665505401798701105523584252220614421753423008361) = 0x2143f89e0ac0942ed1a891a83b5e5b3d4ed46722c24f72dfbdd5fedad27d1269
     hex(17852720053004908540584849282553401192842244835354847668310708345588581105130) = 0x2778480e45647fbe25e497e995c2ac24b6e0411fb01c657460412c142d2f7dea
     */
-    fn point_times_5() -> ShortWeierstrassProjectivePoint<GrumpkinCurve> {
+    fn point_a_times_5() -> ShortWeierstrassProjectivePoint<GrumpkinCurve> {
         let x = FE::from_hex_unchecked(
             "0x2143f89e0ac0942ed1a891a83b5e5b3d4ed46722c24f72dfbdd5fedad27d1269",
         );
@@ -148,15 +205,20 @@ mod tests {
     }
 
     #[test]
+    fn a_operate_with_b_is_c() {
+        assert_eq!(point_a().operate_with(&point_b()), point_c())
+    }
+
+    #[test]
     fn adding_five_times_point_works() {
-        let point = point();
-        let point_times_5 = point_times_5();
+        let point = point_a();
+        let point_times_5 = point_a_times_5();
         assert_eq!(point.operate_with_self(5_u16), point_times_5);
     }
 
     #[test]
     fn create_valid_point_works() {
-        let p = point();
+        let p = point_a();
         assert_eq!(
             *p.x(),
             FE::new_base("0x223c44015b1ab0705802e079ad06dc25f608633c83192ed0720bd396ab3a55da")
@@ -170,7 +232,7 @@ mod tests {
 
     #[test]
     fn addition_with_neutral_element_returns_same_element() {
-        let p = point();
+        let p = point_a();
         assert_eq!(
             *p.x(),
             FE::new_base("0x223c44015b1ab0705802e079ad06dc25f608633c83192ed0720bd396ab3a55da")
@@ -235,7 +297,7 @@ mod tests {
     #[test]
     fn add_inf_to_point_should_not_modify_point() {
         // Pick an arbitrary point
-        let point = point();
+        let point = point_a();
         // P * O
         let left = point.operate_with(&G::neutral_element());
         // O * P
@@ -248,7 +310,7 @@ mod tests {
     #[test]
     fn add_opposite_of_a_point_to_itself_gives_neutral_element() {
         // Pick an arbitrary point
-        let point = point();
+        let point = point_a();
         // P * O
         let neg_point = point.neg();
         let res = point.operate_with(&neg_point);
