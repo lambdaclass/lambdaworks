@@ -7,6 +7,7 @@ pub struct SquareSpanProgram {
     pub number_of_public_inputs: usize,
     pub number_of_constraints: usize,
     pub u_polynomials: Vec<Polynomial<FrElement>>,
+    pub matrix: Vec<Vec<FrElement>>,
 }
 
 impl SquareSpanProgram {
@@ -72,15 +73,33 @@ impl SquareSpanProgram {
             })
             .collect();
 
+        let matrix = scs.constraints;
         Self {
             number_of_public_inputs: scs.number_of_public_inputs,
             number_of_constraints,
             u_polynomials,
+            matrix,
         }
     }
 
     pub fn number_of_private_inputs(&self) -> usize {
         self.u_polynomials.len() - self.number_of_public_inputs
+    }
+
+    pub fn check_valid(&self, input: &[FrElement]) -> bool {
+        for row in &self.matrix {
+            let coef = row
+                .iter()
+                .zip(input)
+                .map(|(a, b)| a * b)
+                .reduce(|a, b| a + b)
+                .unwrap();
+
+            if (&coef * &coef).ne(&FrElement::one()) {
+                return false;
+            }
+        }
+        true
     }
 }
 

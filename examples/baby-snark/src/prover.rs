@@ -7,9 +7,22 @@ pub struct Proof {
     pub b_w: G1Point,
 }
 
+#[derive(Debug)]
+pub enum Error {
+    WrongWitness,
+}
+
 pub struct Prover;
 impl Prover {
-    pub fn prove(inputs: &[FrElement], ssp: &SquareSpanProgram, pk: &ProvingKey) -> Proof {
+    pub fn prove(
+        inputs: &[FrElement],
+        ssp: &SquareSpanProgram,
+        pk: &ProvingKey,
+    ) -> Result<Proof, Error> {
+        if !ssp.check_valid(inputs) {
+            return Err(Error::WrongWitness);
+        }
+
         // Sample randomness for hiding
         let delta = sample_fr_elem();
 
@@ -38,11 +51,11 @@ impl Prover {
             .unwrap()
             .operate_with(&pk.beta_t_tau_g1.operate_with_self(delta.representative()));
 
-        Proof {
+        Ok(Proof {
             h,
             v_w,
             v_w_prime,
             b_w,
-        }
+        })
     }
 }
