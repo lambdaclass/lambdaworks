@@ -100,16 +100,6 @@ mod tests {
 
 
     /*
-    TODO:
-        in subgroup
-        not in subgroup
-        arbitrary point is not in subgroup
-        operate with self works -> see bls12-381
-        https://github.com/Consensys/gnark-crypto/blob/master/ecc/bn254/g1_test.go#L109
-        https://github.com/Consensys/gnark-crypto/blob/master/ecc/bn254/g1_test.go#L250 -> Doesn't work as -s
-        https://github.com/Consensys/gnark-crypto/blob/master/ecc/bn254/g1_test.go#L306
-        https://github.com/Consensys/gnark-crypto/blob/master/ecc/bn254/g1_test.go#L294
-        https://github.com/Consensys/gnark-crypto/blob/master/ecc/bn254/g1_test.go#L368
     Sage script:
     p = 21888242871839275222246405745257275088548364400416034343698204186575808495617
     Fp = GF(p)
@@ -241,7 +231,7 @@ mod tests {
         assert_eq!(y_sq_0, y_sq_1);
     }
 
-    // P * O = O * P
+    // checks: P * O = O * P
     #[test]
     fn add_inf_to_point_should_not_modify_point() {
         // Pick an arbitrary point
