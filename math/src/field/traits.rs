@@ -237,7 +237,7 @@ pub trait IsPrimeField: IsField {
 
         while q & integer_one != integer_one {
             s += 1;
-            q = q >> 1;
+            q >>= 1;
         }
 
         let mut c = {
