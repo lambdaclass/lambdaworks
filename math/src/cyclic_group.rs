@@ -22,7 +22,7 @@ pub trait IsGroup: Clone + PartialEq + Eq {
             if exponent & T::from(1) == T::from(1) {
                 result = Self::operate_with(&result, &base);
             }
-            exponent = exponent >> 1;
+            exponent >>= 1;
             base = Self::operate_with(&base, &base);
         }
         result
