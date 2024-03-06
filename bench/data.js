@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1709762889871,
+  "lastUpdate": 1709763465905,
   "repoUrl": "https://github.com/lambdaclass/lambdaworks",
   "entries": {
     "Benchmark": [
@@ -49799,6 +49799,150 @@ window.BENCHMARK_DATA = {
             "name": "Polynomial/evaluate 10",
             "value": 1,
             "range": "± 0",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "156438142+fborello-lambda@users.noreply.github.com",
+            "name": "Federico Borello",
+            "username": "fborello-lambda"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "0bc20ae5f665269e78064c58b40464e56c7d1fee",
+          "message": "Babysnark Example (#829)\n\n* run cargo init\n\n* update root cargo.toml\n\n* Add verifier, common, prover, setup\n\n* Add SquareConstraintSystem\n\n* format and comment scs.rs\n\n* Add ssp.rs from_scs\n\n* Add calculate_h_coefficient\n\n* Add num_of_private_inputs\n\n* Add README\n\n* Change u_eval variable name\n\n* Add setup structs\n\nAdded VerifyingKey, ProvingKey and ToxicWaste structs\n\n* Babysnark Setup (#819)\n\n* Create setup function\r\n\r\nSetup function has g1, g2, beta, gamma and tau generated.\r\nIt also start the verifying key struct construction (WIP)\r\n\r\n* Complete VetifyingKey\r\n\r\n* Fix length of operations in VerifyingKey\r\n\r\n* Add ProvingKey\r\n\r\n* Modify last 2 items of VerifyingKey\r\n\r\n* Add return values\r\n\r\n* Format babysnark/setup.rs\r\n\r\n* Fix imports\r\n\r\nRemove unused imports and add lambdaworks-crypto dependency\r\n\r\n---------\r\n\r\nCo-authored-by: fborello-lambda <federicoborello@lambdaclass.com>\n\n* Babysnark prover (#820)\n\n* Add Proof to prover\r\n\r\n* Add Prover\r\n\r\n---------\r\n\r\nCo-authored-by: Tomás Rodríguez Dala <tomas.rodriguez@lambdaclass.com>\n\n* Babysnark verifier (#821)\n\n* Add Proof to prover\r\n\r\n* Refactor setup verifying key\r\n\r\n* Start verifier\r\n\r\n* Finish verifier\r\n\r\n* Format prover.rs\r\n\r\n* Change operate_with_affine to operate_with\r\n\r\n---------\r\n\r\nCo-authored-by: Tomás Rodríguez Dala <tomas.rodriguez@lambdaclass.com>\r\nCo-authored-by: Julián González Calderón <gonzalezcalderonjulian@gmail.com>\r\nCo-authored-by: Manuel Iñaki Bilbao <manuel.bilbao@lambdaclass.com>\n\n* export public functions in crate\n\n* convert variables names to snake_case\n\n* Add integration test\n\n* Refactor test. And gate.\n\n* add auxiliary function to construct test vectors\n\n* pad coefficientes in calculate_h_coefficients\n\n* Solve degree issues\n\n* Refactor setup.rs\n\nChange iterator().filter_map() for skip() and take()\nfor better readability\n\n* fix padding\n\n* Tidy scs.rs\n\n* add test_integration method for generic use\n\n* Update README.md\n\n* Remove leftover dbg!\n\n* BabySnark SSP Module Refactor (#823)\n\n* refactor ssp\r\n\r\n* fix clippy warning\n\n* Refactor case not power of 2\n\n* Add simple .json to use as input\n\n* Add zk to babySNARK (#825)\n\n* Add t_tau to ProvingKey\r\n\r\n* Add delta to proving operations\r\n\r\n* Fix clippy\r\n\r\n* Remove leftover debug print\r\n\r\nCo-authored-by: Julian Gonzalez Calderon <gonzalezcalderonjulian@gmail.com>\r\n\r\n---------\r\n\r\nCo-authored-by: Tomás Rodríguez Dala <tomas.rodriguez@lambdaclass.com>\r\nCo-authored-by: Julian Gonzalez Calderon <gonzalezcalderonjulian@gmail.com>\n\n* Babysnark tests and utils (#827)\n\n* Add utils library and test\r\n\r\n* Add test\r\n\r\n* Move functions out of Utils\r\n\r\n* Remove error code\r\n\r\n* Add Error WrongWitness. Add corrupted proof test\r\n\r\n* Repair check_valid function\r\n\r\n* Refactor: unused import\r\n\r\n---------\r\n\r\nCo-authored-by: Manuel Iñaki Bilbao <bilbaomanuel98@gmail.com>\n\n* Remove examples/baby-snark/main.rs\n\n---------\n\nCo-authored-by: Julián González Calderón <gonzalezcalderonjulian@gmail.com>\nCo-authored-by: Gabriel.Sac <gabrielsachimelfarb@gmail.com>\nCo-authored-by: Tomás Rodríguez Dala <tomasrodriguezdala@Tomass-MacBook-Air.local>\nCo-authored-by: Tomás Rodríguez Dala <tomas.rodriguez@lambdaclass.com>\nCo-authored-by: Manuel Bilbao <manuel.bilbao@lambdaclass.com>\nCo-authored-by: Manuel Iñaki Bilbao <bilbaomanuel98@gmail.com>\nCo-authored-by: Avila Gastón <72628438+avilagaston9@users.noreply.github.com>\nCo-authored-by: GabrielSac <38444956+GabrielSac@users.noreply.github.com>\nCo-authored-by: Gaston <gaston@Gastons-MacBook-Pro.local>\nCo-authored-by: Tomas Rodriguez Dala <43424983+tomyrd@users.noreply.github.com>",
+          "timestamp": "2024-03-06T22:06:11Z",
+          "tree_id": "558c11cbe074a74a0f9e3dd9a720625e59485bf0",
+          "url": "https://github.com/lambdaclass/lambdaworks/commit/0bc20ae5f665269e78064c58b40464e56c7d1fee"
+        },
+        "date": 1709763463014,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "Ordered FFT/Parallel (Metal)",
+            "value": 86062729,
+            "range": "± 8719113",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #2",
+            "value": 140991928,
+            "range": "± 3611444",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #3",
+            "value": 297326343,
+            "range": "± 7980157",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #4",
+            "value": 591738687,
+            "range": "± 11338190",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal)",
+            "value": 32151447,
+            "range": "± 2519933",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #2",
+            "value": 64067817,
+            "range": "± 1210845",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #3",
+            "value": 130452710,
+            "range": "± 7053036",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #4",
+            "value": 275484072,
+            "range": "± 3543196",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal)",
+            "value": 28376505,
+            "range": "± 1208270",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #2",
+            "value": 54291248,
+            "range": "± 3863250",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #3",
+            "value": 109902751,
+            "range": "± 5088742",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #4",
+            "value": 232072951,
+            "range": "± 7059484",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal",
+            "value": 112154255,
+            "range": "± 957766",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #2",
+            "value": 228799798,
+            "range": "± 6810683",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #3",
+            "value": 468251145,
+            "range": "± 5521042",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #4",
+            "value": 921019229,
+            "range": "± 12365391",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal",
+            "value": 403597104,
+            "range": "± 3128398",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #2",
+            "value": 785780625,
+            "range": "± 3845359",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #3",
+            "value": 1529480021,
+            "range": "± 14677865",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #4",
+            "value": 3149998083,
+            "range": "± 66742133",
             "unit": "ns/iter"
           }
         ]
