@@ -322,14 +322,12 @@ impl<const NUM_LIMBS: usize> ShrAssign<usize> for UnsignedInteger<NUM_LIMBS> {
 
 impl<const NUM_LIMBS: usize> BitAnd for UnsignedInteger<NUM_LIMBS> {
     type Output = Self;
+
     #[inline(always)]
     fn bitand(self, rhs: Self) -> Self::Output {
-        let Self { mut limbs } = self;
-
-        for (a_i, b_i) in limbs.iter_mut().zip(rhs.limbs.iter()) {
-            *a_i &= b_i;
-        }
-        Self { limbs }
+        let mut result = self;
+        result &= rhs;
+        result
     }
 }
 
@@ -345,14 +343,12 @@ impl<const NUM_LIMBS: usize> BitAndAssign for UnsignedInteger<NUM_LIMBS> {
 
 impl<const NUM_LIMBS: usize> BitOr for UnsignedInteger<NUM_LIMBS> {
     type Output = Self;
+
     #[inline(always)]
     fn bitor(self, rhs: Self) -> Self::Output {
-        let Self { mut limbs } = self;
-
-        for (a_i, b_i) in limbs.iter_mut().zip(rhs.limbs.iter()) {
-            *a_i |= b_i;
-        }
-        Self { limbs }
+        let mut result = self;
+        result |= rhs;
+        result
     }
 }
 
@@ -369,14 +365,12 @@ impl<const NUM_LIMBS: usize> BitOrAssign for UnsignedInteger<NUM_LIMBS> {
 
 impl<const NUM_LIMBS: usize> BitXor for UnsignedInteger<NUM_LIMBS> {
     type Output = Self;
+
     #[inline(always)]
     fn bitxor(self, rhs: Self) -> Self::Output {
-        let Self { mut limbs } = self;
-
-        for (a_i, b_i) in limbs.iter_mut().zip(rhs.limbs.iter()) {
-            *a_i ^= b_i;
-        }
-        Self { limbs }
+        let mut result = self;
+        result ^= rhs;
+        result
     }
 }
 

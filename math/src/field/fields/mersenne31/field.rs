@@ -34,6 +34,14 @@ impl Mersenne31Field {
             *n
         }
     }
+
+    #[inline]
+    pub fn sum<I: Iterator<Item = <Self as IsField>::BaseType>>(
+        iter: I,
+    ) -> <Self as IsField>::BaseType {
+        // Delayed reduction
+        Self::from_u64(iter.map(|x| (x as u64)).sum::<u64>())
+    }
 }
 
 pub const MERSENNE_31_PRIME_FIELD_ORDER: u32 = (1 << 31) - 1;
@@ -63,12 +71,7 @@ impl IsField for Mersenne31Field {
     /// Returns the multiplication of `a` and `b`.
     // Note: for powers of 2 we can perform bit shifting this would involve overriding the trait implementation
     fn mul(a: &u32, b: &u32) -> u32 {
-        let prod = u64::from(*a) * u64::from(*b);
-        let prod_lo = (prod as u32) & ((1 << 31) - 1);
-        let prod_hi = (prod >> 31) as u32;
-        //assert prod_hi and prod_lo 31 bit clear
-        debug_assert!((prod_lo >> 31) == 0 && (prod_hi >> 31) == 0);
-        Self::add(&prod_lo, &prod_hi)
+        Self::from_u64(u64::from(*a) * u64::from(*b))
     }
 
     fn sub(a: &u32, b: &u32) -> u32 {
@@ -201,12 +204,21 @@ impl Display for FieldElement<Mersenne31Field> {
 #[cfg(test)]
 mod tests {
     use super::*;
-
     type F = Mersenne31Field;
 
     #[test]
     fn from_hex_for_b_is_11() {
         assert_eq!(F::from_hex("B").unwrap(), 11);
+    }
+
+    #[test]
+    fn sum_delayed_reduction() {
+        let up_to = u32::pow(2, 23);
+        let pow = u64::pow(2, 60);
+
+        let iter = (0..up_to).map(F::weak_reduce).map(|e| F::pow(&e, pow));
+
+        assert_eq!(F::from_u64(1314320703), F::sum(iter));
     }
 
     #[test]
