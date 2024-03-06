@@ -1,6 +1,6 @@
 use crate::unsigned_integer::traits::IsUnsignedInteger;
 
-pub trait IsGroup: Clone + PartialEq + Eq {
+pub trait IsGroupElement: Clone + PartialEq + Eq {
     /// Returns the neutral element of the group. The equality
     /// `neutral_element().operate_with(g) == g` must hold
     /// for every group element `g`.

@@ -4,7 +4,7 @@ use super::{
     field_extension::{BLS12381PrimeField, Degree12ExtensionField, Degree2ExtensionField},
     twist::BLS12381TwistCurve,
 };
-use crate::{cyclic_group::IsGroup, elliptic_curve::traits::IsPairing, errors::PairingError};
+use crate::{cyclic_group::IsGroupElement, elliptic_curve::traits::IsPairing, errors::PairingError};
 
 use crate::{
     elliptic_curve::short_weierstrass::{
@@ -218,7 +218,7 @@ fn final_exponentiation(
 #[cfg(test)]
 mod tests {
     use crate::{
-        cyclic_group::IsGroup, elliptic_curve::traits::IsEllipticCurve,
+        cyclic_group::IsGroupElement, elliptic_curve::traits::IsEllipticCurve,
         unsigned_integer::element::U384,
     };
 

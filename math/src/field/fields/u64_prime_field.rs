@@ -1,4 +1,4 @@
-use crate::cyclic_group::IsGroup;
+use crate::cyclic_group::IsGroupElement;
 use crate::errors::ByteConversionError::{FromBEBytesError, FromLEBytesError};
 use crate::errors::CreationError;
 use crate::errors::DeserializationError;
@@ -107,7 +107,7 @@ impl<const MODULUS: u64> IsPrimeField for U64PrimeField<MODULUS> {
 }
 
 /// Represents an element in Fp. (E.g: 0, 1, 2 are the elements of F3)
-impl<const MODULUS: u64> IsGroup for U64FieldElement<MODULUS> {
+impl<const MODULUS: u64> IsGroupElement for U64FieldElement<MODULUS> {
     fn neutral_element() -> U64FieldElement<MODULUS> {
         U64FieldElement::zero()
     }

@@ -1,7 +1,7 @@
 use crate::{common::*, ProvingKey, QuadraticArithmeticProgram};
 use lambdaworks_math::errors::DeserializationError;
 use lambdaworks_math::traits::{AsBytes, Deserializable};
-use lambdaworks_math::{cyclic_group::IsGroup, msm::pippenger::msm};
+use lambdaworks_math::{cyclic_group::IsGroupElement, msm::pippenger::msm};
 use std::mem::size_of;
 
 pub struct Proof {

@@ -2,7 +2,7 @@ use super::{
     field_extension::{BLS12381PrimeField, Degree2ExtensionField},
     twist::BLS12381TwistCurve,
 };
-use crate::cyclic_group::IsGroup;
+use crate::cyclic_group::IsGroupElement;
 use crate::elliptic_curve::short_weierstrass::point::ShortWeierstrassProjectivePoint;
 use crate::elliptic_curve::traits::IsEllipticCurve;
 use crate::unsigned_integer::element::U256;
@@ -110,7 +110,7 @@ impl ShortWeierstrassProjectivePoint<BLS12381TwistCurve> {
 mod tests {
     use super::*;
     use crate::{
-        cyclic_group::IsGroup,
+        cyclic_group::IsGroupElement,
         elliptic_curve::{
             short_weierstrass::curves::bls12_381::field_extension::BLS12381_PRIME_FIELD_ORDER,
             traits::EllipticCurveError,

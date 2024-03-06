@@ -1,5 +1,5 @@
 use crate::{
-    cyclic_group::IsGroup,
+    cyclic_group::IsGroupElement,
     errors::PairingError,
     field::{element::FieldElement, traits::IsField},
 };
@@ -18,7 +18,7 @@ pub trait IsEllipticCurve {
     /// The representation of the point. For example it can be projective
     /// coordinates, affine coordinates, XYZZ, depending on the curve and its
     /// possible optimizations.
-    type PointRepresentation: IsGroup + FromAffine<Self::BaseField>;
+    type PointRepresentation: IsGroupElement + FromAffine<Self::BaseField>;
 
     /// Returns the generator of the main subgroup.
     fn generator() -> Self::PointRepresentation;
@@ -37,8 +37,8 @@ pub trait FromAffine<F: IsField>: Sized {
 }
 
 pub trait IsPairing {
-    type G1Point: IsGroup;
-    type G2Point: IsGroup;
+    type G1Point: IsGroupElement;
+    type G2Point: IsGroupElement;
     type OutputField: IsField;
 
     /// Compute the product of the pairings for a list of point pairs.

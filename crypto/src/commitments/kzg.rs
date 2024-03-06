@@ -2,7 +2,7 @@ use super::traits::IsCommitmentScheme;
 use alloc::{borrow::ToOwned, vec::Vec};
 use core::{marker::PhantomData, mem};
 use lambdaworks_math::{
-    cyclic_group::IsGroup,
+    cyclic_group::IsGroupElement,
     elliptic_curve::traits::IsPairing,
     errors::DeserializationError,
     field::{element::FieldElement, traits::IsPrimeField},
@@ -20,8 +20,8 @@ pub struct StructuredReferenceString<G1Point, G2Point> {
 
 impl<G1Point, G2Point> StructuredReferenceString<G1Point, G2Point>
 where
-    G1Point: IsGroup,
-    G2Point: IsGroup,
+    G1Point: IsGroupElement,
+    G2Point: IsGroupElement,
 {
     pub fn new(powers_main_group: &[G1Point], powers_secondary_group: &[G2Point; 2]) -> Self {
         Self {
@@ -34,8 +34,8 @@ where
 #[cfg(feature = "std")]
 impl<G1Point, G2Point> StructuredReferenceString<G1Point, G2Point>
 where
-    G1Point: IsGroup + Deserializable,
-    G2Point: IsGroup + Deserializable,
+    G1Point: IsGroupElement + Deserializable,
+    G2Point: IsGroupElement + Deserializable,
 {
     pub fn from_file(file_path: &str) -> Result<Self, crate::errors::SrsFromFileError> {
         let bytes = std::fs::read(file_path)?;
@@ -45,8 +45,8 @@ where
 
 impl<G1Point, G2Point> AsBytes for StructuredReferenceString<G1Point, G2Point>
 where
-    G1Point: IsGroup + AsBytes,
-    G2Point: IsGroup + AsBytes,
+    G1Point: IsGroupElement + AsBytes,
+    G2Point: IsGroupElement + AsBytes,
 {
     fn as_bytes(&self) -> Vec<u8> {
         let mut serialized_data: Vec<u8> = Vec::new();
@@ -82,8 +82,8 @@ where
 
 impl<G1Point, G2Point> Deserializable for StructuredReferenceString<G1Point, G2Point>
 where
-    G1Point: IsGroup + Deserializable,
-    G2Point: IsGroup + Deserializable,
+    G1Point: IsGroupElement + Deserializable,
+    G2Point: IsGroupElement + Deserializable,
 {
     fn deserialize(bytes: &[u8]) -> Result<Self, DeserializationError> {
         const MAIN_GROUP_LEN_OFFSET: usize = 4;
@@ -254,7 +254,7 @@ impl<const N: usize, F: IsPrimeField<RepresentativeType = UnsignedInteger<N>>, P
 mod tests {
     use alloc::vec::Vec;
     use lambdaworks_math::{
-        cyclic_group::IsGroup,
+        cyclic_group::IsGroupElement,
         elliptic_curve::{
             short_weierstrass::{
                 curves::bls12_381::{

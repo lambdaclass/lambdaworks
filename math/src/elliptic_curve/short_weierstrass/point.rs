@@ -1,5 +1,5 @@
 use crate::{
-    cyclic_group::IsGroup,
+    cyclic_group::IsGroupElement,
     elliptic_curve::{
         point::ProjectivePoint,
         traits::{EllipticCurveError, FromAffine, IsEllipticCurve},
@@ -149,7 +149,7 @@ impl<E: IsShortWeierstrass> FromAffine<E::BaseField> for ShortWeierstrassProject
     }
 }
 
-impl<E: IsShortWeierstrass> IsGroup for ShortWeierstrassProjectivePoint<E> {
+impl<E: IsShortWeierstrass> IsGroupElement for ShortWeierstrassProjectivePoint<E> {
     /// The point at infinity.
     fn neutral_element() -> Self {
         Self::new([

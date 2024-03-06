@@ -66,7 +66,7 @@ impl<E: IsEllipticCurve> Eq for ProjectivePoint<E> {}
 
 #[cfg(test)]
 mod tests {
-    use crate::cyclic_group::IsGroup;
+    use crate::cyclic_group::IsGroupElement;
     use crate::elliptic_curve::short_weierstrass::curves::test_curve_1::{
         TestCurve1, TestCurvePrimeField, TestCurveQuadraticNonResidue,
         TEST_CURVE_1_MAIN_SUBGROUP_ORDER,

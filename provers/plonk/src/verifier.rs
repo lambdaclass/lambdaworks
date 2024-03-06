@@ -1,6 +1,6 @@
 use lambdaworks_crypto::commitments::traits::IsCommitmentScheme;
 use lambdaworks_crypto::fiat_shamir::is_transcript::IsTranscript;
-use lambdaworks_math::cyclic_group::IsGroup;
+use lambdaworks_math::cyclic_group::IsGroupElement;
 use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::traits::{IsFFTField, IsField, IsPrimeField};
 use lambdaworks_math::traits::{AsBytes, ByteConversion};
@@ -71,7 +71,7 @@ impl<F: IsField + IsFFTField, CS: IsCommitmentScheme<F>> Verifier<F, CS> {
     where
         F: IsPrimeField + IsFFTField,
         CS: IsCommitmentScheme<F>,
-        CS::Commitment: AsBytes + IsGroup,
+        CS::Commitment: AsBytes + IsGroupElement,
         FieldElement<F>: ByteConversion,
     {
         // TODO: First three steps are validations: belonging to main subgroup, belonging to prime field.

@@ -8,7 +8,7 @@ use crate::{
 use core::cmp::Ordering;
 
 use crate::{
-    cyclic_group::IsGroup, elliptic_curve::traits::FromAffine, errors::ByteConversionError,
+    cyclic_group::IsGroupElement, elliptic_curve::traits::FromAffine, errors::ByteConversionError,
     traits::ByteConversion,
 };
 
@@ -102,7 +102,7 @@ mod tests {
     use super::compress_g1_point;
     use super::decompress_g1_point;
     use crate::{
-        cyclic_group::IsGroup, traits::ByteConversion, unsigned_integer::element::UnsignedInteger,
+        cyclic_group::IsGroupElement, traits::ByteConversion, unsigned_integer::element::UnsignedInteger,
     };
 
     #[test]

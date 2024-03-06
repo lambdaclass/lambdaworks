@@ -63,7 +63,7 @@ impl IsShortWeierstrass for BN254TwistCurve {
 #[cfg(test)]
 mod tests {
     use crate::{
-        cyclic_group::IsGroup,
+        cyclic_group::IsGroupElement,
         elliptic_curve::{
             short_weierstrass::{
                 curves::bn_254::field_extension::{BN254PrimeField, Degree2ExtensionField},

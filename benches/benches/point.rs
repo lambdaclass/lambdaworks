@@ -1,6 +1,6 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use lambdaworks_math::{
-    cyclic_group::IsGroup,
+    cyclic_group::IsGroupElement,
     elliptic_curve::{short_weierstrass::curves::stark_curve::StarkCurve, traits::IsEllipticCurve},
 };
 use starknet_curve::{curve_params::GENERATOR, AffinePoint, ProjectivePoint};

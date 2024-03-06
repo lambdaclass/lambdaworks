@@ -1,6 +1,6 @@
 use core::fmt::Display;
 
-use crate::cyclic_group::IsGroup;
+use crate::cyclic_group::IsGroupElement;
 use crate::unsigned_integer::traits::IsUnsignedInteger;
 
 #[derive(Debug)]
@@ -33,7 +33,7 @@ impl std::error::Error for MSMError {}
 pub fn msm<C, T>(cs: &[C], points: &[T]) -> Result<T, MSMError>
 where
     C: IsUnsignedInteger,
-    T: IsGroup,
+    T: IsGroupElement,
 {
     if cs.len() != points.len() {
         return Err(MSMError::LengthMismatch(cs.len(), points.len()));

@@ -38,7 +38,7 @@ impl IsShortWeierstrass for BN254Curve {
 mod tests {
     use super::*;
     use crate::{
-        cyclic_group::IsGroup, elliptic_curve::traits::EllipticCurveError,
+        cyclic_group::IsGroupElement, elliptic_curve::traits::EllipticCurveError,
         field::element::FieldElement,
     };
 

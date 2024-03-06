@@ -1,4 +1,4 @@
-use crate::{cyclic_group::IsGroup, unsigned_integer::element::UnsignedInteger};
+use crate::{cyclic_group::IsGroupElement, unsigned_integer::element::UnsignedInteger};
 
 use super::naive::MSMError;
 
@@ -20,7 +20,7 @@ pub fn msm<const NUM_LIMBS: usize, G>(
     points: &[G],
 ) -> Result<G, MSMError>
 where
-    G: IsGroup,
+    G: IsGroupElement,
 {
     if cs.len() != points.len() {
         return Err(MSMError::LengthMismatch(cs.len(), points.len()));
@@ -45,7 +45,7 @@ pub fn msm_with<const NUM_LIMBS: usize, G>(
     window_size: usize,
 ) -> G
 where
-    G: IsGroup,
+    G: IsGroupElement,
 {
     // When input is small enough, windows of length 2 seem faster than 1.
     const MIN_WINDOW_SIZE: usize = 2;
@@ -112,7 +112,7 @@ pub fn parallel_msm_with<const NUM_LIMBS: usize, G>(
     window_size: usize,
 ) -> G
 where
-    G: IsGroup + Send + Sync,
+    G: IsGroupElement + Send + Sync,
 {
     use rayon::prelude::*;
 
@@ -162,7 +162,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::cyclic_group::IsGroup;
+    use crate::cyclic_group::IsGroupElement;
     use crate::msm::{naive, pippenger};
     use crate::{
         elliptic_curve::{

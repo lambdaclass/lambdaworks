@@ -1,6 +1,6 @@
 use crate::{common::*, QuadraticArithmeticProgram};
 use lambdaworks_math::{
-    cyclic_group::IsGroup,
+    cyclic_group::IsGroupElement,
     elliptic_curve::{
         short_weierstrass::{point::ShortWeierstrassProjectivePoint, traits::IsShortWeierstrass},
         traits::{IsEllipticCurve, IsPairing},

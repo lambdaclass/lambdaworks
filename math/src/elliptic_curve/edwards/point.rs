@@ -1,5 +1,5 @@
 use crate::{
-    cyclic_group::IsGroup,
+    cyclic_group::IsGroupElement,
     elliptic_curve::{
         point::ProjectivePoint,
         traits::{EllipticCurveError, FromAffine, IsEllipticCurve},
@@ -68,7 +68,7 @@ impl<E: IsEdwards> FromAffine<E::BaseField> for EdwardsProjectivePoint<E> {
 
 impl<E: IsEllipticCurve> Eq for EdwardsProjectivePoint<E> {}
 
-impl<E: IsEdwards> IsGroup for EdwardsProjectivePoint<E> {
+impl<E: IsEdwards> IsGroupElement for EdwardsProjectivePoint<E> {
     /// The point at infinity.
     fn neutral_element() -> Self {
         Self::new([
@@ -116,7 +116,7 @@ impl<E: IsEdwards> IsGroup for EdwardsProjectivePoint<E> {
 #[cfg(test)]
 mod tests {
     use crate::{
-        cyclic_group::IsGroup,
+        cyclic_group::IsGroupElement,
         elliptic_curve::{
             edwards::{curves::tiny_jub_jub::TinyJubJubEdwards, point::EdwardsProjectivePoint},
             traits::{EllipticCurveError, IsEllipticCurve},

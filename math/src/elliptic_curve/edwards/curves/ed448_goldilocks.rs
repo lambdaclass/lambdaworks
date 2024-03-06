@@ -37,7 +37,7 @@ impl IsEdwards for Ed448Goldilocks {
 mod tests {
     use super::*;
     use crate::{
-        cyclic_group::IsGroup, elliptic_curve::traits::EllipticCurveError,
+        cyclic_group::IsGroupElement, elliptic_curve::traits::EllipticCurveError,
         field::element::FieldElement,
     };
 

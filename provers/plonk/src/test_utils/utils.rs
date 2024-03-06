@@ -5,7 +5,7 @@ use lambdaworks_math::elliptic_curve::short_weierstrass::curves::bls12_381::defa
 use lambdaworks_math::elliptic_curve::short_weierstrass::curves::bls12_381::pairing::BLS12381AtePairing;
 use lambdaworks_math::field::traits::IsField;
 use lambdaworks_math::{
-    cyclic_group::IsGroup,
+    cyclic_group::IsGroupElement,
     elliptic_curve::{
         short_weierstrass::curves::bls12_381::{
             curve::BLS12381Curve, field_extension::BLS12381PrimeField, twist::BLS12381TwistCurve,
