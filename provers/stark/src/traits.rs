@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use lambdaworks_crypto::fiat_shamir::is_transcript::IsTranscript;
 use lambdaworks_math::{
     field::{
         element::FieldElement,
@@ -8,9 +9,7 @@ use lambdaworks_math::{
     polynomial::Polynomial,
 };
 
-use crate::{
-    constraints::transition::TransitionConstraint, domain::Domain, transcript::IsStarkTranscript,
-};
+use crate::{constraints::transition::TransitionConstraint, domain::Domain};
 
 use super::{
     constraints::boundary::BoundaryConstraints, context::AirContext, frame::Frame,
@@ -43,7 +42,7 @@ pub trait AIR {
 
     fn build_rap_challenges(
         &self,
-        _transcript: &mut impl IsStarkTranscript<Self::FieldExtension>,
+        _transcript: &mut impl IsTranscript<Self::FieldExtension>,
     ) -> Vec<FieldElement<Self::FieldExtension>> {
         Vec::new()
     }
