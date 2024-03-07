@@ -1,4 +1,4 @@
-use crate::{cyclic_group::IsGroupElement, elliptic_curve::{short_weierstrass::traits::IsShortWeierstrass, traits::IsEllipticCurve}, field::element::FieldElement};
+use crate::{cyclic_group::IsGroupElement, elliptic_curve::short_weierstrass::traits::IsShortWeierstrass, field::element::FieldElement};
 
 use super::ShortWeierstrassProjectivePoint;
 
@@ -22,7 +22,7 @@ impl<E: IsShortWeierstrass> Eq for JacobianPoint<E> {}
 
 impl<E: IsShortWeierstrass> JacobianPoint<E> {
     pub fn double(&self) -> Self {
-        if &self.y == &FieldElement::zero() {return Self::neutral_element();}
+        if self.y == FieldElement::zero() {return Self::neutral_element();}
         let s = FieldElement::<E::BaseField>::from(4) * &self.x * &self.y.square();
         let m = 
             FieldElement::<E::BaseField>::from(3) * &self.x.square() 

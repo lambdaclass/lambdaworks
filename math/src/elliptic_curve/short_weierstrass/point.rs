@@ -16,7 +16,7 @@ use crate::traits::AsBytes;
 #[cfg(feature = "alloc")]
 use alloc::vec::Vec;
 
-mod jacobian;
+pub mod jacobian;
 
 #[derive(Clone, Debug)]
 pub struct ShortWeierstrassProjectivePoint<E: IsEllipticCurve>(pub ProjectivePoint<E>);
