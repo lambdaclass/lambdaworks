@@ -35,11 +35,11 @@ pub fn is_power_of_two(x: usize) -> bool {
 // ! CAUTION !
 // Make sure n=nodes.len()+1 is a power of two, and the last n/2 elements (leaves) are populated with hashes.
 // This function takes no precautions for other cases.
-pub fn build<B: IsMerkleTreeBackend>(nodes: &mut [B::Node], leaf_length: usize)
+pub fn build<B: IsMerkleTreeBackend>(nodes: &mut [B::Node], leaves_len: usize)
 where
     B::Node: Clone,
 {
-    let mut level_begin_index = leaf_length - 1;
+    let mut level_begin_index = leaves_len - 1;
     let mut level_end_index = 2 * level_begin_index;
     loop {
         let new_level_begin_index = level_begin_index / 2;
@@ -109,14 +109,14 @@ mod tests {
     const ROOT: usize = 0;
 
     #[test]
-    fn compleate_a_merkle_tree_from_a_set_of_leaves() {
+    fn complete_a_merkle_tree_from_a_set_of_leaves() {
         let leaves: Vec<FE> = (0..u64::pow(2, 16)).map(FE::new).collect();
-        let leaf_length = leaves.len();
+        let leaves_len = leaves.len();
 
-        let mut nodes = vec![FE::zero(); leaf_length - 1];
+        let mut nodes = vec![FE::zero(); leaves_len - 1];
         nodes.extend(leaves);
 
-        build::<TestBackend<U64PF>>(&mut nodes, leaf_length);
+        build::<TestBackend<U64PF>>(&mut nodes, leaves_len);
         assert_eq!(nodes[ROOT], FE::new(3));
     }
 }
