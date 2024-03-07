@@ -109,14 +109,15 @@ mod tests {
     const ROOT: usize = 0;
 
     #[test]
+    // expected |10|10|13|3|7|11|2|1|2|3|4|5|6|7|8|
     fn complete_a_merkle_tree_from_a_set_of_leaves() {
-        let leaves: Vec<FE> = (0..u64::pow(2, 16)).map(FE::new).collect();
+        let leaves: Vec<FE> = (1..9).map(FE::new).collect();
         let leaves_len = leaves.len();
 
-        let mut nodes = vec![FE::zero(); leaves_len - 1];
+        let mut nodes = vec![FE::zero(); leaves.len() - 1];
         nodes.extend(leaves);
 
         build::<TestBackend<U64PF>>(&mut nodes, leaves_len);
-        assert_eq!(nodes[ROOT], FE::new(3));
+        assert_eq!(nodes[ROOT], FE::new(10));
     }
 }
