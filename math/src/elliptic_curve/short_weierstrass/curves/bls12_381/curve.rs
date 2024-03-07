@@ -112,10 +112,13 @@ mod tests {
     use crate::{
         cyclic_group::IsGroup,
         elliptic_curve::{
-            short_weierstrass::curves::bls12_381::field_extension::BLS12381_PRIME_FIELD_ORDER,
+            short_weierstrass::curves::bls12_381::{
+                default_types::FrConfig, field_extension::BLS12381_PRIME_FIELD_ORDER,
+            },
             traits::EllipticCurveError,
         },
         field::element::FieldElement,
+        field::fields::montgomery_backed_prime_fields::IsModulus,
         unsigned_integer::element::U384,
     };
 
@@ -148,29 +151,114 @@ mod tests {
     type FEE = FieldElement<BLS12381PrimeField>;
     #[allow(clippy::upper_case_acronyms)]
     type FTE = FieldElement<Degree2ExtensionField>;
+    type G = ShortWeierstrassProjectivePoint<BLS12381Curve>;
 
-    fn point_1() -> ShortWeierstrassProjectivePoint<BLS12381Curve> {
+    /*
+    Sage Script
+    p = 0x1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaab
+    K = GF(p)
+    a = K(0x00)
+    b = K(0x04)
+    E = EllipticCurve(K, (a, b))
+    G = E(0x17F1D3A73197D7942695638C4FA9AC0FC3688C4F9774B905A14E3A3F171BAC586C55E83FF97A1AEFFB3AF00ADB22C6BB, 0x08B3F481E3AAA0F1A09E30ED741D8AE4FCF5E095D5D00AF600DB18CB2C04B3EDD03CC744A2888AE40CAA232946C5E7E1)
+    E.set_order(0x73EDA753299D7D483339D80809A1D80553BDA402FFFE5BFEFFFFFFFF00000001 * 0x396C8C005555E1568C00AAAB0000AAAB)
+    A = E.random_point()
+    A
+    (
+        526497642945220707333612686213975586682593046750663193489656687046664364973956184506867075041399735660281578467045 :
+        1181389472700739470327368590622451888801025684583527910753756401047964615743477898724062457880449852336779855596448 :
+        1
+    )
+    hex(526497642945220707333612686213975586682593046750663193489656687046664364973956184506867075041399735660281578467045) = 0x36bb494facde72d0da5c770c4b16d9b2d45cfdc27604a25a1a80b020798e5b0dbd4c6d939a8f8820f042a29ce552ee5
+    hex(1181389472700739470327368590622451888801025684583527910753756401047964615743477898724062457880449852336779855596448) = 0x7acf6e49cc000ff53b06ee1d27056734019c0a1edfa16684da41ebb0c56750f73bc1b0eae4c6c241808a5e485af0ba0
+    */
+    fn point_a() -> ShortWeierstrassProjectivePoint<BLS12381Curve> {
         let x = FEE::new_base("36bb494facde72d0da5c770c4b16d9b2d45cfdc27604a25a1a80b020798e5b0dbd4c6d939a8f8820f042a29ce552ee5");
         let y = FEE::new_base("7acf6e49cc000ff53b06ee1d27056734019c0a1edfa16684da41ebb0c56750f73bc1b0eae4c6c241808a5e485af0ba0");
         BLS12381Curve::create_point_from_affine(x, y).unwrap()
     }
 
-    fn point_1_times_5() -> ShortWeierstrassProjectivePoint<BLS12381Curve> {
+    /*
+    Sage Script
+    p = 0x1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaab
+    K = GF(p)
+    a = K(0x00)
+    b = K(0x04)
+    E = EllipticCurve(K, (a, b))
+    G = E(0x17F1D3A73197D7942695638C4FA9AC0FC3688C4F9774B905A14E3A3F171BAC586C55E83FF97A1AEFFB3AF00ADB22C6BB, 0x08B3F481E3AAA0F1A09E30ED741D8AE4FCF5E095D5D00AF600DB18CB2C04B3EDD03CC744A2888AE40CAA232946C5E7E1)
+    E.set_order(0x73EDA753299D7D483339D80809A1D80553BDA402FFFE5BFEFFFFFFFF00000001 * 0x396C8C005555E1568C00AAAB0000AAAB)
+    B = E.random_point()
+    B
+    (
+        2320512066435452881046399307649844426557345895442391377399453523472542859740319067901889807242497238300129538658904 :
+        3989679819152750520116123495077703586160541785997312739341636445997572532932349616217988314359972648120485960833742 :
+        1
+    )
+    hex(2320512066435452881046399307649844426557345895442391377399453523472542859740319067901889807242497238300129538658904) = 0xf13a0b7fd9e1f2319cbf8e6c531191ba346101efd58b3f7663a1d22ca9ad13baf2aee7180e1321262f921226678d258
+    hex(3989679819152750520116123495077703586160541785997312739341636445997572532932349616217988314359972648120485960833742) = 0x19ebe5a4fa4de184145286976cf92cea5d74cb7461fad26c7ff86a17fc1983f5d435823cb146e517395d0db7c5695ace
+    */
+    fn point_b() -> ShortWeierstrassProjectivePoint<BLS12381Curve> {
+        let x = FEE::new_base("0xf13a0b7fd9e1f2319cbf8e6c531191ba346101efd58b3f7663a1d22ca9ad13baf2aee7180e1321262f921226678d258");
+        let y = FEE::new_base("0x19ebe5a4fa4de184145286976cf92cea5d74cb7461fad26c7ff86a17fc1983f5d435823cb146e517395d0db7c5695ace");
+        BLS12381Curve::create_point_from_affine(x, y).unwrap()
+    }
+
+    /*
+    Sage Script
+    p = 0x1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaab
+    K = GF(p)
+    a = K(0x00)
+    b = K(0x04)
+    E = EllipticCurve(K, (a, b))
+    G = E(0x17F1D3A73197D7942695638C4FA9AC0FC3688C4F9774B905A14E3A3F171BAC586C55E83FF97A1AEFFB3AF00ADB22C6BB, 0x08B3F481E3AAA0F1A09E30ED741D8AE4FCF5E095D5D00AF600DB18CB2C04B3EDD03CC744A2888AE40CAA232946C5E7E1)
+    E.set_order(0x73EDA753299D7D483339D80809A1D80553BDA402FFFE5BFEFFFFFFFF00000001 * 0x396C8C005555E1568C00AAAB0000AAAB)
+    A = (
+        526497642945220707333612686213975586682593046750663193489656687046664364973956184506867075041399735660281578467045 :
+        1181389472700739470327368590622451888801025684583527910753756401047964615743477898724062457880449852336779855596448 :
+        1
+    )
+    B = (
+        332852668648150085524356127733815232380262797927433475922012417043009350955063975983299916693051869752365649619865 :
+        3089000146202394165126087278588010736823868939538774770745681165631661317987880445788135842340033915785108878725271 :
+        1
+    )
+    C = A + B
+    C
+    (
+        2358172109400405866504904317960059850429858755395783565158463680916772181760430887909354475314817876986551415413559 :
+        1582337287926843812321031582251187059687293993212037606327459187770249442635384695597347349689384242282011849955189 :
+        1
+    )
+    hex(2358172109400405866504904317960059850429858755395783565158463680916772181760430887909354475314817876986551415413559) = 0xf524436b954af253fc7daaa83aea33e3b8f9b02edf12d5a75e7e4cfa82f57b24d5a1425c31a961b07c75d194f4d1b37
+    hex(1582337287926843812321031582251187059687293993212037606327459187770249442635384695597347349689384242282011849955189) = 0xa47d8dccf07152e2b5cf6363c695d3cfbedc12d5bd1fe3718de75cbc79243a7b21e855b701dfea3b1cb1eac3b689775
+    */
+    fn point_c() -> ShortWeierstrassProjectivePoint<BLS12381Curve> {
+        let x = FEE::new_base("0xf524436b954af253fc7daaa83aea33e3b8f9b02edf12d5a75e7e4cfa82f57b24d5a1425c31a961b07c75d194f4d1b37");
+        let y = FEE::new_base("0xa47d8dccf07152e2b5cf6363c695d3cfbedc12d5bd1fe3718de75cbc79243a7b21e855b701dfea3b1cb1eac3b689775");
+        BLS12381Curve::create_point_from_affine(x, y).unwrap()
+    }
+
+    fn point_a_times_5() -> ShortWeierstrassProjectivePoint<BLS12381Curve> {
         let x = FEE::new_base("32bcce7e71eb50384918e0c9809f73bde357027c6bf15092dd849aa0eac274d43af4c68a65fb2cda381734af5eecd5c");
         let y = FEE::new_base("11e48467b19458aabe7c8a42dc4b67d7390fdf1e150534caadddc7e6f729d8890b68a5ea6885a21b555186452b954d88");
         BLS12381Curve::create_point_from_affine(x, y).unwrap()
     }
 
     #[test]
-    fn adding_five_times_point_1_works() {
-        let point_1 = point_1();
-        let point_1_times_5 = point_1_times_5();
-        assert_eq!(point_1.operate_with_self(5_u16), point_1_times_5);
+    fn a_operate_with_b_is_c() {
+        assert_eq!(point_a().operate_with(&point_b()), point_c())
+    }
+
+    #[test]
+    fn adding_five_times_point_a_works() {
+        let point_a = point_a();
+        let point_a_times_5 = point_a_times_5();
+        assert_eq!(point_a.operate_with_self(5_u16), point_a_times_5);
     }
 
     #[test]
     fn create_valid_point_works() {
-        let p = point_1();
+        let p = point_a();
         assert_eq!(*p.x(), FEE::new_base("36bb494facde72d0da5c770c4b16d9b2d45cfdc27604a25a1a80b020798e5b0dbd4c6d939a8f8820f042a29ce552ee5"));
         assert_eq!(*p.y(), FEE::new_base("7acf6e49cc000ff53b06ee1d27056734019c0a1edfa16684da41ebb0c56750f73bc1b0eae4c6c241808a5e485af0ba0"));
         assert_eq!(*p.z(), FEE::new_base("1"));
@@ -208,6 +296,53 @@ mod tests {
         let y_sq_1 = y.pow(2_u16);
 
         assert_eq!(y_sq_0, y_sq_1);
+    }
+
+    // checks: P * O = O * P
+    #[test]
+    fn add_inf_to_point_should_not_modify_point() {
+        // Pick an arbitrary point
+        let point = point_a();
+        // P * O
+        let left = point.operate_with(&G::neutral_element());
+        // O * P
+        let right = G::neutral_element().operate_with(&point);
+        assert_eq!(left, point);
+        assert_eq!(right, point);
+    }
+
+    // P * -P = O
+    #[test]
+    fn add_opposite_of_a_point_to_itself_gives_neutral_element() {
+        // Pick an arbitrary point
+        let point = point_a();
+        // P * O
+        let neg_point = point.neg();
+        let res = point.operate_with(&neg_point);
+        assert_eq!(res, G::neutral_element());
+    }
+
+    //Scalar mul depends only on the scalar mod r
+    #[test]
+    fn scalar_mul_depends_on_scalar_mod_r() {
+        let r = FrConfig::MODULUS;
+        let gen = BLS12381Curve::generator();
+        let gen_neg = gen.neg();
+        let g = gen.operate_with_self(r);
+
+        let r_sub_one = r - U384::from(1u64);
+        let op3 = gen.operate_with_self(r_sub_one);
+
+        // random scalar value
+        let s = U384::from(3u64);
+        let blinded_scalar = (s * r) + s;
+        let op1 = gen.operate_with_self(s);
+        let op2 = gen.operate_with_self(blinded_scalar);
+
+        assert_eq!(op1, op2);
+        assert_eq!(g, G::neutral_element());
+        assert_ne!(op1, G::neutral_element());
+        assert_eq!(gen_neg, op3);
     }
 
     #[test]
