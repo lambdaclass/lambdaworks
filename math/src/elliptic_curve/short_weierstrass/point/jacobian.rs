@@ -1,5 +1,7 @@
 use crate::{cyclic_group::IsGroupElement, elliptic_curve::{short_weierstrass::traits::IsShortWeierstrass, traits::IsEllipticCurve}, field::element::FieldElement};
 
+use super::ShortWeierstrassProjectivePoint;
+
 // feels like `crate::elliptic_curbe::point` could be redesigned to provide the trait to implement here
 #[derive(Clone)]
 pub struct JacobianPoint<E: IsShortWeierstrass> {
@@ -106,5 +108,20 @@ impl<E: IsShortWeierstrass> IsGroupElement for JacobianPoint<E> {
             y: -self.y.clone(), 
             z: self.z.clone()
         }
+    }
+}
+
+impl<E> From<ShortWeierstrassProjectivePoint<E>> for JacobianPoint<E>
+where E: IsShortWeierstrass 
+{
+    fn from(point: ShortWeierstrassProjectivePoint<E>) -> Self {
+        if let Ok(z_inv) = point.z().inv() {
+            Self {
+                x: point.x() * &z_inv,
+                y: point.y() * z_inv.square(),
+                z: point.z().to_owned()
+            }
+        }
+        else {Self::neutral_element()}
     }
 }
