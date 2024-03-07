@@ -1,3 +1,6 @@
+//! Jacobian variant of projective
+//! coordinates. It works in the similar way, but differs in how affine get divided by $z$ ($\frac{x}{z^2}, \frac{y}{z^3}$).
+
 use crate::{
     cyclic_group::IsGroupElement, elliptic_curve::short_weierstrass::traits::IsShortWeierstrass,
     field::element::FieldElement,
