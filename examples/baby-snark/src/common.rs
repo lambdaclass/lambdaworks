@@ -7,7 +7,7 @@ use lambdaworks_math::{
         traits::{IsEllipticCurve, IsPairing},
     },
     field::element::FieldElement,
-    unsigned_integer::element::U384,
+    unsigned_integer::element::U256,
 };
 use rand::{Rng, SeedableRng};
 
@@ -27,10 +27,8 @@ pub const ORDER_R_MINUS_1_ROOT_UNITY: FrElement = FrElement::from_hex_unchecked(
 
 pub fn sample_fr_elem() -> FrElement {
     let mut rng = rand_chacha::ChaCha20Rng::seed_from_u64(9001);
-    FrElement::new(U384 {
+    FrElement::new(U256 {
         limbs: [
-            rng.gen::<u64>(),
-            rng.gen::<u64>(),
             rng.gen::<u64>(),
             rng.gen::<u64>(),
             rng.gen::<u64>(),

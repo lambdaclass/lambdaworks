@@ -330,11 +330,11 @@ mod tests {
         let gen_neg = gen.neg();
         let g = gen.operate_with_self(r);
 
-        let r_sub_one = r - U384::from(1u64);
+        let r_sub_one = r - U256::from(1u64);
         let op3 = gen.operate_with_self(r_sub_one);
 
         // random scalar value
-        let s = U384::from(3u64);
+        let s = U256::from(3u64);
         let blinded_scalar = (s * r) + s;
         let op1 = gen.operate_with_self(s);
         let op2 = gen.operate_with_self(blinded_scalar);
