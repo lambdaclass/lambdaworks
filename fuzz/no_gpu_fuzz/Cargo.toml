@@ -18,50 +18,56 @@ p3-goldilocks = { git = "https://github.com/Plonky3/Plonky3", rev = "41cd843" }
 p3-mersenne-31 = { git = "https://github.com/Plonky3/Plonky3", rev = "41cd843" }
 
 [[bin]]
+name = "curve_bls12_381"
+path = "fuzz_targets/curve/bls12_381.rs"
+test = false
+doc = false
+
+[[bin]]
 name = "curve_bn254"
-path = "fuzz_targets/curve_bn254.rs"
+path = "fuzz_targets/curve/bn254.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "curve_grumpkin"
+path = "fuzz_targets/curve/grumpkin.rs"
 test = false
 doc = false
 
 [[bin]]
 name = "field_fuzzer"
-path = "fuzz_targets/field_fuzzer.rs"
-test = false
-doc = false
-
-[[bin]]
-name = "curve_bls12_381"
-path = "fuzz_targets/curve_bls12_381.rs"
+path = "fuzz_targets/field/fuzzer.rs"
 test = false
 doc = false
 
 [[bin]]
 name = "field_fuzz_mersenne31"
-path = "fuzz_targets/field_mersenne31.rs"
+path = "fuzz_targets/field/mersenne31.rs"
 test = false
 doc = false
 
 [[bin]]
 name = "field_mini_goldilocks"
-path = "fuzz_targets/field_mini_goldilocks.rs"
+path = "fuzz_targets/field/mini_goldilocks.rs"
 test = false
 doc = false
 
 [[bin]]
 name = "field_from_hex"
-path = "fuzz_targets/field_from_hex.rs"
+path = "fuzz_targets/field/from_hex.rs"
 test = false
 doc = false
 
 [[bin]]
 name = "field_from_raw"
-path = "fuzz_targets/field_from_raw.rs"
+path = "fuzz_targets/field/from_raw.rs"
 test = false
 doc = false
 
 [[bin]]
 name = "stark_field_addition"
-path = "fuzz_targets/stark_field_addition.rs"
+path = "fuzz_targets/field/stark_field_addition.rs"
 test = false
 doc = false
 
