@@ -5,7 +5,7 @@ use lambdaworks_math::{
     cyclic_group::IsGroup,
     elliptic_curve::traits::IsPairing,
     errors::DeserializationError,
-    field::{element::FieldElement, traits::IsPrimeField},
+    field::{element::FieldElement, traits::{IsPrimeField, IsField}},
     msm::pippenger::msm,
     polynomial::Polynomial,
     traits::{AsBytes, Deserializable},
@@ -136,12 +136,12 @@ where
 }
 
 #[derive(Clone)]
-pub struct KateZaveruchaGoldberg<F: IsPrimeField, P: IsPairing> {
+pub struct KateZaveruchaGoldberg<F: IsField, P: IsPairing> {
     srs: StructuredReferenceString<P::G1Point, P::G2Point>,
     phantom: PhantomData<F>,
 }
 
-impl<F: IsPrimeField, P: IsPairing> KateZaveruchaGoldberg<F, P> {
+impl<F: IsField, P: IsPairing> KateZaveruchaGoldberg<F, P> {
     pub fn new(srs: StructuredReferenceString<P::G1Point, P::G2Point>) -> Self {
         Self {
             srs,
@@ -150,20 +150,15 @@ impl<F: IsPrimeField, P: IsPairing> KateZaveruchaGoldberg<F, P> {
     }
 }
 
-impl<const N: usize, F: IsPrimeField<RepresentativeType = UnsignedInteger<N>>, P: IsPairing>
+impl<const N: usize, F: IsField<BaseType = UnsignedInteger<N>> + IsPrimeField<RepresentativeType = UnsignedInteger<N>>, P: IsPairing>
     IsCommitmentScheme<F> for KateZaveruchaGoldberg<F, P>
 {
     type Commitment = P::G1Point;
 
     fn commit(&self, p: &Polynomial<FieldElement<F>>) -> Self::Commitment {
-        let coefficients: Vec<_> = p
-            .coefficients
-            .iter()
-            .map(|coefficient| coefficient.representative())
-            .collect();
         msm(
-            &coefficients,
-            &self.srs.powers_main_group[..coefficients.len()],
+            &p.coefficients,
+            &self.srs.powers_main_group[..p.coefficients.len()],
         )
         .expect("`points` is sliced by `cs`'s length")
     }
