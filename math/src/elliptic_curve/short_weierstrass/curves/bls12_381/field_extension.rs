@@ -34,6 +34,11 @@ impl IsField for Degree2ExtensionField {
         [&a[0] + &b[0], &a[1] + &b[1]]
     }
 
+    /// Returns the component wise double of `a`
+    fn double(a: &Self::BaseType) -> Self::BaseType {
+        <Degree2ExtensionField as IsField>::add(a, a)
+    }
+
     /// Returns the multiplication of `a` and `b` using the following
     /// equation:
     /// (a0 + a1 * t) * (b0 + b1 * t) = a0 * b0 + a1 * b1 * Self::residue() + (a0 * b1 + a1 * b0) * t
@@ -379,6 +384,14 @@ mod tests {
         let a_extension = FieldElement::<Degree2ExtensionField>::from(3);
         let b = FieldElement::<Degree2ExtensionField>::from(2);
         assert_eq!(a + &b, a_extension + b);
+    }
+
+    #[test]
+    fn double_base_field_with_degree_2_extension() {
+        let a = FieldElement::<BLS12381PrimeField>::from(3);
+        let b = FieldElement::<Degree2ExtensionField>::from(2);
+        assert_eq!(a.double(), a.clone() + a);
+        assert_eq!(b.double(), b.clone() + b);
     }
 
     #[test]

@@ -64,6 +64,10 @@ impl IsField for Goldilocks64Field {
         Self::representative(&sum)
     }
 
+    fn double(a: &u64) -> u64 {
+        Self::add(a, a)
+    }
+
     fn mul(a: &u64, b: &u64) -> u64 {
         Self::representative(&reduce_128(u128::from(*a) * u128::from(*b)))
     }

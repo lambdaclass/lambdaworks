@@ -24,6 +24,11 @@ impl IsField for Mersenne31Complex {
         [a[0] + b[0], a[1] + b[1]]
     }
 
+    /// Returns the double of `a`.
+    fn double(a: &Self::BaseType) -> Self::BaseType {
+        Self::add(a, a)
+    }
+
     //NOTE: THIS uses Gauss algorithm. Bench this against plonky 3 implementation to see what is faster.
     /// Returns the multiplication of `a` and `b` using the following
     /// equation:

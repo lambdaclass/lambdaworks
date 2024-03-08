@@ -80,6 +80,11 @@ where
         [&a[0] + &b[0], &a[1] + &b[1]]
     }
 
+    /// Returns the component wise double of `a`
+    fn double(a: &[FieldElement<F>; 2]) -> [FieldElement<F>; 2] {
+        <QuadraticExtensionField<F, Q> as IsField>::add(a, a)
+    }
+
     /// Returns the multiplication of `a` and `b` using the following
     /// equation:
     /// (a0 + a1 * t) * (b0 + b1 * t) = a0 * b0 + a1 * b1 * Q::residue() + (a0 * b1 + a1 * b0) * t

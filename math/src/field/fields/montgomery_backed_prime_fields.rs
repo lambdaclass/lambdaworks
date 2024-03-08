@@ -134,6 +134,10 @@ where
         }
     }
 
+    fn double(a: &Self::BaseType) -> Self::BaseType {
+        Self::add(a, a)
+    }
+
     #[inline(always)]
     fn mul(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
         if Self::MODULUS_HAS_ONE_SPARE_BIT {
@@ -495,6 +499,14 @@ mod tests_u384_prime_fields {
         assert_eq!(x_deserialized, x);
     }
 
+    #[test]
+    fn doubling() {
+        assert_eq!(
+            U384F23Element::from(2).double(),
+            U384F23Element::from(2) + U384F23Element::from(2),
+        );
+    }
+
     const ORDER: usize = 23;
     #[test]
     fn two_plus_one_is_three() {
@@ -841,6 +853,14 @@ mod tests_u256_prime_fields {
         let y = U256F29Element::from(10_u64);
         let c = U256F29Element::from(110_u64);
         assert_eq!(x * y, c);
+    }
+
+    #[test]
+    fn doubling() {
+        assert_eq!(
+            U256F29Element::from(2).double(),
+            U256F29Element::from(2) + U256F29Element::from(2),
+        );
     }
 
     const ORDER: usize = 29;
