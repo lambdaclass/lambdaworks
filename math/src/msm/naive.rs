@@ -2,10 +2,13 @@ use core::fmt::Display;
 
 use crate::cyclic_group::IsGroup;
 use crate::unsigned_integer::traits::IsUnsignedInteger;
+#[cfg(feature = "icicle")]
+use icicle_core::error::IcicleError;
 
 #[derive(Debug)]
 pub enum MSMError {
     LengthMismatch(usize, usize),
+    Icicle(IcicleError)
 }
 
 impl Display for MSMError {

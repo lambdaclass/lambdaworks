@@ -142,11 +142,7 @@ mod test {
         let lambda_scalars = vec![eight; LEN];
         let lambda_points = (0..LEN).map(|_| point_times_5()).collect::<Vec<_>>();
         let expected = msm(
-            &lambda_scalars
-                .clone()
-                .into_iter()
-                .map(|x| x.representative())
-                .collect::<Vec<_>>(),
+            &lambda_scalars,
             &lambda_points,
         )
         .unwrap();

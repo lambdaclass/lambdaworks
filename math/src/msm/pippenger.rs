@@ -1,4 +1,4 @@
-use crate::{cyclic_group::IsGroup, unsigned_integer::element::UnsignedInteger};
+use crate::{cyclic_group::IsGroup, unsigned_integer::element::UnsignedInteger, field::{traits::IsField, element::FieldElement}, gpu::icicle::icicle_msm};
 
 use super::naive::MSMError;
 
@@ -15,8 +15,8 @@ use alloc::vec;
 /// If `points` and `cs` are empty, then `msm` returns the zero element of the group.
 ///
 /// Panics if `cs` and `points` have different lengths.
-pub fn msm<const NUM_LIMBS: usize, G>(
-    cs: &[UnsignedInteger<NUM_LIMBS>],
+pub fn msm<const NUM_LIMBS: usize, G, F: IsField<BaseType = UnsignedInteger<NUM_LIMBS>>>(
+    cs: &[FieldElement<F>],
     points: &[G],
 ) -> Result<G, MSMError>
 where
@@ -26,9 +26,30 @@ where
         return Err(MSMError::LengthMismatch(cs.len(), points.len()));
     }
 
-    let window_size = optimum_window_size(cs.len());
+    #[cfg(feature = "icicle")]
+    {
+        icicle_msm(cs, points).map_err(|e| MSMError::Icicle(e))
+        /*
+        if !F::field_name().is_empty() {
+            icicle_msm(cs, points)
+        } else {
+            println!(
+                "Icicle msm failed for field {}. Program will fallback to CPU.",
+                core::any::type_name::<F>()
+            );
+            let window_size = optimum_window_size(cs.len());
+            let cs = cs.into_iter().map(|cs| *cs.calue()).collect::<Vec<_>>();
+            Ok(msm_with(cs, points, window_size))
+        }
+        */
+    }
 
-    Ok(msm_with(cs, points, window_size))
+    #[cfg(not(feature = "icicle"))]
+    {
+        let window_size = optimum_window_size(cs.len());
+        let cs = cs.into_iter().map(|cs| *cs.value()).collect::<Vec<_>>();
+        Ok(msm_with(cs, points, window_size))
+    }
 }
 
 fn optimum_window_size(data_length: usize) -> usize {
