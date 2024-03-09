@@ -1,4 +1,4 @@
-use alloc::vec::Vec;
+use alloc::vec::*;
 
 use super::traits::IsMerkleTreeBackend;
 
@@ -61,7 +61,7 @@ pub fn right_child_index(parent_index: usize) -> usize {
 
 #[cfg(test)]
 mod tests {
-    use alloc::vec::Vec;
+    use alloc::vec::*;
     use lambdaworks_math::field::{element::FieldElement, fields::u64_prime_field::U64PrimeField};
 
     use crate::merkle_tree::{test_merkle::TestBackend, traits::IsMerkleTreeBackend};

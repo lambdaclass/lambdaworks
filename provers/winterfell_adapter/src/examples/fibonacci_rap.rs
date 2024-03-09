@@ -8,7 +8,7 @@ use winter_air::{
 };
 use winter_math::{ExtensionOf, FieldElement as IsWinterfellFieldElement, StarkField};
 use winter_prover::{ColMatrix, Trace, TraceTable};
-use winter_utils::{collections::Vec, uninit_vector};
+use winter_utils::{collections::*, uninit_vector};
 
 #[derive(Clone)]
 pub struct RapTraceTable<B: StarkField> {

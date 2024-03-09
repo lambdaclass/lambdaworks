@@ -8,7 +8,7 @@ use crate::{
     },
     polynomial::Polynomial,
 };
-use alloc::{vec, vec::Vec};
+use alloc::{vec, vec::*};
 
 #[cfg(feature = "cuda")]
 use crate::fft::gpu::cuda::polynomial::{evaluate_fft_cuda, interpolate_fft_cuda};

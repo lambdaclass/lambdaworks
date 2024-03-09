@@ -2,7 +2,7 @@ use core::marker::PhantomData;
 
 use crate::hash::poseidon::Poseidon;
 use crate::merkle_tree::traits::IsMerkleTreeBackend;
-use alloc::vec::Vec;
+use alloc::vec::*;
 use lambdaworks_math::{
     field::{element::FieldElement, traits::IsField},
     traits::AsBytes,

@@ -14,7 +14,7 @@ use super::traits::IsShortWeierstrass;
 #[cfg(feature = "alloc")]
 use crate::traits::AsBytes;
 #[cfg(feature = "alloc")]
-use alloc::vec::Vec;
+use alloc::vec::*;
 
 #[derive(Clone, Debug)]
 pub struct ShortWeierstrassProjectivePoint<E: IsEllipticCurve>(pub ProjectivePoint<E>);

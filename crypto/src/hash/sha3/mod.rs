@@ -1,7 +1,4 @@
-use alloc::{
-    string::{String, ToString},
-    vec::Vec,
-};
+use alloc::{string::*, vec::*};
 use sha3::{Digest, Sha3_256};
 
 pub struct Sha3Hasher;

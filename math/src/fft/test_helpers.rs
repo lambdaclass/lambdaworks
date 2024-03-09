@@ -5,7 +5,7 @@ use crate::{
         traits::{IsFFTField, RootsConfig},
     },
 };
-use alloc::vec::Vec;
+use alloc::vec::*;
 
 /// Calculates the (non-unitary) Discrete Fourier Transform of `input` via the DFT matrix.
 pub fn naive_matrix_dft_test<F: IsFFTField>(input: &[FieldElement<F>]) -> Vec<FieldElement<F>> {

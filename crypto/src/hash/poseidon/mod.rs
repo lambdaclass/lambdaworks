@@ -1,4 +1,4 @@
-use alloc::{borrow::ToOwned, vec::Vec};
+use alloc::{borrow::*, vec::*};
 use lambdaworks_math::field::element::FieldElement as FE;
 
 pub mod parameters;

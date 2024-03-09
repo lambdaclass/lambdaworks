@@ -1,4 +1,4 @@
-use alloc::vec::Vec;
+use alloc::vec::*;
 #[cfg(feature = "alloc")]
 use lambdaworks_math::traits::Serializable;
 use lambdaworks_math::{errors::DeserializationError, traits::Deserializable};
@@ -71,7 +71,7 @@ mod tests {
 
     #[cfg(feature = "alloc")]
     use super::Proof;
-    use alloc::vec::Vec;
+    use alloc::vec::*;
     use lambdaworks_math::field::{element::FieldElement, fields::u64_prime_field::U64PrimeField};
     #[cfg(feature = "alloc")]
     use lambdaworks_math::traits::{Deserializable, Serializable};

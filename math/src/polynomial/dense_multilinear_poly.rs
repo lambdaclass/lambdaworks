@@ -2,7 +2,7 @@ use crate::{
     field::{element::FieldElement, traits::IsField},
     polynomial::error::MultilinearError,
 };
-use alloc::{vec, vec::Vec};
+use alloc::{vec, vec::*};
 use core::ops::{Add, Index, Mul};
 #[cfg(feature = "parallel")]
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};

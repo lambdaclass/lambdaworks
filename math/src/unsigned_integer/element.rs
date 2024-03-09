@@ -1,5 +1,5 @@
 use core::cmp::Ordering;
-use core::convert::From;
+use core::convert::*;
 use core::ops::{
     Add, BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Mul, Shl, Shr, ShrAssign,
     Sub,

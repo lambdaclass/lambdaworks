@@ -1,4 +1,4 @@
-use alloc::vec::Vec;
+use alloc::vec::*;
 use lambdaworks_math::field::{
     fields::mersenne31::field::MERSENNE_31_PRIME_FIELD_ORDER, traits::IsField,
 };

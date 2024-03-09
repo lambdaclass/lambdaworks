@@ -721,7 +721,7 @@ mod tests {
     #[cfg(feature = "alloc")]
     use crate::unsigned_integer::element::UnsignedInteger;
     #[cfg(feature = "alloc")]
-    use alloc::vec::Vec;
+    use alloc::vec::*;
     #[cfg(feature = "alloc")]
     use proptest::collection;
     use proptest::{prelude::*, prop_compose, proptest, strategy::Strategy};

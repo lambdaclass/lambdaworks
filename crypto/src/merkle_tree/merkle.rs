@@ -1,6 +1,6 @@
 use core::fmt::Display;
 
-use alloc::vec::Vec;
+use alloc::vec::*;
 
 use super::{proof::Proof, traits::IsMerkleTreeBackend, utils::*};
 

@@ -77,7 +77,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use alloc::vec::Vec;
+    use alloc::vec::*;
     use lambdaworks_math::field::{
         element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
     };

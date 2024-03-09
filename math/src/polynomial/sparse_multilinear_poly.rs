@@ -3,7 +3,7 @@ use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
 use crate::field::{element::FieldElement, traits::IsField};
 use crate::polynomial::error::MultilinearError;
-use alloc::vec::Vec;
+use alloc::vec::*;
 
 pub struct SparseMultilinearPolynomial<F: IsField>
 where

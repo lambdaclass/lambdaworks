@@ -1,5 +1,5 @@
 use super::traits::IsCommitmentScheme;
-use alloc::{borrow::ToOwned, vec::Vec};
+use alloc::{borrow::*, vec::*};
 use core::{marker::PhantomData, mem};
 use lambdaworks_math::{
     cyclic_group::IsGroup,
@@ -252,7 +252,7 @@ impl<const N: usize, F: IsPrimeField<RepresentativeType = UnsignedInteger<N>>, P
 
 #[cfg(test)]
 mod tests {
-    use alloc::vec::Vec;
+    use alloc::vec::*;
     use lambdaworks_math::{
         cyclic_group::IsGroup,
         elliptic_curve::{

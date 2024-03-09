@@ -1,5 +1,5 @@
 use super::is_transcript::IsTranscript;
-use crate::alloc::borrow::ToOwned;
+use crate::alloc::borrow::*;
 use core::marker::PhantomData;
 use lambdaworks_math::{
     field::{element::FieldElement, traits::IsField},
@@ -76,7 +76,7 @@ mod tests {
     use super::*;
 
     extern crate alloc;
-    use alloc::vec::Vec;
+    use alloc::vec::*;
     use lambdaworks_math::elliptic_curve::short_weierstrass::curves::bls12_381::default_types::FrField;
 
     #[test]
