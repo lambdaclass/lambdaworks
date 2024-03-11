@@ -341,6 +341,17 @@ where
         }
     }
 
+    /// Performs scalar multiplication on the projective point.
+    ///
+    /// Given a scalar `other`, this function computes `other * self`, where `self` is a projective point on the elliptic curve.
+    ///
+    /// # Arguments
+    ///
+    /// * `other` - A scalar represented as a `FieldElement` of the same base field as the elliptic curve.
+    ///
+    /// # Returns
+    ///
+    /// A new `ShortWeierstrassProjectivePoint` representing the result of the scalar multiplication.
     pub fn mul_by_scalar(&self, other: &FieldElement<E::BaseField>) -> Self {
         let mut res = Self::neutral_element();
 
