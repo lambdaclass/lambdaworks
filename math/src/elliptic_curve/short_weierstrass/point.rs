@@ -340,6 +340,26 @@ where
             }
         }
     }
+
+    pub fn mul_by_scalar(&self, other: &FieldElement<E::BaseField>) -> Self {
+        let mut res = Self::neutral_element();
+
+        let bits: alloc::vec::Vec<bool> = other
+            .to_bytes_be()
+            .iter()
+            .flat_map(|&byte| (0..8).map(move |i| byte & (1 << (7 - i)) != 0))
+            .skip_while(|&bit| !bit) // Skip leading zeros
+            .collect();
+
+        for &b in bits.iter() {
+            res = res.double();
+            if b {
+                res = res.operate_with(&self);
+            }
+        }
+
+        res
+    }
 }
 
 #[cfg(feature = "alloc")]
@@ -584,6 +604,18 @@ mod tests {
         assert_eq!(
             result.unwrap_err(),
             DeserializationError::InvalidAmountOfBytes
+        );
+    }
+
+    #[test]
+    fn multiply_point_by_max_u128_finite_field() {
+        let point_1 = point();
+
+        assert_eq!(
+            point_1
+                .mul_by_scalar(&FEE::new_base(&format!("{:x}", u128::MAX)))
+                .to_affine(),
+            point_1.operate_with_self(u128::MAX).to_affine()
         );
     }
 }

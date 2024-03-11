@@ -58,6 +58,32 @@ mod tests {
     }
 
     #[test]
+    fn multiply_point_by_5_finite_field() {
+        let point_1 = point_1();
+        let point_1_times_5 = point_1_times_5();
+
+        println!("{:?}", point_1_times_5);
+        println!("{:?}", point_1.mul_by_scalar(&FEE::new_base("0x5")));
+
+        assert_eq!(
+            point_1.mul_by_scalar(&FEE::new_base("0x5")).to_affine(),
+            point_1_times_5.to_affine()
+        );
+    }
+
+    #[test]
+    fn multiply_point_by_max_u128_finite_field() {
+        let point_1 = point_1();
+
+        assert_eq!(
+            point_1
+                .mul_by_scalar(&FEE::new_base(&format!("{:x}", u128::MAX)))
+                .to_affine(),
+            point_1.operate_with_self(u128::MAX).to_affine()
+        );
+    }
+
+    #[test]
     fn adding_five_times_point_1_works() {
         let point_1 = point_1();
         let point_1_times_5 = point_1_times_5();

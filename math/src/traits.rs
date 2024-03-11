@@ -8,7 +8,7 @@ use crate::errors::ByteConversionError;
 /// for getting an element from its byte representation in big-endian or
 /// little-endian order.
 pub trait ByteConversion {
-    /// Returns the byte representation of the element in big-endian order.}
+    /// Returns the byte representation of the element in big-endian order.
     #[cfg(feature = "alloc")]
     fn to_bytes_be(&self) -> alloc::vec::Vec<u8>;
 
