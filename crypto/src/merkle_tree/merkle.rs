@@ -1,5 +1,5 @@
 use core::fmt::Display;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use alloc::vec::Vec;
 
@@ -55,6 +55,10 @@ where
         }
     }
 
+    pub fn levels(&self) -> usize {
+        (self.nodes.len() as f32).log2().ceil() as usize
+    }
+
     pub fn get_proof_by_pos(&self, pos: usize) -> Option<Proof<B::Node>> {
         let first_leaf_index = self.nodes.len() / 2;
         let pos = pos + first_leaf_index;
@@ -63,50 +67,6 @@ where
         };
 
         self.create_proof(merkle_path)
-    }
-
-    // If number of leaves is even, height of this tree will be one less than the whole merkle tree,
-    // because we don't want to store leaves again here.
-    // If number of leaves is odd, height of this tree will be equal to the whole merkle tree, but
-    // the highest level will contain just 1 leaf, completing its sibling.
-    // ending_leaf_index starts from 0 for the first leaf, disregarding inner nodes of the tree.
-    pub fn populate_auth_map<'a>(
-        &'a self,
-        auth_map: &mut HashMap<NodePos, &'a B::Node>,
-        ending_leaf_index: usize,
-    ) -> Result<(), Error> {
-        assert!(auth_map.is_empty());
-
-        let first_leaf_pos = self.nodes.len() / 2;
-        let mut current_leaf_index = ending_leaf_index;
-        // Get the position in all tree
-        let mut pos = current_leaf_index + first_leaf_pos;
-        // If number of leaves included in the batch proof is odd, then we include the right sibling
-        // of the last leaf in the auth_map.
-        if current_leaf_index + 1 % 2 == 1 {
-            self.add_to_auth_map_if_not_contains(auth_map, get_sibling_pos(pos))?;
-        }
-
-        // O(n), where n is number of consecutive leaves included in batch proof
-        while current_leaf_index > 0 {
-            // Don't include the leaves in the auth tree
-            pos = get_parent_pos(pos);
-
-            // O(logN), where N is the number of all leaves in the merkle tree
-            // However, theta will be lower than this.
-            while pos != ROOT {
-                // Go to the next leaf if current path is issued before
-                if !self.add_to_auth_map_if_not_contains(auth_map, get_sibling_pos(pos))? {
-                    break;
-                }
-                pos = get_parent_pos(pos);
-            }
-
-            current_leaf_index -= 1;
-            pos = current_leaf_index + first_leaf_pos;
-        }
-
-        Ok(())
     }
 
     fn create_proof(&self, merkle_path: Vec<B::Node>) -> Option<Proof<B::Node>> {
@@ -131,20 +91,46 @@ where
         Ok(merkle_path)
     }
 
+    pub fn populate_auth_map<'a>(
+        &'a self,
+        auth_map: &mut HashMap<NodePos, &'a B::Node>,
+        leaf_positions: &mut [NodePos],
+    ) -> Result<(), Error> {
+        assert!(auth_map.is_empty());
+
+        // let first_leaf_pos = self.nodes.len() / 2;
+        // let mut obtainable_nodes: HashSet<_> = leaf_positions.iter().cloned().collect();
+
+        for leaf_pos in leaf_positions {
+            let mut pos = get_parent_pos(*leaf_pos);
+            // O(logN), where N is the number of all leaves in the merkle tree
+            // However, theta will be lower than this.
+            while pos != ROOT {
+                // Go to the next leaf if current path is issued before
+                if !self.add_to_auth_map_if_not_contains(auth_map, get_sibling_pos(pos))? {
+                    break;
+                }
+                pos = get_parent_pos(pos);
+            }
+        }
+
+        Ok(())
+    }
+
     fn add_to_auth_map_if_not_contains<'a>(
         &'a self,
         auth_map: &mut HashMap<NodePos, &'a B::Node>,
-        index: NodePos,
+        pos: NodePos,
     ) -> Result<bool, Error> {
-        let Some(node) = self.nodes.get(index) else {
+        let Some(node) = self.nodes.get(pos) else {
             return Err(Error::OutOfBounds);
         };
 
-        if auth_map.contains_key(&index) {
+        if auth_map.contains_key(&pos) {
             return Ok(false);
         }
 
-        auth_map.insert(index, node);
+        auth_map.insert(pos, node);
 
         Ok(true)
     }
@@ -209,13 +195,22 @@ mod tests {
 
     #[test]
     fn build_auth_map() {
-        let values: Vec<FE> = (1..u64::pow(2, 4)).map(FE::new).collect();
-        let merkle_tree = TestTree::build(&values);
+        let leaf_values: Vec<FE> = (1..u64::pow(2, 4)).map(FE::new).collect();
+        let merkle_tree = TestTree::build(&leaf_values);
 
         print_indices(merkle_tree.nodes.len(), HashSet::new());
 
+        let nodes_len = merkle_tree.nodes.len();
+        let first_leaf_pos = nodes_len / 2;
+        let mut leaf_positions: Vec<_> = (0..leaf_values.len())
+            .map(|i| (i + first_leaf_pos))
+            .collect();
+
+        // Build an authentication map for the first 10 leaves
+
         let mut auth_map: HashMap<NodePos, &Node> = HashMap::new();
-        TestTree::populate_auth_map(&merkle_tree, &mut auth_map, 11).unwrap();
+        TestTree::populate_auth_map(&merkle_tree, &mut auth_map, &mut leaf_positions[..10])
+            .unwrap();
 
         print_indices(merkle_tree.nodes.len(), auth_map.keys().cloned().collect());
     }
