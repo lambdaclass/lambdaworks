@@ -270,7 +270,7 @@ mod tests {
         field::element::FieldElement,
         polynomial::Polynomial,
         traits::{AsBytes, Deserializable},
-        unsigned_integer::element::U256,
+        unsigned_integer::element::U384,
     };
 
     use crate::commitments::traits::IsCommitmentScheme;
@@ -288,8 +288,10 @@ mod tests {
         <BLS12381AtePairing as IsPairing>::G2Point,
     > {
         let mut rng = rand::thread_rng();
-        let toxic_waste = FrElement::new(U256 {
+        let toxic_waste = FrElement::new(U384 {
             limbs: [
+                rng.gen::<u64>(),
+                rng.gen::<u64>(),
                 rng.gen::<u64>(),
                 rng.gen::<u64>(),
                 rng.gen::<u64>(),
