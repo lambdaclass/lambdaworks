@@ -365,7 +365,7 @@ where
         for &b in bits.iter() {
             res = res.double();
             if b {
-                res = res.operate_with(&self);
+                res = res.operate_with(self);
             }
         }
 
@@ -624,7 +624,7 @@ mod tests {
 
         assert_eq!(
             point_1
-                .mul_by_scalar(&FEE::new_base(&format!("{:x}", u128::MAX)))
+                .mul_by_scalar(&FEE::new_base(&alloc::format!("{:x}", u128::MAX)))
                 .to_affine(),
             point_1.operate_with_self(u128::MAX).to_affine()
         );

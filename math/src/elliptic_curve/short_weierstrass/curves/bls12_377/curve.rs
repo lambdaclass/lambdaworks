@@ -62,9 +62,6 @@ mod tests {
         let point_1 = point_1();
         let point_1_times_5 = point_1_times_5();
 
-        println!("{:?}", point_1_times_5);
-        println!("{:?}", point_1.mul_by_scalar(&FEE::new_base("0x5")));
-
         assert_eq!(
             point_1.mul_by_scalar(&FEE::new_base("0x5")).to_affine(),
             point_1_times_5.to_affine()
@@ -77,7 +74,7 @@ mod tests {
 
         assert_eq!(
             point_1
-                .mul_by_scalar(&FEE::new_base(&format!("{:x}", u128::MAX)))
+                .mul_by_scalar(&FEE::new_base(&alloc::format!("{:x}", u128::MAX)))
                 .to_affine(),
             point_1.operate_with_self(u128::MAX).to_affine()
         );
