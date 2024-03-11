@@ -1,3 +1,4 @@
+use core::ops::{Add, Mul, Sub};
 use crate::field::{
     element::FieldElement,
     errors::FieldError,
@@ -14,7 +15,7 @@ use crate::unsigned_integer::element::U384;
 pub const BLS12381_PRIME_FIELD_ORDER: U384 = U384::from_hex_unchecked("1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaab");
 
 // FPBLS12381
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Copy)]
 pub struct BLS12381FieldModulus;
 impl IsModulus<U384> for BLS12381FieldModulus {
     const MODULUS: U384 = BLS12381_PRIME_FIELD_ORDER;
@@ -23,7 +24,7 @@ impl IsModulus<U384> for BLS12381FieldModulus {
 pub type BLS12381PrimeField = MontgomeryBackendPrimeField<BLS12381FieldModulus, 6>;
 
 //////////////////
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Copy)]
 pub struct Degree2ExtensionField;
 
 impl IsField for Degree2ExtensionField {
@@ -282,6 +283,102 @@ impl FieldElement<Degree12ExtensionField> {
             ]),
         ])
     }
+
+    // Follows https://www.iacr.org/archive/pkc2010/60560212/60560212.pdf section 3.2
+    pub fn cyclotomic_square(&self) -> Self {
+        // f² = A' + B'⍵² + 2⍵*√A * √B , where A' = A₀ + A₁y + A₂y² , B' = B₀ + B₁y + B₂y² and x², y = ⍵²
+        let elem = self.value();
+        let a0 = &elem[0].value()[0];
+        let a1 = &elem[0].value()[1];
+        let a2 = &elem[0].value()[2];
+
+        let a_fp6 = FieldElement::<Degree6ExtensionField>::new([
+            FieldElement::<Degree2ExtensionField>::new([
+                a0.value()[0],
+                a0.value()[1],
+            ]),
+            FieldElement::<Degree2ExtensionField>::new([
+                a1.value()[0],
+                a1.value()[1],
+            ]),
+            FieldElement::<Degree2ExtensionField>::new([
+                a2.value()[0],
+                a2.value()[1],
+            ]),
+        ]);
+
+        let b0 = &elem[1].value()[0];
+        let b1 = &elem[1].value()[1];
+        let b2 = &elem[1].value()[2];
+
+        let b_fp6 = FieldElement::<Degree6ExtensionField>::new([
+            FieldElement::<Degree2ExtensionField>::new([
+                b0.value()[0],
+                b0.value()[1],
+            ]),
+            FieldElement::<Degree2ExtensionField>::new([
+                b1.value()[0],
+                b1.value()[1],
+            ]),
+            FieldElement::<Degree2ExtensionField>::new([
+                b2.value()[0],
+                b2.value()[1],
+            ]),
+        ]);
+
+        let three = FieldElement::<Degree2ExtensionField>::from(3);
+        // let three = <Degree2ExtensionField as IsField>::from_u64(3);
+        let two = FieldElement::<Degree2ExtensionField>::from(2);
+        // let two = <Degree2ExtensionField as IsField>::from_u64(2);
+
+        // A₀ = 3a₀² - 2conj(a₀)
+        let a0_sq = a0.square().mul(&three).sub(two.mul(&a0.conjugate()));
+
+        // A₁ = 3√ia₂² + 2conj(a₁)
+        // TODO: check non-residue correctness
+        let a1_sq = a2.square().mul(&three).mul(LevelTwoResidue::residue()).add(two.mul(&a1.conjugate()));
+
+        // A₂ = 2a₀
+        let a2_sq = a0.mul(&two);
+
+        // B₀ = 3b₀² - 2conj(b₀)
+        let b0_sq = b0.square().mul(&three).sub(two.mul(&b0.conjugate()));
+
+        // B₁ = 3√ib₂² + 2conj(b₁)
+         // TODO: check non-residue correctness
+        let b1_sq = b2.square().mul(&three).mul(LevelTwoResidue::residue()).add(two.mul(&b1.conjugate()));
+
+        // B₂ = 2b₀
+        let b2_sq = b0.mul(&two);
+
+        // A' = A₀ + A₁y + A₂y²
+        // TODO: check non-residue correctness
+        let a_sq_fp6 = FieldElement::<Degree6ExtensionField>::new([
+            a0_sq,
+            a1_sq.mul(&LevelTwoResidue::residue()),
+            a2_sq.mul(&LevelTwoResidue::residue().square()),
+        ]);
+
+        // B' = B₀ + B₁y + B₂y²
+        // TODO: check non-residue correctness
+        let b_sq_fp6 = FieldElement::<Degree6ExtensionField>::new([
+            b0_sq,
+            b1_sq.mul(&LevelTwoResidue::residue()),
+            b2_sq.mul(&LevelTwoResidue::residue().square()),
+        ]);
+
+        // f² = A' + B'⍵² + 2⍵*√A * √B
+        // TODO: check non-residue correctness
+        let two_omega_a_b = LevelThreeResidue::residue().mul(a_fp6).mul(b_fp6);
+
+        // TODO : is this correct representation?
+       let elem_sq = FieldElement::<Degree12ExtensionField>::new([
+            a_sq_fp6.add(&b_sq_fp6.mul(&LevelThreeResidue::residue().square())),
+            two_omega_a_b,
+            ]);
+
+        elem_sq
+    }
 }
 
 #[cfg(test)]
@@ -410,5 +507,26 @@ mod tests {
         let a = FieldElement::<BLS12381PrimeField>::from(3);
         let a_extension = FieldElement::<Degree2ExtensionField>::from(3);
         assert_eq!(a.to_extension::<Degree2ExtensionField>(), a_extension);
+    }
+
+    #[test]
+    fn cyclotomic_square_fp12() {
+        let a = FieldElement::<Degree12ExtensionField>::from_coefficients(&[
+            "1",
+            "2",
+            "5",
+            "6",
+            "9",
+            "a",
+            "3",
+            "4",
+            "7",
+            "8",
+            "b",
+            "c",
+        ]);
+        let a_squared = a.cyclotomic_square();
+        let exp_squared = a.square();
+        assert_eq!(a_squared, exp_squared);
     }
 }
