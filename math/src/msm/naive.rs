@@ -8,13 +8,16 @@ use icicle_core::error::IcicleError;
 #[derive(Debug)]
 pub enum MSMError {
     LengthMismatch(usize, usize),
-    Icicle(IcicleError)
+    #[cfg(feature = "icicle")]
+    Icicle(IcicleError),
 }
 
 impl Display for MSMError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             MSMError::LengthMismatch(cs, points) => write!(f, "`cs` and `points` must be of the same length to compute `msm`. Got: {cs} and {points}"),
+            #[cfg(feature = "icicle")]
+            MSMError::Icicle(e) => write!(f, "Icicle GPU backend failure. {:?}", e),
         }
     }
 }
