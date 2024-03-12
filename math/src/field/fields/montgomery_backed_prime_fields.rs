@@ -134,10 +134,6 @@ where
         }
     }
 
-    fn double(a: &Self::BaseType) -> Self::BaseType {
-        Self::add(a, a)
-    }
-
     #[inline(always)]
     fn mul(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
         if Self::MODULUS_HAS_ONE_SPARE_BIT {

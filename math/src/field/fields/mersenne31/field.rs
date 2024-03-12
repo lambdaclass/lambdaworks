@@ -68,11 +68,6 @@ impl IsField for Mersenne31Field {
         Self::as_representative(&sum)
     }
 
-    /// Returns the double of `a`.
-    fn double(a: &u32) -> u32 {
-        Self::add(a, a)
-    }
-
     /// Returns the multiplication of `a` and `b`.
     // Note: for powers of 2 we can perform bit shifting this would involve overriding the trait implementation
     fn mul(a: &u32, b: &u32) -> u32 {

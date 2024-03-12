@@ -27,10 +27,6 @@ impl<const MODULUS: u64> IsField for U64PrimeField<MODULUS> {
         ((*a as u128 + *b as u128) % MODULUS as u128) as u64
     }
 
-    fn double(a: &u64) -> u64 {
-        Self::add(a, a)
-    }
-
     fn sub(a: &u64, b: &u64) -> u64 {
         (((*a as u128 + MODULUS as u128) - *b as u128) % MODULUS as u128) as u64
     }

@@ -62,10 +62,6 @@ impl IsField for P448GoldilocksPrimeField {
         sum
     }
 
-    fn double(a: &U56x8) -> U56x8 {
-        Self::add(a, a)
-    }
-
     /// Implements fast Karatsuba Multiplication optimized for the
     /// Godilocks Prime field. Taken from Mike Hamburg's implemenation:
     /// https://sourceforge.net/p/ed448goldilocks/code/ci/master/tree/src/p448/arch_ref64/f_impl.c

@@ -45,10 +45,6 @@ impl<const MODULUS: u32> IsField for U32Field<MODULUS> {
         ((*a as u128 + *b as u128) % MODULUS as u128) as u32
     }
 
-    fn double(a: &u32) -> u32 {
-        Self::add(a, a)
-    }
-
     fn sub(a: &u32, b: &u32) -> u32 {
         (((*a as u128 + MODULUS as u128) - *b as u128) % MODULUS as u128) as u32
     }
