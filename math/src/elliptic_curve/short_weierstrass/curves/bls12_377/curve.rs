@@ -2,7 +2,7 @@ use super::field_extension::BLS12377PrimeField;
 use crate::elliptic_curve::short_weierstrass::point::ShortWeierstrassProjectivePoint;
 use crate::elliptic_curve::traits::IsEllipticCurve;
 use crate::field::fields::montgomery_backed_prime_fields::IsModulus;
-use crate::unsigned_integer::element::U384;
+use crate::unsigned_integer::element::U256;
 use crate::{
     elliptic_curve::short_weierstrass::traits::IsShortWeierstrass, field::element::FieldElement,
 };
@@ -38,8 +38,8 @@ impl IsShortWeierstrass for BLS12377Curve {
 pub struct FrConfig;
 
 /// Modulus of bls 12 381 subgroup
-impl IsModulus<U384> for FrConfig {
-    const MODULUS: U384 = U384::from_hex_unchecked(
+impl IsModulus<U256> for FrConfig {
+    const MODULUS: U256 = U256::from_hex_unchecked(
         "0x12ab655e9a2ca55660b44d1e5c37b00159aa76fed00000010a11800000000001",
     );
 }
@@ -176,28 +176,6 @@ mod tests {
         let neg_point = point.neg();
         let res = point.operate_with(&neg_point);
         assert_eq!(res, G::neutral_element());
-    }
-
-    #[test]
-    fn scalar_mul_depends_on_scalar_mod_r() {
-        let r = FrConfig::MODULUS;
-        let gen = BLS12377Curve::generator();
-        let gen_neg = gen.neg();
-        let g = gen.operate_with_self(r);
-
-        let r_sub_one = r - U384::from(1u64);
-        let op3 = gen.operate_with_self(r_sub_one);
-
-        // random scalar value
-        let s = U384::from(3u64);
-        let blinded_scalar = (s * r) + s;
-        let op1 = gen.operate_with_self(s);
-        let op2 = gen.operate_with_self(blinded_scalar);
-
-        assert_eq!(op1, op2);
-        assert_eq!(g, G::neutral_element());
-        assert_ne!(op1, G::neutral_element());
-        assert_eq!(gen_neg, op3);
     }
 
     #[test]

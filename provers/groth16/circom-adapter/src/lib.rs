@@ -101,5 +101,5 @@ fn adjust_lro_and_witness(
 
 #[inline]
 fn circom_str_to_lambda_field_element(value: &str) -> FrElement {
-    FrElement::from(&UnsignedInteger::<6>::from_dec_str(value).unwrap())
+    FrElement::from(&UnsignedInteger::<4>::from_dec_str(value).unwrap())
 }

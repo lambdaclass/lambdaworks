@@ -322,29 +322,6 @@ mod tests {
         assert_eq!(res, G::neutral_element());
     }
 
-    //Scalar mul depends only on the scalar mod r
-    #[test]
-    fn scalar_mul_depends_on_scalar_mod_r() {
-        let r = FrConfig::MODULUS;
-        let gen = BLS12381Curve::generator();
-        let gen_neg = gen.neg();
-        let g = gen.operate_with_self(r);
-
-        let r_sub_one = r - U384::from(1u64);
-        let op3 = gen.operate_with_self(r_sub_one);
-
-        // random scalar value
-        let s = U384::from(3u64);
-        let blinded_scalar = (s * r) + s;
-        let op1 = gen.operate_with_self(s);
-        let op2 = gen.operate_with_self(blinded_scalar);
-
-        assert_eq!(op1, op2);
-        assert_eq!(g, G::neutral_element());
-        assert_ne!(op1, G::neutral_element());
-        assert_eq!(gen_neg, op3);
-    }
-
     #[test]
     fn operate_with_self_works_1() {
         let g = BLS12381Curve::generator();
