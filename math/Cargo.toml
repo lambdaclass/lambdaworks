@@ -27,7 +27,7 @@ cudarc = { version = "0.9.7", optional = true }
 # Icicle integration
 icicle-cuda-runtime = { git = "https://github.com/ingonyama-zk/icicle.git", tag = "v1.4.0", optional = true }
 icicle-core = { git = "https://github.com/ingonyama-zk/icicle.git", tag = "v1.4.0", optional = true }
-icicle-bls12-377 = { git = "https://github.com/ingonyama-zk/icicle.git", tag = "v1.4.0", optional = true }
+icicle-bls12-377 = { git = "https://github.com/ingonyama-zk/icicle.git", tag = "v1.4.0", optional = true}
 icicle-bls12-381 = { git = "https://github.com/ingonyama-zk/icicle.git", tag = "v1.4.0", optional = true }
 icicle-bn254 = { git = "https://github.com/ingonyama-zk/icicle.git", tag = "v1.4.0", optional = true }
 

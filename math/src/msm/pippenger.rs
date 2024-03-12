@@ -1,7 +1,13 @@
-use crate::{cyclic_group::IsGroup, unsigned_integer::element::UnsignedInteger, field::{traits::IsField, element::FieldElement}, gpu::icicle::icicle_msm};
+use crate::{
+    cyclic_group::IsGroup,
+    field::{element::FieldElement, traits::IsField},
+    unsigned_integer::element::UnsignedInteger,
+};
 
 use super::naive::MSMError;
-
+#[cfg(feature = "icicle")]
+use crate::gpu::icicle::{icicle_msm, GpuMSMPoint};
+use crate::traits::ByteConversion;
 use alloc::vec;
 
 /// This function computes the multiscalar multiplication (MSM).
@@ -15,12 +21,13 @@ use alloc::vec;
 /// If `points` and `cs` are empty, then `msm` returns the zero element of the group.
 ///
 /// Panics if `cs` and `points` have different lengths.
-pub fn msm<const NUM_LIMBS: usize, G, F: IsField<BaseType = UnsignedInteger<NUM_LIMBS>>>(
+pub fn msm<const NUM_LIMBS: usize, F: IsField<BaseType = UnsignedInteger<NUM_LIMBS>>, G>(
     cs: &[FieldElement<F>],
     points: &[G],
 ) -> Result<G, MSMError>
 where
-    G: IsGroup,
+    G: IsGroup + GpuMSMPoint,
+    FieldElement<F>: ByteConversion,
 {
     if cs.len() != points.len() {
         return Err(MSMError::LengthMismatch(cs.len(), points.len()));
@@ -28,9 +35,7 @@ where
 
     #[cfg(feature = "icicle")]
     {
-        icicle_msm(cs, points).map_err(|e| MSMError::Icicle(e))
-        /*
-        if !F::field_name().is_empty() {
+        if !G::curve_name().is_empty() {
             icicle_msm(cs, points)
         } else {
             println!(
@@ -38,17 +43,16 @@ where
                 core::any::type_name::<F>()
             );
             let window_size = optimum_window_size(cs.len());
-            let cs = cs.into_iter().map(|cs| *cs.calue()).collect::<Vec<_>>();
-            Ok(msm_with(cs, points, window_size))
+            let cs = cs.iter().map(|cs| *cs.value()).collect::<Vec<_>>();
+            Ok(msm_with(&cs, points, window_size))
         }
-        */
     }
 
     #[cfg(not(feature = "icicle"))]
     {
         let window_size = optimum_window_size(cs.len());
-        let cs = cs.into_iter().map(|cs| *cs.value()).collect::<Vec<_>>();
-        Ok(msm_with(cs, points, window_size))
+        let cs = cs.iter().map(|cs| *cs.value()).collect::<Vec<_>>();
+        Ok(msm_with(&cs, points, window_size))
     }
 }
 

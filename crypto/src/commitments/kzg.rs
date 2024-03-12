@@ -1,11 +1,16 @@
 use super::traits::IsCommitmentScheme;
 use alloc::{borrow::ToOwned, vec::Vec};
 use core::{marker::PhantomData, mem};
+use lambdaworks_math::gpu::icicle::GpuMSMPoint;
+use lambdaworks_math::traits::ByteConversion;
 use lambdaworks_math::{
     cyclic_group::IsGroup,
     elliptic_curve::traits::IsPairing,
     errors::DeserializationError,
-    field::{element::FieldElement, traits::{IsPrimeField, IsField}},
+    field::{
+        element::FieldElement,
+        traits::{IsField, IsPrimeField},
+    },
     msm::pippenger::msm,
     polynomial::Polynomial,
     traits::{AsBytes, Deserializable},
@@ -150,8 +155,15 @@ impl<F: IsField, P: IsPairing> KateZaveruchaGoldberg<F, P> {
     }
 }
 
-impl<const N: usize, F: IsField<BaseType = UnsignedInteger<N>> + IsPrimeField<RepresentativeType = UnsignedInteger<N>>, P: IsPairing>
-    IsCommitmentScheme<F> for KateZaveruchaGoldberg<F, P>
+impl<
+        const N: usize,
+        F: IsField<BaseType = UnsignedInteger<N>>
+            + IsPrimeField<RepresentativeType = UnsignedInteger<N>>,
+        P: IsPairing,
+    > IsCommitmentScheme<F> for KateZaveruchaGoldberg<F, P>
+where
+    FieldElement<F>: ByteConversion,
+    P::G1Point: GpuMSMPoint,
 {
     type Commitment = P::G1Point;
 
