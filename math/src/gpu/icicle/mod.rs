@@ -4,24 +4,32 @@ use crate::{
         short_weierstrass::{
             curves::{
                 bls12_377::curve::BLS12377Curve,
-                bls12_381::{curve::BLS12381Curve, twist::BLS12381TwistCurve},
-                bn_254::curve::BN254Curve,
+                bls12_381::{curve::BLS12381Curve, twist::BLS12381TwistCurve, field_extension::BLS12381PrimeField},
+                bn_254::{curve::BN254Curve, field_extension::BN254PrimeField}
             },
             point::ShortWeierstrassProjectivePoint,
         },
         traits::IsEllipticCurve,
     },
     errors::ByteConversionError,
-    field::{element::FieldElement, traits::IsField},
+    field::{element::FieldElement, traits::{IsField, IsSubFieldOf, IsFFTField}},
     msm::naive::MSMError,
+    fft::errors::FFTError,
     traits::ByteConversion,
 };
 use icicle_bls12_377::curve::CurveCfg as IcicleBLS12377Curve;
-use icicle_bls12_381::curve::CurveCfg as IcicleBLS12381Curve;
-use icicle_bn254::curve::CurveCfg as IcicleBN254Curve;
+use icicle_bls12_381::curve::{
+    CurveCfg as IcicleBLS12381Curve,
+    ScalarCfg as IcicleBLS12381ScalarCfg
+};
+use icicle_bn254::curve::{
+    CurveCfg as IcicleBN254Curve,
+    ScalarCfg as IcicleBN254ScalarCfg
+};
 use icicle_core::{
     curve::{Affine, Curve, Projective},
     msm,
+    ntt::{ntt, NTT, NTTConfig, NTTDir},
     traits::FieldImpl,
 };
 use icicle_cuda_runtime::{memory::HostOrDeviceSlice, stream::CudaStream};
@@ -145,6 +153,12 @@ pub trait GpuMSMPoint: IsGroup {
         ""
     }
 
+    fn to_icicle_affine(point: &Self) -> Affine<Self::GpuCurve>;
+
+    fn from_icicle_projective(
+        icicle: &Projective<Self::GpuCurve>,
+    ) -> Result<Self, ByteConversionError>;
+
     fn to_icicle_field<FE: ByteConversion>(element: &FE) -> <Self::GpuCurve as Curve>::BaseField {
         <Self::GpuCurve as Curve>::BaseField::from_bytes_le(&element.to_bytes_le())
     }
@@ -160,12 +174,32 @@ pub trait GpuMSMPoint: IsGroup {
     ) -> Result<FE, ByteConversionError> {
         FE::from_bytes_le(&icicle.to_bytes_le())
     }
+}
 
-    fn to_icicle_affine(point: &Self) -> Affine<Self::GpuCurve>;
+pub trait IcicleFFT: IsField 
+where
+    FieldElement<Self>: ByteConversion,
+    <Self::ScalarField as FieldImpl>::Config: NTT<Self::ScalarField>
+{
+    type ScalarField: FieldImpl;
 
-    fn from_icicle_projective(
-        icicle: &Projective<Self::GpuCurve>,
-    ) -> Result<Self, ByteConversionError>;
+    fn to_icicle_scalar(element: &FieldElement<Self>) -> Self::ScalarField {
+        Self::ScalarField::from_bytes_le(&element.to_bytes_le())
+    }
+
+    fn from_icicle_scalar(
+        icicle: &Self::ScalarField,
+    ) -> Result<FieldElement<Self>, ByteConversionError> {
+        FieldElement::<Self>::from_bytes_le(&icicle.to_bytes_le())
+    }
+}
+
+impl IcicleFFT for BLS12381PrimeField {
+    type ScalarField = <IcicleBLS12381Curve as Curve>::ScalarField;
+}
+
+impl IcicleFFT for BN254PrimeField {
+    type ScalarField = <IcicleBN254Curve as Curve>::ScalarField;
 }
 
 pub fn icicle_msm<F: IsField, G: GpuMSMPoint>(
@@ -199,6 +233,83 @@ where
     let res = G::from_icicle_projective(&msm_host_result[0]).unwrap();
     Ok(res)
 }
+
+pub fn evaluate_fft_icicle<F, E>(
+    coeffs: &Vec<FieldElement<E>>,
+) -> Result<Vec<FieldElement<E>>, FFTError> 
+where
+    E: IsSubFieldOf<E>,
+    FieldElement<E>: ByteConversion,
+    <<E as IcicleFFT>::ScalarField as FieldImpl>::Config: NTT<<E as IcicleFFT>::ScalarField>,
+    E: IsField + IcicleFFT + IsFFTField,
+{
+    let size = coeffs.len();
+    let mut cfg = NTTConfig::default();
+    let order = coeffs.len() as u64;
+    let dir = NTTDir::kForward;
+    let scalars = HostOrDeviceSlice::Host(
+        coeffs
+            .iter()
+            .map(|scalar| E::to_icicle_scalar(&scalar))
+            .collect::<Vec<_>>(),
+    );
+    let mut ntt_results = HostOrDeviceSlice::cuda_malloc(size).unwrap();
+    let stream = CudaStream::create().unwrap();
+    cfg.ctx.stream = &stream;
+    cfg.is_async = true;
+    let root_of_unity = E::to_icicle_scalar(&E::get_primitive_root_of_unity(order).unwrap());
+    <E::ScalarField as FieldImpl>::Config::initialize_domain(root_of_unity, &cfg.ctx).unwrap();
+    ntt(&scalars, dir, &cfg, &mut ntt_results).unwrap();
+    stream.synchronize().unwrap();
+    let mut ntt_host_results = vec![E::ScalarField::zero(); size];
+    ntt_results.copy_to_host(&mut ntt_host_results[..]).unwrap();
+    stream.destroy().unwrap();
+    let res = ntt_host_results
+        .as_slice()
+        .iter()
+        .map(|scalar| E::from_icicle_scalar(&scalar).unwrap())
+        .collect::<Vec<_>>();
+    Ok(res)
+}
+
+pub fn interpolate_fft_icicle<F, E>(
+    coeffs: &Vec<FieldElement<E>>,
+) -> Result<Vec<FieldElement<E>>, FFTError> 
+where
+    F: IsSubFieldOf<E>,
+    FieldElement<E>: ByteConversion,
+    <<E as IcicleFFT>::ScalarField as FieldImpl>::Config: NTT<<E as IcicleFFT>::ScalarField>,
+    E: IsField + IcicleFFT + IsFFTField,
+{
+    let size = coeffs.len();
+    let mut cfg = NTTConfig::default();
+    let order = coeffs.len() as u64;
+    let dir = NTTDir::kInverse;
+    let scalars = HostOrDeviceSlice::Host(
+        coeffs
+            .iter()
+            .map(|scalar| E::to_icicle_scalar(scalar))
+            .collect::<Vec<_>>(),
+    );
+    let mut ntt_results = HostOrDeviceSlice::cuda_malloc(size).unwrap();
+    let stream = CudaStream::create().unwrap();
+    cfg.ctx.stream = &stream;
+    cfg.is_async = true;
+    let root_of_unity = E::to_icicle_scalar(&E::get_primitive_root_of_unity(order).unwrap());
+    <E::ScalarField as FieldImpl>::Config::initialize_domain(root_of_unity, &cfg.ctx).unwrap();
+    ntt(&scalars, dir, &cfg, &mut ntt_results).unwrap();
+    stream.synchronize().unwrap();
+    let mut ntt_host_results = vec![E::ScalarField::zero(); size];
+    ntt_results.copy_to_host(&mut ntt_host_results[..]).unwrap();
+    stream.destroy().unwrap();
+    let res = ntt_host_results
+        .as_slice()
+        .iter()
+        .map(|scalar| E::from_icicle_scalar(&scalar).unwrap())
+        .collect::<Vec<_>>();
+    Ok(res)
+}
+
 
 #[cfg(test)]
 mod test {
