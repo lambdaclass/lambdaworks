@@ -1,5 +1,3 @@
-#[cfg(feature = "parallel")]
-use rayon::prelude::*;
 use std::collections::HashMap;
 
 use super::{
@@ -8,11 +6,6 @@ use super::{
     utils::{get_parent_pos, get_sibling_pos},
 };
 
-/// Stores a merkle path to some leaf.
-/// Internally, the necessary hashes are stored from root to leaf in the
-/// `merkle_path` field, in such a way that, if the merkle tree is of height `n`, the
-/// `i`-th element of `merkle_path` is the sibling node in the `n - 1 - i`-th check
-/// when verifying.
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct BatchProof<T: PartialEq + Eq> {
@@ -50,8 +43,7 @@ impl<T: PartialEq + Eq> BatchProof<T> {
                 } else if self.auth.contains_key(&sibling_pos) {
                     self.auth.get(&sibling_pos).unwrap()
                 } else {
-                    // no sibling to hash with! Return error.
-                    panic!();
+                    panic!("Leaf with position {pos} has sibling {sibling_pos}, but it's not included in the auth map. ");
                 };
 
                 let parent_node = B::hash_new_parent(node, sibling_node);
@@ -97,7 +89,6 @@ mod tests {
     pub type TestBackend = TB<Ecgfp5>;
     pub type TestMerkleTreeEcgfp = MerkleTree<TestBackend>;
 
-    // Creates following tree:
     //
     //          20
     //       /      \
@@ -106,11 +97,9 @@ mod tests {
     //    2   4    6   8
     //
     // Proves inclusion of leaves whose indices are passed into 'leaf_indices' array.
-    // If it's [0, 3], then the test will create proof and verify inclusion of leaves with indices 0 and 3,
-    // that are, 2 and 8.
-    //
-    // The test uses a test backend whose hash function is just an element added to itself.
-    // So if leaf_values = [1,2,3,4], then actual leaf values will be [2,4,6,8], making the root 20.
+    // These leaf indices start from 0 for the first leaf, 2 in the example above.
+    // If leaf_indices is [0, 3], then the test will create proof and verify inclusion
+    // of leaves with indices 0 and 3, that are, 2 and 8.
     #[test]
     fn batch_proof_pen_and_paper_example() {
         let mut leaf_values: Vec<Ecgfp5FE> = (1..u64::pow(2, 2) + 1).map(Ecgfp5FE::new).collect();

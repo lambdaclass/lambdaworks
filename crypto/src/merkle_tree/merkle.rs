@@ -29,30 +29,6 @@ pub struct MerkleTree<B: IsMerkleTreeBackend> {
     nodes: Vec<B::Node>,
 }
 
-#[cfg(test)]
-fn print_positions(tree_length: usize, mark_positions: HashSet<NodePos>) {
-    let depth = (tree_length as f64).log2().ceil() as usize;
-    let mut index = 0;
-
-    for i in 0..depth {
-        let elements_at_this_depth = 2usize.pow(i as u32);
-        let padding = 2usize.pow((depth - i) as u32 + 1);
-
-        for _ in 0..elements_at_this_depth {
-            if index >= tree_length {
-                continue;
-            }
-            if mark_positions.contains(&index) {
-                print!("{:width$}.", index, width = padding - 1);
-            } else {
-                print!("{:width$}", index, width = padding);
-            }
-            index += 1;
-        }
-        println!();
-    }
-}
-
 impl<B> MerkleTree<B>
 where
     B: IsMerkleTreeBackend,
@@ -101,11 +77,7 @@ where
     /// pos_list need not be continuous, but the resulting proof becomes the smallest when so.
     pub fn get_batch_proof(&self, pos_list: &[NodePos]) -> Option<BatchProof<B::Node>> {
         let batch_auth_path_positions = self.get_batch_auth_path_positions(pos_list);
-        // #[cfg(test)]
-        // print_positions(
-        //     self.nodes_len(),
-        //     batch_auth_path_positions.iter().cloned().collect(),
-        // );
+
         let batch_auth_path_nodes_iter = batch_auth_path_positions
             .iter()
             .map(|pos| (*pos, self.nodes[*pos].clone()).clone());
@@ -170,9 +142,6 @@ where
             let mut parent_level_obtainable_positions = HashSet::new();
             for pos in &obtainable_nodes_by_level {
                 let sibling_pos = get_sibling_pos(*pos);
-                if sibling_pos == *pos {
-                    break;
-                }
 
                 let sibling_is_obtainable = obtainable_nodes_by_level.contains(&sibling_pos)
                     || auth_set.contains(&sibling_pos);
@@ -204,6 +173,7 @@ mod tests {
     type U64PF = U64PrimeField<MODULUS>;
     type FE = FieldElement<U64PF>;
     type TestTree = MerkleTree<TestBackend<U64PF>>;
+
     #[test]
     // expected | 10 | 3 | 7 | 1 | 2 | 3 | 4 |
     fn build_merkle_tree_from_a_power_of_two_list_of_values() {
