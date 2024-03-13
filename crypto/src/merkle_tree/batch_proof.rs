@@ -193,57 +193,81 @@ mod tests {
     // So if leaf_values = [1,2,3,4], then actual leaf values will be [2,4,6,8], making the root 20.
     #[test]
     fn batch_proof_pen_and_paper_example() {
-        let leaf_values: Vec<Ecgfp5FE> = (1..u64::pow(2, 2) + 1).map(Ecgfp5FE::new).collect();
+        let mut leaf_values: Vec<Ecgfp5FE> = (1..u64::pow(2, 2) + 1).map(Ecgfp5FE::new).collect();
         let merkle_tree: MerkleTree<TestBackend> = TestMerkleTreeEcgfp::build(&leaf_values);
+        leaf_values = merkle_tree.leaves().to_vec();
 
         let nodes_len = merkle_tree.nodes_len();
         let first_leaf_pos = nodes_len / 2;
 
         // Leaves to prove inclusion for
-        let leaf_indices = [0, 3];
-        let leaf_positions: Vec<NodePos> = leaf_indices
+        let proven_leaf_indices = [0, 3];
+        let proven_leaf_positions: Vec<NodePos> = proven_leaf_indices
             .iter()
             .map(|leaf_index| leaf_index + first_leaf_pos)
             .collect();
 
         // Build an authentication map for the first 10 leaves
-        let batch_proof = merkle_tree.get_batch_proof(&leaf_positions).unwrap();
+        let batch_proof = merkle_tree.get_batch_proof(&proven_leaf_positions).unwrap();
 
-        let leaves: HashMap<NodePos, Ecgfp5FE> = leaf_positions
+        let leaves: HashMap<NodePos, Ecgfp5FE> = proven_leaf_positions
             .iter()
-            .map(|pos| {
-                (
-                    *pos,
-                    TestBackend::hash_data(&leaf_values[*pos - first_leaf_pos].clone()),
-                )
-            })
+            .map(|pos| (*pos, leaf_values[*pos - first_leaf_pos].clone()))
             .collect();
 
         assert!(batch_proof.verify::<TestBackend>(merkle_tree.root, leaves));
     }
 
-    // #[test]
-    // fn create_a_merkle_tree_with_10000_elements_and_verify_that_an_element_is_part_of_it() {
-    //     let values: Vec<Ecgfp5FE> = (1..10000).map(Ecgfp5FE::new).collect();
-    //     let merkle_tree = TestMerkleTreeEcgfp::build(&values);
+    #[test]
+    fn batch_proof_big_tree_one_leaf() {
+        let mut leaf_values: Vec<Ecgfp5FE> = (1..u64::pow(2, 16) + 1).map(Ecgfp5FE::new).collect();
+        let merkle_tree: MerkleTree<TestBackend> = TestMerkleTreeEcgfp::build(&leaf_values);
+        leaf_values = merkle_tree.leaves().to_vec();
 
-    //     let proven_leaf_range = 4..usize::pow(2, 8);
+        let nodes_len = merkle_tree.nodes_len();
+        let first_leaf_pos = nodes_len / 2;
 
-    //     let batch_proof = merkle_tree
-    //         .get_batch_proof(&proven_leaf_range.clone().collect::<Vec<_>>())
-    //         .unwrap();
+        // Only prove one of the leaves
+        let proven_leaf_indices = [76];
+        let proven_leaf_positions: Vec<NodePos> = proven_leaf_indices
+            .iter()
+            .map(|leaf_index| leaf_index + first_leaf_pos)
+            .collect();
 
-    //     let leaves = HashMap::from_iter(
-    //         merkle_tree
-    //             .get_batch_with_positions(
-    //                 &proven_leaf_range
-    //                     .map(|e| NodePos::from(e))
-    //                     .collect::<Vec<_>>(),
-    //             )
-    //             .iter()
-    //             .map(|(pos, elem)| (*pos, elem.clone())),
-    //     );
+        // Build an authentication map for the first 10 leaves
+        let batch_proof = merkle_tree.get_batch_proof(&proven_leaf_positions).unwrap();
 
-    //     assert!(batch_proof.verify::<TestBackend<Ecgfp5>>(merkle_tree.root, leaves));
-    // }
+        let leaves: HashMap<NodePos, Ecgfp5FE> = proven_leaf_positions
+            .iter()
+            .map(|pos| (*pos, leaf_values[*pos - first_leaf_pos].clone()))
+            .collect();
+
+        assert!(batch_proof.verify::<TestBackend>(merkle_tree.root, leaves));
+    }
+
+    #[test]
+    fn create_a_merkle_tree_with_10000_elements_and_verify_that_a_series_of_elements_belong_to_it()
+    {
+        let mut leaf_values: Vec<Ecgfp5FE> = (1..10000).map(Ecgfp5FE::new).collect();
+        let merkle_tree = TestMerkleTreeEcgfp::build(&leaf_values);
+        leaf_values = merkle_tree.leaves().to_vec();
+
+        let nodes_len = merkle_tree.nodes_len();
+        let first_leaf_pos = nodes_len / 2;
+
+        let proven_leaf_indices = [0].iter();
+        let proven_leaf_positions: Vec<NodePos> = proven_leaf_indices
+            .clone()
+            .map(|leaf_index| leaf_index + first_leaf_pos)
+            .collect();
+
+        let batch_proof = merkle_tree.get_batch_proof(&proven_leaf_positions).unwrap();
+
+        let leaves: HashMap<NodePos, Ecgfp5FE> = proven_leaf_positions
+            .iter()
+            .map(|pos| (*pos, leaf_values[*pos - first_leaf_pos]))
+            .collect();
+
+        assert!(batch_proof.verify::<TestBackend>(merkle_tree.root, leaves));
+    }
 }

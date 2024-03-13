@@ -72,13 +72,17 @@ where
         //Build the inner nodes of the tree
         build::<B>(&mut nodes, leaves_len);
 
-        #[cfg(test)]
-        print_positions(nodes.len(), HashSet::new());
+        // #[cfg(test)]
+        // print_positions(nodes.len(), HashSet::new());
 
         MerkleTree {
             root: nodes[ROOT].clone(),
             nodes,
         }
+    }
+
+    pub fn leaves(&self) -> &[B::Node] {
+        &self.nodes[self.nodes_len() / 2..]
     }
 
     pub fn get_proof(&self, pos: NodePos) -> Option<Proof<B::Node>> {
@@ -97,11 +101,11 @@ where
     /// pos_list need not be continuous, but the resulting proof becomes the smallest when so.
     pub fn get_batch_proof(&self, pos_list: &[NodePos]) -> Option<BatchProof<B::Node>> {
         let batch_auth_path_positions = self.get_batch_auth_path_positions(pos_list);
-        #[cfg(test)]
-        print_positions(
-            self.nodes_len(),
-            batch_auth_path_positions.iter().cloned().collect(),
-        );
+        // #[cfg(test)]
+        // print_positions(
+        //     self.nodes_len(),
+        //     batch_auth_path_positions.iter().cloned().collect(),
+        // );
         let batch_auth_path_nodes_iter = batch_auth_path_positions
             .iter()
             .map(|pos| (*pos, self.nodes[*pos].clone()).clone());
@@ -166,6 +170,10 @@ where
             let mut parent_level_obtainable_positions = HashSet::new();
             for pos in &obtainable_nodes_by_level {
                 let sibling_pos = get_sibling_pos(*pos);
+                if sibling_pos == *pos {
+                    break;
+                }
+
                 let sibling_is_obtainable = obtainable_nodes_by_level.contains(&sibling_pos)
                     || auth_set.contains(&sibling_pos);
                 if !sibling_is_obtainable {

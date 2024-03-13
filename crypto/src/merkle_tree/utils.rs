@@ -6,6 +6,9 @@ use rayon::prelude::*;
 
 pub fn get_sibling_pos(node_pos: usize) -> usize {
     if node_pos % 2 == 0 {
+        if node_pos == 0 {
+            return node_pos;
+        }
         node_pos - 1
     } else {
         node_pos + 1
