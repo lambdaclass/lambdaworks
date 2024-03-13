@@ -25,7 +25,11 @@ use icicle_core::{
 
 use super::cpu::{ops, roots_of_unity};
 
-impl<E: IsField> Polynomial<FieldElement<E>> {
+impl<E: IsField + IcicleFFT + IsFFTField> Polynomial<FieldElement<E>> 
+where 
+    FieldElement<E>: ByteConversion,
+    <<E as IcicleFFT>::ScalarField as FieldImpl>::Config: NTT<<E as IcicleFFT>::ScalarField>
+{
     /// Returns `N` evaluations of this polynomial using FFT over a domain in a subfield F of E (so the results
     /// are P(w^i), with w being a primitive root of unity).
     /// `N = max(self.coeff_len(), domain_size).next_power_of_two() * blowup_factor`.
@@ -60,7 +64,6 @@ impl<E: IsField> Polynomial<FieldElement<E>> {
             }
         }
 
-        /*
         #[cfg(feature = "icicle")]
         {
             if !F::field_name().is_empty() {
@@ -73,7 +76,6 @@ impl<E: IsField> Polynomial<FieldElement<E>> {
                 evaluate_fft_cpu::<F, E>(&coeffs)
             }
         }
-        */
 
         #[cfg(feature = "cuda")]
         {
@@ -85,7 +87,7 @@ impl<E: IsField> Polynomial<FieldElement<E>> {
             }
         }
 
-        #[cfg(all(not(feature = "metal"), not(feature = "cuda")))]
+        #[cfg(all(not(feature = "metal"), not(feature = "cuda"), not(feature = "icicle")))]
         {
             evaluate_fft_cpu::<F, E>(&coeffs)
         }
@@ -156,9 +158,10 @@ pub fn compose_fft<F, E>(
     poly_2: &Polynomial<FieldElement<E>>,
 ) -> Polynomial<FieldElement<E>>
 where
-    F: IsFFTField + IsSubFieldOf<E>,
+    F: IsFFTField + IsSubFieldOf<E> + IcicleFFT,
     E: IsField,
-    FieldElement<F>: ByteConversion
+    FieldElement<F>: ByteConversion,
+    <<F as IcicleFFT>::ScalarField as FieldImpl>::Config: NTT<<F as IcicleFFT>::ScalarField>
 {
     let poly_2_evaluations = Polynomial::evaluate_fft::<F>(poly_2, 1, None).unwrap();
 
