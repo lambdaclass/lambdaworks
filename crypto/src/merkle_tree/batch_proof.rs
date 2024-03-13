@@ -1,16 +1,12 @@
-use std::collections::HashMap;
-
-use alloc::vec::Vec;
-#[cfg(feature = "alloc")]
-use lambdaworks_math::traits::Serializable;
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
+use std::collections::HashMap;
 
-use lambdaworks_math::{errors::DeserializationError, traits::Deserializable};
-
-use crate::merkle_tree::utils::get_parent_pos;
-
-use super::{merkle::NodePos, traits::IsMerkleTreeBackend, utils::get_sibling_pos};
+use super::{
+    merkle::NodePos,
+    traits::IsMerkleTreeBackend,
+    utils::{get_parent_pos, get_sibling_pos},
+};
 
 /// Stores a merkle path to some leaf.
 /// Internally, the necessary hashes are stored from root to leaf in the
@@ -32,6 +28,7 @@ impl<T: PartialEq + Eq> BatchProof<T> {
 
         // Iterate the levels starting from the leaves, and build the upper level only using
         // the provided leaves and the auth map.
+        // Return true if the constructed root matches the given one.
         let mut current_level = hashed_leaves;
         loop {
             let mut parent_level = HashMap::<NodePos, B::Node>::new();
@@ -79,52 +76,17 @@ impl<T: PartialEq + Eq> BatchProof<T> {
     }
 }
 
-// #[cfg(feature = "alloc")]
-// impl<T> Serializable for BatchProof<T>
-// where
-//     T: Serializable + PartialEq + Eq,
-// {
-//     fn serialize(&self) -> Vec<u8> {
-//         self.merkle_path
-//             .iter()
-//             .flat_map(|node| node.serialize())
-//             .collect()
-//     }
-// }
-
-// impl<T> Deserializable for BatchProof<T>
-// where
-//     T: Deserializable + PartialEq + Eq,
-// {
-//     fn deserialize(bytes: &[u8]) -> Result<Self, DeserializationError>
-//     where
-//         Self: Sized,
-//     {
-//         let mut auth = Vec::new();
-//         for elem in bytes[0..].chunks(8) {
-//             let node = T::deserialize(elem)?;
-//             auth.push(node);
-//         }
-//         Ok(Self { auth })
-//     }
-// }
-
 #[cfg(test)]
 mod tests {
 
-    use std::collections::{HashMap, HashSet};
+    use std::collections::HashMap;
 
-    #[cfg(feature = "alloc")]
-    use super::BatchProof;
     use alloc::vec::Vec;
     use lambdaworks_math::field::{element::FieldElement, fields::u64_prime_field::U64PrimeField};
-    #[cfg(feature = "alloc")]
-    use lambdaworks_math::traits::{Deserializable, Serializable};
 
     use crate::merkle_tree::{
         merkle::{MerkleTree, NodePos},
         test_merkle::TestBackend as TB,
-        traits::IsMerkleTreeBackend,
     };
 
     /// Small field useful for starks, sometimes called min i goldilocks
@@ -134,48 +96,6 @@ mod tests {
     pub type Ecgfp5FE = FieldElement<Ecgfp5>;
     pub type TestBackend = TB<Ecgfp5>;
     pub type TestMerkleTreeEcgfp = MerkleTree<TestBackend>;
-    #[cfg(feature = "alloc")]
-    pub type TestBatchProofEcgfp5 = BatchProof<Ecgfp5FE>;
-
-    const MODULUS: u64 = 13;
-    type U64PF = U64PrimeField<MODULUS>;
-    type FE = FieldElement<U64PF>;
-
-    // #[test]
-    // #[cfg(feature = "alloc")]
-    // fn serialize_batch_proof_and_deserialize_using_be_it_get_a_consistent_batch_proof() {
-    //     let merkle_path = [Ecgfp5FE::new(2), Ecgfp5FE::new(1), Ecgfp5FE::new(1)].to_vec();
-    //     let original_batch_proof = TestBatchProofEcgfp5 { merkle_path };
-    //     let serialize_batch_proof = original_batch_proof.serialize();
-    //     let batch_proof: TestBatchProofEcgfp5 =
-    //         BatchProof::deserialize(&serialize_batch_proof).unwrap();
-
-    //     for (o_node, node) in original_batch_proof
-    //         .merkle_path
-    //         .iter()
-    //         .zip(batch_proof.merkle_path)
-    //     {
-    //         assert_eq!(*o_node, node);
-    //     }
-    // }
-
-    // #[test]
-    // #[cfg(feature = "alloc")]
-    // fn serialize_batch_proof_and_deserialize_using_le_it_get_a_consistent_batch_proof() {
-    //     let merkle_path = [Ecgfp5FE::new(2), Ecgfp5FE::new(1), Ecgfp5FE::new(1)].to_vec();
-    //     let original_batch_proof = TestBatchProofEcgfp5 { merkle_path };
-    //     let serialize_batch_proof = original_batch_proof.serialize();
-    //     let batch_proof: TestBatchProofEcgfp5 =
-    //         BatchProof::deserialize(&serialize_batch_proof).unwrap();
-
-    //     for (o_node, node) in original_batch_proof
-    //         .merkle_path
-    //         .iter()
-    //         .zip(batch_proof.merkle_path)
-    //     {
-    //         assert_eq!(*o_node, node);
-    //     }
-    // }
 
     // Creates following tree:
     //
@@ -231,6 +151,31 @@ mod tests {
         let proven_leaf_indices = [76];
         let proven_leaf_positions: Vec<NodePos> = proven_leaf_indices
             .iter()
+            .map(|leaf_index| leaf_index + first_leaf_pos)
+            .collect();
+
+        // Build an authentication map for the first 10 leaves
+        let batch_proof = merkle_tree.get_batch_proof(&proven_leaf_positions).unwrap();
+
+        let leaves: HashMap<NodePos, Ecgfp5FE> = proven_leaf_positions
+            .iter()
+            .map(|pos| (*pos, leaf_values[*pos - first_leaf_pos].clone()))
+            .collect();
+
+        assert!(batch_proof.verify::<TestBackend>(merkle_tree.root, leaves));
+    }
+
+    #[test]
+    fn batch_proof_big_tree_many_leaves() {
+        let mut leaf_values: Vec<Ecgfp5FE> = (1..u64::pow(2, 16)).map(Ecgfp5FE::new).collect();
+        let merkle_tree: MerkleTree<TestBackend> = TestMerkleTreeEcgfp::build(&leaf_values);
+        leaf_values = merkle_tree.leaves().to_vec();
+
+        let nodes_len = merkle_tree.nodes_len();
+        let first_leaf_pos = nodes_len / 2;
+
+        let proven_leaf_indices = usize::pow(2, 4) + 5..(usize::pow(2, 13) + 7);
+        let proven_leaf_positions: Vec<NodePos> = proven_leaf_indices
             .map(|leaf_index| leaf_index + first_leaf_pos)
             .collect();
 
