@@ -112,7 +112,7 @@ mod tests {
             vec![FE::from(9u64), FE::from(21u64)],
         ];
         let merkle_tree = MerkleTree::<FieldElementVectorBackend<F, Sha3_256, 32>>::build(&values);
-        let proof = merkle_tree.get_proof_by_pos(0).unwrap();
+        let proof = merkle_tree.get_proof(0).unwrap();
         assert!(proof.verify::<FieldElementVectorBackend<F, Sha3_256, 32>>(
             &merkle_tree.root,
             0,
@@ -133,7 +133,7 @@ mod tests {
             vec![FE::from(9u64), FE::from(21u64)],
         ];
         let merkle_tree = MerkleTree::<FieldElementVectorBackend<F, Keccak256, 32>>::build(&values);
-        let proof = merkle_tree.get_proof_by_pos(0).unwrap();
+        let proof = merkle_tree.get_proof(0).unwrap();
         assert!(proof.verify::<FieldElementVectorBackend<F, Keccak256, 32>>(
             &merkle_tree.root,
             0,
@@ -154,7 +154,7 @@ mod tests {
             vec![FE::from(9u64), FE::from(21u64)],
         ];
         let merkle_tree = MerkleTree::<FieldElementVectorBackend<F, Sha3_512, 64>>::build(&values);
-        let proof = merkle_tree.get_proof_by_pos(0).unwrap();
+        let proof = merkle_tree.get_proof(0).unwrap();
         assert!(proof.verify::<FieldElementVectorBackend<F, Sha3_512, 64>>(
             &merkle_tree.root,
             0,
@@ -175,7 +175,7 @@ mod tests {
             vec![FE::from(9u64), FE::from(21u64)],
         ];
         let merkle_tree = MerkleTree::<FieldElementVectorBackend<F, Keccak512, 64>>::build(&values);
-        let proof = merkle_tree.get_proof_by_pos(0).unwrap();
+        let proof = merkle_tree.get_proof(0).unwrap();
         assert!(proof.verify::<FieldElementVectorBackend<F, Keccak512, 64>>(
             &merkle_tree.root,
             0,
@@ -196,7 +196,7 @@ mod tests {
             vec![FE::from(9u64), FE::from(21u64)],
         ];
         let merkle_tree = MerkleTree::<FieldElementVectorBackend<F, Sha512, 64>>::build(&values);
-        let proof = merkle_tree.get_proof_by_pos(0).unwrap();
+        let proof = merkle_tree.get_proof(0).unwrap();
         assert!(proof.verify::<FieldElementVectorBackend<F, Sha512, 64>>(
             &merkle_tree.root,
             0,
