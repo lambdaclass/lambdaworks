@@ -116,7 +116,6 @@ mod tests {
             .map(|leaf_index| leaf_index + first_leaf_pos)
             .collect();
 
-        // Build an authentication map for the first 10 leaves
         let batch_proof = merkle_tree.get_batch_proof(&proven_leaf_positions).unwrap();
 
         let leaves: HashMap<NodePos, Ecgfp5FE> = proven_leaf_positions
@@ -143,7 +142,6 @@ mod tests {
             .map(|leaf_index| leaf_index + first_leaf_pos)
             .collect();
 
-        // Build an authentication map for the first 10 leaves
         let batch_proof = merkle_tree.get_batch_proof(&proven_leaf_positions).unwrap();
 
         let leaves: HashMap<NodePos, Ecgfp5FE> = proven_leaf_positions
@@ -168,7 +166,6 @@ mod tests {
             .map(|leaf_index| leaf_index + first_leaf_pos)
             .collect();
 
-        // Build an authentication map for the first 10 leaves
         let batch_proof = merkle_tree.get_batch_proof(&proven_leaf_positions).unwrap();
 
         let leaves: HashMap<NodePos, Ecgfp5FE> = proven_leaf_positions
