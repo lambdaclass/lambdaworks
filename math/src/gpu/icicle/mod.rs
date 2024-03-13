@@ -238,7 +238,7 @@ pub fn evaluate_fft_icicle<F, E>(
     coeffs: &Vec<FieldElement<E>>,
 ) -> Result<Vec<FieldElement<E>>, FFTError> 
 where
-    E: IsSubFieldOf<E>,
+    F: IsSubFieldOf<E>,
     FieldElement<E>: ByteConversion,
     <<E as IcicleFFT>::ScalarField as FieldImpl>::Config: NTT<<E as IcicleFFT>::ScalarField>,
     E: IsField + IcicleFFT + IsFFTField,
