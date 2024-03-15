@@ -58,11 +58,10 @@ where
     }
 
     /// Returns the leaf at the given index.
-    /// leaf_index starts from 0 for the first leaf. In other words, don't use the overall position
-    /// of the leaf.
-    pub fn get_leaf(&self, leaf_index: usize) -> &B::Node {
+    /// leaf_index starts from 0 for the first leaf.
+    pub fn get_leaf(&self, leaf_index: usize) -> B::Node {
         let first_leaf_pos = self.nodes_len() / 2;
-        &self.nodes[leaf_index + first_leaf_pos]
+        self.nodes[leaf_index + first_leaf_pos].clone()
     }
 
     pub fn get_proof(&self, pos: NodePos) -> Option<Proof<B::Node>> {
