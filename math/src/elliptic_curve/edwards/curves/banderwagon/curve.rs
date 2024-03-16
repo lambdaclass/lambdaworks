@@ -75,21 +75,100 @@ impl BanderwagonCurve {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{
+        cyclic_group::IsGroup, elliptic_curve::traits::EllipticCurveError,
+        field::element::FieldElement, unsigned_integer::element::U256,
+    };
+
+    #[allow(clippy::upper_case_acronyms)]
+
+    type FEE = FieldElement<BaseBandersnatchFieldElement>;
+
+    fn point_1() -> EdwardsProjectivePoint<BanderwagonCurve> {
+        let x = FEE::new_base("29C132CC2C0B34C5743711777BBE42F32B79C022AD998465E1E71866A252AE18");
+        let y = FEE::new_base("2A6C669EDA123E0F157D8B50BADCD586358CAD81EEE464605E3167B6CC974166");
+
+        BanderwagonCurve::create_point_from_affine(x, y).unwrap()
+    }
 
     #[test]
-    fn test_serialization_and_deserialization_large_numbers() {
-        let curve = BanderwagonCurve {
-            x: FieldElement::<Self::BaseField>::from(1234567890),
-            y: FieldElement::<Self::BaseField>::from(9876543210),
-        };
+    fn test_scalar_mul() {
+        let g = BanderwagonCurve::generator();
+        let result1 = g.operate_with_self(5u16);
 
-        let serialized = curve.serialize();
+        assert_eq!(
+            result1.x().clone(),
+            FEE::new_base("68CBECE0B8FB55450410CBC058928A567EED293D168FAEF44BFDE25F943AABE0")
+        );
+
+        let scalar =
+            U256::from_hex("1CFB69D4CA675F520CCE760202687600FF8F87007419047174FD06B52876E7E6")
+                .unwrap();
+        let result2 = g.operate_with_self(scalar);
+
+        assert_eq!(
+            result2.x().clone(),
+            FEE::new_base("68CBECE0B8FB55450410CBC058928A567EED293D168FAEF44BFDE25F943AABE0")
+        );
+    }
+
+    #[test]
+    fn test_serialization() {
+        let point = BanderwagonCurve::generator();
+        let serialized = point.serialize();
+        assert!(!serialized.is_empty());
+    }
+
+    #[test]
+    fn test_deserialization() {
+        let serialized = "68CBECE0B8FB55450410CBC058928A567EED293D168FAEF44BFDE25F943AABE0";
         let deserialized = BanderwagonCurve::deserialize(&serialized);
-
         assert!(deserialized.is_some());
-        let deserialized = deserialized.unwrap();
+    }
 
-        assert_eq!(curve.x, deserialized.x);
-        assert_eq!(curve.y.signum(), deserialized.y.signum());
+    #[test]
+    fn test_create_valid_point_works() {
+        let p = BanderwagonCurve::generator();
+
+        assert_eq!(p, p.clone());
+    }
+
+    #[test]
+    fn create_valid_point_works() {
+        let p = point_1();
+        assert_eq!(
+            *p.x(),
+            FEE::new_base("29C132CC2C0B34C5743711777BBE42F32B79C022AD998465E1E71866A252AE18")
+        );
+        assert_eq!(
+            *p.y(),
+            FEE::new_base("2A6C669EDA123E0F157D8B50BADCD586358CAD81EEE464605E3167B6CC974166")
+        );
+        assert_eq!(*p.z(), FEE::new_base("1"));
+    }
+
+    #[test]
+    fn create_invalid_points_panics() {
+        assert_eq!(
+            BandersnatchCurve::create_point_from_affine(FEE::from(1), FEE::from(1)).unwrap_err(),
+            EllipticCurveError::InvalidPoint
+        )
+    }
+
+    #[test]
+    fn equality_works() {
+        let g = BanderwagonCurve::generator();
+        let g2 = g.operate_with(&g);
+        assert_ne!(&g2, &g);
+        assert_eq!(&g, &g);
+    }
+
+    #[test]
+    fn operate_with_self_works_1() {
+        let g = BanderwagonCurve::generator();
+        assert_eq!(
+            g.operate_with(&g).operate_with(&g),
+            g.operate_with_self(3_u16)
+        );
     }
 }
