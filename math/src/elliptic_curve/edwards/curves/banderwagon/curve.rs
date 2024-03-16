@@ -82,7 +82,7 @@ mod tests {
 
     #[allow(clippy::upper_case_acronyms)]
 
-    type FEE = FieldElement<BaseBandersnatchFieldElement>;
+    type FEE = FieldElement<BaseBanderwagonFieldElement>;
 
     fn point_1() -> EdwardsProjectivePoint<BanderwagonCurve> {
         let x = FEE::new_base("29C132CC2C0B34C5743711777BBE42F32B79C022AD998465E1E71866A252AE18");
@@ -150,7 +150,7 @@ mod tests {
     #[test]
     fn create_invalid_points_panics() {
         assert_eq!(
-            BandersnatchCurve::create_point_from_affine(FEE::from(1), FEE::from(1)).unwrap_err(),
+            BanderwagonCurve::create_point_from_affine(FEE::from(1), FEE::from(1)).unwrap_err(),
             EllipticCurveError::InvalidPoint
         )
     }
