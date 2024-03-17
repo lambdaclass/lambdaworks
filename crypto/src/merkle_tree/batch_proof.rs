@@ -1,40 +1,33 @@
 use super::{
-    merkle::NodePos,
     traits::IsMerkleTreeBackend,
     utils::{get_parent_pos, get_sibling_pos},
 };
-use lambdaworks_math::{errors::DeserializationError, traits::Deserializable};
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-// extern crate bincode;
-use bincode::{config, Decode, Encode};
-
-#[derive(Debug, Clone, Encode, Decode, PartialEq)]
-pub struct BatchProof<T: PartialEq + Eq> {
-    pub auth: HashMap<NodePos, T>,
-}
-
-impl<T> Deserializable for BatchProof<T>
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct BatchProof<T>
 where
-    T: Deserializable + PartialEq + Eq + Encode + Decode,
+    T: PartialEq + Eq,
 {
-    fn deserialize(bytes: &[u8]) -> Result<Self, DeserializationError>
-    where
-        Self: Sized,
-    {
-        let (decoded, _): (BatchProof<T>, usize) =
-            bincode::decode_from_slice(&bytes[..], config::standard()).unwrap();
-        Ok(decoded)
-    }
+    pub auth: HashMap<usize, T>,
 }
 
+#[cfg(feature = "serde")]
 impl<T> BatchProof<T>
 where
-    T: PartialEq + Eq + Encode + Decode,
+    T: PartialEq + Eq + Serialize + for<'a> Deserialize<'a>,
 {
-    // No available 'Serializable' trait as per now
     pub fn serialize(&self) -> Vec<u8> {
-        bincode::encode_to_vec(&self, config::standard()).unwrap()
+        bincode::serde::encode_to_vec(&self, bincode::config::standard()).unwrap()
+    }
+
+    pub fn deserialize(bytes: &[u8]) -> Self {
+        let (decoded, _): (BatchProof<T>, usize) =
+            bincode::serde::decode_from_slice(&bytes[..], bincode::config::standard()).unwrap();
+        decoded
     }
 }
 
@@ -42,7 +35,7 @@ impl<T> BatchProof<T>
 where
     T: PartialEq + Eq,
 {
-    pub fn verify<B>(&self, root_hash: B::Node, hashed_leaves: HashMap<NodePos, B::Node>) -> bool
+    pub fn verify<B>(&self, root_hash: B::Node, hashed_leaves: HashMap<usize, B::Node>) -> bool
     where
         B: IsMerkleTreeBackend<Node = T>,
     {
@@ -53,7 +46,7 @@ where
         // Return true if the constructed root matches the given one.
         let mut current_level = hashed_leaves;
         loop {
-            let mut parent_level = HashMap::<NodePos, B::Node>::new();
+            let mut parent_level = HashMap::<usize, B::Node>::new();
 
             for (pos, node) in current_level.iter() {
                 // Levels are expected to have tuples of nodes. If the first one was
@@ -100,19 +93,13 @@ where
 #[cfg(test)]
 mod tests {
 
+    // #[cfg(feature = "alloc")]
+    use crate::merkle_tree::{merkle::MerkleTree, test_merkle::TestBackend as TB};
+    use alloc::vec::Vec;
+    use lambdaworks_math::field::{element::*, fields::u64_prime_field::U64PrimeField};
     use std::collections::HashMap;
 
-    use alloc::vec::Vec;
-    use lambdaworks_math::field::{element::FieldElement, fields::u64_prime_field::U64PrimeField};
-
-    use crate::merkle_tree::{
-        merkle::{MerkleTree, NodePos},
-        test_merkle::TestBackend as TB,
-    };
-
-    /// Small field useful for starks, sometimes called min i goldilocks
-    /// Used in miden and winterfell
-    // This field shouldn't be defined inside the merkle tree module
+    /// Goldilocks
     pub type Ecgfp5 = U64PrimeField<0xFFFF_FFFF_0000_0001_u64>;
     pub type Ecgfp5FE = FieldElement<Ecgfp5>;
     pub type TestBackend = TB<Ecgfp5>;
@@ -136,7 +123,7 @@ mod tests {
 
         let proven_leaves_indices = [0, 3];
         let first_leaf_pos = merkle_tree.nodes_len() / 2;
-        let proven_leaves_positions: Vec<NodePos> = proven_leaves_indices
+        let proven_leaves_positions: Vec<usize> = proven_leaves_indices
             .iter()
             .map(|leaf_index| leaf_index + first_leaf_pos)
             .collect();
@@ -145,7 +132,7 @@ mod tests {
             .get_batch_proof(&proven_leaves_positions)
             .unwrap();
 
-        let proven_leaves_values_hashed: HashMap<NodePos, Ecgfp5FE> = proven_leaves_positions
+        let proven_leaves_values_hashed: HashMap<usize, Ecgfp5FE> = proven_leaves_positions
             .iter()
             .map(|pos| (*pos, merkle_tree.get_leaf(*pos - first_leaf_pos).clone()))
             .collect();
@@ -160,7 +147,7 @@ mod tests {
 
         let proven_leaves_indices = [76]; // Only prove one of the leaves
         let first_leaf_pos = merkle_tree.nodes_len() / 2;
-        let proven_leaves_positions: Vec<NodePos> = proven_leaves_indices
+        let proven_leaves_positions: Vec<usize> = proven_leaves_indices
             .iter()
             .map(|leaf_index| leaf_index + first_leaf_pos)
             .collect();
@@ -169,7 +156,7 @@ mod tests {
             .get_batch_proof(&proven_leaves_positions)
             .unwrap();
 
-        let proven_leaves_values_hashed: HashMap<NodePos, Ecgfp5FE> = proven_leaves_positions
+        let proven_leaves_values_hashed: HashMap<usize, Ecgfp5FE> = proven_leaves_positions
             .iter()
             .map(|pos| (*pos, merkle_tree.get_leaf(*pos - first_leaf_pos).clone()))
             .collect();
@@ -186,7 +173,7 @@ mod tests {
 
         let proven_leaves_indices = usize::pow(2, 4) + 5..(usize::pow(2, 13) + 7);
         let first_leaf_pos = merkle_tree.nodes_len() / 2;
-        let proven_leaves_positions: Vec<NodePos> = proven_leaves_indices
+        let proven_leaves_positions: Vec<usize> = proven_leaves_indices
             .map(|leaf_index| leaf_index + first_leaf_pos)
             .collect();
 
@@ -194,7 +181,7 @@ mod tests {
             .get_batch_proof(&proven_leaves_positions)
             .unwrap();
 
-        let proven_leaves_values_hashed: HashMap<NodePos, Ecgfp5FE> = proven_leaves_positions
+        let proven_leaves_values_hashed: HashMap<usize, Ecgfp5FE> = proven_leaves_positions
             .iter()
             .map(|pos| (*pos, merkle_tree.get_leaf(*pos - first_leaf_pos).clone()))
             .collect();
@@ -210,7 +197,7 @@ mod tests {
 
         let proven_leaves_indices = [0].iter();
         let first_leaf_pos = merkle_tree.nodes_len() / 2;
-        let proven_leaves_positions: Vec<NodePos> = proven_leaves_indices
+        let proven_leaves_positions: Vec<usize> = proven_leaves_indices
             .clone()
             .map(|leaf_index| leaf_index + first_leaf_pos)
             .collect();
@@ -219,11 +206,34 @@ mod tests {
             .get_batch_proof(&proven_leaves_positions)
             .unwrap();
 
-        let proven_leaves_values_hashed: HashMap<NodePos, Ecgfp5FE> = proven_leaves_positions
+        let proven_leaves_values_hashed: HashMap<usize, Ecgfp5FE> = proven_leaves_positions
             .iter()
             .map(|pos| (*pos, merkle_tree.get_leaf(*pos - first_leaf_pos).clone()))
             .collect();
 
         assert!(batch_proof.verify::<TestBackend>(merkle_tree.root, proven_leaves_values_hashed));
+    }
+
+    #[cfg(feature = "serde")]
+    #[test]
+    fn proof_is_same_after_serde() {
+        let all_leaves_values: Vec<Ecgfp5FE> = (1..10000).map(Ecgfp5FE::new).collect();
+        let merkle_tree = TestMerkleTreeEcgfp::build(&all_leaves_values);
+
+        let proven_leaves_indices = [0].iter();
+        let first_leaf_pos = merkle_tree.nodes_len() / 2;
+        let proven_leaves_positions: Vec<usize> = proven_leaves_indices
+            .clone()
+            .map(|leaf_index| leaf_index + first_leaf_pos)
+            .collect();
+
+        let batch_proof = merkle_tree
+            .get_batch_proof(&proven_leaves_positions)
+            .unwrap();
+
+        let serialized = batch_proof.serialize();
+        let batch_proof_2 = super::BatchProof::<Ecgfp5FE>::deserialize(&serialized);
+
+        assert_eq!(batch_proof, batch_proof_2);
     }
 }

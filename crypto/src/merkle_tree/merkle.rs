@@ -5,8 +5,7 @@ use alloc::vec::Vec;
 
 use super::{batch_proof::BatchProof, proof::Proof, traits::IsMerkleTreeBackend, utils::*};
 
-pub type NodePos = usize;
-const ROOT: NodePos = 0;
+const ROOT: usize = 0;
 
 #[derive(Debug)]
 pub enum Error {
@@ -64,7 +63,7 @@ where
         self.nodes[leaf_index + first_leaf_pos].clone()
     }
 
-    pub fn get_proof(&self, pos: NodePos) -> Option<Proof<B::Node>> {
+    pub fn get_proof(&self, pos: usize) -> Option<Proof<B::Node>> {
         let first_leaf_index = self.nodes_len() / 2;
         let pos = pos + first_leaf_index;
         let Ok(merkle_path) = self.build_merkle_path(pos) else {
@@ -78,7 +77,7 @@ where
     ///
     /// pos_list is a list of leaf positions (within all tree) to create a batch inclusion proof for.
     /// pos_list need not be continuous, but the resulting proof becomes the smallest when so.
-    pub fn get_batch_proof(&self, pos_list: &[NodePos]) -> Option<BatchProof<B::Node>> {
+    pub fn get_batch_proof(&self, pos_list: &[usize]) -> Option<BatchProof<B::Node>> {
         let batch_auth_path_positions = self.get_batch_auth_path_positions(pos_list);
 
         let batch_auth_path_nodes_iter = batch_auth_path_positions
@@ -97,7 +96,7 @@ where
     /// Builds and returns a proof of inclusion for the leaf whose position is passed as an argument.
     ///
     /// pos parameter is the index in overall Merkle tree, including the inner nodes
-    fn build_merkle_path(&self, pos: NodePos) -> Result<Vec<B::Node>, Error> {
+    fn build_merkle_path(&self, pos: usize) -> Result<Vec<B::Node>, Error> {
         let mut merkle_path = Vec::new();
         let mut pos = pos;
 
@@ -134,10 +133,10 @@ where
     /// leaf_positions is a list of leaves to create a batch inclusion proof for.
     /// For the example above, it would be [15, 16, 17, 18, 19, 20, 21, 22, 23, 24]
     /// leaf_positions need not be continuous, but the resulting auth_set becomes the smallest when so.
-    fn get_batch_auth_path_positions(&self, leaf_positions: &[NodePos]) -> Vec<NodePos> {
-        let mut auth_set = HashSet::<NodePos>::new();
+    fn get_batch_auth_path_positions(&self, leaf_positions: &[usize]) -> Vec<usize> {
+        let mut auth_set = HashSet::<usize>::new();
         // Add all the leaves to the set of obtainable nodes, because we already have them.
-        let mut obtainable_nodes_by_level: HashSet<NodePos> =
+        let mut obtainable_nodes_by_level: HashSet<usize> =
             leaf_positions.iter().cloned().collect();
 
         // Iterate levels starting from the leaves up to the root
