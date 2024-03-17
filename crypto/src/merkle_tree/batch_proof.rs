@@ -1,18 +1,47 @@
-use std::collections::HashMap;
-
 use super::{
     merkle::NodePos,
     traits::IsMerkleTreeBackend,
     utils::{get_parent_pos, get_sibling_pos},
 };
+use lambdaworks_math::{errors::DeserializationError, traits::Deserializable};
+use std::collections::HashMap;
 
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+// extern crate bincode;
+use bincode::{config, Decode, Encode};
+
+#[derive(Debug, Clone, Encode, Decode, PartialEq)]
 pub struct BatchProof<T: PartialEq + Eq> {
     pub auth: HashMap<NodePos, T>,
 }
 
-impl<T: PartialEq + Eq> BatchProof<T> {
+impl<T> Deserializable for BatchProof<T>
+where
+    T: Deserializable + PartialEq + Eq + Encode + Decode,
+{
+    fn deserialize(bytes: &[u8]) -> Result<Self, DeserializationError>
+    where
+        Self: Sized,
+    {
+        let (decoded, _): (BatchProof<T>, usize) =
+            bincode::decode_from_slice(&bytes[..], config::standard()).unwrap();
+        Ok(decoded)
+    }
+}
+
+impl<T> BatchProof<T>
+where
+    T: PartialEq + Eq + Encode + Decode,
+{
+    // No available 'Serializable' trait as per now
+    pub fn serialize(&self) -> Vec<u8> {
+        bincode::encode_to_vec(&self, config::standard()).unwrap()
+    }
+}
+
+impl<T> BatchProof<T>
+where
+    T: PartialEq + Eq,
+{
     pub fn verify<B>(&self, root_hash: B::Node, hashed_leaves: HashMap<NodePos, B::Node>) -> bool
     where
         B: IsMerkleTreeBackend<Node = T>,
