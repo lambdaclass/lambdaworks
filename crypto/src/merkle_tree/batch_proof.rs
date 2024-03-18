@@ -21,12 +21,12 @@ where
     T: PartialEq + Eq + Serialize + for<'a> Deserialize<'a>,
 {
     pub fn serialize(&self) -> Vec<u8> {
-        bincode::serde::encode_to_vec(&self, bincode::config::standard()).unwrap()
+        bincode::serde::encode_to_vec(self, bincode::config::standard()).unwrap()
     }
 
     pub fn deserialize(bytes: &[u8]) -> Self {
         let (decoded, _): (BatchProof<T>, usize) =
-            bincode::serde::decode_from_slice(&bytes[..], bincode::config::standard()).unwrap();
+            bincode::serde::decode_from_slice(bytes, bincode::config::standard()).unwrap();
         decoded
     }
 }
