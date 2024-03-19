@@ -134,7 +134,7 @@ mod tests {
 
         let proven_leaves_values_hashed: HashMap<usize, Ecgfp5FE> = proven_leaves_positions
             .iter()
-            .map(|pos| (*pos, merkle_tree.get_leaf(*pos - first_leaf_pos).clone()))
+            .map(|pos| (*pos, merkle_tree.get_leaf(*pos - first_leaf_pos)))
             .collect();
 
         assert!(batch_proof.verify::<TestBackend>(merkle_tree.root, proven_leaves_values_hashed));
@@ -158,7 +158,7 @@ mod tests {
 
         let proven_leaves_values_hashed: HashMap<usize, Ecgfp5FE> = proven_leaves_positions
             .iter()
-            .map(|pos| (*pos, merkle_tree.get_leaf(*pos - first_leaf_pos).clone()))
+            .map(|pos| (*pos, merkle_tree.get_leaf(*pos - first_leaf_pos)))
             .collect();
 
         assert!(batch_proof.verify::<TestBackend>(merkle_tree.root, proven_leaves_values_hashed));
@@ -183,7 +183,7 @@ mod tests {
 
         let proven_leaves_values_hashed: HashMap<usize, Ecgfp5FE> = proven_leaves_positions
             .iter()
-            .map(|pos| (*pos, merkle_tree.get_leaf(*pos - first_leaf_pos).clone()))
+            .map(|pos| (*pos, merkle_tree.get_leaf(*pos - first_leaf_pos)))
             .collect();
 
         assert!(batch_proof.verify::<TestBackend>(merkle_tree.root, proven_leaves_values_hashed));
@@ -208,7 +208,7 @@ mod tests {
 
         let proven_leaves_values_hashed: HashMap<usize, Ecgfp5FE> = proven_leaves_positions
             .iter()
-            .map(|pos| (*pos, merkle_tree.get_leaf(*pos - first_leaf_pos).clone()))
+            .map(|pos| (*pos, merkle_tree.get_leaf(*pos - first_leaf_pos)))
             .collect();
 
         assert!(batch_proof.verify::<TestBackend>(merkle_tree.root, proven_leaves_values_hashed));
