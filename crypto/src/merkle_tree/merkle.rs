@@ -1,4 +1,6 @@
 use core::fmt::Display;
+
+extern crate std;
 use std::collections::HashSet;
 
 use alloc::vec::Vec;
@@ -84,7 +86,7 @@ where
             .iter()
             .map(|pos| (*pos, self.nodes[*pos].clone()).clone());
 
-        Some(BatchProof {
+        Some(BatchProof::<T> {
             auth: batch_auth_path_nodes_iter.collect(),
         })
     }

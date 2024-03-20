@@ -4,6 +4,7 @@ use super::{
 };
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
+extern crate std;
 use std::collections::HashMap;
 
 #[derive(Debug, Clone, PartialEq)]
