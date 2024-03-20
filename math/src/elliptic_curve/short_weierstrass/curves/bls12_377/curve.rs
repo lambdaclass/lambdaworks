@@ -1,8 +1,6 @@
 use super::field_extension::BLS12377PrimeField;
 use crate::elliptic_curve::short_weierstrass::point::ShortWeierstrassProjectivePoint;
 use crate::elliptic_curve::traits::IsEllipticCurve;
-use crate::field::fields::montgomery_backed_prime_fields::IsModulus;
-use crate::unsigned_integer::element::U256;
 use crate::{
     elliptic_curve::short_weierstrass::traits::IsShortWeierstrass, field::element::FieldElement,
 };
@@ -32,16 +30,6 @@ impl IsShortWeierstrass for BLS12377Curve {
     fn b() -> FieldElement<Self::BaseField> {
         FieldElement::from(1)
     }
-}
-
-#[derive(Clone, Debug)]
-pub struct FrConfig;
-
-/// Modulus of bls 12 381 subgroup
-impl IsModulus<U256> for FrConfig {
-    const MODULUS: U256 = U256::from_hex_unchecked(
-        "0x12ab655e9a2ca55660b44d1e5c37b00159aa76fed00000010a11800000000001",
-    );
 }
 
 #[cfg(test)]

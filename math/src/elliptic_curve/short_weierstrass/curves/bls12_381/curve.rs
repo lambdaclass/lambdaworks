@@ -112,13 +112,10 @@ mod tests {
     use crate::{
         cyclic_group::IsGroup,
         elliptic_curve::{
-            short_weierstrass::curves::bls12_381::{
-                default_types::FrConfig, field_extension::BLS12381_PRIME_FIELD_ORDER,
-            },
+            short_weierstrass::curves::bls12_381::field_extension::BLS12381_PRIME_FIELD_ORDER,
             traits::EllipticCurveError,
         },
         field::element::FieldElement,
-        field::fields::montgomery_backed_prime_fields::IsModulus,
         unsigned_integer::element::U384,
     };
 
