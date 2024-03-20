@@ -444,6 +444,14 @@ where
         }
     }
 
+    /// Returns the double of `self`
+    #[inline(always)]
+    pub fn double(&self) -> Self {
+        Self {
+            value: F::double(&self.value),
+        }
+    }
+
     /// Returns `self` raised to the power of `exponent`
     #[inline(always)]
     pub fn pow<T>(&self, exponent: T) -> Self
