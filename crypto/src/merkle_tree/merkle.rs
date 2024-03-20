@@ -86,7 +86,7 @@ where
             .iter()
             .map(|pos| (*pos, self.nodes[*pos].clone()).clone());
 
-        Some(BatchProof::<T> {
+        Some(BatchProof::<B::Node> {
             auth: batch_auth_path_nodes_iter.collect(),
         })
     }
