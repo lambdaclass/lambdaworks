@@ -41,37 +41,6 @@ impl IsEdwards for BanderwagonCurve {
     }
 }
 
-impl BanderwagonCurve {
-    fn serialize(&self) -> String {
-        let y_sign = if self.y >= FieldElement::<Self::BaseField>::zero() { 1 } else { -1 };
-        let result = self.x * y_sign;
-        format!("{}", result)
-    }
-
-    fn deserialize(input: &str) -> Option<Self> {
-        let xk = FieldElement::<Self::BaseField>::from_str(input).ok()?;
-        let one = FieldElement::<Self::BaseField>::one();
-        let a = Self::a();
-        let d = Self::d();
-
-        let numerator = one - a * xk.pow(2);
-        let denominator = one - d * xk.pow(2);
-
-        if numerator.is_square().is_none() || denominator.is_square().is_none() {
-            return None;
-        }
-
-        let yk_square = numerator / denominator;
-        let yk = yk_square.sqrt()?;
-
-        if yk.signum() != 1 {
-            return None;
-        }
-
-        Some(Self { x: xk, y: yk })
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -112,19 +81,6 @@ mod tests {
         );
     }
 
-    #[test]
-    fn test_serialization() {
-        let point = BanderwagonCurve::generator();
-        let serialized = point.serialize();
-        assert!(!serialized.is_empty());
-    }
-
-    #[test]
-    fn test_deserialization() {
-        let serialized = "68CBECE0B8FB55450410CBC058928A567EED293D168FAEF44BFDE25F943AABE0";
-        let deserialized = BanderwagonCurve::deserialize(&serialized);
-        assert!(deserialized.is_some());
-    }
 
     #[test]
     fn test_create_valid_point_works() {
