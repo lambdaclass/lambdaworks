@@ -19,18 +19,12 @@ pub fn verify(vk: &VerifyingKey, proof: &Proof, pub_inputs: &[FrElement]) -> boo
     accept &= Pairing::compute(v_w, &TwistedCurve::generator())
         == Pairing::compute(&Curve::generator(), v_w_prime);
     let v_u = msm(
-        &pub_inputs
-            .iter()
-            .map(|elem| elem.representative())
-            .collect::<Vec<_>>(),
+        &pub_inputs,
         &vk.u_tau_g1,
     )
     .unwrap();
     let v_u_prime = msm(
-        &pub_inputs
-            .iter()
-            .map(|elem| elem.representative())
-            .collect::<Vec<_>>(),
+        &pub_inputs,
         &vk.u_tau_g2,
     )
     .unwrap();

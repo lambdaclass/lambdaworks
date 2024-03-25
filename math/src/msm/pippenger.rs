@@ -1,4 +1,4 @@
-use crate::{cyclic_group::IsGroup, unsigned_integer::element::UnsignedInteger};
+use crate::{cyclic_group::IsGroup, field::{element::FieldElement, traits::IsField}, unsigned_integer::element::UnsignedInteger};
 
 use super::naive::MSMError;
 
@@ -15,8 +15,8 @@ use alloc::vec;
 /// If `points` and `cs` are empty, then `msm` returns the zero element of the group.
 ///
 /// Panics if `cs` and `points` have different lengths.
-pub fn msm<const NUM_LIMBS: usize, G>(
-    cs: &[UnsignedInteger<NUM_LIMBS>],
+pub fn msm<const NUM_LIMBS: usize, F: IsField<BaseType = UnsignedInteger<NUM_LIMBS>>, G>(
+    cs: &[FieldElement<F>],
     points: &[G],
 ) -> Result<G, MSMError>
 where
@@ -27,8 +27,8 @@ where
     }
 
     let window_size = optimum_window_size(cs.len());
-
-    Ok(msm_with(cs, points, window_size))
+    let cs = cs.iter().map(|cs| *cs.value()).collect::<Vec<_>>();
+    Ok(msm_with(&cs, points, window_size))
 }
 
 fn optimum_window_size(data_length: usize) -> usize {
