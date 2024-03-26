@@ -1,9 +1,10 @@
 use lambdaworks_math::{
-    cyclic_group::IsGroup, elliptic_curve::short_weierstrass::{
+    elliptic_curve::short_weierstrass::{
         curves::stark_curve::StarkCurve, point::ShortWeierstrassProjectivePoint,
-    }, field::{
+    },
+    field::{
         element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
-    }
+    },
 };
 
 mod constants;

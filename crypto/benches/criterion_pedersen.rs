@@ -7,13 +7,12 @@ use rand::{RngCore, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 
 fn pedersen_benchmarks(c: &mut Criterion) {
-
     let mut rng = ChaCha8Rng::seed_from_u64(2);
     let mut felt1: [u8; 32] = Default::default();
     rng.fill_bytes(&mut felt1);
     let mut felt2: [u8; 32] = Default::default();
     rng.fill_bytes(&mut felt2);
-    
+
     let x = FieldElement::<Stark252PrimeField>::from_bytes_be(&felt1).unwrap();
     let y = FieldElement::<Stark252PrimeField>::from_bytes_be(&felt2).unwrap();
     let mut group = c.benchmark_group("Pedersen Benchmark");
