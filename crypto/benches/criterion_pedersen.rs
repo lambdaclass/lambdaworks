@@ -1,5 +1,6 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use lambdaworks_crypto::hash::pedersen::Pedersen;
+use lambdaworks_crypto::hash::pedersen::PedersenStarkCurve;
 use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;
 use lambdaworks_math::traits::ByteConversion;
@@ -16,11 +17,10 @@ fn pedersen_benchmarks(c: &mut Criterion) {
     let x = FieldElement::<Stark252PrimeField>::from_bytes_be(&felt1).unwrap();
     let y = FieldElement::<Stark252PrimeField>::from_bytes_be(&felt2).unwrap();
     let mut group = c.benchmark_group("Pedersen Benchmark");
-    let pedersen = black_box(Pedersen::default());
 
     // Benchmark with black_box is 0.41% faster
     group.bench_function("Hashing with black_box", |bench| {
-        bench.iter(|| black_box(pedersen.hash(&x, &y)))
+        bench.iter(|| black_box(PedersenStarkCurve::hash(&x, &y)))
     });
 }
 criterion_group!(pedersen, pedersen_benchmarks);
