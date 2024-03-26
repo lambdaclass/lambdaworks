@@ -3,14 +3,10 @@ use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;
 use serde::{Deserialize, Serialize};
 use stark_platinum_prover::proof::options::ProofOptions;
-use stark_platinum_prover::proof::stark::StarkProof;
 use stark_platinum_prover::transcript::StoneProverTranscript;
 use stark_platinum_prover::verifier::{IsStarkVerifier, Verifier};
 use std::collections::HashMap;
 use wasm_bindgen::prelude::wasm_bindgen;
-
-#[wasm_bindgen]
-pub struct Stark252PrimeFieldProof(StarkProof<Stark252PrimeField, Stark252PrimeField>);
 
 #[wasm_bindgen]
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Eq, PartialEq, Hash)]
