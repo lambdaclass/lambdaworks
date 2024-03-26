@@ -8,7 +8,7 @@
 Add this to your `Cargo.toml`
 ```toml
 [dependencies]
-lambdaworks-math = "0.5.0"
+lambdaworks-math = "0.6.0"
 ```
 
 ## Structure
