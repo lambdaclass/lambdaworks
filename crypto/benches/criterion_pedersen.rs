@@ -3,12 +3,12 @@ use lambdaworks_crypto::hash::pedersen::Pedersen;
 use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;
 use lambdaworks_math::traits::ByteConversion;
-use rand::rngs::StdRng;
 use rand::{RngCore, SeedableRng};
+use rand_chacha::ChaCha8Rng;
 
 fn pedersen_benchmarks(c: &mut Criterion) {
 
-    let mut rng = StdRng::from_entropy();
+    let mut rng = ChaCha8Rng::seed_from_u64(2);
     let mut felt1: [u8; 32] = Default::default();
     rng.fill_bytes(&mut felt1);
     let mut felt2: [u8; 32] = Default::default();
