@@ -11,6 +11,8 @@ license.workspace = true
 lambdaworks-math = { workspace = true, features = ["alloc"] }
 sha3 = { version = "0.10", default-features = false }
 sha2 = { version = "0.10", default-features = false }
+stark-felt = "0.0.1"
+starknet-types-core = { git = "https://github.com/starknet-io/types-rs.git", version = "0.0.1", default-features = false, features = ["serde"] }
 
 # Optional
 serde = { version = "1.0", default-features = false, features = ["derive", "alloc"], optional = true }
@@ -38,4 +40,8 @@ harness = false
 
 [[bench]]
 name= "criterion_poseidon"
+harness=false
+
+[[bench]]
+name= "criterion_pedersen"
 harness=false
