@@ -1,36 +1,49 @@
+use lambdaworks_math::elliptic_curve::short_weierstrass::traits::IsShortWeierstrass;
 use lambdaworks_math::elliptic_curve::short_weierstrass::{
-    curves::stark_curve::StarkCurve, point::ShortWeierstrassProjectivePoint,
+    curves::stark_curve::StarkCurve, point::ShortWeierstrassProjectivePoint as Point,
 };
+use lambdaworks_math::elliptic_curve::traits::IsEllipticCurve;
+use lambdaworks_math::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;
+use lambdaworks_math::field::traits::IsPrimeField;
 
 use crate::hash::pedersen::constants::*;
 
-pub struct PedersenParameters {
-    pub curve_const_bits: usize,
-    pub table_size: usize,
-    pub shift_point: ShortWeierstrassProjectivePoint<StarkCurve>,
-    pub points_p1: [ShortWeierstrassProjectivePoint<StarkCurve>; 930],
-    pub points_p2: [ShortWeierstrassProjectivePoint<StarkCurve>; 15],
-    pub points_p3: [ShortWeierstrassProjectivePoint<StarkCurve>; 930],
-    pub points_p4: [ShortWeierstrassProjectivePoint<StarkCurve>; 15],
+pub trait PedersenParameters {
+    type F: IsPrimeField + Clone;
+    type EC: IsEllipticCurve<BaseField = Self::F> + IsShortWeierstrass + Clone;
+
+    const CURVE_CONST_BITS: usize;
+    const TABLE_SIZE: usize;
+    const SHIFT_POINT: Point<Self::EC>;
+    const POINTS_P1: [Point<Self::EC>; 930];
+    const POINTS_P2: [Point<Self::EC>; 15];
+    const POINTS_P3: [Point<Self::EC>; 930];
+    const POINTS_P4: [Point<Self::EC>; 15];
 }
 
-impl Default for PedersenParameters {
+pub struct PedersenStarkCurve;
+
+impl Default for PedersenStarkCurve {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl PedersenParameters {
+impl PedersenStarkCurve {
     pub fn new() -> Self {
-        let curve_const_bits = 4;
-        Self {
-            curve_const_bits,
-            table_size: (1 << curve_const_bits) - 1,
-            shift_point: shift_point(),
-            points_p1: points_p1(),
-            points_p2: points_p2(),
-            points_p3: points_p3(),
-            points_p4: points_p4(),
-        }
+        Self {}
     }
+}
+
+impl PedersenParameters for PedersenStarkCurve {
+    type F = Stark252PrimeField;
+    type EC = StarkCurve;
+
+    const CURVE_CONST_BITS: usize = 4;
+    const TABLE_SIZE: usize = (1 << Self::CURVE_CONST_BITS) - 1;
+    const SHIFT_POINT: Point<Self::EC> = shift_point();
+    const POINTS_P1: [Point<Self::EC>; 930] = points_p1();
+    const POINTS_P2: [Point<Self::EC>; 15] = points_p2();
+    const POINTS_P3: [Point<Self::EC>; 930] = points_p3();
+    const POINTS_P4: [Point<Self::EC>; 15] = points_p4();
 }
