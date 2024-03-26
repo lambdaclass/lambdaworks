@@ -1,5 +1,4 @@
 use lambdaworks_math::{
-    cyclic_group::IsGroup,
     elliptic_curve::short_weierstrass::{
         curves::stark_curve::StarkCurve, point::ShortWeierstrassProjectivePoint,
     },
@@ -69,7 +68,7 @@ impl Pedersen {
                 let offset = bools_to_usize_le(v);
                 if offset > 0 {
                     // Table lookup at 'offset-1' in table for chunk 'i'
-                    *acc = acc.operate_with(&prep[i * self.params.table_size + offset - 1]);
+                    *acc = acc.operate_with_affine(&prep[i * self.params.table_size + offset - 1]);
                 }
             })
     }
