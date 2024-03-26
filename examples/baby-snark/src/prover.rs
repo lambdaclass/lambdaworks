@@ -27,17 +27,10 @@ impl Prover {
         let delta = sample_fr_elem();
 
         let h_coefficients = ssp
-            .calculate_h_coefficients(inputs, &delta)
-            .iter()
-            .map(|elem| elem.representative())
-            .collect::<Vec<_>>();
+            .calculate_h_coefficients(inputs, &delta);
 
         let h = msm(&h_coefficients, &pk.k_powers_of_tau_g1).unwrap();
-        let w = inputs
-            .iter()
-            .skip(ssp.number_of_public_inputs)
-            .map(|elem| elem.representative())
-            .collect::<Vec<_>>();
+        let w = &inputs[..ssp.number_of_public_inputs];
 
         let v_w = msm(&w, &pk.u_tau_g1)
             .unwrap()
