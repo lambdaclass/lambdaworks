@@ -10,8 +10,18 @@ This prover is still in development and may contain bugs. It is not intended to 
 
 Please check issues under security label, and wait for them to be resolved if they are relevant to your project.
 
-## [Cairo Platinum Prover Docs](<[lambdaclass.github.io/lambdaworks/](https://github.com/lambdaclass/lambdaworks/blob/main/provers/cairo/README.md)>)
+## [Cairo Platinum Prover Docs](https://lambdaclass.github.io/lambdaworks/starks/cairo.html)
 
+## Proof file
+
+Currently, the .proof file contains the following elements concatenated:
+- Proof size
+- Proof
+- Public inputs
+
+It uses the bincode as protocol to encode the structs of the files. Fields are stored as the bytes of canonical non-Montgomery form. It is in full big-endian form. Limbs are ordered in big-endian, and each u64 of the Montgomery field is in big-endian.
+
+⚠️: There may be changes to how this file represents the proof, always check here to ensure you have the latest encoding. We will add presets of verifications to the public inputs so you should not need to handle the file, just enable them.
 
 ### Cairo Platinum Prover - Introduction
 
@@ -20,6 +30,10 @@ Cairo Platinum Prover is an easy to use prover to prove CairoZero and Cairo prog
 CLI currently runs with 100 bits of conjecturable security. 
 
 Cairo / Cairo1 programs full integration is on the way. It can already be used generating a trace and a memory with the Cairo VM Runner, and fed to the prover with the prove command. 
+
+For using Cairo1, use the following [VM version](https://github.com/lambdaclass/cairo-vm/commit/070aeb9dbaf55875bf1cba2cef36fccafbb4851a) until it gets fixed in main
+
+Notice in this version you don't need the flag ```--proof_mode``` as  it's enabled by default.
 
 ### Usage:
 

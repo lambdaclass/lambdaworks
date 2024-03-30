@@ -322,14 +322,12 @@ impl<const NUM_LIMBS: usize> ShrAssign<usize> for UnsignedInteger<NUM_LIMBS> {
 
 impl<const NUM_LIMBS: usize> BitAnd for UnsignedInteger<NUM_LIMBS> {
     type Output = Self;
+
     #[inline(always)]
     fn bitand(self, rhs: Self) -> Self::Output {
-        let Self { mut limbs } = self;
-
-        for (a_i, b_i) in limbs.iter_mut().zip(rhs.limbs.iter()) {
-            *a_i &= b_i;
-        }
-        Self { limbs }
+        let mut result = self;
+        result &= rhs;
+        result
     }
 }
 
@@ -345,14 +343,12 @@ impl<const NUM_LIMBS: usize> BitAndAssign for UnsignedInteger<NUM_LIMBS> {
 
 impl<const NUM_LIMBS: usize> BitOr for UnsignedInteger<NUM_LIMBS> {
     type Output = Self;
+
     #[inline(always)]
     fn bitor(self, rhs: Self) -> Self::Output {
-        let Self { mut limbs } = self;
-
-        for (a_i, b_i) in limbs.iter_mut().zip(rhs.limbs.iter()) {
-            *a_i |= b_i;
-        }
-        Self { limbs }
+        let mut result = self;
+        result |= rhs;
+        result
     }
 }
 
@@ -369,14 +365,12 @@ impl<const NUM_LIMBS: usize> BitOrAssign for UnsignedInteger<NUM_LIMBS> {
 
 impl<const NUM_LIMBS: usize> BitXor for UnsignedInteger<NUM_LIMBS> {
     type Output = Self;
+
     #[inline(always)]
     fn bitxor(self, rhs: Self) -> Self::Output {
-        let Self { mut limbs } = self;
-
-        for (a_i, b_i) in limbs.iter_mut().zip(rhs.limbs.iter()) {
-            *a_i ^= b_i;
-        }
-        Self { limbs }
+        let mut result = self;
+        result ^= rhs;
+        result
     }
 }
 
@@ -591,6 +585,11 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
             i -= 1;
         }
         (UnsignedInteger { limbs }, carry > 0)
+    }
+
+    /// Returns the double of `self`.
+    pub fn double(a: &UnsignedInteger<NUM_LIMBS>) -> (UnsignedInteger<NUM_LIMBS>, bool) {
+        Self::add(a, a)
     }
 
     /// Multi-precision subtraction.
@@ -1449,6 +1448,16 @@ mod tests_u384 {
     }
 
     #[test]
+    fn double_two_384_bit_integers() {
+        let a = U384::from_u64(2);
+        let b = U384::from_u64(5);
+        let c = U384::from_u64(7);
+        assert_eq!(U384::double(&a).0, a + a);
+        assert_eq!(U384::double(&b).0, b + b);
+        assert_eq!(U384::double(&c).0, c + c);
+    }
+
+    #[test]
     fn add_two_384_bit_integers_1() {
         let a = U384::from_u64(2);
         let b = U384::from_u64(5);
@@ -1554,6 +1563,12 @@ mod tests_u384 {
         let (c, overflow) = U384::add(&a, &b);
         assert_eq!(c, c_expected);
         assert!(overflow);
+    }
+
+    #[test]
+    fn double_384_bit_integer_12_with_overflow() {
+        let a = U384::from_hex_unchecked("b07bc844363dd56467d9ebdd5929e9bb34a8e2577db77df6cf8f2ac45bd3d0bc2fc3078d265fe761af51d6aec5b59428");
+        assert_eq!(U384::double(&a), U384::add(&a, &a));
     }
 
     #[test]
@@ -2413,6 +2428,16 @@ mod tests_u256 {
     }
 
     #[test]
+    fn double_256_bit_integer_1() {
+        let a = U256::from_u64(2);
+        let b = U256::from_u64(5);
+        let c = U256::from_u64(7);
+        assert_eq!(U256::double(&a).0, a + a);
+        assert_eq!(U256::double(&b).0, b + b);
+        assert_eq!(U256::double(&c).0, c + c);
+    }
+
+    #[test]
     fn add_two_256_bit_integers_1() {
         let a = U256::from_u64(2);
         let b = U256::from_u64(5);
@@ -2548,6 +2573,18 @@ mod tests_u256 {
         let (c, overflow) = U256::add(&a, &b);
         assert_eq!(c, c_expected);
         assert!(overflow);
+    }
+
+    #[test]
+    fn double_256_bit_integer_12_with_overflow() {
+        let a = U256::from_hex_unchecked(
+            "b07bc844363dd56467d9ebdd5929e9bb34a8e2577db77df6cf8f2ac45bd3d0bc",
+        );
+        let b = U256::from_hex_unchecked(
+            "cbbc474761bb7995ff54e25fa5d30295604fe3545d0cde405e72d8c0acebb119",
+        );
+        assert_eq!(U256::double(&a), U256::add(&a, &a));
+        assert_eq!(U256::double(&b), U256::add(&b, &b));
     }
 
     #[test]

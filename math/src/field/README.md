@@ -1,73 +1,66 @@
+# lambdaworks Fields
 
-# Fields
-Every field element has type `FieldElement`. These are the concrete elements that can be added, multiplied and so on. The operations are delegated to a zero-sized struct implementing the trait `IsField` that defines the operation laws and algorithms used. There are already some basic fields defined.
+This folder contains the different field backends, including field extensions. To learn how to use our fields, see the [examples](https://github.com/lambdaclass/lambdaworks/blob/main/examples/README.md) under basic use of finite fields. Below we give a list of currently supported fields; if yours is not on the list, you can add it by implementing the traits and providing the constants.
+- [Stark-252](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/field/fields/fft_friendly/stark_252_prime_field.rs): the field currently used by Starknet and STARK Platinum prover. FFT-friendly.
+- [Mini-Goldilocks](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/field/fields/fft_friendly/u64_goldilocks.rs), also known as oxfoi prime ($2^{64} - 2^{32} + 1$). FFT-friendly.
+- [Pallas base field](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/field/fields/pallas_field.rs): this is also the scalar field of the Vesta elliptic curve.
+- [Vesta base field](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/field/fields/vesta_field.rs): this is also the scalar field of the Pallas elliptic curve.
+- [Goldilocks-448](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/field/fields/p448_goldilocks_prime_field.rs)
+- [Mersenne-31](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/field/fields/mersenne31/field.rs): $2^{31} - 1$ and its [quadratic extension](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/field/fields/mersenne31/extension.rs)
+- [Baby Bear](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/field/fields/fft_friendly/babybear.rs) and its [quadratic extension](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/field/fields/fft_friendly/quadratic_babybear.rs): FFT-friendly, $2^{31} - 2^{27} + 1$.
+- [Scalar field of BN-254](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/elliptic_curve/short_weierstrass/curves/bn_254/default_types.rs)
+- [Base field of BN-254](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/elliptic_curve/short_weierstrass/curves/bn_254/field_extension.rs) and its quadratic extension.
+- [Scalar field of BLS12-381](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/elliptic_curve/short_weierstrass/curves/bls12_381/default_types.rs): FFT-friendly.
+- [Base field of BLS12-381](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/elliptic_curve/short_weierstrass/curves/bls12_381/field_extension.rs) and its quadratic, sextic and twelth degree extensions.
+- [Scalar field of BLS12-377](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/elliptic_curve/short_weierstrass/curves/bls12_377/curve.rs)
+- [Base field of BLS12-377](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/elliptic_curve/short_weierstrass/curves/bls12_377/field_extension.rs)
 
-We have a two layered model for fields. In one layer we have algorithms and optimizations at the field level, and on the other we have algorithms at the “big int” level. Both layers are interchangeable.
-Our “Big Int” has the advantage that it’s size is fixed in compilation time through the use of generics. This removes the need for heap allocations and having logic to work with arbitrary sized numbers, and it’s not an issue because in proving system we always know the size of the fields in advance.
-Over that we build different backends with different optimizations. The main backend we are using is Montgomery, to have a fast Montgomery multiplication, but it can be changed if for the use case another one is more useful.
+## 📊 Benchmarks
 
-Another important thing is that we're making sure that this is also in sync with webgpu, cuda and metal support
+Benchmark results are hosted [here](https://lambdaclass.github.io/lambdaworks/bench).
 
-## How to instantiate a field element for a specific field
-```rust
-use math::field::element::FieldElement;
-use math::field::fields::U64PrimeField;
+These are the results of execution of the benchmarks for finite field arithmetic using the STARK field prime (p = 3618502788666131213697322783095070105623107215331596699973092056135872020481). 
 
-let x = FieldElement::<U64PrimeField<11>>::from(3);
-let y = FieldElement::<U64PrimeField<11>>::from(2);
-let z = x + y;
-```
-Here x, y and z are elements of the field with order 11.
+Differences of 3% are common for some measurements, so small differences are not statistically relevant.
 
-## How to work with general fields
-```rust
-use math::field::element::FieldElement;
-use math::field::traits::IsField;
+ARM - M1
 
-fn do_something_with_fe<F: IsField>(x: FieldElement<F>) {
-    let y = x.pow(3)  + x.pow(2) + x;
-    
-    // ...
-}
-```
-Here `F` is the Field and `x` is a field element. When further traits are needed for the field element you can specify them using the `where` notation:
+| Operation| N    | Arkworks  | lambdaworks |
+| -------- | --- | --------- | ----------- |
+| `mul`    |   10k  | 112 μs | 115 μs   |
+| `add`    |   1M  | 8.5 ms  | 7.0 ms    |
+| `sub`    |   1M  | 7.53 ms   | 7.12 ms     |
+| `pow`    |   10k  | 11.2 ms   | 12.4 ms    |
+| `invert` |  10k   | 30.0 ms  | 27.2 ms   |
 
-```rust
-use math::field::element::FieldElement;
-use math::field::traits::IsField;
+x86 - AMD Ryzen 7 PRO 
 
-fn do_something_with_fe<F>(x: FieldElement<F>) 
-    where
-        F: IsField,
-        FieldElement<F>: ByteConversion {
-    let bytes = x.to_bytes_be();
-    
-}
-```
-## How to create a new Field
-If you want to create your own field, for example to optimize an operation, you can do that by implementing the `IsField` trait for your own zero-sized struct:
+| Operation | N    | Arkworks (ASM)*  | lambdaworks |
+| -------- | --- | --------- | ----------- |
+| `mul`    |   10k  | 118.9 us | 95.7 us   |
+| `add`    |   1M  | 6.8 ms  | 5.4 ms    |
+| `sub`    |   1M  |  6.6 ms  |  5.2 ms   |
+| `pow`    |   10k  |  10.6 ms   | 9.4 ms    |
+| `invert` |  10k   | 34.2 ms  | 35.74 ms |
 
-```rust
-struct MyCustomField;
+*assembly feature was enabled manually for that bench, and is not activated by default when running criterion
 
-impl IsField for MyCustomField {
-    type BaseType = u128;
+To run them locally, you will need `cargo-criterion` and `cargo-flamegraph`. Install it with:
 
-    fn add(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
-        // My optimized algorithm for adding
-    }
-
-    // ...
-}
+```bash
+cargo install cargo-criterion
 ```
 
-If we want to create elements of this new field, we can do so by:
+Run the complete benchmark suite with:
 
-```rust
-fn main() {
-    let x = FieldElement::<MyCustomField>::from(3);
-    let y = x.pow(3) - x.pow(2) + x;
-}
+```bash
+make benchmarks
 ```
 
-As you can see all the operators are already implemented automatically for you.
+Run a specific benchmark suite with `cargo`, for example to run the one for `field`:
+
+```bash
+make benchmark BENCH=field
+```
+
+You can check the generated HTML report in `target/criterion/reports/index.html`

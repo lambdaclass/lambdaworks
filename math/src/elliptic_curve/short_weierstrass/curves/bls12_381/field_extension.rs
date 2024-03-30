@@ -479,6 +479,14 @@ mod tests {
     }
 
     #[test]
+    fn double_base_field_with_degree_2_extension() {
+        let a = FieldElement::<BLS12381PrimeField>::from(3);
+        let b = FieldElement::<Degree2ExtensionField>::from(2);
+        assert_eq!(a.double(), a.clone() + a);
+        assert_eq!(b.double(), b.clone() + b);
+    }
+
+    #[test]
     fn mul_base_field_with_degree_2_extension() {
         let a = FieldElement::<BLS12381PrimeField>::from(3);
         let a_extension = FieldElement::<Degree2ExtensionField>::from(3);

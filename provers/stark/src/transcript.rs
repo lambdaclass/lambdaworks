@@ -1,49 +1,13 @@
+use lambdaworks_crypto::fiat_shamir::is_transcript::IsTranscript;
 use lambdaworks_math::{
     field::{
-        element::FieldElement,
-        fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
-        traits::{IsFFTField, IsField, IsSubFieldOf},
+        element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
+        traits::IsFFTField,
     },
     traits::{AsBytes, ByteConversion},
     unsigned_integer::element::U256,
 };
 use sha3::{Digest, Keccak256};
-
-/// The functionality of a transcript to be used in the STARK Prove and Verify protocols.
-pub trait IsStarkTranscript<F: IsField> {
-    /// Appends a field element to the transcript.
-    fn append_field_element(&mut self, element: &FieldElement<F>);
-    /// Appends a bytes to the transcript.
-    fn append_bytes(&mut self, new_bytes: &[u8]);
-    /// Returns the inner state of the transcript that fully determines its outputs.
-    fn state(&self) -> [u8; 32];
-    /// Returns a random field element.
-    fn sample_field_element(&mut self) -> FieldElement<F>;
-    /// Returns a random index between 0 and `upper_bound`.
-    fn sample_u64(&mut self, upper_bound: u64) -> u64;
-    /// Returns a field element not contained in `lde_roots_of_unity_coset` or `trace_roots_of_unity`.
-    fn sample_z_ood<S: IsSubFieldOf<F>>(
-        &mut self,
-        lde_roots_of_unity_coset: &[FieldElement<S>],
-        trace_roots_of_unity: &[FieldElement<S>],
-    ) -> FieldElement<F>
-    where
-        FieldElement<F>: AsBytes,
-    {
-        loop {
-            let value: FieldElement<F> = self.sample_field_element();
-            if !lde_roots_of_unity_coset
-                .iter()
-                .any(|x| x.clone().to_extension() == value)
-                && !trace_roots_of_unity
-                    .iter()
-                    .any(|x| x.clone().to_extension() == value)
-            {
-                return value;
-            }
-        }
-    }
-}
 
 /// A transcript implementing `IsStarkTranscript` and compatible with Stone (https://github.com/starkware-libs/stone-prover).
 pub struct StoneProverTranscript {
@@ -72,14 +36,6 @@ impl StoneProverTranscript {
             counter: 0,
             spare_bytes: vec![],
         }
-    }
-
-    fn keccak_hash(data: &[u8]) -> [u8; 32] {
-        let mut hasher = Keccak256::new();
-        hasher.update(data);
-        let mut result_hash = [0_u8; 32];
-        result_hash.copy_from_slice(&hasher.finalize_reset());
-        result_hash
     }
 
     pub fn sample_block(&mut self, used_bytes: usize) -> Vec<u8> {
@@ -118,9 +74,17 @@ impl StoneProverTranscript {
     pub fn sample_big_int(&mut self) -> U256 {
         U256::from_bytes_be(&self.sample(32)).unwrap()
     }
+
+    fn keccak_hash(data: &[u8]) -> [u8; 32] {
+        let mut hasher = Keccak256::new();
+        hasher.update(data);
+        let mut result_hash = [0_u8; 32];
+        result_hash.copy_from_slice(&hasher.finalize_reset());
+        result_hash
+    }
 }
 
-impl IsStarkTranscript<Stark252PrimeField> for StoneProverTranscript {
+impl IsTranscript<Stark252PrimeField> for StoneProverTranscript {
     fn append_field_element(&mut self, element: &FieldElement<Stark252PrimeField>) {
         let limbs = element.value().limbs;
         let mut bytes: [u8; 32] = [0; 32];
@@ -170,7 +134,7 @@ impl IsStarkTranscript<Stark252PrimeField> for StoneProverTranscript {
 /// Returns a batch of size `size` of field elements sampled from the transcript `transcript`.
 pub fn batch_sample_challenges<F: IsFFTField>(
     size: usize,
-    transcript: &mut impl IsStarkTranscript<F>,
+    transcript: &mut impl IsTranscript<F>,
 ) -> Vec<FieldElement<F>>
 where
     FieldElement<F>: AsBytes,
@@ -186,7 +150,7 @@ mod tests {
         element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
     };
 
-    use crate::transcript::{IsStarkTranscript, StoneProverTranscript};
+    use crate::transcript::{IsTranscript, StoneProverTranscript};
 
     use std::num::ParseIntError;
 

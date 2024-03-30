@@ -36,19 +36,19 @@ where
 
         //The leaf must be a power of 2 set
         hashed_leaves = complete_until_power_of_two(&mut hashed_leaves);
+        let leaves_len = hashed_leaves.len();
 
         //The length of leaves minus one inner node in the merkle tree
-
-        // The first elements are overwritten by build function, it doesn't matter what it's there
-        let mut inner_nodes = vec![hashed_leaves[0].clone(); hashed_leaves.len() - 1];
-        inner_nodes.extend(hashed_leaves);
+        //The first elements are overwritten by build function, it doesn't matter what it's there
+        let mut nodes = vec![hashed_leaves[0].clone(); leaves_len - 1];
+        nodes.extend(hashed_leaves);
 
         //Build the inner nodes of the tree
-        build::<B>(&mut inner_nodes, ROOT);
+        build::<B>(&mut nodes, leaves_len);
 
         MerkleTree {
-            root: inner_nodes[ROOT].clone(),
-            nodes: inner_nodes,
+            root: nodes[ROOT].clone(),
+            nodes,
         }
     }
 
