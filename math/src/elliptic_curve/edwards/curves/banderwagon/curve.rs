@@ -54,6 +54,17 @@ mod tests {
     type FEE = FieldElement<BaseBanderwagonFieldElement>;
 
     fn point_1() -> EdwardsProjectivePoint<BanderwagonCurve> {
+        /*
+        Here the coordinates in sage are in Weierstrass form, so we need to convert them to Twisted Edwards form.
+        The formula is taken from https://github.com/zhenfeizhang/bandersnatch/blob/main/bandersnatch/script/bandersnatch.sage
+        sage: p=52435875175126190479447740508185965837690552500527637822603658699938581184513
+        sage: Fp = GF(p)
+        sage: ban = EllipticCurve(Fp, [-3763200000,-78675968000000])
+        sage: G = ban(0xa76451786f95a802c0982bbd0abd68e41b92adc86c8859b4f44679b21658710,0x44d150c8b4bd14f79720d021a839e7b7eb4ee43844b30243126a72ac2375490a)
+        sage: G
+        (4732093294267640299242820317528400560681136891967543338160850811774078125840 : 31127102290931869693084292284935581507759552409643462510093198106308390504714 : 1)
+        */
+
         let x = FEE::new_base("29C132CC2C0B34C5743711777BBE42F32B79C022AD998465E1E71866A252AE18");
         let y = FEE::new_base("2A6C669EDA123E0F157D8B50BADCD586358CAD81EEE464605E3167B6CC974166");
 
