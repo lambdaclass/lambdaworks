@@ -135,9 +135,9 @@ where
 mod tests {
     // `from` and `to_affine` are base function for these tests hence they are tested implicitly
 
-    use super::{*, super::ProjectivePoint};
+    use super::{super::ProjectivePoint, *};
+    use super::{IsGroupElement, ShortWeierstrassProjectivePoint};
     use crate::elliptic_curve::short_weierstrass::curves::bls12_381::curve::BLS12381Curve;
-    use super::{ShortWeierstrassProjectivePoint, IsGroupElement};
     use crate::elliptic_curve::traits::IsEllipticCurve;
 
     /* TODO go with a random point when there's a method in `ProjectivePoint`
@@ -146,7 +146,10 @@ mod tests {
     // not that naive random would use seeds for repeatable testing
     #[cfg(feature = "alloc")]
     fn point() -> ShortWeierstrassProjectivePoint<BLS12381Curve> {
-        use crate::elliptic_curve::{short_weierstrass::curves::bls12_381::field_extension::BLS12381PrimeField, traits::IsEllipticCurve};
+        use crate::elliptic_curve::{
+            short_weierstrass::curves::bls12_381::field_extension::BLS12381PrimeField,
+            traits::IsEllipticCurve,
+        };
 
         let x = FieldElement::<BLS12381PrimeField>::new_base("36bb494facde72d0da5c770c4b16d9b2d45cfdc27604a25a1a80b020798e5b0dbd4c6d939a8f8820f042a29ce552ee5");
         let y = FieldElement::<BLS12381PrimeField>::new_base("7acf6e49cc000ff53b06ee1d27056734019c0a1edfa16684da41ebb0c56750f73bc1b0eae4c6c241808a5e485af0ba0");
@@ -193,10 +196,18 @@ mod tests {
     fn new() {
         let gen_aff = BLS12381Curve::generator().coordinates().to_owned();
         let subj = JacobianPoint::<BLS12381Curve>::new(
-            gen_aff[0].clone(), gen_aff[1].clone(), FieldElement::one()
+            gen_aff[0].clone(),
+            gen_aff[1].clone(),
+            FieldElement::one(),
         );
 
-        assert_eq!(subj.double().to_affine().x, BLS12381Curve::generator().double().to_affine().coordinates()[0]);
+        assert_eq!(
+            subj.double().to_affine().x,
+            BLS12381Curve::generator()
+                .double()
+                .to_affine()
+                .coordinates()[0]
+        );
     }
 
     #[cfg(feature = "alloc")]
@@ -204,11 +215,13 @@ mod tests {
     fn neutral_element() {
         // TODO when there will be improvement over unwrapping let back `.to_affine()` variant
         // let subj = JacobianPoint::<BLS12381Curve>::neutral_element().to_affine();
-        // let proj = 
+        // let proj =
         //     <ShortWeierstrassProjectivePoint<BLS12381Curve> as IsGroupElement>::neutral_element().to_affine().coordinates().to_owned();
         let subj = JacobianPoint::<BLS12381Curve>::neutral_element();
-        let proj = 
-            <ShortWeierstrassProjectivePoint<BLS12381Curve> as IsGroupElement>::neutral_element().coordinates().to_owned();
+        let proj =
+            <ShortWeierstrassProjectivePoint<BLS12381Curve> as IsGroupElement>::neutral_element()
+                .coordinates()
+                .to_owned();
         assert_eq!(subj.x, proj[0]);
     }
 
