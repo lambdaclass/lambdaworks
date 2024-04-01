@@ -9,7 +9,7 @@ use crate::{
 use super::ShortWeierstrassProjectivePoint;
 
 // feels like `crate::elliptic_curbe::point` could be redesigned to provide the trait to implement here
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct JacobianPoint<E: IsShortWeierstrass> {
     x: FieldElement<E::BaseField>,
     y: FieldElement<E::BaseField>,
@@ -128,5 +128,95 @@ where
         } else {
             Self::neutral_element()
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    // `from` and `to_affine` are base function for these tests hence they are tested implicitly
+
+    use super::{*, super::ProjectivePoint};
+    use crate::elliptic_curve::short_weierstrass::curves::bls12_381::curve::BLS12381Curve;
+    use super::{ShortWeierstrassProjectivePoint, IsGroupElement};
+    use crate::elliptic_curve::traits::IsEllipticCurve;
+
+    /* TODO go with a random point when there's a method in `ProjectivePoint`
+    until then the point from `super::tests` is just pasted here
+    #naiveRandom */
+    // not that naive random would use seeds for repeatable testing
+    #[cfg(feature = "alloc")]
+    fn point() -> ShortWeierstrassProjectivePoint<BLS12381Curve> {
+        use crate::elliptic_curve::{short_weierstrass::curves::bls12_381::field_extension::BLS12381PrimeField, traits::IsEllipticCurve};
+
+        let x = FieldElement::<BLS12381PrimeField>::new_base("36bb494facde72d0da5c770c4b16d9b2d45cfdc27604a25a1a80b020798e5b0dbd4c6d939a8f8820f042a29ce552ee5");
+        let y = FieldElement::<BLS12381PrimeField>::new_base("7acf6e49cc000ff53b06ee1d27056734019c0a1edfa16684da41ebb0c56750f73bc1b0eae4c6c241808a5e485af0ba0");
+        BLS12381Curve::create_point_from_affine(x, y).unwrap()
+    }
+    // a random scalar would be cool too, let's just go with small numbers -- it's ok for these tests #naiveRandom
+    const SMALLSCALAR_A: u16 = const_random::const_random!(u16);
+    // fn helper_smallscalar() -> BLS12381Curve::ScalarField {
+    //     BLS12381Curve::ScalarField:: from(1234567890123456789012345678901234567890)
+    // }
+
+    #[cfg(feature = "alloc")]
+    #[test]
+    fn double() {
+        // let r: u128 = rand::random();
+        let mut subj = JacobianPoint::from(point());
+        let point_the = point();
+        let mut proj = point_the.clone();
+
+        for _ in 0..SMALLSCALAR_A {
+            subj = subj.double();
+            proj = proj.double();
+        }
+
+        let subj_aff = subj.to_affine();
+        let proj_aff = proj.to_affine().coordinates().to_owned();
+        assert_eq!(subj_aff.x, proj_aff[0]);
+        assert_eq!(subj_aff.y, proj_aff[1]);
+
+        let point_the_aff = point_the.to_affine().coordinates().to_owned();
+        assert_ne!(subj_aff.x, point_the_aff[0]);
+        assert_ne!(subj_aff.y, point_the_aff[1]);
+    }
+
+    #[cfg(feature = "alloc")]
+    #[test]
+    fn eq_and_operate_with() {
+        let subj = JacobianPoint::from(point());
+        assert_eq!(subj.operate_with(&subj), subj.double());
+    }
+
+    #[cfg(feature = "alloc")]
+    #[test]
+    fn new() {
+        let gen_aff = BLS12381Curve::generator().coordinates().to_owned();
+        let subj = JacobianPoint::<BLS12381Curve>::new(
+            gen_aff[0].clone(), gen_aff[1].clone(), FieldElement::one()
+        );
+
+        assert_eq!(subj.double().to_affine().x, BLS12381Curve::generator().double().to_affine().coordinates()[0]);
+    }
+
+    #[cfg(feature = "alloc")]
+    #[test]
+    fn neutral_element() {
+        // TODO when there will be improvement over unwrapping let back `.to_affine()` variant
+        // let subj = JacobianPoint::<BLS12381Curve>::neutral_element().to_affine();
+        // let proj = 
+        //     <ShortWeierstrassProjectivePoint<BLS12381Curve> as IsGroupElement>::neutral_element().to_affine().coordinates().to_owned();
+        let subj = JacobianPoint::<BLS12381Curve>::neutral_element();
+        let proj = 
+            <ShortWeierstrassProjectivePoint<BLS12381Curve> as IsGroupElement>::neutral_element().coordinates().to_owned();
+        assert_eq!(subj.x, proj[0]);
+    }
+
+    #[cfg(feature = "alloc")]
+    #[test]
+    fn neg_and_is_neutral_element() {
+        let g = JacobianPoint::from(BLS12381Curve::generator());
+        assert!(!g.is_neutral_element());
+        assert!((g.operate_with(&g.neg())).is_neutral_element());
     }
 }
