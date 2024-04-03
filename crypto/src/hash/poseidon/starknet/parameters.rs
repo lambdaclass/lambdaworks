@@ -22,11 +22,11 @@ impl PermutationParameters for PoseidonCairoStark252 {
 
     /// Redefined mix function for optimization purposes
     fn mix(state: &mut [FE<Self::F>]) {
-        let t = state[0] + state[1] + state[2];
-        state[0] = t + state[0].double();
-        state[1] = t - state[1].double();
-        let minus_state_2 = - state[2];
-        state[2] = t + minus_state_2 + minus_state_2 + minus_state_2;
+        let t = &state[0] + &state[1] + &state[2];
+        state[0] = &t + &state[0].double();
+        state[1] = &t - &state[1].double();
+        let minus_state_2 = -&state[2];
+        state[2] = &t + &minus_state_2 + &minus_state_2 + &minus_state_2;
     }
 }
 
