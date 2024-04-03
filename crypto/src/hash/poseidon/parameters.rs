@@ -25,6 +25,9 @@ pub trait PermutationParameters {
     const N_ROUND_CONSTANTS_ROWS: usize;
     const N_ROUND_CONSTANTS_COLS: usize;
 
+    /// This is the mix function that operates with the MDS matrix
+    /// Round Constants are sometimes picked to simplify this function,
+    /// so it can be redefined by each set of permutation parameters if a simplification can be made to make it faster. In that case, MDS constants may not be used
     fn mix(state: &mut [FE<Self::F>]) {
         let mut new_state: Vec<FE<Self::F>> = Vec::with_capacity(Self::STATE_SIZE);
         for i in 0..Self::STATE_SIZE {

@@ -20,6 +20,7 @@ impl PermutationParameters for PoseidonCairoStark252 {
     const N_ROUND_CONSTANTS_ROWS: usize = 91;
     const N_ROUND_CONSTANTS_COLS: usize = 3;
     
+    /// Redefined mix function for optimization purposes
     fn mix(state: &mut [FE<Self::F>]) {
         let t = &state[0] + &state[1] + &state[2];
         state[0] = &t + &state[0].double();
@@ -33,6 +34,8 @@ impl PermutationParameters for PoseidonCairoStark252 {
 pub struct PoseidonCairoStark252;
 
 impl PoseidonCairoStark252 {
+
+    /// Since the mix function was redefined, these constants are not used, but are still valid.
     const MDS_MATRIX: [FE<Stark252PrimeField>; 3 * 3] = [
         FE::from_hex_unchecked("3"),
         FE::from_hex_unchecked("1"),
