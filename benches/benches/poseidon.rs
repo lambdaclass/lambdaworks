@@ -7,7 +7,6 @@ use lambdaworks_math::traits::ByteConversion;
 use pathfinder_crypto::MontFelt;
 use rand::{RngCore, SeedableRng};
 use rand_chacha::ChaCha8Rng;
-use starknet_crypto::poseidon_hash;
 
 fn poseidon_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("poseidon");
@@ -31,7 +30,7 @@ fn poseidon_benchmarks(c: &mut Criterion) {
     let sn_ff_x = starknet_ff::FieldElement::from_mont(mont_x);
     let sn_ff_y = starknet_ff::FieldElement::from_mont(mont_y);
     group.bench_function("starknet-rs", |bench| {
-        bench.iter(|| black_box(poseidon_hash(sn_ff_x, sn_ff_y)))
+        bench.iter(|| black_box(starknet_crypto::poseidon_hash(sn_ff_x, sn_ff_y)))
     });
 
     let pf_x = MontFelt(mont_x);
