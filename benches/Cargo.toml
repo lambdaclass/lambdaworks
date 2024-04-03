@@ -11,9 +11,15 @@ rand = "0.8.5"
 rand_chacha = "0.3.1"
 starknet-curve = { git = "https://github.com/xJonathanLEI/starknet-rs" }
 starknet-ff = { git = "https://github.com/xJonathanLEI/starknet-rs" }
+starknet-crypto = { git = "https://github.com/xJonathanLEI/starknet-rs" }
+p3-poseidon = { git = "https://github.com/Plonky3/Plonky3" }
+pathfinder-crypto = { git = "https://github.com/eqlabs/pathfinder.git" }
 
 [dependencies.lambdaworks-math]
 path = "../math"
+
+[dependencies.lambdaworks-crypto]
+path = "../crypto"
 
 [dev-dependencies]
 criterion = { version = "0.5.1", default-features = false }
@@ -45,4 +51,8 @@ harness = false
 
 [[bench]]
 name = "point"
+harness = false
+
+[[bench]]
+name = "poseidon"
 harness = false
