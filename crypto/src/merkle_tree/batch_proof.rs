@@ -2,6 +2,7 @@ use super::{
     traits::IsMerkleTreeBackend,
     utils::{get_parent_pos, get_sibling_pos},
 };
+use alloc::vec::Vec;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 extern crate std;
