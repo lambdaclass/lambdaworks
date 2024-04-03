@@ -99,11 +99,11 @@ pub fn setup(qap: &QuadraticArithmeticProgram) -> (ProvingKey, VerifyingKey) {
             beta_g2,
             delta_g1: g1.operate_with_self(tw.delta.representative()),
             delta_g2: delta_g2.clone(),
-            l_tau_g1: batch_operate(&l_tau, &g1),
-            r_tau_g1: batch_operate(&r_tau, &g1),
-            r_tau_g2: batch_operate(&r_tau, &g2),
-            prover_k_tau_g1: batch_operate(&k_tau[qap.num_of_public_inputs..], &g1),
-            z_powers_of_tau_g1: batch_operate(
+            l_tau_g1: batch_operate_with_self(&l_tau, &g1),
+            r_tau_g1: batch_operate_with_self(&r_tau, &g1),
+            r_tau_g2: batch_operate_with_self(&r_tau, &g2),
+            prover_k_tau_g1: batch_operate_with_self(&k_tau[qap.num_of_public_inputs..], &g1),
+            z_powers_of_tau_g1: batch_operate_with_self(
                 &core::iter::successors(
                     // Start from delta^{-1} * t(τ)
                     // Note that t(τ) = (τ^N - 1) because our domain is roots of unity
@@ -119,12 +119,12 @@ pub fn setup(qap: &QuadraticArithmeticProgram) -> (ProvingKey, VerifyingKey) {
             alpha_g1_times_beta_g2,
             delta_g2,
             gamma_g2: g2.operate_with_self(tw.gamma.representative()),
-            verifier_k_tau_g1: batch_operate(&k_tau[..qap.num_of_public_inputs], &g1),
+            verifier_k_tau_g1: batch_operate_with_self(&k_tau[..qap.num_of_public_inputs], &g1),
         },
     )
 }
 
-fn batch_operate<E: IsShortWeierstrass>(
+fn batch_operate_with_self<E: IsShortWeierstrass>(
     elems: &[FrElement],
     point: &ShortWeierstrassProjectivePoint<E>,
 ) -> Vec<ShortWeierstrassProjectivePoint<E>> {
