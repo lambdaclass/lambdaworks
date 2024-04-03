@@ -27,7 +27,7 @@ pub trait PermutationParameters {
 
     /// This is the mix function that operates with the MDS matrix
     /// Round Constants are sometimes picked to simplify this function,
-    /// so it can be redefined by each set of permutation parameters if a simplification can be made to make it faster. In that case, MDS constants may not be used
+    /// so it can be redefined by each set of permutation parameters if a simplification can be made to make it faster. Notice in that case, MDS constants may not be used.
     fn mix(state: &mut [FE<Self::F>]) {
         let mut new_state: Vec<FE<Self::F>> = Vec::with_capacity(Self::STATE_SIZE);
         for i in 0..Self::STATE_SIZE {
