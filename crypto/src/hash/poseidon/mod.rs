@@ -18,7 +18,6 @@ pub trait Poseidon: PermutationParameters + self::private::Sealed {
     fn hades_permutation(state: &mut [FE<Self::F>]);
     fn full_round(state: &mut [FE<Self::F>], round_number: usize);
     fn partial_round(state: &mut [FE<Self::F>], round_number: usize);
-    fn mix(state: &mut [FE<Self::F>]);
     fn hash(x: &FE<Self::F>, y: &FE<Self::F>) -> FE<Self::F>;
     fn hash_single(x: &FE<Self::F>) -> FE<Self::F>;
     fn hash_many(inputs: &[FE<Self::F>]) -> FE<Self::F>;
@@ -56,21 +55,7 @@ impl<P: PermutationParameters> Poseidon for P {
 
         state[P::STATE_SIZE - 1] = state[P::STATE_SIZE - 1].pow(P::ALPHA);
 
-        Self::mix(state);
-    }
-
-    fn mix(state: &mut [FE<Self::F>]) {
-        let mut new_state: Vec<FE<Self::F>> = Vec::with_capacity(P::STATE_SIZE);
-        for i in 0..P::STATE_SIZE {
-            let mut new_e = FE::zero();
-            for (j, current_state) in state.iter().enumerate() {
-                let mut mij = P::MDS_MATRIX[i * P::N_MDS_MATRIX_COLS + j].clone();
-                mij *= current_state;
-                new_e += mij;
-            }
-            new_state.push(new_e);
-        }
-        state.clone_from_slice(&new_state[0..P::STATE_SIZE]);
+        P::mix(state);
     }
 
     fn hash(x: &FE<Self::F>, y: &FE<Self::F>) -> FE<Self::F> {
