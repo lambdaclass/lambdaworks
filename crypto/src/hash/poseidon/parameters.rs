@@ -1,5 +1,5 @@
-use lambdaworks_math::field::{element::FieldElement as FE, traits::IsPrimeField};
 use alloc::vec::Vec;
+use lambdaworks_math::field::{element::FieldElement as FE, traits::IsPrimeField};
 
 /// Parameters for Poseidon
 /// MDS constants and rounds constants are stored as references to slices
