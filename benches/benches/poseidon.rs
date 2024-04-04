@@ -4,7 +4,7 @@ use lambdaworks_crypto::hash::poseidon::Poseidon;
 use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;
 use lambdaworks_math::traits::ByteConversion;
-use pathfinder_crypto::MontFelt;
+use pathfinder_crypto::{Felt, MontFelt};
 use rand::{RngCore, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 
@@ -24,9 +24,13 @@ fn poseidon_benchmarks(c: &mut Criterion) {
     });
 
     let mut mont_x = lw_x.value().limbs;
-    mont_x.reverse();
     let mut mont_y = lw_y.value().limbs;
+
+    // In order use the same field elements for starknet-rs and pathfinder, we have to reverse
+    // the limbs order respect to the lambdaworks implementation.
+    mont_x.reverse();
     mont_y.reverse();
+
     let sn_ff_x = starknet_ff::FieldElement::from_mont(mont_x);
     let sn_ff_y = starknet_ff::FieldElement::from_mont(mont_y);
     group.bench_function("starknet-rs", |bench| {
