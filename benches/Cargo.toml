@@ -12,7 +12,6 @@ rand_chacha = "0.3.1"
 starknet-curve = { git = "https://github.com/xJonathanLEI/starknet-rs" }
 starknet-ff = { git = "https://github.com/xJonathanLEI/starknet-rs" }
 starknet-crypto = { git = "https://github.com/xJonathanLEI/starknet-rs" }
-p3-poseidon = { git = "https://github.com/Plonky3/Plonky3" }
 pathfinder-crypto = { git = "https://github.com/eqlabs/pathfinder.git" }
 
 [dependencies.lambdaworks-math]

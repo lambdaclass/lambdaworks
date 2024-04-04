@@ -18,7 +18,6 @@ fn poseidon_benchmarks(c: &mut Criterion) {
     let y = FieldElement::<Stark252PrimeField>::from_bytes_be(&felt2).unwrap();
     let mut group = c.benchmark_group("Poseidon Benchmark");
 
-    // Benchmark with black_box is 0.41% faster
     group.bench_function("Hashing with black_box", |bench| {
         bench.iter(|| black_box(PoseidonCairoStark252::hash(&x, &y)))
     });
