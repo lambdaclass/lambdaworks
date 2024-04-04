@@ -4,7 +4,7 @@ use lambdaworks_crypto::hash::poseidon::Poseidon;
 use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;
 use lambdaworks_math::traits::ByteConversion;
-use pathfinder_crypto::{Felt, MontFelt};
+use pathfinder_crypto::MontFelt;
 use rand::{RngCore, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 
