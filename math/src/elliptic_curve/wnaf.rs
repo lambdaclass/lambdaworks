@@ -105,8 +105,7 @@ where
         let scalar_bits_le: Vec<bool> = scalar
             .to_bytes_le()
             .iter()
-            .map(|byte| (0..8).map(|i| (byte >> i) & 1 == 1).collect::<Vec<_>>())
-            .flatten()
+            .flat_map(|byte| (0..8).map(|i| (byte >> i) & 1 == 1).collect::<Vec<_>>())
             .collect();
 
         for outer in 0..outerc {

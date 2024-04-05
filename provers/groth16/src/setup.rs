@@ -104,7 +104,7 @@ pub fn setup(qap: &QuadraticArithmeticProgram) -> (ProvingKey, VerifyingKey) {
 
     let g1_wnaf = WnafTable::<BLS12381Curve, FrField>::new(
         &g1,
-        [
+        *[
             qap.num_of_public_inputs,
             r_tau.len(),
             l_tau.len(),
@@ -113,8 +113,7 @@ pub fn setup(qap: &QuadraticArithmeticProgram) -> (ProvingKey, VerifyingKey) {
         ]
         .iter()
         .max()
-        .unwrap()
-        .clone(),
+        .unwrap(),
     );
 
     (
@@ -129,7 +128,7 @@ pub fn setup(qap: &QuadraticArithmeticProgram) -> (ProvingKey, VerifyingKey) {
             r_tau_g2: WnafTable::<BLS12381TwistCurve, FrField>::new(&g2, r_tau.len())
                 .multi_scalar_mul(&r_tau),
             prover_k_tau_g1: g1_wnaf.multi_scalar_mul(&k_tau[qap.num_of_public_inputs..]),
-            z_powers_of_tau_g1: g1_wnaf.multi_scalar_mul(&z_powers_of_tau),
+            z_powers_of_tau_g1: g1_wnaf.multi_scalar_mul(z_powers_of_tau),
         },
         VerifyingKey {
             alpha_g1_times_beta_g2,
