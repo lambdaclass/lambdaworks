@@ -2,11 +2,12 @@ use crate::{
     cyclic_group::IsGroup,
     field::{element::FieldElement, traits::IsField},
     unsigned_integer::element::UnsignedInteger,
+    gpu::icicle::GpuMSMPoint
 };
 
 use super::naive::MSMError;
 #[cfg(feature = "icicle")]
-use crate::gpu::icicle::{icicle_msm, GpuMSMPoint};
+use crate::gpu::icicle::icicle_msm;
 use crate::traits::ByteConversion;
 use alloc::vec;
 

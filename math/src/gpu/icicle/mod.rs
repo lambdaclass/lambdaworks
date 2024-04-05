@@ -4,32 +4,36 @@ use crate::{
         short_weierstrass::{
             curves::{
                 bls12_377::curve::BLS12377Curve,
-                bls12_381::{curve::BLS12381Curve, twist::BLS12381TwistCurve, field_extension::BLS12381PrimeField},
-                bn_254::{curve::BN254Curve, field_extension::BN254PrimeField}
+                bls12_381::{
+                    curve::BLS12381Curve, default_types::FrField,
+                    field_extension::BLS12381PrimeField, twist::BLS12381TwistCurve,
+                },
+                bn_254::{curve::BN254Curve, field_extension::BN254PrimeField},
             },
             point::ShortWeierstrassProjectivePoint,
         },
         traits::IsEllipticCurve,
     },
     errors::ByteConversionError,
-    field::{element::FieldElement, traits::{IsField, IsSubFieldOf, IsFFTField}},
-    msm::naive::MSMError,
     fft::errors::FFTError,
+    field::{
+        element::FieldElement,
+        fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
+        traits::{IsFFTField, IsField, IsSubFieldOf},
+    },
+    msm::naive::MSMError,
+    polynomial::Polynomial,
     traits::ByteConversion,
 };
 use icicle_bls12_377::curve::CurveCfg as IcicleBLS12377Curve;
 use icicle_bls12_381::curve::{
-    CurveCfg as IcicleBLS12381Curve,
-    ScalarCfg as IcicleBLS12381ScalarCfg
+    CurveCfg as IcicleBLS12381Curve, ScalarCfg as IcicleBLS12381ScalarCfg,
 };
-use icicle_bn254::curve::{
-    CurveCfg as IcicleBN254Curve,
-    ScalarCfg as IcicleBN254ScalarCfg
-};
+use icicle_bn254::curve::{CurveCfg as IcicleBN254Curve, ScalarCfg as IcicleBN254ScalarCfg};
 use icicle_core::{
     curve::{Affine, Curve, Projective},
     msm,
-    ntt::{ntt, NTT, NTTConfig, NTTDir},
+    ntt::{NTTConfig, NTTDir, NTT},
     traits::FieldImpl,
 };
 use icicle_cuda_runtime::{memory::HostOrDeviceSlice, stream::CudaStream};
@@ -176,12 +180,12 @@ pub trait GpuMSMPoint: IsGroup {
     }
 }
 
-pub trait IcicleFFT: IsField 
+pub trait IcicleFFT: IsField
 where
     FieldElement<Self>: ByteConversion,
-    <Self::ScalarField as FieldImpl>::Config: NTT<Self::ScalarField>
 {
     type ScalarField: FieldImpl;
+    type Config: NTT<<Self as IcicleFFT>::ScalarField>;
 
     fn to_icicle_scalar(element: &FieldElement<Self>) -> Self::ScalarField {
         Self::ScalarField::from_bytes_le(&element.to_bytes_le())
@@ -196,10 +200,23 @@ where
 
 impl IcicleFFT for BLS12381PrimeField {
     type ScalarField = <IcicleBLS12381Curve as Curve>::ScalarField;
+    type Config = IcicleBLS12381ScalarCfg;
+}
+
+impl IcicleFFT for FrField {
+    type ScalarField = <IcicleBLS12381Curve as Curve>::ScalarField;
+    type Config = IcicleBLS12381ScalarCfg;
+}
+
+// DUMMY IMPLEMENTATION OF STARK252 -> Fails when Icicle feature flag enabled
+impl IcicleFFT for Stark252PrimeField {
+    type ScalarField = <IcicleBLS12381Curve as Curve>::ScalarField;
+    type Config = IcicleBLS12381ScalarCfg;
 }
 
 impl IcicleFFT for BN254PrimeField {
     type ScalarField = <IcicleBN254Curve as Curve>::ScalarField;
+    type Config = IcicleBN254ScalarCfg;
 }
 
 pub fn icicle_msm<F: IsField, G: GpuMSMPoint>(
@@ -236,12 +253,11 @@ where
 
 pub fn evaluate_fft_icicle<F, E>(
     coeffs: &Vec<FieldElement<E>>,
-) -> Result<Vec<FieldElement<E>>, FFTError> 
+) -> Result<Vec<FieldElement<E>>, FFTError>
 where
-    F: IsSubFieldOf<E>,
+    F: IsFFTField + IsSubFieldOf<E>,
     FieldElement<E>: ByteConversion,
-    <<E as IcicleFFT>::ScalarField as FieldImpl>::Config: NTT<<E as IcicleFFT>::ScalarField>,
-    E: IsField + IcicleFFT + IsFFTField,
+    E: IsField + IcicleFFT,
 {
     let size = coeffs.len();
     let mut cfg = NTTConfig::default();
@@ -257,9 +273,11 @@ where
     let stream = CudaStream::create().unwrap();
     cfg.ctx.stream = &stream;
     cfg.is_async = true;
-    let root_of_unity = E::to_icicle_scalar(&E::get_primitive_root_of_unity(order).unwrap());
-    <E::ScalarField as FieldImpl>::Config::initialize_domain(root_of_unity, &cfg.ctx).unwrap();
-    ntt(&scalars, dir, &cfg, &mut ntt_results).unwrap();
+    let root_of_unity = E::to_icicle_scalar(
+        &(F::get_primitive_root_of_unity(order).unwrap() * FieldElement::<E>::one()),
+    );
+    <E as IcicleFFT>::Config::initialize_domain(root_of_unity, &cfg.ctx).unwrap();
+    <E as IcicleFFT>::Config::ntt_unchecked(&scalars, dir, &cfg, &mut ntt_results).unwrap();
     stream.synchronize().unwrap();
     let mut ntt_host_results = vec![E::ScalarField::zero(); size];
     ntt_results.copy_to_host(&mut ntt_host_results[..]).unwrap();
@@ -273,13 +291,12 @@ where
 }
 
 pub fn interpolate_fft_icicle<F, E>(
-    coeffs: &Vec<FieldElement<E>>,
-) -> Result<Vec<FieldElement<E>>, FFTError> 
+    coeffs: &[FieldElement<E>],
+) -> Result<Polynomial<FieldElement<E>>, FFTError>
 where
-    F: IsSubFieldOf<E>,
+    F: IsFFTField + IsSubFieldOf<E>,
     FieldElement<E>: ByteConversion,
-    <<E as IcicleFFT>::ScalarField as FieldImpl>::Config: NTT<<E as IcicleFFT>::ScalarField>,
-    E: IsField + IcicleFFT + IsFFTField,
+    E: IsField + IcicleFFT,
 {
     let size = coeffs.len();
     let mut cfg = NTTConfig::default();
@@ -295,9 +312,11 @@ where
     let stream = CudaStream::create().unwrap();
     cfg.ctx.stream = &stream;
     cfg.is_async = true;
-    let root_of_unity = E::to_icicle_scalar(&E::get_primitive_root_of_unity(order).unwrap());
-    <E::ScalarField as FieldImpl>::Config::initialize_domain(root_of_unity, &cfg.ctx).unwrap();
-    ntt(&scalars, dir, &cfg, &mut ntt_results).unwrap();
+    let root_of_unity = E::to_icicle_scalar(
+        &(F::get_primitive_root_of_unity(order).unwrap() * FieldElement::<E>::one()),
+    );
+    <E as IcicleFFT>::Config::initialize_domain(root_of_unity, &cfg.ctx).unwrap();
+    <E as IcicleFFT>::Config::ntt_unchecked(&scalars, dir, &cfg, &mut ntt_results).unwrap();
     stream.synchronize().unwrap();
     let mut ntt_host_results = vec![E::ScalarField::zero(); size];
     ntt_results.copy_to_host(&mut ntt_host_results[..]).unwrap();
@@ -307,9 +326,8 @@ where
         .iter()
         .map(|scalar| E::from_icicle_scalar(&scalar).unwrap())
         .collect::<Vec<_>>();
-    Ok(res)
+    Ok(Polynomial::new(&res))
 }
-
 
 #[cfg(test)]
 mod test {
