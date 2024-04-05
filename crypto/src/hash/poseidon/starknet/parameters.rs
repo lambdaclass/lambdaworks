@@ -428,6 +428,7 @@ impl PoseidonCairoStark252 {
         FE::from_hex_unchecked("14B491D73724779F8AA74B3FD8AA5821C21E1017224726A7A946BB6CA68D8F5"),
     ];
 
+    /*
     pub fn compute_new_constants() -> String {
         let mut res = String::from("");
         let three: FE<Stark252PrimeField> = FE::from_hex_unchecked("3");
@@ -462,10 +463,12 @@ impl PoseidonCairoStark252 {
             i += 1;
         }
         res
-    }
+    }*/
 }
 
+/*
 #[test]
 fn compute_new_constants() {
     println!("{}", PoseidonCairoStark252::compute_new_constants());
 }
+*/
