@@ -17,7 +17,7 @@ mod private {
 pub trait Poseidon: PermutationParameters + self::private::Sealed {
     fn hades_permutation(state: &mut [FE<Self::F>]);
     fn full_round(state: &mut [FE<Self::F>], round_number: usize);
-    fn partial_round(state: &mut [FE<Self::F>], round_number: usize);
+    //fn partial_round(state: &mut [FE<Self::F>], round_number: usize);
     fn hash(x: &FE<Self::F>, y: &FE<Self::F>) -> FE<Self::F>;
     fn hash_single(x: &FE<Self::F>) -> FE<Self::F>;
     fn hash_many(inputs: &[FE<Self::F>]) -> FE<Self::F>;
@@ -46,16 +46,6 @@ impl<P: PermutationParameters> Poseidon for P {
             *value = value.pow(P::ALPHA);
         }
         Self::mix(state);
-    }
-
-    fn partial_round(state: &mut [FE<Self::F>], round_number: usize) {
-        for (i, value) in state.iter_mut().enumerate() {
-            *value = &(*value) + &P::ROUND_CONSTANTS[round_number * P::N_ROUND_CONSTANTS_COLS + i];
-        }
-
-        state[P::STATE_SIZE - 1] = state[P::STATE_SIZE - 1].pow(P::ALPHA);
-
-        P::mix(state);
     }
 
     fn hash(x: &FE<Self::F>, y: &FE<Self::F>) -> FE<Self::F> {

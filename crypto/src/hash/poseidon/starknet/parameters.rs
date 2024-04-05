@@ -1,6 +1,13 @@
+use std::os::macos::raw::stat;
+
 use crate::hash::poseidon::PermutationParameters;
-use lambdaworks_math::field::{
-    element::FieldElement as FE, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
+use lambdaworks_math::{
+    cyclic_group::IsGroup,
+    field::{
+        element::FieldElement as FE,
+        fields::fft_friendly::stark_252_prime_field::{self, Stark252PrimeField},
+        traits::IsField,
+    },
 };
 
 impl PermutationParameters for PoseidonCairoStark252 {
@@ -19,14 +26,28 @@ impl PermutationParameters for PoseidonCairoStark252 {
         &PoseidonCairoStark252::ROUND_CONSTANTS;
     const N_ROUND_CONSTANTS_ROWS: usize = 91;
     const N_ROUND_CONSTANTS_COLS: usize = 3;
-
     /// Redefined mix function for optimization purposes
     fn mix(state: &mut [FE<Self::F>]) {
         let t = &state[0] + &state[1] + &state[2];
         state[0] = &t + &state[0].double();
         state[1] = &t - &state[1].double();
-        let minus_state_2 = -&state[2];
-        state[2] = &t + &minus_state_2 + &minus_state_2 + &minus_state_2;
+        //let minus_state_2 = -&state[2];
+        //state[2] = &t + &minus_state_2 + &minus_state_2 + &minus_state_2
+        state[2] = &t - (&state[2] + &state[2] + &state[2]);
+    }
+    // Redefined partial round function for optimization purposes
+    fn partial_round(state: &mut [FE<Self::F>], round_number: usize) {
+        if round_number < 86 {
+            state[2] = &state[2] + Self::PARTIAL_ROUND_CONSTANTS[round_number - 4];
+            state[2] = state[2] * state[2] * state[2];
+            Self::mix(state);
+        } else {
+            state[0] = &state[0] + Self::PARTIAL_ROUND_INITIAL_CONSTANT[0];
+            state[1] = &state[1] + Self::PARTIAL_ROUND_INITIAL_CONSTANT[1];
+            state[2] = &state[2] + Self::PARTIAL_ROUND_INITIAL_CONSTANT[2];
+            state[2] = state[2] * state[2] * state[2];
+            Self::mix(state);
+        }
     }
 }
 
@@ -326,4 +347,134 @@ impl PoseidonCairoStark252 {
         FE::from_hex_unchecked("51274d092db5099f180b1a8a13b7f2c7606836eabd8af54bf1d9ac2dc5717a5"),
         FE::from_hex_unchecked("61fc552b8eb75e17ad0fb7aaa4ca528f415e14f0d9cdbed861a8db0bfff0c5b"),
     ];
+    pub const PARTIAL_ROUND_INITIAL_CONSTANT: [FE<Stark252PrimeField>; 3] = [
+        FE::from_hex_unchecked("33610C7ED74DD6F3368AA79852568D697EAC42088E1FCD20E9BEC09622E79A2"),
+        FE::from_hex_unchecked("4E03074A060588E7C80B53BB5E24F6B9A48B72925C241C10AEEBCEB65D32243"),
+        FE::from_hex_unchecked("5C8278C7BBFC30AE7F60E514FE3B9367ACA84C54AD1373861695EA4ABB814EF"),
+    ];
+    pub const PARTIAL_ROUND_CONSTANTS: [FE<Stark252PrimeField>; 82] = [
+        FE::from_hex_unchecked("4B085EB1DF4258C3453CC97445954BF3433B6AB9DD5A99592864C00F54A3F9A"),
+        FE::from_hex_unchecked("731CFD19D508285965F12A079B2A169FDFE0A8E610E6F2D5CA5D7B0961F6D96"),
+        FE::from_hex_unchecked("217D08B5339852BCC6F7A774936B3E72ECD9E1F9A73D743F8079C1E3587EEAA"),
+        FE::from_hex_unchecked("C935DD633B0FD63599B13C850DAB3CB966BA510C81B20959E267008518C6E"),
+        FE::from_hex_unchecked("52AF8D378DD6772EE187ED23F79A7D98CF5A0A387103971467FE940E7B8B2BE"),
+        FE::from_hex_unchecked("294851C98B2682F1EC9918B9F12FCCEAA6E28A7B79B2E506362CDA595F8AB75"),
+        FE::from_hex_unchecked("11B59990BACC280824D1021418D4F589DA8C30063471494C204B169AB086064"),
+        FE::from_hex_unchecked("4B4DF56E3D7753F91960D59AE099B9BEB2CE690E6BBDCD0B599D49CEB2ACD6A"),
+        FE::from_hex_unchecked("5EECFA15A757DC3ECAE9FBD8FF06E466243534F30629FC5F1CF09EB5161AC4"),
+        FE::from_hex_unchecked("680BFDD8B9680E04659227634A1EC5282E5A7CEF81B15677F8448BDA4279059"),
+        FE::from_hex_unchecked("1D0BF8FAB0A1A7A14E2930794F7A3065C17E10B1CEDD791B8877D97ACD85053"),
+        FE::from_hex_unchecked("2C2C8C79F808ACE54BA207053C0D412C0FC11A610F14C48876701A37E32F464"),
+        FE::from_hex_unchecked("354EC9ED01D20EC52AAE19A9B858D3474D8234C11AD7BCE630AD56C54AFA562"),
+        FE::from_hex_unchecked("30DF20FCF6427BAC38BB5D1A42287F4E4136AC5892340E994E6EA28DEEC1E55"),
+        FE::from_hex_unchecked("528CF329C64E7EE3040BAFBDEFF61E241D99B424091E31472EDA296FC9C6778"),
+        FE::from_hex_unchecked("40416F24F623534634789660DF5435EBF0C3E0C69E6C5B5FF6E757930BD1960"),
+        FE::from_hex_unchecked("380C8F936E2ED9FD488AE3BAC7DCE315BA21B11E88339CD5444435CCC9EA38"),
+        FE::from_hex_unchecked("1CC4F5D5603D176F1A8E344392EFD2D03AD0541832829D245E0E2291F255B75"),
+        FE::from_hex_unchecked("5728917AF5DA91F9539310D99F5D142E011D6C8E015EA5423C502AA99C09752"),
+        FE::from_hex_unchecked("EFB450A9E86E1A46E295A348F0F23590925107D17C56D7C788FECC17219AA1"),
+        FE::from_hex_unchecked("2020D74D36C421AE1A025616B342D0784B8FCD977DE6C53A6C26693774DCA99"),
+        FE::from_hex_unchecked("7CFB309B75FD3BF2705558AE511DC82335050969F4BF84FA2B7B4F583989287"),
+        FE::from_hex_unchecked("4651E48B2E9349A5365E009ECE626809D7B7D02A617EB98C785A784812D75E9"),
+        FE::from_hex_unchecked("D77627B270F65122D0269719DA923CCAE822D9AAD0F0947A3B5C8F71C0DCC7"),
+        FE::from_hex_unchecked("199AD3D641B54C4D571B3FE37773A8B82B003377F0DD8B7D3B7758C32908EA8"),
+        FE::from_hex_unchecked("44F33640A8ECFD3973E2E9172A7333482B2D297BE2DA289319E72D137CDFE6E"),
+        FE::from_hex_unchecked("7E4ADF9894D964189D00A02DCF1E6BE7F801234F5216EAB6B6F366B6701ABF7"),
+        FE::from_hex_unchecked("3641FA5B3C90452F5FF808F8A9817EDA7C6AECFB5471DFDCA559FB4E711EE90"),
+        FE::from_hex_unchecked("3DE5729EFD2FCBD897A49A78FA923FC306DF32E6E2F0E02D0EEE2C2CC3F3533"),
+        FE::from_hex_unchecked("62691891A3FC1E27F622966CA0BE20C06563500C8F06C9BDB77BD2882D6C994"),
+        FE::from_hex_unchecked("6608D3BF11C18E4688739F72205763D1590CC4F9885AE1D86E96E0604BAA0BE"),
+        FE::from_hex_unchecked("11C9C9B39CAC71E3419726CE779116D07249F51CBDDA4FD98C25CBBF593A316"),
+        FE::from_hex_unchecked("61E23B58203269CAEF0850F74DA27B9748E3312EA40C6844DD68C557C462AD7"),
+        FE::from_hex_unchecked("4182CD9AB1D9488F870A572010BC2A3D9878440B25951E4CE010855CF83BDC8"),
+        FE::from_hex_unchecked("520FE6C4A096793F9055E6823116D15F1DF2FE89D306F9965F6A59F4F3ECB71"),
+        FE::from_hex_unchecked("346B2B2D6E5810129E093093DCD3DFA99ED6D71F47723EA3FBE4D4E2FD4AFA1"),
+        FE::from_hex_unchecked("1359CA923E7F1448EC1DD2A3684BEE4E8B682C8E8E973ACEA72877CE9F7E6CF"),
+        FE::from_hex_unchecked("47C655F55CF307800DFEFDAD24DE86FDE9DEADAB145A1B392420F37B95D9675"),
+        FE::from_hex_unchecked("4AB291F16555FA8A968CD7C9C285A9598EFD925F2D58B7AA38AD87DCA8441A8"),
+        FE::from_hex_unchecked("39F409C7C782101223D1F6F7D86C21A22C44EF959510E392C9C7C5D17C629C5"),
+        FE::from_hex_unchecked("44BE36B782F882AD86EECB0CD6BEB02E1A2F9FB5587A3BABFACEAD0CAFB6052"),
+        FE::from_hex_unchecked("50A1DFDE9B504AD2906DB6EB5B507203CD1CEB394C52CE7107679A53A0D538B"),
+        FE::from_hex_unchecked("5C753C14DA89E287B181C0DD11AC6C3680BDD7F1017DAE083E7AEBBEAB183AB"),
+        FE::from_hex_unchecked("2CF6306ED32232106C8015A3B180F386EEE93E15F7B4F4FA57746525FC0520C"),
+        FE::from_hex_unchecked("2C2014634D52E27420873CF347429091DFC6380689BD4F54D7D8E502C1C3A09"),
+        FE::from_hex_unchecked("3CFB9C5BD93E02B2FDACDE2058E33E5975C446345F010D850FC09CDF86ED8A1"),
+        FE::from_hex_unchecked("363FA71A383CF3897933F1411FC5F806E311E84F72CB50A9EA4E1281F6B0299"),
+        FE::from_hex_unchecked("728199657067EE16947B3FC76271676B4901B2A3686CFFEBCB960DA91B05DF8"),
+        FE::from_hex_unchecked("3FDFBD47D27F3D34F0723B728E8921DC9BDE34A9872DF5A652A078D7E4EE021"),
+        FE::from_hex_unchecked("7F241379440CACD7DC0EFBE7858EB7DE53CC02CA7D24197945C453398EFF449"),
+        FE::from_hex_unchecked("5B2E8771EA9A0004E3BF056F3727797CBB457A27574D5F104354E52A5C25F0B"),
+        FE::from_hex_unchecked("A8DDBCE708DE44A7E0B3B0333146E1E910245BE6BF822EA057A081BDA2E23E"),
+        FE::from_hex_unchecked("2D521E0DACA24E431AA47CD90A0F551C12270E533835613EDCE2E19AA9B0F61"),
+        FE::from_hex_unchecked("6CDBC0F2AA54D2CF7D5AC3B93F855AF03EEF7B07AAEE00341A6266C30E08AE6"),
+        FE::from_hex_unchecked("3DD96A17111EC8F4C5DA3AD6794C0961CEEE452CBE92C7A0941112B36ED9BF3"),
+        FE::from_hex_unchecked("5EAFB1EDEEDC5C07AC07FDD06159344A2CFB92196A65D9EC0C5E732C36687DC"),
+        FE::from_hex_unchecked("4AB038D7B09EDA9324577B260FEAEBDBCEC5A7B7C7F449B312CFCD065C207E6"),
+        FE::from_hex_unchecked("4CA71981E4DF6B505D2B0D94E235608463C58052570F68E495FC80C7FDEF220"),
+        FE::from_hex_unchecked("6DEE9C6DA4617E32AA419899C8EA8137E9B59D7E2759FFE573C15B77E413D2F"),
+        FE::from_hex_unchecked("58F9E60B34DDAB84DCBE2396065A4305B4A795A4770E4541E625D0460C6F186"),
+        FE::from_hex_unchecked("47B7B4A802A10C1E6C9C735DB6C34042D290906F274BEA8FCECEF17FC9AF632"),
+        FE::from_hex_unchecked("1849BCDB9AD7171096ECC936A186774084A074BE0BFC0FBB9463A06A2BD430C"),
+        FE::from_hex_unchecked("41870FBE04438348AF5767BDDAECD8AEA3B49B4217547DEC4D699B1466736CC"),
+        FE::from_hex_unchecked("226C04E598076A9FA02AA64557DAF28C0EC42E3D4DA68D1965029D284738B07"),
+        FE::from_hex_unchecked("1F0E971F0485A5B42EB92D6655C3DDB475CEC4371F269A95335B2A7D6DAC0FB"),
+        FE::from_hex_unchecked("9F31CC2907DCCBF994D35AA47EE3F4EBDF3703F795047A7B40DD3926431563"),
+        FE::from_hex_unchecked("4B40CCE78F3B641E31CE4DF58CE5A42C22CFBC198C84451FFE8CCA4C64BD7D2"),
+        FE::from_hex_unchecked("191660489E4BD8A3E4563173DE4A226F3AC736962FDFB70F72CB93CE50F8B9F"),
+        FE::from_hex_unchecked("18C0919618DB971F74EB01F293F2DAEA814B475103373DC7ED8DD4C7B467410"),
+        FE::from_hex_unchecked("35B60253848530E845C8753121577D0EF37002E941C3DC1FB240BD57EADC803"),
+        FE::from_hex_unchecked("1AE99DB1575AE91C8B43A9F71A5F362581AD9B413D97FA6FD029134957451D5"),
+        FE::from_hex_unchecked("3E6E1D0F3F8A0F728148EBCBD5D7D337D7CB8FEB58A37D2D1DFB357E172647B"),
+        FE::from_hex_unchecked("18BC36DFFA8F96A659E1A171B55D2706EE3E9AD619E16F5C38DD1F4A209B8F3"),
+        FE::from_hex_unchecked("2C7A3EF1AFB6A302B54AFC3A107FF9199A16EFE9A1CC3AB83FA5B64893DE4ED"),
+        FE::from_hex_unchecked("53A7BD889BED07BF5E27DD8E92F6AE85E4FE4E84B0C6DDE9856E94469DE4BD7"),
+        FE::from_hex_unchecked("4D383FF7FFC6318FDA704ACA35995F86BEC5A02CE9A0BF9D3CC0CC2F03CCEA9"),
+        FE::from_hex_unchecked("4667B6762FB8AD53D07EF7E8A65B21CA96E0B3503037710D1292519C326F5CD"),
+        FE::from_hex_unchecked("2CC8B43E75CF0B42A93C39EA98BCD46055DCCC9589F02EB7FB536422E5921F"),
+        FE::from_hex_unchecked("6B32EE98680871D38751447BFD76086BA4DF0E7BE59C55F4B2CE25582BF9C60"),
+        FE::from_hex_unchecked("3E907927C7182FAAA3B3C81358B82E734EFAC1F0609F0862D635CB1387102A3"),
+        FE::from_hex_unchecked("3F3A5057B3A08975F0253728E512AF78D2F437973F6A93793EA5E8424FBC6EA"),
+        FE::from_hex_unchecked("14B491D73724779F8AA74B3FD8AA5821C21E1017224726A7A946BB6CA68D8F5"),
+    ];
+
+    pub fn compute_new_constants() -> String {
+        let mut res = String::from("");
+        let three: FE<Stark252PrimeField> = FE::from_hex_unchecked("3");
+
+        let mut i = 4;
+        let mut c_next: [FE<Stark252PrimeField>; 3] = [FE::zero(), FE::zero(), FE::zero()];
+        let mut c_current: [FE<Stark252PrimeField>; 3];
+
+        while i <= 86 {
+            let index = 3 * i;
+            c_current = [
+                Self::ROUND_CONSTANTS[index] + c_next[0],
+                Self::ROUND_CONSTANTS[index + 1] + c_next[1],
+                Self::ROUND_CONSTANTS[index + 2] + c_next[2],
+            ];
+
+            c_next = [
+                three * c_current[0] + c_current[1],
+                c_current[0] - c_current[1],
+                c_current[0] + c_current[1],
+            ];
+
+            if i < 86 {
+                res = format!(
+                    "{}, \n FE::from_hex_unchecked(\"{}\")",
+                    res,
+                    c_current[2].representative().to_hex()
+                );
+            } else {
+                res = format!("{}, Last constant: \n FE::from_hex_unchecked(\"{}\"), \n FE::from_hex_unchecked(\"{}\"), \n FE::from_hex_unchecked(\"{}\")", res, c_current[0].representative().to_hex(), c_current[1].representative().to_hex(),c_current[2].representative().to_hex());
+            }
+            i += 1;
+        }
+        res
+    }
+}
+
+#[test]
+fn compute_new_constants() {
+    println!("{}", PoseidonCairoStark252::compute_new_constants());
 }
