@@ -1,48 +1,51 @@
-use core::marker::PhantomData;
-
 use crate::{
     cyclic_group::IsGroup,
     elliptic_curve::short_weierstrass::{
         point::ShortWeierstrassProjectivePoint, traits::IsShortWeierstrass,
     },
-    field::traits::IsPrimeField,
+    field::{element::FieldElement, traits::IsPrimeField},
     traits::ByteConversion,
-    unsigned_integer::traits::IsUnsignedInteger,
+};
+use alloc::{vec, vec::Vec};
+use core::marker::PhantomData;
+
+#[cfg(feature = "parallel")]
+use rayon::iter::{
+    IndexedParallelIterator, IntoParallelRefIterator, IntoParallelRefMutIterator, ParallelIterator,
 };
 
-use rayon::iter::IntoParallelRefIterator;
-#[cfg(feature = "parallel")]
-use rayon::iter::{IndexedParallelIterator, IntoParallelRefMutIterator, ParallelIterator};
+extern crate std; // To be able to use f64::ln()
 
-pub struct Wnaf<EC, ScalarField, const NUM_OF_SCALARS: u32>
+pub struct WnafTable<EC, ScalarField>
 where
     EC: IsShortWeierstrass<PointRepresentation = ShortWeierstrassProjectivePoint<EC>>,
     EC::PointRepresentation: Send + Sync,
-    ScalarField: IsPrimeField,
+    ScalarField: IsPrimeField + Sync,
+    FieldElement<ScalarField>: ByteConversion + Send + Sync,
 {
     table: Vec<Vec<ShortWeierstrassProjectivePoint<EC>>>,
     window_size: usize,
     phantom: PhantomData<ScalarField>,
 }
 
-impl<EC, ScalarField, const NUM_OF_SCALARS: u32> Wnaf<EC, ScalarField, NUM_OF_SCALARS>
+impl<EC, ScalarField> WnafTable<EC, ScalarField>
 where
     EC: IsShortWeierstrass<PointRepresentation = ShortWeierstrassProjectivePoint<EC>>,
     EC::PointRepresentation: Send + Sync,
     ScalarField: IsPrimeField + Sync,
+    FieldElement<ScalarField>: ByteConversion + Send + Sync,
 {
-    pub fn new(base: ShortWeierstrassProjectivePoint<EC>) -> Self {
+    pub fn new(base: &ShortWeierstrassProjectivePoint<EC>, max_num_of_scalars: usize) -> Self {
         let scalar_field_bit_size = ScalarField::field_bit_size();
-
-        let window = Self::get_mul_window_size();
+        let window = Self::get_mul_window_size(max_num_of_scalars);
         let in_window = 1 << window;
         let outerc = (scalar_field_bit_size + window - 1) / window;
         let last_in_window = 1 << (scalar_field_bit_size - (outerc - 1) * window);
 
-        let mut g_outer = base;
+        let mut g_outer = base.clone();
         let mut g_outers = Vec::with_capacity(outerc);
         for _ in 0..outerc {
-            g_outers.push(g_outer.clone()); // performance?
+            g_outers.push(g_outer.clone());
             for _ in 0..window {
                 g_outer = g_outer.double();
             }
@@ -66,7 +69,7 @@ where
 
                 let mut g_inner = ShortWeierstrassProjectivePoint::<EC>::neutral_element();
                 for inner in multiples_of_g.iter_mut().take(curr_in_window) {
-                    *inner = g_inner.clone(); // performance?
+                    *inner = g_inner.clone();
                     g_inner = g_inner.operate_with(&g_outer);
                 }
             },
@@ -79,17 +82,22 @@ where
         }
     }
 
-    pub fn multi_scalar_mul<T>(&self, v: &[T]) -> Vec<ShortWeierstrassProjectivePoint<EC>>
-    where
-        T: IsUnsignedInteger + ByteConversion + Sync,
-    {
-        v.par_iter().map(|e| self.windowed_mul(e.clone())).collect()
+    pub fn multi_scalar_mul(
+        &self,
+        v: &[FieldElement<ScalarField>],
+    ) -> Vec<ShortWeierstrassProjectivePoint<EC>> {
+        #[cfg(feature = "parallel")]
+        let iter = v.par_iter();
+        #[cfg(not(feature = "parallel"))]
+        let iter = v.iter();
+
+        iter.map(|e| self.windowed_mul(e.clone())).collect()
     }
 
-    fn windowed_mul<T>(&self, scalar: T) -> ShortWeierstrassProjectivePoint<EC>
-    where
-        T: IsUnsignedInteger + ByteConversion,
-    {
+    fn windowed_mul(
+        &self,
+        scalar: FieldElement<ScalarField>,
+    ) -> ShortWeierstrassProjectivePoint<EC> {
         let mut res = self.table[0][0].clone();
 
         let modulus_size = ScalarField::field_bit_size();
@@ -116,12 +124,11 @@ where
         res.to_affine()
     }
 
-    fn get_mul_window_size() -> usize {
-        let scalar_field_bit_size = ScalarField::field_bit_size();
-        if scalar_field_bit_size < 32 {
+    fn get_mul_window_size(max_num_of_scalars: usize) -> usize {
+        if max_num_of_scalars < 32 {
             3
         } else {
-            (scalar_field_bit_size as f64).ln().ceil() as usize
+            f64::ln(max_num_of_scalars as f64).ceil() as usize
         }
     }
 }
@@ -131,33 +138,53 @@ mod tests {
     use super::*;
     use crate::{
         elliptic_curve::{
-            short_weierstrass::curves::bls12_381::{curve::BLS12381Curve, default_types::FrField},
+            short_weierstrass::curves::bls12_381::{
+                curve::BLS12381Curve,
+                default_types::{FrElement, FrField},
+            },
             traits::IsEllipticCurve,
         },
         unsigned_integer::element::U256,
     };
     use rand::*;
+    use std::time::Instant;
 
     #[test]
-    fn anal() {
+    fn wnaf_works() {
+        let point_count = 100;
         let g1 = BLS12381Curve::generator();
-        let wnaf = Wnaf::<BLS12381Curve, FrField, 100>::new(g1.clone());
 
         let mut rng = rand_chacha::ChaCha20Rng::seed_from_u64(9001);
         let mut scalars = Vec::new();
-        for _i in 0..100 {
-            scalars.push(U256::from(rng.gen::<u128>()));
+        for _i in 0..point_count {
+            scalars.push(FrElement::new(U256::from(rng.gen::<u128>())));
         }
 
-        let res1: Vec<ShortWeierstrassProjectivePoint<BLS12381Curve>> = scalars
+        let start1 = Instant::now();
+        let naive_result: Vec<_> = scalars
             .iter()
-            .map(|scalar| g1.operate_with_self(scalar.clone()).to_affine())
+            .map(|scalar| {
+                g1.operate_with_self(scalar.clone().representative())
+                    .to_affine()
+            })
             .collect();
+        let duration1 = start1.elapsed();
+        println!(
+            "Time taken for naive ksk with {} scalars: {:?}",
+            point_count, duration1
+        );
 
-        let res2 = wnaf.multi_scalar_mul(&scalars);
+        let start2 = Instant::now();
+        let wnaf_result =
+            WnafTable::<BLS12381Curve, FrField>::new(&g1, point_count).multi_scalar_mul(&scalars);
+        let duration2 = start2.elapsed();
+        println!(
+            "Time taken for wnaf msm including table generation with {} scalars: {:?}",
+            point_count, duration2
+        );
 
-        for i in 0..100 {
-            assert_eq!(res1[i], res2[i]);
+        for i in 0..point_count {
+            assert_eq!(naive_result[i], wnaf_result[i]);
         }
     }
 }
