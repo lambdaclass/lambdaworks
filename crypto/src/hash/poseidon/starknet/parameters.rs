@@ -1,13 +1,6 @@
-use std::os::macos::raw::stat;
-
 use crate::hash::poseidon::PermutationParameters;
-use lambdaworks_math::{
-    cyclic_group::IsGroup,
-    field::{
-        element::FieldElement as FE,
-        fields::fft_friendly::stark_252_prime_field::{self, Stark252PrimeField},
-        traits::IsField,
-    },
+use lambdaworks_math::field::{
+    element::FieldElement as FE, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
 };
 
 impl PermutationParameters for PoseidonCairoStark252 {
