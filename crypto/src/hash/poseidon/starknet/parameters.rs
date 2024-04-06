@@ -21,6 +21,7 @@ impl PermutationParameters for PoseidonCairoStark252 {
     const N_ROUND_CONSTANTS_ROWS: usize = 91;
     const N_ROUND_CONSTANTS_COLS: usize = 3;
     /// Redefined mix function for optimization purposes
+    #[inline(always)]
     fn mix(state: &mut [FE<Self::F>]) {
         let t = &state[0] + &state[1] + &state[2];
         state[0] = &t + &state[0].double();
