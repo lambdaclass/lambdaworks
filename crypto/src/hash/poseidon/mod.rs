@@ -44,7 +44,7 @@ impl<P: PermutationParameters> Poseidon for P {
     fn full_round(state: &mut [FE<Self::F>], index: usize) {
         for (i, value) in state.iter_mut().enumerate() {
             *value = &(*value) + &P::ROUND_CONSTANTS[index + i];
-            *value = &*value * &*value * &*value;
+            *value = &(*value).square() * &*value;
         }
         Self::mix(state);
     }
@@ -52,7 +52,7 @@ impl<P: PermutationParameters> Poseidon for P {
     #[inline]
     fn partial_round(state: &mut [FE<Self::F>], index: usize) {
         state[2] = &state[2] + &P::ROUND_CONSTANTS[index];
-        state[2] = &state[2] * &state[2] * &state[2];
+        state[2] = &state[2].square() * &state[2];
         Self::mix(state);
     }
 
