@@ -17,7 +17,6 @@ mod private {
 pub trait Poseidon: PermutationParameters + self::private::Sealed {
     fn hades_permutation(state: &mut [FE<Self::F>]);
     fn full_round(state: &mut [FE<Self::F>], round_number: usize);
-    //fn partial_round(state: &mut [FE<Self::F>], round_number: usize);
     fn hash(x: &FE<Self::F>, y: &FE<Self::F>) -> FE<Self::F>;
     fn hash_single(x: &FE<Self::F>) -> FE<Self::F>;
     fn hash_many(inputs: &[FE<Self::F>]) -> FE<Self::F>;
