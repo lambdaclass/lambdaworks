@@ -36,9 +36,6 @@ impl<P: PermutationParameters> Poseidon for P {
         }
         for _ in 0..P::N_FULL_ROUNDS / 2 {
             Self::full_round(state, round_number);
-            if round_number == 87 {
-                dbg!(&state);
-            }
             round_number += 1;
         }
     }
