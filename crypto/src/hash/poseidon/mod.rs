@@ -16,7 +16,8 @@ mod private {
 
 pub trait Poseidon: PermutationParameters + self::private::Sealed {
     fn hades_permutation(state: &mut [FE<Self::F>]);
-    fn full_round(state: &mut [FE<Self::F>], round_number: usize);
+    fn full_round(state: &mut [FE<Self::F>], rindex: usize);
+    fn partial_round(state: &mut [FE<Self::F>], index: usize);
     fn hash(x: &FE<Self::F>, y: &FE<Self::F>) -> FE<Self::F>;
     fn hash_single(x: &FE<Self::F>) -> FE<Self::F>;
     fn hash_many(inputs: &[FE<Self::F>]) -> FE<Self::F>;
@@ -24,27 +25,34 @@ pub trait Poseidon: PermutationParameters + self::private::Sealed {
 
 impl<P: PermutationParameters> Poseidon for P {
     fn hades_permutation(state: &mut [FE<Self::F>]) {
-        let mut round_number = 0;
+        let mut index = 0;
         for _ in 0..P::N_FULL_ROUNDS / 2 {
-            Self::full_round(state, round_number);
-            round_number += 1;
+            Self::full_round(state, index);
+            index += P::N_ROUND_CONSTANTS_COLS;
         }
         for _ in 0..P::N_PARTIAL_ROUNDS {
-            Self::partial_round(state, round_number);
-            round_number += 1;
+            Self::partial_round(state, index);
+            index += 1;
         }
         for _ in 0..P::N_FULL_ROUNDS / 2 {
-            Self::full_round(state, round_number);
-            round_number += 1;
+            Self::full_round(state, index);
+            index += P::N_ROUND_CONSTANTS_COLS;
         }
     }
 
     #[inline]
-    fn full_round(state: &mut [FE<Self::F>], round_number: usize) {
+    fn full_round(state: &mut [FE<Self::F>], index: usize) {
         for (i, value) in state.iter_mut().enumerate() {
-            *value = &(*value) + &P::ROUND_CONSTANTS[round_number * P::N_ROUND_CONSTANTS_COLS + i];
+            *value = &(*value) + &P::ROUND_CONSTANTS[index + i];
             *value = &*value * &*value * &*value;
         }
+        Self::mix(state);
+    }
+
+    #[inline]
+    fn partial_round(state: &mut [FE<Self::F>], index: usize) {
+        state[2] = &state[2] + &P::ROUND_CONSTANTS[index];
+        state[2] = &state[2] * &state[2] * &state[2];
         Self::mix(state);
     }
 

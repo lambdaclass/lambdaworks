@@ -42,15 +42,4 @@ pub trait PermutationParameters {
         }
         state.clone_from_slice(&new_state[0..Self::STATE_SIZE]);
     }
-    #[inline]
-    fn partial_round(state: &mut [FE<Self::F>], round_number: usize) {
-        for (i, value) in state.iter_mut().enumerate() {
-            *value =
-                &(*value) + &Self::ROUND_CONSTANTS[round_number * Self::N_ROUND_CONSTANTS_COLS + i];
-        }
-
-        state[Self::STATE_SIZE - 1] = state[Self::STATE_SIZE - 1].pow(Self::ALPHA);
-
-        Self::mix(state);
-    }
 }
