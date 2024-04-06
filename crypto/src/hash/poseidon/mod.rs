@@ -36,14 +36,18 @@ impl<P: PermutationParameters> Poseidon for P {
         }
         for _ in 0..P::N_FULL_ROUNDS / 2 {
             Self::full_round(state, round_number);
+            if round_number == 87 {
+                dbg!(&state);
+            }
             round_number += 1;
         }
     }
 
+    #[inline]
     fn full_round(state: &mut [FE<Self::F>], round_number: usize) {
         for (i, value) in state.iter_mut().enumerate() {
             *value = &(*value) + &P::ROUND_CONSTANTS[round_number * P::N_ROUND_CONSTANTS_COLS + i];
-            *value = value.pow(P::ALPHA);
+            *value = &*value * &*value * &*value;
         }
         Self::mix(state);
     }

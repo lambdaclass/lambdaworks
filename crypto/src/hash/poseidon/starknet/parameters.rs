@@ -27,18 +27,19 @@ impl PermutationParameters for PoseidonCairoStark252 {
         state[2] = &t - (&state[2] + &state[2] + &state[2]);
     }
     // Redefined partial round function for optimization purposes
+    #[inline]
     fn partial_round(state: &mut [FE<Self::F>], round_number: usize) {
-        if round_number < 86 {
-            state[2] = &state[2] + Self::PARTIAL_ROUND_CONSTANTS[round_number - 4];
-            state[2] = state[2] * state[2] * state[2];
-            Self::mix(state);
-        } else {
+        //if round_number < 86 {
+        state[2] = &state[2] + Self::PARTIAL_ROUND_CONSTANTS[round_number - 4];
+        state[2] = state[2] * state[2] * state[2];
+        Self::mix(state);
+        /* } else {
             state[0] = &state[0] + Self::PARTIAL_ROUND_INITIAL_CONSTANT[0];
             state[1] = &state[1] + Self::PARTIAL_ROUND_INITIAL_CONSTANT[1];
             state[2] = &state[2] + Self::PARTIAL_ROUND_INITIAL_CONSTANT[2];
             state[2] = state[2] * state[2] * state[2];
             Self::mix(state);
-        }
+        }*/
     }
 }
 
@@ -325,9 +326,10 @@ impl PoseidonCairoStark252 {
         FE::from_hex_unchecked("d3b174c7290c6bf412083ff35d23821dc512f1df073c1b429130371ac63b1a"),
         FE::from_hex_unchecked("226ed3d763477454b46eb2a5c3b814634d974919689fb489fe55e525b980373"),
         FE::from_hex_unchecked("5f3997e7dafcb2de0e7a23d33d2fd9ef06f4d79bd7ffa1930e8b0080d218513"),
-        FE::from_hex_unchecked("7c5eec716d94634434df335a10bbac504f886f7f9d3c1648348c3fae8fdf14d"),
-        FE::from_hex_unchecked("53cc30d7fe0f84e7e24fd22c0f9ad68a89da85553f871ef63d2f55f57e1a7c"),
-        FE::from_hex_unchecked("368821ee335d71819b95769f47418569474a24f6e83b268fefa4cd58c4ec8fa"),
+        //
+        FE::from_hex_unchecked("64851937F9836EE5A08A7DDE65E44B467018A82BA3BF99BBA0B4502755C8074"),
+        FE::from_hex_unchecked("6A9AC84251294769ECA450FFB52B441882BE77CB85F422FF9EA5E73F1D971DC"),
+        FE::from_hex_unchecked("37EC35B710B0D04C9A2B71F2F7BD098C6A81D991D27F0FC1884F5CA545064DE"),
         FE::from_hex_unchecked("5334f75b052c0235119816883040da72c6d0a61538bdfff46d6a242bfeb7a1"),
         FE::from_hex_unchecked("5d0af4fcbd9e056c1020cca9d871ae68f80ee4af2ec6547cd49d6dca50aa431"),
         FE::from_hex_unchecked("30131bce2fba5694114a19c46d24e00b4699dc00f1d53ba5ab99537901b1e65"),
@@ -343,7 +345,7 @@ impl PoseidonCairoStark252 {
         FE::from_hex_unchecked("4E03074A060588E7C80B53BB5E24F6B9A48B72925C241C10AEEBCEB65D32243"),
         FE::from_hex_unchecked("5C8278C7BBFC30AE7F60E514FE3B9367ACA84C54AD1373861695EA4ABB814EF"),
     ];
-    pub const PARTIAL_ROUND_CONSTANTS: [FE<Stark252PrimeField>; 82] = [
+    pub const PARTIAL_ROUND_CONSTANTS: [FE<Stark252PrimeField>; 83] = [
         FE::from_hex_unchecked("4B085EB1DF4258C3453CC97445954BF3433B6AB9DD5A99592864C00F54A3F9A"),
         FE::from_hex_unchecked("731CFD19D508285965F12A079B2A169FDFE0A8E610E6F2D5CA5D7B0961F6D96"),
         FE::from_hex_unchecked("217D08B5339852BCC6F7A774936B3E72ECD9E1F9A73D743F8079C1E3587EEAA"),
@@ -415,9 +417,9 @@ impl PoseidonCairoStark252 {
         FE::from_hex_unchecked("18C0919618DB971F74EB01F293F2DAEA814B475103373DC7ED8DD4C7B467410"),
         FE::from_hex_unchecked("35B60253848530E845C8753121577D0EF37002E941C3DC1FB240BD57EADC803"),
         FE::from_hex_unchecked("1AE99DB1575AE91C8B43A9F71A5F362581AD9B413D97FA6FD029134957451D5"),
-        FE::from_hex_unchecked("3E6E1D0F3F8A0F728148EBCBD5D7D337D7CB8FEB58A37D2D1DFB357E172647B"),
-        FE::from_hex_unchecked("18BC36DFFA8F96A659E1A171B55D2706EE3E9AD619E16F5C38DD1F4A209B8F3"),
-        FE::from_hex_unchecked("2C7A3EF1AFB6A302B54AFC3A107FF9199A16EFE9A1CC3AB83FA5B64893DE4ED"),
+        FE::from_hex_unchecked("64851937F9836EE5A08A7DDE65E44B467018A82BA3BF99BBA0B4502755C8074"),
+        FE::from_hex_unchecked("6A9AC84251294769ECA450FFB52B441882BE77CB85F422FF9EA5E73F1D971DC"),
+        FE::from_hex_unchecked("37EC35B710B0D04C9A2B71F2F7BD098C6A81D991D27F0FC1884F5CA545064DE"),
         FE::from_hex_unchecked("53A7BD889BED07BF5E27DD8E92F6AE85E4FE4E84B0C6DDE9856E94469DE4BD7"),
         FE::from_hex_unchecked("4D383FF7FFC6318FDA704ACA35995F86BEC5A02CE9A0BF9D3CC0CC2F03CCEA9"),
         FE::from_hex_unchecked("4667B6762FB8AD53D07EF7E8A65B21CA96E0B3503037710D1292519C326F5CD"),
@@ -426,9 +428,9 @@ impl PoseidonCairoStark252 {
         FE::from_hex_unchecked("3E907927C7182FAAA3B3C81358B82E734EFAC1F0609F0862D635CB1387102A3"),
         FE::from_hex_unchecked("3F3A5057B3A08975F0253728E512AF78D2F437973F6A93793EA5E8424FBC6EA"),
         FE::from_hex_unchecked("14B491D73724779F8AA74B3FD8AA5821C21E1017224726A7A946BB6CA68D8F5"),
+        FE::from_hex_unchecked("5C8278C7BBFC30AE7F60E514FE3B9367ACA84C54AD1373861695EA4ABB814EF"),
     ];
 
-    /*
     pub fn compute_new_constants() -> String {
         let mut res = String::from("");
         let three: FE<Stark252PrimeField> = FE::from_hex_unchecked("3");
@@ -451,24 +453,29 @@ impl PoseidonCairoStark252 {
                 c_current[0] + c_current[1],
             ];
 
-            if i < 86 {
-                res = format!(
-                    "{}, \n FE::from_hex_unchecked(\"{}\")",
-                    res,
-                    c_current[2].representative().to_hex()
-                );
-            } else {
-                res = format!("{}, Last constant: \n FE::from_hex_unchecked(\"{}\"), \n FE::from_hex_unchecked(\"{}\"), \n FE::from_hex_unchecked(\"{}\")", res, c_current[0].representative().to_hex(), c_current[1].representative().to_hex(),c_current[2].representative().to_hex());
+            //if i < 86 {
+            res = format!(
+                "{}, \n FE::from_hex_unchecked(\"{}\")",
+                res,
+                c_current[2].representative().to_hex()
+            );
+            // } else {
+            //   res = format!("{}, Last constant: \n FE::from_hex_unchecked(\"{}\"), \n FE::from_hex_unchecked(\"{}\"), \n FE::from_hex_unchecked(\"{}\")", res, c_current[0].representative().to_hex(), c_current[1].representative().to_hex(),c_current[2].representative().to_hex());
+            //}
+            if i == 86 {
+                c_next[0] += Self::ROUND_CONSTANTS[3 * 87];
+                c_next[1] += Self::ROUND_CONSTANTS[3 * 87 + 1];
+                c_next[2] += Self::ROUND_CONSTANTS[3 * 87 + 2];
+                res = format!("{}, Last constant: \n FE::from_hex_unchecked(\"{}\"), \n FE::from_hex_unchecked(\"{}\"), \n FE::from_hex_unchecked(\"{}\")", res, c_next[0].representative().to_hex(), c_next[1].representative().to_hex(),c_next[2].representative().to_hex());
             }
             i += 1;
         }
         res
-    }*/
+    }
 }
 
-/*
 #[test]
 fn compute_new_constants() {
-    println!("{}", PoseidonCairoStark252::compute_new_constants());
+    //println!("{}", PoseidonCairoStark252::compute_new_constants());
+    dbg!(PoseidonCairoStark252::PARTIAL_ROUND_CONSTANTS[0]);
 }
-*/
