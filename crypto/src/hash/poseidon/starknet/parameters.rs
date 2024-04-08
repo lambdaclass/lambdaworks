@@ -335,6 +335,7 @@ impl PoseidonCairoStark252 {
     // In partial rounds, instead of adding constants to all the state, we add a constant just to the state
     // to which the S box is applied (non-linear). The constants for the other positions are "moved forward" and
     // added at the end.
+    // To get this constants you can use the rust code written at the end of the file
     pub const OPTIMIZED_ROUND_CONSTANTS: [FE<Stark252PrimeField>; 107] = [
         FE::from_hex_unchecked("6861759ea556a2339dd92f9562a30b9e58e2ad98109ae4780b7fd8eac77fe6f"),
         FE::from_hex_unchecked("3827681995d5af9ffc8397a3d00425a3da43f76abf28a64e4ab1a22f27508c4"),
