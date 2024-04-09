@@ -121,25 +121,7 @@ fuzz_target!(|values: (u64, u64)| {
         "Inverse add b failed"
     );
 
-    // Pairing Bilinearity
-    // let a = U256::from_u64(a_val);
-    // let b = U256::from_u64(b_val);
-    // let result = BN254AtePairing::compute_batch(&[
-    //     (
-    //         &a_g1.operate_with_self(a).to_affine(),
-    //         &a_g2.operate_with_self(b).to_affine(),
-    //     ),
-    //     (
-    //         &a_g1.operate_with_self(a * b).to_affine(),
-    //         &a_g2.neg().to_affine(),
-    //     ),
-    // ]);
-    // assert_eq!(result, FieldElement::<Degree12ExtensionField>::one());
-
-    // // Ate Pairing returns one with one element is neutral element
-    // let result = BN254AtePairing::compute_batch(&[(&a_g1.to_affine(), &LambdaG2::neutral_element())]);
-    // assert_eq!(result, FieldElement::<Degree12ExtensionField>::one());
-
-    // let result = BN254AtePairing::compute_batch(&[(&LambdaG1::neutral_element(), &a_g2.to_affine())]);
-    // assert_eq!(result, FieldElement::<Degree12ExtensionField>::one());
+    /*
+        NOTE(marian): pairing fuzzer must be added here once it is implemented for the curve
+    */
 });
