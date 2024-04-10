@@ -1,5 +1,4 @@
 #![no_main]
-
 use libfuzzer_sys::fuzz_target;
 use lambdaworks_crypto::hash::poseidon::starknet::PoseidonCairoStark252;
 use lambdaworks_math::field::{
@@ -10,7 +9,8 @@ use lambdaworks_math::traits::ByteConversion;
 use lambdaworks_crypto::hash::poseidon::Poseidon;
 
 fn get_expected_hash(a: &FieldElement<Stark252PrimeField>, b: &FieldElement<Stark252PrimeField>) -> FieldElement<Stark252PrimeField> {
-    PoseidonCairoStark252::hash(a, b) 
+    PoseidonCairoStark252::hash(a, b)
+}
 
 fuzz_target!(|data: ([u8; 32], [u8; 32])| {
     let (bytes_a, bytes_b) = data;
