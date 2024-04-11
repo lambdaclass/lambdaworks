@@ -8,22 +8,42 @@ use lambdaworks_math::field::{
 };
 use lambdaworks_math::traits::ByteConversion;
 use lambdaworks_crypto::hash::poseidon::Poseidon;
+use pathfinder_crypto::MontFelt;
+use pathfinder_crypto::Felt;
+use std::borrow::Cow;
+use std::borrow::BorrowMut;
 fuzz_target!(|data: ([u8; 32], [u8; 32])| {
     let (bytes_a, bytes_b) = data;
 
-    let element_a = FieldElement::<Stark252PrimeField>::from_bytes_be(&bytes_a).unwrap();
-    let element_b = FieldElement::<Stark252PrimeField>::from_bytes_be(&bytes_b).unwrap();
+    let lw_x = FieldElement::<Stark252PrimeField>::from_bytes_be(&bytes_a).unwrap();
+    let lw_y = FieldElement::<Stark252PrimeField>::from_bytes_be(&bytes_b).unwrap();
+    let poseidon_hash = PoseidonCairoStark252::hash(&lw_x, &lw_y).to_hex().to_string();
 
-    let hash_result_1 = PoseidonCairoStark252::hash(&element_a, &element_b);
+    let mut mont_x = lw_x.value().limbs;
+    let mut mont_y = lw_y.value().limbs;
 
-    let hash_result_2 = PoseidonCairoStark252::hash(&element_a, &element_b);
-    assert_eq!(hash_result_1, hash_result_2, "Hashes don't match each other");
+    // In order use the same field elements for starknet-rs and pathfinder, we have to reverse
+    // the limbs order respect to the lambdaworks implementation.
+    
+    mont_x.reverse();
+    mont_y.reverse();
+  
+    let pf_x = MontFelt(mont_x);
+    let pf_y = MontFelt(mont_y);
 
-    let mut bytes_a_modified = bytes_a;
-    //change the first byte
-    bytes_a_modified[0] ^= 0x01; 
-    let element_a_modified = FieldElement::<Stark252PrimeField>::from_bytes_be(&bytes_a_modified).unwrap();
-    let hash_result_modified = PoseidonCairoStark252::hash(&element_a_modified, &element_b);
-    assert_ne!(hash_result_1, hash_result_modified, "Collision found!");
+    let pathfinder_hash = Felt::from(pathfinder_crypto::hash::poseidon_hash(pf_x, pf_y)).to_hex_str();
+    assert_eq!(poseidon_hash, pathfinder_hash, "Hashes don't match each other");
+
+// Starknet-rs
+
+/* 
+    let sn_ff_x = starknet_ff::FieldElement::from_mont(mont_x);
+    let sn_ff_y = starknet_ff::FieldElement::from_mont(mont_y);
+    let starknet_hash =starknet_crypto::poseidon_hash(sn_ff_x, sn_ff_y);
+
+    assert_eq!(poseidon_hash, starknet_hash, "Hashes don't match each other");
+*/
 });
+
+
 

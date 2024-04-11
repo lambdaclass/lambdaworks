@@ -10,7 +10,9 @@ cargo-fuzz = true
 lambdaworks-gpu = { workspace = true }
 libfuzzer-sys = { workspace = true }
 stark-platinum-prover = { workspace = true }
-
+starknet-ff = { git = "https://github.com/xJonathanLEI/starknet-rs" }
+starknet-crypto = { git = "https://github.com/xJonathanLEI/starknet-rs" }
+pathfinder-crypto = { git = "https://github.com/eqlabs/pathfinder.git" }
 
 
 [dependencies.lambdaworks-math]
