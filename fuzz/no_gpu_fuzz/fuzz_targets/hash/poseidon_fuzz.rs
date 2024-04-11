@@ -25,8 +25,8 @@ fuzz_target!(|data: ([u8; 32], [u8; 32])| {
     // In order use the same field elements for starknet-rs and pathfinder, we have to reverse
     // the limbs order respect to the lambdaworks implementation.
     
-    mont_x.reverse();
-    mont_y.reverse();
+    mont_x;
+    mont_y;
   
     let pf_x = MontFelt(mont_x);
     let pf_y = MontFelt(mont_y);
