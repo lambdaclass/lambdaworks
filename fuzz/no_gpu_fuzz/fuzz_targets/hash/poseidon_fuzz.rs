@@ -10,9 +10,15 @@ use lambdaworks_math::traits::ByteConversion;
 use lambdaworks_crypto::hash::poseidon::Poseidon;
 use pathfinder_crypto::MontFelt;
 use pathfinder_crypto::Felt;
+use num_bigint::BigInt;
+use num_traits::ToPrimitive;
+use std::str::FromStr;
 
-
-
+fn convert_dec_to_hex(dec_str: &str) -> String {
+    let dec = BigInt::from_str(dec_str)
+        .unwrap();  
+    format!("0x{:x}", dec)  
+}
 
 fuzz_target!(|data: ([u8; 32], [u8; 32])| {
     let (bytes_a, bytes_b) = data;
@@ -33,16 +39,16 @@ fuzz_target!(|data: ([u8; 32], [u8; 32])| {
     let pf_x = MontFelt(mont_x);
     let pf_y = MontFelt(mont_y);
 
- //   let pathfinder_hash = Felt::from(pathfinder_crypto::hash::poseidon_hash(pf_x, pf_y)).to_hex_str();
-//    assert_eq!(poseidon_hash, pathfinder_hash, "Hashes don't match each other");
+    let pathfinder_hash = Felt::from(pathfinder_crypto::hash::poseidon_hash(pf_x, pf_y)).to_hex_str();
+    assert_eq!(poseidon_hash, pathfinder_hash, "Hashes don't match each other");
 
 // Starknet-rs 
  
-//   let sn_ff_x = starknet_ff::FieldElement::from_mont(mont_x);
-//   let sn_ff_y = starknet_ff::FieldElement::from_mont(mont_y);
-//   let starknet_hash =starknet_crypto::poseidon_hash(sn_ff_x, sn_ff_y).to_string();
+    let sn_ff_x = starknet_ff::FieldElement::from_mont(mont_x);
+    let sn_ff_y = starknet_ff::FieldElement::from_mont(mont_y);
+    let starknet_hash =convert_dec_to_hex(&starknet_crypto::poseidon_hash(sn_ff_x, sn_ff_y).to_string());
 
-//   assert_eq!(poseidon_hash, starknet_hash.to_string(), "Hashes don't match each other");
+   assert_eq!(poseidon_hash, starknet_hash, "Hashes don't match each other");
 
 });
 

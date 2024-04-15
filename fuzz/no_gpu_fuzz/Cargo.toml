@@ -13,7 +13,10 @@ stark-platinum-prover = { workspace = true }
 starknet-ff = { git = "https://github.com/xJonathanLEI/starknet-rs" }
 starknet-crypto = { git = "https://github.com/xJonathanLEI/starknet-rs" }
 pathfinder-crypto = { git = "https://github.com/eqlabs/pathfinder.git" }
-
+hex = "0.4"
+num = "0.4.2"
+num-bigint = "0.4"
+num-traits = "0.2"
 
 [dependencies.lambdaworks-math]
 path = "../../math"
