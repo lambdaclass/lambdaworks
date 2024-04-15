@@ -11,10 +11,7 @@ use lambdaworks_crypto::hash::poseidon::Poseidon;
 use pathfinder_crypto::MontFelt;
 use pathfinder_crypto::Felt;
 
-#[cfg(feature = "alloc")]
-pub fn to_hex_string(&self) -> alloc::string::String {
-    alloc::format!("{self:#x}")
-}
+
 
 
 fuzz_target!(|data: ([u8; 32], [u8; 32])| {
