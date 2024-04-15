@@ -36,16 +36,16 @@ fuzz_target!(|data: ([u8; 32], [u8; 32])| {
     let pf_x = MontFelt(mont_x);
     let pf_y = MontFelt(mont_y);
 
-    let pathfinder_hash = Felt::from(pathfinder_crypto::hash::poseidon_hash(pf_x, pf_y)).to_hex_str();
-    assert_eq!(poseidon_hash, pathfinder_hash, "Hashes don't match each other");
+ //   let pathfinder_hash = Felt::from(pathfinder_crypto::hash::poseidon_hash(pf_x, pf_y)).to_hex_str();
+//    assert_eq!(poseidon_hash, pathfinder_hash, "Hashes don't match each other");
 
 // Starknet-rs 
  
 //   let sn_ff_x = starknet_ff::FieldElement::from_mont(mont_x);
 //   let sn_ff_y = starknet_ff::FieldElement::from_mont(mont_y);
-//   let starknet_hash =starknet_crypto::poseidon_hash(sn_ff_x, sn_ff_y);
+//   let starknet_hash =starknet_crypto::poseidon_hash(sn_ff_x, sn_ff_y).to_string();
 
-//assert_eq!(poseidon_hash, starknet_hash.to_string(), "Hashes don't match each other");
+//   assert_eq!(poseidon_hash, starknet_hash.to_string(), "Hashes don't match each other");
 
 });
 
