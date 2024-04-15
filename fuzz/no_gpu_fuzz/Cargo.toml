@@ -91,3 +91,9 @@ name = "poseidon_fuzz"
 path = "fuzz_targets/hash/poseidon_fuzz.rs"
 test = false
 doc = false
+
+[[bin]]
+name = "pedersen_fuzz"
+path = "fuzz_targets/hash/pedersen_fuzz.rs"
+test = false
+doc = false
