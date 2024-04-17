@@ -95,9 +95,9 @@ impl MetalState {
     /// Returns a vector of a copy of the data that `buffer` holds, interpreting it into a specific
     /// type `T`.
     ///
-    /// BEWARE: this function uses an unsafe function for retrieveing the data, if the buffer's
+    /// BEWARE: this function uses an unsafe function for retrieving the data, if the buffer's
     /// contents don't match the specified `T`, expect undefined behaviour. Always make sure the
-    /// buffer you are retreiving from holds data of type `T`.
+    /// buffer you are retrieving from holds data of type `T`.
     pub fn retrieve_contents<T: Clone>(buffer: &Buffer) -> Vec<T> {
         let ptr = buffer.contents() as *const T;
         let len = buffer.length() as usize / mem::size_of::<T>();

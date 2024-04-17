@@ -686,7 +686,7 @@ where
     }
 }
 
-/* Substraction field element at left */
+/* Subtraction field element at left */
 impl<F, L> ops::Sub<&FieldElement<F>> for &Polynomial<FieldElement<L>>
 where
     L: IsField,

@@ -49,7 +49,7 @@ pub struct CairoInstructionFlags {
 
 impl CairoInstructionFlags {
     /// Gives a bit trace representation of all flags.
-    /// Altough the flags can be interpreted as bits, they are
+    /// Although the flags can be interpreted as bits, they are
     /// represented by field elements: Felt252::zero() for bit 0 and
     /// Felt252::one() for bit 1.
     #[rustfmt::skip]

@@ -38,7 +38,7 @@ fn cairo_compile(program_path: &String, out_file_path: &String) -> Result<(), Er
         .spawn()
     {
         Ok(mut child) => {
-            // wait for spawned proccess to finish
+            // wait for spawned process to finish
             match child.wait() {
                 Ok(_) => Ok(()),
                 Err(err) => Err(err),

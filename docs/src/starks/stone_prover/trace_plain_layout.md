@@ -43,7 +43,7 @@ As can be seen in the [Cairo whitepaper](https://eprint.iacr.org/2021/1063.pdf) 
 
 $\tilde{f_{i}} = \sum_{j=i}^{14}2^{j-i} f_i$
 
-so that $\tilde{f_{0}}$ is the full 15 bit value and $\tilde{f_{15}} = 0$. This way, instead of allocating 15 virtual columns for each flag, we can allocate one of lenght 16 (for each step of the Cairo execution), with the values $\tilde{f_{i}}$. **These are the actual values that appear on the Stone prover trace, rather than the 0s or 1s.**
+so that $\tilde{f_{0}}$ is the full 15 bit value and $\tilde{f_{15}} = 0$. This way, instead of allocating 15 virtual columns for each flag, we can allocate one of length 16 (for each step of the Cairo execution), with the values $\tilde{f_{i}}$. **These are the actual values that appear on the Stone prover trace, rather than the 0s or 1s.**
 
 Noting that $\tilde{f_{i}} - 2\tilde{f}_{i+1} = f_i$, we get that the constraint over this virtual column becomes
 
