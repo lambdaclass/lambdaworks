@@ -587,9 +587,22 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
         (UnsignedInteger { limbs }, carry > 0)
     }
 
-    /// Returns the double of `self`.
     pub fn double(a: &UnsignedInteger<NUM_LIMBS>) -> (UnsignedInteger<NUM_LIMBS>, bool) {
-        Self::add(a, a)
+        let mut cloned = a.clone();
+        let overflow = cloned.double_in_place();
+        (cloned, overflow)
+    }
+
+    pub fn double_in_place(&mut self) -> bool {
+        let mut last_bit_of_previous_limb = 0;
+        for i in (0..NUM_LIMBS).rev() {
+            let limb_ref = &mut self.limbs[i];
+            let last_bit_of_current_limb = *limb_ref >> 63;
+            *limb_ref <<= 1;
+            *limb_ref |= last_bit_of_previous_limb;
+            last_bit_of_previous_limb = last_bit_of_current_limb;
+        }
+        last_bit_of_previous_limb != 0
     }
 
     /// Multi-precision subtraction.
