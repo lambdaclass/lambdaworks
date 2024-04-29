@@ -46,20 +46,35 @@ impl FieldElement<Stark252PrimeField> {
         bytes
     }
 
+    /// Converts the field element to a little-endian bit representation.
+    ///
     /// This follows the convention used by starknet-rs
     pub fn to_bits_le(&self) -> [bool; 256] {
         let limbs = self.representative().limbs;
         let mut bits = [false; 256];
 
         for i in (0..4).rev() {
-            let limb_bytes = limbs[i].to_le_bytes();
             let limb_bytes_starting_index = (3 - i) * 8;
-            for (j, byte) in limb_bytes.iter().enumerate() {
+            for (j, byte) in limbs[i].to_le_bytes().iter().enumerate() {
                 let byte_index = (limb_bytes_starting_index + j) * 8;
                 for k in 0..8 {
-                    let bit_index = byte_index + k;
-                    let bit_value = (byte >> k) & 1 == 1;
-                    bits[bit_index] = bit_value;
+                    bits[byte_index + k] = (byte >> k) & 1 == 1;
+                }
+            }
+        }
+        bits
+    }
+
+    /// Converts the field element to a big-endian bit representation.
+    pub fn to_bits_be(&self) -> [bool; 256] {
+        let mut bits = [false; 256];
+        let mut index = 0;
+
+        for limb in self.representative().limbs {
+            for byte in limb.to_be_bytes() {
+                for i in 0..8 {
+                    bits[index] = (byte >> (7 - i)) & 1 == 1;
+                    index += 1;
                 }
             }
         }
@@ -134,7 +149,6 @@ mod test_stark_252_bytes_ops {
     }
 
     #[test]
-
     fn byte_serialization_and_deserialization_works_le() {
         let element = FieldElement::<Stark252PrimeField>::from_hex_unchecked(
             "\
@@ -150,7 +164,6 @@ mod test_stark_252_bytes_ops {
     }
 
     #[test]
-
     fn byte_serialization_and_deserialization_works_be() {
         let element = FieldElement::<Stark252PrimeField>::from_hex_unchecked(
             "\
@@ -163,5 +176,22 @@ mod test_stark_252_bytes_ops {
         let bytes = element.to_bytes_be();
         let from_bytes = FieldElement::<Stark252PrimeField>::from_bytes_be(&bytes).unwrap();
         assert_eq!(element, from_bytes);
+    }
+
+    #[test]
+    fn to_bits_le_to_bits_be() {
+        let element = FieldElement::<Stark252PrimeField>::from_hex_unchecked(
+            "\
+            0123456701234567\
+            7654321076543210\
+            7654321076543210\
+            7654321076543210\
+        ",
+        );
+
+        let mut bits = element.to_bits_le();
+        bits.reverse();
+
+        assert_eq!(bits, element.to_bits_be());
     }
 }
