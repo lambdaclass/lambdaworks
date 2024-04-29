@@ -15,7 +15,7 @@ use rand::{Rng, SeedableRng};
 
 #[allow(dead_code)]
 pub fn wnaf_bls12_381_benchmarks(c: &mut Criterion) {
-    let scalar_size = 10000;
+    let scalar_size = 1000;
 
     let mut rng = rand_chacha::ChaCha20Rng::seed_from_u64(9001);
     let mut scalars = Vec::new();
@@ -26,11 +26,14 @@ pub fn wnaf_bls12_381_benchmarks(c: &mut Criterion) {
     let g = BLS12381Curve::generator();
 
     let mut group = c.benchmark_group("BLS12-381 WNAF");
-    group.significance_level(0.1).sample_size(10000);
+    group.significance_level(0.1).sample_size(100);
     group.throughput(criterion::Throughput::Elements(1));
 
     group.bench_function(
-        format!("Naive BLS12-381 MSM with size {}", scalar_size),
+        format!(
+            "Naive BLS12-381 vector multiplication with size {}",
+            scalar_size
+        ),
         |bencher| {
             bencher.iter(|| {
                 black_box(
@@ -51,7 +54,10 @@ pub fn wnaf_bls12_381_benchmarks(c: &mut Criterion) {
     );
 
     group.bench_function(
-        format!("WNAF BLS12-381 MSM with size {}", scalar_size),
+        format!(
+            "WNAF BLS12-381 vector multiplication with size {}",
+            scalar_size
+        ),
         |bencher| {
             bencher.iter(|| {
                 black_box(
