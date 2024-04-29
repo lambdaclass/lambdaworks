@@ -98,6 +98,7 @@ mod tests {
     use crate::merkle_tree::{merkle::MerkleTree, test_merkle::TestBackend as TB};
     use alloc::vec::Vec;
     use lambdaworks_math::field::{element::*, fields::u64_prime_field::U64PrimeField};
+    extern crate std;
     use std::collections::HashMap;
 
     /// Goldilocks
