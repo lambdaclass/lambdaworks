@@ -588,7 +588,7 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
     }
 
     pub fn double(a: &UnsignedInteger<NUM_LIMBS>) -> (UnsignedInteger<NUM_LIMBS>, bool) {
-        let mut cloned = a.clone();
+        let mut cloned = (*a).clone();
         let overflow = cloned.double_in_place();
         (cloned, overflow)
     }
