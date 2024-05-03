@@ -23,6 +23,7 @@ The roadmap is dynamic and may change as the bootcamp progresses.
 - [The MiniGoldilocks prime](https://xn--2-umb.com/22/goldilocks/)
 - [Summary on Montgomery arithmetic](https://eprint.iacr.org/2017/1057.pdf)
 - [Mersenne primes](https://eprint.iacr.org/2023/824.pdf)
+- [Binary fields by Vitalik](https://vitalik.eth.limo/general/2024/04/29/binius.html)
 - [Finite Fields](https://www.youtube.com/watch?v=MAhmV_omOwA&list=PLFX2cij7c2PynTNWDBzmzaD6ij170ILbQ&index=8)
 - [Constructing finite fields](https://www.youtube.com/watch?v=JPiXFn9WA5Y&list=PLFX2cij7c2PynTNWDBzmzaD6ij170ILbQ&index=6)
 - [Cyclic groups](https://www.youtube.com/watch?v=UIhhs38IAGM&list=PLFX2cij7c2PynTNWDBzmzaD6ij170ILbQ&index=3)
@@ -30,6 +31,8 @@ The roadmap is dynamic and may change as the bootcamp progresses.
 #### Motivation
 
 - [Mersenne primes' performance in STWO](https://www.youtube.com/watch?v=_eha0QqAbIA)
+- [Circle STARKs](https://www.youtube.com/watch?v=NAhLYMysSdk&list=PLj80z0cJm8QFy2umHqu77a8dbZSqpSH54&index=17)
+- [Binius](https://www.youtube.com/watch?v=rgRWcWOll0w&list=PLj80z0cJm8QFy2umHqu77a8dbZSqpSH54&index=4)
 
 ### Week 2 - Fundamentals II
 
