@@ -12,9 +12,24 @@ The roadmap is dynamic and may change as the bootcamp progresses.
 
 - Math preliminaries: groups, rings and fields
 - Finite fields
+- RSA cryptosystem
 - Univariate polynomials over finite fields
 - Shamir secret sharing
 - Examples of commonly used finite fields in Cryptography
+
+#### Learning materials:
+
+- [An introduction to mathematical cryptography](https://books.google.com.ar/books/about/An_Introduction_to_Mathematical_Cryptogr.html?id=BHuTQgAACAAJ&source=kp_book_description&redir_esc=y) - Chapter 1 & 3.
+- [The MiniGoldilocks prime](https://xn--2-umb.com/22/goldilocks/)
+- [Summary on Montgomery arithmetic](https://eprint.iacr.org/2017/1057.pdf)
+- [Mersenne primes](https://eprint.iacr.org/2023/824.pdf)
+- [Finite Fields](https://www.youtube.com/watch?v=MAhmV_omOwA&list=PLFX2cij7c2PynTNWDBzmzaD6ij170ILbQ&index=8)
+- [Constructing finite fields](https://www.youtube.com/watch?v=JPiXFn9WA5Y&list=PLFX2cij7c2PynTNWDBzmzaD6ij170ILbQ&index=6)
+- [Cyclic groups](https://www.youtube.com/watch?v=UIhhs38IAGM&list=PLFX2cij7c2PynTNWDBzmzaD6ij170ILbQ&index=3)
+
+#### Motivation
+
+- [Mersenne primes' performance in STWO](https://www.youtube.com/watch?v=_eha0QqAbIA)
 
 ### Week 2 - Fundamentals II
 
