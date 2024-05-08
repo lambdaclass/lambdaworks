@@ -34,6 +34,12 @@ The roadmap is dynamic and may change as the bootcamp progresses.
 - [Circle STARKs](https://www.youtube.com/watch?v=NAhLYMysSdk&list=PLj80z0cJm8QFy2umHqu77a8dbZSqpSH54&index=17)
 - [Binius](https://www.youtube.com/watch?v=rgRWcWOll0w&list=PLj80z0cJm8QFy2umHqu77a8dbZSqpSH54&index=4)
 
+#### Exercises
+
+- Find all the multiplicative subgroups of the multiplicative group of integers modulo 17.
+- Define a field in lambdaworks.
+- Write simple code using the different field operations in lambdaworks.
+
 ### Week 2 - Fundamentals II
 
 - Elliptic curves over finite fields.
