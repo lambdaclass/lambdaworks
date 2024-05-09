@@ -39,6 +39,7 @@ The roadmap is dynamic and may change as the bootcamp progresses.
 - Find all the multiplicative subgroups of the multiplicative group of integers modulo 17.
 - Define a field in lambdaworks.
 - Write simple code using the different field operations in lambdaworks.
+- Implement a basic version of Shamir secret sharing.
 
 ### Week 2 - Fundamentals II
 
