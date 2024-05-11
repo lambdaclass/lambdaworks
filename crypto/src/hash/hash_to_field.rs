@@ -40,15 +40,15 @@ fn os2ip<M: IsModulus<UnsignedInteger<N>> + Clone, const N: usize>(
     let mut aux_x = x.to_vec();
     aux_x.reverse();
     let two_to_the_nth = build_two_to_the_nth();
-    let mut j = 0_u32;
+    let mut i = 0_u32;
     let mut item_hex = String::with_capacity(N * 16);
     let mut result = FieldElement::zero();
-    for item_u8 in aux_x.iter() {
-        item_hex += &format!("{:x}", item_u8);
-        if item_hex.len() == item_hex.capacity() {
-            result += FieldElement::from_hex_unchecked(&item_hex) * two_to_the_nth.pow(j);
+    for (j, item_u8) in aux_x.iter().enumerate() {
+        item_hex += &format!("{:02x}", item_u8);
+        if item_hex.len() == item_hex.capacity() || j == aux_x.len() - 1 {
+            result += FieldElement::from_hex_unchecked(&item_hex) * two_to_the_nth.pow(i);
             item_hex.clear();
-            j += 1;
+            i += 1;
         }
     }
     result
