@@ -48,6 +48,7 @@ The roadmap is dynamic and may change as the bootcamp progresses.
 - Small subgroup attacks
 - Collision-resistant hash functions
 - Merkle trees
+- KZG polynomial commitment scheme
 
 #### Recommended material
 
@@ -55,6 +56,7 @@ The roadmap is dynamic and may change as the bootcamp progresses.
 - [Programming Bitcoin](https://books.google.fr/books/about/Programming_Bitcoin.html?id=O2aHDwAAQBAJ&source=kp_book_description&redir_esc=y) - Chapters 2 & 3.
 - [Introduction to Mathematical Cryptography](https://books.google.com.ar/books/about/An_Introduction_to_Mathematical_Cryptogr.html?id=BHuTQgAACAAJ&source=kp_book_description&redir_esc=y) - Chapter 5 until 5.5
 - [Serious Cryptography](https://books.google.com.ar/books/about/Serious_Cryptography.html?id=1D-QEAAAQBAJ&source=kp_book_description&redir_esc=y) - Chapters 11 & 12.
+- [KZG basics and application to Mina Bridge](https://blog.lambdaclass.com/mina-to-ethereum-bridge/)
 
 ### Week 3 - BabySNARK
 
