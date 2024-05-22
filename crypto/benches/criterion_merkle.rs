@@ -32,11 +32,15 @@ fn merkle_tree_benchmarks(c: &mut Criterion) {
     );
 
     // Single element benchmark
-    let single_leaf:  Vec<FE> = vec![FE::one()];
+    let single_leaf: Vec<FE> = vec![FE::one()];
 
-    group.bench_with_input("build_single", single_leaf.as_slice(), |bench, single_leaf| {
-        bench.iter_with_large_drop(|| MerkleTree::<TreeBackend>::build(single_leaf));
-    });
+    group.bench_with_input(
+        "build_single",
+        single_leaf.as_slice(),
+        |bench, single_leaf| {
+            bench.iter_with_large_drop(|| MerkleTree::<TreeBackend>::build(single_leaf));
+        },
+    );
 
     group.finish();
 }
