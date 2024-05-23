@@ -32,10 +32,10 @@ where
     B: IsMerkleTreeBackend,
 {
     pub fn build(unhashed_leaves: &[B::Data]) -> Self {
-        let mut hashed_leaves: Vec<B::Node> = B::hash_leaves(unhashed_leaves);
+        let hashed_leaves: Vec<B::Node> = B::hash_leaves(unhashed_leaves);
 
         //The leaf must be a power of 2 set
-        hashed_leaves = complete_until_power_of_two(&mut hashed_leaves);
+        let hashed_leaves = complete_until_power_of_two(hashed_leaves);
         let leaves_len = hashed_leaves.len();
 
         //The length of leaves minus one inner node in the merkle tree
