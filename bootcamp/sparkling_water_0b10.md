@@ -65,6 +65,20 @@ The roadmap is dynamic and may change as the bootcamp progresses.
 - KZG commitment scheme.
 - Square span programs
 - BabySNARK
+- Field extensions
+
+#### Reading material
+
+- [Pairings for beginners](https://static1.squarespace.com/static/5fdbb09f31d71c1227082339/t/5ff394720493bd28278889c6/1609798774687/PairingsForBeginners.pdf)
+- [BabySNARK](https://github.com/lambdaclass/lambdaworks/tree/main/examples/baby-snark)
+
+#### Exercises
+
+- Create a simple boolean circuit, generate the square constraint system and generate a proof of execution and verify it.
+- Explain what polynomial commitments are and how KZG commitment works.
+- Create a false proof if you know the value of the parameter beta.
+- Explain the drawbacks of a trusted setup.
+- Solve [exercise 2 in lambdaworks](https://github.com/lambdaclass/lambdaworks/tree/main/exercises/challenge_2)
 
 ### Week 4 - STARKs and the FRI protocol
 
