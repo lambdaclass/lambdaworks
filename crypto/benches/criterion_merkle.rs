@@ -18,12 +18,12 @@ fn merkle_tree_benchmarks(c: &mut Criterion) {
     group.sample_size(10);
     group.measurement_time(Duration::from_secs(30));
 
-    // Large number of leaves benchmark
+    // NOTE: the values to hash don't really matter, so let's go with the easy ones.
+
     let unhashed_leaves: Vec<_> = core::iter::successors(Some(FE::zero()), |s| Some(s + FE::one()))
         .take((1 << 20) + 1)
         .collect();
-        // `(1 << 20) + 1` exploits worst cases in terms of rounding up to powers of 2.
-
+    // `(1 << 20) + 1` exploits worst cases in terms of rounding up to powers of 2.
 
     group.bench_with_input(
         "build_large",
