@@ -31,8 +31,8 @@ fn merkle_tree_benchmarks(c: &mut Criterion) {
         },
     );
 
-    // Single element benchmark
-    // This is a special case that should be optimized
+    // Single element benchmark. This is a special case that should be optimized
+
     let single_leaf: Vec<FE> = vec![FE::one()];
 
     group.bench_with_input(
