@@ -6,6 +6,9 @@ use sha3::{Digest, Sha3_256};
 
 pub struct Sha3Hasher;
 
+
+// Sha3 Hasher used over fields
+/// Notice while it's generic over F, it's only generates enough randomness for fields of at most 256 bits
 impl Sha3Hasher {
     pub const fn new() -> Self {
         Self

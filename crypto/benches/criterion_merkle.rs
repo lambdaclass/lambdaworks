@@ -22,6 +22,8 @@ fn merkle_tree_benchmarks(c: &mut Criterion) {
     let unhashed_leaves: Vec<_> = core::iter::successors(Some(FE::zero()), |s| Some(s + FE::one()))
         .take((1 << 20) + 1)
         .collect();
+        // `(1 << 20) + 1` exploits worst cases in terms of rounding up to powers of 2.
+
 
     group.bench_with_input(
         "build_large",
@@ -31,17 +33,6 @@ fn merkle_tree_benchmarks(c: &mut Criterion) {
         },
     );
 
-    // Single element benchmark. This is a special case that should be optimized
-
-    let single_leaf: Vec<FE> = vec![FE::one()];
-
-    group.bench_with_input(
-        "build_single",
-        single_leaf.as_slice(),
-        |bench, single_leaf| {
-            bench.iter_with_large_drop(|| MerkleTree::<TreeBackend>::build(single_leaf));
-        },
-    );
     group.finish();
 }
 

@@ -109,6 +109,7 @@ mod tests {
     }
 
     #[test]
+    // expected | 8 | 7 | 1 | 6 | 1 | 7 | 7 | 2 | 4 | 6 | 8 | 10 | 10 | 10 | 10 |
     fn build_merkle_tree_from_an_odd_set_of_leaves() {
         const MODULUS: u64 = 13;
         type U64PF = U64PrimeField<MODULUS>;
