@@ -23,7 +23,8 @@ rand = "0.8.5"
 rand_chacha = "0.3.1"
 
 [features]
-default = ["std"]
+default = ["asm", "std"]
+asm = ["sha3/asm"]
 std = ["lambdaworks-math/std", "sha2/std", "sha3/std", "serde?/std"]
 serde = ["dep:serde"]
 test_fiat_shamir = []
