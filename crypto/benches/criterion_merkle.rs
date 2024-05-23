@@ -32,6 +32,7 @@ fn merkle_tree_benchmarks(c: &mut Criterion) {
     );
 
     // Single element benchmark
+    // This is a special case that should be optimized
     let single_leaf: Vec<FE> = vec![FE::one()];
 
     group.bench_with_input(
@@ -41,7 +42,6 @@ fn merkle_tree_benchmarks(c: &mut Criterion) {
             bench.iter_with_large_drop(|| MerkleTree::<TreeBackend>::build(single_leaf));
         },
     );
-
     group.finish();
 }
 
