@@ -152,4 +152,15 @@ mod tests {
             assert_eq!(node, expected_node);
         }
     }
+
+    #[test]
+    fn build_merkle_tree_from_a_single_value() {
+        let values: Vec<FE> = vec![FE::new(1)];
+        let merkle_tree = MerkleTree::<TestBackend<U64PF>>::build(&values);
+
+        let expected_root = FE::new(2); 
+        assert_eq!(merkle_tree.root, expected_root);
+        let proof = merkle_tree.get_proof_by_pos(0).unwrap();
+        assert!(proof.verify::<TestBackend<U64PF>>(&merkle_tree.root, 0, &values[0]));
+    }
 }

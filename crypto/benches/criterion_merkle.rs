@@ -26,7 +26,7 @@ fn merkle_tree_benchmarks(c: &mut Criterion) {
     // `(1 << 20) + 1` exploits worst cases in terms of rounding up to powers of 2.
 
     group.bench_with_input(
-        "build_large",
+        "build",
         unhashed_leaves.as_slice(),
         |bench, unhashed_leaves| {
             bench.iter_with_large_drop(|| MerkleTree::<TreeBackend>::build(unhashed_leaves));
