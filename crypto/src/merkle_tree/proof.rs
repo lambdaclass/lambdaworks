@@ -158,15 +158,18 @@ mod tests {
         const MODULUS: u64 = 13;
         type U64PF = U64PrimeField<MODULUS>;
         type FE = FieldElement<U64PF>;
-    
-        let values: Vec<FE> = vec![FE::new(1)];  // Single element
+
+        let values: Vec<FE> = vec![FE::new(1)]; // Single element
         let merkle_tree = MerkleTree::<TestBackend<U64PF>>::build(&values);
-        
+
         // Update the expected root value based on the actual logic of TestBackend
         // For example, if combining two `1`s results in `4`, update this accordingly
-        let expected_root = FE::new(4);  // Assuming combining two `1`s results in `4`
-        assert_eq!(merkle_tree.root, expected_root, "The root of the Merkle tree does not match the expected value.");
-    
+        let expected_root = FE::new(4); // Assuming combining two `1`s results in `4`
+        assert_eq!(
+            merkle_tree.root, expected_root,
+            "The root of the Merkle tree does not match the expected value."
+        );
+
         // Verify the proof for the single element
         let proof = merkle_tree.get_proof_by_pos(0).unwrap();
         assert!(
@@ -174,5 +177,4 @@ mod tests {
             "The proof verification failed for the element at position 0."
         );
     }
-
 }

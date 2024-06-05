@@ -8,7 +8,7 @@ use super::{proof::Proof, traits::IsMerkleTreeBackend, utils::*};
 pub enum Error {
     OutOfBounds,
 }
-  
+
 impl Display for Error {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "Accessed node was out of bound")
@@ -122,12 +122,11 @@ mod tests {
         const MODULUS: u64 = 13;
         type U64PF = U64PrimeField<MODULUS>;
         type FE = FieldElement<U64PF>;
-    
-        let values: Vec<FE> = vec![FE::new(1)];  // Single element
+
+        let values: Vec<FE> = vec![FE::new(1)]; // Single element
         let merkle_tree = MerkleTree::<TestBackend<U64PF>>::build(&values);
-        
+
         // Update the expected value based on the actual backend logic
-        assert_eq!(merkle_tree.root, FE::new(4));  // Updated to reflect actual combine behavior
+        assert_eq!(merkle_tree.root, FE::new(4)); // Updated to reflect actual combine behavior
     }
-    
 }
