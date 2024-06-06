@@ -124,6 +124,6 @@ mod tests {
 
         let values: Vec<FE> = vec![FE::new(1)]; // Single element
         let merkle_tree = MerkleTree::<TestBackend<U64PF>>::build(&values);
-        assert_eq!(merkle_tree.root, FE::new(4));  // Adjusted expected value
+        assert_eq!(merkle_tree.root, FE::new(4)); // Adjusted expected value
     }
 }
