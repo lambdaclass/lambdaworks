@@ -154,7 +154,7 @@ mod tests {
     }
 
     #[test]
-    fn build_merkle_tree_from_a_single_value() {
+    fn verify_merkle_proof_for_single_value() {
         const MODULUS: u64 = 13;
         type U64PF = U64PrimeField<MODULUS>;
         type FE = FieldElement<U64PF>;
