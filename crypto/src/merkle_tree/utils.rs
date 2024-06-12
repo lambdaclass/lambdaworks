@@ -22,8 +22,11 @@ pub fn parent_index(node_index: usize) -> usize {
 
 // The list of values is completed repeating the last value to a power of two length
 pub fn complete_until_power_of_two<T: Clone>(values: &mut Vec<T>) -> Vec<T> {
+    if values.len() == 1 {
+        return values.clone(); // Return immediately if there is only one element.
+    }
     while !is_power_of_two(values.len()) {
-        values.push(values[values.len() - 1].clone())
+        values.push(values[values.len() - 1].clone());
     }
     values.to_vec()
 }
