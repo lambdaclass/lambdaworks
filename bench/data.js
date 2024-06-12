@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1716492725212,
+  "lastUpdate": 1718220809157,
   "repoUrl": "https://github.com/lambdaclass/lambdaworks",
   "entries": {
     "Benchmark": [
@@ -4559,6 +4559,150 @@ window.BENCHMARK_DATA = {
             "name": "Polynomial/interpolate_fft_metal #4",
             "value": 3093441187,
             "range": "± 19796324",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "45471455+jotabulacios@users.noreply.github.com",
+            "name": "jotabulacios",
+            "username": "jotabulacios"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e465d7c791dce405c0c630f6afd44b12f277ab0a",
+          "message": "Handle single element cases in MerkleTree and update tests (#871)\n\n* Handle single element cases in MerkleTree and update test\n\n* Apply rustfmt to format code\n\n* fix clippy issues\n\n* fix clippy issues\n\n* fix clippy issues\n\n* save work\n\n* save work\n\n* fix deleted coments by mistake\n\n* run cargo fmt\n\n* add test to verify Merkle tree with a single element\n\n* cargo fmt\n\n* handle single element case\n\n* run cargo fmt\n\n* suggested changes\n\n* save work\n\n* change function name to better describe its actual operation",
+          "timestamp": "2024-06-12T19:20:09Z",
+          "tree_id": "97185614a030b5311be7f08385f40ba56b78ae79",
+          "url": "https://github.com/lambdaclass/lambdaworks/commit/e465d7c791dce405c0c630f6afd44b12f277ab0a"
+        },
+        "date": 1718220807000,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "Ordered FFT/Parallel (Metal)",
+            "value": 91981613,
+            "range": "± 8180845",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #2",
+            "value": 145462009,
+            "range": "± 8846657",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #3",
+            "value": 288799874,
+            "range": "± 6672976",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #4",
+            "value": 580665875,
+            "range": "± 6882727",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal)",
+            "value": 32044005,
+            "range": "± 105388",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #2",
+            "value": 64446607,
+            "range": "± 629563",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #3",
+            "value": 125042369,
+            "range": "± 787992",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #4",
+            "value": 262407125,
+            "range": "± 1680278",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal)",
+            "value": 30157368,
+            "range": "± 350484",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #2",
+            "value": 58239270,
+            "range": "± 904750",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #3",
+            "value": 114926933,
+            "range": "± 5311571",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #4",
+            "value": 268166301,
+            "range": "± 11512547",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal",
+            "value": 113490452,
+            "range": "± 667309",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #2",
+            "value": 225388631,
+            "range": "± 1225874",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #3",
+            "value": 448874541,
+            "range": "± 3425646",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #4",
+            "value": 915644687,
+            "range": "± 22074817",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal",
+            "value": 394874781,
+            "range": "± 611788",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #2",
+            "value": 786263520,
+            "range": "± 9045253",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #3",
+            "value": 1551797770,
+            "range": "± 4514657",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #4",
+            "value": 3072606833,
+            "range": "± 38452308",
             "unit": "ns/iter"
           }
         ]
