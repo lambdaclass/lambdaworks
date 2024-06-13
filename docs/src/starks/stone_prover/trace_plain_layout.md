@@ -131,7 +131,7 @@ The interaction trace columns can be visualized with the following table:
 ![](images/interaction_trace.png)
 
 ## Column 6 - range check cumulative product
-The details about how this column is built can be found in the [Cairo whitepaper](https://eprint.iacr.org/2021/1063.pdf), sections 9.4 and 9.9. In summary, just the cumulative product to prove the permutation between the the rc pool and the sorted rc pool.
+The details about how this column is built can be found in the [Cairo whitepaper](https://eprint.iacr.org/2021/1063.pdf), sections 9.4 and 9.9. In summary, just the cumulative product to prove the permutation between the rc pool and the sorted rc pool.
 
 ## Column 7 - multi column permutation cum product
 Similarly to column 6, the details of how this column is built is referred to sections 9.7 and 9.8 of the whitepaper.

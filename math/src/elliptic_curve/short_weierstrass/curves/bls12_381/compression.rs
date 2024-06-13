@@ -81,7 +81,7 @@ pub fn compress_g1_point(point: &G1Point) -> alloc::vec::Vec<u8> {
 
         let mut x_bytes = x.to_bytes_be();
 
-        // Set first bit to to 1 indicate this is compressed element.
+        // Set first bit to 1 indicate this is compressed element.
         x_bytes[0] |= 1 << 7;
 
         let y_neg = core::ops::Neg::neg(y);
