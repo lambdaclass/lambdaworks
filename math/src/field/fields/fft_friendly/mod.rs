@@ -2,6 +2,8 @@
 pub mod babybear;
 /// Implemenation of the quadratic extension of the babybear field
 pub mod quadratic_babybear;
+/// Implementation of the prime field used in [Stark101](https://starkware.co/stark-101/) tutorial, p = 3 * 2^30 + 1
+pub mod stark_101_prime_field;
 /// Implementation of two-adic prime field over 256 bit unsigned integers.
 pub mod stark_252_prime_field;
 /// Implemenation of the Goldilocks Prime Field p = 2^64 - 2^32 + 1
