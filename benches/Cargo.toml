@@ -10,7 +10,8 @@ ark-std = "0.4.0"
 rand = "0.8.5"
 rand_chacha = "0.3.1"
 starknet-curve = { git = "https://github.com/xJonathanLEI/starknet-rs" }
-starknet-ff = { git = "https://github.com/xJonathanLEI/starknet-rs" }
+#starknet-ff = { git = "https://github.com/xJonathanLEI/starknet-rs" }
+starknet-types-core = { version = "0.1.3", default-features = false, features = ["curve"] }
 starknet-crypto = { git = "https://github.com/xJonathanLEI/starknet-rs" }
 pathfinder-crypto = { git = "https://github.com/eqlabs/pathfinder.git" }
 
