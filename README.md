@@ -158,6 +158,10 @@ To serve the documentation locally, first install both [mdbook](https://rust-lan
 make docs
 ```
 
+## Learning resources
+
+If you want to learn about proof systems/cryptography, we have a list of resources available [here](./bootcamp/learning_resources.md)
+
 ## 📚 References
 
 The following links, repos and projects have been important in the development of this library and we want to thank and acknowledge them. 
