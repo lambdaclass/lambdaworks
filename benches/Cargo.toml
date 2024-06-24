@@ -9,10 +9,9 @@ ark-test-curves = { git = "https://github.com/arkworks-rs/algebra", rev = "ef8f7
 ark-std = "0.4.0"
 rand = "0.8.5"
 rand_chacha = "0.3.1"
-starknet-curve = { git = "https://github.com/xJonathanLEI/starknet-rs" }
-#starknet-ff = { git = "https://github.com/xJonathanLEI/starknet-rs" }
-starknet-types-core = { version = "0.1.3", default-features = false, features = ["curve"] }
-starknet-crypto = { git = "https://github.com/xJonathanLEI/starknet-rs" }
+starknet-curve = { git = "https://github.com/xJonathanLEI/starknet-rs", tag = "starknet-curve/v0.4.2" }
+starknet-ff = { git = "https://github.com/xJonathanLEI/starknet-rs", tag = "starknet-ff/v0.3.7" }
+starknet-crypto = { git = "https://github.com/xJonathanLEI/starknet-rs", tag = "starknet-crypto/v0.6.2" }
 pathfinder-crypto = { git = "https://github.com/eqlabs/pathfinder.git" }
 
 [dependencies.lambdaworks-math]
