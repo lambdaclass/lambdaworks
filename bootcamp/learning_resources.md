@@ -15,6 +15,7 @@ This list contains papers, videos, books, and links to resources that we found u
 ## Papers
 
 - [Pinocchio](https://eprint.iacr.org/2013/279.pdf)
+- [Plonk](https://eprint.iacr.org/2019/953.pdf)
 
 ## Links
 
