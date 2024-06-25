@@ -16,7 +16,14 @@ This list contains papers, videos, books, and links to resources that we found u
 
 - [Pinocchio](https://eprint.iacr.org/2013/279.pdf)
 - [Plonk](https://eprint.iacr.org/2019/953.pdf)
+- [Square Span Programs with Applications to Succinct NIZK Arguments](https://eprint.iacr.org/2014/718.pdf)
+- [KZG Polynomial Commitment Scheme](https://cacr.uwaterloo.ca/techreports/2010/cacr2010-10.pdf)
 
+## Courses
+- [Modern Zero Knowledge Cryptography - MIT IAP 2023](https://zkiap.com)
+- [Zero Knowledge Proofs - Dan Boneh, Shafi Goldwasser, Dawn Song, Justin Thaler & Yupeng Zhang](https://zk-learning.org)
+  
 ## Links
 
 - [STARK-101 - Python](https://starkware.co/stark-101/)
+- [BabySnark Protocol](https://github.com/lambdaclass/lambdaworks/tree/main/examples/baby-snark)
