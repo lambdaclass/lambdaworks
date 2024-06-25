@@ -5,7 +5,6 @@ This list contains papers, videos, books, and links to resources that we found u
 ## Videos
 
 - [ZK Whiteboard](https://zkhack.dev/whiteboard/)
-- [ZK MOOC](https://www.youtube.com/@blockchain-web3moocs635/playlists)
 - [All the MATH you need to understand SNARKs and STARKs](https://www.youtube.com/playlist?list=PLFX2cij7c2PynTNWDBzmzaD6ij170ILbQ)
 
 ## Books
@@ -21,7 +20,7 @@ This list contains papers, videos, books, and links to resources that we found u
 
 ## Courses
 - [Modern Zero Knowledge Cryptography - MIT IAP 2023](https://zkiap.com)
-- [Zero Knowledge Proofs - Dan Boneh, Shafi Goldwasser, Dawn Song, Justin Thaler & Yupeng Zhang](https://zk-learning.org)
+- [Zero Knowledge Proofs](https://zk-learning.org) Dan Boneh, Shafi Goldwasser, Dawn Song, Justin Thaler & Yupeng Zhang
   
 ## Links
 
