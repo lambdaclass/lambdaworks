@@ -28,14 +28,12 @@ pub fn complete_until_power_of_two<T: Clone>(values: &mut Vec<T>) -> Vec<T> {
     values.to_vec()
 }
 
-/*
-    ! NOTE !
-    - We in this function we  say 2^0 = 1 is not a power of two when it is infact true. We 
-    need this to maintain that the smallest tree at two leaves counts and we could not find 
-    a name that wasn't overly verbose. In the case of a single value being present in a leaf node 
-    this indicates we pad to next power of two (i.e. 2). The function is private and is only used 
-    to ensure the tree has a power of 2 number of leaves.
-*/
+// ! NOTE !
+// We in this function we  say 2^0 = 1 is not a power of two when it is infact true. We
+// need this to maintain that the smallest tree at two leaves counts and we could not find
+// a name that wasn't overly verbose. In the case of a single value being present in a leaf node
+// this indicates we pad to next power of two (i.e. 2). The function is private and is only used
+// to ensure the tree has a power of 2 number of leaves.
 fn is_power_of_two(x: usize) -> bool {
     (x > 1) && ((x & (x - 1)) == 0)
 }
