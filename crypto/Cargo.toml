@@ -11,6 +11,8 @@ license.workspace = true
 lambdaworks-math = { workspace = true, features = ["alloc"] }
 sha3 = { version = "0.10", default-features = false }
 sha2 = { version = "0.10", default-features = false }
+rand_chacha = "0.3.1"
+rand = "0.8.5"
 
 # Optional
 serde = { version = "1.0", default-features = false, features = ["derive", "alloc"], optional = true }
