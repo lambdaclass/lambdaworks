@@ -511,12 +511,10 @@ impl<F: IsPrimeField> FieldElement<F> {
     /// Returns a `CreationError::EmptyString` if the input string is empty.
     pub fn from_hex(hex_string: &str) -> Result<Self, CreationError> {
         if hex_string.is_empty() {
-            return Err(CreationError::EmptyString)?;
+            return Err(CreationError::EmptyString);
         }
-
-        Ok(Self {
-            value: F::from_hex(hex_string)?,
-        })
+        let value = F::from_hex(hex_string)?;
+        Ok(Self { value })
     }
 
     #[cfg(feature = "std")]

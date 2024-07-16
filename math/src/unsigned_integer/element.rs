@@ -425,6 +425,7 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
     /// Creates an `UnsignedInteger` from a hexstring. It can contain `0x` or not.
     /// Returns an `CreationError::InvalidHexString`if the value is not a hexstring.
     /// Returns a `CreationError::EmptyString` if the input string is empty.
+    /// Returns a `CreationError::HexStringIsTooBig` if the the imput hex string is bigger than the maximum amount of characters for this element.
     pub fn from_hex(value: &str) -> Result<Self, CreationError> {
         let mut string = value;
         let mut char_iterator = value.chars();
@@ -447,7 +448,7 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
         if string.len() > max_amount_of_hex_chars {
             return Err(CreationError::HexStringIsTooBig);
         }
-        
+
         Ok(Self::from_hex_unchecked(string))
     }
 
@@ -1258,12 +1259,15 @@ mod tests_u384 {
     fn from_hex_with_overflowing_hexstring_should_error() {
         let u256_from_big_string = U256::from_hex(&"f".repeat(65));
         assert!(u256_from_big_string.is_err());
-        assert!(u256_from_big_string == Err(crate::unsigned_integer::element::CreationError::HexStringIsTooBig));
+        assert!(
+            u256_from_big_string
+                == Err(crate::unsigned_integer::element::CreationError::HexStringIsTooBig)
+        );
     }
 
     #[test]
     fn from_hex_with_non_overflowing_hexstring_should_work() {
-        assert_eq!(U256::from_hex(&"0".repeat(64)).unwrap().limbs, [0,0,0,0])
+        assert_eq!(U256::from_hex(&"0".repeat(64)).unwrap().limbs, [0, 0, 0, 0])
     }
 
     #[test]
