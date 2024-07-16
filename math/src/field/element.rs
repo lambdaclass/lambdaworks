@@ -509,7 +509,7 @@ impl<F: IsPrimeField> FieldElement<F> {
     /// Creates a `FieldElement` from a hexstring. It can contain `0x` or not.
     /// Returns an `CreationError::InvalidHexString`if the value is not a hexstring.
     /// Returns a `CreationError::EmptyString` if the input string is empty.
-    /// Returns a `CreationError::HexStringIsTooBig` if the the imput hex string is bigger
+    /// Returns a `CreationError::HexStringIsTooBig` if the the input hex string is bigger
     /// than the maximum amount of characters for this element.
     pub fn from_hex(hex_string: &str) -> Result<Self, CreationError> {
         if hex_string.is_empty() {
