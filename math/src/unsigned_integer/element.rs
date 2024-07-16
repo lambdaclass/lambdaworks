@@ -440,6 +440,14 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
         if !Self::is_hex_string(string) {
             return Err(CreationError::InvalidHexString);
         }
+
+        // Limbs are of 64 bits - 8 bytes
+        // We have 16 nibbles per bytes
+        let max_amount_of_hex_chars = NUM_LIMBS * 16;
+        if string.len() > max_amount_of_hex_chars {
+            return Err(CreationError::HexStringIsTooBig);
+        }
+        
         Ok(Self::from_hex_unchecked(string))
     }
 
@@ -1001,7 +1009,7 @@ impl<const NUM_LIMBS: usize> Arbitrary for UnsignedInteger<NUM_LIMBS> {
 #[cfg(test)]
 mod tests_u384 {
     use crate::traits::ByteConversion;
-    use crate::unsigned_integer::element::{UnsignedInteger, U384};
+    use crate::unsigned_integer::element::{UnsignedInteger, U256, U384};
     #[cfg(feature = "proptest")]
     use proptest::prelude::*;
     #[cfg(feature = "proptest")]
@@ -1244,6 +1252,18 @@ mod tests_u384 {
                 6872850209053821716
             ]
         );
+    }
+
+    #[test]
+    fn from_hex_with_overflowing_hexstring_should_error() {
+        let u256_from_big_string = U256::from_hex(&"f".repeat(65));
+        assert!(u256_from_big_string.is_err());
+        assert!(u256_from_big_string == Err(crate::unsigned_integer::element::CreationError::HexStringIsTooBig));
+    }
+
+    #[test]
+    fn from_hex_with_non_overflowing_hexstring_should_work() {
+        assert_eq!(U256::from_hex(&"0".repeat(64)).unwrap().limbs, [0,0,0,0])
     }
 
     #[test]
