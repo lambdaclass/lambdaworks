@@ -425,7 +425,8 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
     /// Creates an `UnsignedInteger` from a hexstring. It can contain `0x` or not.
     /// Returns an `CreationError::InvalidHexString`if the value is not a hexstring.
     /// Returns a `CreationError::EmptyString` if the input string is empty.
-    /// Returns a `CreationError::HexStringIsTooBig` if the the imput hex string is bigger than the maximum amount of characters for this element.
+    /// Returns a `CreationError::HexStringIsTooBig` if the the imput hex string is bigger
+    /// than the maximum amount of characters for this element.
     pub fn from_hex(value: &str) -> Result<Self, CreationError> {
         let mut string = value;
         let mut char_iterator = value.chars();
