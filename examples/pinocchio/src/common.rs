@@ -12,7 +12,7 @@ use lambdaworks_math::{
 use rand::{Rng, SeedableRng};
 
 pub type Curve = BLS12381Curve;
-//pub type TwistedCurve = BLS12381TwistCurve;
+pub type TwistedCurve = BLS12381TwistCurve;
 
 pub type FE = FrElement;
 pub type F = FrF;
@@ -20,7 +20,7 @@ pub type F = FrF;
 pub type Pairing = BLS12381AtePairing;
 
 pub type G1Point = <BLS12381Curve as IsEllipticCurve>::PointRepresentation;
-//pub type G2Point = <BLS12381TwistCurve as IsEllipticCurve>::PointRepresentation;
+pub type G2Point = <BLS12381TwistCurve as IsEllipticCurve>::PointRepresentation;
 //pub type PairingOutput = FieldElement<<Pairing as IsPairing>::OutputField>;
 
 pub const ORDER_R_MINUS_1_ROOT_UNITY: FrElement = FrElement::from_hex_unchecked("7");

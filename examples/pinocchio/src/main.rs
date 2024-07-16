@@ -8,7 +8,7 @@ use lambdaworks_math::{
 };
 
 use pinocchio::common::{
-        {sample_fr_elem, Curve, FE, G1Point,  Pairing}};
+        sample_fr_elem, Curve, G1Point, G2Point, Pairing, TwistedCurve, FE};
 
 // use pinocchio::{QuadraticArithmeticProgram};
 use pinocchio::qap::QuadraticArithmeticProgram;
@@ -19,6 +19,7 @@ struct EvaluationKey {
     g_vk_s: Vec<G1Point>,
     //g^wk_s
     gw_wk: Vec<G1Point>,
+    g2w_wk: Vec<G2Point>,
     // g^yk(s)
     g_yk_s: Vec<G1Point>,
     // g^alphavk(s)
@@ -35,21 +36,21 @@ struct EvaluationKey {
     g_betay_yk_s: Vec<G1Point>,*/
     g_beta: Vec<G1Point>,
     // g^s^i
-    g_s_i: Vec<G1Point>,
+    g_s_i: Vec<G2Point>,
     // g^alpha_s^i
     //g_alpha_s_i: Vec<G1Point>,
 }
 struct VerificationKey {
-    g1:G1Point,
-    g_alpha_v:G1Point,
-    g_alpha_w:G1Point,
-    g_alpha_y:G1Point,
-    g_gamma:G1Point,
-    g_beta_gamma:G1Point,
+    g2:G2Point,
+    g_alpha_v:G2Point,
+    g_alpha_w:G2Point,
+    g_alpha_y:G2Point,
+    g_gamma:G2Point,
+    g_beta_gamma:G2Point,
     // gy target on s?
     gy_t:G1Point,
     gv_vk:Vec<G1Point>,
-    gw_wk:Vec<G1Point>,
+    gw_wk:Vec<G2Point>,
     gy_yk:Vec<G1Point>,
 }
 struct ToxicWaste {
@@ -109,6 +110,7 @@ fn generate_verification_key(
     //generator: &GPoint//?
 ) -> VerificationKey {
     let g : G1Point = Curve::generator();
+    let g2: G2Point = TwistedCurve::generator();
     let s = &toxic_waste.s;
     let alpha_v = &toxic_waste.alpha_v;
     let alpha_w = &toxic_waste.alpha_w;
@@ -145,22 +147,22 @@ fn generate_verification_key(
         )
     );
 
-    let mut  gw_wk_io : Vec<G1Point> = Vec::with_capacity(vector_capacity);
+    let mut  gw_wk_io : Vec<G2Point> = Vec::with_capacity(vector_capacity);
     gw_wk_io.push(
-        g.operate_with_self(
+        g2.operate_with_self(
             (rw.clone() * qap.w0().evaluate(&s)).representative()
         )
     );
     gw_wk_io.extend(
         qap.w_input().iter()
-        .map(|wk| g.operate_with_self(
+        .map(|wk| g2.operate_with_self(
             (rw.clone() * wk.evaluate(&s)).representative()
             ) 
         )
     );
     gw_wk_io.extend(
         qap.w_output().iter()
-        .map(|wk| g.operate_with_self(
+        .map(|wk| g2.operate_with_self(
             (rw.clone() * wk.evaluate(&s)).representative()
             )
         )
@@ -222,12 +224,12 @@ fn generate_verification_key(
     ); */
 
     VerificationKey {
-        g1: g.clone(),
-        g_alpha_v: g.operate_with_self(alpha_v.representative()),
-        g_alpha_w: g.operate_with_self(alpha_w.representative()),
-        g_alpha_y: g.operate_with_self(alpha_y.representative()),
-        g_gamma: g.operate_with_self(gamma.representative()),
-        g_beta_gamma: g.operate_with_self((beta * gamma).representative()),
+        g2: g2.clone(),
+        g_alpha_v: g2.operate_with_self(alpha_v.representative()),
+        g_alpha_w: g2.operate_with_self(alpha_w.representative()),
+        g_alpha_y: g2.operate_with_self(alpha_y.representative()),
+        g_gamma: g2.operate_with_self(gamma.representative()),
+        g_beta_gamma: g2.operate_with_self((beta * gamma).representative()),
         gy_t: g.operate_with_self((ry * qap.target.evaluate(&s)).representative()),
         gv_vk: gv_vk_io,
         gw_wk: gw_wk_io,
@@ -240,6 +242,7 @@ fn generate_evaluation_key(
     toxic_waste: &ToxicWaste,
 ) -> EvaluationKey {
     let g : G1Point = Curve::generator();
+    let g2 :G2Point = TwistedCurve::generator();
     let (vs_mid, ws_mid, ys_mid) = (qap.v_mid(), qap.w_mid(), qap.y_mid());
     let s = &toxic_waste.s;
     let alpha_v = &toxic_waste.alpha_v;
@@ -254,11 +257,12 @@ fn generate_evaluation_key(
     EvaluationKey {
     g_vk_s: vs_mid.iter().map(|vk| g.operate_with_self((rv * vk.evaluate(&s)).representative())).collect(),
     gw_wk: ws_mid.iter().map(|wk| g.operate_with_self((rw * wk.evaluate(&s)).representative())).collect(),
+    g2w_wk: ws_mid.iter().map(|wk| g2.operate_with_self((rw * wk.evaluate(&s)).representative())).collect(),
     g_yk_s: ys_mid.iter().map(|yk| g.operate_with_self((ry * yk.evaluate(&s)).representative())).collect(),
     g_alpha_vk_s: vs_mid.iter().map(|vk| g.operate_with_self((rv * alpha_v * vk.evaluate(&s)).representative())).collect(),
     g_alpha_wk_s: ws_mid.iter().map(|wk| g.operate_with_self((rw * alpha_w * wk.evaluate(&s)).representative())).collect(),
     g_alpha_yk_s: ys_mid.iter().map(|yk| g.operate_with_self((ry * alpha_y * yk.evaluate(&s)).representative())).collect(),
-    g_s_i: (0..degree).map(|i| g.operate_with_self((s.pow(i)).representative())).collect(),
+    g_s_i: (0..degree).map(|i| g2.operate_with_self((s.pow(i)).representative())).collect(),
     g_beta:  vs_mid.iter()
         .zip(ws_mid.iter())
         .zip(ys_mid.iter())
@@ -286,8 +290,9 @@ fn setup(
 struct Proof {
 g_vs:G1Point,
 g_ws:G1Point,
+g2_ws: G2Point,
 g_ys:G1Point,
-g_hs:G1Point,
+g_hs:G2Point,
 g_alpha_vs:G1Point,
 g_alpha_ws:G1Point,
 g_alpha_ys:G1Point,
@@ -315,6 +320,7 @@ fn generate_proof(
     Proof {
         g_vs: msm(&c_mid, &evaluation_key.g_vk_s).unwrap(),
         g_ws: msm(&c_mid, &evaluation_key.gw_wk).unwrap(),
+        g2_ws: msm(&c_mid, &evaluation_key.g2w_wk).unwrap(),
         g_ys: msm(&c_mid, &evaluation_key.g_yk_s).unwrap(),
         g_alpha_vs: msm(&c_mid, &evaluation_key.g_alpha_vk_s).unwrap(),
         g_alpha_ws: msm(&c_mid, &evaluation_key.g_alpha_wk_s).unwrap(),
@@ -354,14 +360,14 @@ pub fn check_divisibility(
         .operate_with(&proof.g_vs);
     let hiding_w = verification_key.gw_wk[0]
         .operate_with(&msm(&c_inputs_outputs, &verification_key.gw_wk[1..]).unwrap())
-        .operate_with(&proof.g_ws);
+        .operate_with(&proof.g2_ws);
     let hiding_y = verification_key.gy_yk[0]
         .operate_with(&msm(&c_inputs_outputs, &verification_key.gy_yk[1..]).unwrap())
         .operate_with(&proof.g_ys);
 
     Pairing::compute(&hiding_v, &hiding_w).unwrap() 
     == Pairing::compute(&verification_key.gy_t, &proof.g_hs).unwrap()
-        * Pairing::compute(&hiding_y, verification_key.g1).unwrap()
+        * Pairing::compute(&hiding_y, &verification_key.g2).unwrap()
 }
 
 // We check that g_vs (g_{v,mid}) is indeed g multpiplied by a linear combination of the {v_k}_{k mid}.
@@ -370,11 +376,11 @@ pub fn check_appropriate_spans(
     verification_key: &VerificationKey,
     proof: &Proof
 ) -> bool {
-    let b1 = Pairing::compute(&proof.g_alpha_vs, &verification_key.g1) 
+    let b1 = Pairing::compute(&proof.g_alpha_vs, &verification_key.g2) 
         == Pairing::compute(&proof.g_vs, &verification_key.g_alpha_v);
-    let b2 = Pairing::compute(&proof.g_alpha_ws, &verification_key.g1) 
+    let b2 = Pairing::compute(&proof.g_alpha_ws, &verification_key.g2) 
         == Pairing::compute(&proof.g_ws, &verification_key.g_alpha_w);
-    let b3 = Pairing::compute(&proof.g_alpha_ys, &verification_key.g1) 
+    let b3 = Pairing::compute(&proof.g_alpha_ys, &verification_key.g2) 
         == Pairing::compute(&proof.g_ys, &verification_key.g_alpha_y);
     b1 && b2 && b3
 }
