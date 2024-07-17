@@ -1153,7 +1153,10 @@ mod tests_u256_prime_fields {
     fn creating_a_field_element_from_hex_too_big_errors() {
         let a = U256FP1Element::from_hex(&"f".repeat(65));
         assert!(a.is_err());
-        assert_eq!(a.unwrap_err(), crate::errors::CreationError::HexStringIsTooBig)
+        assert_eq!(
+            a.unwrap_err(),
+            crate::errors::CreationError::HexStringIsTooBig
+        )
     }
 
     #[test]
