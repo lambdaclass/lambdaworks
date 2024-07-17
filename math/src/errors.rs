@@ -11,6 +11,7 @@ pub enum ByteConversionError {
 pub enum CreationError {
     InvalidHexString,
     InvalidDecString,
+    HexStringIsTooBig,
     EmptyString,
 }
 
