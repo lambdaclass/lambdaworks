@@ -1150,6 +1150,19 @@ mod tests_u256_prime_fields {
     }
 
     #[test]
+    fn creating_a_field_element_from_hex_too_big_errors() {
+        let a = U256FP1Element::from_hex(&"f".repeat(65));
+        assert!(a.is_err());
+        assert_eq!(a.unwrap_err(), crate::errors::CreationError::HexStringIsTooBig)
+    }
+
+    #[test]
+    fn creating_a_field_element_from_hex_works_on_the_size_limit() {
+        let a = U256FP1Element::from_hex(&"f".repeat(64));
+        assert!(a.is_ok());
+    }
+
+    #[test]
     fn creating_a_field_element_from_hex_works_2() {
         let a = U256F29Element::from_hex_unchecked("aa");
         let b = U256F29Element::from(25);
