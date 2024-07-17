@@ -33,11 +33,6 @@ where
     pub fn build(unhashed_leaves: &[B::Data]) -> Self {
         let mut hashed_leaves: Vec<B::Node> = B::hash_leaves(unhashed_leaves);
 
-        // If there is only one node, handle it specially
-        if hashed_leaves.len() == 1 {
-            hashed_leaves.push(hashed_leaves[0].clone());
-        }
-
         //The leaf must be a power of 2 set
         hashed_leaves = complete_until_power_of_two(&mut hashed_leaves);
         let leaves_len = hashed_leaves.len();
