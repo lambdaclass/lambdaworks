@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1721218322498,
+  "lastUpdate": 1721386367468,
   "repoUrl": "https://github.com/lambdaclass/lambdaworks",
   "entries": {
     "Benchmark": [
@@ -6839,6 +6839,150 @@ window.BENCHMARK_DATA = {
             "name": "Polynomial/evaluate 10",
             "value": 1,
             "range": "± 0",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mrugiero@gmail.com",
+            "name": "Mario Rugiero",
+            "username": "Oppen"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "07657e915202dc527ad52cfc595b49ee2d19ffd5",
+          "message": "fix: unaligned read for Metal buffers (#882)\n\nAfter Rust 1.77 `u128` starts requiring 16 bytes aligned values. This\nbreaks Metal, where `retrieve_contents` assumed it could just cast the\npointer and treat it as a slice.\nInstead, we need to assume no alignment by doing the following:\n1. Read the `i-th` element from the buffer with\n   `ptr.add(i).read_unaligned()`;\n2. `clone` the read value, as the bitwise copy may cause aliasing\n   otherwise;\n3. `push` the `clone`d value into the vector;\n4. `mem::forget` the element we read to avoid calling its `drop`\n   implementation twice, one for the copy and one for the `Buffer`.",
+          "timestamp": "2024-07-19T10:41:19Z",
+          "tree_id": "26cc2eb7b03e8e8ad67fe128e4735be6f686d900",
+          "url": "https://github.com/lambdaclass/lambdaworks/commit/07657e915202dc527ad52cfc595b49ee2d19ffd5"
+        },
+        "date": 1721386364747,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "Ordered FFT/Parallel (Metal)",
+            "value": 98377630,
+            "range": "± 10434720",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #2",
+            "value": 159998921,
+            "range": "± 4228226",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #3",
+            "value": 318957822,
+            "range": "± 5013961",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #4",
+            "value": 651795896,
+            "range": "± 5082422",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal)",
+            "value": 35356416,
+            "range": "± 3517170",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #2",
+            "value": 68815362,
+            "range": "± 2974501",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #3",
+            "value": 134783016,
+            "range": "± 1944272",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #4",
+            "value": 275146406,
+            "range": "± 2889604",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal)",
+            "value": 34025643,
+            "range": "± 253553",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #2",
+            "value": 64148268,
+            "range": "± 2702415",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #3",
+            "value": 128260183,
+            "range": "± 3815311",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #4",
+            "value": 268759729,
+            "range": "± 13786619",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal",
+            "value": 121263622,
+            "range": "± 547019",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #2",
+            "value": 244207201,
+            "range": "± 1415959",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #3",
+            "value": 487623739,
+            "range": "± 6920501",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #4",
+            "value": 987954062,
+            "range": "± 27938508",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal",
+            "value": 406022020,
+            "range": "± 944335",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #2",
+            "value": 810411000,
+            "range": "± 5579320",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #3",
+            "value": 1574886750,
+            "range": "± 16021646",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #4",
+            "value": 3141100958,
+            "range": "± 17271702",
             "unit": "ns/iter"
           }
         ]
