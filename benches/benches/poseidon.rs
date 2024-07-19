@@ -31,8 +31,8 @@ fn poseidon_benchmarks(c: &mut Criterion) {
     mont_x.reverse();
     mont_y.reverse();
 
-    let sn_ff_x = starknet_ff::FieldElement::from_mont(mont_x);
-    let sn_ff_y = starknet_ff::FieldElement::from_mont(mont_y);
+    let sn_ff_x = starknet_crypto::FieldElement::from_mont(mont_x);
+    let sn_ff_y = starknet_crypto::FieldElement::from_mont(mont_y);
     group.bench_function("starknet-rs", |bench| {
         bench.iter(|| black_box(starknet_crypto::poseidon_hash(sn_ff_x, sn_ff_y)))
     });
