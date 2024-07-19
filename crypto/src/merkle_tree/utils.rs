@@ -115,8 +115,8 @@ mod tests {
     #[test]
     // expected |2|2|
     fn complete_the_length_of_one_field_element_to_be_a_power_of_two() {
-        let mut values: Vec<FE> = vec![FE::new(2)];
-        let hashed_leaves = complete_until_power_of_two(&mut values);
+        let values: Vec<FE> = vec![FE::new(2)];
+        let hashed_leaves = complete_until_power_of_two(values);
 
         let mut expected_leaves = vec![FE::new(2)];
         expected_leaves.extend([FE::new(2)]);
