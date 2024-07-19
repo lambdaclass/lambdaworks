@@ -22,17 +22,20 @@ pub fn parent_index(node_index: usize) -> usize {
 
 // The list of values is completed repeating the last value to a power of two length
 pub fn complete_until_power_of_two<T: Clone>(values: &mut Vec<T>) -> Vec<T> {
-    if values.len() == 1 {
-        return values.clone(); // Return immediately if there is only one element.
-    }
     while !is_power_of_two(values.len()) {
         values.push(values[values.len() - 1].clone());
     }
     values.to_vec()
 }
 
-pub fn is_power_of_two(x: usize) -> bool {
-    (x != 0) && ((x & (x - 1)) == 0)
+// ! NOTE !
+// We in this function we  say 2^0 = 1 is not a power of two when it is infact true. We
+// need this to maintain that the smallest tree at two leaves counts and we could not find
+// a name that wasn't overly verbose. In the case of a single value being present in a leaf node
+// this indicates we pad to next power of two (i.e. 2). The function is private and is only used
+// to ensure the tree has a power of 2 number of leaves.
+fn is_power_of_two(x: usize) -> bool {
+    (x > 1) && ((x & (x - 1)) == 0)
 }
 
 // ! CAUTION !
@@ -107,6 +110,19 @@ mod tests {
         for (leaf, expected_leaves) in hashed_leaves.iter().zip(expected_leaves) {
             assert_eq!(*leaf, expected_leaves);
         }
+    }
+
+    #[test]
+    // expected |2|2|
+    fn complete_the_length_of_one_field_element_to_be_a_power_of_two() {
+        let mut values: Vec<FE> = vec![FE::new(2)];
+        let hashed_leaves = complete_until_power_of_two(&mut values);
+
+        let mut expected_leaves = vec![FE::new(2)];
+        expected_leaves.extend([FE::new(2)]);
+        assert_eq!(hashed_leaves.len(), 2);
+        assert_eq!(hashed_leaves[0], expected_leaves[0]);
+        assert_eq!(hashed_leaves[1], expected_leaves[1]);
     }
 
     const ROOT: usize = 0;
