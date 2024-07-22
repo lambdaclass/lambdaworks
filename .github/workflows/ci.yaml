@@ -54,6 +54,7 @@ jobs:
 
       - name: Run cargo build for all examples
         run: |
+          cd examples
           for dir in */ ; do
             if [ -f "$dir/Cargo.toml" ]; then
               (cd "$dir" && cargo build)
