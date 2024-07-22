@@ -654,8 +654,7 @@ impl<'de, F: IsPrimeField> Deserialize<'de> for FieldElement<F> {
             where
                 M: MapAccess<'de>,
             {
-                use alloc::string::String;
-                let mut value: Option<String> = None;
+                let mut value: Option<&str> = None;
                 while let Some(key) = map.next_key()? {
                     match key {
                         Field::Value => {
@@ -674,10 +673,14 @@ impl<'de, F: IsPrimeField> Deserialize<'de> for FieldElement<F> {
             where
                 S: SeqAccess<'de>,
             {
-                use alloc::string::String;
-                let value: String = seq
-                    .next_element()?
-                    .ok_or_else(|| de::Error::missing_field("value"))?;
+                let mut value: Option<&str> = None;
+                while let Some(val) = seq.next_element()? {
+                    if value.is_some() {
+                        return Err(de::Error::duplicate_field("value"));
+                    }
+                    value = Some(val);
+                }
+                let value = value.ok_or_else(|| de::Error::missing_field("value"))?;
                 FieldElement::from_hex(&value).map_err(|_| de::Error::custom("invalid hex"))
             }
         }
