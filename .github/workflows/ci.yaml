@@ -52,6 +52,14 @@ jobs:
           cd ensure-no_std
           cargo build
 
+      - name: Run cargo build for all examples
+        run: |
+          for dir in */ ; do
+            if [ -f "$dir/Cargo.toml" ]; then
+              (cd "$dir" && cargo build)
+            fi
+          done
+
       - name: Run cargo build ensure-no_std crate for wasm
         run: |
           cd ensure-no_std
