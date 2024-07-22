@@ -37,7 +37,7 @@ proptest = "1.1.0"
 pprof = { version = "0.13.0", features = ["criterion","flamegraph"] }
 
 [features]
-default = ["parallel", "std"]
+default = ["lambdaworks-serde-string"]
 std = ["alloc", "serde?/std", "serde_json?/std"]
 alloc = []
 parallel = ["dep:rayon"]
