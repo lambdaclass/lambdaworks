@@ -1,5 +1,5 @@
 use crate::common::FE;
-use lambdaworks_math::field::{element::FieldElement, traits::IsField};
+//use lambdaworks_math::field::{element::FieldElement, traits::IsField};
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum CreationError {
