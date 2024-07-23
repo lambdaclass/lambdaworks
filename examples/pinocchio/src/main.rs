@@ -16,42 +16,42 @@ use pinocchio::qap::QuadraticArithmeticProgram;
 // Use G1 point?
 struct EvaluationKey {
     //g^vk(s)
-    g_vk_s: Vec<G1Point>,
+    g1_vk: Vec<G1Point>,
     //g^wk_s
-    gw_wk: Vec<G1Point>,
+    g1w_wk: Vec<G1Point>,
     g2w_wk: Vec<G2Point>,
     // g^yk(s)
-    g_yk_s: Vec<G1Point>,
+    g1_yk_s: Vec<G1Point>,
     // g^alphavk(s)
-    g_alpha_vk_s: Vec<G1Point>,
+    g1_alpha_vk: Vec<G1Point>,
     // g^alpha_wk(s)
-    g_alpha_wk_s: Vec<G1Point>,
+    g1_alpha_wk: Vec<G1Point>,
     // g^alpha_yk(s)
-    g_alpha_yk_s: Vec<G1Point>,
+    g1_alpha_yk: Vec<G1Point>,
    /* // g^betav_vk(s)
     g_betav_vk_s: Vec<G1Point>,
     // g^betaw_wk(s)
     g_betaw_wk_s: Vec<G1Point>,
     // g^betay_yk(s)
     g_betay_yk_s: Vec<G1Point>,*/
-    g_beta: Vec<G1Point>,
+    g1_beta: Vec<G1Point>,
     // g^s^i
-    g_s_i: Vec<G2Point>,
+    g2_s_i: Vec<G2Point>,
     // g^alpha_s^i
     //g_alpha_s_i: Vec<G1Point>,
 }
 struct VerificationKey {
     g2:G2Point,
-    g_alpha_v:G2Point,
-    g_alpha_w:G2Point,
-    g_alpha_y:G2Point,
-    g_gamma:G2Point,
-    g_beta_gamma:G2Point,
+    g2_alpha_v:G2Point,
+    g2_alpha_w:G2Point,
+    g2_alpha_y:G2Point,
+    g2_gamma:G2Point,
+    g2_beta_gamma:G2Point,
     // gy target on s?
-    gy_t:G1Point,
-    gv_vk:Vec<G1Point>,
-    gw_wk:Vec<G2Point>,
-    gy_yk:Vec<G1Point>,
+    g1y_t:G1Point,
+    g1v_vk:Vec<G1Point>,
+    g1w_wk:Vec<G2Point>,
+    g1y_yk:Vec<G1Point>,
 }
 struct ToxicWaste {
    rv:FE,
@@ -109,7 +109,7 @@ fn generate_verification_key(
     toxic_waste: &ToxicWaste,
     //generator: &GPoint//?
 ) -> VerificationKey {
-    let g : G1Point = Curve::generator();
+    let g1 : G1Point = Curve::generator();
     let g2: G2Point = TwistedCurve::generator();
     let s = &toxic_waste.s;
     let alpha_v = &toxic_waste.alpha_v;
@@ -124,43 +124,43 @@ fn generate_verification_key(
     // what is the capacity?
     // output + input + 1 or  2 times input + 1 ? 
     let vector_capacity = qap.number_of_inputs + qap.number_of_outputs + 1;
-    let mut gv_vk_io: Vec<G1Point> = Vec::with_capacity(vector_capacity);
+    let mut g1v_vk_io: Vec<G1Point> = Vec::with_capacity(vector_capacity);
 // why v0 is not an input?
 // why representative?
-    gv_vk_io.push(
-        g.operate_with_self(
+    g1v_vk_io.push(
+        g1.operate_with_self(
             (rv.clone() * qap.v0().evaluate(&s)).representative()
         )
     );
-    gv_vk_io.extend(
+    g1v_vk_io.extend(
         qap.v_input().iter()
-        .map(|vk| g.operate_with_self(
+        .map(|vk| g1.operate_with_self(
             (rv.clone() * vk.evaluate(&s)).representative()
             ) 
         )
     );
-    gv_vk_io.extend(
+    g1v_vk_io.extend(
         qap.v_output().iter()
-        .map(|vk| g.operate_with_self(
+        .map(|vk| g1.operate_with_self(
             (rv.clone() * &vk.evaluate(&s)).representative()
             )
         )
     );
 
-    let mut  gw_wk_io : Vec<G2Point> = Vec::with_capacity(vector_capacity);
-    gw_wk_io.push(
+    let mut  g2w_wk_io : Vec<G2Point> = Vec::with_capacity(vector_capacity);
+    g2w_wk_io.push(
         g2.operate_with_self(
             (rw.clone() * qap.w0().evaluate(&s)).representative()
         )
     );
-    gw_wk_io.extend(
+    g2w_wk_io.extend(
         qap.w_input().iter()
         .map(|wk| g2.operate_with_self(
             (rw.clone() * wk.evaluate(&s)).representative()
             ) 
         )
     );
-    gw_wk_io.extend(
+    g2w_wk_io.extend(
         qap.w_output().iter()
         .map(|wk| g2.operate_with_self(
             (rw.clone() * wk.evaluate(&s)).representative()
@@ -168,22 +168,22 @@ fn generate_verification_key(
         )
     );
 
-    let mut  gy_yk_io : Vec<G1Point> = Vec::with_capacity(vector_capacity);
-    gy_yk_io.push(
-        g.operate_with_self(
+    let mut  g1y_yk_io : Vec<G1Point> = Vec::with_capacity(vector_capacity);
+    g1y_yk_io.push(
+        g1.operate_with_self(
             (ry.clone() * qap.y0().evaluate(&s)).representative()
         )
     );
-    gy_yk_io.extend(
+    g1y_yk_io.extend(
         qap.y_input().iter()
-        .map(|yk| g.operate_with_self(
+        .map(|yk| g1.operate_with_self(
             (ry.clone() * yk.evaluate(&s)).representative()
             ) 
         )
     );
-    gy_yk_io.extend(
+    g1y_yk_io.extend(
         qap.y_output().iter()
-        .map(|yk| g.operate_with_self(
+        .map(|yk| g1.operate_with_self(
             (ry.clone() * yk.evaluate(&s)).representative()
             )
         )
@@ -225,15 +225,15 @@ fn generate_verification_key(
 
     VerificationKey {
         g2: g2.clone(),
-        g_alpha_v: g2.operate_with_self(alpha_v.representative()),
-        g_alpha_w: g2.operate_with_self(alpha_w.representative()),
-        g_alpha_y: g2.operate_with_self(alpha_y.representative()),
-        g_gamma: g2.operate_with_self(gamma.representative()),
-        g_beta_gamma: g2.operate_with_self((beta * gamma).representative()),
-        gy_t: g.operate_with_self((ry * qap.target.evaluate(&s)).representative()),
-        gv_vk: gv_vk_io,
-        gw_wk: gw_wk_io,
-        gy_yk: gy_yk_io,
+        g2_alpha_v: g2.operate_with_self(alpha_v.representative()),
+        g2_alpha_w: g2.operate_with_self(alpha_w.representative()),
+        g2_alpha_y: g2.operate_with_self(alpha_y.representative()),
+        g2_gamma: g2.operate_with_self(gamma.representative()),
+        g2_beta_gamma: g2.operate_with_self((beta * gamma).representative()),
+        g1y_t: g1.operate_with_self((ry * qap.target.evaluate(&s)).representative()),
+        g1v_vk: g1v_vk_io,
+        g2w_wk: g2w_wk_io,
+        g1y_yk: g1y_yk_io,
     }
 }
 
@@ -241,7 +241,7 @@ fn generate_evaluation_key(
     qap: &QuadraticArithmeticProgram,
     toxic_waste: &ToxicWaste,
 ) -> EvaluationKey {
-    let g : G1Point = Curve::generator();
+    let g1 : G1Point = Curve::generator();
     let g2 :G2Point = TwistedCurve::generator();
     let (vs_mid, ws_mid, ys_mid) = (qap.v_mid(), qap.w_mid(), qap.y_mid());
     let s = &toxic_waste.s;
@@ -255,20 +255,20 @@ fn generate_evaluation_key(
     let degree = qap.target.degree();
 
     EvaluationKey {
-    g_vk_s: vs_mid.iter().map(|vk| g.operate_with_self((rv * vk.evaluate(&s)).representative())).collect(),
-    gw_wk: ws_mid.iter().map(|wk| g.operate_with_self((rw * wk.evaluate(&s)).representative())).collect(),
+    g1_vk: vs_mid.iter().map(|vk| g1.operate_with_self((rv * vk.evaluate(&s)).representative())).collect(),
+    g1w_wk: ws_mid.iter().map(|wk| g1.operate_with_self((rw * wk.evaluate(&s)).representative())).collect(),
     g2w_wk: ws_mid.iter().map(|wk| g2.operate_with_self((rw * wk.evaluate(&s)).representative())).collect(),
-    g_yk_s: ys_mid.iter().map(|yk| g.operate_with_self((ry * yk.evaluate(&s)).representative())).collect(),
-    g_alpha_vk_s: vs_mid.iter().map(|vk| g.operate_with_self((rv * alpha_v * vk.evaluate(&s)).representative())).collect(),
-    g_alpha_wk_s: ws_mid.iter().map(|wk| g.operate_with_self((rw * alpha_w * wk.evaluate(&s)).representative())).collect(),
-    g_alpha_yk_s: ys_mid.iter().map(|yk| g.operate_with_self((ry * alpha_y * yk.evaluate(&s)).representative())).collect(),
-    g_s_i: (0..degree).map(|i| g2.operate_with_self((s.pow(i)).representative())).collect(),
-    g_beta:  vs_mid.iter()
+    g1_yk: ys_mid.iter().map(|yk| g1.operate_with_self((ry * yk.evaluate(&s)).representative())).collect(),
+    g1_alpha_vk_: vs_mid.iter().map(|vk| g1.operate_with_self((rv * alpha_v * vk.evaluate(&s)).representative())).collect(),
+    g1_alpha_wk: ws_mid.iter().map(|wk| g1.operate_with_self((rw * alpha_w * wk.evaluate(&s)).representative())).collect(),
+    g1_alpha_yk: ys_mid.iter().map(|yk| g1.operate_with_self((ry * alpha_y * yk.evaluate(&s)).representative())).collect(),
+    g2_s_i: (0..degree).map(|i| g2.operate_with_self((s.pow(i)).representative())).collect(),
+    g1_beta:  vs_mid.iter()
         .zip(ws_mid.iter())
         .zip(ys_mid.iter())
         .map(|((vk, wk), yk)| {
 
-            g.operate_with_self(
+            g1.operate_with_self(
                 ((rv * beta * vk.evaluate(&s)
                     + rw * beta * wk.evaluate(&s)
                     + ry * beta * yk.evaluate(&s)).representative())
@@ -288,16 +288,17 @@ fn setup(
     generate_verification_key(qap.clone(), &toxic_waste))
 }
 struct Proof {
-g_vs:G1Point,
-g_ws:G1Point,
+g1_vs:G1Point,
+g1_ws:G1Point,
 g2_ws: G2Point,
-g_ys:G1Point,
-g_hs:G2Point,
-g_alpha_vs:G1Point,
-g_alpha_ws:G1Point,
-g_alpha_ys:G1Point,
-g_beta_vwy:G1Point,
+g1_ys:G1Point,
+g2_hs:G2Point,
+g1_alpha_vs:G1Point,
+g1_alpha_ws:G1Point,
+g1_alpha_ys:G1Point,
+g1_beta_vwy:G1Point,
 }
+
 fn generate_proof(
     evaluation_key: &EvaluationKey,
     qap: &QuadraticArithmeticProgram,
@@ -318,16 +319,16 @@ fn generate_proof(
     let h_degree = h_polynomial.degree();
 
     Proof {
-        g_vs: msm(&c_mid, &evaluation_key.g_vk_s).unwrap(),
-        g_ws: msm(&c_mid, &evaluation_key.gw_wk).unwrap(),
+        g1_vs: msm(&c_mid, &evaluation_key.g_vk_s).unwrap(),
+        g1_ws: msm(&c_mid, &evaluation_key.gw_wk).unwrap(),
         g2_ws: msm(&c_mid, &evaluation_key.g2w_wk).unwrap(),
-        g_ys: msm(&c_mid, &evaluation_key.g_yk_s).unwrap(),
-        g_alpha_vs: msm(&c_mid, &evaluation_key.g_alpha_vk_s).unwrap(),
-        g_alpha_ws: msm(&c_mid, &evaluation_key.g_alpha_wk_s).unwrap(),
-        g_alpha_ys: msm(&c_mid, &evaluation_key.g_alpha_yk_s).unwrap(),
-        g_beta_vwy: msm(&c_mid, &evaluation_key.g_beta).unwrap(),
-        g_hs:msm(
-            &h_coefficients,&evaluation_key.g_s_i[..h_degree],
+        g1_ys: msm(&c_mid, &evaluation_key.g_yk_s).unwrap(),
+        g1_alpha_vs: msm(&c_mid, &evaluation_key.g_alpha_vk_s).unwrap(),
+        g1_alpha_ws: msm(&c_mid, &evaluation_key.g_alpha_wk_s).unwrap(),
+        g1_alpha_ys: msm(&c_mid, &evaluation_key.g_alpha_yk_s).unwrap(),
+        g1_beta_vwy: msm(&c_mid, &evaluation_key.g_beta).unwrap(),
+        g2_hs:msm(
+            &h_coefficients,&evaluation_key.g2_s_i[..h_degree],
         ).unwrap()
     }
 }
@@ -400,12 +401,6 @@ pub fn check_same_linear_combinations(
 }
 
 //
-
-
-
-
-
-
 
 fn main() {
     println!("Hello, world!");
