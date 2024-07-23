@@ -13,32 +13,18 @@ use pinocchio::common::{
 // use pinocchio::{QuadraticArithmeticProgram};
 use pinocchio::qap::QuadraticArithmeticProgram;
 
-// Use G1 point?
+
 struct EvaluationKey {
-    //g^vk(s)
     g1_vk: Vec<G1Point>,
-    //g^wk_s
     g1_wk: Vec<G1Point>,
     g2_wk: Vec<G2Point>,
-    // g^yk(s)
     g1_yk: Vec<G1Point>,
-    // g^alphavk(s)
     g1_alpha_vk: Vec<G1Point>,
-    // g^alpha_wk(s)
     g1_alpha_wk: Vec<G1Point>,
-    // g^alpha_yk(s)
     g1_alpha_yk: Vec<G1Point>,
-   /* // g^betav_vk(s)
-    g_betav_vk_s: Vec<G1Point>,
-    // g^betaw_wk(s)
-    g_betaw_wk_s: Vec<G1Point>,
-    // g^betay_yk(s)
-    g_betay_yk_s: Vec<G1Point>,*/
     g1_beta: Vec<G1Point>,
-    // g^s^i
     g2_s_i: Vec<G2Point>,
-    // g^alpha_s^i
-    //g_alpha_s_i: Vec<G1Point>,
+
 }
 struct VerificationKey {
     g2:G2Point,
@@ -47,7 +33,6 @@ struct VerificationKey {
     g2_alpha_y:G2Point,
     g2_gamma:G2Point,
     g2_beta_gamma:G2Point,
-    // gy target on s?
     g1y_t:G1Point,
     g1_vk:Vec<G1Point>,
     g2_wk:Vec<G2Point>,
@@ -107,7 +92,7 @@ impl ToxicWaste {
 fn generate_verification_key(
     qap: QuadraticArithmeticProgram,
     toxic_waste: &ToxicWaste,
-    //generator: &GPoint//?
+
 ) -> VerificationKey {
     let g1 : G1Point = Curve::generator();
     let g2: G2Point = TwistedCurve::generator();
@@ -120,26 +105,23 @@ fn generate_verification_key(
     let rw = &toxic_waste.rw;
     let gamma = &toxic_waste.gamma;
     let ry = toxic_waste.ry();
-    // add a variable that tells the capacity of the vector
-    // what is the capacity?
-    // output + input + 1 or  2 times input + 1 ? 
     let vector_capacity = qap.number_of_inputs + qap.number_of_outputs + 1;
-    let mut g1v_vk_io: Vec<G1Point> = Vec::with_capacity(vector_capacity);
-// why v0 is not an input?
-// why representative?
-    g1v_vk_io.push(
+    
+    // We construct g1_vk.
+    let mut g1_vk_io: Vec<G1Point> = Vec::with_capacity(vector_capacity);
+    g1_vk_io.push(
         g1.operate_with_self(
             (rv.clone() * qap.v0().evaluate(&s)).representative()
         )
     );
-    g1v_vk_io.extend(
+    g1_vk_io.extend(
         qap.v_input().iter()
         .map(|vk| g1.operate_with_self(
             (rv.clone() * vk.evaluate(&s)).representative()
             ) 
         )
     );
-    g1v_vk_io.extend(
+    g1_vk_io.extend(
         qap.v_output().iter()
         .map(|vk| g1.operate_with_self(
             (rv.clone() * &vk.evaluate(&s)).representative()
@@ -147,6 +129,7 @@ fn generate_verification_key(
         )
     );
 
+    // We construct g2_wk.
     let mut  g2_wk_io : Vec<G2Point> = Vec::with_capacity(vector_capacity);
     g2_wk_io.push(
         g2.operate_with_self(
@@ -168,6 +151,7 @@ fn generate_verification_key(
         )
     );
 
+    // We construct g1_yk.
     let mut  g1_yk_io : Vec<G1Point> = Vec::with_capacity(vector_capacity);
     g1_yk_io.push(
         g1.operate_with_self(
@@ -189,40 +173,6 @@ fn generate_verification_key(
         )
     );
 
-/*
-   gv_vk_io.push(g.operate_with_self((rv * qap.v0().evaluate(&s)).representative()))
-    .chain(
-        qap.v_input().iter()
-        .map(|vk| g.operate_with_self((rv * vk.evaluate(&s)).representative()) 
-    )
-    .chain(
-        qap.v_output.iter()
-            .map(|vk| g.operate_with_self((rv * vk.evaluate(s)).representative()))
-        )
-    );
-
-    let gw_wk_io : Vec<G1Point> = Vec::with_capacity(vector_capacity);
-    gw_wk_io.push(g.operate_with_self((rw *qap.w0.evaluate(s)).representative()))
-    .chain(
-        qap.v_input.iter()
-        .map(|wk| g.operate_with_self((rw * wk.evaluate(s)).representative()))
-    .chain(
-        qap.v_output.iter()
-            .map(|wk| g.operate_with_self((rw* wk.evaluate(s)).representative()))
-        )
-    );
-
-    let gy_yk_io : Vec<G1Point> = Vec::with_capacity(vector_capacity);
-    gy_yk_io.push(g.operate_with_self((ry *qap.y0.evaluate(s)).representative()))
-    .chain(
-        qap.v_input.iter()
-        .map(|yk| g.operate_with_self((ry * yk.evaluate(s)).representative()))
-    .chain(
-        qap.v_output.iter()
-            .map(|yk| g.operate_with_self((ry* yk.evaluate(s)).representative()))
-        )
-    ); */
-
     VerificationKey {
         g2: g2.clone(),
         g2_alpha_v: g2.operate_with_self(alpha_v.representative()),
@@ -231,7 +181,7 @@ fn generate_verification_key(
         g2_gamma: g2.operate_with_self(gamma.representative()),
         g2_beta_gamma: g2.operate_with_self((beta * gamma).representative()),
         g1y_t: g1.operate_with_self((ry * qap.target.evaluate(&s)).representative()),
-        g1_vk: g1v_vk_io,
+        g1_vk: g1_vk_io,
         g2_wk: g2_wk_io,
         g1_yk: g1_yk_io,
     }
@@ -241,8 +191,8 @@ fn generate_evaluation_key(
     qap: &QuadraticArithmeticProgram,
     toxic_waste: &ToxicWaste,
 ) -> EvaluationKey {
-    let g1 : G1Point = Curve::generator();
-    let g2 :G2Point = TwistedCurve::generator();
+    let g1: G1Point = Curve::generator();
+    let g2: G2Point = TwistedCurve::generator();
     let (vs_mid, ws_mid, ys_mid) = (qap.v_mid(), qap.w_mid(), qap.y_mid());
     let s = &toxic_waste.s;
     let alpha_v = &toxic_waste.alpha_v;
@@ -409,7 +359,6 @@ pub fn check_same_linear_combinations(
 fn main() {
     println!("Running Pinocchio test...");
 
-    // Create a test QAP (you'll need to implement this based on your specific needs)
     let test_qap = create_test_qap();
 
     // Sample a random toxic waste
@@ -418,10 +367,10 @@ fn main() {
     // Setup
     let (evaluation_key, verification_key) = setup(&test_qap, toxic_waste);
 
-    // Define inputs (adjust as needed for your specific QAP)
+    // Define inputs 
     let inputs = vec![FE::new(1), FE::new(2), FE::new(3), FE::new(4)];
 
-    // Execute the QAP (you'll need to implement this based on your specific QAP)
+    // Execute the QAP 
     let (c_mid, c_output) = execute_qap(&test_qap, &inputs);
 
     // Construct the full witness vector
@@ -432,7 +381,6 @@ fn main() {
     // Generate proof
     let proof = generate_proof(&evaluation_key, &test_qap, &c_vector);
 
-    // Prepare inputs and outputs for verification
     let mut c_io_vector = inputs;
     c_io_vector.push(c_output);
 
