@@ -1,8 +1,7 @@
 use crate::common::{G1Point, G2Point, FE};
 use crate::qap::QuadraticArithmeticProgram;
 use crate::setup::EvaluationKey;
-use lambdaworks_math::
-    msm::pippenger::msm;
+use lambdaworks_math::msm::pippenger::msm;
 
 pub struct Proof {
     pub v: G1Point,

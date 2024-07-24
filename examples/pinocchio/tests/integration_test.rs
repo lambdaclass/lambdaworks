@@ -1,8 +1,8 @@
 use pinocchio::common::FE;
 use pinocchio::prover::generate_proof;
 use pinocchio::setup::{setup, ToxicWaste};
-use pinocchio::verifier::verify;
 use pinocchio::test_utils::{new_test_r1cs, test_qap_solver};
+use pinocchio::verifier::verify;
 
 fn test_pinocchio(toxic_waste: ToxicWaste) {
     println!("Running Pinocchio test...");

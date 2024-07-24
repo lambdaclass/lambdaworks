@@ -1,10 +1,9 @@
-use lambdaworks_math::polynomial::Polynomial;
 use super::common::FE;
 use crate::{
     qap::QuadraticArithmeticProgram as QAP,
-    r1cs::{Constraint, R1CS}
+    r1cs::{Constraint, R1CS},
 };
-
+use lambdaworks_math::polynomial::Polynomial;
 
 // r5 and r6 are exposed to help testing
 pub fn test_qap_r5() -> FE {
@@ -65,7 +64,11 @@ pub fn new_test_qap() -> QAP {
         Polynomial::interpolate(&[r5.clone(), r6.clone()], &[FE::from(0), FE::from(0)]).unwrap(),
         Polynomial::interpolate(&[r5.clone(), r6.clone()], &[FE::from(0), FE::from(0)]).unwrap(),
         Polynomial::interpolate(&[r5.clone(), r6.clone()], &[FE::from(1), FE::from(0)]).unwrap(),
-        Polynomial::interpolate(&[r5.clone(), r6.clone().clone()], &[FE::from(0), FE::from(1)]).unwrap(),
+        Polynomial::interpolate(
+            &[r5.clone(), r6.clone().clone()],
+            &[FE::from(0), FE::from(1)],
+        )
+        .unwrap(),
     ];
 
     QAP::new(vs, ws, ys, t, 4, 1).unwrap()

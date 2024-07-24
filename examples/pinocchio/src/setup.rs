@@ -1,8 +1,5 @@
-use lambdaworks_math::{
-    cyclic_group::IsGroup,
-    elliptic_curve::traits::IsEllipticCurve
-};
 use crate::common::{sample_fr_elem, Curve, G1Point, G2Point, TwistedCurve, FE};
+use lambdaworks_math::{cyclic_group::IsGroup, elliptic_curve::traits::IsEllipticCurve};
 
 use crate::qap::QuadraticArithmeticProgram;
 
@@ -218,7 +215,6 @@ pub fn generate_evaluation_key(
             .collect(),
     }
 }
-
 
 pub fn setup(
     qap: &QuadraticArithmeticProgram,

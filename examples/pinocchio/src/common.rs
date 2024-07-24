@@ -4,7 +4,7 @@ use lambdaworks_math::{
             curve::BLS12381Curve, default_types::FrElement, default_types::FrField as FrF,
             pairing::BLS12381AtePairing, twist::BLS12381TwistCurve,
         },
-        traits::IsEllipticCurve
+        traits::IsEllipticCurve,
     },
     unsigned_integer::element::U256,
 };

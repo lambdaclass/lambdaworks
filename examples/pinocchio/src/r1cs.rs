@@ -125,9 +125,7 @@ pub fn inner_product(v1: &[FE], v2: &[FE]) -> FE {
 
 #[cfg(test)]
 pub mod tests {
-    use crate::test_utils::{
-        new_test_first_constraint, new_test_r1cs, new_test_second_constraint,
-    };
+    use crate::test_utils::{new_test_first_constraint, new_test_r1cs, new_test_second_constraint};
 
     use super::*;
 

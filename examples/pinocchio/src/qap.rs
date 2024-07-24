@@ -132,7 +132,6 @@ impl QuadraticArithmeticProgram {
 }
 
 impl From<R1CS> for QuadraticArithmeticProgram {
-
     fn from(r1cs: R1CS) -> Self {
         // The r values for the qap polynomial can each be any number,
         // as long as there are the right amount of rs.
@@ -141,7 +140,7 @@ impl From<R1CS> for QuadraticArithmeticProgram {
         let rs: Vec<FE> = (0..r1cs.number_of_constraints() as u128)
             .map(|i| FE::new(i.into()))
             .collect();
-      
+
         let mut vs: Vec<Polynomial<FE>> = Vec::with_capacity(r1cs.witness_size());
         let mut ws: Vec<Polynomial<FE>> = Vec::with_capacity(r1cs.witness_size());
         let mut ys: Vec<Polynomial<FE>> = Vec::with_capacity(r1cs.witness_size());

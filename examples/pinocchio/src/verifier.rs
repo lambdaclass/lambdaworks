@@ -1,11 +1,9 @@
-use lambdaworks_math::{
-    cyclic_group::IsGroup,
-    elliptic_curve::traits::IsPairing,
-    msm::pippenger::msm,
-};
 use crate::common::{Pairing, FE};
 use crate::prover::Proof;
 use crate::setup::VerificationKey;
+use lambdaworks_math::{
+    cyclic_group::IsGroup, elliptic_curve::traits::IsPairing, msm::pippenger::msm,
+};
 
 pub fn verify(verification_key: &VerificationKey, proof: &Proof, c_inputs_outputs: &[FE]) -> bool {
     let b1 = check_divisibility(verification_key, proof, c_inputs_outputs);
