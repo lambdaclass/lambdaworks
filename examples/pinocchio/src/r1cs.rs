@@ -1,5 +1,4 @@
 use crate::common::FE;
-use lambdaworks_math::field::{element::FieldElement, traits::IsField};
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum CreationError {
@@ -124,11 +123,9 @@ pub fn inner_product(v1: &[FE], v2: &[FE]) -> FE {
         .fold(FE::from(0), |x, y| x + y)
 }
 
-// v1.iter().zip(v2).map(|(x, y)| *x * *y).fold(FE::new(0), |x,y| x + y)
-
-/*#[cfg(test)]
+#[cfg(test)]
 pub mod tests {
-    use crate::circuits::test_utils::{
+    use crate::test_utils::{
         new_test_first_constraint, new_test_r1cs, new_test_second_constraint,
     };
 
@@ -136,18 +133,18 @@ pub mod tests {
 
     #[test]
     fn mul_vectors_2_2_3_3_equals_12() {
-        let v1 = &[FE::new(2), FE::new(2)];
-        let v2 = &[FE::new(3), FE::new(3)];
+        let v1 = &[FE::from(2), FE::from(2)];
+        let v2 = &[FE::from(3), FE::from(3)];
 
-        assert_eq!(inner_product(v1, v2), FE::new(12));
+        assert_eq!(inner_product(v1, v2), FE::from(12));
     }
 
     #[test]
     fn mul_vectors_3_5_equals_15() {
-        let v1 = &[FE::new(3)];
-        let v2 = &[FE::new(5)];
+        let v1 = &[FE::from(3)];
+        let v2 = &[FE::from(5)];
 
-        assert_eq!(inner_product(v1, v2), FE::new(15));
+        assert_eq!(inner_product(v1, v2), FE::from(15));
     }
 
     #[test]
@@ -163,13 +160,13 @@ pub mod tests {
     #[test]
     fn verify_bad_solution_with_test_circuit_c5_constraints() {
         let solution = vec![
-            FE::new(0),
-            FE::new(0),
-            FE::new(0),
-            FE::new(4),
-            FE::new(1),
-            FE::new(0),
-            FE::new(0),
+            FE::from(0),
+            FE::from(0),
+            FE::from(0),
+            FE::from(4),
+            FE::from(1),
+            FE::from(0),
+            FE::from(0),
         ];
         assert!(!new_test_first_constraint().verify_solution(&solution));
     }
@@ -177,13 +174,13 @@ pub mod tests {
     #[test]
     fn verify_bad_solution_with_test_circuit_c6_constraints() {
         let solution = vec![
-            FE::new(0),
-            FE::new(2),
-            FE::new(1),
-            FE::new(4),
-            FE::new(5),
-            FE::new(2),
-            FE::new(2),
+            FE::from(0),
+            FE::from(2),
+            FE::from(1),
+            FE::from(4),
+            FE::from(5),
+            FE::from(2),
+            FE::from(2),
         ];
         assert!(!new_test_second_constraint().verify_solution(&solution));
     }
@@ -196,13 +193,13 @@ pub mod tests {
     #[test]
     fn verify_bad_solution_with_new_test_r1cs() {
         let solution = vec![
-            FE::new(0),
-            FE::new(2),
-            FE::new(1),
-            FE::new(4),
-            FE::new(5),
-            FE::new(2),
-            FE::new(2),
+            FE::from(0),
+            FE::from(2),
+            FE::from(1),
+            FE::from(4),
+            FE::from(5),
+            FE::from(2),
+            FE::from(2),
         ];
 
         assert!(!new_test_r1cs().verify_solution(&solution))
@@ -211,13 +208,13 @@ pub mod tests {
     #[test]
     fn verify_bad_solution_because_of_second_constraint_with_new_test_r1cs() {
         let solution = vec![
-            FE::new(0),  // c0
-            FE::new(2),  // c1
-            FE::new(1),  // c2
-            FE::new(5),  // c3
-            FE::new(10), // c4
-            FE::new(50), // c5 = c4 * c3
-            FE::new(2),  // c6 != c5 * (c1+c2), so this should fail
+            FE::from(0),  // c0
+            FE::from(2),  // c1
+            FE::from(1),  // c2
+            FE::from(5),  // c3
+            FE::from(10), // c4
+            FE::from(50), // c5 = c4 * c3
+            FE::from(2),  // c6 != c5 * (c1+c2), so this should fail
         ];
         assert!(!new_test_r1cs().verify_solution(&solution))
     }
@@ -225,27 +222,26 @@ pub mod tests {
     #[test]
     fn verify_bad_solution_because_of_first_constraint_with_new_test_r1cs() {
         let solution = vec![
-            FE::new(0),  // c0
-            FE::new(1),  // c1
-            FE::new(1),  // c2
-            FE::new(5),  // c3
-            FE::new(10), // c4
-            FE::new(10), // c5 != c4 * c3
-            FE::new(19), // c6 = c5 * (c1+c2), so this should fail
+            FE::from(0),  // c0
+            FE::from(1),  // c1
+            FE::from(1),  // c2
+            FE::from(5),  // c3
+            FE::from(10), // c4
+            FE::from(10), // c5 != c4 * c3
+            FE::from(19), // c6 = c5 * (c1+c2), so this should fail
         ];
         assert!(!new_test_r1cs().verify_solution(&solution))
     }
 
     fn test_solution() -> Vec<FE> {
         vec![
-            FE::new(0),
-            FE::new(1),
-            FE::new(2),
-            FE::new(3),
-            FE::new(4),
-            FE::new(12),
-            FE::new(36),
+            FE::from(0),
+            FE::from(1),
+            FE::from(2),
+            FE::from(3),
+            FE::from(4),
+            FE::from(12),
+            FE::from(36),
         ]
     }
 }
-*/

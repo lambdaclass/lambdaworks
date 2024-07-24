@@ -16,11 +16,13 @@ Then, in the `tests/` module you will find integration tests that will guide you
 
 # Example
 
-**Step 1:** Construct QAP
+**Step 1:** Construct a QAP
 
-TO DO
+```rust
+let test_qap = new_test_r1cs().into();
+```
 
-**Step 2**: Setup providing Evaluation and Verification keys
+**Step 2**: Setup providing Evaluation and Verification keys.
 
 ```rust 
 let (evaluation_key, verification_key) = setup(&test_qap, toxic_waste);

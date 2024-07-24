@@ -1,12 +1,6 @@
-//use super::super::config::ORDER_R;
-//use super::r1cs::R1CS;
-use lambdaworks_math::polynomial::Polynomial;
 use crate::{common::*, r1cs::R1CS};
-//use crate::math::{field_element::FieldElement, polynomial::Polynomial as Poly};
+use lambdaworks_math::polynomial::Polynomial;
 use std::convert::From;
-
-// type FE = FieldElement<ORDER_R>;
-// type Polynomial = Polynomial<FE>;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 /// QAP Representation of the circuits
@@ -39,7 +33,6 @@ impl QuadraticArithmeticProgram {
         number_of_inputs: usize,
         number_of_outputs: usize,
     ) -> Result<Self, CreationError> {
-        // TO DO: Check if the amount of inputs and outputs matches the polynomials
         if vs.len() != ws.len() || vs.len() != ys.len() || ws.len() != ys.len() {
             Err(CreationError::PolynomialVectorsSizeMismatch)
         } else {
@@ -57,10 +50,11 @@ impl QuadraticArithmeticProgram {
     pub fn h_polynomial(&self, c: &[FE]) -> Polynomial<FE> {
         self.p_polynomial(c).div_with_ref(&self.target)
     }
-    /// Receives C elements of a solution of the circuit
-    /// Returns p polynomial
+
+    /// Receives C elements of a solution of the circuit.
+    /// Returns p polynomial.
     // This along the polynomial execution should be migrated with a better
-    // representation of the circuit
+    // representation of the circuit.
     pub fn p_polynomial(&self, cs: &[FE]) -> Polynomial<FE> {
         let v: Polynomial<FE> = self.vs[0].clone()
             + self.vs[1..]
@@ -138,33 +132,23 @@ impl QuadraticArithmeticProgram {
 }
 
 impl From<R1CS> for QuadraticArithmeticProgram {
-    // Check R1CS
-    /// Transforms a R1CS to a QAP
+
     fn from(r1cs: R1CS) -> Self {
         // The r values for the qap polynomial can each be any number,
-        // as long as there are the right amount of rs
+        // as long as there are the right amount of rs.
         // In this case, it's set them to be 0,1,2..number_of_constraints(),
-        // number_of_constraints non inclusive
+        // number_of_constraints non inclusive.
         let rs: Vec<FE> = (0..r1cs.number_of_constraints() as u128)
             .map(|i| FE::new(i.into()))
             .collect();
-// why .into()?
-
-// in the pinocchio_lambda_vs implementation we found:
-/*
-        let rs: Vec<FE> = (0..r1cs.number_of_constraints() as u128)
-            .map(FE::new)
-            .collect();
-
-*/
+      
         let mut vs: Vec<Polynomial<FE>> = Vec::with_capacity(r1cs.witness_size());
         let mut ws: Vec<Polynomial<FE>> = Vec::with_capacity(r1cs.witness_size());
         let mut ys: Vec<Polynomial<FE>> = Vec::with_capacity(r1cs.witness_size());
         let mut t: Polynomial<FE> = Polynomial::new_monomial(FE::from(1), 0);
-//  (x-rs)
-// To do: Check Polynomial::new()
+
         for r in &rs {
-            t = t * Polynomial::new(&vec![-r, FE::from(1)]);
+            t = t * Polynomial::new(&[-r, FE::from(1)]);
         }
 
         for i in 0..r1cs.witness_size() {
@@ -188,4 +172,192 @@ impl From<R1CS> for QuadraticArithmeticProgram {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use crate::test_utils::{
+        new_test_qap, new_test_r1cs, test_qap_r5, test_qap_r6, test_qap_solver,
+    };
 
+    use super::*;
+
+    #[test]
+    fn qap_with_different_amount_of_polynomials_should_error() {
+        let v = &[
+            Polynomial::new(&[FE::from(1), FE::from(2)]),
+            Polynomial::new(&[FE::from(2), FE::from(3)]),
+        ];
+
+        let u = v.clone();
+        let w = &[Polynomial::new(&[FE::from(1), FE::from(2)])];
+        let t = Polynomial::new(&[FE::from(3)]);
+        assert_eq!(
+            Err(CreationError::PolynomialVectorsSizeMismatch),
+            QuadraticArithmeticProgram::new(v.to_vec(), u.to_vec(), w.to_vec(), t, 2, 1)
+        );
+    }
+
+    #[test]
+    fn test_circuit_v_w_y_have_7_elements() {
+        let test_circuit = new_test_qap();
+        assert_eq!(test_circuit.vs.len(), 7);
+        assert_eq!(test_circuit.ws.len(), 7);
+        assert_eq!(test_circuit.ys.len(), 7);
+    }
+
+    //_mid polynomials of test circuit contains only one polynomial
+    #[test]
+    fn v_mid_test_circuit_on_r6_is_0() {
+        let test_circuit = new_test_qap();
+        let r6 = test_qap_r6();
+        assert_eq!(test_circuit.y_mid()[0].evaluate(&r6), FE::from(0));
+    }
+
+    #[test]
+    fn w_mid_test_circuit_has_one_element() {
+        let test_circuit = new_test_qap();
+        assert_eq!(test_circuit.v_mid().len(), 1);
+    }
+
+    #[test]
+    fn w_mid_test_circuit_on_r5_is_0() {
+        let test_circuit = new_test_qap();
+        let r5 = test_qap_r5();
+        assert_eq!(test_circuit.w_mid()[0].evaluate(&r5), FE::from(0));
+    }
+
+    #[test]
+    fn w_mid_test_circuit_on_r6_is_1() {
+        let test_circuit = new_test_qap();
+        let r6 = test_qap_r6();
+        assert_eq!(test_circuit.w_mid()[0].evaluate(&r6), FE::from(1));
+    }
+
+    #[test]
+    fn y_mid_test_circuit_on_r5_is_1() {
+        let test_circuit = new_test_qap();
+        let r5 = test_qap_r5();
+        assert_eq!(test_circuit.y_mid()[0].evaluate(&r5), FE::from(1));
+    }
+
+    #[test]
+    fn y_mid_test_circuit_on_r6_is_0() {
+        let test_circuit = new_test_qap();
+        let r6 = test_qap_r6();
+        assert_eq!(test_circuit.y_mid()[0].evaluate(&r6), FE::from(0));
+    }
+
+    #[test]
+    fn v_input_test_circuit_has_length_4() {
+        let test_circuit = new_test_qap();
+        assert_eq!(test_circuit.v_input().len(), 4);
+    }
+
+    #[test]
+    fn w_input_test_circuit_has_length_4() {
+        let test_circuit = new_test_qap();
+        assert_eq!(test_circuit.w_input().len(), 4);
+    }
+    #[test]
+    fn y_input_test_circuit_has_length_4() {
+        let test_circuit = new_test_qap();
+        assert_eq!(test_circuit.y_input().len(), 4);
+    }
+
+    #[test]
+    fn v_output_test_circuit_has_length_1() {
+        let test_circuit = new_test_qap();
+        assert_eq!(test_circuit.v_output().len(), 1);
+    }
+
+    #[test]
+    fn w_output_test_circuit_has_length_1() {
+        let test_circuit = new_test_qap();
+        assert_eq!(test_circuit.w_output().len(), 1);
+    }
+
+    #[test]
+    fn y_output_test_circuit_has_length_1() {
+        let test_circuit = new_test_qap();
+        assert_eq!(test_circuit.y_output().len(), 1);
+    }
+
+    #[test]
+    /// This test runs multiple cases calculated in paper
+    /// t polynomial is tested implicitly by calculating h = p / t
+    fn test_polynomial_h_cases() {
+        let test_circuit = new_test_qap();
+
+        let inputs = [FE::from(1), FE::from(2), FE::from(3), FE::from(4)];
+
+        let (c5, c6) = test_qap_solver(inputs.clone());
+
+        let mut c_vector = inputs.to_vec();
+        c_vector.append(&mut vec![c5, c6]);
+
+        assert_eq!(
+            test_circuit.h_polynomial(&c_vector),
+            Polynomial::new_monomial(FE::from(0), 0)
+        );
+
+        let inputs = [FE::from(2), FE::from(2), FE::from(2), FE::from(2)];
+
+        let (c5, c6) = test_qap_solver(inputs.clone());
+
+        let mut c_vector = inputs.to_vec();
+        c_vector.append(&mut vec![c5, c6]);
+
+        assert_eq!(
+            test_circuit.h_polynomial(&c_vector),
+            Polynomial::new_monomial(FE::from(4), 0)
+        );
+
+        let inputs = [FE::from(3), FE::from(3), FE::from(3), FE::from(3)];
+
+        let (c5, c6) = test_qap_solver(inputs.clone());
+
+        let mut c_vector = inputs.to_vec();
+        c_vector.append(&mut vec![c5, c6]);
+
+        assert_eq!(
+            test_circuit.h_polynomial(&c_vector),
+            Polynomial::new_monomial(FE::from(18), 0)
+        );
+
+        let inputs = [FE::from(4), FE::from(3), FE::from(2), FE::from(1)];
+
+        let (c5, c6) = test_qap_solver(inputs.clone());
+
+        let mut c_vector = inputs.to_vec();
+        c_vector.append(&mut vec![c5, c6]);
+
+        assert_eq!(
+            test_circuit.h_polynomial(&c_vector),
+            Polynomial::new_monomial(FE::from(5), 0)
+        );
+    }
+
+    #[test]
+    fn test_circuit_solver_on_2_2_2_2_outputs_4_and_16() {
+        let inputs = [FE::from(2), FE::from(2), FE::from(2), FE::from(2)];
+
+        let (c5, c6) = test_qap_solver(inputs);
+        assert_eq!(c5, FE::from(4));
+        assert_eq!(c6, FE::from(16));
+    }
+
+    #[test]
+    fn test_circuit_solver_on_1_2_3_4_outputs_12_and_36() {
+        let inputs = [FE::from(1), FE::from(2), FE::from(3), FE::from(4)];
+
+        let (c5, c6) = test_qap_solver(inputs);
+        assert_eq!(c5, FE::from(12));
+        assert_eq!(c6, FE::from(36));
+    }
+    #[test]
+    fn test_r1cs_into_qap_is_test_qap() {
+        let qap = new_test_qap();
+        let r1cs = new_test_r1cs();
+        let r1cs_as_qap: QuadraticArithmeticProgram = r1cs.into();
+        assert_eq!(qap, r1cs_as_qap);
+    }
+}
