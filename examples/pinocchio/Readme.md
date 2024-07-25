@@ -8,7 +8,7 @@ We encourage to start by reading the [blog post](link) to understand the code.
 
 Then, in the `tests/` module you will find integration tests that will guide you through the happy path: the setup, the prover and the verifier. Each of these components can be located in their own files:
 
-- `pinocchio/setup.rs`: generates the `VerificationKey` and the `EvaluationKey` with the relevant data to construct and verify proofs. This data comes from the structure of the program P encoded as `Polynomials` in a `QAP` (Quadratic arithmetic program). To hide this data, random `FieldElement`s are sampled as `ToxicWaste` and then mapped to `G1Point`'s and  `G1Point`'s via repeated addition of the `generator()`'s of the curves. 
+- `pinocchio/setup.rs`: generates the `VerificationKey` and the `EvaluationKey` with the relevant data to construct and verify proofs. This data comes from the structure of the program P encoded as `Polynomials` in a `QAP` (Quadratic arithmetic program). To hide this data, random `FieldElement`s are sampled as `ToxicWaste` and then mapped to `G1Point`'s and  `G2Point`'s via repeated addition of the `generator()`'s of the curves. 
 
 - `pinocchio/prover.rs`: takes the circuit encoded as a `QAP` and the trace of the program as `FieldElement`s. Then, it applies the `msm(...)` operation in order to generate the proof elements, in this case, `G1Point` and `G2Point` hidings.
 
