@@ -33,8 +33,10 @@ impl QuadraticArithmeticProgram {
         number_of_inputs: usize,
         number_of_outputs: usize,
     ) -> Result<Self, CreationError> {
-        if vs.len() != ws.len() || vs.len() != ys.len() 
-        || number_of_inputs + number_of_outputs > vs.len() {
+        if vs.len() != ws.len()
+            || vs.len() != ys.len()
+            || number_of_inputs + number_of_outputs > vs.len()
+        {
             Err(CreationError::PolynomialVectorsSizeMismatch)
         } else {
             Ok(Self {
