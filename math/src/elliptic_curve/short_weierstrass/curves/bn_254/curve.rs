@@ -34,6 +34,43 @@ impl IsShortWeierstrass for BN254Curve {
     }
 }
 
+// TODO:
+// we think that MILLER_LOOP_CONSTANT = 6x+2 = 29793968203157093288
+// with x = 496566136719284888
+// see https://hackmd.io/@Wimet/ry7z1Xj-2
+pub const MILLER_LOOP_CONSTANT: u64 = 0;
+
+// TODO:
+// We have to implement this but for BN254
+impl ShortWeierstrassProjectivePoint<BN254TwistCurve> {
+    // We don't know wich is the psi function for BN254. (see page 15 https://eprint.iacr.org/2022/352.pdf)
+
+    /*
+    /// 𝜓(P) = 𝜁 ∘ 𝜋ₚ ∘ 𝜁⁻¹, where 𝜁 is the isomorphism u:E'(𝔽ₚ₆) −> E(𝔽ₚ₁₂) from the twist to E,, 𝜋ₚ is the p-power frobenius endomorphism
+    /// and 𝜓 satisifies minmal equation 𝑋² + 𝑡𝑋 + 𝑞 = 𝑂
+    /// https://eprint.iacr.org/2022/352.pdf 4.2 (7)
+    */
+    
+    fn psi(&self) -> Self {
+        let [x, y, z] = self.coordinates();
+        Self::new([
+            x.conjugate() * ENDO_U,
+            y.conjugate() * ENDO_V,
+            z.conjugate(),
+        ])
+    }
+
+    // We have to adapt is_in_subgroup for BN254 (see page 15 https://eprint.iacr.org/2022/352.pdf).
+    
+    /*
+    /// 𝜓(P) = 𝑢P, where 𝑢 = SEED of the curve
+    /// https://eprint.iacr.org/2022/352.pdf 4.2
+    */
+    pub fn is_in_subgroup(&self) -> bool {
+        self.psi() == self.operate_with_self(MILLER_LOOP_CONSTANT).neg()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
