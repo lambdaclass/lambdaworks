@@ -3,6 +3,9 @@ use super::curve::MILLER_LOOP_CONSTANT;
 // we think that MILLER_LOOP_CONSTANT = 6x+2 = 29793968203157093288
 // with x = 496566136719284888
 // see https://hackmd.io/@Wimet/ry7z1Xj-2
+// @Juan is this the same parameter used in the NAF representation? 
+// t = 6x^2. Where x = 4965661367192848881
+
 use super::{
     curve::BN254Curve,
     field_extension::{BN254PrimeField, Degree12ExtensionField, Degree2ExtensionField},
@@ -19,9 +22,16 @@ use crate::{
     unsigned_integer::element::{UnsignedInteger, U256},
 };
 // We have to find the SUBGROUP_ORDER and see where it's used.
+// In the implementation of zksync we have:
+// 21888242871839275222246405745257275088548364400416034343698204186575808495617
+// 30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001 (fist I coverted it into hex)
 pub const SUBGROUP_ORDER: U256 =
     U256::from_hex_unchecked("TODO");
+
 // Need implementation of NAF representation
+// 
+
+
 pub struct BN254AtePairing;
 impl IsPairing for BN254AtePairing {
     type G1Point = ShortWeierstrassProjectivePoint<BN254Curve>;

@@ -1,13 +1,16 @@
-use super::field_extension::{BN254PrimeField, Degree2ExtensionField};
+use super::{field_extension::{BN254PrimeField, Degree2ExtensionField},
+twist::BN254TwistCurve,};
 use crate::elliptic_curve::short_weierstrass::point::ShortWeierstrassProjectivePoint;
 use crate::elliptic_curve::traits::IsEllipticCurve;
 use crate::{
     elliptic_curve::short_weierstrass::traits::IsShortWeierstrass, field::element::FieldElement,
 };
 
+use crate::cyclic_group::IsGroup;
+
 pub type BN254FieldElement = FieldElement<BN254PrimeField>;
 pub type BN254TwistCurveFieldElement = FieldElement<Degree2ExtensionField>;
-
+// Added by Juan
 #[derive(Clone, Debug)]
 pub struct BN254Curve;
 
@@ -34,41 +37,84 @@ impl IsShortWeierstrass for BN254Curve {
     }
 }
 
-// TODO:
-// we think that MILLER_LOOP_CONSTANT = 6x+2 = 29793968203157093288
-// with x = 496566136719284888
-// see https://hackmd.io/@Wimet/ry7z1Xj-2
-pub const MILLER_LOOP_CONSTANT: u64 = 0;
+/// x = 4965661367192848881. 
+/// See https://hackmd.io/@jpw/bn254#Barreto-Naehrig-curves.
+pub const X: u64 = 0x44e992b44a6909f1;
 
-// TODO:
-// We have to implement this but for BN254
+// Constant used in the Miller Loop.
+/// MILLER_LOOP_CONSTANT = t - 1 = 6x^2 = 14794675688178931416421085915796864
+/// where t is the trace of Frobenius and x = 4965661367192848881. 
+/// See https://hackmd.io/@jpw/bn254#Barreto-Naehrig-curves.
+pub const MILLER_LOOP_CONSTANT: u128 = 0x2d96f0f62456fa4007202eaea5580;
+
+/// Millers loop uses to iterate the NAF representation of the MILLER_LOOP_CONSTANT
+/// A NAF representation uses values: -1, 0 and 1. https://en.wikipedia.org/wiki/Non-adjacent_form.
+pub const MILLER_CONSTANT_NAF: [i32; 115] = [
+    1, 0, -1, 0, 0, -1, 0, -1, 0, 1, 0, -1, 0, 0, -1, 0, 0, 0, -1, 0, 0, 0, 1, 0, 0, 0, 0, -1, 0,
+    -1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, -1, 0, -1, 0, 0, -1, 0, 0, 0, 0, -1, 0, 1, 0, 0, 1, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 1, 0, 0, -1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, -1, 0,
+    0, 0, -1, 0, -1, 0, -1, 0, 0, -1, 0, 1, 0, 1, 0, 1, 0, -1, 0, -1, 0, -1, 0, -1, 0, 0, 0, 0, 0, 0, 0
+];
+
+// Values needed to calculate phi.
+/// phi(x, y) = (GAMMA_X * x.conjugate(), GAMMA_Y * y.conjugate()).
+/// See https://hackmd.io/@Wimet/ry7z1Xj-2#The-Pairing (Subgroup Checks).
+/// We took these constants from https://t.ly/cSqfr where
+/// GAMMA_X is called xi3() and GAMMA_Y is called xi2().
+
+/// GAMMA_1_3 = (9 + u)^{(q-1)/3}
+pub const GAMMA_X: BN254TwistCurveFieldElement =
+BN254TwistCurveFieldElement::const_from_raw([
+    FieldElement::from_hex_unchecked("2fb347984f7911f74c0bec3cf559b143b78cc310c2c3330c99e39557176f553d"),
+    FieldElement::from_hex_unchecked("16c9e55061ebae204ba4cc8bd75a079432ae2a1d0b7c9dce1665d51c640fcba2")
+]);
+
+/// GAMMA_1_2 = (9 + u)^{(q-1)/2}
+pub const GAMMA_Y: BN254TwistCurveFieldElement =
+BN254TwistCurveFieldElement::const_from_raw([
+    FieldElement::from_hex_unchecked("63cf305489af5dcdc5ec698b6e2f9b9dbaae0eda9c95998dc54014671a0135a"),
+    FieldElement::from_hex_unchecked("7c03cbcac41049a0704b5a7ec796f2b21807dc98fa25bd282d37f632623b0e3")
+]);
+
 impl ShortWeierstrassProjectivePoint<BN254TwistCurve> {
-    // We don't know wich is the psi function for BN254. (see page 15 https://eprint.iacr.org/2022/352.pdf)
 
-    /*
-    /// 𝜓(P) = 𝜁 ∘ 𝜋ₚ ∘ 𝜁⁻¹, where 𝜁 is the isomorphism u:E'(𝔽ₚ₆) −> E(𝔽ₚ₁₂) from the twist to E,, 𝜋ₚ is the p-power frobenius endomorphism
-    /// and 𝜓 satisifies minmal equation 𝑋² + 𝑡𝑋 + 𝑞 = 𝑂
-    /// https://eprint.iacr.org/2022/352.pdf 4.2 (7)
-    */
-    
-    fn psi(&self) -> Self {
+    /// phi morphism used to G2 subgroup check for twisted curve.
+    /// phi(x, y) = (GAMMA_X * x.conjugate(), GAMMA_Y * y.conjugate()).
+    /// See https://hackmd.io/@Wimet/ry7z1Xj-2#The-Pairing (Subgroup Checks).
+    fn phi(&self) -> Self {
         let [x, y, z] = self.coordinates();
         Self::new([
-            x.conjugate() * ENDO_U,
-            y.conjugate() * ENDO_V,
+            x.conjugate() * GAMMA_X,
+            y.conjugate() * GAMMA_Y,
             z.conjugate(),
         ])
     }
 
-    // We have to adapt is_in_subgroup for BN254 (see page 15 https://eprint.iacr.org/2022/352.pdf).
-    
-    /*
-    /// 𝜓(P) = 𝑢P, where 𝑢 = SEED of the curve
-    /// https://eprint.iacr.org/2022/352.pdf 4.2
-    */
-    pub fn is_in_subgroup(&self) -> bool {
-        self.psi() == self.operate_with_self(MILLER_LOOP_CONSTANT).neg()
+    /// Check if a G2 point is in the subgroup of the twisted curve.
+    fn is_in_subgroup(&self) -> bool {
+        let q_times_x = &self.operate_with_self(X);
+        let q_times_x_plus_1 = &self.operate_with_self(X + 1);
+        let q_times_2x = &self.operate_with_self(2*X);
+
+        // (x+1)Q + phi(xQ) + phi(phi(xQ)) == phi(phi(phi(2xQ)))
+        &q_times_x_plus_1.operate_with (
+            &q_times_x.phi().operate_with(
+                &q_times_x.phi().phi()
+            )
+        )
+        == &q_times_2x.phi().phi().phi() 
     }
+
+   
+    /*
+    // An other way to check if a G2 point is in the twisted curve subgroup.
+
+    /// 𝜓(P) = (6𝑢^2)P, where 𝑢 = SEED of the curve // @Juan
+    /// https://eprint.iacr.org/2022/352.pdf 4.2
+    
+    pub fn is_in_subgroup(&self) -> bool {
+        self.phi() == self.operate_with_self(MILLER_LOOP_CONSTANT).operate_with_self(MILLER_LOOP_CONSTANT).operate_with(0x6 as u64)
+    } */
 }
 
 #[cfg(test)]
@@ -227,4 +273,34 @@ mod tests {
             g.operate_with_self(3_u16)
         );
     }
+    
+    #[test]
+    fn generator_g2_is_in_subgroup() {
+        let g = BN254TwistCurve::generator();
+        assert!(g.is_in_subgroup())
+    }
+
+    #[test]
+    fn arbitrary_g2_point_is_in_subgroup() {
+        let g = BN254TwistCurve::generator().operate_with_self(32u64);
+        assert!(g.is_in_subgroup())
+    }
+
+    #[test]
+    fn g2_conjugate_works() {
+        let a = FieldElement::zero();
+        let mut expected = a.conjugate();
+        expected = expected.conjugate();
+
+        assert_eq!(a, expected);
+    }
+
+
+    //TODO:
+    // A test of a G2 Point that isn't in the subgroup.
+
+    //TODO:
+    // #[test]
+    // fn untwist_morphism_has_minimal_poly()
+  
 }
