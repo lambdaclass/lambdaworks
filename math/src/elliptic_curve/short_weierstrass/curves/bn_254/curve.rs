@@ -66,14 +66,14 @@ pub const MILLER_CONSTANT_NAF: [i32; 115] = [
 /// We took these constants from https://t.ly/cSqfr where
 /// GAMMA_X is called xi3() and GAMMA_Y is called xi2().
 
-/// GAMMA_1_3 = (9 + u)^{(q-1)/3}
+/// GAMMA_X = (9 + u)^{(q-1)/3}
 pub const GAMMA_X: BN254TwistCurveFieldElement =
 BN254TwistCurveFieldElement::const_from_raw([
     FieldElement::from_hex_unchecked("2fb347984f7911f74c0bec3cf559b143b78cc310c2c3330c99e39557176f553d"),
     FieldElement::from_hex_unchecked("16c9e55061ebae204ba4cc8bd75a079432ae2a1d0b7c9dce1665d51c640fcba2")
 ]);
 
-/// GAMMA_1_2 = (9 + u)^{(q-1)/2}
+/// GAMMA_Y = (9 + u)^{(q-1)/2}
 pub const GAMMA_Y: BN254TwistCurveFieldElement =
 BN254TwistCurveFieldElement::const_from_raw([
     FieldElement::from_hex_unchecked("63cf305489af5dcdc5ec698b6e2f9b9dbaae0eda9c95998dc54014671a0135a"),
@@ -84,7 +84,7 @@ BN254TwistCurveFieldElement::const_from_raw([
 impl ShortWeierstrassProjectivePoint<BN254Curve> {
         // P is in G1 if P = (x, y) where y^2 = x^3 + 3
 
-    fn is_in_subgroup(&self) -> bool {
+    pub fn is_in_subgroup(&self) -> bool {
         let x = self.x();
         let y = self.y();
         let three = FieldElement::from(3);
@@ -110,11 +110,9 @@ impl ShortWeierstrassProjectivePoint<BN254TwistCurve> {
             z.conjugate(),
         ])
     }
-//@Juan Monday 29th July 
-// is it ok to use x instead of self.x()?
 
     /// Check if a G2 point is in the subgroup of the twisted curve.
-    fn is_in_subgroup(&self) -> bool {
+   pub fn is_in_subgroup(&self) -> bool {
         let q_times_x = &self.operate_with_self(X);
         let q_times_x_plus_1 = &self.operate_with_self(X + 1);
         let q_times_2x = &self.operate_with_self(2*X);
