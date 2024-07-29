@@ -30,6 +30,14 @@ pub const SUBGROUP_ORDER: U256 =
 
 // Need implementation of NAF representation
 // 
+/// Millers loop uses to iterate the NAF representation of the MILLER_LOOP_CONSTANT
+/// A NAF representation uses values: -1, 0 and 1. https://en.wikipedia.org/wiki/Non-adjacent_form.
+pub const MILLER_CONSTANT_NAF: [i32; 115] = [
+    1, 0, -1, 0, 0, -1, 0, -1, 0, 1, 0, -1, 0, 0, -1, 0, 0, 0, -1, 0, 0, 0, 1, 0, 0, 0, 0, -1, 0,
+    -1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, -1, 0, -1, 0, 0, -1, 0, 0, 0, 0, -1, 0, 1, 0, 0, 1, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 1, 0, 0, -1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, -1, 0,
+    0, 0, -1, 0, -1, 0, -1, 0, 0, -1, 0, 1, 0, 1, 0, 1, 0, -1, 0, -1, 0, -1, 0, -1, 0, 0, 0, 0, 0, 0, 0
+];
 
 
 pub struct BN254AtePairing;
@@ -65,13 +73,40 @@ impl IsPairing for BN254AtePairing {
 // In the implementation of bls381, this function also changes the t's and accumulator's (f) values.
 // Initially t = Q, accumulator (f) = 1. See https://eprint.iacr.org/2010/354.pdf.
 // Question: In https://eprint.iacr.org/2010/354.pdf P shouldn't be ProjectivePoint (Q is ok).
+// incomplete
+
 fn double_accumulate_line (
     t: &mut ShortWeierstrassProjectivePoint<BLS12381TwistCurve>,
     p: &ShortWeierstrassProjectivePoint<BLS12381Curve>,
     accumulator: &mut FieldElement<Degree12ExtensionField>,
-){
-    // TODO
+)
+{
+    let [x_q,y_q,z_q] = t.coordinates();
+    let [x_p,y_p,_] = p.coordinates();
+    
+    a = x_q.square(); // 1
+    b = y_q.square(); // 2
+    c = b.square();// 3
+    d = (b+x_q).square()-a-c; // 4
+    d = d + d; //2 temp3 // 5
+    e = a + a + a;  // 3 temp1 // 6
+    f = x_q + e; // 7
+    g = f.square(); // 8
+    x_t = f - d -d ; // 9
+    z_t = (y_q + z_q).square() - b - z_q.square(); // 10
+    y_t = (d-x_t)*e - c.double().double().double(); //11
+    d =  (e*z_q.square()).double().neg();square();//12
+    d= d*x_p; //13
+    e = e.square() - a  - g - b -b -b -b;  //14
+    a  = (z_t * z_q-square()).double(); //15
+    a = a * y_p;// 16 
+    let a_0 = a; //18
+    let a_1 =  d + e *v ; //19
+
+    let t = ShortWeierstrassProjectivePoint::new(x_t, y_t, z_t);
+    let l = a_0 + a_1*w;
 }
+
 //TODO
 // We need a function that computes the addition of two G2 points and the line through them.
 fn add_accumulate_line(

@@ -10,6 +10,8 @@ use crate::cyclic_group::IsGroup;
 
 pub type BN254FieldElement = FieldElement<BN254PrimeField>;
 pub type BN254TwistCurveFieldElement = FieldElement<Degree2ExtensionField>;
+// pub type Degree6ExtensionField = CubicExtensionField<Degree2ExtensionField, LevelTwoResidue>;
+
 // Added by Juan
 #[derive(Clone, Debug)]
 pub struct BN254Curve;
@@ -41,6 +43,7 @@ impl IsShortWeierstrass for BN254Curve {
 /// See https://hackmd.io/@jpw/bn254#Barreto-Naehrig-curves.
 pub const X: u64 = 0x44e992b44a6909f1;
 
+
 // Constant used in the Miller Loop.
 /// MILLER_LOOP_CONSTANT = t - 1 = 6x^2 = 14794675688178931416421085915796864
 /// where t is the trace of Frobenius and x = 4965661367192848881. 
@@ -55,6 +58,7 @@ pub const MILLER_CONSTANT_NAF: [i32; 115] = [
     0, 0, 0, 0, 0, 0, 1, 0, 0, -1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, -1, 0,
     0, 0, -1, 0, -1, 0, -1, 0, 0, -1, 0, 1, 0, 1, 0, 1, 0, -1, 0, -1, 0, -1, 0, -1, 0, 0, 0, 0, 0, 0, 0
 ];
+//@Juan: Move NAF to pairings.rs?
 
 // Values needed to calculate phi.
 /// phi(x, y) = (GAMMA_X * x.conjugate(), GAMMA_Y * y.conjugate()).
@@ -76,6 +80,23 @@ BN254TwistCurveFieldElement::const_from_raw([
     FieldElement::from_hex_unchecked("7c03cbcac41049a0704b5a7ec796f2b21807dc98fa25bd282d37f632623b0e3")
 ]);
 
+// G1
+impl ShortWeierstrassProjectivePoint<BN254Curve> {
+        // P is in G1 if P = (x, y) where y^2 = x^3 + 3
+
+    fn is_in_subgroup(&self) -> bool {
+        let x = self.x();
+        let y = self.y();
+        let three = FieldElement::from(3);
+        let y_sq = y.pow(2_u16);
+        let x_cubed = x.pow(3_u16);
+        y_sq == x_cubed + three
+    }
+
+
+}
+
+// G2
 impl ShortWeierstrassProjectivePoint<BN254TwistCurve> {
 
     /// phi morphism used to G2 subgroup check for twisted curve.
@@ -89,6 +110,8 @@ impl ShortWeierstrassProjectivePoint<BN254TwistCurve> {
             z.conjugate(),
         ])
     }
+//@Juan Monday 29th July 
+// is it ok to use x instead of self.x()?
 
     /// Check if a G2 point is in the subgroup of the twisted curve.
     fn is_in_subgroup(&self) -> bool {
@@ -129,6 +152,14 @@ mod tests {
 
     #[allow(clippy::upper_case_acronyms)]
     type FE = FieldElement<BN254PrimeField>;
+
+/*
+    // auxiliary function to calculate psi^2, need to correct it
+    fn psi_square(curve: &BN254TwistCurve, point: &ShortWeierstrassProjectivePoint<BN254TwistCurve>) -> ShortWeierstrassProjectivePoint<BN254TwistCurve> {
+        curve.psi(&curve.psi(point))
+    }
+ */
+
 
     /*
     Sage script:
@@ -257,7 +288,7 @@ mod tests {
         let x = g2_affine.x();
         let y = g2_affine.y();
 
-        // calculate both sides of BLS12-381 equation
+        // calculate both sides of BN254 equation
         let three = FieldElement::from(3);
         let y_sq_0 = x.pow(3_u16) + three;
         let y_sq_1 = y.pow(2_u16);
@@ -275,6 +306,13 @@ mod tests {
     }
     
     #[test]
+    fn generator_g1_is_in_subgroup() {
+        let g = BN254Curve::generator();
+        assert!(g.is_in_subgroup())
+    }
+
+
+    #[test]
     fn generator_g2_is_in_subgroup() {
         let g = BN254TwistCurve::generator();
         assert!(g.is_in_subgroup())
@@ -285,10 +323,10 @@ mod tests {
         let g = BN254TwistCurve::generator().operate_with_self(32u64);
         assert!(g.is_in_subgroup())
     }
-
+// i changed a from FieldElement to BN254TwistCurveFieldElement
     #[test]
     fn g2_conjugate_works() {
-        let a = FieldElement::zero();
+        let a = BN254TwistCurveFieldElement::zero();
         let mut expected = a.conjugate();
         expected = expected.conjugate();
 
@@ -298,9 +336,38 @@ mod tests {
 
     //TODO:
     // A test of a G2 Point that isn't in the subgroup.
-
+/* 
     //TODO:
-    // #[test]
-    // fn untwist_morphism_has_minimal_poly()
-  
+     #[test]
+    // https://eprint.iacr.org/2022/352.pdf page 15
+    fn untwist_morphism_has_minimal_poly() {
+        let curve = BN254TwistCurve::new();
+        let p = BN254TwistCurve::generator();
+        let psi_square_p = psi_square(&p);
+        
+        let x = BN254TwistCurveFieldElement::from(X);
+        let x2 = x.square();
+        
+        // Calcula la traza de Frobenius: t = 6x^2 + 1
+        let trace_of_frobenius = x2 * FieldElement::from(6u64) + FieldElement::one();
+        
+        let t_psi_p = curve.psi(&p).operate_with_self(trace_of_frobenius).neg();
+    
+        let x3 = x2 * x;
+        let x4 = x3 * x;
+        
+        // Calcula q = 36x^4 + 36x^3 + 24x^2 + 6x + 1
+        let q = x4 * FieldElement::from(36u64)+ 
+            x3 * FieldElement::from(36u64) + 
+                x2 * FieldElement::from(24u64)+ 
+                x* FieldElement::from(6u64)+ 
+                FieldElement::one();
+        
+        let q_p = p.operate_with(q);
+    
+        let min_poly = psi_square_p.operate_with(&t_psi_p).operate_with(&q_p);
+        
+        assert!(min_poly.is_neutral_element());
+    }
+*/
 }
