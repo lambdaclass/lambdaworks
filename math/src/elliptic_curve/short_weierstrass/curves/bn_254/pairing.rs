@@ -9,6 +9,7 @@ use super::{
     field_extension::{BN254PrimeField, Degree12ExtensionField, Degree2ExtensionField},
     twist::BN254TwistCurve,
 };
+use crate::elliptic_curve::traits::FromAffine;
 use crate::{cyclic_group::IsGroup, elliptic_curve::traits::IsPairing, errors::PairingError};
 use crate::{
     elliptic_curve::short_weierstrass::{
@@ -106,10 +107,8 @@ fn double_accumulate_line(
     f = f.square() - a - g - b.double().double(); //14
     a = (&z_t * z_q.square()).double(); //15
     a = y_p * a; // 16
-                 // let a_0 = Fp6E::new([Fp2E::zero(), Fp2E::zero(), a]); //18 TODO: check the coefficient's order
-    let a_0 = Fp6E::new([a, Fp2E::zero(), Fp2E::zero()]);
-    // let a_1 = Fp6E::new([Fp2E::zero(), e, d]); //19 //a_1 = 0*v^2 + e*v + d
-    let a_1 = Fp6E::new([d, e, Fp2E::zero()]); //19 //a_1 = 0*v^2 + e*v + d
+    let a_0 = Fp6E::new([Fp2E::zero(), Fp2E::zero(), a]); //18 TODO: check the coefficient's order
+    let a_1 = Fp6E::new([Fp2E::zero(), e, d]); //19 //a_1 = 0*v^2 + e*v + d
 
     t.0.value = [x_t, y_t, z_t];
     let l = Fp12E::new([a_1, a_0]); //l = a_0 + a_1*w
@@ -117,47 +116,70 @@ fn double_accumulate_line(
 }
 
 fn double_naive(
-    t: ShortWeierstrassProjectivePoint<BN254TwistCurve>,
+    t: &ShortWeierstrassProjectivePoint<BN254TwistCurve>,
 ) -> ShortWeierstrassProjectivePoint<BN254TwistCurve> {
-    let [x_t, y_t, z_t] = t.coordinates();
-    let x_r = x_t.square().square().double().double().double() + x_t.square().square()
-        - (x_t * y_t.square()).double().double().double();
-    let y_r = (x_t.square().double() + x_t.square())
+    // We convert the projective coordinates into jacobian coordinates.
+    // projective (a, b, c) -> jacobian (a * c, b * c^2, c).
+    let z_t = t.z();
+    let x_t = t.x() * z_t;
+    let y_t = t.y() * z_t.square();
+
+    let mut x_r = x_t.square().square().double().double().double() + x_t.square().square()
+        - (&x_t * y_t.square()).double().double().double();
+    let mut y_r = (x_t.square().double() + x_t.square())
         * ((x_t * y_t.square()).double().double() - &x_r)
         - y_t.square().square().double().double().double();
     let z_r = (y_t * z_t).double();
-    let r = ShortWeierstrassProjectivePoint::new([x_r, y_r, z_r]);
-    r
+
+    // convert from jacobian to projective coordinates
+    // jacob (a,b,c) -> projec (a/c, b/c^2, c)
+    x_r = x_r * z_r.inv().unwrap();
+    y_r = y_r * z_r.square().inv().unwrap();
+
+    ShortWeierstrassProjectivePoint::new([x_r, y_r, z_r])
 }
 
 fn add_naive(
     t: &ShortWeierstrassProjectivePoint<BN254TwistCurve>,
     q: &ShortWeierstrassProjectivePoint<BN254TwistCurve>,
 ) -> ShortWeierstrassProjectivePoint<BN254TwistCurve> {
-    let [x_t, y_t, z_t] = t.coordinates();
-    let [x_q, y_q, z_q] = q.coordinates();
+    // We convert the projective coordinates into jacobian coordinates.
+    // projective (a, b, c) -> jacobian (a * c, b * c^2, c).
+    let z_t = t.z();
+    let x_t = t.x() * z_t;
+    let y_t = t.y() * z_t.square();
+    println!("z_t in add_naive is {:?}", z_t);
 
-    let x_r = ((y_q * z_t.square() * z_t).double() - y_t.double()).square()
-        - ((x_q * z_t.square() - x_t).square() * (x_q * z_t.square() - x_t))
+    let z_q = q.z();
+    let x_q = q.x() * z_q;
+    let y_q = q.y() * z_q.square();
+
+    let mut x_r = ((&y_q * z_t.square() * z_t).double() - y_t.double()).square()
+        - ((&x_q * z_t.square() - &x_t).square() * (&x_q * z_t.square() - &x_t))
             .double()
             .double()
-        - (x_q * z_t.square() - x_t)
+        - (&x_q * z_t.square() - &x_t)
             .square()
             .double()
             .double()
             .double()
-            * x_t;
+            * &x_t;
 
-    let y_r = ((y_q * z_t.square() * z_t).double() - y_t.double())
-        * ((x_q * z_t.square() - x_t).square().double().double() * x_t - &x_r)
+    let mut y_r = ((y_q * z_t.square() * z_t).double() - y_t.double())
+        * ((&x_q * z_t.square() - &x_t).square().double().double() * &x_t - &x_r)
         - y_t.double().double().double()
-            * (x_q * z_t.square() - x_t).square()
-            * (x_q * z_t.square() - x_t);
+            * (&x_q * z_t.square() - &x_t).square()
+            * (&x_q * z_t.square() - &x_t);
 
-    let z_r = z_t.double() * (x_q * z_t.square() - x_t);
+    let z_r = z_t.double() * (&x_q * z_t.square() - &x_t);
+    println!("the factor zero: {:?} ", &x_q * z_t.square() == x_t);
+    println!("z_r factor in add_naive: {:?}", x_q * z_t.square() - x_t);
+    println!("z_r in add_naive is: {:?}", z_r);
 
-    let r = ShortWeierstrassProjectivePoint::new([x_r, y_r, z_r]);
-    r
+    x_r = x_r * z_r.inv().unwrap();
+    y_r = y_r * z_r.square().inv().unwrap();
+
+    ShortWeierstrassProjectivePoint::new([x_r, y_r, z_r])
 }
 
 /*
@@ -202,7 +224,23 @@ fn add_accumulate_line(
     accumulator = accumulator * &l;
 }
 */
+/*
+fn miller_naive(
+    p: FromAffine<BN254Curve>,
+    q: ShortWeierstrassProjectivePoint<BN254Curve>,
+) -> Fp12E {
+    let mut t = q;
+    let mut f = Fp12E::from(1);
+    let miller_lenght = MILLER_CONSTANT_NAF.len();
+    for i in (0 .. miller_lenght - 1).iter().rev() {
+        let mut z_t = t.z();
+        let mut x_t = t.x() *
 
+        let l =
+        f = f.square() *
+    }
+}
+*/
 #[cfg(test)]
 mod tests {
     use crate::{
@@ -226,7 +264,7 @@ mod tests {
     #[test]
     fn test_double_naive() {
         let g2 = BN254TwistCurve::generator();
-        let r = double_naive(g2.clone());
+        let r = double_naive(&g2);
         println!("r in double is: {:?}", r);
         println!("g2 + g2 in double is: {:?}", g2.operate_with_self(2usize));
         assert_eq!(r, g2.operate_with_self(2usize))
@@ -234,21 +272,15 @@ mod tests {
 
     #[test]
     fn test_add_naive() {
-        let g2 = BN254TwistCurve::generator();
-        let r = add_naive(&g2, &g2);
-        println!("r in add is: {:?}", r);
-        println!("g2 in add is: {:?}", g2);
-        println!("g2 + g2 in add is: {:?}", g2.operate_with_self(2usize));
-        assert_eq!(r, g2.operate_with_self(2usize))
+        let q = // A twist curve point in projective coordinates.
+        let t = // A twist curve point different from q in projective coordinates.
+        let r = add_naive(t, q);
+        assert_eq!(r, q.operate_with(t))
     }
 
-    #[test]
-    fn test_add_same_point_equals_double_naive() {
-        let g2 = BN254TwistCurve::generator();
-        let r1 = add_naive(&g2, &g2);
-        println!("r1 in add equals double is: {:?}", r1);
-        let r2 = double_naive(g2);
-        println!("r2 in add equals double is: {:?}", r2);
-        assert_eq!(r1, r2)
-    }
+  /* Q = (21740656624264531918905957436349160317178065932174634873434489096384118284193,
+         2019050928575347605638490762886992026922085924959710776569383806797571971069 i ),
+         (768940004759184688611731872359665907813921273999645987556749132562407031847,
+          9386111668168143378799867099066976687163019156923561176364278935596535020065 i)  
+*/
 }
