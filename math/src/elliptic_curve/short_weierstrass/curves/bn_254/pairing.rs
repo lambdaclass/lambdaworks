@@ -246,7 +246,9 @@ mod tests {
     fn test_add_same_point_equals_double_naive() {
         let g2 = BN254TwistCurve::generator();
         let r1 = add_naive(&g2, &g2);
+        println!("r1 in add equals double is: {:?}", r1);
         let r2 = double_naive(g2);
+        println!("r2 in add equals double is: {:?}", r2);
         assert_eq!(r1, r2)
     }
 }
