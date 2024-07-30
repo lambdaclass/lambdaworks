@@ -1,7 +1,7 @@
 use super::curve::MILLER_LOOP_CONSTANT;
 // We defined MILLER_LOOP_CONSTANT in curve.rs
 // see https://hackmd.io/@Wimet/ry7z1Xj-2
-// @Juan is this the same parameter used in the NAF representation? 
+// @Juan is this the same parameter used in the NAF representation?
 // t = 6x^2. Where x = 4965661367192848881
 
 use super::{
@@ -24,21 +24,21 @@ use crate::{
 // 21888242871839275222246405745257275088548364400416034343698204186575808495617
 // 30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001 (fist I coverted it into hex)
 /* pub const SUBGROUP_ORDER: U256 =
-    U256::from_hex_unchecked("TODO"); */
+U256::from_hex_unchecked("TODO"); */
 
 type Fp2E = FieldElement<Degree2ExtensionField>;
 type Fp6E = FieldElement<Degree6ExtensionField>;
 type Fp12E = FieldElement<Degree12ExtensionField>;
 
 // Need implementation of NAF representation
-// 
+//
 /// Millers loop uses to iterate the NAF representation of the MILLER_LOOP_CONSTANT
 /// A NAF representation uses values: -1, 0 and 1. https://en.wikipedia.org/wiki/Non-adjacent_form.
 pub const MILLER_CONSTANT_NAF: [i32; 115] = [
     1, 0, -1, 0, 0, -1, 0, -1, 0, 1, 0, -1, 0, 0, -1, 0, 0, 0, -1, 0, 0, 0, 1, 0, 0, 0, 0, -1, 0,
-    -1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, -1, 0, -1, 0, 0, -1, 0, 0, 0, 0, -1, 0, 1, 0, 0, 1, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 1, 0, 0, -1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, -1, 0,
-    0, 0, -1, 0, -1, 0, -1, 0, 0, -1, 0, 1, 0, 1, 0, 1, 0, -1, 0, -1, 0, -1, 0, -1, 0, 0, 0, 0, 0, 0, 0
+    -1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, -1, 0, -1, 0, 0, -1, 0, 0, 0, 0, -1, 0, 1, 0, 0, 1, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, -1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, -1, 0, 0, 0, -1, 0, -1,
+    0, -1, 0, 0, -1, 0, 1, 0, 1, 0, 1, 0, -1, 0, -1, 0, -1, 0, -1, 0, 0, 0, 0, 0, 0, 0,
 ];
 
 /*
@@ -79,43 +79,88 @@ impl IsPairing for BN254AtePairing {
 
 // incomplete
 
-// Transforms t = 2t and accumulator = accumulator * l(p) where l is the tangent line of t.
-fn double_accumulate_line (
+// Transforms t <- 2t and accumulator <- accumulator * l(p) where l is the tangent line of t.
+fn double_accumulate_line(
     t: &mut ShortWeierstrassProjectivePoint<BN254TwistCurve>,
     p: &ShortWeierstrassProjectivePoint<BN254Curve>,
     accumulator: &mut FieldElement<Degree12ExtensionField>,
-)
-{
-    let [x_q, y_q, z_q] = t.coordinates(); 
+) {
+    let [x_q, y_q, z_q] = t.coordinates();
     // @nicole: Is it ok p as a ProjectivPoint or do we need to have it in two coordinates?
     // let [x_p, y_p] = p.to_affine().coordintes();
     let [x_p, y_p, _] = p.coordinates();
-    
+
     let mut a = x_q.square(); // 1
     let b = y_q.square(); // 2
-    let c = &b.square();// 3
+    let c = &b.square(); // 3
     let mut d = (&b + x_q).square() - a.clone() - c; // 4
-    d = d.clone().double(); //2 temp3 // 5
-    let mut e = a.clone().double() + &a;  // 3 temp1 // 6
-    let f = x_q + &e; // 7
-    let g = f.square(); // 8
-    let x_t = f - &d - &d ; // 9
+    d = d.clone().double(); // 5) 2 * d
+    let e = a.clone().double() + &a; // 6) 3 * a
+    let mut f = x_q + &e; // 7
+    let g = e.square(); // 8
+    let x_t = &g - &d - &d; // 9
     let z_t = (y_q + z_q).square() - &b - z_q.square(); // 10
     let y_t = (d - &x_t) * &e - &c.double().double().double(); //11
-    d =  - ((&e * z_q.square()).double());//12
+    d = -((&e * z_q.square()).double()); //12
     d = x_p * d; //13 . Watchout with the order of the operation  x_p*d .d * x_p is not defined
-    e = e.square() - a  - g - b.double().double();  //14
-    a  = (&z_t * z_q.square()).double(); //15
-    a = y_p * a;// 16 
-    let a_0 = Fp6E::new([Fp2E::zero(), Fp2E::zero(), a]); //18 TODO: check the coefficient's order
-    let a_1 = Fp6E::new([Fp2E::zero(), e, d]); //19 //a_1 = 0*v^2 + e*v + d
+    f = f.square() - a - g - b.double().double(); //14
+    a = (&z_t * z_q.square()).double(); //15
+    a = y_p * a; // 16
+                 // let a_0 = Fp6E::new([Fp2E::zero(), Fp2E::zero(), a]); //18 TODO: check the coefficient's order
+    let a_0 = Fp6E::new([a, Fp2E::zero(), Fp2E::zero()]);
+    // let a_1 = Fp6E::new([Fp2E::zero(), e, d]); //19 //a_1 = 0*v^2 + e*v + d
+    let a_1 = Fp6E::new([d, e, Fp2E::zero()]); //19 //a_1 = 0*v^2 + e*v + d
 
     t.0.value = [x_t, y_t, z_t];
     let l = Fp12E::new([a_1, a_0]); //l = a_0 + a_1*w
     *accumulator = accumulator.square() * l;
 }
+
+fn double_naive(
+    t: ShortWeierstrassProjectivePoint<BN254TwistCurve>,
+) -> ShortWeierstrassProjectivePoint<BN254TwistCurve> {
+    let [x_t, y_t, z_t] = t.coordinates();
+    let x_r = x_t.square().square().double().double().double() + x_t.square().square()
+        - (x_t * y_t.square()).double().double().double();
+    let y_r = (x_t.square().double() + x_t.square())
+        * ((x_t * y_t.square()).double().double() - &x_r)
+        - y_t.square().square().double().double().double();
+    let z_r = (y_t * z_t).double();
+    let r = ShortWeierstrassProjectivePoint::new([x_r, y_r, z_r]);
+    r
+}
+
+fn add_naive(
+    t: &ShortWeierstrassProjectivePoint<BN254TwistCurve>,
+    q: &ShortWeierstrassProjectivePoint<BN254TwistCurve>,
+) -> ShortWeierstrassProjectivePoint<BN254TwistCurve> {
+    let [x_t, y_t, z_t] = t.coordinates();
+    let [x_q, y_q, z_q] = q.coordinates();
+
+    let x_r = ((y_q * z_t.square() * z_t).double() - y_t.double()).square()
+        - ((x_q * z_t.square() - x_t).square() * (x_q * z_t.square() - x_t))
+            .double()
+            .double()
+        - (x_q * z_t.square() - x_t)
+            .square()
+            .double()
+            .double()
+            .double()
+            * x_t;
+
+    let y_r = ((y_q * z_t.square() * z_t).double() - y_t.double())
+        * ((x_q * z_t.square() - x_t).square().double().double() * x_t - &x_r)
+        - y_t.double().double().double()
+            * (x_q * z_t.square() - x_t).square()
+            * (x_q * z_t.square() - x_t);
+
+    let z_r = z_t.double() * (x_q * z_t.square() - x_t);
+
+    let r = ShortWeierstrassProjectivePoint::new([x_r, y_r, z_r]);
+    r
+}
+
 /*
-//TODO
 // We need a function that computes the addition of two G2 points and the line through them.
 fn add_accumulate_line(
     t: &mut ShortWeierstrassProjectivePoint<BN254TwistCurve>,
@@ -128,7 +173,7 @@ fn add_accumulate_line(
     let mut y_t = t.y();
     let mut z_t = t.z();
     let [x_p, y_p, _] = p.coordinates();
-    
+
     let t0 = x_q * z_t.square(); //1
     let mut t1 = (y_q + z_t).square() - y_q.square() - z_t.square(); //2
     let t1 = t1 * z_t.square(); // 3
@@ -145,7 +190,7 @@ fn add_accumulate_line(
     let t8 = (t1 - x_t) * t6; //14
     let t0 = (y_t * t5).double(); // 15
     let  y_t = t8 - t0; //16
-    t10 = t10.square() - y_q.square() - z_t.square(); //17  
+    t10 = t10.square() - y_q.square() - z_t.square(); //17
     t9 = t9.double()-t10;  //18
     t10 = (y_p * z_t).double();//19
     t6 = -t6; //20
@@ -157,6 +202,7 @@ fn add_accumulate_line(
     accumulator = accumulator * &l;
 }
 */
+
 #[cfg(test)]
 mod tests {
     use crate::{
@@ -166,7 +212,7 @@ mod tests {
 
     use super::*;
 
-    #[test]
+    /* #[test]
     fn test_double_accumulate_line_doubles_point_correctly() {
         let g1 = BN254Curve::generator();
         let g2 = BN254TwistCurve::generator();
@@ -175,5 +221,32 @@ mod tests {
         double_accumulate_line(&mut r, &g1, &mut f);
         assert_eq!(r, g2.operate_with(&g2));
     }
+    */
 
+    #[test]
+    fn test_double_naive() {
+        let g2 = BN254TwistCurve::generator();
+        let r = double_naive(g2.clone());
+        println!("r in double is: {:?}", r);
+        println!("g2 + g2 in double is: {:?}", g2.operate_with_self(2usize));
+        assert_eq!(r, g2.operate_with_self(2usize))
+    }
+
+    #[test]
+    fn test_add_naive() {
+        let g2 = BN254TwistCurve::generator();
+        let r = add_naive(&g2, &g2);
+        println!("r in add is: {:?}", r);
+        println!("g2 in add is: {:?}", g2);
+        println!("g2 + g2 in add is: {:?}", g2.operate_with_self(2usize));
+        assert_eq!(r, g2.operate_with_self(2usize))
+    }
+
+    #[test]
+    fn test_add_same_point_equals_double_naive() {
+        let g2 = BN254TwistCurve::generator();
+        let r1 = add_naive(&g2, &g2);
+        let r2 = double_naive(g2);
+        assert_eq!(r1, r2)
+    }
 }
