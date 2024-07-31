@@ -1,5 +1,4 @@
 use super::is_transcript::IsTranscript;
-use crate::alloc::borrow::ToOwned;
 use core::marker::PhantomData;
 use lambdaworks_math::{
     field::{element::FieldElement, traits::IsField},
