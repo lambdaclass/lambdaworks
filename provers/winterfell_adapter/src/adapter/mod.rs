@@ -27,7 +27,7 @@ impl IsStarkTranscript<Felt> for FeltTranscript {
     }
 
     fn append_bytes(&mut self, new_bytes: &[u8]) {
-        self.hasher.update(&mut new_bytes.to_owned());
+        self.hasher.update(new_bytes);
     }
 
     fn state(&self) -> [u8; 32] {
