@@ -1,6 +1,6 @@
 # Lambdaworks Pinocchio 
 
-This is an implementation of [Pinocchio protocol](https://eprint.iacr.org/2013/279.pdf) using Lambdaworks. This sourse code is the companion of this [blog post](https://blog.lambdaclass.com/pinocchio-verifiable-computation-revisited) aimed at those who want to learn about SNARKs.
+This is an implementation of [Pinocchio protocol](https://eprint.iacr.org/2013/279.pdf) using Lambdaworks. This source code is the companion of this [blog post](https://blog.lambdaclass.com/pinocchio-verifiable-computation-revisited) aimed at those who want to learn about SNARKs.
 
 # Understanding the code
 We encourage to start by reading the [blog post](https://blog.lambdaclass.com/pinocchio-verifiable-computation-revisited/) to understand the code.
