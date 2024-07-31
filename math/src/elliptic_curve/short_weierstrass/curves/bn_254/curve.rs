@@ -320,6 +320,23 @@ mod tests {
         let g = BN254TwistCurve::generator();
         assert!(g.is_in_subgroup())
     }
+/*
+    #[test]
+    fn generator_g2_is_not_in_subgroup() {
+        let q = ShortWeierstrassProjectivePoint::<BN254TwistCurve>::new(
+            FieldElement::<Degree2ExtensionField>::new([
+                FieldElement::new(U256::from_hex_unchecked("0x3010c68cb50161b7d1d96bb71edfec9880171954e56871abf3d93cc94d745fa1")),
+                FieldElement::new(U256::from_hex_unchecked("0x0476be093a6d2b4bbf907172049874af11e1b6267606e00804d3ff0037ec57fd"))
+            ]),
+            FieldElement::<Degree2ExtensionField>::new([
+                FieldElement::new(U256::from_hex_unchecked("0x01b33461f39d9e887dbb100f170a2345dde3c07e256d1dfa2b657ba5cd030427")),
+                FieldElement::new(U256::from_hex_unchecked("0x14c059d74e5b6c4ec14ae5864ebe23a71781d86c29fb8fb6cce94f70d3de7a21"))
+            ]));
+        assert!(q.is_in_subgroup())
+    }
+ */
+
+
 
     #[test]
     fn arbitrary_g2_point_is_in_subgroup() {
