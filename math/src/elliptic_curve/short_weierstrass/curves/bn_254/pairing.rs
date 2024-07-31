@@ -20,6 +20,7 @@ use crate::{
     field::{element::FieldElement, extensions::cubic::HasCubicNonResidue},
     unsigned_integer::element::{UnsignedInteger, U256},
 };
+
 // We have to find the SUBGROUP_ORDER and see where it's used.
 // In the implementation of zksync we have:
 // 21888242871839275222246405745257275088548364400416034343698204186575808495617
@@ -32,8 +33,8 @@ type Fp6E = FieldElement<Degree6ExtensionField>;
 type Fp12E = FieldElement<Degree12ExtensionField>;
 
 // Need implementation of NAF representation
-//
-/// Millers loop uses to iterate the NAF representation of the MILLER_LOOP_CONSTANT
+
+/// Millers loop uses to iterate the NAF representation of the MILLER_LOOP_CONSTANT.
 /// A NAF representation uses values: -1, 0 and 1. https://en.wikipedia.org/wiki/Non-adjacent_form.
 pub const MILLER_CONSTANT_NAF: [i32; 115] = [
     1, 0, -1, 0, 0, -1, 0, -1, 0, 1, 0, -1, 0, 0, -1, 0, 0, 0, -1, 0, 0, 0, 1, 0, 0, 0, 0, -1, 0,
@@ -42,22 +43,21 @@ pub const MILLER_CONSTANT_NAF: [i32; 115] = [
     0, -1, 0, 0, -1, 0, 1, 0, 1, 0, 1, 0, -1, 0, -1, 0, -1, 0, -1, 0, 0, 0, 0, 0, 0, 0,
 ];
 
-/*
 pub struct BN254AtePairing;
-impl IsPairing for BN254AtePairing {
+/*impl IsPairing for BN254AtePairing {
     type G1Point = ShortWeierstrassProjectivePoint<BN254Curve>;
     type G2Point = ShortWeierstrassProjectivePoint<BN254TwistCurve>;
     type OutputField = Degree12ExtensionField;
 
+
     // Computes the product of the ate pairings for a list of point pairs.
     // To optimize the pairing computation, we compute first all the miller
-    // loops and multiply each other (so that we can then do the final expon).
+    // loops and multiply each other (so that we can then do the final exponentiation).
     fn compute_batch(
         pairs: &[(&Self::G1Point, &Self::G2Point)],
     ) -> Result<FieldElement<Self::OutputField>, PairingError> {
         let mut result = FieldElement::one();
         for (p, q) in pairs {
-
             // We think we can remove the condition !p.is_in_subgroup() because
             // the subgroup oF G1 is G1 (see BN254 for the rest of us).
             if !p.is_in_subgroup() || !q.is_in_subgroup() {
@@ -66,21 +66,18 @@ impl IsPairing for BN254AtePairing {
             if !p.is_neutral_element() && !q.is_neutral_element() {
                 let p = p.to_affine();
                 let q = q.to_affine();
-                result *= miller(&q, &p);
+                result *= miller_naive(p, q);
             }
         }
         Ok(final_exponentiation(&result))
     }
-} */
 
-// TODO
-// We need a function that computes the double of a G2 point and its tangent line.
-// In the implementation of bls381, this function also changes the t's and accumulator's (f) values.
-// Initially t = Q, accumulator (f) = 1. See https://eprint.iacr.org/2010/354.pdf.
+}
+*/
 
-// incomplete
-
-// Transforms t <- 2t and accumulator <- accumulator * l(p) where l is the tangent line of t.
+// Computes: accumulator <- (accumulator)^2 * l(p); t <- 2t,
+// where l is the tangent line of t.
+// See https://eprint.iacr.org/2010/354.pdf, page 28.
 // to test something:
 fn double_accumulate_line(
     t: &mut ShortWeierstrassProjectivePoint<BN254TwistCurve>,
@@ -94,28 +91,24 @@ fn double_accumulate_line(
     let tmp1 = y_q.square(); // 2. Y_Q^2
     let tmp2 = tmp1.square(); // 3. tmp1^2
     let mut tmp3 = &tmp1 * z_q.square(); // 4. tmp1 * Z_Q^2
-    let tmp4 = tmp0.clone().double()+ &tmp0; // 5. 3 * tmp0
+    let tmp4 = tmp0.clone().double() + &tmp0; // 5. 3 * tmp0
     let tmp5 = tmp4.square(); // 6. tmp4^2
     let x_t = (tmp1.clone() + x_q).square() - tmp0.clone() - tmp2.clone(); // 7. (tmp1 + X_Q)^2 - tmp0 - tmp2
     let z_t = (y_q + z_q).square() - tmp1.clone() - z_q.square(); // 8. (Y_Q + Z_Q)^2 - tmp1 - Z_Q^2
-    let y_t = (tmp3 - x_t.clone()) * tmp4.clone() - tmp2.clone() .double().double().double() ; // 9. (tmp3 - X_T) * tmp4 - 8 * tmp2
+    let y_t = (tmp3 - x_t.clone()) * tmp4.clone() - tmp2.clone().double().double().double(); // 9. (tmp3 - X_T) * tmp4 - 8 * tmp2
 
-    tmp3 = tmp1 * z_q.double() ; // 10. 2 * (tmp1 * Z_Q)
-    tmp0 = y_p*tmp0 ; // 11. tmp0 * y_P
+    tmp3 = tmp1 * z_q.double(); // 10. 2 * (tmp1 * Z_Q)
+    tmp0 = y_p * tmp0; // 11. tmp0 * y_P
 
     // Crear los elementos para el cálculo de la línea
     let a_0 = Fp6E::new([Fp2E::zero(), Fp2E::zero(), tmp0]); // 12. l0 = tmp0 + 0v + 0v^2
-    let a_1 = Fp6E::new([Fp2E::zero(), tmp3.clone(), tmp3 + (x_p * z_q)*tmp4  ]); // 13. l1 = tmp3 + tmp4 * X_P * Z_Q * v + 0v^2
+    let a_1 = Fp6E::new([Fp2E::zero(), tmp3.clone(), tmp3 + (x_p * z_q) * tmp4]); // 13. l1 = tmp3 + tmp4 * X_P * Z_Q * v + 0v^2
 
     t.0.value = [x_t, y_t, z_t];
-    let l = Fp12E::new([a_1, a_0]); // l = a_0 + a_1 * w
+    let l = Fp12E::new([a_0, a_1]); // l = a_0 + a_1 * w
 
     *accumulator = accumulator.square() * l;
 }
-
-
-
-
 
 /*
 fn double_accumulate_line(
@@ -152,6 +145,8 @@ fn double_accumulate_line(
     *accumulator = accumulator.square() * l;
 }
 */
+
+// A naive way to double a point without using operate_with_self().
 fn double_naive(
     t: &ShortWeierstrassProjectivePoint<BN254TwistCurve>,
 ) -> ShortWeierstrassProjectivePoint<BN254TwistCurve> {
@@ -176,6 +171,7 @@ fn double_naive(
     ShortWeierstrassProjectivePoint::new([x_r, y_r, z_r])
 }
 
+// A naive way to add two points without using operate_with().
 fn add_naive(
     t: &ShortWeierstrassProjectivePoint<BN254TwistCurve>,
     q: &ShortWeierstrassProjectivePoint<BN254TwistCurve>,
@@ -220,7 +216,8 @@ fn add_naive(
 }
 
 /*
-// We need a function that computes the addition of two G2 points and the line through them.
+// Computes: accumulator <- accumulator * l(P); t <- t + q,
+// where l is the line between t and q.
 fn add_accumulate_line(
     t: &mut ShortWeierstrassProjectivePoint<BN254TwistCurve>,
     q: &ShortWeierstrassProjectivePoint<BN254TwistCurve>,
@@ -261,23 +258,101 @@ fn add_accumulate_line(
     accumulator = accumulator * &l;
 }
 */
-/*
+
+// Function used in miller_naive().
+// It computes de addition and line between two points.
+fn add_and_line(
+    p: &ShortWeierstrassProjectivePoint<BN254Curve>,
+    q: &ShortWeierstrassProjectivePoint<BN254TwistCurve>,
+    t: ShortWeierstrassProjectivePoint<BN254TwistCurve>,
+    f: FieldElement<Degree12ExtensionField>,
+) -> (ShortWeierstrassProjectivePoint<BN254TwistCurve>, Fp12E) {
+    // We convert projective coordinates of p into affine coordinates.
+    // Projective (a, b, c) -> Affine (a/c, b/b).
+    let x_p = p.x() * p.z().inv().unwrap();
+    let y_p = p.y() * p.z().inv().unwrap();
+
+    // We convert the projective coordinates of q into jacobian coordinates.
+    // projective (a, b, c) -> jacobian (a * c, b * c^2, c).
+    let z_q = q.z().clone();
+    let x_q = q.x() * z_q.clone();
+    let y_q = q.y() * z_q.square();
+
+    // We convert the projective coordinates of the new t into jacobian coordinates.
+    let z_t = t.z().clone();
+    let x_t = t.x() * z_t.clone();
+    let y_t = t.y() * z_t.square();
+
+    let t_result = t.operate_with(&q);
+
+    let l0 = Fp6E::new([
+        &y_p * t_result.z().double(), // 2 * z_r * y_p
+        &x_q.double().double() * (&y_q * z_t.square() * &z_t * &x_q - &y_t)
+            - y_q.double() * t_result.z(), // 4 * x_q * (y_q * (z_t)^3 * x_q - y_t) - 2 * y_q * z_r
+        Fp2E::zero(),
+    ]);
+    let l1 = -Fp6E::new([
+        x_p.double().double() * (&y_q * z_t.square() * z_t + y_t), // - 4 * x_p * (y_q * (z_t)^3 + y_t)
+        Fp2E::zero(),
+        Fp2E::zero(),
+    ]);
+    let l = Fp12E::new([l0, l1]);
+    let f_result = f * l;
+    (t_result, f_result)
+}
+
+// Computes Miller loop using oprate_with() and operate_with_self instead of the previous algorithms.
 fn miller_naive(
-    p: FromAffine<BN254Curve>,
-    q: ShortWeierstrassProjectivePoint<BN254Curve>,
-) -> Fp12E {
-    let mut t = q;
+    p: ShortWeierstrassProjectivePoint<BN254Curve>,
+    q: ShortWeierstrassProjectivePoint<BN254TwistCurve>,
+) -> (ShortWeierstrassProjectivePoint<BN254TwistCurve>, Fp12E) {
+    let mut t = q.clone();
     let mut f = Fp12E::from(1);
     let miller_lenght = MILLER_CONSTANT_NAF.len();
-    for i in (0 .. miller_lenght - 1).iter().rev() {
-        let mut z_t = t.z();
-        let mut x_t = t.x() *
 
-        let l =
-        f = f.square() *
+    // We convert projective coordinates of p into affine coordinates.
+    // Projective (a, b, c) -> Affine (a/c, b/b).
+    let x_p = p.x() * p.z().inv().unwrap();
+    let y_p = p.y() * p.z().inv().unwrap();
+
+    // We convert the projective coordinates of q into jacobian coordinates.
+    // projective (a, b, c) -> jacobian (a * c, b * c^2, c).
+    let z_q = q.z().clone();
+    let x_q = q.x() * z_q.clone();
+    let y_q = q.y() * z_q.square();
+
+    for i in (0..miller_lenght - 1).rev() {
+        // We convert the projective coordinates of t into jacobian coordinates.
+        let mut z_t = t.z().clone();
+        let mut x_t = t.x() * z_t.clone();
+        let mut y_t = t.y() * z_t.square();
+
+        t = t.operate_with_self(2usize);
+
+        let l0 = Fp6E::new([
+            &y_p * (t.z().double() * &z_t.square()), // 2 * z_r * (z_t)^2 * y_p
+            (x_t.square() * &x_t).double().double() + (x_t.square() * &x_t).double()
+                - y_t.square().double().double(), // 6 * (x_t)^3 - 4 * (y_t)^2
+            Fp2E::zero(),
+        ]);
+        let l1 = -Fp6E::new([
+            &x_p * ((&x_t.square().double().double() + x_t.square().double()) * z_t.square()), // 6 * (x_t)^2 * (z_t)^2 * x_p
+            Fp2E::zero(),
+            Fp2E::zero(),
+        ]);
+        let l = Fp12E::new([l0, l1]);
+        f = f.square() * l;
+
+        if MILLER_CONSTANT_NAF[i] == -1 {
+            (t, f) = add_and_line(&p, &q.neg(), t, f);
+        }
+        if MILLER_CONSTANT_NAF[i] == 1 {
+            (t, f) = add_and_line(&p, &q, t, f);
+        }
     }
+    (t, f)
 }
-*/
+
 #[cfg(test)]
 mod tests {
     use crate::{
@@ -296,7 +371,6 @@ mod tests {
         double_accumulate_line(&mut r, &g1, &mut f);
         assert_eq!(r, g2.operate_with(&g2));
     }
-    
 
     #[test]
     fn test_double_naive() {
@@ -307,130 +381,164 @@ mod tests {
         assert_eq!(r, g2.operate_with_self(2usize))
     }
 
+    // TODO: Write which are the x, y, real and complex parts.
+    // Write where we found these points.
     #[test]
     fn test_double_naive_point_different_from_generator() {
         let q = ShortWeierstrassProjectivePoint::<BN254TwistCurve>::new([
             FieldElement::<Degree2ExtensionField>::new([
-                FieldElement::new(U256::from_hex_unchecked("0x1a031c43dfaa2dd04a2c5b2dd257b449ce088dfd6d8ca041f19365b94ae7ae0")),
-                FieldElement::new(U256::from_hex_unchecked("0x19f3b18b9baad6dadea895c76728c461e7f188f1a3da94a697d90428f554f039"))
+                FieldElement::new(U256::from_hex_unchecked(
+                    "0x1a031c43dfaa2dd04a2c5b2dd257b449ce088dfd6d8ca041f19365b94ae7ae0",
+                )),
+                FieldElement::new(U256::from_hex_unchecked(
+                    "0x19f3b18b9baad6dadea895c76728c461e7f188f1a3da94a697d90428f554f039",
+                )),
             ]),
             FieldElement::<Degree2ExtensionField>::new([
-                FieldElement::new(U256::from_hex_unchecked("0x1467f6d823536b43c1d13f7ce580cc56ba88ad999b12e27e355c114d819bee81")),
-                FieldElement::new(U256::from_hex_unchecked("0x2f992ff71d0d08f6271f2d40039924e831d53a43a4772e4322710ee41daed756"))
+                FieldElement::new(U256::from_hex_unchecked(
+                    "0x1467f6d823536b43c1d13f7ce580cc56ba88ad999b12e27e355c114d819bee81",
+                )),
+                FieldElement::new(U256::from_hex_unchecked(
+                    "0x2f992ff71d0d08f6271f2d40039924e831d53a43a4772e4322710ee41daed756",
+                )),
             ]),
-            FieldElement::one()
-            ]);// A twist curve point in projective coordinates
+            FieldElement::one(),
+        ]); // A twist curve point in projective coordinates
         let r = double_naive(&q);
         println!("r in double is: {:?}", r);
         println!("g2 + g2 in double is: {:?}", q.operate_with_self(2usize));
         assert_eq!(r, q.operate_with_self(2usize))
     }
 
-
     #[test]
     fn test_add_naive() {
         let q = ShortWeierstrassProjectivePoint::<BN254TwistCurve>::new([
             FieldElement::<Degree2ExtensionField>::new([
-                FieldElement::new(U256::from_hex_unchecked("0x1a031c43dfaa2dd04a2c5b2dd257b449ce088dfd6d8ca041f19365b94ae7ae0")),
-                FieldElement::new(U256::from_hex_unchecked("0x19f3b18b9baad6dadea895c76728c461e7f188f1a3da94a697d90428f554f039"))
+                FieldElement::new(U256::from_hex_unchecked(
+                    "0x1a031c43dfaa2dd04a2c5b2dd257b449ce088dfd6d8ca041f19365b94ae7ae0",
+                )),
+                FieldElement::new(U256::from_hex_unchecked(
+                    "0x19f3b18b9baad6dadea895c76728c461e7f188f1a3da94a697d90428f554f039",
+                )),
             ]),
             FieldElement::<Degree2ExtensionField>::new([
-                FieldElement::new(U256::from_hex_unchecked("0x1467f6d823536b43c1d13f7ce580cc56ba88ad999b12e27e355c114d819bee81")),
-                FieldElement::new(U256::from_hex_unchecked("0x2f992ff71d0d08f6271f2d40039924e831d53a43a4772e4322710ee41daed756"))
+                FieldElement::new(U256::from_hex_unchecked(
+                    "0x1467f6d823536b43c1d13f7ce580cc56ba88ad999b12e27e355c114d819bee81",
+                )),
+                FieldElement::new(U256::from_hex_unchecked(
+                    "0x2f992ff71d0d08f6271f2d40039924e831d53a43a4772e4322710ee41daed756",
+                )),
             ]),
-            FieldElement::one()
-            ]);// A twist curve point in projective coordinates.
+            FieldElement::one(),
+        ]); // A twist curve point in projective coordinates.
         let t = ShortWeierstrassProjectivePoint::<BN254TwistCurve>::new([
             FieldElement::<Degree2ExtensionField>::new([
-                FieldElement::new(U256::from_hex_unchecked("0x1c0cdfa0b0eb6dcd93968a84ff1f5dfec3284b588e4bf72e6ed01052c23e1058")),
-                FieldElement::new(U256::from_hex_unchecked("0x57182543d53551f8dc42e18396f78bec25a36dd07de7006308f90af112fa5d0"))
+                FieldElement::new(U256::from_hex_unchecked(
+                    "0x1c0cdfa0b0eb6dcd93968a84ff1f5dfec3284b588e4bf72e6ed01052c23e1058",
+                )),
+                FieldElement::new(U256::from_hex_unchecked(
+                    "0x57182543d53551f8dc42e18396f78bec25a36dd07de7006308f90af112fa5d0",
+                )),
             ]),
             FieldElement::<Degree2ExtensionField>::new([
-                FieldElement::new(U256::from_hex_unchecked("0x279b356bf1390a747e0d361cd896e31898f9d9705942c176c79aa904b5c89243")),
-                FieldElement::new(U256::from_hex_unchecked("0x1f537cf9f716088e6a4bf2779cd7e66f83a29a498d2476a9e5a8d7eb9c21967d"))
+                FieldElement::new(U256::from_hex_unchecked(
+                    "0x279b356bf1390a747e0d361cd896e31898f9d9705942c176c79aa904b5c89243",
+                )),
+                FieldElement::new(U256::from_hex_unchecked(
+                    "0x1f537cf9f716088e6a4bf2779cd7e66f83a29a498d2476a9e5a8d7eb9c21967d",
+                )),
             ]),
-            FieldElement::one()
-            ]); 
-          // A twist curve point different from q in projective coordinates.
+            FieldElement::one(),
+        ]);
+        // A twist curve point different from q in projective coordinates.
         let r = add_naive(&t, &q);
         assert_eq!(r, q.operate_with(&t))
     }
-
 
     #[test]
     fn test_add_naive_values_zksync() {
         let q = ShortWeierstrassProjectivePoint::<BN254TwistCurve>::new([
             FieldElement::<Degree2ExtensionField>::new([
-                FieldElement::new(U256::from_hex_unchecked("0x3010c68cb50161b7d1d96bb71edfec9880171954e56871abf3d93cc94d745fa1")),
-                FieldElement::new(U256::from_hex_unchecked("0x0476be093a6d2b4bbf907172049874af11e1b6267606e00804d3ff0037ec57fd"))
+                FieldElement::new(U256::from_hex_unchecked(
+                    "0x3010c68cb50161b7d1d96bb71edfec9880171954e56871abf3d93cc94d745fa1",
+                )),
+                FieldElement::new(U256::from_hex_unchecked(
+                    "0x0476be093a6d2b4bbf907172049874af11e1b6267606e00804d3ff0037ec57fd",
+                )),
             ]),
             FieldElement::<Degree2ExtensionField>::new([
-                FieldElement::new(U256::from_hex_unchecked("0x01b33461f39d9e887dbb100f170a2345dde3c07e256d1dfa2b657ba5cd030427")),
-                FieldElement::new(U256::from_hex_unchecked("0x14c059d74e5b6c4ec14ae5864ebe23a71781d86c29fb8fb6cce94f70d3de7a21"))
+                FieldElement::new(U256::from_hex_unchecked(
+                    "0x01b33461f39d9e887dbb100f170a2345dde3c07e256d1dfa2b657ba5cd030427",
+                )),
+                FieldElement::new(U256::from_hex_unchecked(
+                    "0x14c059d74e5b6c4ec14ae5864ebe23a71781d86c29fb8fb6cce94f70d3de7a21",
+                )),
             ]),
-            FieldElement::one()
-            ]);// A twist curve point in projective coordinates.
+            FieldElement::one(),
+        ]); // A twist curve point in projective coordinates.
         let t = ShortWeierstrassProjectivePoint::<BN254TwistCurve>::new([
             FieldElement::<Degree2ExtensionField>::new([
-                FieldElement::new(U256::from_hex_unchecked("0x290158a80cd3d66530f74dc94c94adb88f5cdb481acca997b6e60071f08a115f")),
-                FieldElement::new(U256::from_hex_unchecked("0x1a2c3013d2ea92e13c800cde68ef56a294b883f6ac35d25f587c09b1b3c635f7"))
+                FieldElement::new(U256::from_hex_unchecked(
+                    "0x290158a80cd3d66530f74dc94c94adb88f5cdb481acca997b6e60071f08a115f",
+                )),
+                FieldElement::new(U256::from_hex_unchecked(
+                    "0x1a2c3013d2ea92e13c800cde68ef56a294b883f6ac35d25f587c09b1b3c635f7",
+                )),
             ]),
             FieldElement::<Degree2ExtensionField>::new([
-                FieldElement::new(U256::from_hex_unchecked("0x29d1691530ca701b4a106054688728c9972c8512e9789e9567aae23e302ccd75")),
-                FieldElement::new(U256::from_hex_unchecked("0x2f997f3dbd66a7afe07fe7862ce239edba9e05c5afff7f8a1259c9733b2dfbb9"))
+                FieldElement::new(U256::from_hex_unchecked(
+                    "0x29d1691530ca701b4a106054688728c9972c8512e9789e9567aae23e302ccd75",
+                )),
+                FieldElement::new(U256::from_hex_unchecked(
+                    "0x2f997f3dbd66a7afe07fe7862ce239edba9e05c5afff7f8a1259c9733b2dfbb9",
+                )),
             ]),
-            FieldElement::one()
-            ]); // A twist curve point different from q in projective coordinates.
+            FieldElement::one(),
+        ]); // A twist curve point different from q in projective coordinates.
         let r = add_naive(&t, &q);
         assert_eq!(r, q.operate_with(&t))
     }
 
-
-
-  /* Q = (21740656624264531918905957436349160317178065932174634873434489096384118284193,
-         2019050928575347605638490762886992026922085924959710776569383806797571971069 i ),
-         (768940004759184688611731872359665907813921273999645987556749132562407031847,
-          9386111668168143378799867099066976687163019156923561176364278935596535020065 i)  
-    T =((18547205523279150343907423763561667656905210989238825125041531932617195786591,
-        11838207152290886924918158754888128755040578374158302623586388982144778515959i),
-        (18914823083116165396144529068959135293951172901190760512481127643602037296501,
-           21529909670613655107982420544538753603501207742700745772316790404883810220985 i))
-    Po
-
-
-
-
-    Points generated with the sage script:
-    Q1 ∈ G2
-   'Q1': {'x': {'c0': '0x1a031c43dfaa2dd04a2c5b2dd257b449ce088dfd6d8ca041f19365b94ae7ae0',
-     'c1': '0x19f3b18b9baad6dadea895c76728c461e7f188f1a3da94a697d90428f554f039'},
-    'y': {'c0': '0x1467f6d823536b43c1d13f7ce580cc56ba88ad999b12e27e355c114d819bee81',
-     'c1': '0x2f992ff71d0d08f6271f2d40039924e831d53a43a4772e4322710ee41daed756'}}}
-
-    Q2 ∈ G2
-    'Q2': {'x': {'c0': '0x1c0cdfa0b0eb6dcd93968a84ff1f5dfec3284b588e4bf72e6ed01052c23e1058',
-     'c1': '0x57182543d53551f8dc42e18396f78bec25a36dd07de7006308f90af112fa5d0'},
-    'y': {'c0': '0x279b356bf1390a747e0d361cd896e31898f9d9705942c176c79aa904b5c89243',
-     'c1': '0x1f537cf9f716088e6a4bf2779cd7e66f83a29a498d2476a9e5a8d7eb9c21967d'}}}]} 
-           
-
-           FieldElement::new([FieldElement::new(U256::from(0x1a031c43dfaa2dd04a2c5b2dd257b449ce088dfd6d8ca041f19365b94ae7ae0)), FieldElement::new(U256::from(0x19f3b18b9baad6dadea895c76728c461e7f188f1a3da94a697d90428f554f039))]);
-
-let q1 = ShortWeierstrassProjectivePoint::<BN254TwistCurve>::new([
-    FieldElement::<Degree2ExtensionField>::new([
-        FieldElement::new(U256::from_hex_unchecked("0x1a031c43dfaa2dd04a2c5b2dd257b449ce088dfd6d8ca041f19365b94ae7ae0")),
-        FieldElement::new(U256::from_hex_unchecked("0x19f3b18b9baad6dadea895c76728c461e7f188f1a3da94a697d90428f554f039"))
-    ]),
-    FieldElement::<Degree2ExtensionField>::new([
-        FieldElement::new(U256::from_hex_unchecked("0x1467f6d823536b43c1d13f7ce580cc56ba88ad999b12e27e355c114d819bee81")),
-        FieldElement::new(U256::from_hex_unchecked("0x2f992ff71d0d08f6271f2d40039924e831d53a43a4772e4322710ee41daed756"))
-    ]),
-    FieldElement::one()
-]);
+    /* Q = (21740656624264531918905957436349160317178065932174634873434489096384118284193,
+             2019050928575347605638490762886992026922085924959710776569383806797571971069 i ),
+             (768940004759184688611731872359665907813921273999645987556749132562407031847,
+              9386111668168143378799867099066976687163019156923561176364278935596535020065 i)
+        T =((18547205523279150343907423763561667656905210989238825125041531932617195786591,
+            11838207152290886924918158754888128755040578374158302623586388982144778515959i),
+            (18914823083116165396144529068959135293951172901190760512481127643602037296501,
+               21529909670613655107982420544538753603501207742700745772316790404883810220985 i))
+        Po
 
 
 
 
-*/
+        Points generated with the sage script:
+        Q1 ∈ G2
+       'Q1': {'x': {'c0': '0x1a031c43dfaa2dd04a2c5b2dd257b449ce088dfd6d8ca041f19365b94ae7ae0',
+         'c1': '0x19f3b18b9baad6dadea895c76728c461e7f188f1a3da94a697d90428f554f039'},
+        'y': {'c0': '0x1467f6d823536b43c1d13f7ce580cc56ba88ad999b12e27e355c114d819bee81',
+         'c1': '0x2f992ff71d0d08f6271f2d40039924e831d53a43a4772e4322710ee41daed756'}}}
 
+        Q2 ∈ G2
+        'Q2': {'x': {'c0': '0x1c0cdfa0b0eb6dcd93968a84ff1f5dfec3284b588e4bf72e6ed01052c23e1058',
+         'c1': '0x57182543d53551f8dc42e18396f78bec25a36dd07de7006308f90af112fa5d0'},
+        'y': {'c0': '0x279b356bf1390a747e0d361cd896e31898f9d9705942c176c79aa904b5c89243',
+         'c1': '0x1f537cf9f716088e6a4bf2779cd7e66f83a29a498d2476a9e5a8d7eb9c21967d'}}}]}
+
+
+               FieldElement::new([FieldElement::new(U256::from(0x1a031c43dfaa2dd04a2c5b2dd257b449ce088dfd6d8ca041f19365b94ae7ae0)), FieldElement::new(U256::from(0x19f3b18b9baad6dadea895c76728c461e7f188f1a3da94a697d90428f554f039))]);
+
+    let q1 = ShortWeierstrassProjectivePoint::<BN254TwistCurve>::new([
+        FieldElement::<Degree2ExtensionField>::new([
+            FieldElement::new(U256::from_hex_unchecked("0x1a031c43dfaa2dd04a2c5b2dd257b449ce088dfd6d8ca041f19365b94ae7ae0")),
+            FieldElement::new(U256::from_hex_unchecked("0x19f3b18b9baad6dadea895c76728c461e7f188f1a3da94a697d90428f554f039"))
+        ]),
+        FieldElement::<Degree2ExtensionField>::new([
+            FieldElement::new(U256::from_hex_unchecked("0x1467f6d823536b43c1d13f7ce580cc56ba88ad999b12e27e355c114d819bee81")),
+            FieldElement::new(U256::from_hex_unchecked("0x2f992ff71d0d08f6271f2d40039924e831d53a43a4772e4322710ee41daed756"))
+        ]),
+        FieldElement::one()
+    ]);
+
+    */
 }
