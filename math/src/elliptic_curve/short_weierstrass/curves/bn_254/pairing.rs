@@ -1,4 +1,4 @@
-use super::curve::MILLER_LOOP_CONSTANT;
+use super::curve::{ MILLER_LOOP_CONSTANT};
 // We defined MILLER_LOOP_CONSTANT in curve.rs
 // see https://hackmd.io/@Wimet/ry7z1Xj-2
 // @Juan is this the same parameter used in the NAF representation?
@@ -7,7 +7,7 @@ use super::curve::MILLER_LOOP_CONSTANT;
 use super::{
     curve::BN254Curve,
     field_extension::{BN254PrimeField, Degree12ExtensionField, Degree2ExtensionField},
-    twist::BN254TwistCurve,
+    twist::BN254TwistCurve
 };
 use crate::elliptic_curve::traits::FromAffine;
 use crate::{cyclic_group::IsGroup, elliptic_curve::traits::IsPairing, errors::PairingError};
@@ -28,6 +28,7 @@ use crate::{
 /* pub const SUBGROUP_ORDER: U256 =
 U256::from_hex_unchecked("TODO"); */
 
+type FpE = FieldElement<BN254PrimeField>;
 type Fp2E = FieldElement<Degree2ExtensionField>;
 type Fp6E = FieldElement<Degree6ExtensionField>;
 type Fp12E = FieldElement<Degree12ExtensionField>;
@@ -215,6 +216,9 @@ fn add_naive(
     ShortWeierstrassProjectivePoint::new([x_r, y_r, z_r])
 }
 
+
+
+
 /*
 // Computes: accumulator <- accumulator * l(P); t <- t + q,
 // where l is the line between t and q.
@@ -302,6 +306,7 @@ fn add_and_line(
 }
 
 // Computes Miller loop using oprate_with() and operate_with_self instead of the previous algorithms.
+/// See https://eprint.iacr.org/2010/354.pdf, page 4.
 fn miller_naive(
     p: ShortWeierstrassProjectivePoint<BN254Curve>,
     q: ShortWeierstrassProjectivePoint<BN254TwistCurve>,
@@ -351,6 +356,78 @@ fn miller_naive(
         }
     }
     (t, f)
+}
+
+//  GAMMA_1i = (9 + u)^{i(p-1) / 6} 
+// note for future self , we should use const_from_raw instead of new 
+pub const GAMMA_11: Fp2E = Fp2E::const_from_raw([
+    FpE::from_hex_unchecked(
+        "1284B71C2865A7DFE8B99FDD76E68B605C521E08292F2176D60B35DADCC9E470"
+    ),
+    FpE::from_hex_unchecked(
+        "246996F3B4FAE7E6A6327CFE12150B8E747992778EEEC7E5CA5CF05F80F362AC"
+    ),
+]);
+
+pub const GAMMA_12: Fp2E = Fp2E::const_from_raw([
+    FpE::from_hex_unchecked(
+        "2FB347984F7911F74C0BEC3CF559B143B78CC310C2C3330C99E39557176F553D",
+    ),
+    FpE::from_hex_unchecked(
+        "16C9E55061EBAE204BA4CC8BD75A079432AE2A1D0B7C9DCE1665D51C640FCBA2",
+    ),
+]);
+
+pub const GAMMA_13: Fp2E = Fp2E::const_from_raw([
+    FpE::from_hex_unchecked(
+        "63CF305489AF5DCDC5EC698B6E2F9B9DBAAE0EDA9C95998DC54014671A0135A",
+    ),
+    FpE::from_hex_unchecked(
+        "7C03CBCAC41049A0704B5A7EC796F2B21807DC98FA25BD282D37F632623B0E3",
+    ),
+]);
+
+pub const GAMMA_14: Fp2E = Fp2E::const_from_raw([
+    FpE::from_hex_unchecked(
+        "5B54F5E64EEA80180F3C0B75A181E84D33365F7BE94EC72848A1F55921EA762",
+    ),
+    FpE::from_hex_unchecked(
+        "2C145EDBE7FD8AEE9F3A80B03B0B1C923685D2EA1BDEC763C13B4711CD2B8126",
+    ),
+]);
+
+pub const GAMMA_15: Fp2E = Fp2E::const_from_raw([
+    FpE::from_hex_unchecked(
+        "183C1E74F798649E93A3661A4353FF4425C459B55AA1BD32EA2C810EAB7692F",
+    ),
+    FpE::from_hex_unchecked(
+        "12ACF2CA76FD0675A27FB246C7729F7DB080CB99678E2AC024C6B8EE6E0C2C4B",
+    ),
+]);
+
+
+// Computes the Frobenius morphism: f -> f^p.
+// See https://hackmd.io/@Wimet/ry7z1Xj-2#Fp12-Arithmetic (First Frobenius Operator).
+fn frobenius ( f: &FieldElement<Degree12ExtensionField> ) -> FieldElement<Degree12ExtensionField> {
+    let [a, b] = f.value(); // f = a + bw, where a and b in Fp6.
+    let [a0, a1, a2] = a.value(); // a = a0 + a1 * v + a2 * v^2, where a0, a1 and a2 in Fp2.
+    let [b0, b1, b2] = b.value(); // b = b0 + b1 * v + b2 * v^2, where b0, b1 and b2 in Fp2.
+
+    // c1 = a0.conjugate() + a1.conjugate() * GAMMA_12 * v + a2.conjugate() * GAMMA_14 * v^2
+    let c1 = Fp6E::new([
+        a0.conjugate(),
+        a1.conjugate() * GAMMA_12,
+        a2.conjugate() * GAMMA_14 
+    ]);
+
+    let c2 = Fp6E::new([
+        b0.conjugate() * GAMMA_11,
+        b1.conjugate() * GAMMA_13,
+        b2.conjugate() * GAMMA_15
+    ]);
+    
+    Fp12E::new([c1, c2]) //c1 + c2 * w
+
 }
 
 #[cfg(test)]
@@ -498,6 +575,17 @@ mod tests {
         let r = add_naive(&t, &q);
         assert_eq!(r, q.operate_with(&t))
     }
+
+    #[test]
+    fn apply_12_times_frobenius_is_identity() {
+        let f = Fp12E::from_coefficients(&["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"]);
+        let mut result = frobenius(&f);
+        for _ in 1..12 {
+            result = frobenius(&result);
+        }
+        assert_eq!(f, result)
+    }
+  // 
 
     /* Q = (21740656624264531918905957436349160317178065932174634873434489096384118284193,
              2019050928575347605638490762886992026922085924959710776569383806797571971069 i ),

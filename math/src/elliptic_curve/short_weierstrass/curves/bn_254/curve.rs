@@ -62,12 +62,66 @@ pub const MILLER_CONSTANT_NAF: [i32; 115] = [
 //@Juan: Move NAF to pairings.rs?
 
 // @nicole: We can try an other constant 6x + 2, to see if it works.
-/// NAF from https://hackmd.io/@Wimet/ry7z1Xj-2#Subgroup-Checks
+/// NAF from https://hackmd.io/@Wimet/ry7z1Xj-2#The-Pairing
 pub const MILLER_LOOP_CONSTANT_2: [i32; 65] = [
     0, 0, 0, 1, 0, 1, 0, -1, 0, 0, 1, -1, 0, 0, 1, 0, 0, 1, 1, 0, -1, 0, 0, 1, 0, -1, 0, 0, 0, 0,
     1, 1, 1, 0, 0, -1, 0, 0, 1, 0, 0, 0, 0, 0, -1, 0, 0, 1, 1, 0, 0, -1, 0, 0, 0, 1, 1, 0, -1, 0,
     0, 1, 0, 1, 1,
 ];
+
+// We define GAMMA_1i, constants that we will use to compute the Frobenius morphism.
+//  GAMMA_1i = (9 + u)^{i(p-1) / 6} 
+// See https://hackmd.io/@Wimet/ry7z1Xj-2#Frobenius-Operator.
+
+/*
+pub const GAMMA_11: BN254TwistCurveFieldElement = BN254TwistCurveFieldElement::const_from_raw([
+    FieldElement::from_hex_unchecked(
+        "2F34D751A1F3A7C11BDED5EF08A2087CA6B1D7387AFB78AAF9BA69633144907"
+    ), //    2F34D751A1F3A7C11BDED5EF08A2087CA6B1D7387AFB78AAF9BA69633144907
+    FieldElement::from_hex_unchecked(
+        "10A75716B3899551DC2FF3A253DFC926D00F02A4565DE15BA222AE234C492D72"
+    ),
+]);
+
+pub const GAMMA_12: BN254TwistCurveFieldElement = BN254TwistCurveFieldElement::const_from_raw([
+    FieldElement::from_hex_unchecked(
+        "1956BCD8118214EC7A007127242E0991347F91C8A9AA6454B5773B104563AB30",
+    ),
+    FieldElement::from_hex_unchecked(
+        "26694FBB4E82EBC3B6E713CDFAE0CA3AAA1C7B6D89F891416E849F1EA0AA4757",
+    ),
+]);
+
+pub const GAMMA_13: BN254TwistCurveFieldElement = BN254TwistCurveFieldElement::const_from_raw([
+    FieldElement::from_hex_unchecked(
+        "253570BEA500F8DD31A9D1B6F9645366BB30F162E133BACBE4BBDD0C2936B629",
+    ),
+    FieldElement::from_hex_unchecked(
+        "2C87200285DEFECC6D16BD27BB7EDC6B07AFFD117826D1DBA1D77CE45FFE77C7",
+    ),
+]);
+
+pub const GAMMA_14: BN254TwistCurveFieldElement = BN254TwistCurveFieldElement::const_from_raw([
+    FieldElement::from_hex_unchecked(
+        "15DF9CDDBB9FD3EC9C941F314B3E2399A5BB2BD3273411FB7361D77F843ABE92",
+    ),
+    FieldElement::from_hex_unchecked(
+        "24830A9D3171F0FD37BC870A0C7DD2B962CB29A5A4445B605DDDFD154BD8C949",
+    ),
+]);
+
+pub const GAMMA_15: BN254TwistCurveFieldElement = BN254TwistCurveFieldElement::const_from_raw([
+    FieldElement::from_hex_unchecked(
+        "12AABCED0AB0884132BEE66B83C459E8E240342127694B0BC970692F41690FE7",
+    ),
+    FieldElement::from_hex_unchecked(
+        "2F21EBB535D2925AD3B0A40B8A4910F505193418AB2FCC570D485D2340AEBFA9",
+    ),
+]);
+
+*/
+
+
 
 // Values needed to calculate phi.
 /// phi(x, y) = (GAMMA_X * x.conjugate(), GAMMA_Y * y.conjugate()).
