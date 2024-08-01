@@ -1,3 +1,5 @@
+use rayon::iter::once;
+
 use super::curve::{ MILLER_LOOP_CONSTANT};
 // We defined MILLER_LOOP_CONSTANT in curve.rs
 // see https://hackmd.io/@Wimet/ry7z1Xj-2
@@ -32,7 +34,7 @@ type FpE = FieldElement<BN254PrimeField>;
 type Fp2E = FieldElement<Degree2ExtensionField>;
 type Fp6E = FieldElement<Degree6ExtensionField>;
 type Fp12E = FieldElement<Degree12ExtensionField>;
-
+pub const X: u64 = 0x44e992b44a6909f1;
 // Need implementation of NAF representation
 
 /// Millers loop uses to iterate the NAF representation of the MILLER_LOOP_CONSTANT.
@@ -45,7 +47,7 @@ pub const MILLER_CONSTANT_NAF: [i32; 115] = [
 ];
 
 pub struct BN254AtePairing;
-/*impl IsPairing for BN254AtePairing {
+/* impl IsPairing for BN254AtePairing {
     type G1Point = ShortWeierstrassProjectivePoint<BN254Curve>;
     type G2Point = ShortWeierstrassProjectivePoint<BN254TwistCurve>;
     type OutputField = Degree12ExtensionField;
@@ -67,7 +69,7 @@ pub struct BN254AtePairing;
             if !p.is_neutral_element() && !q.is_neutral_element() {
                 let p = p.to_affine();
                 let q = q.to_affine();
-                result *= miller_naive(p, q);
+                result = miller_naive(p, q) * &result;
             }
         }
         Ok(final_exponentiation(&result))
@@ -310,7 +312,7 @@ fn add_and_line(
 fn miller_naive(
     p: ShortWeierstrassProjectivePoint<BN254Curve>,
     q: ShortWeierstrassProjectivePoint<BN254TwistCurve>,
-) -> (ShortWeierstrassProjectivePoint<BN254TwistCurve>, Fp12E) {
+) -> (Fp12E) {
     let mut t = q.clone();
     let mut f = Fp12E::from(1);
     let miller_lenght = MILLER_CONSTANT_NAF.len();
@@ -355,11 +357,20 @@ fn miller_naive(
             (t, f) = add_and_line(&p, &q, t, f);
         }
     }
-    (t, f)
+
+    // q1 = (x^p, y^p, z^p) = pi(q), where (x, y, z) are the projective coordinates of q and pi a frobenius endomorphism. 
+    let q1 = ShortWeierstrassProjectivePoint::new([frobenius(q.x()), frobenius(q.y()), frobenius(q.z())]);
+    let q2 = ShortWeierstrassProjectivePoint::new([frobenius_square(q.x()), frobenius_square(q.y()), frobenius_square(q.z())]);
+
+
+    
 }
 
-//  GAMMA_1i = (9 + u)^{i(p-1) / 6} 
-// note for future self , we should use const_from_raw instead of new 
+// GAMMA constants.
+// We took these constants from https://github.com/hecmas/zkNotebook/blob/main/src/BN254/constants.ts#L48
+// note for future self , we should use const_from_raw instead of new.
+
+//  GAMMA_1i = (9 + u)^{i(p-1) / 6} for all i = 1..5
 pub const GAMMA_11: Fp2E = Fp2E::const_from_raw([
     FpE::from_hex_unchecked(
         "1284B71C2865A7DFE8B99FDD76E68B605C521E08292F2176D60B35DADCC9E470"
@@ -405,6 +416,74 @@ pub const GAMMA_15: Fp2E = Fp2E::const_from_raw([
     ),
 ]);
 
+// GAMMA_2i = GAMMA_1i * GAMMA_1i.conjugate()
+pub const GAMMA_21: FpE = FpE::from_hex_unchecked(
+    "30644E72E131A0295E6DD9E7E0ACCCB0C28F069FBB966E3DE4BD44E5607CFD49"
+);
+
+pub const GAMMA_22: FpE = FpE::from_hex_unchecked(
+    "30644E72E131A0295E6DD9E7E0ACCCB0C28F069FBB966E3DE4BD44E5607CFD48"
+);
+
+pub const GAMMA_23: FpE = FpE::from_hex_unchecked(
+    "30644E72E131A029B85045B68181585D97816A916871CA8D3C208C16D87CFD46"
+);
+
+pub const GAMMA_24: FpE = FpE::from_hex_unchecked(
+    "59E26BCEA0D48BACD4F263F1ACDB5C4F5763473177FFFFFE"
+);
+
+pub const GAMMA_25: FpE = FpE::from_hex_unchecked(
+    "59E26BCEA0D48BACD4F263F1ACDB5C4F5763473177FFFFFF"
+);
+
+
+// gammas 3
+// GAMMA_3i = GAMMA_1i * GAMMA_2i
+pub const GAMMA_31: Fp2E = Fp2E::const_from_raw([
+    FpE::from_hex_unchecked(
+        "19DC81CFCC82E4BBEFE9608CD0ACAA90894CB38DBE55D24AE86F7D391ED4A67F"
+    ),
+    FpE::from_hex_unchecked(
+        "ABF8B60BE77D7306CBEEE33576139D7F03A5E397D439EC7694AA2BF4C0C101"
+    ),
+]);
+
+pub const GAMMA_32: Fp2E = Fp2E::const_from_raw([
+    FpE::from_hex_unchecked(
+        "856E078B755EF0ABAFF1C77959F25AC805FFD3D5D6942D37B746EE87BDCFB6D",
+    ),
+    FpE::from_hex_unchecked(
+        "4F1DE41B3D1766FA9F30E6DEC26094F0FDF31BF98FF2631380CAB2BAAA586DE",
+    ),
+]);
+
+pub const GAMMA_33: Fp2E = Fp2E::const_from_raw([
+    FpE::from_hex_unchecked(
+        "2A275B6D9896AA4CDBF17F1DCA9E5EA3BBD689A3BEA870F45FCC8AD066DCE9ED",
+    ),
+    FpE::from_hex_unchecked(
+        "28A411B634F09B8FB14B900E9507E9327600ECC7D8CF6EBAB94D0CB3B2594C64",
+    ),
+]);
+
+pub const GAMMA_34: Fp2E = Fp2E::const_from_raw([
+    FpE::from_hex_unchecked(
+        "BC58C6611C08DAB19BEE0F7B5B2444EE633094575B06BCB0E1A92BC3CCBF066",
+    ),
+    FpE::from_hex_unchecked(
+        "23D5E999E1910A12FEB0F6EF0CD21D04A44A9E08737F96E55FE3ED9D730C239F",
+    ),
+]);
+
+pub const GAMMA_35: Fp2E = Fp2E::const_from_raw([
+    FpE::from_hex_unchecked(
+        "13C49044952C0905711699FA3B4D3F692ED68098967C84A5EBDE847076261B43",
+    ),
+    FpE::from_hex_unchecked(
+        "16DB366A59B1DD0B9FB1B2282A48633D3E2DDAEA200280211F25041384282499",
+    ),
+]);
 
 // Computes the Frobenius morphism: f -> f^p.
 // See https://hackmd.io/@Wimet/ry7z1Xj-2#Fp12-Arithmetic (First Frobenius Operator).
@@ -429,6 +508,95 @@ fn frobenius ( f: &FieldElement<Degree12ExtensionField> ) -> FieldElement<Degree
     Fp12E::new([c1, c2]) //c1 + c2 * w
 
 }
+
+// forbenius_square (f) = f^{p^2}
+fn frobenius_square ( f: &FieldElement<Degree12ExtensionField> ) -> FieldElement<Degree12ExtensionField> {
+    let [a, b] = f.value(); // f = a + bw, where a and b in Fp6.
+    let [a0, a1, a2] = a.value(); // a = a0 + a1 * v + a2 * v^2, where a0, a1 and a2 in Fp2.
+    let [b0, b1, b2] = b.value(); // b = b0 + b1 * v + b2 * v^2, where b0, b1 and b2 in Fp2.
+
+    // c1 = a0.conjugate() + a1.conjugate() * GAMMA_12 * v + a2.conjugate() * GAMMA_14 * v^2
+    let c1 = Fp6E::new([
+        a0.clone(),
+        GAMMA_22 * a1,
+        GAMMA_24 * a2
+    ]);
+
+    let c2 = Fp6E::new([
+        GAMMA_21 * b0,
+        GAMMA_23 * b1,
+        GAMMA_25 * b2 
+    ]);
+    
+    Fp12E::new([c1, c2]) //c1 + c2 * w
+
+}
+
+// frobenius_cube (f) = f^{p^3}
+fn frobenius_cube ( f: &FieldElement<Degree12ExtensionField> ) -> FieldElement<Degree12ExtensionField> {
+    let [a, b] = f.value(); // f = a + bw, where a and b in Fp6.
+    let [a0, a1, a2] = a.value(); // a = a0 + a1 * v + a2 * v^2, where a0, a1 and a2 in Fp2.
+    let [b0, b1, b2] = b.value(); // b = b0 + b1 * v + b2 * v^2, where b0, b1 and b2 in Fp2.
+
+    // c1 = a0.conjugate() + a1.conjugate() * GAMMA_12 * v + a2.conjugate() * GAMMA_14 * v^2
+    let c1 = Fp6E::new([
+        a0.conjugate(),
+        a1.conjugate() * GAMMA_32,
+        a2.conjugate() * GAMMA_34 
+    ]);
+
+    let c2 = Fp6E::new([
+        b0.conjugate() * GAMMA_31,
+        b1.conjugate() * GAMMA_33,
+        b2.conjugate() * GAMMA_35
+    ]);
+    
+    Fp12E::new([c1, c2]) //c1 + c2 * w
+
+}
+
+// final_exponentiation(f) = f ^ {(p^12 - 1) / r}
+/// (p^12 - 1) / r = (p^6 - 1) * (p^2 + 1) * (p^4 - p^2 + 1) / r 
+fn final_exponentiation (f: &FieldElement<Degree12ExtensionField>) -> FieldElement<Degree12ExtensionField> {
+
+    // Easy part:
+    // Computes f ^ {(p^6 - 1) * (p^2 + 1)}
+
+    let f_easy_aux = f.conjugate() * f.inv().unwrap(); // f ^ (p^6 - 1) because f^{p^6} = f.conjugate()
+    let f_easy = &frobenius_square(&f_easy_aux) * f_easy_aux; // (f^{p^6 - 1})^{p^2} * (f^{p^6 - 1})
+    
+    
+    // Hard part:
+    // Compute f ^ ((p^4 - p^2 + 1) / r)
+    // See https://hackmd.io/@Wimet/ry7z1Xj-2#The-Hard-Part, where f_easy is called m.
+
+    // We define different exponentiation of f_easy that we will use later.
+    let mx = f_easy.pow(X);
+    let mx2 = mx.pow(X);
+    let mx3 = mx2.pow(X);
+    let mp = frobenius(&f_easy);
+    let mp2 = frobenius_square(&f_easy);
+    let mp3 = frobenius_cube(&f_easy);
+    let mxp = frobenius(&mx); // (m^x)^p
+    let mx2p = frobenius(&mx2); // (m^{x^2})^p
+    let mx3p = frobenius_cube(&mx3); // (m^{x^3})^p
+    let mx2p2 = frobenius_square(&mx2); // (m^{x^2})^p^2
+
+    let y0 = mp * mp2 * mp3;
+    let y1 = f_easy.conjugate();
+    let y2 = mx2p2;
+    let y3 = mxp.conjugate();
+    let y4 = (mx * mx2p).conjugate();
+    let y5 = mx2.conjugate();
+    let y6 = (mx3 * mx3p).conjugate();
+
+    y0 *  y1.square() * y2.pow(6usize) * y3.pow(12usize) * y4.pow(18usize) * y5.pow(30usize) * y6.pow(36usize)
+}
+
+//TODO:
+// fn tangent_line()
+// fn line()
+
 
 #[cfg(test)]
 mod tests {
@@ -582,6 +750,26 @@ mod tests {
         let mut result = frobenius(&f);
         for _ in 1..12 {
             result = frobenius(&result);
+        }
+        assert_eq!(f, result)
+    }
+
+    #[test]
+    fn apply_6_times_frobenius_square_is_identity() {
+        let f = Fp12E::from_coefficients(&["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"]);
+        let mut result = frobenius_square(&f);
+        for _ in 1..6 {
+            result = frobenius_square(&result);
+        }
+        assert_eq!(f, result)
+    }
+
+    #[test]
+    fn apply_4_times_frobenius_cube_is_identity() {
+        let f = Fp12E::from_coefficients(&["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"]);
+        let mut result = frobenius_cube(&f);
+        for _ in 1..4 {
+            result = frobenius_cube(&result);
         }
         assert_eq!(f, result)
     }
