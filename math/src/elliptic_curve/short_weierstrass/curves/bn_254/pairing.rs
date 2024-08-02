@@ -307,15 +307,13 @@ fn add_and_line(
     (t_result, f_result)
 }
 
-// Computes Miller loop using oprate_with() and operate_with_self instead of the previous algorithms.
-/// See https://eprint.iacr.org/2010/354.pdf, page 4.
-fn miller_naive(
-    p: ShortWeierstrassProjectivePoint<BN254Curve>,
-    q: ShortWeierstrassProjectivePoint<BN254TwistCurve>,
+// Computes the line between t and q and evaluates it in p. If t = q, it's the tangent line.
+// 
+fn line (
+    p: &ShortWeierstrassProjectivePoint<BN254Curve>,
+    q: &ShortWeierstrassProjectivePoint<BN254TwistCurve>,
+    t: &ShortWeierstrassProjectivePoint<BN254TwistCurve>
 ) -> (Fp12E) {
-    let mut t = q.clone();
-    let mut f = Fp12E::from(1);
-    let miller_lenght = MILLER_CONSTANT_NAF.len();
 
     // We convert projective coordinates of p into affine coordinates.
     // Projective (a, b, c) -> Affine (a/c, b/b).
@@ -328,7 +326,131 @@ fn miller_naive(
     let x_q = q.x() * z_q.clone();
     let y_q = q.y() * z_q.square();
 
-    for i in (0..miller_lenght - 1).rev() {
+    // We convert the projective coordinates of t into jacobian coordinates.
+    let mut z_t = t.z().clone();
+    let mut x_t = t.x() * z_t.clone();
+    let mut y_t = t.y() * z_t.square();
+
+    if q == t {
+        // Caso 1: Q y T son el mismo punto (línea tangente)
+        let r = t.operate_with_self(2usize);
+        let l0 = Fp6E::new([
+            &y_p * (r.z().double() * &z_t.square()), // 2 * z_r * (z_t)^2 * y_p
+            (x_t.square() * &x_t).double().double() + (x_t.square() * &x_t).double()
+                - y_t.square().double().double(), // 6 * (x_t)^3 - 4 * (y_t)^2
+            Fp2E::zero(),
+        ]);
+        let l1 = -Fp6E::new([
+            &x_p * ((&x_t.square().double().double() + x_t.square().double()) * z_t.square()), // 6 * (x_t)^2 * (z_t)^2 * x_p
+            Fp2E::zero(),
+            Fp2E::zero(),
+        ]);
+        Fp12E::new([l0, l1])
+    } else {
+        // Caso 2: Q y T son distintos (línea entre dos puntos)
+        let r = t.operate_with(q);
+        let z_r = r.z();
+        let l0 = Fp6E::new([
+            &y_p * z_r.double(), // 2 * z_r * y_p
+            x_q.double().double() * (&y_q * z_t.square() * &z_t * &x_q - &y_t)
+                - y_q.double() * z_r, // 4 * x_q * (y_q * (z_t)^3 * x_q - y_t) - 2 * y_q * z_r
+            Fp2E::zero(),
+        ]);
+        let l1 = -Fp6E::new([
+            x_p.double().double() * (&y_q * z_t.square() * z_t + y_t), // -4 * x_p * (y_q * (z_t)^3 + y_t)
+            Fp2E::zero(),
+            Fp2E::zero(),
+        ]);
+        Fp12E::new([l0, l1])
+    }
+}
+
+// Computes Miller loop using oprate_with() and operate_with_self instead of the previous algorithms.
+/// See https://eprint.iacr.org/2010/354.pdf, page 4.
+fn miller_naive(
+    p: ShortWeierstrassProjectivePoint<BN254Curve>,
+    q: ShortWeierstrassProjectivePoint<BN254TwistCurve>,
+) -> Fp12E {
+    let mut t = q.clone();
+    let mut f = Fp12E::from(1);
+    let miller_length = MILLER_CONSTANT_NAF.len();
+
+    // We convert projective coordinates of p into affine coordinates.
+    // Projective (a, b, c) -> Affine (a/c, b/b).
+    let x_p = p.x() * p.z().inv().unwrap();
+    let y_p = p.y() * p.z().inv().unwrap();
+
+    for i in (0..miller_length - 1).rev() {
+        f = f.square() * line(&p, &t, &t);
+        t = t.operate_with_self(2usize);
+
+        if MILLER_CONSTANT_NAF[i] == -1 {
+            f = f * line(&p, &q.neg(), &t);
+            t = t.operate_with(&q.neg());
+        } else if MILLER_CONSTANT_NAF[i] == 1 {
+            f = f * line(&p, &q, &t);
+            t = t.operate_with(&q);
+        }
+    } 
+
+    let [x_q, y_q, z_q] = q.coordinates();
+    let q1 = ShortWeierstrassProjectivePoint::<BN254TwistCurve>::new([
+        GAMMA_12 * x_q.conjugate(),
+        GAMMA_13 * y_q.conjugate(),
+        z_q.clone()
+    ]);
+
+    f = f * line(&p, &q1, &t);
+    t = t.operate_with(&q1);
+
+    let [x_q1, y_q1, z_q1] = q1.coordinates();
+    let q2 = ShortWeierstrassProjectivePoint::<BN254TwistCurve>::new([
+        GAMMA_12 * x_q1.conjugate(),
+        GAMMA_13 * y_q1.conjugate(),
+        z_q1.clone()
+    ]);
+
+    f = f * line(&p, &q2.neg(), &t);
+
+    f
+}
+
+pub fn optimal_ate_pairing(
+    p: &ShortWeierstrassProjectivePoint<BN254Curve>,
+    q: &ShortWeierstrassProjectivePoint<BN254TwistCurve>
+) -> Result<Fp12E, PairingError> {
+    // Comprobaciones de subgrupo
+    if !p.is_in_subgroup() {
+        return Err(PairingError::PointNotInSubgroup);
+    }
+    if q.is_in_subgroup() {
+        return Err(PairingError::PointNotInSubgroup);
+    }
+
+    // Comprobación de punto en el infinito
+    if p.is_neutral_element() || q.is_neutral_element() {
+        return Ok(Fp12E::one());
+    }
+
+    // Cálculo del bucle de Miller
+    let f = miller_naive(p.clone(), q.clone());
+
+    // Exponenciación final
+    Ok(final_exponentiation(&f))
+}
+
+/* 
+
+
+    
+    // We convert the projective coordinates of q into jacobian coordinates.
+    // projective (a, b, c) -> jacobian (a * c, b * c^2, c).
+    let z_q = q.z().clone();
+    let x_q = q.x() * z_q.clone();
+    let y_q = q.y() * z_q.square();
+
+ 
+   for i in (0..miller_lenght - 1).rev() {
         // We convert the projective coordinates of t into jacobian coordinates.
         let mut z_t = t.z().clone();
         let mut x_t = t.x() * z_t.clone();
@@ -342,7 +464,7 @@ fn miller_naive(
                 - y_t.square().double().double(), // 6 * (x_t)^3 - 4 * (y_t)^2
             Fp2E::zero(),
         ]);
-        let l1 = -Fp6E::new([
+        let l1 = - Fp6E::new([
             &x_p * ((&x_t.square().double().double() + x_t.square().double()) * z_t.square()), // 6 * (x_t)^2 * (z_t)^2 * x_p
             Fp2E::zero(),
             Fp2E::zero(),
@@ -356,15 +478,24 @@ fn miller_naive(
         if MILLER_CONSTANT_NAF[i] == 1 {
             (t, f) = add_and_line(&p, &q, t, f);
         }
+       //-- 
     }
 
-    // q1 = (x^p, y^p, z^p) = pi(q), where (x, y, z) are the projective coordinates of q and pi a frobenius endomorphism. 
-    let q1 = ShortWeierstrassProjectivePoint::new([frobenius(q.x()), frobenius(q.y()), frobenius(q.z())]);
-    let q2 = ShortWeierstrassProjectivePoint::new([frobenius_square(q.x()), frobenius_square(q.y()), frobenius_square(q.z())]);
+    // TODO: Ask if the projective points (a, b, c) and (a/c, b/c, 1) are equals.
+    let [x_q, y_q, z_q] = q.coordinates(); // q = (x, y, z), where x, y and z in Fp2.
+    let q1 = ShortWeierstrassProjectivePoint::<BN254TwistCurve>::new([
+        GAMMA_12 * x_q.conjugate(),
+        GAMMA_13 * y_q.conjugate(),
+        *z_q
+    ]);
 
-
-    
-}
+    let [x_q1, y_q1, z_q1]: [Fp2E; 3]  = *q1.coordinates();
+    let q2 = ShortWeierstrassProjectivePoint::<BN254TwistCurve>::new([
+        GAMMA_12 * x_q1.conjugate(),
+        GAMMA_13 * y_q1.conjugate(),
+        z_q1
+    ]);  
+*/
 
 // GAMMA constants.
 // We took these constants from https://github.com/hecmas/zkNotebook/blob/main/src/BN254/constants.ts#L48
@@ -487,7 +618,7 @@ pub const GAMMA_35: Fp2E = Fp2E::const_from_raw([
 
 // Computes the Frobenius morphism: f -> f^p.
 // See https://hackmd.io/@Wimet/ry7z1Xj-2#Fp12-Arithmetic (First Frobenius Operator).
-fn frobenius ( f: &FieldElement<Degree12ExtensionField> ) -> FieldElement<Degree12ExtensionField> {
+fn frobenius ( f: &Fp12E ) -> Fp12E{
     let [a, b] = f.value(); // f = a + bw, where a and b in Fp6.
     let [a0, a1, a2] = a.value(); // a = a0 + a1 * v + a2 * v^2, where a0, a1 and a2 in Fp2.
     let [b0, b1, b2] = b.value(); // b = b0 + b1 * v + b2 * v^2, where b0, b1 and b2 in Fp2.
