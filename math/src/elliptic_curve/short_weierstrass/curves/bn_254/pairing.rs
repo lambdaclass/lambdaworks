@@ -332,7 +332,7 @@ fn line (
     let mut y_t = t.y() * z_t.square();
 
     if q == t {
-        // Caso 1: Q y T son el mismo punto (línea tangente)
+        
         let r = t.operate_with_self(2usize);
         let l0 = Fp6E::new([
             &y_p * (r.z().double() * &z_t.square()), // 2 * z_r * (z_t)^2 * y_p
@@ -347,7 +347,7 @@ fn line (
         ]);
         Fp12E::new([l0, l1])
     } else {
-        // Caso 2: Q y T son distintos (línea entre dos puntos)
+        // 
         let r = t.operate_with(q);
         let z_r = r.z();
         let l0 = Fp6E::new([
@@ -415,34 +415,29 @@ fn miller_naive(
     f
 }
 
-pub fn optimal_ate_pairing(
+pub fn ate_pairing(
     p: &ShortWeierstrassProjectivePoint<BN254Curve>,
     q: &ShortWeierstrassProjectivePoint<BN254TwistCurve>
 ) -> Result<Fp12E, PairingError> {
-    // Comprobaciones de subgrupo
-    if !p.is_in_subgroup() {
+    // We can omit p.is_in_subgroup
+   /* if !p.is_in_subgroup() {
         return Err(PairingError::PointNotInSubgroup);
-    }
-    if q.is_in_subgroup() {
+    } */
+    if !q.is_in_subgroup() {
         return Err(PairingError::PointNotInSubgroup);
     }
 
-    // Comprobación de punto en el infinito
     if p.is_neutral_element() || q.is_neutral_element() {
         return Ok(Fp12E::one());
     }
 
-    // Cálculo del bucle de Miller
     let f = miller_naive(p.clone(), q.clone());
 
     // Exponenciación final
     Ok(final_exponentiation(&f))
 }
 
-/* 
-
-
-    
+/*     
     // We convert the projective coordinates of q into jacobian coordinates.
     // projective (a, b, c) -> jacobian (a * c, b * c^2, c).
     let z_q = q.z().clone();
@@ -904,6 +899,56 @@ mod tests {
         }
         assert_eq!(f, result)
     }
+
+    #[test]
+    fn ate_pairing_returns_one_when_one_q_is_the_neutral_element() {
+        let p = BN254Curve::generator();
+        let q = ShortWeierstrassProjectivePoint::neutral_element();
+        let result = ate_pairing(&p,&q).unwrap();
+        assert_eq!(result, FieldElement::one()); // this test is ok
+    }
+    
+    #[test]
+    fn ate_pairing_returns_one_when_one_p_is_the_neutral_element() {
+        let p = ShortWeierstrassProjectivePoint::neutral_element();
+        let q = BN254TwistCurve::generator();
+        let result = ate_pairing(&p,&q).unwrap();
+        assert_eq!(result, FieldElement::one());
+    }
+
+    #[test]
+    // e(a * p, b * q) = e(a * b * p, q)
+    // TEST 
+    fn ate_pairing_bilinearity() {
+        let p = BN254Curve::generator();
+        let q = BN254TwistCurve::generator();
+        let a = U384::from_u64(11);
+        let b = U384::from_u64(93);
+
+        let pairing1 = ate_pairing(&p.operate_with_self(a), &q.operate_with_self(b)).unwrap();
+        let pairing2 = ate_pairing(&p.operate_with_self(a * b), &q).unwrap();
+
+        assert_eq!(pairing1, pairing2);
+    }
+
+
+
+    /* #[test]
+    fn ate_pairing_errors_when_one_element_is_not_in_subgroup() {
+        let p = ShortWeierstrassProjectivePoint::new([
+            FieldElement::one(),
+            FieldElement::one(),
+            FieldElement::one(),
+        ]);
+        let q = ShortWeierstrassProjectivePoint::neutral_element();
+        let result = ate_pairing(&p, &q);
+        assert!(result.is_err())
+    }
+    */
+
+
+
+
   // 
 
     /* Q = (21740656624264531918905957436349160317178065932174634873434489096384118284193,

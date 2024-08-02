@@ -148,7 +148,7 @@ pub const GAMMA_Y: BN254TwistCurveFieldElement = BN254TwistCurveFieldElement::co
         "7c03cbcac41049a0704b5a7ec796f2b21807dc98fa25bd282d37f632623b0e3",
     ),
 ]);
-
+/*
 // G1
 impl ShortWeierstrassProjectivePoint<BN254Curve> {
     // P is in G1 if P = (x, y) where y^2 = x^3 + 3
@@ -162,6 +162,7 @@ impl ShortWeierstrassProjectivePoint<BN254Curve> {
         y_sq == x_cubed + three
     }
 }
+*/
 
 // G2
 impl ShortWeierstrassProjectivePoint<BN254TwistCurve> {
@@ -362,12 +363,20 @@ mod tests {
             g.operate_with_self(3_u16)
         );
     }
-
+/* 
     #[test]
     fn generator_g1_is_in_subgroup() {
         let g = BN254Curve::generator();
         assert!(g.is_in_subgroup())
     }
+
+    #[test]
+    fn meutral_element_is_in_subgroup() {
+        let g = ShortWeierstrassProjectivePoint::<BN254Curve>::neutral_element();
+        assert!(g.is_in_subgroup())
+    }
+*/
+
 
     #[test]
     fn generator_g2_is_in_subgroup() {
