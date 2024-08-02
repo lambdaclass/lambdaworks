@@ -44,6 +44,7 @@ impl IsShortWeierstrass for BN254Curve {
 /// x = 4965661367192848881.
 /// See https://hackmd.io/@jpw/bn254#Barreto-Naehrig-curves.
 pub const X: u64 = 0x44e992b44a6909f1;
+//4965661367192848881
 
 // Constant used in the Miller Loop.
 /// MILLER_LOOP_CONSTANT = t - 1 = 6x^2 = 14794675688178931416421085915796864
@@ -63,14 +64,14 @@ pub const MILLER_CONSTANT_NAF: [i32; 115] = [
 
 // @nicole: We can try an other constant 6x + 2, to see if it works.
 /// NAF from https://hackmd.io/@Wimet/ry7z1Xj-2#The-Pairing
-pub const MILLER_LOOP_CONSTANT_2: [i32; 65] = [
+pub const MILLER_NAF_2: [i32; 65] = [
     0, 0, 0, 1, 0, 1, 0, -1, 0, 0, 1, -1, 0, 0, 1, 0, 0, 1, 1, 0, -1, 0, 0, 1, 0, -1, 0, 0, 0, 0,
     1, 1, 1, 0, 0, -1, 0, 0, 1, 0, 0, 0, 0, 0, -1, 0, 0, 1, 1, 0, 0, -1, 0, 0, 0, 1, 1, 0, -1, 0,
     0, 1, 0, 1, 1,
 ];
 
 // We define GAMMA_1i, constants that we will use to compute the Frobenius morphism.
-//  GAMMA_1i = (9 + u)^{i(p-1) / 6} 
+//  GAMMA_1i = (9 + u)^{i(p-1) / 6}
 // See https://hackmd.io/@Wimet/ry7z1Xj-2#Frobenius-Operator.
 
 /*
@@ -121,8 +122,6 @@ pub const GAMMA_15: BN254TwistCurveFieldElement = BN254TwistCurveFieldElement::c
 
 */
 
-
-
 // Values needed to calculate phi.
 /// phi(x, y) = (GAMMA_X * x.conjugate(), GAMMA_Y * y.conjugate()).
 /// See https://hackmd.io/@Wimet/ry7z1Xj-2#The-Pairing (Subgroup Checks).
@@ -169,6 +168,8 @@ impl ShortWeierstrassProjectivePoint<BN254TwistCurve> {
     /// phi morphism used to G2 subgroup check for twisted curve.
     /// phi(x, y) = (GAMMA_X * x.conjugate(), GAMMA_Y * y.conjugate()).
     /// See https://hackmd.io/@Wimet/ry7z1Xj-2#The-Pairing (Subgroup Checks).
+    /// pih(q) = (x^p, y^p, z^p), where (x, y, z) are the projective coordinates of q.
+    /// TODO: GAMMA_X = GAMMA_12, GAMMA_Y = GAMMA_13. And use phi in the last lines of miller_naive (for q1 and q2).
     fn phi(&self) -> Self {
         let [x, y, z] = self.coordinates();
         Self::new([
@@ -363,43 +364,40 @@ mod tests {
             g.operate_with_self(3_u16)
         );
     }
-/* 
-    #[test]
-    fn generator_g1_is_in_subgroup() {
-        let g = BN254Curve::generator();
-        assert!(g.is_in_subgroup())
-    }
+    /*
+        #[test]
+        fn generator_g1_is_in_subgroup() {
+            let g = BN254Curve::generator();
+            assert!(g.is_in_subgroup())
+        }
 
-    #[test]
-    fn meutral_element_is_in_subgroup() {
-        let g = ShortWeierstrassProjectivePoint::<BN254Curve>::neutral_element();
-        assert!(g.is_in_subgroup())
-    }
-*/
-
+        #[test]
+        fn meutral_element_is_in_subgroup() {
+            let g = ShortWeierstrassProjectivePoint::<BN254Curve>::neutral_element();
+            assert!(g.is_in_subgroup())
+        }
+    */
 
     #[test]
     fn generator_g2_is_in_subgroup() {
         let g = BN254TwistCurve::generator();
         assert!(g.is_in_subgroup())
     }
-/*
-    #[test]
-    fn generator_g2_is_not_in_subgroup() {
-        let q = ShortWeierstrassProjectivePoint::<BN254TwistCurve>::new(
-            FieldElement::<Degree2ExtensionField>::new([
-                FieldElement::new(U256::from_hex_unchecked("0x3010c68cb50161b7d1d96bb71edfec9880171954e56871abf3d93cc94d745fa1")),
-                FieldElement::new(U256::from_hex_unchecked("0x0476be093a6d2b4bbf907172049874af11e1b6267606e00804d3ff0037ec57fd"))
-            ]),
-            FieldElement::<Degree2ExtensionField>::new([
-                FieldElement::new(U256::from_hex_unchecked("0x01b33461f39d9e887dbb100f170a2345dde3c07e256d1dfa2b657ba5cd030427")),
-                FieldElement::new(U256::from_hex_unchecked("0x14c059d74e5b6c4ec14ae5864ebe23a71781d86c29fb8fb6cce94f70d3de7a21"))
-            ]));
-        assert!(q.is_in_subgroup())
-    }
- */
-
-
+    /*
+       #[test]
+       fn generator_g2_is_not_in_subgroup() {
+           let q = ShortWeierstrassProjectivePoint::<BN254TwistCurve>::new(
+               FieldElement::<Degree2ExtensionField>::new([
+                   FieldElement::new(U256::from_hex_unchecked("0x3010c68cb50161b7d1d96bb71edfec9880171954e56871abf3d93cc94d745fa1")),
+                   FieldElement::new(U256::from_hex_unchecked("0x0476be093a6d2b4bbf907172049874af11e1b6267606e00804d3ff0037ec57fd"))
+               ]),
+               FieldElement::<Degree2ExtensionField>::new([
+                   FieldElement::new(U256::from_hex_unchecked("0x01b33461f39d9e887dbb100f170a2345dde3c07e256d1dfa2b657ba5cd030427")),
+                   FieldElement::new(U256::from_hex_unchecked("0x14c059d74e5b6c4ec14ae5864ebe23a71781d86c29fb8fb6cce94f70d3de7a21"))
+               ]));
+           assert!(q.is_in_subgroup())
+       }
+    */
 
     #[test]
     fn arbitrary_g2_point_is_in_subgroup() {
