@@ -179,6 +179,15 @@ impl ShortWeierstrassProjectivePoint<BN254TwistCurve> {
         ])
     }
 
+    pub fn phi_inv(&self) -> Self {
+        let [x, y, z] = self.coordinates();
+        Self::new([
+            (x * GAMMA_X.inv().unwrap()).conjugate(),
+            (y * GAMMA_Y.inv().unwrap()).conjugate(),
+            z.conjugate(),
+        ])
+    }
+
     /// Check if a G2 point is in the subgroup of the twisted curve.
     pub fn is_in_subgroup(&self) -> bool {
         let q_times_x = &self.operate_with_self(X);
