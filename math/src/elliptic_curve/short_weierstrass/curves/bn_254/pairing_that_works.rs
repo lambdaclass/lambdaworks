@@ -361,4 +361,34 @@ mod tests {
         let result = BN254AtePairing::compute_batch(&[(&p, &q)]);
         assert!(result.is_err())
     } 
+
+    #[test]
+    fn ate_pairing_errors_when_g1_point_is_zero() {
+        let p = ShortWeierstrassProjectivePoint::<BN254Curve>::new([
+            FpE::zero(),
+            FpE::zero(),
+            FpE::one(),
+        ]);
+        let q = ShortWeierstrassProjectivePoint::<BN254TwistCurve>::new([
+            Fp2E::new([
+                FpE::new(U256::from_hex_unchecked(
+                    "1800deef121f1e76426a00665e5c4479674322d4f75edaddde46bd5cd992f6ed",
+                )),
+                FpE::new(U256::from_hex_unchecked(
+                    "198e9393920daef312c20b9f1099ecefa8b45575d349b0a6f04c16d0d58af900",
+                )),
+            ]),
+            Fp2E::new([
+                FpE::new(U256::from_hex_unchecked(
+                    "22376289c558493c1d6cc413a5f07dcb54526a964e4e687b65a881aa9752faa2",
+                )),
+                FpE::new(U256::from_hex_unchecked(
+                    "05a7a5759338c23ca603c1c4adf979e004c2f3e3c5bad6f07693c59a85d600a9",
+                )),
+            ]),
+            Fp2E::one(),
+        ]);
+        let result = BN254AtePairing::compute_batch(&[(&p, &q)]);
+        assert!(result.is_err())
+    } 
 }
