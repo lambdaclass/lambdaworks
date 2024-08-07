@@ -47,18 +47,19 @@ pub const X: u64 = 0x44e992b44a6909f1;
 //4965661367192848881
 
 // Constant used in the Miller Loop.
-/// MILLER_LOOP_CONSTANT = t - 1 = 6x^2 = 14794675688178931416421085915796864
+/// MILLER_LOOP_CONSTANT = t - 1 = 6(x^2) = 14794675688178931416421085915796864
 /// where t is the trace of Frobenius and x = 4965661367192848881.
 /// See https://hackmd.io/@jpw/bn254#Barreto-Naehrig-curves.
 pub const MILLER_LOOP_CONSTANT: u128 = 0x2d96f0f62456fa4007202eaea5580;
 
 /// Millers loop uses to iterate the NAF representation of the MILLER_LOOP_CONSTANT
 /// A NAF representation uses values: -1, 0 and 1. https://en.wikipedia.org/wiki/Non-adjacent_form.
-pub const MILLER_CONSTANT_NAF: [i32; 115] = [
-    1, 0, -1, 0, 0, -1, 0, -1, 0, 1, 0, -1, 0, 0, -1, 0, 0, 0, -1, 0, 0, 0, 1, 0, 0, 0, 0, -1, 0,
-    -1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, -1, 0, -1, 0, 0, -1, 0, 0, 0, 0, -1, 0, 1, 0, 0, 1, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, -1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, -1, 0, 0, 0, -1, 0, -1,
-    0, -1, 0, 0, -1, 0, 1, 0, 1, 0, 1, 0, -1, 0, -1, 0, -1, 0, -1, 0, 0, 0, 0, 0, 0, 0,
+pub const MILLER_CONSTANT_NAF: [i32; 128] = [
+    0, -1, 0, 1, 0, 0, 1, 0, 1, 0, -1, 0, 0, 0, 0, 0, 1, 0, -1, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1,
+    0, 0, -1, 0, 1, 0, 0, 0, 0, 1, 0, -1, 0, -1, 0, 1, 0, 1, 0, -1, 0, 0, 0, 0, 1, 0, 0, 0, 0, -1,
+    0, 0, 0, 0, 0, 0, -1, 0, 0, 0, 0, 0, 0, 1, 0, -1, 0, -1, 0, 1, 0, 0, 0, -1, 0, 0, -1, 0, -1, 0,
+    0, 0, -1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, -1, 0, -1, 0, 0, 1, 0, 1, 0,
+    -1, 0, 0, 0, -1, 0, 0, 1,
 ];
 //@Juan: Move NAF to pairings.rs?
 
