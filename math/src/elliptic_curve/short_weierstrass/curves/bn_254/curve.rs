@@ -47,10 +47,10 @@ pub const X: u64 = 0x44e992b44a6909f1;
 //4965661367192848881
 
 // Constant used in the Miller Loop.
-/// MILLER_LOOP_CONSTANT = t - 1 = 6(x^2) = 14794675688178931416421085915796864
+/// MILLER_LOOP_CONSTANT = t - 1 = 6(x^2) = 147946756881789318990833708069417712966
 /// where t is the trace of Frobenius and x = 4965661367192848881.
 /// See https://hackmd.io/@jpw/bn254#Barreto-Naehrig-curves.
-pub const MILLER_LOOP_CONSTANT: u128 = 0x2d96f0f62456fa4007202eaea5580;
+pub const MILLER_LOOP_CONSTANT: u128 = 0x6f4d8248eeb859fbf83e9682e87cfd46;
 
 /// Millers loop uses to iterate the NAF representation of the MILLER_LOOP_CONSTANT
 /// A NAF representation uses values: -1, 0 and 1. https://en.wikipedia.org/wiki/Non-adjacent_form.
@@ -65,11 +65,17 @@ pub const MILLER_CONSTANT_NAF: [i32; 128] = [
 
 // @nicole: We can try an other constant 6x + 2, to see if it works.
 /// NAF from https://hackmd.io/@Wimet/ry7z1Xj-2#The-Pairing
+/// 6x + 2 = 29793968203157093288
+/// It isn't a naf but is the constant used in arkworks.
 pub const MILLER_NAF_2: [i32; 65] = [
     0, 0, 0, 1, 0, 1, 0, -1, 0, 0, 1, -1, 0, 0, 1, 0, 0, 1, 1, 0, -1, 0, 0, 1, 0, -1, 0, 0, 0, 0,
     1, 1, 1, 0, 0, -1, 0, 0, 1, 0, 0, 0, 0, 0, -1, 0, 0, 1, 1, 0, 0, -1, 0, 0, 0, 1, 1, 0, -1, 0,
     0, 1, 0, 1, 1,
 ];
+
+/*pub const MILLER_NAF_2: [i32; 66] = [0, 0, 0, 1, 0, 1, 0, -1, 0, 0, -1, 0, 0, 0, 1, 0, 0, -1, 0, -1, 0,
+    0, 0, 1, 0, -1, 0, 0, 0, 0, -1, 0, 0, 1, 0, -1, 0, 0, 1, 0, 0, 0, 0, 0, -1, 0, 0, -1, 0, 1, 0, 
+    -1,0, 0, 0, -1, 0, -1, 0, 0, 0, 1, 0, -1, 0, 1];*/
 
 // We define GAMMA_1i, constants that we will use to compute the Frobenius morphism.
 //  GAMMA_1i = (9 + u)^{i(p-1) / 6}
