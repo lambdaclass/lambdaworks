@@ -416,7 +416,7 @@ mod tests {
     */
 
     #[test]
-    fn arbitrary_g2_point_is_in_subgroup() {
+    fn other_g2_point_is_in_subgroup() {
         let g = BN254TwistCurve::generator().operate_with_self(32u64);
         assert!(g.is_in_subgroup())
     }
@@ -433,7 +433,8 @@ mod tests {
     //TODO:
     // A test of a G2 Point that isn't in the subgroup.
     /*
-        //TODO:
+    
+    //TODO:
          #[test]
         // https://eprint.iacr.org/2022/352.pdf page 15
         fn untwist_morphism_has_minimal_poly() {

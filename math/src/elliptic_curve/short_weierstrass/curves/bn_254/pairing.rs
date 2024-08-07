@@ -441,7 +441,7 @@ fn line_2(
 
     // First case:
     if x_t != x_q {
-        println!("t and q are different points");
+
         let a = y_p * (&x_q - &x_t).square();
         let b = x_p * (&y_t - &y_q).square();
         let c = (x_t * y_q - x_q * y_t).square();
@@ -462,7 +462,7 @@ fn line_2(
         ]);
     // Second case: t and q are the same points
     } else if y_t == y_q {
-        println!("t and q are the same points");
+
         let a = Fp2E::new([FpE::from(9), FpE::one()])
             * (x_t.pow(3 as u32).double() + x_t.pow(3 as u32) - y_t.square().double()); //(9 + u) * (3 * (x_t)^3 - 2 * (y_t)^2)
         let b = (y_p * y_t).double(); // 2 * y_t * y_p
