@@ -7,6 +7,7 @@ use rand::distributions::Standard;
 use rand::prelude::Distribution;
 use rand::random;
 
+#[allow(dead_code)]
 pub struct ShamirSecretSharing<F: IsField> {
     secret: FieldElement<F>,
     n: usize,
