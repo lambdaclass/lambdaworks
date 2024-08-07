@@ -13,7 +13,7 @@ use crate::field::{
 /// - In-Place: an auxiliary vector of data isn't needed for the algorithm.
 /// - Radix-2: the algorithm halves the problem size log(n) times.
 /// - NR: natural to reverse order, meaning that the input is naturally ordered and the output will
-/// be bit-reversed ordered.
+///   be bit-reversed ordered.
 /// - DIT: decimation in time
 ///
 /// It supports values in a field E and domain in a subfield F.
@@ -64,7 +64,7 @@ where
 /// - In-Place: an auxiliary vector of data isn't needed for storing the results.
 /// - Radix-2: the algorithm halves the problem size log(n) times.
 /// - RN: reverse to natural order, meaning that the input is bit-reversed ordered and the output will
-/// be naturally ordered.
+///   be naturally ordered.
 /// - DIT: decimation in time
 ///
 /// It supports values in a field E and domain in a subfield F.
@@ -114,7 +114,7 @@ where
 /// - In-Place: an auxiliary vector of data isn't needed for the algorithm.
 /// - Radix-4: the algorithm halves the problem size log(n) times.
 /// - NR: natural to reverse order, meaning that the input is naturally ordered and the output will
-/// be bit-reversed ordered.
+///   be bit-reversed ordered.
 /// - DIT: decimation in time
 pub fn in_place_nr_4radix_fft<F, E>(input: &mut [FieldElement<E>], twiddles: &[FieldElement<F>])
 where
