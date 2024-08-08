@@ -74,8 +74,8 @@ pub const MILLER_NAF_2: [i32; 65] = [
 ];
 
 /*pub const MILLER_NAF_2: [i32; 66] = [0, 0, 0, 1, 0, 1, 0, -1, 0, 0, -1, 0, 0, 0, 1, 0, 0, -1, 0, -1, 0,
-    0, 0, 1, 0, -1, 0, 0, 0, 0, -1, 0, 0, 1, 0, -1, 0, 0, 1, 0, 0, 0, 0, 0, -1, 0, 0, -1, 0, 1, 0, 
-    -1,0, 0, 0, -1, 0, -1, 0, 0, 0, 1, 0, -1, 0, 1];*/
+0, 0, 1, 0, -1, 0, 0, 0, 0, -1, 0, 0, 1, 0, -1, 0, 0, 1, 0, 0, 0, 0, 0, -1, 0, 0, -1, 0, 1, 0,
+-1,0, 0, 0, -1, 0, -1, 0, 0, 0, 1, 0, -1, 0, 1];*/
 
 // We define GAMMA_1i, constants that we will use to compute the Frobenius morphism.
 //  GAMMA_1i = (9 + u)^{i(p-1) / 6}
@@ -135,8 +135,8 @@ pub const GAMMA_15: BN254TwistCurveFieldElement = BN254TwistCurveFieldElement::c
 /// We took these constants from https://t.ly/cSqfr where
 /// GAMMA_X is called xi3() and GAMMA_Y is called xi2().
 
-/// GAMMA_X = (9 + u)^{(q-1)/3}
-pub const GAMMA_X: BN254TwistCurveFieldElement = BN254TwistCurveFieldElement::const_from_raw([
+/// GAMMA_12 = (9 + u)^{(q-1)/3}
+pub const GAMMA_12: BN254TwistCurveFieldElement = BN254TwistCurveFieldElement::const_from_raw([
     FieldElement::from_hex_unchecked(
         "2fb347984f7911f74c0bec3cf559b143b78cc310c2c3330c99e39557176f553d",
     ),
@@ -145,8 +145,8 @@ pub const GAMMA_X: BN254TwistCurveFieldElement = BN254TwistCurveFieldElement::co
     ),
 ]);
 
-/// GAMMA_Y = (9 + u)^{(q-1)/2}
-pub const GAMMA_Y: BN254TwistCurveFieldElement = BN254TwistCurveFieldElement::const_from_raw([
+/// GAMMA_13 = (9 + u)^{(q-1)/2}
+pub const GAMMA_13: BN254TwistCurveFieldElement = BN254TwistCurveFieldElement::const_from_raw([
     FieldElement::from_hex_unchecked(
         "63cf305489af5dcdc5ec698b6e2f9b9dbaae0eda9c95998dc54014671a0135a",
     ),
@@ -173,15 +173,14 @@ impl ShortWeierstrassProjectivePoint<BN254Curve> {
 // G2
 impl ShortWeierstrassProjectivePoint<BN254TwistCurve> {
     /// phi morphism used to G2 subgroup check for twisted curve.
-    /// phi(x, y) = (GAMMA_X * x.conjugate(), GAMMA_Y * y.conjugate()).
-    /// See https://hackmd.io/@Wimet/ry7z1Xj-2#The-Pairing (Subgroup Checks).
+    /// We also use phi at the last lines of the Miller Loop of the pairing.
     /// pih(q) = (x^p, y^p, z^p), where (x, y, z) are the projective coordinates of q.
-    /// TODO: GAMMA_X = GAMMA_12, GAMMA_Y = GAMMA_13. And use phi in the last lines of miller_naive (for q1 and q2).
-    fn phi(&self) -> Self {
+    /// See https://hackmd.io/@Wimet/ry7z1Xj-2#Subgroup-Checks.
+    pub fn phi(&self) -> Self {
         let [x, y, z] = self.coordinates();
         Self::new([
-            x.conjugate() * GAMMA_X,
-            y.conjugate() * GAMMA_Y,
+            x.conjugate() * GAMMA_12,
+            y.conjugate() * GAMMA_13,
             z.conjugate(),
         ])
     }
@@ -189,13 +188,13 @@ impl ShortWeierstrassProjectivePoint<BN254TwistCurve> {
     pub fn phi_inv(&self) -> Self {
         let [x, y, z] = self.coordinates();
         Self::new([
-            (x * GAMMA_X.inv().unwrap()).conjugate(),
-            (y * GAMMA_Y.inv().unwrap()).conjugate(),
+            (x * GAMMA_12.inv().unwrap()).conjugate(),
+            (y * GAMMA_13.inv().unwrap()).conjugate(),
             z.conjugate(),
         ])
     }
 
-    /// Check if a G2 point is in the subgroup of the twisted curve.
+    /// Checks if a G2 point is in the subgroup of the twisted curve.
     pub fn is_in_subgroup(&self) -> bool {
         let q_times_x = &self.operate_with_self(X);
         let q_times_x_plus_1 = &self.operate_with_self(X + 1);
@@ -222,13 +221,14 @@ mod tests {
     use super::*;
     use crate::{
         cyclic_group::IsGroup, elliptic_curve::traits::EllipticCurveError,
-        field::element::FieldElement,
+        field::element::FieldElement, unsigned_integer::element::U256,
     };
 
     use super::BN254Curve;
 
     #[allow(clippy::upper_case_acronyms)]
-    type FE = FieldElement<BN254PrimeField>;
+    type FpE = FieldElement<BN254PrimeField>;
+    type Fp2E = FieldElement<Degree2ExtensionField>;
 
     /*
        // auxiliary function to calculate psi^2, need to correct it
@@ -249,10 +249,10 @@ mod tests {
     1)
     */
     fn point() -> ShortWeierstrassProjectivePoint<BN254Curve> {
-        let x = FE::from_hex_unchecked(
+        let x = FpE::from_hex_unchecked(
             "27749cb56beffb211b6622d7366253aa8208cf0aff7867d7945f53f3997cfedb",
         );
-        let y = FE::from_hex_unchecked(
+        let y = FpE::from_hex_unchecked(
             "2598371545fd02273e206c4a3e5e6d062c46baade65567b817c343170a15ff0d",
         );
         BN254Curve::create_point_from_affine(x, y).unwrap()
@@ -281,10 +281,10 @@ mod tests {
     */
 
     fn point_times_5() -> ShortWeierstrassProjectivePoint<BN254Curve> {
-        let x = FE::from_hex_unchecked(
+        let x = FpE::from_hex_unchecked(
             "16ab03b69dfb4f870b0143ebf6a71b7b2e4053ca7a4421d09a913b8b834bbfa3",
         );
-        let y = FE::from_hex_unchecked(
+        let y = FpE::from_hex_unchecked(
             "2512347279ba1049ef97d4ec348d838f939d2b7623e88f4826643cf3889599b2",
         );
         BN254Curve::create_point_from_affine(x, y).unwrap()
@@ -302,13 +302,13 @@ mod tests {
         let p = point();
         assert_eq!(
             *p.x(),
-            FE::new_base("27749cb56beffb211b6622d7366253aa8208cf0aff7867d7945f53f3997cfedb")
+            FpE::new_base("27749cb56beffb211b6622d7366253aa8208cf0aff7867d7945f53f3997cfedb")
         );
         assert_eq!(
             *p.y(),
-            FE::new_base("2598371545fd02273e206c4a3e5e6d062c46baade65567b817c343170a15ff0d")
+            FpE::new_base("2598371545fd02273e206c4a3e5e6d062c46baade65567b817c343170a15ff0d")
         );
-        assert_eq!(*p.z(), FE::one());
+        assert_eq!(*p.z(), FpE::one());
     }
 
     #[test]
@@ -316,11 +316,11 @@ mod tests {
         let p = point();
         assert_eq!(
             *p.x(),
-            FE::new_base("27749cb56beffb211b6622d7366253aa8208cf0aff7867d7945f53f3997cfedb")
+            FpE::new_base("27749cb56beffb211b6622d7366253aa8208cf0aff7867d7945f53f3997cfedb")
         );
         assert_eq!(
             *p.y(),
-            FE::new_base("2598371545fd02273e206c4a3e5e6d062c46baade65567b817c343170a15ff0d")
+            FpE::new_base("2598371545fd02273e206c4a3e5e6d062c46baade65567b817c343170a15ff0d")
         );
 
         let neutral_element = ShortWeierstrassProjectivePoint::<BN254Curve>::neutral_element();
@@ -341,7 +341,7 @@ mod tests {
     #[test]
     fn create_invalid_points_returns_an_error() {
         assert_eq!(
-            BN254Curve::create_point_from_affine(FE::from(0), FE::from(1)),
+            BN254Curve::create_point_from_affine(FpE::from(0), FpE::from(1)),
             Err(EllipticCurveError::InvalidPoint)
         );
     }
@@ -365,7 +365,7 @@ mod tests {
         let y = g2_affine.y();
 
         // calculate both sides of BN254 equation
-        let three = FieldElement::from(3);
+        let three = FpE::from(3);
         let y_sq_0 = x.pow(3_u16) + three;
         let y_sq_1 = y.pow(2_u16);
 
@@ -420,20 +420,42 @@ mod tests {
         let g = BN254TwistCurve::generator().operate_with_self(32u64);
         assert!(g.is_in_subgroup())
     }
-    // i changed a from FieldElement to BN254TwistCurveFieldElement
+
     #[test]
-    fn g2_conjugate_works() {
-        let a = BN254TwistCurveFieldElement::zero();
+
+    fn invalid_g2_is_not_in_subgroup() {
+        let q = ShortWeierstrassProjectivePoint::<BN254TwistCurve>::new([
+            Fp2E::new([
+                FpE::new(U256::from_hex_unchecked(
+                    "1800deef121f1e76426a00665e5c4479674322d4f75edaddde46bd5cd992f6ed",
+                )),
+                FpE::new(U256::from_hex_unchecked(
+                    "198e9393920daef312c20b9f1099ecefa8b45575d349b0a6f04c16d0d58af900",
+                )),
+            ]),
+            Fp2E::new([
+                FpE::new(U256::from_hex_unchecked(
+                    "22376289c558493c1d6cc413a5f07dcb54526a964e4e687b65a881aa9752faa2",
+                )),
+                FpE::new(U256::from_hex_unchecked(
+                    "05a7a5759338c23ca603c1c4adf979e004c2f3e3c5bad6f07693c59a85d600a9",
+                )),
+            ]),
+            Fp2E::one(),
+        ]);
+        assert!(!q.is_in_subgroup())
+    }
+
+    #[test]
+    fn g2_conjugate_two_times_is_identity() {
+        let a = Fp2E::zero();
         let mut expected = a.conjugate();
         expected = expected.conjugate();
 
         assert_eq!(a, expected);
     }
 
-    //TODO:
-    // A test of a G2 Point that isn't in the subgroup.
     /*
-    
     //TODO:
          #[test]
         // https://eprint.iacr.org/2022/352.pdf page 15
