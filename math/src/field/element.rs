@@ -552,6 +552,7 @@ impl<F: IsPrimeField> Serialize for FieldElement<F> {
     where
         S: Serializer,
     {
+        use crate::alloc::string::ToString;
         let mut state = serializer.serialize_struct("FieldElement", 1)?;
         state.serialize_field("value", &F::representative(self.value()).to_string())?;
         state.end()
@@ -653,7 +654,7 @@ impl<'de, F: IsPrimeField> Deserialize<'de> for FieldElement<F> {
             where
                 M: MapAccess<'de>,
             {
-                let mut value = None;
+                let mut value: Option<&str> = None;
                 while let Some(key) = map.next_key()? {
                     match key {
                         Field::Value => {
@@ -665,14 +666,14 @@ impl<'de, F: IsPrimeField> Deserialize<'de> for FieldElement<F> {
                     }
                 }
                 let value = value.ok_or_else(|| de::Error::missing_field("value"))?;
-                Ok(FieldElement::from_hex(&value).unwrap())
+                FieldElement::from_hex(&value).map_err(|_| de::Error::custom("invalid hex"))
             }
 
             fn visit_seq<S>(self, mut seq: S) -> Result<FieldElement<F>, S::Error>
             where
                 S: SeqAccess<'de>,
             {
-                let mut value = None;
+                let mut value: Option<&str> = None;
                 while let Some(val) = seq.next_element()? {
                     if value.is_some() {
                         return Err(de::Error::duplicate_field("value"));
@@ -680,7 +681,7 @@ impl<'de, F: IsPrimeField> Deserialize<'de> for FieldElement<F> {
                     value = Some(val);
                 }
                 let value = value.ok_or_else(|| de::Error::missing_field("value"))?;
-                Ok(FieldElement::from_hex(&value).unwrap())
+                FieldElement::from_hex(&value).map_err(|_| de::Error::custom("invalid hex"))
             }
         }
 
