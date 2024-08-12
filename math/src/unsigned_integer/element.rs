@@ -2284,7 +2284,7 @@ mod tests_u256 {
     }
 
     #[test]
-    fn construct_integer_from_invalid_check_returns_error() {
+    fn construct_integer_from_invalid_hex_returns_error() {
         use crate::unsigned_integer::element::CreationError;
         assert_eq!(U256::from_hex("0xaO"), Err(CreationError::InvalidHexString));
         assert_eq!(U256::from_hex("0xOa"), Err(CreationError::InvalidHexString));
