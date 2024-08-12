@@ -409,14 +409,14 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
         let bytes = string.as_bytes();
         let mut i = 0;
 
-        while i < (len - 1) {
-            i += 1;
+        while i < len {
             match bytes[i] {
                 b'0'..=b'9' => (),
                 b'a'..=b'f' => (),
                 b'A'..=b'F' => (),
                 _ => return false,
             }
+            i += 1;
         }
 
         true
