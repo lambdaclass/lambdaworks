@@ -437,7 +437,7 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
             string = &string[2..];
         }
         if string.is_empty() {
-            return Err(CreationError::EmptyString)?;
+            return Err(CreationError::EmptyString);
         }
         if !Self::is_hex_string(string) {
             return Err(CreationError::InvalidHexString);
