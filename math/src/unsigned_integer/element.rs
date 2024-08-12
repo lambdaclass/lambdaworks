@@ -2284,6 +2284,14 @@ mod tests_u256 {
     }
 
     #[test]
+    fn construct_integer_from_invalid_check_returns_error() {
+        use crate::unsigned_integer::element::CreationError;
+        assert_eq!(U256::from_hex("0xaO"), Err(CreationError::InvalidHexString));
+        assert_eq!(U256::from_hex("0xOa"), Err(CreationError::InvalidHexString));
+        assert_eq!(U256::from_hex("0xm"), Err(CreationError::InvalidHexString));
+    }
+
+    #[test]
     fn construct_new_integer_from_dec_2() {
         let a = U256::from_dec_str("15").unwrap();
         assert_eq!(a.limbs, [0, 0, 0, 15]);
