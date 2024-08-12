@@ -1,4 +1,4 @@
-use std::mem::zeroed;
+use std::{mem::zeroed, ops::Div};
 
 use rayon::iter::once;
 
@@ -7,9 +7,7 @@ use super::{
     field_extension::{BN254PrimeField, Degree12ExtensionField, Degree2ExtensionField},
     twist::BN254TwistCurve,
 };
-use crate::elliptic_curve::{
-    short_weierstrass::curves::bls12_381::compression::G1Point, traits::FromAffine,
-};
+use crate::elliptic_curve::traits::FromAffine;
 use crate::{cyclic_group::IsGroup, elliptic_curve::traits::IsPairing, errors::PairingError};
 use crate::{
     elliptic_curve::short_weierstrass::{
@@ -214,7 +212,7 @@ fn line_2(
     p: &ShortWeierstrassProjectivePoint<BN254Curve>,
     q: &ShortWeierstrassProjectivePoint<BN254TwistCurve>,
     t: &ShortWeierstrassProjectivePoint<BN254TwistCurve>,
-) -> (Fp12E) {
+) -> Fp12E {
     /* TO DO?
     if p == FpE::zero() || q == Fp12E::zero() || t == Fp12E::zero() {
         ERROR
@@ -224,15 +222,15 @@ fn line_2(
 
     // We apply the inverse of phi to q and t because we have the algorithm for the points phi(q) and phi(t).
     // TESTS WORK WITHOUT IT. SHOULD WE KEEP IT?
-    let [x_q, y_q, _] = q.phi_inv().to_affine().coordinates().clone();
-    let [x_t, y_t, _] = t.phi_inv().to_affine().coordinates().clone();
+    let [x_q, y_q, _] = q.to_affine().coordinates().clone();
+    let [x_t, y_t, _] = t.to_affine().coordinates().clone();
 
     //TODO: if p, q or t are inf return error.
 
     let mut l: Fp12E = Fp12E::from(1);
 
     // First case:
-    if x_t != x_q {
+    if t != q {
         let a = y_p * (&x_q - &x_t).square();
         let b = x_p * (&y_t - &y_q).square();
         let c = (x_t * y_q - x_q * y_t).square();
@@ -257,8 +255,7 @@ fn line_2(
         ]);
     // Second case: t and q are the same points
     // because we won't have vertical lines?
-    } else if y_t == y_q {
-        println!("t == q");
+    } else if t == q {
         let a = Fp2E::new([FpE::from(9), FpE::one()])
             * (x_t.pow(3 as u32).double() + x_t.pow(3 as u32) - y_t.square().double()); //(9 + u) * (3 * (x_t)^3 - 2 * (y_t)^2)
 
@@ -284,9 +281,40 @@ fn line_2(
     l
 }
 
+// Computes line y = mx + c passing through two points T and Q
+// or vertical line y = x0 if Q = -P
+// and evaluate it at a point P.
+// See https://github.com/hecmas/zkNotebook/blob/main/src/common.ts
+// @nicole: I wrote it to compute a line for twisted points but in the miller
+// loop I can't multiply f * line_twist().
+// See the python algorithm in https://hackmd.io/@Wimet/ry7z1Xj-2#The-Pairing.
+fn line_twist(
+    p: &ShortWeierstrassProjectivePoint<BN254Curve>,
+    q: &ShortWeierstrassProjectivePoint<BN254TwistCurve>,
+    t: &ShortWeierstrassProjectivePoint<BN254TwistCurve>,
+) -> Fp2E {
+    let [x_p, y_p, _] = p.to_affine().coordinates().clone();
+    let [x_q, y_q, _] = q.to_affine().coordinates().clone();
+    let [x_t, y_t, _] = t.to_affine().coordinates().clone();
+
+    let mut l: Fp2E = Fp2E::from(1);
+    if x_t != x_q {
+        let m = (y_q - &y_t) / (x_q - &x_t);
+        let c = y_t - &m * x_t;
+        l = y_p - (x_p * m + c);
+    } else if y_t == y_q {
+        let m = (Fp2E::from(3) * x_t.square()) / (Fp2E::from(2) * &y_t);
+        let c = y_t - &m * x_t;
+        l = y_p - (x_p * m + c);
+    } else {
+        l = y_p - x_t;
+    }
+    l
+}
+
 // final_exponentiation(f) = f ^ {(p^12 - 1) / r}
 /// (p^12 - 1)/r = (p^6 - 1) * (p^2 + 1) * (p^4 - p^2 + 1)/r
-fn final_exponentiation(
+pub fn final_exponentiation(
     f: &FieldElement<Degree12ExtensionField>,
 ) -> FieldElement<Degree12ExtensionField> {
     // Easy part:
@@ -329,7 +357,7 @@ fn final_exponentiation(
 
 // Computes the Frobenius morphism: f -> f^p.
 // See https://hackmd.io/@Wimet/ry7z1Xj-2#Fp12-Arithmetic (First Frobenius Operator).
-fn frobenius(f: &Fp12E) -> Fp12E {
+pub fn frobenius(f: &Fp12E) -> Fp12E {
     let [a, b] = f.value(); // f = a + bw, where a and b in Fp6.
     let [a0, a1, a2] = a.value(); // a = a0 + a1 * v + a2 * v^2, where a0, a1 and a2 in Fp2.
     let [b0, b1, b2] = b.value(); // b = b0 + b1 * v + b2 * v^2, where b0, b1 and b2 in Fp2.
@@ -351,7 +379,7 @@ fn frobenius(f: &Fp12E) -> Fp12E {
 }
 
 // forbenius_square (f) = f^{p^2}
-fn frobenius_square(
+pub fn frobenius_square(
     f: &FieldElement<Degree12ExtensionField>,
 ) -> FieldElement<Degree12ExtensionField> {
     let [a, b] = f.value(); // f = a + bw, where a and b in Fp6.
@@ -367,7 +395,7 @@ fn frobenius_square(
 }
 
 // frobenius_cube (f) = f^{p^3}
-fn frobenius_cube(
+pub fn frobenius_cube(
     f: &FieldElement<Degree12ExtensionField>,
 ) -> FieldElement<Degree12ExtensionField> {
     let [a, b] = f.value(); // f = a + bw, where a and b in Fp6.
@@ -665,8 +693,21 @@ mod tests {
 
         // e(2p, q)
         let result1 = ate_pairing(&p.operate_with_self(2usize), &q).unwrap();
-        //e(p, q)^{2}
+        //e(p, 2q)
         let result2 = ate_pairing(&p, &q.operate_with_self(2usize)).unwrap();
+
+        assert_eq!(result1, result2)
+    }
+
+    #[test]
+    fn pairing_bilinearity_4() {
+        let p = BN254Curve::generator();
+        let q = BN254TwistCurve::generator();
+
+        // e(2p, q)
+        let result1 = ate_pairing(&p.operate_with_self(2usize), &q).unwrap();
+        //e(p, q)^{2}
+        let result2 = ate_pairing(&p, &q).unwrap() * Fp12E::from(2);
 
         assert_eq!(result1, result2)
     }

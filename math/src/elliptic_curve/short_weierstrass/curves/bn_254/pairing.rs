@@ -74,7 +74,8 @@ pub const X_NAF_CUBE: [i32; 187] = [
 ];
 // NAF de 4965661367192848881^3:
 // [1, 0, 0, 0, 1, 0, -1, 0, 1, 0, 0, 0, 1, 0, 1, 0, 1, 0, 0, 0, 0, -1, 0, -1, 0, -1, 0, 1, 0, -1, 0, 0, 0, 1, 0, -1, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, 0, 0, 1, 0, 0, 0, -1, 0, -1, 0, 0, 0, 1, 0, 0, -1, 0, -1, 0, 1, 0, 0, 0, 1, 0, 0, 0, -1, 0, -1, 0, 0, 0, -1, 0, -1, 0, 0, -1, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, -1, 0, 0, -1, 0, 1, 0, 0, 1, 0, 1, 0, -1, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, -1, 0, 0, 0, 0, 0, -1, 0, 1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, -1, 0, 0, -1, 0, 1, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, -1, 0, -1, 0, 0, -1, 0, 1, 0, -1, 0, 0, 0, 0, 0, 0, 1, 0, 1]
-pub const R: U256 = U256::from_hex_unchecked("30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001");
+pub const R: U256 =
+    U256::from_hex_unchecked("30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001");
 pub struct BN254AtePairing;
 impl IsPairing for BN254AtePairing {
     type G1Point = ShortWeierstrassProjectivePoint<BN254Curve>;
@@ -441,6 +442,7 @@ fn line_2(
 
     // First case:
     if x_t != x_q {
+        println!("t != q");
 
         let a = y_p * (&x_q - &x_t).square();
         let b = x_p * (&y_t - &y_q).square();
@@ -462,7 +464,6 @@ fn line_2(
         ]);
     // Second case: t and q are the same points
     } else if y_t == y_q {
-
         let a = Fp2E::new([FpE::from(9), FpE::one()])
             * (x_t.pow(3 as u32).double() + x_t.pow(3 as u32) - y_t.square().double()); //(9 + u) * (3 * (x_t)^3 - 2 * (y_t)^2)
         let b = (y_p * y_t).double(); // 2 * y_t * y_p
@@ -571,7 +572,7 @@ fn miller(
     let mut f = Fp12E::from(1);
     let miller_length = MILLER_NAF_2.len();
 
-    for i in (0..miller_length -1 ).rev() {
+    for i in (0..miller_length - 1).rev() {
         f = f.square() * double_accumulate_line(&t, &p).0;
         t = t.operate_with_self(2usize);
 
@@ -657,7 +658,9 @@ fn miller_naive(
     f
 }
 
-pub fn point_power_p(q: &ShortWeierstrassProjectivePoint<BN254TwistCurve>) -> ShortWeierstrassProjectivePoint<BN254TwistCurve> {
+pub fn point_power_p(
+    q: &ShortWeierstrassProjectivePoint<BN254TwistCurve>,
+) -> ShortWeierstrassProjectivePoint<BN254TwistCurve> {
     let [x_q, y_q, _] = q.to_affine().coordinates().clone();
     ShortWeierstrassProjectivePoint::<BN254TwistCurve>::new([
         GAMMA_12 * x_q.conjugate(),
@@ -878,7 +881,6 @@ fn frobenius_cube(
 
     Fp12E::new([c1, c2]) //c1 + c2 * w
 }
-
 
 // f ^ {(p^12 -1)/r} = (f^p12 * f^{-1})^{-r} = (f * f.inv())^{-r}
 fn final_exponentiation_naive(f: Fp12E) -> Fp12E {
@@ -1606,11 +1608,9 @@ mod tests {
 
     #[test]
     fn pow_x() {
-        let [f,_,_] = BN254TwistCurve::generator().coordinates().clone();
+        let [f, _, _] = BN254TwistCurve::generator().coordinates().clone();
         println!("{:?}", f.pow(X));
     }
-
-
 
     /* #[test]
     fn ate_pairing_errors_when_one_element_is_not_in_subgroup() {
