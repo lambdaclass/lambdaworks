@@ -150,7 +150,7 @@ impl IsPairing for BN254AtePairing {
 /// See https://eprint.iacr.org/2010/354.pdf (Page 4, Algorithm 1).
 fn miller(p: &G1Point, q: &G2Point) -> Fp12E {
     let mut t = q.clone();
-    let mut f = Fp12E::from(1);
+    let mut f = Fp12E::one();
     let miller_length = MILLER_CONSTANT.len();
 
     for i in (0..miller_length - 1).rev() {
