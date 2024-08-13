@@ -1,20 +1,20 @@
 [workspace]
 
-members = ["math", "crypto", "gpu", "benches", "provers/plonk", "provers/stark", "provers/cairo", "provers/groth16", "provers/groth16/arkworks-adapter", "provers/groth16/circom-adapter", "examples/merkle-tree-cli", "examples/prove-miden", "provers/winterfell_adapter", "examples/shamir_secret_sharing", "examples/prove-verify-circom", "provers/cairo/ffi", "examples/baby-snark"]
+members = ["math", "crypto", "gpu", "benches", "provers/plonk", "provers/stark", "provers/cairo", "provers/groth16", "provers/groth16/arkworks-adapter", "provers/groth16/circom-adapter", "examples/merkle-tree-cli", "examples/prove-miden", "provers/winterfell_adapter", "examples/shamir_secret_sharing","examples/pinocchio", "examples/prove-verify-circom", "provers/cairo/ffi", "examples/baby-snark"]
 exclude = ["ensure-no_std"]
 resolver = "2"
 
 [workspace.package]
-version = "0.8.0"
+version = "0.9.0"
 edition = "2021"
 license = "Apache-2.0"
 repository = "https://github.com/lambdaclass/lambdaworks"
 
 [workspace.dependencies]
 iai-callgrind = "0.3.1"
-lambdaworks-crypto = { path = "./crypto", version = "0.8.0", default-features = false }
-lambdaworks-gpu = { path = "./gpu", version = "0.8.0" }
-lambdaworks-math = { path = "./math", version = "0.8.0", default-features = false }
+lambdaworks-crypto = { path = "./crypto", version = "0.9.0", default-features = false }
+lambdaworks-gpu = { path = "./gpu", version = "0.9.0" }
+lambdaworks-math = { path = "./math", version = "0.9.0", default-features = false }
 stark-platinum-prover = { path = "./provers/stark" }
 cairo-platinum-prover = { path = "./provers/cairo" }
 lambdaworks-winterfell-adapter = { path = "./provers/winterfell_adapter"}
