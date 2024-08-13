@@ -160,6 +160,4 @@ impl FieldElement<Degree12ExtensionField> {
     }
 }
 
-
-// Add tests, check the ones from BLS12-381
-
+//TODO: Add tests, check the ones from BLS12-381.
