@@ -3,7 +3,6 @@ use super::{
     field_extension::{BN254PrimeField, Degree12ExtensionField, Degree2ExtensionField},
     twist::BN254TwistCurve,
 };
-use crate::elliptic_curve::traits::FromAffine;
 use crate::{cyclic_group::IsGroup, elliptic_curve::traits::IsPairing, errors::PairingError};
 use crate::{
     elliptic_curve::short_weierstrass::{
@@ -11,7 +10,6 @@ use crate::{
         point::ShortWeierstrassProjectivePoint,
     },
     field::element::FieldElement,
-    unsigned_integer::element::U256,
 };
 
 type FpE = FieldElement<BN254PrimeField>;
@@ -156,27 +154,27 @@ fn miller(p: &G1Point, q: &G2Point) -> Fp12E {
     let miller_length = MILLER_CONSTANT.len();
 
     for i in (0..miller_length - 1).rev() {
-        f = f.square() * line(&p, &t, &t);
+        f = f.square() * line(p, &t, &t);
         t = t.operate_with_self(2usize);
 
         if MILLER_CONSTANT[i] == -1 {
-            f = f * line(&p, &t, &q.neg());
+            f *= line(p, &t, &q.neg());
             t = t.operate_with(&q.neg());
         } else if MILLER_CONSTANT[i] == 1 {
-            f = f * line(&p, &t, &q);
-            t = t.operate_with(&q);
+            f *= line(p, &t, q);
+            t = t.operate_with(q);
         }
     }
 
     // q1 = ((x_q)^p, (y_q)^p, (z_q)^p)
     // See  https://hackmd.io/@Wimet/ry7z1Xj-2#The-Last-two-Lines
     let q1 = q.phi();
-    f = f * line(&p, &t, &q1);
+    f *= line(p, &t, &q1);
     t = t.operate_with(&q1);
 
     // q2 = ((x_q1)^p, (y_q1)^p, (z_q1)^p)
     let q2 = q1.phi();
-    f = f * line(&p, &t, &q2.neg());
+    f *= line(p, &t, &q2.neg());
 
     f
 }
