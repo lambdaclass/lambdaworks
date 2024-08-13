@@ -1,13 +1,3 @@
-use std::mem::zeroed;
-
-use rayon::iter::once;
-
-use super::curve::{MILLER_CONSTANT_NAF, MILLER_LOOP_CONSTANT, MILLER_NAF_2};
-// We defined MILLER_LOOP_CONSTANT in curve.rs
-// see https://hackmd.io/@Wimet/ry7z1Xj-2
-// @Juan is this the same parameter used in the NAF representation?
-// t = 6x^2. Where x = 4965661367192848881
-
 use super::{
     curve::BN254Curve,
     field_extension::{BN254PrimeField, Degree12ExtensionField, Degree2ExtensionField},
@@ -17,740 +7,51 @@ use crate::elliptic_curve::traits::FromAffine;
 use crate::{cyclic_group::IsGroup, elliptic_curve::traits::IsPairing, errors::PairingError};
 use crate::{
     elliptic_curve::short_weierstrass::{
-        curves::bn_254::field_extension::{Degree6ExtensionField, LevelTwoResidue},
+        curves::bn_254::field_extension::Degree6ExtensionField,
         point::ShortWeierstrassProjectivePoint,
-        traits::IsShortWeierstrass,
     },
-    field::{element::FieldElement, extensions::cubic::HasCubicNonResidue},
-    unsigned_integer::element::{UnsignedInteger, U256},
+    field::element::FieldElement,
+    unsigned_integer::element::U256,
 };
-
-// We have to find the SUBGROUP_ORDER and see where it's used.
-// In the implementation of zksync we have:
-// 21888242871839275222246405745257275088548364400416034343698204186575808495617
-// 30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001 (fist I coverted it into hex)
-/* pub const SUBGROUP_ORDER: U256 =
-U256::from_hex_unchecked("TODO"); */
 
 type FpE = FieldElement<BN254PrimeField>;
 type Fp2E = FieldElement<Degree2ExtensionField>;
 type Fp6E = FieldElement<Degree6ExtensionField>;
 type Fp12E = FieldElement<Degree12ExtensionField>;
+type G1Point = ShortWeierstrassProjectivePoint<BN254Curve>;
+type G2Point = ShortWeierstrassProjectivePoint<BN254TwistCurve>;
+
+////////////////// CONSTANTS //////////////////
+
+/// x = 4965661367192848881.
+/// A constant of the curve.
+/// See https://hackmd.io/@jpw/bn254#Barreto-Naehrig-curves
 pub const X: u64 = 0x44e992b44a6909f1;
-// Need implementation of NAF representation
 
-/// Millers loop uses to iterate the NAF representation of the MILLER_LOOP_CONSTANT.
-/// A NAF representation uses values: -1, 0 and 1. https://en.wikipedia.org/wiki/Non-adjacent_form.
-/*pub const MILLER_CONSTANT_NAF: [i32; 115] = [
-    1, 0, -1, 0, 0, -1, 0, -1, 0, 1, 0, -1, 0, 0, -1, 0, 0, 0, -1, 0, 0, 0, 1, 0, 0, 0, 0, -1, 0,
-    -1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, -1, 0, -1, 0, 0, -1, 0, 0, 0, 0, -1, 0, 1, 0, 0, 1, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, -1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, -1, 0, 0, 0, -1, 0, -1,
-    0, -1, 0, 0, -1, 0, 1, 0, 1, 0, 1, 0, -1, 0, -1, 0, -1, 0, -1, 0, 0, 0, 0, 0, 0, 0,
-]; */
-
-pub const X_NAF: [i32; 63] = [
-    1, 0, 0, 0, -1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 1, 0, -1, 0, 1, 0, 1, 0, 1, 0, 0, 1,
-    0, 0, 0, 1, 0, -1, 0, -1, 0, -1, 0, 1, 0, 1, 0, 0, -1, 0, 1, 0, 1, 0, -1, 0, 0, 1, 0, 1, 0, 0,
-    0, 1,
-];
-// NAF de 4965661367192848881^2:
-//[1, 0, 0, 0, 0, -1, 0, 0, 1, 0, 1, 0, 1, 0, -1, 0, 1, 0, 1, 0, 1, 0, 0, 0, 0, 0, -1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, -1, 0, 0, 0, 1, 0, 0, 0, -1, 0, 0, 0, 0, 0, 0, -1, 0, -1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0, 0, 0, 1, 0, 0, -1, 0, -1, 0, 1, 0, 1, 0, 0, -1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, -1, 0, 1, 0, 0, 0, -1, 0, -1, 0, -1, 0, 0, 0, 1, 0, -1, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1]
-pub const X_NAF_SQUARED: [i32; 125] = [
-    1, 0, 0, 0, 0, -1, 0, 0, 1, 0, 1, 0, 1, 0, -1, 0, 1, 0, 1, 0, 1, 0, 0, 0, 0, 0, -1, 0, 0, 0, 0,
-    1, 0, 0, 0, 0, 0, 0, -1, 0, 0, 0, 1, 0, 0, 0, -1, 0, 0, 0, 0, 0, 0, -1, 0, -1, 0, 1, 0, 1, 0,
-    1, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0, 0, 0, 1, 0, 0, -1, 0, -1, 0, 1, 0, 1, 0, 0, -1, 0, 0, 0, 0, 1,
-    0, 1, 0, 0, 0, 0, -1, 0, 1, 0, 0, 0, -1, 0, -1, 0, -1, 0, 0, 0, 1, 0, -1, 0, 1, 0, 0, 1, 0, 1,
-    0, 0, 1,
+/// Constant used in the Miller Loop.
+/// MILLER_CONSTANT = 6x + 2 = 29793968203157093288.
+/// Note that this is a representation using {1, -1, 0}, but it isn't a NAF representation
+/// because it has non-zero values adjacent.
+/// See the post https://hackmd.io/@Wimet/ry7z1Xj-2#The-Pairing.
+/// See arkworks library https://github.com/arkworks-rs/algebra/blob/master/curves/bn254/src/curves/mod.rs#L21 (constant called ATE_LOOP_COUNT).
+pub const MILLER_CONSTANT: [i32; 65] = [
+    0, 0, 0, 1, 0, 1, 0, -1, 0, 0, 1, -1, 0, 0, 1, 0, 0, 1, 1, 0, -1, 0, 0, 1, 0, -1, 0, 0, 0, 0,
+    1, 1, 1, 0, 0, -1, 0, 0, 1, 0, 0, 0, 0, 0, -1, 0, 0, 1, 1, 0, 0, -1, 0, 0, 0, 1, 1, 0, -1, 0,
+    0, 1, 0, 1, 1,
 ];
 
-pub const X_NAF_CUBE: [i32; 187] = [
-    1, 0, 0, 0, 1, 0, -1, 0, 1, 0, 0, 0, 1, 0, 1, 0, 1, 0, 0, 0, 0, -1, 0, -1, 0, -1, 0, 1, 0, -1,
-    0, 0, 0, 1, 0, -1, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, 0, 0, 1, 0, 0, 0, -1, 0, -1, 0, 0, 0, 1, 0,
-    0, -1, 0, -1, 0, 1, 0, 0, 0, 1, 0, 0, 0, -1, 0, -1, 0, 0, 0, -1, 0, -1, 0, 0, -1, 0, 0, 0, 1,
-    0, 0, 1, 0, 1, 0, 0, 0, 1, 0, -1, 0, 0, -1, 0, 1, 0, 0, 1, 0, 1, 0, -1, 0, 0, 0, 1, 0, 0, 1, 0,
-    1, 0, 0, -1, 0, 0, 0, 0, 0, -1, 0, 1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0,
-    0, -1, 0, 0, -1, 0, 1, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, -1, 0, -1, 0, 0, -1, 0, 1, 0, -1, 0, 0, 0,
-    0, 0, 0, 1, 0, 1,
-];
-// NAF de 4965661367192848881^3:
-// [1, 0, 0, 0, 1, 0, -1, 0, 1, 0, 0, 0, 1, 0, 1, 0, 1, 0, 0, 0, 0, -1, 0, -1, 0, -1, 0, 1, 0, -1, 0, 0, 0, 1, 0, -1, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, 0, 0, 1, 0, 0, 0, -1, 0, -1, 0, 0, 0, 1, 0, 0, -1, 0, -1, 0, 1, 0, 0, 0, 1, 0, 0, 0, -1, 0, -1, 0, 0, 0, -1, 0, -1, 0, 0, -1, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, -1, 0, 0, -1, 0, 1, 0, 0, 1, 0, 1, 0, -1, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, -1, 0, 0, 0, 0, 0, -1, 0, 1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, -1, 0, 0, -1, 0, 1, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, -1, 0, -1, 0, 0, -1, 0, 1, 0, -1, 0, 0, 0, 0, 0, 0, 1, 0, 1]
-pub const R: U256 =
-    U256::from_hex_unchecked("30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001");
-pub struct BN254AtePairing;
-impl IsPairing for BN254AtePairing {
-    type G1Point = ShortWeierstrassProjectivePoint<BN254Curve>;
-    type G2Point = ShortWeierstrassProjectivePoint<BN254TwistCurve>;
-    type OutputField = Degree12ExtensionField;
-
-    // Computes the product of the ate pairings for a list of point pairs.
-    // To optimize the pairing computation, we compute first all the miller
-    // loops and multiply each other (so that we can then do the final exponentiation).
-    fn compute_batch(
-        pairs: &[(&Self::G1Point, &Self::G2Point)],
-    ) -> Result<FieldElement<Self::OutputField>, PairingError> {
-        let mut result = Fp12E::one();
-        for (p, q) in pairs {
-            // We think we can remove the condition !p.is_in_subgroup() because
-            // the subgroup oF G1 is G1 (see BN254 for the rest of us).
-            if !q.is_in_subgroup() {
-                return Err(PairingError::PointNotInSubgroup);
-            }
-            if !p.is_neutral_element() && !q.is_neutral_element() {
-                result *= miller_naive(p, q);
-            }
-        }
-        Ok(final_exponentiation_naive(result))
-    }
-}
-
-/*
-// Computes: accumulator <- (accumulator)^2 * l(p); t <- 2t,
-// where l is the tangent line of t.
-// See https://eprint.iacr.org/2010/354.pdf, page 28.
-// to test something:
-fn double_accumulate_line(
-    t: &mut ShortWeierstrassProjectivePoint<BN254TwistCurve>,
-    p: &ShortWeierstrassProjectivePoint<BN254Curve>,
-    accumulator: &mut FieldElement<Degree12ExtensionField>,
-) {
-    let [x_q, y_q, z_q] = t.coordinates();
-    let [x_p, y_p, _] = p.coordinates();
-
-    let mut tmp0 = x_q.square(); // 1. X_Q^2
-    let tmp1 = y_q.square(); // 2. Y_Q^2
-    let tmp2 = tmp1.square(); // 3. tmp1^2
-    let mut tmp3 = ((&tmp1 + x_q).square() - &tmp0 - &tmp2).double(); // 4. and 5.
-    let tmp4 = tmp0.clone().double() + &tmp0; // 6. 3 * tmp0
-    let tmp5 = tmp4.square(); // 7. tmp4^2
-    let x_t = (tmp1.clone() + x_q).square() - tmp0.clone() - tmp2.clone(); // 7. (tmp1 + X_Q)^2 - tmp0 - tmp2
-    let z_t = (y_q + z_q).square() - tmp1.clone() - z_q.square(); // 8. (Y_Q + Z_Q)^2 - tmp1 - Z_Q^2
-    let y_t = (tmp3 - x_t.clone()) * tmp4.clone() - tmp2.clone().double().double().double(); // 9. (tmp3 - X_T) * tmp4 - 8 * tmp2
-
-    tmp3 = tmp1 * z_q.double(); // 10. 2 * (tmp1 * Z_Q)
-    tmp0 = y_p * tmp0; // 11. tmp0 * y_P
-
-    // Crear los elementos para el cálculo de la línea
-    let a_0 = Fp6E::new([Fp2E::zero(), Fp2E::zero(), tmp0]); // 12. l0 = tmp0 + 0v + 0v^2
-    let a_1 = Fp6E::new([Fp2E::zero(), tmp3.clone(), tmp3 + (x_p * z_q) * tmp4]); // 13. l1 = tmp3 + tmp4 * X_P * Z_Q * v + 0v^2
-
-    t.0.value = [x_t, y_t, z_t];
-    let l = Fp12E::new([a_0, a_1]); // l = a_0 + a_1 * w
-
-    *accumulator = accumulator.square() * l;
-}
-*/
-
-fn double_accumulate_line(
-    q: &ShortWeierstrassProjectivePoint<BN254TwistCurve>,
-    p: &ShortWeierstrassProjectivePoint<BN254Curve>,
-) -> (Fp12E, ShortWeierstrassProjectivePoint<BN254TwistCurve>) {
-    // We convert the projective coordinates into jacobian coordinates.
-    // projective (a, b, c) -> jacobian (a * c, b * c^2, c).
-    let z_q = q.z();
-    let x_q = q.x() * z_q;
-    let y_q = q.y() * z_q.square();
-
-    // @nicole: Is it ok p as a ProjectivPoint or do we need to have it in two coordinates?
-    // let [x_p, y_p] = p.to_affine().coordintes();
-    let [x_p, y_p, _] = p.to_affine().coordinates().clone();
-
-    let mut tmp0 = x_q.square(); // 1
-    let tmp1 = y_q.square(); // 2
-    let tmp2 = &tmp1.square(); // 3
-    let mut tmp3 = (&tmp1 + &x_q).square() - tmp0.clone() - tmp2; // 4
-    tmp3 = tmp3.clone().double(); // 5) 2 * d
-    let tmp4 = tmp0.clone().double() + &tmp0; // 6) 3 * a
-    let mut tmp6 = x_q + &tmp4; // 7
-    let tmp5 = tmp4.square(); // 8
-    let mut x_t = &tmp5 - &tmp3 - &tmp3; // 9
-    let z_t = (y_q + z_q).square() - &tmp1 - z_q.square(); // 10
-    let mut y_t = (tmp3 - &x_t) * &tmp4 - &tmp2.double().double().double(); //11
-    tmp3 = -((&tmp4 * z_q.square()).double()); //12
-    tmp3 = x_p * tmp3; //13 . Watchout with the order of the operation  x_p*d .d * x_p is not defined
-    tmp6 = tmp6.square() - tmp0 - tmp5 - tmp1.double().double(); //14
-    tmp0 = (&z_t * z_q.square()).double(); //15
-    tmp0 = y_p * tmp0; // 16
-
-    // The zero coordinates don't seem right. (see line function).
-    let a_0 = Fp6E::new([tmp0, Fp2E::zero(), Fp2E::zero()]); //18
-    let a_1 = Fp6E::new([tmp3, tmp6, Fp2E::zero()]); //19 //a_1 = 0*v^2 + e*v + d
-    let l = Fp12E::new([a_0, a_1]); //l = a_0 + a_1*w
-
-    // convert t from jacobian to projective coordinates
-    // jacob (a,b,c) -> projec (a/c, b/c^2, c)
-    x_t = x_t * z_t.inv().unwrap();
-    y_t = y_t * z_t.square().inv().unwrap();
-    let t = ShortWeierstrassProjectivePoint::new([x_t, y_t, z_t]);
-
-    // *accumulator = accumulator.square() * l;
-
-    (l, t)
-}
-
-// A naive way to double a point without using operate_with_self().
-fn double_naive(
-    t: &ShortWeierstrassProjectivePoint<BN254TwistCurve>,
-) -> ShortWeierstrassProjectivePoint<BN254TwistCurve> {
-    // We convert the projective coordinates into jacobian coordinates.
-    // projective (a, b, c) -> jacobian (a * c, b * c^2, c).
-    let z_t = t.z();
-    let x_t = t.x() * z_t;
-    let y_t = t.y() * z_t.square();
-
-    let mut x_r = x_t.square().square().double().double().double() + x_t.square().square()
-        - (&x_t * y_t.square()).double().double().double();
-    let mut y_r = (x_t.square().double() + x_t.square())
-        * ((x_t * y_t.square()).double().double() - &x_r)
-        - y_t.square().square().double().double().double();
-    let z_r = (y_t * z_t).double();
-
-    // convert from jacobian to projective coordinates
-    // jacob (a,b,c) -> projec (a/c, b/c^2, c)
-    x_r = x_r * z_r.inv().unwrap();
-    y_r = y_r * z_r.square().inv().unwrap();
-
-    ShortWeierstrassProjectivePoint::new([x_r, y_r, z_r])
-}
-
-// A naive way to add two points without using operate_with().
-fn add_naive(
-    t: &ShortWeierstrassProjectivePoint<BN254TwistCurve>,
-    q: &ShortWeierstrassProjectivePoint<BN254TwistCurve>,
-) -> ShortWeierstrassProjectivePoint<BN254TwistCurve> {
-    // We convert the projective coordinates into jacobian coordinates.
-    // projective (a, b, c) -> jacobian (a * c, b * c^2, c).
-    let z_t = t.z();
-    let x_t = t.x() * z_t;
-    let y_t = t.y() * z_t.square();
-    println!("z_t in add_naive is {:?}", z_t);
-
-    let z_q = q.z();
-    let x_q = q.x() * z_q;
-    let y_q = q.y() * z_q.square();
-
-    let mut x_r = ((&y_q * z_t.square() * z_t).double() - y_t.double()).square()
-        - ((&x_q * z_t.square() - &x_t).square() * (&x_q * z_t.square() - &x_t))
-            .double()
-            .double()
-        - (&x_q * z_t.square() - &x_t)
-            .square()
-            .double()
-            .double()
-            .double()
-            * &x_t;
-
-    let mut y_r = ((y_q * z_t.square() * z_t).double() - y_t.double())
-        * ((&x_q * z_t.square() - &x_t).square().double().double() * &x_t - &x_r)
-        - y_t.double().double().double()
-            * (&x_q * z_t.square() - &x_t).square()
-            * (&x_q * z_t.square() - &x_t);
-
-    let z_r = z_t.double() * (&x_q * z_t.square() - &x_t);
-    println!("the factor zero: {:?} ", &x_q * z_t.square() == x_t);
-    println!("z_r factor in add_naive: {:?}", x_q * z_t.square() - x_t);
-    println!("z_r in add_naive is: {:?}", z_r);
-
-    x_r = x_r * z_r.inv().unwrap();
-    y_r = y_r * z_r.square().inv().unwrap();
-
-    ShortWeierstrassProjectivePoint::new([x_r, y_r, z_r])
-}
-
-// Computes: accumulator <- accumulator * l(P); t <- t + q,
-// where l is the line between t and q.
-fn add_accumulate_line(
-    q: &ShortWeierstrassProjectivePoint<BN254TwistCurve>,
-    r: &ShortWeierstrassProjectivePoint<BN254TwistCurve>,
-    p: &ShortWeierstrassProjectivePoint<BN254Curve>,
-) -> (Fp12E, ShortWeierstrassProjectivePoint<BN254TwistCurve>) {
-    // We convert the projective coordinates into jacobian coordinates.
-    // projective (a, b, c) -> jacobian (a * c, b * c^2, c).
-    let z_q = q.z();
-    let x_q = q.x() * z_q;
-    let y_q = q.y() * z_q.square();
-
-    // We convert the projective coordinates into jacobian coordinates.
-    // projective (a, b, c) -> jacobian (a * c, b * c^2, c).
-    let z_r = r.z();
-    let x_r = r.x() * z_r;
-    let y_r = r.y() * z_r.square();
-
-    let [x_p, y_p, _] = p.to_affine().coordinates().clone();
-
-    let mut t0 = &x_q * z_r.square(); // 1
-    let mut t1 = (&y_q + z_r).square() - &y_q.square() - z_r.square(); // 2
-    t1 = t1 * z_r.square(); // 3
-    let t2 = t0 - &x_r; // 4
-    let t3 = t2.square(); // 5
-    let t4 = t3.double().double(); // 6
-    let t5 = &t4 * &t2; // 7
-    let mut t6 = t1 - y_r.double(); // 8
-    let mut t9 = &t6 * x_q; // 9
-    let t7 = x_r * t4.clone(); // 10
-    let mut x_t = &t6.square() - &t5 - t7.double(); // 11
-    let z_t = (z_r + t2).square() - z_r.square() - t3; // 12
-    let mut t10 = &y_q + &z_t; // 13
-    let t8 = (t7 - &x_t) * &t6; // 14
-    t0 = (y_r * t5).double(); // 15
-    let mut y_t = t8 - t0; // 16
-    t10 = t10.square() - y_q.square() - z_t.square(); // 17
-    t9 = t9.double() - t10; // 18
-    t10 = (y_p * &z_t).double(); // 19
-    t6 = -t6; // 20
-    t1 = (x_p * t6).double(); // 21
-
-    // It seems strange that l_0 and l_1 don't have the same zeros as line function.
-    let l_0 = Fp6E::new([t10, Fp2E::zero(), Fp2E::zero()]); // 23
-    let l_1 = Fp6E::new([t1, t9, Fp2E::zero()]); // 24
-    let l = Fp12E::new([l_0, l_1]); // 26
-
-    // convert t from jacobian to projective coordinates
-    // jacob (a,b,c) -> projec (a/c, b/c^2, c)
-    x_t = x_t * z_t.inv().unwrap();
-    y_t = y_t * z_t.clone().square().inv().unwrap();
-    let t = ShortWeierstrassProjectivePoint::<BN254TwistCurve>::new([x_t, y_t, z_t]);
-
-    // *accumulator = accumulator.square() * l;
-
-    (l, t)
-}
-
-// Function used in miller_naive().
-// It computes de addition and line between two points.
-fn add_and_line(
-    p: &ShortWeierstrassProjectivePoint<BN254Curve>,
-    q: &ShortWeierstrassProjectivePoint<BN254TwistCurve>,
-    t: ShortWeierstrassProjectivePoint<BN254TwistCurve>,
-    f: FieldElement<Degree12ExtensionField>,
-) -> (ShortWeierstrassProjectivePoint<BN254TwistCurve>, Fp12E) {
-    // We convert projective coordinates of p into affine coordinates.
-    // Projective (a, b, c) -> Affine (a/c, b/b).
-    let x_p = p.x() * p.z().inv().unwrap();
-    let y_p = p.y() * p.z().inv().unwrap();
-
-    // We convert the projective coordinates of q into jacobian coordinates.
-    // projective (a, b, c) -> jacobian (a * c, b * c^2, c).
-    let z_q = q.z().clone();
-    let x_q = q.x() * z_q.clone();
-    let y_q = q.y() * z_q.square();
-
-    // We convert the projective coordinates of the new t into jacobian coordinates.
-    let z_t = t.z().clone();
-    let x_t = t.x() * z_t.clone();
-    let y_t = t.y() * z_t.square();
-
-    let t_result = t.operate_with(&q);
-
-    let l0 = Fp6E::new([
-        &y_p * t_result.z().double(), // 2 * z_r * y_p
-        &x_q.double().double() * (&y_q * z_t.square() * &z_t * &x_q - &y_t)
-            - y_q.double() * t_result.z(), // 4 * x_q * (y_q * (z_t)^3 * x_q - y_t) - 2 * y_q * z_r
-        Fp2E::zero(),
-    ]);
-    let l1 = -Fp6E::new([
-        x_p.double().double() * (&y_q * z_t.square() * z_t + y_t), // - 4 * x_p * (y_q * (z_t)^3 + y_t)
-        Fp2E::zero(),
-        Fp2E::zero(),
-    ]);
-    let l = Fp12E::new([l0, l1]);
-    let f_result = f * l;
-    (t_result, f_result)
-}
-
-// Computes the line between t and q and evaluates it in p. If t = q, it's the tangent line.
-// Algorithm from https://eprint.iacr.org/2010/354.pdf.
-// Representation in Fp12E:
-// Let f in Fp12E, then f = g + hw = g0 + h0 * w + g1 * w^2 + h1 * w^3 + g2 * w^4 + h2 * w^5,
-// where g = g0 + g1 * v + g2 * v^2
-// and h = h0 + h1 * v + h2 * v^2
-fn line(
-    p: &ShortWeierstrassProjectivePoint<BN254Curve>,
-    q: &ShortWeierstrassProjectivePoint<BN254TwistCurve>,
-    t: &ShortWeierstrassProjectivePoint<BN254TwistCurve>,
-) -> (Fp12E) {
-    // We convert projective coordinates of p into affine coordinates.
-    // Projective (a, b, c) -> Affine (a/c, b/b).
-    let [x_p, y_p, _] = p.to_affine().coordinates().clone();
-
-    // We convert the projective coordinates of q into jacobian coordinates.
-    // projective (a, b, c) -> jacobian (a * c, b * c^2, c).
-    let z_q = q.z().clone();
-    let x_q = q.x() * z_q.clone();
-    let y_q = q.y() * z_q.square();
-
-    // We convert the projective coordinates of t into jacobian coordinates.
-    let z_t = t.z().clone();
-    let x_t = t.x() * z_t.clone();
-    let y_t = t.y() * z_t.square();
-
-    if q == t {
-        let r = t.operate_with_self(2usize);
-        // The projective and jacobian coordinates have the same z.
-        let z_r = r.z();
-
-        let l0 = Fp6E::new([
-            &y_p * (z_r.double() * &z_t.square()), // 2 * z_r * (z_t)^2 * y_p
-            (x_t.pow(3usize)).double().double() + (x_t.pow(3usize)).double()
-                - y_t.square().double().double(), // 6 * (x_t)^3 - 4 * (y_t)^2
-            Fp2E::zero(),
-        ]);
-        let l1 = Fp6E::new([
-            -(&x_p * ((&x_t.square().double().double() + x_t.square().double()) * z_t.square())), // -6 * (x_t)^2 * (z_t)^2 * x_p
-            Fp2E::zero(),
-            Fp2E::zero(),
-        ]);
-        Fp12E::new([l0, l1])
-    } else {
-        let r = t.operate_with(q);
-        let z_r = r.z();
-
-        let l0 = Fp6E::new([
-            &y_p * z_r.double(), // 2 * z_r * y_p
-            x_q.double().double() * (&y_q * z_t.pow(3usize) * &x_q - &y_t) - y_q.double() * z_r, // 4 * x_q * (y_q * (z_t)^3 * x_q - y_t) - 2 * y_q * z_r
-            Fp2E::zero(),
-        ]);
-        let l1 = Fp6E::new([
-            -(x_p.double().double() * (&y_q * z_t.pow(3usize) + y_t)), // -4 * x_p * (y_q * (z_t)^3 + y_t)
-            Fp2E::zero(),
-            Fp2E::zero(),
-        ]);
-        Fp12E::new([l0, l1])
-    }
-}
-
-// Computes the line between q and t and evaluates it in p.
-// Algorithm from this post: https://hackmd.io/@Wimet/ry7z1Xj-2#Line-Equations
-// and this implementation: https://github.com/hecmas/zkNotebook/blob/main/src/BN254/common.ts#L7
-
-fn line_2(
-    p: &ShortWeierstrassProjectivePoint<BN254Curve>,
-    q: &ShortWeierstrassProjectivePoint<BN254TwistCurve>,
-    t: &ShortWeierstrassProjectivePoint<BN254TwistCurve>,
-) -> (Fp12E) {
-    /* TO DO?
-    if p == FpE::zero() || q == Fp12E::zero() || t == Fp12E::zero() {
-        ERROR
-    } */
-
-    let [x_p, y_p, _] = p.to_affine().coordinates().clone();
-    let [x_q, y_q, _] = q.phi_inv().coordinates().clone();
-    let [x_t, y_t, _] = t.phi_inv().coordinates().clone();
-
-    //TODO: if p, q or t are inf return error.
-
-    let mut l: Fp12E = Fp12E::from(1);
-
-    // First case:
-    if x_t != x_q {
-        println!("t != q");
-
-        let a = y_p * (&x_q - &x_t).square();
-        let b = x_p * (&y_t - &y_q).square();
-        let c = (x_t * y_q - x_q * y_t).square();
-
-        l = Fp12E::from_coefficients(&[
-            "0",
-            "0",
-            &(a.value()[0].to_hex()),
-            &(a.value()[1].to_hex()),
-            "0",
-            "0",
-            "0",
-            "0",
-            &(b.value()[0].to_hex()),
-            &(b.value()[1]).to_hex(),
-            &(c.value()[0].to_hex()),
-            &(c.value()[1]).to_hex(),
-        ]);
-    // Second case: t and q are the same points
-    } else if y_t == y_q {
-        let a = Fp2E::new([FpE::from(9), FpE::one()])
-            * (x_t.pow(3 as u32).double() + x_t.pow(3 as u32) - y_t.square().double()); //(9 + u) * (3 * (x_t)^3 - 2 * (y_t)^2)
-        let b = (y_p * y_t).double(); // 2 * y_t * y_p
-        let c = -((&x_p * x_t.square()).double() + (x_p * x_q.square())); // -3 * x_p * (x_t)^2
-        l = Fp12E::from_coefficients(&[
-            &(a.value()[0].to_hex()),
-            &(a.value()[1].to_hex()),
-            "0",
-            "0",
-            &(c.value()[0].to_hex()),
-            &(c.value()[1]).to_hex(),
-            "0",
-            "0",
-            &(b.value()[0].to_hex()),
-            &(b.value()[1]).to_hex(),
-            "0",
-            "0",
-        ]);
-    }
-
-    l
-}
-
-/* fn line_2(
-    p: &ShortWeierstrassProjectivePoint<BN254Curve>,
-    q: &ShortWeierstrassProjectivePoint<BN254TwistCurve>,
-    t: &ShortWeierstrassProjectivePoint<BN254TwistCurve>,
-) -> (Fp12E) {
-
-    /* TO DO?
-    if p == FpE::zero() || q == Fp12E::zero() || t == Fp12E::zero() {
-        ERROR
-    } */
-
-    // We convert projective coordinates into affine coordinates.
-    // Projective (a, b, c) -> Affine (a/c, b/c).
-    let x_p = p.x() * p.z().inv().unwrap();
-    let y_p = p.y() * p.z().inv().unwrap();
-
-    let x_q = q.x() * q.z().inv().unwrap();
-    let y_q = q.y() * q.z().inv().unwrap();
-
-    let x_t = t.x() * t.z().inv().unwrap();
-    let y_t = t.y() * t.z().inv().unwrap();
-
-    //TODO: if p, q or t are inf return error.
-
-    let mut l: Fp12E = Fp12E::from(1);
-
-    // First case:
-    if x_t != x_q {
-        println!("t and q are different points");
-        let a = y_p * (&x_q - &x_t);
-        let b = x_p * (&y_t - &y_q);
-        let c = x_t * y_q - x_q * y_t;
-
-        l = Fp12E::from_coefficients(&[
-            "0",
-            "0",
-            &(a.value()[0].to_hex()),
-            &(a.value()[1].to_hex()),
-            "0",
-            "0",
-            "0",
-            "0",
-            &(b.value()[0].to_hex()),
-            &(b.value()[1]).to_hex(),
-            &(c.value()[0].to_hex()),
-            &(c.value()[1]).to_hex()
-        ]);
-    // Second case: t and q are the same points
-    } else if y_t == y_q {
-        println!("t and q are the same points");
-        let a = Fp2E::new([FpE::from(9), FpE::one()])
-            * (x_t.pow(3 as u32).double() + x_t.pow(3 as u32) - y_t.square().double()); //(9 + u) * (3 * (x_t)^3 - 2 * (y_t)^2)
-        let b = (y_p * y_t).double(); // 2 * y_t * y_p
-        let c = -((&x_p * x_t.square()).double() + (x_p * x_q.square())); // -3 * x_p * (x_t)^2
-        l = Fp12E::from_coefficients(&[
-            &(a.value()[0].to_hex()),
-            &(a.value()[1].to_hex()),
-            "0",
-            "0",
-            &(c.value()[0].to_hex()),
-            &(c.value()[1]).to_hex(),
-            "0",
-            "0",
-            &(b.value()[0].to_hex()),
-            &(b.value()[1]).to_hex(),
-            "0",
-            "0"
-        ]);
-    }
-
-    l
-}
-
-*/
-
-// is it worth to implement functions to convert between Fp12 ?
-
-fn miller(
-    p: &ShortWeierstrassProjectivePoint<BN254Curve>,
-    q: &ShortWeierstrassProjectivePoint<BN254TwistCurve>,
-) -> Fp12E {
-    let mut t = q.clone();
-    let mut f = Fp12E::from(1);
-    let miller_length = MILLER_NAF_2.len();
-
-    for i in (0..miller_length - 1).rev() {
-        f = f.square() * double_accumulate_line(&t, &p).0;
-        t = t.operate_with_self(2usize);
-
-        if MILLER_NAF_2[i] == -1 {
-            f = f * add_accumulate_line(&t, &q.neg(), &p).0;
-            t = t.operate_with(&q.neg());
-        } else if MILLER_NAF_2[i] == 1 {
-            f = f * add_accumulate_line(&t, &q, &p).0;
-            t = t.operate_with(&q);
-        }
-    }
-
-    let [x_q, y_q, _] = q.to_affine().coordinates().clone();
-
-    // q1 = ((x_q)^p, (y_q)^p, (z_q)^p)
-    let q1 = ShortWeierstrassProjectivePoint::<BN254TwistCurve>::from_affine(
-        GAMMA_12 * x_q.conjugate(),
-        GAMMA_13 * y_q.conjugate(),
-    )
-    .unwrap();
-
-    f = f * add_accumulate_line(&t, &q1, &p).0;
-    t = t.operate_with(&q1);
-
-    let [x_q1, y_q1, _] = q1.to_affine().coordinates().clone();
-
-    // q2 = ((x_q1)^p, (y_q1)^p, (z_q1)^p)
-    let q2 = ShortWeierstrassProjectivePoint::<BN254TwistCurve>::from_affine(
-        GAMMA_22 * x_q,
-        -(GAMMA_23 * y_q),
-    )
-    .unwrap();
-
-    f = f * add_accumulate_line(&t, &q2, p).0;
-
-    f
-}
-
-// Computes Miller loop using oprate_with() and operate_with_self instead of the previous algorithms.
-/// See https://eprint.iacr.org/2010/354.pdf, page 4.
-fn miller_naive(
-    p: &ShortWeierstrassProjectivePoint<BN254Curve>,
-    q: &ShortWeierstrassProjectivePoint<BN254TwistCurve>,
-) -> Fp12E {
-    let mut t = q.clone();
-    let mut f = Fp12E::from(1);
-    let miller_length = MILLER_NAF_2.len();
-
-    for i in (0..miller_length - 1).rev() {
-        f = f.square() * line_2(&p, &t, &t);
-        t = t.operate_with_self(2usize);
-
-        if MILLER_NAF_2[i] == -1 {
-            f = f * line_2(&p, &q.neg(), &t);
-            t = t.operate_with(&q.neg());
-        } else if MILLER_NAF_2[i] == 1 {
-            f = f * line_2(&p, &q, &t);
-            t = t.operate_with(&q);
-        }
-    }
-
-    let [x_q, y_q, _] = q.to_affine().coordinates().clone();
-
-    // q1 = ((x_q)^p, (y_q)^p)
-    let q1 = ShortWeierstrassProjectivePoint::<BN254TwistCurve>::new([
-        GAMMA_12 * x_q.conjugate(),
-        GAMMA_13 * y_q.conjugate(),
-        Fp2E::one(),
-    ]);
-
-    f = f * line_2(&p, &q1, &t);
-    t = t.operate_with(&q1);
-
-    let [x_q1, y_q1, _] = q1.to_affine().coordinates().clone();
-    let q2 = ShortWeierstrassProjectivePoint::<BN254TwistCurve>::new([
-        GAMMA_12 * x_q1.conjugate(),
-        GAMMA_13 * y_q1.conjugate(),
-        Fp2E::one(),
-    ]);
-
-    f = f * line_2(&p, &q2.neg(), &t);
-
-    f
-}
-
-pub fn point_power_p(
-    q: &ShortWeierstrassProjectivePoint<BN254TwistCurve>,
-) -> ShortWeierstrassProjectivePoint<BN254TwistCurve> {
-    let [x_q, y_q, _] = q.to_affine().coordinates().clone();
-    ShortWeierstrassProjectivePoint::<BN254TwistCurve>::new([
-        GAMMA_12 * x_q.conjugate(),
-        GAMMA_13 * y_q.conjugate(),
-        Fp2E::one(),
-    ])
-}
-
-pub fn ate_pairing(
-    p: &ShortWeierstrassProjectivePoint<BN254Curve>,
-    q: &ShortWeierstrassProjectivePoint<BN254TwistCurve>,
-) -> Result<Fp12E, PairingError> {
-    // We can omit p.is_in_subgroup
-    /* if !p.is_in_subgroup() {
-        return Err(PairingError::PointNotInSubgroup);
-    } */
-    if !q.is_in_subgroup() {
-        return Err(PairingError::PointNotInSubgroup);
-    }
-
-    if p.is_neutral_element() || q.is_neutral_element() {
-        return Ok(Fp12E::one());
-    }
-
-    let mut f = miller_naive(&p, &q);
-
-    // Exponenciación final
-    Ok(final_exponentiation(&mut f))
-}
-
-/*
-    // We convert the projective coordinates of q into jacobian coordinates.
-    // projective (a, b, c) -> jacobian (a * c, b * c^2, c).
-    let z_q = q.z().clone();
-    let x_q = q.x() * z_q.clone();
-    let y_q = q.y() * z_q.square();
-
-
-   for i in (0..miller_lenght - 1).rev() {
-        // We convert the projective coordinates of t into jacobian coordinates.
-        let mut z_t = t.z().clone();
-        let mut x_t = t.x() * z_t.clone();
-        let mut y_t = t.y() * z_t.square();
-
-        t = t.operate_with_self(2usize);
-
-        let l0 = Fp6E::new([
-            &y_p * (t.z().double() * &z_t.square()), // 2 * z_r * (z_t)^2 * y_p
-            (x_t.square() * &x_t).double().double() + (x_t.square() * &x_t).double()
-                - y_t.square().double().double(), // 6 * (x_t)^3 - 4 * (y_t)^2
-            Fp2E::zero(),
-        ]);
-        let l1 = - Fp6E::new([
-            &x_p * ((&x_t.square().double().double() + x_t.square().double()) * z_t.square()), // 6 * (x_t)^2 * (z_t)^2 * x_p
-            Fp2E::zero(),
-            Fp2E::zero(),
-        ]);
-        let l = Fp12E::new([l0, l1]);
-        f = f.square() * l;
-
-        if MILLER_CONSTANT_NAF[i] == -1 {
-            (t, f) = add_and_line(&p, &q.neg(), t, f);
-        }
-        if MILLER_CONSTANT_NAF[i] == 1 {
-            (t, f) = add_and_line(&p, &q, t, f);
-        }
-       //--
-    }
-
-    // TODO: Ask if the projective points (a, b, c) and (a/c, b/c, 1) are equals.
-    let [x_q, y_q, z_q] = q.coordinates(); // q = (x, y, z), where x, y and z in Fp2.
-    let q1 = ShortWeierstrassProjectivePoint::<BN254TwistCurve>::new([
-        GAMMA_12 * x_q.conjugate(),
-        GAMMA_13 * y_q.conjugate(),
-        *z_q
-    ]);
-
-    let [x_q1, y_q1, z_q1]: [Fp2E; 3]  = *q1.coordinates();
-    let q2 = ShortWeierstrassProjectivePoint::<BN254TwistCurve>::new([
-        GAMMA_12 * x_q1.conjugate(),
-        GAMMA_13 * y_q1.conjugate(),
-        z_q1
-    ]);
-*/
-
-// GAMMA constants.
-// We took these constants from https://github.com/hecmas/zkNotebook/blob/main/src/BN254/constants.ts#L48
-// note for future self , we should use const_from_raw instead of new.
-
-//  GAMMA_1i = (9 + u)^{i(p-1) / 6} for all i = 1..5
+/// COEFF_B = 3/(u+9) where
+/// the twist curve is: y^2 = x^3 + 3/(u+9)
+/// See the post https://hackmd.io/@jpw/bn254#Twists.
+/// See arkworks implementation https://github.com/arkworks-rs/algebra/blob/master/curves/bn254/src/curves/g2.rs#L39
+pub const COEFF_B: Fp2E = Fp2E::const_from_raw([
+    FpE::from_hex_unchecked("2B149D40CEB8AAAE81BE18991BE06AC3B5B4C5E559DBEFA33267E6DC24A138E5"),
+    FpE::from_hex_unchecked("9713B03AF0FED4CD2CAFADEED8FDF4A74FA084E52D1852E4A2BD0685C315D2"),
+]);
+
+/// GAMMA constants used to compute the Frobenius morphisms and G2 subgroup check.
+/// We took these constants from https://github.com/hecmas/zkNotebook/blob/main/src/BN254/constants.ts#L48
+/// GAMMA_1i = (9 + u)^{i(p-1) / 6} for all i = 1..5
 pub const GAMMA_11: Fp2E = Fp2E::const_from_raw([
     FpE::from_hex_unchecked("1284B71C2865A7DFE8B99FDD76E68B605C521E08292F2176D60B35DADCC9E470"),
     FpE::from_hex_unchecked("246996F3B4FAE7E6A6327CFE12150B8E747992778EEEC7E5CA5CF05F80F362AC"),
@@ -776,7 +77,7 @@ pub const GAMMA_15: Fp2E = Fp2E::const_from_raw([
     FpE::from_hex_unchecked("12ACF2CA76FD0675A27FB246C7729F7DB080CB99678E2AC024C6B8EE6E0C2C4B"),
 ]);
 
-// GAMMA_2i = GAMMA_1i * GAMMA_1i.conjugate()
+/// GAMMA_2i = GAMMA_1i * GAMMA_1i.conjugate()
 pub const GAMMA_21: FpE =
     FpE::from_hex_unchecked("30644E72E131A0295E6DD9E7E0ACCCB0C28F069FBB966E3DE4BD44E5607CFD49");
 
@@ -792,8 +93,7 @@ pub const GAMMA_24: FpE =
 pub const GAMMA_25: FpE =
     FpE::from_hex_unchecked("59E26BCEA0D48BACD4F263F1ACDB5C4F5763473177FFFFFF");
 
-// gammas 3
-// GAMMA_3i = GAMMA_1i * GAMMA_2i
+/// GAMMA_3i = GAMMA_1i * GAMMA_2i
 pub const GAMMA_31: Fp2E = Fp2E::const_from_raw([
     FpE::from_hex_unchecked("19DC81CFCC82E4BBEFE9608CD0ACAA90894CB38DBE55D24AE86F7D391ED4A67F"),
     FpE::from_hex_unchecked("ABF8B60BE77D7306CBEEE33576139D7F03A5E397D439EC7694AA2BF4C0C101"),
@@ -819,89 +119,123 @@ pub const GAMMA_35: Fp2E = Fp2E::const_from_raw([
     FpE::from_hex_unchecked("16DB366A59B1DD0B9FB1B2282A48633D3E2DDAEA200280211F25041384282499"),
 ]);
 
-// Computes the Frobenius morphism: f -> f^p.
-// See https://hackmd.io/@Wimet/ry7z1Xj-2#Fp12-Arithmetic (First Frobenius Operator).
-fn frobenius(f: &Fp12E) -> Fp12E {
-    let [a, b] = f.value(); // f = a + bw, where a and b in Fp6.
-    let [a0, a1, a2] = a.value(); // a = a0 + a1 * v + a2 * v^2, where a0, a1 and a2 in Fp2.
-    let [b0, b1, b2] = b.value(); // b = b0 + b1 * v + b2 * v^2, where b0, b1 and b2 in Fp2.
+////////////////// PAIRING //////////////////
 
-    // c1 = a0.conjugate() + a1.conjugate() * GAMMA_12 * v + a2.conjugate() * GAMMA_14 * v^2
-    let c1 = Fp6E::new([
-        a0.conjugate(),
-        a1.conjugate() * GAMMA_12,
-        a2.conjugate() * GAMMA_14,
-    ]);
+pub struct BN254AtePairing;
+impl IsPairing for BN254AtePairing {
+    type G1Point = ShortWeierstrassProjectivePoint<BN254Curve>;
+    type G2Point = ShortWeierstrassProjectivePoint<BN254TwistCurve>;
+    type OutputField = Degree12ExtensionField;
 
-    let c2 = Fp6E::new([
-        b0.conjugate() * GAMMA_11,
-        b1.conjugate() * GAMMA_13,
-        b2.conjugate() * GAMMA_15,
-    ]);
-
-    Fp12E::new([c1, c2]) //c1 + c2 * w
+    /// Computes the product of the ate pairing for a list of point pairs.
+    /// To optimize the pairing computation, we compute first all the miller loops
+    /// and multiply each other (so that we can then do the final exponentiation).
+    fn compute_batch(
+        pairs: &[(&Self::G1Point, &Self::G2Point)],
+    ) -> Result<FieldElement<Self::OutputField>, PairingError> {
+        let mut result = Fp12E::one();
+        for (p, q) in pairs {
+            // We don't need to check if p is in the subgroup because the subgroup oF G1 is G1.
+            // See https://hackmd.io/@jpw/bn254#Subgroup-checks.
+            if !q.is_in_subgroup() {
+                return Err(PairingError::PointNotInSubgroup);
+            }
+            if !p.is_neutral_element() && !q.is_neutral_element() {
+                result *= miller(p, q);
+            }
+        }
+        Ok(final_exponentiation(&result))
+    }
 }
 
-// forbenius_square (f) = f^{p^2}
-fn frobenius_square(
-    f: &FieldElement<Degree12ExtensionField>,
-) -> FieldElement<Degree12ExtensionField> {
-    let [a, b] = f.value(); // f = a + bw, where a and b in Fp6.
-    let [a0, a1, a2] = a.value(); // a = a0 + a1 * v + a2 * v^2, where a0, a1 and a2 in Fp2.
-    let [b0, b1, b2] = b.value(); // b = b0 + b1 * v + b2 * v^2, where b0, b1 and b2 in Fp2.
+/// Computes Miller loop using oprate_with(), operate_with_self() and line().
+/// See https://eprint.iacr.org/2010/354.pdf (Page 4, Algorithm 1).
+fn miller(p: &G1Point, q: &G2Point) -> Fp12E {
+    let mut t = q.clone();
+    let mut f = Fp12E::from(1);
+    let miller_length = MILLER_CONSTANT.len();
 
-    // c1 = a0.conjugate() + a1.conjugate() * GAMMA_12 * v + a2.conjugate() * GAMMA_14 * v^2
-    let c1 = Fp6E::new([a0.clone(), GAMMA_22 * a1, GAMMA_24 * a2]);
+    for i in (0..miller_length - 1).rev() {
+        f = f.square() * line(&p, &t, &t);
+        t = t.operate_with_self(2usize);
 
-    let c2 = Fp6E::new([GAMMA_21 * b0, GAMMA_23 * b1, GAMMA_25 * b2]);
+        if MILLER_CONSTANT[i] == -1 {
+            f = f * line(&p, &t, &q.neg());
+            t = t.operate_with(&q.neg());
+        } else if MILLER_CONSTANT[i] == 1 {
+            f = f * line(&p, &t, &q);
+            t = t.operate_with(&q);
+        }
+    }
 
-    Fp12E::new([c1, c2]) //c1 + c2 * w
+    // q1 = ((x_q)^p, (y_q)^p, (z_q)^p)
+    // See  https://hackmd.io/@Wimet/ry7z1Xj-2#The-Last-two-Lines
+    let q1 = q.phi();
+    f = f * line(&p, &t, &q1);
+    t = t.operate_with(&q1);
+
+    // q2 = ((x_q1)^p, (y_q1)^p, (z_q1)^p)
+    let q2 = q1.phi();
+    f = f * line(&p, &t, &q2.neg());
+
+    f
 }
 
-// frobenius_cube (f) = f^{p^3}
-fn frobenius_cube(
-    f: &FieldElement<Degree12ExtensionField>,
-) -> FieldElement<Degree12ExtensionField> {
-    let [a, b] = f.value(); // f = a + bw, where a and b in Fp6.
-    let [a0, a1, a2] = a.value(); // a = a0 + a1 * v + a2 * v^2, where a0, a1 and a2 in Fp2.
-    let [b0, b1, b2] = b.value(); // b = b0 + b1 * v + b2 * v^2, where b0, b1 and b2 in Fp2.
+/// Computes the line between q and t and evaluates it in p.
+/// Algorithm adapted from Arkowork's double_in_place and add_in_place.
+/// See https://github.com/arkworks-rs/algebra/blob/master/ec/src/models/bn/g2.rs#L25.
+/// See https://eprint.iacr.org/2013/722.pdf (Page 13, Equations 11 and 13).
+fn line(p: &G1Point, t: &G2Point, q: &G2Point) -> Fp12E {
+    // We convert p into affine coordinates.
+    let [x_p, y_p, _] = p.to_affine().coordinates().clone();
+    let mut l = Fp12E::one();
 
-    // c1 = a0.conjugate() + a1.conjugate() * GAMMA_12 * v + a2.conjugate() * GAMMA_14 * v^2
-    let c1 = Fp6E::new([
-        a0.conjugate(),
-        a1.conjugate() * GAMMA_32,
-        a2.conjugate() * GAMMA_34,
-    ]);
+    if t == q {
+        let b = t.y().square();
+        let c = t.z().square();
+        let e = COEFF_B * &(c.double() + &c);
+        let h = (t.y() + t.z()).square() - &(&b + &c);
+        let i = &e - &b;
+        let j = t.x().square();
 
-    let c2 = Fp6E::new([
-        b0.conjugate() * GAMMA_31,
-        b1.conjugate() * GAMMA_33,
-        b2.conjugate() * GAMMA_35,
-    ]);
+        // We are transforming one representation of Fp12 into another:
+        // If f in Fp12, then f = g + h * w = g0 + h0 * w + g1 * w^2 + h1 * w^3 + g2 * w^4 + h2 * w^5,
+        // where g = g0 + g1 * v + g2 * v^2,
+        // and h = h0 + h1 * v + h2 * v^2.
+        // See https://hackmd.io/@Wimet/ry7z1Xj-2#Tower-of-Extension-Fields.
+        l = Fp12E::new([
+            Fp6E::new([y_p * (-h), Fp2E::zero(), Fp2E::zero()]),
+            Fp6E::new([x_p * (j.double() + &j), i, Fp2E::zero()]),
+        ])
+    } else {
+        let [x_q, y_q, _] = q.to_affine().coordinates().clone();
 
-    Fp12E::new([c1, c2]) //c1 + c2 * w
+        let theta = t.y() - &(&y_q * t.z());
+        let lambda = t.x() - &(&x_q * t.z());
+        let j = &theta * &x_q - &(&lambda * &y_q);
+
+        l = Fp12E::new([
+            Fp6E::new([y_p * lambda, Fp2E::zero(), Fp2E::zero()]),
+            Fp6E::new([x_p * (-theta), j, Fp2E::zero()]),
+        ])
+    }
+    l
 }
 
-// f ^ {(p^12 -1)/r} = (f^p12 * f^{-1})^{-r} = (f * f.inv())^{-r}
-fn final_exponentiation_naive(f: Fp12E) -> Fp12E {
-    ((&f * f.inv().unwrap()).pow(R)).inv().unwrap()
-}
-
-// final_exponentiation(f) = f ^ {(p^12 - 1) / r}
-/// (p^12 - 1)/r = (p^6 - 1) * (p^2 + 1) * (p^4 - p^2 + 1)/r
-fn final_exponentiation(
+/// Computes f ^ {(p^12 - 1) / r}
+/// using that (p^12 - 1)/r = (p^6 - 1) * (p^2 + 1) * (p^4 - p^2 + 1)/r.
+/// Algorithm taken from https://hackmd.io/@Wimet/ry7z1Xj-2#Final-Exponentiation.
+pub fn final_exponentiation(
     f: &FieldElement<Degree12ExtensionField>,
 ) -> FieldElement<Degree12ExtensionField> {
     // Easy part:
     // Computes f ^ {(p^6 - 1) * (p^2 + 1)}
-
-    let f_easy_aux = f.conjugate() * f.inv().unwrap(); // f ^ (p^6 - 1) because f^{p^6} = f.conjugate()
-    let f_easy = &frobenius_square(&f_easy_aux) * f_easy_aux; // (f^{p^6 - 1})^{p^2} * (f^{p^6 - 1})
+    let f_easy_aux = f.conjugate() * f.inv().unwrap(); // f ^ (p^6 - 1) because f^(p^6) = f.conjugate().
+    let f_easy = &frobenius_square(&f_easy_aux) * f_easy_aux; // (f^{p^6 - 1})^(p^2) * (f^{p^6 - 1}).
 
     // Hard part:
-    // Compute f_easy ^ ((p^4 - p^2 + 1) / r)
+    // Computes f_easy ^ ((p^4 - p^2 + 1) / r)
     // See https://hackmd.io/@Wimet/ry7z1Xj-2#The-Hard-Part, where f_easy is called m.
-
     // We define different exponentiation of f_easy that we will use later.
     let mx = f_easy.pow(X);
     let mx2 = mx.pow(X);
@@ -930,91 +264,69 @@ fn final_exponentiation(
         * y6.pow(36usize)
 }
 
-// Computes a^x
-fn fp12_pow_x(a: &Fp12E) -> Fp12E {
-    let mut c = a.clone();
-    for i in (0..62).rev() {
-        c = c.square();
-        if X_NAF[i] != 0 {
-            if X_NAF[i] > 0 {
-                c = c * a;
-            } else {
-                c = c * a.conjugate();
-            }
-        }
-    }
-    c.clone()
+/// Computes the Frobenius morphism: f^p.
+/// See https://hackmd.io/@Wimet/ry7z1Xj-2#Fp12-Arithmetic (First Frobenius Operator).
+pub fn frobenius(f: &Fp12E) -> Fp12E {
+    let [a, b] = f.value(); // f = a + bw, where a and b in Fp6.
+    let [a0, a1, a2] = a.value(); // a = a0 + a1 * v + a2 * v^2, where a0, a1 and a2 in Fp2.
+    let [b0, b1, b2] = b.value(); // b = b0 + b1 * v + b2 * v^2, where b0, b1 and b2 in Fp2.
+
+    // c1 = a0.conjugate() + a1.conjugate() * GAMMA_12 * v + a2.conjugate() * GAMMA_14 * v^2
+    let c1 = Fp6E::new([
+        a0.conjugate(),
+        a1.conjugate() * GAMMA_12,
+        a2.conjugate() * GAMMA_14,
+    ]);
+
+    let c2 = Fp6E::new([
+        b0.conjugate() * GAMMA_11,
+        b1.conjugate() * GAMMA_13,
+        b2.conjugate() * GAMMA_15,
+    ]);
+
+    Fp12E::new([c1, c2]) //c1 + c2 * w
 }
 
-// Computes a^(x^2)
-fn fp12_pow_x_square(a: &Fp12E) -> Fp12E {
-    let mut c = a.clone();
-    for i in (0..124).rev() {
-        c = c.square();
-        if X_NAF_SQUARED[i] != 0 {
-            if X_NAF_SQUARED[i] > 0 {
-                c = c * a;
-            } else {
-                c = c * a.conjugate();
-            }
-        }
-    }
-    c.clone()
+/// Computes f^(p^2)
+pub fn frobenius_square(
+    f: &FieldElement<Degree12ExtensionField>,
+) -> FieldElement<Degree12ExtensionField> {
+    let [a, b] = f.value();
+    let [a0, a1, a2] = a.value();
+    let [b0, b1, b2] = b.value();
+
+    let c1 = Fp6E::new([a0.clone(), GAMMA_22 * a1, GAMMA_24 * a2]);
+    let c2 = Fp6E::new([GAMMA_21 * b0, GAMMA_23 * b1, GAMMA_25 * b2]);
+
+    Fp12E::new([c1, c2])
 }
 
-// Computes a^(x^3)
-fn fp12_pow_x_cube(a: &Fp12E) -> Fp12E {
-    let mut c = a.clone();
-    for i in (0..186).rev() {
-        c = c.square();
-        if X_NAF_CUBE[i] != 0 {
-            if X_NAF_CUBE[i] > 0 {
-                c = c * a;
-            } else {
-                c = c * a.conjugate();
-            }
-        }
-    }
-    c.clone()
+/// Computes f^(p^3)
+pub fn frobenius_cube(
+    f: &FieldElement<Degree12ExtensionField>,
+) -> FieldElement<Degree12ExtensionField> {
+    let [a, b] = f.value();
+    let [a0, a1, a2] = a.value();
+    let [b0, b1, b2] = b.value();
+
+    let c1 = Fp6E::new([
+        a0.conjugate(),
+        a1.conjugate() * GAMMA_32,
+        a2.conjugate() * GAMMA_34,
+    ]);
+
+    let c2 = Fp6E::new([
+        b0.conjugate() * GAMMA_31,
+        b1.conjugate() * GAMMA_33,
+        b2.conjugate() * GAMMA_35,
+    ]);
+
+    Fp12E::new([c1, c2])
 }
-
-fn final_exponentiation_from_paper(f: &mut FieldElement<Degree12ExtensionField>) -> Fp12E {
-    let f1 = f.conjugate(); //1
-    let f2 = f.inv().unwrap(); //2
-    *f = &f1 * f2; // 3
-    *f = frobenius_square(f) * f.clone(); //4
-    let ft1 = f.pow(X); //5
-    let ft2 = fp12_pow_x_square(f); //6
-    let ft3 = fp12_pow_x_cube(f); // 7
-    let fp1 = frobenius(f); // 8
-    let fp2 = frobenius_square(f); // 9
-    let fp3 = frobenius_cube(f); //10
-    let y0 = fp1 * fp2 * fp3; // 11
-    let y1 = f1; //12
-    let y2 = frobenius_square(&ft2); //13
-    let mut y3 = frobenius(&ft1); //14
-    y3 = y3.conjugate(); //15
-    let mut y4 = frobenius(&ft2) * ft1; // 16
-    y4 = y4.conjugate(); // 17
-    let y5 = ft2.conjugate(); // 18
-    let mut y6 = frobenius(&ft3) * ft3; //19
-    y6 = y6.conjugate(); // 20
-    let mut t0 = y6.square() * y4 * &y5; //21
-    let mut t1 = y3 * y5 * &t0; //22
-    t0 = t0 * y2; //23
-    t1 = (t1.square() * t0).square(); //24
-    t0 = &t1 * y1; //25
-    t1 = t1 * y0; //26
-    t0 = t0.square(); //27
-
-    t0 * t1 //28
-}
-
-//TODO:
-// fn tangent_line()
-// fn line()
 
 #[cfg(test)]
+/// We took the G1 and G2 points from:
+/// https://github.com/lambdaclass/zksync_era_precompiles/blob/4bdfebf831e21d58c5ba6945d4524763f1ef64d4/tests/tests/ecpairing_tests.rs
 mod tests {
     use crate::{
         cyclic_group::IsGroup, elliptic_curve::traits::IsEllipticCurve,
@@ -1024,446 +336,95 @@ mod tests {
     use super::*;
 
     #[test]
-    // works
-    fn double_accumulate_line_doubles_point_correctly() {
+    // e(ap, bq) = e(abp, q) = e(p, abq) = e(bp, aq) = e(ap, q)^b
+    fn batch_ate_pairing_bilinearity() {
         let p = BN254Curve::generator();
         let q = BN254TwistCurve::generator();
-        let r = double_accumulate_line(&q, &p).1;
-        assert_eq!(r, q.operate_with_self(2usize));
+        println!("G1 generator is: {:?}", p);
+        println!("G2 generator is: {:?}", q);
+
+        let a = U384::from_u64(11);
+        let b = U384::from_u64(93);
+
+        let result_1 = BN254AtePairing::compute_batch(&[
+            (&p.operate_with_self(a), &q.operate_with_self(b)),
+            (&p.operate_with_self(a * b), &q.neg()),
+        ])
+        .unwrap();
+        assert_eq!(result_1, Fp12E::one());
+
+        let result_2 = BN254AtePairing::compute_batch(&[
+            (&p.operate_with_self(a), &q.operate_with_self(b)),
+            (&p.neg(), &q.operate_with_self(a * b)),
+        ])
+        .unwrap();
+        assert_eq!(result_2, Fp12E::one());
+
+        let result_3 = BN254AtePairing::compute_batch(&[
+            (&p.operate_with_self(a), &q.operate_with_self(b)),
+            (&p.operate_with_self(b), &q.operate_with_self(a).neg()),
+        ])
+        .unwrap();
+        assert_eq!(result_3, Fp12E::one());
+
+        let result_4 = BN254AtePairing::compute_batch(&[
+            (&p.operate_with_self(a), &q.operate_with_self(b).neg()),
+            (&p.operate_with_self(b), &q),
+            (&p.operate_with_self(b), &q),
+            (&p.operate_with_self(b), &q),
+            (&p.operate_with_self(b), &q),
+            (&p.operate_with_self(b), &q),
+            (&p.operate_with_self(b), &q),
+            (&p.operate_with_self(b), &q),
+            (&p.operate_with_self(b), &q),
+            (&p.operate_with_self(b), &q),
+            (&p.operate_with_self(b), &q),
+            (&p.operate_with_self(b), &q),
+        ])
+        .unwrap();
+        assert_eq!(result_4, Fp12E::one());
     }
 
     #[test]
-    // works
-    fn add_accumulate_line_adds_two_points_correctly() {
-        let q = ShortWeierstrassProjectivePoint::<BN254TwistCurve>::new([
-            FieldElement::<Degree2ExtensionField>::new([
-                FieldElement::new(U256::from_hex_unchecked(
-                    "0x1a031c43dfaa2dd04a2c5b2dd257b449ce088dfd6d8ca041f19365b94ae7ae0",
-                )),
-                FieldElement::new(U256::from_hex_unchecked(
-                    "0x19f3b18b9baad6dadea895c76728c461e7f188f1a3da94a697d90428f554f039",
-                )),
-            ]),
-            FieldElement::<Degree2ExtensionField>::new([
-                FieldElement::new(U256::from_hex_unchecked(
-                    "0x1467f6d823536b43c1d13f7ce580cc56ba88ad999b12e27e355c114d819bee81",
-                )),
-                FieldElement::new(U256::from_hex_unchecked(
-                    "0x2f992ff71d0d08f6271f2d40039924e831d53a43a4772e4322710ee41daed756",
-                )),
-            ]),
-            FieldElement::one(),
-        ]); // A twist curve point in projective coordinates.
+    fn ate_pairing_returns_one_when_one_element_is_the_neutral_element() {
+        let p1 = BN254Curve::generator();
+        let q1 = G2Point::neutral_element();
+        let result_1 = BN254AtePairing::compute_batch(&[(&p1, &q1)]).unwrap();
+        assert_eq!(result_1, Fp12E::one());
 
-        let r = ShortWeierstrassProjectivePoint::<BN254TwistCurve>::new([
-            FieldElement::<Degree2ExtensionField>::new([
-                FieldElement::new(U256::from_hex_unchecked(
-                    "0x1c0cdfa0b0eb6dcd93968a84ff1f5dfec3284b588e4bf72e6ed01052c23e1058",
-                )),
-                FieldElement::new(U256::from_hex_unchecked(
-                    "0x57182543d53551f8dc42e18396f78bec25a36dd07de7006308f90af112fa5d0",
-                )),
-            ]),
-            FieldElement::<Degree2ExtensionField>::new([
-                FieldElement::new(U256::from_hex_unchecked(
-                    "0x279b356bf1390a747e0d361cd896e31898f9d9705942c176c79aa904b5c89243",
-                )),
-                FieldElement::new(U256::from_hex_unchecked(
-                    "0x1f537cf9f716088e6a4bf2779cd7e66f83a29a498d2476a9e5a8d7eb9c21967d",
-                )),
-            ]),
-            FieldElement::one(),
-        ]);
+        let p2 = G1Point::neutral_element();
+        let q2 = BN254TwistCurve::generator();
+        let result_2 = BN254AtePairing::compute_batch(&[(&p2, &q2)]).unwrap();
+        assert_eq!(result_2, Fp12E::one());
 
+        let result_3 = BN254AtePairing::compute_batch(&[(&p2, &q1)]).unwrap();
+        assert_eq!(result_3, Fp12E::one());
+    }
+
+    #[test]
+    fn ate_pairing_errors_when_g2_element_is_not_in_subgroup() {
         let p = BN254Curve::generator();
-
-        // A twist curve point different from q in projective coordinates.
-        let t = add_accumulate_line(&q, &r, &p).1;
-        assert_eq!(t, q.operate_with(&r))
-    }
-
-    #[test]
-    // not working
-    fn add_accumulate_line_t_q_is_the_same_as_q_t() {
-        let p = BN254Curve::generator();
-
-        let q = ShortWeierstrassProjectivePoint::<BN254TwistCurve>::new([
-            FieldElement::<Degree2ExtensionField>::new([
-                FieldElement::new(U256::from_hex_unchecked(
-                    "0x1a031c43dfaa2dd04a2c5b2dd257b449ce088dfd6d8ca041f19365b94ae7ae0",
+        let q = G2Point::new([
+            Fp2E::new([
+                FpE::new(U256::from_hex_unchecked(
+                    "1800deef121f1e76426a00665e5c4479674322d4f75edaddde46bd5cd992f6ed",
                 )),
-                FieldElement::new(U256::from_hex_unchecked(
-                    "0x19f3b18b9baad6dadea895c76728c461e7f188f1a3da94a697d90428f554f039",
+                FpE::new(U256::from_hex_unchecked(
+                    "198e9393920daef312c20b9f1099ecefa8b45575d349b0a6f04c16d0d58af900",
                 )),
             ]),
-            FieldElement::<Degree2ExtensionField>::new([
-                FieldElement::new(U256::from_hex_unchecked(
-                    "0x1467f6d823536b43c1d13f7ce580cc56ba88ad999b12e27e355c114d819bee81",
+            Fp2E::new([
+                FpE::new(U256::from_hex_unchecked(
+                    "22376289c558493c1d6cc413a5f07dcb54526a964e4e687b65a881aa9752faa2",
                 )),
-                FieldElement::new(U256::from_hex_unchecked(
-                    "0x2f992ff71d0d08f6271f2d40039924e831d53a43a4772e4322710ee41daed756",
-                )),
-            ]),
-            FieldElement::one(),
-        ]); // A twist curve point in projective coordinates.
-
-        let r = ShortWeierstrassProjectivePoint::<BN254TwistCurve>::new([
-            FieldElement::<Degree2ExtensionField>::new([
-                FieldElement::new(U256::from_hex_unchecked(
-                    "0x1c0cdfa0b0eb6dcd93968a84ff1f5dfec3284b588e4bf72e6ed01052c23e1058",
-                )),
-                FieldElement::new(U256::from_hex_unchecked(
-                    "0x57182543d53551f8dc42e18396f78bec25a36dd07de7006308f90af112fa5d0",
+                FpE::new(U256::from_hex_unchecked(
+                    "05a7a5759338c23ca603c1c4adf979e004c2f3e3c5bad6f07693c59a85d600a9",
                 )),
             ]),
-            FieldElement::<Degree2ExtensionField>::new([
-                FieldElement::new(U256::from_hex_unchecked(
-                    "0x279b356bf1390a747e0d361cd896e31898f9d9705942c176c79aa904b5c89243",
-                )),
-                FieldElement::new(U256::from_hex_unchecked(
-                    "0x1f537cf9f716088e6a4bf2779cd7e66f83a29a498d2476a9e5a8d7eb9c21967d",
-                )),
-            ]),
-            FieldElement::one(),
+            Fp2E::one(),
         ]);
-
-        assert_eq!(
-            add_accumulate_line(&q, &r, &p).0,
-            add_accumulate_line(&r, &q, &p).0
-        );
-    }
-
-    #[test]
-    // not working
-    fn line_t_q_is_the_same_as_q_t() {
-        let p = BN254Curve::generator();
-
-        let q = ShortWeierstrassProjectivePoint::<BN254TwistCurve>::new([
-            FieldElement::<Degree2ExtensionField>::new([
-                FieldElement::new(U256::from_hex_unchecked(
-                    "0x1a031c43dfaa2dd04a2c5b2dd257b449ce088dfd6d8ca041f19365b94ae7ae0",
-                )),
-                FieldElement::new(U256::from_hex_unchecked(
-                    "0x19f3b18b9baad6dadea895c76728c461e7f188f1a3da94a697d90428f554f039",
-                )),
-            ]),
-            FieldElement::<Degree2ExtensionField>::new([
-                FieldElement::new(U256::from_hex_unchecked(
-                    "0x1467f6d823536b43c1d13f7ce580cc56ba88ad999b12e27e355c114d819bee81",
-                )),
-                FieldElement::new(U256::from_hex_unchecked(
-                    "0x2f992ff71d0d08f6271f2d40039924e831d53a43a4772e4322710ee41daed756",
-                )),
-            ]),
-            FieldElement::one(),
-        ]); // A twist curve point in projective coordinates.
-
-        let r = ShortWeierstrassProjectivePoint::<BN254TwistCurve>::new([
-            FieldElement::<Degree2ExtensionField>::new([
-                FieldElement::new(U256::from_hex_unchecked(
-                    "0x1c0cdfa0b0eb6dcd93968a84ff1f5dfec3284b588e4bf72e6ed01052c23e1058",
-                )),
-                FieldElement::new(U256::from_hex_unchecked(
-                    "0x57182543d53551f8dc42e18396f78bec25a36dd07de7006308f90af112fa5d0",
-                )),
-            ]),
-            FieldElement::<Degree2ExtensionField>::new([
-                FieldElement::new(U256::from_hex_unchecked(
-                    "0x279b356bf1390a747e0d361cd896e31898f9d9705942c176c79aa904b5c89243",
-                )),
-                FieldElement::new(U256::from_hex_unchecked(
-                    "0x1f537cf9f716088e6a4bf2779cd7e66f83a29a498d2476a9e5a8d7eb9c21967d",
-                )),
-            ]),
-            FieldElement::one(),
-        ]);
-
-        assert_eq!(line(&p, &r, &q), line(&p, &q, &r));
-    }
-
-    #[test]
-    // not working
-    fn same_line_using_add_acumulate_and_line_function() {
-        let p = BN254Curve::generator();
-
-        let q = ShortWeierstrassProjectivePoint::<BN254TwistCurve>::new([
-            FieldElement::<Degree2ExtensionField>::new([
-                FieldElement::new(U256::from_hex_unchecked(
-                    "0x1a031c43dfaa2dd04a2c5b2dd257b449ce088dfd6d8ca041f19365b94ae7ae0",
-                )),
-                FieldElement::new(U256::from_hex_unchecked(
-                    "0x19f3b18b9baad6dadea895c76728c461e7f188f1a3da94a697d90428f554f039",
-                )),
-            ]),
-            FieldElement::<Degree2ExtensionField>::new([
-                FieldElement::new(U256::from_hex_unchecked(
-                    "0x1467f6d823536b43c1d13f7ce580cc56ba88ad999b12e27e355c114d819bee81",
-                )),
-                FieldElement::new(U256::from_hex_unchecked(
-                    "0x2f992ff71d0d08f6271f2d40039924e831d53a43a4772e4322710ee41daed756",
-                )),
-            ]),
-            FieldElement::one(),
-        ]); // A twist curve point in projective coordinates.
-
-        let t = ShortWeierstrassProjectivePoint::<BN254TwistCurve>::new([
-            FieldElement::<Degree2ExtensionField>::new([
-                FieldElement::new(U256::from_hex_unchecked(
-                    "0x1c0cdfa0b0eb6dcd93968a84ff1f5dfec3284b588e4bf72e6ed01052c23e1058",
-                )),
-                FieldElement::new(U256::from_hex_unchecked(
-                    "0x57182543d53551f8dc42e18396f78bec25a36dd07de7006308f90af112fa5d0",
-                )),
-            ]),
-            FieldElement::<Degree2ExtensionField>::new([
-                FieldElement::new(U256::from_hex_unchecked(
-                    "0x279b356bf1390a747e0d361cd896e31898f9d9705942c176c79aa904b5c89243",
-                )),
-                FieldElement::new(U256::from_hex_unchecked(
-                    "0x1f537cf9f716088e6a4bf2779cd7e66f83a29a498d2476a9e5a8d7eb9c21967d",
-                )),
-            ]),
-            FieldElement::one(),
-        ]);
-
-        assert_eq!(line(&p, &t, &q), add_accumulate_line(&q, &t, &p).0);
-    }
-
-    #[test]
-    // not working
-    fn same_line_using_add_acumulate_and_line2_function() {
-        let p = BN254Curve::generator();
-
-        let q = ShortWeierstrassProjectivePoint::<BN254TwistCurve>::new([
-            FieldElement::<Degree2ExtensionField>::new([
-                FieldElement::new(U256::from_hex_unchecked(
-                    "0x1a031c43dfaa2dd04a2c5b2dd257b449ce088dfd6d8ca041f19365b94ae7ae0",
-                )),
-                FieldElement::new(U256::from_hex_unchecked(
-                    "0x19f3b18b9baad6dadea895c76728c461e7f188f1a3da94a697d90428f554f039",
-                )),
-            ]),
-            FieldElement::<Degree2ExtensionField>::new([
-                FieldElement::new(U256::from_hex_unchecked(
-                    "0x1467f6d823536b43c1d13f7ce580cc56ba88ad999b12e27e355c114d819bee81",
-                )),
-                FieldElement::new(U256::from_hex_unchecked(
-                    "0x2f992ff71d0d08f6271f2d40039924e831d53a43a4772e4322710ee41daed756",
-                )),
-            ]),
-            FieldElement::one(),
-        ]); // A twist curve point in projective coordinates.
-
-        let t = ShortWeierstrassProjectivePoint::<BN254TwistCurve>::new([
-            FieldElement::<Degree2ExtensionField>::new([
-                FieldElement::new(U256::from_hex_unchecked(
-                    "0x1c0cdfa0b0eb6dcd93968a84ff1f5dfec3284b588e4bf72e6ed01052c23e1058",
-                )),
-                FieldElement::new(U256::from_hex_unchecked(
-                    "0x57182543d53551f8dc42e18396f78bec25a36dd07de7006308f90af112fa5d0",
-                )),
-            ]),
-            FieldElement::<Degree2ExtensionField>::new([
-                FieldElement::new(U256::from_hex_unchecked(
-                    "0x279b356bf1390a747e0d361cd896e31898f9d9705942c176c79aa904b5c89243",
-                )),
-                FieldElement::new(U256::from_hex_unchecked(
-                    "0x1f537cf9f716088e6a4bf2779cd7e66f83a29a498d2476a9e5a8d7eb9c21967d",
-                )),
-            ]),
-            FieldElement::one(),
-        ]);
-
-        assert_eq!(line_2(&p, &q, &t), add_accumulate_line(&q, &t, &p).0);
-    }
-
-    #[test]
-    // not working
-    fn same_line_using_line2_and_line_function() {
-        let p = BN254Curve::generator();
-
-        let q = ShortWeierstrassProjectivePoint::<BN254TwistCurve>::new([
-            FieldElement::<Degree2ExtensionField>::new([
-                FieldElement::new(U256::from_hex_unchecked(
-                    "0x1a031c43dfaa2dd04a2c5b2dd257b449ce088dfd6d8ca041f19365b94ae7ae0",
-                )),
-                FieldElement::new(U256::from_hex_unchecked(
-                    "0x19f3b18b9baad6dadea895c76728c461e7f188f1a3da94a697d90428f554f039",
-                )),
-            ]),
-            FieldElement::<Degree2ExtensionField>::new([
-                FieldElement::new(U256::from_hex_unchecked(
-                    "0x1467f6d823536b43c1d13f7ce580cc56ba88ad999b12e27e355c114d819bee81",
-                )),
-                FieldElement::new(U256::from_hex_unchecked(
-                    "0x2f992ff71d0d08f6271f2d40039924e831d53a43a4772e4322710ee41daed756",
-                )),
-            ]),
-            FieldElement::one(),
-        ]); // A twist curve point in projective coordinates.
-
-        let t = ShortWeierstrassProjectivePoint::<BN254TwistCurve>::new([
-            FieldElement::<Degree2ExtensionField>::new([
-                FieldElement::new(U256::from_hex_unchecked(
-                    "0x1c0cdfa0b0eb6dcd93968a84ff1f5dfec3284b588e4bf72e6ed01052c23e1058",
-                )),
-                FieldElement::new(U256::from_hex_unchecked(
-                    "0x57182543d53551f8dc42e18396f78bec25a36dd07de7006308f90af112fa5d0",
-                )),
-            ]),
-            FieldElement::<Degree2ExtensionField>::new([
-                FieldElement::new(U256::from_hex_unchecked(
-                    "0x279b356bf1390a747e0d361cd896e31898f9d9705942c176c79aa904b5c89243",
-                )),
-                FieldElement::new(U256::from_hex_unchecked(
-                    "0x1f537cf9f716088e6a4bf2779cd7e66f83a29a498d2476a9e5a8d7eb9c21967d",
-                )),
-            ]),
-            FieldElement::one(),
-        ]);
-
-        assert_eq!(line(&p, &q, &t), line_2(&p, &q, &t));
-    }
-
-    #[test]
-    // works
-    fn test_double_naive() {
-        let g2 = BN254TwistCurve::generator();
-        let r = double_naive(&g2);
-        println!("r in double is: {:?}", r);
-        println!("g2 + g2 in double is: {:?}", g2.operate_with_self(2usize));
-        assert_eq!(r, g2.operate_with_self(2usize))
-    }
-
-    // TODO: Write which are the x, y, real and complex parts.
-    // Write where we found these points.
-    #[test]
-    // works
-    fn test_double_naive_point_different_from_generator() {
-        let q = ShortWeierstrassProjectivePoint::<BN254TwistCurve>::new([
-            FieldElement::<Degree2ExtensionField>::new([
-                FieldElement::new(U256::from_hex_unchecked(
-                    "0x1a031c43dfaa2dd04a2c5b2dd257b449ce088dfd6d8ca041f19365b94ae7ae0",
-                )),
-                FieldElement::new(U256::from_hex_unchecked(
-                    "0x19f3b18b9baad6dadea895c76728c461e7f188f1a3da94a697d90428f554f039",
-                )),
-            ]),
-            FieldElement::<Degree2ExtensionField>::new([
-                FieldElement::new(U256::from_hex_unchecked(
-                    "0x1467f6d823536b43c1d13f7ce580cc56ba88ad999b12e27e355c114d819bee81",
-                )),
-                FieldElement::new(U256::from_hex_unchecked(
-                    "0x2f992ff71d0d08f6271f2d40039924e831d53a43a4772e4322710ee41daed756",
-                )),
-            ]),
-            FieldElement::one(),
-        ]); // A twist curve point in projective coordinates
-        let r = double_naive(&q);
-        println!("r in double is: {:?}", r);
-        println!("g2 + g2 in double is: {:?}", q.operate_with_self(2usize));
-        assert_eq!(r, q.operate_with_self(2usize))
-    }
-
-    #[test]
-    // works
-    fn test_add_naive() {
-        let q = ShortWeierstrassProjectivePoint::<BN254TwistCurve>::new([
-            FieldElement::<Degree2ExtensionField>::new([
-                FieldElement::new(U256::from_hex_unchecked(
-                    "0x1a031c43dfaa2dd04a2c5b2dd257b449ce088dfd6d8ca041f19365b94ae7ae0",
-                )),
-                FieldElement::new(U256::from_hex_unchecked(
-                    "0x19f3b18b9baad6dadea895c76728c461e7f188f1a3da94a697d90428f554f039",
-                )),
-            ]),
-            FieldElement::<Degree2ExtensionField>::new([
-                FieldElement::new(U256::from_hex_unchecked(
-                    "0x1467f6d823536b43c1d13f7ce580cc56ba88ad999b12e27e355c114d819bee81",
-                )),
-                FieldElement::new(U256::from_hex_unchecked(
-                    "0x2f992ff71d0d08f6271f2d40039924e831d53a43a4772e4322710ee41daed756",
-                )),
-            ]),
-            FieldElement::one(),
-        ]); // A twist curve point in projective coordinates.
-        let t = ShortWeierstrassProjectivePoint::<BN254TwistCurve>::new([
-            FieldElement::<Degree2ExtensionField>::new([
-                FieldElement::new(U256::from_hex_unchecked(
-                    "0x1c0cdfa0b0eb6dcd93968a84ff1f5dfec3284b588e4bf72e6ed01052c23e1058",
-                )),
-                FieldElement::new(U256::from_hex_unchecked(
-                    "0x57182543d53551f8dc42e18396f78bec25a36dd07de7006308f90af112fa5d0",
-                )),
-            ]),
-            FieldElement::<Degree2ExtensionField>::new([
-                FieldElement::new(U256::from_hex_unchecked(
-                    "0x279b356bf1390a747e0d361cd896e31898f9d9705942c176c79aa904b5c89243",
-                )),
-                FieldElement::new(U256::from_hex_unchecked(
-                    "0x1f537cf9f716088e6a4bf2779cd7e66f83a29a498d2476a9e5a8d7eb9c21967d",
-                )),
-            ]),
-            FieldElement::one(),
-        ]);
-        // A twist curve point different from q in projective coordinates.
-        let r = add_naive(&t, &q);
-        assert_eq!(r, q.operate_with(&t))
-    }
-
-    #[test]
-    // works
-    fn test_add_naive_values_zksync() {
-        let q = ShortWeierstrassProjectivePoint::<BN254TwistCurve>::new([
-            FieldElement::<Degree2ExtensionField>::new([
-                FieldElement::new(U256::from_hex_unchecked(
-                    "0x3010c68cb50161b7d1d96bb71edfec9880171954e56871abf3d93cc94d745fa1",
-                )),
-                FieldElement::new(U256::from_hex_unchecked(
-                    "0x0476be093a6d2b4bbf907172049874af11e1b6267606e00804d3ff0037ec57fd",
-                )),
-            ]),
-            FieldElement::<Degree2ExtensionField>::new([
-                FieldElement::new(U256::from_hex_unchecked(
-                    "0x01b33461f39d9e887dbb100f170a2345dde3c07e256d1dfa2b657ba5cd030427",
-                )),
-                FieldElement::new(U256::from_hex_unchecked(
-                    "0x14c059d74e5b6c4ec14ae5864ebe23a71781d86c29fb8fb6cce94f70d3de7a21",
-                )),
-            ]),
-            FieldElement::one(),
-        ]); // A twist curve point in projective coordinates.
-        let t = ShortWeierstrassProjectivePoint::<BN254TwistCurve>::new([
-            FieldElement::<Degree2ExtensionField>::new([
-                FieldElement::new(U256::from_hex_unchecked(
-                    "0x290158a80cd3d66530f74dc94c94adb88f5cdb481acca997b6e60071f08a115f",
-                )),
-                FieldElement::new(U256::from_hex_unchecked(
-                    "0x1a2c3013d2ea92e13c800cde68ef56a294b883f6ac35d25f587c09b1b3c635f7",
-                )),
-            ]),
-            FieldElement::<Degree2ExtensionField>::new([
-                FieldElement::new(U256::from_hex_unchecked(
-                    "0x29d1691530ca701b4a106054688728c9972c8512e9789e9567aae23e302ccd75",
-                )),
-                FieldElement::new(U256::from_hex_unchecked(
-                    "0x2f997f3dbd66a7afe07fe7862ce239edba9e05c5afff7f8a1259c9733b2dfbb9",
-                )),
-            ]),
-            FieldElement::one(),
-        ]); // A twist curve point different from q in projective coordinates.
-        let r = add_naive(&t, &q);
-        assert_eq!(r, q.operate_with(&t))
-    }
-
-    #[test]
-    fn apply_12_times_point_pow_p_is_identity() {
-        let q = BN254TwistCurve::generator();
-        let mut result = point_power_p(&q);
-        for _ in 1..12 {
-            result = point_power_p(&result);
-        }
-        assert_eq!(q, result)
+        let result = BN254AtePairing::compute_batch(&[(&p, &q)]);
+        assert!(result.is_err())
     }
 
     #[test]
@@ -1503,170 +464,299 @@ mod tests {
     }
 
     #[test]
-    fn ate_pairing_returns_one_when_one_q_is_the_neutral_element() {
-        let p = BN254Curve::generator();
-        let q = ShortWeierstrassProjectivePoint::neutral_element();
-        let result = ate_pairing(&p, &q).unwrap();
-        assert_eq!(result, FieldElement::one()); // this test is ok
-    }
-
-    #[test]
-    fn ate_pairing_returns_one_when_one_p_is_the_neutral_element() {
-        let p = ShortWeierstrassProjectivePoint::neutral_element();
-        let q = BN254TwistCurve::generator();
-        let result = ate_pairing(&p, &q).unwrap();
-        assert_eq!(result, FieldElement::one());
-    }
-
-    #[test]
-    // e(a * p, b * q) = e(a * b * p, q)
-    // NOT WORKING
-    fn ate_pairing_bilinearity() {
-        let p = BN254Curve::generator();
-        let q = BN254TwistCurve::generator();
-        let a = U384::from_u64(11);
-        let b = U384::from_u64(93);
-
-        let pairing1 = ate_pairing(&p.operate_with_self(a), &q.operate_with_self(b)).unwrap();
-        let pairing2 = ate_pairing(&p.operate_with_self(a * b), &q).unwrap();
-
-        assert_eq!(pairing1, pairing2);
-    }
-
-    #[test]
-    // e(ap, bq) * e(a * b * p, - q) = 1
-    // NOT WORKING
-    fn batch_ate_pairing_bilinearity() {
-        let p = BN254Curve::generator();
-        let q = BN254TwistCurve::generator();
-        let a = U384::from_u64(11);
-        let b = U384::from_u64(93);
-
-        let result = BN254AtePairing::compute_batch(&[
-            (&p.operate_with_self(a), &q.operate_with_self(b)),
-            (&p.operate_with_self(a * b), &q.neg()),
-        ])
+    fn two_pairs_of_points_match_1() {
+        let p1 = G1Point::from_affine(
+            FpE::new(U256::from_hex_unchecked(
+                "0000000000000000000000000000000000000000000000000000000000000001",
+            )),
+            FpE::new(U256::from_hex_unchecked(
+                "0000000000000000000000000000000000000000000000000000000000000002",
+            )),
+        )
         .unwrap();
+
+        let q1 = G2Point::from_affine(
+            Fp2E::new([
+                FpE::new(U256::from_hex_unchecked(
+                    "1800deef121f1e76426a00665e5c4479674322d4f75edadd46debd5cd992f6ed",
+                )),
+                FpE::new(U256::from_hex_unchecked(
+                    "198e9393920d483a7260bfb731fb5d25f1aa493335a9e71297e485b7aef312c2",
+                )),
+            ]),
+            Fp2E::new([
+                FpE::new(U256::from_hex_unchecked(
+                    "12c85ea5db8c6deb4aab71808dcb408fe3d1e7690c43d37b4ce6cc0166fa7daa",
+                )),
+                FpE::new(U256::from_hex_unchecked(
+                    "090689d0585ff075ec9e99ad690c3395bc4b313370b38ef355acdadcd122975b",
+                )),
+            ]),
+        )
+        .unwrap();
+
+        let p2 = G1Point::from_affine(
+            FpE::new(U256::from_hex_unchecked(
+                "0000000000000000000000000000000000000000000000000000000000000001",
+            )),
+            FpE::new(U256::from_hex_unchecked(
+                "30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd45",
+            )),
+        )
+        .unwrap();
+
+        let q2 = G2Point::from_affine(
+            Fp2E::new([
+                FpE::new(U256::from_hex_unchecked(
+                    "1800deef121f1e76426a00665e5c4479674322d4f75edadd46debd5cd992f6ed",
+                )),
+                FpE::new(U256::from_hex_unchecked(
+                    "198e9393920d483a7260bfb731fb5d25f1aa493335a9e71297e485b7aef312c2",
+                )),
+            ]),
+            Fp2E::new([
+                FpE::new(U256::from_hex_unchecked(
+                    "12c85ea5db8c6deb4aab71808dcb408fe3d1e7690c43d37b4ce6cc0166fa7daa",
+                )),
+                FpE::new(U256::from_hex_unchecked(
+                    "090689d0585ff075ec9e99ad690c3395bc4b313370b38ef355acdadcd122975b",
+                )),
+            ]),
+        )
+        .unwrap();
+
+        let result = BN254AtePairing::compute_batch(&[(&p1, &q1), (&p2, &q2)]).unwrap();
+        println!("result: {:?}", result);
+        println!("one: {:?}", Fp12E::one());
+
         assert_eq!(result, Fp12E::one());
     }
 
     #[test]
-    //works
-    fn the_line_t_q_is_the_same_as_the_line_q_t() {
-        let p = BN254Curve::generator();
+    fn two_pairs_of_points_match_2() {
+        let p1 = G1Point::from_affine(
+            FpE::new(U256::from_hex_unchecked(
+                "105456a333e6d636854f987ea7bb713dfd0ae8371a72aea313ae0c32c0bf1016",
+            )),
+            FpE::new(U256::from_hex_unchecked(
+                "0cf031d41b41557f3e7e3ba0c51bebe5da8e6ecd855ec50fc87efcdeac168bcc",
+            )),
+        )
+        .unwrap();
 
-        let q = ShortWeierstrassProjectivePoint::<BN254TwistCurve>::new([
-            FieldElement::<Degree2ExtensionField>::new([
-                FieldElement::new(U256::from_hex_unchecked(
-                    "0x1a031c43dfaa2dd04a2c5b2dd257b449ce088dfd6d8ca041f19365b94ae7ae0",
+        let q1 = G2Point::from_affine(
+            Fp2E::new([
+                FpE::new(U256::from_hex_unchecked(
+                    "3010c68cb50161b7d1d96bb71edfec9880171954e56871abf3d93cc94d745fa1",
                 )),
-                FieldElement::new(U256::from_hex_unchecked(
-                    "0x19f3b18b9baad6dadea895c76728c461e7f188f1a3da94a697d90428f554f039",
-                )),
-            ]),
-            FieldElement::<Degree2ExtensionField>::new([
-                FieldElement::new(U256::from_hex_unchecked(
-                    "0x1467f6d823536b43c1d13f7ce580cc56ba88ad999b12e27e355c114d819bee81",
-                )),
-                FieldElement::new(U256::from_hex_unchecked(
-                    "0x2f992ff71d0d08f6271f2d40039924e831d53a43a4772e4322710ee41daed756",
+                FpE::new(U256::from_hex_unchecked(
+                    "0476be093a6d2b4bbf907172049874af11e1b6267606e00804d3ff0037ec57fd",
                 )),
             ]),
-            FieldElement::one(),
-        ]); // A twist curve point in projective coordinates.
+            Fp2E::new([
+                FpE::new(U256::from_hex_unchecked(
+                    "01b33461f39d9e887dbb100f170a2345dde3c07e256d1dfa2b657ba5cd030427",
+                )),
+                FpE::new(U256::from_hex_unchecked(
+                    "14c059d74e5b6c4ec14ae5864ebe23a71781d86c29fb8fb6cce94f70d3de7a21",
+                )),
+            ]),
+        )
+        .unwrap();
 
-        let t = ShortWeierstrassProjectivePoint::<BN254TwistCurve>::new([
-            FieldElement::<Degree2ExtensionField>::new([
-                FieldElement::new(U256::from_hex_unchecked(
-                    "0x1c0cdfa0b0eb6dcd93968a84ff1f5dfec3284b588e4bf72e6ed01052c23e1058",
-                )),
-                FieldElement::new(U256::from_hex_unchecked(
-                    "0x57182543d53551f8dc42e18396f78bec25a36dd07de7006308f90af112fa5d0",
-                )),
-            ]),
-            FieldElement::<Degree2ExtensionField>::new([
-                FieldElement::new(U256::from_hex_unchecked(
-                    "0x279b356bf1390a747e0d361cd896e31898f9d9705942c176c79aa904b5c89243",
-                )),
-                FieldElement::new(U256::from_hex_unchecked(
-                    "0x1f537cf9f716088e6a4bf2779cd7e66f83a29a498d2476a9e5a8d7eb9c21967d",
-                )),
-            ]),
-            FieldElement::one(),
-        ]);
+        let p2 = G1Point::from_affine(
+            FpE::new(U256::from_hex_unchecked(
+                "0000000000000000000000000000000000000000000000000000000000000001",
+            )),
+            FpE::new(U256::from_hex_unchecked(
+                "0000000000000000000000000000000000000000000000000000000000000002",
+            )),
+        )
+        .unwrap();
 
-        assert_eq!(line_2(&p, &q, &t), line_2(&p, &t, &q));
+        let q2 = G2Point::from_affine(
+            Fp2E::new([
+                FpE::new(U256::from_hex_unchecked(
+                    "290158a80cd3d66530f74dc94c94adb88f5cdb481acca997b6e60071f08a115f",
+                )),
+                FpE::new(U256::from_hex_unchecked(
+                    "1a2c3013d2ea92e13c800cde68ef56a294b883f6ac35d25f587c09b1b3c635f7",
+                )),
+            ]),
+            Fp2E::new([
+                FpE::new(U256::from_hex_unchecked(
+                    "29d1691530ca701b4a106054688728c9972c8512e9789e9567aae23e302ccd75",
+                )),
+                FpE::new(U256::from_hex_unchecked(
+                    "2f997f3dbd66a7afe07fe7862ce239edba9e05c5afff7f8a1259c9733b2dfbb9",
+                )),
+            ]),
+        )
+        .unwrap();
+
+        let result = BN254AtePairing::compute_batch(&[(&p1, &q1), (&p2, &q2)]).unwrap();
+        assert_eq!(result, Fp12E::one());
     }
 
     #[test]
-    fn check_affine_equals_hardcoded() {
-        let p = BN254Curve::generator();
-        let p_affine = p.to_affine();
-        let x_p = p.x() * p.z().inv().unwrap();
-        let y_p = p.y() * p.z().inv().unwrap();
+    fn two_pairs_of_points_fail() {
+        let p1 = G1Point::from_affine(
+            FpE::new(U256::from_hex_unchecked(
+                "0000000000000000000000000000000000000000000000000000000000000001",
+            )),
+            FpE::new(U256::from_hex_unchecked(
+                "0000000000000000000000000000000000000000000000000000000000000002",
+            )),
+        )
+        .unwrap();
+
+        let q1 = G2Point::from_affine(
+            Fp2E::new([
+                FpE::new(U256::from_hex_unchecked(
+                    "1800deef121f1e76426a00665e5c4479674322d4f75edadd46debd5cd992f6ed",
+                )),
+                FpE::new(U256::from_hex_unchecked(
+                    "198e9393920d483a7260bfb731fb5d25f1aa493335a9e71297e485b7aef312c2",
+                )),
+            ]),
+            Fp2E::new([
+                FpE::new(U256::from_hex_unchecked(
+                    "12c85ea5db8c6deb4aab71808dcb408fe3d1e7690c43d37b4ce6cc0166fa7daa",
+                )),
+                FpE::new(U256::from_hex_unchecked(
+                    "090689d0585ff075ec9e99ad690c3395bc4b313370b38ef355acdadcd122975b",
+                )),
+            ]),
+        )
+        .unwrap();
+
+        let p2 = G1Point::from_affine(
+            FpE::new(U256::from_hex_unchecked(
+                "0000000000000000000000000000000000000000000000000000000000000001",
+            )),
+            FpE::new(U256::from_hex_unchecked(
+                "0000000000000000000000000000000000000000000000000000000000000002",
+            )),
+        )
+        .unwrap();
+
+        let q2 = G2Point::from_affine(
+            Fp2E::new([
+                FpE::new(U256::from_hex_unchecked(
+                    "1800deef121f1e76426a00665e5c4479674322d4f75edadd46debd5cd992f6ed",
+                )),
+                FpE::new(U256::from_hex_unchecked(
+                    "198e9393920d483a7260bfb731fb5d25f1aa493335a9e71297e485b7aef312c2",
+                )),
+            ]),
+            Fp2E::new([
+                FpE::new(U256::from_hex_unchecked(
+                    "12c85ea5db8c6deb4aab71808dcb408fe3d1e7690c43d37b4ce6cc0166fa7daa",
+                )),
+                FpE::new(U256::from_hex_unchecked(
+                    "090689d0585ff075ec9e99ad690c3395bc4b313370b38ef355acdadcd122975b",
+                )),
+            ]),
+        )
+        .unwrap();
+
+        let result = BN254AtePairing::compute_batch(&[(&p1, &q1), (&p2, &q2)]).unwrap();
+        assert!(result != Fp12E::one());
     }
 
     #[test]
-    fn pow_x() {
-        let [f, _, _] = BN254TwistCurve::generator().coordinates().clone();
-        println!("{:?}", f.pow(X));
+    fn three_pairs_of_points_fail() {
+        let p1 = G1Point::from_affine(
+            FpE::new(U256::from_hex_unchecked(
+                "105456a333e6d636854f987ea7bb713dfd0ae8371a72aea313ae0c32c0bf1016",
+            )),
+            FpE::new(U256::from_hex_unchecked(
+                "0cf031d41b41557f3e7e3ba0c51bebe5da8e6ecd855ec50fc87efcdeac168bcc",
+            )),
+        )
+        .unwrap();
+
+        let q1 = G2Point::from_affine(
+            Fp2E::new([
+                FpE::new(U256::from_hex_unchecked(
+                    "3010c68cb50161b7d1d96bb71edfec9880171954e56871abf3d93cc94d745fa1",
+                )),
+                FpE::new(U256::from_hex_unchecked(
+                    "0476be093a6d2b4bbf907172049874af11e1b6267606e00804d3ff0037ec57fd",
+                )),
+            ]),
+            Fp2E::new([
+                FpE::new(U256::from_hex_unchecked(
+                    "01b33461f39d9e887dbb100f170a2345dde3c07e256d1dfa2b657ba5cd030427",
+                )),
+                FpE::new(U256::from_hex_unchecked(
+                    "14c059d74e5b6c4ec14ae5864ebe23a71781d86c29fb8fb6cce94f70d3de7a21",
+                )),
+            ]),
+        )
+        .unwrap();
+
+        let p2 = G1Point::from_affine(
+            FpE::new(U256::from_hex_unchecked(
+                "0000000000000000000000000000000000000000000000000000000000000001",
+            )),
+            FpE::new(U256::from_hex_unchecked(
+                "0000000000000000000000000000000000000000000000000000000000000002",
+            )),
+        )
+        .unwrap();
+
+        let q2 = G2Point::from_affine(
+            Fp2E::new([
+                FpE::new(U256::from_hex_unchecked(
+                    "290158a80cd3d66530f74dc94c94adb88f5cdb481acca997b6e60071f08a115f",
+                )),
+                FpE::new(U256::from_hex_unchecked(
+                    "1a2c3013d2ea92e13c800cde68ef56a294b883f6ac35d25f587c09b1b3c635f7",
+                )),
+            ]),
+            Fp2E::new([
+                FpE::new(U256::from_hex_unchecked(
+                    "0692e55db067300e6e3fe56218fa2f940054e57e7ef92bf7d475a9d8a8502fd2",
+                )),
+                FpE::new(U256::from_hex_unchecked(
+                    "00cacf3523caf879d7d05e30549f1e6fdce364cbb8724b0329c6c2a39d4f018e",
+                )),
+            ]),
+        )
+        .unwrap();
+
+        let p3 = G1Point::from_affine(
+            FpE::new(U256::from_hex_unchecked(
+                "0000000000000000000000000000000000000000000000000000000000000001",
+            )),
+            FpE::new(U256::from_hex_unchecked(
+                "0000000000000000000000000000000000000000000000000000000000000002",
+            )),
+        )
+        .unwrap();
+
+        let q3 = G2Point::from_affine(
+            Fp2E::new([
+                FpE::new(U256::from_hex_unchecked(
+                    "1800deef121f1e76426a00665e5c4479674322d4f75edadd46debd5cd992f6ed",
+                )),
+                FpE::new(U256::from_hex_unchecked(
+                    "198e9393920d483a7260bfb731fb5d25f1aa493335a9e71297e485b7aef312c2",
+                )),
+            ]),
+            Fp2E::new([
+                FpE::new(U256::from_hex_unchecked(
+                    "12c85ea5db8c6deb4aab71808dcb408fe3d1e7690c43d37b4ce6cc0166fa7daa",
+                )),
+                FpE::new(U256::from_hex_unchecked(
+                    "090689d0585ff075ec9e99ad690c3395bc4b313370b38ef355acdadcd122975b",
+                )),
+            ]),
+        )
+        .unwrap();
+
+        let result = BN254AtePairing::compute_batch(&[(&p1, &q1), (&p2, &q2), (&p3, &q3)]).unwrap();
+        assert!(result != Fp12E::one());
     }
-
-    /* #[test]
-    fn ate_pairing_errors_when_one_element_is_not_in_subgroup() {
-        let p = ShortWeierstrassProjectivePoint::new([
-            FieldElement::one(),
-            FieldElement::one(),
-            FieldElement::one(),
-        ]);
-        let q = ShortWeierstrassProjectivePoint::neutral_element();
-        let result = ate_pairing(&p, &q);
-        assert!(result.is_err())
-    }
-    */
-
-    //
-
-    /* Q = (21740656624264531918905957436349160317178065932174634873434489096384118284193,
-             2019050928575347605638490762886992026922085924959710776569383806797571971069 i ),
-             (768940004759184688611731872359665907813921273999645987556749132562407031847,
-              9386111668168143378799867099066976687163019156923561176364278935596535020065 i)
-        T =((18547205523279150343907423763561667656905210989238825125041531932617195786591,
-            11838207152290886924918158754888128755040578374158302623586388982144778515959i),
-            (18914823083116165396144529068959135293951172901190760512481127643602037296501,
-               21529909670613655107982420544538753603501207742700745772316790404883810220985 i))
-        Po
-
-
-
-
-        Points generated with the sage script:
-        Q1 ∈ G2
-       'Q1': {'x': {'c0': '0x1a031c43dfaa2dd04a2c5b2dd257b449ce088dfd6d8ca041f19365b94ae7ae0',
-         'c1': '0x19f3b18b9baad6dadea895c76728c461e7f188f1a3da94a697d90428f554f039'},
-        'y': {'c0': '0x1467f6d823536b43c1d13f7ce580cc56ba88ad999b12e27e355c114d819bee81',
-         'c1': '0x2f992ff71d0d08f6271f2d40039924e831d53a43a4772e4322710ee41daed756'}}}
-
-        Q2 ∈ G2
-        'Q2': {'x': {'c0': '0x1c0cdfa0b0eb6dcd93968a84ff1f5dfec3284b588e4bf72e6ed01052c23e1058',
-         'c1': '0x57182543d53551f8dc42e18396f78bec25a36dd07de7006308f90af112fa5d0'},
-        'y': {'c0': '0x279b356bf1390a747e0d361cd896e31898f9d9705942c176c79aa904b5c89243',
-         'c1': '0x1f537cf9f716088e6a4bf2779cd7e66f83a29a498d2476a9e5a8d7eb9c21967d'}}}]}
-
-
-               FieldElement::new([FieldElement::new(U256::from(0x1a031c43dfaa2dd04a2c5b2dd257b449ce088dfd6d8ca041f19365b94ae7ae0)), FieldElement::new(U256::from(0x19f3b18b9baad6dadea895c76728c461e7f188f1a3da94a697d90428f554f039))]);
-
-    let q1 = ShortWeierstrassProjectivePoint::<BN254TwistCurve>::new([
-        FieldElement::<Degree2ExtensionField>::new([
-            FieldElement::new(U256::from_hex_unchecked("0x1a031c43dfaa2dd04a2c5b2dd257b449ce088dfd6d8ca041f19365b94ae7ae0")),
-            FieldElement::new(U256::from_hex_unchecked("0x19f3b18b9baad6dadea895c76728c461e7f188f1a3da94a697d90428f554f039"))
-        ]),
-        FieldElement::<Degree2ExtensionField>::new([
-            FieldElement::new(U256::from_hex_unchecked("0x1467f6d823536b43c1d13f7ce580cc56ba88ad999b12e27e355c114d819bee81")),
-            FieldElement::new(U256::from_hex_unchecked("0x2f992ff71d0d08f6271f2d40039924e831d53a43a4772e4322710ee41daed756"))
-        ]),
-        FieldElement::one()
-    ]);
-
-    */
 }
