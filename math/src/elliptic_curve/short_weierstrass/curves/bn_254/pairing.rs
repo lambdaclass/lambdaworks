@@ -12,6 +12,7 @@ use crate::{
     field::element::FieldElement,
 };
 
+
 type FpE = FieldElement<BN254PrimeField>;
 type Fp2E = FieldElement<Degree2ExtensionField>;
 type Fp6E = FieldElement<Degree6ExtensionField>;
@@ -186,7 +187,6 @@ fn miller(p: &G1Point, q: &G2Point) -> Fp12E {
 fn line(p: &G1Point, t: &G2Point, q: &G2Point) -> Fp12E {
     // We convert p into affine coordinates.
     let [x_p, y_p, _] = p.to_affine().coordinates().clone();
-    let mut l = Fp12E::one();
 
     if t == q {
         let b = t.y().square();
@@ -201,7 +201,7 @@ fn line(p: &G1Point, t: &G2Point, q: &G2Point) -> Fp12E {
         // where g = g0 + g1 * v + g2 * v^2,
         // and h = h0 + h1 * v + h2 * v^2.
         // See https://hackmd.io/@Wimet/ry7z1Xj-2#Tower-of-Extension-Fields.
-        l = Fp12E::new([
+        return Fp12E::new([
             Fp6E::new([y_p * (-h), Fp2E::zero(), Fp2E::zero()]),
             Fp6E::new([x_p * (j.double() + &j), i, Fp2E::zero()]),
         ])
@@ -212,12 +212,11 @@ fn line(p: &G1Point, t: &G2Point, q: &G2Point) -> Fp12E {
         let lambda = t.x() - &(&x_q * t.z());
         let j = &theta * &x_q - &(&lambda * &y_q);
 
-        l = Fp12E::new([
+        return Fp12E::new([
             Fp6E::new([y_p * lambda, Fp2E::zero(), Fp2E::zero()]),
             Fp6E::new([x_p * (-theta), j, Fp2E::zero()]),
         ])
     }
-    l
 }
 
 /// Computes f ^ {(p^12 - 1) / r}
@@ -326,10 +325,12 @@ pub fn frobenius_cube(
 /// We took the G1 and G2 points from:
 /// https://github.com/lambdaclass/zksync_era_precompiles/blob/4bdfebf831e21d58c5ba6945d4524763f1ef64d4/tests/tests/ecpairing_tests.rs
 mod tests {
+    use crate::unsigned_integer::element::U256;
     use crate::{
         cyclic_group::IsGroup, elliptic_curve::traits::IsEllipticCurve,
         unsigned_integer::element::U384,
     };
+    use crate::elliptic_curve::traits::FromAffine;
 
     use super::*;
 
