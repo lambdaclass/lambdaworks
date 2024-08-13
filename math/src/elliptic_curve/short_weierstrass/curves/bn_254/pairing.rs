@@ -338,8 +338,6 @@ mod tests {
     fn batch_ate_pairing_bilinearity() {
         let p = BN254Curve::generator();
         let q = BN254TwistCurve::generator();
-        println!("G1 generator is: {:?}", p);
-        println!("G2 generator is: {:?}", q);
 
         let a = U384::from_u64(11);
         let b = U384::from_u64(93);
@@ -524,8 +522,6 @@ mod tests {
         .unwrap();
 
         let result = BN254AtePairing::compute_batch(&[(&p1, &q1), (&p2, &q2)]).unwrap();
-        println!("result: {:?}", result);
-        println!("one: {:?}", Fp12E::one());
 
         assert_eq!(result, Fp12E::one());
     }
