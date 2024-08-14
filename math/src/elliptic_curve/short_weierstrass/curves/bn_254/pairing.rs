@@ -155,10 +155,10 @@ fn miller(p: &G1Point, q: &G2Point) -> Fp12E {
 
         if *m == -1 {
             f *= line(p, &t, q_neg);
-            t = t.operate_with(q_neg);
+            t = t.operate_with_affine(q_neg);
         } else if *m == 1 {
             f *= line(p, &t, q);
-            t = t.operate_with(q);
+            t = t.operate_with_affine(q);
         }
     });
 
@@ -181,7 +181,7 @@ fn miller(p: &G1Point, q: &G2Point) -> Fp12E {
 /// See https://eprint.iacr.org/2013/722.pdf (Page 13, Equations 11 and 13).
 fn line(p: &G1Point, t: &G2Point, q: &G2Point) -> Fp12E {
     // We convert p into affine coordinates.
-    let [x_p, y_p, _] = p.to_affine().coordinates().clone();
+    let [x_p, y_p, _] = p.coordinates().clone();
 
     if t == q {
         let b = t.y().square();
@@ -201,7 +201,7 @@ fn line(p: &G1Point, t: &G2Point, q: &G2Point) -> Fp12E {
             Fp6E::new([x_p * (j.double() + &j), i, Fp2E::zero()]),
         ])
     } else {
-        let [x_q, y_q, _] = q.to_affine().coordinates().clone();
+        let [x_q, y_q, _] = q.coordinates().clone();
 
         let theta = t.y() - (&y_q * t.z());
         let lambda = t.x() - (&x_q * t.z());
