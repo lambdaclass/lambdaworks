@@ -151,7 +151,7 @@ fn miller(p: &G1Point, q: &G2Point) -> Fp12E {
     let q_neg = &q.neg();
     MILLER_CONSTANT.iter().rev().skip(1).for_each(|m| {
         f = f.square() * line(p, &t, &t);
-        t = t.operate_with_self(2usize);
+        t = t.double();
 
         if *m == -1 {
             f *= line(p, &t, q_neg);
