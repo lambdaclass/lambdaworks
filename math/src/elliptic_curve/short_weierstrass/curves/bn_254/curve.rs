@@ -224,15 +224,21 @@ mod tests {
     }
 
     #[test]
-    fn operate_with_self_works_2(){
-        let g =BN254TwistCurve::generator();
-        assert_eq!((g.operate_with_self(X)).double(), (g.operate_with_self(2*X)))
+    fn operate_with_self_works_2() {
+        let g = BN254TwistCurve::generator();
+        assert_eq!(
+            (g.operate_with_self(X)).double(),
+            (g.operate_with_self(2 * X))
+        )
     }
 
     #[test]
-    fn operate_with_self_works_3(){
-        let g =BN254TwistCurve::generator();
-        assert_eq!((g.operate_with_self(X)).operate_with(&g), (g.operate_with_self(X + 1)))
+    fn operate_with_self_works_3() {
+        let g = BN254TwistCurve::generator();
+        assert_eq!(
+            (g.operate_with_self(X)).operate_with(&g),
+            (g.operate_with_self(X + 1))
+        )
     }
 
     #[test]
