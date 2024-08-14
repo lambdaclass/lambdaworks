@@ -181,7 +181,7 @@ fn miller(p: &G1Point, q: &G2Point) -> Fp12E {
 /// See https://eprint.iacr.org/2013/722.pdf (Page 13, Equations 11 and 13).
 fn line(p: &G1Point, t: &G2Point, q: &G2Point) -> Fp12E {
     // We convert p into affine coordinates.
-    let [x_p, y_p, _] = p.coordinates().clone();
+    let [x_p, y_p, _] = p.coordinates();
 
     if t == q {
         let b = t.y().square();
@@ -201,11 +201,11 @@ fn line(p: &G1Point, t: &G2Point, q: &G2Point) -> Fp12E {
             Fp6E::new([x_p * (j.double() + &j), i, Fp2E::zero()]),
         ])
     } else {
-        let [x_q, y_q, _] = q.coordinates().clone();
+        let [x_q, y_q, _] = q.coordinates();
 
-        let theta = t.y() - (&y_q * t.z());
-        let lambda = t.x() - (&x_q * t.z());
-        let j = &theta * &x_q - (&lambda * &y_q);
+        let theta = t.y() - (y_q * t.z());
+        let lambda = t.x() - (x_q * t.z());
+        let j = &theta * x_q - (&lambda * y_q);
 
         Fp12E::new([
             Fp6E::new([y_p * lambda, Fp2E::zero(), Fp2E::zero()]),
