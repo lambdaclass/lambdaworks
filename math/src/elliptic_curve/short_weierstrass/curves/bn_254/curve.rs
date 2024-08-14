@@ -56,8 +56,8 @@ impl ShortWeierstrassProjectivePoint<BN254TwistCurve> {
     // Checks if a G2 point is in the subgroup of the twisted curve.
     pub fn is_in_subgroup(&self) -> bool {
         let q_times_x = &self.operate_with_self(X);
-        let q_times_x_plus_1 = &self.operate_with_self(X + 1);
-        let q_times_2x = &self.operate_with_self(2 * X);
+        let q_times_x_plus_1 = &self.operate_with(q_times_x);
+        let q_times_2x = q_times_x.double();
 
         // (x+1)Q + phi(xQ) + phi(phi(xQ)) == phi(phi(phi(2xQ)))
         q_times_x_plus_1.operate_with(&q_times_x.phi().operate_with(&q_times_x.phi().phi()))
