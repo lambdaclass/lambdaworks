@@ -3,7 +3,11 @@ use super::{
     field_extension::{BN254PrimeField, Degree12ExtensionField, Degree2ExtensionField},
     twist::BN254TwistCurve,
 };
-use crate::{cyclic_group::IsGroup, elliptic_curve::traits::IsPairing, errors::PairingError};
+use crate::{
+    cyclic_group::IsGroup,
+    elliptic_curve::{short_weierstrass::traits::IsShortWeierstrass, traits::IsPairing},
+    errors::PairingError,
+};
 use crate::{
     elliptic_curve::short_weierstrass::{
         curves::bn_254::field_extension::Degree6ExtensionField,
@@ -37,15 +41,6 @@ pub const MILLER_CONSTANT: [i32; 65] = [
     1, 1, 1, 0, 0, -1, 0, 0, 1, 0, 0, 0, 0, 0, -1, 0, 0, 1, 1, 0, 0, -1, 0, 0, 0, 1, 1, 0, -1, 0,
     0, 1, 0, 1, 1,
 ];
-
-/// COEFF_B = 3/(u+9) where
-/// the twist curve is: y^2 = x^3 + 3/(u+9)
-/// See the post https://hackmd.io/@jpw/bn254#Twists.
-/// See arkworks implementation https://github.com/arkworks-rs/algebra/blob/master/curves/bn254/src/curves/g2.rs#L39
-pub const COEFF_B: Fp2E = Fp2E::const_from_raw([
-    FpE::from_hex_unchecked("2B149D40CEB8AAAE81BE18991BE06AC3B5B4C5E559DBEFA33267E6DC24A138E5"),
-    FpE::from_hex_unchecked("9713B03AF0FED4CD2CAFADEED8FDF4A74FA084E52D1852E4A2BD0685C315D2"),
-]);
 
 /// GAMMA constants used to compute the Frobenius morphisms and G2 subgroup check.
 /// We took these constants from https://github.com/hecmas/zkNotebook/blob/main/src/BN254/constants.ts#L48
@@ -139,7 +134,9 @@ impl IsPairing for BN254AtePairing {
                 return Err(PairingError::PointNotInSubgroup);
             }
             if !p.is_neutral_element() && !q.is_neutral_element() {
-                result *= miller(p, q);
+                let p = p.to_affine();
+                let q = q.to_affine();
+                result *= miller(&p, &q);
             }
         }
         Ok(final_exponentiation(&result))
@@ -151,20 +148,19 @@ impl IsPairing for BN254AtePairing {
 fn miller(p: &G1Point, q: &G2Point) -> Fp12E {
     let mut t = q.clone();
     let mut f = Fp12E::one();
-    let miller_length = MILLER_CONSTANT.len();
-
-    for i in (0..miller_length - 1).rev() {
+    let q_neg = &q.neg();
+    MILLER_CONSTANT.iter().rev().skip(1).for_each(|m| {
         f = f.square() * line(p, &t, &t);
         t = t.operate_with_self(2usize);
 
-        if MILLER_CONSTANT[i] == -1 {
-            f *= line(p, &t, &q.neg());
-            t = t.operate_with(&q.neg());
-        } else if MILLER_CONSTANT[i] == 1 {
+        if *m == -1 {
+            f *= line(p, &t, q_neg);
+            t = t.operate_with(q_neg);
+        } else if *m == 1 {
             f *= line(p, &t, q);
             t = t.operate_with(q);
         }
-    }
+    });
 
     // q1 = ((x_q)^p, (y_q)^p, (z_q)^p)
     // See  https://hackmd.io/@Wimet/ry7z1Xj-2#The-Last-two-Lines
@@ -190,8 +186,8 @@ fn line(p: &G1Point, t: &G2Point, q: &G2Point) -> Fp12E {
     if t == q {
         let b = t.y().square();
         let c = t.z().square();
-        let e = COEFF_B * &(c.double() + &c);
-        let h = (t.y() + t.z()).square() - &(&b + &c);
+        let e = BN254TwistCurve::b() * (c.double() + &c);
+        let h = (t.y() + t.z()).square() - (&b + &c);
         let i = &e - &b;
         let j = t.x().square();
 
@@ -207,9 +203,9 @@ fn line(p: &G1Point, t: &G2Point, q: &G2Point) -> Fp12E {
     } else {
         let [x_q, y_q, _] = q.to_affine().coordinates().clone();
 
-        let theta = t.y() - &(&y_q * t.z());
-        let lambda = t.x() - &(&x_q * t.z());
-        let j = &theta * &x_q - &(&lambda * &y_q);
+        let theta = t.y() - (&y_q * t.z());
+        let lambda = t.x() - (&x_q * t.z());
+        let j = &theta * &x_q - (&lambda * &y_q);
 
         Fp12E::new([
             Fp6E::new([y_p * lambda, Fp2E::zero(), Fp2E::zero()]),
