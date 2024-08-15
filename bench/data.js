@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1723753289096,
+  "lastUpdate": 1723757238104,
   "repoUrl": "https://github.com/lambdaclass/lambdaworks",
   "entries": {
     "Benchmark": [
@@ -11987,6 +11987,150 @@ window.BENCHMARK_DATA = {
             "name": "Polynomial/evaluate 10",
             "value": 1,
             "range": "± 0",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nicole.graus@lambdaclass.com",
+            "name": "Nicole Graus",
+            "username": "nicole-graus"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "01fff470bd52bc227a0680a414f38beb399f5455",
+          "message": "Bn254 pairing (#889)\n\n* save work\n\n* save work\n\n* add check if a g2point is subgroup of twisted curve\n\n* save work\n\n* double and add functions\n\n* test double and add naive\n\n* tests add and double don't work\n\n* save work\n\n* added g2 points for the tests\n\n* miller naive implementation\n\n* save work. added test to check frobenius\n\n* save work\n\n* finished all needed functions. Time to debug\n\n* save work\n\n* save work\n\n* added double acumulate line and add line\n\n* new implementation pairing_v2\n\n* pairing batch now works\n\n* add tests\n\n* save work\n\n* Pairing always returned one. Final exponentiation implemented\n\n* pairing working\n\n* Files organized. All tests passed.\n\n* cargo fmt clippy\n\n* fix clippy\n\n* fix clippy\n\n* fix clippy\n\n* remove println!\n\n* use one()\n\n* ensure points are in affine form\n\n* use double function\n\n* speed is_in_subgroup\n\n* simplify is_in_subgroup\n\n* format\n\n* remove unnecessary affine\n\n* remove clones\n\n* add field_extension tests\n\n* check non degeneracy\n\n---------\n\nCo-authored-by: jotabulacios <jbulacios@fi.uba.ar>\nCo-authored-by: Nicole <nicole@Nicoles-MacBook-Air.local>\nCo-authored-by: Nicole <nicole@Nicoles-Air.fibertel.com.ar>\nCo-authored-by: Diego K <43053772+diegokingston@users.noreply.github.com>\nCo-authored-by: diegokingston <dkingston@fi.uba.ar>",
+          "timestamp": "2024-08-15T21:15:13Z",
+          "tree_id": "c421399ec6d80821c3071f9b48feaa1fbc1a0018",
+          "url": "https://github.com/lambdaclass/lambdaworks/commit/01fff470bd52bc227a0680a414f38beb399f5455"
+        },
+        "date": 1723757234759,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "Ordered FFT/Parallel (Metal)",
+            "value": 104275336,
+            "range": "± 13223419",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #2",
+            "value": 165252531,
+            "range": "± 8676127",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #3",
+            "value": 322016374,
+            "range": "± 1766594",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #4",
+            "value": 647371791,
+            "range": "± 15321949",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal)",
+            "value": 34713130,
+            "range": "± 772376",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #2",
+            "value": 69736390,
+            "range": "± 4247168",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #3",
+            "value": 136901460,
+            "range": "± 1728331",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #4",
+            "value": 280618437,
+            "range": "± 904674",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal)",
+            "value": 35151093,
+            "range": "± 241798",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #2",
+            "value": 66614928,
+            "range": "± 1485429",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #3",
+            "value": 132793256,
+            "range": "± 4569544",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #4",
+            "value": 271565041,
+            "range": "± 12196506",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal",
+            "value": 126036784,
+            "range": "± 848654",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #2",
+            "value": 246551291,
+            "range": "± 1741743",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #3",
+            "value": 491789750,
+            "range": "± 6026427",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #4",
+            "value": 1038752708,
+            "range": "± 17882064",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal",
+            "value": 408296520,
+            "range": "± 906317",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #2",
+            "value": 811982271,
+            "range": "± 3414305",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #3",
+            "value": 1587843166,
+            "range": "± 5214702",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #4",
+            "value": 3160053499,
+            "range": "± 30372059",
             "unit": "ns/iter"
           }
         ]
