@@ -761,4 +761,12 @@ mod tests {
         let pairing_result = BN254AtePairing::compute_batch(&[(&p, &q)]).unwrap();
         assert_eq!(pairing_result.pow(R), Fp12E::one());
     }
+
+    #[test]
+    fn pairing_is_non_degenerate() {
+        let p = BN254Curve::generator();
+        let q = BN254TwistCurve::generator();
+        let pairing_result = BN254AtePairing::compute_batch(&[(&p, &q)]).unwrap();
+        assert_ne!(pairing_result, Fp12E::one());
+    }
 }
