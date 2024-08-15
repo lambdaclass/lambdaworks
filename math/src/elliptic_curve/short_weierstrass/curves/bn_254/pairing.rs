@@ -749,4 +749,16 @@ mod tests {
         let result = BN254AtePairing::compute_batch(&[(&p1, &q1), (&p2, &q2), (&p3, &q3)]).unwrap();
         assert!(result != Fp12E::one());
     }
+
+    const R: U256 = U256::from_hex_unchecked(
+        "30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001",
+    );
+
+    #[test]
+    fn pairing_result_pow_r_is_one() {
+        let p = BN254Curve::generator();
+        let q = BN254TwistCurve::generator();
+        let pairing_result = BN254AtePairing::compute_batch(&[(&p, &q)]).unwrap();
+        assert_eq!(pairing_result.pow(R), Fp12E::one());
+    }
 }

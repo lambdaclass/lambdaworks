@@ -160,4 +160,70 @@ impl FieldElement<Degree12ExtensionField> {
     }
 }
 
-//TODO: Add tests, check the ones from BLS12-381.
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+    type FpE = FieldElement<BN254PrimeField>;
+    type Fp2E = FieldElement<Degree2ExtensionField>;
+    type Fp6E = FieldElement<Degree6ExtensionField>;
+    type Fp12E = FieldElement<Degree12ExtensionField>;
+
+    #[test]
+    fn embed_base_field_with_degree_2_extension() {
+        let a = FpE::from(3);
+        let a_extension = Fp2E::from(3);
+        assert_eq!(a.to_extension::<Degree2ExtensionField>(), a_extension);
+    }
+
+    #[test]
+    fn add_base_field_with_degree_2_extension() {
+        let a = FpE::from(3);
+        let a_extension = Fp2E::from(3);
+        let b = Fp2E::from(2);
+        assert_eq!(a + &b, a_extension + b);
+    }
+
+    #[test]
+    fn mul_degree_2_with_degree_6_extension() {
+        let a = Fp2E::new([FpE::from(3), FpE::from(4)]);
+        let a_extension = a.clone().to_extension::<Degree2ExtensionField>();
+        let b = Fp6E::from(2);
+        assert_eq!(a * &b, a_extension * b);
+    }
+
+    #[test]
+    fn div_degree_6_degree_12_extension() {
+        let a = Fp6E::from(3);
+        let a_extension = Fp12E::from(3);
+        let b = Fp12E::from(2);
+        assert_eq!(a / &b, a_extension / b);
+    }
+
+    #[test]
+    fn double_equals_sum_two_times() {
+        let a = FpE::from(3);
+        assert_eq!(a.double(), a.clone() + a);
+    }
+
+    #[test]
+    fn base_field_sum_is_asociative() {
+        let a = FpE::from(3);
+        let b = FpE::from(2);
+        let c = &a + &b;
+        assert_eq!(a.double() + b, a + c);
+    }
+
+    #[test]
+    fn degree_2_extension_mul_is_conmutative() {
+        let a = Fp2E::from(3);
+        let b = Fp2E::new([FpE::from(2), FpE::from(4)]);
+        assert_eq!(&a * &b, b * a);
+    }
+
+    #[test]
+    fn base_field_pow_p_is_identity() {
+        let a = FpE::from(3);
+        assert_eq!(a.pow(BN254_PRIME_FIELD_ORDER), a);
+    }
+}
