@@ -150,7 +150,11 @@ where
 
     #[inline(always)]
     fn square(a: &UnsignedInteger<NUM_LIMBS>) -> UnsignedInteger<NUM_LIMBS> {
-        MontgomeryAlgorithms::sos_square(a, &M::MODULUS, &Self::MU)
+        if Self::MODULUS_HAS_ONE_SPARE_BIT {
+            MontgomeryAlgorithms::sos_square(a, &M::MODULUS, &Self::MU)
+        } else {
+            MontgomeryAlgorithms::cios(a, a, &M::MODULUS, &Self::MU)
+        }
     }
 
     #[inline(always)]
@@ -1219,6 +1223,29 @@ mod tests_u256_prime_fields {
 
     type GoldilocksField = U64PrimeField<GoldilocksModulus>;
     type GoldilocksElement = FieldElement<GoldilocksField>;
+
+    #[derive(Clone, Debug)]
+    struct SecpModulus;
+    impl IsModulus<U256> for SecpModulus {
+        const MODULUS: U256 = UnsignedInteger::from_hex_unchecked(
+            "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F",
+        );
+    }
+    type SecpMontField = U256PrimeField<SecpModulus>;
+    type SecpMontElement = FieldElement<SecpMontField>;
+
+    #[test]
+    fn secp256k1_minus_three_pow_2_is_9_with_all_operations() {
+        let minus_3 = -SecpMontElement::from_hex_unchecked("0x3");
+        let minus_3_mul_minus_3 = &minus_3 * &minus_3;
+        let minus_3_squared = minus_3.square();
+        let minus_3_pow_2 = minus_3.pow(2_u32);
+        let nine = SecpMontElement::from_hex_unchecked("0x9");
+
+        assert_eq!(minus_3_mul_minus_3, nine);
+        assert_eq!(minus_3_squared, nine);
+        assert_eq!(minus_3_pow_2, nine);
+    }
 
     #[test]
     fn test_cios_overflow_case() {
