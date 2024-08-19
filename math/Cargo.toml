@@ -28,7 +28,7 @@ cudarc = { version = "0.9.7", optional = true }
 lambdaworks-gpu = { workspace = true, optional = true }
 
 [dev-dependencies]
-rand = { version = "0.8.5", default-features = false }
+rand = { version = "0.8.5", features = ["std_rng"] }
 rand_chacha = "0.3.1"
 criterion = "0.5.1"
 const-random = "0.1.15"
@@ -60,25 +60,25 @@ cuda = ["dep:cudarc", "dep:lambdaworks-gpu"]
 name = "criterion_elliptic_curve"
 harness = false
 
-[[bench]]
-name = "iai_elliptic_curve"
-harness = false
+#[[bench]]
+#name = "iai_elliptic_curve"
+#harness = false
 
 [[bench]]
 name = "criterion_polynomial"
 harness = false
 
-[[bench]]
-name = "iai_polynomial"
-harness = false
+#[[bench]]
+#name = "iai_polynomial"
+#harness = false
 
 [[bench]]
 name = "criterion_field"
 harness = false
 
-[[bench]]
-name = "iai_field"
-harness = false
+#[[bench]]
+#name = "iai_field"
+#harness = false
 
 [[bench]]
 name = "criterion_msm"
@@ -89,9 +89,9 @@ required-features = ["parallel"]
 name = "criterion_fft"
 harness = false
 
-[[bench]]
-name = "iai_fft"
-harness = false
+#[[bench]]
+#name = "iai_fft"
+#harness = false
 
 [[bench]]
 name = "criterion_metal"

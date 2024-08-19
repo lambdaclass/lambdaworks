@@ -11,7 +11,7 @@ license = "Apache-2.0"
 repository = "https://github.com/lambdaclass/lambdaworks"
 
 [workspace.dependencies]
-iai-callgrind = "0.3.1"
+iai-callgrind = "0.13.0"
 lambdaworks-crypto = { path = "./crypto", version = "0.9.0", default-features = false }
 lambdaworks-gpu = { path = "./gpu", version = "0.9.0" }
 lambdaworks-math = { path = "./math", version = "0.9.0", default-features = false }
