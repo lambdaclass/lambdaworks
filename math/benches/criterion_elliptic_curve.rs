@@ -10,6 +10,7 @@ use elliptic_curves::{
 criterion_group!(
     name = elliptic_curve_benches;
     config = Criterion::default().with_profiler(PProfProfiler::new(100, Output::Flamegraph(None)));
-    targets =  bn_254_elliptic_curve_benchmarks, bls12_381_elliptic_curve_benchmarks, bls12_377_elliptic_curve_benchmarks 
+    targets =  bn_254_elliptic_curve_benchmarks, 
 );
+
 criterion_main!(elliptic_curve_benches);

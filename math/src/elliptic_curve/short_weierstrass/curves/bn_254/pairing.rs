@@ -145,7 +145,7 @@ impl IsPairing for BN254AtePairing {
 
 /// Computes Miller loop using oprate_with(), operate_with_self() and line().
 /// See https://eprint.iacr.org/2010/354.pdf (Page 4, Algorithm 1).
-fn miller(p: &G1Point, q: &G2Point) -> Fp12E {
+pub fn miller(p: &G1Point, q: &G2Point) -> Fp12E {
     let mut t = q.clone();
     let mut f = Fp12E::one();
     let q_neg = &q.neg();
@@ -223,8 +223,9 @@ pub fn final_exponentiation(
     // Easy part:
     // Computes f ^ {(p^6 - 1) * (p^2 + 1)}
     let f_easy_aux = f.conjugate() * f.inv().unwrap(); // f ^ (p^6 - 1) because f^(p^6) = f.conjugate().
-    let f_easy = &frobenius_square(&f_easy_aux) * f_easy_aux; // (f^{p^6 - 1})^(p^2) * (f^{p^6 - 1}).
+    let mut f_easy = &frobenius_square(&f_easy_aux) * f_easy_aux; // (f^{p^6 - 1})^(p^2) * (f^{p^6 - 1}).
 
+    /*
     // Hard part:
     // Computes f_easy ^ ((p^4 - p^2 + 1) / r)
     // See https://hackmd.io/@Wimet/ry7z1Xj-2#The-Hard-Part, where f_easy is called m.
@@ -254,8 +255,41 @@ pub fn final_exponentiation(
         * y4.pow(18usize)
         * y5.pow(30usize)
         * y6.pow(36usize)
-}
+    */
 
+       // Hard part following Arkworks library.
+       let mut y0 = f_easy.pow(X);
+       y0 = y0.inv().unwrap();
+       // For degree 12 extensions, this can be computed faster than normal squaring.
+       // See https://github.dev/arkworks-rs/algebra/blob/master/ec/src/models/bn/mod.rs (cyclotimic_square)
+       let y1 = &y0.square();
+       let y2 = &y1.square();
+       let mut y3 = y2 * y1;
+       let mut y4 = y3.pow(X);
+       y4 = y4.inv().unwrap();
+       let y5 = y4.square();
+       let mut y6 = y5.pow(X);
+       y6 = y6.inv().unwrap();
+       // TODO: See if there is a faster way to take inverse.
+       y3 = y3.inv().unwrap();
+       y6 = y6.inv().unwrap();
+       let y7 = y6 * &y4;
+       let mut y8 = y7 * &y3;
+       let y9 = &y8 * y1;
+       let y10 = &y8 * y4;
+       let y11 = y10 * &f_easy;
+       let mut y12 = y9.clone();
+       y12 = frobenius(&y12);
+       let y13 = y12 * &y11;
+       y8 = frobenius_square(&y8);
+       let y14 = y8 * &y13;
+       f_easy = f_easy.inv().unwrap();
+       let mut y15 = f_easy * y9;
+       y15 = frobenius_cube(&y15);
+       let y16 = y15 * y14;
+       y16
+   }
+   
 /// Computes the Frobenius morphism: f^p.
 /// See https://hackmd.io/@Wimet/ry7z1Xj-2#Fp12-Arithmetic (First Frobenius Operator).
 pub fn frobenius(f: &Fp12E) -> Fp12E {

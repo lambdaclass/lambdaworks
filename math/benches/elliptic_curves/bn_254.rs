@@ -4,7 +4,7 @@ use lambdaworks_math::{
     elliptic_curve::{
         short_weierstrass::curves::bn_254::{
             curve::BN254Curve,
-            pairing::BN254AtePairing,
+            pairing::{BN254AtePairing, miller, final_exponentiation},
             twist::BN254TwistCurve,
         },
         traits::{IsEllipticCurve, IsPairing},
@@ -21,8 +21,10 @@ pub fn bn_254_elliptic_curve_benchmarks(c: &mut Criterion) {
     let a_g1 = BN254Curve::generator().operate_with_self(a_val);
     let b_g1 = BN254Curve::generator().operate_with_self(b_val);
 
-    let a_g2 = BN254TwistCurve::generator();
-    let b_g2 = BN254TwistCurve::generator();
+    let a_g2 = BN254TwistCurve::generator().operate_with_self(a_val);
+    let b_g2 = BN254TwistCurve::generator().operate_with_self(b_val);
+
+    let miller_loop_output = miller(&a_g1, &a_g2);
 
     let mut group = c.benchmark_group("BN254 Ops");
     group.significance_level(0.1).sample_size(10000);
@@ -58,6 +60,16 @@ pub fn bn_254_elliptic_curve_benchmarks(c: &mut Criterion) {
         bencher.iter(|| black_box(black_box(&a_g2).double()));
     });
 
+    // Operate_with Neg G1 (Substraction)
+    group.bench_function("Operate_with Neg G1 (Substraction)", |bencher| {
+        bencher.iter(|| black_box(black_box(&a_g1).operate_with(black_box(&black_box(&b_g1).neg()))));
+    });
+
+    // Operate_with Neg G2 (Substraction)
+    group.bench_function("Operate_with Neg G2 (Substraction)", |bencher| {
+        bencher.iter(|| black_box(black_box(&a_g2).operate_with(black_box(&black_box(&b_g2).neg()))));
+    });
+
     // Neg G1
     group.bench_function("Neg G1", |bencher| {
         bencher.iter(|| black_box(black_box(&a_g1).neg()));
@@ -81,5 +93,15 @@ pub fn bn_254_elliptic_curve_benchmarks(c: &mut Criterion) {
                 black_box(&a_g2)
             )]))
         });
+    });
+
+    // Miller Loop
+    group.bench_function("Miller Loop", |bencher| {
+        bencher.iter(|| black_box(miller(black_box(&a_g1), black_box(&a_g2))))
+    });
+
+    // Final Exponentiation
+    group.bench_function("Final Exponentiation", |bencher| {
+        bencher.iter(|| black_box(final_exponentiation(black_box(&miller_loop_output))))
     });
 }
