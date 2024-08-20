@@ -4,14 +4,13 @@ use lambdaworks_math::{
     elliptic_curve::{
         short_weierstrass::curves::bn_254::{
             curve::BN254Curve,
-            pairing::{BN254AtePairing, miller, final_exponentiation},
+            pairing::{final_exponentiation, miller, BN254AtePairing},
             twist::BN254TwistCurve,
         },
         traits::{IsEllipticCurve, IsPairing},
     },
 };
 use rand::{rngs::StdRng, Rng, SeedableRng};
-
 
 #[allow(dead_code)]
 pub fn bn_254_elliptic_curve_benchmarks(c: &mut Criterion) {
@@ -29,6 +28,16 @@ pub fn bn_254_elliptic_curve_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("BN254 Ops");
     group.significance_level(0.1).sample_size(10000);
     group.throughput(criterion::Throughput::Elements(1));
+
+    // To Affine G1
+    group.bench_function("To Affine G1", |bencher| {
+        bencher.iter(|| black_box(black_box(&a_g1).to_affine()));
+    });
+
+    // To Affine G2
+    group.bench_function("To Affine G2", |bencher| {
+        bencher.iter(|| black_box(black_box(&a_g2).to_affine()));
+    });
 
     // Operate_with G1
     group.bench_function("Operate_with_G1", |bencher| {
@@ -62,12 +71,14 @@ pub fn bn_254_elliptic_curve_benchmarks(c: &mut Criterion) {
 
     // Operate_with Neg G1 (Substraction)
     group.bench_function("Operate_with Neg G1 (Substraction)", |bencher| {
-        bencher.iter(|| black_box(black_box(&a_g1).operate_with(black_box(&black_box(&b_g1).neg()))));
+        bencher
+            .iter(|| black_box(black_box(&a_g1).operate_with(black_box(&black_box(&b_g1).neg()))));
     });
 
     // Operate_with Neg G2 (Substraction)
     group.bench_function("Operate_with Neg G2 (Substraction)", |bencher| {
-        bencher.iter(|| black_box(black_box(&a_g2).operate_with(black_box(&black_box(&b_g2).neg()))));
+        bencher
+            .iter(|| black_box(black_box(&a_g2).operate_with(black_box(&black_box(&b_g2).neg()))));
     });
 
     // Neg G1
@@ -90,7 +101,7 @@ pub fn bn_254_elliptic_curve_benchmarks(c: &mut Criterion) {
         bencher.iter(|| {
             black_box(BN254AtePairing::compute_batch(&[(
                 black_box(&a_g1),
-                black_box(&a_g2)
+                black_box(&a_g2),
             )]))
         });
     });

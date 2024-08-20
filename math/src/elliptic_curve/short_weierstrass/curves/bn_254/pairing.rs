@@ -223,7 +223,7 @@ pub fn final_exponentiation(
     // Easy part:
     // Computes f ^ {(p^6 - 1) * (p^2 + 1)}
     let f_easy_aux = f.conjugate() * f.inv().unwrap(); // f ^ (p^6 - 1) because f^(p^6) = f.conjugate().
-    let mut f_easy = &frobenius_square(&f_easy_aux) * f_easy_aux; // (f^{p^6 - 1})^(p^2) * (f^{p^6 - 1}).
+    let f_easy = &frobenius_square(&f_easy_aux) * f_easy_aux; // (f^{p^6 - 1})^(p^2) * (f^{p^6 - 1}).
 
     /*
     // Hard part:
@@ -257,39 +257,73 @@ pub fn final_exponentiation(
         * y6.pow(36usize)
     */
 
-       // Hard part following Arkworks library.
-       let mut y0 = f_easy.pow(X);
-       y0 = y0.inv().unwrap();
-       // For degree 12 extensions, this can be computed faster than normal squaring.
-       // See https://github.dev/arkworks-rs/algebra/blob/master/ec/src/models/bn/mod.rs (cyclotimic_square)
-       let y1 = &y0.square();
-       let y2 = &y1.square();
-       let mut y3 = y2 * y1;
-       let mut y4 = y3.pow(X);
-       y4 = y4.inv().unwrap();
-       let y5 = y4.square();
-       let mut y6 = y5.pow(X);
-       y6 = y6.inv().unwrap();
-       // TODO: See if there is a faster way to take inverse.
-       y3 = y3.inv().unwrap();
-       y6 = y6.inv().unwrap();
-       let y7 = y6 * &y4;
-       let mut y8 = y7 * &y3;
-       let y9 = &y8 * y1;
-       let y10 = &y8 * y4;
-       let y11 = y10 * &f_easy;
-       let mut y12 = y9.clone();
-       y12 = frobenius(&y12);
-       let y13 = y12 * &y11;
-       y8 = frobenius_square(&y8);
-       let y14 = y8 * &y13;
-       f_easy = f_easy.inv().unwrap();
-       let mut y15 = f_easy * y9;
-       y15 = frobenius_cube(&y15);
-       let y16 = y15 * y14;
-       y16
-   }
-   
+    /*
+    // Hard part following Arkworks library.
+    let mut y0 = f_easy.pow(X);
+    y0 = y0.inv().unwrap();
+    // For degree 12 extensions, this can be computed faster than normal squaring.
+    // See https://github.dev/arkworks-rs/algebra/blob/master/ec/src/models/bn/mod.rs (cyclotimic_square)
+    let y1 = &y0.square();
+    let y2 = &y1.square();
+    let mut y3 = y2 * y1;
+    let mut y4 = y3.pow(X);
+    y4 = y4.inv().unwrap();
+    let y5 = y4.square();
+    let mut y6 = y5.pow(X);
+    y6 = y6.inv().unwrap();
+    // TODO: See if there is a faster way to take inverse.
+    y3 = y3.inv().unwrap();
+    y6 = y6.inv().unwrap();
+    let y7 = y6 * &y4;
+    let mut y8 = y7 * &y3;
+    let y9 = &y8 * y1;
+    let y10 = &y8 * y4;
+    let y11 = y10 * &f_easy;
+    let mut y12 = y9.clone();
+    y12 = frobenius(&y12);
+    let y13 = y12 * &y11;
+    y8 = frobenius_square(&y8);
+    let y14 = y8 * &y13;
+    f_easy = f_easy.inv().unwrap();
+    let mut y15 = f_easy * y9;
+    y15 = frobenius_cube(&y15);
+    let y16 = y15 * y14;
+    y16
+    */
+
+    // Optimal hard part from the post
+    // https://hackmd.io/@Wimet/ry7z1Xj-2#The-Hard-Part
+    let mx = f_easy.pow(X);
+    let mx2 = mx.pow(X);
+    let mx3 = mx2.pow(X);
+    let mp = frobenius(&f_easy);
+    let mp2 = frobenius_square(&f_easy);
+    let mp3 = frobenius_cube(&f_easy);
+    let mxp = frobenius(&mx); // (m^x)^p
+    let mx2p = frobenius(&mx2); // (m^{x^2})^p
+    let mx3p = frobenius(&mx3); // (m^{x^3})^p
+    let mx2p2 = frobenius_square(&mx2); // (m^{x^2})^p^2
+
+    let y0 = mp * mp2 * mp3;
+    let y1 = f_easy.conjugate();
+    let y2 = mx2p2;
+    let y3 = mxp.conjugate();
+    let y4 = (mx * mx2p).conjugate();
+    let y5 = mx2.conjugate();
+    let y6 = (mx3 * mx3p).conjugate();
+
+    let t01 = y6.square() * y4 * &y5;
+    let t11 = &t01 * y3 * y5;
+    let t02 = t01 * y2;
+    let t12 = t11.square() * t02;
+    let t13 = t12.square();
+    let t14 = &t13 * y0;
+    let t03 = t13 * y1;
+    let t04 = t03.square() * t14;
+
+    t04
+}
+
 /// Computes the Frobenius morphism: f^p.
 /// See https://hackmd.io/@Wimet/ry7z1Xj-2#Fp12-Arithmetic (First Frobenius Operator).
 pub fn frobenius(f: &Fp12E) -> Fp12E {
