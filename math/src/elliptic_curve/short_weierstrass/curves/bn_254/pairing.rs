@@ -384,6 +384,139 @@ pub fn frobenius_cube(
     Fp12E::new([c1, c2])
 }
 
+////////////////// CYCLOTOMIC SUBGROUP OPERATIONS //////////////////
+
+fn cyclotomic_square_fp12(a: &Fp12E) -> Fp12E {
+    
+    let a00  = a.value()[0].value()[0].square();
+    let a01 = a.value()[0].value()[1].square();
+    let a02 = a.value()[0].value()[2].square();
+    let a10 = a.value()[1].value()[0].square();
+    let a11 = a.value()[1].value()[1].square();
+    let a12 = a.value()[1].value()[2].square();
+
+    
+    let mut t0 =a11.square();
+    let t1 = a00.square();
+    let mut t2 = &a11 + &a00;
+    t2 = t2.square();
+    t2 = t2 - &t0 ;
+    t2 = t2 - &t1;
+
+    let mut t3 =a02.square();
+    let t4 = a10.square();
+    let mut t5 = &a02 + &a10;
+    t5 = t5.square();
+    t5 = t5 - &t3 ;
+    t5 = t5 - &t4;
+
+    let mut t6 =a12.square();
+    let t7 = a01.square();
+    let mut t8 = &a12 + &a01;
+    t8 = t8.square();
+    t8 = t8 - &t6 ;
+    t8 = t8 - &t7;
+
+    let xi = Fp2E::new([FpE::from(9), FpE::one()]) ;
+    t8 *= &xi;
+    t0 *=&xi;
+    t0 = t0 +t1;
+    t3 = &xi*t3;
+    t3 = t3 + t4;
+    t6 *= xi;
+    t6 +=t7;
+    
+    let mut c00 = &t0 - a00;
+    c00= c00.double();
+    c00 += t0;
+
+    let mut c01 = &t3 - a01;
+    c01= c01.double();
+    c01 += t3;
+
+    let mut c02 = &t6 - a02;
+    c02= c02.double();
+    c02 += t6;
+
+    let mut c10 = &t8 + a10;
+    c10 = c10.double();
+    c10 += t8;
+
+    let mut c11 = &t2 + a11;
+    c11 = c11.double();
+    c11 += t2;
+
+    let mut c12 = &t5 + a12;
+    c12 = c12.double();
+    c12 += t5;
+
+    Fp12E::new([
+        Fp6E::new([c00, c01, c02]),
+        Fp6E::new([c10, c11, c12]),
+    ])
+}   
+
+/*
+/// Computes the cyclotomic square for Fp12
+/// See same function in https://github.com/mratsim/constantine/blob/master/constantine/math/pairings/cyclotomic_subgroups.nim#L354
+/// PROBLEM: This function is defined in Constantine for Fp6 and we need Fp12.
+/// TODO: Check constantine order for real and imaginary part.
+fn cyclotomic_square_quad_over_cube(a: &Fp12E) -> Fp12E {
+    // a = g + h * w
+    let b0 = a.value()[0].value()[0]; // b0 = g0
+    let b1 = a.value()[0].value()[1]; // b1 = g1
+    let b2 = a.value()[0].value()[2];
+    let b3 = a.value()[1].value()[0]; // b3 = h0
+    let b4 = a.value()[1].value()[1];
+    let b5 = a.value()[1].value()[2];
+
+    let v0 = Fp2E::new([b0, b4]).square(); 
+    let v1 = Fp2E::new([b3, b2]).square();
+    let v2 = Fp2E::new([b1, b5]).square();
+
+    // r = r0 + r1 * w
+    // r0 = r00 + r01 * v + r02 * v^2
+    // r1 = r10 + r11 * v + r12 * v^2
+
+    // r00 = 3v00 - 2b0
+    let mut r00 =  v0.value()[0] - b0;
+    r00 = r00.double();
+    r00 += v0.value()[0];
+
+    // r01 = 3v10 -2b1
+    let mut r01 = v1.value()[0] - b1;
+    r01 = r01.double();
+    r01 += v1.value()[0];
+
+    // r02 = 3v01 - 2b4
+    let mut r11 = v0.value()[1] + b4;
+    r11 = r11.double();
+    r11 += v0.value()[1];
+
+    // r02 = 3v01 - 2b4
+    let mut r12 = v1.value()[1] + b5;
+    r12 = r12.double();
+    r12 += v1.value()[1];
+
+    // 3(v21 * non-residue) + b3
+    // WATHOUT: We are assuming non-residue = -1
+    let v21 = v2.value()[1] * -FpE::one();
+    let mut r10 = &v21 + b3;
+    r10 = r10.double();
+    r10 = v21;
+
+    // 3v20 - b3
+    let r02 = v2.value()[0] - b2;
+    r02 = r02.double();
+    r02 += v2.value()[0];
+
+    Fp12E::new([
+        Fp6E::new([r00, r01, r02,]),
+        Fp6E::new([r10,r11,r12]),
+    ])
+}
+*/
+
 #[cfg(test)]
 /// We took the G1 and G2 points from:
 /// https://github.com/lambdaclass/zksync_era_precompiles/blob/4bdfebf831e21d58c5ba6945d4524763f1ef64d4/tests/tests/ecpairing_tests.rs
@@ -836,5 +969,15 @@ mod tests {
         let q = BN254TwistCurve::generator();
         let pairing_result = BN254AtePairing::compute_batch(&[(&p, &q)]).unwrap();
         assert_ne!(pairing_result, Fp12E::one());
+    }
+
+    #[test]
+    fn cyclotomic_square_equals_square() {
+        let p = BN254Curve::generator();
+        let q = BN254TwistCurve::generator();
+        let f = miller(&p, &q);
+        let f_easy_aux = f.conjugate() * f.inv().unwrap(); // f ^ (p^6 - 1) because f^(p^6) = f.conjugate().
+        let f_easy = &frobenius_square(&f_easy_aux) * f_easy_aux; // (f^{p^6 - 1})^(p^2) * (f^{p^6 - 1}).
+        assert_eq!(cyclotomic_square_fp12(&f_easy), f_easy.square());
     }
 }
