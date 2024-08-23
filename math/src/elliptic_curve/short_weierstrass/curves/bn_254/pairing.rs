@@ -26,9 +26,15 @@ type G2Point = ShortWeierstrassProjectivePoint<BN254TwistCurve>;
 ////////////////// CONSTANTS //////////////////
 
 /// x = 4965661367192848881.
+///     4965661367192848881
 /// A constant of the curve.
 /// See https://hackmd.io/@jpw/bn254#Barreto-Naehrig-curves
 pub const X: u64 = 0x44e992b44a6909f1;
+
+// 100010011101001100100101011010001001010011010010000100111110001
+pub const X_BINARY: [i32; 63] = [1, 0, 0, 0, 1, 0, 0, 1, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 0, 1, 0, 
+1, 0, 1, 1, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 1, 1, 1, 
+1, 1, 0, 0, 0, 1];
 
 /// Constant used in the Miller Loop.
 /// MILLER_CONSTANT = 6x + 2 = 29793968203157093288.
@@ -110,7 +116,7 @@ pub const GAMMA_34: Fp2E = Fp2E::const_from_raw([
 pub const GAMMA_35: Fp2E = Fp2E::const_from_raw([
     FpE::from_hex_unchecked("13C49044952C0905711699FA3B4D3F692ED68098967C84A5EBDE847076261B43"),
     FpE::from_hex_unchecked("16DB366A59B1DD0B9FB1B2282A48633D3E2DDAEA200280211F25041384282499"),
-]);
+]); 
 
 ////////////////// PAIRING //////////////////
 
@@ -293,9 +299,9 @@ pub fn final_exponentiation(
 
     // Optimal hard part from the post
     // https://hackmd.io/@Wimet/ry7z1Xj-2#The-Hard-Part
-    let mx = f_easy.pow(X);
-    let mx2 = mx.pow(X);
-    let mx3 = mx2.pow(X);
+    let mx = cyclotomic_pow_x(f_easy.clone());
+    let mx2 = cyclotomic_pow_x(mx.clone());
+    let mx3 = cyclotomic_pow_x(mx2.clone());
     let mp = frobenius(&f_easy);
     let mp2 = frobenius_square(&f_easy);
     let mp3 = frobenius_cube(&f_easy);
@@ -312,14 +318,14 @@ pub fn final_exponentiation(
     let y5 = mx2.conjugate();
     let y6 = (mx3 * mx3p).conjugate();
 
-    let t01 = y6.square() * y4 * &y5;
+    let t01 = cyclotimic_square(&y6) * y4 * &y5;
     let t11 = &t01 * y3 * y5;
     let t02 = t01 * y2;
-    let t12 = t11.square() * t02;
-    let t13 = t12.square();
+    let t12 =cyclotimic_square(&t11) * t02;
+    let t13 = cyclotimic_square(&t12);
     let t14 = &t13 * y0;
     let t03 = t13 * y1;
-    let t04 = t03.square() * t14;
+    let t04 = cyclotimic_square(&t03) * t14;
 
     t04
 }
@@ -429,6 +435,8 @@ fn decompress(c: Vec<Fp2E>) -> Fp12E {
 
 }
 
+/// Computes the square of an element of Fp12E that belongs to the cyclotomic subgroup.
+/// Algorithm from https://hackmd.io/@Wimet/ry7z1Xj-2#Compressed-Squaring
 fn cyclotimic_square(f: &Fp12E) -> Fp12E {
     let c = compress(f);
     let h0 = c[0].clone();
@@ -445,6 +453,37 @@ fn cyclotimic_square(f: &Fp12E) -> Fp12E {
 
     let f_square = vec![h0_square, g2_square, g1_square, h2_square];
     decompress(f_square) 
+}
+/* 
+fn cyclotomic_pow_x(f: Fp12E) -> Fp12E {
+    let mut g = f;
+    let mut result = Fp12E::one();
+    for i in 0..X_BINARY.len() {
+        if X_BINARY[i] == 1 {
+            result *= &g;
+        }
+        g = cyclotimic_square(&g);
+    }
+    result
+
+}
+*/
+fn cyclotomic_pow_x(f: Fp12E) -> Fp12E {
+    let mut g = f;
+    let mut result = Fp12E::one();
+
+    let mut x = X;
+    while x > 0 {
+        if x & 1 == 1 {
+            
+            result *= &g;
+        }
+       
+        g = cyclotimic_square(&g);
+        x >>= 1; 
+    }
+
+    result
 }
 
 /* 
@@ -1054,6 +1093,16 @@ mod tests {
         let f_easy_aux = f.conjugate() * f.inv().unwrap(); // f ^ (p^6 - 1) because f^(p^6) = f.conjugate().
         let f_easy = &frobenius_square(&f_easy_aux) * f_easy_aux; // (f^{p^6 - 1})^(p^2) * (f^{p^6 - 1}).
         assert_eq!(cyclotimic_square(&f_easy), f_easy.square());
+    }
+
+    #[test]
+    fn cyclotomic_pow_x_equals_pow() {
+        let p = BN254Curve::generator();
+        let q = BN254TwistCurve::generator();
+        let f = miller(&p, &q);
+        let f_easy_aux = f.conjugate() * f.inv().unwrap(); // f ^ (p^6 - 1) because f^(p^6) = f.conjugate().
+        let f_easy = &frobenius_square(&f_easy_aux) * f_easy_aux; // (f^{p^6 - 1})^(p^2) * (f^{p^6 - 1}).
+        assert_eq!(cyclotomic_pow_x(f_easy.clone()), f_easy.pow(X));
     }
 
 }
