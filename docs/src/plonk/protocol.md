@@ -13,9 +13,9 @@ In the implementation section we'll explain the inner workings of the Kate-Zaver
 For the moment we only need the following about it:
 
 It consists of a finite group $\mathbb{G}$ and the following algorithms:
-- **Commit($f$)**: This algorithm takes a polynomial $f$ and produces an element of the group $\mathbb{G}$. It is called the commitment of $f$ and is denoted by $[f]_1$. It is homomorphic in the sense that $[f + g]_1 = [f]_1 + [g]_1$. The former sum being addition of polynomials. The latter is addition in the group $\mathbb{G}$.
+- **Commit($f$)**: This algorithm takes a polynomial $f$ and produces an element of the group $\mathbb{G}$. It is called the commitment of $f$ and is denoted by $\left[f\right]_1$. It is homomorphic in the sense that $\left[f + g\right]_1 = \left[f\right]_1 + \left[g\right]_1$. The former sum being addition of polynomials. The latter is addition in the group $\mathbb{G}$.
 - **Open($f$, $\zeta$ )**: It takes a polynomial $f$ and a field element $\zeta$ and produces an element $\pi$ of the group $\mathbb{G}$. This element is called an opening proof for $f(\zeta)$. It is the proof that $f$ evaluated at $\zeta$ gives $f(\zeta)$.
-- **Verify($[f]_1$, $\pi$, $\zeta$, $y$)**: It takes group elements $[f]_1$ and $\pi$, and also field elements $\zeta$ and $y$. With overwhelming probability it outputs _Accept_ if $f(z)=y$ and _Reject_ otherwise.
+- **Verify($\left[f\right]_1$, $\pi$, $\zeta$, $y$)**: It takes group elements $\left[f\right]_1$ and $\pi$, and also field elements $\zeta$ and $y$. With overwhelming probability it outputs _Accept_ if $f(z)=y$ and _Reject_ otherwise.
 
 
 ### Blindings
@@ -39,11 +39,11 @@ This is an optimization in PLONK to reduce the number of checks of the verifier.
 
 One of the main checks in PLONK boils down to check that $p(\zeta) = z_H(\zeta) t(\zeta)$, with $p$ some polynomial that looks like $p = a q_L + b q_R + ab q_M + \cdots$, and so on. In particular the verifier needs to get the value $p(\zeta)$ from somewhere.
 
-For the sake of simplicity, in this section assume $p$ is exactly $a q_L + bq_R$. Secret to the prover here are only $a, b$. The polynomials $q_L$ and $q_R$ are known also to the verifier. The verifier will already have the commitments $[a]_1, [b]_1, [q_L]_1$ and $[q_R]_1$. So the prover could send just $a( \zeta )$, $b( \zeta )$ along with their opening proofs and let the verifier compute by himself $q_L(\zeta)$ and $q_R(\zeta)$. Then with all these values the verifier could compute $p(\zeta) = a(\zeta) q_L (\zeta) + b(\zeta) q_R (\zeta)$. And also use his commitments to validate the opening proofs of $a(\zeta)$ and $b(\zeta)$.
+For the sake of simplicity, in this section assume $p$ is exactly $a q_L + bq_R$. Secret to the prover here are only $a, b$. The polynomials $q_L$ and $q_R$ are known also to the verifier. The verifier will already have the commitments $\left[a\right]_1, \left[b\right]_1, \left[q_L\right]_1$ and $\left[q_R\right]_1$. So the prover could send just $a( \zeta )$, $b( \zeta )$ along with their opening proofs and let the verifier compute by himself $q_L(\zeta)$ and $q_R(\zeta)$. Then with all these values the verifier could compute $p(\zeta) = a(\zeta) q_L (\zeta) + b(\zeta) q_R (\zeta)$. And also use his commitments to validate the opening proofs of $a(\zeta)$ and $b(\zeta)$.
 
-This has the problem that computing $q_L (\zeta)$ and $q_R (\zeta)$ is expensive. The prover can instead save the verifier this by sending also $q_L (\zeta), q_R (\zeta)$ along with opening proofs. Since the verifier will have the commitments $[q_L]_1$ and $[q_R]_1$ beforehand, he can check that the prover is not cheating and cheaply be convinced that the claimed values are actually $q_L(\zeta)$ and $q_R(\zeta)$. This is much better. It involves the check of four opening proofs and the computation of $p(\zeta)$ off the values received from the prover. But it can be further improved as follows.
+This has the problem that computing $q_L (\zeta)$ and $q_R (\zeta)$ is expensive. The prover can instead save the verifier this by sending also $q_L (\zeta), q_R (\zeta)$ along with opening proofs. Since the verifier will have the commitments $\left[q_L\right]_1$ and $\left[q_R\right]_1$ beforehand, he can check that the prover is not cheating and cheaply be convinced that the claimed values are actually $q_L(\zeta)$ and $q_R(\zeta)$. This is much better. It involves the check of four opening proofs and the computation of $p(\zeta)$ off the values received from the prover. But it can be further improved as follows.
 
-As before, the prover sends $a(\zeta), b(\zeta)$ along with their opening proofs. She constructs the polynomial $f = a(\zeta)q_L + b(\zeta)q_R$. She sends the value $f(\zeta)$ along with an opening proof of it. Notice that the value of $f(\zeta)$ is exactly $p(\zeta)$. The verifier can compute by himself $[f]_1$ as $a(\zeta)[q_L]_1 + b(\zeta)[q_R]_1$. The verifier has everything to check all three openings and get convinced that the claimed value $f(\zeta)$ is true. And this value is actually $p(\zeta)$. So this means no more work for the verifier. And the whole thing got reduced to three openings.
+As before, the prover sends $a(\zeta), b(\zeta)$ along with their opening proofs. She constructs the polynomial $f = a(\zeta)q_L + b(\zeta)q_R$. She sends the value $f(\zeta)$ along with an opening proof of it. Notice that the value of $f(\zeta)$ is exactly $p(\zeta)$. The verifier can compute by himself $\left[f\right]_1$ as $a(\zeta)\left[q_L\right]_1 + b(\zeta)\left[q_R\right]_1$. The verifier has everything to check all three openings and get convinced that the claimed value $f(\zeta)$ is true. And this value is actually $p(\zeta)$. So this means no more work for the verifier. And the whole thing got reduced to three openings.
 
 This is called the linearization trick. The polynomial $f$ is called the _linearization_ of $p$.
 
@@ -51,7 +51,7 @@ This is called the linearization trick. The polynomial $f$ is called the _linear
 ## Setup
 
 There's a one time setup phase to compute some values common to any execution and proof of the particular circuit. Precisely, the following commitments are computed and published.
-$$[ q_L ]_1 , [ q_R ]_1 , [ q_M ]_1 , [ q_O ]_1 , [ q_C ]_1 , [ S_{ \sigma 1 } ]_1 , [ S_{ \sigma 2 } ]_1 , [ S_{ \sigma 3 } ]_1$$
+$$\left[ q_L \right]_1 , \left[ q_R \right]_1 , \left[ q_M \right]_1 , \left[ q_O \right]_1 , \left[ q_C \right]_1 , \left[ S_{ \sigma 1 } \right]_1 , \left[ S_{ \sigma 2 } \right]_1 , \left[ S_{ \sigma 3 } \right]_1$$
 
 ## Proving algorithm
 
@@ -64,7 +64,7 @@ The prover computes the trace matrix $T$ as described in the first sections. Tha
 ### Round 1
 
 Add to the transcript the following:
-$$[ S_{\sigma 1 } ]_1, [ S_ { \sigma 2 } ]_1, [ S { \sigma 3 } ]_1, [ q_L ]_1, [ q_R ]_1, [ q_M ]_1, [ q_O ]_1, [ q_C ]_1$$
+$$\left[ S_{\sigma 1 } \right]_1, \left[ S_ { \sigma 2 } \right]_1, \left[ S { \sigma 3 } \right]_1, \left[ q_L \right]_1, \left[ q_R \right]_1, \left[ q_M \right]_1, \left[ q_O \right]_1, \left[ q_C \right]_1$$
 
 Compute polynomials $a',b',c'$ as the interpolation polynomials of the columns of $T$ at the domain $H$.
 Sample random $b_1, b_2, b_3, b_4, b_5, b_6$
@@ -76,7 +76,7 @@ $b := (b_3 X + b_4 )Z_H + b'$
 
 $c := (b_5 X + b_6 )Z_H + c'$
 
-Compute $[a]_1, [b]_1, [c]_1$ and add them to the transcript.
+Compute $\left[a\right]_1, \left[b\right]_1, \left[c\right]_1$ and add them to the transcript.
 
 ### Round 2
 
@@ -92,7 +92,7 @@ Compute the polynomial $z'$ as the interpolation polynomial at the domain $H$ of
 
 Sample random values $b_7, b_8, b_9$ and let $z = (b_7 X^2 + b_8 X + b_9 )Z_H + z'$.
 
-Compute $[z]_1$ and add it to the transcript.
+Compute $\left[z\right]_1$ and add it to the transcript.
 
 ### Round 3
 
@@ -122,7 +122,7 @@ t_{hi} &= t_{hi}' - b_{11}
 \end{aligned}
 $$
 
-Compute $[t_{lo} ]_1, [t_{mid} ]_1,[t_{hi} ]_1$ and add them to the transcript.
+Compute $\left[t_{lo} \right]_1, \left[t_{mid} \right]_1,\left[t_{hi} \right]_1$ and add them to the transcript.
 
 ### Round 4
 
@@ -165,14 +165,14 @@ Compute $\bar p_{nc} := p_{nc}(\zeta)$ and $\bar t = t(\zeta)$.
 ### Proof
 
 The proof is:
-$$[a]_1, [b]_1 , [c]_1, [z]_1, [t_{lo} ]_1, [t_{mid} ]_1, [t_{hi} ]_1, \bar{a}, \bar{b}, \bar{c}, \bar{s_{ \sigma 1 }}, \bar{s_{ \sigma 2 }}, \bar{z_\omega}, \pi_{\mathrm{batch}}, \pi_{\mathrm{single}}, \bar p_{nc}, \bar t$$
+$$\left[a\right]_1, \left[b\right]_1 , \left[c\right]_1, \left[z\right]_1, \left[t_{lo} \right]_1, \left[t_{mid} \right]_1, \left[t_{hi} \right]_1, \bar{a}, \bar{b}, \bar{c}, \bar{s_{ \sigma 1 }}, \bar{s_{ \sigma 2 }}, \bar{z_\omega}, \pi_{\mathrm{batch}}, \pi_{\mathrm{single}}, \bar p_{nc}, \bar t$$
 
 ## Verification algorithm
 
 ### Transcript initialization
 
 The first step is to initialize the transcript in the same way the prover did, adding to it the following elements.
-$$[ S_{ \sigma 1 } ]_1, [ S_{ \sigma 2 } ]_1, [ S_{ \sigma 3 }]_1, [ q_L ]_1, [ q_R ]_1, [ q_M ]_1, [ q_O ]_1, [ q_C ]_1$$
+$$\left[ S_{ \sigma 1 } \right]_1, \left[ S_{ \sigma 2 } \right]_1, \left[ S_{ \sigma 3 }\right]_1, \left[ q_L \right]_1, \left[ q_R \right]_1, \left[ q_M \right]_1, \left[ q_O \right]_1, \left[ q_C \right]_1$$
 
 ### Extraction of values and commitments
 
@@ -180,11 +180,11 @@ $$[ S_{ \sigma 1 } ]_1, [ S_{ \sigma 2 } ]_1, [ S_{ \sigma 3 }]_1, [ q_L ]_1, [ 
 
 Firstly, the verifier needs to compute all the challenges. For that, he follows these steps:
 
-- Add $[a]_1, [b]_1, [c]_1$ to the transcript.
+- Add $\left[a\right]_1, \left[b\right]_1, \left[c\right]_1$ to the transcript.
 - Sample two challenges $\beta, \gamma$.
-- Add $[z]_1$ to the transcript.
+- Add $\left[z\right]_1$ to the transcript.
 - Sample a challenge $\alpha$.
-- Add $[ t_{lo} ]_1, [ t_{mid} ]_1, [ t_{hi} ]_1$ to the transcript.
+- Add $\left[ t_{lo} \right]_1, \left[ t_{mid} \right]_1, \left[ t_{hi} \right]_1$ to the transcript.
 - Sample a challenge $\zeta$.
 - Add $\bar a, \bar b, \bar c, \bar s_{\sigma 1}, \bar s_{\sigma 2}, \bar z_\omega$ to the transcript.
 - Sample a challenge $\upsilon$.
@@ -204,24 +204,24 @@ $$p(\zeta) = \bar p_{c} + \bar p_{nc}$$
 
 With respect to $t(\zeta)$, this is actually already $\bar{t}$.
 
-#### Compute $[t_{\mathrm{partial}} ]_1$ and $[p_{nc} ]_1$
+#### Compute $\left[t_{\mathrm{partial}} \right]_1$ and $\left[p_{nc} \right]_1$
 
 He computes these off the commitments in the proof as follows
-$$[t_{\mathrm{partial}}]_1 = [t_{lo}]_1 + \zeta^{ N + 2 }[t_{mid}]_1 + \zeta^{ 2 (N + 2) }[t_{hi}]_1$$
+$$\left[t_{\mathrm{partial}}\right]_1 = \left[t_{lo}\right]_1 + \zeta^{ N + 2 }\left[t_{mid}\right]_1 + \zeta^{ 2 (N + 2) }\left[t_{hi}\right]_1$$
 
-For $[p_{nc}]_1$, first compute
+For $\left[p_{nc}\right]_1$, first compute
 
 $$
 \begin{aligned}
-[\hat p_{nc1} ]_1 &= \bar a[q_L]_1 + \bar b[q_R]_1 + (\bar a\bar b)[q_M]_1 + \bar c[q_O]_1 + [q_C]_1 \\
-[\hat p_{nc2} ]_1 &= (\bar a + \beta\zeta + \gamma)(\bar b + \beta k_1 \zeta + \gamma)(\bar c + \beta k_2 \zeta + \gamma)[z]_1 - (\bar a + \beta \bar s_{\sigma 1} + \gamma)(\bar b + \beta \bar s_{\sigma 2} + \gamma)\beta \bar z_\omega [S_{\sigma 3}]_1 \\
-[\hat p_{nc3} ]_1 &= L_1(\zeta)[z]_1
+\left[\hat p_{nc1} \right]_1 &= \bar a\left[q_L\right]_1 + \bar b\left[q_R\right]_1 + (\bar a\bar b)\left[q_M\right]_1 + \bar c\left[q_O\right]_1 + \left[q_C\right]_1 \\
+\left[\hat p_{nc2} \right]_1 &= (\bar a + \beta\zeta + \gamma)(\bar b + \beta k_1 \zeta + \gamma)(\bar c + \beta k_2 \zeta + \gamma)\left[z\right]_1 - (\bar a + \beta \bar s_{\sigma 1} + \gamma)(\bar b + \beta \bar s_{\sigma 2} + \gamma)\beta \bar z_\omega \left[S_{\sigma 3}\right]_1 \\
+\left[\hat p_{nc3} \right]_1 &= L_1(\zeta)\left[z\right]_1
 \end{aligned}
 $$
 
-Then $[p_{nc} ]_1 = [p_{nc1} ]_1 + [p_{nc2} ]_1 + [p_{nc3} ]_1$.
+Then $\left[p_{nc} \right]_1 = \left[p_{nc1} \right]_1 + \left[p_{nc2} \right]_1 + \left[p_{nc3} \right]_1$.
 
-#### Compute claimed value $f_{\text{batch} } (\zeta)$ and $[f_{{batch} }]_1$
+#### Compute claimed value $f_{\text{batch} } (\zeta)$ and $\left[f_{{batch} }\right]_1$
 
 Compute $f_{\text{batch}} (\zeta)$ as
 
@@ -231,15 +231,15 @@ f_{\mathrm{batch}} (\zeta) =
 $$
 
 Also, the commitment of the polynomial $f_{\text{batch}}$ is
-$$[f_{\mathrm{batch} }]_1 = [t_{\mathrm{partial}}]_1 + \upsilon [p_{nc}]_1 + \upsilon^2 [a]_1 + \upsilon^3 [b]_1 + \upsilon^4 [c]_1 + \upsilon^5 [S_{\sigma 1}]_1 + \upsilon^6 [S_{\sigma 2}]_1$$
+$$\left[f_{\mathrm{batch} }\right]_1 = \left[t_{\mathrm{partial}}\right]_1 + \upsilon \left[p_{nc}\right]_1 + \upsilon^2 \left[a\right]_1 + \upsilon^3 \left[b\right]_1 + \upsilon^4 \left[c\right]_1 + \upsilon^5 \left[S_{\sigma 1}\right]_1 + \upsilon^6 \left[S_{\sigma 2}\right]_1$$
 
 ### Proof check
 
 Now the verifier has all the necessary values to proceed with the checks.
 
 - Check that $p(\zeta)$ equals $(\zeta^N - 1)t(\zeta)$.
-- Verify the opening of $f_{\text{batch}}$ at $\zeta$. That is, check that $\mathrm{Verify}([f_{\mathrm{batch} } ]_1, \pi_{\mathrm{batch}}, \zeta, f_{\mathrm{batch} } (\zeta))$ outputs _Accept_.
-- Verify the opening of $z$ at $\zeta\omega$. That is, check the validity of the proof $\pi_{single}$ using the commitment $[z]_1$ and the value $\bar z_\omega$.
-That is, check that $\mathrm{Verify}([z]_1, \pi_{\mathrm{single}}, \zeta \omega, \bar z_\omega)$ outputs _Accept_.
+- Verify the opening of $f_{\text{batch}}$ at $\zeta$. That is, check that $\mathrm{Verify}(\left[f_{\mathrm{batch} } \right]_1, \pi_{\mathrm{batch}}, \zeta, f_{\mathrm{batch} } (\zeta))$ outputs _Accept_.
+- Verify the opening of $z$ at $\zeta\omega$. That is, check the validity of the proof $\pi_{single}$ using the commitment $\left[z\right]_1$ and the value $\bar z_\omega$.
+That is, check that $\mathrm{Verify}(\left[z\right]_1, \pi_{\mathrm{single}}, \zeta \omega, \bar z_\omega)$ outputs _Accept_.
 
 If all checks pass, he outputs _Accept_. Otherwise outputs _Reject_.
