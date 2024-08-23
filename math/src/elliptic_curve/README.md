@@ -135,7 +135,7 @@ Pairings are an important calculation for BLS signatures and the KZG polynomial 
 2. Non-degeneracy
 Not all elliptic curves have efficiently computable pairings. If the curve is pairing-friendly, we can implement the trait `IsPairing`. Examples of pairing-friendly curves are BLS12-381, BLS12-377, BN254. Curves such as Pallas, Vesta, secp256k1 are not pairing-friendly. For an explanation of pairings, see our [blogpost](https://blog.lambdaclass.com/how-we-implemented-the-bn254-ate-pairing-in-lambdaworks/).
 
-The pairing function takes pairs of points $(a , b)$, where $a \in G_1$ (formed by coordinates $x,y$ taking values on the base field ${F_p}$) and $b \in G_2$ (formed by coordinates $x,y$ taking values in ${F}_{ p^2 }$, a quadratic extension of the base field) and outputs an element in the $r$-th roots of unity of ${F}_{ p^k }$. To use the pairing, provide a slice of pairs and call the function `compute_batch`. For example,
+The pairing function takes pairs of points $(a , b)$, where $a \in G_1$ (formed by coordinates $x,y$ taking values on the base field ${F_p}$) and $b \in G_2$ (formed by coordinates $x,y$ taking values in $F_{ p^2 }$, a quadratic extension of the base field) and outputs an element in the $r$-th roots of unity of $F_{ p^k }$. To use the pairing, provide a slice of pairs and call the function `compute_batch`. For example,
 ```rust
 let p = BN254Curve::generator();
 let q = BN254TwistCurve::generator();
