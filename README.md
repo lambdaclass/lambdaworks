@@ -1,4 +1,5 @@
 # lambdaworks
+
 > From the heights of these towers of fields, forty centuries of mathematics look down on us. 
 
 This library provides efficient implementation of cryptographic primitives used to build proving systems. Along with it, many backends for proving systems are shipped, and compatibility with different frontends is supported.
@@ -32,6 +33,7 @@ So, we decided to build our library, focusing on performance, with clear documen
 - [Groth 16](https://github.com/lambdaclass/lambdaworks/tree/main/provers/groth16)
 
 ### Crypto
+
 - [Elliptic curves](https://github.com/lambdaclass/lambdaworks/tree/main/math/src/elliptic_curve)
 - [Multiscalar multiplication](https://github.com/lambdaclass/lambdaworks/tree/main/math/src/msm)
 - [Hashes](https://github.com/lambdaclass/lambdaworks/tree/main/crypto/src/hash)
@@ -41,12 +43,15 @@ Most of math and crypto crates supports no-std without allocation with `no-defau
 Both Math and Crypto support wasm with target `wasm32-unknown-unknown`. To see an example of how to use this to deploy a verifier in a browser, check the Cairo Prover wasm-pack verifier.
 
 ## Examples - mini apps
+
 - [Merkle Tree CLI](https://github.com/lambdaclass/lambdaworks/tree/main/examples/merkle-tree-cli)
 - [Proving Miden](https://github.com/lambdaclass/lambdaworks/tree/main/examples/prove-miden)
 - [Shamir's secret sharing](https://github.com/lambdaclass/lambdaworks/tree/main/examples/shamir_secret_sharing)
 - [BabySNARK](https://github.com/lambdaclass/lambdaworks/tree/main/examples/baby-snark)
+- [Pinocchio](https://github.com/lambdaclass/lambdaworks/tree/main/examples/pinocchio)
 
 ## Exercises and Challenges
+
 - [lambdaworks exercises and challenges](https://github.com/lambdaclass/lambdaworks_exercises/tree/main)
 - [Roadmap for Sparkling Water Bootcamp](https://github.com/lambdaclass/sparkling_water_bootcamp/blob/main/README.md)
 
@@ -85,9 +90,9 @@ List of symbols:
 | **Elliptic Curves** | **Lambdaworks** | **Arkworks**          | **Halo2**          | **gnark**          | **Constantine**    |
 | BLS12-381           | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |
 | BLS12-377           | 🏗️                 | :heavy_check_mark: | :x:                | :heavy_check_mark: | :heavy_check_mark: |
-| BN-254              | 🏗️                 | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |
-| Pallas              | :heavy_check_mark: | :heavy_check_mark: | :x:                | :x:                | :heavy_check_mark: |
-| Vesta               | :heavy_check_mark: | :heavy_check_mark: | :x:                | :x:                | :heavy_check_mark: |
+| BN-254              | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |
+| Pallas              | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :x:                | :heavy_check_mark: |
+| Vesta               | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :x:                | :heavy_check_mark: |
 | Bandersnatch        | 🏗️                 | :heavy_check_mark: | :x:                | :heavy_check_mark:  | :heavy_check_mark: |
 | **STARKs**       | **Lambdaworks**     | **Arkworks** | **Halo2** | **gnark** | **Constantine** |
 | STARK Prover     | :heavy_check_mark:  | :x:          | :x:       | :x:       | :x:             |
