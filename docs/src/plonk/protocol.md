@@ -51,7 +51,7 @@ This is called the linearization trick. The polynomial $f$ is called the _linear
 ## Setup
 
 There's a one time setup phase to compute some values common to any execution and proof of the particular circuit. Precisely, the following commitments are computed and published.
-$$[ q_L]_1 , [ q_R ]_1 , [ q_M ]_1 , [ q_O ]_1 , [ q_C ]_1 , [ S_{\sigma 1 } ]_1 , [ S_{\sigma_2 } ]_1 , [ S_{\sigma 3 } ]_1$$
+$$[ q_L ]_1 , [ q_R ]_1 , [ q_M ]_1 , [ q_O ]_1 , [ q_C ]_1 , [ S_{ \sigma 1 } ]_1 , [ S_{ \sigma 2 } ]_1 , [ S_{ \sigma 3 } ]_1$$
 
 ## Proving algorithm
 
@@ -64,7 +64,7 @@ The prover computes the trace matrix $T$ as described in the first sections. Tha
 ### Round 1
 
 Add to the transcript the following:
-$$[S_{\sigma_1 } ]_1, [S_{\sigma_2 } ]_1, [S_{\sigma_3 } ]_1, [q_L ]_1, [q_R ]_1, [q_M ]_1, [q_O ]_1, [q_C ]_1$$
+$$[ S_{\sigma 1 } ]_1, [ S_ { \sigma 2 } ]_1, [ S { \sigma 3 } ]_1, [ q_L ]_1, [ q_R ]_1, [ q_M ]_1, [ q_O ]_1, [ q_C ]_1$$
 
 Compute polynomials $a',b',c'$ as the interpolation polynomials of the columns of $T$ at the domain $H$.
 Sample random $b_1, b_2, b_3, b_4, b_5, b_6$
@@ -85,12 +85,12 @@ Sample $\beta, \gamma$ from the transcript.
 Let $z_0 = 1$ and define recursively for $0\leq k < N$.
 
 $$
-z_{k+1} = z_k \frac{(a_k + \beta\omega^k + \gamma)(b_k + \beta\omega^k k_1 + \gamma)(c_k + \beta\omega^k k_2 + \gamma)}{(a_k + \beta S_{\sigma1} (\omega^k ) + \gamma)(b_k + \beta S_{\sigma2} (\omega^k) + \gamma)(c_k + \beta S_{\sigma3} (\omega^k) + \gamma)}
+z_{k + 1} = z_k \frac{(a_k + \beta \omega^k + \gamma) (b_k + \beta \omega^k k_1 + \gamma)(c_k + \beta \omega^k k_2 + \gamma)}{(a_k + \beta S_{ \sigma 1} (\omega^k ) + \gamma) (b_k + \beta S_{ \sigma 2} (\omega^k) + \gamma)(c_k + \beta S_{ \sigma 3} (\omega^k) + \gamma)}
 $$
 
 Compute the polynomial $z'$ as the interpolation polynomial at the domain $H$ of the values $(z_0, \dots, z_{ N - 1 })$.
 
-Sample random values $b_7, b_8, b_9$ and let $z = (b_7X^2 + b_8X + b_9 )Z_H + z'$.
+Sample random values $b_7, b_8, b_9$ and let $z = (b_7 X^2 + b_8 X + b_9 )Z_H + z'$.
 
 Compute $[z]_1$ and add it to the transcript.
 
@@ -105,7 +105,7 @@ Let
 $$
 \begin{aligned}
 p_1 &= aq_L + bq_R + abq_M + cq_O + q_C + pi \\
-p_2 &= (a + \beta X + \gamma)(b + \beta k_1 X + \gamma)(c + \beta k_2 X + \gamma)z -  (a + \beta S_{\sigma1} + \gamma)(b + \beta S_{\sigma2} + \gamma)(c + \beta S_{\sigma3} + \gamma)z(\omega X)\\
+p_2 &= (a + \beta X + \gamma)(b + \beta k_1 X + \gamma)(c + \beta k_2 X + \gamma)z -  (a + \beta S_{ \sigma 1} + \gamma)(b + \beta S_{ \sigma 2} + \gamma)(c + \beta S_{ \sigma 3} + \gamma)z(\omega X)\\
 p_3 &= (z - 1)L_1
 \end{aligned}
 $$
@@ -139,7 +139,7 @@ Let
 $$
 \begin{aligned}
 \hat p_{nc1} &= \bar aq_L + \bar bq_R + \bar a\bar bq_M + \bar cq_O + q_C \\
-\hat p_{nc2} &=(\bar a + \beta\zeta + \gamma)(\bar b + \beta k_1\zeta + \gamma)(\bar c + \beta k_2 \zeta + \gamma)z - (\bar a + \beta \bar s_{\sigma 1} + \gamma)(\bar b + \beta \bar s_{\sigma 2} + \gamma)\beta \bar z_\omega S_{\sigma 3} \\
+\hat p_{nc2} &=(\bar a + \beta\zeta + \gamma)(\bar b + \beta k_1\zeta + \gamma)(\bar c + \beta k_2 \zeta + \gamma)z - (\bar a + \beta \bar s_{ \sigma 1 } + \gamma)(\bar b + \beta \bar s_{ \sigma 2 } + \gamma)\beta \bar z_\omega S_{ \sigma 3 } \\
 \hat p_{nc3} &= L_1(\zeta) z
 \end{aligned}
 $$
@@ -149,7 +149,7 @@ Define
 $$
 \begin{aligned}
 p_{nc} &= p_{nc1} + \alpha p_{nc2} + \alpha^2 p_{nc3} \\
-t_{\text{partial}} &= t_{lo} + \zeta^{N+2}t_{mid} + \zeta^{2(N+2)}t_{hi}
+t_{\text{partial}} &= t_{lo} + \zeta^{ N + 2}t_{mid} + \zeta^{ 2 ( N + 2 )}t_{hi}
 \end{aligned}
 $$
 
@@ -165,14 +165,14 @@ Compute $\bar p_{nc} := p_{nc}(\zeta)$ and $\bar t = t(\zeta)$.
 ### Proof
 
 The proof is:
-$$[a]_1, [b]_1 , [c]_1, [z]_1, [t_{lo} ]_1, [t_{mid} ]_1, [t_{hi} ]_1, \bar{a}, \bar{b}, \bar{c}, \bar{s_{\sigma 1}}, \bar{s_{\sigma 2}}, \bar{z_\omega}, \pi_{\mathrm{batch}}, \pi_{\mathrm{single}}, \bar p_{nc}, \bar t$$
+$$[a]_1, [b]_1 , [c]_1, [z]_1, [t_{lo} ]_1, [t_{mid} ]_1, [t_{hi} ]_1, \bar{a}, \bar{b}, \bar{c}, \bar{s_{ \sigma 1 }}, \bar{s_{ \sigma 2 }}, \bar{z_\omega}, \pi_{\mathrm{batch}}, \pi_{\mathrm{single}}, \bar p_{nc}, \bar t$$
 
 ## Verification algorithm
 
 ### Transcript initialization
 
 The first step is to initialize the transcript in the same way the prover did, adding to it the following elements.
-$$[S_{\sigma 1}]_1, [S_{\sigma 2}]_1, [S_{\sigma 3}]_1, [q_L]_1, [q_R]_1, [q_M]_1, [q_O]_1, [q_C]_1$$
+$$[ S_{ \sigma 1 } ]_1, [ S_{ \sigma 2 } ]_1, [ S_{ \sigma 3 }]_1, [ q_L ]_1, [ q_R ]_1, [ q_M ]_1, [ q_O ]_1, [ q_C ]_1$$
 
 ### Extraction of values and commitments
 
@@ -184,7 +184,7 @@ Firstly, the verifier needs to compute all the challenges. For that, he follows 
 - Sample two challenges $\beta, \gamma$.
 - Add $[z]_1$ to the transcript.
 - Sample a challenge $\alpha$.
-- Add $[t_{lo}]_1, [t_{mid}]_1, [t_{hi}]_1$ to the transcript.
+- Add $[ t_{lo} ]_1, [ t_{mid} ]_1, [ t_{hi} ]_1$ to the transcript.
 - Sample a challenge $\zeta$.
 - Add $\bar a, \bar b, \bar c, \bar s_{\sigma 1}, \bar s_{\sigma 2}, \bar z_\omega$ to the transcript.
 - Sample a challenge $\upsilon$.
