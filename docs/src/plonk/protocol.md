@@ -122,7 +122,7 @@ t_{hi} &= t_{hi}' - b_{11}
 \end{aligned}
 $$
 
-Compute $\left[t_{lo} \right]_1, \left[t_{mid} \right]_1,\left[t_{hi} \right]_1$ and add them to the transcript.
+Compute $\left[t_{lo}\right]_1, \left[t_{mid}\right]_1,\left[t_{hi}\right]_1$ and add them to the transcript.
 
 ### Round 4
 
@@ -165,7 +165,7 @@ Compute $\bar p_{nc} := p_{nc}(\zeta)$ and $\bar t = t(\zeta)$.
 ### Proof
 
 The proof is:
-$$\left[a\right]_1, \left[b\right]_1 , \left[c\right]_1, \left[z\right]_1, \left[t_{lo} \right]_1, \left[t_{mid} \right]_1, \left[t_{hi} \right]_1, \bar{a}, \bar{b}, \bar{c}, \bar{s_{ \sigma 1 }}, \bar{s_{ \sigma 2 }}, \bar{z_\omega}, \pi_{\mathrm{batch}}, \pi_{\mathrm{single}}, \bar p_{nc}, \bar t$$
+$$\left[a\right]_1, \left[b\right]_1 , \left[c\right]_1, \left[z\right]_1, \left[t_{lo}\right]_1, \left[t_{mid}\right]_1, \left[t_{hi}\right]_1, \bar{a}, \bar{b}, \bar{c}, \bar{s_{ \sigma 1 }}, \bar{s_{ \sigma 2 }}, \bar{z_\omega}, \pi_{\mathrm{batch}}, \pi_{\mathrm{single}}, \bar p_{nc}, \bar t$$
 
 ## Verification algorithm
 
@@ -184,7 +184,7 @@ Firstly, the verifier needs to compute all the challenges. For that, he follows 
 - Sample two challenges $\beta, \gamma$.
 - Add $\left[z\right]_1$ to the transcript.
 - Sample a challenge $\alpha$.
-- Add $\left[ t_{lo} \right]_1, \left[ t_{mid} \right]_1, \left[ t_{hi} \right]_1$ to the transcript.
+- Add $\left[t_{lo}\right]_1, \left[t_{mid}\right]_1, \left[t_{hi}\right]_1$ to the transcript.
 - Sample a challenge $\zeta$.
 - Add $\bar a, \bar b, \bar c, \bar s_{\sigma 1}, \bar s_{\sigma 2}, \bar z_\omega$ to the transcript.
 - Sample a challenge $\upsilon$.
