@@ -133,6 +133,11 @@ fn commit(&self, p: &Polynomial<FieldElement<F>>) -> Self::Commitment {
 Pairings are an important calculation for BLS signatures and the KZG polynomial commitment scheme. These are functions mapping elements from groups of order $r$ belonging to an elliptic curve to the set of $r$-th roots of unity, $e: G_1 \times G_2 \rightarrow G_t$. They satisfy two properties:
 1. Bilinearity
 2. Non-degeneracy
-Not all elliptic curves have efficiently computable pairings. If the curve is pairing-friendly, we can implement the trait `IsPairing`. Examples of pairing-friendly curves are BLS12-381, BLS12-377, BN254. Curves such as Pallas, Vesta, secp256k1 are not pairing-friendly.
+Not all elliptic curves have efficiently computable pairings. If the curve is pairing-friendly, we can implement the trait `IsPairing`. Examples of pairing-friendly curves are BLS12-381, BLS12-377, BN254. Curves such as Pallas, Vesta, secp256k1 are not pairing-friendly. For an explanation of pairings, see our [blogpost](https://blog.lambdaclass.com/how-we-implemented-the-bn254-ate-pairing-in-lambdaworks/).
 
-The pairing function takes pairs of points $(a , b)$, where $a \in G_1$ (formed by coordinates $x,y$ taking values on the base field $\mathbb{F}_p$) and $b \in G_2$ (formed by coordinates $x,y$ taking values in $\mathbb{F}_{p^2}$, a quadratic extension of the base field) and outputs an element in the $r$-th roots of unity of $\mathbb{F}_{p^k}$. To use the pairing, 
+The pairing function takes pairs of points $(a , b)$, where $a \in G_1$ (formed by coordinates $x,y$ taking values on the base field $\mathbb{F}_p$) and $b \in G_2$ (formed by coordinates $x,y$ taking values in $\mathbb{F}_{p^2}$, a quadratic extension of the base field) and outputs an element in the $r$-th roots of unity of $\mathbb{F}_{p^k}$. To use the pairing, provide a slice of pairs and call the function `compute_batch`. For example,
+```rust
+let p = BN254Curve::generator();
+let q = BN254TwistCurve::generator();
+let pairing_result = BN254AtePairing::compute_batch(&[(&p, &q)]).unwrap();
+```
