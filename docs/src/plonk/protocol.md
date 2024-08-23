@@ -24,14 +24,14 @@ As you will see in the protocol, the prover reveals the value taken by a bunch o
 
 Let's take for example the polynomial $a$ the prover constructs. This is the interpolation of the first column of the trace matrix $T$ at the domain $H$.
 This matrix has all of the left operands of all the gates. The prover wishes to keep them secret.
-Say the trace matrix $T$ has $N$ rows. And so $H$ is $\{1, \omega,\omega^2, \dots, \omega^{N-1}\}$. The invariant that the prover cannot violate is that $a_{\text{blinded}}(\omega^i)$ must take the value $T_{0, i}$, for all $i$. This is what the interpolation polynomial $a$ satisfies. And is the unique such polynomial of degree at most $N-1$ with such property. But for higher degrees, there are many such polynomials.
+Say the trace matrix $T$ has $N$ rows. $H$ is $\{1, \omega,\omega^2, \dots, \omega^{N - 1}\}$. The invariant that the prover cannot violate is that $a_{\text{blinded}}(\omega^i)$ must take the value $T_{0, i}$, for all $i$. This is what the interpolation polynomial $a$ satisfies. And is the unique such polynomial of degree at most $N - 1$ with such property. But for higher degrees, there are many such polynomials.
 
 The _blinding_ process takes $a$ and a desired degree $M\geq N$, and produces a new polynomial $a_{\text{blinded}}$ of degree exactly $M$. This new polynomial satisfies that $a_{\text{blinded}}(\omega^i) = a(\omega^i)$ for all $i$. But outside $H$ differs from $a$.
 
 This may seem hard but it's actually very simple. Let $z_H$ be the polynomial $z_H = X^N - 1$. If $M = N + k$, with $k \geq 0$, then sample random values $b_0, \dots, b_k$ and define
 $$a_{\text{blinded}} := (b_0 + b_1 X + \cdots + b_k X^k )z_H + a$$
 
-The reason why this does the job is that $z_H(\omega^i)=0$ for all $i$. Therefore the added term vanishes at $H$ and leaves the values of $a$ at $H$ unchanged.
+The reason why this does the job is that $z_H(\omega^i) = 0$ for all $i$. Therefore the added term vanishes at $H$ and leaves the values of $a$ at $H$ unchanged.
 
 ### Linearization trick
 
@@ -128,7 +128,7 @@ Compute $[t_{lo} ]_1, [t_{mid} ]_1,[t_{hi} ]_1$ and add them to the transcript.
 
 Sample $\zeta$ from the transcript.
 
-Compute $\bar a = a(\zeta), \bar b = b(\zeta), \bar c = c(\zeta), \bar s_{\sigma1} =  S_{\sigma1}(\zeta), \bar s_{\sigma2} = S_{\sigma2}(\zeta), \bar z_\omega = z(\zeta\omega)$ and add them to the transcript.
+Compute $\bar a = a(\zeta), \bar b = b(\zeta), \bar c = c(\zeta), \bar s_{\sigma 1} =  S_{\sigma 1}(\zeta), \bar s_{\sigma 2} = S_{\sigma 2}(\zeta), \bar z_\omega = z(\zeta\omega)$ and add them to the transcript.
 
 ### Round 5
 
@@ -139,7 +139,7 @@ Let
 $$
 \begin{aligned}
 \hat p_{nc1} &= \bar aq_L + \bar bq_R + \bar a\bar bq_M + \bar cq_O + q_C \\
-\hat p_{nc2} &=(\bar a + \beta\zeta + \gamma)(\bar b + \beta k_1\zeta + \gamma)(\bar c + \beta k_2\zeta + \gamma)z - (\bar a + \beta \bar s_{\sigma1} + \gamma)(\bar b + \beta \bar s_{\sigma2} + \gamma)\beta \bar z_\omega S_{\sigma3} \\
+\hat p_{nc2} &=(\bar a + \beta\zeta + \gamma)(\bar b + \beta k_1\zeta + \gamma)(\bar c + \beta k_2 \zeta + \gamma)z - (\bar a + \beta \bar s_{\sigma 1} + \gamma)(\bar b + \beta \bar s_{\sigma 2} + \gamma)\beta \bar z_\omega S_{\sigma 3} \\
 \hat p_{nc3} &= L_1(\zeta) z
 \end{aligned}
 $$
@@ -153,10 +153,10 @@ t_{\text{partial}} &= t_{lo} + \zeta^{N+2}t_{mid} + \zeta^{2(N+2)}t_{hi}
 \end{aligned}
 $$
 
-The subscript $nc$ stands for "non constant", as is the part of the linearization of $p$ that has non constant factors. The subscript "partial" indicates that it is a partial evaluation of $t$ at $\zeta$. Partial meaning that only some power of $X$ ar replaced by the powers of $\zeta$. So in particular $t_{\text{partial}}(\zeta) = t(\zeta)$.
+The subscript $nc$ stands for "non-constant", as is the part of the linearization of $p$ that has non-constant factors. The subscript "partial" indicates that it is a partial evaluation of $t$ at $\zeta$. Partial meaning that only some power of $X$ ar replaced by the powers of $\zeta$. So in particular $t_{\text{partial}}(\zeta) = t(\zeta)$.
 
 Let $\pi_{\text{batch}}$ be the opening proof at $\zeta$ of the polynomial $f_{\text{batch}}$ defined as
-$$t_{\text{partial}} +\upsilon p_{nc} + \upsilon^2 a + \upsilon^3 b + \upsilon^4 c + \upsilon^5 S_{\sigma1} + \upsilon^6 S_{\sigma2}$$
+$$t_{\text{partial}} +\upsilon p_{nc} + \upsilon^2 a + \upsilon^3 b + \upsilon^4 c + \upsilon^5 S_{\sigma 1} + \upsilon^6 S_{\sigma 2}$$
 
 Let $\pi_{\text{single}}$ be the opening proof at $\zeta\omega$ of the polynomial $z$.
 
@@ -165,14 +165,14 @@ Compute $\bar p_{nc} := p_{nc}(\zeta)$ and $\bar t = t(\zeta)$.
 ### Proof
 
 The proof is:
-$$[a]_1, [b]_1 , [c]_1, [z]_1, [t_{lo} ]_1, [t_{mid} ]_1, [t_{hi} ]_1, \bar{a}, \bar{b}, \bar{c}, \bar{s_{\sigma1}}, \bar{s_{\sigma2}}, \bar{z_\omega}, \pi_{\mathrm{batch}}, \pi_{\mathrm{single}}, \bar p_{nc}, \bar t$$
+$$[a]_1, [b]_1 , [c]_1, [z]_1, [t_{lo} ]_1, [t_{mid} ]_1, [t_{hi} ]_1, \bar{a}, \bar{b}, \bar{c}, \bar{s_{\sigma 1}}, \bar{s_{\sigma 2}}, \bar{z_\omega}, \pi_{\mathrm{batch}}, \pi_{\mathrm{single}}, \bar p_{nc}, \bar t$$
 
 ## Verification algorithm
 
 ### Transcript initialization
 
 The first step is to initialize the transcript in the same way the prover did, adding to it the following elements.
-$$[S_{\sigma1}]_1, [S_{\sigma2}]_1, [S_{\sigma3}]_1, [q_L]_1, [q_R]_1, [q_M]_1, [q_O]_1, [q_C]_1$$
+$$[S_{\sigma 1}]_1, [S_{\sigma 2}]_1, [S_{\sigma 3}]_1, [q_L]_1, [q_R]_1, [q_M]_1, [q_O]_1, [q_C]_1$$
 
 ### Extraction of values and commitments
 
@@ -186,7 +186,7 @@ Firstly, the verifier needs to compute all the challenges. For that, he follows 
 - Sample a challenge $\alpha$.
 - Add $[t_{lo}]_1, [t_{mid}]_1, [t_{hi}]_1$ to the transcript.
 - Sample a challenge $\zeta$.
-- Add $\bar a, \bar b, \bar c, \bar s_{\sigma1}, \bar s_{\sigma2}, \bar z_\omega$ to the transcript.
+- Add $\bar a, \bar b, \bar c, \bar s_{\sigma 1}, \bar s_{\sigma 2}, \bar z_\omega$ to the transcript.
 - Sample a challenge $\upsilon$.
 
 #### Compute $p.i ( \zeta )$
@@ -197,7 +197,7 @@ where $n$ is the number of public inputs and $L_i$ is the Lagrange basis at the 
 
 #### Compute claimed values of $p( \zeta )$ and $t( \zeta )$
 
-He computes $\bar p_{c} := pi(\zeta) + \alpha \bar z_\omega (\bar c + \gamma) (\bar a + \beta \bar s_{\sigma1} + \gamma) (\bar b + \beta \bar s_{\sigma2} + \gamma) - \alpha^2 L_1(\zeta)$
+He computes $\bar p_{c} := pi(\zeta) + \alpha \bar z_\omega (\bar c + \gamma) (\bar a + \beta \bar s_{\sigma 1} + \gamma) (\bar b + \beta \bar s_{\sigma 2} + \gamma) - \alpha^2 L_1(\zeta)$
 
 This is the _constant_ part of the linearization of $p$. So adding it to what the prover claims to be $\bar p_{nc}$, he obtains
 $$p(\zeta) = \bar p_{c} + \bar p_{nc}$$
@@ -214,7 +214,7 @@ For $[p_{nc}]_1$, first compute
 $$
 \begin{aligned}
 [\hat p_{nc1} ]_1 &= \bar a[q_L]_1 + \bar b[q_R]_1 + (\bar a\bar b)[q_M]_1 + \bar c[q_O]_1 + [q_C]_1 \\
-[\hat p_{nc2} ]_1 &= (\bar a + \beta\zeta + \gamma)(\bar b + \beta k_1 \zeta + \gamma)(\bar c + \beta k_2 \zeta + \gamma)[z]_1 - (\bar a + \beta \bar s_{\sigma1} + \gamma)(\bar b + \beta \bar s_{\sigma2} + \gamma)\beta \bar z_\omega [S_{\sigma3}]_1 \\
+[\hat p_{nc2} ]_1 &= (\bar a + \beta\zeta + \gamma)(\bar b + \beta k_1 \zeta + \gamma)(\bar c + \beta k_2 \zeta + \gamma)[z]_1 - (\bar a + \beta \bar s_{\sigma 1} + \gamma)(\bar b + \beta \bar s_{\sigma 2} + \gamma)\beta \bar z_\omega [S_{\sigma 3}]_1 \\
 [\hat p_{nc3} ]_1 &= L_1(\zeta)[z]_1
 \end{aligned}
 $$
@@ -231,7 +231,7 @@ f_{\mathrm{batch}} (\zeta) =
 $$
 
 Also, the commitment of the polynomial $f_{\text{batch}}$ is
-$$[f_{\mathrm{batch} }]_1 = [t_{\mathrm{partial}}]_1 + \upsilon [p_{nc}]_1 + \upsilon^2 [a]_1 + \upsilon^3 [b]_1 + \upsilon^4 [c]_1 + \upsilon^5 [S_{\sigma1}]_1 + \upsilon^6 [S_{\sigma2}]_1$$
+$$[f_{\mathrm{batch} }]_1 = [t_{\mathrm{partial}}]_1 + \upsilon [p_{nc}]_1 + \upsilon^2 [a]_1 + \upsilon^3 [b]_1 + \upsilon^4 [c]_1 + \upsilon^5 [S_{\sigma 1}]_1 + \upsilon^6 [S_{\sigma 2}]_1$$
 
 ### Proof check
 
@@ -243,4 +243,3 @@ Now the verifier has all the necessary values to proceed with the checks.
 That is, check that $\mathrm{Verify}([z]_1, \pi_{\mathrm{single}}, \zeta \omega, \bar z_\omega)$ outputs _Accept_.
 
 If all checks pass, he outputs _Accept_. Otherwise outputs _Reject_.
-
