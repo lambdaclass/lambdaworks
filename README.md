@@ -163,11 +163,22 @@ To serve the documentation locally, first install both [mdbook](https://rust-lan
 make docs
 ```
 
-## 📚 References
+## 📚 References and acknowledgements
 
-The following links, repos and projects have been important in the development of this library and we want to thank and acknowledge them. 
+The following links, repos, companies and projects have been important in the development of this library and we want to thank and acknowledge them. 
 
 - [Starkware](https://starkware.co/)
+- [Polygon](https://polygon.technology/)
+- [Mina](https://minaprotocol.com/)
+- [zcash](https://z.cash/)
+- [Matter Labs](https://matter-labs.io/)
+- [o1Labs](https://www.o1labs.org/)
+- [zkSync](https://zksync.io/)
+- [Aleo](https://aleo.org/)
+- [Risc0](https://github.com/risc0/risc0)
+- [Aztec](https://github.com/AztecProtocol)
+- [Ingonyama](https://www.ingonyama.com/)
+- [Neptune](https://github.com/Neptune-Crypto)
 - [Winterfell](https://github.com/facebook/winterfell)
 - [Anatomy of a Stark](https://aszepieniec.github.io/stark-anatomy/overview)
 - [Giza](https://github.com/maxgillett/giza)
@@ -175,14 +186,11 @@ The following links, repos and projects have been important in the development o
 - [Sandstorm](https://github.com/andrewmilson/sandstorm)
 - [STARK-101](https://starkware.co/stark-101/)
 - [starknet-rs](https://github.com/xJonathanLEI/starknet-rs/)
-- [Risc0](https://github.com/risc0/risc0)
-- [Neptune](https://github.com/Neptune-Crypto)
 - [Summary on FRI low degree test](https://eprint.iacr.org/2022/1216)
 - [STARKs paper](https://eprint.iacr.org/2018/046)
 - [DEEP FRI](https://eprint.iacr.org/2019/336)
 - [BrainSTARK](https://aszepieniec.github.io/stark-brainfuck/)
 - [Plonky2](https://github.com/mir-protocol/plonky2)
-- [Aztec](https://github.com/AztecProtocol)
 - [Arkworks](https://github.com/arkworks-rs)
 - [Thank goodness it's FRIday](https://vitalik.ca/general/2017/11/22/starks_part_2.html)
 - [Diving DEEP FRI](https://blog.lambdaclass.com/diving-deep-fri/)
@@ -195,3 +203,4 @@ The following links, repos and projects have been important in the development o
 - [CAIRO whitepaper](https://eprint.iacr.org/2021/1063.pdf)
 - [Gnark](https://github.com/Consensys/gnark)
 - [Constantine](https://github.com/mratsim/constantine)
+- [Plonky3](https://github.com/Plonky3/Plonky3)
