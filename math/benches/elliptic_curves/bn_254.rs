@@ -106,7 +106,12 @@ pub fn bn_254_elliptic_curve_benchmarks(c: &mut Criterion) {
         });
     });
 
-    // Miller Loop
+    // Miller Loop 1
+    group.bench_function("Miller Loop", |bencher| {
+        bencher.iter(|| black_box(miller(black_box(&a_g1), black_box(&a_g2))))
+    });
+
+    // Miller Loop 2
     group.bench_function("Miller Loop", |bencher| {
         bencher.iter(|| black_box(miller_2(black_box(&a_g1), black_box(&a_g2))))
     });

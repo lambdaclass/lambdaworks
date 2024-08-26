@@ -154,7 +154,7 @@ impl IsPairing for BN254AtePairing {
             .reduce(|acc, x| acc * x)
             .unwrap_or(Fp12E::one());
 
-        Ok(final_exponentiation(&combined))
+        Ok(final_exponentiation_2(&combined))
     }
 }
 
@@ -324,7 +324,6 @@ fn line(p: &G1Point, t: &G2Point, q: &G2Point) -> Fp12E {
     }
 }
 
-/*
 /// Computes f ^ {(p^12 - 1) / r}
 /// using that (p^12 - 1)/r = (p^6 - 1) * (p^2 + 1) * (p^4 - p^2 + 1)/r.
 /// Algorithm taken from https://hackmd.io/@Wimet/ry7z1Xj-2#Final-Exponentiation.
@@ -334,7 +333,7 @@ pub fn final_exponentiation(
     // Easy part:
     // Computes f ^ {(p^6 - 1) * (p^2 + 1)}
     let f_easy_aux = f.conjugate() * f.inv().unwrap(); // f ^ (p^6 - 1) because f^(p^6) = f.conjugate().
-    let f_easy = &frobenius_square(&f_easy_aux) * f_easy_aux; // (f^{p^6 - 1})^(p^2) * (f^{p^6 - 1}).
+    let mut f_easy = &frobenius_square(&f_easy_aux) * f_easy_aux; // (f^{p^6 - 1})^(p^2) * (f^{p^6 - 1}).
 
     /*
     // Hard part:
@@ -368,7 +367,6 @@ pub fn final_exponentiation(
         * y6.pow(36usize)
     */
 
-    /*
     // Hard part following Arkworks library.
     let mut y0 = f_easy.pow(X);
     y0 = y0.inv().unwrap();
@@ -400,8 +398,8 @@ pub fn final_exponentiation(
     y15 = frobenius_cube(&y15);
     let y16 = y15 * y14;
     y16
-    */
 
+    /*
     // Optimal hard part from the post
     // https://hackmd.io/@Wimet/ry7z1Xj-2#The-Hard-Part
     let mx = cyclotomic_pow_x(f_easy.clone());
@@ -433,11 +431,10 @@ pub fn final_exponentiation(
     let t04 = cyclotimic_square(&t03) * t14;
 
     t04
+    */
 }
 
-*/
-
-pub fn final_exponentiation(
+pub fn final_exponentiation_2(
     f: &FieldElement<Degree12ExtensionField>,
 ) -> FieldElement<Degree12ExtensionField> {
     // Easy part:
@@ -725,7 +722,7 @@ fn cyclotomic_pow_x(f: Fp12E) -> Fp12E {
 
 }
 */
-/*
+
 fn cyclotomic_pow_x(f: Fp12E) -> Fp12E {
     if f == Fp12E::one() {
         Fp12E::one()
@@ -743,8 +740,8 @@ fn cyclotomic_pow_x(f: Fp12E) -> Fp12E {
         result
     }
 }
-*/
 
+/*
 fn cyclotomic_pow_x(f: Fp12E) -> Fp12E {
     let start = Instant::now();
     if f == Fp12E::one() {
@@ -768,6 +765,7 @@ fn cyclotomic_pow_x(f: Fp12E) -> Fp12E {
         result
     }
 }
+*/
 
 /*
 fn cyclotomic_pow_x(f: Fp12E) -> Fp12E {
