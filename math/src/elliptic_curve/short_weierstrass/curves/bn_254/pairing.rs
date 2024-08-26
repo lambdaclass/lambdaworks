@@ -16,6 +16,8 @@ use crate::{
     field::element::FieldElement,
 };
 
+use rayon::prelude::*;
+
 type FpE = FieldElement<BN254PrimeField>;
 type Fp2E = FieldElement<Degree2ExtensionField>;
 type Fp6E = FieldElement<Degree6ExtensionField>;
@@ -133,20 +135,25 @@ impl IsPairing for BN254AtePairing {
     fn compute_batch(
         pairs: &[(&Self::G1Point, &Self::G2Point)],
     ) -> Result<FieldElement<Self::OutputField>, PairingError> {
-        let mut result = Fp12E::one();
-        for (p, q) in pairs {
-            // We don't need to check if p is in the subgroup because the subgroup oF G1 is G1.
-            // See https://hackmd.io/@jpw/bn254#Subgroup-checks.
-            if !q.is_in_subgroup() {
-                return Err(PairingError::PointNotInSubgroup);
-            }
-            if !p.is_neutral_element() && !q.is_neutral_element() {
-                let p = p.to_affine();
-                let q = q.to_affine();
-                result *= miller(&p, &q);
-            }
-        }
-        Ok(final_exponentiation(&result))
+        let results: Result<Vec<Fp12E>, PairingError> = pairs
+            .par_iter()
+            .map(|(p, q)| {
+                if !q.is_in_subgroup() {
+                    Err(PairingError::PointNotInSubgroup)
+                } else if p.is_neutral_element() || q.is_neutral_element() {
+                    Ok(Fp12E::one())
+                } else {
+                    Ok(miller(&p.to_affine(), &q.to_affine()))
+                }
+            })
+            .collect();
+
+        let combined = results?
+            .into_iter()
+            .reduce(|acc, x| acc * x)
+            .unwrap_or(Fp12E::one());
+
+        Ok(final_exponentiation(&combined))
     }
 }
 
