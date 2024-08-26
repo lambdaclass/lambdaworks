@@ -4,7 +4,9 @@ use lambdaworks_math::{
     elliptic_curve::{
         short_weierstrass::curves::bn_254::{
             curve::BN254Curve,
-            pairing::{final_exponentiation, miller, miller_2, BN254AtePairing},
+            pairing::{
+                final_exponentiation, final_exponentiation_2, miller, miller_2, BN254AtePairing,
+            },
             twist::BN254TwistCurve,
         },
         traits::{IsEllipticCurve, IsPairing},
@@ -107,17 +109,22 @@ pub fn bn_254_elliptic_curve_benchmarks(c: &mut Criterion) {
     });
 
     // Miller Loop 1
-    group.bench_function("Miller Loop", |bencher| {
+    group.bench_function("Miller Loop 1", |bencher| {
         bencher.iter(|| black_box(miller(black_box(&a_g1), black_box(&a_g2))))
     });
 
     // Miller Loop 2
-    group.bench_function("Miller Loop", |bencher| {
+    group.bench_function("Miller Loop 2", |bencher| {
         bencher.iter(|| black_box(miller_2(black_box(&a_g1), black_box(&a_g2))))
     });
 
-    // Final Exponentiation
-    group.bench_function("Final Exponentiation", |bencher| {
+    // Final Exponentiation 1
+    group.bench_function("Final Exponentiation 1", |bencher| {
         bencher.iter(|| black_box(final_exponentiation(black_box(&miller_loop_output))))
+    });
+
+    // Final Exponentiation 2
+    group.bench_function("Final Exponentiation 2", |bencher| {
+        bencher.iter(|| black_box(final_exponentiation_2(black_box(&miller_loop_output))))
     });
 }
