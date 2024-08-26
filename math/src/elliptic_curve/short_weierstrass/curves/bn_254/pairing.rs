@@ -36,12 +36,6 @@ type G2Point = ShortWeierstrassProjectivePoint<BN254TwistCurve>;
 /// See https://hackmd.io/@jpw/bn254#Barreto-Naehrig-curves
 pub const X: u64 = 0x44e992b44a6909f1;
 
-// 100010011101001100100101011010001001010011010010000100111110001
-pub const X_BINARY: [i32; 63] = [
-    1, 0, 0, 0, 1, 0, 0, 1, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 0, 1, 0, 1, 0, 1, 1, 0, 1, 0, 0, 0,
-    1, 0, 0, 1, 0, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 1,
-];
-
 /// Constant used in the Miller Loop.
 /// MILLER_CONSTANT = 6x + 2 = 29793968203157093288.
 /// Note that this is a representation using {1, -1, 0}, but it isn't a NAF representation
@@ -124,6 +118,9 @@ pub const GAMMA_35: Fp2E = Fp2E::const_from_raw([
     FpE::from_hex_unchecked("16DB366A59B1DD0B9FB1B2282A48633D3E2DDAEA200280211F25041384282499"),
 ]);
 
+pub const TWO_INV: FpE =
+    FpE::from_hex_unchecked("183227397098D014DC2822DB40C0AC2ECBC0B548B438E5469E10460B6C3E7EA4");
+
 ////////////////// PAIRING //////////////////
 
 pub struct BN254AtePairing;
@@ -146,7 +143,7 @@ impl IsPairing for BN254AtePairing {
                 } else if p.is_neutral_element() || q.is_neutral_element() {
                     Ok(Fp12E::one())
                 } else {
-                    Ok(miller(&p.to_affine(), &q.to_affine()))
+                    Ok(miller_2(&p.to_affine(), &q.to_affine()))
                 }
             })
             .collect();
@@ -192,12 +189,107 @@ pub fn miller(p: &G1Point, q: &G2Point) -> Fp12E {
     f
 }
 
+fn miller_2(p: &G1Point, q: &G2Point) -> Fp12E {
+    let mut t = q.clone();
+    let mut f = Fp12E::one();
+    let q_neg = &q.neg();
+    MILLER_CONSTANT.iter().rev().skip(1).for_each(|m| {
+        let (r, l) = line_2(p, &t, &t);
+        f = f.square() * l;
+        t = r;
+
+        if *m == -1 {
+            let (r, l) = line_2(p, &t, q_neg);
+            f *= l;
+            t = r;
+        } else if *m == 1 {
+            let (r, l) = line_2(p, &t, q);
+            f *= l;
+            t = r;
+        }
+    });
+
+    // q1 = ((x_q)^p, (y_q)^p, (z_q)^p)
+    // See  https://hackmd.io/@Wimet/ry7z1Xj-2#The-Last-two-Lines
+    let q1 = q.phi();
+    let (r, l) = line_2(p, &t, &q1);
+    f *= l;
+    t = r;
+
+    // q2 = ((x_q1)^p, (y_q1)^p, (z_q1)^p)
+    let q2 = q1.phi();
+    f *= line_2(p, &t, &q2.neg()).1;
+
+    f
+}
+
+fn line_2(p: &G1Point, t: &G2Point, q: &G2Point) -> (G2Point, Fp12E) {
+    let [x_p, y_p, _] = p.coordinates();
+
+    if t == q {
+        let a = TWO_INV * t.x() * t.y();
+        let b = t.y().square();
+        let c = t.z().square();
+        let e = BN254TwistCurve::b() * (c.double() + &c);
+        let f = e.double() + &e;
+        let g = TWO_INV * (&b + &f);
+        let h = (t.y() + t.z()).square() - (&b + &c);
+        let i = &e - &b;
+        let j = t.x().square();
+        let e_square = e.square();
+
+        let x_r = a * (&b - f);
+        let y_r = g.square() - (e_square.double() + e_square);
+        let z_r = b * &h;
+
+        let r = G2Point::new([x_r, y_r, z_r]);
+
+        // We are transforming one representation of Fp12 into another:
+        // If f in Fp12, then f = g + h * w = g0 + h0 * w + g1 * w^2 + h1 * w^3 + g2 * w^4 + h2 * w^5,
+        // where g = g0 + g1 * v + g2 * v^2,
+        // and h = h0 + h1 * v + h2 * v^2.
+        // See https://hackmd.io/@Wimet/ry7z1Xj-2#Tower-of-Extension-Fields.
+        let l = Fp12E::new([
+            Fp6E::new([y_p * (-h), Fp2E::zero(), Fp2E::zero()]),
+            Fp6E::new([x_p * (j.double() + &j), i, Fp2E::zero()]),
+        ]);
+        (r, l)
+    } else {
+        let [x_q, y_q, _] = q.coordinates();
+        let [x_t, y_t, z_t] = t.coordinates();
+
+        let a = y_q * z_t;
+        let b = x_q * z_t;
+        let theta = t.y() - (y_q * t.z());
+        let lambda = t.x() - (x_q * t.z());
+        let c = theta.square();
+        let d = lambda.square();
+        let e = &lambda * &d;
+        let f = z_t * c;
+        let g = x_t * d;
+        let h = &e + f - g.double();
+        let i = y_t * &e;
+        let j = &theta * x_q - (&lambda * y_q);
+
+        let x_r = &lambda * &h;
+        let y_r = &theta * (g - h) - i;
+        let z_r = z_t * e;
+
+        let r = G2Point::new([x_r, y_r, z_r]);
+
+        let l = Fp12E::new([
+            Fp6E::new([y_p * lambda, Fp2E::zero(), Fp2E::zero()]),
+            Fp6E::new([x_p * (-theta), j, Fp2E::zero()]),
+        ]);
+        (r, l)
+    }
+}
+
 /// Computes the line between q and t and evaluates it in p.
 /// Algorithm adapted from Arkowork's double_in_place and add_in_place.
 /// See https://github.com/arkworks-rs/algebra/blob/master/ec/src/models/bn/g2.rs#L25.
 /// See https://eprint.iacr.org/2013/722.pdf (Page 13, Equations 11 and 13).
 fn line(p: &G1Point, t: &G2Point, q: &G2Point) -> Fp12E {
-    // We convert p into affine coordinates.
     let [x_p, y_p, _] = p.coordinates();
 
     if t == q {
@@ -1286,5 +1378,11 @@ mod tests {
         let f_easy_aux = f.conjugate() * f.inv().unwrap(); // f ^ (p^6 - 1) because f^(p^6) = f.conjugate().
         let f_easy = &frobenius_square(&f_easy_aux) * f_easy_aux; // (f^{p^6 - 1})^(p^2) * (f^{p^6 - 1}).
         assert_eq!(cyclotomic_pow_x(f_easy.clone()), f_easy.pow(X));
+    }
+
+    #[test]
+    fn constant_two_inv_is_iwo_inverse() {
+        assert_eq!(TWO_INV, FpE::from(2).inv().unwrap());
+        assert_eq!(TWO_INV * FpE::from(2), FpE::one());
     }
 }
