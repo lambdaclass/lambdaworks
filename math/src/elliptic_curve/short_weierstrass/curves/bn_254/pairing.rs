@@ -32,9 +32,10 @@ type G2Point = ShortWeierstrassProjectivePoint<BN254TwistCurve>;
 pub const X: u64 = 0x44e992b44a6909f1;
 
 // 100010011101001100100101011010001001010011010010000100111110001
-pub const X_BINARY: [i32; 63] = [1, 0, 0, 0, 1, 0, 0, 1, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 0, 1, 0, 
-1, 0, 1, 1, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 1, 1, 1, 
-1, 1, 0, 0, 0, 1];
+pub const X_BINARY: [i32; 63] = [
+    1, 0, 0, 0, 1, 0, 0, 1, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 0, 1, 0, 1, 0, 1, 1, 0, 1, 0, 0, 0,
+    1, 0, 0, 1, 0, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 1,
+];
 
 /// Constant used in the Miller Loop.
 /// MILLER_CONSTANT = 6x + 2 = 29793968203157093288.
@@ -116,7 +117,7 @@ pub const GAMMA_34: Fp2E = Fp2E::const_from_raw([
 pub const GAMMA_35: Fp2E = Fp2E::const_from_raw([
     FpE::from_hex_unchecked("13C49044952C0905711699FA3B4D3F692ED68098967C84A5EBDE847076261B43"),
     FpE::from_hex_unchecked("16DB366A59B1DD0B9FB1B2282A48633D3E2DDAEA200280211F25041384282499"),
-]); 
+]);
 
 ////////////////// PAIRING //////////////////
 
@@ -321,7 +322,7 @@ pub fn final_exponentiation(
     let t01 = cyclotimic_square(&y6) * y4 * &y5;
     let t11 = &t01 * y3 * y5;
     let t02 = t01 * y2;
-    let t12 =cyclotimic_square(&t11) * t02;
+    let t12 = cyclotimic_square(&t11) * t02;
     let t13 = cyclotimic_square(&t12);
     let t14 = &t13 * y0;
     let t03 = t13 * y1;
@@ -412,6 +413,7 @@ fn compress(f: &Fp12E) -> Vec<Fp2E> {
 /// decompress([h0, g2, g1, h2]) = f where
 /// f = g + h * w
 /// Algorithm from https://hackmd.io/@Wimet/ry7z1Xj-2#Compression-and-Decompression
+/// See https://eprint.iacr.org/2010/542.pdf (Theorem 3.1)
 fn decompress(c: Vec<Fp2E>) -> Fp12E {
     let h0 = c[0].clone();
     let g2 = c[1].clone();
@@ -420,41 +422,50 @@ fn decompress(c: Vec<Fp2E>) -> Fp12E {
     let mut g0 = Fp2E::one();
     let mut h1 = Fp2E::one();
 
-
     let non_residue = Fp2E::new([FpE::from(9), FpE::one()]);
 
     if h0 != Fp2E::zero() {
-        h1 = (h2.square() * &non_residue +  FpE::from(3) * g1.square() - g2.double()) * h0.double().double().inv().unwrap();
-        g0 = (h1.square().double() +  &h0 * &h2 - FpE::from(3) * &g1 * &g2) * non_residue + Fp2E::one();
+        h1 = (h2.square() * &non_residue + FpE::from(3) * g1.square() - g2.double())
+            * h0.double().double().inv().unwrap();
+        g0 = (h1.square().double() + &h0 * &h2 - FpE::from(3) * &g1 * &g2) * non_residue
+            + Fp2E::one();
     } else {
         h1 = (&g1 * &h2).double() * g2.inv().unwrap();
         g0 = (h1.square().double() - FpE::from(3) * &g2 * &g1) * non_residue + Fp2E::one();
     }
 
     Fp12E::new([Fp6E::new([g0, g1, g2]), Fp6E::new([h0, h1, h2])])
-
 }
 
 /// Computes the square of an element of Fp12E that belongs to the cyclotomic subgroup.
 /// Algorithm from https://hackmd.io/@Wimet/ry7z1Xj-2#Compressed-Squaring
 fn cyclotimic_square(f: &Fp12E) -> Fp12E {
-    let c = compress(f);
-    let h0 = c[0].clone();
-    let g2 = c[1].clone();
-    let g1 = c[2].clone();
-    let h2 = c[3].clone();
-    let non_residue = Fp2E::new([FpE::from(9), FpE::one()]);
-    let ten_plus_u = Fp2E::new([FpE::from(10), FpE::one()]);
+    // If f = 1, we can't compress and decompress, but its square is one.
+    if f == &Fp12E::one() {
+        f.clone()
+    } else {
+        let c = compress(f);
+        let h0 = c[0].clone();
+        let g2 = c[1].clone();
+        let g1 = c[2].clone();
+        let h2 = c[3].clone();
+        let non_residue = Fp2E::new([FpE::from(9), FpE::one()]);
+        let ten_plus_u = Fp2E::new([FpE::from(10), FpE::one()]);
 
-    let h0_square = (&h0 + FpE::from(3) * &non_residue * &g1 * &h2).double();
-    let g2_square = FpE::from(3) * ( (&g1 + &h2) * (&g1 + &non_residue * &h2) - &ten_plus_u * &g1 * &h2 ) - g2.double();
-    let g1_square = FpE::from(3) * ( (&h0 + &g2) * (&h0 + non_residue * &g2) - ten_plus_u * &h0 * &g2 ) - g1.double();
-    let h2_square = (h2 + FpE::from(3) * h0 * g2).double();
+        let h0_square = (&h0 + FpE::from(3) * &non_residue * &g1 * &h2).double();
+        let g2_square = FpE::from(3)
+            * ((&g1 + &h2) * (&g1 + &non_residue * &h2) - &ten_plus_u * &g1 * &h2)
+            - g2.double();
+        let g1_square = FpE::from(3)
+            * ((&h0 + &g2) * (&h0 + non_residue * &g2) - ten_plus_u * &h0 * &g2)
+            - g1.double();
+        let h2_square = (h2 + FpE::from(3) * h0 * g2).double();
 
-    let f_square = vec![h0_square, g2_square, g1_square, h2_square];
-    decompress(f_square) 
+        let f_square = vec![h0_square, g2_square, g1_square, h2_square];
+        decompress(f_square)
+    }
 }
-/* 
+/*
 fn cyclotomic_pow_x(f: Fp12E) -> Fp12E {
     let mut g = f;
     let mut result = Fp12E::one();
@@ -475,21 +486,20 @@ fn cyclotomic_pow_x(f: Fp12E) -> Fp12E {
     let mut x = X;
     while x > 0 {
         if x & 1 == 1 {
-            
             result *= &g;
         }
-       
+
         g = cyclotimic_square(&g);
-        x >>= 1; 
+        x >>= 1;
     }
 
     result
 }
 
-/* 
+/*
 // Algorithm from zksync to compute de square of an Fp12E in teh cyclotomic subgroup.
 fn cyclotomic_square_fp12(a: &Fp12E) -> Fp12E {
-    
+
     let a00  = a.value()[0].value()[0].square();
     let a01 = a.value()[0].value()[1].square();
     let a02 = a.value()[0].value()[2].square();
@@ -497,7 +507,7 @@ fn cyclotomic_square_fp12(a: &Fp12E) -> Fp12E {
     let a11 = a.value()[1].value()[1].square();
     let a12 = a.value()[1].value()[2].square();
 
-    
+
     let mut t0 =a11.square();
     let t1 = a00.square();
     let mut t2 = &a11 + &a00;
@@ -527,7 +537,7 @@ fn cyclotomic_square_fp12(a: &Fp12E) -> Fp12E {
     t3 = t3 + t4;
     t6 *= xi;
     t6 +=t7;
-    
+
     let mut c00 = &t0 - a00;
     c00= c00.double();
     c00 += t0;
@@ -556,7 +566,7 @@ fn cyclotomic_square_fp12(a: &Fp12E) -> Fp12E {
         Fp6E::new([c00, c01, c02]),
         Fp6E::new([c10, c11, c12]),
     ])
-}   
+}
 */
 
 /*
@@ -573,7 +583,7 @@ fn cyclotomic_square_quad_over_cube(a: &Fp12E) -> Fp12E {
     let b4 = a.value()[1].value()[1];
     let b5 = a.value()[1].value()[2];
 
-    let v0 = Fp4E::new([b0, b4]).square(); 
+    let v0 = Fp4E::new([b0, b4]).square();
     let v1 = Fp4E::new([b3, b2]).square();
     let v2 = Fp4E::new([b1, b5]).square();
 
@@ -1074,7 +1084,6 @@ mod tests {
         assert_ne!(pairing_result, Fp12E::one());
     }
 
-
     #[test]
     fn compress_and_decompress_is_identity() {
         let p = BN254Curve::generator();
@@ -1104,5 +1113,4 @@ mod tests {
         let f_easy = &frobenius_square(&f_easy_aux) * f_easy_aux; // (f^{p^6 - 1})^(p^2) * (f^{p^6 - 1}).
         assert_eq!(cyclotomic_pow_x(f_easy.clone()), f_easy.pow(X));
     }
-
 }
