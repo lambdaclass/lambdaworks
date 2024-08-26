@@ -1,12 +1,15 @@
 use super::{
     curve::BN254Curve,
-    field_extension::{BN254PrimeField, Degree12ExtensionField, Degree2ExtensionField},
+    field_extension::{
+        BN254PrimeField, Degree12ExtensionField, Degree2ExtensionField, LevelTwoResidue,
+    },
     twist::BN254TwistCurve,
 };
 use crate::{
     cyclic_group::IsGroup,
     elliptic_curve::{short_weierstrass::traits::IsShortWeierstrass, traits::IsPairing},
     errors::PairingError,
+    field::extensions::cubic::HasCubicNonResidue,
 };
 use crate::{
     elliptic_curve::short_weierstrass::{
@@ -228,6 +231,7 @@ fn line(p: &G1Point, t: &G2Point, q: &G2Point) -> Fp12E {
     }
 }
 
+/*
 /// Computes f ^ {(p^12 - 1) / r}
 /// using that (p^12 - 1)/r = (p^6 - 1) * (p^2 + 1) * (p^4 - p^2 + 1)/r.
 /// Algorithm taken from https://hackmd.io/@Wimet/ry7z1Xj-2#Final-Exponentiation.
@@ -338,6 +342,115 @@ pub fn final_exponentiation(
     t04
 }
 
+*/
+
+pub fn final_exponentiation(
+    f: &FieldElement<Degree12ExtensionField>,
+) -> FieldElement<Degree12ExtensionField> {
+    // Easy part:
+    // Computes f ^ {(p^6 - 1) * (p^2 + 1)}
+    let f_easy_aux = f.conjugate() * f.inv().unwrap(); // f ^ (p^6 - 1) because f^(p^6) = f.conjugate().
+    let f_easy = &frobenius_square(&f_easy_aux) * f_easy_aux; // (f^{p^6 - 1})^(p^2) * (f^{p^6 - 1}).
+
+    /*
+    // Hard part:
+    // Computes f_easy ^ ((p^4 - p^2 + 1) / r)
+    // See https://hackmd.io/@Wimet/ry7z1Xj-2#The-Hard-Part, where f_easy is called m.
+    // We define different exponentiation of f_easy that we will use later.
+    let mx = f_easy.pow(X);
+    let mx2 = mx.pow(X);
+    let mx3 = mx2.pow(X);
+    let mp = frobenius(&f_easy);
+    let mp2 = frobenius_square(&f_easy);
+    let mp3 = frobenius_cube(&f_easy);
+    let mxp = frobenius(&mx); // (m^x)^p
+    let mx2p = frobenius(&mx2); // (m^{x^2})^p
+    let mx3p = frobenius(&mx3); // (m^{x^3})^p
+    let mx2p2 = frobenius_square(&mx2); // (m^{x^2})^p^2
+
+    let y0 = mp * mp2 * mp3;
+    let y1 = f_easy.conjugate();
+    let y2 = mx2p2;
+    let y3 = mxp.conjugate();
+    let y4 = (mx * mx2p).conjugate();
+    let y5 = mx2.conjugate();
+    let y6 = (mx3 * mx3p).conjugate();
+
+    y0 * y1.square()
+        * y2.pow(6usize)
+        * y3.pow(12usize)
+        * y4.pow(18usize)
+        * y5.pow(30usize)
+        * y6.pow(36usize)
+    */
+
+    /*
+    // Hard part following Arkworks library.
+    let mut y0 = f_easy.pow(X);
+    y0 = y0.inv().unwrap();
+    // For degree 12 extensions, this can be computed faster than normal squaring.
+    // See https://github.dev/arkworks-rs/algebra/blob/master/ec/src/models/bn/mod.rs (cyclotimic_square)
+    let y1 = &y0.square();
+    let y2 = &y1.square();
+    let mut y3 = y2 * y1;
+    let mut y4 = y3.pow(X);
+    y4 = y4.inv().unwrap();
+    let y5 = y4.square();
+    let mut y6 = y5.pow(X);
+    y6 = y6.inv().unwrap();
+    // TODO: See if there is a faster way to take inverse.
+    y3 = y3.inv().unwrap();
+    y6 = y6.inv().unwrap();
+    let y7 = y6 * &y4;
+    let mut y8 = y7 * &y3;
+    let y9 = &y8 * y1;
+    let y10 = &y8 * y4;
+    let y11 = y10 * &f_easy;
+    let mut y12 = y9.clone();
+    y12 = frobenius(&y12);
+    let y13 = y12 * &y11;
+    y8 = frobenius_square(&y8);
+    let y14 = y8 * &y13;
+    f_easy = f_easy.inv().unwrap();
+    let mut y15 = f_easy * y9;
+    y15 = frobenius_cube(&y15);
+    let y16 = y15 * y14;
+    y16
+    */
+
+    // Optimal hard part from the post
+    // https://hackmd.io/@Wimet/ry7z1Xj-2#The-Hard-Part
+    let mx = cyclotomic_pow_x(f_easy.clone());
+    let mx2 = cyclotomic_pow_x(mx.clone());
+    let mx3 = cyclotomic_pow_x(mx2.clone());
+    let mp = frobenius(&f_easy);
+    let mp2 = frobenius_square(&f_easy);
+    let mp3 = frobenius_cube(&f_easy);
+    let mxp = frobenius(&mx); // (m^x)^p
+    let mx2p = frobenius(&mx2); // (m^{x^2})^p
+    let mx3p = frobenius(&mx3); // (m^{x^3})^p
+    let mx2p2 = frobenius_square(&mx2); // (m^{x^2})^p^2
+
+    let y0 = mp * mp2 * mp3;
+    let y1 = f_easy.conjugate();
+    let y2 = mx2p2;
+    let y3 = mxp.conjugate();
+    let y4 = (mx * mx2p).conjugate();
+    let y5 = mx2.conjugate();
+    let y6 = (mx3 * mx3p).conjugate();
+
+    let t01 = cyclotomic_square(&y6) * y4 * &y5;
+    let t11 = &t01 * y3 * y5;
+    let t02 = t01 * y2;
+    let t12 = cyclotomic_square(&t11) * t02;
+    let t13 = cyclotomic_square(&t12);
+    let t14 = &t13 * y0;
+    let t03 = t13 * y1;
+    let t04 = cyclotomic_square(&t03) * t14;
+
+    t04
+}
+
 /// Computes the Frobenius morphism: f^p.
 /// See https://hackmd.io/@Wimet/ry7z1Xj-2#Fp12-Arithmetic (First Frobenius Operator).
 pub fn frobenius(f: &Fp12E) -> Fp12E {
@@ -421,7 +534,7 @@ fn compress(f: &Fp12E) -> Vec<Fp2E> {
 /// f = g + h * w
 /// Algorithm from https://hackmd.io/@Wimet/ry7z1Xj-2#Compression-and-Decompression
 /// See https://eprint.iacr.org/2010/542.pdf (Theorem 3.1)
-fn decompress(c: Vec<Fp2E>) -> Fp12E {
+fn decompress(c: &Vec<Fp2E>) -> Fp12E {
     let h0 = c[0].clone();
     let g2 = c[1].clone();
     let g1 = c[2].clone();
@@ -429,7 +542,8 @@ fn decompress(c: Vec<Fp2E>) -> Fp12E {
     let mut g0 = Fp2E::one();
     let mut h1 = Fp2E::one();
 
-    let non_residue = Fp2E::new([FpE::from(9), FpE::one()]);
+    let non_residue = LevelTwoResidue::residue();
+    // Fp2E::new([FpE::from(9), FpE::one()]);
 
     if h0 != Fp2E::zero() {
         h1 = (h2.square() * &non_residue + FpE::from(3) * g1.square() - g2.double())
@@ -444,6 +558,36 @@ fn decompress(c: Vec<Fp2E>) -> Fp12E {
     Fp12E::new([Fp6E::new([g0, g1, g2]), Fp6E::new([h0, h1, h2])])
 }
 
+fn cyclotomic_square(f: &Fp12E) -> Fp12E {
+    if f == &Fp12E::one() {
+        Fp12E::one()
+    } else {
+        decompress(&compressed_square(compress(f)))
+    }
+}
+
+fn compressed_square(c: Vec<Fp2E>) -> Vec<Fp2E> {
+    let h0 = c[0].clone();
+    let g2 = c[1].clone();
+    let g1 = c[2].clone();
+    let h2 = c[3].clone();
+    let non_residue = Fp2E::new([FpE::from(9), FpE::one()]);
+    let ten_plus_u = Fp2E::new([FpE::from(10), FpE::one()]);
+
+    let h0_square = (&h0 + FpE::from(3) * &non_residue * &g1 * &h2).double();
+    let g2_square = FpE::from(3)
+        * ((&g1 + &h2) * (&g1 + &non_residue * &h2) - &ten_plus_u * &g1 * &h2)
+        - g2.double();
+    let g1_square = FpE::from(3)
+        * ((&h0 + &g2) * (&h0 + non_residue * &g2) - ten_plus_u * &h0 * &g2)
+        - g1.double();
+    let h2_square = (h2 + FpE::from(3) * h0 * g2).double();
+
+    let f_square = vec![h0_square, g2_square, g1_square, h2_square];
+    f_square
+}
+
+/*
 /// Computes the square of an element of Fp12E that belongs to the cyclotomic subgroup.
 /// Algorithm from https://hackmd.io/@Wimet/ry7z1Xj-2#Compressed-Squaring
 fn cyclotimic_square(f: &Fp12E) -> Fp12E {
@@ -472,6 +616,8 @@ fn cyclotimic_square(f: &Fp12E) -> Fp12E {
         decompress(f_square)
     }
 }
+*/
+
 /*
 fn cyclotomic_pow_x(f: Fp12E) -> Fp12E {
     let mut g = f;
@@ -486,6 +632,26 @@ fn cyclotomic_pow_x(f: Fp12E) -> Fp12E {
 
 }
 */
+
+fn cyclotomic_pow_x(f: Fp12E) -> Fp12E {
+    if f == Fp12E::one() {
+        Fp12E::one()
+    } else {
+        let mut c = compress(&f);
+        let mut result = Fp12E::one();
+        let mut x = X;
+        while x > 0 {
+            if x & 1 == 1 {
+                result *= &decompress(&c);
+            }
+            c = compressed_square(c);
+            x >>= 1;
+        }
+        result
+    }
+}
+
+/*
 fn cyclotomic_pow_x(f: Fp12E) -> Fp12E {
     let mut g = f;
     let mut result = Fp12E::one();
@@ -502,6 +668,7 @@ fn cyclotomic_pow_x(f: Fp12E) -> Fp12E {
 
     result
 }
+*/
 
 /*
 // Algorithm from zksync to compute de square of an Fp12E in teh cyclotomic subgroup.
@@ -1098,7 +1265,7 @@ mod tests {
         let f = miller(&p, &q);
         let f_easy_aux = f.conjugate() * f.inv().unwrap(); // f ^ (p^6 - 1) because f^(p^6) = f.conjugate().
         let f_easy = &frobenius_square(&f_easy_aux) * f_easy_aux; // (f^{p^6 - 1})^(p^2) * (f^{p^6 - 1}).
-        assert_eq!(decompress(compress(&f_easy)), f_easy);
+        assert_eq!(decompress(&compress(&f_easy)), f_easy);
     }
 
     #[test]
@@ -1108,7 +1275,7 @@ mod tests {
         let f = miller(&p, &q);
         let f_easy_aux = f.conjugate() * f.inv().unwrap(); // f ^ (p^6 - 1) because f^(p^6) = f.conjugate().
         let f_easy = &frobenius_square(&f_easy_aux) * f_easy_aux; // (f^{p^6 - 1})^(p^2) * (f^{p^6 - 1}).
-        assert_eq!(cyclotimic_square(&f_easy), f_easy.square());
+        assert_eq!(cyclotomic_square(&f_easy), f_easy.square());
     }
 
     #[test]
