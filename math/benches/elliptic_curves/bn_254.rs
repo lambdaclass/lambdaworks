@@ -4,7 +4,7 @@ use lambdaworks_math::{
     elliptic_curve::{
         short_weierstrass::curves::bn_254::{
             curve::BN254Curve,
-            pairing::{final_exponentiation, miller, BN254AtePairing},
+            pairing::{final_exponentiation, miller, miller_2, BN254AtePairing},
             twist::BN254TwistCurve,
         },
         traits::{IsEllipticCurve, IsPairing},
@@ -28,74 +28,74 @@ pub fn bn_254_elliptic_curve_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("BN254 Ops");
     group.significance_level(0.1).sample_size(10000);
     group.throughput(criterion::Throughput::Elements(1));
+    /*
+        // To Affine G1
+        group.bench_function("To Affine G1", |bencher| {
+            bencher.iter(|| black_box(black_box(&a_g1).to_affine()));
+        });
 
-    // To Affine G1
-    group.bench_function("To Affine G1", |bencher| {
-        bencher.iter(|| black_box(black_box(&a_g1).to_affine()));
-    });
+        // To Affine G2
+        group.bench_function("To Affine G2", |bencher| {
+            bencher.iter(|| black_box(black_box(&a_g2).to_affine()));
+        });
 
-    // To Affine G2
-    group.bench_function("To Affine G2", |bencher| {
-        bencher.iter(|| black_box(black_box(&a_g2).to_affine()));
-    });
+        // Operate_with G1
+        group.bench_function("Operate_with_G1", |bencher| {
+            bencher.iter(|| black_box(black_box(&a_g1).operate_with(black_box(&b_g1))));
+        });
 
-    // Operate_with G1
-    group.bench_function("Operate_with_G1", |bencher| {
-        bencher.iter(|| black_box(black_box(&a_g1).operate_with(black_box(&b_g1))));
-    });
+        // Operate_with G2
+        group.bench_function("Operate_with_G2 {:?}", |bencher| {
+            bencher.iter(|| black_box(black_box(&a_g2).operate_with(black_box(&b_g2))));
+        });
 
-    // Operate_with G2
-    group.bench_function("Operate_with_G2 {:?}", |bencher| {
-        bencher.iter(|| black_box(black_box(&a_g2).operate_with(black_box(&b_g2))));
-    });
+        // Operate_with_self G1
+        group.bench_function("Operate_with_self_G1", |bencher| {
+            bencher.iter(|| black_box(black_box(&a_g1).operate_with_self(black_box(b_val))));
+        });
 
-    // Operate_with_self G1
-    group.bench_function("Operate_with_self_G1", |bencher| {
-        bencher.iter(|| black_box(black_box(&a_g1).operate_with_self(black_box(b_val))));
-    });
+        // Operate_with_self G2
+        group.bench_function("Operate_with_self_G2", |bencher| {
+            bencher.iter(|| black_box(black_box(&a_g2).operate_with_self(black_box(b_val))));
+        });
 
-    // Operate_with_self G2
-    group.bench_function("Operate_with_self_G2", |bencher| {
-        bencher.iter(|| black_box(black_box(&a_g2).operate_with_self(black_box(b_val))));
-    });
+        // Double G1
+        group.bench_function("Double G1", |bencher| {
+            bencher.iter(|| black_box(black_box(&a_g1).operate_with_self(black_box(2u64))));
+        });
 
-    // Double G1
-    group.bench_function("Double G1", |bencher| {
-        bencher.iter(|| black_box(black_box(&a_g1).operate_with_self(black_box(2u64))));
-    });
+        // Double G2
+        group.bench_function("Double G2 {:?}", |bencher| {
+            bencher.iter(|| black_box(black_box(&a_g2).double()));
+        });
 
-    // Double G2
-    group.bench_function("Double G2 {:?}", |bencher| {
-        bencher.iter(|| black_box(black_box(&a_g2).double()));
-    });
+        // Operate_with Neg G1 (Substraction)
+        group.bench_function("Operate_with Neg G1 (Substraction)", |bencher| {
+            bencher
+                .iter(|| black_box(black_box(&a_g1).operate_with(black_box(&black_box(&b_g1).neg()))));
+        });
 
-    // Operate_with Neg G1 (Substraction)
-    group.bench_function("Operate_with Neg G1 (Substraction)", |bencher| {
-        bencher
-            .iter(|| black_box(black_box(&a_g1).operate_with(black_box(&black_box(&b_g1).neg()))));
-    });
+        // Operate_with Neg G2 (Substraction)
+        group.bench_function("Operate_with Neg G2 (Substraction)", |bencher| {
+            bencher
+                .iter(|| black_box(black_box(&a_g2).operate_with(black_box(&black_box(&b_g2).neg()))));
+        });
 
-    // Operate_with Neg G2 (Substraction)
-    group.bench_function("Operate_with Neg G2 (Substraction)", |bencher| {
-        bencher
-            .iter(|| black_box(black_box(&a_g2).operate_with(black_box(&black_box(&b_g2).neg()))));
-    });
+        // Neg G1
+        group.bench_function("Neg G1", |bencher| {
+            bencher.iter(|| black_box(black_box(&a_g1).neg()));
+        });
 
-    // Neg G1
-    group.bench_function("Neg G1", |bencher| {
-        bencher.iter(|| black_box(black_box(&a_g1).neg()));
-    });
+        // Neg G2
+        group.bench_function("Neg G2", |bencher| {
+            bencher.iter(|| black_box(black_box(&a_g2).neg()));
+        });
 
-    // Neg G2
-    group.bench_function("Neg G2", |bencher| {
-        bencher.iter(|| black_box(black_box(&a_g2).neg()));
-    });
-
-    // Subgroup Check G2
-    group.bench_function("Subgroup Check G2", |bencher| {
-        bencher.iter(|| (black_box(a_g2.is_in_subgroup())));
-    });
-
+        // Subgroup Check G2
+        group.bench_function("Subgroup Check G2", |bencher| {
+            bencher.iter(|| (black_box(a_g2.is_in_subgroup())));
+        });
+    */
     // Ate Pairing
     group.bench_function("Ate Pairing", |bencher| {
         bencher.iter(|| {
@@ -108,7 +108,7 @@ pub fn bn_254_elliptic_curve_benchmarks(c: &mut Criterion) {
 
     // Miller Loop
     group.bench_function("Miller Loop", |bencher| {
-        bencher.iter(|| black_box(miller(black_box(&a_g1), black_box(&a_g2))))
+        bencher.iter(|| black_box(miller_2(black_box(&a_g1), black_box(&a_g2))))
     });
 
     // Final Exponentiation

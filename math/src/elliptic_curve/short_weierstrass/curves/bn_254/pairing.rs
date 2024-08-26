@@ -18,6 +18,7 @@ use crate::{
     },
     field::element::FieldElement,
 };
+use std::time::{Duration, Instant};
 
 use rayon::prelude::*;
 
@@ -189,7 +190,7 @@ pub fn miller(p: &G1Point, q: &G2Point) -> Fp12E {
     f
 }
 
-fn miller_2(p: &G1Point, q: &G2Point) -> Fp12E {
+pub fn miller_2(p: &G1Point, q: &G2Point) -> Fp12E {
     let mut t = q.clone();
     let mut f = Fp12E::one();
     let q_neg = &q.neg();
@@ -724,7 +725,7 @@ fn cyclotomic_pow_x(f: Fp12E) -> Fp12E {
 
 }
 */
-
+/*
 fn cyclotomic_pow_x(f: Fp12E) -> Fp12E {
     if f == Fp12E::one() {
         Fp12E::one()
@@ -739,6 +740,31 @@ fn cyclotomic_pow_x(f: Fp12E) -> Fp12E {
             c = compressed_square(c);
             x >>= 1;
         }
+        result
+    }
+}
+*/
+
+fn cyclotomic_pow_x(f: Fp12E) -> Fp12E {
+    let start = Instant::now();
+    if f == Fp12E::one() {
+        let duration = start.elapsed(); //
+        println!("Duration for one-element case: {:?}", duration);
+        Fp12E::one()
+    } else {
+        let mut c = compress(&f);
+        let mut result = Fp12E::one();
+        let mut x = X;
+        while x > 0 {
+            if x & 1 == 1 {
+                result *= &decompress(&c);
+            }
+            c = compressed_square(c);
+            x >>= 1;
+        }
+
+        let duration = start.elapsed();
+        println!("Duration for computation: {:?}", duration);
         result
     }
 }
