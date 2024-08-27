@@ -10,7 +10,7 @@ Three methods of polynomial interpolation were benchmarked, with different input
 
 these were run with criterion-rs in a MacBook Pro M1 (18.3), statistically measuring the total run time of one iteration. The field used was a 256 bit STARK-friendly prime field.
 
-All values of time are in milliseconds. Those cases which were greater than 30 seconds were marked respectively as they're too slow and weren't worth to be benchmarked. The input size refers to *d + 1* where *d* is the polynomial's degree (so size is amount of coefficients).
+All values of time are in milliseconds. Those cases which were greater than 30 seconds were marked respectively as they were too slow and weren't worth to be benchmarked. The input size refers to *d + 1* where *d* is the polynomial's degree (so size is amount of coefficients).
 
 | Input size | CPU Lagrange | CPU FFT   | GPU FFT (Metal) |
 |------------|--------------|-----------|-----------------|
