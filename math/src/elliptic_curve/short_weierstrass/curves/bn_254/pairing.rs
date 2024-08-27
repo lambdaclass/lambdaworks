@@ -33,10 +33,14 @@ type G2Point = ShortWeierstrassProjectivePoint<BN254TwistCurve>;
 ////////////////// CONSTANTS //////////////////
 
 /// x = 4965661367192848881.
-///     4965661367192848881
 /// A constant of the curve.
 /// See https://hackmd.io/@jpw/bn254#Barreto-Naehrig-curves
 pub const X: u64 = 0x44e992b44a6909f1;
+
+// 100010011101001100100101011010001001010011010010000100111110001
+pub const X_BINARY:[u32;63] = [1, 0, 0, 0, 1, 0, 0, 1, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 0, 1, 
+0, 1, 0, 1, 1, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 
+1, 1, 1, 1, 1, 0, 0, 0, 1];
 
 /// Constant used in the Miller Loop.
 /// MILLER_CONSTANT = 6x + 2 = 29793968203157093288.
@@ -150,7 +154,7 @@ impl IsPairing for BN254AtePairing {
                 result *= miller_2(&p, &q);
             }
         }
-        Ok(final_exponentiation_2(&result))
+        Ok(final_exponentiation_3(&result))
     }
 }
 
@@ -537,6 +541,48 @@ pub fn final_exponentiation_2(
     t04
 }
 
+
+pub fn final_exponentiation_3(
+    f: &FieldElement<Degree12ExtensionField>,
+) -> FieldElement<Degree12ExtensionField> {
+    // Easy part:
+    // Computes f ^ {(p^6 - 1) * (p^2 + 1)}
+    let f_easy_aux = f.conjugate() * f.inv().unwrap(); // f ^ (p^6 - 1) because f^(p^6) = f.conjugate().
+    let f_easy = &frobenius_square(&f_easy_aux) * f_easy_aux; // (f^{p^6 - 1})^(p^2) * (f^{p^6 - 1}).
+
+    // Optimal Hard Part from the post
+    // https://hackmd.io/@Wimet/ry7z1Xj-2#The-Hard-Part
+    let mx = cyclotomic_pow_x_2(&f_easy);
+    let mx2 = cyclotomic_pow_x_2(&mx);
+    let mx3 = cyclotomic_pow_x_2(&mx2);
+    let mp = frobenius(&f_easy);
+    let mp2 = frobenius_square(&f_easy);
+    let mp3 = frobenius_cube(&f_easy);
+    let mxp = frobenius(&mx); // (m^x)^p
+    let mx2p = frobenius(&mx2); // (m^{x^2})^p
+    let mx3p = frobenius(&mx3); // (m^{x^3})^p
+    let mx2p2 = frobenius_square(&mx2); // (m^{x^2})^p^2
+
+    let y0 = &mp * &mp2 * &mp3;
+    let y1 = f_easy.conjugate();
+    let y2 = mx2p2;
+    let y3 = mxp.conjugate();
+    let y4 = (mx * mx2p).conjugate();
+    let y5 = mx2.conjugate();
+    let y6 = (mx3 * mx3p).conjugate();
+
+    let t01 = cyclotomic_square_quad_over_cube(&y6) * y4 * &y5;
+    let t11 = &t01 * y3 * y5;
+    let t02 = t01 * y2;
+    let t12 = cyclotomic_square_quad_over_cube(&t11) * t02;
+    let t13 = cyclotomic_square_quad_over_cube(&t12);
+    let t14 = &t13 * y0;
+    let t03 = t13 * y1;
+    let t04 = cyclotomic_square_quad_over_cube(&t03) * t14;
+
+    t04
+}
+
 /// Computes the Frobenius morphism: f^p.
 /// See https://hackmd.io/@Wimet/ry7z1Xj-2#Fp12-Arithmetic (First Frobenius Operator).
 pub fn frobenius(f: &Fp12E) -> Fp12E {
@@ -641,7 +687,7 @@ fn decompress(c: &Vec<Fp2E>) -> Fp12E {
     Fp12E::new([Fp6E::new([g0, g1, g2]), Fp6E::new([h0, h1, h2])])
 }
 
-fn cyclotomic_square(f: &Fp12E) -> Fp12E {
+pub fn cyclotomic_square(f: &Fp12E) -> Fp12E {
     if f == &Fp12E::one() {
         Fp12E::one()
     } else {
@@ -852,66 +898,75 @@ fn cyclotomic_square_fp12(a: &Fp12E) -> Fp12E {
 }
 */
 
-/*
+
 /// Computes the cyclotomic square for Fp12
 /// See same function in https://github.com/mratsim/constantine/blob/master/constantine/math/pairings/cyclotomic_subgroups.nim#L354
-/// PROBLEM: This function is defined in Constantine for Fp6 and we need Fp12.
-/// TODO: Check constantine order for real and imaginary part.
-fn cyclotomic_square_quad_over_cube(a: &Fp12E) -> Fp12E {
+pub fn cyclotomic_square_quad_over_cube(a: &Fp12E) -> Fp12E {
     // a = g + h * w
-    let b0 = a.value()[0].value()[0]; // b0 = g0
-    let b1 = a.value()[0].value()[1]; // b1 = g1
-    let b2 = a.value()[0].value()[2];
-    let b3 = a.value()[1].value()[0]; // b3 = h0
-    let b4 = a.value()[1].value()[1];
-    let b5 = a.value()[1].value()[2];
+    let b0 = &a.value()[0].value()[0]; // b0 = g0
+    let b1 = &a.value()[0].value()[1]; // b1 = g1
+    let b2 = &a.value()[0].value()[2]; // b2 = g2
+    let b3 = &a.value()[1].value()[0]; // b3 = h0
+    let b4 = &a.value()[1].value()[1];
+    let b5 = &a.value()[1].value()[2];
 
-    let v0 = Fp4E::new([b0, b4]).square();
-    let v1 = Fp4E::new([b3, b2]).square();
-    let v2 = Fp4E::new([b1, b5]).square();
+    let v0 = Fp4E::new([b0.clone(), b4.clone()]).square();
+    let v1 = Fp4E::new([b3.clone(), b2.clone()]).square();
+    let v2 = Fp4E::new([b1.clone(), b5.clone()]).square();
 
     // r = r0 + r1 * w
     // r0 = r00 + r01 * v + r02 * v^2
     // r1 = r10 + r11 * v + r12 * v^2
 
     // r00 = 3v00 - 2b0
-    let mut r00 =  v0.value()[0] - b0;
+    let mut r00 =  &v0.value()[0] - b0;
     r00 = r00.double();
-    r00 += v0.value()[0];
+    r00 += v0.value()[0].clone();
 
     // r01 = 3v10 -2b1
-    let mut r01 = v1.value()[0] - b1;
+    let mut r01 = &v1.value()[0] - b1;
     r01 = r01.double();
-    r01 += v1.value()[0];
+    r01 += v1.value()[0].clone();
 
-    // r02 = 3v01 - 2b4
-    let mut r11 = v0.value()[1] + b4;
+    // r11 = 3v01 - 2b4
+    let mut r11 = &v0.value()[1] + b4;
     r11 = r11.double();
-    r11 += v0.value()[1];
+    r11 += v0.value()[1].clone();
 
-    // r02 = 3v01 - 2b4
-    let mut r12 = v1.value()[1] + b5;
+    // r12 = 3v11 - 2b5
+    let mut r12 = &v1.value()[1] + b5;
     r12 = r12.double();
-    r12 += v1.value()[1];
+    r12 += v1.value()[1].clone(); 
 
-    // 3(v21 * non-residue) + b3
-    // WATHOUT: We are assuming non-residue = -1
-    let v21 = v2.value()[1] * -FpE::one();
+    // 3 * (9 + u) * v21 + 2b3
+    let v21 = mul_fp2_by_nonresidue(&v2.value()[1]);
     let mut r10 = &v21 + b3;
-    r10 = r10.double();
-    r10 = v21;
+    r10 = r10.double(); 
+    r10 += v21;
 
-    // 3v20 - b3
-    let r02 = v2.value()[0] - b2;
+    // 3 * (9 + u) * v20 - 2b3
+    let mut r02 = &v2.value()[0] - b2;
     r02 = r02.double();
-    r02 += v2.value()[0];
+    r02 += v2.value()[0].clone();
 
     Fp12E::new([
         Fp6E::new([r00, r01, r02,]),
-        Fp6E::new([r10,r11,r12]),
+        Fp6E::new([r10, r11, r12]),
     ])
 }
-*/
+
+// Algorithm from https://hackmd.io/@Wimet/ry7z1Xj-2#Exponentiation-in-the-Cyclotomic-Subgroup
+pub fn cyclotomic_pow_x_2 (f:  &Fp12E) -> Fp12E {
+    let mut result = Fp12E::one();
+    for i in (0..63) {
+        result = cyclotomic_square_quad_over_cube(&result);
+        if X_BINARY[i] == 1 {
+            result = &result * f;
+        }
+    }
+    result
+}
+
 
 #[cfg(test)]
 /// We took the G1 and G2 points from:
@@ -1401,5 +1456,25 @@ mod tests {
     fn constant_two_inv_is_iwo_inverse() {
         assert_eq!(TWO_INV, FpE::from(2).inv().unwrap());
         assert_eq!(TWO_INV * FpE::from(2), FpE::one());
+    }
+
+    #[test]
+    fn cyclotomic_square_quad_over_cube_equals_square() {
+        let p = BN254Curve::generator();
+        let q = BN254TwistCurve::generator();
+        let f = miller(&p, &q);
+        let f_easy_aux = f.conjugate() * f.inv().unwrap(); // f ^ (p^6 - 1) because f^(p^6) = f.conjugate().
+        let f_easy = &frobenius_square(&f_easy_aux) * f_easy_aux; // (f^{p^6 - 1})^(p^2) * (f^{p^6 - 1}).
+        assert_eq!(cyclotomic_square_quad_over_cube(&f_easy), f_easy.square());
+    }
+
+    #[test]
+    fn cyclotomic_pow_x_2_equals_pow() {
+        let p = BN254Curve::generator();
+        let q = BN254TwistCurve::generator();
+        let f = miller(&p, &q);
+        let f_easy_aux = f.conjugate() * f.inv().unwrap(); // f ^ (p^6 - 1) because f^(p^6) = f.conjugate().
+        let f_easy = &frobenius_square(&f_easy_aux) * f_easy_aux; // (f^{p^6 - 1})^(p^2) * (f^{p^6 - 1}).
+        assert_eq!(cyclotomic_pow_x_2(&f_easy), f_easy.pow(X));
     }
 }

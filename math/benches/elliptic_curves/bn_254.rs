@@ -6,8 +6,8 @@ use lambdaworks_math::{
             curve::BN254Curve, 
             field_extension::{BN254PrimeField, Degree12ExtensionField, Degree2ExtensionField}, 
             pairing::{
-                cyclotomic_pow_x, final_exponentiation, final_exponentiation_2, miller, miller_2, BN254AtePairing, X
-            }, 
+                cyclotomic_pow_x, final_exponentiation, final_exponentiation_2,final_exponentiation_3, miller, miller_2, BN254AtePairing, X,
+                cyclotomic_square_quad_over_cube, cyclotomic_square,cyclotomic_pow_x_2} ,
             twist::BN254TwistCurve
         },
         traits::{IsEllipticCurve, IsPairing},
@@ -108,7 +108,7 @@ pub fn bn_254_elliptic_curve_benchmarks(c: &mut Criterion) {
         });
     */
     // Ate Pairing
-    /* 
+
     group.bench_function("Ate Pairing", |bencher| {
         bencher.iter(|| {
             black_box(BN254AtePairing::compute_batch(&[(
@@ -137,23 +137,58 @@ pub fn bn_254_elliptic_curve_benchmarks(c: &mut Criterion) {
         bencher.iter(|| black_box(final_exponentiation_2(black_box(&miller_loop_output))))
     });
 
+    // Final Exponentiation 3
+    group.bench_function("Final Exponentiation 3", |bencher| {
+        bencher.iter(|| black_box(final_exponentiation_3(black_box(&miller_loop_output))))
+    });
+
+/* 
+    // Fp12 Multiplication
+
     group.bench_function("Fp12 Multiplication", |bencher| {
         bencher.iter(|| black_box(black_box(&f_12)*black_box(&f_12)));
     });
+
+    // Fp2 Multiplication
 
     group.bench_function("Fp2 Multiplication", |bencher| {
         bencher.iter(|| black_box(black_box(&f_2)*black_box(&f_2)));
     });
 
+    // Fp12 Inverse
+
     group.bench_function("Fp12 Inverse", |bencher| {
         bencher.iter(|| black_box(black_box(&f_12).inv()));
     });
-*/
-    group.bench_function("Cyclotomic Pow", |bencher| {
-        bencher.iter(|| black_box(black_box(cyclotomic_pow_x(&f_12))));
+
+    // Cyclotomic Pow x
+
+    group.bench_function("Cyclotomic Pow x", |bencher| {
+        bencher.iter(|| black_box(cyclotomic_pow_x(black_box(&f_12))));
     });
 
-    group.bench_function("Pow function", |bencher| {
-        bencher.iter(|| black_box(black_box(f_12.pow(X))));
+    // Cyclotomic Pow x Version 2
+
+    group.bench_function("Cyclotomic Pow x Version 2", |bencher| {
+        bencher.iter(|| black_box(cyclotomic_pow_x_2(black_box(&f_12))));
     });  
+
+    // Pow x function
+
+    group.bench_function("Pow x function", |bencher| {
+        bencher.iter(|| black_box(black_box(&f_12).pow(X)));
+    });  
+
+    // Cyclotomic Square
+
+    group.bench_function("Cyclotomic Square", |bencher| {
+        bencher.iter(|| black_box(cyclotomic_square(black_box(&f_12))));
+    });
+
+    // Cyclotomic Square Over Cube
+    
+    group.bench_function("Cyclotomic Square Over Cube", |bencher| {
+        bencher.iter(|| black_box(cyclotomic_square_quad_over_cube(black_box(&f_12))));
+    }); 
+    */
 }
