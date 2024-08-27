@@ -3,16 +3,22 @@ use lambdaworks_math::{
     cyclic_group::IsGroup,
     elliptic_curve::{
         short_weierstrass::curves::bn_254::{
-            curve::BN254Curve,
+            curve::BN254Curve, 
+            field_extension::{BN254PrimeField, Degree12ExtensionField, Degree2ExtensionField}, 
             pairing::{
-                final_exponentiation, final_exponentiation_2, miller, miller_2, BN254AtePairing,
-            },
-            twist::BN254TwistCurve,
+                cyclotomic_pow_x, final_exponentiation, final_exponentiation_2, miller, miller_2, BN254AtePairing, X
+            }, 
+            twist::BN254TwistCurve
         },
         traits::{IsEllipticCurve, IsPairing},
-    },
+    }, 
+    field::element::FieldElement,
 };
 use rand::{rngs::StdRng, Rng, SeedableRng};
+
+type FpE = FieldElement<BN254PrimeField>;
+type Fp2E = FieldElement<Degree2ExtensionField>;
+type Fp12E = FieldElement<Degree12ExtensionField>;
 
 #[allow(dead_code)]
 pub fn bn_254_elliptic_curve_benchmarks(c: &mut Criterion) {
@@ -24,12 +30,15 @@ pub fn bn_254_elliptic_curve_benchmarks(c: &mut Criterion) {
 
     let a_g2 = BN254TwistCurve::generator().operate_with_self(a_val);
     let b_g2 = BN254TwistCurve::generator().operate_with_self(b_val);
+    let f_12 = Fp12E::from_coefficients(&["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"]);
+    let f_2 = Fp2E::new([FpE::from(a_val as u64), FpE::from(b_val as u64)]);
 
+    //let a_f = Fp12E::new_base(a_val.to_hex);
+    //let b_f = Fp12E::new_base(b_val);
+    
     let miller_loop_output = miller(&a_g1, &a_g2);
 
     let mut group = c.benchmark_group("BN254 Ops");
-    group.significance_level(0.1).sample_size(10000);
-    group.throughput(criterion::Throughput::Elements(1));
     /*
         // To Affine G1
         group.bench_function("To Affine G1", |bencher| {
@@ -99,6 +108,7 @@ pub fn bn_254_elliptic_curve_benchmarks(c: &mut Criterion) {
         });
     */
     // Ate Pairing
+    /* 
     group.bench_function("Ate Pairing", |bencher| {
         bencher.iter(|| {
             black_box(BN254AtePairing::compute_batch(&[(
@@ -117,7 +127,6 @@ pub fn bn_254_elliptic_curve_benchmarks(c: &mut Criterion) {
     group.bench_function("Miller Loop 2", |bencher| {
         bencher.iter(|| black_box(miller_2(black_box(&a_g1), black_box(&a_g2))))
     });
-
     // Final Exponentiation 1
     group.bench_function("Final Exponentiation 1", |bencher| {
         bencher.iter(|| black_box(final_exponentiation(black_box(&miller_loop_output))))
@@ -127,4 +136,24 @@ pub fn bn_254_elliptic_curve_benchmarks(c: &mut Criterion) {
     group.bench_function("Final Exponentiation 2", |bencher| {
         bencher.iter(|| black_box(final_exponentiation_2(black_box(&miller_loop_output))))
     });
+
+    group.bench_function("Fp12 Multiplication", |bencher| {
+        bencher.iter(|| black_box(black_box(&f_12)*black_box(&f_12)));
+    });
+
+    group.bench_function("Fp2 Multiplication", |bencher| {
+        bencher.iter(|| black_box(black_box(&f_2)*black_box(&f_2)));
+    });
+
+    group.bench_function("Fp12 Inverse", |bencher| {
+        bencher.iter(|| black_box(black_box(&f_12).inv()));
+    });
+*/
+    group.bench_function("Cyclotomic Pow", |bencher| {
+        bencher.iter(|| black_box(black_box(cyclotomic_pow_x(&f_12))));
+    });
+
+    group.bench_function("Pow function", |bencher| {
+        bencher.iter(|| black_box(black_box(f_12.pow(X))));
+    });  
 }

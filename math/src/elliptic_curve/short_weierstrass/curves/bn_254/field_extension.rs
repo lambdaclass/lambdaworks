@@ -74,10 +74,31 @@ impl ByteConversion for FieldElement<Degree2ExtensionField> {
 
 #[derive(Debug, Clone)]
 pub struct LevelTwoResidue;
+
+impl HasQuadraticNonResidue<Degree2ExtensionField> for LevelTwoResidue {
+    fn residue() -> FieldElement<Degree2ExtensionField> {
+        FieldElement::new([FieldElement::from(9), FieldElement::one()])
+    }
+}
+
 impl HasCubicNonResidue<Degree2ExtensionField> for LevelTwoResidue {
     fn residue() -> FieldElement<Degree2ExtensionField> {
         FieldElement::new([FieldElement::from(9), FieldElement::one()])
     }
+}
+
+
+/// Fp4 = Fp2 [V] / (V^2 - (9+u))
+pub type Degree4ExtensionField = QuadraticExtensionField<Degree2ExtensionField, LevelTwoResidue>;
+
+type Fp2E = FieldElement<Degree2ExtensionField>;
+
+pub fn mul_fp2_by_nonresidue(fe: &Fp2E) -> Fp2E {
+    // (c0 + c1 * u) * (9 + u) = (9 * c0 - c1) + (9c1 + c0) * u
+    let f = fe.double().double().double(); 
+    let c0 = &f.value()[0] - &fe.value()[1] + &fe.value()[0]; // 9c0 - c1
+    let c1 = &f.value()[1] + &fe.value()[1] + &fe.value()[0]; // 9c1 + c0
+    Fp2E::new([c0, c1])
 }
 
 pub type Degree6ExtensionField = CubicExtensionField<Degree2ExtensionField, LevelTwoResidue>;
@@ -107,6 +128,16 @@ impl FieldElement<Degree2ExtensionField> {
         Self::new([FieldElement::new(U256::from(a_hex)), FieldElement::zero()])
     }
 }
+
+impl FieldElement<Degree4ExtensionField> {
+    pub fn new_base(a_hex: &str) -> Self {
+        Self::new([
+            Fp2E::new_base(a_hex),
+            Fp2E::zero(),
+        ])
+    }
+}
+
 
 impl FieldElement<Degree6ExtensionField> {
     pub fn new_base(a_hex: &str) -> Self {
@@ -166,6 +197,7 @@ mod tests {
     use super::*;
     type FpE = FieldElement<BN254PrimeField>;
     type Fp2E = FieldElement<Degree2ExtensionField>;
+    type Fp4E = FieldElement<Degree4ExtensionField>;
     type Fp6E = FieldElement<Degree6ExtensionField>;
     type Fp12E = FieldElement<Degree12ExtensionField>;
 
@@ -191,6 +223,16 @@ mod tests {
         let b = Fp6E::from(2);
         assert_eq!(a * &b, a_extension * b);
     }
+
+    
+    #[test]
+    fn mul_degree_2_with_degree_4_extension() {
+        let a = Fp2E::new([FpE::from(3), FpE::from(4)]);
+        let a_extension = a.clone().to_extension::<Degree4ExtensionField>();
+        let b = Fp4E::from(2);
+        assert_eq!(a * &b, a_extension * b);
+    }
+    
 
     #[test]
     fn div_degree_6_degree_12_extension() {
@@ -225,5 +267,11 @@ mod tests {
     fn base_field_pow_p_is_identity() {
         let a = FpE::from(3);
         assert_eq!(a.pow(BN254_PRIME_FIELD_ORDER), a);
+    }
+
+    #[test]
+    fn mul_fp2_by_nonresidue2_is_correct() {
+        let a = Fp2E::new([FpE::from(2), FpE::from(4)]);
+        assert_eq!(&a * <LevelTwoResidue as HasQuadraticNonResidue<Degree2ExtensionField>>::residue(), mul_fp2_by_nonresidue(&a))
     }
 }

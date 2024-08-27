@@ -1,7 +1,7 @@
 use super::{
     curve::BN254Curve,
     field_extension::{
-        BN254PrimeField, Degree12ExtensionField, Degree2ExtensionField, LevelTwoResidue,
+        BN254PrimeField, Degree12ExtensionField, Degree2ExtensionField, Degree4ExtensionField, LevelTwoResidue, mul_fp2_by_nonresidue
     },
     twist::BN254TwistCurve,
 };
@@ -24,6 +24,7 @@ use rayon::prelude::*;
 
 type FpE = FieldElement<BN254PrimeField>;
 type Fp2E = FieldElement<Degree2ExtensionField>;
+type Fp4E = FieldElement<Degree4ExtensionField>;
 type Fp6E = FieldElement<Degree6ExtensionField>;
 type Fp12E = FieldElement<Degree12ExtensionField>;
 type G1Point = ShortWeierstrassProjectivePoint<BN254Curve>;
@@ -136,25 +137,20 @@ impl IsPairing for BN254AtePairing {
     fn compute_batch(
         pairs: &[(&Self::G1Point, &Self::G2Point)],
     ) -> Result<FieldElement<Self::OutputField>, PairingError> {
-        let results: Result<Vec<Fp12E>, PairingError> = pairs
-            .par_iter()
-            .map(|(p, q)| {
-                if !q.is_in_subgroup() {
-                    Err(PairingError::PointNotInSubgroup)
-                } else if p.is_neutral_element() || q.is_neutral_element() {
-                    Ok(Fp12E::one())
-                } else {
-                    Ok(miller_2(&p.to_affine(), &q.to_affine()))
-                }
-            })
-            .collect();
-
-        let combined = results?
-            .into_iter()
-            .reduce(|acc, x| acc * x)
-            .unwrap_or(Fp12E::one());
-
-        Ok(final_exponentiation_2(&combined))
+        let mut result = Fp12E::one();
+        for (p, q) in pairs {
+            // We don't need to check if p is in the subgroup because the subgroup oF G1 is G1.
+            // See https://hackmd.io/@jpw/bn254#Subgroup-checks.
+            if !q.is_in_subgroup() {
+                return Err(PairingError::PointNotInSubgroup);
+            }
+            if !p.is_neutral_element() && !q.is_neutral_element() {
+                let p = p.to_affine();
+                let q = q.to_affine();
+                result *= miller_2(&p, &q);
+            }
+        }
+        Ok(final_exponentiation_2(&result))
     }
 }
 
@@ -510,9 +506,9 @@ pub fn final_exponentiation_2(
 
     // Optimal hard part from the post
     // https://hackmd.io/@Wimet/ry7z1Xj-2#The-Hard-Part
-    let mx = cyclotomic_pow_x(f_easy.clone());
-    let mx2 = cyclotomic_pow_x(mx.clone());
-    let mx3 = cyclotomic_pow_x(mx2.clone());
+    let mx = cyclotomic_pow_x(&f_easy);
+    let mx2 = cyclotomic_pow_x(&mx);
+    let mx3 = cyclotomic_pow_x(&mx2);
     let mp = frobenius(&f_easy);
     let mp2 = frobenius_square(&f_easy);
     let mp3 = frobenius_cube(&f_easy);
@@ -521,7 +517,7 @@ pub fn final_exponentiation_2(
     let mx3p = frobenius(&mx3); // (m^{x^3})^p
     let mx2p2 = frobenius_square(&mx2); // (m^{x^2})^p^2
 
-    let y0 = mp * mp2 * mp3;
+    let y0 = &mp * &mp2 * &mp3;
     let y1 = f_easy.conjugate();
     let y2 = mx2p2;
     let y3 = mxp.conjugate();
@@ -632,17 +628,14 @@ fn decompress(c: &Vec<Fp2E>) -> Fp12E {
     let mut g0 = Fp2E::one();
     let mut h1 = Fp2E::one();
 
-    let non_residue = LevelTwoResidue::residue();
-    // Fp2E::new([FpE::from(9), FpE::one()]);
-
     if h0 != Fp2E::zero() {
-        h1 = (h2.square() * &non_residue + FpE::from(3) * g1.square() - g2.double())
+        h1 = (mul_fp2_by_nonresidue(&h2.square()) + FpE::from(3) * g1.square() - g2.double())
             * h0.double().double().inv().unwrap();
-        g0 = (h1.square().double() + &h0 * &h2 - FpE::from(3) * &g1 * &g2) * non_residue
+        g0 = mul_fp2_by_nonresidue(&(h1.square().double() + &h0 * &h2 - FpE::from(3) * &g1 * &g2) )
             + Fp2E::one();
     } else {
         h1 = (&g1 * &h2).double() * g2.inv().unwrap();
-        g0 = (h1.square().double() - FpE::from(3) * &g2 * &g1) * non_residue + Fp2E::one();
+        g0 = mul_fp2_by_nonresidue(&(h1.square().double() - FpE::from(3) * &g2 * &g1))  + Fp2E::one();
     }
 
     Fp12E::new([Fp6E::new([g0, g1, g2]), Fp6E::new([h0, h1, h2])])
@@ -652,24 +645,24 @@ fn cyclotomic_square(f: &Fp12E) -> Fp12E {
     if f == &Fp12E::one() {
         Fp12E::one()
     } else {
-        decompress(&compressed_square(compress(f)))
+        decompress(&compressed_square(&compress(f)))
     }
 }
 
-fn compressed_square(c: Vec<Fp2E>) -> Vec<Fp2E> {
-    let h0 = c[0].clone();
-    let g2 = c[1].clone();
-    let g1 = c[2].clone();
-    let h2 = c[3].clone();
+fn compressed_square(c: &[Fp2E]) -> Vec<Fp2E> {
+    let h0 = &c[0];
+    let g2 = &c[1];
+    let g1 = &c[2];
+    let h2 = &c[3];
     let non_residue = Fp2E::new([FpE::from(9), FpE::one()]);
     let ten_plus_u = Fp2E::new([FpE::from(10), FpE::one()]);
 
-    let h0_square = (&h0 + FpE::from(3) * &non_residue * &g1 * &h2).double();
+    let h0_square = (h0 + FpE::from(3) * mul_fp2_by_nonresidue(&g1) * h2).double();
     let g2_square = FpE::from(3)
-        * ((&g1 + &h2) * (&g1 + &non_residue * &h2) - &ten_plus_u * &g1 * &h2)
+        * ((g1 +h2) * (g1 + mul_fp2_by_nonresidue(&h2)) - &ten_plus_u * g1 * h2)
         - g2.double();
     let g1_square = FpE::from(3)
-        * ((&h0 + &g2) * (&h0 + non_residue * &g2) - ten_plus_u * &h0 * &g2)
+        * ((h0 + g2) * (h0 + mul_fp2_by_nonresidue(&g2)) - ten_plus_u * h0 * g2)
         - g1.double();
     let h2_square = (h2 + FpE::from(3) * h0 * g2).double();
 
@@ -723,8 +716,8 @@ fn cyclotomic_pow_x(f: Fp12E) -> Fp12E {
 }
 */
 
-fn cyclotomic_pow_x(f: Fp12E) -> Fp12E {
-    if f == Fp12E::one() {
+pub fn cyclotomic_pow_x(f: &Fp12E) -> Fp12E {
+    if *f == Fp12E::one() {
         Fp12E::one()
     } else {
         let mut c = compress(&f);
@@ -734,7 +727,7 @@ fn cyclotomic_pow_x(f: Fp12E) -> Fp12E {
             if x & 1 == 1 {
                 result *= &decompress(&c);
             }
-            c = compressed_square(c);
+            c = compressed_square(&c);
             x >>= 1;
         }
         result
@@ -1401,7 +1394,7 @@ mod tests {
         let f = miller(&p, &q);
         let f_easy_aux = f.conjugate() * f.inv().unwrap(); // f ^ (p^6 - 1) because f^(p^6) = f.conjugate().
         let f_easy = &frobenius_square(&f_easy_aux) * f_easy_aux; // (f^{p^6 - 1})^(p^2) * (f^{p^6 - 1}).
-        assert_eq!(cyclotomic_pow_x(f_easy.clone()), f_easy.pow(X));
+        assert_eq!(cyclotomic_pow_x(&f_easy), f_easy.pow(X));
     }
 
     #[test]
