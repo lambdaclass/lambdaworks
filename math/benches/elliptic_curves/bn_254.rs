@@ -144,49 +144,41 @@ pub fn bn_254_elliptic_curve_benchmarks(c: &mut Criterion) {
 
 /* 
     // Fp12 Multiplication
-
     group.bench_function("Fp12 Multiplication", |bencher| {
         bencher.iter(|| black_box(black_box(&f_12)*black_box(&f_12)));
     });
 
     // Fp2 Multiplication
-
     group.bench_function("Fp2 Multiplication", |bencher| {
         bencher.iter(|| black_box(black_box(&f_2)*black_box(&f_2)));
     });
 
     // Fp12 Inverse
-
     group.bench_function("Fp12 Inverse", |bencher| {
         bencher.iter(|| black_box(black_box(&f_12).inv()));
     });
 
     // Cyclotomic Pow x
-
     group.bench_function("Cyclotomic Pow x", |bencher| {
         bencher.iter(|| black_box(cyclotomic_pow_x(black_box(&f_12))));
     });
 
     // Cyclotomic Pow x Version 2
-
     group.bench_function("Cyclotomic Pow x Version 2", |bencher| {
         bencher.iter(|| black_box(cyclotomic_pow_x_2(black_box(&f_12))));
     });  
 
     // Pow x function
-
     group.bench_function("Pow x function", |bencher| {
         bencher.iter(|| black_box(black_box(&f_12).pow(X)));
     });  
 
     // Cyclotomic Square
-
     group.bench_function("Cyclotomic Square", |bencher| {
         bencher.iter(|| black_box(cyclotomic_square(black_box(&f_12))));
     });
 
     // Cyclotomic Square Over Cube
-    
     group.bench_function("Cyclotomic Square Over Cube", |bencher| {
         bencher.iter(|| black_box(cyclotomic_square_quad_over_cube(black_box(&f_12))));
     }); 
