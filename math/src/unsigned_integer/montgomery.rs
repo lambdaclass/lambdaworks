@@ -158,6 +158,7 @@ impl MontgomeryAlgorithms {
         // `q`.
         let mut c: u128 = 0;
         let mut i = NUM_LIMBS;
+        let mut overflow = false;
         while i > 0 {
             i -= 1;
             c = 0;
@@ -186,6 +187,9 @@ impl MontgomeryAlgorithms {
                 hi.limbs[i - t] = cs as u64;
                 t += 1;
             }
+            if c > 0 {
+                overflow = true;
+            }
         }
 
         // Step 3: At this point `overflow * 2^{2 * NUM_LIMBS * 64} + (hi, lo)` is a multiple
@@ -197,7 +201,7 @@ impl MontgomeryAlgorithms {
         // The easy case is when `overflow` is zero. We just use the `sub` function.
         // If `overflow` is 1, then `hi` is smaller than `q`. The function `sub(hi, q)` wraps
         // around `2^{NUM_LIMBS * 64}`. This is the result we need.
-        let overflow = c > 0;
+        overflow |= c > 0;
         if overflow || UnsignedInteger::const_le(q, &hi) {
             (hi, _) = UnsignedInteger::sub(&hi, q);
         }
