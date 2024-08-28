@@ -106,7 +106,7 @@ pub fn bn_254_elliptic_curve_benchmarks(c: &mut Criterion) {
         group.bench_function("Subgroup Check G2", |bencher| {
             bencher.iter(|| (black_box(a_g2.is_in_subgroup())));
         });
-    */
+    
     // Ate Pairing
 
     group.bench_function("Ate Pairing", |bencher| {
@@ -122,11 +122,12 @@ pub fn bn_254_elliptic_curve_benchmarks(c: &mut Criterion) {
     group.bench_function("Miller Loop 1", |bencher| {
         bencher.iter(|| black_box(miller(black_box(&a_g1), black_box(&a_g2))))
     });
-
+*/
     // Miller Loop 2
     group.bench_function("Miller Loop 2", |bencher| {
         bencher.iter(|| black_box(miller_2(black_box(&a_g1), black_box(&a_g2))))
     });
+    /* 
     // Final Exponentiation 1
     group.bench_function("Final Exponentiation 1", |bencher| {
         bencher.iter(|| black_box(final_exponentiation(black_box(&miller_loop_output))))
@@ -142,7 +143,7 @@ pub fn bn_254_elliptic_curve_benchmarks(c: &mut Criterion) {
         bencher.iter(|| black_box(final_exponentiation_3(black_box(&miller_loop_output))))
     });
 
-/* 
+
     // Fp12 Multiplication
     group.bench_function("Fp12 Multiplication", |bencher| {
         bencher.iter(|| black_box(black_box(&f_12)*black_box(&f_12)));

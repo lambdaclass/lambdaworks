@@ -224,10 +224,164 @@ pub fn miller_2(p: &G1Point, q: &G2Point) -> Fp12E {
     f
 }
 
+
+/* 
+/// It isn't better than miller_2
+/// Miller Loop 2 but
+pub fn miller_3(p: &G1Point, q: &G2Point) -> Fp12E {
+    let mut t = q.clone();
+    let mut f = Fp12E::one();
+    let q_neg = &q.neg();
+
+    // First itereation.
+    // MILLER_CONSTANT[61] == 1
+    let (mut r1, mut l1) = line_2(p, &t, &t);
+    f = l1; // 1^2 * l1 = l1
+    t = r1; // T = 2Q
+    (r1, l1) = line_2(p, &t, q);
+    f *= l1;
+    t = r1; // T = 2Q + Q
+
+    // QUESTION: Maybe we can compute t as q.operate_with_self(3). Is it better?
+
+    // Second iteration.
+    // MILLER_CONSTANT[60] == 0
+    (r1, l1) = line_2(p, &t, &t);
+    f = f.square() * l1;
+    t = r1; // T = 3Q + 3Q = 6Q.
+
+    MILLER_CONSTANT.iter().rev().skip(3).for_each(|m| {
+        let (r, l) = line_2(p, &t, &t);
+        f = f.square() * l;
+        t = r;
+
+        if *m == -1 {
+            let (r, l) = line_2(p, &t, q_neg);
+            f *= l;
+            t = r;
+        } else if *m == 1 {
+            let (r, l) = line_2(p, &t, q);
+            f *= l;
+            t = r;
+        }
+    });
+
+    // q1 = ((x_q)^p, (y_q)^p, (z_q)^p)
+    // See  https://hackmd.io/@Wimet/ry7z1Xj-2#The-Last-two-Lines
+    let q1 = q.phi();
+    let (r, l) = line_2(p, &t, &q1);
+    f *= l;
+    t = r;
+
+    // q2 = ((x_q1)^p, (y_q1)^p, (z_q1)^p)
+    let q2 = q1.phi();
+    f *= line_2(p, &t, &q2.neg()).1;
+
+    f
+}
+*/
+/* 
+pub fn miller_3 (p: &G1Point, q: &G2Point) -> Fp12E {
+    let mut f = Fp12E::one();
+    let ell = ell_results(p, q);
+    for i in (0..MILLER_CONSTANT.len()) {
+        f = f.square() * ell[i];
+        if MILLER_CONSTANT[i] == 1 || MILLER_CONSTANT[i] == -1 {
+            f *= ell[i]
+        }
+    }
+    f *= ell[i] * ell [i+1];
+    f 
+
+}
+
+pub fn ell_results(p: &G1Point, q: &G2Point) -> Vec<Fp12E> {
+    let mut result = Vec::new();
+    let q_neg = q.neg();
+    let mut t = G2Point::new([q.x().clone(), q.y().clone(), Fp2E::one()]);
+
+    for bit in MILLER_CONSTANT.iter().rev().skip(1) {
+        let t_clone = t.clone(); // Clone t
+        result.push(line_3(&p, &mut t, t_clone)); // Pass the clone as an argument
+        match bit {
+            1 => result.push(line_3(&p, &mut t, q.clone())),
+            -1 => result.push(line_3(&p, &mut t, q_neg.clone())),
+            _ => continue,
+        }
+    }
+    let q1 = q.phi();
+    let q2 = q1.phi();
+    result.push(line_3(&p, &mut t, q1));
+    result.push(line_3(&p, &mut t, q2.neg()));
+    result
+}
+
+fn line_3(p: &G1Point, t: &mut G2Point, q: G2Point) -> Fp12E {
+    let [x_p, y_p, _] = p.coordinates();
+
+    if *t == q {
+        let a = TWO_INV * t.x() * t.y();
+        let b = t.y().square();
+        let c = t.z().square();
+        let e = BN254TwistCurve::b() * (c.double() + &c);
+        let f = e.double() + &e;
+        let g = TWO_INV * (&b + &f);
+        let h = (t.y() + t.z()).square() - (&b + &c);
+        let i = &e - &b;
+        let j = t.x().square();
+        let e_square = e.square();
+
+        let x_r = a * (&b - f);
+        let y_r = g.square() - (e_square.double() + e_square);
+        let z_r = b * &h;
+
+        *t =  G2Point::new([x_r, y_r, z_r]);
+
+        // We are transforming one representation of Fp12 into another:
+        // If f in Fp12, then f = g + h * w = g0 + h0 * w + g1 * w^2 + h1 * w^3 + g2 * w^4 + h2 * w^5,
+        // where g = g0 + g1 * v + g2 * v^2,
+        // and h = h0 + h1 * v + h2 * v^2.
+        // See https://hackmd.io/@Wimet/ry7z1Xj-2#Tower-of-Extension-Fields.
+        Fp12E::new([
+            Fp6E::new([y_p * (-h), Fp2E::zero(), Fp2E::zero()]),
+            Fp6E::new([x_p * (j.double() + &j), i, Fp2E::zero()]),
+        ])
+
+    } else {
+        let [x_q, y_q, _] = q.coordinates();
+        let [x_t, y_t, z_t] = t.coordinates();
+
+        let a = y_q * z_t;
+        let b = x_q * z_t;
+        let theta = t.y() - (y_q * t.z());
+        let lambda = t.x() - (x_q * t.z());
+        let c = theta.square();
+        let d = lambda.square();
+        let e = &lambda * &d;
+        let f = z_t * c;
+        let g = x_t * d;
+        let h = &e + f - g.double();
+        let i = y_t * &e;
+        let j = &theta * x_q- (&lambda * y_q);
+
+        let x_r = &lambda * &h;
+        let y_r = &theta * (g - h) - i;
+        let z_r = z_t * e;
+
+        *t =G2Point::new([x_r, y_r, z_r]);
+
+        Fp12E::new([
+            Fp6E::new([y_p * lambda, Fp2E::zero(), Fp2E::zero()]),
+            Fp6E::new([x_p * (-theta), j, Fp2E::zero()]),
+        ])
+    }
+}
+
+*/
 fn line_2(p: &G1Point, t: &G2Point, q: &G2Point) -> (G2Point, Fp12E) {
     let [x_p, y_p, _] = p.coordinates();
 
-    if t == q {
+    if t as *const G2Point == q as *const G2Point || t == q {
         let a = TWO_INV * t.x() * t.y();
         let b = t.y().square();
         let c = t.z().square();

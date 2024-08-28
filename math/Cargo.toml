@@ -98,3 +98,5 @@ name = "criterion_metal"
 harness = false
 required-features = ["metal"]
 
+[profile.bench]
+debug = true

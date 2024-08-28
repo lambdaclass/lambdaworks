@@ -1,10 +1,8 @@
 use crate::field::{
-    element::FieldElement,
-    extensions::{
+    element::FieldElement, errors::FieldError, extensions::{
         cubic::{CubicExtensionField, HasCubicNonResidue},
         quadratic::{HasQuadraticNonResidue, QuadraticExtensionField},
-    },
-    fields::montgomery_backed_prime_fields::{IsModulus, MontgomeryBackendPrimeField},
+    }, fields::montgomery_backed_prime_fields::{IsModulus, MontgomeryBackendPrimeField}, traits::{IsField, IsSubFieldOf}
 };
 use crate::unsigned_integer::element::U256;
 
@@ -23,7 +21,133 @@ impl IsModulus<U256> for BN254FieldModulus {
 
 pub type BN254PrimeField = MontgomeryBackendPrimeField<BN254FieldModulus, 4>;
 
-pub type Degree2ExtensionField = QuadraticExtensionField<BN254PrimeField, BN254Residue>;
+#[derive(Clone, Debug)]
+pub struct Degree2ExtensionField;
+
+impl IsField for Degree2ExtensionField {
+    type BaseType = [FieldElement<BN254PrimeField>; 2];
+
+    /// Returns the component wise addition of `a` and `b`
+    fn add(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
+        [&a[0] + &b[0], &a[1] + &b[1]]
+    }
+
+    /// Returns the multiplication of `a` and `b` using the following
+    /// equation:
+    /// (a0 + a1 * t) * (b0 + b1 * t) = a0 * b0 + a1 * b1 * Self::residue() + (a0 * b1 + a1 * b0) * t
+    /// where `t.pow(2)` equals `Q::residue()`.
+    fn mul(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
+        let a0b0 = &a[0] * &b[0];
+        let a1b1 = &a[1] * &b[1];
+        let z = (&a[0] + &a[1]) * (&b[0] + &b[1]);
+        [&a0b0 - &a1b1, z - a0b0 - a1b1]
+    }
+
+    fn square(a: &Self::BaseType) -> Self::BaseType {
+        let [a0, a1] = a;
+        let v0 = a0 * a1;
+        let c0 = (a0 + a1) * (a0 - a1);
+        let c1 = &v0 + &v0;
+        [c0, c1]
+    }
+    /// Returns the component wise subtraction of `a` and `b`
+    fn sub(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
+        [&a[0] - &b[0], &a[1] - &b[1]]
+    }
+
+    /// Returns the component wise negation of `a`
+    fn neg(a: &Self::BaseType) -> Self::BaseType {
+        [-&a[0], -&a[1]]
+    }
+
+    /// Returns the multiplicative inverse of `a`
+    /// This uses the equality `(a0 + a1 * t) * (a0 - a1 * t) = a0.pow(2) - a1.pow(2) * Q::residue()`
+    fn inv(a: &Self::BaseType) -> Result<Self::BaseType, FieldError> {
+        let inv_norm = (a[0].pow(2_u64) + a[1].pow(2_u64)).inv()?;
+        Ok([&a[0] * &inv_norm, -&a[1] * inv_norm])
+    }
+
+    /// Returns the division of `a` and `b`
+    fn div(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
+        <Self as IsField>::mul(a, &Self::inv(b).unwrap())
+    }
+
+    /// Returns a boolean indicating whether `a` and `b` are equal component wise.
+    fn eq(a: &Self::BaseType, b: &Self::BaseType) -> bool {
+        a[0] == b[0] && a[1] == b[1]
+    }
+
+    /// Returns the additive neutral element of the field extension.
+    fn zero() -> Self::BaseType {
+        [FieldElement::zero(), FieldElement::zero()]
+    }
+
+    /// Returns the multiplicative neutral element of the field extension.
+    fn one() -> Self::BaseType {
+        [FieldElement::one(), FieldElement::zero()]
+    }
+
+    /// Returns the element `x * 1` where 1 is the multiplicative neutral element.
+    fn from_u64(x: u64) -> Self::BaseType {
+        [FieldElement::from(x), FieldElement::zero()]
+    }
+
+    /// Takes as input an element of BaseType and returns the internal representation
+    /// of that element in the field.
+    /// Note: for this case this is simply the identity, because the components
+    /// already have correct representations.
+    fn from_base_type(x: Self::BaseType) -> Self::BaseType {
+        x
+    }
+}
+
+impl IsSubFieldOf<Degree2ExtensionField> for BN254PrimeField {
+    fn mul(
+        a: &Self::BaseType,
+        b: &<Degree2ExtensionField as IsField>::BaseType,
+    ) -> <Degree2ExtensionField as IsField>::BaseType {
+        let c0 = FieldElement::from_raw(<Self as IsField>::mul(a, b[0].value()));
+        let c1 = FieldElement::from_raw(<Self as IsField>::mul(a, b[1].value()));
+        [c0, c1]
+    }
+
+    fn add(
+        a: &Self::BaseType,
+        b: &<Degree2ExtensionField as IsField>::BaseType,
+    ) -> <Degree2ExtensionField as IsField>::BaseType {
+        let c0 = FieldElement::from_raw(<Self as IsField>::add(a, b[0].value()));
+        let c1 = FieldElement::from_raw(*b[1].value());
+        [c0, c1]
+    }
+
+    fn div(
+        a: &Self::BaseType,
+        b: &<Degree2ExtensionField as IsField>::BaseType,
+    ) -> <Degree2ExtensionField as IsField>::BaseType {
+        let b_inv = Degree2ExtensionField::inv(b).unwrap();
+        <Self as IsSubFieldOf<Degree2ExtensionField>>::mul(a, &b_inv)
+    }
+
+    fn sub(
+        a: &Self::BaseType,
+        b: &<Degree2ExtensionField as IsField>::BaseType,
+    ) -> <Degree2ExtensionField as IsField>::BaseType {
+        let c0 = FieldElement::from_raw(<Self as IsField>::sub(a, b[0].value()));
+        let c1 = FieldElement::from_raw(<Self as IsField>::neg(b[1].value()));
+        [c0, c1]
+    }
+
+    fn embed(a: Self::BaseType) -> <Degree2ExtensionField as IsField>::BaseType {
+        [FieldElement::from_raw(a), FieldElement::zero()]
+    }
+
+    #[cfg(feature = "alloc")]
+    fn to_subfield_vec(
+        b: <Degree2ExtensionField as IsField>::BaseType,
+    ) -> alloc::vec::Vec<Self::BaseType> {
+        b.into_iter().map(|x| x.to_raw()).collect()
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct BN254Residue;
@@ -126,6 +250,10 @@ impl FieldElement<BN254PrimeField> {
 impl FieldElement<Degree2ExtensionField> {
     pub fn new_base(a_hex: &str) -> Self {
         Self::new([FieldElement::new(U256::from(a_hex)), FieldElement::zero()])
+    }
+    pub fn conjugate(&self) -> Self {
+        let [a, b] = self.value();
+        Self::new([a.clone(), -b])
     }
 }
 
