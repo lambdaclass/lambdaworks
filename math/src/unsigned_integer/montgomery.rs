@@ -187,9 +187,7 @@ impl MontgomeryAlgorithms {
                 hi.limbs[i - t] = cs as u64;
                 t += 1;
             }
-            if c > 0 {
-                overflow = true;
-            }
+            overflow |= c > 0;
         }
 
         // Step 3: At this point `overflow * 2^{2 * NUM_LIMBS * 64} + (hi, lo)` is a multiple
