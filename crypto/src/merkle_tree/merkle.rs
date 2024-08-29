@@ -30,7 +30,11 @@ impl<B> MerkleTree<B>
 where
     B: IsMerkleTreeBackend,
 {
-    pub fn build(unhashed_leaves: &[B::Data]) -> Self {
+    pub fn build(unhashed_leaves: &[B::Data]) -> Option<Self> {
+        if unhashed_leaves.is_empty() {
+            return None;
+        }
+
         let hashed_leaves: Vec<B::Node> = B::hash_leaves(unhashed_leaves);
 
         //The leaf must be a power of 2 set
@@ -45,10 +49,10 @@ where
         //Build the inner nodes of the tree
         build::<B>(&mut nodes, leaves_len);
 
-        MerkleTree {
+        Some(MerkleTree {
             root: nodes[ROOT].clone(),
             nodes,
-        }
+        })
     }
 
     pub fn get_proof_by_pos(&self, pos: usize) -> Option<Proof<B::Node>> {
@@ -95,7 +99,7 @@ mod tests {
     #[test]
     fn build_merkle_tree_from_a_power_of_two_list_of_values() {
         let values: Vec<FE> = (1..5).map(FE::new).collect();
-        let merkle_tree = MerkleTree::<TestBackend<U64PF>>::build(&values);
+        let merkle_tree = MerkleTree::<TestBackend<U64PF>>::build(&values).unwrap();
         assert_eq!(merkle_tree.root, FE::new(7)); // Adjusted expected value
     }
 
@@ -107,7 +111,7 @@ mod tests {
         type FE = FieldElement<U64PF>;
 
         let values: Vec<FE> = (1..6).map(FE::new).collect();
-        let merkle_tree = MerkleTree::<TestBackend<U64PF>>::build(&values);
+        let merkle_tree = MerkleTree::<TestBackend<U64PF>>::build(&values).unwrap();
         assert_eq!(merkle_tree.root, FE::new(8)); // Adjusted expected value
     }
 
@@ -118,7 +122,12 @@ mod tests {
         type FE = FieldElement<U64PF>;
 
         let values: Vec<FE> = vec![FE::new(1)]; // Single element
-        let merkle_tree = MerkleTree::<TestBackend<U64PF>>::build(&values);
+        let merkle_tree = MerkleTree::<TestBackend<U64PF>>::build(&values).unwrap();
         assert_eq!(merkle_tree.root, FE::new(4)); // Adjusted expected value
+    }
+
+    #[test]
+    fn build_empty_tree_should_not_panic() {
+        assert!(MerkleTree::<TestBackend<U64PF>>::build(&[]).is_none());
     }
 }
