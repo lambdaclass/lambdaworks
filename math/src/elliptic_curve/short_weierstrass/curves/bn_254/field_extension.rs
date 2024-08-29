@@ -226,7 +226,7 @@ pub fn mul_fp2_by_nonresidue(fe: &Fp2E) -> Fp2E {
 }
 
 #[derive(Clone, Debug)]
-pub struct Degree12ExtensionField;
+pub struct Degree6ExtensionField;
 
 /// Optimal algorithms from
 /// https://hackmd.io/@Wimet/ry7z1Xj-2#Fp12-Arithmetic
@@ -253,7 +253,6 @@ impl IsField for Degree6ExtensionField {
         let a0 = &a[0];
         let a1 = &a[1];
         let a2 = &a[2];
-        let a2 = &a[2];
        
         [ (a1 * a2 * <LevelTwoResidue as HasQuadraticNonResidue<Degree2ExtensionField>>::residue()).double() + a0.square(),
         a2.square() * <LevelTwoResidue as HasQuadraticNonResidue<Degree2ExtensionField>>::residue() + (a0 * a1).double(),
@@ -261,26 +260,26 @@ impl IsField for Degree6ExtensionField {
         ]
     }
 
-    /// INPUT: (a = a0 + a1*w),(b = b0 + b1*w) in Fp12, where ai,bi in Fp6
-    /// OUTPUT: (c0 + c1*w) = a - b in Fp12
-    /// c0 = a0 - b0
-    /// c1 = a1 - b1
     fn sub(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType{
         [&a[0] - &b[0], &a[1] - &b[1], &a[2] - &b[2]]
     }
 
     /// Returns the component wise negation of `a`
     fn neg(a: &Self::BaseType) -> Self::BaseType {
-        [-&a[0], -&a[1]]
+        [-&a[0], -&a[1], -&a[2]]
     }
 
-    /// c0 = a0*(a0^2 - a1^2*v)^{-1}
-    /// c1 = -a1*(a0^2 - a1^2*v)^{-1}
     fn inv(a: &Self::BaseType) -> Result<Self::BaseType, FieldError> {
         let a0 = &a[0];
         let a1 = &a[1];
-        Ok([a0 * (a0.square() - a1.square() * LevelThreeResidue::residue()).inv().unwrap(), 
-        -a1 * (a0.square() - a1.square() * LevelThreeResidue::residue()).inv().unwrap()])
+        let a2 = &a[2];
+        let c0mid =  a0.square() - <LevelTwoResidue as HasQuadraticNonResidue<Degree2ExtensionField>>::residue() * a1 * a2;
+        let c1mid = <LevelTwoResidue as HasQuadraticNonResidue<Degree2ExtensionField>>::residue() * a2.square() - a0 * a1;
+        let c2mid = a1.square() - a0 * a2;
+        Ok([&c0mid * (a0 * &c0mid + <LevelTwoResidue as HasQuadraticNonResidue<Degree2ExtensionField>>::residue() * (a2 * &c1mid + a1 * &c2mid)).inv().unwrap(),
+        &c1mid * (a0 * &c0mid + <LevelTwoResidue as HasQuadraticNonResidue<Degree2ExtensionField>>::residue() * (a2 * &c1mid + a1 * &c2mid)).inv().unwrap(), 
+        &c2mid * (a0 * c0mid + <LevelTwoResidue as HasQuadraticNonResidue<Degree2ExtensionField>>::residue() * (a2 * c1mid + a1 * c2mid.clone())).inv().unwrap()
+        ])
     }
 
     /// Returns the division of `a` and `b`
@@ -290,22 +289,22 @@ impl IsField for Degree6ExtensionField {
 
     /// Returns a boolean indicating whether `a` and `b` are equal component wise.
     fn eq(a: &Self::BaseType, b: &Self::BaseType) -> bool {
-        a[0] == b[0] && a[1] == b[1]
+        a[0] == b[0] && a[1] == b[1] && a[2] == b[2]
     }
 
     /// Returns the additive neutral element of the field extension.
     fn zero() -> Self::BaseType {
-        [FieldElement::zero(), FieldElement::zero()]
+        [FieldElement::zero(), FieldElement::zero(), FieldElement::zero()]
     }
 
     /// Returns the multiplicative neutral element of the field extension.
     fn one() -> Self::BaseType {
-        [FieldElement::one(), FieldElement::zero()]
+        [FieldElement::one(), FieldElement::zero(),FieldElement::zero()]
     }
 
     /// Returns the element `x * 1` where 1 is the multiplicative neutral element.
     fn from_u64(x: u64) -> Self::BaseType {
-        [FieldElement::from(x), FieldElement::zero()]
+        [FieldElement::from(x), FieldElement::zero(), FieldElement::zero()]
     }
 
     /// Takes as input an element of BaseType and returns the internal representation
@@ -317,50 +316,55 @@ impl IsField for Degree6ExtensionField {
     }
 }
 
-impl IsSubFieldOf<Degree12ExtensionField> for Degree6ExtensionField {
+impl IsSubFieldOf<Degree6ExtensionField> for Degree2ExtensionField {
 
     fn mul(
         a: &Self::BaseType,
-        b: &<Degree12ExtensionField as IsField>::BaseType,
-    ) -> <Degree12ExtensionField as IsField>::BaseType {
+        b: &<Degree6ExtensionField as IsField>::BaseType,
+    ) -> <Degree6ExtensionField as IsField>::BaseType {
         let c0 = FieldElement::from_raw(<Self as IsField>::mul(a, b[0].value()));
         let c1 = FieldElement::from_raw(<Self as IsField>::mul(a, b[1].value()));
-        [c0, c1]
+        let c2 = FieldElement::from_raw(<Self as IsField>::mul(a, b[2].value()));
+
+        [c0, c1, c2]
     }
 
     fn add(
         a: &Self::BaseType,
-        b: &<Degree12ExtensionField as IsField>::BaseType,
-    ) -> <Degree12ExtensionField as IsField>::BaseType {
+        b: &<Degree6ExtensionField as IsField>::BaseType,
+    ) -> <Degree6ExtensionField as IsField>::BaseType {
         let c0 = FieldElement::from_raw(<Self as IsField>::add(a, b[0].value()));
         let c1 = FieldElement::from_raw(b[1].value().clone());
-        [c0, c1]
+        let c2 = FieldElement::from_raw(b[2].value().clone());
+
+        [c0, c1,c2]
     }
 
     fn div(
         a: &Self::BaseType,
-        b: &<Degree12ExtensionField as IsField>::BaseType,
-    ) -> <Degree12ExtensionField as IsField>::BaseType {
-        let b_inv = Degree12ExtensionField::inv(b).unwrap();
-        <Self as IsSubFieldOf<Degree12ExtensionField>>::mul(a, &b_inv)
+        b: &<Degree6ExtensionField as IsField>::BaseType,
+    ) -> <Degree6ExtensionField as IsField>::BaseType {
+        let b_inv = Degree6ExtensionField::inv(b).unwrap();
+        <Self as IsSubFieldOf<Degree6ExtensionField>>::mul(a, &b_inv)
     }
 
     fn sub(
         a: &Self::BaseType,
-        b: &<Degree12ExtensionField as IsField>::BaseType,
-    ) -> <Degree12ExtensionField as IsField>::BaseType {
+        b: &<Degree6ExtensionField as IsField>::BaseType,
+    ) -> <Degree6ExtensionField as IsField>::BaseType {
         let c0 = FieldElement::from_raw(<Self as IsField>::sub(a, b[0].value()));
         let c1 = FieldElement::from_raw(<Self as IsField>::neg(b[1].value()));
-        [c0, c1]
+        let c2 = FieldElement::from_raw(<Self as IsField>::neg(b[2].value()));
+        [c0, c1, c2]
     }
 
-    fn embed(a: Self::BaseType) -> <Degree12ExtensionField as IsField>::BaseType {
-        [FieldElement::from_raw(a), FieldElement::zero()]
+    fn embed(a: Self::BaseType) -> <Degree6ExtensionField as IsField>::BaseType {
+        [FieldElement::from_raw(a), FieldElement::zero(), FieldElement::zero()]
     }
 
     #[cfg(feature = "alloc")]
     fn to_subfield_vec(
-        b: <Degree12ExtensionField as IsField>::BaseType,
+        b: <Degree6ExtensionField as IsField>::BaseType,
     ) -> alloc::vec::Vec<Self::BaseType> {
         b.into_iter().map(|x| x.to_raw()).collect()
     }
