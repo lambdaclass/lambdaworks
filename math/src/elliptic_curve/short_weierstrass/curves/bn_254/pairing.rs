@@ -1,7 +1,8 @@
 use super::{
     curve::BN254Curve,
     field_extension::{
-        BN254PrimeField, Degree12ExtensionField, Degree2ExtensionField, Degree4ExtensionField, LevelTwoResidue, mul_fp2_by_nonresidue
+        mul_fp2_by_nonresidue, BN254PrimeField, Degree12ExtensionField, Degree2ExtensionField,
+        Degree4ExtensionField,
     },
     twist::BN254TwistCurve,
 };
@@ -9,7 +10,6 @@ use crate::{
     cyclic_group::IsGroup,
     elliptic_curve::{short_weierstrass::traits::IsShortWeierstrass, traits::IsPairing},
     errors::PairingError,
-    field::extensions::cubic::HasCubicNonResidue,
 };
 use crate::{
     elliptic_curve::short_weierstrass::{
@@ -18,9 +18,6 @@ use crate::{
     },
     field::element::FieldElement,
 };
-use std::time::{Duration, Instant};
-
-use rayon::prelude::*;
 
 type FpE = FieldElement<BN254PrimeField>;
 type Fp2E = FieldElement<Degree2ExtensionField>;
@@ -38,9 +35,10 @@ type G2Point = ShortWeierstrassProjectivePoint<BN254TwistCurve>;
 pub const X: u64 = 0x44e992b44a6909f1;
 
 // 100010011101001100100101011010001001010011010010000100111110001
-pub const X_BINARY:[u32;63] = [1, 0, 0, 0, 1, 0, 0, 1, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 0, 1, 
-0, 1, 0, 1, 1, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 
-1, 1, 1, 1, 1, 0, 0, 0, 1];
+pub const X_BINARY: [u32; 63] = [
+    1, 0, 0, 0, 1, 0, 0, 1, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 0, 1, 0, 1, 0, 1, 1, 0, 1, 0, 0, 0,
+    1, 0, 0, 1, 0, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 1,
+];
 
 /// Constant used in the Miller Loop.
 /// MILLER_CONSTANT = 6x + 2 = 29793968203157093288.
@@ -124,6 +122,7 @@ pub const GAMMA_35: Fp2E = Fp2E::const_from_raw([
     FpE::from_hex_unchecked("16DB366A59B1DD0B9FB1B2282A48633D3E2DDAEA200280211F25041384282499"),
 ]);
 
+/// The inverse of two in Fp as a constant.
 pub const TWO_INV: FpE =
     FpE::from_hex_unchecked("183227397098D014DC2822DB40C0AC2ECBC0B548B438E5469E10460B6C3E7EA4");
 
@@ -151,28 +150,28 @@ impl IsPairing for BN254AtePairing {
             if !p.is_neutral_element() && !q.is_neutral_element() {
                 let p = p.to_affine();
                 let q = q.to_affine();
-                result *= miller_2(&p, &q);
+                result *= miller_optimized(&p, &q);
             }
         }
-        Ok(final_exponentiation_3(&result))
+        Ok(final_exponentiation_optimized(&result))
     }
 }
 
-/// Computes Miller loop using oprate_with(), operate_with_self() and line().
+/// Computes Miller loop using oprate_with(), operate_with_self() and line_naive().
 /// See https://eprint.iacr.org/2010/354.pdf (Page 4, Algorithm 1).
-pub fn miller(p: &G1Point, q: &G2Point) -> Fp12E {
+pub fn miller_naive(p: &G1Point, q: &G2Point) -> Fp12E {
     let mut t = q.clone();
     let mut f = Fp12E::one();
     let q_neg = &q.neg();
     MILLER_CONSTANT.iter().rev().skip(1).for_each(|m| {
-        f = f.square() * line(p, &t, &t);
+        f = f.square() * line_naive(p, &t, &t);
         t = t.double();
 
         if *m == -1 {
-            f *= line(p, &t, q_neg);
+            f *= line_naive(p, &t, q_neg);
             t = t.operate_with_affine(q_neg);
         } else if *m == 1 {
-            f *= line(p, &t, q);
+            f *= line_naive(p, &t, q);
             t = t.operate_with_affine(q);
         }
     });
@@ -180,31 +179,32 @@ pub fn miller(p: &G1Point, q: &G2Point) -> Fp12E {
     // q1 = ((x_q)^p, (y_q)^p, (z_q)^p)
     // See  https://hackmd.io/@Wimet/ry7z1Xj-2#The-Last-two-Lines
     let q1 = q.phi();
-    f *= line(p, &t, &q1);
+    f *= line_naive(p, &t, &q1);
     t = t.operate_with(&q1);
 
     // q2 = ((x_q1)^p, (y_q1)^p, (z_q1)^p)
     let q2 = q1.phi();
-    f *= line(p, &t, &q2.neg());
+    f *= line_naive(p, &t, &q2.neg());
 
     f
 }
 
-pub fn miller_2(p: &G1Point, q: &G2Point) -> Fp12E {
+/// Computes the same algorithm as miller_naive but optimized  using line_optimized()
+pub fn miller_optimized(p: &G1Point, q: &G2Point) -> Fp12E {
     let mut t = q.clone();
     let mut f = Fp12E::one();
     let q_neg = &q.neg();
     MILLER_CONSTANT.iter().rev().skip(1).for_each(|m| {
-        let (r, l) = line_2(p, &t, &t);
+        let (r, l) = line_optimized(p, &t, &t);
         f = f.square() * l;
         t = r;
 
         if *m == -1 {
-            let (r, l) = line_2(p, &t, q_neg);
+            let (r, l) = line_optimized(p, &t, q_neg);
             f *= l;
             t = r;
         } else if *m == 1 {
-            let (r, l) = line_2(p, &t, q);
+            let (r, l) = line_optimized(p, &t, q);
             f *= l;
             t = r;
         }
@@ -213,238 +213,23 @@ pub fn miller_2(p: &G1Point, q: &G2Point) -> Fp12E {
     // q1 = ((x_q)^p, (y_q)^p, (z_q)^p)
     // See  https://hackmd.io/@Wimet/ry7z1Xj-2#The-Last-two-Lines
     let q1 = q.phi();
-    let (r, l) = line_2(p, &t, &q1);
+    let (r, l) = line_optimized(p, &t, &q1);
     f *= l;
     t = r;
 
     // q2 = ((x_q1)^p, (y_q1)^p, (z_q1)^p)
     let q2 = q1.phi();
-    f *= line_2(p, &t, &q2.neg()).1;
+    f *= line_optimized(p, &t, &q2.neg()).1;
 
     f
 }
 
-
-/* 
-/// It isn't better than miller_2
-/// Miller Loop 2 but
-pub fn miller_3(p: &G1Point, q: &G2Point) -> Fp12E {
-    let mut t = q.clone();
-    let mut f = Fp12E::one();
-    let q_neg = &q.neg();
-
-    // First itereation.
-    // MILLER_CONSTANT[61] == 1
-    let (mut r1, mut l1) = line_2(p, &t, &t);
-    f = l1; // 1^2 * l1 = l1
-    t = r1; // T = 2Q
-    (r1, l1) = line_2(p, &t, q);
-    f *= l1;
-    t = r1; // T = 2Q + Q
-
-    // QUESTION: Maybe we can compute t as q.operate_with_self(3). Is it better?
-
-    // Second iteration.
-    // MILLER_CONSTANT[60] == 0
-    (r1, l1) = line_2(p, &t, &t);
-    f = f.square() * l1;
-    t = r1; // T = 3Q + 3Q = 6Q.
-
-    MILLER_CONSTANT.iter().rev().skip(3).for_each(|m| {
-        let (r, l) = line_2(p, &t, &t);
-        f = f.square() * l;
-        t = r;
-
-        if *m == -1 {
-            let (r, l) = line_2(p, &t, q_neg);
-            f *= l;
-            t = r;
-        } else if *m == 1 {
-            let (r, l) = line_2(p, &t, q);
-            f *= l;
-            t = r;
-        }
-    });
-
-    // q1 = ((x_q)^p, (y_q)^p, (z_q)^p)
-    // See  https://hackmd.io/@Wimet/ry7z1Xj-2#The-Last-two-Lines
-    let q1 = q.phi();
-    let (r, l) = line_2(p, &t, &q1);
-    f *= l;
-    t = r;
-
-    // q2 = ((x_q1)^p, (y_q1)^p, (z_q1)^p)
-    let q2 = q1.phi();
-    f *= line_2(p, &t, &q2.neg()).1;
-
-    f
-}
-*/
-/* 
-pub fn miller_3 (p: &G1Point, q: &G2Point) -> Fp12E {
-    let mut f = Fp12E::one();
-    let ell = ell_results(p, q);
-    for i in (0..MILLER_CONSTANT.len()) {
-        f = f.square() * ell[i];
-        if MILLER_CONSTANT[i] == 1 || MILLER_CONSTANT[i] == -1 {
-            f *= ell[i]
-        }
-    }
-    f *= ell[i] * ell [i+1];
-    f 
-
-}
-
-pub fn ell_results(p: &G1Point, q: &G2Point) -> Vec<Fp12E> {
-    let mut result = Vec::new();
-    let q_neg = q.neg();
-    let mut t = G2Point::new([q.x().clone(), q.y().clone(), Fp2E::one()]);
-
-    for bit in MILLER_CONSTANT.iter().rev().skip(1) {
-        let t_clone = t.clone(); // Clone t
-        result.push(line_3(&p, &mut t, t_clone)); // Pass the clone as an argument
-        match bit {
-            1 => result.push(line_3(&p, &mut t, q.clone())),
-            -1 => result.push(line_3(&p, &mut t, q_neg.clone())),
-            _ => continue,
-        }
-    }
-    let q1 = q.phi();
-    let q2 = q1.phi();
-    result.push(line_3(&p, &mut t, q1));
-    result.push(line_3(&p, &mut t, q2.neg()));
-    result
-}
-
-fn line_3(p: &G1Point, t: &mut G2Point, q: G2Point) -> Fp12E {
-    let [x_p, y_p, _] = p.coordinates();
-
-    if *t == q {
-        let a = TWO_INV * t.x() * t.y();
-        let b = t.y().square();
-        let c = t.z().square();
-        let e = BN254TwistCurve::b() * (c.double() + &c);
-        let f = e.double() + &e;
-        let g = TWO_INV * (&b + &f);
-        let h = (t.y() + t.z()).square() - (&b + &c);
-        let i = &e - &b;
-        let j = t.x().square();
-        let e_square = e.square();
-
-        let x_r = a * (&b - f);
-        let y_r = g.square() - (e_square.double() + e_square);
-        let z_r = b * &h;
-
-        *t =  G2Point::new([x_r, y_r, z_r]);
-
-        // We are transforming one representation of Fp12 into another:
-        // If f in Fp12, then f = g + h * w = g0 + h0 * w + g1 * w^2 + h1 * w^3 + g2 * w^4 + h2 * w^5,
-        // where g = g0 + g1 * v + g2 * v^2,
-        // and h = h0 + h1 * v + h2 * v^2.
-        // See https://hackmd.io/@Wimet/ry7z1Xj-2#Tower-of-Extension-Fields.
-        Fp12E::new([
-            Fp6E::new([y_p * (-h), Fp2E::zero(), Fp2E::zero()]),
-            Fp6E::new([x_p * (j.double() + &j), i, Fp2E::zero()]),
-        ])
-
-    } else {
-        let [x_q, y_q, _] = q.coordinates();
-        let [x_t, y_t, z_t] = t.coordinates();
-
-        let a = y_q * z_t;
-        let b = x_q * z_t;
-        let theta = t.y() - (y_q * t.z());
-        let lambda = t.x() - (x_q * t.z());
-        let c = theta.square();
-        let d = lambda.square();
-        let e = &lambda * &d;
-        let f = z_t * c;
-        let g = x_t * d;
-        let h = &e + f - g.double();
-        let i = y_t * &e;
-        let j = &theta * x_q- (&lambda * y_q);
-
-        let x_r = &lambda * &h;
-        let y_r = &theta * (g - h) - i;
-        let z_r = z_t * e;
-
-        *t =G2Point::new([x_r, y_r, z_r]);
-
-        Fp12E::new([
-            Fp6E::new([y_p * lambda, Fp2E::zero(), Fp2E::zero()]),
-            Fp6E::new([x_p * (-theta), j, Fp2E::zero()]),
-        ])
-    }
-}
-
-*/
-fn line_2(p: &G1Point, t: &G2Point, q: &G2Point) -> (G2Point, Fp12E) {
-    let [x_p, y_p, _] = p.coordinates();
-
-    if t as *const G2Point == q as *const G2Point || t == q {
-        let a = TWO_INV * t.x() * t.y();
-        let b = t.y().square();
-        let c = t.z().square();
-        let e = BN254TwistCurve::b() * (c.double() + &c);
-        let f = e.double() + &e;
-        let g = TWO_INV * (&b + &f);
-        let h = (t.y() + t.z()).square() - (&b + &c);
-        let i = &e - &b;
-        let j = t.x().square();
-        let e_square = e.square();
-
-        let x_r = a * (&b - f);
-        let y_r = g.square() - (e_square.double() + e_square);
-        let z_r = b * &h;
-
-        let r = G2Point::new([x_r, y_r, z_r]);
-
-        // We are transforming one representation of Fp12 into another:
-        // If f in Fp12, then f = g + h * w = g0 + h0 * w + g1 * w^2 + h1 * w^3 + g2 * w^4 + h2 * w^5,
-        // where g = g0 + g1 * v + g2 * v^2,
-        // and h = h0 + h1 * v + h2 * v^2.
-        // See https://hackmd.io/@Wimet/ry7z1Xj-2#Tower-of-Extension-Fields.
-        let l = Fp12E::new([
-            Fp6E::new([y_p * (-h), Fp2E::zero(), Fp2E::zero()]),
-            Fp6E::new([x_p * (j.double() + &j), i, Fp2E::zero()]),
-        ]);
-        (r, l)
-    } else {
-        let [x_q, y_q, _] = q.coordinates();
-        let [x_t, y_t, z_t] = t.coordinates();
-
-        let a = y_q * z_t;
-        let b = x_q * z_t;
-        let theta = t.y() - (y_q * t.z());
-        let lambda = t.x() - (x_q * t.z());
-        let c = theta.square();
-        let d = lambda.square();
-        let e = &lambda * &d;
-        let f = z_t * c;
-        let g = x_t * d;
-        let h = &e + f - g.double();
-        let i = y_t * &e;
-        let j = &theta * x_q - (&lambda * y_q);
-
-        let x_r = &lambda * &h;
-        let y_r = &theta * (g - h) - i;
-        let z_r = z_t * e;
-
-        let r = G2Point::new([x_r, y_r, z_r]);
-
-        let l = Fp12E::new([
-            Fp6E::new([y_p * lambda, Fp2E::zero(), Fp2E::zero()]),
-            Fp6E::new([x_p * (-theta), j, Fp2E::zero()]),
-        ]);
-        (r, l)
-    }
-}
-
-/// Computes the line between q and t and evaluates it in p.
+/// Depending on the case, it computes the tangent line of t or the line
+/// between t and q evaluated in p.
 /// Algorithm adapted from Arkowork's double_in_place and add_in_place.
 /// See https://github.com/arkworks-rs/algebra/blob/master/ec/src/models/bn/g2.rs#L25.
 /// See https://eprint.iacr.org/2013/722.pdf (Page 13, Equations 11 and 13).
-fn line(p: &G1Point, t: &G2Point, q: &G2Point) -> Fp12E {
+fn line_naive(p: &G1Point, t: &G2Point, q: &G2Point) -> Fp12E {
     let [x_p, y_p, _] = p.coordinates();
 
     if t == q {
@@ -478,117 +263,73 @@ fn line(p: &G1Point, t: &G2Point, q: &G2Point) -> Fp12E {
     }
 }
 
+/// Depending on the case, it computes 2t or t + q and the tangent line of t or
+/// the line between t and q evaluated in p.
+/// Algorithm adapted from Arkowork's double_in_place and add_in_place.
+/// See https://github.com/arkworks-rs/algebra/blob/master/ec/src/models/bn/g2.rs#L25.
+/// See https://eprint.iacr.org/2013/722.pdf (Page 13, Equations 11 and 13).
+#[allow(clippy::ptr_eq)]
+fn line_optimized(p: &G1Point, t: &G2Point, q: &G2Point) -> (G2Point, Fp12E) {
+    let [x_p, y_p, _] = p.coordinates();
+
+    if t as *const G2Point == q as *const G2Point || t == q {
+        let a = TWO_INV * t.x() * t.y();
+        let b = t.y().square();
+        let c = t.z().square();
+        let e = BN254TwistCurve::b() * (c.double() + &c);
+        let f = e.double() + &e;
+        let g = TWO_INV * (&b + &f);
+        let h = (t.y() + t.z()).square() - (&b + &c);
+        let i = &e - &b;
+        let j = t.x().square();
+        let e_square = e.square();
+
+        let x_r = a * (&b - f);
+        let y_r = g.square() - (e_square.double() + e_square);
+        let z_r = b * &h;
+
+        let r = G2Point::new([x_r, y_r, z_r]);
+
+        let l = Fp12E::new([
+            Fp6E::new([y_p * (-h), Fp2E::zero(), Fp2E::zero()]),
+            Fp6E::new([x_p * (j.double() + &j), i, Fp2E::zero()]),
+        ]);
+        (r, l)
+    } else {
+        let [x_q, y_q, _] = q.coordinates();
+        let [x_t, y_t, z_t] = t.coordinates();
+
+        let a = y_q * z_t;
+        let b = x_q * z_t;
+        let theta = t.y() - a;
+        let lambda = t.x() - b;
+        let c = theta.square();
+        let d = lambda.square();
+        let e = &lambda * &d;
+        let f = z_t * c;
+        let g = x_t * d;
+        let h = &e + f - g.double();
+        let i = y_t * &e;
+        let j = &theta * x_q - (&lambda * y_q);
+
+        let x_r = &lambda * &h;
+        let y_r = &theta * (g - h) - i;
+        let z_r = z_t * e;
+
+        let r = G2Point::new([x_r, y_r, z_r]);
+
+        let l = Fp12E::new([
+            Fp6E::new([y_p * lambda, Fp2E::zero(), Fp2E::zero()]),
+            Fp6E::new([x_p * (-theta), j, Fp2E::zero()]),
+        ]);
+        (r, l)
+    }
+}
+
 /// Computes f ^ {(p^12 - 1) / r}
 /// using that (p^12 - 1)/r = (p^6 - 1) * (p^2 + 1) * (p^4 - p^2 + 1)/r.
 /// Algorithm taken from https://hackmd.io/@Wimet/ry7z1Xj-2#Final-Exponentiation.
-pub fn final_exponentiation(
-    f: &FieldElement<Degree12ExtensionField>,
-) -> FieldElement<Degree12ExtensionField> {
-    // Easy part:
-    // Computes f ^ {(p^6 - 1) * (p^2 + 1)}
-    let f_easy_aux = f.conjugate() * f.inv().unwrap(); // f ^ (p^6 - 1) because f^(p^6) = f.conjugate().
-    let mut f_easy = &frobenius_square(&f_easy_aux) * f_easy_aux; // (f^{p^6 - 1})^(p^2) * (f^{p^6 - 1}).
-
-    /*
-    // Hard part:
-    // Computes f_easy ^ ((p^4 - p^2 + 1) / r)
-    // See https://hackmd.io/@Wimet/ry7z1Xj-2#The-Hard-Part, where f_easy is called m.
-    // We define different exponentiation of f_easy that we will use later.
-    let mx = f_easy.pow(X);
-    let mx2 = mx.pow(X);
-    let mx3 = mx2.pow(X);
-    let mp = frobenius(&f_easy);
-    let mp2 = frobenius_square(&f_easy);
-    let mp3 = frobenius_cube(&f_easy);
-    let mxp = frobenius(&mx); // (m^x)^p
-    let mx2p = frobenius(&mx2); // (m^{x^2})^p
-    let mx3p = frobenius(&mx3); // (m^{x^3})^p
-    let mx2p2 = frobenius_square(&mx2); // (m^{x^2})^p^2
-
-    let y0 = mp * mp2 * mp3;
-    let y1 = f_easy.conjugate();
-    let y2 = mx2p2;
-    let y3 = mxp.conjugate();
-    let y4 = (mx * mx2p).conjugate();
-    let y5 = mx2.conjugate();
-    let y6 = (mx3 * mx3p).conjugate();
-
-    y0 * y1.square()
-        * y2.pow(6usize)
-        * y3.pow(12usize)
-        * y4.pow(18usize)
-        * y5.pow(30usize)
-        * y6.pow(36usize)
-    */
-
-    // Hard part following Arkworks library.
-    let mut y0 = f_easy.pow(X);
-    y0 = y0.inv().unwrap();
-    // For degree 12 extensions, this can be computed faster than normal squaring.
-    // See https://github.dev/arkworks-rs/algebra/blob/master/ec/src/models/bn/mod.rs (cyclotimic_square)
-    let y1 = &y0.square();
-    let y2 = &y1.square();
-    let mut y3 = y2 * y1;
-    let mut y4 = y3.pow(X);
-    y4 = y4.inv().unwrap();
-    let y5 = y4.square();
-    let mut y6 = y5.pow(X);
-    y6 = y6.inv().unwrap();
-    // TODO: See if there is a faster way to take inverse.
-    y3 = y3.inv().unwrap();
-    y6 = y6.inv().unwrap();
-    let y7 = y6 * &y4;
-    let mut y8 = y7 * &y3;
-    let y9 = &y8 * y1;
-    let y10 = &y8 * y4;
-    let y11 = y10 * &f_easy;
-    let mut y12 = y9.clone();
-    y12 = frobenius(&y12);
-    let y13 = y12 * &y11;
-    y8 = frobenius_square(&y8);
-    let y14 = y8 * &y13;
-    f_easy = f_easy.inv().unwrap();
-    let mut y15 = f_easy * y9;
-    y15 = frobenius_cube(&y15);
-    let y16 = y15 * y14;
-    y16
-
-    /*
-    // Optimal hard part from the post
-    // https://hackmd.io/@Wimet/ry7z1Xj-2#The-Hard-Part
-    let mx = cyclotomic_pow_x(f_easy.clone());
-    let mx2 = cyclotomic_pow_x(mx.clone());
-    let mx3 = cyclotomic_pow_x(mx2.clone());
-    let mp = frobenius(&f_easy);
-    let mp2 = frobenius_square(&f_easy);
-    let mp3 = frobenius_cube(&f_easy);
-    let mxp = frobenius(&mx); // (m^x)^p
-    let mx2p = frobenius(&mx2); // (m^{x^2})^p
-    let mx3p = frobenius(&mx3); // (m^{x^3})^p
-    let mx2p2 = frobenius_square(&mx2); // (m^{x^2})^p^2
-
-    let y0 = mp * mp2 * mp3;
-    let y1 = f_easy.conjugate();
-    let y2 = mx2p2;
-    let y3 = mxp.conjugate();
-    let y4 = (mx * mx2p).conjugate();
-    let y5 = mx2.conjugate();
-    let y6 = (mx3 * mx3p).conjugate();
-
-    let t01 = cyclotimic_square(&y6) * y4 * &y5;
-    let t11 = &t01 * y3 * y5;
-    let t02 = t01 * y2;
-    let t12 = cyclotimic_square(&t11) * t02;
-    let t13 = cyclotimic_square(&t12);
-    let t14 = &t13 * y0;
-    let t03 = t13 * y1;
-    let t04 = cyclotimic_square(&t03) * t14;
-
-    t04
-    */
-}
-
-pub fn final_exponentiation_2(
+pub fn final_exponentiation_naive(
     f: &FieldElement<Degree12ExtensionField>,
 ) -> FieldElement<Degree12ExtensionField> {
     // Easy part:
@@ -596,7 +337,6 @@ pub fn final_exponentiation_2(
     let f_easy_aux = f.conjugate() * f.inv().unwrap(); // f ^ (p^6 - 1) because f^(p^6) = f.conjugate().
     let f_easy = &frobenius_square(&f_easy_aux) * f_easy_aux; // (f^{p^6 - 1})^(p^2) * (f^{p^6 - 1}).
 
-    /*
     // Hard part:
     // Computes f_easy ^ ((p^4 - p^2 + 1) / r)
     // See https://hackmd.io/@Wimet/ry7z1Xj-2#The-Hard-Part, where f_easy is called m.
@@ -626,43 +366,20 @@ pub fn final_exponentiation_2(
         * y4.pow(18usize)
         * y5.pow(30usize)
         * y6.pow(36usize)
-    */
+}
 
-    /*
-    // Hard part following Arkworks library.
-    let mut y0 = f_easy.pow(X);
-    y0 = y0.inv().unwrap();
-    // For degree 12 extensions, this can be computed faster than normal squaring.
-    // See https://github.dev/arkworks-rs/algebra/blob/master/ec/src/models/bn/mod.rs (cyclotimic_square)
-    let y1 = &y0.square();
-    let y2 = &y1.square();
-    let mut y3 = y2 * y1;
-    let mut y4 = y3.pow(X);
-    y4 = y4.inv().unwrap();
-    let y5 = y4.square();
-    let mut y6 = y5.pow(X);
-    y6 = y6.inv().unwrap();
-    // TODO: See if there is a faster way to take inverse.
-    y3 = y3.inv().unwrap();
-    y6 = y6.inv().unwrap();
-    let y7 = y6 * &y4;
-    let mut y8 = y7 * &y3;
-    let y9 = &y8 * y1;
-    let y10 = &y8 * y4;
-    let y11 = y10 * &f_easy;
-    let mut y12 = y9.clone();
-    y12 = frobenius(&y12);
-    let y13 = y12 * &y11;
-    y8 = frobenius_square(&y8);
-    let y14 = y8 * &y13;
-    f_easy = f_easy.inv().unwrap();
-    let mut y15 = f_easy * y9;
-    y15 = frobenius_cube(&y15);
-    let y16 = y15 * y14;
-    y16
-    */
+/// Computes the final exponentiation algorithm optimized
+/// using cyclotomic_pow_x() and cyclotomic_square().
+/// See https://hackmd.io/@Wimet/ry7z1Xj-2#Final-Exponentiation.
+pub fn final_exponentiation_optimized(
+    f: &FieldElement<Degree12ExtensionField>,
+) -> FieldElement<Degree12ExtensionField> {
+    // Easy part:
+    // Computes f ^ {(p^6 - 1) * (p^2 + 1)}
+    let f_easy_aux = f.conjugate() * f.inv().unwrap();
+    let f_easy = &frobenius_square(&f_easy_aux) * f_easy_aux;
 
-    // Optimal hard part from the post
+    // Optimal Hard Part from the post
     // https://hackmd.io/@Wimet/ry7z1Xj-2#The-Hard-Part
     let mx = cyclotomic_pow_x(&f_easy);
     let mx2 = cyclotomic_pow_x(&mx);
@@ -690,52 +407,12 @@ pub fn final_exponentiation_2(
     let t13 = cyclotomic_square(&t12);
     let t14 = &t13 * y0;
     let t03 = t13 * y1;
-    let t04 = cyclotomic_square(&t03) * t14;
+    //let t04 = cyclotomic_square(&t03) * t14;
 
-    t04
+    cyclotomic_square(&t03) * t14
 }
 
-
-pub fn final_exponentiation_3(
-    f: &FieldElement<Degree12ExtensionField>,
-) -> FieldElement<Degree12ExtensionField> {
-    // Easy part:
-    // Computes f ^ {(p^6 - 1) * (p^2 + 1)}
-    let f_easy_aux = f.conjugate() * f.inv().unwrap(); // f ^ (p^6 - 1) because f^(p^6) = f.conjugate().
-    let f_easy = &frobenius_square(&f_easy_aux) * f_easy_aux; // (f^{p^6 - 1})^(p^2) * (f^{p^6 - 1}).
-
-    // Optimal Hard Part from the post
-    // https://hackmd.io/@Wimet/ry7z1Xj-2#The-Hard-Part
-    let mx = cyclotomic_pow_x_2(&f_easy);
-    let mx2 = cyclotomic_pow_x_2(&mx);
-    let mx3 = cyclotomic_pow_x_2(&mx2);
-    let mp = frobenius(&f_easy);
-    let mp2 = frobenius_square(&f_easy);
-    let mp3 = frobenius_cube(&f_easy);
-    let mxp = frobenius(&mx); // (m^x)^p
-    let mx2p = frobenius(&mx2); // (m^{x^2})^p
-    let mx3p = frobenius(&mx3); // (m^{x^3})^p
-    let mx2p2 = frobenius_square(&mx2); // (m^{x^2})^p^2
-
-    let y0 = &mp * &mp2 * &mp3;
-    let y1 = f_easy.conjugate();
-    let y2 = mx2p2;
-    let y3 = mxp.conjugate();
-    let y4 = (mx * mx2p).conjugate();
-    let y5 = mx2.conjugate();
-    let y6 = (mx3 * mx3p).conjugate();
-
-    let t01 = cyclotomic_square_quad_over_cube(&y6) * y4 * &y5;
-    let t11 = &t01 * y3 * y5;
-    let t02 = t01 * y2;
-    let t12 = cyclotomic_square_quad_over_cube(&t11) * t02;
-    let t13 = cyclotomic_square_quad_over_cube(&t12);
-    let t14 = &t13 * y0;
-    let t03 = t13 * y1;
-    let t04 = cyclotomic_square_quad_over_cube(&t03) * t14;
-
-    t04
-}
+////////////////// FROBENIUS MORPHISIMS //////////////////
 
 /// Computes the Frobenius morphism: f^p.
 /// See https://hackmd.io/@Wimet/ry7z1Xj-2#Fp12-Arithmetic (First Frobenius Operator).
@@ -799,270 +476,20 @@ pub fn frobenius_cube(
 
 ////////////////// CYCLOTOMIC SUBGROUP OPERATIONS //////////////////
 
-/// Computes a compression of an element of Fp12
-/// if f = g + h * w where
-/// g = g0 + g1 * v + g2 * v^2 and
-/// h = h0 + h1 * v + h2 * v^2
-/// then, compress(f) = [h0, g2, g1, h2]
-/// Algorithm from https://hackmd.io/@Wimet/ry7z1Xj-2#Compression-and-Decompression
-/// Recall that f = g0 + h0 * w + g1 * w^2 + h1 * w^3 + g2 * w^4 + h2 * w^5
-fn compress(f: &Fp12E) -> Vec<Fp2E> {
-    let h0 = f.value()[1].value()[0].clone();
-    let g2 = f.value()[0].value()[2].clone();
-    let g1 = f.value()[0].value()[1].clone();
-    let h2 = f.value()[1].value()[2].clone();
+/// Since the result of the Easy Part of the Final Exponentiation belongs to the cyclotomic
+/// subgroup of Fp12, we can optimize the square and pow operations used in the Hard Part.
 
-    vec![h0, g2, g1, h2]
-}
-
-/// Computes the decompression to an element of Fp12.
-/// decompress([h0, g2, g1, h2]) = f where
-/// f = g + h * w
-/// Algorithm from https://hackmd.io/@Wimet/ry7z1Xj-2#Compression-and-Decompression
-/// See https://eprint.iacr.org/2010/542.pdf (Theorem 3.1)
-fn decompress(c: &Vec<Fp2E>) -> Fp12E {
-    let h0 = c[0].clone();
-    let g2 = c[1].clone();
-    let g1 = c[2].clone();
-    let h2 = c[3].clone();
-    let mut g0 = Fp2E::one();
-    let mut h1 = Fp2E::one();
-
-    if h0 != Fp2E::zero() {
-        h1 = (mul_fp2_by_nonresidue(&h2.square()) + FpE::from(3) * g1.square() - g2.double())
-            * h0.double().double().inv().unwrap();
-        g0 = mul_fp2_by_nonresidue(&(h1.square().double() + &h0 * &h2 - FpE::from(3) * &g1 * &g2) )
-            + Fp2E::one();
-    } else {
-        h1 = (&g1 * &h2).double() * g2.inv().unwrap();
-        g0 = mul_fp2_by_nonresidue(&(h1.square().double() - FpE::from(3) * &g2 * &g1))  + Fp2E::one();
-    }
-
-    Fp12E::new([Fp6E::new([g0, g1, g2]), Fp6E::new([h0, h1, h2])])
-}
-
-pub fn cyclotomic_square(f: &Fp12E) -> Fp12E {
-    if f == &Fp12E::one() {
-        Fp12E::one()
-    } else {
-        decompress(&compressed_square(&compress(f)))
-    }
-}
-
-fn compressed_square(c: &[Fp2E]) -> Vec<Fp2E> {
-    let h0 = &c[0];
-    let g2 = &c[1];
-    let g1 = &c[2];
-    let h2 = &c[3];
-    let non_residue = Fp2E::new([FpE::from(9), FpE::one()]);
-    let ten_plus_u = Fp2E::new([FpE::from(10), FpE::one()]);
-
-    let h0_square = (h0 + FpE::from(3) * mul_fp2_by_nonresidue(&g1) * h2).double();
-    let g2_square = FpE::from(3)
-        * ((g1 +h2) * (g1 + mul_fp2_by_nonresidue(&h2)) - &ten_plus_u * g1 * h2)
-        - g2.double();
-    let g1_square = FpE::from(3)
-        * ((h0 + g2) * (h0 + mul_fp2_by_nonresidue(&g2)) - ten_plus_u * h0 * g2)
-        - g1.double();
-    let h2_square = (h2 + FpE::from(3) * h0 * g2).double();
-
-    let f_square = vec![h0_square, g2_square, g1_square, h2_square];
-    f_square
-}
-
-/*
-/// Computes the square of an element of Fp12E that belongs to the cyclotomic subgroup.
-/// Algorithm from https://hackmd.io/@Wimet/ry7z1Xj-2#Compressed-Squaring
-fn cyclotimic_square(f: &Fp12E) -> Fp12E {
-    // If f = 1, we can't compress and decompress, but its square is one.
-    if f == &Fp12E::one() {
-        f.clone()
-    } else {
-        let c = compress(f);
-        let h0 = c[0].clone();
-        let g2 = c[1].clone();
-        let g1 = c[2].clone();
-        let h2 = c[3].clone();
-        let non_residue = Fp2E::new([FpE::from(9), FpE::one()]);
-        let ten_plus_u = Fp2E::new([FpE::from(10), FpE::one()]);
-
-        let h0_square = (&h0 + FpE::from(3) * &non_residue * &g1 * &h2).double();
-        let g2_square = FpE::from(3)
-            * ((&g1 + &h2) * (&g1 + &non_residue * &h2) - &ten_plus_u * &g1 * &h2)
-            - g2.double();
-        let g1_square = FpE::from(3)
-            * ((&h0 + &g2) * (&h0 + non_residue * &g2) - ten_plus_u * &h0 * &g2)
-            - g1.double();
-        let h2_square = (h2 + FpE::from(3) * h0 * g2).double();
-
-        let f_square = vec![h0_square, g2_square, g1_square, h2_square];
-        decompress(f_square)
-    }
-}
-*/
-
-/*
-fn cyclotomic_pow_x(f: Fp12E) -> Fp12E {
-    let mut g = f;
-    let mut result = Fp12E::one();
-    for i in 0..X_BINARY.len() {
-        if X_BINARY[i] == 1 {
-            result *= &g;
-        }
-        g = cyclotimic_square(&g);
-    }
-    result
-
-}
-*/
-
-pub fn cyclotomic_pow_x(f: &Fp12E) -> Fp12E {
-    if *f == Fp12E::one() {
-        Fp12E::one()
-    } else {
-        let mut c = compress(&f);
-        let mut result = Fp12E::one();
-        let mut x = X;
-        while x > 0 {
-            if x & 1 == 1 {
-                result *= &decompress(&c);
-            }
-            c = compressed_square(&c);
-            x >>= 1;
-        }
-        result
-    }
-}
-
-/*
-fn cyclotomic_pow_x(f: Fp12E) -> Fp12E {
-    let start = Instant::now();
-    if f == Fp12E::one() {
-        let duration = start.elapsed(); //
-        println!("Duration for one-element case: {:?}", duration);
-        Fp12E::one()
-    } else {
-        let mut c = compress(&f);
-        let mut result = Fp12E::one();
-        let mut x = X;
-        while x > 0 {
-            if x & 1 == 1 {
-                result *= &decompress(&c);
-            }
-            c = compressed_square(c);
-            x >>= 1;
-        }
-
-        let duration = start.elapsed();
-        println!("Duration for computation: {:?}", duration);
-        result
-    }
-}
-*/
-
-/*
-fn cyclotomic_pow_x(f: Fp12E) -> Fp12E {
-    let mut g = f;
-    let mut result = Fp12E::one();
-
-    let mut x = X;
-    while x > 0 {
-        if x & 1 == 1 {
-            result *= &g;
-        }
-
-        g = cyclotimic_square(&g);
-        x >>= 1;
-    }
-
-    result
-}
-*/
-
-/*
-// Algorithm from zksync to compute de square of an Fp12E in teh cyclotomic subgroup.
-fn cyclotomic_square_fp12(a: &Fp12E) -> Fp12E {
-
-    let a00  = a.value()[0].value()[0].square();
-    let a01 = a.value()[0].value()[1].square();
-    let a02 = a.value()[0].value()[2].square();
-    let a10 = a.value()[1].value()[0].square();
-    let a11 = a.value()[1].value()[1].square();
-    let a12 = a.value()[1].value()[2].square();
-
-
-    let mut t0 =a11.square();
-    let t1 = a00.square();
-    let mut t2 = &a11 + &a00;
-    t2 = t2.square();
-    t2 = t2 - &t0 ;
-    t2 = t2 - &t1;
-
-    let mut t3 =a02.square();
-    let t4 = a10.square();
-    let mut t5 = &a02 + &a10;
-    t5 = t5.square();
-    t5 = t5 - &t3 ;
-    t5 = t5 - &t4;
-
-    let mut t6 =a12.square();
-    let t7 = a01.square();
-    let mut t8 = &a12 + &a01;
-    t8 = t8.square();
-    t8 = t8 - &t6 ;
-    t8 = t8 - &t7;
-
-    let xi = Fp2E::new([FpE::from(9), FpE::one()]) ;
-    t8 *= &xi;
-    t0 *=&xi;
-    t0 = t0 +t1;
-    t3 = &xi*t3;
-    t3 = t3 + t4;
-    t6 *= xi;
-    t6 +=t7;
-
-    let mut c00 = &t0 - a00;
-    c00= c00.double();
-    c00 += t0;
-
-    let mut c01 = &t3 - a01;
-    c01= c01.double();
-    c01 += t3;
-
-    let mut c02 = &t6 - a02;
-    c02= c02.double();
-    c02 += t6;
-
-    let mut c10 = &t8 + a10;
-    c10 = c10.double();
-    c10 += t8;
-
-    let mut c11 = &t2 + a11;
-    c11 = c11.double();
-    c11 += t2;
-
-    let mut c12 = &t5 + a12;
-    c12 = c12.double();
-    c12 += t5;
-
-    Fp12E::new([
-        Fp6E::new([c00, c01, c02]),
-        Fp6E::new([c10, c11, c12]),
-    ])
-}
-*/
-
-
-/// Computes the cyclotomic square for Fp12
-/// See same function in https://github.com/mratsim/constantine/blob/master/constantine/math/pairings/cyclotomic_subgroups.nim#L354
-pub fn cyclotomic_square_quad_over_cube(a: &Fp12E) -> Fp12E {
+/// Computes the square of an element of a cyclotomic subgroup of Fp12.
+/// Algorithm from Constantine's cyclotomic_square_quad_over_cube
+/// https://github.com/mratsim/constantine/blob/master/constantine/math/pairings/cyclotomic_subgroups.nim#L354
+pub fn cyclotomic_square(a: &Fp12E) -> Fp12E {
     // a = g + h * w
     let b0 = &a.value()[0].value()[0]; // b0 = g0
     let b1 = &a.value()[0].value()[1]; // b1 = g1
     let b2 = &a.value()[0].value()[2]; // b2 = g2
     let b3 = &a.value()[1].value()[0]; // b3 = h0
-    let b4 = &a.value()[1].value()[1];
-    let b5 = &a.value()[1].value()[2];
+    let b4 = &a.value()[1].value()[1]; // b4 = h1
+    let b5 = &a.value()[1].value()[2]; // b5 = h2
 
     let v0 = Fp4E::new([b0.clone(), b4.clone()]).square();
     let v1 = Fp4E::new([b3.clone(), b2.clone()]).square();
@@ -1073,7 +500,7 @@ pub fn cyclotomic_square_quad_over_cube(a: &Fp12E) -> Fp12E {
     // r1 = r10 + r11 * v + r12 * v^2
 
     // r00 = 3v00 - 2b0
-    let mut r00 =  &v0.value()[0] - b0;
+    let mut r00 = &v0.value()[0] - b0;
     r00 = r00.double();
     r00 += v0.value()[0].clone();
 
@@ -1090,12 +517,12 @@ pub fn cyclotomic_square_quad_over_cube(a: &Fp12E) -> Fp12E {
     // r12 = 3v11 - 2b5
     let mut r12 = &v1.value()[1] + b5;
     r12 = r12.double();
-    r12 += v1.value()[1].clone(); 
+    r12 += v1.value()[1].clone();
 
     // 3 * (9 + u) * v21 + 2b3
     let v21 = mul_fp2_by_nonresidue(&v2.value()[1]);
     let mut r10 = &v21 + b3;
-    r10 = r10.double(); 
+    r10 = r10.double();
     r10 += v21;
 
     // 3 * (9 + u) * v20 - 2b3
@@ -1103,24 +530,22 @@ pub fn cyclotomic_square_quad_over_cube(a: &Fp12E) -> Fp12E {
     r02 = r02.double();
     r02 += v2.value()[0].clone();
 
-    Fp12E::new([
-        Fp6E::new([r00, r01, r02,]),
-        Fp6E::new([r10, r11, r12]),
-    ])
+    Fp12E::new([Fp6E::new([r00, r01, r02]), Fp6E::new([r10, r11, r12])])
 }
 
-// Algorithm from https://hackmd.io/@Wimet/ry7z1Xj-2#Exponentiation-in-the-Cyclotomic-Subgroup
-pub fn cyclotomic_pow_x_2 (f:  &Fp12E) -> Fp12E {
+/// Computes f^x where f is in the cyclotomic subgroup of Fp12.
+/// Algorithm from https://hackmd.io/@Wimet/ry7z1Xj-2#Exponentiation-in-the-Cyclotomic-Subgroup.
+#[allow(clippy::needless_range_loop)]
+pub fn cyclotomic_pow_x(f: &Fp12E) -> Fp12E {
     let mut result = Fp12E::one();
-    for i in (0..63) {
-        result = cyclotomic_square_quad_over_cube(&result);
+    for i in 0..63 {
+        result = cyclotomic_square(&result);
         if X_BINARY[i] == 1 {
             result = &result * f;
         }
     }
     result
 }
-
 
 #[cfg(test)]
 /// We took the G1 and G2 points from:
@@ -1577,20 +1002,10 @@ mod tests {
     }
 
     #[test]
-    fn compress_and_decompress_is_identity() {
-        let p = BN254Curve::generator();
-        let q = BN254TwistCurve::generator();
-        let f = miller(&p, &q);
-        let f_easy_aux = f.conjugate() * f.inv().unwrap(); // f ^ (p^6 - 1) because f^(p^6) = f.conjugate().
-        let f_easy = &frobenius_square(&f_easy_aux) * f_easy_aux; // (f^{p^6 - 1})^(p^2) * (f^{p^6 - 1}).
-        assert_eq!(decompress(&compress(&f_easy)), f_easy);
-    }
-
-    #[test]
     fn cyclotomic_square_equals_square() {
         let p = BN254Curve::generator();
         let q = BN254TwistCurve::generator();
-        let f = miller(&p, &q);
+        let f = miller_optimized(&p, &q);
         let f_easy_aux = f.conjugate() * f.inv().unwrap(); // f ^ (p^6 - 1) because f^(p^6) = f.conjugate().
         let f_easy = &frobenius_square(&f_easy_aux) * f_easy_aux; // (f^{p^6 - 1})^(p^2) * (f^{p^6 - 1}).
         assert_eq!(cyclotomic_square(&f_easy), f_easy.square());
@@ -1600,7 +1015,7 @@ mod tests {
     fn cyclotomic_pow_x_equals_pow() {
         let p = BN254Curve::generator();
         let q = BN254TwistCurve::generator();
-        let f = miller(&p, &q);
+        let f = miller_optimized(&p, &q);
         let f_easy_aux = f.conjugate() * f.inv().unwrap(); // f ^ (p^6 - 1) because f^(p^6) = f.conjugate().
         let f_easy = &frobenius_square(&f_easy_aux) * f_easy_aux; // (f^{p^6 - 1})^(p^2) * (f^{p^6 - 1}).
         assert_eq!(cyclotomic_pow_x(&f_easy), f_easy.pow(X));
@@ -1610,25 +1025,5 @@ mod tests {
     fn constant_two_inv_is_iwo_inverse() {
         assert_eq!(TWO_INV, FpE::from(2).inv().unwrap());
         assert_eq!(TWO_INV * FpE::from(2), FpE::one());
-    }
-
-    #[test]
-    fn cyclotomic_square_quad_over_cube_equals_square() {
-        let p = BN254Curve::generator();
-        let q = BN254TwistCurve::generator();
-        let f = miller(&p, &q);
-        let f_easy_aux = f.conjugate() * f.inv().unwrap(); // f ^ (p^6 - 1) because f^(p^6) = f.conjugate().
-        let f_easy = &frobenius_square(&f_easy_aux) * f_easy_aux; // (f^{p^6 - 1})^(p^2) * (f^{p^6 - 1}).
-        assert_eq!(cyclotomic_square_quad_over_cube(&f_easy), f_easy.square());
-    }
-
-    #[test]
-    fn cyclotomic_pow_x_2_equals_pow() {
-        let p = BN254Curve::generator();
-        let q = BN254TwistCurve::generator();
-        let f = miller(&p, &q);
-        let f_easy_aux = f.conjugate() * f.inv().unwrap(); // f ^ (p^6 - 1) because f^(p^6) = f.conjugate().
-        let f_easy = &frobenius_square(&f_easy_aux) * f_easy_aux; // (f^{p^6 - 1})^(p^2) * (f^{p^6 - 1}).
-        assert_eq!(cyclotomic_pow_x_2(&f_easy), f_easy.pow(X));
     }
 }
