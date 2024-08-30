@@ -10,7 +10,7 @@ use lambdaworks_math::field::fields::montgomery_backed_prime_fields::U256PrimeFi
 use lambdaworks_math::unsigned_integer::element::U256;
 use lambdaworks_math::field::fields::montgomery_backed_prime_fields::IsModulus;
 
-#[derive(Debug)
+#[derive(Clone, Debug, Hash, Copy)]
 pub struct MontgomeryConfigSecpPrimeField;
 
 impl IsModulus<U256> for MontgomeryConfigSecpPrimeField {
