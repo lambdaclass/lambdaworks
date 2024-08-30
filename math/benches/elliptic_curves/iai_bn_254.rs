@@ -3,11 +3,7 @@ use lambdaworks_math::{
     cyclic_group::IsGroup,
     elliptic_curve::{
         short_weierstrass::{
-            curves::bn_254::{
-                curve::BN254Curve,
-                pairing::BN254AtePairing,
-                twist::BN254TwistCurve,
-            },
+            curves::bn_254::{curve::BN254Curve, pairing::BN254AtePairing, twist::BN254TwistCurve},
             point::ShortWeierstrassProjectivePoint,
         },
         traits::{IsEllipticCurve, IsPairing},
