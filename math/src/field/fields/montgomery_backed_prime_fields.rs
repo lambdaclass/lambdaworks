@@ -150,11 +150,7 @@ where
 
     #[inline(always)]
     fn square(a: &UnsignedInteger<NUM_LIMBS>) -> UnsignedInteger<NUM_LIMBS> {
-        if Self::MODULUS_HAS_ONE_SPARE_BIT {
-            MontgomeryAlgorithms::sos_square(a, &M::MODULUS, &Self::MU)
-        } else {
-            MontgomeryAlgorithms::cios(a, a, &M::MODULUS, &Self::MU)
-        }
+        MontgomeryAlgorithms::sos_square(a, &M::MODULUS, &Self::MU)
     }
 
     #[inline(always)]
