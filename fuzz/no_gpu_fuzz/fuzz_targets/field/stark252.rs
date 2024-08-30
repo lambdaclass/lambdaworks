@@ -25,18 +25,18 @@ fuzz_target!(|bytes: ([u8;32], [u8;32])| {
     let a_ring = stark252_ring_prime.from(&UBig::from_str_radix(&a_hex, 16).unwrap());
     let b_ring = stark252_ring_prime.from(&UBig::from_str_radix(&b_hex, 16).unwrap());
 
-    let add_u64 = &a + &b;
+    let add = &a + &b;
     let addition = &a_ring + &b_ring;
     
-    assert_eq!(&(add_u64.to_string())[2..], addition.residue().in_radix(16).to_string());
+    assert_eq!(&(add.to_string())[2..], addition.residue().in_radix(16).to_string());
 
-    let sub_u64 = &a - &b;
+    let sub = &a - &b;
     let substraction = &a_ring - &b_ring;
-    assert_eq!(&(sub_u64.to_string())[2..], substraction.residue().in_radix(16).to_string());
+    assert_eq!(&(sub.to_string())[2..], substraction.residue().in_radix(16).to_string());
     
-    let mul_u64 = &a * &b;
+    let mul = &a * &b;
     let multiplication = &a_ring * &b_ring;
-    assert_eq!(&(mul_u64.to_string())[2..], multiplication.residue().in_radix(16).to_string());
+    assert_eq!(&(mul.to_string())[2..], multiplication.residue().in_radix(16).to_string());
 
     let pow = &a.pow(b.representative());
     let expected_pow = a_ring.pow(&b_ring.residue());
