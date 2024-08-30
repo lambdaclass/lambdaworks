@@ -31,7 +31,8 @@ fn load_tree_values(tree_path: &String) -> Result<Vec<FE>, io::Error> {
 fn generate_merkle_tree(tree_path: String) -> Result<(), io::Error> {
     let values: Vec<FE> = load_tree_values(&tree_path)?;
 
-    let merkle_tree = MerkleTree::<TreePoseidon<PoseidonCairoStark252>>::build(&values);
+    let merkle_tree = MerkleTree::<TreePoseidon<PoseidonCairoStark252>>::build(&values)
+        .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "requested empty tree"))?;
     let root = merkle_tree.root.representative().to_string();
     println!("Generated merkle tree with root: {:?}", root);
 
@@ -45,7 +46,8 @@ fn generate_merkle_tree(tree_path: String) -> Result<(), io::Error> {
 
 fn generate_merkle_proof(tree_path: String, pos: usize) -> Result<(), io::Error> {
     let values: Vec<FE> = load_tree_values(&tree_path)?;
-    let merkle_tree = MerkleTree::<TreePoseidon<PoseidonCairoStark252>>::build(&values);
+    let merkle_tree = MerkleTree::<TreePoseidon<PoseidonCairoStark252>>::build(&values)
+        .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "requested empty tree"))?;
 
     let Some(proof) = merkle_tree.get_proof_by_pos(pos) else {
         return Err(io::Error::new(io::ErrorKind::Other, "Index out of bounds"));
