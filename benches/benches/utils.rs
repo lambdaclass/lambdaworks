@@ -1,4 +1,5 @@
 use ark_ff::BigInt;
+use ark_std::rand::SeedableRng;
 use ark_std::UniformRand;
 use ark_test_curves::starknet_fp::Fq;
 use lambdaworks_math::{
@@ -7,7 +8,6 @@ use lambdaworks_math::{
     },
     unsigned_integer::element::UnsignedInteger,
 };
-use rand::SeedableRng;
 
 /// Creates `amount` random elements
 pub fn generate_random_elements(amount: u64) -> Vec<Fq> {

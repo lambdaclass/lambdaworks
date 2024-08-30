@@ -6,6 +6,7 @@ use lambdaworks_math::field::fields::fft_friendly::stark_252_prime_field::Stark2
 use lambdaworks_math::traits::ByteConversion;
 use pathfinder_crypto::MontFelt;
 use rand::{RngCore, SeedableRng};
+use rand_chacha::rand_core::SeedableRng;
 use rand_chacha::ChaCha8Rng;
 
 fn poseidon_benchmarks(c: &mut Criterion) {
