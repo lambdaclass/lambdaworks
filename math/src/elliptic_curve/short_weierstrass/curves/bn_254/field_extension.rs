@@ -25,8 +25,9 @@ impl IsModulus<U256> for BN254FieldModulus {
 
 pub type BN254PrimeField = MontgomeryBackendPrimeField<BN254FieldModulus, 4>;
 
-/// We define Fp2E = Fp [u] / (u^2 + 1)/// We could define it using the quadratic extension of
-/// lambdaworks, but we can optimize its operations in this way.
+/// We define Fp2E = Fp [u] / (u^2 + 1)
+/// We could define it using the quadratic extension of lambdaworks, but we can optimize its operations
+/// using these algorithms.
 #[derive(Clone, Debug)]
 pub struct Degree2ExtensionField;
 
