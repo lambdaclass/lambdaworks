@@ -136,12 +136,18 @@ This can be used in a multi prover setting for extra security, or as a standalon
 
 Fuzzers are divided between the ones that use only the CPU, the ones that use Metal, and the ones that use CUDA.
 
+To use them, make sure you have installed ```cargo fuzzer```
+
+You can install it with:
+
+```cargo install cargo-fuzz```
+
 CPU Fuzzers can be run with the command ```bash make run-fuzzer FUZZER=fuzzer_name```
 
 For example:
 
 ```bash
-make run-fuzzer FUZZER=field_from_hex
+make run-fuzzer FUZZER=stark252
 ```
 
 The list of fuzzers can be found in `fuzz/no_gpu_fuzz`
