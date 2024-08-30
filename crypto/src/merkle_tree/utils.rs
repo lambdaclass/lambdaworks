@@ -47,7 +47,7 @@ where
 {
     let mut level_begin_index = leaves_len - 1;
     let mut level_end_index = 2 * level_begin_index;
-    loop {
+    while level_begin_index != level_end_index {
         let new_level_begin_index = level_begin_index / 2;
         let new_level_length = level_begin_index - new_level_begin_index;
 
@@ -68,10 +68,6 @@ where
 
         level_end_index = level_begin_index - 1;
         level_begin_index = new_level_begin_index;
-
-        if level_begin_index == level_end_index {
-            return;
-        }
     }
 }
 
@@ -87,6 +83,14 @@ mod tests {
     const MODULUS: u64 = 13;
     type U64PF = U64PrimeField<MODULUS>;
     type FE = FieldElement<U64PF>;
+
+    #[test]
+    fn build_merkle_tree_one_element_must_succeed() {
+        let mut nodes = [FE::zero()];
+
+        build::<TestBackend<U64PF>>(&mut nodes, 1);
+    }
+
     #[test]
     // expected |2|4|6|8|
     fn hash_leaves_from_a_list_of_field_elemnts() {
