@@ -36,6 +36,12 @@ test = false
 doc = false
 
 [[bin]]
+name = "secp256k1"
+path = "fuzz_targets/field/secp256k1.rs"
+test = false
+doc = false
+
+[[bin]]
 name = "stark252"
 path = "fuzz_targets/field/stark252.rs"
 test = false

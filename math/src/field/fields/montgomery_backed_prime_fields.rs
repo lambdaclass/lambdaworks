@@ -150,11 +150,7 @@ where
 
     #[inline(always)]
     fn square(a: &UnsignedInteger<NUM_LIMBS>) -> UnsignedInteger<NUM_LIMBS> {
-        if Self::MODULUS_HAS_ONE_SPARE_BIT {
-            MontgomeryAlgorithms::sos_square(a, &M::MODULUS, &Self::MU)
-        } else {
-            MontgomeryAlgorithms::cios(a, a, &M::MODULUS, &Self::MU)
-        }
+        MontgomeryAlgorithms::sos_square(a, &M::MODULUS, &Self::MU)
     }
 
     #[inline(always)]
@@ -228,15 +224,17 @@ where
                 if v <= u {
                     u = u - v;
                     if b < c {
-                        b = b + modulus;
+                        b = modulus - c + b;
+                    } else {
+                        b = b - c;
                     }
-                    b = b - c;
                 } else {
                     v = v - u;
                     if c < b {
-                        c = c + modulus;
+                        c = modulus - b + c;
+                    } else {
+                        c = c - b;
                     }
-                    c = c - b;
                 }
             }
 
@@ -1245,6 +1243,14 @@ mod tests_u256_prime_fields {
         assert_eq!(minus_3_mul_minus_3, nine);
         assert_eq!(minus_3_squared, nine);
         assert_eq!(minus_3_pow_2, nine);
+    }
+
+    #[test]
+    fn secp256k1_inv_works() {
+        let a = SecpMontElement::from_hex_unchecked("0x456");
+        let a_inv = a.inv().unwrap();
+
+        assert_eq!(a * a_inv, SecpMontElement::one());
     }
 
     #[test]
