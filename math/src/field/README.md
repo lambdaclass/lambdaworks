@@ -9,11 +9,13 @@ This folder contains the different field backends, including field extensions. T
 - [Mersenne-31](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/field/fields/mersenne31/field.rs): $2^{31} - 1$ and its [quadratic extension](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/field/fields/mersenne31/extension.rs)
 - [Baby Bear](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/field/fields/fft_friendly/babybear.rs) and its [quadratic extension](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/field/fields/fft_friendly/quadratic_babybear.rs): FFT-friendly, $2^{31} - 2^{27} + 1$.
 - [Scalar field of BN-254](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/elliptic_curve/short_weierstrass/curves/bn_254/default_types.rs)
-- [Base field of BN-254](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/elliptic_curve/short_weierstrass/curves/bn_254/field_extension.rs) and its quadratic extension.
+- [Base field of BN-254](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/elliptic_curve/short_weierstrass/curves/bn_254/field_extension.rs) and its quadratic extension, quartic, sextic and twelth degree extensions.
 - [Scalar field of BLS12-381](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/elliptic_curve/short_weierstrass/curves/bls12_381/default_types.rs): FFT-friendly.
 - [Base field of BLS12-381](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/elliptic_curve/short_weierstrass/curves/bls12_381/field_extension.rs) and its quadratic, sextic and twelth degree extensions.
 - [Scalar field of BLS12-377](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/elliptic_curve/short_weierstrass/curves/bls12_377/curve.rs)
 - [Base field of BLS12-377](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/elliptic_curve/short_weierstrass/curves/bls12_377/field_extension.rs)
+
+You also have the tooling to define quadratic and cubic extension fields.
 
 ## 📊 Benchmarks
 
@@ -64,3 +66,12 @@ make benchmark BENCH=field
 ```
 
 You can check the generated HTML report in `target/criterion/reports/index.html`
+
+## Background on finite fields
+
+Finite fields play a fundamental role in Cryptography. They work essentially as the rational or real numbers (where we have the operations of addition, subtraction, multiplication and division), except that the number of elements is finite (for example, 31, 101, but not infinite as real numbers). We will begin this explanation with the simplest types of finite fields, where the number of elements is given by a prime number (a prime number is an integer such that its only divisors are 1 and itself, like 7, 19, 31, but not 8, which is divisible by 1, 2, 4, and 8).
+
+## References
+
+- [An introduction to mathematical cryptography](https://books.google.com.ar/books/about/An_Introduction_to_Mathematical_Cryptogr.html?id=XLY9AnfDhsYC&source=kp_book_description&redir_esc=y)
+- [High-Speed Algorithms & Architectures For Number-Theoretic Cryptosystems](https://www.microsoft.com/en-us/research/wp-content/uploads/1998/06/97Acar.pdf)
