@@ -42,13 +42,13 @@ test = false
 doc = false
 
 [[bin]]
-name = "field_fuzz_mersenne31"
+name = "mersenne31"
 path = "fuzz_targets/field/mersenne31.rs"
 test = false
 doc = false
 
 [[bin]]
-name = "field_mini_goldilocks"
+name = "mini_goldilocks"
 path = "fuzz_targets/field/mini_goldilocks.rs"
 test = false
 doc = false
