@@ -36,8 +36,8 @@ test = false
 doc = false
 
 [[bin]]
-name = "field_fuzzer"
-path = "fuzz_targets/field/fuzzer.rs"
+name = "stark252"
+path = "fuzz_targets/field/stark252.rs"
 test = false
 doc = false
 
@@ -66,7 +66,7 @@ test = false
 doc = false
 
 [[bin]]
-name = "stark_field_addition"
+name = "stark252_addition"
 path = "fuzz_targets/field/stark_field_addition.rs"
 test = false
 doc = false
