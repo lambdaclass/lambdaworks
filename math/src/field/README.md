@@ -69,9 +69,21 @@ You can check the generated HTML report in `target/criterion/reports/index.html`
 
 ## Background on finite fields
 
-Finite fields play a fundamental role in Cryptography. They work essentially as the rational or real numbers (where we have the operations of addition, subtraction, multiplication and division), except that the number of elements is finite (for example, 31, 101, but not infinite as real numbers). We will begin this explanation with the simplest types of finite fields, where the number of elements is given by a prime number (a prime number is an integer such that its only divisors are 1 and itself, like 7, 19, 31, but not 8, which is divisible by 1, 2, 4, and 8).
+Finite fields play a fundamental role in Cryptography. They work essentially as the rational or real numbers (where we have the operations of addition, subtraction, multiplication and division), except that the number of elements is finite (for example, 31, 101, but not infinite as real numbers). We will begin this explanation with the simplest types of finite fields, where the number of elements is given by a prime number (a prime number is an integer such that its only divisors are 1 and itself, like 7, 19, 31, but not 8, which is divisible by 1, 2, 4, and 8). We will denote the prime $p$ and the finite field whose size is equal to $p$, $\mathbb{F_p}$.
+
+The elements of $\mathbb{F_p}$ are given by the possible remainders of the integer division of numbers by $p$. Remember that for any integer $n$, we can express $n = p q + r$, where $q$ is the quotient and $0 \leq r < p$ is the remainder. For example, $8 = 5 \times 1 + 3$. Expressing it in simpler terms, $\mathbb{F_p}$ is the set $\{ 0, 1, 2, 3, \dots , p - 1 \}$. We can define an addition operation $+ : \mathbb{F_p} \times \mathbb{F_p} \rightarrow \mathbb{F_p}$ with the following rule:
+
+Whenever we add two integers $a, b$ such that $n = a + b$, if the result exceeds $p$, we take the remainder of the division of $n$ by $p$. For example, if $p = 7$, $\mathbb{F_7} = \{ 0, 1, 2, 3, 4, 5, 6 \}$, so
+$6 + 5 = 11 \equiv 4 \pmod{7}$ 
+$2 + 3 = 5 \equiv 5 \pmod{7}$
+$3 + 4 = 7 \equiv 0 \pmod{7}$
+
+The notation $a \equiv b \pmod{p}$ means that $a - b is divisible by p$, or that $a$ and $b$ have the same remainder when divided by $p$. We can show that $\mathbb{F_p}$ together with this addition forms an [Abelian group](https://en.wikipedia.org/wiki/Abelian_group). You can check that for every element $k$ there is an element $m$ such that $k + m = 0$. We note that element $m = - k$. You can see that $p - k = - k$, and you can define subtraction.
+
+We can also define multiplication in a similar way: whenever the product of two integers exceeds the modulus $p$, take the remainder.
 
 ## References
 
 - [An introduction to mathematical cryptography](https://books.google.com.ar/books/about/An_Introduction_to_Mathematical_Cryptogr.html?id=XLY9AnfDhsYC&source=kp_book_description&redir_esc=y)
 - [High-Speed Algorithms & Architectures For Number-Theoretic Cryptosystems](https://www.microsoft.com/en-us/research/wp-content/uploads/1998/06/97Acar.pdf)
+- [Developer math survival kit](https://blog.lambdaclass.com/math-survival-kit-for-developers/)
