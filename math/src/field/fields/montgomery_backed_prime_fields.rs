@@ -224,15 +224,17 @@ where
                 if v <= u {
                     u = u - v;
                     if b < c {
-                        b = b + modulus;
+                        b = modulus - c + b;
+                    } else {
+                        b = b - c;
                     }
-                    b = b - c;
                 } else {
                     v = v - u;
                     if c < b {
-                        c = c + modulus;
+                        c = modulus - b + c;
+                    } else {
+                        c = c - b;
                     }
-                    c = c - b;
                 }
             }
 
@@ -1241,6 +1243,14 @@ mod tests_u256_prime_fields {
         assert_eq!(minus_3_mul_minus_3, nine);
         assert_eq!(minus_3_squared, nine);
         assert_eq!(minus_3_pow_2, nine);
+    }
+
+    #[test]
+    fn secp256k1_inv_works() {
+        let a = SecpMontElement::from_hex_unchecked("0x456");
+        let a_inv = a.inv().unwrap();
+
+        assert_eq!(a * a_inv, SecpMontElement::one());
     }
 
     #[test]
