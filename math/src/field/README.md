@@ -88,7 +88,29 @@ where $b = 2^{64}$. For a 256 bit number, we need $4$ limbs and the number looks
 $$n = a_0 + a_1 2^{64} + a_2 2^{128} + a_3 2^{192}$$
 The number is expressed in little-endian form. Alternatively, we can also write things as
 $$n = a_0 2^{192} + a_1 2^{128} + a_2 2^{64} + a_3$$
-The number is expressed in big-endian form. This is the form we use in lambdaworks to work with big integers. We can now jump to the definition of a finite field:
+The number is expressed in big-endian form. This is the form we use in lambdaworks to work with big integers. To work with large integers, we provide `UnsignedInteger` types with variable number of limbs.
+```rust
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+pub struct UnsignedInteger<const NUM_LIMBS: usize> {
+    pub limbs: [u64; NUM_LIMBS],
+}
+```
+You can create `UnsignedInteger` types whose size is a multiple of 64, such as 128, 192, 256, 320, 384. We provide `U128`, `U256` `U384` since these are commonly used with elliptic curves. There are several ways of assigning an `UnsignedInteger` a value. Some examples are:
+- `UnsignedInteger::from(value: u128)`
+- `UnsignedInteger::from(value: u64)`
+- `UnsignedInteger::from(value: u16)`
+- `UnsignedInteger::from(hex_str: &str)`
+- `UnsignedInteger::from_hex_unchecked(hex_str: &str)`
+
+For example,
+```rust
+    let modulus: U256 = U256::from_hex_unchecked(
+        "0x40000000000000000000000000000000224698fc0994a8dd8c46eb2100000001",
+    );
+```
+Defines a value, modulus, whose hex representation is given by `0x40000000000000000000000000000000224698fc0994a8dd8c46eb2100000001`. Inside, the function takes chunks of 8 bytes and interprets them as the limb. This represents the prime number of 77 decimal digits `28948022309329048855892746252171976963363056481941647379679742748393362948097`.
+
+We can now jump to the definition of a finite field:
 ```rust
 use crate::{
     field::fields::montgomery_backed_prime_fields::{IsModulus, MontgomeryBackendPrimeField},
@@ -104,9 +126,15 @@ impl IsModulus<U256> for MontgomeryConfigVesta255PrimeField {
         "0x40000000000000000000000000000000224698fc0994a8dd8c46eb2100000001",
     );
 }
-```
 
 pub type Vesta255PrimeField = VestaMontgomeryBackendPrimeField<MontgomeryConfigVesta255PrimeField>;
+```
+
+We give a name to the field `Vesta255PrimeField`, which is going to use a Montgomery representation. Each element is composed of 4 limbs of 64 bits and the modulus is given by `MODULUS`. The compiler resolves all the necessary things to define the different field operations:
+- Addition
+- Multiplication
+- Subtraction
+- (Multiplicative) inversion/division
 
 ## Montgomery arithmetic
 
