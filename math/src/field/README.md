@@ -82,7 +82,31 @@ The notation $a \equiv b \pmod{p}$ means that $a - b is divisible by p$, or that
 
 We can also define multiplication in a similar way: whenever the product of two integers exceeds the modulus $p$, take the remainder. Except for $0$, we can show that for every element $x$, there is an element $y$, such that $x \times y = 1$ and we denote $y = x^{- 1}$. This allows us to define division as $n / x = n \times x^{- 1}$. We will use $\mathbb{F_p}^\star = \{ 1, 2, \dots p - 1 \}$, that is $\mathbb{F_p}$ without the element $0$. The number of elements in $\mathbb{F_p}^\star$ is $p - 1$ and we can show that is is also an Abelian group. We call it the multiplicative group of $\mathbb{F_p}$. We will say that the field is *FFT friendly* if $p - 1 = 2^m c$, where $c$ is an odd integer, and $m$ is *sufficiently large*. For example, $p = 2^{64} - 2{32} + 1$ satisfies $p - 1 = 2^{32} (2^{32} - 1)$ is *FFT friendly* with $m = 32$, and this means we can use the radix-2 FFT algorithm for vectors of size up to $2^{32}$.
 
-If we take a look at $\mathbb{F_p}$ with the operations $+$ and $\times$, we see that it satisfies the axioms for a [field](https://en.wikipedia.org/wiki/Field_(mathematics)). To define a field in lambdaworks, you need to specify the modulus $p$, then the library will handle all the operations. While it is possible to do operations by taking remainder, this is not performant in practice. lambdaworks relies on Montgomery arithmetic for general finite fields (for)
+If we take a look at $\mathbb{F_p}$ with the operations $+$ and $\times$, we see that it satisfies the axioms for a [field](https://en.wikipedia.org/wiki/Field_(mathematics)). To define a field in lambdaworks, you need to specify the modulus $p$, then the library will handle all the operations. While it is possible to do operations by taking remainder, this is not performant in practice. lambdaworks relies on Montgomery arithmetic for general finite fields (unless they have some faster alternative, such as [Mersenne primes](https://en.wikipedia.org/wiki/Mersenne_prime)). Before jumping into how you define your finite field, we need to see how we are going to represent "big" numbers. Common types to represent integers are `u8`, `u16`, `u32`, `u64`, `u128`. For cryptographic applications, we need to work (in general) with larger integers, taking 256 bits or more. As these numbers do not fit into a single unsigned integer variable, we can express it using several limbs in a given base (in lambdaworks, we use base 64, where each limb is represent by `u64`). Mathematically,
+$$n = \sum_{i = 0}^m a_k b^k$$
+where $b = 2^{64}$. For a 256 bit number, we need $4$ limbs and the number looks like
+$$n = a_0 + a_1 2^{64} + a_2 2^{128} + a_3 2^{192}$$
+The number is expressed in little-endian form. Alternatively, we can also write things as
+$$n = a_0 2^{192} + a_1 2^{128} + a_2 2^{64} + a_3$$
+The number is expressed in big-endian form. This is the form we use in lambdaworks to work with big integers. We can now jump to the definition of a finite field:
+```rust
+use crate::{
+    field::fields::montgomery_backed_prime_fields::{IsModulus, MontgomeryBackendPrimeField},
+    unsigned_integer::element::U256,
+};
+
+type VestaMontgomeryBackendPrimeField<T> = MontgomeryBackendPrimeField<T, 4>;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MontgomeryConfigVesta255PrimeField;
+impl IsModulus<U256> for MontgomeryConfigVesta255PrimeField {
+    const MODULUS: U256 = U256::from_hex_unchecked(
+        "0x40000000000000000000000000000000224698fc0994a8dd8c46eb2100000001",
+    );
+}
+```
+
+pub type Vesta255PrimeField = VestaMontgomeryBackendPrimeField<MontgomeryConfigVesta255PrimeField>;
 
 ## Montgomery arithmetic
 
