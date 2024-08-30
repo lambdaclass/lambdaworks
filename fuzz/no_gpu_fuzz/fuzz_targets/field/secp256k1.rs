@@ -23,7 +23,7 @@ pub type SecpPrimeField = U256PrimeField<MontgomeryConfigSecpPrimeField>;
 fuzz_target!(|bytes: ([u8;32], [u8;32])| {
 
     let secp256k1_prime = 
-        UBig::from_str_radix("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F", 16).unwrap();
+        UBig::from_str_radix("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F", 16).unwrap();
    
     let secp256k1_ring_prime = ModuloRing::new(&secp256k1_prime);
 
