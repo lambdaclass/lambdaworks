@@ -6,6 +6,8 @@ use lambdaworks_math::field::{
 };
 use ibig::{modular::ModuloRing, UBig};
 use lambdaworks_math::traits::ByteConversion;
+use lambdaworks_math::field::fields::montgomery_backed_prime_fields::U256PrimeField;
+use lambdaworks_math::unsigned_integer::element::U256;
 
 pub struct MontgomeryConfigSecpPrimeField;
 impl IsModulus<U256> for MontgomeryConfigStark252PrimeField {
