@@ -143,3 +143,19 @@ let p = BN254Curve::generator();
 let q = BN254TwistCurve::generator();
 let pairing_result = BN254AtePairing::compute_batch(&[(&p, &q)]).unwrap();
 ```
+
+## References
+
+- [HyperElliptic - formulae for EC addition and doubling](https://hyperelliptic.org/EFD/g1p/index.html)
+- [An introduction to mathematical cryptography](https://books.google.com.ar/books/about/An_Introduction_to_Mathematical_Cryptogr.html?id=XLY9AnfDhsYC&source=kp_book_description&redir_esc=y)
+- [Constantine](https://github.com/mratsim/constantine/tree/master/constantine/math)
+- [BN-254 for the rest of us](https://hackmd.io/@jpw/bn254)
+- [BLS12-381 for the rest of us](https://hackmd.io/@benjaminion/bls12-381)
+- [High-speed implementation of the Optimal Ate Pairing over Barreto-Naehrig curves](https://eprint.iacr.org/2010/354.pdf)
+- [Computing the optimal pairing over the BN254 curve](https://hackmd.io/@Wimet/ry7z1Xj-2#Computing-the-Optimal-Ate-Pairing-over-the-BN254-Curve)
+- [Pairings for beginners](https://static1.squarespace.com/static/5fdbb09f31d71c1227082339/t/5ff394720493bd28278889c6/1609798774687/PairingsForBeginners.pdf)
+- [Pairing-friendly elliptic curves of prime order](https://www.cryptojedi.org/papers/pfcpo.pdf)
+- [Need for speed: elliptic curves chapter](https://blog.lambdaclass.com/need-for-speed-elliptic-curves-chapter/)
+- [What every developer needs to know about elliptic curves](https://blog.lambdaclass.com/what-every-developer-needs-to-know-about-elliptic-curves/)
+- [How we implemented the BN254 Ate pairing in lambdaworks](https://blog.lambdaclass.com/how-we-implemented-the-bn254-ate-pairing-in-lambdaworks/)
+- [Exploring elliptic curve pairings by Vitalik](https://medium.com/@VitalikButerin/exploring-elliptic-curve-pairings-c73c1864e627)
