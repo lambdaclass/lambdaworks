@@ -500,12 +500,9 @@ pub fn frobenius_cube(
 /// https://github.com/mratsim/constantine/blob/master/constantine/math/pairings/cyclotomic_subgroups.nim#L354
 pub fn cyclotomic_square(a: &Fp12E) -> Fp12E {
     // a = g + h * w
-    let b0 = &a.value()[0].value()[0]; // b0 = g0
-    let b1 = &a.value()[0].value()[1]; // b1 = g1
-    let b2 = &a.value()[0].value()[2]; // b2 = g2
-    let b3 = &a.value()[1].value()[0]; // b3 = h0
-    let b4 = &a.value()[1].value()[1]; // b4 = h1
-    let b5 = &a.value()[1].value()[2]; // b5 = h2
+    let [g, h] = a.value();
+    let [b0, b1, b2] = g.value();
+    let [b3, b4, b5] = h.value();
 
     let v0 = Fp4E::new([b0.clone(), b4.clone()]).square();
     let v1 = Fp4E::new([b3.clone(), b2.clone()]).square();
