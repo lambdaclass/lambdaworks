@@ -234,6 +234,7 @@ pub fn mul_fp2_by_nonresidue(fe: &Fp2E) -> Fp2E {
 
 /// We define Fp6 = Fp2 [v] / (v^3 - (9+u))
 pub type Degree6ExtensionField = CubicExtensionField<Degree2ExtensionField, LevelTwoResidue>;
+pub type Fp6E = FieldElement<Degree6ExtensionField>;
 
 #[derive(Debug, Clone)]
 pub struct LevelThreeResidue;
@@ -248,158 +249,7 @@ impl HasQuadraticNonResidue<Degree6ExtensionField> for LevelThreeResidue {
 }
 
 /// We define Fp12 = Fp6 [w] / (w^2 - v)
-// pub type Degree12ExtensionField = QuadraticExtensionField<Degree6ExtensionField, LevelThreeResidue>;
-
-#[derive(Clone, Debug)]
-pub struct Degree12ExtensionField;
-
-/// Optimal algorithms from
-/// https://hackmd.io/@Wimet/ry7z1Xj-2#Fp12-Arithmetic
-impl IsField for Degree12ExtensionField {
-    type BaseType = [FieldElement<Degree6ExtensionField>; 2];
-
-    fn add(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
-        [&a[0] + &b[0], &a[1] + &b[1]]
-    }
-
-    // INPUT: (a = a0 + a1 * w),(b = b0 + b1 * w) in Fp12, where ai,bi in Fp6
-    // OUTPUT: (c0 + c1 * w) = a * b in Fp12
-    // c0 = a0 * b0 + a1 * b1 * v where
-    // c1 = (a0+a1)*(b0+b1) - a0*b0 - a1*b1
-    fn mul(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
-        let a0 = &a[0];
-        let a1 = &a[1];
-        let b0 = &b[0];
-        let b1 = &b[1];
-        [
-            a0 * b0 + a1 * b1 * LevelThreeResidue::residue(),
-            (a0 + a1) * (b0 + b1) - a0 * b0 - a1 * b1,
-        ]
-    }
-
-    fn square(a: &Self::BaseType) -> Self::BaseType {
-        let a0 = &a[0];
-        let a1 = &a[1];
-
-        [
-            (a0 - a1) * (a0 - a1 * LevelThreeResidue::residue())
-                + a0 * a1
-                + a0 * a1 * LevelThreeResidue::residue(),
-            a0 * a1 + a0 * a1,
-        ]
-    }
-
-    /// INPUT: (a = a0 + a1*w),(b = b0 + b1*w) in Fp12, where ai,bi in Fp6
-    /// OUTPUT: (c0 + c1*w) = a - b in Fp12
-    /// c0 = a0 - b0
-    /// c1 = a1 - b1
-    fn sub(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
-        [&a[0] - &b[0], &a[1] - &b[1]]
-    }
-
-    /// Returns the component wise negation of `a`
-    fn neg(a: &Self::BaseType) -> Self::BaseType {
-        [-&a[0], -&a[1]]
-    }
-
-    /// c0 = a0*(a0^2 - a1^2*v)^{-1}
-    /// c1 = -a1*(a0^2 - a1^2*v)^{-1}
-    fn inv(a: &Self::BaseType) -> Result<Self::BaseType, FieldError> {
-        let a0 = &a[0];
-        let a1 = &a[1];
-        Ok([
-            a0 * (a0.square() - a1.square() * LevelThreeResidue::residue())
-                .inv()
-                .unwrap(),
-            -a1 * (a0.square() - a1.square() * LevelThreeResidue::residue())
-                .inv()
-                .unwrap(),
-        ])
-    }
-
-    /// Returns the division of `a` and `b`
-    fn div(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
-        <Self as IsField>::mul(a, &Self::inv(b).unwrap())
-    }
-
-    /// Returns a boolean indicating whether `a` and `b` are equal component wise.
-    fn eq(a: &Self::BaseType, b: &Self::BaseType) -> bool {
-        a[0] == b[0] && a[1] == b[1]
-    }
-
-    /// Returns the additive neutral element of the field extension.
-    fn zero() -> Self::BaseType {
-        [FieldElement::zero(), FieldElement::zero()]
-    }
-
-    /// Returns the multiplicative neutral element of the field extension.
-    fn one() -> Self::BaseType {
-        [FieldElement::one(), FieldElement::zero()]
-    }
-
-    /// Returns the element `x * 1` where 1 is the multiplicative neutral element.
-    fn from_u64(x: u64) -> Self::BaseType {
-        [FieldElement::from(x), FieldElement::zero()]
-    }
-
-    /// Takes as input an element of BaseType and returns the internal representation
-    /// of that element in the field.
-    /// Note: for this case this is simply the identity, because the components
-    /// already have correct representations.
-    fn from_base_type(x: Self::BaseType) -> Self::BaseType {
-        x
-    }
-}
-
-impl IsSubFieldOf<Degree12ExtensionField> for Degree6ExtensionField {
-    fn mul(
-        a: &Self::BaseType,
-        b: &<Degree12ExtensionField as IsField>::BaseType,
-    ) -> <Degree12ExtensionField as IsField>::BaseType {
-        let c0 = FieldElement::from_raw(<Self as IsField>::mul(a, b[0].value()));
-        let c1 = FieldElement::from_raw(<Self as IsField>::mul(a, b[1].value()));
-        [c0, c1]
-    }
-
-    fn add(
-        a: &Self::BaseType,
-        b: &<Degree12ExtensionField as IsField>::BaseType,
-    ) -> <Degree12ExtensionField as IsField>::BaseType {
-        let c0 = FieldElement::from_raw(<Self as IsField>::add(a, b[0].value()));
-        let c1 = FieldElement::from_raw(b[1].value().clone());
-        [c0, c1]
-    }
-
-    fn div(
-        a: &Self::BaseType,
-        b: &<Degree12ExtensionField as IsField>::BaseType,
-    ) -> <Degree12ExtensionField as IsField>::BaseType {
-        let b_inv = Degree12ExtensionField::inv(b).unwrap();
-        <Self as IsSubFieldOf<Degree12ExtensionField>>::mul(a, &b_inv)
-    }
-
-    fn sub(
-        a: &Self::BaseType,
-        b: &<Degree12ExtensionField as IsField>::BaseType,
-    ) -> <Degree12ExtensionField as IsField>::BaseType {
-        let c0 = FieldElement::from_raw(<Self as IsField>::sub(a, b[0].value()));
-        let c1 = FieldElement::from_raw(<Self as IsField>::neg(b[1].value()));
-        [c0, c1]
-    }
-
-    fn embed(a: Self::BaseType) -> <Degree12ExtensionField as IsField>::BaseType {
-        [FieldElement::from_raw(a), FieldElement::zero()]
-    }
-
-    #[cfg(feature = "alloc")]
-    fn to_subfield_vec(
-        b: <Degree12ExtensionField as IsField>::BaseType,
-    ) -> alloc::vec::Vec<Self::BaseType> {
-        b.into_iter().map(|x| x.to_raw()).collect()
-    }
-}
-
-pub type Fp6E = FieldElement<Degree6ExtensionField>;
+pub type Degree12ExtensionField = QuadraticExtensionField<Degree6ExtensionField, LevelThreeResidue>;
 pub type Fp12E = FieldElement<Degree12ExtensionField>;
 
 /// a = a0 + a1 * w
@@ -460,11 +310,6 @@ impl FieldElement<Degree12ExtensionField> {
             FieldElement::<Degree6ExtensionField>::new_base(a_hex),
             FieldElement::zero(),
         ])
-    }
-
-    pub fn conjugate(&self) -> Self {
-        let [a, b] = self.value();
-        Self::new([a.clone(), -b])
     }
 
     pub fn from_coefficients(coefficients: &[&str; 12]) -> Self {
