@@ -147,15 +147,67 @@ It also resolves all the necessary constants. These involve:
 - `MODULUS_HAS_ONE_SPARE_BIT` : checks whether the highest bit in the modulus is set or not (this is useful for faster modular arithmetic).
 
 Additionally, you have the following methods:
-- `to_bytes_be`
-- `to_bytes_le`
-- `from_bytes_be`
-- `from_bytes_le`
-- `representative` : Transforms the element from Montgomery form to standard form.
-- `to_hex`
+- `to_bytes_be` : transforms the element to bytes in big-endian form.
+- `to_bytes_le` : transforms the element to bytes in little-endian form.
+- `from_bytes_be` : creates an element from byte array in big-endian form.
+- `from_bytes_le` : creates an element from byte array in little-endian form.
+- `representative` : transforms the element from Montgomery form to standard form.
+- `to_hex` : transforms the element to a hex string.
 
+To practice some operations, we are going to define a new field and do some operations. The following is the base field for the `secp256k1` elliptic curve, best known as Bitcoin's curve:
+```rust
+ #[derive(Clone, Debug)]
+struct SecpModulus;
+impl IsModulus<U256> for SecpModulus {
+    const MODULUS: U256 = UnsignedInteger::from_hex_unchecked(
+        "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F",
+    );
+}
+type SecpMontField = U256PrimeField<SecpModulus>;
+type SecpMontElement = FieldElement<SecpMontField>;
+```
+
+We will create some elements and perform operations:
+```rust
+let minus_3 = -SecpMontElement::from_hex_unchecked("0x3");
+let three = SecpMontElement::from_hex_unchecked("0x3");
+assert_eq!(three + minus_3, SecpMontElement::zero());
+```
+
+```rust
+let two = SecpMontElement::from_hex_unchecked("0x2");
+assert_eq!(three - two, SecpMontElement::one());
+```
+
+```rust
+let minus_3_mul_minus_3 = &minus_3 * &minus_3;
+let minus_3_squared = minus_3.square();
+let minus_3_pow_2 = minus_3.pow(2_u32);
+let nine = SecpMontElement::from_hex_unchecked("0x9");
+        
+assert_eq!(minus_3_mul_minus_3, nine);
+assert_eq!(minus_3_squared, nine);
+assert_eq!(minus_3_pow_2, nine);
+```
+
+This last part shows that we have three ways of computing the square of a number. The first one is using multiplication, the second is squaring and the third one is using the power/exponentiation function `pow`. The `pow` function needs as exponent an `UnsignedInteger`. The most efficient function in this context is `square()`, followed by `mul`.
+
+If you print the hex representation of three, `three.to_hex()`, you will get `0x300000B73`. This is the Montgomery representation, which is different from the standard form `0x3`. If you perform `three.representative().to_hex()`, it will transform first to standard form, then give `0x3`. Let's look at the output of several functions:
+- `three.to_hex()` : `0x300000B73`
+- `three.representative().to_hex()` : `0x3`
+- `three.to_bytes_be()`: Returns a vector of 32 bytes (256 bits), all of which are `0x0`, except for the last one, `0x3`
+- `three.to_bytes_le()`: Returns a vector of 32 bytes (256 bits), all of which are `0x0`, except for the first one, `0x3`
+- `SecpMontElement::from_bytes_be(&three.to_bytes_be())`: will return the Montgomery form of the number 3.
+- `SecpMontElement::from_hex(&three.to_hex())`: this will not return the Montgomery form of 3!
+- `SecpMontElement::from_hex(&three.representative().to_hex())`: this will return the Montgomery form of 3.
 
 ## Montgomery arithmetic
+
+Addition and subtraction in Montgomery form follow the same rules as ordinary addition and subtraction over a field. There are different algorithms for multiplication (and squaring):
+- Coarsely Integrated Operand Scanning (CIOS)
+- Separated Operand Scanning Method (SOS)
+
+Multiplication follows `cios`, unless there are spare bits in the modulus. For that case, multiplication changes to `cios_optimized_for_moduli_with_one_spare_bit`. Squaring uses the `sos_square` method.
 
 ## References
 
