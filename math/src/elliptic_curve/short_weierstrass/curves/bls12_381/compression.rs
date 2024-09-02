@@ -19,8 +19,8 @@ use crate::{
     traits::ByteConversion,
 };
 
-pub type G1Point = ShortWeierstrassProjectivePoint<BLS12381Curve>;
-pub type BLS12381FieldElement = FieldElement<BLS12381PrimeField>;
+type G1Point = ShortWeierstrassProjectivePoint<BLS12381Curve>;
+type BLS12381FieldElement = FieldElement<BLS12381PrimeField>;
 
 impl Compress for G1Point {
     type G1Point = G1Point;
