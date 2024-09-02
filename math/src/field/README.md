@@ -78,9 +78,9 @@ $6 + 5 = 11 \equiv 4 \pmod{7}$
 $2 + 3 = 5 \equiv 5 \pmod{7}$
 $3 + 4 = 7 \equiv 0 \pmod{7}$
 
-The notation $a \equiv b \pmod{p}$ means that $a - b is divisible by p$, or that $a$ and $b$ have the same remainder when divided by $p$. We can show that $\mathbb{F_p}$ together with this addition forms an [Abelian group](https://en.wikipedia.org/wiki/Abelian_group). You can check that for every element $k$ there is an element $m$ such that $k + m = 0$. We note that element $m = - k$. You can see that $p - k = - k$, and you can define subtraction.
+The notation $a \equiv b \pmod{p}$ means that $a - b$ is divisible by $p$, or that $a$ and $b$ have the same remainder when divided by $p$. We can show that $\mathbb{F_p}$ together with this addition forms an [Abelian group](https://en.wikipedia.org/wiki/Abelian_group). You can check that for every element $k$ there is an element $m$ such that $k + m = 0$. We note that element $m = - k$. You can see that $p - k = - k$, and you can define subtraction.
 
-We can also define multiplication in a similar way: whenever the product of two integers exceeds the modulus $p$, take the remainder. Except for $0$, we can show that for every element $x$, there is an element $y$, such that $x \times y = 1$ and we denote $y = x^{- 1}$. This allows us to define division as $n / x = n \times x^{- 1}$. We will use $\mathbb{F_p}^\star = \{ 1, 2, \dots p - 1 \}$, that is $\mathbb{F_p}$ without the element $0$. The number of elements in $\mathbb{F_p}^\star$ is $p - 1$ and we can show that is is also an Abelian group. We call it the multiplicative group of $\mathbb{F_p}$. We will say that the field is *FFT friendly* if $p - 1 = 2^m c$, where $c$ is an odd integer, and $m$ is *sufficiently large*. For example, $p = 2^{64} - 2{32} + 1$ satisfies $p - 1 = 2^{32} (2^{32} - 1)$ is *FFT friendly* with $m = 32$, and this means we can use the radix-2 FFT algorithm for vectors of size up to $2^{32}$.
+We can also define multiplication in a similar way: whenever the product of two integers exceeds the modulus $p$, take the remainder. Except for $0$, we can show that for every element $x$, there is an element $y$, such that $x \times y = 1$ and we denote $y = x^{- 1}$. This allows us to define division as $n / x = n \times x^{- 1}$. We will use $\mathbb{F_p}^\star = \{ 1, 2, \dots p - 1 \}$, that is $\mathbb{F_p}$ without the element $0$. The number of elements in $\mathbb{F_p}^\star$ is $p - 1$ and we can show that is is also an Abelian group. We call it the multiplicative group of $\mathbb{F_p}$. We will say that the field is *FFT friendly* if $p - 1 = 2^m c$, where $c$ is an odd integer, and $m$ is *sufficiently large*. For example, $p = 2^{64} - 2^{32} + 1$ satisfies $p - 1 = 2^{32} (2^{32} - 1)$ is *FFT friendly* with $m = 32$, and this means we can use the radix-2 FFT algorithm for vectors of size up to $2^{32}$.
 
 If we take a look at $\mathbb{F_p}$ with the operations $+$ and $\times$, we see that it satisfies the axioms for a [field](https://en.wikipedia.org/wiki/Field_(mathematics)). To define a field in lambdaworks, you need to specify the modulus $p$, then the library will handle all the operations. While it is possible to do operations by taking remainder, this is not performant in practice. lambdaworks relies on Montgomery arithmetic for general finite fields (unless they have some faster alternative, such as [Mersenne primes](https://en.wikipedia.org/wiki/Mersenne_prime)). Before jumping into how you define your finite field, we need to see how we are going to represent "big" numbers. Common types to represent integers are `u8`, `u16`, `u32`, `u64`, `u128`. For cryptographic applications, we need to work (in general) with larger integers, taking 256 bits or more. As these numbers do not fit into a single unsigned integer variable, we can express it using several limbs in a given base (in lambdaworks, we use base 64, where each limb is represent by `u64`). Mathematically,
 $$n = \sum_{i = 0}^m a_k b^k$$
@@ -132,9 +132,28 @@ pub type Vesta255PrimeField = VestaMontgomeryBackendPrimeField<MontgomeryConfigV
 
 We give a name to the field `Vesta255PrimeField`, which is going to use a Montgomery representation. Each element is composed of 4 limbs of 64 bits and the modulus is given by `MODULUS`. The compiler resolves all the necessary things to define the different field operations:
 - Addition
+- Doubling (as an optimization to addition when $a = b$)
 - Multiplication
+- Square (as an optimization to multiplication when $a = b$)
 - Subtraction
 - (Multiplicative) inversion/division
+- Exponentiation/Power (using a square and multiply algorithm)
+
+It also resolves all the necessary constants. These involve:
+- `pub const R2` : The square of the $R$ parameter
+- `pub const MU` : $- \text{modulus}^{-1} pmod{ 2^{64}}$
+- `pub const ZERO` : the value of the neutral element for addition in Montgomery form (it is always 0).
+- `pub const ONE` : the value of the unit in Montgomery form.
+- `MODULUS_HAS_ONE_SPARE_BIT` : checks whether the highest bit in the modulus is set or not (this is useful for faster modular arithmetic).
+
+Additionally, you have the following methods:
+- `to_bytes_be`
+- `to_bytes_le`
+- `from_bytes_be`
+- `from_bytes_le`
+- `representative` : Transforms the element from Montgomery form to standard form.
+- `to_hex`
+
 
 ## Montgomery arithmetic
 
