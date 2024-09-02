@@ -148,10 +148,11 @@ We give a name to the field `Vesta255PrimeField`, which is going to use a Montgo
 - Subtraction
 - (Multiplicative) inversion/division
 - Exponentiation/Power (using a square and multiply algorithm)
+- Square root (In a finite field, we can compute the square root of an element if it is a [quadratic residue](https://en.wikipedia.org/wiki/Quadratic_residue) modulo $p$). When the element is a quadratic residue, the function returns the values $y$ and $- y$ such that $y^2 = (- y)^2 = x$.
 
 It also resolves all the necessary constants. These involve:
 - `pub const R2` : The square of the $R$ parameter
-- `pub const MU` : $- \text{modulus}^{-1} pmod{ 2^{64}}$
+- `pub const MU` : $- \text{modulus}^{-1} \pmod{ 2^{64}}$
 - `pub const ZERO` : the value of the neutral element for addition in Montgomery form (it is always 0).
 - `pub const ONE` : the value of the unit in Montgomery form.
 - `MODULUS_HAS_ONE_SPARE_BIT` : checks whether the highest bit in the modulus is set or not (this is useful for faster modular arithmetic).
