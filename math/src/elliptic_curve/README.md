@@ -130,6 +130,7 @@ fn commit(&self, p: &Polynomial<FieldElement<F>>) -> Self::Commitment {
         .expect("`points` is sliced by `cs`'s length")
     }
 ```
+
 ## Pairing-friendly elliptic curves
 
 Pairings are an important calculation for BLS signatures and the KZG polynomial commitment scheme. These are functions mapping elements from groups of order $r$ belonging to an elliptic curve to the set of $r$-th roots of unity, $e: G_1 \times G_2 \rightarrow G_t$. They satisfy two properties:

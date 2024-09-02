@@ -231,6 +231,12 @@ Multiplication follows `cios`, unless there are spare bits in the modulus. For t
 
 Inversion is performed using Algorithm 16 (Binary Euclidean Algorithm) from [Guajardo, Kumar, Paar, Perzl](https://www.sandeep.de/my/papers/2006_ActaApplMath_EfficientSoftFiniteF.pdf).
 
+## Exercises
+
+- Define the base field of the Ed25519 elliptic curve, defined by the prime $p$.
+- Check whether $- 1$ is a quadratic residue.
+- Compute $100^{65537} \pmod p$ 
+
 ## References
 
 - [An introduction to mathematical cryptography](https://books.google.com.ar/books/about/An_Introduction_to_Mathematical_Cryptogr.html?id=XLY9AnfDhsYC&source=kp_book_description&redir_esc=y)
