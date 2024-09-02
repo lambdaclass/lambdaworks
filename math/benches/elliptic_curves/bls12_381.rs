@@ -2,16 +2,19 @@ use criterion::{black_box, Criterion};
 use lambdaworks_math::{
     cyclic_group::IsGroup,
     elliptic_curve::{
-        short_weierstrass::curves::bls12_381::{
-            compression::{compress_g1_point, decompress_g1_point},
-            curve::BLS12381Curve,
-            pairing::BLS12381AtePairing,
-            twist::BLS12381TwistCurve,
+        short_weierstrass::{
+            curves::bls12_381::{
+                curve::BLS12381Curve, pairing::BLS12381AtePairing, twist::BLS12381TwistCurve,
+            },
+            point::ShortWeierstrassProjectivePoint,
+            traits::Compress,
         },
         traits::{IsEllipticCurve, IsPairing},
     },
 };
 use rand::{rngs::StdRng, Rng, SeedableRng};
+
+pub type G1Point = ShortWeierstrassProjectivePoint<BLS12381Curve>;
 
 #[allow(dead_code)]
 pub fn bls12_381_elliptic_curve_benchmarks(c: &mut Criterion) {
@@ -70,13 +73,13 @@ pub fn bls12_381_elliptic_curve_benchmarks(c: &mut Criterion) {
 
     // Compress_G1_point
     group.bench_function("Compress G1 point", |bencher| {
-        bencher.iter(|| black_box(compress_g1_point(black_box(&a_g1))));
+        bencher.iter(|| black_box(G1Point::compress_g1_point(black_box(&a_g1))));
     });
 
     // Decompress_G1_point
     group.bench_function("Decompress G1 Point", |bencher| {
-        let a: [u8; 48] = compress_g1_point(&a_g1).try_into().unwrap();
-        bencher.iter(|| black_box(decompress_g1_point(&mut black_box(a))).unwrap());
+        let a: [u8; 48] = G1Point::compress_g1_point(&a_g1).try_into().unwrap();
+        bencher.iter(|| black_box(G1Point::decompress_g1_point(&mut black_box(a))).unwrap());
     });
 
     // Subgroup Check G1
