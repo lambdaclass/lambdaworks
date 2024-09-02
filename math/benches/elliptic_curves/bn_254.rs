@@ -7,8 +7,7 @@ use lambdaworks_math::{
             field_extension::{BN254PrimeField, Degree12ExtensionField, Degree2ExtensionField},
             pairing::{
                 cyclotomic_pow_x, cyclotomic_square, final_exponentiation_naive,
-                final_exponentiation_optimized, miller_naive, miller_optimized, miller_optimized_2,
-                BN254AtePairing, X,
+                final_exponentiation_optimized, miller_naive, miller_optimized, BN254AtePairing, X,
             },
             twist::BN254TwistCurve,
         },
@@ -37,7 +36,7 @@ pub fn bn_254_elliptic_curve_benchmarks(c: &mut Criterion) {
     ]);
     let f_2 = Fp2E::new([FpE::from(a_val as u64), FpE::from(b_val as u64)]);
 
-    let miller_loop_output = miller_optimized_2(&a_g1, &a_g2);
+    let miller_loop_output = miller_optimized(&a_g1, &a_g2);
 
     let mut group = c.benchmark_group("BN254 Ops");
 
@@ -126,11 +125,6 @@ pub fn bn_254_elliptic_curve_benchmarks(c: &mut Criterion) {
     // Miller Optimized
     group.bench_function("Miller Optimized", |bencher| {
         bencher.iter(|| black_box(miller_optimized(black_box(&a_g1), black_box(&a_g2))))
-    });
-
-    // Miller Optimized
-    group.bench_function("Miller Optimized 2", |bencher| {
-        bencher.iter(|| black_box(miller_optimized_2(black_box(&a_g1), black_box(&a_g2))))
     });
 
     // Final Exponentiation Naive

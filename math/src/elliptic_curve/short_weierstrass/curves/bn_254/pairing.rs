@@ -166,7 +166,7 @@ impl IsPairing for BN254AtePairing {
             if !p.is_neutral_element() && !q.is_neutral_element() {
                 let p = p.to_affine();
                 let q = q.to_affine();
-                result *= miller_optimized_2(&p, &q);
+                result *= miller_optimized(&p, &q);
             }
         }
         Ok(final_exponentiation_optimized(&result))
@@ -207,40 +207,6 @@ pub fn miller_naive(p: &G1Point, q: &G2Point) -> Fp12E {
 
 /// Computes the same algorithm as miller_naive but optimized  using line_optimized()
 pub fn miller_optimized(p: &G1Point, q: &G2Point) -> Fp12E {
-    let mut t = q.clone();
-    let mut f = Fp12E::one();
-    let q_neg = &q.neg();
-    MILLER_CONSTANT.iter().rev().skip(1).for_each(|m| {
-        let (r, l) = line_optimized(p, &t, &t);
-        f = f.square() * l;
-        t = r;
-
-        if *m == -1 {
-            let (r, l) = line_optimized(p, &t, q_neg);
-            f *= l;
-            t = r;
-        } else if *m == 1 {
-            let (r, l) = line_optimized(p, &t, q);
-            f *= l;
-            t = r;
-        }
-    });
-
-    // q1 = ((x_q)^p, (y_q)^p, (z_q)^p)
-    // See  https://hackmd.io/@Wimet/ry7z1Xj-2#The-Last-two-Lines
-    let q1 = q.phi();
-    let (r, l) = line_optimized(p, &t, &q1);
-    f *= l;
-    t = r;
-
-    // q2 = ((x_q1)^p, (y_q1)^p, (z_q1)^p)
-    let q2 = q1.phi();
-    f *= line_optimized(p, &t, &q2.neg()).1;
-
-    f
-}
-
-pub fn miller_optimized_2(p: &G1Point, q: &G2Point) -> Fp12E {
     let mut t = q.clone();
     let mut f = Fp12E::one();
     let q_neg = &q.neg();
