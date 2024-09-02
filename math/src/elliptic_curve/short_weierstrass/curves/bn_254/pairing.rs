@@ -41,10 +41,13 @@ type G2Point = ShortWeierstrassProjectivePoint<BN254TwistCurve>;
 /// See https://hackmd.io/@jpw/bn254#Barreto-Naehrig-curves
 pub const X: u64 = 0x44e992b44a6909f1;
 
-// 100010011101001100100101011010001001010011010010000100111110001
-pub const X_BINARY: [u32; 63] = [
-    1, 0, 0, 0, 1, 0, 0, 1, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 0, 1, 0, 1, 0, 1, 1, 0, 1, 0, 0, 0,
-    1, 0, 0, 1, 0, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 1,
+/// x = 100010011101001100100101011010001001010011010010000100111110001
+pub const X_BINARY: [bool; 63] = [
+    true, false, false, false, true, false, false, true, true, true, false, true, false, false,
+    true, true, false, false, true, false, false, true, false, true, false, true, true, false,
+    true, false, false, false, true, false, false, true, false, true, false, false, true, true,
+    false, true, false, false, true, false, false, false, false, true, false, false, true, true,
+    true, true, true, false, false, false, true,
 ];
 
 /// Constant used in the Miller Loop.
@@ -545,6 +548,21 @@ pub fn cyclotomic_square(a: &Fp12E) -> Fp12E {
 #[allow(clippy::needless_range_loop)]
 pub fn cyclotomic_pow_x(f: &Fp12E) -> Fp12E {
     let mut result = Fp12E::one();
+    X_BINARY.iter().for_each(|&bit| {
+        result = cyclotomic_square(&result);
+        if bit == true {
+            result = &result * f;
+        }
+    });
+    result
+}
+
+/*
+/// Computes f^x where f is in the cyclotomic subgroup of Fp12.
+/// Algorithm from https://hackmd.io/@Wimet/ry7z1Xj-2#Exponentiation-in-the-Cyclotomic-Subgroup.
+#[allow(clippy::needless_range_loop)]
+pub fn cyclotomic_pow_x(f: &Fp12E) -> Fp12E {
+    let mut result = Fp12E::one();
     for i in 0..63 {
         result = cyclotomic_square(&result);
         if X_BINARY[i] == 1 {
@@ -553,6 +571,7 @@ pub fn cyclotomic_pow_x(f: &Fp12E) -> Fp12E {
     }
     result
 }
+*/
 
 #[cfg(test)]
 /// We took the G1 and G2 points from:

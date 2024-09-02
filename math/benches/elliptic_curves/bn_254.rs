@@ -56,17 +56,17 @@ pub fn bn_254_elliptic_curve_benchmarks(c: &mut Criterion) {
     });
 
     // Operate_with G2
-    group.bench_function("Operate_with_G2 {:?}", |bencher| {
+    group.bench_function("Operate_with G2", |bencher| {
         bencher.iter(|| black_box(black_box(&a_g2).operate_with(black_box(&b_g2))));
     });
 
     // Operate_with_self G1
-    group.bench_function("Operate_with_self_G1", |bencher| {
+    group.bench_function("Operate_with_self G1", |bencher| {
         bencher.iter(|| black_box(black_box(&a_g1).operate_with_self(black_box(b_val))));
     });
 
     // Operate_with_self G2
-    group.bench_function("Operate_with_self_G2", |bencher| {
+    group.bench_function("Operate_with_self G2", |bencher| {
         bencher.iter(|| black_box(black_box(&a_g2).operate_with_self(black_box(b_val))));
     });
 
@@ -76,7 +76,7 @@ pub fn bn_254_elliptic_curve_benchmarks(c: &mut Criterion) {
     });
 
     // Double G2
-    group.bench_function("Double G2 {:?}", |bencher| {
+    group.bench_function("Double G2", |bencher| {
         bencher.iter(|| black_box(black_box(&a_g2).double()));
     });
 
