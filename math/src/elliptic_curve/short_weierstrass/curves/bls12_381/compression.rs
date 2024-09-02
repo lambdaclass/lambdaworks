@@ -2,7 +2,10 @@ use super::{field_extension::BLS12381PrimeField, twist::BLS12381TwistCurve};
 use crate::{
     elliptic_curve::{
         short_weierstrass::{
-            curves::bls12_381::curve::BLS12381Curve, point::ShortWeierstrassProjectivePoint,
+            curves::bls12_381::{
+                curve::BLS12381Curve, field_extension::Degree2ExtensionField, sqrt,
+            },
+            point::ShortWeierstrassProjectivePoint,
             traits::Compress,
         },
         traits::IsEllipticCurve,
@@ -105,7 +108,38 @@ impl Compress for G1Point {
 
     #[allow(unused)]
     fn decompress_g2_point(input_bytes: &mut [u8; 96]) -> Result<Self::G2Point, Self::Error> {
-        todo!()
+        let first_byte = input_bytes.first().unwrap();
+
+        // We get the first 3 bits
+        let prefix_bits = first_byte >> 5;
+        let first_bit = (prefix_bits & 4_u8) >> 2;
+        // If first bit is not 1, then the value is not compressed.
+        if first_bit != 1 {
+            return Err(ByteConversionError::InvalidValue);
+        }
+        let second_bit = (prefix_bits & 2_u8) >> 1;
+        // If the second bit is 1, then the compressed point is the
+        // point at infinity and we return it directly.
+        if second_bit == 1 {
+            return Ok(Self::G2Point::neutral_element());
+        }
+
+        let first_byte_without_contorl_bits = (first_byte << 3) >> 3;
+        input_bytes[0] = first_byte_without_contorl_bits;
+
+        let input0 = &input_bytes[48..];
+        let input1 = &input_bytes[0..48];
+        let x0 = BLS12381FieldElement::from_bytes_be(input0).unwrap();
+        let x1 = BLS12381FieldElement::from_bytes_be(input1).unwrap();
+        let x: FieldElement<Degree2ExtensionField> = FieldElement::new([x0, x1]);
+
+        const VALUE: BLS12381FieldElement = BLS12381FieldElement::from_hex_unchecked("4");
+        let b_param_qfe = FieldElement::<Degree2ExtensionField>::new([VALUE, VALUE]);
+
+        let y = sqrt::sqrt_qfe(&(x.pow(3_u64) + b_param_qfe), 0)
+            .ok_or(ByteConversionError::InvalidValue)?;
+
+        Self::G2Point::from_affine(x, y).map_err(|_| ByteConversionError::InvalidValue)
     }
 }
 
