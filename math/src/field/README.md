@@ -204,6 +204,13 @@ assert_eq!(minus_3_pow_2, nine);
 
 This last part shows that we have three ways of computing the square of a number. The first one is using multiplication, the second is squaring and the third one is using the power/exponentiation function `pow`. The `pow` function needs as exponent an `UnsignedInteger`. The most efficient function in this context is `square()`, followed by `mul`.
 
+```rust
+let three_inv = three.inv();
+assert_eq!(three * three_inv, SecpMontElement::one());
+```
+
+Note: if you need to invert several elements, you should use the `inplace_batch_inverse`, since computing field inversion is usually expensive.
+
 If you print the hex representation of three, `three.to_hex()`, you will get `0x300000B73`. This is the Montgomery representation, which is different from the standard form `0x3`. If you perform `three.representative().to_hex()`, it will transform first to standard form, then give `0x3`. Let's look at the output of several functions:
 - `three.to_hex()` : `0x300000B73`
 - `three.representative().to_hex()` : `0x3`
