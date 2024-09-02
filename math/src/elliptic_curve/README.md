@@ -7,6 +7,8 @@ This folder contains the different elliptic curve models currently supported by 
 
 Each of the curve models can have one or more coordinate systems, such as homogeneous projective, Jacobian, XZ coordinates, etc. These are used for reasons of performance. It is possible to define an operation, $\oplus$, taking two points over an elliptic curve, $E$ and obtain a third one, such that $(E, \oplus)$ is a group. 
 
+This part makes use of lambdaworks finite fields. If you are unfamiliar with it or underlying concepts, refer to the [section on finite fields](../field/README.md).
+
 ## Short Weierstrass
 
 The following curves are currently supported:
