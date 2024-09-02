@@ -25,6 +25,7 @@ pub trait Compress {
     type G2Point: IsGroup;
     type Error;
 
+    #[cfg(feature = "alloc")]
     fn compress_g1_point(point: &Self::G1Point) -> alloc::vec::Vec<u8>;
 
     fn decompress_g1_point(input_bytes: &mut [u8; 48]) -> Result<Self::G1Point, Self::Error>;
