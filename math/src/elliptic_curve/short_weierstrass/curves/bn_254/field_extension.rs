@@ -236,6 +236,16 @@ pub fn mul_fp2_by_nonresidue(fe: &Fp2E) -> Fp2E {
 pub type Degree6ExtensionField = CubicExtensionField<Degree2ExtensionField, LevelTwoResidue>;
 pub type Fp6E = FieldElement<Degree6ExtensionField>;
 
+/// Computes the multiplication of an element of fp6 by the non-residue v.
+/// See Sparse Multiplication A from https://hackmd.io/@Wimet/ry7z1Xj-2#Fp6-Arithmetic.
+pub fn mul_fp6_by_nonresidue(a: &Fp6E) -> Fp6E {
+    Fp6E::new([
+        mul_fp2_by_nonresidue(&a.value()[2]),
+        a.value()[0].clone(),
+        a.value()[1].clone(),
+    ])
+}
+
 #[derive(Debug, Clone)]
 pub struct LevelThreeResidue;
 impl HasQuadraticNonResidue<Degree6ExtensionField> for LevelThreeResidue {
@@ -264,7 +274,7 @@ pub fn sparse_fp12_mul(a: &Fp12E, b: &Fp12E) -> Fp12E {
 
     let t0 = a0 * b0;
     let t1 = a1 * b1;
-    let c0 = &t0 + &t1 * LevelThreeResidue::residue();
+    let c0 = &t0 + mul_fp6_by_nonresidue(&t1);
     let t2 = Fp6E::new([b10 + b00, b11.clone(), Fp2E::zero()]);
     let mut c1 = (a0 + a1) * t2;
     c1 = c1 - t0 - t1;
@@ -439,5 +449,11 @@ mod tests {
             Fp6E::new([Fp2E::from(2), Fp2E::from(5), Fp2E::zero()]),
         ]);
         assert_eq!(sparse_fp12_mul(&a, &b), a * b)
+    }
+
+    #[test]
+    fn mul_fp6_by_nonresidue_is_correct() {
+        let a = Fp6E::from(3);
+        assert_eq!(mul_fp6_by_nonresidue(&a), a * LevelThreeResidue::residue())
     }
 }
