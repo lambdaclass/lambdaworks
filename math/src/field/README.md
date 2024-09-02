@@ -83,18 +83,26 @@ The notation $a \equiv b \pmod{p}$ means that $a - b$ is divisible by $p$, or th
 We can also define multiplication in a similar way: whenever the product of two integers exceeds the modulus $p$, take the remainder. Except for $0$, we can show that for every element $x$, there is an element $y$, such that $x \times y = 1$ and we denote $y = x^{- 1}$. This allows us to define division as $n / x = n \times x^{- 1}$. We will use $\mathbb{F_p}^\star = \{ 1, 2, \dots p - 1 \}$, that is $\mathbb{F_p}$ without the element $0$. The number of elements in $\mathbb{F_p}^\star$ is $p - 1$ and we can show that is is also an Abelian group. We call it the multiplicative group of $\mathbb{F_p}$. We will say that the field is *FFT friendly* if $p - 1 = 2^m c$, where $c$ is an odd integer, and $m$ is *sufficiently large*. For example, $p = 2^{64} - 2^{32} + 1$ satisfies $p - 1 = 2^{32} (2^{32} - 1)$ is *FFT friendly* with $m = 32$, and this means we can use the radix-2 FFT algorithm for vectors of size up to $2^{32}$.
 
 If we take a look at $\mathbb{F_p}$ with the operations $+$ and $\times$, we see that it satisfies the axioms for a [field](https://en.wikipedia.org/wiki/Field_(mathematics)). To define a field in lambdaworks, you need to specify the modulus $p$, then the library will handle all the operations. While it is possible to do operations by taking remainder, this is not performant in practice. lambdaworks relies on Montgomery arithmetic for general finite fields (unless they have some faster alternative, such as [Mersenne primes](https://en.wikipedia.org/wiki/Mersenne_prime)). Before jumping into how you define your finite field, we need to see how we are going to represent "big" numbers. Common types to represent integers are `u8`, `u16`, `u32`, `u64`, `u128`. For cryptographic applications, we need to work (in general) with larger integers, taking 256 bits or more. As these numbers do not fit into a single unsigned integer variable, we can express it using several limbs in a given base (in lambdaworks, we use base 64, where each limb is represent by `u64`). Mathematically,
+
 $$n = \sum_{i = 0}^m a_k b^k$$
+
 where $b = 2^{64}$. For a 256 bit number, we need $4$ limbs and the number looks like
+
 $$n = a_0 + a_1 2^{64} + a_2 2^{128} + a_3 2^{192}$$
+
 The number is expressed in little-endian form. Alternatively, we can also write things as
+
 $$n = a_0 2^{192} + a_1 2^{128} + a_2 2^{64} + a_3$$
+
 The number is expressed in big-endian form. This is the form we use in lambdaworks to work with big integers. To work with large integers, we provide `UnsignedInteger` types with variable number of limbs.
+
 ```rust
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct UnsignedInteger<const NUM_LIMBS: usize> {
     pub limbs: [u64; NUM_LIMBS],
 }
 ```
+
 You can create `UnsignedInteger` types whose size is a multiple of 64, such as 128, 192, 256, 320, 384. We provide `U128`, `U256` `U384` since these are commonly used with elliptic curves. There are several ways of assigning an `UnsignedInteger` a value. Some examples are:
 - `UnsignedInteger::from(value: u128)`
 - `UnsignedInteger::from(value: u64)`
@@ -103,11 +111,13 @@ You can create `UnsignedInteger` types whose size is a multiple of 64, such as 1
 - `UnsignedInteger::from_hex_unchecked(hex_str: &str)`
 
 For example,
+
 ```rust
     let modulus: U256 = U256::from_hex_unchecked(
         "0x40000000000000000000000000000000224698fc0994a8dd8c46eb2100000001",
     );
 ```
+
 Defines a value, modulus, whose hex representation is given by `0x40000000000000000000000000000000224698fc0994a8dd8c46eb2100000001`. Inside, the function takes chunks of 8 bytes and interprets them as the limb. This represents the prime number of 77 decimal digits `28948022309329048855892746252171976963363056481941647379679742748393362948097`.
 
 We can now jump to the definition of a finite field:
@@ -155,6 +165,7 @@ Additionally, you have the following methods:
 - `to_hex` : transforms the element to a hex string.
 
 To practice some operations, we are going to define a new field and do some operations. The following is the base field for the `secp256k1` elliptic curve, best known as Bitcoin's curve:
+
 ```rust
  #[derive(Clone, Debug)]
 struct SecpModulus;
@@ -168,6 +179,7 @@ type SecpMontElement = FieldElement<SecpMontField>;
 ```
 
 We will create some elements and perform operations:
+
 ```rust
 let minus_3 = -SecpMontElement::from_hex_unchecked("0x3");
 let three = SecpMontElement::from_hex_unchecked("0x3");
