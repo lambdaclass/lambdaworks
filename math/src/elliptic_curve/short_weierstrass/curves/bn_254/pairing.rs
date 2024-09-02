@@ -42,7 +42,7 @@ type G2Point = ShortWeierstrassProjectivePoint<BN254TwistCurve>;
 pub const X: u64 = 0x44e992b44a6909f1;
 
 /// x = 100010011101001100100101011010001001010011010010000100111110001
-pub const X_BINARY: [bool; 63] = [
+pub const X_BINARY: &'static [bool] = &[
     true, false, false, false, true, false, false, true, true, true, false, true, false, false,
     true, true, false, false, true, false, false, true, false, true, false, true, true, false,
     true, false, false, false, true, false, false, true, false, true, false, false, true, true,
@@ -54,12 +54,13 @@ pub const X_BINARY: [bool; 63] = [
 /// MILLER_CONSTANT = 6x + 2 = 29793968203157093288.
 /// Note that this is a representation using {1, -1, 0}, but it isn't a NAF representation
 /// because it has non-zero values adjacent.
-/// See the post https://hackmd.io/@Wimet/ry7z1Xj-2#The-Pairing.
 /// See arkworks library https://github.com/arkworks-rs/algebra/blob/master/curves/bn254/src/curves/mod.rs#L21 (constant called ATE_LOOP_COUNT).
-pub const MILLER_CONSTANT: [i32; 65] = [
-    0, 0, 0, 1, 0, 1, 0, -1, 0, 0, 1, -1, 0, 0, 1, 0, 0, 1, 1, 0, -1, 0, 0, 1, 0, -1, 0, 0, 0, 0,
-    1, 1, 1, 0, 0, -1, 0, 0, 1, 0, 0, 0, 0, 0, -1, 0, 0, 1, 1, 0, 0, -1, 0, 0, 0, 1, 1, 0, -1, 0,
-    0, 1, 0, 1, 1,
+/// Notice that MILLER_CONSTANT has been updated to one with hamming weight of 22 instead of 26.
+/// To see the old version of the constant check the post https://hackmd.io/@Wimet/ry7z1Xj-2#The-Pairing.
+pub const MILLER_CONSTANT: &'static [i8] = &[
+    0, 0, 0, 1, 0, 1, 0, -1, 0, 0, -1, 0, 0, 0, 1, 0, 0, -1, 0, -1, 0, 0, 0, 1, 0, -1, 0, 0, 0, 0,
+    -1, 0, 0, 1, 0, -1, 0, 0, 1, 0, 0, 0, 0, 0, -1, 0, 0, -1, 0, 1, 0, -1, 0, 0, 0, -1, 0, -1, 0,
+    0, 0, 1, 0, 1, 1,
 ];
 
 /// GAMMA constants used to compute the Frobenius morphisms and G2 subgroup check.
@@ -550,28 +551,12 @@ pub fn cyclotomic_pow_x(f: &Fp12E) -> Fp12E {
     let mut result = Fp12E::one();
     X_BINARY.iter().for_each(|&bit| {
         result = cyclotomic_square(&result);
-        if bit == true {
+        if bit {
             result = &result * f;
         }
     });
     result
 }
-
-/*
-/// Computes f^x where f is in the cyclotomic subgroup of Fp12.
-/// Algorithm from https://hackmd.io/@Wimet/ry7z1Xj-2#Exponentiation-in-the-Cyclotomic-Subgroup.
-#[allow(clippy::needless_range_loop)]
-pub fn cyclotomic_pow_x(f: &Fp12E) -> Fp12E {
-    let mut result = Fp12E::one();
-    for i in 0..63 {
-        result = cyclotomic_square(&result);
-        if X_BINARY[i] == 1 {
-            result = &result * f;
-        }
-    }
-    result
-}
-*/
 
 #[cfg(test)]
 /// We took the G1 and G2 points from:
