@@ -229,9 +229,12 @@ Addition and subtraction in Montgomery form follow the same rules as ordinary ad
 
 Multiplication follows `cios`, unless there are spare bits in the modulus. For that case, multiplication changes to `cios_optimized_for_moduli_with_one_spare_bit`. Squaring uses the `sos_square` method.
 
+Inversion is performed using Algorithm 16 (Binary Euclidean Algorithm) from [Guajardo, Kumar, Paar, Perzl](https://www.sandeep.de/my/papers/2006_ActaApplMath_EfficientSoftFiniteF.pdf).
+
 ## References
 
 - [An introduction to mathematical cryptography](https://books.google.com.ar/books/about/An_Introduction_to_Mathematical_Cryptogr.html?id=XLY9AnfDhsYC&source=kp_book_description&redir_esc=y)
 - [High-Speed Algorithms & Architectures For Number-Theoretic Cryptosystems](https://www.microsoft.com/en-us/research/wp-content/uploads/1998/06/97Acar.pdf)
 - [Developer math survival kit](https://blog.lambdaclass.com/math-survival-kit-for-developers/)
 - [Montgomery Arithmetic from a Software Perspective](https://eprint.iacr.org/2017/1057.pdf)
+- [Guajardo, Kumar, Paar, Perzl - Efficient software implementation of finite fields with applications to Cryptography](https://www.sandeep.de/my/papers/2006_ActaApplMath_EfficientSoftFiniteF.pdf)
