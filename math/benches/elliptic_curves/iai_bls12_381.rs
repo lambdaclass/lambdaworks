@@ -4,16 +4,17 @@ use lambdaworks_math::{
     elliptic_curve::{
         short_weierstrass::{
             curves::bls12_381::{
-                compression::{compress_g1_point, decompress_g1_point},
-                curve::BLS12381Curve,
-                pairing::BLS12381AtePairing,
-                twist::BLS12381TwistCurve,
+                curve::BLS12381Curve, pairing::BLS12381AtePairing, twist::BLS12381TwistCurve,
             },
             point::ShortWeierstrassProjectivePoint,
+            traits::Compress,
         },
         traits::{IsEllipticCurve, IsPairing},
     },
 };
+
+pub type G1Point = ShortWeierstrassProjectivePoint<BLS12381Curve>;
+
 use rand::{rngs::StdRng, Rng, SeedableRng};
 #[allow(dead_code)]
 type G1 = ShortWeierstrassProjectivePoint<BLS12381Curve>;
@@ -91,14 +92,14 @@ pub fn bls12_381_neg_g2() {
 #[allow(dead_code)]
 pub fn bls12_381_compress_g1() {
     let (a, _, _, _) = rand_points_g1();
-    let _ = black_box(compress_g1_point(black_box(&a)));
+    let _ = black_box(G1Point::compress_g1_point(black_box(&a)));
 }
 
 #[allow(dead_code)]
 pub fn bls12_381_decompress_g1() {
     let (a, _, _, _) = rand_points_g1();
-    let a: [u8; 48] = compress_g1_point(&a).try_into().unwrap();
-    let _ = black_box(decompress_g1_point(&mut black_box(a))).unwrap();
+    let a: [u8; 48] = G1Point::compress_g1_point(&a).try_into().unwrap();
+    let _ = black_box(G1Point::decompress_g1_point(&mut black_box(a))).unwrap();
 }
 
 #[allow(dead_code)]
