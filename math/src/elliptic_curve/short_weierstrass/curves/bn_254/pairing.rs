@@ -47,7 +47,7 @@ type G2Point = ShortWeierstrassProjectivePoint<BN254TwistCurve>;
 pub const X: u64 = 0x44e992b44a6909f1;
 
 /// x = 100010011101001100100101011010001001010011010010000100111110001
-pub const X_BINARY: &'static [bool] = &[
+pub const X_BINARY: &[bool] = &[
     true, false, false, false, true, false, false, true, true, true, false, true, false, false,
     true, true, false, false, true, false, false, true, false, true, false, true, true, false,
     true, false, false, false, true, false, false, true, false, true, false, false, true, true,
@@ -62,7 +62,7 @@ pub const X_BINARY: &'static [bool] = &[
 /// See arkworks library https://github.com/arkworks-rs/algebra/blob/master/curves/bn254/src/curves/mod.rs#L21 (constant called ATE_LOOP_COUNT).
 /// Notice that MILLER_CONSTANT has been updated to one with hamming weight of 22 instead of 26.
 /// To see the old version of the constant check the post https://hackmd.io/@Wimet/ry7z1Xj-2#The-Pairing.
-pub const MILLER_CONSTANT: &'static [i8] = &[
+pub const MILLER_CONSTANT: &[i8] = &[
     0, 0, 0, 1, 0, 1, 0, -1, 0, 0, -1, 0, 0, 0, 1, 0, 0, -1, 0, -1, 0, 0, 0, 1, 0, -1, 0, 0, 0, 0,
     -1, 0, 0, 1, 0, -1, 0, 0, 1, 0, 0, 0, 0, 0, -1, 0, 0, -1, 0, 1, 0, -1, 0, 0, 0, -1, 0, -1, 0,
     0, 0, 1, 0, 1, 1,
