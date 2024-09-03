@@ -13,8 +13,6 @@ use lambdaworks_math::{
     },
 };
 
-pub type G1Point = ShortWeierstrassProjectivePoint<BLS12381Curve>;
-
 use rand::{rngs::StdRng, Rng, SeedableRng};
 #[allow(dead_code)]
 type G1 = ShortWeierstrassProjectivePoint<BLS12381Curve>;
@@ -92,14 +90,14 @@ pub fn bls12_381_neg_g2() {
 #[allow(dead_code)]
 pub fn bls12_381_compress_g1() {
     let (a, _, _, _) = rand_points_g1();
-    let _ = black_box(G1Point::compress_g1_point(black_box(&a)));
+    let _ = black_box(BLS12381Curve::compress_g1_point(black_box(&a)));
 }
 
 #[allow(dead_code)]
 pub fn bls12_381_decompress_g1() {
     let (a, _, _, _) = rand_points_g1();
-    let a: [u8; 48] = G1Point::compress_g1_point(&a).try_into().unwrap();
-    let _ = black_box(G1Point::decompress_g1_point(&mut black_box(a))).unwrap();
+    let a: [u8; 48] = BLS12381Curve::compress_g1_point(&a).try_into().unwrap();
+    let _ = black_box(BLS12381Curve::decompress_g1_point(&mut black_box(a))).unwrap();
 }
 
 #[allow(dead_code)]
