@@ -22,7 +22,7 @@ use crate::{
 type G1Point = ShortWeierstrassProjectivePoint<BLS12381Curve>;
 type BLS12381FieldElement = FieldElement<BLS12381PrimeField>;
 
-impl Compress for G1Point {
+impl Compress for BLS12381Curve {
     type G1Point = G1Point;
 
     type G2Point = <BLS12381TwistCurve as IsEllipticCurve>::PointRepresentation;
@@ -174,7 +174,7 @@ mod tests {
         use crate::elliptic_curve::short_weierstrass::traits::Compress;
 
         let g = BLS12381Curve::generator();
-        let mut compressed_g = G1Point::compress_g1_point(&g);
+        let mut compressed_g = BLS12381Curve::compress_g1_point(&g);
         let first_byte = compressed_g.first().unwrap();
 
         let first_byte_without_control_bits = (first_byte << 3) >> 3;
@@ -192,7 +192,7 @@ mod tests {
         use crate::elliptic_curve::short_weierstrass::traits::Compress;
 
         let inf = G1Point::neutral_element();
-        let compressed_inf = G1Point::compress_g1_point(&inf);
+        let compressed_inf = BLS12381Curve::compress_g1_point(&inf);
         let first_byte = compressed_inf.first().unwrap();
 
         assert_eq!(*first_byte >> 6, 3_u8);
@@ -204,10 +204,10 @@ mod tests {
         use crate::elliptic_curve::short_weierstrass::traits::Compress;
 
         let g = BLS12381Curve::generator();
-        let compressed_g = G1Point::compress_g1_point(&g);
+        let compressed_g = BLS12381Curve::compress_g1_point(&g);
         let mut compressed_g_slice: [u8; 48] = compressed_g.try_into().unwrap();
 
-        let decompressed_g = G1Point::decompress_g1_point(&mut compressed_g_slice).unwrap();
+        let decompressed_g = BLS12381Curve::decompress_g1_point(&mut compressed_g_slice).unwrap();
 
         assert_eq!(g, decompressed_g);
     }
@@ -219,10 +219,10 @@ mod tests {
         // calculate g point operate with itself
         let g_2 = g.operate_with_self(UnsignedInteger::<4>::from("2"));
 
-        let compressed_g2 = G1Point::compress_g1_point(&g_2);
+        let compressed_g2 = BLS12381Curve::compress_g1_point(&g_2);
         let mut compressed_g2_slice: [u8; 48] = compressed_g2.try_into().unwrap();
 
-        let decompressed_g2 = G1Point::decompress_g1_point(&mut compressed_g2_slice).unwrap();
+        let decompressed_g2 = BLS12381Curve::decompress_g1_point(&mut compressed_g2_slice).unwrap();
 
         assert_eq!(g_2, decompressed_g2);
     }
