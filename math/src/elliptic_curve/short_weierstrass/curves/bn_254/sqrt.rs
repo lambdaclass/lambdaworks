@@ -1,6 +1,5 @@
+use super::curve::{BN254FieldElement, BN254TwistCurveFieldElement};
 use crate::field::traits::LegendreSymbol;
-
-use super::{curve::BN254FieldElement, curve::BN254TwistCurveFieldElement};
 use core::cmp::Ordering;
 
 #[must_use]
@@ -74,26 +73,100 @@ pub fn sqrt_qfe(
 #[cfg(test)]
 mod tests {
     use super::super::curve::BN254FieldElement;
+    use super::super::twist::BN254TwistCurve;
+    use crate::elliptic_curve::short_weierstrass::traits::IsShortWeierstrass;
 
     #[test]
+    /// We took the q1 point of the test two_pairs_of_points_match_1 from pairing.rs
+    /// to get the values of x and y.
     fn test_sqrt_qfe() {
-        let c1 = BN254FieldElement::from_hex(
-            "0x13e02b6052719f607dacd3a088274f65596bd0d09920b61ab5da61bbdc7f5049334cf11213945d57e5ac7d055d042b7e",
-        ).unwrap();
-        let c0 = BN254FieldElement::from_hex(
-        "0x024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02b4510b647ae3d1770bac0326a805bbefd48056c8c121bdb8"
-        ).unwrap();
+        // Coordinate x of q.
+        let x = super::BN254TwistCurveFieldElement::new([
+            BN254FieldElement::from_hex_unchecked(
+                "1800deef121f1e76426a00665e5c4479674322d4f75edadd46debd5cd992f6ed",
+            ),
+            BN254FieldElement::from_hex_unchecked(
+                "198e9393920d483a7260bfb731fb5d25f1aa493335a9e71297e485b7aef312c2",
+            ),
+        ]);
+
+        let qfe_b = BN254TwistCurve::b();
+        // The equation of the twisted curve is y^2 = x^3 + 3 /(9+u)
+        let y_square = x.pow(3_u64) + qfe_b;
+        let y = super::sqrt_qfe(&y_square, 0).unwrap();
+        
+        // Coordinate y of q.
+        let y_expected = super::BN254TwistCurveFieldElement::new([
+            BN254FieldElement::from_hex_unchecked(
+                "12c85ea5db8c6deb4aab71808dcb408fe3d1e7690c43d37b4ce6cc0166fa7daa",
+            ),
+            BN254FieldElement::from_hex_unchecked(
+                "090689d0585ff075ec9e99ad690c3395bc4b313370b38ef355acdadcd122975b",
+            ),
+        ]);
+
+        let value_y = y.value();
+        let value_y_expected = y_expected.value();
+
+        assert_eq!(value_y[0].clone(), value_y_expected[0].clone());
+        assert_eq!(value_y[1].clone(), value_y_expected[1].clone());
+    }
+
+    #[test]
+    /// We took the q1 point of the test two_pairs_of_points_match_2 from pairing.rs
+    fn test_sqrt_qfe_2() {
+        let x = super::BN254TwistCurveFieldElement::new([
+            BN254FieldElement::from_hex_unchecked(
+                "3010c68cb50161b7d1d96bb71edfec9880171954e56871abf3d93cc94d745fa1",
+            ),
+            BN254FieldElement::from_hex_unchecked(
+                "0476be093a6d2b4bbf907172049874af11e1b6267606e00804d3ff0037ec57fd",
+            ),
+        ]);
+
+        let qfe_b = BN254TwistCurve::b();
+
+        let y_square = x.pow(3_u64) + qfe_b;
+        let y = super::sqrt_qfe(&y_square, 0).unwrap();
+
+        let y_expected = super::BN254TwistCurveFieldElement::new([
+            BN254FieldElement::from_hex_unchecked(
+                "01b33461f39d9e887dbb100f170a2345dde3c07e256d1dfa2b657ba5cd030427",
+            ),
+            BN254FieldElement::from_hex_unchecked(
+                "14c059d74e5b6c4ec14ae5864ebe23a71781d86c29fb8fb6cce94f70d3de7a21",
+            ),
+        ]);
+
+        let value_y = y.value();
+        let value_y_expected = y_expected.value();
+
+        assert_eq!(value_y[0].clone(), value_y_expected[0].clone());
+        assert_eq!(value_y[1].clone(), value_y_expected[1].clone());
+    }
+
+    /*
+    #[test]
+    fn test_sqrt_qfe_2() {
+        let c0 = BN254FieldElement::from_hex_unchecked(
+            "3010c68cb50161b7d1d96bb71edfec9880171954e56871abf3d93cc94d745fa1",
+        );
+        let c1 = BN254FieldElement::from_hex_unchecked(
+            "0476be093a6d2b4bbf907172049874af11e1b6267606e00804d3ff0037ec57fd",
+        );
         let qfe = super::BN254TwistCurveFieldElement::new([c0, c1]);
 
-        let b1 = BN254FieldElement::from_hex("0x4").unwrap();
-        let b0 = BN254FieldElement::from_hex("0x4").unwrap();
-        let qfe_b = super::BN254TwistCurveFieldElement::new([b0, b1]);
+        let qfe_b = BN254TwistCurve::b();
 
         let cubic_value = qfe.pow(3_u64) + qfe_b;
         let root = super::sqrt_qfe(&cubic_value, 0).unwrap();
 
-        let c0_expected = BN254FieldElement::from_hex("0x0ce5d527727d6e118cc9cdc6da2e351aadfd9baa8cbdd3a76d429a695160d12c923ac9cc3baca289e193548608b82801").unwrap();
-        let c1_expected = BN254FieldElement::from_hex("0x0606c4a02ea734cc32acd2b02bc28b99cb3e287e85a763af267492ab572e99ab3f370d275cec1da1aaa9075ff05f79be").unwrap();
+        let c0_expected = BN254FieldElement::from_hex_unchecked(
+            "01b33461f39d9e887dbb100f170a2345dde3c07e256d1dfa2b657ba5cd030427",
+        );
+        let c1_expected = BN254FieldElement::from_hex_unchecked(
+            "14c059d74e5b6c4ec14ae5864ebe23a71781d86c29fb8fb6cce94f70d3de7a21",
+        );
         let qfe_expected = super::BN254TwistCurveFieldElement::new([c0_expected, c1_expected]);
 
         let value_root = root.value();
@@ -102,27 +175,5 @@ mod tests {
         assert_eq!(value_root[0].clone(), value_qfe_expected[0].clone());
         assert_eq!(value_root[1].clone(), value_qfe_expected[1].clone());
     }
-
-    #[test]
-    fn test_sqrt_qfe_2() {
-        let c0 = BN254FieldElement::from_hex("0x02").unwrap();
-        let c1 = BN254FieldElement::from_hex("0x00").unwrap();
-        let qfe = super::BN254TwistCurveFieldElement::new([c0, c1]);
-
-        let c0_expected = BN254FieldElement::from_hex("0x013a59858b6809fca4d9a3b6539246a70051a3c88899964a42bc9a69cf9acdd9dd387cfa9086b894185b9a46a402be73").unwrap();
-        let c1_expected = BN254FieldElement::from_hex("0x02d27e0ec3356299a346a09ad7dc4ef68a483c3aed53f9139d2f929a3eecebf72082e5e58c6da24ee32e03040c406d4f").unwrap();
-        let qfe_expected = super::BN254TwistCurveFieldElement::new([c0_expected, c1_expected]);
-
-        let b1 = BN254FieldElement::from_hex("0x4").unwrap();
-        let b0 = BN254FieldElement::from_hex("0x4").unwrap();
-        let qfe_b = super::BN254TwistCurveFieldElement::new([b0, b1]);
-
-        let root = super::sqrt_qfe(&(qfe.pow(3_u64) + qfe_b), 0).unwrap();
-
-        let value_root = root.value();
-        let value_qfe_expected = qfe_expected.value();
-
-        assert_eq!(value_root[0].clone(), value_qfe_expected[0].clone());
-        assert_eq!(value_root[1].clone(), value_qfe_expected[1].clone());
-    }
+    */
 }
