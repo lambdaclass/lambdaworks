@@ -1239,7 +1239,7 @@ mod tests_u256_prime_fields {
         let minus_3_squared = minus_3.square();
         let minus_3_pow_2 = minus_3.pow(2_u32);
         let nine = SecpMontElement::from_hex_unchecked("0x9");
-        
+
         assert_eq!(minus_3_mul_minus_3, nine);
         assert_eq!(minus_3_squared, nine);
         assert_eq!(minus_3_pow_2, nine);
