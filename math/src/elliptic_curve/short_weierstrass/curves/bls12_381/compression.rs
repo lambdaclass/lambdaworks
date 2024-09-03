@@ -124,8 +124,8 @@ impl Compress for G1Point {
             return Ok(Self::G2Point::neutral_element());
         }
 
-        let first_byte_without_contorl_bits = (first_byte << 3) >> 3;
-        input_bytes[0] = first_byte_without_contorl_bits;
+        let first_byte_without_control_bits = (first_byte << 3) >> 3;
+        input_bytes[0] = first_byte_without_control_bits;
 
         let input0 = &input_bytes[48..];
         let input1 = &input_bytes[0..48];
