@@ -1039,4 +1039,78 @@ mod tests {
         assert_eq!(TWO_INV, FpE::from(2).inv().unwrap());
         assert_eq!(TWO_INV * FpE::from(2), FpE::one());
     }
+
+    #[test]
+    fn test_miller_loop() {
+        let p = BN254Curve::generator().operate_with_self(
+            FpE::from_hex_unchecked(
+                "a3e291cef4b9ef77d36e18852f5c936a06abdb39f5b099ce64e3c6d8c196c",
+            )
+            .representative(),
+        );
+
+        let q = BN254TwistCurve::generator().operate_with_self(
+            FpE::from_hex_unchecked(
+                "b8a5ca04ade1fcdecc669db1861eba5ba2f3e336bdbcba1d5b3c11c2b3eaa",
+            )
+            .representative(),
+        );
+
+        let gt = miller_optimized(&p, &q);
+
+        assert_eq!(gt,
+            Fp12E::new([
+                Fp6E::new([
+                    Fp2E::new([
+                        FpE::from_hex_unchecked("202c15a695c16e61d8e0c0881625c892f7eae9685cdf948a11c54de043e88e20"),
+                        FpE::from_hex_unchecked("14967b69f0aaf8fa3e20058223c2e8607830f6c934fa6c432434f34cec1796b1")]),
+                    Fp2E::new([
+                        FpE::from_hex_unchecked("2008578374540014049115224515107136454624926345291695498760935593377832328658"),
+                        FpE::from_hex_unchecked("2ae51a98367f08a634eb68adff00aba1a81fda78a40840b088f75d72d8795eb9")]),
+                    Fp2E::new([
+                        FpE::from_hex_unchecked("470d0a89c1ce096ad53e3dd54467c79d72345f7f9b254241aa280b46f075dd2"),
+                        FpE::from_hex_unchecked("561d7a124b78ec8eb03bb7b30c5ad7da57727f226f43f3cb724d48316e9eb0d")])
+                ]),
+                Fp6E::new([
+                    Fp2E::new([
+                        FpE::from_hex_unchecked("65ae01b4c30731461eae0259df1dd46b3aa8b0636a473c12b5a051011778129"),
+                        FpE::from_hex_unchecked("2EDEA023A1A9F0B8CE5E8815CD929FCB03E4F8DBB0FB63A84CF6CDE05F57BC50")]),
+                    Fp2E::new([
+                        FpE::from_hex_unchecked("2a5f55de652e1c8cc1733224d596ab19632e1311d656e819b303a3e9dad0335a"),
+                        FpE::from_hex_unchecked("27A07809C307FE48CAFA3A71B741F4FEDB781EFE7CF85BDA63FE9D891893")]),
+                    Fp2E::new([
+                        FpE::from_hex_unchecked("9fc49b82a31fedb1847783ac717df9f9d51ae64876f18ae343598385c1782a"),
+                        FpE::from_hex_unchecked("1513A7093DC1BD7C7316BAB5D11D907C57CDA37A983CF61343EA280654623A35")])
+            ])
+        ])
+        );
+    }
+
+    /*
+    #[test]
+    fn test_miller_loop() {
+
+        let g1 =G * Fr::from_str("18097487326282793650237947474982649264364522469319914492172746413872781676").unwrap();
+        let g2 = G2::one() * Fr::from_str("20390255904278144451778773028944684152769293537511418234311120800877067946").unwrap();
+
+        let g1_pre = g1.to_affine().unwrap();
+        let g2_pre = g2.to_affine().unwrap().precompute();
+
+        let gt = g2_pre.miller_loop(&g1_pre);
+
+        assert_eq!(gt,
+            Fq12::new(Fq6::new(
+                    Fq2::new(Fq::from_str("14551901853310307118181117653102171756020286507151693083446930124375536995872").unwrap(), Fq::from_str("9312135802322424742640599513015426415694425842442244572104764725304978020017").unwrap()),
+                    Fq2::new(Fq::from_str("2008578374540014049115224515107136454624926345291695498760935593377832328658").unwrap(), Fq::from_str("19401931167387470703307774451905975977586101231060812348184567722817888018105").unwrap()),
+                    Fq2::new(Fq::from_str("15835061253582829097893482726334173316772697321004871665993836763948321578465").unwrap(), Fq::from_str("2434436628082562384254182545550914004674636606111293955202388712261962820365").unwrap())
+                ),
+                Fq6::new(
+                    Fq2::new(Fq::from_str("2874440054453559166574356420729655370224872280550180463983603224123901706537").unwrap(), Fq::from_str("21199736323249863378180814900160978651989782296293186487853700340281870105680").unwrap()),
+                    Fq2::new(Fq::from_str("19165582755854282767090326095669835261356341739532443976394958023142879015770").unwrap(), Fq::from_str("1381947898997178910398427566832118260186305708991760706544743699683050330259").unwrap()),
+                    Fq2::new(Fq::from_str("282285618133171001983721596014922591835675934808772882476123488581876545578").unwrap(), Fq::from_str("9533292755262567365755835323107174518472361243562718718917822947506880920117").unwrap())
+                )
+            )
+        );
+    }
+    */
 }
