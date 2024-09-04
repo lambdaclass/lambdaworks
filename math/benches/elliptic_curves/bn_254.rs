@@ -42,32 +42,6 @@ pub fn bn_254_elliptic_curve_benchmarks(c: &mut Criterion) {
 
     let mut group = c.benchmark_group("BN254 Ops");
 
-    // Bench more than a pair
-
-    // Bench more than a pair
-    // Bench more than a pair
-    for num_pairs in 1..=10 {
-        group.bench_function(format!("Ate Pairing ({} pairs)", num_pairs), |bencher| {
-            // Para cada benchmark, creamos un nuevo RNG para garantizar la independencia de los pares.
-            let mut rng = StdRng::seed_from_u64(42);
-
-            // Almacenar los puntos en un Vec para que vivan lo suficiente.
-            let mut g1_points: Vec<G1> = Vec::new();
-            let mut g2_points: Vec<G2> = Vec::new();
-
-            for _ in 0..num_pairs {
-                let a_val: u128 = rng.gen();
-                let g1 = BN254Curve::generator().operate_with_self(a_val);
-                let g2 = BN254TwistCurve::generator().operate_with_self(a_val);
-                g1_points.push(g1);
-                g2_points.push(g2);
-            }
-
-            let pairs: Vec<(&G1, &G2)> = g1_points.iter().zip(g2_points.iter()).collect();
-
-            bencher.iter(|| black_box(BN254AtePairing::compute_batch(black_box(&pairs))));
-        });
-    }
     // To Affine G1
     group.bench_function("To Affine G1", |bencher| {
         bencher.iter(|| black_box(black_box(&a_g1).to_affine()));
@@ -144,6 +118,27 @@ pub fn bn_254_elliptic_curve_benchmarks(c: &mut Criterion) {
             )]))
         });
     });
+
+    // Batch Pairing
+    for num_pairs in 1..=10 {
+        group.bench_function(format!("Ate Pairing ({} pairs)", num_pairs), |bencher| {
+            let mut rng = StdRng::seed_from_u64(42);
+            let mut g1_points: Vec<G1> = Vec::new();
+            let mut g2_points: Vec<G2> = Vec::new();
+
+            for _ in 0..num_pairs {
+                let a_val: u128 = rng.gen();
+                let g1 = BN254Curve::generator().operate_with_self(a_val);
+                let g2 = BN254TwistCurve::generator().operate_with_self(a_val);
+                g1_points.push(g1);
+                g2_points.push(g2);
+            }
+
+            let pairs: Vec<(&G1, &G2)> = g1_points.iter().zip(g2_points.iter()).collect();
+
+            bencher.iter(|| black_box(BN254AtePairing::compute_batch(black_box(&pairs))));
+        });
+    }
 
     // Miller Naive
     group.bench_function("Miller Naive", |bencher| {
