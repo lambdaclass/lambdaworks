@@ -74,7 +74,9 @@ pub fn sqrt_qfe(
 mod tests {
     use super::super::curve::BN254FieldElement;
     use super::super::twist::BN254TwistCurve;
+    use crate::cyclic_group::IsGroup;
     use crate::elliptic_curve::short_weierstrass::traits::IsShortWeierstrass;
+    use crate::elliptic_curve::traits::IsEllipticCurve;
 
     #[test]
     /// We took the q1 point of the test two_pairs_of_points_match_1 from pairing.rs
@@ -143,6 +145,28 @@ mod tests {
 
         assert_eq!(value_y[0].clone(), value_y_expected[0].clone());
         assert_eq!(value_y[1].clone(), value_y_expected[1].clone());
+    }
+
+    #[test]
+    fn test_sqrt_qfe_3() {
+        let g = BN254TwistCurve::generator().to_affine();
+        let y = &g.coordinates()[1];
+        let y_square = &y.square();
+        let y_result = super::sqrt_qfe(&y_square, 0).unwrap();
+
+        assert_eq!(y_result, y.clone());
+    }
+
+    #[test]
+    fn test_sqrt_qfe_4() {
+        let g = BN254TwistCurve::generator()
+            .operate_with_self(2 as u16)
+            .to_affine();
+        let y = &g.coordinates()[1];
+        let y_square = &y.square();
+        let y_result = super::sqrt_qfe(&y_square, 0).unwrap();
+
+        assert_eq!(y_result, y.clone());
     }
 
     /*

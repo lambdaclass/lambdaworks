@@ -179,13 +179,14 @@ impl Compress for BN254Curve {
 
         let b_param_qfe = BN254TwistCurve::b();
         let mut y = FieldElement::<Degree2ExtensionField>::one();
+        //TODO: Why do we have to use always 0?
         // If the first two bits are 11, then the square root chosen is the greater one.
         if prefix_bits == 3_u8 {
             y = sqrt::sqrt_qfe(&(x.pow(3_u64) + b_param_qfe), 0)
                 .ok_or(ByteConversionError::InvalidValue)?;
         // If the first two bits are 10, then the square root chosen is the smaller one.
         } else {
-            y = sqrt::sqrt_qfe(&(x.pow(3_u64) + b_param_qfe), 1)
+            y = sqrt::sqrt_qfe(&(x.pow(3_u64) + b_param_qfe), 0)
                 .ok_or(ByteConversionError::InvalidValue)?;
         }
 
@@ -257,7 +258,7 @@ mod tests {
 
     #[cfg(feature = "alloc")]
     #[test]
-    fn test_g1_compress_decompress_generator() {
+    fn g1_compress_decompress_is_identity() {
         use crate::elliptic_curve::short_weierstrass::traits::Compress;
 
         let g = BN254Curve::generator();
@@ -271,7 +272,7 @@ mod tests {
 
     #[cfg(feature = "alloc")]
     #[test]
-    fn test_g1_compress_decompress_two_times_generator() {
+    fn g1_compress_decompress_is_identity_2() {
         let g = BN254Curve::generator();
         // calculate g point operate with itself
         let g_2 = g.operate_with_self(UnsignedInteger::<4>::from("2"));
@@ -317,7 +318,7 @@ mod tests {
 
     #[cfg(feature = "alloc")]
     #[test]
-    fn test_g2_compress_decompress_generator() {
+    fn g2_compress_decompress_is_identity() {
         use crate::elliptic_curve::short_weierstrass::traits::Compress;
 
         let g = BN254TwistCurve::generator();
@@ -331,7 +332,7 @@ mod tests {
 
     #[cfg(feature = "alloc")]
     #[test]
-    fn test_compress_decompress_two_times_geneartor_of_g2() {
+    fn g2_compress_decompress_is_identity_2() {
         let g = BN254TwistCurve::generator();
         // calculate g point operate with itself
         let g_2 = g.operate_with_self(UnsignedInteger::<4>::from("2"));
@@ -346,7 +347,7 @@ mod tests {
 
     #[cfg(feature = "alloc")]
     #[test]
-    fn test_compress_decompress_3() {
+    fn g2_compress_decompress_is_identity_3() {
         use crate::unsigned_integer::element::U256;
 
         let g = G2Point::from_affine(
@@ -364,6 +365,41 @@ mod tests {
                 )),
                 FpE::new(U256::from_hex_unchecked(
                     "090689d0585ff075ec9e99ad690c3395bc4b313370b38ef355acdadcd122975b",
+                )),
+            ]),
+        )
+        .unwrap();
+        // calculate g point operate with itself
+        let g_2 = g.operate_with_self(UnsignedInteger::<4>::from("2"));
+
+        let compressed_g2 = BN254Curve::compress_g2_point(&g_2);
+        let mut compressed_g2_slice: [u8; 64] = compressed_g2.try_into().unwrap();
+
+        let decompressed_g2 = BN254Curve::decompress_g2_point(&mut compressed_g2_slice).unwrap();
+
+        assert_eq!(g_2, decompressed_g2);
+    }
+
+    #[cfg(feature = "alloc")]
+    #[test]
+    fn g2_compress_decompress_is_identity_4() {
+        use crate::unsigned_integer::element::U256;
+
+        let g = G2Point::from_affine(
+            Fp2E::new([
+                FpE::new(U256::from_hex_unchecked(
+                    "3010c68cb50161b7d1d96bb71edfec9880171954e56871abf3d93cc94d745fa1",
+                )),
+                FpE::new(U256::from_hex_unchecked(
+                    "0476be093a6d2b4bbf907172049874af11e1b6267606e00804d3ff0037ec57fd",
+                )),
+            ]),
+            Fp2E::new([
+                FpE::new(U256::from_hex_unchecked(
+                    "01b33461f39d9e887dbb100f170a2345dde3c07e256d1dfa2b657ba5cd030427",
+                )),
+                FpE::new(U256::from_hex_unchecked(
+                    "14c059d74e5b6c4ec14ae5864ebe23a71781d86c29fb8fb6cce94f70d3de7a21",
                 )),
             ]),
         )
