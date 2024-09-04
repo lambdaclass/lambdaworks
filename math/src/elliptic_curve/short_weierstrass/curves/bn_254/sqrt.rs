@@ -94,7 +94,7 @@ mod tests {
         // The equation of the twisted curve is y^2 = x^3 + 3 /(9+u)
         let y_square = x.pow(3_u64) + qfe_b;
         let y = super::sqrt_qfe(&y_square, 0).unwrap();
-        
+
         // Coordinate y of q.
         let y_expected = super::BN254TwistCurveFieldElement::new([
             BN254FieldElement::from_hex_unchecked(

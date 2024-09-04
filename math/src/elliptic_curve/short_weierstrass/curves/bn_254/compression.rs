@@ -18,6 +18,7 @@ use crate::{
 };
 
 type G1Point = ShortWeierstrassProjectivePoint<BN254Curve>;
+type G2Point = ShortWeierstrassProjectivePoint<BN254TwistCurve>;
 type BN254FieldElement = FieldElement<BN254PrimeField>;
 
 // Bytes returns binary representation of p
@@ -35,7 +36,7 @@ type BN254FieldElement = FieldElement<BN254PrimeField>;
 impl Compress for BN254Curve {
     type G1Point = G1Point;
 
-    type G2Point = <BN254TwistCurve as IsEllipticCurve>::PointRepresentation;
+    type G2Point = G2Point;
 
     type Error = ByteConversionError;
 
@@ -92,8 +93,8 @@ impl Compress for BN254Curve {
         let (y_sqrt_1, y_sqrt_2) = &y_squared.sqrt().ok_or(ByteConversionError::InvalidValue)?;
 
         // we call "negative" to the greater root,
-        // if the frist two bits are 10, we take this grater value.
-        // if the first two bits are 11, we take the second one.
+        // if the frist two bits are 10, we take the smaller root.
+        // if the first two bits are 11, we take the grater .
         let y = match (
             y_sqrt_1.representative().cmp(&y_sqrt_2.representative()),
             prefix_bits,
@@ -109,6 +110,44 @@ impl Compress for BN254Curve {
             G1Point::from_affine(x, y.clone()).map_err(|_| ByteConversionError::InvalidValue)?;
 
         Ok(point)
+    }
+
+    #[cfg(feature = "alloc")]
+    fn compress_g2_point(point: &Self::G2Point) -> alloc::vec::Vec<u8> {
+        if *point == G2Point::neutral_element() {
+            // point is at infinity
+            let mut x_bytes = alloc::vec![0_u8;64];
+            x_bytes[0] |= 1 << 6; // x_bytes = 01000000
+            x_bytes
+        } else {
+            // point is not at infinity
+            let point_affine = point.to_affine();
+            let x = point_affine.x();
+            let y = point_affine.y();
+
+            let mut x_bytes = x.to_bytes_be();
+
+            // Set first bit to to 1 indicate this is compressed element.
+            x_bytes[0] |= 1 << 7; // x_bytes = 10000000
+            let [y0, y1] = y.value();
+
+            // We see if y_neg < y lexicographically where the lexicographic order is a
+            // Let a = a0 + a1 * u and b = b0 + b1 * u in Fp2, then a < b if a1 < b1 or
+            // a1 = b1 and a0 < b0.
+            if y1 == &BN254FieldElement::zero() {
+                let y0_neg = core::ops::Neg::neg(y0);
+                if y0_neg.representative() < y0.representative() {
+                    x_bytes[0] |= 1 << 6; // x_bytes = 11000000
+                }
+            } else {
+                let y1_neg = core::ops::Neg::neg(y1);
+                if y1_neg.representative() < y1.representative() {
+                    x_bytes[0] |= 1 << 6; // x_bytes = 11000000
+                }
+            }
+
+            x_bytes
+        }
     }
 
     #[allow(unused)]
@@ -132,27 +171,41 @@ impl Compress for BN254Curve {
         let first_byte_without_control_bits = (first_byte << 2) >> 2;
         input_bytes[0] = first_byte_without_control_bits;
 
-        let input0 = &input_bytes[32..];
-        let input1 = &input_bytes[0..32];
+        let input0 = &input_bytes[0..32];
+        let input1 = &input_bytes[32..];
         let x0 = BN254FieldElement::from_bytes_be(input0).unwrap();
         let x1 = BN254FieldElement::from_bytes_be(input1).unwrap();
         let x: FieldElement<Degree2ExtensionField> = FieldElement::new([x0, x1]);
 
         let b_param_qfe = BN254TwistCurve::b();
-
-        let y = sqrt::sqrt_qfe(&(x.pow(3_u64) + b_param_qfe), 0)
-            .ok_or(ByteConversionError::InvalidValue)?;
+        let mut y = FieldElement::<Degree2ExtensionField>::one();
+        // If the first two bits are 11, then the square root chosen is the greater one.
+        if prefix_bits == 3_u8 {
+            y = sqrt::sqrt_qfe(&(x.pow(3_u64) + b_param_qfe), 0)
+                .ok_or(ByteConversionError::InvalidValue)?;
+        // If the first two bits are 10, then the square root chosen is the smaller one.
+        } else {
+            y = sqrt::sqrt_qfe(&(x.pow(3_u64) + b_param_qfe), 1)
+                .ok_or(ByteConversionError::InvalidValue)?;
+        }
 
         Self::G2Point::from_affine(x, y).map_err(|_| ByteConversionError::InvalidValue)
+
+        //TODO: Do we have to check that the point is in the subgroup?
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{BN254FieldElement, G1Point};
+    use super::*;
+    use super::{BN254FieldElement, G1Point, G2Point};
     use crate::elliptic_curve::short_weierstrass::curves::bn_254::curve::BN254Curve;
+    use crate::elliptic_curve::short_weierstrass::curves::bn_254::twist::BN254TwistCurve;
     use crate::elliptic_curve::short_weierstrass::traits::Compress;
     use crate::elliptic_curve::traits::{FromAffine, IsEllipticCurve};
+
+    type FpE = BN254FieldElement;
+    type Fp2E = FieldElement<Degree2ExtensionField>;
 
     #[cfg(feature = "alloc")]
     use crate::{
@@ -181,7 +234,7 @@ mod tests {
         let mut compressed_g = BN254Curve::compress_g1_point(&g);
         let first_byte = compressed_g.first().unwrap();
 
-        let first_byte_without_control_bits = (first_byte << 3) >> 3;
+        let first_byte_without_control_bits = (first_byte << 2) >> 2;
         compressed_g[0] = first_byte_without_control_bits;
 
         let compressed_g_x = BN254FieldElement::from_bytes_be(&compressed_g).unwrap();
@@ -204,7 +257,7 @@ mod tests {
 
     #[cfg(feature = "alloc")]
     #[test]
-    fn test_compress_decompress_generator() {
+    fn test_g1_compress_decompress_generator() {
         use crate::elliptic_curve::short_weierstrass::traits::Compress;
 
         let g = BN254Curve::generator();
@@ -218,7 +271,7 @@ mod tests {
 
     #[cfg(feature = "alloc")]
     #[test]
-    fn test_compress_decompress_2g() {
+    fn test_g1_compress_decompress_two_times_generator() {
         let g = BN254Curve::generator();
         // calculate g point operate with itself
         let g_2 = g.operate_with_self(UnsignedInteger::<4>::from("2"));
@@ -229,5 +282,106 @@ mod tests {
         let decompressed_g2 = BN254Curve::decompress_g1_point(&mut compressed_g2_slice).unwrap();
 
         assert_eq!(g_2, decompressed_g2);
+    }
+
+    #[cfg(feature = "alloc")]
+    #[test]
+    fn test_g2_compress_generator() {
+        use crate::elliptic_curve::short_weierstrass::traits::Compress;
+
+        let g = BN254TwistCurve::generator();
+        let mut compressed_g = BN254Curve::compress_g2_point(&g);
+        let first_byte = compressed_g.first().unwrap();
+
+        let first_byte_without_control_bits = (first_byte << 2) >> 2;
+        compressed_g[0] = first_byte_without_control_bits;
+
+        let compressed_g_x =
+            FieldElement::<Degree2ExtensionField>::from_bytes_be(&compressed_g).unwrap();
+        let g_x = g.x();
+
+        assert_eq!(*g_x, compressed_g_x);
+    }
+
+    #[cfg(feature = "alloc")]
+    #[test]
+    fn test_g2_compress_point_at_inf() {
+        use crate::elliptic_curve::short_weierstrass::traits::Compress;
+
+        let inf = G2Point::neutral_element();
+        let compressed_inf = BN254Curve::compress_g2_point(&inf);
+        let first_byte = compressed_inf.first().unwrap();
+
+        assert_eq!(*first_byte >> 6, 1_u8);
+    }
+
+    #[cfg(feature = "alloc")]
+    #[test]
+    fn test_g2_compress_decompress_generator() {
+        use crate::elliptic_curve::short_weierstrass::traits::Compress;
+
+        let g = BN254TwistCurve::generator();
+        let compressed_g = BN254Curve::compress_g2_point(&g);
+        let mut compressed_g_slice: [u8; 64] = compressed_g.try_into().unwrap();
+
+        let decompressed_g = BN254Curve::decompress_g2_point(&mut compressed_g_slice).unwrap();
+
+        assert_eq!(g, decompressed_g);
+    }
+
+    #[cfg(feature = "alloc")]
+    #[test]
+    fn test_compress_decompress_two_times_geneartor_of_g2() {
+        let g = BN254TwistCurve::generator();
+        // calculate g point operate with itself
+        let g_2 = g.operate_with_self(UnsignedInteger::<4>::from("2"));
+
+        let compressed_g2 = BN254Curve::compress_g2_point(&g_2);
+        let mut compressed_g2_slice: [u8; 64] = compressed_g2.try_into().unwrap();
+
+        let decompressed_g2 = BN254Curve::decompress_g2_point(&mut compressed_g2_slice).unwrap();
+
+        assert_eq!(g_2, decompressed_g2);
+    }
+
+    #[cfg(feature = "alloc")]
+    #[test]
+    fn test_compress_decompress_3() {
+        use crate::unsigned_integer::element::U256;
+
+        let g = G2Point::from_affine(
+            Fp2E::new([
+                FpE::new(U256::from_hex_unchecked(
+                    "1800deef121f1e76426a00665e5c4479674322d4f75edadd46debd5cd992f6ed",
+                )),
+                FpE::new(U256::from_hex_unchecked(
+                    "198e9393920d483a7260bfb731fb5d25f1aa493335a9e71297e485b7aef312c2",
+                )),
+            ]),
+            Fp2E::new([
+                FpE::new(U256::from_hex_unchecked(
+                    "12c85ea5db8c6deb4aab71808dcb408fe3d1e7690c43d37b4ce6cc0166fa7daa",
+                )),
+                FpE::new(U256::from_hex_unchecked(
+                    "090689d0585ff075ec9e99ad690c3395bc4b313370b38ef355acdadcd122975b",
+                )),
+            ]),
+        )
+        .unwrap();
+        // calculate g point operate with itself
+        let g_2 = g.operate_with_self(UnsignedInteger::<4>::from("2"));
+
+        let compressed_g2 = BN254Curve::compress_g2_point(&g_2);
+        let mut compressed_g2_slice: [u8; 64] = compressed_g2.try_into().unwrap();
+
+        let decompressed_g2 = BN254Curve::decompress_g2_point(&mut compressed_g2_slice).unwrap();
+
+        assert_eq!(g_2, decompressed_g2);
+    }
+
+    #[test]
+    fn is_g2_generator_in_subgroup() {
+        let g = BN254TwistCurve::generator().operate_with_self(UnsignedInteger::<4>::from("2"));
+        assert!(g.is_in_subgroup())
     }
 }
