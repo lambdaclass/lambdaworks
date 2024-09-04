@@ -145,6 +145,16 @@ let q = BN254TwistCurve::generator();
 let pairing_result = BN254AtePairing::compute_batch(&[(&p, &q)]).unwrap();
 ```
 
+## Elliptic curve point compression and decompression
+
+Elliptic curve points have to satisfy their defining equation; a pair $(x , y)$ is on the curve if and only if $y^2 = x^3 + ax + b$ for curves defined using the Short Weierstrass form. However, given $x$, we can obtain $y$ up to sign:
+
+$$y = \pm \sqrt{x^3 + ax + b}$$
+
+This allows us to reduce the amount of information we send to define a unique point on the curve. It suffices to specify $x$ and which of the two values (either $-$ or $+$) we shoudl take. This comes pretty handy when we want to send and store signatures or store the structured reference string (SRS) for a proof system, which in generally a large collection of points. We say that points are given in compressed form if we provide the $x$ coordinate and an additional bit to decide which of the two roots we should choose (in real numbers, it would be easy to know which one is the positive and the negative. In finite fields, we select the lexicographically largest or smallest. This means that if we are working modulo $17$ and we want to compute $\sqrt{4}$, we have $2$ and $15$ and $15$ is the lexicographically greatest).
+
+In many curves, the base field contains some spare bits (as is the case of BLS12-381 or BN254, but not secp256k1), which allow us to codify the extra bit into the free bits of the element. Depending on the number of spare bits, we could compress points in different ways.
+
 ## References
 
 - [HyperElliptic - formulae for EC addition and doubling](https://hyperelliptic.org/EFD/g1p/index.html)
