@@ -72,11 +72,12 @@ pub fn sqrt_qfe(
 
 #[cfg(test)]
 mod tests {
-    use super::super::curve::BN254FieldElement;
+    use super::super::curve::{BN254FieldElement, BN254TwistCurveFieldElement};
     use super::super::twist::BN254TwistCurve;
     use crate::cyclic_group::IsGroup;
     use crate::elliptic_curve::short_weierstrass::traits::IsShortWeierstrass;
     use crate::elliptic_curve::traits::IsEllipticCurve;
+    use rand::{rngs::StdRng, Rng, SeedableRng};
 
     #[test]
     /// We took the q1 point of the test two_pairs_of_points_match_1 from pairing.rs
@@ -169,35 +170,29 @@ mod tests {
         assert_eq!(y_result, y.clone());
     }
 
-    /*
     #[test]
-    fn test_sqrt_qfe_2() {
-        let c0 = BN254FieldElement::from_hex_unchecked(
-            "3010c68cb50161b7d1d96bb71edfec9880171954e56871abf3d93cc94d745fa1",
-        );
-        let c1 = BN254FieldElement::from_hex_unchecked(
-            "0476be093a6d2b4bbf907172049874af11e1b6267606e00804d3ff0037ec57fd",
-        );
-        let qfe = super::BN254TwistCurveFieldElement::new([c0, c1]);
+    fn test_sqrt_qfe_5() {
+        let a = BN254TwistCurveFieldElement::new([
+            BN254FieldElement::from(3),
+            BN254FieldElement::from(4),
+        ]);
+        let a_square = a.square();
+        let a_result = super::sqrt_qfe(&a_square, 0).unwrap();
 
-        let qfe_b = BN254TwistCurve::b();
-
-        let cubic_value = qfe.pow(3_u64) + qfe_b;
-        let root = super::sqrt_qfe(&cubic_value, 0).unwrap();
-
-        let c0_expected = BN254FieldElement::from_hex_unchecked(
-            "01b33461f39d9e887dbb100f170a2345dde3c07e256d1dfa2b657ba5cd030427",
-        );
-        let c1_expected = BN254FieldElement::from_hex_unchecked(
-            "14c059d74e5b6c4ec14ae5864ebe23a71781d86c29fb8fb6cce94f70d3de7a21",
-        );
-        let qfe_expected = super::BN254TwistCurveFieldElement::new([c0_expected, c1_expected]);
-
-        let value_root = root.value();
-        let value_qfe_expected = qfe_expected.value();
-
-        assert_eq!(value_root[0].clone(), value_qfe_expected[0].clone());
-        assert_eq!(value_root[1].clone(), value_qfe_expected[1].clone());
+        assert_eq!(a_result, a);
     }
-    */
+    #[test]
+    fn test_sqrt_qfe_random() {
+        let mut rng = StdRng::seed_from_u64(42);
+        let a_val: u64 = rng.gen();
+        let b_val: u64 = rng.gen();
+        let a = BN254TwistCurveFieldElement::new([
+            BN254FieldElement::from(a_val),
+            BN254FieldElement::from(b_val),
+        ]);
+        let a_square = a.square();
+        let a_result = super::sqrt_qfe(&a_square, 0).unwrap();
+
+        assert_eq!(a_result, a);
+    }
 }
