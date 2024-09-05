@@ -2,6 +2,10 @@ use super::curve::{BN254FieldElement, BN254TwistCurveFieldElement};
 use crate::field::traits::LegendreSymbol;
 use core::cmp::Ordering;
 
+pub const TWO_INV: BN254FieldElement = BN254FieldElement::from_hex_unchecked(
+    "183227397098D014DC2822DB40C0AC2ECBC0B548B438E5469E10460B6C3E7EA4",
+);
+
 #[must_use]
 pub fn select_sqrt_value_from_third_bit(
     sqrt_1: BN254FieldElement,
@@ -42,23 +46,22 @@ pub fn sqrt_qfe(
         } else {
             // second part of the input field number is non-zero
             // instead of "sum" is: -beta
-            let alpha = a.pow(2u64) + b.pow(2u64);
+            let alpha = a.square() + b.square();
             let gamma = alpha.legendre_symbol();
             match gamma {
                 LegendreSymbol::One => {
                     let two = BN254FieldElement::from(2u64);
-                    let two_inv = two.inv().unwrap();
                     // calculate the square root of alpha
                     let (y_sqrt1, y_sqrt2) = alpha.sqrt()?;
-                    let mut delta = (a.clone() + y_sqrt1) * two_inv.clone();
+                    let mut delta = (&a + y_sqrt1) * TWO_INV;
 
                     let legendre_delta = delta.legendre_symbol();
                     if legendre_delta == LegendreSymbol::MinusOne {
-                        delta = (a + y_sqrt2) * two_inv;
+                        delta = (a + y_sqrt2) * TWO_INV;
                     };
                     let (x_sqrt_1, x_sqrt_2) = delta.sqrt()?;
                     let x_0 = select_sqrt_value_from_third_bit(x_sqrt_1, x_sqrt_2, third_bit);
-                    let x_1 = b * (two * x_0.clone()).inv().unwrap();
+                    let x_1 = b * (two * &x_0).inv().unwrap();
                     Some(BN254TwistCurveFieldElement::new([x_0, x_1]))
                 }
                 LegendreSymbol::MinusOne => None,
@@ -95,7 +98,7 @@ mod tests {
 
         let qfe_b = BN254TwistCurve::b();
         // The equation of the twisted curve is y^2 = x^3 + 3 /(9+u)
-        let y_square = x.pow(3_u64) + qfe_b;
+        let y_square = x.square() * &x + qfe_b;
         let y = super::sqrt_qfe(&y_square, 0).unwrap();
 
         // Coordinate y of q.
