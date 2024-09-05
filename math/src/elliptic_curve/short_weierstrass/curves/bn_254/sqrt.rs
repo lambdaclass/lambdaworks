@@ -153,7 +153,7 @@ mod tests {
         let g = BN254TwistCurve::generator().to_affine();
         let y = &g.coordinates()[1];
         let y_square = &y.square();
-        let y_result = super::sqrt_qfe(&y_square, 0).unwrap();
+        let y_result = super::sqrt_qfe(y_square, 0).unwrap();
 
         assert_eq!(y_result, y.clone());
     }
@@ -161,11 +161,11 @@ mod tests {
     #[test]
     fn test_sqrt_qfe_4() {
         let g = BN254TwistCurve::generator()
-            .operate_with_self(2 as u16)
+            .operate_with_self(2_u16)
             .to_affine();
         let y = &g.coordinates()[1];
         let y_square = &y.square();
-        let y_result = super::sqrt_qfe(&y_square, 0).unwrap();
+        let y_result = super::sqrt_qfe(y_square, 0).unwrap();
 
         assert_eq!(y_result, y.clone());
     }
