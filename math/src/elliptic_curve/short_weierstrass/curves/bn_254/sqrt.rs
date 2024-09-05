@@ -181,6 +181,7 @@ mod tests {
 
         assert_eq!(a_result, a);
     }
+
     #[test]
     fn test_sqrt_qfe_random() {
         let mut rng = StdRng::seed_from_u64(42);

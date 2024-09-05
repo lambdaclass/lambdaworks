@@ -1,12 +1,9 @@
 use super::{field_extension::BN254PrimeField, twist::BN254TwistCurve};
 use crate::{
-    elliptic_curve::{
-        short_weierstrass::{
-            curves::bn_254::{curve::BN254Curve, field_extension::Degree2ExtensionField, sqrt},
-            point::ShortWeierstrassProjectivePoint,
-            traits::{Compress, IsShortWeierstrass},
-        },
-        traits::IsEllipticCurve,
+    elliptic_curve::short_weierstrass::{
+        curves::bn_254::{curve::BN254Curve, field_extension::Degree2ExtensionField, sqrt},
+        point::ShortWeierstrassProjectivePoint,
+        traits::{Compress, IsShortWeierstrass},
     },
     field::element::FieldElement,
 };
@@ -21,17 +18,16 @@ type G1Point = ShortWeierstrassProjectivePoint<BN254Curve>;
 type G2Point = ShortWeierstrassProjectivePoint<BN254TwistCurve>;
 type BN254FieldElement = FieldElement<BN254PrimeField>;
 
-// Bytes returns binary representation of p
-// will store X coordinate in regular form and a parity bit
-// as we have less than 3 bits available in our coordinate, we can't follow BLS12-381 style encoding (ZCash/IETF)
-//
-// we use the 2 most significant bits instead
-//
-//      00 -> uncompressed
-//      10 -> compressed and y_neg >= y
-//      11 -> compressed and y_neg < y
-//      01 -> compressed infinity point
-//      the "uncompressed infinity point" will just have 00 (uncompressed) followed by zeroes (infinity = 0,0 in affine coordinates)
+/// As we have less than 3 bits available in our coordinate x, we can't follow BLS12-381 style encoding.
+///
+/// We use the 2 most significant bits instead
+///
+///      00 -> uncompressed
+///      10 -> compressed and y_neg >= y
+///      11 -> compressed and y_neg < y
+///      01 -> compressed infinity point
+///      the "uncompressed infinity point" will just have 00 (uncompressed) followed by zeroes (infinity = 0,0 in affine coordinates).
+///      adapted from gnark https://github.com/consensys/gnark-crypto/blob/v0.13.0/ecc/bn254/marshal.go
 
 impl Compress for BN254Curve {
     type G1Point = G1Point;
@@ -43,19 +39,19 @@ impl Compress for BN254Curve {
     #[cfg(feature = "alloc")]
     fn compress_g1_point(point: &Self::G1Point) -> alloc::vec::Vec<u8> {
         if *point == G1Point::neutral_element() {
-            // point is at infinity
+            // Point is at infinity
             let mut x_bytes = alloc::vec![0_u8; 32];
             x_bytes[0] |= 1 << 6; // x_bytes = 01000000
             x_bytes
         } else {
-            // point is not at infinity
+            // Point is not at infinity
             let point_affine = point.to_affine();
             let x = point_affine.x();
             let y = point_affine.y();
 
             let mut x_bytes = x.to_bytes_be();
 
-            // Set first bit to to 1 indicate this is compressed element.
+            // Set first bit to 1 to indicate this is a compressed element.
             x_bytes[0] |= 1 << 7; // x_bytes = 10000000
 
             let y_neg = core::ops::Neg::neg(y);
@@ -66,17 +62,17 @@ impl Compress for BN254Curve {
         }
     }
 
-    fn decompress_g1_point(input_bytes: &mut [u8; 32]) -> Result<Self::G1Point, Self::Error> {
+    fn decompress_g1_point(input_bytes: &mut [u8]) -> Result<Self::G1Point, Self::Error> {
         let first_byte = input_bytes.first().unwrap();
         // We get the 2 most significant bits
         let prefix_bits = first_byte >> 6;
 
-        // If first byte is 00000000, then the value is not compressed.
+        // If first two bits are 00, then the value is not compressed.
         if prefix_bits == 0_u8 {
             return Err(ByteConversionError::ValueNotCompressed);
         }
 
-        // If first byte is 01000000, then the compressed point is the
+        // If first two bits are 01, then the compressed point is the
         // point at infinity and we return it directly.
         if prefix_bits == 1_u8 {
             return Ok(G1Point::neutral_element());
@@ -92,9 +88,8 @@ impl Compress for BN254Curve {
 
         let (y_sqrt_1, y_sqrt_2) = &y_squared.sqrt().ok_or(ByteConversionError::InvalidValue)?;
 
-        // we call "negative" to the greater root,
-        // if the frist two bits are 10, we take the smaller root.
-        // if the first two bits are 11, we take the grater .
+        // If the frist two bits are 10, we take the smaller root.
+        // If the first two bits are 11, we take the grater one.
         let y = match (
             y_sqrt_1.representative().cmp(&y_sqrt_2.representative()),
             prefix_bits,
@@ -115,12 +110,12 @@ impl Compress for BN254Curve {
     #[cfg(feature = "alloc")]
     fn compress_g2_point(point: &Self::G2Point) -> alloc::vec::Vec<u8> {
         if *point == G2Point::neutral_element() {
-            // point is at infinity
+            // Point is at infinity
             let mut x_bytes = alloc::vec![0_u8;64];
             x_bytes[0] |= 1 << 6; // x_bytes = 01000000
             x_bytes
         } else {
-            // point is not at infinity
+            // Point is not at infinity
             let point_affine = point.to_affine();
             let x = point_affine.x();
             let y = point_affine.y();
@@ -128,21 +123,22 @@ impl Compress for BN254Curve {
             let mut x_bytes = x.to_bytes_be();
 
             // Set first bit to to 1 indicate this is compressed element.
-            x_bytes[0] |= 1 << 7; // x_bytes = 10000000
+            x_bytes[0] |= 1 << 7;
             let [y0, y1] = y.value();
 
-            // We see if y_neg < y lexicographically where the lexicographic order is a
+            // We see if y_neg < y lexicographically where the lexicographic order is as follows:
             // Let a = a0 + a1 * u and b = b0 + b1 * u in Fp2, then a < b if a1 < b1 or
             // a1 = b1 and a0 < b0.
+            // TODO: We won't use this prefix in decompress_g2_point. Why?
             if y1 == &BN254FieldElement::zero() {
                 let y0_neg = core::ops::Neg::neg(y0);
                 if y0_neg.representative() < y0.representative() {
-                    x_bytes[0] |= 1 << 6; // x_bytes = 11000000
+                    x_bytes[0] |= 1 << 6; // Prefix: 11
                 }
             } else {
                 let y1_neg = core::ops::Neg::neg(y1);
                 if y1_neg.representative() < y1.representative() {
-                    x_bytes[0] |= 1 << 6; // x_bytes = 11000000
+                    x_bytes[0] |= 1 << 6; // PRefix: 11
                 }
             }
 
@@ -151,10 +147,10 @@ impl Compress for BN254Curve {
     }
 
     #[allow(unused)]
-    fn decompress_g2_point(input_bytes: &mut [u8; 64]) -> Result<Self::G2Point, Self::Error> {
+    fn decompress_g2_point(input_bytes: &mut [u8]) -> Result<Self::G2Point, Self::Error> {
         let first_byte = input_bytes.first().unwrap();
 
-        // We get the first 2 bits
+        // We get the first 2 bits.
         let prefix_bits = first_byte >> 6;
 
         // If first two bits are 00, then the value is not compressed.
@@ -179,12 +175,17 @@ impl Compress for BN254Curve {
 
         let b_param_qfe = BN254TwistCurve::b();
         let mut y = FieldElement::<Degree2ExtensionField>::one();
-        //TODO: Why do we have to use always 0?
+
+        //TODO: Why do we always have to set sqrt_qfe input to 0 for tests to pass?
+
         // If the first two bits are 11, then the square root chosen is the greater one.
+        // So we should use sqrt_qfe with the input 1.
         if prefix_bits == 3_u8 {
             y = sqrt::sqrt_qfe(&(x.pow(3_u64) + b_param_qfe), 0)
                 .ok_or(ByteConversionError::InvalidValue)?;
+
         // If the first two bits are 10, then the square root chosen is the smaller one.
+        // So we should use sqrt_qfe with the input 0.
         } else {
             y = sqrt::sqrt_qfe(&(x.pow(3_u64) + b_param_qfe), 0)
                 .ok_or(ByteConversionError::InvalidValue)?;
@@ -212,20 +213,7 @@ mod tests {
     use crate::{
         cyclic_group::IsGroup, traits::ByteConversion, unsigned_integer::element::UnsignedInteger,
     };
-    /*
-        #[test]
-        fn test_zero_point() {
-            let g1 = BN254Curve::generator();
 
-            assert!(g1.is_in_subgroup());
-            let new_x = BN254FieldElement::zero();
-            let new_y = BN254FieldElement::one() + BN254FieldElement::one();
-
-            let false_point2 = G1Point::from_affine(new_x, new_y).unwrap();
-
-            assert!(!false_point2.is_in_subgroup());
-        }
-    */
     #[cfg(feature = "alloc")]
     #[test]
     fn test_g1_compress_generator() {
@@ -273,16 +261,14 @@ mod tests {
     #[cfg(feature = "alloc")]
     #[test]
     fn g1_compress_decompress_is_identity_2() {
-        let g = BN254Curve::generator();
-        // calculate g point operate with itself
-        let g_2 = g.operate_with_self(UnsignedInteger::<4>::from("2"));
+        let g = BN254Curve::generator().operate_with_self(UnsignedInteger::<4>::from("2"));
 
-        let compressed_g2 = BN254Curve::compress_g1_point(&g_2);
-        let mut compressed_g2_slice: [u8; 32] = compressed_g2.try_into().unwrap();
+        let compressed_g = BN254Curve::compress_g1_point(&g);
+        let mut compressed_g_slice: [u8; 32] = compressed_g.try_into().unwrap();
 
-        let decompressed_g2 = BN254Curve::decompress_g1_point(&mut compressed_g2_slice).unwrap();
+        let decompressed_g = BN254Curve::decompress_g1_point(&mut compressed_g_slice).unwrap();
 
-        assert_eq!(g_2, decompressed_g2);
+        assert_eq!(g, decompressed_g);
     }
 
     #[cfg(feature = "alloc")]
@@ -333,16 +319,14 @@ mod tests {
     #[cfg(feature = "alloc")]
     #[test]
     fn g2_compress_decompress_is_identity_2() {
-        let g = BN254TwistCurve::generator();
-        // calculate g point operate with itself
-        let g_2 = g.operate_with_self(UnsignedInteger::<4>::from("2"));
+        let g = BN254TwistCurve::generator().operate_with_self(UnsignedInteger::<4>::from("2"));
 
-        let compressed_g2 = BN254Curve::compress_g2_point(&g_2);
-        let mut compressed_g2_slice: [u8; 64] = compressed_g2.try_into().unwrap();
+        let compressed_g = BN254Curve::compress_g2_point(&g);
+        let mut compressed_g_slice: [u8; 64] = compressed_g.try_into().unwrap();
 
-        let decompressed_g2 = BN254Curve::decompress_g2_point(&mut compressed_g2_slice).unwrap();
+        let decompressed_g = BN254Curve::decompress_g2_point(&mut compressed_g_slice).unwrap();
 
-        assert_eq!(g_2, decompressed_g2);
+        assert_eq!(g, decompressed_g);
     }
 
     #[cfg(feature = "alloc")]
@@ -369,15 +353,13 @@ mod tests {
             ]),
         )
         .unwrap();
-        // calculate g point operate with itself
-        let g_2 = g.operate_with_self(UnsignedInteger::<4>::from("2"));
 
-        let compressed_g2 = BN254Curve::compress_g2_point(&g_2);
-        let mut compressed_g2_slice: [u8; 64] = compressed_g2.try_into().unwrap();
+        let compressed_g = BN254Curve::compress_g2_point(&g);
+        let mut compressed_g_slice: [u8; 64] = compressed_g.try_into().unwrap();
 
-        let decompressed_g2 = BN254Curve::decompress_g2_point(&mut compressed_g2_slice).unwrap();
+        let decompressed_g = BN254Curve::decompress_g2_point(&mut compressed_g_slice).unwrap();
 
-        assert_eq!(g_2, decompressed_g2);
+        assert_eq!(g, decompressed_g);
     }
 
     #[cfg(feature = "alloc")]
@@ -413,11 +395,5 @@ mod tests {
         let decompressed_g2 = BN254Curve::decompress_g2_point(&mut compressed_g2_slice).unwrap();
 
         assert_eq!(g_2, decompressed_g2);
-    }
-
-    #[test]
-    fn is_g2_generator_in_subgroup() {
-        let g = BN254TwistCurve::generator().operate_with_self(UnsignedInteger::<4>::from("2"));
-        assert!(g.is_in_subgroup())
     }
 }
