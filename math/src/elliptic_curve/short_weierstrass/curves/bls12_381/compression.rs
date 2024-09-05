@@ -56,7 +56,7 @@ impl Compress for BLS12381Curve {
         }
     }
 
-    fn decompress_g1_point(input_bytes: &mut [u8; 48]) -> Result<Self::G1Point, Self::Error> {
+    fn decompress_g1_point(input_bytes: &mut [u8]) -> Result<Self::G1Point, Self::Error> {
         let first_byte = input_bytes.first().unwrap();
         // We get the 3 most significant bits
         let prefix_bits = first_byte >> 5;
@@ -107,7 +107,7 @@ impl Compress for BLS12381Curve {
     }
 
     #[allow(unused)]
-    fn decompress_g2_point(input_bytes: &mut [u8; 96]) -> Result<Self::G2Point, Self::Error> {
+    fn decompress_g2_point(input_bytes: &mut [u8]) -> Result<Self::G2Point, Self::Error> {
         let first_byte = input_bytes.first().unwrap();
 
         // We get the first 3 bits
@@ -140,6 +140,11 @@ impl Compress for BLS12381Curve {
             .ok_or(ByteConversionError::InvalidValue)?;
 
         Self::G2Point::from_affine(x, y).map_err(|_| ByteConversionError::InvalidValue)
+    }
+
+    /// g2 point compression wasn't needed.
+    fn compress_g2_point(_: &Self::G2Point) -> alloc::vec::Vec<u8> {
+        todo!()
     }
 }
 
