@@ -8,6 +8,8 @@ Below is a list of all lambdaworks examples in the folder:
 - [Shamir Secret Sharing](https://github.com/lambdaclass/lambdaworks/tree/main/examples/shamir_secret_sharing): implements example of [Shamir's secret sharing](https://en.wikipedia.org/wiki/Shamir%27s_secret_sharing). Shows use of polynomials and finite fields in lambdaworks.
 - [Merkle tree CLI](https://github.com/lambdaclass/lambdaworks/tree/main/examples/merkle-tree-cli): generate inclusion proofs for an element inside a Merkle tree and verify them using a CLI.
 - [Proving Miden using lambdaworks STARK Platinum prover](https://github.com/lambdaclass/lambdaworks/tree/main/examples/prove-miden): Executes a Miden vm Fibonacci program, gets the execution trace and generates a proof (and verifies it) using STARK Platinum.
+- [BabySNARK](https://github.com/lambdaclass/lambdaworks/tree/main/examples/baby-snark): a simple SNARK to start learning the basics of elliptic curve-based proof systems.
+- [Pinocchio](https://github.com/lambdaclass/lambdaworks/tree/main/examples/pinocchio): the first practical SNARK. A good starting point to start learning about zero-knowledge proofs.
 
 You can also check [lambdaworks exercises](https://github.com/lambdaclass/lambdaworks/tree/main/exercises) to learn more.
 

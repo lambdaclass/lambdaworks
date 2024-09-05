@@ -12,6 +12,8 @@ Each of the curve models can have one or more coordinate systems, such as homoge
 The following curves are currently supported:
 - [BLS12-377](https://github.com/lambdaclass/lambdaworks/tree/main/math/src/elliptic_curve/short_weierstrass/curves/bls12_377), a pairing-friendly elliptic curve (pairing implementation pending).
 - [BLS12-381](https://github.com/lambdaclass/lambdaworks/tree/main/math/src/elliptic_curve/short_weierstrass/curves/bls12_381), a pairing-friendly elliptic curve.
+- [BN-254](https://github.com/lambdaclass/lambdaworks/tree/main/math/src/elliptic_curve/short_weierstrass/curves/bn_254), a pairing-friendly elliptic curve. Used on Ethereum.
+- [Grumpkin](https://github.com/lambdaclass/lambdaworks/tree/main/math/src/elliptic_curve/short_weierstrass/curves/grumpkin), an elliptic curve that forms a two-cycle with BN-254. This means that the base field for Grumpkin (where the coordinates $x,y$ live) is the scalar field of BN-254 (the field with order equal to the order of the group of the elliptic curve), and the scalar field for Grumpkin is the base field of BN-254.
 - [Pallas](https://github.com/lambdaclass/lambdaworks/tree/main/math/src/elliptic_curve/short_weierstrass/curves/pallas), useful for recursive SNARKs when used with Vesta.
 - [Vesta](https://github.com/lambdaclass/lambdaworks/tree/main/math/src/elliptic_curve/short_weierstrass/curves/vesta), useful for recursive SNARKs when used with Pallas.
 - [Starknet's curve](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/elliptic_curve/short_weierstrass/curves/stark_curve.rs)
@@ -131,4 +133,11 @@ fn commit(&self, p: &Polynomial<FieldElement<F>>) -> Self::Commitment {
 Pairings are an important calculation for BLS signatures and the KZG polynomial commitment scheme. These are functions mapping elements from groups of order $r$ belonging to an elliptic curve to the set of $r$-th roots of unity, $e: G_1 \times G_2 \rightarrow G_t$. They satisfy two properties:
 1. Bilinearity
 2. Non-degeneracy
-Not all elliptic curves have efficiently computable pairings. If the curve is pairing-friendly, we can implement the trait `IsPairing`. Examples of pairing-friendly curves are BLS12-381, BLS12-377, BN254. Curves such as Pallas, Vesta, secp256k1 are not pairing-friendly.
+Not all elliptic curves have efficiently computable pairings. If the curve is pairing-friendly, we can implement the trait `IsPairing`. Examples of pairing-friendly curves are BLS12-381, BLS12-377, BN254. Curves such as Pallas, Vesta, secp256k1 are not pairing-friendly. For an explanation of pairings, see our [blogpost](https://blog.lambdaclass.com/how-we-implemented-the-bn254-ate-pairing-in-lambdaworks/).
+
+The pairing function takes pairs of points $(a , b)$, where $a \in G_1$ (formed by coordinates $x,y$ taking values on the base field ${F_p}$) and $b \in G_2$ (formed by coordinates $x,y$ taking values in $F_{ p^2 }$, a quadratic extension of the base field) and outputs an element in the $r$-th roots of unity of $F_{ p^k }$. To use the pairing, provide a slice of pairs and call the function `compute_batch`. For example,
+```rust
+let p = BN254Curve::generator();
+let q = BN254TwistCurve::generator();
+let pairing_result = BN254AtePairing::compute_batch(&[(&p, &q)]).unwrap();
+```

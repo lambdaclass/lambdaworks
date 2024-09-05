@@ -1,4 +1,5 @@
 # Circuit API
+
 In this section, we'll discuss how to build your own constraint system to prove the execution of a particular program.
 
 ## Simple Example
@@ -100,4 +101,3 @@ fn main() {
 ```
 
 You can keep composing these functions in order to create more complex systems.
-
