@@ -38,7 +38,7 @@ jobs:
         auto-push: ${{ github.event_name != 'pull_request' }}
   criterion_bench_macos:
     name: Criterion benches (macOS, Apple sillicon)
-    runs-on: [self-hosted, macOS]
+    runs-on: macos-latest 
     env:
       CARGO_TERM_COLOR: always
     steps:
