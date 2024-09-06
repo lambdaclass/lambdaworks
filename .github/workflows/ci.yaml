@@ -168,7 +168,7 @@ jobs:
       
       - name: Install Docker
         run: |
-          brew install docker
+          brew install --cask docker
           open -a Docker
 
       - name: Rustup toolchain install
