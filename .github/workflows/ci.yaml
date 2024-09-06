@@ -160,7 +160,7 @@ jobs:
 
   test_macos:
     name: Test (macOS, Apple sillicon)
-    runs-on: [self-hosted, macOS]
+    runs-on: macos-latest
     env:
       CARGO_TERM_COLOR: always
     steps:
