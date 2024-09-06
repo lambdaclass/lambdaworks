@@ -239,13 +239,13 @@ mod tests {
         assert_eq!(g_2, decompressed_g2);
     }
     #[test]
-    fn g1_decompress_wrong_length_bytes() {
+    fn g1_decompress_wrong_bytes_length() {
         let mut input_bytes: [u8; 48] = [0; 48];
         let result = BLS12381Curve::decompress_g1_point(&mut input_bytes);
         assert!(result.is_err());
     }
     #[test]
-    fn g2_decompress_wrong_length_bytes() {
+    fn g2_decompress_wrong_bytes_length() {
         let mut input_bytes: [u8; 95] = [0; 95];
         let result = BLS12381Curve::decompress_g2_point(&mut input_bytes);
         assert!(result.is_err());

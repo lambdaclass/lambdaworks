@@ -407,14 +407,14 @@ mod tests {
     }
 
     #[test]
-    fn g1_decompress_wrong_length_bytes() {
+    fn g1_decompress_wrong_bytes_length() {
         let mut input_bytes: [u8; 31] = [0; 31];
         let result = BN254Curve::decompress_g1_point(&mut input_bytes);
         assert!(result.is_err());
     }
 
     #[test]
-    fn g2_decompress_wrong_length_bytes() {
+    fn g2_decompress_wrong_bytes_length() {
         let mut input_bytes: [u8; 65] = [0; 65];
         let result = BN254Curve::decompress_g2_point(&mut input_bytes);
         assert!(result.is_err());
