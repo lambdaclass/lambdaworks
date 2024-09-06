@@ -169,7 +169,6 @@ jobs:
       - name: Install Docker
         run: |
           brew install docker
-          brew install colima
           colima start
 
       - name: Rustup toolchain install
