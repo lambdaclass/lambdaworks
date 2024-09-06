@@ -169,7 +169,7 @@ jobs:
       - name: Install Docker
         run: |
           brew install docker
-          colima start
+          open -a Docker
 
       - name: Rustup toolchain install
         uses: dtolnay/rust-toolchain@stable
