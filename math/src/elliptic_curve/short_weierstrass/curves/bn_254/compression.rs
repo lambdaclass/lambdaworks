@@ -63,6 +63,11 @@ impl Compress for BN254Curve {
     }
 
     fn decompress_g1_point(input_bytes: &mut [u8]) -> Result<Self::G1Point, Self::Error> {
+        // We check that input_bytes has 32 bytes.
+        if !input_bytes.len() == 32 {
+            return Err(ByteConversionError::InvalidValue);
+        }
+
         let first_byte = input_bytes.first().unwrap();
         // We get the 2 most significant bits
         let prefix_bits = first_byte >> 6;
@@ -148,6 +153,10 @@ impl Compress for BN254Curve {
 
     #[allow(unused)]
     fn decompress_g2_point(input_bytes: &mut [u8]) -> Result<Self::G2Point, Self::Error> {
+        if !input_bytes.len() == 64 {
+            return Err(ByteConversionError::InvalidValue);
+        }
+
         let first_byte = input_bytes.first().unwrap();
 
         // We get the first 2 bits.
@@ -395,5 +404,19 @@ mod tests {
         let decompressed_g2 = BN254Curve::decompress_g2_point(&mut compressed_g2_slice).unwrap();
 
         assert_eq!(g_2, decompressed_g2);
+    }
+
+    #[test]
+    fn g1_decompress_wrong_length_bytes() {
+        let mut input_bytes: [u8; 31] = [0; 31];
+        let result = BN254Curve::decompress_g1_point(&mut input_bytes);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn g2_decompress_wrong_length_bytes() {
+        let mut input_bytes: [u8; 65] = [0; 65];
+        let result = BN254Curve::decompress_g2_point(&mut input_bytes);
+        assert!(result.is_err());
     }
 }
