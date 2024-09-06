@@ -168,7 +168,9 @@ jobs:
       
       - name: Install Docker
         run: |
-          brew install --cask docker
+          brew install docker
+          ls -l /Applications
+          ls -l ~/Applications
           sudo /Applications/Docker.app/Contents/MacOS/Docker --unattended --install-privileged-components
           open -a /Applications/Docker.app --args --unattended --accept-license
           while ! /Applications/Docker.app/Contents/Resources/bin/docker info &>/dev/null; do sleep 1; done
