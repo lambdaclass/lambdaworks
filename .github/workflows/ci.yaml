@@ -168,12 +168,10 @@ jobs:
       
       - name: Install Docker
         run: |
-          brew install docker
-          ls -l /Applications
-          ls -l ~/Applications
-          sudo /Applications/Docker.app/Contents/MacOS/Docker --unattended --install-privileged-components
-          open -a /Applications/Docker.app --args --unattended --accept-license
-          while ! /Applications/Docker.app/Contents/Resources/bin/docker info &>/dev/null; do sleep 1; done
+          brew install docker docker-compose
+          mkdir -p ~/.docker/cli-plugins
+          ln -sfn /usr/local/opt/docker-compose/bin/docker-compose ~/.docker/cli-plugins/docker-compose
+          colima start
 
       - name: Rustup toolchain install
         uses: dtolnay/rust-toolchain@stable
