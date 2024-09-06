@@ -169,7 +169,9 @@ jobs:
       - name: Install Docker
         run: |
           brew install --cask docker
-          open -a Docker
+          sudo /Applications/Docker.app/Contents/MacOS/Docker --unattended --install-privileged-components
+          open -a /Applications/Docker.app --args --unattended --accept-license
+          while ! /Applications/Docker.app/Contents/Resources/bin/docker info &>/dev/null; do sleep 1; done
 
       - name: Rustup toolchain install
         uses: dtolnay/rust-toolchain@stable
