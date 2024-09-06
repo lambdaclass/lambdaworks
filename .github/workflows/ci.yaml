@@ -165,6 +165,9 @@ jobs:
       CARGO_TERM_COLOR: always
     steps:
       - uses: actions/checkout@v3
+      
+      - name: Install Docker
+        run: brew install docker
 
       - name: Rustup toolchain install
         uses: dtolnay/rust-toolchain@stable
