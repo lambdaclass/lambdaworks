@@ -19,15 +19,13 @@ type G2Point = ShortWeierstrassProjectivePoint<BN254TwistCurve>;
 type BN254FieldElement = FieldElement<BN254PrimeField>;
 
 /// As we have less than 3 bits available in our coordinate x, we can't follow BLS12-381 style encoding.
-///
 /// We use the 2 most significant bits instead
-///
-///      00 -> uncompressed
-///      10 -> compressed and y_neg >= y
-///      11 -> compressed and y_neg < y
-///      01 -> compressed infinity point
-///      the "uncompressed infinity point" will just have 00 (uncompressed) followed by zeroes (infinity = 0,0 in affine coordinates).
-///      adapted from gnark https://github.com/consensys/gnark-crypto/blob/v0.13.0/ecc/bn254/marshal.go
+/// 00: uncompressed
+/// 10: compressed and y_neg >= y
+/// 11: compressed and y_neg < y
+/// 01: compressed infinity point
+/// the "uncompressed infinity point" will just have 00 (uncompressed) followed by zeroes (infinity = 0,0 in affine coordinates).
+/// adapted from gnark https://github.com/consensys/gnark-crypto/blob/v0.13.0/ecc/bn254/marshal.go
 
 impl Compress for BN254Curve {
     type G1Point = G1Point;
