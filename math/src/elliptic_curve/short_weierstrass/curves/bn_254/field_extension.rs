@@ -9,7 +9,6 @@ use crate::field::{
 #[cfg(feature = "alloc")]
 use crate::traits::ByteConversion;
 use crate::unsigned_integer::element::U256;
-use core::marker;
 
 pub const BN254_PRIME_FIELD_ORDER: U256 =
     U256::from_hex_unchecked("30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47");
@@ -52,7 +51,7 @@ impl ByteConversion for FieldElement<Degree2ExtensionField> {
     #[cfg(feature = "alloc")]
     fn from_bytes_be(bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError>
     where
-        Self: marker::Sized,
+        Self: core::marker::Sized,
     {
         const BYTES_PER_FIELD: usize = 32;
         let x0 = FieldElement::from_bytes_be(&bytes[0..BYTES_PER_FIELD])?;
@@ -63,7 +62,7 @@ impl ByteConversion for FieldElement<Degree2ExtensionField> {
     #[cfg(feature = "alloc")]
     fn from_bytes_le(bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError>
     where
-        Self: marker::Sized,
+        Self: core::marker::Sized,
     {
         const BYTES_PER_FIELD: usize = 32;
         let x0 = FieldElement::from_bytes_le(&bytes[0..BYTES_PER_FIELD])?;
