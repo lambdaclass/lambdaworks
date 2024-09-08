@@ -141,7 +141,7 @@ As we mentioned in the [protocol overview](protocol_overview.html#batch). When c
   - Compute $\text{Open}(t_j(D_{\text{LDE}}), \upsilon_s)$ and $\text{Open}(t_j(D_{\text{LDE}}), -\upsilon_s)$ for all $j=1,\dots, m$.
   - Compute $\text{Open}(H_1(D_{\text{LDE}}), \upsilon_s)$ and $\text{Open}(H_1(D_{\text{LDE}}), -\upsilon_s)$.
   - Compute $\text{Open}(H_2(D_{\text{LDE}}), \upsilon_s)$ and $\text{Open}(H_2(D_{\text{LDE}}), -\upsilon_s)$.
-  - Compute $\text{Open}(p_k(D_k), \upsilon_s^{2^k})$ and $\text{Open}(p_k(D_k), -\upsilon_s^{2^k})$ for all $k=1,\dots,n-1$.
+  - Compute $\text{Open}(p_k(D_k), -\upsilon_s^{2^k})$ for all $k=1,\dots,n-1$.
 
 #### Build proof
 
@@ -157,7 +157,6 @@ $$
 &\{\text{Open}(t_j(D_{\text{LDE}}), \upsilon_s): 0 \leq j< m, 0 \leq s < Q\}, \\
 &\{\text{Open}(H_1(D_{\text{LDE}}), \upsilon_s): 0 \leq s < Q\}, \\
 &\{\text{Open}(H_2(D_{\text{LDE}}), \upsilon_s): 0 \leq s < Q\}, \\
-&\{\text{Open}(p_k(D_k), \upsilon_s^{2^k}): 1\leq k< n, 0\leq s < Q\}, \\
 &\{\text{Open}(t_j(D_{\text{LDE}}), -\upsilon_s): 0 \leq j< m, 0 \leq s < Q\}, \\
 &\{\text{Open}(H_1(D_{\text{LDE}}), -\upsilon_s): 0 \leq s < Q\}, \\
 &\{\text{Open}(H_2(D_{\text{LDE}}), -\upsilon_s): 0 \leq s < Q\}, \\
