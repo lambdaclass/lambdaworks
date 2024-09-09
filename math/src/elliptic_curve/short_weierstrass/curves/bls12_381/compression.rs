@@ -135,7 +135,7 @@ impl Compress for BLS12381Curve {
         }
     }
 
-    #[allow(unused)]
+    #[cfg(feature = "alloc")]
     fn decompress_g2_point(input_bytes: &mut [u8; 96]) -> Result<Self::G2Point, Self::Error> {
         let first_byte = input_bytes.first().unwrap();
 
