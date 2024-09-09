@@ -183,7 +183,8 @@ jobs:
 
       - name: Install cairo-lang toolchain and dependencies
         env:
-          CFLAGS: "-I/usr/local/include -L/usr/local/lib"
+          CFLAGS: "-I/opt/homebrew/opt/gmp/include"
+          LDFLAGS: "-L/opt/homebrew/opt/gmp/lib"
         run: pip install -r provers/cairo/requirements.txt
 
       - name: Run clippy
