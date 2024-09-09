@@ -264,8 +264,8 @@ mod tests {
         use crate::elliptic_curve::short_weierstrass::traits::Compress;
 
         let g = BN254Curve::generator();
-        let compressed_g = BN254Curve::compress_g1_point(&g);
-        let mut compressed_g_slice: [u8; 32] = compressed_g.try_into().unwrap();
+
+        let mut compressed_g_slice: [u8; 32] = BN254Curve::compress_g1_point(&g);
 
         let decompressed_g = BN254Curve::decompress_g1_point(&mut compressed_g_slice).unwrap();
 
@@ -277,8 +277,7 @@ mod tests {
     fn g1_compress_decompress_is_identity_2() {
         let g = BN254Curve::generator().operate_with_self(UnsignedInteger::<4>::from("2"));
 
-        let compressed_g = BN254Curve::compress_g1_point(&g);
-        let mut compressed_g_slice: [u8; 32] = compressed_g.try_into().unwrap();
+        let mut compressed_g_slice: [u8; 32] = BN254Curve::compress_g1_point(&g);
 
         let decompressed_g = BN254Curve::decompress_g1_point(&mut compressed_g_slice).unwrap();
 
@@ -322,8 +321,8 @@ mod tests {
         use crate::elliptic_curve::short_weierstrass::traits::Compress;
 
         let g = BN254TwistCurve::generator();
-        let compressed_g = BN254Curve::compress_g2_point(&g);
-        let mut compressed_g_slice: [u8; 64] = compressed_g.try_into().unwrap();
+
+        let mut compressed_g_slice: [u8; 64] = BN254Curve::compress_g2_point(&g);
 
         let decompressed_g = BN254Curve::decompress_g2_point(&mut compressed_g_slice).unwrap();
 
@@ -335,8 +334,7 @@ mod tests {
     fn g2_compress_decompress_is_identity_2() {
         let g = BN254TwistCurve::generator().operate_with_self(UnsignedInteger::<4>::from("2"));
 
-        let compressed_g = BN254Curve::compress_g2_point(&g);
-        let mut compressed_g_slice: [u8; 64] = compressed_g.try_into().unwrap();
+        let mut compressed_g_slice: [u8; 64] = BN254Curve::compress_g2_point(&g);
 
         let decompressed_g = BN254Curve::decompress_g2_point(&mut compressed_g_slice).unwrap();
 
@@ -368,8 +366,7 @@ mod tests {
         )
         .unwrap();
 
-        let compressed_g = BN254Curve::compress_g2_point(&g);
-        let mut compressed_g_slice: [u8; 64] = compressed_g.try_into().unwrap();
+        let mut compressed_g_slice: [u8; 64] = BN254Curve::compress_g2_point(&g);
 
         let decompressed_g = BN254Curve::decompress_g2_point(&mut compressed_g_slice).unwrap();
 
@@ -403,8 +400,7 @@ mod tests {
         // calculate g point operate with itself
         let g_2 = g.operate_with_self(UnsignedInteger::<4>::from("2"));
 
-        let compressed_g2 = BN254Curve::compress_g2_point(&g_2);
-        let mut compressed_g2_slice: [u8; 64] = compressed_g2.try_into().unwrap();
+        let mut compressed_g2_slice: [u8; 64] = BN254Curve::compress_g2_point(&g_2);
 
         let decompressed_g2 = BN254Curve::decompress_g2_point(&mut compressed_g2_slice).unwrap();
 
