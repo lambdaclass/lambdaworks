@@ -96,7 +96,7 @@ pub fn bls12_381_compress_g1() {
 #[allow(dead_code)]
 pub fn bls12_381_decompress_g1() {
     let (a, _, _, _) = rand_points_g1();
-    let a: [u8; 48] = BLS12381Curve::compress_g1_point(&a).try_into().unwrap();
+    let a: [u8; 48] = BLS12381Curve::compress_g1_point(&a);
     let _ = black_box(BLS12381Curve::decompress_g1_point(&mut black_box(a))).unwrap();
 }
 

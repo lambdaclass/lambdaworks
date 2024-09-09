@@ -75,7 +75,7 @@ pub fn bls12_381_elliptic_curve_benchmarks(c: &mut Criterion) {
 
     // Decompress_G1_point
     group.bench_function("Decompress G1 Point", |bencher| {
-        let a: [u8; 48] = BLS12381Curve::compress_g1_point(&a_g1).try_into().unwrap();
+        let a: [u8; 48] = BLS12381Curve::compress_g1_point(&a_g1);
         bencher.iter(|| black_box(BLS12381Curve::decompress_g1_point(&mut black_box(a))).unwrap());
     });
 
