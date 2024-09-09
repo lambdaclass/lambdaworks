@@ -262,7 +262,7 @@ mod tests {
         let g = BLS12381Curve::generator();
         // calculate g point operate with itself
         let g_2 = g.operate_with_self(UnsignedInteger::<4>::from("2"));
- 
+
         let mut compressed_g2_slice: [u8; 48] = BLS12381Curve::compress_g1_point(&g_2);
 
         let decompressed_g2 = BLS12381Curve::decompress_g1_point(&mut compressed_g2_slice).unwrap();
