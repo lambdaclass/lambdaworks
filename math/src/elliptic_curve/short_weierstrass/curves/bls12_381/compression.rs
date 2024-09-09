@@ -124,7 +124,7 @@ impl Compress for BLS12381Curve {
             let x_rev: FieldElement<Degree2ExtensionField> =
                 FieldElement::new([x.value()[1].clone(), x.value()[0].clone()]);
             let mut x_bytes = [0u8; 96];
-            let bytes: [u8; 96] = x_rev.to_bytes_be().try_into().unwrap();
+            let bytes = x_rev.to_bytes_be();
             x_bytes.copy_from_slice(&bytes);
 
             // Set first bit to to 1 indicate this is compressed element.
@@ -249,8 +249,7 @@ mod tests {
         use crate::elliptic_curve::short_weierstrass::traits::Compress;
 
         let g = BLS12381Curve::generator();
-        let compressed_g = BLS12381Curve::compress_g1_point(&g);
-        let mut compressed_g_slice: [u8; 48] = compressed_g.try_into().unwrap();
+        let mut compressed_g_slice = BLS12381Curve::compress_g1_point(&g);
 
         let decompressed_g = BLS12381Curve::decompress_g1_point(&mut compressed_g_slice).unwrap();
 
@@ -263,9 +262,8 @@ mod tests {
         let g = BLS12381Curve::generator();
         // calculate g point operate with itself
         let g_2 = g.operate_with_self(UnsignedInteger::<4>::from("2"));
-
-        let compressed_g2 = BLS12381Curve::compress_g1_point(&g_2);
-        let mut compressed_g2_slice: [u8; 48] = compressed_g2.try_into().unwrap();
+ 
+        let mut compressed_g2_slice: [u8; 48] = BLS12381Curve::compress_g1_point(&g_2);
 
         let decompressed_g2 = BLS12381Curve::decompress_g1_point(&mut compressed_g2_slice).unwrap();
 
@@ -280,8 +278,7 @@ mod tests {
         };
 
         let g = BLS12381TwistCurve::generator();
-        let compressed_g = BLS12381Curve::compress_g2_point(&g);
-        let mut compressed_g_slice: [u8; 96] = compressed_g.try_into().unwrap();
+        let mut compressed_g_slice = BLS12381Curve::compress_g2_point(&g);
 
         let decompressed_g = BLS12381Curve::decompress_g2_point(&mut compressed_g_slice).unwrap();
 
@@ -298,8 +295,7 @@ mod tests {
         let g = BLS12381TwistCurve::generator();
         let g_neg = g.neg();
 
-        let compressed_g_neg = BLS12381Curve::compress_g2_point(&g_neg);
-        let mut compressed_g_neg_slice: [u8; 96] = compressed_g_neg.try_into().unwrap();
+        let mut compressed_g_neg_slice = BLS12381Curve::compress_g2_point(&g_neg);
 
         let decompressed_g_neg =
             BLS12381Curve::decompress_g2_point(&mut compressed_g_neg_slice).unwrap();
