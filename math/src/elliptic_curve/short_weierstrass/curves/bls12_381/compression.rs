@@ -124,12 +124,12 @@ impl Compress for BLS12381Curve {
             // Set first bit to to 1 indicate this is compressed element.
             x_bytes[0] |= 1 << 7;
 
+            // Set the 3rd bit based on y value.
             let y_neg = -y;
-
-            if y.value()[0].representative() > y_neg.value()[0].representative() {
-                x_bytes[0] |= 1 << 5
-            } else if y.value()[1].representative() > y_neg.value()[1].representative() {
-                x_bytes[0] |= 1 << 5
+            if y.value()[0].representative() > y_neg.value()[0].representative()
+                || y.value()[1].representative() > y_neg.value()[1].representative()
+            {
+                x_bytes[0] |= 1 << 5;
             }
             x_bytes
         }
@@ -296,22 +296,31 @@ mod tests {
     #[cfg(feature = "alloc")]
     #[test]
     fn test_decompress_g2() {
-        use crate::elliptic_curve::short_weierstrass::{
-            curves::bls12_381::twist::BLS12381TwistCurve, traits::Compress,
+        use crate::{
+            elliptic_curve::short_weierstrass::curves::bls12_381::{
+                field_extension::Degree2ExtensionField, twist::BLS12381TwistCurve,
+            },
+            field::element::FieldElement,
         };
-        // p2 = ([0x02, 0x00],[0x013a59858b6809fca4d9a3b6539246a70051a3c88899964a42bc9a69cf9acdd9dd387cfa9086b894185b9a46a402be73,0x02d27e0ec3356299a346a09ad7dc4ef68a483c3aed53f9139d2f929a3eecebf72082e5e58c6da24ee32e03040c406d4f])
 
-        let mut x_0 = [0_u8; 96];
+        let mut compressed_point = [0_u8; 96];
+        compressed_point[0] |= 1 << 7;
+        compressed_point[95] |= 1 << 1;
 
-        x_0[0] |= 1 << 7;
-        // x_0[0] |= 1 << 5;
-        x_0[95] |= 1 << 1;
+        // Valig G2 point coordinates:
+        let x_0 = BLS12381FieldElement::from_hex_unchecked("02");
+        let x_1 = BLS12381FieldElement::from_hex_unchecked("0");
+        let y_0 = BLS12381FieldElement::from_hex_unchecked("013a59858b6809fca4d9a3b6539246a70051a3c88899964a42bc9a69cf9acdd9dd387cfa9086b894185b9a46a402be73");
+        let y_1 = BLS12381FieldElement::from_hex_unchecked("02d27e0ec3356299a346a09ad7dc4ef68a483c3aed53f9139d2f929a3eecebf72082e5e58c6da24ee32e03040c406d4f");
 
-        println!("{:?}", x_0);
+        let x: FieldElement<Degree2ExtensionField> = FieldElement::new([x_0, x_1]);
+        let y: FieldElement<Degree2ExtensionField> = FieldElement::new([y_0, y_1]);
 
-        let dec_g2 = BLS12381Curve::decompress_g2_point(&mut x_0).unwrap();
+        let valid_g2_point = BLS12381TwistCurve::create_point_from_affine(x, y).unwrap();
 
-        println!("{:?}", dec_g2.y().value()[1].representative().to_hex());
+        let decompressed_point = BLS12381Curve::decompress_g2_point(&mut compressed_point).unwrap();
+
+        assert_eq!(valid_g2_point, decompressed_point);
     }
 
     #[cfg(feature = "alloc")]
@@ -326,8 +335,8 @@ mod tests {
             },
             field::element::FieldElement,
         };
-        // p2 = ([0x02, 0x00],[0x013a59858b6809fca4d9a3b6539246a70051a3c88899964a42bc9a69cf9acdd9dd387cfa9086b894185b9a46a402be73,0x02d27e0ec3356299a346a09ad7dc4ef68a483c3aed53f9139d2f929a3eecebf72082e5e58c6da24ee32e03040c406d4f])
 
+        // Valig G2 point coordinates:
         let x_0 = BLS12381FieldElement::from_hex_unchecked("02");
         let x_1 = BLS12381FieldElement::from_hex_unchecked("0");
         let y_0 = BLS12381FieldElement::from_hex_unchecked("013a59858b6809fca4d9a3b6539246a70051a3c88899964a42bc9a69cf9acdd9dd387cfa9086b894185b9a46a402be73");
@@ -340,6 +349,10 @@ mod tests {
 
         let compress_point = BLS12381Curve::compress_g2_point(&point);
 
-        println!("{:?}", compress_point);
+        let mut valid_compressed_point = [0_u8; 96];
+        valid_compressed_point[0] |= 1 << 7;
+        valid_compressed_point[95] |= 1 << 1;
+
+        assert_eq!(compress_point, valid_compressed_point);
     }
 }
