@@ -30,13 +30,40 @@ There are two parties, prover and verifier. They share a public Structured Refer
 
 Knowing these sets of points does not allow recovering the secret $\tau$ or any of its powers (security under the algebraic model).
 
-A polynomial of degree bound by $n - 1$ is an expression $p(x) = a_0 + a_1 x + a_2 x^2 + \dots + a_{n - 1} x^{n - 1}$. The coefficient $a_k \neq 0$ accompanying the largest power is called the degree of the polynomial $\mathrm{deg} (p)$. We can commit to a polynomial of degree at most $n - 1$ by performing the following multiscalar multiplication (MSM):
+A polynomial of degree bound by $n - 1$ is an expression $p(x) = a_0 + a_1 x + a_2 x^2 + \dots + a_{n - 1} x^{n - 1}$. The coefficient $a_k \neq 0$ accompanying the largest power is called the degree of the polynomial $\mathrm{deg} (p)$. The coefficients of the polynomial belong to the field $\mathbb{F_r }$. We can commit to a polynomial of degree at most $n - 1$ by performing the following multiscalar multiplication (MSM):
 
 $P = \mathrm{cm} (p) = a_0 g_1 + a_1 [\tau ]_1 + a_2 [\tau^2 ]_1 + \dots + a_{n - 1} [\tau^{n - 1} ]_1$ 
 
-This operation works, since we have points over an elliptic curve, and multiplication by a scalar and addition are defined properly. The commitment to $P$ is a point on the elliptic curve, which is equal to $p(\tau ) g_1 = P$.
+This operation works, since we have points over an elliptic curve, and multiplication by a scalar and addition are defined properly. The commitment to $P$ is a point on the elliptic curve, which is equal to $p(\tau ) g_1 = P$. This commitment achieves the two properties we need:
+- Hiding
+- Binding
+
+Given a commitment to $p$, we can prove evaluations of $p$ at points $z$. We will focus on the simplest case, where we want to show that $p(z) = y$, where $z$ and $y$ live in $\mathbb{F_r}$. The following fact will help us prove the evaluation (it is called the [polynomial remainder theorem](https://en.wikipedia.org/wiki/Polynomial_remainder_theorem)):
+
+If $p(z) = y$ then $p^\prime = p(x) - y$ is divisible by $x - z$. Another way to state this is that there exists a polynomial $q(x)$ of degree $\mathrm{deg} (p) - 1$ such that $p(x) - y = p^\prime (x) = (x - z) q(x)$. 
+
+Providing the quotient would allow the verifier to check the evaluation, but the problem is that the verifier does not know $p(x)$ in full. Given that $\tau$ is a secret point at random, we could check the previous equality in just one point, $\tau$, that is:
+
+$p(\tau ) - y = (\tau - z) q(\tau )$
+
+Due to the [Schwartz-Zippel lemma](https://en.wikipedia.org/wiki/Schwartz%E2%80%93Zippel_lemma), if the equality above holds, then, with high probability $p(x) - y = p^\prime (x) = (x - z) q(x)$. We could send, therefore $Q = \mathrm{cm} (q) = q(\tau ) g_1$ using the MSM. If $q(x) = b_0 + b_1 x + b_2 x^2 + \dots + b_{n - 1} x^{n - 2}$,
+
+$Q = \mathrm{cm} (q) = b_0 g_1 + b_1 [\tau ]_1 + \dots b_{n - 2} [\tau^{n - 2} ]_1$
+
+In the context of EIP-4844, $P$ is called the commitment and $Q$ is the evaluation proof. We can use the pairing to check the equality at $\tau$. We compute the following:
+- $e( P - y g_1 , g_2 ) = \left( e(g_1 , g_2 ) \right)^{ p(\tau ) - y }$
+- $e( Q , [\tau]_2 - z g_2 ) = \left( e(g_1 , g_2 ) \right)^{ q(\tau ) (\tau - z)}$
+
+If the two pairings are equal, this means that $p(\tau ) - y \equiv q(\tau ) (\tau - z) \pmod{r}$. In practice, we use an alternative formulation,
+
+$e( P - y g_1 , - g_2 ) \times e( Q , [\tau]_2 - z g_2 ) \equiv 1 \pmod{r}$
+
+This is more efficient, since we can compute the pairing using two Miller loops but just one final exponentiation.
 
 ## References
 
 - [Constantine](https://github.com/mratsim/constantine/blob/master/constantine/commitments/kzg.nim)
 - [EIP-4844](https://github.com/ethereum/EIPs/blob/master/EIPS/eip-4844.md)
+- [KZG proof verification](https://github.com/ethereum/consensus-specs/blob/v1.4.0-beta.1/specs/deneb/polynomial-commitments.md#verify_kzg_proof_batch)
+- [Multiproofs KZG](https://dankradfeist.de/ethereum/2021/06/18/pcs-multiproofs.html)
+- [Fast amortized KZG proofs](https://eprint.iacr.org/2023/033)
