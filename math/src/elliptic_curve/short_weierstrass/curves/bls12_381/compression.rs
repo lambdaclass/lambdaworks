@@ -127,18 +127,18 @@ impl Compress for BLS12381Curve {
             // Set the 3rd bit based on y value.
             let y_neg = -y;
 
-            if matches!(
-                (
-                    y.value()[0]
-                        .representative()
-                        .cmp(&y_neg.value()[0].representative()),
-                    y.value()[1]
-                        .representative()
-                        .cmp(&y_neg.value()[1].representative()),
-                ),
-                (Ordering::Greater, _) | (Ordering::Equal, Ordering::Greater)
+            match (
+                y.value()[0]
+                    .representative()
+                    .cmp(&y_neg.value()[0].representative()),
+                y.value()[1]
+                    .representative()
+                    .cmp(&y_neg.value()[1].representative()),
             ) {
-                x_bytes[0] |= 1 << 5;
+                (Ordering::Greater, _) | (Ordering::Equal, Ordering::Greater) => {
+                    x_bytes[0] |= 1 << 5;
+                }
+                (_, _) => (),
             }
             x_bytes
         }
