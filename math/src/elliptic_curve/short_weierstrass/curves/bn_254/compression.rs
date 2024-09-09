@@ -119,7 +119,7 @@ impl Compress for BN254Curve {
     fn compress_g2_point(point: &Self::G2Point) -> Self::G2Compressed {
         if *point == G2Point::neutral_element() {
             // Point is at infinity
-            let mut x_bytes = [0_u8;64];
+            let mut x_bytes = [0_u8; 64];
             x_bytes[0] |= 1 << 6; // x_bytes = 01000000
             x_bytes
         } else {
