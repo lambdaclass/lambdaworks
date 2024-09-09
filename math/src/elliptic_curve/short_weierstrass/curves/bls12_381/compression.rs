@@ -140,6 +140,7 @@ impl Compress for BLS12381Curve {
             ) {
                 x_bytes[0] |= 1 << 5;
             }
+            x_bytes
         }
     }
 
