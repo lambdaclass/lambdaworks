@@ -90,7 +90,7 @@ let one = FE::one()
 
 let zero = F::ZERO
 let one = F::ONE
-let const_intstantiated = FE::from_hex_unchecked("A1B2C3");
+let const_instantiated = FE::from_hex_unchecked("A1B2C3");
 ```
 
 You will notice traits are followed by an `Is`, so instead of accepting something of the form `IsField`, you can use `IsPrimeField` and access more functions. The most relevant is `.representative()`. This function returns a canonical representation of the element as a number, not a field.
