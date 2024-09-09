@@ -187,7 +187,6 @@ $$
 &\{(\tau_j^{\upsilon_s}, \mathfrak{T}_j): 0 \leq j< m, 0 \leq s < Q\}, \\
 &\{(\eta_1^{\upsilon_s}, \mathfrak{H}_1): 0 \leq s < Q\}\\
 &\{(\eta_2^{\upsilon_s}, \mathfrak{H}_2): 0 \leq s < Q\},\\
-&\{(\pi_k^{\upsilon_s^{2^k}}, \mathfrak{P}_k): 1\leq k< n, 0\leq s < Q\}, \\
 &\{(\tau_j^{-\upsilon_s}, \mathfrak{T}_j'): 0 \leq j< m, 0 \leq s < Q\}, \\
 &\{(\eta_1^{-\upsilon_s}, \mathfrak{H}_1'): 0 \leq s < Q\}\\
 &\{(\eta_2^{-\upsilon_s}, \mathfrak{H}_2'): 0 \leq s < Q\},\\
