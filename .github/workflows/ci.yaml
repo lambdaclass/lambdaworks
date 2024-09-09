@@ -166,6 +166,9 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
+      - name: install GCC
+        run: brew install gcc
+
       - name: Rustup toolchain install
         uses: dtolnay/rust-toolchain@stable
         with:
