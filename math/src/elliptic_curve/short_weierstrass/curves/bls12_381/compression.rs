@@ -23,13 +23,17 @@ impl Compress for BLS12381Curve {
 
     type G2Point = G2Point;
 
+    type G1Compressed = [u8; 48];
+
+    type G2Compressed = [u8; 96];
+
     type Error = ByteConversionError;
 
     #[cfg(feature = "alloc")]
-    fn compress_g1_point(point: &Self::G1Point) -> alloc::vec::Vec<u8> {
+    fn compress_g1_point(point: &Self::G1Point) -> Self::G1Compressed {
         if *point == G1Point::neutral_element() {
             // point is at infinity
-            let mut x_bytes = alloc::vec![0_u8; 48];
+            let mut x_bytes = [0_u8; 48];
             x_bytes[0] |= 1 << 7;
             x_bytes[0] |= 1 << 6;
             x_bytes
@@ -38,8 +42,9 @@ impl Compress for BLS12381Curve {
             let point_affine = point.to_affine();
             let x = point_affine.x();
             let y = point_affine.y();
-
-            let mut x_bytes = x.to_bytes_be();
+            let mut x_bytes = [0u8; 48];
+            let bytes = x.to_bytes_be();
+            x_bytes.copy_from_slice(&bytes);
 
             // Set first bit to to 1 indicate this is compressed element.
             x_bytes[0] |= 1 << 7;
@@ -103,10 +108,10 @@ impl Compress for BLS12381Curve {
     }
 
     #[cfg(feature = "alloc")]
-    fn compress_g2_point(point: &Self::G2Point) -> alloc::vec::Vec<u8> {
+    fn compress_g2_point(point: &Self::G2Point) -> Self::G2Compressed {
         if *point == G2Point::neutral_element() {
             // point is at infinity
-            let mut x_bytes = alloc::vec![0_u8; 96];
+            let mut x_bytes = [0_u8; 96];
             x_bytes[0] |= 1 << 7;
             x_bytes[0] |= 1 << 6;
             x_bytes
@@ -118,8 +123,9 @@ impl Compress for BLS12381Curve {
 
             let x_rev: FieldElement<Degree2ExtensionField> =
                 FieldElement::new([x.value()[1].clone(), x.value()[0].clone()]);
-
-            let mut x_bytes = x_rev.to_bytes_be();
+            let mut x_bytes = [0u8; 96];
+            let bytes: [u8; 96] = x_rev.to_bytes_be().try_into().unwrap();
+            x_bytes.copy_from_slice(&bytes);
 
             // Set first bit to to 1 indicate this is compressed element.
             x_bytes[0] |= 1 << 7;
