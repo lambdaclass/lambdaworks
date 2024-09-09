@@ -189,12 +189,6 @@ impl Compress for BLS12381Curve {
 
         Self::G2Point::from_affine(x, y).map_err(|_| ByteConversionError::InvalidValue)
     }
-
-    /// g2 point compression wasn't needed.
-    #[cfg(feature = "alloc")]
-    fn compress_g2_point(_: &Self::G2Point) -> alloc::vec::Vec<u8> {
-        todo!()
-    }
 }
 
 #[cfg(test)]

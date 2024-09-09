@@ -32,13 +32,17 @@ impl Compress for BN254Curve {
 
     type G2Point = G2Point;
 
+    type G1Compressed = [u8; 32];
+
+    type G2Compressed = [u8; 64];
+
     type Error = ByteConversionError;
 
     #[cfg(feature = "alloc")]
-    fn compress_g1_point(point: &Self::G1Point) -> alloc::vec::Vec<u8> {
+    fn compress_g1_point(point: &Self::G1Point) -> Self::G1Compressed {
         if *point == G1Point::neutral_element() {
             // Point is at infinity
-            let mut x_bytes = alloc::vec![0_u8; 32];
+            let mut x_bytes = [0_u8; 32];
             x_bytes[0] |= 1 << 6; // x_bytes = 01000000
             x_bytes
         } else {
@@ -47,8 +51,9 @@ impl Compress for BN254Curve {
             let x = point_affine.x();
             let y = point_affine.y();
 
-            let mut x_bytes = x.to_bytes_be();
-
+            let mut x_bytes = [0u8; 32];
+            let bytes = x.to_bytes_be();
+            x_bytes.copy_from_slice(&bytes);
             // Set first bit to 1 to indicate this is a compressed element.
             x_bytes[0] |= 1 << 7; // x_bytes = 10000000
 
@@ -111,10 +116,10 @@ impl Compress for BN254Curve {
     }
 
     #[cfg(feature = "alloc")]
-    fn compress_g2_point(point: &Self::G2Point) -> alloc::vec::Vec<u8> {
+    fn compress_g2_point(point: &Self::G2Point) -> Self::G2Compressed {
         if *point == G2Point::neutral_element() {
             // Point is at infinity
-            let mut x_bytes = alloc::vec![0_u8;64];
+            let mut x_bytes = [0_u8;64];
             x_bytes[0] |= 1 << 6; // x_bytes = 01000000
             x_bytes
         } else {
@@ -123,7 +128,9 @@ impl Compress for BN254Curve {
             let x = point_affine.x();
             let y = point_affine.y();
 
-            let mut x_bytes = x.to_bytes_be();
+            let mut x_bytes = [0u8; 64];
+            let bytes = x.to_bytes_be();
+            x_bytes.copy_from_slice(&bytes);
 
             // Set first bit to to 1 indicate this is compressed element.
             x_bytes[0] |= 1 << 7;
