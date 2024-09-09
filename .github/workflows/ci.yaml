@@ -182,6 +182,8 @@ jobs:
           cache: "pip"
 
       - name: Install cairo-lang toolchain and dependencies
+        env:
+          CFLAGS: "-I/usr/local/include -L/usr/local/lib"
         run: pip install -r provers/cairo/requirements.txt
 
       - name: Run clippy
