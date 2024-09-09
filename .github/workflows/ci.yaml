@@ -166,8 +166,10 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: install GCC
-        run: brew install gcc
+      - name: install GCC/GMP
+        run: |
+          brew install gcc
+          brew install gmp
 
       - name: Rustup toolchain install
         uses: dtolnay/rust-toolchain@stable
@@ -185,7 +187,7 @@ jobs:
         env:
           CFLAGS: "-I/opt/homebrew/opt/gmp/include"
           LDFLAGS: "-L/opt/homebrew/opt/gmp/lib"
-        run: pip3 install -r provers/cairo/requirements.txt
+        run: pip install -r provers/cairo/requirements.txt
 
       - name: Run clippy
         run: make clippy-metal
