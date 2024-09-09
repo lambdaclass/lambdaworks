@@ -22,7 +22,7 @@ Given that both $G_1$, $G_2$ and $G_t$ are cyclic groups, we have elements $g_1$
 
 The whole scheme depends on a pairing function (also known as bilinear map) $e: G_1 \times G_2 \rightarrow G_t$ which satisfies the following properties:
 - $e(x , y) \neq 1$ if $x \neq \mathcal{O}$ and $y \neq \mathcal{O}$ (non-degeneracy).
-- $e([a]_1 , [b]_2 ) = \left( e(g_1 , g_2)\right)^{a b} = g_t^{ab} (bilinearity).
+- $e([a]_1 , [b]_2 ) = \left( e(g_1 , g_2 ) \right)^{a b} = {g_t }^{ab}$ (bilinearity).
 
 There are two parties, prover and verifier. They share a public Structured Reference String (SRS) or trusted setup, given by:
 - $\{ g_1 , [\tau]_1 , [\tau^2 ]_1 , \dots , [\tau^{n - 1} ]_1 \}$ consisting of the powers of a random, yet secret number $\tau$, with degree bounded by $n - 1$, hidden inside $G_1$
