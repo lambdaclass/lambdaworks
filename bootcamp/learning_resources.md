@@ -30,7 +30,7 @@
 
 ### Key Concepts:
 - Elliptic Curves over Finite Fields: Definition and operations.
-    - [Elliptic Curves - Computerphile]()
+    - [Elliptic Curves - Computerphile](https://www.youtube.com/watch?v=NF1pwjL9-DE)
 - Elliptic Curve Cryptography (ECC): Applications and advantages.
 - Points and Operations on Elliptic Curves: Point addition and scalar multiplication.
 - Pairing 
