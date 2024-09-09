@@ -9,11 +9,13 @@ This folder contains the different field backends, including field extensions. T
 - [Mersenne-31](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/field/fields/mersenne31/field.rs): $2^{31} - 1$ and its [quadratic extension](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/field/fields/mersenne31/extension.rs)
 - [Baby Bear](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/field/fields/fft_friendly/babybear.rs) and its [quadratic extension](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/field/fields/fft_friendly/quadratic_babybear.rs): FFT-friendly, $2^{31} - 2^{27} + 1$.
 - [Scalar field of BN-254](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/elliptic_curve/short_weierstrass/curves/bn_254/default_types.rs)
-- [Base field of BN-254](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/elliptic_curve/short_weierstrass/curves/bn_254/field_extension.rs) and its quadratic extension.
+- [Base field of BN-254](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/elliptic_curve/short_weierstrass/curves/bn_254/field_extension.rs) and its quadratic extension, quartic, sextic and twelth degree extensions.
 - [Scalar field of BLS12-381](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/elliptic_curve/short_weierstrass/curves/bls12_381/default_types.rs): FFT-friendly.
 - [Base field of BLS12-381](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/elliptic_curve/short_weierstrass/curves/bls12_381/field_extension.rs) and its quadratic, sextic and twelth degree extensions.
 - [Scalar field of BLS12-377](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/elliptic_curve/short_weierstrass/curves/bls12_377/curve.rs)
 - [Base field of BLS12-377](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/elliptic_curve/short_weierstrass/curves/bls12_377/field_extension.rs)
+
+You also have the tooling to define quadratic and cubic extension fields.
 
 ## 📊 Benchmarks
 
@@ -64,3 +66,181 @@ make benchmark BENCH=field
 ```
 
 You can check the generated HTML report in `target/criterion/reports/index.html`
+
+## Background on finite fields
+
+Finite fields play a fundamental role in Cryptography. They work essentially as the rational or real numbers (where we have the operations of addition, subtraction, multiplication and division), except that the number of elements is finite (for example, 31, 101, but not infinite as real numbers). We will begin this explanation with the simplest types of finite fields, where the number of elements is given by a prime number (a prime number is an integer such that its only divisors are 1 and itself, like 7, 19, 31, but not 8, which is divisible by 1, 2, 4, and 8). We will denote the prime $p$ and the finite field whose size is equal to $p$, $\mathbb{F_p}$.
+
+The elements of $\mathbb{F_p}$ are given by the possible remainders of the integer division of numbers by $p$. Remember that for any integer $n$, we can express $n = p q + r$, where $q$ is the quotient and $0 \leq r < p$ is the remainder. For example, $8 = 5 \times 1 + 3$. Expressing it in simpler terms, $\mathbb{F_p}$ is the set $\{ 0, 1, 2, 3, \dots , p - 1 \}$. We can define an addition operation $+ : \mathbb{F_p} \times \mathbb{F_p} \rightarrow \mathbb{F_p}$ with the following rule:
+
+Whenever we add two integers $a, b$ such that $n = a + b$, if the result exceeds $p$, we take the remainder of the division of $n$ by $p$. For example, if $p = 7$, $\mathbb{F_7} = \{ 0, 1, 2, 3, 4, 5, 6 \}$, so
+$6 + 5 = 11 \equiv 4 \pmod{7}$ 
+$2 + 3 = 5 \equiv 5 \pmod{7}$
+$3 + 4 = 7 \equiv 0 \pmod{7}$
+
+The notation $a \equiv b \pmod{p}$ means that $a - b$ is divisible by $p$, or that $a$ and $b$ have the same remainder when divided by $p$. We can show that $\mathbb{F_p}$ together with this addition forms an [Abelian group](https://en.wikipedia.org/wiki/Abelian_group). You can check that for every element $k$ there is an element $m$ such that $k + m = 0$. We note that element $m = - k$. You can see that $p - k = - k$, and you can define subtraction.
+
+We can also define multiplication in a similar way: whenever the product of two integers exceeds the modulus $p$, take the remainder. Except for $0$, we can show that for every element $x$, there is an element $y$, such that $x \times y = 1$ and we denote $y = x^{- 1}$. This allows us to define division as $n / x = n \times x^{- 1}$. We will use $\mathbb{F_p}^\star = \{ 1, 2, \dots p - 1 \}$, that is $\mathbb{F_p}$ without the element $0$. The number of elements in $\mathbb{F_p}^\star$ is $p - 1$ and we can show that is is also an Abelian group. We call it the multiplicative group of $\mathbb{F_p}$. We will say that the field is *FFT friendly* if $p - 1 = 2^m c$, where $c$ is an odd integer, and $m$ is *sufficiently large*. For example, $p = 2^{64} - 2^{32} + 1$ satisfies $p - 1 = 2^{32} (2^{32} - 1)$ is *FFT friendly* with $m = 32$, and this means we can use the radix-2 FFT algorithm for vectors of size up to $2^{32}$.
+
+If we take a look at $\mathbb{F_p}$ with the operations $+$ and $\times$, we see that it satisfies the axioms for a [field](https://en.wikipedia.org/wiki/Field_(mathematics)). To define a field in lambdaworks, you need to specify the modulus $p$, then the library will handle all the operations. While it is possible to do operations by taking remainder, this is not performant in practice. lambdaworks relies on Montgomery arithmetic for general finite fields (unless they have some faster alternative, such as [Mersenne primes](https://en.wikipedia.org/wiki/Mersenne_prime)). Before jumping into how you define your finite field, we need to see how we are going to represent "big" numbers. Common types to represent integers are `u8`, `u16`, `u32`, `u64`, `u128`. For cryptographic applications, we need to work (in general) with larger integers, taking 256 bits or more. As these numbers do not fit into a single unsigned integer variable, we can express it using several limbs in a given base (in lambdaworks, we use base 64, where each limb is represent by `u64`). Mathematically,
+
+$$n = \sum_{i = 0}^m a_k b^k$$
+
+where $b = 2^{64}$. For a 256 bit number, we need $4$ limbs and the number looks like
+
+$$n = a_0 + a_1 2^{64} + a_2 2^{128} + a_3 2^{192}$$
+
+The number is expressed in little-endian form. Alternatively, we can also write things as
+
+$$n = a_0 2^{192} + a_1 2^{128} + a_2 2^{64} + a_3$$
+
+The number is expressed in big-endian form. This is the form we use in lambdaworks to work with big integers. To work with large integers, we provide `UnsignedInteger` types with variable number of limbs.
+
+```rust
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+pub struct UnsignedInteger<const NUM_LIMBS: usize> {
+    pub limbs: [u64; NUM_LIMBS],
+}
+```
+
+You can create `UnsignedInteger` types whose size is a multiple of 64, such as 128, 192, 256, 320, 384. We provide `U128`, `U256` `U384` since these are commonly used with elliptic curves. There are several ways of assigning an `UnsignedInteger` a value. Some examples are:
+- `UnsignedInteger::from(value: u128)`
+- `UnsignedInteger::from(value: u64)`
+- `UnsignedInteger::from(value: u16)`
+- `UnsignedInteger::from(hex_str: &str)`
+- `UnsignedInteger::from_hex_unchecked(hex_str: &str)`
+
+For example,
+
+```rust
+    let modulus: U256 = U256::from_hex_unchecked(
+        "0x40000000000000000000000000000000224698fc0994a8dd8c46eb2100000001",
+    );
+```
+
+Defines a value, modulus, whose hex representation is given by `0x40000000000000000000000000000000224698fc0994a8dd8c46eb2100000001`. Inside, the function takes chunks of 8 bytes and interprets them as the limb. This represents the prime number of 77 decimal digits `28948022309329048855892746252171976963363056481941647379679742748393362948097`.
+
+We can now jump to the definition of a finite field:
+```rust
+use crate::{
+    field::fields::montgomery_backed_prime_fields::{IsModulus, MontgomeryBackendPrimeField},
+    unsigned_integer::element::U256,
+};
+
+type VestaMontgomeryBackendPrimeField<T> = MontgomeryBackendPrimeField<T, 4>;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MontgomeryConfigVesta255PrimeField;
+impl IsModulus<U256> for MontgomeryConfigVesta255PrimeField {
+    const MODULUS: U256 = U256::from_hex_unchecked(
+        "0x40000000000000000000000000000000224698fc0994a8dd8c46eb2100000001",
+    );
+}
+
+pub type Vesta255PrimeField = VestaMontgomeryBackendPrimeField<MontgomeryConfigVesta255PrimeField>;
+```
+
+We give a name to the field `Vesta255PrimeField`, which is going to use a Montgomery representation. Each element is composed of 4 limbs of 64 bits and the modulus is given by `MODULUS`. The compiler resolves all the necessary things to define the different field operations:
+- Addition
+- Doubling (as an optimization to addition when $a = b$)
+- Multiplication
+- Square (as an optimization to multiplication when $a = b$)
+- Subtraction
+- (Multiplicative) inversion/division
+- Exponentiation/Power (using a square and multiply algorithm)
+- Square root (In a finite field, we can compute the square root of an element if it is a [quadratic residue](https://en.wikipedia.org/wiki/Quadratic_residue) modulo $p$). When the element is a quadratic residue, the function returns the values $y$ and $- y$ such that $y^2 = (- y)^2 = x$.
+
+It also resolves all the necessary constants. These involve:
+- `pub const R2` : The square of the $R$ parameter
+- `pub const MU` : $- \text{modulus}^{-1} \pmod{ 2^{64}}$
+- `pub const ZERO` : the value of the neutral element for addition in Montgomery form (it is always 0).
+- `pub const ONE` : the value of the unit in Montgomery form.
+- `MODULUS_HAS_ONE_SPARE_BIT` : checks whether the highest bit in the modulus is set or not (this is useful for faster modular arithmetic).
+
+Additionally, you have the following methods:
+- `to_bytes_be` : transforms the element to bytes in big-endian form.
+- `to_bytes_le` : transforms the element to bytes in little-endian form.
+- `from_bytes_be` : creates an element from byte array in big-endian form.
+- `from_bytes_le` : creates an element from byte array in little-endian form.
+- `representative` : transforms the element from Montgomery form to standard form.
+- `to_hex` : transforms the element to a hex string.
+
+To practice some operations, we are going to define a new field and do some operations. The following is the base field for the `secp256k1` elliptic curve, best known as Bitcoin's curve:
+
+```rust
+ #[derive(Clone, Debug)]
+struct SecpModulus;
+impl IsModulus<U256> for SecpModulus {
+    const MODULUS: U256 = UnsignedInteger::from_hex_unchecked(
+        "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F",
+    );
+}
+type SecpMontField = U256PrimeField<SecpModulus>;
+type SecpMontElement = FieldElement<SecpMontField>;
+```
+
+We will create some elements and perform operations:
+
+```rust
+let minus_3 = -SecpMontElement::from_hex_unchecked("0x3");
+let three = SecpMontElement::from_hex_unchecked("0x3");
+assert_eq!(three + minus_3, SecpMontElement::zero());
+```
+
+```rust
+let two = SecpMontElement::from_hex_unchecked("0x2");
+assert_eq!(three - two, SecpMontElement::one());
+```
+
+```rust
+let minus_3_mul_minus_3 = &minus_3 * &minus_3;
+let minus_3_squared = minus_3.square();
+let minus_3_pow_2 = minus_3.pow(2_u32);
+let nine = SecpMontElement::from_hex_unchecked("0x9");
+        
+assert_eq!(minus_3_mul_minus_3, nine);
+assert_eq!(minus_3_squared, nine);
+assert_eq!(minus_3_pow_2, nine);
+```
+
+This last part shows that we have three ways of computing the square of a number. The first one is using multiplication, the second is squaring and the third one is using the power/exponentiation function `pow`. The `pow` function needs as exponent an `UnsignedInteger`. The most efficient function in this context is `square()`, followed by `mul`.
+
+```rust
+let three_inv = three.inv();
+assert_eq!(three * three_inv, SecpMontElement::one());
+```
+
+Note: if you need to invert several elements, you should use the `inplace_batch_inverse`, since computing field inversion is usually expensive.
+
+If you print the hex representation of three, `three.to_hex()`, you will get `0x300000B73`. This is the Montgomery representation, which is different from the standard form `0x3`. If you perform `three.representative().to_hex()`, it will transform first to standard form, then give `0x3`. Let's look at the output of several functions:
+- `three.to_hex()` : `0x300000B73`
+- `three.representative().to_hex()` : `0x3`
+- `three.to_bytes_be()`: Returns a vector of 32 bytes (256 bits), all of which are `0x0`, except for the last one, `0x3`
+- `three.to_bytes_le()`: Returns a vector of 32 bytes (256 bits), all of which are `0x0`, except for the first one, `0x3`
+- `SecpMontElement::from_bytes_be(&three.to_bytes_be())`: will return the Montgomery form of the number 3.
+- `SecpMontElement::from_hex(&three.to_hex())`: this will not return the Montgomery form of 3!
+- `SecpMontElement::from_hex(&three.representative().to_hex())`: this will return the Montgomery form of 3.
+
+## Montgomery arithmetic
+
+Addition and subtraction in Montgomery form follow the same rules as ordinary addition and subtraction over a field. There are different algorithms for multiplication (and squaring):
+- Coarsely Integrated Operand Scanning (CIOS)
+- Separated Operand Scanning Method (SOS)
+
+Multiplication follows `cios`, unless there are spare bits in the modulus. For that case, multiplication changes to `cios_optimized_for_moduli_with_one_spare_bit`. Squaring uses the `sos_square` method.
+
+Inversion is performed using Algorithm 16 (Binary Euclidean Algorithm) from [Guajardo, Kumar, Paar, Perzl](https://www.sandeep.de/my/papers/2006_ActaApplMath_EfficientSoftFiniteF.pdf).
+
+## Exercises
+
+- Define the base field of the Ed25519 elliptic curve, defined by the prime $p$.
+- Check whether $- 1$ is a quadratic residue.
+- Compute $100^{65537} \pmod p$ 
+
+## References
+
+- [An introduction to mathematical cryptography](https://books.google.com.ar/books/about/An_Introduction_to_Mathematical_Cryptogr.html?id=XLY9AnfDhsYC&source=kp_book_description&redir_esc=y)
+- [High-Speed Algorithms & Architectures For Number-Theoretic Cryptosystems](https://www.microsoft.com/en-us/research/wp-content/uploads/1998/06/97Acar.pdf)
+- [Developer math survival kit](https://blog.lambdaclass.com/math-survival-kit-for-developers/)
+- [Montgomery Arithmetic from a Software Perspective](https://eprint.iacr.org/2017/1057.pdf)
+- [Guajardo, Kumar, Paar, Perzl - Efficient software implementation of finite fields with applications to Cryptography](https://www.sandeep.de/my/papers/2006_ActaApplMath_EfficientSoftFiniteF.pdf)
