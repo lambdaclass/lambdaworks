@@ -32,7 +32,7 @@ Knowing these sets of points does not allow recovering the secret $\tau$ or any 
 
 A polynomial of degree bound by $n - 1$ is an expression $p(x) = a_0 + a_1 x + a_2 x^2 + \dots + a_{n - 1} x^{n - 1}$. The coefficient $a_k \neq 0$ accompanying the largest power is called the degree of the polynomial $\mathrm{deg} (p)$. The coefficients of the polynomial belong to the field $\mathbb{F_r }$. We can commit to a polynomial of degree at most $n - 1$ by performing the following multiscalar multiplication (MSM):
 
-$P = \mathrm{cm} (p) = a_0 g_1 + a_1 [\tau]_1 + a_2 [\tau^2]_1 + \dots + a_{n - 1} [\tau^{n - 1}]_1$ 
+$\mathrm{cm} (p) = a_0 g_1 + a_1 [\tau]_1 + a_2 [\tau^2]_1 + \dots + a_{n - 1} [\tau^{n - 1}]_1 = P$ 
 
 This operation works, since we have points over an elliptic curve, and multiplication by a scalar and addition are defined properly. The commitment to $P$ is a point on the elliptic curve, which is equal to $p(\tau ) g_1 = P$. This commitment achieves the two properties we need:
 - Hiding
@@ -48,7 +48,7 @@ $p(\tau ) - y = (\tau - z) q(\tau )$
 
 Due to the [Schwartz-Zippel lemma](https://en.wikipedia.org/wiki/Schwartz%E2%80%93Zippel_lemma), if the equality above holds, then, with high probability $p(x) - y = p^\prime (x) = (x - z) q(x)$. We could send, therefore $Q = \mathrm{cm} (q) = q(\tau ) g_1$ using the MSM. If $q(x) = b_0 + b_1 x + b_2 x^2 + \dots + b_{n - 1} x^{n - 2}$,
 
-$Q = \mathrm{cm} (q) = b_0 g_1 + b_1 [\tau]_1 + \dots b_{n - 2} [\tau^{n - 2}]_1$
+$\mathrm{cm} (q) = b_0 g_1 + b_1 [\tau]_1 + \dots b_{n - 2} [\tau^{n - 2}]_1 = Q$
 
 In the context of EIP-4844, $P$ is called the commitment and $Q$ is the evaluation proof. We can use the pairing to check the equality at $\tau$. We compute the following:
 - $e( P - y g_1 , g_2 ) = \left( e(g_1 , g_2 ) \right)^{ p(\tau ) - y }$
