@@ -247,6 +247,7 @@ The recipe to build extension fields over finite fields is the same. We will sta
 
 You can build other extensions looking for higher-degree irreducible polynomials. For example, if you consider the field $\mathbb{F_2} = \{0 , 1 \}$, the polynomial $x^8 + x^4 + x^3 + x + 1$ is irreducible, and you can define a degree $8$ extension of $\mathbb{F_2}$.
 
+There are different ways in which we can construct higher-degree extensions. For example, we can take our prime field and find an irreducible polynomial of degree $4$ and work with $\mathbb{F_p} / I(x)$. Each element in the field can be represented as $a + b x + c x^2 + dx^3$. We can also use a towered approach: we first find an irreducible polynomial $I(x)$ of degree $2$ and obtain $\mathbb{F_{ p^2 } } = \mathbb{F_p} / I(x)$. Each element is of the form $a + b x$. Since the extension is also a field, we can find an irreducible polynomial over ${F_{ p^2 } }$, $J(y)$, of degree $2$ and consider ${F_{ p^2 } } [y] / J(y)$. Then, each element there is of the form $a^\prime + b^\prime y$, where $a^\prime$ and $b^\prime$ live in ${F_{ p^2 } }$. Since every element in ${F_{ p^2 } }$ is of the form $a_0 + a_1 x$, we get that $a_0 + a_1 x + b_0 y + b_1 x y$. Even though the extensions look different, there is an isomorphism connecting the two. Depending on the application, one form or the other can be more efficient.
 
 ## Exercises
 
