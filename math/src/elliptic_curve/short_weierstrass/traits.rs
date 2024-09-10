@@ -16,7 +16,7 @@ pub trait IsShortWeierstrass: IsEllipticCurve + Clone + Debug {
         x: &FieldElement<Self::BaseField>,
         y: &FieldElement<Self::BaseField>,
     ) -> FieldElement<Self::BaseField> {
-        y.pow(2_u16) - x.pow(3_u16) - Self::a() * x - Self::b()
+        y.square() - ((x.square() + Self::a()) * x + Self::b())
     }
 }
 
