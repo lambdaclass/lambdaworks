@@ -357,7 +357,8 @@ This defines a 6th degree extension over the scalar field of BLS12-381. We only 
 
 - Define the base field of the Ed25519 elliptic curve, defined by the prime $p$.
 - Check whether $- 1$ is a quadratic residue.
-- Compute $100^{65537} \pmod p$ 
+- Compute $100^{65537} \pmod p$
+- Define a degree 4 extension of the BabyBear field.
 
 ## References
 
