@@ -334,6 +334,25 @@ impl IsSubFieldOf<Degree2ExtensionField> for BLS12381PrimeField {
 }
 ```
 
+Once you have the quadratic extension, you can build another extension (tower approach). For example, to define a degree 3 extension field over the quadratic extension of the BLS12-381 scalar field, we have
+
+```rust
+#[derive(Debug, Clone)]
+pub struct LevelTwoResidue;
+impl HasCubicNonResidue<Degree2ExtensionField> for LevelTwoResidue {
+    fn residue() -> FieldElement<Degree2ExtensionField> {
+        FieldElement::new([
+            FieldElement::new(U384::from("1")),
+            FieldElement::new(U384::from("1")),
+        ])
+    }
+}
+
+pub type Degree6ExtensionField = CubicExtensionField<Degree2ExtensionField, LevelTwoResidue>;
+```
+
+This defines a 6th degree extension over the scalar field of BLS12-381. We only need to define the cubic (non) residue, which is an element of $\mathbb{F_{ p^2 } }$. 
+
 ## Exercises
 
 - Define the base field of the Ed25519 elliptic curve, defined by the prime $p$.
