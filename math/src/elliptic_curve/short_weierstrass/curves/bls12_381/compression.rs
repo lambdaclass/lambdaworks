@@ -154,6 +154,10 @@ impl Compress for BLS12381Curve {
     }
 
     fn decompress_g2_point(input_bytes: &mut [u8]) -> Result<Self::G2Point, Self::Error> {
+        if !input_bytes.len() == 96 {
+            return Err(ByteConversionError::InvalidValue);
+        }
+
         let first_byte = input_bytes.first().unwrap();
 
         // We get the first 3 bits
