@@ -249,6 +249,91 @@ You can build other extensions looking for higher-degree irreducible polynomials
 
 There are different ways in which we can construct higher-degree extensions. For example, we can take our prime field and find an irreducible polynomial of degree $4$ and work with $\mathbb{F_p} / I(x)$. Each element in the field can be represented as $a + b x + c x^2 + dx^3$. We can also use a towered approach: we first find an irreducible polynomial $I(x)$ of degree $2$ and obtain $\mathbb{F_{ p^2 } } = \mathbb{F_p} / I(x)$. Each element is of the form $a + b x$. Since the extension is also a field, we can find an irreducible polynomial over ${F_{ p^2 } }$, $J(y)$, of degree $2$ and consider ${F_{ p^2 } } [y] / J(y)$. Then, each element there is of the form $a^\prime + b^\prime y$, where $a^\prime$ and $b^\prime$ live in ${F_{ p^2 } }$. Since every element in ${F_{ p^2 } }$ is of the form $a_0 + a_1 x$, we get that $a_0 + a_1 x + b_0 y + b_1 x y$. Even though the extensions look different, there is an isomorphism connecting the two. Depending on the application, one form or the other can be more efficient.
 
+While some of the underlying concepts can be difficult to grasp, defining extension fields is simpler in lambdaworks. While we could allow you to define arbitrary extensions, we provide methods to define quadratic and cubic extensions over fields. To define a quadratic extension, you need to implement the following trait:
+
+```rust
+pub trait HasQuadraticNonResidue<F: IsField> {
+    fn residue() -> FieldElement<F>;
+}
+```
+
+Here, we assume that you want to define a quadratic extension of the form $x^2 - \mathrm{residue}$, where $\mathrm{residue}$ is not a square over your field. In the case of the Mersenne prime $2^{31} - 1$, $\mathrm{residue} = - 1$ (you could use other quadratic non-residues, but this can lead to slower field extension operations). Similarly, for cubic extensions we have
+
+```rust
+pub trait HasCubicNonResidue<F: IsField> {
+    /// This function must return an element that is not a cube in Fp,
+    /// that is, a cubic non-residue.
+    fn residue() -> FieldElement<F>;
+}
+```
+
+For example, the following code defines the default quadratic extension for BabyBear:
+
+```rust
+pub type QuadraticBabybearField =
+    QuadraticExtensionField<Babybear31PrimeField, Babybear31PrimeField>;
+
+impl HasQuadraticNonResidue<Babybear31PrimeField> for Babybear31PrimeField {
+    fn residue() -> FieldElement<Babybear31PrimeField> {
+        -FieldElement::one()
+    }
+}
+
+/// Field element type for the quadratic extension of Babybear
+pub type QuadraticBabybearFieldElement =
+    QuadraticExtensionFieldElement<Babybear31PrimeField, Babybear31PrimeField>;
+```
+
+You can also create a separate quadratic extension by implementing the `IsField` trait for the quadratic extension,
+
+```rust
+#[derive(Clone, Debug)]
+pub struct BLS12381FieldModulus;
+impl IsModulus<U384> for BLS12381FieldModulus {
+    const MODULUS: U384 = BLS12381_PRIME_FIELD_ORDER;
+}
+
+pub type BLS12381PrimeField = MontgomeryBackendPrimeField<BLS12381FieldModulus, 6>;
+
+//////////////////
+#[derive(Clone, Debug)]
+pub struct Degree2ExtensionField;
+
+impl IsField for Degree2ExtensionField {
+    type BaseType = [FieldElement<BLS12381PrimeField>; 2];
+    /// Returns the component wise addition of `a` and `b`
+    fn add(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
+        [&a[0] + &b[0], &a[1] + &b[1]]
+    }
+
+    /// Returns the multiplication of `a` and `b` using the following
+    /// equation:
+    /// (a0 + a1 * t) * (b0 + b1 * t) = a0 * b0 + a1 * b1 * Self::residue() + (a0 * b1 + a1 * b0) * t
+    /// where `t.pow(2)` equals `Q::residue()`.
+    fn mul(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
+        let a0b0 = &a[0] * &b[0];
+        let a1b1 = &a[1] * &b[1];
+        let z = (&a[0] + &a[1]) * (&b[0] + &b[1]);
+        [&a0b0 - &a1b1, z - a0b0 - a1b1]
+    }
+}
+```
+
+You should then implement the operations for the field, such as addition, multiplication, subtraction, inversion and so on. This is more convenient if you can avoid doing extra operations and defining the residue. You can also optimize the operations between elements of the base field and the extension field by implementing the trait `IsSubFieldOf`.
+
+```rust
+impl IsSubFieldOf<Degree2ExtensionField> for BLS12381PrimeField {
+    fn mul(
+        a: &Self::BaseType,
+        b: &<Degree2ExtensionField as IsField>::BaseType,
+    ) -> <Degree2ExtensionField as IsField>::BaseType {
+        let c0 = FieldElement::from_raw(<Self as IsField>::mul(a, b[0].value()));
+        let c1 = FieldElement::from_raw(<Self as IsField>::mul(a, b[1].value()));
+        [c0, c1]
+    }
+}
+```
+
 ## Exercises
 
 - Define the base field of the Ed25519 elliptic curve, defined by the prime $p$.
