@@ -128,30 +128,32 @@ impl Compress for BN254Curve {
             let x = point_affine.x();
             let y = point_affine.y();
 
+            let x_rev: FieldElement<Degree2ExtensionField> =
+                FieldElement::new([x.value()[1].clone(), x.value()[0].clone()]);
             let mut x_bytes = [0u8; 64];
-            let bytes = x.to_bytes_be();
+            let bytes = x_rev.to_bytes_be();
             x_bytes.copy_from_slice(&bytes);
 
             // Set first bit to to 1 indicate this is compressed element.
             x_bytes[0] |= 1 << 7;
-            let [y0, y1] = y.value();
 
             // We see if y_neg < y lexicographically where the lexicographic order is as follows:
-            // Let a = a0 + a1 * u and b = b0 + b1 * u in Fp2, then a < b if a1 < b1 or
-            // a1 = b1 and a0 < b0.
-            // TODO: We won't use this prefix in decompress_g2_point. Why?
-            if y1 == &BN254FieldElement::zero() {
-                let y0_neg = core::ops::Neg::neg(y0);
-                if y0_neg.representative() < y0.representative() {
+            // Let a = a0 + a1 * u and b = b0 + b1 * u in Fp2, then a < b if a0 < b0 or
+            // a0 = b0 and a1 < b1.
+            let y_neg = -y;
+            match (
+                y.value()[0]
+                    .representative()
+                    .cmp(&y_neg.value()[0].representative()),
+                y.value()[1]
+                    .representative()
+                    .cmp(&y_neg.value()[1].representative()),
+            ) {
+                (Ordering::Greater, _) | (Ordering::Equal, Ordering::Greater) => {
                     x_bytes[0] |= 1 << 6; // Prefix: 11
                 }
-            } else {
-                let y1_neg = core::ops::Neg::neg(y1);
-                if y1_neg.representative() < y1.representative() {
-                    x_bytes[0] |= 1 << 6; // PRefix: 11
-                }
+                (_, _) => (),
             }
-
             x_bytes
         }
     }
@@ -178,36 +180,24 @@ impl Compress for BN254Curve {
             return Ok(Self::G2Point::neutral_element());
         }
 
+        let second_bit = prefix_bits & 1_u8;
         let first_byte_without_control_bits = (first_byte << 2) >> 2;
         input_bytes[0] = first_byte_without_control_bits;
 
-        let input0 = &input_bytes[0..32];
-        let input1 = &input_bytes[32..];
+        let input1 = &input_bytes[0..32];
+        let input0 = &input_bytes[32..];
         let x0 = BN254FieldElement::from_bytes_be(input0).unwrap();
         let x1 = BN254FieldElement::from_bytes_be(input1).unwrap();
         let x: FieldElement<Degree2ExtensionField> = FieldElement::new([x0, x1]);
 
         let b_param_qfe = BN254TwistCurve::b();
-        let mut y = FieldElement::<Degree2ExtensionField>::one();
-
-        //TODO: Why do we always have to set sqrt_qfe input to 0 for tests to pass?
 
         // If the first two bits are 11, then the square root chosen is the greater one.
         // So we should use sqrt_qfe with the input 1.
-        if prefix_bits == 3_u8 {
-            y = sqrt::sqrt_qfe(&(x.pow(3_u64) + b_param_qfe), 0)
-                .ok_or(ByteConversionError::InvalidValue)?;
-
-        // If the first two bits are 10, then the square root chosen is the smaller one.
-        // So we should use sqrt_qfe with the input 0.
-        } else {
-            y = sqrt::sqrt_qfe(&(x.pow(3_u64) + b_param_qfe), 0)
-                .ok_or(ByteConversionError::InvalidValue)?;
-        }
+        let y = sqrt::sqrt_qfe(&(x.pow(3_u64) + b_param_qfe), second_bit)
+            .ok_or(ByteConversionError::InvalidValue)?;
 
         Self::G2Point::from_affine(x, y).map_err(|_| ByteConversionError::InvalidValue)
-
-        //TODO: Do we have to check that the point is in the subgroup?
     }
 }
 
@@ -296,8 +286,11 @@ mod tests {
         let first_byte_without_control_bits = (first_byte << 2) >> 2;
         compressed_g[0] = first_byte_without_control_bits;
 
-        let compressed_g_x =
-            FieldElement::<Degree2ExtensionField>::from_bytes_be(&compressed_g).unwrap();
+        let [x1, x0] = FieldElement::<Degree2ExtensionField>::from_bytes_be(&compressed_g)
+            .unwrap()
+            .value()
+            .clone();
+        let compressed_g_x = FieldElement::<Degree2ExtensionField>::new([x0, x1]);
         let g_x = g.x();
 
         assert_eq!(*g_x, compressed_g_x);
