@@ -8,10 +8,10 @@ This folder contains the different field backends, including field extensions. T
 - [Goldilocks-448](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/field/fields/p448_goldilocks_prime_field.rs)
 - [Mersenne-31](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/field/fields/mersenne31/field.rs): $2^{31} - 1$ and its [quadratic extension](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/field/fields/mersenne31/extension.rs)
 - [Baby Bear](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/field/fields/fft_friendly/babybear.rs) and its [quadratic extension](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/field/fields/fft_friendly/quadratic_babybear.rs): FFT-friendly, $2^{31} - 2^{27} + 1$.
-- [Scalar field of BN-254](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/elliptic_curve/short_weierstrass/curves/bn_254/default_types.rs)
-- [Base field of BN-254](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/elliptic_curve/short_weierstrass/curves/bn_254/field_extension.rs) and its quadratic extension, quartic, sextic and twelth degree extensions.
-- [Scalar field of BLS12-381](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/elliptic_curve/short_weierstrass/curves/bls12_381/default_types.rs): FFT-friendly.
-- [Base field of BLS12-381](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/elliptic_curve/short_weierstrass/curves/bls12_381/field_extension.rs) and its quadratic, sextic and twelth degree extensions.
+- [Scalar field of BN-254](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/elliptic_curve/short_weierstrass/curves/bn_254/default_types.rs), and its quadratic extension, quartic, sextic and twelth degree extensions. This coincides with the base field of [Grumpkin](../elliptic_curve/short_weierstrass/curves/grumpkin/curve.rs)
+- [Base field of BN-254](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/elliptic_curve/short_weierstrass/curves/bn_254/field_extension.rs) and its quadratic extension. The base field coincides with the scalar field of [Grumpkin](../elliptic_curve/short_weierstrass/curves/grumpkin/curve.rs)
+- [Scalar field of BLS12-381](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/elliptic_curve/short_weierstrass/curves/bls12_381/default_types.rs), and its quadratic, sextic and twelth degree extensions. FFT-friendly.
+- [Base field of BLS12-381](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/elliptic_curve/short_weierstrass/curves/bls12_381/field_extension.rs) 
 - [Scalar field of BLS12-377](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/elliptic_curve/short_weierstrass/curves/bls12_377/curve.rs)
 - [Base field of BLS12-377](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/elliptic_curve/short_weierstrass/curves/bls12_377/field_extension.rs)
 
@@ -230,6 +230,10 @@ Addition and subtraction in Montgomery form follow the same rules as ordinary ad
 Multiplication follows `cios`, unless there are spare bits in the modulus. For that case, multiplication changes to `cios_optimized_for_moduli_with_one_spare_bit`. Squaring uses the `sos_square` method.
 
 Inversion is performed using Algorithm 16 (Binary Euclidean Algorithm) from [Guajardo, Kumar, Paar, Perzl](https://www.sandeep.de/my/papers/2006_ActaApplMath_EfficientSoftFiniteF.pdf).
+
+## Extension fields
+
+In some applications in Cryptography, it may be necessary to work over an *extension field*. For example, to compute pairings we need to work over a larger field. Similarly, in STARKs, when we need to sample a random number, we want to do it from a large set, and we can do this by working with an extension of the original field. What are extension fields? You may have heard about [complex numbers](https://en.wikipedia.org/wiki/Complex_number). We can view them as a pair of real numbers $c = (a, b)$ with a multiplication operation defined as $(a_0 , b_0 ) \times (a_1 , b_1 ) = (a_0 a_1 - b_0 b_1 , a_0 b_1 + a_1 b_0 )$ and the addition as $(a_0 , b_0 ) + (a_1 , b_1 ) = (a_0 + a_1 , b_0 + b_1 )$. We can see real numbers as a subset of $\mathbb{C}$ of the form $(a , 0)$. It is common to introduce the imaginary unit, $i$, and write them also as $a + b i$, with $i^2 = - 1$ (you can check that $(0 , 1)^2 = - 1$). We see that when work with complex numbers of the form $(a , 0)$ this works as ordinary real numbers, and we see that complex numbers extend the real numbers, allowing us to find solutions to equations that cannot be solved over the real numbers. For example, $x^2 + 1 = 0$ does not have a solution over $\mathbb{R}$, but over $\mathbb{C}$ both $i$ and $- i$ solve the equation.
 
 ## Exercises
 
