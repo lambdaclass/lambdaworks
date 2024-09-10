@@ -77,6 +77,7 @@ impl Compress for BLS12381Curve {
         if second_bit == 1 {
             return Ok(G1Point::neutral_element());
         }
+        // We obtain the third bit
         let third_bit = prefix_bits & 1_u8;
 
         let first_byte_without_control_bits = (first_byte << 3) >> 3;
