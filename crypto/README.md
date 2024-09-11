@@ -3,7 +3,6 @@
 [Latest Version]: https://img.shields.io/crates/v/lambdaworks-crypto.svg
 [crates.io]: https://crates.io/crates/lambdaworks-crypto
 
-
 ## Usage
 
 Add this to your `Cargo.toml`

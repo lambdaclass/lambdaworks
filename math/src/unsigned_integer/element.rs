@@ -409,14 +409,14 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
         let bytes = string.as_bytes();
         let mut i = 0;
 
-        while i < (len - 1) {
-            i += 1;
+        while i < len {
             match bytes[i] {
                 b'0'..=b'9' => (),
                 b'a'..=b'f' => (),
                 b'A'..=b'F' => (),
                 _ => return false,
             }
+            i += 1;
         }
 
         true
@@ -437,7 +437,7 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
             string = &string[2..];
         }
         if string.is_empty() {
-            return Err(CreationError::EmptyString)?;
+            return Err(CreationError::EmptyString);
         }
         if !Self::is_hex_string(string) {
             return Err(CreationError::InvalidHexString);
@@ -597,9 +597,22 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
         (UnsignedInteger { limbs }, carry > 0)
     }
 
-    /// Returns the double of `self`.
     pub fn double(a: &UnsignedInteger<NUM_LIMBS>) -> (UnsignedInteger<NUM_LIMBS>, bool) {
-        Self::add(a, a)
+        let mut cloned = *a;
+        let overflow = cloned.double_in_place();
+        (cloned, overflow)
+    }
+
+    pub fn double_in_place(&mut self) -> bool {
+        let mut msb_of_previous_limb = 0;
+        for i in (0..NUM_LIMBS).rev() {
+            let limb_ref = &mut self.limbs[i];
+            let msb_of_current_limb = *limb_ref >> 63;
+            *limb_ref <<= 1;
+            *limb_ref |= msb_of_previous_limb;
+            msb_of_previous_limb = msb_of_current_limb;
+        }
+        msb_of_previous_limb != 0
     }
 
     /// Multi-precision subtraction.
@@ -2281,6 +2294,14 @@ mod tests_u256 {
     fn construct_new_integer_from_dec_1() {
         let a = U256::from_dec_str("1").unwrap();
         assert_eq!(a.limbs, [0, 0, 0, 1]);
+    }
+
+    #[test]
+    fn construct_integer_from_invalid_hex_returns_error() {
+        use crate::unsigned_integer::element::CreationError;
+        assert_eq!(U256::from_hex("0xaO"), Err(CreationError::InvalidHexString));
+        assert_eq!(U256::from_hex("0xOa"), Err(CreationError::InvalidHexString));
+        assert_eq!(U256::from_hex("0xm"), Err(CreationError::InvalidHexString));
     }
 
     #[test]
