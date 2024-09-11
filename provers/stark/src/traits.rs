@@ -179,7 +179,7 @@ pub trait AIR {
                 .or_insert_with(|| c.zerofier_evaluations_on_extended_domain(domain));
 
             let zerofier_evaluations = zerofier_groups.get(&zerofier_group_key).unwrap();
-            evals[c.constraint_idx()] = zerofier_evaluations.clone();
+            evals[c.constraint_idx()].clone_from(zerofier_evaluations);
         });
 
         evals
