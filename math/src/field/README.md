@@ -14,6 +14,8 @@ This folder contains the different field backends, including field extensions. T
 - [Base field of BLS12-381](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/elliptic_curve/short_weierstrass/curves/bls12_381/field_extension.rs) and its quadratic, sextic and twelth degree extensions.
 - [Scalar field of BLS12-377](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/elliptic_curve/short_weierstrass/curves/bls12_377/curve.rs)
 - [Base field of BLS12-377](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/elliptic_curve/short_weierstrass/curves/bls12_377/field_extension.rs)
+- [Base field of secp256k1](./fields/secp256k1_field.rs): the base field of Bitcoin's elliptic curve.
+- [Scalar field of secp256k1](./fields/secp256k1_scalarfield.rs): the scalar field of Bitcoin's elliptic curve.
 
 You also have the tooling to define quadratic and cubic extension fields.
 

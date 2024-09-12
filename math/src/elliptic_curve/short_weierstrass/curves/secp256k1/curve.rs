@@ -5,6 +5,7 @@ use crate::{
     elliptic_curve::short_weierstrass::traits::IsShortWeierstrass, field::element::FieldElement,
 };
 
+/// This implementation is not constant time and cannot be used to sign messages. You can use it to check signatures
 #[derive(Clone, Debug)]
 pub struct Secp256k1Curve;
 

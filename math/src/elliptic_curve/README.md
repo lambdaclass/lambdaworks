@@ -19,6 +19,7 @@ The following curves are currently supported:
 - [Pallas](https://github.com/lambdaclass/lambdaworks/tree/main/math/src/elliptic_curve/short_weierstrass/curves/pallas), useful for recursive SNARKs when used with Vesta.
 - [Vesta](https://github.com/lambdaclass/lambdaworks/tree/main/math/src/elliptic_curve/short_weierstrass/curves/vesta), useful for recursive SNARKs when used with Pallas.
 - [Starknet's curve](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/elliptic_curve/short_weierstrass/curves/stark_curve.rs)
+- [secp256k1](./short_weierstrass/curves/secp256k1/curve.rs): Bitcoin's curve. The implementation is not constant time, so it cannot be used to sign messages!
 
 ## Twisted Edwards
 
