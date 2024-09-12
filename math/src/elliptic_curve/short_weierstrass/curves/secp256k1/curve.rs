@@ -14,8 +14,12 @@ impl IsEllipticCurve for Secp256k1Curve {
 
     fn generator() -> Self::PointRepresentation {
         Self::PointRepresentation::new([
-            FieldElement::<Self::BaseField>::from_hex_unchecked("79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798"),
-            FieldElement::<Self::BaseField>::from_hex_unchecked("483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8"),
+            FieldElement::<Self::BaseField>::from_hex_unchecked(
+                "79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798",
+            ),
+            FieldElement::<Self::BaseField>::from_hex_unchecked(
+                "483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8",
+            ),
             FieldElement::one(),
         ])
     }
@@ -36,7 +40,7 @@ mod tests {
     use super::*;
     use crate::{
         cyclic_group::IsGroup, elliptic_curve::traits::EllipticCurveError,
-        field::element::FieldElement,
+        field::element::FieldElement, unsigned_integer::element::U256,
     };
 
     use super::Secp256k1Curve;
@@ -46,20 +50,20 @@ mod tests {
 
     fn point_1() -> ShortWeierstrassProjectivePoint<Secp256k1Curve> {
         let x = FE::from_hex_unchecked(
-            "bd1e740e6b1615ae4c508148ca0c53dbd43f7b2e206195ab638d7f45d51d6b5",
+            "79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798",
         );
         let y = FE::from_hex_unchecked(
-            "13aacd107ca10b7f8aab570da1183b91d7d86dd723eaa2306b0ef9c5355b91d8",
+            "483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8",
         );
         Secp256k1Curve::create_point_from_affine(x, y).unwrap()
     }
 
     fn point_1_times_5() -> ShortWeierstrassProjectivePoint<Secp256k1Curve> {
         let x = FE::from_hex_unchecked(
-            "17a21304fffd6749d6173d4e0acd9724d98a97453b3491c0e5a53b06cf039b13",
+            "2F8BDE4D1A07209355B4A7250A5C5128E88B84BDDC619AB7CBA8D569B240EFE4",
         );
         let y = FE::from_hex_unchecked(
-            "2f9bde429091a1089e52a6cc5dc789e1a58eeded0cf72dccc33b7af685a982d",
+            "D8AC222636E5E3D6D4DBA9DDA6C9C426F788271BAB0D6840DCA87D3AA6AC62D6",
         );
         Secp256k1Curve::create_point_from_affine(x, y).unwrap()
     }
@@ -77,13 +81,13 @@ mod tests {
         assert_eq!(
             *p.x(),
             FE::from_hex_unchecked(
-                "bd1e740e6b1615ae4c508148ca0c53dbd43f7b2e206195ab638d7f45d51d6b5"
+                "79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798"
             )
         );
         assert_eq!(
             *p.y(),
             FE::from_hex_unchecked(
-                "13aacd107ca10b7f8aab570da1183b91d7d86dd723eaa2306b0ef9c5355b91d8"
+                "483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8"
             )
         );
         assert_eq!(*p.z(), FE::from_hex_unchecked("1"));
@@ -131,6 +135,24 @@ mod tests {
         assert_eq!(
             g.operate_with(&g).operate_with(&g),
             g.operate_with_self(3_u16)
+        );
+    }
+
+    #[test]
+    fn generator_has_right_order() {
+        let g = Secp256k1Curve::generator();
+        assert_eq!(
+            g.operate_with_self(U256::from_hex_unchecked("fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141")).to_affine(),
+            ShortWeierstrassProjectivePoint::neutral_element()
+        );
+    }
+
+    #[test]
+    fn inverse_works() {
+        let g = Secp256k1Curve::generator();
+        assert_eq!(
+            g.operate_with_self(U256::from_hex_unchecked("fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd036413C")).to_affine(),
+            g.operate_with_self(5u64).neg().to_affine()
         );
     }
 }
