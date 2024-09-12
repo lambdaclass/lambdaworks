@@ -142,7 +142,10 @@ mod tests {
     fn generator_has_right_order() {
         let g = Secp256k1Curve::generator();
         assert_eq!(
-            g.operate_with_self(U256::from_hex_unchecked("fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141")).to_affine(),
+            g.operate_with_self(U256::from_hex_unchecked(
+                "fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141"
+            ))
+            .to_affine(),
             ShortWeierstrassProjectivePoint::neutral_element()
         );
     }
@@ -151,7 +154,10 @@ mod tests {
     fn inverse_works() {
         let g = Secp256k1Curve::generator();
         assert_eq!(
-            g.operate_with_self(U256::from_hex_unchecked("fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd036413C")).to_affine(),
+            g.operate_with_self(U256::from_hex_unchecked(
+                "fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd036413C"
+            ))
+            .to_affine(),
             g.operate_with_self(5u64).neg().to_affine()
         );
     }
