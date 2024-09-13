@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1726238116300,
+  "lastUpdate": 1726258499067,
   "repoUrl": "https://github.com/lambdaclass/lambdaworks",
   "entries": {
     "Benchmark": [
@@ -7271,6 +7271,150 @@ window.BENCHMARK_DATA = {
             "name": "Polynomial/evaluate 10",
             "value": 1,
             "range": "± 0",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nicole.graus@lambdaclass.com",
+            "name": "Nicole Graus",
+            "username": "nicole-graus"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2787f65bb47d31cc6eca5597846c1b0f6da3056d",
+          "message": "bn254 sqrt and decompression (#905)\n\n* save work\n\n* add sqrt for bn254\n\n* compression and decompression for G1 working\n\n* save work\n\n* g2 decompress working with sqrt input 0\n\n* add random sqrt test\n\n* change trait and add documentation\n\n* fix bls compression and decompression\n\n* fix cargo clippy and check\n\n* resolve conversations\n\n* decompression check bytes length\n\n* decompression checks correct bytes length\n\n* fix clippy no default features\n\n* fix ubuntu cargo clippy\n\n* fix ubuntu clippy\n\n* fix errors\n\n* fmt\n\n* fix clippy\n\n* change compress g2 function\n\n* check correct input bytes in decompress_g2_point function for bls12\n\n---------\n\nCo-authored-by: jotabulacios <jbulacios@fi.uba.ar>\nCo-authored-by: Nicole <nicole@Nicoles-Air.fibertel.com.ar>\nCo-authored-by: Nicole <nicole@Nicoles-MacBook-Air.local>\nCo-authored-by: Joaquin Carletti <56092489+ColoCarletti@users.noreply.github.com>\nCo-authored-by: diegokingston <dkingston@fi.uba.ar>\nCo-authored-by: Diego K <43053772+diegokingston@users.noreply.github.com>",
+          "timestamp": "2024-09-13T19:59:04Z",
+          "tree_id": "f3b5957e52ac24572791329aadd34131a064ab5d",
+          "url": "https://github.com/lambdaclass/lambdaworks/commit/2787f65bb47d31cc6eca5597846c1b0f6da3056d"
+        },
+        "date": 1726258496360,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "Ordered FFT/Parallel (Metal)",
+            "value": 179181875,
+            "range": "± 5984471",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #2",
+            "value": 416083948,
+            "range": "± 11212062",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #3",
+            "value": 1001077937,
+            "range": "± 48828091",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #4",
+            "value": 3141589354,
+            "range": "± 242381642",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal)",
+            "value": 92926164,
+            "range": "± 8718465",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #2",
+            "value": 190499819,
+            "range": "± 3599850",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #3",
+            "value": 408144926,
+            "range": "± 9266274",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #4",
+            "value": 855971021,
+            "range": "± 109001461",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal)",
+            "value": 78096638,
+            "range": "± 3058822",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #2",
+            "value": 176770791,
+            "range": "± 13751574",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #3",
+            "value": 471224124,
+            "range": "± 7270245",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #4",
+            "value": 1319973854,
+            "range": "± 298250101",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal",
+            "value": 274154989,
+            "range": "± 12457022",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #2",
+            "value": 639080062,
+            "range": "± 5024276",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #3",
+            "value": 1487532020,
+            "range": "± 194999096",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #4",
+            "value": 4473217333,
+            "range": "± 470041089",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal",
+            "value": 887666479,
+            "range": "± 24316123",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #2",
+            "value": 1718026458,
+            "range": "± 89890541",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #3",
+            "value": 3501492041,
+            "range": "± 158320510",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #4",
+            "value": 7682992396,
+            "range": "± 485904510",
             "unit": "ns/iter"
           }
         ]
