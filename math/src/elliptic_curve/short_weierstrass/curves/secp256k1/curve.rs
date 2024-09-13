@@ -122,7 +122,7 @@ mod tests {
         let x = g2_affine.x();
         let y = g2_affine.y();
 
-        // calculate both sides of Pallas curve equation
+        // calculate both sides of secp256k1 curve equation
         let five = Secp256k1Curve::b();
         let y_sq_0 = x.pow(3_u16) + five;
         let y_sq_1 = y.pow(2_u16);
