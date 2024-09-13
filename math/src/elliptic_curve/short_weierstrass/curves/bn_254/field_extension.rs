@@ -8,10 +8,9 @@ use crate::field::{
     fields::montgomery_backed_prime_fields::{IsModulus, MontgomeryBackendPrimeField},
     traits::{IsField, IsSubFieldOf},
 };
-use crate::unsigned_integer::element::U256;
-
-#[cfg(feature = "std")]
+#[cfg(feature = "alloc")]
 use crate::traits::ByteConversion;
+use crate::unsigned_integer::element::U256;
 
 pub const BN254_PRIME_FIELD_ORDER: U256 =
     U256::from_hex_unchecked("30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47");
@@ -163,26 +162,26 @@ impl HasQuadraticNonResidue<BN254PrimeField> for BN254Residue {
     }
 }
 
-#[cfg(feature = "std")]
+#[cfg(feature = "alloc")]
 impl ByteConversion for FieldElement<Degree2ExtensionField> {
-    #[cfg(feature = "std")]
-    fn to_bytes_be(&self) -> Vec<u8> {
+    #[cfg(feature = "alloc")]
+    fn to_bytes_be(&self) -> alloc::vec::Vec<u8> {
         let mut byte_slice = ByteConversion::to_bytes_be(&self.value()[0]);
         byte_slice.extend(ByteConversion::to_bytes_be(&self.value()[1]));
         byte_slice
     }
 
-    #[cfg(feature = "std")]
-    fn to_bytes_le(&self) -> Vec<u8> {
+    #[cfg(feature = "alloc")]
+    fn to_bytes_le(&self) -> alloc::vec::Vec<u8> {
         let mut byte_slice = ByteConversion::to_bytes_le(&self.value()[0]);
         byte_slice.extend(ByteConversion::to_bytes_le(&self.value()[1]));
         byte_slice
     }
 
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     fn from_bytes_be(bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError>
     where
-        Self: std::marker::Sized,
+        Self: core::marker::Sized,
     {
         const BYTES_PER_FIELD: usize = 32;
         let x0 = FieldElement::from_bytes_be(&bytes[0..BYTES_PER_FIELD])?;
@@ -190,10 +189,10 @@ impl ByteConversion for FieldElement<Degree2ExtensionField> {
         Ok(Self::new([x0, x1]))
     }
 
-    #[cfg(feature = "std")]
+    #[cfg(feature = "alloc")]
     fn from_bytes_le(bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError>
     where
-        Self: std::marker::Sized,
+        Self: core::marker::Sized,
     {
         const BYTES_PER_FIELD: usize = 32;
         let x0 = FieldElement::from_bytes_le(&bytes[0..BYTES_PER_FIELD])?;
