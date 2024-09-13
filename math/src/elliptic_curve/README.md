@@ -171,3 +171,5 @@ In many curves, the base field contains some spare bits (as is the case of BLS12
 - [What every developer needs to know about elliptic curves](https://blog.lambdaclass.com/what-every-developer-needs-to-know-about-elliptic-curves/)
 - [How we implemented the BN254 Ate pairing in lambdaworks](https://blog.lambdaclass.com/how-we-implemented-the-bn254-ate-pairing-in-lambdaworks/)
 - [Exploring elliptic curve pairings by Vitalik](https://medium.com/@VitalikButerin/exploring-elliptic-curve-pairings-c73c1864e627)
+- [A survey of elliptic curves for proof systems](https://eprint.iacr.org/2022/586.pdf)
+- [Taxonomy of pairing-friendly elliptic curves](https://eprint.iacr.org/2006/372.pdf)

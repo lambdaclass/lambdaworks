@@ -29,11 +29,11 @@ Differences of 3% are common for some measurements, so small differences are not
 
 ARM - M1
 
-| Operation| N    | Arkworks  | lambdaworks |
-| -------- | --- | --------- | ----------- |
+| Operation| N      | Arkworks  | lambdaworks |
+| -------- | ---    | --------- | ----------- |
 | `mul`    |   10k  | 112 μs | 115 μs   |
-| `add`    |   1M  | 8.5 ms  | 7.0 ms    |
-| `sub`    |   1M  | 7.53 ms   | 7.12 ms     |
+| `add`    |   1M   | 8.5 ms  | 7.0 ms    |
+| `sub`    |   1M   | 7.53 ms   | 7.12 ms     |
 | `pow`    |   10k  | 11.2 ms   | 12.4 ms    |
 | `invert` |  10k   | 30.0 ms  | 27.2 ms   |
 
