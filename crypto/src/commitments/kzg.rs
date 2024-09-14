@@ -283,6 +283,8 @@ mod tests {
     #[allow(clippy::upper_case_acronyms)]
     type KZG = KateZaveruchaGoldberg<FrField, BLS12381AtePairing>;
 
+    const MAX_POLYNOMIAL_DEGREE: usize = 100;
+
     fn create_srs() -> StructuredReferenceString<
         <BLS12381AtePairing as IsPairing>::G1Point,
         <BLS12381AtePairing as IsPairing>::G2Point,
@@ -298,7 +300,7 @@ mod tests {
         });
         let g1 = BLS12381Curve::generator();
         let g2 = BLS12381TwistCurve::generator();
-        let powers_main_group: Vec<G1> = (0..100)
+        let powers_main_group: Vec<G1> = (0..MAX_POLYNOMIAL_DEGREE)
             .map(|exponent| {
                 g1.operate_with_self(toxic_waste.pow(exponent as u128).representative())
             })
@@ -307,6 +309,7 @@ mod tests {
             g2.clone(),
             g2.operate_with_self(toxic_waste.representative()),
         ];
+        std::mem::drop(toxic_waste);
         StructuredReferenceString::new(&powers_main_group, &powers_secondary_group)
     }
 
