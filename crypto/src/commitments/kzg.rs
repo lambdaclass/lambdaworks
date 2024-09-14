@@ -314,6 +314,82 @@ mod tests {
     }
 
     #[test]
+    fn e2e_kzg_single_polynomial() {
+        // Setup phase: create the SRS
+        let kzg = KZG::new(create_srs());
+
+        // Commit phase: create the desired polynomial, and commit that polyonmial
+        let p = Polynomial::<FrElement>::new(&[
+            FieldElement::from(7),
+            FieldElement::from(5),
+            FieldElement::from(3),
+        ]);
+        // ASSERT: the polynomial is not too large
+        assert!(p.degree() <= MAX_POLYNOMIAL_DEGREE);
+        let p_commitment: <BLS12381AtePairing as IsPairing>::G1Point = kzg.commit(&p);
+
+        // Open phase: evaluate the polynomial at the desired point i, and create the proof for that opening
+        let i = FieldElement::from(1); // Challenge from the verifier
+        let y = p.evaluate(&i); // Evaluation of the polynomial at challenge
+        // ASSERT: the evaluation is correct
+        assert_eq!(y, FieldElement::from(15));
+        let proof = kzg.open(&i, &y, &p);
+
+        // Verify phase: the proof should verify
+        // ASSERT: the proof verifies
+        assert!(kzg.verify(&i, &y, &p_commitment, &proof));
+    }
+
+    #[test]
+    fn e2e_kzg_batched_polynomials() {
+        // Setup phase: create the SRS
+        let kzg = KZG::new(create_srs());
+        
+        // Commit phase: create the polynomials, and compute the commitments.
+        let p0 = Polynomial::<FrElement>::new(&[
+            FieldElement::from(5),
+            FieldElement::from(4),
+            -FieldElement::from(7),
+        ]);
+        // ASSERT: deg(p0) < MAX_POLYNOMIAL_DEGREE
+        assert!(p0.degree() < MAX_POLYNOMIAL_DEGREE);
+        let p0_commitment: <BLS12381AtePairing as IsPairing>::G1Point = kzg.commit(&p0);
+        
+        let p1 = Polynomial::<FrElement>::new(&[
+            FieldElement::from(1),
+            FieldElement::from(2),
+            -FieldElement::from(1),
+        ]);
+        // ASSERT: deg(p1) < MAX_POLYNOMIAL_DEGREE
+        assert!(p1.degree() < MAX_POLYNOMIAL_DEGREE);
+        let p1_commitment: <BLS12381AtePairing as IsPairing>::G1Point = kzg.commit(&p1);
+        
+        // Open phase: open the polynomials at point i, and compute the proof for the batch.
+        let i = FieldElement::from(3);
+        
+        let y0 = p0.evaluate(&i);
+        // ASSERT: evaluation on p0 is correct
+        assert_eq!(y0, -FieldElement::from(46));
+
+        // ASSERT: evaluation on p1 is correct
+        let y1 = p1.evaluate(&i);
+        assert_eq!(y1, -FieldElement::from(2));
+        
+        let upsilon = &FieldElement::from(1);
+
+        let proof = kzg.open_batch(&i, &[y0.clone(), y1.clone()], &[p0, p1], upsilon);
+
+        assert!(kzg.verify_batch(
+            &i,
+            &[y0, y1],
+            &[p0_commitment, p1_commitment],
+            &proof,
+            upsilon
+        ));
+    }
+
+
+    #[test]
     fn kzg_1() {
         let kzg = KZG::new(create_srs());
         let p = Polynomial::<FrElement>::new(&[FieldElement::one(), FieldElement::one()]);
