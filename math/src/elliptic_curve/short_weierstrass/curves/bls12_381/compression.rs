@@ -24,7 +24,6 @@ type BLS12381FieldElement = FieldElement<BLS12381PrimeField>;
 /// G1 points are represented by their x coordinate in big-endian form (48 bytes), with the three most significant bits used to give information on the compressed format, whether the point is the point at infinity and which of the two roots to take
 /// G2 points are represented by their x coordinate in big-endian form (96 bytes), following the order a * i + b. The three most significant bits contain the same type of information as in G1.
 impl Compress for BLS12381Curve {
-    
     type G1Point = G1Point;
 
     type G2Point = G2Point;
