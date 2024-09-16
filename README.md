@@ -95,6 +95,7 @@ List of symbols:
 | Vesta               | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :x:                | :heavy_check_mark: |
 | Bandersnatch        | 🏗️                 | :heavy_check_mark: | :x:                | :heavy_check_mark:  | :heavy_check_mark: |
 | secp256k1           | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark:  | :heavy_check_mark: |
+| secq256k1           | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :x:                | :x:                |
 | **STARKs**       | **Lambdaworks**     | **Arkworks** | **Halo2** | **gnark** | **Constantine** |
 | STARK Prover     | :heavy_check_mark:  | :x:          | :x:       | :x:       | :x:             |
 | CAIRO Prover     | 🏗️                  | :x:          | :x:       | :x:       | :x:             |
