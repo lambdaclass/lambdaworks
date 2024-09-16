@@ -52,6 +52,27 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
         Self(self.0.to_affine())
     }
 
+    // Need to check if this is correct
+    // It think it is not
+    pub fn to_jacobbian(&self) -> Self {
+        let [x, y, z] = self.coordinates();
+        if z == &FieldElement::zero() {
+            return Self::new([
+                FieldElement::zero(),
+                FieldElement::one(),
+                FieldElement::zero(),
+            ]);
+        }
+        let inv_z = z.inv().unwrap();
+        let inv_z_square = &inv_z * &inv_z;
+        let inv_z_cube = &inv_z * &inv_z_square;
+        ShortWeierstrassProjectivePoint::new([
+            x * &inv_z_square,
+            y * &inv_z_cube,
+            FieldElement::one(),
+        ])
+    }
+
     pub fn double(&self) -> Self {
         let [px, py, pz] = self.coordinates();
 
@@ -342,6 +363,186 @@ where
     }
 }
 
+#[derive(Clone, Debug)]
+pub struct JacobianPoint<E: IsShortWeierstrass> {
+    x: FieldElement<E::BaseField>,
+    y: FieldElement<E::BaseField>,
+    z: FieldElement<E::BaseField>,
+}
+impl<E: IsShortWeierstrass> JacobianPoint<E> {
+    pub fn x(&self) -> &FieldElement<E::BaseField> {
+        &self.x
+    }
+
+    pub fn y(&self) -> &FieldElement<E::BaseField> {
+        &self.y
+    }
+
+    pub fn z(&self) -> &FieldElement<E::BaseField> {
+        &self.z
+    }
+
+    pub fn coordinates(&self) -> &[FieldElement<E::BaseField>; 3] {
+        self.0.coordinates()
+    }
+}
+impl<E: IsShortWeierstrass> PartialEq for JacobianPoint<E> {
+    fn eq(&self, other: &Self) -> bool {
+        let (z_square_self, z_square_other) = (self.z.square(), other.z.square());
+        (&self.x * &z_square_self == &other.x * &z_square_other)
+            && (&self.y * &z_square_self == &other.y * &z_square_other)
+    }
+}
+impl<E: IsShortWeierstrass> JacobianPoint<E> {
+    pub const fn new(
+        x: FieldElement<E::BaseField>,
+        y: FieldElement<E::BaseField>,
+        z: FieldElement<E::BaseField>,
+    ) -> Self {
+        Self { x, y, z }
+    }
+    // need to check if this is correct, need to check if is a valid point?
+    // see the to_affine method from the projective point
+    pub fn from_affine(x: FieldElement<E::BaseField>, y: FieldElement<E::BaseField>) -> Self {
+        Self {
+            x,
+            y,
+            z: FieldElement::one(),
+        }
+    }
+
+    pub fn to_affine(&self) -> (FieldElement<E::BaseField>, FieldElement<E::BaseField>) {
+        if self.is_infinity() {
+            panic!("Cannot convert the point at infinity to affine coordinates");
+        }
+
+        let z_inv = self
+            .z
+            .inv()
+            .expect("Z should not be zero for a valid point.");
+        let z_inv_sq = &z_inv * &z_inv;
+        let z_inv_cu = &z_inv_sq * &z_inv;
+        let x_affine = &self.x * &z_inv_sq;
+        let y_affine = &self.y * &z_inv_cu;
+        (x_affine, y_affine)
+    }
+
+    // check this definition of the neutral element
+    // change name to neutral?
+    pub fn infinity() -> Self {
+        Self {
+            x: FieldElement::zero(),
+            y: FieldElement::one(),
+            z: FieldElement::zero(),
+        }
+    }
+
+    pub fn is_infinity(&self) -> bool {
+        self.z == FieldElement::zero()
+    }
+}
+
+impl<E: IsShortWeierstrass> JacobianPoint<E> {
+    // Function taken from:
+    //
+    pub fn double(&self) -> Self {
+        if self.is_infinity() {
+            return self.clone();
+        }
+
+        let x1 = self.x.clone();
+        let y1 = self.y.clone();
+        let z1 = self.z.clone();
+
+        let a_coeff = E::a();
+        // Need to check how to get the a coefficient
+        //http://www.hyperelliptic.org/EFD/g1p/data/shortw/jacobian-0/doubling/dbl-2009-l
+        if a_coeff == FieldElement::zero() {
+            let a = x1.square(); // A = x1^2
+            let b = y1.square(); // B = y1^2
+            let c = b.square(); // C = B^2
+            let x1_plus_b = &x1 + &b; // (X1 + B)
+            let x1_plus_b_square = x1_plus_b.square(); // (X1 + B)^2
+            let d = (&x1_plus_b_square - &a - &c).double(); // D = 2 * ((X1 + B)^2 - A - C)
+            let e = &a * FieldElement::<E::BaseField>::from(3u64); // E = 3 * A
+            let f = e.square(); // F = E^2
+            let x3 = &f - &d.double(); // X3 = F - 2 * D
+            let y3 = &e * (&d - &x3) - &c * FieldElement::<E::BaseField>::from(8u64); // Y3 = E * (D - X3) - 8 * C
+            let z3 = (&y1 * &z1).double(); // Z3 = 2 * Y1 * Z1
+
+            JacobianPoint::new(x3, y3, z3)
+        } else {
+            // http://www.hyperelliptic.org/EFD/g1p/data/shortw/jacobian-0/doubling/dbl-2009-alnr
+            // http://www.hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-0.html#doubling-dbl-2009-l
+            let xx = x1.square(); // XX = X1^2
+            let yy = y1.square(); // YY = Y1^2
+            let yyyy = yy.square(); // YYYY = YY^2
+            let zz = z1.square(); // ZZ = Z1^2
+            let s = ((&x1 + &yy).square() - &xx - &yyyy).double(); // S = 2 * ((X1 + YY)^2 - XX - YYYY)
+            let m = &xx.double() + &xx + &a_coeff * &zz.square(); // M = 3 * XX + a * ZZ^2
+            let x3 = m.square() - &s.double(); // X3 = M^2 - 2 * S
+            let y3 = m * (&s - &x3) - &yyyy.double().double().double(); // Y3 = M * (S - X3) - 8 * YYYY
+            let z3 = (&y1 + &z1).square() - &yy - &zz; // Z3 = (Y1 + Z1)^2 - YY - ZZ
+
+            JacobianPoint::new(x3, y3, z3)
+        }
+    }
+    // taken from::
+    pub fn operate_with(&self, other: &Self) -> Self {
+        if self.is_infinity() {
+            return other.clone();
+        }
+
+        if other.is_infinity() {
+            return self.clone();
+        }
+
+        let a = E::a();
+        let x1 = &self.x;
+        let y1 = &self.y;
+        let z1 = &self.z;
+
+        let x2 = &other.x;
+        let y2 = &other.y;
+        let z2 = &other.z;
+
+        let z1_sq = z1.square(); // Z1^2
+        let z2_sq = z2.square(); // Z2^2
+
+        let u1 = x1.clone() * &z2_sq; // U1 = X1 * Z2^2
+        let u2 = x2.clone() * &z1_sq; // U2 = X2 * Z1^2
+
+        let z1_cu = z1 * &z1_sq; // Z1^3
+        let z2_cu = z2 * &z2_sq; // Z2^3
+
+        let s1 = y1.clone() * &z2_cu; // S1 = Y1 * Z2^3
+        let s2 = y2.clone() * &z1_cu; // S2 = Y2 * Z1^3
+
+        if u1 == u2 {
+            if s1 == s2 {
+                return self.double(); // P + P = 2P
+            } else {
+                return Self::infinity(); // P + (-P) = 0
+            }
+        }
+
+        let h = u2 - &u1; // H = U2 - U1
+        let r = s2 - &s1; // R = S2 - S1
+
+        let h_sq = h.square(); // H^2
+        let h_cu = &h_sq * &h; // H^3
+        let u1_h_sq = &u1 * &h_sq; // U1 * H^2
+
+        let x3 = r.square() - &h_cu - &u1_h_sq.double(); // X3 = R^2 - H^3 - 2*U1*H^2
+        let y3 = r * (&u1_h_sq - &x3) - &(s1 * &h_cu); // Y3 = R*(U1*H^2 - X3) - S1*H^3
+        let mut z3 = (z1 + z2).square() - &z1_sq - &z2_sq; // Z3 = (Z1 + Z2)^2 - Z1^2 - Z2^2
+        z3 = z3 * &h; // Z3 = H * Z3 = H * ((Z1 + Z2)^2 - Z1^2 - Z2^2)
+
+        Self::new(x3, y3, z3)
+    }
+}
+
+// here ends the jacobian implementation
 #[cfg(feature = "alloc")]
 impl<E> AsBytes for ShortWeierstrassProjectivePoint<E>
 where
@@ -377,6 +578,7 @@ where
     }
 }
 
+/// Here starts the jacobian implementation
 #[cfg(test)]
 mod tests {
     use super::*;
