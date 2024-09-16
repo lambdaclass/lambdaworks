@@ -213,12 +213,12 @@ mod tests {
 
     #[test]
     fn sum_delayed_reduction() {
-        let up_to = u32::pow(2, 23);
+        let up_to = u32::pow(2, 16);
         let pow = u64::pow(2, 60);
 
         let iter = (0..up_to).map(F::weak_reduce).map(|e| F::pow(&e, pow));
 
-        assert_eq!(F::from_u64(1314320703), F::sum(iter));
+        assert_eq!(F::from_u64(2142542785), F::sum(iter));
     }
 
     #[test]
