@@ -1,11 +1,19 @@
 use super::{
     curve::BN254Curve,
-    field_extension::{BN254PrimeField, Degree12ExtensionField, Degree2ExtensionField},
+    field_extension::{
+        mul_fp2_by_nonresidue, BN254PrimeField, Degree12ExtensionField, Degree2ExtensionField,
+        Degree4ExtensionField,
+    },
     twist::BN254TwistCurve,
 };
 use crate::{
     cyclic_group::IsGroup,
-    elliptic_curve::{short_weierstrass::traits::IsShortWeierstrass, traits::IsPairing},
+    elliptic_curve::{
+        short_weierstrass::{
+            curves::bn_254::field_extension::sparse_fp12_mul, traits::IsShortWeierstrass,
+        },
+        traits::IsPairing,
+    },
     errors::PairingError,
 };
 use crate::{
@@ -18,10 +26,18 @@ use crate::{
 
 type FpE = FieldElement<BN254PrimeField>;
 type Fp2E = FieldElement<Degree2ExtensionField>;
+type Fp4E = FieldElement<Degree4ExtensionField>;
 type Fp6E = FieldElement<Degree6ExtensionField>;
 type Fp12E = FieldElement<Degree12ExtensionField>;
 type G1Point = ShortWeierstrassProjectivePoint<BN254Curve>;
 type G2Point = ShortWeierstrassProjectivePoint<BN254TwistCurve>;
+
+/// You can find an explanation of the next implemetation in our post
+/// https://blog.lambdaclass.com/how-we-implemented-the-bn254-ate-pairing-in-lambdaworks/
+/// There you'll come across a path to understand the naive implementation of the pairing
+/// using the functions miller_naive() and final_exponentiation_naive().
+/// We then optimized the pairing using the functions miller_optimized() and final_exponentiation_optimized().
+/// You'll find both the naive and optimized versions below.
 
 ////////////////// CONSTANTS //////////////////
 
@@ -30,16 +46,26 @@ type G2Point = ShortWeierstrassProjectivePoint<BN254TwistCurve>;
 /// See https://hackmd.io/@jpw/bn254#Barreto-Naehrig-curves
 pub const X: u64 = 0x44e992b44a6909f1;
 
+/// x = 100010011101001100100101011010001001010011010010000100111110001
+pub const X_BINARY: &[bool] = &[
+    true, false, false, false, true, false, false, true, true, true, false, true, false, false,
+    true, true, false, false, true, false, false, true, false, true, false, true, true, false,
+    true, false, false, false, true, false, false, true, false, true, false, false, true, true,
+    false, true, false, false, true, false, false, false, false, true, false, false, true, true,
+    true, true, true, false, false, false, true,
+];
+
 /// Constant used in the Miller Loop.
 /// MILLER_CONSTANT = 6x + 2 = 29793968203157093288.
 /// Note that this is a representation using {1, -1, 0}, but it isn't a NAF representation
 /// because it has non-zero values adjacent.
-/// See the post https://hackmd.io/@Wimet/ry7z1Xj-2#The-Pairing.
 /// See arkworks library https://github.com/arkworks-rs/algebra/blob/master/curves/bn254/src/curves/mod.rs#L21 (constant called ATE_LOOP_COUNT).
-pub const MILLER_CONSTANT: [i32; 65] = [
-    0, 0, 0, 1, 0, 1, 0, -1, 0, 0, 1, -1, 0, 0, 1, 0, 0, 1, 1, 0, -1, 0, 0, 1, 0, -1, 0, 0, 0, 0,
-    1, 1, 1, 0, 0, -1, 0, 0, 1, 0, 0, 0, 0, 0, -1, 0, 0, 1, 1, 0, 0, -1, 0, 0, 0, 1, 1, 0, -1, 0,
-    0, 1, 0, 1, 1,
+/// Notice that MILLER_CONSTANT has been updated to one with hamming weight of 22 instead of 26.
+/// To see the old version of the constant check the post https://hackmd.io/@Wimet/ry7z1Xj-2#The-Pairing.
+pub const MILLER_CONSTANT: &[i8] = &[
+    0, 0, 0, 1, 0, 1, 0, -1, 0, 0, -1, 0, 0, 0, 1, 0, 0, -1, 0, -1, 0, 0, 0, 1, 0, -1, 0, 0, 0, 0,
+    -1, 0, 0, 1, 0, -1, 0, 0, 1, 0, 0, 0, 0, 0, -1, 0, 0, -1, 0, 1, 0, -1, 0, 0, 0, -1, 0, -1, 0,
+    0, 0, 1, 0, 1, 1,
 ];
 
 /// GAMMA constants used to compute the Frobenius morphisms and G2 subgroup check.
@@ -112,6 +138,10 @@ pub const GAMMA_35: Fp2E = Fp2E::const_from_raw([
     FpE::from_hex_unchecked("16DB366A59B1DD0B9FB1B2282A48633D3E2DDAEA200280211F25041384282499"),
 ]);
 
+/// The inverse of two in Fp as a constant.
+pub const TWO_INV: FpE =
+    FpE::from_hex_unchecked("183227397098D014DC2822DB40C0AC2ECBC0B548B438E5469E10460B6C3E7EA4");
+
 ////////////////// PAIRING //////////////////
 
 pub struct BN254AtePairing;
@@ -136,28 +166,28 @@ impl IsPairing for BN254AtePairing {
             if !p.is_neutral_element() && !q.is_neutral_element() {
                 let p = p.to_affine();
                 let q = q.to_affine();
-                result *= miller(&p, &q);
+                result *= miller_optimized(&p, &q);
             }
         }
-        Ok(final_exponentiation(&result))
+        Ok(final_exponentiation_optimized(&result))
     }
 }
 
-/// Computes Miller loop using oprate_with(), operate_with_self() and line().
+/// Computes Miller loop using oprate_with(), operate_with_self() and line_naive().
 /// See https://eprint.iacr.org/2010/354.pdf (Page 4, Algorithm 1).
-fn miller(p: &G1Point, q: &G2Point) -> Fp12E {
+pub fn miller_naive(p: &G1Point, q: &G2Point) -> Fp12E {
     let mut t = q.clone();
     let mut f = Fp12E::one();
     let q_neg = &q.neg();
     MILLER_CONSTANT.iter().rev().skip(1).for_each(|m| {
-        f = f.square() * line(p, &t, &t);
+        f = f.square() * line_naive(p, &t, &t);
         t = t.double();
 
         if *m == -1 {
-            f *= line(p, &t, q_neg);
+            f *= line_naive(p, &t, q_neg);
             t = t.operate_with_affine(q_neg);
         } else if *m == 1 {
-            f *= line(p, &t, q);
+            f *= line_naive(p, &t, q);
             t = t.operate_with_affine(q);
         }
     });
@@ -165,22 +195,57 @@ fn miller(p: &G1Point, q: &G2Point) -> Fp12E {
     // q1 = ((x_q)^p, (y_q)^p, (z_q)^p)
     // See  https://hackmd.io/@Wimet/ry7z1Xj-2#The-Last-two-Lines
     let q1 = q.phi();
-    f *= line(p, &t, &q1);
+    f *= line_naive(p, &t, &q1);
     t = t.operate_with(&q1);
 
     // q2 = ((x_q1)^p, (y_q1)^p, (z_q1)^p)
     let q2 = q1.phi();
-    f *= line(p, &t, &q2.neg());
+    f *= line_naive(p, &t, &q2.neg());
 
     f
 }
 
-/// Computes the line between q and t and evaluates it in p.
+/// Computes the same algorithm as miller_naive but optimized  using line_optimized()
+pub fn miller_optimized(p: &G1Point, q: &G2Point) -> Fp12E {
+    let mut t = q.clone();
+    let mut f = Fp12E::one();
+    let q_neg = &q.neg();
+    MILLER_CONSTANT.iter().rev().skip(1).for_each(|m| {
+        let (r, l) = line_optimized(p, &t, &t);
+        f = sparse_fp12_mul(&f.square(), &l);
+        t = r;
+
+        if *m == -1 {
+            let (r, l) = line_optimized(p, &t, q_neg);
+            f = sparse_fp12_mul(&f, &l);
+            t = r;
+        } else if *m == 1 {
+            let (r, l) = line_optimized(p, &t, q);
+            f = sparse_fp12_mul(&f, &l);
+            t = r;
+        }
+    });
+
+    // q1 = ((x_q)^p, (y_q)^p, (z_q)^p)
+    // See  https://hackmd.io/@Wimet/ry7z1Xj-2#The-Last-two-Lines
+    let q1 = q.phi();
+    let (r, l) = line_optimized(p, &t, &q1);
+    f = sparse_fp12_mul(&f, &l);
+    t = r;
+
+    // q2 = ((x_q1)^p, (y_q1)^p, (z_q1)^p)
+    let q2 = q1.phi();
+    f = sparse_fp12_mul(&f, &line_optimized(p, &t, &q2.neg()).1);
+
+    f
+}
+
+/// Depending on the case, it computes the tangent line of t or the line
+/// between t and q evaluated in p.
 /// Algorithm adapted from Arkowork's double_in_place and add_in_place.
 /// See https://github.com/arkworks-rs/algebra/blob/master/ec/src/models/bn/g2.rs#L25.
 /// See https://eprint.iacr.org/2013/722.pdf (Page 13, Equations 11 and 13).
-fn line(p: &G1Point, t: &G2Point, q: &G2Point) -> Fp12E {
-    // We convert p into affine coordinates.
+fn line_naive(p: &G1Point, t: &G2Point, q: &G2Point) -> Fp12E {
     let [x_p, y_p, _] = p.coordinates();
 
     if t == q {
@@ -214,10 +279,73 @@ fn line(p: &G1Point, t: &G2Point, q: &G2Point) -> Fp12E {
     }
 }
 
+/// Depending on the case, it computes 2t or t + q and the tangent line of t or
+/// the line between t and q evaluated in p.
+/// Algorithm adapted from Arkowork's double_in_place and add_in_place.
+/// See https://github.com/arkworks-rs/algebra/blob/master/ec/src/models/bn/g2.rs#L25.
+/// See https://eprint.iacr.org/2013/722.pdf (Page 13, Equations 11 and 13).
+#[allow(clippy::ptr_eq)]
+fn line_optimized(p: &G1Point, t: &G2Point, q: &G2Point) -> (G2Point, Fp12E) {
+    let [x_p, y_p, _] = p.coordinates();
+
+    if t as *const G2Point == q as *const G2Point || t == q {
+        let a = TWO_INV * t.x() * t.y();
+        let b = t.y().square();
+        let c = t.z().square();
+        let e = BN254TwistCurve::b() * (c.double() + &c);
+        let f = e.double() + &e;
+        let g = TWO_INV * (&b + &f);
+        let h = (t.y() + t.z()).square() - (&b + &c);
+        let i = &e - &b;
+        let j = t.x().square();
+        let e_square = e.square();
+
+        let x_r = a * (&b - f);
+        let y_r = g.square() - (e_square.double() + e_square);
+        let z_r = b * &h;
+
+        let r = G2Point::new([x_r, y_r, z_r]);
+
+        let l = Fp12E::new([
+            Fp6E::new([y_p * (-h), Fp2E::zero(), Fp2E::zero()]),
+            Fp6E::new([x_p * (j.double() + &j), i, Fp2E::zero()]),
+        ]);
+        (r, l)
+    } else {
+        let [x_q, y_q, _] = q.coordinates();
+        let [x_t, y_t, z_t] = t.coordinates();
+
+        let a = y_q * z_t;
+        let b = x_q * z_t;
+        let theta = t.y() - a;
+        let lambda = t.x() - b;
+        let c = theta.square();
+        let d = lambda.square();
+        let e = &lambda * &d;
+        let f = z_t * c;
+        let g = x_t * d;
+        let h = &e + f - g.double();
+        let i = y_t * &e;
+        let j = &theta * x_q - (&lambda * y_q);
+
+        let x_r = &lambda * &h;
+        let y_r = &theta * (g - h) - i;
+        let z_r = z_t * e;
+
+        let r = G2Point::new([x_r, y_r, z_r]);
+
+        let l = Fp12E::new([
+            Fp6E::new([y_p * lambda, Fp2E::zero(), Fp2E::zero()]),
+            Fp6E::new([x_p * (-theta), j, Fp2E::zero()]),
+        ]);
+        (r, l)
+    }
+}
+
 /// Computes f ^ {(p^12 - 1) / r}
 /// using that (p^12 - 1)/r = (p^6 - 1) * (p^2 + 1) * (p^4 - p^2 + 1)/r.
 /// Algorithm taken from https://hackmd.io/@Wimet/ry7z1Xj-2#Final-Exponentiation.
-pub fn final_exponentiation(
+pub fn final_exponentiation_naive(
     f: &FieldElement<Degree12ExtensionField>,
 ) -> FieldElement<Degree12ExtensionField> {
     // Easy part:
@@ -255,6 +383,52 @@ pub fn final_exponentiation(
         * y5.pow(30usize)
         * y6.pow(36usize)
 }
+
+/// Computes the final exponentiation algorithm optimized
+/// using cyclotomic_pow_x() and cyclotomic_square().
+/// See https://hackmd.io/@Wimet/ry7z1Xj-2#Final-Exponentiation.
+pub fn final_exponentiation_optimized(
+    f: &FieldElement<Degree12ExtensionField>,
+) -> FieldElement<Degree12ExtensionField> {
+    // Easy part:
+    // Computes f ^ {(p^6 - 1) * (p^2 + 1)}
+    let f_easy_aux = f.conjugate() * f.inv().unwrap();
+    let f_easy = &frobenius_square(&f_easy_aux) * f_easy_aux;
+
+    // Optimal Hard Part from the post
+    // https://hackmd.io/@Wimet/ry7z1Xj-2#The-Hard-Part
+    let mx = cyclotomic_pow_x(&f_easy);
+    let mx2 = cyclotomic_pow_x(&mx);
+    let mx3 = cyclotomic_pow_x(&mx2);
+    let mp = frobenius(&f_easy);
+    let mp2 = frobenius_square(&f_easy);
+    let mp3 = frobenius_cube(&f_easy);
+    let mxp = frobenius(&mx); // (m^x)^p
+    let mx2p = frobenius(&mx2); // (m^{x^2})^p
+    let mx3p = frobenius(&mx3); // (m^{x^3})^p
+    let mx2p2 = frobenius_square(&mx2); // (m^{x^2})^p^2
+
+    let y0 = &mp * &mp2 * &mp3;
+    let y1 = f_easy.conjugate();
+    let y2 = mx2p2;
+    let y3 = mxp.conjugate();
+    let y4 = (mx * mx2p).conjugate();
+    let y5 = mx2.conjugate();
+    let y6 = (mx3 * mx3p).conjugate();
+
+    let t01 = cyclotomic_square(&y6) * y4 * &y5;
+    let t11 = &t01 * y3 * y5;
+    let t02 = t01 * y2;
+    let t12 = cyclotomic_square(&t11) * t02;
+    let t13 = cyclotomic_square(&t12);
+    let t14 = &t13 * y0;
+    let t03 = t13 * y1;
+    //let t04 = cyclotomic_square(&t03) * t14;
+
+    cyclotomic_square(&t03) * t14
+}
+
+////////////////// FROBENIUS MORPHISIMS //////////////////
 
 /// Computes the Frobenius morphism: f^p.
 /// See https://hackmd.io/@Wimet/ry7z1Xj-2#Fp12-Arithmetic (First Frobenius Operator).
@@ -314,6 +488,76 @@ pub fn frobenius_cube(
     ]);
 
     Fp12E::new([c1, c2])
+}
+
+////////////////// CYCLOTOMIC SUBGROUP OPERATIONS //////////////////
+
+/// Since the result of the Easy Part of the Final Exponentiation belongs to the cyclotomic
+/// subgroup of Fp12, we can optimize the square and pow operations used in the Hard Part.
+
+/// Computes the square of an element of a cyclotomic subgroup of Fp12.
+/// Algorithm from Constantine's cyclotomic_square_quad_over_cube
+/// https://github.com/mratsim/constantine/blob/master/constantine/math/pairings/cyclotomic_subgroups.nim#L354
+pub fn cyclotomic_square(a: &Fp12E) -> Fp12E {
+    // a = g + h * w
+    let [g, h] = a.value();
+    let [b0, b1, b2] = g.value();
+    let [b3, b4, b5] = h.value();
+
+    let v0 = Fp4E::new([b0.clone(), b4.clone()]).square();
+    let v1 = Fp4E::new([b3.clone(), b2.clone()]).square();
+    let v2 = Fp4E::new([b1.clone(), b5.clone()]).square();
+
+    // r = r0 + r1 * w
+    // r0 = r00 + r01 * v + r02 * v^2
+    // r1 = r10 + r11 * v + r12 * v^2
+
+    // r00 = 3v00 - 2b0
+    let mut r00 = &v0.value()[0] - b0;
+    r00 = r00.double();
+    r00 += v0.value()[0].clone();
+
+    // r01 = 3v10 -2b1
+    let mut r01 = &v1.value()[0] - b1;
+    r01 = r01.double();
+    r01 += v1.value()[0].clone();
+
+    // r11 = 3v01 - 2b4
+    let mut r11 = &v0.value()[1] + b4;
+    r11 = r11.double();
+    r11 += v0.value()[1].clone();
+
+    // r12 = 3v11 - 2b5
+    let mut r12 = &v1.value()[1] + b5;
+    r12 = r12.double();
+    r12 += v1.value()[1].clone();
+
+    // 3 * (9 + u) * v21 + 2b3
+    let v21 = mul_fp2_by_nonresidue(&v2.value()[1]);
+    let mut r10 = &v21 + b3;
+    r10 = r10.double();
+    r10 += v21;
+
+    // 3 * (9 + u) * v20 - 2b3
+    let mut r02 = &v2.value()[0] - b2;
+    r02 = r02.double();
+    r02 += v2.value()[0].clone();
+
+    Fp12E::new([Fp6E::new([r00, r01, r02]), Fp6E::new([r10, r11, r12])])
+}
+
+/// Computes f^x where f is in the cyclotomic subgroup of Fp12.
+/// Algorithm from https://hackmd.io/@Wimet/ry7z1Xj-2#Exponentiation-in-the-Cyclotomic-Subgroup.
+#[allow(clippy::needless_range_loop)]
+pub fn cyclotomic_pow_x(f: &Fp12E) -> Fp12E {
+    let mut result = Fp12E::one();
+    X_BINARY.iter().for_each(|&bit| {
+        result = cyclotomic_square(&result);
+        if bit {
+            result = &result * f;
+        }
+    });
+    result
 }
 
 #[cfg(test)]
@@ -768,5 +1012,31 @@ mod tests {
         let q = BN254TwistCurve::generator();
         let pairing_result = BN254AtePairing::compute_batch(&[(&p, &q)]).unwrap();
         assert_ne!(pairing_result, Fp12E::one());
+    }
+
+    #[test]
+    fn cyclotomic_square_equals_square() {
+        let p = BN254Curve::generator();
+        let q = BN254TwistCurve::generator();
+        let f = miller_optimized(&p, &q);
+        let f_easy_aux = f.conjugate() * f.inv().unwrap(); // f ^ (p^6 - 1) because f^(p^6) = f.conjugate().
+        let f_easy = &frobenius_square(&f_easy_aux) * f_easy_aux; // (f^{p^6 - 1})^(p^2) * (f^{p^6 - 1}).
+        assert_eq!(cyclotomic_square(&f_easy), f_easy.square());
+    }
+
+    #[test]
+    fn cyclotomic_pow_x_equals_pow() {
+        let p = BN254Curve::generator();
+        let q = BN254TwistCurve::generator();
+        let f = miller_optimized(&p, &q);
+        let f_easy_aux = f.conjugate() * f.inv().unwrap(); // f ^ (p^6 - 1) because f^(p^6) = f.conjugate().
+        let f_easy = &frobenius_square(&f_easy_aux) * f_easy_aux; // (f^{p^6 - 1})^(p^2) * (f^{p^6 - 1}).
+        assert_eq!(cyclotomic_pow_x(&f_easy), f_easy.pow(X));
+    }
+
+    #[test]
+    fn constant_two_inv_is_iwo_inverse() {
+        assert_eq!(TWO_INV, FpE::from(2).inv().unwrap());
+        assert_eq!(TWO_INV * FpE::from(2), FpE::one());
     }
 }
