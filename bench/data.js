@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1726514126011,
+  "lastUpdate": 1726514675837,
   "repoUrl": "https://github.com/lambdaclass/lambdaworks",
   "entries": {
     "Benchmark": [
@@ -9179,6 +9179,150 @@ window.BENCHMARK_DATA = {
             "name": "Polynomial/evaluate 10",
             "value": 1,
             "range": "± 0",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "irbozk@gmail.com",
+            "name": "irfan",
+            "username": "irfanbozkurt"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b2ab3537994a31e9c439512fd9d0b37872600aaa",
+          "message": "Adjust delayed reduction test to run in reasonable time (#853)\n\nCo-authored-by: Mauro Toscano <12560266+MauroToscano@users.noreply.github.com>\nCo-authored-by: Diego K <43053772+diegokingston@users.noreply.github.com>",
+          "timestamp": "2024-09-16T19:09:19Z",
+          "tree_id": "59a2262c1bb1b91d685cc66c63125f3a5844fb9b",
+          "url": "https://github.com/lambdaclass/lambdaworks/commit/b2ab3537994a31e9c439512fd9d0b37872600aaa"
+        },
+        "date": 1726514673226,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "Ordered FFT/Parallel (Metal)",
+            "value": 219707073,
+            "range": "± 21425006",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #2",
+            "value": 451632916,
+            "range": "± 22786334",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #3",
+            "value": 1184711479,
+            "range": "± 62339418",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #4",
+            "value": 4082052728,
+            "range": "± 618747553",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal)",
+            "value": 86053473,
+            "range": "± 10696900",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #2",
+            "value": 184094096,
+            "range": "± 6077738",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #3",
+            "value": 361526427,
+            "range": "± 50614963",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #4",
+            "value": 802625562,
+            "range": "± 126544095",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal)",
+            "value": 90231800,
+            "range": "± 9998664",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #2",
+            "value": 228849354,
+            "range": "± 48125007",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #3",
+            "value": 552235625,
+            "range": "± 19941846",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #4",
+            "value": 1345792542,
+            "range": "± 55178812",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal",
+            "value": 303136260,
+            "range": "± 27149258",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #2",
+            "value": 684411250,
+            "range": "± 12960200",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #3",
+            "value": 1519550083,
+            "range": "± 35421680",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #4",
+            "value": 4048847750,
+            "range": "± 860144511",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal",
+            "value": 830203645,
+            "range": "± 30211849",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #2",
+            "value": 1663345666,
+            "range": "± 7095922",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #3",
+            "value": 3442790833,
+            "range": "± 23235286",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #4",
+            "value": 7760899229,
+            "range": "± 762984159",
             "unit": "ns/iter"
           }
         ]
