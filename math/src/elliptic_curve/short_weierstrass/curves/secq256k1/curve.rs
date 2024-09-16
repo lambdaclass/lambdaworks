@@ -124,7 +124,7 @@ mod tests {
         let x = g2_affine.x();
         let y = g2_affine.y();
 
-        // calculate both sides of secp256k1 curve equation
+        // calculate both sides of secq256k1 curve equation
         let seven = Secq256k1Curve::b();
         let y_sq_0 = x.pow(3_u16) + seven;
         let y_sq_1 = y.pow(2_u16);
@@ -133,7 +133,7 @@ mod tests {
     }
 
     #[test]
-    fn operate_with_self_works_1() {
+    fn operate_with_self_works() {
         let g = Secq256k1Curve::generator();
         assert_eq!(
             g.operate_with(&g).operate_with(&g),
@@ -154,7 +154,7 @@ mod tests {
     }
 
     #[test]
-    /// (r - 5)g = rg - 5g = 0 - 5g
+    /// (r - 5)g = rg - 5g = 0 - 5g = -5g
     fn inverse_works() {
         let g = Secq256k1Curve::generator();
         assert_eq!(
