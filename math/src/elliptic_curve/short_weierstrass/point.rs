@@ -673,6 +673,135 @@ where
     }
 }
 
+#[cfg(feature = "alloc")]
+impl<E> From<ShortWeierstrassJacobianPoint<E>> for alloc::vec::Vec<u8>
+where
+    E: IsShortWeierstrass,
+    FieldElement<E::BaseField>: ByteConversion,
+{
+    fn from(value: ShortWeierstrassJacobianPoint<E>) -> Self {
+        value.as_bytes()
+    }
+}
+
+impl<E> Deserializable for ShortWeierstrassJacobianPoint<E>
+where
+    E: IsShortWeierstrass,
+    FieldElement<E::BaseField>: ByteConversion,
+{
+    fn deserialize(bytes: &[u8]) -> Result<Self, DeserializationError>
+    where
+        Self: Sized,
+    {
+        Self::deserialize(bytes, PointFormat::Jacobian, Endianness::LittleEndian)
+    }
+}
+
+impl<E> ShortWeierstrassJacobianPoint<E>
+where
+    E: IsShortWeierstrass,
+    FieldElement<E::BaseField>: ByteConversion,
+{
+    /// Serializa el punto en el formato y endianess dados.
+    #[cfg(feature = "alloc")]
+    pub fn serialize(
+        &self,
+        point_format: PointFormat,
+        endianness: Endianness,
+    ) -> alloc::vec::Vec<u8> {
+        let mut bytes = alloc::vec::Vec::new();
+        match point_format {
+            PointFormat::Jacobian => {
+                let [x, y, z] = self.coordinates();
+                let x_bytes = if endianness == Endianness::BigEndian {
+                    x.to_bytes_be()
+                } else {
+                    x.to_bytes_le()
+                };
+                let y_bytes = if endianness == Endianness::BigEndian {
+                    y.to_bytes_be()
+                } else {
+                    y.to_bytes_le()
+                };
+                let z_bytes = if endianness == Endianness::BigEndian {
+                    z.to_bytes_be()
+                } else {
+                    z.to_bytes_le()
+                };
+                bytes.extend(&x_bytes);
+                bytes.extend(&y_bytes);
+                bytes.extend(&z_bytes);
+            }
+            // Otros formatos pueden ser implementados aquí si es necesario
+            _ => {
+                panic!("Formato de punto no soportado para serialización de JacobianPoint");
+            }
+        }
+        bytes
+    }
+
+    /// Deserializa un punto Jacobiano desde bytes en el formato y endianess dados.
+    #[cfg(feature = "alloc")]
+    pub fn deserialize(
+        bytes: &[u8],
+        point_format: PointFormat,
+        endianness: Endianness,
+    ) -> Result<Self, DeserializationError> {
+        match point_format {
+            PointFormat::Jacobian => {
+                let expected_len = 3 * FieldElement::<E::BaseField>::BYTE_SIZE;
+                if bytes.len() != expected_len {
+                    return Err(DeserializationError::InvalidAmountOfBytes);
+                }
+
+                let len = FieldElement::<E::BaseField>::BYTE_SIZE;
+                let x = if endianness == Endianness::BigEndian {
+                    FieldElement::<E::BaseField>::from_bytes_be(&bytes[..len])?
+                } else {
+                    FieldElement::<E::BaseField>::from_bytes_le(&bytes[..len])?
+                };
+                let y = if endianness == Endianness::BigEndian {
+                    FieldElement::<E::BaseField>::from_bytes_be(&bytes[len..2 * len])?
+                } else {
+                    FieldElement::<E::BaseField>::from_bytes_le(&bytes[len..2 * len])?
+                };
+                let z = if endianness == Endianness::BigEndian {
+                    FieldElement::<E::BaseField>::from_bytes_be(&bytes[2 * len..])?
+                } else {
+                    FieldElement::<E::BaseField>::from_bytes_le(&bytes[2 * len..])?
+                };
+
+                // Validar que el punto está en la curva si Z != 0
+                if !z.is_zero() {
+                    let (x_affine, y_affine) =
+                        Self(JacobianPoint::new(x.clone(), y.clone(), z.clone()))
+                            .to_affine()
+                            .0
+                            .to_affine();
+                    if !E::defining_equation(&x_affine, &y_affine).is_zero() {
+                        return Err(DeserializationError::FieldFromBytesError);
+                    }
+                }
+
+                Ok(Self(JacobianPoint::new(x, y, z)))
+            }
+            // Otros formatos pueden ser implementados aquí si es necesario
+            _ => Err(DeserializationError::UnsupportedPointFormat),
+        }
+    }
+}
+
+#[cfg(feature = "alloc")]
+impl<E> AsBytes for ShortWeierstrassJacobianPoint<E>
+where
+    E: IsShortWeierstrass,
+    FieldElement<E::BaseField>: ByteConversion,
+{
+    fn as_bytes(&self) -> alloc::vec::Vec<u8> {
+        self.serialize(PointFormat::Jacobian, Endianness::LittleEndian)
+    }
+}
+
 /// Here starts the jacobian implementation
 #[cfg(test)]
 mod tests {
