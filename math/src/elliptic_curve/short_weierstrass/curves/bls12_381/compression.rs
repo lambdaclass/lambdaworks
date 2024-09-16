@@ -57,7 +57,10 @@ impl Compress for BLS12381Curve {
         }
     }
 
-    fn decompress_g1_point(input_bytes: &mut [u8; 48]) -> Result<Self::G1Point, Self::Error> {
+    fn decompress_g1_point(input_bytes: &mut [u8]) -> Result<Self::G1Point, Self::Error> {
+        if !input_bytes.len() == 48 {
+            return Err(ByteConversionError::InvalidValue);
+        }
         let first_byte = input_bytes.first().unwrap();
         // We get the 3 most significant bits
         let prefix_bits = first_byte >> 5;
@@ -150,7 +153,11 @@ impl Compress for BLS12381Curve {
         }
     }
 
-    fn decompress_g2_point(input_bytes: &mut [u8; 96]) -> Result<Self::G2Point, Self::Error> {
+    fn decompress_g2_point(input_bytes: &mut [u8]) -> Result<Self::G2Point, Self::Error> {
+        if !input_bytes.len() == 96 {
+            return Err(ByteConversionError::InvalidValue);
+        }
+
         let first_byte = input_bytes.first().unwrap();
 
         // We get the first 3 bits

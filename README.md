@@ -94,6 +94,7 @@ List of symbols:
 | Pallas              | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :x:                | :heavy_check_mark: |
 | Vesta               | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :x:                | :heavy_check_mark: |
 | Bandersnatch        | 🏗️                 | :heavy_check_mark: | :x:                | :heavy_check_mark:  | :heavy_check_mark: |
+| secp256k1           | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark:  | :heavy_check_mark: |
 | **STARKs**       | **Lambdaworks**     | **Arkworks** | **Halo2** | **gnark** | **Constantine** |
 | STARK Prover     | :heavy_check_mark:  | :x:          | :x:       | :x:       | :x:             |
 | CAIRO Prover     | 🏗️                  | :x:          | :x:       | :x:       | :x:             |
