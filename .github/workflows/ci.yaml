@@ -33,14 +33,14 @@ jobs:
       - name: Run cargo check cli and stark instruments
         run: |
           cargo check --features cli,instruments
-      
+
       - name: Run cargo check cli, stark instruments and parallel
         run: |
           cargo check --features cli,instruments,parallel
 
       - name: Run cargo check for math with no-std
         run: cargo check --package lambdaworks-math --no-default-features
-      
+
       - name: Run cargo check for math with wasm target
         run: cargo check --package lambdaworks-math --no-default-features --target wasm32-unknown-unknown
 
@@ -51,6 +51,10 @@ jobs:
         run: |
           cd ensure-no_std
           cargo build
+
+      - name: Run cargo build for all workspace
+        run: |
+          cargo build --workspace
 
       - name: Run cargo build ensure-no_std crate for wasm
         run: |
@@ -116,12 +120,31 @@ jobs:
 
       - name: Run tests with no std
         run: cargo test --package lambdaworks-math --package lambdaworks-crypto --no-default-features
-        
+
       - name: Run tests for math with no std + alloc
-        run: cargo test --package lambdaworks-math --no-default-features --features=alloc,lambdaworks-serde-string,lambdaworks-serde-binary 
+        run: cargo test --package lambdaworks-math --no-default-features --features=alloc,lambdaworks-serde-string,lambdaworks-serde-binary
 
       - name: Run tests and generate code coverage
         run: make coverage
+
+      - name: Cache coverage data
+        uses: actions/cache/save@v4
+        with:
+          path: lcov.info
+          key: coverage-${{ github.sha }}
+
+  coverage:
+    name: Upload Coverage to Codecov
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v3
+      - name: Fetch coverage data
+        uses: actions/cache/restore@v4
+        with:
+          path: lcov.info
+          key: coverage-${{ github.sha }}
+          fail-on-cache-miss: true
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3
@@ -149,24 +172,41 @@ jobs:
         run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
 
       - name: Run wasm-pack tests in firefox
-        run: 	cd provers/cairo && wasm-pack test --release --firefox --headless -- --features wasm
-        
+        run: cd provers/cairo && wasm-pack test --release --firefox --headless -- --features wasm
+
       - name: Run wasm-pack tests in chrome
         run: cd provers/cairo && wasm-pack test --release --chrome --headless -- --features wasm
 
   test_macos:
     name: Test (macOS, Apple sillicon)
-    runs-on: [self-hosted, macOS]
+    runs-on: macos-latest
     env:
       CARGO_TERM_COLOR: always
     steps:
       - uses: actions/checkout@v3
+
+      - name: install GCC/GMP
+        run: |
+          brew install gcc
+          brew install gmp
 
       - name: Rustup toolchain install
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
           components: clippy
+
+      - name: Python3 build
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.9"
+          cache: "pip"
+
+      - name: Install cairo-lang toolchain and dependencies
+        env:
+          CFLAGS: "-I/opt/homebrew/opt/gmp/include"
+          LDFLAGS: "-L/opt/homebrew/opt/gmp/lib"
+        run: pip install -r provers/cairo/requirements.txt
 
       - name: Run clippy
         run: make clippy-metal

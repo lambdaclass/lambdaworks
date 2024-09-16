@@ -36,19 +36,25 @@ test = false
 doc = false
 
 [[bin]]
-name = "field_fuzzer"
-path = "fuzz_targets/field/fuzzer.rs"
+name = "secp256k1"
+path = "fuzz_targets/field/secp256k1.rs"
 test = false
 doc = false
 
 [[bin]]
-name = "field_fuzz_mersenne31"
+name = "stark252"
+path = "fuzz_targets/field/stark252.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "mersenne31"
 path = "fuzz_targets/field/mersenne31.rs"
 test = false
 doc = false
 
 [[bin]]
-name = "field_mini_goldilocks"
+name = "mini_goldilocks"
 path = "fuzz_targets/field/mini_goldilocks.rs"
 test = false
 doc = false
@@ -66,7 +72,7 @@ test = false
 doc = false
 
 [[bin]]
-name = "stark_field_addition"
+name = "stark252_addition"
 path = "fuzz_targets/field/stark_field_addition.rs"
 test = false
 doc = false

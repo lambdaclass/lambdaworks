@@ -1,12 +1,15 @@
 # Implementation
+
 In this section we discuss the implementation details of the PLONK algorithm. We use the notation and terminology of the [protocol](./protocol.md) and [recap](./recap.md) sections. 
 
-At the moment our API supports the backend of PLONK. That is, all the setup, prove and verify algorithms. We temporarily rely on external sources for the definition of a circuit and the creation of the $Q$ and $V$ matrices, as well as the execution of it to obtain the trace matrix $T$. We mainly use gnark temporarily for that purpose.
+At the moment our API supports the backend of PLONK, that is, all the setup, prove and verify algorithms. We temporarily rely on external sources for the definition of a circuit and the creation of the $Q$ and $V$ matrices, as well as the execution of it to obtain the trace matrix $T$. We mainly use gnark temporarily for that purpose.
 
-So to generate proofs and validate them, we need to feed the algorithms with precomputed values of the $Q$, $V$ and $T$ matrices, and the primitive root of unity $\omega$.
+To generate proofs and validate them, we need to feed the algorithms with precomputed values of the $Q$, $V$ and $T$ matrices, and the primitive root of unity $\omega$.
 
-Let us see our API on a test circuit that provides all these values. The program in this case is the one that takes an input $x$, a private input $e$ and computes $y = xe +5$. As in the toy example of the recap, the output of the program is added to the public inputs and the circuit actually asserts that the output is the claimed value. So more precisely, the prover will generate a proof for the statement `ASSERT(x*e+5==y)`, where both $x,y$ are public inputs.
+Let's see our API on a test circuit that provides all these values. The program in this case is the one that takes an input $x$, a private input $e$ and computes $y = xe + 5$. As in the toy example of the recap, the output of the program is added to the public inputs and the circuit actually asserts that the output is the claimed value. So more precisely, the prover will generate a proof for the statement `ASSERT(x*e+5==y)`, where both $x,y$ are public inputs.
+
 # Usage
+
 Here is the happy path.
 
 ```rust
@@ -90,16 +93,21 @@ pub struct Witness<F: IsField> {
     pub c: Vec<FieldElement<F>>,
 }
 ```
+
 Next the commitment scheme KZG (Kate-Zaverucha-Goldberg) is instantiated.
+
 ```rust
 let srs = test_srs(common_preprocessed_input.n);
 let kzg = KZG::new(srs);
 ```
 The `setup` function performs the setup phase. It only needs the common preprocessed input and the commitment scheme.
+
 ```rust
 let verifying_key = setup(&common_preprocessed_input, &kzg);
 ```
-It outputs an instance of the struct `VerificationKey`.
+
+It outputs an instance of the struct `VerificationKey`:
+
 ```rust
 pub struct VerificationKey<G1Point> {
     pub qm_1: G1Point,
@@ -113,6 +121,7 @@ pub struct VerificationKey<G1Point> {
     pub s3_1: G1Point,
 }
 ```
+
 It stores the commitments of the eight polynomials of the common preprocessed input. The suffix `_1` means it is a commitment. It comes from the notation $[f]_1$, where $f$ is a polynomial.
 
 Then a prover is instantiated
@@ -133,6 +142,7 @@ where
     phantom: PhantomData<F>,
 }
 ```
+
 It stores an instance of a commitment scheme and a random field element generator needed for blinding polynomials.
 
 Then the public input is defined. As we mentioned in the recap, the public input contains the output of the program.
@@ -149,7 +159,9 @@ let proof = prover.prove(
     &verifying_key,
 );
 ```
+
 The output is an instance of the struct `Proof`.
+
 ```rust
 pub struct Proof<F: IsField, CS: IsCommitmentScheme<F>> {
     // Round 1.
@@ -222,6 +234,7 @@ assert!(verifier.verify(
 ```
 
 ## Padding
+
 All the matrices $Q, V, T, PI$ are padded with dummy rows so that their length is a power of two. To be able to interpolate their columns, we need a primitive root of unity $\omega$ of that order. Given the particular field used in our implementation, that means that the maximum possible size for a circuit is $2^{32}$.
 
 The entries of the dummy rows are filled in with zeroes in the $Q$, $V$ and $PI$ matrices. The $T$ matrix needs to be consistent with the $V$ matrix. Therefore it is filled with the value of the variable with index $0$.
@@ -233,6 +246,7 @@ Some other rows in the $V$ matrix have also dummy values. These are the rows cor
 The implementation pretty much follows the rounds as are described in the [protocol](./protocol.md) section. There are a few details that are worth mentioning.
 
 ## Commitment Scheme
+
 The commitment scheme we use is the [Kate-Zaverucha-Goldberg](https://www.iacr.org/archive/asiacrypt2010/6477178/6477178.pdf) scheme with the `BLS 12 381` curve and the ate pairing. It can be found in the `commitments` module of the `lambdaworks_crypto` package.
 
 The order $r$ of the cyclic subgroup is
@@ -271,9 +285,11 @@ The internal state of the hasher at the end of this exercise is `message_4 || Ha
 The underlying hasher function we use is `h=sha3`.
 
 ### Field elements
+
 The result of every challenge is a $256$-bit string, which is interpreted as an integer in big-endian order. A field element is constructed out of it by taking modulo the field order. The prime field used in this implementation has a $255$-bit order. Therefore some field elements are more probable to occur than others because they have more representatives as 256-bit integers.
 
 ### Strong Fiat-Shamir
+
 The first messages added to the transcript are all commitments of the polynomials of the common preprocessed input and the values of the public inputs. This prevents a known vulnerability called "weak Fiat-Shamir".
 Check out the following resources to learn more about it.
 

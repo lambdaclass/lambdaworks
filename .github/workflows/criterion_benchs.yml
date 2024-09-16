@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
 
 permissions:
   # deployments permission to deploy GitHub pages website
@@ -17,46 +17,60 @@ jobs:
     env:
       CARGO_TERM_COLOR: always
     steps:
-    - name: Install stable toolchain
-      uses: dtolnay/rust-toolchain@stable
-      with:
+      - name: Install stable toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
           toolchain: stable
-    - uses: actions/checkout@v3
-    - name: Run benchmark
-      run: |
-        cargo bench --no-fail-fast --bench "criterion_fft" \
-                                   --bench "criterion_polynomial" \
-        -- --output-format bencher | tee output.txt
-    - name: Store benchmark result
-      uses: benchmark-action/github-action-benchmark@v1
-      with:
-        tool: 'cargo'
-        output-file-path: output.txt
-        benchmark-data-dir-path: "./bench"
-        github-token: ${{ secrets.GITHUB_TOKEN }}
-        # Push and deploy GitHub pages branch automatically
-        auto-push: ${{ github.event_name != 'pull_request' }}
+      - uses: actions/checkout@v3
+      - name: Run benchmark
+        run: |
+          cargo bench --no-fail-fast --bench "criterion_fft" \
+                                     --bench "criterion_polynomial" \
+          -- --output-format bencher | tee output.txt
+      - name: Store benchmark result
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          tool: "cargo"
+          output-file-path: output.txt
+          benchmark-data-dir-path: "./bench"
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          # Push and deploy GitHub pages branch automatically
+          auto-push: ${{ github.event_name != 'pull_request' }}
   criterion_bench_macos:
     name: Criterion benches (macOS, Apple sillicon)
-    runs-on: [self-hosted, macOS]
+    runs-on: macos-latest
     env:
       CARGO_TERM_COLOR: always
     steps:
-    - name: Install stable toolchain
-      uses: dtolnay/rust-toolchain@stable
-      with:
+      - name: Install stable toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
           toolchain: stable
-    - uses: actions/checkout@v3
-    - name: Run benchmark
-      run: |
-        cargo bench -F metal --no-fail-fast --bench "criterion_metal" \
-        -- --output-format bencher | tee output.txt
-    - name: Store benchmark result
-      uses: benchmark-action/github-action-benchmark@v1
-      with:
-        tool: 'cargo'
-        output-file-path: output.txt
-        benchmark-data-dir-path: "./bench"
-        github-token: ${{ secrets.GITHUB_TOKEN }}
-        # Push and deploy GitHub pages branch automatically
-        auto-push: ${{ github.event_name != 'pull_request' }}
+      - uses: actions/checkout@v3
+      - name: install GCC/GMP
+        run: |
+          brew install gcc
+          brew install gmp
+      - name: Python3 build
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.9"
+          cache: "pip"
+      - name: Install cairo-lang toolchain and dependencies
+        env:
+          CFLAGS: "-I/opt/homebrew/opt/gmp/include"
+          LDFLAGS: "-L/opt/homebrew/opt/gmp/lib"
+        run: pip install -r provers/cairo/requirements.txt
+      - name: Run benchmark
+        run: |
+          cargo bench -F metal --no-fail-fast --bench "criterion_metal" \
+          -- --output-format bencher | tee output.txt
+      - name: Store benchmark result
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          tool: "cargo"
+          output-file-path: output.txt
+          benchmark-data-dir-path: "./bench"
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          # Push and deploy GitHub pages branch automatically
+          auto-push: ${{ github.event_name != 'pull_request' }}

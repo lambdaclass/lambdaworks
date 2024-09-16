@@ -21,11 +21,11 @@ pub fn parent_index(node_index: usize) -> usize {
 }
 
 // The list of values is completed repeating the last value to a power of two length
-pub fn complete_until_power_of_two<T: Clone>(values: &mut Vec<T>) -> Vec<T> {
+pub fn complete_until_power_of_two<T: Clone>(mut values: Vec<T>) -> Vec<T> {
     while !is_power_of_two(values.len()) {
         values.push(values[values.len() - 1].clone());
     }
-    values.to_vec()
+    values
 }
 
 // ! NOTE !
@@ -47,7 +47,7 @@ where
 {
     let mut level_begin_index = leaves_len - 1;
     let mut level_end_index = 2 * level_begin_index;
-    loop {
+    while level_begin_index != level_end_index {
         let new_level_begin_index = level_begin_index / 2;
         let new_level_length = level_begin_index - new_level_begin_index;
 
@@ -68,10 +68,6 @@ where
 
         level_end_index = level_begin_index - 1;
         level_begin_index = new_level_begin_index;
-
-        if level_begin_index == level_end_index {
-            return;
-        }
     }
 }
 
@@ -87,6 +83,14 @@ mod tests {
     const MODULUS: u64 = 13;
     type U64PF = U64PrimeField<MODULUS>;
     type FE = FieldElement<U64PF>;
+
+    #[test]
+    fn build_merkle_tree_one_element_must_succeed() {
+        let mut nodes = [FE::zero()];
+
+        build::<TestBackend<U64PF>>(&mut nodes, 1);
+    }
+
     #[test]
     // expected |2|4|6|8|
     fn hash_leaves_from_a_list_of_field_elemnts() {
@@ -101,8 +105,8 @@ mod tests {
     #[test]
     // expected |1|2|3|4|5|5|5|5|
     fn complete_the_length_of_a_list_of_fields_elements_to_be_a_power_of_two() {
-        let mut values: Vec<FE> = (1..6).map(FE::new).collect();
-        let hashed_leaves = complete_until_power_of_two(&mut values);
+        let values: Vec<FE> = (1..6).map(FE::new).collect();
+        let hashed_leaves = complete_until_power_of_two(values);
 
         let mut expected_leaves = (1..6).map(FE::new).collect::<Vec<FE>>();
         expected_leaves.extend([FE::new(5); 3]);
@@ -115,8 +119,8 @@ mod tests {
     #[test]
     // expected |2|2|
     fn complete_the_length_of_one_field_element_to_be_a_power_of_two() {
-        let mut values: Vec<FE> = vec![FE::new(2)];
-        let hashed_leaves = complete_until_power_of_two(&mut values);
+        let values: Vec<FE> = vec![FE::new(2)];
+        let hashed_leaves = complete_until_power_of_two(values);
 
         let mut expected_leaves = vec![FE::new(2)];
         expected_leaves.extend([FE::new(2)]);

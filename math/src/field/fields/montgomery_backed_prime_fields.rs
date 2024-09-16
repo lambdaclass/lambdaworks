@@ -224,15 +224,17 @@ where
                 if v <= u {
                     u = u - v;
                     if b < c {
-                        b = b + modulus;
+                        b = modulus - c + b;
+                    } else {
+                        b = b - c;
                     }
-                    b = b - c;
                 } else {
                     v = v - u;
                     if c < b {
-                        c = c + modulus;
+                        c = modulus - b + c;
+                    } else {
+                        c = c - b;
                     }
-                    c = c - b;
                 }
             }
 
@@ -1219,6 +1221,37 @@ mod tests_u256_prime_fields {
 
     type GoldilocksField = U64PrimeField<GoldilocksModulus>;
     type GoldilocksElement = FieldElement<GoldilocksField>;
+
+    #[derive(Clone, Debug)]
+    struct SecpModulus;
+    impl IsModulus<U256> for SecpModulus {
+        const MODULUS: U256 = UnsignedInteger::from_hex_unchecked(
+            "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F",
+        );
+    }
+    type SecpMontField = U256PrimeField<SecpModulus>;
+    type SecpMontElement = FieldElement<SecpMontField>;
+
+    #[test]
+    fn secp256k1_minus_three_pow_2_is_9_with_all_operations() {
+        let minus_3 = -SecpMontElement::from_hex_unchecked("0x3");
+        let minus_3_mul_minus_3 = &minus_3 * &minus_3;
+        let minus_3_squared = minus_3.square();
+        let minus_3_pow_2 = minus_3.pow(2_u32);
+        let nine = SecpMontElement::from_hex_unchecked("0x9");
+
+        assert_eq!(minus_3_mul_minus_3, nine);
+        assert_eq!(minus_3_squared, nine);
+        assert_eq!(minus_3_pow_2, nine);
+    }
+
+    #[test]
+    fn secp256k1_inv_works() {
+        let a = SecpMontElement::from_hex_unchecked("0x456");
+        let a_inv = a.inv().unwrap();
+
+        assert_eq!(a * a_inv, SecpMontElement::one());
+    }
 
     #[test]
     fn test_cios_overflow_case() {

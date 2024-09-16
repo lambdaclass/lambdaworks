@@ -3,6 +3,8 @@ pub mod bls12_381;
 pub mod bn_254;
 pub mod grumpkin;
 pub mod pallas;
+pub mod secp256k1;
+pub mod secq256k1;
 pub mod stark_curve;
 pub mod test_curve_1;
 pub mod test_curve_2;

@@ -1,3 +1,4 @@
+use crate::cyclic_group::IsGroup;
 use crate::elliptic_curve::traits::IsEllipticCurve;
 use crate::field::element::FieldElement;
 use core::fmt::Debug;
@@ -17,4 +18,22 @@ pub trait IsShortWeierstrass: IsEllipticCurve + Clone + Debug {
     ) -> FieldElement<Self::BaseField> {
         y.pow(2_u16) - x.pow(3_u16) - Self::a() * x - Self::b()
     }
+}
+
+pub trait Compress {
+    type G1Point: IsGroup;
+    type G2Point: IsGroup;
+    type G1Compressed;
+    type G2Compressed;
+    type Error;
+
+    #[cfg(feature = "alloc")]
+    fn compress_g1_point(point: &Self::G1Point) -> Self::G1Compressed;
+
+    #[cfg(feature = "alloc")]
+    fn compress_g2_point(point: &Self::G2Point) -> Self::G2Compressed;
+
+    fn decompress_g1_point(input_bytes: &mut [u8]) -> Result<Self::G1Point, Self::Error>;
+
+    fn decompress_g2_point(input_bytes: &mut [u8]) -> Result<Self::G2Point, Self::Error>;
 }
