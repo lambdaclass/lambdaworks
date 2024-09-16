@@ -54,7 +54,7 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
 
     // Need to check if this is correct
     // It think it is not
-    pub fn to_jacobbian(&self) -> Self {
+    pub fn to_jacobian(&self) -> Self {
         let [x, y, z] = self.coordinates();
         if z == &FieldElement::zero() {
             return Self::new([
@@ -235,6 +235,7 @@ impl<E: IsShortWeierstrass> IsGroup for ShortWeierstrassProjectivePoint<E> {
 #[derive(PartialEq)]
 pub enum PointFormat {
     Projective,
+    Jacobian,
     Uncompressed,
     // Compressed,
 }
@@ -293,6 +294,7 @@ where
                 bytes.extend(&x_bytes);
                 bytes.extend(&y_bytes);
             }
+            PointFormat::Jacobian => {}
         }
         bytes
     }
@@ -359,17 +361,124 @@ where
                     Err(DeserializationError::FieldFromBytesError)
                 }
             }
+            PointFormat::Jacobian => {}
         }
     }
 }
 
+#[derive(Clone, Debug)]
+pub struct ShortWeierstrassJacobianPoint<E: IsShortWeierstrass>(pub JacobianPoint<E>);
+
+impl<E: IsShortWeierstrass> ShortWeierstrassJacobianPoint<E> {
+    pub fn new(
+        x: FieldElement<E::BaseField>,
+        y: FieldElement<E::BaseField>,
+        z: FieldElement<E::BaseField>,
+    ) -> Self {
+        Self(JacobianPoint::new(x, y, z))
+    }
+
+    pub fn x(&self) -> &FieldElement<E::BaseField> {
+        self.0.x()
+    }
+
+    pub fn y(&self) -> &FieldElement<E::BaseField> {
+        self.0.y()
+    }
+
+    pub fn z(&self) -> &FieldElement<E::BaseField> {
+        self.0.z()
+    }
+
+    pub fn coordinates(&self) -> [&FieldElement<E::BaseField>; 3] {
+        [self.x(), self.y(), self.z()]
+    }
+
+    pub fn to_affine(&self) -> Self {
+        Self(JacobianPoint::from_affine(
+            self.x().clone(),
+            self.y().clone(),
+        ))
+    }
+    pub fn from_affine(x: FieldElement<E::BaseField>, y: FieldElement<E::BaseField>) -> Self {
+        Self(JacobianPoint::from_affine(x, y))
+    }
+
+    pub fn infinity() -> Self {
+        Self(JacobianPoint::infinity())
+    }
+
+    pub fn is_infinity(&self) -> bool {
+        self.0.is_infinity()
+    }
+
+    pub fn double(&self) -> Self {
+        Self(self.0.double())
+    }
+
+    pub fn operate_with(&self, other: &Self) -> Self {
+        Self(self.0.operate_with(&other.0))
+    }
+
+    pub fn negate(&self) -> Self {
+        Self(self.0.negate())
+    }
+}
+
+impl<E: IsShortWeierstrass> PartialEq for ShortWeierstrassJacobianPoint<E> {
+    fn eq(&self, other: &Self) -> bool {
+        let [px, py, pz] = self.coordinates();
+        let [qx, qy, qz] = other.coordinates();
+        (px * qz == pz * qx) && (py * qz == qy * pz)
+    }
+}
+
+impl<E: IsShortWeierstrass> Eq for ShortWeierstrassJacobianPoint<E> {}
+
+impl<E: IsShortWeierstrass> IsGroup for ShortWeierstrassJacobianPoint<E> {
+    fn neutral_element() -> Self {
+        Self::infinity()
+    }
+
+    fn is_neutral_element(&self) -> bool {
+        self.is_infinity()
+    }
+
+    fn operate_with(&self, other: &Self) -> Self {
+        self.operate_with(other)
+    }
+
+    fn neg(&self) -> Self {
+        self.negate()
+    }
+}
+
+impl<E: IsShortWeierstrass> FromAffine<E::BaseField> for ShortWeierstrassJacobianPoint<E> {
+    fn from_affine(
+        x: FieldElement<E::BaseField>,
+        y: FieldElement<E::BaseField>,
+    ) -> Result<Self, EllipticCurveError> {
+        Ok(Self(JacobianPoint::from_affine(x, y)))
+    }
+}
+
+// Implementaciones para JacobianPoint
 #[derive(Clone, Debug)]
 pub struct JacobianPoint<E: IsShortWeierstrass> {
     x: FieldElement<E::BaseField>,
     y: FieldElement<E::BaseField>,
     z: FieldElement<E::BaseField>,
 }
+
 impl<E: IsShortWeierstrass> JacobianPoint<E> {
+    pub const fn new(
+        x: FieldElement<E::BaseField>,
+        y: FieldElement<E::BaseField>,
+        z: FieldElement<E::BaseField>,
+    ) -> Self {
+        Self { x, y, z }
+    }
+
     pub fn x(&self) -> &FieldElement<E::BaseField> {
         &self.x
     }
@@ -382,27 +491,6 @@ impl<E: IsShortWeierstrass> JacobianPoint<E> {
         &self.z
     }
 
-    pub fn coordinates(&self) -> &[FieldElement<E::BaseField>; 3] {
-        self.0.coordinates()
-    }
-}
-impl<E: IsShortWeierstrass> PartialEq for JacobianPoint<E> {
-    fn eq(&self, other: &Self) -> bool {
-        let (z_square_self, z_square_other) = (self.z.square(), other.z.square());
-        (&self.x * &z_square_self == &other.x * &z_square_other)
-            && (&self.y * &z_square_self == &other.y * &z_square_other)
-    }
-}
-impl<E: IsShortWeierstrass> JacobianPoint<E> {
-    pub const fn new(
-        x: FieldElement<E::BaseField>,
-        y: FieldElement<E::BaseField>,
-        z: FieldElement<E::BaseField>,
-    ) -> Self {
-        Self { x, y, z }
-    }
-    // need to check if this is correct, need to check if is a valid point?
-    // see the to_affine method from the projective point
     pub fn from_affine(x: FieldElement<E::BaseField>, y: FieldElement<E::BaseField>) -> Self {
         Self {
             x,
@@ -417,7 +505,7 @@ impl<E: IsShortWeierstrass> JacobianPoint<E> {
         }
 
         let z_inv = self
-            .z
+            .z()
             .inv()
             .expect("Z should not be zero for a valid point.");
         let z_inv_sq = &z_inv * &z_inv;
@@ -427,8 +515,6 @@ impl<E: IsShortWeierstrass> JacobianPoint<E> {
         (x_affine, y_affine)
     }
 
-    // check this definition of the neutral element
-    // change name to neutral?
     pub fn infinity() -> Self {
         Self {
             x: FieldElement::zero(),
@@ -497,7 +583,7 @@ impl<E: IsShortWeierstrass> JacobianPoint<E> {
             return self.clone();
         }
 
-        let a = E::a();
+        // let a: FieldElement<<E as IsEllipticCurve>::BaseField> = E::a();
         let x1 = &self.x;
         let y1 = &self.y;
         let z1 = &self.z;
@@ -539,6 +625,15 @@ impl<E: IsShortWeierstrass> JacobianPoint<E> {
         z3 = z3 * &h; // Z3 = H * Z3 = H * ((Z1 + Z2)^2 - Z1^2 - Z2^2)
 
         Self::new(x3, y3, z3)
+    }
+
+    // Negation
+    pub fn negate(&self) -> Self {
+        Self {
+            x: self.x.clone(),
+            y: -self.y.clone(),
+            z: self.z.clone(),
+        }
     }
 }
 
