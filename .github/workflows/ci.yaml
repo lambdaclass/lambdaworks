@@ -136,6 +136,7 @@ jobs:
   coverage:
     name: Upload Coverage to Codecov
     runs-on: ubuntu-latest
+    needs: test
     steps:
       - uses: actions/checkout@v3
       - name: Fetch coverage data
