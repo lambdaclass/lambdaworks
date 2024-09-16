@@ -19,6 +19,7 @@ The following curves are currently supported:
 - [Pallas](https://github.com/lambdaclass/lambdaworks/tree/main/math/src/elliptic_curve/short_weierstrass/curves/pallas), useful for recursive SNARKs when used with Vesta.
 - [Vesta](https://github.com/lambdaclass/lambdaworks/tree/main/math/src/elliptic_curve/short_weierstrass/curves/vesta), useful for recursive SNARKs when used with Pallas.
 - [Starknet's curve](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/elliptic_curve/short_weierstrass/curves/stark_curve.rs)
+- [secp256k1](./short_weierstrass/curves/secp256k1/curve.rs): Bitcoin's curve. The implementation is not constant time, so it cannot be used to sign messages!
 
 ## Twisted Edwards
 
@@ -170,3 +171,5 @@ In many curves, the base field contains some spare bits (as is the case of BLS12
 - [What every developer needs to know about elliptic curves](https://blog.lambdaclass.com/what-every-developer-needs-to-know-about-elliptic-curves/)
 - [How we implemented the BN254 Ate pairing in lambdaworks](https://blog.lambdaclass.com/how-we-implemented-the-bn254-ate-pairing-in-lambdaworks/)
 - [Exploring elliptic curve pairings by Vitalik](https://medium.com/@VitalikButerin/exploring-elliptic-curve-pairings-c73c1864e627)
+- [A survey of elliptic curves for proof systems](https://eprint.iacr.org/2022/586.pdf)
+- [Taxonomy of pairing-friendly elliptic curves](https://eprint.iacr.org/2006/372.pdf)
