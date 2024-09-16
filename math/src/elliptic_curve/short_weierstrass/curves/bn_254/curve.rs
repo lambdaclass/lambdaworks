@@ -39,6 +39,12 @@ impl IsShortWeierstrass for BN254Curve {
     }
 }
 
+impl ShortWeierstrassProjectivePoint<BN254Curve> {
+    pub fn is_in_subgroup(&self) -> bool {
+        true
+    }
+}
+
 impl ShortWeierstrassProjectivePoint<BN254TwistCurve> {
     /// phi morphism used to G2 subgroup check for twisted curve.
     /// We also use phi at the last lines of the Miller Loop of the pairing.

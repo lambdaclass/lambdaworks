@@ -33,7 +33,7 @@ pub trait Compress {
     #[cfg(feature = "alloc")]
     fn compress_g2_point(point: &Self::G2Point) -> Self::G2Compressed;
 
-    fn decompress_g1_point(input_bytes: &mut [u8; 48]) -> Result<Self::G1Point, Self::Error>;
+    fn decompress_g1_point(input_bytes: &mut [u8]) -> Result<Self::G1Point, Self::Error>;
 
-    fn decompress_g2_point(input_bytes: &mut [u8; 96]) -> Result<Self::G2Point, Self::Error>;
+    fn decompress_g2_point(input_bytes: &mut [u8]) -> Result<Self::G2Point, Self::Error>;
 }
