@@ -294,7 +294,9 @@ where
                 bytes.extend(&x_bytes);
                 bytes.extend(&y_bytes);
             }
-            PointFormat::Jacobian => {}
+            PointFormat::Jacobian => {
+                panic!("Jacobian format is not supporter for ShortWeierstrassProjectivePoint");
+            }
         }
         bytes
     }
@@ -361,11 +363,13 @@ where
                     Err(DeserializationError::FieldFromBytesError)
                 }
             }
-            PointFormat::Jacobian => {}
+            PointFormat::Jacobian => {
+                Err(DeserializationError::InvalidValue) // not sure if this is the correct error
+            }
         }
     }
 }
-
+// Here starts the jacobian implementation
 #[derive(Clone, Debug)]
 pub struct ShortWeierstrassJacobianPoint<E: IsShortWeierstrass>(pub JacobianPoint<E>);
 
@@ -404,12 +408,12 @@ impl<E: IsShortWeierstrass> ShortWeierstrassJacobianPoint<E> {
         Self(JacobianPoint::from_affine(x, y))
     }
 
-    pub fn infinity() -> Self {
-        Self(JacobianPoint::infinity())
+    pub fn neutral_element() -> Self {
+        Self(JacobianPoint::neutral_element())
     }
 
-    pub fn is_infinity(&self) -> bool {
-        self.0.is_infinity()
+    pub fn is_neutral_element(&self) -> bool {
+        self.0.is_neutral_element()
     }
 
     pub fn double(&self) -> Self {
@@ -425,23 +429,39 @@ impl<E: IsShortWeierstrass> ShortWeierstrassJacobianPoint<E> {
     }
 }
 
-impl<E: IsShortWeierstrass> PartialEq for ShortWeierstrassJacobianPoint<E> {
+impl<E: IsShortWeierstrass> PartialEq for JacobianPoint<E> {
     fn eq(&self, other: &Self) -> bool {
-        let [px, py, pz] = self.coordinates();
-        let [qx, qy, qz] = other.coordinates();
-        (px * qz == pz * qx) && (py * qz == qy * pz)
+        // En coordenadas jacobianas, dos puntos son iguales si:
+        // X1 * Z2^2 == X2 * Z1^2 y Y1 * Z2^3 == Y2 * Z1^3
+
+        // Calculamos Z al cuadrado y al cubo para ambos puntos
+        let z1_sq = self.z.square();
+        let z2_sq = other.z.square();
+
+        let z1_cu = &z1_sq * &self.z;
+        let z2_cu = &z2_sq * &other.z;
+
+        // Calculamos las comparaciones necesarias
+        let x1_z2_sq = &self.x * &z2_sq;
+        let x2_z1_sq = &other.x * &z1_sq;
+
+        let y1_z2_cu = &self.y * &z2_cu;
+        let y2_z1_cu = &other.y * &z1_cu;
+
+        // Verificamos si las igualdades se cumplen
+        x1_z2_sq == x2_z1_sq && y1_z2_cu == y2_z1_cu
     }
 }
 
-impl<E: IsShortWeierstrass> Eq for ShortWeierstrassJacobianPoint<E> {}
+impl<E: IsShortWeierstrass> Eq for JacobianPoint<E> {}
 
-impl<E: IsShortWeierstrass> IsGroup for ShortWeierstrassJacobianPoint<E> {
+impl<E: IsShortWeierstrass> IsGroup for JacobianPoint<E> {
     fn neutral_element() -> Self {
-        Self::infinity()
+        Self::neutral_element()
     }
 
     fn is_neutral_element(&self) -> bool {
-        self.is_infinity()
+        self.is_neutral_element()
     }
 
     fn operate_with(&self, other: &Self) -> Self {
@@ -450,6 +470,44 @@ impl<E: IsShortWeierstrass> IsGroup for ShortWeierstrassJacobianPoint<E> {
 
     fn neg(&self) -> Self {
         self.negate()
+    }
+}
+
+impl<E: IsShortWeierstrass> PartialEq for ShortWeierstrassJacobianPoint<E> {
+    fn eq(&self, other: &Self) -> bool {
+        self.0 == other.0
+    }
+}
+
+impl<E: IsShortWeierstrass> Eq for ShortWeierstrassJacobianPoint<E> {}
+
+impl<E> From<ShortWeierstrassProjectivePoint<E>> for JacobianPoint<E>
+where
+    E: IsShortWeierstrass,
+{
+    fn from(point: ShortWeierstrassProjectivePoint<E>) -> Self {
+        if let Ok(z_inv) = point.z().inv() {
+            Self {
+                x: point.x() * &z_inv,
+                y: point.y() * z_inv.square(),
+                z: point.z().to_owned(),
+            }
+        } else {
+            Self::neutral_element()
+        }
+    }
+}
+/// For the conversion from Jacobian to Projective , testing if this is correct
+
+impl<E: IsShortWeierstrass> From<ShortWeierstrassProjectivePoint<E>>
+    for ShortWeierstrassJacobianPoint<E>
+{
+    fn from(point: ShortWeierstrassProjectivePoint<E>) -> Self {
+        if point.is_neutral_element() {
+            Self::neutral_element()
+        } else {
+            Self::from_affine(point.x().clone(), point.y().clone())
+        }
     }
 }
 
@@ -462,7 +520,6 @@ impl<E: IsShortWeierstrass> FromAffine<E::BaseField> for ShortWeierstrassJacobia
     }
 }
 
-// Implementaciones para JacobianPoint
 #[derive(Clone, Debug)]
 pub struct JacobianPoint<E: IsShortWeierstrass> {
     x: FieldElement<E::BaseField>,
@@ -500,7 +557,7 @@ impl<E: IsShortWeierstrass> JacobianPoint<E> {
     }
 
     pub fn to_affine(&self) -> (FieldElement<E::BaseField>, FieldElement<E::BaseField>) {
-        if self.is_infinity() {
+        if self.is_neutral_element() {
             panic!("Cannot convert the point at infinity to affine coordinates");
         }
 
@@ -515,7 +572,7 @@ impl<E: IsShortWeierstrass> JacobianPoint<E> {
         (x_affine, y_affine)
     }
 
-    pub fn infinity() -> Self {
+    pub fn neutral_element() -> Self {
         Self {
             x: FieldElement::zero(),
             y: FieldElement::one(),
@@ -523,16 +580,16 @@ impl<E: IsShortWeierstrass> JacobianPoint<E> {
         }
     }
 
-    pub fn is_infinity(&self) -> bool {
+    pub fn is_neutral_element(&self) -> bool {
         self.z == FieldElement::zero()
     }
 }
 
 impl<E: IsShortWeierstrass> JacobianPoint<E> {
-    // Function taken from:
-    //
+    // Immplementation taken from:
+    // https://github.com/mratsim/constantine/blob/65147ed815d96fa94a05d307c1d9980877b7d0e8/constantine/math/elliptic/ec_shortweierstrass_jacobian.md
     pub fn double(&self) -> Self {
-        if self.is_infinity() {
+        if self.is_neutral_element() {
             return self.clone();
         }
 
@@ -573,13 +630,14 @@ impl<E: IsShortWeierstrass> JacobianPoint<E> {
             JacobianPoint::new(x3, y3, z3)
         }
     }
-    // taken from::
+    // Implementation taken from:
+    // https://github.com/mratsim/constantine/blob/65147ed815d96fa94a05d307c1d9980877b7d0e8/constantine/math/elliptic/ec_shortweierstrass_jacobian.md
     pub fn operate_with(&self, other: &Self) -> Self {
-        if self.is_infinity() {
+        if self.is_neutral_element() {
             return other.clone();
         }
 
-        if other.is_infinity() {
+        if other.is_neutral_element() {
             return self.clone();
         }
 
@@ -608,7 +666,7 @@ impl<E: IsShortWeierstrass> JacobianPoint<E> {
             if s1 == s2 {
                 return self.double(); // P + P = 2P
             } else {
-                return Self::infinity(); // P + (-P) = 0
+                return Self::neutral_element(); // P + (-P) = 0
             }
         }
 
@@ -622,7 +680,7 @@ impl<E: IsShortWeierstrass> JacobianPoint<E> {
         let x3 = r.square() - &h_cu - &u1_h_sq.double(); // X3 = R^2 - H^3 - 2*U1*H^2
         let y3 = r * (&u1_h_sq - &x3) - &(s1 * &h_cu); // Y3 = R*(U1*H^2 - X3) - S1*H^3
         let mut z3 = (z1 + z2).square() - &z1_sq - &z2_sq; // Z3 = (Z1 + Z2)^2 - Z1^2 - Z2^2
-        z3 = z3 * &h; // Z3 = H * Z3 = H * ((Z1 + Z2)^2 - Z1^2 - Z2^2)
+        z3 *= &h; // Z3 = H * Z3 = H * ((Z1 + Z2)^2 - Z1^2 - Z2^2)
 
         Self::new(x3, y3, z3)
     }
@@ -633,6 +691,128 @@ impl<E: IsShortWeierstrass> JacobianPoint<E> {
             x: self.x.clone(),
             y: -self.y.clone(),
             z: self.z.clone(),
+        }
+    }
+}
+
+impl<E> ShortWeierstrassJacobianPoint<E>
+where
+    E: IsShortWeierstrass,
+    FieldElement<E::BaseField>: ByteConversion,
+{
+    /// Serialize the points in the given format
+    #[cfg(feature = "alloc")]
+    pub fn serialize(&self, point_format: PointFormat, endianness: Endianness) -> Vec<u8> {
+        let mut bytes: Vec<u8> = Vec::new();
+        let x_bytes: Vec<u8>;
+        let y_bytes: Vec<u8>;
+        let z_bytes: Vec<u8>;
+
+        match point_format {
+            PointFormat::Jacobian => {
+                let [x, y, z] = self.coordinates();
+                if endianness == Endianness::BigEndian {
+                    x_bytes = x.to_bytes_be();
+                    y_bytes = y.to_bytes_be();
+                    z_bytes = z.to_bytes_be();
+                } else {
+                    x_bytes = x.to_bytes_le();
+                    y_bytes = y.to_bytes_le();
+                    z_bytes = z.to_bytes_le();
+                }
+                bytes.extend(&x_bytes);
+                bytes.extend(&y_bytes);
+                bytes.extend(&z_bytes);
+            }
+            PointFormat::Uncompressed => {
+                let affine_representation = self.to_affine();
+                let [x, y, _z] = affine_representation.coordinates();
+                if endianness == Endianness::BigEndian {
+                    x_bytes = x.to_bytes_be();
+                    y_bytes = y.to_bytes_be();
+                } else {
+                    x_bytes = x.to_bytes_le();
+                    y_bytes = y.to_bytes_le();
+                }
+                bytes.extend(&x_bytes);
+                bytes.extend(&y_bytes);
+            }
+            PointFormat::Projective => {
+                panic!("Projective format is not supported for ShortWeierstrassJacobianPoint");
+            }
+        }
+        bytes
+    }
+
+    pub fn deserialize(
+        bytes: &[u8],
+        point_format: PointFormat,
+        endianness: Endianness,
+    ) -> Result<Self, DeserializationError> {
+        match point_format {
+            PointFormat::Jacobian => {
+                if bytes.len() % 3 != 0 {
+                    return Err(DeserializationError::InvalidAmountOfBytes);
+                }
+                let len = bytes.len() / 3;
+                let x: FieldElement<E::BaseField>;
+                let y: FieldElement<E::BaseField>;
+                let z: FieldElement<E::BaseField>;
+
+                if endianness == Endianness::BigEndian {
+                    x = ByteConversion::from_bytes_be(&bytes[..len])?;
+                    y = ByteConversion::from_bytes_be(&bytes[len..len * 2])?;
+                    z = ByteConversion::from_bytes_be(&bytes[len * 2..])?;
+                } else {
+                    x = ByteConversion::from_bytes_le(&bytes[..len])?;
+                    y = ByteConversion::from_bytes_le(&bytes[len..len * 2])?;
+                    z = ByteConversion::from_bytes_le(&bytes[len * 2..])?;
+                }
+
+                let point = Self::new(x, y, z.clone());
+
+                if z == FieldElement::zero() {
+                    if point.is_neutral_element() {
+                        Ok(point)
+                    } else {
+                        Err(DeserializationError::FieldFromBytesError)
+                    }
+                } else {
+                    let affine_point = point.to_affine();
+                    let x_affine = affine_point.x();
+                    let y_affine = affine_point.y();
+
+                    if E::defining_equation(x_affine, y_affine) == FieldElement::zero() {
+                        Ok(point)
+                    } else {
+                        Err(DeserializationError::FieldFromBytesError)
+                    }
+                }
+            }
+            PointFormat::Uncompressed => {
+                if bytes.len() % 2 != 0 {
+                    return Err(DeserializationError::InvalidAmountOfBytes);
+                }
+                let len = bytes.len() / 2;
+                let x: FieldElement<E::BaseField>;
+                let y: FieldElement<E::BaseField>;
+
+                if endianness == Endianness::BigEndian {
+                    x = ByteConversion::from_bytes_be(&bytes[..len])?;
+                    y = ByteConversion::from_bytes_be(&bytes[len..])?;
+                } else {
+                    x = ByteConversion::from_bytes_le(&bytes[..len])?;
+                    y = ByteConversion::from_bytes_le(&bytes[len..])?;
+                }
+                if E::defining_equation(&x, &y) == FieldElement::zero() {
+                    Ok(Self::new(x, y, FieldElement::one()))
+                } else {
+                    Err(DeserializationError::FieldFromBytesError)
+                }
+            }
+            PointFormat::Projective => {
+                panic!("Projective format is not supported for ShortWeierstrassJacobianPoint");
+            }
         }
     }
 }
@@ -674,6 +854,17 @@ where
 }
 
 #[cfg(feature = "alloc")]
+impl<E> AsBytes for ShortWeierstrassJacobianPoint<E>
+where
+    E: IsShortWeierstrass,
+    FieldElement<E::BaseField>: ByteConversion,
+{
+    fn as_bytes(&self) -> alloc::vec::Vec<u8> {
+        self.serialize(PointFormat::Jacobian, Endianness::LittleEndian)
+    }
+}
+
+#[cfg(feature = "alloc")]
 impl<E> From<ShortWeierstrassJacobianPoint<E>> for alloc::vec::Vec<u8>
 where
     E: IsShortWeierstrass,
@@ -697,112 +888,6 @@ where
     }
 }
 
-impl<E> ShortWeierstrassJacobianPoint<E>
-where
-    E: IsShortWeierstrass,
-    FieldElement<E::BaseField>: ByteConversion,
-{
-    /// Serializa el punto en el formato y endianess dados.
-    #[cfg(feature = "alloc")]
-    pub fn serialize(
-        &self,
-        point_format: PointFormat,
-        endianness: Endianness,
-    ) -> alloc::vec::Vec<u8> {
-        let mut bytes = alloc::vec::Vec::new();
-        match point_format {
-            PointFormat::Jacobian => {
-                let [x, y, z] = self.coordinates();
-                let x_bytes = if endianness == Endianness::BigEndian {
-                    x.to_bytes_be()
-                } else {
-                    x.to_bytes_le()
-                };
-                let y_bytes = if endianness == Endianness::BigEndian {
-                    y.to_bytes_be()
-                } else {
-                    y.to_bytes_le()
-                };
-                let z_bytes = if endianness == Endianness::BigEndian {
-                    z.to_bytes_be()
-                } else {
-                    z.to_bytes_le()
-                };
-                bytes.extend(&x_bytes);
-                bytes.extend(&y_bytes);
-                bytes.extend(&z_bytes);
-            }
-            // Otros formatos pueden ser implementados aquí si es necesario
-            _ => {
-                panic!("Formato de punto no soportado para serialización de JacobianPoint");
-            }
-        }
-        bytes
-    }
-
-    /// Deserializa un punto Jacobiano desde bytes en el formato y endianess dados.
-    #[cfg(feature = "alloc")]
-    pub fn deserialize(
-        bytes: &[u8],
-        point_format: PointFormat,
-        endianness: Endianness,
-    ) -> Result<Self, DeserializationError> {
-        match point_format {
-            PointFormat::Jacobian => {
-                let expected_len = 3 * FieldElement::<E::BaseField>::BYTE_SIZE;
-                if bytes.len() != expected_len {
-                    return Err(DeserializationError::InvalidAmountOfBytes);
-                }
-
-                let len = FieldElement::<E::BaseField>::BYTE_SIZE;
-                let x = if endianness == Endianness::BigEndian {
-                    FieldElement::<E::BaseField>::from_bytes_be(&bytes[..len])?
-                } else {
-                    FieldElement::<E::BaseField>::from_bytes_le(&bytes[..len])?
-                };
-                let y = if endianness == Endianness::BigEndian {
-                    FieldElement::<E::BaseField>::from_bytes_be(&bytes[len..2 * len])?
-                } else {
-                    FieldElement::<E::BaseField>::from_bytes_le(&bytes[len..2 * len])?
-                };
-                let z = if endianness == Endianness::BigEndian {
-                    FieldElement::<E::BaseField>::from_bytes_be(&bytes[2 * len..])?
-                } else {
-                    FieldElement::<E::BaseField>::from_bytes_le(&bytes[2 * len..])?
-                };
-
-                // Validar que el punto está en la curva si Z != 0
-                if !z.is_zero() {
-                    let (x_affine, y_affine) =
-                        Self(JacobianPoint::new(x.clone(), y.clone(), z.clone()))
-                            .to_affine()
-                            .0
-                            .to_affine();
-                    if !E::defining_equation(&x_affine, &y_affine).is_zero() {
-                        return Err(DeserializationError::FieldFromBytesError);
-                    }
-                }
-
-                Ok(Self(JacobianPoint::new(x, y, z)))
-            }
-            // Otros formatos pueden ser implementados aquí si es necesario
-            _ => Err(DeserializationError::UnsupportedPointFormat),
-        }
-    }
-}
-
-#[cfg(feature = "alloc")]
-impl<E> AsBytes for ShortWeierstrassJacobianPoint<E>
-where
-    E: IsShortWeierstrass,
-    FieldElement<E::BaseField>: ByteConversion,
-{
-    fn as_bytes(&self) -> alloc::vec::Vec<u8> {
-        self.serialize(PointFormat::Jacobian, Endianness::LittleEndian)
-    }
-}
-
-/// Here starts the jacobian implementation
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -827,6 +912,20 @@ mod tests {
 
     #[cfg(feature = "alloc")]
     #[test]
+    fn operate_with_self_works_() {
+        let p = JacobianPoint::from(point());
+        assert_eq!(p.operate_with(&p), p.double());
+    }
+
+    #[cfg(feature = "alloc")]
+    #[test]
+    fn double_is_equal_to_operate_with_self() {
+        let g = BLS12381Curve::generator();
+        let p = JacobianPoint::from(g);
+        assert_eq!(p.double(), p.operate_with(&p));
+    }
+    #[cfg(feature = "alloc")]
+    #[test]
     fn byte_conversion_from_and_to_be_projective() {
         let expected_point = point();
         let bytes_be = expected_point.serialize(PointFormat::Projective, Endianness::BigEndian);
@@ -839,12 +938,39 @@ mod tests {
         assert_eq!(expected_point, result.unwrap());
     }
 
+    ///
+    #[cfg(feature = "alloc")]
+    #[test]
+    fn byte_conversion_from_and_to_be_jacobian() {
+        let p = point();
+        let expected_point = ShortWeierstrassJacobianPoint::<BLS12381Curve>::from(p);
+        let bytes_be = expected_point.serialize(PointFormat::Jacobian, Endianness::BigEndian);
+        let result = ShortWeierstrassJacobianPoint::deserialize(
+            &bytes_be,
+            PointFormat::Jacobian,
+            Endianness::BigEndian,
+        );
+        assert_eq!(expected_point, result.unwrap());
+    }
+
     #[cfg(feature = "alloc")]
     #[test]
     fn byte_conversion_from_and_to_be_uncompressed() {
         let expected_point = point();
         let bytes_be = expected_point.serialize(PointFormat::Uncompressed, Endianness::BigEndian);
         let result = ShortWeierstrassProjectivePoint::deserialize(
+            &bytes_be,
+            PointFormat::Uncompressed,
+            Endianness::BigEndian,
+        );
+        assert_eq!(expected_point, result.unwrap());
+    }
+    #[cfg(feature = "alloc")]
+    #[test]
+    fn byte_conversion_from_and_to_be_uncompressed_jacobian() {
+        let expected_point = ShortWeierstrassJacobianPoint::<BLS12381Curve>::from(point());
+        let bytes_be = expected_point.serialize(PointFormat::Uncompressed, Endianness::BigEndian);
+        let result = ShortWeierstrassJacobianPoint::deserialize(
             &bytes_be,
             PointFormat::Uncompressed,
             Endianness::BigEndian,
@@ -868,12 +994,41 @@ mod tests {
 
     #[cfg(feature = "alloc")]
     #[test]
+    fn byte_conversion_from_and_to_le_jacobian() {
+        let expected_point = ShortWeierstrassJacobianPoint::<BLS12381Curve>::from(point());
+        let bytes_be = expected_point.serialize(PointFormat::Jacobian, Endianness::LittleEndian);
+
+        let result = ShortWeierstrassJacobianPoint::deserialize(
+            &bytes_be,
+            PointFormat::Jacobian,
+            Endianness::LittleEndian,
+        );
+        assert_eq!(expected_point, result.unwrap());
+    }
+
+    #[cfg(feature = "alloc")]
+    #[test]
     fn byte_conversion_from_and_to_le_uncompressed() {
         let expected_point = point();
         let bytes_be =
             expected_point.serialize(PointFormat::Uncompressed, Endianness::LittleEndian);
 
         let result = ShortWeierstrassProjectivePoint::deserialize(
+            &bytes_be,
+            PointFormat::Uncompressed,
+            Endianness::LittleEndian,
+        );
+        assert_eq!(expected_point, result.unwrap());
+    }
+
+    #[cfg(feature = "alloc")]
+    #[test]
+    fn byte_conversion_from_and_to_le_uncompressed_jacobian() {
+        let expected_point = ShortWeierstrassJacobianPoint::<BLS12381Curve>::from(point());
+        let bytes_be =
+            expected_point.serialize(PointFormat::Uncompressed, Endianness::LittleEndian);
+
+        let result = ShortWeierstrassJacobianPoint::deserialize(
             &bytes_be,
             PointFormat::Uncompressed,
             Endianness::LittleEndian,
@@ -900,10 +1055,46 @@ mod tests {
 
     #[cfg(feature = "alloc")]
     #[test]
+    fn byte_conversion_from_and_to_with_mixed_le_and_be_does_not_work_projective_jacobian() {
+        let bytes = ShortWeierstrassJacobianPoint::<BLS12381Curve>::from(point())
+            .serialize(PointFormat::Jacobian, Endianness::LittleEndian);
+
+        let result = ShortWeierstrassJacobianPoint::<BLS12381Curve>::deserialize(
+            &bytes,
+            PointFormat::Jacobian,
+            Endianness::BigEndian,
+        );
+
+        assert_eq!(
+            result.unwrap_err(),
+            DeserializationError::FieldFromBytesError
+        );
+    }
+
+    #[cfg(feature = "alloc")]
+    #[test]
     fn byte_conversion_from_and_to_with_mixed_le_and_be_does_not_work_uncompressed() {
         let bytes = point().serialize(PointFormat::Uncompressed, Endianness::LittleEndian);
 
         let result = ShortWeierstrassProjectivePoint::<BLS12381Curve>::deserialize(
+            &bytes,
+            PointFormat::Uncompressed,
+            Endianness::BigEndian,
+        );
+
+        assert_eq!(
+            result.unwrap_err(),
+            DeserializationError::FieldFromBytesError
+        );
+    }
+
+    #[cfg(feature = "alloc")]
+    #[test]
+    fn byte_conversion_from_and_to_with_mixed_le_and_be_does_not_work_uncompressed_jacobian() {
+        let bytes = ShortWeierstrassJacobianPoint::<BLS12381Curve>::from(point())
+            .serialize(PointFormat::Uncompressed, Endianness::LittleEndian);
+
+        let result = ShortWeierstrassJacobianPoint::<BLS12381Curve>::deserialize(
             &bytes,
             PointFormat::Uncompressed,
             Endianness::BigEndian,
@@ -934,6 +1125,24 @@ mod tests {
 
     #[cfg(feature = "alloc")]
     #[test]
+    fn byte_conversion_from_and_to_with_mixed_be_and_le_does_not_work_jacobian() {
+        let bytes = ShortWeierstrassJacobianPoint::<BLS12381Curve>::from(point())
+            .serialize(PointFormat::Jacobian, Endianness::BigEndian);
+
+        let result = ShortWeierstrassJacobianPoint::<BLS12381Curve>::deserialize(
+            &bytes,
+            PointFormat::Jacobian,
+            Endianness::LittleEndian,
+        );
+
+        assert_eq!(
+            result.unwrap_err(),
+            DeserializationError::FieldFromBytesError
+        );
+    }
+
+    #[cfg(feature = "alloc")]
+    #[test]
     fn byte_conversion_from_and_to_with_mixed_be_and_le_does_not_work_uncompressed() {
         let bytes = point().serialize(PointFormat::Uncompressed, Endianness::BigEndian);
 
@@ -949,6 +1158,22 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "alloc")]
+    #[test]
+    fn byte_conversion_from_and_to_with_mixed_be_and_le_does_not_work_uncompressed_jacobian() {
+        let bytes = point().serialize(PointFormat::Uncompressed, Endianness::BigEndian);
+
+        let result = ShortWeierstrassProjectivePoint::<BLS12381Curve>::deserialize(
+            &bytes,
+            PointFormat::Uncompressed,
+            Endianness::LittleEndian,
+        );
+
+        assert_eq!(
+            result.unwrap_err(),
+            DeserializationError::FieldFromBytesError
+        );
+    }
     #[test]
     fn cannot_create_point_from_wrong_number_of_bytes_le_projective() {
         let bytes = &[0_u8; 13];
@@ -966,10 +1191,42 @@ mod tests {
     }
 
     #[test]
+    fn cannot_create_point_from_wrong_number_of_bytes_le_jacobian() {
+        let bytes = &[0_u8; 13];
+
+        let result = ShortWeierstrassJacobianPoint::<BLS12381Curve>::deserialize(
+            bytes,
+            PointFormat::Jacobian,
+            Endianness::LittleEndian,
+        );
+
+        assert_eq!(
+            result.unwrap_err(),
+            DeserializationError::InvalidAmountOfBytes
+        );
+    }
+
+    #[test]
     fn cannot_create_point_from_wrong_number_of_bytes_le_uncompressed() {
         let bytes = &[0_u8; 13];
 
         let result = ShortWeierstrassProjectivePoint::<BLS12381Curve>::deserialize(
+            bytes,
+            PointFormat::Uncompressed,
+            Endianness::LittleEndian,
+        );
+
+        assert_eq!(
+            result.unwrap_err(),
+            DeserializationError::InvalidAmountOfBytes
+        );
+    }
+
+    #[test]
+    fn cannot_create_point_from_wrong_number_of_bytes_le_uncompressed_jacobian() {
+        let bytes = &[0_u8; 13];
+
+        let result = ShortWeierstrassJacobianPoint::<BLS12381Curve>::deserialize(
             bytes,
             PointFormat::Uncompressed,
             Endianness::LittleEndian,
@@ -998,10 +1255,42 @@ mod tests {
     }
 
     #[test]
+    fn cannot_create_point_from_wrong_number_of_bytes_be_jacobian() {
+        let bytes = &[0_u8; 13];
+
+        let result = ShortWeierstrassJacobianPoint::<BLS12381Curve>::deserialize(
+            bytes,
+            PointFormat::Jacobian,
+            Endianness::BigEndian,
+        );
+
+        assert_eq!(
+            result.unwrap_err(),
+            DeserializationError::InvalidAmountOfBytes
+        );
+    }
+
+    #[test]
     fn cannot_create_point_from_wrong_number_of_bytes_be_uncompressed() {
         let bytes = &[0_u8; 13];
 
         let result = ShortWeierstrassProjectivePoint::<BLS12381Curve>::deserialize(
+            bytes,
+            PointFormat::Uncompressed,
+            Endianness::BigEndian,
+        );
+
+        assert_eq!(
+            result.unwrap_err(),
+            DeserializationError::InvalidAmountOfBytes
+        );
+    }
+
+    #[test]
+    fn cannot_create_point_from_wrong_number_of_bytes_be_uncompressed_jacobian() {
+        let bytes = &[0_u8; 13];
+
+        let result = ShortWeierstrassJacobianPoint::<BLS12381Curve>::deserialize(
             bytes,
             PointFormat::Uncompressed,
             Endianness::BigEndian,

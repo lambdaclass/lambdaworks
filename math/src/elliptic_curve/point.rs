@@ -1,5 +1,3 @@
-use serde::de::value;
-
 use crate::elliptic_curve::traits::IsEllipticCurve;
 use crate::field::element::FieldElement;
 use core::fmt::Debug;
@@ -93,19 +91,7 @@ impl<E: IsEllipticCurve> JacobianPoint<E> {
     pub fn coordinates(&self) -> &[FieldElement<E::BaseField>; 3] {
         &self.value
     }
-    /*
-       pub fn to_affine(&self) -> Option<(FieldElement<E::BaseField>, FieldElement<E::BaseField>)> {
-           let [x, y, z] = self.coordinates();
-           if z.is_zero() {
-               None
-           } else {
-               let z_inv = z.inv()?;
-               let z_inv_squared = &z_inv * &z_inv;
-               let z_inv_cubed = &z_inv_squared * &z_inv;
-               Some((x * &z_inv_squared, y * &z_inv_cubed))
-           }
-       }
-    */
+
     pub fn from_affine(x: FieldElement<E::BaseField>, y: FieldElement<E::BaseField>) -> Self {
         Self::new([x, y, FieldElement::one()])
     }
