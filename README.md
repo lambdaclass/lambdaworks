@@ -1,6 +1,6 @@
 # lambdaworks
 
-> From the heights of these towers of fields, forty centuries of mathematics look down on us. 
+> From the heights of these towers of fields, forty centuries of mathematics look down on us.
 
 This library provides efficient implementation of cryptographic primitives used to build proving systems. Along with it, many backends for proving systems are shipped, and compatibility with different frontends is supported.
 
@@ -96,6 +96,7 @@ List of symbols:
 | Bandersnatch        | 🏗️                 | :heavy_check_mark: | :x:                | :heavy_check_mark:  | :heavy_check_mark: |
 | secp256k1           | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark:  | :heavy_check_mark: |
 | secq256k1           | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :x:                | :x:                |
+| secq256r1           | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :x:                | :x:                |
 | **STARKs**       | **Lambdaworks**     | **Arkworks** | **Halo2** | **gnark** | **Constantine** |
 | STARK Prover     | :heavy_check_mark:  | :x:          | :x:       | :x:       | :x:             |
 | CAIRO Prover     | 🏗️                  | :x:          | :x:       | :x:       | :x:             |
@@ -126,11 +127,11 @@ Additionally, provers are compatible with the following frontends and VMs:
 | Groth16 | Circom   | 🏗️  |
 | Plonk   | Gnark    | 🏗️  |
 | Plonk   | Noir    | :x: |
-| Stark   | Winterfell | :heavy_check_mark: | 
+| Stark   | Winterfell | :heavy_check_mark: |
 | Stark   | Miden | :heavy_check_mark: |
 | Stark   | Cairo | :heavy_check_mark: |
 
-This can be used in a multi prover setting for extra security, or as a standalone to be used with Rust. 
+This can be used in a multi prover setting for extra security, or as a standalone to be used with Rust.
 
 ## Additional tooling usage
 
@@ -177,7 +178,7 @@ If you want to learn about proof systems/cryptography, we have a list of resourc
 
 ## 📚 References and acknowledgements
 
-The following links, repos, companies and projects have been important in the development of this library and we want to thank and acknowledge them. 
+The following links, repos, companies and projects have been important in the development of this library and we want to thank and acknowledge them.
 
 - [Starkware](https://starkware.co/)
 - [Polygon](https://polygon.technology/)
