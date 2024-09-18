@@ -369,7 +369,7 @@ where
         }
     }
 }
-// Here starts the jacobian implementation
+
 #[derive(Clone, Debug)]
 pub struct ShortWeierstrassJacobianPoint<E: IsShortWeierstrass>(pub JacobianPoint<E>);
 
@@ -431,24 +431,21 @@ impl<E: IsShortWeierstrass> ShortWeierstrassJacobianPoint<E> {
 
 impl<E: IsShortWeierstrass> PartialEq for JacobianPoint<E> {
     fn eq(&self, other: &Self) -> bool {
-        // En coordenadas jacobianas, dos puntos son iguales si:
+        // In Jacobian coordinates, the equality of two points is defined as:
         // X1 * Z2^2 == X2 * Z1^2 y Y1 * Z2^3 == Y2 * Z1^3
 
-        // Calculamos Z al cuadrado y al cubo para ambos puntos
         let z1_sq = self.z.square();
         let z2_sq = other.z.square();
 
         let z1_cu = &z1_sq * &self.z;
         let z2_cu = &z2_sq * &other.z;
 
-        // Calculamos las comparaciones necesarias
         let x1_z2_sq = &self.x * &z2_sq;
         let x2_z1_sq = &other.x * &z1_sq;
 
         let y1_z2_cu = &self.y * &z2_cu;
         let y2_z1_cu = &other.y * &z1_cu;
 
-        // Verificamos si las igualdades se cumplen
         x1_z2_sq == x2_z1_sq && y1_z2_cu == y2_z1_cu
     }
 }
@@ -490,14 +487,13 @@ where
             Self {
                 x: point.x() * &z_inv,
                 y: point.y() * z_inv.square(),
-                z: point.z().to_owned(),
+                z: point.z().clone(),
             }
         } else {
             Self::neutral_element()
         }
     }
 }
-/// For the conversion from Jacobian to Projective , testing if this is correct
 
 impl<E: IsShortWeierstrass> From<ShortWeierstrassProjectivePoint<E>>
     for ShortWeierstrassJacobianPoint<E>
@@ -586,32 +582,31 @@ impl<E: IsShortWeierstrass> JacobianPoint<E> {
 }
 
 impl<E: IsShortWeierstrass> JacobianPoint<E> {
-    // Immplementation taken from:
+    // Immplementation taken from
     // https://github.com/mratsim/constantine/blob/65147ed815d96fa94a05d307c1d9980877b7d0e8/constantine/math/elliptic/ec_shortweierstrass_jacobian.md
     pub fn double(&self) -> Self {
         if self.is_neutral_element() {
             return self.clone();
         }
 
-        let x1 = self.x.clone();
-        let y1 = self.y.clone();
-        let z1 = self.z.clone();
+        let x1 = &self.x;
+        let y1 = &self.y;
+        let z1 = &self.z;
 
         let a_coeff = E::a();
-        // Need to check how to get the a coefficient
         //http://www.hyperelliptic.org/EFD/g1p/data/shortw/jacobian-0/doubling/dbl-2009-l
         if a_coeff == FieldElement::zero() {
             let a = x1.square(); // A = x1^2
             let b = y1.square(); // B = y1^2
             let c = b.square(); // C = B^2
-            let x1_plus_b = &x1 + &b; // (X1 + B)
+            let x1_plus_b = x1 + &b; // (X1 + B)
             let x1_plus_b_square = x1_plus_b.square(); // (X1 + B)^2
             let d = (&x1_plus_b_square - &a - &c).double(); // D = 2 * ((X1 + B)^2 - A - C)
             let e = &a * FieldElement::<E::BaseField>::from(3u64); // E = 3 * A
             let f = e.square(); // F = E^2
             let x3 = &f - &d.double(); // X3 = F - 2 * D
             let y3 = &e * (&d - &x3) - &c * FieldElement::<E::BaseField>::from(8u64); // Y3 = E * (D - X3) - 8 * C
-            let z3 = (&y1 * &z1).double(); // Z3 = 2 * Y1 * Z1
+            let z3 = (y1 * z1).double(); // Z3 = 2 * Y1 * Z1
 
             JacobianPoint::new(x3, y3, z3)
         } else {
@@ -621,11 +616,11 @@ impl<E: IsShortWeierstrass> JacobianPoint<E> {
             let yy = y1.square(); // YY = Y1^2
             let yyyy = yy.square(); // YYYY = YY^2
             let zz = z1.square(); // ZZ = Z1^2
-            let s = ((&x1 + &yy).square() - &xx - &yyyy).double(); // S = 2 * ((X1 + YY)^2 - XX - YYYY)
+            let s = ((x1 + &yy).square() - &xx - &yyyy).double(); // S = 2 * ((X1 + YY)^2 - XX - YYYY)
             let m = &xx.double() + &xx + &a_coeff * &zz.square(); // M = 3 * XX + a * ZZ^2
             let x3 = m.square() - &s.double(); // X3 = M^2 - 2 * S
             let y3 = m * (&s - &x3) - &yyyy.double().double().double(); // Y3 = M * (S - X3) - 8 * YYYY
-            let z3 = (&y1 + &z1).square() - &yy - &zz; // Z3 = (Y1 + Z1)^2 - YY - ZZ
+            let z3 = (y1 + z1).square() - &yy - &zz; // Z3 = (Y1 + Z1)^2 - YY - ZZ
 
             JacobianPoint::new(x3, y3, z3)
         }
@@ -653,14 +648,14 @@ impl<E: IsShortWeierstrass> JacobianPoint<E> {
         let z1_sq = z1.square(); // Z1^2
         let z2_sq = z2.square(); // Z2^2
 
-        let u1 = x1.clone() * &z2_sq; // U1 = X1 * Z2^2
-        let u2 = x2.clone() * &z1_sq; // U2 = X2 * Z1^2
+        let u1 = x1 * &z2_sq; // U1 = X1 * Z2^2
+        let u2 = x2 * &z1_sq; // U2 = X2 * Z1^2
 
         let z1_cu = z1 * &z1_sq; // Z1^3
         let z2_cu = z2 * &z2_sq; // Z2^3
 
-        let s1 = y1.clone() * &z2_cu; // S1 = Y1 * Z2^3
-        let s2 = y2.clone() * &z1_cu; // S2 = Y2 * Z1^3
+        let s1 = y1 * &z2_cu; // S1 = Y1 * Z2^3
+        let s2 = y2 * &z1_cu; // S2 = Y2 * Z1^3
 
         if u1 == u2 {
             if s1 == s2 {
@@ -685,7 +680,6 @@ impl<E: IsShortWeierstrass> JacobianPoint<E> {
         Self::new(x3, y3, z3)
     }
 
-    // Negation
     pub fn negate(&self) -> Self {
         Self {
             x: self.x.clone(),
@@ -817,7 +811,6 @@ where
     }
 }
 
-// here ends the jacobian implementation
 #[cfg(feature = "alloc")]
 impl<E> AsBytes for ShortWeierstrassProjectivePoint<E>
 where
@@ -912,14 +905,14 @@ mod tests {
 
     #[cfg(feature = "alloc")]
     #[test]
-    fn operate_with_self_works_() {
+    fn operate_with_self_works_jacobian() {
         let p = JacobianPoint::from(point());
         assert_eq!(p.operate_with(&p), p.double());
     }
 
     #[cfg(feature = "alloc")]
     #[test]
-    fn double_is_equal_to_operate_with_self() {
+    fn double_is_equal_to_operate_with_self_jacobian() {
         let g = BLS12381Curve::generator();
         let p = JacobianPoint::from(g);
         assert_eq!(p.double(), p.operate_with(&p));
@@ -938,7 +931,6 @@ mod tests {
         assert_eq!(expected_point, result.unwrap());
     }
 
-    ///
     #[cfg(feature = "alloc")]
     #[test]
     fn byte_conversion_from_and_to_be_jacobian() {

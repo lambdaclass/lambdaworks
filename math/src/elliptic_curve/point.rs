@@ -64,8 +64,6 @@ impl<E: IsEllipticCurve> PartialEq for ProjectivePoint<E> {
 
 impl<E: IsEllipticCurve> Eq for ProjectivePoint<E> {}
 
-//Should add the same for JacobianPoint?
-
 #[derive(Debug, Clone)]
 pub struct JacobianPoint<E: IsEllipticCurve> {
     pub value: [FieldElement<E::BaseField>; 3],
