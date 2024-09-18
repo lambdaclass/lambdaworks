@@ -54,18 +54,9 @@ impl IsField for Mersenne31Field {
 
     /// Returns the sum of `a` and `b`.
     fn add(a: &u32, b: &u32) -> u32 {
-        // Avoids conditional https://github.com/Plonky3/Plonky3/blob/6049a30c3b1f5351c3eb0f7c994dc97e8f68d10d/mersenne-31/src/lib.rs#L249
-        // Working with i32 means we get a flag which informs us if overflow happens
-        let (sum_i32, over) = (*a as i32).overflowing_add(*b as i32);
-        let sum_u32 = sum_i32 as u32;
-        let sum_corr = sum_u32.wrapping_sub(MERSENNE_31_PRIME_FIELD_ORDER);
-
-        //assert 31 bit clear
-        // If self + rhs did not overflow, return it.
-        // If self + rhs overflowed, sum_corr = self + rhs - (2**31 - 1).
-        let sum = if over { sum_corr } else { sum_u32 };
-        debug_assert!((sum >> 31) == 0);
-        Self::as_representative(&sum)
+        // We are using that if a and b are field elements of Mersenne31, then
+        // a + b has at most 32 bits, so we can use the weak_reduce function to take mudulus p.
+        Self::weak_reduce(a + b)
     }
 
     /// Returns the multiplication of `a` and `b`.
