@@ -54,6 +54,19 @@ impl IsField for Mersenne31Field {
 
     /// Returns the sum of `a` and `b`.
     fn add(a: &u32, b: &u32) -> u32 {
+        // // Avoids conditional https://github.com/Plonky3/Plonky3/blob/6049a30c3b1f5351c3eb0f7c994dc97e8f68d10d/mersenne-31/src/lib.rs#L249
+        // // Working with i32 means we get a flag which informs us if overflow happens
+        // let (sum_i32, over) = (*a as i32).overflowing_add(*b as i32);
+        // let sum_u32 = sum_i32 as u32;
+        // let sum_corr = sum_u32.wrapping_sub(MERSENNE_31_PRIME_FIELD_ORDER);
+
+        // //assert 31 bit clear
+        // // If self + rhs did not overflow, return it.
+        // // If self + rhs overflowed, sum_corr = self + rhs - (2**31 - 1).
+        // let sum = if over { sum_corr } else { sum_u32 };
+        // debug_assert!((sum >> 31) == 0);
+        // Self::as_representative(&sum)
+
         // We are using that if a and b are field elements of Mersenne31, then
         // a + b has at most 32 bits, so we can use the weak_reduce function to take mudulus p.
         Self::weak_reduce(a + b)
@@ -73,6 +86,8 @@ impl IsField for Mersenne31Field {
         // Hence we need to remove the most significant bit and subtract 1.
         sub -= over as u32;
         sub & MERSENNE_31_PRIME_FIELD_ORDER
+
+        // Self::weak_reduce(a + MERSENNE_31_PRIME_FIELD_ORDER - b)
     }
 
     /// Returns the additive inverse of `a`.
@@ -122,16 +137,18 @@ impl IsField for Mersenne31Field {
 
     /// Returns the element `x * 1` where 1 is the multiplicative neutral element.
     fn from_u64(x: u64) -> u32 {
-        let (lo, hi) = (x as u32 as u64, x >> 32);
-        // 2^32 = 2 (mod Mersenne 31 bit prime)
-        // t <= (2^32 - 1) + 2 * (2^32 - 1) = 3 * 2^32 - 3 = 6 * 2^31 - 3
-        let t = lo + 2 * hi;
+        // let (lo, hi) = (x as u32 as u64, x >> 32);
+        // // 2^32 = 2 (mod Mersenne 31 bit prime)
+        // // t <= (2^32 - 1) + 2 * (2^32 - 1) = 3 * 2^32 - 3 = 6 * 2^31 - 3
+        // let t = lo + 2 * hi;
 
-        const MASK: u64 = (1 << 31) - 1;
-        let (lo, hi) = ((t & MASK) as u32, (t >> 31) as u32);
-        // 2^31 = 1 mod Mersenne31
-        // lo < 2^31, hi < 6, so lo + hi < 2^32.
-        Self::weak_reduce(lo + hi)
+        // const MASK: u64 = (1 << 31) - 1;
+        // let (lo, hi) = ((t & MASK) as u32, (t >> 31) as u32);
+        // // 2^31 = 1 mod Mersenne31
+        // // lo < 2^31, hi < 6, so lo + hi < 2^32.
+        // Self::weak_reduce(lo + hi)
+
+        (((((x >> 31) + x + 1) >> 31) + x) & (MERSENNE_31_PRIME_FIELD_ORDER as u64)) as u32
     }
 
     /// Takes as input an element of BaseType and returns the internal representation
@@ -196,10 +213,16 @@ impl Display for FieldElement<Mersenne31Field> {
 mod tests {
     use super::*;
     type F = Mersenne31Field;
+    type FE = FieldElement<F>;
 
     #[test]
     fn from_hex_for_b_is_11() {
         assert_eq!(F::from_hex("B").unwrap(), 11);
+    }
+
+    #[test]
+    fn from_hex_for_b_is_11_v2() {
+        assert_eq!(FE::from_hex("B").unwrap(), FE::from(11));
     }
 
     #[test]
@@ -255,6 +278,14 @@ mod tests {
         let b = F::one();
         let c = F::add(&a, &b);
         assert_eq!(c, F::zero());
+    }
+
+    #[test]
+    fn max_order_plus_1_is_0_v2() {
+        assert_eq!(
+            FE::from((MERSENNE_31_PRIME_FIELD_ORDER - 1) as u64) + FE::from(1),
+            FE::from(0)
+        );
     }
 
     #[test]
