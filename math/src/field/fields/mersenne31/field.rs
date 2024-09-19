@@ -42,6 +42,33 @@ impl Mersenne31Field {
         // Delayed reduction
         Self::from_u64(iter.map(|x| (x as u64)).sum::<u64>())
     }
+
+    pub fn new_inv(x: &u32) -> u32 {
+        let mut a: u32 = 1;
+        let mut b: u32 = 0;
+        let mut y: u32 = x.clone();
+        let mut z: u32 = MERSENNE_31_PRIME_FIELD_ORDER;
+        let q: u32 = 31;
+        let mut e: u32;
+        let mut temp: u64;
+        let mut temp2: u32;
+
+        loop {
+            e = y.trailing_zeros();
+            y = y / (2u64.pow(e) as u32);
+            temp = 2u64.pow(q.wrapping_sub(e));
+            a = Self::from_u64(temp * a as u64);
+            if y == 1 {
+                return a;
+            };
+            temp2 = a.wrapping_add(b);
+            b = a;
+            a = temp2;
+            temp2 = y.wrapping_add(z);
+            z = y;
+            y = temp2;
+        }
+    }
 }
 
 pub const MERSENNE_31_PRIME_FIELD_ORDER: u32 = (1 << 31) - 1;
@@ -369,5 +396,19 @@ mod tests {
     fn to_hex_test() {
         let num = FE::from_hex("B").unwrap();
         assert_eq!(FE::to_hex(&num), "B");
+    }
+
+    #[test]
+    fn new_inverse_test() {
+        let x = FE::from(&823451u32);
+
+        let x_inv_original = FE::inv(&x).unwrap();
+        let x_inv_new = FE::from(&F::new_inv(&823451u32));
+
+        println!("Original: {:?}", x_inv_original);
+
+        println!("Nueva: {:?}", x_inv_new);
+
+        assert_eq!(x_inv_original, x_inv_new);
     }
 }
