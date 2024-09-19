@@ -42,7 +42,7 @@ impl<E: IsEllipticCurve> ProjectivePoint<E> {
         let [x, y, z] = self.coordinates();
         // If it's the point at infinite
         if z == &FieldElement::zero() {
-            // We make sure all the points in the infinite have the same values
+            // We make sure all the points at infinite have the same values
             return Self::new([
                 FieldElement::zero(),
                 FieldElement::one(),
@@ -99,9 +99,9 @@ impl<E: IsEllipticCurve> JacobianPoint<E> {
         let [x, y, z] = self.coordinates();
         // If it's the point at infinite
         if z == &FieldElement::zero() {
-            // We make sure all the points in the infinite have the same values
+            // We make sure all the points at infinite have the same values
             return Self::new([
-                FieldElement::zero(),
+                FieldElement::one(),
                 FieldElement::one(),
                 FieldElement::zero(),
             ]);
