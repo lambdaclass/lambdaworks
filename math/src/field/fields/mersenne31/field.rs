@@ -54,6 +54,7 @@ impl IsField for Mersenne31Field {
 
     /// Returns the sum of `a` and `b`.
     fn add(a: &u32, b: &u32) -> u32 {
+        // // OLD VERSION:
         // // Avoids conditional https://github.com/Plonky3/Plonky3/blob/6049a30c3b1f5351c3eb0f7c994dc97e8f68d10d/mersenne-31/src/lib.rs#L249
         // // Working with i32 means we get a flag which informs us if overflow happens
         // let (sum_i32, over) = (*a as i32).overflowing_add(*b as i32);
@@ -67,6 +68,7 @@ impl IsField for Mersenne31Field {
         // debug_assert!((sum >> 31) == 0);
         // Self::as_representative(&sum)
 
+        //NEW VERSION:
         // We are using that if a and b are field elements of Mersenne31, then
         // a + b has at most 32 bits, so we can use the weak_reduce function to take mudulus p.
         Self::weak_reduce(a + b)
@@ -79,15 +81,16 @@ impl IsField for Mersenne31Field {
     }
 
     fn sub(a: &u32, b: &u32) -> u32 {
-        let (mut sub, over) = a.overflowing_sub(*b);
+        // // OLD VERSION:
+        // let (mut sub, over) = a.overflowing_sub(*b);
+        // // If we didn't overflow we have the correct value.
+        // // Otherwise we have added 2**32 = 2**31 + 1 mod 2**31 - 1.
+        // // Hence we need to remove the most significant bit and subtract 1.
+        // sub -= over as u32;
+        // sub & MERSENNE_31_PRIME_FIELD_ORDER
 
-        // If we didn't overflow we have the correct value.
-        // Otherwise we have added 2**32 = 2**31 + 1 mod 2**31 - 1.
-        // Hence we need to remove the most significant bit and subtract 1.
-        sub -= over as u32;
-        sub & MERSENNE_31_PRIME_FIELD_ORDER
-
-        // Self::weak_reduce(a + MERSENNE_31_PRIME_FIELD_ORDER - b)
+        // NEW VERSION:
+        Self::weak_reduce(a + MERSENNE_31_PRIME_FIELD_ORDER - b)
     }
 
     /// Returns the additive inverse of `a`.
@@ -101,17 +104,27 @@ impl IsField for Mersenne31Field {
         if *a == Self::zero() || *a == MERSENNE_31_PRIME_FIELD_ORDER {
             return Err(FieldError::InvZeroError);
         }
-        let p101 = Self::mul(&Self::pow(a, 4u32), a);
-        let p1111 = Self::mul(&Self::square(&p101), &p101);
-        let p11111111 = Self::mul(&Self::pow(&p1111, 16u32), &p1111);
-        let p111111110000 = Self::pow(&p11111111, 16u32);
-        let p111111111111 = Self::mul(&p111111110000, &p1111);
-        let p1111111111111111 = Self::mul(&Self::pow(&p111111110000, 16u32), &p11111111);
-        let p1111111111111111111111111111 =
-            Self::mul(&Self::pow(&p1111111111111111, 4096u32), &p111111111111);
-        let p1111111111111111111111111111101 =
-            Self::mul(&Self::pow(&p1111111111111111111111111111, 8u32), &p101);
-        Ok(p1111111111111111111111111111101)
+        // // OLD VERSION:
+        // let p101 = Self::mul(&Self::pow(a, 4u32), a);
+        // let p1111 = Self::mul(&Self::square(&p101), &p101);
+        // let p11111111 = Self::mul(&Self::pow(&p1111, 16u32), &p1111);
+        // let p111111110000 = Self::pow(&p11111111, 16u32);
+        // let p111111111111 = Self::mul(&p111111110000, &p1111);
+        // let p1111111111111111 = Self::mul(&Self::pow(&p111111110000, 16u32), &p11111111);
+        // let p1111111111111111111111111111 =
+        //     Self::mul(&Self::pow(&p1111111111111111, 4096u32), &p111111111111);
+        // let p1111111111111111111111111111101 =
+        //     Self::mul(&Self::pow(&p1111111111111111111111111111, 8u32), &p101);
+        // Ok(p1111111111111111111111111111101)
+
+        // NEW VERSION:
+        let t0 = sqn(*a, 2) * a;
+        let t1 = t0 * t0 * t0;
+        let t2 = sqn(t1, 3) * t0;
+        let t3 = t2 * t2 * t0;
+        let t4 = sqn(t3, 8) * t3;
+        let t5 = sqn(t4, 8) * t3;
+        Ok(sqn(t5, 7) * t2)
     }
 
     /// Returns the division of `a` and `b`.
@@ -137,6 +150,7 @@ impl IsField for Mersenne31Field {
 
     /// Returns the element `x * 1` where 1 is the multiplicative neutral element.
     fn from_u64(x: u64) -> u32 {
+        // // OLD VERSION:
         // let (lo, hi) = (x as u32 as u64, x >> 32);
         // // 2^32 = 2 (mod Mersenne 31 bit prime)
         // // t <= (2^32 - 1) + 2 * (2^32 - 1) = 3 * 2^32 - 3 = 6 * 2^31 - 3
@@ -148,6 +162,7 @@ impl IsField for Mersenne31Field {
         // // lo < 2^31, hi < 6, so lo + hi < 2^32.
         // Self::weak_reduce(lo + hi)
 
+        // NEW VERSION:
         (((((x >> 31) + x + 1) >> 31) + x) & (MERSENNE_31_PRIME_FIELD_ORDER as u64)) as u32
     }
 
@@ -156,6 +171,22 @@ impl IsField for Mersenne31Field {
     fn from_base_type(x: u32) -> u32 {
         Self::weak_reduce(x)
     }
+}
+
+/// Computes `a^(2*n)`.
+pub fn sqn(mut a: u32, n: usize) -> u32 {
+    for _ in 0..n {
+        a = Mersenne31Field::mul(&a, &a);
+    }
+    a
+}
+
+/// Computes a * 2^k, with |k| < 31
+pub fn mul_power_two(a: u32, k: i32) -> u64 {
+    // If a uses 32 bits, then a * 2^k uses 32 + k bits.
+    let msb = (a & (u32::MAX << 32 - k)) >> (32 - k - 1); // The k+1 msb.
+    let lsb = (a & (u32::MAX >> k)) << k; // The 31-k lsb with k zeros.
+    lsb as u64 + msb as u64
 }
 
 impl IsPrimeField for Mersenne31Field {
@@ -214,6 +245,24 @@ mod tests {
     use super::*;
     type F = Mersenne31Field;
     type FE = FieldElement<F>;
+
+    #[test]
+    fn mul_power_two_is_correct() {
+        let a = 3u32;
+        let k = 2;
+        let expected_result = FE::from(&a) * FE::from(2).pow(k as u16);
+        let result = mul_power_two(a, k);
+        assert_eq!(FE::from(result), expected_result)
+    }
+
+    #[test]
+    fn mul_power_two_is_correct_2() {
+        let a = 229287u32;
+        let k = 4;
+        let expected_result = FE::from(&a) * FE::from(2).pow(k as u16);
+        let result = mul_power_two(a, k);
+        assert_eq!(FE::from(result), expected_result)
+    }
 
     #[test]
     fn from_hex_for_b_is_11() {
@@ -283,7 +332,7 @@ mod tests {
     #[test]
     fn max_order_plus_1_is_0_v2() {
         assert_eq!(
-            FE::from((MERSENNE_31_PRIME_FIELD_ORDER - 1) as u64) + FE::from(1),
+            FE::from(&(MERSENNE_31_PRIME_FIELD_ORDER - 1)) + FE::from(1),
             FE::from(0)
         );
     }
@@ -304,10 +353,10 @@ mod tests {
 
     #[test]
     fn one_sub_1_is_0() {
-        let a = F::one();
-        let b = F::one();
-        let c = F::sub(&a, &b);
-        assert_eq!(c, F::zero());
+        let a = FE::one();
+        let b = FE::one();
+        let c = a - b;
+        assert_eq!(c, FE::zero());
     }
 
     #[test]
@@ -367,15 +416,15 @@ mod tests {
 
     #[test]
     fn inv_0_error() {
-        let result = F::inv(&F::zero());
+        let result = FE::inv(&FE::zero());
         assert!(matches!(result, Err(FieldError::InvZeroError)));
     }
 
     #[test]
     fn inv_2() {
-        let result = F::inv(&F::from_base_type(2u32)).unwrap();
+        let result = FE::inv(&FE::from(2)).unwrap();
         // sage: 1 / F(2) = 1073741824
-        assert_eq!(result, 1073741824);
+        assert_eq!(result, FE::from(1073741824));
     }
 
     #[test]
