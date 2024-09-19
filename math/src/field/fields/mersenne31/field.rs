@@ -42,33 +42,6 @@ impl Mersenne31Field {
         // Delayed reduction
         Self::from_u64(iter.map(|x| (x as u64)).sum::<u64>())
     }
-
-    pub fn new_inv(x: &u32) -> u32 {
-        let mut a: u32 = 1;
-        let mut b: u32 = 0;
-        let mut y: u32 = x.clone();
-        let mut z: u32 = MERSENNE_31_PRIME_FIELD_ORDER;
-        let q: u32 = 31;
-        let mut e: u32;
-        let mut temp: u64;
-        let mut temp2: u32;
-
-        loop {
-            e = y.trailing_zeros();
-            y = y / (2u64.pow(e) as u32);
-            temp = 2u64.pow(q.wrapping_sub(e));
-            a = Self::from_u64(temp * a as u64);
-            if y == 1 {
-                return a;
-            };
-            temp2 = a.wrapping_add(b);
-            b = a;
-            a = temp2;
-            temp2 = y.wrapping_add(z);
-            z = y;
-            y = temp2;
-        }
-    }
 }
 
 pub const MERSENNE_31_PRIME_FIELD_ORDER: u32 = (1 << 31) - 1;
@@ -103,8 +76,8 @@ impl IsField for Mersenne31Field {
     }
 
     /// Returns the multiplicative inverse of `a`.
-    fn inv(a: &u32) -> Result<u32, FieldError> {
-        if *a == Self::zero() || *a == MERSENNE_31_PRIME_FIELD_ORDER {
+    fn inv(x: &u32) -> Result<u32, FieldError> {
+        if *x == Self::zero() || *x == MERSENNE_31_PRIME_FIELD_ORDER {
             return Err(FieldError::InvZeroError);
         }
         // // OLD VERSION:
@@ -120,14 +93,39 @@ impl IsField for Mersenne31Field {
         //     Self::mul(&Self::pow(&p1111111111111111111111111111, 8u32), &p101);
         // Ok(p1111111111111111111111111111101)
 
+        // // OLD VERSION:
+        // let t0 = sqn(*x, 2) * x;
+        // let t1 = t0 * t0 * t0;
+        // let t2 = sqn(t1, 3) * t0;
+        // let t3 = t2 * t2 * t0;
+        // let t4 = sqn(t3, 8) * t3;
+        // let t5 = sqn(t4, 8) * t3;
+        // Ok(sqn(t5, 7) * t2)
+
         // NEW VERSION:
-        let t0 = sqn(*a, 2) * a;
-        let t1 = t0 * t0 * t0;
-        let t2 = sqn(t1, 3) * t0;
-        let t3 = t2 * t2 * t0;
-        let t4 = sqn(t3, 8) * t3;
-        let t5 = sqn(t4, 8) * t3;
-        Ok(sqn(t5, 7) * t2)
+        let mut a: u32 = 1;
+        let mut b: u32 = 0;
+        let mut y: u32 = x.clone();
+        let mut z: u32 = MERSENNE_31_PRIME_FIELD_ORDER;
+        let q: u32 = 31;
+        let mut e: u32;
+        let mut temp: u64;
+        let mut temp2: u32;
+
+        loop {
+            e = y.trailing_zeros();
+            y = y / (2u64.pow(e) as u32);
+            a = mul_power_two(a, q.wrapping_sub(e));
+            if y == 1 {
+                return Ok(a);
+            };
+            temp2 = a.wrapping_add(b);
+            b = a;
+            a = temp2;
+            temp2 = y.wrapping_add(z);
+            z = y;
+            y = temp2;
+        }
     }
 
     /// Returns the division of `a` and `b`.
@@ -172,11 +170,11 @@ pub fn sqn(mut a: u32, n: usize) -> u32 {
 }
 
 /// Computes a * 2^k, with |k| < 31
-pub fn mul_power_two(a: u32, k: i32) -> u64 {
+pub fn mul_power_two(a: u32, k: u32) -> u32 {
     // If a uses 32 bits, then a * 2^k uses 32 + k bits.
     let msb = (a & (u32::MAX << 32 - k)) >> (32 - k - 1); // The k+1 msb.
     let lsb = (a & (u32::MAX >> k)) << k; // The 31-k lsb with k zeros.
-    lsb as u64 + msb as u64
+    lsb + msb
 }
 
 impl IsPrimeField for Mersenne31Field {
@@ -242,7 +240,7 @@ mod tests {
         let k = 2;
         let expected_result = FE::from(&a) * FE::from(2).pow(k as u16);
         let result = mul_power_two(a, k);
-        assert_eq!(FE::from(result), expected_result)
+        assert_eq!(FE::from(&result), expected_result)
     }
 
     #[test]
@@ -251,7 +249,7 @@ mod tests {
         let k = 4;
         let expected_result = FE::from(&a) * FE::from(2).pow(k as u16);
         let result = mul_power_two(a, k);
-        assert_eq!(FE::from(result), expected_result)
+        assert_eq!(FE::from(&result), expected_result)
     }
 
     #[test]
@@ -442,17 +440,17 @@ mod tests {
         assert_eq!(FE::to_hex(&num), "B");
     }
 
-    #[test]
-    fn new_inverse_test() {
-        let x = FE::from(&823451u32);
+    // #[test]
+    // fn new_inverse_test() {
+    //     let x = FE::from(&823451u32);
 
-        let x_inv_original = FE::inv(&x).unwrap();
-        let x_inv_new = FE::from(&F::new_inv(&823451u32));
+    //     let x_inv_original = FE::inv(&x).unwrap();
+    //     let x_inv_new = &FE::from(&823451u32).inv().unwrap();
 
-        println!("Original: {:?}", x_inv_original);
+    //     println!("Original: {:?}", x_inv_original);
 
-        println!("Nueva: {:?}", x_inv_new);
+    //     println!("Nueva: {:?}", x_inv_new);
 
-        assert_eq!(x_inv_original, x_inv_new);
-    }
+    //     assert_eq!(x_inv_original, x_inv_new);
+    // }
 }
