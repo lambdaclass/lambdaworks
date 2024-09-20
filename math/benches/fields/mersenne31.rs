@@ -98,35 +98,35 @@ pub fn mersenne31_ops_benchmarks(c: &mut Criterion) {
     //     );
     // }
 
+    // for i in input.clone().into_iter() {
+    //     group.bench_with_input(format!("sub {:?}", &i.len()), &i, |bench, i| {
+    //         bench.iter(|| {
+    //             for (x, y) in i {
+    //                 black_box(black_box(x) - black_box(y));
+    //             }
+    //         });
+    //     });
+    // }
+
     for i in input.clone().into_iter() {
-        group.bench_with_input(format!("sub {:?}", &i.len()), &i, |bench, i| {
+        group.bench_with_input(format!("inv {:?}", &i.len()), &i, |bench, i| {
             bench.iter(|| {
-                for (x, y) in i {
-                    black_box(black_box(x) - black_box(y));
+                for (x, _) in i {
+                    black_box(black_box(x).inv().unwrap());
                 }
             });
         });
     }
 
-    // for i in input.clone().into_iter() {
-    //     group.bench_with_input(format!("inv {:?}", &i.len()), &i, |bench, i| {
-    //         bench.iter(|| {
-    //             for (x, _) in i {
-    //                 black_box(black_box(x).inv().unwrap());
-    //             }
-    //         });
-    //     });
-    // }
-
-    // for i in input.clone().into_iter() {
-    //     group.bench_with_input(format!("div {:?}", &i.len()), &i, |bench, i| {
-    //         bench.iter(|| {
-    //             for (x, y) in i {
-    //                 black_box(black_box(x) / black_box(y));
-    //             }
-    //         });
-    //     });
-    // }
+    for i in input.clone().into_iter() {
+        group.bench_with_input(format!("div {:?}", &i.len()), &i, |bench, i| {
+            bench.iter(|| {
+                for (x, y) in i {
+                    black_box(black_box(x) / black_box(y));
+                }
+            });
+        });
+    }
 
     // for i in input.clone().into_iter() {
     //     group.bench_with_input(format!("eq {:?}", &i.len()), &i, |bench, i| {

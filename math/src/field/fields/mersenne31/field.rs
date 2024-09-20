@@ -42,6 +42,14 @@ impl Mersenne31Field {
         // Delayed reduction
         Self::from_u64(iter.map(|x| (x as u64)).sum::<u64>())
     }
+
+    /// Computes a * 2^k, with |k| < 31
+    pub fn mul_power_two(a: u32, k: u32) -> u32 {
+        // If a uses 32 bits, then a * 2^k uses 32 + k bits.
+        let msb = (a & (u32::MAX << 32 - k)) >> (32 - k - 1); // The k+1 msb.
+        let lsb = (a & (u32::MAX >> k)) << k; // The 31-k lsb with k zeros.
+        lsb + msb
+    }
 }
 
 pub const MERSENNE_31_PRIME_FIELD_ORDER: u32 = (1 << 31) - 1;
@@ -109,13 +117,12 @@ impl IsField for Mersenne31Field {
         let mut z: u32 = MERSENNE_31_PRIME_FIELD_ORDER;
         let q: u32 = 31;
         let mut e: u32;
-        let mut temp: u64;
         let mut temp2: u32;
 
         loop {
             e = y.trailing_zeros();
-            y = y / (2u64.pow(e) as u32);
-            a = mul_power_two(a, q.wrapping_sub(e));
+            y >>= e;
+            a = Self::mul_power_two(a, q.wrapping_sub(e));
             if y == 1 {
                 return Ok(a);
             };
@@ -167,14 +174,6 @@ pub fn sqn(mut a: u32, n: usize) -> u32 {
         a = Mersenne31Field::mul(&a, &a);
     }
     a
-}
-
-/// Computes a * 2^k, with |k| < 31
-pub fn mul_power_two(a: u32, k: u32) -> u32 {
-    // If a uses 32 bits, then a * 2^k uses 32 + k bits.
-    let msb = (a & (u32::MAX << 32 - k)) >> (32 - k - 1); // The k+1 msb.
-    let lsb = (a & (u32::MAX >> k)) << k; // The 31-k lsb with k zeros.
-    lsb + msb
 }
 
 impl IsPrimeField for Mersenne31Field {
@@ -239,7 +238,7 @@ mod tests {
         let a = 3u32;
         let k = 2;
         let expected_result = FE::from(&a) * FE::from(2).pow(k as u16);
-        let result = mul_power_two(a, k);
+        let result = F::mul_power_two(a, k);
         assert_eq!(FE::from(&result), expected_result)
     }
 
@@ -248,7 +247,7 @@ mod tests {
         let a = 229287u32;
         let k = 4;
         let expected_result = FE::from(&a) * FE::from(2).pow(k as u16);
-        let result = mul_power_two(a, k);
+        let result = F::mul_power_two(a, k);
         assert_eq!(FE::from(&result), expected_result)
     }
 
