@@ -1,11 +1,14 @@
-use crate::field::{
-    element::FieldElement,
-    errors::FieldError,
-    extensions::{
-        cubic::{CubicExtensionField, HasCubicNonResidue},
-        quadratic::{HasQuadraticNonResidue, QuadraticExtensionField},
+use crate::{
+    elliptic_curve::short_weierstrass::curves::bls12_381::field_extension::LevelTwoResidue,
+    field::{
+        element::FieldElement,
+        errors::FieldError,
+        extensions::{
+            cubic::{CubicExtensionField, HasCubicNonResidue},
+            quadratic::{HasQuadraticNonResidue, QuadraticExtensionField},
+        },
+        traits::{IsField, IsSubFieldOf},
     },
-    traits::{IsField, IsSubFieldOf},
 };
 
 use super::field::Mersenne31Field;
@@ -139,6 +142,153 @@ impl IsSubFieldOf<Degree2ExtensionField> for Mersenne31Field {
     }
 }
 
+type Fp2E = FieldElement<Degree2ExtensionField>;
+
+/// Extension of degree 4 defined with lambdaworks quadratic extension to test the correctness of Degree4ExtensionField
+#[derive(Debug, Clone)]
+pub struct Mersenne31LevelTwoResidue;
+impl HasQuadraticNonResidue<Degree2ExtensionField> for Mersenne31LevelTwoResidue {
+    fn residue() -> Fp2E {
+        Fp2E::new([FpE::from(2), FpE::one()])
+    }
+}
+pub type Degree4ExtensionFieldV2 =
+    QuadraticExtensionField<Degree2ExtensionField, Mersenne31LevelTwoResidue>;
+#[derive(Clone, Debug)]
+pub struct Degree4ExtensionField;
+
+impl IsField for Degree4ExtensionField {
+    //Elements represents a[0] = real, a[1] = imaginary
+    type BaseType = [Fp2E; 2];
+
+    /// Returns the component wise addition of `a` and `b`
+    fn add(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
+        [&a[0] + &b[0], &a[1] + &b[1]]
+    }
+
+    /// Returns the multiplication of `a` and `b` using the following
+    fn mul(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
+        // a = a0 + a1 * u, b = b0 + b1 * u, where
+        // a0 = a00 + a01 * i, a1 = a11 + a11 * i, etc
+        let [a00, a01] = a[0].value();
+        let [a10, a11] = a[1].value();
+        let [b00, b01] = b[0].value();
+        let [b10, b11] = b[1].value();
+
+        let c00 = a00 * b00 - a01 * b01 - a11 * b11 + (a10 * b10).double() - a10 * b11 - b10 * a11;
+        let c01 = a00 * b01 + a01 * b00 + a10 * b10 - (a10 * b11).double() + (b10 * a11).double();
+        let c10 = a00 * b10 - a01 * b11 + a10 * b00 - b01 * a11;
+        let c11 = a00 * b11 + a01 * b10 + a10 * b01 + a11 * b00;
+
+        [Fp2E::new([c00, c01]), Fp2E::new([c10, c11])]
+    }
+
+    fn square(a: &Self::BaseType) -> Self::BaseType {
+        let [a0, a1] = a;
+        let v0 = a0 * a1;
+        let c0 = (a0 + a1) * (a0 - a1);
+        let c1 = v0.double();
+        [c0, c1]
+    }
+    /// Returns the component wise subtraction of `a` and `b`
+    fn sub(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
+        [&a[0] - &b[0], &a[1] - &b[1]]
+    }
+
+    /// Returns the component wise negation of `a`
+    fn neg(a: &Self::BaseType) -> Self::BaseType {
+        [-&a[0], -&a[1]]
+    }
+
+    /// Returns the multiplicative inverse of `a`
+    fn inv(a: &Self::BaseType) -> Result<Self::BaseType, FieldError> {
+        let inv_norm = (a[0].square() + a[1].square()).inv()?;
+        Ok([&a[0] * &inv_norm, -&a[1] * &inv_norm])
+    }
+
+    /// Returns the division of `a` and `b`
+    fn div(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
+        <Self as IsField>::mul(a, &Self::inv(b).unwrap())
+    }
+
+    /// Returns a boolean indicating whether `a` and `b` are equal component wise.
+    fn eq(a: &Self::BaseType, b: &Self::BaseType) -> bool {
+        a[0] == b[0] && a[1] == b[1]
+    }
+
+    /// Returns the additive neutral element of the field extension.
+    fn zero() -> Self::BaseType {
+        [Fp2E::zero(), Fp2E::zero()]
+    }
+
+    /// Returns the multiplicative neutral element of the field extension.
+    fn one() -> Self::BaseType {
+        [Fp2E::one(), Fp2E::zero()]
+    }
+
+    /// Returns the element `x * 1` where 1 is the multiplicative neutral element.
+    fn from_u64(x: u64) -> Self::BaseType {
+        [Fp2E::from(x), Fp2E::zero()]
+    }
+
+    /// Takes as input an element of BaseType and returns the internal representation
+    /// of that element in the field.
+    /// Note: for this case this is simply the identity, because the components
+    /// already have correct representations.
+    fn from_base_type(x: Self::BaseType) -> Self::BaseType {
+        x
+    }
+}
+
+/*impl IsSubFieldOf<Degree2ExtensionField> for Mersenne31Field {
+    fn mul(
+        a: &Self::BaseType,
+        b: &<Degree2ExtensionField as IsField>::BaseType,
+    ) -> <Degree2ExtensionField as IsField>::BaseType {
+        let c0 = FpE::from(a) * b[0];
+        let c1 = FpE::from(a) * b[1];
+        [c0, c1]
+    }
+
+    fn add(
+        a: &Self::BaseType,
+        b: &<Degree2ExtensionField as IsField>::BaseType,
+    ) -> <Degree2ExtensionField as IsField>::BaseType {
+        let c0 = FieldElement::from_raw(<Self as IsField>::add(a, b[0].value()));
+        let c1 = FieldElement::from_raw(*b[1].value());
+        [c0, c1]
+    }
+
+    fn div(
+        a: &Self::BaseType,
+        b: &<Degree2ExtensionField as IsField>::BaseType,
+    ) -> <Degree2ExtensionField as IsField>::BaseType {
+        let b_inv = Degree2ExtensionField::inv(b).unwrap();
+        <Self as IsSubFieldOf<Degree2ExtensionField>>::mul(a, &b_inv)
+    }
+
+    fn sub(
+        a: &Self::BaseType,
+        b: &<Degree2ExtensionField as IsField>::BaseType,
+    ) -> <Degree2ExtensionField as IsField>::BaseType {
+        let c0 = FieldElement::from_raw(<Self as IsField>::sub(a, b[0].value()));
+        let c1 = FieldElement::from_raw(<Self as IsField>::neg(b[1].value()));
+        [c0, c1]
+    }
+
+    fn embed(a: Self::BaseType) -> <Degree2ExtensionField as IsField>::BaseType {
+        [FieldElement::from_raw(a), FieldElement::zero()]
+    }
+
+    #[cfg(feature = "alloc")]
+    fn to_subfield_vec(
+        b: <Degree2ExtensionField as IsField>::BaseType,
+    ) -> alloc::vec::Vec<Self::BaseType> {
+        b.into_iter().map(|x| x.to_raw()).collect()
+    }
+}
+*/
+
 /*
 pub type Mersenne31ComplexQuadraticExtensionField =
     QuadraticExtensionField<Mersenne31Field, Mersenne31Complex>;
@@ -197,6 +347,7 @@ mod tests {
     use super::*;
 
     type Fp2E = FieldElement<Degree2ExtensionField>;
+    type Fp4E = FieldElement<Degree4ExtensionField>;
 
     #[test]
     fn add_real_one_plus_one_is_two() {
@@ -351,9 +502,50 @@ mod tests {
     }
 
     #[test]
-    fn mul_base_field_with_degree_2_extension() {
+    fn mul_fpe_by_fp2e() {
         let a = FpE::from(3);
         let b = Fp2E::new([FpE::from(2), FpE::from(4)]);
         assert_eq!(a * b, Fp2E::new([FpE::from(6), FpE::from(12)]))
+    }
+
+    #[test]
+    fn mul_fp4_is_correct() {
+        let a = Fp4E::new([
+            Fp2E::new([FpE::from(2), FpE::from(3)]),
+            Fp2E::new([FpE::from(4), FpE::from(5)]),
+        ]);
+
+        let b = Fp4E::new([
+            Fp2E::new([FpE::from(6), FpE::from(7)]),
+            Fp2E::new([FpE::from(8), FpE::from(9)]),
+        ]);
+
+        let a2 = FieldElement::<Degree4ExtensionFieldV2>::new([
+            Fp2E::new([FpE::from(2), FpE::from(3)]),
+            Fp2E::new([FpE::from(4), FpE::from(5)]),
+        ]);
+
+        let b = FieldElement::<Degree4ExtensionFieldV2>::new([
+            Fp2E::new([FpE::from(6), FpE::from(7)]),
+            Fp2E::new([FpE::from(8), FpE::from(9)]),
+        ]);
+    }
+
+    #[test]
+    fn mul_fp4_by_zero_is_zero() {
+        let a = Fp4E::new([
+            Fp2E::new([FpE::from(2), FpE::from(3)]),
+            Fp2E::new([FpE::from(4), FpE::from(5)]),
+        ]);
+        assert_eq!(Fp4E::zero(), a * Fp4E::zero())
+    }
+
+    #[test]
+    fn mul_fp4_by_one_is_identity() {
+        let a = Fp4E::new([
+            Fp2E::new([FpE::from(2), FpE::from(3)]),
+            Fp2E::new([FpE::from(4), FpE::from(5)]),
+        ]);
+        assert_eq!(a, a.clone() * Fp4E::one())
     }
 }
