@@ -50,6 +50,12 @@ impl Mersenne31Field {
         let lsb = (a & (u32::MAX >> k)) << k; // The 31-k lsb with k zeros.
         lsb + msb
     }
+
+    pub fn pow_2(a: &u32, order: u32) -> u32 {
+        let mut res = a.clone();
+        (0..order).for_each(|_| res = Self::square(&res));
+        res
+    }
 }
 
 pub const MERSENNE_31_PRIME_FIELD_ORDER: u32 = (1 << 31) - 1;
@@ -88,18 +94,18 @@ impl IsField for Mersenne31Field {
         if *x == Self::zero() || *x == MERSENNE_31_PRIME_FIELD_ORDER {
             return Err(FieldError::InvZeroError);
         }
-        // // OLD VERSION:
-        // let p101 = Self::mul(&Self::pow(a, 4u32), a);
-        // let p1111 = Self::mul(&Self::square(&p101), &p101);
-        // let p11111111 = Self::mul(&Self::pow(&p1111, 16u32), &p1111);
-        // let p111111110000 = Self::pow(&p11111111, 16u32);
-        // let p111111111111 = Self::mul(&p111111110000, &p1111);
-        // let p1111111111111111 = Self::mul(&Self::pow(&p111111110000, 16u32), &p11111111);
-        // let p1111111111111111111111111111 =
-        //     Self::mul(&Self::pow(&p1111111111111111, 4096u32), &p111111111111);
-        // let p1111111111111111111111111111101 =
-        //     Self::mul(&Self::pow(&p1111111111111111111111111111, 8u32), &p101);
-        // Ok(p1111111111111111111111111111101)
+        // OLD VERSION:
+        let p101 = Self::mul(&Self::pow_2(x, 2), x);
+        let p1111 = Self::mul(&Self::square(&p101), &p101);
+        let p11111111 = Self::mul(&Self::pow_2(&p1111, 4u32), &p1111);
+        let p111111110000 = Self::pow_2(&p11111111, 4u32);
+        let p111111111111 = Self::mul(&p111111110000, &p1111);
+        let p1111111111111111 = Self::mul(&Self::pow_2(&p111111110000, 4u32), &p11111111);
+        let p1111111111111111111111111111 =
+            Self::mul(&Self::pow_2(&p1111111111111111, 12u32), &p111111111111);
+        let p1111111111111111111111111111101 =
+            Self::mul(&Self::pow_2(&p1111111111111111111111111111, 3u32), &p101);
+        Ok(p1111111111111111111111111111101)
 
         // // OLD VERSION:
         // let t0 = sqn(*x, 2) * x;
@@ -111,28 +117,28 @@ impl IsField for Mersenne31Field {
         // Ok(sqn(t5, 7) * t2)
 
         // NEW VERSION:
-        let mut a: u32 = 1;
-        let mut b: u32 = 0;
-        let mut y: u32 = x.clone();
-        let mut z: u32 = MERSENNE_31_PRIME_FIELD_ORDER;
-        let q: u32 = 31;
-        let mut e: u32;
-        let mut temp2: u32;
+        // let mut a: u32 = 1;
+        // let mut b: u32 = 0;
+        // let mut y: u32 = x.clone();
+        // let mut z: u32 = MERSENNE_31_PRIME_FIELD_ORDER;
+        // let q: u32 = 31;
+        // let mut e: u32;
+        // let mut temp2: u32;
 
-        loop {
-            e = y.trailing_zeros();
-            y >>= e;
-            a = Self::mul_power_two(a, q.wrapping_sub(e));
-            if y == 1 {
-                return Ok(a);
-            };
-            temp2 = a.wrapping_add(b);
-            b = a;
-            a = temp2;
-            temp2 = y.wrapping_add(z);
-            z = y;
-            y = temp2;
-        }
+        // loop {
+        //     e = y.trailing_zeros();
+        //     y >>= e;
+        //     a = Self::mul_power_two(a, q - e);
+        //     if y == 1 {
+        //         return Ok(a);
+        //     };
+        //     temp2 = a.wrapping_add(b);
+        //     b = a;
+        //     a = temp2;
+        //     temp2 = y.wrapping_add(z);
+        //     z = y;
+        //     y = temp2;
+        // }
     }
 
     /// Returns the division of `a` and `b`.
@@ -251,6 +257,15 @@ mod tests {
         let k = 4;
         let expected_result = FE::from(&a) * FE::from(2).pow(k as u16);
         let result = F::mul_power_two(a, k);
+        assert_eq!(FE::from(&result), expected_result)
+    }
+
+    #[test]
+    fn pow_2_is_correct() {
+        let a = 3u32;
+        let order = 12;
+        let result = F::pow_2(&a, order);
+        let expected_result = FE::pow(&FE::from(&a), 4096u32);
         assert_eq!(FE::from(&result), expected_result)
     }
 
