@@ -166,6 +166,9 @@ impl IsField for Mersenne31Field {
     fn from_base_type(x: u32) -> u32 {
         Self::weak_reduce(x)
     }
+    fn double(a: &u32) -> u32 {
+        Self::weak_reduce(a << 1)
+    }
 }
 
 /// Computes `a^(2*n)`.
@@ -439,17 +442,9 @@ mod tests {
         assert_eq!(FE::to_hex(&num), "B");
     }
 
-    // #[test]
-    // fn new_inverse_test() {
-    //     let x = FE::from(&823451u32);
-
-    //     let x_inv_original = FE::inv(&x).unwrap();
-    //     let x_inv_new = &FE::from(&823451u32).inv().unwrap();
-
-    //     println!("Original: {:?}", x_inv_original);
-
-    //     println!("Nueva: {:?}", x_inv_new);
-
-    //     assert_eq!(x_inv_original, x_inv_new);
-    // }
+    #[test]
+    fn double_equals_add_itself() {
+        let a = FE::from(1234);
+        assert_eq!(a + a, a.double())
+    }
 }

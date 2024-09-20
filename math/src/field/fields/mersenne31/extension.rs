@@ -5,30 +5,28 @@ use crate::field::{
         cubic::{CubicExtensionField, HasCubicNonResidue},
         quadratic::{HasQuadraticNonResidue, QuadraticExtensionField},
     },
-    traits::IsField,
+    traits::{IsField, IsSubFieldOf},
 };
 
 use super::field::Mersenne31Field;
 
+type FpE = FieldElement<Mersenne31Field>;
+
 //Note: The inverse calculation in mersenne31/plonky3 differs from the default quadratic extension so I implemented the complex extension.
 //////////////////
 #[derive(Clone, Debug)]
-pub struct Mersenne31Complex;
+pub struct Degree2ExtensionField;
 
-impl IsField for Mersenne31Complex {
+impl IsField for Degree2ExtensionField {
     //Elements represents a[0] = real, a[1] = imaginary
-    type BaseType = [FieldElement<Mersenne31Field>; 2];
+    type BaseType = [FpE; 2];
 
     /// Returns the component wise addition of `a` and `b`
     fn add(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
         [a[0] + b[0], a[1] + b[1]]
     }
 
-    //NOTE: THIS uses Gauss algorithm. Bench this against plonky 3 implementation to see what is faster.
     /// Returns the multiplication of `a` and `b` using the following
-    /// equation:
-    /// (a0 + a1 * t) * (b0 + b1 * t) = a0 * b0 + a1 * b1 * Self::residue() + (a0 * b1 + a1 * b0) * t
-    /// where `t.pow(2)` equals `Q::residue()`.
     fn mul(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
         let a0b0 = a[0] * b[0];
         let a1b1 = a[1] * b[1];
@@ -40,7 +38,7 @@ impl IsField for Mersenne31Complex {
         let [a0, a1] = a;
         let v0 = a0 * a1;
         let c0 = (a0 + a1) * (a0 - a1);
-        let c1 = v0 + v0;
+        let c1 = v0.double();
         [c0, c1]
     }
     /// Returns the component wise subtraction of `a` and `b`
@@ -55,13 +53,13 @@ impl IsField for Mersenne31Complex {
 
     /// Returns the multiplicative inverse of `a`
     fn inv(a: &Self::BaseType) -> Result<Self::BaseType, FieldError> {
-        let inv_norm = (a[0].pow(2_u64) + a[1].pow(2_u64)).inv()?;
+        let inv_norm = (a[0].square() + a[1].square()).inv()?;
         Ok([a[0] * inv_norm, -a[1] * inv_norm])
     }
 
     /// Returns the division of `a` and `b`
     fn div(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
-        Self::mul(a, &Self::inv(b).unwrap())
+        <Self as IsField>::mul(a, &Self::inv(b).unwrap())
     }
 
     /// Returns a boolean indicating whether `a` and `b` are equal component wise.
@@ -71,17 +69,17 @@ impl IsField for Mersenne31Complex {
 
     /// Returns the additive neutral element of the field extension.
     fn zero() -> Self::BaseType {
-        [FieldElement::zero(), FieldElement::zero()]
+        [FpE::zero(), FpE::zero()]
     }
 
     /// Returns the multiplicative neutral element of the field extension.
     fn one() -> Self::BaseType {
-        [FieldElement::one(), FieldElement::zero()]
+        [FpE::one(), FpE::zero()]
     }
 
     /// Returns the element `x * 1` where 1 is the multiplicative neutral element.
     fn from_u64(x: u64) -> Self::BaseType {
-        [FieldElement::from(x), FieldElement::zero()]
+        [FpE::from(x), FpE::zero()]
     }
 
     /// Takes as input an element of BaseType and returns the internal representation
@@ -93,6 +91,55 @@ impl IsField for Mersenne31Complex {
     }
 }
 
+impl IsSubFieldOf<Degree2ExtensionField> for Mersenne31Field {
+    fn mul(
+        a: &Self::BaseType,
+        b: &<Degree2ExtensionField as IsField>::BaseType,
+    ) -> <Degree2ExtensionField as IsField>::BaseType {
+        let c0 = FpE::from(a) * b[0];
+        let c1 = FpE::from(a) * b[1];
+        [c0, c1]
+    }
+
+    fn add(
+        a: &Self::BaseType,
+        b: &<Degree2ExtensionField as IsField>::BaseType,
+    ) -> <Degree2ExtensionField as IsField>::BaseType {
+        let c0 = FieldElement::from_raw(<Self as IsField>::add(a, b[0].value()));
+        let c1 = FieldElement::from_raw(*b[1].value());
+        [c0, c1]
+    }
+
+    fn div(
+        a: &Self::BaseType,
+        b: &<Degree2ExtensionField as IsField>::BaseType,
+    ) -> <Degree2ExtensionField as IsField>::BaseType {
+        let b_inv = Degree2ExtensionField::inv(b).unwrap();
+        <Self as IsSubFieldOf<Degree2ExtensionField>>::mul(a, &b_inv)
+    }
+
+    fn sub(
+        a: &Self::BaseType,
+        b: &<Degree2ExtensionField as IsField>::BaseType,
+    ) -> <Degree2ExtensionField as IsField>::BaseType {
+        let c0 = FieldElement::from_raw(<Self as IsField>::sub(a, b[0].value()));
+        let c1 = FieldElement::from_raw(<Self as IsField>::neg(b[1].value()));
+        [c0, c1]
+    }
+
+    fn embed(a: Self::BaseType) -> <Degree2ExtensionField as IsField>::BaseType {
+        [FieldElement::from_raw(a), FieldElement::zero()]
+    }
+
+    #[cfg(feature = "alloc")]
+    fn to_subfield_vec(
+        b: <Degree2ExtensionField as IsField>::BaseType,
+    ) -> alloc::vec::Vec<Self::BaseType> {
+        b.into_iter().map(|x| x.to_raw()).collect()
+    }
+}
+
+/*
 pub type Mersenne31ComplexQuadraticExtensionField =
     QuadraticExtensionField<Mersenne31Field, Mersenne31Complex>;
 
@@ -115,7 +162,9 @@ impl HasQuadraticNonResidue<Mersenne31Complex> for Mersenne31Complex {
         ]))
     }
 }
+*/
 
+/*
 pub type Mersenne31ComplexCubicExtensionField =
     CubicExtensionField<Mersenne31Field, Mersenne31Complex>;
 
@@ -137,168 +186,174 @@ impl HasCubicNonResidue<Mersenne31Complex> for Mersenne31Complex {
         ]))
     }
 }
+*/
 
 #[cfg(test)]
 mod tests {
+    use core::{num::FpCategory, ops::Neg};
+
     use crate::field::fields::mersenne31::field::MERSENNE_31_PRIME_FIELD_ORDER;
 
     use super::*;
 
-    type Fi = Mersenne31Complex;
-    type F = FieldElement<Mersenne31Field>;
-
-    //NOTE: from_u64 reflects from_real
-    //NOTE: for imag use from_base_type
+    type Fp2E = FieldElement<Degree2ExtensionField>;
 
     #[test]
     fn add_real_one_plus_one_is_two() {
-        assert_eq!(Fi::add(&Fi::one(), &Fi::one()), Fi::from_u64(2))
+        assert_eq!(Fp2E::one() + Fp2E::one(), Fp2E::from(2))
     }
 
     #[test]
     fn add_real_neg_one_plus_one_is_zero() {
-        assert_eq!(Fi::add(&Fi::neg(&Fi::one()), &Fi::one()), Fi::zero())
+        assert_eq!(Fp2E::one() + Fp2E::one().neg(), Fp2E::zero())
     }
 
     #[test]
     fn add_real_neg_one_plus_two_is_one() {
-        assert_eq!(Fi::add(&Fi::neg(&Fi::one()), &Fi::from_u64(2)), Fi::one())
+        assert_eq!(Fp2E::one().neg() + Fp2E::from(2), Fp2E::one())
     }
 
     #[test]
     fn add_real_neg_one_plus_neg_one_is_order_sub_two() {
         assert_eq!(
-            Fi::add(&Fi::neg(&Fi::one()), &Fi::neg(&Fi::one())),
-            Fi::from_u64((MERSENNE_31_PRIME_FIELD_ORDER - 2).into())
+            Fp2E::one().neg() + Fp2E::one().neg(),
+            Fp2E::new([FpE::from(&(MERSENNE_31_PRIME_FIELD_ORDER - 2)), FpE::zero()])
         )
     }
 
     #[test]
     fn add_complex_one_plus_one_two() {
         //Manually declare the complex part to one
-        let one = Fi::from_base_type([F::zero(), F::one()]);
-        let two = Fi::from_base_type([F::zero(), F::from(2)]);
-        assert_eq!(Fi::add(&one, &one), two)
+        let one_i = Fp2E::new([FpE::zero(), FpE::one()]);
+        let two_i = Fp2E::new([FpE::zero(), FpE::from(2)]);
+        assert_eq!(&one_i + &one_i, two_i)
     }
 
     #[test]
     fn add_complex_neg_one_plus_one_is_zero() {
         //Manually declare the complex part to one
-        let neg_one = Fi::from_base_type([F::zero(), -F::one()]);
-        let one = Fi::from_base_type([F::zero(), F::one()]);
-        assert_eq!(Fi::add(&neg_one, &one), Fi::zero())
+        let neg_one_i = Fp2E::new([FpE::zero(), -FpE::one()]);
+        let one_i = Fp2E::new([FpE::zero(), FpE::one()]);
+        assert_eq!(neg_one_i + one_i, Fp2E::zero())
     }
 
     #[test]
     fn add_complex_neg_one_plus_two_is_one() {
-        let neg_one = Fi::from_base_type([F::zero(), -F::one()]);
-        let two = Fi::from_base_type([F::zero(), F::from(2)]);
-        let one = Fi::from_base_type([F::zero(), F::one()]);
-        assert_eq!(Fi::add(&neg_one, &two), one)
+        let neg_one_i = Fp2E::new([FpE::zero(), -FpE::one()]);
+        let two_i = Fp2E::new([FpE::zero(), FpE::from(2)]);
+        let one_i = Fp2E::new([FpE::zero(), FpE::one()]);
+        assert_eq!(&neg_one_i + &two_i, one_i)
     }
 
     #[test]
     fn add_complex_neg_one_plus_neg_one_imag_is_order_sub_two() {
-        let neg_one = Fi::from_base_type([F::zero(), -F::one()]);
+        let neg_one_i = Fp2E::new([FpE::zero(), -FpE::one()]);
         assert_eq!(
-            Fi::add(&neg_one, &neg_one)[1],
-            F::new(MERSENNE_31_PRIME_FIELD_ORDER - 2)
+            (&neg_one_i + &neg_one_i).value()[1],
+            FpE::from(&(MERSENNE_31_PRIME_FIELD_ORDER - 2))
         )
     }
 
     #[test]
     fn add_order() {
-        let a = Fi::from_base_type([-F::one(), F::one()]);
-        let b = Fi::from_base_type([F::from(2), F::new(MERSENNE_31_PRIME_FIELD_ORDER - 2)]);
-        let c = Fi::from_base_type([F::one(), -F::one()]);
-        assert_eq!(Fi::add(&a, &b), c)
+        let a = Fp2E::new([-FpE::one(), FpE::one()]);
+        let b = Fp2E::new([
+            FpE::from(2),
+            FpE::from(&(MERSENNE_31_PRIME_FIELD_ORDER - 2)),
+        ]);
+        let c = Fp2E::new([FpE::one(), -FpE::one()]);
+        assert_eq!(&a + &b, c)
     }
 
     #[test]
     fn add_equal_zero() {
-        let a = Fi::from_base_type([-F::one(), -F::one()]);
-        let b = Fi::from_base_type([F::one(), F::one()]);
-        assert_eq!(Fi::add(&a, &b), Fi::zero())
+        let a = Fp2E::new([-FpE::one(), -FpE::one()]);
+        let b = Fp2E::new([FpE::one(), FpE::one()]);
+        assert_eq!(&a + &b, Fp2E::zero())
     }
 
     #[test]
     fn add_plus_one() {
-        let a = Fi::from_base_type([F::one(), F::from(2)]);
-        let b = Fi::from_base_type([F::one(), F::one()]);
-        let c = Fi::from_base_type([F::from(2), F::from(3)]);
-        assert_eq!(Fi::add(&a, &b), c)
+        let a = Fp2E::new([FpE::one(), FpE::from(2)]);
+        let b = Fp2E::new([FpE::one(), FpE::one()]);
+        let c = Fp2E::new([FpE::from(2), FpE::from(3)]);
+        assert_eq!(&a + &b, c)
     }
 
     #[test]
     fn sub_real_one_sub_one_is_zero() {
-        assert_eq!(Fi::sub(&Fi::one(), &Fi::one()), Fi::zero())
+        assert_eq!(&Fp2E::one() - &Fp2E::one(), Fp2E::zero())
     }
 
     #[test]
     fn sub_real_two_sub_two_is_zero() {
-        assert_eq!(
-            Fi::sub(&Fi::from_u64(2u64), &Fi::from_u64(2u64)),
-            Fi::zero()
-        )
+        assert_eq!(&Fp2E::from(2) - &Fp2E::from(2), Fp2E::zero())
     }
 
     #[test]
     fn sub_real_neg_one_sub_neg_one_is_zero() {
-        assert_eq!(
-            Fi::sub(&Fi::neg(&Fi::one()), &Fi::neg(&Fi::one())),
-            Fi::zero()
-        )
+        assert_eq!(Fp2E::one().neg() - Fp2E::one().neg(), Fp2E::zero())
     }
 
     #[test]
     fn sub_real_two_sub_one_is_one() {
-        assert_eq!(Fi::sub(&Fi::from_u64(2), &Fi::one()), Fi::one())
+        assert_eq!(Fp2E::from(2) - Fp2E::one(), Fp2E::one())
     }
 
     #[test]
     fn sub_real_neg_one_sub_zero_is_neg_one() {
-        assert_eq!(
-            Fi::sub(&Fi::neg(&Fi::one()), &Fi::zero()),
-            Fi::neg(&Fi::one())
-        )
+        assert_eq!(Fp2E::one().neg() - Fp2E::zero(), Fp2E::one().neg())
     }
 
     #[test]
     fn sub_complex_one_sub_one_is_zero() {
-        let one = Fi::from_base_type([F::zero(), F::one()]);
-        assert_eq!(Fi::sub(&one, &one), Fi::zero())
+        let one = Fp2E::new([FpE::zero(), FpE::one()]);
+        assert_eq!(&one - &one, Fp2E::zero())
     }
 
     #[test]
     fn sub_complex_two_sub_two_is_zero() {
-        let two = Fi::from_base_type([F::zero(), F::from(2)]);
-        assert_eq!(Fi::sub(&two, &two), Fi::zero())
+        let two = Fp2E::new([FpE::zero(), FpE::from(2)]);
+        assert_eq!(&two - &two, Fp2E::zero())
     }
 
     #[test]
     fn sub_complex_neg_one_sub_neg_one_is_zero() {
-        let neg_one = Fi::from_base_type([F::zero(), -F::one()]);
-        assert_eq!(Fi::sub(&neg_one, &neg_one), Fi::zero())
+        let neg_one = Fp2E::new([FpE::zero(), -FpE::one()]);
+        assert_eq!(&neg_one - &neg_one, Fp2E::zero())
     }
 
     #[test]
     fn sub_complex_two_sub_one_is_one() {
-        let two = Fi::from_base_type([F::zero(), F::from(2)]);
-        let one = Fi::from_base_type([F::zero(), F::one()]);
-        assert_eq!(Fi::sub(&two, &one), one)
+        let two = Fp2E::new([FpE::zero(), FpE::from(2)]);
+        let one = Fp2E::new([FpE::zero(), FpE::one()]);
+        assert_eq!(&two - &one, one)
     }
 
     #[test]
     fn sub_complex_neg_one_sub_zero_is_neg_one() {
-        let neg_one = Fi::from_base_type([F::zero(), -F::one()]);
-        assert_eq!(Fi::sub(&neg_one, &Fi::zero()), neg_one)
+        let neg_one = Fp2E::new([FpE::zero(), -FpE::one()]);
+        assert_eq!(&neg_one - &Fp2E::zero(), neg_one)
     }
 
     #[test]
     fn mul() {
-        let a = Fi::from_base_type([F::from(2), F::from(2)]);
-        let b = Fi::from_base_type([F::from(4), F::from(5)]);
-        let c = Fi::from_base_type([-F::from(2), F::from(18)]);
-        assert_eq!(Fi::mul(&a, &b), c)
+        let a = Fp2E::new([FpE::from(2), FpE::from(2)]);
+        let b = Fp2E::new([FpE::from(4), FpE::from(5)]);
+        let c = Fp2E::new([-FpE::from(2), FpE::from(18)]);
+        assert_eq!(&a * &b, c)
+    }
+
+    #[test]
+    fn square_equals_mul_by_itself() {
+        let a = Fp2E::new([FpE::from(2), FpE::from(3)]);
+        assert_eq!(a.square(), &a * &a)
+    }
+
+    #[test]
+    fn mul_base_field_with_degree_2_extension() {
+        let a = FpE::from(3);
+        let b = Fp2E::new([FpE::from(2), FpE::from(4)]);
+        assert_eq!(a * b, Fp2E::new([FpE::from(6), FpE::from(12)]))
     }
 }
