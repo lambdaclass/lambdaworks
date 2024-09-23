@@ -155,34 +155,33 @@ impl HasQuadraticNonResidue<Degree2ExtensionField> for Mersenne31LevelTwoResidue
 pub type Degree4ExtensionFieldV2 =
     QuadraticExtensionField<Degree2ExtensionField, Mersenne31LevelTwoResidue>;
 
-/// I = 0 + 1 * i is the non-residue of Fp2 used to define Fp4.
+/// I = 0 + 1 * i
 pub const I: Fp2E = Fp2E::const_from_raw([FpE::const_from_raw(0), FpE::const_from_raw(1)]);
+
+pub const TWO_PLUS_I: Fp2E = Fp2E::const_from_raw([FpE::const_from_raw(2), FpE::const_from_raw(1)]);
 #[derive(Clone, Debug)]
 pub struct Degree4ExtensionField;
 
 impl IsField for Degree4ExtensionField {
-    //Elements represents a[0] = real, a[1] = imaginary
     type BaseType = [Fp2E; 2];
 
-    /// Returns the component wise addition of `a` and `b`
     fn add(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
         [&a[0] + &b[0], &a[1] + &b[1]]
     }
 
-    /// Returns the component wise subtraction of `a` and `b`
     fn sub(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
         [&a[0] - &b[0], &a[1] - &b[1]]
     }
 
-    /// Returns the component wise negation of `a`
     fn neg(a: &Self::BaseType) -> Self::BaseType {
         [-&a[0], -&a[1]]
     }
 
-    /// Returns the multiplication of `a` and `b` using the following
     fn mul(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
+        /*
+        // VERSION 1 (distribution by hand):
         // a = a0 + a1 * u, b = b0 + b1 * u, where
-        // a0 = a00 + a01 * i, a1 = a11 + a11 * i, etc
+        // a0 = a00 + a01 * i, a1 = a11 + a11 * i, etc.
         let [a00, a01] = a[0].value();
         let [a10, a11] = a[1].value();
         let [b00, b01] = b[0].value();
@@ -199,6 +198,15 @@ impl IsField for Degree4ExtensionField {
         let c11 = a00 * b11 + a01 * b10 + a10 * b01 + a11 * b00;
 
         [Fp2E::new([c00, c01]), Fp2E::new([c10, c11])]
+        */
+
+        // VERSION 2 (paper):
+        let a0b0 = &a[0] * &b[0];
+        let a1b1 = &a[1] * &b[1];
+        [
+            &a0b0 + TWO_PLUS_I * &a1b1,
+            (&a[0] + &a[1]) * (&b[0] + &b[1]) - a0b0 - a1b1,
+        ]
     }
 
     fn square(a: &Self::BaseType) -> Self::BaseType {
@@ -219,42 +227,32 @@ impl IsField for Degree4ExtensionField {
         [Fp2E::new([c00, c01]), Fp2E::new([c10, c11])]
     }
 
-    /// Returns the multiplicative inverse of `a`
     fn inv(a: &Self::BaseType) -> Result<Self::BaseType, FieldError> {
         let a1_square = a[1].square();
         let inv_norm = (a[0].square() - a1_square.double() - a1_square * I).inv()?;
         Ok([&a[0] * &inv_norm, -&a[1] * &inv_norm])
     }
 
-    /// Returns the division of `a` and `b`
     fn div(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
         <Self as IsField>::mul(a, &Self::inv(b).unwrap())
     }
 
-    /// Returns a boolean indicating whether `a` and `b` are equal component wise.
     fn eq(a: &Self::BaseType, b: &Self::BaseType) -> bool {
         a[0] == b[0] && a[1] == b[1]
     }
 
-    /// Returns the additive neutral element of the field extension.
     fn zero() -> Self::BaseType {
         [Fp2E::zero(), Fp2E::zero()]
     }
 
-    /// Returns the multiplicative neutral element of the field extension.
     fn one() -> Self::BaseType {
         [Fp2E::one(), Fp2E::zero()]
     }
 
-    /// Returns the element `x * 1` where 1 is the multiplicative neutral element.
     fn from_u64(x: u64) -> Self::BaseType {
         [Fp2E::from(x), Fp2E::zero()]
     }
 
-    /// Takes as input an element of BaseType and returns the internal representation
-    /// of that element in the field.
-    /// Note: for this case this is simply the identity, because the components
-    /// already have correct representations.
     fn from_base_type(x: Self::BaseType) -> Self::BaseType {
         x
     }
@@ -474,7 +472,7 @@ mod tests {
     }
 
     #[test]
-    fn mul_fp2() {
+    fn mul_fp2_is_correct() {
         let a = Fp2E::new([FpE::from(2), FpE::from(2)]);
         let b = Fp2E::new([FpE::from(4), FpE::from(5)]);
         let c = Fp2E::new([-FpE::from(2), FpE::from(18)]);
