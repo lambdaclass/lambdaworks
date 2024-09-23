@@ -14,14 +14,27 @@ use super::traits::IsShortWeierstrass;
 #[cfg(feature = "alloc")]
 use crate::traits::AsBytes;
 #[cfg(feature = "alloc")]
-use alloc::vec::Vec; // Import the Double trait
+use alloc::vec::Vec;
 #[derive(Clone, Debug)]
 pub struct ShortWeierstrassProjectivePoint<E: IsEllipticCurve>(pub ProjectivePoint<E>);
 
 impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
     /// Creates an elliptic curve point giving the projective [x: y: z] coordinates.
     pub const fn new(value: [FieldElement<E::BaseField>; 3]) -> Self {
-        Self(ProjectivePoint::new(value))
+        Self(ProjectivePoint::new(value)) // It should be a Result
+    }
+
+    pub fn validate(&self) -> Result<(), EllipticCurveError> {
+        let [x, y, z] = self.coordinates();
+        // Validate against the elliptic curve equation: y^2 * z = x^3 + a * x * z^2 + b * z^3
+        let lhs = y.square() * z;
+        let rhs = x.square() * x + E::a() * x * z.square() + E::b() * z.square() * z;
+
+        if lhs != rhs {
+            return Err(EllipticCurveError::InvalidPoint);
+        }
+
+        Ok(())
     }
 
     /// Returns the `x` coordinate of the point.
@@ -385,6 +398,21 @@ impl<E: IsShortWeierstrass> ShortWeierstrassJacobianPoint<E> {
         Self(JacobianPoint::new(value))
     }
 
+    pub fn validate(&self) -> Result<(), EllipticCurveError> {
+        let [x, y, z] = self.coordinates();
+        // Validate against the elliptic curve equation: y^2 = x^3 + a * x * z^4 + b * z^6
+        let lhs = y.square();
+        let rhs = x.square() * x
+            + E::a() * x * z.square().square()
+            + E::b() * z.square().square() * z.square();
+
+        if lhs != rhs {
+            return Err(EllipticCurveError::InvalidPoint);
+        }
+
+        Ok(())
+    }
+
     /// Returns the `x` coordinate of the point.
     pub fn x(&self) -> &FieldElement<E::BaseField> {
         self.0.x()
@@ -466,16 +494,25 @@ impl<E: IsShortWeierstrass> ShortWeierstrassJacobianPoint<E> {
         let u2 = x2 * &z1z1;
         let s1 = y1;
         let s2 = y2 * z1 * &z1z1;
-        let h = &u2 - u1;
-        let hh = h.square();
-        let hhh = &h * &hh;
-        let r = &s2 - s1;
-        let v = u1 * &hh;
-        let x3 = r.square() - (&hhh + &v + &v);
-        let y3 = r * (&v - &x3) - s1 * &hhh;
-        let z3 = z1 * &h;
 
-        Self::new([x3, y3, z3])
+        if *u1 == u2 {
+            if *s1 == s2 {
+                self.double() // Is the same point
+            } else {
+                Self::neutral_element() // P + (-P) = 0
+            }
+        } else {
+            let h = &u2 - u1;
+            let hh = h.square();
+            let hhh = &h * &hh;
+            let r = &s2 - s1;
+            let v = u1 * &hh;
+            let x3 = r.square() - (&hhh + &v + &v);
+            let y3 = r * (&v - &x3) - s1 * &hhh;
+            let z3 = z1 * &h;
+
+            Self::new([x3, y3, z3])
+        }
     }
 }
 
@@ -575,21 +612,16 @@ impl<E: IsShortWeierstrass> IsGroup for ShortWeierstrassJacobianPoint<E> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        elliptic_curve::short_weierstrass::curves::bls12_381::curve::BLS12381Curve,
-        unsigned_integer::element::U256,
-    };
+    use crate::elliptic_curve::short_weierstrass::curves::bls12_381::curve::BLS12381Curve;
 
+    use crate::elliptic_curve::short_weierstrass::curves::bls12_381::curve::{
+        CURVE_COFACTOR, SUBGROUP_ORDER,
+    };
     #[cfg(feature = "alloc")]
     use crate::{
         elliptic_curve::short_weierstrass::curves::bls12_381::field_extension::BLS12381PrimeField,
         field::element::FieldElement,
     };
-    pub const SUBGROUP_ORDER: U256 = U256::from_hex_unchecked(
-        "73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001",
-    );
-
-    pub const CURVE_COFACTOR: U256 = U256::from_hex_unchecked("0x396c8c005555e1568c00aaab0000aaab");
 
     #[cfg(feature = "alloc")]
     #[allow(clippy::upper_case_acronyms)]
@@ -848,6 +880,48 @@ mod tests {
         assert!(
             g.is_neutral_element(),
             "Multiplication by order should result in the neutral element"
+        );
+    }
+
+    #[test]
+    #[allow(clippy::assertions_on_constants)]
+    fn create_invalid_projective_point() {
+        let point = ShortWeierstrassProjectivePoint::<BLS12381Curve>::from_affine(
+            FEE::new_base("36bb494facde72d0da5c770c4b16d9b2d45cfdc27604a25a1a80b020798e5b0dbd4c6d939a8f8820f042a29ce552ee5"),
+            FEE::new_base("7acf6e49cc000ff53b06ee1d27056734019c0a1edfa16684da41ebb0c56750f73bc1b0eae4c6c241808a5e485af0ba0")
+        ).unwrap();
+
+        let [x, y, z] = point.coordinates();
+        let invalid_x = x + FieldElement::one();
+
+        let invalid_point = ShortWeierstrassProjectivePoint::<BLS12381Curve>::new([
+            invalid_x,
+            y.clone(),
+            z.clone(),
+        ]);
+        assert_eq!(
+            invalid_point.validate(),
+            Err(EllipticCurveError::InvalidPoint)
+        );
+    }
+
+    #[test]
+    #[allow(clippy::assertions_on_constants)]
+    fn create_invalid_jacobian_point() {
+        let point = ShortWeierstrassJacobianPoint::<BLS12381Curve>::from_affine(
+            FEE::new_base("36bb494facde72d0da5c770c4b16d9b2d45cfdc27604a25a1a80b020798e5b0dbd4c6d939a8f8820f042a29ce552ee5"),
+            FEE::new_base("7acf6e49cc000ff53b06ee1d27056734019c0a1edfa16684da41ebb0c56750f73bc1b0eae4c6c241808a5e485af0ba0")
+        ).unwrap();
+
+        let [x, y, z] = point.coordinates();
+        let invalid_x = x + FieldElement::one();
+
+        let invalid_point =
+            ShortWeierstrassJacobianPoint::<BLS12381Curve>::new([invalid_x, y.clone(), z.clone()]);
+
+        assert_eq!(
+            invalid_point.validate(),
+            Err(EllipticCurveError::InvalidPoint)
         );
     }
     /*
