@@ -159,6 +159,13 @@ pub type Degree4ExtensionFieldV2 =
 pub const I: Fp2E = Fp2E::const_from_raw([FpE::const_from_raw(0), FpE::const_from_raw(1)]);
 
 pub const TWO_PLUS_I: Fp2E = Fp2E::const_from_raw([FpE::const_from_raw(2), FpE::const_from_raw(1)]);
+
+pub fn mul_fp2_by_nonresidue(a: &Fp2E) -> Fp2E {
+    Fp2E::new([
+        a.value()[0].double() - a.value()[1],
+        &a.value()[1].double() + &a.value()[0],
+    ])
+}
 #[derive(Clone, Debug)]
 pub struct Degree4ExtensionField;
 
@@ -204,7 +211,7 @@ impl IsField for Degree4ExtensionField {
         let a0b0 = &a[0] * &b[0];
         let a1b1 = &a[1] * &b[1];
         [
-            &a0b0 + TWO_PLUS_I * &a1b1,
+            &a0b0 + mul_fp2_by_nonresidue(&a1b1),
             (&a[0] + &a[1]) * (&b[0] + &b[1]) - a0b0 - a1b1,
         ]
     }
