@@ -8,10 +8,10 @@ This folder contains the different field backends, including field extensions. T
 - [Goldilocks-448](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/field/fields/p448_goldilocks_prime_field.rs)
 - [Mersenne-31](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/field/fields/mersenne31/field.rs): $2^{31} - 1$ and its [quadratic extension](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/field/fields/mersenne31/extension.rs)
 - [Baby Bear](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/field/fields/fft_friendly/babybear.rs) and its [quadratic extension](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/field/fields/fft_friendly/quadratic_babybear.rs): FFT-friendly, $2^{31} - 2^{27} + 1$.
-- [Scalar field of BN-254](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/elliptic_curve/short_weierstrass/curves/bn_254/default_types.rs)
-- [Base field of BN-254](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/elliptic_curve/short_weierstrass/curves/bn_254/field_extension.rs) and its quadratic extension, quartic, sextic and twelth degree extensions.
-- [Scalar field of BLS12-381](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/elliptic_curve/short_weierstrass/curves/bls12_381/default_types.rs): FFT-friendly.
-- [Base field of BLS12-381](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/elliptic_curve/short_weierstrass/curves/bls12_381/field_extension.rs) and its quadratic, sextic and twelth degree extensions.
+- [Scalar field of BN-254](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/elliptic_curve/short_weierstrass/curves/bn_254/default_types.rs), and its quadratic extension, quartic, sextic and twelth degree extensions. This coincides with the base field of [Grumpkin](../elliptic_curve/short_weierstrass/curves/grumpkin/curve.rs)
+- [Base field of BN-254](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/elliptic_curve/short_weierstrass/curves/bn_254/field_extension.rs) and its quadratic extension. The base field coincides with the scalar field of [Grumpkin](../elliptic_curve/short_weierstrass/curves/grumpkin/curve.rs)
+- [Scalar field of BLS12-381](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/elliptic_curve/short_weierstrass/curves/bls12_381/default_types.rs), and its quadratic, sextic and twelth degree extensions. FFT-friendly.
+- [Base field of BLS12-381](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/elliptic_curve/short_weierstrass/curves/bls12_381/field_extension.rs) 
 - [Scalar field of BLS12-377](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/elliptic_curve/short_weierstrass/curves/bls12_377/curve.rs)
 - [Base field of BLS12-377](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/elliptic_curve/short_weierstrass/curves/bls12_377/field_extension.rs)
 - [Base field of secp256k1](./fields/secp256k1_field.rs): the base field of Bitcoin's elliptic curve.
@@ -233,11 +233,134 @@ Multiplication follows `cios`, unless there are spare bits in the modulus. For t
 
 Inversion is performed using Algorithm 16 (Binary Euclidean Algorithm) from [Guajardo, Kumar, Paar, Perzl](https://www.sandeep.de/my/papers/2006_ActaApplMath_EfficientSoftFiniteF.pdf).
 
+## Extension fields
+
+In some applications in Cryptography, it may be necessary to work over an *extension field*. For example, to compute pairings we need to work over a larger field. Similarly, in STARKs, when we need to sample a random number, we want to do it from a large set, and we can do this by working with an extension of the original field. What are extension fields? You may have heard about [complex numbers](https://en.wikipedia.org/wiki/Complex_number). We can view them as a pair of real numbers $c = (a, b)$ with a multiplication operation defined as $(a_0 , b_0 ) \times (a_1 , b_1 ) = (a_0 a_1 - b_0 b_1 , a_0 b_1 + a_1 b_0 )$ and the addition as $(a_0 , b_0 ) + (a_1 , b_1 ) = (a_0 + a_1 , b_0 + b_1 )$. We can see real numbers as a subset of $\mathbb{C}$ of the form $(a , 0)$. It is common to introduce the imaginary unit, $i$, and write them also as $a + b i$, with $i^2 = - 1$ (you can check that $(0 , 1)^2 = - 1$). We see that when work with complex numbers of the form $(a , 0)$ this works as ordinary real numbers, and we see that complex numbers extend the real numbers, allowing us to find solutions to equations that cannot be solved over the real numbers. For example, $x^2 + 1 = 0$ does not have a solution over $\mathbb{R}$, but over $\mathbb{C}$ both $i$ and $- i$ solve the equation. We will focus on how to build the complex numbers from the real numbers, and then explain how to adapt this to the setting of finite fields.
+
+We will work with univariate polynomials over the real numbers. A univariate polynomial over the real numbers is an expression in an indeterminate, $x$, with coefficients taking their values over the real numbers, with the following form $p(x) = a_0 + a_1 x + a_2 x^2 + \dots + a_n x^n$. For example, $p(x) = \sqrt{2} + \pi x + 2 x^2 + 5x^3 - 56 x^4$. We can add, subtract and multiply polynomials similar to what we do with integers, which means that the polynomials form a ring. We denote the ring of polynomials over real numbers as $\mathbb{R} [x]$, the ring of polynomials over the integers as $\mathbb{Z} [x]$ and the ring of polynomials over a finite field as $\mathbb{F_p} [x]$. The highest $k$ such that $a_k \neq 0$ is called the degree of the polynomial; for our previous example it is 4. Given polynomials $p(x)$ and $d(x)$, there are polynomials $q(x)$ and $r(x)$ such that $p(x) = d(x)q(x) + r(x)$, with the degree of $r(x)$ less than the degree of $d(x)$ (this in analogous to the integer division with remainder). Given a polynomial $p(x)$, we can define the ring of polynomials modulo $p(x)$, denoted by $\mathbb{R} [x] / p(x)$. Operations in this ring work similar to integers: whenever the degree of the result exceeds or equals the degree of $p(x)$, we take the remainder $r(x)$ of the division between the result and $p(x)$ (basically, $p(x)$ acts like the modulus in finite fields).
+
+Many polynomials can be expressed in terms of lower degree polynomials. For example, $x^2 - 1 = (x + 1) (x - 1)$, $x^3 + 3x^2 + 3x + 1 = (x + 1)(x + 1)(x + 1)$. Over the real numbers, $I(x) = x^2 + 1$ cannot be expressed in terms of lower degree polynomials. We say that $I(x)$ is [irreducible](https://en.wikipedia.org/wiki/Irreducible_polynomial) over $\mathbb{R}$. If we consider the ring modulo an irreducible polynomial, $\mathbb{R} [x] / I(x)$, then $\mathbb{R} [x] / I(x)$ is a field. The degree of $I(x)$ is the degree of the extension. For example, in the case of the real numbers, $\mathbb{R} [x] / (x^2 + 1)$ coincides with our notion of the complex numbers. Every element there has the form $a + b x$. 
+
+Addition (and subtraction) is done the usual way, $(a + b x) + (c + dx) = (a + c) + (b + d)x$. Multiplication is a bit more difficult, $(a + bx) \times (c + dx) = ac + (b c + a d) x + b d x^2$. But this polynomial has equal degree than $x^2 + 1$, so we take the remainder. The result is $ac - bd + (b c + a d)x$ (you can check that $x^2 = - 1$). 
+
+In the case of complex numbers, we don't need to continue extending them further, since we can factor any polynomial over $\mathbb{C}$ (see the [fundamental theorem of algebra](https://en.wikipedia.org/wiki/Fundamental_theorem_of_algebra)).
+
+The recipe to build extension fields over finite fields is the same. We will start with the simplest case, when $\mathbb{F_p}$ is a prime field. For example, we are working with $p = 2^{31} - 1$, a Mersenne prime (we can see that $p \equiv 3 \pmod{4}$). We consider the polynomials with coefficients over $\mathbb{F_p} [x]$. It can be shown that $- 1$ has no square root over $\mathbb{F_p}$: this means that there is no $x$ such that $x^2 = - 1$ over $\mathbb{F_p}$. The polynomial $I(x) = x^2 + 1$ is, therefore, irreducible over $\mathbb{F_p}$ (note, $x^2 - 1$ is not always irreducible over arbitrary fields!). We can consider then $\mathbb{F_p} [x] / I(x)$ and the elements there are represented by $a + b x$. One caveat with the case of complex numbers is that the operations involving $a$ and $b$ are the operations of $\mathbb{F_p }$. For example, $(5 + 2^{31} x) + ((2^{31} - 6) - x) = 0 + 0x$. Since the degree of $I(x)$ is $2$, we say that we have a quadratic extension of $\mathbb{F_p}$ and will denote it $\mathbb{F_{ p^2 } }$. You could have chosen a different degree $2$ irreducible polynomial, but we can show that the two extensions are isomorphic. 
+
+You can build other extensions looking for higher-degree irreducible polynomials. For example, if you consider the field $\mathbb{F_2} = \{0 , 1 \}$, the polynomial $x^8 + x^4 + x^3 + x + 1$ is irreducible, and you can define a degree $8$ extension of $\mathbb{F_2}$.
+
+There are different ways in which we can construct higher-degree extensions. For example, we can take our prime field and find an irreducible polynomial of degree $4$ and work with $\mathbb{F_p} / I(x)$. Each element in the field can be represented as $a + b x + c x^2 + dx^3$. We can also use a towered approach: we first find an irreducible polynomial $I(x)$ of degree $2$ and obtain $\mathbb{F_{ p^2 } } = \mathbb{F_p} / I(x)$. Each element is of the form $a + b x$. Since the extension is also a field, we can find an irreducible polynomial over ${F_{ p^2 } }$, $J(y)$, of degree $2$ and consider ${F_{ p^2 } } [y] / J(y)$. Then, each element there is of the form $a^\prime + b^\prime y$, where $a^\prime$ and $b^\prime$ live in ${F_{ p^2 } }$. Since every element in ${F_{ p^2 } }$ is of the form $a_0 + a_1 x$, we get that $a_0 + a_1 x + b_0 y + b_1 x y$. Even though the extensions look different, there is an isomorphism connecting the two. Depending on the application, one form or the other can be more efficient.
+
+While some of the underlying concepts can be difficult to grasp, defining extension fields is simpler in lambdaworks. While we could allow you to define arbitrary extensions, we provide methods to define quadratic and cubic extensions over fields. To define a quadratic extension, you need to implement the following trait:
+
+```rust
+pub trait HasQuadraticNonResidue<F: IsField> {
+    fn residue() -> FieldElement<F>;
+}
+```
+
+Here, we assume that you want to define a quadratic extension of the form $x^2 - \mathrm{residue}$, where $\mathrm{residue}$ is not a square over your field. In the case of the Mersenne prime $2^{31} - 1$, $\mathrm{residue} = - 1$ (you could use other quadratic non-residues, but this can lead to slower field extension operations). Similarly, for cubic extensions we have
+
+```rust
+pub trait HasCubicNonResidue<F: IsField> {
+    /// This function must return an element that is not a cube in Fp,
+    /// that is, a cubic non-residue.
+    fn residue() -> FieldElement<F>;
+}
+```
+
+For example, the following code defines the default quadratic extension for BabyBear:
+
+```rust
+pub type QuadraticBabybearField =
+    QuadraticExtensionField<Babybear31PrimeField, Babybear31PrimeField>;
+
+impl HasQuadraticNonResidue<Babybear31PrimeField> for Babybear31PrimeField {
+    fn residue() -> FieldElement<Babybear31PrimeField> {
+        -FieldElement::one()
+    }
+}
+
+/// Field element type for the quadratic extension of Babybear
+pub type QuadraticBabybearFieldElement =
+    QuadraticExtensionFieldElement<Babybear31PrimeField, Babybear31PrimeField>;
+```
+
+You can also create a separate quadratic extension by implementing the `IsField` trait for the quadratic extension,
+
+```rust
+#[derive(Clone, Debug)]
+pub struct BLS12381FieldModulus;
+impl IsModulus<U384> for BLS12381FieldModulus {
+    const MODULUS: U384 = BLS12381_PRIME_FIELD_ORDER;
+}
+
+pub type BLS12381PrimeField = MontgomeryBackendPrimeField<BLS12381FieldModulus, 6>;
+
+//////////////////
+#[derive(Clone, Debug)]
+pub struct Degree2ExtensionField;
+
+impl IsField for Degree2ExtensionField {
+    type BaseType = [FieldElement<BLS12381PrimeField>; 2];
+    /// Returns the component wise addition of `a` and `b`
+    fn add(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
+        [&a[0] + &b[0], &a[1] + &b[1]]
+    }
+
+    /// Returns the multiplication of `a` and `b` using the following
+    /// equation:
+    /// (a0 + a1 * t) * (b0 + b1 * t) = a0 * b0 + a1 * b1 * Self::residue() + (a0 * b1 + a1 * b0) * t
+    /// where `t.pow(2)` equals `Q::residue()`.
+    fn mul(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
+        let a0b0 = &a[0] * &b[0];
+        let a1b1 = &a[1] * &b[1];
+        let z = (&a[0] + &a[1]) * (&b[0] + &b[1]);
+        [&a0b0 - &a1b1, z - a0b0 - a1b1]
+    }
+}
+```
+
+You should then implement the operations for the field, such as addition, multiplication, subtraction, inversion and so on. This is more convenient if you can avoid doing extra operations and defining the residue. You can also optimize the operations between elements of the base field and the extension field by implementing the trait `IsSubFieldOf`.
+
+```rust
+impl IsSubFieldOf<Degree2ExtensionField> for BLS12381PrimeField {
+    fn mul(
+        a: &Self::BaseType,
+        b: &<Degree2ExtensionField as IsField>::BaseType,
+    ) -> <Degree2ExtensionField as IsField>::BaseType {
+        let c0 = FieldElement::from_raw(<Self as IsField>::mul(a, b[0].value()));
+        let c1 = FieldElement::from_raw(<Self as IsField>::mul(a, b[1].value()));
+        [c0, c1]
+    }
+}
+```
+
+Once you have the quadratic extension, you can build another extension (tower approach). For example, to define a degree 3 extension field over the quadratic extension of the BLS12-381 scalar field, we have
+
+```rust
+#[derive(Debug, Clone)]
+pub struct LevelTwoResidue;
+impl HasCubicNonResidue<Degree2ExtensionField> for LevelTwoResidue {
+    fn residue() -> FieldElement<Degree2ExtensionField> {
+        FieldElement::new([
+            FieldElement::new(U384::from("1")),
+            FieldElement::new(U384::from("1")),
+        ])
+    }
+}
+
+pub type Degree6ExtensionField = CubicExtensionField<Degree2ExtensionField, LevelTwoResidue>;
+```
+
+This defines a 6th degree extension over the scalar field of BLS12-381. We only need to define the cubic (non) residue, which is an element of $\mathbb{F_{ p^2 } }$. 
+
 ## Exercises
 
 - Define the base field of the Ed25519 elliptic curve, defined by the prime $p$.
 - Check whether $- 1$ is a quadratic residue.
-- Compute $100^{65537} \pmod p$ 
+- Compute $100^{65537} \pmod p$
+- Define a degree 4 extension of the BabyBear field.
 
 ## References
 
