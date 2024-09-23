@@ -5,7 +5,7 @@ This folder contains the different elliptic curve models currently supported by 
 - [Twisted Edwards](https://github.com/lambdaclass/lambdaworks/tree/main/math/src/elliptic_curve/edwards)
 - [Montgomery](https://github.com/lambdaclass/lambdaworks/tree/main/math/src/elliptic_curve/montgomery)
 
-Each of the curve models can have one or more coordinate systems, such as homogeneous projective, Jacobian, XZ coordinates, etc. These are used for reasons of performance. It is possible to define an operation, $\oplus$, taking two points over an elliptic curve, $E$ and obtain a third one, such that $(E, \oplus)$ is a group. 
+Each of the curve models can have one or more coordinate systems, such as homogeneous projective, Jacobian, XZ coordinates, etc. These are used for reasons of performance. It is possible to define an operation, $\oplus$, taking two points over an elliptic curve, $E$ and obtain a third one, such that $(E, \oplus)$ is a group.
 
 This part makes use of lambdaworks finite fields. If you are unfamiliar with it or underlying concepts, refer to the [section on finite fields](../field/README.md).
 
@@ -21,6 +21,7 @@ The following curves are currently supported:
 - [Starknet's curve](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/elliptic_curve/short_weierstrass/curves/stark_curve.rs)
 - [secp256k1](./short_weierstrass/curves/secp256k1/curve.rs): Bitcoin's curve. The implementation is not constant time, so it cannot be used to sign messages!
 - [secq256k1](./short_weierstrass/curves/secq256k1/curve.rs): It has the same curve equation as secp256k1, a different generator and their order r and the modulus p are swapped. It uses ```secp256k1_scalarfield``` as a base field, which has modulus r.
+- [secp256r1](./short_weierstrass/curves/secp256r1/curve.rs): Used for digital signatures, also known as: P-256 and prime256v1.
 
 ## Twisted Edwards
 
@@ -116,7 +117,7 @@ let y = g2_affine.y();
 ## Multiscalar multiplication
 
 One common operation for different proof systems is the Mutiscalar Multiplication (MSM), which is given by a set of points $P_0 , P_1 , P_2 , ... , P_n$ and scalars $a_0 , a_1 , a_2 ... n_n$ (the scalars belong to the scalar field of the elliptic curve, which is the field whose size matches the size of the elliptic curve's group):
-$$R = \sum_k a_k P_k$$ 
+$$R = \sum_k a_k P_k$$
 This operation could be implemented by using `operate_with_self` with each point and scalar and then add the results using `operate_with`, but this is not efficient. lambdaworks provides an optimized [MSM using Pippenger's algorithm](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/msm/pippenger.rs). A naïve version is given [here](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/msm/naive.rs). Below we show how to use MSM in the context of a polynomial commitment scheme: the scalars are the coefficients of the polynomials and the points are provided by an SRS.
 ```rust
 fn commit(&self, p: &Polynomial<FieldElement<F>>) -> Self::Commitment {
