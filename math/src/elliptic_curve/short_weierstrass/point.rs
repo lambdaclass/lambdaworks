@@ -21,20 +21,7 @@ pub struct ShortWeierstrassProjectivePoint<E: IsEllipticCurve>(pub ProjectivePoi
 impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
     /// Creates an elliptic curve point giving the projective [x: y: z] coordinates.
     pub const fn new(value: [FieldElement<E::BaseField>; 3]) -> Self {
-        Self(ProjectivePoint::new(value)) // It should be a Result
-    }
-
-    pub fn validate(&self) -> Result<(), EllipticCurveError> {
-        let [x, y, z] = self.coordinates();
-        // Validate against the elliptic curve equation: y^2 * z = x^3 + a * x * z^2 + b * z^3
-        let lhs = y.square() * z;
-        let rhs = x.square() * x + E::a() * x * z.square() + E::b() * z.square() * z;
-
-        if lhs != rhs {
-            return Err(EllipticCurveError::InvalidPoint);
-        }
-
-        Ok(())
+        Self(ProjectivePoint::new(value))
     }
 
     /// Returns the `x` coordinate of the point.
@@ -398,21 +385,6 @@ impl<E: IsShortWeierstrass> ShortWeierstrassJacobianPoint<E> {
         Self(JacobianPoint::new(value))
     }
 
-    pub fn validate(&self) -> Result<(), EllipticCurveError> {
-        let [x, y, z] = self.coordinates();
-        // Validate against the elliptic curve equation: y^2 = x^3 + a * x * z^4 + b * z^6
-        let lhs = y.square();
-        let rhs = x.square() * x
-            + E::a() * x * z.square().square()
-            + E::b() * z.square().square() * z.square();
-
-        if lhs != rhs {
-            return Err(EllipticCurveError::InvalidPoint);
-        }
-
-        Ok(())
-    }
-
     /// Returns the `x` coordinate of the point.
     pub fn x(&self) -> &FieldElement<E::BaseField> {
         self.0.x()
@@ -586,18 +558,28 @@ impl<E: IsShortWeierstrass> IsGroup for ShortWeierstrassJacobianPoint<E> {
                 return Self::neutral_element(); // P + (-P) = 0
             }
         }
+        // H = U2 - U1
+        let h = u2 - &u1;
+        // I = (2 * H)^2
+        let i = h.double().square();
+        // J = H * I
+        let j = -(&h * &i);
 
-        let h = u2 - &u1; // H = U2 - U1
-        let r = s2 - &s1; // R = S2 - S1
+        // R = 2 * (S2 - S1)
+        let r = (s2 - &s1).double();
 
-        let h_sq = h.square(); // H^2
-        let h_cu = &h_sq * &h; // H^3
-        let u1_h_sq = &u1 * &h_sq; // U1 * H^2
+        // V = U1 * I
+        let v = u1 * &i;
 
-        let x3 = r.square() - &h_cu - &u1_h_sq.double(); // X3 = R^2 - H^3 - 2*U1*H^2
-        let y3 = r * (&u1_h_sq - &x3) - &(s1 * &h_cu); // Y3 = R*(U1*H^2 - X3) - S1*H^3
-        let mut z3 = (z1 + z2).square() - &z1_sq - &z2_sq; // Z3 = (Z1 + Z2)^2 - Z1^2 - Z2^2
-        z3 *= &h; // Z3 = H * Z3 = H * ((Z1 + Z2)^2 - Z1^2 - Z2^2)
+        // X3 = R^2 + J - 2 * V
+        let x3 = r.square() + &j - v.double();
+
+        // Y3 = R * (V - X3) + 2 * S1 * J
+        let y3 = r * (v - &x3) + (s1 * &j.double());
+
+        // Z3 = 2 * Z1 * Z2 * H
+        let z3 = z1 * z2;
+        let z3 = z3.double() * h;
 
         Self::new([x3, y3, z3])
     }
@@ -651,7 +633,10 @@ mod tests {
         let y = FEE::new_base("7acf6e49cc000ff53b06ee1d27056734019c0a1edfa16684da41ebb0c56750f73bc1b0eae4c6c241808a5e485af0ba0");
         let p = ShortWeierstrassJacobianPoint::<BLS12381Curve>::from_affine(x, y).unwrap();
 
-        assert_eq!(p.operate_with_self(3_u16), p.double().operate_with(&p));
+        assert_eq!(
+            p.operate_with_self(5_u16),
+            p.double().double().operate_with(&p)
+        );
     }
     #[cfg(feature = "alloc")]
     #[test]
@@ -850,8 +835,8 @@ mod tests {
             .unwrap();
         let q = ShortWeierstrassProjectivePoint::<BLS12381Curve>::from_affine(x, y).unwrap();
 
-        let sum_jacobian = p.operate_with_self(2_u16);
-        let sum_projective = q.operate_with_self(2_u16);
+        let sum_jacobian = p.operate_with_self(7_u16);
+        let sum_projective = q.operate_with_self(7_u16);
 
         // Convert the result to affine coordinates
         let sum_jacobian_affine = sum_jacobian.to_affine();
@@ -884,49 +869,6 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::assertions_on_constants)]
-    fn create_invalid_projective_point() {
-        let point = ShortWeierstrassProjectivePoint::<BLS12381Curve>::from_affine(
-            FEE::new_base("36bb494facde72d0da5c770c4b16d9b2d45cfdc27604a25a1a80b020798e5b0dbd4c6d939a8f8820f042a29ce552ee5"),
-            FEE::new_base("7acf6e49cc000ff53b06ee1d27056734019c0a1edfa16684da41ebb0c56750f73bc1b0eae4c6c241808a5e485af0ba0")
-        ).unwrap();
-
-        let [x, y, z] = point.coordinates();
-        let invalid_x = x + FieldElement::one();
-
-        let invalid_point = ShortWeierstrassProjectivePoint::<BLS12381Curve>::new([
-            invalid_x,
-            y.clone(),
-            z.clone(),
-        ]);
-        assert_eq!(
-            invalid_point.validate(),
-            Err(EllipticCurveError::InvalidPoint)
-        );
-    }
-
-    #[test]
-    #[allow(clippy::assertions_on_constants)]
-    fn create_invalid_jacobian_point() {
-        let point = ShortWeierstrassJacobianPoint::<BLS12381Curve>::from_affine(
-            FEE::new_base("36bb494facde72d0da5c770c4b16d9b2d45cfdc27604a25a1a80b020798e5b0dbd4c6d939a8f8820f042a29ce552ee5"),
-            FEE::new_base("7acf6e49cc000ff53b06ee1d27056734019c0a1edfa16684da41ebb0c56750f73bc1b0eae4c6c241808a5e485af0ba0")
-        ).unwrap();
-
-        let [x, y, z] = point.coordinates();
-        let invalid_x = x + FieldElement::one();
-
-        let invalid_point =
-            ShortWeierstrassJacobianPoint::<BLS12381Curve>::new([invalid_x, y.clone(), z.clone()]);
-
-        assert_eq!(
-            invalid_point.validate(),
-            Err(EllipticCurveError::InvalidPoint)
-        );
-    }
-    /*
-    /// Need to work on this, it is not working but i am not sure why
-    #[test]
     fn test_multiplication_by_order_jacobian() {
         let x = FEE::new_base("36bb494facde72d0da5c770c4b16d9b2d45cfdc27604a25a1a80b020798e5b0dbd4c6d939a8f8820f042a29ce552ee5");
         let y = FEE::new_base("7acf6e49cc000ff53b06ee1d27056734019c0a1edfa16684da41ebb0c56750f73bc1b0eae4c6c241808a5e485af0ba0");
@@ -942,5 +884,4 @@ mod tests {
             "Multiplication by order should result in the neutral element"
         );
     }
-    */
 }
