@@ -235,8 +235,12 @@ impl IsField for Degree4ExtensionField {
     }
 
     fn inv(a: &Self::BaseType) -> Result<Self::BaseType, FieldError> {
-        let a1_square = a[1].square();
-        let inv_norm = (a[0].square() - a1_square.double() - a1_square * I).inv()?;
+        // VERSION 1:
+        // let a1_square = a[1].square();
+        // let inv_norm = (a[0].square() - a1_square.double() - a1_square * I).inv()?;
+
+        // VERSION 2:
+        let inv_norm = (a[0].square() - mul_fp2_by_nonresidue(&a[1].square())).inv()?;
         Ok([&a[0] * &inv_norm, -&a[1] * &inv_norm])
     }
 
