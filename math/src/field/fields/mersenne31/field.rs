@@ -43,7 +43,7 @@ impl Mersenne31Field {
         Self::from_u64(iter.map(|x| (x as u64)).sum::<u64>())
     }
 
-    /// Computes a * 2^k, with |k| < 31
+    /// Computes a * 2^k, with 0 < k < 31
     pub fn mul_power_two(a: u32, k: u32) -> u32 {
         // If a uses 32 bits, then a * 2^k uses 32 + k bits.
         let msb = (a & (u32::MAX << 32 - k)) >> (32 - k - 1); // The k+1 msb.

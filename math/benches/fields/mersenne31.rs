@@ -1,10 +1,21 @@
 use std::hint::black_box;
 
 use criterion::Criterion;
-use lambdaworks_math::field::{element::FieldElement, fields::mersenne31::field::Mersenne31Field};
+use lambdaworks_math::{
+    elliptic_curve::edwards::curves::bandersnatch::field,
+    field::{
+        element::FieldElement,
+        fields::mersenne31::{
+            extension::{Degree2ExtensionField, Degree4ExtensionField, Degree4ExtensionFieldV2},
+            field::Mersenne31Field,
+        },
+    },
+};
 use rand::random;
 
 pub type F = FieldElement<Mersenne31Field>;
+pub type Fp2E = FieldElement<Degree2ExtensionField>;
+pub type Fp4E = FieldElement<Degree4ExtensionField>;
 
 #[inline(never)]
 #[no_mangle]
@@ -17,6 +28,122 @@ pub fn rand_field_elements(num: usize) -> Vec<(F, F)> {
     result
 }
 
+//TODO: Check if this is the correct way to bench.
+pub fn rand_fp4e(num: usize) -> Vec<(Fp4E, Fp4E)> {
+    let mut result = Vec::with_capacity(num);
+    for _ in 0..result.capacity() {
+        result.push((
+            Fp4E::new([
+                Fp2E::new([F::new(random()), F::new(random())]),
+                Fp2E::new([F::new(random()), F::new(random())]),
+            ]),
+            Fp4E::new([
+                Fp2E::new([F::new(random()), F::new(random())]),
+                Fp2E::new([F::new(random()), F::new(random())]),
+            ]),
+        ));
+    }
+    result
+}
+
+pub fn rand_fp4e_v2(
+    num: usize,
+) -> Vec<(
+    FieldElement<Degree4ExtensionFieldV2>,
+    FieldElement<Degree4ExtensionFieldV2>,
+)> {
+    let mut result = Vec::with_capacity(num);
+    for _ in 0..result.capacity() {
+        result.push((
+            FieldElement::<Degree4ExtensionFieldV2>::new([
+                Fp2E::new([F::new(random()), F::new(random())]),
+                Fp2E::new([F::new(random()), F::new(random())]),
+            ]),
+            FieldElement::<Degree4ExtensionFieldV2>::new([
+                Fp2E::new([F::new(random()), F::new(random())]),
+                Fp2E::new([F::new(random()), F::new(random())]),
+            ]),
+        ));
+    }
+    result
+}
+
+pub fn mersenne31_extension_ops_benchmarks(c: &mut Criterion) {
+    let input: Vec<Vec<(Fp4E, Fp4E)>> = [1000000].into_iter().map(rand_fp4e).collect::<Vec<_>>();
+    let input_v2: Vec<
+        Vec<(
+            FieldElement<Degree4ExtensionFieldV2>,
+            FieldElement<Degree4ExtensionFieldV2>,
+        )>,
+    > = [1000000].into_iter().map(rand_fp4e_v2).collect::<Vec<_>>();
+
+    let mut group = c.benchmark_group("Mersenne31 Fp4 operations");
+
+    for i in input.clone().into_iter() {
+        group.bench_with_input(format!("Mul of Fp4 {:?}", &i.len()), &i, |bench, i| {
+            bench.iter(|| {
+                for (x, y) in i {
+                    black_box(black_box(x) * black_box(y));
+                }
+            });
+        });
+    }
+
+    for i in input_v2.clone().into_iter() {
+        group.bench_with_input(format!("Mul of Fp4 V2 {:?}", &i.len()), &i, |bench, i| {
+            bench.iter(|| {
+                for (x, y) in i {
+                    black_box(black_box(x) * black_box(y));
+                }
+            });
+        });
+    }
+
+    for i in input.clone().into_iter() {
+        group.bench_with_input(format!("Square of Fp4 {:?}", &i.len()), &i, |bench, i| {
+            bench.iter(|| {
+                for (x, _) in i {
+                    black_box(black_box(x).square());
+                }
+            });
+        });
+    }
+
+    for i in input_v2.clone().into_iter() {
+        group.bench_with_input(
+            format!("Square of Fp4 V2 {:?}", &i.len()),
+            &i,
+            |bench, i| {
+                bench.iter(|| {
+                    for (x, _) in i {
+                        black_box(black_box(x).square());
+                    }
+                });
+            },
+        );
+    }
+
+    for i in input.clone().into_iter() {
+        group.bench_with_input(format!("Inv of Fp4 {:?}", &i.len()), &i, |bench, i| {
+            bench.iter(|| {
+                for (x, _) in i {
+                    black_box(black_box(x).inv().unwrap());
+                }
+            });
+        });
+    }
+
+    for i in input_v2.clone().into_iter() {
+        group.bench_with_input(format!("Inv of Fp4 V2 {:?}", &i.len()), &i, |bench, i| {
+            bench.iter(|| {
+                for (x, _) in i {
+                    black_box(black_box(x).inv().unwrap());
+                }
+            });
+        });
+    }
+}
+
 pub fn mersenne31_ops_benchmarks(c: &mut Criterion) {
     let input: Vec<Vec<(F, F)>> = [1, 10, 100, 1000, 10000, 100000, 1000000]
         .into_iter()
@@ -24,89 +151,91 @@ pub fn mersenne31_ops_benchmarks(c: &mut Criterion) {
         .collect::<Vec<_>>();
     let mut group = c.benchmark_group("Mersenne31 operations");
 
-    // for i in input.clone().into_iter() {
-    //     group.bench_with_input(format!("add {:?}", &i.len()), &i, |bench, i| {
-    //         bench.iter(|| {
-    //             for (x, y) in i {
-    //                 black_box(black_box(x) + black_box(y));
-    //             }
-    //         });
-    //     });
-    // }
+    /*
+    for i in input.clone().into_iter() {
+        group.bench_with_input(format!("add {:?}", &i.len()), &i, |bench, i| {
+            bench.iter(|| {
+                for (x, y) in i {
+                    black_box(black_box(x) + black_box(y));
+                }
+            });
+        });
+    }
 
-    // for i in input.clone().into_iter() {
-    //     group.bench_with_input(format!("mul {:?}", &i.len()), &i, |bench, i| {
-    //         bench.iter(|| {
-    //             for (x, y) in i {
-    //                 black_box(black_box(x) * black_box(y));
-    //             }
-    //         });
-    //     });
-    // }
+    for i in input.clone().into_iter() {
+        group.bench_with_input(format!("mul {:?}", &i.len()), &i, |bench, i| {
+            bench.iter(|| {
+                for (x, y) in i {
+                    black_box(black_box(x) * black_box(y));
+                }
+            });
+        });
+    }
 
-    // for i in input.clone().into_iter() {
-    //     group.bench_with_input(format!("pow by 1 {:?}", &i.len()), &i, |bench, i| {
-    //         bench.iter(|| {
-    //             for (x, _) in i {
-    //                 black_box(black_box(x).pow(1_u64));
-    //             }
-    //         });
-    //     });
-    // }
+    for i in input.clone().into_iter() {
+        group.bench_with_input(format!("pow by 1 {:?}", &i.len()), &i, |bench, i| {
+            bench.iter(|| {
+                for (x, _) in i {
+                    black_box(black_box(x).pow(1_u64));
+                }
+            });
+        });
+    }
 
-    // for i in input.clone().into_iter() {
-    //     group.bench_with_input(format!("square {:?}", &i.len()), &i, |bench, i| {
-    //         bench.iter(|| {
-    //             for (x, _) in i {
-    //                 black_box(black_box(x).square());
-    //             }
-    //         });
-    //     });
-    // }
+    for i in input.clone().into_iter() {
+        group.bench_with_input(format!("square {:?}", &i.len()), &i, |bench, i| {
+            bench.iter(|| {
+                for (x, _) in i {
+                    black_box(black_box(x).square());
+                }
+            });
+        });
+    }
 
-    // for i in input.clone().into_iter() {
-    //     group.bench_with_input(format!("square with pow {:?}", &i.len()), &i, |bench, i| {
-    //         bench.iter(|| {
-    //             for (x, _) in i {
-    //                 black_box(black_box(x).pow(2_u64));
-    //             }
-    //         });
-    //     });
-    // }
+    for i in input.clone().into_iter() {
+        group.bench_with_input(format!("square with pow {:?}", &i.len()), &i, |bench, i| {
+            bench.iter(|| {
+                for (x, _) in i {
+                    black_box(black_box(x).pow(2_u64));
+                }
+            });
+        });
+    }
 
-    // for i in input.clone().into_iter() {
-    //     group.bench_with_input(format!("square with mul {:?}", &i.len()), &i, |bench, i| {
-    //         bench.iter(|| {
-    //             for (x, _) in i {
-    //                 black_box(black_box(x) * black_box(x));
-    //             }
-    //         });
-    //     });
-    // }
+    for i in input.clone().into_iter() {
+        group.bench_with_input(format!("square with mul {:?}", &i.len()), &i, |bench, i| {
+            bench.iter(|| {
+                for (x, _) in i {
+                    black_box(black_box(x) * black_box(x));
+                }
+            });
+        });
+    }
 
-    // for i in input.clone().into_iter() {
-    //     group.bench_with_input(
-    //         format!("pow {:?}", &i.len()),
-    //         &(i, 5u64),
-    //         |bench, (i, a)| {
-    //             bench.iter(|| {
-    //                 for (x, _) in i {
-    //                     black_box(black_box(x).pow(*a));
-    //                 }
-    //             });
-    //         },
-    //     );
-    // }
+    for i in input.clone().into_iter() {
+        group.bench_with_input(
+            format!("pow {:?}", &i.len()),
+            &(i, 5u64),
+            |bench, (i, a)| {
+                bench.iter(|| {
+                    for (x, _) in i {
+                        black_box(black_box(x).pow(*a));
+                    }
+                });
+            },
+        );
+    }
 
-    // for i in input.clone().into_iter() {
-    //     group.bench_with_input(format!("sub {:?}", &i.len()), &i, |bench, i| {
-    //         bench.iter(|| {
-    //             for (x, y) in i {
-    //                 black_box(black_box(x) - black_box(y));
-    //             }
-    //         });
-    //     });
-    // }
+    for i in input.clone().into_iter() {
+        group.bench_with_input(format!("sub {:?}", &i.len()), &i, |bench, i| {
+            bench.iter(|| {
+                for (x, y) in i {
+                    black_box(black_box(x) - black_box(y));
+                }
+            });
+        });
+    }
+    */
 
     for i in input.clone().into_iter() {
         group.bench_with_input(format!("inv {:?}", &i.len()), &i, |bench, i| {
@@ -128,68 +257,70 @@ pub fn mersenne31_ops_benchmarks(c: &mut Criterion) {
         });
     }
 
-    // for i in input.clone().into_iter() {
-    //     group.bench_with_input(format!("eq {:?}", &i.len()), &i, |bench, i| {
-    //         bench.iter(|| {
-    //             for (x, y) in i {
-    //                 black_box(black_box(x) == black_box(y));
-    //             }
-    //         });
-    //     });
-    // }
+    /*
+    for i in input.clone().into_iter() {
+        group.bench_with_input(format!("eq {:?}", &i.len()), &i, |bench, i| {
+            bench.iter(|| {
+                for (x, y) in i {
+                    black_box(black_box(x) == black_box(y));
+                }
+            });
+        });
+    }
 
-    // for i in input.clone().into_iter() {
-    //     group.bench_with_input(format!("sqrt {:?}", &i.len()), &i, |bench, i| {
-    //         bench.iter(|| {
-    //             for (x, _) in i {
-    //                 black_box(black_box(x).sqrt());
-    //             }
-    //         });
-    //     });
-    // }
+    for i in input.clone().into_iter() {
+        group.bench_with_input(format!("sqrt {:?}", &i.len()), &i, |bench, i| {
+            bench.iter(|| {
+                for (x, _) in i {
+                    black_box(black_box(x).sqrt());
+                }
+            });
+        });
+    }
 
-    // for i in input.clone().into_iter() {
-    //     group.bench_with_input(format!("sqrt squared {:?}", &i.len()), &i, |bench, i| {
-    //         let i: Vec<F> = i.iter().map(|(x, _)| x * x).collect();
-    //         bench.iter(|| {
-    //             for x in &i {
-    //                 black_box(black_box(x).sqrt());
-    //             }
-    //         });
-    //     });
-    // }
+    for i in input.clone().into_iter() {
+        group.bench_with_input(format!("sqrt squared {:?}", &i.len()), &i, |bench, i| {
+            let i: Vec<F> = i.iter().map(|(x, _)| x * x).collect();
+            bench.iter(|| {
+                for x in &i {
+                    black_box(black_box(x).sqrt());
+                }
+            });
+        });
+    }
 
-    // for i in input.clone().into_iter() {
-    //     group.bench_with_input(format!("bitand {:?}", &i.len()), &i, |bench, i| {
-    //         // Note: we should strive to have the number of limbs be generic... ideally this benchmark group itself should have a generic type that we call into from the main runner.
-    //         let i: Vec<(u32, u32)> = i.iter().map(|(x, y)| (*x.value(), *y.value())).collect();
-    //         bench.iter(|| {
-    //             for (x, y) in &i {
-    //                 black_box(black_box(*x) & black_box(*y));
-    //             }
-    //         });
-    //     });
-    // }
+    for i in input.clone().into_iter() {
+        group.bench_with_input(format!("bitand {:?}", &i.len()), &i, |bench, i| {
+            // Note: we should strive to have the number of limbs be generic... ideally this benchmark group itself should have a generic type that we call into from the main runner.
+            let i: Vec<(u32, u32)> = i.iter().map(|(x, y)| (*x.value(), *y.value())).collect();
+            bench.iter(|| {
+                for (x, y) in &i {
+                    black_box(black_box(*x) & black_box(*y));
+                }
+            });
+        });
+    }
 
-    // for i in input.clone().into_iter() {
-    //     group.bench_with_input(format!("bitor {:?}", &i.len()), &i, |bench, i| {
-    //         let i: Vec<(u32, u32)> = i.iter().map(|(x, y)| (*x.value(), *y.value())).collect();
-    //         bench.iter(|| {
-    //             for (x, y) in &i {
-    //                 black_box(black_box(*x) | black_box(*y));
-    //             }
-    //         });
-    //     });
-    // }
+    for i in input.clone().into_iter() {
+        group.bench_with_input(format!("bitor {:?}", &i.len()), &i, |bench, i| {
+            let i: Vec<(u32, u32)> = i.iter().map(|(x, y)| (*x.value(), *y.value())).collect();
+            bench.iter(|| {
+                for (x, y) in &i {
+                    black_box(black_box(*x) | black_box(*y));
+                }
+            });
+        });
+    }
 
-    // for i in input.clone().into_iter() {
-    //     group.bench_with_input(format!("bitxor {:?}", &i.len()), &i, |bench, i| {
-    //         let i: Vec<(u32, u32)> = i.iter().map(|(x, y)| (*x.value(), *y.value())).collect();
-    //         bench.iter(|| {
-    //             for (x, y) in &i {
-    //                 black_box(black_box(*x) ^ black_box(*y));
-    //             }
-    //         });
-    //     });
-    // }
+    for i in input.clone().into_iter() {
+        group.bench_with_input(format!("bitxor {:?}", &i.len()), &i, |bench, i| {
+            let i: Vec<(u32, u32)> = i.iter().map(|(x, y)| (*x.value(), *y.value())).collect();
+            bench.iter(|| {
+                for (x, y) in &i {
+                    black_box(black_box(*x) ^ black_box(*y));
+                }
+            });
+        });
+    }
+    */
 }
