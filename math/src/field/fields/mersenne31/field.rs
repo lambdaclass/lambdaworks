@@ -56,6 +56,12 @@ impl Mersenne31Field {
         (0..order).for_each(|_| res = Self::square(&res));
         res
     }
+
+    /// TODO: Ask how should we implement this function.
+    /// Computes 2a^2 - 1
+    pub fn two_square_minus_one(a: &u32) -> u32 {
+        Self::from_u64(((u64::from(*a) * u64::from(*a)) << 1) - 1)
+    }
 }
 
 pub const MERSENNE_31_PRIME_FIELD_ORDER: u32 = (1 << 31) - 1;
@@ -461,5 +467,14 @@ mod tests {
     fn double_equals_add_itself() {
         let a = FE::from(1234);
         assert_eq!(a + a, a.double())
+    }
+
+    #[test]
+    fn two_square_minus_one_is_correct() {
+        let a = FE::from(2147483650);
+        assert_eq!(
+            FE::from(&F::two_square_minus_one(&a.value())),
+            a.square().double() - FE::one()
+        )
     }
 }
