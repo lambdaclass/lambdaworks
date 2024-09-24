@@ -1,10 +1,6 @@
 use crate::field::{
     element::FieldElement,
     errors::FieldError,
-    extensions::{
-        cubic::{CubicExtensionField, HasCubicNonResidue},
-        quadratic::{HasQuadraticNonResidue, QuadraticExtensionField},
-    },
     traits::{IsField, IsSubFieldOf},
 };
 
@@ -92,22 +88,25 @@ impl IsField for Degree2ExtensionField {
 }
 
 impl IsSubFieldOf<Degree2ExtensionField> for Mersenne31Field {
-    fn mul(
-        a: &Self::BaseType,
-        b: &<Degree2ExtensionField as IsField>::BaseType,
-    ) -> <Degree2ExtensionField as IsField>::BaseType {
-        let c0 = FpE::from(a) * b[0];
-        let c1 = FpE::from(a) * b[1];
-        [c0, c1]
-    }
-
     fn add(
         a: &Self::BaseType,
         b: &<Degree2ExtensionField as IsField>::BaseType,
     ) -> <Degree2ExtensionField as IsField>::BaseType {
-        let c0 = FieldElement::from_raw(<Self as IsField>::add(a, b[0].value()));
-        let c1 = FieldElement::from_raw(*b[1].value());
-        [c0, c1]
+        [FpE::from(a) + b[0], FpE::from(a) + b[1]]
+    }
+
+    fn sub(
+        a: &Self::BaseType,
+        b: &<Degree2ExtensionField as IsField>::BaseType,
+    ) -> <Degree2ExtensionField as IsField>::BaseType {
+        [FpE::from(a) - b[0], FpE::from(a) - b[1]]
+    }
+
+    fn mul(
+        a: &Self::BaseType,
+        b: &<Degree2ExtensionField as IsField>::BaseType,
+    ) -> <Degree2ExtensionField as IsField>::BaseType {
+        [FpE::from(a) * b[0], FpE::from(a) * b[1]]
     }
 
     fn div(
@@ -116,15 +115,6 @@ impl IsSubFieldOf<Degree2ExtensionField> for Mersenne31Field {
     ) -> <Degree2ExtensionField as IsField>::BaseType {
         let b_inv = Degree2ExtensionField::inv(b).unwrap();
         <Self as IsSubFieldOf<Degree2ExtensionField>>::mul(a, &b_inv)
-    }
-
-    fn sub(
-        a: &Self::BaseType,
-        b: &<Degree2ExtensionField as IsField>::BaseType,
-    ) -> <Degree2ExtensionField as IsField>::BaseType {
-        let c0 = FieldElement::from_raw(<Self as IsField>::sub(a, b[0].value()));
-        let c1 = FieldElement::from_raw(<Self as IsField>::neg(b[1].value()));
-        [c0, c1]
     }
 
     fn embed(a: Self::BaseType) -> <Degree2ExtensionField as IsField>::BaseType {
@@ -139,58 +129,9 @@ impl IsSubFieldOf<Degree2ExtensionField> for Mersenne31Field {
     }
 }
 
-/*
-pub type Mersenne31ComplexQuadraticExtensionField =
-    QuadraticExtensionField<Mersenne31Field, Mersenne31Complex>;
-
-//TODO: Check this should be for complex and not base field
-impl HasQuadraticNonResidue<Mersenne31Complex> for Mersenne31Complex {
-    // Verifiable in Sage with
-    // ```sage
-    // p = 2**31 - 1  # Mersenne31
-    // F = GF(p)  # The base field GF(p)
-    // R.<x> = F[]  # The polynomial ring over F
-    // K.<i> = F.extension(x^2 + 1)  # The complex extension field
-    // R2.<y> = K[]
-    // f2 = y^2 - i - 2
-    // assert f2.is_irreducible()
-    // ```
-    fn residue() -> FieldElement<Mersenne31Complex> {
-        FieldElement::from(&Mersenne31Complex::from_base_type([
-            FieldElement::<Mersenne31Field>::from(2),
-            FieldElement::<Mersenne31Field>::one(),
-        ]))
-    }
-}
-*/
-
-/*
-pub type Mersenne31ComplexCubicExtensionField =
-    CubicExtensionField<Mersenne31Field, Mersenne31Complex>;
-
-impl HasCubicNonResidue<Mersenne31Complex> for Mersenne31Complex {
-    // Verifiable in Sage with
-    // ```sage
-    // p = 2**31 - 1  # Mersenne31
-    // F = GF(p)  # The base field GF(p)
-    // R.<x> = F[]  # The polynomial ring over F
-    // K.<i> = F.extension(x^2 + 1)  # The complex extension field
-    // R2.<y> = K[]
-    // f2 = y^3 - 5*i
-    // assert f2.is_irreducible()
-    // ```
-    fn residue() -> FieldElement<Mersenne31Complex> {
-        FieldElement::from(&Mersenne31Complex::from_base_type([
-            FieldElement::<Mersenne31Field>::zero(),
-            FieldElement::<Mersenne31Field>::from(5),
-        ]))
-    }
-}
-*/
-
 #[cfg(test)]
 mod tests {
-    use core::{num::FpCategory, ops::Neg};
+    use core::ops::Neg;
 
     use crate::field::fields::mersenne31::field::MERSENNE_31_PRIME_FIELD_ORDER;
 
@@ -200,6 +141,7 @@ mod tests {
 
     #[test]
     fn add_real_one_plus_one_is_two() {
+        println!("{:?}", Fp2E::from(2));
         assert_eq!(Fp2E::one() + Fp2E::one(), Fp2E::from(2))
     }
 
@@ -223,7 +165,6 @@ mod tests {
 
     #[test]
     fn add_complex_one_plus_one_two() {
-        //Manually declare the complex part to one
         let one_i = Fp2E::new([FpE::zero(), FpE::one()]);
         let two_i = Fp2E::new([FpE::zero(), FpE::from(2)]);
         assert_eq!(&one_i + &one_i, two_i)
@@ -351,9 +292,49 @@ mod tests {
     }
 
     #[test]
-    fn mul_base_field_with_degree_2_extension() {
-        let a = FpE::from(3);
-        let b = Fp2E::new([FpE::from(2), FpE::from(4)]);
-        assert_eq!(a * b, Fp2E::new([FpE::from(6), FpE::from(12)]))
+    fn test_base_field_2_extension_add() {
+        let a = Fee::new([FE::from(0), FE::from(3)]);
+        let b = Fee::new([-FE::from(2), FE::from(8)]);
+        let expected_result = Fee::new([FE::from(0) - FE::from(2), FE::from(3) + FE::from(8)]);
+        assert_eq!(a + b, expected_result);
+    }
+
+    #[test]
+    fn test_base_field_2_extension_sub() {
+        let a = Fee::new([FE::from(0), FE::from(3)]);
+        let b = Fee::new([-FE::from(2), FE::from(8)]);
+        let expected_result = Fee::new([FE::from(0) + FE::from(2), FE::from(3) - FE::from(8)]);
+        assert_eq!(a - b, expected_result);
+    }
+
+    #[test]
+    fn test_degree_2_extension_mul() {
+        let a = Fee::new([FE::from(12), FE::from(5)]);
+        let b = Fee::new([-FE::from(4), FE::from(2)]);
+        let expected_result = Fee::new([
+            FE::from(12) * (-FE::from(4))
+                + FE::from(5) * FE::from(2) * Babybear31PrimeField::residue(),
+            FE::from(12) * FE::from(2) + FE::from(5) * (-FE::from(4)),
+        ]);
+        assert_eq!(a * b, expected_result);
+    }
+
+    #[test]
+    fn test_degree_2_extension_inv() {
+        let a = Fee::new([FE::from(12), FE::from(5)]);
+        let inv_norm = (FE::from(12).pow(2_u64)
+            - Babybear31PrimeField::residue() * FE::from(5).pow(2_u64))
+        .inv()
+        .unwrap();
+        let expected_result = Fee::new([FE::from(12) * &inv_norm, -&FE::from(5) * inv_norm]);
+        assert_eq!(a.inv().unwrap(), expected_result);
+    }
+
+    #[test]
+    fn test_degree_2_extension_div() {
+        let a = Fee::new([FE::from(12), FE::from(5)]);
+        let b = Fee::new([-FE::from(4), FE::from(2)]);
+        let expected_result = &a * b.inv().unwrap();
+        assert_eq!(a / b, expected_result);
     }
 }
