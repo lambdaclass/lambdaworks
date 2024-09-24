@@ -158,6 +158,7 @@ pub type Degree4ExtensionFieldV2 =
 /// I = 0 + 1 * i
 pub const I: Fp2E = Fp2E::const_from_raw([FpE::const_from_raw(0), FpE::const_from_raw(1)]);
 
+/// TWO_PLUS_I = 2 + 1 is the non-residue of Fp2 used for the Fp4 extension.
 pub const TWO_PLUS_I: Fp2E = Fp2E::const_from_raw([FpE::const_from_raw(2), FpE::const_from_raw(1)]);
 
 pub fn mul_fp2_by_nonresidue(a: &Fp2E) -> Fp2E {
