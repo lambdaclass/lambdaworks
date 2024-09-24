@@ -384,6 +384,7 @@ mod tests {
     use super::*;
     use lambdaworks_math::traits::ByteConversion;
     //use proptest::prelude::*;
+    use proptest::prelude::*;
     use rand::rngs::StdRng;
     use rand::{Rng, SeedableRng};
 
@@ -690,12 +691,12 @@ mod tests {
     // This repo https://github.com/jonathanxuu/RescuePrimeOptimiezd/tree/main
     // uses the crate proptest to generate random inputs and compare the results
     // should we do the same?
-    /*
+
     proptest! {
         #[test]
         fn rescue_hash_wont_panic_with_arbitrary_input(input in any::<Vec<u8>>()) {
             let rescue = RescuePrimeOptimized::<128, 7>::new(MdsMethod::MatrixMultiplication);
             let _ = rescue.hash_bytes(&input);
         }
-    } */
+    }
 }
