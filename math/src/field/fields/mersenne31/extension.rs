@@ -196,13 +196,47 @@ impl IsField for Degree4ExtensionField {
         [Fp2E::new([c00, c01]), Fp2E::new([c10, c11])]
         */
 
-        // VERSION 2 (paper):
+        // VERSION 1 using Karatsuba:
+        // a = a0 + a1 * u, b = b0 + b1 * u, where
+        // a0 = a00 + a01 * i, a1 = a11 + a11 * i, etc.
+        let [a00, a01] = a[0].value();
+        let [a10, a11] = a[1].value();
+        let [b00, b01] = b[0].value();
+        let [b10, b11] = b[1].value();
+
+        let a00b00 = a00 * b00;
+        let a00b10 = a00 * b10;
+        let a01b01 = a01 * b01;
+        let a01b11 = a01 * b11;
+        let a10b00 = a10 * b00;
+        let a10b10 = a10 * b10;
+        let a10b11 = a10 * b11;
+        let a11b01 = a11 * b01;
+        let a11b10 = b10 * a11;
+        let a11b11 = a11 * b11;
+
+        let c00 = a00b00 - a01b01 + a10b10.double() - a10b11 - a11b10 - (a11b11).double();
+        let c01 = (a00 + a01) * (b00 + b01) - a00b00 - a01b01
+            + a10b10
+            + a10b11.double()
+            + a11b10.double()
+            - a11b11;
+        let c10 = a00b10 - a01b11 + a10b00 - a11b01;
+        let c11 = (a00 + a01) * (b10 + b11) - a00b10 - a01b11 + (a10 + a11) * (b00 + b01)
+            - a10b00
+            - a11b01;
+
+        [Fp2E::new([c00, c01]), Fp2E::new([c10, c11])]
+
+        /*
+        // VERSION 2 (paper, karatsuba):
         let a0b0 = &a[0] * &b[0];
         let a1b1 = &a[1] * &b[1];
         [
             &a0b0 + mul_fp2_by_nonresidue(&a1b1),
             (&a[0] + &a[1]) * (&b[0] + &b[1]) - a0b0 - a1b1,
         ]
+        */
     }
 
     fn square(a: &Self::BaseType) -> Self::BaseType {
