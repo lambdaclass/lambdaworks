@@ -101,14 +101,14 @@ impl IsSubFieldOf<Degree2ExtensionField> for Mersenne31Field {
         a: &Self::BaseType,
         b: &<Degree2ExtensionField as IsField>::BaseType,
     ) -> <Degree2ExtensionField as IsField>::BaseType {
-        [FpE::from(a) + b[0], FpE::from(a) + b[1]]
+        [FpE::from(a) + b[0], b[1]]
     }
 
     fn sub(
         a: &Self::BaseType,
         b: &<Degree2ExtensionField as IsField>::BaseType,
     ) -> <Degree2ExtensionField as IsField>::BaseType {
-        [FpE::from(a) - b[0], FpE::from(a) - b[1]]
+        [FpE::from(a) - b[0], -b[1]]
     }
 
     fn mul(
@@ -209,6 +209,20 @@ impl IsField for Degree4ExtensionField {
 }
 
 impl IsSubFieldOf<Degree4ExtensionField> for Mersenne31Field {
+    fn add(
+        a: &Self::BaseType,
+        b: &<Degree4ExtensionField as IsField>::BaseType,
+    ) -> <Degree4ExtensionField as IsField>::BaseType {
+        [FpE::from(a) + &b[0], b[1].clone()]
+    }
+
+    fn sub(
+        a: &Self::BaseType,
+        b: &<Degree4ExtensionField as IsField>::BaseType,
+    ) -> <Degree4ExtensionField as IsField>::BaseType {
+        [FpE::from(a) - &b[0], -&b[1]]
+    }
+
     fn mul(
         a: &Self::BaseType,
         b: &<Degree4ExtensionField as IsField>::BaseType,
@@ -218,36 +232,12 @@ impl IsSubFieldOf<Degree4ExtensionField> for Mersenne31Field {
         [c0, c1]
     }
 
-    fn add(
-        a: &Self::BaseType,
-        b: &<Degree4ExtensionField as IsField>::BaseType,
-    ) -> <Degree4ExtensionField as IsField>::BaseType {
-        let c0 = FieldElement::from_raw(<Self as IsSubFieldOf<Degree2ExtensionField>>::add(
-            a,
-            b[0].value(),
-        ));
-        let c1 = FieldElement::from_raw(*b[1].value());
-        [c0, c1]
-    }
-
     fn div(
         a: &Self::BaseType,
         b: &<Degree4ExtensionField as IsField>::BaseType,
     ) -> <Degree4ExtensionField as IsField>::BaseType {
         let b_inv = Degree4ExtensionField::inv(b).unwrap();
         <Self as IsSubFieldOf<Degree4ExtensionField>>::mul(a, &b_inv)
-    }
-
-    fn sub(
-        a: &Self::BaseType,
-        b: &<Degree4ExtensionField as IsField>::BaseType,
-    ) -> <Degree4ExtensionField as IsField>::BaseType {
-        let c0 = FieldElement::from_raw(<Self as IsSubFieldOf<Degree2ExtensionField>>::sub(
-            a,
-            b[0].value(),
-        ));
-        let c1 = FieldElement::from_raw(<Degree2ExtensionField as IsField>::neg(b[1].value()));
-        [c0, c1]
     }
 
     fn embed(a: Self::BaseType) -> <Degree4ExtensionField as IsField>::BaseType {
