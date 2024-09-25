@@ -6,12 +6,15 @@ use sha3::{
     digest::{ExtendableOutput, Update},
     Shake256,
 };
+
 pub const ALPHA: u64 = 7;
 pub const ALPHA_INV: u64 = 10540996611094048183;
-// Define the field type for clarity
+//pub const P: u64 = 18446744069414584321; // p = 2^64 - 2^32 + 1
+
 type Fp = FieldElement<Goldilocks64Field>;
 
 #[derive(Clone)]
+#[allow(dead_code)] // Is this needed?
 enum MdsMethod {
     MatrixMultiplication,
     Ntt,
@@ -45,7 +48,7 @@ impl<const SECURITY_LEVEL: usize, const NUM_FULL_ROUNDS: usize>
     const ALPHA: u64 = 7;
     const ALPHA_INV: u64 = 10540996611094048183;
 
-    pub fn new(mds_method: MdsMethod) -> Self {
+    fn new(mds_method: MdsMethod) -> Self {
         assert!(SECURITY_LEVEL == 128 || SECURITY_LEVEL == 160);
 
         let (m, capacity) = if SECURITY_LEVEL == 128 {
@@ -79,6 +82,52 @@ impl<const SECURITY_LEVEL: usize, const NUM_FULL_ROUNDS: usize>
         }
     }
 
+    pub fn apply_inverse_sbox(state: &mut [Fp]) {
+        // Compute x^(ALPHA_INV) using an optimized method
+        // ALPHA_INV = 10540996611094048183
+        // Binary representation: 1001001001001001001001001001000110110110110110110110110110110111
+
+        // Precompute necessary powers
+        let mut t1 = state.to_vec(); // x^2
+        for x in t1.iter_mut() {
+            *x = x.square();
+        }
+
+        let mut t2 = t1.clone(); // x^4
+        for x in t2.iter_mut() {
+            *x = x.square();
+        }
+
+        let t3 = Self::exp_acc(&t2, &t2, 3); // x^100100
+
+        let t4 = Self::exp_acc(&t3, &t3, 6); // x^100100100100
+
+        let t5 = Self::exp_acc(&t4, &t4, 12); // x^100100100100100100100100
+
+        let t6 = Self::exp_acc(&t5, &t3, 6); // x^100100100100100100100100100100
+
+        let t7 = Self::exp_acc(&t6, &t6, 31); // x^1001001001001001001001001001000100100100100100100100100100100
+
+        for i in 0..state.len() {
+            let a = (t7[i].square() * t6[i].clone()).square().square();
+            let b = t1[i].clone() * t2[i].clone() * state[i].clone();
+            state[i] = a * b;
+        }
+    }
+    #[inline(always)]
+    fn exp_acc(base: &[Fp], tail: &[Fp], num_squarings: usize) -> Vec<Fp> {
+        let mut result = base.to_vec();
+        for x in result.iter_mut() {
+            for _ in 0..num_squarings {
+                *x = x.square();
+            }
+        }
+        result
+            .iter_mut()
+            .zip(tail.iter())
+            .for_each(|(r, t)| *r = *r * t.clone());
+        result
+    }
     fn get_mds_vector(m: usize) -> Vec<Fp> {
         match m {
             12 => vec![7, 23, 8, 26, 13, 10, 9, 7, 6, 22, 21, 8]
@@ -106,7 +155,7 @@ impl<const SECURITY_LEVEL: usize, const NUM_FULL_ROUNDS: usize>
         }
         mds_matrix
     }
-
+    /*
     fn instantiate_round_constants(
         p: u64,
         m: usize,
@@ -130,18 +179,95 @@ impl<const SECURITY_LEVEL: usize, const NUM_FULL_ROUNDS: usize>
         }
         round_constants
     }
+    */
+    /*pub fn instantiate_round_constants(
+        p: u64,
+        m: usize,
+        capacity: usize,
+        security_level: usize,
+        num_rounds: usize,
+    ) -> Vec<Fp> {
+        let seed_string = format!("RPO({},{},{},{})", p, m, capacity, security_level);
+        let mut shake = Shake256::default();
+        shake.update(seed_string.as_bytes());
 
-    pub fn apply_sbox(state: &mut [Fp], alpha: u64) {
+        let num_constants = 2 * m * num_rounds;
+        let bytes_per_int = ((p as f64).log2() / 8.0).ceil() as usize + 1; // Should be 9
+        let num_bytes = bytes_per_int * num_constants;
+
+        let mut shake_output = shake.finalize_xof();
+        let mut test_bytes = vec![0u8; num_bytes];
+        shake_output.read_exact(&mut test_bytes).unwrap();
+
+        // Output the first few bytes for comparison
+        println!("SHAKE256 output (Rust): {:?}", &test_bytes[..64]);
+
+        let mut round_constants = Vec::new();
+
+        for i in 0..num_constants {
+            let start = i * bytes_per_int;
+            let end = start + bytes_per_int;
+            let bytes = &test_bytes[start..end];
+            let integer = bytes
+                .iter()
+                .enumerate()
+                .fold(0u128, |acc, (i, &b)| acc + (b as u128) << (8 * i));
+            let reduced = integer % (p as u128);
+            let constant = Fp::from(reduced as u64);
+            round_constants.push(constant);
+        }
+        round_constants
+    }*/
+    fn instantiate_round_constants(
+        p: u64,
+        m: usize,
+        capacity: usize,
+        security_level: usize,
+        num_rounds: usize,
+    ) -> Vec<Fp> {
+        let seed_string = format!("RPO({},{},{},{})", p, m, capacity, security_level);
+        let mut shake = Shake256::default();
+        shake.update(seed_string.as_bytes());
+
+        let num_constants = 2 * m * num_rounds;
+        let bytes_per_int = 8; // Use 8 bytes per integer
+        let num_bytes = bytes_per_int * num_constants;
+
+        let mut shake_output = shake.finalize_xof();
+        let mut test_bytes = vec![0u8; num_bytes];
+        shake_output.read_exact(&mut test_bytes).unwrap();
+
+        // Output the first few bytes for comparison
+        println!("SHAKE256 output (Rust): {:?}", &test_bytes[..64]);
+
+        let mut round_constants = Vec::new();
+
+        for i in 0..num_constants {
+            let start = i * bytes_per_int;
+            let end = start + bytes_per_int;
+            let bytes = &test_bytes[start..end];
+
+            // Convert bytes to integer in **little-endian** order
+            let integer = u64::from_le_bytes(bytes.try_into().unwrap());
+            let constant = Fp::from(integer);
+            round_constants.push(constant);
+        }
+        round_constants
+    }
+
+    pub fn apply_sbox(state: &mut [Fp]) {
         for x in state.iter_mut() {
-            *x = x.pow(alpha);
+            *x = x.pow(Self::ALPHA);
         }
     }
 
-    pub fn apply_inverse_sbox(state: &mut [Fp], alpha_inv: u64) {
-        for x in state.iter_mut() {
-            *x = x.pow(alpha_inv);
+    /*
+        pub fn apply_inverse_sbox(state: &mut [Fp], alpha_inv: u64) {
+            for x in state.iter_mut() {
+                *x = x.pow(alpha_inv);
+            }
         }
-    }
+    */
 
     fn mds_matrix_vector_multiplication(&self, state: &[Fp]) -> Vec<Fp> {
         let m = state.len();
@@ -239,10 +365,10 @@ impl<const SECURITY_LEVEL: usize, const NUM_FULL_ROUNDS: usize>
         for round in 0..num_rounds {
             self.apply_mds(state);
             self.add_round_constants(state, round);
-            Self::apply_sbox(state, alpha);
+            Self::apply_sbox(state);
             self.apply_mds(state);
             self.add_round_constants_second(state, round);
-            Self::apply_inverse_sbox(state, alpha_inv);
+            Self::apply_inverse_sbox(state);
         }
     }
 
@@ -254,20 +380,39 @@ impl<const SECURITY_LEVEL: usize, const NUM_FULL_ROUNDS: usize>
         let mut state = vec![Fp::zero(); m];
         let mut padded_input = input_sequence.to_vec();
 
-        // Padding
-        if input_sequence.len() % rate != 0 {
-            padded_input.push(Fp::one());
-            while padded_input.len() % rate != 0 {
-                padded_input.push(Fp::zero());
-            }
-            state[0] = Fp::one(); // Domain separation
+        // Check if padding is needed
+        let needs_padding = input_sequence.len() % rate != 0;
+
+        if needs_padding {
+            // Set domain separation flag
+            state[0] = Fp::one();
         }
 
-        // Absorb the input
-        for chunk in padded_input.chunks(rate) {
-            for i in 0..rate {
-                state[capacity + i] = state[capacity + i] + chunk[i].clone();
+        // Absorb full chunks
+        let full_chunks = padded_input.len() / rate;
+        for i in 0..full_chunks {
+            let chunk = &padded_input[i * rate..(i + 1) * rate];
+            for j in 0..rate {
+                state[capacity + j] += chunk[j];
             }
+            self.permutation(&mut state);
+        }
+
+        // Handle the last chunk if it's incomplete
+        let remaining = padded_input.len() % rate;
+        if remaining != 0 {
+            let start = full_chunks * rate;
+            let chunk = &padded_input[start..];
+
+            // Absorb the remaining elements
+            for j in 0..chunk.len() {
+                state[capacity + j] += chunk[j];
+            }
+
+            // Add padding
+            state[capacity + chunk.len()] += Fp::one();
+
+            // Perform permutation
             self.permutation(&mut state);
         }
 
@@ -282,22 +427,27 @@ impl<const SECURITY_LEVEL: usize, const NUM_FULL_ROUNDS: usize>
 }
 
 fn bytes_to_field_elements(input: &[u8]) -> Vec<Fp> {
-    // Include the length of the input as the first field element
-    let mut elements = vec![Fp::from(input.len() as u64)];
+    let mut elements = Vec::new();
 
-    // Convert the input bytes into field elements
-    let padded_input = input.to_vec();
-    // Optionally, pad the input to a multiple of 8 bytes if needed
+    let chunk_size = 7; // Use 7 bytes per chunk
+    let mut buf = [0u8; 8]; // Buffer for 8 bytes, last byte for padding
 
-    elements.extend(padded_input.chunks(8).map(|chunk| {
-        let mut bytes = [0u8; 8];
-        for (i, &b) in chunk.iter().enumerate() {
-            bytes[i] = b;
+    let mut chunks = input.chunks(chunk_size).peekable();
+
+    while let Some(chunk) = chunks.next() {
+        buf.fill(0);
+        buf[..chunk.len()].copy_from_slice(chunk);
+        if chunk.len() < chunk_size {
+            // Add a 1 after the last byte if the chunk is not full
+            buf[chunk.len()] = 1;
         }
-        Fp::from(u64::from_le_bytes(bytes))
-    }));
+        let value = u64::from_le_bytes(buf);
+        elements.push(Fp::from(value));
+    }
+
     elements
 }
+
 // Implement NTT and INTT functions
 fn ntt(input: &[Fp], omega: Fp) -> Vec<Fp> {
     let n = input.len();
@@ -382,8 +532,7 @@ fn karatsuba(lhs: &[Fp], rhs: &[Fp]) -> Vec<Fp> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use lambdaworks_math::traits::ByteConversion;
-    //use proptest::prelude::*;
+    use crate::hash::rescue_prime::*;
     use proptest::prelude::*;
     use rand::rngs::StdRng;
     use rand::{Rng, SeedableRng};
@@ -414,7 +563,7 @@ mod tests {
         let mut expected = state.clone();
         expected.iter_mut().for_each(|v| *v = v.pow(ALPHA));
 
-        RescuePrimeOptimized::<128, 7>::apply_sbox(&mut state, ALPHA);
+        RescuePrimeOptimized::<128, 7>::apply_sbox(&mut state);
         assert_eq!(expected, state);
     }
 
@@ -429,7 +578,7 @@ mod tests {
         let mut expected = state.clone();
         expected.iter_mut().for_each(|v| *v = v.pow(ALPHA_INV));
 
-        RescuePrimeOptimized::<128, 7>::apply_inverse_sbox(&mut state, ALPHA_INV);
+        RescuePrimeOptimized::<128, 7>::apply_inverse_sbox(&mut state);
         assert_eq!(expected, state);
     }
 
@@ -485,6 +634,11 @@ mod tests {
             Fp::from(2u64),
             Fp::from(3u64),
             Fp::from(4u64),
+            Fp::from(5u64),
+            Fp::from(6u64),
+            Fp::from(7u64),
+            Fp::from(8u64),
+            Fp::from(9u64),
         ];
 
         let hash_matrix = rescue_matrix.hash(&input);
@@ -536,28 +690,29 @@ mod tests {
         println!("];");
     }
 
+    // This test is wrong, it should be the same that the values from the paper
     #[test]
     fn hash_test_vectors() {
         let elements = vec![
-            Fp::from(0u64),
-            Fp::from(1u64),
-            Fp::from(2u64),
-            Fp::from(3u64),
-            Fp::from(4u64),
-            Fp::from(5u64),
-            Fp::from(6u64),
-            Fp::from(7u64),
-            Fp::from(8u64),
-            Fp::from(9u64),
-            Fp::from(10u64),
-            Fp::from(11u64),
-            Fp::from(12u64),
-            Fp::from(13u64),
-            Fp::from(14u64),
-            Fp::from(15u64),
-            Fp::from(16u64),
-            Fp::from(17u64),
-            Fp::from(18u64),
+            Fp::new(0u64),
+            Fp::new(1u64),
+            Fp::new(2u64),
+            Fp::new(3u64),
+            Fp::new(4u64),
+            Fp::new(5u64),
+            Fp::new(6u64),
+            Fp::new(7u64),
+            Fp::new(8u64),
+            Fp::new(9u64),
+            Fp::new(10u64),
+            Fp::new(11u64),
+            Fp::new(12u64),
+            Fp::new(13u64),
+            Fp::new(14u64),
+            Fp::new(15u64),
+            Fp::new(16u64),
+            Fp::new(17u64),
+            Fp::new(18u64),
         ];
 
         let expected_hashes = vec![
@@ -687,7 +842,6 @@ mod tests {
             assert_eq!(hash_output, *expected_hash, "Hash mismatch at index {}", i);
         }
     }
-
     // This repo https://github.com/jonathanxuu/RescuePrimeOptimiezd/tree/main
     // uses the crate proptest to generate random inputs and compare the results
     // should we do the same?
@@ -697,6 +851,42 @@ mod tests {
         fn rescue_hash_wont_panic_with_arbitrary_input(input in any::<Vec<u8>>()) {
             let rescue = RescuePrimeOptimized::<128, 7>::new(MdsMethod::MatrixMultiplication);
             let _ = rescue.hash_bytes(&input);
+        }
+    }
+
+    #[test]
+    fn test_instantiate_round_constants() {
+        let p = 18446744069414584321u64; // 2^64 - 2^32 + 1
+        let m = 12;
+        let capacity = 4;
+        let security_level = 128;
+        let num_rounds = 7;
+
+        // Call the function to instantiate round constants
+        let round_constants = RescuePrimeOptimized::<128, 7>::instantiate_round_constants(
+            p,
+            m,
+            capacity,
+            security_level,
+            num_rounds,
+        );
+
+        // Print the first few round constants for inspection
+        println!("First few round constants:");
+        for (i, constant) in round_constants.iter().enumerate() {
+            println!("Constant {}: {:?}", i, constant);
+        }
+    }
+    #[test]
+    fn test_hash_outputs() {
+        let rescue = RescuePrimeOptimized::<128, 7>::new(MdsMethod::Ntt);
+
+        for i in 1..6 {
+            let input_sequence: Vec<Fp> = (0..i as u64).map(Fp::from).collect();
+            let hash_output = rescue.hash(&input_sequence);
+
+            println!("Input {}: {:?}", i, input_sequence);
+            println!("Hash {}: {:?}", i, hash_output);
         }
     }
 }
