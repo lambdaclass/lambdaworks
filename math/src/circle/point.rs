@@ -1,5 +1,5 @@
 use crate::field::traits::IsField;
-use crate::field::{element::FieldElement, fields::mersenne31::{field::Mersenne31Field, extension::{Degree2ExtensionField, Degree4ExtensionField}}};
+use crate::field::{element::FieldElement, fields::mersenne31::{field::Mersenne31Field, extension::Degree4ExtensionField}};
 use super::errors::CircleError;
 use std::cmp::PartialEq;
 use std::ops::Add;
