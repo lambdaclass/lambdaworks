@@ -4,20 +4,7 @@ FUZZ_DIR = fuzz/no_gpu_fuzz
 
 ROOT_DIR:=$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
 
-CAIRO0_PROGRAMS_DIR=provers/cairo/cairo_programs/cairo0
-CAIRO0_PROGRAMS:=$(wildcard $(CAIRO0_PROGRAMS_DIR)/*.cairo)
-COMPILED_CAIRO0_PROGRAMS:=$(patsubst $(CAIRO0_PROGRAMS_DIR)/%.cairo, $(CAIRO0_PROGRAMS_DIR)/%.json, $(CAIRO0_PROGRAMS))
-
-# Rule to compile Cairo programs for testing purposes.
-# If the `cairo-lang` toolchain is installed, programs will be compiled with it.
-# Otherwise, the cairo_compile docker image will be used
-# When using the docker version, be sure to build the image using `make docker_build_cairo_compiler`.
-$(CAIRO0_PROGRAMS_DIR)/%.json: $(CAIRO0_PROGRAMS_DIR)/%.cairo
-	@echo "Compiling Cairo program..."
-	@cairo-compile --cairo_path="$(CAIRO0_PROGRAMS_DIR)" $< --output $@ 2> /dev/null --proof_mode || \
-	docker run --rm -v $(ROOT_DIR)/$(CAIRO0_PROGRAMS_DIR):/pwd/$(CAIRO0_PROGRAMS_DIR) cairo --proof_mode /pwd/$< > $@
-
-test: $(COMPILED_CAIRO0_PROGRAMS)
+test:
 	cargo test
 
 clippy:
@@ -91,9 +78,3 @@ run-metal-fuzzer:
 run-cuda-fuzzer:
 		cd fuzz/cuda_fuzz
 		cargo hfuzz run $(CUDAFUZZER)
-
-build_wasm:
-	cd provers/cairo && wasm-pack build --release --target=web -- --features wasm
-
-test_wasm_with_firefox:
-	cd provers/cairo && wasm-pack test --release --firefox --headless -- --features wasm
