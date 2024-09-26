@@ -45,10 +45,9 @@ impl Mersenne31Field {
 
     /// Computes a * 2^k, with 0 < k < 31
     pub fn mul_power_two(a: u32, k: u32) -> u32 {
-        // If a uses 32 bits, then a * 2^k uses 32 + k bits.
-        let msb = (a & (u32::MAX << 32 - k)) >> (32 - k - 1); // The k+1 msb.
-        let lsb = (a & (u32::MAX >> k)) << k; // The 31-k lsb with k zeros.
-        lsb + msb
+        let msb = (a & (u32::MAX << 31 - k)) >> (31 - k); // The k + 1 msb corridos con 31 - k ceros a la izq.
+        let lsb = (a & (u32::MAX >> k + 1)) << k; // The 31 - k lsb with k zeros a la derecha.
+        Self::weak_reduce(msb + lsb)
     }
 
     pub fn pow_2(a: &u32, order: u32) -> u32 {
@@ -111,8 +110,10 @@ impl IsField for Mersenne31Field {
 
         loop {
             e = y.trailing_zeros();
-            y >>= e;
-            a = Self::mul_power_two(a, q - e);
+            if e != 0 {
+                y >>= e;
+                a = Self::mul_power_two(a, q - e)
+            }
             if y == 1 {
                 return Ok(a);
             };
@@ -446,5 +447,11 @@ mod tests {
             FE::from(&F::two_square_minus_one(&a.value())),
             a.square().double() - FE::one()
         )
+    }
+
+    #[test]
+    fn mul_by_inv() {
+        let x = 3476715743_u32;
+        assert_eq!(FE::from(&x).inv().unwrap() * FE::from(&x), FE::one());
     }
 }
