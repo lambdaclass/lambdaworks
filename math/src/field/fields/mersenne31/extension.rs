@@ -7,6 +7,8 @@ use crate::field::{
 use super::field::Mersenne31Field;
 
 type FpE = FieldElement<Mersenne31Field>;
+type Fp2E = FieldElement<Degree2ExtensionField>;
+type Fp4E = FieldElement<Degree4ExtensionField>;
 
 //Note: The inverse calculation in mersenne31/plonky3 differs from the default quadratic extension so I implemented the complex extension.
 //////////////////
@@ -138,10 +140,15 @@ impl IsSubFieldOf<Degree2ExtensionField> for Mersenne31Field {
     }
 }
 
-type Fp2E = FieldElement<Degree2ExtensionField>;
 
 #[derive(Clone, Debug)]
 pub struct Degree4ExtensionField;
+
+impl Degree4ExtensionField {
+    pub fn from_coeffcients(a: FpE, b: FpE, c: FpE, d:FpE) -> Fp4E {
+        Fp4E::new([Fp2E::new([a, b]), Fp2E::new([c, d])])
+    }
+}
 
 impl IsField for Degree4ExtensionField {
     type BaseType = [Fp2E; 2];
