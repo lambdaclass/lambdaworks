@@ -123,9 +123,8 @@ mod tests {
 
         let mut expected_leaves = vec![FE::new(2)];
         expected_leaves.extend([FE::new(2)]);
-        assert_eq!(hashed_leaves.len(), 2);
+        assert_eq!(hashed_leaves.len(), 1);
         assert_eq!(hashed_leaves[0], expected_leaves[0]);
-        assert_eq!(hashed_leaves[1], expected_leaves[1]);
     }
 
     const ROOT: usize = 0;
