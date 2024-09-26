@@ -16,6 +16,7 @@ pub trait HasCircleParams<F: IsField> {
     type FE;
 
     fn circle_generator() -> (FieldElement<F>, FieldElement<F>);
+    const ORDER: u128;
 }
 
 
@@ -29,6 +30,9 @@ impl HasCircleParams<Mersenne31Field> for Mersenne31Field {
             Self::FE::from(&1268011823)
         )
     }
+    
+    /// ORDER = 2^31
+    const ORDER: u128 = 2147483648;
 }
 
 impl HasCircleParams<Degree4ExtensionField> for Degree4ExtensionField {
@@ -53,6 +57,9 @@ impl HasCircleParams<Degree4ExtensionField> for Degree4ExtensionField {
             )
         )
     }
+
+    /// ORDER = (2^31 - 1)^4 - 1
+    const ORDER: u128 = 21267647892944572736998860269687930880;
 }
 
 impl<F: IsField + HasCircleParams<F>> CirclePoint<F>{
@@ -128,6 +135,10 @@ impl<F: IsField + HasCircleParams<F>> CirclePoint<F>{
             F::circle_generator().0, 
             F::circle_generator().1  
         ).unwrap()
+    }
+
+    pub fn group_order() -> u128 {
+        F::ORDER
     }
 }
 
@@ -208,10 +219,16 @@ mod tests {
     }
 
     #[test]
-    fn generator_has_order_two_pow_31 (){
+    fn generator_g1_has_order_two_pow_31 (){
         let g = G::generator();
         let n = 31;
         assert_eq!(g.repeated_double(n), G::zero())
+    }
+
+    #[test]
+    fn generator_g4_has_the_order_of_the_group (){
+        let g = G4::generator();
+        assert_eq!(g.mul(G4::group_order()), G4::zero())
     }
 
     #[test]
