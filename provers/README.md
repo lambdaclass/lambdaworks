@@ -6,7 +6,7 @@ This folder contains the different provers currently supported by lambdaworks:
 - [Groth 16](https://github.com/lambdaclass/lambdaworks/tree/main/provers/groth16)
 - [Plonk](https://github.com/lambdaclass/lambdaworks/tree/main/provers/plonk)
 - [STARKs](https://github.com/lambdaclass/lambdaworks/tree/main/provers/stark)
-- [Cairo](https://github.com/lambdaclass/lambdaworks/tree/a591186e6c4dd53301b03b4ddd69369abe99f960/provers/cairo) - This is only for learning purposes and no longer supported.
+- [Cairo](https://github.com/lambdaclass/lambdaworks/tree/a591186e6c4dd53301b03b4ddd69369abe99f960/provers/cairo) - This is only for learning purposes and no longer supported. The [docs](../docs/src/starks/) still contain information that could be useful to understand and learn how Cairo works.
 
 The reference papers for each of the provers is given below:
 - [Groth 16](https://eprint.iacr.org/2016/260)
