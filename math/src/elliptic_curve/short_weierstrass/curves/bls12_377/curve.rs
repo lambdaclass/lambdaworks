@@ -1,9 +1,24 @@
-use super::field_extension::BLS12377PrimeField;
+use super::{
+    field_extension::{BLS12377PrimeField, Degree2ExtensionField},
+    twist::BLS12377TwistCurve,
+};
+use crate::cyclic_group::IsGroup;
 use crate::elliptic_curve::short_weierstrass::point::ShortWeierstrassProjectivePoint;
 use crate::elliptic_curve::traits::IsEllipticCurve;
+use crate::unsigned_integer::element::U256;
+
 use crate::{
     elliptic_curve::short_weierstrass::traits::IsShortWeierstrass, field::element::FieldElement,
 };
+
+pub const SUBGROUP_ORDER: U256 =
+    U256::from_hex_unchecked("12ab655e9a2ca55660b44d1e5c37b00159aa76fed00000010a11800000000001");
+
+pub const CURVE_COFACTOR: U256 =
+    U256::from_hex_unchecked("0x30631250834960419227450344600217059328");
+
+pub type BLS12377FieldElement = FieldElement<BLS12377PrimeField>;
+pub type BLS12377TwistCurveFieldElement = FieldElement<Degree2ExtensionField>;
 
 /// The description of the curve.
 #[derive(Clone, Debug)]
@@ -29,6 +44,72 @@ impl IsShortWeierstrass for BLS12377Curve {
 
     fn b() -> FieldElement<Self::BaseField> {
         FieldElement::from(1)
+    }
+}
+
+/// This is equal to the frobenius trace of the BLS12 377 curve minus one or seed value z.
+pub const MILLER_LOOP_CONSTANT: u64 = 0x8508c00000000001;
+
+/// 𝛽 : primitive cube root of unity of 𝐹ₚ that §satisfies the minimal equation
+/// 𝛽² + 𝛽 + 1 = 0 mod 𝑝
+pub const CUBE_ROOT_OF_UNITY_G1: BLS12377FieldElement = FieldElement::from_hex_unchecked(
+    "0x1ae3a4617c510eabc8756ba8f8c524eb8882a75cc9bc8e359064ee822fb5bffd1e945779fffffffffffffffffffffff",
+); // is this in hex?
+
+/// x-coordinate of 𝜁 ∘ 𝜋_q ∘ 𝜁⁻¹, where 𝜁 is the isomorphism u:E'(𝔽ₚ₆) −> E(𝔽ₚ₁₂) from the twist to E
+pub const ENDO_U: BLS12377TwistCurveFieldElement =
+    BLS12377TwistCurveFieldElement::const_from_raw([
+        FieldElement::from_hex_unchecked(
+            "9B3AF05DD14F6EC619AAF7D34594AABC5ED1347970DEC00452217CC900000008508C00000000002",
+        ),
+        FieldElement::from_hex_unchecked("0"),
+    ]);
+
+/// y-coordinate of 𝜁 ∘ 𝜋_q ∘ 𝜁⁻¹, where 𝜁 is the isomorphism u:E'(𝔽ₚ₆) −> E(𝔽ₚ₁₂) from the twist to E
+pub const ENDO_V: BLS12377TwistCurveFieldElement =
+    BLS12377TwistCurveFieldElement::const_from_raw([
+        FieldElement::from_hex_unchecked("1680A40796537CAC0C534DB1A79BEB1400398F50AD1DEC1BCE649CF436B0F6299588459BFF27D8E6E76D5ECF1391C63"),
+        FieldElement::from_hex_unchecked("0"),
+    ]);
+
+impl ShortWeierstrassProjectivePoint<BLS12377Curve> {
+    /// Returns 𝜙(P) = (𝑥, 𝑦) ⇒ (𝛽𝑥, 𝑦), where 𝛽 is the Cube Root of Unity in the base prime field
+    /// https://eprint.iacr.org/2022/352.pdf 2 Preliminaries
+    fn phi(&self) -> Self {
+        // This clone is unsightly
+        let mut a = self.clone();
+        a.0.value[0] = a.x() * CUBE_ROOT_OF_UNITY_G1;
+        a
+    }
+
+    /// 𝜙(P) = −𝑢²P
+    /// https://eprint.iacr.org/2022/352.pdf 4.3 Prop. 4
+    pub fn is_in_subgroup(&self) -> bool {
+        self.operate_with_self(MILLER_LOOP_CONSTANT)
+            .operate_with_self(MILLER_LOOP_CONSTANT)
+            .neg()
+            == self.phi()
+    }
+}
+
+impl ShortWeierstrassProjectivePoint<BLS12377TwistCurve> {
+    /// 𝜓(P) = 𝜁 ∘ 𝜋ₚ ∘ 𝜁⁻¹, where 𝜁 is the isomorphism u:E'(𝔽ₚ₆) −> E(𝔽ₚ₁₂) from the twist to E,, 𝜋ₚ is the p-power frobenius endomorphism
+    /// and 𝜓 satisifies minmal equation 𝑋² + 𝑡𝑋 + 𝑞 = 𝑂
+    /// https://eprint.iacr.org/2022/352.pdf 4.2 (7)
+    /// ψ(P) = (ψ_x * conjugate(x), ψ_y * conjugate(y), conjugate(z))
+    fn psi(&self) -> Self {
+        let [x, y, z] = self.coordinates();
+        Self::new([
+            x.conjugate() * ENDO_U,
+            y.conjugate() * ENDO_V,
+            z.conjugate(),
+        ])
+    }
+
+    /// 𝜓(P) = 𝑢P, where 𝑢 = SEED of the curve
+    /// https://eprint.iacr.org/2022/352.pdf 4.2
+    pub fn is_in_subgroup(&self) -> bool {
+        self.psi() == self.operate_with_self(MILLER_LOOP_CONSTANT).neg()
     }
 }
 
@@ -143,5 +224,25 @@ mod tests {
             g.operate_with(&g).operate_with(&g),
             g.operate_with_self(3_u16)
         );
+    }
+
+    #[test]
+    fn generator_g1_is_in_subgroup() {
+        let g = BLS12377Curve::generator();
+        println!("{:?}", g);
+        assert!(g.is_in_subgroup())
+    }
+
+    #[test]
+    fn point1_is_in_subgroup() {
+        let p = point_1();
+        println!("{:?}", p);
+        assert!(p.is_in_subgroup())
+    }
+    #[test]
+    fn generator_g2_is_in_subgroup() {
+        let g = BLS12377TwistCurve::generator();
+        println!("{:?}", g);
+        assert!(g.is_in_subgroup())
     }
 }
