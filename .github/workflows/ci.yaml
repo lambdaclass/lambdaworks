@@ -110,8 +110,6 @@ jobs:
           python-version: "3.9"
           cache: "pip"
 
-      - name: Install cairo-lang toolchain and dependencies
-        run: pip install -r provers/cairo/requirements.txt
 
       - name: Install testing tools
         uses: taiki-e/install-action@v2
@@ -171,12 +169,6 @@ jobs:
       - name: Install wasm-pack tools for testing
         run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
 
-      - name: Run wasm-pack tests in firefox
-        run: cd provers/cairo && wasm-pack test --release --firefox --headless -- --features wasm
-
-      - name: Run wasm-pack tests in chrome
-        run: cd provers/cairo && wasm-pack test --release --chrome --headless -- --features wasm
-
   test_macos:
     name: Test (macOS, Apple sillicon)
     runs-on: macos-latest
@@ -201,12 +193,6 @@ jobs:
         with:
           python-version: "3.9"
           cache: "pip"
-
-      - name: Install cairo-lang toolchain and dependencies
-        env:
-          CFLAGS: "-I/opt/homebrew/opt/gmp/include"
-          LDFLAGS: "-L/opt/homebrew/opt/gmp/lib"
-        run: pip install -r provers/cairo/requirements.txt
 
       - name: Run clippy
         run: make clippy-metal
