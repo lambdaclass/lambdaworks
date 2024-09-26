@@ -29,9 +29,9 @@ pub fn complete_until_power_of_two<T: Clone>(mut values: Vec<T>) -> Vec<T> {
 }
 
 // ! NOTE !
-// In this function we say 2^0 = 1 is a power of two. 
+// In this function we say 2^0 = 1 is a power of two.
 // In turn, this makes the smallest tree of one leaf, possible.
-// The function is private and is only used to ensure the tree 
+// The function is private and is only used to ensure the tree
 // has a power of 2 number of leaves.
 fn is_power_of_two(x: usize) -> bool {
     (x & (x - 1)) == 0
