@@ -10,7 +10,6 @@ test:
 clippy:
 	cargo clippy --workspace --all-targets -- -D warnings
 	cargo clippy --workspace --all-targets --features wasm -- -D warnings
-	cargo clippy --workspace --all-targets --features cli -- -D warnings
 	cargo clippy --workspace --all-targets --features parallel -- -D warnings
 	cargo clippy --tests
 
@@ -34,7 +33,7 @@ benchmark:
 flamegraph_stark:
 	CARGO_PROFILE_BENCH_DEBUG=true cargo flamegraph --root --bench stark_benchmarks -- --bench
 
-coverage: $(COMPILED_CAIRO0_PROGRAMS)
+coverage: 
 	cargo llvm-cov nextest --lcov --output-path lcov.info
 	
 METAL_DIR = math/src/gpu/metal
@@ -44,7 +43,7 @@ build-metal:
 clippy-metal:
 	cargo clippy --workspace --all-targets -F metal -- -D warnings
 
-test-metal: $(COMPILED_CAIRO0_PROGRAMS)
+test-metal: 
 	cargo test -F metal
 
 CUDA_DIR = math/src/gpu/cuda/shaders
