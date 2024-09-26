@@ -104,13 +104,6 @@ jobs:
       - name: Set up cargo cache
         uses: Swatinem/rust-cache@v2
 
-      - name: Python3 build
-        uses: actions/setup-python@v4
-        with:
-          python-version: "3.9"
-          cache: "pip"
-
-
       - name: Install testing tools
         uses: taiki-e/install-action@v2
         with:
@@ -187,12 +180,6 @@ jobs:
         with:
           toolchain: stable
           components: clippy
-
-      - name: Python3 build
-        uses: actions/setup-python@v4
-        with:
-          python-version: "3.9"
-          cache: "pip"
 
       - name: Run clippy
         run: make clippy-metal
