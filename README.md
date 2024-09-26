@@ -82,6 +82,7 @@ List of symbols:
 | Mersenne 31    | :heavy_check_mark: | :x:                | :x:      | :x:                | :x:         |
 | Baby Bear      | :heavy_check_mark: | :x:                | :x:      | :x:                | :x:         |
 | MiniGoldilocks | :heavy_check_mark: | :x:                | :x:      | :heavy_check_mark: | :x:         |
+| Binary fields  | :x: | :x:                | :x:      | :x:                | :x:         |
 | **ZK friendly Hash function** | **Lambdaworks** | **Arkworks**       | **Halo2**          | **gnark** | **Constantine** |
 | Poseidon                      | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :x:       | :x:             |
 | Pedersen                      | 🏗️ | :heavy_check_mark: | :heavy_check_mark: | :x:       | :x:             |
@@ -120,7 +121,6 @@ Additionally, provers are compatible with the following frontends and VMs:
 | Plonk   | Noir    | :x: |
 | Stark   | Winterfell | :heavy_check_mark: |
 | Stark   | Miden | :heavy_check_mark: |
-| Stark   | Cairo | :heavy_check_mark: |
 
 This can be used in a multi prover setting for extra security, or as a standalone to be used with Rust.
 
