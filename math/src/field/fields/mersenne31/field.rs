@@ -45,8 +45,8 @@ impl Mersenne31Field {
 
     /// Computes a * 2^k, with 0 < k < 31
     pub fn mul_power_two(a: u32, k: u32) -> u32 {
-        let msb = (a & (u32::MAX << 31 - k)) >> (31 - k); // The k + 1 msb corridos con 31 - k ceros a la izq.
-        let lsb = (a & (u32::MAX >> k + 1)) << k; // The 31 - k lsb with k zeros a la derecha.
+        let msb = (a & (u32::MAX << 31 - k)) >> (31 - k); // The k + 1 msf shifted right .
+        let lsb = (a & (u32::MAX >> k + 1)) << k; // The 31 - k lsb shifted left.
         Self::weak_reduce(msb + lsb)
     }
 
