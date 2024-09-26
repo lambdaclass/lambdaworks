@@ -45,10 +45,9 @@ impl Mersenne31Field {
 
     /// Computes a * 2^k, with 0 < k < 31
     pub fn mul_power_two(a: u32, k: u32) -> u32 {
-        // If a uses 32 bits, then a * 2^k uses 32 + k bits.
-        let msb = (a & (u32::MAX << 32 - k)) >> (32 - k - 1); // The k+1 msb.
-        let lsb = (a & (u32::MAX >> k)) << k; // The 31-k lsb with k zeros.
-        lsb + msb
+        let msb = (a & (u32::MAX << 31 - k)) >> (31 - k); // The k + 1 msf shifted right .
+        let lsb = (a & (u32::MAX >> k + 1)) << k; // The 31 - k lsb shifted left.
+        Self::weak_reduce(msb + lsb)
     }
 
     pub fn pow_2(a: &u32, order: u32) -> u32 {
@@ -100,51 +99,31 @@ impl IsField for Mersenne31Field {
         if *x == Self::zero() || *x == MERSENNE_31_PRIME_FIELD_ORDER {
             return Err(FieldError::InvZeroError);
         }
-        // OLD VERSION:
-        let p101 = Self::mul(&Self::pow_2(x, 2), x);
-        let p1111 = Self::mul(&Self::square(&p101), &p101);
-        let p11111111 = Self::mul(&Self::pow_2(&p1111, 4u32), &p1111);
-        let p111111110000 = Self::pow_2(&p11111111, 4u32);
-        let p111111111111 = Self::mul(&p111111110000, &p1111);
-        let p1111111111111111 = Self::mul(&Self::pow_2(&p111111110000, 4u32), &p11111111);
-        let p1111111111111111111111111111 =
-            Self::mul(&Self::pow_2(&p1111111111111111, 12u32), &p111111111111);
-        let p1111111111111111111111111111101 =
-            Self::mul(&Self::pow_2(&p1111111111111111111111111111, 3u32), &p101);
-        Ok(p1111111111111111111111111111101)
+        // Algorithm from: https://github.com/ingonyama-zk/papers/blob/main/Mersenne31_polynomial_arithmetic.pdf (page 3).
+        let mut a: u32 = 1;
+        let mut b: u32 = 0;
+        let mut y: u32 = x.clone();
+        let mut z: u32 = MERSENNE_31_PRIME_FIELD_ORDER;
+        let q: u32 = 31;
+        let mut e: u32;
+        let mut temp: u32;
 
-        // // OLD VERSION:
-        // let t0 = sqn(*x, 2) * x;
-        // let t1 = t0 * t0 * t0;
-        // let t2 = sqn(t1, 3) * t0;
-        // let t3 = t2 * t2 * t0;
-        // let t4 = sqn(t3, 8) * t3;
-        // let t5 = sqn(t4, 8) * t3;
-        // Ok(sqn(t5, 7) * t2)
-
-        // NEW VERSION:
-        // let mut a: u32 = 1;
-        // let mut b: u32 = 0;
-        // let mut y: u32 = x.clone();
-        // let mut z: u32 = MERSENNE_31_PRIME_FIELD_ORDER;
-        // let q: u32 = 31;
-        // let mut e: u32;
-        // let mut temp2: u32;
-
-        // loop {
-        //     e = y.trailing_zeros();
-        //     y >>= e;
-        //     a = Self::mul_power_two(a, q - e);
-        //     if y == 1 {
-        //         return Ok(a);
-        //     };
-        //     temp2 = a.wrapping_add(b);
-        //     b = a;
-        //     a = temp2;
-        //     temp2 = y.wrapping_add(z);
-        //     z = y;
-        //     y = temp2;
-        // }
+        loop {
+            e = y.trailing_zeros();
+            if e != 0 {
+                y >>= e;
+                a = Self::mul_power_two(a, q - e)
+            }
+            if y == 1 {
+                return Ok(a);
+            };
+            temp = a.wrapping_add(b);
+            b = a;
+            a = temp;
+            temp = y.wrapping_add(z);
+            z = y;
+            y = temp;
+        }
     }
 
     /// Returns the division of `a` and `b`.
@@ -181,14 +160,6 @@ impl IsField for Mersenne31Field {
     fn double(a: &u32) -> u32 {
         Self::weak_reduce(a << 1)
     }
-}
-
-/// Computes `a^(2*n)`.
-pub fn sqn(mut a: u32, n: usize) -> u32 {
-    for _ in 0..n {
-        a = Mersenne31Field::mul(&a, &a);
-    }
-    a
 }
 
 impl IsPrimeField for Mersenne31Field {
@@ -476,5 +447,11 @@ mod tests {
             FE::from(&F::two_square_minus_one(&a.value())),
             a.square().double() - FE::one()
         )
+    }
+
+    #[test]
+    fn mul_by_inv() {
+        let x = 3476715743_u32;
+        assert_eq!(FE::from(&x).inv().unwrap() * FE::from(&x), FE::one());
     }
 }

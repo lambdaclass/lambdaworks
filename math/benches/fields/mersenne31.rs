@@ -1,14 +1,11 @@
 use std::hint::black_box;
 
 use criterion::Criterion;
-use lambdaworks_math::{
-    elliptic_curve::edwards::curves::bandersnatch::field,
-    field::{
-        element::FieldElement,
-        fields::mersenne31::{
-            extension::{Degree2ExtensionField, Degree4ExtensionField, Degree4ExtensionFieldV2},
-            field::Mersenne31Field,
-        },
+use lambdaworks_math::field::{
+    element::FieldElement,
+    fields::mersenne31::{
+        extension::{Degree2ExtensionField, Degree4ExtensionField},
+        field::Mersenne31Field,
     },
 };
 use rand::random;
@@ -46,51 +43,13 @@ pub fn rand_fp4e(num: usize) -> Vec<(Fp4E, Fp4E)> {
     result
 }
 
-pub fn rand_fp4e_v2(
-    num: usize,
-) -> Vec<(
-    FieldElement<Degree4ExtensionFieldV2>,
-    FieldElement<Degree4ExtensionFieldV2>,
-)> {
-    let mut result = Vec::with_capacity(num);
-    for _ in 0..result.capacity() {
-        result.push((
-            FieldElement::<Degree4ExtensionFieldV2>::new([
-                Fp2E::new([F::new(random()), F::new(random())]),
-                Fp2E::new([F::new(random()), F::new(random())]),
-            ]),
-            FieldElement::<Degree4ExtensionFieldV2>::new([
-                Fp2E::new([F::new(random()), F::new(random())]),
-                Fp2E::new([F::new(random()), F::new(random())]),
-            ]),
-        ));
-    }
-    result
-}
-
 pub fn mersenne31_extension_ops_benchmarks(c: &mut Criterion) {
     let input: Vec<Vec<(Fp4E, Fp4E)>> = [1000000].into_iter().map(rand_fp4e).collect::<Vec<_>>();
-    let input_v2: Vec<
-        Vec<(
-            FieldElement<Degree4ExtensionFieldV2>,
-            FieldElement<Degree4ExtensionFieldV2>,
-        )>,
-    > = [1000000].into_iter().map(rand_fp4e_v2).collect::<Vec<_>>();
 
     let mut group = c.benchmark_group("Mersenne31 Fp4 operations");
 
     for i in input.clone().into_iter() {
         group.bench_with_input(format!("Mul of Fp4 {:?}", &i.len()), &i, |bench, i| {
-            bench.iter(|| {
-                for (x, y) in i {
-                    black_box(black_box(x) * black_box(y));
-                }
-            });
-        });
-    }
-
-    for i in input_v2.clone().into_iter() {
-        group.bench_with_input(format!("Mul of Fp4 V2 {:?}", &i.len()), &i, |bench, i| {
             bench.iter(|| {
                 for (x, y) in i {
                     black_box(black_box(x) * black_box(y));
@@ -109,32 +68,8 @@ pub fn mersenne31_extension_ops_benchmarks(c: &mut Criterion) {
         });
     }
 
-    for i in input_v2.clone().into_iter() {
-        group.bench_with_input(
-            format!("Square of Fp4 V2 {:?}", &i.len()),
-            &i,
-            |bench, i| {
-                bench.iter(|| {
-                    for (x, _) in i {
-                        black_box(black_box(x).square());
-                    }
-                });
-            },
-        );
-    }
-
     for i in input.clone().into_iter() {
         group.bench_with_input(format!("Inv of Fp4 {:?}", &i.len()), &i, |bench, i| {
-            bench.iter(|| {
-                for (x, _) in i {
-                    black_box(black_box(x).inv().unwrap());
-                }
-            });
-        });
-    }
-
-    for i in input_v2.clone().into_iter() {
-        group.bench_with_input(format!("Inv of Fp4 V2 {:?}", &i.len()), &i, |bench, i| {
             bench.iter(|| {
                 for (x, _) in i {
                     black_box(black_box(x).inv().unwrap());
