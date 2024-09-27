@@ -4,6 +4,7 @@ use crate::field::{
     errors::FieldError,
     traits::{IsField, IsSubFieldOf},
 };
+#[cfg(feature = "alloc")]
 use alloc::vec::Vec;
 
 type FpE = FieldElement<Mersenne31Field>;

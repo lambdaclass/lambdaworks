@@ -4,7 +4,7 @@ use criterion::Criterion;
 use lambdaworks_math::field::{
     element::FieldElement,
     fields::mersenne31::{
-        extension::{Degree2ExtensionField, Degree4ExtensionField},
+        extensions::{Degree2ExtensionField, Degree4ExtensionField},
         field::Mersenne31Field,
     },
 };
