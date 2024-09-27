@@ -56,7 +56,7 @@ impl Mersenne31Field {
         res
     }
 
-    /// TODO: Ask how should we implement this function.
+    /// TODO: See if we can optimize this function.
     /// Computes 2a^2 - 1
     pub fn two_square_minus_one(a: &u32) -> u32 {
         Self::from_u64(((u64::from(*a) * u64::from(*a)) << 1) - 1)

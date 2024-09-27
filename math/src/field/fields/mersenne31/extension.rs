@@ -8,8 +8,6 @@ use super::field::Mersenne31Field;
 
 type FpE = FieldElement<Mersenne31Field>;
 
-//Note: The inverse calculation in mersenne31/plonky3 differs from the default quadratic extension so I implemented the complex extension.
-//////////////////
 #[derive(Clone, Debug)]
 pub struct Degree2ExtensionField;
 
@@ -23,7 +21,7 @@ impl Degree2ExtensionField {
 }
 
 impl IsField for Degree2ExtensionField {
-    //Elements represents a[0] = real, a[1] = imaginary
+    //Element representation: a[0] = real part, a[1] = imaginary part
     type BaseType = [FpE; 2];
 
     /// Returns the component wise addition of `a` and `b`
@@ -31,7 +29,7 @@ impl IsField for Degree2ExtensionField {
         [a[0] + b[0], a[1] + b[1]]
     }
 
-    /// Returns the multiplication of `a` and `b` using the following
+    /// Returns the multiplication of `a` and `b`.
     fn mul(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
         let a0b0 = a[0] * b[0];
         let a1b1 = a[1] * b[1];
