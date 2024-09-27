@@ -622,7 +622,7 @@ mod tests {
     #[test]
     fn mul_fp_by_fp4() {
         let a = FpE::from(30000000000);
-        let a_extension = a.clone().to_extension::<Degree4ExtensionField>();
+        let a_extension = a.to_extension::<Degree4ExtensionField>();
         let b = Fp4E::new([
             Fp2E::new([FpE::from(1), FpE::from(2)]),
             Fp2E::new([FpE::from(3), FpE::from(4)]),

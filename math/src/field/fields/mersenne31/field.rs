@@ -444,7 +444,7 @@ mod tests {
     fn two_square_minus_one_is_correct() {
         let a = FE::from(2147483650);
         assert_eq!(
-            FE::from(&F::two_square_minus_one(&a.value())),
+            FE::from(&F::two_square_minus_one(a.value())),
             a.square().double() - FE::one()
         )
     }
