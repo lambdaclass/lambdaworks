@@ -71,11 +71,6 @@ impl IsField for Degree2ExtensionField {
         a[0] == b[0] && a[1] == b[1]
     }
 
-    /// Returns the additive neutral element of the field extension.
-    fn zero() -> Self::BaseType {
-        [FpE::zero(), FpE::zero()]
-    }
-
     /// Returns the multiplicative neutral element of the field extension.
     fn one() -> Self::BaseType {
         [FpE::one(), FpE::zero()]
