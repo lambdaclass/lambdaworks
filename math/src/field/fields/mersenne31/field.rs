@@ -51,7 +51,7 @@ impl Mersenne31Field {
     }
 
     pub fn pow_2(a: &u32, order: u32) -> u32 {
-        let mut res = a.clone();
+        let mut res = *a;
         (0..order).for_each(|_| res = Self::square(&res));
         res
     }
@@ -102,7 +102,7 @@ impl IsField for Mersenne31Field {
         // Algorithm from: https://github.com/ingonyama-zk/papers/blob/main/Mersenne31_polynomial_arithmetic.pdf (page 3).
         let mut a: u32 = 1;
         let mut b: u32 = 0;
-        let mut y: u32 = x.clone();
+        let mut y: u32 = *x;
         let mut z: u32 = MERSENNE_31_PRIME_FIELD_ORDER;
         let q: u32 = 31;
         let mut e: u32;

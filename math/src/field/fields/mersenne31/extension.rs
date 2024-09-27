@@ -3,6 +3,7 @@ use crate::field::{
     errors::FieldError,
     traits::{IsField, IsSubFieldOf},
 };
+use alloc::vec::Vec;
 
 use super::field::Mersenne31Field;
 
@@ -170,7 +171,7 @@ impl IsField for Degree4ExtensionField {
         let a0_square = &a[0].square();
         let a1_square = &a[1].square();
         [
-            a0_square + Degree2ExtensionField::mul_fp2_by_nonresidue(&a1_square),
+            a0_square + Degree2ExtensionField::mul_fp2_by_nonresidue(a1_square),
             (&a[0] + &a[1]).square() - a0_square - a1_square,
         ]
     }
