@@ -45,13 +45,13 @@ impl Mersenne31Field {
 
     /// Computes a * 2^k, with 0 < k < 31
     pub fn mul_power_two(a: u32, k: u32) -> u32 {
-        let msb = (a & (u32::MAX << 31 - k)) >> (31 - k); // The k + 1 msf shifted right .
-        let lsb = (a & (u32::MAX >> k + 1)) << k; // The 31 - k lsb shifted left.
+        let msb = (a & (u32::MAX << (31 - k))) >> (31 - k); // The k + 1 msf shifted right .
+        let lsb = (a & (u32::MAX >> (k + 1))) << k; // The 31 - k lsb shifted left.
         Self::weak_reduce(msb + lsb)
     }
 
     pub fn pow_2(a: &u32, order: u32) -> u32 {
-        let mut res = a.clone();
+        let mut res = *a;
         (0..order).for_each(|_| res = Self::square(&res));
         res
     }
@@ -102,7 +102,7 @@ impl IsField for Mersenne31Field {
         // Algorithm from: https://github.com/ingonyama-zk/papers/blob/main/Mersenne31_polynomial_arithmetic.pdf (page 3).
         let mut a: u32 = 1;
         let mut b: u32 = 0;
-        let mut y: u32 = x.clone();
+        let mut y: u32 = *x;
         let mut z: u32 = MERSENNE_31_PRIME_FIELD_ORDER;
         let q: u32 = 31;
         let mut e: u32;
