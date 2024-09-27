@@ -163,7 +163,7 @@ mod tests {
         let merkle_tree = MerkleTree::<TestBackend<U64PF>>::build(&values).unwrap();
 
         // Update the expected root value based on the actual logic of TestBackend
-        // For example, in this case hashing a singe `1` results in `2`
+        // For example, in this case hashing a single `1` results in `2`
         let expected_root = FE::new(2); // Assuming hashing a `1`s results in `2`
         assert_eq!(
             merkle_tree.root, expected_root,
