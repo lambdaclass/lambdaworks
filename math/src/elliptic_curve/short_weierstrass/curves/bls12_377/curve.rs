@@ -109,7 +109,7 @@ impl ShortWeierstrassProjectivePoint<BLS12377TwistCurve> {
     /// 𝜓(P) = 𝑢P, where 𝑢 = SEED of the curve
     /// https://eprint.iacr.org/2022/352.pdf 4.2
     pub fn is_in_subgroup(&self) -> bool {
-        self.psi() == self.operate_with_self(MILLER_LOOP_CONSTANT).neg()
+        self.psi() == self.operate_with_self(MILLER_LOOP_CONSTANT)
     }
 }
 
@@ -125,6 +125,7 @@ mod tests {
 
     #[allow(clippy::upper_case_acronyms)]
     type FEE = FieldElement<BLS12377PrimeField>;
+    type FTE = FieldElement<Degree2ExtensionField>;
 
     fn point_1() -> ShortWeierstrassProjectivePoint<BLS12377Curve> {
         let x = FEE::new_base("134e4cc122cb62a06767fb98e86f2d5f77e2a12fefe23bb0c4c31d1bd5348b88d6f5e5dee2b54db4a2146cc9f249eea");
@@ -239,10 +240,25 @@ mod tests {
         println!("{:?}", p);
         assert!(p.is_in_subgroup())
     }
+
+    #[test]
+    fn arbitrary_g1_point_is_in_subgroup() {
+        let g = BLS12377Curve::generator().operate_with_self(32u64);
+        assert!(g.is_in_subgroup())
+    }
     #[test]
     fn generator_g2_is_in_subgroup() {
         let g = BLS12377TwistCurve::generator();
         println!("{:?}", g);
         assert!(g.is_in_subgroup())
+    }
+
+    #[test]
+    fn g2_conjugate_works() {
+        let a = FTE::zero();
+        let mut expected = a.conjugate();
+        expected = expected.conjugate();
+
+        assert_eq!(a, expected);
     }
 }

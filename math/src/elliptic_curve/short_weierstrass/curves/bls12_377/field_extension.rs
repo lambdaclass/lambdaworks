@@ -28,7 +28,7 @@ pub struct Degree2ExtensionField;
 
 impl IsField for Degree2ExtensionField {
     type BaseType = [FieldElement<BLS12377PrimeField>; 2];
-
+    /// Returns the component wise addition of `a` and `b`
     /// Returns the component wise addition of `a` and `b`
     fn add(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
         [&a[0] + &b[0], &a[1] + &b[1]]
@@ -39,16 +39,18 @@ impl IsField for Degree2ExtensionField {
     /// (a0 + a1 * t) * (b0 + b1 * t) = a0 * b0 + a1 * b1 * Self::residue() + (a0 * b1 + a1 * b0) * t
     /// where `t.pow(2)` equals `Q::residue()`.
     fn mul(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
+        let q = -FieldElement::from(5);
         let a0b0 = &a[0] * &b[0];
         let a1b1 = &a[1] * &b[1];
         let z = (&a[0] + &a[1]) * (&b[0] + &b[1]);
-        [&a0b0 - &a1b1, z - a0b0 - a1b1]
+        [&a0b0 + &a1b1 * q, z - a0b0 - a1b1]
     }
 
     fn square(a: &Self::BaseType) -> Self::BaseType {
+        let q: FieldElement<BLS12377PrimeField> = -FieldElement::from(5);
         let [a0, a1] = a;
         let v0 = a0 * a1;
-        let c0 = (a0 + a1) * (a0 - a1);
+        let c0 = (a0 + a1) * (a0 + &q * a1) - &v0 - q * &v0;
         let c1 = &v0 + &v0;
         [c0, c1]
     }
@@ -65,7 +67,8 @@ impl IsField for Degree2ExtensionField {
     /// Returns the multiplicative inverse of `a`
     /// This uses the equality `(a0 + a1 * t) * (a0 - a1 * t) = a0.pow(2) - a1.pow(2) * Q::residue()`
     fn inv(a: &Self::BaseType) -> Result<Self::BaseType, FieldError> {
-        let inv_norm = (a[0].pow(2_u64) + a[1].pow(2_u64)).inv()?;
+        let q: FieldElement<BLS12377PrimeField> = -FieldElement::from(5);
+        let inv_norm = (a[0].pow(2_u64) - q * a[1].pow(2_u64)).inv()?;
         Ok([&a[0] * &inv_norm, -&a[1] * inv_norm])
     }
 
@@ -187,19 +190,45 @@ impl ByteConversion for FieldElement<Degree2ExtensionField> {
     }
 }
 
-///////////////
+impl FieldElement<Degree2ExtensionField> {
+    pub fn new_base(a_hex: &str) -> Self {
+        Self::new([FieldElement::new(U384::from(a_hex)), FieldElement::zero()])
+    }
+
+    pub fn conjugate(&self) -> Self {
+        let [a, b] = self.value();
+        Self::new([a.clone(), -b])
+    }
+}
+
+// We define  Fp2E = Fp [u] / (u^2 + 5)
+
+#[derive(Debug, Clone)]
+pub struct BLS12377Residue;
+impl HasQuadraticNonResidue<BLS12377PrimeField> for BLS12377Residue {
+    fn residue() -> FieldElement<BLS12377PrimeField> {
+        -FieldElement::from(5)
+    }
+}
+
+//type Fp2E = FieldElement<Degree2ExtensionField>;
+
+// We define Fp6 = Fp2 [v] / (v^3 - (u))
+
 #[derive(Debug, Clone)]
 pub struct LevelTwoResidue;
+
 impl HasCubicNonResidue<Degree2ExtensionField> for LevelTwoResidue {
     fn residue() -> FieldElement<Degree2ExtensionField> {
         FieldElement::new([
-            FieldElement::new(U384::from("1")),
-            FieldElement::new(U384::from("1")),
+            FieldElement::new(U384::from("0")),
+            -FieldElement::new(U384::from("1")),
         ])
     }
 }
 
 pub type Degree6ExtensionField = CubicExtensionField<Degree2ExtensionField, LevelTwoResidue>;
+pub type Fp6E = FieldElement<Degree6ExtensionField>;
 
 #[derive(Debug, Clone)]
 pub struct LevelThreeResidue;
@@ -213,24 +242,10 @@ impl HasQuadraticNonResidue<Degree6ExtensionField> for LevelThreeResidue {
     }
 }
 
+/// We define Fp12 = Fp6 [w] / (w^2 - v)
 pub type Degree12ExtensionField = QuadraticExtensionField<Degree6ExtensionField, LevelThreeResidue>;
+pub type Fp12E = FieldElement<Degree12ExtensionField>;
 
-impl FieldElement<BLS12377PrimeField> {
-    pub fn new_base(a_hex: &str) -> Self {
-        Self::new(U384::from(a_hex))
-    }
-}
-
-impl FieldElement<Degree2ExtensionField> {
-    pub fn new_base(a_hex: &str) -> Self {
-        Self::new([FieldElement::new(U384::from(a_hex)), FieldElement::zero()])
-    }
-
-    pub fn conjugate(&self) -> Self {
-        let [a, b] = self.value();
-        Self::new([a.clone(), -b])
-    }
-}
 impl FieldElement<Degree6ExtensionField> {
     pub fn new_base(a_hex: &str) -> Self {
         Self::new([
@@ -241,6 +256,11 @@ impl FieldElement<Degree6ExtensionField> {
     }
 }
 
+impl FieldElement<BLS12377PrimeField> {
+    pub fn new_base(a_hex: &str) -> Self {
+        Self::new(U384::from(a_hex))
+    }
+}
 impl FieldElement<Degree12ExtensionField> {
     pub fn new_base(a_hex: &str) -> Self {
         Self::new([
@@ -280,5 +300,69 @@ impl FieldElement<Degree12ExtensionField> {
                 ]),
             ]),
         ])
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+    type FpE = FieldElement<BLS12377PrimeField>;
+    type Fp2E = FieldElement<Degree2ExtensionField>;
+    //  type Fp4E = FieldElement<Degree4ExtensionField>;
+    type Fp6E = FieldElement<Degree6ExtensionField>;
+    type Fp12E = FieldElement<Degree12ExtensionField>;
+
+    #[test]
+    fn embed_base_field_with_degree_2_extension() {
+        let a = FpE::from(3);
+        let a_extension = Fp2E::from(3);
+        assert_eq!(a.to_extension::<Degree2ExtensionField>(), a_extension);
+    }
+    #[test]
+    fn add_base_field_with_degree_2_extension() {
+        let a = FpE::from(3);
+        let a_extension = Fp2E::from(3);
+        let b = Fp2E::from(2);
+        assert_eq!(a + &b, a_extension + b);
+    }
+    #[test]
+    fn mul_degree_2_with_degree_6_extension() {
+        let a = Fp2E::new([FpE::from(3), FpE::from(4)]);
+        let a_extension = a.clone().to_extension::<Degree2ExtensionField>();
+        let b = Fp6E::from(2);
+        assert_eq!(a * &b, a_extension * b);
+    }
+    #[test]
+    fn div_degree_6_degree_12_extension() {
+        let a = Fp6E::from(3);
+        let a_extension = Fp12E::from(3);
+        let b = Fp12E::from(2);
+        assert_eq!(a / &b, a_extension / b);
+    }
+
+    #[test]
+    fn double_equals_sum_two_times() {
+        let a = FpE::from(3);
+        assert_eq!(a.double(), a.clone() + a);
+    }
+    #[test]
+    fn base_field_sum_is_asociative() {
+        let a = FpE::from(3);
+        let b = FpE::from(2);
+        let c = &a + &b;
+        assert_eq!(a.double() + b, a + c);
+    }
+    #[test]
+    fn degree_2_extension_mul_is_conmutative() {
+        let a = Fp2E::from(3);
+        let b = Fp2E::new([FpE::from(2), FpE::from(4)]);
+        assert_eq!(&a * &b, b * a);
+    }
+
+    #[test]
+    fn base_field_pow_p_is_identity() {
+        let a = FpE::from(3);
+        assert_eq!(a.pow(BLS12377_PRIME_FIELD_ORDER), a);
     }
 }
