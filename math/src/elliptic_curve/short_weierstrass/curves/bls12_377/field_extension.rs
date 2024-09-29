@@ -8,7 +8,6 @@ use crate::field::{
     fields::montgomery_backed_prime_fields::{IsModulus, MontgomeryBackendPrimeField},
     traits::{IsField, IsSubFieldOf},
 };
-
 use crate::traits::ByteConversion;
 use crate::unsigned_integer::element::U384;
 
@@ -39,7 +38,7 @@ impl IsField for Degree2ExtensionField {
     /// (a0 + a1 * t) * (b0 + b1 * t) = a0 * b0 + a1 * b1 * Self::residue() + (a0 * b1 + a1 * b0) * t
     /// where `t.pow(2)` equals `Q::residue()`.
     fn mul(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
-        let q = -FieldElement::from(5);
+        let q = -FieldElement::from(5); // This is where u^2 = -5 is applied
         let a0b0 = &a[0] * &b[0];
         let a1b1 = &a[1] * &b[1];
         let z = (&a[0] + &a[1]) * (&b[0] + &b[1]);
@@ -309,7 +308,6 @@ mod tests {
     use super::*;
     type FpE = FieldElement<BLS12377PrimeField>;
     type Fp2E = FieldElement<Degree2ExtensionField>;
-    //  type Fp4E = FieldElement<Degree4ExtensionField>;
     type Fp6E = FieldElement<Degree6ExtensionField>;
     type Fp12E = FieldElement<Degree12ExtensionField>;
 
@@ -364,5 +362,10 @@ mod tests {
     fn base_field_pow_p_is_identity() {
         let a = FpE::from(3);
         assert_eq!(a.pow(BLS12377_PRIME_FIELD_ORDER), a);
+    }
+    #[test]
+    fn square_equals_mul_two_times() {
+        let a = FpE::from(3);
+        assert_eq!(a.square(), a.clone() * a);
     }
 }

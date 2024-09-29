@@ -74,6 +74,7 @@ mod tests {
         );
     }
     #[test]
+    // Values checked in sage
     fn add_point_three_times_equals_operate_with_self_3() {
         let px = Level1FE::new([
             Level0FE::new(U384::from_hex_unchecked("0x11a87eda97b96e733c2eb833ae35531b87878b416d57b370c7cd13b5f3c413387633b0ca6dfead19305318501376087")),
@@ -98,7 +99,7 @@ mod tests {
     }
 
     #[test]
-    // Numbers checked in SAGE
+    // Values checked in sage
     fn operate_with_self_test() {
         let px = Level1FE::new([
             Level0FE::new(U384::from_hex_unchecked("0x2233db786c8cb6a3b6846aebad4ce3f5346961c8bade4c129d920170d1ceeb02d84fd4e12b592f0cba64e083d75167")),
@@ -129,42 +130,43 @@ mod tests {
 
         assert_eq!(p.operate_with_self(scalar), q);
     }
-    /*
 
-    // Try to use other points
-    P1+ 2P2? will it be on the curve?
     #[test]
-    fn add_points() {
-        let p1x = Level1FE::new([
+    // Values checked in sage
+    fn add_two_points() {
+        let px = Level1FE::new([
             Level0FE::new(U384::from_hex_unchecked("0x11a87eda97b96e733c2eb833ae35531b87878b416d57b370c7cd13b5f3c413387633b0ca6dfead19305318501376087")),
             Level0FE::new(U384::from_hex_unchecked("0xa4a6d842722f2636937acf0e889ab343e121a599b8a3a9bd3be766da7d84f8e060be00f06bb2d29df963bf2d847598"))
         ]);
-        let p1y = Level1FE::new([
+
+        let py = Level1FE::new([
             Level0FE::new(U384::from_hex_unchecked("0x75589c0925d6cf45e715460ea7cb3388d4e21d9b79aa8411567d8de85ba5561bcab80a5c0b363e31817d458e5b2a2a")),
             Level0FE::new(U384::from_hex_unchecked("0xcb4e1e4b160cc6c92e7b3dd0b2f4053bc7178d201e7788796a6035c59ccd586635796e97003b1f76eca273576f01ac"))
         ]);
 
-        let p2x = Level1FE::new([
-            Level0FE::new(U384::from_hex_unchecked("0x11a87eda97b96e733c2eb833ae35531b87878b416d57b370c7cd13b5f3c413387633b0ca6dfead19305318501376087")),
-            Level0FE::new(U384::from_hex_unchecked("0xa4a6d842722f2636937acf0e889ab343e121a599b8a3a9bd3be766da7d84f8e060be00f06bb2d29df963bf2d847598"))
+        let qx = Level1FE::new([
+            Level0FE::new(U384::from_hex_unchecked("0xa27279ea48d8e812223956c84ae89c5de09e67c7052c056d936da4578dcf0b30799f2212af0017fe50e146c5c2ce05")),
+            Level0FE::new(U384::from_hex_unchecked("0xaed1579f3de386644e0ffac471e98f8f1d97a6be4d88a0c516bc9fd4d7780649424c3d51bb85d074d66560e2c2bb07"))
         ]);
-        let p2y = Level1FE::new([
-            Level0FE::new(U384::from_hex_unchecked("0x138e1aa0e9f3a1b8053f07a5df97e07914df7d5657b690b0d9ce4a1d1ada2a9fb40a539d3f4c9c2538742ba71a4d5d7")),
-            Level0FE::new(U384::from_hex_unchecked("0xe2ec27ccaf0423fd0c8a829bee5535de5bc265e0d69c06a58901f9f46c7aa7b0d5e3d598ffc4e10e1c1d8ca890fe55"))
+
+        let qy = Level1FE::new([
+            Level0FE::new(U384::from_hex_unchecked("0x6e7e249e0d7c81d0fec62a3f96d6fefd7d6c87019559b03664a015a2ed536d98e6432b93ec219426f9729f119c7982")),
+            Level0FE::new(U384::from_hex_unchecked("0x104c4e4adb48273511a0473d742724f48042b967591ab9b86731bb902debfd44d89571af704340614f6618863fc5841"))
         ]);
+
         let expectedx = Level1FE::new([
-            Level0FE::new(U384::from_hex_unchecked("0")),
-            Level0FE::new(U384::from_hex_unchecked("0")),
+            Level0FE::new(U384::from_hex_unchecked("0x19d74f8769a27aae05c5b50b2d051849f6feab554d0fd4f51c7fe43d918fac1d966c97dd6e61b2f7fc13694495dc259")),
+            Level0FE::new(U384::from_hex_unchecked("0x11f4194886ad75e3baff9853734e9ef4fe5f20d333951ba126bca7dd54ebc4998b17d4d315d29147dc22124c5464a64"))
         ]);
         let expectedy = Level1FE::new([
-            Level0FE::new(U384::from_hex_unchecked("0")),
-            Level0FE::new(U384::from_hex_unchecked("0")),
+            Level0FE::new(U384::from_hex_unchecked("0x14faa941c0cdf5567c294bc9e73e83c4602f331a7400222c8475fba4c6a688b12ce8f7cc20e54eaac1af6046aec58bd")),
+            Level0FE::new(U384::from_hex_unchecked("0x7cee0c4760e2bf76047cda31141e6242c5893ba5c2fba5f23c0048545912e309dc647f4cfe2db17b23aa2f57c3d8c3"))
         ]);
-        let p1 = BLS12377TwistCurve::create_point_from_affine(p1x, p1y).unwrap();
-        let p2 = BLS12377TwistCurve::create_point_from_affine(p2x, p2y).unwrap();
 
+        let p = BLS12377TwistCurve::create_point_from_affine(px, py).unwrap();
+        let q = BLS12377TwistCurve::create_point_from_affine(qx, qy).unwrap();
         let expected = BLS12377TwistCurve::create_point_from_affine(expectedx, expectedy).unwrap();
-        assert_eq!(p1.operate_with(&p2), expected);
+
+        assert_eq!(p.operate_with(&q), expected);
     }
-    */
 }
