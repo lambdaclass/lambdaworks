@@ -60,7 +60,7 @@ impl Mersenne31Field {
     /// Computes 2a^2 - 1
     pub fn two_square_minus_one(a: &u32) -> u32 {
         if *a == 0 {
-            return MERSENNE_31_PRIME_FIELD_ORDER - 1;
+            MERSENNE_31_PRIME_FIELD_ORDER - 1
         } else {
             Self::from_u64(((u64::from(*a) * u64::from(*a)) << 1) - 1)
         }
