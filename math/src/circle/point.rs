@@ -126,6 +126,14 @@ impl<F: IsField + HasCircleParams<F>> CirclePoint<F>{
         }
     }
 
+    pub fn antipode(self) -> Self {
+        Self {
+            x: -self.x,
+            y: -self.y,
+        }
+    }
+
+
     pub fn eq(a: Self, b: Self) -> bool {
         a.x == b.x && a.y == b.y
     }
@@ -135,6 +143,12 @@ impl<F: IsField + HasCircleParams<F>> CirclePoint<F>{
             F::circle_generator().0, 
             F::circle_generator().1  
         ).unwrap()
+    }
+    
+    /// Returns the generator of the subgroup of order n = 2^log_2_size.
+    /// We are using that 2^k * g is a generator of the subgroup of order 2^{31 - k}.
+    pub fn get_generator_of_subgroup(log_2_size: u32) -> Self {
+        Self::generator().repeated_double(31 - log_2_size)
     }
 
     pub fn group_order() -> u128 {
@@ -235,5 +249,11 @@ mod tests {
     fn conjugation_is_inverse_operation () {
         let g = G::generator();
         assert_eq!(g.clone() + g.conjugate() , G::zero())
+    }
+
+    #[test]
+    fn subgroup_generator_has_correct_order(){
+        let generator_n = G::get_generator_of_subgroup(7);
+        assert_eq!(generator_n.repeated_double(7), G::zero());
     }
 }

@@ -1,35 +1,80 @@
-use crate::circle::point::{CirclePoint, HasCircleParams};
-use crate::field::traits::IsField;
+use crate::circle::point::CirclePoint;
 use crate::field::fields::mersenne31::field::Mersenne31Field;
+use std::iter::successors;
 
-struct Coset {
+
+#[derive(Debug, Clone)]
+pub struct Coset {
     // Coset: shift + <g_n> where n = 2^{log_2_size}.
     // Example: g_16 + <g_8>, n = 8, log_2_size = 3, shift = g_16.
-    log_2_size: u128,
-    shift: CirclePoint<Mersenne31Field>,
+    pub log_2_size: u32, //TODO: Change log_2_size to u8 because log_2_size < 31.
+    pub shift: CirclePoint<Mersenne31Field>,
 }
 
 impl Coset {
-    pub fn new(log_2_size: u128, shift: CirclePoint<Mersenne31Field>) -> Self {
+    pub fn new(log_2_size: u32, shift: CirclePoint<Mersenne31Field>) -> Self {
         Coset{ log_2_size, shift }
     }
 
     /// Returns the coset g_2n + <g_n>
-    pub fn new_standard(log_2_size: u128) -> Self {
+    pub fn new_standard(log_2_size: u32) -> Self {
         // shift is a generator of the subgroup of order 2n = 2^{log_2_size + 1}.
-        // We are using that g * k is a generator of the subgroup of order 2^{32 - k}, with k = log_2_size + 1.
-        let shift = CirclePoint::generator().mul(31 - log_2_size);
+        let shift = CirclePoint::get_generator_of_subgroup((log_2_size as u32) + 1);
         Coset{ log_2_size, shift }
+    }
+    
+    /// Returns g_n, the generator of the subgroup of order n = 2^log_2_size.
+    pub fn get_generator(&self) -> CirclePoint<Mersenne31Field> {
+        CirclePoint::generator().repeated_double(31 - self.log_2_size as u32)
     }
 
     /// Given a standard coset g_2n + <g_n>, returns the subcoset with half size g_2n + <g_{n/2}> 
     pub fn half_coset(coset: Self) -> Self {
-        Coset { log_2_size: coset.log_2_size + 1, shift: coset.shift }
+        Coset { log_2_size: coset.log_2_size - 1, shift: coset.shift }
     }  
 
     /// Given a coset shift + G returns the coset -shift + G.
     /// Note that (g_2n + <g_{n/2}>) U (-g_2n + <g_{n/2}>) = g_2n + <g_n>.
     pub fn conjugate(coset: Self) -> Self {
         Coset { log_2_size: coset.log_2_size, shift: coset.shift.conjugate() }
+    }
+
+    /// Returns the vector of shift + g for every g in <g_n>.
+    /// where g = i * g_n for i = 0, ..., n-1.
+    pub fn get_coset_points(coset: &Self) -> Vec<CirclePoint<Mersenne31Field>> {
+        // g_n the generator of the subgroup of order n. 
+        let generator_n = CirclePoint::get_generator_of_subgroup(coset.log_2_size);
+        let size: u8 = 1 << coset.log_2_size;
+        successors(Some(coset.shift.clone()), move |prev| Some(prev.clone() + generator_n.clone()))
+            .take(size.into())
+            .collect()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn coset_points_vector_has_right_size() {
+        let coset = Coset::new_standard(3);
+        let points = Coset::get_coset_points(&coset);
+        assert_eq!(1 << coset.log_2_size, points.len())
+    }
+
+    #[test]
+    fn antipode_of_coset_point_is_in_coset() {
+        let coset = Coset::new_standard(3);
+        let points = Coset::get_coset_points(&coset);
+        let point = points[2].clone();
+        let anitpode_point = points[6].clone();
+        assert_eq!(anitpode_point, point.antipode())
+    }
+    
+    #[test]
+    fn coset_generator_has_right_order() {
+        let coset = Coset::new(2, CirclePoint::generator().mul(3));
+        let generator_n =  coset.get_generator();
+        assert_eq!(generator_n.repeated_double(2), CirclePoint::zero());
     }
 }
