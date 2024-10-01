@@ -12,6 +12,7 @@ use crate::traits::ByteConversion;
 use crate::unsigned_integer::element::U384;
 
 pub const BLS12377_PRIME_FIELD_ORDER: U384 = U384::from_hex_unchecked("1ae3a4617c510eac63b05c06ca1493b1a22d9f300f5138f1ef3622fba094800170b5d44300000008508c00000000001");
+pub const FP2_RESIDUE: FieldElement<BLS12377PrimeField> =FieldElement::from_hex_unchecked("9974A2C0945AD20BAF1EC35813F9EBCBBCBD50D97C38022072420FBFA0504497D39CF6E000018BFC0B8000000002FA");
 
 // FPBLS12377
 #[derive(Clone, Debug)]
@@ -38,18 +39,16 @@ impl IsField for Degree2ExtensionField {
     /// (a0 + a1 * t) * (b0 + b1 * t) = a0 * b0 + a1 * b1 * Self::residue() + (a0 * b1 + a1 * b0) * t
     /// where `t.pow(2)` equals `Q::residue()`.
     fn mul(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
-        let q = -FieldElement::from(5); // This is where u^2 = -5 is applied
         let a0b0 = &a[0] * &b[0];
         let a1b1 = &a[1] * &b[1];
         let z = (&a[0] + &a[1]) * (&b[0] + &b[1]);
-        [&a0b0 + &a1b1 * q, z - a0b0 - a1b1]
+        [&a0b0 + &a1b1 * FP2_RESIDUE, z - a0b0 - a1b1]
     }
 
     fn square(a: &Self::BaseType) -> Self::BaseType {
-        let q: FieldElement<BLS12377PrimeField> = -FieldElement::from(5);
         let [a0, a1] = a;
         let v0 = a0 * a1;
-        let c0 = (a0 + a1) * (a0 + &q * a1) - &v0 - q * &v0;
+        let c0 = (a0 + a1) * (a0 + &FP2_RESIDUE * a1) - &v0 - FP2_RESIDUE * &v0;
         let c1 = &v0 + &v0;
         [c0, c1]
     }
