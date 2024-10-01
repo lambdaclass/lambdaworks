@@ -59,7 +59,11 @@ impl Mersenne31Field {
     /// TODO: See if we can optimize this function.
     /// Computes 2a^2 - 1
     pub fn two_square_minus_one(a: &u32) -> u32 {
-        Self::from_u64(((u64::from(*a) * u64::from(*a)) << 1) - 1)
+        if *a == 0 {
+            return MERSENNE_31_PRIME_FIELD_ORDER - 1;
+        } else {
+            Self::from_u64(((u64::from(*a) * u64::from(*a)) << 1) - 1)
+        }
     }
 }
 
@@ -99,31 +103,17 @@ impl IsField for Mersenne31Field {
         if *x == Self::zero() || *x == MERSENNE_31_PRIME_FIELD_ORDER {
             return Err(FieldError::InvZeroError);
         }
-        // Algorithm from: https://github.com/ingonyama-zk/papers/blob/main/Mersenne31_polynomial_arithmetic.pdf (page 3).
-        let mut a: u32 = 1;
-        let mut b: u32 = 0;
-        let mut y: u32 = *x;
-        let mut z: u32 = MERSENNE_31_PRIME_FIELD_ORDER;
-        let q: u32 = 31;
-        let mut e: u32;
-        let mut temp: u32;
-
-        loop {
-            e = y.trailing_zeros();
-            if e != 0 {
-                y >>= e;
-                a = Self::mul_power_two(a, q - e)
-            }
-            if y == 1 {
-                return Ok(a);
-            };
-            temp = a.wrapping_add(b);
-            b = a;
-            a = temp;
-            temp = y.wrapping_add(z);
-            z = y;
-            y = temp;
-        }
+        let p101 = Self::mul(&Self::pow_2(x, 2), x);
+        let p1111 = Self::mul(&Self::square(&p101), &p101);
+        let p11111111 = Self::mul(&Self::pow_2(&p1111, 4u32), &p1111);
+        let p111111110000 = Self::pow_2(&p11111111, 4u32);
+        let p111111111111 = Self::mul(&p111111110000, &p1111);
+        let p1111111111111111 = Self::mul(&Self::pow_2(&p111111110000, 4u32), &p11111111);
+        let p1111111111111111111111111111 =
+            Self::mul(&Self::pow_2(&p1111111111111111, 12u32), &p111111111111);
+        let p1111111111111111111111111111101 =
+            Self::mul(&Self::pow_2(&p1111111111111111111111111111, 3u32), &p101);
+        Ok(p1111111111111111111111111111101)
     }
 
     /// Returns the division of `a` and `b`.
@@ -443,6 +433,24 @@ mod tests {
     #[test]
     fn two_square_minus_one_is_correct() {
         let a = FE::from(2147483650);
+        assert_eq!(
+            FE::from(&F::two_square_minus_one(a.value())),
+            a.square().double() - FE::one()
+        )
+    }
+
+    #[test]
+    fn two_square_zero_minus_one_is_minus_one() {
+        let a = FE::from(0);
+        assert_eq!(
+            FE::from(&F::two_square_minus_one(a.value())),
+            a.square().double() - FE::one()
+        )
+    }
+
+    #[test]
+    fn two_square_p_minus_one_is_minus_one() {
+        let a = FE::from(&MERSENNE_31_PRIME_FIELD_ORDER);
         assert_eq!(
             FE::from(&F::two_square_minus_one(a.value())),
             a.square().double() - FE::one()
