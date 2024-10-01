@@ -18,9 +18,6 @@ use crate::{
     unsigned_integer::element::{UnsignedInteger, U256},
 };
 
-use num_bigint::{BigInt, BigUint};
-use num_traits::{One, Signed, Zero};
-
 type FpE = FieldElement<BLS12381PrimeField>;
 type Fp2E = FieldElement<Degree2ExtensionField>;
 type Fp4E = FieldElement<Degree4ExtensionField>;
@@ -36,27 +33,19 @@ pub const MILLER_CONSTANT: &[i8] = &[
 ];
 
 // Change X to be a signed 128-bit integer
-//pub const X: u64 = 0xd201000000010000;
+pub const X: u64 = 0xd201000000010000;
 
-const fn compute_x_binary(mut x: i128) -> [bool; 64] {
-    let mut bits = [false; 64];
-    let mut i = 0;
-    if x < 0 {
-        x = -x;
-    }
-    while x > 0 && i < 64 {
-        bits[i] = (x & 1) == 1;
-        x >>= 1;
-        i += 1;
-    }
-    bits
-}
-const X: i128 = -0xd201000000010000; // X = -15132376222941642752
-const X_ABS: u128 = 15132376222941642752u128; // X_ABS = |X|
-const T_ABS: u64 = 15132376222941642752;
-const T_ABS_HALF: u64 = T_ABS / 2;
+// X = 1101001000000001000000000000000000000000000000010000000000000000
 
-pub const X_BINARY: [bool; 64] = compute_x_binary(X);
+pub const X_BINARY: &[bool] = &[
+    true, true, false, true, false, false, true, false, false, false, false, false, false, false,
+    false, true, false, false, false, false, false, false, false, false, false, false, false,
+    false, false, false, false, false, false, false, false, false, false, false, false, false,
+    false, false, false, false, false, false, false, true, false, false, false, false, false,
+    false, false, false, false, false, false, false, false, false, false, false,
+];
+
+//pub const X_BINARY: [bool; 64] = compute_x_binary(X);
 pub const GAMMA_11: Fp2E = Fp2E::const_from_raw([
     FpE::from_hex_unchecked("1904D3BF02BB0667C231BEB4202C0D1F0FD603FD3CBD5F4F7B2443D784BAB9C4F67EA53D63E7813D8D0775ED92235FB8"),
     FpE::from_hex_unchecked("FC3E2B36C4E03288E9E902231F9FB854A14787B6C7B36FEC0C8EC971F63C5F282D5AC14D6C7EC22CF78A126DDC4AF3"),
@@ -123,7 +112,7 @@ impl IsPairing for BLS12381AtePairing {
                 result *= miller(&q, &p);
             }
         }
-        Ok(final_exponentiation_optimized(&result))
+        Ok(final_exponentiation_optimized(&mut result))
     }
 }
 
@@ -260,83 +249,46 @@ fn miller(
     f.conjugate()
 }
 
-fn final_exponentiation_easy(f: &mut Fp12E) {
-    // Frobenius map: compute f^{p^6} using the Frobenius automorphism
-    let mut t0 = frobenius_square(f); // f^{p^6}
+fn final_exponentiation_optimized(f: &mut Fp12E) -> Fp12E {
+    let mut f_easy_aux = f.conjugate() * f.inv().unwrap();
+    let f_easy = frobenius_square(&f_easy_aux) * &f_easy_aux;
 
-    // Compute the inverse of f
-    let t0_inv = f.inv().unwrap(); // f^{-1}
-
-    // Multiply f^{p^6} by f^{-1}
-    *f = t0 * &t0_inv; // f^{p^6} * f^{-1}
-}
-
-fn final_exponentiation_hard(f: &mut Fp12E) -> &Fp12E {
-    let mut v2 = cyclotomic_square(&f); // v2 = f²
-    let mut v0 = cyclotomic_pow(f, X).conjugate(); //  v0 = f^x
+    let mut v2 = cyclotomic_square(&f_easy); // v2 = f²
+    let mut v0 = cyclotomic_pow_x(&f_easy).conjugate(); //  v0 = f^x
     let mut v1 = f.conjugate(); // v1 = f^-1
 
     //  (x−1)²
     v0 *= v1; // v0 = f^(x-1)
-    v1 = cyclotomic_pow(&v0, X).conjugate(); // v1 = (f^(x-1))^(x)
+    v1 = cyclotomic_pow_x(&v0).conjugate(); // v1 = (f^(x-1))^(x)
 
     v0 = v0.conjugate(); // v0 = (f^(x-1))^(-1)
     v0 *= &v1; // v0 = (f^(x-1))^(-1) * (f^(x-1))^x = (f^(x-1))^(x-1) =  f^((x-1)²)
 
-    // (x+p)
-    v1 = cyclotomic_pow(&v0, X).conjugate(); // v1 = f^((x-1)².x)
+    // (x+p
+    v1 = cyclotomic_pow_x(&v0).conjugate(); // v1 = f^((x-1)².x)
     v0 = frobenius(&v0); // f^((x-1)².p)
     v0 *= &v1; // f^((x-1)².p + (x-1)².x) = f^((x-1)².(x+p))
 
     //  + 3
 
-    *f *= v2; // f^3
+    f_easy_aux *= v2; // f^3
 
     // (x²+p²−1)
 
-    v2 = cyclotomic_pow(&v0, X);
-    // in nim here says invert = false, so we need to check if we need to invert in the previous steps
+    v2 = cyclotomic_pow_x(&v0);
+    // in nim invert = false, so we need to check if we need to invert in the previous steps
 
-    v1 = cyclotomic_pow(&v2, X);
-    // in nim here says invert = false, so we need to check if we need to invert in the previous steps
+    v1 = cyclotomic_pow_x(&v2);
+    // in nim invert = false, so we need to check if we need to invert in the previous steps
 
     v2 = frobenius_square(&v0);
     v0 = v0.conjugate();
     v0 *= &v1;
     v0 *= &v2;
 
-    *f *= &v0;
-
-    f
+    f_easy_aux *= &v0;
+    f_easy_aux
 }
-
-pub fn final_exponentiation_optimized(f: &Fp12E) -> Fp12E {
-    let mut f = f.clone();
-    final_exponentiation_easy(&mut f);
-    final_exponentiation_hard(&mut f).clone()
-}
-/*
-fn cyclotomic_pow(f: &Fp12E, exp: BigInt) -> Fp12E {
-    let mut result = Fp12E::one();
-    let mut base = f.clone();
-    let mut e = exp.abs();
-
-    while e > BigInt::zero() {
-        if (&e & BigInt::one()) == BigInt::one() {
-            result *= &base;
-        }
-        base = cyclotomic_square(&base);
-        e >>= 1;
-    }
-
-    if exp.is_negative() {
-        result = result.inv().unwrap();
-    }
-
-    result
-}
-*/
-/// Auxiliary function for the final exponentiation of the ate pairing.
 
 pub fn frobenius(f: &Fp12E) -> Fp12E {
     let [a, b] = f.value(); // f = a + bw, where a and b in Fp6.
@@ -427,10 +379,6 @@ pub fn cyclotomic_square(a: &Fp12E) -> Fp12E {
     Fp12E::new([Fp6E::new([r00, r01, r02]), Fp6E::new([r10, r11, r12])])
 }
 
-fn inverse_unitary(f: &Fp12E) -> Fp12E {
-    f.conjugate()
-}
-
 // To understand more about how to reduce the final exponentiation
 // read "Efficient Final Exponentiation via Cyclotomic Structure for
 // Pairings over Families of Elliptic Curves" (https://eprint.iacr.org/2020/875.pdf)
@@ -447,148 +395,18 @@ fn final_exponentiation(
     f2.pow(PHI_DIVIDED_BY_R)
 }
 
-fn compute_loop_counter(mut x: i128) -> Vec<i8> {
-    let mut bits = Vec::new();
-    while x != 0 {
-        if x % 2 != 0 {
-            let ki = (x % 2) as i8;
-            bits.push(ki);
-            x -= ki as i128;
-        } else {
-            bits.push(0);
-        }
-        x /= 2;
-    }
-    bits
-}
-// Need to implement this instead of cyclotomic exp and give  a exponent
-/*
+#[allow(clippy::needless_range_loop)]
 pub fn cyclotomic_pow_x(f: &Fp12E) -> Fp12E {
     let mut result = Fp12E::one();
-    for &bit in X_BINARY.iter().rev() {
+    X_BINARY.iter().for_each(|&bit| {
         result = cyclotomic_square(&result);
         if bit {
-            result *= f;
+            result = &result * f;
         }
-    }
-    result.conjugate()
-}
-
-*/
-/*
-fn cyclotomic_pow(f: &Fp12E, exponent: BigInt) -> Fp12E {
-    let base = if exponent.sign() == num_bigint::Sign::Minus {
-        f.inv().unwrap()
-    } else {
-        f.clone()
-    };
-
-    let mut result = Fp12E::one();
-    let mut e = exponent.abs().to_biguint().unwrap();
-    let mut base = base;
-
-    while e > BigUint::zero() {
-        if &e & BigUint::one() == BigUint::one() {
-            result *= &base;
-        }
-        base = cyclotomic_square(&base);
-        e >>= 1;
-    }
-    result
-}
-*/
-
-fn cyclotomic_pow(f: &Fp12E, exponent: i128) -> Fp12E {
-    /*
-    let base = if exponent < 0 {
-        f.inv().unwrap()
-    } else {
-        f.clone()
-    };*/
-    let base = f.clone();
-    let mut result = Fp12E::one();
-    let exponent_bits = compute_binary_representation(exponent);
-
-    let mut started = false;
-    for &bit in exponent_bits.iter().rev() {
-        if started {
-            result = cyclotomic_square(&result);
-        }
-        if bit {
-            started = true;
-            result *= &base;
-        }
-    }
+    });
     result
 }
 
-/*
-fn cyclotomic_pow(f: &Fp12E, exponent: BigInt) -> Fp12E {
-    let mut result = Fp12E::one();
-    let mut base = f.clone();
-    let mut exp = exponent.abs();
-
-    while exp > BigInt::zero() {
-        if (&exp & BigInt::one()) == BigInt::one() {
-            result *= &base;
-        }
-        base = cyclotomic_square(&base);
-        exp >>= 1;
-    }
-
-    if exponent.sign() == num_bigint::Sign::Minus {
-        result = result.inv().unwrap();
-    }
-
-    result
-}
-*/
-// Maybe we can precompute this values and store them in a const
-const fn compute_binary_representation(mut x: i128) -> [bool; 128] {
-    let mut bits = [false; 128];
-    let mut i = 0;
-    if x < 0 {
-        x = -x;
-    }
-    while x > 0 && i < 128 {
-        bits[i] = (x & 1) == 1;
-        x >>= 1;
-        i += 1;
-    }
-    bits
-}
-
-fn cyclotomic_exp(f: &Fp12E, exponent: &BigUint) -> Fp12E {
-    let mut result = Fp12E::one();
-    let mut base = f.clone();
-    let mut exp = exponent.clone();
-
-    while exp > BigUint::zero() {
-        if (&exp & BigUint::one()) == BigUint::one() {
-            result *= &base;
-        }
-        base = cyclotomic_square(&base);
-        exp >>= 1;
-    }
-
-    result
-}
-
-fn expt(e: &Fp12E) -> Fp12E {
-    // t_abs = |X| = 15132376222941642752
-    let t_abs = BigUint::from(15132376222941642752u64);
-    let mut result = cyclotomic_exp(e, &t_abs);
-    result = result.conjugate();
-    result
-}
-
-fn expt_half(e: &Fp12E) -> Fp12E {
-    // t_abs_half = t_abs / 2 = 7566188111470821376
-    let t_abs_half = BigUint::from(7566188111470821376u64);
-    let mut result = cyclotomic_exp(e, &t_abs_half);
-    result = result.conjugate();
-    result
-}
 #[cfg(test)]
 mod tests {
     use crate::{
@@ -703,50 +521,6 @@ mod tests {
     }
 
     #[test]
-    fn test_cyclotomic_pow_square_on_cyclotomic_element() {
-        let p = BLS12381Curve::generator();
-        let q = BLS12381TwistCurve::generator();
-        let f = miller(&q, &p);
-        let f_conj_inv = f.conjugate() * f.inv().unwrap(); // f^{p^6 - 1}
-        let f_cyclo = frobenius_square(&f_conj_inv) * f_conj_inv; // (f^{p^6 - 1})^{p^2} * f^{p^6 - 1}
-
-        let square_standard = f_cyclo.square();
-        let exponent: i128 = 2;
-        let square_cyclotomic = cyclotomic_pow(&f_cyclo, exponent.into());
-
-        assert_eq!(square_standard, square_cyclotomic,);
-    }
-
-    #[test]
-    fn test_cyclotomic_pow_quad_on_cyclotomic_element() {
-        let p = BLS12381Curve::generator();
-        let q = BLS12381TwistCurve::generator();
-        let f = miller(&q, &p);
-        let f_conj_inv = f.conjugate() * f.inv().unwrap(); // f^{p^6 - 1}
-        let f_cyclo = frobenius_square(&f_conj_inv) * f_conj_inv; // (f^{p^6 - 1})^{p^2} * f^{p^6 - 1}
-
-        let square_standard = f_cyclo.square().square();
-        let exponent: i128 = 4;
-        let square_cyclotomic = cyclotomic_pow(&f_cyclo, exponent.into());
-
-        assert_eq!(square_standard, square_cyclotomic,);
-    }
-
-    #[test]
-    fn test_cyclotomic_pow_square_on_cyclotomic_element_cyclotomic_square() {
-        let p = BLS12381Curve::generator();
-        let q = BLS12381TwistCurve::generator();
-        let f = miller(&q, &p);
-        let f_conj_inv = f.conjugate() * f.inv().unwrap(); // f^{p^6 - 1}
-        let f_cyclo = frobenius_square(&f_conj_inv) * f_conj_inv; // (f^{p^6 - 1})^{p^2} * f^{p^6 - 1}
-
-        let square_standard = cyclotomic_square(&f_cyclo);
-        let exponent: i128 = 2;
-        let square_cyclotomic = cyclotomic_pow(&f_cyclo, exponent.into());
-
-        assert_eq!(square_standard, square_cyclotomic,);
-    }
-    #[test]
     fn test_double_accumulate_line_doubles_point_correctl_2() {
         let g1 = BLS12381Curve::generator();
         let g2 = BLS12381TwistCurve::generator();
@@ -757,6 +531,7 @@ mod tests {
         assert_eq!(r.to_affine(), expected_r.to_affine());
     }
     #[test]
+    /*
     fn test_final_exponentiation_easy() {
         let mut f =
             Fp12E::from_coefficients(&["1", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0"]);
@@ -772,60 +547,14 @@ mod tests {
 
         assert_eq!(f, expected);
     }
-
+    */
     #[test]
-    fn test_expt_with_cyclotomic_element() {
+    fn cyclotomic_pow_x_equals_pow() {
         let p = BLS12381Curve::generator();
         let q = BLS12381TwistCurve::generator();
         let f = miller(&q, &p);
-
-        let result = expt(&f);
-
-        let t_abs = BigUint::from(15132376222941642752u64);
-        let expected_result = cyclotomic_exp(&f, &t_abs).conjugate();
-
-        assert_eq!(result, expected_result);
-    }
-
-    #[test]
-    fn test_expt_half_with_cyclotomic_element() {
-        let p = BLS12381Curve::generator();
-        let q = BLS12381TwistCurve::generator();
-        let f = miller(&q, &p);
-
-        let result = expt_half(&f);
-
-        let t_abs_half = BigUint::from(7566188111470821376u64);
-        let expected_result = cyclotomic_exp(&f, &t_abs_half).conjugate();
-
-        assert_eq!(result, expected_result);
-    }
-
-    #[test]
-    fn test_expt_with_non_trivial_cyclotomic_element() {
-        let p = BLS12381Curve::generator();
-        let q = BLS12381TwistCurve::generator();
-        let f = miller(&q, &p).square();
-
-        let result = expt(&f);
-
-        let t_abs = BigUint::from(15132376222941642752u64);
-        let expected_result = cyclotomic_exp(&f, &t_abs).conjugate();
-
-        assert_eq!(result, expected_result);
-    }
-
-    #[test]
-    fn test_expt_half_with_non_trivial_cyclotomic_element() {
-        let p = BLS12381Curve::generator();
-        let q = BLS12381TwistCurve::generator();
-        let f = miller(&q, &p).square();
-
-        let result = expt_half(&f);
-
-        let t_abs_half = BigUint::from(7566188111470821376u64);
-        let expected_result = cyclotomic_exp(&f, &t_abs_half).conjugate();
-
-        assert_eq!(result, expected_result);
+        let f_easy_aux = f.conjugate() * f.inv().unwrap(); // f ^ (p^6 - 1) because f^(p^6) = f.conjugate().
+        let f_easy = &frobenius_square(&f_easy_aux) * f_easy_aux; // (f^{p^6 - 1})^(p^2) * (f^{p^6 - 1}).
+        assert_eq!(cyclotomic_pow_x(&f_easy), f_easy.pow(X));
     }
 }
