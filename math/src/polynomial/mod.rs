@@ -192,6 +192,36 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
         }
     }
 
+    /// Extended Euclidean Algorithm for polynomials.
+    ///
+    /// This method computes the extended greatest common divisor (GCD) of two polynomials `self` and `y`.
+    /// It returns a tuple of three elements: `(a, b, g)` such that `a * self + b * y = g`, where `g` is the
+    /// greatest common divisor of `self` and `y`.
+    pub fn xgcd(&self, y: &Self) -> (Self, Self, Self) {
+        let one = Polynomial::new(&[FieldElement::one()]);
+        let zero = Polynomial::zero();
+        let (mut old_r, mut r) = (self.clone(), y.clone());
+        let (mut old_s, mut s) = (one.clone(), zero.clone());
+        let (mut old_t, mut t) = (zero.clone(), one.clone());
+
+        while r != Polynomial::zero() {
+            let quotient = old_r.clone().div_with_ref(&r);
+            old_r = old_r - &quotient * &r;
+            core::mem::swap(&mut old_r, &mut r);
+            old_s = old_s - &quotient * &s;
+            core::mem::swap(&mut old_s, &mut s);
+            old_t = old_t - &quotient * &t;
+            core::mem::swap(&mut old_t, &mut t);
+        }
+
+        let lcinv = old_r.leading_coefficient().inv().unwrap();
+        (
+            old_s.scale_coeffs(&lcinv),
+            old_t.scale_coeffs(&lcinv),
+            old_r.scale_coeffs(&lcinv),
+        )
+    }
+
     pub fn div_with_ref(self, dividend: &Self) -> Self {
         let (quotient, _remainder) = self.long_division_with_remainder(dividend);
         quotient
@@ -1121,5 +1151,30 @@ mod tests {
             p.ruffini_division_inplace(&b);
             prop_assert_eq!(q, p);
         }
+    }
+    #[test]
+    fn test_xgcd() {
+        // Case 1: Simple polynomials
+        let p1 = Polynomial::new(&[FE::new(1), FE::new(0), FE::new(1)]); // x^2 + 1
+        let p2 = Polynomial::new(&[FE::new(1), FE::new(1)]); // x + 1
+        let (a, b, g) = p1.xgcd(&p2);
+        // Check that a * p1 + b * p2 = g
+        let lhs = a.mul_with_ref(&p1) + b.mul_with_ref(&p2);
+        assert_eq!(a, Polynomial::new(&[FE::new(12)]));
+        assert_eq!(b, Polynomial::new(&[FE::new(12), FE::new(11)]));
+        assert_eq!(lhs, g);
+        assert_eq!(g, Polynomial::new(&[FE::new(1)]));
+
+        // x^2-1 :
+        let p3 = Polynomial::new(&[FE::new(ORDER - 1), FE::new(0), FE::new(1)]);
+        // x^3-x = x(x^2-1)
+        let p4 = Polynomial::new(&[FE::new(0), FE::new(ORDER - 1), FE::new(0), FE::new(1)]);
+        let (a, b, g) = p3.xgcd(&p4);
+
+        let lhs = a.mul_with_ref(&p3) + b.mul_with_ref(&p4);
+        assert_eq!(a, Polynomial::new(&[FE::new(1)]));
+        assert_eq!(b, Polynomial::zero());
+        assert_eq!(lhs, g);
+        assert_eq!(g, p3);
     }
 }
