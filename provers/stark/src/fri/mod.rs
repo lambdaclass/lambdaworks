@@ -131,7 +131,7 @@ where
         to_commit.push(vec![chunk[0].clone(), chunk[1].clone()]);
     }
 
-    let merkle_tree = BatchedMerkleTree::build(&to_commit);
+    let merkle_tree = BatchedMerkleTree::build(&to_commit).unwrap();
 
     FriLayer::new(
         &evaluation,

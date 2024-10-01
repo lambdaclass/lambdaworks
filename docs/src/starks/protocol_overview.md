@@ -160,4 +160,3 @@ The verifier must check that $H$ was constructed according to the protocol rules
 ## Round 4: Run batch open protocol
 
 In this round, the prover and verifier engage in the batch open protocol of the polynomial commitment scheme described above to validate all the evaluations at $z$ from the previous round.
-
