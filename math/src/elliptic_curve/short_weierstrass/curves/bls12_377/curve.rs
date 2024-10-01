@@ -76,7 +76,6 @@ impl ShortWeierstrassProjectivePoint<BLS12377Curve> {
     /// Returns 𝜙(P) = (𝑥, 𝑦) ⇒ (𝛽𝑥, 𝑦), where 𝛽 is the Cube Root of Unity in the base prime field
     /// https://eprint.iacr.org/2022/352.pdf 2 Preliminaries
     fn phi(&self) -> Self {
-        // This clone is unsightly
         let mut a = self.clone();
         a.0.value[0] = a.x() * CUBE_ROOT_OF_UNITY_G1;
         a

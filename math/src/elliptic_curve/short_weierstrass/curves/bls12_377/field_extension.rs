@@ -200,8 +200,6 @@ impl FieldElement<Degree2ExtensionField> {
     }
 }
 
-// We define  Fp2E = Fp [u] / (u^2 + 5)
-
 #[derive(Debug, Clone)]
 pub struct BLS12377Residue;
 impl HasQuadraticNonResidue<BLS12377PrimeField> for BLS12377Residue {
@@ -209,10 +207,6 @@ impl HasQuadraticNonResidue<BLS12377PrimeField> for BLS12377Residue {
         -FieldElement::from(5)
     }
 }
-
-//type Fp2E = FieldElement<Degree2ExtensionField>;
-
-// We define Fp6 = Fp2 [v] / (v^3 - (u))
 
 #[derive(Debug, Clone)]
 pub struct LevelTwoResidue;
@@ -227,7 +221,6 @@ impl HasCubicNonResidue<Degree2ExtensionField> for LevelTwoResidue {
 }
 
 pub type Degree6ExtensionField = CubicExtensionField<Degree2ExtensionField, LevelTwoResidue>;
-pub type Fp6E = FieldElement<Degree6ExtensionField>;
 
 #[derive(Debug, Clone)]
 pub struct LevelThreeResidue;
@@ -243,7 +236,6 @@ impl HasQuadraticNonResidue<Degree6ExtensionField> for LevelThreeResidue {
 
 /// We define Fp12 = Fp6 [w] / (w^2 - v)
 pub type Degree12ExtensionField = QuadraticExtensionField<Degree6ExtensionField, LevelThreeResidue>;
-pub type Fp12E = FieldElement<Degree12ExtensionField>;
 
 impl FieldElement<Degree6ExtensionField> {
     pub fn new_base(a_hex: &str) -> Self {
