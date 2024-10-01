@@ -12,7 +12,7 @@ use crate::traits::ByteConversion;
 use crate::unsigned_integer::element::U384;
 
 pub const BLS12377_PRIME_FIELD_ORDER: U384 = U384::from_hex_unchecked("1ae3a4617c510eac63b05c06ca1493b1a22d9f300f5138f1ef3622fba094800170b5d44300000008508c00000000001");
-pub const FP2_RESIDUE: FieldElement<BLS12377PrimeField> =FieldElement::from_hex_unchecked("9974A2C0945AD20BAF1EC35813F9EBCBBCBD50D97C38022072420FBFA0504497D39CF6E000018BFC0B8000000002FA");
+pub const FP2_RESIDUE: FieldElement<BLS12377PrimeField> =FieldElement::from_hex_unchecked("0x1ae3a4617c510eac63b05c06ca1493b1a22d9f300f5138f1ef3622fba094800170b5d44300000008508bffffffffffc");
 
 // FPBLS12377
 #[derive(Clone, Debug)]
