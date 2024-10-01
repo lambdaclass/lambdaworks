@@ -55,10 +55,10 @@ where
         // #[cfg(test)]
         // print_positions(nodes.len(), HashSet::new());
 
-        MerkleTree {
+        Some(MerkleTree {
             root: nodes[ROOT].clone(),
             nodes,
-        }
+        })
     }
 
     /// Returns the leaf at the given index.
