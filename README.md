@@ -29,7 +29,6 @@ So, we decided to build our library, focusing on performance, with clear documen
 - [Crypto primitives](https://github.com/lambdaclass/lambdaworks/tree/main/crypto)
 - [STARK Prover](https://github.com/lambdaclass/lambdaworks/tree/main/provers/stark)
 - [Plonk Prover](https://github.com/lambdaclass/lambdaworks/tree/main/provers/plonk)
-- [Cairo Prover](https://github.com/lambdaclass/lambdaworks/tree/main/provers/cairo)
 - [Groth 16](https://github.com/lambdaclass/lambdaworks/tree/main/provers/groth16)
 
 ### Crypto
@@ -83,9 +82,10 @@ List of symbols:
 | Mersenne 31    | :heavy_check_mark: | :x:                | :x:      | :x:                | :x:         |
 | Baby Bear      | :heavy_check_mark: | :x:                | :x:      | :x:                | :x:         |
 | MiniGoldilocks | :heavy_check_mark: | :x:                | :x:      | :heavy_check_mark: | :x:         |
+| Binary fields  | :x: | :x:                | :x:      | :x:                | :x:         |
 | **ZK friendly Hash function** | **Lambdaworks** | **Arkworks**       | **Halo2**          | **gnark** | **Constantine** |
-| Poseidon                      | 🏗️              | :heavy_check_mark: | :heavy_check_mark: | :x:       | :x:             |
-| Pedersen                      | 🏗️              | :heavy_check_mark: | :heavy_check_mark: | :x:       | :x:             |
+| Poseidon                      | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :x:       | :x:             |
+| Pedersen                      | 🏗️ | :heavy_check_mark: | :heavy_check_mark: | :x:       | :x:             |
 | Rescue Prime XLIX             | :x:             | :x:                | :x:                | :x:       | :x:             |
 | **Elliptic Curves** | **Lambdaworks** | **Arkworks**          | **Halo2**          | **gnark**          | **Constantine**    |
 | BLS12-381           | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |
@@ -99,24 +99,16 @@ List of symbols:
 | secq256r1           | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :x:                | :x:                |
 | **STARKs**       | **Lambdaworks**     | **Arkworks** | **Halo2** | **gnark** | **Constantine** |
 | STARK Prover     | :heavy_check_mark:  | :x:          | :x:       | :x:       | :x:             |
-| CAIRO Prover     | 🏗️                  | :x:          | :x:       | :x:       | :x:             |
+| Circle STARKs    | :x:          | :x:       | :x:       | :x:             | :x: |
 | **SNARKs** | **Lambdaworks**    | **Arkworks**       | **Halo2** | **gnark**          | **Constantine** |
 | Groth16    | :heavy_check_mark: | :heavy_check_mark: | :x:       | :heavy_check_mark: | :x:             |
 | Plonk      | 🏗️                 | :heavy_check_mark: | ✔️         | :heavy_check_mark: | :x:             |
-| Spartan    | :x:                | :heavy_check_mark: | :x:       | :x:                | :x:             |
-| Marlin     | :x:                | :heavy_check_mark: | :x:       | :x:                | :x:             |
 | GKR        | :x:                | :heavy_check_mark: | :x:       | :heavy_check_mark: | :x:             |
 | **Polynomial Commitment Schemes** | **Lambdaworks**    | **Arkworks**       | **Halo2**          | **gnark**          | **Constantine** |
 | KZG10                             | :heavy_check_mark: | ✔️                  | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark:             |
 | FRI                               | 🏗️                 | :x:                | :x:                | :heavy_check_mark: | :x:             |
-| IPA                               | 🏗️                 | ✔️                  | :heavy_check_mark: | :x:                | :x:             |
-| Brakedown                         | :x:                | :x: | :x:                | :x:                | :x:             |
-| Basefold                          | :x:                | :x: | :x:                | :x:                | :x:             |
-| **Folding Schemes** | **Lambdaworks** | **Arkworks**       | **Halo2** | **gnark** | **Constantine** |
-| Nova                | :x:             | :heavy_check_mark: | :x:       | :x:       | :x:             |
-| Supernova           | :x:             | :x:                | :x:       | :x:       | :x:             |
-| Protostar           | :x:             | :x:                | :x:       | :x:       | :x:             |
-| Protogalaxy         | :x:             | :heavy_check_mark: | :x:       | :x:       | :x:             |
+| Binius        | :x:                | :x:                | :x: | :x:             | :x:             |
+| Circle FRI    | :x:                | :x:                | :x: | :x:             | :x:             |
 
 Additionally, provers are compatible with the following frontends and VMs:
 
@@ -129,7 +121,6 @@ Additionally, provers are compatible with the following frontends and VMs:
 | Plonk   | Noir    | :x: |
 | Stark   | Winterfell | :heavy_check_mark: |
 | Stark   | Miden | :heavy_check_mark: |
-| Stark   | Cairo | :heavy_check_mark: |
 
 This can be used in a multi prover setting for extra security, or as a standalone to be used with Rust.
 
