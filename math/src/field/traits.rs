@@ -106,6 +106,11 @@ pub trait IsField: Debug + Clone {
     /// Returns the sum of `a` and `b`.
     fn add(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType;
 
+    /// Returns the double of `a`.
+    fn double(a: &Self::BaseType) -> Self::BaseType {
+        Self::add(a, a)
+    }
+
     /// Returns the multiplication of `a` and `b`.
     fn mul(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType;
 
@@ -130,21 +135,21 @@ pub trait IsField: Debug + Clone {
 
             while exponent & one == zero {
                 result = Self::square(&result);
-                exponent = exponent >> 1;
+                exponent >>= 1;
             }
 
             if exponent == zero {
                 result
             } else {
                 let mut base = result.clone();
-                exponent = exponent >> 1;
+                exponent >>= 1;
 
                 while exponent != zero {
                     base = Self::square(&base);
                     if exponent & one == one {
                         result = Self::mul(&result, &base);
                     }
-                    exponent = exponent >> 1;
+                    exponent >>= 1;
                 }
 
                 result
@@ -237,7 +242,7 @@ pub trait IsPrimeField: IsField {
 
         while q & integer_one != integer_one {
             s += 1;
-            q = q >> 1;
+            q >>= 1;
         }
 
         let mut c = {

@@ -16,9 +16,8 @@ mod private {
 
 pub trait Poseidon: PermutationParameters + self::private::Sealed {
     fn hades_permutation(state: &mut [FE<Self::F>]);
-    fn full_round(state: &mut [FE<Self::F>], round_number: usize);
-    fn partial_round(state: &mut [FE<Self::F>], round_number: usize);
-    fn mix(state: &mut [FE<Self::F>]);
+    fn full_round(state: &mut [FE<Self::F>], rindex: usize);
+    fn partial_round(state: &mut [FE<Self::F>], index: usize);
     fn hash(x: &FE<Self::F>, y: &FE<Self::F>) -> FE<Self::F>;
     fn hash_single(x: &FE<Self::F>) -> FE<Self::F>;
     fn hash_many(inputs: &[FE<Self::F>]) -> FE<Self::F>;
@@ -26,51 +25,35 @@ pub trait Poseidon: PermutationParameters + self::private::Sealed {
 
 impl<P: PermutationParameters> Poseidon for P {
     fn hades_permutation(state: &mut [FE<Self::F>]) {
-        let mut round_number = 0;
+        let mut index = 0;
         for _ in 0..P::N_FULL_ROUNDS / 2 {
-            Self::full_round(state, round_number);
-            round_number += 1;
+            Self::full_round(state, index);
+            index += P::N_ROUND_CONSTANTS_COLS;
         }
         for _ in 0..P::N_PARTIAL_ROUNDS {
-            Self::partial_round(state, round_number);
-            round_number += 1;
+            Self::partial_round(state, index);
+            index += 1;
         }
         for _ in 0..P::N_FULL_ROUNDS / 2 {
-            Self::full_round(state, round_number);
-            round_number += 1;
+            Self::full_round(state, index);
+            index += P::N_ROUND_CONSTANTS_COLS;
         }
     }
 
-    fn full_round(state: &mut [FE<Self::F>], round_number: usize) {
+    #[inline]
+    fn full_round(state: &mut [FE<Self::F>], index: usize) {
         for (i, value) in state.iter_mut().enumerate() {
-            *value = &(*value) + &P::ROUND_CONSTANTS[round_number * P::N_ROUND_CONSTANTS_COLS + i];
-            *value = value.pow(P::ALPHA);
+            *value = &(*value) + &P::ROUND_CONSTANTS[index + i];
+            *value = &(*value).square() * &*value;
         }
         Self::mix(state);
     }
 
-    fn partial_round(state: &mut [FE<Self::F>], round_number: usize) {
-        for (i, value) in state.iter_mut().enumerate() {
-            *value = &(*value) + &P::ROUND_CONSTANTS[round_number * P::N_ROUND_CONSTANTS_COLS + i];
-        }
-
-        state[P::STATE_SIZE - 1] = state[P::STATE_SIZE - 1].pow(P::ALPHA);
-
+    #[inline]
+    fn partial_round(state: &mut [FE<Self::F>], index: usize) {
+        state[2] = &state[2] + &P::ROUND_CONSTANTS[index];
+        state[2] = &state[2].square() * &state[2];
         Self::mix(state);
-    }
-
-    fn mix(state: &mut [FE<Self::F>]) {
-        let mut new_state: Vec<FE<Self::F>> = Vec::with_capacity(P::STATE_SIZE);
-        for i in 0..P::STATE_SIZE {
-            let mut new_e = FE::zero();
-            for (j, current_state) in state.iter().enumerate() {
-                let mut mij = P::MDS_MATRIX[i * P::N_MDS_MATRIX_COLS + j].clone();
-                mij *= current_state;
-                new_e += mij;
-            }
-            new_state.push(new_e);
-        }
-        state.clone_from_slice(&new_state[0..P::STATE_SIZE]);
     }
 
     fn hash(x: &FE<Self::F>, y: &FE<Self::F>) -> FE<Self::F> {

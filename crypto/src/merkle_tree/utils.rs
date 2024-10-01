@@ -1,6 +1,8 @@
 use alloc::vec::Vec;
 
 use super::traits::IsMerkleTreeBackend;
+#[cfg(feature = "parallel")]
+use rayon::prelude::*;
 
 pub fn sibling_index(node_index: usize) -> usize {
     if node_index % 2 == 0 {
@@ -19,44 +21,53 @@ pub fn parent_index(node_index: usize) -> usize {
 }
 
 // The list of values is completed repeating the last value to a power of two length
-pub fn complete_until_power_of_two<T: Clone>(values: &mut Vec<T>) -> Vec<T> {
+pub fn complete_until_power_of_two<T: Clone>(mut values: Vec<T>) -> Vec<T> {
     while !is_power_of_two(values.len()) {
-        values.push(values[values.len() - 1].clone())
+        values.push(values[values.len() - 1].clone());
     }
-    values.to_vec()
+    values
 }
 
-pub fn is_power_of_two(x: usize) -> bool {
-    (x != 0) && ((x & (x - 1)) == 0)
+// ! NOTE !
+// In this function we say 2^0 = 1 is a power of two.
+// In turn, this makes the smallest tree of one leaf, possible.
+// The function is private and is only used to ensure the tree
+// has a power of 2 number of leaves.
+fn is_power_of_two(x: usize) -> bool {
+    (x & (x - 1)) == 0
 }
 
-pub fn build<B: IsMerkleTreeBackend>(nodes: &mut Vec<B::Node>, parent_index: usize)
+// ! CAUTION !
+// Make sure n=nodes.len()+1 is a power of two, and the last n/2 elements (leaves) are populated with hashes.
+// This function takes no precautions for other cases.
+pub fn build<B: IsMerkleTreeBackend>(nodes: &mut [B::Node], leaves_len: usize)
 where
     B::Node: Clone,
 {
-    if is_leaf(nodes.len(), parent_index) {
-        return;
+    let mut level_begin_index = leaves_len - 1;
+    let mut level_end_index = 2 * level_begin_index;
+    while level_begin_index != level_end_index {
+        let new_level_begin_index = level_begin_index / 2;
+        let new_level_length = level_begin_index - new_level_begin_index;
+
+        let (new_level_iter, children_iter) =
+            nodes[new_level_begin_index..level_end_index + 1].split_at_mut(new_level_length);
+
+        #[cfg(feature = "parallel")]
+        let parent_and_children_zipped_iter = new_level_iter
+            .into_par_iter()
+            .zip(children_iter.par_chunks_exact(2));
+        #[cfg(not(feature = "parallel"))]
+        let parent_and_children_zipped_iter =
+            new_level_iter.iter_mut().zip(children_iter.chunks_exact(2));
+
+        parent_and_children_zipped_iter.for_each(|(new_parent, children)| {
+            *new_parent = B::hash_new_parent(&children[0], &children[1]);
+        });
+
+        level_end_index = level_begin_index - 1;
+        level_begin_index = new_level_begin_index;
     }
-
-    let left_child_index = left_child_index(parent_index);
-    let right_child_index = right_child_index(parent_index);
-
-    build::<B>(nodes, left_child_index);
-    build::<B>(nodes, right_child_index);
-
-    nodes[parent_index] = B::hash_new_parent(&nodes[left_child_index], &nodes[right_child_index]);
-}
-
-pub fn is_leaf(lenght: usize, node_index: usize) -> bool {
-    (node_index >= (lenght / 2)) && node_index < lenght
-}
-
-pub fn left_child_index(parent_index: usize) -> usize {
-    parent_index * 2 + 1
-}
-
-pub fn right_child_index(parent_index: usize) -> usize {
-    parent_index * 2 + 2
 }
 
 #[cfg(test)]
@@ -71,6 +82,14 @@ mod tests {
     const MODULUS: u64 = 13;
     type U64PF = U64PrimeField<MODULUS>;
     type FE = FieldElement<U64PF>;
+
+    #[test]
+    fn build_merkle_tree_one_element_must_succeed() {
+        let mut nodes = [FE::zero()];
+
+        build::<TestBackend<U64PF>>(&mut nodes, 1);
+    }
+
     #[test]
     // expected |2|4|6|8|
     fn hash_leaves_from_a_list_of_field_elemnts() {
@@ -85,8 +104,8 @@ mod tests {
     #[test]
     // expected |1|2|3|4|5|5|5|5|
     fn complete_the_length_of_a_list_of_fields_elements_to_be_a_power_of_two() {
-        let mut values: Vec<FE> = (1..6).map(FE::new).collect();
-        let hashed_leaves = complete_until_power_of_two(&mut values);
+        let values: Vec<FE> = (1..6).map(FE::new).collect();
+        let hashed_leaves = complete_until_power_of_two(values);
 
         let mut expected_leaves = (1..6).map(FE::new).collect::<Vec<FE>>();
         expected_leaves.extend([FE::new(5); 3]);
@@ -96,17 +115,30 @@ mod tests {
         }
     }
 
+    #[test]
+    // expected |2|2|
+    fn complete_the_length_of_one_field_element_to_be_a_power_of_two() {
+        let values: Vec<FE> = vec![FE::new(2)];
+        let hashed_leaves = complete_until_power_of_two(values);
+
+        let mut expected_leaves = vec![FE::new(2)];
+        expected_leaves.extend([FE::new(2)]);
+        assert_eq!(hashed_leaves.len(), 1);
+        assert_eq!(hashed_leaves[0], expected_leaves[0]);
+    }
+
     const ROOT: usize = 0;
 
     #[test]
     // expected |10|10|13|3|7|11|2|1|2|3|4|5|6|7|8|
-    fn compleate_a_merkle_tree_from_a_set_of_leaves() {
+    fn complete_a_merkle_tree_from_a_set_of_leaves() {
         let leaves: Vec<FE> = (1..9).map(FE::new).collect();
+        let leaves_len = leaves.len();
 
         let mut nodes = vec![FE::zero(); leaves.len() - 1];
         nodes.extend(leaves);
 
-        build::<TestBackend<U64PF>>(&mut nodes, ROOT);
+        build::<TestBackend<U64PF>>(&mut nodes, leaves_len);
         assert_eq!(nodes[ROOT], FE::new(10));
     }
 }

@@ -8,11 +8,15 @@ license.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-serde = { version = "1.0", default-features = false, features = ["derive"], optional = true }
-serde_json = { version = "1.0", default-features = false, features = ["alloc"], optional = true }
+serde = { version = "1.0", default-features = false, features = [
+    "derive",
+], optional = true }
+serde_json = { version = "1.0", default-features = false, features = [
+    "alloc",
+], optional = true }
 proptest = { version = "1.1.0", optional = true }
 winter-math = { package = "winter-math", version = "0.6.4", default-features = false, optional = true }
-miden-core = { package = "miden-core" , version = "0.7", default-features = false, optional = true }
+miden-core = { package = "miden-core", version = "0.7", default-features = false, optional = true }
 
 # rayon
 rayon = { version = "1.7", optional = true }
@@ -28,13 +32,13 @@ cudarc = { version = "0.9.7", optional = true }
 lambdaworks-gpu = { workspace = true, optional = true }
 
 [dev-dependencies]
-rand = { version = "0.8.5", default-features = false }
+rand = { version = "0.8.5", features = ["std"] }
 rand_chacha = "0.3.1"
 criterion = "0.5.1"
 const-random = "0.1.15"
 iai-callgrind.workspace = true
 proptest = "1.1.0"
-pprof = { version = "0.13.0", features = ["criterion","flamegraph"] }
+pprof = { version = "0.13.0", features = ["criterion", "flamegraph"] }
 
 [features]
 default = ["parallel", "std"]
@@ -45,6 +49,7 @@ lambdaworks-serde-binary = ["dep:serde", "alloc"]
 lambdaworks-serde-string = ["dep:serde", "dep:serde_json", "alloc"]
 proptest = ["dep:proptest"]
 winter_compatibility = ["winter-math", "miden-core"]
+instruments = []
 
 # gpu
 metal = [
@@ -57,6 +62,10 @@ cuda = ["dep:cudarc", "dep:lambdaworks-gpu"]
 
 [[bench]]
 name = "criterion_elliptic_curve"
+harness = false
+
+[[bench]]
+name = "iai_elliptic_curve"
 harness = false
 
 [[bench]]
@@ -92,4 +101,3 @@ harness = false
 name = "criterion_metal"
 harness = false
 required-features = ["metal"]
-

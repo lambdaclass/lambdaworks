@@ -9,4 +9,3 @@ We have written this document with the aim of making it accessible to both novic
 - [Recap](./recap.md)
 - [Protocol](./protocol.md)
 - [Implementation](./implementation.md)
-
