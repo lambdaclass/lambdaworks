@@ -29,6 +29,11 @@ type Fp12E = FieldElement<Degree12ExtensionField>;
 
 pub const SUBGROUP_ORDER: U256 =
     U256::from_hex_unchecked("73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001");
+// TODO: change the miller to use this constant instead of the actual one
+pub const MILLER_CONSTANT: &[i8] = &[
+    1, 1, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+];
 
 // Change X to be a signed 128-bit integer
 //pub const X: u64 = 0xd201000000010000;
@@ -46,7 +51,7 @@ const fn compute_x_binary(mut x: i128) -> [bool; 64] {
     }
     bits
 }
-const X: i128 = -0xd201000000010000i128; // X = -15132376222941642752
+const X: i128 = -0xd201000000010000; // X = -15132376222941642752
 const X_ABS: u128 = 15132376222941642752u128; // X_ABS = |X|
 const T_ABS: u64 = 15132376222941642752;
 const T_ABS_HALF: u64 = T_ABS / 2;
@@ -118,7 +123,7 @@ impl IsPairing for BLS12381AtePairing {
                 result *= miller(&q, &p);
             }
         }
-        Ok(final_exponentiation(&result))
+        Ok(final_exponentiation_optimized(&result))
     }
 }
 
@@ -252,7 +257,7 @@ fn miller(
             add_accumulate_line(&mut r, q, p, &mut f);
         }
     }
-    f.inv().unwrap()
+    f.conjugate()
 }
 
 fn final_exponentiation_easy(f: &mut Fp12E) {
@@ -264,6 +269,51 @@ fn final_exponentiation_easy(f: &mut Fp12E) {
 
     // Multiply f^{p^6} by f^{-1}
     *f = t0 * &t0_inv; // f^{p^6} * f^{-1}
+}
+
+fn final_exponentiation_hard(f: &mut Fp12E) -> &Fp12E {
+    let mut v2 = cyclotomic_square(&f); // v2 = f²
+    let mut v0 = cyclotomic_pow(f, X).conjugate(); //  v0 = f^x
+    let mut v1 = f.conjugate(); // v1 = f^-1
+
+    //  (x−1)²
+    v0 *= v1; // v0 = f^(x-1)
+    v1 = cyclotomic_pow(&v0, X).conjugate(); // v1 = (f^(x-1))^(x)
+
+    v0 = v0.conjugate(); // v0 = (f^(x-1))^(-1)
+    v0 *= &v1; // v0 = (f^(x-1))^(-1) * (f^(x-1))^x = (f^(x-1))^(x-1) =  f^((x-1)²)
+
+    // (x+p)
+    v1 = cyclotomic_pow(&v0, X).conjugate(); // v1 = f^((x-1)².x)
+    v0 = frobenius(&v0); // f^((x-1)².p)
+    v0 *= &v1; // f^((x-1)².p + (x-1)².x) = f^((x-1)².(x+p))
+
+    //  + 3
+
+    *f *= v2; // f^3
+
+    // (x²+p²−1)
+
+    v2 = cyclotomic_pow(&v0, X);
+    // in nim here says invert = false, so we need to check if we need to invert in the previous steps
+
+    v1 = cyclotomic_pow(&v2, X);
+    // in nim here says invert = false, so we need to check if we need to invert in the previous steps
+
+    v2 = frobenius_square(&v0);
+    v0 = v0.conjugate();
+    v0 *= &v1;
+    v0 *= &v2;
+
+    *f *= &v0;
+
+    f
+}
+
+pub fn final_exponentiation_optimized(f: &Fp12E) -> Fp12E {
+    let mut f = f.clone();
+    final_exponentiation_easy(&mut f);
+    final_exponentiation_hard(&mut f).clone()
 }
 /*
 fn cyclotomic_pow(f: &Fp12E, exp: BigInt) -> Fp12E {
@@ -287,43 +337,6 @@ fn cyclotomic_pow(f: &Fp12E, exp: BigInt) -> Fp12E {
 }
 */
 /// Auxiliary function for the final exponentiation of the ate pairing.
-fn frobenius_square(
-    f: &FieldElement<Degree12ExtensionField>,
-) -> FieldElement<Degree12ExtensionField> {
-    let [a, b] = f.value();
-    let w_raised_to_p_squared_minus_one = FieldElement::<Degree6ExtensionField>::new_base("1a0111ea397fe699ec02408663d4de85aa0d857d89759ad4897d29650fb85f9b409427eb4f49fffd8bfd00000000aaad");
-    let omega_3 = FieldElement::<Degree2ExtensionField>::new_base("1a0111ea397fe699ec02408663d4de85aa0d857d89759ad4897d29650fb85f9b409427eb4f49fffd8bfd00000000aaac");
-    let omega_3_squared = FieldElement::<Degree2ExtensionField>::new_base(
-        "5f19672fdf76ce51ba69c6076a0f77eaddb3a93be6f89688de17d813620a00022e01fffffffefffe",
-    );
-
-    let [a0, a1, a2] = a.value();
-    let [b0, b1, b2] = b.value();
-
-    let f0 = FieldElement::new([a0.clone(), a1 * &omega_3, a2 * &omega_3_squared]);
-    let f1 = FieldElement::new([b0.clone(), b1 * omega_3, b2 * omega_3_squared]);
-
-    FieldElement::new([f0, w_raised_to_p_squared_minus_one * f1])
-}
-fn inverse_unitary(f: &Fp12E) -> Fp12E {
-    f.conjugate()
-}
-
-// To understand more about how to reduce the final exponentiation
-// read "Efficient Final Exponentiation via Cyclotomic Structure for
-// Pairings over Families of Elliptic Curves" (https://eprint.iacr.org/2020/875.pdf)
-//
-// TODO: implement optimizations for the hard part of the final exponentiation.
-#[allow(unused)]
-fn final_exponentiation(
-    base: &FieldElement<Degree12ExtensionField>,
-) -> FieldElement<Degree12ExtensionField> {
-    const PHI_DIVIDED_BY_R: UnsignedInteger<20> = UnsignedInteger::from_hex_unchecked("f686b3d807d01c0bd38c3195c899ed3cde88eeb996ca394506632528d6a9a2f230063cf081517f68f7764c28b6f8ae5a72bce8d63cb9f827eca0ba621315b2076995003fc77a17988f8761bdc51dc2378b9039096d1b767f17fcbde783765915c97f36c6f18212ed0b283ed237db421d160aeb6a1e79983774940996754c8c71a2629b0dea236905ce937335d5b68fa9912aae208ccf1e516c3f438e3ba79");
-
-    let f1 = base.conjugate() * base.inv().unwrap();
-    let f2 = frobenius_square(&f1) * f1;
-    f2.pow(PHI_DIVIDED_BY_R)
-}
 
 pub fn frobenius(f: &Fp12E) -> Fp12E {
     let [a, b] = f.value(); // f = a + bw, where a and b in Fp6.
@@ -344,6 +357,25 @@ pub fn frobenius(f: &Fp12E) -> Fp12E {
     ]);
 
     Fp12E::new([c1, c2]) //c1 + c2 * w
+}
+
+fn frobenius_square(
+    f: &FieldElement<Degree12ExtensionField>,
+) -> FieldElement<Degree12ExtensionField> {
+    let [a, b] = f.value();
+    let w_raised_to_p_squared_minus_one = FieldElement::<Degree6ExtensionField>::new_base("1a0111ea397fe699ec02408663d4de85aa0d857d89759ad4897d29650fb85f9b409427eb4f49fffd8bfd00000000aaad");
+    let omega_3 = FieldElement::<Degree2ExtensionField>::new_base("1a0111ea397fe699ec02408663d4de85aa0d857d89759ad4897d29650fb85f9b409427eb4f49fffd8bfd00000000aaac");
+    let omega_3_squared = FieldElement::<Degree2ExtensionField>::new_base(
+        "5f19672fdf76ce51ba69c6076a0f77eaddb3a93be6f89688de17d813620a00022e01fffffffefffe",
+    );
+
+    let [a0, a1, a2] = a.value();
+    let [b0, b1, b2] = b.value();
+
+    let f0 = FieldElement::new([a0.clone(), a1 * &omega_3, a2 * &omega_3_squared]);
+    let f1 = FieldElement::new([b0.clone(), b1 * omega_3, b2 * omega_3_squared]);
+
+    FieldElement::new([f0, w_raised_to_p_squared_minus_one * f1])
 }
 
 // Cyclotomic squaring, quad over cube
@@ -393,6 +425,26 @@ pub fn cyclotomic_square(a: &Fp12E) -> Fp12E {
     r02 += v2.value()[0].clone();
 
     Fp12E::new([Fp6E::new([r00, r01, r02]), Fp6E::new([r10, r11, r12])])
+}
+
+fn inverse_unitary(f: &Fp12E) -> Fp12E {
+    f.conjugate()
+}
+
+// To understand more about how to reduce the final exponentiation
+// read "Efficient Final Exponentiation via Cyclotomic Structure for
+// Pairings over Families of Elliptic Curves" (https://eprint.iacr.org/2020/875.pdf)
+//
+// TODO: implement optimizations for the hard part of the final exponentiation.
+#[allow(unused)]
+fn final_exponentiation(
+    base: &FieldElement<Degree12ExtensionField>,
+) -> FieldElement<Degree12ExtensionField> {
+    const PHI_DIVIDED_BY_R: UnsignedInteger<20> = UnsignedInteger::from_hex_unchecked("f686b3d807d01c0bd38c3195c899ed3cde88eeb996ca394506632528d6a9a2f230063cf081517f68f7764c28b6f8ae5a72bce8d63cb9f827eca0ba621315b2076995003fc77a17988f8761bdc51dc2378b9039096d1b767f17fcbde783765915c97f36c6f18212ed0b283ed237db421d160aeb6a1e79983774940996754c8c71a2629b0dea236905ce937335d5b68fa9912aae208ccf1e516c3f438e3ba79");
+
+    let f1 = base.conjugate() * base.inv().unwrap();
+    let f2 = frobenius_square(&f1) * f1;
+    f2.pow(PHI_DIVIDED_BY_R)
 }
 
 fn compute_loop_counter(mut x: i128) -> Vec<i8> {
@@ -447,11 +499,13 @@ fn cyclotomic_pow(f: &Fp12E, exponent: BigInt) -> Fp12E {
 */
 
 fn cyclotomic_pow(f: &Fp12E, exponent: i128) -> Fp12E {
+    /*
     let base = if exponent < 0 {
         f.inv().unwrap()
     } else {
         f.clone()
-    };
+    };*/
+    let base = f.clone();
     let mut result = Fp12E::one();
     let exponent_bits = compute_binary_representation(exponent);
 
