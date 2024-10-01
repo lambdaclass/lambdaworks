@@ -66,16 +66,7 @@ impl Proof {
 pub struct Prover;
 impl Prover {
     pub fn prove(w: &[FrElement], qap: &QuadraticArithmeticProgram, pk: &ProvingKey) -> Proof {
-        let h_coefficients = qap
-            .calculate_h_coefficients(w)
-            .iter()
-            .map(|elem| elem.representative())
-            .collect::<Vec<_>>();
-
-        let w = w
-            .iter()
-            .map(|elem| elem.representative())
-            .collect::<Vec<_>>();
+        let h_coefficients = qap.calculate_h_coefficients(w);
 
         // Sample randomness for hiding
         let r = sample_fr_elem();
