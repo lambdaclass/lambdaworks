@@ -36,6 +36,14 @@ pub struct UnsignedInteger<const NUM_LIMBS: usize> {
     pub limbs: [u64; NUM_LIMBS],
 }
 
+impl<const NUM_LIMBS: usize> Default for UnsignedInteger<NUM_LIMBS> {
+    fn default() -> Self {
+        Self {
+            limbs: [0; NUM_LIMBS],
+        }
+    }
+}
+
 // NOTE: manually implementing `PartialOrd` may seem unorthodox, but the
 // derived implementation had terrible performance.
 #[allow(clippy::non_canonical_partial_ord_impl)]
