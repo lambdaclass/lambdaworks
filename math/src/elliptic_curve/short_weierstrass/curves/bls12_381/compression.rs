@@ -18,6 +18,11 @@ type G1Point = ShortWeierstrassProjectivePoint<BLS12381Curve>;
 type G2Point = ShortWeierstrassProjectivePoint<BLS12381TwistCurve>;
 type BLS12381FieldElement = FieldElement<BLS12381PrimeField>;
 
+/// This functionality includes the compression and decompression for points belonging to the BLS12-381, following the ideas in
+/// Zcash curve compression, check https://hackmd.io/@benjaminion/bls12-381#Point-compression and https://github.com/zcash/librustzcash/blob/6e0364cd42a2b3d2b958a54771ef51a8db79dd29/pairing/src/bls12_381/README.md#serialization
+/// The way we encode points differs from the one used ordinarily for serialization in lambdaworks.
+/// G1 points are represented by their x coordinate in big-endian form (48 bytes), with the three most significant bits used to give information on the compressed format, whether the point is the point at infinity and which of the two roots to take
+/// G2 points are represented by their x coordinate in big-endian form (96 bytes), following the order a * i + b. The three most significant bits contain the same type of information as in G1.
 impl Compress for BLS12381Curve {
     type G1Point = G1Point;
 
@@ -75,6 +80,7 @@ impl Compress for BLS12381Curve {
         if second_bit == 1 {
             return Ok(G1Point::neutral_element());
         }
+        // We obtain the third bit
         let third_bit = prefix_bits & 1_u8;
 
         let first_byte_without_control_bits = (first_byte << 3) >> 3;

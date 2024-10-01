@@ -4,6 +4,7 @@ pub mod bn_254;
 pub mod grumpkin;
 pub mod pallas;
 pub mod secp256k1;
+pub mod secp256r1;
 pub mod secq256k1;
 pub mod stark_curve;
 pub mod test_curve_1;
