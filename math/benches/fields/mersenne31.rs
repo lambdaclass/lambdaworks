@@ -1,10 +1,18 @@
 use std::hint::black_box;
 
 use criterion::Criterion;
-use lambdaworks_math::field::{element::FieldElement, fields::mersenne31::field::Mersenne31Field};
+use lambdaworks_math::field::{
+    element::FieldElement,
+    fields::mersenne31::{
+        extensions::{Degree2ExtensionField, Degree4ExtensionField},
+        field::Mersenne31Field,
+    },
+};
 use rand::random;
 
 pub type F = FieldElement<Mersenne31Field>;
+pub type Fp2E = FieldElement<Degree2ExtensionField>;
+pub type Fp4E = FieldElement<Degree4ExtensionField>;
 
 #[inline(never)]
 #[no_mangle]
@@ -15,6 +23,60 @@ pub fn rand_field_elements(num: usize) -> Vec<(F, F)> {
         result.push((F::new(random()), F::new(random())));
     }
     result
+}
+
+//TODO: Check if this is the correct way to bench.
+pub fn rand_fp4e(num: usize) -> Vec<(Fp4E, Fp4E)> {
+    let mut result = Vec::with_capacity(num);
+    for _ in 0..result.capacity() {
+        result.push((
+            Fp4E::new([
+                Fp2E::new([F::new(random()), F::new(random())]),
+                Fp2E::new([F::new(random()), F::new(random())]),
+            ]),
+            Fp4E::new([
+                Fp2E::new([F::new(random()), F::new(random())]),
+                Fp2E::new([F::new(random()), F::new(random())]),
+            ]),
+        ));
+    }
+    result
+}
+
+pub fn mersenne31_extension_ops_benchmarks(c: &mut Criterion) {
+    let input: Vec<Vec<(Fp4E, Fp4E)>> = [1000000].into_iter().map(rand_fp4e).collect::<Vec<_>>();
+
+    let mut group = c.benchmark_group("Mersenne31 Fp4 operations");
+
+    for i in input.clone().into_iter() {
+        group.bench_with_input(format!("Mul of Fp4 {:?}", &i.len()), &i, |bench, i| {
+            bench.iter(|| {
+                for (x, y) in i {
+                    black_box(black_box(x) * black_box(y));
+                }
+            });
+        });
+    }
+
+    for i in input.clone().into_iter() {
+        group.bench_with_input(format!("Square of Fp4 {:?}", &i.len()), &i, |bench, i| {
+            bench.iter(|| {
+                for (x, _) in i {
+                    black_box(black_box(x).square());
+                }
+            });
+        });
+    }
+
+    for i in input.clone().into_iter() {
+        group.bench_with_input(format!("Inv of Fp4 {:?}", &i.len()), &i, |bench, i| {
+            bench.iter(|| {
+                for (x, _) in i {
+                    black_box(black_box(x).inv().unwrap());
+                }
+            });
+        });
+    }
 }
 
 pub fn mersenne31_ops_benchmarks(c: &mut Criterion) {
