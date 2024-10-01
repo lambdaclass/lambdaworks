@@ -33,4 +33,3 @@ impl Coset {
         Coset { log_2_size: coset.log_2_size, shift: coset.shift.conjugate() }
     }
 }
-
