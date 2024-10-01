@@ -1,7 +1,7 @@
 use crate::{
     cyclic_group::IsGroup,
     elliptic_curve::{
-        point::ProjectivePoint,
+        point::{JacobianPoint, ProjectivePoint},
         traits::{EllipticCurveError, FromAffine, IsEllipticCurve},
     },
     errors::DeserializationError,
@@ -15,7 +15,6 @@ use super::traits::IsShortWeierstrass;
 use crate::traits::AsBytes;
 #[cfg(feature = "alloc")]
 use alloc::vec::Vec;
-
 #[derive(Clone, Debug)]
 pub struct ShortWeierstrassProjectivePoint<E: IsEllipticCurve>(pub ProjectivePoint<E>);
 
@@ -85,7 +84,7 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
         let zp = eight_s_cube;
         Self::new([xp, yp, zp])
     }
-
+    // https://hyperelliptic.org/EFD/g1p/data/shortw/projective/addition/madd-1998-cmo
     pub fn operate_with_affine(&self, other: &Self) -> Self {
         let [px, py, pz] = self.coordinates();
         let [qx, qy, _qz] = other.coordinates();
@@ -371,11 +370,229 @@ where
     }
 }
 
+#[derive(Clone, Debug)]
+pub struct ShortWeierstrassJacobianPoint<E: IsEllipticCurve>(pub JacobianPoint<E>);
+
+impl<E: IsShortWeierstrass> ShortWeierstrassJacobianPoint<E> {
+    /// Creates an elliptic curve point giving the projective [x: y: z] coordinates.
+    pub const fn new(value: [FieldElement<E::BaseField>; 3]) -> Self {
+        Self(JacobianPoint::new(value))
+    }
+
+    /// Returns the `x` coordinate of the point.
+    pub fn x(&self) -> &FieldElement<E::BaseField> {
+        self.0.x()
+    }
+
+    /// Returns the `y` coordinate of the point.
+    pub fn y(&self) -> &FieldElement<E::BaseField> {
+        self.0.y()
+    }
+
+    /// Returns the `z` coordinate of the point.
+    pub fn z(&self) -> &FieldElement<E::BaseField> {
+        self.0.z()
+    }
+
+    /// Returns a tuple [x, y, z] with the coordinates of the point.
+    pub fn coordinates(&self) -> &[FieldElement<E::BaseField>; 3] {
+        self.0.coordinates()
+    }
+
+    /// Creates the same point in affine coordinates. That is,
+    /// returns [x / z^2: y / z^3: 1] where `self` is [x: y: z].
+    /// Panics if `self` is the point at infinity.
+    pub fn to_affine(&self) -> Self {
+        Self(self.0.to_affine())
+    }
+
+    pub fn double(&self) -> Self {
+        if self.is_neutral_element() {
+            return self.clone();
+        }
+        let [x1, y1, z1] = self.coordinates();
+        //http://www.hyperelliptic.org/EFD/g1p/data/shortw/jacobian-0/doubling/dbl-2009-l
+
+        if E::a() == FieldElement::zero() {
+            let a = x1.square(); // A = x1^2
+            let b = y1.square(); // B = y1^2
+            let c = b.square(); // C = B^2
+            let x1_plus_b = x1 + &b; // (X1 + B)
+            let x1_plus_b_square = x1_plus_b.square(); // (X1 + B)^2
+            let d = (&x1_plus_b_square - &a - &c).double(); // D = 2 * ((X1 + B)^2 - A - C)
+            let e = &a.double() + &a; // E = 3 * A
+            let f = e.square(); // F = E^2
+            let x3 = &f - &d.double(); // X3 = F - 2 * D
+            let y3 = &e * (&d - &x3) - &c.double().double().double(); // Y3 = E * (D - X3) - 8 * C
+            let z3 = (y1 * z1).double(); // Z3 = 2 * Y1 * Z1
+
+            Self::new([x3, y3, z3])
+        } else {
+            // http://www.hyperelliptic.org/EFD/g1p/data/shortw/jacobian-0/doubling/dbl-2009-alnr
+            // http://www.hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-0.html#doubling-dbl-2009-l
+            let xx = x1.square(); // XX = X1^2
+            let yy = y1.square(); // YY = Y1^2
+            let yyyy = yy.square(); // YYYY = YY^2
+            let zz = z1.square(); // ZZ = Z1^2
+            let s = ((x1 + &yy).square() - &xx - &yyyy).double(); // S = 2 * ((X1 + YY)^2 - XX - YYYY)
+            let m = &xx.double() + &xx + &E::a() * &zz.square(); // M = 3 * XX + a * ZZ^2
+            let x3 = m.square() - &s.double(); // X3 = M^2 - 2 * S
+            let y3 = m * (&s - &x3) - &yyyy.double().double().double(); // Y3 = M * (S - X3) - 8 * YYYY
+            let z3 = (y1 + z1).square() - &yy - &zz; // Z3 = (Y1 + Z1)^2 - YY - ZZ
+
+            Self::new([x3, y3, z3])
+        }
+    }
+
+    pub fn operate_with_affine(&self, other: &Self) -> Self {
+        let [x1, y1, z1] = self.coordinates();
+        let [x2, y2, _z2] = other.coordinates();
+
+        if self.is_neutral_element() {
+            return other.clone();
+        }
+        if other.is_neutral_element() {
+            return self.clone();
+        }
+
+        let z1z1 = z1.square();
+        let u1 = x1;
+        let u2 = x2 * &z1z1;
+        let s1 = y1;
+        let s2 = y2 * z1 * &z1z1;
+
+        if *u1 == u2 {
+            if *s1 == s2 {
+                self.double() // Is the same point
+            } else {
+                Self::neutral_element() // P + (-P) = 0
+            }
+        } else {
+            let h = &u2 - u1;
+            let hh = h.square();
+            let hhh = &h * &hh;
+            let r = &s2 - s1;
+            let v = u1 * &hh;
+            let x3 = r.square() - (&hhh + &v + &v);
+            let y3 = r * (&v - &x3) - s1 * &hhh;
+            let z3 = z1 * &h;
+
+            Self::new([x3, y3, z3])
+        }
+    }
+}
+
+impl<E: IsEllipticCurve> PartialEq for ShortWeierstrassJacobianPoint<E> {
+    fn eq(&self, other: &Self) -> bool {
+        self.0 == other.0
+    }
+}
+
+impl<E: IsEllipticCurve> Eq for ShortWeierstrassJacobianPoint<E> {}
+
+impl<E: IsShortWeierstrass> FromAffine<E::BaseField> for ShortWeierstrassJacobianPoint<E> {
+    fn from_affine(
+        x: FieldElement<E::BaseField>,
+        y: FieldElement<E::BaseField>,
+    ) -> Result<Self, crate::elliptic_curve::traits::EllipticCurveError> {
+        if E::defining_equation(&x, &y) != FieldElement::zero() {
+            Err(EllipticCurveError::InvalidPoint)
+        } else {
+            let coordinates = [x, y, FieldElement::one()];
+            Ok(ShortWeierstrassJacobianPoint::new(coordinates))
+        }
+    }
+}
+
+impl<E: IsShortWeierstrass> IsGroup for ShortWeierstrassJacobianPoint<E> {
+    /// The point at infinity.
+    fn neutral_element() -> Self {
+        Self::new([
+            FieldElement::one(),
+            FieldElement::one(),
+            FieldElement::zero(),
+        ])
+    }
+
+    fn is_neutral_element(&self) -> bool {
+        let pz = self.z();
+        pz == &FieldElement::zero()
+    }
+
+    /// Computes the addition of `self` and `other`.
+    /// https://github.com/mratsim/constantine/blob/65147ed815d96fa94a05d307c1d9980877b7d0e8/constantine/math/elliptic/ec_shortweierstrass_jacobian.md
+    fn operate_with(&self, other: &Self) -> Self {
+        if self.is_neutral_element() {
+            return other.clone();
+        }
+
+        if other.is_neutral_element() {
+            return self.clone();
+        }
+
+        let [x1, y1, z1] = self.coordinates();
+        let [x2, y2, z2] = other.coordinates();
+
+        let z1_sq = z1.square(); // Z1^2
+        let z2_sq = z2.square(); // Z2^2
+
+        let u1 = x1 * &z2_sq; // U1 = X1 * Z2^2
+        let u2 = x2 * &z1_sq; // U2 = X2 * Z1^2
+
+        let z1_cu = z1 * &z1_sq; // Z1^3
+        let z2_cu = z2 * &z2_sq; // Z2^3
+
+        let s1 = y1 * &z2_cu; // S1 = Y1 * Z2^3
+        let s2 = y2 * &z1_cu; // S2 = Y2 * Z1^3
+
+        if u1 == u2 {
+            if s1 == s2 {
+                return self.double(); // P + P = 2P
+            } else {
+                return Self::neutral_element(); // P + (-P) = 0
+            }
+        }
+        // H = U2 - U1
+        let h = u2 - &u1;
+        // I = (2 * H)^2
+        let i = h.double().square();
+        // J = H * I
+        let j = -(&h * &i);
+
+        // R = 2 * (S2 - S1)
+        let r = (s2 - &s1).double();
+
+        // V = U1 * I
+        let v = u1 * &i;
+
+        // X3 = R^2 + J - 2 * V
+        let x3 = r.square() + &j - v.double();
+
+        // Y3 = R * (V - X3) + 2 * S1 * J
+        let y3 = r * (v - &x3) + (s1 * &j.double());
+
+        // Z3 = 2 * Z1 * Z2 * H
+        let z3 = z1 * z2;
+        let z3 = z3.double() * h;
+
+        Self::new([x3, y3, z3])
+    }
+
+    /// Returns the additive inverse of the jacobian point `p`
+    fn neg(&self) -> Self {
+        let [x, y, z] = self.coordinates();
+        Self::new([x.clone(), -y, z.clone()])
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::elliptic_curve::short_weierstrass::curves::bls12_381::curve::BLS12381Curve;
 
+    use crate::elliptic_curve::short_weierstrass::curves::bls12_381::curve::{
+        CURVE_COFACTOR, SUBGROUP_ORDER,
+    };
     #[cfg(feature = "alloc")]
     use crate::{
         elliptic_curve::short_weierstrass::curves::bls12_381::field_extension::BLS12381PrimeField,
@@ -393,6 +610,28 @@ mod tests {
         BLS12381Curve::create_point_from_affine(x, y).unwrap()
     }
 
+    #[cfg(feature = "alloc")]
+    #[test]
+    fn operate_with_works_jacobian() {
+        let x = FEE::new_base("36bb494facde72d0da5c770c4b16d9b2d45cfdc27604a25a1a80b020798e5b0dbd4c6d939a8f8820f042a29ce552ee5");
+        let y = FEE::new_base("7acf6e49cc000ff53b06ee1d27056734019c0a1edfa16684da41ebb0c56750f73bc1b0eae4c6c241808a5e485af0ba0");
+        let p = ShortWeierstrassJacobianPoint::<BLS12381Curve>::from_affine(x, y).unwrap();
+
+        assert_eq!(p.operate_with(&p), p.double());
+    }
+
+    #[cfg(feature = "alloc")]
+    #[test]
+    fn operate_with_self_works_jacobian() {
+        let x = FEE::new_base("36bb494facde72d0da5c770c4b16d9b2d45cfdc27604a25a1a80b020798e5b0dbd4c6d939a8f8820f042a29ce552ee5");
+        let y = FEE::new_base("7acf6e49cc000ff53b06ee1d27056734019c0a1edfa16684da41ebb0c56750f73bc1b0eae4c6c241808a5e485af0ba0");
+        let p = ShortWeierstrassJacobianPoint::<BLS12381Curve>::from_affine(x, y).unwrap();
+
+        assert_eq!(
+            p.operate_with_self(5_u16),
+            p.double().double().operate_with(&p)
+        );
+    }
     #[cfg(feature = "alloc")]
     #[test]
     fn byte_conversion_from_and_to_be_projective() {
@@ -578,6 +817,65 @@ mod tests {
         assert_eq!(
             result.unwrap_err(),
             DeserializationError::InvalidAmountOfBytes
+        );
+    }
+
+    #[test]
+    fn test_jacobian_vs_projective_operation() {
+        let x = FEE::new_base("36bb494facde72d0da5c770c4b16d9b2d45cfdc27604a25a1a80b020798e5b0dbd4c6d939a8f8820f042a29ce552ee5");
+        let y = FEE::new_base("7acf6e49cc000ff53b06ee1d27056734019c0a1edfa16684da41ebb0c56750f73bc1b0eae4c6c241808a5e485af0ba0");
+
+        let p = ShortWeierstrassJacobianPoint::<BLS12381Curve>::from_affine(x.clone(), y.clone())
+            .unwrap();
+        let q = ShortWeierstrassProjectivePoint::<BLS12381Curve>::from_affine(x, y).unwrap();
+
+        let sum_jacobian = p.operate_with_self(7_u16);
+        let sum_projective = q.operate_with_self(7_u16);
+
+        // Convert the result to affine coordinates
+        let sum_jacobian_affine = sum_jacobian.to_affine();
+        let [x_j, y_j, _] = sum_jacobian_affine.coordinates();
+
+        // Convert the result to affine coordinates
+        let binding = sum_projective.to_affine();
+        let [x_p, y_p, _] = binding.coordinates();
+
+        assert_eq!(x_j, x_p, "x coordintates do not match");
+        assert_eq!(y_j, y_p, "y coordinates do not match");
+    }
+
+    #[test]
+    fn test_multiplication_by_order_projective() {
+        let x = FEE::new_base("36bb494facde72d0da5c770c4b16d9b2d45cfdc27604a25a1a80b020798e5b0dbd4c6d939a8f8820f042a29ce552ee5");
+        let y = FEE::new_base("7acf6e49cc000ff53b06ee1d27056734019c0a1edfa16684da41ebb0c56750f73bc1b0eae4c6c241808a5e485af0ba0");
+
+        let p = ShortWeierstrassProjectivePoint::<BLS12381Curve>::from_affine(x.clone(), y.clone())
+            .unwrap();
+
+        let g = p
+            .operate_with_self(SUBGROUP_ORDER)
+            .operate_with_self(CURVE_COFACTOR);
+
+        assert!(
+            g.is_neutral_element(),
+            "Multiplication by order should result in the neutral element"
+        );
+    }
+
+    #[test]
+    fn test_multiplication_by_order_jacobian() {
+        let x = FEE::new_base("36bb494facde72d0da5c770c4b16d9b2d45cfdc27604a25a1a80b020798e5b0dbd4c6d939a8f8820f042a29ce552ee5");
+        let y = FEE::new_base("7acf6e49cc000ff53b06ee1d27056734019c0a1edfa16684da41ebb0c56750f73bc1b0eae4c6c241808a5e485af0ba0");
+
+        let p = ShortWeierstrassJacobianPoint::<BLS12381Curve>::from_affine(x.clone(), y.clone())
+            .unwrap();
+        let g = p
+            .operate_with_self(SUBGROUP_ORDER)
+            .operate_with_self(CURVE_COFACTOR);
+
+        assert!(
+            g.is_neutral_element(),
+            "Multiplication by order should result in the neutral element"
         );
     }
 }

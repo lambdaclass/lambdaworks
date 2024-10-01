@@ -409,14 +409,14 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
         let bytes = string.as_bytes();
         let mut i = 0;
 
-        while i < (len - 1) {
-            i += 1;
+        while i < len {
             match bytes[i] {
                 b'0'..=b'9' => (),
                 b'a'..=b'f' => (),
                 b'A'..=b'F' => (),
                 _ => return false,
             }
+            i += 1;
         }
 
         true
@@ -425,6 +425,8 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
     /// Creates an `UnsignedInteger` from a hexstring. It can contain `0x` or not.
     /// Returns an `CreationError::InvalidHexString`if the value is not a hexstring.
     /// Returns a `CreationError::EmptyString` if the input string is empty.
+    /// Returns a `CreationError::HexStringIsTooBig` if the the input hex string is bigger
+    /// than the maximum amount of characters for this element.
     pub fn from_hex(value: &str) -> Result<Self, CreationError> {
         let mut string = value;
         let mut char_iterator = value.chars();
@@ -435,11 +437,19 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
             string = &string[2..];
         }
         if string.is_empty() {
-            return Err(CreationError::EmptyString)?;
+            return Err(CreationError::EmptyString);
         }
         if !Self::is_hex_string(string) {
             return Err(CreationError::InvalidHexString);
         }
+
+        // Limbs are of 64 bits - 8 bytes
+        // We have 16 nibbles per bytes
+        let max_amount_of_hex_chars = NUM_LIMBS * 16;
+        if string.len() > max_amount_of_hex_chars {
+            return Err(CreationError::HexStringIsTooBig);
+        }
+
         Ok(Self::from_hex_unchecked(string))
     }
 
@@ -584,6 +594,24 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
             i -= 1;
         }
         (UnsignedInteger { limbs }, carry > 0)
+    }
+
+    pub fn double(a: &UnsignedInteger<NUM_LIMBS>) -> (UnsignedInteger<NUM_LIMBS>, bool) {
+        let mut cloned = *a;
+        let overflow = cloned.double_in_place();
+        (cloned, overflow)
+    }
+
+    pub fn double_in_place(&mut self) -> bool {
+        let mut msb_of_previous_limb = 0;
+        for i in (0..NUM_LIMBS).rev() {
+            let limb_ref = &mut self.limbs[i];
+            let msb_of_current_limb = *limb_ref >> 63;
+            *limb_ref <<= 1;
+            *limb_ref |= msb_of_previous_limb;
+            msb_of_previous_limb = msb_of_current_limb;
+        }
+        msb_of_previous_limb != 0
     }
 
     /// Multi-precision subtraction.
@@ -995,7 +1023,7 @@ impl<const NUM_LIMBS: usize> Arbitrary for UnsignedInteger<NUM_LIMBS> {
 #[cfg(test)]
 mod tests_u384 {
     use crate::traits::ByteConversion;
-    use crate::unsigned_integer::element::{UnsignedInteger, U384};
+    use crate::unsigned_integer::element::{UnsignedInteger, U256, U384};
     #[cfg(feature = "proptest")]
     use proptest::prelude::*;
     #[cfg(feature = "proptest")]
@@ -1241,6 +1269,21 @@ mod tests_u384 {
     }
 
     #[test]
+    fn from_hex_with_overflowing_hexstring_should_error() {
+        let u256_from_big_string = U256::from_hex(&"f".repeat(65));
+        assert!(u256_from_big_string.is_err());
+        assert!(
+            u256_from_big_string
+                == Err(crate::unsigned_integer::element::CreationError::HexStringIsTooBig)
+        );
+    }
+
+    #[test]
+    fn from_hex_with_non_overflowing_hexstring_should_work() {
+        assert_eq!(U256::from_hex(&"0".repeat(64)).unwrap().limbs, [0, 0, 0, 0])
+    }
+
+    #[test]
     fn construct_new_integer_from_dec_1() {
         let a = U384::from_dec_str("1").unwrap();
         assert_eq!(a.limbs, [0, 0, 0, 0, 0, 1]);
@@ -1442,6 +1485,16 @@ mod tests_u384 {
     }
 
     #[test]
+    fn double_two_384_bit_integers() {
+        let a = U384::from_u64(2);
+        let b = U384::from_u64(5);
+        let c = U384::from_u64(7);
+        assert_eq!(U384::double(&a).0, a + a);
+        assert_eq!(U384::double(&b).0, b + b);
+        assert_eq!(U384::double(&c).0, c + c);
+    }
+
+    #[test]
     fn add_two_384_bit_integers_1() {
         let a = U384::from_u64(2);
         let b = U384::from_u64(5);
@@ -1547,6 +1600,12 @@ mod tests_u384 {
         let (c, overflow) = U384::add(&a, &b);
         assert_eq!(c, c_expected);
         assert!(overflow);
+    }
+
+    #[test]
+    fn double_384_bit_integer_12_with_overflow() {
+        let a = U384::from_hex_unchecked("b07bc844363dd56467d9ebdd5929e9bb34a8e2577db77df6cf8f2ac45bd3d0bc2fc3078d265fe761af51d6aec5b59428");
+        assert_eq!(U384::double(&a), U384::add(&a, &a));
     }
 
     #[test]
@@ -2237,6 +2296,14 @@ mod tests_u256 {
     }
 
     #[test]
+    fn construct_integer_from_invalid_hex_returns_error() {
+        use crate::unsigned_integer::element::CreationError;
+        assert_eq!(U256::from_hex("0xaO"), Err(CreationError::InvalidHexString));
+        assert_eq!(U256::from_hex("0xOa"), Err(CreationError::InvalidHexString));
+        assert_eq!(U256::from_hex("0xm"), Err(CreationError::InvalidHexString));
+    }
+
+    #[test]
     fn construct_new_integer_from_dec_2() {
         let a = U256::from_dec_str("15").unwrap();
         assert_eq!(a.limbs, [0, 0, 0, 15]);
@@ -2406,6 +2473,16 @@ mod tests_u256 {
     }
 
     #[test]
+    fn double_256_bit_integer_1() {
+        let a = U256::from_u64(2);
+        let b = U256::from_u64(5);
+        let c = U256::from_u64(7);
+        assert_eq!(U256::double(&a).0, a + a);
+        assert_eq!(U256::double(&b).0, b + b);
+        assert_eq!(U256::double(&c).0, c + c);
+    }
+
+    #[test]
     fn add_two_256_bit_integers_1() {
         let a = U256::from_u64(2);
         let b = U256::from_u64(5);
@@ -2541,6 +2618,18 @@ mod tests_u256 {
         let (c, overflow) = U256::add(&a, &b);
         assert_eq!(c, c_expected);
         assert!(overflow);
+    }
+
+    #[test]
+    fn double_256_bit_integer_12_with_overflow() {
+        let a = U256::from_hex_unchecked(
+            "b07bc844363dd56467d9ebdd5929e9bb34a8e2577db77df6cf8f2ac45bd3d0bc",
+        );
+        let b = U256::from_hex_unchecked(
+            "cbbc474761bb7995ff54e25fa5d30295604fe3545d0cde405e72d8c0acebb119",
+        );
+        assert_eq!(U256::double(&a), U256::add(&a, &a));
+        assert_eq!(U256::double(&b), U256::add(&b, &b));
     }
 
     #[test]

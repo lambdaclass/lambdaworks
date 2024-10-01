@@ -106,6 +106,11 @@ pub trait IsField: Debug + Clone {
     /// Returns the sum of `a` and `b`.
     fn add(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType;
 
+    /// Returns the double of `a`.
+    fn double(a: &Self::BaseType) -> Self::BaseType {
+        Self::add(a, a)
+    }
+
     /// Returns the multiplication of `a` and `b`.
     fn mul(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType;
 
