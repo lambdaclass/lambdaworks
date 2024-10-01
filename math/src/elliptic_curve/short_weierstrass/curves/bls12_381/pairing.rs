@@ -112,7 +112,7 @@ impl IsPairing for BLS12381AtePairing {
                 result *= miller(&q, &p);
             }
         }
-        Ok(final_exponentiation_optimized(&mut result))
+        Ok(final_exponentiation_optimized(result))
     }
 }
 
@@ -249,13 +249,40 @@ fn miller(
     f.conjugate()
 }
 
-fn final_exponentiation_optimized(f: &mut Fp12E) -> Fp12E {
-    let mut f_easy_aux = f.conjugate() * f.inv().unwrap();
-    let f_easy = frobenius_square(&f_easy_aux) * &f_easy_aux;
+fn final_exponentiation_optimized(f: Fp12E) -> Fp12E {
+    let f_easy_aux = f.conjugate() * f.inv().unwrap();
+    let mut f_easy = frobenius_square_2(&f_easy_aux) * &f_easy_aux;
+
+    let mut v0 = cyclotomic_square(&f_easy);
+    let mut v1 = cyclotomic_pow_x(&f_easy).conjugate();
+    let mut v2 = f_easy.conjugate();
+
+    v1 *= v2;
+    v2 = cyclotomic_pow_x(&v1).conjugate();
+    v1 = v1.conjugate();
+    v1 *= v2;
+    v2 = cyclotomic_pow_x(&v1).conjugate();
+    v1 = frobenius(&v1);
+    v1 *= v2;
+
+    f_easy *= v0;
+
+    v0 = cyclotomic_pow_x(&v1).conjugate();
+    v2 = cyclotomic_pow_x(&v0).conjugate();
+
+    v0 = frobenius_square_2(&v1);
+    v1 = v1.conjugate();
+    v1 *= v2;
+    v1 *= v0;
+
+    f_easy *= v1;
+    f_easy
+    /* let f_easy_aux = f.conjugate() * f.inv().unwrap();
+    let mut f_easy = frobenius_square(&f_easy_aux) * &f_easy_aux;
 
     let mut v2 = cyclotomic_square(&f_easy); // v2 = f²
     let mut v0 = cyclotomic_pow_x(&f_easy).conjugate(); //  v0 = f^x
-    let mut v1 = f.conjugate(); // v1 = f^-1
+    let mut v1 = f_easy.conjugate(); // v1 = f^-1
 
     //  (x−1)²
     v0 *= v1; // v0 = f^(x-1)
@@ -271,14 +298,14 @@ fn final_exponentiation_optimized(f: &mut Fp12E) -> Fp12E {
 
     //  + 3
 
-    f_easy_aux *= v2; // f^3
+    f_easy *= v2; // f^3
 
     // (x²+p²−1)
 
-    v2 = cyclotomic_pow_x(&v0);
+    v2 = cyclotomic_pow_x(&v0).conjugate();
     // in nim invert = false, so we need to check if we need to invert in the previous steps
 
-    v1 = cyclotomic_pow_x(&v2);
+    v1 = cyclotomic_pow_x(&v2).conjugate();
     // in nim invert = false, so we need to check if we need to invert in the previous steps
 
     v2 = frobenius_square(&v0);
@@ -286,8 +313,9 @@ fn final_exponentiation_optimized(f: &mut Fp12E) -> Fp12E {
     v0 *= &v1;
     v0 *= &v2;
 
-    f_easy_aux *= &v0;
-    f_easy_aux
+    f_easy *= &v0;
+    f_easy
+     */
 }
 
 pub fn frobenius(f: &Fp12E) -> Fp12E {
@@ -310,7 +338,7 @@ pub fn frobenius(f: &Fp12E) -> Fp12E {
 
     Fp12E::new([c1, c2]) //c1 + c2 * w
 }
-
+// this function does not work as expected with the cyclotomic steps of the final exponentiation
 fn frobenius_square(
     f: &FieldElement<Degree12ExtensionField>,
 ) -> FieldElement<Degree12ExtensionField> {
@@ -328,6 +356,19 @@ fn frobenius_square(
     let f1 = FieldElement::new([b0.clone(), b1 * omega_3, b2 * omega_3_squared]);
 
     FieldElement::new([f0, w_raised_to_p_squared_minus_one * f1])
+}
+
+fn frobenius_square_2(
+    f: &FieldElement<Degree12ExtensionField>,
+) -> FieldElement<Degree12ExtensionField> {
+    let [a, b] = f.value();
+    let [a0, a1, a2] = a.value();
+    let [b0, b1, b2] = b.value();
+
+    let c1 = Fp6E::new([a0.clone(), GAMMA_22 * a1, GAMMA_24 * a2]);
+    let c2 = Fp6E::new([GAMMA_21 * b0, GAMMA_23 * b1, GAMMA_25 * b2]);
+
+    Fp12E::new([c1, c2])
 }
 
 // Cyclotomic squaring, quad over cube
@@ -391,7 +432,7 @@ fn final_exponentiation(
     const PHI_DIVIDED_BY_R: UnsignedInteger<20> = UnsignedInteger::from_hex_unchecked("f686b3d807d01c0bd38c3195c899ed3cde88eeb996ca394506632528d6a9a2f230063cf081517f68f7764c28b6f8ae5a72bce8d63cb9f827eca0ba621315b2076995003fc77a17988f8761bdc51dc2378b9039096d1b767f17fcbde783765915c97f36c6f18212ed0b283ed237db421d160aeb6a1e79983774940996754c8c71a2629b0dea236905ce937335d5b68fa9912aae208ccf1e516c3f438e3ba79");
 
     let f1 = base.conjugate() * base.inv().unwrap();
-    let f2 = frobenius_square(&f1) * f1;
+    let f2 = frobenius_square_2(&f1) * f1;
     f2.pow(PHI_DIVIDED_BY_R)
 }
 
@@ -503,9 +544,9 @@ mod tests {
         let f = Fp12E::from_coefficients(&[
             "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12",
         ]);
-        let mut result = frobenius_square(&f);
+        let mut result = frobenius_square_2(&f);
         for _ in 1..6 {
-            result = frobenius_square(&result);
+            result = frobenius_square_2(&result);
         }
         assert_eq!(f, result)
     }
@@ -516,7 +557,7 @@ mod tests {
         let q = BLS12381TwistCurve::generator();
         let f = miller(&q, &p);
         let f_easy_aux = f.conjugate() * f.inv().unwrap(); // f ^ (p^6 - 1) because f^(p^6) = f.conjugate().
-        let f_easy = &frobenius_square(&f_easy_aux) * f_easy_aux; // (f^{p^6 - 1})^(p^2) * (f^{p^6 - 1}).
+        let f_easy = &frobenius_square_2(&f_easy_aux) * f_easy_aux; // (f^{p^6 - 1})^(p^2) * (f^{p^6 - 1}).
         assert_eq!(cyclotomic_square(&f_easy), f_easy.square());
     }
 
@@ -530,7 +571,7 @@ mod tests {
         let expected_r = g2.operate_with(&g2);
         assert_eq!(r.to_affine(), expected_r.to_affine());
     }
-    #[test]
+
     /*
     fn test_final_exponentiation_easy() {
         let mut f =
@@ -554,7 +595,7 @@ mod tests {
         let q = BLS12381TwistCurve::generator();
         let f = miller(&q, &p);
         let f_easy_aux = f.conjugate() * f.inv().unwrap(); // f ^ (p^6 - 1) because f^(p^6) = f.conjugate().
-        let f_easy = &frobenius_square(&f_easy_aux) * f_easy_aux; // (f^{p^6 - 1})^(p^2) * (f^{p^6 - 1}).
+        let f_easy = &frobenius_square_2(&f_easy_aux) * f_easy_aux; // (f^{p^6 - 1})^(p^2) * (f^{p^6 - 1}).
         assert_eq!(cyclotomic_pow_x(&f_easy), f_easy.pow(X));
     }
 }
