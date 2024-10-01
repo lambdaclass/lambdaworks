@@ -245,7 +245,7 @@ impl Neg for AdapterFieldElement {
 
 impl PartialEq<AdapterFieldElement> for AdapterFieldElement {
     fn eq(&self, other: &AdapterFieldElement) -> bool {
-        self.0.eq(&other.0)
+        self.0 == other.0
     }
 }
 

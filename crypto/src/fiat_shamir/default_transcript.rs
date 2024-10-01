@@ -1,5 +1,4 @@
 use super::is_transcript::IsTranscript;
-use crate::alloc::borrow::ToOwned;
 use core::marker::PhantomData;
 use lambdaworks_math::{
     field::{element::FieldElement, traits::IsField},
@@ -51,7 +50,7 @@ where
     FieldElement<F>: ByteConversion,
 {
     fn append_bytes(&mut self, new_bytes: &[u8]) {
-        self.hasher.update(&mut new_bytes.to_owned());
+        self.hasher.update(new_bytes);
     }
 
     fn append_field_element(&mut self, element: &FieldElement<F>) {

@@ -13,7 +13,6 @@ const ROOT: usize = 0;
 pub enum Error {
     OutOfBounds,
 }
-
 impl Display for Error {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "Accessed node was out of bound")
@@ -34,11 +33,15 @@ impl<B> MerkleTree<B>
 where
     B: IsMerkleTreeBackend,
 {
-    pub fn build(unhashed_leaves: &[B::Data]) -> Self {
-        let mut hashed_leaves: Vec<B::Node> = B::hash_leaves(unhashed_leaves);
+    pub fn build(unhashed_leaves: &[B::Data]) -> Option<Self> {
+        if unhashed_leaves.is_empty() {
+            return None;
+        }
+
+        let hashed_leaves: Vec<B::Node> = B::hash_leaves(unhashed_leaves);
 
         //The leaf must be a power of 2 set
-        hashed_leaves = complete_until_power_of_two(&mut hashed_leaves);
+        let hashed_leaves = complete_until_power_of_two(hashed_leaves);
         let leaves_len = hashed_leaves.len();
 
         //The length of leaves minus one inner node in the merkle tree
@@ -55,7 +58,7 @@ where
         MerkleTree {
             root: nodes[ROOT].clone(),
             nodes,
-        }
+        })
     }
 
     /// Returns the leaf at the given index.
@@ -165,7 +168,6 @@ where
         (self.nodes_len() as f32).log2().ceil() as usize
     }
 }
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -179,7 +181,6 @@ mod tests {
     type TestTree = MerkleTree<TestBackend<U64PF>>;
 
     #[test]
-    // expected | 10 | 3 | 7 | 1 | 2 | 3 | 4 |
     fn build_merkle_tree_from_a_power_of_two_list_of_values() {
         let values: Vec<FE> = (1..5).map(FE::new).collect();
         let merkle_tree = TestTree::build(&values);
@@ -194,7 +195,24 @@ mod tests {
         type FE = FieldElement<U64PF>;
 
         let values: Vec<FE> = (1..6).map(FE::new).collect();
+
         let merkle_tree = TestTree::build(&values);
         assert_eq!(merkle_tree.root, FE::new(8));
+    }
+
+    #[test]
+    fn build_merkle_tree_from_a_single_value() {
+        const MODULUS: u64 = 13;
+        type U64PF = U64PrimeField<MODULUS>;
+        type FE = FieldElement<U64PF>;
+
+        let values: Vec<FE> = vec![FE::new(1)]; // Single element
+        let merkle_tree = MerkleTree::<TestBackend<U64PF>>::build(&values).unwrap();
+        assert_eq!(merkle_tree.root, FE::new(2)); // Adjusted expected value
+    }
+
+    #[test]
+    fn build_empty_tree_should_not_panic() {
+        assert!(MerkleTree::<TestBackend<U64PF>>::build(&[]).is_none());
     }
 }

@@ -36,7 +36,7 @@ impl Sha3Hasher {
         let a = [b_0.clone(), Self::i2osp(1, 1), dst_prime.clone()].concat();
         let b_1 = Sha3_256::digest(a).to_vec();
 
-        let mut b_vals = Vec::<Vec<u8>>::with_capacity(ell as usize * b_in_bytes as usize);
+        let mut b_vals = Vec::<Vec<u8>>::with_capacity(ell as usize);
         b_vals.push(b_1);
         for idx in 1..ell {
             let aux = Self::strxor(&b_0, &b_vals[idx as usize - 1]);
@@ -57,12 +57,18 @@ impl Sha3Hasher {
             digits.push((x_aux % 256) as u8);
             x_aux /= 256;
         }
-        digits.resize(digits.len() + (length - digits.len() as u64) as usize, 0);
+        digits.resize(length as usize, 0);
         digits.reverse();
         digits
     }
 
     fn strxor(a: &[u8], b: &[u8]) -> Vec<u8> {
         a.iter().zip(b).map(|(a, b)| a ^ b).collect()
+    }
+}
+
+impl Default for Sha3Hasher {
+    fn default() -> Self {
+        Self::new()
     }
 }

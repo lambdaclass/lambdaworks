@@ -173,7 +173,7 @@ PLONK has the flexibility to construct more sophisticated gates as combinations 
 
 | $Q_L$ | $Q_R$ | $Q_M$ | $Q_O$ | $Q_C$ |
 | ----- | ----- | ----- | ----- | ----- |
-| 1     | 1     | 1     | -1    | 1     |
+| 0     | 1     | 1     | -1    | 1     |
 
 and also the $V$ matrix
 
@@ -189,7 +189,7 @@ The trace matrix for this representation is just
 
 And we check that it satisfies the equation
 
-$$ 2 \times 1 + 3 \times 1 + 2 \times 3 \times 1 + 8 \times (-1) + (-1) = 0$$
+$$ 2 \times 0 + 3 \times 1 + 2 \times 3 \times 1 + 8 \times (-1) + (-1) = 0$$
 
 Of course, we can't always squash an entire program into a single gate.
 
@@ -256,7 +256,7 @@ In the previous section we showed how the arithmetization process works in PLONK
 
 Polynomials enter now to squash most of these equations. We will traduce the set of all equations in conditions (a) and (b) to just a few equations on polynomials.
 
-Let $\omega$ be a primitive $N$-th root of unity and let $H = {\omega^i: 0\leq i < N}$. Let $a, b, c, q_L, q_R, q_M, q_O, q_C, pi$ be the polynomials of degree at most $N$ that interpolate the columns $A, B, C, Q_L, Q_R, Q_M, Q_O, Q_C, PI$ at the domain $H$. This means for example that $a(\omega^i) = A_i$ for all $i$. And similarly for all the other columns.
+Let $\omega$ be a primitive $N$-th root of unity and let $H = {\omega^i: 0 \leq i < N}$. Let $a, b, c, q_L, q_R, q_M, q_O, q_C, pi$ be the polynomials of degree at most $N$ that interpolate the columns $A, B, C, Q_L, Q_R, Q_M, Q_O, Q_C, PI$ at the domain $H$. This means for example that $a(\omega^i) = A_i$ for all $i$. And similarly for all the other columns.
 
 With this, condition (a) of the claim is equivalent to $$a(x) q_L(x) + b(x) q_R(x) + a(x) b(x) q_M(x) + c(x) q_O(x) + q_c(x) + pi(x) = 0$$ for all $x$ in $H$.This is just by definition of the polynomials. But in polynomials land this is also equivalent to (a) there exists a polynomial $t$ such that $$a q_L + b q_R + a b q_M + c q_O + q_c + pi = z_H t$$, where $z_H$ is the polynomial $X^N -1$.
 
@@ -308,12 +308,12 @@ Polynomials come to rescue here. What we can do instead is consider the followin
 
 Putting this altogether, if for some random element $\gamma$ we have $(a_0 + \gamma)(a_1 + \gamma) = (b_0 + \gamma)(b_1 + \gamma)$, then the sets $A$ and $B$ are equal. Of course this also holds for sets with more than two elements. Let's write that down.
 
-_Fact:_ Let $A=\{a_0, \dots, a_{k-1}\}$ and $B=\{b_0, \dots, b_{k-1}\}$ be sets of field elements. If for some random $\gamma$ the following equality holds
-$$\prod_{i=0}^{k-1}(a_i + \gamma) = \prod_{i=0}^{k-1}(b_i + \gamma),$$
+_Fact:_ Let $A=\{a_0, \dots, a_{k - 1}\}$ and $B=\{b_0, \dots, b_{k - 1}\}$ be sets of field elements. If for some random $\gamma$ the following equality holds
+$$\prod_{i = 0}^{ k - 1}(a_i + \gamma) = \prod_{i = 0}^{ k - 1 }(b_i + \gamma),$$
 then with overwhelming probability $A$ is equal to $B$.
 
 And here comes the trick that reduces this check to polynomial equations. Let
-$H$ be a domain of the form $\{1, \omega, \dots, \omega^{k-1}\}$ for some primitive $k$-th root of unity $\omega$. Let $f$ and $g$ be respectively the polynomials that interpolate the following values at $H$.
+$H$ be a domain of the form $\{1, \omega, \dots, \omega^{k - 1}\}$ for some primitive $k$-th root of unity $\omega$. Let $f$ and $g$ be respectively the polynomials that interpolate the following values at $H$.
 $$(a_0 + \gamma, \dots, a_{k-1} + \gamma),$$
 $$(b_0 + \gamma, \dots, b_{k-1} + \gamma),$$
 
@@ -445,4 +445,3 @@ $$
 This last step is not obvious. You can check the paper to see the proof. Anyway, this is the equation you'll recognize below in the description of the protocol.
 
 Randomness is a delicate matter and an important part of the protocol is where it comes from, who chooses it and when they choose it. Check out the protocol to see how it works.
-

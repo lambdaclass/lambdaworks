@@ -91,6 +91,7 @@ mod tests {
     #[test]
     fn hash_data_field_element_backend_works_with_keccak_256() {
         let values: Vec<FE> = (1..6).map(FE::from).collect();
+
         let merkle_tree = MerkleTree::<FieldElementBackend<F, Keccak256, 32>>::build(&values);
         let proof = merkle_tree.get_proof(0).unwrap();
         assert!(proof.verify::<FieldElementBackend<F, Keccak256, 32>>(
