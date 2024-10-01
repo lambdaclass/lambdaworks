@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1727793741952,
+  "lastUpdate": 1727812114886,
   "repoUrl": "https://github.com/lambdaclass/lambdaworks",
   "entries": {
     "Benchmark": [
@@ -14087,6 +14087,150 @@ window.BENCHMARK_DATA = {
             "name": "Polynomial/evaluate #2",
             "value": 14,
             "range": "± 0",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nicole.graus@lambdaclass.com",
+            "name": "Nicole Graus",
+            "username": "nicole-graus"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7a427aacfd9241276c17f38ecbfd5e6dfae4e032",
+          "message": "Optimize Mersenne31 Field (#921)\n\n* optimize add\n\n* save changes. Add, sub and mul checked\n\n* fix tests\n\n* add new inv\n\n* add mult by powers of two\n\n* replace inverse\n\n* test new inv\n\n* modify old algorithm for inv\n\n* fix tests extension\n\n* add mul for degree 4 extension\n\n* add fp4 isField and isSubField operations and benchmarks\n\n* new version for fp4 mul based on the paper\n\n* add mul of a fp2e by non-residue\n\n* change inv using mul_fp2_by_non_resiude\n\n* save work\n\n* wip fp2 test\n\n* add fp2 tests\n\n* add 2 * a^2 - 1 function\n\n* use karatsuba in fp4 mul version 1\n\n* clean up\n\n* fix Fp as subfield of Fp2. Tests Fp plus Fp4 is now correct\n\n* fix inv\n\n* fix comments\n\n* fix comments\n\n* fixes\n\n* fix clippy\n\n* fix cargo check no-std\n\n* fix clippy\n\n* change zero function of isField to rust default\n\n* fix two_square_minus_one function and optimize inv function\n\n* fix clippy\n\n---------\n\nCo-authored-by: Nicole <nicole@Nicoles-MacBook-Air.local>\nCo-authored-by: Joaquin Carletti <joaquin.carletti@lambdaclass.com>\nCo-authored-by: diegokingston <dkingston@fi.uba.ar>\nCo-authored-by: Diego K <43053772+diegokingston@users.noreply.github.com>\nCo-authored-by: Joaquin Carletti <56092489+ColoCarletti@users.noreply.github.com>",
+          "timestamp": "2024-10-01T19:34:56Z",
+          "tree_id": "25d06e0cb0053c3af5b6498cf807ad07dae1d526",
+          "url": "https://github.com/lambdaclass/lambdaworks/commit/7a427aacfd9241276c17f38ecbfd5e6dfae4e032"
+        },
+        "date": 1727812112525,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "Ordered FFT/Parallel (Metal)",
+            "value": 181286947,
+            "range": "± 11404902",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #2",
+            "value": 408018771,
+            "range": "± 6244995",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #3",
+            "value": 1049329833,
+            "range": "± 57726471",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #4",
+            "value": 3680903812,
+            "range": "± 450622240",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal)",
+            "value": 85249424,
+            "range": "± 6055212",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #2",
+            "value": 184461194,
+            "range": "± 15421211",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #3",
+            "value": 384024906,
+            "range": "± 13464380",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #4",
+            "value": 781578479,
+            "range": "± 18354378",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal)",
+            "value": 92367699,
+            "range": "± 33878213",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #2",
+            "value": 227356944,
+            "range": "± 11994399",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #3",
+            "value": 563078562,
+            "range": "± 16524832",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #4",
+            "value": 1339243292,
+            "range": "± 183256050",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal",
+            "value": 477081364,
+            "range": "± 39748709",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #2",
+            "value": 909136666,
+            "range": "± 112992263",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #3",
+            "value": 1459374687,
+            "range": "± 39861162",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #4",
+            "value": 4440344667,
+            "range": "± 736730692",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal",
+            "value": 845199750,
+            "range": "± 23245156",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #2",
+            "value": 1695808313,
+            "range": "± 122964982",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #3",
+            "value": 3537738500,
+            "range": "± 229305347",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #4",
+            "value": 7713828875,
+            "range": "± 375165798",
             "unit": "ns/iter"
           }
         ]
