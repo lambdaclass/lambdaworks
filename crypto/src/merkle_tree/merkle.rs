@@ -58,7 +58,7 @@ where
         MerkleTree {
             root: nodes[ROOT].clone(),
             nodes,
-        })
+        }
     }
 
     /// Returns the leaf at the given index.
