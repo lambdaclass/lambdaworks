@@ -203,7 +203,7 @@ impl FieldElement<Degree2ExtensionField> {
 pub struct BLS12377Residue;
 impl HasQuadraticNonResidue<BLS12377PrimeField> for BLS12377Residue {
     fn residue() -> FieldElement<BLS12377PrimeField> {
-        -FieldElement::from(5)
+        FP2_RESIDUE
     }
 }
 
