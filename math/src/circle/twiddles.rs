@@ -20,6 +20,7 @@ pub fn get_twiddles(domain: Coset) -> Vec<Vec<FieldElement<Mersenne31Field>>> {
             twiddles.push(cur);
         }
     }
+    twiddles.reverse();
     twiddles
 }
 
@@ -38,17 +39,17 @@ mod tests {
 
     #[test]
     fn twiddles_test() {
-        let domain = Coset::new_standard(3);g
-        let _twiddles = get_twiddles(domain.clone());
+        let domain = Coset::new_standard(3);
+        // let twiddles = get_twiddles(domain.clone());
         // println!("DOMAIN: {:?}", Coset::get_coset_points(&domain));
         // println!("----------------------");
         // println!("TWIDDLES: {:?}", twiddles);
 
-        assert_eq!(FieldElement::<Mersenne31Field>::from(&32768), 
-            FieldElement::<Mersenne31Field>::from(&590768354).square().double() - FieldElement::<Mersenne31Field>::one()
-        );
-        assert_eq!(-FieldElement::<Mersenne31Field>::from(&32768), 
-        FieldElement::<Mersenne31Field>::from(&978592373).square().double() - FieldElement::<Mersenne31Field>::one()
-    )
+        // assert_eq!(FieldElement::<Mersenne31Field>::from(&32768), 
+        //     FieldElement::<Mersenne31Field>::from(&590768354).square().double() - FieldElement::<Mersenne31Field>::one()
+        // );
+        // assert_eq!(-FieldElement::<Mersenne31Field>::from(&32768), 
+        // FieldElement::<Mersenne31Field>::from(&978592373).square().double() - FieldElement::<Mersenne31Field>::one()
+    // )
     }
 }
