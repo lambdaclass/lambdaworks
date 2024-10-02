@@ -102,8 +102,8 @@ mod tests {
         v.push(FpE::one());
         v.push(x);
         for _ in 2..4 {
-            a = a.square() - FpE::one();
-            v.push(a.double() + FpE::one());
+            a = a.square().double() - FpE::one();
+            v.push(a);
         }
         // println!("{:?}", coef[7] * y * v[1] * v[2]);
         // println!("-------------------");
