@@ -234,7 +234,7 @@ fn add_accumulate_line(
 /// Based on algorithm 9.2, page 212 of the book
 /// "Topics in computational number theory" by W. Bons and K. Lenstra
 #[allow(unused)]
-fn miller(
+pub fn miller(
     q: &ShortWeierstrassProjectivePoint<BLS12381TwistCurve>,
     p: &ShortWeierstrassProjectivePoint<BLS12381Curve>,
 ) -> FieldElement<Degree12ExtensionField> {
@@ -248,7 +248,7 @@ fn miller(
         miller_loop_constant >>= 1;
     }
 
-    for bit in X_BINARY[1..].iter() {
+    for bit in miller_loop_constant_bits[1..].iter() {
         double_accumulate_line(&mut r, p, &mut f);
         if *bit {
             add_accumulate_line(&mut r, q, p, &mut f);
@@ -256,10 +256,12 @@ fn miller(
     }
     f.conjugate()
 }
+#[allow(unused)]
 pub fn miller_optimized(
     q: &ShortWeierstrassProjectivePoint<BLS12381TwistCurve>,
     p: &ShortWeierstrassProjectivePoint<BLS12381Curve>,
 ) -> FieldElement<Degree12ExtensionField> {
+    /*
     // Subgroup check
     if !p.is_in_subgroup() || !q.is_in_subgroup() {
         panic!("Points must be in the correct subgroup");
@@ -269,7 +271,7 @@ pub fn miller_optimized(
     if p.is_neutral_element() || q.is_neutral_element() {
         return FieldElement::<Degree12ExtensionField>::one();
     }
-
+    */
     let mut r = q.clone();
     let mut f = FieldElement::<Degree12ExtensionField>::one();
 
@@ -284,7 +286,7 @@ pub fn miller_optimized(
     f.conjugate() // Final conjugation to complete the loop
 }
 
-fn final_exponentiation_optimized(f: &Fp12E) -> Fp12E {
+pub fn final_exponentiation_optimized(f: &Fp12E) -> Fp12E {
     /*
     let f_easy_aux = f.conjugate() * f.inv().unwrap();
     let mut f_easy = frobenius_square(&f_easy_aux) * &f_easy_aux;
@@ -439,7 +441,7 @@ pub fn cyclotomic_square(a: &Fp12E) -> Fp12E {
 // Pairings over Families of Elliptic Curves" (https://eprint.iacr.org/2020/875.pdf)
 
 #[allow(unused)]
-fn final_exponentiation(
+pub fn final_exponentiation(
     base: &FieldElement<Degree12ExtensionField>,
 ) -> FieldElement<Degree12ExtensionField> {
     const PHI_DIVIDED_BY_R: UnsignedInteger<20> = UnsignedInteger::from_hex_unchecked("f686b3d807d01c0bd38c3195c899ed3cde88eeb996ca394506632528d6a9a2f230063cf081517f68f7764c28b6f8ae5a72bce8d63cb9f827eca0ba621315b2076995003fc77a17988f8761bdc51dc2378b9039096d1b767f17fcbde783765915c97f36c6f18212ed0b283ed237db421d160aeb6a1e79983774940996754c8c71a2629b0dea236905ce937335d5b68fa9912aae208ccf1e516c3f438e3ba79");
@@ -649,4 +651,8 @@ mod tests {
         //     "The result of optimized and non-optimized final exponentiation should be the same"
         // );
     }
+
+    // About the test: If final exp old uses the previous version of frobenius square the test will pass, also if the same function is used in the
+    // optimized version of the final exp the test will pass. But the bilinearity test will fail. Need to check with Diego.
+    // maybe using some precomputed values to check.
 }
