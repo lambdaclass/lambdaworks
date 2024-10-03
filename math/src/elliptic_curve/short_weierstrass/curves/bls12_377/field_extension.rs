@@ -22,6 +22,7 @@ impl IsModulus<U384> for BLS12377FieldModulus {
 }
 
 pub type BLS12377PrimeField = MontgomeryBackendPrimeField<BLS12377FieldModulus, 6>;
+type Fp2E = FieldElement<Degree2ExtensionField>;
 
 #[derive(Clone, Debug)]
 pub struct Degree2ExtensionField;
@@ -218,7 +219,6 @@ impl HasCubicNonResidue<Degree2ExtensionField> for LevelTwoResidue {
         ])
     }
 }
-
 pub type Degree6ExtensionField = CubicExtensionField<Degree2ExtensionField, LevelTwoResidue>;
 
 #[derive(Debug, Clone)]
@@ -292,7 +292,23 @@ impl FieldElement<Degree12ExtensionField> {
         ])
     }
 }
+impl HasQuadraticNonResidue<Degree2ExtensionField> for LevelTwoResidue {
+    fn residue() -> FieldElement<Degree2ExtensionField> {
+        FieldElement::new([
+            FieldElement::new(U384::from("0")),
+            FieldElement::new(U384::from("1")),
+        ])
+    }
+}
+pub type Degree4ExtensionField = QuadraticExtensionField<Degree2ExtensionField, LevelTwoResidue>;
 
+pub fn mul_fp2_by_nonresidue(a: &Fp2E) -> Fp2E {
+    // (c0 + c1 * u) * u =  - c1 + c0 * u
+    let c0 = -&a.value()[1]; //  - c1
+    let c1 = &a.value()[0]; //  c0
+
+    Fp2E::new([c0.clone(), c1.clone()])
+}
 #[cfg(test)]
 mod tests {
 
