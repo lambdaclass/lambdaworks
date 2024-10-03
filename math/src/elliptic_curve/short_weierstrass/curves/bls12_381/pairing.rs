@@ -27,21 +27,8 @@ type Fp12E = FieldElement<Degree12ExtensionField>;
 pub const SUBGROUP_ORDER: U256 =
     U256::from_hex_unchecked("73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001");
 // value of x in binary
-pub const MILLER_CONSTANT: &[i8] = &[
-    1, 1, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-];
 
-// binary decomposition of -x₀ little endian from gnark, this value is the same used in
-// https://github.com/hecmas/zkNotebook/blob/main/src/BLS12381/constants.ts
-// is the sane as the one above but in little endian?
-
-pub const MILLER_CONSTANT_2: &[i8] = &[
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 1, 1,
-];
-
-// We use |x|, then if needed we aply the minus sign in the final exponentiation
+// We use |x|, then if needed we apply the minus sign in the final exponentiation by applying the inverse (in this case the conjugate because the element is in the cyclotomic subgroup)
 pub const X: u64 = 0xd201000000010000;
 
 // X = 1101001000000001000000000000000000000000000000010000000000000000
@@ -55,7 +42,7 @@ pub const X_BINARY: &[bool] = &[
 
 // GAMMA constants used to compute the Frobenius morphisms
 /// We took these constants from https://github.com/hecmas/zkNotebook/blob/main/src/BLS12381/constants.ts
-/// GAMMA_1i = (9 + u)^{i(p-1) / 6} for all i = 1..5
+
 pub const GAMMA_11: Fp2E = Fp2E::const_from_raw([
     FpE::from_hex_unchecked("1904D3BF02BB0667C231BEB4202C0D1F0FD603FD3CBD5F4F7B2443D784BAB9C4F67EA53D63E7813D8D0775ED92235FB8"),
     FpE::from_hex_unchecked("FC3E2B36C4E03288E9E902231F9FB854A14787B6C7B36FEC0C8EC971F63C5F282D5AC14D6C7EC22CF78A126DDC4AF3"),
