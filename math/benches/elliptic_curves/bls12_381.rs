@@ -6,9 +6,8 @@ use lambdaworks_math::{
             curves::bls12_381::{
                 curve::BLS12381Curve,
                 pairing::{
-                    cyclotomic_pow_x, cyclotomic_square, final_exponentiation,
-                    final_exponentiation_optimized, miller, miller_optimized, BLS12381AtePairing,
-                    X,
+                    final_exponentiation, final_exponentiation_optimized, miller, miller_optimized,
+                    BLS12381AtePairing,
                 },
                 twist::BLS12381TwistCurve,
             },
@@ -35,63 +34,63 @@ pub fn bls12_381_elliptic_curve_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("BLS12-381 Ops");
     group.significance_level(0.1).sample_size(10000);
     group.throughput(criterion::Throughput::Elements(1));
-    /*
-        // Operate_with G1
-        group.bench_function("Operate_with_G1", |bencher| {
-            bencher.iter(|| black_box(black_box(&a_g1).operate_with(black_box(&b_g1))));
-        });
 
-        // Operate_with G2
-        group.bench_function("Operate_with_G2 {:?}", |bencher| {
-            bencher.iter(|| black_box(black_box(&a_g2).operate_with(black_box(&b_g2))));
-        });
+    // Operate_with G1
+    group.bench_function("Operate_with_G1", |bencher| {
+        bencher.iter(|| black_box(black_box(&a_g1).operate_with(black_box(&b_g1))));
+    });
 
-        // Operate_with_self G1
-        group.bench_function("Operate_with_self_G1", |bencher| {
-            bencher.iter(|| black_box(black_box(&a_g1).operate_with_self(black_box(b_val))));
-        });
+    // Operate_with G2
+    group.bench_function("Operate_with_G2 {:?}", |bencher| {
+        bencher.iter(|| black_box(black_box(&a_g2).operate_with(black_box(&b_g2))));
+    });
 
-        // Operate_with_self G2
-        group.bench_function("Operate_with_self_G2", |bencher| {
-            bencher.iter(|| black_box(black_box(&a_g2).operate_with_self(black_box(b_val))));
-        });
+    // Operate_with_self G1
+    group.bench_function("Operate_with_self_G1", |bencher| {
+        bencher.iter(|| black_box(black_box(&a_g1).operate_with_self(black_box(b_val))));
+    });
 
-        // Double G1
-        group.bench_function("Double G1", |bencher| {
-            bencher.iter(|| black_box(black_box(&a_g1).operate_with_self(black_box(2u64))));
-        });
+    // Operate_with_self G2
+    group.bench_function("Operate_with_self_G2", |bencher| {
+        bencher.iter(|| black_box(black_box(&a_g2).operate_with_self(black_box(b_val))));
+    });
 
-        // Double G2
-        group.bench_function("Double G2 {:?}", |bencher| {
-            bencher.iter(|| black_box(black_box(&a_g2).operate_with_self(black_box(2u64))));
-        });
+    // Double G1
+    group.bench_function("Double G1", |bencher| {
+        bencher.iter(|| black_box(black_box(&a_g1).operate_with_self(black_box(2u64))));
+    });
 
-        // Neg G1
-        group.bench_function("Neg G1", |bencher| {
-            bencher.iter(|| black_box(black_box(&a_g1).neg()));
-        });
+    // Double G2
+    group.bench_function("Double G2 {:?}", |bencher| {
+        bencher.iter(|| black_box(black_box(&a_g2).operate_with_self(black_box(2u64))));
+    });
 
-        // Neg G2
-        group.bench_function("Neg G2", |bencher| {
-            bencher.iter(|| black_box(black_box(&a_g2).neg()));
-        });
+    // Neg G1
+    group.bench_function("Neg G1", |bencher| {
+        bencher.iter(|| black_box(black_box(&a_g1).neg()));
+    });
 
-        // Compress_G1_point
-        group.bench_function("Compress G1 point", |bencher| {
-            bencher.iter(|| black_box(BLS12381Curve::compress_g1_point(black_box(&a_g1))));
-        });
+    // Neg G2
+    group.bench_function("Neg G2", |bencher| {
+        bencher.iter(|| black_box(black_box(&a_g2).neg()));
+    });
 
-        // Decompress_G1_point
-        group.bench_function("Decompress G1 Point", |bencher| {
-            let a: [u8; 48] = BLS12381Curve::compress_g1_point(&a_g1);
-            bencher.iter(|| black_box(BLS12381Curve::decompress_g1_point(&mut black_box(a))).unwrap());
-        });
+    // Compress_G1_point
+    group.bench_function("Compress G1 point", |bencher| {
+        bencher.iter(|| black_box(BLS12381Curve::compress_g1_point(black_box(&a_g1))));
+    });
 
-        // Subgroup Check G1
-        group.bench_function("Subgroup Check G1", |bencher| {
-            bencher.iter(|| (black_box(a_g1.is_in_subgroup())));
-        });
-    */
+    // Decompress_G1_point
+    group.bench_function("Decompress G1 Point", |bencher| {
+        let a: [u8; 48] = BLS12381Curve::compress_g1_point(&a_g1);
+        bencher.iter(|| black_box(BLS12381Curve::decompress_g1_point(&mut black_box(a))).unwrap());
+    });
+
+    // Subgroup Check G1
+    group.bench_function("Subgroup Check G1", |bencher| {
+        bencher.iter(|| (black_box(a_g1.is_in_subgroup())));
+    });
+
     // Ate Pairing
     group.bench_function("Ate Pairing", |bencher| {
         bencher.iter(|| {
