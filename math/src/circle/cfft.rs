@@ -1,22 +1,12 @@
-use super::{cosets::Coset, point::CirclePoint, twiddles::get_twiddles};
-use crate::{
-    fft::cpu::bit_reversing::in_place_bit_reverse_permute,
-    field::{element::FieldElement, fields::mersenne31::field::Mersenne31Field},
-};
+use crate::field::{element::FieldElement, fields::mersenne31::field::Mersenne31Field};
 
-pub fn cfft(
+pub fn inplace_cfft(
     input: &mut [FieldElement<Mersenne31Field>],
     twiddles: Vec<Vec<FieldElement<Mersenne31Field>>>,
 ) {
-    // divide input in groups, starting with 1, duplicating the number of groups in each stage.
     let mut group_count = 1;
     let mut group_size = input.len();
     let mut round = 0;
-
-    // for each group, there'll be group_size / 2 butterflies.
-    // a butterfly is the atomic operation of a FFT, e.g: (a, b) = (a + wb, a - wb).
-    // The 0.5 factor is what gives FFT its performance, it recursively halves the problem size
-    // (group size).
 
     while group_count < input.len() {
         let round_twiddles = &twiddles[round];
@@ -36,9 +26,6 @@ pub fn cfft(
                 input[i] = y0;
                 input[i + group_size / 2] = y1;
             }
-
-            // input = [input_0 + y_0 * input_1, input_0 - y_0 * input_1, ]
-            //                 p(x_0, y_0)            p(x_7, y_7)
         }
         group_count *= 2;
         group_size /= 2;
@@ -46,39 +33,28 @@ pub fn cfft(
     }
 }
 
+pub fn inplace_order_cfft_values(input: &mut [FieldElement<Mersenne31Field>]) {
+    for i in 0..input.len() {
+        let cfft_index = reverse_cfft_index(i, input.len().trailing_zeros() as u32);
+        if cfft_index > i {
+            input.swap(i, cfft_index);
+        }
+    }
+}
+
+pub fn reverse_cfft_index(index: usize, log_2_size: u32) -> usize {
+    let (mut new_index, lsb) = (index >> 1, index & 1);
+    if (lsb == 1) & (log_2_size > 1) {
+        new_index = (1 << log_2_size) - new_index - 1;
+    }
+    new_index.reverse_bits() >> (usize::BITS - log_2_size)
+}
+
 #[cfg(test)]
 mod tests {
-    use crate::circle::twiddles;
-
     use super::*;
+    use crate::circle::{cosets::Coset, twiddles::get_twiddles};
     type FpE = FieldElement<Mersenne31Field>;
-
-    pub fn reverse_bits_len(x: usize, bit_len: usize) -> usize {
-        // NB: The only reason we need overflowing_shr() here as opposed
-        // to plain '>>' is to accommodate the case n == num_bits == 0,
-        // which would become `0 >> 64`. Rust thinks that any shift of 64
-        // bits causes overflow, even when the argument is zero.
-        x.reverse_bits()
-            .overflowing_shr(usize::BITS - bit_len as u32)
-            .0
-    }
-
-    fn cfft_permute_index(index: usize, log_n: usize) -> usize {
-        let (index, lsb) = (index >> 1, index & 1);
-        reverse_bits_len(
-            if lsb == 0 {
-                index
-            } else {
-                (1 << log_n) - index - 1
-            },
-            log_n,
-        )
-    }
-    pub(crate) fn cfft_permute_slice<T: Clone>(xs: &[T], log_2_size: usize) -> Vec<T> {
-        (0..xs.len())
-            .map(|i| xs[cfft_permute_index(i, log_2_size)].clone())
-            .collect()
-    }
 
     fn evaluate_poly(coef: &[FpE; 8], x: FpE, y: FpE) -> FpE {
         coef[0]
@@ -92,11 +68,6 @@ mod tests {
     }
 
     fn evaluate_poly_16(coef: &[FpE; 16], x: FpE, y: FpE) -> FpE {
-        // v0 = 1
-        // v1 = x
-        // v2 = 2x^2 - 1
-        // v3 = 2(x^2 - 1)^2 - 1
-        // v4 = 2((x^2 - 1)^2 - 1)^2 - 1
         let mut a = x;
         let mut v = Vec::new();
         v.push(FpE::one());
@@ -105,9 +76,7 @@ mod tests {
             a = a.square().double() - FpE::one();
             v.push(a);
         }
-        // println!("{:?}", coef[7] * y * v[1] * v[2]);
-        // println!("-------------------");
-        // println!("{:?}", coef[7] * ((x.square() * x).double() - x) * y);
+
         coef[0] * v[0]
             + coef[1] * y * v[0]
             + coef[2] * v[1]
@@ -146,9 +115,10 @@ mod tests {
             let point_eval = evaluate_poly(&input, point.x, point.y);
             expected_result.push(point_eval);
         }
-        cfft(&mut input, twiddles);
-        let ordered_cfft_result = cfft_permute_slice(&mut input, 3);
-        assert_eq!(ordered_cfft_result, expected_result);
+        inplace_cfft(&mut input, twiddles);
+        inplace_order_cfft_values(&mut input);
+        let result: &[FpE] = &input;
+        assert_eq!(result, expected_result);
     }
 
     #[test]
@@ -179,36 +149,9 @@ mod tests {
             let point_eval = evaluate_poly_16(&input, point.x, point.y);
             expected_result.push(point_eval);
         }
-        cfft(&mut input, twiddles);
-        let ordered_cfft_result = cfft_permute_slice(&mut input, 4);
-        assert_eq!(ordered_cfft_result, expected_result);
-    }
-
-    #[test]
-    fn print() {
-        let mut input = [
-            FpE::from(1),
-            FpE::from(2),
-            FpE::from(3),
-            FpE::from(4),
-            FpE::from(5),
-            FpE::from(6),
-            FpE::from(7),
-            FpE::from(8),
-            FpE::from(9),
-            FpE::from(10),
-            FpE::from(11),
-            FpE::from(12),
-            FpE::from(13),
-            FpE::from(14),
-            FpE::from(15),
-            FpE::from(16),
-        ];
-        evaluate_poly_16(&input, FpE::from(20), FpE::from(33));
+        inplace_cfft(&mut input, twiddles);
+        inplace_order_cfft_values(&mut input);
+        let result: &[FpE] = &input;
+        assert_eq!(result, expected_result);
     }
 }
-
-/*
-(1, y, => x, xy,
-2xˆ2 - 1, 2xˆ2 y - y, 2xˆ3 - x, 2xˆ3 y - x y)
-*/
