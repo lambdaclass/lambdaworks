@@ -21,6 +21,7 @@ impl IsModulus<U384> for BLS12381FieldModulus {
 }
 
 pub type BLS12381PrimeField = MontgomeryBackendPrimeField<BLS12381FieldModulus, 6>;
+type Fp2E = FieldElement<Degree2ExtensionField>;
 
 //////////////////
 #[derive(Clone, Debug)]
@@ -199,6 +200,16 @@ impl HasCubicNonResidue<Degree2ExtensionField> for LevelTwoResidue {
     }
 }
 
+impl HasQuadraticNonResidue<Degree2ExtensionField> for LevelTwoResidue {
+    fn residue() -> FieldElement<Degree2ExtensionField> {
+        FieldElement::new([
+            FieldElement::new(U384::from("1")),
+            FieldElement::new(U384::from("1")),
+        ])
+    }
+}
+pub type Degree4ExtensionField = QuadraticExtensionField<Degree2ExtensionField, LevelTwoResidue>;
+
 pub type Degree6ExtensionField = CubicExtensionField<Degree2ExtensionField, LevelTwoResidue>;
 
 #[derive(Debug, Clone)]
@@ -284,6 +295,14 @@ impl FieldElement<Degree12ExtensionField> {
     }
 }
 
+/// Computes the multiplication of an element of fp2 by the level two non-residue 9+u.
+pub fn mul_fp2_by_nonresidue(a: &Fp2E) -> Fp2E {
+    // (c0 + c1 * u) * (1 + u) = (c0 - c1) + (c1 + c0) * u
+    let c0 = &a.value()[0] - &a.value()[1]; // c0 - c1
+    let c1 = &a.value()[0] + &a.value()[1]; // c1 + c0
+
+    Fp2E::new([c0, c1])
+}
 #[cfg(test)]
 mod tests {
     use crate::elliptic_curve::{
