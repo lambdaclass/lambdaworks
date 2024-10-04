@@ -1,6 +1,7 @@
 extern crate alloc;
 use crate::circle::point::CirclePoint;
 use crate::field::fields::mersenne31::field::Mersenne31Field;
+use alloc::vec::Vec;
 
 #[derive(Debug, Clone)]
 pub struct Coset {

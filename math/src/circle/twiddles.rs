@@ -4,6 +4,7 @@ use crate::{
     fft::cpu::bit_reversing::in_place_bit_reverse_permute,
     field::{element::FieldElement, fields::mersenne31::field::Mersenne31Field},
 };
+use alloc::vec::Vec;
 
 #[cfg(feature = "alloc")]
 pub fn get_twiddles(domain: Coset) -> Vec<Vec<FieldElement<Mersenne31Field>>> {
