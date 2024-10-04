@@ -18,10 +18,10 @@ pub fn inplace_cfft(
             let w = &round_twiddles[group]; // a twiddle factor is used per group
 
             for i in first_in_group..first_in_next_group {
-                let wi = w * &input[i + group_size / 2];
+                let wi = w * input[i + group_size / 2];
 
-                let y0 = &input[i] + &wi;
-                let y1 = &input[i] - &wi;
+                let y0 = input[i] + wi;
+                let y1 = input[i] - wi;
 
                 input[i] = y0;
                 input[i + group_size / 2] = y1;
@@ -35,7 +35,7 @@ pub fn inplace_cfft(
 
 pub fn inplace_order_cfft_values(input: &mut [FieldElement<Mersenne31Field>]) {
     for i in 0..input.len() {
-        let cfft_index = reverse_cfft_index(i, input.len().trailing_zeros() as u32);
+        let cfft_index = reverse_cfft_index(i, input.len().trailing_zeros());
         if cfft_index > i {
             input.swap(i, cfft_index);
         }

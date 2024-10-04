@@ -86,7 +86,6 @@ pub fn mersenne31_ops_benchmarks(c: &mut Criterion) {
         .collect::<Vec<_>>();
     let mut group = c.benchmark_group("Mersenne31 operations");
 
-    /*
     for i in input.clone().into_iter() {
         group.bench_with_input(format!("add {:?}", &i.len()), &i, |bench, i| {
             bench.iter(|| {
@@ -170,7 +169,6 @@ pub fn mersenne31_ops_benchmarks(c: &mut Criterion) {
             });
         });
     }
-    */
 
     for i in input.clone().into_iter() {
         group.bench_with_input(format!("inv {:?}", &i.len()), &i, |bench, i| {
@@ -192,7 +190,6 @@ pub fn mersenne31_ops_benchmarks(c: &mut Criterion) {
         });
     }
 
-    /*
     for i in input.clone().into_iter() {
         group.bench_with_input(format!("eq {:?}", &i.len()), &i, |bench, i| {
             bench.iter(|| {
@@ -257,5 +254,4 @@ pub fn mersenne31_ops_benchmarks(c: &mut Criterion) {
             });
         });
     }
-    */
 }
