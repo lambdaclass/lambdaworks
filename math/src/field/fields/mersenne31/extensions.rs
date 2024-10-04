@@ -1,17 +1,14 @@
+use super::field::Mersenne31Field;
 use crate::field::{
     element::FieldElement,
     errors::FieldError,
     traits::{IsField, IsSubFieldOf},
 };
-
-use super::field::Mersenne31Field;
+#[cfg(feature = "alloc")]
+use alloc::vec::Vec;
 
 type FpE = FieldElement<Mersenne31Field>;
-type Fp2E = FieldElement<Degree2ExtensionField>;
-type Fp4E = FieldElement<Degree4ExtensionField>;
 
-//Note: The inverse calculation in mersenne31/plonky3 differs from the default quadratic extension so I implemented the complex extension.
-//////////////////
 #[derive(Clone, Debug)]
 pub struct Degree2ExtensionField;
 
@@ -25,7 +22,7 @@ impl Degree2ExtensionField {
 }
 
 impl IsField for Degree2ExtensionField {
-    //Elements represents a[0] = real, a[1] = imaginary
+    //Element representation: a[0] = real part, a[1] = imaginary part
     type BaseType = [FpE; 2];
 
     /// Returns the component wise addition of `a` and `b`
@@ -33,7 +30,7 @@ impl IsField for Degree2ExtensionField {
         [a[0] + b[0], a[1] + b[1]]
     }
 
-    /// Returns the multiplication of `a` and `b` using the following
+    /// Returns the multiplication of `a` and `b`.
     fn mul(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
         let a0b0 = a[0] * b[0];
         let a1b1 = a[1] * b[1];
@@ -72,11 +69,6 @@ impl IsField for Degree2ExtensionField {
     /// Returns a boolean indicating whether `a` and `b` are equal component wise.
     fn eq(a: &Self::BaseType, b: &Self::BaseType) -> bool {
         a[0] == b[0] && a[1] == b[1]
-    }
-
-    /// Returns the additive neutral element of the field extension.
-    fn zero() -> Self::BaseType {
-        [FpE::zero(), FpE::zero()]
     }
 
     /// Returns the multiplicative neutral element of the field extension.
@@ -140,15 +132,10 @@ impl IsSubFieldOf<Degree2ExtensionField> for Mersenne31Field {
     }
 }
 
+type Fp2E = FieldElement<Degree2ExtensionField>;
 
 #[derive(Clone, Debug)]
 pub struct Degree4ExtensionField;
-
-impl Degree4ExtensionField {
-    pub fn from_coeffcients(a: FpE, b: FpE, c: FpE, d:FpE) -> Fp4E {
-        Fp4E::new([Fp2E::new([a, b]), Fp2E::new([c, d])])
-    }
-}
 
 impl IsField for Degree4ExtensionField {
     type BaseType = [Fp2E; 2];
@@ -179,7 +166,7 @@ impl IsField for Degree4ExtensionField {
         let a0_square = &a[0].square();
         let a1_square = &a[1].square();
         [
-            a0_square + Degree2ExtensionField::mul_fp2_by_nonresidue(&a1_square),
+            a0_square + Degree2ExtensionField::mul_fp2_by_nonresidue(a1_square),
             (&a[0] + &a[1]).square() - a0_square - a1_square,
         ]
     }
@@ -630,7 +617,7 @@ mod tests {
     #[test]
     fn mul_fp_by_fp4() {
         let a = FpE::from(30000000000);
-        let a_extension = a.clone().to_extension::<Degree4ExtensionField>();
+        let a_extension = a.to_extension::<Degree4ExtensionField>();
         let b = Fp4E::new([
             Fp2E::new([FpE::from(1), FpE::from(2)]),
             Fp2E::new([FpE::from(3), FpE::from(4)]),

@@ -13,6 +13,8 @@ use crate::{
 pub const SUBGROUP_ORDER: U256 =
     U256::from_hex_unchecked("73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001");
 
+pub const CURVE_COFACTOR: U256 = U256::from_hex_unchecked("0x396c8c005555e1568c00aaab0000aaab");
+
 pub type BLS12381FieldElement = FieldElement<BLS12381PrimeField>;
 pub type BLS12381TwistCurveFieldElement = FieldElement<Degree2ExtensionField>;
 
