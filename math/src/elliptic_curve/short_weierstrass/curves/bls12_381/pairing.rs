@@ -1,4 +1,3 @@
-use super::curve::MILLER_LOOP_CONSTANT;
 use super::{
     curve::BLS12381Curve,
     field_extension::{
@@ -15,7 +14,7 @@ use crate::{
         traits::IsShortWeierstrass,
     },
     field::{element::FieldElement, extensions::cubic::HasCubicNonResidue},
-    unsigned_integer::element::{UnsignedInteger, U256},
+    unsigned_integer::element::U256,
 };
 
 type FpE = FieldElement<BLS12381PrimeField>;
