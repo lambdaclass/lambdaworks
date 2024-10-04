@@ -76,6 +76,7 @@ impl<F: IsField + HasCircleParams<F>> CirclePoint<F> {
     }
 
     /// Computes (a0, a1) + (b0, b1) = (a0 * b0 - a1 * b1, a0 * b1  + a1 * b0)
+    #[allow(clippy::should_implement_trait)]
     pub fn add(a: Self, b: Self) -> Self {
         let x = &a.x * &b.x - &a.y * &b.y;
         let y = a.x * b.y + a.y * b.x;
@@ -83,7 +84,7 @@ impl<F: IsField + HasCircleParams<F>> CirclePoint<F> {
     }
 
     /// Computes n * (x, y) = (x ,y) + ... + (x, y) n-times.
-    pub fn mul(self, mut scalar: u128) -> Self {
+    pub fn scalar_mul(self, mut scalar: u128) -> Self {
         let mut res = Self::zero();
         let mut cur = self;
         loop {
@@ -224,13 +225,13 @@ mod tests {
     #[test]
     fn double_equals_mul_two() {
         let g = G::generator();
-        assert_eq!(g.clone().double(), G::mul(g, 2))
+        assert_eq!(g.clone().double(), G::scalar_mul(g, 2))
     }
 
     #[test]
     fn mul_eight_equals_double_three_times() {
         let g = G::generator();
-        assert_eq!(g.clone().repeated_double(3), G::mul(g, 8))
+        assert_eq!(g.clone().repeated_double(3), G::scalar_mul(g, 8))
     }
 
     #[test]
@@ -243,7 +244,7 @@ mod tests {
     #[test]
     fn generator_g4_has_the_order_of_the_group() {
         let g = G4::generator();
-        assert_eq!(g.mul(G4::group_order()), G4::zero())
+        assert_eq!(g.scalar_mul(G4::group_order()), G4::zero())
     }
 
     #[test]

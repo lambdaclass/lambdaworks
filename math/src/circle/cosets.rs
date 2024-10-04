@@ -80,7 +80,7 @@ mod tests {
 
     #[test]
     fn coset_generator_has_right_order() {
-        let coset = Coset::new(2, CirclePoint::generator().mul(3));
+        let coset = Coset::new(2, CirclePoint::generator().scalar_mul(3));
         let generator_n = coset.get_generator();
         assert_eq!(generator_n.repeated_double(2), CirclePoint::zero());
     }
