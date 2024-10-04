@@ -17,13 +17,17 @@ This library provides efficient implementation of cryptographic primitives used 
 
 ## Examples - mini apps
 
-Below is a list of examples to understand lambdaworks and learn what you can build with the tools provided. 
+Below is a list of examples to understand lambdaworks and learn what you can build with the tools provided.
 
 - [Merkle Tree CLI](./examples/merkle-tree-cli/)
 - [Proving Miden](./examples/prove-miden/)
 - [Shamir's secret sharing](./examples/shamir_secret_sharing/)
 - [BabySNARK](./examples/baby-snark/)
 - [Pinocchio](./examples/pinocchio/)
+- [Using Circom with lambdaworks's Groth16](./provers/groth16/circom-adapter/src/README.md)
+
+- You can use Circom to generate circuits and use lambdaworks's capabilities to prove the execution with [Groth16](./provers/groth16/README.md).
+- You can use the [Stark prover](./provers/stark/src/) to define an algebraic intermediate representation (AIR) and prove the execution of a program
 
 ## Why we built lambdaworks
 
