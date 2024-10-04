@@ -1,7 +1,6 @@
+extern crate alloc;
 use crate::circle::point::CirclePoint;
 use crate::field::fields::mersenne31::field::Mersenne31Field;
-use alloc::vec::Vec;
-use std::iter::successors;
 
 #[derive(Debug, Clone)]
 pub struct Coset {
@@ -47,11 +46,12 @@ impl Coset {
 
     /// Returns the vector of shift + g for every g in <g_n>.
     /// where g = i * g_n for i = 0, ..., n-1.
+    #[cfg(feature = "alloc")]
     pub fn get_coset_points(coset: &Self) -> Vec<CirclePoint<Mersenne31Field>> {
         // g_n the generator of the subgroup of order n.
         let generator_n = CirclePoint::get_generator_of_subgroup(coset.log_2_size);
         let size: u8 = 1 << coset.log_2_size;
-        successors(Some(coset.shift.clone()), move |prev| {
+        core::iter::successors(Some(coset.shift.clone()), move |prev| {
             Some(prev.clone() + generator_n.clone())
         })
         .take(size.into())

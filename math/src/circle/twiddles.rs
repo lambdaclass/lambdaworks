@@ -1,9 +1,11 @@
-use super::{cosets::Coset, point::CirclePoint};
+extern crate alloc;
 use crate::{
+    circle::{cosets::Coset, point::CirclePoint},
     fft::cpu::bit_reversing::in_place_bit_reverse_permute,
     field::{element::FieldElement, fields::mersenne31::field::Mersenne31Field},
 };
 
+#[cfg(feature = "alloc")]
 pub fn get_twiddles(domain: Coset) -> Vec<Vec<FieldElement<Mersenne31Field>>> {
     let mut half_domain_points = Coset::get_coset_points(&Coset::half_coset(domain.clone()));
     in_place_bit_reverse_permute::<CirclePoint<Mersenne31Field>>(&mut half_domain_points[..]);

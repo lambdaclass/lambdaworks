@@ -1,6 +1,7 @@
+extern crate alloc;
 use crate::field::{element::FieldElement, fields::mersenne31::field::Mersenne31Field};
-use alloc::vec::Vec;
 
+#[cfg(feature = "alloc")]
 pub fn inplace_cfft(
     input: &mut [FieldElement<Mersenne31Field>],
     twiddles: Vec<Vec<FieldElement<Mersenne31Field>>>,
