@@ -5,10 +5,7 @@ use lambdaworks_math::{
         short_weierstrass::{
             curves::bls12_381::{
                 curve::BLS12381Curve,
-                pairing::{
-                    final_exponentiation, final_exponentiation_optimized, miller, miller_optimized,
-                    BLS12381AtePairing,
-                },
+                pairing::{final_exponentiation, miller, BLS12381AtePairing},
                 twist::BLS12381TwistCurve,
             },
             traits::Compress,
@@ -29,7 +26,7 @@ pub fn bls12_381_elliptic_curve_benchmarks(c: &mut Criterion) {
     let a_g2 = BLS12381TwistCurve::generator();
     let b_g2 = BLS12381TwistCurve::generator();
 
-    let miller_loop_output = miller_optimized(&a_g2, &a_g1);
+    let miller_loop_output = miller(&a_g2, &a_g1);
 
     let mut group = c.benchmark_group("BLS12-381 Ops");
     group.significance_level(0.1).sample_size(10000);
@@ -101,27 +98,13 @@ pub fn bls12_381_elliptic_curve_benchmarks(c: &mut Criterion) {
         });
     });
 
-    // Miller Naive
+    // Miller
     group.bench_function("Miller Naive", |bencher| {
         bencher.iter(|| black_box(miller(black_box(&a_g2), black_box(&a_g1))))
     });
 
-    // Miller Optimized
-    group.bench_function("Miller Optimized", |bencher| {
-        bencher.iter(|| black_box(miller_optimized(black_box(&a_g2), black_box(&a_g1))))
-    });
-
-    // Final Exponentiation Naive
-    group.bench_function("Final Exponentiation Naive", |bencher| {
-        bencher.iter(|| black_box(final_exponentiation(black_box(&miller_loop_output))))
-    });
-
     // Final Exponentiation Optimized
     group.bench_function("Final Exponentiation Optimized", |bencher| {
-        bencher.iter(|| {
-            black_box(final_exponentiation_optimized(black_box(
-                &miller_loop_output,
-            )))
-        })
+        bencher.iter(|| black_box(final_exponentiation(black_box(&miller_loop_output))))
     });
 }
