@@ -99,12 +99,12 @@ pub fn bls12_381_elliptic_curve_benchmarks(c: &mut Criterion) {
     });
 
     // Miller
-    group.bench_function("Miller Naive", |bencher| {
+    group.bench_function("Miller", |bencher| {
         bencher.iter(|| black_box(miller(black_box(&a_g2), black_box(&a_g1))))
     });
 
     // Final Exponentiation Optimized
-    group.bench_function("Final Exponentiation Optimized", |bencher| {
+    group.bench_function("Final Exponentiation", |bencher| {
         bencher.iter(|| black_box(final_exponentiation(black_box(&miller_loop_output))))
     });
 }
