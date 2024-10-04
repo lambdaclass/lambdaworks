@@ -1,5 +1,6 @@
 use crate::circle::point::CirclePoint;
 use crate::field::fields::mersenne31::field::Mersenne31Field;
+use alloc::vec::Vec;
 use std::iter::successors;
 
 #[derive(Debug, Clone)]

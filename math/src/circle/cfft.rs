@@ -1,4 +1,5 @@
 use crate::field::{element::FieldElement, fields::mersenne31::field::Mersenne31Field};
+use alloc::vec::Vec;
 
 pub fn inplace_cfft(
     input: &mut [FieldElement<Mersenne31Field>],

@@ -4,9 +4,7 @@ use crate::field::{
     element::FieldElement,
     fields::mersenne31::{extensions::Degree4ExtensionField, field::Mersenne31Field},
 };
-use std::cmp::PartialEq;
-use std::fmt::Debug;
-use std::ops::Add;
+use core::ops::Add;
 
 #[derive(Debug, Clone)]
 pub struct CirclePoint<F: IsField> {
