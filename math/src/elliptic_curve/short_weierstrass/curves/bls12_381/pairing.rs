@@ -109,7 +109,7 @@ impl IsPairing for BLS12381AtePairing {
                 result *= miller(&q, &p);
             }
         }
-        Ok(final_exponentiation_optimized(&result))
+        Ok(final_exponentiation(&result))
     }
 }
 
@@ -118,29 +118,6 @@ impl IsPairing for BLS12381AtePairing {
 /// "Topics in computational number theory" by W. Bons and K. Lenstra
 #[allow(unused)]
 pub fn miller(
-    q: &ShortWeierstrassProjectivePoint<BLS12381TwistCurve>,
-    p: &ShortWeierstrassProjectivePoint<BLS12381Curve>,
-) -> FieldElement<Degree12ExtensionField> {
-    let mut r = q.clone();
-    let mut f = FieldElement::<Degree12ExtensionField>::one();
-    let mut miller_loop_constant = MILLER_LOOP_CONSTANT;
-    let mut miller_loop_constant_bits: alloc::vec::Vec<bool> = alloc::vec![];
-
-    while miller_loop_constant > 0 {
-        miller_loop_constant_bits.insert(0, (miller_loop_constant & 1) == 1);
-        miller_loop_constant >>= 1;
-    }
-
-    for bit in miller_loop_constant_bits[1..].iter() {
-        double_accumulate_line(&mut r, p, &mut f);
-        if *bit {
-            add_accumulate_line(&mut r, q, p, &mut f);
-        }
-    }
-    f.conjugate()
-}
-#[allow(unused)]
-pub fn miller_optimized(
     q: &ShortWeierstrassProjectivePoint<BLS12381TwistCurve>,
     p: &ShortWeierstrassProjectivePoint<BLS12381Curve>,
 ) -> FieldElement<Degree12ExtensionField> {
@@ -266,20 +243,9 @@ fn add_accumulate_line(
 // To understand more about how to reduce the final exponentiation
 // read "Efficient Final Exponentiation via Cyclotomic Structure for
 // Pairings over Families of Elliptic Curves" (https://eprint.iacr.org/2020/875.pdf)
-
-#[allow(unused)]
-pub fn final_exponentiation(
-    base: &FieldElement<Degree12ExtensionField>,
-) -> FieldElement<Degree12ExtensionField> {
-    const PHI_DIVIDED_BY_R: UnsignedInteger<20> = UnsignedInteger::from_hex_unchecked("f686b3d807d01c0bd38c3195c899ed3cde88eeb996ca394506632528d6a9a2f230063cf081517f68f7764c28b6f8ae5a72bce8d63cb9f827eca0ba621315b2076995003fc77a17988f8761bdc51dc2378b9039096d1b767f17fcbde783765915c97f36c6f18212ed0b283ed237db421d160aeb6a1e79983774940996754c8c71a2629b0dea236905ce937335d5b68fa9912aae208ccf1e516c3f438e3ba79");
-    let f1 = base.conjugate() * base.inv().unwrap();
-    let f2 = frobenius_square_old(&f1) * f1;
-    f2.pow(PHI_DIVIDED_BY_R)
-}
-
 // Hard part from https://eprint.iacr.org/2020/875.pdf p14
 // Same implementation as in Constantine https://github.com/mratsim/constantine/blob/master/constantine/math/pairings/pairings_bls12.nim
-pub fn final_exponentiation_optimized(f: &Fp12E) -> Fp12E {
+pub fn final_exponentiation(f: &Fp12E) -> Fp12E {
     let f_easy_aux = f.conjugate() * f.inv().unwrap();
     let mut f_easy = frobenius_square(&f_easy_aux) * &f_easy_aux;
 
@@ -334,21 +300,6 @@ pub fn frobenius(f: &Fp12E) -> Fp12E {
     ]);
 
     Fp12E::new([c1, c2]) //c1 + c2 * w
-}
-fn frobenius_square_old(
-    f: &FieldElement<Degree12ExtensionField>,
-) -> FieldElement<Degree12ExtensionField> {
-    let [a, b] = f.value();
-    let w_raised_to_p_squared_minus_one = FieldElement::<Degree6ExtensionField>::new_base("1a0111ea397fe699ec02408663d4de85aa0d857d89759ad4897d29650fb85f9b409427eb4f49fffd8bfd00000000aaad");
-    let omega_3 = FieldElement::<Degree2ExtensionField>::new_base("1a0111ea397fe699ec02408663d4de85aa0d857d89759ad4897d29650fb85f9b409427eb4f49fffd8bfd00000000aaac");
-    let omega_3_squared = FieldElement::<Degree2ExtensionField>::new_base(
-        "5f19672fdf76ce51ba69c6076a0f77eaddb3a93be6f89688de17d813620a00022e01fffffffefffe",
-    );
-    let [a0, a1, a2] = a.value();
-    let [b0, b1, b2] = b.value();
-    let f0 = FieldElement::new([a0.clone(), a1 * &omega_3, a2 * &omega_3_squared]);
-    let f1 = FieldElement::new([b0.clone(), b1 * omega_3, b2 * omega_3_squared]);
-    FieldElement::new([f0, w_raised_to_p_squared_minus_one * f1])
 }
 
 fn frobenius_square(
@@ -562,20 +513,5 @@ mod tests {
         let f_easy_aux = f.conjugate() * f.inv().unwrap(); // f ^ (p^6 - 1) because f^(p^6) = f.conjugate().
         let f_easy = &frobenius_square(&f_easy_aux) * f_easy_aux; // (f^{p^6 - 1})^(p^2) * (f^{p^6 - 1}).
         assert_eq!(cyclotomic_pow_x(&f_easy), f_easy.pow(X));
-    }
-
-    #[test]
-    fn test_miller_vs_miller_optimized() {
-        let p = BLS12381Curve::generator();
-        let q = BLS12381TwistCurve::generator();
-
-        let result_miller = miller(&q, &p);
-
-        let result_miller_optimized = miller_optimized(&q, &p);
-
-        assert_eq!(
-            result_miller, result_miller_optimized,
-            "Miller and Miller optimized should return the same result"
-        );
     }
 }
