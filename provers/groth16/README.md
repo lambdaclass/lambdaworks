@@ -1,6 +1,6 @@
 # Lambdaworks Groth16 Prover
 
-An under-optimized implementation of [Groth16](https://eprint.iacr.org/2016/260) protocol.
+An under-optimized implementation of [Groth16](https://eprint.iacr.org/2016/260) protocol. To use it with Circom, check the [examples](./circom-adapter/src/README.md).
 
 ## Introduction
 
