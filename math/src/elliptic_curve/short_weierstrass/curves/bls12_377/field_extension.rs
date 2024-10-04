@@ -375,4 +375,21 @@ mod tests {
         let a = FpE::from(3);
         assert_eq!(a.square(), a.clone() * a);
     }
+    #[test]
+    fn test_mul_fp2_by_nonresidue() {
+        let a = Fp2E::new([FpE::from(3), FpE::from(5)]);
+        let expected = Fp2E::new([-FpE::from(5), FpE::from(3)]);
+        assert_eq!(mul_fp2_by_nonresidue(&a), expected);
+    }
+    #[test]
+    fn test_mul_fp2_by_nonresidue_2() {
+        // Definir el elemento en Fp2: (3 + 5 * u)
+        let a = Fp2E::new([FpE::from(3), FpE::from(5)]);
+
+        // El resultado esperado es: (-5 + 3 * u)
+        let expected = Fp2E::new([-FpE::from(5), FpE::from(3)]);
+
+        // Verifica si la multiplicación por el no-residuo es correcta
+        assert_eq!(mul_fp2_by_nonresidue(&a), expected);
+    }
 }

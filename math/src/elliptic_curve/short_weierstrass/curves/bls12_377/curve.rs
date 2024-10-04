@@ -1,5 +1,6 @@
 use super::{
     field_extension::{BLS12377PrimeField, Degree2ExtensionField},
+    pairing::{GAMMA_12, GAMMA_13},
     twist::BLS12377TwistCurve,
 };
 use crate::cyclic_group::IsGroup;
@@ -99,8 +100,8 @@ impl ShortWeierstrassProjectivePoint<BLS12377TwistCurve> {
     fn psi(&self) -> Self {
         let [x, y, z] = self.coordinates();
         Self::new([
-            x.conjugate() * ENDO_U,
-            y.conjugate() * ENDO_V,
+            x.conjugate() * GAMMA_12,
+            y.conjugate() * GAMMA_13,
             z.conjugate(),
         ])
     }

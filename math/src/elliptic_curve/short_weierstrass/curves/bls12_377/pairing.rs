@@ -31,10 +31,10 @@ pub const X: u64 = 0x8508c00000000001;
 
 pub const X_BINARY: &[bool] = &[
     true, false, false, false, true, false, true, false, false, false, false, true, false, true,
-    true, false, false, false, false, false, false, false, false, false, false, false, false,
+    true, false, false, false, false, true, false, false, false, false, false, false, false, false,
     false, false, false, false, false, false, false, false, false, false, false, false, false,
-    false, false, false, false, false, false, false, true, false, false, false, false, false,
-    false, false, false, false, false, false, false, false, false, false, true,
+    false, false, false, false, false, false, true, false, false, false, false, false, false,
+    false, false, false, false, false, false, false, false, false, true,
 ];
 pub const SUBGROUP_ORDER: U256 =
     U256::from_hex_unchecked("12ab655e9a2ca55660b44d1e5c37b00159aa76fed00000010a11800000000001");
@@ -114,7 +114,7 @@ impl IsPairing for BLS12377AtePairing {
             if !p.is_neutral_element() && !q.is_neutral_element() {
                 let p = p.to_affine();
                 let q = q.to_affine();
-                result *= miller(&q, &p);
+                result *= miller_old(&q, &p);
             }
         }
         Ok(final_exponentiation_optimized(&result))
@@ -227,10 +227,10 @@ fn add_accumulate_line(
         ]),
     ]);
 }
-/// Implements the miller loop for the ate pairing of the BLS12 381 curve.
+/// Implements the miller loop for the ate pairing of the BLS12 377 curve.
 /// Based on algorithm 9.2, page 212 of the book
 /// "Topics in computational number theory" by W. Bons and K. Lenstra
-pub fn miller(
+pub fn miller_old(
     q: &ShortWeierstrassProjectivePoint<BLS12377TwistCurve>,
     p: &ShortWeierstrassProjectivePoint<BLS12377Curve>,
 ) -> FieldElement<Degree12ExtensionField> {
@@ -499,7 +499,7 @@ mod tests {
     fn cyclotomic_square_equals_square() {
         let p = BLS12377Curve::generator();
         let q = BLS12377TwistCurve::generator();
-        let f = miller(&q, &p);
+        let f = miller_old(&q, &p);
         let f_easy_aux = f.conjugate() * f.inv().unwrap(); // f ^ (p^6 - 1) because f^(p^6) = f.conjugate().
         let f_easy = &frobenius_square(&f_easy_aux) * f_easy_aux; // (f^{p^6 - 1})^(p^2) * (f^{p^6 - 1}).
         assert_eq!(cyclotomic_square(&f_easy), f_easy.square());
@@ -520,9 +520,15 @@ mod tests {
     fn cyclotomic_pow_x_equals_pow() {
         let p = BLS12377Curve::generator();
         let q = BLS12377TwistCurve::generator();
-        let f = miller(&q, &p);
+        let f = miller_old(&q, &p);
         let f_easy_aux = f.conjugate() * f.inv().unwrap(); // f ^ (p^6 - 1) because f^(p^6) = f.conjugate().
         let f_easy = &frobenius_square(&f_easy_aux) * f_easy_aux; // (f^{p^6 - 1})^(p^2) * (f^{p^6 - 1}).
         assert_eq!(cyclotomic_pow_x(&f_easy), f_easy.pow(X));
+    }
+
+    #[test]
+    fn print_minus_five() {
+        let minus_five: FpE = FpE::from(2).inv().unwrap();
+        println!("{}", minus_five.to_hex());
     }
 }
