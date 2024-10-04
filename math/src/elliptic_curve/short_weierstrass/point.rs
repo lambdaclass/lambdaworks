@@ -52,6 +52,9 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
     }
 
     pub fn double(&self) -> Self {
+        if self.is_neutral_element() {
+            return self.clone();
+        }
         let [px, py, pz] = self.coordinates();
 
         let px_square = px * px;
@@ -86,17 +89,17 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
     }
     // https://hyperelliptic.org/EFD/g1p/data/shortw/projective/addition/madd-1998-cmo
     pub fn operate_with_affine(&self, other: &Self) -> Self {
-        let [px, py, pz] = self.coordinates();
-        let [qx, qy, _qz] = other.coordinates();
-        let u = qy * pz;
-        let v = qx * pz;
-
         if self.is_neutral_element() {
             return other.clone();
         }
         if other.is_neutral_element() {
             return self.clone();
         }
+
+        let [px, py, pz] = self.coordinates();
+        let [qx, qy, _qz] = other.coordinates();
+        let u = qy * pz;
+        let v = qx * pz;
 
         if u == *py {
             if v != *px || *py == FieldElement::zero() {
