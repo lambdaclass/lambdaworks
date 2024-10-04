@@ -154,7 +154,3 @@ $[\pi_1 ]_1 \dagger [\pi_2 ]_2 = P_1$
 $[\pi_3 ]_1 \dagger [\delta]_2 + [\alpha]_1 \dagger [\beta]_2 + \left(\sum x_i [K_i^v ]_1 \right) \dagger [\gamma]_2 = P_2$
 
 The proof is valid if $P_1$ and $P_2$ coincide. This is equivalent to checking the modified QAP.
-
-## Conclusion
-
-In this post, we covered the Groth16 protocol, which provides a framework to prove the correctness of a computation without revealing sensitive information. It has concise proofs and an elegant verification but requires a trusted setup for every program we want to prove. We saw the steps to transform the program into arithmetic circuits or their equivalent R1CS, which can then be compiled into a quadratic arithmetic program. We explained how the protocol transforms the basic equations to ensure that the prover cannot cheat and the verifier does not learn anything about the private data. In an upcoming post, we will cover how to code Groth16 from scratch.
