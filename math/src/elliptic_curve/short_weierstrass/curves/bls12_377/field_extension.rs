@@ -215,7 +215,7 @@ impl HasCubicNonResidue<Degree2ExtensionField> for LevelTwoResidue {
     fn residue() -> FieldElement<Degree2ExtensionField> {
         FieldElement::new([
             FieldElement::new(U384::from("0")),
-            -FieldElement::new(U384::from("1")),
+            FieldElement::new(U384::from("1")),
         ])
     }
 }

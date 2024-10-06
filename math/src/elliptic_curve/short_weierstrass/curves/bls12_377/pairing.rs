@@ -30,11 +30,11 @@ pub const X: u64 = 0x8508c00000000001;
 // X in binary = 1000010100001000110000000000000000000000000000000000000000000001
 
 pub const X_BINARY: &[bool] = &[
-    true, false, false, false, true, false, true, false, false, false, false, true, false, true,
-    true, false, false, false, false, true, false, false, false, false, false, false, false, false,
+    true, false, false, false, false, true, false, true, false, false, false, false, true, false,
+    false, false, true, true, false, false, false, false, false, false, false, false, false, false,
     false, false, false, false, false, false, false, false, false, false, false, false, false,
-    false, false, false, false, false, false, true, false, false, false, false, false, false,
-    false, false, false, false, false, false, false, false, false, true,
+    false, false, false, false, false, false, false, false, false, false, false, false, false,
+    false, false, false, false, false, false, false, false, true,
 ];
 pub const SUBGROUP_ORDER: U256 =
     U256::from_hex_unchecked("12ab655e9a2ca55660b44d1e5c37b00159aa76fed00000010a11800000000001");
@@ -129,7 +129,8 @@ fn double_accumulate_line(
     let [x1, y1, z1] = t.coordinates();
     let [px, py, _] = p.coordinates();
     let residue = LevelTwoResidue::residue();
-    let two_inv = FieldElement::<Degree2ExtensionField>::new_base("D71D230BE28875631D82E03650A49D8D116CF9807A89C78F79B117DD04A4000B85AEA2180000004284600000000001");
+    let two_inv = FpE::from(2).inv().unwrap();
+    //let two_inv = FieldElement::<Degree2ExtensionField>::new_base("D71D230BE28875631D82E03650A49D8D116CF9807A89C78F79B117DD04A4000B85AEA2180000004284600000000001");
     let three = FieldElement::<BLS12377PrimeField>::from(3);
 
     let a = &two_inv * x1 * y1;
@@ -159,19 +160,19 @@ fn double_accumulate_line(
     let [x, y] = accumulator_sq.value();
     let [a0, a2, a4] = x.value();
     let [a1, a3, a5] = y.value();
-    let b0 = e - b;
+    let b0 = FieldElement::<Degree2ExtensionField>::new([-h0 * py, -h1 * py]); //
     let b2 = FieldElement::new([x1_sq_30 * px, x1_sq_31 * px]);
-    let b3 = FieldElement::<Degree2ExtensionField>::new([-h0 * py, -h1 * py]);
+    let b3 = e - b;
     *accumulator = FieldElement::new([
         FieldElement::new([
-            a0 * &b0 + &residue * (a3 * &b3 + a4 * &b2), // w0
-            a2 * &b0 + &residue * a5 * &b3 + a0 * &b2,   // w2
-            a4 * &b0 + a1 * &b3 + a2 * &b2,              // w4
+            a0 * &b3 + &residue * (a3 * &b0 + a4 * &b2), // w0
+            a2 * &b3 + &residue * a5 * &b0 + a0 * &b2,   // w2
+            a4 * &b3 + a1 * &b0 + a2 * &b2,              // w4
         ]),
         FieldElement::new([
-            a1 * &b0 + &residue * (a4 * &b3 + a5 * &b2), // w1
-            a3 * &b0 + a0 * &b3 + a1 * &b2,              // w3
-            a5 * &b0 + a2 * &b3 + a3 * &b2,              // w5
+            a1 * &b3 + &residue * (a4 * &b0 + a5 * &b2), // w1
+            a3 * &b3 + a0 * &b0 + a1 * &b2,              // w3
+            a5 * &b3 + a2 * &b0 + a3 * &b2,              // w5
         ]),
     ]);
 }
@@ -211,19 +212,19 @@ fn add_accumulate_line(
     let [x, y] = accumulator.value();
     let [a0, a2, a4] = x.value();
     let [a1, a3, a5] = y.value();
-    let b0 = -lambda.clone() * y2 + theta.clone() * x2;
+    let b3 = -lambda.clone() * y2 + theta.clone() * x2;
     let b2 = FieldElement::new([-theta0 * px, -theta1 * px]);
-    let b3 = FieldElement::<Degree2ExtensionField>::new([lambda0 * py, lambda1 * py]);
+    let b0 = FieldElement::<Degree2ExtensionField>::new([lambda0 * py, lambda1 * py]);
     *accumulator = FieldElement::new([
         FieldElement::new([
-            a0 * &b0 + &residue * (a3 * &b3 + a4 * &b2), // w0
-            a2 * &b0 + &residue * a5 * &b3 + a0 * &b2,   // w2
-            a4 * &b0 + a1 * &b3 + a2 * &b2,              // w4
+            a0 * &b3 + &residue * (a3 * &b0 + a4 * &b2), // w0
+            a2 * &b3 + &residue * a5 * &b0 + a0 * &b2,   // w2
+            a4 * &b3 + a1 * &b0 + a2 * &b2,              // w4
         ]),
         FieldElement::new([
-            a1 * &b0 + &residue * (a4 * &b3 + a5 * &b2), // w1
-            a3 * &b0 + a0 * &b3 + a1 * &b2,              // w3
-            a5 * &b0 + a2 * &b3 + a3 * &b2,              // w5
+            a1 * &b3 + &residue * (a4 * &b0 + a5 * &b2), // w1
+            a3 * &b3 + a0 * &b0 + a1 * &b2,              // w3
+            a5 * &b3 + a2 * &b0 + a3 * &b2,              // w5
         ]),
     ]);
 }
@@ -293,6 +294,7 @@ fn frobenius_square(
 /// Computes the square of an element of a cyclotomic subgroup of Fp12.
 /// Algorithm from Constantine's cyclotomic_square_quad_over_cube
 /// https://github.com/mratsim/constantine/blob/master/constantine/math/pairings/cyclotomic_subgroups.nim#L354
+
 pub fn cyclotomic_square(a: &Fp12E) -> Fp12E {
     // a = g + h * w
     let [g, h] = a.value();
@@ -327,13 +329,14 @@ pub fn cyclotomic_square(a: &Fp12E) -> Fp12E {
     r12 = r12.double();
     r12 += v1.value()[1].clone();
 
-    // 3 * (9 + u) * v21 + 2b3
-    let v21 = mul_fp2_by_nonresidue(&v2.value()[1]);
+    // 3 * ( u) * v21 + 2b3
+    let v21 = &v2.value()[1] * LevelTwoResidue::residue();
+    //let v21 = mul_fp2_by_nonresidue(&v2.value()[1]);
     let mut r10 = &v21 + b3;
     r10 = r10.double();
     r10 += v21;
 
-    // 3 * (9 + u) * v20 - 2b3
+    // 3 * ( u) * v20 - 2b3
     let mut r02 = &v2.value()[0] - b2;
     r02 = r02.double();
     r02 += v2.value()[0].clone();
