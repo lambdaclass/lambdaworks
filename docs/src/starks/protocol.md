@@ -31,7 +31,7 @@ These values are determined the program,  the specifications of the AIR being us
 - $m''$ is the number of extended columns of the trace matrix in the (optional) second round of RAP.
 - $m$ is the total number of columns: $m := m' + m''$.
 - $P_k^T$ denote the transition constraint polynomials for $k=1,\dots,n_T$. We are assuming these are of degree at most 2.
-- $Z_j^T$ denote the transition constraint zerofiers for $k=1,\dots,n_T$.
+- $Z_k^T$ denote the transition constraint zerofiers for $k=1,\dots,n_T$.
 - $b=2^l$ is the *[blowup factor](/starks/protocol_overview.html#fri)*.
 - $c$ is the *grinding factor*.
 - $Q$ is number of FRI queries.
