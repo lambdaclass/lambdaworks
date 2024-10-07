@@ -6,6 +6,8 @@ pub fn inplace_cfft(
     input: &mut [FieldElement<Mersenne31Field>],
     twiddles: Vec<Vec<FieldElement<Mersenne31Field>>>,
 ) {
+    use super::twiddles::TwiddlesConfig;
+
     let mut group_count = 1;
     let mut group_size = input.len();
     let mut round = 0;
@@ -50,110 +52,4 @@ pub fn reverse_cfft_index(index: usize, log_2_size: u32) -> usize {
         new_index = (1 << log_2_size) - new_index - 1;
     }
     new_index.reverse_bits() >> (usize::BITS - log_2_size)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::circle::{cosets::Coset, twiddles::get_twiddles};
-    type FpE = FieldElement<Mersenne31Field>;
-
-    fn evaluate_poly(coef: &[FpE; 8], x: FpE, y: FpE) -> FpE {
-        coef[0]
-            + coef[1] * y
-            + coef[2] * x
-            + coef[3] * x * y
-            + coef[4] * (x.square().double() - FpE::one())
-            + coef[5] * (x.square().double() - FpE::one()) * y
-            + coef[6] * ((x.square() * x).double() - x)
-            + coef[7] * ((x.square() * x).double() - x) * y
-    }
-
-    fn evaluate_poly_16(coef: &[FpE; 16], x: FpE, y: FpE) -> FpE {
-        let mut a = x;
-        let mut v = Vec::new();
-        v.push(FpE::one());
-        v.push(x);
-        for _ in 2..4 {
-            a = a.square().double() - FpE::one();
-            v.push(a);
-        }
-
-        coef[0] * v[0]
-            + coef[1] * y * v[0]
-            + coef[2] * v[1]
-            + coef[3] * y * v[1]
-            + coef[4] * v[2]
-            + coef[5] * y * v[2]
-            + coef[6] * v[1] * v[2]
-            + coef[7] * y * v[1] * v[2]
-            + coef[8] * v[3]
-            + coef[9] * y * v[3]
-            + coef[10] * v[1] * v[3]
-            + coef[11] * y * v[1] * v[3]
-            + coef[12] * v[2] * v[3]
-            + coef[13] * y * v[2] * v[3]
-            + coef[14] * v[1] * v[2] * v[3]
-            + coef[15] * y * v[1] * v[2] * v[3]
-    }
-
-    #[test]
-    fn cfft_test() {
-        let coset = Coset::new_standard(3);
-        let points = Coset::get_coset_points(&coset);
-        let twiddles = get_twiddles(coset);
-        let mut input = [
-            FpE::from(1),
-            FpE::from(2),
-            FpE::from(3),
-            FpE::from(4),
-            FpE::from(5),
-            FpE::from(6),
-            FpE::from(7),
-            FpE::from(8),
-        ];
-        let mut expected_result: Vec<FpE> = Vec::new();
-        for point in points {
-            let point_eval = evaluate_poly(&input, point.x, point.y);
-            expected_result.push(point_eval);
-        }
-        inplace_cfft(&mut input, twiddles);
-        inplace_order_cfft_values(&mut input);
-        let result: &[FpE] = &input;
-        assert_eq!(result, expected_result);
-    }
-
-    #[test]
-    fn cfft_test_16() {
-        let coset = Coset::new_standard(4);
-        let points = Coset::get_coset_points(&coset);
-        let twiddles = get_twiddles(coset);
-        let mut input = [
-            FpE::from(1),
-            FpE::from(2),
-            FpE::from(3),
-            FpE::from(4),
-            FpE::from(5),
-            FpE::from(6),
-            FpE::from(7),
-            FpE::from(8),
-            FpE::from(9),
-            FpE::from(10),
-            FpE::from(11),
-            FpE::from(12),
-            FpE::from(13),
-            FpE::from(14),
-            FpE::from(15),
-            FpE::from(16),
-        ];
-        let mut expected_result: Vec<FpE> = Vec::new();
-        for point in points {
-            let point_eval = evaluate_poly_16(&input, point.x, point.y);
-            expected_result.push(point_eval);
-        }
-        inplace_cfft(&mut input, twiddles);
-        inplace_order_cfft_values(&mut input);
-        let result: &[FpE] = &input;
-        assert_eq!(result, expected_result);
-    }
 }

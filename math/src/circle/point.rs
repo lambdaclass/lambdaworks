@@ -117,6 +117,7 @@ impl<F: IsField + HasCircleParams<F>> CirclePoint<F> {
 
     /// Computes the inverse of the point.
     /// We are using -(x, y) = (x, -y), i.e. the inverse of the group opertion is conjugation.
+    /// because the norm of every point in the circle is one.
     pub fn conjugate(self) -> Self {
         Self {
             x: self.x,
