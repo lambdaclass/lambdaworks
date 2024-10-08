@@ -12,7 +12,7 @@ use crate::traits::ByteConversion;
 use crate::unsigned_integer::element::U384;
 
 pub const BLS12377_PRIME_FIELD_ORDER: U384 = U384::from_hex_unchecked("1ae3a4617c510eac63b05c06ca1493b1a22d9f300f5138f1ef3622fba094800170b5d44300000008508c00000000001");
-pub const FP2_RESIDUE: FieldElement<BLS12377PrimeField> =FieldElement::from_hex_unchecked("0x1ae3a4617c510eac63b05c06ca1493b1a22d9f300f5138f1ef3622fba094800170b5d44300000008508bffffffffffc");
+pub const FP2_RESIDUE: FieldElement<BLS12377PrimeField> =FieldElement::from_hex_unchecked("1AE3A4617C510EAC63B05C06CA1493B1A22D9F300F5138F1EF3622FBA094800170B5D44300000008508BFFFFFFFFFFC");
 
 // FPBLS12377
 #[derive(Clone, Debug)]
@@ -40,16 +40,18 @@ impl IsField for Degree2ExtensionField {
     /// (a0 + a1 * t) * (b0 + b1 * t) = a0 * b0 + a1 * b1 * Self::residue() + (a0 * b1 + a1 * b0) * t
     /// where `t.pow(2)` equals `Q::residue()`.
     fn mul(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
+        let q: FieldElement<BLS12377PrimeField> = -FieldElement::from(5);
         let a0b0 = &a[0] * &b[0];
         let a1b1 = &a[1] * &b[1];
-        let z = (&a[0] + &a[1]) * (&b[0] + &b[1]);
-        [&a0b0 + &a1b1 * FP2_RESIDUE, z - a0b0 - a1b1]
+        //let z = (&a[0] + &a[1]) * (&b[0] + &b[1]);
+        [&a0b0 + &a1b1 * &q, &a[0] * &b[1] + &a[1] * &b[0]]
     }
 
     fn square(a: &Self::BaseType) -> Self::BaseType {
+        let q: FieldElement<BLS12377PrimeField> = -FieldElement::from(5);
         let [a0, a1] = a;
         let v0 = a0 * a1;
-        let c0 = (a0 + a1) * (a0 + &FP2_RESIDUE * a1) - &v0 - FP2_RESIDUE * &v0;
+        let c0 = (a0 + a1) * (a0 + &q * a1) - &v0 - &q * &v0;
         let c1 = &v0 + &v0;
         [c0, c1]
     }
@@ -220,6 +222,7 @@ impl HasCubicNonResidue<Degree2ExtensionField> for LevelTwoResidue {
     }
 }
 pub type Degree6ExtensionField = CubicExtensionField<Degree2ExtensionField, LevelTwoResidue>;
+type Fp6E = FieldElement<Degree6ExtensionField>;
 
 #[derive(Debug, Clone)]
 pub struct LevelThreeResidue;
@@ -235,6 +238,7 @@ impl HasQuadraticNonResidue<Degree6ExtensionField> for LevelThreeResidue {
 
 /// We define Fp12 = Fp6 [w] / (w^2 - v)
 pub type Degree12ExtensionField = QuadraticExtensionField<Degree6ExtensionField, LevelThreeResidue>;
+pub type Fp12E = FieldElement<Degree12ExtensionField>;
 
 impl FieldElement<Degree6ExtensionField> {
     pub fn new_base(a_hex: &str) -> Self {
@@ -303,12 +307,43 @@ impl HasQuadraticNonResidue<Degree2ExtensionField> for LevelTwoResidue {
 pub type Degree4ExtensionField = QuadraticExtensionField<Degree2ExtensionField, LevelTwoResidue>;
 
 pub fn mul_fp2_by_nonresidue(a: &Fp2E) -> Fp2E {
-    // (c0 + c1 * u) * u =  - c1 + c0 * u
-    let c0 = -&a.value()[1]; //  - c1
-    let c1 = &a.value()[0]; //  c0
-
-    Fp2E::new([c0.clone(), c1.clone()])
+    let c0 = -&a.value()[1]; // -c1
+    let c1 = a.value()[0].clone(); // c0
+    Fp2E::new([c0, c1])
 }
+
+pub fn mul_fp6_by_nonresidue(a: &Fp6E) -> Fp6E {
+    let [a0, a1, a2] = a.value();
+
+    // Realiza el desplazamiento de coeficientes:
+    // c0 = a2 * u (aplica el residuo)
+    let c0 = mul_fp2_by_nonresidue(&a2);
+    // c1 = a0
+    let c1 = a0.clone();
+    // c2 = a1
+    let c2 = a1.clone();
+
+    Fp6E::new([c0, c1, c2])
+}
+///Multiplication between a = a0 + a1 * w and b = b0 + b1 * w with
+/// b1 = b10 + b11 * v + 0 * v^2 which is the case of the line used
+/// in the miller loop.
+pub fn sparse_fp12_mul(a: &Fp12E, b: &Fp12E) -> Fp12E {
+    let [a0, a1] = a.value();
+    let [b0, b1] = b.value();
+    let b00 = &b0.value()[0];
+    let [b10, b11, _] = b1.value();
+
+    let t0 = a0 * b0;
+    let t1 = a1 * b1;
+    let c0 = &t0 + mul_fp6_by_nonresidue(&t1);
+    let t2 = Fp6E::new([b10 + b00, b11.clone(), Fp2E::zero()]);
+    let mut c1 = (a0 + a1) * t2;
+    c1 = c1 - t0 - t1;
+
+    Fp12E::new([c0, c1])
+}
+
 #[cfg(test)]
 mod tests {
 
@@ -383,6 +418,22 @@ mod tests {
     }
     #[test]
     fn test_mul_fp2_by_nonresidue_2() {
+        // Definir el elemento en Fp2: (3 + 5 * u)
+        let a = Fp2E::new([FpE::from(3), FpE::from(5)]);
+
+        // El resultado esperado es: (-5 + 3 * u)
+        let expected = Fp2E::new([-FpE::from(5), FpE::from(3)]);
+
+        // Verifica si la multiplicación por el no-residuo es correcta
+        assert_eq!(mul_fp2_by_nonresidue(&a), expected);
+    }
+    #[test]
+    fn print_fp_resudue() {
+        let q: FieldElement<BLS12377PrimeField> = -FieldElement::from(5);
+        println!("{:?}", q.representative().to_hex());
+    }
+    #[test]
+    fn test_mul_fp2_by_nonresidue_3() {
         // Definir el elemento en Fp2: (3 + 5 * u)
         let a = Fp2E::new([FpE::from(3), FpE::from(5)]);
 

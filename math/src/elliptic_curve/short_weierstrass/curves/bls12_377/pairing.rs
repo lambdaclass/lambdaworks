@@ -2,8 +2,8 @@ use super::curve::MILLER_LOOP_CONSTANT;
 use super::{
     curve::BLS12377Curve,
     field_extension::{
-        mul_fp2_by_nonresidue, BLS12377PrimeField, Degree12ExtensionField, Degree2ExtensionField,
-        Degree4ExtensionField,
+        mul_fp2_by_nonresidue, sparse_fp12_mul, BLS12377PrimeField, Degree12ExtensionField,
+        Degree2ExtensionField, Degree4ExtensionField,
     },
     twist::BLS12377TwistCurve,
 };
@@ -24,7 +24,8 @@ type Fp2E = FieldElement<Degree2ExtensionField>;
 type Fp4E = FieldElement<Degree4ExtensionField>;
 type Fp6E = FieldElement<Degree6ExtensionField>;
 type Fp12E = FieldElement<Degree12ExtensionField>;
-
+type G1Point = ShortWeierstrassProjectivePoint<BLS12377Curve>;
+type G2Point = ShortWeierstrassProjectivePoint<BLS12377TwistCurve>;
 pub const X: u64 = 0x8508c00000000001;
 
 // X in binary = 1000010100001000110000000000000000000000000000000000000000000001
@@ -36,6 +37,7 @@ pub const X_BINARY: &[bool] = &[
     false, false, false, false, false, false, false, false, false, false, false, false, false,
     false, false, false, false, false, false, false, false, true,
 ];
+
 pub const SUBGROUP_ORDER: U256 =
     U256::from_hex_unchecked("12ab655e9a2ca55660b44d1e5c37b00159aa76fed00000010a11800000000001");
 
@@ -94,6 +96,10 @@ pub const GAMMA_24: FpE =
 pub const GAMMA_25: FpE =
     FpE::from_hex_unchecked("1AE3A4617C510EABC8756BA8F8C524EB8882A75CC9BC8E359064EE822FB5BFFD1E94577A00000000000000000000000");
 
+/// The inverse of two in Fp as a constant.
+pub const TWO_INV: FpE =
+    FpE::from_hex_unchecked("D71D230BE28875631D82E03650A49D8D116CF9807A89C78F79B117DD04A4000B85AEA2180000004284600000000001");
+
 #[derive(Clone)]
 pub struct BLS12377AtePairing;
 
@@ -114,13 +120,91 @@ impl IsPairing for BLS12377AtePairing {
             if !p.is_neutral_element() && !q.is_neutral_element() {
                 let p = p.to_affine();
                 let q = q.to_affine();
-                result *= miller_old(&q, &p);
+                result *= miller_optimized(&p, &q);
             }
         }
         Ok(final_exponentiation_optimized(&result))
     }
 }
 
+pub fn miller_optimized(p: &G1Point, q: &G2Point) -> Fp12E {
+    let mut t = q.clone();
+    let mut f = Fp12E::one();
+
+    // Iteramos sobre los bits de X, ajustado para BLS12-377
+    // Como X_IS_NEGATIVE es falso, no necesitamos manejar valores negativos
+    for bit in X_BINARY.iter().rev().skip(1) {
+        // Doble de t y cálculo de la línea
+        let (r, l) = line_optimized(p, &t, &t);
+        f = sparse_fp12_mul(&f.square(), &l);
+        t = r;
+
+        if *bit {
+            // Paso de adición
+            let (r, l) = line_optimized(p, &t, q);
+            f = sparse_fp12_mul(&f, &l);
+            t = r;
+        }
+    }
+    f
+}
+fn line_optimized(p: &G1Point, t: &G2Point, q: &G2Point) -> (G2Point, Fp12E) {
+    let [x_p, y_p, _] = p.coordinates();
+
+    if t as *const G2Point == q as *const G2Point || t == q {
+        let a = TWO_INV * t.x() * t.y();
+        let b = t.y().square();
+        let c = t.z().square();
+        let e = BLS12377TwistCurve::b() * (c.double() + &c);
+        let f = e.double() + &e;
+        let g = TWO_INV * (&b + &f);
+        let h = (t.y() + t.z()).square() - (&b + &c);
+        let i = &e - &b;
+        let j = t.x().square();
+        let e_square = e.square();
+
+        let x_r = a * (&b - f);
+        let y_r = g.square() - (e_square.double() + e_square);
+        let z_r = b * &h;
+
+        let r = G2Point::new([x_r, y_r, z_r]);
+
+        let l = Fp12E::new([
+            Fp6E::new([y_p * (-h), Fp2E::zero(), Fp2E::zero()]),
+            Fp6E::new([x_p * (j.double() + &j), i, Fp2E::zero()]),
+        ]);
+        (r, l)
+    } else {
+        let [x_q, y_q, _] = q.coordinates();
+        let [x_t, y_t, z_t] = t.coordinates();
+
+        let a = y_q * z_t;
+        let b = x_q * z_t;
+        let theta = t.y() - a;
+        let lambda = t.x() - b;
+        let c = theta.square();
+        let d = lambda.square();
+        let e = &lambda * &d;
+        let f = z_t * c;
+        let g = x_t * d;
+        let h = &e + f - g.double();
+        let i = y_t * &e;
+        let j = &theta * x_q - (&lambda * y_q);
+
+        let x_r = &lambda * &h;
+        let y_r = &theta * (g - h) - i;
+        let z_r = z_t * e;
+
+        let r = G2Point::new([x_r, y_r, z_r]);
+
+        let l = Fp12E::new([
+            Fp6E::new([y_p * lambda, Fp2E::zero(), Fp2E::zero()]),
+            Fp6E::new([x_p * (-theta), j, Fp2E::zero()]),
+        ]);
+        (r, l)
+    }
+}
+/*
 fn double_accumulate_line(
     t: &mut ShortWeierstrassProjectivePoint<BLS12377TwistCurve>,
     p: &ShortWeierstrassProjectivePoint<BLS12377Curve>,
@@ -228,10 +312,11 @@ fn add_accumulate_line(
         ]),
     ]);
 }
+*/
 /// Implements the miller loop for the ate pairing of the BLS12 377 curve.
 /// Based on algorithm 9.2, page 212 of the book
 /// "Topics in computational number theory" by W. Bons and K. Lenstra
-pub fn miller_old(
+/*pub fn miller_old(
     q: &ShortWeierstrassProjectivePoint<BLS12377TwistCurve>,
     p: &ShortWeierstrassProjectivePoint<BLS12377Curve>,
 ) -> FieldElement<Degree12ExtensionField> {
@@ -253,7 +338,7 @@ pub fn miller_old(
     }
     f
 }
-
+*/
 pub fn frobenius(f: &Fp12E) -> Fp12E {
     let [a, b] = f.value(); // f = a + bw, where a and b in Fp6.
     let [a0, a1, a2] = a.value(); // a = a0 + a1 * v + a2 * v^2, where a0, a1 and a2 in Fp2.
@@ -323,15 +408,14 @@ pub fn cyclotomic_square(a: &Fp12E) -> Fp12E {
     let mut r11 = &v0.value()[1] + b4;
     r11 = r11.double();
     r11 += v0.value()[1].clone();
-
     // r12 = 3v11 - 2b5
     let mut r12 = &v1.value()[1] + b5;
     r12 = r12.double();
     r12 += v1.value()[1].clone();
+    // r12 = 3v11 - 2b5
 
-    // 3 * ( u) * v21 + 2b3
+    //let v21 = &v2.value()[1] * LevelTwoResidue::residue();
     let v21 = &v2.value()[1] * LevelTwoResidue::residue();
-    //let v21 = mul_fp2_by_nonresidue(&v2.value()[1]);
     let mut r10 = &v21 + b3;
     r10 = r10.double();
     r10 += v21;
@@ -343,6 +427,7 @@ pub fn cyclotomic_square(a: &Fp12E) -> Fp12E {
 
     Fp12E::new([Fp6E::new([r00, r01, r02]), Fp6E::new([r10, r11, r12])])
 }
+
 // To understand more about how to reduce the final exponentiation
 // read "Efficient Final Exponentiation via Cyclotomic Structure for
 // Pairings over Families of Elliptic Curves" (https://eprint.iacr.org/2020/875.pdf)
@@ -403,32 +488,32 @@ mod tests {
     };
 
     use super::*;
+    /*
+          #[test]
+          fn test_double_accumulate_line_doubles_point_correctly() {
+              let g1 = BLS12377Curve::generator();
+              let g2 = BLS12377TwistCurve::generator();
+              let mut r = g2.clone();
+              let mut f = FieldElement::one();
+              double_accumulate_line(&mut r, &g1, &mut f);
+              assert_eq!(r, g2.operate_with(&g2));
+          }
 
-    #[test]
-    fn test_double_accumulate_line_doubles_point_correctly() {
-        let g1 = BLS12377Curve::generator();
-        let g2 = BLS12377TwistCurve::generator();
-        let mut r = g2.clone();
-        let mut f = FieldElement::one();
-        double_accumulate_line(&mut r, &g1, &mut f);
-        assert_eq!(r, g2.operate_with(&g2));
-    }
-
-    #[test]
-    fn test_add_accumulate_line_adds_points_correctly() {
-        let g1 = BLS12377Curve::generator();
-        let g = BLS12377TwistCurve::generator();
-        let a: u64 = 12;
-        let b: u64 = 23;
-        let g2 = g.operate_with_self(a).to_affine();
-        let g3 = g.operate_with_self(b).to_affine();
-        let expected = g.operate_with_self(a + b);
-        let mut r = g2;
-        let mut f = FieldElement::one();
-        add_accumulate_line(&mut r, &g3, &g1, &mut f);
-        assert_eq!(r, expected);
-    }
-
+       #[test]
+       fn test_add_accumulate_line_adds_points_correctly() {
+           let g1 = BLS12377Curve::generator();
+           let g = BLS12377TwistCurve::generator();
+           let a: u64 = 12;
+           let b: u64 = 23;
+           let g2 = g.operate_with_self(a).to_affine();
+           let g3 = g.operate_with_self(b).to_affine();
+           let expected = g.operate_with_self(a + b);
+           let mut r = g2;
+           let mut f = FieldElement::one();
+           add_accumulate_line(&mut r, &g3, &g1, &mut f);
+           assert_eq!(r, expected);
+       }
+    */
     #[test]
     fn batch_ate_pairing_bilinearity() {
         let p = BLS12377Curve::generator();
@@ -502,28 +587,28 @@ mod tests {
     fn cyclotomic_square_equals_square() {
         let p = BLS12377Curve::generator();
         let q = BLS12377TwistCurve::generator();
-        let f = miller_old(&q, &p);
+        let f = miller_optimized(&p, &q);
         let f_easy_aux = f.conjugate() * f.inv().unwrap(); // f ^ (p^6 - 1) because f^(p^6) = f.conjugate().
         let f_easy = &frobenius_square(&f_easy_aux) * f_easy_aux; // (f^{p^6 - 1})^(p^2) * (f^{p^6 - 1}).
         assert_eq!(cyclotomic_square(&f_easy), f_easy.square());
     }
-
+    /*
     #[test]
     fn test_double_accumulate_line_doubles_point_correctl_2() {
         let g1 = BLS12377Curve::generator();
         let g2 = BLS12377TwistCurve::generator();
         let mut r = g2.clone();
         let mut f = FieldElement::one();
-        double_accumulate_line(&mut r, &g1, &mut f);
+        line_optimized(&mut r, &g1, &mut f);
         let expected_r = g2.operate_with(&g2);
         assert_eq!(r.to_affine(), expected_r.to_affine());
     }
-
+    */
     #[test]
     fn cyclotomic_pow_x_equals_pow() {
         let p = BLS12377Curve::generator();
         let q = BLS12377TwistCurve::generator();
-        let f = miller_old(&q, &p);
+        let f = miller_optimized(&p, &q);
         let f_easy_aux = f.conjugate() * f.inv().unwrap(); // f ^ (p^6 - 1) because f^(p^6) = f.conjugate().
         let f_easy = &frobenius_square(&f_easy_aux) * f_easy_aux; // (f^{p^6 - 1})^(p^2) * (f^{p^6 - 1}).
         assert_eq!(cyclotomic_pow_x(&f_easy), f_easy.pow(X));
