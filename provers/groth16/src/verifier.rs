@@ -7,10 +7,7 @@ use crate::setup::VerifyingKey;
 pub fn verify(vk: &VerifyingKey, proof: &Proof, pub_inputs: &[FrElement]) -> bool {
     // [γ^{-1} * (β*l(τ) + α*r(τ) + o(τ))]_1
     let k_tau_assigned_verifier_g1 = msm(
-        &pub_inputs
-            .iter()
-            .map(|elem| elem.representative())
-            .collect::<Vec<_>>(),
+        &pub_inputs,
         &vk.verifier_k_tau_g1,
     )
     .unwrap();

@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 #[cfg(feature = "instruments")]
 use std::time::Instant;
 
-use lambdaworks_crypto::fiat_shamir::is_transcript::IsTranscript;
+use lambdaworks_crypto::fiat_shamir::is_transcript::{IsStarkTranscript, IsTranscript};
 use lambdaworks_math::fft::cpu::bit_reversing::{in_place_bit_reverse_permute, reverse_index};
 use lambdaworks_math::fft::errors::FFTError;
 
@@ -793,7 +793,7 @@ pub trait IsStarkProver<A: AIR> {
         main_trace: &TraceTable<A::Field>,
         pub_inputs: &A::PublicInputs,
         proof_options: &ProofOptions,
-        mut transcript: impl IsTranscript<A::FieldExtension>,
+        mut transcript: impl IsStarkTranscript<A::FieldExtension>,
     ) -> Result<StarkProof<A::Field, A::FieldExtension>, ProvingError>
     where
         A: Send + Sync,

@@ -67,15 +67,14 @@ pub struct Prover;
 impl Prover {
     pub fn prove(w: &[FrElement], qap: &QuadraticArithmeticProgram, pk: &ProvingKey) -> Proof {
         let h_coefficients = qap
-            .calculate_h_coefficients(w)
-            .iter()
-            .map(|elem| elem.representative())
-            .collect::<Vec<_>>();
+            .calculate_h_coefficients(w);
 
+        /*
         let w = w
             .iter()
             .map(|elem| elem.representative())
             .collect::<Vec<_>>();
+        */
 
         // Sample randomness for hiding
         let r = sample_fr_elem();
@@ -95,7 +94,7 @@ impl Prover {
 
         // [ƍ^{-1} * t(τ)*h(τ)]_1
         let t_tau_h_tau_assigned_g1 = msm(
-            &h_coefficients,
+            &qap.calculate_h_coefficients(w),
             &pk.z_powers_of_tau_g1[..h_coefficients.len()],
         )
         .unwrap();
