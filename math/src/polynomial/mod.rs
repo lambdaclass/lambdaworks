@@ -146,7 +146,7 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
         if degree == 0 {
             return Polynomial::zero();
         }
-        let mut derivative = Vec::with_capacity(self.degree());
+        let mut derivative = Vec::with_capacity(degree);
         for (i, coeff) in self.coefficients().iter().enumerate().skip(1) {
             derivative.push(FieldElement::<F>::from(i as u64) * coeff);
         }
