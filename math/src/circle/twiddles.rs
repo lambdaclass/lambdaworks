@@ -16,32 +16,32 @@ pub fn get_twiddles(
     domain: Coset,
     config: TwiddlesConfig,
 ) -> Vec<Vec<FieldElement<Mersenne31Field>>> {
-    let mut half_domain_points = Coset::get_coset_points(&Coset::half_coset(domain.clone()));
-    if config == TwiddlesConfig::Evaluation {
-        in_place_bit_reverse_permute::<CirclePoint<Mersenne31Field>>(&mut half_domain_points[..]);
-    }
+    let half_domain_points = Coset::get_coset_points(&Coset::half_coset(domain.clone()));
 
     let mut twiddles: Vec<Vec<FieldElement<Mersenne31Field>>> =
         vec![half_domain_points.iter().map(|p| p.y).collect()];
 
     if domain.log_2_size >= 2 {
-        twiddles.push(half_domain_points.iter().step_by(2).map(|p| p.x).collect());
+        twiddles.push(half_domain_points.iter().take(half_domain_points.len() / 2 ).map(|p| p.x).collect());
         for _ in 0..(domain.log_2_size - 2) {
             let prev = twiddles.last().unwrap();
             let cur = prev
                 .iter()
-                .step_by(2)
+                .take(prev.len() / 2 )
                 .map(|x| x.square().double() - FieldElement::<Mersenne31Field>::one())
                 .collect();
             twiddles.push(cur);
         }
     }
-    twiddles.reverse();
 
     if config == TwiddlesConfig::Interpolation {
+        // For the interpolation, we need to take the inverse element of each twiddle in the default order.
         twiddles.iter_mut().for_each(|x| {
             FieldElement::<Mersenne31Field>::inplace_batch_inverse(x).unwrap();
         });
+    } else {
+        // For the evaluation, we need the vector of twiddles but in the inverse order.
+        twiddles.reverse();
     }
     twiddles
 }

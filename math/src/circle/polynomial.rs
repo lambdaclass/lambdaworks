@@ -1,7 +1,10 @@
-use crate::field::{element::FieldElement, fields::mersenne31::field::Mersenne31Field};
+use crate::{
+    field::{element::FieldElement, fields::mersenne31::field::Mersenne31Field},
+    fft::cpu::bit_reversing::in_place_bit_reverse_permute
+};
 
 use super::{
-    cfft::{cfft_4, cfft_8, inplace_cfft, inplace_order_cfft_values},
+    cfft::{cfft, icfft, cfft_4, cfft_8, order_cfft_result_naive, order_icfft_input_naive},
     cosets::Coset,
     twiddles::{
         get_twiddles, get_twiddles_itnerpolation_4, get_twiddles_itnerpolation_8, TwiddlesConfig,
@@ -14,14 +17,15 @@ use super::{
 pub fn evaluate_cfft(
     mut coeff: Vec<FieldElement<Mersenne31Field>>,
 ) -> Vec<FieldElement<Mersenne31Field>> {
+    in_place_bit_reverse_permute::<FieldElement<Mersenne31Field>>(&mut coeff);
     let domain_log_2_size: u32 = coeff.len().trailing_zeros();
     let coset = Coset::new_standard(domain_log_2_size);
     let config = TwiddlesConfig::Evaluation;
     let twiddles = get_twiddles(coset, config);
 
-    inplace_cfft(&mut coeff, twiddles);
-    inplace_order_cfft_values(&mut coeff);
-    coeff
+    cfft(&mut coeff, twiddles);
+    let result = order_cfft_result_naive(&mut coeff);
+    result
 }
 
 /// Interpolates the 2^n evaluations of a two-variables polynomial on the points of the standard coset of size 2^n.
@@ -30,14 +34,15 @@ pub fn evaluate_cfft(
 pub fn interpolate_cfft(
     mut eval: Vec<FieldElement<Mersenne31Field>>,
 ) -> Vec<FieldElement<Mersenne31Field>> {
+    let mut eval_ordered = order_icfft_input_naive(&mut eval); 
     let domain_log_2_size: u32 = eval.len().trailing_zeros();
     let coset = Coset::new_standard(domain_log_2_size);
     let config = TwiddlesConfig::Interpolation;
     let twiddles = get_twiddles(coset, config);
 
-    inplace_cfft(&mut eval, twiddles);
-    inplace_order_cfft_values(&mut eval);
-    eval
+    icfft(&mut eval_ordered, twiddles);
+    let result = order_cfft_result_naive(&mut eval);
+    result
 }
 
 pub fn interpolate_4(
@@ -116,7 +121,7 @@ mod tests {
         // We create the coset points and evaluate them without the fft.
         let coset = Coset::new_standard(2);
         let points = Coset::get_coset_points(&coset);
-        let mut input = [FpE::from(1), FpE::from(2), FpE::from(3), FpE::from(4)];
+        let input = [FpE::from(1), FpE::from(2), FpE::from(3), FpE::from(4)];
         let mut expected_result: Vec<FpE> = Vec::new();
         for point in points {
             let point_eval = evaluate_poly_4(&input, point.x, point.y);
@@ -133,7 +138,7 @@ mod tests {
         // We create the coset points and evaluate them without the fft.
         let coset = Coset::new_standard(3);
         let points = Coset::get_coset_points(&coset);
-        let mut input = [
+        let input = [
             FpE::from(1),
             FpE::from(2),
             FpE::from(3),
@@ -158,7 +163,7 @@ mod tests {
     fn cfft_evaluation_16_points() {
         let coset = Coset::new_standard(4);
         let points = Coset::get_coset_points(&coset);
-        let mut input = [
+        let input = [
             FpE::from(1),
             FpE::from(2),
             FpE::from(3),
@@ -231,8 +236,20 @@ mod tests {
     }
 
     #[test]
-    fn cuentas() {
-        println!("{:?}", FpE::from(32768).inv().unwrap()); // { value: 65536 }
-        println!("{:?}", FpE::from(2147450879).inv().unwrap()); // { value: 2147418111 }
+    fn evaluate_and_interpolate() {
+        let coeff = vec![
+            FpE::from(1),
+            FpE::from(2),
+            FpE::from(3),
+            FpE::from(4),
+            FpE::from(5),
+            FpE::from(6),
+            FpE::from(7),
+            FpE::from(8),
+        ];
+        let evals = evaluate_cfft(coeff.clone());
+        let new_coeff = interpolate_cfft(evals);
+
+        assert_eq!(coeff, new_coeff);
     }
 }
