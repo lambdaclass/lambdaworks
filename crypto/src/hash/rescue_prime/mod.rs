@@ -1,17 +1,18 @@
 use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::fields::u64_goldilocks_field::Goldilocks64Field;
-use lazy_static::lazy_static;
-use std::io::Read;
+//use lazy_static::lazy_static;
+//use std::io::Read;
 
-use sha3::{
-    digest::{ExtendableOutput, Update},
-    Shake256,
-};
-// Rescue Prime Optimized implementation based on
-// https://github.com/ASDiscreteMathematics/rpo and
-// https://github.com/0xPolygonMiden/crypto/tree/main/src/hash/rescue/rpo
-pub const ALPHA: u64 = 7;
-pub const ALPHA_INV: u64 = 10540996611094048183;
+//use sha3::{
+//    digest::{ExtendableOutput, Update},
+//    Shake256,
+//};
+
+mod parameters;
+mod utils;
+
+use parameters::*;
+use utils::*;
 
 type Fp = FieldElement<Goldilocks64Field>;
 
@@ -22,7 +23,7 @@ enum MdsMethod {
     Ntt,
     Karatsuba,
 }
-
+#[warn(dead_code)]
 pub struct RescuePrimeOptimized<const SECURITY_LEVEL: usize, const NUM_FULL_ROUNDS: usize> {
     m: usize,
     capacity: usize,
@@ -46,8 +47,6 @@ impl<const SECURITY_LEVEL: usize, const NUM_FULL_ROUNDS: usize> Default
 impl<const SECURITY_LEVEL: usize, const NUM_FULL_ROUNDS: usize>
     RescuePrimeOptimized<SECURITY_LEVEL, NUM_FULL_ROUNDS>
 {
-    const P: u64 = 18446744069414584321; // p = 2^64 - 2^32 + 1
-
     fn new(mds_method: MdsMethod) -> Self {
         assert!(SECURITY_LEVEL == 128 || SECURITY_LEVEL == 160);
 
@@ -60,15 +59,8 @@ impl<const SECURITY_LEVEL: usize, const NUM_FULL_ROUNDS: usize>
 
         let mds_vector = Self::get_mds_vector(m);
         let mds_matrix = Self::generate_circulant_matrix(&mds_vector);
-
-        //let round_constants = Self::instantiate_round_constants(
-        //     Self::P,
-        //     m,
-        //     capacity,
-        //     SECURITY_LEVEL,
-        //     NUM_FULL_ROUNDS,
-        // );
-        let round_constants = vec![
+        let round_constants = ROUND_CONSTANTS.clone();
+        /*let round_constants = vec![
             Fp::from(5789762306288267392u64),
             Fp::from(6522564764413701783u64),
             Fp::from(17809893479458208203u64),
@@ -237,13 +229,13 @@ impl<const SECURITY_LEVEL: usize, const NUM_FULL_ROUNDS: usize>
             Fp::from(9643968136937729763u64),
             Fp::from(3611348709641382851u64),
             Fp::from(18256379591337759196u64),
-        ];
+        ];*/
 
         Self {
             m,
             capacity,
             rate,
-            round_constants,
+            round_constants: round_constants,
             mds_matrix,
             mds_vector,
             alpha: ALPHA,
@@ -256,43 +248,6 @@ impl<const SECURITY_LEVEL: usize, const NUM_FULL_ROUNDS: usize>
         for x in state.iter_mut() {
             *x = x.pow(ALPHA_INV);
         }
-
-        /*let mut t1 = state.to_vec();
-        for x in t1.iter_mut() {
-            *x = x.square();
-        }
-
-        let mut t2 = t1.clone();
-        for x in t2.iter_mut() {
-            *x = x.square();
-        }
-
-        let t3 = Self::exp_acc(&t2, &t2, 3);
-        let t4 = Self::exp_acc(&t3, &t3, 6);
-        let t5 = Self::exp_acc(&t4, &t4, 12);
-        let t6 = Self::exp_acc(&t5, &t3, 6);
-        let t7 = Self::exp_acc(&t6, &t6, 31);
-
-        for i in 0..state.len() {
-            let a = (t7[i].square() * t6[i].clone()).square().square();
-            let b = t1[i].clone() * t2[i].clone() * state[i].clone();
-            state[i] = a * b;
-        }*/
-    }
-
-    #[inline(always)]
-    fn exp_acc(base: &[Fp], tail: &[Fp], num_squarings: usize) -> Vec<Fp> {
-        let mut result = base.to_vec();
-        for x in result.iter_mut() {
-            for _ in 0..num_squarings {
-                *x = x.square();
-            }
-        }
-        result
-            .iter_mut()
-            .zip(tail.iter())
-            .for_each(|(r, t)| *r = *r * t.clone());
-        result
     }
 
     fn get_mds_vector(m: usize) -> Vec<Fp> {
@@ -321,48 +276,6 @@ impl<const SECURITY_LEVEL: usize, const NUM_FULL_ROUNDS: usize>
             }
         }
         mds_matrix
-    }
-
-    fn instantiate_round_constants(
-        p: u64,
-        m: usize,
-        capacity: usize,
-        security_level: usize,
-        num_rounds: usize,
-    ) -> Vec<Fp> {
-        let seed_string = format!("RPO({},{},{},{})", p, m, capacity, security_level);
-        let mut shake = Shake256::default();
-        shake.update(seed_string.as_bytes());
-
-        let num_constants = 2 * m * num_rounds;
-        let bytes_per_int = 8;
-        let num_bytes = bytes_per_int * num_constants;
-
-        let mut shake_output = shake.finalize_xof();
-        let mut test_bytes = vec![0u8; num_bytes];
-        shake_output.read_exact(&mut test_bytes).unwrap();
-
-        let mut round_constants = Vec::new();
-
-        for i in 0..num_constants {
-            let start = i * bytes_per_int;
-            let end = start + bytes_per_int;
-            let bytes = &test_bytes[start..end];
-
-            if bytes.len() == 8 {
-                let integer = u64::from_le_bytes(bytes.try_into().unwrap());
-                let constant = Fp::from(integer);
-
-                if constant.value() >= &p {
-                    panic!("Generated constant exceeds field size.");
-                }
-
-                round_constants.push(constant);
-            } else {
-                panic!("Invalid number of bytes extracted for u64 conversion.");
-            }
-        }
-        round_constants
     }
 
     pub fn apply_sbox(state: &mut [Fp]) {
@@ -497,7 +410,6 @@ impl<const SECURITY_LEVEL: usize, const NUM_FULL_ROUNDS: usize>
             for j in 0..last_chunk_size {
                 last_chunk[j] = input_sequence[num_full_chunks * rate + j];
             }
-            // Apply padding
             last_chunk[last_chunk_size] = Fp::one();
 
             for j in 0..rate {
@@ -516,109 +428,10 @@ impl<const SECURITY_LEVEL: usize, const NUM_FULL_ROUNDS: usize>
     }
 }
 
-fn bytes_to_field_elements(input: &[u8]) -> Vec<Fp> {
-    let mut elements = Vec::new();
-
-    let chunk_size = 7;
-    let mut buf = [0u8; 8];
-
-    let mut chunks = input.chunks(chunk_size).peekable();
-
-    while let Some(chunk) = chunks.next() {
-        buf.fill(0);
-        buf[..chunk.len()].copy_from_slice(chunk);
-        if chunk.len() < chunk_size {
-            buf[chunk.len()] = 1;
-        }
-        let value = u64::from_le_bytes(buf);
-        elements.push(Fp::from(value));
-    }
-
-    elements
-}
-
-//  NTT and INTT functions
-fn ntt(input: &[Fp], omega: Fp) -> Vec<Fp> {
-    let n = input.len();
-    let mut output = vec![Fp::zero(); n];
-    for i in 0..n {
-        let mut sum = Fp::zero();
-        for (j, val) in input.iter().enumerate() {
-            sum = sum + *val * omega.pow((i * j) as u64);
-        }
-        output[i] = sum;
-    }
-    output
-}
-
-fn intt(input: &[Fp], omega_inv: Fp) -> Vec<Fp> {
-    let n = input.len();
-    let inv_n = Fp::from(n as u64).inv().unwrap();
-    let mut output = ntt(input, omega_inv);
-    for val in output.iter_mut() {
-        *val = *val * inv_n;
-    }
-    output
-}
-
-// Karatsuba multiplication
-fn karatsuba(lhs: &[Fp], rhs: &[Fp]) -> Vec<Fp> {
-    let n = lhs.len();
-    if n <= 32 {
-        let mut result = vec![Fp::zero(); 2 * n - 1];
-        for i in 0..n {
-            for j in 0..n {
-                result[i + j] = result[i + j] + lhs[i] * rhs[j];
-            }
-        }
-        return result;
-    }
-
-    let half = n / 2;
-
-    let lhs_low = &lhs[..half];
-    let lhs_high = &lhs[half..];
-    let rhs_low = &rhs[..half];
-    let rhs_high = &rhs[half..];
-
-    let z0 = karatsuba(lhs_low, rhs_low);
-    let z2 = karatsuba(lhs_high, rhs_high);
-
-    let lhs_sum: Vec<Fp> = lhs_low
-        .iter()
-        .zip(lhs_high.iter())
-        .map(|(a, b)| *a + *b)
-        .collect();
-
-    let rhs_sum: Vec<Fp> = rhs_low
-        .iter()
-        .zip(rhs_high.iter())
-        .map(|(a, b)| *a + *b)
-        .collect();
-
-    let z1 = karatsuba(&lhs_sum, &rhs_sum);
-
-    let mut result = vec![Fp::zero(); 2 * n - 1];
-
-    for i in 0..z0.len() {
-        result[i] = result[i] + z0[i];
-    }
-
-    for i in 0..z1.len() {
-        result[i + half] = result[i + half] + z1[i]
-            - z0.get(i).cloned().unwrap_or(Fp::zero())
-            - z2.get(i).cloned().unwrap_or(Fp::zero());
-    }
-
-    for i in 0..z2.len() {
-        result[i + 2 * half] = result[i + 2 * half] + z2[i];
-    }
-
-    result
-}
 #[cfg(test)]
 mod tests {
     use super::*;
+    use lazy_static::lazy_static;
     use rand::rngs::StdRng;
     use rand::{Rng, SeedableRng};
 
