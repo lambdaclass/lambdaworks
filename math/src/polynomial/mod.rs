@@ -140,6 +140,19 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
         self.coefficients().len()
     }
 
+    /// Returns the derivative of the polynomial with respect to x.
+    pub fn differentiate(&self) -> Self {
+        let degree = self.degree();
+        if degree == 0 {
+            return Polynomial::zero();
+        }
+        let mut derivative = Vec::with_capacity(self.degree());
+        for (i, coeff) in self.coefficients().iter().enumerate().skip(1) {
+            derivative.push(FieldElement::<F>::from(i as u64) * coeff);
+        }
+        Polynomial::new(&derivative)
+    }
+
     /// Computes quotient with `x - b` in place.
     pub fn ruffini_division_inplace(&mut self, b: &FieldElement<F>) {
         let mut c = FieldElement::zero();
@@ -1176,5 +1189,20 @@ mod tests {
         assert_eq!(b, Polynomial::zero());
         assert_eq!(lhs, g);
         assert_eq!(g, p3);
+    }
+
+    #[test]
+    fn test_differentiate() {
+        // 3x^2 + 2x + 42
+        let px = Polynomial::new(&[FE::new(42), FE::new(2), FE::new(3)]);
+        // 6x + 2
+        let dpdx = px.differentiate();
+        assert_eq!(dpdx, Polynomial::new(&[FE::new(2), FE::new(6)]));
+
+        // 128
+        let px = Polynomial::new(&[FE::new(128)]);
+        // 0
+        let dpdx = px.differentiate();
+        assert_eq!(dpdx, Polynomial::new(&[FE::new(0)]));
     }
 }
