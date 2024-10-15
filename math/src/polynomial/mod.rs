@@ -1,5 +1,5 @@
 use super::field::element::FieldElement;
-use crate::field::traits::{IsField, IsSubFieldOf};
+use crate::field::traits::{IsField, IsPrimeField, IsSubFieldOf};
 use alloc::{borrow::ToOwned, vec, vec::Vec};
 use core::{fmt::Display, ops};
 
@@ -312,6 +312,44 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
                 .map(|x| x.to_extension::<L>())
                 .collect(),
         }
+    }
+}
+
+impl<F: IsPrimeField> Polynomial<FieldElement<F>> {
+    // Print the polynomial as a string ready to be used in SageMath, or just for pretty printing.
+    pub fn print_as_sage_poly(&self, var_name: Option<char>) -> String {
+        let var_name = var_name.unwrap_or('x');
+        if self.coefficients.is_empty()
+            || self.coefficients.len() == 1 && self.coefficients[0] == FieldElement::zero()
+        {
+            return String::new();
+        }
+
+        let mut string = String::new();
+        let zero = FieldElement::<F>::zero();
+
+        for (i, coeff) in self.coefficients.iter().rev().enumerate() {
+            if *coeff == zero {
+                continue;
+            }
+
+            let coeff_str = coeff.representative().to_string();
+
+            if i == self.coefficients.len() - 1 {
+                string.push_str(&coeff_str);
+            } else if i == self.coefficients.len() - 2 {
+                string.push_str(&format!("{}*{} + ", coeff_str, var_name));
+            } else {
+                string.push_str(&format!(
+                    "{}*{}^{} + ",
+                    coeff_str,
+                    var_name,
+                    self.coefficients.len() - 1 - i
+                ));
+            }
+        }
+
+        string
     }
 }
 
@@ -1204,5 +1242,11 @@ mod tests {
         // 0
         let dpdx = px.differentiate();
         assert_eq!(dpdx, Polynomial::new(&[FE::new(0)]));
+    }
+
+    #[test]
+    fn test_print_as_sage_poly() {
+        let p = Polynomial::new(&[FE::new(1), FE::new(2), FE::new(3)]);
+        assert_eq!(p.print_as_sage_poly(None), "3*x^2 + 2*x + 1");
     }
 }
