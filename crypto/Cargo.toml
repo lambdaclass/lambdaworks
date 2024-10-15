@@ -11,7 +11,6 @@ license.workspace = true
 lambdaworks-math = { workspace = true, features = ["alloc"] }
 sha3 = { version = "0.10", default-features = false }
 sha2 = { version = "0.10", default-features = false }
-lazy_static = "1.5.0"
 # Optional
 serde = { version = "1.0", default-features = false, features = [
     "derive",

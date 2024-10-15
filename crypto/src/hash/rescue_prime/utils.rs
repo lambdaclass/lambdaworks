@@ -39,7 +39,7 @@ pub fn karatsuba(lhs: &[Fp], rhs: &[Fp]) -> Vec<Fp> {
         let mut result = vec![Fp::zero(); 2 * n - 1];
         lhs.iter().enumerate().for_each(|(i, &lhs_val)| {
             rhs.iter().enumerate().for_each(|(j, &rhs_val)| {
-                result[i + j] = result[i + j] + lhs_val * rhs_val;
+                result[i + j] += lhs_val * rhs_val;
             });
         });
         return result;

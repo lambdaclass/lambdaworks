@@ -28,11 +28,11 @@ pub struct RescuePrimeOptimized<const SECURITY_LEVEL: usize, const NUM_FULL_ROUN
     m: usize,
     capacity: usize,
     rate: usize,
-    round_constants: Vec<Fp>,
+    round_constants: [Fp; 168],
     mds_matrix: Vec<Vec<Fp>>,
     mds_vector: Vec<Fp>,
-    alpha: u64,
-    alpha_inv: u64,
+    //alpha: u64,
+    //alpha_inv: u64,
     mds_method: MdsMethod,
 }
 
@@ -59,187 +59,15 @@ impl<const SECURITY_LEVEL: usize, const NUM_FULL_ROUNDS: usize>
 
         let mds_vector = Self::get_mds_vector(m);
         let mds_matrix = Self::generate_circulant_matrix(&mds_vector);
-        let round_constants = ROUND_CONSTANTS.clone();
-        /*let round_constants = vec![
-            Fp::from(5789762306288267392u64),
-            Fp::from(6522564764413701783u64),
-            Fp::from(17809893479458208203u64),
-            Fp::from(107145243989736508u64),
-            Fp::from(6388978042437517382u64),
-            Fp::from(15844067734406016715u64),
-            Fp::from(9975000513555218239u64),
-            Fp::from(3344984123768313364u64),
-            Fp::from(9959189626657347191u64),
-            Fp::from(12960773468763563665u64),
-            Fp::from(9602914297752488475u64),
-            Fp::from(16657542370200465908u64),
-            Fp::from(6077062762357204287u64),
-            Fp::from(15277620170502011191u64),
-            Fp::from(5358738125714196705u64),
-            Fp::from(14233283787297595718u64),
-            Fp::from(13792579614346651365u64),
-            Fp::from(11614812331536767105u64),
-            Fp::from(14871063686742261166u64),
-            Fp::from(10148237148793043499u64),
-            Fp::from(4457428952329675767u64),
-            Fp::from(15590786458219172475u64),
-            Fp::from(10063319113072092615u64),
-            Fp::from(14200078843431360086u64),
-            Fp::from(12987190162843096997u64),
-            Fp::from(653957632802705281u64),
-            Fp::from(4441654670647621225u64),
-            Fp::from(4038207883745915761u64),
-            Fp::from(5613464648874830118u64),
-            Fp::from(13222989726778338773u64),
-            Fp::from(3037761201230264149u64),
-            Fp::from(16683759727265180203u64),
-            Fp::from(8337364536491240715u64),
-            Fp::from(3227397518293416448u64),
-            Fp::from(8110510111539674682u64),
-            Fp::from(2872078294163232137u64),
-            Fp::from(6202948458916099932u64),
-            Fp::from(17690140365333231091u64),
-            Fp::from(3595001575307484651u64),
-            Fp::from(373995945117666487u64),
-            Fp::from(1235734395091296013u64),
-            Fp::from(14172757457833931602u64),
-            Fp::from(707573103686350224u64),
-            Fp::from(15453217512188187135u64),
-            Fp::from(219777875004506018u64),
-            Fp::from(17876696346199469008u64),
-            Fp::from(17731621626449383378u64),
-            Fp::from(2897136237748376248u64),
-            Fp::from(18072785500942327487u64),
-            Fp::from(6200974112677013481u64),
-            Fp::from(17682092219085884187u64),
-            Fp::from(10599526828986756440u64),
-            Fp::from(975003873302957338u64),
-            Fp::from(8264241093196931281u64),
-            Fp::from(10065763900435475170u64),
-            Fp::from(2181131744534710197u64),
-            Fp::from(6317303992309418647u64),
-            Fp::from(1401440938888741532u64),
-            Fp::from(8884468225181997494u64),
-            Fp::from(13066900325715521532u64),
-            Fp::from(8023374565629191455u64),
-            Fp::from(15013690343205953430u64),
-            Fp::from(4485500052507912973u64),
-            Fp::from(12489737547229155153u64),
-            Fp::from(9500452585969030576u64),
-            Fp::from(2054001340201038870u64),
-            Fp::from(12420704059284934186u64),
-            Fp::from(355990932618543755u64),
-            Fp::from(9071225051243523860u64),
-            Fp::from(12766199826003448536u64),
-            Fp::from(9045979173463556963u64),
-            Fp::from(12934431667190679898u64),
-            Fp::from(5674685213610121970u64),
-            Fp::from(5759084860419474071u64),
-            Fp::from(13943282657648897737u64),
-            Fp::from(1352748651966375394u64),
-            Fp::from(17110913224029905221u64),
-            Fp::from(1003883795902368422u64),
-            Fp::from(4141870621881018291u64),
-            Fp::from(8121410972417424656u64),
-            Fp::from(14300518605864919529u64),
-            Fp::from(13712227150607670181u64),
-            Fp::from(17021852944633065291u64),
-            Fp::from(6252096473787587650u64),
-            Fp::from(18389244934624494276u64),
-            Fp::from(16731736864863925227u64),
-            Fp::from(4440209734760478192u64),
-            Fp::from(17208448209698888938u64),
-            Fp::from(8739495587021565984u64),
-            Fp::from(17000774922218161967u64),
-            Fp::from(13533282547195532087u64),
-            Fp::from(525402848358706231u64),
-            Fp::from(16987541523062161972u64),
-            Fp::from(5466806524462797102u64),
-            Fp::from(14512769585918244983u64),
-            Fp::from(10973956031244051118u64),
-            Fp::from(4887609836208846458u64),
-            Fp::from(3027115137917284492u64),
-            Fp::from(9595098600469470675u64),
-            Fp::from(10528569829048484079u64),
-            Fp::from(7864689113198939815u64),
-            Fp::from(17533723827845969040u64),
-            Fp::from(5781638039037710951u64),
-            Fp::from(17024078752430719006u64),
-            Fp::from(109659393484013511u64),
-            Fp::from(7158933660534805869u64),
-            Fp::from(2955076958026921730u64),
-            Fp::from(7433723648458773977u64),
-            Fp::from(6982293561042362913u64),
-            Fp::from(14065426295947720331u64),
-            Fp::from(16451845770444974180u64),
-            Fp::from(7139138592091306727u64),
-            Fp::from(9012006439959783127u64),
-            Fp::from(14619614108529063361u64),
-            Fp::from(1394813199588124371u64),
-            Fp::from(4635111139507788575u64),
-            Fp::from(16217473952264203365u64),
-            Fp::from(10782018226466330683u64),
-            Fp::from(6844229992533662050u64),
-            Fp::from(7446486531695178711u64),
-            Fp::from(16308865189192447297u64),
-            Fp::from(11977192855656444890u64),
-            Fp::from(12532242556065780287u64),
-            Fp::from(14594890931430968898u64),
-            Fp::from(7291784239689209784u64),
-            Fp::from(5514718540551361949u64),
-            Fp::from(10025733853830934803u64),
-            Fp::from(7293794580341021693u64),
-            Fp::from(6728552937464861756u64),
-            Fp::from(6332385040983343262u64),
-            Fp::from(13277683694236792804u64),
-            Fp::from(2600778905124452676u64),
-            Fp::from(3736792340494631448u64),
-            Fp::from(577852220195055341u64),
-            Fp::from(6689998335515779805u64),
-            Fp::from(13886063479078013492u64),
-            Fp::from(14358505101923202168u64),
-            Fp::from(7744142531772274164u64),
-            Fp::from(16135070735728404443u64),
-            Fp::from(12290902521256031137u64),
-            Fp::from(12059913662657709804u64),
-            Fp::from(16456018495793751911u64),
-            Fp::from(4571485474751953524u64),
-            Fp::from(17200392109565783176u64),
-            Fp::from(7123075680859040534u64),
-            Fp::from(1034205548717903090u64),
-            Fp::from(7717824418247931797u64),
-            Fp::from(3019070937878604058u64),
-            Fp::from(11403792746066867460u64),
-            Fp::from(10280580802233112374u64),
-            Fp::from(337153209462421218u64),
-            Fp::from(13333398568519923717u64),
-            Fp::from(3596153696935337464u64),
-            Fp::from(8104208463525993784u64),
-            Fp::from(14345062289456085693u64),
-            Fp::from(17036731477169661256u64),
-            Fp::from(17130398059294018733u64),
-            Fp::from(519782857322261988u64),
-            Fp::from(9625384390925085478u64),
-            Fp::from(1664893052631119222u64),
-            Fp::from(7629576092524553570u64),
-            Fp::from(3485239601103661425u64),
-            Fp::from(9755891797164033838u64),
-            Fp::from(15218148195153269027u64),
-            Fp::from(16460604813734957368u64),
-            Fp::from(9643968136937729763u64),
-            Fp::from(3611348709641382851u64),
-            Fp::from(18256379591337759196u64),
-        ];*/
+        let round_constants = ROUND_CONSTANTS;
 
         Self {
             m,
             capacity,
             rate,
-            round_constants: round_constants,
+            round_constants,
             mds_matrix,
             mds_vector,
-            alpha: ALPHA,
-            alpha_inv: ALPHA_INV,
             mds_method,
         }
     }
@@ -266,16 +94,31 @@ impl<const SECURITY_LEVEL: usize, const NUM_FULL_ROUNDS: usize>
             _ => panic!("Unsupported state size"),
         }
     }
-
+    /*
+        fn generate_circulant_matrix(mds_vector: &[Fp]) -> Vec<Vec<Fp>> {
+            let m = mds_vector.len();
+            let mut mds_matrix = vec![vec![Fp::zero(); m]; m];
+            for i in 0..m {
+                for j in 0..m {
+                    mds_matrix[i][j] = mds_vector[(j + m - i) % m];
+                }
+            }
+            mds_matrix
+        }
+    */
     fn generate_circulant_matrix(mds_vector: &[Fp]) -> Vec<Vec<Fp>> {
         let m = mds_vector.len();
-        let mut mds_matrix = vec![vec![Fp::zero(); m]; m];
-        for i in 0..m {
-            for j in 0..m {
-                mds_matrix[i][j] = mds_vector[(j + m - i) % m].clone();
-            }
-        }
-        mds_matrix
+        (0..m)
+            .map(|i| {
+                mds_vector
+                    .iter()
+                    .cycle()
+                    .skip(m - i)
+                    .take(m)
+                    .cloned()
+                    .collect::<Vec<Fp>>()
+            })
+            .collect()
     }
 
     pub fn apply_sbox(state: &mut [Fp]) {
@@ -287,14 +130,15 @@ impl<const SECURITY_LEVEL: usize, const NUM_FULL_ROUNDS: usize>
     fn mds_matrix_vector_multiplication(&self, state: &[Fp]) -> Vec<Fp> {
         let m = state.len();
         let mut new_state = vec![Fp::zero(); m];
-        for i in 0..m {
-            for j in 0..m {
-                new_state[i] = new_state[i] + self.mds_matrix[i][j] * state[j];
+
+        for (i, new_value) in new_state.iter_mut().enumerate() {
+            for (j, state_value) in state.iter().enumerate() {
+                *new_value += self.mds_matrix[i][j] * state_value;
             }
         }
+
         new_state
     }
-
     fn mds_ntt(&self, state: &[Fp]) -> Vec<Fp> {
         let m = state.len();
         let omega = match m {
@@ -304,7 +148,7 @@ impl<const SECURITY_LEVEL: usize, const NUM_FULL_ROUNDS: usize>
         };
 
         let mds_ntt = ntt(&self.mds_vector, omega);
-        let state_rev: Vec<Fp> = std::iter::once(state[0].clone())
+        let state_rev: Vec<Fp> = std::iter::once(state[0])
             .chain(state[1..].iter().rev().cloned())
             .collect();
         let state_ntt = ntt(&state_rev, omega);
@@ -317,25 +161,27 @@ impl<const SECURITY_LEVEL: usize, const NUM_FULL_ROUNDS: usize>
         let omega_inv = omega.inv().unwrap();
         let result = intt(&product_ntt, omega_inv);
 
-        std::iter::once(result[0].clone())
+        std::iter::once(result[0])
             .chain(result[1..].iter().rev().cloned())
             .collect()
     }
 
     fn mds_karatsuba(&self, state: &[Fp]) -> Vec<Fp> {
         let m = state.len();
-        let mds_rev: Vec<Fp> = std::iter::once(self.mds_vector[0].clone())
+        let mds_rev: Vec<Fp> = std::iter::once(self.mds_vector[0])
             .chain(self.mds_vector[1..].iter().rev().cloned())
             .collect();
 
         let conv = karatsuba(&mds_rev, state);
 
         let mut result = vec![Fp::zero(); m];
-        for i in 0..m {
-            result[i] = conv[i].clone();
-        }
+        result[..m].copy_from_slice(&conv[..m]);
+        //for i in 0..m {
+        //    result[i] = conv[i].clone();
+        //}
+
         for i in m..conv.len() {
-            result[i - m] = result[i - m] + conv[i].clone();
+            result[i - m] += conv[i];
         }
 
         result
@@ -355,7 +201,7 @@ impl<const SECURITY_LEVEL: usize, const NUM_FULL_ROUNDS: usize>
         let round_constants = &self.round_constants;
 
         for j in 0..m {
-            state[j] = state[j] + round_constants[round * 2 * m + j];
+            state[j] += round_constants[round * 2 * m + j];
         }
     }
 
@@ -364,7 +210,7 @@ impl<const SECURITY_LEVEL: usize, const NUM_FULL_ROUNDS: usize>
         let round_constants = &self.round_constants;
 
         for j in 0..m {
-            state[j] = state[j] + round_constants[round * 2 * m + m + j];
+            state[j] += round_constants[round * 2 * m + m + j]
         }
     }
 
@@ -397,9 +243,10 @@ impl<const SECURITY_LEVEL: usize, const NUM_FULL_ROUNDS: usize>
 
         for i in 0..num_full_chunks {
             let chunk = &input_sequence[i * rate..(i + 1) * rate];
-            for j in 0..rate {
-                state[capacity + j] = chunk[j];
-            }
+            state[capacity..(rate + capacity)].copy_from_slice(&chunk[..rate]);
+            //for j in 0..rate {
+            //    state[capacity + j] = chunk[j];
+            //}
             self.permutation(&mut state);
         }
 
@@ -412,9 +259,10 @@ impl<const SECURITY_LEVEL: usize, const NUM_FULL_ROUNDS: usize>
             }
             last_chunk[last_chunk_size] = Fp::one();
 
-            for j in 0..rate {
-                state[capacity + j] = last_chunk[j];
-            }
+            state[capacity..(rate + capacity)].copy_from_slice(&last_chunk[..rate]);
+            //for j in 0..rate {
+            //    state[capacity + j] = last_chunk[j];
+            //}
 
             self.permutation(&mut state);
         }
@@ -431,135 +279,130 @@ impl<const SECURITY_LEVEL: usize, const NUM_FULL_ROUNDS: usize>
 #[cfg(test)]
 mod tests {
     use super::*;
-    use lazy_static::lazy_static;
     use rand::rngs::StdRng;
     use rand::{Rng, SeedableRng};
 
-    lazy_static! {
-        pub static ref EXPECTED: Vec<Vec<Fp>> = vec![
-            vec![
-                Fp::from(1502364727743950833u64),
-                Fp::from(5880949717274681448u64),
-                Fp::from(162790463902224431u64),
-                Fp::from(6901340476773664264u64),
-            ],
-            vec![
-                Fp::from(7478710183745780580u64),
-                Fp::from(3308077307559720969u64),
-                Fp::from(3383561985796182409u64),
-                Fp::from(17205078494700259815u64),
-            ],
-            vec![
-                Fp::from(17439912364295172999u64),
-                Fp::from(17979156346142712171u64),
-                Fp::from(8280795511427637894u64),
-                Fp::from(9349844417834368814u64),
-            ],
-            vec![
-                Fp::from(5105868198472766874u64),
-                Fp::from(13090564195691924742u64),
-                Fp::from(1058904296915798891u64),
-                Fp::from(18379501748825152268u64),
-            ],
-            vec![
-                Fp::from(9133662113608941286u64),
-                Fp::from(12096627591905525991u64),
-                Fp::from(14963426595993304047u64),
-                Fp::from(13290205840019973377u64),
-            ],
-            vec![
-                Fp::from(3134262397541159485u64),
-                Fp::from(10106105871979362399u64),
-                Fp::from(138768814855329459u64),
-                Fp::from(15044809212457404677u64),
-            ],
-            vec![
-                Fp::from(162696376578462826u64),
-                Fp::from(4991300494838863586u64),
-                Fp::from(660346084748120605u64),
-                Fp::from(13179389528641752698u64),
-            ],
-            vec![
-                Fp::from(2242391899857912644u64),
-                Fp::from(12689382052053305418u64),
-                Fp::from(235236990017815546u64),
-                Fp::from(5046143039268215739u64),
-            ],
-            vec![
-                Fp::from(9585630502158073976u64),
-                Fp::from(1310051013427303477u64),
-                Fp::from(7491921222636097758u64),
-                Fp::from(9417501558995216762u64),
-            ],
-            vec![
-                Fp::from(1994394001720334744u64),
-                Fp::from(10866209900885216467u64),
-                Fp::from(13836092831163031683u64),
-                Fp::from(10814636682252756697u64),
-            ],
-            vec![
-                Fp::from(17486854790732826405u64),
-                Fp::from(17376549265955727562u64),
-                Fp::from(2371059831956435003u64),
-                Fp::from(17585704935858006533u64),
-            ],
-            vec![
-                Fp::from(11368277489137713825u64),
-                Fp::from(3906270146963049287u64),
-                Fp::from(10236262408213059745u64),
-                Fp::from(78552867005814007u64),
-            ],
-            vec![
-                Fp::from(17899847381280262181u64),
-                Fp::from(14717912805498651446u64),
-                Fp::from(10769146203951775298u64),
-                Fp::from(2774289833490417856u64),
-            ],
-            vec![
-                Fp::from(3794717687462954368u64),
-                Fp::from(4386865643074822822u64),
-                Fp::from(8854162840275334305u64),
-                Fp::from(7129983987107225269u64),
-            ],
-            vec![
-                Fp::from(7244773535611633983u64),
-                Fp::from(19359923075859320u64),
-                Fp::from(10898655967774994333u64),
-                Fp::from(9319339563065736480u64),
-            ],
-            vec![
-                Fp::from(4935426252518736883u64),
-                Fp::from(12584230452580950419u64),
-                Fp::from(8762518969632303998u64),
-                Fp::from(18159875708229758073u64),
-            ],
-            vec![
-                Fp::from(14871230873837295931u64),
-                Fp::from(11225255908868362971u64),
-                Fp::from(18100987641405432308u64),
-                Fp::from(1559244340089644233u64),
-            ],
-            vec![
-                Fp::from(8348203744950016968u64),
-                Fp::from(4041411241960726733u64),
-                Fp::from(17584743399305468057u64),
-                Fp::from(16836952610803537051u64),
-            ],
-            vec![
-                Fp::from(16139797453633030050u64),
-                Fp::from(1090233424040889412u64),
-                Fp::from(10770255347785669036u64),
-                Fp::from(16982398877290254028u64),
-            ],
-        ];
-    }
+    pub const EXPECTED: [[Fp; 4]; 19] = [
+        [
+            Fp::const_from_raw(1502364727743950833u64),
+            Fp::const_from_raw(5880949717274681448u64),
+            Fp::const_from_raw(162790463902224431u64),
+            Fp::const_from_raw(6901340476773664264u64),
+        ],
+        [
+            Fp::const_from_raw(7478710183745780580u64),
+            Fp::const_from_raw(3308077307559720969u64),
+            Fp::const_from_raw(3383561985796182409u64),
+            Fp::const_from_raw(17205078494700259815u64),
+        ],
+        [
+            Fp::const_from_raw(17439912364295172999u64),
+            Fp::const_from_raw(17979156346142712171u64),
+            Fp::const_from_raw(8280795511427637894u64),
+            Fp::const_from_raw(9349844417834368814u64),
+        ],
+        [
+            Fp::const_from_raw(5105868198472766874u64),
+            Fp::const_from_raw(13090564195691924742u64),
+            Fp::const_from_raw(1058904296915798891u64),
+            Fp::const_from_raw(18379501748825152268u64),
+        ],
+        [
+            Fp::const_from_raw(9133662113608941286u64),
+            Fp::const_from_raw(12096627591905525991u64),
+            Fp::const_from_raw(14963426595993304047u64),
+            Fp::const_from_raw(13290205840019973377u64),
+        ],
+        [
+            Fp::const_from_raw(3134262397541159485u64),
+            Fp::const_from_raw(10106105871979362399u64),
+            Fp::const_from_raw(138768814855329459u64),
+            Fp::const_from_raw(15044809212457404677u64),
+        ],
+        [
+            Fp::const_from_raw(162696376578462826u64),
+            Fp::const_from_raw(4991300494838863586u64),
+            Fp::const_from_raw(660346084748120605u64),
+            Fp::const_from_raw(13179389528641752698u64),
+        ],
+        [
+            Fp::const_from_raw(2242391899857912644u64),
+            Fp::const_from_raw(12689382052053305418u64),
+            Fp::const_from_raw(235236990017815546u64),
+            Fp::const_from_raw(5046143039268215739u64),
+        ],
+        [
+            Fp::const_from_raw(9585630502158073976u64),
+            Fp::const_from_raw(1310051013427303477u64),
+            Fp::const_from_raw(7491921222636097758u64),
+            Fp::const_from_raw(9417501558995216762u64),
+        ],
+        [
+            Fp::const_from_raw(1994394001720334744u64),
+            Fp::const_from_raw(10866209900885216467u64),
+            Fp::const_from_raw(13836092831163031683u64),
+            Fp::const_from_raw(10814636682252756697u64),
+        ],
+        [
+            Fp::const_from_raw(17486854790732826405u64),
+            Fp::const_from_raw(17376549265955727562u64),
+            Fp::const_from_raw(2371059831956435003u64),
+            Fp::const_from_raw(17585704935858006533u64),
+        ],
+        [
+            Fp::const_from_raw(11368277489137713825u64),
+            Fp::const_from_raw(3906270146963049287u64),
+            Fp::const_from_raw(10236262408213059745u64),
+            Fp::const_from_raw(78552867005814007u64),
+        ],
+        [
+            Fp::const_from_raw(17899847381280262181u64),
+            Fp::const_from_raw(14717912805498651446u64),
+            Fp::const_from_raw(10769146203951775298u64),
+            Fp::const_from_raw(2774289833490417856u64),
+        ],
+        [
+            Fp::const_from_raw(3794717687462954368u64),
+            Fp::const_from_raw(4386865643074822822u64),
+            Fp::const_from_raw(8854162840275334305u64),
+            Fp::const_from_raw(7129983987107225269u64),
+        ],
+        [
+            Fp::const_from_raw(7244773535611633983u64),
+            Fp::const_from_raw(19359923075859320u64),
+            Fp::const_from_raw(10898655967774994333u64),
+            Fp::const_from_raw(9319339563065736480u64),
+        ],
+        [
+            Fp::const_from_raw(4935426252518736883u64),
+            Fp::const_from_raw(12584230452580950419u64),
+            Fp::const_from_raw(8762518969632303998u64),
+            Fp::const_from_raw(18159875708229758073u64),
+        ],
+        [
+            Fp::const_from_raw(14871230873837295931u64),
+            Fp::const_from_raw(11225255908868362971u64),
+            Fp::const_from_raw(18100987641405432308u64),
+            Fp::const_from_raw(1559244340089644233u64),
+        ],
+        [
+            Fp::const_from_raw(8348203744950016968u64),
+            Fp::const_from_raw(4041411241960726733u64),
+            Fp::const_from_raw(17584743399305468057u64),
+            Fp::const_from_raw(16836952610803537051u64),
+        ],
+        [
+            Fp::const_from_raw(16139797453633030050u64),
+            Fp::const_from_raw(1090233424040889412u64),
+            Fp::const_from_raw(10770255347785669036u64),
+            Fp::const_from_raw(16982398877290254028u64),
+        ],
+    ];
 
-    // Utility function to generate random field elements
     fn rand_field_element<R: Rng>(rng: &mut R) -> Fp {
         Fp::from(rng.gen::<u64>())
     }
 
-    // Test for S-box operation
     #[test]
     fn test_apply_sbox() {
         let mut rng = StdRng::seed_from_u64(1);
@@ -575,7 +418,6 @@ mod tests {
         assert_eq!(expected, state);
     }
 
-    // Test for inverse S-box operation
     #[test]
     fn test_apply_inverse_sbox() {
         let mut rng = StdRng::seed_from_u64(2);
@@ -591,7 +433,6 @@ mod tests {
         assert_eq!(expected, state);
     }
 
-    // Test for MDS matrix multiplication
     #[test]
     fn test_mds_matrix_multiplication() {
         let mut rng = StdRng::seed_from_u64(3);
@@ -607,7 +448,6 @@ mod tests {
         assert_eq!(expected_state, computed_state);
     }
 
-    // Test for NTT-based MDS matrix multiplication
     #[test]
     fn test_mds_ntt() {
         let mut rng = StdRng::seed_from_u64(4);
@@ -623,7 +463,6 @@ mod tests {
         assert_eq!(expected_state, computed_state);
     }
 
-    // Test for Karatsuba-based MDS matrix multiplication
     #[test]
     fn test_mds_karatsuba() {
         let mut rng = StdRng::seed_from_u64(5);
@@ -639,7 +478,6 @@ mod tests {
         assert_eq!(expected_state, computed_state);
     }
 
-    // Test for round constant addition in permutation function
     #[test]
     fn test_add_round_constants() {
         let mut rng = StdRng::seed_from_u64(6);
@@ -692,8 +530,7 @@ mod tests {
         let input_sequence: Vec<Fp> = (0..8).map(Fp::from).collect();
         let hash_output = rescue.hash(&input_sequence);
 
-        // Verify the squeezed output
-        assert_eq!(hash_output.len(), 4); // Half the rate (rate = 8)
+        assert_eq!(hash_output.len(), 4);
     }
 
     #[test]
@@ -702,14 +539,13 @@ mod tests {
         let input_sequence: Vec<Fp> = (0..16).map(Fp::from).collect(); // Two chunks of size 8
         let hash_output = rescue.hash(&input_sequence);
 
-        // Verify the squeezed output
-        assert_eq!(hash_output.len(), 4); // Half the rate (rate = 8)
+        assert_eq!(hash_output.len(), 4);
     }
 
     #[test]
     fn test_hash_with_padding() {
         let rescue = RescuePrimeOptimized::<128, 7>::new(MdsMethod::MatrixMultiplication);
-        let input_sequence: Vec<Fp> = (0..5).map(Fp::from).collect(); // Input smaller than rate
+        let input_sequence: Vec<Fp> = (0..5).map(Fp::from).collect();
         let hash_output = rescue.hash(&input_sequence);
 
         assert_eq!(hash_output.len(), 4);
@@ -754,27 +590,23 @@ mod tests {
             zeroes.push(Fp::zero());
         }
     }
-    // Test for hash function with byte input
     #[test]
     fn test_hash_bytes() {
         let rescue = RescuePrimeOptimized::<128, 7>::new(MdsMethod::MatrixMultiplication);
         let input_bytes = b"Rescue Prime Optimized";
         let hash_output = rescue.hash_bytes(input_bytes);
 
-        // Verify the squeezed output
-        assert_eq!(hash_output.len(), 4); // Half the rate (rate = 8)
+        assert_eq!(hash_output.len(), 4);
     }
 
-    // Test for round constants instantiation
     #[test]
     fn test_instantiate_round_constants() {
         let rescue = RescuePrimeOptimized::<128, 7>::new(MdsMethod::MatrixMultiplication);
 
         let round_constants = &rescue.round_constants;
-        assert_eq!(round_constants.len(), 2 * 12 * 7); // 2 * m * NUM_FULL_ROUNDS
+        assert_eq!(round_constants.len(), 2 * 12 * 7);
     }
 
-    // Test for MDS methods consistency
     #[test]
     fn test_mds_methods_consistency() {
         let rescue_matrix = RescuePrimeOptimized::<128, 7>::new(MdsMethod::MatrixMultiplication);
@@ -800,46 +632,27 @@ mod tests {
         assert_eq!(hash_matrix, hash_ntt);
         assert_eq!(hash_ntt, hash_karatsuba);
     }
+    /*
+    Test used to generate the expected hashes for the test vectors (they are the same as in the Polygon Miden implementation)
+        #[test]
+        fn generate_test_vectors() {
+            let rescue = RescuePrimeOptimized::<128, 7>::new(MdsMethod::MatrixMultiplication);
+            let elements: Vec<Fp> = (0..19).map(Fp::from).collect();
 
-    #[test]
-    fn generate_test_vectors() {
-        let rescue = RescuePrimeOptimized::<128, 7>::new(MdsMethod::MatrixMultiplication);
-        let elements = vec![
-            Fp::from(0u64),
-            Fp::from(1u64),
-            Fp::from(2u64),
-            Fp::from(3u64),
-            Fp::from(4u64),
-            Fp::from(5u64),
-            Fp::from(6u64),
-            Fp::from(7u64),
-            Fp::from(8u64),
-            Fp::from(9u64),
-            Fp::from(10u64),
-            Fp::from(11u64),
-            Fp::from(12u64),
-            Fp::from(13u64),
-            Fp::from(14u64),
-            Fp::from(15u64),
-            Fp::from(16u64),
-            Fp::from(17u64),
-            Fp::from(18u64),
-        ];
+            println!("let expected_hashes = vec![");
+            elements.iter().enumerate().for_each(|(i, _)| {
+                let input = elements.iter().take(i + 1); // Tomar el prefijo hasta i + 1
+                let hash_output = rescue.hash(input.cloned().collect::<Vec<_>>().as_slice());
 
-        println!("let expected_hashes = vec![");
-        for i in 0..elements.len() {
-            let input = &elements[..=i];
-            let hash_output = rescue.hash(input);
-
-            print!("    vec![");
-            for value in &hash_output {
-                print!("Fp::from({}u64), ", value.value());
-            }
-            println!("],");
+                print!("    vec![");
+                hash_output.iter().for_each(|value| {
+                    print!("Fp::from({}u64), ", value.value());
+                });
+                println!("],");
+            });
+            println!("];");
         }
-        println!("];");
-    }
-
+        */
     #[test]
     fn test_print_round_constants() {
         let rescue = RescuePrimeOptimized::<128, 7>::new(MdsMethod::MatrixMultiplication);
@@ -849,17 +662,35 @@ mod tests {
             println!("Constant {}: Fp::from({}u64)", i, constant.value());
         }
 
-        assert_eq!(rescue.round_constants.len(), 2 * rescue.m * 7); // 2 * m * NUM_FULL_ROUNDS
+        assert_eq!(rescue.round_constants.len(), 2 * rescue.m * 7);
     }
+    /*
+        #[test]
+        fn test_hash_vectors() {
+            let rescue = RescuePrimeOptimized::<128, 7>::new(MdsMethod::MatrixMultiplication);
+            let elements: Vec<Fp> = (0..19).map(Fp::from).collect();
 
+            for (i, expected) in EXPECTED.iter().enumerate() {
+                let input = &elements[..=i]; // Tomar el prefijo hasta i
+                let hash_output = rescue.hash(input);
+
+                assert_eq!(
+                    hash_output,
+                    *expected,
+                    "Hash mismatch for input length {}",
+                    i + 1
+                );
+            }
+        }
+    */
     #[test]
     fn test_hash_vectors() {
         let rescue = RescuePrimeOptimized::<128, 7>::new(MdsMethod::MatrixMultiplication);
         let elements: Vec<Fp> = (0..19).map(Fp::from).collect();
 
-        for (i, expected) in EXPECTED.iter().enumerate() {
-            let input = &elements[..=i]; // Tomar el prefijo hasta i
-            let hash_output = rescue.hash(input);
+        EXPECTED.iter().enumerate().for_each(|(i, expected)| {
+            let input = elements.iter().take(i + 1);
+            let hash_output = rescue.hash(input.cloned().collect::<Vec<_>>().as_slice());
 
             assert_eq!(
                 hash_output,
@@ -867,14 +698,13 @@ mod tests {
                 "Hash mismatch for input length {}",
                 i + 1
             );
-        }
+        });
     }
-
     #[test]
     fn test_hash_example_and_print() {
         let rescue = RescuePrimeOptimized::<128, 7>::new(MdsMethod::Ntt);
 
-        let input = b"Boquita campeon del mundo!";
+        let input = b"Hello there";
 
         let hash_result = rescue.hash_bytes(input);
 
