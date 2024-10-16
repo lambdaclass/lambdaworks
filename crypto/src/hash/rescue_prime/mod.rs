@@ -1,12 +1,5 @@
 use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::fields::u64_goldilocks_field::Goldilocks64Field;
-//use lazy_static::lazy_static;
-//use std::io::Read;
-
-//use sha3::{
-//    digest::{ExtendableOutput, Update},
-//    Shake256,
-//};
 
 mod parameters;
 mod utils;
@@ -28,11 +21,9 @@ pub struct RescuePrimeOptimized<const SECURITY_LEVEL: usize, const NUM_FULL_ROUN
     m: usize,
     capacity: usize,
     rate: usize,
-    round_constants: [Fp; 168],
+    round_constants: Vec<Fp>,
     mds_matrix: Vec<Vec<Fp>>,
     mds_vector: Vec<Fp>,
-    //alpha: u64,
-    //alpha_inv: u64,
     mds_method: MdsMethod,
 }
 
@@ -59,13 +50,17 @@ impl<const SECURITY_LEVEL: usize, const NUM_FULL_ROUNDS: usize>
 
         let mds_vector = Self::get_mds_vector(m);
         let mds_matrix = Self::generate_circulant_matrix(&mds_vector);
-        let round_constants = ROUND_CONSTANTS;
+        let round_constants = match SECURITY_LEVEL {
+            128 => get_round_constants(SecurityLevel::Sec128),
+            160 => get_round_constants(SecurityLevel::Sec160),
+            _ => panic!("Unsupported security level"),
+        };
 
         Self {
             m,
             capacity,
             rate,
-            round_constants,
+            round_constants: round_constants.to_vec().try_into().unwrap(),
             mds_matrix,
             mds_vector,
             mds_method,
@@ -94,18 +89,7 @@ impl<const SECURITY_LEVEL: usize, const NUM_FULL_ROUNDS: usize>
             _ => panic!("Unsupported state size"),
         }
     }
-    /*
-        fn generate_circulant_matrix(mds_vector: &[Fp]) -> Vec<Vec<Fp>> {
-            let m = mds_vector.len();
-            let mut mds_matrix = vec![vec![Fp::zero(); m]; m];
-            for i in 0..m {
-                for j in 0..m {
-                    mds_matrix[i][j] = mds_vector[(j + m - i) % m];
-                }
-            }
-            mds_matrix
-        }
-    */
+
     fn generate_circulant_matrix(mds_vector: &[Fp]) -> Vec<Vec<Fp>> {
         let m = mds_vector.len();
         (0..m)
@@ -176,10 +160,6 @@ impl<const SECURITY_LEVEL: usize, const NUM_FULL_ROUNDS: usize>
 
         let mut result = vec![Fp::zero(); m];
         result[..m].copy_from_slice(&conv[..m]);
-        //for i in 0..m {
-        //    result[i] = conv[i].clone();
-        //}
-
         for i in m..conv.len() {
             result[i - m] += conv[i];
         }
@@ -199,7 +179,6 @@ impl<const SECURITY_LEVEL: usize, const NUM_FULL_ROUNDS: usize>
     fn add_round_constants(&self, state: &mut [Fp], round: usize) {
         let m = self.m;
         let round_constants = &self.round_constants;
-
         for j in 0..m {
             state[j] += round_constants[round * 2 * m + j];
         }
@@ -208,7 +187,6 @@ impl<const SECURITY_LEVEL: usize, const NUM_FULL_ROUNDS: usize>
     fn add_round_constants_second(&self, state: &mut [Fp], round: usize) {
         let m = self.m;
         let round_constants = &self.round_constants;
-
         for j in 0..m {
             state[j] += round_constants[round * 2 * m + m + j]
         }
@@ -216,7 +194,6 @@ impl<const SECURITY_LEVEL: usize, const NUM_FULL_ROUNDS: usize>
 
     pub fn permutation(&self, state: &mut [Fp]) {
         let num_rounds = NUM_FULL_ROUNDS;
-
         for round in 0..num_rounds {
             self.apply_mds(state);
             self.add_round_constants(state, round);
@@ -231,39 +208,25 @@ impl<const SECURITY_LEVEL: usize, const NUM_FULL_ROUNDS: usize>
         let m = self.m;
         let capacity = self.capacity;
         let rate = self.rate;
-
         let mut state = vec![Fp::zero(); m];
         let input_len = input_sequence.len();
-
         if input_len % rate != 0 {
             state[0] = Fp::one();
         }
-
         let num_full_chunks = input_len / rate;
-
         for i in 0..num_full_chunks {
             let chunk = &input_sequence[i * rate..(i + 1) * rate];
             state[capacity..(rate + capacity)].copy_from_slice(&chunk[..rate]);
-            //for j in 0..rate {
-            //    state[capacity + j] = chunk[j];
-            //}
             self.permutation(&mut state);
         }
-
         let last_chunk_size = input_len % rate;
-
         if last_chunk_size != 0 {
             let mut last_chunk = vec![Fp::zero(); rate];
             for j in 0..last_chunk_size {
                 last_chunk[j] = input_sequence[num_full_chunks * rate + j];
             }
             last_chunk[last_chunk_size] = Fp::one();
-
             state[capacity..(rate + capacity)].copy_from_slice(&last_chunk[..rate]);
-            //for j in 0..rate {
-            //    state[capacity + j] = last_chunk[j];
-            //}
-
             self.permutation(&mut state);
         }
 
@@ -282,7 +245,9 @@ mod tests {
     use rand::rngs::StdRng;
     use rand::{Rng, SeedableRng};
 
-    pub const EXPECTED: [[Fp; 4]; 19] = [
+    // Values obtained using the Sage implementation in
+    // https://github.com/ASDiscreteMathematics/rpo/tree/master/reference_implementation
+    pub const EXPECTED_128: [[Fp; 4]; 19] = [
         [
             Fp::const_from_raw(1502364727743950833u64),
             Fp::const_from_raw(5880949717274681448u64),
@@ -399,6 +364,141 @@ mod tests {
         ],
     ];
 
+    pub const EXPECTED_160: [[Fp; 5]; 19] = [
+        [
+            Fp::const_from_raw(4766737105427868572),
+            Fp::const_from_raw(7538777753317835226),
+            Fp::const_from_raw(13644171984579649606),
+            Fp::const_from_raw(6748107971891460622),
+            Fp::const_from_raw(3480072938342119934),
+        ],
+        [
+            Fp::const_from_raw(6277287777617382937),
+            Fp::const_from_raw(5688033921803605355),
+            Fp::const_from_raw(1104978478612014217),
+            Fp::const_from_raw(973672476085279574),
+            Fp::const_from_raw(7883652116413797779),
+        ],
+        [
+            Fp::const_from_raw(3071553803427093579),
+            Fp::const_from_raw(12239501990998925662),
+            Fp::const_from_raw(14411295652479845526),
+            Fp::const_from_raw(5735407824213194294),
+            Fp::const_from_raw(6714816738691504270),
+        ],
+        [
+            Fp::const_from_raw(4455998568145007624),
+            Fp::const_from_raw(18218360213084301612),
+            Fp::const_from_raw(8963555484142424669),
+            Fp::const_from_raw(13451196299356019287),
+            Fp::const_from_raw(660967320761434775),
+        ],
+        [
+            Fp::const_from_raw(7894041400531553560),
+            Fp::const_from_raw(3138084719322472990),
+            Fp::const_from_raw(15017675162298246509),
+            Fp::const_from_raw(12340633143623038238),
+            Fp::const_from_raw(3710158928968726190),
+        ],
+        [
+            Fp::const_from_raw(18345924309197503617),
+            Fp::const_from_raw(6448668044176965096),
+            Fp::const_from_raw(5891298758878861437),
+            Fp::const_from_raw(18404292940273103487),
+            Fp::const_from_raw(399715742058360811),
+        ],
+        [
+            Fp::const_from_raw(4293522863608749708),
+            Fp::const_from_raw(11352999694211746044),
+            Fp::const_from_raw(15850245073570756600),
+            Fp::const_from_raw(1206950096837096206),
+            Fp::const_from_raw(6945598368659615878),
+        ],
+        [
+            Fp::const_from_raw(1339949574743034442),
+            Fp::const_from_raw(5967452101017112419),
+            Fp::const_from_raw(824612579975542151),
+            Fp::const_from_raw(3327557828938393394),
+            Fp::const_from_raw(14113149399665697150),
+        ],
+        [
+            Fp::const_from_raw(3540904694808418824),
+            Fp::const_from_raw(5951416386790014715),
+            Fp::const_from_raw(13859113410786779774),
+            Fp::const_from_raw(17205554479494520251),
+            Fp::const_from_raw(7359323608260195110),
+        ],
+        [
+            Fp::const_from_raw(7504301802792161339),
+            Fp::const_from_raw(12879743137663115497),
+            Fp::const_from_raw(17245986604042562042),
+            Fp::const_from_raw(8175050867418132561),
+            Fp::const_from_raw(1063965910664731268),
+        ],
+        [
+            Fp::const_from_raw(18267475461736255602),
+            Fp::const_from_raw(4481864641736940956),
+            Fp::const_from_raw(11260039501101148638),
+            Fp::const_from_raw(7529970948767692955),
+            Fp::const_from_raw(4177810888704753150),
+        ],
+        [
+            Fp::const_from_raw(16604116128892623566),
+            Fp::const_from_raw(1520851983040290492),
+            Fp::const_from_raw(9361704524730297620),
+            Fp::const_from_raw(7447748879766268839),
+            Fp::const_from_raw(10834422028571028806),
+        ],
+        [
+            Fp::const_from_raw(243957224918814907),
+            Fp::const_from_raw(9966149007214472697),
+            Fp::const_from_raw(18130816682404489504),
+            Fp::const_from_raw(3814760895598122151),
+            Fp::const_from_raw(862573500652233787),
+        ],
+        [
+            Fp::const_from_raw(13414343823130474877),
+            Fp::const_from_raw(1002887112060795246),
+            Fp::const_from_raw(16685735965176892618),
+            Fp::const_from_raw(16172309857128312555),
+            Fp::const_from_raw(5158081519803147178),
+        ],
+        [
+            Fp::const_from_raw(14614132925482133961),
+            Fp::const_from_raw(7618082792229868740),
+            Fp::const_from_raw(1881720834768448253),
+            Fp::const_from_raw(11508391877383996679),
+            Fp::const_from_raw(5348386073072413261),
+        ],
+        [
+            Fp::const_from_raw(6268111131988518030),
+            Fp::const_from_raw(17920308297240232909),
+            Fp::const_from_raw(17719152474870950965),
+            Fp::const_from_raw(14857432101092580778),
+            Fp::const_from_raw(5708937553833180778),
+        ],
+        [
+            Fp::const_from_raw(11597726741964198121),
+            Fp::const_from_raw(1568026444559423552),
+            Fp::const_from_raw(3233218961458461983),
+            Fp::const_from_raw(9700509409081014876),
+            Fp::const_from_raw(7989061413164577390),
+        ],
+        [
+            Fp::const_from_raw(11180580619692834182),
+            Fp::const_from_raw(16871004730930134181),
+            Fp::const_from_raw(17810700669516829599),
+            Fp::const_from_raw(13679692060051982328),
+            Fp::const_from_raw(10386085719330760064),
+        ],
+        [
+            Fp::const_from_raw(6222872143719551583),
+            Fp::const_from_raw(3842704143974291265),
+            Fp::const_from_raw(18311432727968603639),
+            Fp::const_from_raw(12278517700025439333),
+            Fp::const_from_raw(7011953052853282225),
+        ],
+    ];
     fn rand_field_element<R: Rng>(rng: &mut R) -> Fp {
         Fp::from(rng.gen::<u64>())
     }
@@ -547,31 +647,27 @@ mod tests {
         let rescue = RescuePrimeOptimized::<128, 7>::new(MdsMethod::MatrixMultiplication);
         let input_sequence: Vec<Fp> = (0..5).map(Fp::from).collect();
         let hash_output = rescue.hash(&input_sequence);
-
         assert_eq!(hash_output.len(), 4);
     }
     #[test]
+    // test ported from https://github.com/0xPolygonMiden/crypto/blob/main/src/hash/rescue/rpo/tests.rs
     fn hash_padding() {
         let rescue = RescuePrimeOptimized::<128, 7>::new(MdsMethod::MatrixMultiplication);
 
         let input1 = vec![1u8, 2, 3];
         let input2 = vec![1u8, 2, 3, 0];
-
         let hash1 = rescue.hash_bytes(&input1);
         let hash2 = rescue.hash_bytes(&input2);
-
         assert_ne!(hash1, hash2);
 
         let input1 = vec![1_u8, 2, 3, 4, 5, 6];
         let input2 = vec![1_u8, 2, 3, 4, 5, 6, 0];
-
         let hash1 = rescue.hash_bytes(&input1);
         let hash2 = rescue.hash_bytes(&input2);
         assert_ne!(hash1, hash2);
 
         let input1 = vec![1_u8, 2, 3, 4, 5, 6, 7, 0, 0];
         let input2 = vec![1_u8, 2, 3, 4, 5, 6, 7, 0, 0, 0, 0];
-
         let hash1 = rescue.hash_bytes(&input1);
         let hash2 = rescue.hash_bytes(&input2);
         assert_ne!(hash1, hash2);
@@ -600,14 +696,6 @@ mod tests {
     }
 
     #[test]
-    fn test_instantiate_round_constants() {
-        let rescue = RescuePrimeOptimized::<128, 7>::new(MdsMethod::MatrixMultiplication);
-
-        let round_constants = &rescue.round_constants;
-        assert_eq!(round_constants.len(), 2 * 12 * 7);
-    }
-
-    #[test]
     fn test_mds_methods_consistency() {
         let rescue_matrix = RescuePrimeOptimized::<128, 7>::new(MdsMethod::MatrixMultiplication);
         let rescue_ntt = RescuePrimeOptimized::<128, 7>::new(MdsMethod::Ntt);
@@ -632,11 +720,12 @@ mod tests {
         assert_eq!(hash_matrix, hash_ntt);
         assert_eq!(hash_ntt, hash_karatsuba);
     }
+
     /*
-    Test used to generate the expected hashes for the test vectors (they are the same as in the Polygon Miden implementation)
+        //Test used to generate the expected hashes for the test vectors (they are the same as in the Polygon Miden implementation)
         #[test]
         fn generate_test_vectors() {
-            let rescue = RescuePrimeOptimized::<128, 7>::new(MdsMethod::MatrixMultiplication);
+            let rescue = RescuePrimeOptimized::<160, 7>::new(MdsMethod::MatrixMultiplication);
             let elements: Vec<Fp> = (0..19).map(Fp::from).collect();
 
             println!("let expected_hashes = vec![");
@@ -652,7 +741,7 @@ mod tests {
             });
             println!("];");
         }
-        */
+    */
     #[test]
     fn test_print_round_constants() {
         let rescue = RescuePrimeOptimized::<128, 7>::new(MdsMethod::MatrixMultiplication);
@@ -664,31 +753,30 @@ mod tests {
 
         assert_eq!(rescue.round_constants.len(), 2 * rescue.m * 7);
     }
-    /*
-        #[test]
-        fn test_hash_vectors() {
-            let rescue = RescuePrimeOptimized::<128, 7>::new(MdsMethod::MatrixMultiplication);
-            let elements: Vec<Fp> = (0..19).map(Fp::from).collect();
 
-            for (i, expected) in EXPECTED.iter().enumerate() {
-                let input = &elements[..=i]; // Tomar el prefijo hasta i
-                let hash_output = rescue.hash(input);
-
-                assert_eq!(
-                    hash_output,
-                    *expected,
-                    "Hash mismatch for input length {}",
-                    i + 1
-                );
-            }
-        }
-    */
     #[test]
     fn test_hash_vectors() {
         let rescue = RescuePrimeOptimized::<128, 7>::new(MdsMethod::MatrixMultiplication);
         let elements: Vec<Fp> = (0..19).map(Fp::from).collect();
 
-        EXPECTED.iter().enumerate().for_each(|(i, expected)| {
+        EXPECTED_128.iter().enumerate().for_each(|(i, expected)| {
+            let input = elements.iter().take(i + 1);
+            let hash_output = rescue.hash(input.cloned().collect::<Vec<_>>().as_slice());
+
+            assert_eq!(
+                hash_output,
+                *expected,
+                "Hash mismatch for input length {}",
+                i + 1
+            );
+        });
+    }
+    #[test]
+    fn test_hash_vector_2() {
+        let rescue = RescuePrimeOptimized::<160, 7>::new(MdsMethod::MatrixMultiplication);
+        let elements: Vec<Fp> = (0..19).map(Fp::from).collect();
+
+        EXPECTED_160.iter().enumerate().for_each(|(i, expected)| {
             let input = elements.iter().take(i + 1);
             let hash_output = rescue.hash(input.cloned().collect::<Vec<_>>().as_slice());
 
@@ -721,5 +809,5 @@ mod tests {
         println!();
         assert_eq!(hash_result.len(), 4);
     }
-    // this gives the same in Polygon Miden
+    // Same result obtained in Miden Crypto
 }
