@@ -46,6 +46,7 @@ pub fn icfft(
     });    
 } 
 
+// From [0, 2, 4, 6, 7, 5, 3, 1] to [0, 1, 2, 3, 4, 5, 6, 7]
 pub fn order_cfft_result_naive(input: &mut [FieldElement<Mersenne31Field>]) -> Vec<FieldElement<Mersenne31Field>> {
     let mut result = Vec::new();
     let length = input.len();
@@ -56,6 +57,7 @@ pub fn order_cfft_result_naive(input: &mut [FieldElement<Mersenne31Field>]) -> V
     result
 }
 
+// From [0, 1, 2, 3, 4, 5, 6, 7] to [0, 2, 4, 6, 7, 5, 3, 1]
 pub fn order_icfft_input_naive(input: &mut [FieldElement<Mersenne31Field>]) -> Vec<FieldElement<Mersenne31Field>> {
     let mut result = Vec::new();
     (0..input.len()).step_by(2).for_each( |i| {

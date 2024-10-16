@@ -1,10 +1,10 @@
 use crate::{
+    fft::cpu::bit_reversing::in_place_bit_reverse_permute,
     field::{element::FieldElement, fields::mersenne31::field::Mersenne31Field},
-    fft::cpu::bit_reversing::in_place_bit_reverse_permute
 };
 
 use super::{
-    cfft::{cfft, icfft, cfft_4, cfft_8, order_cfft_result_naive, order_icfft_input_naive},
+    cfft::{cfft, cfft_4, cfft_8, icfft, order_cfft_result_naive, order_icfft_input_naive},
     cosets::Coset,
     twiddles::{
         get_twiddles, get_twiddles_itnerpolation_4, get_twiddles_itnerpolation_8, TwiddlesConfig,
@@ -34,15 +34,18 @@ pub fn evaluate_cfft(
 pub fn interpolate_cfft(
     mut eval: Vec<FieldElement<Mersenne31Field>>,
 ) -> Vec<FieldElement<Mersenne31Field>> {
-    let mut eval_ordered = order_icfft_input_naive(&mut eval); 
+    let mut eval_ordered = order_icfft_input_naive(&mut eval);
     let domain_log_2_size: u32 = eval.len().trailing_zeros();
     let coset = Coset::new_standard(domain_log_2_size);
     let config = TwiddlesConfig::Interpolation;
     let twiddles = get_twiddles(coset, config);
 
     icfft(&mut eval_ordered, twiddles);
-    let result = order_cfft_result_naive(&mut eval);
-    result
+    in_place_bit_reverse_permute::<FieldElement<Mersenne31Field>>(&mut eval_ordered);
+    let factor = (FieldElement::<Mersenne31Field>::from(eval.len() as u64))
+        .inv()
+        .unwrap();
+    eval_ordered.iter().map(|coef| coef * factor).collect()
 }
 
 pub fn interpolate_4(
