@@ -55,7 +55,7 @@ Relative path to a file named **test** will be just **"test"** if it's placed in
 
 ```rust
 // ...
-let (w, qap) = circom_to_lambda(
+let (qap, w) = circom_to_lambda(
    &fs::read_to_string("test.r1cs.json").expect("Error reading file"),
    &fs::read_to_string("witness.json").expect("Error reading file"),
 );
@@ -65,7 +65,7 @@ As seen, this function returns a Lambdaworks-compatible QAP and the witness assi
 
 ```rust
 fn poseidon_parse_prove_verify() {
-   let (w, qap) = circom_to_lambda(
+   let (qap, w) = circom_to_lambda(
       &fs::read_to_string("test.r1cs.json").expect("Error reading file"),
       &fs::read_to_string("witness.json").expect("Error reading file"),
    );
