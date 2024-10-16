@@ -674,7 +674,7 @@ mod tests {
         let hash2 = rescue.hash_bytes(&input2);
         assert_ne!(hash1, hash2);
     }
-
+    #[cfg(feature = "std")]
     #[test]
     fn sponge_zeroes_collision() {
         let rescue = RescuePrimeOptimized::<128, 7>::new(MdsMethod::MatrixMultiplication);
@@ -724,38 +724,38 @@ mod tests {
     }
 
     /*
-        //Test used to generate the expected hashes for the test vectors (they are the same as in the Polygon Miden implementation)
-        #[test]
-        fn generate_test_vectors() {
-            let rescue = RescuePrimeOptimized::<160, 7>::new(MdsMethod::MatrixMultiplication);
-            let elements: Vec<Fp> = (0..19).map(Fp::from).collect();
+            //Test used to generate the expected hashes for the test vectors (they are the same as in the Polygon Miden implementation)
+            #[test]
+            fn generate_test_vectors() {
+                let rescue = RescuePrimeOptimized::<160, 7>::new(MdsMethod::MatrixMultiplication);
+                let elements: Vec<Fp> = (0..19).map(Fp::from).collect();
 
-            println!("let expected_hashes = vec![");
-            elements.iter().enumerate().for_each(|(i, _)| {
-                let input = elements.iter().take(i + 1);
-                let hash_output = rescue.hash(input.cloned().collect::<Vec<_>>().as_slice());
+                println!("let expected_hashes = vec![");
+                elements.iter().enumerate().for_each(|(i, _)| {
+                    let input = elements.iter().take(i + 1);
+                    let hash_output = rescue.hash(input.cloned().collect::<Vec<_>>().as_slice());
 
-                print!("    vec![");
-                hash_output.iter().for_each(|value| {
-                    print!("Fp::from({}u64), ", value.value());
+                    print!("    vec![");
+                    hash_output.iter().for_each(|value| {
+                        print!("Fp::from({}u64), ", value.value());
+                    });
+                    println!("],");
                 });
-                println!("],");
-            });
-            println!("];");
+                println!("];");
+            }
+
+        #[test]
+        fn test_print_round_constants() {
+            let rescue = RescuePrimeOptimized::<128, 7>::new(MdsMethod::MatrixMultiplication);
+
+            println!("Round constants:");
+            for (i, constant) in rescue.round_constants.iter().enumerate() {
+                println!("Constant {}: Fp::from({}u64)", i, constant.value());
+            }
+
+            assert_eq!(rescue.round_constants.len(), 2 * rescue.m * 7);
         }
     */
-    #[test]
-    fn test_print_round_constants() {
-        let rescue = RescuePrimeOptimized::<128, 7>::new(MdsMethod::MatrixMultiplication);
-
-        println!("Round constants:");
-        for (i, constant) in rescue.round_constants.iter().enumerate() {
-            println!("Constant {}: Fp::from({}u64)", i, constant.value());
-        }
-
-        assert_eq!(rescue.round_constants.len(), 2 * rescue.m * 7);
-    }
-
     #[test]
     fn test_hash_vectors() {
         let rescue = RescuePrimeOptimized::<128, 7>::new(MdsMethod::MatrixMultiplication);
@@ -790,6 +790,7 @@ mod tests {
             );
         });
     }
+    #[cfg(feature = "std")]
     #[test]
     fn test_hash_example_and_print() {
         let rescue = RescuePrimeOptimized::<128, 7>::new(MdsMethod::Ntt);
