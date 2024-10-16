@@ -99,9 +99,9 @@ pub trait IsField: Debug + Clone {
     /// The underlying base type for representing elements from the field.
     // TODO: Relax Unpin for non cuda usage
     #[cfg(feature = "lambdaworks-serde-binary")]
-    type BaseType: Clone + Debug + Unpin + ByteConversion;
+    type BaseType: Clone + Debug + Unpin + ByteConversion + Default;
     #[cfg(not(feature = "lambdaworks-serde-binary"))]
-    type BaseType: Clone + Debug + Unpin;
+    type BaseType: Clone + Debug + Unpin + Default;
 
     /// Returns the sum of `a` and `b`.
     fn add(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType;
@@ -173,7 +173,9 @@ pub trait IsField: Debug + Clone {
     fn eq(a: &Self::BaseType, b: &Self::BaseType) -> bool;
 
     /// Returns the additive neutral element.
-    fn zero() -> Self::BaseType;
+    fn zero() -> Self::BaseType {
+        Self::BaseType::default()
+    }
 
     /// Returns the multiplicative neutral element.
     fn one() -> Self::BaseType;
