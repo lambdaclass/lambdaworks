@@ -1,3 +1,5 @@
+use crate::alloc::vec::Vec;
+use core::iter;
 use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::fields::u64_goldilocks_field::Goldilocks64Field;
 
@@ -60,7 +62,7 @@ impl<const SECURITY_LEVEL: usize, const NUM_FULL_ROUNDS: usize>
             m,
             capacity,
             rate,
-            round_constants: round_constants.to_vec().try_into().unwrap(),
+            round_constants: round_constants.to_vec(),
             mds_matrix,
             mds_vector,
             mds_method,
@@ -132,7 +134,7 @@ impl<const SECURITY_LEVEL: usize, const NUM_FULL_ROUNDS: usize>
         };
 
         let mds_ntt = ntt(&self.mds_vector, omega);
-        let state_rev: Vec<Fp> = std::iter::once(state[0])
+        let state_rev: Vec<Fp> = iter::once(state[0])
             .chain(state[1..].iter().rev().cloned())
             .collect();
         let state_ntt = ntt(&state_rev, omega);
@@ -145,14 +147,14 @@ impl<const SECURITY_LEVEL: usize, const NUM_FULL_ROUNDS: usize>
         let omega_inv = omega.inv().unwrap();
         let result = intt(&product_ntt, omega_inv);
 
-        std::iter::once(result[0])
+        iter::once(result[0])
             .chain(result[1..].iter().rev().cloned())
             .collect()
     }
 
     fn mds_karatsuba(&self, state: &[Fp]) -> Vec<Fp> {
         let m = state.len();
-        let mds_rev: Vec<Fp> = std::iter::once(self.mds_vector[0])
+        let mds_rev: Vec<Fp> = iter::once(self.mds_vector[0])
             .chain(self.mds_vector[1..].iter().rev().cloned())
             .collect();
 

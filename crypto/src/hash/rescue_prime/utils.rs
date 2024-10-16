@@ -1,4 +1,5 @@
 use super::Fp;
+use alloc::vec::Vec;
 
 pub fn bytes_to_field_elements(input: &[u8]) -> Vec<Fp> {
     input
