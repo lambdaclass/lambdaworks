@@ -10,7 +10,7 @@ Below is a list of all lambdaworks examples in the folder:
 - [Proving Miden using lambdaworks STARK Platinum prover](https://github.com/lambdaclass/lambdaworks/tree/main/examples/prove-miden): Executes a Miden vm Fibonacci program, gets the execution trace and generates a proof (and verifies it) using STARK Platinum.
 - [BabySNARK](https://github.com/lambdaclass/lambdaworks/tree/main/examples/baby-snark): a simple SNARK to start learning the basics of elliptic curve-based proof systems.
 - [Pinocchio](https://github.com/lambdaclass/lambdaworks/tree/main/examples/pinocchio): the first practical SNARK. A good starting point to start learning about zero-knowledge proofs.
-
+- [Circom to Lambdaworks](https://github.com/lambdaclass/lambdaworks/tree/main/examples/prove-verify-circom): A walkthrough to create a circuit in Circom, generate a proof, and verify it using with Groth16 using lambdaworks.
 You can also check [lambdaworks exercises](https://github.com/lambdaclass/lambdaworks/tree/main/exercises) to learn more.
 
 ## Basic use of Finite Fields
