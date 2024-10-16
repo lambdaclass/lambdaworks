@@ -730,7 +730,7 @@ mod tests {
 
             println!("let expected_hashes = vec![");
             elements.iter().enumerate().for_each(|(i, _)| {
-                let input = elements.iter().take(i + 1); // Tomar el prefijo hasta i + 1
+                let input = elements.iter().take(i + 1);
                 let hash_output = rescue.hash(input.cloned().collect::<Vec<_>>().as_slice());
 
                 print!("    vec![");

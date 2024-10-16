@@ -2,7 +2,7 @@ use super::Fp;
 pub const ALPHA: u64 = 7;
 pub const ALPHA_INV: u64 = 10540996611094048183;
 
-// Constants for the Rescue hash function, these were obtained using the paper implementation in sage
+// Constants obtained using the paper implementation in Sage
 // https://github.com/ASDiscreteMathematics/rpo/tree/master/reference_implementation
 
 pub const ROUND_CONSTANTS_128: [Fp; 168] = [
