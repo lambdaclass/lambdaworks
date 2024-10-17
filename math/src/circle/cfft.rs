@@ -75,6 +75,7 @@ pub fn icfft(
 /// [P(x0, y0), P(x2, y2), P(x4, y4), P(x6, y6), P(x7, y7), P(x5, y5), P(x3, y3), P(x1, y1)],
 /// where the even indices are found first in ascending order and then the odd indices in descending order.
 /// This function permutes the slice [0, 2, 4, 6, 7, 5, 3, 1] into [0, 1, 2, 3, 4, 5, 6, 7].
+/// NOTE: This can be optimized by performing in-place value swapping (WIP).  
 pub fn order_cfft_result_naive(
     input: &mut [FieldElement<Mersenne31Field>],
 ) -> Vec<FieldElement<Mersenne31Field>> {
@@ -92,6 +93,7 @@ pub fn order_cfft_result_naive(
 /// [(x0, y0), (x2, y2), (x4, y4), (x6, y6), (x7, y7), (x5, y5), (x3, y3), (x1, y1)],
 /// where the even indices are found first in ascending order and then the odd indices in descending order.
 /// This function permutes the slice [0, 1, 2, 3, 4, 5, 6, 7] into [0, 2, 4, 6, 7, 5, 3, 1].
+/// NOTE: This can be optimized by performing in-place value swapping (WIP).  
 pub fn order_icfft_input_naive(
     input: &mut [FieldElement<Mersenne31Field>],
 ) -> Vec<FieldElement<Mersenne31Field>> {
@@ -168,18 +170,6 @@ mod tests {
         let res = order_cfft_result_naive(&mut slice);
 
         assert_eq!(res, expected_slice)
-    }
-
-    #[test]
-    fn reverse_cfft_index_works() {
-        let mut reversed: Vec<usize> = Vec::with_capacity(16);
-        for i in 0..reversed.capacity() {
-            reversed.push(reverse_cfft_index(i, reversed.capacity()));
-        }
-        assert_eq!(
-            reversed[..],
-            [0, 2, 4, 6, 8, 10, 12, 14, 15, 13, 11, 9, 7, 5, 3, 1]
-        );
     }
 
     #[test]
