@@ -6,9 +6,7 @@ use crate::{
 use super::{
     cfft::{cfft, icfft, order_cfft_result_naive, order_icfft_input_naive},
     cosets::Coset,
-    twiddles::{
-        get_twiddles, TwiddlesConfig,
-    },
+    twiddles::{get_twiddles, TwiddlesConfig},
 };
 
 /// Given the 2^n coefficients of a two-variables polynomial of degree 2^n - 1 in the basis {1, y, x, xy, 2xˆ2 -1, 2xˆ2y-y, 2xˆ3-x, 2xˆ3y-xy,...}
