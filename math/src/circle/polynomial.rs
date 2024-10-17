@@ -4,10 +4,10 @@ use crate::{
 };
 
 use super::{
-    cfft::{cfft, cfft_4, cfft_8, icfft, order_cfft_result_naive, order_icfft_input_naive},
+    cfft::{cfft, icfft, order_cfft_result_naive, order_icfft_input_naive},
     cosets::Coset,
     twiddles::{
-        get_twiddles, get_twiddles_itnerpolation_4, get_twiddles_itnerpolation_8, TwiddlesConfig,
+        get_twiddles, TwiddlesConfig,
     },
 };
 
@@ -28,8 +28,7 @@ pub fn evaluate_cfft(
     cfft(&mut coeff, twiddles);
 
     // The cfft returns the evaluations in a certain order, so we permute them to get the natural order.
-    let result = order_cfft_result_naive(&mut coeff);
-    result
+    order_cfft_result_naive(&mut coeff)
 }
 
 /// Interpolates the 2^n evaluations of a two-variables polynomial of degree 2^n - 1 on the points of the standard coset of size 2^n.
@@ -57,28 +56,6 @@ pub fn interpolate_cfft(
         .inv()
         .unwrap();
     eval_ordered.iter().map(|coef| coef * factor).collect()
-}
-
-pub fn interpolate_4(
-    mut eval: Vec<FieldElement<Mersenne31Field>>,
-) -> Vec<FieldElement<Mersenne31Field>> {
-    let domain_log_2_size: u32 = eval.len().trailing_zeros();
-    let coset = Coset::new_standard(domain_log_2_size);
-    let twiddles = get_twiddles_itnerpolation_4(coset);
-
-    let res = cfft_4(&mut eval, twiddles);
-    res
-}
-
-pub fn interpolate_8(
-    mut eval: Vec<FieldElement<Mersenne31Field>>,
-) -> Vec<FieldElement<Mersenne31Field>> {
-    let domain_log_2_size: u32 = eval.len().trailing_zeros();
-    let coset = Coset::new_standard(domain_log_2_size);
-    let twiddles = get_twiddles_itnerpolation_8(coset);
-
-    let res = cfft_8(&mut eval, twiddles);
-    res
 }
 
 #[cfg(test)]
@@ -223,47 +200,6 @@ mod tests {
         let slice_result: &[FE] = &result;
 
         assert_eq!(slice_result, expected_result);
-    }
-
-    #[test]
-    fn interpolation() {
-        let coeff = vec![
-            FE::from(1),
-            FE::from(2),
-            FE::from(3),
-            FE::from(4),
-            FE::from(5),
-            FE::from(6),
-            FE::from(7),
-            FE::from(8),
-        ];
-
-        let evals = evaluate_cfft(coeff.clone());
-
-        // println!("EVALS: {:?}", evals);
-
-        // EVALS: [
-        // FieldElement { value: 885347334 }, -> 0
-        // FieldElement { value: 1037382257 }, -> 1
-        // FieldElement { value: 714723476 }, -> 2
-        // FieldElement { value: 55636419 }, -> 3
-        // FieldElement { value: 1262332919 }, -> 4
-        // FieldElement { value: 1109642644 }, -> 5
-        // FieldElement { value: 1432563561 }, -> 6
-        // FieldElement { value: 2092305986 }] -> 7
-
-        let new_evals = vec![
-            FE::from(885347334),
-            FE::from(714723476),
-            FE::from(1262332919),
-            FE::from(1432563561),
-            FE::from(2092305986),
-            FE::from(1109642644),
-            FE::from(55636419),
-            FE::from(1037382257),
-        ];
-
-        let new_coeff = interpolate_8(new_evals);
     }
 
     #[test]

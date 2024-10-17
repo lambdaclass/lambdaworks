@@ -1,7 +1,6 @@
 extern crate alloc;
 use crate::{
-    circle::{cosets::Coset, point::CirclePoint},
-    fft::cpu::bit_reversing::in_place_bit_reverse_permute,
+    circle::cosets::Coset,
     field::{element::FieldElement, fields::mersenne31::field::Mersenne31Field},
 };
 use alloc::vec::Vec;
@@ -53,31 +52,6 @@ pub fn get_twiddles(
         // For the evaluation, we need reverse the order of the vector of twiddles.
         twiddles.reverse();
     }
-    twiddles
-}
-
-pub fn get_twiddles_itnerpolation_4(domain: Coset) -> Vec<Vec<FieldElement<Mersenne31Field>>> {
-    let half_domain_points = Coset::get_coset_points(&Coset::half_coset(domain.clone()));
-    let mut twiddles: Vec<Vec<FieldElement<Mersenne31Field>>> =
-        vec![half_domain_points.iter().map(|p| p.y).collect()];
-    twiddles.push(half_domain_points.iter().take(1).map(|p| p.x).collect());
-    twiddles.iter_mut().for_each(|x| {
-        FieldElement::<Mersenne31Field>::inplace_batch_inverse(x).unwrap();
-    });
-    twiddles
-}
-
-pub fn get_twiddles_itnerpolation_8(domain: Coset) -> Vec<Vec<FieldElement<Mersenne31Field>>> {
-    let half_domain_points = Coset::get_coset_points(&Coset::half_coset(domain.clone()));
-    let mut twiddles: Vec<Vec<FieldElement<Mersenne31Field>>> =
-        vec![half_domain_points.iter().map(|p| p.y).collect()];
-    twiddles.push(half_domain_points.iter().take(2).map(|p| p.x).collect());
-    twiddles.push(vec![
-        half_domain_points[0].x.square().double() - FieldElement::<Mersenne31Field>::one(),
-    ]);
-    twiddles.iter_mut().for_each(|x| {
-        FieldElement::<Mersenne31Field>::inplace_batch_inverse(x).unwrap();
-    });
     twiddles
 }
 
