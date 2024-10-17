@@ -109,16 +109,6 @@ pub fn order_icfft_input_naive(
     result
 }
 
-// We are not using this fucntion.
-pub fn reverse_cfft_index(index: usize, length: usize) -> usize {
-    if index < (length >> 1) {
-        // index < length / 2
-        index << 1 // index * 2
-    } else {
-        (((length - 1) - index) << 1) + 1
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
