@@ -1,5 +1,9 @@
 use super::Fp;
 use alloc::vec::Vec;
+use lambdaworks_math::field::errors::FieldError;
+
+// Auxiliary algorithms based on the reference implementation in Sage
+// https://github.com/ASDiscreteMathematics/rpo/tree/master/reference_implementation
 
 pub fn bytes_to_field_elements(input: &[u8]) -> Vec<Fp> {
     input
@@ -25,7 +29,7 @@ pub fn ntt(input: &[Fp], omega: Fp) -> Vec<Fp> {
         })
         .collect()
 }
-
+/*
 pub fn intt(input: &[Fp], omega_inv: Fp) -> Vec<Fp> {
     let inv_n = Fp::from(input.len() as u64).inv().unwrap();
     ntt(input, omega_inv)
@@ -33,7 +37,15 @@ pub fn intt(input: &[Fp], omega_inv: Fp) -> Vec<Fp> {
         .map(|val| val * inv_n)
         .collect()
 }
+ */
+pub fn intt(input: &[Fp], omega_inv: Fp) -> Result<Vec<Fp>, FieldError> {
+    let n = input.len() as u64;
+    let inv_n = Fp::from(n).inv()?;
+    let transformed = ntt(input, omega_inv);
+    Ok(transformed.into_iter().map(|val| val * inv_n).collect())
+}
 
+// TO DO: Solve Ivan's comment about not unwrappint and return Result
 pub fn karatsuba(lhs: &[Fp], rhs: &[Fp]) -> Vec<Fp> {
     let n = lhs.len();
     if n <= 32 {
