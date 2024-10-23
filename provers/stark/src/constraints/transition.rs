@@ -105,6 +105,7 @@ where
     }
 
     /// Compute evaluations of the constraints zerofier over a LDE domain.
+    #[allow(unstable_name_collisions)]
     fn zerofier_evaluations_on_extended_domain(&self, domain: &Domain<F>) -> Vec<FieldElement<F>> {
         let blowup_factor = domain.blowup_factor;
         let trace_length = domain.trace_roots_of_unity.len();
@@ -120,7 +121,9 @@ where
         if let Some(exemptions_period) = self.exemptions_period() {
             // FIXME: Rather than making this assertions here, it would be better to handle these
             // errors or make these checks when the AIR is initialized.
+
             debug_assert!(exemptions_period.is_multiple_of(&self.period()));
+
             debug_assert!(self.periodic_exemptions_offset().is_some());
 
             // The elements of the domain have order `trace_length * blowup_factor`, so the zerofier evaluations
@@ -204,6 +207,7 @@ where
 
     /// Returns the evaluation of the zerofier corresponding to this constraint in some point
     /// `z`, which could be in a field extension.
+    #[allow(unstable_name_collisions)]
     fn evaluate_zerofier(
         &self,
         z: &FieldElement<E>,
@@ -214,6 +218,7 @@ where
 
         if let Some(exemptions_period) = self.exemptions_period() {
             debug_assert!(exemptions_period.is_multiple_of(&self.period()));
+
             debug_assert!(self.periodic_exemptions_offset().is_some());
 
             let periodic_exemptions_offset = self.periodic_exemptions_offset().unwrap();
