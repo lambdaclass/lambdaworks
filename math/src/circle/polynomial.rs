@@ -10,7 +10,7 @@ use super::{
 };
 
 /// Given the 2^n coefficients of a two-variables polynomial of degree 2^n - 1 in the basis {1, y, x, xy, 2xˆ2 -1, 2xˆ2y-y, 2xˆ3-x, 2xˆ3y-xy,...}
-/// returns the evaluation of the polynomianl on the points of the standard coset of size 2^n.
+/// returns the evaluation of the polynomial on the points of the standard coset of size 2^n.
 /// Note that coeff has to be a vector with length a power of two 2^n.
 pub fn evaluate_cfft(
     mut coeff: Vec<FieldElement<Mersenne31Field>>,
