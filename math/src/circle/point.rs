@@ -1,4 +1,3 @@
-use super::errors::CircleError;
 use crate::field::traits::IsField;
 use crate::field::{
     element::FieldElement,
@@ -6,12 +5,23 @@ use crate::field::{
 };
 use core::ops::{Add, Mul};
 
+/// Given a Field F, we implement here the Group which consists of all the points (x, y) such as
+/// x in F, y in F and x^2 + y^2 = 1, i.e. the Circle. The operation of the group will have
+/// additive notation and is as follows:
+/// (a, b) + (c, d) = (a * c - b * d, a * d + b * c)
+
 #[derive(Debug, Clone)]
 pub struct CirclePoint<F: IsField> {
     pub x: FieldElement<F>,
     pub y: FieldElement<F>,
 }
 
+#[derive(Debug)]
+pub enum CircleError {
+    PointDoesntSatisfyCircleEquation,
+}
+
+/// Parameters of the base field that we'll need to define its Circle.
 pub trait HasCircleParams<F: IsField> {
     type FE;
 
@@ -55,7 +65,7 @@ impl<F: IsField + HasCircleParams<F>> PartialEq for CirclePoint<F> {
     }
 }
 
-/// Addition (i.e. group operation with additive notation) between two points:
+/// Addition (i.e. group operation) between two points:
 /// (a, b) + (c, d) = (a * c - b * d, a * d + b * c)
 impl<F: IsField + HasCircleParams<F>> Add for &CirclePoint<F> {
     type Output = CirclePoint<F>;
@@ -93,7 +103,7 @@ impl<F: IsField + HasCircleParams<F>> CirclePoint<F> {
         if x.square() + y.square() == FieldElement::one() {
             Ok(Self { x, y })
         } else {
-            Err(CircleError::InvalidValue)
+            Err(CircleError::PointDoesntSatisfyCircleEquation)
         }
     }
 
