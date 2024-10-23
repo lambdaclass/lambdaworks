@@ -37,7 +37,9 @@ provers/
 The Fibonacci sequence is defined as follows:
 
 $F(0) = a \quad \text{(starting value 1)}$
+
 $F(1) = b \quad \text{(starting value 2)}$
+
 $F(n) = F(n-1) + F(n-2) \quad \text{for } n \geq 2$ 
 
 In our circuit, we start with two initial numbers, 
