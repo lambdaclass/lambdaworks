@@ -4,7 +4,7 @@ use crate::field::{
     element::FieldElement,
     fields::mersenne31::{extensions::Degree4ExtensionField, field::Mersenne31Field},
 };
-use core::ops::Add;
+use core::ops::{Add, Mul};
 
 #[derive(Debug, Clone)]
 pub struct CirclePoint<F: IsField> {
@@ -48,6 +48,46 @@ impl HasCircleParams<Degree4ExtensionField> for Degree4ExtensionField {
     const ORDER: u128 = 21267647892944572736998860269687930880;
 }
 
+/// Equality between two cricle points.
+impl<F: IsField + HasCircleParams<F>> PartialEq for CirclePoint<F> {
+    fn eq(&self, other: &Self) -> bool {
+        self.x == other.x && self.y == other.y
+    }
+}
+
+/// Addition (i.e. group operation with additive notation) between two points:
+/// (a, b) + (c, d) = (a * c - b * d, a * d + b * c)
+impl<F: IsField + HasCircleParams<F>> Add for &CirclePoint<F> {
+    type Output = CirclePoint<F>;
+
+    fn add(self, other: Self) -> Self::Output {
+        let x = &self.x * &other.x - &self.y * &other.y;
+        let y = &self.x * &other.y + &self.y * &other.x;
+        CirclePoint { x, y }
+    }
+}
+
+/// Multiplication between a point and a scalar (i.e. group operation repeatedly):
+/// (x, y) * n = (x ,y) + ... + (x, y) n-times.
+impl<F: IsField + HasCircleParams<F>> Mul<u128> for CirclePoint<F> {
+    type Output = CirclePoint<F>;
+
+    fn mul(self, mut scalar: u128) -> Self {
+        let mut res = Self::zero();
+        let mut cur = self;
+        loop {
+            if scalar == 0 {
+                return res;
+            }
+            if scalar & 1 == 1 {
+                res = &res + &cur;
+            }
+            cur = cur.double();
+            scalar >>= 1;
+        }
+    }
+}
+
 impl<F: IsField + HasCircleParams<F>> CirclePoint<F> {
     pub fn new(x: FieldElement<F>, y: FieldElement<F>) -> Result<Self, CircleError> {
         if x.square() + y.square() == FieldElement::one() {
@@ -60,30 +100,6 @@ impl<F: IsField + HasCircleParams<F>> CirclePoint<F> {
     /// Neutral element of the Circle group (with additive notation).
     pub fn zero() -> Self {
         Self::new(FieldElement::one(), FieldElement::zero()).unwrap()
-    }
-
-    /// Computes (a0, a1) + (b0, b1) = (a0 * b0 - a1 * b1, a0 * b1  + a1 * b0)
-    #[allow(clippy::should_implement_trait)]
-    pub fn add(a: Self, b: Self) -> Self {
-        let x = &a.x * &b.x - &a.y * &b.y;
-        let y = a.x * b.y + a.y * b.x;
-        CirclePoint { x, y }
-    }
-
-    /// Computes n * (x, y) = (x ,y) + ... + (x, y) n-times.
-    pub fn scalar_mul(self, mut scalar: u128) -> Self {
-        let mut res = Self::zero();
-        let mut cur = self;
-        loop {
-            if scalar == 0 {
-                return res;
-            }
-            if scalar & 1 == 1 {
-                res = res + cur.clone();
-            }
-            cur = cur.double();
-            scalar >>= 1;
-        }
     }
 
     /// Computes 2(x, y) = (2x^2 - 1, 2xy).
@@ -135,19 +151,6 @@ impl<F: IsField + HasCircleParams<F>> CirclePoint<F> {
     pub const ORDER: u128 = F::ORDER;
 }
 
-impl<F: IsField + HasCircleParams<F>> PartialEq for CirclePoint<F> {
-    fn eq(&self, other: &Self) -> bool {
-        self.x == other.x && self.y == other.y
-    }
-}
-
-impl<F: IsField + HasCircleParams<F>> Add for CirclePoint<F> {
-    type Output = CirclePoint<F>;
-    fn add(self, other: Self) -> Self {
-        CirclePoint::add(self, other)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -195,26 +198,26 @@ mod tests {
     fn zero_plus_zero_is_zero() {
         let a = G::zero();
         let b = G::zero();
-        assert_eq!(a + b, G::zero())
+        assert_eq!(&a + &b, G::zero())
     }
 
     #[test]
     fn generator_plus_zero_is_generator() {
         let g = G::GENERATOR;
         let zero = G::zero();
-        assert_eq!(g.clone() + zero, g)
+        assert_eq!(&g + &zero, g)
     }
 
     #[test]
     fn double_equals_mul_two() {
         let g = G::GENERATOR;
-        assert_eq!(g.clone().double(), G::scalar_mul(g, 2))
+        assert_eq!(g.clone().double(), g * 2)
     }
 
     #[test]
     fn mul_eight_equals_double_three_times() {
         let g = G::GENERATOR;
-        assert_eq!(g.clone().repeated_double(3), G::scalar_mul(g, 8))
+        assert_eq!(g.clone().repeated_double(3), g * 8)
     }
 
     #[test]
@@ -227,13 +230,13 @@ mod tests {
     #[test]
     fn generator_g4_has_the_order_of_the_group() {
         let g = G4::GENERATOR;
-        assert_eq!(g.scalar_mul(G4::ORDER), G4::zero())
+        assert_eq!(g * G4::ORDER, G4::zero())
     }
 
     #[test]
     fn conjugation_is_inverse_operation() {
         let g = G::GENERATOR;
-        assert_eq!(g.clone() + g.conjugate(), G::zero())
+        assert_eq!(&g.clone() + &g.conjugate(), G::zero())
     }
 
     #[test]

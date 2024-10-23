@@ -53,7 +53,7 @@ impl Coset {
         let generator_n = CirclePoint::get_generator_of_subgroup(coset.log_2_size);
         let size: u8 = 1 << coset.log_2_size;
         core::iter::successors(Some(coset.shift.clone()), move |prev| {
-            Some(prev.clone() + generator_n.clone())
+            Some(prev + &generator_n)
         })
         .take(size.into())
         .collect()
@@ -82,7 +82,7 @@ mod tests {
 
     #[test]
     fn coset_generator_has_right_order() {
-        let coset = Coset::new(2, CirclePoint::GENERATOR.scalar_mul(3));
+        let coset = Coset::new(2, CirclePoint::GENERATOR * 3);
         let generator_n = coset.get_generator();
         assert_eq!(generator_n.repeated_double(2), CirclePoint::zero());
     }
