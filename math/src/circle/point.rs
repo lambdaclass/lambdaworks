@@ -121,10 +121,6 @@ impl<F: IsField + HasCircleParams<F>> CirclePoint<F> {
         }
     }
 
-    pub fn eq(a: Self, b: Self) -> bool {
-        a.x == b.x && a.y == b.y
-    }
-
     pub const GENERATOR: Self = Self {
         x: F::CIRCLE_GENERATOR_X,
         y: F::CIRCLE_GENERATOR_Y,
@@ -141,7 +137,7 @@ impl<F: IsField + HasCircleParams<F>> CirclePoint<F> {
 
 impl<F: IsField + HasCircleParams<F>> PartialEq for CirclePoint<F> {
     fn eq(&self, other: &Self) -> bool {
-        CirclePoint::eq(self.clone(), other.clone())
+        self.x == other.x && self.y == other.y
     }
 }
 
