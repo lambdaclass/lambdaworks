@@ -1,21 +1,33 @@
 use super::parameters::*;
 use super::utils::*;
 use super::Fp;
-use super::MdsMethod;
 use crate::alloc::vec::Vec;
 use core::iter;
 use lambdaworks_math::field::errors::FieldError;
 
-/// Implementation of the Rescue Prime Optimized hash function.
+// Implementation of the Rescue Prime Optimized hash function.
+// https://eprint.iacr.org/2022/1577
+// https://github.com/ASDiscreteMathematics/rpo/tree/master/reference_implementation
+// It supports two security levels: 128-bit and 160-bit. Depending on the security level chosen
+// the integer parameters are set accordingly.
 
-/// # Type Parameters
-/// - `SECURITY_LEVEL`: Security level in bits (e.g., 128 or 160).
-/// - `NUM_FULL_ROUNDS`: Number of full rounds in the permutation. This is set to 7 in the reference implementation for the best performance.
+// For the Security level (λ) of 128 bits we have:
+// Number of rounds (N): 7
+// State size (m): 12
+// Rate (r): 8
+// Capacity (c): 4
+
+// For the Security level (λ) of 160 bits we have:
+// Number of rounds (N): 7
+// State size (m): 16
+// Rate (r): 10
+// Capacity (c): 6
+
+// In the paper, the authors use a number of rounds equal to 7 as a trade-off between security and performance.
+// The number of rounds can be increased to 8 or 9 to achieve a higher level of security at the cost of performance.
 const NUM_FULL_ROUNDS: usize = 7;
 
 pub struct RescuePrimeOptimized {
-    /// Security level of the hash function.    
-    //security_level: SecurityLevel,
     /// State width of the hash function.
     m: usize,
     /// Capacity of the sponge.
@@ -23,7 +35,7 @@ pub struct RescuePrimeOptimized {
     /// Rate of the sponge.
     rate: usize,
     /// Precomputed round constants used in the permutation.
-    round_constants: Vec<Fp>,
+    round_constants: &'static [Fp],
     /// MDS matrix used in the permutation.
     mds_matrix: Vec<Vec<Fp>>,
     /// MDS vector used for optimizing matrix multiplication.
@@ -39,7 +51,7 @@ impl Default for RescuePrimeOptimized {
 }
 
 impl RescuePrimeOptimized {
-    /// Creates a new instance of `RescuePrimeOptimized` with the specified MDS method.
+    /// Creates a new instance of `RescuePrimeOptimized` with corresponding Security level and the specified MDS method.
     pub fn new(security_level: SecurityLevel, mds_method: MdsMethod) -> Result<Self, &'static str> {
         let (m, capacity) = match security_level {
             SecurityLevel::Sec128 => (12, 4),
@@ -59,11 +71,10 @@ impl RescuePrimeOptimized {
             ),
         };
         Ok(Self {
-            // security_level,
             m,
             capacity,
             rate,
-            round_constants: round_constants.to_vec(),
+            round_constants,
             mds_matrix: match mds_matrix {
                 MdsMatrix::Mds128(matrix) => matrix.iter().map(|&row| row.to_vec()).collect(),
                 MdsMatrix::Mds160(matrix) => matrix.iter().map(|&row| row.to_vec()).collect(),
@@ -79,26 +90,7 @@ impl RescuePrimeOptimized {
             *x = x.pow(ALPHA_INV);
         }
     }
-    /*
-        /// Gets the MDS vector based on the state size.
-        fn get_mds_vector(m: usize) -> Result<Box<[Fp]>, &'static str> {
-            match m {
-                12 => {
-                    let arr: [Fp; 12] = [7, 23, 8, 26, 13, 10, 9, 7, 6, 22, 21, 8].map(Fp::from);
-                    Ok(arr.into())
-                }
-                16 => {
-                    let arr: [Fp; 16] = [
-                        256, 2, 1073741824, 2048, 16777216, 128, 8, 16, 524288, 4194304, 1, 268435456,
-                        1, 1024, 2, 8192,
-                    ]
-                    .map(Fp::from);
-                    Ok(arr.into())
-                }
-                _ => Err("Unsupported state size"),
-            }
-        }
-    */
+
     /// Applies the S-box to the state.
     pub fn apply_sbox(state: &mut [Fp]) {
         for x in state.iter_mut() {
@@ -222,10 +214,6 @@ impl RescuePrimeOptimized {
 
     /// Hashes an input sequence of field elements.
     pub fn hash(&self, input_sequence: &[Fp]) -> Vec<Fp> {
-        //let m = self.m;
-        //let capacity = self.capacity;
-        //let rate = self.rate;
-        // Is it a bad practice to do thtath let.. = self...?
         let mut state = vec![Fp::zero(); self.m];
         let input_len = input_sequence.len();
         if input_len % self.rate != 0 {
@@ -258,13 +246,22 @@ impl RescuePrimeOptimized {
         self.hash(&field_elements)
     }
 }
+#[derive(Clone)]
+pub enum MdsMethod {
+    /// Use standard matrix multiplication.
+    MatrixMultiplication,
+    /// Use Number Theoretic Transform for multiplication.
+    Ntt,
+    /// Use Karatsuba algorithm for multiplication.
+    Karatsuba,
+}
 #[cfg(test)]
 mod tests {
     use super::*;
     use rand::rngs::StdRng;
     use rand::{Rng, SeedableRng};
 
-    // Values obtained using the Sage implementation in
+    // Values obtained from the Sage implemenstation in
     // https://github.com/ASDiscreteMathematics/rpo/tree/master/reference_implementation
     pub const EXPECTED_128: [[Fp; 4]; 19] = [
         [
@@ -572,22 +569,22 @@ mod tests {
 
         assert_eq!(expected_state, computed_state);
     }
-    /*
-        #[test]
-        fn test_mds_ntt() {
-            let mut rng = StdRng::seed_from_u64(4);
-            let rescue_ntt = RescuePrimeOptimized::new(SecurityLevel::Sec128, MdsMethod::Ntt).unwrap();
-            let state: Vec<Fp> = (0..rescue_ntt.m)
-                .map(|_| rand_field_element(&mut rng))
-                .collect();
 
-            let expected_state = rescue_ntt.mds_ntt(&state);
-            let mut computed_state = state.clone();
-            rescue_ntt.apply_mds(&mut computed_state);
+    #[test]
+    fn test_mds_ntt() {
+        let mut rng = StdRng::seed_from_u64(4);
+        let rescue_ntt = RescuePrimeOptimized::new(SecurityLevel::Sec128, MdsMethod::Ntt).unwrap();
+        let state: Vec<Fp> = (0..rescue_ntt.m)
+            .map(|_| rand_field_element(&mut rng))
+            .collect();
 
-            assert_eq!(expected_state, computed_state);
-        }
-    */
+        let expected_state = rescue_ntt.mds_ntt(&state).unwrap();
+        let mut computed_state = state.clone();
+        let _ = rescue_ntt.apply_mds(&mut computed_state);
+
+        assert_eq!(expected_state, computed_state);
+    }
+
     #[test]
     fn test_mds_karatsuba() {
         let mut rng = StdRng::seed_from_u64(5);
@@ -766,41 +763,8 @@ mod tests {
         assert_eq!(hash_ntt, hash_karatsuba);
     }
 
-    /*
-            //Test used to generate the expected hashes for the test vectors (they are the same as in the Polygon Miden implementation)
-            #[test]
-            fn generate_test_vectors() {
-                let rescue = RescuePrimeOptimized::<160, 7>::new(MdsMethod::MatrixMultiplication);
-                let elements: Vec<Fp> = (0..19).map(Fp::from).collect();
-
-                println!("let expected_hashes = vec![");
-                elements.iter().enumerate().for_each(|(i, _)| {
-                    let input = elements.iter().take(i + 1);
-                    let hash_output = rescue.hash(input.cloned().collect::<Vec<_>>().as_slice());
-
-                    print!("    vec![");
-                    hash_output.iter().for_each(|value| {
-                        print!("Fp::from({}u64), ", value.value());
-                    });
-                    println!("],");
-                });
-                println!("];");
-            }
-
-        #[test]
-        fn test_print_round_constants() {
-            let rescue = RescuePrimeOptimized::<128, 7>::new(MdsMethod::MatrixMultiplication);
-
-            println!("Round constants:");
-            for (i, constant) in rescue.round_constants.iter().enumerate() {
-                println!("Constant {}: Fp::from({}u64)", i, constant.value());
-            }
-
-            assert_eq!(rescue.round_constants.len(), 2 * rescue.m * 7);
-        }
-    */
     #[test]
-    fn test_hash_vectors() {
+    fn test_hash_vectors_128() {
         let rescue =
             RescuePrimeOptimized::new(SecurityLevel::Sec128, MdsMethod::MatrixMultiplication)
                 .unwrap();
@@ -819,7 +783,7 @@ mod tests {
         });
     }
     #[test]
-    fn test_hash_vector_2() {
+    fn test_hash_vector_160() {
         let rescue =
             RescuePrimeOptimized::new(SecurityLevel::Sec160, MdsMethod::MatrixMultiplication)
                 .unwrap();
@@ -857,26 +821,6 @@ mod tests {
             print!("{}, ", value.value());
         }
         println!();
-        //assert_eq!(hash_result.len(), 4);
+        assert_eq!(hash_result.len(), 4);
     }
-    // Same result obtained in Miden Crypto
-    /*
-    #[test]
-    fn test_print_circulant_matrix() {
-        let m = 12; // or 16 depending on which one you want to print
-        let mds_vector = RescuePrimeOptimized::<128, 7>::get_mds_vector(m);
-        let circulant_matrix =
-            RescuePrimeOptimized::<128, 7>::generate_circulant_matrix(&mds_vector);
-
-        println!("Circulant Matrix:");
-        for row in circulant_matrix.iter() {
-            for element in row.iter() {
-                print!("{:?}, ", element);
-            }
-            println!();
-        }
-        // Ensure the matrix dimensions are correct for testing
-        assert_eq!(circulant_matrix.len(), m);
-        assert_eq!(circulant_matrix[0].len(), m);
-    } */
 }

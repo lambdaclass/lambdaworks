@@ -906,8 +906,6 @@ pub enum SecurityLevel {
     Sec160,
 }
 
-// Here if I use [Fp] i get error  abpout two return values
-// if
 pub fn get_round_constants(level: SecurityLevel) -> &'static [Fp] {
     match level {
         SecurityLevel::Sec128 => &ROUND_CONSTANTS_128,
