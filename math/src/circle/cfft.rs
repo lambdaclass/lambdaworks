@@ -1,5 +1,6 @@
 extern crate alloc;
 use crate::field::{element::FieldElement, fields::mersenne31::field::Mersenne31Field};
+use alloc::vec::Vec;
 
 #[cfg(feature = "alloc")]
 /// fft in place algorithm used to evaluate a polynomial of degree 2^n - 1 in 2^n points.
