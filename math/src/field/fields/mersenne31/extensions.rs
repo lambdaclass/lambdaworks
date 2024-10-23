@@ -1,5 +1,3 @@
-use core::num::FpCategory;
-
 use super::field::Mersenne31Field;
 use crate::field::{
     element::FieldElement,
