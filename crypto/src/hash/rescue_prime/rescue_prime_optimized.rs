@@ -211,10 +211,10 @@ impl RescuePrimeOptimized {
     pub fn permutation(&self, state: &mut [Fp]) {
         let num_rounds = NUM_FULL_ROUNDS;
         for round in 0..num_rounds {
-            self.apply_mds(state);
+            let _ = self.apply_mds(state);
             self.add_round_constants(state, round);
             Self::apply_sbox(state);
-            self.apply_mds(state);
+            let _ = self.apply_mds(state);
             self.add_round_constants_second(state, round);
             Self::apply_inverse_sbox(state);
         }
@@ -568,7 +568,7 @@ mod tests {
 
         let expected_state = rescue.mds_matrix_vector_multiplication(&state);
         let mut computed_state = state.clone();
-        rescue.apply_mds(&mut computed_state);
+        let _ = rescue.apply_mds(&mut computed_state);
 
         assert_eq!(expected_state, computed_state);
     }
@@ -599,7 +599,7 @@ mod tests {
 
         let expected_state = rescue_karatsuba.mds_karatsuba(&state);
         let mut computed_state = state.clone();
-        rescue_karatsuba.apply_mds(&mut computed_state);
+        let _ = rescue_karatsuba.apply_mds(&mut computed_state);
 
         assert_eq!(expected_state, computed_state);
     }
@@ -639,10 +639,10 @@ mod tests {
         let expected_state = {
             let mut temp_state = state.clone();
             for round in 0..7 {
-                rescue.apply_mds(&mut temp_state);
+                let _ = rescue.apply_mds(&mut temp_state);
                 rescue.add_round_constants(&mut temp_state, round);
                 RescuePrimeOptimized::apply_sbox(&mut temp_state);
-                rescue.apply_mds(&mut temp_state);
+                let _ = rescue.apply_mds(&mut temp_state);
                 rescue.add_round_constants_second(&mut temp_state, round);
                 RescuePrimeOptimized::apply_inverse_sbox(&mut temp_state);
             }
