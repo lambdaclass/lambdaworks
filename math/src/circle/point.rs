@@ -15,17 +15,21 @@ pub struct CirclePoint<F: IsField> {
 pub trait HasCircleParams<F: IsField> {
     type FE;
 
-    fn circle_generator() -> (FieldElement<F>, FieldElement<F>);
+    /// Coordinate x of the generator of the circle group.
+    const CIRCLE_GENERATOR_X: FieldElement<F>;
+
+    /// Coordinate y of the generator of the circle group.
+    const CIRCLE_GENERATOR_Y: FieldElement<F>;
+
     const ORDER: u128;
 }
 
 impl HasCircleParams<Mersenne31Field> for Mersenne31Field {
     type FE = FieldElement<Mersenne31Field>;
 
-    // This could be a constant instead of a function
-    fn circle_generator() -> (Self::FE, Self::FE) {
-        (Self::FE::from(&2), Self::FE::from(&1268011823))
-    }
+    const CIRCLE_GENERATOR_X: Self::FE = Self::FE::const_from_raw(2);
+
+    const CIRCLE_GENERATOR_Y: Self::FE = Self::FE::const_from_raw(1268011823);
 
     /// ORDER = 2^31
     const ORDER: u128 = 2147483648;
@@ -34,26 +38,11 @@ impl HasCircleParams<Mersenne31Field> for Mersenne31Field {
 impl HasCircleParams<Degree4ExtensionField> for Degree4ExtensionField {
     type FE = FieldElement<Degree4ExtensionField>;
 
-    // This could be a constant instead of a function
-    fn circle_generator() -> (
-        FieldElement<Degree4ExtensionField>,
-        FieldElement<Degree4ExtensionField>,
-    ) {
-        (
-            Degree4ExtensionField::from_coeffcients(
-                FieldElement::<Mersenne31Field>::one(),
-                FieldElement::<Mersenne31Field>::zero(),
-                FieldElement::<Mersenne31Field>::from(&478637715),
-                FieldElement::<Mersenne31Field>::from(&513582971),
-            ),
-            Degree4ExtensionField::from_coeffcients(
-                FieldElement::<Mersenne31Field>::from(992285211),
-                FieldElement::<Mersenne31Field>::from(649143431),
-                FieldElement::<Mersenne31Field>::from(&740191619),
-                FieldElement::<Mersenne31Field>::from(&1186584352),
-            ),
-        )
-    }
+    const CIRCLE_GENERATOR_X: Self::FE =
+        Degree4ExtensionField::const_from_coefficients(1, 0, 478637715, 513582971);
+
+    const CIRCLE_GENERATOR_Y: Self::FE =
+        Degree4ExtensionField::const_from_coefficients(992285211, 649143431, 740191619, 1186584352);
 
     /// ORDER = (2^31 - 1)^4 - 1
     const ORDER: u128 = 21267647892944572736998860269687930880;
@@ -62,7 +51,7 @@ impl HasCircleParams<Degree4ExtensionField> for Degree4ExtensionField {
 impl<F: IsField + HasCircleParams<F>> CirclePoint<F> {
     pub fn new(x: FieldElement<F>, y: FieldElement<F>) -> Result<Self, CircleError> {
         if x.square() + y.square() == FieldElement::one() {
-            Ok(CirclePoint { x, y })
+            Ok(Self { x, y })
         } else {
             Err(CircleError::InvalidValue)
         }
@@ -116,7 +105,7 @@ impl<F: IsField + HasCircleParams<F>> CirclePoint<F> {
     }
 
     /// Computes the inverse of the point.
-    /// We are using -(x, y) = (x, -y), i.e. the inverse of the group opertion is conjugation.
+    /// We are using -(x, y) = (x, -y), i.e. the inverse of the group opertion is conjugation
     /// because the norm of every point in the circle is one.
     pub fn conjugate(self) -> Self {
         Self {
@@ -136,19 +125,18 @@ impl<F: IsField + HasCircleParams<F>> CirclePoint<F> {
         a.x == b.x && a.y == b.y
     }
 
-    pub fn generator() -> Self {
-        CirclePoint::new(F::circle_generator().0, F::circle_generator().1).unwrap()
-    }
+    pub const GENERATOR: Self = Self {
+        x: F::CIRCLE_GENERATOR_X,
+        y: F::CIRCLE_GENERATOR_Y,
+    };
 
     /// Returns the generator of the subgroup of order n = 2^log_2_size.
     /// We are using that 2^k * g is a generator of the subgroup of order 2^{31 - k}.
     pub fn get_generator_of_subgroup(log_2_size: u32) -> Self {
-        Self::generator().repeated_double(31 - log_2_size)
+        Self::GENERATOR.repeated_double(31 - log_2_size)
     }
 
-    pub fn group_order() -> u128 {
-        F::ORDER
-    }
+    pub const ORDER: u128 = F::ORDER;
 }
 
 impl<F: IsField + HasCircleParams<F>> PartialEq for CirclePoint<F> {
@@ -216,39 +204,39 @@ mod tests {
 
     #[test]
     fn generator_plus_zero_is_generator() {
-        let g = G::generator();
+        let g = G::GENERATOR;
         let zero = G::zero();
         assert_eq!(g.clone() + zero, g)
     }
 
     #[test]
     fn double_equals_mul_two() {
-        let g = G::generator();
+        let g = G::GENERATOR;
         assert_eq!(g.clone().double(), G::scalar_mul(g, 2))
     }
 
     #[test]
     fn mul_eight_equals_double_three_times() {
-        let g = G::generator();
+        let g = G::GENERATOR;
         assert_eq!(g.clone().repeated_double(3), G::scalar_mul(g, 8))
     }
 
     #[test]
     fn generator_g1_has_order_two_pow_31() {
-        let g = G::generator();
+        let g = G::GENERATOR;
         let n = 31;
         assert_eq!(g.repeated_double(n), G::zero())
     }
 
     #[test]
     fn generator_g4_has_the_order_of_the_group() {
-        let g = G4::generator();
-        assert_eq!(g.scalar_mul(G4::group_order()), G4::zero())
+        let g = G4::GENERATOR;
+        assert_eq!(g.scalar_mul(G4::ORDER), G4::zero())
     }
 
     #[test]
     fn conjugation_is_inverse_operation() {
-        let g = G::generator();
+        let g = G::GENERATOR;
         assert_eq!(g.clone() + g.conjugate(), G::zero())
     }
 

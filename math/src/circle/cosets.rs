@@ -25,7 +25,7 @@ impl Coset {
 
     /// Returns g_n, the generator of the subgroup of order n = 2^log_2_size.
     pub fn get_generator(&self) -> CirclePoint<Mersenne31Field> {
-        CirclePoint::generator().repeated_double(31 - self.log_2_size)
+        CirclePoint::GENERATOR.repeated_double(31 - self.log_2_size)
     }
 
     /// Given a standard coset g_2n + <g_n>, returns the subcoset with half size g_2n + <g_{n/2}>
@@ -82,7 +82,7 @@ mod tests {
 
     #[test]
     fn coset_generator_has_right_order() {
-        let coset = Coset::new(2, CirclePoint::generator().scalar_mul(3));
+        let coset = Coset::new(2, CirclePoint::GENERATOR.scalar_mul(3));
         let generator_n = coset.get_generator();
         assert_eq!(generator_n.repeated_double(2), CirclePoint::zero());
     }

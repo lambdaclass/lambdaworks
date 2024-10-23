@@ -1,3 +1,5 @@
+use core::num::FpCategory;
+
 use super::field::Mersenne31Field;
 use crate::field::{
     element::FieldElement,
@@ -138,8 +140,11 @@ impl IsSubFieldOf<Degree2ExtensionField> for Mersenne31Field {
 pub struct Degree4ExtensionField;
 
 impl Degree4ExtensionField {
-    pub fn from_coeffcients(a: FpE, b: FpE, c: FpE, d: FpE) -> Fp4E {
-        Fp4E::new([Fp2E::new([a, b]), Fp2E::new([c, d])])
+    pub const fn const_from_coefficients(a: u32, b: u32, c: u32, d: u32) -> Fp4E {
+        Fp4E::const_from_raw([
+            Fp2E::const_from_raw([FpE::const_from_raw(a), FpE::const_from_raw(b)]),
+            Fp2E::const_from_raw([FpE::const_from_raw(c), FpE::const_from_raw(d)]),
+        ])
     }
 }
 
