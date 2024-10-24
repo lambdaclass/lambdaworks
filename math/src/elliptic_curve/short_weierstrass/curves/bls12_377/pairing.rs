@@ -1,4 +1,4 @@
-use super::curve::MILLER_LOOP_CONSTANT;
+//use super::curve::MILLER_LOOP_CONSTANT;
 use super::{
     curve::BLS12377Curve,
     field_extension::{
@@ -16,7 +16,7 @@ use crate::{
         traits::IsShortWeierstrass,
     },
     field::{element::FieldElement, extensions::cubic::HasCubicNonResidue},
-    unsigned_integer::element::{UnsignedInteger, U256},
+    unsigned_integer::element::U256,
 };
 
 type FpE = FieldElement<BLS12377PrimeField>;
@@ -29,14 +29,25 @@ type G2Point = ShortWeierstrassProjectivePoint<BLS12377TwistCurve>;
 pub const X: u64 = 0x8508c00000000001;
 
 // X in binary = 1000010100001000110000000000000000000000000000000000000000000001
-
-pub const X_BINARY: &[bool] = &[
+// The decompositon should be im little endian?
+/*pub const X_BINARY: &[bool] = &[
     true, false, false, false, false, true, false, true, false, false, false, false, true, false,
     false, false, true, true, false, false, false, false, false, false, false, false, false, false,
     false, false, false, false, false, false, false, false, false, false, false, false, false,
     false, false, false, false, false, false, false, false, false, false, false, false, false,
     false, false, false, false, false, false, false, false, true,
-];
+];*/
+pub const X_BINARY: [bool; 64] = {
+    let mut bits = [false; 64];
+    bits[0] = true; // Bit 0
+    bits[46] = true; // Bit 46
+    bits[47] = true; // Bit 47
+    bits[51] = true; // Bit 51
+    bits[56] = true; // Bit 56
+    bits[58] = true; // Bit 58
+    bits[63] = true; // Bit 63
+    bits
+};
 
 pub const SUBGROUP_ORDER: U256 =
     U256::from_hex_unchecked("12ab655e9a2ca55660b44d1e5c37b00159aa76fed00000010a11800000000001");
@@ -45,56 +56,56 @@ pub const SUBGROUP_ORDER: U256 =
 
 pub const GAMMA_11: Fp2E = Fp2E::const_from_raw([
     FpE::from_hex_unchecked(
-        "9A9975399C019633C1E30682567F915C8A45E0F94EBC8EC681BF34A3AA559DB57668E558EB0188E938A9D1104F2031",
+        "0x9a9975399c019633c1e30682567f915c8a45e0f94ebc8ec681bf34a3aa559db57668e558eb0188e938a9d1104f2031",
     ),
     FpE::from_hex_unchecked("0"),
 ]);
 
 pub const GAMMA_12: Fp2E = Fp2E::const_from_raw([
     FpE::from_hex_unchecked(
-        "9B3AF05DD14F6EC619AAF7D34594AABC5ED1347970DEC00452217CC900000008508C00000000002",
+        "0x9b3af05dd14f6ec619aaf7d34594aabc5ed1347970dec00452217cc900000008508c00000000002",
     ),
     FpE::from_hex_unchecked("0"),
 ]);
 
 pub const GAMMA_13: Fp2E = Fp2E::const_from_raw([
     FpE::from_hex_unchecked(
-        "1680A40796537CAC0C534DB1A79BEB1400398F50AD1DEC1BCE649CF436B0F6299588459BFF27D8E6E76D5ECF1391C63",
+        "0x1680a40796537cac0c534db1a79beb1400398f50ad1dec1bce649cf436b0f6299588459bff27d8e6e76d5ecf1391c63",
     ),
     FpE::from_hex_unchecked("0"),
 ]);
 
 pub const GAMMA_14: Fp2E = Fp2E::const_from_raw([
     FpE::from_hex_unchecked(
-        "9B3AF05DD14F6EC619AAF7D34594AABC5ED1347970DEC00452217CC900000008508C00000000001",
+        "0x9b3af05dd14f6ec619aaf7d34594aabc5ed1347970dec00452217cc900000008508c00000000001",
     ),
     FpE::from_hex_unchecked("0"),
 ]);
 
 pub const GAMMA_15: Fp2E = Fp2E::const_from_raw([
     FpE::from_hex_unchecked(
-        "CD70CB3FC936348D0351D498233F1FE379531411832232F6648A9A9FC0B9C4E3E21B7467077C05853E2C1BE0E9FC32",
+        "0xcd70cb3fc936348d0351d498233f1fe379531411832232f6648a9a9fc0b9c4e3e21b7467077c05853e2c1be0e9fc32",
     ),
     FpE::from_hex_unchecked("0"),
 ]);
 
 /// GAMMA_2i = GAMMA_1i * GAMMA_1i.conjugate()
 pub const GAMMA_21: FpE = FpE::from_hex_unchecked(
-    "9B3AF05DD14F6EC619AAF7D34594AABC5ED1347970DEC00452217CC900000008508C00000000002",
+    "0x9b3af05dd14f6ec619aaf7d34594aabc5ed1347970dec00452217cc900000008508c00000000002",
 );
 
 pub const GAMMA_22: FpE = FpE::from_hex_unchecked(
-    "9B3AF05DD14F6EC619AAF7D34594AABC5ED1347970DEC00452217CC900000008508C00000000001",
+    "0x9b3af05dd14f6ec619aaf7d34594aabc5ed1347970dec00452217cc900000008508c00000000001",
 );
 
 pub const GAMMA_23: FpE =
-    FpE::from_hex_unchecked("1AE3A4617C510EAC63B05C06CA1493B1A22D9F300F5138F1EF3622FBA094800170B5D44300000008508C00000000000");
+    FpE::from_hex_unchecked("0x1ae3a4617c510eac63b05c06ca1493b1a22d9f300f5138f1ef3622fba094800170b5d44300000008508c00000000000");
 
 pub const GAMMA_24: FpE =
-    FpE::from_hex_unchecked("1AE3A4617C510EABC8756BA8F8C524EB8882A75CC9BC8E359064EE822FB5BFFD1E945779FFFFFFFFFFFFFFFFFFFFFFF");
+    FpE::from_hex_unchecked("0x1ae3a4617c510eabc8756ba8f8c524eb8882a75cc9bc8e359064ee822fb5bffd1e945779fffffffffffffffffffffff");
 
 pub const GAMMA_25: FpE =
-    FpE::from_hex_unchecked("1AE3A4617C510EABC8756BA8F8C524EB8882A75CC9BC8E359064EE822FB5BFFD1E94577A00000000000000000000000");
+    FpE::from_hex_unchecked("0x1ae3a4617c510eabc8756ba8f8c524eb8882a75cc9bc8e359064ee822fb5bffd1e94577a00000000000000000000000");
 
 /// The inverse of two in Fp as a constant.
 pub const TWO_INV: FpE =
@@ -231,13 +242,13 @@ fn double_accumulate_line(
     let two_inv = FieldElement::<Degree2ExtensionField>::new_base("D71D230BE28875631D82E03650A49D8D116CF9807A89C78F79B117DD04A4000B85AEA2180000004284600000000001");
     let three = FieldElement::<BLS12377PrimeField>::from(3);
 
-    let a = &two_inv * x1 * y1;
+    let a = &TWO_INV * x1 * y1;
     let b = y1.square();
     let c = z1.square();
     let d = &three * &c;
     let e = BLS12377TwistCurve::b() * d;
     let f = &three * &e;
-    let g = two_inv * (&b + &f);
+    let g = TWO_INV * (&b + &f);
     let h = (y1 + z1).square() - (&b + &c);
 
     let x3 = &a * (&b - &f);
@@ -428,9 +439,9 @@ pub fn cyclotomic_square(a: &Fp12E) -> Fp12E {
     r12 += v1.value()[1].clone();
     // r12 = 3v11 - 2b5
 
-    let v21 = &v2.value()[1] * LevelTwoResidue::residue();
     //let v21 = &v2.value()[1] * LevelTwoResidue::residue();
-    //let v21 = mul_fp2_by_nonresidue(&v2.value()[1]);
+    //let v21 = &v2.value()[1] * LevelTwoResidue::residue();
+    let v21 = mul_fp2_by_nonresidue(&v2.value()[1]);
     let mut r10 = &v21 + b3;
     r10 = r10.double();
     r10 += v21;
@@ -483,7 +494,7 @@ pub fn final_exponentiation_optimized(f: &Fp12E) -> Fp12E {
     f_easy *= &v0;
     f_easy
 }
-
+/*
 #[allow(clippy::needless_range_loop)]
 pub fn cyclotomic_pow_x(f: &Fp12E) -> Fp12E {
     let mut result = Fp12E::one();
@@ -495,6 +506,18 @@ pub fn cyclotomic_pow_x(f: &Fp12E) -> Fp12E {
     });
     result
 }
+*/
+pub fn cyclotomic_pow_x(f: &Fp12E) -> Fp12E {
+    let mut result = Fp12E::one();
+    for &bit in X_BINARY.iter().rev() {
+        result = cyclotomic_square(&result);
+        if bit {
+            result = &result * f;
+        }
+    }
+    result
+}
+
 #[cfg(test)]
 mod tests {
     use crate::{
@@ -613,8 +636,8 @@ mod tests {
         let p = BLS12377Curve::generator();
         let q = BLS12377TwistCurve::generator();
         let f = miller(&p, &q);
-        let f_easy_aux = f.conjugate() * f.inv().unwrap(); // f ^ (p^6 - 1) because f^(p^6) = f.conjugate().
-        let f_easy = &frobenius_square(&f_easy_aux) * f_easy_aux; // (f^{p^6 - 1})^(p^2) * (f^{p^6 - 1}).
+        let f_easy_aux = f.conjugate() * f.inv().unwrap(); // f ^ (p^6 - 1)
+        let f_easy = frobenius_square(&f_easy_aux) * &f_easy_aux; // f^{(p^2)(p^6 - 1)}
         assert_eq!(cyclotomic_pow_x(&f_easy), f_easy.pow(X));
     }
 

@@ -29,7 +29,7 @@ impl IsEllipticCurve for BLS12377TwistCurve {
                 FieldElement::new(GENERATOR_Y_0),
                 FieldElement::new(GENERATOR_Y_1),
             ]),
-            FieldElement::one(),
+            FieldElement::one(), // Is this one or [1, 0]?
         ])
     }
 }

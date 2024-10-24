@@ -40,18 +40,18 @@ impl IsField for Degree2ExtensionField {
     /// (a0 + a1 * t) * (b0 + b1 * t) = a0 * b0 + a1 * b1 * Self::residue() + (a0 * b1 + a1 * b0) * t
     /// where `t.pow(2)` equals `Q::residue()`.
     fn mul(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
-        let q: FieldElement<BLS12377PrimeField> = -FieldElement::from(5);
+        //let q: FieldElement<BLS12377PrimeField> = -FieldElement::from(5);
         let a0b0 = &a[0] * &b[0];
         let a1b1 = &a[1] * &b[1];
         //let z = (&a[0] + &a[1]) * (&b[0] + &b[1]);
-        [&a0b0 + &a1b1 * &q, &a[0] * &b[1] + &a[1] * &b[0]]
+        [&a0b0 + &a1b1 * &FP2_RESIDUE, &a[0] * &b[1] + &a[1] * &b[0]]
     }
 
     fn square(a: &Self::BaseType) -> Self::BaseType {
-        let q: FieldElement<BLS12377PrimeField> = -FieldElement::from(5);
+        //let q: FieldElement<BLS12377PrimeField> = -FieldElement::from(5);
         let [a0, a1] = a;
         let v0 = a0 * a1;
-        let c0 = (a0 + a1) * (a0 + &q * a1) - &v0 - &q * &v0;
+        let c0 = (a0 + a1) * (a0 + &FP2_RESIDUE * a1) - &v0 - &FP2_RESIDUE * &v0;
         let c1 = &v0 + &v0;
         [c0, c1]
     }
@@ -68,8 +68,8 @@ impl IsField for Degree2ExtensionField {
     /// Returns the multiplicative inverse of `a`
     /// This uses the equality `(a0 + a1 * t) * (a0 - a1 * t) = a0.pow(2) - a1.pow(2) * Q::residue()`
     fn inv(a: &Self::BaseType) -> Result<Self::BaseType, FieldError> {
-        let q: FieldElement<BLS12377PrimeField> = -FieldElement::from(5);
-        let inv_norm = (a[0].pow(2_u64) - q * a[1].pow(2_u64)).inv()?;
+        //let q: FieldElement<BLS12377PrimeField> = -FieldElement::from(5);
+        let inv_norm = (a[0].pow(2_u64) - FP2_RESIDUE * a[1].pow(2_u64)).inv()?;
         Ok([&a[0] * &inv_norm, -&a[1] * inv_norm])
     }
 
@@ -255,6 +255,13 @@ impl FieldElement<BLS12377PrimeField> {
         Self::new(U384::from(a_hex))
     }
 }
+
+impl FieldElement<Degree4ExtensionField> {
+    pub fn new_base(a_hex: &str) -> Self {
+        Self::new([Fp2E::new_base(a_hex), Fp2E::zero()])
+    }
+}
+
 impl FieldElement<Degree12ExtensionField> {
     pub fn new_base(a_hex: &str) -> Self {
         Self::new([
@@ -305,22 +312,24 @@ impl HasQuadraticNonResidue<Degree2ExtensionField> for LevelTwoResidue {
     }
 }
 pub type Degree4ExtensionField = QuadraticExtensionField<Degree2ExtensionField, LevelTwoResidue>;
-
+/*
 pub fn mul_fp2_by_nonresidue(a: &Fp2E) -> Fp2E {
     let c0 = -&a.value()[1]; // -c1
     let c1 = a.value()[0].clone(); // c0
+    Fp2E::new([c0, c1])
+}
+*/
+pub fn mul_fp2_by_nonresidue(a: &Fp2E) -> Fp2E {
+    let c0 = FP2_RESIDUE * &a.value()[1]; // c0 = -5 * a1
+    let c1 = a.value()[0].clone(); // c1 = a0
     Fp2E::new([c0, c1])
 }
 
 pub fn mul_fp6_by_nonresidue(a: &Fp6E) -> Fp6E {
     let [a0, a1, a2] = a.value();
 
-    // Realiza el desplazamiento de coeficientes:
-    // c0 = a2 * u (aplica el residuo)
     let c0 = mul_fp2_by_nonresidue(&a2);
-    // c1 = a0
     let c1 = a0.clone();
-    // c2 = a1
     let c2 = a1.clone();
 
     Fp6E::new([c0, c1, c2])
@@ -412,35 +421,17 @@ mod tests {
     }
     #[test]
     fn test_mul_fp2_by_nonresidue() {
+        // Element in Fp2: a = 3 + 5u
         let a = Fp2E::new([FpE::from(3), FpE::from(5)]);
-        let expected = Fp2E::new([-FpE::from(5), FpE::from(3)]);
+        // Expected result: (-25) + 3u
+        let expected = Fp2E::new([-FpE::from(25), FpE::from(3)]);
+        // Verify the multiplication by the non-residue is correct
         assert_eq!(mul_fp2_by_nonresidue(&a), expected);
     }
-    #[test]
-    fn test_mul_fp2_by_nonresidue_2() {
-        // Definir el elemento en Fp2: (3 + 5 * u)
-        let a = Fp2E::new([FpE::from(3), FpE::from(5)]);
 
-        // El resultado esperado es: (-5 + 3 * u)
-        let expected = Fp2E::new([-FpE::from(5), FpE::from(3)]);
-
-        // Verifica si la multiplicación por el no-residuo es correcta
-        assert_eq!(mul_fp2_by_nonresidue(&a), expected);
-    }
     #[test]
     fn print_fp_resudue() {
         let q: FieldElement<BLS12377PrimeField> = -FieldElement::from(5);
         println!("{:?}", q.representative().to_hex());
-    }
-    #[test]
-    fn test_mul_fp2_by_nonresidue_3() {
-        // Definir el elemento en Fp2: (3 + 5 * u)
-        let a = Fp2E::new([FpE::from(3), FpE::from(5)]);
-
-        // El resultado esperado es: (-5 + 3 * u)
-        let expected = Fp2E::new([-FpE::from(5), FpE::from(3)]);
-
-        // Verifica si la multiplicación por el no-residuo es correcta
-        assert_eq!(mul_fp2_by_nonresidue(&a), expected);
     }
 }
