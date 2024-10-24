@@ -19,8 +19,8 @@ pub fn get_twiddles(
     let half_domain_points = Coset::get_coset_points(&Coset::half_coset(domain.clone()));
 
     // The first set of twiddles are all the y coordinates of the half coset.
-    let mut twiddles: Vec<Vec<FieldElement<Mersenne31Field>>> =
-        vec![half_domain_points.iter().map(|p| p.y).collect()];
+    let mut twiddles: Vec<Vec<FieldElement<Mersenne31Field>>> = Vec::new();
+    twiddles.push(half_domain_points.iter().map(|p| p.y).collect());
 
     if domain.log_2_size >= 2 {
         // The second set of twiddles are the x coordinates of the first half of the half coset.

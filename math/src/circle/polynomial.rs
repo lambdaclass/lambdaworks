@@ -1,3 +1,4 @@
+extern crate alloc;
 #[cfg(feature = "alloc")]
 use super::{
     cfft::{cfft, icfft, order_cfft_result_naive, order_icfft_input_naive},
