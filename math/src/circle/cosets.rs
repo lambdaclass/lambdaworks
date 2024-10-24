@@ -1,6 +1,7 @@
 extern crate alloc;
 use crate::circle::point::CirclePoint;
 use crate::field::fields::mersenne31::field::Mersenne31Field;
+use alloc::vec::Vec;
 
 /// Given g_n, a generator of the subgroup <g_n> of the circle of size n,
 /// and given a shift, that is a another point of the cirvle,
