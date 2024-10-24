@@ -13,6 +13,7 @@ use alloc::vec::Vec;
 /// Given the 2^n coefficients of a two-variables polynomial of degree 2^n - 1 in the basis {1, y, x, xy, 2xˆ2 -1, 2xˆ2y-y, 2xˆ3-x, 2xˆ3y-xy,...}
 /// returns the evaluation of the polynomial on the points of the standard coset of size 2^n.
 /// Note that coeff has to be a vector with length a power of two 2^n.
+#[cfg(feature = "alloc")]
 pub fn evaluate_cfft(
     mut coeff: Vec<FieldElement<Mersenne31Field>>,
 ) -> Vec<FieldElement<Mersenne31Field>> {
@@ -33,6 +34,7 @@ pub fn evaluate_cfft(
 /// Interpolates the 2^n evaluations of a two-variables polynomial of degree 2^n - 1 on the points of the standard coset of size 2^n.
 /// As a result we obtain the coefficients of the polynomial in the basis: {1, y, x, xy, 2xˆ2 -1, 2xˆ2y-y, 2xˆ3-x, 2xˆ3y-xy,...}
 /// Note that eval has to be a vector of length a power of two 2^n.
+#[cfg(feature = "alloc")]
 pub fn interpolate_cfft(
     mut eval: Vec<FieldElement<Mersenne31Field>>,
 ) -> Vec<FieldElement<Mersenne31Field>> {
@@ -62,6 +64,7 @@ mod tests {
     use super::*;
     use crate::circle::cosets::Coset;
     type FE = FieldElement<Mersenne31Field>;
+    use alloc::vec;
 
     /// Naive evaluation of a polynomial of degree 3.
     fn evaluate_poly_4(coef: &[FE; 4], x: FE, y: FE) -> FE {
