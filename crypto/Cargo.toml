@@ -11,9 +11,11 @@ license.workspace = true
 lambdaworks-math = { workspace = true, features = ["alloc"] }
 sha3 = { version = "0.10", default-features = false }
 sha2 = { version = "0.10", default-features = false }
-
 # Optional
-serde = { version = "1.0", default-features = false, features = ["derive", "alloc"], optional = true }
+serde = { version = "1.0", default-features = false, features = [
+    "derive",
+    "alloc",
+], optional = true }
 rayon = { version = "1.8.0", optional = true }
 
 [dev-dependencies]
@@ -40,9 +42,9 @@ name = "iai_merkle"
 harness = false
 
 [[bench]]
-name= "criterion_poseidon"
-harness=false
+name = "criterion_poseidon"
+harness = false
 
 [[bench]]
-name= "criterion_pedersen"
-harness=false
+name = "criterion_pedersen"
+harness = false
