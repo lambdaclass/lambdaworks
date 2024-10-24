@@ -3,8 +3,6 @@ use crate::{
     circle::cosets::Coset,
     field::{element::FieldElement, fields::mersenne31::field::Mersenne31Field},
 };
-use alloc::vec;
-use alloc::vec::Vec;
 
 #[derive(PartialEq)]
 pub enum TwiddlesConfig {

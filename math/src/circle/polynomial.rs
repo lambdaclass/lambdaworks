@@ -2,13 +2,12 @@ use crate::{
     fft::cpu::bit_reversing::in_place_bit_reverse_permute,
     field::{element::FieldElement, fields::mersenne31::field::Mersenne31Field},
 };
-
+#[cfg(feature = "alloc")]
 use super::{
     cfft::{cfft, icfft, order_cfft_result_naive, order_icfft_input_naive},
     cosets::Coset,
     twiddles::{get_twiddles, TwiddlesConfig},
 };
-use alloc::vec::Vec;
 
 /// Given the 2^n coefficients of a two-variables polynomial of degree 2^n - 1 in the basis {1, y, x, xy, 2xˆ2 -1, 2xˆ2y-y, 2xˆ3-x, 2xˆ3y-xy,...}
 /// returns the evaluation of the polynomial on the points of the standard coset of size 2^n.
