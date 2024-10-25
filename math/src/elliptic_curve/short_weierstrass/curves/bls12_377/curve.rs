@@ -14,10 +14,9 @@ use crate::{
 
 pub const SUBGROUP_ORDER: U256 =
     U256::from_hex_unchecked("0x12ab655e9a2ca55660b44d1e5c37b00159aa76fed00000010a11800000000001");
-// Value 0x30631250834960419227450344600217059328 , where did it come from? Seems to be wrong
+
 pub const CURVE_COFACTOR: U256 = U256::from_hex_unchecked("0x170b5d44300000000000000000000000");
-//https://neuromancer.sk/std/bls/BLS12-377
-// 0x170b5d44300000000000000000000000
+
 pub type BLS12377FieldElement = FieldElement<BLS12377PrimeField>;
 pub type BLS12377TwistCurveFieldElement = FieldElement<Degree2ExtensionField>;
 
