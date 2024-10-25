@@ -15,6 +15,21 @@ This library provides efficient implementation of cryptographic primitives used 
 
 </div>
 
+## Examples - mini apps
+
+Below is a list of examples to understand lambdaworks and learn what you can build with the tools provided.
+
+- [Merkle Tree CLI](./examples/merkle-tree-cli/)
+- [Proving Miden](./examples/prove-miden/)
+- [Shamir's secret sharing](./examples/shamir_secret_sharing/)
+- [BabySNARK](./examples/baby-snark/)
+- [Pinocchio](./examples/pinocchio/)
+- [Using Circom with lambdaworks's Groth16](./provers/groth16/circom-adapter/src/README.md)
+- [Proving Fibonacci using Circom and lambdaworks](./examples/prove-verify-circom/circom_lambdaworks_tutorial.md)
+
+- You can use Circom to generate circuits and use lambdaworks's capabilities to prove the execution with [Groth16](./provers/groth16/README.md).
+- You can use the [Stark prover](./provers/stark/src/) to define an algebraic intermediate representation (AIR) and prove the execution of a program
+
 ## Why we built lambdaworks
 
 Zero-Knowledge and Validity Proofs have gained a lot of attention over the last few years. We strongly believe in this potential and that is why we decided to start working in this challenging ecosystem, where math, cryptography and distributed systems meet. The main barrier in the beginning was not the cryptography or math but the lack of good libraries which are performant and developer friendly. There are some exceptions, though, like gnark or halo2. Some have nice APIs and are easy to work with, but they are not written in Rust, and some are written in Rust but have poor programming and engineering practices. Most of them don't have support for CUDA, Metal and WebGPU or distributed FFT calculation using schedulers like Dask.
@@ -40,14 +55,6 @@ So, we decided to build our library, focusing on performance, with clear documen
 Most of math and crypto crates supports no-std without allocation with `no-default-features`. A few functions and modules require the `alloc` feature.
 
 Both Math and Crypto support wasm with target `wasm32-unknown-unknown`. To see an example of how to use this to deploy a verifier in a browser, check the Cairo Prover wasm-pack verifier.
-
-## Examples - mini apps
-
-- [Merkle Tree CLI](https://github.com/lambdaclass/lambdaworks/tree/main/examples/merkle-tree-cli)
-- [Proving Miden](https://github.com/lambdaclass/lambdaworks/tree/main/examples/prove-miden)
-- [Shamir's secret sharing](https://github.com/lambdaclass/lambdaworks/tree/main/examples/shamir_secret_sharing)
-- [BabySNARK](https://github.com/lambdaclass/lambdaworks/tree/main/examples/baby-snark)
-- [Pinocchio](https://github.com/lambdaclass/lambdaworks/tree/main/examples/pinocchio)
 
 ## Exercises and Challenges
 

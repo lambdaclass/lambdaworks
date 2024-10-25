@@ -4,7 +4,9 @@ use lambdaworks_math::{
     elliptic_curve::{
         short_weierstrass::{
             curves::bls12_381::{
-                curve::BLS12381Curve, pairing::BLS12381AtePairing, twist::BLS12381TwistCurve,
+                curve::BLS12381Curve,
+                pairing::{final_exponentiation, miller, BLS12381AtePairing},
+                twist::BLS12381TwistCurve,
             },
             traits::Compress,
         },
@@ -23,6 +25,8 @@ pub fn bls12_381_elliptic_curve_benchmarks(c: &mut Criterion) {
 
     let a_g2 = BLS12381TwistCurve::generator();
     let b_g2 = BLS12381TwistCurve::generator();
+
+    let miller_loop_output = miller(&a_g2, &a_g1);
 
     let mut group = c.benchmark_group("BLS12-381 Ops");
     group.significance_level(0.1).sample_size(10000);
@@ -92,5 +96,15 @@ pub fn bls12_381_elliptic_curve_benchmarks(c: &mut Criterion) {
                 black_box(&a_g2),
             ))
         });
+    });
+
+    // Miller
+    group.bench_function("Miller", |bencher| {
+        bencher.iter(|| black_box(miller(black_box(&a_g2), black_box(&a_g1))))
+    });
+
+    // Final Exponentiation Optimized
+    group.bench_function("Final Exponentiation", |bencher| {
+        bencher.iter(|| black_box(final_exponentiation(black_box(&miller_loop_output))))
     });
 }
