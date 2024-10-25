@@ -48,6 +48,8 @@ impl HasCircleParams<Mersenne31Field> for Mersenne31Field {
 impl HasCircleParams<Degree4ExtensionField> for Degree4ExtensionField {
     type FE = FieldElement<Degree4ExtensionField>;
 
+    // These parameters were taken from stwo's implementation:
+    // https://github.com/starkware-libs/stwo/blob/9cfd48af4e8ac5dd67643a92927c894066fa989c/crates/prover/src/core/circle.rs
     const CIRCLE_GENERATOR_X: Self::FE =
         Degree4ExtensionField::const_from_coefficients(1, 0, 478637715, 513582971);
 
