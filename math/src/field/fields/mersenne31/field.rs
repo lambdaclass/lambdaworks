@@ -206,7 +206,7 @@ impl Display for FieldElement<Mersenne31Field> {
 
 impl AsBytes for FieldElement<Mersenne31Field> {
     fn as_bytes(&self) -> alloc::vec::Vec<u8> {
-        self.value().to_bytes_be()
+        self.to_bytes_be()
     }
 }
 
