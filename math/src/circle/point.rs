@@ -78,6 +78,24 @@ impl<F: IsField + HasCircleParams<F>> Add for &CirclePoint<F> {
         CirclePoint { x, y }
     }
 }
+impl<F: IsField + HasCircleParams<F>> Add<CirclePoint<F>> for CirclePoint<F> {
+    type Output = CirclePoint<F>;
+    fn add(self, rhs: CirclePoint<F>) -> Self::Output {
+        &self + &rhs
+    }
+}
+impl<F: IsField + HasCircleParams<F>> Add<CirclePoint<F>> for &CirclePoint<F> {
+    type Output = CirclePoint<F>;
+    fn add(self, rhs: CirclePoint<F>) -> Self::Output {
+        self + &rhs
+    }
+}
+impl<F: IsField + HasCircleParams<F>> Add<&CirclePoint<F>> for CirclePoint<F> {
+    type Output = CirclePoint<F>;
+    fn add(self, rhs: &CirclePoint<F>) -> Self::Output {
+        &self + rhs
+    }
+}
 
 /// Multiplication between a point and a scalar (i.e. group operation repeatedly):
 /// (x, y) * n = (x ,y) + ... + (x, y) n-times.
