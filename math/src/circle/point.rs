@@ -102,7 +102,8 @@ impl<F: IsField + HasCircleParams<F>> Add<&CirclePoint<F>> for CirclePoint<F> {
 impl<F: IsField + HasCircleParams<F>> Mul<u128> for CirclePoint<F> {
     type Output = CirclePoint<F>;
 
-    fn mul(self, mut scalar: u128) -> Self {
+    fn mul(self, scalar: u128) -> Self {
+        let mut scalar = scalar;
         let mut res = Self::zero();
         let mut cur = self;
         loop {
