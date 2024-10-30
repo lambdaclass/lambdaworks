@@ -78,7 +78,7 @@ pub fn icfft(
 /// This function permutes the slice [0, 2, 4, 6, 7, 5, 3, 1] into [0, 1, 2, 3, 4, 5, 6, 7].
 /// TODO: This can be optimized by performing in-place value swapping (WIP).  
 pub fn order_cfft_result_naive(
-    input: &mut [FieldElement<Mersenne31Field>],
+    input: &[FieldElement<Mersenne31Field>],
 ) -> Vec<FieldElement<Mersenne31Field>> {
     let mut result = Vec::new();
     let length = input.len();
