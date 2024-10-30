@@ -39,6 +39,10 @@ pub fn evaluate_cfft(
 pub fn interpolate_cfft(
     mut eval: Vec<FieldElement<Mersenne31Field>>,
 ) -> Vec<FieldElement<Mersenne31Field>> {
+    if eval.len() == 0 {
+        return vec![FieldElement::<Mersenne31Field>::zero()];
+    }
+
     // We get the twiddles for the interpolation.
     let domain_log_2_size: u32 = eval.len().trailing_zeros();
     let coset = Coset::new_standard(domain_log_2_size);
@@ -53,7 +57,8 @@ pub fn interpolate_cfft(
     in_place_bit_reverse_permute::<FieldElement<Mersenne31Field>>(&mut eval_ordered);
 
     // The icfft returns all the coefficients multiplied by 2^n, the length of the evaluations.
-    // So we multiply every element that outputs the icfft byt the inverse of 2^n to get the actual coefficients.
+    // So we multiply every element that outputs the icfft by the inverse of 2^n to get the actual coefficients.
+    // Note that this `unwrap` will never panic because eval.len() != 0.
     let factor = (FieldElement::<Mersenne31Field>::from(eval.len() as u64))
         .inv()
         .unwrap();
