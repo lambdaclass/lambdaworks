@@ -121,9 +121,9 @@ mod tests {
     fn ordering_cfft_result_works_for_4_points() {
         let expected_slice = [FE::from(0), FE::from(1), FE::from(2), FE::from(3)];
 
-        let mut slice = [FE::from(0), FE::from(2), FE::from(3), FE::from(1)];
+        let slice = [FE::from(0), FE::from(2), FE::from(3), FE::from(1)];
 
-        let res = order_cfft_result_naive(&mut slice);
+        let res = order_cfft_result_naive(&slice);
 
         assert_eq!(res, expected_slice)
     }
@@ -149,7 +149,7 @@ mod tests {
             FE::from(15),
         ];
 
-        let mut slice = [
+        let slice = [
             FE::from(0),
             FE::from(2),
             FE::from(4),
@@ -168,7 +168,7 @@ mod tests {
             FE::from(1),
         ];
 
-        let res = order_cfft_result_naive(&mut slice);
+        let res = order_cfft_result_naive(&slice);
 
         assert_eq!(res, expected_slice)
     }
