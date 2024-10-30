@@ -40,7 +40,9 @@ pub fn interpolate_cfft(
     mut eval: Vec<FieldElement<Mersenne31Field>>,
 ) -> Vec<FieldElement<Mersenne31Field>> {
     if eval.len() == 0 {
-        return vec![FieldElement::<Mersenne31Field>::zero()];
+        let mut poly = Vec::new();
+        poly.push(FieldElement::<Mersenne31Field>::zero());
+        return poly;
     }
 
     // We get the twiddles for the interpolation.
