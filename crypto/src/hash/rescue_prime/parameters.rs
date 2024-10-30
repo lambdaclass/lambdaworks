@@ -901,12 +901,27 @@ pub const MDS_MATRIX_160: [[Fp; 16]; 16] = [
     ],
 ];
 
+#[derive(Clone)]
 pub enum SecurityLevel {
     Sec128,
     Sec160,
 }
 
-pub fn get_round_constants(level: SecurityLevel) -> &'static [Fp] {
+pub fn get_state_size(security_level: &SecurityLevel) -> usize {
+    match security_level {
+        SecurityLevel::Sec128 => 12,
+        SecurityLevel::Sec160 => 16,
+    }
+}
+
+pub fn get_capacity(security_level: &SecurityLevel) -> usize {
+    match security_level {
+        SecurityLevel::Sec128 => 4,
+        SecurityLevel::Sec160 => 6,
+    }
+}
+
+pub fn get_round_constants(level: &SecurityLevel) -> &'static [Fp] {
     match level {
         SecurityLevel::Sec128 => &ROUND_CONSTANTS_128,
         SecurityLevel::Sec160 => &ROUND_CONSTANTS_160,
@@ -931,7 +946,7 @@ pub enum MdsMatrix {
     Mds160([[Fp; 16]; 16]),
 }
 
-pub fn get_mds_matrix(level: SecurityLevel) -> MdsMatrix {
+pub fn get_mds_matrix(level: &SecurityLevel) -> MdsMatrix {
     match level {
         SecurityLevel::Sec128 => MdsMatrix::Mds128(MDS_MATRIX_128),
         SecurityLevel::Sec160 => MdsMatrix::Mds160(MDS_MATRIX_160),
