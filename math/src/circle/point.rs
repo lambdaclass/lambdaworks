@@ -1,82 +1,24 @@
-use super::errors::CircleError;
 use crate::field::traits::IsField;
 use crate::field::{
     element::FieldElement,
     fields::mersenne31::{extensions::Degree4ExtensionField, field::Mersenne31Field},
 };
-use core::ops::{Add, Mul};
+use core::ops::{Add, AddAssign, Mul, MulAssign};
 
 /// Given a Field F, we implement here the Group which consists of all the points (x, y) such as
 /// x in F, y in F and x^2 + y^2 = 1, i.e. the Circle. The operation of the group will have
 /// additive notation and is as follows:
-/// (a, b) + (c, d) = (a * c - b * d, a * d + b * c)
+/// (a, b) + (c, d) = (a * c - b * d, a * d + b * c).
+
 #[derive(Debug, Clone)]
 pub struct CirclePoint<F: IsField> {
     pub x: FieldElement<F>,
     pub y: FieldElement<F>,
 }
 
-impl<F: IsField + HasCircleParams<F>> CirclePoint<F> {
-    pub fn new(x: FieldElement<F>, y: FieldElement<F>) -> Result<Self, CircleError> {
-        if x.square() + y.square() == FieldElement::one() {
-            Ok(Self { x, y })
-        } else {
-            Err(CircleError::PointDoesntSatisfyCircleEquation)
-        }
-    }
-
-    /// Neutral element of the Circle group (with additive notation).
-    pub fn zero() -> Self {
-        Self::new(FieldElement::one(), FieldElement::zero()).unwrap()
-    }
-
-    /// Computes 2(x, y) = (2x^2 - 1, 2xy).
-    pub fn double(self) -> Self {
-        Self::new(
-            self.x.square().double() - FieldElement::one(),
-            self.x.double() * self.y,
-        )
-        .unwrap()
-    }
-
-    /// Computes 2^n * (x, y).
-    pub fn repeated_double(self, n: u32) -> Self {
-        let mut res = self;
-        for _ in 0..n {
-            res = res.double();
-        }
-        res
-    }
-
-    /// Computes the inverse of the point.
-    /// We are using -(x, y) = (x, -y), i.e. the inverse of the group opertion is conjugation
-    /// because the norm of every point in the circle is one.
-    pub fn conjugate(self) -> Self {
-        Self {
-            x: self.x,
-            y: -self.y,
-        }
-    }
-
-    pub fn antipode(self) -> Self {
-        Self {
-            x: -self.x,
-            y: -self.y,
-        }
-    }
-
-    pub const GENERATOR: Self = Self {
-        x: F::CIRCLE_GENERATOR_X,
-        y: F::CIRCLE_GENERATOR_Y,
-    };
-
-    /// Returns the generator of the subgroup of order n = 2^log_2_size.
-    /// We are using that 2^k * g is a generator of the subgroup of order 2^{31 - k}.
-    pub fn get_generator_of_subgroup(log_2_size: u32) -> Self {
-        Self::GENERATOR.repeated_double(31 - log_2_size)
-    }
-
-    pub const ORDER: u128 = F::ORDER;
+#[derive(Debug)]
+pub enum CircleError {
+    PointDoesntSatisfyCircleEquation,
 }
 
 /// Parameters of the base field that we'll need to define its Circle.
@@ -136,7 +78,7 @@ impl<F: IsField + HasCircleParams<F>> Add for &CirclePoint<F> {
         CirclePoint { x, y }
     }
 }
-impl<F: IsField + HasCircleParams<F>> Add<CirclePoint<F>> for CirclePoint<F> {
+impl<F: IsField + HasCircleParams<F>> Add for CirclePoint<F> {
     type Output = CirclePoint<F>;
     fn add(self, rhs: CirclePoint<F>) -> Self::Output {
         &self + &rhs
@@ -154,27 +96,122 @@ impl<F: IsField + HasCircleParams<F>> Add<&CirclePoint<F>> for CirclePoint<F> {
         &self + rhs
     }
 }
+impl<F: IsField + HasCircleParams<F>> AddAssign<&CirclePoint<F>> for CirclePoint<F> {
+    fn add_assign(&mut self, rhs: &CirclePoint<F>) {
+        *self = &*self + rhs;
+    }
+}
+impl<F: IsField + HasCircleParams<F>> AddAssign<CirclePoint<F>> for CirclePoint<F> {
+    fn add_assign(&mut self, rhs: CirclePoint<F>) {
+        *self += &rhs;
+    }
+}
 
 /// Multiplication between a point and a scalar (i.e. group operation repeatedly):
 /// (x, y) * n = (x ,y) + ... + (x, y) n-times.
-impl<F: IsField + HasCircleParams<F>> Mul<u128> for CirclePoint<F> {
+impl<F: IsField + HasCircleParams<F>> Mul<u128> for &CirclePoint<F> {
     type Output = CirclePoint<F>;
 
-    fn mul(self, scalar: u128) -> Self {
+    fn mul(self, scalar: u128) -> Self::Output {
         let mut scalar = scalar;
-        let mut res = Self::zero();
-        let mut cur = self;
+        let mut res = CirclePoint::<F>::zero();
+        let mut cur = self.clone();
         loop {
             if scalar == 0 {
                 return res;
             }
             if scalar & 1 == 1 {
-                res = &res + &cur;
+                res += &cur;
             }
             cur = cur.double();
             scalar >>= 1;
         }
     }
+}
+impl<F: IsField + HasCircleParams<F>> Mul<u128> for CirclePoint<F> {
+    type Output = CirclePoint<F>;
+    fn mul(self, scalar: u128) -> Self::Output {
+        &self * scalar
+    }
+}
+impl<F: IsField + HasCircleParams<F>> MulAssign<u128> for CirclePoint<F> {
+    fn mul_assign(&mut self, scalar: u128) {
+        let mut scalar = scalar;
+        let mut res = CirclePoint::<F>::zero();
+        loop {
+            if scalar == 0 {
+                *self = res.clone();
+            }
+            if scalar & 1 == 1 {
+                res += &*self;
+            }
+            *self = self.double();
+            scalar >>= 1;
+        }
+    }
+}
+
+impl<F: IsField + HasCircleParams<F>> CirclePoint<F> {
+    pub fn new(x: FieldElement<F>, y: FieldElement<F>) -> Result<Self, CircleError> {
+        if x.square() + y.square() == FieldElement::one() {
+            Ok(Self { x, y })
+        } else {
+            Err(CircleError::PointDoesntSatisfyCircleEquation)
+        }
+    }
+
+    /// Neutral element of the Circle group (with additive notation).
+    pub fn zero() -> Self {
+        Self::new(FieldElement::one(), FieldElement::zero()).unwrap()
+    }
+
+    /// Computes 2(x, y) = (2x^2 - 1, 2xy).
+    pub fn double(&self) -> Self {
+        Self::new(
+            self.x.square().double() - FieldElement::one(),
+            self.x.double() * self.y.clone(),
+        )
+        .unwrap()
+    }
+
+    /// Computes 2^n * (x, y).
+    pub fn repeated_double(self, n: u32) -> Self {
+        let mut res = self;
+        for _ in 0..n {
+            res = res.double();
+        }
+        res
+    }
+
+    /// Computes the inverse of the point.
+    /// We are using -(x, y) = (x, -y), i.e. the inverse of the group opertion is conjugation
+    /// because the norm of every point in the circle is one.
+    pub fn conjugate(self) -> Self {
+        Self {
+            x: self.x,
+            y: -self.y,
+        }
+    }
+
+    pub fn antipode(self) -> Self {
+        Self {
+            x: -self.x,
+            y: -self.y,
+        }
+    }
+
+    pub const GENERATOR: Self = Self {
+        x: F::CIRCLE_GENERATOR_X,
+        y: F::CIRCLE_GENERATOR_Y,
+    };
+
+    /// Returns the generator of the subgroup of order n = 2^log_2_size.
+    /// We are using that 2^k * g is a generator of the subgroup of order 2^{31 - k}.
+    pub fn get_generator_of_subgroup(log_2_size: u32) -> Self {
+        Self::GENERATOR.repeated_double(31 - log_2_size)
+    }
+
+    pub const ORDER: u128 = F::ORDER;
 }
 
 #[cfg(test)]
