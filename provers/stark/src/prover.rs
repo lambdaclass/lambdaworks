@@ -1230,7 +1230,7 @@ mod tests {
 
         let claimed_index = 3;
         let col = 0;
-        let claimed_value = trace.get_main(claimed_index, col).clone();
+        let claimed_value = *trace.get_main(claimed_index, col);
         let mut proof_options = ProofOptions::default_test_options();
         proof_options.blowup_factor = 4;
         proof_options.coset_offset = 3;
@@ -1627,7 +1627,7 @@ mod tests {
 
         let claimed_index = 420;
         let col = 0;
-        let claimed_value = trace.get_main(claimed_index, col).clone();
+        let claimed_value = *trace.get_main(claimed_index, col);
         let mut proof_options = ProofOptions::default_test_options();
         proof_options.blowup_factor = 1 << 6;
         proof_options.coset_offset = 3;
