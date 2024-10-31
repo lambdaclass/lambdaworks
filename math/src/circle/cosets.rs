@@ -3,8 +3,8 @@ use crate::circle::point::CirclePoint;
 use crate::field::fields::mersenne31::field::Mersenne31Field;
 use alloc::vec::Vec;
 
-/// Given g_n, a generator of the subgroup of size n of the circle, i.e. <g_n>,
-/// and given a shift, that is a another point of the circle,
+/// Given g_n, a generator of the subgroup <g_n> of the circle of size n,
+/// and given a shift, that is a another point of the cirvle,
 /// we define the coset shift + <g_n> which is the set of all the points in
 /// <g_n> plus the shift.
 /// For example, if <g_4> = {p1, p2, p3, p4}, then g_8 + <g_4> = {g_8 + p1, g_8 + p2, g_8 + p3, g_8 + p4}.
