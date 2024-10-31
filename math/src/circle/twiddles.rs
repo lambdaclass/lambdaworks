@@ -45,6 +45,8 @@ pub fn get_twiddles(
 
     if config == TwiddlesConfig::Interpolation {
         // For the interpolation, we need to take the inverse element of each twiddle in the default order.
+        // We can take inverse being sure that the `unwrap` won't panic because the twiddles are coordinates
+        // of elements of the coset (or their squares) so they can't be zero.
         twiddles.iter_mut().for_each(|x| {
             FieldElement::<Mersenne31Field>::inplace_batch_inverse(x).unwrap();
         });

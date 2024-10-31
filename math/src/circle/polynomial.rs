@@ -17,8 +17,10 @@ use alloc::vec::Vec;
 /// Note that coeff has to be a vector with length a power of two 2^n.
 #[cfg(feature = "alloc")]
 pub fn evaluate_cfft(
-    mut coeff: Vec<FieldElement<Mersenne31Field>>,
+    coeff: Vec<FieldElement<Mersenne31Field>>,
 ) -> Vec<FieldElement<Mersenne31Field>> {
+    let mut coeff = coeff;
+
     // We get the twiddles for the Evaluation.
     let domain_log_2_size: u32 = coeff.len().trailing_zeros();
     let coset = Coset::new_standard(domain_log_2_size);
@@ -30,16 +32,24 @@ pub fn evaluate_cfft(
     cfft(&mut coeff, twiddles);
 
     // The cfft returns the evaluations in a certain order, so we permute them to get the natural order.
-    order_cfft_result_naive(&mut coeff)
+    order_cfft_result_naive(&coeff)
 }
 
 /// Interpolates the 2^n evaluations of a two-variables polynomial of degree 2^n - 1 on the points of the standard coset of size 2^n.
 /// As a result we obtain the coefficients of the polynomial in the basis: {1, y, x, xy, 2xˆ2 -1, 2xˆ2y-y, 2xˆ3-x, 2xˆ3y-xy,...}
 /// Note that eval has to be a vector of length a power of two 2^n.
+/// If the vector of evaluations is empty, it returns an empty vector.
 #[cfg(feature = "alloc")]
 pub fn interpolate_cfft(
-    mut eval: Vec<FieldElement<Mersenne31Field>>,
+    eval: Vec<FieldElement<Mersenne31Field>>,
 ) -> Vec<FieldElement<Mersenne31Field>> {
+    let mut eval = eval;
+
+    if eval.is_empty() {
+        let poly: Vec<FieldElement<Mersenne31Field>> = Vec::new();
+        return poly;
+    }
+
     // We get the twiddles for the interpolation.
     let domain_log_2_size: u32 = eval.len().trailing_zeros();
     let coset = Coset::new_standard(domain_log_2_size);
@@ -54,7 +64,8 @@ pub fn interpolate_cfft(
     in_place_bit_reverse_permute::<FieldElement<Mersenne31Field>>(&mut eval_ordered);
 
     // The icfft returns all the coefficients multiplied by 2^n, the length of the evaluations.
-    // So we multiply every element that outputs the icfft byt the inverse of 2^n to get the actual coefficients.
+    // So we multiply every element that outputs the icfft by the inverse of 2^n to get the actual coefficients.
+    // Note that this `unwrap` will never panic because eval.len() != 0.
     let factor = (FieldElement::<Mersenne31Field>::from(eval.len() as u64))
         .inv()
         .unwrap();
@@ -176,8 +187,9 @@ mod tests {
             expected_result.push(point_eval);
         }
 
+        let input_vec = input.to_vec();
         // We evaluate the polynomial using now the cfft.
-        let result = evaluate_cfft(input.to_vec());
+        let result = evaluate_cfft(input_vec);
         let slice_result: &[FE] = &result;
 
         assert_eq!(slice_result, expected_result);
