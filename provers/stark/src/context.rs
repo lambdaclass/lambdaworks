@@ -1,5 +1,3 @@
-use std::collections::HashSet;
-
 use super::proof::options::ProofOptions;
 
 #[derive(Clone, Debug)]
@@ -13,22 +11,11 @@ pub struct AirContext {
     /// offsets that are needed to compute EVERY transition constraint, even if some
     /// constraints don't use all of the indexes in said offsets.
     pub transition_offsets: Vec<usize>,
-    pub transition_exemptions: Vec<usize>,
     pub num_transition_constraints: usize,
 }
 
 impl AirContext {
     pub fn num_transition_constraints(&self) -> usize {
         self.num_transition_constraints
-    }
-
-    /// Returns the number of non-trivial different
-    /// transition exemptions.
-    pub fn num_transition_exemptions(&self) -> usize {
-        self.transition_exemptions
-            .iter()
-            .filter(|&x| *x != 0)
-            .collect::<HashSet<_>>()
-            .len()
     }
 }

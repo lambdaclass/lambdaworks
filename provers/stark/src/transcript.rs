@@ -9,7 +9,7 @@ use lambdaworks_math::{
 };
 use sha3::{Digest, Keccak256};
 
-/// A transcript implementing `IsStarkTranscript` and compatible with Stone (https://github.com/starkware-libs/stone-prover).
+/// A transcript implementing `IsTranscript` and compatible with Stone (https://github.com/starkware-libs/stone-prover).
 pub struct StoneProverTranscript {
     state: [u8; 32],
     seed_increment: U256,

@@ -90,10 +90,6 @@ impl TransitionConstraint<StarkField, StarkField> for ZeroFlagConstraint {
         16
     }
 
-    fn offset(&self) -> usize {
-        15
-    }
-
     fn evaluate(
         &self,
         frame: &Frame<StarkField, StarkField>,
@@ -130,17 +126,12 @@ impl AIR for BitFlagsAIR {
         let flag_constraint = Box::new(ZeroFlagConstraint::new());
         let constraints: Vec<Box<dyn TransitionConstraint<Self::Field, Self::FieldExtension>>> =
             vec![bit_constraint, flag_constraint];
-        // vec![flag_constraint];
-        // vec![bit_constraint];
 
         let num_transition_constraints = constraints.len();
-        let transition_exemptions: Vec<_> =
-            constraints.iter().map(|c| c.end_exemptions()).collect();
 
         let context = AirContext {
             proof_options: proof_options.clone(),
-            trace_columns: 1,
-            transition_exemptions,
+            trace_columns: 2,
             transition_offsets: vec![0],
             num_transition_constraints,
         };
@@ -195,7 +186,7 @@ impl AIR for BitFlagsAIR {
     }
 }
 
-pub fn bit_prefix_flag_trace(num_steps: usize) -> TraceTable<StarkField> {
+pub fn bit_prefix_flag_trace(num_steps: usize) -> TraceTable<StarkField, StarkField> {
     debug_assert!(num_steps.is_power_of_two());
     let step: Vec<Felt252> = [
         1031u64, 515, 257, 128, 64, 32, 16, 8, 4, 2, 1, 0, 0, 0, 0, 0,
@@ -207,5 +198,10 @@ pub fn bit_prefix_flag_trace(num_steps: usize) -> TraceTable<StarkField> {
     let mut data: Vec<Felt252> = iter::repeat(step).take(num_steps).flatten().collect();
     data[0] = Felt252::from(1030);
 
-    TraceTable::new(data, 1, 0, 16)
+    let mut dummy_column = (0..16).map(Felt252::from).collect();
+    dummy_column = iter::repeat(dummy_column)
+        .take(num_steps)
+        .flatten()
+        .collect();
+    TraceTable::from_columns_main(vec![data, dummy_column], 16)
 }
