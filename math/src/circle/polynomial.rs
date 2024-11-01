@@ -1,5 +1,5 @@
 extern crate alloc;
-use super::point::{CircleError, CirclePoint};
+use super::point::CirclePoint;
 #[cfg(feature = "alloc")]
 use super::{
     cfft::{cfft, icfft, order_cfft_result_naive, order_icfft_input_naive},
