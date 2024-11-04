@@ -8,6 +8,8 @@ use crate::field::{
 use alloc::vec::Vec;
 
 type FpE = FieldElement<Mersenne31Field>;
+type Fp2E = FieldElement<Degree2ExtensionField>;
+type Fp4E = FieldElement<Degree4ExtensionField>;
 
 #[derive(Clone, Debug)]
 pub struct Degree2ExtensionField;
@@ -132,10 +134,17 @@ impl IsSubFieldOf<Degree2ExtensionField> for Mersenne31Field {
     }
 }
 
-type Fp2E = FieldElement<Degree2ExtensionField>;
-
 #[derive(Clone, Debug)]
 pub struct Degree4ExtensionField;
+
+impl Degree4ExtensionField {
+    pub const fn const_from_coefficients(a: u32, b: u32, c: u32, d: u32) -> Fp4E {
+        Fp4E::const_from_raw([
+            Fp2E::const_from_raw([FpE::const_from_raw(a), FpE::const_from_raw(b)]),
+            Fp2E::const_from_raw([FpE::const_from_raw(c), FpE::const_from_raw(d)]),
+        ])
+    }
+}
 
 impl IsField for Degree4ExtensionField {
     type BaseType = [Fp2E; 2];
