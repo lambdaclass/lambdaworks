@@ -53,10 +53,6 @@ impl Default for RescuePrimeOptimized {
 impl RescuePrimeOptimized {
     /// Creates a new instance of `RescuePrimeOptimized` with corresponding Security level and the specified MDS method.
     pub fn new(security_level: SecurityLevel, mds_method: MdsMethod) -> Result<Self, &'static str> {
-        /*let (m, capacity) = match security_level {
-            SecurityLevel::Sec128 => (12, 4),
-            SecurityLevel::Sec160 => (16, 6),
-        };*/
         let m = get_state_size(&security_level);
         let capacity = get_capacity(&security_level);
         let rate = m - capacity;
