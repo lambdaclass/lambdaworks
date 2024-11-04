@@ -3,7 +3,7 @@ use crate::{
     air_context::AirContext, constraints::transition::TransitionConstraint, domain::Domain,
 };
 use lambdaworks_math::{
-    circle::point::CirclePoint,
+    circle::point::{CirclePoint, HasCircleParams},
     field::{
         element::FieldElement,
         traits::{IsFFTField, IsField, IsSubFieldOf},
@@ -13,8 +13,12 @@ use std::collections::HashMap;
 type ZerofierGroupKey = (usize, usize, Option<usize>, Option<usize>, usize);
 /// AIR is a representation of the Constraints
 pub trait AIR {
-    type Field: IsFFTField + IsSubFieldOf<Self::FieldExtension> + Send + Sync;
-    type FieldExtension: IsField + Send + Sync;
+    type Field: IsFFTField
+        + IsSubFieldOf<Self::FieldExtension>
+        + Send
+        + Sync
+        + HasCircleParams<Self::Field>;
+    type FieldExtension: IsField + Send + Sync + HasCircleParams<Self::FieldExtension>;
     type PublicInputs;
 
     fn new(trace_length: usize, pub_inputs: &Self::PublicInputs) -> Self;
@@ -30,9 +34,9 @@ pub trait AIR {
     fn compute_transition_prover(
         &self,
         frame: &Frame<Self::Field>,
-    ) -> Vec<FieldElement<Self::Field>> {
+    ) -> Vec<FieldElement<Self::FieldExtension>> {
         let mut evaluations =
-            vec![FieldElement::<Self::Field>::zero(); self.num_transition_constraints()];
+            vec![FieldElement::<Self::FieldExtension>::zero(); self.num_transition_constraints()];
         self.transition_constraints()
             .iter()
             .for_each(|c| c.evaluate(frame, &mut evaluations));
@@ -89,7 +93,7 @@ pub trait AIR {
             // This hashmap is used to avoid recomputing with an fft the same zerofier evaluation
             // If there are multiple domain and subdomains it can be further optimized
             // as to share computation between them
-            let zerofier_group_key = (end_exemptions);
+            let zerofier_group_key = end_exemptions;
             zerofier_groups
                 .entry(zerofier_group_key)
                 .or_insert_with(|| c.zerofier_evaluations_on_extended_domain(domain));

@@ -1,16 +1,14 @@
 use crate::domain::Domain;
 use crate::frame::Frame;
-use itertools::Itertools;
-use lambdaworks_math::circle::{cosets::Coset, point::CirclePoint};
+use lambdaworks_math::circle::point::{CirclePoint, HasCircleParams};
 use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::traits::{IsFFTField, IsField, IsSubFieldOf};
-use std::ops::Div;
 /// TransitionConstraint represents the behaviour that a transition constraint
 /// over the computation that wants to be proven must comply with.
 pub trait TransitionConstraint<F, E>: Send + Sync
 where
-    F: IsSubFieldOf<E> + IsFFTField + Send + Sync,
-    E: IsField + Send + Sync,
+    F: IsSubFieldOf<E> + IsFFTField + Send + Sync + HasCircleParams<F>,
+    E: IsField + Send + Sync + HasCircleParams<E>,
 {
     /// The degree of the constraint interpreting it as a multivariate polynomial.
     fn degree(&self) -> usize;
@@ -77,7 +75,7 @@ where
     /// Evaluate the `eval_point` in the polynomial that vanishes in all the exemptions points.
     fn evaluate_end_exemptions_poly(
         &self,
-        eval_point: CirclePoint<F>,
+        eval_point: &CirclePoint<F>,
         // `trace_group_generator` can be calculated with `trace_length` but it is better to precompute it
         trace_group_generator: &CirclePoint<F>,
         trace_length: usize,
@@ -89,9 +87,9 @@ where
         let period = self.period();
         // This accumulates evaluations of the point at the zerofier at all the offsets positions.
         (1..=self.end_exemptions())
-            .map(|exemption| trace_group_generator * (trace_length - exemption * period))
-            .fold(one, |acc, vanishing_point| {
-                acc * ((eval_point + vanishing_point.conjugate()).x - one)
+            .map(|exemption| trace_group_generator * ((trace_length - exemption * period) as u128))
+            .fold(one.clone(), |acc, vanishing_point| {
+                acc * ((eval_point + vanishing_point.conjugate()).x - &one)
             })
     }
 
@@ -101,31 +99,31 @@ where
     #[allow(unstable_name_collisions)]
     fn zerofier_evaluations_on_extended_domain(&self, domain: &Domain<F>) -> Vec<FieldElement<F>> {
         let blowup_factor = domain.blowup_factor;
-        let trace_length = domain.trace_roots_of_unity.len();
+        let trace_length = domain.trace_length;
         let trace_log_2_size = trace_length.trailing_zeros();
         let lde_log_2_size = (blowup_factor * trace_length).trailing_zeros();
-        let trace_group_generator = &domain.trace_primitive_root;
+        let trace_group_generator = &domain.trace_group_generator;
 
         // if let Some(exemptions_period) = self.exemptions_period() {
 
         // } else {
 
-        let lde_coset = Coset::new_standard(lde_log_2_size);
-        let lde_points = Coset::get_points(lde_coset);
+        let lde_points = &domain.lde_coset_points;
 
-        let zerofier_evaluations = lde_points
+        let mut zerofier_evaluations: Vec<_> = lde_points
             .iter()
             .map(|point| {
-                let mut x = point.x;
+                // TODO: Is there a way to avoid this clone()?
+                let mut x = point.x.clone();
                 for _ in 1..trace_log_2_size {
-                    x = x.square().double() - FieldElement::one();
+                    x = x.square().double() - FieldElement::<F>::one();
                 }
                 x
             })
             .collect();
         FieldElement::inplace_batch_inverse(&mut zerofier_evaluations).unwrap();
 
-        let end_exemptions_evaluations = lde_points
+        let end_exemptions_evaluations: Vec<_> = lde_points
             .iter()
             .map(|point| {
                 self.evaluate_end_exemptions_poly(point, trace_group_generator, trace_length)
@@ -142,10 +140,10 @@ where
     #[allow(unstable_name_collisions)]
     fn evaluate_zerofier(
         &self,
-        eval_point: &CirclePoint<E>,
-        trace_group_generator: &FieldElement<F>,
+        eval_point: &CirclePoint<F>,
+        trace_group_generator: &CirclePoint<F>,
         trace_length: usize,
-    ) -> FieldElement<E> {
+    ) -> FieldElement<F> {
         // if let Some(exemptions_period) = self.exemptions_period() {
 
         // } else {
@@ -154,9 +152,9 @@ where
             self.evaluate_end_exemptions_poly(eval_point, trace_group_generator, trace_length);
 
         let trace_log_2_size = trace_length.trailing_zeros();
-        let mut x = eval_point.x;
+        let mut x = eval_point.x.clone();
         for _ in 1..trace_log_2_size {
-            x = x.square().double() - FieldElement::one();
+            x = x.square().double() - FieldElement::<F>::one();
         }
 
         x.inv().unwrap() * end_exemptions_evaluation

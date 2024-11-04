@@ -27,9 +27,7 @@ impl<F: IsField> Frame<F> {
 
         let lde_steps = offsets
             .iter()
-            .map(|offset| {
-                let row = lde_trace.get_row(row + offset);
-            })
+            .map(|offset| lde_trace.get_row(row + offset).to_vec())
             .collect_vec();
 
         Frame::new(lde_steps)

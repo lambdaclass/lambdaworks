@@ -1,11 +1,16 @@
 use crate::table::Table;
 use itertools::Itertools;
-use lambdaworks_math::circle::point::CirclePoint;
-use lambdaworks_math::fft::errors::FFTError;
-use lambdaworks_math::field::traits::{IsField, IsSubFieldOf};
 use lambdaworks_math::{
-    field::{element::FieldElement, traits::IsFFTField},
-    circle::polynomial::{interpolate_cfft, evaluate_point}
+    circle::{
+        point::{CirclePoint, HasCircleParams},
+        polynomial::{evaluate_point, interpolate_cfft},
+    },
+    fft::errors::FFTError,
+    field::{
+        element::FieldElement,
+        traits::IsFFTField,
+        traits::{IsField, IsSubFieldOf},
+    },
 };
 #[cfg(feature = "parallel")]
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
@@ -24,27 +29,16 @@ pub struct TraceTable<F: IsField> {
 }
 
 impl<F: IsField> TraceTable<F> {
-    pub fn new(
-        data: Vec<FieldElement<F>>,
-        num_columns: usize,
-    ) -> Self {
+    pub fn new(data: Vec<FieldElement<F>>, num_columns: usize) -> Self {
         let table = Table::new(data, num_columns);
-        Self {
-            table,
-            num_columns,
-        }
+        Self { table, num_columns }
     }
 
-    pub fn from_columns(
-        columns: Vec<Vec<FieldElement<F>>>,
-    ) -> Self {
+    pub fn from_columns(columns: Vec<Vec<FieldElement<F>>>) -> Self {
         println!("COLUMNS LEN: {}", columns.len());
         let num_columns = columns.len();
         let table = Table::from_columns(columns);
-        Self {
-            table,
-            num_columns,
-        }
+        Self { table, num_columns }
     }
 
     pub fn empty() -> Self {
@@ -161,11 +155,7 @@ impl<F> LDETraceTable<F>
 where
     F: IsField,
 {
-    pub fn new(
-        data: Vec<FieldElement<F>>,
-        n_columns: usize,
-        blowup_factor: usize,
-    ) -> Self {
+    pub fn new(data: Vec<FieldElement<F>>, n_columns: usize, blowup_factor: usize) -> Self {
         let table = Table::new(data, n_columns);
 
         Self {
@@ -174,10 +164,7 @@ where
         }
     }
 
-    pub fn from_columns(
-        columns: Vec<Vec<FieldElement<F>>>,
-        blowup_factor: usize,
-    ) -> Self {
+    pub fn from_columns(columns: Vec<Vec<FieldElement<F>>>, blowup_factor: usize) -> Self {
         let table = Table::from_columns(columns);
 
         Self {
@@ -216,11 +203,11 @@ pub fn get_trace_evaluations<F>(
     group_generator: &CirclePoint<F>,
 ) -> Table<F>
 where
-    F: IsField,
+    F: IsField + HasCircleParams<F>,
 {
     let evaluation_points = frame_offsets
         .iter()
-        .map(|offset| (group_generator * offset) + point)
+        .map(|offset| (group_generator * (*offset as u128)) + point)
         .collect_vec();
 
     let evaluations = evaluation_points
