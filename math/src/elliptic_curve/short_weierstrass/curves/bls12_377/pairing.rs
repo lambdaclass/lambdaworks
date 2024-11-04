@@ -256,21 +256,21 @@ pub fn cyclotomic_square(a: &Fp12E) -> Fp12E {
     // r00 = 3v00 - 2b0
     let mut r00 = &v0.value()[0] - b0;
     r00 = r00.double();
-    r00 += v0.value()[0].clone();
+    r00 = &v0.value()[0] + r00;
 
     // r01 = 3v10 -2b1
     let mut r01 = &v1.value()[0] - b1;
     r01 = r01.double();
-    r01 += v1.value()[0].clone();
+    r01 = &v1.value()[0] + r01;
 
     // r11 = 3v01 - 2b4
     let mut r11 = &v0.value()[1] + b4;
     r11 = r11.double();
-    r11 += v0.value()[1].clone();
+    r11 = &v0.value()[1] + r11;
     // r12 = 3v11 - 2b5
     let mut r12 = &v1.value()[1] + b5;
     r12 = r12.double();
-    r12 += v1.value()[1].clone();
+    r12 = &v1.value()[1] + r12;
     // r12 = 3v11 - 2b5
 
     let v21 = mul_fp2_by_nonresidue(&v2.value()[1]);
@@ -281,7 +281,7 @@ pub fn cyclotomic_square(a: &Fp12E) -> Fp12E {
     // 3 * ( u) * v20 - 2b3
     let mut r02 = &v2.value()[0] - b2;
     r02 = r02.double();
-    r02 += v2.value()[0].clone();
+    r02 = &v2.value()[0] + r02;
 
     Fp12E::new([Fp6E::new([r00, r01, r02]), Fp6E::new([r10, r11, r12])])
 }
