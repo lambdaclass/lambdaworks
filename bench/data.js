@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1729734748326,
+  "lastUpdate": 1730727376322,
   "repoUrl": "https://github.com/lambdaclass/lambdaworks",
   "entries": {
     "Benchmark": [
@@ -19211,6 +19211,150 @@ window.BENCHMARK_DATA = {
             "name": "Polynomial/mul",
             "value": 29,
             "range": "± 1",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "56092489+ColoCarletti@users.noreply.github.com",
+            "name": "Joaquin Carletti",
+            "username": "ColoCarletti"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "8dfddac12b99f8ff29d26f69ca6b6f0b1ccf6b32",
+          "message": "Circle starks (#924)\n\n* optimize add\n\n* save changes. Add, sub and mul checked\n\n* fix tests\n\n* add new inv\n\n* add mult by powers of two\n\n* replace inverse\n\n* test new inv\n\n* modify old algorithm for inv\n\n* fix tests extension\n\n* add mul for degree 4 extension\n\n* add fp4 isField and isSubField operations and benchmarks\n\n* new version for fp4 mul based on the paper\n\n* add mul of a fp2e by non-residue\n\n* change inv using mul_fp2_by_non_resiude\n\n* save work\n\n* wip fp2 test\n\n* add fp2 tests\n\n* add 2 * a^2 - 1 function\n\n* use karatsuba in fp4 mul version 1\n\n* clean up\n\n* fix Fp as subfield of Fp2. Tests Fp plus Fp4 is now correct\n\n* fix inv\n\n* fix comments\n\n* create crate\n\n* Revert \"create crate\"\n\nThis reverts commit 21d09c68ccfc15aea858f93610b3488d2866972e.\n\n* add circle point implementation\n\n* add group order\n\n* rm dependencie\n\n* add cosets\n\n* add twiddle\n\n* init cfft\n\n* test cfft\n\n* test 16 not working\n\n* fix n16 test\n\n* refactor\n\n* clippy\n\n* fmt\n\n* clippy\n\n* rm std\n\n* add alloc\n\n* fix\n\n* wip\n\n* add hand iterpolation for 4 and 8\n\n* wip\n\n* evaluation and interpolation working\n\n* add tests and comments\n\n* clippy\n\n* fmt\n\n* remove unused functions\n\n* add comment\n\n* Update math/src/circle/polynomial.rs\n\nCo-authored-by: Ivan Litteri <67517699+ilitteri@users.noreply.github.com>\n\n* change generator and order CirclePoint functions as constants\n\n* impl eq as PartialEq\n\n* implement scalar_mul as Mul\n\n* Change error name to a more descriptive one and move it to point.rs\n\n* fix lint\n\n* fix lint\n\n* fix some comments\n\n* add alloc::vec\n\n* fix no-std\n\n* cargo fmt\n\n* fix no-std\n\n* remove macro\n\n* add comment\n\n* addition between referenced and non-referenced values\n\n* Update math/src/circle/point.rs\n\nCo-authored-by: Ivan Litteri <67517699+ilitteri@users.noreply.github.com>\n\n* explain why  won't panic\n\n* add errors.rs\n\n* fix vec\n\n* Evaluate and interpolate functions have non-mutable inputs\n\n* fix clippy\n\n* MulAssign for points and double function takes a reference\n\n* Revert \"MulAssign for points and double function takes a reference\"\n\nThis reverts commit b2e9b9d0948b6c92ee153247bcf66324c136aeb7.\n\n* MulAssign and AddAssign\n\n---------\n\nCo-authored-by: Nicole <nicole@Nicoles-MacBook-Air.local>\nCo-authored-by: Diego K <43053772+diegokingston@users.noreply.github.com>\nCo-authored-by: Nicole Graus <nicole.graus@lambdaclass.com>\nCo-authored-by: Ivan Litteri <67517699+ilitteri@users.noreply.github.com>",
+          "timestamp": "2024-11-04T13:22:52Z",
+          "tree_id": "8667498b0fe5bf08fea0c4e8172c2211a8cf8bb4",
+          "url": "https://github.com/lambdaclass/lambdaworks/commit/8dfddac12b99f8ff29d26f69ca6b6f0b1ccf6b32"
+        },
+        "date": 1730727373960,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "Ordered FFT/Parallel (Metal)",
+            "value": 207249236,
+            "range": "± 13260738",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #2",
+            "value": 500860667,
+            "range": "± 106721754",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #3",
+            "value": 1081971938,
+            "range": "± 64138378",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #4",
+            "value": 3377566229,
+            "range": "± 397067977",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal)",
+            "value": 79429814,
+            "range": "± 3782971",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #2",
+            "value": 191329201,
+            "range": "± 6579566",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #3",
+            "value": 402223885,
+            "range": "± 24366267",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #4",
+            "value": 819756812,
+            "range": "± 42268918",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal)",
+            "value": 76595944,
+            "range": "± 3060610",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #2",
+            "value": 288554302,
+            "range": "± 42013059",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #3",
+            "value": 473811604,
+            "range": "± 15569278",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #4",
+            "value": 1293110458,
+            "range": "± 197632261",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal",
+            "value": 262418541,
+            "range": "± 9110056",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #2",
+            "value": 609319875,
+            "range": "± 8609717",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #3",
+            "value": 1500733708,
+            "range": "± 27119520",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #4",
+            "value": 4562399666,
+            "range": "± 502775908",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal",
+            "value": 854884271,
+            "range": "± 127151867",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #2",
+            "value": 1701976020,
+            "range": "± 54939028",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #3",
+            "value": 3562127541,
+            "range": "± 176754710",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #4",
+            "value": 8595541375,
+            "range": "± 852514770",
             "unit": "ns/iter"
           }
         ]
