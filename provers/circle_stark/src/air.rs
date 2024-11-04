@@ -1,14 +1,13 @@
-use super::{
-    constraints::boundary::BoundaryConstraints, frame::Frame,
-    trace::TraceTable,
+use super::{constraints::boundary::BoundaryConstraints, frame::Frame};
+use crate::{
+    air_context::AirContext, constraints::transition::TransitionConstraint, domain::Domain,
 };
-use crate::{air_context::AirContext, constraints::transition::TransitionConstraint, domain::Domain};
-use lambdaworks_crypto::fiat_shamir::is_transcript::IsTranscript;
 use lambdaworks_math::{
-    circle::point::CirclePoint, field::{
+    circle::point::CirclePoint,
+    field::{
         element::FieldElement,
         traits::{IsFFTField, IsField, IsSubFieldOf},
-    }, polynomial::Polynomial
+    },
 };
 use std::collections::HashMap;
 type ZerofierGroupKey = (usize, usize, Option<usize>, Option<usize>, usize);

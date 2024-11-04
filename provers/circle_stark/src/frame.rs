@@ -14,8 +14,7 @@ where
 }
 
 impl<F: IsField> Frame<F> {
-
-    pub fn new(steps: Vec<Vec<F>>) -> Self {
+    pub fn new(steps: Vec<Vec<FieldElement<F>>>) -> Self {
         Self { steps }
     }
 
@@ -23,11 +22,7 @@ impl<F: IsField> Frame<F> {
         &self.steps[step]
     }
 
-    pub fn read_from_lde(
-        lde_trace: &LDETraceTable<F>,
-        row: usize,
-        offsets: &[usize],
-    ) -> Self {
+    pub fn read_from_lde(lde_trace: &LDETraceTable<F>, row: usize, offsets: &[usize]) -> Self {
         let num_rows = lde_trace.num_rows();
 
         let lde_steps = offsets

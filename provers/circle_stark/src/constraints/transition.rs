@@ -1,11 +1,9 @@
 use crate::domain::Domain;
 use crate::frame::Frame;
-use crate::prover::evaluate_polynomial_on_lde_domain;
 use itertools::Itertools;
+use lambdaworks_math::circle::{cosets::Coset, point::CirclePoint};
 use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::traits::{IsFFTField, IsField, IsSubFieldOf};
-use lambdaworks_math::circle::point::CirclePoint;
-use num_integer::Integer;
 use std::ops::Div;
 /// TransitionConstraint represents the behaviour that a transition constraint
 /// over the computation that wants to be proven must comply with.
@@ -30,12 +28,7 @@ where
     /// the evaluation.
     /// Once computed, the evaluation should be inserted in the `transition_evaluations`
     /// vector, in the index corresponding to the constraint as given by `constraint_idx()`.
-    fn evaluate(
-        &self,
-        frame: &Frame<F>,
-        transition_evaluations: &mut [FieldElement<E>],
-        periodic_values: &[FieldElement<F>],
-    );
+    fn evaluate(&self, frame: &Frame<F>, transition_evaluations: &mut [FieldElement<E>]);
 
     /// The periodicity the constraint is applied over the trace.
     ///
@@ -84,7 +77,8 @@ where
     /// Evaluate the `eval_point` in the polynomial that vanishes in all the exemptions points.
     fn evaluate_end_exemptions_poly(
         &self,
-        eval_point: CirclePoint<F>, 
+        eval_point: CirclePoint<F>,
+        // `trace_group_generator` can be calculated with `trace_length` but it is better to precompute it
         trace_group_generator: &CirclePoint<F>,
         trace_length: usize,
     ) -> FieldElement<F> {
@@ -102,138 +96,69 @@ where
     }
 
     /// Compute evaluations of the constraints zerofier over a LDE domain.
+    /// TODO: See if we can evaluate using cfft.
+    /// TODO: See if we can optimize computing only some evaluations and cycle them as in regular stark.
     #[allow(unstable_name_collisions)]
     fn zerofier_evaluations_on_extended_domain(&self, domain: &Domain<F>) -> Vec<FieldElement<F>> {
         let blowup_factor = domain.blowup_factor;
         let trace_length = domain.trace_roots_of_unity.len();
-        let trace_primitive_root = &domain.trace_primitive_root;
-        let coset_offset = &domain.coset_offset;
-        let lde_root_order = u64::from((blowup_factor * trace_length).trailing_zeros());
-        let lde_root = F::get_primitive_root_of_unity(lde_root_order).unwrap();
+        let trace_log_2_size = trace_length.trailing_zeros();
+        let lde_log_2_size = (blowup_factor * trace_length).trailing_zeros();
+        let trace_group_generator = &domain.trace_primitive_root;
 
-        let end_exemptions_poly = self.end_exemptions_poly(trace_primitive_root, trace_length);
+        // if let Some(exemptions_period) = self.exemptions_period() {
 
-        // If there is an exemptions period defined for this constraint, the evaluations are calculated directly
-        // by computing P_exemptions(x) / Zerofier(x)
-        if let Some(exemptions_period) = self.exemptions_period() {
-            // FIXME: Rather than making this assertions here, it would be better to handle these
-            // errors or make these checks when the AIR is initialized.
+        // } else {
 
-            debug_assert!(exemptions_period.is_multiple_of(&self.period()));
+        let lde_coset = Coset::new_standard(lde_log_2_size);
+        let lde_points = Coset::get_points(lde_coset);
 
-            debug_assert!(self.periodic_exemptions_offset().is_some());
+        let zerofier_evaluations = lde_points
+            .iter()
+            .map(|point| {
+                let mut x = point.x;
+                for _ in 1..trace_log_2_size {
+                    x = x.square().double() - FieldElement::one();
+                }
+                x
+            })
+            .collect();
+        FieldElement::inplace_batch_inverse(&mut zerofier_evaluations).unwrap();
 
-            // The elements of the domain have order `trace_length * blowup_factor`, so the zerofier evaluations
-            // without the end exemptions, repeat their values after `blowup_factor * exemptions_period` iterations,
-            // so we only need to compute those.
-            let last_exponent = blowup_factor * exemptions_period;
+        let end_exemptions_evaluations = lde_points
+            .iter()
+            .map(|point| {
+                self.evaluate_end_exemptions_poly(point, trace_group_generator, trace_length)
+            })
+            .collect();
 
-            let evaluations: Vec<_> = (0..last_exponent)
-                .map(|exponent| {
-                    let x = lde_root.pow(exponent);
-                    let offset_times_x = coset_offset * &x;
-                    let offset_exponent = trace_length * self.periodic_exemptions_offset().unwrap()
-                        / exemptions_period;
-
-                    let numerator = offset_times_x.pow(trace_length / exemptions_period)
-                        - trace_primitive_root.pow(offset_exponent);
-                    let denominator = offset_times_x.pow(trace_length / self.period())
-                        - trace_primitive_root.pow(self.offset() * trace_length / self.period());
-
-                    numerator.div(denominator)
-                })
-                .collect();
-
-            // FIXME: Instead of computing this evaluations for each constraint, they can be computed
-            // once for every constraint with the same end exemptions (combination of end_exemptions()
-            // and period).
-            let end_exemption_evaluations = evaluate_polynomial_on_lde_domain(
-                &end_exemptions_poly,
-                blowup_factor,
-                domain.interpolation_domain_size,
-                coset_offset,
-            )
-            .unwrap();
-
-            let cycled_evaluations = evaluations
-                .iter()
-                .cycle()
-                .take(end_exemption_evaluations.len());
-
-            std::iter::zip(cycled_evaluations, end_exemption_evaluations)
-                .map(|(eval, exemption_eval)| eval * exemption_eval)
-                .collect()
-
-        // In this else branch, the zerofiers are computed as the numerator, then inverted
-        // using batch inverse and then multiplied by P_exemptions(x). This way we don't do
-        // useless divisions.
-        } else {
-            let last_exponent = blowup_factor * self.period();
-
-            let mut evaluations = (0..last_exponent)
-                .map(|exponent| {
-                    let x = lde_root.pow(exponent);
-                    (coset_offset * &x).pow(trace_length / self.period())
-                        - trace_primitive_root.pow(self.offset() * trace_length / self.period())
-                })
-                .collect_vec();
-
-            FieldElement::inplace_batch_inverse(&mut evaluations).unwrap();
-
-            // FIXME: Instead of computing this evaluations for each constraint, they can be computed
-            // once for every constraint with the same end exemptions (combination of end_exemptions()
-            // and period).
-            let end_exemption_evaluations = evaluate_polynomial_on_lde_domain(
-                &end_exemptions_poly,
-                blowup_factor,
-                domain.interpolation_domain_size,
-                coset_offset,
-            )
-            .unwrap();
-
-            let cycled_evaluations = evaluations
-                .iter()
-                .cycle()
-                .take(end_exemption_evaluations.len());
-
-            std::iter::zip(cycled_evaluations, end_exemption_evaluations)
-                .map(|(eval, exemption_eval)| eval * exemption_eval)
-                .collect()
-        }
+        std::iter::zip(zerofier_evaluations, end_exemptions_evaluations)
+            .map(|(eval, exemptions_eval)| eval * exemptions_eval)
+            .collect()
     }
 
     /// Returns the evaluation of the zerofier corresponding to this constraint in some point
-    /// `z`, which could be in a field extension.
+    /// `eval_point`, (which is in the circle over the extension field).
     #[allow(unstable_name_collisions)]
     fn evaluate_zerofier(
         &self,
-        z: &FieldElement<E>,
-        trace_primitive_root: &FieldElement<F>,
+        eval_point: &CirclePoint<E>,
+        trace_group_generator: &FieldElement<F>,
         trace_length: usize,
     ) -> FieldElement<E> {
-        let end_exemptions_poly = self.end_exemptions_poly(trace_primitive_root, trace_length);
+        // if let Some(exemptions_period) = self.exemptions_period() {
 
-        if let Some(exemptions_period) = self.exemptions_period() {
-            debug_assert!(exemptions_period.is_multiple_of(&self.period()));
+        // } else {
 
-            debug_assert!(self.periodic_exemptions_offset().is_some());
+        let end_exemptions_evaluation =
+            self.evaluate_end_exemptions_poly(eval_point, trace_group_generator, trace_length);
 
-            let periodic_exemptions_offset = self.periodic_exemptions_offset().unwrap();
-            let offset_exponent = trace_length * periodic_exemptions_offset / exemptions_period;
-
-            let numerator = -trace_primitive_root.pow(offset_exponent)
-                + z.pow(trace_length / exemptions_period);
-            let denominator = -trace_primitive_root
-                .pow(self.offset() * trace_length / self.period())
-                + z.pow(trace_length / self.period());
-
-            return numerator.div(denominator) * end_exemptions_poly.evaluate(z);
+        let trace_log_2_size = trace_length.trailing_zeros();
+        let mut x = eval_point.x;
+        for _ in 1..trace_log_2_size {
+            x = x.square().double() - FieldElement::one();
         }
 
-        (-trace_primitive_root.pow(self.offset() * trace_length / self.period())
-            + z.pow(trace_length / self.period()))
-        .inv()
-        .unwrap()
-            * end_exemptions_poly.evaluate(z)
+        x.inv().unwrap() * end_exemptions_evaluation
     }
 }
