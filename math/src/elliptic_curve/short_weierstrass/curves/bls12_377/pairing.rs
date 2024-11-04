@@ -119,7 +119,7 @@ impl IsPairing for BLS12377AtePairing {
                 result *= miller(&p, &q);
             }
         }
-        Ok(final_exponentiation(&result))
+        final_exponentiation(&result)
     }
 }
 
@@ -290,8 +290,8 @@ pub fn cyclotomic_square(a: &Fp12E) -> Fp12E {
 // read "Efficient Final Exponentiation via Cyclotomic Structure for
 // Pairings over Families of Elliptic Curves" (https://eprint.iacr.org/2020/875.pdf)
 
-pub fn final_exponentiation(f: &Fp12E) -> Fp12E {
-    let f_easy_aux = f.conjugate() * f.inv().unwrap();
+pub fn final_exponentiation(f: &Fp12E) -> Result<Fp12E, PairingError> {
+    let f_easy_aux = f.conjugate() * f.inv().map_err(|_| PairingError::DivisionByZero)?;
     let mut f_easy = frobenius_square(&f_easy_aux) * &f_easy_aux;
 
     let mut v2 = cyclotomic_square(&f_easy); // v2 = f²
@@ -322,7 +322,7 @@ pub fn final_exponentiation(f: &Fp12E) -> Fp12E {
     v0 *= &v2; // v0 = f^((x-1)².(x+p).(x²+p²-1))
 
     f_easy *= &v0;
-    f_easy
+    Ok(f_easy)
 }
 
 pub fn cyclotomic_pow_x(f: &Fp12E) -> Fp12E {
