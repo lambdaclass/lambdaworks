@@ -3,6 +3,7 @@
 #[cfg(feature = "alloc")]
 extern crate alloc;
 
+pub mod circle;
 pub mod cyclic_group;
 pub mod elliptic_curve;
 pub mod errors;
