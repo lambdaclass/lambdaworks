@@ -75,7 +75,7 @@ pub fn interpolate_cfft(
 /// Note: This implementation uses a straightforward approach and is intended for testing purposes only.
 pub fn evaluate_point(
     coef: &Vec<FieldElement<Mersenne31Field>>,
-    point: CirclePoint<Mersenne31Field>,
+    point: &CirclePoint<Mersenne31Field>,
 ) -> FieldElement<Mersenne31Field> {
     let order = coef.len();
     assert!(
@@ -344,7 +344,7 @@ mod tests {
         let coset = Coset::new_standard(5);
         let coset_points = Coset::get_coset_points(&coset);
 
-        assert_eq!(evals[4], evaluate_point(&coeff, coset_points[4].clone()));
+        assert_eq!(evals[4], evaluate_point(&coeff, &coset_points[4].clone()));
 
         let new_coeff = interpolate_cfft(evals);
 
