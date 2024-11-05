@@ -1,14 +1,12 @@
 use crate::domain::Domain;
 use crate::frame::Frame;
-use lambdaworks_math::circle::point::{CirclePoint, HasCircleParams};
+use lambdaworks_math::circle::point::CirclePoint;
 use lambdaworks_math::field::element::FieldElement;
-use lambdaworks_math::field::traits::{IsFFTField, IsField, IsSubFieldOf};
+use lambdaworks_math::field::fields::mersenne31::field::Mersenne31Field;
+use lambdaworks_math::field::traits::IsField;
 /// TransitionConstraint represents the behaviour that a transition constraint
 /// over the computation that wants to be proven must comply with.
-pub trait TransitionConstraint<F, E>: Send + Sync
-where
-    F: IsSubFieldOf<E> + IsFFTField + Send + Sync + HasCircleParams<F>,
-    E: IsField + Send + Sync + HasCircleParams<E>,
+pub trait TransitionConstraint
 {
     /// The degree of the constraint interpreting it as a multivariate polynomial.
     fn degree(&self) -> usize;
@@ -26,7 +24,7 @@ where
     /// the evaluation.
     /// Once computed, the evaluation should be inserted in the `transition_evaluations`
     /// vector, in the index corresponding to the constraint as given by `constraint_idx()`.
-    fn evaluate(&self, frame: &Frame<F>, transition_evaluations: &mut [FieldElement<E>]);
+    fn evaluate(&self, frame: &Frame, transition_evaluations: &mut [FieldElement<Mersenne31Field>]);
 
     /// The periodicity the constraint is applied over the trace.
     ///
@@ -75,12 +73,12 @@ where
     /// Evaluate the `eval_point` in the polynomial that vanishes in all the exemptions points.
     fn evaluate_end_exemptions_poly(
         &self,
-        eval_point: &CirclePoint<F>,
+        eval_point: &CirclePoint<Mersenne31Field>,
         // `trace_group_generator` can be calculated with `trace_length` but it is better to precompute it
-        trace_group_generator: &CirclePoint<F>,
+        trace_group_generator: &CirclePoint<Mersenne31Field>,
         trace_length: usize,
-    ) -> FieldElement<F> {
-        let one = FieldElement::<F>::one();
+    ) -> FieldElement<Mersenne31Field> {
+        let one = FieldElement::<Mersenne31Field>::one();
         if self.end_exemptions() == 0 {
             return one;
         }
@@ -97,7 +95,7 @@ where
     /// TODO: See if we can evaluate using cfft.
     /// TODO: See if we can optimize computing only some evaluations and cycle them as in regular stark.
     #[allow(unstable_name_collisions)]
-    fn zerofier_evaluations_on_extended_domain(&self, domain: &Domain<F>) -> Vec<FieldElement<F>> {
+    fn zerofier_evaluations_on_extended_domain(&self, domain: &Domain) -> Vec<FieldElement<Mersenne31Field>> {
         let blowup_factor = domain.blowup_factor;
         let trace_length = domain.trace_length;
         let trace_log_2_size = trace_length.trailing_zeros();
@@ -116,7 +114,7 @@ where
                 // TODO: Is there a way to avoid this clone()?
                 let mut x = point.x.clone();
                 for _ in 1..trace_log_2_size {
-                    x = x.square().double() - FieldElement::<F>::one();
+                    x = x.square().double() - FieldElement::<Mersenne31Field>::one();
                 }
                 x
             })
@@ -140,10 +138,10 @@ where
     #[allow(unstable_name_collisions)]
     fn evaluate_zerofier(
         &self,
-        eval_point: &CirclePoint<F>,
-        trace_group_generator: &CirclePoint<F>,
+        eval_point: &CirclePoint<Mersenne31Field>,
+        trace_group_generator: &CirclePoint<Mersenne31Field>,
         trace_length: usize,
-    ) -> FieldElement<F> {
+    ) -> FieldElement<Mersenne31Field> {
         // if let Some(exemptions_period) = self.exemptions_period() {
 
         // } else {
@@ -154,7 +152,7 @@ where
         let trace_log_2_size = trace_length.trailing_zeros();
         let mut x = eval_point.x.clone();
         for _ in 1..trace_log_2_size {
-            x = x.square().double() - FieldElement::<F>::one();
+            x = x.square().double() - FieldElement::<Mersenne31Field>::one();
         }
 
         x.inv().unwrap() * end_exemptions_evaluation

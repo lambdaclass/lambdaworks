@@ -5,20 +5,15 @@ use crate::{
 use lambdaworks_math::{
     circle::point::{CirclePoint, HasCircleParams},
     field::{
-        element::FieldElement,
-        traits::{IsFFTField, IsField, IsSubFieldOf},
+        element::FieldElement, fields::mersenne31::field::Mersenne31Field, traits::{IsFFTField, IsField, IsSubFieldOf}
     },
 };
 use std::collections::HashMap;
-type ZerofierGroupKey = (usize, usize, Option<usize>, Option<usize>, usize);
+// type ZerofierGroupKey = (usize, usize, Option<usize>, Option<usize>, usize);
+type ZerofierGroupKey = (usize);
+
 /// AIR is a representation of the Constraints
 pub trait AIR {
-    type Field: IsFFTField
-        + IsSubFieldOf<Self::FieldExtension>
-        + Send
-        + Sync
-        + HasCircleParams<Self::Field>;
-    type FieldExtension: IsField + Send + Sync + HasCircleParams<Self::FieldExtension>;
     type PublicInputs;
 
     fn new(trace_length: usize, pub_inputs: &Self::PublicInputs) -> Self;
@@ -33,17 +28,17 @@ pub trait AIR {
     /// `Self::Field`, since they are the evaluations of the main trace at the LDE domain.
     fn compute_transition_prover(
         &self,
-        frame: &Frame<Self::Field>,
-    ) -> Vec<FieldElement<Self::FieldExtension>> {
+        frame: &Frame,
+    ) -> Vec<FieldElement<Mersenne31Field>> {
         let mut evaluations =
-            vec![FieldElement::<Self::FieldExtension>::zero(); self.num_transition_constraints()];
+            vec![FieldElement::<Mersenne31Field>::zero(); self.num_transition_constraints()];
         self.transition_constraints()
             .iter()
             .for_each(|c| c.evaluate(frame, &mut evaluations));
         evaluations
     }
 
-    fn boundary_constraints(&self) -> BoundaryConstraints<Self::FieldExtension>;
+    fn boundary_constraints(&self) -> BoundaryConstraints<Mersenne31Field>;
 
     /// The method called by the verifier to evaluate the transitions at the out of domain frame.
     /// In the case of the verifier, both main and auxiliary tables of the evaluation frame take
@@ -53,8 +48,8 @@ pub trait AIR {
     /// `compute_transition_prover` should return the same values.
     fn compute_transition_verifier(
         &self,
-        frame: &Frame<Self::Field>,
-    ) -> Vec<FieldElement<Self::FieldExtension>>;
+        frame: &Frame,
+    ) -> Vec<FieldElement<Mersenne31Field>>;
 
     fn context(&self) -> &AirContext;
 
@@ -64,7 +59,7 @@ pub trait AIR {
         2
     }
 
-    fn trace_group_generator(&self) -> CirclePoint<Self::Field> {
+    fn trace_group_generator(&self) -> CirclePoint<Mersenne31Field> {
         let trace_length = self.trace_length();
         let log_2_length = trace_length.trailing_zeros();
         CirclePoint::get_generator_of_subgroup(log_2_length)
@@ -78,14 +73,14 @@ pub trait AIR {
 
     fn transition_constraints(
         &self,
-    ) -> &Vec<Box<dyn TransitionConstraint<Self::Field, Self::FieldExtension>>>;
+    ) -> &Vec<Box<dyn TransitionConstraint>>;
 
     fn transition_zerofier_evaluations(
         &self,
-        domain: &Domain<Self::Field>,
-    ) -> Vec<Vec<FieldElement<Self::Field>>> {
+        domain: &Domain,
+    ) -> Vec<Vec<FieldElement<Mersenne31Field>>> {
         let mut evals = vec![Vec::new(); self.num_transition_constraints()];
-        let mut zerofier_groups: HashMap<ZerofierGroupKey, Vec<FieldElement<Self::Field>>> =
+        let mut zerofier_groups: HashMap<ZerofierGroupKey, Vec<FieldElement<Mersenne31Field>>> =
             HashMap::new();
 
         self.transition_constraints().iter().for_each(|c| {

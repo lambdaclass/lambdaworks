@@ -1,26 +1,26 @@
 use lambdaworks_math::{
     circle::{
         cosets::Coset,
-        point::{CirclePoint, HasCircleParams},
+        point::CirclePoint,
     },
-    field::{element::FieldElement, traits::IsFFTField},
+    field::fields::mersenne31::field::Mersenne31Field,
 };
 
 use super::air::AIR;
 
-pub struct Domain<F: IsFFTField + HasCircleParams<F>> {
+pub struct Domain {
     pub(crate) trace_length: usize,
     pub(crate) trace_log_2_length: u32,
     pub(crate) blowup_factor: usize,
-    pub(crate) trace_coset_points: Vec<CirclePoint<F>>,
-    pub(crate) lde_coset_points: Vec<CirclePoint<F>>,
-    pub(crate) trace_group_generator: CirclePoint<F>,
+    pub(crate) trace_coset_points: Vec<CirclePoint<Mersenne31Field>>,
+    pub(crate) lde_coset_points: Vec<CirclePoint<Mersenne31Field>>,
+    pub(crate) trace_group_generator: CirclePoint<Mersenne31Field>,
 }
 
-impl<F: IsFFTField + HasCircleParams<F>> Domain<F> {
+impl Domain {
     pub fn new<A>(air: &A) -> Self
     where
-        A: AIR<Field = F>,
+        A: AIR,
     {
         // Initial definitions
         let trace_length = air.trace_length();
