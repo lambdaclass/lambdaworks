@@ -5,7 +5,9 @@ use crate::{
 use lambdaworks_math::{
     circle::point::{CirclePoint, HasCircleParams},
     field::{
-        element::FieldElement, fields::mersenne31::field::Mersenne31Field, traits::{IsFFTField, IsField, IsSubFieldOf}
+        element::FieldElement,
+        fields::mersenne31::field::Mersenne31Field,
+        traits::{IsFFTField, IsField, IsSubFieldOf},
     },
 };
 use std::collections::HashMap;
@@ -26,10 +28,7 @@ pub trait AIR {
     /// The method called by the prover to evaluate the transitions corresponding to an evaluation frame.
     /// In the case of the prover, the main evaluation table of the frame takes values in
     /// `Self::Field`, since they are the evaluations of the main trace at the LDE domain.
-    fn compute_transition_prover(
-        &self,
-        frame: &Frame,
-    ) -> Vec<FieldElement<Mersenne31Field>> {
+    fn compute_transition_prover(&self, frame: &Frame) -> Vec<FieldElement<Mersenne31Field>> {
         let mut evaluations =
             vec![FieldElement::<Mersenne31Field>::zero(); self.num_transition_constraints()];
         self.transition_constraints()
@@ -38,7 +37,7 @@ pub trait AIR {
         evaluations
     }
 
-    fn boundary_constraints(&self) -> BoundaryConstraints<Mersenne31Field>;
+    fn boundary_constraints(&self) -> BoundaryConstraints;
 
     /// The method called by the verifier to evaluate the transitions at the out of domain frame.
     /// In the case of the verifier, both main and auxiliary tables of the evaluation frame take
@@ -46,10 +45,7 @@ pub trait AIR {
     /// at the out of domain challenge.
     /// In case `Self::Field` coincides with `Self::FieldExtension`, this method and
     /// `compute_transition_prover` should return the same values.
-    fn compute_transition_verifier(
-        &self,
-        frame: &Frame,
-    ) -> Vec<FieldElement<Mersenne31Field>>;
+    fn compute_transition_verifier(&self, frame: &Frame) -> Vec<FieldElement<Mersenne31Field>>;
 
     fn context(&self) -> &AirContext;
 
@@ -71,9 +67,7 @@ pub trait AIR {
 
     fn pub_inputs(&self) -> &Self::PublicInputs;
 
-    fn transition_constraints(
-        &self,
-    ) -> &Vec<Box<dyn TransitionConstraint>>;
+    fn transition_constraints(&self) -> &Vec<Box<dyn TransitionConstraint>>;
 
     fn transition_zerofier_evaluations(
         &self,
