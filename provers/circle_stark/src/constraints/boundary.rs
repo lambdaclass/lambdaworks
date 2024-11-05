@@ -1,6 +1,7 @@
 use itertools::Itertools;
 use lambdaworks_math::{
-    field::{element::FieldElement, traits::IsField},
+    circle::point::CirclePoint,
+    field::{element::FieldElement, fields::mersenne31::field::Mersenne31Field, traits::IsField},
     polynomial::Polynomial,
 };
 
@@ -10,49 +11,23 @@ use lambdaworks_math::{
 ///   * col: The column of the trace where the constraint must hold
 ///   * step: The step (or row) of the trace where the constraint must hold
 ///   * value: The value the constraint must have in that column and step
-pub struct BoundaryConstraint<F: IsField> {
+pub struct BoundaryConstraint {
     pub col: usize,
     pub step: usize,
-    pub value: FieldElement<F>,
-    pub is_aux: bool,
+    pub value: FieldElement<Mersenne31Field>,
 }
 
-impl<F: IsField> BoundaryConstraint<F> {
-    pub fn new_main(col: usize, step: usize, value: FieldElement<F>) -> Self {
-        Self {
-            col,
-            step,
-            value,
-            is_aux: false,
-        }
-    }
-
-    pub fn new_aux(col: usize, step: usize, value: FieldElement<F>) -> Self {
-        Self {
-            col,
-            step,
-            value,
-            is_aux: true,
-        }
+impl BoundaryConstraint {
+    pub fn new(col: usize, step: usize, value: FieldElement<Mersenne31Field>) -> Self {
+        Self { col, step, value }
     }
 
     /// Used for creating boundary constraints for a trace with only one column
-    pub fn new_simple_main(step: usize, value: FieldElement<F>) -> Self {
+    pub fn new_simple(step: usize, value: FieldElement<Mersenne31Field>) -> Self {
         Self {
             col: 0,
             step,
             value,
-            is_aux: false,
-        }
-    }
-
-    /// Used for creating boundary constraints for a trace with only one column
-    pub fn new_simple_aux(step: usize, value: FieldElement<F>) -> Self {
-        Self {
-            col: 0,
-            step,
-            value,
-            is_aux: true,
         }
     }
 }
@@ -60,20 +35,20 @@ impl<F: IsField> BoundaryConstraint<F> {
 /// Data structure that stores all the boundary constraints that must
 /// hold for the execution trace
 #[derive(Default, Debug)]
-pub struct BoundaryConstraints<F: IsField> {
-    pub constraints: Vec<BoundaryConstraint<F>>,
+pub struct BoundaryConstraints {
+    pub constraints: Vec<BoundaryConstraint>,
 }
 
-impl<F: IsField> BoundaryConstraints<F> {
+impl BoundaryConstraints {
     #[allow(dead_code)]
     pub fn new() -> Self {
         Self {
-            constraints: Vec::<BoundaryConstraint<F>>::new(),
+            constraints: Vec::<BoundaryConstraint>::new(),
         }
     }
 
     /// To instantiate from a vector of BoundaryConstraint elements
-    pub fn from_constraints(constraints: Vec<BoundaryConstraint<F>>) -> Self {
+    pub fn from_constraints(constraints: Vec<BoundaryConstraint>) -> Self {
         Self { constraints }
     }
 
@@ -86,6 +61,7 @@ impl<F: IsField> BoundaryConstraints<F> {
             .collect()
     }
 
+    /// Return all the steps where boundary constraints hold.
     pub fn steps_for_boundary(&self) -> Vec<usize> {
         self.constraints
             .iter()
@@ -94,6 +70,7 @@ impl<F: IsField> BoundaryConstraints<F> {
             .collect()
     }
 
+    /// Return all the columns where boundary constraints hold.
     pub fn cols_for_boundary(&self) -> Vec<usize> {
         self.constraints
             .iter()
@@ -102,28 +79,28 @@ impl<F: IsField> BoundaryConstraints<F> {
             .collect()
     }
 
-    /// Given the primitive root of some domain, returns the domain values corresponding
+    /// Given the group generator of some domain, returns for each column the domain values corresponding
     /// to the steps where the boundary conditions hold. This is useful when interpolating
     /// the boundary conditions, since we must know the x values
     pub fn generate_roots_of_unity(
         &self,
-        primitive_root: &FieldElement<F>,
+        group_generator: &CirclePoint<Mersenne31Field>,
         cols_trace: &[usize],
-    ) -> Vec<Vec<FieldElement<F>>> {
+    ) -> Vec<Vec<CirclePoint<Mersenne31Field>>> {
         cols_trace
             .iter()
             .map(|i| {
                 self.steps(*i)
                     .into_iter()
-                    .map(|s| primitive_root.pow(s))
-                    .collect::<Vec<FieldElement<F>>>()
+                    .map(|s| group_generator * (s as u128))
+                    .collect::<Vec<CirclePoint<Mersenne31Field>>>()
             })
-            .collect::<Vec<Vec<FieldElement<F>>>>()
+            .collect::<Vec<Vec<CirclePoint<Mersenne31Field>>>>()
     }
 
     /// For every trace column, give all the values the trace must be equal to in
     /// the steps where the boundary constraints hold
-    pub fn values(&self, cols_trace: &[usize]) -> Vec<Vec<FieldElement<F>>> {
+    pub fn values(&self, cols_trace: &[usize]) -> Vec<Vec<FieldElement<Mersenne31Field>>> {
         cols_trace
             .iter()
             .map(|i| {
@@ -136,24 +113,28 @@ impl<F: IsField> BoundaryConstraints<F> {
             .collect()
     }
 
-    /// Computes the zerofier of the boundary quotient. The result is the
-    /// multiplication of each binomial that evaluates to zero in the domain
+    /// Evaluate the zerofier of the boundary constraints for a column. The result is the
+    /// multiplication of each zerofier that evaluates to zero in the domain
     /// values where the boundary constraints must hold.
     ///
     /// Example: If there are boundary conditions in the third and fifth steps,
-    /// then the zerofier will be (x - w^3) * (x - w^5)
-    pub fn compute_zerofier(
+    /// then the zerofier will be f(x, y) = ( ((x, y) + p3.conjugate()).x - 1 ) * ( ((x, y) + p5.conjugate()).x - 1 )
+    /// (eval_point + vanish_point.conjugate()).x - FieldElement::<Mersenne31Field>::one()
+    /// TODO: Optimize this function so we don't need to look up and indexes in the coset vector and clone its value.
+    pub fn evaluate_zerofier(
         &self,
-        primitive_root: &FieldElement<F>,
+        trace_coset: &Vec<CirclePoint<Mersenne31Field>>,
         col: usize,
-    ) -> Polynomial<FieldElement<F>> {
+        eval_point: &CirclePoint<Mersenne31Field>,
+    ) -> FieldElement<Mersenne31Field> {
         self.steps(col).into_iter().fold(
-            Polynomial::new_monomial(FieldElement::<F>::one(), 0),
+            FieldElement::<Mersenne31Field>::one(),
             |zerofier, step| {
-                let binomial =
-                    Polynomial::new(&[-primitive_root.pow(step), FieldElement::<F>::one()]);
+                let vanish_point = trace_coset[step].clone();
+                let evaluation = (eval_point + vanish_point.conjugate()).x
+                    - FieldElement::<Mersenne31Field>::one();
                 // TODO: Implement the MulAssign trait for Polynomials?
-                zerofier * binomial
+                zerofier * evaluation
             },
         )
     }
@@ -161,8 +142,11 @@ impl<F: IsField> BoundaryConstraints<F> {
 
 #[cfg(test)]
 mod test {
-    use lambdaworks_math::field::{
-        fields::fft_friendly::stark_252_prime_field::Stark252PrimeField, traits::IsFFTField,
+    use lambdaworks_math::{
+        circle::cosets::Coset,
+        field::{
+            fields::fft_friendly::stark_252_prime_field::Stark252PrimeField, traits::IsFFTField,
+        },
     };
     type PrimeField = Stark252PrimeField;
 
@@ -170,30 +154,25 @@ mod test {
 
     #[test]
     fn zerofier_is_the_correct_one() {
-        let one = FieldElement::<PrimeField>::one();
+        let one = FieldElement::<Mersenne31Field>::one();
 
         // Fibonacci constraints:
         //   * a0 = 1
         //   * a1 = 1
         //   * a7 = 32
-        let a0 = BoundaryConstraint::new_simple_main(0, one);
-        let a1 = BoundaryConstraint::new_simple_main(1, one);
-        let result = BoundaryConstraint::new_simple_main(7, FieldElement::<PrimeField>::from(32));
+        let a0 = BoundaryConstraint::new_simple(0, one);
+        let a1 = BoundaryConstraint::new_simple(1, one);
+        let result = BoundaryConstraint::new_simple(7, FieldElement::<Mersenne31Field>::from(32));
 
-        let constraints = BoundaryConstraints::from_constraints(vec![a0, a1, result]);
-
-        let primitive_root = PrimeField::get_primitive_root_of_unity(3).unwrap();
-
-        // P_0(x) = (x - 1)
-        let a0_zerofier = Polynomial::new(&[-one, one]);
-        // P_1(x) = (x - w^1)
-        let a1_zerofier = Polynomial::new(&[-primitive_root.pow(1u32), one]);
-        // P_res(x) = (x - w^7)
-        let res_zerofier = Polynomial::new(&[-primitive_root.pow(7u32), one]);
-
+        let trace_coset = Coset::get_coset_points(&Coset::new_standard(3));
+        let eval_point = CirclePoint::<Mersenne31Field>::GENERATOR * 2;
+        let a0_zerofier = (&eval_point + &trace_coset[0].clone().conjugate()).x - one;
+        let a1_zerofier = (&eval_point + &trace_coset[1].clone().conjugate()).x - one;
+        let res_zerofier = (&eval_point + &trace_coset[7].clone().conjugate()).x - one;
         let expected_zerofier = a0_zerofier * a1_zerofier * res_zerofier;
 
-        let zerofier = constraints.compute_zerofier(&primitive_root, 0);
+        let constraints = BoundaryConstraints::from_constraints(vec![a0, a1, result]);
+        let zerofier = constraints.evaluate_zerofier(&trace_coset, 0, &eval_point);
 
         assert_eq!(expected_zerofier, zerofier);
     }
