@@ -87,6 +87,7 @@ where
         let period = self.period();
         // This accumulates evaluations of the point at the zerofier at all the offsets positions.
         (1..=self.end_exemptions())
+            // FIXME: I think this is wrong because exemption should be and element of the stndard coset instead of the group. (-nicole)
             .map(|exemption| trace_group_generator * ((trace_length - exemption * period) as u128))
             .fold(one.clone(), |acc, vanishing_point| {
                 acc * ((eval_point + vanishing_point.conjugate()).x - &one)
