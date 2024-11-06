@@ -24,7 +24,7 @@ impl Frame {
 
         let lde_steps = offsets
             .iter()
-            .map(|offset| lde_trace.get_row(row + offset).to_vec())
+            .map(|offset| lde_trace.get_row((row + offset) % num_rows).to_vec())
             .collect_vec();
 
         Frame::new(lde_steps)

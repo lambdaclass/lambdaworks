@@ -1,4 +1,4 @@
-use crate::{air::AIR, config::FriMerkleTree, domain::Domain, frame::Frame, trace::{LDETraceTable, TraceTable}};
+use crate::{air::AIR, config::FriMerkleTree, constraints::evaluator::ConstraintEvaluator, domain::Domain, frame::Frame, trace::{LDETraceTable, TraceTable}};
 use std::marker::PhantomData;
 
 use super::config::Commitment;
@@ -49,12 +49,12 @@ pub trait IsStarkProver<A: AIR> {
             .collect::<Vec<Vec<FieldElement<Mersenne31Field>>>>();
 
         // Evaluate lde trace interpolating polynomial in trace domain.
-        for point in domain.trace_coset_points {
+        for point in &domain.trace_coset_points {
             // println!("{:?}", evaluate_point(&lde_coefficients[0], &point));
         }
 
         // Crate a LDE_TRACE with a blow up factor of one, so its the same values as the trace.
-        let lde_trace = LDETraceTable::new(trace.table.data.clone(), 1, 1);
+        let not_lde_trace = LDETraceTable::new(trace.table.data.clone(), 1, 1);
 
         // --------- VALIDATE BOUNDARY CONSTRAINTS ------------
         air.boundary_constraints()
@@ -75,11 +75,26 @@ pub trait IsStarkProver<A: AIR> {
         });
 
         // --------- VALIDATE TRANSITION CONSTRAINTS -----------
-        for row_index in 0..lde_trace.table.height - 2 {
-            let frame = Frame::read_from_lde(&lde_trace, row_index, &air.context().transition_offsets);
+        for row_index in 0..not_lde_trace.table.height - 2 {
+            let frame = Frame::read_from_lde(&not_lde_trace, row_index, &air.context().transition_offsets);
             let evaluations = air.compute_transition_prover(&frame);
-            println!("Transition constraints evaluations: {:?}", evaluations);
+            // println!("Transition constraints evaluations: {:?}", evaluations);
         }
+
+
+        let transition_coefficients: Vec<FieldElement<Mersenne31Field>> = vec![FieldElement::<Mersenne31Field>::one(); air.context().num_transition_constraints()];
+        let boundary_coefficients: Vec<FieldElement<Mersenne31Field>> = vec![FieldElement::<Mersenne31Field>::one(); air.boundary_constraints().constraints.len()];
+        
+        // Compute the evaluations of the composition polynomial on the LDE domain.
+        let lde_trace = LDETraceTable::from_columns(lde_trace_evaluations, domain.blowup_factor);
+        let evaluator = ConstraintEvaluator::new(&air);
+        let constraint_evaluations = evaluator.evaluate(
+            &air,
+            &lde_trace,
+            &domain,
+            &transition_coefficients,
+            &boundary_coefficients,
+         );
     }
 }
 
