@@ -3,7 +3,6 @@ use crate::frame::Frame;
 use lambdaworks_math::circle::point::CirclePoint;
 use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::fields::mersenne31::field::Mersenne31Field;
-use lambdaworks_math::field::traits::IsField;
 /// TransitionConstraint represents the behaviour that a transition constraint
 /// over the computation that wants to be proven must comply with.
 pub trait TransitionConstraint

@@ -3,27 +3,22 @@ use crate::{
         boundary::{BoundaryConstraint, BoundaryConstraints},
         transition::TransitionConstraint,
     },
-    context::AirContext,
+    air_context::AirContext,
     frame::Frame,
-    proof::options::ProofOptions,
     trace::TraceTable,
-    traits::AIR,
+    air::AIR,
 };
-use lambdaworks_math::field::{element::FieldElement, traits::IsFFTField};
+use lambdaworks_math::field::{element::FieldElement, fields::mersenne31::field::Mersenne31Field, traits::IsFFTField};
 // use std::marker::PhantomData;
 #[derive(Clone)]
-struct FibConstraint<F: IsFFTField> {
-    //phantom: PhantomData<F>,
+struct FibConstraint;
+
+impl FibConstraint {
+    pub fn new() -> Self {
+        Self {}
+    }
 }
-// impl<F: IsFFTField> FibConstraint<F> {
-//     pub fn new() -> Self {
-//         Self {}
-//     }
-// }
-impl<F> TransitionConstraint<F, F> for FibConstraint<F>
-where
-    F: IsFFTField + Send + Sync,
-{
+impl TransitionConstraint for FibConstraint {
     fn degree(&self) -> usize {
         1
     }
@@ -35,10 +30,8 @@ where
     }
     fn evaluate(
         &self,
-        frame: &Frame<F, F>,
-        transition_evaluations: &mut [FieldElement<F>],
-        _periodic_values: &[FieldElement<F>],
-        _rap_challenges: &[FieldElement<F>],
+        frame: &Frame,
+        transition_evaluations: &mut [FieldElement<Mersenne31Field>],
     ) {
         let first_step = frame.get_evaluation_step(0);
         let second_step = frame.get_evaluation_step(1);
@@ -50,32 +43,22 @@ where
         transition_evaluations[self.constraint_idx()] = res;
     }
 }
-pub struct FibonacciAIR<F>
-where
-    F: IsFFTField,
-{
+pub struct FibonacciAIR {
     context: AirContext,
     trace_length: usize,
-    pub_inputs: FibonacciPublicInputs<F>,
-    constraints: Vec<Box<dyn TransitionConstraint<F, F>>>,
+    pub_inputs: FibonacciPublicInputs,
+    constraints: Vec<Box<dyn TransitionConstraint>>,
 }
 #[derive(Clone, Debug)]
-pub struct FibonacciPublicInputs<F>
-where
-    F: IsFFTField,
-{
-    pub a0: FieldElement<F>,
-    pub a1: FieldElement<F>,
+pub struct FibonacciPublicInputs{
+    pub a0: FieldElement<Mersenne31Field>,
+    pub a1: FieldElement<Mersenne31Field>,
 }
-impl<F> AIR for FibonacciAIR<F>
-where
-    F: IsFFTField + Send + Sync + 'static,
+impl AIR for FibonacciAIR
 {
-    type Field = F;
-    type FieldExtension = F;
-    type PublicInputs = FibonacciPublicInputs<Self::Field>;
+    type PublicInputs = FibonacciPublicInputs;
     fn new(trace_length: usize, pub_inputs: &Self::PublicInputs) -> Self {
-        let constraints: Vec<Box<dyn TransitionConstraint<F, F>>> =
+        let constraints: Vec<Box<dyn TransitionConstraint>> =
             vec![Box::new(FibConstraint::new())];
         let context = AirContext {
             trace_columns: 1,
@@ -93,7 +76,7 @@ where
     fn composition_poly_degree_bound(&self) -> usize {
         self.trace_length()
     }
-    fn transition_constraints(&self) -> &Vec<Box<dyn TransitionConstraint<F, F>>> {
+    fn transition_constraints(&self) -> &Vec<Box<dyn TransitionConstraint>> {
         &self.constraints
     }
     fn boundary_constraints(&self) -> BoundaryConstraints {
@@ -107,28 +90,28 @@ where
     fn trace_length(&self) -> usize {
         self.trace_length
     }
-    fn trace_layout(&self) -> (usize, usize) {
-        (1, 0)
+    fn trace_layout(&self) -> usize {
+        1
     }
     fn pub_inputs(&self) -> &Self::PublicInputs {
         &self.pub_inputs
     }
     fn compute_transition_verifier(
         &self,
-        frame: &Frame<Self::FieldExtension, Self::FieldExtension>,
-    ) -> Vec<FieldElement<Self::Field>> {
+        frame: &Frame,
+    ) -> Vec<FieldElement<Mersenne31Field>> {
         self.compute_transition_prover(frame)
     }
 }
-pub fn fibonacci_trace<F: IsFFTField>(
-    initial_values: [FieldElement<F>; 2],
+pub fn fibonacci_trace(
+    initial_values: [FieldElement<Mersenne31Field>; 2],
     trace_length: usize,
-) -> TraceTable<F> {
-    let mut ret: Vec<FieldElement<F>> = vec![];
+) -> TraceTable {
+    let mut ret: Vec<FieldElement<Mersenne31Field>> = vec![];
     ret.push(initial_values[0].clone());
     ret.push(initial_values[1].clone());
     for i in 2..(trace_length) {
         ret.push(ret[i - 1].clone() + ret[i - 2].clone());
     }
-    TraceTable::from_columns(vec![ret], 1, 1)
+    TraceTable::from_columns(vec![ret])
 }

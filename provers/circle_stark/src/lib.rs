@@ -8,3 +8,9 @@ pub mod prover;
 pub mod table;
 pub mod trace;
 pub mod vanishing_poly;
+pub mod examples;
+
+
+
+#[cfg(test)]
+pub mod tests;
