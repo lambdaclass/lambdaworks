@@ -6,8 +6,7 @@ use lambdaworks_math::field::{element::FieldElement, fields::mersenne31::field::
 /// The collected steps are all the necessary steps for
 /// all transition costraints over a trace to be evaluated.
 #[derive(Clone, Debug, PartialEq)]
-pub struct Frame
-{
+pub struct Frame {
     steps: Vec<Vec<FieldElement<Mersenne31Field>>>,
 }
 

@@ -6,9 +6,7 @@ use lambdaworks_math::{
         polynomial::{evaluate_point, interpolate_cfft},
     },
     fft::errors::FFTError,
-    field::{
-        element::FieldElement, fields::mersenne31::field::Mersenne31Field,
-    },
+    field::{element::FieldElement, fields::mersenne31::field::Mersenne31Field},
 };
 #[cfg(feature = "parallel")]
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
@@ -91,8 +89,7 @@ impl TraceTable {
         data
     }
 
-    pub fn compute_trace_polys<S>(&self) -> Vec<Vec<FieldElement<Mersenne31Field>>>
-    {
+    pub fn compute_trace_polys(&self) -> Vec<Vec<FieldElement<Mersenne31Field>>> {
         let columns = self.columns();
         #[cfg(feature = "parallel")]
         let iter = columns.par_iter();
@@ -120,7 +117,12 @@ impl TraceTable {
     /// The row_idx passed as argument may be greater than the max row index by 1. In this case,
     /// last row of the trace is cloned, and the value is set in that cloned row. Then, the row is
     /// appended to the end of the trace.
-    pub fn set_or_extend(&mut self, row_idx: usize, col_idx: usize, value: &FieldElement<Mersenne31Field>) {
+    pub fn set_or_extend(
+        &mut self,
+        row_idx: usize,
+        col_idx: usize,
+        value: &FieldElement<Mersenne31Field>,
+    ) {
         debug_assert!(col_idx < self.n_cols());
         // NOTE: This is not very nice, but for how the function is being used at the moment,
         // the passed `row_idx` should never be greater than `self.n_rows() + 1`. This is just
@@ -137,15 +139,17 @@ impl TraceTable {
         }
     }
 }
-pub struct LDETraceTable
-{
+pub struct LDETraceTable {
     pub(crate) table: Table,
     pub(crate) blowup_factor: usize,
 }
 
-impl LDETraceTable
-{
-    pub fn new(data: Vec<FieldElement<Mersenne31Field>>, n_columns: usize, blowup_factor: usize) -> Self {
+impl LDETraceTable {
+    pub fn new(
+        data: Vec<FieldElement<Mersenne31Field>>,
+        n_columns: usize,
+        blowup_factor: usize,
+    ) -> Self {
         let table = Table::new(data, n_columns);
 
         Self {
@@ -154,7 +158,10 @@ impl LDETraceTable
         }
     }
 
-    pub fn from_columns(columns: Vec<Vec<FieldElement<Mersenne31Field>>>, blowup_factor: usize) -> Self {
+    pub fn from_columns(
+        columns: Vec<Vec<FieldElement<Mersenne31Field>>>,
+        blowup_factor: usize,
+    ) -> Self {
         let table = Table::from_columns(columns);
 
         Self {
@@ -191,14 +198,13 @@ pub fn get_trace_evaluations(
     point: &CirclePoint<Mersenne31Field>,
     frame_offsets: &[usize],
     group_generator: &CirclePoint<Mersenne31Field>,
-) -> Table
-{
+) -> Table {
     let evaluation_points = frame_offsets
         .iter()
         .map(|offset| (group_generator * (*offset as u128)) + point)
         .collect_vec();
 
-        let evaluations: Vec<_> = evaluation_points
+    let evaluations: Vec<_> = evaluation_points
         .iter()
         .flat_map(|eval_point| {
             trace_polys
@@ -211,7 +217,9 @@ pub fn get_trace_evaluations(
     Table::new(evaluations, table_width)
 }
 
-pub fn columns2rows(columns: Vec<Vec<FieldElement<Mersenne31Field>>>) -> Vec<Vec<FieldElement<Mersenne31Field>>> {
+pub fn columns2rows(
+    columns: Vec<Vec<FieldElement<Mersenne31Field>>>,
+) -> Vec<Vec<FieldElement<Mersenne31Field>>> {
     let num_rows = columns[0].len();
     let num_cols = columns.len();
 
