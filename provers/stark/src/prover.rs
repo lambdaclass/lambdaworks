@@ -176,9 +176,6 @@ pub trait IsStarkProver<A: AIR> {
     ) -> Option<(BatchedMerkleTree<A::Field>, Commitment)>
     where
         FieldElement<A::Field>: AsBytes + Sync + Send,
-        // FieldElement<A::FieldExtension>: AsBytes + Sync + Send,
-        // E: IsSubFieldOf<A::FieldExtension>,
-        // A::Field: IsSubFieldOf<E>,
     {
         let tree = BatchedMerkleTree::build(vectors)?;
 
@@ -193,8 +190,6 @@ pub trait IsStarkProver<A: AIR> {
     where
         FieldElement<A::Field>: AsBytes + Sync + Send,
         FieldElement<A::FieldExtension>: AsBytes + Sync + Send,
-        // E: IsSubFieldOf<A::FieldExtension>,
-        // A::Field: IsSubFieldOf<E>,
     {
         let tree = BatchedMerkleTree::build(vectors)?;
 
@@ -244,9 +239,6 @@ pub trait IsStarkProver<A: AIR> {
         let (lde_trace_merkle_tree, lde_trace_merkle_root) =
             Self::batch_commit_main(&lde_trace_permuted_rows)?;
 
-        // let (lde_trace_merkle_tree, lde_trace_merkle_root) =
-        //     Self::batch_commit_main(&lde_trace_permuted_rows);
-
         // >>>> Send commitment.
         transcript.append_bytes(&lde_trace_merkle_root);
 
@@ -278,9 +270,7 @@ pub trait IsStarkProver<A: AIR> {
     )>
     where
         FieldElement<A::Field>: AsBytes + Send + Sync,
-        // FieldElement<E>: AsBytes + Send + Sync,
         FieldElement<A::FieldExtension>: AsBytes + Send + Sync,
-        // E: IsSubFieldOf<A::FieldExtension> + IsFFTField,
         A::Field: IsSubFieldOf<A::FieldExtension> + IsFFTField,
     {
         // Interpolate columns of `trace`.
@@ -322,7 +312,6 @@ pub trait IsStarkProver<A: AIR> {
         FieldElement<A::Field>: Send + Sync,
         E: IsSubFieldOf<A::FieldExtension>,
         A::Field: IsSubFieldOf<E>,
-        // F: IsFFTField,
     {
         #[cfg(not(feature = "parallel"))]
         let trace_polys_iter = trace_polys.iter();
@@ -571,10 +560,6 @@ pub trait IsStarkProver<A: AIR> {
             core::iter::successors(Some(FieldElement::one()), |x| Some(x * &gamma))
                 .take(n_terms_composition_poly + num_terms_trace)
                 .collect();
-
-        // let trace_poly_coeffients: Vec<_> = deep_composition_coefficients
-        //     .drain(..num_terms_trace)
-        //     .collect();
 
         let trace_term_coeffs: Vec<_> = deep_composition_coefficients
             .drain(..num_terms_trace)

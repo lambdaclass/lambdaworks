@@ -385,21 +385,3 @@ where
         })
         .collect()
 }
-
-// #[cfg(test)]
-// mod test {
-//     use super::TraceTable;
-//     use lambdaworks_math::field::{element::FieldElement, fields::u64_prime_field::F17};
-//     type FE = FieldElement<F17>;
-
-//     #[test]
-//     fn test_cols() {
-//         let col_1 = vec![FE::from(1), FE::from(2), FE::from(5), FE::from(13)];
-//         let col_2 = vec![FE::from(1), FE::from(3), FE::from(8), FE::from(21)];
-
-//         let trace_table = TraceTable::from_columns(vec![col_1.clone(), col_2.clone()], 2, 1);
-//         let res_cols = trace_table.columns();
-
-//         assert_eq!(res_cols, vec![col_1, col_2]);
-//     }
-// }
