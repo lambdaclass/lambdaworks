@@ -4,6 +4,7 @@ use std::marker::PhantomData;
 
 use crate::{domain::Domain, frame::Frame, trace::LDETraceTable};
 use itertools::Itertools;
+use lambdaworks_math::circle::point::CirclePoint;
 use lambdaworks_math::circle::polynomial::{evaluate_point, interpolate_cfft};
 use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::fields::mersenne31::field::Mersenne31Field;
@@ -12,6 +13,38 @@ pub struct ConstraintEvaluator<A: AIR> {
     boundary_constraints: BoundaryConstraints,
     phantom: PhantomData<A>,
 }
+
+// See https://vitalik.eth.limo/general/2024/07/23/circlestarks.html (Section: Quetienting).
+// https://github.com/ethereum/research/blob/master/circlestark/line_functions.py#L10
+pub fn line(
+    point: &CirclePoint<Mersenne31Field>,
+    vanish_point_1: &CirclePoint<Mersenne31Field>,
+    vanish_point_2: &CirclePoint<Mersenne31Field>,
+) -> FieldElement<Mersenne31Field> {
+    (vanish_point_1.y - vanish_point_2.y) * point.x
+        + (vanish_point_2.x - vanish_point_1.x) * point.y
+        + (vanish_point_1.x * vanish_point_2.y - vanish_point_1.y * vanish_point_2.x)
+}
+
+// See https://vitalik.eth.limo/general/2024/07/23/circlestarks.html (Section: Quetienting).
+// https://github.com/ethereum/research/blob/master/circlestark/line_functions.py#L16
+// Evaluates the polybomial I at eval_point. I is the polynomial such that I(point_1) = value_1 and
+// I(point_2) = value_2.
+pub fn interpolant(
+    point_1: &CirclePoint<Mersenne31Field>,
+    point_2: &CirclePoint<Mersenne31Field>,
+    value_1: FieldElement<Mersenne31Field>,
+    value_2: FieldElement<Mersenne31Field>,
+    eval_point: &CirclePoint<Mersenne31Field>,
+) -> FieldElement<Mersenne31Field> {
+    let dx = point_2.x - point_1.x;
+    let dy = point_2.y - point_1.y;
+    // CHECK: can dx^2 + dy^2 = 0 even if dx!=0 and dy!=0 ? (using that they are FE of Mersenne31).
+    let invdist = (dx * dx + dy * dy).inv().unwrap();
+    let dot = (eval_point.x - point_1.x) * dx + (eval_point.y - point_1.y) * dy;
+    value_1 + (value_2 - value_1) * dot * invdist
+}
+
 impl<A: AIR> ConstraintEvaluator<A> {
     pub fn new(air: &A) -> Self {
         let boundary_constraints = air.boundary_constraints();
@@ -36,16 +69,16 @@ impl<A: AIR> ConstraintEvaluator<A> {
         let boundary_zerofiers_inverse_evaluations: Vec<Vec<FieldElement<Mersenne31Field>>> =
             boundary_constraints
                 .constraints
-                .iter()
-                .map(|bc| {
-                    let vanish_point = &domain.trace_coset_points[bc.step];
+                .chunks(2)
+                .map(|chunk| {
+                    let first_constraint = &chunk[0];
+                    let second_constraint = &chunk[1];
+                    let first_vanish_point = &domain.trace_coset_points[first_constraint.step];
+                    let second_vanish_point = &domain.trace_coset_points[second_constraint.step];
                     let mut evals = domain
                         .lde_coset_points
                         .iter()
-                        .map(|eval_point| {
-                            (eval_point + vanish_point.clone().conjugate()).x
-                                - FieldElement::<Mersenne31Field>::one()
-                        })
+                        .map(|eval_point| line(eval_point, first_vanish_point, second_vanish_point))
                         .collect::<Vec<FieldElement<Mersenne31Field>>>();
                     FieldElement::inplace_batch_inverse(&mut evals).unwrap();
                     evals
@@ -110,6 +143,7 @@ impl<A: AIR> ConstraintEvaluator<A> {
             .collect::<Vec<Vec<FieldElement<Mersenne31Field>>>>();
 
         // Evaluate lde trace interpolating polynomial in trace domain.
+        // This should print all zeroes except in the end exceptions points.
         for point in &domain.trace_coset_points {
             println!(
                 "{:?}",

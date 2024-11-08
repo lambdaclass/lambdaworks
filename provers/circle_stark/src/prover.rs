@@ -68,9 +68,9 @@ pub trait IsStarkProver<A: AIR> {
                 let trace_value = trace.table.get(step, col).clone();
             
             if boundary_value.clone() != trace_value {
-                println!("Boundary constraint inconsistency - Expected value {:?} in step {} and column {}, found: {:?}", boundary_value, step, col, trace_value);
+                // println!("Boundary constraint inconsistency - Expected value {:?} in step {} and column {}, found: {:?}", boundary_value, step, col, trace_value);
             } else {
-                println!("Consistent Boundary constraint - Expected value {:?} in step {} and column {}, found: {:?}", boundary_value, step, col, trace_value)
+                // println!("Consistent Boundary constraint - Expected value {:?} in step {} and column {}, found: {:?}", boundary_value, step, col, trace_value)
             }
         });
 

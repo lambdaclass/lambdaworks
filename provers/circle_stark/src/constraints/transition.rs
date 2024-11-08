@@ -1,12 +1,12 @@
 use crate::domain::Domain;
 use crate::frame::Frame;
 use lambdaworks_math::circle::point::CirclePoint;
+use lambdaworks_math::circle::polynomial::{evaluate_point, interpolate_cfft};
 use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::fields::mersenne31::field::Mersenne31Field;
 /// TransitionConstraint represents the behaviour that a transition constraint
 /// over the computation that wants to be proven must comply with.
-pub trait TransitionConstraint
-{
+pub trait TransitionConstraint {
     /// The degree of the constraint interpreting it as a multivariate polynomial.
     fn degree(&self) -> usize;
 
@@ -82,12 +82,20 @@ pub trait TransitionConstraint
             return one;
         }
         let period = self.period();
+        let double_group_generator = CirclePoint::<Mersenne31Field>::get_generator_of_subgroup(
+            trace_length.trailing_zeros() + 1,
+        );
         // This accumulates evaluations of the point at the zerofier at all the offsets positions.
         (1..=self.end_exemptions())
-            // FIXME: I think this is wrong because exemption should be and element of the stndard coset instead of the group. (-nicole)
-            .map(|exemption| trace_group_generator * ((trace_length - exemption * period) as u128))
+            .map(|exemption| {
+                &double_group_generator
+                    + (trace_group_generator * ((trace_length - exemption * period) as u128))
+            })
             .fold(one.clone(), |acc, vanishing_point| {
-                acc * ((eval_point + vanishing_point.conjugate()).x - &one)
+                // acc * ((eval_point + vanishing_point.conjugate()).x - &one)
+
+                let h = eval_point + vanishing_point.conjugate();
+                acc * (h.y / &one + h.x)
             })
     }
 
@@ -95,7 +103,10 @@ pub trait TransitionConstraint
     /// TODO: See if we can evaluate using cfft.
     /// TODO: See if we can optimize computing only some evaluations and cycle them as in regular stark.
     #[allow(unstable_name_collisions)]
-    fn zerofier_evaluations_on_extended_domain(&self, domain: &Domain) -> Vec<FieldElement<Mersenne31Field>> {
+    fn zerofier_evaluations_on_extended_domain(
+        &self,
+        domain: &Domain,
+    ) -> Vec<FieldElement<Mersenne31Field>> {
         let blowup_factor = domain.blowup_factor;
         let trace_length = domain.trace_length;
         let trace_log_2_size = trace_length.trailing_zeros();
@@ -119,14 +130,29 @@ pub trait TransitionConstraint
                 x
             })
             .collect();
-        FieldElement::inplace_batch_inverse(&mut zerofier_evaluations).unwrap();
+        // FieldElement::inplace_batch_inverse(&mut zerofier_evaluations).unwrap();
 
-        let end_exemptions_evaluations: Vec<_> = lde_points
+        let mut end_exemptions_evaluations: Vec<_> = lde_points
             .iter()
             .map(|point| {
                 self.evaluate_end_exemptions_poly(point, trace_group_generator, trace_length)
             })
             .collect();
+        FieldElement::inplace_batch_inverse(&mut end_exemptions_evaluations).unwrap();
+
+        // // ---------------  BEGIN TESTING ----------------------------
+        // // Interpolate lde trace evaluations.
+        // let end_exemptions_coeff = interpolate_cfft(end_exemptions_evaluations.clone());
+
+        // // Evaluate lde trace interpolating polynomial in trace domain.
+        // // This should print zeroes only in the end exceptions points.
+        // for point in &domain.trace_coset_points {
+        //     println!(
+        //         "EXEMPTIONS POLYS EVALUATED ON TRACE DOMAIN {:?}",
+        //         evaluate_point(&end_exemptions_coeff, &point)
+        //     );
+        // }
+        // // ---------------  END TESTING ----------------------------
 
         std::iter::zip(zerofier_evaluations, end_exemptions_evaluations)
             .map(|(eval, exemptions_eval)| eval * exemptions_eval)
