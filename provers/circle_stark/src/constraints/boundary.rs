@@ -5,6 +5,8 @@ use lambdaworks_math::{
     polynomial::Polynomial,
 };
 
+use super::evaluator::line;
+
 #[derive(Debug)]
 /// Represents a boundary constraint that must hold in an execution
 /// trace:
@@ -113,30 +115,33 @@ impl BoundaryConstraints {
             .collect()
     }
 
-    /// Evaluate the zerofier of the boundary constraints for a column. The result is the
-    /// multiplication of each zerofier that evaluates to zero in the domain
-    /// values where the boundary constraints must hold.
-    ///
-    /// Example: If there are boundary conditions in the third and fifth steps,
-    /// then the zerofier will be f(x, y) = ( ((x, y) + p3.conjugate()).x - 1 ) * ( ((x, y) + p5.conjugate()).x - 1 )
-    /// (eval_point + vanish_point.conjugate()).x - FieldElement::<Mersenne31Field>::one()
-    /// TODO: Optimize this function so we don't need to look up and indexes in the coset vector and clone its value.
+    /// Given a column, it returns for each boundary constraint in that column, the corresponding evaluation
+    /// in all the `eval_points`.
+    /// We assume that there are an even number of boundary contrainsts in the column `col`.
     pub fn evaluate_zerofier(
         &self,
         trace_coset: &Vec<CirclePoint<Mersenne31Field>>,
         col: usize,
-        eval_point: &CirclePoint<Mersenne31Field>,
-    ) -> FieldElement<Mersenne31Field> {
-        self.steps(col).into_iter().fold(
-            FieldElement::<Mersenne31Field>::one(),
-            |zerofier, step| {
-                let vanish_point = trace_coset[step].clone();
-                let evaluation = (eval_point + vanish_point.conjugate()).x
-                    - FieldElement::<Mersenne31Field>::one();
-                // TODO: Implement the MulAssign trait for Polynomials?
-                zerofier * evaluation
-            },
-        )
+        eval_points: &Vec<CirclePoint<Mersenne31Field>>,
+    ) -> Vec<Vec<FieldElement<Mersenne31Field>>> {
+        self.constraints
+            .iter()
+            .filter(|constraint| constraint.col == col)
+            .chunks(2)
+            .into_iter()
+            .map(|chunk| {
+                let chunk: Vec<_> = chunk.collect();
+                let first_constraint = &chunk[0];
+                let second_constraint = &chunk[1];
+                let first_vanish_point = &trace_coset[first_constraint.step];
+                let second_vanish_point = &trace_coset[second_constraint.step];
+
+                eval_points
+                    .iter()
+                    .map(|eval_point| line(eval_point, &first_vanish_point, &second_vanish_point))
+                    .collect()
+            })
+            .collect()
     }
 }
 
@@ -153,26 +158,25 @@ mod test {
     use super::*;
 
     #[test]
-    fn zerofier_is_the_correct_one() {
+    fn simple_fibonacci_boundary_zerofiers() {
         let one = FieldElement::<Mersenne31Field>::one();
 
         // Fibonacci constraints:
-        //   * a0 = 1
-        //   * a1 = 1
-        //   * a7 = 32
+        // a0 = 1
+        // a1 = 1
         let a0 = BoundaryConstraint::new_simple(0, one);
         let a1 = BoundaryConstraint::new_simple(1, one);
-        let result = BoundaryConstraint::new_simple(7, FieldElement::<Mersenne31Field>::from(32));
 
         let trace_coset = Coset::get_coset_points(&Coset::new_standard(3));
-        let eval_point = CirclePoint::<Mersenne31Field>::GENERATOR * 2;
-        let a0_zerofier = (&eval_point + &trace_coset[0].clone().conjugate()).x - one;
-        let a1_zerofier = (&eval_point + &trace_coset[1].clone().conjugate()).x - one;
-        let res_zerofier = (&eval_point + &trace_coset[7].clone().conjugate()).x - one;
-        let expected_zerofier = a0_zerofier * a1_zerofier * res_zerofier;
+        let eval_points = Coset::get_coset_points(&Coset::new_standard(4));
 
-        let constraints = BoundaryConstraints::from_constraints(vec![a0, a1, result]);
-        let zerofier = constraints.evaluate_zerofier(&trace_coset, 0, &eval_point);
+        let expected_zerofier: Vec<Vec<FieldElement<Mersenne31Field>>> = vec![eval_points
+            .iter()
+            .map(|point| line(point, &trace_coset[0], &trace_coset[1]))
+            .collect()];
+
+        let constraints = BoundaryConstraints::from_constraints(vec![a0, a1]);
+        let zerofier = constraints.evaluate_zerofier(&trace_coset, 0, &eval_points);
 
         assert_eq!(expected_zerofier, zerofier);
     }
