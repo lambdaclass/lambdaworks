@@ -26,7 +26,7 @@ impl TransitionConstraint for FibConstraint {
         0
     }
     fn end_exemptions(&self) -> usize {
-        2
+        4
     }
     fn evaluate(
         &self,

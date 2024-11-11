@@ -83,7 +83,7 @@ pub trait IsStarkProver<A: AIR> {
 
 
         let transition_coefficients: Vec<FieldElement<Mersenne31Field>> = vec![FieldElement::<Mersenne31Field>::one(); air.context().num_transition_constraints()];
-        let boundary_coefficients: Vec<FieldElement<Mersenne31Field>> = vec![FieldElement::<Mersenne31Field>::one(); air.boundary_constraints().constraints.len()];
+        let boundary_coefficients: Vec<FieldElement<Mersenne31Field>> = vec![FieldElement::<Mersenne31Field>::one(); air.boundary_constraints().constraints.len() / 2];
         
         // Compute the evaluations of the composition polynomial on the LDE domain.
         let lde_trace = LDETraceTable::from_columns(lde_trace_evaluations, domain.blowup_factor);

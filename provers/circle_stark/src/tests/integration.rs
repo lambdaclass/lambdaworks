@@ -16,7 +16,7 @@ use crate::{
 fn test_prove_fib() {
     type FE = FieldElement<Mersenne31Field>;
 
-    let trace = simple_fibonacci::fibonacci_trace([FE::one(), FE::one()], 16);
+    let trace = simple_fibonacci::fibonacci_trace([FE::one(), FE::one()], 32);
 
     let pub_inputs = FibonacciPublicInputs {
         a0: FE::one(),

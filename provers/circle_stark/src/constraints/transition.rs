@@ -1,5 +1,6 @@
 use crate::domain::Domain;
 use crate::frame::Frame;
+use crate::constraints::evaluator::line;
 use lambdaworks_math::circle::point::CirclePoint;
 use lambdaworks_math::circle::polynomial::{evaluate_point, interpolate_cfft};
 use lambdaworks_math::field::element::FieldElement;
@@ -77,26 +78,28 @@ pub trait TransitionConstraint {
         trace_group_generator: &CirclePoint<Mersenne31Field>,
         trace_length: usize,
     ) -> FieldElement<Mersenne31Field> {
+
         let one = FieldElement::<Mersenne31Field>::one();
+
         if self.end_exemptions() == 0 {
             return one;
         }
-        let period = self.period();
+
         let double_group_generator = CirclePoint::<Mersenne31Field>::get_generator_of_subgroup(
             trace_length.trailing_zeros() + 1,
         );
-        // This accumulates evaluations of the point at the zerofier at all the offsets positions.
-        (1..=self.end_exemptions())
-            .map(|exemption| {
-                &double_group_generator
-                    + (trace_group_generator * ((trace_length - exemption * period) as u128))
-            })
-            .fold(one.clone(), |acc, vanishing_point| {
-                // acc * ((eval_point + vanishing_point.conjugate()).x - &one)
 
-                let h = eval_point + vanishing_point.conjugate();
-                acc * (h.y / &one + h.x)
+        (1..=self.end_exemptions())
+            .step_by(2)
+            .map(|exemption| {
+                println!("EXEMPTION: {:?}", exemption);
+                let first_vanish_point = &double_group_generator + (trace_group_generator * ((trace_length - exemption) as u128));
+        
+                let second_vanish_point = &double_group_generator + (trace_group_generator * ((trace_length - (exemption + 1)) as u128));
+
+                line(eval_point, &first_vanish_point, &second_vanish_point)
             })
+            .fold(one, |acc, eval| acc * eval)
     }
 
     /// Compute evaluations of the constraints zerofier over a LDE domain.
@@ -130,57 +133,56 @@ pub trait TransitionConstraint {
                 x
             })
             .collect();
-        // FieldElement::inplace_batch_inverse(&mut zerofier_evaluations).unwrap();
+        FieldElement::inplace_batch_inverse(&mut zerofier_evaluations).unwrap();
 
-        let mut end_exemptions_evaluations: Vec<_> = lde_points
+        let end_exemptions_evaluations: Vec<_> = lde_points
             .iter()
             .map(|point| {
                 self.evaluate_end_exemptions_poly(point, trace_group_generator, trace_length)
             })
             .collect();
-        FieldElement::inplace_batch_inverse(&mut end_exemptions_evaluations).unwrap();
 
-        // // ---------------  BEGIN TESTING ----------------------------
-        // // Interpolate lde trace evaluations.
-        // let end_exemptions_coeff = interpolate_cfft(end_exemptions_evaluations.clone());
+        // ---------------  BEGIN TESTING ----------------------------
+        // Interpolate lde trace evaluations.
+        let end_exemptions_coeff = interpolate_cfft(end_exemptions_evaluations.clone());
 
-        // // Evaluate lde trace interpolating polynomial in trace domain.
-        // // This should print zeroes only in the end exceptions points.
-        // for point in &domain.trace_coset_points {
-        //     println!(
-        //         "EXEMPTIONS POLYS EVALUATED ON TRACE DOMAIN {:?}",
-        //         evaluate_point(&end_exemptions_coeff, &point)
-        //     );
-        // }
-        // // ---------------  END TESTING ----------------------------
+        // Evaluate lde trace interpolating polynomial in trace domain.
+        // This should print zeroes only in the end exceptions points.
+        for point in &domain.trace_coset_points {
+            println!(
+                "EXEMPTIONS POLYS EVALUATED ON TRACE DOMAIN {:?}",
+                evaluate_point(&end_exemptions_coeff, &point)
+            );
+        }
+        // ---------------  END TESTING ----------------------------
 
         std::iter::zip(zerofier_evaluations, end_exemptions_evaluations)
             .map(|(eval, exemptions_eval)| eval * exemptions_eval)
             .collect()
     }
 
-    /// Returns the evaluation of the zerofier corresponding to this constraint in some point
-    /// `eval_point`, (which is in the circle over the extension field).
-    #[allow(unstable_name_collisions)]
-    fn evaluate_zerofier(
-        &self,
-        eval_point: &CirclePoint<Mersenne31Field>,
-        trace_group_generator: &CirclePoint<Mersenne31Field>,
-        trace_length: usize,
-    ) -> FieldElement<Mersenne31Field> {
-        // if let Some(exemptions_period) = self.exemptions_period() {
+    ///// Returns the evaluation of the zerofier corresponding to this constraint in some point
+    ///// `eval_point`, (which is in the circle over the extension field).
+    // #[allow(unstable_name_collisions)]
+    // fn evaluate_zerofier(
+    //     &self,
+    //     eval_point: &CirclePoint<Mersenne31Field>,
+    //     trace_group_generator: &CirclePoint<Mersenne31Field>,
+    //     trace_length: usize,
+    // ) -> FieldElement<Mersenne31Field> {
+    //     // if let Some(exemptions_period) = self.exemptions_period() {
 
-        // } else {
+    //     // } else {
 
-        let end_exemptions_evaluation =
-            self.evaluate_end_exemptions_poly(eval_point, trace_group_generator, trace_length);
+    //     let end_exemptions_evaluation =
+    //         self.evaluate_end_exemptions_poly(eval_point, trace_group_generator, trace_length);
 
-        let trace_log_2_size = trace_length.trailing_zeros();
-        let mut x = eval_point.x.clone();
-        for _ in 1..trace_log_2_size {
-            x = x.square().double() - FieldElement::<Mersenne31Field>::one();
-        }
+    //     let trace_log_2_size = trace_length.trailing_zeros();
+    //     let mut x = eval_point.x.clone();
+    //     for _ in 1..trace_log_2_size {
+    //         x = x.square().double() - FieldElement::<Mersenne31Field>::one();
+    //     }
 
-        x.inv().unwrap() * end_exemptions_evaluation
-    }
+    //     x.inv().unwrap() * end_exemptions_evaluation
+    // }
 }
