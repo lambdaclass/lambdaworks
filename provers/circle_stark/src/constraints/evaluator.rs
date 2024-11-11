@@ -17,13 +17,14 @@ pub struct ConstraintEvaluator<A: AIR> {
 // See https://vitalik.eth.limo/general/2024/07/23/circlestarks.html (Section: Quetienting).
 // https://github.com/ethereum/research/blob/master/circlestark/line_functions.py#L10
 pub fn line(
-    point: &CirclePoint<Mersenne31Field>,
-    vanish_point_1: &CirclePoint<Mersenne31Field>,
-    vanish_point_2: &CirclePoint<Mersenne31Field>,
+    eval_point: &CirclePoint<Mersenne31Field>,
+    first_vanish_point: &CirclePoint<Mersenne31Field>,
+    second_vanish_point: &CirclePoint<Mersenne31Field>,
 ) -> FieldElement<Mersenne31Field> {
-    (vanish_point_1.y - vanish_point_2.y) * point.x
-        + (vanish_point_2.x - vanish_point_1.x) * point.y
-        + (vanish_point_1.x * vanish_point_2.y - vanish_point_1.y * vanish_point_2.x)
+    (first_vanish_point.y - second_vanish_point.y) * eval_point.x
+        + (second_vanish_point.x - first_vanish_point.x) * eval_point.y
+        + (first_vanish_point.x * second_vanish_point.y
+            - first_vanish_point.y * second_vanish_point.x)
 }
 
 // See https://vitalik.eth.limo/general/2024/07/23/circlestarks.html (Section: Quetienting).
@@ -85,18 +86,47 @@ impl<A: AIR> ConstraintEvaluator<A> {
                 })
                 .collect::<Vec<Vec<FieldElement<Mersenne31Field>>>>();
 
-        let boundary_polys_evaluations = boundary_constraints
-            .constraints
-            .iter()
-            .map(|constraint| {
-                (0..lde_trace.num_rows())
-                    .map(|row| {
-                        let v = lde_trace.table.get(row, constraint.col);
-                        v - &constraint.value
-                    })
-                    .collect_vec()
-            })
-            .collect_vec();
+        let boundary_polys_evaluations: Vec<Vec<FieldElement<Mersenne31Field>>> =
+            boundary_constraints
+                .constraints
+                .chunks(2)
+                .map(|chunk| {
+                    let first_constraint = &chunk[0];
+                    let second_constraint = &chunk[1];
+                    let first_vanish_point = &domain.trace_coset_points[first_constraint.step];
+                    let first_value = first_constraint.value;
+                    let second_vanish_point = &domain.trace_coset_points[second_constraint.step];
+                    let second_value = second_constraint.value;
+                    let mut evals = domain
+                        .lde_coset_points
+                        .iter()
+                        .map(|eval_point| {
+                            interpolant(
+                                first_vanish_point,
+                                second_vanish_point,
+                                first_value,
+                                second_value,
+                                eval_point,
+                            )
+                        })
+                        .collect::<Vec<FieldElement<Mersenne31Field>>>();
+                    FieldElement::inplace_batch_inverse(&mut evals).unwrap();
+                    evals
+                })
+                .collect::<Vec<Vec<FieldElement<Mersenne31Field>>>>();
+
+        // let boundary_polys_evaluations = boundary_constraints
+        //     .constraints
+        //     .iter()
+        //     .map(|constraint| {
+        //         (0..lde_trace.num_rows())
+        //             .map(|row| {
+        //                 let v = lde_trace.table.get(row, constraint.col);
+        //                 v - &constraint.value
+        //             })
+        //             .collect_vec()
+        //     })
+        //     .collect_vec();
 
         // ---------------  BEGIN TESTING ----------------------------
         // Interpolate lde trace evaluations.
