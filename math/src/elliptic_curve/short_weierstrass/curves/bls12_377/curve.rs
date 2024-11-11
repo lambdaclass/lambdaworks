@@ -1,5 +1,6 @@
 use super::{
     field_extension::{BLS12377PrimeField, Degree2ExtensionField},
+    pairing::{GAMMA_12, GAMMA_13},
     twist::BLS12377TwistCurve,
 };
 use crate::cyclic_group::IsGroup;
@@ -12,10 +13,9 @@ use crate::{
 };
 
 pub const SUBGROUP_ORDER: U256 =
-    U256::from_hex_unchecked("12ab655e9a2ca55660b44d1e5c37b00159aa76fed00000010a11800000000001");
+    U256::from_hex_unchecked("0x12ab655e9a2ca55660b44d1e5c37b00159aa76fed00000010a11800000000001");
 
-pub const CURVE_COFACTOR: U256 =
-    U256::from_hex_unchecked("0x30631250834960419227450344600217059328");
+pub const CURVE_COFACTOR: U256 = U256::from_hex_unchecked("0x170b5d44300000000000000000000000");
 
 pub type BLS12377FieldElement = FieldElement<BLS12377PrimeField>;
 pub type BLS12377TwistCurveFieldElement = FieldElement<Degree2ExtensionField>;
@@ -28,6 +28,7 @@ impl IsEllipticCurve for BLS12377Curve {
     type BaseField = BLS12377PrimeField;
     type PointRepresentation = ShortWeierstrassProjectivePoint<Self>;
 
+    // generator values are taken from https://neuromancer.sk/std/bls/BLS12-377
     fn generator() -> Self::PointRepresentation {
         Self::PointRepresentation::new([
             FieldElement::<Self::BaseField>::new_base("8848defe740a67c8fc6225bf87ff5485951e2caa9d41bb188282c8bd37cb5cd5481512ffcd394eeab9b16eb21be9ef"),
@@ -99,8 +100,8 @@ impl ShortWeierstrassProjectivePoint<BLS12377TwistCurve> {
     fn psi(&self) -> Self {
         let [x, y, z] = self.coordinates();
         Self::new([
-            x.conjugate() * ENDO_U,
-            y.conjugate() * ENDO_V,
+            x.conjugate() * GAMMA_12,
+            y.conjugate() * GAMMA_13,
             z.conjugate(),
         ])
     }

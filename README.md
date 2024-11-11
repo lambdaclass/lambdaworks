@@ -96,7 +96,7 @@ List of symbols:
 | Rescue Prime XLIX             | :x:             | :x:                | :x:                | :x:       | :x:             |
 | **Elliptic Curves** | **Lambdaworks** | **Arkworks**          | **Halo2**          | **gnark**          | **Constantine**    |
 | BLS12-381           | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |
-| BLS12-377           | 🏗️                 | :heavy_check_mark: | :x:                | :heavy_check_mark: | :heavy_check_mark: |
+| BLS12-377           | :heavy_check_mark:                  | :heavy_check_mark: | :x:                | :heavy_check_mark: | :heavy_check_mark: |
 | BN-254              | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |
 | Pallas              | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :x:                | :heavy_check_mark: |
 | Vesta               | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :x:                | :heavy_check_mark: |
