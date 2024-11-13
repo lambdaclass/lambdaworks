@@ -6,7 +6,7 @@ use itertools::Itertools;
 use lambdaworks_math::{
     circle::{
         point::CirclePoint,
-        polynomial::{evaluate_point, interpolate_cfft},
+        polynomial::{evaluate_cfft, evaluate_point, interpolate_cfft},
     },
     field::{element::FieldElement, fields::mersenne31::field::Mersenne31Field},
 };
@@ -18,104 +18,23 @@ pub(crate) fn evaluate_cp<A: AIR>(
     transition_coefficients: &[FieldElement<Mersenne31Field>],
     boundary_coefficients: &[FieldElement<Mersenne31Field>],
 ) -> Vec<FieldElement<Mersenne31Field>> {
+    // >>> First, we compute the part of the Composition Polynomial related to the boundary constraints.
+
     let boundary_constraints = &air.boundary_constraints();
     let number_of_b_constraints = boundary_constraints.constraints.len();
+    let trace_coset = &domain.trace_coset_points;
+    let lde_coset = &domain.lde_coset_points;
 
-    let boundary_zerofiers_inverse_evaluations: Vec<Vec<FieldElement<Mersenne31Field>>> =
-        boundary_constraints
-            .constraints
-            .chunks(2)
-            .map(|chunk| {
-                let first_constraint = &chunk[0];
-                let second_constraint = &chunk[1];
-                let first_vanish_point = &domain.trace_coset_points[first_constraint.step];
-                let second_vanish_point = &domain.trace_coset_points[second_constraint.step];
-                let mut evals = domain
-                    .lde_coset_points
-                    .iter()
-                    .map(|eval_point| line(eval_point, first_vanish_point, second_vanish_point))
-                    .collect::<Vec<FieldElement<Mersenne31Field>>>();
-                FieldElement::inplace_batch_inverse(&mut evals).unwrap();
-                evals
-            })
-            .collect::<Vec<Vec<FieldElement<Mersenne31Field>>>>();
+    // For each pair of boundary constraints, we calculate the denominator's evaluations.
+    let boundary_zerofiers_inverse_evaluations =
+        boundary_constraints.evaluate_zerofiers(&trace_coset, &lde_coset);
 
-    let boundary_polys_evaluations: Vec<Vec<FieldElement<Mersenne31Field>>> = boundary_constraints
-        .constraints
-        .chunks(2)
-        .map(|chunk| {
-            let first_constraint = &chunk[0];
-            let second_constraint = &chunk[1];
-            let first_vanish_point = &domain.trace_coset_points[first_constraint.step];
-            let first_value = first_constraint.value;
-            let second_vanish_point = &domain.trace_coset_points[second_constraint.step];
-            let second_value = second_constraint.value;
-            let evals = domain
-                .lde_coset_points
-                .iter()
-                .zip(&lde_trace.table.data)
-                .map(|(eval_point, lde_eval)| {
-                    lde_eval
-                        - interpolant(
-                            first_vanish_point,
-                            second_vanish_point,
-                            first_value,
-                            second_value,
-                            eval_point,
-                        )
-                })
-                .collect::<Vec<FieldElement<Mersenne31Field>>>();
-            evals
-        })
-        .collect::<Vec<Vec<FieldElement<Mersenne31Field>>>>();
+    // For each pair of boundary constraints, we calculate the numerator's evaluations.
+    let boundary_polys_evaluations =
+        boundary_constraints.evaluate_poly_constraints(&trace_coset, &lde_coset, lde_trace);
 
-    // let boundary_polys_evaluations = boundary_constraints
-    //     .constraints
-    //     .iter()
-    //     .map(|constraint| {
-    //         (0..lde_trace.num_rows())
-    //             .map(|row| {
-    //                 let v = lde_trace.table.get(row, constraint.col);
-    //                 v - &constraint.value
-    //             })
-    //             .collect_vec()
-    //     })
-    //     .collect_vec();
-
-    // ---------------  BEGIN TESTING ----------------------------
-    // Interpolate lde trace evaluations.
-    let l_poly_coefficients = boundary_zerofiers_inverse_evaluations
-        .iter()
-        .map(|evals| {
-            let mut inverse_evals = evals.clone();
-            FieldElement::inplace_batch_inverse(&mut inverse_evals).unwrap();
-            interpolate_cfft(inverse_evals.to_vec())
-        })
-        .collect::<Vec<Vec<FieldElement<Mersenne31Field>>>>();
-
-    let fi_poly_coefficients = boundary_polys_evaluations
-        .iter()
-        .map(|evals| interpolate_cfft(evals.to_vec()))
-        .collect::<Vec<Vec<FieldElement<Mersenne31Field>>>>();
-
-    // Evaluate lde trace interpolating polynomial in trace domain.
-    for point in &domain.trace_coset_points {
-        println!("-----------------------");
-        println!(
-            "L evaluation: {:?}",
-            evaluate_point(&l_poly_coefficients[0], &point)
-        );
-        println!(
-            "F-I evaluation: {:?}",
-            evaluate_point(&fi_poly_coefficients[0], &point)
-        );
-    }
-
-    // ---------------  END TESTING ----------------------------
-
-    let boundary_eval_iter = 0..domain.lde_coset_points.len();
-
-    let boundary_evaluation: Vec<_> = boundary_eval_iter
+    // We begin to construct the cp by adding each numerator mulpitlied by the denominator and the beta coefficient.
+    let cp_boundary: Vec<FieldElement<Mersenne31Field>> = (0..lde_coset.len())
         .map(|domain_index| {
             (0..number_of_b_constraints)
                 .step_by(2)
@@ -128,53 +47,138 @@ pub(crate) fn evaluate_cp<A: AIR>(
         })
         .collect();
 
-    // Iterate over all LDE domain and compute the part of the composition polynomial
-    // related to the transition constraints and add it to the already computed part of the
-    // boundary constraints.
+    // >>> Now we compute the part of the CP related to the transition constraints and add it to the already
+    // computed part of the boundary constraints.
 
-    let zerofiers_evals = air.transition_zerofier_evaluations(domain);
+    // For each transition constraint, we calulate its zerofier's evaluations.
+    let transition_zerofiers_inverse_evaluations = air.transition_zerofier_evaluations(domain);
 
-    // ---------------  BEGIN TESTING ----------------------------
-    // Interpolate lde trace evaluations.
-    // let zerofier_poly_coefficients = zerofiers_evals
-    //     .iter()
-    //     .map(|evals| interpolate_cfft(evals.to_vec()))
-    //     .collect::<Vec<Vec<FieldElement<Mersenne31Field>>>>();
-
-    // // Evaluate lde trace interpolating polynomial in trace domain.
-    // // This should print all zeroes except in the end exceptions points.
-    // for point in &domain.trace_coset_points {
-    //     println!(
-    //         "{:?}",
-    //         evaluate_point(&zerofier_poly_coefficients[0], &point)
-    //     );
-    // }
-    // ---------------  END TESTING ----------------------------
-
-    let evaluations_t_iter = 0..domain.lde_coset_points.len();
-
-    let evaluations_t = evaluations_t_iter
-        .zip(boundary_evaluation)
-        .map(|(i, boundary)| {
-            let frame = Frame::read_from_lde(lde_trace, i, &air.context().transition_offsets);
-
-            // Compute all the transition constraints at this point of the LDE domain.
-            let evaluations_transition = air.compute_transition_prover(&frame);
-
-            // Add each term of the transition constraints to the composition polynomial, including the zerofier,
-            // the challenge and the exemption polynomial if it is necessary.
-            let acc_transition = itertools::izip!(
-                evaluations_transition,
-                &zerofiers_evals,
+    //
+    let cp_evaluations = (0..lde_coset.len())
+        .zip(cp_boundary)
+        .map(|(eval_index, boundary_eval)| {
+            let frame =
+                Frame::read_from_lde(lde_trace, eval_index, &air.context().transition_offsets);
+            let transition_poly_evaluations = air.compute_transition_prover(&frame);
+            let transition_polys_accumulator = itertools::izip!(
+                transition_poly_evaluations,
+                &transition_zerofiers_inverse_evaluations,
                 transition_coefficients
             )
-            .fold(FieldElement::zero(), |acc, (eval, zerof_eval, beta)| {
-                acc + &zerof_eval[i] * eval * beta
-            });
-
-            acc_transition + boundary
+            .fold(
+                FieldElement::zero(),
+                |acc, (transition_eval, zerof_eval, beta)| {
+                    acc + &zerof_eval[eval_index] * transition_eval * beta
+                },
+            );
+            transition_polys_accumulator + boundary_eval
         })
         .collect();
 
-    evaluations_t
+    cp_evaluations
+}
+
+#[cfg(test)]
+mod test {
+
+    use crate::examples::simple_fibonacci::{self, FibonacciAIR, FibonacciPublicInputs};
+
+    use super::*;
+
+    type FE = FieldElement<Mersenne31Field>;
+
+    fn build_fibonacci_example() {}
+
+    #[test]
+    fn boundary_zerofiers_vanish_correctly() {
+        // Build Fibonacci Example
+        let trace = simple_fibonacci::fibonacci_trace([FE::one(), FE::one()], 32);
+        let pub_inputs = FibonacciPublicInputs {
+            a0: FE::one(),
+            a1: FE::one(),
+        };
+        let air = FibonacciAIR::new(trace.n_rows(), &pub_inputs);
+        let boundary_constraints = air.boundary_constraints();
+        let domain = Domain::new(&air);
+
+        // Calculate the boundary zerofiers evaluations (L function).
+        let boundary_zerofiers_inverse_evaluations = boundary_constraints
+            .evaluate_zerofiers(&domain.trace_coset_points, &domain.lde_coset_points);
+
+        // Interpolate the boundary zerofiers evaluations.
+        let boundary_zerofiers_coeff = boundary_zerofiers_inverse_evaluations
+            .iter()
+            .map(|evals| {
+                let mut inverse_evals = evals.clone();
+                FieldElement::inplace_batch_inverse(&mut inverse_evals).unwrap();
+                interpolate_cfft(inverse_evals.to_vec())
+            })
+            .collect::<Vec<Vec<FieldElement<Mersenne31Field>>>>();
+
+        // Since simple fibonacci only has one pair of boundary constraints we only check that
+        // the corresponding polynomial evaluates 0 in the first two coset points and different from 0
+        // in the rest of the points.
+        assert_eq!(
+            evaluate_point(&boundary_zerofiers_coeff[0], &domain.trace_coset_points[0]),
+            FE::zero()
+        );
+
+        assert_eq!(
+            evaluate_point(&boundary_zerofiers_coeff[0], &domain.trace_coset_points[1]),
+            FE::zero()
+        );
+
+        for point in domain.trace_coset_points.iter().skip(2) {
+            assert_ne!(
+                evaluate_point(&boundary_zerofiers_coeff[0], &point),
+                FE::zero()
+            );
+        }
+    }
+
+    #[test]
+    fn boundary_polys_vanish_correctly() {
+        // Build Fibonacci Example
+        let trace = simple_fibonacci::fibonacci_trace([FE::one(), FE::one()], 32);
+        let pub_inputs = FibonacciPublicInputs {
+            a0: FE::one(),
+            a1: FE::one(),
+        };
+        let air = FibonacciAIR::new(trace.n_rows(), &pub_inputs);
+        let boundary_constraints = air.boundary_constraints();
+        let domain = Domain::new(&air);
+
+        // Evaluate each polynomial in the lde domain.
+        let lde_trace = LDETraceTable::new(trace.table.data.clone(), 1, 1);
+
+        // Calculate boundary polynomials evaluations (the polynomial f - I).
+        let boundary_polys_evaluations = boundary_constraints.evaluate_poly_constraints(
+            &domain.trace_coset_points,
+            &domain.lde_coset_points,
+            &lde_trace,
+        );
+
+        // Interpolate the boundary polynomials evaluations.
+        let boundary_poly_coeff = boundary_polys_evaluations
+            .iter()
+            .map(|evals| interpolate_cfft(evals.to_vec()))
+            .collect::<Vec<Vec<FieldElement<Mersenne31Field>>>>();
+
+        // Since simple fibonacci only has one pair of boundary constraints we only check that
+        // the corresponding polynomial evaluates 0 in the first two coset points and different from 0
+        // in the rest of the points.
+        assert_eq!(
+            evaluate_point(&boundary_poly_coeff[0], &domain.trace_coset_points[0]),
+            FE::zero()
+        );
+
+        assert_eq!(
+            evaluate_point(&boundary_poly_coeff[0], &domain.trace_coset_points[1]),
+            FE::zero()
+        );
+
+        for point in domain.trace_coset_points.iter().skip(2) {
+            assert_ne!(evaluate_point(&boundary_poly_coeff[0], &point), FE::zero());
+        }
+    }
 }

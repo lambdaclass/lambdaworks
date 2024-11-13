@@ -5,7 +5,9 @@ use lambdaworks_math::{
     polynomial::Polynomial,
 };
 
-use super::evaluator::line;
+use crate::trace::LDETraceTable;
+
+use super::{evaluator::line, utils::interpolant};
 
 #[derive(Debug)]
 /// Represents a boundary constraint that must hold in an execution
@@ -115,34 +117,131 @@ impl BoundaryConstraints {
             .collect()
     }
 
-    /// Given a column, it returns for each boundary constraint in that column, the corresponding evaluation
+    /// For every column, it returns for each pair of boundary constraints in that column, the corresponding evaluation
     /// in all the `eval_points`.
-    /// We assume that there are an even number of boundary contrainsts in the column `col`.
-    pub fn evaluate_zerofier(
+    // We assume that there are an even number of boundary contrainsts in the column `col`.
+    // TODO: If two columns have a pair of boundary constraints that hold in the same rows, we can optimize
+    // this function so that we don't calculate the same line evaluations for the two of them. Maybe a hashmap?
+    pub fn evaluate_zerofiers(
         &self,
         trace_coset: &Vec<CirclePoint<Mersenne31Field>>,
-        col: usize,
         eval_points: &Vec<CirclePoint<Mersenne31Field>>,
     ) -> Vec<Vec<FieldElement<Mersenne31Field>>> {
-        self.constraints
-            .iter()
-            .filter(|constraint| constraint.col == col)
-            .chunks(2)
-            .into_iter()
-            .map(|chunk| {
-                let chunk: Vec<_> = chunk.collect();
-                let first_constraint = &chunk[0];
-                let second_constraint = &chunk[1];
-                let first_vanish_point = &trace_coset[first_constraint.step];
-                let second_vanish_point = &trace_coset[second_constraint.step];
+        let mut zerofiers_evaluations = Vec::new();
+        for col in self.cols_for_boundary() {
+            self.constraints
+                .iter()
+                .filter(|constraint| constraint.col == col)
+                .chunks(2)
+                .into_iter()
+                .map(|chunk| {
+                    let chunk: Vec<_> = chunk.collect();
+                    let first_constraint = &chunk[0];
+                    let second_constraint = &chunk[1];
+                    let first_vanish_point = &trace_coset[first_constraint.step];
+                    let second_vanish_point = &trace_coset[second_constraint.step];
 
-                eval_points
-                    .iter()
-                    .map(|eval_point| line(eval_point, &first_vanish_point, &second_vanish_point))
-                    .collect()
-            })
-            .collect()
+                    let mut boundary_evaluations: Vec<FieldElement<Mersenne31Field>> = eval_points
+                        .iter()
+                        .map(|eval_point| {
+                            line(eval_point, &first_vanish_point, &second_vanish_point)
+                        })
+                        .collect();
+                    FieldElement::inplace_batch_inverse(&mut boundary_evaluations).unwrap();
+                    zerofiers_evaluations.push(boundary_evaluations);
+                })
+                .collect() // TODO: We don't use this collect.
+        }
+        zerofiers_evaluations
     }
+
+    /// For every columnm, and every constrain, returns the evaluation on the entire lde domain of the constrain function F(x) - I(x).
+    // Note this is the numerator of each pair of constrains for the composition polynomial.
+    pub fn evaluate_poly_constraints(
+        &self,
+        trace_coset: &Vec<CirclePoint<Mersenne31Field>>,
+        eval_points: &Vec<CirclePoint<Mersenne31Field>>,
+        lde_trace: &LDETraceTable,
+    ) -> Vec<Vec<FieldElement<Mersenne31Field>>> {
+        let mut poly_evaluations = Vec::new();
+        for col in self.cols_for_boundary() {
+            self.constraints
+                .iter()
+                .filter(|constraint| constraint.col == col)
+                .chunks(2)
+                .into_iter()
+                .map(|chunk| {
+                    let chunk: Vec<_> = chunk.collect();
+                    let first_constraint = &chunk[0];
+                    let second_constraint = &chunk[1];
+                    let first_vanish_point = &trace_coset[first_constraint.step];
+                    let first_value = first_constraint.value;
+                    let second_vanish_point = &trace_coset[second_constraint.step];
+                    let second_value = second_constraint.value;
+                    let boundary_evaluations = eval_points
+                        .iter()
+                        .zip(&lde_trace.table.columns()[col])
+                        .map(|(eval_point, lde_eval)| {
+                            lde_eval
+                                - interpolant(
+                                    &first_vanish_point,
+                                    &second_vanish_point,
+                                    first_value,
+                                    second_value,
+                                    eval_point,
+                                )
+                        })
+                        .collect::<Vec<FieldElement<Mersenne31Field>>>();
+                    poly_evaluations.push(boundary_evaluations);
+                })
+                .collect() // TODO: We are not using this collect.
+        }
+        poly_evaluations
+    }
+
+    // /// For every columnm, and every constrain, returns the evaluation on the entire lde domain of the constrain function F(x) - I(x).
+    // // Note this is the numerator of each pair of constrains for the composition polynomial.
+    // pub fn evaluate_poly_constraints(
+    //     &self,
+    //     trace_coset: &Vec<CirclePoint<Mersenne31Field>>,
+    //     eval_points: &Vec<CirclePoint<Mersenne31Field>>,
+    //     lde_trace: &LDETraceTable,
+    // ) -> Vec<Vec<Vec<FieldElement<Mersenne31Field>>>> {
+    //     self.cols_for_boundary()
+    //         .iter()
+    //         .map(|col| {
+    //             self.constraints
+    //                 .iter()
+    //                 .filter(|constraint| constraint.col == *col)
+    //                 .chunks(2)
+    //                 .into_iter()
+    //                 .map(|chunk| {
+    //                     let chunk: Vec<_> = chunk.collect();
+    //                     let first_constraint = &chunk[0];
+    //                     let second_constraint = &chunk[1];
+    //                     let first_vanish_point = &trace_coset[first_constraint.step];
+    //                     let first_value = first_constraint.value;
+    //                     let second_vanish_point = &trace_coset[second_constraint.step];
+    //                     let second_value = second_constraint.value;
+    //                     eval_points
+    //                         .iter()
+    //                         .zip(&lde_trace.table.columns()[*col])
+    //                         .map(|(eval_point, lde_eval)| {
+    //                             lde_eval
+    //                                 - interpolant(
+    //                                     &first_vanish_point,
+    //                                     &second_vanish_point,
+    //                                     first_value,
+    //                                     second_value,
+    //                                     eval_point,
+    //                                 )
+    //                         })
+    //                         .collect::<Vec<FieldElement<Mersenne31Field>>>()
+    //                 })
+    //                 .collect()
+    //         })
+    //         .collect()
+    // }
 }
 
 #[cfg(test)]
@@ -176,7 +275,7 @@ mod test {
             .collect()];
 
         let constraints = BoundaryConstraints::from_constraints(vec![a0, a1]);
-        let zerofier = constraints.evaluate_zerofier(&trace_coset, 0, &eval_points);
+        let zerofier = constraints.evaluate_zerofiers(&trace_coset, &eval_points);
 
         assert_eq!(expected_zerofier, zerofier);
     }
