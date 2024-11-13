@@ -148,7 +148,6 @@ where
 
         let context = AirContext {
             proof_options: proof_options.clone(),
-            transition_exemptions: vec![1, 1],
             transition_offsets: vec![0, 1],
             num_transition_constraints: constraints.len(),
             trace_columns: 2,
@@ -209,7 +208,7 @@ where
 pub fn compute_trace<F: IsFFTField>(
     initial_values: [FieldElement<F>; 2],
     trace_length: usize,
-) -> TraceTable<F> {
+) -> TraceTable<F, F> {
     let mut ret1: Vec<FieldElement<F>> = vec![];
     let mut ret2: Vec<FieldElement<F>> = vec![];
 
@@ -222,5 +221,5 @@ pub fn compute_trace<F: IsFFTField>(
         ret2.push(new_val + ret2[i - 1].clone());
     }
 
-    TraceTable::from_columns(vec![ret1, ret2], 2, 1)
+    TraceTable::from_columns_main(vec![ret1, ret2], 1)
 }

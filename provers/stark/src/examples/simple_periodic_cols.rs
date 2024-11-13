@@ -121,7 +121,6 @@ where
         let context = AirContext {
             proof_options: proof_options.clone(),
             trace_columns: 1,
-            transition_exemptions: vec![2],
             transition_offsets: vec![0, 1, 2],
             num_transition_constraints: transition_constraints.len(),
         };
@@ -187,7 +186,7 @@ where
     }
 }
 
-pub fn simple_periodic_trace<F: IsFFTField>(trace_length: usize) -> TraceTable<F> {
+pub fn simple_periodic_trace<F: IsFFTField>(trace_length: usize) -> TraceTable<F, F> {
     let mut ret: Vec<FieldElement<F>> = vec![];
 
     ret.push(FieldElement::one());
