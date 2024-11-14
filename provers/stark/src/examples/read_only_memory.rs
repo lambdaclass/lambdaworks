@@ -12,6 +12,7 @@ use crate::{
     traits::AIR,
 };
 use lambdaworks_crypto::fiat_shamir::is_transcript::IsTranscript;
+use lambdaworks_math::field::traits::IsPrimeField;
 use lambdaworks_math::{
     field::{element::FieldElement, traits::IsFFTField},
     helpers::resize_to_next_power_of_two,
@@ -338,30 +339,23 @@ where
     }
 }
 
-pub fn fibonacci_rap_trace<F: IsFFTField>(
-    initial_values: [FieldElement<F>; 2],
-    trace_length: usize,
-) -> TraceTable<F> {
-    let mut fib_seq: Vec<FieldElement<F>> = vec![];
+pub fn sort_rap_trace<F: IsFFTField + IsPrimeField>(
+    address: Vec<FieldElement<F>>,
+    value: Vec<FieldElement<F>>,
+) -> TraceTable<F, F> {
+    let mut address_value_pairs: Vec<_> = address.iter().zip(value.iter()).collect();
 
-    fib_seq.push(initial_values[0].clone());
-    fib_seq.push(initial_values[1].clone());
+    address_value_pairs.sort_by_key(|(addr, _)| addr.representative());
 
-    for i in 2..(trace_length) {
-        fib_seq.push(fib_seq[i - 1].clone() + fib_seq[i - 2].clone());
-    }
-
-    let last_value = fib_seq[trace_length - 1].clone();
-    let mut fib_permuted = fib_seq.clone();
-    fib_permuted[0] = last_value;
-    fib_permuted[trace_length - 1] = initial_values[0].clone();
-
-    fib_seq.push(FieldElement::<F>::zero());
-    fib_permuted.push(FieldElement::<F>::zero());
-    let mut trace_cols = vec![fib_seq, fib_permuted];
-    resize_to_next_power_of_two(&mut trace_cols);
-
-    TraceTable::from_columns(trace_cols, 2, 1)
+    let (sorted_address, sorted_value): (Vec<FieldElement<F>>, Vec<FieldElement<F>>) =
+        address_value_pairs
+            .into_iter()
+            .map(|(addr, val)| (addr.clone(), val.clone()))
+            .unzip();
+    let main_columns = vec![address.clone(), value.clone(), sorted_address, sorted_value];
+    // create a vector with zeros of the same length as the main columns
+    let zero_vec = vec![FieldElement::<F>::zero(); main_columns[0].len()];
+    TraceTable::from_columns(main_columns, vec![zero_vec], 1)
 }
 
 #[cfg(test)]
@@ -370,68 +364,52 @@ mod test {
     use lambdaworks_math::field::fields::u64_prime_field::FE17;
 
     #[test]
-    fn test_build_fibonacci_rap_trace() {
-        // The fibonacci RAP trace should have two columns:
-        //     * The usual fibonacci sequence column
-        //     * The permuted fibonacci sequence column. The first and last elements are permuted.
-        // Also, a 0 is appended at the end of both columns. The reason for this can be read in
-        // https://hackmd.io/@aztec-network/plonk-arithmetiization-air#RAPs---PAIRs-with-interjected-verifier-randomness
-
-        let trace = fibonacci_rap_trace([FE17::from(1), FE17::from(1)], 8);
-        let mut expected_trace = vec![
-            vec![
-                FE17::one(),
-                FE17::one(),
-                FE17::from(2),
-                FE17::from(3),
-                FE17::from(5),
-                FE17::from(8),
-                FE17::from(13),
-                FE17::from(21),
-                FE17::zero(),
-            ],
-            vec![
-                FE17::from(21),
-                FE17::one(),
-                FE17::from(2),
-                FE17::from(3),
-                FE17::from(5),
-                FE17::from(8),
-                FE17::from(13),
-                FE17::one(),
-                FE17::zero(),
-            ],
+    fn test_sort_rap_trace() {
+        let address_col = vec![
+            FE17::from(5),
+            FE17::from(2),
+            FE17::from(3),
+            FE17::from(4),
+            FE17::from(1),
+            FE17::from(6),
+            FE17::from(7),
+            FE17::from(8),
         ];
-        resize_to_next_power_of_two(&mut expected_trace);
+        let value_col = vec![
+            FE17::from(50),
+            FE17::from(20),
+            FE17::from(30),
+            FE17::from(40),
+            FE17::from(10),
+            FE17::from(60),
+            FE17::from(70),
+            FE17::from(80),
+        ];
 
-        assert_eq!(trace.columns(), expected_trace);
-    }
+        let sorted_trace = sort_rap_trace(address_col.clone(), value_col.clone());
 
-    #[test]
-    fn aux_col() {
-        let trace = fibonacci_rap_trace([FE17::from(1), FE17::from(1)], 64);
-        let trace_cols = trace.columns();
+        let expected_sorted_addresses = vec![
+            FE17::from(1),
+            FE17::from(2),
+            FE17::from(3),
+            FE17::from(4),
+            FE17::from(5),
+            FE17::from(6),
+            FE17::from(7),
+            FE17::from(8),
+        ];
+        let expected_sorted_values = vec![
+            FE17::from(10),
+            FE17::from(20),
+            FE17::from(30),
+            FE17::from(40),
+            FE17::from(50),
+            FE17::from(60),
+            FE17::from(70),
+            FE17::from(80),
+        ];
 
-        let not_perm = trace_cols[0].clone();
-        let perm = trace_cols[1].clone();
-        let gamma = FE17::from(10);
-
-        assert_eq!(perm.len(), not_perm.len());
-        let trace_len = not_perm.len();
-
-        let mut aux_col = Vec::new();
-        for i in 0..trace_len {
-            if i == 0 {
-                aux_col.push(FE17::one());
-            } else {
-                let z_i = aux_col[i - 1];
-                let n_p_term = not_perm[i - 1] + gamma;
-                let p_term = perm[i - 1] + gamma;
-
-                aux_col.push(z_i * n_p_term.div(p_term));
-            }
-        }
-
-        assert_eq!(aux_col.last().unwrap(), &FE17::one());
+        assert_eq!(sorted_trace.columns_main()[2], expected_sorted_addresses);
+        assert_eq!(sorted_trace.columns_main()[3], expected_sorted_values);
     }
 }
