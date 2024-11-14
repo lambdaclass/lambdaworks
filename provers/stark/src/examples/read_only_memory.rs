@@ -214,6 +214,7 @@ where
             Box<dyn TransitionConstraint<Self::Field, Self::FieldExtension>>,
         > = vec![
             Box::new(ContinuityConstraint::new()),
+            Box::new(SingleValueConstraint::new()),
             Box::new(PermutationConstraint::new()),
         ];
 
