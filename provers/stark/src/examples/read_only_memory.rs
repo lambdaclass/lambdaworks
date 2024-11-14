@@ -178,7 +178,19 @@ where
 {
     context: AirContext,
     trace_length: usize,
+    pub_inputs: ReadOnlyPublicInputs<F>,
     transition_constraints: Vec<Box<dyn TransitionConstraint<F, F>>>,
+}
+
+#[derive(Clone, Debug)]
+pub struct ReadOnlyPublicInputs<F>
+where
+    F: IsFFTField,
+{
+    pub a0: FieldElement<F>,
+    pub v0: FieldElement<F>,
+    pub a_perm0: FieldElement<F>,
+    pub v_perm0: FieldElement<F>,
 }
 
 impl<F> AIR for ReadOnlyRAP<F>
@@ -188,7 +200,7 @@ where
 {
     type Field = F;
     type FieldExtension = F;
-    type PublicInputs = ();
+    type PublicInputs = ReadOnlyPublicInputs<F>;
 
     const STEP_SIZE: usize = 1;
 
@@ -208,23 +220,23 @@ where
             proof_options: proof_options.clone(),
             trace_columns: 5,
             transition_offsets: vec![0, 1],
-            transition_exemptions: vec![1],
             num_transition_constraints: transition_constraints.len(),
         };
 
         Self {
             context,
             trace_length,
+            pub_inputs: pub_inputs.clone(),
             transition_constraints,
         }
     }
 
     fn build_auxiliary_trace(
         &self,
-        main_trace: &TraceTable<Self::Field>,
+        trace: &mut TraceTable<Self::Field, Self::FieldExtension>,
         challenges: &[FieldElement<F>],
-    ) -> TraceTable<Self::Field> {
-        let main_segment_cols = main_trace.columns();
+    ) {
+        let main_segment_cols = trace.columns_main();
         let a = &main_segment_cols[0];
         let v = &main_segment_cols[1];
         let a_perm = &main_segment_cols[2];
@@ -232,7 +244,7 @@ where
         let z = &challenges[0];
         let alpha = &challenges[1];
 
-        let trace_len = main_trace.n_rows();
+        let trace_len = trace.num_rows();
 
         let mut aux_col = Vec::new();
         let num = z - (&a[0] + alpha * &v[0]);
@@ -245,7 +257,9 @@ where
             aux_col.push(num / den);
         }
 
-        TraceTable::from_columns(vec![aux_col], 0, 1)
+        for (i, aux_elem) in aux_col.iter().enumerate().take(trace.num_rows()) {
+            trace.set_aux(i, 0, aux_elem.clone())
+        }
     }
 
     fn build_rap_challenges(
@@ -264,17 +278,32 @@ where
 
     fn boundary_constraints(
         &self,
-        _rap_challenges: &[FieldElement<Self::FieldExtension>],
+        rap_challenges: &[FieldElement<Self::FieldExtension>],
     ) -> BoundaryConstraints<Self::FieldExtension> {
+        let a0 = &self.pub_inputs.a0;
+        let v0 = &self.pub_inputs.v0;
+        let a_perm0 = &self.pub_inputs.a_perm0;
+        let v_perm0 = &self.pub_inputs.v_perm0;
+        let alpha = &rap_challenges[0];
+        let z = &rap_challenges[1];
+        // Main boundary constraints
+        let c1 = BoundaryConstraint::new_main(0, 0, a0.clone());
+        let c2 = BoundaryConstraint::new_main(1, 0, v0.clone());
+        let c3 = BoundaryConstraint::new_main(2, 0, a_perm0.clone());
+        let c4 = BoundaryConstraint::new_main(3, 0, v_perm0.clone());
+
         // Auxiliary boundary constraints
-        let a0_aux = BoundaryConstraint::new_aux(
+        let num = z - (a0 + alpha * v0);
+        let den = z - (a_perm0 + alpha * v_perm0);
+        let p0_value = (num / den);
+        let c_aux1 = BoundaryConstraint::new_aux(0, 0, p0_value);
+        let c_aux2 = BoundaryConstraint::new_aux(
             0,
             self.trace_length - 1,
             FieldElement::<Self::FieldExtension>::one(),
         );
 
-        BoundaryConstraints::from_constraints(vec![a0_aux])
-        // BoundaryConstraints::from_constraints(vec![a0, a1])
+        BoundaryConstraints::from_constraints(vec![c1, c2, c3, c4, c_aux1, c_aux2])
     }
 
     fn transition_constraints(
@@ -296,7 +325,7 @@ where
     }
 
     fn pub_inputs(&self) -> &Self::PublicInputs {
-        &()
+        &self.pub_inputs
     }
 
     fn compute_transition_verifier(
