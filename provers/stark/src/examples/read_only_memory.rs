@@ -1,4 +1,4 @@
-use std::{marker::PhantomData, ops::Div};
+use std::marker::PhantomData;
 
 use crate::{
     constraints::{
@@ -15,7 +15,6 @@ use lambdaworks_crypto::fiat_shamir::is_transcript::IsTranscript;
 use lambdaworks_math::field::traits::IsPrimeField;
 use lambdaworks_math::{
     field::{element::FieldElement, traits::IsFFTField},
-    helpers::resize_to_next_power_of_two,
     traits::ByteConversion,
 };
 
@@ -297,7 +296,7 @@ where
         // Auxiliary boundary constraints
         let num = z - (a0 + alpha * v0);
         let den = z - (a_perm0 + alpha * v_perm0);
-        let p0_value = (num / den);
+        let p0_value = num / den;
         let c_aux1 = BoundaryConstraint::new_aux(0, 0, p0_value);
         let c_aux2 = BoundaryConstraint::new_aux(
             0,
