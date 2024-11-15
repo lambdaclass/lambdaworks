@@ -159,8 +159,8 @@ where
         // Auxiliary constraints
         let p0 = first_step.get_aux_evaluation_element(0, 0);
         let p1 = second_step.get_aux_evaluation_element(0, 0);
-        let alpha = &rap_challenges[0];
-        let z = &rap_challenges[1];
+        let z = &rap_challenges[0];
+        let alpha = &rap_challenges[1];
         let a1 = second_step.get_main_evaluation_element(0, 0);
         let v1 = second_step.get_main_evaluation_element(0, 1);
         let a_perm_1 = second_step.get_main_evaluation_element(0, 2);
@@ -285,8 +285,9 @@ where
         let v0 = &self.pub_inputs.v0;
         let a_perm0 = &self.pub_inputs.a_perm0;
         let v_perm0 = &self.pub_inputs.v_perm0;
-        let alpha = &rap_challenges[0];
-        let z = &rap_challenges[1];
+        let z = &rap_challenges[0];
+        let alpha = &rap_challenges[1];
+
         // Main boundary constraints
         let c1 = BoundaryConstraint::new_main(0, 0, a0.clone());
         let c2 = BoundaryConstraint::new_main(1, 0, v0.clone());
@@ -297,6 +298,7 @@ where
         let num = z - (a0 + alpha * v0);
         let den = z - (a_perm0 + alpha * v_perm0);
         let p0_value = num / den;
+
         let c_aux1 = BoundaryConstraint::new_aux(0, 0, p0_value);
         let c_aux2 = BoundaryConstraint::new_aux(
             0,
