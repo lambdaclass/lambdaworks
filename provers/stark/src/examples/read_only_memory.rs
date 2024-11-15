@@ -18,6 +18,8 @@ use lambdaworks_math::{
     traits::ByteConversion,
 };
 
+/// This condition ensures the continuity in a read-only memory structure, preserving strict ordering.
+/// Equation based on Cairo Whitepaper section 9.7.2
 #[derive(Clone)]
 struct ContinuityConstraint<F: IsFFTField> {
     phantom: PhantomData<F>,
@@ -44,7 +46,7 @@ where
     }
 
     fn end_exemptions(&self) -> usize {
-        // NOTE: We are assuming that hte trace has as length a power of 2.
+        // NOTE: We are assuming that the trace has as length a power of 2.
         1
     }
 
@@ -58,15 +60,18 @@ where
         let first_step = frame.get_evaluation_step(0);
         let second_step = frame.get_evaluation_step(1);
 
-        let a_perm0 = first_step.get_main_evaluation_element(0, 2);
-        let a_perm1 = second_step.get_main_evaluation_element(0, 2);
-        let res = (a_perm1 - a_perm0) * (a_perm1 - a_perm0 - FieldElement::<F>::one());
+        let a_sorted0 = first_step.get_main_evaluation_element(0, 2);
+        let a_sorted1 = second_step.get_main_evaluation_element(0, 2);
+        // (a'_{i+1} - a'_i)(a'_{i+1} - a'_i - 1) = 0 where a' is the sorted address
+        let res = (a_sorted1 - a_sorted0) * (a_sorted1 - a_sorted0 - FieldElement::<F>::one());
 
         transition_evaluations[self.constraint_idx()] = res;
     }
 }
 
 #[derive(Clone)]
+/// Transition constraint that ensures that same addresses have same values, making the memory read-only.
+/// Equation based on Cairo Whitepaper section 9.7.2
 struct SingleValueConstraint<F: IsFFTField> {
     phantom: PhantomData<F>,
 }
@@ -92,7 +97,7 @@ where
     }
 
     fn end_exemptions(&self) -> usize {
-        // NOTE: We are assuming that hte trace has as length a power of 2.
+        // NOTE: We are assuming that the trace has as length a power of 2.
         1
     }
 
@@ -106,16 +111,18 @@ where
         let first_step = frame.get_evaluation_step(0);
         let second_step = frame.get_evaluation_step(1);
 
-        let a_perm0 = first_step.get_main_evaluation_element(0, 2);
-        let a_perm1 = second_step.get_main_evaluation_element(0, 2);
-        let v_perm0 = first_step.get_main_evaluation_element(0, 3);
-        let v_perm1 = second_step.get_main_evaluation_element(0, 3);
-
-        let res = (v_perm1 - v_perm0) * (a_perm1 - a_perm0 - FieldElement::<F>::one());
+        let a_sorted0 = first_step.get_main_evaluation_element(0, 2);
+        let a_sorted1 = second_step.get_main_evaluation_element(0, 2);
+        let v_sorted0 = first_step.get_main_evaluation_element(0, 3);
+        let v_sorted1 = second_step.get_main_evaluation_element(0, 3);
+        // (v'_{i+1} - v'_i) * (a'_{i+1} - a'_i - 1) = 0
+        let res = (v_sorted1 - v_sorted0) * (a_sorted1 - a_sorted0 - FieldElement::<F>::one());
 
         transition_evaluations[self.constraint_idx()] = res;
     }
 }
+/// Permutation constraint ensures that the values are permuted in the memory.
+/// Equation based on Cairo Whitepaper section 9.7.2
 
 #[derive(Clone)]
 struct PermutationConstraint<F: IsFFTField> {
@@ -163,10 +170,10 @@ where
         let alpha = &rap_challenges[1];
         let a1 = second_step.get_main_evaluation_element(0, 0);
         let v1 = second_step.get_main_evaluation_element(0, 1);
-        let a_perm_1 = second_step.get_main_evaluation_element(0, 2);
-        let v_perm_1 = second_step.get_main_evaluation_element(0, 3);
-
-        let res = (z - (a_perm_1 + alpha * v_perm_1)) * p1 - (z - (a1 + alpha * v1)) * p0;
+        let a_sorted_1 = second_step.get_main_evaluation_element(0, 2);
+        let v_sorted_1 = second_step.get_main_evaluation_element(0, 3);
+        // (z - (a'_{i+1} + α * v'_{i+1})) * p_{i+1} = (z - (a_{i+1} + α * v_{i+1})) * p_i
+        let res = (z - (a_sorted_1 + alpha * v_sorted_1)) * p1 - (z - (a1 + alpha * v1)) * p0;
 
         transition_evaluations[self.constraint_idx()] = res;
     }
@@ -189,8 +196,8 @@ where
 {
     pub a0: FieldElement<F>,
     pub v0: FieldElement<F>,
-    pub a_perm0: FieldElement<F>,
-    pub v_perm0: FieldElement<F>,
+    pub a_sorted0: FieldElement<F>,
+    pub v_sorted0: FieldElement<F>,
 }
 
 impl<F> AIR for ReadOnlyRAP<F>
@@ -240,8 +247,8 @@ where
         let main_segment_cols = trace.columns_main();
         let a = &main_segment_cols[0];
         let v = &main_segment_cols[1];
-        let a_perm = &main_segment_cols[2];
-        let v_perm = &main_segment_cols[3];
+        let a_sorted = &main_segment_cols[2];
+        let v_sorted = &main_segment_cols[3];
         let z = &challenges[0];
         let alpha = &challenges[1];
 
@@ -249,12 +256,12 @@ where
 
         let mut aux_col = Vec::new();
         let num = z - (&a[0] + alpha * &v[0]);
-        let den = z - (&a_perm[0] + alpha * &v_perm[0]);
+        let den = z - (&a_sorted[0] + alpha * &v_sorted[0]);
         aux_col.push(num / den);
-
+        // Apply the same equation given in the permutation case to the rest of the trace
         for i in 0..trace_len - 1 {
             let num = (z - (&a[i + 1] + alpha * &v[i + 1])) * &aux_col[i];
-            let den = z - (&a_perm[i + 1] + alpha * &v_perm[i + 1]);
+            let den = z - (&a_sorted[i + 1] + alpha * &v_sorted[i + 1]);
             aux_col.push(num / den);
         }
 
@@ -283,20 +290,20 @@ where
     ) -> BoundaryConstraints<Self::FieldExtension> {
         let a0 = &self.pub_inputs.a0;
         let v0 = &self.pub_inputs.v0;
-        let a_perm0 = &self.pub_inputs.a_perm0;
-        let v_perm0 = &self.pub_inputs.v_perm0;
+        let a_sorted0 = &self.pub_inputs.a_sorted0;
+        let v_sorted0 = &self.pub_inputs.v_sorted0;
         let z = &rap_challenges[0];
         let alpha = &rap_challenges[1];
 
         // Main boundary constraints
         let c1 = BoundaryConstraint::new_main(0, 0, a0.clone());
         let c2 = BoundaryConstraint::new_main(1, 0, v0.clone());
-        let c3 = BoundaryConstraint::new_main(2, 0, a_perm0.clone());
-        let c4 = BoundaryConstraint::new_main(3, 0, v_perm0.clone());
+        let c3 = BoundaryConstraint::new_main(2, 0, a_sorted0.clone());
+        let c4 = BoundaryConstraint::new_main(3, 0, v_sorted0.clone());
 
         // Auxiliary boundary constraints
         let num = z - (a0 + alpha * v0);
-        let den = z - (a_perm0 + alpha * v_perm0);
+        let den = z - (a_sorted0 + alpha * v_sorted0);
         let p0_value = num / den;
 
         let c_aux1 = BoundaryConstraint::new_aux(0, 0, p0_value);
@@ -341,6 +348,8 @@ where
     }
 }
 
+/// Given the adress and value columns, it returns the trace table with 5 columns, which are:
+/// Addres, Value, Adress Sorted, Value Sorted and a Column of Zeroes (where we'll insert the auxiliary colunn).
 pub fn sort_rap_trace<F: IsFFTField + IsPrimeField>(
     address: Vec<FieldElement<F>>,
     value: Vec<FieldElement<F>>,
