@@ -60,10 +60,10 @@ where
         let first_step = frame.get_evaluation_step(0);
         let second_step = frame.get_evaluation_step(1);
 
-        let a_sorted0 = first_step.get_main_evaluation_element(0, 2);
-        let a_sorted1 = second_step.get_main_evaluation_element(0, 2);
+        let a_sorted_0 = first_step.get_main_evaluation_element(0, 2);
+        let a_sorted_1 = second_step.get_main_evaluation_element(0, 2);
         // (a'_{i+1} - a'_i)(a'_{i+1} - a'_i - 1) = 0 where a' is the sorted address
-        let res = (a_sorted1 - a_sorted0) * (a_sorted1 - a_sorted0 - FieldElement::<F>::one());
+        let res = (a_sorted_1 - a_sorted_0) * (a_sorted_1 - a_sorted_0 - FieldElement::<F>::one());
 
         // The eval always exists, except if the constraint idx were incorrectly defined.
         if let Some(eval) = transition_evaluations.get_mut(self.constraint_idx()) {
