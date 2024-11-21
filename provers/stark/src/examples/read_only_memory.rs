@@ -65,7 +65,10 @@ where
         // (a'_{i+1} - a'_i)(a'_{i+1} - a'_i - 1) = 0 where a' is the sorted address
         let res = (a_sorted1 - a_sorted0) * (a_sorted1 - a_sorted0 - FieldElement::<F>::one());
 
-        transition_evaluations[self.constraint_idx()] = res;
+        // The eval always exists, except if the constraint idx were incorrectly defined.
+        if let Some(eval) = transition_evaluations.get_mut(self.constraint_idx()) {
+            *eval = res;
+        }
     }
 }
 
@@ -118,7 +121,10 @@ where
         // (v'_{i+1} - v'_i) * (a'_{i+1} - a'_i - 1) = 0
         let res = (v_sorted1 - v_sorted0) * (a_sorted1 - a_sorted0 - FieldElement::<F>::one());
 
-        transition_evaluations[self.constraint_idx()] = res;
+        // The eval always exists, except if the constraint idx were incorrectly defined.
+        if let Some(eval) = transition_evaluations.get_mut(self.constraint_idx()) {
+            *eval = res;
+        }
     }
 }
 /// Permutation constraint ensures that the values are permuted in the memory.
@@ -175,7 +181,10 @@ where
         // (z - (a'_{i+1} + α * v'_{i+1})) * p_{i+1} = (z - (a_{i+1} + α * v_{i+1})) * p_i
         let res = (z - (a_sorted_1 + alpha * v_sorted_1)) * p1 - (z - (a1 + alpha * v1)) * p0;
 
-        transition_evaluations[self.constraint_idx()] = res;
+        // The eval always exists, except if the constraint idx were incorrectly defined.
+        if let Some(eval) = transition_evaluations.get_mut(self.constraint_idx()) {
+            *eval = res;
+        }
     }
 }
 
