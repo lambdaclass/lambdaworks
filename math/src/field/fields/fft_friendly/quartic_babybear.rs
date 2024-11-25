@@ -329,6 +329,12 @@ mod tests {
     }
 
     #[test]
+    fn test_inv_of_zero_error() {
+        let result = Fp4E::zero().inv();
+        assert!(result.is_err());
+    }
+
+    #[test]
     fn test_mul_by_inv_is_identity() {
         let a = Fp4E::from(123456);
         assert_eq!(&a * a.inv().unwrap(), Fp4E::one());
