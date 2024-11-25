@@ -61,8 +61,8 @@ impl IsField for Degree4BabyBearExtensionField {
         let mut b2 = &a[0] * (&a[2] + &a[2]) - &a[1] * &a[1] + BETA * (&a[3] * &a[3]);
         let c = &b0.square() + BETA * b2.square();
         let c_inv = c.inv()?;
-        b0 = b0 * &c_inv;
-        b2 = b2 * &c_inv;
+        b0 *= &c_inv;
+        b2 *= &c_inv;
         Ok([
             &a[0] * &b0 + BETA * &a[2] * &b2,
             -&a[1] * &b0 - BETA * &a[3] * &b2,
