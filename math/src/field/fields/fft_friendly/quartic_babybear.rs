@@ -1,16 +1,15 @@
-use crate::{
-    field::{
-        element::FieldElement,
-        errors::FieldError,
-        fields::fft_friendly::babybear::Babybear31PrimeField,
-        traits::{IsFFTField, IsField, IsSubFieldOf},
-    },
-    traits::ByteConversion,
+use crate::field::{
+    element::FieldElement,
+    errors::FieldError,
+    fields::fft_friendly::babybear::Babybear31PrimeField,
+    traits::{IsFFTField, IsField, IsSubFieldOf},
 };
 
-// BETA = 11
-// -BETA = -11 is the non-residue.
-// We are implementig the extension of Baby Bear of degree 4 using the irreducible polynomial x^4 + 11.
+#[cfg(feature = "lambdaworks-serde-binary")]
+use crate::traits::ByteConversion;
+
+/// We are implementig the extension of Baby Bear of degree 4 using the irreducible polynomial x^4 + 11.
+/// BETA = 11 and -BETA = -11 is the non-residue.
 pub const BETA: FieldElement<Babybear31PrimeField> =
     FieldElement::<Babybear31PrimeField>::from_hex_unchecked("b");
 
@@ -24,9 +23,9 @@ impl IsField for Degree4BabyBearExtensionField {
         [&a[0] + &b[0], &a[1] + &b[1], &a[2] + &b[2], &a[3] + &b[3]]
     }
 
-    // Result of multiplying two polynomials a = a0 + a1 * x + a2 * x^2 + a3 * x^3 and
-    // b = b0 + b1 * x + b2 * x^2 + b3 * x^3 by applying distribution and taking
-    // the remainder of the division by x^4 + 11.
+    /// Result of multiplying two polynomials a = a0 + a1 * x + a2 * x^2 + a3 * x^3 and
+    /// b = b0 + b1 * x + b2 * x^2 + b3 * x^3 by applying distribution and taking
+    /// the remainder of the division by x^4 + 11.
     fn mul(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
         [
             &a[0] * &b[0] - BETA * (&a[1] * &b[3] + &a[3] * &b[1] + &a[2] * &b[2]),
@@ -53,9 +52,9 @@ impl IsField for Degree4BabyBearExtensionField {
         [-&a[0], -&a[1], -&a[2], -&a[3]]
     }
 
-    // Return te inverse of a fp4 element if exist.
-    // This algorithm is inspired by Risc0 implementation:
-    // https://github.com/risc0/risc0/blob/4c41c739779ef2759a01ebcf808faf0fbffe8793/risc0/core/src/field/baby_bear.rs#L460
+    /// Return te inverse of a fp4 element if exist.
+    /// This algorithm is inspired by Risc0 implementation:
+    /// <https://github.com/risc0/risc0/blob/4c41c739779ef2759a01ebcf808faf0fbffe8793/risc0/core/src/field/baby_bear.rs#L460>
     fn inv(a: &Self::BaseType) -> Result<Self::BaseType, FieldError> {
         let mut b0 = &a[0] * &a[0] + BETA * (&a[1] * (&a[3] + &a[3]) - &a[2] * &a[2]);
         let mut b2 = &a[0] * (&a[2] + &a[2]) - &a[1] * &a[1] + BETA * (&a[3] * &a[3]);
