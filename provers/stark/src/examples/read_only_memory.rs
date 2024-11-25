@@ -71,10 +71,9 @@ where
         }
     }
 }
-
-#[derive(Clone)]
 /// Transition constraint that ensures that same addresses have same values, making the memory read-only.
 /// Equation based on Cairo Whitepaper section 9.7.2
+#[derive(Clone)]
 struct SingleValueConstraint<F: IsFFTField> {
     phantom: PhantomData<F>,
 }
@@ -129,7 +128,6 @@ where
 }
 /// Permutation constraint ensures that the values are permuted in the memory.
 /// Equation based on Cairo Whitepaper section 9.7.2
-
 #[derive(Clone)]
 struct PermutationConstraint<F: IsFFTField> {
     phantom: PhantomData<F>,
