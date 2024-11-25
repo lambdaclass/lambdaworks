@@ -44,18 +44,18 @@ impl IsField for Degree4BabyBearExtensionField {
             (&a[0] * &a[3] + &a[1] * &a[2]).double(),
         ]
     }
-    /// Returns the component wise subtraction of `a` and `b`
+
     fn sub(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
         [&a[0] - &b[0], &a[1] - &b[1], &a[2] - &b[2], &a[3] - &b[3]]
     }
 
-    /// Returns the component wise negation of `a`
     fn neg(a: &Self::BaseType) -> Self::BaseType {
         [-&a[0], -&a[1], -&a[2], -&a[3]]
     }
 
-    /// Returns the multiplicative inverse of `a`
-    ///
+    // Return te inverse of a fp4 element if exist.
+    // This algorithm is inspired by R1sc0 implementation:
+    // https://github.com/risc0/risc0/blob/4c41c739779ef2759a01ebcf808faf0fbffe8793/risc0/core/src/field/baby_bear.rs#L460
     fn inv(a: &Self::BaseType) -> Result<Self::BaseType, FieldError> {
         let mut b0 = &a[0] * &a[0] + BETA * (&a[1] * (&a[3] + &a[3]) - &a[2] * &a[2]);
         let mut b2 = &a[0] * (&a[2] + &a[2]) - &a[1] * &a[1] + BETA * (&a[3] * &a[3]);
@@ -71,17 +71,14 @@ impl IsField for Degree4BabyBearExtensionField {
         ])
     }
 
-    /// Returns the division of `a` and `b`
     fn div(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
         <Self as IsField>::mul(a, &Self::inv(b).unwrap())
     }
 
-    /// Returns a boolean indicating whether `a` and `b` are equal component wise.
     fn eq(a: &Self::BaseType, b: &Self::BaseType) -> bool {
         a[0] == b[0] && a[1] == b[1] && a[2] == b[2] && a[3] == b[3]
     }
 
-    /// Returns the additive neutral element of the field extension.
     fn zero() -> Self::BaseType {
         [
             FieldElement::zero(),
@@ -91,7 +88,6 @@ impl IsField for Degree4BabyBearExtensionField {
         ]
     }
 
-    /// Returns the multiplicative neutral element of the field extension.
     fn one() -> Self::BaseType {
         [
             FieldElement::one(),
@@ -101,7 +97,6 @@ impl IsField for Degree4BabyBearExtensionField {
         ]
     }
 
-    /// Returns the element `x * 1` where 1 is the multiplicative neutral element.
     fn from_u64(x: u64) -> Self::BaseType {
         [
             FieldElement::from(x),
@@ -262,15 +257,6 @@ impl IsFFTField for Degree4BabyBearExtensionField {
 
 #[cfg(test)]
 mod tests {
-
-    use crate::{
-        fft::cpu::roots_of_unity::{
-            get_powers_of_primitive_root, get_powers_of_primitive_root_coset,
-        },
-        field::traits::RootsConfig,
-        polynomial::Polynomial,
-    };
-
     use super::*;
 
     type FpE = FieldElement<Babybear31PrimeField>;
@@ -371,7 +357,7 @@ mod tests {
     #[test]
     fn test_mul_group_generator_pow_order_is_one() {
         let generator = Fp4E::new([FpE::from(8), FpE::from(1), FpE::zero(), FpE::zero()]);
-        let extension_order: u128 = 78000001_u128.pow(4);
+        let extension_order: u128 = 2013265921_u128.pow(4);
         assert_eq!(generator.pow(extension_order), generator);
     }
 
@@ -384,116 +370,178 @@ mod tests {
         );
     }
 
-    #[test]
-    fn test_fft() {
-        let c0 = Fp4E::new([FpE::from(1), FpE::from(2), FpE::from(3), FpE::from(4)]);
-        let c1 = Fp4E::new([FpE::from(2), FpE::from(3), FpE::from(4), FpE::from(5)]);
-        let c2 = Fp4E::new([FpE::from(3), FpE::from(4), FpE::from(5), FpE::from(6)]);
-        let c3 = Fp4E::new([FpE::from(4), FpE::from(5), FpE::from(6), FpE::from(7)]);
-        let c4 = Fp4E::new([FpE::from(5), FpE::from(6), FpE::from(7), FpE::from(8)]);
-        let c5 = Fp4E::new([FpE::from(6), FpE::from(7), FpE::from(8), FpE::from(9)]);
-        let c6 = Fp4E::new([FpE::from(7), FpE::from(8), FpE::from(9), FpE::from(0)]);
-        let c7 = Fp4E::new([FpE::from(8), FpE::from(9), FpE::from(0), FpE::from(1)]);
+    #[cfg(all(feature = "std", not(feature = "instruments")))]
+    mod test_babybear_31_fft {
+        use super::*;
+        #[cfg(not(any(feature = "metal", feature = "cuda")))]
+        use crate::fft::cpu::roots_of_unity::{
+            get_powers_of_primitive_root, get_powers_of_primitive_root_coset,
+        };
+        #[cfg(not(any(feature = "metal", feature = "cuda")))]
+        use crate::field::element::FieldElement;
+        #[cfg(not(any(feature = "metal", feature = "cuda")))]
+        use crate::field::traits::{IsFFTField, RootsConfig};
+        use crate::polynomial::Polynomial;
+        use proptest::{collection, prelude::*, std_facade::Vec};
 
-        let poly = Polynomial::new(&[c0, c1, c2, c3, c4, c5, c6, c7]);
-        let evaluations =
-            Polynomial::evaluate_fft::<Degree4BabyBearExtensionField>(&poly, 1, None).unwrap();
-        let poly_interpol =
-            Polynomial::interpolate_fft::<Degree4BabyBearExtensionField>(&evaluations).unwrap();
+        #[cfg(not(any(feature = "metal", feature = "cuda")))]
+        fn gen_fft_and_naive_evaluation<F: IsFFTField>(
+            poly: Polynomial<FieldElement<F>>,
+        ) -> (Vec<FieldElement<F>>, Vec<FieldElement<F>>) {
+            let len = poly.coeff_len().next_power_of_two();
+            let order = len.trailing_zeros();
+            let twiddles =
+                get_powers_of_primitive_root(order.into(), len, RootsConfig::Natural).unwrap();
 
-        assert_eq!(poly, poly_interpol)
+            let fft_eval = Polynomial::evaluate_fft::<F>(&poly, 1, None).unwrap();
+            let naive_eval = poly.evaluate_slice(&twiddles);
+
+            (fft_eval, naive_eval)
+        }
+
+        #[cfg(not(any(feature = "metal", feature = "cuda")))]
+        fn gen_fft_coset_and_naive_evaluation<F: IsFFTField>(
+            poly: Polynomial<FieldElement<F>>,
+            offset: FieldElement<F>,
+            blowup_factor: usize,
+        ) -> (Vec<FieldElement<F>>, Vec<FieldElement<F>>) {
+            let len = poly.coeff_len().next_power_of_two();
+            let order = (len * blowup_factor).trailing_zeros();
+            let twiddles =
+                get_powers_of_primitive_root_coset(order.into(), len * blowup_factor, &offset)
+                    .unwrap();
+
+            let fft_eval =
+                Polynomial::evaluate_offset_fft::<F>(&poly, blowup_factor, None, &offset).unwrap();
+            let naive_eval = poly.evaluate_slice(&twiddles);
+
+            (fft_eval, naive_eval)
+        }
+
+        #[cfg(not(any(feature = "metal", feature = "cuda")))]
+        fn gen_fft_and_naive_interpolate<F: IsFFTField>(
+            fft_evals: &[FieldElement<F>],
+        ) -> (Polynomial<FieldElement<F>>, Polynomial<FieldElement<F>>) {
+            let order = fft_evals.len().trailing_zeros() as u64;
+            let twiddles =
+                get_powers_of_primitive_root(order, 1 << order, RootsConfig::Natural).unwrap();
+
+            let naive_poly = Polynomial::interpolate(&twiddles, fft_evals).unwrap();
+            let fft_poly = Polynomial::interpolate_fft::<F>(fft_evals).unwrap();
+
+            (fft_poly, naive_poly)
+        }
+
+        #[cfg(not(any(feature = "metal", feature = "cuda")))]
+        fn gen_fft_and_naive_coset_interpolate<F: IsFFTField>(
+            fft_evals: &[FieldElement<F>],
+            offset: &FieldElement<F>,
+        ) -> (Polynomial<FieldElement<F>>, Polynomial<FieldElement<F>>) {
+            let order = fft_evals.len().trailing_zeros() as u64;
+            let twiddles = get_powers_of_primitive_root_coset(order, 1 << order, offset).unwrap();
+
+            let naive_poly = Polynomial::interpolate(&twiddles, fft_evals).unwrap();
+            let fft_poly = Polynomial::interpolate_offset_fft(fft_evals, offset).unwrap();
+
+            (fft_poly, naive_poly)
+        }
+
+        #[cfg(not(any(feature = "metal", feature = "cuda")))]
+        fn gen_fft_interpolate_and_evaluate<F: IsFFTField>(
+            poly: Polynomial<FieldElement<F>>,
+        ) -> (Polynomial<FieldElement<F>>, Polynomial<FieldElement<F>>) {
+            let eval = Polynomial::evaluate_fft::<F>(&poly, 1, None).unwrap();
+            let new_poly = Polynomial::interpolate_fft::<F>(&eval).unwrap();
+
+            (poly, new_poly)
+        }
+
+        prop_compose! {
+            fn powers_of_two(max_exp: u8)(exp in 1..max_exp) -> usize { 1 << exp }
+            // max_exp cannot be multiple of the bits that represent a usize, generally 64 or 32.
+            // also it can't exceed the test field's two-adicity.
+        }
+        prop_compose! {
+            fn field_element()(coeffs in [any::<u64>(); 4]) -> Fp4E {
+                Fp4E::new([
+                    FpE::from(coeffs[0]),
+                    FpE::from(coeffs[1]),
+                    FpE::from(coeffs[2]),
+                    FpE::from(coeffs[3])]
+                )
+            }
+        }
+        prop_compose! {
+            fn offset()(num in field_element(), factor in any::<u64>()) -> Fp4E { num.pow(factor) }
+        }
+
+        prop_compose! {
+            fn field_vec(max_exp: u8)(vec in collection::vec(field_element(), 0..1 << max_exp)) -> Vec<Fp4E> {
+                vec
+            }
+        }
+        prop_compose! {
+            fn non_power_of_two_sized_field_vec(max_exp: u8)(vec in collection::vec(field_element(), 2..1<<max_exp).prop_filter("Avoid polynomials of size power of two", |vec| !vec.len().is_power_of_two())) -> Vec<Fp4E> {
+                vec
+            }
+        }
+        prop_compose! {
+            fn poly(max_exp: u8)(coeffs in field_vec(max_exp)) -> Polynomial<Fp4E> {
+                Polynomial::new(&coeffs)
+            }
+        }
+        prop_compose! {
+            fn poly_with_non_power_of_two_coeffs(max_exp: u8)(coeffs in non_power_of_two_sized_field_vec(max_exp)) -> Polynomial<Fp4E> {
+                Polynomial::new(&coeffs)
+            }
+        }
+
+        proptest! {
+            // Property-based test that ensures FFT eval. gives same result as a naive polynomial evaluation.
+            #[test]
+            #[cfg(not(any(feature = "metal",feature = "cuda")))]
+            fn test_fft_matches_naive_evaluation(poly in poly(8)) {
+                let (fft_eval, naive_eval) = gen_fft_and_naive_evaluation(poly);
+                prop_assert_eq!(fft_eval, naive_eval);
+            }
+
+            // Property-based test that ensures FFT eval. with coset gives same result as a naive polynomial evaluation.
+            #[test]
+            #[cfg(not(any(feature = "metal",feature = "cuda")))]
+            fn test_fft_coset_matches_naive_evaluation(poly in poly(4), offset in offset(), blowup_factor in powers_of_two(4)) {
+                let (fft_eval, naive_eval) = gen_fft_coset_and_naive_evaluation(poly, offset, blowup_factor);
+                prop_assert_eq!(fft_eval, naive_eval);
+            }
+
+            // #[cfg(not(any(feature = "metal"),not(feature = "cuda")))]
+            // Property-based test that ensures FFT interpolation is the same as naive..
+            #[test]
+            #[cfg(not(any(feature = "metal",feature = "cuda")))]
+            fn test_fft_interpolate_matches_naive(fft_evals in field_vec(4)
+                                                           .prop_filter("Avoid polynomials of size not power of two",
+                                                                        |evals| evals.len().is_power_of_two())) {
+                let (fft_poly, naive_poly) = gen_fft_and_naive_interpolate(&fft_evals);
+                prop_assert_eq!(fft_poly, naive_poly);
+            }
+
+            // Property-based test that ensures FFT interpolation with an offset is the same as naive.
+            #[test]
+            #[cfg(not(any(feature = "metal",feature = "cuda")))]
+            fn test_fft_interpolate_coset_matches_naive(offset in offset(), fft_evals in field_vec(4)
+                                                           .prop_filter("Avoid polynomials of size not power of two",
+                                                                        |evals| evals.len().is_power_of_two())) {
+                let (fft_poly, naive_poly) = gen_fft_and_naive_coset_interpolate(&fft_evals, &offset);
+                prop_assert_eq!(fft_poly, naive_poly);
+            }
+
+            // Property-based test that ensures interpolation is the inverse operation of evaluation.
+            #[test]
+            #[cfg(not(any(feature = "metal",feature = "cuda")))]
+            fn test_fft_interpolate_is_inverse_of_evaluate(
+                poly in poly(4).prop_filter("Avoid non pows of two", |poly| poly.coeff_len().is_power_of_two())) {
+                let (poly, new_poly) = gen_fft_interpolate_and_evaluate(poly);
+                prop_assert_eq!(poly, new_poly);
+            }
+        }
     }
-
-    #[test]
-    fn test_fft_and_naive_evaluation() {
-        let c0 = Fp4E::new([FpE::from(1), FpE::from(2), FpE::from(3), FpE::from(4)]);
-        let c1 = Fp4E::new([FpE::from(2), FpE::from(3), FpE::from(4), FpE::from(5)]);
-        let c2 = Fp4E::new([FpE::from(3), FpE::from(4), FpE::from(5), FpE::from(6)]);
-        let c3 = Fp4E::new([FpE::from(4), FpE::from(5), FpE::from(6), FpE::from(7)]);
-        let c4 = Fp4E::new([FpE::from(5), FpE::from(6), FpE::from(7), FpE::from(8)]);
-        let c5 = Fp4E::new([FpE::from(6), FpE::from(7), FpE::from(8), FpE::from(9)]);
-        let c6 = Fp4E::new([FpE::from(7), FpE::from(8), FpE::from(9), FpE::from(0)]);
-        let c7 = Fp4E::new([FpE::from(8), FpE::from(9), FpE::from(0), FpE::from(1)]);
-
-        let poly = Polynomial::new(&[c0, c1, c2, c3, c4, c5, c6, c7]);
-
-        let len = poly.coeff_len().next_power_of_two();
-        let order = len.trailing_zeros();
-        let twiddles =
-            get_powers_of_primitive_root(order.into(), len, RootsConfig::Natural).unwrap();
-
-        let fft_eval =
-            Polynomial::evaluate_fft::<Degree4BabyBearExtensionField>(&poly, 1, None).unwrap();
-        let naive_eval = poly.evaluate_slice(&twiddles);
-
-        assert_eq!(fft_eval, naive_eval);
-    }
-
-    #[test]
-    fn gen_fft_coset_and_naive_evaluation() {
-        let c0 = Fp4E::new([FpE::from(1), FpE::from(2), FpE::from(3), FpE::from(4)]);
-        let c1 = Fp4E::new([FpE::from(2), FpE::from(3), FpE::from(4), FpE::from(5)]);
-        let c2 = Fp4E::new([FpE::from(3), FpE::from(4), FpE::from(5), FpE::from(6)]);
-        let c3 = Fp4E::new([FpE::from(4), FpE::from(5), FpE::from(6), FpE::from(7)]);
-        let c4 = Fp4E::new([FpE::from(5), FpE::from(6), FpE::from(7), FpE::from(8)]);
-        let c5 = Fp4E::new([FpE::from(6), FpE::from(7), FpE::from(8), FpE::from(9)]);
-        let c6 = Fp4E::new([FpE::from(7), FpE::from(8), FpE::from(9), FpE::from(0)]);
-        let c7 = Fp4E::new([FpE::from(8), FpE::from(9), FpE::from(0), FpE::from(1)]);
-
-        let poly = Polynomial::new(&[c0, c1, c2, c3, c4, c5, c6, c7]);
-
-        let offset = Fp4E::new([FpE::from(10), FpE::from(11), FpE::from(12), FpE::from(13)]);
-        let blowup_factor = 4;
-
-        let len = poly.coeff_len().next_power_of_two();
-        let order = (len * blowup_factor).trailing_zeros();
-        let twiddles =
-            get_powers_of_primitive_root_coset(order.into(), len * blowup_factor, &offset).unwrap();
-
-        let fft_eval = Polynomial::evaluate_offset_fft::<Degree4BabyBearExtensionField>(
-            &poly,
-            blowup_factor,
-            None,
-            &offset,
-        )
-        .unwrap();
-        let naive_eval = poly.evaluate_slice(&twiddles);
-
-        assert_eq!(fft_eval, naive_eval);
-    }
-
-    #[test]
-    fn test_fft_and_naive_interpolate() {
-        let c0 = Fp4E::new([FpE::from(1), FpE::from(2), FpE::from(3), FpE::from(4)]);
-        let c1 = Fp4E::new([FpE::from(2), FpE::from(3), FpE::from(4), FpE::from(5)]);
-        let c2 = Fp4E::new([FpE::from(3), FpE::from(4), FpE::from(5), FpE::from(6)]);
-        let c3 = Fp4E::new([FpE::from(4), FpE::from(5), FpE::from(6), FpE::from(7)]);
-        let c4 = Fp4E::new([FpE::from(5), FpE::from(6), FpE::from(7), FpE::from(8)]);
-        let c5 = Fp4E::new([FpE::from(6), FpE::from(7), FpE::from(8), FpE::from(9)]);
-        let c6 = Fp4E::new([FpE::from(7), FpE::from(8), FpE::from(9), FpE::from(0)]);
-        let c7 = Fp4E::new([FpE::from(8), FpE::from(9), FpE::from(0), FpE::from(1)]);
-
-        let fft_evals = [c0, c1, c2, c3, c4, c5, c6, c7];
-        let order = fft_evals.len().trailing_zeros() as u64;
-        let twiddles: Vec<FieldElement<Degree4BabyBearExtensionField>> =
-            get_powers_of_primitive_root(order, 1 << order, RootsConfig::Natural).unwrap();
-
-        let naive_poly = Polynomial::interpolate(&twiddles, &fft_evals).unwrap();
-        let fft_poly =
-            Polynomial::interpolate_fft::<Degree4BabyBearExtensionField>(&fft_evals).unwrap();
-
-        assert_eq!(fft_poly, naive_poly)
-    }
-    /*
-    #[test]
-    fn gen_fft_and_naive_coset_interpolate(
-        fft_evals: &[FieldElement<F>],
-    ) -> (Polynomial<FieldElement<F>>, Polynomial<FieldElement<F>>) {
-        let order = fft_evals.len().trailing_zeros() as u64;
-        let twiddles = get_powers_of_primitive_root_coset(order, 1 << order, offset).unwrap();
-        let offset = Fp4E::new([FpE::from(10), FpE::from(11), FpE::from(12), FpE::from(13)]);
-
-        let naive_poly = Polynomial::interpolate(&twiddles, fft_evals).unwrap();
-        let fft_poly = Polynomial::interpolate_offset_fft(fft_evals, &offset).unwrap();
-    }*/
 }
