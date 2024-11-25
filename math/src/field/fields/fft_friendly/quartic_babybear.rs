@@ -54,7 +54,7 @@ impl IsField for Degree4BabyBearExtensionField {
     }
 
     // Return te inverse of a fp4 element if exist.
-    // This algorithm is inspired by R1sc0 implementation:
+    // This algorithm is inspired by Risc0 implementation:
     // https://github.com/risc0/risc0/blob/4c41c739779ef2759a01ebcf808faf0fbffe8793/risc0/core/src/field/baby_bear.rs#L460
     fn inv(a: &Self::BaseType) -> Result<Self::BaseType, FieldError> {
         let mut b0 = &a[0] * &a[0] + BETA * (&a[1] * (&a[3] + &a[3]) - &a[2] * &a[2]);
