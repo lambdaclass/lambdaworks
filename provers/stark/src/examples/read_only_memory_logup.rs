@@ -11,6 +11,7 @@ use crate::{
     trace::TraceTable,
     traits::AIR,
 };
+use itertools::Itertools;
 use lambdaworks_crypto::fiat_shamir::is_transcript::IsTranscript;
 use lambdaworks_math::field::traits::IsPrimeField;
 use lambdaworks_math::{
@@ -47,7 +48,7 @@ where
 
     fn end_exemptions(&self) -> usize {
         // NOTE: We are assuming that the trace has as length a power of 2.
-        1
+        4
     }
 
     fn evaluate(
@@ -100,7 +101,7 @@ where
 
     fn end_exemptions(&self) -> usize {
         // NOTE: We are assuming that the trace has as length a power of 2.
-        1
+        4
     }
 
     fn evaluate(
@@ -154,7 +155,7 @@ where
     }
 
     fn end_exemptions(&self) -> usize {
-        1
+        4
     }
 
     fn evaluate(
@@ -168,30 +169,21 @@ where
         let second_step = frame.get_evaluation_step(1);
 
         // Auxiliary constraints
-        let p0 = first_step.get_aux_evaluation_element(0, 0);
-        let p1 = second_step.get_aux_evaluation_element(0, 0);
+        let s0 = first_step.get_aux_evaluation_element(0, 0);
+        let s1 = second_step.get_aux_evaluation_element(0, 0);
         let z = &rap_challenges[0];
         let alpha = &rap_challenges[1];
         let a1 = second_step.get_main_evaluation_element(0, 0);
         let v1 = second_step.get_main_evaluation_element(0, 1);
         let a_sorted_1 = second_step.get_main_evaluation_element(0, 2);
         let v_sorted_1 = second_step.get_main_evaluation_element(0, 3);
-
-        // // plookup version: (z - (a'_{i+1} + α * v'_{i+1})) * p_{i+1} = (z - (a_{i+1} + α * v_{i+1})) * p_i
-        // let res = (z - (a_sorted_1 + alpha * v_sorted_1)) * p1 - (z - (a1 + alpha * v1)) * p0;
-
-        // Logup: s_{i+1} = s_i + (1 / (z - (a_{i+1} + α * v_{i+1}))) - (1 / (z - (a'_{i+1} + α * v'_{i+1}))).
-        // Then, s_{i+1} + (1 / (z - (a'_{i+1} + α * v'_{i+1}))) = s_i + (1 / (z - (a_{i+1} + α * v_{i+1}))).
-
-        // let unsorted_term = (z - (a1 + alpha * v1)).inv().unwrap();
-        // let sorted_term = (z - (a_sorted_1 + alpha * v_sorted_1)).inv().unwrap();
-        // let res = p0 + unsorted_term - sorted_term - p1;
+        let m = second_step.get_main_evaluation_element(0, 4);
 
         let unsorted_term = z - (a1 + alpha * v1);
         let sorted_term = z - (a_sorted_1 + alpha * v_sorted_1);
-        let res = p0 * &unsorted_term * &sorted_term + &sorted_term
-            - &unsorted_term
-            - p1 * unsorted_term * sorted_term;
+        let res = s0 * &unsorted_term * &sorted_term + m * &unsorted_term
+            - &sorted_term
+            - s1 * unsorted_term * sorted_term;
 
         // The eval always exists, except if the constraint idx were incorrectly defined.
         if let Some(eval) = transition_evaluations.get_mut(self.constraint_idx()) {
@@ -219,6 +211,7 @@ where
     pub v0: FieldElement<F>,
     pub a_sorted0: FieldElement<F>,
     pub v_sorted0: FieldElement<F>,
+    pub m0: FieldElement<F>,
 }
 
 impl<F> AIR for LogReadOnlyRAP<F>
@@ -247,7 +240,7 @@ where
 
         let context = AirContext {
             proof_options: proof_options.clone(),
-            trace_columns: 5,
+            trace_columns: 6,
             transition_offsets: vec![0, 1],
             num_transition_constraints: transition_constraints.len(),
         };
@@ -270,6 +263,7 @@ where
         let v = &main_segment_cols[1];
         let a_sorted = &main_segment_cols[2];
         let v_sorted = &main_segment_cols[3];
+        let m = &main_segment_cols[4];
         let z = &challenges[0];
         let alpha = &challenges[1];
 
@@ -278,7 +272,7 @@ where
 
         let unsorted_term = (z - (&a[0] + alpha * &v[0])).inv().unwrap();
         let sorted_term = (z - (&a_sorted[0] + alpha * &v_sorted[0])).inv().unwrap();
-        aux_col.push(unsorted_term - sorted_term);
+        aux_col.push(&m[0] * sorted_term - unsorted_term);
 
         // Apply the same equation given in the permutation case to the rest of the trace
         for i in 0..trace_len - 1 {
@@ -286,12 +280,7 @@ where
             let sorted_term = (z - (&a_sorted[i + 1] + alpha * &v_sorted[i + 1]))
                 .inv()
                 .unwrap();
-            aux_col.push(&aux_col[i] + unsorted_term - sorted_term);
-
-            // // plookup version:
-            // let num = (z - (&a[i + 1] + alpha * &v[i + 1])) * &aux_col[i];
-            // let den = z - (&a_sorted[i + 1] + alpha * &v_sorted[i + 1]);
-            // aux_col.push(num / den);
+            aux_col.push(&aux_col[i] + &m[i + 1] * sorted_term - unsorted_term);
         }
 
         for (i, aux_elem) in aux_col.iter().enumerate().take(trace.num_rows()) {
@@ -310,7 +299,7 @@ where
     }
 
     fn trace_layout(&self) -> (usize, usize) {
-        (4, 1)
+        (5, 1)
     }
 
     fn boundary_constraints(
@@ -321,6 +310,7 @@ where
         let v0 = &self.pub_inputs.v0;
         let a_sorted0 = &self.pub_inputs.a_sorted0;
         let v_sorted0 = &self.pub_inputs.v_sorted0;
+        let m0 = &self.pub_inputs.m0;
         let z = &rap_challenges[0];
         let alpha = &rap_challenges[1];
 
@@ -331,21 +321,14 @@ where
         let c4 = BoundaryConstraint::new_main(3, 0, v_sorted0.clone());
 
         // Auxiliary boundary constraints
-
-        // // plookup version:
-        // let num = z - (a0 + alpha * v0);
-        // let den = z - (a_sorted0 + alpha * v_sorted0);
-        // let p0_value = num / den;
-
         let unsorted_term = (z - (a0 + alpha * v0)).inv().unwrap();
         let sorted_term = (z - (a_sorted0 + alpha * v_sorted0)).inv().unwrap();
-        let p0_value = unsorted_term - sorted_term;
+        let p0_value = m0 * sorted_term - unsorted_term;
 
         let c_aux1 = BoundaryConstraint::new_aux(0, 0, p0_value);
         let c_aux2 = BoundaryConstraint::new_aux(
             0,
             self.trace_length - 1,
-            //logup version:
             FieldElement::<Self::FieldExtension>::zero(),
         );
 
@@ -405,6 +388,38 @@ pub fn sort_rap_trace<F: IsFFTField + IsPrimeField>(
     TraceTable::from_columns(main_columns, vec![zero_vec], 1)
 }
 
+pub fn read_only_logup_trace<F: IsFFTField + IsPrimeField>(
+    addresses: Vec<FieldElement<F>>,
+    values: Vec<FieldElement<F>>,
+) -> TraceTable<F, F> {
+    let mut address_value_pairs: Vec<_> = addresses.iter().zip(values.iter()).collect();
+    address_value_pairs.sort_by_key(|(addr, _)| addr.representative());
+    let mut multiplicities = Vec::new();
+    let mut sorted_addresses = Vec::new();
+    let mut sorted_values = Vec::new();
+    for (key, group) in &address_value_pairs.into_iter().group_by(|&(a, v)| (a, v)) {
+        let group_vec: Vec<_> = group.collect();
+        multiplicities.push(FieldElement::<F>::from(group_vec.len() as u64));
+        sorted_addresses.push(key.0.clone());
+        sorted_values.push(key.1.clone());
+    }
+    sorted_addresses.resize(addresses.len(), FieldElement::<F>::zero());
+    sorted_values.resize(addresses.len(), FieldElement::<F>::zero());
+    multiplicities.resize(addresses.len(), FieldElement::<F>::zero());
+
+    let main_columns = vec![
+        addresses.clone(),
+        values.clone(),
+        sorted_addresses,
+        sorted_values,
+        multiplicities,
+    ];
+
+    // create a vector with zeros of the same length as the main columns
+    let zero_vec = vec![FieldElement::<F>::zero(); main_columns[0].len()];
+    TraceTable::from_columns(main_columns, vec![zero_vec], 1)
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -458,5 +473,65 @@ mod test {
 
         assert_eq!(sorted_trace.columns_main()[2], expected_sorted_addresses);
         assert_eq!(sorted_trace.columns_main()[3], expected_sorted_values);
+    }
+
+    #[test]
+    fn test_logup_trace() {
+        let address_col = vec![
+            FE17::from(5),
+            FE17::from(2),
+            FE17::from(3),
+            FE17::from(4),
+            FE17::from(1),
+            FE17::from(5),
+            FE17::from(6),
+            FE17::from(5),
+        ];
+        let value_col = vec![
+            FE17::from(50),
+            FE17::from(20),
+            FE17::from(30),
+            FE17::from(40),
+            FE17::from(10),
+            FE17::from(50),
+            FE17::from(60),
+            FE17::from(50),
+        ];
+
+        let logup_trace = read_only_logup_trace(address_col, value_col);
+
+        let expected_sorted_addresses = vec![
+            FE17::from(1),
+            FE17::from(2),
+            FE17::from(3),
+            FE17::from(4),
+            FE17::from(5),
+            FE17::from(6),
+            FE17::zero(),
+            FE17::zero(),
+        ];
+        let expected_sorted_values = vec![
+            FE17::from(10),
+            FE17::from(20),
+            FE17::from(30),
+            FE17::from(40),
+            FE17::from(50),
+            FE17::from(60),
+            FE17::zero(),
+            FE17::zero(),
+        ];
+        let expected_multiplicities = vec![
+            FE17::one(),
+            FE17::one(),
+            FE17::one(),
+            FE17::one(),
+            FE17::from(3),
+            FE17::one(),
+            FE17::zero(),
+            FE17::zero(),
+        ];
+        // assert_eq!(logup_trace.columns_main()[2], expected_sorted_addresses);
+        // assert_eq!(logup_trace.columns_main()[3], expected_sorted_values);
+        assert_eq!(logup_trace.columns_main()[4], expected_multiplicities);
     }
 }
