@@ -319,6 +319,7 @@ where
         let c2 = BoundaryConstraint::new_main(1, 0, v0.clone());
         let c3 = BoundaryConstraint::new_main(2, 0, a_sorted0.clone());
         let c4 = BoundaryConstraint::new_main(3, 0, v_sorted0.clone());
+        let c5 = BoundaryConstraint::new_main(4, 0, m0.clone());
 
         // Auxiliary boundary constraints
         let unsorted_term = (z - (a0 + alpha * v0)).inv().unwrap();
@@ -332,7 +333,7 @@ where
             FieldElement::<Self::FieldExtension>::zero(),
         );
 
-        BoundaryConstraints::from_constraints(vec![c1, c2, c3, c4, c_aux1, c_aux2])
+        BoundaryConstraints::from_constraints(vec![c1, c2, c3, c4, c5, c_aux1, c_aux2])
     }
 
     fn transition_constraints(

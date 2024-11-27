@@ -341,6 +341,6 @@ fn test_prove_log_read_only_memory() {
         &proof_options,
         StoneProverTranscript::new(&[]),
     );
-    println!("RESULT: {:?}", result);
+    //println!("RESULT: {:?}", result);
     // assert_eq!(result, true);
 }
