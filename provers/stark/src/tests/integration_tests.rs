@@ -300,23 +300,23 @@ fn test_prove_read_only_memory() {
 fn test_prove_log_read_only_memory() {
     let address_col = vec![
         FieldElement::<Stark252PrimeField>::from(3), // a0
-        FieldElement::<Stark252PrimeField>::from(2), // a1
+        FieldElement::<Stark252PrimeField>::from(7), // a1
         FieldElement::<Stark252PrimeField>::from(2), // a2
-        FieldElement::<Stark252PrimeField>::from(3), // a3
+        FieldElement::<Stark252PrimeField>::from(8), // a3
         FieldElement::<Stark252PrimeField>::from(4), // a4
         FieldElement::<Stark252PrimeField>::from(5), // a5
         FieldElement::<Stark252PrimeField>::from(1), // a6
-        FieldElement::<Stark252PrimeField>::from(3), // a7
+        FieldElement::<Stark252PrimeField>::from(6), // a7
     ];
     let value_col = vec![
         FieldElement::<Stark252PrimeField>::from(30), // v0
-        FieldElement::<Stark252PrimeField>::from(20), // v1
+        FieldElement::<Stark252PrimeField>::from(70), // v1
         FieldElement::<Stark252PrimeField>::from(20), // v2
-        FieldElement::<Stark252PrimeField>::from(30), // v3
+        FieldElement::<Stark252PrimeField>::from(80), // v3
         FieldElement::<Stark252PrimeField>::from(40), // v4
         FieldElement::<Stark252PrimeField>::from(50), // v5
         FieldElement::<Stark252PrimeField>::from(10), // v6
-        FieldElement::<Stark252PrimeField>::from(30), // v7
+        FieldElement::<Stark252PrimeField>::from(60), // v7
     ];
 
     let pub_inputs = LogReadOnlyPublicInputs {
@@ -341,6 +341,5 @@ fn test_prove_log_read_only_memory() {
         &proof_options,
         StoneProverTranscript::new(&[]),
     );
-    //println!("RESULT: {:?}", result);
-    // assert_eq!(result, true);
+    println!("RESULT: {:?}", result);
 }

@@ -48,7 +48,7 @@ where
 
     fn end_exemptions(&self) -> usize {
         // NOTE: We are assuming that the trace has as length a power of 2.
-        4
+        1
     }
 
     fn evaluate(
@@ -101,7 +101,7 @@ where
 
     fn end_exemptions(&self) -> usize {
         // NOTE: We are assuming that the trace has as length a power of 2.
-        4
+        1
     }
 
     fn evaluate(
@@ -155,7 +155,7 @@ where
     }
 
     fn end_exemptions(&self) -> usize {
-        4
+        1
     }
 
     fn evaluate(
@@ -404,8 +404,8 @@ pub fn read_only_logup_trace<F: IsFFTField + IsPrimeField>(
         sorted_addresses.push(key.0.clone());
         sorted_values.push(key.1.clone());
     }
-    sorted_addresses.resize(addresses.len(), FieldElement::<F>::zero());
-    sorted_values.resize(addresses.len(), FieldElement::<F>::zero());
+    sorted_addresses.resize(addresses.len(), sorted_addresses.last().unwrap().clone());
+    sorted_values.resize(addresses.len(), sorted_values.last().unwrap().clone());
     multiplicities.resize(addresses.len(), FieldElement::<F>::zero());
 
     let main_columns = vec![
@@ -508,8 +508,8 @@ mod test {
             FE17::from(4),
             FE17::from(5),
             FE17::from(6),
-            FE17::zero(),
-            FE17::zero(),
+            FE17::from(6),
+            FE17::from(6),
         ];
         let expected_sorted_values = vec![
             FE17::from(10),
@@ -518,8 +518,8 @@ mod test {
             FE17::from(40),
             FE17::from(50),
             FE17::from(60),
-            FE17::zero(),
-            FE17::zero(),
+            FE17::from(60),
+            FE17::from(60),
         ];
         let expected_multiplicities = vec![
             FE17::one(),
@@ -531,8 +531,68 @@ mod test {
             FE17::zero(),
             FE17::zero(),
         ];
-        // assert_eq!(logup_trace.columns_main()[2], expected_sorted_addresses);
-        // assert_eq!(logup_trace.columns_main()[3], expected_sorted_values);
+        assert_eq!(logup_trace.columns_main()[2], expected_sorted_addresses);
+        assert_eq!(logup_trace.columns_main()[3], expected_sorted_values);
+        assert_eq!(logup_trace.columns_main()[4], expected_multiplicities);
+    }
+
+    #[test]
+    fn tes_logup_trace_2() {
+        let address_col = vec![
+            FE17::from(3),
+            FE17::from(7),
+            FE17::from(2),
+            FE17::from(8),
+            FE17::from(4),
+            FE17::from(5),
+            FE17::from(1),
+            FE17::from(6),
+        ];
+        let value_col = vec![
+            FE17::from(30),
+            FE17::from(70),
+            FE17::from(20),
+            FE17::from(80),
+            FE17::from(40),
+            FE17::from(50),
+            FE17::from(10),
+            FE17::from(60),
+        ];
+
+        let logup_trace = read_only_logup_trace(address_col, value_col);
+
+        let expected_sorted_addresses = vec![
+            FE17::from(1),
+            FE17::from(2),
+            FE17::from(3),
+            FE17::from(4),
+            FE17::from(5),
+            FE17::from(6),
+            FE17::from(7),
+            FE17::from(8),
+        ];
+        let expected_sorted_values = vec![
+            FE17::from(10),
+            FE17::from(20),
+            FE17::from(30),
+            FE17::from(40),
+            FE17::from(50),
+            FE17::from(60),
+            FE17::from(70),
+            FE17::from(80),
+        ];
+        let expected_multiplicities = vec![
+            FE17::one(),
+            FE17::one(),
+            FE17::one(),
+            FE17::one(),
+            FE17::one(),
+            FE17::one(),
+            FE17::one(),
+            FE17::one(),
+        ];
+        assert_eq!(logup_trace.columns_main()[2], expected_sorted_addresses);
+        assert_eq!(logup_trace.columns_main()[3], expected_sorted_values);
         assert_eq!(logup_trace.columns_main()[4], expected_multiplicities);
     }
 }
