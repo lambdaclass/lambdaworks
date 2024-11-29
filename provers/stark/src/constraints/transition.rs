@@ -1,7 +1,6 @@
 use std::ops::Div;
 
 use crate::domain::Domain;
-use crate::frame::Frame;
 use crate::prover::evaluate_polynomial_on_lde_domain;
 use crate::traits::TransitionEvaluationContext;
 use itertools::Itertools;
