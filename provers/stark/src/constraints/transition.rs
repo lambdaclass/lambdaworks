@@ -3,6 +3,7 @@ use std::ops::Div;
 use crate::domain::Domain;
 use crate::frame::Frame;
 use crate::prover::evaluate_polynomial_on_lde_domain;
+use crate::traits::TransitionEvaluationContext;
 use itertools::Itertools;
 use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::traits::{IsFFTField, IsField, IsSubFieldOf};
@@ -33,10 +34,8 @@ where
     /// vector, in the index corresponding to the constraint as given by `constraint_idx()`.
     fn evaluate(
         &self,
-        frame: &Frame<F, E>,
+        evaluation_context: &TransitionEvaluationContext<F, E>,
         transition_evaluations: &mut [FieldElement<E>],
-        periodic_values: &[FieldElement<F>],
-        rap_challenges: &[FieldElement<E>],
     );
 
     /// The periodicity the constraint is applied over the trace.
