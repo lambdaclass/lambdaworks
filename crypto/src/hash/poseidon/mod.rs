@@ -70,9 +70,6 @@ impl<P: PermutationParameters> Poseidon for P {
         x.clone()
     }
 
-    // Note: We can't follow the advice of clippy of using div_ceil in the line 82
-    // because if we do so test_hash_many() fails.
-    #[expect(clippy::manual_div_ceil)]
     fn hash_many(inputs: &[FE<Self::F>]) -> FE<Self::F> {
         let r = P::RATE; // chunk size
         let m = P::STATE_SIZE; // state size
@@ -80,7 +77,7 @@ impl<P: PermutationParameters> Poseidon for P {
         // Pad input with 1 followed by 0's (if necessary).
         let mut values = inputs.to_owned();
         values.push(FE::from(1));
-        values.resize(((values.len() + r - 1) / r) * r, FE::zero());
+        values.resize(values.len().div_ceil(r) * r, FE::zero());
 
         assert!(values.len() % r == 0);
         let mut state: Vec<FE<Self::F>> = vec![FE::zero(); m];
