@@ -242,7 +242,7 @@ pub fn babybear_extension_ops_benchmarks_p3(c: &mut Criterion) {
     let input_sizes = [1, 10, 100, 1000, 10000, 100000, 1000000];
     let input: Vec<Vec<(EF4, EF4)>> = input_sizes
         .into_iter()
-        .map(|size| rand_babybear_fp4_elements_p3(size))
+        .map(rand_babybear_fp4_elements_p3)
         .collect::<Vec<_>>();
 
     let mut group = c.benchmark_group("BabyBear Fp4 operations using Plonky3");
