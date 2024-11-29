@@ -77,7 +77,7 @@ impl<P: PermutationParameters> Poseidon for P {
         // Pad input with 1 followed by 0's (if necessary).
         let mut values = inputs.to_owned();
         values.push(FE::from(1));
-        values.resize(((values.len() + r - 1) / r) * r, FE::zero());
+        values.resize(values.len().div_ceil(r) * r, FE::zero());
 
         assert!(values.len() % r == 0);
         let mut state: Vec<FE<Self::F>> = vec![FE::zero(); m];
