@@ -16,7 +16,7 @@ impl Sha3Hasher {
     pub fn expand_message(msg: &[u8], dst: &[u8], len_in_bytes: u64) -> Result<Vec<u8>, String> {
         let b_in_bytes = Sha3_256::output_size() as u64;
 
-        let ell = (len_in_bytes + b_in_bytes - 1) / b_in_bytes;
+        let ell = len_in_bytes.div_ceil(b_in_bytes);
         if ell > 255 {
             return Err("Abort".to_string());
         }
