@@ -40,8 +40,7 @@ pub const X_BINARY: &[bool] = &[
 ];
 
 // GAMMA constants used to compute the Frobenius morphisms
-/// We took these constants from https://github.com/hecmas/zkNotebook/blob/main/src/BLS12381/constants.ts
-
+// We took these constants from https://github.com/hecmas/zkNotebook/blob/main/src/BLS12381/constants.ts
 pub const GAMMA_11: Fp2E = Fp2E::const_from_raw([
     FpE::from_hex_unchecked("1904D3BF02BB0667C231BEB4202C0D1F0FD603FD3CBD5F4F7B2443D784BAB9C4F67EA53D63E7813D8D0775ED92235FB8"),
     FpE::from_hex_unchecked("FC3E2B36C4E03288E9E902231F9FB854A14787B6C7B36FEC0C8EC971F63C5F282D5AC14D6C7EC22CF78A126DDC4AF3"),
@@ -315,8 +314,8 @@ fn frobenius_square(
 }
 
 ////////////////// CYCLOTOMIC SUBGROUP OPERATIONS //////////////////
-/// Since the result of the Easy Part of the Final Exponentiation belongs to the cyclotomic
-/// subgroup of Fp12, we can optimize the square and pow operations used in the Hard Part.
+// Since the result of the Easy Part of the Final Exponentiation belongs to the cyclotomic
+// subgroup of Fp12, we can optimize the square and pow operations used in the Hard Part.
 
 /// Computes the square of an element of a cyclotomic subgroup of Fp12.
 /// Algorithm from Constantine's cyclotomic_square_quad_over_cube
