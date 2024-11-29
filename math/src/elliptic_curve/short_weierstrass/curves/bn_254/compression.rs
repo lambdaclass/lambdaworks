@@ -26,7 +26,6 @@ type BN254FieldElement = FieldElement<BN254PrimeField>;
 /// 01: compressed infinity point
 /// the "uncompressed infinity point" will just have 00 (uncompressed) followed by zeroes (infinity = 0,0 in affine coordinates).
 /// adapted from gnark https://github.com/consensys/gnark-crypto/blob/v0.13.0/ecc/bn254/marshal.go
-
 impl Compress for BN254Curve {
     type G1Point = G1Point;
 

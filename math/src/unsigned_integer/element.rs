@@ -327,7 +327,6 @@ impl<const NUM_LIMBS: usize> ShrAssign<usize> for UnsignedInteger<NUM_LIMBS> {
 }
 
 /// Impl BitAnd
-
 impl<const NUM_LIMBS: usize> BitAnd for UnsignedInteger<NUM_LIMBS> {
     type Output = Self;
 
@@ -348,7 +347,6 @@ impl<const NUM_LIMBS: usize> BitAndAssign for UnsignedInteger<NUM_LIMBS> {
 }
 
 /// Impl BitOr
-
 impl<const NUM_LIMBS: usize> BitOr for UnsignedInteger<NUM_LIMBS> {
     type Output = Self;
 
@@ -370,7 +368,6 @@ impl<const NUM_LIMBS: usize> BitOrAssign for UnsignedInteger<NUM_LIMBS> {
 }
 
 /// Impl BitXor
-
 impl<const NUM_LIMBS: usize> BitXor for UnsignedInteger<NUM_LIMBS> {
     type Output = Self;
 
