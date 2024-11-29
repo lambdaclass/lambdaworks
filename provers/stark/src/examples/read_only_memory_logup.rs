@@ -1,4 +1,4 @@
-use std::marker::PhantomData;
+use std::{iter::once, marker::PhantomData};
 
 use crate::{
     constraints::{
@@ -19,8 +19,7 @@ use lambdaworks_math::{
     traits::ByteConversion,
 };
 
-/// This condition ensures the continuity in a read-only memory structure, preserving strict ordering.
-/// Equation based on Cairo Whitepaper section 9.7.2
+/// Transition Constraint that ensures the continuity of the sorted address column of a memory.
 #[derive(Clone)]
 struct ContinuityConstraint<F: IsFFTField> {
     phantom: PhantomData<F>,
@@ -72,8 +71,7 @@ where
         }
     }
 }
-/// Transition constraint that ensures that same addresses have same values, making the memory read-only.
-/// Equation based on Cairo Whitepaper section 9.7.2
+/// Transition constraint that ensures that same addresses have same values, making the sorted memory read-only.
 #[derive(Clone)]
 struct SingleValueConstraint<F: IsFFTField> {
     phantom: PhantomData<F>,
@@ -114,12 +112,12 @@ where
         let first_step = frame.get_evaluation_step(0);
         let second_step = frame.get_evaluation_step(1);
 
-        let a_sorted0 = first_step.get_main_evaluation_element(0, 2);
-        let a_sorted1 = second_step.get_main_evaluation_element(0, 2);
-        let v_sorted0 = first_step.get_main_evaluation_element(0, 3);
-        let v_sorted1 = second_step.get_main_evaluation_element(0, 3);
+        let a_sorted_0 = first_step.get_main_evaluation_element(0, 2);
+        let a_sorted_1 = second_step.get_main_evaluation_element(0, 2);
+        let v_sorted_0 = first_step.get_main_evaluation_element(0, 3);
+        let v_sorted_1 = second_step.get_main_evaluation_element(0, 3);
         // (v'_{i+1} - v'_i) * (a'_{i+1} - a'_i - 1) = 0
-        let res = (v_sorted1 - v_sorted0) * (a_sorted1 - a_sorted0 - FieldElement::<F>::one());
+        let res = (v_sorted_1 - v_sorted_0) * (a_sorted_1 - a_sorted_0 - FieldElement::<F>::one());
 
         // The eval always exists, except if the constraint idx were incorrectly defined.
         if let Some(eval) = transition_evaluations.get_mut(self.constraint_idx()) {
@@ -127,8 +125,9 @@ where
         }
     }
 }
-/// Permutation constraint ensures that the values are permuted in the memory.
-/// Equation based on Cairo Whitepaper section 9.7.2
+/// Transition constraint that ensures that the sorted columns are a permutation of the original ones.
+/// We are using the LogUp construction described in:
+/// <https://0xpolygonmiden.github.io/miden-vm/design/lookups/logup.html>
 #[derive(Clone)]
 struct PermutationConstraint<F: IsFFTField> {
     phantom: PhantomData<F>,
@@ -181,6 +180,10 @@ where
 
         let unsorted_term = z - (a1 + alpha * v1);
         let sorted_term = z - (a_sorted_1 + alpha * v_sorted_1);
+
+        // We are using the following LogUp equation:
+        // s1 = s0 + m / sorted_term - 1/unsorted_term.
+        // Since constraints must be expressed without division, we multiply each term by sorted_term * unsorted_term:
         let res = s0 * &unsorted_term * &sorted_term + m * &unsorted_term
             - &sorted_term
             - s1 * unsorted_term * sorted_term;
@@ -192,6 +195,7 @@ where
     }
 }
 
+/// AIR for a continuous read-only memory.
 pub struct LogReadOnlyRAP<F>
 where
     F: IsFFTField,
@@ -209,8 +213,9 @@ where
 {
     pub a0: FieldElement<F>,
     pub v0: FieldElement<F>,
-    pub a_sorted0: FieldElement<F>,
-    pub v_sorted0: FieldElement<F>,
+    pub a_sorted_0: FieldElement<F>,
+    pub v_sorted_0: FieldElement<F>,
+    // The multiplicity of (a_sorted_0, v_sorted_0)
     pub m0: FieldElement<F>,
 }
 
@@ -308,8 +313,8 @@ where
     ) -> BoundaryConstraints<Self::FieldExtension> {
         let a0 = &self.pub_inputs.a0;
         let v0 = &self.pub_inputs.v0;
-        let a_sorted0 = &self.pub_inputs.a_sorted0;
-        let v_sorted0 = &self.pub_inputs.v_sorted0;
+        let a_sorted_0 = &self.pub_inputs.a_sorted_0;
+        let v_sorted_0 = &self.pub_inputs.v_sorted_0;
         let m0 = &self.pub_inputs.m0;
         let z = &rap_challenges[0];
         let alpha = &rap_challenges[1];
@@ -317,13 +322,13 @@ where
         // Main boundary constraints
         let c1 = BoundaryConstraint::new_main(0, 0, a0.clone());
         let c2 = BoundaryConstraint::new_main(1, 0, v0.clone());
-        let c3 = BoundaryConstraint::new_main(2, 0, a_sorted0.clone());
-        let c4 = BoundaryConstraint::new_main(3, 0, v_sorted0.clone());
+        let c3 = BoundaryConstraint::new_main(2, 0, a_sorted_0.clone());
+        let c4 = BoundaryConstraint::new_main(3, 0, v_sorted_0.clone());
         let c5 = BoundaryConstraint::new_main(4, 0, m0.clone());
 
         // Auxiliary boundary constraints
         let unsorted_term = (z - (a0 + alpha * v0)).inv().unwrap();
-        let sorted_term = (z - (a_sorted0 + alpha * v_sorted0)).inv().unwrap();
+        let sorted_term = (z - (a_sorted_0 + alpha * v_sorted_0)).inv().unwrap();
         let p0_value = m0 * sorted_term - unsorted_term;
 
         let c_aux1 = BoundaryConstraint::new_aux(0, 0, p0_value);
@@ -346,8 +351,11 @@ where
         &self.context
     }
 
+    // The prover use this function to define the number of parts of the composition polynomial.
+    // The number of parts will be: composition_poly_degree_bound() / trace_length().
+    // Since we have a transition constraint of degree 3, we need the bound to be two times the trace length.
     fn composition_poly_degree_bound(&self) -> usize {
-        self.trace_length()
+        self.trace_length() * 2
     }
 
     fn trace_length(&self) -> usize {
@@ -368,42 +376,29 @@ where
     }
 }
 
-/// Given the adress and value columns, it returns the trace table with 5 columns, which are:
-/// Addres, Value, Adress Sorted, Value Sorted and a Column of Zeroes (where we'll insert the auxiliary column).
-pub fn sort_rap_trace<F: IsFFTField + IsPrimeField>(
-    address: Vec<FieldElement<F>>,
-    value: Vec<FieldElement<F>>,
-) -> TraceTable<F, F> {
-    let mut address_value_pairs: Vec<_> = address.iter().zip(value.iter()).collect();
-
-    address_value_pairs.sort_by_key(|(addr, _)| addr.representative());
-
-    let (sorted_address, sorted_value): (Vec<FieldElement<F>>, Vec<FieldElement<F>>) =
-        address_value_pairs
-            .into_iter()
-            .map(|(addr, val)| (addr.clone(), val.clone()))
-            .unzip();
-    let main_columns = vec![address.clone(), value.clone(), sorted_address, sorted_value];
-    // create a vector with zeros of the same length as the main columns
-    let zero_vec = vec![FieldElement::<F>::zero(); main_columns[0].len()];
-    TraceTable::from_columns(main_columns, vec![zero_vec], 1)
-}
-
+/// Return a trace table with an auxiliary column full of zeros (that will be completed by the air) and
+/// the following five main columns: The original addresses and values, the sorted addresses and values without
+/// repetition and the multiplicities that tell
 pub fn read_only_logup_trace<F: IsFFTField + IsPrimeField>(
     addresses: Vec<FieldElement<F>>,
     values: Vec<FieldElement<F>>,
 ) -> TraceTable<F, F> {
     let mut address_value_pairs: Vec<_> = addresses.iter().zip(values.iter()).collect();
     address_value_pairs.sort_by_key(|(addr, _)| addr.representative());
+
     let mut multiplicities = Vec::new();
     let mut sorted_addresses = Vec::new();
     let mut sorted_values = Vec::new();
+
     for (key, group) in &address_value_pairs.into_iter().group_by(|&(a, v)| (a, v)) {
         let group_vec: Vec<_> = group.collect();
         multiplicities.push(FieldElement::<F>::from(group_vec.len() as u64));
         sorted_addresses.push(key.0.clone());
         sorted_values.push(key.1.clone());
     }
+
+    // We resize the sorted addresses and values with the last value of each one so they have the
+    // same number of rows as the original addresses and values. However, their multiplicity should be zero.
     sorted_addresses.resize(addresses.len(), sorted_addresses.last().unwrap().clone());
     sorted_values.resize(addresses.len(), sorted_values.last().unwrap().clone());
     multiplicities.resize(addresses.len(), FieldElement::<F>::zero());
@@ -424,120 +419,12 @@ pub fn read_only_logup_trace<F: IsFFTField + IsPrimeField>(
 #[cfg(test)]
 mod test {
     use super::*;
-    use lambdaworks_math::field::fields::u64_prime_field::FE17;
+    use lambdaworks_math::field::fields::{
+        fft_friendly::stark_252_prime_field::Stark252PrimeField, u64_prime_field::FE17,
+    };
 
     #[test]
-    fn test_sort_rap_trace() {
-        let address_col = vec![
-            FE17::from(5),
-            FE17::from(2),
-            FE17::from(3),
-            FE17::from(4),
-            FE17::from(1),
-            FE17::from(6),
-            FE17::from(7),
-            FE17::from(8),
-        ];
-        let value_col = vec![
-            FE17::from(50),
-            FE17::from(20),
-            FE17::from(30),
-            FE17::from(40),
-            FE17::from(10),
-            FE17::from(60),
-            FE17::from(70),
-            FE17::from(80),
-        ];
-
-        let sorted_trace = sort_rap_trace(address_col.clone(), value_col.clone());
-
-        let expected_sorted_addresses = vec![
-            FE17::from(1),
-            FE17::from(2),
-            FE17::from(3),
-            FE17::from(4),
-            FE17::from(5),
-            FE17::from(6),
-            FE17::from(7),
-            FE17::from(8),
-        ];
-        let expected_sorted_values = vec![
-            FE17::from(10),
-            FE17::from(20),
-            FE17::from(30),
-            FE17::from(40),
-            FE17::from(50),
-            FE17::from(60),
-            FE17::from(70),
-            FE17::from(80),
-        ];
-
-        assert_eq!(sorted_trace.columns_main()[2], expected_sorted_addresses);
-        assert_eq!(sorted_trace.columns_main()[3], expected_sorted_values);
-    }
-
-    #[test]
-    fn test_logup_trace() {
-        let address_col = vec![
-            FE17::from(5),
-            FE17::from(2),
-            FE17::from(3),
-            FE17::from(4),
-            FE17::from(1),
-            FE17::from(5),
-            FE17::from(6),
-            FE17::from(5),
-        ];
-        let value_col = vec![
-            FE17::from(50),
-            FE17::from(20),
-            FE17::from(30),
-            FE17::from(40),
-            FE17::from(10),
-            FE17::from(50),
-            FE17::from(60),
-            FE17::from(50),
-        ];
-
-        let logup_trace = read_only_logup_trace(address_col, value_col);
-
-        let expected_sorted_addresses = vec![
-            FE17::from(1),
-            FE17::from(2),
-            FE17::from(3),
-            FE17::from(4),
-            FE17::from(5),
-            FE17::from(6),
-            FE17::from(6),
-            FE17::from(6),
-        ];
-        let expected_sorted_values = vec![
-            FE17::from(10),
-            FE17::from(20),
-            FE17::from(30),
-            FE17::from(40),
-            FE17::from(50),
-            FE17::from(60),
-            FE17::from(60),
-            FE17::from(60),
-        ];
-        let expected_multiplicities = vec![
-            FE17::one(),
-            FE17::one(),
-            FE17::one(),
-            FE17::one(),
-            FE17::from(3),
-            FE17::one(),
-            FE17::zero(),
-            FE17::zero(),
-        ];
-        assert_eq!(logup_trace.columns_main()[2], expected_sorted_addresses);
-        assert_eq!(logup_trace.columns_main()[3], expected_sorted_values);
-        assert_eq!(logup_trace.columns_main()[4], expected_multiplicities);
-    }
-
-    #[test]
-    fn tes_logup_trace_2() {
+    fn tes_logup_trace_construction() {
         let address_col = vec![
             FE17::from(3),
             FE17::from(7),
@@ -594,5 +481,66 @@ mod test {
         assert_eq!(logup_trace.columns_main()[2], expected_sorted_addresses);
         assert_eq!(logup_trace.columns_main()[3], expected_sorted_values);
         assert_eq!(logup_trace.columns_main()[4], expected_multiplicities);
+    }
+
+    #[test]
+    fn test_logup_trace_construction_2() {
+        let address_col = vec![
+            FieldElement::<Stark252PrimeField>::from(3), // a0
+            FieldElement::<Stark252PrimeField>::from(2), // a1
+            FieldElement::<Stark252PrimeField>::from(2), // a2
+            FieldElement::<Stark252PrimeField>::from(3), // a3
+            FieldElement::<Stark252PrimeField>::from(4), // a4
+            FieldElement::<Stark252PrimeField>::from(5), // a5
+            FieldElement::<Stark252PrimeField>::from(1), // a6
+            FieldElement::<Stark252PrimeField>::from(3), // a7
+        ];
+        let value_col = vec![
+            FieldElement::<Stark252PrimeField>::from(30), // v0
+            FieldElement::<Stark252PrimeField>::from(20), // v1
+            FieldElement::<Stark252PrimeField>::from(20), // v2
+            FieldElement::<Stark252PrimeField>::from(30), // v3
+            FieldElement::<Stark252PrimeField>::from(40), // v4
+            FieldElement::<Stark252PrimeField>::from(50), // v5
+            FieldElement::<Stark252PrimeField>::from(10), // v6
+            FieldElement::<Stark252PrimeField>::from(30), // v7
+        ];
+
+        let sorted_address_col = vec![
+            FieldElement::<Stark252PrimeField>::from(1), // a0
+            FieldElement::<Stark252PrimeField>::from(2), // a1
+            FieldElement::<Stark252PrimeField>::from(3), // a2
+            FieldElement::<Stark252PrimeField>::from(4), // a3
+            FieldElement::<Stark252PrimeField>::from(5), // a4
+            FieldElement::<Stark252PrimeField>::from(5), // a5
+            FieldElement::<Stark252PrimeField>::from(5), // a6
+            FieldElement::<Stark252PrimeField>::from(5), // a7
+        ];
+        let sorted_value_col = vec![
+            FieldElement::<Stark252PrimeField>::from(10), // v0
+            FieldElement::<Stark252PrimeField>::from(20), // v1
+            FieldElement::<Stark252PrimeField>::from(30), // v2
+            FieldElement::<Stark252PrimeField>::from(40), // v3
+            FieldElement::<Stark252PrimeField>::from(50), // v4
+            FieldElement::<Stark252PrimeField>::from(50), // v5
+            FieldElement::<Stark252PrimeField>::from(50), // v6
+            FieldElement::<Stark252PrimeField>::from(50), // v7
+        ];
+
+        let multiplicity_col = vec![
+            FieldElement::<Stark252PrimeField>::from(1), // v0
+            FieldElement::<Stark252PrimeField>::from(2), // v1
+            FieldElement::<Stark252PrimeField>::from(3), // v2
+            FieldElement::<Stark252PrimeField>::from(1), // v3
+            FieldElement::<Stark252PrimeField>::from(1), // v4
+            FieldElement::<Stark252PrimeField>::from(0), // v5
+            FieldElement::<Stark252PrimeField>::from(0), // v6
+            FieldElement::<Stark252PrimeField>::from(0), // v7
+        ];
+        let logup_trace = read_only_logup_trace(address_col, value_col);
+
+        assert_eq!(logup_trace.columns_main()[2], sorted_address_col);
+        assert_eq!(logup_trace.columns_main()[3], sorted_value_col);
+        assert_eq!(logup_trace.columns_main()[4], multiplicity_col);
     }
 }

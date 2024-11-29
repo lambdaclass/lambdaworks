@@ -300,31 +300,31 @@ fn test_prove_read_only_memory() {
 fn test_prove_log_read_only_memory() {
     let address_col = vec![
         FieldElement::<Stark252PrimeField>::from(3), // a0
-        FieldElement::<Stark252PrimeField>::from(7), // a1
+        FieldElement::<Stark252PrimeField>::from(2), // a1
         FieldElement::<Stark252PrimeField>::from(2), // a2
-        FieldElement::<Stark252PrimeField>::from(8), // a3
+        FieldElement::<Stark252PrimeField>::from(3), // a3
         FieldElement::<Stark252PrimeField>::from(4), // a4
         FieldElement::<Stark252PrimeField>::from(5), // a5
         FieldElement::<Stark252PrimeField>::from(1), // a6
-        FieldElement::<Stark252PrimeField>::from(6), // a7
+        FieldElement::<Stark252PrimeField>::from(3), // a7
     ];
     let value_col = vec![
         FieldElement::<Stark252PrimeField>::from(30), // v0
-        FieldElement::<Stark252PrimeField>::from(70), // v1
+        FieldElement::<Stark252PrimeField>::from(20), // v1
         FieldElement::<Stark252PrimeField>::from(20), // v2
-        FieldElement::<Stark252PrimeField>::from(80), // v3
+        FieldElement::<Stark252PrimeField>::from(30), // v3
         FieldElement::<Stark252PrimeField>::from(40), // v4
         FieldElement::<Stark252PrimeField>::from(50), // v5
         FieldElement::<Stark252PrimeField>::from(10), // v6
-        FieldElement::<Stark252PrimeField>::from(60), // v7
+        FieldElement::<Stark252PrimeField>::from(30), // v7
     ];
 
     let pub_inputs = LogReadOnlyPublicInputs {
         a0: FieldElement::<Stark252PrimeField>::from(3),
         v0: FieldElement::<Stark252PrimeField>::from(30),
-        a_sorted0: FieldElement::<Stark252PrimeField>::from(1), // a6
-        v_sorted0: FieldElement::<Stark252PrimeField>::from(10), // v6
-        m0: FieldElement::<Stark252PrimeField>::one(),
+        a_sorted_0: FieldElement::<Stark252PrimeField>::from(1),
+        v_sorted_0: FieldElement::<Stark252PrimeField>::from(10),
+        m0: FieldElement::<Stark252PrimeField>::from(1),
     };
     let mut trace = read_only_logup_trace(address_col, value_col);
     let proof_options = ProofOptions::default_test_options();
@@ -335,11 +335,10 @@ fn test_prove_log_read_only_memory() {
         StoneProverTranscript::new(&[]),
     )
     .unwrap();
-    let result = Verifier::<LogReadOnlyRAP<Stark252PrimeField>>::verify(
+    assert!(Verifier::<LogReadOnlyRAP<Stark252PrimeField>>::verify(
         &proof,
         &pub_inputs,
         &proof_options,
         StoneProverTranscript::new(&[]),
-    );
-    println!("RESULT: {:?}", result);
+    ));
 }
