@@ -17,6 +17,6 @@ use fields::{
 criterion_group!(
     name = field_benches;
     config = Criterion::default().with_profiler(PProfProfiler::new(100, Output::Flamegraph(None)));
-    targets = babybear_p3_ops_benchmarks,babybear_extension_ops_benchmarks_p3,
+    targets = babybear_ops_benchmarks,babybear_extension_ops_benchmarks,babybear_p3_ops_benchmarks,babybear_extension_ops_benchmarks_p3
 );
 criterion_main!(field_benches);

@@ -56,6 +56,10 @@ pub fn rand_babybear_fp4_elements(num: usize) -> Vec<(Fp4E, Fp4E)> {
 }
 
 // Create a vector of random field elements for the elements using Plonky3
+// use u64?
+
+//to do create u32 for montgomery in lambdaworks?
+// use a more idiomatic way to do the benches
 
 fn rand_babybear_elements_p3(num: usize) -> Vec<(BabyBear, BabyBear)> {
     let mut rng = rand::thread_rng();
@@ -73,7 +77,7 @@ fn rand_babybear_fp4_elements_p3(num: usize) -> Vec<(EF4, EF4)> {
 
 // Operations for BabyBear extension field  4 using Lambdaworks
 pub fn babybear_extension_ops_benchmarks(c: &mut Criterion) {
-    let input: Vec<Vec<(Fp4E, Fp4E)>> = [1000000]
+    let input: Vec<Vec<(Fp4E, Fp4E)>> = [1, 10, 100, 1000, 10000, 100000, 1000000]
         .into_iter()
         .map(rand_babybear_fp4_elements)
         .collect::<Vec<_>>();
@@ -159,16 +163,6 @@ pub fn babybear_ops_benchmarks(c: &mut Criterion) {
     }
 
     for i in input.clone().into_iter() {
-        group.bench_with_input(format!("pow by 1 {:?}", &i.len()), &i, |bench, i| {
-            bench.iter(|| {
-                for (x, _) in i {
-                    black_box(black_box(x).pow(1_u64));
-                }
-            });
-        });
-    }
-
-    for i in input.clone().into_iter() {
         group.bench_with_input(format!("square {:?}", &i.len()), &i, |bench, i| {
             bench.iter(|| {
                 for (x, _) in i {
@@ -178,39 +172,6 @@ pub fn babybear_ops_benchmarks(c: &mut Criterion) {
         });
     }
 
-    for i in input.clone().into_iter() {
-        group.bench_with_input(format!("square with pow {:?}", &i.len()), &i, |bench, i| {
-            bench.iter(|| {
-                for (x, _) in i {
-                    black_box(black_box(x).pow(2_u64));
-                }
-            });
-        });
-    }
-
-    for i in input.clone().into_iter() {
-        group.bench_with_input(format!("square with mul {:?}", &i.len()), &i, |bench, i| {
-            bench.iter(|| {
-                for (x, _) in i {
-                    black_box(black_box(x) * black_box(x));
-                }
-            });
-        });
-    }
-
-    for i in input.clone().into_iter() {
-        group.bench_with_input(
-            format!("pow {:?}", &i.len()),
-            &(i, 5u64),
-            |bench, (i, a)| {
-                bench.iter(|| {
-                    for (x, _) in i {
-                        black_box(black_box(x).pow(*a));
-                    }
-                });
-            },
-        );
-    }
     for i in input.clone().into_iter() {
         group.bench_with_input(format!("sub {:?}", &i.len()), &i, |bench, i| {
             bench.iter(|| {
