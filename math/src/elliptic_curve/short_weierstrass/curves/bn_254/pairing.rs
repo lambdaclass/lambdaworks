@@ -32,12 +32,12 @@ type Fp12E = FieldElement<Degree12ExtensionField>;
 type G1Point = ShortWeierstrassProjectivePoint<BN254Curve>;
 type G2Point = ShortWeierstrassProjectivePoint<BN254TwistCurve>;
 
-/// You can find an explanation of the next implemetation in our post
-/// https://blog.lambdaclass.com/how-we-implemented-the-bn254-ate-pairing-in-lambdaworks/
-/// There you'll come across a path to understand the naive implementation of the pairing
-/// using the functions miller_naive() and final_exponentiation_naive().
-/// We then optimized the pairing using the functions miller_optimized() and final_exponentiation_optimized().
-/// You'll find both the naive and optimized versions below.
+// You can find an explanation of the next implemetation in our post
+// https://blog.lambdaclass.com/how-we-implemented-the-bn254-ate-pairing-in-lambdaworks/
+// There you'll come across a path to understand the naive implementation of the pairing
+// using the functions miller_naive() and final_exponentiation_naive().
+// We then optimized the pairing using the functions miller_optimized() and final_exponentiation_optimized().
+// You'll find both the naive and optimized versions below.
 
 ////////////////// CONSTANTS //////////////////
 
@@ -492,12 +492,12 @@ pub fn frobenius_cube(
 
 ////////////////// CYCLOTOMIC SUBGROUP OPERATIONS //////////////////
 
-/// Since the result of the Easy Part of the Final Exponentiation belongs to the cyclotomic
-/// subgroup of Fp12, we can optimize the square and pow operations used in the Hard Part.
+// Since the result of the Easy Part of the Final Exponentiation belongs to the cyclotomic
+// subgroup of Fp12, we can optimize the square and pow operations used in the Hard Part.
 
-/// Computes the square of an element of a cyclotomic subgroup of Fp12.
-/// Algorithm from Constantine's cyclotomic_square_quad_over_cube
-/// https://github.com/mratsim/constantine/blob/master/constantine/math/pairings/cyclotomic_subgroups.nim#L354
+/// Compute the square of an element of a cyclotomic subgroup of Fp12.
+/// Algorithm from Constantine's cyclotomic_square_quad_over_cube:
+/// <https://github.com/mratsim/constantine/blob/master/constantine/math/pairings/cyclotomic_subgroups.nim#L354>
 pub fn cyclotomic_square(a: &Fp12E) -> Fp12E {
     // a = g + h * w
     let [g, h] = a.value();
