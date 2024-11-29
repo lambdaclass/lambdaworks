@@ -4,7 +4,6 @@ use crate::{
         transition::TransitionConstraint,
     },
     context::AirContext,
-    frame::Frame,
     proof::options::ProofOptions,
     trace::TraceTable,
     traits::{TransitionEvaluationContext, AIR},
@@ -46,6 +45,19 @@ where
         evaluation_context: &TransitionEvaluationContext<F, F>,
         transition_evaluations: &mut [FieldElement<F>],
     ) {
+        let (frame, _periodic_values, _rap_challenges) = match evaluation_context {
+            TransitionEvaluationContext::Prover {
+                frame,
+                periodic_values,
+                rap_challenges,
+            }
+            | TransitionEvaluationContext::Verifier {
+                frame,
+                periodic_values,
+                rap_challenges,
+            } => (frame, periodic_values, rap_challenges),
+        };
+
         let first_step = frame.get_evaluation_step(0);
         let second_step = frame.get_evaluation_step(1);
         let third_step = frame.get_evaluation_step(2);
