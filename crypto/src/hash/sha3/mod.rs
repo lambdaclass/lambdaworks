@@ -13,6 +13,7 @@ impl Sha3Hasher {
         Self
     }
 
+    #[allow(clippy::manual_div_ceil)]
     pub fn expand_message(msg: &[u8], dst: &[u8], len_in_bytes: u64) -> Result<Vec<u8>, String> {
         let b_in_bytes = Sha3_256::output_size() as u64;
 

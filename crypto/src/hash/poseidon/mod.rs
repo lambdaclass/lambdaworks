@@ -70,6 +70,7 @@ impl<P: PermutationParameters> Poseidon for P {
         x.clone()
     }
 
+    #[allow(clippy::manual_div_ceil)]
     fn hash_many(inputs: &[FE<Self::F>]) -> FE<Self::F> {
         let r = P::RATE; // chunk size
         let m = P::STATE_SIZE; // state size
