@@ -90,38 +90,55 @@ impl<const MODULUS: u32> IsField for U32MontgomeryBackendPrimeField<MODULUS> {
 
     #[inline(always)]
     fn add(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
-        let (sum, overflow) = a.overflowing_add(*b);
-        if Self::MODULUS_HAS_ONE_SPARE_BIT {
-            if sum >= MODULUS {
-                sum - MODULUS
-            } else {
-                sum
-            }
-        } else if overflow || sum >= MODULUS {
-            sum - MODULUS
-        } else {
-            sum
+        let mut sum = a + b;
+        let (corr_sum, over) = sum.overflowing_sub(MODULUS);
+        if !over {
+            sum = corr_sum;
         }
-    }
+        sum
 
+        // let (sum, overflow) = a.overflowing_add(*b);
+        // if Self::MODULUS_HAS_ONE_SPARE_BIT {
+        //     if sum >= MODULUS {
+        //         sum - MODULUS
+        //     } else {
+        //         sum
+        //     }
+        // } else if overflow || sum >= MODULUS {
+        //     sum - MODULUS
+        // } else {
+        //     sum
+        // }
+    }
+    /*
+
+        fn add(self, rhs: Self) -> Self {
+            let mut sum = self.value + rhs.value;
+            let (corr_sum, over) = sum.overflowing_sub(FP::PRIME);
+            if !over {
+                sum = corr_sum;
+            }
+            Self::new_monty(sum)
+        }
+    */
     #[inline(always)]
     fn mul(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
-        if Self::MODULUS_HAS_ONE_SPARE_BIT {
-            MontgomeryAlgorithms::cios_optimized_for_moduli_with_one_spare_bit(
-                *a,
-                *b,
-                MODULUS,
-                Self::MU,
-            )
-        } else {
-            MontgomeryAlgorithms::cios(a, b, &MODULUS, &Self::MU)
-        }
+        // if Self::MODULUS_HAS_ONE_SPARE_BIT {
+        //     MontgomeryAlgorithms::cios_optimized_for_moduli_with_one_spare_bit(
+        //         *a,
+        //         *b,
+        //         MODULUS,
+        //         Self::MU,
+        //     )
+        // } else {
+        MontgomeryAlgorithms::cios(a, b, &MODULUS, &Self::MU)
+        // }
     }
 
-    #[inline(always)]
-    fn square(a: &Self::BaseType) -> Self::BaseType {
-        MontgomeryAlgorithms::sos_square(*a, MODULUS, &Self::MU)
-    }
+    // #[inline(always)]
+    // fn square(a: &Self::BaseType) -> Self::BaseType {
+    //     MontgomeryAlgorithms::sos_square(*a, MODULUS, &Self::MU)
+    // }
 
     #[inline(always)]
     fn sub(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
@@ -355,17 +372,14 @@ impl MontgomeryAlgorithms {
     /// https://www.microsoft.com/en-us/research/wp-content/uploads/1998/06/97Acar.pdf
     #[inline(always)]
     pub const fn cios(a: &u32, b: &u32, q: &u32, mu: &u32) -> u32 {
-        let t = *a as u64 * *b as u64;
-        let m = ((t as u32).wrapping_mul(*mu)) as u64;
+        let x = *a as u64 * *b as u64;
+        let t = x.wrapping_mul(*mu as u64) & (u32::MAX as u64);
+        let u = t * (*q as u64);
 
-        let t = t + m * (*q as u64);
-
-        let c = t >> 32;
-        let mut result = c as u32;
-        if result >= *q {
-            result = result.wrapping_sub(*q);
-        }
-        result
+        let (x_sub_u, over) = x.overflowing_sub(u);
+        let x_sub_u_hi = (x_sub_u >> 32) as u32;
+        let corr = if over { q } else { &0 };
+        x_sub_u_hi.wrapping_add(*corr)
     }
 
     /// Compute CIOS multiplication of `a` * `b`
