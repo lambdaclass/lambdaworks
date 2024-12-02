@@ -1,3 +1,4 @@
+#![deny(clippy::all)]
 use super::traits::IsCommitmentScheme;
 use alloc::{borrow::ToOwned, vec::Vec};
 use core::{marker::PhantomData, mem};
@@ -290,26 +291,40 @@ mod tests {
         <BLS12381AtePairing as IsPairing>::G2Point,
     > {
         let mut rng = rand::thread_rng();
-        let toxic_waste = FrElement::new(U256 {
+        let mut toxic_waste = Some(FrElement::new(U256 {
             limbs: [
                 rng.gen::<u64>(),
                 rng.gen::<u64>(),
                 rng.gen::<u64>(),
                 rng.gen::<u64>(),
             ],
-        });
-        let g1 = BLS12381Curve::generator();
-        let g2 = BLS12381TwistCurve::generator();
-        let powers_main_group: Vec<G1> = (0..MAX_POLYNOMIAL_DEGREE)
-            .map(|exponent| {
-                g1.operate_with_self(toxic_waste.pow(exponent as u128).representative())
-            })
-            .collect();
-        let powers_secondary_group = [
-            g2.clone(),
-            g2.operate_with_self(toxic_waste.representative()),
-        ];
-        std::mem::drop(toxic_waste);
+        }));
+        
+        let powers_main_group: Vec<G1> = {
+            let g1 = BLS12381Curve::generator();
+            (0..MAX_POLYNOMIAL_DEGREE)
+                .map(|exponent| {
+                    let tw = toxic_waste.as_ref().expect("toxic_waste should be available");
+                    g1.operate_with_self(tw.pow(exponent as u128).representative())
+                })
+                .collect()
+        };
+    
+        let powers_secondary_group = {
+            let g2 = BLS12381TwistCurve::generator();
+            [
+                g2.clone(),
+                g2.operate_with_self(
+                    toxic_waste
+                        .as_ref()
+                        .expect("toxic_waste should be available")
+                        .representative(),
+                ),
+            ]
+        };
+
+        toxic_waste = None;
+        assert!(toxic_waste.is_none(), "toxic_waste should be poisoned");
         StructuredReferenceString::new(&powers_main_group, &powers_secondary_group)
     }
 
