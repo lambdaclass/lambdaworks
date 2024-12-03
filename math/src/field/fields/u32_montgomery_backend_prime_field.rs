@@ -320,8 +320,12 @@ impl<const MODULUS: u32> IsPrimeField for U32MontgomeryBackendPrimeField<MODULUS
         {
             hex_string = &hex_string[2..];
         }
+        let value =
+            u64::from_str_radix(hex_string, 16).map_err(|_| CreationError::InvalidHexString)?;
 
-        u32::from_str_radix(hex_string, 16).map_err(|_| CreationError::InvalidHexString)
+        let reduced_value = (value % MODULUS as u64) as u32;
+        Ok(reduced_value)
+        //u32::from_str_radix(hex_string, 16).map_err(|_| CreationError::InvalidHexString)
         // println!("INTEGER: {:?}", integer);
 
         // Ok(MontgomeryAlgorithms::cios(
