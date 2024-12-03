@@ -185,43 +185,40 @@ mod tests {
             assert_eq!(zero - one, FE::from((ORDER - 1) as u64))
         }
 
-        // #[test]
-        // #[cfg(feature = "alloc")]
-        // fn byte_serialization_for_a_number_matches_with_byte_conversion_implementation_le() {
-        //     let element =
-        //         FieldElement::<Babybear31PrimeField>::from_hex("0x0123456701234567").unwrap();
-        //     let bytes = element.to_bytes_le();
-        //     let expected_bytes: [u8; 8] = ByteConversion::to_bytes_le(&element).try_into().unwrap();
-        //     assert_eq!(bytes, expected_bytes);
-        // }
+        #[test]
+        #[cfg(feature = "alloc")]
+        fn byte_serialization_for_a_number_matches_with_byte_conversion_implementation_le() {
+            let element = FieldElement::<Babybear31PrimeField>::from_hex("0123456701234567").unwrap();
+            let bytes = element.to_bytes_le();
+            let expected_bytes: [u8; 8] = ByteConversion::to_bytes_le(&element).try_into().unwrap();
+            assert_eq!(bytes, expected_bytes);
+        }
 
-        // #[test]
-        // #[cfg(feature = "alloc")]
-        // fn byte_serialization_for_a_number_matches_with_byte_conversion_implementation_be() {
-        //     let element =
-        //         FieldElement::<Babybear31PrimeField>::from_hex("0123456701234567").unwrap();
-        //     let bytes = element.to_bytes_be();
-        //     let expected_bytes: [u8; 8] = ByteConversion::to_bytes_be(&element).try_into().unwrap();
-        //     assert_eq!(bytes, expected_bytes);
-        // }
+        #[test]
+        #[cfg(feature = "alloc")]
+        fn byte_serialization_for_a_number_matches_with_byte_conversion_implementation_be() {
+            let element = FieldElement::<Babybear31PrimeField>::from_hex("01234567").unwrap();
+            println!("ELEMENT: {:?}", element);
+            let bytes = element.to_bytes_be();
+            let expected_bytes: [u8; 8] = ByteConversion::to_bytes_be(&element).try_into().unwrap();
+            assert_eq!(bytes, expected_bytes);
+        }
 
-        // #[test]
-        // fn byte_serialization_and_deserialization_works_le() {
-        //     let element =
-        //         FieldElement::<Babybear31PrimeField>::from_hex("0x7654321076543210").unwrap();
-        //     let bytes = element.to_bytes_le();
-        //     let from_bytes = FieldElement::<Babybear31PrimeField>::from_bytes_le(&bytes).unwrap();
-        //     assert_eq!(element, from_bytes);
-        // }
+        #[test]
+        fn byte_serialization_and_deserialization_works_le() {
+            let element = FieldElement::<Babybear31PrimeField>::from_hex("0x76543210").unwrap();
+            let bytes = element.to_bytes_le();
+            let from_bytes = FieldElement::<Babybear31PrimeField>::from_bytes_le(&bytes).unwrap();
+            assert_eq!(element, from_bytes);
+        }
 
-        // #[test]
-        // fn byte_serialization_and_deserialization_works_be() {
-        //     let element =
-        //         FieldElement::<Babybear31PrimeField>::from_hex("7654321076543210").unwrap();
-        //     let bytes = element.to_bytes_be();
-        //     let from_bytes = FieldElement::<Babybear31PrimeField>::from_bytes_be(&bytes).unwrap();
-        //     assert_eq!(element, from_bytes);
-        // }
+        #[test]
+        fn byte_serialization_and_deserialization_works_be() {
+            let element = FieldElement::<Babybear31PrimeField>::from_hex("76543210").unwrap();
+            let bytes = element.to_bytes_be();
+            let from_bytes = FieldElement::<Babybear31PrimeField>::from_bytes_be(&bytes).unwrap();
+            assert_eq!(element, from_bytes);
+        }
     }
 
     #[cfg(all(feature = "std", not(feature = "instruments")))]

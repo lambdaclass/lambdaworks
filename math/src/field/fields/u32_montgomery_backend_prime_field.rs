@@ -160,6 +160,35 @@ impl<const MODULUS: u32> IsField for U32MontgomeryBackendPrimeField<MODULUS> {
 
     #[inline(always)]
     fn inv(a: &Self::BaseType) -> Result<Self::BaseType, FieldError> {
+        // if a == &Self::ZERO {
+        //     return Err(FieldError::InvZeroError);
+        // }
+
+        // // From Fermat's little theorem, in a prime field `F_p`, the inverse of `a` is `a^(p-2)`.
+        // // Here p-2 = 2013265919 = 1110111111111111111111111111111_2.
+        // // Uses 30 Squares + 7 Multiplications => 37 Operations total.
+        // let p100000000 = MontgomeryAlgorithms::exp_power_of_2(a, 8, &MODULUS) as u64;
+        // let p100000001 = p100000000 * a;
+        // let p10000000000000000 = MontgomeryAlgorithms::exp_power_of_2(&p100000000, 8, &MODULUS);
+        // let p10000000100000001 = p10000000000000000 * p100000001;
+        // let p10000000100000001000 =
+        //     MontgomeryAlgorithms::exp_power_of_2(&p10000000100000001, 3, &MODULUS);
+        // let p1000000010000000100000000 =
+        //     MontgomeryAlgorithms::exp_power_of_2(&p10000000100000001000, 5, &MODULUS);
+        // let p1000000010000000100000001 = p1000000010000000100000000 * a;
+        // let p1000010010000100100001001 = p1000000010000000100000001 * p10000000100000001000;
+        // let p10000000100000001000000010 = p1000000010000000100000001.pow(2);
+        // let p11000010110000101100001011 = p10000000100000001000000010 * p1000010010000100100001001;
+        // let p100000001000000010000000100 = p10000000100000001000000010.pow(2);
+        // let p111000011110000111100001111 =
+        //     p100000001000000010000000100 * p11000010110000101100001011;
+        // let p1110000111100001111000011110000 =
+        //     MontgomeryAlgorithms::exp_power_of_2(&p111000011110000111100001111, 4, &MODULUS);
+        // let p1110111111111111111111111111111 =
+        //     p1110000111100001111000011110000 * p111000011110000111100001111;
+
+        // Ok(p1110111111111111111111111111111 as u32)
+
         if a == &Self::ZERO {
             Err(FieldError::InvZeroError)
         } else {
@@ -291,15 +320,16 @@ impl<const MODULUS: u32> IsPrimeField for U32MontgomeryBackendPrimeField<MODULUS
         {
             hex_string = &hex_string[2..];
         }
-        let integer =
-            u32::from_str_radix(hex_string, 16).map_err(|_| CreationError::InvalidHexString)?;
 
-        Ok(MontgomeryAlgorithms::cios(
-            &integer,
-            &Self::R2,
-            &MODULUS,
-            &Self::MU,
-        ))
+        u32::from_str_radix(hex_string, 16).map_err(|_| CreationError::InvalidHexString)
+        // println!("INTEGER: {:?}", integer);
+
+        // Ok(MontgomeryAlgorithms::cios(
+        //     &integer,
+        //     &Self::R2,
+        //     &MODULUS,
+        //     &Self::MU,
+        // ))
     }
 
     #[cfg(feature = "std")]
@@ -380,6 +410,14 @@ impl MontgomeryAlgorithms {
         let x_sub_u_hi = (x_sub_u >> 32) as u32;
         let corr = if over { q } else { &0 };
         x_sub_u_hi.wrapping_add(*corr)
+    }
+
+    pub fn exp_power_of_2(a: &u32, power_log: usize, q: &u32) -> u32 {
+        let mut res = a.clone();
+        for _ in 0..power_log {
+            res = Self::cios(&res, &res, q, &2281701377);
+        }
+        res
     }
 
     /// Compute CIOS multiplication of `a` * `b`
