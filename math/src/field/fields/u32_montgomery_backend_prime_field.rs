@@ -159,107 +159,153 @@ impl<const MODULUS: u32> IsField for U32MontgomeryBackendPrimeField<MODULUS> {
     }
 
     #[inline(always)]
+
     fn inv(a: &Self::BaseType) -> Result<Self::BaseType, FieldError> {
-        // if a == &Self::ZERO {
-        //     return Err(FieldError::InvZeroError);
-        // }
-
-        // // From Fermat's little theorem, in a prime field `F_p`, the inverse of `a` is `a^(p-2)`.
-        // // Here p-2 = 2013265919 = 1110111111111111111111111111111_2.
-        // // Uses 30 Squares + 7 Multiplications => 37 Operations total.
-        // let p100000000 = MontgomeryAlgorithms::exp_power_of_2(a, 8, &MODULUS) as u64;
-        // let p100000001 = p100000000 * a;
-        // let p10000000000000000 = MontgomeryAlgorithms::exp_power_of_2(&p100000000, 8, &MODULUS);
-        // let p10000000100000001 = p10000000000000000 * p100000001;
-        // let p10000000100000001000 =
-        //     MontgomeryAlgorithms::exp_power_of_2(&p10000000100000001, 3, &MODULUS);
-        // let p1000000010000000100000000 =
-        //     MontgomeryAlgorithms::exp_power_of_2(&p10000000100000001000, 5, &MODULUS);
-        // let p1000000010000000100000001 = p1000000010000000100000000 * a;
-        // let p1000010010000100100001001 = p1000000010000000100000001 * p10000000100000001000;
-        // let p10000000100000001000000010 = p1000000010000000100000001.pow(2);
-        // let p11000010110000101100001011 = p10000000100000001000000010 * p1000010010000100100001001;
-        // let p100000001000000010000000100 = p10000000100000001000000010.pow(2);
-        // let p111000011110000111100001111 =
-        //     p100000001000000010000000100 * p11000010110000101100001011;
-        // let p1110000111100001111000011110000 =
-        //     MontgomeryAlgorithms::exp_power_of_2(&p111000011110000111100001111, 4, &MODULUS);
-        // let p1110111111111111111111111111111 =
-        //     p1110000111100001111000011110000 * p111000011110000111100001111;
-
-        // Ok(p1110111111111111111111111111111 as u32)
-
-        if a == &Self::ZERO {
-            Err(FieldError::InvZeroError)
-        } else {
-            // Guajardo Kumar Paar Pelzl
-            // Efficient Software-Implementation of Finite Fields with Applications to
-            // Cryptography
-            // Algorithm 16 (BEA for Inversion in Fp)
-
-            //These can be done with const  functions
-            let modulus_has_spare_bits = MODULUS >> 31 == 0;
-
-            let mut u: u32 = *a;
-            let mut v = MODULUS;
-            let mut b = Self::R2; // Avoids unnecessary reduction step.
-            let mut c = Self::zero();
-
-            while u != 1 && v != 1 {
-                while u & 1 == 0 {
-                    u >>= 1;
-                    if b & 1 == 0 {
-                        b >>= 1;
-                    } else {
-                        let carry;
-                        (b, carry) = b.overflowing_add(MODULUS);
-                        b >>= 1;
-                        if !modulus_has_spare_bits && carry {
-                            b |= 1 << 31;
-                        }
-                    }
-                }
-
-                while v & 1 == 0 {
-                    v >>= 1;
-
-                    if c & 1 == 0 {
-                        c >>= 1;
-                    } else {
-                        let carry;
-                        (c, carry) = c.overflowing_add(MODULUS);
-                        c >>= 1;
-                        if !modulus_has_spare_bits && carry {
-                            c |= 1 << 31;
-                        }
-                    }
-                }
-
-                if v <= u {
-                    u = u - v;
-                    if b < c {
-                        b = MODULUS - c + b;
-                    } else {
-                        b = b - c;
-                    }
-                } else {
-                    v = v - u;
-                    if c < b {
-                        c = MODULUS - b + c;
-                    } else {
-                        c = c - b;
-                    }
-                }
-            }
-
-            if u == 1 {
-                Ok(b)
-            } else {
-                Ok(c)
-            }
+        if *a == Self::ZERO {
+            return Err(FieldError::InvZeroError);
         }
+
+        let p100000000 = MontgomeryAlgorithms::exp_power_of_2(a, 8, &MODULUS);
+
+        let p100000001 = Self::mul(&p100000000, a);
+
+        let p10000000000000000 = MontgomeryAlgorithms::exp_power_of_2(&p100000000, 8, &MODULUS);
+
+        let p10000000100000001 = Self::mul(&p10000000000000000, &p100000001);
+
+        let p10000000100000001000 =
+            MontgomeryAlgorithms::exp_power_of_2(&p10000000100000001, 3, &MODULUS);
+
+        let p1000000010000000100000000 =
+            MontgomeryAlgorithms::exp_power_of_2(&p10000000100000001000, 5, &MODULUS);
+
+        let p1000000010000000100000001 = Self::mul(&p1000000010000000100000000, a);
+
+        let p1000010010000100100001001 =
+            Self::mul(&p1000000010000000100000001, &p10000000100000001000);
+
+        let p10000000100000001000000010 = Self::square(&p1000000010000000100000001);
+
+        let p11000010110000101100001011 =
+            Self::mul(&p10000000100000001000000010, &p1000010010000100100001001);
+
+        let p100000001000000010000000100 = Self::square(&p10000000100000001000000010);
+
+        let p111000011110000111100001111 =
+            Self::mul(&p100000001000000010000000100, &p11000010110000101100001011);
+
+        let p1110000111100001111000011110000 =
+            MontgomeryAlgorithms::exp_power_of_2(&p111000011110000111100001111, 4, &MODULUS);
+
+        let p1110111111111111111111111111111 = Self::mul(
+            &p1110000111100001111000011110000,
+            &p111000011110000111100001111,
+        );
+
+        Ok(p1110111111111111111111111111111)
     }
 
+    /*fn inv(a: &Self::BaseType) -> Result<Self::BaseType, FieldError> {
+           // if a == &Self::ZERO {
+           //     return Err(FieldError::InvZeroError);
+           // }
+
+           // // From Fermat's little theorem, in a prime field `F_p`, the inverse of `a` is `a^(p-2)`.
+           // // Here p-2 = 2013265919 = 1110111111111111111111111111111_2.
+           // // Uses 30 Squares + 7 Multiplications => 37 Operations total.
+           // let p100000000 = MontgomeryAlgorithms::exp_power_of_2(a, 8, &MODULUS) as u64;
+           // let p100000001 = p100000000 * a;
+           // let p10000000000000000 = MontgomeryAlgorithms::exp_power_of_2(&p100000000, 8, &MODULUS);
+           // let p10000000100000001 = p10000000000000000 * p100000001;
+           // let p10000000100000001000 =
+           //     MontgomeryAlgorithms::exp_power_of_2(&p10000000100000001, 3, &MODULUS);
+           // let p1000000010000000100000000 =
+           //     MontgomeryAlgorithms::exp_power_of_2(&p10000000100000001000, 5, &MODULUS);
+           // let p1000000010000000100000001 = p1000000010000000100000000 * a;
+           // let p1000010010000100100001001 = p1000000010000000100000001 * p10000000100000001000;
+           // let p10000000100000001000000010 = p1000000010000000100000001.pow(2);
+           // let p11000010110000101100001011 = p10000000100000001000000010 * p1000010010000100100001001;
+           // let p100000001000000010000000100 = p10000000100000001000000010.pow(2);
+           // let p111000011110000111100001111 =
+           //     p100000001000000010000000100 * p11000010110000101100001011;
+           // let p1110000111100001111000011110000 =
+           //     MontgomeryAlgorithms::exp_power_of_2(&p111000011110000111100001111, 4, &MODULUS);
+           // let p1110111111111111111111111111111 =
+           //     p1110000111100001111000011110000 * p111000011110000111100001111;
+
+           // Ok(p1110111111111111111111111111111 as u32)
+
+           if a == &Self::ZERO {
+               Err(FieldError::InvZeroError)
+           } else {
+               // Guajardo Kumar Paar Pelzl
+               // Efficient Software-Implementation of Finite Fields with Applications to
+               // Cryptography
+               // Algorithm 16 (BEA for Inversion in Fp)
+
+               //These can be done with const  functions
+               let modulus_has_spare_bits = MODULUS >> 31 == 0;
+
+               let mut u: u32 = *a;
+               let mut v = MODULUS;
+               let mut b = Self::R2; // Avoids unnecessary reduction step.
+               let mut c = Self::zero();
+
+               while u != 1 && v != 1 {
+                   while u & 1 == 0 {
+                       u >>= 1;
+                       if b & 1 == 0 {
+                           b >>= 1;
+                       } else {
+                           let carry;
+                           (b, carry) = b.overflowing_add(MODULUS);
+                           b >>= 1;
+                           if !modulus_has_spare_bits && carry {
+                               b |= 1 << 31;
+                           }
+                       }
+                   }
+
+                   while v & 1 == 0 {
+                       v >>= 1;
+
+                       if c & 1 == 0 {
+                           c >>= 1;
+                       } else {
+                           let carry;
+                           (c, carry) = c.overflowing_add(MODULUS);
+                           c >>= 1;
+                           if !modulus_has_spare_bits && carry {
+                               c |= 1 << 31;
+                           }
+                       }
+                   }
+
+                   if v <= u {
+                       u = u - v;
+                       if b < c {
+                           b = MODULUS - c + b;
+                       } else {
+                           b = b - c;
+                       }
+                   } else {
+                       v = v - u;
+                       if c < b {
+                           c = MODULUS - b + c;
+                       } else {
+                           c = c - b;
+                       }
+                   }
+               }
+
+               if u == 1 {
+                   Ok(b)
+               } else {
+                   Ok(c)
+               }
+           }
+       }
+    */
     #[inline(always)]
     fn div(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
         Self::mul(a, &Self::inv(b).unwrap())
