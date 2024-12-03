@@ -188,9 +188,10 @@ mod tests {
         #[test]
         #[cfg(feature = "alloc")]
         fn byte_serialization_for_a_number_matches_with_byte_conversion_implementation_le() {
-            let element = FieldElement::<Babybear31PrimeField>::from_hex("0123456701234567").unwrap();
+            let element =
+                FieldElement::<Babybear31PrimeField>::from_hex("0123456701234567").unwrap();
             let bytes = element.to_bytes_le();
-            let expected_bytes: [u8; 8] = ByteConversion::to_bytes_le(&element).try_into().unwrap();
+            let expected_bytes: [u8; 4] = ByteConversion::to_bytes_le(&element).try_into().unwrap();
             assert_eq!(bytes, expected_bytes);
         }
 
@@ -200,7 +201,7 @@ mod tests {
             let element = FieldElement::<Babybear31PrimeField>::from_hex("01234567").unwrap();
             println!("ELEMENT: {:?}", element);
             let bytes = element.to_bytes_be();
-            let expected_bytes: [u8; 8] = ByteConversion::to_bytes_be(&element).try_into().unwrap();
+            let expected_bytes: [u8; 4] = ByteConversion::to_bytes_be(&element).try_into().unwrap();
             assert_eq!(bytes, expected_bytes);
         }
 
