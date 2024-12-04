@@ -121,25 +121,39 @@ impl<const MODULUS: u32> IsField for U32MontgomeryBackendPrimeField<MODULUS> {
             Self::new_monty(sum)
         }
     */
+
     #[inline(always)]
-    fn mul(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
-        // if Self::MODULUS_HAS_ONE_SPARE_BIT {
-        //     MontgomeryAlgorithms::cios_optimized_for_moduli_with_one_spare_bit(
-        //         *a,
-        //         *b,
-        //         MODULUS,
-        //         Self::MU,
-        //     )
-        // } else {
-        MontgomeryAlgorithms::cios(a, b, &MODULUS, &Self::MU)
-        // }
+    fn mul(lhs: &u32, rhs: &u32) -> u32 {
+        let mut o64: u64 = (*lhs as u64).wrapping_mul(*rhs as u64);
+        let low: u32 = 0u32.wrapping_sub(o64 as u32);
+        let red = &Self::MU.wrapping_mul(low);
+        o64 = o64.wrapping_add((*red as u64).wrapping_mul(MODULUS as u64));
+        let ret = (o64 >> 32) as u32;
+        if ret >= MODULUS {
+            ret.wrapping_sub(MODULUS)
+        } else {
+            ret
+        }
     }
+    /*
+        fn mul(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
+            // if Self::MODULUS_HAS_ONE_SPARE_BIT {
+            //     MontgomeryAlgorithms::cios_optimized_for_moduli_with_one_spare_bit(
+            //         *a,
+            //         *b,
+            //         MODULUS,
+            //         Self::MU,
+            //     )
+            // } else {
+            MontgomeryAlgorithms::cios(a, b, &MODULUS, &Self::MU)
+            // }
+        }
 
-    // #[inline(always)]
-    // fn square(a: &Self::BaseType) -> Self::BaseType {
-    //     MontgomeryAlgorithms::sos_square(*a, MODULUS, &Self::MU)
-    // }
-
+        // #[inline(always)]
+        // fn square(a: &Self::BaseType) -> Self::BaseType {
+        //     MontgomeryAlgorithms::sos_square(*a, MODULUS, &Self::MU)
+        // }
+    */
     #[inline(always)]
     fn sub(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
         if b <= a {
