@@ -1,10 +1,5 @@
-use crate::{
-    field::{
-        element::FieldElement,
-        fields::u32_montgomery_backend_prime_field::U32MontgomeryBackendPrimeField,
-        traits::IsFFTField,
-    },
-    unsigned_integer::element::{UnsignedInteger, U64},
+use crate::field::{
+    fields::u32_montgomery_backend_prime_field::U32MontgomeryBackendPrimeField, traits::IsFFTField,
 };
 
 pub type Babybear31PrimeField = U32MontgomeryBackendPrimeField<2013265921>;
@@ -31,7 +26,7 @@ mod tests {
     mod test_babybear_31_bytes_ops {
         use super::*;
         use crate::{
-            field::{element::FieldElement, errors::FieldError, traits::IsField},
+            field::{element::FieldElement, errors::FieldError},
             traits::ByteConversion,
         };
         type FE = FieldElement<Babybear31PrimeField>;
@@ -123,7 +118,7 @@ mod tests {
         #[test]
         fn inv_2() {
             let a: FE = FE::from(2);
-            assert_eq!(&a * a.inv().unwrap(), FE::from(1));
+            assert_eq!(a * a.inv().unwrap(), FE::from(1));
         }
 
         #[test]
@@ -166,7 +161,7 @@ mod tests {
         fn two_plus_its_additive_inv_is_0() {
             let two = FE::from(2);
 
-            assert_eq!(&two + (-&two), FE::from(0))
+            assert_eq!(two + (-&two), FE::from(0))
         }
 
         #[test]
