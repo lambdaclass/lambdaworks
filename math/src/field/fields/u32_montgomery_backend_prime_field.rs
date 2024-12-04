@@ -20,61 +20,56 @@ use core::fmt::Debug;
 pub struct U32MontgomeryBackendPrimeField<const MODULUS: u32>;
 
 impl<const MODULUS: u32> U32MontgomeryBackendPrimeField<MODULUS> {
-    pub const R2: u32 = 1172168163;
-    pub const MU: u32 = 2281701377;
+    pub const R2: u32 = Self::compute_r2_parameter();
+    pub const MU: u32 = Self::compute_mu_parameter();
     pub const ZERO: u32 = 0;
     pub const ONE: u32 = MontgomeryAlgorithms::cios(&1, &Self::R2, &MODULUS, &Self::MU);
     const MODULUS_HAS_ONE_SPARE_BIT: bool = true;
 
-    /// Computes `- modulus^{-1} mod 2^{64}`
-    /// This algorithm is given  by Dussé and Kaliski Jr. in
-    /// "S. R. Dussé and B. S. Kaliski Jr. A cryptographic library for the Motorola
-    /// DSP56000. In I. Damgård, editor, Advances in Cryptology – EUROCRYPT’90,
-    /// volume 473 of Lecture Notes in Computer Science, pages 230–244. Springer,
-    /// Heidelberg, May 1991."
-    // const fn compute_mu_parameter() -> u32 {
-    //     let mut y: u32 = 1;
-    //     let word_size = 32;
-    //     let mut i: usize = 2;
-    //     while i <= word_size {
-    //         let (_, lo) = &MODULUS.overflowing_mul(y);
-    //         let least_significant_limb = lo.limbs[0];
-    //         if (least_significant_limb << (word_size - i)) >> (word_size - i) != 1 {
-    //             y += 1 << (i - 1);
-    //         }
-    //         i += 1;
-    //     }
-    //     y.wrapping_neg()
-    // }
+    // Computes `modulus^{-1} mod 2^{32}`
+    // Algorithm adapted from `compute_mu_parameter()` from `montgomery_backed_prime_fields.rs` in Lambdaworks.
+    // E.g, in Baby Bear field MU = 2281701377.
+    const fn compute_mu_parameter() -> u32 {
+        let mut y = 1;
+        let word_size = 32;
+        let mut i: usize = 2;
+        while i <= word_size {
+            let mul_result = (MODULUS as u64 * y as u64) as u32;
+            if (mul_result << (word_size - i)) >> (word_size - i) != 1 {
+                y += 1 << (i - 1);
+            }
+            i += 1;
+        }
+        y
+    }
 
-    /// Computes 2^{384 * 2} modulo `modulus`
-    // const fn compute_r2_parameter() -> u32 {
-    //     let word_size = 64;
-    //     let mut l: usize = 0;
-    //     let zero: u32 = 0;
-    //     // Define `c` as the largest power of 2 smaller than `modulus`
-    //     while l < word_size {
-    //         if &MODULUS << l != 0 {
-    //             break;
-    //         }
-    //         l += 1;
-    //     }
-    //     let mut c: u32 = 1 << l;
+    // Computes `2^{2 * 32} mod modulus`.
+    // Algorithm adapted from `compute_r2_parameter()` from `montgomery_backed_prime_fields.rs` in Lambdaworks.
+    // E.g, in Baby Bear field R2 = 1172168163.
+    const fn compute_r2_parameter() -> u32 {
+        let word_size = 32;
+        let mut l: usize = 0;
 
-    // // Double `c` and reduce modulo `modulus` until getting
-    // // `2^{2 * number_limbs * word_size}` mod `modulus`
-    // let mut i: usize = 1;
-    // while i <= 2 * word_size - l {
-    //     let (double_c, overflow) = &c.overflowing_add(c);
-    //     c = if (&MODULUS <= &double_c) || *overflow {
-    //         double_c.overflowing_sub(MODULUS).0
-    //     } else {
-    //         *double_c
-    //     };
-    //     i += 1;
-    // }
-    // c
-    // }
+        // Find the largest power of 2 smaller than modulus
+        while l < word_size && (MODULUS >> l) == 0 {
+            l += 1;
+        }
+        let mut c: u32 = 1 << l;
+
+        // Double c and reduce modulo `MODULUS` until getting
+        // `2^{2 * word_size}` mod `MODULUS`.
+        let mut i: usize = 1;
+        while i <= 2 * word_size - l {
+            let double_c = c << 1;
+            c = if double_c >= MODULUS {
+                double_c - MODULUS
+            } else {
+                double_c
+            };
+            i += 1;
+        }
+        c
+    }
 
     /// Checks whether the most significant limb of the modulus is ats
     /// most `0x7FFFFFFFFFFFFFFE`. This check is useful since special
