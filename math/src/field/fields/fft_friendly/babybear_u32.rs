@@ -123,7 +123,7 @@ mod tests {
         #[test]
         fn inv_2_mul_2_is_1() {
             let a: FE = FE::from(2);
-            assert_eq!(&a * a.inv().unwrap(), FE::from(1));
+            assert_eq!(a * a.inv().unwrap(), FE::from(1));
         }
 
         #[test]
@@ -155,7 +155,7 @@ mod tests {
         fn two_plus_its_additive_inv_is_0() {
             let two = FE::from(2);
 
-            assert_eq!(&two + (-&two), FE::from(0))
+            assert_eq!(two + (-&two), FE::from(0))
         }
 
         #[test]
