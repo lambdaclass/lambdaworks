@@ -13,11 +13,9 @@ pub type F = FieldElement<U32Babybear31PrimeField>;
 
 fuzz_target!(|values: (u32, u32)| {
     // Note: we filter values outside of order as it triggers an assert within plonky3 disallowing values n >= Self::Order
-
     let (value_u32_a, value_u32_b) = values;
 
     if value_u32_a >= 2013265921 || value_u32_b >= 2013265921 {
-        // Ignorar casos fuera del rango del campo
         return;
     }
     let a = F::from(value_u32_a as u64);

@@ -116,14 +116,15 @@ impl<const MODULUS: u32> IsField for U32MontgomeryBackendPrimeField<MODULUS> {
         if *a == Self::ZERO {
             return Err(FieldError::InvZeroError);
         }
-        let p100000000 = MontgomeryAlgorithms::exp_power_of_2(a, 8, &MODULUS);
+        let p100000000 = MontgomeryAlgorithms::exp_power_of_2(a, 8, &MODULUS, &Self::MU);
         let p100000001 = Self::mul(&p100000000, a);
-        let p10000000000000000 = MontgomeryAlgorithms::exp_power_of_2(&p100000000, 8, &MODULUS);
+        let p10000000000000000 =
+            MontgomeryAlgorithms::exp_power_of_2(&p100000000, 8, &MODULUS, &Self::MU);
         let p10000000100000001 = Self::mul(&p10000000000000000, &p100000001);
         let p10000000100000001000 =
-            MontgomeryAlgorithms::exp_power_of_2(&p10000000100000001, 3, &MODULUS);
+            MontgomeryAlgorithms::exp_power_of_2(&p10000000100000001, 3, &MODULUS, &Self::MU);
         let p1000000010000000100000000 =
-            MontgomeryAlgorithms::exp_power_of_2(&p10000000100000001000, 5, &MODULUS);
+            MontgomeryAlgorithms::exp_power_of_2(&p10000000100000001000, 5, &MODULUS, &Self::MU);
         let p1000000010000000100000001 = Self::mul(&p1000000010000000100000000, a);
         let p1000010010000100100001001 =
             Self::mul(&p1000000010000000100000001, &p10000000100000001000);
@@ -134,8 +135,12 @@ impl<const MODULUS: u32> IsField for U32MontgomeryBackendPrimeField<MODULUS> {
         let p100000001000000010000000100 = Self::square(&p10000000100000001000000010);
         let p111000011110000111100001111 =
             Self::mul(&p100000001000000010000000100, &p11000010110000101100001011);
-        let p1110000111100001111000011110000 =
-            MontgomeryAlgorithms::exp_power_of_2(&p111000011110000111100001111, 4, &MODULUS);
+        let p1110000111100001111000011110000 = MontgomeryAlgorithms::exp_power_of_2(
+            &p111000011110000111100001111,
+            4,
+            &MODULUS,
+            &Self::MU,
+        );
         let p1110111111111111111111111111111 = Self::mul(
             &p1110000111100001111000011110000,
             &p111000011110000111100001111,
@@ -183,30 +188,15 @@ impl<const MODULUS: u32> IsPrimeField for U32MontgomeryBackendPrimeField<MODULUS
     }
 
     fn field_bit_size() -> usize {
-        let mut evaluated_bit = 32 - 1;
-        let max_element = &MODULUS - 1;
-
-        while ((max_element >> evaluated_bit) & 1) != 1 {
-            evaluated_bit -= 1;
-        }
-
-        evaluated_bit + 1
+        32 - (MODULUS - 1).leading_zeros() as usize
     }
 
-    fn from_hex(hex_string: &str) -> Result<Self::BaseType, crate::errors::CreationError> {
-        let mut hex_string = hex_string;
-        let mut char_iterator = hex_string.chars();
-        if hex_string.len() > 2
-            && char_iterator.next().unwrap() == '0'
-            && char_iterator.next().unwrap() == 'x'
-        {
-            hex_string = &hex_string[2..];
-        }
-        let value =
-            u64::from_str_radix(hex_string, 16).map_err(|_| CreationError::InvalidHexString)?;
+    fn from_hex(hex_string: &str) -> Result<Self::BaseType, CreationError> {
+        let hex = hex_string.strip_prefix("0x").unwrap_or(hex_string);
 
-        let reduced_value = (value % MODULUS as u64) as u32;
-        Ok(reduced_value)
+        u64::from_str_radix(hex, 16)
+            .map_err(|_| CreationError::InvalidHexString)
+            .map(|value| ((value % MODULUS as u64) as u32))
     }
 
     #[cfg(feature = "std")]
@@ -290,11 +280,7 @@ impl MontgomeryAlgorithms {
         Self::monty_reduce(x, mu, q)
     }
 
-    pub fn exp_power_of_2(a: &u32, power_log: usize, q: &u32) -> u32 {
-        let mut res = *a;
-        for _ in 0..power_log {
-            res = Self::mul(&res, &res, q, &2281701377);
-        }
-        res
+    pub fn exp_power_of_2(a: &u32, power_log: usize, q: &u32, mu: &u32) -> u32 {
+        (0..power_log).fold(*a, |res, _| Self::mul(&res, &res, q, mu))
     }
 }
