@@ -26,7 +26,6 @@ impl IsFFTField for Babybear31PrimeField {
 #[cfg(test)]
 mod tests {
     use super::*;
-
     mod test_babybear_31_ops {
         use super::*;
         use crate::{
@@ -268,7 +267,6 @@ mod tests {
         use crate::fft::cpu::roots_of_unity::{
             get_powers_of_primitive_root, get_powers_of_primitive_root_coset,
         };
-        #[cfg(not(any(feature = "metal", feature = "cuda")))]
         use crate::field::element::FieldElement;
         #[cfg(not(any(feature = "metal", feature = "cuda")))]
         use crate::field::traits::{IsFFTField, RootsConfig};
