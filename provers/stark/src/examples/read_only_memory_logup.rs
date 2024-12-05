@@ -167,11 +167,15 @@ where
         let first_step = frame.get_evaluation_step(0);
         let second_step = frame.get_evaluation_step(1);
 
-        // Auxiliary constraints
+        // Auxiliary frame elements
         let s0 = first_step.get_aux_evaluation_element(0, 0);
         let s1 = second_step.get_aux_evaluation_element(0, 0);
+
+        // Challenges
         let z = &rap_challenges[0];
         let alpha = &rap_challenges[1];
+
+        // Main frame elements
         let a1 = second_step.get_main_evaluation_element(0, 0);
         let v1 = second_step.get_main_evaluation_element(0, 1);
         let a_sorted_1 = second_step.get_main_evaluation_element(0, 2);
