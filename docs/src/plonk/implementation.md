@@ -51,7 +51,7 @@ assert!(verifier.verify(
 ));
 ```
 
-Let's brake it down. The helper function `test_common_preprocessed_input_2()` returns an instance of the following struct for the particular test circuit:
+Let's break it down. The helper function `test_common_preprocessed_input_2()` returns an instance of the following struct for the particular test circuit:
 ```rust
 pub struct CommonPreprocessedInput<F: IsField> {
     pub n: usize,
