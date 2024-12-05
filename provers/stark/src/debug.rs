@@ -1,5 +1,5 @@
 use super::domain::Domain;
-use super::traits::AIR;
+use super::traits::{TransitionEvaluationContext, AIR};
 use crate::{frame::Frame, trace::LDETraceTable};
 use lambdaworks_math::{
     field::{
@@ -93,7 +93,11 @@ pub fn validate_trace<A: AIR>(
             .iter()
             .map(|col| col[step].clone())
             .collect();
-        let evaluations = air.compute_transition_prover(&frame, &periodic_values, rap_challenges);
+        let evaluations = air.compute_transition(&TransitionEvaluationContext::Prover {
+            frame: &frame,
+            periodic_values: &periodic_values,
+            rap_challenges,
+        });
 
         // Iterate over each transition evaluation. When the evaluated step is not from
         // the exemption steps corresponding to the transition, it should have zero as a
