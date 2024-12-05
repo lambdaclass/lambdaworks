@@ -2,12 +2,16 @@ use crate::field::{
     fields::u32_montgomery_backend_prime_field::U32MontgomeryBackendPrimeField, traits::IsFFTField,
 };
 
+// Babybear Prime p = 2^31 - 2^27 + 1 = 0x78000001 = 2013265921
 pub type Babybear31PrimeField = U32MontgomeryBackendPrimeField<2013265921>;
 
-//a two-adic primitive root of unity is 21^(2^24)
-// 21^(2^24)=1 mod 2013265921
-// 2^27(2^4-1)+1 where n=27 (two-adicity) and k=2^4+1
-//In the future we should allow this with metal and cuda feature, and just dispatch it to the CPU until the implementation is done
+// p = 2^31 - 2^27 + 1 = 2^27 * (2^4-1) + 1, then
+// there is a gruop in the field of order 2^27.
+// Since we want to have margin to be able to define a bigger group (blow-up group),
+// we define TWO_ADICITY as 24 (so the blow-up factor can be 2^3 = 8).
+// A two-adic primitive root of unity is 21^(2^24) because
+// 21^(2^24)=1 mod 2013265921.
+// In the future we should allow this with metal and cuda feature, and just dispatch it to the CPU until the implementation is done
 #[cfg(any(not(feature = "metal"), not(feature = "cuda")))]
 impl IsFFTField for Babybear31PrimeField {
     const TWO_ADICITY: u64 = 24;
@@ -26,11 +30,8 @@ mod tests {
     mod test_babybear_31_ops {
         use super::*;
         use crate::{
-            field::{
-                element::FieldElement,
-                errors::FieldError,
-                traits::{IsField, IsPrimeField},
-            },
+            errors::CreationError,
+            field::{element::FieldElement, errors::FieldError, traits::IsPrimeField},
             traits::ByteConversion,
         };
         type FE = FieldElement<Babybear31PrimeField>;
@@ -192,57 +193,30 @@ mod tests {
 
         #[test]
         #[cfg(feature = "alloc")]
-        fn to_bytes_from_bytes_be_is_the_identity_big_hex() {
-            let x = FE::from_hex("5f103b0bd4397d4df560eb559f38353f80eeb6").unwrap();
-            assert_eq!(FE::from_bytes_be(&x.to_bytes_be()).unwrap(), x);
+        fn from_hex_bigger_than_u64_returns_error() {
+            let x = FE::from_hex("5f103b0bd4397d4df560eb559f38353f80eeb6");
+            assert!(matches!(x, Err(CreationError::InvalidHexString)))
         }
 
         #[test]
         #[cfg(feature = "alloc")]
-        fn to_bytes_from_bytes_be_is_the_identity_small_hex() {
+        fn to_bytes_from_bytes_be_is_the_identity() {
             let x = FE::from_hex("5f103b").unwrap();
             assert_eq!(FE::from_bytes_be(&x.to_bytes_be()).unwrap(), x);
         }
 
         #[test]
         #[cfg(feature = "alloc")]
-        fn from_bytes_to_bytes_be_is_the_identity_48_bytes() {
-            let bytes = [
-                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
-            ];
-            assert_eq!(FE::from_bytes_be(&bytes).unwrap().to_bytes_be(), bytes);
-        }
-
-        #[test]
-        #[cfg(feature = "alloc")]
-        fn from_bytes_to_bytes_be_is_the_identity_4_bytes() {
+        fn from_bytes_to_bytes_be_is_the_identity() {
             let bytes = [0, 0, 0, 1];
             assert_eq!(FE::from_bytes_be(&bytes).unwrap().to_bytes_be(), bytes);
         }
 
         #[test]
         #[cfg(feature = "alloc")]
-        fn to_bytes_from_bytes_le_is_the_identity_big_hex() {
-            let x = FE::from_hex("5f103b0bd4397d4df560eb559f38353f80eeb6").unwrap();
-            assert_eq!(FE::from_bytes_le(&x.to_bytes_le()).unwrap(), x);
-        }
-
-        #[test]
-        #[cfg(feature = "alloc")]
-        fn to_bytes_from_bytes_le_is_the_identity_small_hex() {
+        fn to_bytes_from_bytes_le_is_the_identity() {
             let x = FE::from_hex("5f103b").unwrap();
             assert_eq!(FE::from_bytes_le(&x.to_bytes_le()).unwrap(), x);
-        }
-
-        #[test]
-        #[cfg(feature = "alloc")]
-        fn from_bytes_to_bytes_le_is_the_identity_48_bytes() {
-            let bytes = [
-                1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-            ];
-            assert_eq!(FE::from_bytes_le(&bytes).unwrap().to_bytes_le(), bytes);
         }
 
         #[test]
