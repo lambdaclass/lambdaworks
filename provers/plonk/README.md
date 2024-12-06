@@ -14,7 +14,7 @@ let y = system.new_public_input();
 let e = system.new_variable();
 
 let z = system.mul(&x, &e);    
-system.assert_eq(&y, &z);;
+system.assert_eq(&y, &z);
 ```
 
 By placing this logic under one function, one can create "gadgets" to abstract functionality.

@@ -1,6 +1,6 @@
 # Fuzzing
 There are three types of fuzzers distributed on different workspaces depending on the features (metal/cuda) they need. So you should make sure you cded into the right folder before running any of the commands.
-This directory contains three types of fuzzers distributed onto three different workspaces. `no_gpu_fuzz` and `metal_fuzz` both use `cargo-fuzz` and must be run with nightly, also the latter only runs on mac. `cuda_fuzz` runs on machines with nvida GPUs and uses `honggfuzz` which runs on most linux distros.
+This directory contains three types of fuzzers distributed onto three different workspaces. `no_gpu_fuzz` and `metal_fuzz` both use `cargo-fuzz` and must be run with nightly, also the latter only runs on mac. `cuda_fuzz` runs on machines with nvidia GPUs and uses `honggfuzz` which runs on most linux distros.
 
 ## Setup
 Run the following commands to get ready. 
