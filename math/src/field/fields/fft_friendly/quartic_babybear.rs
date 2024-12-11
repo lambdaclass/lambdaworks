@@ -536,7 +536,6 @@ mod tests {
                 prop_assert_eq!(fft_eval, naive_eval);
             }
 
-            // #[cfg(not(any(feature = "metal"),not(feature = "cuda")))]
             // Property-based test that ensures FFT interpolation is the same as naive..
             #[test]
             #[cfg(not(any(feature = "metal",feature = "cuda")))]
