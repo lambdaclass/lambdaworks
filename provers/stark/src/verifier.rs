@@ -4,7 +4,7 @@ use super::{
     fri::fri_decommit::FriDecommitment,
     grinding,
     proof::{options::ProofOptions, stark::StarkProof},
-    traits::AIR,
+    traits::{TransitionEvaluationContext, AIR},
 };
 use crate::{config::Commitment, proof::stark::DeepPolynomialOpening};
 use lambdaworks_crypto::{fiat_shamir::is_transcript::IsTranscript, merkle_tree::proof::Proof};
@@ -274,11 +274,12 @@ pub trait IsStarkVerifier<A: AIR> {
 
         let ood_frame =
             (proof.trace_ood_evaluations).into_frame(num_main_trace_columns, A::STEP_SIZE);
-        let transition_ood_frame_evaluations = air.compute_transition_verifier(
-            &ood_frame,
-            &periodic_values,
-            &challenges.rap_challenges,
-        );
+        let transition_ood_frame_evaluations =
+            air.compute_transition(&TransitionEvaluationContext::Verifier {
+                frame: &ood_frame,
+                periodic_values: &periodic_values,
+                rap_challenges: &challenges.rap_challenges,
+            });
 
         let mut denominators =
             vec![FieldElement::<A::FieldExtension>::zero(); air.num_transition_constraints()];

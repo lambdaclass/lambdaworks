@@ -18,6 +18,29 @@ use super::{
 
 type ZerofierGroupKey = (usize, usize, Option<usize>, Option<usize>, usize);
 
+/// This enum is necessary because, while both the prover and verifier perform the same operations
+///  to compute transition constraints, their frames differ.
+///  The prover uses a frame containing elements from both the base field and its extension
+/// (common when working with small fields and challengers in the extension).
+/// In contrast, the verifier, lacking access to the trace and relying solely on evaluations at the challengers,
+/// works with a frame that contains only elements from the extension.
+pub enum TransitionEvaluationContext<'a, F, E>
+where
+    F: IsSubFieldOf<E>,
+    E: IsField,
+{
+    Prover {
+        frame: &'a Frame<'a, F, E>,
+        periodic_values: &'a [FieldElement<F>],
+        rap_challenges: &'a [FieldElement<E>],
+    },
+    Verifier {
+        frame: &'a Frame<'a, E, E>,
+        periodic_values: &'a [FieldElement<E>],
+        rap_challenges: &'a [FieldElement<E>],
+    },
+}
+
 /// AIR is a representation of the Constraints
 pub trait AIR {
     type Field: IsFFTField + IsSubFieldOf<Self::FieldExtension> + Send + Sync;
@@ -65,17 +88,16 @@ pub trait AIR {
     /// The method called by the prover to evaluate the transitions corresponding to an evaluation frame.
     /// In the case of the prover, the main evaluation table of the frame takes values in
     /// `Self::Field`, since they are the evaluations of the main trace at the LDE domain.
-    fn compute_transition_prover(
+    /// In the case of the verifier, the frame take elements of Self::FieldExtension.
+    fn compute_transition(
         &self,
-        frame: &Frame<Self::Field, Self::FieldExtension>,
-        periodic_values: &[FieldElement<Self::Field>],
-        rap_challenges: &[FieldElement<Self::FieldExtension>],
+        evaluation_context: &TransitionEvaluationContext<Self::Field, Self::FieldExtension>,
     ) -> Vec<FieldElement<Self::FieldExtension>> {
         let mut evaluations =
             vec![FieldElement::<Self::FieldExtension>::zero(); self.num_transition_constraints()];
         self.transition_constraints()
             .iter()
-            .for_each(|c| c.evaluate(frame, &mut evaluations, periodic_values, rap_challenges));
+            .for_each(|c| c.evaluate(evaluation_context, &mut evaluations));
 
         evaluations
     }
@@ -84,19 +106,6 @@ pub trait AIR {
         &self,
         rap_challenges: &[FieldElement<Self::FieldExtension>],
     ) -> BoundaryConstraints<Self::FieldExtension>;
-
-    /// The method called by the verifier to evaluate the transitions at the out of domain frame.
-    /// In the case of the verifier, both main and auxiliary tables of the evaluation frame take
-    /// values in `Self::FieldExtension`, since they are the evaluations of the trace polynomials
-    /// at the out of domain challenge.
-    /// In case `Self::Field` coincides with `Self::FieldExtension`, this method and
-    /// `compute_transition_prover` should return the same values.
-    fn compute_transition_verifier(
-        &self,
-        frame: &Frame<Self::FieldExtension, Self::FieldExtension>,
-        periodic_values: &[FieldElement<Self::FieldExtension>],
-        rap_challenges: &[FieldElement<Self::FieldExtension>],
-    ) -> Vec<FieldElement<Self::FieldExtension>>;
 
     fn context(&self) -> &AirContext;
 

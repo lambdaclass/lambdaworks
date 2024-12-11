@@ -1,10 +1,9 @@
 use crate::{
     constraints::{boundary::BoundaryConstraints, transition::TransitionConstraint},
     context::AirContext,
-    frame::Frame,
     proof::options::ProofOptions,
     trace::TraceTable,
-    traits::AIR,
+    traits::{TransitionEvaluationContext, AIR},
     Felt252,
 };
 use lambdaworks_math::field::{
@@ -45,11 +44,22 @@ impl TransitionConstraint<StarkField, StarkField> for BitConstraint {
 
     fn evaluate(
         &self,
-        frame: &Frame<StarkField, StarkField>,
-        transition_evaluations: &mut [Felt252],
-        _periodic_values: &[Felt252],
-        _rap_challenges: &[Felt252],
+        evaluation_context: &TransitionEvaluationContext<StarkField, StarkField>,
+        transition_evaluations: &mut [FieldElement<StarkField>],
     ) {
+        let (frame, _periodic_values, _rap_challenges) = match evaluation_context {
+            TransitionEvaluationContext::Prover {
+                frame,
+                periodic_values,
+                rap_challenges,
+            }
+            | TransitionEvaluationContext::Verifier {
+                frame,
+                periodic_values,
+                rap_challenges,
+            } => (frame, periodic_values, rap_challenges),
+        };
+
         let step = frame.get_evaluation_step(0);
 
         let prefix_flag = step.get_main_evaluation_element(0, 0);
@@ -92,11 +102,22 @@ impl TransitionConstraint<StarkField, StarkField> for ZeroFlagConstraint {
 
     fn evaluate(
         &self,
-        frame: &Frame<StarkField, StarkField>,
-        transition_evaluations: &mut [FieldElement<Stark252PrimeField>],
-        _periodic_values: &[FieldElement<Stark252PrimeField>],
-        _rap_challenges: &[FieldElement<Stark252PrimeField>],
+        evaluation_context: &TransitionEvaluationContext<StarkField, StarkField>,
+        transition_evaluations: &mut [FieldElement<StarkField>],
     ) {
+        let (frame, _periodic_values, _rap_challenges) = match evaluation_context {
+            TransitionEvaluationContext::Prover {
+                frame,
+                periodic_values,
+                rap_challenges,
+            }
+            | TransitionEvaluationContext::Verifier {
+                frame,
+                periodic_values,
+                rap_challenges,
+            } => (frame, periodic_values, rap_challenges),
+        };
+
         let step = frame.get_evaluation_step(0);
         let zero_flag = step.get_main_evaluation_element(15, 0);
 
@@ -147,15 +168,6 @@ impl AIR for BitFlagsAIR {
         &self,
     ) -> &Vec<Box<dyn TransitionConstraint<Self::Field, Self::FieldExtension>>> {
         &self.constraints
-    }
-
-    fn compute_transition_verifier(
-        &self,
-        frame: &Frame<Self::FieldExtension, Self::FieldExtension>,
-        periodic_values: &[FieldElement<Self::FieldExtension>],
-        rap_challenges: &[FieldElement<Self::FieldExtension>],
-    ) -> Vec<FieldElement<Self::FieldExtension>> {
-        self.compute_transition_prover(frame, periodic_values, rap_challenges)
     }
 
     fn boundary_constraints(
