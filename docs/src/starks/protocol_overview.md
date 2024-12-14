@@ -123,7 +123,7 @@ This is equivalent to running the open protocol $L$ times, one for each term $p_
 
 - [Summary on FRI low degree test](https://eprint.iacr.org/2022/1216)
 - [DEEP FRI](https://eprint.iacr.org/2019/336)
-- [Thank goodness it's FRIday](https://vitalik.ca/general/2017/11/22/starks_part_2.html)
+- [Thank goodness it's FRIday](https://vitalik.eth.limo/general/2017/11/22/starks_part_2.html)
 - [Diving DEEP FRI](https://blog.lambdaclass.com/diving-deep-fri/)
 - [Transparent Polynomial Commitment Scheme with Polylogarithmic Communication Complexity](https://eprint.iacr.org/2019/1020)
 
