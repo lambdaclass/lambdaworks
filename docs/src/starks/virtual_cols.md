@@ -9,7 +9,7 @@ For example, in the Cairo VM, we have 15 flags. These flags include  "DstReg", "
 
 Now, let's assume we have 4 steps in our trace. If we were to only use plain columns, the layout would look like this:
 
-| FlagA| FlagB| FlagB|
+| FlagA| FlagB| FlagC|
 |  --  |  --  | --   |
 |  A0  |  B0  |  C0  |
 |  A1  |  B1  |  C1  |
