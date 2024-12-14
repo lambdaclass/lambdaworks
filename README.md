@@ -153,7 +153,7 @@ make run-fuzzer FUZZER=stark252
 
 The list of fuzzers can be found in `fuzz/no_gpu_fuzz`
 
-Fuzzers for FTT in Metal and Cuda can be run with `make run-metal-fuzzer` and `make run-cuda-fuzzer`
+Fuzzers for FFT in Metal and Cuda can be run with `make run-metal-fuzzer` and `make run-cuda-fuzzer`
 
 
 Run a specific fuzzer from the ones contained in **fuzz/fuzz_targets/** folder with`cargo`, for example to run the one for the target `field_from_hex`:
