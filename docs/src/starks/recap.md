@@ -60,9 +60,9 @@ Ultimately, our goal is to give the tools to write a STARK prover for the cairo 
 
 Use the fibonacci example as your go-to for understanding all the moving parts; keep the Cairo example in mind as the thing we are actually building towards.
 
-# Fibonacci step by step walkthrough
+# Fibonacci step-by-step walkthrough
 
-Below we go through a step by step explanation of a STARK prover. We will assume the trace of the fibonacci sequence mentioned above; it consists of only one column of length \\(2^n\\). In this case, we'll take `n=3`. The trace looks like this
+Below we go through a step-by-step explanation of a STARK prover. We will assume the trace of the fibonacci sequence mentioned above; it consists of only one column of length \\(2^n\\). In this case, we'll take `n=3`. The trace looks like this
 
 | a_i    | 
 | ------ |
@@ -102,7 +102,7 @@ In terms of `t`, this translates to
 
 ## Composition Polynomial
 
-To convince the verifier that the trace polynomial satisfies the relationships above, the prover will construct another polynomial that shows that both the boundary and transition constraints are satisfied and commit to it. We call this polynomial the `composition polynomial`, and usually denote it with \\(H\\). Constructing it involves a lot of different things, so we'll go step by step introducing all the moving parts required.
+To convince the verifier that the trace polynomial satisfies the relationships above, the prover will construct another polynomial that shows that both the boundary and transition constraints are satisfied and commit to it. We call this polynomial the `composition polynomial`, and usually denote it with \\(H\\). Constructing it involves a lot of different things, so we'll go step-by-step introducing all the moving parts required.
 
 ### Boundary polynomial
 
