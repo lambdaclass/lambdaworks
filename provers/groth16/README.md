@@ -25,7 +25,7 @@ $\left( \sum_k a_{2k} z_k \right) \left( \sum_k b_{2k} z_k \right) - \left( \sum
 $\vdots$
 $\left( \sum_k a_{mk} z_k \right) \left( \sum_k b_{mk} z_k \right) - \left( \sum_k c_{mk} z_k \right) = 0$
 
-We could express these equations more compactly by using polynomials and prove the solution of the R1CS system more concisely. To this end, we will introduce quadratic arithmetic programs, [QAP](https://vitalik.ca/general/2016/12/10/qap.html).
+We could express these equations more compactly by using polynomials and prove the solution of the R1CS system more concisely. To this end, we will introduce quadratic arithmetic programs, [QAP](https://vitalik.eth.limo/general/2016/12/10/qap.html).
 
 ## Quadratic Arithmetic Program
 
