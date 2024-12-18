@@ -75,7 +75,7 @@ The following links, repos and projects have been important in the development o
 - [Starks-101](https://starkware.co/stark-101/)
 - [Starks](https://starkware.co/wp-content/uploads/2022/05/STARK-paper.pdf)
 - [Summary on FRI low degree test](https://eprint.iacr.org/2022/1216)
-- [Thank goodness it's FRIday](https://vitalik.ca/general/2017/11/22/starks_part_2.html)
+- [Thank goodness it's FRIday](https://vitalik.eth.limo/general/2017/11/22/starks_part_2.html)
 - [Valida](https://github.com/valida-xyz/valida/tree/main)
 - [Winterfell](https://github.com/facebook/winterfell)
 ## GPU
