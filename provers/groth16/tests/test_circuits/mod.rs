@@ -1,7 +1,7 @@
 use lambdaworks_groth16::{common::*, QuadraticArithmeticProgram as QAP};
 
 /*
-Represents x^3 + x + 5 = 35, based on https://vitalik.ca/general/2016/12/10/qap.html
+Represents x^3 + x + 5 = 35, based on https://vitalik.eth.limo/general/2016/12/10/qap.html
     x * x = sym_1;
     sym_1 * x = y;
     (y + x) * 1 = sym_2
