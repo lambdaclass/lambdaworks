@@ -32,7 +32,7 @@ type Fp12E = FieldElement<Degree12ExtensionField>;
 type G1Point = ShortWeierstrassProjectivePoint<BN254Curve>;
 type G2Point = ShortWeierstrassProjectivePoint<BN254TwistCurve>;
 
-// You can find an explanation of the next implemetation in our post
+// You can find an explanation of the next implementation in our post
 // https://blog.lambdaclass.com/how-we-implemented-the-bn254-ate-pairing-in-lambdaworks/
 // There you'll come across a path to understand the naive implementation of the pairing
 // using the functions miller_naive() and final_exponentiation_naive().

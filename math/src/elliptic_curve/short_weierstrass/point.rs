@@ -849,7 +849,7 @@ mod tests {
         let binding = sum_projective.to_affine();
         let [x_p, y_p, _] = binding.coordinates();
 
-        assert_eq!(x_j, x_p, "x coordintates do not match");
+        assert_eq!(x_j, x_p, "x coordinates do not match");
         assert_eq!(y_j, y_p, "y coordinates do not match");
     }
 
