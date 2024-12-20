@@ -79,12 +79,7 @@ impl IsField for Degree4BabyBearExtensionField {
     }
 
     fn zero() -> Self::BaseType {
-        [
-            FieldElement::zero(),
-            FieldElement::zero(),
-            FieldElement::zero(),
-            FieldElement::zero(),
-        ]
+        Self::BaseType::default()
     }
 
     fn one() -> Self::BaseType {
@@ -125,34 +120,35 @@ impl IsField for Degree4BabyBearExtensionField {
         let one = T::from(1);
 
         if exponent == zero {
-            Self::one()
-        } else if exponent == one {
-            a.clone()
-        } else {
-            let mut result = a.clone();
+            return Self::one();
+        }
+        if exponent == one {
+            return a.clone();
+        }
 
-            while exponent & one == zero {
-                result = Self::square(&result);
-                exponent >>= 1;
-            }
+        let mut result = a.clone();
 
+        // Fast path for powers of 2
+        while exponent & one == zero {
+            result = Self::square(&result);
+            exponent >>= 1;
             if exponent == zero {
-                result
-            } else {
-                let mut base = result.clone();
-                exponent >>= 1;
-
-                while exponent != zero {
-                    base = Self::square(&base);
-                    if exponent & one == one {
-                        result = <Degree4BabyBearExtensionField as IsField>::mul(&result, &base);
-                    }
-                    exponent >>= 1;
-                }
-
-                result
+                return result;
             }
         }
+
+        let mut base = result.clone();
+        exponent >>= 1;
+
+        while exponent != zero {
+            base = Self::square(&base);
+            if exponent & one == one {
+                result = <Degree4BabyBearExtensionField as IsField>::mul(&result, &base);
+            }
+            exponent >>= 1;
+        }
+
+        result
     }
 }
 
@@ -221,26 +217,48 @@ impl IsSubFieldOf<Degree4BabyBearExtensionField> for Babybear31PrimeField {
 impl ByteConversion for [FieldElement<Babybear31PrimeField>; 4] {
     #[cfg(feature = "alloc")]
     fn to_bytes_be(&self) -> alloc::vec::Vec<u8> {
-        unimplemented!()
+        let mut byte_slice = ByteConversion::to_bytes_be(&self[0]);
+        byte_slice.extend(ByteConversion::to_bytes_be(&self[1]));
+        byte_slice.extend(ByteConversion::to_bytes_be(&self[2]));
+        byte_slice.extend(ByteConversion::to_bytes_be(&self[3]));
+        byte_slice
     }
 
     #[cfg(feature = "alloc")]
     fn to_bytes_le(&self) -> alloc::vec::Vec<u8> {
-        unimplemented!()
+        let mut byte_slice = ByteConversion::to_bytes_le(&self[0]);
+        byte_slice.extend(ByteConversion::to_bytes_le(&self[1]));
+        byte_slice.extend(ByteConversion::to_bytes_le(&self[2]));
+        byte_slice.extend(ByteConversion::to_bytes_le(&self[3]));
+        byte_slice
     }
 
-    fn from_bytes_be(_bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError>
+    fn from_bytes_be(bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError>
     where
         Self: Sized,
     {
-        unimplemented!()
+        const BYTES_PER_FIELD: usize = 64;
+
+        let x0 = FieldElement::from_bytes_be(&bytes[0..BYTES_PER_FIELD])?;
+        let x1 = FieldElement::from_bytes_be(&bytes[BYTES_PER_FIELD..BYTES_PER_FIELD * 2])?;
+        let x2 = FieldElement::from_bytes_be(&bytes[BYTES_PER_FIELD * 2..BYTES_PER_FIELD * 3])?;
+        let x3 = FieldElement::from_bytes_be(&bytes[BYTES_PER_FIELD * 3..BYTES_PER_FIELD * 4])?;
+
+        Ok([x0, x1, x2, x3])
     }
 
-    fn from_bytes_le(_bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError>
+    fn from_bytes_le(bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError>
     where
         Self: Sized,
     {
-        unimplemented!()
+        const BYTES_PER_FIELD: usize = 64;
+
+        let x0 = FieldElement::from_bytes_le(&bytes[0..BYTES_PER_FIELD])?;
+        let x1 = FieldElement::from_bytes_le(&bytes[BYTES_PER_FIELD..BYTES_PER_FIELD * 2])?;
+        let x2 = FieldElement::from_bytes_le(&bytes[BYTES_PER_FIELD * 2..BYTES_PER_FIELD * 3])?;
+        let x3 = FieldElement::from_bytes_le(&bytes[BYTES_PER_FIELD * 3..BYTES_PER_FIELD * 4])?;
+
+        Ok([x0, x1, x2, x3])
     }
 }
 
@@ -518,7 +536,6 @@ mod tests {
                 prop_assert_eq!(fft_eval, naive_eval);
             }
 
-            // #[cfg(not(any(feature = "metal"),not(feature = "cuda")))]
             // Property-based test that ensures FFT interpolation is the same as naive..
             #[test]
             #[cfg(not(any(feature = "metal",feature = "cuda")))]

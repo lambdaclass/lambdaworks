@@ -3,7 +3,7 @@ use super::boundary::BoundaryConstraints;
 use crate::debug::check_boundary_polys_divisibility;
 use crate::domain::Domain;
 use crate::trace::LDETraceTable;
-use crate::traits::AIR;
+use crate::traits::{TransitionEvaluationContext, AIR};
 use crate::{frame::Frame, prover::evaluate_polynomial_on_lde_domain};
 use itertools::Itertools;
 #[cfg(not(feature = "parallel"))]
@@ -14,6 +14,7 @@ use rayon::{
     iter::IndexedParallelIterator,
     prelude::{IntoParallelIterator, ParallelIterator},
 };
+
 #[cfg(feature = "instruments")]
 use std::time::Instant;
 
@@ -183,8 +184,12 @@ impl<A: AIR> ConstraintEvaluator<A> {
                     .collect();
 
                 // Compute all the transition constraints at this point of the LDE domain.
-                let evaluations_transition =
-                    air.compute_transition_prover(&frame, &periodic_values, rap_challenges);
+                let transition_evaluation_context = TransitionEvaluationContext::new_prover(
+                    &frame,
+                    &periodic_values,
+                    rap_challenges,
+                );
+                let evaluations_transition = air.compute_transition(&transition_evaluation_context);
 
                 #[cfg(all(debug_assertions, not(feature = "parallel")))]
                 transition_evaluations.push(evaluations_transition.clone());
