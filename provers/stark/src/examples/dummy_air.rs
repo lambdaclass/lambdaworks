@@ -6,10 +6,9 @@ use crate::{
         transition::TransitionConstraint,
     },
     context::AirContext,
-    frame::Frame,
     proof::options::ProofOptions,
     trace::TraceTable,
-    traits::AIR,
+    traits::{TransitionEvaluationContext, AIR},
 };
 use lambdaworks_math::field::{
     element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
@@ -48,11 +47,22 @@ where
 
     fn evaluate(
         &self,
-        frame: &Frame<F, F>,
+        evaluation_context: &TransitionEvaluationContext<F, F>,
         transition_evaluations: &mut [FieldElement<F>],
-        _periodic_values: &[FieldElement<F>],
-        _rap_challenges: &[FieldElement<F>],
     ) {
+        let (frame, _periodic_values, _rap_challenges) = match evaluation_context {
+            TransitionEvaluationContext::Prover {
+                frame,
+                periodic_values,
+                rap_challenges,
+            }
+            | TransitionEvaluationContext::Verifier {
+                frame,
+                periodic_values,
+                rap_challenges,
+            } => (frame, periodic_values, rap_challenges),
+        };
+
         let first_step = frame.get_evaluation_step(0);
         let second_step = frame.get_evaluation_step(1);
         let third_step = frame.get_evaluation_step(2);
@@ -97,11 +107,22 @@ where
 
     fn evaluate(
         &self,
-        frame: &Frame<F, F>,
+        evaluation_context: &TransitionEvaluationContext<F, F>,
         transition_evaluations: &mut [FieldElement<F>],
-        _periodic_values: &[FieldElement<F>],
-        _rap_challenges: &[FieldElement<F>],
     ) {
+        let (frame, _periodic_values, _rap_challenges) = match evaluation_context {
+            TransitionEvaluationContext::Prover {
+                frame,
+                periodic_values,
+                rap_challenges,
+            }
+            | TransitionEvaluationContext::Verifier {
+                frame,
+                periodic_values,
+                rap_challenges,
+            } => (frame, periodic_values, rap_challenges),
+        };
+
         let first_step = frame.get_evaluation_step(0);
 
         let bit = first_step.get_main_evaluation_element(0, 0);
@@ -185,15 +206,6 @@ impl AIR for DummyAIR {
 
     fn pub_inputs(&self) -> &Self::PublicInputs {
         &()
-    }
-
-    fn compute_transition_verifier(
-        &self,
-        frame: &Frame<Self::FieldExtension, Self::FieldExtension>,
-        periodic_values: &[FieldElement<Self::FieldExtension>],
-        rap_challenges: &[FieldElement<Self::FieldExtension>],
-    ) -> Vec<FieldElement<Self::Field>> {
-        self.compute_transition_prover(frame, periodic_values, rap_challenges)
     }
 }
 
