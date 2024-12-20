@@ -265,7 +265,7 @@ impl MontgomeryAlgorithms {
     ///
     /// Converts a value from Montgomery domain using reductions mod p
     #[inline(always)]
-    const fn monty_reduce(x: u64, mu: &u32, q: &u32) -> u32 {
+    const fn montgomery_reduction(x: u64, mu: &u32, q: &u32) -> u32 {
         let t = x.wrapping_mul(*mu as u64) & (u32::MAX as u64);
         let u = t * (*q as u64);
         let (x_sub_u, over) = x.overflowing_sub(u);
@@ -277,7 +277,7 @@ impl MontgomeryAlgorithms {
     #[inline(always)]
     pub const fn mul(a: &u32, b: &u32, q: &u32, mu: &u32) -> u32 {
         let x = *a as u64 * *b as u64;
-        Self::monty_reduce(x, mu, q)
+        Self::montgomery_reduction(x, mu, q)
     }
 
     pub fn exp_power_of_2(a: &u32, power_log: usize, q: &u32, mu: &u32) -> u32 {
