@@ -41,6 +41,36 @@ where
     },
 }
 
+impl<'a, F, E> TransitionEvaluationContext<'a, F, E>
+where
+    F: IsSubFieldOf<E>,
+    E: IsField,
+{
+    pub fn new_prover(
+        frame: &'a Frame<'a, F, E>,
+        periodic_values: &'a [FieldElement<F>],
+        rap_challenges: &'a [FieldElement<E>],
+    ) -> Self {
+        Self::Prover {
+            frame,
+            periodic_values,
+            rap_challenges,
+        }
+    }
+
+    pub fn new_verifier(
+        frame: &'a Frame<'a, E, E>,
+        periodic_values: &'a [FieldElement<E>],
+        rap_challenges: &'a [FieldElement<E>],
+    ) -> Self {
+        Self::Verifier {
+            frame,
+            periodic_values,
+            rap_challenges,
+        }
+    }
+}
+
 /// AIR is a representation of the Constraints
 pub trait AIR {
     type Field: IsFFTField + IsSubFieldOf<Self::FieldExtension> + Send + Sync;

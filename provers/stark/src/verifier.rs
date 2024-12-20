@@ -274,12 +274,13 @@ pub trait IsStarkVerifier<A: AIR> {
 
         let ood_frame =
             (proof.trace_ood_evaluations).into_frame(num_main_trace_columns, A::STEP_SIZE);
+        let transition_evaluation_context = TransitionEvaluationContext::new_verifier(
+            &ood_frame,
+            &periodic_values,
+            &challenges.rap_challenges,
+        );
         let transition_ood_frame_evaluations =
-            air.compute_transition(&TransitionEvaluationContext::Verifier {
-                frame: &ood_frame,
-                periodic_values: &periodic_values,
-                rap_challenges: &challenges.rap_challenges,
-            });
+            air.compute_transition(&transition_evaluation_context);
 
         let mut denominators =
             vec![FieldElement::<A::FieldExtension>::zero(); air.num_transition_constraints()];

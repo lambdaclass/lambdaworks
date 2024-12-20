@@ -184,12 +184,12 @@ impl<A: AIR> ConstraintEvaluator<A> {
                     .collect();
 
                 // Compute all the transition constraints at this point of the LDE domain.
-                let evaluations_transition =
-                    air.compute_transition(&TransitionEvaluationContext::Prover {
-                        frame: &frame,
-                        periodic_values: &periodic_values,
-                        rap_challenges,
-                    });
+                let transition_evaluation_context = TransitionEvaluationContext::new_prover(
+                    &frame,
+                    &periodic_values,
+                    rap_challenges,
+                );
+                let evaluations_transition = air.compute_transition(&transition_evaluation_context);
 
                 #[cfg(all(debug_assertions, not(feature = "parallel")))]
                 transition_evaluations.push(evaluations_transition.clone());

@@ -93,11 +93,9 @@ pub fn validate_trace<A: AIR>(
             .iter()
             .map(|col| col[step].clone())
             .collect();
-        let evaluations = air.compute_transition(&TransitionEvaluationContext::Prover {
-            frame: &frame,
-            periodic_values: &periodic_values,
-            rap_challenges,
-        });
+        let transition_evaluation_context =
+            TransitionEvaluationContext::new_prover(&frame, &periodic_values, rap_challenges);
+        let evaluations = air.compute_transition(&transition_evaluation_context);
 
         // Iterate over each transition evaluation. When the evaluated step is not from
         // the exemption steps corresponding to the transition, it should have zero as a
