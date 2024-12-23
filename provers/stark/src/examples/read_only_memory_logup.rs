@@ -569,7 +569,7 @@ mod test {
     use super::*;
     use lambdaworks_math::field::fields::{
         fft_friendly::{
-            babybear::Babybear31PrimeField,quartic_babybear::Degree4BabyBearExtensionField
+            babybear::Babybear31PrimeField, quartic_babybear::Degree4BabyBearExtensionField,
         },
         u64_prime_field::{F17, FE17},
     };
