@@ -519,10 +519,10 @@ where
     }
 }
 
-/// Return a trace table with an auxiliary column full of zeros (that will be then replaced 
-/// with the correct values by the air) and the following five main columns: 
+/// Return a trace table with an auxiliary column full of zeros (that will be then replaced
+/// with the correct values by the air) and the following five main columns:
 /// The original addresses and values, the sorted addresses and values without duplicates, and
-/// the multiplicities of each sorted address and value in the original ones (i.e. how many times 
+/// the multiplicities of each sorted address and value in the original ones (i.e. how many times
 /// they appear in the original address an value columns).
 pub fn read_only_logup_trace<
     F: IsPrimeField + IsFFTField + IsSubFieldOf<E> + Send + Sync,
