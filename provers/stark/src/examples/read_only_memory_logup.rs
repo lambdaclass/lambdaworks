@@ -9,11 +9,11 @@ use crate::{
     frame::Frame,
     proof::options::ProofOptions,
     trace::TraceTable,
-    traits::AIR,
+    traits::{TransitionEvaluationContext, AIR},
 };
 use itertools::Itertools;
 use lambdaworks_crypto::fiat_shamir::is_transcript::IsTranscript;
-use lambdaworks_math::field::traits::IsPrimeField;
+use lambdaworks_math::field::traits::{IsField, IsPrimeField, IsSubFieldOf};
 use lambdaworks_math::{
     field::{element::FieldElement, traits::IsFFTField},
     traits::ByteConversion,
@@ -21,21 +21,29 @@ use lambdaworks_math::{
 
 /// Transition Constraint that ensures the continuity of the sorted address column of a memory.
 #[derive(Clone)]
-struct ContinuityConstraint<F: IsFFTField> {
-    phantom: PhantomData<F>,
+struct ContinuityConstraint<F: IsSubFieldOf<E> + IsFFTField + Send + Sync, E: IsField + Send + Sync>
+{
+    phantom_f: PhantomData<F>,
+    phantom_e: PhantomData<E>,
 }
 
-impl<F: IsFFTField> ContinuityConstraint<F> {
+impl<F, E> ContinuityConstraint<F, E>
+where
+    F: IsSubFieldOf<E> + IsFFTField + Send + Sync,
+    E: IsField + Send + Sync,
+{
     pub fn new() -> Self {
         Self {
-            phantom: PhantomData,
+            phantom_f: PhantomData::<F>,
+            phantom_e: PhantomData::<E>,
         }
     }
 }
 
-impl<F> TransitionConstraint<F, F> for ContinuityConstraint<F>
+impl<F, E> TransitionConstraint<F, E> for ContinuityConstraint<F, E>
 where
-    F: IsFFTField + Send + Sync,
+    F: IsFFTField + IsSubFieldOf<E> + Send + Sync,
+    E: IsField + Send + Sync,
 {
     fn degree(&self) -> usize {
         2
@@ -52,42 +60,82 @@ where
 
     fn evaluate(
         &self,
-        frame: &Frame<F, F>,
-        transition_evaluations: &mut [FieldElement<F>],
-        _periodic_values: &[FieldElement<F>],
-        _rap_challenges: &[FieldElement<F>],
+        evaluation_context: &TransitionEvaluationContext<F, E>,
+        transition_evaluations: &mut [FieldElement<E>],
     ) {
-        let first_step = frame.get_evaluation_step(0);
-        let second_step = frame.get_evaluation_step(1);
+        // In both evaluation contexts, Prover and Verfier will evaluate the transition polynomial in the same way.
+        // The only difference is that the Prover's Frame has base fiel and field extension elemnts,
+        // while the Verfier's Frame has only field extension elements
+        match evaluation_context {
+            TransitionEvaluationContext::Prover {
+                frame,
+                periodic_values: _periodic_values,
+                rap_challenges: _rap_challenges,
+            } => {
+                let first_step = frame.get_evaluation_step(0);
+                let second_step = frame.get_evaluation_step(1);
 
-        let a_sorted_0 = first_step.get_main_evaluation_element(0, 2);
-        let a_sorted_1 = second_step.get_main_evaluation_element(0, 2);
-        // (a'_{i+1} - a'_i)(a'_{i+1} - a'_i - 1) = 0 where a' is the sorted address
-        let res = (a_sorted_1 - a_sorted_0) * (a_sorted_1 - a_sorted_0 - FieldElement::<F>::one());
+                let a_sorted_0 = first_step.get_main_evaluation_element(0, 2);
+                let a_sorted_1 = second_step.get_main_evaluation_element(0, 2);
+                // (a'_{i+1} - a'_i)(a'_{i+1} - a'_i - 1) = 0 where a' is the sorted address
+                let res = (a_sorted_1 - a_sorted_0)
+                    * (a_sorted_1 - a_sorted_0 - FieldElement::<F>::one());
 
-        // The eval always exists, except if the constraint idx were incorrectly defined.
-        if let Some(eval) = transition_evaluations.get_mut(self.constraint_idx()) {
-            *eval = res;
+                // The eval always exists, except if the constraint idx were incorrectly defined.
+                if let Some(eval) = transition_evaluations.get_mut(self.constraint_idx()) {
+                    *eval = res.to_extension();
+                }
+            }
+
+            TransitionEvaluationContext::Verifier {
+                frame,
+                periodic_values: _periodic_values,
+                rap_challenges: _rap_challenges,
+            } => {
+                let first_step = frame.get_evaluation_step(0);
+                let second_step = frame.get_evaluation_step(1);
+
+                let a_sorted_0 = first_step.get_main_evaluation_element(0, 2);
+                let a_sorted_1 = second_step.get_main_evaluation_element(0, 2);
+                // (a'_{i+1} - a'_i)(a'_{i+1} - a'_i - 1) = 0 where a' is the sorted address
+                let res = (a_sorted_1 - a_sorted_0)
+                    * (a_sorted_1 - a_sorted_0 - FieldElement::<E>::one());
+
+                // The eval always exists, except if the constraint idx were incorrectly defined.
+                if let Some(eval) = transition_evaluations.get_mut(self.constraint_idx()) {
+                    *eval = res;
+                }
+            }
         }
     }
 }
 /// Transition constraint that ensures that same addresses have same values, making the sorted memory read-only.
 #[derive(Clone)]
-struct SingleValueConstraint<F: IsFFTField> {
-    phantom: PhantomData<F>,
+struct SingleValueConstraint<
+    F: IsSubFieldOf<E> + IsFFTField + Send + Sync,
+    E: IsField + Send + Sync,
+> {
+    phantom_f: PhantomData<F>,
+    phantom_e: PhantomData<E>,
 }
 
-impl<F: IsFFTField> SingleValueConstraint<F> {
+impl<F, E> SingleValueConstraint<F, E>
+where
+    F: IsSubFieldOf<E> + IsFFTField + Send + Sync,
+    E: IsField + Send + Sync,
+{
     pub fn new() -> Self {
         Self {
-            phantom: PhantomData,
+            phantom_f: PhantomData::<F>,
+            phantom_e: PhantomData::<E>,
         }
     }
 }
 
-impl<F> TransitionConstraint<F, F> for SingleValueConstraint<F>
+impl<F, E> TransitionConstraint<F, E> for SingleValueConstraint<F, E>
 where
-    F: IsFFTField + Send + Sync,
+    F: IsFFTField + IsSubFieldOf<E> + Send + Sync,
+    E: IsField + Send + Sync,
 {
     fn degree(&self) -> usize {
         2
@@ -104,24 +152,56 @@ where
 
     fn evaluate(
         &self,
-        frame: &Frame<F, F>,
-        transition_evaluations: &mut [FieldElement<F>],
-        _periodic_values: &[FieldElement<F>],
-        _rap_challenges: &[FieldElement<F>],
+        evaluation_context: &TransitionEvaluationContext<F, E>,
+        transition_evaluations: &mut [FieldElement<E>],
     ) {
-        let first_step = frame.get_evaluation_step(0);
-        let second_step = frame.get_evaluation_step(1);
+        // In both evaluation contexts, Prover and Verfier will evaluate the transition polynomial in the same way.
+        // The only difference is that the Prover's Frame has base fiel and field extension elemnts,
+        // while the Verfier's Frame has only field extension elements
+        match evaluation_context {
+            TransitionEvaluationContext::Prover {
+                frame,
+                periodic_values: _periodic_values,
+                rap_challenges: _rap_challenges,
+            } => {
+                let first_step = frame.get_evaluation_step(0);
+                let second_step = frame.get_evaluation_step(1);
 
-        let a_sorted_0 = first_step.get_main_evaluation_element(0, 2);
-        let a_sorted_1 = second_step.get_main_evaluation_element(0, 2);
-        let v_sorted_0 = first_step.get_main_evaluation_element(0, 3);
-        let v_sorted_1 = second_step.get_main_evaluation_element(0, 3);
-        // (v'_{i+1} - v'_i) * (a'_{i+1} - a'_i - 1) = 0
-        let res = (v_sorted_1 - v_sorted_0) * (a_sorted_1 - a_sorted_0 - FieldElement::<F>::one());
+                let a_sorted_0 = first_step.get_main_evaluation_element(0, 2);
+                let a_sorted_1 = second_step.get_main_evaluation_element(0, 2);
+                let v_sorted_0 = first_step.get_main_evaluation_element(0, 3);
+                let v_sorted_1 = second_step.get_main_evaluation_element(0, 3);
+                // (v'_{i+1} - v'_i) * (a'_{i+1} - a'_i - 1) = 0
+                let res = (v_sorted_1 - v_sorted_0)
+                    * (a_sorted_1 - a_sorted_0 - FieldElement::<F>::one());
 
-        // The eval always exists, except if the constraint idx were incorrectly defined.
-        if let Some(eval) = transition_evaluations.get_mut(self.constraint_idx()) {
-            *eval = res;
+                // The eval always exists, except if the constraint idx were incorrectly defined.
+                if let Some(eval) = transition_evaluations.get_mut(self.constraint_idx()) {
+                    *eval = res.to_extension();
+                }
+            }
+
+            TransitionEvaluationContext::Verifier {
+                frame,
+                periodic_values: _periodic_values,
+                rap_challenges: _rap_challenges,
+            } => {
+                let first_step = frame.get_evaluation_step(0);
+                let second_step = frame.get_evaluation_step(1);
+
+                let a_sorted_0 = first_step.get_main_evaluation_element(0, 2);
+                let a_sorted_1 = second_step.get_main_evaluation_element(0, 2);
+                let v_sorted_0 = first_step.get_main_evaluation_element(0, 3);
+                let v_sorted_1 = second_step.get_main_evaluation_element(0, 3);
+                // (v'_{i+1} - v'_i) * (a'_{i+1} - a'_i - 1) = 0
+                let res = (v_sorted_1 - v_sorted_0)
+                    * (a_sorted_1 - a_sorted_0 - FieldElement::<E>::one());
+
+                // The eval always exists, except if the constraint idx were incorrectly defined.
+                if let Some(eval) = transition_evaluations.get_mut(self.constraint_idx()) {
+                    *eval = res;
+                }
+            }
         }
     }
 }
@@ -129,21 +209,31 @@ where
 /// We are using the LogUp construction described in:
 /// <https://0xpolygonmiden.github.io/miden-vm/design/lookups/logup.html>
 #[derive(Clone)]
-struct PermutationConstraint<F: IsFFTField> {
-    phantom: PhantomData<F>,
+struct PermutationConstraint<
+    F: IsSubFieldOf<E> + IsFFTField + Send + Sync,
+    E: IsField + Send + Sync,
+> {
+    phantom_f: PhantomData<F>,
+    phantom_e: PhantomData<E>,
 }
 
-impl<F: IsFFTField> PermutationConstraint<F> {
+impl<F, E> PermutationConstraint<F, E>
+where
+    F: IsSubFieldOf<E> + IsFFTField + Send + Sync,
+    E: IsField + Send + Sync,
+{
     pub fn new() -> Self {
         Self {
-            phantom: PhantomData,
+            phantom_f: PhantomData::<F>,
+            phantom_e: PhantomData::<E>,
         }
     }
 }
 
-impl<F> TransitionConstraint<F, F> for PermutationConstraint<F>
+impl<F, E> TransitionConstraint<F, E> for PermutationConstraint<F, E>
 where
-    F: IsFFTField + Send + Sync,
+    F: IsSubFieldOf<E> + IsFFTField + Send + Sync,
+    E: IsField + Send + Sync,
 {
     fn degree(&self) -> usize {
         3
@@ -159,61 +249,110 @@ where
 
     fn evaluate(
         &self,
-        frame: &Frame<F, F>,
-        transition_evaluations: &mut [FieldElement<F>],
-        _periodic_values: &[FieldElement<F>],
-        rap_challenges: &[FieldElement<F>],
+        evaluation_context: &TransitionEvaluationContext<F, E>,
+        transition_evaluations: &mut [FieldElement<E>],
     ) {
-        let first_step = frame.get_evaluation_step(0);
-        let second_step = frame.get_evaluation_step(1);
+        // In both evaluation contexts, Prover and Verfier will evaluate the transition polynomial in the same way.
+        // The only difference is that the Prover's Frame has base fiel and field extension elemnts,
+        // while the Verfier's Frame has only field extension elements
+        match evaluation_context {
+            TransitionEvaluationContext::Prover {
+                frame,
+                periodic_values: _periodic_values,
+                rap_challenges,
+            } => {
+                let first_step = frame.get_evaluation_step(0);
+                let second_step = frame.get_evaluation_step(1);
 
-        // Auxiliary frame elements
-        let s0 = first_step.get_aux_evaluation_element(0, 0);
-        let s1 = second_step.get_aux_evaluation_element(0, 0);
+                // Auxiliary frame elements
+                let s0 = first_step.get_aux_evaluation_element(0, 0);
+                let s1 = second_step.get_aux_evaluation_element(0, 0);
 
-        // Challenges
-        let z = &rap_challenges[0];
-        let alpha = &rap_challenges[1];
+                // Challenges
+                let z = &rap_challenges[0];
+                let alpha = &rap_challenges[1];
 
-        // Main frame elements
-        let a1 = second_step.get_main_evaluation_element(0, 0);
-        let v1 = second_step.get_main_evaluation_element(0, 1);
-        let a_sorted_1 = second_step.get_main_evaluation_element(0, 2);
-        let v_sorted_1 = second_step.get_main_evaluation_element(0, 3);
-        let m = second_step.get_main_evaluation_element(0, 4);
+                // Main frame elements
+                let a1 = second_step.get_main_evaluation_element(0, 0);
+                let v1 = second_step.get_main_evaluation_element(0, 1);
+                let a_sorted_1 = second_step.get_main_evaluation_element(0, 2);
+                let v_sorted_1 = second_step.get_main_evaluation_element(0, 3);
+                let m = second_step.get_main_evaluation_element(0, 4);
 
-        let unsorted_term = z - (a1 + alpha * v1);
-        let sorted_term = z - (a_sorted_1 + alpha * v_sorted_1);
+                let unsorted_term = -(a1 + v1 * alpha) + z;
+                let sorted_term = (a_sorted_1 + v_sorted_1 * alpha) + z;
 
-        // We are using the following LogUp equation:
-        // s1 = s0 + m / sorted_term - 1/unsorted_term.
-        // Since constraints must be expressed without division, we multiply each term by sorted_term * unsorted_term:
-        let res = s0 * &unsorted_term * &sorted_term + m * &unsorted_term
-            - &sorted_term
-            - s1 * unsorted_term * sorted_term;
+                // We are using the following LogUp equation:
+                // s1 = s0 + m / sorted_term - 1/unsorted_term.
+                // Since constraints must be expressed without division, we multiply each term by sorted_term * unsorted_term:
+                let res = s0 * &unsorted_term * &sorted_term + m * &unsorted_term
+                    - &sorted_term
+                    - s1 * unsorted_term * sorted_term;
 
-        // The eval always exists, except if the constraint idx were incorrectly defined.
-        if let Some(eval) = transition_evaluations.get_mut(self.constraint_idx()) {
-            *eval = res;
+                // The eval always exists, except if the constraint idx were incorrectly defined.
+                if let Some(eval) = transition_evaluations.get_mut(self.constraint_idx()) {
+                    *eval = res;
+                }
+            }
+
+            TransitionEvaluationContext::Verifier {
+                frame,
+                periodic_values: _periodic_values,
+                rap_challenges,
+            } => {
+                let first_step = frame.get_evaluation_step(0);
+                let second_step = frame.get_evaluation_step(1);
+
+                // Auxiliary frame elements
+                let s0 = first_step.get_aux_evaluation_element(0, 0);
+                let s1 = second_step.get_aux_evaluation_element(0, 0);
+
+                // Challenges
+                let z = &rap_challenges[0];
+                let alpha = &rap_challenges[1];
+
+                // Main frame elements
+                let a1 = second_step.get_main_evaluation_element(0, 0);
+                let v1 = second_step.get_main_evaluation_element(0, 1);
+                let a_sorted_1 = second_step.get_main_evaluation_element(0, 2);
+                let v_sorted_1 = second_step.get_main_evaluation_element(0, 3);
+                let m = second_step.get_main_evaluation_element(0, 4);
+
+                let unsorted_term = z - (a1 + alpha * v1);
+                let sorted_term = z - (a_sorted_1 + alpha * v_sorted_1);
+
+                // We are using the following LogUp equation:
+                // s1 = s0 + m / sorted_term - 1/unsorted_term.
+                // Since constraints must be expressed without division, we multiply each term by sorted_term * unsorted_term:
+                let res = s0 * &unsorted_term * &sorted_term + m * &unsorted_term
+                    - &sorted_term
+                    - s1 * unsorted_term * sorted_term;
+
+                // The eval always exists, except if the constraint idx were incorrectly defined.
+                if let Some(eval) = transition_evaluations.get_mut(self.constraint_idx()) {
+                    *eval = res;
+                }
+            }
         }
     }
 }
 
 /// AIR for a continuous read-only memory.
-pub struct LogReadOnlyRAP<F>
+pub struct LogReadOnlyRAP<F, E>
 where
-    F: IsFFTField,
+    F: IsFFTField + IsSubFieldOf<E> + Send + Sync,
+    E: IsField + Send + Sync,
 {
     context: AirContext,
     trace_length: usize,
     pub_inputs: LogReadOnlyPublicInputs<F>,
-    transition_constraints: Vec<Box<dyn TransitionConstraint<F, F>>>,
+    transition_constraints: Vec<Box<dyn TransitionConstraint<F, E>>>,
 }
 
 #[derive(Clone, Debug)]
 pub struct LogReadOnlyPublicInputs<F>
 where
-    F: IsFFTField,
+    F: IsFFTField + Send + Sync,
 {
     pub a0: FieldElement<F>,
     pub v0: FieldElement<F>,
@@ -223,13 +362,14 @@ where
     pub m0: FieldElement<F>,
 }
 
-impl<F> AIR for LogReadOnlyRAP<F>
+impl<F, E> AIR for LogReadOnlyRAP<F, E>
 where
-    F: IsFFTField + Send + Sync + 'static,
+    F: IsFFTField + IsSubFieldOf<E> + Send + Sync + 'static,
+    E: IsField + Send + Sync + 'static,
     FieldElement<F>: ByteConversion,
 {
     type Field = F;
-    type FieldExtension = F;
+    type FieldExtension = E;
     type PublicInputs = LogReadOnlyPublicInputs<F>;
 
     const STEP_SIZE: usize = 1;
@@ -265,7 +405,7 @@ where
     fn build_auxiliary_trace(
         &self,
         trace: &mut TraceTable<Self::Field, Self::FieldExtension>,
-        challenges: &[FieldElement<F>],
+        challenges: &[FieldElement<E>],
     ) {
         let main_segment_cols = trace.columns_main();
         let a = &main_segment_cols[0];
@@ -279,14 +419,14 @@ where
         let trace_len = trace.num_rows();
         let mut aux_col = Vec::new();
 
-        let unsorted_term = (z - (&a[0] + alpha * &v[0])).inv().unwrap();
-        let sorted_term = (z - (&a_sorted[0] + alpha * &v_sorted[0])).inv().unwrap();
+        let unsorted_term = (-(&a[0] + &v[0] * alpha) + z).inv().unwrap();
+        let sorted_term = (-(&a_sorted[0] + &v_sorted[0] * alpha) + z).inv().unwrap();
         aux_col.push(&m[0] * sorted_term - unsorted_term);
 
         // Apply the same equation given in the permutation case to the rest of the trace
         for i in 0..trace_len - 1 {
-            let unsorted_term = (z - (&a[i + 1] + alpha * &v[i + 1])).inv().unwrap();
-            let sorted_term = (z - (&a_sorted[i + 1] + alpha * &v_sorted[i + 1]))
+            let unsorted_term = (-(&a[i + 1] + &v[i + 1] * alpha) + z).inv().unwrap();
+            let sorted_term = (-(&a_sorted[i + 1] + &v_sorted[i + 1] * alpha) + z)
                 .inv()
                 .unwrap();
             aux_col.push(&aux_col[i] + &m[i + 1] * sorted_term - unsorted_term);
@@ -299,7 +439,7 @@ where
 
     fn build_rap_challenges(
         &self,
-        transcript: &mut impl IsTranscript<Self::Field>,
+        transcript: &mut impl IsTranscript<Self::FieldExtension>,
     ) -> Vec<FieldElement<Self::FieldExtension>> {
         vec![
             transcript.sample_field_element(),
@@ -324,15 +464,15 @@ where
         let alpha = &rap_challenges[1];
 
         // Main boundary constraints
-        let c1 = BoundaryConstraint::new_main(0, 0, a0.clone());
-        let c2 = BoundaryConstraint::new_main(1, 0, v0.clone());
-        let c3 = BoundaryConstraint::new_main(2, 0, a_sorted_0.clone());
-        let c4 = BoundaryConstraint::new_main(3, 0, v_sorted_0.clone());
-        let c5 = BoundaryConstraint::new_main(4, 0, m0.clone());
+        let c1 = BoundaryConstraint::new_main(0, 0, a0.clone().to_extension());
+        let c2 = BoundaryConstraint::new_main(1, 0, v0.clone().to_extension());
+        let c3 = BoundaryConstraint::new_main(2, 0, a_sorted_0.clone().to_extension());
+        let c4 = BoundaryConstraint::new_main(3, 0, v_sorted_0.clone().to_extension());
+        let c5 = BoundaryConstraint::new_main(4, 0, m0.clone().to_extension());
 
         // Auxiliary boundary constraints
-        let unsorted_term = (z - (a0 + alpha * v0)).inv().unwrap();
-        let sorted_term = (z - (a_sorted_0 + alpha * v_sorted_0)).inv().unwrap();
+        let unsorted_term = (-(a0 + v0 * alpha) + z).inv().unwrap();
+        let sorted_term = (-(a_sorted_0 + v_sorted_0 * alpha) + z).inv().unwrap();
         let p0_value = m0 * sorted_term - unsorted_term;
 
         let c_aux1 = BoundaryConstraint::new_aux(0, 0, p0_value);
@@ -369,24 +509,18 @@ where
     fn pub_inputs(&self) -> &Self::PublicInputs {
         &self.pub_inputs
     }
-
-    fn compute_transition_verifier(
-        &self,
-        frame: &Frame<Self::FieldExtension, Self::FieldExtension>,
-        periodic_values: &[FieldElement<Self::FieldExtension>],
-        rap_challenges: &[FieldElement<Self::FieldExtension>],
-    ) -> Vec<FieldElement<Self::Field>> {
-        self.compute_transition_prover(frame, periodic_values, rap_challenges)
-    }
 }
 
 /// Return a trace table with an auxiliary column full of zeros (that will be completed by the air) and
 /// the following five main columns: The original addresses and values, the sorted addresses and values without
 /// repetition and the multiplicities that tell
-pub fn read_only_logup_trace<F: IsFFTField + IsPrimeField>(
+pub fn read_only_logup_trace<
+    F: IsPrimeField + IsFFTField + IsSubFieldOf<E> + Send + Sync,
+    E: IsField + Send + Sync,
+>(
     addresses: Vec<FieldElement<F>>,
     values: Vec<FieldElement<F>>,
-) -> TraceTable<F, F> {
+) -> TraceTable<F, E> {
     let mut address_value_pairs: Vec<_> = addresses.iter().zip(values.iter()).collect();
     address_value_pairs.sort_by_key(|(addr, _)| addr.representative());
 
@@ -416,7 +550,7 @@ pub fn read_only_logup_trace<F: IsFFTField + IsPrimeField>(
     ];
 
     // create a vector with zeros of the same length as the main columns
-    let zero_vec = vec![FieldElement::<F>::zero(); main_columns[0].len()];
+    let zero_vec = vec![FieldElement::<E>::zero(); main_columns[0].len()];
     TraceTable::from_columns(main_columns, vec![zero_vec], 1)
 }
 
@@ -424,7 +558,8 @@ pub fn read_only_logup_trace<F: IsFFTField + IsPrimeField>(
 mod test {
     use super::*;
     use lambdaworks_math::field::fields::{
-        fft_friendly::stark_252_prime_field::Stark252PrimeField, u64_prime_field::FE17,
+        fft_friendly::stark_252_prime_field::Stark252PrimeField,
+        u64_prime_field::{F17, FE17},
     };
 
     #[test]
@@ -450,7 +585,7 @@ mod test {
             FE17::from(60),
         ];
 
-        let logup_trace = read_only_logup_trace(address_col, value_col);
+        let logup_trace: TraceTable<F17, F17> = read_only_logup_trace(address_col, value_col);
 
         let expected_sorted_addresses = vec![
             FE17::from(1),
@@ -541,7 +676,8 @@ mod test {
             FieldElement::<Stark252PrimeField>::from(0), // v6
             FieldElement::<Stark252PrimeField>::from(0), // v7
         ];
-        let logup_trace = read_only_logup_trace(address_col, value_col);
+        let logup_trace: TraceTable<Stark252PrimeField, Stark252PrimeField> =
+            read_only_logup_trace(address_col, value_col);
 
         assert_eq!(logup_trace.columns_main()[2], sorted_address_col);
         assert_eq!(logup_trace.columns_main()[3], sorted_value_col);
