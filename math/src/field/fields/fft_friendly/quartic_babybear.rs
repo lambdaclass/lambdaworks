@@ -8,6 +8,7 @@ use crate::field::{
 #[cfg(feature = "lambdaworks-serde-binary")]
 use crate::traits::ByteConversion;
 
+#[cfg(feature = "lambdaworks-serde-binary")]
 #[cfg(feature = "alloc")]
 use crate::traits::AsBytes;
 
