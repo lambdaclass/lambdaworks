@@ -1,9 +1,9 @@
-use crate::field::{
+use crate::{field::{
     element::FieldElement,
     errors::FieldError,
     fields::fft_friendly::babybear::Babybear31PrimeField,
     traits::{IsFFTField, IsField, IsSubFieldOf},
-};
+}, traits::AsBytes};
 
 #[cfg(feature = "lambdaworks-serde-binary")]
 use crate::traits::ByteConversion;
@@ -303,6 +303,13 @@ impl ByteConversion for FieldElement<Degree4BabyBearExtensionField> {
         let x3 = FieldElement::from_bytes_le(&bytes[BYTES_PER_FIELD * 3..BYTES_PER_FIELD * 4])?;
 
         Ok(Self::new([x0, x1, x2, x3]))
+    }
+}
+
+#[cfg(feature = "alloc")]
+impl AsBytes for FieldElement<Degree4BabyBearExtensionField> {
+    fn as_bytes(&self) -> alloc::vec::Vec<u8> {
+        self.value().to_bytes_be()
     }
 }
 

@@ -6,7 +6,6 @@ use crate::{
         transition::TransitionConstraint,
     },
     context::AirContext,
-    frame::Frame,
     proof::options::ProofOptions,
     trace::TraceTable,
     traits::{TransitionEvaluationContext, AIR},
@@ -64,8 +63,8 @@ where
         transition_evaluations: &mut [FieldElement<E>],
     ) {
         // In both evaluation contexts, Prover and Verfier will evaluate the transition polynomial in the same way.
-        // The only difference is that the Prover's Frame has base fiel and field extension elemnts,
-        // while the Verfier's Frame has only field extension elements
+        // The only difference is that the Prover's Frame has base field and field extension elements,
+        // while the Verfier's Frame has only field extension elements.
         match evaluation_context {
             TransitionEvaluationContext::Prover {
                 frame,
@@ -156,8 +155,8 @@ where
         transition_evaluations: &mut [FieldElement<E>],
     ) {
         // In both evaluation contexts, Prover and Verfier will evaluate the transition polynomial in the same way.
-        // The only difference is that the Prover's Frame has base fiel and field extension elemnts,
-        // while the Verfier's Frame has only field extension elements
+        // The only difference is that the Prover's Frame has base field and field extension elements,
+        // while the Verfier's Frame has only field extension elements.
         match evaluation_context {
             TransitionEvaluationContext::Prover {
                 frame,
@@ -207,7 +206,8 @@ where
 }
 /// Transition constraint that ensures that the sorted columns are a permutation of the original ones.
 /// We are using the LogUp construction described in:
-/// <https://0xpolygonmiden.github.io/miden-vm/design/lookups/logup.html>
+/// <https://0xpolygonmiden.github.io/miden-vm/design/lookups/logup.html>.
+/// See also our post of LogUp argument in blog.lambdaclass.com.
 #[derive(Clone)]
 struct PermutationConstraint<
     F: IsSubFieldOf<E> + IsFFTField + Send + Sync,
@@ -253,8 +253,8 @@ where
         transition_evaluations: &mut [FieldElement<E>],
     ) {
         // In both evaluation contexts, Prover and Verfier will evaluate the transition polynomial in the same way.
-        // The only difference is that the Prover's Frame has base fiel and field extension elemnts,
-        // while the Verfier's Frame has only field extension elements
+        // The only difference is that the Prover's Frame has base field and field extension elements,
+        // while the Verfier's Frame has only field extension elements.
         match evaluation_context {
             TransitionEvaluationContext::Prover {
                 frame,
@@ -280,7 +280,7 @@ where
                 let m = second_step.get_main_evaluation_element(0, 4);
 
                 let unsorted_term = -(a1 + v1 * alpha) + z;
-                let sorted_term = (a_sorted_1 + v_sorted_1 * alpha) + z;
+                let sorted_term = -(a_sorted_1 + v_sorted_1 * alpha) + z;
 
                 // We are using the following LogUp equation:
                 // s1 = s0 + m / sorted_term - 1/unsorted_term.
@@ -337,7 +337,8 @@ where
     }
 }
 
-/// AIR for a continuous read-only memory.
+/// AIR for a continuous read-only memory using the LogUp Lookup Argument.
+/// To accompany the understanding of this code you can see corresponding post in blog.lambdaclass.com.
 pub struct LogReadOnlyRAP<F, E>
 where
     F: IsFFTField + IsSubFieldOf<E> + Send + Sync,
@@ -406,7 +407,9 @@ where
         &self,
         trace: &mut TraceTable<Self::Field, Self::FieldExtension>,
         challenges: &[FieldElement<E>],
-    ) {
+    ) where
+        Self::FieldExtension: IsFFTField,
+    {
         let main_segment_cols = trace.columns_main();
         let a = &main_segment_cols[0];
         let v = &main_segment_cols[1];
@@ -423,7 +426,7 @@ where
         let sorted_term = (-(&a_sorted[0] + &v_sorted[0] * alpha) + z).inv().unwrap();
         aux_col.push(&m[0] * sorted_term - unsorted_term);
 
-        // Apply the same equation given in the permutation case to the rest of the trace
+        // Apply the same equation given in the permutation transition contraint to the rest of the trace.
         for i in 0..trace_len - 1 {
             let unsorted_term = (-(&a[i + 1] + &v[i + 1] * alpha) + z).inv().unwrap();
             let sorted_term = (-(&a_sorted[i + 1] + &v_sorted[i + 1] * alpha) + z)
@@ -511,9 +514,10 @@ where
     }
 }
 
-/// Return a trace table with an auxiliary column full of zeros (that will be completed by the air) and
-/// the following five main columns: The original addresses and values, the sorted addresses and values without
-/// repetition and the multiplicities that tell
+/// Return a trace table with an auxiliary column full of zeros (that will be then replaced with the correct values by the air) and
+/// and the following five main columns: 
+/// The original addresses and values, the sorted addresses and values without duplicates, and
+/// the multiplicities of each sorted address and value in the original ones (i.e. how many times they appear in the original address an value columns).
 pub fn read_only_logup_trace<
     F: IsPrimeField + IsFFTField + IsSubFieldOf<E> + Send + Sync,
     E: IsField + Send + Sync,
@@ -558,7 +562,7 @@ pub fn read_only_logup_trace<
 mod test {
     use super::*;
     use lambdaworks_math::field::fields::{
-        fft_friendly::stark_252_prime_field::Stark252PrimeField,
+        fft_friendly::{babybear::Babybear31PrimeField, quartic_babybear::Degree4BabyBearExtensionField},
         u64_prime_field::{F17, FE17},
     };
 
@@ -625,58 +629,58 @@ mod test {
     #[test]
     fn test_logup_trace_construction_2() {
         let address_col = vec![
-            FieldElement::<Stark252PrimeField>::from(3), // a0
-            FieldElement::<Stark252PrimeField>::from(2), // a1
-            FieldElement::<Stark252PrimeField>::from(2), // a2
-            FieldElement::<Stark252PrimeField>::from(3), // a3
-            FieldElement::<Stark252PrimeField>::from(4), // a4
-            FieldElement::<Stark252PrimeField>::from(5), // a5
-            FieldElement::<Stark252PrimeField>::from(1), // a6
-            FieldElement::<Stark252PrimeField>::from(3), // a7
+            FieldElement::<Babybear31PrimeField>::from(3), // a0
+            FieldElement::<Babybear31PrimeField>::from(2), // a1
+            FieldElement::<Babybear31PrimeField>::from(2), // a2
+            FieldElement::<Babybear31PrimeField>::from(3), // a3
+            FieldElement::<Babybear31PrimeField>::from(4), // a4
+            FieldElement::<Babybear31PrimeField>::from(5), // a5
+            FieldElement::<Babybear31PrimeField>::from(1), // a6
+            FieldElement::<Babybear31PrimeField>::from(3), // a7
         ];
         let value_col = vec![
-            FieldElement::<Stark252PrimeField>::from(30), // v0
-            FieldElement::<Stark252PrimeField>::from(20), // v1
-            FieldElement::<Stark252PrimeField>::from(20), // v2
-            FieldElement::<Stark252PrimeField>::from(30), // v3
-            FieldElement::<Stark252PrimeField>::from(40), // v4
-            FieldElement::<Stark252PrimeField>::from(50), // v5
-            FieldElement::<Stark252PrimeField>::from(10), // v6
-            FieldElement::<Stark252PrimeField>::from(30), // v7
+            FieldElement::<Babybear31PrimeField>::from(30), // v0
+            FieldElement::<Babybear31PrimeField>::from(20), // v1
+            FieldElement::<Babybear31PrimeField>::from(20), // v2
+            FieldElement::<Babybear31PrimeField>::from(30), // v3
+            FieldElement::<Babybear31PrimeField>::from(40), // v4
+            FieldElement::<Babybear31PrimeField>::from(50), // v5
+            FieldElement::<Babybear31PrimeField>::from(10), // v6
+            FieldElement::<Babybear31PrimeField>::from(30), // v7
         ];
 
         let sorted_address_col = vec![
-            FieldElement::<Stark252PrimeField>::from(1), // a0
-            FieldElement::<Stark252PrimeField>::from(2), // a1
-            FieldElement::<Stark252PrimeField>::from(3), // a2
-            FieldElement::<Stark252PrimeField>::from(4), // a3
-            FieldElement::<Stark252PrimeField>::from(5), // a4
-            FieldElement::<Stark252PrimeField>::from(5), // a5
-            FieldElement::<Stark252PrimeField>::from(5), // a6
-            FieldElement::<Stark252PrimeField>::from(5), // a7
+            FieldElement::<Babybear31PrimeField>::from(1), // a0
+            FieldElement::<Babybear31PrimeField>::from(2), // a1
+            FieldElement::<Babybear31PrimeField>::from(3), // a2
+            FieldElement::<Babybear31PrimeField>::from(4), // a3
+            FieldElement::<Babybear31PrimeField>::from(5), // a4
+            FieldElement::<Babybear31PrimeField>::from(5), // a5
+            FieldElement::<Babybear31PrimeField>::from(5), // a6
+            FieldElement::<Babybear31PrimeField>::from(5), // a7
         ];
         let sorted_value_col = vec![
-            FieldElement::<Stark252PrimeField>::from(10), // v0
-            FieldElement::<Stark252PrimeField>::from(20), // v1
-            FieldElement::<Stark252PrimeField>::from(30), // v2
-            FieldElement::<Stark252PrimeField>::from(40), // v3
-            FieldElement::<Stark252PrimeField>::from(50), // v4
-            FieldElement::<Stark252PrimeField>::from(50), // v5
-            FieldElement::<Stark252PrimeField>::from(50), // v6
-            FieldElement::<Stark252PrimeField>::from(50), // v7
+            FieldElement::<Babybear31PrimeField>::from(10), // v0
+            FieldElement::<Babybear31PrimeField>::from(20), // v1
+            FieldElement::<Babybear31PrimeField>::from(30), // v2
+            FieldElement::<Babybear31PrimeField>::from(40), // v3
+            FieldElement::<Babybear31PrimeField>::from(50), // v4
+            FieldElement::<Babybear31PrimeField>::from(50), // v5
+            FieldElement::<Babybear31PrimeField>::from(50), // v6
+            FieldElement::<Babybear31PrimeField>::from(50), // v7
         ];
 
         let multiplicity_col = vec![
-            FieldElement::<Stark252PrimeField>::from(1), // v0
-            FieldElement::<Stark252PrimeField>::from(2), // v1
-            FieldElement::<Stark252PrimeField>::from(3), // v2
-            FieldElement::<Stark252PrimeField>::from(1), // v3
-            FieldElement::<Stark252PrimeField>::from(1), // v4
-            FieldElement::<Stark252PrimeField>::from(0), // v5
-            FieldElement::<Stark252PrimeField>::from(0), // v6
-            FieldElement::<Stark252PrimeField>::from(0), // v7
+            FieldElement::<Babybear31PrimeField>::from(1), // v0
+            FieldElement::<Babybear31PrimeField>::from(2), // v1
+            FieldElement::<Babybear31PrimeField>::from(3), // v2
+            FieldElement::<Babybear31PrimeField>::from(1), // v3
+            FieldElement::<Babybear31PrimeField>::from(1), // v4
+            FieldElement::<Babybear31PrimeField>::from(0), // v5
+            FieldElement::<Babybear31PrimeField>::from(0), // v6
+            FieldElement::<Babybear31PrimeField>::from(0), // v7
         ];
-        let logup_trace: TraceTable<Stark252PrimeField, Stark252PrimeField> =
+        let logup_trace: TraceTable<Babybear31PrimeField, Degree4BabyBearExtensionField> =
             read_only_logup_trace(address_col, value_col);
 
         assert_eq!(logup_trace.columns_main()[2], sorted_address_col);

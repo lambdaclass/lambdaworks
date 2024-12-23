@@ -22,7 +22,6 @@ use crate::{
     },
     proof::options::ProofOptions,
     prover::{IsStarkProver, Prover},
-    trace::TraceTable,
     transcript::StoneProverTranscript,
     verifier::{IsStarkVerifier, Verifier},
     Felt252,
@@ -332,21 +331,6 @@ fn test_prove_log_read_only_memory() {
         v_sorted_0: FieldElement::<Babybear31PrimeField>::from(10),
         m0: FieldElement::<Babybear31PrimeField>::from(1),
     };
-    // let transcript = DefaultTranscript::<Degree4BabyBearExtensionField>::new(&[]);
-    // let mut trace: TraceTable<Babybear31PrimeField, Degree4BabyBearExtensionField> =
-    //     read_only_logup_trace(address_col, value_col);
-    // let proof_options = ProofOptions::default_test_options();
-    // let proof =
-    //     Prover::<ReadOnlyRAP<_, _>>::prove(&mut trace, &pub_inputs, &proof_options, transcript)
-    //         .unwrap();
-
-    // assert!(Verifier::
-    //     &proof,
-    //     &pub_inputs,
-    //     &proof_options,
-    //     DefaultTranscript::<Degree4BabyBearExtensionField>::new(&[])
-    // );
-
     let mut trace = read_only_logup_trace(address_col, value_col);
     let proof_options = ProofOptions::default_test_options();
     let proof =
