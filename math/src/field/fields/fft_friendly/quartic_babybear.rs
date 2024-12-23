@@ -1,12 +1,15 @@
-use crate::{field::{
+use crate::field::{
     element::FieldElement,
     errors::FieldError,
     fields::fft_friendly::babybear::Babybear31PrimeField,
     traits::{IsFFTField, IsField, IsSubFieldOf},
-}, traits::AsBytes};
+};
 
 #[cfg(feature = "lambdaworks-serde-binary")]
 use crate::traits::ByteConversion;
+
+#[cfg(feature = "alloc")]
+use crate::traits::AsBytes;
 
 /// We are implementig the extension of Baby Bear of degree 4 using the irreducible polynomial x^4 + 11.
 /// BETA = 11 and -BETA = -11 is the non-residue.
@@ -262,6 +265,7 @@ impl ByteConversion for [FieldElement<Babybear31PrimeField>; 4] {
     }
 }
 
+#[cfg(feature = "lambdaworks-serde-binary")]
 impl ByteConversion for FieldElement<Degree4BabyBearExtensionField> {
     fn to_bytes_be(&self) -> alloc::vec::Vec<u8> {
         let mut byte_slice = ByteConversion::to_bytes_be(&self.value()[0]);
@@ -306,10 +310,11 @@ impl ByteConversion for FieldElement<Degree4BabyBearExtensionField> {
     }
 }
 
+#[cfg(feature = "lambdaworks-serde-binary")]
 #[cfg(feature = "alloc")]
 impl AsBytes for FieldElement<Degree4BabyBearExtensionField> {
     fn as_bytes(&self) -> alloc::vec::Vec<u8> {
-        self.value().to_bytes_be()
+        self.to_bytes_be()
     }
 }
 

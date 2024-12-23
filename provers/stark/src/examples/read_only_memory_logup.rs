@@ -410,23 +410,28 @@ where
     ) where
         Self::FieldExtension: IsFFTField,
     {
+        // Main table
         let main_segment_cols = trace.columns_main();
         let a = &main_segment_cols[0];
         let v = &main_segment_cols[1];
         let a_sorted = &main_segment_cols[2];
         let v_sorted = &main_segment_cols[3];
         let m = &main_segment_cols[4];
+
+        // Challenges
         let z = &challenges[0];
         let alpha = &challenges[1];
 
         let trace_len = trace.num_rows();
         let mut aux_col = Vec::new();
 
+        // s_0 = m_0/(z - (a'_0 + α * v'_0) - 1/(z - (a_0 + α * v_0)
         let unsorted_term = (-(&a[0] + &v[0] * alpha) + z).inv().unwrap();
         let sorted_term = (-(&a_sorted[0] + &v_sorted[0] * alpha) + z).inv().unwrap();
         aux_col.push(&m[0] * sorted_term - unsorted_term);
 
         // Apply the same equation given in the permutation transition contraint to the rest of the trace.
+        // s_{i+1} = s_i + m_{i+1}/(z - (a'_{i+1} + α * v'_{i+1}) - 1/(z - (a_{i+1} + α * v_{i+1})
         for i in 0..trace_len - 1 {
             let unsorted_term = (-(&a[i + 1] + &v[i + 1] * alpha) + z).inv().unwrap();
             let sorted_term = (-(&a_sorted[i + 1] + &v_sorted[i + 1] * alpha) + z)
