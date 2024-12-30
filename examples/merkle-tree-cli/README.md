@@ -63,7 +63,7 @@ This will:
 ```bash
 cargo run --release generate-proof sample_tree.csv 0
 ```
-Two will generate:
+This will generate:
 
 - `sample_tree_proof_0.json` will contain the proof for the leaf at position 0.
 
