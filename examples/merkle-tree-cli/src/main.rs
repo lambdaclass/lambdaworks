@@ -60,10 +60,26 @@ fn generate_merkle_proof(tree_path: String, pos: usize) -> Result<(), io::Error>
     };
 
     let proof_path = tree_path.replace(".csv", format!("_proof_{pos}.json").as_str());
-    let file = File::create(proof_path)?;
+    let file = File::create(&proof_path)?;
     let mut writer = BufWriter::new(file);
     serde_json::to_writer_pretty(&mut writer, &proof)?;
-    writer.flush()
+    writer.flush()?;
+
+    let leaf_value = values
+        .get(pos)
+        .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "Invalid position"))?
+        .representative()
+        .to_string();
+
+    let leaf_file_path = tree_path.replace(".csv", format!("_leaf_{pos}.txt").as_str());
+    let mut leaf_file = File::create(&leaf_file_path)?;
+    leaf_file.write_all(leaf_value.as_bytes())?;
+    println!(
+        "Generated proof and saved to {}. Leaf saved to {}",
+        proof_path, leaf_file_path
+    );
+
+    Ok(())
 }
 
 fn verify_merkle_proof(

@@ -28,12 +28,39 @@ For example, the provided **`sample_tree.csv`** looks like this:
 ```bash
 cargo run --release generate-tree sample_tree.csv
 ```
+This will command will:
+- Generate a `json` file with the tree structure and save it to the same directory as the `csv` file.
+
+- Save the root of the tree in a `txt` file named `<CSV_FILENAME>_root.txt`.
+
+    For example:
+
+    ```
+    sample_tree_root.txt
+    ```
+
+- Print the root of the tree in the terminal
+
 
 ### To generate proof for a Merkle Tree you can use: 
 
 ```bash
 cargo run --release generate-proof <TREE_PATH> <POSITION>
 ```
+This will:
+- Generate a  `json` file with the proof for the leaf at the specified position and save it to the same directory as the `csv` file.
+
+    For example:
+    ```bash
+    sample_tree_proof_0.json
+    ```
+
+- Save the value of the leaf in a `txt` file named `<CSV_FILENAME>_leaf_<POSITION>.txt`.
+
+    For example:
+    ```bash
+    sample_tree_leaf_0.txt
+    ```
 
 **`generate-proof` example:**
 
@@ -47,12 +74,12 @@ cargo run --release generate-proof sample_tree.csv 0
 cargo run --release verify-proof <ROOT_PATH> <INDEX> <PROOF_PATH> <LEAF_PATH>
 ```
 
-The format of a root `txt` file is a simple text file which only containts the root as a hex string. Using the root that yields the merkle tree generated from the `sample_tree` provided, **`root.txt`** would look like this:
+The format of a root `txt` file is a simple text file which only containts the root as a hex string. Using the root that yields the merkle tree generated from the `sample_tree` provided, in this case **`sample_tree_root.txt`** would look like this:
 ```
 0xa3bbbb9eac9f79d18862b802ea79f87e75efc37d4f4af4464976784c14a851b69c09aa04b1e8a8d1eb9825b713dc6ca
 ```
 
-Likewise, the format of a leaf `txt` file is a simple text file which only contains the leaf as a hex string. Using the first element (index 0) of the provided `sample_tree.csv` as out leaf, **`leaf.txt`** would look like this:
+Likewise, the format of a leaf `txt` file is a simple text file which only contains the leaf as a hex string. Using the first element (index 0) of the provided `sample_tree.csv` as out leaf, **`sample_tree_leaf_0.txt`** would look like this:
 ```
 0x12345
 ```
@@ -60,5 +87,5 @@ Likewise, the format of a leaf `txt` file is a simple text file which only conta
 **`verify-proof` example:**
 
 ```bash
-cargo run --release verify-proof root.txt 0 sample_tree_proof_0.json leaf.txt
+cargo run --release verify-proof sample_tree_root.txt 0 sample_tree_proof_0.json sample_tree_leaf_0.txt
 ```
