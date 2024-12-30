@@ -38,6 +38,11 @@ This will command will:
     ```
     sample_tree_root.txt
     ```
+    will contain 
+    ```
+    0xa3bbbb9eac9f79d18862b802ea79f87e75efc37d4f4af4464976784c14a851b69c09aa04b1e8a8d1eb9825b713dc6ca
+    ```
+
 
 - Print the root of the tree in the terminal
 
@@ -61,6 +66,10 @@ This will:
     ```bash
     sample_tree_leaf_0.txt
     ```
+    will contain 
+    ```
+    0x12345
+    ```
 
 **`generate-proof` example:**
 
@@ -74,15 +83,6 @@ cargo run --release generate-proof sample_tree.csv 0
 cargo run --release verify-proof <ROOT_PATH> <INDEX> <PROOF_PATH> <LEAF_PATH>
 ```
 
-The format of a root `txt` file is a simple text file which only containts the root as a hex string. Using the root that yields the merkle tree generated from the `sample_tree` provided, in this case **`sample_tree_root.txt`** would look like this:
-```
-0xa3bbbb9eac9f79d18862b802ea79f87e75efc37d4f4af4464976784c14a851b69c09aa04b1e8a8d1eb9825b713dc6ca
-```
-
-Likewise, the format of a leaf `txt` file is a simple text file which only contains the leaf as a hex string. Using the first element (index 0) of the provided `sample_tree.csv` as out leaf, **`sample_tree_leaf_0.txt`** would look like this:
-```
-0x12345
-```
 
 **`verify-proof` example:**
 
