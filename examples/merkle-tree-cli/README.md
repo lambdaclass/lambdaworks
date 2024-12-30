@@ -28,7 +28,7 @@ For example, the provided **`sample_tree.csv`** looks like this:
 ```bash
 cargo run --release generate-tree sample_tree.csv
 ```
-This will command will:
+This will:
 - Generate a `json` file with the tree structure and save it to the same directory as the `csv` file.
 
 - Save the root of the tree in a `txt` file named `<CSV_FILENAME>_root.txt`.
@@ -55,27 +55,22 @@ cargo run --release generate-proof <TREE_PATH> <POSITION>
 This will:
 - Generate a  `json` file with the proof for the leaf at the specified position and save it to the same directory as the `csv` file.
 
-    For example:
-    ```bash
-    sample_tree_proof_0.json
-    ```
-
 - Save the value of the leaf in a `txt` file named `<CSV_FILENAME>_leaf_<POSITION>.txt`.
 
-    For example:
-    ```bash
-    sample_tree_leaf_0.txt
-    ```
-    will contain 
-    ```
-    0x12345
-    ```
 
 **`generate-proof` example:**
 
 ```bash
 cargo run --release generate-proof sample_tree.csv 0
 ```
+Two will generate:
+
+- `sample_tree_proof_0.json` will contain the proof for the leaf at position 0.
+
+- `sample_tree_leaf_0.txt` will contain the value of the leaf at position 0. For example:
+    ```
+    0x12345
+    ```
 
 ### To verify a proof you can use:
 
