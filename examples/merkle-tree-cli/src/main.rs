@@ -41,6 +41,12 @@ fn generate_merkle_tree(tree_path: String) -> Result<(), io::Error> {
     let mut writer = BufWriter::new(file);
     serde_json::to_writer_pretty(&mut writer, &merkle_tree)?;
     println!("Saved tree to file");
+
+    let root_file_path = tree_path.replace(".csv", "_root.txt");
+    let mut root_file = File::create(root_file_path)?;
+    root_file.write_all(root.as_bytes())?;
+    println!("Saved root file");
+
     Ok(())
 }
 
