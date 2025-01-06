@@ -19,32 +19,36 @@ use core::fmt::Debug;
 pub struct U32MontgomeryBackendPrimeField<const MODULUS: u32>;
 
 impl<const MODULUS: u32> U32MontgomeryBackendPrimeField<MODULUS> {
-    pub const R2: u32 = Self::compute_r2_parameter();
-    pub const MU: u32 = Self::compute_mu_parameter();
+    pub const R2: u32 = match Self::compute_r2_parameter() {
+        Ok(value) => value,
+        Err(_) => panic!("Failed to compute R2 parameter"),
+    };
+    pub const MU: u32 = match Self::compute_mu_parameter() {
+        Ok(value) => value,
+        Err(_) => panic!("Failed to compute MU parameter"),
+    };
     pub const ZERO: u32 = 0;
     pub const ONE: u32 = MontgomeryAlgorithms::mul(&1, &Self::R2, &MODULUS, &Self::MU);
 
-    // Computes `modulus^{-1} mod 2^{32}`
-    // Algorithm adapted from `compute_mu_parameter()` from `montgomery_backed_prime_fields.rs` in Lambdaworks.
-    // E.g, in Baby Bear field MU = 2281701377.
-    const fn compute_mu_parameter() -> u32 {
+    const fn compute_mu_parameter() -> Result<u32, &'static str> {
         let mut y = 1;
         let word_size = 32;
         let mut i: usize = 2;
         while i <= word_size {
             let mul_result = (MODULUS as u64 * y as u64) as u32;
             if (mul_result << (word_size - i)) >> (word_size - i) != 1 {
-                y += 1 << (i - 1);
+                let (shifted, overflowed) = 1u32.overflowing_shl((i - 1) as u32);
+                if overflowed {
+                    return Err("Overflow occurred while computing mu parameter");
+                }
+                y += shifted;
             }
             i += 1;
         }
-        y
+        Ok(y)
     }
 
-    // Computes `2^{2 * 32} mod modulus`.
-    // Algorithm adapted from `compute_r2_parameter()` from `montgomery_backed_prime_fields.rs` in Lambdaworks.
-    // E.g, in Baby Bear field R2 = 1172168163.
-    const fn compute_r2_parameter() -> u32 {
+    const fn compute_r2_parameter() -> Result<u32, &'static str> {
         let word_size = 32;
         let mut l: usize = 0;
 
@@ -52,13 +56,20 @@ impl<const MODULUS: u32> U32MontgomeryBackendPrimeField<MODULUS> {
         while l < word_size && (MODULUS >> l) == 0 {
             l += 1;
         }
-        let mut c: u32 = 1 << l;
+        let (initial_shifted, overflowed) = 1u32.overflowing_shl(l as u32);
+        if overflowed {
+            return Err("Overflow occurred during initial shift in compute_r2_parameter");
+        }
+        let mut c: u32 = initial_shifted;
 
         // Double c and reduce modulo `MODULUS` until getting
         // `2^{2 * word_size}` mod `MODULUS`.
         let mut i: usize = 1;
         while i <= 2 * word_size - l {
-            let double_c = c << 1;
+            let (double_c, overflowed) = c.overflowing_shl(1);
+            if overflowed {
+                return Err("Overflow occurred while doubling in compute_r2_parameter");
+            }
             c = if double_c >= MODULUS {
                 double_c - MODULUS
             } else {
@@ -66,7 +77,7 @@ impl<const MODULUS: u32> U32MontgomeryBackendPrimeField<MODULUS> {
             };
             i += 1;
         }
-        c
+        Ok(c)
     }
 }
 
@@ -261,22 +272,28 @@ impl<const MODULUS: u32> From<FieldElement<U32MontgomeryBackendPrimeField<MODULU
 
 pub struct MontgomeryAlgorithms;
 impl MontgomeryAlgorithms {
-    /// Montgomery reduction based on Plonky3's implementation
-    ///
-    /// Converts a value from Montgomery domain using reductions mod p
+    /// Montgomery reduction based on Plonky3's implementation.
+    /// It converts a value from Montgomery domain using reductions mod p.
     #[inline(always)]
     const fn montgomery_reduction(x: u64, mu: &u32, q: &u32) -> u32 {
         let t = x.wrapping_mul(*mu as u64) & (u32::MAX as u64);
         let u = t * (*q as u64);
         let (x_sub_u, over) = x.overflowing_sub(u);
-        let x_sub_u_hi = (x_sub_u >> 32) as u32;
+        let x_sub_u_bytes = x_sub_u.to_be_bytes();
+        // We take the four most significant bytes of `x_sub_u` and convert them into an u32.
+        let x_sub_u_hi = u32::from_be_bytes([
+            x_sub_u_bytes[0],
+            x_sub_u_bytes[1],
+            x_sub_u_bytes[2],
+            x_sub_u_bytes[3],
+        ]);
         let corr = if over { q } else { &0 };
         x_sub_u_hi.wrapping_add(*corr)
     }
 
     #[inline(always)]
     pub const fn mul(a: &u32, b: &u32, q: &u32, mu: &u32) -> u32 {
-        let x = *a as u64 * *b as u64;
+        let x = (*a as u64) * (*b as u64);
         Self::montgomery_reduction(x, mu, q)
     }
 
