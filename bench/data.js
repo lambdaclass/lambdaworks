@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1734712269767,
+  "lastUpdate": 1736180656389,
   "repoUrl": "https://github.com/lambdaclass/lambdaworks",
   "entries": {
     "Benchmark": [
@@ -23747,6 +23747,150 @@ window.BENCHMARK_DATA = {
             "name": "Polynomial/evaluate 10",
             "value": 1,
             "range": "± 0",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "45471455+jotabulacios@users.noreply.github.com",
+            "name": "jotabulacios",
+            "username": "jotabulacios"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "4ee060071557727755611089d7eb3216d0bd6b5b",
+          "message": "Add Montgomery u32 backend for BabyBear (#948)\n\n* WIP\n\n* add benches. Change cios for mul and then reduction\n\n* try another version of inv. Serialization tests not working.\n\n* fix from_hex behaviour when working with larger values\n\n* fix serialization tests\n\n* try plonky3 algorithm for inv\n\n* add new mul function\n\n* add const functions for mu and r2 parameters\n\n* remove commented code and refactor functions\n\n* tests big hex and more than 4 bytes failing\n\n* add fuzzer for babybear\n\n* fix tests from_hex for numbers bigger than u64\n\n* remove comments and refactor some functions\n\n* fix cargo clippy\n\n* fix clippy\n\n* fix clippy metal\n\n* rename function\n\n* Fix overflow in shift ops\n\n---------\n\nCo-authored-by: Nicole <nicole@Nicoles-MacBook-Air.local>\nCo-authored-by: Nicole <nicole@Nicoles-Air.fibertel.com.ar>\nCo-authored-by: Diego K <43053772+diegokingston@users.noreply.github.com>",
+          "timestamp": "2025-01-06T16:09:08Z",
+          "tree_id": "713bb5c0fdf613865cb5f10b2ab60d622567fc3e",
+          "url": "https://github.com/lambdaclass/lambdaworks/commit/4ee060071557727755611089d7eb3216d0bd6b5b"
+        },
+        "date": 1736180652308,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "Ordered FFT/Parallel (Metal)",
+            "value": 204014239,
+            "range": "± 16956830",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #2",
+            "value": 417339458,
+            "range": "± 5247497",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #3",
+            "value": 1081904208,
+            "range": "± 56173834",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #4",
+            "value": 3446613208,
+            "range": "± 447941877",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal)",
+            "value": 85024065,
+            "range": "± 9589061",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #2",
+            "value": 198113812,
+            "range": "± 11251136",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #3",
+            "value": 402004708,
+            "range": "± 23613409",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #4",
+            "value": 940115479,
+            "range": "± 46872966",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal)",
+            "value": 111512084,
+            "range": "± 27397400",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #2",
+            "value": 293227323,
+            "range": "± 59320060",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #3",
+            "value": 515451999,
+            "range": "± 13161778",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #4",
+            "value": 1698883708,
+            "range": "± 233498557",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal",
+            "value": 271295448,
+            "range": "± 8696230",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #2",
+            "value": 700105250,
+            "range": "± 123575127",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #3",
+            "value": 1519503875,
+            "range": "± 34170092",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #4",
+            "value": 5595304708,
+            "range": "± 777573023",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal",
+            "value": 908059979,
+            "range": "± 84576289",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #2",
+            "value": 1705496000,
+            "range": "± 36048716",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #3",
+            "value": 3638583667,
+            "range": "± 168318147",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #4",
+            "value": 8813315354,
+            "range": "± 978767119",
             "unit": "ns/iter"
           }
         ]
