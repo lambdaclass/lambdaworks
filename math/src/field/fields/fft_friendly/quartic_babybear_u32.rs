@@ -340,7 +340,7 @@ impl IsFFTField for Degree4BabyBearU32ExtensionField {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{field::element::FieldElement, traits::ByteConversion};
+    use crate::field::element::FieldElement;
 
     type FpE = FieldElement<Babybear31PrimeField>;
     type Fp4E = FieldElement<Degree4BabyBearU32ExtensionField>;
@@ -461,28 +461,28 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "alloc")]
+    #[cfg(all(feature = "alloc", feature = "lambdaworks-serde-binary"))]
     fn to_bytes_from_bytes_be_is_the_identity() {
         let x = Fp4E::new([FpE::from(2), FpE::from(4), FpE::from(6), FpE::from(8)]);
         assert_eq!(Fp4E::from_bytes_be(&x.to_bytes_be()).unwrap(), x);
     }
 
     #[test]
-    #[cfg(feature = "alloc")]
+    #[cfg(all(feature = "alloc", feature = "lambdaworks-serde-binary"))]
     fn from_bytes_to_bytes_be_is_the_identity() {
         let bytes = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
         assert_eq!(Fp4E::from_bytes_be(&bytes).unwrap().to_bytes_be(), bytes);
     }
 
     #[test]
-    #[cfg(feature = "alloc")]
+    #[cfg(all(feature = "alloc", feature = "lambdaworks-serde-binary"))]
     fn to_bytes_from_bytes_le_is_the_identity() {
         let x = Fp4E::new([FpE::from(2), FpE::from(4), FpE::from(6), FpE::from(8)]);
         assert_eq!(Fp4E::from_bytes_le(&x.to_bytes_le()).unwrap(), x);
     }
 
     #[test]
-    #[cfg(feature = "alloc")]
+    #[cfg(all(feature = "alloc", feature = "lambdaworks-serde-binary"))]
     fn from_bytes_to_bytes_le_is_the_identity() {
         let bytes = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
         assert_eq!(Fp4E::from_bytes_le(&bytes).unwrap().to_bytes_le(), bytes);
