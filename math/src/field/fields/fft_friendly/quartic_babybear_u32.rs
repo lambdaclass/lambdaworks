@@ -22,9 +22,9 @@ pub const BETA: FieldElement<Babybear31PrimeField> =
     FieldElement::<Babybear31PrimeField>::const_from_raw(939524073);
 
 #[derive(Clone, Debug)]
-pub struct Degree4BabyBearExtensionField;
+pub struct Degree4BabyBearU32ExtensionField;
 
-impl IsField for Degree4BabyBearExtensionField {
+impl IsField for Degree4BabyBearU32ExtensionField {
     type BaseType = [FieldElement<Babybear31PrimeField>; 4];
 
     fn add(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
@@ -117,7 +117,7 @@ impl IsField for Degree4BabyBearExtensionField {
     }
 
     fn double(a: &Self::BaseType) -> Self::BaseType {
-        <Degree4BabyBearExtensionField as IsField>::add(a, a)
+        <Degree4BabyBearU32ExtensionField as IsField>::add(a, a)
     }
 
     fn pow<T>(a: &Self::BaseType, mut exponent: T) -> Self::BaseType
@@ -151,7 +151,7 @@ impl IsField for Degree4BabyBearExtensionField {
         while exponent != zero {
             base = Self::square(&base);
             if exponent & one == one {
-                result = <Degree4BabyBearExtensionField as IsField>::mul(&result, &base);
+                result = <Degree4BabyBearU32ExtensionField as IsField>::mul(&result, &base);
             }
             exponent >>= 1;
         }
@@ -160,11 +160,11 @@ impl IsField for Degree4BabyBearExtensionField {
     }
 }
 
-impl IsSubFieldOf<Degree4BabyBearExtensionField> for Babybear31PrimeField {
+impl IsSubFieldOf<Degree4BabyBearU32ExtensionField> for Babybear31PrimeField {
     fn mul(
         a: &Self::BaseType,
-        b: &<Degree4BabyBearExtensionField as IsField>::BaseType,
-    ) -> <Degree4BabyBearExtensionField as IsField>::BaseType {
+        b: &<Degree4BabyBearU32ExtensionField as IsField>::BaseType,
+    ) -> <Degree4BabyBearU32ExtensionField as IsField>::BaseType {
         let c0 = FieldElement::from_raw(<Self as IsField>::mul(a, b[0].value()));
         let c1 = FieldElement::from_raw(<Self as IsField>::mul(a, b[1].value()));
         let c2 = FieldElement::from_raw(<Self as IsField>::mul(a, b[2].value()));
@@ -175,8 +175,8 @@ impl IsSubFieldOf<Degree4BabyBearExtensionField> for Babybear31PrimeField {
 
     fn add(
         a: &Self::BaseType,
-        b: &<Degree4BabyBearExtensionField as IsField>::BaseType,
-    ) -> <Degree4BabyBearExtensionField as IsField>::BaseType {
+        b: &<Degree4BabyBearU32ExtensionField as IsField>::BaseType,
+    ) -> <Degree4BabyBearU32ExtensionField as IsField>::BaseType {
         let c0 = FieldElement::from_raw(<Self as IsField>::add(a, b[0].value()));
         let c1 = FieldElement::from_raw(*b[1].value());
         let c2 = FieldElement::from_raw(*b[2].value());
@@ -187,16 +187,16 @@ impl IsSubFieldOf<Degree4BabyBearExtensionField> for Babybear31PrimeField {
 
     fn div(
         a: &Self::BaseType,
-        b: &<Degree4BabyBearExtensionField as IsField>::BaseType,
-    ) -> <Degree4BabyBearExtensionField as IsField>::BaseType {
-        let b_inv = Degree4BabyBearExtensionField::inv(b).unwrap();
-        <Self as IsSubFieldOf<Degree4BabyBearExtensionField>>::mul(a, &b_inv)
+        b: &<Degree4BabyBearU32ExtensionField as IsField>::BaseType,
+    ) -> <Degree4BabyBearU32ExtensionField as IsField>::BaseType {
+        let b_inv = Degree4BabyBearU32ExtensionField::inv(b).unwrap();
+        <Self as IsSubFieldOf<Degree4BabyBearU32ExtensionField>>::mul(a, &b_inv)
     }
 
     fn sub(
         a: &Self::BaseType,
-        b: &<Degree4BabyBearExtensionField as IsField>::BaseType,
-    ) -> <Degree4BabyBearExtensionField as IsField>::BaseType {
+        b: &<Degree4BabyBearU32ExtensionField as IsField>::BaseType,
+    ) -> <Degree4BabyBearU32ExtensionField as IsField>::BaseType {
         let c0 = FieldElement::from_raw(<Self as IsField>::sub(a, b[0].value()));
         let c1 = FieldElement::from_raw(<Self as IsField>::neg(b[1].value()));
         let c2 = FieldElement::from_raw(<Self as IsField>::neg(b[2].value()));
@@ -204,7 +204,7 @@ impl IsSubFieldOf<Degree4BabyBearExtensionField> for Babybear31PrimeField {
         [c0, c1, c2, c3]
     }
 
-    fn embed(a: Self::BaseType) -> <Degree4BabyBearExtensionField as IsField>::BaseType {
+    fn embed(a: Self::BaseType) -> <Degree4BabyBearU32ExtensionField as IsField>::BaseType {
         [
             FieldElement::from_raw(a),
             FieldElement::zero(),
@@ -215,7 +215,7 @@ impl IsSubFieldOf<Degree4BabyBearExtensionField> for Babybear31PrimeField {
 
     #[cfg(feature = "alloc")]
     fn to_subfield_vec(
-        b: <Degree4BabyBearExtensionField as IsField>::BaseType,
+        b: <Degree4BabyBearU32ExtensionField as IsField>::BaseType,
     ) -> alloc::vec::Vec<Self::BaseType> {
         b.into_iter().map(|x| x.to_raw()).collect()
     }
@@ -270,7 +270,7 @@ impl ByteConversion for [FieldElement<Babybear31PrimeField>; 4] {
     }
 }
 
-impl ByteConversion for FieldElement<Degree4BabyBearExtensionField> {
+impl ByteConversion for FieldElement<Degree4BabyBearU32ExtensionField> {
     #[cfg(feature = "alloc")]
     fn to_bytes_be(&self) -> alloc::vec::Vec<u8> {
         let mut byte_slice = ByteConversion::to_bytes_be(&self.value()[0]);
@@ -317,13 +317,13 @@ impl ByteConversion for FieldElement<Degree4BabyBearExtensionField> {
 
 #[cfg(feature = "lambdaworks-serde-binary")]
 #[cfg(feature = "alloc")]
-impl AsBytes for FieldElement<Degree4BabyBearExtensionField> {
+impl AsBytes for FieldElement<Degree4BabyBearU32ExtensionField> {
     fn as_bytes(&self) -> alloc::vec::Vec<u8> {
         self.to_bytes_be()
     }
 }
 
-impl IsFFTField for Degree4BabyBearExtensionField {
+impl IsFFTField for Degree4BabyBearU32ExtensionField {
     const TWO_ADICITY: u64 = 29;
     const TWO_ADIC_PRIMITVE_ROOT_OF_UNITY: Self::BaseType = [
         FieldElement::const_from_raw(0),
@@ -342,7 +342,7 @@ mod tests {
     use crate::{field::element::FieldElement, traits::ByteConversion};
 
     type FpE = FieldElement<Babybear31PrimeField>;
-    type Fp4E = FieldElement<Degree4BabyBearExtensionField>;
+    type Fp4E = FieldElement<Degree4BabyBearU32ExtensionField>;
 
     #[test]
     fn test_add() {
@@ -451,9 +451,10 @@ mod tests {
 
     #[test]
     fn test_two_adic_primitve_root_of_unity() {
-        let generator = Fp4E::new(Degree4BabyBearExtensionField::TWO_ADIC_PRIMITVE_ROOT_OF_UNITY);
+        let generator =
+            Fp4E::new(Degree4BabyBearU32ExtensionField::TWO_ADIC_PRIMITVE_ROOT_OF_UNITY);
         assert_eq!(
-            generator.pow(2u64.pow(Degree4BabyBearExtensionField::TWO_ADICITY as u32)),
+            generator.pow(2u64.pow(Degree4BabyBearU32ExtensionField::TWO_ADICITY as u32)),
             Fp4E::one()
         );
     }
