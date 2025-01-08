@@ -28,7 +28,7 @@ impl IsField for Degree4BabyBearU32ExtensionField {
     type BaseType = [FieldElement<Babybear31PrimeField>; 4];
 
     fn add(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
-        [&a[0] + &b[0], &a[1] + &b[1], &a[2] + &b[2], &a[3] + &b[3]]
+        [a[0] + b[0], a[1] + b[1], a[2] + b[2], a[3] + b[3]]
     }
 
     /// Result of multiplying two polynomials a = a0 + a1 * x + a2 * x^2 + a3 * x^3 and
@@ -36,24 +36,24 @@ impl IsField for Degree4BabyBearU32ExtensionField {
     /// the remainder of the division by x^4 + 11.
     fn mul(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
         [
-            &a[0] * &b[0] - BETA * (&a[1] * &b[3] + &a[3] * &b[1] + &a[2] * &b[2]),
-            &a[0] * &b[1] + &a[1] * &b[0] - BETA * (&a[2] * &b[3] + &a[3] * &b[2]),
-            &a[0] * &b[2] + &a[2] * &b[0] + &a[1] * &b[1] - BETA * (&a[3] * &b[3]),
-            &a[0] * &b[3] + &a[3] * &b[0] + &a[1] * &b[2] + &a[2] * &b[1],
+            a[0] * b[0] - BETA * (a[1] * b[3] + a[3] * b[1] + a[2] * b[2]),
+            a[0] * b[1] + a[1] * b[0] - BETA * (a[2] * b[3] + a[3] * b[2]),
+            a[0] * b[2] + a[2] * b[0] + a[1] * b[1] - BETA * (a[3] * b[3]),
+            a[0] * b[3] + a[3] * b[0] + a[1] * b[2] + a[2] * b[1],
         ]
     }
 
     fn square(a: &Self::BaseType) -> Self::BaseType {
         [
-            &a[0].square() - BETA * ((&a[1] * &a[3]).double() + &a[2].square()),
-            (&a[0] * &a[1] - BETA * (&a[2] * &a[3])).double(),
-            (&a[0] * &a[2]).double() + &a[1].square() - BETA * (&a[3].square()),
-            (&a[0] * &a[3] + &a[1] * &a[2]).double(),
+            a[0].square() - BETA * ((a[1] * a[3]).double() + a[2].square()),
+            (a[0] * a[1] - BETA * (a[2] * a[3])).double(),
+            (a[0] * a[2]).double() + a[1].square() - BETA * (a[3].square()),
+            (a[0] * a[3] + a[1] * a[2]).double(),
         ]
     }
 
     fn sub(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
-        [&a[0] - &b[0], &a[1] - &b[1], &a[2] - &b[2], &a[3] - &b[3]]
+        [a[0] - b[0], a[1] - b[1], a[2] - b[2], a[3] - b[3]]
     }
 
     fn neg(a: &Self::BaseType) -> Self::BaseType {
@@ -64,17 +64,17 @@ impl IsField for Degree4BabyBearU32ExtensionField {
     /// This algorithm is inspired by Risc0 implementation:
     /// <https://github.com/risc0/risc0/blob/4c41c739779ef2759a01ebcf808faf0fbffe8793/risc0/core/src/field/baby_bear.rs#L460>
     fn inv(a: &Self::BaseType) -> Result<Self::BaseType, FieldError> {
-        let mut b0 = &a[0] * &a[0] + BETA * (&a[1] * (&a[3] + &a[3]) - &a[2] * &a[2]);
-        let mut b2 = &a[0] * (&a[2] + &a[2]) - &a[1] * &a[1] + BETA * (&a[3] * &a[3]);
-        let c = &b0.square() + BETA * b2.square();
+        let mut b0 = a[0] * a[0] + BETA * (a[1] * (a[3] + a[3]) - a[2] * a[2]);
+        let mut b2 = a[0] * (a[2] + a[2]) - a[1] * a[1] + BETA * (a[3] * a[3]);
+        let c = b0.square() + BETA * b2.square();
         let c_inv = c.inv()?;
         b0 *= &c_inv;
         b2 *= &c_inv;
         Ok([
-            &a[0] * &b0 + BETA * &a[2] * &b2,
-            -&a[1] * &b0 - BETA * &a[3] * &b2,
-            -&a[0] * &b2 + &a[2] * &b0,
-            &a[1] * &b2 - &a[3] * &b0,
+            a[0] * b0 + BETA * a[2] * b2,
+            -a[1] * b0 - BETA * a[3] * b2,
+            -a[0] * b2 + a[2] * b0,
+            a[1] * b2 - a[3] * b0,
         ])
     }
 
@@ -131,10 +131,10 @@ impl IsField for Degree4BabyBearU32ExtensionField {
             return Self::one();
         }
         if exponent == one {
-            return a.clone();
+            return *a;
         }
 
-        let mut result = a.clone();
+        let mut result = *a;
 
         // Fast path for powers of 2
         while exponent & one == zero {
@@ -145,7 +145,7 @@ impl IsField for Degree4BabyBearU32ExtensionField {
             }
         }
 
-        let mut base = result.clone();
+        let mut base = result;
         exponent >>= 1;
 
         while exponent != zero {

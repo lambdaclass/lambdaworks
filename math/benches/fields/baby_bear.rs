@@ -23,7 +23,7 @@ use rand::Rng;
 pub type U32Babybear31PrimeField = U32MontgomeryBackendPrimeField<2013265921>;
 pub type F = FieldElement<U32Babybear31PrimeField>;
 pub type F64 = FieldElement<Babybear31PrimeField>;
-pub type Fp4E_u32 = FieldElement<Degree4BabyBearU32ExtensionField>;
+pub type Fp4Eu32 = FieldElement<Degree4BabyBearU32ExtensionField>;
 pub type Fp4E = FieldElement<Degree4BabyBearExtensionField>;
 type EF4 = BinomialExtensionField<BabyBear, 4>;
 
@@ -63,17 +63,17 @@ pub fn rand_babybear_u64_fp4_elements(num: usize) -> Vec<(Fp4E, Fp4E)> {
     }
     result
 }
-pub fn rand_babybear_u32_fp4_elements(num: usize) -> Vec<(Fp4E_u32, Fp4E_u32)> {
+pub fn rand_babybear_u32_fp4_elements(num: usize) -> Vec<(Fp4Eu32, Fp4Eu32)> {
     let mut result = Vec::with_capacity(num);
     for _ in 0..num {
         result.push((
-            Fp4E_u32::new([
+            Fp4Eu32::new([
                 F::from(random::<u64>()),
                 F::from(random::<u64>()),
                 F::from(random::<u64>()),
                 F::from(random::<u64>()),
             ]),
-            Fp4E_u32::new([
+            Fp4Eu32::new([
                 F::from(random::<u64>()),
                 F::from(random::<u64>()),
                 F::from(random::<u64>()),
@@ -214,7 +214,7 @@ pub fn babybear_u64_ops_benchmarks(c: &mut Criterion) {
     }
 }
 pub fn babybear_u32_extension_ops_benchmarks(c: &mut Criterion) {
-    let input: Vec<Vec<(Fp4E_u32, Fp4E_u32)>> = [1000000]
+    let input: Vec<Vec<(Fp4Eu32, Fp4Eu32)>> = [1000000]
         .into_iter()
         .map(rand_babybear_u32_fp4_elements)
         .collect::<Vec<_>>();
