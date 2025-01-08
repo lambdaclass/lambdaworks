@@ -269,7 +269,8 @@ impl ByteConversion for [FieldElement<Babybear31PrimeField>; 4] {
         Ok([x0, x1, x2, x3])
     }
 }
-
+#[cfg(feature = "lambdaworks-serde-binary")]
+#[cfg(feature = "alloc")]
 impl ByteConversion for FieldElement<Degree4BabyBearU32ExtensionField> {
     #[cfg(feature = "alloc")]
     fn to_bytes_be(&self) -> alloc::vec::Vec<u8> {
