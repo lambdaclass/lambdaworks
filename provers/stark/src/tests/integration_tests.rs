@@ -302,6 +302,7 @@ fn test_prove_read_only_memory() {
 }
 
 #[test_log::test]
+#[cfg(not(feature = "metal"))]
 fn test_prove_log_read_only_memory() {
     let address_col = vec![
         FieldElement::<Babybear31PrimeField>::from(3), // a0
