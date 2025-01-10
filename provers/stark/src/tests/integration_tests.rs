@@ -1,10 +1,12 @@
+#[cfg(not(feature = "metal"))]
 use lambdaworks_crypto::fiat_shamir::default_transcript::DefaultTranscript;
 use lambdaworks_math::field::{
-    element::FieldElement,
-    fields::fft_friendly::{
-        babybear::Babybear31PrimeField, quartic_babybear::Degree4BabyBearExtensionField,
-        stark_252_prime_field::Stark252PrimeField,
-    },
+    element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
+};
+
+#[cfg(not(feature = "metal"))]
+use lambdaworks_math::field::fields::fft_friendly::{
+    babybear::Babybear31PrimeField, quartic_babybear::Degree4BabyBearExtensionField,
 };
 
 use crate::{
@@ -16,7 +18,6 @@ use crate::{
         fibonacci_rap::{fibonacci_rap_trace, FibonacciRAP, FibonacciRAPPublicInputs},
         quadratic_air::{self, QuadraticAIR, QuadraticPublicInputs},
         read_only_memory::{sort_rap_trace, ReadOnlyPublicInputs, ReadOnlyRAP},
-        read_only_memory_logup::{read_only_logup_trace, LogReadOnlyPublicInputs, LogReadOnlyRAP},
         simple_fibonacci::{self, FibonacciAIR, FibonacciPublicInputs},
         simple_periodic_cols::{self, SimplePeriodicAIR, SimplePeriodicPublicInputs}, //         simple_periodic_cols::{self, SimplePeriodicAIR, SimplePeriodicPublicInputs},
     },
@@ -25,6 +26,11 @@ use crate::{
     transcript::StoneProverTranscript,
     verifier::{IsStarkVerifier, Verifier},
     Felt252,
+};
+
+#[cfg(not(feature = "metal"))]
+use crate::examples::read_only_memory_logup::{
+    read_only_logup_trace, LogReadOnlyPublicInputs, LogReadOnlyRAP,
 };
 
 #[test_log::test]
