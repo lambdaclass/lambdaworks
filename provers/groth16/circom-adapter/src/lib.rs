@@ -1,6 +1,3 @@
-#[cfg(test)]
-mod integration_tests;
-
 use lambdaworks_groth16::{common::FrElement, QuadraticArithmeticProgram as QAP};
 use lambdaworks_math::unsigned_integer::element::UnsignedInteger;
 use serde_json::Value;
@@ -84,30 +81,28 @@ fn adjust_lro_and_witness(
     let mut temp_o = Vec::with_capacity(num_of_inputs);
     let mut temp_witness = Vec::with_capacity(num_of_inputs);
 
-    for i in 0..num_of_inputs {
-        temp_l.push(l[num_of_outputs + 1 + i].clone());
-        temp_r.push(r[num_of_outputs + 1 + i].clone());
-        temp_o.push(o[num_of_outputs + 1 + i].clone());
-        temp_witness.push(witness[num_of_outputs + 1 + i].clone());
-    }
+    temp_l.extend_from_slice(&l[num_of_outputs + 1..num_of_outputs + 1 + num_of_inputs]);
+    temp_r.extend_from_slice(&r[num_of_outputs + 1..num_of_outputs + 1 + num_of_inputs]);
+    temp_o.extend_from_slice(&o[num_of_outputs + 1..num_of_outputs + 1 + num_of_inputs]);
+    temp_witness
+        .extend_from_slice(&witness[num_of_outputs + 1..num_of_outputs + 1 + num_of_inputs]);
 
-    for i in 0..num_of_inputs {
-        let temp_l_i = l[1 + i].clone();
-        l[1 + i].clone_from(&temp_l[i]);
-        l[num_of_outputs + 1 + i].clone_from(&temp_l_i);
+    let temp_l_i = &l[1..=num_of_inputs].to_vec();
+    l[1..=num_of_inputs].clone_from_slice(&temp_l[..num_of_inputs]);
+    l[num_of_outputs + 1..num_of_inputs + num_of_outputs + 1].clone_from_slice(&temp_l_i);
 
-        let temp_r_i = r[1 + i].clone();
-        r[1 + i].clone_from(&temp_r[i]);
-        r[num_of_outputs + 1 + i].clone_from(&temp_r_i);
+    let temp_r_i = &r[1..=num_of_inputs].to_vec();
+    r[1..=num_of_inputs].clone_from_slice(&temp_r[..num_of_inputs]);
+    r[num_of_outputs + 1..num_of_inputs + num_of_outputs + 1].clone_from_slice(&temp_r_i);
 
-        let temp_o_i = o[1 + i].clone();
-        o[1 + i].clone_from(&temp_o[i]);
-        o[num_of_outputs + 1 + i].clone_from(&temp_o_i);
+    let temp_o_i = &o[1..=num_of_inputs].to_vec();
+    o[1..=num_of_inputs].clone_from_slice(&temp_o[..num_of_inputs]);
+    o[num_of_outputs + 1..num_of_inputs + num_of_outputs + 1].clone_from_slice(&temp_o_i);
 
-        let temp_witness_i = witness[1 + i].clone();
-        witness[1 + i].clone_from(&temp_witness[i]);
-        witness[num_of_outputs + 1 + i].clone_from(&temp_witness_i);
-    }
+    let temp_witness_i = &witness[1..=num_of_inputs].to_vec();
+    witness[1..=num_of_inputs].clone_from_slice(&temp_witness[..num_of_inputs]);
+    witness[num_of_outputs + 1..num_of_inputs + num_of_outputs + 1]
+        .clone_from_slice(&temp_witness_i);
 }
 
 #[inline]

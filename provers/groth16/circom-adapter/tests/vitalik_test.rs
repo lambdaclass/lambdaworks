@@ -1,52 +1,48 @@
 use std::fs;
 
-use crate::*;
-use lambdaworks_groth16::*;
+use lambdaworks_circom_adapter::circom_to_lambda;
+use lambdaworks_groth16::{common::FrElement, QuadraticArithmeticProgram};
 
-const TEST_DIR: &str = "test_files";
-
-// Proves & verifies a Poseidon circuit with 1 input and 2 outputs. The input is decimal 100.
-#[test]
-fn poseidon_parse_prove_verify() {
-    let test_dir = format!("{TEST_DIR}/poseidon");
-
-    let (qap, w) = circom_to_lambda(
-        &fs::read_to_string(format!("{test_dir}/test.r1cs.json")).expect("Error reading the file"),
-        &fs::read_to_string(format!("{test_dir}/witness.json")).expect("Error reading the file"),
-    );
-
-    let (pk, vk) = setup(&qap);
-
-    let accept = verify(
-        &vk,
-        &Prover::prove(&w, &qap, &pk),
-        &w[..qap.num_of_public_inputs],
-    );
-    assert!(accept);
-}
-
-// Converts following Circom circuit and inputs into Lambdaworks-compatible QAP and witness assignments
-//
-// template Test() {
-//	signal input x;
-//	signal output out;
-//
-//	signal sym_1;
-//	signal y;
-//
-//	sym_1 <== x * x;
-//	out <== (sym_1 * x) + (x + 5);
-// }
-//
-// { "x": 3 }
+/// Converts following Circom circuit and inputs into Lambdaworks-compatible QAP and witness assignments.
+///
+/// ```csharp
+/// template Test() {
+///	signal input x;
+///	signal output out;
+///
+///	signal sym_1;
+///	signal y;
+///
+///	sym_1 <== x * x;
+///	out <== (sym_1 * x) + (x + 5);
+/// }
+///
+/// // { "x": 3 }
+/// ```
+///
 #[test]
 fn vitalik_w_and_qap() {
-    let test_dir = format!("{TEST_DIR}/vitalik_example");
-
     let (qap, w) = circom_to_lambda(
-        &fs::read_to_string(format!("{test_dir}/test.r1cs.json")).expect("Error reading the file"),
-        &fs::read_to_string(format!("{test_dir}/witness.json")).expect("Error reading the file"),
+        &fs::read_to_string(format!("./tests/vitalik_example/test.r1cs.json"))
+            .expect("Error reading the file"),
+        &fs::read_to_string(format!("./tests/vitalik_example/witness.json"))
+            .expect("Error reading the file"),
     );
+    // println!(
+    //     "Witness: {}",
+    //     &w.iter()
+    //         .map(|s| format!("0x{}", s.representative().to_hex()))
+    //         .collect::<Vec<String>>()
+    //         .join(", ")
+    // );
+    // println!(
+    //     "Public: {}",
+    //     &w[..qap.num_of_public_inputs]
+    //         .iter()
+    //         .map(|s| format!("0x{}", s.representative().to_hex()))
+    //         .collect::<Vec<String>>()
+    //         .join(", ")
+    // );
 
     // Circom witness contains outputs before circuit inputs where Lambdaworks puts inputs before the output. Freshly generated
     // witness assignment "w" must be in form ["1", "x", "~out", "sym_1"]
@@ -91,8 +87,12 @@ fn vitalik_w_and_qap() {
         ],
     ]
     .map(|matrix| matrix.map(|row| row.map(FrElement::from_hex_unchecked).to_vec()));
-    let expected_qap =
-        QAP::from_variable_matrices(expected_num_of_public_inputs, &temp_l, &temp_r, &temp_o);
+    let expected_qap = QuadraticArithmeticProgram::from_variable_matrices(
+        expected_num_of_public_inputs,
+        &temp_l,
+        &temp_r,
+        &temp_o,
+    );
 
     let expected_l = expected_qap.l;
     let expected_r = expected_qap.r;
