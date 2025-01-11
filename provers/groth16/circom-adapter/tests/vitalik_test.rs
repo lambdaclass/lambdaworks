@@ -20,35 +20,26 @@ use lambdaworks_groth16::{common::FrElement, QuadraticArithmeticProgram};
 ///
 #[test]
 fn vitalik_w_and_qap() {
-    let wtns = read_circom_witness("./tests/vitalik_example/witness.json")
+    let circom_wtns = read_circom_witness("./tests/vitalik_example/witness.json")
         .expect("could not read witness");
-    let r1cs =
+    let circom_r1cs =
         read_circom_r1cs("./tests/vitalik_example/test.r1cs.json").expect("could not read r1cs");
 
-    let (qap, w) = circom_to_lambda(r1cs, wtns);
-    // println!(
-    //     "Witness: {}",
-    //     &w.iter()
-    //         .map(|s| format!("0x{}", s.representative().to_hex()))
-    //         .collect::<Vec<String>>()
-    //         .join(", ")
-    // );
-    // println!(
-    //     "Public: {}",
-    //     &w[..qap.num_of_public_inputs]
-    //         .iter()
-    //         .map(|s| format!("0x{}", s.representative().to_hex()))
-    //         .collect::<Vec<String>>()
-    //         .join(", ")
-    // );
+    let (qap, wtns, pubs) = circom_to_lambda(circom_r1cs, circom_wtns);
 
-    // Circom witness contains outputs before circuit inputs where Lambdaworks puts inputs before the output. Freshly generated
-    // witness assignment "w" must be in form ["1", "x", "~out", "sym_1"]
+    // Circom witness contains outputs before circuit inputs where Lambdaworks puts inputs before the output.
+    // Freshly generated witness assignment "w" must be in form ["1", "x", "~out", "sym_1"]
     assert_eq!(
-        w,
+        wtns,
         ["1", "3", "23", "9"]
             .map(FrElement::from_hex_unchecked)
-            .to_vec()
+            .to_vec(),
+        "incorrect witness"
+    );
+    assert_eq!(
+        pubs,
+        ["23"].map(FrElement::from_hex_unchecked).to_vec(),
+        "incorrect public signals"
     );
 
     // Regarding QAP, we expect 2 constraints in following form
@@ -58,45 +49,46 @@ fn vitalik_w_and_qap() {
     // Same ordering difference exists for variable matrices, too. Circom adapter changes the
     // order of the rows in the same way it rearranges the witness ordering.
 
-    const BLS12381_MINUS_ONE_STR: &str =
-        "0x73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000000";
-    const BLS12381_ZERO_STR: &str = "0x0";
-    const BLS12381_ONE_STR: &str = "0x1";
+    const _M1_: &str = "0x73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000000";
+    const _0_: &str = "0x0";
+    const _1_: &str = "0x1";
 
-    let expected_num_of_public_inputs = 1;
+    #[rustfmt::skip]
     let [temp_l, temp_r, temp_o] = [
+        // L //
         [
-            [BLS12381_ZERO_STR, BLS12381_ZERO_STR],      // 1
-            [BLS12381_MINUS_ONE_STR, BLS12381_ZERO_STR], // x
-            [BLS12381_ZERO_STR, BLS12381_ZERO_STR],      // ~out
-            [BLS12381_ZERO_STR, BLS12381_MINUS_ONE_STR], // sym_1
+            [_0_,  _0_],  // 1
+            [_M1_, _0_],  // x
+            [_0_,  _0_],  // ~out
+            [_0_,  _M1_], // sym_1
         ],
+        // R //
         [
-            [BLS12381_ZERO_STR, BLS12381_ZERO_STR], // 1
-            [BLS12381_ONE_STR, BLS12381_ONE_STR],   // x
-            [BLS12381_ZERO_STR, BLS12381_ZERO_STR], // ~out
-            [BLS12381_ZERO_STR, BLS12381_ZERO_STR], // sym_1
+            [_0_, _0_],   // 1
+            [_1_, _1_],   // x
+            [_0_, _0_],   // ~out
+            [_0_, _0_],   // sym_1
         ],
+        // O //
         [
-            [BLS12381_ZERO_STR, "5"],                    // 1
-            [BLS12381_ZERO_STR, BLS12381_ONE_STR],       // x
-            [BLS12381_ZERO_STR, BLS12381_MINUS_ONE_STR], // ~out
-            [BLS12381_MINUS_ONE_STR, BLS12381_ZERO_STR], // sym_1
+            [_0_, "5"],   // 1
+            [_0_, _1_],   // x
+            [_0_, _M1_],  // ~out
+            [_M1_, _0_],  // sym_1
         ],
     ]
     .map(|matrix| matrix.map(|row| row.map(FrElement::from_hex_unchecked).to_vec()));
-    let expected_qap = QuadraticArithmeticProgram::from_variable_matrices(
-        expected_num_of_public_inputs,
-        &temp_l,
-        &temp_r,
-        &temp_o,
-    );
 
-    let expected_l = expected_qap.l;
-    let expected_r = expected_qap.r;
-    let expected_o = expected_qap.o;
+    let expected_qap =
+        QuadraticArithmeticProgram::from_variable_matrices(pubs.len(), &temp_l, &temp_r, &temp_o);
 
-    assert_eq!(qap.l, expected_l);
-    assert_eq!(qap.r, expected_r);
-    assert_eq!(qap.o, expected_o);
+    assert_eq!(qap.l, expected_qap.l);
+    assert_eq!(qap.r, expected_qap.r);
+    assert_eq!(qap.o, expected_qap.o);
+
+    // check proofs
+    let (pk, vk) = lambdaworks_groth16::setup(&qap);
+    let proof = lambdaworks_groth16::Prover::prove(&wtns, &qap, &pk);
+    let accept = lambdaworks_groth16::verify(&vk, &proof, &pubs);
+    assert!(accept, "proof verification failed");
 }

@@ -3,7 +3,7 @@ use lambdaworks_groth16::{common::FrElement, QuadraticArithmeticProgram};
 mod readers;
 pub use readers::*;
 
-/// Given a Circom R1CS and witness, returns a QAP and witness compatible with Lambdaworks.
+/// Given a Circom R1CS and witness it returns a QAP, witness, and public signals; all compatible with Lambdaworks.
 ///
 /// This requires a change of ordering within the LRO matrices and the witness of the Circom values,
 /// due to the fact that witness ordering differs in Circom vs Lambdaworks:
@@ -13,7 +13,7 @@ pub use readers::*;
 pub fn circom_to_lambda(
     r1cs: CircomR1CS,
     mut witness: CircomWitness,
-) -> (QuadraticArithmeticProgram, Vec<FrElement>) {
+) -> (QuadraticArithmeticProgram, Vec<FrElement>, Vec<FrElement>) {
     let num_of_outputs = r1cs.num_outputs;
     let num_of_private_inputs = r1cs.num_priv_inputs;
     let num_of_pub_inputs = r1cs.num_pub_inputs;
@@ -29,10 +29,17 @@ pub fn circom_to_lambda(
         &mut witness,
     );
 
+    // we could get a slice using the QAP but the QAP does not keep track of the number of private inputs;
+    // so instead we get the public signals here
+    let public_inputs = witness
+        [1 + num_of_private_inputs..1 + num_of_private_inputs + num_of_pub_inputs + num_of_outputs]
+        .to_vec();
+
     (
         // Lambdaworks considers "1" a public input, so compensate for it
         QuadraticArithmeticProgram::from_variable_matrices(num_of_pub_inputs + 1, &l, &r, &o),
         witness,
+        public_inputs,
     )
 }
 
@@ -62,8 +69,8 @@ fn build_lro_from_circom_r1cs(circom_r1cs: CircomR1CS) -> [Vec<Vec<FrElement>>; 
     [l, r, o]
 }
 
-/// Same applies to rows of LRO (each representing a variable)
-/// This function compensates this difference
+/// Change the ordering of private-inputs and public-outputs from Circom to Lambdaworks style,
+/// for both LRO matrices and witness.
 #[inline]
 fn adjust_lro_and_witness(
     num_of_outputs: usize,
