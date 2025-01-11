@@ -1,4 +1,4 @@
-use lambdaworks_circom_adapter::{circom_to_lambda_qap, read_circom_r1cs, read_circom_witness};
+use lambdaworks_circom_adapter::{circom_to_lambda, read_circom_r1cs, read_circom_witness};
 use lambdaworks_groth16::{common::FrElement, QuadraticArithmeticProgram};
 
 /// Converts following Circom circuit and inputs into Lambdaworks-compatible QAP and witness assignments.
@@ -25,7 +25,7 @@ fn vitalik_w_and_qap() {
     let circom_r1cs =
         read_circom_r1cs("./tests/vitalik_example/test.r1cs.json").expect("could not read r1cs");
 
-    let (qap, wtns, pubs) = circom_to_lambda_qap(circom_r1cs, circom_wtns);
+    let (qap, wtns, pubs) = circom_to_lambda(circom_r1cs, circom_wtns);
 
     // Circom witness contains outputs before circuit inputs where Lambdaworks puts inputs before the output.
     // Freshly generated witness assignment "w" must be in form ["1", "x", "~out", "sym_1"]

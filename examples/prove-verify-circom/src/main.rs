@@ -9,7 +9,7 @@ fn main() {
         read_circom_witness("./examples/prove-verify-circom/input_files/witness.json").unwrap();
 
     println!("Converting to Lambdaworks-compatible QAP and witness assignments");
-    let (qap, witness, _) = circom_to_lambda_qap(circom_r1cs, circom_witness);
+    let (qap, witness, _) = circom_to_lambda(circom_r1cs, circom_witness);
 
     println!("Performing trusted setup");
     let (pk, vk) = setup(&qap);

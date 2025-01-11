@@ -7,13 +7,7 @@ mod readers;
 pub use readers::*;
 
 /// Given a Circom R1CS and witness it returns a QAP, witness, and public signals; all compatible with Lambdaworks.
-///
-/// This requires a change of ordering within the LRO matrices and the witness of the Circom values,
-/// due to the fact that witness ordering differs in Circom vs Lambdaworks:
-///
-/// - **Circom**: `["1", ..outputs, ...inputs, ...other_signals]`
-/// - **Lambda**: `["1", ...inputs, ..outputs,  ...other_signals]`
-pub fn circom_to_lambda_qap(
+pub fn circom_to_lambda(
     circom_r1cs: CircomR1CS,
     mut witness: CircomWitness,
 ) -> (QuadraticArithmeticProgram, Vec<FrElement>, Vec<FrElement>) {
