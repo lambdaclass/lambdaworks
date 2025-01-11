@@ -1,6 +1,4 @@
-use std::fs;
-
-use lambdaworks_circom_adapter::circom_to_lambda;
+use lambdaworks_circom_adapter::{circom_to_lambda, read_circom_r1cs, read_circom_witness};
 use lambdaworks_groth16::{common::FrElement, QuadraticArithmeticProgram};
 
 /// Converts following Circom circuit and inputs into Lambdaworks-compatible QAP and witness assignments.
@@ -22,12 +20,12 @@ use lambdaworks_groth16::{common::FrElement, QuadraticArithmeticProgram};
 ///
 #[test]
 fn vitalik_w_and_qap() {
-    let (qap, w) = circom_to_lambda(
-        &fs::read_to_string(format!("./tests/vitalik_example/test.r1cs.json"))
-            .expect("Error reading the file"),
-        &fs::read_to_string(format!("./tests/vitalik_example/witness.json"))
-            .expect("Error reading the file"),
-    );
+    let wtns = read_circom_witness("./tests/vitalik_example/witness.json")
+        .expect("could not read witness");
+    let r1cs =
+        read_circom_r1cs("./tests/vitalik_example/test.r1cs.json").expect("could not read r1cs");
+
+    let (qap, w) = circom_to_lambda(r1cs, wtns);
     // println!(
     //     "Witness: {}",
     //     &w.iter()
