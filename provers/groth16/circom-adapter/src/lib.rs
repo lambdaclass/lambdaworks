@@ -1,3 +1,6 @@
+// allowing unused mut until we solve the signal ordering thing
+#![allow(unused_mut)]
+
 use lambdaworks_groth16::{common::FrElement, QuadraticArithmeticProgram};
 
 mod readers;
@@ -10,34 +13,33 @@ pub use readers::*;
 ///
 /// - **Circom**: `["1", ..outputs, ...inputs, ...other_signals]`
 /// - **Lambda**: `["1", ...inputs, ..outputs,  ...other_signals]`
-pub fn circom_to_lambda(
-    r1cs: CircomR1CS,
+pub fn circom_to_lambda_qap(
+    circom_r1cs: CircomR1CS,
     mut witness: CircomWitness,
 ) -> (QuadraticArithmeticProgram, Vec<FrElement>, Vec<FrElement>) {
-    let num_of_outputs = r1cs.num_outputs;
-    let num_of_private_inputs = r1cs.num_priv_inputs;
-    let num_of_pub_inputs = r1cs.num_pub_inputs;
+    let num_of_outputs = circom_r1cs.num_outputs;
+    // let num_of_private_inputs = circom_r1cs.num_priv_inputs;
+    let num_of_pub_inputs = circom_r1cs.num_pub_inputs;
 
-    let [mut l, mut r, mut o] = build_lro_from_circom_r1cs(r1cs);
-    adjust_lro_and_witness(
-        num_of_outputs,
-        num_of_private_inputs,
-        num_of_pub_inputs,
-        &mut l,
-        &mut r,
-        &mut o,
-        &mut witness,
-    );
+    let [mut l, mut r, mut o] = build_lro_from_circom_r1cs(circom_r1cs);
+    // adjust_lro_and_witness(
+    //     num_of_outputs,
+    //     num_of_private_inputs,
+    //     num_of_pub_inputs,
+    //     &mut l,
+    //     &mut r,
+    //     &mut o,
+    //     &mut witness,
+    // );
 
     // we could get a slice using the QAP but the QAP does not keep track of the number of private inputs;
     // so instead we get the public signals here
-    let public_inputs = witness
-        [1 + num_of_private_inputs..1 + num_of_private_inputs + num_of_pub_inputs + num_of_outputs]
-        .to_vec();
+    let mut public_inputs = witness[..num_of_pub_inputs + num_of_outputs + 1].to_vec();
+    // public_inputs.insert(0, witness[0].clone()); // this is usually 1
 
     (
         // Lambdaworks considers "1" a public input, so compensate for it
-        QuadraticArithmeticProgram::from_variable_matrices(num_of_pub_inputs + 1, &l, &r, &o),
+        QuadraticArithmeticProgram::from_variable_matrices(public_inputs.len(), &l, &r, &o),
         witness,
         public_inputs,
     )
@@ -72,6 +74,8 @@ fn build_lro_from_circom_r1cs(circom_r1cs: CircomR1CS) -> [Vec<Vec<FrElement>>; 
 /// Change the ordering of private-inputs and public-outputs from Circom to Lambdaworks style,
 /// for both LRO matrices and witness.
 #[inline]
+#[deprecated = "seems to be working without this?"]
+#[allow(unused)]
 fn adjust_lro_and_witness(
     num_of_outputs: usize,
     num_of_private_inputs: usize,

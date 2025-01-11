@@ -1,4 +1,4 @@
-use lambdaworks_circom_adapter::{circom_to_lambda, read_circom_r1cs, read_circom_witness};
+use lambdaworks_circom_adapter::{circom_to_lambda_qap, read_circom_r1cs, read_circom_witness};
 use lambdaworks_groth16::{common::FrElement, QuadraticArithmeticProgram};
 
 /// Converts following Circom circuit and inputs into Lambdaworks-compatible QAP and witness assignments.
@@ -25,20 +25,22 @@ fn vitalik_w_and_qap() {
     let circom_r1cs =
         read_circom_r1cs("./tests/vitalik_example/test.r1cs.json").expect("could not read r1cs");
 
-    let (qap, wtns, pubs) = circom_to_lambda(circom_r1cs, circom_wtns);
+    let (qap, wtns, pubs) = circom_to_lambda_qap(circom_r1cs, circom_wtns);
 
     // Circom witness contains outputs before circuit inputs where Lambdaworks puts inputs before the output.
     // Freshly generated witness assignment "w" must be in form ["1", "x", "~out", "sym_1"]
     assert_eq!(
         wtns,
-        ["1", "3", "23", "9"]
+        // ["1", "3", "23", "9"]
+        // 1, out, x, sym_1
+        ["1", "23", "3", "9"]
             .map(FrElement::from_hex_unchecked)
             .to_vec(),
         "incorrect witness"
     );
     assert_eq!(
         pubs,
-        ["23"].map(FrElement::from_hex_unchecked).to_vec(),
+        ["1", "23"].map(FrElement::from_hex_unchecked).to_vec(),
         "incorrect public signals"
     );
 
@@ -58,22 +60,22 @@ fn vitalik_w_and_qap() {
         // L //
         [
             [_0_,  _0_],  // 1
-            [_M1_, _0_],  // x
             [_0_,  _0_],  // ~out
+            [_M1_, _0_],  // x
             [_0_,  _M1_], // sym_1
         ],
         // R //
         [
             [_0_, _0_],   // 1
-            [_1_, _1_],   // x
             [_0_, _0_],   // ~out
+            [_1_, _1_],   // x
             [_0_, _0_],   // sym_1
         ],
         // O //
         [
             [_0_, "5"],   // 1
-            [_0_, _1_],   // x
             [_0_, _M1_],  // ~out
+            [_0_, _1_],   // x
             [_M1_, _0_],  // sym_1
         ],
     ]

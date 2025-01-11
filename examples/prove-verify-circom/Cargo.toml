@@ -5,9 +5,9 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 
-[[bin]]
-name = "prove-verify-circom"
-path = "src/main.rs"
+# [[bin]]
+# name = "prove-verify-circom"
+# path = "src/main.rs"
 
 [dependencies]
 lambdaworks-crypto = { workspace = true }
