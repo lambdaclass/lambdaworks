@@ -1,7 +1,7 @@
 use crate::arkworks_cs_to_lambda_cs;
 use ark_bls12_381::Fr;
 use ark_relations::{lc, r1cs::ConstraintSystem, r1cs::Variable};
-use lambdaworks_groth16::{setup, verify, Prover, QuadraticArithmeticProgram};
+use lambdaworks_groth16_bls12_381::{setup, verify, Prover, QuadraticArithmeticProgram};
 use rand::Rng;
 
 #[test]

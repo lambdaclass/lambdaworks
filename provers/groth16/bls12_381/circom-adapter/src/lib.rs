@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod integration_tests;
 
-use lambdaworks_groth16::{common::FrElement, QuadraticArithmeticProgram as QAP};
+use lambdaworks_groth16_bls12_381::{common::FrElement, QuadraticArithmeticProgram as QAP};
 use lambdaworks_math::unsigned_integer::element::UnsignedInteger;
 use serde_json::Value;
 

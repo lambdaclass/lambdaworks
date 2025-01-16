@@ -1,7 +1,7 @@
 use std::fs;
 
 use crate::*;
-use lambdaworks_groth16::*;
+use lambdaworks_groth16_bn_254::*;
 
 const TEST_DIR: &str = "test_files";
 

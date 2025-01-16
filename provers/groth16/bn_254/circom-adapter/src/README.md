@@ -8,10 +8,10 @@ This package allows one to perform trusted setup, prove, and verify constraints 
 
 1. Have a "\*.circom" file and an "input.json" file. Let's say circom file has name **test.circom**.
 2. ```bash
-   circom test.circom --r1cs --wasm -p bls12381
+   circom test.circom --r1cs --wasm -p bn128
    ```
 
-   This will create a **test_js** directory, and a **test.r1cs** file. Do not skip the **-p bls12381** flag as this is the only field supported by this adapter right now.
+   This will create a **test_js** directory, and a **test.r1cs** file.
 
 3. ```bash
    node test_js/generate_witness.js test_js/test.wasm input.json witness.wtns

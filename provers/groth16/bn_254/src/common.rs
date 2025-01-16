@@ -26,12 +26,11 @@ pub type PairingOutput = FieldElement<<Pairing as IsPairing>::OutputField>;
 /// g = ORDER_R_MINUS_1_ROOT_UNITY is a primitive unity root of order r - 1.
 /// I.e. g^{r-1} mod r = 1 and g^i != 1 for i < r-1.
 /// We calculated g in Sage:
-/// ```
+///
 /// r = 21888242871839275222246405745257275088548364400416034343698204186575808495617
 /// F = GF(r)
 /// g = F.primitive_element()
 /// print("Primitive generator:", g)
-/// ```
 pub const ORDER_R_MINUS_1_ROOT_UNITY: FrElement = FrElement::from_hex_unchecked("5");
 
 pub fn sample_fr_elem() -> FrElement {

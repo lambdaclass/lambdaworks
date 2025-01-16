@@ -3,7 +3,7 @@ mod integration_tests;
 
 use ark_ff::PrimeField;
 use ark_relations::r1cs::{ConstraintSystemRef, Field};
-use lambdaworks_groth16::{common::*, r1cs::R1CS, ConstraintSystem};
+use lambdaworks_groth16_bls12_381::{common::*, r1cs::R1CS, ConstraintSystem};
 use lambdaworks_math::traits::ByteConversion;
 
 use std::ops::Deref;

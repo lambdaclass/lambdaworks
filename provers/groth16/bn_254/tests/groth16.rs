@@ -1,4 +1,4 @@
-use lambdaworks_groth16::{common::*, setup, verify, Proof, Prover};
+use lambdaworks_groth16_bn_254::{common::*, setup, verify, Proof, Prover};
 
 mod test_circuits;
 use test_circuits::*;

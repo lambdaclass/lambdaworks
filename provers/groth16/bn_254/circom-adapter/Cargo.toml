@@ -1,5 +1,5 @@
 [package]
-name = "lambdaworks-circom-adapter"
+name = "lambdaworks-circom-adapter-bn-254"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -8,7 +8,7 @@ repository.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-lambdaworks-math = { path = "../../../math" }
-lambdaworks-groth16 = { path = "../" }
+lambdaworks-math = { path = "../../../../math" }
+lambdaworks-groth16-bn-254 = { path = "../" }
 serde = { version = "1.0" }
 serde_json = "1"

@@ -1,4 +1,4 @@
-use lambdaworks_groth16::{common::*, QuadraticArithmeticProgram as QAP};
+use lambdaworks_groth16_bls12_381::{common::*, QuadraticArithmeticProgram as QAP};
 
 /*
 Represents x^3 + x + 5 = 35, based on https://vitalik.ca/general/2016/12/10/qap.html
