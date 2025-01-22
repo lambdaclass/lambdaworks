@@ -5,12 +5,10 @@ use crate::field::{
     traits::{IsFFTField, IsField, IsSubFieldOf},
 };
 
-#[cfg(feature = "lambdaworks-serde-binary")]
-#[cfg(feature = "alloc")]
+#[cfg(all(feature = "lambdaworks-serde-binary", feature = "alloc"))]
 use crate::traits::ByteConversion;
 
-#[cfg(feature = "lambdaworks-serde-binary")]
-#[cfg(feature = "alloc")]
+#[cfg(all(feature = "lambdaworks-serde-binary", feature = "alloc"))]
 use crate::traits::AsBytes;
 
 /// We are implementig the extension of Baby Bear of degree 4 using the irreducible polynomial x^4 + 11.
