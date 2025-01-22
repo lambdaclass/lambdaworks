@@ -13,8 +13,8 @@ use crate::traits::AsBytes;
 
 /// We are implementig the extension of Baby Bear of degree 4 using the irreducible polynomial x^4 + 11.
 /// BETA = 11 and -BETA = -11 is the non-residue.
-/// Since `const_from_raw`` doesn't make the montgomery conversion, we calculated it.
-/// The montgomery form of a number `a` is a * R mod p.
+/// Since `const_from_raw()` doesn't make the montgomery conversion, we calculated it.
+/// The montgomery form of a number "a" is a * R mod p.
 /// In Baby Bear field, R = 2^32 and p = 2013265921.
 /// Then, 939524073 = 11 * 2^32 mod 2013265921.
 pub const BETA: FieldElement<Babybear31PrimeField> =
