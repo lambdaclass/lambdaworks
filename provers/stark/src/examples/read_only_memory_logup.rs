@@ -1,3 +1,7 @@
+//! Implementation of a LogUp Lookup Argument example.
+//! See our blog post for detailed explanation.
+//! <https://blog.lambdaclass.com/logup-lookup-argument-and-its-implementation-using-lambdaworks-for-continuous-read-only-memory/>
+
 use std::marker::PhantomData;
 
 use crate::{
@@ -12,9 +16,11 @@ use crate::{
 };
 use itertools::Itertools;
 use lambdaworks_crypto::fiat_shamir::is_transcript::IsTranscript;
-use lambdaworks_math::field::traits::{IsField, IsPrimeField, IsSubFieldOf};
 use lambdaworks_math::{
-    field::{element::FieldElement, traits::IsFFTField},
+    field::{
+        element::FieldElement,
+        traits::{IsFFTField, IsField, IsPrimeField, IsSubFieldOf},
+    },
     traits::ByteConversion,
 };
 
