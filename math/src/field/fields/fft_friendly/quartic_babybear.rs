@@ -221,18 +221,18 @@ impl ByteConversion for [FieldElement<Babybear31PrimeField>; 4] {
     #[cfg(feature = "alloc")]
     fn to_bytes_be(&self) -> alloc::vec::Vec<u8> {
         let mut byte_slice = ByteConversion::to_bytes_be(&self[0]);
-        byte_slice.extend_from_slice(&ByteConversion::to_bytes_be(&self[1]));
-        byte_slice.extend_from_slice(&ByteConversion::to_bytes_be(&self[2]));
-        byte_slice.extend_from_slice(&ByteConversion::to_bytes_be(&self[3]));
+        byte_slice.extend(ByteConversion::to_bytes_be(&self[1]));
+        byte_slice.extend(ByteConversion::to_bytes_be(&self[2]));
+        byte_slice.extend(ByteConversion::to_bytes_be(&self[3]));
         byte_slice
     }
 
     #[cfg(feature = "alloc")]
     fn to_bytes_le(&self) -> alloc::vec::Vec<u8> {
         let mut byte_slice = ByteConversion::to_bytes_le(&self[0]);
-        byte_slice.extend_from_slice(&ByteConversion::to_bytes_le(&self[1]));
-        byte_slice.extend_from_slice(&ByteConversion::to_bytes_le(&self[2]));
-        byte_slice.extend_from_slice(&ByteConversion::to_bytes_le(&self[3]));
+        byte_slice.extend(ByteConversion::to_bytes_le(&self[1]));
+        byte_slice.extend(ByteConversion::to_bytes_le(&self[2]));
+        byte_slice.extend(ByteConversion::to_bytes_le(&self[3]));
         byte_slice
     }
 
@@ -269,17 +269,17 @@ impl ByteConversion for [FieldElement<Babybear31PrimeField>; 4] {
 impl ByteConversion for FieldElement<Degree4BabyBearExtensionField> {
     fn to_bytes_be(&self) -> alloc::vec::Vec<u8> {
         let mut byte_slice = ByteConversion::to_bytes_be(&self.value()[0]);
-        byte_slice.extend_from_slice(&ByteConversion::to_bytes_be(&self.value()[1]));
-        byte_slice.extend_from_slice(&ByteConversion::to_bytes_be(&self.value()[2]));
-        byte_slice.extend_from_slice(&ByteConversion::to_bytes_be(&self.value()[3]));
+        byte_slice.extend(ByteConversion::to_bytes_be(&self.value()[1]));
+        byte_slice.extend(ByteConversion::to_bytes_be(&self.value()[2]));
+        byte_slice.extend(ByteConversion::to_bytes_be(&self.value()[3]));
         byte_slice
     }
 
     fn to_bytes_le(&self) -> alloc::vec::Vec<u8> {
         let mut byte_slice = ByteConversion::to_bytes_le(&self.value()[0]);
-        byte_slice.extend_from_slice(&ByteConversion::to_bytes_le(&self.value()[1]));
-        byte_slice.extend_from_slice(&ByteConversion::to_bytes_le(&self.value()[2]));
-        byte_slice.extend_from_slice(&ByteConversion::to_bytes_le(&self.value()[3]));
+        byte_slice.extend(ByteConversion::to_bytes_le(&self.value()[1]));
+        byte_slice.extend(ByteConversion::to_bytes_le(&self.value()[2]));
+        byte_slice.extend(ByteConversion::to_bytes_le(&self.value()[3]));
         byte_slice
     }
 
