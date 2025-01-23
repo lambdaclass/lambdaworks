@@ -29,7 +29,7 @@ type EF4 = BinomialExtensionField<BabyBear, 4>;
 
 pub fn rand_field_elements_u32(num: usize) -> Vec<(F, F)> {
     let mut result = Vec::with_capacity(num);
-    for _ in 0..result.capacity() {
+    for _ in 0..num {
         result.push((F::from(random::<u64>()), F::from(random::<u64>())));
     }
     result
@@ -37,7 +37,7 @@ pub fn rand_field_elements_u32(num: usize) -> Vec<(F, F)> {
 
 pub fn rand_field_elements_u64(num: usize) -> Vec<(F64, F64)> {
     let mut result = Vec::with_capacity(num);
-    for _ in 0..result.capacity() {
+    for _ in 0..num {
         result.push((F64::from(random::<u64>()), F64::from(random::<u64>())));
     }
     result
