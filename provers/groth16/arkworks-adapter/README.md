@@ -8,7 +8,7 @@ Crate exposes [to_lambda](./src/lib.rs#to_lambda) function for <b><span style="c
 pub fn to_lambda<F: PrimeField>(cs: &ConstraintSystemRef<F>) -> (QuadraticArithmeticProgram, Vec<FrElement>)
 ```
 
-It returns a Lambdaworks-compatible QAP struct alongside variable assignments. Please note that public variable assignments are bundled with witnesses, and this vector of field elements is called **witness** alltogether.
+It returns a Lambdaworks-compatible QAP struct alongside variable assignments. Please note that public variable assignments are bundled with witnesses, and this vector of field elements is called **witness** altogether.
 
 ```rust
 let (qap, w) = to_lambda(&cs);
