@@ -215,3 +215,12 @@ The following links, repos, companies and projects have been important in the de
 - [Gnark](https://github.com/Consensys/gnark)
 - [Constantine](https://github.com/mratsim/constantine)
 - [Plonky3](https://github.com/Plonky3/Plonky3)
+
+# Security
+
+We take security seriously. If you discover a vulnerability in this project, please report it responsibly. 
+
+- You can report vulnerabilities directly via the **[GitHub "Report a Vulnerability" feature](../../security/advisories/new)**.
+- Alternatively, send an email to **[security@lambdaclass.com](mailto:security@lambdaclass.com)**.
+
+For more details, please refer to our [Security Policy](./.github/SECURITY.md).
