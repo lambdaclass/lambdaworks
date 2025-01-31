@@ -222,7 +222,7 @@ pub trait IsStarkProver<A: AIR> {
         A::Field: IsSubFieldOf<A::FieldExtension>,
     {
         // Interpolate columns of `trace`.
-        let trace_polys = trace.compute_trace_polys_main::<A::Field>();
+        let trace_polys = trace.compute_trace_polys_main::<A::FieldExtension>();
 
         // Evaluate those polynomials t_j on the large domain D_LDE.
         let lde_trace_evaluations =
