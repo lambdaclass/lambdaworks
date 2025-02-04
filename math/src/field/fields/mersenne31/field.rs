@@ -118,7 +118,7 @@ impl IsField for Mersenne31Field {
 
     /// Returns the division of `a` and `b`.
     fn div(a: &u32, b: &u32) -> Result<u32, FieldError> {
-        let b_inv = Self::inv(b).expect("DivisionByZero");
+        let b_inv = Self::inv(b).map_err(|_| FieldError::DivisionByZero)?;
         Ok(Self::mul(a, &b_inv))
     }
 
