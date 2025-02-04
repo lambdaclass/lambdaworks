@@ -110,7 +110,11 @@ impl<E: IsMontgomery> IsGroup for MontgomeryProjectivePoint<E> {
                 let x1_square = &x1 * &x1;
                 let num = &x1_square + &x1_square + x1_square + &x1a + x1a + &one;
                 let den = (&b + &b) * &y1;
-                let div = num / den;
+
+                // We are using that den != 0 because b and y1 aren't zero.
+                // b != 0 because the cofficient b of a montgomery elliptic curve has to be different from zero.
+                // y1 != 0 because if not, it woould be the case from above: x2 = x1 and y2 + y1 = 0.
+                let div = unsafe { (num / den).unwrap_unchecked() };
 
                 let new_x = &div * &div * &b - (&x1 + x2) - a;
                 let new_y = div * (x1 - &new_x) - y1;
@@ -120,7 +124,8 @@ impl<E: IsMontgomery> IsGroup for MontgomeryProjectivePoint<E> {
             } else {
                 let num = &y2 - &y1;
                 let den = &x2 - &x1;
-                let div = num / den;
+
+                let div = unsafe { (num / den).unwrap_unchecked() };
 
                 let new_x = &div * &div * E::b() - (&x1 + &x2) - E::a();
                 let new_y = div * (x1 - &new_x) - y1;

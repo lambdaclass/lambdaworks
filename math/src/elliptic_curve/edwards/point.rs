@@ -103,7 +103,13 @@ impl<E: IsEdwards> IsGroup for EdwardsProjectivePoint<E> {
         let num_s2 = &y1y2 - E::a() * &x1x2;
         let den_s2 = &one - &dx1x2y1y2;
 
-        Self::new([&num_s1 / &den_s1, &num_s2 / &den_s2, one])
+        // We are using that den_s1 and den_s2 aren't zero.
+        // See Theorem 3.3 from https://eprint.iacr.org/2007/286.pdf.
+        Self::new([
+            unsafe { (&num_s1 / &den_s1).unwrap_unchecked() },
+            unsafe { (&num_s2 / &den_s2).unwrap_unchecked() },
+            one,
+        ])
     }
 
     /// Returns the additive inverse of the projective point `p`

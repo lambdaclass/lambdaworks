@@ -361,7 +361,8 @@ where
                 * lp(b_i, &(&cpi.domain[i] * &cpi.k1))
                 * lp(c_i, &(&cpi.domain[i] * &k2));
             let den = lp(a_i, &s1[i]) * lp(b_i, &s2[i]) * lp(c_i, &s3[i]);
-            let new_factor = num / den;
+            // We are using that den != 0 with high probability because beta and gamma are random elements.
+            let new_factor = unsafe { (num / den).unwrap_unchecked() };
             let new_term = coefficients.last().unwrap() * &new_factor;
             coefficients.push(new_term);
         }
@@ -574,9 +575,11 @@ where
         let zeta_raised_n = Polynomial::new_monomial(r4.zeta.pow(cpi.n + 2), 0); // TODO: Paper says n and 2n, but Gnark uses n+2 and 2n+4
         let zeta_raised_2n = Polynomial::new_monomial(r4.zeta.pow(2 * cpi.n + 4), 0);
 
-        let l1_zeta = (&r4.zeta.pow(cpi.n as u64) - FieldElement::<F>::one())
-            / (&r4.zeta - FieldElement::<F>::one())
-            / FieldElement::<F>::from(cpi.n as u64);
+        // We are using that zeta != 0 because is sampled outside the set of roots of unity,
+        // and n != 0 because is the length of the trace.
+        let l1_zeta = ((&r4.zeta.pow(cpi.n as u64) - FieldElement::<F>::one())
+            / ((&r4.zeta - FieldElement::<F>::one()) * FieldElement::<F>::from(cpi.n as u64)))
+        .unwrap();
 
         let mut p_non_constant = &cpi.qm * &r4.a_zeta * &r4.b_zeta
             + &r4.a_zeta * &cpi.ql

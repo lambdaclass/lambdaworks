@@ -142,7 +142,9 @@ where
                     let denominator = offset_times_x.pow(trace_length / self.period())
                         - trace_primitive_root.pow(self.offset() * trace_length / self.period());
 
-                    numerator.div(denominator)
+                    // The denominator isn't zero because the powers of offset_times_x and the powers of
+                    // trace_primitive_root are disjoint sets.
+                    unsafe { numerator.div(denominator).unwrap_unchecked() }
                 })
                 .collect();
 
@@ -228,8 +230,8 @@ where
             let denominator = -trace_primitive_root
                 .pow(self.offset() * trace_length / self.period())
                 + z.pow(trace_length / self.period());
-
-            return numerator.div(denominator) * end_exemptions_poly.evaluate(z);
+            // Need to check this
+            return numerator * denominator.inv().unwrap() * end_exemptions_poly.evaluate(z);
         }
 
         (-trace_primitive_root.pow(self.offset() * trace_length / self.period())
