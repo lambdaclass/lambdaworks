@@ -157,7 +157,7 @@ pub fn u64_goldilocks_montgomery_ops_benchmarks(c: &mut Criterion) {
         group.bench_with_input(format!("div {:?}", &i.len()), &i, |bench, i| {
             bench.iter(|| {
                 for (x, y) in i {
-                    black_box(black_box(x) / black_box(y));
+                    black_box(black_box(x) / black_box(y)).unwrap();
                 }
             });
         });

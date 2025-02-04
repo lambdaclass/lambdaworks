@@ -311,7 +311,10 @@ where
                     } else {
                         Err(DeserializationError::FieldFromBytesError)
                     }
-                } else if E::defining_equation(&(&x / &z), &(&y / &z)) == FieldElement::zero() {
+                } else if E::defining_equation(unsafe { &(&x / &z).unwrap_unchecked() }, unsafe {
+                    &(&y / &z).unwrap_unchecked()
+                }) == FieldElement::zero()
+                {
                     Ok(Self::new([x, y, z]))
                 } else {
                     Err(DeserializationError::FieldFromBytesError)

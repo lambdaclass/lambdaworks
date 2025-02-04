@@ -81,9 +81,11 @@ impl<F: IsField + IsFFTField, CS: IsCommitmentScheme<F>> Verifier<F, CS> {
         let k1 = &input.k1;
         let k2 = k1 * k1;
 
-        let l1_zeta = (zeta.pow(input.n as u64) - FieldElement::<F>::one())
-            / (&zeta - FieldElement::<F>::one())
-            / FieldElement::from(input.n as u64);
+        // We are using that zeta != 0 because is sampled outside the set of roots of unity,
+        // and n != 0 because is the length of the trace.
+        let l1_zeta = ((zeta.pow(input.n as u64) - FieldElement::<F>::one())
+            / ((&zeta - FieldElement::<F>::one()) * FieldElement::from(input.n as u64)))
+        .unwrap();
 
         // Use the following equality to compute PI(ζ)
         // without interpolating:
@@ -97,7 +99,8 @@ impl<F: IsField + IsFFTField, CS: IsCommitmentScheme<F>> Verifier<F, CS> {
             for (i, value) in public_input.iter().enumerate().skip(1) {
                 li_zeta = &input.omega
                     * &li_zeta
-                    * ((&zeta - &input.domain[i - 1]) / (&zeta - &input.domain[i]));
+                    // We are using that zeta is sampled outside the domain.
+                    * ((&zeta - &input.domain[i - 1]) / (&zeta - &input.domain[i])).unwrap();
                 p_pi_zeta = &p_pi_zeta + value * &li_zeta;
             }
             p_pi_zeta
