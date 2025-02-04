@@ -230,8 +230,9 @@ where
             let denominator = -trace_primitive_root
                 .pow(self.offset() * trace_length / self.period())
                 + z.pow(trace_length / self.period());
-            // Need to check this
-            return numerator * denominator.inv().unwrap() * end_exemptions_poly.evaluate(z);
+            // The denominator isn't zero because z is sampled outside the set of primitive roots.
+            return unsafe { numerator.div(denominator).unwrap_unchecked() }
+                * end_exemptions_poly.evaluate(z);
         }
 
         (-trace_primitive_root.pow(self.offset() * trace_length / self.period())
