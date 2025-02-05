@@ -142,8 +142,9 @@ where
                     let denominator = offset_times_x.pow(trace_length / self.period())
                         - trace_primitive_root.pow(self.offset() * trace_length / self.period());
 
-                    // The denominator isn't zero because the powers of offset_times_x and the powers of
-                    // trace_primitive_root are disjoint sets.
+                    // The denominator is guaranteed to be non-zero because the sets of powers of `offset_times_x`
+                    // and `trace_primitive_root` are disjoint, provided that the offset is neither an element of the
+                    // interpolation domain nor part of a subgroup with order less than n.
                     unsafe { numerator.div(denominator).unwrap_unchecked() }
                 })
                 .collect();
