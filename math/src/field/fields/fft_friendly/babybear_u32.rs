@@ -142,12 +142,12 @@ mod tests {
 
         #[test]
         fn div_1() {
-            assert_eq!(FE::from(2) / FE::from(1), FE::from(2))
+            assert_eq!((FE::from(2) / FE::from(1)).unwrap(), FE::from(2))
         }
 
         #[test]
         fn div_4_2() {
-            assert_eq!(FE::from(4) / FE::from(2), FE::from(2))
+            assert_eq!((FE::from(4) / FE::from(2)).unwrap(), FE::from(2))
         }
 
         #[test]
