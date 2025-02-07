@@ -15,11 +15,14 @@ impl IsEllipticCurve for TinyJubJubMontgomery {
     type PointRepresentation = MontgomeryProjectivePoint<Self>;
 
     fn generator() -> Self::PointRepresentation {
-        Self::PointRepresentation::new([
-            FieldElement::from(3),
-            FieldElement::from(5),
-            FieldElement::one(),
-        ])
+        unsafe {
+            Self::PointRepresentation::new([
+                FieldElement::from(3),
+                FieldElement::from(5),
+                FieldElement::one(),
+            ])
+            .unwrap_unchecked()
+        }
     }
 }
 

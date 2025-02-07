@@ -14,15 +14,18 @@ impl IsEllipticCurve for Secp256k1Curve {
     type PointRepresentation = ShortWeierstrassProjectivePoint<Self>;
 
     fn generator() -> Self::PointRepresentation {
-        Self::PointRepresentation::new([
-            FieldElement::<Self::BaseField>::from_hex_unchecked(
-                "79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798",
-            ),
-            FieldElement::<Self::BaseField>::from_hex_unchecked(
-                "483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8",
-            ),
-            FieldElement::one(),
-        ])
+        unsafe {
+            Self::PointRepresentation::new([
+                FieldElement::<Self::BaseField>::from_hex_unchecked(
+                    "79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798",
+                ),
+                FieldElement::<Self::BaseField>::from_hex_unchecked(
+                    "483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8",
+                ),
+                FieldElement::one(),
+            ])
+            .unwrap_unchecked()
+        }
     }
 }
 

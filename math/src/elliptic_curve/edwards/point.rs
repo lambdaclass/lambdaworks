@@ -14,19 +14,18 @@ pub struct EdwardsProjectivePoint<E: IsEllipticCurve>(ProjectivePoint<E>);
 
 impl<E: IsEllipticCurve + IsEdwards> EdwardsProjectivePoint<E> {
     /// Creates an elliptic curve point giving the projective [x: y: z] coordinates.
-    pub fn new(
-        value: [FieldElement<E::BaseField>; 3],
-    ) -> Result<Self, crate::elliptic_curve::traits::EllipticCurveError> {
+    pub fn new(value: [FieldElement<E::BaseField>; 3]) -> Result<Self, EllipticCurveError> {
         let (x, y, z) = (&value[0], &value[1], &value[2]);
 
-        if z != &FieldElement::<E::BaseField>::one()
+        if z != &FieldElement::<E::BaseField>::zero()
+            && x != &FieldElement::<E::BaseField>::zero()
             && E::defining_equation_projective(&x, &y, &z) == FieldElement::<E::BaseField>::zero()
         {
             Ok(Self(ProjectivePoint::new(value)))
-        // infinite point = (0, 1, 1).
-        } else if *z == FieldElement::<E::BaseField>::one()
-            && *x == FieldElement::<E::BaseField>::zero()
-            && *y == FieldElement::<E::BaseField>::one()
+        // The point at infinity is (0, 1, 1).
+        } else if x == &FieldElement::<E::BaseField>::zero()
+            && y == &FieldElement::<E::BaseField>::one()
+            && z == &FieldElement::<E::BaseField>::one()
         {
             Ok(Self(ProjectivePoint::new(value)))
         } else {
@@ -72,13 +71,9 @@ impl<E: IsEdwards> FromAffine<E::BaseField> for EdwardsProjectivePoint<E> {
     fn from_affine(
         x: FieldElement<E::BaseField>,
         y: FieldElement<E::BaseField>,
-    ) -> Result<Self, crate::elliptic_curve::traits::EllipticCurveError> {
-        if E::defining_equation(&x, &y) != FieldElement::zero() {
-            Err(EllipticCurveError::InvalidPoint)
-        } else {
-            let coordinates = [x, y, FieldElement::one()];
-            Ok(EdwardsProjectivePoint::new(coordinates))
-        }
+    ) -> Result<Self, EllipticCurveError> {
+        let coordinates = [x, y, FieldElement::one()];
+        Ok(EdwardsProjectivePoint::new(coordinates)?)
     }
 }
 
@@ -87,11 +82,14 @@ impl<E: IsEllipticCurve> Eq for EdwardsProjectivePoint<E> {}
 impl<E: IsEdwards> IsGroup for EdwardsProjectivePoint<E> {
     /// The point at infinity.
     fn neutral_element() -> Self {
-        Self::new([
-            FieldElement::zero(),
-            FieldElement::one(),
-            FieldElement::one(),
-        ])
+        unsafe {
+            Self::new([
+                FieldElement::zero(),
+                FieldElement::one(),
+                FieldElement::one(),
+            ])
+            .unwrap_unchecked()
+        }
     }
 
     fn is_neutral_element(&self) -> bool {
@@ -119,13 +117,13 @@ impl<E: IsEdwards> IsGroup for EdwardsProjectivePoint<E> {
         let num_s2 = &y1y2 - E::a() * &x1x2;
         let den_s2 = &one - &dx1x2y1y2;
 
-        Self::new([&num_s1 / &den_s1, &num_s2 / &den_s2, one])
+        unsafe { Self::new([&num_s1 / &den_s1, &num_s2 / &den_s2, one]).unwrap_unchecked() }
     }
 
     /// Returns the additive inverse of the projective point `p`
     fn neg(&self) -> Self {
         let [px, py, pz] = self.coordinates();
-        Self::new([-px, py.clone(), pz.clone()])
+        unsafe { Self::new([-px, py.clone(), pz.clone()]).unwrap_unchecked() }
     }
 }
 
@@ -172,17 +170,20 @@ mod tests {
             FieldElement::from(5),
             FieldElement::from(5),
             FieldElement::from(1),
-        ]);
+        ])
+        .unwrap();
         let q = EdwardsProjectivePoint::<TinyJubJubEdwards>::new([
             FieldElement::from(8),
             FieldElement::from(5),
             FieldElement::from(1),
-        ]);
+        ])
+        .unwrap();
         let expected = EdwardsProjectivePoint::<TinyJubJubEdwards>::new([
             FieldElement::from(0),
             FieldElement::from(1),
             FieldElement::from(1),
-        ]);
+        ])
+        .unwrap();
         assert_eq!(p.operate_with(&q), expected);
     }
 

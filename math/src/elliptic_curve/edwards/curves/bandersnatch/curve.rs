@@ -15,15 +15,18 @@ impl IsEllipticCurve for BandersnatchCurve {
     // Values are from https://github.com/arkworks-rs/curves/blob/5a41d7f27a703a7ea9c48512a4148443ec6c747e/ed_on_bls12_381_bandersnatch/src/curves/mod.rs#L120
     // Converted to Hex
     fn generator() -> Self::PointRepresentation {
-        Self::PointRepresentation::new([
-            FieldElement::<Self::BaseField>::new_base(
-                "29C132CC2C0B34C5743711777BBE42F32B79C022AD998465E1E71866A252AE18",
-            ),
-            FieldElement::<Self::BaseField>::new_base(
-                "2A6C669EDA123E0F157D8B50BADCD586358CAD81EEE464605E3167B6CC974166",
-            ),
-            FieldElement::one(),
-        ])
+        unsafe {
+            Self::PointRepresentation::new([
+                FieldElement::<Self::BaseField>::new_base(
+                    "29C132CC2C0B34C5743711777BBE42F32B79C022AD998465E1E71866A252AE18",
+                ),
+                FieldElement::<Self::BaseField>::new_base(
+                    "2A6C669EDA123E0F157D8B50BADCD586358CAD81EEE464605E3167B6CC974166",
+                ),
+                FieldElement::one(),
+            ])
+            .unwrap_unchecked()
+        }
     }
 }
 

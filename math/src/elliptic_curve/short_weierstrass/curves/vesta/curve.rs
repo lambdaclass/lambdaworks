@@ -13,11 +13,14 @@ impl IsEllipticCurve for VestaCurve {
     type PointRepresentation = ShortWeierstrassProjectivePoint<Self>;
 
     fn generator() -> Self::PointRepresentation {
-        Self::PointRepresentation::new([
-            -FieldElement::<Self::BaseField>::one(),
-            FieldElement::<Self::BaseField>::from(2),
-            FieldElement::one(),
-        ])
+        unsafe {
+            Self::PointRepresentation::new([
+                -FieldElement::<Self::BaseField>::one(),
+                FieldElement::<Self::BaseField>::from(2),
+                FieldElement::one(),
+            ])
+            .unwrap_unchecked()
+        }
     }
 }
 

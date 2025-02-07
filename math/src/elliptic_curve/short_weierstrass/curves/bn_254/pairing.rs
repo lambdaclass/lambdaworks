@@ -304,7 +304,7 @@ fn line_optimized(p: &G1Point, t: &G2Point, q: &G2Point) -> (G2Point, Fp12E) {
         let y_r = g.square() - (e_square.double() + e_square);
         let z_r = b * &h;
 
-        let r = G2Point::new([x_r, y_r, z_r]);
+        let r = unsafe { G2Point::new([x_r, y_r, z_r]).unwrap_unchecked() };
 
         let l = Fp12E::new([
             Fp6E::new([y_p * (-h), Fp2E::zero(), Fp2E::zero()]),
@@ -332,7 +332,7 @@ fn line_optimized(p: &G1Point, t: &G2Point, q: &G2Point) -> (G2Point, Fp12E) {
         let y_r = &theta * (g - h) - i;
         let z_r = z_t * e;
 
-        let r = G2Point::new([x_r, y_r, z_r]);
+        let r = unsafe { G2Point::new([x_r, y_r, z_r]).unwrap_unchecked() };
 
         let l = Fp12E::new([
             Fp6E::new([y_p * lambda, Fp2E::zero(), Fp2E::zero()]),
@@ -658,7 +658,8 @@ mod tests {
                 )),
             ]),
             Fp2E::one(),
-        ]);
+        ])
+        .unwrap();
         let result = BN254AtePairing::compute_batch(&[(&p, &q)]);
         assert!(result.is_err())
     }

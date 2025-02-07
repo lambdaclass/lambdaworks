@@ -18,6 +18,16 @@ pub trait IsShortWeierstrass: IsEllipticCurve + Clone + Debug {
     ) -> FieldElement<Self::BaseField> {
         y.square() - ((x.square() + Self::a()) * x + Self::b())
     }
+
+    // Evaluates the projective equation:
+    // y^2 * z = x^3 + a * x * z^2 + b * z^3
+    fn defining_equation_projective(
+        x: &FieldElement<Self::BaseField>,
+        y: &FieldElement<Self::BaseField>,
+        z: &FieldElement<Self::BaseField>,
+    ) -> FieldElement<Self::BaseField> {
+        y.square() * z - ((x.square() + Self::a() * z.square()) * x + Self::b() * z.square() * z)
+    }
 }
 
 pub trait Compress {
