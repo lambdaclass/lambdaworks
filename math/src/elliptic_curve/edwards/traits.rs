@@ -15,4 +15,18 @@ pub trait IsEdwards: IsEllipticCurve + Clone + Debug {
             - FieldElement::<Self::BaseField>::one()
             - Self::d() * x.pow(2_u16) * y.pow(2_u16)
     }
+
+    // Edwards equation in affine coordinates:
+    // ax^2 + y^2 - 1 = d * x^2 * y^2
+    // Edwards equation in projective coordinates: Multiplying the above equation by z^4 in both sides, we get:
+    // a * x^2 * z^2 + y^2 * z^2 - z^4 = d * x^2 * y^2
+    fn defining_equation_projective(
+        x: &FieldElement<Self::BaseField>,
+        y: &FieldElement<Self::BaseField>,
+        z: &FieldElement<Self::BaseField>,
+    ) -> FieldElement<Self::BaseField> {
+        Self::a() * x.square() * z.square() + y.square() * z.square()
+            - z.square().square()
+            - Self::d() * x.square() * y.square()
+    }
 }

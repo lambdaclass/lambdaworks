@@ -12,10 +12,26 @@ use super::traits::IsEdwards;
 #[derive(Clone, Debug)]
 pub struct EdwardsProjectivePoint<E: IsEllipticCurve>(ProjectivePoint<E>);
 
-impl<E: IsEllipticCurve> EdwardsProjectivePoint<E> {
+impl<E: IsEllipticCurve + IsEdwards> EdwardsProjectivePoint<E> {
     /// Creates an elliptic curve point giving the projective [x: y: z] coordinates.
-    pub fn new(value: [FieldElement<E::BaseField>; 3]) -> Self {
-        Self(ProjectivePoint::new(value))
+    pub fn new(
+        value: [FieldElement<E::BaseField>; 3],
+    ) -> Result<Self, crate::elliptic_curve::traits::EllipticCurveError> {
+        let (x, y, z) = (&value[0], &value[1], &value[2]);
+
+        if z != &FieldElement::<E::BaseField>::one()
+            && E::defining_equation_projective(&x, &y, &z) == FieldElement::<E::BaseField>::zero()
+        {
+            Ok(Self(ProjectivePoint::new(value)))
+        // infinite point = (0, 1, 1).
+        } else if *z == FieldElement::<E::BaseField>::one()
+            && *x == FieldElement::<E::BaseField>::zero()
+            && *y == FieldElement::<E::BaseField>::one()
+        {
+            Ok(Self(ProjectivePoint::new(value)))
+        } else {
+            Err(EllipticCurveError::InvalidPoint)
+        }
     }
 
     /// Returns the `x` coordinate of the point.
