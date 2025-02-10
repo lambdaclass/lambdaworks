@@ -1,5 +1,6 @@
 use crate::{
     elliptic_curve::{
+        point::ProjectivePoint,
         short_weierstrass::{point::ShortWeierstrassProjectivePoint, traits::IsShortWeierstrass},
         traits::{EllipticCurveError, IsEllipticCurve},
     },
@@ -15,12 +16,20 @@ impl StarkCurve {
     pub const fn from_affine_hex_string(
         x_hex: &str,
         y_hex: &str,
-    ) -> Result<ShortWeierstrassProjectivePoint<Self>, EllipticCurveError> {
-        ShortWeierstrassProjectivePoint::new([
+    ) -> ShortWeierstrassProjectivePoint<Self> {
+        //-> Result<ShortWeierstrassProjectivePoint<Self>, EllipticCurveError> {
+        ShortWeierstrassProjectivePoint(ProjectivePoint::new([
             FieldElement::<Stark252PrimeField>::from_hex_unchecked(x_hex),
             FieldElement::<Stark252PrimeField>::from_hex_unchecked(y_hex),
             FieldElement::<Stark252PrimeField>::from_hex_unchecked("1"),
-        ])
+        ]))
+        // Ok(unsafe {
+        //     ShortWeierstrassProjectivePoint::new([
+        //         FieldElement::<Stark252PrimeField>::from_hex_unchecked(x_hex),
+        //         FieldElement::<Stark252PrimeField>::from_hex_unchecked(y_hex),
+        //         FieldElement::<Stark252PrimeField>::from_hex_unchecked("1"),
+        //     ])
+        // })
     }
 }
 
@@ -29,15 +38,18 @@ impl IsEllipticCurve for StarkCurve {
     type PointRepresentation = ShortWeierstrassProjectivePoint<Self>;
 
     fn generator() -> Self::PointRepresentation {
-        Self::PointRepresentation::new([
-            FieldElement::<Self::BaseField>::from_hex_unchecked(
-                "1EF15C18599971B7BECED415A40F0C7DEACFD9B0D1819E03D723D8BC943CFCA",
-            ),
-            FieldElement::<Self::BaseField>::from_hex_unchecked(
-                "5668060AA49730B7BE4801DF46EC62DE53ECD11ABE43A32873000C36E8DC1F",
-            ),
-            FieldElement::one(),
-        ])
+        unsafe {
+            Self::PointRepresentation::new([
+                FieldElement::<Self::BaseField>::from_hex_unchecked(
+                    "1EF15C18599971B7BECED415A40F0C7DEACFD9B0D1819E03D723D8BC943CFCA",
+                ),
+                FieldElement::<Self::BaseField>::from_hex_unchecked(
+                    "5668060AA49730B7BE4801DF46EC62DE53ECD11ABE43A32873000C36E8DC1F",
+                ),
+                FieldElement::one(),
+            ])
+            .unwrap_unchecked()
+        }
     }
 }
 

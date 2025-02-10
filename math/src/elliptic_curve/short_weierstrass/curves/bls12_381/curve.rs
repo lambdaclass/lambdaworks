@@ -96,11 +96,14 @@ impl ShortWeierstrassProjectivePoint<BLS12381TwistCurve> {
     /// https://eprint.iacr.org/2022/352.pdf 4.2 (7)
     fn psi(&self) -> Self {
         let [x, y, z] = self.coordinates();
-        Self::new([
-            x.conjugate() * ENDO_U,
-            y.conjugate() * ENDO_V,
-            z.conjugate(),
-        ])
+        unsafe {
+            Self::new([
+                x.conjugate() * ENDO_U,
+                y.conjugate() * ENDO_V,
+                z.conjugate(),
+            ])
+            .unwrap_unchecked()
+        }
     }
 
     /// 𝜓(P) = 𝑢P, where 𝑢 = SEED of the curve
@@ -145,7 +148,10 @@ mod tests {
     ) -> ShortWeierstrassProjectivePoint<BLS12381TwistCurve> {
         let [x, y, z] = p.coordinates();
         // Since power of frobenius map is 2 we apply once as applying twice is inverse
-        ShortWeierstrassProjectivePoint::new([x * ENDO_U_2, y * ENDO_V_2, z.clone()])
+        unsafe {
+            ShortWeierstrassProjectivePoint::new([x * ENDO_U_2, y * ENDO_V_2, z.clone()])
+                .unwrap_unchecked()
+        }
     }
 
     #[allow(clippy::upper_case_acronyms)]

@@ -20,7 +20,7 @@ pub trait IsShortWeierstrass: IsEllipticCurve + Clone + Debug {
     }
 
     // Evaluates the projective equation:
-    // y^2 * z = x^3 + a * x * z^2 + b * z^3
+    // y^2 * z = x^3 + a * x * z^2 + b * z^3 
     fn defining_equation_projective(
         x: &FieldElement<Self::BaseField>,
         y: &FieldElement<Self::BaseField>,

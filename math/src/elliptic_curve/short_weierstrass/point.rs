@@ -21,22 +21,42 @@ pub struct ShortWeierstrassProjectivePoint<E: IsEllipticCurve>(pub ProjectivePoi
 impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
     /// Creates an elliptic curve point giving the projective [x: y: z] coordinates.
     pub fn new(value: [FieldElement<E::BaseField>; 3]) -> Result<Self, EllipticCurveError> {
+        let zero = &FieldElement::<E::BaseField>::zero();
+        let one = &FieldElement::<E::BaseField>::one();
         let (x, y, z) = (&value[0], &value[1], &value[2]);
 
-        if z != &FieldElement::<E::BaseField>::zero()
+        if z != zero
             && E::defining_equation_projective(&x, &y, &z) == FieldElement::<E::BaseField>::zero()
         {
             Ok(Self(ProjectivePoint::new(value)))
         // The point at infinity is (0, 1, 0)
-        } else if x == &FieldElement::<E::BaseField>::zero()
-            && y == &FieldElement::<E::BaseField>::one()
-            && z == &FieldElement::<E::BaseField>::zero()
-        {
+        } else if x == zero && y == one && z == zero {
             Ok(Self(ProjectivePoint::new(value)))
         } else {
             Err(EllipticCurveError::InvalidPoint)
         }
     }
+    // /// Creates an elliptic curve point giving the projective [x: y: z] coordinates.
+    // pub const unsafe fn new(value: [FieldElement<E::BaseField>; 3]) -> Self {
+    //     Self(ProjectivePoint::new(value))
+    //     // unsafe {
+    //     //     let zero = &FieldElement::<E::BaseField>::zero();
+    //     //     let one = &FieldElement::<E::BaseField>::const_from_raw(1);
+    //     //     let (x, y, z) = (&value[0], &value[1], &value[2]);
+
+    //     //     if z != zero
+    //     //         && E::defining_equation_projective(&x, &y, &z)
+    //     //             == FieldElement::<E::BaseField>::zero()
+    //     //     {
+    //     //         Ok(Self(ProjectivePoint::new(value)))
+    //     //     // The point at infinity is (0, 1, 0)
+    //     //     } else if x == zero && y == one && z == zero {
+    //     //         Ok(Self(ProjectivePoint::new(value)))
+    //     //     } else {
+    //     //         Err(EllipticCurveError::InvalidPoint)
+    //     //     }
+    //     // }
+    // }
 
     /// Returns the `x` coordinate of the point.
     pub fn x(&self) -> &FieldElement<E::BaseField> {
@@ -99,6 +119,11 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
         let xp = &hs + &hs;
         let yp = w * (four_b - &h) - eight_pys_square;
         let zp = eight_s_cube;
+
+        debug_assert_eq!(
+            E::defining_equation_projective(&xp, &yp, &zp),
+            FieldElement::<E::BaseField>::zero()
+        );
         unsafe { Self::new([xp, yp, zp]).unwrap_unchecked() }
     }
     // https://hyperelliptic.org/EFD/g1p/data/shortw/projective/addition/madd-1998-cmo
