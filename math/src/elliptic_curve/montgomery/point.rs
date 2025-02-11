@@ -22,11 +22,15 @@ impl<E: IsEllipticCurve + IsMontgomery> MontgomeryProjectivePoint<E> {
         {
             Ok(Self(ProjectivePoint::new(value)))
         // The point at infinity is (0, 1, 0)
+        // We convert every (0, _, 0) into the infinity.
         } else if x == &FieldElement::<E::BaseField>::zero()
-            && y == &FieldElement::<E::BaseField>::one()
             && z == &FieldElement::<E::BaseField>::zero()
         {
-            Ok(Self(ProjectivePoint::new(value)))
+            Ok(Self(ProjectivePoint::new([
+                FieldElement::<E::BaseField>::zero(),
+                FieldElement::<E::BaseField>::one(),
+                FieldElement::<E::BaseField>::zero(),
+            ])))
         } else {
             Err(EllipticCurveError::InvalidPoint)
         }

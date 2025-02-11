@@ -21,42 +21,26 @@ pub struct ShortWeierstrassProjectivePoint<E: IsEllipticCurve>(pub ProjectivePoi
 impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
     /// Creates an elliptic curve point giving the projective [x: y: z] coordinates.
     pub fn new(value: [FieldElement<E::BaseField>; 3]) -> Result<Self, EllipticCurveError> {
-        let zero = &FieldElement::<E::BaseField>::zero();
-        let one = &FieldElement::<E::BaseField>::one();
         let (x, y, z) = (&value[0], &value[1], &value[2]);
 
-        if z != zero
+        if z != &FieldElement::<E::BaseField>::zero()
             && E::defining_equation_projective(&x, &y, &z) == FieldElement::<E::BaseField>::zero()
         {
             Ok(Self(ProjectivePoint::new(value)))
         // The point at infinity is (0, 1, 0)
-        } else if x == zero && y == one && z == zero {
-            Ok(Self(ProjectivePoint::new(value)))
+        // We convert every (0, _, 0) into the infinity.
+        } else if x == &FieldElement::<E::BaseField>::zero()
+            && z == &FieldElement::<E::BaseField>::zero()
+        {
+            Ok(Self(ProjectivePoint::new([
+                FieldElement::<E::BaseField>::zero(),
+                FieldElement::<E::BaseField>::one(),
+                FieldElement::<E::BaseField>::zero(),
+            ])))
         } else {
             Err(EllipticCurveError::InvalidPoint)
         }
     }
-    // /// Creates an elliptic curve point giving the projective [x: y: z] coordinates.
-    // pub const unsafe fn new(value: [FieldElement<E::BaseField>; 3]) -> Self {
-    //     Self(ProjectivePoint::new(value))
-    //     // unsafe {
-    //     //     let zero = &FieldElement::<E::BaseField>::zero();
-    //     //     let one = &FieldElement::<E::BaseField>::const_from_raw(1);
-    //     //     let (x, y, z) = (&value[0], &value[1], &value[2]);
-
-    //     //     if z != zero
-    //     //         && E::defining_equation_projective(&x, &y, &z)
-    //     //             == FieldElement::<E::BaseField>::zero()
-    //     //     {
-    //     //         Ok(Self(ProjectivePoint::new(value)))
-    //     //     // The point at infinity is (0, 1, 0)
-    //     //     } else if x == zero && y == one && z == zero {
-    //     //         Ok(Self(ProjectivePoint::new(value)))
-    //     //     } else {
-    //     //         Err(EllipticCurveError::InvalidPoint)
-    //     //     }
-    //     // }
-    // }
 
     /// Returns the `x` coordinate of the point.
     pub fn x(&self) -> &FieldElement<E::BaseField> {
