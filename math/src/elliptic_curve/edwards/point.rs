@@ -23,10 +23,8 @@ impl<E: IsEllipticCurve + IsEdwards> EdwardsProjectivePoint<E> {
         {
             Ok(Self(ProjectivePoint::new(value)))
         // The point at infinity is (0, 1, 1).
-        // We convert every (0, _, _) into the infinity.
-        } else if x == &FieldElement::<E::BaseField>::zero()
-            && E::defining_equation_projective(&x, &y, &z) == FieldElement::<E::BaseField>::zero()
-        {
+        // We convert every (0, y, y) into the infinity.
+        } else if x == &FieldElement::<E::BaseField>::zero() && z == y {
             Ok(Self(ProjectivePoint::new([
                 FieldElement::<E::BaseField>::zero(),
                 FieldElement::<E::BaseField>::one(),
