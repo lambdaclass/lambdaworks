@@ -24,7 +24,7 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
         let (x, y, z) = (&value[0], &value[1], &value[2]);
 
         if z != &FieldElement::<E::BaseField>::zero()
-            && E::defining_equation_projective(&x, &y, &z) == FieldElement::<E::BaseField>::zero()
+            && E::defining_equation_projective(x, y, z) == FieldElement::<E::BaseField>::zero()
         {
             Ok(Self(ProjectivePoint::new(value)))
         // The point at infinity is (0, 1, 0)
@@ -173,7 +173,7 @@ impl<E: IsShortWeierstrass> FromAffine<E::BaseField> for ShortWeierstrassProject
         y: FieldElement<E::BaseField>,
     ) -> Result<Self, EllipticCurveError> {
         let coordinates = [x, y, FieldElement::one()];
-        Ok(ShortWeierstrassProjectivePoint::new(coordinates)?)
+        ShortWeierstrassProjectivePoint::new(coordinates)
     }
 }
 
@@ -408,16 +408,11 @@ pub struct ShortWeierstrassJacobianPoint<E: IsEllipticCurve>(pub JacobianPoint<E
 
 impl<E: IsShortWeierstrass> ShortWeierstrassJacobianPoint<E> {
     /// Creates an elliptic curve point giving the jacobian [x: y: z] coordinates.
-    // pub const fn new(value: [FieldElement<E::BaseField>; 3]) -> Self {
-    //     Self(JacobianPoint::new(value))
-    // }
-
-    /// Creates an elliptic curve point giving the jacobian [x: y: z] coordinates.
     pub fn new(value: [FieldElement<E::BaseField>; 3]) -> Result<Self, EllipticCurveError> {
         let (x, y, z) = (&value[0], &value[1], &value[2]);
 
         if z != &FieldElement::<E::BaseField>::zero()
-            && E::defining_equation_jacobian(&x, &y, &z) == FieldElement::<E::BaseField>::zero()
+            && E::defining_equation_jacobian(x, y, z) == FieldElement::<E::BaseField>::zero()
         {
             Ok(Self(JacobianPoint::new(value)))
         // The point at infinity is (1, 1, 0)
@@ -562,7 +557,7 @@ impl<E: IsShortWeierstrass> FromAffine<E::BaseField> for ShortWeierstrassJacobia
         y: FieldElement<E::BaseField>,
     ) -> Result<Self, EllipticCurveError> {
         let coordinates = [x, y, FieldElement::one()];
-        Ok(ShortWeierstrassJacobianPoint::new(coordinates)?)
+        ShortWeierstrassJacobianPoint::new(coordinates)
     }
 }
 

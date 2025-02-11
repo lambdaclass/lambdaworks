@@ -18,7 +18,7 @@ impl<E: IsEllipticCurve + IsMontgomery> MontgomeryProjectivePoint<E> {
         let (x, y, z) = (&value[0], &value[1], &value[2]);
 
         if z != &FieldElement::<E::BaseField>::zero()
-            && E::defining_equation_projective(&x, &y, &z) == FieldElement::<E::BaseField>::zero()
+            && E::defining_equation_projective(x, y, z) == FieldElement::<E::BaseField>::zero()
         {
             Ok(Self(ProjectivePoint::new(value)))
         // The point at infinity is (0, 1, 0)
@@ -76,7 +76,7 @@ impl<E: IsMontgomery> FromAffine<E::BaseField> for MontgomeryProjectivePoint<E> 
         y: FieldElement<E::BaseField>,
     ) -> Result<Self, EllipticCurveError> {
         let coordinates = [x, y, FieldElement::one()];
-        Ok(MontgomeryProjectivePoint::new(coordinates)?)
+        MontgomeryProjectivePoint::new(coordinates)
     }
 }
 

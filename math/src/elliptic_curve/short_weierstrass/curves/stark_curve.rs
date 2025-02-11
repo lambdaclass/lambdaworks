@@ -2,7 +2,7 @@ use crate::{
     elliptic_curve::{
         point::ProjectivePoint,
         short_weierstrass::{point::ShortWeierstrassProjectivePoint, traits::IsShortWeierstrass},
-        traits::{EllipticCurveError, IsEllipticCurve},
+        traits::IsEllipticCurve,
     },
     field::{
         element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
@@ -17,19 +17,11 @@ impl StarkCurve {
         x_hex: &str,
         y_hex: &str,
     ) -> ShortWeierstrassProjectivePoint<Self> {
-        //-> Result<ShortWeierstrassProjectivePoint<Self>, EllipticCurveError> {
         ShortWeierstrassProjectivePoint(ProjectivePoint::new([
             FieldElement::<Stark252PrimeField>::from_hex_unchecked(x_hex),
             FieldElement::<Stark252PrimeField>::from_hex_unchecked(y_hex),
             FieldElement::<Stark252PrimeField>::from_hex_unchecked("1"),
         ]))
-        // Ok(unsafe {
-        //     ShortWeierstrassProjectivePoint::new([
-        //         FieldElement::<Stark252PrimeField>::from_hex_unchecked(x_hex),
-        //         FieldElement::<Stark252PrimeField>::from_hex_unchecked(y_hex),
-        //         FieldElement::<Stark252PrimeField>::from_hex_unchecked("1"),
-        //     ])
-        // })
     }
 }
 
