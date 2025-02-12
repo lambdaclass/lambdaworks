@@ -494,7 +494,7 @@ impl<E: IsShortWeierstrass> ShortWeierstrassJacobianPoint<E> {
             let z3 = (y1 + z1).square() - &yy - &zz; // Z3 = (Y1 + Z1)^2 - YY - ZZ
 
             debug_assert_eq!(
-                E::defining_equation_projective(&x3, &y3, &z3),
+                E::defining_equation_jacobian(&x3, &y3, &z3),
                 FieldElement::<E::BaseField>::zero()
             );
             unsafe { Self::new([x3, y3, z3]).unwrap_unchecked() }
@@ -535,7 +535,7 @@ impl<E: IsShortWeierstrass> ShortWeierstrassJacobianPoint<E> {
             let z3 = z1 * &h;
 
             debug_assert_eq!(
-                E::defining_equation_projective(&x3, &y3, &z3),
+                E::defining_equation_jacobian(&x3, &y3, &z3),
                 FieldElement::<E::BaseField>::zero()
             );
             unsafe { Self::new([x3, y3, z3]).unwrap_unchecked() }
