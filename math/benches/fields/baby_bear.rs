@@ -14,8 +14,8 @@ use lambdaworks_math::field::{
 };
 
 use p3_baby_bear::BabyBear;
-use p3_field::{Field, PrimeCharacteristicRing};
 use p3_field::extension::BinomialExtensionField;
+use p3_field::{Field, PrimeCharacteristicRing};
 
 use rand::random;
 use rand::Rng;
@@ -83,7 +83,9 @@ pub fn rand_babybear_u32_fp4_elements(num: usize) -> Vec<(Fp4Eu32, Fp4Eu32)> {
     }
     result
 }
-
+fn random_baby_bear<R: Rng>(rng: &mut R) -> BabyBear {
+    BabyBear::new(rng.gen::<u32>())
+}
 fn rand_babybear_elements_p3(num: usize) -> Vec<(BabyBear, BabyBear)> {
     let mut rng = rand::thread_rng();
     (0..num)
@@ -94,7 +96,12 @@ fn rand_babybear_elements_p3(num: usize) -> Vec<(BabyBear, BabyBear)> {
 fn rand_babybear_fp4_elements_p3(num: usize) -> Vec<(EF4, EF4)> {
     let mut rng = rand::thread_rng();
     (0..num)
-        .map(|_| (rng.gen::<EF4>(), rng.gen::<EF4>()))
+        .map(|_| {
+            (
+                EF4::from(random_baby_bear(&mut rng)),
+                EF4::from(random_baby_bear(&mut rng)),
+            )
+        })
         .collect()
 }
 
