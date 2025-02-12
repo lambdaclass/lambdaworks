@@ -636,7 +636,7 @@ impl<E: IsShortWeierstrass> IsGroup for ShortWeierstrassJacobianPoint<E> {
         let z3 = z3.double() * h;
 
         debug_assert_eq!(
-            E::defining_equation_projective(&x3, &y3, &z3),
+            E::defining_equation_jacobian(&x3, &y3, &z3),
             FieldElement::<E::BaseField>::zero()
         );
         unsafe { Self::new([x3, y3, z3]).unwrap_unchecked() }
