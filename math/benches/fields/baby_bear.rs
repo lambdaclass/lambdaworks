@@ -10,7 +10,7 @@ use lambdaworks_math::field::{
 };
 
 use p3_baby_bear::BabyBear;
-use p3_field::{Field, FieldAlgebra};
+use p3_field::{Field, PrimeCharacteristicRing};
 
 use rand::random;
 use rand::Rng;
@@ -26,11 +26,13 @@ pub fn rand_field_elements(num: usize) -> Vec<(F, F)> {
     }
     result
 }
-
+fn random_baby_bear<R: Rng>(rng: &mut R) -> BabyBear {
+    BabyBear::new(rng.gen::<u32>())
+}
 fn rand_babybear_elements_p3(num: usize) -> Vec<(BabyBear, BabyBear)> {
     let mut rng = rand::thread_rng();
     (0..num)
-        .map(|_| (rng.gen::<BabyBear>(), rng.gen::<BabyBear>()))
+        .map(|_| (random_baby_bear(&mut rng), random_baby_bear(&mut rng)))
         .collect()
 }
 
