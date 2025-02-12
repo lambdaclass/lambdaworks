@@ -29,14 +29,14 @@ pub trait IsShortWeierstrass: IsEllipticCurve + Clone + Debug {
         y.square() * z - ((x.square() + Self::a() * z.square()) * x + Self::b() * z.square() * z)
     }
 
-    // Evaluates the projective equation:
-    // y^2 * z^2 = x^3 + a * x * z^4 + b * z^6
+    // Evaluates the jacobian equation:
+    // y^2  = x^3 + a * x * z^4 + b * z^6
     fn defining_equation_jacobian(
         x: &FieldElement<Self::BaseField>,
         y: &FieldElement<Self::BaseField>,
         z: &FieldElement<Self::BaseField>,
     ) -> FieldElement<Self::BaseField> {
-        y.square() * z.square()
+        y.square()
             - ((x.square() + Self::a() * z.square().square()) * x
                 + Self::b() * z.square().square() * z.square())
     }
