@@ -17,19 +17,19 @@ impl<E: IsEllipticCurve + IsEdwards> EdwardsProjectivePoint<E> {
     pub fn new(value: [FieldElement<E::BaseField>; 3]) -> Result<Self, EllipticCurveError> {
         let (x, y, z) = (&value[0], &value[1], &value[2]);
 
-        if z != &FieldElement::<E::BaseField>::zero()
-            && x != &FieldElement::<E::BaseField>::zero()
-            && E::defining_equation_projective(x, y, z) == FieldElement::<E::BaseField>::zero()
-        {
-            Ok(Self(ProjectivePoint::new(value)))
         // The point at infinity is (0, 1, 1).
         // We convert every (0, y, y) into the infinity.
-        } else if x == &FieldElement::<E::BaseField>::zero() && z == y {
-            Ok(Self(ProjectivePoint::new([
+        if x == &FieldElement::<E::BaseField>::zero() && z == y {
+            return Ok(Self(ProjectivePoint::new([
                 FieldElement::<E::BaseField>::zero(),
                 FieldElement::<E::BaseField>::one(),
                 FieldElement::<E::BaseField>::one(),
-            ])))
+            ])));
+        }
+        if z != &FieldElement::<E::BaseField>::zero()
+            && E::defining_equation_projective(x, y, z) == FieldElement::<E::BaseField>::zero()
+        {
+            Ok(Self(ProjectivePoint::new(value)))
         } else {
             Err(EllipticCurveError::InvalidPoint)
         }
