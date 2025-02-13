@@ -41,11 +41,14 @@ impl IsEllipticCurve for TestCurve1 {
     type PointRepresentation = ShortWeierstrassProjectivePoint<Self>;
 
     fn generator() -> Self::PointRepresentation {
-        Self::PointRepresentation::new([
-            FieldElement::from(35),
-            FieldElement::from(31),
-            FieldElement::one(),
-        ])
+        unsafe {
+            Self::PointRepresentation::new([
+                FieldElement::from(35),
+                FieldElement::from(31),
+                FieldElement::one(),
+            ])
+            .unwrap_unchecked()
+        }
     }
 }
 

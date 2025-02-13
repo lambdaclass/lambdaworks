@@ -23,13 +23,16 @@ impl IsEllipticCurve for GrumpkinCurve {
 
     // G = (1, sprt(-16)) = (1, 17631683881184975370165255887551781615748388533673675138860) = (0x1, 0x2cf135e7506a45d632d270d45f1181294833fc48d823f272c)
     fn generator() -> Self::PointRepresentation {
-        Self::PointRepresentation::new([
-            FieldElement::<Self::BaseField>::one(),
-            FieldElement::<Self::BaseField>::from_hex_unchecked(
-                "0x2cf135e7506a45d632d270d45f1181294833fc48d823f272c",
-            ),
-            FieldElement::one(),
-        ])
+        unsafe {
+            Self::PointRepresentation::new([
+                FieldElement::<Self::BaseField>::one(),
+                FieldElement::<Self::BaseField>::from_hex_unchecked(
+                    "0x2cf135e7506a45d632d270d45f1181294833fc48d823f272c",
+                ),
+                FieldElement::one(),
+            ])
+            .unwrap_unchecked()
+        }
     }
 }
 

@@ -20,8 +20,26 @@ pub struct ShortWeierstrassProjectivePoint<E: IsEllipticCurve>(pub ProjectivePoi
 
 impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
     /// Creates an elliptic curve point giving the projective [x: y: z] coordinates.
-    pub const fn new(value: [FieldElement<E::BaseField>; 3]) -> Self {
-        Self(ProjectivePoint::new(value))
+    pub fn new(value: [FieldElement<E::BaseField>; 3]) -> Result<Self, EllipticCurveError> {
+        let (x, y, z) = (&value[0], &value[1], &value[2]);
+
+        if z != &FieldElement::<E::BaseField>::zero()
+            && E::defining_equation_projective(x, y, z) == FieldElement::<E::BaseField>::zero()
+        {
+            Ok(Self(ProjectivePoint::new(value)))
+        // The point at infinity is (0, 1, 0)
+        // We convert every (0, _, 0) into the infinity.
+        } else if x == &FieldElement::<E::BaseField>::zero()
+            && z == &FieldElement::<E::BaseField>::zero()
+        {
+            Ok(Self(ProjectivePoint::new([
+                FieldElement::<E::BaseField>::zero(),
+                FieldElement::<E::BaseField>::one(),
+                FieldElement::<E::BaseField>::zero(),
+            ])))
+        } else {
+            Err(EllipticCurveError::InvalidPoint)
+        }
     }
 
     /// Returns the `x` coordinate of the point.
@@ -85,7 +103,12 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
         let xp = &hs + &hs;
         let yp = w * (four_b - &h) - eight_pys_square;
         let zp = eight_s_cube;
-        Self::new([xp, yp, zp])
+
+        debug_assert_eq!(
+            E::defining_equation_projective(&xp, &yp, &zp),
+            FieldElement::<E::BaseField>::zero()
+        );
+        unsafe { Self::new([xp, yp, zp]).unwrap_unchecked() }
     }
     // https://hyperelliptic.org/EFD/g1p/data/shortw/projective/addition/madd-1998-cmo
     pub fn operate_with_affine(&self, other: &Self) -> Self {
@@ -103,11 +126,14 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
 
         if u == *py {
             if v != *px || *py == FieldElement::zero() {
-                return Self::new([
-                    FieldElement::zero(),
-                    FieldElement::one(),
-                    FieldElement::zero(),
-                ]);
+                return unsafe {
+                    Self::new([
+                        FieldElement::zero(),
+                        FieldElement::one(),
+                        FieldElement::zero(),
+                    ])
+                    .unwrap_unchecked()
+                };
             } else {
                 return self.double();
             }
@@ -125,7 +151,11 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
         let y = &u * (&r - &a) - &vvv * py;
         let z = &vvv * pz;
 
-        Self::new([x, y, z])
+        debug_assert_eq!(
+            E::defining_equation_projective(&x, &y, &z),
+            FieldElement::<E::BaseField>::zero()
+        );
+        unsafe { Self::new([x, y, z]).unwrap_unchecked() }
     }
 }
 
@@ -141,24 +171,23 @@ impl<E: IsShortWeierstrass> FromAffine<E::BaseField> for ShortWeierstrassProject
     fn from_affine(
         x: FieldElement<E::BaseField>,
         y: FieldElement<E::BaseField>,
-    ) -> Result<Self, crate::elliptic_curve::traits::EllipticCurveError> {
-        if E::defining_equation(&x, &y) != FieldElement::zero() {
-            Err(EllipticCurveError::InvalidPoint)
-        } else {
-            let coordinates = [x, y, FieldElement::one()];
-            Ok(ShortWeierstrassProjectivePoint::new(coordinates))
-        }
+    ) -> Result<Self, EllipticCurveError> {
+        let coordinates = [x, y, FieldElement::one()];
+        ShortWeierstrassProjectivePoint::new(coordinates)
     }
 }
 
 impl<E: IsShortWeierstrass> IsGroup for ShortWeierstrassProjectivePoint<E> {
     /// The point at infinity.
     fn neutral_element() -> Self {
-        Self::new([
-            FieldElement::zero(),
-            FieldElement::one(),
-            FieldElement::zero(),
-        ])
+        unsafe {
+            Self::new([
+                FieldElement::zero(),
+                FieldElement::one(),
+                FieldElement::zero(),
+            ])
+            .unwrap_unchecked()
+        }
     }
 
     fn is_neutral_element(&self) -> bool {
@@ -201,7 +230,12 @@ impl<E: IsShortWeierstrass> IsGroup for ShortWeierstrassProjectivePoint<E> {
                 let xp = &v * &a;
                 let yp = u * (&v_square_v2 - a) - &v_cube * u2;
                 let zp = &v_cube * w;
-                Self::new([xp, yp, zp])
+
+                debug_assert_eq!(
+                    E::defining_equation_projective(&xp, &yp, &zp),
+                    FieldElement::<E::BaseField>::zero()
+                );
+                unsafe { Self::new([xp, yp, zp]).unwrap_unchecked() }
             }
         }
     }
@@ -209,7 +243,7 @@ impl<E: IsShortWeierstrass> IsGroup for ShortWeierstrassProjectivePoint<E> {
     /// Returns the additive inverse of the projective point `p`
     fn neg(&self) -> Self {
         let [px, py, pz] = self.coordinates();
-        Self::new([px.clone(), -py, pz.clone()])
+        unsafe { Self::new([px.clone(), -py, pz.clone()]).unwrap_unchecked() }
     }
 }
 
@@ -304,18 +338,9 @@ where
                     z = ByteConversion::from_bytes_le(&bytes[len * 2..])?;
                 }
 
-                if z == FieldElement::zero() {
-                    let point = Self::new([x, y, z]);
-                    if point.is_neutral_element() {
-                        Ok(point)
-                    } else {
-                        Err(DeserializationError::FieldFromBytesError)
-                    }
-                } else if E::defining_equation(&(&x / &z), &(&y / &z)) == FieldElement::zero() {
-                    Ok(Self::new([x, y, z]))
-                } else {
-                    Err(DeserializationError::FieldFromBytesError)
-                }
+                let point =
+                    Self::new([x, y, z]).map_err(|_| DeserializationError::FieldFromBytesError)?;
+                Ok(point)
             }
             PointFormat::Uncompressed => {
                 if bytes.len() % 2 != 0 {
@@ -334,11 +359,10 @@ where
                     y = ByteConversion::from_bytes_le(&bytes[len..])?;
                 }
 
-                if E::defining_equation(&x, &y) == FieldElement::zero() {
-                    Ok(Self::new([x, y, FieldElement::one()]))
-                } else {
-                    Err(DeserializationError::FieldFromBytesError)
-                }
+                let z = FieldElement::<E::BaseField>::one();
+                let point =
+                    Self::new([x, y, z]).map_err(|_| DeserializationError::FieldFromBytesError)?;
+                Ok(point)
             }
         }
     }
@@ -383,9 +407,25 @@ where
 pub struct ShortWeierstrassJacobianPoint<E: IsEllipticCurve>(pub JacobianPoint<E>);
 
 impl<E: IsShortWeierstrass> ShortWeierstrassJacobianPoint<E> {
-    /// Creates an elliptic curve point giving the projective [x: y: z] coordinates.
-    pub const fn new(value: [FieldElement<E::BaseField>; 3]) -> Self {
-        Self(JacobianPoint::new(value))
+    /// Creates an elliptic curve point giving the jacobian [x: y: z] coordinates.
+    pub fn new(value: [FieldElement<E::BaseField>; 3]) -> Result<Self, EllipticCurveError> {
+        let (x, y, z) = (&value[0], &value[1], &value[2]);
+
+        if z != &FieldElement::<E::BaseField>::zero()
+            && E::defining_equation_jacobian(x, y, z) == FieldElement::<E::BaseField>::zero()
+        {
+            Ok(Self(JacobianPoint::new(value)))
+        // The point at infinity is (1, 1, 0)
+        // We convert every (x, x, 0) into the infinity.
+        } else if z == &FieldElement::<E::BaseField>::zero() && x == y {
+            Ok(Self(JacobianPoint::new([
+                FieldElement::<E::BaseField>::one(),
+                FieldElement::<E::BaseField>::one(),
+                FieldElement::<E::BaseField>::zero(),
+            ])))
+        } else {
+            Err(EllipticCurveError::InvalidPoint)
+        }
     }
 
     /// Returns the `x` coordinate of the point.
@@ -435,7 +475,11 @@ impl<E: IsShortWeierstrass> ShortWeierstrassJacobianPoint<E> {
             let y3 = &e * (&d - &x3) - &c.double().double().double(); // Y3 = E * (D - X3) - 8 * C
             let z3 = (y1 * z1).double(); // Z3 = 2 * Y1 * Z1
 
-            Self::new([x3, y3, z3])
+            debug_assert_eq!(
+                E::defining_equation_jacobian(&x3, &y3, &z3),
+                FieldElement::<E::BaseField>::zero()
+            );
+            unsafe { Self::new([x3, y3, z3]).unwrap_unchecked() }
         } else {
             // http://www.hyperelliptic.org/EFD/g1p/data/shortw/jacobian-0/doubling/dbl-2009-alnr
             // http://www.hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-0.html#doubling-dbl-2009-l
@@ -449,7 +493,11 @@ impl<E: IsShortWeierstrass> ShortWeierstrassJacobianPoint<E> {
             let y3 = m * (&s - &x3) - &yyyy.double().double().double(); // Y3 = M * (S - X3) - 8 * YYYY
             let z3 = (y1 + z1).square() - &yy - &zz; // Z3 = (Y1 + Z1)^2 - YY - ZZ
 
-            Self::new([x3, y3, z3])
+            debug_assert_eq!(
+                E::defining_equation_jacobian(&x3, &y3, &z3),
+                FieldElement::<E::BaseField>::zero()
+            );
+            unsafe { Self::new([x3, y3, z3]).unwrap_unchecked() }
         }
     }
 
@@ -486,7 +534,11 @@ impl<E: IsShortWeierstrass> ShortWeierstrassJacobianPoint<E> {
             let y3 = r * (&v - &x3) - s1 * &hhh;
             let z3 = z1 * &h;
 
-            Self::new([x3, y3, z3])
+            debug_assert_eq!(
+                E::defining_equation_jacobian(&x3, &y3, &z3),
+                FieldElement::<E::BaseField>::zero()
+            );
+            unsafe { Self::new([x3, y3, z3]).unwrap_unchecked() }
         }
     }
 }
@@ -503,24 +555,23 @@ impl<E: IsShortWeierstrass> FromAffine<E::BaseField> for ShortWeierstrassJacobia
     fn from_affine(
         x: FieldElement<E::BaseField>,
         y: FieldElement<E::BaseField>,
-    ) -> Result<Self, crate::elliptic_curve::traits::EllipticCurveError> {
-        if E::defining_equation(&x, &y) != FieldElement::zero() {
-            Err(EllipticCurveError::InvalidPoint)
-        } else {
-            let coordinates = [x, y, FieldElement::one()];
-            Ok(ShortWeierstrassJacobianPoint::new(coordinates))
-        }
+    ) -> Result<Self, EllipticCurveError> {
+        let coordinates = [x, y, FieldElement::one()];
+        ShortWeierstrassJacobianPoint::new(coordinates)
     }
 }
 
 impl<E: IsShortWeierstrass> IsGroup for ShortWeierstrassJacobianPoint<E> {
     /// The point at infinity.
     fn neutral_element() -> Self {
-        Self::new([
-            FieldElement::one(),
-            FieldElement::one(),
-            FieldElement::zero(),
-        ])
+        unsafe {
+            Self::new([
+                FieldElement::one(),
+                FieldElement::one(),
+                FieldElement::zero(),
+            ])
+            .unwrap_unchecked()
+        }
     }
 
     fn is_neutral_element(&self) -> bool {
@@ -584,13 +635,17 @@ impl<E: IsShortWeierstrass> IsGroup for ShortWeierstrassJacobianPoint<E> {
         let z3 = z1 * z2;
         let z3 = z3.double() * h;
 
-        Self::new([x3, y3, z3])
+        debug_assert_eq!(
+            E::defining_equation_jacobian(&x3, &y3, &z3),
+            FieldElement::<E::BaseField>::zero()
+        );
+        unsafe { Self::new([x3, y3, z3]).unwrap_unchecked() }
     }
 
     /// Returns the additive inverse of the jacobian point `p`
     fn neg(&self) -> Self {
         let [x, y, z] = self.coordinates();
-        Self::new([x.clone(), -y, z.clone()])
+        unsafe { Self::new([x.clone(), -y, z.clone()]).unwrap_unchecked() }
     }
 }
 

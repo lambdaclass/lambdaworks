@@ -8,12 +8,23 @@ pub trait IsMontgomery: IsEllipticCurve + Clone + Debug {
 
     fn b() -> FieldElement<Self::BaseField>;
 
-    /// Evaluates the short Weierstrass equation at (x, y z).
-    /// Used for checking if [x: y: z] belongs to the elliptic curve.
+    /// Evaluates the equation at (x, y).
+    /// Used for checking if the point belongs to the elliptic curve.
+    /// Equation: by^2 = x^3 + ax^2 + x.
     fn defining_equation(
         x: &FieldElement<Self::BaseField>,
         y: &FieldElement<Self::BaseField>,
     ) -> FieldElement<Self::BaseField> {
-        (Self::b() * y.pow(2_u16)) - (x.pow(3_u16) + Self::a() * x.pow(2_u16) + x)
+        (Self::b() * y.square()) - (x.pow(3_u16) + Self::a() * x.square() + x)
+    }
+
+    /// Evaluates the equation at the projective point (x, y, z).
+    /// Projective equation: zby^2 = x^3 + zax^2 + z^2x
+    fn defining_equation_projective(
+        x: &FieldElement<Self::BaseField>,
+        y: &FieldElement<Self::BaseField>,
+        z: &FieldElement<Self::BaseField>,
+    ) -> FieldElement<Self::BaseField> {
+        z * Self::b() * y.square() - x.pow(3_u16) - z * Self::a() * x.square() - z.square() * x
     }
 }

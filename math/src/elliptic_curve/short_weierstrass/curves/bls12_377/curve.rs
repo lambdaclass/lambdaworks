@@ -30,11 +30,13 @@ impl IsEllipticCurve for BLS12377Curve {
 
     // generator values are taken from https://neuromancer.sk/std/bls/BLS12-377
     fn generator() -> Self::PointRepresentation {
-        Self::PointRepresentation::new([
+        unsafe {
+            Self::PointRepresentation::new([
             FieldElement::<Self::BaseField>::new_base("8848defe740a67c8fc6225bf87ff5485951e2caa9d41bb188282c8bd37cb5cd5481512ffcd394eeab9b16eb21be9ef"),
             FieldElement::<Self::BaseField>::new_base("1914a69c5102eff1f674f5d30afeec4bd7fb348ca3e52d96d182ad44fb82305c2fe3d3634a9591afd82de55559c8ea6"),
             FieldElement::one()
-        ])
+        ]).unwrap_unchecked()
+        }
     }
 }
 
@@ -99,11 +101,14 @@ impl ShortWeierstrassProjectivePoint<BLS12377TwistCurve> {
     /// ψ(P) = (ψ_x * conjugate(x), ψ_y * conjugate(y), conjugate(z))
     fn psi(&self) -> Self {
         let [x, y, z] = self.coordinates();
-        Self::new([
-            x.conjugate() * GAMMA_12,
-            y.conjugate() * GAMMA_13,
-            z.conjugate(),
-        ])
+        unsafe {
+            Self::new([
+                x.conjugate() * GAMMA_12,
+                y.conjugate() * GAMMA_13,
+                z.conjugate(),
+            ])
+            .unwrap_unchecked()
+        }
     }
 
     /// 𝜓(P) = 𝑢P, where 𝑢 = SEED of the curve
@@ -186,7 +191,7 @@ mod tests {
         let x = FpE::new_base("134e4cc122cb62a06767fb98e86f2d5f77e2a12fefe23bb0c4c31d1bd5348b88d6f5e5dee2b54db4a2146cc9f249eea") * FpE::from(2);
         let y = FpE::new_base("17949c29effee7a9f13f69b1c28eccd78c1ed12b47068836473481ff818856594fd9c1935e3d9e621901a2d500257a2") * FpE::from(2);
         let z = FpE::from(2);
-        let point_2 = ShortWeierstrassProjectivePoint::<BLS12377Curve>::new([x, y, z]);
+        let point_2 = ShortWeierstrassProjectivePoint::<BLS12377Curve>::new([x, y, z]).unwrap();
 
         let first_algorithm_result = point_2.operate_with(&point_1).to_affine();
         let second_algorithm_result = point_2.operate_with_affine(&point_1).to_affine();

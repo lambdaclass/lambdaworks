@@ -21,11 +21,14 @@ impl IsEllipticCurve for BN254Curve {
     type PointRepresentation = ShortWeierstrassProjectivePoint<Self>;
 
     fn generator() -> Self::PointRepresentation {
-        Self::PointRepresentation::new([
-            FieldElement::<Self::BaseField>::one(),
-            FieldElement::<Self::BaseField>::from(2),
-            FieldElement::one(),
-        ])
+        unsafe {
+            Self::PointRepresentation::new([
+                FieldElement::<Self::BaseField>::one(),
+                FieldElement::<Self::BaseField>::from(2),
+                FieldElement::one(),
+            ])
+            .unwrap_unchecked()
+        }
     }
 }
 
@@ -52,11 +55,14 @@ impl ShortWeierstrassProjectivePoint<BN254TwistCurve> {
     /// See https://hackmd.io/@Wimet/ry7z1Xj-2#Subgroup-Checks.
     pub fn phi(&self) -> Self {
         let [x, y, z] = self.coordinates();
-        Self::new([
-            x.conjugate() * GAMMA_12,
-            y.conjugate() * GAMMA_13,
-            z.conjugate(),
-        ])
+        unsafe {
+            Self::new([
+                x.conjugate() * GAMMA_12,
+                y.conjugate() * GAMMA_13,
+                z.conjugate(),
+            ])
+            .unwrap_unchecked()
+        }
     }
 
     // Checks if a G2 point is in the subgroup of the twisted curve.
@@ -279,7 +285,8 @@ mod tests {
                 )),
             ]),
             Fp2E::one(),
-        ]);
+        ])
+        .unwrap();
         assert!(!q.is_in_subgroup())
     }
 

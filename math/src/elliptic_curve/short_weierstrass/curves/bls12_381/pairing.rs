@@ -449,15 +449,19 @@ mod tests {
 
     #[test]
     fn ate_pairing_errors_when_one_element_is_not_in_subgroup() {
+        // p = (0, 2, 1) is in the curve but not in the subgroup.
+        // Recall that the BLS 12-381 curve equation is y^2 = x^3 + 4.
         let p = ShortWeierstrassProjectivePoint::new([
+            FieldElement::zero(),
+            FieldElement::from(2),
             FieldElement::one(),
-            FieldElement::one(),
-            FieldElement::one(),
-        ]);
+        ])
+        .unwrap();
         let q = ShortWeierstrassProjectivePoint::neutral_element();
         let result = BLS12381AtePairing::compute_batch(&[(&p.to_affine(), &q)]);
         assert!(result.is_err())
     }
+
     #[test]
     fn apply_12_times_frobenius_is_identity() {
         let f = Fp12E::from_coefficients(&[

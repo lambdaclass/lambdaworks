@@ -15,11 +15,14 @@ impl IsEllipticCurve for TinyJubJubEdwards {
     type PointRepresentation = EdwardsProjectivePoint<Self>;
 
     fn generator() -> Self::PointRepresentation {
-        Self::PointRepresentation::new([
-            FieldElement::from(8),
-            FieldElement::from(5),
-            FieldElement::one(),
-        ])
+        unsafe {
+            Self::PointRepresentation::new([
+                FieldElement::from(8),
+                FieldElement::from(5),
+                FieldElement::one(),
+            ])
+            .unwrap_unchecked()
+        }
     }
 }
 

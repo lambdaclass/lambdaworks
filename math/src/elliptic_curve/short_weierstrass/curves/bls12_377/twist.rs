@@ -20,17 +20,20 @@ impl IsEllipticCurve for BLS12377TwistCurve {
     type PointRepresentation = ShortWeierstrassProjectivePoint<Self>;
 
     fn generator() -> Self::PointRepresentation {
-        Self::PointRepresentation::new([
-            FieldElement::new([
-                FieldElement::new(GENERATOR_X_0),
-                FieldElement::new(GENERATOR_X_1),
-            ]),
-            FieldElement::new([
-                FieldElement::new(GENERATOR_Y_0),
-                FieldElement::new(GENERATOR_Y_1),
-            ]),
-            FieldElement::one(),
-        ])
+        unsafe {
+            Self::PointRepresentation::new([
+                FieldElement::new([
+                    FieldElement::new(GENERATOR_X_0),
+                    FieldElement::new(GENERATOR_X_1),
+                ]),
+                FieldElement::new([
+                    FieldElement::new(GENERATOR_Y_0),
+                    FieldElement::new(GENERATOR_Y_1),
+                ]),
+                FieldElement::one(),
+            ])
+            .unwrap_unchecked()
+        }
     }
 }
 
