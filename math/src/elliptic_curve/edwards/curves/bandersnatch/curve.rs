@@ -13,7 +13,8 @@ impl IsEllipticCurve for BandersnatchCurve {
     type PointRepresentation = EdwardsProjectivePoint<Self>;
 
     // Values are from https://github.com/arkworks-rs/curves/blob/5a41d7f27a703a7ea9c48512a4148443ec6c747e/ed_on_bls12_381_bandersnatch/src/curves/mod.rs#L120
-    // Converted to Hex
+    // converted to Hex.
+    // SAFETY: The creation of the generator point is safe since it is a constant that belongs to the curve.
     fn generator() -> Self::PointRepresentation {
         unsafe {
             Self::PointRepresentation::new([
