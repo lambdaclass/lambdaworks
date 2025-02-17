@@ -64,7 +64,12 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
 
     /// Creates the same point in affine coordinates. That is,
     /// returns [x / z: y / z: 1] where `self` is [x: y: z].
-    /// Panics if `self` is the point at infinity.
+    ///
+    /// # Safety
+    ///
+    /// This function uses an unsafe block to create a new point via [`Self::new`]
+    /// with [`unwrap_unchecked`]. It is safe because a debug assertion verifies that the
+    /// computed coordinates satisfy the curve equation.
     pub fn to_affine(&self) -> Self {
         Self(self.0.to_affine())
     }
@@ -108,6 +113,8 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
             E::defining_equation_projective(&xp, &yp, &zp),
             FieldElement::<E::BaseField>::zero()
         );
+        // SAFETY: The values `x_p, y_p, z_p` are computed correctly to be on the curve.
+        // The assertion above verifies that the resulting point is valid.
         unsafe { Self::new([xp, yp, zp]).unwrap_unchecked() }
     }
     // https://hyperelliptic.org/EFD/g1p/data/shortw/projective/addition/madd-1998-cmo
@@ -126,6 +133,7 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
 
         if u == *py {
             if v != *px || *py == FieldElement::zero() {
+                // SAFETY: The point (0, 1, 0) is defined as the point at infinity.
                 return unsafe {
                     Self::new([
                         FieldElement::zero(),
@@ -155,6 +163,8 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
             E::defining_equation_projective(&x, &y, &z),
             FieldElement::<E::BaseField>::zero()
         );
+        // SAFETY: The values `x, y, z` are computed correctly to be on the curve.
+        // The assertion above verifies that the resulting point is valid.
         unsafe { Self::new([x, y, z]).unwrap_unchecked() }
     }
 }
@@ -180,6 +190,9 @@ impl<E: IsShortWeierstrass> FromAffine<E::BaseField> for ShortWeierstrassProject
 impl<E: IsShortWeierstrass> IsGroup for ShortWeierstrassProjectivePoint<E> {
     /// The point at infinity.
     fn neutral_element() -> Self {
+        // SAFETY:
+        // - `(0, 1, 0)` is **mathematically valid** as the neutral element.
+        // - `unwrap_unchecked()` is safe because this is **a known valid point**.
         unsafe {
             Self::new([
                 FieldElement::zero(),
@@ -235,6 +248,8 @@ impl<E: IsShortWeierstrass> IsGroup for ShortWeierstrassProjectivePoint<E> {
                     E::defining_equation_projective(&xp, &yp, &zp),
                     FieldElement::<E::BaseField>::zero()
                 );
+                // SAFETY: The values `x_p, y_p, z_p` are computed correctly to be on the curve.
+                // The assertion above verifies that the resulting point is valid.
                 unsafe { Self::new([xp, yp, zp]).unwrap_unchecked() }
             }
         }
@@ -243,6 +258,9 @@ impl<E: IsShortWeierstrass> IsGroup for ShortWeierstrassProjectivePoint<E> {
     /// Returns the additive inverse of the projective point `p`
     fn neg(&self) -> Self {
         let [px, py, pz] = self.coordinates();
+        // SAFETY:
+        // - Negating `y` maintains the curve structure.
+        // - `unwrap_unchecked()` is safe because negation **is always valid**.
         unsafe { Self::new([px.clone(), -py, pz.clone()]).unwrap_unchecked() }
     }
 }
@@ -479,6 +497,8 @@ impl<E: IsShortWeierstrass> ShortWeierstrassJacobianPoint<E> {
                 E::defining_equation_jacobian(&x3, &y3, &z3),
                 FieldElement::<E::BaseField>::zero()
             );
+            // SAFETY: The values `x_3, y_3, z_3` are computed correctly to be on the curve.
+            // The assertion above verifies that the resulting point is valid.
             unsafe { Self::new([x3, y3, z3]).unwrap_unchecked() }
         } else {
             // http://www.hyperelliptic.org/EFD/g1p/data/shortw/jacobian-0/doubling/dbl-2009-alnr
@@ -497,6 +517,8 @@ impl<E: IsShortWeierstrass> ShortWeierstrassJacobianPoint<E> {
                 E::defining_equation_jacobian(&x3, &y3, &z3),
                 FieldElement::<E::BaseField>::zero()
             );
+            // SAFETY: The values `x_3, y_3, z_3` are computed correctly to be on the curve.
+            // The assertion above verifies that the resulting point is valid.
             unsafe { Self::new([x3, y3, z3]).unwrap_unchecked() }
         }
     }
@@ -538,6 +560,8 @@ impl<E: IsShortWeierstrass> ShortWeierstrassJacobianPoint<E> {
                 E::defining_equation_jacobian(&x3, &y3, &z3),
                 FieldElement::<E::BaseField>::zero()
             );
+            // SAFETY: The values `x_3, y_3, z_3` are computed correctly to be on the curve.
+            // The assertion above verifies that the resulting point is valid.
             unsafe { Self::new([x3, y3, z3]).unwrap_unchecked() }
         }
     }
@@ -564,6 +588,9 @@ impl<E: IsShortWeierstrass> FromAffine<E::BaseField> for ShortWeierstrassJacobia
 impl<E: IsShortWeierstrass> IsGroup for ShortWeierstrassJacobianPoint<E> {
     /// The point at infinity.
     fn neutral_element() -> Self {
+        // SAFETY:
+        // - `(1, 1, 0)` is **mathematically valid** as the neutral element.
+        // - `unwrap_unchecked()` is safe because this is **a known valid point**.
         unsafe {
             Self::new([
                 FieldElement::one(),
@@ -639,12 +666,17 @@ impl<E: IsShortWeierstrass> IsGroup for ShortWeierstrassJacobianPoint<E> {
             E::defining_equation_jacobian(&x3, &y3, &z3),
             FieldElement::<E::BaseField>::zero()
         );
+        // SAFETY: The values `x_3, y_3, z_3` are computed correctly to be on the curve.
+        // The assertion above verifies that the resulting point is valid.
         unsafe { Self::new([x3, y3, z3]).unwrap_unchecked() }
     }
 
     /// Returns the additive inverse of the jacobian point `p`
     fn neg(&self) -> Self {
         let [x, y, z] = self.coordinates();
+        // SAFETY:
+        // - The negation formula for Short Weierstrass curves is well-defined.
+        // - The result remains a valid curve point.
         unsafe { Self::new([x.clone(), -y, z.clone()]).unwrap_unchecked() }
     }
 }

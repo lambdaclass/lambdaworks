@@ -26,7 +26,15 @@ impl IsEllipticCurve for BLS12381Curve {
     type BaseField = BLS12381PrimeField;
     type PointRepresentation = ShortWeierstrassProjectivePoint<Self>;
 
+    /// Returns the generator point of the BLS12-381 curve.
+    ///
+    /// ## Safety
+    /// - The generator point is mathematically verified to be a valid point on the curve.
+    /// - `unwrap_unchecked()` is safe because the provided coordinates satisfy the curve equation.
     fn generator() -> Self::PointRepresentation {
+        // SAFETY:
+        // - These values are mathematically verified and known to be valid points on BLS12-381.
+        // - `unwrap_unchecked()` is safe because we **ensure** the input values satisfy the curve equation.
         unsafe {
             Self::PointRepresentation::new([
             FieldElement::<Self::BaseField>::new_base("17f1d3a73197d7942695638c4fa9ac0fc3688c4f9774b905a14e3a3f171bac586c55e83ff97a1aeffb3af00adb22c6bb"),
@@ -91,12 +99,23 @@ impl ShortWeierstrassProjectivePoint<BLS12381Curve> {
 }
 
 impl ShortWeierstrassProjectivePoint<BLS12381TwistCurve> {
-    /// 𝜓(P) = 𝜁 ∘ 𝜋ₚ ∘ 𝜁⁻¹, where 𝜁 is the isomorphism u:E'(𝔽ₚ₆) −> E(𝔽ₚ₁₂) from the twist to E,, 𝜋ₚ is the p-power frobenius endomorphism
+    /// Computes 𝜓(P) 𝜓(P) = 𝜁 ∘ 𝜋ₚ ∘ 𝜁⁻¹, where 𝜁 is the isomorphism u:E'(𝔽ₚ₆) −> E(𝔽ₚ₁₂) from the twist to E,, 𝜋ₚ is the p-power frobenius endomorphism
     /// and 𝜓 satisifies minmal equation 𝑋² + 𝑡𝑋 + 𝑞 = 𝑂
     /// https://eprint.iacr.org/2022/352.pdf 4.2 (7)
+    ///
+    ///  ## Safety
+    /// - This function assumes `self` is a valid point on the BLS12-381 **twist** curve.
+    /// - The conjugation operation preserves validity.
+    /// - `unwrap_unchecked()` is used because `psi()` is defined to **always return a valid point**.
     fn psi(&self) -> Self {
         let [x, y, z] = self.coordinates();
         unsafe {
+            // SAFETY:
+            // - `conjugate()` preserves the validity of the field element.
+            // - `ENDO_U` and `ENDO_V` are precomputed constants that ensure the
+            //   resulting point satisfies the curve equation.
+            // - `unwrap_unchecked()` is safe because the transformation follows
+            //   **a known valid isomorphism** between the twist and E.
             Self::new([
                 x.conjugate() * ENDO_U,
                 y.conjugate() * ENDO_V,
@@ -142,13 +161,22 @@ mod tests {
         FieldElement::from_hex_unchecked("0")
     ]);
 
-    // Cmoputes the psi^2() 'Untwist Frobenius Endomorphism'
+    /// Computes the psi^2() 'Untwist Frobenius Endomorphism'
+    ///  
+    /// # Safety
+    ///
+    /// - This function assumes `p` is a valid point on the BLS12-381 twist curve.
+    /// - The transformation involves multiplying the x and y coordinates by known constants.
+    /// - `unwrap_unchecked()` is used because the resulting point remains valid under the curve equations.
     fn psi_square(
         p: &ShortWeierstrassProjectivePoint<BLS12381TwistCurve>,
     ) -> ShortWeierstrassProjectivePoint<BLS12381TwistCurve> {
         let [x, y, z] = p.coordinates();
         // Since power of frobenius map is 2 we apply once as applying twice is inverse
         unsafe {
+            // SAFETY:
+            // - `ENDO_U_2` and `ENDO_V_2` are known valid constants.
+            // - `unwrap_unchecked()` is safe because the transformation preserves curve validity.
             ShortWeierstrassProjectivePoint::new([x * ENDO_U_2, y * ENDO_V_2, z.clone()])
                 .unwrap_unchecked()
         }

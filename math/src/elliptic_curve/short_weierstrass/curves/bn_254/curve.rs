@@ -20,8 +20,17 @@ impl IsEllipticCurve for BN254Curve {
     type BaseField = BN254PrimeField;
     type PointRepresentation = ShortWeierstrassProjectivePoint<Self>;
 
+    /// Returns the generator point of the BN254 curve.
+    ///
+    /// # Safety
+    ///
+    /// - The generator point is mathematically verified to be a valid point on the curve.
+    /// - `unwrap_unchecked()` is safe because the provided coordinates satisfy the curve equation.
     fn generator() -> Self::PointRepresentation {
         unsafe {
+            // SAFETY:
+            // - The generator coordinates `(1, 2, 1)` are **predefined** and belong to the BN254 curve.
+            // - `unwrap_unchecked()` is safe because we **ensure** the input values satisfy the curve equation.
             Self::PointRepresentation::new([
                 FieldElement::<Self::BaseField>::one(),
                 FieldElement::<Self::BaseField>::from(2),
@@ -53,9 +62,17 @@ impl ShortWeierstrassProjectivePoint<BN254TwistCurve> {
     /// We also use phi at the last lines of the Miller Loop of the pairing.
     /// phi(q) = (x^p, y^p, z^p), where (x, y, z) are the projective coordinates of q.
     /// See https://hackmd.io/@Wimet/ry7z1Xj-2#Subgroup-Checks.
+    /// # Safety
+    ///
+    /// - The function assumes `self` is a valid point on the BN254 twist curve.
+    /// - The transformation follows a known isomorphism and preserves validity.
     pub fn phi(&self) -> Self {
         let [x, y, z] = self.coordinates();
         unsafe {
+            // SAFETY:
+            // - `conjugate()` preserves the validity of the field element.
+            // - `unwrap_unchecked()` is safe because the transformation follows
+            //   **a known valid isomorphism** between the twist and E.
             Self::new([
                 x.conjugate() * GAMMA_12,
                 y.conjugate() * GAMMA_13,

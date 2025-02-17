@@ -304,6 +304,12 @@ fn line_optimized(p: &G1Point, t: &G2Point, q: &G2Point) -> (G2Point, Fp12E) {
         let y_r = g.square() - (e_square.double() + e_square);
         let z_r = b * &h;
 
+        debug_assert_eq!(
+            BN254TwistCurve::defining_equation_projective(&x_r, &y_r, &z_r),
+            Fp2E::zero()
+        );
+        // SAFETY: `unwrap_unchecked()` is used here because we ensure that `x_r, y_r, z_r`
+        // satisfy the curve equation. The previous assertion checks that this is indeed the case.
         let r = unsafe { G2Point::new([x_r, y_r, z_r]).unwrap_unchecked() };
 
         let l = Fp12E::new([
@@ -332,6 +338,13 @@ fn line_optimized(p: &G1Point, t: &G2Point, q: &G2Point) -> (G2Point, Fp12E) {
         let y_r = &theta * (g - h) - i;
         let z_r = z_t * e;
 
+        debug_assert_eq!(
+            BN254TwistCurve::defining_equation_projective(&x_r, &y_r, &z_r),
+            Fp2E::zero()
+        );
+
+        // SAFETY: `unwrap_unchecked()` is used here because we ensure that `x_r, y_r, z_r`
+        // satisfy the curve equation. The previous assertion checks that this is indeed the case.
         let r = unsafe { G2Point::new([x_r, y_r, z_r]).unwrap_unchecked() };
 
         let l = Fp12E::new([

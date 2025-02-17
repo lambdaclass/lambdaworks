@@ -15,7 +15,28 @@ impl IsEllipticCurve for BandersnatchCurve {
     // Values are from https://github.com/arkworks-rs/curves/blob/5a41d7f27a703a7ea9c48512a4148443ec6c747e/ed_on_bls12_381_bandersnatch/src/curves/mod.rs#L120
     // converted to Hex.
     // SAFETY: The creation of the generator point is safe since it is a constant that belongs to the curve.
+    // check which version of the comment is correct.
+
+    /// Returns the generator point of the Bandersnatch curve.
+    ///
+    /// The generator point is defined with coordinates `(x, y, 1)`, where `x` and `y`
+    /// are precomputed constants that belong to the curve.
+    ///
+    /// ## Safety
+    /// - The generator values are taken from the [Arkworks implementation](https://github.com/arkworks-rs/curves/blob/5a41d7f27a703a7ea9c48512a4148443ec6c747e/ed_on_bls12_381_bandersnatch/src/curves/mod.rs#L120)
+    ///   and have been converted to hexadecimal.
+    /// - `unwrap_unchecked()` is safe because:
+    ///   - The generator point is **known to be valid** on the curve.
+    ///   - The function only uses **hardcoded** and **verified** constants.
+    /// - This function should **never** be modified unless the new generator is fully verified.
     fn generator() -> Self::PointRepresentation {
+        // SAFETY:
+        // - The generator point coordinates (x, y) are taken from a well-tested,
+        //   verified implementation.
+        // - The constructor will only fail if the values are invalid, which is
+        //   impossible given that they are constants taken from a trusted source.
+        // - `unwrap_unchecked()` avoids unnecessary checks, as we guarantee
+        //   correctness based on external verification.
         unsafe {
             Self::PointRepresentation::new([
                 FieldElement::<Self::BaseField>::new_base(

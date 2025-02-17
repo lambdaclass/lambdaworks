@@ -82,8 +82,17 @@ impl<E: IsEdwards> FromAffine<E::BaseField> for EdwardsProjectivePoint<E> {
 impl<E: IsEllipticCurve> Eq for EdwardsProjectivePoint<E> {}
 
 impl<E: IsEdwards> IsGroup for EdwardsProjectivePoint<E> {
-    /// The point at infinity.
+    /// Returns the point at infinity (neutral element) in projective coordinates.
+    ///
+    /// ## Safety
+    /// - The values `[0, 1, 1]` are the **canonical representation** of the neutral element
+    ///   in the Edwards curve, meaning they are guaranteed to be a valid point.
+    /// - `unwrap_unchecked()` is used because this point is **known** to be valid, so
+    ///   there is no need for additional runtime checks.
     fn neutral_element() -> Self {
+        // SAFETY:
+        // - `[0, 1, 1]` is a mathematically verified neutral element in Edwards curves.
+        // - `unwrap_unchecked()` is safe because this point is **always valid**.
         unsafe {
             Self::new([
                 FieldElement::zero(),
@@ -99,8 +108,15 @@ impl<E: IsEdwards> IsGroup for EdwardsProjectivePoint<E> {
         px == &FieldElement::zero() && py == pz
     }
 
-    /// Computes the addition of `self` and `other`.
-    /// Taken from "Moonmath" (Eq 5.38, page 97)
+    /// Computes the addition of `self` and `other` using the Edwards curve addition formula.
+    ///
+    /// This implementation follows Equation (5.38) from "Moonmath" (page 97).
+    ///
+    /// ## Safety
+    /// - The function assumes both `self` and `other` are valid points on the curve.
+    /// - The resulting coordinates are computed using a well-defined formula that
+    ///   maintains the elliptic curve invariants.
+    /// - `unwrap_unchecked()` is safe because the formula guarantees the result is valid.
     fn operate_with(&self, other: &Self) -> Self {
         // This avoids dropping, which in turn saves us from having to clone the coordinates.
         let (s_affine, o_affine) = (self.to_affine(), other.to_affine());
@@ -124,8 +140,15 @@ impl<E: IsEdwards> IsGroup for EdwardsProjectivePoint<E> {
     }
 
     /// Returns the additive inverse of the projective point `p`
+    ///  
+    /// ## Safety
+    /// - Negating the x-coordinate of a valid Edwards point results in another valid point.
+    /// - `unwrap_unchecked()` is safe because negation does not break the curve equation.
     fn neg(&self) -> Self {
         let [px, py, pz] = self.coordinates();
+        // SAFETY:
+        // - The negation formula for Edwards curves is well-defined.
+        // - The result remains a valid curve point.
         unsafe { Self::new([-px, py.clone(), pz.clone()]).unwrap_unchecked() }
     }
 }

@@ -84,7 +84,14 @@ impl<E: IsEllipticCurve> Eq for MontgomeryProjectivePoint<E> {}
 
 impl<E: IsMontgomery> IsGroup for MontgomeryProjectivePoint<E> {
     /// The point at infinity.
+    ///    
+    /// ## Safety
+    /// - The point `(0, 1, 0)` is a well-defined **neutral element** for Montgomery curves.
+    /// - `unwrap_unchecked()` is used because this point is **always valid**.
     fn neutral_element() -> Self {
+        // SAFETY:
+        // - `(0, 1, 0)` is **mathematically valid** as the neutral element.
+        // - `unwrap_unchecked()` is safe because this is **a known valid point**.
         unsafe {
             Self::new([
                 FieldElement::zero(),
@@ -101,7 +108,14 @@ impl<E: IsMontgomery> IsGroup for MontgomeryProjectivePoint<E> {
     }
 
     /// Computes the addition of `self` and `other`.
-    /// Taken from "Moonmath" (Definition 5.2.2.1, page 94)
+    ///
+    /// This implementation follows the addition law for Montgomery curves as described in:
+    /// **Moonmath Manual, Definition 5.2.2.1, Page 94**.
+    ///
+    /// ## Safety
+    /// - This function assumes that both `self` and `other` are **valid** points on the curve.
+    /// - The resulting point is **guaranteed** to be valid due to the **Montgomery curve addition formula**.
+    /// - `unwrap_unchecked()` is used because the formula ensures the result remains a valid curve point.
     fn operate_with(&self, other: &Self) -> Self {
         // One of them is the neutral element.
         if self.is_neutral_element() {
@@ -132,6 +146,9 @@ impl<E: IsMontgomery> IsGroup for MontgomeryProjectivePoint<E> {
                 let new_x = &div * &div * &b - (&x1 + x2) - a;
                 let new_y = div * (x1 - &new_x) - y1;
 
+                // SAFETY:
+                // - The Montgomery addition formula guarantees a **valid** curve point.
+                // - `unwrap_unchecked()` is safe because the input points are **valid**.
                 unsafe { Self::new([new_x, new_y, one]).unwrap_unchecked() }
             // In the rest of the cases we have x1 != x2
             } else {
@@ -142,14 +159,24 @@ impl<E: IsMontgomery> IsGroup for MontgomeryProjectivePoint<E> {
                 let new_x = &div * &div * E::b() - (&x1 + &x2) - E::a();
                 let new_y = div * (x1 - &new_x) - y1;
 
+                // SAFETY:
+                // - The result of the Montgomery addition formula is **guaranteed** to be a valid point.
+                // - `unwrap_unchecked()` is safe because we **control** the inputs.
                 unsafe { Self::new([new_x, new_y, FieldElement::one()]).unwrap_unchecked() }
             }
         }
     }
 
     /// Returns the additive inverse of the projective point `p`
+    ///
+    /// ## Safety
+    /// - The negation formula preserves the curve equation.
+    /// - `unwrap_unchecked()` is safe because negation **does not** create invalid points.
     fn neg(&self) -> Self {
         let [px, py, pz] = self.coordinates();
+        // SAFETY:
+        // - Negating `y` maintains the curve structure.
+        // - `unwrap_unchecked()` is safe because negation **is always valid**.
         unsafe { Self::new([px.clone(), -py, pz.clone()]).unwrap_unchecked() }
     }
 }

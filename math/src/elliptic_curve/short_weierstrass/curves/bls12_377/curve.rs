@@ -28,8 +28,18 @@ impl IsEllipticCurve for BLS12377Curve {
     type BaseField = BLS12377PrimeField;
     type PointRepresentation = ShortWeierstrassProjectivePoint<Self>;
 
-    // generator values are taken from https://neuromancer.sk/std/bls/BLS12-377
+    /// Returns the generator point of the BLS12-377 curve.
+    ///
+    /// Generator values are taken from [Neuromancer's BLS12-377 page](https://neuromancer.sk/std/bls/BLS12-377).
+    ///
+    /// ## Safety
+    /// - The generator point `(x, y, 1)` is predefined and is **known to be a valid point** on the curve.
+    /// - `unwrap_unchecked()` is used because this point is **mathematically verified**.
+    /// - Do **not** modify this function unless a new generator has been **mathematically verified**.
     fn generator() -> Self::PointRepresentation {
+        // SAFETY:
+        // - These values are mathematically verified and known to be valid points on BLS12-377.
+        // - `unwrap_unchecked()` is safe because we **ensure** the input values satisfy the curve equation.
         unsafe {
             Self::PointRepresentation::new([
             FieldElement::<Self::BaseField>::new_base("8848defe740a67c8fc6225bf87ff5485951e2caa9d41bb188282c8bd37cb5cd5481512ffcd394eeab9b16eb21be9ef"),
@@ -95,12 +105,23 @@ impl ShortWeierstrassProjectivePoint<BLS12377Curve> {
 }
 
 impl ShortWeierstrassProjectivePoint<BLS12377TwistCurve> {
-    /// 𝜓(P) = 𝜁 ∘ 𝜋ₚ ∘ 𝜁⁻¹, where 𝜁 is the isomorphism u:E'(𝔽ₚ₆) −> E(𝔽ₚ₁₂) from the twist to E,, 𝜋ₚ is the p-power frobenius endomorphism
+    /// Computes 𝜓(P) = 𝜁 ∘ 𝜋ₚ ∘ 𝜁⁻¹, where 𝜁 is the isomorphism u:E'(𝔽ₚ₆) −> E(𝔽ₚ₁₂) from the twist to E,, 𝜋ₚ is the p-power frobenius endomorphism
     /// and 𝜓 satisifies minmal equation 𝑋² + 𝑡𝑋 + 𝑞 = 𝑂
     /// https://eprint.iacr.org/2022/352.pdf 4.2 (7)
     /// ψ(P) = (ψ_x * conjugate(x), ψ_y * conjugate(y), conjugate(z))
+    ///
+    ///  ## Safety
+    /// - This function assumes `self` is a valid point on the BLS12-377 **twist** curve.
+    /// - The conjugation operation preserves validity.
+    /// - `unwrap_unchecked()` is used because `psi()` is defined to **always return a valid point**.
     fn psi(&self) -> Self {
         let [x, y, z] = self.coordinates();
+        // SAFETY:
+        // - `conjugate()` preserves the validity of the field element.
+        // - `ENDO_U` and `ENDO_V` are precomputed constants that ensure the
+        //   resulting point satisfies the curve equation.
+        // - `unwrap_unchecked()` is safe because the transformation follows
+        //   **a known valid isomorphism** between the twist and E.
         unsafe {
             Self::new([
                 x.conjugate() * GAMMA_12,

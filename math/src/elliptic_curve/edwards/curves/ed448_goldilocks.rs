@@ -13,8 +13,20 @@ impl IsEllipticCurve for Ed448Goldilocks {
     type BaseField = P448GoldilocksPrimeField;
     type PointRepresentation = EdwardsProjectivePoint<Self>;
 
-    /// Taken from https://www.rfc-editor.org/rfc/rfc7748#page-6
+    /// Returns the generator point of the Ed448-Goldilocks curve.
+    ///
+    /// This generator is taken from [RFC 7748](https://www.rfc-editor.org/rfc/rfc7748#page-6).
+    ///
+    /// ## Safety
+    /// - The generator coordinates `(x, y, 1)` are well-known, predefined constants.
+    /// - `unwrap_unchecked()` is used because the values are **known to be valid** points
+    ///   on the Ed448-Goldilocks curve.
+    /// - This function must **not** be modified unless new constants are mathematically verified.
     fn generator() -> Self::PointRepresentation {
+        // SAFETY:
+        // - These values are taken from RFC 7748 and are known to be valid.
+        // - `unwrap_unchecked()` is safe because `new()` will only fail if the point is
+        //   invalid, which is **not possible** with hardcoded, verified values.
         unsafe {
             Self::PointRepresentation::new([
             FieldElement::<Self::BaseField>::from_hex("4f1970c66bed0ded221d15a622bf36da9e146570470f1767ea6de324a3d3a46412ae1af72ab66511433b80e18b00938e2626a82bc70cc05e").unwrap(),
