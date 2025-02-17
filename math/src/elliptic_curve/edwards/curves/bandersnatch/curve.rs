@@ -12,11 +12,6 @@ impl IsEllipticCurve for BandersnatchCurve {
     type BaseField = BaseBandersnatchFieldElement;
     type PointRepresentation = EdwardsProjectivePoint<Self>;
 
-    // Values are from https://github.com/arkworks-rs/curves/blob/5a41d7f27a703a7ea9c48512a4148443ec6c747e/ed_on_bls12_381_bandersnatch/src/curves/mod.rs#L120
-    // converted to Hex.
-    // SAFETY: The creation of the generator point is safe since it is a constant that belongs to the curve.
-    // check which version of the comment is correct.
-
     /// Returns the generator point of the Bandersnatch curve.
     ///
     /// The generator point is defined with coordinates `(x, y, 1)`, where `x` and `y`
