@@ -28,7 +28,8 @@ impl IsEllipticCurve for BLS12381Curve {
 
     /// Returns the generator point of the BLS12-381 curve.
     ///
-    /// ## Safety
+    /// # Safety
+    ///
     /// - The generator point is mathematically verified to be a valid point on the curve.
     /// - `unwrap_unchecked()` is safe because the provided coordinates satisfy the curve equation.
     fn generator() -> Self::PointRepresentation {
@@ -103,7 +104,8 @@ impl ShortWeierstrassProjectivePoint<BLS12381TwistCurve> {
     /// and 𝜓 satisifies minmal equation 𝑋² + 𝑡𝑋 + 𝑞 = 𝑂
     /// https://eprint.iacr.org/2022/352.pdf 4.2 (7)
     ///
-    ///  ## Safety
+    /// # Safety
+    ///
     /// - This function assumes `self` is a valid point on the BLS12-381 **twist** curve.
     /// - The conjugation operation preserves validity.
     /// - `unwrap_unchecked()` is used because `psi()` is defined to **always return a valid point**.

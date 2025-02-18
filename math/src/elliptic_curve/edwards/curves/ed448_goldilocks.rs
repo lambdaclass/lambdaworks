@@ -17,7 +17,8 @@ impl IsEllipticCurve for Ed448Goldilocks {
     ///
     /// This generator is taken from [RFC 7748](https://www.rfc-editor.org/rfc/rfc7748#page-6).
     ///
-    /// ## Safety
+    /// # Safety
+    ///
     /// - The generator coordinates `(x, y, 1)` are well-known, predefined constants.
     /// - `unwrap_unchecked()` is used because the values are **known to be valid** points
     ///   on the Ed448-Goldilocks curve.

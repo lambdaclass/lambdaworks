@@ -85,7 +85,8 @@ impl<E: IsEllipticCurve> Eq for MontgomeryProjectivePoint<E> {}
 impl<E: IsMontgomery> IsGroup for MontgomeryProjectivePoint<E> {
     /// The point at infinity.
     ///    
-    /// ## Safety
+    /// # Safety
+    ///
     /// - The point `(0, 1, 0)` is a well-defined **neutral element** for Montgomery curves.
     /// - `unwrap_unchecked()` is used because this point is **always valid**.
     fn neutral_element() -> Self {
@@ -112,7 +113,8 @@ impl<E: IsMontgomery> IsGroup for MontgomeryProjectivePoint<E> {
     /// This implementation follows the addition law for Montgomery curves as described in:
     /// **Moonmath Manual, Definition 5.2.2.1, Page 94**.
     ///
-    /// ## Safety
+    /// # Safety
+    ///
     /// - This function assumes that both `self` and `other` are **valid** points on the curve.
     /// - The resulting point is **guaranteed** to be valid due to the **Montgomery curve addition formula**.
     /// - `unwrap_unchecked()` is used because the formula ensures the result remains a valid curve point.
@@ -169,7 +171,8 @@ impl<E: IsMontgomery> IsGroup for MontgomeryProjectivePoint<E> {
 
     /// Returns the additive inverse of the projective point `p`
     ///
-    /// ## Safety
+    /// # Safety
+    ///
     /// - The negation formula preserves the curve equation.
     /// - `unwrap_unchecked()` is safe because negation **does not** create invalid points.
     fn neg(&self) -> Self {

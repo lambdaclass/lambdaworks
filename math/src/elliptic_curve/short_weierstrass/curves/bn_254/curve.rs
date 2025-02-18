@@ -62,6 +62,7 @@ impl ShortWeierstrassProjectivePoint<BN254TwistCurve> {
     /// We also use phi at the last lines of the Miller Loop of the pairing.
     /// phi(q) = (x^p, y^p, z^p), where (x, y, z) are the projective coordinates of q.
     /// See https://hackmd.io/@Wimet/ry7z1Xj-2#Subgroup-Checks.
+    ///
     /// # Safety
     ///
     /// - The function assumes `self` is a valid point on the BN254 twist curve.

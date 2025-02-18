@@ -84,7 +84,8 @@ impl<E: IsEllipticCurve> Eq for EdwardsProjectivePoint<E> {}
 impl<E: IsEdwards> IsGroup for EdwardsProjectivePoint<E> {
     /// Returns the point at infinity (neutral element) in projective coordinates.
     ///
-    /// ## Safety
+    /// # Safety
+    ///
     /// - The values `[0, 1, 1]` are the **canonical representation** of the neutral element
     ///   in the Edwards curve, meaning they are guaranteed to be a valid point.
     /// - `unwrap_unchecked()` is used because this point is **known** to be valid, so
@@ -112,7 +113,8 @@ impl<E: IsEdwards> IsGroup for EdwardsProjectivePoint<E> {
     ///
     /// This implementation follows Equation (5.38) from "Moonmath" (page 97).
     ///
-    /// ## Safety
+    /// # Safety
+    ///
     /// - The function assumes both `self` and `other` are valid points on the curve.
     /// - The resulting coordinates are computed using a well-defined formula that
     ///   maintains the elliptic curve invariants.
@@ -141,7 +143,8 @@ impl<E: IsEdwards> IsGroup for EdwardsProjectivePoint<E> {
 
     /// Returns the additive inverse of the projective point `p`
     ///  
-    /// ## Safety
+    /// # Safety
+    ///
     /// - Negating the x-coordinate of a valid Edwards point results in another valid point.
     /// - `unwrap_unchecked()` is safe because negation does not break the curve equation.
     fn neg(&self) -> Self {

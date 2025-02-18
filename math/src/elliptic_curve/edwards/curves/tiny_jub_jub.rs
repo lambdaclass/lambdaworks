@@ -18,7 +18,8 @@ impl IsEllipticCurve for TinyJubJubEdwards {
     ///
     /// This generator is taken from **Moonmath Manual (page 97)**.
     ///
-    /// ## Safety
+    /// # Safety
+    ///
     /// - The generator coordinates `(8, 5, 1)` are **predefined** and belong to the TinyJubJub curve.
     /// - `unwrap_unchecked()` is used because the generator is a **verified valid point**,
     ///   meaning there is **no risk** of runtime failure.

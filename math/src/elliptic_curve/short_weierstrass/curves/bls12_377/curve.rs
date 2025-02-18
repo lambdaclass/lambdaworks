@@ -32,7 +32,8 @@ impl IsEllipticCurve for BLS12377Curve {
     ///
     /// Generator values are taken from [Neuromancer's BLS12-377 page](https://neuromancer.sk/std/bls/BLS12-377).
     ///
-    /// ## Safety
+    /// # Safety
+    ///
     /// - The generator point `(x, y, 1)` is predefined and is **known to be a valid point** on the curve.
     /// - `unwrap_unchecked()` is used because this point is **mathematically verified**.
     /// - Do **not** modify this function unless a new generator has been **mathematically verified**.
@@ -110,7 +111,8 @@ impl ShortWeierstrassProjectivePoint<BLS12377TwistCurve> {
     /// https://eprint.iacr.org/2022/352.pdf 4.2 (7)
     /// ψ(P) = (ψ_x * conjugate(x), ψ_y * conjugate(y), conjugate(z))
     ///
-    ///  ## Safety
+    /// # Safety
+    ///
     /// - This function assumes `self` is a valid point on the BLS12-377 **twist** curve.
     /// - The conjugation operation preserves validity.
     /// - `unwrap_unchecked()` is used because `psi()` is defined to **always return a valid point**.
