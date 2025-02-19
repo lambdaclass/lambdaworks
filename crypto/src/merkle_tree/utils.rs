@@ -92,7 +92,7 @@ mod tests {
 
     #[test]
     // expected |2|4|6|8|
-    fn hash_leaves_from_a_list_of_field_elemnts() {
+    fn hash_leaves_from_a_list_of_field_elements() {
         let values: Vec<FE> = (1..5).map(FE::new).collect();
         let hashed_leaves = TestBackend::hash_leaves(&values);
         let list_of_nodes = &[FE::new(2), FE::new(4), FE::new(6), FE::new(8)];
