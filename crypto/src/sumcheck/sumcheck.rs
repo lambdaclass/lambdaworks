@@ -232,30 +232,64 @@ where
         if self.round == 0 {
             let s0 = univar.evaluate(&FieldElement::zero());
             let s1 = univar.evaluate(&FieldElement::one());
-            if s0 + s1 != self.c_1 {
+            println!(
+                "Round {}: s0 = {:?}, s1 = {:?}, total = {:?}",
+                self.round,
+                s0,
+                s1,
+                s0.clone() + s1.clone()
+            );
+            if &s0 + &s1 != self.c_1 {
+                println!(
+                    "Error en ronda 0: {:?} + {:?} != c₁ ({:?})",
+                    s0, s1, self.c_1
+                );
                 return VerifierRoundResult::Final(false);
             }
         } else {
             let s0 = univar.evaluate(&FieldElement::zero());
             let s1 = univar.evaluate(&FieldElement::one());
-            if s0 + s1 != self.last_val {
+            let sum = s0.clone() + s1.clone();
+            println!(
+                "Round {}: s0 = {:?}, s1 = {:?}, total = {:?}",
+                self.round,
+                s0.clone(),
+                s1.clone(),
+                sum
+            );
+            if sum != self.last_val {
+                println!(
+                    "Error en ronda {}: {:?} + {:?} != last_val ({:?})",
+                    self.round, s0, s1, self.last_val
+                );
                 return VerifierRoundResult::Final(false);
             }
         }
         // Escoge un desafío aleatorio r_j.
         let r_j = FieldElement::<F>::from(rng.gen::<u64>());
+        println!("Round {}: desafío elegido = {:?}", self.round, r_j);
         self.challenges.push(r_j.clone());
         let val = univar.evaluate(&r_j);
+        println!("Round {}: univar({:?}) = {:?}", self.round, r_j, val);
         self.last_val = val;
         self.round += 1;
         if self.round == self.n {
             // Ronda final: si tenemos acceso oracular, comparamos con la evaluación real.
             if let Some(ref poly) = self.poly {
                 let full_point = self.challenges.clone();
+                // Aquí se evalúa el polinomio original en el vector de desafíos (en orden natural)
                 if let Some(real_val) = poly.evaluate(full_point.as_slice()) {
+                    println!(
+                        "Ronda final: full_point = {:?}, real_val = {:?}, last_val = {:?}",
+                        full_point, real_val, self.last_val
+                    );
                     return VerifierRoundResult::Final(real_val == self.last_val);
+                } else {
+                    println!("Ronda final: error al evaluar el polinomio oracular");
+                    return VerifierRoundResult::Final(false);
                 }
             }
+            println!("Ronda final sin oráculo: last_val = {:?}", self.last_val);
             VerifierRoundResult::Final(true)
         } else {
             VerifierRoundResult::NextRound(r_j)
@@ -306,6 +340,63 @@ mod tests {
             VerifierRoundResult::Final(false) => panic!("La verificación de la ronda 0 falló"),
             VerifierRoundResult::Final(true) => {
                 panic!("La ronda 0 no debe ser final")
+            }
+        }
+    }
+
+    /// Test que simula un protocolo Sumcheck para un polinomio de 3 variables.
+    /// Usamos un DenseMultilinearPolynomial con evaluaciones [1,2,3,4,5,6,7,8] (orden little‑endian),
+    /// de modo que la suma de todas sus evaluaciones es 36. Se corre el protocolo fijando una variable
+    /// por ronda (la última) y al final se verifica que el verificador acepta.
+    #[test]
+    fn test_from_book() {
+        // Construimos un polinomio de 3 variables con evaluaciones:
+        // (0,0,0)=1, (1,0,0)=2, (0,1,0)=3, (1,1,0)=4,
+        // (0,0,1)=5, (1,0,1)=6, (0,1,1)=7, (1,1,1)=8.
+        let poly = DenseMultilinearPolynomial::new(vec![
+            FE::from(1),
+            FE::from(2),
+            FE::from(3),
+            FE::from(4),
+            FE::from(5),
+            FE::from(6),
+            FE::from(7),
+            FE::from(8),
+        ]);
+        // La suma total (claimed sum) es 36.
+        let mut prover = Prover::new(poly.clone());
+        let c_1 = prover.c_1();
+        // Inicializamos el verificador con n = 3 y acceso oracular (opcional).
+        let mut verifier = Verifier::new(poly.num_vars(), Some(poly), c_1);
+        let mut rng = thread_rng();
+
+        // Ronda 0: el Prover envía g₁ = to_univariate() del polinomio original.
+        let mut g = prover.poly.to_univariate();
+        println!("-- Ronda 0 --");
+        // El verificador procesa la ronda 0.
+        let res = verifier.do_round(g, &mut rng);
+        let mut current_challenge = match res {
+            VerifierRoundResult::NextRound(chal) => chal,
+            VerifierRoundResult::Final(ok) => {
+                assert!(ok, "La verificación final falló en la ronda 0");
+                return;
+            }
+        };
+
+        // Para las rondas siguientes (hasta fijar todas las variables).
+        while verifier.round < verifier.n {
+            println!("-- Ronda {} --", verifier.round);
+            // El Prover recibe el desafío y fija la última variable.
+            g = prover.round(current_challenge.clone());
+            let res = verifier.do_round(g, &mut rng);
+            match res {
+                VerifierRoundResult::NextRound(chal) => {
+                    current_challenge = chal;
+                }
+                VerifierRoundResult::Final(ok) => {
+                    assert!(ok, "La verificación final falló");
+                    break;
+                }
             }
         }
     }
