@@ -1247,6 +1247,7 @@ mod tests {
     #[test]
     fn test_print_as_sage_poly() {
         let p = Polynomial::new(&[FE::new(1), FE::new(2), FE::new(3)]);
+        print!("{}", p.print_as_sage_poly(None));
         assert_eq!(p.print_as_sage_poly(None), "3*x^2 + 2*x + 1");
     }
 }

@@ -174,53 +174,71 @@ where
         Ok(iter.map(|i| &self.evals[i] * &chis[i]).sum())
     }
 
-    // pub fn evaluate_with(
-    //     evals: &[FieldElement<F>],
-    //     r: &[FieldElement<F>],
-    // ) -> Result<FieldElement<F>, MultilinearError> {
-    //     let mut chis: Vec<FieldElement<F>> =
-    //         vec![FieldElement::one(); (2usize).pow(r.len() as u32)];
-    //     if chis.len() != evals.len() {
-    //         return Err(MultilinearError::ChisAndEvalsLengthMismatch(
-    //             chis.len(),
-    //             evals.len(),
-    //         ));
-    //     }
-    //     let mut size = 1;
-    //     for j in r {
-    //         size *= 2;
-    //         for i in (0..size).rev().step_by(2) {
-    //             let scalar = &chis[i / 2].clone();
-    //             chis[i] = scalar * j;
-    //             chis[i - 1] = scalar - &chis[i];
-    //         }
-    //     }
-    //     Ok((0..evals.len()).map(|i| &evals[i] * &chis[i]).sum())
-    // }
-    // pub fn evaluate_with(
-    //     evals: &[FieldElement<F>],
-    //     r: &[FieldElement<F>],
-    // ) -> Result<FieldElement<F>, MultilinearError> {
-    //     let mut chis: Vec<FieldElement<F>> =
-    //         vec![FieldElement::one(); (2usize).pow(r.len() as u32)];
-    //     if chis.len() != evals.len() {
-    //         return Err(MultilinearError::ChisAndEvalsLengthMismatch(
-    //             chis.len(),
-    //             evals.len(),
-    //         ));
-    //     }
-    //     let mut size = 1;
-    //     // Recorremos r en orden inverso (igual que en evaluate)
-    //     for j in r.iter().rev() {
-    //         size *= 2;
-    //         for i in (0..size).rev().step_by(2) {
-    //             let scalar = chis[i / 2].clone();
-    //             chis[i] = scalar.clone() * j.clone();
-    //             chis[i - 1] = scalar - chis[i].clone();
-    //         }
-    //     }
-    //     Ok((0..evals.len()).map(|i| &evals[i] * &chis[i]).sum())
-    // }
+    /// Evaluates the polynomial at the full point `r` (con `r.len() == self.num_vars`).
+    /// Lo hace fijando todas las variables (con `fix_variables`) y retornando la única evaluación,
+    /// ya que la extensión multilineal es única.
+    pub fn evaluate_2(&self, r: Vec<FieldElement<F>>) -> Result<FieldElement<F>, MultilinearError> {
+        if r.len() != self.n_vars {
+            return Err(MultilinearError::IncorrectNumberofEvaluationPoints(
+                r.len(),
+                self.n_vars,
+            ));
+        }
+        // Para que coincida con la convención de Ark, invertimos el orden del punto
+        // antes de fijar las variables. De este modo, el peso asignado a cada variable
+        // se distribuye de la forma esperada.
+        let fixed_poly = self.fix_variables(&r.into_iter().rev().collect::<Vec<_>>());
+        // Como el polinomio resultante es constante, retornamos la única evaluación.
+        Ok(fixed_poly.evals[0].clone())
+    }
+
+    /// Fija (bind) las primeras variables (de izquierda a derecha) a los valores en `partial_point`.
+    /// Esto produce un nuevo polinomio con menor número de variables.
+    ///
+    /// Por ejemplo, si tienes un polinomio de 2 variables con evaluaciones [0, 1, 2, 6] (orden little endian)
+    /// y fijas la primera variable a 5, el polinomio resultante (univariado) tendrá evaluaciones [5, 22].
+    pub fn fix_variables(&self, partial_point: &[FieldElement<F>]) -> Self {
+        assert!(
+            partial_point.len() <= self.n_vars,
+            "invalid size of partial point"
+        );
+        let mut poly = self.evals.clone();
+        let nv = self.n_vars;
+        let dim = partial_point.len();
+        // Para cada variable a fijar (de izquierda a derecha)
+        for i in 1..=dim {
+            let r = partial_point[i - 1].clone();
+            // El número de pares es 2^(nv - i)
+            for b in 0..(1 << (nv - i)) {
+                let left = poly[b << 1].clone();
+                let right = poly[(b << 1) + 1].clone();
+                // Interpolación lineal: left + r*(right - left)
+                poly[b] = left.clone() + r.clone() * (right - left);
+            }
+        }
+        // Tomamos los primeros 2^(nv - dim) elementos para la nueva tabla.
+        Self::from_evaluations_slice(nv - dim, &poly[..(1 << (nv - dim))])
+    }
+
+    /// Constructs a new polynomial from a slice of evaluations.
+    pub fn from_evaluations_slice(num_vars: usize, evaluations: &[FieldElement<F>]) -> Self {
+        Self::from_evaluations_vec(num_vars, evaluations.to_vec())
+    }
+
+    /// Constructs a new polynomial from a vector of evaluations.
+    pub fn from_evaluations_vec(num_vars: usize, evaluations: Vec<FieldElement<F>>) -> Self {
+        assert_eq!(
+            evaluations.len(),
+            1 << num_vars,
+            "The size of evaluations should be 2^num_vars."
+        );
+
+        DenseMultilinearPolynomial {
+            n_vars: num_vars,
+            evals: evaluations,
+            len: 1 << num_vars,
+        }
+    }
 
     pub fn evaluate_with(
         evals: &[FieldElement<F>],
@@ -318,6 +336,82 @@ where
         new_poly.evals.iter_mut().for_each(|eval| *eval *= scalar);
         new_poly
     }
+
+    // Nuevas funciones para probar que vienen desde Ark
+
+    /// Evalúa la extensión multilineal usando el algoritmo VSBW (CTY11).
+    /// Se construye una "tabla de pesos" expandiéndola en cada coordenada y se realiza
+    /// el producto punto entre la tabla final y las evaluaciones.
+    /// El orden de las evaluaciones es: 00, 01, 10, 11.
+    pub fn vsbw_multilinear_from_evaluations(
+        evals: &[FieldElement<F>],
+        r: &[FieldElement<F>],
+    ) -> FieldElement<F> {
+        let mut eval_table = vec![FieldElement::<F>::one()];
+
+        for r_j in r {
+            let mut new_table = Vec::with_capacity(eval_table.len() * 2);
+            for weight in eval_table.into_iter() {
+                new_table.push(weight.clone() * (FieldElement::<F>::one() - r_j));
+                new_table.push(weight.clone() * r_j);
+            }
+            eval_table = new_table;
+        }
+
+        eval_table
+            .into_iter()
+            .zip(evals.iter())
+            .fold(FieldElement::<F>::zero(), |acc, (w, p)| acc + w * p)
+    }
+
+    /// Evalúa la extensión multilineal usando el algoritmo CTI (VSBW13).
+    /// Para cada evaluación (índice i) se construye un vector de bits (w) según la representación
+    /// binaria del índice (en orden inverso) y se calcula el valor de la base de Lagrange en el punto r.
+    pub fn cti_multilinear_from_evaluations(
+        evals: &[FieldElement<F>],
+        r: &[FieldElement<F>],
+    ) -> FieldElement<F> {
+        let mut res = FieldElement::<F>::zero();
+
+        for (i, p) in evals.iter().enumerate() {
+            let mut w = Vec::with_capacity(r.len());
+            let len = r.len();
+            for j in (0..len).rev() {
+                let bit = 2_usize.pow(j as u32);
+                let w_j = if i & bit == 0 {
+                    FieldElement::<F>::zero()
+                } else {
+                    FieldElement::<F>::one()
+                };
+                w.push(w_j);
+            }
+            if let Some(lbp) = Self::lagrange_basis_poly_at(r, &w) {
+                res = res + p.clone() * lbp;
+            }
+        }
+        res
+    }
+
+    /// Función auxiliar para evaluar la base de Lagrange en el punto x, dado un vector w.
+    /// Calcula el producto de: x_i * w_i + (1 - x_i) * (1 - w_i) para cada coordenada.
+    fn lagrange_basis_poly_at(
+        x: &[FieldElement<F>],
+        w: &[FieldElement<F>],
+    ) -> Option<FieldElement<F>> {
+        if x.len() != w.len() {
+            None
+        } else {
+            Some(
+                x.iter()
+                    .zip(w.iter())
+                    .fold(FieldElement::<F>::one(), |acc, (x_i, w_i)| {
+                        acc * (x_i.clone() * w_i.clone()
+                            + (FieldElement::<F>::one() - x_i.clone())
+                                * (FieldElement::<F>::one() - w_i.clone()))
+                    }),
+            )
+        }
+    }
 }
 
 impl<F: IsField> Index<usize> for DenseMultilinearPolynomial<F>
@@ -401,6 +495,7 @@ where
         self
     }
 }
+
 #[cfg(test)]
 mod tests {
 
@@ -534,7 +629,7 @@ mod tests {
         let eval_with_lr = evaluate_with_lr(&z, &r);
         let poly = DenseMultilinearPolynomial::new(z);
 
-        let eval = poly.evaluate(r).unwrap();
+        let eval = poly.evaluate_2(r).unwrap();
         assert_eq!(eval, FE::from(28u64));
         assert_eq!(eval_with_lr, eval);
     }
@@ -609,148 +704,6 @@ mod tests {
         a.extend(&b);
     }
     // Teste
-    // #[test]
-    // fn concat_two_equal_polys() {
-    //     let poly_l = DenseMultilinearPolynomial::new(vec![
-    //         FE::from(2), // poly_l eval[0]
-    //         FE::from(3), // poly_l eval[1]
-    //         FE::from(4), // poly_l eval[2]
-    //         FE::from(5), // poly_l eval[3]
-    //     ]);
-    //     let poly_r = DenseMultilinearPolynomial::new(vec![
-    //         FE::from(7),
-    //         FE::from(8),
-    //         FE::from(9),
-    //         FE::from(10),
-    //     ]);
-
-    //     // Concatenamos -> la nueva variable es el bit de menor peso (primer índice).
-    //     let merged = DenseMultilinearPolynomial::concat(&[poly_l.clone(), poly_r.clone()]);
-
-    //     assert_eq!(merged.len(), 8);
-    //     assert_eq!(merged.num_vars(), poly_l.num_vars() + 1);
-
-    //     // Queremos f(x,y,z) = (1 - z)*poly_l(x,y) + z*poly_r(x,y)
-    //     //
-    //     // PERO en la implementación actual, la PRIMERA coordenada en r
-    //     // es la que elige entre poly_l y poly_r.
-    //     // Es decir, internamente f(z,x,y).
-    //     //
-    //     // Ejemplo: si z=3, x=1, y=2 => en "r" pasamos [3, 1, 2].
-    //     // Con eso, la parte left/right la elige el "3" (primer índice).
-    //     //
-    //     // => poly_l y poly_r se evalúan en (x=1, y=2),
-    //     //    o sea .evaluate(vec![1,2])
-    //     // => merged se evalúa en [z, x, y] = [3, 1, 2].
-
-    //     let x = FE::from(1);
-    //     let y = FE::from(2);
-    //     let z = FE::from(3);
-
-    //     // poly_l(1,2)
-    //     let eval_l = poly_l.evaluate(vec![x.clone(), y.clone()]).unwrap();
-    //     // poly_r(1,2)
-    //     let eval_r = poly_r.evaluate(vec![x.clone(), y.clone()]).unwrap();
-
-    //     // Ahora "merged" se evalúa en [z, x, y]
-    //     let merged_eval = merged
-    //         .evaluate(vec![z.clone(), x.clone(), y.clone()])
-    //         .unwrap();
-
-    //     // (1 - z)*eval_l + z*eval_r
-    //     let expected = (FE::one() - z) * eval_l + z * eval_r;
-    //     assert_eq!(merged_eval, expected);
-    // }
-
-    // #[test]
-    // fn concat_two_equal_polys() {
-    //     let poly_l = DenseMultilinearPolynomial::new(vec![
-    //         FE::from(2), // poly_l eval[0]
-    //         FE::from(3), // poly_l eval[1]
-    //         FE::from(4), // poly_l eval[2]
-    //         FE::from(5), // poly_l eval[3]
-    //     ]);
-    //     let poly_r = DenseMultilinearPolynomial::new(vec![
-    //         FE::from(7),
-    //         FE::from(8),
-    //         FE::from(9),
-    //         FE::from(10),
-    //     ]);
-
-    //     // Al concatenar, agregamos una variable extra.
-    //     // Con la convención de "última coordenada como toggle",
-    //     // num_vars() aumenta en 1.
-    //     let merged = DenseMultilinearPolynomial::concat(&[poly_l.clone(), poly_r.clone()]);
-
-    //     assert_eq!(merged.len(), 8);
-    //     assert_eq!(merged.num_vars(), poly_l.num_vars() + 1);
-
-    //     // Vamos a evaluar en (x, y, z) = (1, 2, 3).
-    //     // Con la convención invertida en evaluate, z es la variable "más externa".
-    //     // Entonces interpretamos f(x, y, z) = (1 - z)*poly_l(x, y) + z*poly_r(x, y).
-
-    //     let x = FE::from(1);
-    //     let y = FE::from(2);
-    //     let z = FE::from(3);
-
-    //     // Evaluamos poly_l en (x=1, y=2).
-    //     let eval_l = poly_l.evaluate(vec![x.clone(), y.clone()]).unwrap();
-    //     // Evaluamos poly_r en (x=1, y=2).
-    //     let eval_r = poly_r.evaluate(vec![x.clone(), y.clone()]).unwrap();
-
-    //     // Evaluamos el polinomio concatenado en (x, y, z).
-    //     // Ojo: esto asume que en tu `evaluate` iteras al revés, de modo que
-    //     // la última coordenada sea la que hace la distinción L vs R.
-    //     let merged_eval = merged
-    //         .evaluate(vec![x.clone(), y.clone(), z.clone()])
-    //         .unwrap();
-
-    //     // Computamos la referencia: (1 - z)*eval_l + z*eval_r
-    //     let expected = (FE::one() - z) * eval_l + z * eval_r;
-    //     assert_eq!(merged_eval, expected);
-    // }
-    // #[test]
-    // fn concat_two_equal_polys_2() {
-    //     // Creamos dos polinomios de 2 variables (4 evaluaciones cada uno)
-    //     let poly_l = DenseMultilinearPolynomial::new(vec![
-    //         FE::from(2), // poly_l eval[0]
-    //         FE::from(3), // poly_l eval[1]
-    //         FE::from(4), // poly_l eval[2]
-    //         FE::from(5), // poly_l eval[3]
-    //     ]);
-    //     let poly_r = DenseMultilinearPolynomial::new(vec![
-    //         FE::from(7),
-    //         FE::from(8),
-    //         FE::from(9),
-    //         FE::from(10),
-    //     ]);
-
-    //     // Concatenamos los dos polinomios; el polinomio resultante tendrá 3 variables.
-    //     let merged = DenseMultilinearPolynomial::concat(&[poly_l.clone(), poly_r.clone()]);
-
-    //     assert_eq!(merged.len(), 8);
-    //     assert_eq!(merged.num_vars(), poly_l.num_vars() + 1);
-
-    //     // Evaluamos en (x, y, z) = (1, 2, 3),
-    //     // donde, con la convención invertida, la última coordenada (z) es la variable que "togglea"
-    //     let x = FE::from(1);
-    //     let y = FE::from(2);
-    //     let z = FE::from(3);
-
-    //     // Evaluamos los subpolinomios en (x, y)
-    //     let eval_l = poly_l.evaluate(vec![x.clone(), y.clone()]).unwrap();
-    //     let eval_r = poly_r.evaluate(vec![x.clone(), y.clone()]).unwrap();
-
-    //     // Evaluamos el polinomio concatenado en (x, y, z)
-    //     let merged_eval = merged
-    //         .evaluate(vec![x.clone(), y.clone(), z.clone()])
-    //         .unwrap();
-
-    //     // Se espera que:
-    //     // f(x, y, z) = (1 - z) * poly_l(x, y) + z * poly_r(x, y)
-    //     let expected = (FE::one() - z) * eval_l + z * eval_r;
-    //     assert_eq!(merged_eval, expected);
-    // }
     #[test]
     fn concat_two_equal_polys() {
         let poly_l = DenseMultilinearPolynomial::new(vec![
@@ -766,74 +719,121 @@ mod tests {
             FE::from(10),
         ]);
 
-        // Concatenamos los polinomios; el resultante tendrá 3 variables.
+        // Concatenamos -> la nueva variable es el bit de menor peso (primer índice).
         let merged = DenseMultilinearPolynomial::concat(&[poly_l.clone(), poly_r.clone()]);
 
         assert_eq!(merged.len(), 8);
         assert_eq!(merged.num_vars(), poly_l.num_vars() + 1);
 
-        // Evaluamos en (x, y, z) = (1, 2, 3)
+        // Queremos f(x,y,z) = (1 - z)*poly_l(x,y) + z*poly_r(x,y)
+        //
+        // PERO en la implementación actual, la PRIMERA coordenada en r
+        // es la que elige entre poly_l y poly_r.
+        // Es decir, internamente f(z,x,y).
+        //
+        // Ejemplo: si z=3, x=1, y=2 => en "r" pasamos [3, 1, 2].
+        // Con eso, la parte left/right la elige el "3" (primer índice).
+        //
+        // => poly_l y poly_r se evalúan en (x=1, y=2),
+        //    o sea .evaluate(vec![1,2])
+        // => merged se evalúa en [z, x, y] = [3, 1, 2].
+
         let x = FE::from(1);
         let y = FE::from(2);
         let z = FE::from(3);
 
-        // Evaluamos poly_l y poly_r en (x, y)
-        let eval_l = poly_l.evaluate(vec![x.clone(), y.clone()]).unwrap();
-        let eval_r = poly_r.evaluate(vec![x.clone(), y.clone()]).unwrap();
+        // poly_l(1,2)
+        let eval_l = poly_l.evaluate_2(vec![x.clone(), y.clone()]).unwrap();
+        // poly_r(1,2)
+        let eval_r = poly_r.evaluate_2(vec![x.clone(), y.clone()]).unwrap();
 
-        // Evaluamos el polinomio concatenado en (x, y, z)
+        // Ahora "merged" se evalúa en [z, x, y]
         let merged_eval = merged
-            .evaluate(vec![x.clone(), y.clone(), z.clone()])
+            .evaluate_2(vec![z.clone(), x.clone(), y.clone()])
             .unwrap();
 
-        // Se espera que:
-        // f(x,y,z) = (1 - z)*poly_l(x,y) + z*poly_r(x,y)
+        // (1 - z)*eval_l + z*eval_r
         let expected = (FE::one() - z) * eval_l + z * eval_r;
         assert_eq!(merged_eval, expected);
     }
-    // ok this one is ok
+
     #[test]
-    fn concat_two_equal_polys_3() {
-        let poly_l = DenseMultilinearPolynomial::new(vec![
-            FE::from(2), // poly_l.eval[0]
-            FE::from(3), // poly_l.eval[1]
-            FE::from(4), // poly_l.eval[2]
-            FE::from(5), // poly_l.eval[3]
-        ]);
-        let poly_r = DenseMultilinearPolynomial::new(vec![
-            FE::from(7),
-            FE::from(8),
-            FE::from(9),
-            FE::from(10),
-        ]);
+    fn evaluation_new_methods() {
+        // Z = [1, 2, 1, 4]
+        let z: Vec<FE> = vec![FE::one(), FE::from(2u64), FE::one(), FE::from(4u64)];
+        // r = [4, 3]
+        let r: Vec<FE> = vec![FE::from(4u64), FE::from(3u64)];
 
-        // Concatenamos los dos polinomios; el resultado tendrá 3 variables.
-        let merged = DenseMultilinearPolynomial::concat(&[poly_l.clone(), poly_r.clone()]);
+        // Creamos el polinomio usando las evaluaciones
+        let poly = DenseMultilinearPolynomial::new(z.clone());
 
-        assert_eq!(merged.len(), 8);
-        // La concatenación aumenta en 1 el número de variables:
-        assert_eq!(merged.num_vars(), poly_l.num_vars() + 1);
+        // Evaluamos usando el método original (evaluate)
+        let eval_poly = poly.evaluate_2(r.clone()).unwrap();
 
-        // Queremos que el polinomio concatenado represente:
-        // f(x, y, z) = (1 - z)*poly_l(x, y) + z*poly_r(x, y)
-        // Con la implementación actual (natural order), la primera coordenada es el toggle.
-        // Por ello, debemos pasar los parámetros en el orden [z, x, y].
-        let x = FE::from(1);
-        let y = FE::from(2);
-        let z = FE::from(3);
+        // Evaluamos usando la implementación VSBW (CTY11)
+        let eval_vsbw = DenseMultilinearPolynomial::<F>::vsbw_multilinear_from_evaluations(&z, &r);
 
-        // Evaluamos poly_l y poly_r en (x, y)
-        let eval_l = poly_l.evaluate(vec![x.clone(), y.clone()]).unwrap();
-        let eval_r = poly_r.evaluate(vec![x.clone(), y.clone()]).unwrap();
+        // Evaluamos usando la implementación CTI (VSBW13)
+        let eval_cti = DenseMultilinearPolynomial::<F>::cti_multilinear_from_evaluations(&z, &r);
 
-        // Evaluamos el polinomio concatenado en (z, x, y)
-        let merged_eval = merged
-            .evaluate(vec![z.clone(), x.clone(), y.clone()])
-            .unwrap();
+        // En un campo de orden 101, se espera que la evaluación sea 28.
+        let expected = FE::from(28u64);
 
-        // Se espera que:
-        // f(x,y,z) = (1 - z)*poly_l(x,y) + z*poly_r(x,y)
-        let expected = (FE::one() - z) * eval_l + z * eval_r;
-        assert_eq!(merged_eval, expected);
+        assert_eq!(eval_poly, expected, "evaluate() debe dar 28");
+        assert_eq!(eval_vsbw, expected, "VSBW debe dar 28");
+        assert_eq!(eval_cti, expected, "CTI debe dar 28");
+
+        // Además, ambos métodos deben coincidir entre sí
+        assert_eq!(eval_poly, eval_vsbw, "evaluate() y VSBW deben coincidir");
+        assert_eq!(eval_poly, eval_cti, "evaluate() y CTI deben coincidir");
+    }
+
+    #[test]
+    fn fix_variables_test() -> Result<(), MultilinearError> {
+        // Creamos un polinomio de 2 variables cuyos valores (en orden little endian)
+        // son: f(0,0)=0, f(1,0)=1, f(0,1)=2, f(1,1)=6.
+        // Es decir, la tabla es [0, 1, 2, 6].
+        let poly = DenseMultilinearPolynomial::from_evaluations_vec(
+            2,
+            vec![0, 1, 2, 6].into_iter().map(|x| FE::from(x)).collect(),
+        );
+
+        // Ahora fijamos la primera variable a 5.
+        // Con la convención de Ark (little endian) al fijar la variable x₀ = 5:
+        // - Para x₀ = 0: se calcula 0 + 5*(1 - 0) = 5.
+        // - Para x₀ = 1: se calcula 2 + 5*(6 - 2) = 2 + 20 = 22.
+        // Por lo tanto, se espera que el polinomio resultante (de 1 variable) tenga la tabla [5, 22].
+        let fixed_poly = poly.fix_variables(&[FE::from(5)]);
+
+        let expected = vec![FE::from(5), FE::from(22)];
+        assert_eq!(
+            fixed_poly.evals, expected,
+            "fix_variables() debe producir [5, 22]"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn evaluate_vs_evaluate_2() -> Result<(), MultilinearError> {
+        // Definimos un polinomio de 2 variables con evaluaciones [1, 2, 1, 4].
+        // Con la convención little endian:
+        //   índice 0: (0,0) → 1
+        //   índice 1: (1,0) → 2
+        //   índice 2: (0,1) → 1
+        //   índice 3: (1,1) → 4
+        let poly = DenseMultilinearPolynomial::from_evaluations_vec(
+            2,
+            vec![1, 2, 1, 4].into_iter().map(|x| FE::from(x)).collect(),
+        );
+
+        // Queremos evaluar el polinomio en el punto completo [4, 3].
+        // La versión "directa" (por ejemplo, usando la interpolación con tabla de pesos)
+        // de tu método evaluate (en tu código original) daría 28.
+        // En nuestro método basado en fix_variables, se fija cada variable hasta quedar un polinomio constante.
+        // Para que coincida con la convención de Ark, en evaluate_2 se invierte el orden del punto.
+        let result = poly.evaluate_2(vec![FE::from(4), FE::from(3)])?;
+        // Se espera 28 en el campo de orden 101 (28 < 101).
+        assert_eq!(result, FE::from(28), "evaluate_2() debe dar 28");
+        Ok(())
     }
 }
