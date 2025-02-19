@@ -10,7 +10,7 @@ pub type TestMerkleTree<F> = MerkleTree<FieldElement<F>>;
 
 /// This hasher is for testing purposes
 /// It adds the fields
-/// Under no circunstance it can be used in production
+/// Under no circumstance it can be used in production
 pub struct TestBackend<F> {
     phantom: PhantomData<F>,
 }
