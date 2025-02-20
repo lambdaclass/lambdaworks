@@ -36,12 +36,13 @@ impl IsEllipticCurve for BLS12381Curve {
         // SAFETY:
         // - These values are mathematically verified and known to be valid points on BLS12-381.
         // - `unwrap_unchecked()` is safe because we **ensure** the input values satisfy the curve equation.
-
-        Self::PointRepresentation::new([
+        unsafe {
+            Self::PointRepresentation::new([
             FieldElement::<Self::BaseField>::new_base("17f1d3a73197d7942695638c4fa9ac0fc3688c4f9774b905a14e3a3f171bac586c55e83ff97a1aeffb3af00adb22c6bb"),
             FieldElement::<Self::BaseField>::new_base("8b3f481e3aaa0f1a09e30ed741d8ae4fcf5e095d5d00af600db18cb2c04b3edd03cc744a2888ae40caa232946c5e7e1"),
             FieldElement::one()
-        ]).unwrap()
+        ]).unwrap_unchecked()
+        }
     }
 }
 
@@ -110,19 +111,20 @@ impl ShortWeierstrassProjectivePoint<BLS12381TwistCurve> {
     /// - `unwrap_unchecked()` is used because `psi()` is defined to **always return a valid point**.
     fn psi(&self) -> Self {
         let [x, y, z] = self.coordinates();
-
-        // SAFETY:
-        // - `conjugate()` preserves the validity of the field element.
-        // - `ENDO_U` and `ENDO_V` are precomputed constants that ensure the
-        //   resulting point satisfies the curve equation.
-        // - `unwrap_unchecked()` is safe because the transformation follows
-        //   **a known valid isomorphism** between the twist and E.
-        Self::new([
-            x.conjugate() * ENDO_U,
-            y.conjugate() * ENDO_V,
-            z.conjugate(),
-        ])
-        .unwrap()
+        unsafe {
+            // SAFETY:
+            // - `conjugate()` preserves the validity of the field element.
+            // - `ENDO_U` and `ENDO_V` are precomputed constants that ensure the
+            //   resulting point satisfies the curve equation.
+            // - `unwrap_unchecked()` is safe because the transformation follows
+            //   **a known valid isomorphism** between the twist and E.
+            Self::new([
+                x.conjugate() * ENDO_U,
+                y.conjugate() * ENDO_V,
+                z.conjugate(),
+            ])
+            .unwrap_unchecked()
+        }
     }
 
     /// 𝜓(P) = 𝑢P, where 𝑢 = SEED of the curve
@@ -173,11 +175,13 @@ mod tests {
     ) -> ShortWeierstrassProjectivePoint<BLS12381TwistCurve> {
         let [x, y, z] = p.coordinates();
         // Since power of frobenius map is 2 we apply once as applying twice is inverse
-
-        // SAFETY:
-        // - `ENDO_U_2` and `ENDO_V_2` are known valid constants.
-        // - `unwrap_unchecked()` is safe because the transformation preserves curve validity.
-        ShortWeierstrassProjectivePoint::new([x * ENDO_U_2, y * ENDO_V_2, z.clone()]).unwrap()
+        unsafe {
+            // SAFETY:
+            // - `ENDO_U_2` and `ENDO_V_2` are known valid constants.
+            // - `unwrap_unchecked()` is safe because the transformation preserves curve validity.
+            ShortWeierstrassProjectivePoint::new([x * ENDO_U_2, y * ENDO_V_2, z.clone()])
+                .unwrap_unchecked()
+        }
     }
 
     #[allow(clippy::upper_case_acronyms)]

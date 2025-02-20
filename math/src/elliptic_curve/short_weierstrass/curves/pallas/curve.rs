@@ -16,13 +16,14 @@ impl IsEllipticCurve for PallasCurve {
         // SAFETY:
         // - The generator point is mathematically verified to be a valid point on the curve.
         // - `unwrap_unchecked()` is safe because the provided coordinates satisfy the curve equation.
-
-        Self::PointRepresentation::new([
-            -FieldElement::<Self::BaseField>::one(),
-            FieldElement::<Self::BaseField>::from(2),
-            FieldElement::one(),
-        ])
-        .unwrap()
+        unsafe {
+            Self::PointRepresentation::new([
+                -FieldElement::<Self::BaseField>::one(),
+                FieldElement::<Self::BaseField>::from(2),
+                FieldElement::one(),
+            ])
+            .unwrap_unchecked()
+        }
     }
 }
 

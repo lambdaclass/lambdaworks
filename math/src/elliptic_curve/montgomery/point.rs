@@ -93,13 +93,14 @@ impl<E: IsMontgomery> IsGroup for MontgomeryProjectivePoint<E> {
         // SAFETY:
         // - `(0, 1, 0)` is **mathematically valid** as the neutral element.
         // - `unwrap_unchecked()` is safe because this is **a known valid point**.
-
-        Self::new([
-            FieldElement::zero(),
-            FieldElement::one(),
-            FieldElement::zero(),
-        ])
-        .unwrap()
+        unsafe {
+            Self::new([
+                FieldElement::zero(),
+                FieldElement::one(),
+                FieldElement::zero(),
+            ])
+            .unwrap_unchecked()
+        }
     }
 
     fn is_neutral_element(&self) -> bool {
@@ -150,7 +151,7 @@ impl<E: IsMontgomery> IsGroup for MontgomeryProjectivePoint<E> {
                 // SAFETY:
                 // - The Montgomery addition formula guarantees a **valid** curve point.
                 // - `unwrap_unchecked()` is safe because the input points are **valid**.
-                Self::new([new_x, new_y, one]).unwrap()
+                unsafe { Self::new([new_x, new_y, one]).unwrap_unchecked() }
             // In the rest of the cases we have x1 != x2
             } else {
                 let num = &y2 - &y1;
@@ -163,7 +164,7 @@ impl<E: IsMontgomery> IsGroup for MontgomeryProjectivePoint<E> {
                 // SAFETY:
                 // - The result of the Montgomery addition formula is **guaranteed** to be a valid point.
                 // - `unwrap_unchecked()` is safe because we **control** the inputs.
-                Self::new([new_x, new_y, FieldElement::one()]).unwrap()
+                unsafe { Self::new([new_x, new_y, FieldElement::one()]).unwrap_unchecked() }
             }
         }
     }
@@ -179,7 +180,7 @@ impl<E: IsMontgomery> IsGroup for MontgomeryProjectivePoint<E> {
         // SAFETY:
         // - Negating `y` maintains the curve structure.
         // - `unwrap_unchecked()` is safe because negation **is always valid**.
-        Self::new([px.clone(), -py, pz.clone()]).unwrap()
+        unsafe { Self::new([px.clone(), -py, pz.clone()]).unwrap_unchecked() }
     }
 }
 

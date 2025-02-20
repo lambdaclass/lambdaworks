@@ -33,17 +33,18 @@ impl IsEllipticCurve for StarkCurve {
         // SAFETY:
         // - The generator point is mathematically verified to be a valid point on the curve.
         // - `unwrap_unchecked()` is safe because the provided coordinates satisfy the curve equation.
-
-        Self::PointRepresentation::new([
-            FieldElement::<Self::BaseField>::from_hex_unchecked(
-                "1EF15C18599971B7BECED415A40F0C7DEACFD9B0D1819E03D723D8BC943CFCA",
-            ),
-            FieldElement::<Self::BaseField>::from_hex_unchecked(
-                "5668060AA49730B7BE4801DF46EC62DE53ECD11ABE43A32873000C36E8DC1F",
-            ),
-            FieldElement::one(),
-        ])
-        .unwrap()
+        unsafe {
+            Self::PointRepresentation::new([
+                FieldElement::<Self::BaseField>::from_hex_unchecked(
+                    "1EF15C18599971B7BECED415A40F0C7DEACFD9B0D1819E03D723D8BC943CFCA",
+                ),
+                FieldElement::<Self::BaseField>::from_hex_unchecked(
+                    "5668060AA49730B7BE4801DF46EC62DE53ECD11ABE43A32873000C36E8DC1F",
+                ),
+                FieldElement::one(),
+            ])
+            .unwrap_unchecked()
+        }
     }
 }
 

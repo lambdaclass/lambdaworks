@@ -166,7 +166,7 @@ fn line(p: &G1Point, t: &G2Point, q: &G2Point) -> (G2Point, Fp12E) {
         );
         // SAFETY: `unwrap_unchecked()` is used here because we ensure that `x_r, y_r, z_r`
         // satisfy the curve equation. The previous assertion checks that this is indeed the case.
-        let r = G2Point::new([x_r, y_r, z_r]).unwrap();
+        let r = unsafe { G2Point::new([x_r, y_r, z_r]).unwrap_unchecked() };
 
         let l = Fp12E::new([
             Fp6E::new([y_p * (-h), Fp2E::zero(), Fp2E::zero()]),
@@ -200,7 +200,7 @@ fn line(p: &G1Point, t: &G2Point, q: &G2Point) -> (G2Point, Fp12E) {
         );
         // SAFETY: The values `x_r, y_r, z_r` are computed correctly to be on the curve.
         // The assertion above verifies that the resulting point is valid.
-        let r = G2Point::new([x_r, y_r, z_r]).unwrap();
+        let r = unsafe { G2Point::new([x_r, y_r, z_r]).unwrap_unchecked() };
 
         let l = Fp12E::new([
             Fp6E::new([y_p * lambda, Fp2E::zero(), Fp2E::zero()]),
