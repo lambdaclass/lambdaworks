@@ -115,7 +115,7 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
         );
         // SAFETY: The values `x_p, y_p, z_p` are computed correctly to be on the curve.
         // The assertion above verifies that the resulting point is valid.
-        unsafe { Self::new([xp, yp, zp]).unwrap_unchecked() }
+        Self::new([xp, yp, zp]).unwrap()
     }
     // https://hyperelliptic.org/EFD/g1p/data/shortw/projective/addition/madd-1998-cmo
     pub fn operate_with_affine(&self, other: &Self) -> Self {
@@ -134,17 +134,15 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
         if u == *py {
             if v != *px || *py == FieldElement::zero() {
                 // SAFETY: The point (0, 1, 0) is defined as the point at infinity.
-                return unsafe {
-                    Self::new([
-                        FieldElement::zero(),
-                        FieldElement::one(),
-                        FieldElement::zero(),
-                    ])
-                    .unwrap_unchecked()
-                };
-            } else {
-                return self.double();
-            }
+                return Self::new([
+                    FieldElement::zero(),
+                    FieldElement::one(),
+                    FieldElement::zero(),
+                ])
+                .unwrap();
+            };
+        } else {
+            return self.double();
         }
 
         let u = &u - py;
@@ -165,7 +163,7 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
         );
         // SAFETY: The values `x, y, z` are computed correctly to be on the curve.
         // The assertion above verifies that the resulting point is valid.
-        unsafe { Self::new([x, y, z]).unwrap_unchecked() }
+        Self::new([x, y, z]).unwrap()
     }
 }
 
@@ -193,14 +191,13 @@ impl<E: IsShortWeierstrass> IsGroup for ShortWeierstrassProjectivePoint<E> {
         // SAFETY:
         // - `(0, 1, 0)` is **mathematically valid** as the neutral element.
         // - `unwrap_unchecked()` is safe because this is **a known valid point**.
-        unsafe {
-            Self::new([
-                FieldElement::zero(),
-                FieldElement::one(),
-                FieldElement::zero(),
-            ])
-            .unwrap_unchecked()
-        }
+
+        Self::new([
+            FieldElement::zero(),
+            FieldElement::one(),
+            FieldElement::zero(),
+        ])
+        .unwrap()
     }
 
     fn is_neutral_element(&self) -> bool {
@@ -250,7 +247,7 @@ impl<E: IsShortWeierstrass> IsGroup for ShortWeierstrassProjectivePoint<E> {
                 );
                 // SAFETY: The values `x_p, y_p, z_p` are computed correctly to be on the curve.
                 // The assertion above verifies that the resulting point is valid.
-                unsafe { Self::new([xp, yp, zp]).unwrap_unchecked() }
+                Self::new([xp, yp, zp]).unwrap()
             }
         }
     }
@@ -261,7 +258,7 @@ impl<E: IsShortWeierstrass> IsGroup for ShortWeierstrassProjectivePoint<E> {
         // SAFETY:
         // - Negating `y` maintains the curve structure.
         // - `unwrap_unchecked()` is safe because negation **is always valid**.
-        unsafe { Self::new([px.clone(), -py, pz.clone()]).unwrap_unchecked() }
+        Self::new([px.clone(), -py, pz.clone()]).unwrap()
     }
 }
 
@@ -499,7 +496,7 @@ impl<E: IsShortWeierstrass> ShortWeierstrassJacobianPoint<E> {
             );
             // SAFETY: The values `x_3, y_3, z_3` are computed correctly to be on the curve.
             // The assertion above verifies that the resulting point is valid.
-            unsafe { Self::new([x3, y3, z3]).unwrap_unchecked() }
+            Self::new([x3, y3, z3]).unwrap()
         } else {
             // http://www.hyperelliptic.org/EFD/g1p/data/shortw/jacobian-0/doubling/dbl-2009-alnr
             // http://www.hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-0.html#doubling-dbl-2009-l
@@ -519,7 +516,7 @@ impl<E: IsShortWeierstrass> ShortWeierstrassJacobianPoint<E> {
             );
             // SAFETY: The values `x_3, y_3, z_3` are computed correctly to be on the curve.
             // The assertion above verifies that the resulting point is valid.
-            unsafe { Self::new([x3, y3, z3]).unwrap_unchecked() }
+            Self::new([x3, y3, z3]).unwrap()
         }
     }
 
@@ -562,7 +559,7 @@ impl<E: IsShortWeierstrass> ShortWeierstrassJacobianPoint<E> {
             );
             // SAFETY: The values `x_3, y_3, z_3` are computed correctly to be on the curve.
             // The assertion above verifies that the resulting point is valid.
-            unsafe { Self::new([x3, y3, z3]).unwrap_unchecked() }
+            Self::new([x3, y3, z3]).unwrap()
         }
     }
 }
@@ -591,14 +588,13 @@ impl<E: IsShortWeierstrass> IsGroup for ShortWeierstrassJacobianPoint<E> {
         // SAFETY:
         // - `(1, 1, 0)` is **mathematically valid** as the neutral element.
         // - `unwrap_unchecked()` is safe because this is **a known valid point**.
-        unsafe {
-            Self::new([
-                FieldElement::one(),
-                FieldElement::one(),
-                FieldElement::zero(),
-            ])
-            .unwrap_unchecked()
-        }
+
+        Self::new([
+            FieldElement::one(),
+            FieldElement::one(),
+            FieldElement::zero(),
+        ])
+        .unwrap()
     }
 
     fn is_neutral_element(&self) -> bool {
@@ -668,7 +664,7 @@ impl<E: IsShortWeierstrass> IsGroup for ShortWeierstrassJacobianPoint<E> {
         );
         // SAFETY: The values `x_3, y_3, z_3` are computed correctly to be on the curve.
         // The assertion above verifies that the resulting point is valid.
-        unsafe { Self::new([x3, y3, z3]).unwrap_unchecked() }
+        Self::new([x3, y3, z3]).unwrap()
     }
 
     /// Returns the additive inverse of the jacobian point `p`
@@ -677,7 +673,7 @@ impl<E: IsShortWeierstrass> IsGroup for ShortWeierstrassJacobianPoint<E> {
         // SAFETY:
         // - The negation formula for Short Weierstrass curves is well-defined.
         // - The result remains a valid curve point.
-        unsafe { Self::new([x.clone(), -y, z.clone()]).unwrap_unchecked() }
+        Self::new([x.clone(), -y, z.clone()]).unwrap()
     }
 }
 
