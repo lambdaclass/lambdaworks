@@ -23,20 +23,19 @@ impl IsEllipticCurve for BLS12377TwistCurve {
         // SAFETY:
         // - The generator point is mathematically verified to be a valid point on the curve.
         // - `unwrap_unchecked()` is safe because the provided coordinates satisfy the curve equation.
-        unsafe {
-            Self::PointRepresentation::new([
-                FieldElement::new([
-                    FieldElement::new(GENERATOR_X_0),
-                    FieldElement::new(GENERATOR_X_1),
-                ]),
-                FieldElement::new([
-                    FieldElement::new(GENERATOR_Y_0),
-                    FieldElement::new(GENERATOR_Y_1),
-                ]),
-                FieldElement::one(),
-            ])
-            .unwrap_unchecked()
-        }
+
+        Self::PointRepresentation::new([
+            FieldElement::new([
+                FieldElement::new(GENERATOR_X_0),
+                FieldElement::new(GENERATOR_X_1),
+            ]),
+            FieldElement::new([
+                FieldElement::new(GENERATOR_Y_0),
+                FieldElement::new(GENERATOR_Y_1),
+            ]),
+            FieldElement::one(),
+        ])
+        .unwrap()
     }
 }
 

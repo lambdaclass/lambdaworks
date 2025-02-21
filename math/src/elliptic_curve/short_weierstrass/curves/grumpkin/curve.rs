@@ -26,16 +26,15 @@ impl IsEllipticCurve for GrumpkinCurve {
         // SAFETY:
         // - The generator point is mathematically verified to be a valid point on the curve.
         // - `unwrap_unchecked()` is safe because the provided coordinates satisfy the curve equation.
-        unsafe {
-            Self::PointRepresentation::new([
-                FieldElement::<Self::BaseField>::one(),
-                FieldElement::<Self::BaseField>::from_hex_unchecked(
-                    "0x2cf135e7506a45d632d270d45f1181294833fc48d823f272c",
-                ),
-                FieldElement::one(),
-            ])
-            .unwrap_unchecked()
-        }
+
+        Self::PointRepresentation::new([
+            FieldElement::<Self::BaseField>::one(),
+            FieldElement::<Self::BaseField>::from_hex_unchecked(
+                "0x2cf135e7506a45d632d270d45f1181294833fc48d823f272c",
+            ),
+            FieldElement::one(),
+        ])
+        .unwrap()
     }
 }
 

@@ -16,14 +16,13 @@ impl IsEllipticCurve for VestaCurve {
         // SAFETY:
         // - The generator point is mathematically verified to be a valid point on the curve.
         // - `unwrap_unchecked()` is safe because the provided coordinates satisfy the curve equation.
-        unsafe {
-            Self::PointRepresentation::new([
-                -FieldElement::<Self::BaseField>::one(),
-                FieldElement::<Self::BaseField>::from(2),
-                FieldElement::one(),
-            ])
-            .unwrap_unchecked()
-        }
+
+        Self::PointRepresentation::new([
+            -FieldElement::<Self::BaseField>::one(),
+            FieldElement::<Self::BaseField>::from(2),
+            FieldElement::one(),
+        ])
+        .unwrap()
     }
 }
 
