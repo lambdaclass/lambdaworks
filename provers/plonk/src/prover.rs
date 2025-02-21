@@ -362,7 +362,8 @@ where
                 * lp(c_i, &(&cpi.domain[i] * &k2));
             let den = lp(a_i, &s1[i]) * lp(b_i, &s2[i]) * lp(c_i, &s3[i]);
             // We are using that den != 0 with high probability because beta and gamma are random elements.
-            let new_factor = unsafe { (num / den).unwrap_unchecked() };
+            let new_factor = (num / den).expect("Unexpected zero denominator in round 2");
+
             let new_term = coefficients.last().unwrap() * &new_factor;
             coefficients.push(new_term);
         }
