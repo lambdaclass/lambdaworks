@@ -28,13 +28,13 @@ impl IsEllipticCurve for TinyJubJubEdwards {
         // SAFETY:
         // - The generator point `(8, 5, 1)` is **mathematically valid** on the curve.
         // - `unwrap_unchecked()` is safe because we **know** the point satisfies the curve equation.
-
-        Self::PointRepresentation::new([
+        let point = Self::PointRepresentation::new([
             FieldElement::from(8),
             FieldElement::from(5),
             FieldElement::one(),
-        ])
-        .unwrap()
+        ]);
+        debug_assert!(point.is_ok());
+        point.unwrap()
     }
 }
 

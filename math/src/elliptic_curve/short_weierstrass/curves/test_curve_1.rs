@@ -44,13 +44,13 @@ impl IsEllipticCurve for TestCurve1 {
         // SAFETY:
         // - The generator point is mathematically verified to be a valid point on the curve.
         // - `unwrap_unchecked()` is safe because the provided coordinates satisfy the curve equation.
-
-        Self::PointRepresentation::new([
+        let point = Self::PointRepresentation::new([
             FieldElement::from(35),
             FieldElement::from(31),
             FieldElement::one(),
-        ])
-        .unwrap()
+        ]);
+        debug_assert!(point.is_ok());
+        point.unwrap()
     }
 }
 

@@ -310,13 +310,14 @@ fn line_optimized(p: &G1Point, t: &G2Point, q: &G2Point) -> (G2Point, Fp12E) {
         );
         // SAFETY: `unwrap_unchecked()` is used here because we ensure that `x_r, y_r, z_r`
         // satisfy the curve equation. The previous assertion checks that this is indeed the case.
-        let r = G2Point::new([x_r, y_r, z_r]).unwrap();
+        let r = G2Point::new([x_r, y_r, z_r]);
+        debug_assert!(r.is_ok());
 
         let l = Fp12E::new([
             Fp6E::new([y_p * (-h), Fp2E::zero(), Fp2E::zero()]),
             Fp6E::new([x_p * (j.double() + &j), i, Fp2E::zero()]),
         ]);
-        (r, l)
+        (r.unwrap(), l)
     } else {
         let [x_q, y_q, _] = q.coordinates();
         let [x_t, y_t, z_t] = t.coordinates();
@@ -344,13 +345,14 @@ fn line_optimized(p: &G1Point, t: &G2Point, q: &G2Point) -> (G2Point, Fp12E) {
         );
         // SAFETY: `unwrap_unchecked()` is used here because we ensure that `x_r, y_r, z_r`
         // satisfy the curve equation. The previous assertion checks that this is indeed the case.
-        let r = G2Point::new([x_r, y_r, z_r]).unwrap();
+        let r = G2Point::new([x_r, y_r, z_r]);
+        debug_assert!(r.is_ok());
 
         let l = Fp12E::new([
             Fp6E::new([y_p * lambda, Fp2E::zero(), Fp2E::zero()]),
             Fp6E::new([x_p * (-theta), j, Fp2E::zero()]),
         ]);
-        (r, l)
+        (r.unwrap(), l)
     }
 }
 

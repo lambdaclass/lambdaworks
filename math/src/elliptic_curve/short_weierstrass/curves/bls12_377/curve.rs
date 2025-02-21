@@ -41,12 +41,13 @@ impl IsEllipticCurve for BLS12377Curve {
         // SAFETY:
         // - These values are mathematically verified and known to be valid points on BLS12-377.
         // - `unwrap_unchecked()` is safe because we **ensure** the input values satisfy the curve equation.
-
-        Self::PointRepresentation::new([
+        let point= Self::PointRepresentation::new([
             FieldElement::<Self::BaseField>::new_base("8848defe740a67c8fc6225bf87ff5485951e2caa9d41bb188282c8bd37cb5cd5481512ffcd394eeab9b16eb21be9ef"),
             FieldElement::<Self::BaseField>::new_base("1914a69c5102eff1f674f5d30afeec4bd7fb348ca3e52d96d182ad44fb82305c2fe3d3634a9591afd82de55559c8ea6"),
             FieldElement::one()
-        ]).unwrap()
+        ]);
+        debug_assert!(point.is_ok());
+        point.unwrap()
     }
 }
 
@@ -124,12 +125,13 @@ impl ShortWeierstrassProjectivePoint<BLS12377TwistCurve> {
         // - `unwrap_unchecked()` is safe because the transformation follows
         //   **a known valid isomorphism** between the twist and E.
 
-        Self::new([
+        let point = Self::new([
             x.conjugate() * GAMMA_12,
             y.conjugate() * GAMMA_13,
             z.conjugate(),
-        ])
-        .unwrap()
+        ]);
+        debug_assert!(point.is_ok());
+        point.unwrap()
     }
 
     /// 𝜓(P) = 𝑢P, where 𝑢 = SEED of the curve

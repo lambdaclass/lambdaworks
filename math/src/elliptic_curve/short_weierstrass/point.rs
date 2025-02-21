@@ -15,6 +15,7 @@ use super::traits::IsShortWeierstrass;
 use crate::traits::AsBytes;
 #[cfg(feature = "alloc")]
 use alloc::vec::Vec;
+
 #[derive(Clone, Debug)]
 pub struct ShortWeierstrassProjectivePoint<E: IsEllipticCurve>(pub ProjectivePoint<E>);
 
@@ -107,7 +108,9 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
         );
         // SAFETY: The values `x_p, y_p, z_p` are computed correctly to be on the curve.
         // The assertion above verifies that the resulting point is valid.
-        Self::new([xp, yp, zp]).unwrap()
+        let point = Self::new([xp, yp, zp]);
+        debug_assert!(point.is_ok());
+        point.unwrap()
     }
     // https://hyperelliptic.org/EFD/g1p/data/shortw/projective/addition/madd-1998-cmo
     pub fn operate_with_affine(&self, other: &Self) -> Self {
@@ -155,7 +158,9 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
         );
         // SAFETY: The values `x, y, z` are computed correctly to be on the curve.
         // The assertion above verifies that the resulting point is valid.
-        Self::new([x, y, z]).unwrap()
+        let point = Self::new([x, y, z]);
+        debug_assert!(point.is_ok());
+        point.unwrap()
     }
 }
 

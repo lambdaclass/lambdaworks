@@ -94,13 +94,13 @@ impl<E: IsEdwards> IsGroup for EdwardsProjectivePoint<E> {
         // SAFETY:
         // - `[0, 1, 1]` is a mathematically verified neutral element in Edwards curves.
         // - `unwrap_unchecked()` is safe because this point is **always valid**.
-
-        Self::new([
+        let point = Self::new([
             FieldElement::zero(),
             FieldElement::one(),
             FieldElement::one(),
-        ])
-        .unwrap()
+        ]);
+        debug_assert!(point.is_ok());
+        point.unwrap()
     }
 
     fn is_neutral_element(&self) -> bool {
@@ -137,7 +137,9 @@ impl<E: IsEdwards> IsGroup for EdwardsProjectivePoint<E> {
         let den_s2 = &one - &dx1x2y1y2;
 
         // SAFETY: The creation of the result point is safe because the inputs are always points that belong to the curve.
-        Self::new([&num_s1 / &den_s1, &num_s2 / &den_s2, one]).unwrap()
+        let point = Self::new([&num_s1 / &den_s1, &num_s2 / &den_s2, one]);
+        debug_assert!(point.is_ok());
+        point.unwrap()
     }
 
     /// Returns the additive inverse of the projective point `p`
@@ -151,7 +153,9 @@ impl<E: IsEdwards> IsGroup for EdwardsProjectivePoint<E> {
         // SAFETY:
         // - The negation formula for Edwards curves is well-defined.
         // - The result remains a valid curve point.
-        Self::new([-px, py.clone(), pz.clone()]).unwrap()
+        let point = Self::new([-px, py.clone(), pz.clone()]);
+        debug_assert!(point.is_ok());
+        point.unwrap()
     }
 }
 
