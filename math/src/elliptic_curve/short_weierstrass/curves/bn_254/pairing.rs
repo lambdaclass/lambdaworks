@@ -307,7 +307,6 @@ fn line_optimized(p: &G1Point, t: &G2Point, q: &G2Point) -> (G2Point, Fp12E) {
         debug_assert_eq!(
             BN254TwistCurve::defining_equation_projective(&x_r, &y_r, &z_r),
             Fp2E::zero(),
-            "Success: The resulting point satisfies the curve equation"
         );
         // SAFETY: `unwrap_unchecked()` is used here because we ensure that `x_r, y_r, z_r`
         // satisfy the curve equation. The previous assertion checks that this is indeed the case.
@@ -341,13 +340,10 @@ fn line_optimized(p: &G1Point, t: &G2Point, q: &G2Point) -> (G2Point, Fp12E) {
 
         debug_assert_eq!(
             BN254TwistCurve::defining_equation_projective(&x_r, &y_r, &z_r),
-            Fp2E::zero(),
-            "Success: The resulting point satisfies the curve equation"
+            Fp2E::zero()
         );
-
         // SAFETY: `unwrap_unchecked()` is used here because we ensure that `x_r, y_r, z_r`
         // satisfy the curve equation. The previous assertion checks that this is indeed the case.
-        print!("x_r: {:?}, y_r: {:?}, z_r: {:?}\n", x_r, y_r, z_r);
         let r = G2Point::new([x_r, y_r, z_r]).unwrap();
 
         let l = Fp12E::new([

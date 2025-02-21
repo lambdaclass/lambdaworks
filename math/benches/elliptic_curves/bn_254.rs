@@ -26,22 +26,17 @@ type G2 = ShortWeierstrassProjectivePoint<BN254TwistCurve>;
 #[allow(dead_code)]
 pub fn bn_254_elliptic_curve_benchmarks(c: &mut Criterion) {
     let mut rng = StdRng::seed_from_u64(42);
+    let a_val: u128 = rng.gen();
+    let b_val: u128 = rng.gen();
+    let a_g1 = BN254Curve::generator().operate_with_self(a_val).to_affine();
+    let b_g1 = BN254Curve::generator().operate_with_self(b_val).to_affine();
 
-    // let a_val: u128 = rng.gen();
-    // let b_val: u128 = rng.gen();
-    let a_val: u128 = 2;
-    let b_val: u128 = 93;
-    let p = BN254Curve::generator();
-    let q = BN254TwistCurve::generator();
-    let a_g1 = BN254Curve::generator().operate_with(&p);
-    let b_g1 = BN254Curve::generator().operate_with_self(b_val);
-
-    //let a_g2 = BN254TwistCurve::generator().operate_with_self(2u32);
-    let a_g2 = BN254TwistCurve::generator().operate_with_self(2u32);
-    assert!(a_g2.is_in_subgroup(), "a_g2 is not in the subgroup!");
-
-    let b_g2 = BN254TwistCurve::generator().operate_with_self(b_val);
-
+    let a_g2 = BN254TwistCurve::generator()
+        .operate_with_self(b_val)
+        .to_affine();
+    let b_g2 = BN254TwistCurve::generator()
+        .operate_with_self(b_val)
+        .to_affine();
     let f_12 = Fp12E::from_coefficients(&[
         "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12",
     ]);
