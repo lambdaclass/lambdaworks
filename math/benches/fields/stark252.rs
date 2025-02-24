@@ -21,7 +21,6 @@ use rand::random;
 pub type F = FieldElement<Stark252PrimeField>;
 
 #[inline(never)]
-#[no_mangle]
 #[export_name = "util::rand_field_elements"]
 pub fn rand_field_elements(num: usize) -> Vec<(F, F)> {
     let mut result = Vec::with_capacity(num);

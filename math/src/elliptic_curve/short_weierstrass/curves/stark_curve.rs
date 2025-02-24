@@ -1,5 +1,6 @@
 use crate::{
     elliptic_curve::{
+        point::ProjectivePoint,
         short_weierstrass::{point::ShortWeierstrassProjectivePoint, traits::IsShortWeierstrass},
         traits::IsEllipticCurve,
     },
@@ -16,11 +17,11 @@ impl StarkCurve {
         x_hex: &str,
         y_hex: &str,
     ) -> ShortWeierstrassProjectivePoint<Self> {
-        ShortWeierstrassProjectivePoint::new([
+        ShortWeierstrassProjectivePoint(ProjectivePoint::new([
             FieldElement::<Stark252PrimeField>::from_hex_unchecked(x_hex),
             FieldElement::<Stark252PrimeField>::from_hex_unchecked(y_hex),
             FieldElement::<Stark252PrimeField>::from_hex_unchecked("1"),
-        ])
+        ]))
     }
 }
 
@@ -29,7 +30,10 @@ impl IsEllipticCurve for StarkCurve {
     type PointRepresentation = ShortWeierstrassProjectivePoint<Self>;
 
     fn generator() -> Self::PointRepresentation {
-        Self::PointRepresentation::new([
+        // SAFETY:
+        // - The generator point is mathematically verified to be a valid point on the curve.
+        // - `unwrap()` is safe because the provided coordinates satisfy the curve equation.
+        let point = Self::PointRepresentation::new([
             FieldElement::<Self::BaseField>::from_hex_unchecked(
                 "1EF15C18599971B7BECED415A40F0C7DEACFD9B0D1819E03D723D8BC943CFCA",
             ),
@@ -37,7 +41,8 @@ impl IsEllipticCurve for StarkCurve {
                 "5668060AA49730B7BE4801DF46EC62DE53ECD11ABE43A32873000C36E8DC1F",
             ),
             FieldElement::one(),
-        ])
+        ]);
+        point.unwrap()
     }
 }
 

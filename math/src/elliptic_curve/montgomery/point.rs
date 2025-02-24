@@ -12,10 +12,28 @@ use super::traits::IsMontgomery;
 #[derive(Clone, Debug)]
 pub struct MontgomeryProjectivePoint<E: IsEllipticCurve>(ProjectivePoint<E>);
 
-impl<E: IsEllipticCurve> MontgomeryProjectivePoint<E> {
+impl<E: IsEllipticCurve + IsMontgomery> MontgomeryProjectivePoint<E> {
     /// Creates an elliptic curve point giving the projective [x: y: z] coordinates.
-    pub fn new(value: [FieldElement<E::BaseField>; 3]) -> Self {
-        Self(ProjectivePoint::new(value))
+    pub fn new(value: [FieldElement<E::BaseField>; 3]) -> Result<Self, EllipticCurveError> {
+        let (x, y, z) = (&value[0], &value[1], &value[2]);
+
+        if z != &FieldElement::<E::BaseField>::zero()
+            && E::defining_equation_projective(x, y, z) == FieldElement::<E::BaseField>::zero()
+        {
+            Ok(Self(ProjectivePoint::new(value)))
+        // The point at infinity is (0, 1, 0)
+        // We convert every (0, _, 0) into the infinity.
+        } else if x == &FieldElement::<E::BaseField>::zero()
+            && z == &FieldElement::<E::BaseField>::zero()
+        {
+            Ok(Self(ProjectivePoint::new([
+                FieldElement::<E::BaseField>::zero(),
+                FieldElement::<E::BaseField>::one(),
+                FieldElement::<E::BaseField>::zero(),
+            ])))
+        } else {
+            Err(EllipticCurveError::InvalidPoint)
+        }
     }
 
     /// Returns the `x` coordinate of the point.
@@ -56,13 +74,9 @@ impl<E: IsMontgomery> FromAffine<E::BaseField> for MontgomeryProjectivePoint<E> 
     fn from_affine(
         x: FieldElement<E::BaseField>,
         y: FieldElement<E::BaseField>,
-    ) -> Result<Self, crate::elliptic_curve::traits::EllipticCurveError> {
-        if E::defining_equation(&x, &y) != FieldElement::zero() {
-            Err(EllipticCurveError::InvalidPoint)
-        } else {
-            let coordinates = [x, y, FieldElement::one()];
-            Ok(MontgomeryProjectivePoint::new(coordinates))
-        }
+    ) -> Result<Self, EllipticCurveError> {
+        let coordinates = [x, y, FieldElement::one()];
+        MontgomeryProjectivePoint::new(coordinates)
     }
 }
 
@@ -70,12 +84,22 @@ impl<E: IsEllipticCurve> Eq for MontgomeryProjectivePoint<E> {}
 
 impl<E: IsMontgomery> IsGroup for MontgomeryProjectivePoint<E> {
     /// The point at infinity.
+    ///    
+    /// # Safety
+    ///
+    /// - The point `(0, 1, 0)` is a well-defined **neutral element** for Montgomery curves.
+    /// - `unwrap_unchecked()` is used because this point is **always valid**.
     fn neutral_element() -> Self {
-        Self::new([
+        // SAFETY:
+        // - `(0, 1, 0)` is **mathematically valid** as the neutral element.
+        // - `unwrap_unchecked()` is safe because this is **a known valid point**.
+        let point = Self::new([
             FieldElement::zero(),
             FieldElement::one(),
             FieldElement::zero(),
-        ])
+        ]);
+        debug_assert!(point.is_ok());
+        point.unwrap()
     }
 
     fn is_neutral_element(&self) -> bool {
@@ -84,7 +108,15 @@ impl<E: IsMontgomery> IsGroup for MontgomeryProjectivePoint<E> {
     }
 
     /// Computes the addition of `self` and `other`.
-    /// Taken from "Moonmath" (Definition 5.2.2.1, page 94)
+    ///
+    /// This implementation follows the addition law for Montgomery curves as described in:
+    /// **Moonmath Manual, Definition 5.2.2.1, Page 94**.
+    ///
+    /// # Safety
+    ///
+    /// - This function assumes that both `self` and `other` are **valid** points on the curve.
+    /// - The resulting point is **guaranteed** to be valid due to the **Montgomery curve addition formula**.
+    /// - `unwrap()` is used because the formula ensures the result remains a valid curve point.
     fn operate_with(&self, other: &Self) -> Self {
         // One of them is the neutral element.
         if self.is_neutral_element() {
@@ -119,7 +151,11 @@ impl<E: IsMontgomery> IsGroup for MontgomeryProjectivePoint<E> {
                 let new_x = &div * &div * &b - (&x1 + x2) - a;
                 let new_y = div * (x1 - &new_x) - y1;
 
-                Self::new([new_x, new_y, one])
+                // SAFETY:
+                // - The Montgomery addition formula guarantees a **valid** curve point.
+                // - `unwrap()` is safe because the input points are **valid**.
+                let point = Self::new([new_x, new_y, one]);
+                point.unwrap()
             // In the rest of the cases we have x1 != x2
             } else {
                 let num = &y2 - &y1;
@@ -130,15 +166,29 @@ impl<E: IsMontgomery> IsGroup for MontgomeryProjectivePoint<E> {
                 let new_x = &div * &div * E::b() - (&x1 + &x2) - E::a();
                 let new_y = div * (x1 - &new_x) - y1;
 
-                Self::new([new_x, new_y, FieldElement::one()])
+                // SAFETY:
+                // - The result of the Montgomery addition formula is **guaranteed** to be a valid point.
+                // - `unwrap()` is safe because we **control** the inputs.
+                let point = Self::new([new_x, new_y, FieldElement::one()]);
+                point.unwrap()
             }
         }
     }
 
     /// Returns the additive inverse of the projective point `p`
+    ///
+    /// # Safety
+    ///
+    /// - The negation formula preserves the curve equation.
+    /// - `unwrap()` is safe because negation **does not** create invalid points.
     fn neg(&self) -> Self {
         let [px, py, pz] = self.coordinates();
-        Self::new([px.clone(), -py, pz.clone()])
+        // SAFETY:
+        // - Negating `y` maintains the curve structure.
+        // - `unwrap()` is safe because negation **is always valid**.
+        let point = Self::new([px.clone(), -py, pz.clone()]);
+        debug_assert!(point.is_ok());
+        point.unwrap()
     }
 }
 
@@ -187,17 +237,20 @@ mod tests {
             FieldElement::from(9),
             FieldElement::from(2),
             FieldElement::from(1),
-        ]);
+        ])
+        .unwrap();
         let q = MontgomeryProjectivePoint::<TinyJubJubMontgomery>::new([
             FieldElement::from(7),
             FieldElement::from(12),
             FieldElement::from(1),
-        ]);
+        ])
+        .unwrap();
         let expected = MontgomeryProjectivePoint::<TinyJubJubMontgomery>::new([
             FieldElement::from(10),
             FieldElement::from(3),
             FieldElement::from(1),
-        ]);
+        ])
+        .unwrap();
         assert_eq!(p.operate_with(&q), expected);
     }
 

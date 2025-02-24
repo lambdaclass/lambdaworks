@@ -14,14 +14,12 @@ pub type FE = FieldElement<F>;
 
 // NOTE: intentional duplicate to help IAI skip setup code
 #[inline(never)]
-#[no_mangle]
 #[export_name = "util::bitrev_permute"]
 pub fn bitrev_permute(input: &mut [FE]) {
     in_place_bit_reverse_permute(input);
 }
 
 #[inline(never)]
-#[no_mangle]
 #[export_name = "util::rand_field_elements"]
 pub fn rand_field_elements(order: u64) -> Vec<FE> {
     let mut result = Vec::with_capacity(1 << order);
@@ -33,14 +31,12 @@ pub fn rand_field_elements(order: u64) -> Vec<FE> {
 }
 
 #[inline(never)]
-#[no_mangle]
 #[export_name = "util::rand_poly"]
 pub fn rand_poly(order: u64) -> Polynomial<FE> {
     Polynomial::new(&rand_field_elements(order))
 }
 
 #[inline(never)]
-#[no_mangle]
 #[export_name = "util::get_twiddles"]
 pub fn twiddles(order: u64, config: RootsConfig) -> Vec<FE> {
     get_twiddles(order, config).unwrap()

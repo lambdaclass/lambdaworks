@@ -120,8 +120,8 @@ impl<const WIDTH: usize, const NUM_FULL_ROUNDS: usize> MonolithMersenne31<WIDTH,
     // S-box lookups
     fn bars(&self, state: &mut [u32]) {
         for state in state.iter_mut().take(NUM_BARS) {
-            *state = (self.lookup2[(*state >> 16) as u16 as usize] as u32) << 16
-                | self.lookup1[*state as u16 as usize] as u32;
+            *state = ((self.lookup2[(*state >> 16) as u16 as usize] as u32) << 16)
+                | (self.lookup1[*state as u16 as usize] as u32);
         }
     }
 
