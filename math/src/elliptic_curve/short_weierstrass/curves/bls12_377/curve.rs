@@ -28,13 +28,25 @@ impl IsEllipticCurve for BLS12377Curve {
     type BaseField = BLS12377PrimeField;
     type PointRepresentation = ShortWeierstrassProjectivePoint<Self>;
 
-    // generator values are taken from https://neuromancer.sk/std/bls/BLS12-377
+    /// Returns the generator point of the BLS12-377 curve.
+    ///
+    /// Generator values are taken from [Neuromancer's BLS12-377 page](https://neuromancer.sk/std/bls/BLS12-377).
+    ///
+    /// # Safety
+    ///
+    /// - The generator point `(x, y, 1)` is predefined and is **known to be a valid point** on the curve.
+    /// - `unwrap` is used because this point is **mathematically verified**.
+    /// - Do **not** modify this function unless a new generator has been **mathematically verified**.
     fn generator() -> Self::PointRepresentation {
-        Self::PointRepresentation::new([
+        // SAFETY:
+        // - These values are mathematically verified and known to be valid points on BLS12-377.
+        // - `unwrap()` is safe because we **ensure** the input values satisfy the curve equation.
+        let point= Self::PointRepresentation::new([
             FieldElement::<Self::BaseField>::new_base("8848defe740a67c8fc6225bf87ff5485951e2caa9d41bb188282c8bd37cb5cd5481512ffcd394eeab9b16eb21be9ef"),
             FieldElement::<Self::BaseField>::new_base("1914a69c5102eff1f674f5d30afeec4bd7fb348ca3e52d96d182ad44fb82305c2fe3d3634a9591afd82de55559c8ea6"),
             FieldElement::one()
-        ])
+        ]);
+        point.unwrap()
     }
 }
 
@@ -93,17 +105,30 @@ impl ShortWeierstrassProjectivePoint<BLS12377Curve> {
 }
 
 impl ShortWeierstrassProjectivePoint<BLS12377TwistCurve> {
-    /// 𝜓(P) = 𝜁 ∘ 𝜋ₚ ∘ 𝜁⁻¹, where 𝜁 is the isomorphism u:E'(𝔽ₚ₆) −> E(𝔽ₚ₁₂) from the twist to E,, 𝜋ₚ is the p-power frobenius endomorphism
+    /// Computes 𝜓(P) = 𝜁 ∘ 𝜋ₚ ∘ 𝜁⁻¹, where 𝜁 is the isomorphism u:E'(𝔽ₚ₆) −> E(𝔽ₚ₁₂) from the twist to E,, 𝜋ₚ is the p-power frobenius endomorphism
     /// and 𝜓 satisifies minmal equation 𝑋² + 𝑡𝑋 + 𝑞 = 𝑂
     /// https://eprint.iacr.org/2022/352.pdf 4.2 (7)
     /// ψ(P) = (ψ_x * conjugate(x), ψ_y * conjugate(y), conjugate(z))
+    ///
+    /// # Safety
+    ///
+    /// - This function assumes `self` is a valid point on the BLS12-377 **twist** curve.
+    /// - The conjugation operation preserves validity.
+    /// - `unwrap()` is used because `psi()` is defined to **always return a valid point**.
     fn psi(&self) -> Self {
         let [x, y, z] = self.coordinates();
-        Self::new([
+        // SAFETY:
+        // - `conjugate()` preserves the validity of the field element.
+        // - `ENDO_U` and `ENDO_V` are precomputed constants that ensure the
+        //   resulting point satisfies the curve equation.
+        // - `unwrap()` is safe because the transformation follows
+        //   **a known valid isomorphism** between the twist and E.
+        let point = Self::new([
             x.conjugate() * GAMMA_12,
             y.conjugate() * GAMMA_13,
             z.conjugate(),
-        ])
+        ]);
+        point.unwrap()
     }
 
     /// 𝜓(P) = 𝑢P, where 𝑢 = SEED of the curve
@@ -186,7 +211,7 @@ mod tests {
         let x = FpE::new_base("134e4cc122cb62a06767fb98e86f2d5f77e2a12fefe23bb0c4c31d1bd5348b88d6f5e5dee2b54db4a2146cc9f249eea") * FpE::from(2);
         let y = FpE::new_base("17949c29effee7a9f13f69b1c28eccd78c1ed12b47068836473481ff818856594fd9c1935e3d9e621901a2d500257a2") * FpE::from(2);
         let z = FpE::from(2);
-        let point_2 = ShortWeierstrassProjectivePoint::<BLS12377Curve>::new([x, y, z]);
+        let point_2 = ShortWeierstrassProjectivePoint::<BLS12377Curve>::new([x, y, z]).unwrap();
 
         let first_algorithm_result = point_2.operate_with(&point_1).to_affine();
         let second_algorithm_result = point_2.operate_with_affine(&point_1).to_affine();

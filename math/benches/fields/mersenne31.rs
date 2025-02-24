@@ -15,7 +15,6 @@ pub type Fp2E = FieldElement<Degree2ExtensionField>;
 pub type Fp4E = FieldElement<Degree4ExtensionField>;
 
 #[inline(never)]
-#[no_mangle]
 #[export_name = "util::rand_mersenne31_field_elements"]
 pub fn rand_field_elements(num: usize) -> Vec<(F, F)> {
     let mut result = Vec::with_capacity(num);

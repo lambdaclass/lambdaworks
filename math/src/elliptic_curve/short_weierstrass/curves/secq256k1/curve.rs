@@ -13,7 +13,10 @@ impl IsEllipticCurve for Secq256k1Curve {
     type PointRepresentation = ShortWeierstrassProjectivePoint<Self>;
 
     fn generator() -> Self::PointRepresentation {
-        Self::PointRepresentation::new([
+        // SAFETY:
+        // - The generator point is mathematically verified to be a valid point on the curve.
+        // - `unwrap()` is safe because the provided coordinates satisfy the curve equation.
+        let point = Self::PointRepresentation::new([
             FieldElement::<Self::BaseField>::from_hex_unchecked(
                 "76C39F5585CB160EB6B06C87A2CE32E23134E45A097781A6A24288E37702EDA6",
             ),
@@ -21,7 +24,8 @@ impl IsEllipticCurve for Secq256k1Curve {
                 "3FFC646C7B2918B5DC2D265A8E82A7F7D18983D26E8DC055A4120DDAD952677F",
             ),
             FieldElement::one(),
-        ])
+        ]);
+        point.unwrap()
     }
 }
 
@@ -68,7 +72,7 @@ mod tests {
         let z = FE::from_hex_unchecked(
             "bb26eae3d2b9603d98dff86d87175f442e539c07bbe4ef5712e47c4d72c89734",
         );
-        ShortWeierstrassProjectivePoint::<Secq256k1Curve>::new([x, y, z])
+        ShortWeierstrassProjectivePoint::<Secq256k1Curve>::new([x, y, z]).unwrap()
     }
 
     #[test]
