@@ -15,6 +15,10 @@ use lambdaworks_math::{
 };
 use lambdaworks_math::{field::traits::IsField, traits::ByteConversion};
 
+#[derive(Debug)]
+pub enum ProverError {
+    DivisionByZero,
+}
 /// Plonk proof.
 /// The challenges are denoted
 ///     Round 2: β,γ,
@@ -362,7 +366,9 @@ where
                 * lp(c_i, &(&cpi.domain[i] * &k2));
             let den = lp(a_i, &s1[i]) * lp(b_i, &s2[i]) * lp(c_i, &s3[i]);
             // We are using that den != 0 with high probability because beta and gamma are random elements.
-            let new_factor = (num / den).expect("Unexpected zero denominator in round 2");
+            let new_factor = (num / den)
+                .map_err(|_| ProverError::DivisionByZero)
+                .unwrap();
 
             let new_term = coefficients.last().unwrap() * &new_factor;
             coefficients.push(new_term);
