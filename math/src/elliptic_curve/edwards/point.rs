@@ -88,18 +88,17 @@ impl<E: IsEdwards> IsGroup for EdwardsProjectivePoint<E> {
     ///
     /// - The values `[0, 1, 1]` are the **canonical representation** of the neutral element
     ///   in the Edwards curve, meaning they are guaranteed to be a valid point.
-    /// - `unwrap_unchecked()` is used because this point is **known** to be valid, so
+    /// - `unwrap()` is used because this point is **known** to be valid, so
     ///   there is no need for additional runtime checks.
     fn neutral_element() -> Self {
         // SAFETY:
         // - `[0, 1, 1]` is a mathematically verified neutral element in Edwards curves.
-        // - `unwrap_unchecked()` is safe because this point is **always valid**.
+        // - `unwrap()` is safe because this point is **always valid**.
         let point = Self::new([
             FieldElement::zero(),
             FieldElement::one(),
             FieldElement::one(),
         ]);
-        debug_assert!(point.is_ok());
         point.unwrap()
     }
 
@@ -117,7 +116,7 @@ impl<E: IsEdwards> IsGroup for EdwardsProjectivePoint<E> {
     /// - The function assumes both `self` and `other` are valid points on the curve.
     /// - The resulting coordinates are computed using a well-defined formula that
     ///   maintains the elliptic curve invariants.
-    /// - `unwrap_unchecked()` is safe because the formula guarantees the result is valid.
+    /// - `unwrap()` is safe because the formula guarantees the result is valid.
     fn operate_with(&self, other: &Self) -> Self {
         // This avoids dropping, which in turn saves us from having to clone the coordinates.
         let (s_affine, o_affine) = (self.to_affine(), other.to_affine());
@@ -138,7 +137,6 @@ impl<E: IsEdwards> IsGroup for EdwardsProjectivePoint<E> {
 
         // SAFETY: The creation of the result point is safe because the inputs are always points that belong to the curve.
         let point = Self::new([&num_s1 / &den_s1, &num_s2 / &den_s2, one]);
-        debug_assert!(point.is_ok());
         point.unwrap()
     }
 
@@ -147,14 +145,13 @@ impl<E: IsEdwards> IsGroup for EdwardsProjectivePoint<E> {
     /// # Safety
     ///
     /// - Negating the x-coordinate of a valid Edwards point results in another valid point.
-    /// - `unwrap_unchecked()` is safe because negation does not break the curve equation.
+    /// - `unwrap()` is safe because negation does not break the curve equation.
     fn neg(&self) -> Self {
         let [px, py, pz] = self.coordinates();
         // SAFETY:
         // - The negation formula for Edwards curves is well-defined.
         // - The result remains a valid curve point.
         let point = Self::new([-px, py.clone(), pz.clone()]);
-        debug_assert!(point.is_ok());
         point.unwrap()
     }
 }

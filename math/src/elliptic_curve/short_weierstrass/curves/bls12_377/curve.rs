@@ -35,18 +35,17 @@ impl IsEllipticCurve for BLS12377Curve {
     /// # Safety
     ///
     /// - The generator point `(x, y, 1)` is predefined and is **known to be a valid point** on the curve.
-    /// - `unwrap_unchecked()` is used because this point is **mathematically verified**.
+    /// - `unwrap` is used because this point is **mathematically verified**.
     /// - Do **not** modify this function unless a new generator has been **mathematically verified**.
     fn generator() -> Self::PointRepresentation {
         // SAFETY:
         // - These values are mathematically verified and known to be valid points on BLS12-377.
-        // - `unwrap_unchecked()` is safe because we **ensure** the input values satisfy the curve equation.
+        // - `unwrap()` is safe because we **ensure** the input values satisfy the curve equation.
         let point= Self::PointRepresentation::new([
             FieldElement::<Self::BaseField>::new_base("8848defe740a67c8fc6225bf87ff5485951e2caa9d41bb188282c8bd37cb5cd5481512ffcd394eeab9b16eb21be9ef"),
             FieldElement::<Self::BaseField>::new_base("1914a69c5102eff1f674f5d30afeec4bd7fb348ca3e52d96d182ad44fb82305c2fe3d3634a9591afd82de55559c8ea6"),
             FieldElement::one()
         ]);
-        debug_assert!(point.is_ok());
         point.unwrap()
     }
 }
@@ -115,22 +114,20 @@ impl ShortWeierstrassProjectivePoint<BLS12377TwistCurve> {
     ///
     /// - This function assumes `self` is a valid point on the BLS12-377 **twist** curve.
     /// - The conjugation operation preserves validity.
-    /// - `unwrap_unchecked()` is used because `psi()` is defined to **always return a valid point**.
+    /// - `unwrap()` is used because `psi()` is defined to **always return a valid point**.
     fn psi(&self) -> Self {
         let [x, y, z] = self.coordinates();
         // SAFETY:
         // - `conjugate()` preserves the validity of the field element.
         // - `ENDO_U` and `ENDO_V` are precomputed constants that ensure the
         //   resulting point satisfies the curve equation.
-        // - `unwrap_unchecked()` is safe because the transformation follows
+        // - `unwrap()` is safe because the transformation follows
         //   **a known valid isomorphism** between the twist and E.
-
         let point = Self::new([
             x.conjugate() * GAMMA_12,
             y.conjugate() * GAMMA_13,
             z.conjugate(),
         ]);
-        debug_assert!(point.is_ok());
         point.unwrap()
     }
 

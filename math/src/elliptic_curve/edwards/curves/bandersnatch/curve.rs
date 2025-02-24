@@ -21,7 +21,7 @@ impl IsEllipticCurve for BandersnatchCurve {
     ///
     /// - The generator values are taken from the [Arkworks implementation](https://github.com/arkworks-rs/curves/blob/5a41d7f27a703a7ea9c48512a4148443ec6c747e/ed_on_bls12_381_bandersnatch/src/curves/mod.rs#L120)
     ///   and have been converted to hexadecimal.
-    /// - `unwrap_unchecked()` is safe because:
+    /// - `unwrap_unchecked()` does not panic because:
     ///   - The generator point is **known to be valid** on the curve.
     ///   - The function only uses **hardcoded** and **verified** constants.
     /// - This function should **never** be modified unless the new generator is fully verified.
@@ -31,8 +31,6 @@ impl IsEllipticCurve for BandersnatchCurve {
         //   verified implementation.
         // - The constructor will only fail if the values are invalid, which is
         //   impossible given that they are constants taken from a trusted source.
-        // - `unwrap_unchecked()` avoids unnecessary checks, as we guarantee
-        //   correctness based on external verification.
         let point = Self::PointRepresentation::new([
             FieldElement::<Self::BaseField>::new_base(
                 "29C132CC2C0B34C5743711777BBE42F32B79C022AD998465E1E71866A252AE18",
@@ -42,7 +40,6 @@ impl IsEllipticCurve for BandersnatchCurve {
             ),
             FieldElement::one(),
         ]);
-        debug_assert!(point.is_ok());
         point.unwrap()
     }
 }

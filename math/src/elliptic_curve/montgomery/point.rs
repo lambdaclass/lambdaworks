@@ -116,7 +116,7 @@ impl<E: IsMontgomery> IsGroup for MontgomeryProjectivePoint<E> {
     ///
     /// - This function assumes that both `self` and `other` are **valid** points on the curve.
     /// - The resulting point is **guaranteed** to be valid due to the **Montgomery curve addition formula**.
-    /// - `unwrap_unchecked()` is used because the formula ensures the result remains a valid curve point.
+    /// - `unwrap()` is used because the formula ensures the result remains a valid curve point.
     fn operate_with(&self, other: &Self) -> Self {
         // One of them is the neutral element.
         if self.is_neutral_element() {
@@ -149,9 +149,8 @@ impl<E: IsMontgomery> IsGroup for MontgomeryProjectivePoint<E> {
 
                 // SAFETY:
                 // - The Montgomery addition formula guarantees a **valid** curve point.
-                // - `unwrap_unchecked()` is safe because the input points are **valid**.
+                // - `unwrap()` is safe because the input points are **valid**.
                 let point = Self::new([new_x, new_y, one]);
-                debug_assert!(point.is_ok());
                 point.unwrap()
             // In the rest of the cases we have x1 != x2
             } else {
@@ -164,9 +163,8 @@ impl<E: IsMontgomery> IsGroup for MontgomeryProjectivePoint<E> {
 
                 // SAFETY:
                 // - The result of the Montgomery addition formula is **guaranteed** to be a valid point.
-                // - `unwrap_unchecked()` is safe because we **control** the inputs.
+                // - `unwrap()` is safe because we **control** the inputs.
                 let point = Self::new([new_x, new_y, FieldElement::one()]);
-                debug_assert!(point.is_ok());
                 point.unwrap()
             }
         }
@@ -177,12 +175,12 @@ impl<E: IsMontgomery> IsGroup for MontgomeryProjectivePoint<E> {
     /// # Safety
     ///
     /// - The negation formula preserves the curve equation.
-    /// - `unwrap_unchecked()` is safe because negation **does not** create invalid points.
+    /// - `unwrap()` is safe because negation **does not** create invalid points.
     fn neg(&self) -> Self {
         let [px, py, pz] = self.coordinates();
         // SAFETY:
         // - Negating `y` maintains the curve structure.
-        // - `unwrap_unchecked()` is safe because negation **is always valid**.
+        // - `unwrap()` is safe because negation **is always valid**.
         let point = Self::new([px.clone(), -py, pz.clone()]);
         debug_assert!(point.is_ok());
         point.unwrap()

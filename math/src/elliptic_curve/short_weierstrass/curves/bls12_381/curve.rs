@@ -31,18 +31,16 @@ impl IsEllipticCurve for BLS12381Curve {
     /// # Safety
     ///
     /// - The generator point is mathematically verified to be a valid point on the curve.
-    /// - `unwrap_unchecked()` is safe because the provided coordinates satisfy the curve equation.
+    /// - `unwrap()` is safe because the provided coordinates satisfy the curve equation.
     fn generator() -> Self::PointRepresentation {
         // SAFETY:
         // - These values are mathematically verified and known to be valid points on BLS12-381.
-        // - `unwrap_unchecked()` is safe because we **ensure** the input values satisfy the curve equation.
-
+        // - `unwrap()` is safe because we **ensure** the input values satisfy the curve equation.
         let point= Self::PointRepresentation::new([
             FieldElement::<Self::BaseField>::new_base("17f1d3a73197d7942695638c4fa9ac0fc3688c4f9774b905a14e3a3f171bac586c55e83ff97a1aeffb3af00adb22c6bb"),
             FieldElement::<Self::BaseField>::new_base("8b3f481e3aaa0f1a09e30ed741d8ae4fcf5e095d5d00af600db18cb2c04b3edd03cc744a2888ae40caa232946c5e7e1"),
             FieldElement::one()
         ]);
-        debug_assert!(point.is_ok());
         point.unwrap()
     }
 }
@@ -109,21 +107,20 @@ impl ShortWeierstrassProjectivePoint<BLS12381TwistCurve> {
     ///
     /// - This function assumes `self` is a valid point on the BLS12-381 **twist** curve.
     /// - The conjugation operation preserves validity.
-    /// - `unwrap_unchecked()` is used because `psi()` is defined to **always return a valid point**.
+    /// - `unwrap()` is used because `psi()` is defined to **always return a valid point**.
     fn psi(&self) -> Self {
         let [x, y, z] = self.coordinates();
         // SAFETY:
         // - `conjugate()` preserves the validity of the field element.
         // - `ENDO_U` and `ENDO_V` are precomputed constants that ensure the
         //   resulting point satisfies the curve equation.
-        // - `unwrap_unchecked()` is safe because the transformation follows
+        // - `unwrap()` is safe because the transformation follows
         //   **a known valid isomorphism** between the twist and E.
         let point = Self::new([
             x.conjugate() * ENDO_U,
             y.conjugate() * ENDO_V,
             z.conjugate(),
         ]);
-        debug_assert!(point.is_ok());
         point.unwrap()
     }
 
@@ -169,7 +166,7 @@ mod tests {
     ///
     /// - This function assumes `p` is a valid point on the BLS12-381 twist curve.
     /// - The transformation involves multiplying the x and y coordinates by known constants.
-    /// - `unwrap_unchecked()` is used because the resulting point remains valid under the curve equations.
+    /// - `unwrap()` is used because the resulting point remains valid under the curve equations.
     fn psi_square(
         p: &ShortWeierstrassProjectivePoint<BLS12381TwistCurve>,
     ) -> ShortWeierstrassProjectivePoint<BLS12381TwistCurve> {
@@ -178,7 +175,7 @@ mod tests {
 
         // SAFETY:
         // - `ENDO_U_2` and `ENDO_V_2` are known valid constants.
-        // - `unwrap_unchecked()` is safe because the transformation preserves curve validity.
+        // - `unwrap()` is safe because the transformation preserves curve validity.
         ShortWeierstrassProjectivePoint::new([x * ENDO_U_2, y * ENDO_V_2, z.clone()]).unwrap()
     }
 

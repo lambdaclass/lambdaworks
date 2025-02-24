@@ -21,19 +21,18 @@ impl IsEllipticCurve for TinyJubJubEdwards {
     /// # Safety
     ///
     /// - The generator coordinates `(8, 5, 1)` are **predefined** and belong to the TinyJubJub curve.
-    /// - `unwrap_unchecked()` is used because the generator is a **verified valid point**,
+    /// - `unwrap()` is used because the generator is a **verified valid point**,
     ///   meaning there is **no risk** of runtime failure.
     /// - This function must **not** be modified unless the new generator is mathematically verified.
     fn generator() -> Self::PointRepresentation {
         // SAFETY:
         // - The generator point `(8, 5, 1)` is **mathematically valid** on the curve.
-        // - `unwrap_unchecked()` is safe because we **know** the point satisfies the curve equation.
+        // - `unwrap()` is safe because we **know** the point satisfies the curve equation.
         let point = Self::PointRepresentation::new([
             FieldElement::from(8),
             FieldElement::from(5),
             FieldElement::one(),
         ]);
-        debug_assert!(point.is_ok());
         point.unwrap()
     }
 }

@@ -308,10 +308,9 @@ fn line_optimized(p: &G1Point, t: &G2Point, q: &G2Point) -> (G2Point, Fp12E) {
             BN254TwistCurve::defining_equation_projective(&x_r, &y_r, &z_r),
             Fp2E::zero(),
         );
-        // SAFETY: `unwrap_unchecked()` is used here because we ensure that `x_r, y_r, z_r`
+        // SAFETY: `unwrap()` is used here because we ensure that `x_r, y_r, z_r`
         // satisfy the curve equation. The previous assertion checks that this is indeed the case.
         let r = G2Point::new([x_r, y_r, z_r]);
-        debug_assert!(r.is_ok());
 
         let l = Fp12E::new([
             Fp6E::new([y_p * (-h), Fp2E::zero(), Fp2E::zero()]),
@@ -343,10 +342,9 @@ fn line_optimized(p: &G1Point, t: &G2Point, q: &G2Point) -> (G2Point, Fp12E) {
             BN254TwistCurve::defining_equation_projective(&x_r, &y_r, &z_r),
             Fp2E::zero()
         );
-        // SAFETY: `unwrap_unchecked()` is used here because we ensure that `x_r, y_r, z_r`
+        // SAFETY: `unwrap()` is used here because we ensure that `x_r, y_r, z_r`
         // satisfy the curve equation. The previous assertion checks that this is indeed the case.
         let r = G2Point::new([x_r, y_r, z_r]);
-        debug_assert!(r.is_ok());
 
         let l = Fp12E::new([
             Fp6E::new([y_p * lambda, Fp2E::zero(), Fp2E::zero()]),

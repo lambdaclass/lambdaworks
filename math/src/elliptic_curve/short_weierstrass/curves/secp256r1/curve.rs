@@ -16,7 +16,7 @@ impl IsEllipticCurve for Secp256r1Curve {
     fn generator() -> Self::PointRepresentation {
         // SAFETY:
         // - The generator point is mathematically verified to be a valid point on the curve.
-        // - `unwrap_unchecked()` is safe because the provided coordinates satisfy the curve equation.
+        // - `unwrap()` is safe because the provided coordinates satisfy the curve equation.
         let point = Self::PointRepresentation::new([
             FieldElement::<Self::BaseField>::from_hex_unchecked(
                 "6b17d1f2e12c4247f8bce6e563a440f277037d812deb33a0f4a13945d898c296",
@@ -26,7 +26,6 @@ impl IsEllipticCurve for Secp256r1Curve {
             ),
             FieldElement::one(),
         ]);
-        debug_assert!(point.is_ok());
         point.unwrap()
     }
 }

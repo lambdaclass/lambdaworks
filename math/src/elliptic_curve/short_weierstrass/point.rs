@@ -109,7 +109,6 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
         // SAFETY: The values `x_p, y_p, z_p` are computed correctly to be on the curve.
         // The assertion above verifies that the resulting point is valid.
         let point = Self::new([xp, yp, zp]);
-        debug_assert!(point.is_ok());
         point.unwrap()
     }
     // https://hyperelliptic.org/EFD/g1p/data/shortw/projective/addition/madd-1998-cmo
@@ -159,7 +158,6 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
         // SAFETY: The values `x, y, z` are computed correctly to be on the curve.
         // The assertion above verifies that the resulting point is valid.
         let point = Self::new([x, y, z]);
-        debug_assert!(point.is_ok());
         point.unwrap()
     }
 }
@@ -187,8 +185,7 @@ impl<E: IsShortWeierstrass> IsGroup for ShortWeierstrassProjectivePoint<E> {
     fn neutral_element() -> Self {
         // SAFETY:
         // - `(0, 1, 0)` is **mathematically valid** as the neutral element.
-        // - `unwrap_unchecked()` is safe because this is **a known valid point**.
-
+        // - `unwrap()` is safe because this is **a known valid point**.
         Self::new([
             FieldElement::zero(),
             FieldElement::one(),
@@ -254,7 +251,7 @@ impl<E: IsShortWeierstrass> IsGroup for ShortWeierstrassProjectivePoint<E> {
         let [px, py, pz] = self.coordinates();
         // SAFETY:
         // - Negating `y` maintains the curve structure.
-        // - `unwrap_unchecked()` is safe because negation **is always valid**.
+        // - `unwraps()` is safe because negation **is always valid**.
         Self::new([px.clone(), -py, pz.clone()]).unwrap()
     }
 }
@@ -584,7 +581,7 @@ impl<E: IsShortWeierstrass> IsGroup for ShortWeierstrassJacobianPoint<E> {
     fn neutral_element() -> Self {
         // SAFETY:
         // - `(1, 1, 0)` is **mathematically valid** as the neutral element.
-        // - `unwrap_unchecked()` is safe because this is **a known valid point**.
+        // - `unwrap()` is safe because this is **a known valid point**.
 
         Self::new([
             FieldElement::one(),

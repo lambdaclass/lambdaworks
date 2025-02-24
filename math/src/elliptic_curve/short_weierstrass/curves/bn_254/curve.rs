@@ -25,17 +25,16 @@ impl IsEllipticCurve for BN254Curve {
     /// # Safety
     ///
     /// - The generator point is mathematically verified to be a valid point on the curve.
-    /// - `unwrap_unchecked()` is safe because the provided coordinates satisfy the curve equation.
+    /// - `unwrap()` is safe because the provided coordinates satisfy the curve equation.
     fn generator() -> Self::PointRepresentation {
         // SAFETY:
         // - The generator coordinates `(1, 2, 1)` are **predefined** and belong to the BN254 curve.
-        // - `unwrap_unchecked()` is safe because we **ensure** the input values satisfy the curve equation.
+        // - `unwrap()` is safe because we **ensure** the input values satisfy the curve equation.
         let point = Self::PointRepresentation::new([
             FieldElement::<Self::BaseField>::one(),
             FieldElement::<Self::BaseField>::from(2),
             FieldElement::one(),
         ]);
-        debug_assert!(point.is_ok());
         point.unwrap()
     }
 }
@@ -70,14 +69,13 @@ impl ShortWeierstrassProjectivePoint<BN254TwistCurve> {
         let [x, y, z] = self.coordinates();
         // SAFETY:
         // - `conjugate()` preserves the validity of the field element.
-        // - `unwrap_unchecked()` is safe because the transformation follows
+        // - `unwrap()` is safe because the transformation follows
         //   **a known valid isomorphism** between the twist and E.
         let point = Self::new([
             x.conjugate() * GAMMA_12,
             y.conjugate() * GAMMA_13,
             z.conjugate(),
         ]);
-        debug_assert!(point.is_ok());
         point.unwrap()
     }
 

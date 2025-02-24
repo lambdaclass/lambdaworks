@@ -25,7 +25,7 @@ impl IsEllipticCurve for GrumpkinCurve {
     fn generator() -> Self::PointRepresentation {
         // SAFETY:
         // - The generator point is mathematically verified to be a valid point on the curve.
-        // - `unwrap_unchecked()` is safe because the provided coordinates satisfy the curve equation.
+        // - `unwrap()` is safe because the provided coordinates satisfy the curve equation.
         let point = Self::PointRepresentation::new([
             FieldElement::<Self::BaseField>::one(),
             FieldElement::<Self::BaseField>::from_hex_unchecked(
@@ -33,7 +33,6 @@ impl IsEllipticCurve for GrumpkinCurve {
             ),
             FieldElement::one(),
         ]);
-        debug_assert!(point.is_ok());
         point.unwrap()
     }
 }
