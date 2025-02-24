@@ -136,10 +136,11 @@ impl<E: IsEdwards> IsGroup for EdwardsProjectivePoint<E> {
         let den_s2 = &one - &dx1x2y1y2;
         // SAFETY: The creation of the result point is safe because the inputs are always points that belong to the curve.
         // We are using that den_s1 and den_s2 aren't zero.
-        // See Theorem 3.3 from https://eprint.iacr.org/2007/286.pdf.  
-      let point = Self::new([&num_s1 / &den_s1, &num_s2 / &den_s2, one]);
+        // See Theorem 3.3 from https://eprint.iacr.org/2007/286.pdf.
+        let x_coord = (&num_s1 / &den_s1).unwrap();
+        let y_coord = (&num_s2 / &den_s2).unwrap();
+        let point = Self::new([x_coord, y_coord, one]);
         point.unwrap()
-
     }
 
     /// Returns the additive inverse of the projective point `p`

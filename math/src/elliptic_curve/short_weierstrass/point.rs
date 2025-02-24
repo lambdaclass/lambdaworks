@@ -348,7 +348,8 @@ where
                 }
 
                 if z == FieldElement::zero() {
-                    let point = Self::new([x, y, z]);
+                    let point = Self::new([x, y, z])
+                        .map_err(|_| DeserializationError::FieldFromBytesError)?;
                     if point.is_neutral_element() {
                         Ok(point)
                     } else {
@@ -358,11 +359,10 @@ where
                     &(&y / &z).unwrap_unchecked()
                 }) == FieldElement::zero()
                 {
-                    Ok(Self::new([x, y, z]))
+                    Self::new([x, y, z]).map_err(|_| DeserializationError::FieldFromBytesError)
                 } else {
                     Err(DeserializationError::FieldFromBytesError)
                 }
-
             }
             PointFormat::Uncompressed => {
                 if bytes.len() % 2 != 0 {
