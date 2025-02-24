@@ -21,7 +21,7 @@ impl IsEllipticCurve for BandersnatchCurve {
     ///
     /// - The generator values are taken from the [Arkworks implementation](https://github.com/arkworks-rs/curves/blob/5a41d7f27a703a7ea9c48512a4148443ec6c747e/ed_on_bls12_381_bandersnatch/src/curves/mod.rs#L120)
     ///   and have been converted to hexadecimal.
-    /// - `unwrap_unchecked()` does not panic because:
+    /// - `unwrap()` does not panic because:
     ///   - The generator point is **known to be valid** on the curve.
     ///   - The function only uses **hardcoded** and **verified** constants.
     /// - This function should **never** be modified unless the new generator is fully verified.
