@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1738600053766,
+  "lastUpdate": 1740428401961,
   "repoUrl": "https://github.com/lambdaclass/lambdaworks",
   "entries": {
     "Benchmark": [
@@ -27275,6 +27275,150 @@ window.BENCHMARK_DATA = {
             "name": "Polynomial/evaluate 10",
             "value": 1,
             "range": "± 0",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nicole.graus@lambdaclass.com",
+            "name": "Nicole Graus",
+            "username": "nicole-graus"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7e94a19037852cedc16b17922142ece2460a0845",
+          "message": "Change elliptic curve new point function (#970)\n\n* change edwards new\n\n* fix edwards, montgomery and weierstrass new\n\n* fix short weierstrass new\n\n* fix ate pairing test. change new point at infinity\n\n* change edwards new\n\n* change jacobian new short weierstrass\n\n* fix lint\n\n* change debug assert jacobian weierstrass\n\n* fix defining_equation_jacobian\n\n* fix operate_with for jacobian coordinates\n\n* fix babybear benches\n\n* solve p3 new version conflicts\n\n* fix edwards new: tiny jubjub working\n\n* Add safety comments for edwards\n\n* add safety docs\n\n* remove duplicated comments\n\n* fix rust doc formatting\n\n* Remove unchecked from wrap to compare performancesave work\n\n* Revert \"Remove unchecked from wrap to compare performancesave work\"\n\nThis reverts commit 41f453bd7c48f20e2dba142afd24734eb0fb2ed6.\n\n* fix clippy\n\n* remove unchecked from unwrap. Save work\n\n* fix bug in bn254 bench\n\n* add Oppen comments\n\n* fix comments and remove redundant debug_assert\n\n* fix comment\n\n---------\n\nCo-authored-by: Nicole <nicole@Nicoles-MacBook-Air.local>\nCo-authored-by: jotabulacios <jbulacios@fi.uba.ar>\nCo-authored-by: jotabulacios <45471455+jotabulacios@users.noreply.github.com>",
+          "timestamp": "2025-02-24T20:03:48Z",
+          "tree_id": "d93369e65429fb66d83f0bdbce5674a1e42408a8",
+          "url": "https://github.com/lambdaclass/lambdaworks/commit/7e94a19037852cedc16b17922142ece2460a0845"
+        },
+        "date": 1740428399249,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "Ordered FFT/Parallel (Metal)",
+            "value": 250101020,
+            "range": "± 23420043",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #2",
+            "value": 473246479,
+            "range": "± 32625152",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #3",
+            "value": 1135119645,
+            "range": "± 78681798",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #4",
+            "value": 4726732062,
+            "range": "± 564767861",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal)",
+            "value": 89725065,
+            "range": "± 9645146",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #2",
+            "value": 184436486,
+            "range": "± 10627896",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #3",
+            "value": 365449781,
+            "range": "± 7054951",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #4",
+            "value": 818932167,
+            "range": "± 31059031",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal)",
+            "value": 88112274,
+            "range": "± 22283886",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #2",
+            "value": 203435090,
+            "range": "± 9876663",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #3",
+            "value": 514852396,
+            "range": "± 30487434",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #4",
+            "value": 1798571479,
+            "range": "± 264359730",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal",
+            "value": 412553479,
+            "range": "± 72755046",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #2",
+            "value": 645797437,
+            "range": "± 152723875",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #3",
+            "value": 1586186896,
+            "range": "± 82177746",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #4",
+            "value": 4814887250,
+            "range": "± 217845353",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal",
+            "value": 986482750,
+            "range": "± 79448863",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #2",
+            "value": 1911913021,
+            "range": "± 158422139",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #3",
+            "value": 3688888937,
+            "range": "± 82768802",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #4",
+            "value": 8401317188,
+            "range": "± 571265462",
             "unit": "ns/iter"
           }
         ]
