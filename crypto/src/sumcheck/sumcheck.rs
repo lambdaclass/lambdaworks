@@ -229,11 +229,11 @@ where
     }
 
     /// Executes round \( j \) of the verifier.
-    pub fn do_round<R: Rng, C: Channel<F>>(
+    pub fn do_round<C: Channel<F>>(
         &mut self,
         univar: UnivariatePolynomial<F>,
         channel: &mut C,
-        _rng: &mut R, // rng is no longer used because we use the channel for randomness.
+        //_rng: &mut R, // rng is no longer used because we use the channel for randomness.
     ) -> VerifierRoundResult<F> {
         if self.round == 0 {
             let s0 = univar.evaluate(&FieldElement::zero());
@@ -324,15 +324,10 @@ where
     }
 }
 
-// -----------------------
-// Tests for Sum-Check using the channel
-// -----------------------
-
 #[cfg(test)]
 mod sumcheck_tests {
     use super::*;
     use lambdaworks_math::field::fields::u64_prime_field::U64PrimeField;
-    use rand::thread_rng;
 
     // Using a small prime field with modulus 101.
     const MODULUS: u64 = 101;
@@ -359,12 +354,12 @@ mod sumcheck_tests {
         // Create the verifier with oracle access to the original polynomial.
         let mut verifier = Verifier::new(poly.num_vars(), Some(poly), c_1);
 
-        let mut rng = thread_rng();
-
         // --- Round 0 ---
         // The prover sends the univariate polynomial derived from the original polynomial.
         let univar0 = prover.poly.to_univariate();
-        let res0 = verifier.do_round(univar0, &mut transcript, &mut rng);
+        //let res0 = verifier.do_round(univar0, &mut transcript, &mut rng);
+        let res0 = verifier.do_round(univar0, &mut transcript);
+
         let r0 = match res0 {
             VerifierRoundResult::NextRound(chal) => chal,
             VerifierRoundResult::Final(ok) => {
@@ -376,7 +371,10 @@ mod sumcheck_tests {
         // --- Round 1 ---
         // The prover receives the challenge r0 and fixes the last variable accordingly.
         let univar1 = prover.round(r0);
-        let res1 = verifier.do_round(univar1, &mut transcript, &mut rng);
+        //let res1: VerifierRoundResult<U64PrimeField<101>> = verifier.do_round(univar1, &mut transcript, &mut rng);
+        let res1: VerifierRoundResult<U64PrimeField<101>> =
+            verifier.do_round(univar1, &mut transcript);
+
         match res1 {
             VerifierRoundResult::Final(ok) => assert!(ok, "Final round verification failed"),
             _ => panic!("Expected final round result"),
@@ -403,12 +401,11 @@ mod sumcheck_tests {
         let c_1 = prover.c_1();
         let mut transcript = DefaultTranscript::<F>::default();
         let mut verifier = Verifier::new(poly.num_vars(), Some(poly), c_1);
-        let mut rng = thread_rng();
 
         // Round 0
         let mut g = prover.poly.to_univariate();
         println!("-- Round 0 --");
-        let res0 = verifier.do_round(g, &mut transcript, &mut rng);
+        let res0 = verifier.do_round(g, &mut transcript);
         let mut current_challenge = match res0 {
             VerifierRoundResult::NextRound(chal) => chal,
             VerifierRoundResult::Final(ok) => {
@@ -421,7 +418,7 @@ mod sumcheck_tests {
         while verifier.round < verifier.n {
             println!("-- Round {} --", verifier.round);
             g = prover.round(current_challenge);
-            let res = verifier.do_round(g, &mut transcript, &mut rng);
+            let res = verifier.do_round(g, &mut transcript);
             match res {
                 VerifierRoundResult::NextRound(chal) => {
                     current_challenge = chal;
@@ -431,6 +428,58 @@ mod sumcheck_tests {
                     break;
                 }
             }
+        }
+    }
+    #[test]
+    fn test_from_book_ported() {
+        // 3-variable polynomial: f(x₀,x₁,x₂)=2*x₀ + x₀*x₂ + x₁*x₂.
+        // Evaluations in little-endian order: [0, 2, 0, 2, 0, 3, 1, 4]. Total sum = 12.
+        let poly = DenseMultilinearPolynomial::new(vec![
+            FE::from(0),
+            FE::from(2),
+            FE::from(0),
+            FE::from(2),
+            FE::from(0),
+            FE::from(3),
+            FE::from(1),
+            FE::from(4),
+        ]);
+        // Initialize the prover.
+        let mut prover = Prover::new(poly.clone());
+        let c_1 = prover.c_1();
+        // Create a transcript that implements Channel.
+        let mut transcript = DefaultTranscript::<F>::default();
+        // Create the verifier with oracle access.
+        let mut verifier = Verifier::new(poly.num_vars(), Some(poly), c_1);
+
+        // Round 0:
+        let univar0 = prover.poly.to_univariate();
+        let res0 = verifier.do_round(univar0, &mut transcript);
+        let r0 = match res0 {
+            VerifierRoundResult::NextRound(chal) => chal,
+            VerifierRoundResult::Final(ok) => {
+                assert!(ok, "Round 0 verification failed");
+                return;
+            }
+        };
+
+        // Round 1:
+        let univar1 = prover.round(r0);
+        let res1 = verifier.do_round(univar1, &mut transcript);
+        let r1 = match res1 {
+            VerifierRoundResult::NextRound(chal) => chal,
+            VerifierRoundResult::Final(ok) => {
+                assert!(ok, "Round 1 verification failed");
+                return;
+            }
+        };
+
+        // Round 2 (final round):
+        let univar2 = prover.round(r1);
+        let res2 = verifier.do_round(univar2, &mut transcript);
+        match res2 {
+            VerifierRoundResult::Final(ok) => assert!(ok, "Final round verification failed"),
+            _ => panic!("Expected final round result"),
         }
     }
 }
