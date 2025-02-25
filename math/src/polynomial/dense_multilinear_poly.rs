@@ -141,6 +141,21 @@ where
         new_poly.evals.iter_mut().for_each(|eval| *eval *= scalar);
         new_poly
     }
+
+    /// Constructs a new polynomial from a vector of evaluations.
+    pub fn from_evaluations_vec(num_vars: usize, evaluations: Vec<FieldElement<F>>) -> Self {
+        assert_eq!(
+            evaluations.len(),
+            1 << num_vars,
+            "The size of evaluations should be 2^num_vars."
+        );
+
+        DenseMultilinearPolynomial {
+            n_vars: num_vars,
+            evals: evaluations,
+            len: 1 << num_vars,
+        }
+    }
 }
 
 impl<F: IsField> Index<usize> for DenseMultilinearPolynomial<F>
@@ -213,6 +228,7 @@ fn log_2(n: usize) -> usize {
         (0usize.leading_zeros() - n.leading_zeros()) as usize
     }
 }
+// added in this PR, need to see where should be placed
 
 #[cfg(test)]
 mod tests {
