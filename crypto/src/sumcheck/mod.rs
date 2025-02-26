@@ -1,1 +1,1 @@
-pub mod sumcheck;
+pub mod protocol;

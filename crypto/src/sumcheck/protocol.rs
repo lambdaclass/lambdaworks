@@ -1,173 +1,31 @@
-// sumcheck.rs
+// sumcheck.rs (refactored version)
 
 use crate::fiat_shamir::default_transcript::DefaultTranscript;
 use crate::fiat_shamir::is_transcript::IsTranscript;
 use alloc::vec::Vec;
 use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::traits::IsField;
-use lambdaworks_math::polynomial::dense_multilinear_poly::DenseMultilinearPolynomial;
+use lambdaworks_math::polynomial::{
+    dense_multilinear_poly::DenseMultilinearPolynomial,
+    Polynomial, // Represents univariate polynomials.
+};
 use lambdaworks_math::traits::ByteConversion;
-use rand::Rng;
 
-/// Trait for the Sum-Check protocol over a multivariate polynomial.
-pub trait SumCheckPolynomial<F: IsField>: Sized
+/// Prover for the Sum-Check protocol using DenseMultilinearPolynomial.
+pub struct Prover<F: IsField>
 where
     <F as IsField>::BaseType: Send + Sync,
 {
-    /// Evaluates the polynomial at the given point.
-    fn evaluate(&self, point: &[FieldElement<F>]) -> Option<FieldElement<F>>;
-
-    /// Fixes (binds) a variable (always the last one) and produces a new polynomial with one fewer variable.
-    fn fix_variables(&self, partial_point: &[FieldElement<F>]) -> Self;
-
-    /// Returns the evaluations of the polynomial over the Boolean hypercube \(\{0,1\}^n\).
-    fn to_evaluations(&self) -> Vec<FieldElement<F>>;
-
-    /// Returns the number of variables.
-    fn num_vars(&self) -> usize;
-
-    /// Collapses the last unfixed variable, producing a univariate polynomial in that variable.
-    /// That is, for a polynomial \( g(x_0,\dots,x_{n-1}) \), define
-    /// \[
-    /// U(t) = \sum_{(x_0,\dots,x_{n-2})\in\{0,1\}^{n-1}} g(x_0,\dots,x_{n-2},t)
-    /// \]
-    fn to_univariate(&self) -> UnivariatePolynomial<F>;
-}
-
-/// A univariate polynomial represented by its coefficients.
-/// Coefficients: \( a_0 + a_1 x + \cdots + a_k x^k \).
-pub struct UnivariatePolynomial<F: IsField>
-where
-    <F as IsField>::BaseType: Send + Sync,
-{
-    pub coeffs: Vec<FieldElement<F>>,
-}
-
-impl<F: IsField> UnivariatePolynomial<F>
-where
-    <F as IsField>::BaseType: Send + Sync,
-{
-    /// Naively evaluates the polynomial at \( x \).
-    pub fn evaluate(&self, x: &FieldElement<F>) -> FieldElement<F> {
-        let mut result = FieldElement::zero();
-        let mut power = FieldElement::<F>::one();
-        for c in &self.coeffs {
-            result += c * &power;
-            power *= x;
-        }
-        result
-    }
-
-    /// Creates the zero polynomial.
-    pub fn zero() -> Self {
-        UnivariatePolynomial {
-            coeffs: vec![FieldElement::zero()],
-        }
-    }
-
-    /// Returns the degree (number of coefficients minus one).
-    pub fn degree(&self) -> usize {
-        if self.coeffs.is_empty() {
-            0
-        } else {
-            self.coeffs.len() - 1
-        }
-    }
-}
-
-/// Extension trait for DenseMultilinearPolynomial to fix the last variable.
-pub trait DenseMultilinearPolynomialExt<F: IsField>
-where
-    <F as IsField>::BaseType: Send + Sync,
-{
-    fn fix_last_variable(&self, r: &FieldElement<F>) -> DenseMultilinearPolynomial<F>;
-}
-
-impl<F: IsField> DenseMultilinearPolynomialExt<F> for DenseMultilinearPolynomial<F>
-where
-    <F as IsField>::BaseType: Send + Sync,
-{
-    fn fix_last_variable(&self, r: &FieldElement<F>) -> DenseMultilinearPolynomial<F> {
-        let n = self.num_vars();
-        assert!(n > 0, "Cannot fix variable in a 0-variable poly");
-        let half = 1 << (n - 1);
-        let new_evals: Vec<FieldElement<F>> = (0..half)
-            .map(|j| {
-                let a = self.evals()[j].clone();
-                let b = self.evals()[j + half].clone();
-                &a + r * (b - &a)
-            })
-            .collect();
-        DenseMultilinearPolynomial::from_evaluations_vec(n - 1, new_evals)
-    }
-}
-
-/// Implementation of SumCheckPolynomial for DenseMultilinearPolynomial.
-impl<F: IsField> SumCheckPolynomial<F> for DenseMultilinearPolynomial<F>
-where
-    <F as IsField>::BaseType: Send + Sync,
-{
-    fn evaluate(&self, point: &[FieldElement<F>]) -> Option<FieldElement<F>> {
-        self.evaluate(point.to_vec()).ok()
-    }
-
-    fn fix_variables(&self, partial_point: &[FieldElement<F>]) -> Self {
-        // In this protocol, we fix exactly one variable per round.
-        assert!(
-            partial_point.len() == 1,
-            "Exactly one variable must be fixed per round"
-        );
-        DenseMultilinearPolynomialExt::fix_last_variable(self, &partial_point[0])
-    }
-
-    fn to_evaluations(&self) -> Vec<FieldElement<F>> {
-        let mut result = Vec::with_capacity(1 << self.num_vars());
-        for i in 0..(1 << self.num_vars()) {
-            let mut point = Vec::with_capacity(self.num_vars());
-            for bit_idx in 0..self.num_vars() {
-                let bit = ((i >> bit_idx) & 1) == 1;
-                point.push(if bit {
-                    FieldElement::one()
-                } else {
-                    FieldElement::zero()
-                });
-            }
-            result.push(self.evaluate(point).unwrap());
-        }
-        result
-    }
-
-    fn num_vars(&self) -> usize {
-        self.num_vars()
-    }
-
-    fn to_univariate(&self) -> UnivariatePolynomial<F> {
-        // Fix the last variable to 0 and to 1.
-        let poly0 = DenseMultilinearPolynomialExt::fix_last_variable(self, &FieldElement::zero());
-        let poly1 = DenseMultilinearPolynomialExt::fix_last_variable(self, &FieldElement::one());
-        let sum0: FieldElement<F> = poly0.to_evaluations().into_iter().sum();
-        let sum1: FieldElement<F> = poly1.to_evaluations().into_iter().sum();
-        UnivariatePolynomial {
-            coeffs: vec![sum0.clone(), sum1 - sum0],
-        }
-    }
-}
-
-/// Prover for the Sum-Check protocol.
-pub struct Prover<F: IsField, P: SumCheckPolynomial<F>>
-where
-    <F as IsField>::BaseType: Send + Sync,
-{
-    pub poly: P,
+    pub poly: DenseMultilinearPolynomial<F>,
     pub claimed_sum: FieldElement<F>,
     pub current_round: usize,
 }
 
-impl<F: IsField, P: SumCheckPolynomial<F>> Prover<F, P>
+impl<F: IsField> Prover<F>
 where
     <F as IsField>::BaseType: Send + Sync,
 {
-    pub fn new(poly: P) -> Self {
+    pub fn new(poly: DenseMultilinearPolynomial<F>) -> Self {
         let evals = poly.to_evaluations();
         let claimed_sum = evals.into_iter().sum();
         Self {
@@ -183,8 +41,11 @@ where
 
     /// Receives the challenge \( r_j \) from the verifier, fixes the last variable to that value,
     /// and returns the univariate polynomial for the next variable.
-    pub fn round(&mut self, r_j: FieldElement<F>) -> UnivariatePolynomial<F> {
-        self.poly = self.poly.fix_variables(&[r_j]);
+    /// (The univariate polynomial is represented as a Polynomial with two coefficients.)
+    pub fn round(&mut self, r_j: FieldElement<F>) -> Polynomial<FieldElement<F>> {
+        // Fix the last variable (using the integrated method in dense_multilinear_poly)
+        self.poly = self.poly.fix_last_variable(&r_j);
+        // Obtain the univariate polynomial: sum of evaluations with the last variable fixed to 0 and 1.
         let univar = self.poly.to_univariate();
         self.current_round += 1;
         univar
@@ -201,23 +62,27 @@ where
 }
 
 /// Verifier for the Sum-Check protocol. It stores the challenges to reconstruct the complete point.
-pub struct Verifier<F: IsField, P: SumCheckPolynomial<F>>
+pub struct Verifier<F: IsField>
 where
     <F as IsField>::BaseType: Send + Sync,
 {
     pub n: usize,
     pub c_1: FieldElement<F>,
     pub round: usize,
-    pub poly: Option<P>,                  // Optional oracle access
-    pub last_val: FieldElement<F>,        // Value from the previous round
-    pub challenges: Vec<FieldElement<F>>, // Collected challenges
+    pub poly: Option<DenseMultilinearPolynomial<F>>, // Optional oracle access
+    pub last_val: FieldElement<F>,                   // Value from the previous round
+    pub challenges: Vec<FieldElement<F>>,            // Collected challenges
 }
 
-impl<F: IsField, P: SumCheckPolynomial<F>> Verifier<F, P>
+impl<F: IsField> Verifier<F>
 where
     <F as IsField>::BaseType: Send + Sync,
 {
-    pub fn new(n: usize, poly: Option<P>, c_1: FieldElement<F>) -> Self {
+    pub fn new(
+        n: usize,
+        poly: Option<DenseMultilinearPolynomial<F>>,
+        c_1: FieldElement<F>,
+    ) -> Self {
         Self {
             n,
             c_1,
@@ -231,13 +96,12 @@ where
     /// Executes round \( j \) of the verifier.
     pub fn do_round<C: Channel<F>>(
         &mut self,
-        univar: UnivariatePolynomial<F>,
+        univar: Polynomial<FieldElement<F>>,
         channel: &mut C,
-        //_rng: &mut R, // rng is no longer used because we use the channel for randomness.
     ) -> VerifierRoundResult<F> {
         if self.round == 0 {
-            let s0 = univar.evaluate(&FieldElement::zero());
-            let s1 = univar.evaluate(&FieldElement::one());
+            let s0 = univar.evaluate(&FieldElement::<F>::zero());
+            let s1 = univar.evaluate(&FieldElement::<F>::one());
             println!(
                 "Round {}: s0 = {:?}, s1 = {:?}, total = {:?}",
                 self.round,
@@ -253,8 +117,8 @@ where
                 return VerifierRoundResult::Final(false);
             }
         } else {
-            let s0 = univar.evaluate(&FieldElement::zero());
-            let s1 = univar.evaluate(&FieldElement::one());
+            let s0 = univar.evaluate(&FieldElement::<F>::zero());
+            let s1 = univar.evaluate(&FieldElement::<F>::one());
             let sum = s0.clone() + s1.clone();
             println!(
                 "Round {}: s0 = {:?}, s1 = {:?}, total = {:?}",
@@ -268,10 +132,10 @@ where
                 return VerifierRoundResult::Final(false);
             }
         }
-        // Instead of using rng.gen(), we use the channel to draw the challenge.
-        channel.append_field_element(&univar.coeffs[0]);
+
+        channel.append_field_element(&univar.coefficients[0]);
         let r_j = channel.draw_felt();
-        println!("Round {}: challenge = {:?}", self.round, r_j);
+        println!("Round {}: random challenge value = {:?}", self.round, r_j);
         self.challenges.push(r_j.clone());
         let val = univar.evaluate(&r_j);
         println!("Round {}: univar({:?}) = {:?}", self.round, r_j, val);
@@ -280,10 +144,10 @@ where
         if self.round == self.n {
             if let Some(ref poly) = self.poly {
                 let full_point = self.challenges.clone();
-                if let Some(real_val) = poly.evaluate(full_point.as_slice()) {
+                if let Ok(real_val) = poly.evaluate(full_point) {
                     println!(
                         "Final round: full_point = {:?}, real_val = {:?}, last_val = {:?}",
-                        full_point, real_val, self.last_val
+                        self.challenges, real_val, self.last_val
                     );
                     return VerifierRoundResult::Final(real_val == self.last_val);
                 } else {
@@ -299,10 +163,7 @@ where
     }
 }
 
-// -----------------------
-// Channel trait and its implementation for DefaultTranscript
-// -----------------------
-
+/// Channel trait for the transcript used in verification.
 pub trait Channel<F: IsField> {
     /// Appends data (e.g., a field element) to the transcript.
     fn append_field_element(&mut self, element: &FieldElement<F>);
@@ -357,7 +218,6 @@ mod sumcheck_tests {
         // --- Round 0 ---
         // The prover sends the univariate polynomial derived from the original polynomial.
         let univar0 = prover.poly.to_univariate();
-        //let res0 = verifier.do_round(univar0, &mut transcript, &mut rng);
         let res0 = verifier.do_round(univar0, &mut transcript);
 
         let r0 = match res0 {
@@ -371,7 +231,6 @@ mod sumcheck_tests {
         // --- Round 1 ---
         // The prover receives the challenge r0 and fixes the last variable accordingly.
         let univar1 = prover.round(r0);
-        //let res1: VerifierRoundResult<U64PrimeField<101>> = verifier.do_round(univar1, &mut transcript, &mut rng);
         let res1: VerifierRoundResult<U64PrimeField<101>> =
             verifier.do_round(univar1, &mut transcript);
 
@@ -430,6 +289,7 @@ mod sumcheck_tests {
             }
         }
     }
+
     #[test]
     fn test_from_book_ported() {
         // 3-variable polynomial: f(x₀,x₁,x₂)=2*x₀ + x₀*x₂ + x₁*x₂.
