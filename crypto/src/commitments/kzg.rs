@@ -287,9 +287,14 @@ mod tests {
         <BLS12381AtePairing as IsPairing>::G1Point,
         <BLS12381AtePairing as IsPairing>::G2Point,
     > {
-        let mut rng = rand::rng();
+        let mut rng = rand::thread_rng();
         let toxic_waste = FrElement::new(U256 {
-            limbs: [rng.random(), rng.random(), rng.random(), rng.random()],
+            limbs: [
+                rng.gen::<u64>(),
+                rng.gen::<u64>(),
+                rng.gen::<u64>(),
+                rng.gen::<u64>(),
+            ],
         });
         let g1 = BLS12381Curve::generator();
         let g2 = BLS12381TwistCurve::generator();
