@@ -289,12 +289,7 @@ mod tests {
     > {
         let mut rng = rand::thread_rng();
         let toxic_waste = FrElement::new(U256 {
-            limbs: [
-                rng.gen::<u64>(),
-                rng.gen::<u64>(),
-                rng.gen::<u64>(),
-                rng.gen::<u64>(),
-            ],
+            limbs: [rng.random(), rng.random(), rng.random(), rng.random()],
         });
         let g1 = BLS12381Curve::generator();
         let g2 = BLS12381TwistCurve::generator();

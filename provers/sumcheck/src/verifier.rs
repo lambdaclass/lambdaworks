@@ -1,10 +1,10 @@
-use crate::sumcheck::Channel;
-use alloc::vec::Vec;
+use super::Channel;
 use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::traits::IsField;
 use lambdaworks_math::polynomial::{
     dense_multilinear_poly::DenseMultilinearPolynomial, Polynomial,
 };
+use std::vec::Vec;
 
 pub enum VerifierRoundResult<F: IsField>
 where
@@ -159,8 +159,8 @@ where
 #[cfg(test)]
 mod sumcheck_tests {
     use super::*;
-    use crate::fiat_shamir::default_transcript::DefaultTranscript;
-    use crate::sumcheck::prover::Prover;
+    use crate::prover::Prover;
+    use lambdaworks_crypto::fiat_shamir::default_transcript::DefaultTranscript;
     use lambdaworks_math::field::fields::u64_prime_field::U64PrimeField;
 
     // Using a small prime field with modulus 101.

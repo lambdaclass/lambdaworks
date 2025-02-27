@@ -1,8 +1,8 @@
 pub mod prover;
 pub mod verifier;
 
-use crate::fiat_shamir::default_transcript::DefaultTranscript;
-use crate::fiat_shamir::is_transcript::IsTranscript;
+use lambdaworks_crypto::fiat_shamir::default_transcript::DefaultTranscript;
+use lambdaworks_crypto::fiat_shamir::is_transcript::IsTranscript;
 use lambdaworks_math::field::element::FieldElement;
 
 use lambdaworks_math::field::traits::IsField;
