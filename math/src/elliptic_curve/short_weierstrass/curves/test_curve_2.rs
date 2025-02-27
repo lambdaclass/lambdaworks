@@ -49,7 +49,10 @@ impl IsEllipticCurve for TestCurve2 {
     type PointRepresentation = ShortWeierstrassProjectivePoint<Self>;
 
     fn generator() -> Self::PointRepresentation {
-        Self::PointRepresentation::new([
+        // SAFETY:
+        // - The generator point is mathematically verified to be a valid point on the curve.
+        // - `unwrap()` is safe because the provided coordinates satisfy the curve equation.
+        let point = Self::PointRepresentation::new([
             FieldElement::new([
                 FieldElement::new(U384::from_hex_unchecked(
                     "21acedb641ca6d0f8b60148123a999801",
@@ -67,7 +70,8 @@ impl IsEllipticCurve for TestCurve2 {
                 )),
             ]),
             FieldElement::one(),
-        ])
+        ]);
+        point.unwrap()
     }
 }
 

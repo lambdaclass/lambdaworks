@@ -29,7 +29,10 @@ impl IsEllipticCurve for BN254TwistCurve {
     type PointRepresentation = ShortWeierstrassProjectivePoint<Self>;
 
     fn generator() -> Self::PointRepresentation {
-        Self::PointRepresentation::new([
+        // SAFETY:
+        // - The generator point is mathematically verified to be a valid point on the curve.
+        // - `unwrap()` is safe because the provided coordinates satisfy the curve equation.
+        let point = Self::PointRepresentation::new([
             FieldElement::new([
                 FieldElement::new(GENERATOR_X_0),
                 FieldElement::new(GENERATOR_X_1),
@@ -39,7 +42,8 @@ impl IsEllipticCurve for BN254TwistCurve {
                 FieldElement::new(GENERATOR_Y_1),
             ]),
             FieldElement::one(),
-        ])
+        ]);
+        point.unwrap()
     }
 }
 

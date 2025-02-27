@@ -22,7 +22,6 @@ pub type F = FieldElement<Mersenne31MontgomeryPrimeField>;
 const NUM_LIMBS: usize = 1;
 
 #[inline(never)]
-#[no_mangle]
 #[export_name = "util::rand_mersenne31_mont_field_elements"]
 pub fn rand_field_elements(num: usize) -> Vec<(F, F)> {
     let mut result = Vec::with_capacity(num);

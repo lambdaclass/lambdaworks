@@ -31,14 +31,14 @@ pub fn bn_254_elliptic_curve_benchmarks(c: &mut Criterion) {
     let a_g1 = BN254Curve::generator().operate_with_self(a_val);
     let b_g1 = BN254Curve::generator().operate_with_self(b_val);
 
-    let a_g2 = BN254TwistCurve::generator().operate_with_self(a_val);
+    let a_g2 = BN254TwistCurve::generator().operate_with_self(b_val);
     let b_g2 = BN254TwistCurve::generator().operate_with_self(b_val);
     let f_12 = Fp12E::from_coefficients(&[
         "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12",
     ]);
     let f_2 = Fp2E::new([FpE::from(a_val as u64), FpE::from(b_val as u64)]);
 
-    let miller_loop_output = miller_optimized(&a_g1, &a_g2);
+    let miller_loop_output = miller_optimized(&a_g1.to_affine(), &a_g2.to_affine());
 
     let mut group = c.benchmark_group("BN254 Ops");
 
