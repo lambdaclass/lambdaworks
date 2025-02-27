@@ -505,7 +505,7 @@ mod tests {
         ],
     ];
     fn rand_field_element<R: Rng>(rng: &mut R) -> Fp {
-        Fp::from(rng.gen::<u64>())
+        Fp::from(rng.random::<u64>())
     }
 
     #[test]

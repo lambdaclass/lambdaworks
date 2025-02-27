@@ -287,7 +287,7 @@ mod tests {
         <BLS12381AtePairing as IsPairing>::G1Point,
         <BLS12381AtePairing as IsPairing>::G2Point,
     > {
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         let toxic_waste = FrElement::new(U256 {
             limbs: [rng.random(), rng.random(), rng.random(), rng.random()],
         });
