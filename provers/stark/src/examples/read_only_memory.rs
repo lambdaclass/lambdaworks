@@ -296,12 +296,14 @@ where
         let mut aux_col = Vec::new();
         let num = z - (&a[0] + alpha * &v[0]);
         let den = z - (&a_sorted[0] + alpha * &v_sorted[0]);
-        aux_col.push(num / den);
+        // We are using that den != 0 with high probability because alpha is a random element.
+        aux_col.push((num / den).unwrap());
         // Apply the same equation given in the permutation case to the rest of the trace
         for i in 0..trace_len - 1 {
             let num = (z - (&a[i + 1] + alpha * &v[i + 1])) * &aux_col[i];
             let den = z - (&a_sorted[i + 1] + alpha * &v_sorted[i + 1]);
-            aux_col.push(num / den);
+            // We are using that den != 0 with high probability because alpha is a random element.
+            aux_col.push((num / den).unwrap());
         }
 
         for (i, aux_elem) in aux_col.iter().enumerate().take(trace.num_rows()) {
@@ -345,7 +347,7 @@ where
         let den = z - (a_sorted0 + alpha * v_sorted0);
         let p0_value = num / den;
 
-        let c_aux1 = BoundaryConstraint::new_aux(0, 0, p0_value);
+        let c_aux1 = BoundaryConstraint::new_aux(0, 0, p0_value.unwrap());
         let c_aux2 = BoundaryConstraint::new_aux(
             0,
             self.trace_length - 1,

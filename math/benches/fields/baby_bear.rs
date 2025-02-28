@@ -156,7 +156,7 @@ pub fn babybear_u32_ops_benchmarks(c: &mut Criterion) {
         group.bench_with_input(format!("Division {:?}", &i.len()), &i, |bench, i| {
             bench.iter(|| {
                 for (x, y) in i {
-                    black_box(black_box(x) / black_box(y));
+                    black_box(black_box(x) / black_box(y)).unwrap();
                 }
             });
         });
@@ -214,7 +214,7 @@ pub fn babybear_u64_ops_benchmarks(c: &mut Criterion) {
         group.bench_with_input(format!("Division {:?}", &i.len()), &i, |bench, i| {
             bench.iter(|| {
                 for (x, y) in i {
-                    black_box(black_box(x) / black_box(y));
+                    black_box(black_box(x) / black_box(y)).unwrap();
                 }
             });
         });
@@ -266,7 +266,7 @@ pub fn babybear_u32_extension_ops_benchmarks(c: &mut Criterion) {
         group.bench_with_input(format!("Inverse of Fp4 {:?}", &i.len()), &i, |bench, i| {
             bench.iter(|| {
                 for (x, y) in i {
-                    black_box(black_box(x) / black_box(y));
+                    black_box(black_box(x) / black_box(y)).unwrap();
                 }
             });
         });
@@ -328,7 +328,7 @@ pub fn babybear_u64_extension_ops_benchmarks(c: &mut Criterion) {
         group.bench_with_input(format!("Inverse of Fp4 {:?}", &i.len()), &i, |bench, i| {
             bench.iter(|| {
                 for (x, y) in i {
-                    black_box(black_box(x) / black_box(y));
+                    black_box(black_box(x) / black_box(y)).unwrap();
                 }
             });
         });

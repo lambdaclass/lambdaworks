@@ -347,9 +347,22 @@ where
                     z = ByteConversion::from_bytes_le(&bytes[len * 2..])?;
                 }
 
-                let point =
-                    Self::new([x, y, z]).map_err(|_| DeserializationError::FieldFromBytesError)?;
-                Ok(point)
+                let Ok(z_inv) = z.inv() else {
+                    let point = Self::new([x, y, z])
+                        .map_err(|_| DeserializationError::FieldFromBytesError)?;
+                    return if point.is_neutral_element() {
+                        Ok(point)
+                    } else {
+                        Err(DeserializationError::FieldFromBytesError)
+                    };
+                };
+                let x_affine = &x * &z_inv;
+                let y_affine = &y * &z_inv;
+                if E::defining_equation(&x_affine, &y_affine) == FieldElement::zero() {
+                    Self::new([x, y, z]).map_err(|_| DeserializationError::FieldFromBytesError)
+                } else {
+                    Err(DeserializationError::FieldFromBytesError)
+                }
             }
             PointFormat::Uncompressed => {
                 if bytes.len() % 2 != 0 {

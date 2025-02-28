@@ -166,7 +166,11 @@ impl<const WIDTH: usize, const NUM_FULL_ROUNDS: usize> MonolithMersenne31<WIDTH,
 
         for (i, x_i) in x.iter().enumerate() {
             for (j, yj) in y.iter().enumerate() {
-                output[i] = F::add(&output[i], &F::div(&to_multiply[j], &F::add(x_i, yj)));
+                output[i] = F::add(
+                    &output[i],
+                    // We are using that x_i + yj != 0 because they are both much smaller than the modulus.
+                    &F::div(&to_multiply[j], &F::add(x_i, yj)).unwrap(),
+                );
             }
         }
 
