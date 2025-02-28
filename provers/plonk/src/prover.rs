@@ -350,7 +350,7 @@ where
         common_preprocessed_input: &CommonPreprocessedInput<F>,
         beta: FieldElement<F>,
         gamma: FieldElement<F>,
-    ) -> Round2Result<F, CS::Commitment> {
+    ) -> Result<Round2Result<F, CS::Commitment>, ProverError> {
         let cpi = common_preprocessed_input;
         let mut coefficients: Vec<FieldElement<F>> = vec![FieldElement::one()];
         let (s1, s2, s3) = (&cpi.s1_lagrange, &cpi.s2_lagrange, &cpi.s3_lagrange);
@@ -366,9 +366,7 @@ where
                 * lp(c_i, &(&cpi.domain[i] * &k2));
             let den = lp(a_i, &s1[i]) * lp(b_i, &s2[i]) * lp(c_i, &s3[i]);
             // We are using that den != 0 with high probability because beta and gamma are random elements.
-            let new_factor = (num / den)
-                .map_err(|_| ProverError::DivisionByZero)
-                .unwrap();
+            let new_factor = (num / den).map_err(|_| ProverError::DivisionByZero)?;
 
             let new_term = coefficients.last().unwrap() * &new_factor;
             coefficients.push(new_term);
@@ -380,12 +378,12 @@ where
             - FieldElement::<F>::one();
         let p_z = self.blind_polynomial(&p_z, &z_h, 3);
         let z_1 = self.commitment_scheme.commit(&p_z);
-        Round2Result {
+        Ok(Round2Result {
             z_1,
             p_z,
             beta,
             gamma,
-        }
+        })
     }
 
     fn round_3(
@@ -657,7 +655,9 @@ where
         let beta = transcript.sample_field_element();
         let gamma = transcript.sample_field_element();
 
-        let round_2 = self.round_2(witness, common_preprocessed_input, beta, gamma);
+        let round_2 = self
+            .round_2(witness, common_preprocessed_input, beta, gamma)
+            .unwrap();
         transcript.append_bytes(&round_2.z_1.as_bytes());
 
         // Round 3
@@ -803,7 +803,9 @@ mod tests {
         let random_generator = TestRandomFieldGenerator {};
         let prover = Prover::new(kzg, random_generator);
 
-        let result_2 = prover.round_2(&witness, &common_preprocessed_input, beta(), gamma());
+        let result_2 = prover
+            .round_2(&witness, &common_preprocessed_input, beta(), gamma())
+            .unwrap();
         let z_1_expected = BLS12381Curve::create_point_from_affine(
             FpElement::from_hex_unchecked("3e8322968c3496cf1b5786d4d71d158a646ec90c14edf04e758038e1f88dcdfe8443fcecbb75f3074a872a380391742"),
             FpElement::from_hex_unchecked("11eac40d09796ff150004e7b858d83ddd9fe995dced0b3fbd7535d6e361729b25d488799da61fdf1d7b5022684053327"),
@@ -821,7 +823,9 @@ mod tests {
         let random_generator = TestRandomFieldGenerator {};
         let prover = Prover::new(kzg, random_generator);
         let round_1 = prover.round_1(&witness, &common_preprocessed_input);
-        let round_2 = prover.round_2(&witness, &common_preprocessed_input, beta(), gamma());
+        let round_2 = prover
+            .round_2(&witness, &common_preprocessed_input, beta(), gamma())
+            .unwrap();
         let round_3 = prover.round_3(
             &common_preprocessed_input,
             &public_input,
@@ -855,7 +859,9 @@ mod tests {
         let prover = Prover::new(kzg, random_generator);
 
         let round_1 = prover.round_1(&witness, &common_preprocessed_input);
-        let round_2 = prover.round_2(&witness, &common_preprocessed_input, beta(), gamma());
+        let round_2 = prover
+            .round_2(&witness, &common_preprocessed_input, beta(), gamma())
+            .unwrap();
 
         let round_4 = prover.round_4(&common_preprocessed_input, &round_1, &round_2, zeta());
         let expected_a_value = FrElement::from_hex_unchecked(
@@ -896,7 +902,9 @@ mod tests {
         let prover = Prover::new(kzg, random_generator);
 
         let round_1 = prover.round_1(&witness, &common_preprocessed_input);
-        let round_2 = prover.round_2(&witness, &common_preprocessed_input, beta(), gamma());
+        let round_2 = prover
+            .round_2(&witness, &common_preprocessed_input, beta(), gamma())
+            .unwrap();
 
         let round_3 = prover.round_3(
             &common_preprocessed_input,
