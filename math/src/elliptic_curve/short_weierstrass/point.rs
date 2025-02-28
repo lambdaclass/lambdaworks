@@ -347,18 +347,18 @@ where
                     z = ByteConversion::from_bytes_le(&bytes[len * 2..])?;
                 }
 
-                if z == FieldElement::zero() {
+                let Ok(z_inv) = z.inv() else {
                     let point = Self::new([x, y, z])
                         .map_err(|_| DeserializationError::FieldFromBytesError)?;
-                    if point.is_neutral_element() {
+                    return if point.is_neutral_element() {
                         Ok(point)
                     } else {
                         Err(DeserializationError::FieldFromBytesError)
-                    }
-                } else if E::defining_equation(unsafe { &(&x / &z).unwrap_unchecked() }, unsafe {
-                    &(&y / &z).unwrap_unchecked()
-                }) == FieldElement::zero()
-                {
+                    };
+                };
+                let x_affine = &x * &z_inv;
+                let y_affine = &y * &z_inv;
+                if E::defining_equation(&x_affine, &y_affine) == FieldElement::zero() {
                     Self::new([x, y, z]).map_err(|_| DeserializationError::FieldFromBytesError)
                 } else {
                     Err(DeserializationError::FieldFromBytesError)
