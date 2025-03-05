@@ -223,7 +223,8 @@ where
                 let n_p_term = not_perm[i - 1].clone() + gamma;
                 let p_term = &perm[i - 1] + gamma;
 
-                aux_col.push(z_i * n_p_term.div(p_term));
+                // We are using that with high probability p_term != 0 because gamma is a random element.
+                aux_col.push(z_i * n_p_term.div(p_term).unwrap());
             }
         }
 
@@ -377,7 +378,7 @@ mod test {
                 let n_p_term = not_perm[i - 1] + gamma;
                 let p_term = perm[i - 1] + gamma;
 
-                aux_col.push(z_i * n_p_term.div(p_term));
+                aux_col.push(z_i * n_p_term.div(p_term).unwrap());
             }
         }
 
