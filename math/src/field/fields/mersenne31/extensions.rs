@@ -66,8 +66,9 @@ impl IsField for Degree2ExtensionField {
     }
 
     /// Returns the division of `a` and `b`
-    fn div(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
-        <Self as IsField>::mul(a, &Self::inv(b).unwrap())
+    fn div(a: &Self::BaseType, b: &Self::BaseType) -> Result<Self::BaseType, FieldError> {
+        let b_inv = &Self::inv(b).map_err(|_| FieldError::DivisionByZero)?;
+        Ok(<Self as IsField>::mul(a, b_inv))
     }
 
     /// Returns a boolean indicating whether `a` and `b` are equal component wise.
@@ -119,9 +120,11 @@ impl IsSubFieldOf<Degree2ExtensionField> for Mersenne31Field {
     fn div(
         a: &Self::BaseType,
         b: &<Degree2ExtensionField as IsField>::BaseType,
-    ) -> <Degree2ExtensionField as IsField>::BaseType {
-        let b_inv = Degree2ExtensionField::inv(b).unwrap();
-        <Self as IsSubFieldOf<Degree2ExtensionField>>::mul(a, &b_inv)
+    ) -> Result<<Degree2ExtensionField as IsField>::BaseType, FieldError> {
+        let b_inv = Degree2ExtensionField::inv(b).map_err(|_| FieldError::DivisionByZero)?;
+        Ok(<Self as IsSubFieldOf<Degree2ExtensionField>>::mul(
+            a, &b_inv,
+        ))
     }
 
     fn embed(a: Self::BaseType) -> <Degree2ExtensionField as IsField>::BaseType {
@@ -190,8 +193,9 @@ impl IsField for Degree4ExtensionField {
         Ok([&a[0] * &inv_norm, -&a[1] * &inv_norm])
     }
 
-    fn div(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
-        <Self as IsField>::mul(a, &Self::inv(b).unwrap())
+    fn div(a: &Self::BaseType, b: &Self::BaseType) -> Result<Self::BaseType, FieldError> {
+        let b_inv = &Self::inv(b).map_err(|_| FieldError::DivisionByZero)?;
+        Ok(<Self as IsField>::mul(a, b_inv))
     }
 
     fn eq(a: &Self::BaseType, b: &Self::BaseType) -> bool {
@@ -242,9 +246,11 @@ impl IsSubFieldOf<Degree4ExtensionField> for Mersenne31Field {
     fn div(
         a: &Self::BaseType,
         b: &<Degree4ExtensionField as IsField>::BaseType,
-    ) -> <Degree4ExtensionField as IsField>::BaseType {
-        let b_inv = Degree4ExtensionField::inv(b).unwrap();
-        <Self as IsSubFieldOf<Degree4ExtensionField>>::mul(a, &b_inv)
+    ) -> Result<<Degree4ExtensionField as IsField>::BaseType, FieldError> {
+        let b_inv = Degree4ExtensionField::inv(b).map_err(|_| FieldError::DivisionByZero)?;
+        Ok(<Self as IsSubFieldOf<Degree4ExtensionField>>::mul(
+            a, &b_inv,
+        ))
     }
 
     fn embed(a: Self::BaseType) -> <Degree4ExtensionField as IsField>::BaseType {
@@ -555,7 +561,7 @@ mod tests {
         let a = Fp2E::new([FpE::from(12), FpE::from(5)]);
         let b = Fp2E::new([FpE::from(4), FpE::from(2)]);
         let expected_result = Fp2E::new([FpE::from(644245097), FpE::from(1288490188)]);
-        assert_eq!(a / b, expected_result);
+        assert_eq!((a / b).unwrap(), expected_result);
     }
 
     #[test]
@@ -563,7 +569,7 @@ mod tests {
         let a = Fp2E::new([FpE::from(4), FpE::from(7)]);
         let b = Fp2E::new([FpE::one(), FpE::zero()]);
         let expected_result = Fp2E::new([FpE::from(4), FpE::from(7)]);
-        assert_eq!(a / b, expected_result);
+        assert_eq!((a / b).unwrap(), expected_result);
     }
 
     #[test]
@@ -571,7 +577,7 @@ mod tests {
         let a = Fp2E::new([FpE::zero(), FpE::zero()]);
         let b = Fp2E::new([FpE::from(3), FpE::from(12)]);
         let expected_result = Fp2E::new([FpE::zero(), FpE::zero()]);
-        assert_eq!(a / b, expected_result);
+        assert_eq!((a / b).unwrap(), expected_result);
     }
 
     #[test]

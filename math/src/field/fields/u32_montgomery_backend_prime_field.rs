@@ -168,8 +168,9 @@ impl<const MODULUS: u32> IsField for U32MontgomeryBackendPrimeField<MODULUS> {
     }
 
     #[inline(always)]
-    fn div(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
-        Self::mul(a, &Self::inv(b).unwrap())
+    fn div(a: &Self::BaseType, b: &Self::BaseType) -> Result<Self::BaseType, FieldError> {
+        let b_inv = &Self::inv(b)?;
+        Ok(Self::mul(a, b_inv))
     }
 
     #[inline(always)]

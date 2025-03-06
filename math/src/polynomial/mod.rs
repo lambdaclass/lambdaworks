@@ -1098,11 +1098,11 @@ mod tests {
 
     #[test]
     fn simple_interpolating_polynomial_by_hand_works() {
-        let denominator = Polynomial::new(&[FE::new(1) / (FE::new(2) - FE::new(4))]);
+        let denominator = Polynomial::new(&[FE::new(1) * (FE::new(2) - FE::new(4)).inv().unwrap()]);
         let numerator = Polynomial::new(&[-FE::new(4), FE::new(1)]);
         let interpolating = numerator * denominator;
         assert_eq!(
-            (FE::new(2) - FE::new(4)) * (FE::new(1) / (FE::new(2) - FE::new(4))),
+            (FE::new(2) - FE::new(4)) * (FE::new(1) * (FE::new(2) - FE::new(4)).inv().unwrap()),
             FE::new(1)
         );
         assert_eq!(interpolating.evaluate(&FE::new(2)), FE::new(1));

@@ -75,8 +75,9 @@ impl IsField for Degree2ExtensionField {
     }
 
     /// Returns the division of `a` and `b`
-    fn div(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
-        <Self as IsField>::mul(a, &Self::inv(b).unwrap())
+    fn div(a: &Self::BaseType, b: &Self::BaseType) -> Result<Self::BaseType, FieldError> {
+        let b_inv = &Self::inv(b).map_err(|_| FieldError::DivisionByZero)?;
+        Ok(<Self as IsField>::mul(a, b_inv))
     }
 
     /// Returns a boolean indicating whether `a` and `b` are equal component wise.
@@ -130,9 +131,11 @@ impl IsSubFieldOf<Degree2ExtensionField> for BN254PrimeField {
     fn div(
         a: &Self::BaseType,
         b: &<Degree2ExtensionField as IsField>::BaseType,
-    ) -> <Degree2ExtensionField as IsField>::BaseType {
-        let b_inv = Degree2ExtensionField::inv(b).unwrap();
-        <Self as IsSubFieldOf<Degree2ExtensionField>>::mul(a, &b_inv)
+    ) -> Result<<Degree2ExtensionField as IsField>::BaseType, FieldError> {
+        let b_inv = Degree2ExtensionField::inv(b)?;
+        Ok(<Self as IsSubFieldOf<Degree2ExtensionField>>::mul(
+            a, &b_inv,
+        ))
     }
 
     fn sub(
@@ -399,7 +402,7 @@ mod tests {
         let a = Fp6E::from(3);
         let a_extension = Fp12E::from(3);
         let b = Fp12E::from(2);
-        assert_eq!(a / &b, a_extension / b);
+        assert_eq!((a / &b).unwrap(), (a_extension / b).unwrap());
     }
 
     #[test]

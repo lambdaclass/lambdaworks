@@ -120,8 +120,12 @@ where
     }
 
     /// Returns the division of `a` and `b`
-    fn div(a: &[FieldElement<F>; 2], b: &[FieldElement<F>; 2]) -> [FieldElement<F>; 2] {
-        <Self as IsField>::mul(a, &Self::inv(b).unwrap())
+    fn div(
+        a: &[FieldElement<F>; 2],
+        b: &[FieldElement<F>; 2],
+    ) -> Result<[FieldElement<F>; 2], FieldError> {
+        let b_inv = &Self::inv(b).map_err(|_| FieldError::DivisionByZero)?;
+        Ok(<Self as IsField>::mul(a, b_inv))
     }
 
     /// Returns a boolean indicating whether `a` and `b` are equal component wise.
@@ -178,9 +182,11 @@ where
     fn div(
         a: &Self::BaseType,
         b: &<QuadraticExtensionField<F, Q> as IsField>::BaseType,
-    ) -> <QuadraticExtensionField<F, Q> as IsField>::BaseType {
-        let b_inv = <QuadraticExtensionField<F, Q> as IsField>::inv(b).unwrap();
-        <Self as IsSubFieldOf<QuadraticExtensionField<F, Q>>>::mul(a, &b_inv)
+    ) -> Result<<QuadraticExtensionField<F, Q> as IsField>::BaseType, FieldError> {
+        let b_inv = <QuadraticExtensionField<F, Q> as IsField>::inv(b)?;
+        Ok(<Self as IsSubFieldOf<QuadraticExtensionField<F, Q>>>::mul(
+            a, &b_inv,
+        ))
     }
 
     fn sub(
@@ -284,7 +290,7 @@ mod tests {
         let a = FEE::new([FE::new(0), FE::new(3)]);
         let b = FEE::new([-FE::new(2), FE::new(8)]);
         let expected_result = FEE::new([FE::new(42), FE::new(19)]);
-        assert_eq!(a / b, expected_result);
+        assert_eq!((a / b).unwrap(), expected_result);
     }
 
     #[test]
@@ -292,7 +298,7 @@ mod tests {
         let a = FEE::new([FE::new(12), FE::new(5)]);
         let b = FEE::new([-FE::new(4), FE::new(2)]);
         let expected_result = FEE::new([FE::new(4), FE::new(45)]);
-        assert_eq!(a / b, expected_result);
+        assert_eq!((a / b).unwrap(), expected_result);
     }
 
     #[test]
@@ -385,7 +391,7 @@ mod tests {
         let a = FE::new(3);
         let b = FEE::new([-FE::new(2), FE::new(8)]);
         let expected_result = FEE::new([FE::new(19), FE::new(17)]);
-        assert_eq!(a / b, expected_result);
+        assert_eq!((a / b).unwrap(), expected_result);
     }
 
     #[test]
@@ -393,6 +399,6 @@ mod tests {
         let a = FE::new(22);
         let b = FEE::new([FE::new(4), FE::new(2)]);
         let expected_result = FEE::new([FE::new(28), FE::new(45)]);
-        assert_eq!(a / b, expected_result);
+        assert_eq!((a / b).unwrap(), expected_result);
     }
 }

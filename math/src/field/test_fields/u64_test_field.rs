@@ -32,8 +32,9 @@ impl<const MODULUS: u64> IsField for U64Field<MODULUS> {
         ((*a as u128 * *b as u128) % MODULUS as u128) as u64
     }
 
-    fn div(a: &u64, b: &u64) -> u64 {
-        Self::mul(a, &Self::inv(b).unwrap())
+    fn div(a: &u64, b: &u64) -> Result<u64, FieldError> {
+        let b_inv = &Self::inv(b)?;
+        Ok(Self::mul(a, b_inv))
     }
 
     fn inv(a: &u64) -> Result<u64, FieldError> {

@@ -18,7 +18,7 @@ pub enum RootsConfig {
 pub trait IsSubFieldOf<F: IsField>: IsField {
     fn mul(a: &Self::BaseType, b: &F::BaseType) -> F::BaseType;
     fn add(a: &Self::BaseType, b: &F::BaseType) -> F::BaseType;
-    fn div(a: &Self::BaseType, b: &F::BaseType) -> F::BaseType;
+    fn div(a: &Self::BaseType, b: &F::BaseType) -> Result<F::BaseType, FieldError>;
     fn sub(a: &Self::BaseType, b: &F::BaseType) -> F::BaseType;
     fn embed(a: Self::BaseType) -> F::BaseType;
     #[cfg(feature = "alloc")]
@@ -45,7 +45,7 @@ where
     }
 
     #[inline(always)]
-    fn div(a: &Self::BaseType, b: &F::BaseType) -> F::BaseType {
+    fn div(a: &Self::BaseType, b: &F::BaseType) -> Result<Self::BaseType, FieldError> {
         F::div(a, b)
     }
 
@@ -170,7 +170,7 @@ pub trait IsField: Debug + Clone {
     fn inv(a: &Self::BaseType) -> Result<Self::BaseType, FieldError>;
 
     /// Returns the division of `a` and `b`.
-    fn div(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType;
+    fn div(a: &Self::BaseType, b: &Self::BaseType) -> Result<Self::BaseType, FieldError>;
 
     /// Returns a boolean indicating whether `a` and `b` are equal or not.
     fn eq(a: &Self::BaseType, b: &Self::BaseType) -> bool;

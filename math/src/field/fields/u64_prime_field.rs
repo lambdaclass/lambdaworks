@@ -41,8 +41,9 @@ impl<const MODULUS: u64> IsField for U64PrimeField<MODULUS> {
         ((*a as u128 * *b as u128) % MODULUS as u128) as u64
     }
 
-    fn div(a: &u64, b: &u64) -> u64 {
-        Self::mul(a, &Self::inv(b).unwrap())
+    fn div(a: &u64, b: &u64) -> Result<u64, FieldError> {
+        let b_inv = &Self::inv(b)?;
+        Ok(Self::mul(a, b_inv))
     }
 
     fn inv(a: &u64) -> Result<u64, FieldError> {
@@ -280,17 +281,20 @@ mod tests {
 
     #[test]
     fn div_1() {
-        assert_eq!(FE::new(2) / FE::new(1), FE::new(2))
+        assert_eq!(FE::new(2) * FE::new(1).inv().unwrap(), FE::new(2))
     }
 
     #[test]
     fn div_4_2() {
-        assert_eq!(FE::new(4) / FE::new(2), FE::new(2))
+        assert_eq!(FE::new(4) * FE::new(2).inv().unwrap(), FE::new(2))
     }
 
     #[test]
     fn div_4_3() {
-        assert_eq!(FE::new(4) / FE::new(3) * FE::new(3), FE::new(4))
+        assert_eq!(
+            FE::new(4) * FE::new(3).inv().unwrap() * FE::new(3),
+            FE::new(4)
+        )
     }
 
     #[test]

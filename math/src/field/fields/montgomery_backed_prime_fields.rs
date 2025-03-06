@@ -249,8 +249,9 @@ where
     }
 
     #[inline(always)]
-    fn div(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
-        Self::mul(a, &Self::inv(b).unwrap())
+    fn div(a: &Self::BaseType, b: &Self::BaseType) -> Result<Self::BaseType, FieldError> {
+        let b_inv = &Self::inv(b)?;
+        Ok(Self::mul(a, b_inv))
     }
 
     #[inline(always)]
@@ -587,7 +588,7 @@ mod tests_u384_prime_fields {
     #[test]
     fn div_1() {
         assert_eq!(
-            U384F23Element::from(2) / U384F23Element::from(1),
+            (U384F23Element::from(2) / U384F23Element::from(1)).unwrap(),
             U384F23Element::from(2)
         )
     }
@@ -595,7 +596,7 @@ mod tests_u384_prime_fields {
     #[test]
     fn div_4_2() {
         assert_eq!(
-            U384F23Element::from(4) / U384F23Element::from(2),
+            (U384F23Element::from(4) / U384F23Element::from(2)).unwrap(),
             U384F23Element::from(2)
         )
     }
@@ -610,7 +611,7 @@ mod tests_u384_prime_fields {
     #[test]
     fn div_4_3() {
         assert_eq!(
-            U384F23Element::from(4) / U384F23Element::from(3) * U384F23Element::from(3),
+            (U384F23Element::from(4) / U384F23Element::from(3)).unwrap() * U384F23Element::from(3),
             U384F23Element::from(4)
         )
     }
@@ -943,7 +944,7 @@ mod tests_u256_prime_fields {
     #[test]
     fn div_1() {
         assert_eq!(
-            U256F29Element::from(2) / U256F29Element::from(1),
+            (U256F29Element::from(2) / U256F29Element::from(1)).unwrap(),
             U256F29Element::from(2)
         )
     }
@@ -952,13 +953,13 @@ mod tests_u256_prime_fields {
     fn div_4_2() {
         let a = U256F29Element::from(4);
         let b = U256F29Element::from(2);
-        assert_eq!(a / &b, b)
+        assert_eq!((a / &b).unwrap(), b)
     }
 
     #[test]
     fn div_4_3() {
         assert_eq!(
-            U256F29Element::from(4) / U256F29Element::from(3) * U256F29Element::from(3),
+            (U256F29Element::from(4) / U256F29Element::from(3)).unwrap() * U256F29Element::from(3),
             U256F29Element::from(4)
         )
     }

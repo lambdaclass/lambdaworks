@@ -160,9 +160,9 @@ impl IsField for P448GoldilocksPrimeField {
         ))
     }
 
-    fn div(a: &U56x8, b: &U56x8) -> U56x8 {
-        let b_inv = Self::inv(b).unwrap();
-        Self::mul(a, &b_inv)
+    fn div(a: &U56x8, b: &U56x8) -> Result<U56x8, FieldError> {
+        let b_inv = &Self::inv(b)?;
+        Ok(Self::mul(a, b_inv))
     }
 
     /// Taken from https://sourceforge.net/p/ed448goldilocks/code/ci/master/tree/src/per_field/f_generic.tmpl.c
@@ -430,7 +430,7 @@ mod tests {
         let num1 = U56x8::from_hex("b86e226f5ac29af28c74e272fc129ab167798f70dedd2ce76aa76204a23beb74c8ddba2a643196c62ee35a18472d6de7d82b6af4b2fc5e58").unwrap();
         let num2 = U56x8::from_hex("bb2bd89a1297c7a6052b41be503aa7de2cd6e6775396e76bf995f27f1dccf69131067824ded693bdd6e58fe7c2276fa92ec1d9a0048b9be6").unwrap();
         let num3 = P448GoldilocksPrimeField::div(&num1, &num2);
-        assert_eq!(num3, U56x8::from_hex("707b5cc75967b58ebd28d14d4ed7ed9eaae1187d0b359c7733cf61b1a5c87fc88228ca532c50f19d1ba57146ca2e38417922033f647c8d9").unwrap());
+        assert_eq!(num3.unwrap(), U56x8::from_hex("707b5cc75967b58ebd28d14d4ed7ed9eaae1187d0b359c7733cf61b1a5c87fc88228ca532c50f19d1ba57146ca2e38417922033f647c8d9").unwrap());
     }
 
     #[test]
