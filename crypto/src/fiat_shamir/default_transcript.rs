@@ -70,13 +70,7 @@ where
     }
 
     fn sample_field_element(&mut self) -> FieldElement<E> {
-        let mut sample = self.sample();
-
-        let module = (-FieldElement::<F>::one()).representative();
-
-        println!("module: {}", module);
-
-        FieldElement::one()
+        FieldElement::from_bytes_be(&self.sample()).unwrap()
     }
 
     fn sample_u64(&mut self, upper_bound: u64) -> u64 {

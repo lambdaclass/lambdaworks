@@ -345,7 +345,7 @@ fn test_prove_log_read_only_memory() {
             &mut trace,
             &pub_inputs,
             &proof_options,
-            DefaultTranscript::<Degree4BabyBearExtensionField>::new(&[]),
+            DefaultTranscript::<Babybear31PrimeField, Degree4BabyBearExtensionField>::new(&[]),
         )
         .unwrap();
     assert!(Verifier::<
@@ -354,6 +354,6 @@ fn test_prove_log_read_only_memory() {
         &proof,
         &pub_inputs,
         &proof_options,
-        DefaultTranscript::<Degree4BabyBearExtensionField>::new(&[]),
+        DefaultTranscript::<Babybear31PrimeField, Degree4BabyBearExtensionField>::new(&[]),
     ));
 }
