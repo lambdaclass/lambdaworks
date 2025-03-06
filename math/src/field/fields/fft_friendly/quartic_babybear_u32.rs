@@ -26,6 +26,8 @@ pub struct Degree4BabyBearU32ExtensionField;
 impl IsField for Degree4BabyBearU32ExtensionField {
     type BaseType = [FieldElement<Babybear31PrimeField>; 4];
 
+    const EXTENSION_DEGREE: usize = 4;
+
     fn add(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
         [a[0] + b[0], a[1] + b[1], a[2] + b[2], a[3] + b[3]]
     }

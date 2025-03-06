@@ -117,6 +117,8 @@ where
 {
     type BaseType = UnsignedInteger<NUM_LIMBS>;
 
+    const EXTENSION_DEGREE: usize = 1;
+
     #[inline(always)]
     fn add(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
         let (sum, overflow) = UnsignedInteger::add(a, b);

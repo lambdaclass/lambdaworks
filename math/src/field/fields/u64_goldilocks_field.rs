@@ -55,6 +55,8 @@ impl ByteConversion for u64 {
 impl IsField for Goldilocks64Field {
     type BaseType = u64;
 
+    const EXTENSION_DEGREE: usize = 1;
+
     fn add(a: &u64, b: &u64) -> u64 {
         let (sum, over) = a.overflowing_add(*b);
         let (mut sum, over) = sum.overflowing_add(u64::from(over) * Self::NEG_ORDER);
