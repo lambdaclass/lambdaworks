@@ -1,25 +1,31 @@
 use super::is_transcript::IsTranscript;
 use core::marker::PhantomData;
 use lambdaworks_math::{
-    field::{element::FieldElement, traits::IsField},
+    field::{
+        element::FieldElement,
+        traits::{IsField, IsPrimeField, IsSubFieldOf},
+    },
     traits::ByteConversion,
 };
 use sha3::{Digest, Keccak256};
 
-pub struct DefaultTranscript<F: IsField> {
+pub struct DefaultTranscript<F: IsPrimeField + IsSubFieldOf<E>, E: IsField> {
     hasher: Keccak256,
-    phantom: PhantomData<F>,
+    phantom_e: PhantomData<E>,
+    phantom_f: PhantomData<F>,
 }
 
-impl<F> DefaultTranscript<F>
+impl<F, E> DefaultTranscript<F, E>
 where
-    F: IsField,
-    FieldElement<F>: ByteConversion,
+    F: IsPrimeField + IsSubFieldOf<E>,
+    E: IsField,
+    FieldElement<E>: ByteConversion,
 {
     pub fn new(data: &[u8]) -> Self {
         let mut res = Self {
             hasher: Keccak256::new(),
-            phantom: PhantomData,
+            phantom_e: PhantomData,
+            phantom_f: PhantomData,
         };
         res.append_bytes(data);
         res
@@ -34,26 +40,28 @@ where
     }
 }
 
-impl<F> Default for DefaultTranscript<F>
+impl<F, E> Default for DefaultTranscript<F, E>
 where
-    F: IsField,
-    FieldElement<F>: ByteConversion,
+    F: IsPrimeField + IsSubFieldOf<E>,
+    E: IsField,
+    FieldElement<E>: ByteConversion,
 {
     fn default() -> Self {
         Self::new(&[])
     }
 }
 
-impl<F> IsTranscript<F> for DefaultTranscript<F>
+impl<F, E> IsTranscript<E> for DefaultTranscript<F, E>
 where
-    F: IsField,
-    FieldElement<F>: ByteConversion,
+    F: IsPrimeField + IsSubFieldOf<E>,
+    E: IsField,
+    FieldElement<E>: ByteConversion,
 {
     fn append_bytes(&mut self, new_bytes: &[u8]) {
         self.hasher.update(new_bytes);
     }
 
-    fn append_field_element(&mut self, element: &FieldElement<F>) {
+    fn append_field_element(&mut self, element: &FieldElement<E>) {
         self.append_bytes(&element.to_bytes_be());
     }
 
@@ -61,8 +69,14 @@ where
         self.hasher.clone().finalize().into()
     }
 
-    fn sample_field_element(&mut self) -> FieldElement<F> {
-        FieldElement::from_bytes_be(&self.sample()).unwrap()
+    fn sample_field_element(&mut self) -> FieldElement<E> {
+        let mut sample = self.sample();
+
+        let module = (-FieldElement::<F>::one()).representative();
+
+        println!("module: {}", module);
+
+        FieldElement::one()
     }
 
     fn sample_u64(&mut self, upper_bound: u64) -> u64 {
@@ -74,13 +88,17 @@ where
 mod tests {
     use super::*;
 
-    extern crate alloc;
     use alloc::vec::Vec;
-    use lambdaworks_math::elliptic_curve::short_weierstrass::curves::bls12_381::default_types::FrField;
+    use lambdaworks_math::{
+        elliptic_curve::short_weierstrass::curves::bls12_381::default_types::FrField,
+        field::fields::fft_friendly::{
+            babybear::Babybear31PrimeField, quartic_babybear::Degree4BabyBearExtensionField,
+        },
+    };
 
     #[test]
     fn basic_challenge() {
-        let mut transcript = DefaultTranscript::<FrField>::default();
+        let mut transcript = DefaultTranscript::<FrField, FrField>::default();
 
         let point_a: Vec<u8> = vec![0xFF, 0xAB];
         let point_b: Vec<u8> = vec![0xDD, 0x8C, 0x9D];
@@ -114,5 +132,15 @@ mod tests {
                 0xf8, 0x32, 0x32, 0xbc
             ]
         );
+    }
+
+    #[test]
+    fn small_field_test() {
+        let mut transcript =
+            DefaultTranscript::<Babybear31PrimeField, Degree4BabyBearExtensionField>::default();
+
+        let sample = transcript.sample_field_element();
+
+        println!("Sample: {:?}", sample);
     }
 }
