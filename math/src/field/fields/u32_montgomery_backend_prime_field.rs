@@ -90,6 +90,8 @@ impl<const MODULUS: u32> U32MontgomeryBackendPrimeField<MODULUS> {
 impl<const MODULUS: u32> IsField for U32MontgomeryBackendPrimeField<MODULUS> {
     type BaseType = u32;
 
+    const EXTENSION_DEGREE: usize = 1;
+
     #[inline(always)]
     fn add(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
         let mut sum = a + b;

@@ -75,6 +75,8 @@ pub const MERSENNE_31_PRIME_FIELD_ORDER: u32 = (1 << 31) - 1;
 impl IsField for Mersenne31Field {
     type BaseType = u32;
 
+    const EXTENSION_DEGREE: usize = 1;
+
     /// Returns the sum of `a` and `b`.
     fn add(a: &u32, b: &u32) -> u32 {
         // We are using that if a and b are field elements of Mersenne31, then

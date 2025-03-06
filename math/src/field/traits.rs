@@ -103,6 +103,8 @@ pub trait IsField: Debug + Clone {
     #[cfg(not(feature = "lambdaworks-serde-binary"))]
     type BaseType: Clone + Debug + Unpin + Default;
 
+    const EXTENSION_DEGREE: usize;
+
     /// Returns the sum of `a` and `b`.
     fn add(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType;
 

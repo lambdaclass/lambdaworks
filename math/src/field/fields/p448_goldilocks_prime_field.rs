@@ -51,6 +51,8 @@ impl ByteConversion for U56x8 {
 impl IsField for P448GoldilocksPrimeField {
     type BaseType = U56x8;
 
+    const EXTENSION_DEGREE: usize = 1;
+
     fn add(a: &U56x8, b: &U56x8) -> U56x8 {
         let mut limbs = [0u64; 8];
         for (i, limb) in limbs.iter_mut().enumerate() {

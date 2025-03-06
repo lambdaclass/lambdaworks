@@ -23,6 +23,8 @@ impl IsFFTField for F17 {
 impl<const MODULUS: u64> IsField for U64PrimeField<MODULUS> {
     type BaseType = u64;
 
+    const EXTENSION_DEGREE: usize = 1;
+
     fn add(a: &u64, b: &u64) -> u64 {
         ((*a as u128 + *b as u128) % MODULUS as u128) as u64
     }

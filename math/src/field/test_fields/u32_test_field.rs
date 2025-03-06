@@ -41,6 +41,8 @@ impl ByteConversion for u32 {
 impl<const MODULUS: u32> IsField for U32Field<MODULUS> {
     type BaseType = u32;
 
+    const EXTENSION_DEGREE: usize = 1;
+    
     fn add(a: &u32, b: &u32) -> u32 {
         ((*a as u128 + *b as u128) % MODULUS as u128) as u32
     }

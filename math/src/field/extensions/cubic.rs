@@ -62,6 +62,8 @@ where
 {
     type BaseType = [FieldElement<F>; 3];
 
+    const EXTENSION_DEGREE: usize = 3;
+
     /// Returns the component wise addition of `a` and `b`
     fn add(a: &[FieldElement<F>; 3], b: &[FieldElement<F>; 3]) -> [FieldElement<F>; 3] {
         [&a[0] + &b[0], &a[1] + &b[1], &a[2] + &b[2]]

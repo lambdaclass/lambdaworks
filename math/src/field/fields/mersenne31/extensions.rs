@@ -27,6 +27,8 @@ impl IsField for Degree2ExtensionField {
     //Element representation: a[0] = real part, a[1] = imaginary part
     type BaseType = [FpE; 2];
 
+    const EXTENSION_DEGREE: usize = 2;
+
     /// Returns the component wise addition of `a` and `b`
     fn add(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
         [a[0] + b[0], a[1] + b[1]]
@@ -148,6 +150,8 @@ impl Degree4ExtensionField {
 
 impl IsField for Degree4ExtensionField {
     type BaseType = [Fp2E; 2];
+
+    const EXTENSION_DEGREE: usize = 4;
 
     fn add(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
         [&a[0] + &b[0], &a[1] + &b[1]]

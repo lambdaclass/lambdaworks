@@ -29,6 +29,9 @@ pub struct Degree2ExtensionField;
 
 impl IsField for Degree2ExtensionField {
     type BaseType = [FieldElement<BLS12377PrimeField>; 2];
+
+    const EXTENSION_DEGREE: usize = 2;
+
     /// Returns the component wise addition of `a` and `b`
     fn add(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
         [&a[0] + &b[0], &a[1] + &b[1]]
