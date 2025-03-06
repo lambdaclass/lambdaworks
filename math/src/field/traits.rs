@@ -103,6 +103,7 @@ pub trait IsField: Debug + Clone {
     #[cfg(not(feature = "lambdaworks-serde-binary"))]
     type BaseType: Clone + Debug + Unpin + Default;
 
+    // Defines the degree of an extension; set to 1 when it is not an extension.
     const EXTENSION_DEGREE: usize;
 
     /// Returns the sum of `a` and `b`.
