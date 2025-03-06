@@ -30,6 +30,8 @@ cudarc = { version = "0.9.7", optional = true }
 
 
 lambdaworks-gpu = { workspace = true, optional = true }
+num-bigint = "0.4.6"
+num-traits = "0.2.19"
 
 [dev-dependencies]
 rand = { version = "0.8.5", features = ["std"] }
