@@ -286,3 +286,7 @@ pub trait IsPrimeField: IsField {
         Some((x, neg_x))
     }
 }
+
+pub trait HasDefaultTranscript: IsField {
+    fn get_random_field_element_from_seed(seed: [u8;32]) -> Option<FieldElement<Self>>;
+}

@@ -2,9 +2,8 @@ use crate::{
     field::{
         element::FieldElement,
         fields::montgomery_backed_prime_fields::{IsModulus, U256PrimeField},
-        traits::IsFFTField,
-    },
-    unsigned_integer::element::{UnsignedInteger, U256},
+        traits::{HasDefaultTranscript, IsFFTField},
+    }, traits::ByteConversion, unsigned_integer::element::{UnsignedInteger, U256}
 };
 
 #[derive(Clone, Debug, Hash, Copy)]
@@ -93,6 +92,17 @@ impl PartialOrd for FieldElement<Stark252PrimeField> {
 impl Ord for FieldElement<Stark252PrimeField> {
     fn cmp(&self, other: &Self) -> core::cmp::Ordering {
         self.representative().cmp(&other.representative())
+    }
+}
+
+impl HasDefaultTranscript for Stark252PrimeField {
+    fn get_random_field_element_from_seed(seed: [u8; 32]) -> Option<FieldElement<Stark252PrimeField>> {
+        let mut bytes = seed;
+        bytes[0] &= 16_u8;
+        if U256::from_bytes_be(&bytes).unwrap() >= MontgomeryConfigStark252PrimeField::MODULUS {
+            return None;
+        }
+        Some(FieldElement::from_bytes_be(&bytes).unwrap())
     }
 }
 
