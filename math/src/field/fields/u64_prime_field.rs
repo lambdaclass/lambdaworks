@@ -1,6 +1,6 @@
 use crate::cyclic_group::IsGroup;
 use crate::errors::ByteConversionError;
-use crate::errors::ByteConversionError::{FromBEBytesError, FromLEBytesError};
+//use crate::errors::ByteConversionError::{FromBEBytesError, FromLEBytesError};
 use crate::errors::CreationError;
 use crate::errors::DeserializationError;
 use crate::field::element::FieldElement;
@@ -127,7 +127,7 @@ impl<const MODULUS: u64> ByteConversion for U64FieldElement<MODULUS> {
     #[cfg(feature = "alloc")]
     fn to_bytes_be(&self) -> alloc::vec::Vec<u8> {
         let value = self.representative();
-        let mut bytes = vec![0; 8]; // Siempre 8 bytes
+        let mut bytes = vec![0; 8];
         for i in 0..8 {
             bytes[7 - i] = ((value >> (i * 8)) & 0xFF) as u8;
         }
@@ -137,7 +137,7 @@ impl<const MODULUS: u64> ByteConversion for U64FieldElement<MODULUS> {
     #[cfg(feature = "alloc")]
     fn to_bytes_le(&self) -> alloc::vec::Vec<u8> {
         let value = self.representative();
-        let mut bytes = vec![0; 8]; // Siempre 8 bytes
+        let mut bytes = vec![0; 8];
         for i in 0..8 {
             bytes[i] = ((value >> (i * 8)) & 0xFF) as u8;
         }
