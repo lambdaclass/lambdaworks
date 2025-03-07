@@ -72,19 +72,8 @@ where
         let eval_1 = univar.evaluate(&FieldElement::<F>::one());
 
         if self.round == 0 {
-            println!(
-                "Round {}: s0 = {:?}, s1 = {:?}, total = {:?}",
-                self.round,
-                eval_0,
-                eval_1,
-                eval_0.clone() + eval_1.clone()
-            );
             // Check intermediate consistency for round 0: s0 + s1 must equal c_1.
             if eval_0.clone() + eval_1.clone() != self.c_1 {
-                println!(
-                    "Error in round 0: {:?} + {:?} != c₁ ({:?})",
-                    eval_0, eval_1, self.c_1
-                );
                 return Err(VerifierError::InconsistentSum {
                     round: self.round,
                     s0: eval_0,
@@ -94,16 +83,8 @@ where
             }
         } else {
             let sum = eval_0.clone() + eval_1.clone();
-            println!(
-                "Round {}: s0 = {:?}, s1 = {:?}, total = {:?}",
-                self.round, eval_0, eval_1, sum
-            );
             // Check intermediate consistency: s0 + s1 must equal last_val.
             if sum != self.last_val {
-                println!(
-                    "Error in round {}: {:?} + {:?} != last_val ({:?})",
-                    self.round, eval_0, eval_1, self.last_val
-                );
                 return Err(VerifierError::InconsistentSum {
                     round: self.round,
                     s0: eval_0,
@@ -114,22 +95,15 @@ where
         }
 
         // Append the field element to the channel.
-        channel.append_field_element(&univar.coefficients[0]);
+        channel.append_felt(&univar.coefficients[0]);
 
         // Draw a random challenge for the round.
         let base_challenge = channel.draw_felt();
         let r_j = &base_challenge + FieldElement::<F>::from(self.round as u64);
-        println!(
-            "Round {}: base challenge = {:?}, mixed challenge = {:?}",
-            self.round,
-            base_challenge.clone(),
-            r_j
-        );
 
         self.challenges.push(r_j.clone());
         // Evaluate polynomial at the challenge.
         let val = univar.evaluate(&r_j);
-        println!("Round {}: univar({:?}) = {:?}", self.round, r_j, val);
         self.last_val = val;
         self.round += 1;
 
@@ -138,17 +112,11 @@ where
             if let Some(ref poly) = self.poly {
                 let full_point = self.challenges.clone();
                 if let Ok(real_val) = poly.evaluate(full_point) {
-                    println!(
-                        "Final round: full_point = {:?}, real_val = {:?}, last_val = {:?}",
-                        self.challenges, real_val, self.last_val
-                    );
                     return Ok(VerifierRoundResult::Final(real_val == self.last_val));
                 } else {
-                    println!("Final round: error evaluating the oracle polynomial");
                     return Err(VerifierError::OracleEvaluationError);
                 }
             }
-            println!("Final round without oracle: last_val = {:?}", self.last_val);
             Ok(VerifierRoundResult::Final(true))
         } else {
             Ok(VerifierRoundResult::NextRound(r_j))
@@ -179,22 +147,54 @@ mod sumcheck_tests {
 
         let mut prover = Prover::new(poly.clone());
         let c_1 = prover.c_1();
+        println!("\nInitial claimed sum c₁: {:?}", c_1);
         let mut transcript = DefaultTranscript::<F>::default();
         let mut verifier = Verifier::new(poly.num_vars(), Some(poly), c_1);
 
         // Round 0
+        println!("\n-- Round 0 --");
         let univar0 = prover.poly.to_univariate();
+        println!(
+            "Univariate polynomial g₀(x) coefficients: {:?}",
+            univar0.coefficients
+        );
+        let eval_0 = univar0.evaluate(&FieldElement::<F>::zero());
+        let eval_1 = univar0.evaluate(&FieldElement::<F>::one());
+        println!(
+            "g₀(0) = {:?}, g₀(1) = {:?}, sum = {:?}",
+            eval_0,
+            eval_1,
+            eval_0 + eval_1
+        );
         let res0 = verifier.do_round(univar0, &mut transcript)?;
         let r0 = if let VerifierRoundResult::NextRound(chal) = res0 {
+            println!("Challenge r₀: {:?}", chal);
             chal
         } else {
             return Ok(());
         };
 
         // Round 1
+        println!("\n-- Round 1 (Final) --");
         let univar1 = prover.round(r0);
+        println!(
+            "Univariate polynomial g₁(x) coefficients: {:?}",
+            univar1.coefficients
+        );
+        let eval_0 = univar1.evaluate(&FieldElement::<F>::zero());
+        let eval_1 = univar1.evaluate(&FieldElement::<F>::one());
+        println!(
+            "g₁(0) = {:?}, g₁(1) = {:?}, sum = {:?}",
+            eval_0,
+            eval_1,
+            eval_0 + eval_1
+        );
         let res1 = verifier.do_round(univar1, &mut transcript)?;
         if let VerifierRoundResult::Final(ok) = res1 {
+            println!(
+                "\nFinal verification result: {}",
+                if ok { "ACCEPTED" } else { "REJECTED" }
+            );
             assert!(ok, "Final round verification failed");
         } else {
             unreachable!("Expected final round result");
@@ -221,29 +221,76 @@ mod sumcheck_tests {
         // Total sum (claimed sum) is 36.
         let mut prover = Prover::new(poly.clone());
         let c_1 = prover.c_1();
+        println!("\nInitial claimed sum c₁: {:?}", c_1);
         let mut transcript = DefaultTranscript::<F>::default();
         let mut verifier = Verifier::new(poly.num_vars(), Some(poly), c_1);
 
         // Round 0
         let mut g = prover.poly.to_univariate();
-        println!("-- Round 0 --");
+        println!("\n-- Round 0 --");
+        println!(
+            "Univariate polynomial g₀(x) coefficients: {:?}",
+            g.coefficients
+        );
+        let eval_0 = g.evaluate(&FieldElement::<F>::zero());
+        let eval_1 = g.evaluate(&FieldElement::<F>::one());
+        println!(
+            "g₀(0) = {:?}, g₀(1) = {:?}, sum = {:?}",
+            eval_0,
+            eval_1,
+            eval_0 + eval_1
+        );
         let res0 = verifier.do_round(g, &mut transcript)?;
         let mut current_challenge = if let VerifierRoundResult::NextRound(chal) = res0 {
+            println!("Challenge r₀: {:?}", chal);
             chal
         } else {
             return Ok(());
         };
 
         // Continue rounds until final.
+        let mut round = 1;
         while verifier.round < verifier.n {
-            println!("-- Round {} --", verifier.round);
+            println!(
+                "\n-- Round {} {}",
+                round,
+                if round == verifier.n - 1 {
+                    "(Final)"
+                } else {
+                    ""
+                }
+            );
             g = prover.round(current_challenge);
+            println!(
+                "Univariate polynomial g{}(x) coefficients: {:?}",
+                round, g.coefficients
+            );
+            let eval_0 = g.evaluate(&FieldElement::<F>::zero());
+            let eval_1 = g.evaluate(&FieldElement::<F>::one());
+            println!(
+                "g{}(0) = {:?}, g{}(1) = {:?}, sum = {:?}",
+                round,
+                eval_0,
+                round,
+                eval_1,
+                eval_0 + eval_1
+            );
             let res = verifier.do_round(g, &mut transcript)?;
-            current_challenge = if let VerifierRoundResult::NextRound(chal) = res {
-                chal
-            } else {
-                break;
-            };
+            match res {
+                VerifierRoundResult::NextRound(chal) => {
+                    println!("Challenge r{}: {:?}", round, chal);
+                    current_challenge = chal;
+                }
+                VerifierRoundResult::Final(ok) => {
+                    println!(
+                        "\nFinal verification result: {}",
+                        if ok { "ACCEPTED" } else { "REJECTED" }
+                    );
+                    assert!(ok, "Final round verification failed");
+                    break;
+                }
+            }
+            round += 1;
         }
         Ok(())
     }
@@ -264,31 +311,77 @@ mod sumcheck_tests {
         ]);
         let mut prover = Prover::new(poly.clone());
         let c_1 = prover.c_1();
+        println!("\nInitial claimed sum c₁: {:?}", c_1);
         let mut transcript = DefaultTranscript::<F>::default();
         let mut verifier = Verifier::new(poly.num_vars(), Some(poly), c_1);
 
         // Round 0:
+        println!("\n-- Round 0 --");
         let univar0 = prover.poly.to_univariate();
+        println!(
+            "Univariate polynomial g₀(x) coefficients: {:?}",
+            univar0.coefficients
+        );
+        let eval_0 = univar0.evaluate(&FieldElement::<F>::zero());
+        let eval_1 = univar0.evaluate(&FieldElement::<F>::one());
+        println!(
+            "g₀(0) = {:?}, g₀(1) = {:?}, sum = {:?}",
+            eval_0,
+            eval_1,
+            eval_0 + eval_1
+        );
         let res0 = verifier.do_round(univar0, &mut transcript)?;
         let r0 = if let VerifierRoundResult::NextRound(chal) = res0 {
+            println!("Challenge r₀: {:?}", chal);
             chal
         } else {
             return Ok(());
         };
 
         // Round 1:
+        println!("\n-- Round 1 --");
         let univar1 = prover.round(r0);
+        println!(
+            "Univariate polynomial g₁(x) coefficients: {:?}",
+            univar1.coefficients
+        );
+        let eval_0 = univar1.evaluate(&FieldElement::<F>::zero());
+        let eval_1 = univar1.evaluate(&FieldElement::<F>::one());
+        println!(
+            "g₁(0) = {:?}, g₁(1) = {:?}, sum = {:?}",
+            eval_0,
+            eval_1,
+            eval_0 + eval_1
+        );
         let res1 = verifier.do_round(univar1, &mut transcript)?;
         let r1 = if let VerifierRoundResult::NextRound(chal) = res1 {
+            println!("Challenge r₁: {:?}", chal);
             chal
         } else {
             return Ok(());
         };
 
         // Round 2 (final round):
+        println!("\n-- Round 2 (Final) --");
         let univar2 = prover.round(r1);
+        println!(
+            "Univariate polynomial g₂(x) coefficients: {:?}",
+            univar2.coefficients
+        );
+        let eval_0 = univar2.evaluate(&FieldElement::<F>::zero());
+        let eval_1 = univar2.evaluate(&FieldElement::<F>::one());
+        println!(
+            "g₂(0) = {:?}, g₂(1) = {:?}, sum = {:?}",
+            eval_0,
+            eval_1,
+            eval_0 + eval_1
+        );
         let res2 = verifier.do_round(univar2, &mut transcript)?;
         if let VerifierRoundResult::Final(ok) = res2 {
+            println!(
+                "\nFinal verification result: {}",
+                if ok { "ACCEPTED" } else { "REJECTED" }
+            );
             assert!(ok, "Final round verification failed");
         }
         Ok(())
@@ -305,10 +398,28 @@ mod sumcheck_tests {
         let prover = Prover::new(poly.clone());
         // Deliberately use an incorrect claimed sum.
         let incorrect_c1 = FE::from(999);
+        println!("\nInitial (incorrect) claimed sum c₁: {:?}", incorrect_c1);
         let mut transcript = DefaultTranscript::<F>::default();
         let mut verifier = Verifier::new(poly.num_vars(), Some(poly), incorrect_c1);
+
+        println!("\n-- Round 0 --");
         let univar0 = prover.poly.to_univariate();
+        println!(
+            "Univariate polynomial g₀(x) coefficients: {:?}",
+            univar0.coefficients
+        );
+        let eval_0 = univar0.evaluate(&FieldElement::<F>::zero());
+        let eval_1 = univar0.evaluate(&FieldElement::<F>::one());
+        println!(
+            "g₀(0) = {:?}, g₀(1) = {:?}, sum = {:?}",
+            eval_0,
+            eval_1,
+            eval_0 + eval_1
+        );
         let res0 = verifier.do_round(univar0, &mut transcript);
+        if let Err(e) = &res0 {
+            println!("\nExpected verification error: {:?}", e);
+        }
         assert!(res0.is_err(), "Expected verification error");
         Ok(())
     }

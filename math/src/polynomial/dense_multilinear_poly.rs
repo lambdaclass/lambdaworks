@@ -24,15 +24,15 @@ where
 {
     /// Constructs a new multilinear polynomial from a collection of evaluations.
     /// Pads non-power-of-2 evaluations with zeros.
-    pub fn new(evals: Vec<FieldElement<F>>) -> Self {
-        let mut poly_evals = evals;
-        while !poly_evals.len().is_power_of_two() {
-            poly_evals.push(FieldElement::zero());
+    pub fn new(mut evals: Vec<FieldElement<F>>) -> Self {
+        while !evals.len().is_power_of_two() {
+            evals.push(FieldElement::zero());
         }
+        let len = evals.len();
         DenseMultilinearPolynomial {
-            evals: poly_evals.clone(),
-            n_vars: log_2(poly_evals.len()),
-            len: poly_evals.len(),
+            n_vars: log_2(len),
+            evals,
+            len,
         }
     }
 
@@ -67,9 +67,10 @@ where
         for j in r {
             size *= 2;
             for i in (0..size).rev().step_by(2) {
-                let scalar = &chis[i / 2].clone();
-                chis[i] = scalar * &j;
-                chis[i - 1] = scalar - &chis[i];
+                let half_i = i / 2;
+                let temp = &chis[half_i] * &j;
+                chis[i] = temp;
+                chis[i - 1] = &chis[half_i] - &chis[i];
             }
         }
         #[cfg(feature = "parallel")]
@@ -96,9 +97,10 @@ where
         for j in r {
             size *= 2;
             for i in (0..size).rev().step_by(2) {
-                let scalar = &chis[i / 2].clone();
-                chis[i] = scalar * j;
-                chis[i - 1] = scalar - &chis[i];
+                let half_i = i / 2;
+                let temp = &chis[half_i] * j;
+                chis[i] = temp;
+                chis[i - 1] = &chis[half_i] - &chis[i];
             }
         }
         Ok((0..evals.len()).map(|i| &evals[i] * &chis[i]).sum())
@@ -113,31 +115,18 @@ where
         let half = 1 << (n - 1);
         let new_evals: Vec<FieldElement<F>> = (0..half)
             .map(|j| {
-                let a = self.evals[j].clone();
-                let b = self.evals[j + half].clone();
-                &a + r * (b - &a)
+                let a = &self.evals[j];
+                let b = &self.evals[j + half];
+                a + r * (b - a)
             })
             .collect();
         DenseMultilinearPolynomial::from_evaluations_vec(n - 1, new_evals)
     }
 
     /// Returns the evaluations of the polynomial on the Boolean hypercube \(\{0,1\}^n\).
+    /// Since we are in Lagrange basis, this is just the elements stored in self.evals.
     pub fn to_evaluations(&self) -> Vec<FieldElement<F>> {
-        let n = self.num_vars();
-        let total = 1 << n;
-        let mut evaluations = Vec::with_capacity(total);
-        for i in 0..total {
-            let mut point = Vec::with_capacity(n);
-            for j in 0..n {
-                if ((i >> j) & 1) == 1 {
-                    point.push(FieldElement::one());
-                } else {
-                    point.push(FieldElement::zero());
-                }
-            }
-            evaluations.push(self.evaluate(point).unwrap());
-        }
-        evaluations
+        self.evals.clone()
     }
 
     /// Collapses the last variable by fixing it to 0 and 1,
@@ -148,7 +137,8 @@ where
         let poly1 = self.fix_last_variable(&FieldElement::one());
         let sum0: FieldElement<F> = poly0.to_evaluations().into_iter().sum();
         let sum1: FieldElement<F> = poly1.to_evaluations().into_iter().sum();
-        Polynomial::new(&[sum0.clone(), sum1 - sum0])
+        let diff = sum1 - &sum0;
+        Polynomial::new(&[sum0, diff])
     }
 
     /// Constructs a DenseMultilinearPolynomial from a vector of evaluations and the number of variables.
@@ -175,9 +165,8 @@ where
     /// Extends this DenseMultilinearPolynomial by concatenating another polynomial of the same length.
     pub fn extend(&mut self, other: &DenseMultilinearPolynomial<F>) {
         debug_assert_eq!(self.evals.len(), self.len);
-        let other_evals = other.evals.clone();
-        debug_assert_eq!(other_evals.len(), self.len);
-        self.evals.extend(other_evals);
+        debug_assert_eq!(other.evals.len(), self.len);
+        self.evals.extend(other.evals.iter().cloned());
         self.n_vars += 1;
         self.len *= 2;
         debug_assert_eq!(self.evals.len(), self.len);
@@ -188,8 +177,8 @@ where
     pub fn merge(polys: &[DenseMultilinearPolynomial<F>]) -> DenseMultilinearPolynomial<F> {
         // TODO (performance): pre-allocate vector to avoid repeated resizing.
         let mut z: Vec<FieldElement<F>> = Vec::new();
-        for poly in polys.iter() {
-            z.extend(poly.evals().clone().into_iter());
+        for poly in polys {
+            z.extend(poly.evals.iter().cloned());
         }
         z.resize(z.len().next_power_of_two(), FieldElement::zero());
         DenseMultilinearPolynomial::new(z)
@@ -197,11 +186,7 @@ where
 
     /// Constructs a DenseMultilinearPolynomial from a slice of u64 values.
     pub fn from_u64(evals: &[u64]) -> Self {
-        DenseMultilinearPolynomial::new(
-            (0..evals.len())
-                .map(|i| FieldElement::from(evals[i]))
-                .collect::<Vec<FieldElement<F>>>(),
-        )
+        DenseMultilinearPolynomial::new(evals.iter().map(|&i| FieldElement::from(i)).collect())
     }
 }
 
