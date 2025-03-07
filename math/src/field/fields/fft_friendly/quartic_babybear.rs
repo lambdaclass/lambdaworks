@@ -73,8 +73,9 @@ impl IsField for Degree4BabyBearExtensionField {
         ])
     }
 
-    fn div(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
-        <Self as IsField>::mul(a, &Self::inv(b).unwrap())
+    fn div(a: &Self::BaseType, b: &Self::BaseType) -> Result<Self::BaseType, FieldError> {
+        let b_inv = &Self::inv(b).map_err(|_| FieldError::DivisionByZero)?;
+        Ok(<Self as IsField>::mul(a, b_inv))
     }
 
     fn eq(a: &Self::BaseType, b: &Self::BaseType) -> bool {
@@ -183,9 +184,12 @@ impl IsSubFieldOf<Degree4BabyBearExtensionField> for Babybear31PrimeField {
     fn div(
         a: &Self::BaseType,
         b: &<Degree4BabyBearExtensionField as IsField>::BaseType,
-    ) -> <Degree4BabyBearExtensionField as IsField>::BaseType {
-        let b_inv = Degree4BabyBearExtensionField::inv(b).unwrap();
-        <Self as IsSubFieldOf<Degree4BabyBearExtensionField>>::mul(a, &b_inv)
+    ) -> Result<<Degree4BabyBearExtensionField as IsField>::BaseType, FieldError> {
+        let b_inv =
+            Degree4BabyBearExtensionField::inv(b).map_err(|_| FieldError::DivisionByZero)?;
+        Ok(<Self as IsSubFieldOf<Degree4BabyBearExtensionField>>::mul(
+            a, &b_inv,
+        ))
     }
 
     fn sub(
