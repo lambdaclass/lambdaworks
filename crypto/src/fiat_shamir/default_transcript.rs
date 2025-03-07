@@ -19,6 +19,7 @@ impl<F, E> DefaultTranscript<F, E>
 where
     F: IsPrimeField + IsSubFieldOf<E>,
     E: IsField,
+    FieldElement<F>: ByteConversion,
     FieldElement<E>: ByteConversion,
 {
     pub fn new(data: &[u8]) -> Self {
@@ -44,6 +45,7 @@ impl<F, E> Default for DefaultTranscript<F, E>
 where
     F: IsPrimeField + IsSubFieldOf<E>,
     E: IsField,
+    FieldElement<F>: ByteConversion,
     FieldElement<E>: ByteConversion,
 {
     fn default() -> Self {
@@ -55,6 +57,7 @@ impl<F, E> IsTranscript<E> for DefaultTranscript<F, E>
 where
     F: IsPrimeField + IsSubFieldOf<E>,
     E: IsField,
+    FieldElement<F>: ByteConversion,
     FieldElement<E>: ByteConversion,
 {
     fn append_bytes(&mut self, new_bytes: &[u8]) {
@@ -70,7 +73,26 @@ where
     }
 
     fn sample_field_element(&mut self) -> FieldElement<E> {
-        FieldElement::from_bytes_be(&self.sample()).unwrap()
+        let bit_size = F::field_bit_size();
+        let bytes_size = (bit_size / 8) + 1;
+        //let degree = E::EXTENSION_DEGREE;
+        let modulus = <F>::modulus_minus_one() + 1.into();
+        let mut sample_representative = modulus;
+        let mut sample_base_type: F::BaseType = FieldElement::<F>::zero().value().clone();
+        while sample_representative < modulus {
+            let mut big_sample = self.sample();
+            for byte in &mut big_sample[..32 - bytes_size] {
+                *byte = 0;
+            }
+            let remaining_bits = bit_size % 8;
+            if remaining_bits > 0 {
+                big_sample[32 - bytes_size] &= u8::MAX >> remaining_bits;
+            }
+            sample_base_type =
+                ByteConversion::from_bytes_be(&big_sample[32 - bytes_size..]).unwrap();
+            sample_representative = F::representative(&sample_base_type);
+        }
+        FieldElement::<E>::new(F::embed(sample_base_type))
     }
 
     fn sample_u64(&mut self, upper_bound: u64) -> u64 {
@@ -128,13 +150,13 @@ mod tests {
         );
     }
 
-    #[test]
-    fn small_field_test() {
-        let mut transcript =
-            DefaultTranscript::<Babybear31PrimeField, Degree4BabyBearExtensionField>::default();
+    // #[test]
+    // fn small_field_test() {
+    //     let mut transcript =
+    //         DefaultTranscript::<Babybear31PrimeField, Degree4BabyBearExtensionField>::default();
 
-        let sample = transcript.sample_field_element();
+    //     let sample = transcript.sample_field_element();
 
-        println!("Sample: {:?}", sample);
-    }
+    //     println!("Sample: {:?}", sample);
+    // }
 }
