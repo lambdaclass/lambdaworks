@@ -5,7 +5,6 @@ use crate::field::{
     traits::{IsFFTField, IsField, IsSubFieldOf},
 };
 
-#[cfg(feature = "lambdaworks-serde-binary")]
 use crate::traits::ByteConversion;
 
 #[cfg(all(feature = "lambdaworks-serde-binary", feature = "alloc"))]

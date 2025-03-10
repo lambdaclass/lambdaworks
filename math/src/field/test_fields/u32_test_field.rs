@@ -4,7 +4,6 @@ use crate::{
     field::traits::{IsFFTField, IsField, IsPrimeField},
 };
 
-#[cfg(feature = "lambdaworks-serde-binary")]
 use crate::traits::ByteConversion;
 
 #[derive(Debug, Clone, PartialEq, Eq)]

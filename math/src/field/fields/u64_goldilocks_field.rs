@@ -1,6 +1,5 @@
 use core::fmt::{self, Display};
 
-#[cfg(feature = "lambdaworks-serde-binary")]
 use crate::traits::ByteConversion;
 use crate::{
     errors::CreationError,
