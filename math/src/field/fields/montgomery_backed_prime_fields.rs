@@ -1,6 +1,6 @@
 use crate::field::element::FieldElement;
 use crate::field::errors::FieldError;
-use crate::field::traits::IsPrimeField;
+use crate::field::traits::{HasDefaultTranscript, IsPrimeField};
 #[cfg(feature = "alloc")]
 use crate::traits::AsBytes;
 use crate::traits::ByteConversion;
@@ -381,6 +381,27 @@ where
 {
     fn from(value: FieldElement<MontgomeryBackendPrimeField<M, NUM_LIMBS>>) -> alloc::vec::Vec<u8> {
         value.value().to_bytes_be()
+    }
+}
+
+impl<M, const NUM_LIMBS: usize> HasDefaultTranscript for MontgomeryBackendPrimeField<M, NUM_LIMBS>
+where
+    M: IsModulus<UnsignedInteger<NUM_LIMBS>> + Clone + Debug,
+{
+    fn get_random_field_element_from_seed(
+        seed: [u8; 32],
+    ) -> Option<FieldElement<MontgomeryBackendPrimeField<M, NUM_LIMBS>>> {
+        let mut sample = UnsignedInteger::from_bytes_be(&seed).unwrap();
+        let mask = u64::MAX >> M::MODULUS.limbs[0].leading_zeros();
+
+        sample.limbs[0] &= mask;
+
+        if sample > M::MODULUS {
+            return None;
+        }
+        Some(FieldElement::new(
+            MontgomeryBackendPrimeField::<M, NUM_LIMBS>::from_base_type(sample),
+        ))
     }
 }
 
