@@ -1,7 +1,6 @@
 use crate::field::element::FieldElement;
 use crate::field::errors::FieldError;
 use crate::field::traits::{IsField, IsSubFieldOf};
-#[cfg(feature = "lambdaworks-serde-binary")]
 use crate::traits::ByteConversion;
 use core::fmt::Debug;
 use core::marker::PhantomData;

@@ -1,7 +1,6 @@
 use crate::errors::CreationError;
 use crate::field::errors::FieldError;
 use crate::field::traits::{IsField, IsPrimeField};
-#[cfg(feature = "lambdaworks-serde-binary")]
 use crate::traits::ByteConversion;
 use crate::unsigned_integer::element::UnsignedInteger;
 
