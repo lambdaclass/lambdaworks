@@ -133,7 +133,7 @@ where
                 a + r * (b - a)
             })
             .collect();
-        DenseMultilinearPolynomial::from_evaluations_vec(n - 1, new_evals)
+        DenseMultilinearPolynomial::from((n - 1, new_evals))
     }
 
     /// Returns the evaluations of the polynomial on the Boolean hypercube \(\{0,1\}^n\).
@@ -152,20 +152,6 @@ where
         let sum1: FieldElement<F> = poly1.to_evaluations().into_iter().sum();
         let diff = sum1 - &sum0;
         Polynomial::new(&[sum0, diff])
-    }
-
-    /// Constructs a DenseMultilinearPolynomial from a vector of evaluations and the number of variables.
-    pub fn from_evaluations_vec(num_vars: usize, evaluations: Vec<FieldElement<F>>) -> Self {
-        assert_eq!(
-            evaluations.len(),
-            1 << num_vars,
-            "The size of evaluations should be 2^num_vars."
-        );
-        DenseMultilinearPolynomial {
-            n_vars: num_vars,
-            evals: evaluations,
-            len: 1 << num_vars,
-        }
     }
 
     /// Multiplies the polynomial by a scalar.
@@ -267,6 +253,24 @@ fn log_2(n: usize) -> usize {
         (1usize.leading_zeros() - n.leading_zeros()) as usize
     } else {
         (0usize.leading_zeros() - n.leading_zeros()) as usize
+    }
+}
+
+impl<F: IsField> From<(usize, Vec<FieldElement<F>>)> for DenseMultilinearPolynomial<F>
+where
+    <F as IsField>::BaseType: Send + Sync,
+{
+    fn from((num_vars, evaluations): (usize, Vec<FieldElement<F>>)) -> Self {
+        assert_eq!(
+            evaluations.len(),
+            1 << num_vars,
+            "The size of evaluations should be 2^num_vars."
+        );
+        DenseMultilinearPolynomial {
+            n_vars: num_vars,
+            evals: evaluations,
+            len: 1 << num_vars,
+        }
     }
 }
 
