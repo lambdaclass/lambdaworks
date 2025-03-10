@@ -330,8 +330,12 @@ impl IsFFTField for Degree4BabyBearExtensionField {
 
 impl HasDefaultTranscript for Degree4BabyBearExtensionField {
     fn get_random_field_element_from_seed(seed: [u8; 32]) -> Option<FieldElement<Self>> {
-        const MASK: u64 = 0x7FFF_FFFF;
+        //Babybear Prime p = 2^31 - 2^27 + 1
         const MODULUS: u64 = 2013265921;
+
+        //Babybear prime needs 31 bits and is represented with 32 bits.
+        //The mask is used to remove the first bit.
+        const MASK: u64 = 0x7FFF_FFFF;
 
         let coeffs: Vec<u64> = seed
             .chunks_exact(8)
@@ -471,6 +475,94 @@ mod tests {
             generator.pow(2u64.pow(Degree4BabyBearExtensionField::TWO_ADICITY as u32)),
             Fp4E::one()
         );
+    }
+
+    #[test]
+    #[cfg(feature = "lambdaworks-serde-binary")]
+    fn test_some_random_field_element_from_seed() {
+        let a = Fp4E::new([FpE::from(2), FpE::from(4), FpE::from(6), FpE::from(8)]);
+        let a_bytes = a.to_bytes_be();
+
+        let result = Degree4BabyBearExtensionField::get_random_field_element_from_seed(
+            a_bytes.try_into().unwrap(),
+        );
+
+        assert!(result.is_some());
+
+        if let Some(field_element) = result {
+            assert_eq!(field_element, a)
+        }
+    }
+
+    #[test]
+    #[cfg(feature = "lambdaworks-serde-binary")]
+    fn test_some_random_field_element_from_seed_2() {
+        let mut seed = [0xFF; 32];
+
+        seed[4] = 0x78;
+        seed[5] = 0x0;
+        seed[6] = 0x0;
+        seed[7] = 0x0;
+
+        seed[12] = 0x78;
+        seed[13] = 0x0;
+        seed[14] = 0x0;
+        seed[15] = 0x0;
+
+        seed[20] = 0x78;
+        seed[21] = 0x0;
+        seed[22] = 0x0;
+        seed[23] = 0x0;
+
+        seed[28] = 0x78;
+        seed[29] = 0x0;
+        seed[30] = 0x0;
+        seed[31] = 0x0;
+
+        let expected = Fp4E::new([
+            FpE::from(2013265920),
+            FpE::from(2013265920),
+            FpE::from(2013265920),
+            FpE::from(2013265920),
+        ]);
+
+        let result = Degree4BabyBearExtensionField::get_random_field_element_from_seed(seed);
+
+        assert!(result.is_some());
+
+        if let Some(field_element) = result {
+            assert_eq!(field_element, expected)
+        }
+    }
+
+    #[test]
+    #[cfg(feature = "lambdaworks-serde-binary")]
+    fn test_none_random_field_element_from_seed() {
+        let mut seed = [0xFF; 32];
+
+        seed[4] = 0x7A;
+        seed[5] = 0x0;
+        seed[6] = 0x0;
+        seed[7] = 0x0;
+
+        seed[12] = 0x7A;
+        seed[13] = 0x0;
+        seed[14] = 0x0;
+        seed[15] = 0x0;
+
+        seed[20] = 0x7A;
+        seed[21] = 0x0;
+        seed[22] = 0x0;
+        seed[23] = 0x0;
+
+        seed[28] = 0x7A;
+        seed[29] = 0x0;
+        seed[30] = 0x0;
+        seed[31] = 0x0;
+
+        let result = Degree4BabyBearExtensionField::get_random_field_element_from_seed(seed);
+
+        assert!(result.is_none());
     }
 
     #[cfg(all(feature = "std", not(feature = "instruments")))]
