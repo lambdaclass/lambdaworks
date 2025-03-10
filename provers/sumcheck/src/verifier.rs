@@ -73,7 +73,7 @@ where
 
         if self.round == 0 {
             // Check intermediate consistency for round 0: s0 + s1 must equal c_1.
-            if eval_0.clone() + eval_1.clone() != self.c_1 {
+            if &eval_0 + &eval_1 != self.c_1 {
                 return Err(VerifierError::InconsistentSum {
                     round: self.round,
                     s0: eval_0,
@@ -82,7 +82,7 @@ where
                 });
             }
         } else {
-            let sum = eval_0.clone() + eval_1.clone();
+            let sum = &eval_0 + &eval_1;
             // Check intermediate consistency: s0 + s1 must equal last_val.
             if sum != self.last_val {
                 return Err(VerifierError::InconsistentSum {
@@ -137,7 +137,7 @@ mod sumcheck_tests {
     type FE = FieldElement<F>;
 
     #[test]
-    fn sumcheck_interactive_test() -> Result<(), VerifierError<F>> {
+    fn sumcheck_interactive_test() {
         let poly = DenseMultilinearPolynomial::new(vec![
             FE::from(1),
             FE::from(2),
@@ -166,12 +166,12 @@ mod sumcheck_tests {
             eval_1,
             eval_0 + eval_1
         );
-        let res0 = verifier.do_round(univar0, &mut transcript)?;
+        let res0 = verifier.do_round(univar0, &mut transcript).unwrap();
         let r0 = if let VerifierRoundResult::NextRound(chal) = res0 {
             println!("Challenge r₀: {:?}", chal);
             chal
         } else {
-            return Ok(());
+            panic!("Expected NextRound result");
         };
 
         // Round 1
@@ -189,7 +189,7 @@ mod sumcheck_tests {
             eval_1,
             eval_0 + eval_1
         );
-        let res1 = verifier.do_round(univar1, &mut transcript)?;
+        let res1 = verifier.do_round(univar1, &mut transcript).unwrap();
         if let VerifierRoundResult::Final(ok) = res1 {
             println!(
                 "\nFinal verification result: {}",
@@ -197,14 +197,12 @@ mod sumcheck_tests {
             );
             assert!(ok, "Final round verification failed");
         } else {
-            unreachable!("Expected final round result");
+            panic!("Expected Final result");
         }
-
-        Ok(())
     }
 
     #[test]
-    fn test_from_book() -> Result<(), VerifierError<F>> {
+    fn test_from_book() {
         // 3-variable polynomial with evaluations:
         // (0,0,0)=1, (1,0,0)=2, (0,1,0)=3, (1,1,0)=4,
         // (0,0,1)=5, (1,0,1)=6, (0,1,1)=7, (1,1,1)=8.
@@ -240,12 +238,12 @@ mod sumcheck_tests {
             eval_1,
             eval_0 + eval_1
         );
-        let res0 = verifier.do_round(g, &mut transcript)?;
+        let res0 = verifier.do_round(g, &mut transcript).unwrap();
         let mut current_challenge = if let VerifierRoundResult::NextRound(chal) = res0 {
             println!("Challenge r₀: {:?}", chal);
             chal
         } else {
-            return Ok(());
+            panic!("Expected NextRound result");
         };
 
         // Continue rounds until final.
@@ -275,7 +273,7 @@ mod sumcheck_tests {
                 eval_1,
                 eval_0 + eval_1
             );
-            let res = verifier.do_round(g, &mut transcript)?;
+            let res = verifier.do_round(g, &mut transcript).unwrap();
             match res {
                 VerifierRoundResult::NextRound(chal) => {
                     println!("Challenge r{}: {:?}", round, chal);
@@ -292,11 +290,10 @@ mod sumcheck_tests {
             }
             round += 1;
         }
-        Ok(())
     }
 
     #[test]
-    fn test_from_book_ported() -> Result<(), VerifierError<F>> {
+    fn test_from_book_ported() {
         // 3-variable polynomial: f(x₀,x₁,x₂)=2*x₀ + x₀*x₂ + x₁*x₂.
         // Evaluations (little-endian): [0, 2, 0, 2, 0, 3, 1, 4]. Total sum = 12.
         let poly = DenseMultilinearPolynomial::new(vec![
@@ -330,12 +327,12 @@ mod sumcheck_tests {
             eval_1,
             eval_0 + eval_1
         );
-        let res0 = verifier.do_round(univar0, &mut transcript)?;
+        let res0 = verifier.do_round(univar0, &mut transcript).unwrap();
         let r0 = if let VerifierRoundResult::NextRound(chal) = res0 {
             println!("Challenge r₀: {:?}", chal);
             chal
         } else {
-            return Ok(());
+            panic!("Expected NextRound result");
         };
 
         // Round 1:
@@ -353,12 +350,12 @@ mod sumcheck_tests {
             eval_1,
             eval_0 + eval_1
         );
-        let res1 = verifier.do_round(univar1, &mut transcript)?;
+        let res1 = verifier.do_round(univar1, &mut transcript).unwrap();
         let r1 = if let VerifierRoundResult::NextRound(chal) = res1 {
             println!("Challenge r₁: {:?}", chal);
             chal
         } else {
-            return Ok(());
+            panic!("Expected NextRound result");
         };
 
         // Round 2 (final round):
@@ -376,19 +373,20 @@ mod sumcheck_tests {
             eval_1,
             eval_0 + eval_1
         );
-        let res2 = verifier.do_round(univar2, &mut transcript)?;
+        let res2 = verifier.do_round(univar2, &mut transcript).unwrap();
         if let VerifierRoundResult::Final(ok) = res2 {
             println!(
                 "\nFinal verification result: {}",
                 if ok { "ACCEPTED" } else { "REJECTED" }
             );
             assert!(ok, "Final round verification failed");
+        } else {
+            panic!("Expected Final result");
         }
-        Ok(())
     }
 
     #[test]
-    fn failing_verification_test() -> Result<(), VerifierError<F>> {
+    fn failing_verification_test() {
         let poly = DenseMultilinearPolynomial::new(vec![
             FE::from(1),
             FE::from(2),
@@ -421,6 +419,5 @@ mod sumcheck_tests {
             println!("\nExpected verification error: {:?}", e);
         }
         assert!(res0.is_err(), "Expected verification error");
-        Ok(())
     }
 }
