@@ -1,6 +1,7 @@
 extern crate alloc;
 use crate::circle::point::CirclePoint;
 use crate::field::fields::mersenne31::field::Mersenne31Field;
+#[cfg(feature = "alloc")]
 use alloc::vec::Vec;
 
 /// Given g_n, a generator of the subgroup of size n of the circle, i.e. <g_n>,

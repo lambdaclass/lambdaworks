@@ -1,5 +1,4 @@
 use super::{element::FieldElement, errors::FieldError};
-#[cfg(feature = "lambdaworks-serde-binary")]
 use crate::traits::ByteConversion;
 use crate::{errors::CreationError, unsigned_integer::traits::IsUnsignedInteger};
 use core::fmt::Debug;
@@ -98,10 +97,7 @@ pub trait IsFFTField: IsField {
 pub trait IsField: Debug + Clone {
     /// The underlying base type for representing elements from the field.
     // TODO: Relax Unpin for non cuda usage
-    #[cfg(feature = "lambdaworks-serde-binary")]
     type BaseType: Clone + Debug + Unpin + ByteConversion + Default;
-    #[cfg(not(feature = "lambdaworks-serde-binary"))]
-    type BaseType: Clone + Debug + Unpin + Default;
 
     // Defines the degree of an extension; set to 1 when it is not an extension.
     const EXTENSION_DEGREE: usize;

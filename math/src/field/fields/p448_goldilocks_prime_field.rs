@@ -1,7 +1,6 @@
 use crate::errors::CreationError;
 use crate::field::errors::FieldError;
 use crate::field::traits::{IsField, IsPrimeField};
-#[cfg(feature = "lambdaworks-serde-binary")]
 use crate::traits::ByteConversion;
 use crate::unsigned_integer::element::UnsignedInteger;
 
@@ -21,7 +20,6 @@ pub struct U56x8 {
     limbs: [u64; 8],
 }
 
-#[cfg(feature = "lambdaworks-serde-binary")]
 impl ByteConversion for U56x8 {
     #[cfg(feature = "alloc")]
     fn to_bytes_be(&self) -> alloc::vec::Vec<u8> {

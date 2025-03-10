@@ -9,6 +9,7 @@ use crate::{
     fft::cpu::bit_reversing::in_place_bit_reverse_permute,
     field::{element::FieldElement, fields::mersenne31::field::Mersenne31Field},
 };
+#[cfg(feature = "alloc")]
 use alloc::vec::Vec;
 
 /// Given the 2^n coefficients of a two-variables polynomial of degree 2^n - 1 in the basis {1, y, x, xy, 2xˆ2 -1, 2xˆ2y-y, 2xˆ3-x, 2xˆ3y-xy,...}
