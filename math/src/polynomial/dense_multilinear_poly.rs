@@ -108,7 +108,20 @@ where
 
     /// Fixes the last variable to the given value `r` and returns a new DenseMultilinearPolynomial
     /// with one fewer variable.
+    /// Evaluations are ordered so that the first half corresponds to the last variable = 0,
+    /// and the second half corresponds to the last variable = 1.
+    ///
     /// Combines each pair of evaluations as: new_eval = a + r * (b - a)
+    ///  This reduces the polynomial by one variable, allowing it to later be collapsed
+    /// into a univariate polynomial by summing over the remaining variables.
+    ///
+    /// Example (2 variables): evaluations ordered as:
+    ///     [f(0,0), f(0,1), f(1,0), f(1,1)]
+    /// Fixing the second variable `y = r` produces evaluations of a 1-variable polynomial:
+    ///     [f(0,r), f(1,r)]
+    /// computed explicitly as:
+    ///     f(0,r) = f(0,0) + r*(f(0,1)-f(0,0)),
+    ///     f(1,r) = f(1,0) + r*(f(1,1)-f(1,0))
     pub fn fix_last_variable(&self, r: &FieldElement<F>) -> DenseMultilinearPolynomial<F> {
         let n = self.num_vars();
         assert!(n > 0, "Cannot fix variable in a 0-variable polynomial");
