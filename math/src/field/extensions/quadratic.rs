@@ -37,7 +37,6 @@ where
     }
 }
 
-#[cfg(feature = "lambdaworks-serde-binary")]
 impl<F> ByteConversion for [FieldElement<F>; 2]
 where
     F: IsField,

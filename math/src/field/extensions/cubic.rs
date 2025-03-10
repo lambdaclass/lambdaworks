@@ -24,7 +24,6 @@ pub trait HasCubicNonResidue<F: IsField> {
     fn residue() -> FieldElement<F>;
 }
 
-#[cfg(feature = "lambdaworks-serde-binary")]
 impl<F> ByteConversion for [FieldElement<F>; 3]
 where
     F: IsField,

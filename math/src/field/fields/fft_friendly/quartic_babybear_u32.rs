@@ -5,10 +5,9 @@ use crate::field::{
     traits::{IsFFTField, IsField, IsSubFieldOf},
 };
 
-#[cfg(all(feature = "lambdaworks-serde-binary", feature = "alloc"))]
 use crate::traits::ByteConversion;
 
-#[cfg(all(feature = "lambdaworks-serde-binary", feature = "alloc"))]
+#[cfg(feature = "alloc")]
 use crate::traits::AsBytes;
 
 /// We are implementig the extension of Baby Bear of degree 4 using the irreducible polynomial x^4 + 11.
@@ -221,7 +220,6 @@ impl IsSubFieldOf<Degree4BabyBearU32ExtensionField> for Babybear31PrimeField {
     }
 }
 
-#[cfg(feature = "lambdaworks-serde-binary")]
 impl ByteConversion for [FieldElement<Babybear31PrimeField>; 4] {
     #[cfg(feature = "alloc")]
     fn to_bytes_be(&self) -> alloc::vec::Vec<u8> {
@@ -269,8 +267,7 @@ impl ByteConversion for [FieldElement<Babybear31PrimeField>; 4] {
         Ok([x0, x1, x2, x3])
     }
 }
-#[cfg(feature = "lambdaworks-serde-binary")]
-#[cfg(feature = "alloc")]
+
 impl ByteConversion for FieldElement<Degree4BabyBearU32ExtensionField> {
     #[cfg(feature = "alloc")]
     fn to_bytes_be(&self) -> alloc::vec::Vec<u8> {
@@ -316,7 +313,6 @@ impl ByteConversion for FieldElement<Degree4BabyBearU32ExtensionField> {
     }
 }
 
-#[cfg(feature = "lambdaworks-serde-binary")]
 #[cfg(feature = "alloc")]
 impl AsBytes for FieldElement<Degree4BabyBearU32ExtensionField> {
     fn as_bytes(&self) -> alloc::vec::Vec<u8> {
@@ -461,28 +457,28 @@ mod tests {
     }
 
     #[test]
-    #[cfg(all(feature = "alloc", feature = "lambdaworks-serde-binary"))]
+    #[cfg(feature = "alloc")]
     fn to_bytes_from_bytes_be_is_the_identity() {
         let x = Fp4E::new([FpE::from(2), FpE::from(4), FpE::from(6), FpE::from(8)]);
         assert_eq!(Fp4E::from_bytes_be(&x.to_bytes_be()).unwrap(), x);
     }
 
     #[test]
-    #[cfg(all(feature = "alloc", feature = "lambdaworks-serde-binary"))]
+    #[cfg(feature = "alloc")]
     fn from_bytes_to_bytes_be_is_the_identity() {
         let bytes = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
         assert_eq!(Fp4E::from_bytes_be(&bytes).unwrap().to_bytes_be(), bytes);
     }
 
     #[test]
-    #[cfg(all(feature = "alloc", feature = "lambdaworks-serde-binary"))]
+    #[cfg(feature = "alloc")]
     fn to_bytes_from_bytes_le_is_the_identity() {
         let x = Fp4E::new([FpE::from(2), FpE::from(4), FpE::from(6), FpE::from(8)]);
         assert_eq!(Fp4E::from_bytes_le(&x.to_bytes_le()).unwrap(), x);
     }
 
     #[test]
-    #[cfg(all(feature = "alloc", feature = "lambdaworks-serde-binary"))]
+    #[cfg(feature = "alloc")]
     fn from_bytes_to_bytes_le_is_the_identity() {
         let bytes = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
         assert_eq!(Fp4E::from_bytes_le(&bytes).unwrap().to_bytes_le(), bytes);

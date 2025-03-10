@@ -10,7 +10,6 @@ use crate::traits::ByteConversion;
 
 pub struct U32Field<const MODULUS: u32>;
 
-#[cfg(feature = "lambdaworks-serde-binary")]
 impl ByteConversion for u32 {
     #[cfg(feature = "alloc")]
     fn to_bytes_be(&self) -> alloc::vec::Vec<u8> {

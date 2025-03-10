@@ -7,7 +7,7 @@ use crate::field::{
 
 use crate::traits::ByteConversion;
 
-#[cfg(all(feature = "lambdaworks-serde-binary", feature = "alloc"))]
+#[cfg(feature = "alloc")]
 use crate::traits::AsBytes;
 
 /// We are implementig the extension of Baby Bear of degree 4 using the irreducible polynomial x^4 + 11.
@@ -219,7 +219,6 @@ impl IsSubFieldOf<Degree4BabyBearExtensionField> for Babybear31PrimeField {
     }
 }
 
-#[cfg(feature = "lambdaworks-serde-binary")]
 impl ByteConversion for [FieldElement<Babybear31PrimeField>; 4] {
     #[cfg(feature = "alloc")]
     fn to_bytes_be(&self) -> alloc::vec::Vec<u8> {
@@ -268,8 +267,8 @@ impl ByteConversion for [FieldElement<Babybear31PrimeField>; 4] {
     }
 }
 
-#[cfg(feature = "lambdaworks-serde-binary")]
 impl ByteConversion for FieldElement<Degree4BabyBearExtensionField> {
+    #[cfg(feature = "alloc")]
     fn to_bytes_be(&self) -> alloc::vec::Vec<u8> {
         let mut byte_slice = ByteConversion::to_bytes_be(&self.value()[0]);
         byte_slice.extend(ByteConversion::to_bytes_be(&self.value()[1]));
@@ -278,6 +277,7 @@ impl ByteConversion for FieldElement<Degree4BabyBearExtensionField> {
         byte_slice
     }
 
+    #[cfg(feature = "alloc")]
     fn to_bytes_le(&self) -> alloc::vec::Vec<u8> {
         let mut byte_slice = ByteConversion::to_bytes_le(&self.value()[0]);
         byte_slice.extend(ByteConversion::to_bytes_le(&self.value()[1]));
@@ -313,7 +313,6 @@ impl ByteConversion for FieldElement<Degree4BabyBearExtensionField> {
     }
 }
 
-#[cfg(feature = "lambdaworks-serde-binary")]
 #[cfg(feature = "alloc")]
 impl AsBytes for FieldElement<Degree4BabyBearExtensionField> {
     fn as_bytes(&self) -> alloc::vec::Vec<u8> {

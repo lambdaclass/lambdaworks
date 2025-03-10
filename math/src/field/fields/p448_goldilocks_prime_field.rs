@@ -20,7 +20,6 @@ pub struct U56x8 {
     limbs: [u64; 8],
 }
 
-#[cfg(feature = "lambdaworks-serde-binary")]
 impl ByteConversion for U56x8 {
     #[cfg(feature = "alloc")]
     fn to_bytes_be(&self) -> alloc::vec::Vec<u8> {
