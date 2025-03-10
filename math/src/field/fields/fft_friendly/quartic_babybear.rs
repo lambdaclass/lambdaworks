@@ -2,7 +2,7 @@ use crate::field::{
     element::FieldElement,
     errors::FieldError,
     fields::fft_friendly::babybear::Babybear31PrimeField,
-    traits::{IsFFTField, IsField, IsSubFieldOf, HasDefaultTranscript},
+    traits::{HasDefaultTranscript, IsFFTField, IsField, IsSubFieldOf},
 };
 
 #[cfg(feature = "lambdaworks-serde-binary")]
@@ -330,24 +330,25 @@ impl IsFFTField for Degree4BabyBearExtensionField {
 
 impl HasDefaultTranscript for Degree4BabyBearExtensionField {
     fn get_random_field_element_from_seed(seed: [u8; 32]) -> Option<FieldElement<Self>> {
-        let mask = 2147483647 as u64;
-        let coeff_1 = u64::from_be_bytes(seed[..8].try_into().unwrap()) & mask;
-        let coeff_2 = u64::from_be_bytes(seed[8..16].try_into().unwrap()) & mask;
-        let coeff_3 = u64::from_be_bytes(seed[16..24].try_into().unwrap()) & mask;
-        let coeff_4 = u64::from_be_bytes(seed[24..32].try_into().unwrap()) & mask;
-        let modulus = 2013265921 as u64;
-        if coeff_1 < modulus && coeff_2 < modulus && coeff_3 < modulus && coeff_4 < modulus {
-            Some(FieldElement::<Self>::new([
-                FieldElement::from(coeff_1), 
-                FieldElement::from(coeff_2), 
-                FieldElement::from(coeff_3), 
-                FieldElement::from(coeff_4)])
-            )
-        }
-        else {
-            println!("HOLA");
+        const MASK: u64 = 0x7FFF_FFFF;
+        const MODULUS: u64 = 2013265921;
+
+        let coeffs: Vec<u64> = seed
+            .chunks_exact(8)
+            .take(4)
+            .map(|chunk| u64::from_be_bytes(chunk.try_into().unwrap()) & MASK)
+            .collect();
+
+        if coeffs.iter().any(|&coeff| coeff >= MODULUS) {
             return None;
-        } 
+        }
+
+        Some(FieldElement::<Self>::new([
+            FieldElement::from(coeffs[0]),
+            FieldElement::from(coeffs[1]),
+            FieldElement::from(coeffs[2]),
+            FieldElement::from(coeffs[3]),
+        ]))
     }
 }
 

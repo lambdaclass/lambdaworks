@@ -287,6 +287,10 @@ pub trait IsPrimeField: IsField {
     }
 }
 
+/// This trait is necessary for sampling a random field element with a uniform distribution.
 pub trait HasDefaultTranscript: IsField {
-    fn get_random_field_element_from_seed(seed: [u8;32]) -> Option<FieldElement<Self>>;
+    /// This function should truncates the sampled bits to the quantity required to represent the order of the base field
+    /// and returns a field element if the resulting number is less than the modulus, or None if the sampled number
+    /// is greater than the modulus.
+    fn get_random_field_element_from_seed(seed: [u8; 32]) -> Option<FieldElement<Self>>;
 }

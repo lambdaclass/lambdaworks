@@ -63,9 +63,8 @@ where
 
     fn sample_field_element(&mut self) -> FieldElement<F> {
         loop {
-            match F::get_random_field_element_from_seed(self.sample()) {
-                Some(result) => return result,
-                None => continue,
+            if let Some(result) = F::get_random_field_element_from_seed(self.sample()) {
+                return result;
             }
         }
     }
