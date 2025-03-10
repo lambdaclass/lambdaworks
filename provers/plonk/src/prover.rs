@@ -13,7 +13,10 @@ use lambdaworks_math::{
     field::element::FieldElement,
     polynomial::{self, Polynomial},
 };
-use lambdaworks_math::{field::traits::IsField, traits::ByteConversion};
+use lambdaworks_math::{
+    field::traits::{HasDefaultTranscript, IsField},
+    traits::ByteConversion,
+};
 
 /// Plonk proof.
 /// The challenges are denoted
@@ -279,7 +282,7 @@ struct Round5Result<F: IsField, Hiding> {
 
 impl<F, CS, R> Prover<F, CS, R>
 where
-    F: IsField + IsFFTField,
+    F: IsField + IsFFTField + HasDefaultTranscript,
     CS: IsCommitmentScheme<F>,
     FieldElement<F>: ByteConversion,
     CS::Commitment: AsBytes,
