@@ -160,13 +160,19 @@ fn line(p: &G1Point, t: &G2Point, q: &G2Point) -> (G2Point, Fp12E) {
         let y_r = g.square() - (e_square.double() + e_square);
         let z_r = b * &h;
 
+        debug_assert_eq!(
+            BLS12377TwistCurve::defining_equation_projective(&x_r, &y_r, &z_r),
+            Fp2E::zero()
+        );
+        // SAFETY: `unwrap()` is used here because we ensure that `x_r, y_r, z_r`
+        // satisfy the curve equation. The previous assertion checks that this is indeed the case.
         let r = G2Point::new([x_r, y_r, z_r]);
 
         let l = Fp12E::new([
             Fp6E::new([y_p * (-h), Fp2E::zero(), Fp2E::zero()]),
             Fp6E::new([x_p * (j.double() + &j), i, Fp2E::zero()]),
         ]);
-        (r, l)
+        (r.unwrap(), l)
     } else {
         let [x_q, y_q, _] = q.coordinates();
         let [x_t, y_t, z_t] = t.coordinates();
@@ -188,13 +194,19 @@ fn line(p: &G1Point, t: &G2Point, q: &G2Point) -> (G2Point, Fp12E) {
         let y_r = &theta * (g - h) - i;
         let z_r = z_t * e;
 
+        debug_assert_eq!(
+            BLS12377TwistCurve::defining_equation_projective(&x_r, &y_r, &z_r),
+            Fp2E::zero()
+        );
+        // SAFETY: The values `x_r, y_r, z_r` are computed correctly to be on the curve.
+        // The assertion above verifies that the resulting point is valid.
         let r = G2Point::new([x_r, y_r, z_r]);
 
         let l = Fp12E::new([
             Fp6E::new([y_p * lambda, Fp2E::zero(), Fp2E::zero()]),
             Fp6E::new([x_p * (-theta), j, Fp2E::zero()]),
         ]);
-        (r, l)
+        (r.unwrap(), l)
     }
 }
 
@@ -405,15 +417,19 @@ mod tests {
 
     #[test]
     fn ate_pairing_errors_when_one_element_is_not_in_subgroup() {
+        // p = (0, 1, 1) is in the curve but not in the subgroup.
+        // Recall that the BLS 12-377 curve equation is y^2 = x^3 + 1.
         let p = ShortWeierstrassProjectivePoint::new([
+            FieldElement::zero(),
             FieldElement::one(),
             FieldElement::one(),
-            FieldElement::one(),
-        ]);
+        ])
+        .unwrap();
         let q = ShortWeierstrassProjectivePoint::neutral_element();
         let result = BLS12377AtePairing::compute_batch(&[(&p.to_affine(), &q)]);
         assert!(result.is_err())
     }
+
     #[test]
     fn apply_12_times_frobenius_is_identity() {
         let f = Fp12E::from_coefficients(&[

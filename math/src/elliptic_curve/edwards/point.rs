@@ -12,10 +12,27 @@ use super::traits::IsEdwards;
 #[derive(Clone, Debug)]
 pub struct EdwardsProjectivePoint<E: IsEllipticCurve>(ProjectivePoint<E>);
 
-impl<E: IsEllipticCurve> EdwardsProjectivePoint<E> {
+impl<E: IsEllipticCurve + IsEdwards> EdwardsProjectivePoint<E> {
     /// Creates an elliptic curve point giving the projective [x: y: z] coordinates.
-    pub fn new(value: [FieldElement<E::BaseField>; 3]) -> Self {
-        Self(ProjectivePoint::new(value))
+    pub fn new(value: [FieldElement<E::BaseField>; 3]) -> Result<Self, EllipticCurveError> {
+        let (x, y, z) = (&value[0], &value[1], &value[2]);
+
+        // The point at infinity is (0, 1, 1).
+        // We convert every (0, y, y) into the infinity.
+        if x == &FieldElement::<E::BaseField>::zero() && z == y {
+            return Ok(Self(ProjectivePoint::new([
+                FieldElement::<E::BaseField>::zero(),
+                FieldElement::<E::BaseField>::one(),
+                FieldElement::<E::BaseField>::one(),
+            ])));
+        }
+        if z != &FieldElement::<E::BaseField>::zero()
+            && E::defining_equation_projective(x, y, z) == FieldElement::<E::BaseField>::zero()
+        {
+            Ok(Self(ProjectivePoint::new(value)))
+        } else {
+            Err(EllipticCurveError::InvalidPoint)
+        }
     }
 
     /// Returns the `x` coordinate of the point.
@@ -56,26 +73,33 @@ impl<E: IsEdwards> FromAffine<E::BaseField> for EdwardsProjectivePoint<E> {
     fn from_affine(
         x: FieldElement<E::BaseField>,
         y: FieldElement<E::BaseField>,
-    ) -> Result<Self, crate::elliptic_curve::traits::EllipticCurveError> {
-        if E::defining_equation(&x, &y) != FieldElement::zero() {
-            Err(EllipticCurveError::InvalidPoint)
-        } else {
-            let coordinates = [x, y, FieldElement::one()];
-            Ok(EdwardsProjectivePoint::new(coordinates))
-        }
+    ) -> Result<Self, EllipticCurveError> {
+        let coordinates = [x, y, FieldElement::one()];
+        EdwardsProjectivePoint::new(coordinates)
     }
 }
 
 impl<E: IsEllipticCurve> Eq for EdwardsProjectivePoint<E> {}
 
 impl<E: IsEdwards> IsGroup for EdwardsProjectivePoint<E> {
-    /// The point at infinity.
+    /// Returns the point at infinity (neutral element) in projective coordinates.
+    ///
+    /// # Safety
+    ///
+    /// - The values `[0, 1, 1]` are the **canonical representation** of the neutral element
+    ///   in the Edwards curve, meaning they are guaranteed to be a valid point.
+    /// - `unwrap()` is used because this point is **known** to be valid, so
+    ///   there is no need for additional runtime checks.
     fn neutral_element() -> Self {
-        Self::new([
+        // SAFETY:
+        // - `[0, 1, 1]` is a mathematically verified neutral element in Edwards curves.
+        // - `unwrap()` is safe because this point is **always valid**.
+        let point = Self::new([
             FieldElement::zero(),
             FieldElement::one(),
             FieldElement::one(),
-        ])
+        ]);
+        point.unwrap()
     }
 
     fn is_neutral_element(&self) -> bool {
@@ -83,8 +107,16 @@ impl<E: IsEdwards> IsGroup for EdwardsProjectivePoint<E> {
         px == &FieldElement::zero() && py == pz
     }
 
-    /// Computes the addition of `self` and `other`.
-    /// Taken from "Moonmath" (Eq 5.38, page 97)
+    /// Computes the addition of `self` and `other` using the Edwards curve addition formula.
+    ///
+    /// This implementation follows Equation (5.38) from "Moonmath" (page 97).
+    ///
+    /// # Safety
+    ///
+    /// - The function assumes both `self` and `other` are valid points on the curve.
+    /// - The resulting coordinates are computed using a well-defined formula that
+    ///   maintains the elliptic curve invariants.
+    /// - `unwrap()` is safe because the formula guarantees the result is valid.
     fn operate_with(&self, other: &Self) -> Self {
         // This avoids dropping, which in turn saves us from having to clone the coordinates.
         let (s_affine, o_affine) = (self.to_affine(), other.to_affine());
@@ -102,14 +134,28 @@ impl<E: IsEdwards> IsGroup for EdwardsProjectivePoint<E> {
 
         let num_s2 = &y1y2 - E::a() * &x1x2;
         let den_s2 = &one - &dx1x2y1y2;
-
-        Self::new([&num_s1 / &den_s1, &num_s2 / &den_s2, one])
+        // SAFETY: The creation of the result point is safe because the inputs are always points that belong to the curve.
+        // We are using that den_s1 and den_s2 aren't zero.
+        // See Theorem 3.3 from https://eprint.iacr.org/2007/286.pdf.
+        let x_coord = (&num_s1 / &den_s1).unwrap();
+        let y_coord = (&num_s2 / &den_s2).unwrap();
+        let point = Self::new([x_coord, y_coord, one]);
+        point.unwrap()
     }
 
     /// Returns the additive inverse of the projective point `p`
+    ///  
+    /// # Safety
+    ///
+    /// - Negating the x-coordinate of a valid Edwards point results in another valid point.
+    /// - `unwrap()` is safe because negation does not break the curve equation.
     fn neg(&self) -> Self {
         let [px, py, pz] = self.coordinates();
-        Self::new([-px, py.clone(), pz.clone()])
+        // SAFETY:
+        // - The negation formula for Edwards curves is well-defined.
+        // - The result remains a valid curve point.
+        let point = Self::new([-px, py.clone(), pz.clone()]);
+        point.unwrap()
     }
 }
 
@@ -156,17 +202,20 @@ mod tests {
             FieldElement::from(5),
             FieldElement::from(5),
             FieldElement::from(1),
-        ]);
+        ])
+        .unwrap();
         let q = EdwardsProjectivePoint::<TinyJubJubEdwards>::new([
             FieldElement::from(8),
             FieldElement::from(5),
             FieldElement::from(1),
-        ]);
+        ])
+        .unwrap();
         let expected = EdwardsProjectivePoint::<TinyJubJubEdwards>::new([
             FieldElement::from(0),
             FieldElement::from(1),
             FieldElement::from(1),
-        ]);
+        ])
+        .unwrap();
         assert_eq!(p.operate_with(&q), expected);
     }
 

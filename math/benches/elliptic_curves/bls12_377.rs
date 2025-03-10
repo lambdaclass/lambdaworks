@@ -15,7 +15,7 @@ pub fn bls12_377_elliptic_curve_benchmarks(c: &mut Criterion) {
     let a = BLS12377Curve::generator().operate_with_self(a_val);
     let b = BLS12377Curve::generator().operate_with_self(b_val);
 
-    let mut group = c.benchmark_group("BLS12-381 Ops");
+    let mut group = c.benchmark_group("BLS12-377 Ops");
     group.significance_level(0.1).sample_size(10000);
     group.throughput(criterion::Throughput::Elements(1));
 

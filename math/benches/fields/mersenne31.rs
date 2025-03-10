@@ -15,7 +15,6 @@ pub type Fp2E = FieldElement<Degree2ExtensionField>;
 pub type Fp4E = FieldElement<Degree4ExtensionField>;
 
 #[inline(never)]
-#[no_mangle]
 #[export_name = "util::rand_mersenne31_field_elements"]
 pub fn rand_field_elements(num: usize) -> Vec<(F, F)> {
     let mut result = Vec::with_capacity(num);
@@ -184,7 +183,7 @@ pub fn mersenne31_ops_benchmarks(c: &mut Criterion) {
         group.bench_with_input(format!("div {:?}", &i.len()), &i, |bench, i| {
             bench.iter(|| {
                 for (x, y) in i {
-                    black_box(black_box(x) / black_box(y));
+                    black_box(black_box(x) / black_box(y)).unwrap();
                 }
             });
         });

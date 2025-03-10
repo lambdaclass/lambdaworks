@@ -329,12 +329,11 @@ where
     F: IsSubFieldOf<L>,
     L: IsField,
 {
-    type Output = FieldElement<L>;
+    type Output = Result<FieldElement<L>, FieldError>;
 
     fn div(self, rhs: &FieldElement<L>) -> Self::Output {
-        Self::Output {
-            value: <F as IsSubFieldOf<L>>::div(&self.value, &rhs.value),
-        }
+        let value = <F as IsSubFieldOf<L>>::div(&self.value, &rhs.value)?;
+        Ok(FieldElement::<L> { value })
     }
 }
 
@@ -343,7 +342,7 @@ where
     F: IsSubFieldOf<L>,
     L: IsField,
 {
-    type Output = FieldElement<L>;
+    type Output = Result<FieldElement<L>, FieldError>;
 
     fn div(self, rhs: FieldElement<L>) -> Self::Output {
         &self / &rhs
@@ -355,7 +354,7 @@ where
     F: IsSubFieldOf<L>,
     L: IsField,
 {
-    type Output = FieldElement<L>;
+    type Output = Result<FieldElement<L>, FieldError>;
 
     fn div(self, rhs: &FieldElement<L>) -> Self::Output {
         &self / rhs
@@ -367,7 +366,7 @@ where
     F: IsSubFieldOf<L>,
     L: IsField,
 {
-    type Output = FieldElement<L>;
+    type Output = Result<FieldElement<L>, FieldError>;
 
     fn div(self, rhs: FieldElement<L>) -> Self::Output {
         self / &rhs

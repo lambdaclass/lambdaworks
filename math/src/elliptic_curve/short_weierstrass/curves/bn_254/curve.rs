@@ -20,12 +20,22 @@ impl IsEllipticCurve for BN254Curve {
     type BaseField = BN254PrimeField;
     type PointRepresentation = ShortWeierstrassProjectivePoint<Self>;
 
+    /// Returns the generator point of the BN254 curve.
+    ///
+    /// # Safety
+    ///
+    /// - The generator point is mathematically verified to be a valid point on the curve.
+    /// - `unwrap()` is safe because the provided coordinates satisfy the curve equation.
     fn generator() -> Self::PointRepresentation {
-        Self::PointRepresentation::new([
+        // SAFETY:
+        // - The generator coordinates `(1, 2, 1)` are **predefined** and belong to the BN254 curve.
+        // - `unwrap()` is safe because we **ensure** the input values satisfy the curve equation.
+        let point = Self::PointRepresentation::new([
             FieldElement::<Self::BaseField>::one(),
             FieldElement::<Self::BaseField>::from(2),
             FieldElement::one(),
-        ])
+        ]);
+        point.unwrap()
     }
 }
 
@@ -50,13 +60,23 @@ impl ShortWeierstrassProjectivePoint<BN254TwistCurve> {
     /// We also use phi at the last lines of the Miller Loop of the pairing.
     /// phi(q) = (x^p, y^p, z^p), where (x, y, z) are the projective coordinates of q.
     /// See https://hackmd.io/@Wimet/ry7z1Xj-2#Subgroup-Checks.
+    ///
+    /// # Safety
+    ///
+    /// - The function assumes `self` is a valid point on the BN254 twist curve.
+    /// - The transformation follows a known isomorphism and preserves validity.
     pub fn phi(&self) -> Self {
         let [x, y, z] = self.coordinates();
-        Self::new([
+        // SAFETY:
+        // - `conjugate()` preserves the validity of the field element.
+        // - `unwrap()` is safe because the transformation follows
+        //   **a known valid isomorphism** between the twist and E.
+        let point = Self::new([
             x.conjugate() * GAMMA_12,
             y.conjugate() * GAMMA_13,
             z.conjugate(),
-        ])
+        ]);
+        point.unwrap()
     }
 
     // Checks if a G2 point is in the subgroup of the twisted curve.
@@ -279,7 +299,8 @@ mod tests {
                 )),
             ]),
             Fp2E::one(),
-        ]);
+        ])
+        .unwrap();
         assert!(!q.is_in_subgroup())
     }
 
