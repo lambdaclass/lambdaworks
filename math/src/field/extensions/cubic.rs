@@ -1,7 +1,6 @@
 use crate::field::element::FieldElement;
 use crate::field::errors::FieldError;
 use crate::field::traits::{IsField, IsSubFieldOf};
-#[cfg(feature = "lambdaworks-serde-binary")]
 use crate::traits::ByteConversion;
 use core::fmt::Debug;
 use core::marker::PhantomData;
@@ -25,7 +24,6 @@ pub trait HasCubicNonResidue<F: IsField> {
     fn residue() -> FieldElement<F>;
 }
 
-#[cfg(feature = "lambdaworks-serde-binary")]
 impl<F> ByteConversion for [FieldElement<F>; 3]
 where
     F: IsField,
@@ -109,8 +107,12 @@ where
     }
 
     /// Returns the division of `a` and `b`
-    fn div(a: &[FieldElement<F>; 3], b: &[FieldElement<F>; 3]) -> [FieldElement<F>; 3] {
-        <Self as IsField>::mul(a, &Self::inv(b).unwrap())
+    fn div(
+        a: &[FieldElement<F>; 3],
+        b: &[FieldElement<F>; 3],
+    ) -> Result<[FieldElement<F>; 3], FieldError> {
+        let b_inv = &Self::inv(b).map_err(|_| FieldError::DivisionByZero)?;
+        Ok(<Self as IsField>::mul(a, b_inv))
     }
 
     /// Returns a boolean indicating whether `a` and `b` are equal component wise.
@@ -180,9 +182,11 @@ where
     fn div(
         a: &Self::BaseType,
         b: &<CubicExtensionField<F, Q> as IsField>::BaseType,
-    ) -> <CubicExtensionField<F, Q> as IsField>::BaseType {
-        let b_inv = <CubicExtensionField<F, Q> as IsField>::inv(b).unwrap();
-        <Self as IsSubFieldOf<CubicExtensionField<F, Q>>>::mul(a, &b_inv)
+    ) -> Result<<CubicExtensionField<F, Q> as IsField>::BaseType, FieldError> {
+        let b_inv = <CubicExtensionField<F, Q> as IsField>::inv(b)?;
+        Ok(<Self as IsSubFieldOf<CubicExtensionField<F, Q>>>::mul(
+            a, &b_inv,
+        ))
     }
 
     fn sub(
@@ -285,7 +289,7 @@ mod tests {
         let a = FEE::new([FE::new(0), FE::new(3), FE::new(2)]);
         let b = FEE::new([-FE::new(2), FE::new(8), FE::new(5)]);
         let expected_result = FEE::new([FE::new(12), FE::new(6), FE::new(1)]);
-        assert_eq!(a / b, expected_result);
+        assert_eq!((a / b).unwrap(), expected_result);
     }
 
     #[test]
@@ -293,7 +297,7 @@ mod tests {
         let a = FEE::new([FE::new(12), FE::new(5), FE::new(4)]);
         let b = FEE::new([-FE::new(4), FE::new(2), FE::new(2)]);
         let expected_result = FEE::new([FE::new(3), FE::new(8), FE::new(11)]);
-        assert_eq!(a / b, expected_result);
+        assert_eq!((a / b).unwrap(), expected_result);
     }
 
     #[test]
@@ -379,7 +383,7 @@ mod tests {
         let a = FE::new(2);
         let b = FEE::new([-FE::new(2), FE::new(8), FE::new(5)]);
         let expected_result = FEE::new([FE::new(8), FE::new(4), FE::new(10)]);
-        assert_eq!(a / b, expected_result);
+        assert_eq!((a / b).unwrap(), expected_result);
     }
 
     #[test]
@@ -387,6 +391,6 @@ mod tests {
         let a = FE::new(4);
         let b = FEE::new([-FE::new(4), FE::new(2), FE::new(2)]);
         let expected_result = FEE::new([FE::new(3), FE::new(6), FE::new(11)]);
-        assert_eq!(a / b, expected_result);
+        assert_eq!((a / b).unwrap(), expected_result);
     }
 }

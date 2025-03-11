@@ -287,7 +287,7 @@ mod tests {
         let inputs = HashMap::from([(input1, a), (input2, b)]);
 
         let assignments = system.solve(inputs).unwrap();
-        assert_eq!(assignments.get(&result).unwrap(), &(a / b));
+        assert_eq!(assignments.get(&result).unwrap(), &(a / b).unwrap());
     }
 
     #[test]

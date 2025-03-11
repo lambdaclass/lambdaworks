@@ -117,9 +117,9 @@ impl IsField for Mersenne31Field {
     }
 
     /// Returns the division of `a` and `b`.
-    fn div(a: &u32, b: &u32) -> u32 {
-        let b_inv = Self::inv(b).expect("InvZeroError");
-        Self::mul(a, &b_inv)
+    fn div(a: &u32, b: &u32) -> Result<u32, FieldError> {
+        let b_inv = Self::inv(b).map_err(|_| FieldError::DivisionByZero)?;
+        Ok(Self::mul(a, &b_inv))
     }
 
     /// Returns a boolean indicating whether `a` and `b` are equal or not.
@@ -373,18 +373,27 @@ mod tests {
 
     #[test]
     fn div_1() {
-        assert_eq!(FE::from(&2u32) / FE::from(&1u32), FE::from(&2u32));
+        assert_eq!(
+            (FE::from(&2u32) / FE::from(&1u32)).unwrap(),
+            FE::from(&2u32)
+        );
     }
 
     #[test]
     fn div_4_2() {
-        assert_eq!(FE::from(&4u32) / FE::from(&2u32), FE::from(&2u32));
+        assert_eq!(
+            (FE::from(&4u32) / FE::from(&2u32)).unwrap(),
+            FE::from(&2u32)
+        );
     }
 
     #[test]
     fn div_4_3() {
         // sage: F(4) / F(3) = 1431655766
-        assert_eq!(FE::from(&4u32) / FE::from(&3u32), FE::from(1431655766));
+        assert_eq!(
+            (FE::from(&4u32) / FE::from(&3u32)).unwrap(),
+            FE::from(1431655766)
+        );
     }
 
     #[test]

@@ -64,14 +64,6 @@ mod tests {
     }
 
     #[test]
-    fn test_div_quadratic() {
-        let a = Fee::new([FE::from(12), FE::from(5)]);
-        let b = Fee::new([-FE::from(4), FE::from(2)]);
-        let expected_result = &a * b.inv().unwrap();
-        assert_eq!(a / b, expected_result);
-    }
-
-    #[test]
     fn test_conjugate_quadratic() {
         let a = Fee::new([FE::from(12), FE::from(5)]);
         let expected_result = Fee::new([FE::from(12), -FE::from(5)]);

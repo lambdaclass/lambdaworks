@@ -1,6 +1,5 @@
 use core::fmt::{self, Display};
 
-#[cfg(feature = "lambdaworks-serde-binary")]
 use crate::traits::ByteConversion;
 use crate::{
     errors::CreationError,
@@ -22,7 +21,6 @@ impl Goldilocks64Field {
     pub const NEG_ORDER: u64 = Self::ORDER.wrapping_neg();
 }
 
-#[cfg(feature = "lambdaworks-serde-binary")]
 impl ByteConversion for u64 {
     #[cfg(feature = "alloc")]
     fn to_bytes_be(&self) -> alloc::vec::Vec<u8> {
@@ -118,9 +116,9 @@ impl IsField for Goldilocks64Field {
     }
 
     /// Returns the division of `a` and `b`.
-    fn div(a: &u64, b: &u64) -> u64 {
-        let b_inv = Self::inv(b).unwrap();
-        Self::mul(a, &b_inv)
+    fn div(a: &u64, b: &u64) -> Result<u64, FieldError> {
+        let b_inv = &Self::inv(b)?;
+        Ok(Self::mul(a, b_inv))
     }
 
     /// Returns a boolean indicating whether `a` and `b` are equal or not.
@@ -386,12 +384,18 @@ mod tests {
 
     #[test]
     fn div_one() {
-        assert_eq!(F::div(&F::from_base_type(2), &F::from_base_type(1)), 2)
+        assert_eq!(
+            F::div(&F::from_base_type(2), &F::from_base_type(1)).unwrap(),
+            2
+        )
     }
 
     #[test]
     fn div_4_2() {
-        assert_eq!(F::div(&F::from_base_type(4), &F::from_base_type(2)), 2)
+        assert_eq!(
+            F::div(&F::from_base_type(4), &F::from_base_type(2)).unwrap(),
+            2
+        )
     }
 
     // 1431655766
@@ -399,7 +403,7 @@ mod tests {
     fn div_4_3() {
         // sage: F(4) / F(3) = 12297829379609722882
         assert_eq!(
-            F::div(&F::from_base_type(4), &F::from_base_type(3)),
+            F::div(&F::from_base_type(4), &F::from_base_type(3)).unwrap(),
             12297829379609722882
         )
     }

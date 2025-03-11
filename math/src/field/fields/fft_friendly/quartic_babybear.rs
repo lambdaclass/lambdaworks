@@ -5,10 +5,9 @@ use crate::field::{
     traits::{HasDefaultTranscript, IsFFTField, IsField, IsSubFieldOf},
 };
 
-#[cfg(feature = "lambdaworks-serde-binary")]
 use crate::traits::ByteConversion;
 
-#[cfg(all(feature = "lambdaworks-serde-binary", feature = "alloc"))]
+#[cfg(feature = "alloc")]
 use crate::traits::AsBytes;
 
 /// We are implementig the extension of Baby Bear of degree 4 using the irreducible polynomial x^4 + 11.
@@ -73,8 +72,9 @@ impl IsField for Degree4BabyBearExtensionField {
         ])
     }
 
-    fn div(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
-        <Self as IsField>::mul(a, &Self::inv(b).unwrap())
+    fn div(a: &Self::BaseType, b: &Self::BaseType) -> Result<Self::BaseType, FieldError> {
+        let b_inv = &Self::inv(b).map_err(|_| FieldError::DivisionByZero)?;
+        Ok(<Self as IsField>::mul(a, b_inv))
     }
 
     fn eq(a: &Self::BaseType, b: &Self::BaseType) -> bool {
@@ -183,9 +183,12 @@ impl IsSubFieldOf<Degree4BabyBearExtensionField> for Babybear31PrimeField {
     fn div(
         a: &Self::BaseType,
         b: &<Degree4BabyBearExtensionField as IsField>::BaseType,
-    ) -> <Degree4BabyBearExtensionField as IsField>::BaseType {
-        let b_inv = Degree4BabyBearExtensionField::inv(b).unwrap();
-        <Self as IsSubFieldOf<Degree4BabyBearExtensionField>>::mul(a, &b_inv)
+    ) -> Result<<Degree4BabyBearExtensionField as IsField>::BaseType, FieldError> {
+        let b_inv =
+            Degree4BabyBearExtensionField::inv(b).map_err(|_| FieldError::DivisionByZero)?;
+        Ok(<Self as IsSubFieldOf<Degree4BabyBearExtensionField>>::mul(
+            a, &b_inv,
+        ))
     }
 
     fn sub(
@@ -216,7 +219,6 @@ impl IsSubFieldOf<Degree4BabyBearExtensionField> for Babybear31PrimeField {
     }
 }
 
-#[cfg(feature = "lambdaworks-serde-binary")]
 impl ByteConversion for [FieldElement<Babybear31PrimeField>; 4] {
     #[cfg(feature = "alloc")]
     fn to_bytes_be(&self) -> alloc::vec::Vec<u8> {
@@ -265,8 +267,8 @@ impl ByteConversion for [FieldElement<Babybear31PrimeField>; 4] {
     }
 }
 
-#[cfg(feature = "lambdaworks-serde-binary")]
 impl ByteConversion for FieldElement<Degree4BabyBearExtensionField> {
+    #[cfg(feature = "alloc")]
     fn to_bytes_be(&self) -> alloc::vec::Vec<u8> {
         let mut byte_slice = ByteConversion::to_bytes_be(&self.value()[0]);
         byte_slice.extend(ByteConversion::to_bytes_be(&self.value()[1]));
@@ -275,6 +277,7 @@ impl ByteConversion for FieldElement<Degree4BabyBearExtensionField> {
         byte_slice
     }
 
+    #[cfg(feature = "alloc")]
     fn to_bytes_le(&self) -> alloc::vec::Vec<u8> {
         let mut byte_slice = ByteConversion::to_bytes_le(&self.value()[0]);
         byte_slice.extend(ByteConversion::to_bytes_le(&self.value()[1]));
@@ -310,7 +313,6 @@ impl ByteConversion for FieldElement<Degree4BabyBearExtensionField> {
     }
 }
 
-#[cfg(feature = "lambdaworks-serde-binary")]
 #[cfg(feature = "alloc")]
 impl AsBytes for FieldElement<Degree4BabyBearExtensionField> {
     fn as_bytes(&self) -> alloc::vec::Vec<u8> {
