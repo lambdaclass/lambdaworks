@@ -818,9 +818,9 @@ mod tests_u256_prime_fields {
     use crate::field::element::FieldElement;
     use crate::field::errors::FieldError;
     use crate::field::fields::montgomery_backed_prime_fields::{IsModulus, U256PrimeField};
+    use crate::field::traits::HasDefaultTranscript;
     use crate::field::traits::IsField;
     use crate::field::traits::IsPrimeField;
-    use crate::field::traits::HasDefaultTranscript;
     #[cfg(feature = "alloc")]
     use crate::traits::ByteConversion;
     use crate::unsigned_integer::element::U256;
@@ -1025,52 +1025,42 @@ mod tests_u256_prime_fields {
 
     #[test]
     fn test_some_random_field_element_from_seed_0() {
-
         let a: U256 = UnsignedInteger {
             limbs: [0, 0, 0, 24],
         };
 
         let a_bytes = a.to_bytes_be();
 
-        let result = U256F29::get_random_field_element_from_seed(
-            a_bytes.try_into().unwrap()
-        );
+        let result = U256F29::get_random_field_element_from_seed(a_bytes.try_into().unwrap());
 
         assert!(result.is_some());
     }
 
     #[test]
     fn test_some_random_field_element_from_seed_1() {
-
         let a: U256 = UnsignedInteger {
             limbs: [100, 0, 90, 24],
         };
 
         let a_bytes = a.to_bytes_be();
 
-        let result = U256F29::get_random_field_element_from_seed(
-            a_bytes.try_into().unwrap()
-        );
+        let result = U256F29::get_random_field_element_from_seed(a_bytes.try_into().unwrap());
 
         assert!(result.is_some());
     }
 
     #[test]
     fn test_none_random_field_element_from_seed() {
-
         let a: U256 = UnsignedInteger {
             limbs: [0, 0, 0, 30],
         };
 
         let a_bytes = a.to_bytes_be();
 
-        let result = U256F29::get_random_field_element_from_seed(
-            a_bytes.try_into().unwrap()
-        );
+        let result = U256F29::get_random_field_element_from_seed(a_bytes.try_into().unwrap());
 
         assert!(result.is_none());
     }
-
 
     // FP1
     #[derive(Clone, Debug)]

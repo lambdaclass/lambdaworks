@@ -271,7 +271,6 @@ impl IsSubFieldOf<Degree4ExtensionField> for Mersenne31Field {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use core::ops::Neg;

@@ -486,7 +486,7 @@ mod tests {
         let a_bytes = a.to_bytes_be();
 
         let result = Degree4BabyBearExtensionField::get_random_field_element_from_seed(
-            a_bytes.try_into().unwrap()
+            a_bytes.try_into().unwrap(),
         );
 
         assert!(result.is_some());
