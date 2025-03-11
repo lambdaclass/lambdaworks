@@ -1,6 +1,5 @@
 use core::fmt::{self, Display};
 
-#[cfg(feature = "lambdaworks-serde-binary")]
 use crate::traits::ByteConversion;
 use crate::{
     errors::CreationError,
@@ -22,7 +21,6 @@ impl Goldilocks64Field {
     pub const NEG_ORDER: u64 = Self::ORDER.wrapping_neg();
 }
 
-#[cfg(feature = "lambdaworks-serde-binary")]
 impl ByteConversion for u64 {
     #[cfg(feature = "alloc")]
     fn to_bytes_be(&self) -> alloc::vec::Vec<u8> {
