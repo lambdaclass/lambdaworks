@@ -339,11 +339,12 @@ impl HasDefaultTranscript for Degree4BabyBearExtensionField {
         //The mask is used to remove the first bit.
         const MASK: u64 = 0x7FFF_FFFF;
 
-        let coeffs: Vec<u64> = seed
-            .chunks_exact(8)
-            .take(4)
-            .map(|chunk| u64::from_be_bytes(chunk.try_into().unwrap()) & MASK)
-            .collect();
+        let mut coeffs = [0u64; 4];
+
+        for (i, chunk) in seed.chunks_exact(8).take(4).enumerate() {
+            let chunk_array: [u8; 8] = chunk.try_into().unwrap();
+            coeffs[i] = u64::from_be_bytes(chunk_array) & MASK;
+        }
 
         if coeffs.iter().any(|&coeff| coeff >= MODULUS) {
             return None;
