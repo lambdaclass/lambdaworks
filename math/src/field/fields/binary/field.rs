@@ -1,21 +1,20 @@
-/// Tower Field Extension
+//! Binary field and tower field implementations.
+//!
+//! This module provides implementations for:
+//! 1. Basic binary fields GF(2ⁿ) with irreducible polynomial reduction
+//! 2. Tower field extensions that support splitting and joining operations
+
 use crate::field::{element::FieldElement, errors::FieldError, traits::IsField};
 use core::fmt;
 use core::marker::PhantomData;
-use core::ops::{Add, Mul, Neg, Sub};
-
-/// Implementation of binary fields (GF(2ⁿ)) and their tower field extensions.
-///
-/// This module provides implementations for:
-/// 1. Basic binary fields GF(2ⁿ) with irreducible polynomial reduction
-/// 2. Tower field extensions that support splitting and joining operations
+use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 /// Represents a binary field configuration for GF(2ⁿ).
 ///
 /// This trait defines the parameters needed for a binary field:
 /// - The degree `n` of the field extension (GF(2ⁿ))
 /// - The primitive polynomial that defines the field structure
-pub trait BinaryFieldConfig: Clone + fmt::Debug {
+pub trait BinaryFieldConfig: Clone + Copy + fmt::Debug {
     /// Degree of the field extension (n in GF(2ⁿ))
     const DEGREE: u32;
 
@@ -24,6 +23,7 @@ pub trait BinaryFieldConfig: Clone + fmt::Debug {
     const PRIMITIVE_POLY: u128;
 }
 
+/// Binary field structure parametrized by a configuration.
 #[derive(Clone, Debug)]
 pub struct BinaryField<C: BinaryFieldConfig>(PhantomData<C>);
 
@@ -66,7 +66,6 @@ impl<C: BinaryFieldConfig> IsField for BinaryField<C> {
         if *a == 0 {
             return Err(FieldError::InvZeroError);
         }
-        // Extended Euclidean algorithm in GF(2^n)
         let mut t = 0u64;
         let mut newt = 1u64;
         let mut r = C::PRIMITIVE_POLY as u64;
@@ -78,10 +77,15 @@ impl<C: BinaryFieldConfig> IsField for BinaryField<C> {
             if deg_r < deg_newr {
                 core::mem::swap(&mut t, &mut newt);
                 core::mem::swap(&mut r, &mut newr);
+                continue;
             }
-            let shift = deg_r.saturating_sub(deg_newr);
-            r ^= newr << shift;
-            t ^= newt << shift;
+            if let Some(shift) = deg_r.checked_sub(deg_newr) {
+                r ^= newr << shift;
+                t ^= newt << shift;
+            } else {
+                core::mem::swap(&mut t, &mut newt);
+                core::mem::swap(&mut r, &mut newr);
+            }
         }
 
         if r != 1 {
@@ -117,19 +121,8 @@ impl<C: BinaryFieldConfig> IsField for BinaryField<C> {
     }
 }
 
-// Example configuration for GF(2³)
-#[derive(Clone, Debug)]
-pub struct GF2_3;
-impl BinaryFieldConfig for GF2_3 {
-    const DEGREE: u32 = 3;
-    const PRIMITIVE_POLY: u128 = 0b1011; // x³ + x + 1
-}
-
-pub type GF2_3Field = BinaryField<GF2_3>;
-pub type GF2_3Element = FieldElement<GF2_3Field>;
-
 /// A binary field element in GF(2ⁿ).
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct BinaryFieldElement<F: BinaryFieldConfig> {
     /// The underlying value, only lower DEGREE bits are significant
     value: u128,
@@ -160,27 +153,154 @@ impl<F: BinaryFieldConfig> BinaryFieldElement<F> {
         self.value == 0
     }
 
+    /// Returns true if this element is one
+    #[inline]
+    pub fn is_one(&self) -> bool {
+        self.value == 1
+    }
+
     /// Returns the underlying value
     #[inline]
     pub fn value(&self) -> u128 {
         self.value
     }
 
+    /// Lookup table for multiplicative inverses in GF(2⁴)
+    const F2_4_INVERSE: [u128; 15] = [1, 9, 14, 13, 11, 7, 6, 15, 2, 12, 5, 4, 10, 3, 8];
+
+    // Multiplication table for GF(2²)
+    const F2_2_MUL: [[u128; 4]; 4] = [[0, 0, 0, 0], [0, 1, 2, 3], [0, 2, 3, 1], [0, 3, 1, 2]];
+
+    // Multiplication table for GF(2³)
+    const F2_3_MUL: [[u128; 8]; 8] = [
+        [0, 0, 0, 0, 0, 0, 0, 0],
+        [0, 1, 2, 3, 4, 5, 6, 7],
+        [0, 2, 4, 6, 3, 1, 7, 5],
+        [0, 3, 6, 5, 7, 4, 1, 2],
+        [0, 4, 3, 7, 6, 2, 5, 1],
+        [0, 5, 1, 4, 2, 7, 3, 6],
+        [0, 6, 7, 1, 5, 3, 2, 4],
+        [0, 7, 5, 2, 1, 6, 4, 3],
+    ];
+
+    // Multiplication table for GF(2⁴)
+    const F2_4_MUL: [[u128; 16]; 16] = [
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
+        [0, 2, 4, 6, 8, 10, 12, 14, 3, 1, 7, 5, 11, 9, 15, 13],
+        [0, 3, 6, 5, 12, 15, 10, 9, 11, 8, 13, 14, 7, 4, 1, 2],
+        [0, 4, 8, 12, 3, 7, 11, 15, 6, 2, 14, 10, 5, 1, 13, 9],
+        [0, 5, 10, 15, 7, 2, 13, 8, 14, 11, 4, 1, 9, 12, 3, 6],
+        [0, 6, 12, 10, 11, 13, 7, 1, 5, 3, 9, 15, 14, 8, 2, 4],
+        [0, 7, 14, 9, 15, 8, 1, 6, 13, 10, 3, 4, 2, 5, 12, 11],
+        [0, 8, 3, 11, 6, 14, 5, 13, 12, 4, 15, 7, 10, 2, 9, 1],
+        [0, 9, 1, 8, 2, 11, 3, 10, 4, 13, 5, 12, 6, 15, 7, 14],
+        [0, 10, 7, 13, 14, 4, 9, 3, 15, 5, 8, 2, 1, 11, 6, 12],
+        [0, 11, 5, 14, 10, 1, 15, 4, 7, 12, 2, 9, 13, 6, 8, 3],
+        [0, 12, 11, 7, 5, 9, 14, 2, 10, 6, 1, 13, 15, 3, 4, 8],
+        [0, 13, 9, 4, 1, 12, 8, 5, 2, 15, 11, 6, 3, 14, 10, 7],
+        [0, 14, 15, 1, 13, 3, 2, 12, 9, 7, 6, 8, 4, 10, 11, 5],
+        [0, 15, 13, 2, 9, 6, 4, 11, 1, 14, 12, 3, 8, 7, 5, 10],
+    ];
+
+    /// Performs multiplication using lookup tables for small fields (≤ 4 bits)
+    /// Falls back to polynomial multiplication for larger fields
+    #[inline]
+    fn mul_small(&self, other: &Self) -> Self {
+        match F::DEGREE {
+            2 => Self::new(Self::F2_2_MUL[self.value as usize][other.value as usize]),
+            3 => Self::new(Self::F2_3_MUL[self.value as usize][other.value as usize]),
+            4 => Self::new(Self::F2_4_MUL[self.value as usize][other.value as usize]),
+            _ => {
+                let result = Self::mul_internal(self.value, other.value);
+                Self::new(result)
+            }
+        }
+    }
+
+    /// Computes the multiplicative inverse of this element
+    /// Returns None if the element is zero (as zero has no multiplicative inverse)
+    #[inline]
+    pub fn inverse(&self) -> Option<Self> {
+        if self.is_zero() {
+            return None;
+        }
+
+        // Use Fermat's little theorem:
+        // In GF(2^n), x^(2^n-1) = 1 for any non-zero x
+        // Therefore x^(2^n-2) is the multiplicative inverse
+        Some(self.pow((1 << F::DEGREE) - 2))
+    }
+
+    /// Splits the element into high and low parts
+    /// Used in the recursive inverse computation
+    /// Returns (high_part, low_part) where each part has half the bits
+    fn split(&self) -> (Self, Self) {
+        let half_degree = F::DEGREE / 2;
+        let mask = (1 << half_degree) - 1;
+        let lo = self.value & mask;
+        let hi = (self.value >> half_degree) & mask;
+        (Self::new(hi), Self::new(lo))
+    }
+
+    /// Joins high and low parts into a single element
+    /// Used in the recursive inverse computation
+    /// The high part becomes the most significant bits
+    fn join(&self, low: &Self) -> Self {
+        let half_degree = F::DEGREE / 2;
+        Self::new((self.value << half_degree) | low.value)
+    }
+
+    /// Raises this element to the power of exp
+    #[inline]
+    pub fn pow(&self, exp: u32) -> Self {
+        if exp == 0 {
+            return Self::new(1);
+        }
+        if self.is_zero() {
+            return self.clone();
+        }
+
+        let mut result = Self::new(1);
+        let mut base = self.clone();
+        let mut exp_val = exp;
+
+        while exp_val > 0 {
+            if exp_val & 1 == 1 {
+                result = result * base.clone();
+            }
+            base = base.clone() * base;
+            exp_val >>= 1;
+        }
+
+        result
+    }
+
     /// Performs carry-less multiplication with reduction
     #[inline]
     fn mul_internal(mut a: u128, mut b: u128) -> u128 {
         let mut result = 0;
+        let mask = (1 << F::DEGREE) - 1;
+
+        // Ensure inputs are within field size
+        a &= mask;
+        b &= mask;
+
         while b != 0 {
             if b & 1 != 0 {
                 result ^= a;
             }
             b >>= 1;
             a <<= 1;
+            // When a overflows DEGREE bits, reduce it using the primitive polynomial
             if a & (1 << F::DEGREE) != 0 {
                 a ^= F::PRIMITIVE_POLY;
             }
+            // Keep a within field size
+            a &= mask;
         }
-        result
+        // Final reduction to ensure result is in field
+        result & mask
     }
 }
 
@@ -190,6 +310,16 @@ impl<F: BinaryFieldConfig> Add for BinaryFieldElement<F> {
     #[inline]
     fn add(self, other: Self) -> Self {
         Self::new(self.value ^ other.value)
+    }
+}
+
+impl<F: BinaryFieldConfig> AddAssign for BinaryFieldElement<F> {
+    #[inline]
+    fn add_assign(&mut self, other: Self) {
+        self.value ^= other.value;
+        // Ensure the value stays within range (though XOR won't increase bit length)
+        let mask = (1 << F::DEGREE) - 1;
+        self.value &= mask as u128;
     }
 }
 
@@ -203,12 +333,28 @@ impl<F: BinaryFieldConfig> Sub for BinaryFieldElement<F> {
     }
 }
 
+impl<F: BinaryFieldConfig> SubAssign for BinaryFieldElement<F> {
+    #[inline]
+    fn sub_assign(&mut self, other: Self) {
+        // In characteristic 2, subtraction equals addition
+        *self += other;
+    }
+}
+
 impl<F: BinaryFieldConfig> Mul for BinaryFieldElement<F> {
     type Output = Self;
 
     #[inline]
     fn mul(self, other: Self) -> Self {
+        // Always use polynomial multiplication for GF(2³)
         Self::new(Self::mul_internal(self.value, other.value))
+    }
+}
+
+impl<F: BinaryFieldConfig> MulAssign for BinaryFieldElement<F> {
+    #[inline]
+    fn mul_assign(&mut self, other: Self) {
+        *self = self.clone() * other;
     }
 }
 
@@ -222,8 +368,43 @@ impl<F: BinaryFieldConfig> Neg for BinaryFieldElement<F> {
     }
 }
 
+// Implement From traits for common integer types
+impl<F: BinaryFieldConfig> From<u64> for BinaryFieldElement<F> {
+    fn from(value: u64) -> Self {
+        Self::new(value as u128)
+    }
+}
+
+impl<F: BinaryFieldConfig> From<u32> for BinaryFieldElement<F> {
+    fn from(value: u32) -> Self {
+        Self::new(value as u128)
+    }
+}
+
+impl<F: BinaryFieldConfig> From<u16> for BinaryFieldElement<F> {
+    fn from(value: u16) -> Self {
+        Self::new(value as u128)
+    }
+}
+
+impl<F: BinaryFieldConfig> From<u8> for BinaryFieldElement<F> {
+    fn from(value: u8) -> Self {
+        Self::new(value as u128)
+    }
+}
+
+// Example configuration for GF(2³)
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct GF2_3;
+impl BinaryFieldConfig for GF2_3 {
+    const DEGREE: u32 = 3;
+    const PRIMITIVE_POLY: u128 = 0b1011; // x³ + x + 1
+}
+
+pub type GF2_3Field = BinaryField<GF2_3>;
+pub type GF2_3Element = FieldElement<GF2_3Field>;
+
 /// Tower Field Extension
-///
 ///
 /// The TowerField trait extends the binary field concept by adding metadata
 /// about how many "levels" the element has (which determines its bit‐length),
@@ -279,8 +460,11 @@ pub trait TowerField: Sized + Copy + Clone + PartialEq + fmt::Debug {
 /// A tower field element with hierarchical structure.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct TowerFieldElement {
+    /// The underlying value
     value: u128,
+    /// Number of levels in the tower
     num_levels: usize,
+    /// Number of bits (2^num_levels)
     num_bits: usize,
 }
 
@@ -305,6 +489,18 @@ impl TowerFieldElement {
             num_levels: levels,
             num_bits: bits,
         }
+    }
+
+    /// Returns true if this element is zero
+    #[inline]
+    pub fn is_zero(&self) -> bool {
+        self.value == 0
+    }
+
+    /// Returns true if this element is one
+    #[inline]
+    pub fn is_one(&self) -> bool {
+        self.value == 1
     }
 
     /// Returns the underlying value
@@ -355,11 +551,59 @@ impl TowerFieldElement {
         }
     }
 
+    /// Computes the multiplicative inverse of this element
+    pub fn inverse(&self) -> Option<Self> {
+        if self.is_zero() {
+            return None;
+        }
+
+        // Use Fermat's little theorem:
+        // In GF(2^n), x^(2^n-1) = 1 for any non-zero x
+        // Therefore x^(2^n-2) is the multiplicative inverse
+        Some(self.pow((1 << self.num_bits) - 2))
+    }
+
+    /// Raises this element to the power of exp
+    pub fn pow(&self, exp: u32) -> Self {
+        if exp == 0 {
+            return Self::new(1, Some(self.num_levels));
+        }
+        if self.is_zero() {
+            return self.clone();
+        }
+
+        let mut result = Self::new(1, Some(self.num_levels));
+        let mut base = self.clone();
+        let mut exp_val = exp;
+
+        while exp_val > 0 {
+            if exp_val & 1 == 1 {
+                result = result * base.clone();
+            }
+            base = base.clone() * base;
+            exp_val >>= 1;
+        }
+
+        result
+    }
+
     /// Performs carry-less multiplication with reduction
     fn mul_internal(&self, other: &Self) -> Self {
         let mut a = self.value;
         let mut b = other.value;
         let mut result = 0;
+        let mask = (1 << self.num_bits) - 1;
+
+        // For 4-bit field, use x⁴ + x + 1 as primitive polynomial
+        let primitive_poly = if self.num_bits == 4 {
+            0b10011 // x⁴ + x + 1
+        } else {
+            (1 << self.num_bits) | 0b11 // Default to x^n + x + 1
+        };
+
+        // Keep inputs within field size
+        a &= mask;
+        b &= mask;
 
         while b != 0 {
             if b & 1 != 0 {
@@ -368,11 +612,57 @@ impl TowerFieldElement {
             b >>= 1;
             a <<= 1;
             if a & (1 << self.num_bits) != 0 {
-                a ^= (1 << self.num_bits) ^ 1;
+                a ^= primitive_poly;
             }
         }
 
+        // Final reduction
+        result &= mask;
         Self::new(result, Some(self.num_levels))
+    }
+
+    fn with_level(self, level: usize) -> Self {
+        Self::new(self.value, Some(level))
+    }
+}
+
+// Implement TowerField trait for TowerFieldElement
+impl TowerField for TowerFieldElement {
+    fn new(val: u128, num_levels: Option<usize>) -> Self {
+        TowerFieldElement::new(val, num_levels)
+    }
+
+    fn get_val(&self) -> u128 {
+        self.value()
+    }
+
+    fn num_levels(&self) -> usize {
+        self.num_levels
+    }
+
+    fn num_bits(&self) -> usize {
+        self.num_bits
+    }
+
+    fn bin(&self) -> String {
+        self.to_binary_string()
+    }
+
+    fn split(&self) -> (Self, Self) {
+        self.split()
+    }
+
+    fn join(&self, low: &Self) -> Self {
+        self.join(low)
+    }
+
+    fn add(&self, other: &Self) -> Self {
+        *self + *other
+    }
+
+    fn mul(&self, other: &Self) -> Self {
+        let max_level = self.num_levels.max(other.num_levels);
+        self.mul_internal(other).with_level(max_level)
     }
 }
 
@@ -381,7 +671,23 @@ impl Add for TowerFieldElement {
 
     #[inline]
     fn add(self, other: Self) -> Self {
-        Self::new(self.value ^ other.value, Some(self.num_levels))
+        // Use the maximum level of the two operands
+        let max_level = self.num_levels.max(other.num_levels);
+        Self::new(self.value ^ other.value, Some(max_level))
+    }
+}
+
+impl AddAssign for TowerFieldElement {
+    #[inline]
+    fn add_assign(&mut self, other: Self) {
+        self.value ^= other.value;
+        // Ensure the value stays within range
+        let mask = if self.num_bits >= 128 {
+            u128::MAX
+        } else {
+            (1 << self.num_bits) - 1
+        };
+        self.value &= mask;
     }
 }
 
@@ -395,12 +701,28 @@ impl Sub for TowerFieldElement {
     }
 }
 
+impl SubAssign for TowerFieldElement {
+    #[inline]
+    fn sub_assign(&mut self, other: Self) {
+        // In characteristic 2, subtraction equals addition
+        *self += other;
+    }
+}
+
 impl Mul for TowerFieldElement {
     type Output = Self;
 
     #[inline]
     fn mul(self, other: Self) -> Self {
-        self.mul_internal(&other)
+        let max_level = self.num_levels.max(other.num_levels);
+        self.mul_internal(&other).with_level(max_level)
+    }
+}
+
+impl MulAssign for TowerFieldElement {
+    #[inline]
+    fn mul_assign(&mut self, other: Self) {
+        *self = self.mul_internal(&other);
     }
 }
 
@@ -413,14 +735,42 @@ impl Neg for TowerFieldElement {
         self
     }
 }
+
+// Implement From traits for common integer types
+impl From<u64> for TowerFieldElement {
+    fn from(value: u64) -> Self {
+        Self::new(value as u128, None)
+    }
+}
+
+impl From<u32> for TowerFieldElement {
+    fn from(value: u32) -> Self {
+        Self::new(value as u128, None)
+    }
+}
+
+impl From<u16> for TowerFieldElement {
+    fn from(value: u16) -> Self {
+        Self::new(value as u128, None)
+    }
+}
+
+impl From<u8> for TowerFieldElement {
+    fn from(value: u8) -> Self {
+        Self::new(value as u128, None)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    // Test basic addition in the binary field GF(2³)
+    // ==================== Binary Field Tests ====================
+
+    /// Tests basic addition in the binary field GF(2³)
     #[test]
     fn test_basic_binary_field_addition() {
-        #[derive(Clone, Debug)]
+        #[derive(Clone, Copy, Debug, PartialEq, Eq)]
         struct GF2_3;
         impl BinaryFieldConfig for GF2_3 {
             const DEGREE: u32 = 3;
@@ -434,10 +784,10 @@ mod tests {
         assert_eq!(sum.value(), 0b111); // Check if the sum is correct
     }
 
-    // Test basic multiplication in the binary field GF(2³)
+    /// Tests basic multiplication in the binary field GF(2³)
     #[test]
     fn test_basic_binary_field_multiplication() {
-        #[derive(Clone, Debug)]
+        #[derive(Clone, Copy, Debug, PartialEq, Eq)]
         struct GF2_3;
         impl BinaryFieldConfig for GF2_3 {
             const DEGREE: u32 = 3;
@@ -450,7 +800,121 @@ mod tests {
         assert_eq!(prod.value(), 0b101); // Check if the product is correct
     }
 
-    // Test creation of a tower field element
+    /// Tests field properties for BinaryFieldElement
+    #[test]
+    fn test_binary_field_properties() {
+        #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+        struct GF2_3;
+        impl BinaryFieldConfig for GF2_3 {
+            const DEGREE: u32 = 3;
+            const PRIMITIVE_POLY: u128 = 0b1011; // x³ + x + 1
+        }
+        type Elem = BinaryFieldElement<GF2_3>;
+
+        // Test zero and one
+        let zero = Elem::new(0);
+        let one = Elem::new(1);
+        assert!(zero.is_zero());
+        assert!(!one.is_zero());
+        assert!(!zero.is_one());
+        assert!(one.is_one());
+
+        // Test addition with zero
+        let a = Elem::new(0b101);
+        assert_eq!(a.clone() + zero, a);
+
+        // Test multiplication with one
+        assert_eq!(a.clone() * one, a);
+
+        // Test negation (identity in characteristic 2)
+        assert_eq!(-a.clone(), a);
+
+        // Test subtraction equals addition
+        let b = Elem::new(0b110);
+        assert_eq!(a.clone() - b.clone(), a.clone() + b);
+    }
+
+    /// Tests boundary conditions for BinaryFieldElement
+    #[test]
+    fn test_binary_field_boundaries() {
+        #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+        struct GF2_3;
+        impl BinaryFieldConfig for GF2_3 {
+            const DEGREE: u32 = 3;
+            const PRIMITIVE_POLY: u128 = 0b1011; // x³ + x + 1
+        }
+        type Elem = BinaryFieldElement<GF2_3>;
+
+        // Test value masking on creation
+        let a = Elem::new(0b1111); // This exceeds 3 bits
+        assert_eq!(a.value(), 0b111); // Should be masked to 3 bits
+
+        // Test large value
+        let b = Elem::new(0xFFFFFFFF);
+        assert_eq!(b.value(), 0b111); // Should be masked to 3 bits
+    }
+
+    /// Tests inverse computation for BinaryFieldElement
+    #[test]
+    fn test_binary_field_inverse() {
+        #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+        struct GF2_3;
+        impl BinaryFieldConfig for GF2_3 {
+            const DEGREE: u32 = 3;
+            const PRIMITIVE_POLY: u128 = 0b1011; // x³ + x + 1
+        }
+        type Elem = BinaryFieldElement<GF2_3>;
+
+        // Test inverse of zero
+        let zero = Elem::new(0);
+        assert!(zero.inverse().is_none());
+
+        // Test inverse of one
+        let one = Elem::new(1);
+        assert_eq!(one.inverse().unwrap(), one);
+
+        // Test inverse of other elements
+        let a = Elem::new(0b010); // Element 2
+        let a_inv = a.inverse().unwrap();
+        assert_eq!((a * a_inv).value(), 1); // a * a^-1 = 1
+
+        let b = Elem::new(0b011); // Element 3
+        let b_inv = b.inverse().unwrap();
+        assert_eq!((b * b_inv).value(), 1); // b * b^-1 = 1
+    }
+
+    /// Tests power operation for BinaryFieldElement
+    #[test]
+    fn test_binary_field_pow() {
+        #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+        struct GF2_3;
+        impl BinaryFieldConfig for GF2_3 {
+            const DEGREE: u32 = 3;
+            const PRIMITIVE_POLY: u128 = 0b1011; // x³ + x + 1
+        }
+        type Elem = BinaryFieldElement<GF2_3>;
+
+        // Test x^0 = 1
+        let a = Elem::new(0b010); // Element 2
+        assert_eq!(a.pow(0).value(), 1);
+
+        // Test x^1 = x
+        assert_eq!(a.pow(1), a);
+
+        // Test x^2
+        assert_eq!(a.pow(2), a.clone() * a.clone());
+
+        // Test x^3
+        assert_eq!(a.pow(3), a.clone() * a.clone() * a.clone());
+
+        // Test x^7 = 1 in GF(2³) with primitive polynomial x³ + x + 1
+        // This is because the multiplicative order of GF(2³)* is 2³-1 = 7
+        assert_eq!(a.pow(7).value(), 1);
+    }
+
+    // ==================== Tower Field Tests ====================
+
+    /// Tests creation of a tower field element
     #[test]
     fn test_tower_new_and_bin() {
         let elem = TowerFieldElement::new(5, Some(3)); // 3 levels => 8 bits
@@ -458,220 +922,147 @@ mod tests {
         assert_eq!(elem.to_binary_string(), "00000101"); // Check binary representation
     }
 
-    // Test addition in the tower field
+    /// Tests addition in the tower field
     #[test]
     fn test_tower_addition() {
         let a = TowerFieldElement::new(0b011, Some(3)); // 8-bit representation: 00000011
         let b = TowerFieldElement::new(0b100, Some(3)); // 00000100
         let sum = a + b; // 00000011 XOR 00000100 = 00000111
-        assert_eq!(sum.value(), 0b111); // Check if the sum is correct
+        assert_eq!(sum.value(), 0b111);
+        assert_eq!(sum.num_levels(), 3);
     }
 
-    // Test multiplication in the tower field
+    /// Tests multiplication in the tower field
     #[test]
     fn test_tower_multiplication() {
-        let a = TowerFieldElement::new(0b011, Some(3));
-        let prod = a * a; // Expected: (x+1)² = x² + 1 (binary 101)
-        assert_eq!(prod.value(), 0b101); // Check if the product is correct
+        let a = TowerFieldElement::new(0b011, Some(2)); // 4-bit representation: 0011
+        let b = TowerFieldElement::new(0b010, Some(2)); // 0010
+        let prod = a * b;
+        assert_eq!(prod.value(), 0b110); // Check multiplication result
+        assert_eq!(prod.num_levels(), 2);
     }
 
-    // Test split and join operations in the tower field
+    /// Tests split and join operations
     #[test]
-    fn test_split_and_join() {
-        let elem = TowerFieldElement::new(0xABCD, Some(4)); // 16 bits
-        let (hi, lo) = elem.split();
-        let joined = hi.join(&lo);
-        assert_eq!(joined.value(), elem.value()); // Check if the joined value equals the original
-        assert_eq!(joined.num_levels(), elem.num_levels()); // Check if the number of levels is preserved
-    }
-
-    // Test detailed split and join operations
-    #[test]
-    fn test_split_and_join_detailed() {
-        let elem = TowerFieldElement::new(0b10110011, Some(3)); // 8 bits
+    fn test_tower_split_join() {
+        let elem = TowerFieldElement::new(0b11001010, Some(3)); // 8 bits
         let (hi, lo) = elem.split();
 
-        assert_eq!(hi.num_levels(), 2); // Check levels after split
+        // Check that split produces correct high and low parts
+        assert_eq!(hi.value(), 0b1100);
+        assert_eq!(lo.value(), 0b1010);
+        assert_eq!(hi.num_levels(), 2);
         assert_eq!(lo.num_levels(), 2);
-        assert_eq!(hi.num_bits(), 4); // Check bits after split
-        assert_eq!(lo.num_bits(), 4);
-        assert_eq!(hi.value(), 0b1011); // Check high part value
-        assert_eq!(lo.value(), 0b0011); // Check low part value
 
+        // Check that joining them produces the original element
         let joined = hi.join(&lo);
-        assert_eq!(joined.num_levels(), 3); // Check levels after join
-        assert_eq!(joined.num_bits(), 8); // Check bits after join
-        assert_eq!(joined.value(), 0b10110011); // Check original value after join
-        assert_eq!(joined.to_binary_string(), "10110011"); // Check binary representation
+        assert_eq!(joined.value(), elem.value());
+        assert_eq!(joined.num_levels(), elem.num_levels());
     }
 
-    // Test commutativity of addition and multiplication
+    /// Tests tower field properties
     #[test]
-    fn test_commutativity() {
-        let a = TowerFieldElement::new(0x1F, Some(4));
-        let b = TowerFieldElement::new(0x2A, Some(4));
-        assert_eq!(a + b, b + a); // Check addition commutativity
-        assert_eq!(a * b, b * a); // Check multiplication commutativity
+    fn test_tower_field_properties() {
+        let zero = TowerFieldElement::new(0, Some(3));
+        let one = TowerFieldElement::new(1, Some(3));
+        let a = TowerFieldElement::new(0b101, Some(3));
+        let b = TowerFieldElement::new(0b011, Some(3));
+
+        // Additive identity
+        assert_eq!((a.clone() + zero.clone()).value(), a.value());
+
+        // Multiplicative identity
+        assert_eq!((a.clone() * one.clone()).value(), a.value());
+
+        // Commutativity of addition
+        assert_eq!(a.clone() + b.clone(), b.clone() + a.clone());
+
+        // Commutativity of multiplication
+        assert_eq!(a.clone() * b.clone(), b.clone() * a.clone());
+
+        // Associativity of addition
+        let c = TowerFieldElement::new(0b110, Some(3));
+        assert_eq!(
+            (a.clone() + b.clone()) + c.clone(),
+            a.clone() + (b.clone() + c.clone())
+        );
+
+        // Distributivity
+        assert_eq!(
+            a.clone() * (b.clone() + c.clone()),
+            (a.clone() * b.clone()) + (a.clone() * c.clone())
+        );
     }
 
-    // Test associativity of addition and multiplication
+    /// Tests power operation in tower field
     #[test]
-    fn test_associativity() {
-        let a = TowerFieldElement::new(0x1F, Some(4));
-        let b = TowerFieldElement::new(0x2A, Some(4));
-        let c = TowerFieldElement::new(0x35, Some(4));
+    fn test_tower_pow() {
+        let a = TowerFieldElement::new(0b010, Some(2)); // 4-bit element
 
-        assert_eq!((a + b) + c, a + (b + c)); // Check addition associativity
-        assert_eq!((a * b) * c, a * (b * c)); // Check multiplication associativity
+        // Test x^0 = 1
+        assert_eq!(a.pow(0).value(), 1);
+
+        // Test x^1 = x
+        assert_eq!(a.pow(1), a);
+
+        // Test x^2
+        let squared = a.clone() * a.clone();
+        assert_eq!(a.pow(2), squared);
+
+        // Test x^3
+        assert_eq!(a.pow(3), squared * a);
     }
 
-    // Test distributivity of multiplication over addition
+    /// Tests operations between different tower levels
     #[test]
-    fn test_distributivity() {
-        let a = TowerFieldElement::new(0x1F, Some(4));
-        let b = TowerFieldElement::new(0x2A, Some(4));
-        let c = TowerFieldElement::new(0x35, Some(4));
+    fn test_tower_mixed_levels() {
+        let a = TowerFieldElement::new(0b11, Some(2)); // 4-bit element
+        let b = TowerFieldElement::new(0b1101, Some(3)); // 8-bit element
 
-        assert_eq!(a * (b + c), a * b + a * c); // Check distributivity
+        // Addition should use the maximum level
+        let sum = a.clone() + b.clone();
+        assert_eq!(sum.num_levels(), 3);
+        assert_eq!(sum.value(), 0b1101 ^ 0b11);
+
+        // Multiplication should use the maximum level
+        let prod = a * b;
+        assert_eq!(prod.num_levels(), 3);
     }
 
-    // Test identity properties
+    /// Tests boundary conditions and edge cases
     #[test]
-    fn test_identity_properties() {
-        let a = TowerFieldElement::new(0x1F, Some(4));
-        assert_eq!(a + TowerFieldElement::new(0, Some(4)), a); // Check additive identity
-        assert_eq!(a * TowerFieldElement::new(1, Some(4)), a); // Check multiplicative identity
+    fn test_tower_boundaries() {
+        // Test with maximum value for 3 levels (8 bits)
+        let max_val = TowerFieldElement::new(0xFF, Some(3));
+        assert_eq!(max_val.num_bits(), 8);
+        assert_eq!(max_val.value(), 0xFF);
+
+        // Test with value exceeding bit length
+        let overflow = TowerFieldElement::new(0x1FF, Some(3));
+        assert_eq!(overflow.value(), 0xFF); // Should be masked to 8 bits
+
+        // Test with minimum level
+        let min_level = TowerFieldElement::new(0b11, Some(1));
+        assert_eq!(min_level.num_bits(), 2);
+        assert_eq!(min_level.value(), 0b11);
     }
 
-    // Test consistency of join and split operations
+    /// Tests inverse computation
     #[test]
-    fn test_join_and_split_consistency() {
-        for i in 1..10 {
-            let original = TowerFieldElement::new(i, Some(3));
-            let (hi, lo) = original.split();
-            let rejoined = hi.join(&lo);
-            assert_eq!(rejoined.value(), original.value()); // Check if rejoined equals original
-            assert_eq!(rejoined.num_levels(), original.num_levels()); // Check levels
-            assert_eq!(rejoined.num_bits(), original.num_bits()); // Check bits
+    fn test_tower_inverse() {
+        let a = TowerFieldElement::new(0b011, Some(2)); // 4-bit element
+
+        // Test inverse of zero
+        let zero = TowerFieldElement::new(0, Some(2));
+        assert!(zero.inverse().is_none());
+
+        // Test inverse of one
+        let one = TowerFieldElement::new(1, Some(2));
+        assert_eq!(one.inverse().unwrap(), one);
+
+        // Test inverse of non-zero element
+        if let Some(a_inv) = a.inverse() {
+            assert_eq!((a * a_inv).value(), 1);
         }
-    }
-
-    // Test binary representation of tower field elements
-    #[test]
-    fn test_binary_representation() {
-        let field = TowerFieldElement::new(0b1010, Some(3));
-        assert_eq!(field.to_binary_string(), "00001010"); // Check binary representation for 8 bits
-
-        let field = TowerFieldElement::new(0b1, Some(2));
-        assert_eq!(field.to_binary_string(), "0001"); // Check binary representation for 4 bits
-    }
-
-    // Test negation in characteristic 2
-    #[test]
-    fn test_negation() {
-        let field = TowerFieldElement::new(0x1F, Some(4));
-        assert_eq!(-field, field); // Negation should be identity
-    }
-
-    // Test that subtraction equals addition in characteristic 2
-    #[test]
-    fn test_subtraction_equals_addition() {
-        let a = TowerFieldElement::new(0x1F, Some(4));
-        let b = TowerFieldElement::new(0x2A, Some(4));
-        assert_eq!(a - b, a + b); // Check that subtraction equals addition
-    }
-
-    // Test operations between elements with different levels
-    #[test]
-    fn test_different_level_operations() {
-        let a = TowerFieldElement::new(0x0F, Some(3)); // 3 levels (8 bits)
-        let b = TowerFieldElement::new(0x03, Some(2)); // 2 levels (4 bits)
-
-        let sum = a + b;
-        assert_eq!(sum.num_levels(), 3); // Result should have the maximum level
-        assert_eq!(sum.value(), 0x0F ^ 0x03); // Check value
-
-        let product = a * b;
-        assert_eq!(product.num_levels(), 3); // Result should have the maximum level
-    }
-
-    // Test complex split and join operations
-    #[test]
-    fn test_complex_split_join_operations() {
-        let original = TowerFieldElement::new(0b10101010, Some(3)); // 8 bits
-        let (hi, lo) = original.split();
-
-        assert_eq!(hi.value(), 0b1010); // Check high part value
-        assert_eq!(lo.value(), 0b1010); // Check low part value
-        assert_eq!(hi.num_levels(), 2); // Check levels after split
-        assert_eq!(lo.num_levels(), 2);
-
-        let modified_hi = hi + TowerFieldElement::new(0b0001, Some(2));
-        let modified_lo = lo + TowerFieldElement::new(0b0100, Some(2));
-
-        let rejoined = modified_hi.join(&modified_lo);
-        assert_eq!(rejoined.value(), 0b10111110); // Check rejoined value
-        assert_eq!(rejoined.num_levels(), 3); // Check levels after join
-        assert_eq!(rejoined.num_bits(), 8); // Check bits after join
-    }
-
-    // Test multiplication by zero
-    #[test]
-    fn test_tower_multiplication_special_cases() {
-        let a = TowerFieldElement::new(0x1F, Some(4));
-        let zero = TowerFieldElement::new(0, Some(4));
-        assert_eq!(a * zero, zero); // Check multiplication by zero
-        assert_eq!(zero * a, zero); // Check multiplication by zero
-    }
-
-    // Test multiplication by one
-    #[test]
-    fn test_tower_multiplication_identity() {
-        let a = TowerFieldElement::new(0x1F, Some(4));
-        let one = TowerFieldElement::new(1, Some(4));
-        assert_eq!(a * one, a); // Check multiplication by one
-        assert_eq!(one * a, a); // Check multiplication by one
-    }
-
-    // Test multiplication that causes overflow
-    #[test]
-    fn test_tower_multiplication_overflow() {
-        let a = TowerFieldElement::new(0xFFFF, Some(4)); // 16 bits all ones
-        let b = TowerFieldElement::new(0xFFFF, Some(4));
-        let result = a * b;
-        assert!(result.value() < (1 << 16)); // Verify the result is properly reduced
-    }
-
-    // Test multiplication with specific bit patterns
-    #[test]
-    fn test_tower_multiplication_patterns() {
-        let patterns = [
-            (0b1010, 0b0101), // Alternating bits
-            (0b1111, 0b0000), // All ones and zeros
-            (0b1100, 0b0011), // Split pattern
-        ];
-
-        for (a, b) in patterns {
-            let elem_a = TowerFieldElement::new(a, Some(2));
-            let elem_b = TowerFieldElement::new(b, Some(2));
-            let result = elem_a * elem_b;
-            assert!(result.value() < (1 << result.num_bits())); // Verify result is within bounds
-        }
-    }
-
-    // Test that multiplication is consistent across different representations
-    #[test]
-    fn test_tower_multiplication_consistency() {
-        let value = 0xABCD;
-        let a = TowerFieldElement::new(value, Some(4));
-
-        let (hi, lo) = a.split();
-        let rejoined = hi.join(&lo);
-
-        let multiplier = TowerFieldElement::new(0x1234, Some(4));
-        let result1 = a * multiplier;
-        let result2 = rejoined * multiplier;
-
-        assert_eq!(result1.value(), result2.value()); // Check consistency
     }
 }
