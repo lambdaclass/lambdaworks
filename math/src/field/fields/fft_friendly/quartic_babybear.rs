@@ -484,7 +484,7 @@ mod tests {
         let a_bytes = a.to_bytes_be();
 
         let result = Degree4BabyBearExtensionField::get_random_field_element_from_seed(
-            a_bytes.try_into().unwrap(),
+            a_bytes.try_into().unwrap()
         );
 
         assert!(result.is_some());
@@ -495,7 +495,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "lambdaworks-serde-binary")]
     fn test_some_random_field_element_from_seed_2() {
         let mut seed = [0xFF; 32];
 
@@ -536,7 +535,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "lambdaworks-serde-binary")]
     fn test_none_random_field_element_from_seed() {
         let mut seed = [0xFF; 32];
 

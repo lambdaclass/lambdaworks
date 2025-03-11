@@ -388,13 +388,22 @@ impl<M, const NUM_LIMBS: usize> HasDefaultTranscript for MontgomeryBackendPrimeF
 where
     M: IsModulus<UnsignedInteger<NUM_LIMBS>> + Clone + Debug,
 {
+    /// # Panics
+    ///
+    /// This function will panic if NUM_LIMBS is greater than 4.
     fn get_random_field_element_from_seed(
         seed: [u8; 32],
     ) -> Option<FieldElement<MontgomeryBackendPrimeField<M, NUM_LIMBS>>> {
         let mut sample = UnsignedInteger::from_bytes_be(&seed).unwrap();
-        let mask = u64::MAX >> M::MODULUS.limbs[0].leading_zeros();
 
-        sample.limbs[0] &= mask;
+        let first_non_zero_limb_index = M::MODULUS.limbs.iter().position(|&x| x != 0).unwrap_or(0);
+
+        for i in 0..first_non_zero_limb_index {
+            sample.limbs[i] = 0;
+        }
+
+        let mask = u64::MAX >> M::MODULUS.limbs[first_non_zero_limb_index].leading_zeros();
+        sample.limbs[first_non_zero_limb_index] &= mask;
 
         if sample > M::MODULUS {
             return None;
@@ -810,6 +819,7 @@ mod tests_u256_prime_fields {
     use crate::field::fields::montgomery_backed_prime_fields::{IsModulus, U256PrimeField};
     use crate::field::traits::IsField;
     use crate::field::traits::IsPrimeField;
+    use crate::field::traits::HasDefaultTranscript;
     #[cfg(feature = "alloc")]
     use crate::traits::ByteConversion;
     use crate::unsigned_integer::element::U256;
@@ -1011,6 +1021,55 @@ mod tests_u256_prime_fields {
 
         assert_eq!(-&zero, zero);
     }
+
+    #[test]
+    fn test_some_random_field_element_from_seed_0() {
+
+        let a: U256 = UnsignedInteger {
+            limbs: [0, 0, 0, 24],
+        };
+
+        let a_bytes = a.to_bytes_be();
+
+        let result = U256F29::get_random_field_element_from_seed(
+            a_bytes.try_into().unwrap()
+        );
+
+        assert!(result.is_some());
+    }
+
+    #[test]
+    fn test_some_random_field_element_from_seed_1() {
+
+        let a: U256 = UnsignedInteger {
+            limbs: [100, 0, 90, 24],
+        };
+
+        let a_bytes = a.to_bytes_be();
+
+        let result = U256F29::get_random_field_element_from_seed(
+            a_bytes.try_into().unwrap()
+        );
+
+        assert!(result.is_some());
+    }
+
+    #[test]
+    fn test_none_random_field_element_from_seed() {
+
+        let a: U256 = UnsignedInteger {
+            limbs: [0, 0, 0, 30],
+        };
+
+        let a_bytes = a.to_bytes_be();
+
+        let result = U256F29::get_random_field_element_from_seed(
+            a_bytes.try_into().unwrap()
+        );
+
+        assert!(result.is_none());
+    }
+
 
     // FP1
     #[derive(Clone, Debug)]

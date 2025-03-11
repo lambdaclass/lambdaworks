@@ -79,13 +79,7 @@ mod tests {
     use super::*;
 
     use alloc::vec::Vec;
-    use lambdaworks_math::{
-        elliptic_curve::short_weierstrass::curves::bls12_381::default_types::FrField,
-        field::fields::fft_friendly::{
-            quartic_babybear::Degree4BabyBearExtensionField,
-            stark_101_prime_field::Stark101PrimeField, stark_252_prime_field::Stark252PrimeField,
-        },
-    };
+    use lambdaworks_math::elliptic_curve::short_weierstrass::curves::bls12_381::default_types::FrField;
 
     #[test]
     fn basic_challenge() {
@@ -123,29 +117,5 @@ mod tests {
                 0xf8, 0x32, 0x32, 0xbc
             ]
         );
-    }
-
-    #[test]
-    fn test_sample_stark_random_element() {
-        let mut transcript = DefaultTranscript::<Stark252PrimeField>::default();
-
-        for _ in 0..3 {
-            transcript.sample_field_element();
-        }
-
-        let mut transcript = DefaultTranscript::<Stark101PrimeField>::default();
-
-        for _ in 0..3 {
-            transcript.sample_field_element();
-        }
-    }
-
-    #[test]
-    fn test_sample_degree4_mersenne31_random_element() {
-        let mut transcript = DefaultTranscript::<Degree4BabyBearExtensionField>::default();
-        for _ in 0..10 {
-            let element = transcript.sample_field_element();
-            println!("{:?}", element);
-        }
     }
 }
