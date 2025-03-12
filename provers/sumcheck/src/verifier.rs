@@ -1,9 +1,11 @@
 use super::Channel;
+use lambdaworks_crypto::fiat_shamir::default_transcript::DefaultTranscript;
 use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::traits::IsField;
 use lambdaworks_math::polynomial::{
     dense_multilinear_poly::DenseMultilinearPolynomial, Polynomial,
 };
+use lambdaworks_math::traits::ByteConversion;
 use std::vec::Vec;
 
 pub enum VerifierRoundResult<F: IsField>
@@ -122,4 +124,45 @@ where
             Ok(VerifierRoundResult::NextRound(r_j))
         }
     }
+}
+
+/// Verify a complete Sumcheck proof.
+///
+/// # Arguments
+/// * `n` - Number of variables in the polynomial
+/// * `claimed_sum` - The claimed sum of all evaluations
+/// * `proof_polys` - A vector of univariate polynomials, one for each round
+/// * `oracle_poly` - Optional original polynomial used for the final verification
+///
+/// # Returns
+/// * `true` if the proof is valid, `false` otherwise
+pub fn verify<F: IsField>(
+    n: usize,
+    claimed_sum: FieldElement<F>,
+    proof_polys: Vec<Polynomial<FieldElement<F>>>,
+    oracle_poly: Option<DenseMultilinearPolynomial<F>>,
+) -> Result<bool, VerifierError<F>>
+where
+    <F as IsField>::BaseType: Send + Sync,
+    FieldElement<F>: ByteConversion,
+{
+    let mut verifier = Verifier::new(n, oracle_poly, claimed_sum);
+    let mut transcript = DefaultTranscript::<F>::default();
+
+    for (i, univar) in proof_polys.into_iter().enumerate() {
+        match verifier.do_round(univar, &mut transcript)? {
+            VerifierRoundResult::NextRound(_) => {
+                // Continue to next round
+                if i == n - 1 {
+                    return Err(VerifierError::OracleEvaluationError);
+                }
+            }
+            VerifierRoundResult::Final(result) => {
+                return Ok(result);
+            }
+        }
+    }
+
+    // This should not happen if the proof has the correct number of rounds
+    Err(VerifierError::OracleEvaluationError)
 }

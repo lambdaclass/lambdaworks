@@ -6,8 +6,10 @@ use lambdaworks_crypto::fiat_shamir::is_transcript::IsTranscript;
 use lambdaworks_math::field::element::FieldElement;
 
 use lambdaworks_math::field::traits::IsField;
-use lambdaworks_math::polynomial::dense_multilinear_poly::DenseMultilinearPolynomial;
 use lambdaworks_math::traits::ByteConversion;
+
+pub use prover::prove;
+pub use verifier::verify;
 
 pub trait Channel<F: IsField> {
     fn append_felt(&mut self, element: &FieldElement<F>);
@@ -28,88 +30,11 @@ where
     }
 }
 
-/// Generate a complete Sumcheck proof for a given multilinear polynomial.
-pub fn prove<F: IsField>(
-    poly: DenseMultilinearPolynomial<F>,
-) -> (
-    FieldElement<F>,
-    Vec<lambdaworks_math::polynomial::Polynomial<FieldElement<F>>>,
-)
-where
-    <F as IsField>::BaseType: Send + Sync,
-    FieldElement<F>: ByteConversion,
-{
-    let mut prover = prover::Prover::new(poly);
-    let claimed_sum = prover.c_1();
-    let mut transcript = DefaultTranscript::<F>::default();
-    let n = prover.poly.num_vars();
-    let mut proof_polys = Vec::with_capacity(n);
-
-    // First round is special as it doesn't take a challenge
-    let univar = prover.poly.to_univariate();
-    proof_polys.push(univar.clone());
-
-    // Append the first univariate poly's coefficients to transcript
-    transcript.append_felt(&univar.coefficients[0]);
-
-    // Get first challenge
-    let mut challenge = transcript.draw_felt();
-
-    // Subsequent rounds
-    for round in 0..n - 1 {
-        // Adjust challenge to include round number to avoid replay attacks
-        let r_j = &challenge + FieldElement::<F>::from(round as u64);
-
-        // Execute round and get next univariate polynomial
-        let univar = prover.round(r_j);
-        proof_polys.push(univar.clone());
-
-        // Only generate next challenge if this isn't the final round
-        if round < n - 2 {
-            transcript.append_felt(&univar.coefficients[0]);
-            challenge = transcript.draw_felt();
-        }
-    }
-
-    (claimed_sum, proof_polys)
-}
-
-/// Verify a complete Sumcheck proof.
-pub fn verify<F: IsField>(
-    n: usize,
-    claimed_sum: FieldElement<F>,
-    proof_polys: Vec<lambdaworks_math::polynomial::Polynomial<FieldElement<F>>>,
-    oracle_poly: Option<DenseMultilinearPolynomial<F>>,
-) -> Result<bool, verifier::VerifierError<F>>
-where
-    <F as IsField>::BaseType: Send + Sync,
-    FieldElement<F>: ByteConversion,
-{
-    let mut verifier = verifier::Verifier::new(n, oracle_poly, claimed_sum);
-    let mut transcript = DefaultTranscript::<F>::default();
-
-    for (i, univar) in proof_polys.into_iter().enumerate() {
-        match verifier.do_round(univar, &mut transcript)? {
-            verifier::VerifierRoundResult::NextRound(_) => {
-                // Continue to next round
-                if i == n - 1 {
-                    return Err(verifier::VerifierError::OracleEvaluationError);
-                }
-            }
-            verifier::VerifierRoundResult::Final(result) => {
-                return Ok(result);
-            }
-        }
-    }
-
-    // This should not happen if the proof has the correct number of rounds
-    Err(verifier::VerifierError::OracleEvaluationError)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use lambdaworks_math::field::fields::u64_prime_field::U64PrimeField;
+    use lambdaworks_math::polynomial::dense_multilinear_poly::DenseMultilinearPolynomial;
     use verifier::VerifierRoundResult;
 
     // Using a small prime field with modulus 101.

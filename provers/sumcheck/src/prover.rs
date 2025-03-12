@@ -1,8 +1,11 @@
+use crate::Channel;
+use lambdaworks_crypto::fiat_shamir::default_transcript::DefaultTranscript;
 use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::traits::IsField;
 use lambdaworks_math::polynomial::{
     dense_multilinear_poly::DenseMultilinearPolynomial, Polynomial,
 };
+use lambdaworks_math::traits::ByteConversion;
 
 /// Prover for the Sum-Check protocol using DenseMultilinearPolynomial.
 pub struct Prover<F: IsField>
@@ -42,4 +45,46 @@ where
         self.current_round += 1;
         univar
     }
+}
+
+pub fn prove<F: IsField>(
+    poly: DenseMultilinearPolynomial<F>,
+) -> (FieldElement<F>, Vec<Polynomial<FieldElement<F>>>)
+where
+    <F as IsField>::BaseType: Send + Sync,
+    FieldElement<F>: ByteConversion,
+{
+    let mut prover = Prover::new(poly);
+    let claimed_sum = prover.c_1();
+    let mut transcript = DefaultTranscript::<F>::default();
+    let n = prover.poly.num_vars();
+    let mut proof_polys = Vec::with_capacity(n);
+
+    // First round is special as it doesn't take a challenge
+    let univar = prover.poly.to_univariate();
+    proof_polys.push(univar.clone());
+
+    // Append the first univariate poly's coefficients to transcript
+    transcript.append_felt(&univar.coefficients[0]);
+
+    // Get first challenge
+    let mut challenge = transcript.draw_felt();
+
+    // Subsequent rounds
+    for round in 0..n - 1 {
+        // Adjust challenge to include round number to avoid replay attacks
+        let r_j = &challenge + FieldElement::<F>::from(round as u64);
+
+        // Execute round and get next univariate polynomial
+        let univar = prover.round(r_j);
+        proof_polys.push(univar.clone());
+
+        // Only generate next challenge if this isn't the final round
+        if round < n - 2 {
+            transcript.append_felt(&univar.coefficients[0]);
+            challenge = transcript.draw_felt();
+        }
+    }
+
+    (claimed_sum, proof_polys)
 }
