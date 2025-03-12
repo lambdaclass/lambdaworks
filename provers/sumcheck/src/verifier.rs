@@ -43,7 +43,6 @@ where
 }
 
 /// Verifier for the Sum-Check protocol using DenseMultilinearPolynomial.
-
 pub struct Verifier<F: IsField>
 where
     <F as IsField>::BaseType: Send + Sync,

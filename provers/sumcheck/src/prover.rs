@@ -6,9 +6,7 @@ use lambdaworks_math::polynomial::{
     dense_multilinear_poly::DenseMultilinearPolynomial, Polynomial,
 };
 use lambdaworks_math::traits::ByteConversion;
-
 /// Prover for the Sum-Check protocol using DenseMultilinearPolynomial.
-
 pub struct Prover<F: IsField>
 where
     <F as IsField>::BaseType: Send + Sync,
