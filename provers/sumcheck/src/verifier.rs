@@ -38,6 +38,8 @@ where
     },
     /// Error when the proof contains an incorrect number of polynomials.
     IncorrectProofLength { expected: usize, actual: usize },
+    /// This represents a code path that should never be reached.
+    Unreachable,
 }
 
 /// Verifier for the Sum-Check protocol using DenseMultilinearPolynomial.
@@ -181,5 +183,6 @@ where
             }
         }
     }
-    Err(VerifierError::OracleEvaluationError)
+
+    Err(VerifierError::Unreachable)
 }
