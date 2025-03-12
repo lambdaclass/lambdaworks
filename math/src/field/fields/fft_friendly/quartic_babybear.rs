@@ -481,7 +481,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "lambdaworks-serde-binary")]
     fn test_some_random_field_element_from_seed() {
         let a = Fp4E::new([FpE::from(2), FpE::from(4), FpE::from(6), FpE::from(8)]);
         let a_bytes = a.to_bytes_be();
