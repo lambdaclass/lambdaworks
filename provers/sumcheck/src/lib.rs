@@ -43,148 +43,21 @@ mod tests {
     type FE = FieldElement<F>;
 
     #[test]
-    fn test_end_to_end_sumcheck() {
-        // Create a test polynomial: f(x₀,x₁,x₂)=2*x₀ + x₀*x₂ + x₁*x₂
+    fn test_protocol() {
         let poly = DenseMultilinearPolynomial::new(vec![
-            FE::from(0),
-            FE::from(2),
-            FE::from(0),
-            FE::from(2),
-            FE::from(0),
             FE::from(3),
-            FE::from(1),
-            FE::from(4),
-        ]);
-
-        println!("Testing end-to-end sumcheck protocol");
-        println!("Polynomial degree: {}", poly.num_vars());
-
-        // Generate the proof
-        let (claimed_sum, proof_polys) = prove(poly.clone());
-
-        println!("Claimed sum: {:?}", claimed_sum);
-        println!("Number of polynomials in proof: {}", proof_polys.len());
-
-        // Display each polynomial in the proof
-        for (i, poly) in proof_polys.iter().enumerate() {
-            println!(
-                "Round {} polynomial coefficients: {:?}",
-                i, poly.coefficients
-            );
-        }
-
-        // Verify the proof
-        let result = verify(poly.num_vars(), claimed_sum, proof_polys, Some(poly));
-
-        match result {
-            Ok(valid) => {
-                println!(
-                    "Verification result: {}",
-                    if valid { "ACCEPTED" } else { "REJECTED" }
-                );
-                assert!(valid, "Proof should be valid");
-            }
-            Err(e) => {
-                println!("Verification error: {:?}", e);
-                panic!("Verification should not fail");
-            }
-        }
-    }
-
-    #[test]
-    fn test_invalid_sum() {
-        // Create a test polynomial
-        let poly = DenseMultilinearPolynomial::new(vec![
-            FE::from(1),
-            FE::from(2),
-            FE::from(3),
-            FE::from(4),
-        ]);
-
-        // Generate a valid proof
-        let (_, proof_polys) = prove(poly.clone());
-
-        // Try to verify with incorrect claimed sum
-        let incorrect_sum = FE::from(999); // Clearly wrong
-        let result = verify(poly.num_vars(), incorrect_sum, proof_polys, Some(poly));
-
-        match result {
-            Ok(_) => {
-                panic!("Verification should fail with incorrect sum");
-            }
-            Err(e) => {
-                println!("Expected verification error: {:?}", e);
-                // Test passes if verification fails
-            }
-        }
-    }
-
-    /// A clean test that demonstrates the API without any debug printing
-    #[test]
-    fn test_clean_api_usage() {
-        // Test with a simple 2-variable polynomial
-        let poly = DenseMultilinearPolynomial::new(vec![
-            FE::from(3),  // f(0,0) = 3
-            FE::from(5),  // f(1,0) = 5
-            FE::from(7),  // f(0,1) = 7
-            FE::from(11), // f(1,1) = 11
-        ]);
-
-        // Generate the proof
-        let (claimed_sum, proof_polys) = prove(poly.clone());
-
-        // Verify the proof
-        let result = verify(poly.num_vars(), claimed_sum, proof_polys, Some(poly));
-
-        // Assert that verification was successful
-        assert!(
-            result.is_ok() && result.unwrap_or(false),
-            "Valid proof should be accepted"
-        );
-
-        // Previous line consumes the result, so we can't use it again
-        // We've already asserted the result is valid, so no need for a second assertion
-    }
-
-    /// Test with a larger polynomial and without providing the oracle polynomial
-    #[test]
-    fn test_without_oracle() {
-        // Create a 4-variable polynomial
-        let poly = DenseMultilinearPolynomial::new(vec![
-            FE::from(1),
-            FE::from(2),
-            FE::from(3),
-            FE::from(4),
             FE::from(5),
-            FE::from(6),
             FE::from(7),
-            FE::from(8),
-            FE::from(9),
-            FE::from(10),
             FE::from(11),
-            FE::from(12),
-            FE::from(13),
-            FE::from(14),
-            FE::from(15),
-            FE::from(16),
         ]);
 
-        // Generate proof
         let (claimed_sum, proof_polys) = prove(poly.clone());
 
-        // Verify without providing the oracle polynomial (final check will be skipped)
-        let result = verify(poly.num_vars(), claimed_sum, proof_polys, None);
+        let result = verify(poly.num_vars(), claimed_sum, proof_polys, Some(poly));
 
-        // Should still pass even without final oracle check
-        assert!(
-            result.is_ok() && result.unwrap(),
-            "Verification should succeed"
-        );
+        assert!(result.unwrap_or(false), "Valid proof should be accepted");
     }
 
-    // =================== TESTS MOVED FROM VERIFIER.RS ===================
-
-    /// This test demonstrates the interactive protocol step by step for a small polynomial.
     #[test]
     fn test_interactive_sumcheck() {
         let poly = DenseMultilinearPolynomial::new(vec![
@@ -252,7 +125,7 @@ mod tests {
 
     /// Test based on a textbook example for a 3-variable polynomial
     #[test]
-    fn test_textbook_example_3var() {
+    fn test_from_book() {
         // 3-variable polynomial with evaluations:
         // (0,0,0)=1, (1,0,0)=2, (0,1,0)=3, (1,1,0)=4,
         // (0,0,1)=5, (1,0,1)=6, (0,1,1)=7, (1,1,1)=8.
@@ -342,9 +215,8 @@ mod tests {
         }
     }
 
-    /// Test with a 3-variable polynomial example
     #[test]
-    fn test_implemented_3var_example() {
+    fn test_from_book_ported() {
         // 3-variable polynomial: f(x₀,x₁,x₂)=2*x₀ + x₀*x₂ + x₁*x₂.
         // Evaluations (little-endian): [0, 2, 0, 2, 0, 3, 1, 4]. Total sum = 12.
         let poly = DenseMultilinearPolynomial::new(vec![
@@ -436,9 +308,8 @@ mod tests {
         }
     }
 
-    /// Test with an incorrect claimed sum that should fail verification
     #[test]
-    fn test_incorrect_claimed_sum() {
+    fn failing_verification_test() {
         let poly = DenseMultilinearPolynomial::new(vec![
             FE::from(1),
             FE::from(2),

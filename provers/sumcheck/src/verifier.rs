@@ -30,7 +30,17 @@ where
     },
     /// Error when evaluating the oracle polynomial in the final round.
     OracleEvaluationError,
+    /// Error when the degree of the univariate polynomial is greater than 1.
+    InvalidDegree {
+        round: usize,
+        actual_degree: usize,
+        max_allowed: usize,
+    },
+    /// Error when the proof contains an incorrect number of polynomials.
+    IncorrectProofLength { expected: usize, actual: usize },
 }
+
+/// Verifier for the Sum-Check protocol using DenseMultilinearPolynomial.
 
 pub struct Verifier<F: IsField>
 where
@@ -69,6 +79,16 @@ where
         univar: Polynomial<FieldElement<F>>,
         channel: &mut C,
     ) -> Result<VerifierRoundResult<F>, VerifierError<F>> {
+        // Check that the polynomial degree is at most 1 (univariate from multilinear)
+        let degree = univar.degree();
+        if degree > 1 {
+            return Err(VerifierError::InvalidDegree {
+                round: self.round,
+                actual_degree: degree,
+                max_allowed: 1,
+            });
+        }
+
         // Evaluate polynomial at 0 and 1 once, reusing the values.
         let eval_0 = univar.evaluate(&FieldElement::<F>::zero());
         let eval_1 = univar.evaluate(&FieldElement::<F>::one());
@@ -126,16 +146,6 @@ where
     }
 }
 
-/// Verify a complete Sumcheck proof.
-///
-/// # Arguments
-/// * `n` - Number of variables in the polynomial
-/// * `claimed_sum` - The claimed sum of all evaluations
-/// * `proof_polys` - A vector of univariate polynomials, one for each round
-/// * `oracle_poly` - Optional original polynomial used for the final verification
-///
-/// # Returns
-/// * `true` if the proof is valid, `false` otherwise
 pub fn verify<F: IsField>(
     n: usize,
     claimed_sum: FieldElement<F>,
@@ -146,6 +156,15 @@ where
     <F as IsField>::BaseType: Send + Sync,
     FieldElement<F>: ByteConversion,
 {
+    // Verify that the proof contains the correct number of polynomials
+    let proof_len = proof_polys.len();
+    if proof_len != n {
+        return Err(VerifierError::IncorrectProofLength {
+            expected: n,
+            actual: proof_len,
+        });
+    }
+
     let mut verifier = Verifier::new(n, oracle_poly, claimed_sum);
     let mut transcript = DefaultTranscript::<F>::default();
 
@@ -162,7 +181,5 @@ where
             }
         }
     }
-
-    // This should not happen if the proof has the correct number of rounds
     Err(VerifierError::OracleEvaluationError)
 }

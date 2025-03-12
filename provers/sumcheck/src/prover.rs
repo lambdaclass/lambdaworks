@@ -8,6 +8,7 @@ use lambdaworks_math::polynomial::{
 use lambdaworks_math::traits::ByteConversion;
 
 /// Prover for the Sum-Check protocol using DenseMultilinearPolynomial.
+
 pub struct Prover<F: IsField>
 where
     <F as IsField>::BaseType: Send + Sync,
@@ -60,11 +61,9 @@ where
     let n = prover.poly.num_vars();
     let mut proof_polys = Vec::with_capacity(n);
 
-    // First round is special as it doesn't take a challenge
     let univar = prover.poly.to_univariate();
     proof_polys.push(univar.clone());
 
-    // Append the first univariate poly's coefficients to transcript
     transcript.append_felt(&univar.coefficients[0]);
 
     // Get first challenge
@@ -85,6 +84,5 @@ where
             challenge = transcript.draw_felt();
         }
     }
-
     (claimed_sum, proof_polys)
 }
