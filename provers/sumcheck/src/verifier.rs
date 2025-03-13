@@ -105,7 +105,6 @@ where
                 });
             }
 
-            // For the first round, append claimed sum to transcript (to match prover)
             channel.append_felt(&self.c_1);
         } else {
             let sum = &eval_0 + &eval_1;
@@ -129,11 +128,9 @@ where
         let base_challenge = channel.draw_felt();
         let r_j = &base_challenge + FieldElement::<F>::from(self.round as u64);
 
-        // Calculate intermediate sum at challenge point
         let intermediate_sum = univar.evaluate(&r_j);
         self.last_val = intermediate_sum.clone();
 
-        // Add the intermediate sum to the channel for the next round
         if self.round < self.n - 1 {
             channel.append_felt(&intermediate_sum);
         }
