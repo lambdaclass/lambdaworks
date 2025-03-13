@@ -159,7 +159,7 @@ impl<const MODULUS: u64> HasDefaultTranscript for U64PrimeField<MODULUS> {
         let mask = u64::MAX >> MODULUS.leading_zeros();
         sample &= mask;
 
-        if sample > MODULUS {
+        if sample >= MODULUS {
             return None;
         }
         Some(U64FieldElement::new(sample))
