@@ -104,6 +104,9 @@ where
                     expected: self.c_1.clone(),
                 });
             }
+
+            // For the first round, append claimed sum to transcript (to match prover)
+            channel.append_felt(&self.c_1);
         } else {
             let sum = &eval_0 + &eval_1;
             // Check intermediate consistency: s0 + s1 must equal last_val.
@@ -117,17 +120,25 @@ where
             }
         }
 
-        // Append the field element to the channel.
-        channel.append_felt(&univar.coefficients[0]);
+        // Append all coefficients of the univariate polynomial to the channel
+        for coeff in &univar.coefficients {
+            channel.append_felt(coeff);
+        }
 
         // Draw a random challenge for the round.
         let base_challenge = channel.draw_felt();
         let r_j = &base_challenge + FieldElement::<F>::from(self.round as u64);
 
+        // Calculate intermediate sum at challenge point
+        let intermediate_sum = univar.evaluate(&r_j);
+        self.last_val = intermediate_sum.clone();
+
+        // Add the intermediate sum to the channel for the next round
+        if self.round < self.n - 1 {
+            channel.append_felt(&intermediate_sum);
+        }
+
         self.challenges.push(r_j.clone());
-        // Evaluate polynomial at the challenge.
-        let val = univar.evaluate(&r_j);
-        self.last_val = val;
         self.round += 1;
 
         if self.round == self.n {

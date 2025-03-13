@@ -62,7 +62,10 @@ where
     let univar = prover.poly.to_univariate();
     proof_polys.push(univar.clone());
 
-    transcript.append_felt(&univar.coefficients[0]);
+    transcript.append_felt(&claimed_sum);
+    for coeff in &univar.coefficients {
+        transcript.append_felt(coeff);
+    }
 
     // Get first challenge
     let mut challenge = transcript.draw_felt();
@@ -73,12 +76,16 @@ where
         let r_j = &challenge + FieldElement::<F>::from(round as u64);
 
         // Execute round and get next univariate polynomial
-        let univar = prover.round(r_j);
+        let univar = prover.round(r_j.clone());
         proof_polys.push(univar.clone());
 
         // Only generate next challenge if this isn't the final round
         if round < n - 2 {
-            transcript.append_felt(&univar.coefficients[0]);
+            let intermediate_sum = univar.evaluate(&r_j);
+            transcript.append_felt(&intermediate_sum);
+            for coeff in &univar.coefficients {
+                transcript.append_felt(coeff);
+            }
             challenge = transcript.draw_felt();
         }
     }
