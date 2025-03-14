@@ -348,12 +348,12 @@ impl HasDefaultTranscript for Degree4BabyBearExtensionField {
             FieldElement::from(0u64),
         ];
 
-        for i in 0..4 {
+        for coeff in &mut coeffs {
             loop {
                 rng.fill(&mut sample);
                 let int_sample = u64::from_be_bytes(sample) & MASK;
                 if int_sample < MODULUS {
-                    coeffs[i] = FieldElement::from(int_sample);
+                    *coeff = FieldElement::from(int_sample);
                     break;
                 }
             }
