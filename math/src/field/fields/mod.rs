@@ -23,5 +23,7 @@ pub mod u64_prime_field;
 #[cfg(feature = "winter_compatibility")]
 pub mod winterfell;
 
+/// Implmentation of Binary field.
+pub mod binary;
 /// Implemenation of Vesta Prime field (p = 2^254 + 45560315531506369815346746415080538113)
 pub mod vesta_field;
