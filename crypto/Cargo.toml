@@ -17,11 +17,11 @@ serde = { version = "1.0", default-features = false, features = [
     "alloc",
 ], optional = true }
 rayon = { version = "1.8.0", optional = true }
+rand = "0.8.5"
+rand_chacha = "0.3.1"
 [dev-dependencies]
 criterion = "0.4"
 iai-callgrind.workspace = true
-rand = "0.8.5"
-rand_chacha = "0.3.1"
 
 [features]
 default = ["asm", "std"]

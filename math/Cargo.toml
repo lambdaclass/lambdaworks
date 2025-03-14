@@ -17,6 +17,7 @@ serde_json = { version = "1.0", default-features = false, features = [
 proptest = { version = "1.1.0", optional = true }
 winter-math = { package = "winter-math", version = "0.6.4", default-features = false, optional = true }
 miden-core = { package = "miden-core", version = "0.7", default-features = false, optional = true }
+rand = { version = "0.8.5", features = ["std"] }
 
 # rayon
 rayon = { version = "1.7", optional = true }
@@ -32,7 +33,6 @@ cudarc = { version = "0.9.7", optional = true }
 lambdaworks-gpu = { workspace = true, optional = true }
 
 [dev-dependencies]
-rand = { version = "0.8.5", features = ["std"] }
 rand_chacha = "0.3.1"
 criterion = "0.5.1"
 const-random = "0.1.15"

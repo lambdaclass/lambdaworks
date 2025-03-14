@@ -331,7 +331,7 @@ impl IsFFTField for Degree4BabyBearExtensionField {
 }
 
 impl HasDefaultTranscript for Degree4BabyBearExtensionField {
-    fn get_random_field_element_from_seed(seed: [u8; 32]) -> Option<FieldElement<Self>> {
+    fn get_random_field_element_from_rng(rng: &mut impl rand::Rng) -> FieldElement<Self> {
         //Babybear Prime p = 2^31 - 2^27 + 1
         const MODULUS: u64 = 2013265921;
 
@@ -339,23 +339,27 @@ impl HasDefaultTranscript for Degree4BabyBearExtensionField {
         //The mask is used to remove the first bit.
         const MASK: u64 = 0x7FFF_FFFF;
 
-        let mut coeffs = [0u64; 4];
+        let mut sample = [0u8; 8];
 
-        for (i, chunk) in seed.chunks_exact(8).take(4).enumerate() {
-            let chunk_array: [u8; 8] = chunk.try_into().unwrap();
-            coeffs[i] = u64::from_be_bytes(chunk_array) & MASK;
+        let mut coeffs = [
+            FieldElement::from(0u64),
+            FieldElement::from(0u64),
+            FieldElement::from(0u64),
+            FieldElement::from(0u64),
+        ];
+
+        for i in 0..4 {
+            loop {
+                rng.fill(&mut sample);
+                let int_sample = u64::from_be_bytes(sample) & MASK;
+                if int_sample < MODULUS {
+                    coeffs[i] = FieldElement::from(int_sample);
+                    break;
+                }
+            }
         }
 
-        if coeffs.iter().any(|&coeff| coeff >= MODULUS) {
-            return None;
-        }
-
-        Some(FieldElement::<Self>::new([
-            FieldElement::from(coeffs[0]),
-            FieldElement::from(coeffs[1]),
-            FieldElement::from(coeffs[2]),
-            FieldElement::from(coeffs[3]),
-        ]))
+        FieldElement::<Self>::new(coeffs)
     }
 }
 
@@ -478,91 +482,6 @@ mod tests {
             generator.pow(2u64.pow(Degree4BabyBearExtensionField::TWO_ADICITY as u32)),
             Fp4E::one()
         );
-    }
-
-    #[test]
-    fn test_some_random_field_element_from_seed() {
-        let a = Fp4E::new([FpE::from(2), FpE::from(4), FpE::from(6), FpE::from(8)]);
-        let a_bytes = a.to_bytes_be();
-
-        let result = Degree4BabyBearExtensionField::get_random_field_element_from_seed(
-            a_bytes.try_into().unwrap(),
-        );
-
-        assert!(result.is_some());
-
-        if let Some(field_element) = result {
-            assert_eq!(field_element, a)
-        }
-    }
-
-    #[test]
-    fn test_some_random_field_element_from_seed_2() {
-        let mut seed = [0xFF; 32];
-
-        seed[4] = 0x78;
-        seed[5] = 0x0;
-        seed[6] = 0x0;
-        seed[7] = 0x0;
-
-        seed[12] = 0x78;
-        seed[13] = 0x0;
-        seed[14] = 0x0;
-        seed[15] = 0x0;
-
-        seed[20] = 0x78;
-        seed[21] = 0x0;
-        seed[22] = 0x0;
-        seed[23] = 0x0;
-
-        seed[28] = 0x78;
-        seed[29] = 0x0;
-        seed[30] = 0x0;
-        seed[31] = 0x0;
-
-        let expected = Fp4E::new([
-            FpE::from(2013265920),
-            FpE::from(2013265920),
-            FpE::from(2013265920),
-            FpE::from(2013265920),
-        ]);
-
-        let result = Degree4BabyBearExtensionField::get_random_field_element_from_seed(seed);
-
-        assert!(result.is_some());
-
-        if let Some(field_element) = result {
-            assert_eq!(field_element, expected)
-        }
-    }
-
-    #[test]
-    fn test_none_random_field_element_from_seed() {
-        let mut seed = [0xFF; 32];
-
-        seed[4] = 0x7A;
-        seed[5] = 0x0;
-        seed[6] = 0x0;
-        seed[7] = 0x0;
-
-        seed[12] = 0x7A;
-        seed[13] = 0x0;
-        seed[14] = 0x0;
-        seed[15] = 0x0;
-
-        seed[20] = 0x7A;
-        seed[21] = 0x0;
-        seed[22] = 0x0;
-        seed[23] = 0x0;
-
-        seed[28] = 0x7A;
-        seed[29] = 0x0;
-        seed[30] = 0x0;
-        seed[31] = 0x0;
-
-        let result = Degree4BabyBearExtensionField::get_random_field_element_from_seed(seed);
-
-        assert!(result.is_none());
     }
 
     #[cfg(all(feature = "std", not(feature = "instruments")))]

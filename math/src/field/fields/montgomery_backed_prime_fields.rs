@@ -391,26 +391,37 @@ where
 {
     /// # Panics
     ///
-    /// This function will panic if NUM_LIMBS is greater than 4.
-    fn get_random_field_element_from_seed(
-        seed: [u8; 32],
-    ) -> Option<FieldElement<MontgomeryBackendPrimeField<M, NUM_LIMBS>>> {
-        let mut sample = UnsignedInteger::from_bytes_be(&seed).unwrap();
-
-        let first_non_zero_limb_index = M::MODULUS.limbs.iter().position(|&x| x != 0).unwrap_or(0);
-
-        for i in 0..first_non_zero_limb_index {
-            sample.limbs[i] = 0;
-        }
-
+    /// This function will panic if NUM_LIMBS is greater than 6.
+    fn get_random_field_element_from_rng(
+        rng: &mut impl rand::Rng,
+    ) -> FieldElement<MontgomeryBackendPrimeField<M, NUM_LIMBS>> {
+        let mut buffer = [0u8; 6 * 8];
+        let first_non_zero_limb_index = M::MODULUS
+            .limbs
+            .iter()
+            .position(|&x| x != 0)
+            .expect("modulus should be non-zero");
         let mask = u64::MAX >> M::MODULUS.limbs[first_non_zero_limb_index].leading_zeros();
-        sample.limbs[first_non_zero_limb_index] &= mask;
 
-        if sample > M::MODULUS {
-            return None;
+        let bits_start_idx = first_non_zero_limb_index * 8;
+        let bits_end_idx = NUM_LIMBS * 8;
+        let mut uint_sample;
+
+        loop {
+            let sample_bytes = &mut buffer[bits_start_idx..bits_end_idx];
+            rng.fill(sample_bytes);
+
+            uint_sample = UnsignedInteger::from_bytes_be(&buffer).unwrap();
+
+            uint_sample.limbs[first_non_zero_limb_index] &= mask;
+
+            if uint_sample < M::MODULUS {
+                break;
+            }
         }
-        Some(FieldElement::new(
-            MontgomeryBackendPrimeField::<M, NUM_LIMBS>::from_base_type(sample),
+
+        FieldElement::new(MontgomeryBackendPrimeField::<M, NUM_LIMBS>::from_base_type(
+            uint_sample,
         ))
     }
 }
@@ -423,12 +434,16 @@ mod tests_u384_prime_fields {
     use crate::field::fields::montgomery_backed_prime_fields::{
         IsModulus, U256PrimeField, U384PrimeField,
     };
+    use crate::field::traits::HasDefaultTranscript;
     use crate::field::traits::IsField;
     use crate::field::traits::IsPrimeField;
     #[cfg(feature = "alloc")]
     use crate::traits::ByteConversion;
     use crate::unsigned_integer::element::U384;
     use crate::unsigned_integer::element::{UnsignedInteger, U256};
+
+    use rand::Rng;
+    use rand_chacha::{rand_core::SeedableRng, ChaCha20Rng};
 
     #[derive(Clone, Debug)]
     struct U384Modulus23;
@@ -674,6 +689,48 @@ mod tests_u384_prime_fields {
         assert_eq!(-&zero, zero);
     }
 
+    #[test]
+    fn test_random_field_element_from_rng_0() {
+        // This seed generates a sample that is less than the modulus;
+        let mut rng = <ChaCha20Rng as SeedableRng>::from_seed([1; 32]);
+        let mut expected_rng = rng.clone();
+
+        let mut buffer = [0u8; 48];
+        let sample_bytes = &mut buffer[40..];
+        expected_rng.fill(sample_bytes);
+
+        let mut expected_uint = UnsignedInteger::from_bytes_be(&buffer).unwrap();
+
+        expected_uint.limbs[5] &= 31 as u64;
+
+        let expected = FieldElement::new(U384F23::from_base_type(expected_uint));
+
+        let result = U384F23::get_random_field_element_from_rng(&mut rng);
+
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_random_field_element_from_rng_1() {
+        // This seed generates a sample that is grater than the modulus;
+        let mut rng = <ChaCha20Rng as SeedableRng>::from_seed([5; 32]);
+        let mut expected_rng = rng.clone();
+
+        let mut buffer = [0u8; 48];
+        let sample_bytes = &mut buffer[40..];
+        expected_rng.fill(sample_bytes);
+
+        let mut expected_uint = UnsignedInteger::from_bytes_be(&buffer).unwrap();
+
+        expected_uint.limbs[5] &= 31 as u64;
+
+        let expected = FieldElement::new(U384F23::from_base_type(expected_uint));
+
+        let result = U384F23::get_random_field_element_from_rng(&mut rng);
+
+        assert_ne!(result, expected);
+    }
+
     // FP1
     #[derive(Clone, Debug)]
     struct U384ModulusP1;
@@ -825,6 +882,8 @@ mod tests_u256_prime_fields {
     use crate::traits::ByteConversion;
     use crate::unsigned_integer::element::U256;
     use crate::unsigned_integer::element::{UnsignedInteger, U64};
+    use rand::Rng;
+    use rand_chacha::{rand_core::SeedableRng, ChaCha20Rng};
 
     use super::U64PrimeField;
 
@@ -1024,45 +1083,47 @@ mod tests_u256_prime_fields {
     }
 
     #[test]
-    fn test_some_random_field_element_from_seed_0() {
-        let a: U256 = UnsignedInteger {
-            limbs: [0, 0, 0, 24],
-        };
+    fn test_random_field_element_from_rng_0() {
+        // This seed generates a sample that is less than the modulus;
+        let mut rng = <ChaCha20Rng as SeedableRng>::from_seed([1; 32]);
+        let mut expected_rng = rng.clone();
 
-        let a_bytes = a.to_bytes_be();
+        let mut buffer = [0u8; 48];
+        let sample_bytes = &mut buffer[24..32];
+        expected_rng.fill(sample_bytes);
 
-        let result = U256F29::get_random_field_element_from_seed(a_bytes.try_into().unwrap());
+        let mut expected_uint = UnsignedInteger::from_bytes_be(&buffer).unwrap();
 
-        assert!(result.is_some());
+        expected_uint.limbs[3] &= 31 as u64;
+
+        let expected = FieldElement::new(U256F29::from_base_type(expected_uint));
+
+        let result = U256F29::get_random_field_element_from_rng(&mut rng);
+
+        assert_eq!(result, expected);
     }
 
     #[test]
-    fn test_some_random_field_element_from_seed_1() {
-        let a: U256 = UnsignedInteger {
-            limbs: [100, 0, 90, 24],
-        };
+    fn test_random_field_element_from_rng_1() {
+        // This seed generates a sample that is grater than the modulus;
+        let mut rng = <ChaCha20Rng as SeedableRng>::from_seed([5; 32]);
+        let mut expected_rng = rng.clone();
 
-        let a_bytes = a.to_bytes_be();
+        let mut buffer = [0u8; 48];
+        let sample_bytes = &mut buffer[24..32];
+        expected_rng.fill(sample_bytes);
 
-        let result = U256F29::get_random_field_element_from_seed(a_bytes.try_into().unwrap());
+        let mut expected_uint = UnsignedInteger::from_bytes_be(&buffer).unwrap();
 
-        assert!(result.is_some());
+        expected_uint.limbs[3] &= 31 as u64;
+
+        let expected = FieldElement::new(U256F29::from_base_type(expected_uint));
+
+        let result = U256F29::get_random_field_element_from_rng(&mut rng);
+
+        assert_ne!(result, expected);
     }
 
-    #[test]
-    fn test_none_random_field_element_from_seed() {
-        let a: U256 = UnsignedInteger {
-            limbs: [0, 0, 0, 30],
-        };
-
-        let a_bytes = a.to_bytes_be();
-
-        let result = U256F29::get_random_field_element_from_seed(a_bytes.try_into().unwrap());
-
-        assert!(result.is_none());
-    }
-
-    // FP1
     #[derive(Clone, Debug)]
     struct U256ModulusP1;
     impl IsModulus<U256> for U256ModulusP1 {

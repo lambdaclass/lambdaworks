@@ -154,15 +154,14 @@ impl<const MODULUS: u64> Deserializable for FieldElement<U64PrimeField<MODULUS>>
 }
 
 impl<const MODULUS: u64> HasDefaultTranscript for U64PrimeField<MODULUS> {
-    fn get_random_field_element_from_seed(seed: [u8; 32]) -> Option<FieldElement<Self>> {
-        let mut sample = u64::from_be_bytes(seed[24..32].try_into().unwrap());
+    fn get_random_field_element_from_rng(rng: &mut impl rand::Rng) -> FieldElement<Self> {
+        let mut bytes = [0u8; 8];
+        rng.fill(&mut bytes);
+        let mut sample = u64::from_be_bytes(bytes);
         let mask = u64::MAX >> MODULUS.leading_zeros();
         sample &= mask;
 
-        if sample > MODULUS {
-            return None;
-        }
-        Some(U64FieldElement::new(sample))
+        U64FieldElement::new(sample)
     }
 }
 

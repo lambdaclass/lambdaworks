@@ -4,6 +4,7 @@ use lambdaworks_math::{
     field::{element::FieldElement, traits::HasDefaultTranscript},
     traits::ByteConversion,
 };
+use rand_chacha::{rand_core::SeedableRng, ChaCha20Rng};
 use sha3::{Digest, Keccak256};
 
 pub struct DefaultTranscript<F: HasDefaultTranscript> {
@@ -62,11 +63,8 @@ where
     }
 
     fn sample_field_element(&mut self) -> FieldElement<F> {
-        loop {
-            if let Some(result) = F::get_random_field_element_from_seed(self.sample()) {
-                return result;
-            }
-        }
+        let mut rng = <ChaCha20Rng as SeedableRng>::from_seed(self.sample());
+        F::get_random_field_element_from_rng(&mut rng)
     }
 
     fn sample_u64(&mut self, upper_bound: u64) -> u64 {
