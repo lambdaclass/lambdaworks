@@ -701,7 +701,7 @@ mod tests_u384_prime_fields {
 
         let mut expected_uint = UnsignedInteger::from_bytes_be(&buffer).unwrap();
 
-        expected_uint.limbs[5] &= 31 as u64;
+        expected_uint.limbs[5] &= 31_u64;
 
         let expected = FieldElement::new(U384F23::from_base_type(expected_uint));
 
@@ -722,7 +722,7 @@ mod tests_u384_prime_fields {
 
         let mut expected_uint = UnsignedInteger::from_bytes_be(&buffer).unwrap();
 
-        expected_uint.limbs[5] &= 31 as u64;
+        expected_uint.limbs[5] &= 31_u64;
 
         let expected = FieldElement::new(U384F23::from_base_type(expected_uint));
 
@@ -1094,7 +1094,7 @@ mod tests_u256_prime_fields {
 
         let mut expected_uint = UnsignedInteger::from_bytes_be(&buffer).unwrap();
 
-        expected_uint.limbs[3] &= 31 as u64;
+        expected_uint.limbs[3] &= 31_u64;
 
         let expected = FieldElement::new(U256F29::from_base_type(expected_uint));
 
@@ -1115,7 +1115,7 @@ mod tests_u256_prime_fields {
 
         let mut expected_uint = UnsignedInteger::from_bytes_be(&buffer).unwrap();
 
-        expected_uint.limbs[3] &= 31 as u64;
+        expected_uint.limbs[3] &= 31_u64;
 
         let expected = FieldElement::new(U256F29::from_base_type(expected_uint));
 
