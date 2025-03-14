@@ -6,7 +6,7 @@ use lambdaworks_crypto::commitments::traits::IsCommitmentScheme;
 use lambdaworks_crypto::fiat_shamir::{
     default_transcript::DefaultTranscript, is_transcript::IsTranscript,
 };
-use lambdaworks_math::field::traits::IsFFTField;
+use lambdaworks_math::field::traits::{HasDefaultTranscript, IsFFTField};
 use lambdaworks_math::field::{element::FieldElement, traits::IsField};
 use lambdaworks_math::polynomial::Polynomial;
 use lambdaworks_math::traits::{AsBytes, ByteConversion};
@@ -135,7 +135,7 @@ pub fn new_strong_fiat_shamir_transcript<F, CS>(
     public_input: &[FieldElement<F>],
 ) -> DefaultTranscript<F>
 where
-    F: IsField,
+    F: HasDefaultTranscript,
     FieldElement<F>: ByteConversion,
     CS: IsCommitmentScheme<F>,
     CS::Commitment: AsBytes,

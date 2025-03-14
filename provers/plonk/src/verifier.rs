@@ -2,7 +2,7 @@ use lambdaworks_crypto::commitments::traits::IsCommitmentScheme;
 use lambdaworks_crypto::fiat_shamir::is_transcript::IsTranscript;
 use lambdaworks_math::cyclic_group::IsGroup;
 use lambdaworks_math::field::element::FieldElement;
-use lambdaworks_math::field::traits::{IsFFTField, IsField, IsPrimeField};
+use lambdaworks_math::field::traits::{HasDefaultTranscript, IsFFTField, IsField, IsPrimeField};
 use lambdaworks_math::traits::{AsBytes, ByteConversion};
 use std::marker::PhantomData;
 
@@ -14,7 +14,7 @@ pub struct Verifier<F: IsField, CS: IsCommitmentScheme<F>> {
     phantom: PhantomData<F>,
 }
 
-impl<F: IsField + IsFFTField, CS: IsCommitmentScheme<F>> Verifier<F, CS> {
+impl<F: IsField + IsFFTField + HasDefaultTranscript, CS: IsCommitmentScheme<F>> Verifier<F, CS> {
     pub fn new(commitment_scheme: CS) -> Self {
         Self {
             commitment_scheme,
