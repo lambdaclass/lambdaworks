@@ -32,6 +32,9 @@ cudarc = { version = "0.9.7", optional = true }
 
 lambdaworks-gpu = { workspace = true, optional = true }
 
+[target.wasm32-unknown-unknown.dependencies]
+getrandom = { version = "0.2.15", features = ["js"] }
+
 [dev-dependencies]
 rand_chacha = "0.3.1"
 criterion = "0.5.1"
