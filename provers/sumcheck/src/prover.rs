@@ -1,6 +1,7 @@
 use crate::Channel;
 use lambdaworks_crypto::fiat_shamir::default_transcript::DefaultTranscript;
 use lambdaworks_math::field::element::FieldElement;
+use lambdaworks_math::field::traits::HasDefaultTranscript;
 use lambdaworks_math::field::traits::IsField;
 use lambdaworks_math::polynomial::{
     dense_multilinear_poly::DenseMultilinearPolynomial, Polynomial,
@@ -46,10 +47,11 @@ where
     }
 }
 
-pub fn prove<F: IsField>(
+pub fn prove<F>(
     poly: DenseMultilinearPolynomial<F>,
 ) -> (FieldElement<F>, Vec<Polynomial<FieldElement<F>>>)
 where
+    F: IsField + HasDefaultTranscript,
     <F as IsField>::BaseType: Send + Sync,
     FieldElement<F>: ByteConversion,
 {

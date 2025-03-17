@@ -1,6 +1,7 @@
 use super::Channel;
 use lambdaworks_crypto::fiat_shamir::default_transcript::DefaultTranscript;
 use lambdaworks_math::field::element::FieldElement;
+use lambdaworks_math::field::traits::HasDefaultTranscript;
 use lambdaworks_math::field::traits::IsField;
 use lambdaworks_math::polynomial::{
     dense_multilinear_poly::DenseMultilinearPolynomial, Polynomial,
@@ -155,13 +156,14 @@ where
     }
 }
 
-pub fn verify<F: IsField>(
+pub fn verify<F>(
     n: usize,
     claimed_sum: FieldElement<F>,
     proof_polys: Vec<Polynomial<FieldElement<F>>>,
     oracle_poly: Option<DenseMultilinearPolynomial<F>>,
 ) -> Result<bool, VerifierError<F>>
 where
+    F: IsField + HasDefaultTranscript,
     <F as IsField>::BaseType: Send + Sync,
     FieldElement<F>: ByteConversion,
 {
