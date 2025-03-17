@@ -282,3 +282,10 @@ pub trait IsPrimeField: IsField {
         Some((x, neg_x))
     }
 }
+
+/// This trait is necessary for sampling a random field element with a uniform distribution.
+pub trait HasDefaultTranscript: IsField {
+    /// This function should truncates the sampled bits to the quantity required to represent the order of the base field
+    /// and returns a field element.
+    fn get_random_field_element_from_rng(rng: &mut impl rand::Rng) -> FieldElement<Self>;
+}

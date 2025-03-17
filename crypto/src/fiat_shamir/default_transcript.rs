@@ -1,19 +1,20 @@
 use super::is_transcript::IsTranscript;
 use core::marker::PhantomData;
 use lambdaworks_math::{
-    field::{element::FieldElement, traits::IsField},
+    field::{element::FieldElement, traits::HasDefaultTranscript},
     traits::ByteConversion,
 };
+use rand_chacha::{rand_core::SeedableRng, ChaCha20Rng};
 use sha3::{Digest, Keccak256};
 
-pub struct DefaultTranscript<F: IsField> {
+pub struct DefaultTranscript<F: HasDefaultTranscript> {
     hasher: Keccak256,
     phantom: PhantomData<F>,
 }
 
 impl<F> DefaultTranscript<F>
 where
-    F: IsField,
+    F: HasDefaultTranscript,
     FieldElement<F>: ByteConversion,
 {
     pub fn new(data: &[u8]) -> Self {
@@ -36,7 +37,7 @@ where
 
 impl<F> Default for DefaultTranscript<F>
 where
-    F: IsField,
+    F: HasDefaultTranscript,
     FieldElement<F>: ByteConversion,
 {
     fn default() -> Self {
@@ -46,7 +47,7 @@ where
 
 impl<F> IsTranscript<F> for DefaultTranscript<F>
 where
-    F: IsField,
+    F: HasDefaultTranscript,
     FieldElement<F>: ByteConversion,
 {
     fn append_bytes(&mut self, new_bytes: &[u8]) {
@@ -62,7 +63,8 @@ where
     }
 
     fn sample_field_element(&mut self) -> FieldElement<F> {
-        FieldElement::from_bytes_be(&self.sample()).unwrap()
+        let mut rng = <ChaCha20Rng as SeedableRng>::from_seed(self.sample());
+        F::get_random_field_element_from_rng(&mut rng)
     }
 
     fn sample_u64(&mut self, upper_bound: u64) -> u64 {
@@ -74,7 +76,6 @@ where
 mod tests {
     use super::*;
 
-    extern crate alloc;
     use alloc::vec::Vec;
     use lambdaworks_math::elliptic_curve::short_weierstrass::curves::bls12_381::default_types::FrField;
 

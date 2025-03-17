@@ -17,6 +17,7 @@ serde_json = { version = "1.0", default-features = false, features = [
 proptest = { version = "1.1.0", optional = true }
 winter-math = { package = "winter-math", version = "0.6.4", default-features = false, optional = true }
 miden-core = { package = "miden-core", version = "0.7", default-features = false, optional = true }
+rand = { version = "0.8.5", default-features = false }
 
 # rayon
 rayon = { version = "1.7", optional = true }
@@ -28,11 +29,9 @@ objc = { version = "0.2.7", optional = true }
 # cuda
 cudarc = { version = "0.9.7", optional = true }
 
-
 lambdaworks-gpu = { workspace = true, optional = true }
 
 [dev-dependencies]
-rand = { version = "0.8.5", features = ["std"] }
 rand_chacha = "0.3.1"
 criterion = "0.5.1"
 const-random = "0.1.15"
@@ -41,6 +40,8 @@ proptest = "1.1.0"
 pprof = { version = "0.13.0", features = ["criterion", "flamegraph"] }
 p3-baby-bear = { git = "https://github.com/Plonky3/Plonky3" }
 p3-field = { git = "https://github.com/Plonky3/Plonky3" }
+rand = { version = "0.8.5", features = ["std"] }
+
 [features]
 default = ["parallel", "std"]
 std = ["alloc", "serde?/std", "serde_json?/std"]
@@ -52,6 +53,7 @@ proptest = ["dep:proptest"]
 winter_compatibility = ["winter-math", "miden-core"]
 instruments = []
 
+
 # gpu
 metal = [
     "dep:metal",
@@ -60,6 +62,9 @@ metal = [
     "lambdaworks-gpu?/metal",
 ]
 cuda = ["dep:cudarc", "dep:lambdaworks-gpu"]
+
+[target.wasm32-unknown-unknown.dependencies]
+getrandom = { version = "0.2.15", features = ["js"] }
 
 [[bench]]
 name = "criterion_elliptic_curve"

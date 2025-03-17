@@ -4,7 +4,7 @@ use crate::errors::CreationError;
 use crate::errors::DeserializationError;
 use crate::field::element::FieldElement;
 use crate::field::errors::FieldError;
-use crate::field::traits::{IsFFTField, IsField, IsPrimeField};
+use crate::field::traits::{HasDefaultTranscript, IsFFTField, IsField, IsPrimeField};
 use crate::traits::{ByteConversion, Deserializable};
 
 /// Type representing prime fields over unsigned 64-bit integers.
@@ -150,6 +150,23 @@ impl<const MODULUS: u64> Deserializable for FieldElement<U64PrimeField<MODULUS>>
         Self: Sized,
     {
         Self::from_bytes_be(bytes).map_err(|x| x.into())
+    }
+}
+
+impl<const MODULUS: u64> HasDefaultTranscript for U64PrimeField<MODULUS> {
+    fn get_random_field_element_from_rng(rng: &mut impl rand::Rng) -> FieldElement<Self> {
+        let mask = u64::MAX >> MODULUS.leading_zeros();
+        let mut sample = [0u8; 8];
+        let field;
+        loop {
+            rng.fill(&mut sample);
+            let int_sample = u64::from_be_bytes(sample) & mask;
+            if int_sample < MODULUS {
+                field = FieldElement::from(int_sample);
+                break;
+            }
+        }
+        field
     }
 }
 
