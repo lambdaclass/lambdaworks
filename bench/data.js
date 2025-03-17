@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1741721918558,
+  "lastUpdate": 1742236730652,
   "repoUrl": "https://github.com/lambdaclass/lambdaworks",
   "entries": {
     "Benchmark": [
@@ -29531,6 +29531,150 @@ window.BENCHMARK_DATA = {
             "name": "Polynomial/evaluate 10",
             "value": 1,
             "range": "± 0",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "56092489+ColoCarletti@users.noreply.github.com",
+            "name": "Joaquin Carletti",
+            "username": "ColoCarletti"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "98d7d8ca26d915d1d8f1acc65e6d9540a62f45bc",
+          "message": "Fix sample field element for default transcript. (#976)\n\n* add new trait\n\n* impl default transcript for montgomery backend\n\n* fix plonk\n\n* refactor\n\n* add babybear test\n\n* add tests\n\n* fmt\n\n* add trait to sumcheck prover\n\n* rm Vec\n\n* rm serde-binary\n\n* impl HasDefaultTranscript for u64prmeField\n\n* fmt\n\n* Update math/src/field/traits.rs\n\nCo-authored-by: Cyprien de Saint Guilhem <c.desaintguilhem@gmail.com>\n\n* Update math/src/field/fields/u64_prime_field.rs\n\nCo-authored-by: Cyprien de Saint Guilhem <c.desaintguilhem@gmail.com>\n\n* change seed for rng\n\n* fix clippy\n\n* fix clippy\n\n* change rand version\n\n* redo rand version\n\n* fix range in u64\n\n* fix target wasm32\n\n* change dependencies rand no std\n\n---------\n\nCo-authored-by: Cyprien de Saint Guilhem <c.desaintguilhem@gmail.com>\nCo-authored-by: diegokingston <dkingston@fi.uba.ar>\nCo-authored-by: Nicole <nicole@Nicoles-MacBook-Air.local>",
+          "timestamp": "2025-03-17T18:22:23Z",
+          "tree_id": "79c86d04c9344828929e90218f381d6072250dd9",
+          "url": "https://github.com/lambdaclass/lambdaworks/commit/98d7d8ca26d915d1d8f1acc65e6d9540a62f45bc"
+        },
+        "date": 1742236727625,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "Ordered FFT/Parallel (Metal)",
+            "value": 257089885,
+            "range": "± 19931008",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #2",
+            "value": 503275750,
+            "range": "± 68814436",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #3",
+            "value": 1151480916,
+            "range": "± 220642833",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Parallel (Metal) #4",
+            "value": 4758283958,
+            "range": "± 286689301",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal)",
+            "value": 89379604,
+            "range": "± 5476657",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #2",
+            "value": 178594500,
+            "range": "± 23619019",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #3",
+            "value": 347441979,
+            "range": "± 3670773",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/Parallel (Metal) #4",
+            "value": 771884854,
+            "range": "± 23417161",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal)",
+            "value": 94463790,
+            "range": "± 6837793",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #2",
+            "value": 236902312,
+            "range": "± 34012304",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #3",
+            "value": 644477833,
+            "range": "± 88705383",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Parallel (Metal) #4",
+            "value": 1731528417,
+            "range": "± 174176903",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal",
+            "value": 331414937,
+            "range": "± 50847622",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #2",
+            "value": 734376041,
+            "range": "± 40469577",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #3",
+            "value": 1905869208,
+            "range": "± 185034359",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_fft_metal #4",
+            "value": 6984536500,
+            "range": "± 654459889",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal",
+            "value": 851179583,
+            "range": "± 46847022",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #2",
+            "value": 1808817875,
+            "range": "± 111615494",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #3",
+            "value": 4120159083,
+            "range": "± 319064107",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/interpolate_fft_metal #4",
+            "value": 8614667229,
+            "range": "± 1672637117",
             "unit": "ns/iter"
           }
         ]
