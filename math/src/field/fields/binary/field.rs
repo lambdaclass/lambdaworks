@@ -32,6 +32,8 @@ pub trait BinaryFieldConfig: Clone + Copy + fmt::Debug {
     const PRIMITIVE_POLY: u128;
 }
 
+// TODO: F128, F2, F32
+
 /// Binary field structure parametrized by a configuration.
 #[derive(Clone, Debug)]
 pub struct BinaryField<C: BinaryFieldConfig>(PhantomData<C>);
