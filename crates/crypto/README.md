@@ -8,7 +8,7 @@
 Add this to your `Cargo.toml`
 ```toml
 [dependencies]
-lambdaworks-crypto = "0.11.0"
+lambdaworks-crypto = "0.12.0"
 ```
 
 ## Structure
