@@ -1,19 +1,19 @@
 # lambdaworks Fields
 
 This folder contains the different field backends, including field extensions. To learn how to use our fields, see the [examples](https://github.com/lambdaclass/lambdaworks/blob/main/examples/README.md) under basic use of finite fields. Below we give a list of currently supported fields; if yours is not on the list, you can add it by implementing the traits and providing the constants.
-- [Stark-252](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/field/fields/fft_friendly/stark_252_prime_field.rs): the field currently used by Starknet and STARK Platinum prover. FFT-friendly.
-- [Mini-Goldilocks](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/field/fields/fft_friendly/u64_goldilocks.rs), also known as oxfoi prime ($2^{64} - 2^{32} + 1$). FFT-friendly.
-- [Pallas base field](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/field/fields/pallas_field.rs): this is also the scalar field of the Vesta elliptic curve.
-- [Vesta base field](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/field/fields/vesta_field.rs): this is also the scalar field of the Pallas elliptic curve.
-- [Goldilocks-448](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/field/fields/p448_goldilocks_prime_field.rs)
-- [Mersenne-31](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/field/fields/mersenne31/field.rs): $2^{31} - 1$ and its [quadratic extension](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/field/fields/mersenne31/extension.rs)
-- [Baby Bear](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/field/fields/fft_friendly/babybear.rs) and its [quadratic extension](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/field/fields/fft_friendly/quadratic_babybear.rs): FFT-friendly, $2^{31} - 2^{27} + 1$.
-- [Scalar field of BN-254](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/elliptic_curve/short_weierstrass/curves/bn_254/default_types.rs), and its quadratic extension, quartic, sextic and twelth degree extensions. This coincides with the base field of [Grumpkin](../elliptic_curve/short_weierstrass/curves/grumpkin/curve.rs)
-- [Base field of BN-254](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/elliptic_curve/short_weierstrass/curves/bn_254/field_extension.rs) and its quadratic extension. The base field coincides with the scalar field of [Grumpkin](../elliptic_curve/short_weierstrass/curves/grumpkin/curve.rs)
-- [Scalar field of BLS12-381](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/elliptic_curve/short_weierstrass/curves/bls12_381/default_types.rs), and its quadratic, sextic and twelth degree extensions. FFT-friendly.
-- [Base field of BLS12-381](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/elliptic_curve/short_weierstrass/curves/bls12_381/field_extension.rs) 
-- [Scalar field of BLS12-377](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/elliptic_curve/short_weierstrass/curves/bls12_377/curve.rs)
-- [Base field of BLS12-377](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/elliptic_curve/short_weierstrass/curves/bls12_377/field_extension.rs)
+- [Stark-252](./fields/fft_friendly/stark_252_prime_field.rs): the field currently used by Starknet and STARK Platinum prover. FFT-friendly.
+- [Mini-Goldilocks](./fields/fft_friendly/u64_goldilocks.rs), also known as oxfoi prime ($2^{64} - 2^{32} + 1$). FFT-friendly.
+- [Pallas base field](./fields/pallas_field.rs): this is also the scalar field of the Vesta elliptic curve.
+- [Vesta base field](./fields/vesta_field.rs): this is also the scalar field of the Pallas elliptic curve.
+- [Goldilocks-448](./fields/p448_goldilocks_prime_field.rs)
+- [Mersenne-31](./fields/mersenne31/): $2^{31} - 1$ and its [quadratic extension](./fields/mersenne31/extensions.rs)
+- [Baby Bear](./fields/fft_friendly/babybear_u32.rs) and its [quadratic extension](./fields/fft_friendly/quadratic_babybear.rs): FFT-friendly, $2^{31} - 2^{27} + 1$.
+- [Scalar field of BN-254](../elliptic_curve/short_weierstrass/curves/bn_254/default_types.rs), and its quadratic extension, quartic, sextic and twelth degree extensions. This coincides with the base field of [Grumpkin](../elliptic_curve/short_weierstrass/curves/grumpkin/curve.rs)
+- [Base field of BN-254](../elliptic_curve/short_weierstrass/curves/bn_254/field_extension.rs) and its quadratic extension. The base field coincides with the scalar field of [Grumpkin](../elliptic_curve/short_weierstrass/curves/grumpkin/curve.rs)
+- [Scalar field of BLS12-381](../elliptic_curve/short_weierstrass/curves/bls12_381/default_types.rs), and its quadratic, sextic and twelth degree extensions. FFT-friendly.
+- [Base field of BLS12-381](../elliptic_curve/short_weierstrass/curves/bls12_381/field_extension.rs) 
+- [Scalar field of BLS12-377](../elliptic_curve/short_weierstrass/curves/bls12_377/curve.rs)
+- [Base field of BLS12-377](../elliptic_curve/short_weierstrass/curves/bls12_377/field_extension.rs)
 - [Base field of secp256k1](./fields/secp256k1_field.rs): the base field of Bitcoin's elliptic curve.
 - [Scalar field of secp256k1](./fields/secp256k1_scalarfield.rs): the scalar field of Bitcoin's elliptic curve.
 

@@ -1,10 +1,10 @@
 # lambdaworks Polynomials
 
 Contains all the relevant tools for polynomials. Supports:
-- [Univariate polynomials](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/polynomial/mod.rs)
-- [Dense Multivariate polynomials](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/polynomial/dense_multilinear_poly.rs) and [Sparse Multilinear polynomials](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/polynomial/sparse_multilinear_poly.rs)
+- [Univariate polynomials](./mod.rs)
+- [Dense Multivariate polynomials](../polynomial/dense_multilinear_poly.rs) and [Sparse Multilinear polynomials](../polynomial/sparse_multilinear_poly.rs)
 
-lambdaworks's polynomials work over [Finite Fields](https://github.com/lambdaclass/lambdaworks/tree/main/math/src/field).
+lambdaworks's polynomials work over [Finite Fields](../field/README.md).
 
 ## Univariate polynomials
 
@@ -65,4 +65,4 @@ Alternatively, polynomials of degree $n$ can be defined by providing exactly $n 
 let p = Polynomial::interpolate(&[FE::new(0), FE::new(1)], &[FE::new(2), FE::new(1)]).unwrap();
 ```
 
-Many polynomial operations can go faster by using the [Fast Fourier Transform](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/fft/polynomial.rs).
+Many polynomial operations can go faster by using the [Fast Fourier Transform](../fft/polynomial.rs).

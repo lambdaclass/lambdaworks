@@ -1,9 +1,9 @@
 # Elliptic curves
 
 This folder contains the different elliptic curve models currently supported by lambdaworks. For an overview of the curve models, their addition formulas and coordinate systems, see [Hyperelliptic](https://hyperelliptic.org/EFD/g1p/index.html). The models currently supported are:
-- [Short Weierstrass](https://github.com/lambdaclass/lambdaworks/tree/main/math/src/elliptic_curve/short_weierstrass)
-- [Twisted Edwards](https://github.com/lambdaclass/lambdaworks/tree/main/math/src/elliptic_curve/edwards)
-- [Montgomery](https://github.com/lambdaclass/lambdaworks/tree/main/math/src/elliptic_curve/montgomery)
+- [Short Weierstrass](./short_weierstrass/)
+- [Twisted Edwards](./edwards/)
+- [Montgomery](./montgomery/)
 
 Each of the curve models can have one or more coordinate systems, such as homogeneous projective, Jacobian, XZ coordinates, etc. These are used for reasons of performance. It is possible to define an operation, $\oplus$, taking two points over an elliptic curve, $E$ and obtain a third one, such that $(E, \oplus)$ is a group.
 
@@ -12,13 +12,13 @@ This part makes use of lambdaworks finite fields. If you are unfamiliar with it 
 ## Short Weierstrass
 
 The following curves are currently supported:
-- [BLS12-377](https://github.com/lambdaclass/lambdaworks/tree/main/math/src/elliptic_curve/short_weierstrass/curves/bls12_377), a pairing-friendly elliptic curve (pairing implementation pending).
-- [BLS12-381](https://github.com/lambdaclass/lambdaworks/tree/main/math/src/elliptic_curve/short_weierstrass/curves/bls12_381), a pairing-friendly elliptic curve.
-- [BN-254](https://github.com/lambdaclass/lambdaworks/tree/main/math/src/elliptic_curve/short_weierstrass/curves/bn_254), a pairing-friendly elliptic curve. Used on Ethereum.
-- [Grumpkin](https://github.com/lambdaclass/lambdaworks/tree/main/math/src/elliptic_curve/short_weierstrass/curves/grumpkin), an elliptic curve that forms a two-cycle with BN-254. This means that the base field for Grumpkin (where the coordinates $x,y$ live) is the scalar field of BN-254 (the field with order equal to the order of the group of the elliptic curve), and the scalar field for Grumpkin is the base field of BN-254.
-- [Pallas](https://github.com/lambdaclass/lambdaworks/tree/main/math/src/elliptic_curve/short_weierstrass/curves/pallas), useful for recursive SNARKs when used with Vesta.
-- [Vesta](https://github.com/lambdaclass/lambdaworks/tree/main/math/src/elliptic_curve/short_weierstrass/curves/vesta), useful for recursive SNARKs when used with Pallas.
-- [Starknet's curve](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/elliptic_curve/short_weierstrass/curves/stark_curve.rs)
+- [BLS12-377](./short_weierstrass/curves/bls12_377/), a pairing-friendly elliptic curve (pairing implementation pending).
+- [BLS12-381](./short_weierstrass/curves/bls12_381/), a pairing-friendly elliptic curve.
+- [BN-254](./short_weierstrass/curves/bn_254/), a pairing-friendly elliptic curve. Used on Ethereum.
+- [Grumpkin](./short_weierstrass/curves/grumpkin/), an elliptic curve that forms a two-cycle with BN-254. This means that the base field for Grumpkin (where the coordinates $x,y$ live) is the scalar field of BN-254 (the field with order equal to the order of the group of the elliptic curve), and the scalar field for Grumpkin is the base field of BN-254.
+- [Pallas](./short_weierstrass/curves/pallas/), useful for recursive SNARKs when used with Vesta.
+- [Vesta](./short_weierstrass/curves/vesta/), useful for recursive SNARKs when used with Pallas.
+- [Starknet's curve](./short_weierstrass/curves/stark_curve.rs)
 - [secp256k1](./short_weierstrass/curves/secp256k1/curve.rs): Bitcoin's curve. The implementation is not constant time, so it cannot be used to sign messages!
 - [secq256k1](./short_weierstrass/curves/secq256k1/curve.rs): It has the same curve equation as secp256k1, a different generator and their order r and the modulus p are swapped. It uses ```secp256k1_scalarfield``` as a base field, which has modulus r.
 - [secp256r1](./short_weierstrass/curves/secp256r1/curve.rs): Used for digital signatures, also known as: P-256 and prime256v1.
@@ -26,14 +26,14 @@ The following curves are currently supported:
 ## Twisted Edwards
 
 The following curves are currently supported:
-- [Ed448Goldilocks](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/elliptic_curve/edwards/curves/ed448_goldilocks.rs)
-- [Bandersnatch](https://github.com/lambdaclass/lambdaworks/tree/main/math/src/elliptic_curve/edwards/curves/bandersnatch)
-- [TinyJubJub](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/elliptic_curve/edwards/curves/tiny_jub_jub.rs), only for learning purposes.
+- [Ed448Goldilocks](./edwards/curves/ed448_goldilocks.rs)
+- [Bandersnatch](./edwards/curves/bandersnatch/)
+- [TinyJubJub](./edwards/curves/tiny_jub_jub.rs), only for learning purposes.
 
 ## Montgomery
 
 The following curves are currently supported:
-- [TinyJubJub](https://github.com/lambdaclass/lambdaworks/blob/main/math/src/elliptic_curve/montgomery/curves/tiny_jub_jub.rs), only for learning purposes.
+- [TinyJubJub](./montgomery/curves/tiny_jub_jub.rs), only for learning purposes.
 
 ## Implementing Elliptic Curves in lambdaworks
 

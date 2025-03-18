@@ -40,17 +40,17 @@ So, we decided to build our library, focusing on performance, with clear documen
 
 ## Main crates
 
-- [Math](https://github.com/lambdaclass/lambdaworks/tree/main/math)
-- [Crypto primitives](https://github.com/lambdaclass/lambdaworks/tree/main/crypto)
-- [STARK Prover](https://github.com/lambdaclass/lambdaworks/tree/main/provers/stark)
-- [Plonk Prover](https://github.com/lambdaclass/lambdaworks/tree/main/provers/plonk)
-- [Groth 16](https://github.com/lambdaclass/lambdaworks/tree/main/provers/groth16)
+- [Math](./crates/math)
+- [Crypto primitives](./crates/crypto/)
+- [STARK Prover](./crates/provers/stark/)
+- [Plonk Prover](./crates/provers/plonk/)
+- [Groth 16](./crates/provers/groth16/)
 
 ### Crypto
 
-- [Elliptic curves](https://github.com/lambdaclass/lambdaworks/tree/main/math/src/elliptic_curve)
-- [Multiscalar multiplication](https://github.com/lambdaclass/lambdaworks/tree/main/math/src/msm)
-- [Hashes](https://github.com/lambdaclass/lambdaworks/tree/main/crypto/src/hash)
+- [Elliptic curves](./crates/math/src/elliptic_curve/)
+- [Multiscalar multiplication](./crates/math/src/msm/)
+- [Hashes](./crates/crypto/src/hash/)
 
 Most of math and crypto crates supports no-std without allocation with `no-default-features`. A few functions and modules require the `alloc` feature.
 
@@ -58,7 +58,7 @@ Both Math and Crypto support wasm with target `wasm32-unknown-unknown`. To see a
 
 ## Exercises and Challenges
 
-- [lambdaworks exercises and challenges](https://github.com/lambdaclass/lambdaworks_exercises/tree/main)
+- [lambdaworks exercises and challenges](./exercises/)
 - [Roadmap for Sparkling Water Bootcamp](https://github.com/lambdaclass/sparkling_water_bootcamp/blob/main/README.md)
 
 ## Citing lambdaworks
