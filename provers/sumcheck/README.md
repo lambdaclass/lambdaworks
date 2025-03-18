@@ -4,9 +4,9 @@ A naive implementation of the Sumcheck Protocol.
 
 ## Overview
 
-The Sumcheck Protocol allows a prover to convince a verifier that the sum of a multivariate polynomial over the Boolean hypercube equals a claimed value, without the verifier having to compute the entire sum.
+The Sumcheck Protocol allows a prover to convince a verifier that the sum of a multivariate polynomial over the Boolean hypercube equals a claimed value without the verifier having to compute the entire sum.
 
-It is an essential building block for many SNARK protocols, given that it reduces the complexity of computing the sum to summing $O(\nu)$, plus an evaluation at a random point.
+It is an essential building block for many SNARK protocols, given that it reduces the complexity of computing the sum to performing $O(\nu)$ additions, plus an evaluation at a random point.
 
 The protocol proceeds in rounds, with one round per variable of the multivariate polynomial. In each round, the prover sends a univariate polynomial, and the verifier responds with a random challenge. This process reduces a claim about a multivariate polynomial to a claim about a single evaluation point.
 
