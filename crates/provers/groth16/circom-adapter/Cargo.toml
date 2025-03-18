@@ -8,7 +8,8 @@ repository.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-lambdaworks-math = { path = "../../../math" }
-lambdaworks-groth16 = { path = "../" }
+lambdaworks-math.workspace = true
+lambdaworks-groth16.workspace = true
+
 serde = { version = "1.0" }
 serde_json = "1"

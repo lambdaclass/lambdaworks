@@ -9,9 +9,13 @@ license.workspace = true
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-lambdaworks-math = { workspace = true , features = ["std", "lambdaworks-serde-binary"] }
+lambdaworks-math = { workspace = true, features = [
+    "std",
+    "lambdaworks-serde-binary",
+] }
 lambdaworks-crypto = { workspace = true, features = ["std", "serde"] }
-miden-core = { git="https://github.com/lambdaclass/miden-vm", optional=true}
+
+miden-core = { git = "https://github.com/lambdaclass/miden-vm", optional = true }
 
 rand = "0.8.5"
 thiserror = "1.0.38"
@@ -30,7 +34,7 @@ rayon = { version = "1.8.0", optional = true }
 wasm-bindgen = { version = "0.2", optional = true }
 serde-wasm-bindgen = { version = "0.5", optional = true }
 web-sys = { version = "0.3.64", features = ['console'], optional = true }
-serde_cbor = { version = "0.11.1"}
+serde_cbor = { version = "0.11.1" }
 
 [dev-dependencies]
 hex = "0.4.3"
@@ -44,7 +48,7 @@ wasm-bindgen-test = "0.3.0"
 
 [features]
 test_fiat_shamir = []
-instruments = []                   # This enables timing prints in prover and verifier
+instruments = []                                                     # This enables timing prints in prover and verifier
 metal = ["lambdaworks-math/metal"]
 parallel = ["dep:rayon", "lambdaworks-crypto/parallel"]
 wasm = ["dep:wasm-bindgen", "dep:serde-wasm-bindgen", "dep:web-sys"]
