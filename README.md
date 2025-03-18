@@ -7,6 +7,7 @@ This library provides efficient implementation of cryptographic primitives used 
 - [Transforming the Future with Zero-Knowledge Proofs, Fully Homomorphic Encryption and new Distributed Systems algorithms](https://blog.lambdaclass.com/transforming-the-future-with-zero-knowledge-proofs-fully-homomorphic-encryption-and-new-distributed-systems-algorithms/)
 - [Lambda Crypto Doctrine](https://blog.lambdaclass.com/lambda-crypto-doctrine/)
 
+[![Github Build](https://github.com/lambdaclass/lambdaworks/actions/workflows/ci.yaml/badge.svg)](https://github.com/lambdaclass/lambdaworks/actions)
 [![Telegram Chat][tg-badge]][tg-url]
 [![codecov](https://img.shields.io/codecov/c/github/lambdaclass/lambdaworks)](https://codecov.io/gh/lambdaclass/lambdaworks)
 
