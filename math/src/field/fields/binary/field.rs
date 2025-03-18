@@ -5,13 +5,13 @@ use std::iter::{Product, Sum};
 #[derive(Debug)]
 pub enum BinaryFieldError {
     /// Attempt to create an invalid field element.
-    InvalidElement,
-    /// Number of levels is too large for u128 representation
-    LevelTooLarge,
-    /// Value too large for the given number of levels
-    ValueTooLarge,
-    /// Trying to use num_level 0 with a value larger than 1
-    InvalidLevelZero,
+    // InvalidElement,
+    // /// Number of levels is too large for u128 representation
+    // LevelTooLarge,
+    // /// Value too large for the given number of levels
+    // ValueTooLarge,
+    // /// Trying to use num_level 0 with a value larger than 1
+    // InvalidLevelZero,
     /// Attempt to compute inverse of zero
     InverseOfZero,
 }
@@ -30,53 +30,50 @@ pub struct TowerFieldElement {
 }
 
 impl TowerFieldElement {
-    // Constructor that validates input and returns a Result
-    pub fn new_2(value: u128, num_level: usize) -> Result<Self, BinaryFieldError> {
-        // Check that num_level is not too large for u128
-        if num_level > 7 {
-            return Err(BinaryFieldError::LevelTooLarge);
-        }
+    // // Constructor that validates input and returns a Result
+    // pub fn new_2(value: u128, num_level: usize) -> Result<Self, BinaryFieldError> {
+    //     // Check that num_level is not too large for u128
+    //     if num_level > 7 {
+    //         return Err(BinaryFieldError::LevelTooLarge);
+    //     }
 
-        // Level 0 can only represent 0 and 1
-        if num_level == 0 && value > 1 {
-            return Err(BinaryFieldError::InvalidLevelZero);
-        }
+    //     // Level 0 can only represent 0 and 1
+    //     if num_level == 0 && value > 1 {
+    //         return Err(BinaryFieldError::InvalidLevelZero);
+    //     }
 
-        let num_bits = 1 << num_level;
+    //     let num_bits = 1 << num_level;
 
-        // If value doesn't fit in the level given as num_level
-        if value > ((1 << num_bits) - 1) {
-            return Err(BinaryFieldError::ValueTooLarge);
-        }
+    //     // If value doesn't fit in the level given as num_level
+    //     if value > ((1 << num_bits) - 1) {
+    //         return Err(BinaryFieldError::ValueTooLarge);
+    //     }
 
-        Ok(Self {
-            value,
-            num_level,
-            num_bits,
-        })
-    }
+    //     Ok(Self {
+    //         value,
+    //         num_level,
+    //         num_bits,
+    //     })
+    // }
 
     // Constructor that always succeeds by masking the value
 
     // Re do this function, I don't complete understand it
+    // Based on ingonyama.
     pub fn new(val: u128, num_level: usize) -> Self {
-        // Limit num_level to a maximum valid value for u128
-        let safe_level = if num_level > 7 { 7 } else { num_level };
-
-        let bits = 1 << safe_level;
+        let bits = 1 << num_level;
         let mask = if bits >= 128 {
             u128::MAX
         } else {
+            // For example, if bits = 8. (1 << bits) - 1 = 11111111
             (1 << bits) - 1
         };
-
         Self {
             value: val & mask,
-            num_level: safe_level,
+            num_level: num_level,
             num_bits: bits,
         }
     }
-
     /// Returns true if the element is zero
     pub fn is_zero(&self) -> bool {
         self.value == 0
@@ -116,10 +113,10 @@ impl TowerFieldElement {
         format!("{:0width$b}", self.value, width = self.num_bits)
     }
 
-    /// Returns binary string representation (for TowerField trait compatibility)
-    pub fn bin(&self) -> String {
-        self.to_binary_string()
-    }
+    // /// Returns binary string representation (for TowerField trait compatibility)
+    // pub fn bin(&self) -> String {
+    //     self.to_binary_string()
+    // }
 
     /// Splits element into high and low parts
     pub fn split(&self) -> (Self, Self) {
@@ -257,6 +254,9 @@ impl TowerFieldElement {
     }
 
     // Helper method that handles addition with different sizes
+    // Use Ingoya's implementation
+    // TO DO : Benchmark this implementation vs Ingoyama
+    // Diego's style
     fn add_elements(&self, other: &Self) -> Self {
         if self.num_level > other.num_level {
             let mask = (1 << other.num_bits) - 1;
@@ -496,30 +496,6 @@ impl Default for TowerFieldElement {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_new_2_validation() {
-        // Test with valid parameters
-        assert!(TowerFieldElement::new_2(3, 2).is_ok());
-
-        // Test with level too large
-        assert!(matches!(
-            TowerFieldElement::new_2(0, 8),
-            Err(BinaryFieldError::LevelTooLarge)
-        ));
-
-        // Test with value too large for level
-        assert!(matches!(
-            TowerFieldElement::new_2(4, 1), // Level 1 can only store 0-3
-            Err(BinaryFieldError::ValueTooLarge)
-        ));
-
-        // Test with level 0 and value > 1
-        assert!(matches!(
-            TowerFieldElement::new_2(2, 0),
-            Err(BinaryFieldError::InvalidLevelZero)
-        ));
-    }
 
     #[test]
     fn test_new_safe() {
