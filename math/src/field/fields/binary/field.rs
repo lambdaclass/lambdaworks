@@ -57,6 +57,8 @@ impl TowerFieldElement {
     }
 
     // Constructor that always succeeds by masking the value
+
+    // Re do this function, I don't complete understand it
     pub fn new(val: u128, num_level: usize) -> Self {
         // Limit num_level to a maximum valid value for u128
         let safe_level = if num_level > 7 { 7 } else { num_level };
