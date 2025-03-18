@@ -17,6 +17,8 @@ serde_json = { version = "1.0", default-features = false, features = [
 proptest = { version = "1.1.0", optional = true }
 winter-math = { package = "winter-math", version = "0.6.4", default-features = false, optional = true }
 miden-core = { package = "miden-core", version = "0.7", default-features = false, optional = true }
+rand = { version = "0.8.5", optional = true }
+num = { version = "0.4", default-features = false }
 
 # rayon
 rayon = { version = "1.7", optional = true }
@@ -51,6 +53,7 @@ lambdaworks-serde-string = ["dep:serde", "dep:serde_json", "alloc"]
 proptest = ["dep:proptest"]
 winter_compatibility = ["winter-math", "miden-core"]
 instruments = []
+rand = ["dep:rand"]
 
 # gpu
 metal = [

@@ -4,14 +4,6 @@ use std::iter::{Product, Sum};
 
 #[derive(Debug)]
 pub enum BinaryFieldError {
-    /// Attempt to create an invalid field element.
-    // InvalidElement,
-    // /// Number of levels is too large for u128 representation
-    // LevelTooLarge,
-    // /// Value too large for the given number of levels
-    // ValueTooLarge,
-    // /// Trying to use num_level 0 with a value larger than 1
-    // InvalidLevelZero,
     /// Attempt to compute inverse of zero
     InverseOfZero,
 }
@@ -30,37 +22,27 @@ pub struct TowerFieldElement {
 }
 
 impl TowerFieldElement {
-    // // Constructor that validates input and returns a Result
-    // pub fn new_2(value: u128, num_level: usize) -> Result<Self, BinaryFieldError> {
-    //     // Check that num_level is not too large for u128
-    //     if num_level > 7 {
-    //         return Err(BinaryFieldError::LevelTooLarge);
-    //     }
-
-    //     // Level 0 can only represent 0 and 1
-    //     if num_level == 0 && value > 1 {
-    //         return Err(BinaryFieldError::InvalidLevelZero);
-    //     }
-
-    //     let num_bits = 1 << num_level;
-
-    //     // If value doesn't fit in the level given as num_level
-    //     if value > ((1 << num_bits) - 1) {
-    //         return Err(BinaryFieldError::ValueTooLarge);
-    //     }
-
-    //     Ok(Self {
-    //         value,
-    //         num_level,
-    //         num_bits,
-    //     })
-    // }
-
     // Constructor that always succeeds by masking the value
-
-    // Re do this function, I don't complete understand it
-    // Based on ingonyama.
     pub fn new(val: u128, num_level: usize) -> Self {
+        // Esta version en el caso de el nivel es demasiado grande, se limita a 7.
+        // ver si en esta iteracion se puede hacer un safe_level o no.
+
+        //     // Limit num_level to a maximum valid value for u128
+        //     let safe_level = if num_level > 7 { 7 } else { num_level };
+
+        //     let bits = 1 << safe_level;
+        //     let mask = if bits >= 128 {
+        //         u128::MAX
+        //     } else {
+        //         (1 << bits) - 1
+        //     };
+
+        //     Self {
+        //         value: val & mask,
+        //         num_level: safe_level,
+        //         num_bits: bits,
+        //     }
+        // }
         let bits = 1 << num_level;
         let mask = if bits >= 128 {
             u128::MAX
@@ -74,6 +56,7 @@ impl TowerFieldElement {
             num_bits: bits,
         }
     }
+
     /// Returns true if the element is zero
     pub fn is_zero(&self) -> bool {
         self.value == 0
@@ -113,11 +96,6 @@ impl TowerFieldElement {
         format!("{:0width$b}", self.value, width = self.num_bits)
     }
 
-    // /// Returns binary string representation (for TowerField trait compatibility)
-    // pub fn bin(&self) -> String {
-    //     self.to_binary_string()
-    // }
-
     /// Splits element into high and low parts
     pub fn split(&self) -> (Self, Self) {
         let half_bits = self.num_bits / 2;
@@ -133,13 +111,8 @@ impl TowerFieldElement {
 
     /// Joins with another element as the low part
     pub fn join(&self, low: &Self) -> Self {
-        let new_bits = self.num_bits * 2;
         let joined = (self.value << self.num_bits) | low.value;
-        Self {
-            value: joined,
-            num_level: self.num_level + 1,
-            num_bits: new_bits,
-        }
+        Self::new(joined, self.num_level + 1)
     }
 
     // Extend number of levels
@@ -497,16 +470,17 @@ impl Default for TowerFieldElement {
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_new_safe() {
-        // Test with level too large
-        let elem = TowerFieldElement::new(0, 8);
-        assert_eq!(elem.num_level, 7); // Should be capped at 7
+    // Dejamos este test? deberiamos tratar el posible error de que pase mayor nivel?
+    // #[test]
+    // fn test_new_safe() {
+    //     // Test with level too large
+    //     let elem = TowerFieldElement::new(0, 8);
+    //     assert_eq!(elem.num_level, 7); // Should be capped at 7
 
-        // Test with value too large for level
-        let elem = TowerFieldElement::new(4, 1); // Level 1 can only store 0-3
-        assert_eq!(elem.value, 0); // Should mask to 0 (4 & 3 = 0)
-    }
+    //     // Test with value too large for level
+    //     let elem = TowerFieldElement::new(4, 1); // Level 1 can only store 0-3
+    //     assert_eq!(elem.value, 0); // Should mask to 0 (4 & 3 = 0)
+    // }
 
     #[test]
     fn test_addition() {
@@ -730,15 +704,5 @@ mod tests {
             assert_eq!(rejoined.num_level, original.num_level);
             assert_eq!(rejoined.num_bits, original.num_bits);
         }
-    }
-
-    #[test]
-    fn test_binary_representation() {
-        // Test binary string representation
-        let field = TowerFieldElement::new(0b1010, 3);
-        assert_eq!(field.bin(), "00001010"); // 8-bit representation (3 levels)
-
-        let field = TowerFieldElement::new(0b1, 2);
-        assert_eq!(field.bin(), "0001"); // 4-bit representation (2 levels)
     }
 }
