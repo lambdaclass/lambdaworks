@@ -12,10 +12,9 @@ pub enum BinaryFieldError {
 pub struct TowerFieldElement {
     /// The underlying value
     pub value: u128,
-    /// Number of levels in the tower.
-    /// It's the degree of the field extension that the element belongs to.
+    /// Number of the level in the tower.
     pub num_level: usize,
-    /// Number of bits (2^num_levels)
+    /// Number of bits needed for that level (2^num_levels).
     /// It's the order of the field extension that the element belongs to.
     /// Is it better to have a function num_bits(){ 1<<num_levels }?
     pub num_bits: usize,
