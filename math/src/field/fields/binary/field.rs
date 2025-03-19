@@ -16,42 +16,26 @@ pub struct TowerFieldElement {
     pub num_level: usize,
     /// Number of bits needed for that level (2^num_levels).
     /// It's the order of the field extension that the element belongs to.
-    /// Is it better to have a function num_bits(){ 1<<num_levels }?
+    /// QUESTION: Is it better to have a function num_bits(){ 1<<num_levels } ?
     pub num_bits: usize,
 }
 
 impl TowerFieldElement {
-    // Constructor that always succeeds by masking the value
+    // Constructor that always succeeds by masking the value and limiting the level.
     pub fn new(val: u128, num_level: usize) -> Self {
-        // Esta version en el caso de el nivel es demasiado grande, se limita a 7.
-        // ver si en esta iteracion se puede hacer un safe_level o no.
+        // Limit num_level to a maximum valid value for u128.
+        let safe_level = if num_level > 7 { 7 } else { num_level };
 
-        //     // Limit num_level to a maximum valid value for u128
-        //     let safe_level = if num_level > 7 { 7 } else { num_level };
-
-        //     let bits = 1 << safe_level;
-        //     let mask = if bits >= 128 {
-        //         u128::MAX
-        //     } else {
-        //         (1 << bits) - 1
-        //     };
-
-        //     Self {
-        //         value: val & mask,
-        //         num_level: safe_level,
-        //         num_bits: bits,
-        //     }
-        // }
-        let bits = 1 << num_level;
+        let bits = 1 << safe_level;
         let mask = if bits >= 128 {
             u128::MAX
         } else {
-            // For example, if bits = 8: (1 << bits) - 1 = 11111111
             (1 << bits) - 1
         };
+
         Self {
             value: val & mask,
-            num_level: num_level,
+            num_level: safe_level,
             num_bits: bits,
         }
     }
@@ -95,28 +79,33 @@ impl TowerFieldElement {
         format!("{:0width$b}", self.value, width = self.num_bits)
     }
 
-    /// Splits element into high and low parts
+    /// Splits element into high and low parts.
+    /// For example, if a = xy + y + x = (x + 1)y + x
+    /// then, a_hi = x + 1 and a_lo = x.
     pub fn split(&self) -> (Self, Self) {
-        let half_bits = self.num_bits / 2;
+        let half_bits = self.num_bits() / 2;
         let mask = (1 << half_bits) - 1;
-        let lo = self.value & mask;
-        let hi = (self.value >> half_bits) & mask;
+        let lo = self.value() & mask;
+        let hi = (self.value() >> half_bits) & mask;
 
         (
-            Self::new(hi, self.num_level - 1),
-            Self::new(lo, self.num_level - 1),
+            Self::new(hi, self.num_level() - 1),
+            Self::new(lo, self.num_level() - 1),
         )
     }
 
-    /// Joins with another element as the low part
+    /// Joins the hi and low part making a new element.
+    /// For example, if a_hi = x and a_low = 1
+    /// then a = xy + 1.
     pub fn join(&self, low: &Self) -> Self {
-        let joined = (self.value << self.num_bits) | low.value;
-        Self::new(joined, self.num_level + 1)
+        let joined = (self.value() << self.num_bits()) | low.value();
+        Self::new(joined, self.num_level() + 1)
     }
 
+    // QUESTION: Do we leave this?
     // Extend number of levels
     pub fn extend_num_levels(&mut self, new_levels: usize) {
-        if self.num_level < new_levels {
+        if self.num_level() < new_levels {
             self.set_num_levels(new_levels);
         }
     }
@@ -137,78 +126,64 @@ impl TowerFieldElement {
         Self::new(1, 0)
     }
 
-    /// Abstract multiplication helper (similar to binius implementation)
-    pub fn mul_abstract(
-        a_hi: &Self,
-        a_lo: &Self,
-        a_sum: &Self,
-        b_hi: &Self,
-        b_lo: &Self,
-        b_sum: &Self,
-    ) -> Self {
-        // Perform modular operations based on: x_i^2 = x_i * x_{i-1} + 1
-        let mut mx = a_hi.clone() * b_hi.clone(); // mx = a_hi * b_hi
-        let mut lo = a_lo.clone() * b_lo.clone(); // lo = a_lo * b_lo
-        let mx_num_level = mx.num_level;
-        let mx_num_bits = mx.num_bits;
-        lo = lo + mx.clone();
-
-        // mx * 2^(mx.num_half_bits())
-        mx = mx * Self::new(1 << (mx_num_bits / 2), mx_num_level);
-
-        // Perform hi operations
-        let mut hi = a_sum.clone() * b_sum.clone(); // hi = a_sum * b_sum
-        hi = hi + (lo.clone() + mx); // hi += lo + mx
-
-        // Concatenate hi and lo by shifting hi to make space for lo
-        hi.join(&lo)
-    }
-
-    /// Computes the multiplicative inverse of this element using a recursive algorithm
+    /// Computes the multiplicative inverse using Fermat's little theorem.
     /// Returns an error if the element is zero
+    /// FIXME: It works until level 4.
     pub fn inv(&self) -> Result<Self, BinaryFieldError> {
+        // if self.is_zero() {
+        //     return Err(BinaryFieldError::InverseOfZero);
+        // }
+
+        // // For F, the inverse of 1 is 1
+        // if self.num_level == 0 {
+        //     return Ok(self.clone());
+        // }
+
+        // // For small fields, use Fermat's little theorem
+        // if self.num_level <= 1 || self.num_bits <= 4 {
+        //     // Use Fermat's little theorem:
+        //     // In GF(2^n), x^(2^n-1) = 1 for any non-zero x
+        //     // Therefore x^(2^n-2) is the multiplicative inverse
+        //     return Ok(self.pow((1 << self.num_bits) - 2));
+        // }
+
+        // // For larger fields, use recursive algorithm
+
+        // TODO: what if a == mod.
         if self.is_zero() {
             return Err(BinaryFieldError::InverseOfZero);
         }
+        if self.num_level() <= 1 || self.num_bits() <= 4 {
+            let exponent = (1 << self.num_bits()) - 2;
+            Ok(Self::pow(self, exponent as u32))
+        } else {
+            // Split the element into high and low parts
+            let (a_hi, a_lo) = self.split();
 
-        // For F2, the inverse of 1 is 1
-        if self.num_level == 0 {
-            return Ok(self.clone());
+            // Compute 2^(k-1) where k = num_bits/2
+            let two_pow_k_minus_one =
+                Self::new(1 << ((self.num_bits() / 2) - 1), self.num_level() - 1);
+
+            // a = a_hi * x^k + a_lo
+            // a_lo_next = a_hi * x^(k-1) + a_lo
+            let a_lo_next = a_lo.clone() + a_hi.clone() * two_pow_k_minus_one;
+
+            // Δ = a_lo * a_lo_next + a_hi^2
+            let delta = a_lo.clone() * a_lo_next.clone() + a_hi.clone() * a_hi.clone();
+
+            // Compute inverse of delta recursively
+            let delta_inverse = delta.inv()?;
+
+            // Compute parts of the inverse
+            let out_hi = delta_inverse.clone() * a_hi;
+            let out_lo = delta_inverse * a_lo_next;
+
+            // Join the parts to get the final inverse
+            Ok(out_hi.join(&out_lo))
         }
-
-        // For small fields, use Fermat's little theorem
-        if self.num_level <= 1 || self.num_bits <= 4 {
-            // Use Fermat's little theorem:
-            // In GF(2^n), x^(2^n-1) = 1 for any non-zero x
-            // Therefore x^(2^n-2) is the multiplicative inverse
-            return Ok(self.pow((1 << self.num_bits) - 2));
-        }
-
-        // For larger fields, use recursive algorithm
-        let (a_hi, a_lo) = self.split();
-
-        // Compute 2^(k-1) where k = num_bits/2
-        let two_pow_k_minus_one = Self::new(1 << ((self.num_bits / 2) - 1), self.num_level - 1);
-
-        // a = a_hi * x^k + a_lo
-        // a_lo_next = a_hi * x^(k-1) + a_lo
-        let a_lo_next = a_lo.clone() + a_hi.clone() * two_pow_k_minus_one;
-
-        // Δ = a_lo * a_lo_next + a_hi^2
-        let delta = a_lo.clone() * a_lo_next.clone() + a_hi.clone() * a_hi.clone();
-
-        // Compute inverse of delta recursively
-        let delta_inverse = delta.inv()?;
-
-        // Compute parts of the inverse
-        let out_hi = delta_inverse.clone() * a_hi;
-        let out_lo = delta_inverse * a_lo_next;
-
-        // Join the parts to get the final inverse
-        Ok(out_hi.join(&out_lo))
     }
 
-    /// Calculate power
+    /// Calculate power.
     pub fn pow(&self, exp: u32) -> Self {
         let mut result = Self::one();
         let mut base = self.clone();
@@ -225,115 +200,33 @@ impl TowerFieldElement {
         result
     }
 
-    // Helper method that handles addition with different sizes
-    // Use Ingoya's implementation
-    // TO DO : Benchmark this implementation vs Ingoyama
-    // Diego's style
+    // We calculate a + b in the following way:
+    // - If both are of the same level, then a + b = a XOR b.
+    // - If a's level is larger than b's level, we take the last bits of a so that it has the same size as b,
+    // then we xor those bits with b and concatenate the rest of a with the result.
+    // Example: a = 1001 and b = 10
+    //   10 01
+    // +    10
+    // = 10 11
     fn add_elements(&self, other: &Self) -> Self {
-        if self.num_level > other.num_level {
-            let mask = (1 << other.num_bits) - 1;
-            // Lsb of a: get the last other.num_bits bits
-            let low = self.value & mask;
-            // Perform the addition (XOR) on the lower part
-            let result_low = low ^ other.value;
-            // Msb of a: get the remaining bits
-            let high = self.value >> other.num_bits;
-            // Combine the results
-            let result_value = (high << other.num_bits) | result_low;
+        if self.num_level() > other.num_level() {
+            let mask = (1 << other.num_bits()) - 1;
+            // Lsb of a: We get the last "b.num_bits" bits of a.
+            let low = self.value() & mask;
+            // Perform the addition (XOR) on the lower part.
+            let result_low = low ^ other.value();
+            // Msb of a: We get the remaining bits.
+            let high = self.value() >> other.num_bits();
+            // We concatenate both partis.
+            let result_value = (high << other.num_bits()) | result_low;
 
-            Self {
-                value: result_value,
-                num_level: self.num_level,
-                num_bits: self.num_bits,
-            }
-        } else if self.num_level < other.num_level {
-            // If other is larger, swap the arguments and call the same method
+            Self::new(result_value, self.num_level())
+        } else if self.num_level() < other.num_level() {
+            // If b is larger than a, we just swap the arguments and call the same method.
             other.add_elements(self)
         } else {
-            // Same size, just XOR
-            Self {
-                value: self.value ^ other.value,
-                num_level: self.num_level,
-                num_bits: self.num_bits,
-            }
-        }
-    }
-
-    // Helper method that handles multiplication with different sizes
-    fn mul_elements(&self, other: &Self) -> Self {
-        // Optimizations for 0 or 1
-        if self.is_zero() || other.is_zero() {
-            return Self::zero();
-        }
-        if self.is_one() {
-            return other.clone();
-        }
-        if other.is_one() {
-            return self.clone();
-        }
-
-        // If elements have different sizes
-        if self.num_level != other.num_level {
-            if self.num_level > other.num_level {
-                let mask = (1 << other.num_bits) - 1;
-                // Lower part
-                let low = self.value & mask;
-                // Calculate the lower part using multiplication at the smaller element level
-                let result_low = if other.value == 0 {
-                    0
-                } else {
-                    // Create an element of the smaller level
-                    let small_self = Self::new(low, other.num_level);
-                    // Multiply using existing logic
-                    let result = small_self.mul_elements(other);
-                    result.value
-                };
-
-                // Higher part
-                let high = self.value >> other.num_bits;
-                // Combine the results
-                let result_value = (high << other.num_bits) | result_low;
-
-                return Self {
-                    value: result_value,
-                    num_level: self.num_level,
-                    num_bits: self.num_bits,
-                };
-            } else {
-                // If the other element is larger, swap the arguments and call the same method
-                return other.mul_elements(self);
-            }
-        }
-
-        // If both elements have the same level
-        if self.num_level <= 1 {
-            // Special case for level 0 (F₂)
-            if self.num_level == 0 {
-                return Self::new(self.value & other.value, 0);
-            }
-
-            // Special case for level 1 (F₄)
-            let a_hi = (self.value >> 1) & 1;
-            let a_lo = self.value & 1;
-            let b_hi = (other.value >> 1) & 1;
-            let b_lo = other.value & 1;
-
-            let a_sum = a_hi ^ a_lo;
-            let b_sum = b_hi ^ b_lo;
-
-            let lo = a_lo * b_lo;
-            let hi = (a_sum * b_sum) ^ lo;
-            let lo = (a_hi * b_hi) ^ lo;
-
-            return Self::new(2 * hi + lo, 1);
-        } else {
-            // For higher levels, use Karatsuba
-            let (a_hi, a_lo) = self.split();
-            let (b_hi, b_lo) = other.split();
-            let a_sum = a_hi.clone() + a_lo.clone();
-            let b_sum = b_hi.clone() + b_lo.clone();
-
-            return Self::mul_abstract(&a_hi, &a_lo, &a_sum, &b_hi, &b_lo, &b_sum);
+            // If a and b have the same size, we just XOR them.
+            Self::new(self.value() ^ other.value(), self.num_level())
         }
     }
 }
@@ -383,21 +276,30 @@ impl Neg for TowerFieldElement {
 impl Mul for TowerFieldElement {
     type Output = Self;
 
+    // - If a and b are from the same level:
+    // a = a_hi * x_n + a_lo
+    // b = b_hi * x_n + b_lo
+    // Then a * b = (b_hi * a_hi * x_{n-1} + b_hi * a_lo + a_hi * b_lo ) * x_n + b_hi * a_hi + a_lo * b_lo.
+    // We calculate each product in the equation below using recursion.
+    //
+    // - if a's level is larger than b's level, we partition a until we have parts of the size of b and
+    // multiply each part by b.
     fn mul(self, other: Self) -> Self {
-        if self.num_level > other.num_level {
-            // Split a into two parts and call the same method for each part.
+        if self.num_level() > other.num_level() {
+            // We split a into two parts and call the same method to multiply each part by b.
             let (a_hi, a_lo) = self.split();
             // Join a_hi * b and a_lo * b.
             a_hi.mul(other).join(&a_lo.mul(other))
-        } else if self.num_level < other.num_level {
-            // If b is larger, swap the arguments and call the same method
+        } else if self.num_level() < other.num_level() {
+            // If b is larger than a, we swap the arguments and call the same method.
             other.mul(self)
         } else {
-            // Base case
-            if self.num_level == 0 {
+            // Base case:
+            if self.num_level() == 0 {
+                // In the binary base field, multiplication is the same as AND operation.
                 return Self::new(self.value() & other.value(), 0);
             }
-            // Recursion
+            // Recursion:
             let (a_hi, a_lo) = self.split();
             let (b_hi, b_lo) = other.split();
             // a_lo * b_lo
@@ -408,13 +310,13 @@ impl Mul for TowerFieldElement {
             let x = if self.num_level == 1 {
                 Self::new(1, 0)
             } else {
-                Self::new(1 << ((self.num_bits()) / 2), a_hi.num_level())
+                Self::new(1 << ((self.num_bits()) / 4), self.num_level() - 1)
             };
             // a_hi * b_hi * x_{n-1}
             let ah_bh_x = ah_bh.mul(x);
-            // (a_low + a_hi)(b_low + b_hi)
+            // We calculate (a_low + a_hi)(b_low + b_hi) to use Karatsuba.
             let ab = (a_lo + a_hi).mul(b_lo + b_hi);
-            // b_hi * a_lo + a_hi * b_lo =
+            // b_hi * a_lo + a_hi * b_lo
             let bhal_plus_ahbl = ab - al_bl - ah_bh;
             (ah_bh_x + bhal_plus_ahbl).join(&(ah_bh + al_bl))
         }
@@ -500,32 +402,30 @@ impl Default for TowerFieldElement {
 mod tests {
     use super::*;
 
-    // Dejamos este test? deberiamos tratar el posible error de que pase mayor nivel?
-    // #[test]
-    // fn test_new_safe() {
-    //     // Test with level too large
-    //     let elem = TowerFieldElement::new(0, 8);
-    //     assert_eq!(elem.num_level, 7); // Should be capped at 7
+    #[test]
+    fn test_new_safe() {
+        // Test with level too large
+        let elem = TowerFieldElement::new(0, 8);
+        assert_eq!(elem.num_level, 7); // Should be capped at 7
 
-    //     // Test with value too large for level
-    //     let elem = TowerFieldElement::new(4, 1); // Level 1 can only store 0-3
-    //     assert_eq!(elem.value, 0); // Should mask to 0 (4 & 3 = 0)
-    // }
+        // Test with value too large for level
+        let elem = TowerFieldElement::new(4, 1); // Level 1 can only store 0-3
+        assert_eq!(elem.value, 0); // Should mask to 0 (100 & 11 = 00)
+    }
 
     #[test]
     fn test_addition() {
-        let a = TowerFieldElement::new(5, 3); // 8 bits
+        let a = TowerFieldElement::new(5, 9); // 8 bits
         let b = TowerFieldElement::new(3, 2); // 4 bits
 
         let c = a + b;
         // 5 (0101) + 3 (0011) should be 6 (0110) at level 3
         assert_eq!(c.value, 6);
-        assert_eq!(c.num_level, 3);
+        assert_eq!(c.num_level, 7);
 
         // Test commutative property
         let d = b + a;
-        assert_eq!(d.value, 6);
-        assert_eq!(d.num_level, 3);
+        assert_eq!(d, c);
     }
 
     #[test]
@@ -550,62 +450,94 @@ mod tests {
     }
 
     #[test]
-    //TODO
     fn mul_in_level_2() {
-        let a = TowerFieldElement::new(00, 1); // 0
-        let b = TowerFieldElement::new(01, 1); // 1
-        let c = TowerFieldElement::new(10, 1); // x
-        let d = TowerFieldElement::new(11, 1); // x + 1
-        assert_eq!(a * a, a);
-        assert_eq!(a * b, a);
-        assert_eq!(b * c, c);
-        assert_eq!(c * d, b);
+        let a = TowerFieldElement::new(0b0000, 2); // 0
+        let b = TowerFieldElement::new(0b0001, 2); // 1
+        let c = TowerFieldElement::new(0b0010, 2); // x
+        let d = TowerFieldElement::new(0b0011, 2); // x + 1
+        let e = TowerFieldElement::new(0b0100, 2); // y
+        let f = TowerFieldElement::new(0b0101, 2); // y + 1
+        let g = TowerFieldElement::new(0b0110, 2); // y + x
+        let h = TowerFieldElement::new(0b0111, 2); // y + x + 1
+        let i = TowerFieldElement::new(0b1000, 2); // yx
+        let j = TowerFieldElement::new(0b1001, 2); // yx + 1
+        let k = TowerFieldElement::new(0b1010, 2); // yx + x
+        let l = TowerFieldElement::new(0b1011, 2); // yx + x + 1
+        let n = TowerFieldElement::new(0b1100, 2); // yx + y
+        let m = TowerFieldElement::new(0b1101, 2); // yx + y + 1
+        let o = TowerFieldElement::new(0b1110, 2); // yx + y + x
+        let p = TowerFieldElement::new(0b1111, 2); // yx + y + x + 1
+
+        assert_eq!(a * p, a); // 0 * (yx + y + x + 1) = 0
+        assert_eq!(a * l, a); // 0 * (yx + x + 1) = 0
+        assert_eq!(b * m, m); // 1 * 1 = 1
+        assert_eq!(c * e, i); // x * y = xy
+        assert_eq!(c * c, d); // x * x = x + 1
+        assert_eq!(g * h, n); //(y + x)(y + x + 1) = yx + y
+        assert_eq!(k * j, b); // (yx + x)(yx + 1) = 1
+        assert_eq!(j * f, d); // (yx + 1)(y + 1) = x + 1
+        assert_eq!(e * e, j); // y * y = yx + 1
+        assert_eq!(n * o, k); // (yx + y)(yx + y + x) = yx + x
     }
 
     #[test]
-    fn test_multiplication() {
+    fn mul_between_different_levels() {
+        let a = TowerFieldElement::new(0b10, 1); // x
+        let b = TowerFieldElement::new(0b0100, 2); // y
+        let c = TowerFieldElement::new(0b1000, 2); // yx
+        assert_eq!(a * b, c);
+    }
 
-        // // Case F₄ (2 bits)
-        // let a1 = TowerFieldElement::new(2, 1); // x
-        // let b1 = TowerFieldElement::new(3, 1); // x + 1
-        // let c1 = a1 * b1;
-        // assert_eq!(c1.value, 1); // x * (x + 1) = x² + x = 1 + x + x = 1
+    #[test]
+    fn test_correct_level_mul() {
+        let a = TowerFieldElement::new(0b1111, 5);
+        let b = TowerFieldElement::new(0b1010, 2);
+        assert_eq!((a * b).num_level, 5);
+    }
 
-        // // Case with different sizes
-        // let a2 = TowerFieldElement::new(10, 3); // Level 3 (8 bits)
-        // let b2 = TowerFieldElement::new(3, 1); // Level 1 (2 bits)
-        // let c2 = a2 * b2;
-        // // The result should have the level of the larger element
-        // assert_eq!(c2.num_level, 3);
+    #[test]
+    fn mul_is_asociative() {
+        let a = TowerFieldElement::new(83, 7);
+        let b = TowerFieldElement::new(31, 5);
+        let c = TowerFieldElement::new(3, 2);
+        let ab = a * b;
+        let bc = b * c;
+        assert_eq!(ab * c, a * bc);
+    }
 
-        // // Case of multiplication by 0 and 1
-        // let e = TowerFieldElement::new(42, 5);
-        // assert_eq!((e * TowerFieldElement::zero()).value, 0);
-        // assert_eq!((e * TowerFieldElement::one()).value, e.value);
+    #[test]
+    fn mul_is_conmutative() {
+        let a = TowerFieldElement::new(127, 7);
+        let b = TowerFieldElement::new(6, 3);
+        let ab = a * b;
+        let ba = b * a;
+        assert_eq!(ab, ba);
     }
 
     #[test]
     fn test_inverse() {
-        // Test inverse in F₂
+        // Test inverse in F
         let a0 = TowerFieldElement::new(1, 0);
         let inv_a0 = a0.inv().unwrap();
         assert_eq!(inv_a0.value, 1);
         assert_eq!(inv_a0.num_level, 0);
 
-        // Test inverse in F₄
-        let a1 = TowerFieldElement::new(2, 1); // element 'x' in F₄
+        // Test inverse in F2
+        let a1 = TowerFieldElement::new(2, 1);
         let inv_a1 = a1.inv().unwrap();
-        assert_eq!(inv_a1.value, 3); // inverse of 'x' is 'x+1' in F₄
+        assert_eq!(inv_a1.value, 3); // because 10 * 11 = 01.
         assert_eq!(inv_a1.num_level, 1);
 
         // Verify a * a^(-1) = 1
-        assert_eq!((a1 * inv_a1).value, 1);
-
-        // Test inverse in F₈
-        let a2 = TowerFieldElement::new(2, 2); // element 'x' in F₈
+        let a2 = TowerFieldElement::new(15, 4);
         let inv_a2 = a2.inv().unwrap();
-        // Verify a * a^(-1) = 1
-        assert_eq!((a2 * inv_a2).value, 1);
+        let one = TowerFieldElement::new(1, 4);
+        assert_eq!(a2 * inv_a2, one);
+
+        let a3 = TowerFieldElement::new(30, 5);
+        let inv_a3 = a2.inv().unwrap();
+        let one = TowerFieldElement::new(1, 5);
+        assert_eq!(a3 * inv_a3, one);
 
         // Test inverse of 0 returns error
         let zero = TowerFieldElement::zero();
@@ -613,134 +545,9 @@ mod tests {
     }
 
     #[test]
-    fn test_operations_different_levels() {
-        // Create elements of different levels
-        let a = TowerFieldElement::new(5, 3); // Level 3 (8 bits)
-        let b = TowerFieldElement::new(3, 1); // Level 1 (2 bits)
-
-        // Multiplication: should maintain the level of the larger element
-        let c = a * b;
-        assert_eq!(c.num_level, 3);
-
-        // Create specific values for controlled test
-        let x = TowerFieldElement::new(0b1010, 3); // Level 3: 1010 binary
-        let y = TowerFieldElement::new(0b11, 1); // Level 1: 11 binary
-
-        // Multiply
-        let result = x * y;
-
-        // Expected result: the lower 2 bits of x are multiplied by y
-        // 10 * 11 = 01 (multiplication in F₄)
-        // Result should be 1000 + 01 = 1001
-        // TODO: Isn't 101 the result? (doing it by hand).
-        //assert_eq!(result.value, 0b1001);
-        assert_eq!(result.value, 0b101);
-        assert_eq!(result.num_level, 3);
-
-        // Test commutative property
-        let result2 = y * x;
-        assert_eq!(result2.value, result.value);
-        assert_eq!(result2.num_level, result.num_level);
-
-        // Test multiplication between more levels
-        let z = TowerFieldElement::new(13, 4); // Level 4 (16 bits)
-        let big_result = z * y; // Level 4 * Level 1
-        assert_eq!(big_result.num_level, 4);
-
-        // Test multiplication by 0 and 1 across different levels
-        let zero = TowerFieldElement::zero(); // Level 0
-        let one = TowerFieldElement::one(); // Level 0
-
-        assert_eq!((x * zero).value, 0);
-        assert_eq!((x * one).value, x.value);
-        assert_eq!((z * zero).value, 0);
-        assert_eq!((z * one).value, z.value);
-    }
-
-    #[test]
-    fn test_mixed_operations() {
-        // Test combination of operations with different level elements
-        // For binary fields with our implementation, we need specific values
-        // to verify properties correctly
-
-        // Choose values where the distributive property will hold correctly
-        let a = TowerFieldElement::new(0b100, 3); // Level 3 (value 4)
-        let b = TowerFieldElement::new(0b11, 1); // Level 1 (value 3)
-        let c = TowerFieldElement::new(0b10, 2); // Level 2 (value 2)
-
-        // Compute (a + b) * c
-        let sum = a + b;
-        let result1 = sum * c;
-
-        // Compute a * c + b * c
-        let ac = a * c;
-        let bc = b * c;
-        let result2 = ac + bc;
-
-        // Verify distributive property
-        assert_eq!(result1.value, result2.value);
-        assert_eq!(result1.num_level, result2.num_level);
-    }
-
-    #[test]
-    fn test_multiplication_associativity() {
-        // Test associativity of multiplication
-        let a = TowerFieldElement::new(0x1F, 4); // Level 4 (16 bits)
-        let b = TowerFieldElement::new(0x2A, 4);
-        let c = TowerFieldElement::new(0x35, 4);
-
-        // Multiplication associativity: (a * b) * c = a * (b * c)
-        let left = (a * b) * c;
-        let right = a * (b * c);
-
-        assert_eq!(left.value, right.value);
-        assert_eq!(left.num_level, right.num_level);
-        // coment
-    }
-
-    #[test]
-    fn test_multiplication_special_cases() {
-        // Test multiplication by zero and one across different levels
-        let levels = [1, 2, 3, 4];
-
-        for &level in &levels {
-            let a = TowerFieldElement::new(0x1F, level);
-            let zero = TowerFieldElement::zero();
-            let one = TowerFieldElement::one();
-
-            // Multiplication by zero
-            assert_eq!((a * zero).value, 0);
-            assert_eq!((zero * a).value, 0);
-
-            // Multiplication by one
-            assert_eq!((a * one).value, a.value);
-            assert_eq!((one * a).value, a.value);
-        }
-    }
-
-    #[test]
-    fn test_multiplication_with_split_join() {
-        // Test that multiplication works correctly with split and rejoined elements
-        let value = 0xABCD;
-        let a = TowerFieldElement::new(value, 4);
-
-        // Split and rejoin
-        let (hi, lo) = a.split();
-        let rejoined = hi.join(&lo);
-
-        // Multiply both representations by the same value
-        let multiplier = TowerFieldElement::new(0x1234, 4);
-        let result1 = a * multiplier;
-        let result2 = rejoined * multiplier;
-
-        assert_eq!(result1.value, result2.value);
-        assert_eq!(result1.num_level, result2.num_level);
-    }
-
-    #[test]
     fn test_multiplication_overflow() {
         // Test that multiplication properly handles overflow and reduction
-        for level in 1..5 {
+        for level in 0..7 {
             let max_value = (1u128 << (1 << level)) - 1; // Maximum value for this level
             let a = TowerFieldElement::new(max_value, level);
             let b = TowerFieldElement::new(max_value, level);
@@ -755,15 +562,20 @@ mod tests {
     #[test]
     fn test_split_join_consistency() {
         // Test that join and split are consistent operations
-        for i in 1..10 {
+        for i in 0..20 {
             let original = TowerFieldElement::new(i, 3);
             let (hi, lo) = original.split();
             let rejoined = hi.join(&lo);
 
-            // The rejoined value should equal the original
-            assert_eq!(rejoined.value, original.value);
-            assert_eq!(rejoined.num_level, original.num_level);
-            assert_eq!(rejoined.num_bits, original.num_bits);
+            assert_eq!(rejoined, original);
         }
+    }
+
+    #[test]
+    fn test_bin_representation() {
+        let a = TowerFieldElement::new(0b1010, 5);
+        assert_eq!(a.to_binary_string(), "00000000000000000000000000001010");
+        let b = TowerFieldElement::new(0b1010, 4);
+        assert_eq!(b.to_binary_string(), "0000000000001010");
     }
 }
