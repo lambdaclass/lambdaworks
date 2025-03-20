@@ -89,7 +89,7 @@ List of symbols:
 | Mersenne 31    | :heavy_check_mark: | :x:                | :x:      | :x:                | :x:         |
 | Baby Bear      | :heavy_check_mark: | :x:                | :x:      | :x:                | :x:         |
 | MiniGoldilocks | :heavy_check_mark: | :x:                | :x:      | :heavy_check_mark: | :x:         |
-| Binary fields  | :x: | :x:                | :x:      | :x:                | :x:         |
+| Binary fields  | :heavy_check_mark: | :x:                | :x:      | :x:                | :x:         |
 | **ZK friendly Hash function** | **Lambdaworks** | **Arkworks**       | **Halo2**          | **gnark** | **Constantine** |
 | Poseidon                      | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :x:       | :x:             |
 | Pedersen                      | 🏗️ | :heavy_check_mark: | :heavy_check_mark: | :x:       | :x:             |
