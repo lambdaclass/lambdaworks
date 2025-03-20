@@ -1,11 +1,11 @@
 use crate::errors::CreationError;
 use crate::field::errors::FieldError;
 use crate::field::traits::IsField;
-#[cfg(feature = "lambdaworks-serde-binary")]
+//#[cfg(feature = "lambdaworks-serde-binary")]
 use crate::traits::ByteConversion;
 use crate::unsigned_integer::element::UnsignedInteger;
 use crate::unsigned_integer::montgomery::MontgomeryAlgorithms;
-use crate::unsigned_integer::traits::{IsBigUnsignedInteger, IsUnsignedInteger};
+use crate::unsigned_integer::traits::IsUnsignedInteger;
 use core::fmt;
 use core::fmt::Debug;
 use core::iter::Sum;
@@ -492,8 +492,8 @@ where
     }
 
     /// Convert from a big unsigned integer type (like BigUint)
-    #[cfg(feature = "lambdaworks-serde-binary")]
-    pub fn from_big_uint<T: IsBigUnsignedInteger>(value: &T) -> Self
+    //#[cfg(feature = "lambdaworks-serde-binary")]
+    pub fn from_big_uint(value: &BigUint) -> Self
     where
         Self: ByteConversion,
         F: IsPrimeField,
@@ -503,10 +503,19 @@ where
 
         if bytes.len() > length {
             // If input is too large, perform modular reduction
-            let modulus = BigUint::from_hex_str(&F::modulus_minus_one().to_string())
+            // let modulus = BigUint::from_hex_str(&F::modulus_minus_one().to_string())
+            //     .unwrap()
+            //     .checked_add(&BigUint::from(1u32))
+            //     .unwrap();
+
+            let hex = &F::modulus_minus_one().to_string();
+            let hex_str = hex.strip_prefix("0x").unwrap_or(hex);
+            let modulus = BigUint::from_str_radix(hex_str, 16)
+                .ok()
                 .unwrap()
                 .checked_add(&BigUint::from(1u32))
                 .unwrap();
+
             let value_biguint = BigUint::from_bytes_be(&bytes);
             let reduced = value_biguint % modulus;
             return Self::from_big_uint(&reduced);
@@ -518,17 +527,17 @@ where
         Self::from_bytes_be(&padded_bytes).unwrap()
     }
 
-    /// Convert to a big unsigned integer type (like BigUint)
-    #[cfg(feature = "lambdaworks-serde-binary")]
-    pub fn to_big_uint<T: IsBigUnsignedInteger>(&self) -> T
+    /// Convert to a BigUint
+    // #[cfg(feature = "lambdaworks-serde-binary")]
+    pub fn to_big_uint(&self) -> BigUint
     where
         Self: ByteConversion,
     {
-        T::from_bytes_be(&self.to_bytes_be())
+        BigUint::from_bytes_be(&self.to_bytes_be())
     }
 
     /// Convert from bytes to field element with modular reduction
-    #[cfg(feature = "lambdaworks-serde-binary")]
+    //#[cfg(feature = "lambdaworks-serde-binary")]
     pub fn from_bytes_be_with_reduction(bytes: &[u8]) -> Self
     where
         Self: ByteConversion,
@@ -551,7 +560,7 @@ where
     }
 
     /// Splits a field element into u128 limbs
-    #[cfg(feature = "lambdaworks-serde-binary")]
+    //#[cfg(feature = "lambdaworks-serde-binary")]
     pub fn to_u128_limbs<const N: usize>(&self) -> [u128; N]
     where
         Self: ByteConversion,
@@ -560,7 +569,7 @@ where
     }
 
     /// Convert from hex string
-    #[cfg(feature = "lambdaworks-serde-binary")]
+    //#[cfg(feature = "lambdaworks-serde-binary")]
     pub fn from_hex_str(hex: &str) -> Result<Self, CreationError>
     where
         Self: ByteConversion,
@@ -578,12 +587,12 @@ where
     }
 
     /// Convert to hex string
-    #[cfg(feature = "lambdaworks-serde-binary")]
+    //#[cfg(feature = "lambdaworks-serde-binary")]
     pub fn to_hex_str(&self) -> String
     where
         Self: ByteConversion,
     {
-        format!("0x{:02X}", self.to_big_uint::<BigUint>())
+        format!("0x{:02X}", self.to_big_uint())
     }
 }
 
@@ -846,7 +855,7 @@ mod tests {
     use crate::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;
     use crate::field::fields::u64_prime_field::U64PrimeField;
     use crate::field::test_fields::u64_test_field::U64TestField;
-    #[cfg(feature = "lambdaworks-serde-binary")]
+    //#[cfg(feature = "lambdaworks-serde-binary")]
     use crate::traits::ByteConversion;
     #[cfg(feature = "alloc")]
     use crate::unsigned_integer::element::UnsignedInteger;
@@ -1030,31 +1039,31 @@ mod tests {
     // New tests added for BigUint conversion with reduction.
     // Need to ask Diego about the best way to do this.
 
-    #[cfg(feature = "lambdaworks-serde-binary")]
+    //#[cfg(feature = "lambdaworks-serde-binary")]
     type TestField = U64PrimeField<17>;
-    #[cfg(feature = "lambdaworks-serde-binary")]
+    //#[cfg(feature = "lambdaworks-serde-binary")]
     type FE = FieldElement<TestField>;
 
     #[test]
-    #[cfg(feature = "lambdaworks-serde-binary")]
+    //#[cfg(feature = "lambdaworks-serde-binary")]
     fn test_biguint_conversion_small_number() {
         let value = BigUint::from(10u32);
         let fe = FE::from_big_uint(&value);
-        let back_to_biguint = fe.to_big_uint::<BigUint>();
+        let back_to_biguint = fe.to_big_uint();
         assert_eq!(value, back_to_biguint);
     }
 
     #[test]
-    #[cfg(feature = "lambdaworks-serde-binary")]
+    //#[cfg(feature = "lambdaworks-serde-binary")]
     fn test_biguint_conversion_with_reduction() {
         let value = BigUint::from(20u32);
         let fe = FE::from_big_uint(&value);
-        let back_to_biguint = fe.to_big_uint::<BigUint>();
+        let back_to_biguint = fe.to_big_uint();
         assert_eq!(back_to_biguint, BigUint::from(3u32)); // 20 mod 17 = 3
     }
 
     #[test]
-    #[cfg(feature = "lambdaworks-serde-binary")]
+    //#[cfg(feature = "lambdaworks-serde-binary")]
     fn test_hex_string_conversion() {
         let hex_str = "0x0a";
         let fe = FE::from_hex_str(hex_str).unwrap();
@@ -1062,7 +1071,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "lambdaworks-serde-binary")]
+    //#[cfg(feature = "lambdaworks-serde-binary")]
     fn test_hex_string_conversion_with_reduction() {
         let hex_str = "0x14";
         let fe = FE::from_hex_str(hex_str).unwrap();
@@ -1070,7 +1079,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "lambdaworks-serde-binary")]
+    //#[cfg(feature = "lambdaworks-serde-binary")]
     fn test_invalid_hex_string() {
         let hex_str = "0xzz";
         let result = FE::from_hex_str(hex_str);
@@ -1078,7 +1087,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "lambdaworks-serde-binary")]
+    //#[cfg(feature = "lambdaworks-serde-binary")]
     fn test_empty_hex_string() {
         let hex_str = "";
         let result = FE::from_hex_str(hex_str);
@@ -1086,26 +1095,26 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "lambdaworks-serde-binary")]
+    //#[cfg(feature = "lambdaworks-serde-binary")]
     fn test_byte_conversion() {
         let value = BigUint::from(10u32);
         let fe = FE::from_big_uint(&value);
         let bytes = fe.to_bytes_be();
         let back_to_fe = FE::from_bytes_be(&bytes).unwrap();
         assert_eq!(fe, back_to_fe);
-        let back_to_biguint = back_to_fe.to_big_uint::<BigUint>();
+        let back_to_biguint = back_to_fe.to_big_uint();
         assert_eq!(value, back_to_biguint);
     }
 
     #[test]
-    #[cfg(feature = "lambdaworks-serde-binary")]
+    //#[cfg(feature = "lambdaworks-serde-binary")]
     fn test_byte_conversion_with_reduction() {
         let value = BigUint::from(20u32);
         let fe = FE::from_big_uint(&value);
         let bytes = fe.to_bytes_be();
         let back_to_fe = FE::from_bytes_be(&bytes).unwrap();
         assert_eq!(fe, back_to_fe);
-        let back_to_biguint = back_to_fe.to_big_uint::<BigUint>();
+        let back_to_biguint = back_to_fe.to_big_uint();
         assert_eq!(back_to_biguint, BigUint::from(3u32)); // 20 mod 17 = 3
     }
 }
