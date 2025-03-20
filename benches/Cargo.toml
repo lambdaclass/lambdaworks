@@ -14,11 +14,8 @@ starknet-ff = { git = "https://github.com/xJonathanLEI/starknet-rs", tag = "star
 starknet-crypto = { git = "https://github.com/xJonathanLEI/starknet-rs", tag = "starknet-crypto/v0.6.2" }
 pathfinder-crypto = { git = "https://github.com/eqlabs/pathfinder.git" }
 
-[dependencies.lambdaworks-math]
-path = "../math"
-
-[dependencies.lambdaworks-crypto]
-path = "../crypto"
+lambdaworks-math.workspace = true
+lambdaworks-crypto.workspace = true
 
 [dev-dependencies]
 criterion = { version = "0.5.1", default-features = false }
