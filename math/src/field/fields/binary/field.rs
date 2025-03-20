@@ -97,9 +97,23 @@ impl TowerFieldElement {
     /// Joins the hi and low part making a new element.
     /// For example, if a_hi = x and a_low = 1
     /// then a = xy + 1.
+    // pub fn join(&self, low: &Self) -> Self {
+    //     let joined = (self.value() << self.num_bits()) | low.value();
+    //     Self::new(joined, self.num_level() + 1)
+    // }
+
     pub fn join(&self, low: &Self) -> Self {
-        let joined = (self.value() << self.num_bits()) | low.value();
-        Self::new(joined, self.num_level() + 1)
+        let new_level = self.num_level() + 1;
+        let safe_level = if new_level > 7 { 7 } else { new_level };
+        // Usamos la cantidad de bits correspondiente al safe_level anterior a capear
+        // Para que el desplazamiento no exceda el máximo permitido.
+        let shift = if self.num_level() < safe_level {
+            1 << (safe_level - 1)
+        } else {
+            self.num_bits()
+        };
+        let joined = (self.value() << shift) | low.value();
+        Self::new(joined, safe_level)
     }
 
     // QUESTION: Do we leave this?
@@ -161,8 +175,12 @@ impl TowerFieldElement {
             let (a_hi, a_lo) = self.split();
 
             // Compute 2^(k-1) where k = num_bits/2
-            let two_pow_k_minus_one =
-                Self::new(1 << ((self.num_bits() / 2) - 1), self.num_level() - 1);
+            // FIX?S
+            let two_pow_k_minus_one = Self::new(1 << (self.num_bits() / 4), self.num_level() - 1);
+
+            // Apparently, there was a mistake here when we ported the implementation.
+            // let two_pow_k_minus_one =
+            //     Self::new(1 << ((self.num_bits() / 2) - 1), self.num_level() - 1);
 
             // a = a_hi * x^k + a_lo
             // a_lo_next = a_hi * x^(k-1) + a_lo
@@ -535,7 +553,7 @@ mod tests {
         assert_eq!(a2 * inv_a2, one);
 
         let a3 = TowerFieldElement::new(30, 5);
-        let inv_a3 = a2.inv().unwrap();
+        let inv_a3 = a3.inv().unwrap();
         let one = TowerFieldElement::new(1, 5);
         assert_eq!(a3 * inv_a3, one);
 
