@@ -48,7 +48,6 @@ fn binary_pow_bench(c: &mut Criterion, num_levels: usize, exponent: u32) {
     if num_levels == 0 {
         return;
     }
-
     let mut group = c.benchmark_group("Binary TowerField pow");
     let a = rand_element(num_levels);
 
