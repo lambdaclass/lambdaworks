@@ -3,17 +3,17 @@ use clap::{Args, Parser, Subcommand};
 #[derive(Parser, Debug)]
 #[command(author = "Lambdaworks", version, about)]
 pub struct MerkleArgs {
-    #[clap(subcommand)]
+    #[command(subcommand)]
     pub entity: MerkleEntity,
 }
 
 #[derive(Subcommand, Debug)]
 pub enum MerkleEntity {
-    #[clap(about = "Generate a merkle tree")]
+    #[command(about = "Generate a merkle tree")]
     GenerateTree(GenerateTreeArgs),
-    #[clap(about = "Generate a merkle proof")]
+    #[command(about = "Generate a merkle proof")]
     GenerateProof(GenerateProofArgs),
-    #[clap(about = "Verify a merkle proof")]
+    #[command(about = "Verify a merkle proof")]
     VerifyProof(VerifyArgs),
 }
 
