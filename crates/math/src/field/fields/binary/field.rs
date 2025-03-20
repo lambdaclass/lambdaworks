@@ -1,7 +1,7 @@
+use core::cmp::Ordering;
 use core::fmt;
+use core::iter::{Product, Sum};
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub};
-use std::cmp::Ordering;
-use std::iter::{Product, Sum};
 
 // Implementation of binary field and its arithmetic in finite fields of the form GF(2^(2^n)) by constructing
 // a tower of binary field extensions. The basic idea is to represent an element of the field as a polynomial
@@ -10,7 +10,7 @@ use std::iter::{Product, Sum};
 
 // For more details, see:
 // - Lambdaclass blog post about the use of binary fields in SNARKs: https://blog.lambdaclass.com/snarks-on-binary-fields-binius/
-// - Vitalik Buterin’s Binius: https://vitalik.eth.limo/general/2024/04/29/binius.html
+// - Vitalik Buterin's Binius: https://vitalik.eth.limo/general/2024/04/29/binius.html
 #[derive(Debug)]
 pub enum BinaryFieldError {
     /// Attempt to compute inverse of zero
@@ -89,6 +89,7 @@ impl TowerFieldElement {
     }
 
     /// Returns binary string representation
+    #[cfg(feature = "std")]
     pub fn to_binary_string(&self) -> String {
         format!("{:0width$b}", self.value, width = self.num_bits)
     }
