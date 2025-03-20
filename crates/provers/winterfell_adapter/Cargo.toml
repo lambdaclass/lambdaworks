@@ -1,0 +1,32 @@
+[package]
+name = "lambdaworks-winterfell-adapter"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+lambdaworks-math = { git = "https://github.com/lambdaclass/lambdaworks", branch = "miden-version", features = [
+    "winter_compatibility",
+] }
+stark-platinum-prover = { git = "https://github.com/lambdaclass/lambdaworks", branch = "miden-version", features = [
+    "winter_compatibility",
+] }
+
+rand = "0.8.5"
+winter-air = { package = "winter-air", version = "0.6.4", default-features = false }
+winter-prover = { package = "winter-prover", version = "0.6.4", default-features = false }
+winter-math = { package = "winter-math", version = "0.6.4", default-features = false }
+winter-utils = { package = "winter-utils", version = "0.6.4", default-features = false }
+miden-air = { package = "miden-air", version = "0.7", default-features = false }
+miden-core = { package = "miden-core", version = "0.7", default-features = false }
+miden-assembly = { package = "miden-assembly", version = "0.7", default-features = false }
+miden-processor = { package = "miden-processor", version = "0.7", default-features = false }
+sha3 = "0.10"
+
+[dev-dependencies]
+criterion = { version = "0.4", default-features = false }
+miden-prover = { package = "miden-prover", version = "0.7", default-features = false }
+
+[[bench]]
+name = "proving"
+harness = false

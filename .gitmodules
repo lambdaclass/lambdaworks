@@ -1,3 +1,0 @@
-[submodule "provers/stone-demo"]
-	path = provers/stone-demo
-	url = https://github.com/lambdaclass/stone-compatibility-testing
