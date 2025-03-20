@@ -558,7 +558,7 @@ mod tests {
             assert_eq!(rejoined, original);
         }
     }
-
+    #[cfg(feature = "std")]
     #[test]
     fn test_bin_representation() {
         let a = TowerFieldElement::new(0b1010, 5);
@@ -587,6 +587,7 @@ mod tests {
             .prop_map(|(level, val)| TowerFieldElement::new(val, level))
     }
 
+    #[cfg(feature = "std")]
     proptest! {
         // Test that multiplication is commutative:
         // For any two randomly generated elements, a * b should equal b * a.
