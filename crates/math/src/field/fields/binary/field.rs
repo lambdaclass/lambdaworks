@@ -18,7 +18,7 @@ pub enum BinaryFieldError {
     InverseOfZero,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, Debug)]
 /// An element in the tower of binary field extensions from level 0 to level 7.
 ///
 /// Implements arithmetic in finite fields GF(2^(2^n)) where n is the level of the field extension in the tower.
@@ -85,11 +85,6 @@ impl TowerFieldElement {
     #[inline]
     pub fn num_bits(&self) -> usize {
         1 << self.num_level()
-    }
-
-    // Equality check
-    pub fn equals(&self, other: &Self) -> bool {
-        self.value == other.value()
     }
 
     /// Returns binary string representation
@@ -253,6 +248,14 @@ impl TowerFieldElement {
         result
     }
 }
+
+impl PartialEq<TowerFieldElement> for TowerFieldElement {
+    fn eq(&self, other: &Self) -> bool {
+        self.value() == other.value()
+    }
+}
+
+impl Eq for TowerFieldElement {}
 
 impl Add for TowerFieldElement {
     type Output = Self;
