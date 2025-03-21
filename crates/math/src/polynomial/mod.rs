@@ -240,21 +240,6 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
         quotient
     }
 
-    // pub fn mul_with_ref(&self, factor: &Self) -> Self {
-    //     let degree = self.degree() + factor.degree();
-    //     let mut coefficients = vec![FieldElement::zero(); degree + 1];
-
-    //     if self.coefficients.is_empty() || factor.coefficients.is_empty() {
-    //         Polynomial::new(&[FieldElement::zero()])
-    //     } else {
-    //         for i in 0..=factor.degree() {
-    //             for j in 0..=self.degree() {
-    //                 coefficients[i + j] += &factor.coefficients[i] * &self.coefficients[j];
-    //             }
-    //         }
-    //         Polynomial::new(&coefficients)
-    //     }
-    // }
     pub fn mul_with_ref(&self, factor: &Self) -> Self {
         let degree = self.degree() + factor.degree();
         let mut coefficients = vec![FieldElement::zero(); degree + 1];
@@ -1267,82 +1252,5 @@ mod tests {
     fn test_print_as_sage_poly() {
         let p = Polynomial::new(&[FE::new(1), FE::new(2), FE::new(3)]);
         assert_eq!(p.print_as_sage_poly(None), "3*x^2 + 2*x + 1");
-    }
-
-    #[test]
-    #[ignore] // Marked as ignored by default since it takes a long time to run
-    fn test_polynomial_division_performance() {
-        use crate::elliptic_curve::short_weierstrass::curves::bls12_381::curve::BLS12381FieldElement as F;
-        use std::time::Instant;
-
-        // Create a polynomial of degree 20,000 with all zeros except leading coefficient
-        let degree_poly_1 = 20_000;
-        let mut coeffs1 = vec![F::zero()];
-        for _ in 0..degree_poly_1 - 1 {
-            coeffs1.push(F::zero());
-            // coeffs1.push(F::one() + F::one()); // Or in place, this one lasts several hours
-        }
-        coeffs1.push(F::one());
-        let p1 = Polynomial::new(&coeffs1);
-
-        // Create a polynomial of degree 10,000 with all zeros except leading coefficient
-        let degree_poly_2 = 10_000;
-        let mut coeffs2 = vec![F::zero()];
-        for _ in 0..degree_poly_2 - 1 {
-            coeffs2.push(F::zero());
-        }
-        coeffs2.push(F::one());
-        let p2 = Polynomial::new(&coeffs2);
-
-        // Measure time for division
-        let start = Instant::now();
-        let _q = p1 / p2; // We divide p1 by p2
-        let duration = start.elapsed();
-
-        // Display the time it took to compute it
-        println!(
-            "Time to compute the quotient between a polynomial of degree {} and another of degree {}: {}s",
-            degree_poly_1,
-            degree_poly_2,
-            duration.as_secs()
-        );
-
-        // No assertion here, this is just to measure performance
-    }
-
-    // You could also add a smaller version of the test that runs faster
-    #[test]
-    fn test_polynomial_division_performance_small() {
-        use crate::elliptic_curve::short_weierstrass::curves::bls12_381::curve::BLS12381FieldElement as F;
-        use std::time::Instant;
-
-        // Create smaller polynomials for faster testing
-        let degree_poly_1 = 2_000;
-        let mut coeffs1 = vec![F::zero()];
-        for _ in 0..degree_poly_1 - 1 {
-            coeffs1.push(F::zero());
-        }
-        coeffs1.push(F::one());
-        let p1 = Polynomial::new(&coeffs1);
-
-        let degree_poly_2 = 1_000;
-        let mut coeffs2 = vec![F::zero()];
-        for _ in 0..degree_poly_2 - 1 {
-            coeffs2.push(F::zero());
-        }
-        coeffs2.push(F::one());
-        let p2 = Polynomial::new(&coeffs2);
-
-        // Measure time for division
-        let start = Instant::now();
-        let _q = p1 / p2;
-        let duration = start.elapsed();
-
-        println!(
-            "Time to compute the quotient between a polynomial of degree {} and another of degree {}: {}s",
-            degree_poly_1,
-            degree_poly_2,
-            duration.as_secs()
-        );
     }
 }
