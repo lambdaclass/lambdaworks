@@ -140,23 +140,8 @@ impl TowerFieldElement {
 
     /// Addition between elements of same or different levels.
     fn add_elements(&self, other: &Self) -> Self {
-        match self.num_level().cmp(&other.num_level()) {
-            Ordering::Greater => {
-                let mask = (1 << other.num_bits()) - 1;
-                // Lsb of a: We get the last "b.num_bits" bits of a.
-                let low = self.value() & mask;
-                // Perform the addition (XOR) on the lower part.
-                let result_low = low ^ other.value();
-                // Msb of a: We get the remaining bits.
-                let high = self.value() >> other.num_bits();
-                // We concatenate both parts.
-                let result_value = (high << other.num_bits()) | result_low;
-
-                Self::new(result_value, self.num_level())
-            }
-            Ordering::Less => other.add_elements(self),
-            Ordering::Equal => Self::new(self.value() ^ other.value(), self.num_level()),
-        }
+        let num_level = self.num_level().max(other.num_level());
+        Self::new(self.value() ^ other.value(), num_level)
     }
 
     // Multiplies a and b in the following way:
