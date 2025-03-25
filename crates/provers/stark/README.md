@@ -46,7 +46,7 @@ You can take a look at the examples for [read-only memory](https://blog.lambdacl
 
 The examples are [here](./src/examples/) and you can take a look at [integration tests](./src/tests/integration_tests.rs).
 
-The following code summarizes the procedure to generate and verify a STARK proof that attests to the validity of the computation of the 16th [Fibonacci number](https://en.wikipedia.org/wiki/Fibonacci_sequence).
+The following code summarizes the procedure to generate and verify a STARK proof that attests to the validity of the computation of the 8th [Fibonacci number](https://en.wikipedia.org/wiki/Fibonacci_sequence).
 ```rust
     let mut trace = simple_fibonacci::fibonacci_trace([Felt252::from(1), Felt252::from(1)], 8);
 
