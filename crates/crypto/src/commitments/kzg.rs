@@ -376,7 +376,7 @@ mod tests {
 
         let x = FieldElement::from(3);
 
-        let p0 = Polynomial::<FrElement>::new(&[FieldElement::from(9000)]);
+        let p0 = Polynomial::<FrElement>::new(&[FieldElement::from(9000)]); // Constant polynomial
         let p0_commitment: <BLS12381AtePairing as IsPairing>::G1Point = kzg.commit(&p0);
         let y0 = FieldElement::from(9000);
 
@@ -384,7 +384,7 @@ mod tests {
             FieldElement::from(1),
             FieldElement::from(2),
             -FieldElement::from(1),
-        ]);
+        ]); // p(x) = 1 + 2x - x²
         let p1_commitment: <BLS12381AtePairing as IsPairing>::G1Point = kzg.commit(&p1);
         let y1 = p1.evaluate(&x);
 
@@ -427,5 +427,74 @@ mod tests {
         let srs = TestSrsType::from_file(&srs_file).unwrap();
 
         assert_eq!(srs.powers_main_group.len(), 3);
+    }
+
+    // README example, delete before PR
+    #[test]
+    fn readme_example_test() {
+        // Create a KZG instance
+        let kzg = KZG::new(create_srs());
+
+        // Create a polynomial p(x) = x + 1
+        let p = Polynomial::<FrElement>::new(&[FieldElement::one(), FieldElement::one()]);
+
+        // Commit to the polynomial
+        let commitment = kzg.commit(&p);
+
+        // Choose a point to evaluate the polynomial
+        let x = -FieldElement::<FrField>::one();
+
+        // Compute the evaluation
+        let y = p.evaluate(&x); // Should be 0 for p(x) = x + 1 when x = -1
+        assert_eq!(y, FieldElement::<FrField>::zero());
+
+        // Generate a proof for this evaluation
+        let proof = kzg.open(&x, &y, &p);
+
+        // Verify the proof
+        let is_valid = kzg.verify(&x, &y, &commitment, &proof);
+        assert!(is_valid, "Proof verification failed");
+
+        // Batch operations example
+        // Create polynomials
+        let p0 = Polynomial::<FrElement>::new(&[FieldElement::from(9000)]); // Constant polynomial
+        let p1 = Polynomial::<FrElement>::new(&[
+            FieldElement::from(1),
+            FieldElement::from(2),
+            -FieldElement::from(1),
+        ]); // p(x) = 1 + 2x - x²
+
+        // Commit to the polynomials
+        let p0_commitment = kzg.commit(&p0);
+        let p1_commitment = kzg.commit(&p1);
+
+        // Choose a point to evaluate the polynomials
+        let x = FieldElement::<FrField>::from(3);
+
+        // Compute the evaluations
+        let y0 = p0.evaluate(&x); // 9000
+        let y1 = p1.evaluate(&x); // 1 + 2*3 - 3² = 1 + 6 - 9 = -2
+
+        // Expected values
+        assert_eq!(y0, FieldElement::<FrField>::from(9000));
+
+        // Verify that y1 = -2
+        assert_eq!(y1, -FieldElement::<FrField>::from(2));
+
+        // Generate a random field element for the batch proof
+        let upsilon = &FieldElement::<FrField>::from(1); // Using 1 for deterministic testing
+
+        // Generate batch proof
+        let proof = kzg.open_batch(&x, &[y0.clone(), y1.clone()], &[p0, p1], upsilon);
+
+        // Verify batch proof
+        let is_valid = kzg.verify_batch(
+            &x,
+            &[y0.clone(), y1.clone()],
+            &[p0_commitment, p1_commitment],
+            &proof,
+            upsilon,
+        );
+        assert!(is_valid, "Batch proof verification failed");
     }
 }
