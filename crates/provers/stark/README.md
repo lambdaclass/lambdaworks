@@ -20,6 +20,10 @@ This prover is still in development and may contain bugs. It is not intended to 
 
 ## [Documentation](https://lambdaclass.github.io/lambdaworks/starks/cairo.html)
 
+## Examples
+
+You can take a look at the examples for [read-only memory](https://blog.lambdaclass.com/continuous-read-only-memory-constraints-an-implementation-using-lambdaworks/) and [logUp](https://blog.lambdaclass.com/logup-lookup-argument-and-its-implementation-using-lambdaworks-for-continuous-read-only-memory/)
+
 ## To test compatibility with stone prover
 
 Fetch the submodule with the Stone fork compatibility demo with:
