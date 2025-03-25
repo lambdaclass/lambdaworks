@@ -1,28 +1,32 @@
-# Circle STARKs
+# Circle Fast-Fourier Transform (CircleFFT)
 
-Circle STARKs is an implementation of STARKs (Scalable Transparent ARguments of Knowledge) based on the Circle group, a mathematical structure that provides special properties for building efficient cryptographic proof systems.
+This folder contains all the necessary tools to work with the [circle FFT](https://eprint.iacr.org/2024/278), which is a suitable way of performing an analogue of the [radix-2 FFT algorithm](../fft/README.md) over fields which are not smooth. We say a finite field is smooth if the size of multiplicative group of the field is divisible by a sufficiently high power of 2. In the case of $\mathbb{Z}_p$, the previous sentence indicates that $p - 1 = 2^m c$, where $m$ is sufficiently large (for example, $2^{25}$), ensuring we can use the radix-2 Cooley-Tuckey algorithm for the FFT with vectors of size up to $2^{25}$.
 
-## What are Circle STARKs?
+For an introduction to circle STARKs, we recommend [our blog](https://blog.lambdaclass.com/an-introduction-to-circle-starks/) or [Vitalik's explanation](https://vitalik.eth.limo/general/2024/07/23/circlestarks.html)
 
-Circle STARKs are a variant of STARKs that use the Circle group as the underlying structure. The Circle group consists of all points (x, y) such that x² + y² = 1, where the group operation is:
+## What is the Circle Group?
+
+The Circle group consists of all points (x, y) such that x² + y² = 1, where the group operation is:
 
 (a, b) + (c, d) = (a * c - b * d, a * d + b * c)
 
-This structure provides several advantages for implementing STARKs:
+This mathematical structure provides several advantages for computational operations:
 
 1. **Computational efficiency**: Allows faster operations compared to other structures.
-2. **Fast transform**: Implements a version of FFT (Fast Fourier Transform) adapted to the Circle group (CFFT).
-3. **Algebraic properties**: Leverages the special properties of the Circle group to optimize proofs.
+2. **Fast transform**: Enables a version of FFT (Fast Fourier Transform) adapted to the Circle group (CFFT).
+3. **Algebraic properties**: Provides special properties that can be leveraged for various cryptographic applications.
 
 ## Implementation
 
-The Circle STARKs implementation in lambdaworks includes:
+This module includes the following components:
 
 - **CirclePoint**: Represents a point in the Circle group.
 - **CFFT (Circle Fast Fourier Transform)**: Algorithm for evaluating polynomials at multiple points in the Circle group.
 - **Cosets**: Implementation of cosets of the Circle group.
 - **Polynomials**: Operations with polynomials adapted to the Circle group.
 - **Twiddles**: Rotation factors used in the CFFT algorithm.
+
+These components provide the foundation for building Circle-based cryptographic applications, including Circle STARKs.
 
 ## Implementation Details for CFFT
 
@@ -162,9 +166,18 @@ let generator = coset.generator;
 let elements = coset.elements();
 ```
 
+## Applications
+
+The Circle group operations and CFFT implementation in this module serve as fundamental building blocks for various cryptographic applications, including:
+
+1. **Circle STARKs**: A variant of STARKs that can be built using these Circle operations.
+2. **Efficient polynomial operations**: For fields that don't have the smoothness property required by traditional FFT.
+3. **Zero-knowledge proof systems**: Components for building efficient ZK systems.
 
 ## References
 
 - [An Introduction to Circle STARKs](https://blog.lambdaclass.com/an-introduction-to-circle-starks/) - LambdaClass Blog
+- [Vitalik's Explanation of Circle STARKs](https://vitalik.eth.limo/general/2024/07/23/circlestarks.html)
+- [Circle FFT Paper](https://eprint.iacr.org/2024/278)
 - [Anatomy of a STARK](https://aszepieniec.github.io/stark-anatomy/) - Detailed explanation of STARKs
 - [STARKs, Part I: Proofs with Polynomials](https://vitalik.ca/general/2017/11/09/starks_part_1.html) - Vitalik Buterin's series on STARKs
