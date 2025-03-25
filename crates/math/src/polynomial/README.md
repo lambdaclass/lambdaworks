@@ -66,3 +66,66 @@ let p = Polynomial::interpolate(&[FE::new(0), FE::new(1)], &[FE::new(2), FE::new
 ```
 
 Many polynomial operations can go faster by using the [Fast Fourier Transform](../fft/polynomial.rs).
+
+## Multilinear polynomials
+
+Multilinear polynomials are useful to define multilinear extensions of functions, which then play an important role in proof systems involving the [sumcheck protocol](../../../provers/sumcheck/README.md). There are two ways to define multilinear polynomials:
+- Dense
+- Sparse
+
+Sparse is more convenient whenever the number of non-zero coefficients in the polynomial is small (compared to the length of the polynomial), avoiding the storage of unnecessary zeros. For dense multilinear polynomials we have the following structure, working over some field $F$:
+```rust
+pub struct DenseMultilinearPolynomial<F: IsField>
+where
+    <F as IsField>::BaseType: Send + Sync,
+{
+    evals: Vec<FieldElement<F>>,
+    n_vars: usize,
+    len: usize,
+}
+```
+The polynomial is assumed to be given in evaluation form over the binary strings of length $\{0 , 1 \}^{n_{vars}}$. We can also interpret this as the coefficients of the polynomial with respect to the Lagrange basis polynomials over $\{0 , 1 \}^{n_{vars}}$. There are $2^{n_{vars}}$ Lagrange polynomials, given by the formula:
+$L_k (x_0 , x_1 , ... , x_{n_{vars} - 1}) = \prod (x_j b_{kj} + (1 - x_j ) (1 - b_{kj} ))$
+where $b_{kj}$ are given by the binary decomposition of $k$, that is $k = \sum_j b_{kj} 2^j$. We can see that each such polynomial is equal to one over $\{b_{k0}, b_{k1} , ... b_{k (n_{vars} - 1)}}$ and zero for any other element in $\{0 , 1 \}^{n_{vars}}$. The polynomial is thus defined as
+$p (x_0 , x_1, ... , x_{n_{vars} - 1} ) = \sum_k p(b_{k0}, b_{k1} , ... , b_{k (n_{vars} - 1)}) L_k (x_0 , x_1, ... , x_{n_{vars} - 1} )$
+Sometimes, we will use $L_k (j)$ to refer to the evaluation of $L_k$ at the binary decomposition of $j$, that is $j = \sum_k b_{k}2^k$.
+
+An advantage of Lagrange basis polynomials is that we can evaluate all $2^{n_{vars}}$ polynomials at a point $(r_0 , r_1 ... , r_{n_{vars} - 1})$ in $\mathcal{O}(2^{n_{vars}})$ operations (linear in the size of the number of polynomials). Refer to [Thaler's book](https://people.cs.georgetown.edu/jthaler/ProofsArgsAndZK.pdf) for more information.
+
+To create a new polynomial, provide a list of evaluations of $p$; the length of this list should be a power of 2.
+```rust
+pub fn new(mut evals: Vec<FieldElement<F>>) -> Self {
+        while !evals.len().is_power_of_two() {
+            evals.push(FieldElement::zero());
+        }
+        let len = evals.len();
+        DenseMultilinearPolynomial {
+            n_vars: log_2(len),
+            evals,
+            len,
+        }
+    }
+```
+
+Dense multilinear polynomials allow you to access the fields `n_vars`, `len` and `evals` with the methods `pub fn num_vars(&self) -> usize`, `pub fn len(&self) -> usize` and `pub fn evals(&self) -> &Vec<FieldElement<F>>`.
+
+If you want to evaluate outside $\{0 , 1 \}^{n_{vars}}$, you can use the functions `pub fn evaluate(&self, r: Vec<FieldElement<F>>)` and `pub fn evaluate_with(evals: &[FieldElement<F>], r: &[FieldElement<F>])`, providing the point $r$ whose length must be $n_{vars}$. For evaluations over $\{0 , 1 \}^{n_{vars}}$, you can get the value directly from the list of evaluations defining the polynomial. For example, 
+```rust
+// Example: Z = [1, 2, 1, 4]
+let z = vec![FE::one(), FE::from(2u64), FE::one(), FE::from(4u64)];
+// r = [4, 3]
+let r = vec![FE::from(4u64), FE::from(3u64)];
+let eval_with_lr = evaluate_with_lr(&z, &r);
+let poly = DenseMultilinearPolynomial::new(z);
+let eval = poly.evaluate(r).unwrap();
+assert_eq!(eval, FE::from(28u64));
+```
+
+An important functionality is `pub fn to_univariate(&self) -> Polynomial<FieldElement<F>>`, which converts a multilinear polynomial into a univariate polynomial, by summing over all variables over $\{0 , 1 \}^{n_{vars} - 1}$, leaving $x_{n_{vars} - 1}$ as the only variable, 
+$$f(x) = \sum_{(x_0 , x_1, ... , x_{n_{vars} - 2} ) \in \{0 , 1 \}^{n_{vars} - 1}} p(x_0 , x_1, ... , x_{n_{vars} - 2} , x)$$. For example,
+```rust
+let univar0 = prover.poly.to_univariate();
+```
+is used in the sumcheck protocol.
+
+Multilinear polynomials can be added and multiplied by scalars.
