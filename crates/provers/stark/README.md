@@ -51,8 +51,6 @@ You can then cd to the downloaded Stone Prover, and follow the README instructio
 ## Requirements
 
 - Cargo 1.69+
-  
-## How to try it
 
 ## 📚 References
 
