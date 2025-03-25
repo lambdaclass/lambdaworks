@@ -13,10 +13,30 @@
 [tg-badge]: https://img.shields.io/static/v1?color=green&logo=telegram&label=chat&style=flat&message=join
 [tg-url]: https://t.me/+98Whlzql7Hs0MDZh
 
-
 ## ⚠️ Disclaimer
 
 This prover is still in development and may contain bugs. It is not intended to be used in production yet. 
+
+## Description
+
+This is a [STARK prover and verifier](https://eprint.iacr.org/2018/046), which is a transparent (no trusted setup) and post-quantum secure argument of knowledge. The main ingredients are:
+- [Hash functions](../../crypto/src/hash/README.md)
+- [Fiat-Shamir transformation](../../crypto/src/fiat_shamir/README.md)
+- [Finite fields](../../math/src/field/README.md)
+- [Univariate polynomials](../../math/src/polynomial/README.md)
+- [Reed-Solomon codes](https://en.wikipedia.org/wiki/Reed%E2%80%93Solomon_error_correction)
+
+The security of STARKs depends on collision-resistant hash functions. The security level depends on the number of queries and the size of the underlying field. The prover works either with:
+- Finite fields of prime order, where the size of the field should be at least 128 bits.
+- Field extensions, where the size of the extension should be at least 128 bits.
+
+The field (or base field $\mathbb{F}_p$ in case of extensions $\mathbb{F}_{p^k}$) has to implement the trait `IsFFTField`, ensuring we can use the [FFT algorithm](../../math/src/fft/README.md) (which is crucial for efficiency). Some fields implementing this trait are:
+- [STARK-252](../../math/src/field/fields/fft_friendly/stark_252_prime_field.rs)
+- [Baby-Bear](../../math/src/field/fields/fft_friendly/babybear_u32.rs) with its [quartic degree extension](../../math/src/field/fields/fft_friendly/quartic_babybear_u32.rs)
+
+To prove a statement, we will need a description of it, in the form of an Algebraic Intermediate Representation (AIR). This consists of:
+- One or more tables (trace and auxiliary trace)
+- A set of polynomial equations that have to be enforced on the trace (constraints)
 
 ## [Documentation](https://lambdaclass.github.io/lambdaworks/starks/cairo.html)
 
@@ -24,7 +44,7 @@ This prover is still in development and may contain bugs. It is not intended to 
 
 You can take a look at the examples for [read-only memory](https://blog.lambdaclass.com/continuous-read-only-memory-constraints-an-implementation-using-lambdaworks/) and [logUp](https://blog.lambdaclass.com/logup-lookup-argument-and-its-implementation-using-lambdaworks-for-continuous-read-only-memory/).
 
-The examples are [here](./src/examples/).
+The examples are [here](./src/examples/) and you can take a look at [integration tests](./src/tests/integration_tests.rs).
 
 ## To test compatibility with stone prover
 
