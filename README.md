@@ -27,8 +27,8 @@ Below is a list of examples to understand lambdaworks and learn what you can bui
 - [Using Circom with lambdaworks's Groth16](./examples/prove-verify-circom/circom_lambdaworks_tutorial.md)
 - [Proving Fibonacci using Circom and lambdaworks](./examples/prove-verify-circom/circom_lambdaworks_tutorial.md)
 
-- You can use Circom to generate circuits and use lambdaworks's capabilities to prove the execution with [Groth16](./provers/groth16/README.md).
-- You can use the [Stark prover](./provers/stark/src/) to define an algebraic intermediate representation (AIR) and prove the execution of a program
+- You can use Circom to generate circuits and use lambdaworks's capabilities to prove the execution with [Groth16](./crates/provers/groth16/README.md).
+- You can use the [Stark prover](./crates/provers/stark/README.md) to define an algebraic intermediate representation (AIR) and prove the execution of a program
 
 ## Why we built lambdaworks
 
