@@ -16,6 +16,7 @@ This crate contains all the relevant mathematical building blocks needed for pro
 - [Finite Fields](./src/field/README.md)
 - [Elliptic curves](./src/elliptic_curve/README.md)
 - [Polynomials - univariate and multivariate](./src/polynomial/README.md)
+- [CircleFFT](./src/circle/)
 - [Large unsigned integers](./src/unsigned_integer/)
 - [Fast Fourier Transform](./src/fft/README.md)
 - [Optimized Multiscalar Multiplication](./src/msm/)
