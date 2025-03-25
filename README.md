@@ -215,6 +215,10 @@ The following links, repos, companies and projects have been important in the de
 - [Gnark](https://github.com/Consensys/gnark)
 - [Constantine](https://github.com/mratsim/constantine)
 - [Plonky3](https://github.com/Plonky3/Plonky3)
+- [Stwo](https://github.com/starkware-libs/stwo/tree/dev)
+- [Binius](https://gitlab.com/IrreducibleOSS/binius)
+- [Zorch](https://github.com/vbuterin/zorch/tree/main)
+- [Jolt](https://github.com/a16z/jolt)
 
 # Security
 
