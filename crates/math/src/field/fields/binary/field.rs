@@ -24,6 +24,7 @@ pub enum BinaryFieldError {
 /// Implements arithmetic in finite fields GF(2^(2^n)) where n is the level of the field extension in the tower.
 ///
 /// The internal representation stores polynomial coefficients as bits in a u128 integer.
+#[derive(Default)]
 pub struct TowerFieldElement {
     /// The value of the element.
     /// The binary expression of this value represents the coefficients of the corresponding polynomial of the element.
@@ -372,12 +373,6 @@ impl From<u16> for TowerFieldElement {
 impl From<u8> for TowerFieldElement {
     fn from(val: u8) -> Self {
         TowerFieldElement::new(val as u128, 3)
-    }
-}
-
-impl Default for TowerFieldElement {
-    fn default() -> Self {
-        Self::new(0, 0)
     }
 }
 
