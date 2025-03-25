@@ -1,14 +1,14 @@
 # Circle Fast-Fourier Transform (CircleFFT)
 
-This folder contains all the necessary tools to work with the [circle FFT](https://eprint.iacr.org/2024/278), which is a suitable way of performing an analogue of the [radix-2 FFT algorithm](../fft/README.md) over fields which are not smooth. We say a finite field is smooth if the size of multiplicative group of the field is divisible by a sufficiently high power of 2. In the case of $\mathbb{Z}_p$, the previous sentence indicates that $p - 1 = 2^m c$, where $m$ is sufficiently large (for example, $2^{25}$), ensuring we can use the radix-2 Cooley-Tuckey algorithm for the FFT with vectors of size up to $2^{25}$.
+This folder contains all the necessary tools to work with the [circle FFT](https://eprint.iacr.org/2024/278), which is a suitable way of performing an analogue of the [radix-2 FFT algorithm](../fft/README.md) over fields which are not smooth. We say a finite field is smooth if the size of the multiplicative group of the field is divisible by a sufficiently high power of 2. In the case of $\mathbb{Z}_p$, the previous sentence indicates that $p - 1 = 2^m c$, where $m$ is sufficiently large (for example, $2^{25}$), ensuring we can use the radix-2 Cooley-Tuckey algorithm for the FFT with vectors of size up to $2^{25}$.
 
 For an introduction to circle STARKs, we recommend [our blog](https://blog.lambdaclass.com/an-introduction-to-circle-starks/) or [Vitalik's explanation](https://vitalik.eth.limo/general/2024/07/23/circlestarks.html)
 
 ## What is the Circle Group?
 
-The Circle group consists of all points (x, y) such that x² + y² = 1, where the group operation is:
+The Circle group consists of all points $(x, y)$ such that $x^2 + y^2 = 1$, where the group operation is:
 
-(a, b) + (c, d) = (a * c - b * d, a * d + b * c)
+$$(a, b) + (c, d) = (a \cdot c - b \cdot d, a \cdot d + b \cdot c)$$
 
 This mathematical structure provides several advantages for computational operations:
 
@@ -21,17 +21,17 @@ This mathematical structure provides several advantages for computational operat
 This module includes the following components:
 
 - **CirclePoint**: Represents a point in the Circle group.
-- **CFFT (Circle Fast Fourier Transform)**: Algorithm for evaluating polynomials at multiple points in the Circle group.
+- **CFFT (Circle Fast Fourier Transform)**: Algorithm for evaluating and interpolating polynomials in the Circle group.
 - **Cosets**: Implementation of cosets of the Circle group.
-- **Polynomials**: Operations with polynomials adapted to the Circle group.
-- **Twiddles**: Rotation factors used in the CFFT algorithm.
+- **Polynomials**: Evaluation and interpolation of two-variables polynomials on the standard coset.
+- **Twiddles**: Factors used in the CFFT algorithm.
 
 These components provide the foundation for building Circle-based cryptographic applications, including Circle STARKs.
 
 ## Implementation Details for CFFT
 
 ### Overview
-The Circle Fast Fourier Transform (CFFT) is used to evaluate polynomials efficiently over points in a standard coset of the Circle group. The implementation uses an in-place FFT algorithm operating on slices whose length is a power of two.
+The Circle Fast Fourier Transform (CFFT) is used to evaluate and interpolate polynomials efficiently over points in a standard coset of the Circle group. The implementation uses an in-place FFT algorithm operating on slices whose length is a power of two.
 
 ### In-Place FFT Computation
 The `cfft` function processes the input through `log₂(n)` layers (where *n* is the input length). In each layer:
@@ -39,14 +39,14 @@ The `cfft` function processes the input through `log₂(n)` layers (where *n* is
 - Butterfly operations are applied to pairs of elements within each chunk using precomputed twiddle factors.
 
 ### Twiddle Factors
-- **Purpose:** Twiddle factors are rotation factors used in the butterfly operations.
-- **Computation:** They are computed by the `get_twiddles` function based on coset points in the Circle group.
-- **Configuration:** The factors are configured differently depending on whether the CFFT is used for evaluation or interpolation (e.g., order reversal or inversion).
+- **Purpose:** Twiddle factors are needed in the butterfly operation used in the CFFT.
+- **Computation:** They are computed by the `get_twiddles` function that takes as input a coset of the Circle group.
+- **Configuration:** The twiddles are different depending on whether the CFFT is used for evaluation or interpolation (reverse order or inversion for each case).
 
-### Bit-Reversal Permutation
+### Bit-Reverse Permutation
 Before applying the FFT:
 - The input coefficients must be reordered into bit-reversed order.
-- This reordering, performed by a helper function (e.g., `in_place_bit_reverse_permute`), is essential for the correctness of the in-place FFT computation.
+- This reordering, performed by a helper function ( `in_place_bit_reverse_permute`), is essential for the correctness of the in-place FFT computation.
 
 ### Result Ordering
 After the FFT:
@@ -54,7 +54,7 @@ After the FFT:
 - The helper function `order_cfft_result_naive` rearranges these evaluations into the natural order, aligning them with the original order of the coset points.
 
 ### Inverse FFT (ICFFT)
-- **Process:** The inverse FFT (`icfft`) mirrors the forward FFT's layered approach, but with operations that invert the transformation.
+- **Process:** The inverse FFT (`icfft`) mirrors the forward FFT's layered approach, but with operations that invert the transformation. It is used for polynomial interpolation, instead of evaluation.
 - **Scaling:** After processing, the result is scaled by the inverse of the input length to recover the original polynomial coefficients.
 
 ### Design Considerations and Optimizations
@@ -73,12 +73,14 @@ use lambdaworks_math::field::{
 };
 use lambdaworks_math::circle::point::CirclePoint;
 
-// Create a point in the Circle group
-let x = FieldElement::<Mersenne31Field>::from(2);
-let y = FieldElement::<Mersenne31Field>::from(3);
-let normalized_point = CirclePoint::new(x, y);
+// Create a valid point in the Circle group, i.e a point (x, y) 
+// that satisfies x^2 + y^2 = 1
+let x = FieldElement::<Mersenne31Field>::zero();
+let y = FieldElement::<Mersenne31Field>::one();
+let point = CirclePoint::new(x, y).unwrap();
 
-// Get the neutral element (identity) of the group
+// Get the neutral element (identity) of the group.
+// That is the point (1, 0).
 let zero = CirclePoint::<Mersenne31Field>::zero();
 
 // Group operations
@@ -88,7 +90,7 @@ let point3 = point1 + point2; // Add two points
 let point4 = point1 * 8; // Scalar multiplication
 ```
 
-### Polynomial evaluation using CFFT
+### Polynomial evaluation and interpolation using CFFT
 
 ```rust
 use lambdaworks_math::field::{
