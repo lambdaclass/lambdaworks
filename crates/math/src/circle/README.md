@@ -1,5 +1,6 @@
 # Circle Fast-Fourier Transform (CircleFFT)
 
+
 This folder contains all the necessary tools to work with the [circle FFT](https://eprint.iacr.org/2024/278), which is a suitable way of performing an analogue of the [radix-2 FFT algorithm](../fft/README.md) over fields which are not smooth. We say a finite field is smooth if the size of the multiplicative group of the field is divisible by a sufficiently high power of 2. In the case of $\mathbb{Z}_p$, the previous sentence indicates that $p - 1 = 2^m c$, where $m$ is sufficiently large (for example, $2^{25}$), ensuring we can use the radix-2 Cooley-Tuckey algorithm for the FFT with vectors of size up to $2^{25}$.
 
 This mathematical structure provides several advantages for computational operations. It leads to a variant of STARKs called Circle STARKs.
@@ -201,3 +202,4 @@ icfft(&mut data, inverse_twiddles);
 - [Circle FFT Paper](https://eprint.iacr.org/2024/278)
 - [Anatomy of a STARK](https://aszepieniec.github.io/stark-anatomy/) - Detailed explanation of STARKs
 - [STARKs, Part I: Proofs with Polynomials](https://vitalik.ca/general/2017/11/09/starks_part_1.html) - Vitalik Buterin's series on STARKs
+
