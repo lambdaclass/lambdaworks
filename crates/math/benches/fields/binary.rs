@@ -12,15 +12,18 @@ pub fn rand_element(num_level: usize) -> TowerFieldElement {
 
 fn binary_add_bench(c: &mut Criterion, num_levels_a: usize, num_levels_b: usize) {
     let mut group = c.benchmark_group("Binary TowerField add");
-    let a = rand_element(num_levels_a);
-    let b = rand_element(num_levels_b);
+    let samples = 1000;
+    let a_values: Vec<_> = (0..samples).map(|_| rand_element(num_levels_a)).collect();
+    let b_values: Vec<_> = (0..samples).map(|_| rand_element(num_levels_b)).collect();
 
     group.bench_with_input(
         BenchmarkId::from_parameter(format!("F{}×F{}", 1 << num_levels_a, 1 << num_levels_b)),
         &(num_levels_a, num_levels_b),
         |bencher, _params| {
             bencher.iter(|| {
-                black_box(black_box(a) + black_box(b));
+                for (a, b) in a_values.iter().zip(b_values.iter()) {
+                    black_box(black_box(a) + black_box(b));
+                }
             });
         },
     );
@@ -29,15 +32,18 @@ fn binary_add_bench(c: &mut Criterion, num_levels_a: usize, num_levels_b: usize)
 
 fn binary_mul_bench(c: &mut Criterion, num_levels_a: usize, num_levels_b: usize) {
     let mut group = c.benchmark_group("Binary TowerField mul");
-    let a = rand_element(num_levels_a);
-    let b = rand_element(num_levels_b);
+    let samples = 1000;
+    let a_values: Vec<_> = (0..samples).map(|_| rand_element(num_levels_a)).collect();
+    let b_values: Vec<_> = (0..samples).map(|_| rand_element(num_levels_b)).collect();
 
     group.bench_with_input(
         BenchmarkId::from_parameter(format!("F{}×F{}", 1 << num_levels_a, 1 << num_levels_b)),
         &(num_levels_a, num_levels_b),
         |bencher, _params| {
             bencher.iter(|| {
-                black_box(black_box(a) * black_box(b));
+                for (a, b) in a_values.iter().zip(b_values.iter()) {
+                    black_box(black_box(a) * black_box(b));
+                }
             });
         },
     );
@@ -49,14 +55,17 @@ fn binary_pow_bench(c: &mut Criterion, num_levels: usize, exponent: u32) {
         return;
     }
     let mut group = c.benchmark_group("Binary TowerField pow");
-    let a = rand_element(num_levels);
+    let samples = 1000;
+    let a_values: Vec<_> = (0..samples).map(|_| rand_element(num_levels)).collect();
 
     group.bench_with_input(
         BenchmarkId::from_parameter(format!("F{} ^ {}", 1 << num_levels, exponent)),
         &(num_levels, exponent),
         |bencher, _params| {
             bencher.iter(|| {
-                black_box(black_box(a).pow(exponent));
+                for a in a_values.iter() {
+                    black_box(black_box(a).pow(exponent));
+                }
             });
         },
     );
@@ -70,23 +79,35 @@ fn binary_inv_bench(c: &mut Criterion, num_levels: usize) {
 
     let mut group = c.benchmark_group("Binary TowerField inv");
 
+    let samples = 1000;
+
     // Generate non-zero element
     let mut rng = rand::thread_rng();
-    let non_zero_val = rng.gen::<u128>() | 1;
-    let a = TowerFieldElement::new(non_zero_val, num_levels);
-
-    assert!(
-        !a.is_zero(),
-        "Failed to generate non-zero element for inversion benchmark"
-    );
+    let values: Vec<TowerFieldElement> = (0..samples)
+        .map(|_| {
+            let non_zero_val = rng.gen::<u128>() | 1;
+            let a = TowerFieldElement::new(non_zero_val, num_levels);
+            assert!(
+                !a.is_zero(),
+                "Failed to generate non-zero element for inversion benchmark"
+            );
+            a
+        })
+        .collect();
 
     group.bench_with_input(
         BenchmarkId::from_parameter(format!("F{}", 1 << num_levels)),
         &num_levels,
         |bencher, _params| {
-            bencher.iter(|| match black_box(a).inv() {
-                Ok(inv) => black_box(inv),
-                Err(BinaryFieldError::InverseOfZero) => panic!("Attempted to invert zero element"),
+            bencher.iter(|| {
+                for a in &values {
+                    match black_box(a).inv() {
+                        Ok(inv) => black_box(inv),
+                        Err(BinaryFieldError::InverseOfZero) => {
+                            panic!("Attempted to invert zero element")
+                        }
+                    };
+                }
             });
         },
     );
