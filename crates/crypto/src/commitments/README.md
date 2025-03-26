@@ -60,6 +60,132 @@ $e( P - y g_1 , - g_2 ) \times e( Q , [\tau]_2 - z g_2 ) \equiv 1 \pmod{r}$
 
 This is more efficient, since we can compute the pairing using two Miller loops but just one final exponentiation.
 
+
+## Implementation
+
+The implementation in this codebase includes:
+
+- `StructuredReferenceString`: Stores the powers of a secret value in both G1 and G2 groups
+- `KateZaveruchaGoldberg`: The main implementation of the KZG commitment scheme
+- Support for both single and batch openings/verifications
+
+## API Usage
+
+KZG commitments can be used to commit to polynomials and later prove evaluations at specific points. Here's how to use the KZG implementation in lambdaworks:
+
+### Creating a KZG Instance
+
+First, you need to load or create a Structured Reference String (SRS) and initialize the KZG instance:
+
+```rust
+use lambdaworks_crypto::commitments::kzg::{KateZaveruchaGoldberg, StructuredReferenceString};
+use lambdaworks_crypto::commitments::traits::IsCommitmentScheme;
+use lambdaworks_math::elliptic_curve::short_weierstrass::curves::bls12_381::{
+    curve::BLS12381Curve,
+    default_types::{FrElement, FrField},
+    pairing::BLS12381AtePairing,
+    twist::BLS12381TwistCurve,
+};
+use lambdaworks_math::elliptic_curve::short_weierstrass::point::ShortWeierstrassProjectivePoint;
+
+// Load SRS from a file
+let srs_file = "path/to/srs.bin";
+let srs = StructuredReferenceString::from_file(srs_file).unwrap();
+
+// Create a KZG instance
+let kzg = KateZaveruchaGoldberg::<FrField, BLS12381AtePairing>::new(srs);
+```
+
+### Committing to a Polynomial
+
+To commit to a polynomial, you first create the polynomial and then use the `commit` method:
+
+```rust
+use lambdaworks_math::field::element::FieldElement;
+use lambdaworks_math::polynomial::Polynomial;
+
+// Create a polynomial p(x) = x + 1
+let p = Polynomial::<FrElement>::new(&[FieldElement::one(), FieldElement::one()]);
+
+// Commit to the polynomial
+let commitment = kzg.commit(&p);
+```
+
+### Generating and Verifying Proofs
+
+To prove that a polynomial evaluates to a specific value at a specific point:
+
+```rust
+// Choose a point to evaluate the polynomial
+let x = -FieldElement::one();
+
+// Compute the evaluation
+let y = p.evaluate(&x);  // Should be 0 for p(x) = x + 1 when x = -1
+
+// Generate a proof for this evaluation
+let proof = kzg.open(&x, &y, &p);
+
+// Verify the proof
+let is_valid = kzg.verify(&x, &y, &commitment, &proof);
+assert!(is_valid, "Proof verification failed");
+```
+
+### Batch Operations
+
+KZG supports batch operations for more efficient verification of multiple polynomial evaluations:
+
+```rust
+// Create polynomials
+let p0 = Polynomial::<FrElement>::new(&[FieldElement::from(9000)]);  // Constant polynomial
+let p1 = Polynomial::<FrElement>::new(&[
+    FieldElement::from(1),
+    FieldElement::from(2),
+    -FieldElement::from(1),
+]);  // p(x) = 1 + 2x - x²
+
+// Commit to the polynomials
+let p0_commitment = kzg.commit(&p0);
+let p1_commitment = kzg.commit(&p1);
+
+// Choose a point to evaluate the polynomials
+let x = FieldElement::from(3);
+
+// Compute the evaluations
+let y0 = p0.evaluate(&x);  // 9000
+let y1 = p1.evaluate(&x);  // 1 + 2*3 - 3² = 1 + 6 - 9 = -2
+
+// Generate a random field element for the batch proof
+let upsilon = &FieldElement::from(1);  // In practice, use a random value
+
+// Generate batch proof
+let proof = kzg.open_batch(&x, &[y0.clone(), y1.clone()], &[p0, p1], upsilon);
+
+// Verify batch proof
+let is_valid = kzg.verify_batch(
+    &x,
+    &[y0, y1],
+    &[p0_commitment, p1_commitment],
+    &proof,
+    upsilon
+);
+assert!(is_valid, "Batch proof verification failed");
+```
+
+### Serialization and Deserialization
+
+The SRS can be serialized and deserialized for storage and transmission:
+
+```rust
+// Serialize the SRS
+let bytes = srs.as_bytes();
+
+// Deserialize the SRS
+let deserialized_srs = StructuredReferenceString::<
+    ShortWeierstrassProjectivePoint<BLS12381Curve>,
+    ShortWeierstrassProjectivePoint<BLS12381TwistCurve>,
+>::deserialize(&bytes).unwrap();
+```
+
 ## References
 
 - [Constantine](https://github.com/mratsim/constantine/blob/master/constantine/commitments/kzg.nim)
