@@ -2,7 +2,7 @@
 
 This folder contains all the necessary tools to work with the [circle FFT](https://eprint.iacr.org/2024/278), which is a suitable way of performing an analogue of the [radix-2 FFT algorithm](../fft/README.md) over fields which are not smooth. We say a finite field is smooth if the size of the multiplicative group of the field is divisible by a sufficiently high power of 2. In the case of $\mathbb{Z}_p$, the previous sentence indicates that $p - 1 = 2^m c$, where $m$ is sufficiently large (for example, $2^{25}$), ensuring we can use the radix-2 Cooley-Tuckey algorithm for the FFT with vectors of size up to $2^{25}$.
 
-This mathematical structure provides several advantages for computational operations.
+This mathematical structure provides several advantages for computational operations. It leads to a variant of STARKs called Circle STARKs.
 For an introduction to circle STARKs, we recommend [our blog](https://blog.lambdaclass.com/an-introduction-to-circle-starks/) or [Vitalik's explanation](https://vitalik.eth.limo/general/2024/07/23/circlestarks.html)
 
 ## Implementation Content
@@ -15,7 +15,6 @@ This module includes the following components:
 - **Polynomials**: Evaluation and interpolation of bivariable polynomials on the standard coset.
 - **Twiddles**: Factors used in the CFFT algorithm.
 
-These components provide the foundation for building Circle-based cryptographic applications, including Circle STARKs.
 
 ## What is the Circle Group?
 
@@ -194,14 +193,6 @@ let inverse_twiddles = get_twiddles(coset, inverse_config);
 // Perform inverse CFFT
 icfft(&mut data, inverse_twiddles);
 ```
-
-## Applications
-
-The Circle group operations and CFFT implementation in this module serve as fundamental building blocks for various cryptographic applications, including:
-
-1. **Circle STARKs**: A variant of STARKs that can be built using these Circle operations.
-2. **Efficient polynomial operations**: For fields that don't have the smoothness property required by traditional FFT.
-3. **Zero-knowledge proof systems**: Components for building efficient ZK systems.
 
 ## References
 
