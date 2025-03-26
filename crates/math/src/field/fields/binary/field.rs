@@ -417,12 +417,11 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::zero_prefixed_literal)]
     fn mul_in_level_1() {
-        let a = TowerFieldElement::new(00, 1); // 0
-        let b = TowerFieldElement::new(01, 1); // 1
-        let c = TowerFieldElement::new(10, 1); // x
-        let d = TowerFieldElement::new(11, 1); // x + 1
+        let a = TowerFieldElement::new(0b00, 1); // 0
+        let b = TowerFieldElement::new(0b01, 1); // 1
+        let c = TowerFieldElement::new(0b10, 1); // x
+        let d = TowerFieldElement::new(0b11, 1); // x + 1
         assert_eq!(a * a, a);
         assert_eq!(a * b, a);
         assert_eq!(b * c, c);
