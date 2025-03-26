@@ -308,10 +308,10 @@ impl Mul for TowerFieldElement {
     }
 }
 
-impl<'a> Mul<&'a TowerFieldElement> for &'a TowerFieldElement {
+impl Mul<&TowerFieldElement> for &TowerFieldElement {
     type Output = TowerFieldElement;
 
-    fn mul(self, other: &'a TowerFieldElement) -> TowerFieldElement {
+    fn mul(self, other: &TowerFieldElement) -> TowerFieldElement {
         <TowerFieldElement as Mul<TowerFieldElement>>::mul(*self, *other)
     }
 }
