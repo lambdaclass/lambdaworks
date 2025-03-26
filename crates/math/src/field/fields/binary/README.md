@@ -42,7 +42,7 @@ $\begin{array}{llll}
 
 **Level 3:** At level 3, we define $GF(2^{2^3})$ in the same way. This time the polynomials have three variables $x_0$, $x_1$ and $x_2$. The first two variables satisfy the equations mentioned before and in addition the last one satisfies ${x_2}^2 = x_2 \cdot x_1 + 1$. This field extension has $2^{2^3}$ elements.
 
-**Level $n$:** Continuing this argument, in each level $n$ we define the field extension $GF(2^{2^n})$ using polynomials of $i$ variables with ${x_n}^2 = x_n \cdot x_{n-1} + 1$.
+**Level $n$:** Continuing this argument, in each level $n$ we define the field extension $GF(2^{2^n})$ using polynomials of $n$ variables with ${x_i}^2 = x_i \cdot x_{i-1} + 1$.
 
 Our implementation admits until level $n = 7$.
 

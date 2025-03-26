@@ -3,10 +3,12 @@ use core::fmt;
 use core::iter::{Product, Sum};
 use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub};
 
-// Implementation of binary fields of the form GF(2^(2^n)) by constructing a tower of field extensions.
-// The basic idea is to represent an element of the field as a polynomial with coefficients in GF(2) = {0, 1}.
+// Implementation of binary fields of the form GF(2^{2^n}) (i.e. a finite field of 2^{2^n} elements) by constructing a tower of field extensions.
+// The basic idea is to represent an element of each field as a multi-variable polynomial with binary coefficients in GF(2) = {0, 1}.
 // The coefficients of each polynomial are stored as bits in a `u128` integer.
 // The tower structure is built recursively, with each level representing an extension of the previous field.
+// In each level n, polynomials have n variables that satisfy:
+// (x_i)² = x_i * x_{i-1} + 1
 
 // For more details, see:
 // - Lambdaclass blog post about the use of binary fields in SNARKs: https://blog.lambdaclass.com/snarks-on-binary-fields-binius/
@@ -21,7 +23,7 @@ pub enum BinaryFieldError {
 #[derive(Clone, Copy, Debug)]
 /// An element in the tower of binary field extensions from level 0 to level 7.
 ///
-/// Implements arithmetic in finite fields GF(2^(2^n)) where n is the level of the field extension in the tower.
+/// Implements arithmetic in finite fields GF(2^{2^n}) where n is the level of the field extension in the tower.
 ///
 /// The internal representation stores polynomial coefficients as bits in a u128 integer.
 #[derive(Default)]
@@ -188,8 +190,8 @@ impl TowerFieldElement {
                 let shifted_high_product = high_product.mul(x_value);
 
                 // Step 4: Karatsuba optimization for middle term
-                // Instead of computing a_high*b_low + a_low*b_high directly,
-                // we use (a_low+a_high)*(b_low+b_high) - low_product - high_product
+                // Instead of computing a_high * b_low + a_low * b_high directly,
+                // we use (a_low + a_high) * (b_low + b_high) - low_product - high_product
                 let sum_product = (a_low + a_high).mul(b_low + b_high);
                 let middle_term = sum_product - low_product - high_product;
 
