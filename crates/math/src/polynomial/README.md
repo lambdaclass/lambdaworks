@@ -95,16 +95,16 @@ An advantage of Lagrange basis polynomials is that we can evaluate all $2^{n_{va
 To create a new polynomial, provide a list of evaluations of $p$; the length of this list should be a power of 2.
 ```rust
 pub fn new(mut evals: Vec<FieldElement<F>>) -> Self {
-        while !evals.len().is_power_of_two() {
-            evals.push(FieldElement::zero());
-        }
-        let len = evals.len();
-        DenseMultilinearPolynomial {
-            n_vars: log_2(len),
-            evals,
-            len,
-        }
+    while !evals.len().is_power_of_two() {
+        evals.push(FieldElement::zero());
     }
+    let len = evals.len();
+    DenseMultilinearPolynomial {
+        n_vars: log_2(len),
+        evals,
+        len,
+    }
+}
 ```
 
 Dense multilinear polynomials allow you to access the fields `n_vars`, `len` and `evals` with the methods `pub fn num_vars(&self) -> usize`, `pub fn len(&self) -> usize` and `pub fn evals(&self) -> &Vec<FieldElement<F>>`.
