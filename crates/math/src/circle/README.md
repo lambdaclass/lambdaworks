@@ -34,8 +34,8 @@ These components provide the foundation for building Circle-based cryptographic 
 The Circle Fast Fourier Transform (CFFT) is used to evaluate and interpolate polynomials efficiently over points in a standard coset of the Circle group. The implementation uses an in-place FFT algorithm operating on slices whose length is a power of two.
 
 ### In-Place FFT Computation
-The `cfft` function processes the input through `log₂(n)` layers (where *n* is the input length). In each layer:
-- The input is divided into chunks of size `2^(i+1)` (for layer *i*).
+The `cfft` function processes the input through $log_2(n)$ layers (where $n$ is the input length). In each layer:
+- The input is divided into chunks of size $2^{i+1}$ (for layer $i$).
 - Butterfly operations are applied to pairs of elements within each chunk using precomputed twiddle factors.
 
 ### Twiddle Factors

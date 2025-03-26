@@ -19,7 +19,7 @@ The power of Merkle trees comes from their ability to generate compact proofs. A
 
 ## Overview
 
-The Merkle tree implementation in lambdaworks provides:
+The Merkle tree implementation in Lambdaworks provides:
 
 - A generic `MerkleTree` structure that can work with different hash functions and data types
 - Support for generating and verifying inclusion proofs
