@@ -44,7 +44,7 @@ impl RSA {
         // Compute φ(n) = (p - 1) * (q - 1)
         let phi_n = (p - UnsignedInteger::from_u64(1)) * (q - UnsignedInteger::from_u64(1));
 
-        // Common public exponent.
+        // Common public exponent e = 65537 (0x10001)
         let e = UnsignedInteger::from_u64(65537);
 
         // Calculate d = e^(-1) mod φ(n)
@@ -90,14 +90,16 @@ impl RSA {
     /// Encrypts a byte array without padding (for testing purposes only).
     #[cfg(feature = "alloc")]
     pub fn encrypt_bytes_simple(&self, msg: &[u8]) -> Result<Vec<u8>, RSAError> {
-        // Create a fixed size vector (NUM_LIMBS * 8 bytes)
-        let mut padded_msg = vec![0; NUM_LIMBS * 8];
+        // Create a fixed-size vector (NUM_LIMBS * 8 bytes)
+        let mut fixed_size_msg = vec![0; NUM_LIMBS * 8];
         let msg_len = msg.len();
-        if msg_len > padded_msg.len() {
+        if msg_len > fixed_size_msg.len() {
             return Err(RSAError::MessageTooLarge);
         }
-        padded_msg[NUM_LIMBS * 8 - msg_len..].copy_from_slice(msg);
-        let m = UnsignedInteger::from_bytes_be(&padded_msg).map_err(|_| RSAError::InvalidBytes)?;
+        // Place the message at the end of the fixed-size buffer (right-aligned)
+        fixed_size_msg[NUM_LIMBS * 8 - msg_len..].copy_from_slice(msg);
+        let m =
+            UnsignedInteger::from_bytes_be(&fixed_size_msg).map_err(|_| RSAError::InvalidBytes)?;
         let c = self.encrypt(&m)?;
         Ok(c.to_bytes_be())
     }
@@ -105,14 +107,16 @@ impl RSA {
     /// Decrypts a byte array that was encrypted without padding.
     #[cfg(feature = "alloc")]
     pub fn decrypt_bytes_simple(&self, cipher: &[u8]) -> Result<Vec<u8>, RSAError> {
-        let mut padded_cipher = vec![0; NUM_LIMBS * 8];
+        // Create a fixed-size buffer (NUM_LIMBS * 8 bytes)
+        let mut fixed_size_cipher = vec![0; NUM_LIMBS * 8];
         let cipher_len = cipher.len();
-        if cipher_len > padded_cipher.len() {
+        if cipher_len > fixed_size_cipher.len() {
             return Err(RSAError::InvalidBytes);
         }
-        padded_cipher[NUM_LIMBS * 8 - cipher_len..].copy_from_slice(cipher);
-        let c =
-            UnsignedInteger::from_bytes_be(&padded_cipher).map_err(|_| RSAError::InvalidBytes)?;
+        // Place the cipher at the end of the fixed-size buffer (right-aligned)
+        fixed_size_cipher[NUM_LIMBS * 8 - cipher_len..].copy_from_slice(cipher);
+        let c = UnsignedInteger::from_bytes_be(&fixed_size_cipher)
+            .map_err(|_| RSAError::InvalidBytes)?;
         let m = self.decrypt(&c)?;
         let decrypted = m.to_bytes_be();
         // Remove leading zeros to recover the original message
@@ -182,4 +186,79 @@ fn modpow(
     }
 
     result
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use lambdaworks_math::unsigned_integer::element::UnsignedInteger;
+
+    #[test]
+    fn test_rsa_encryption_decryption() {
+        let p = UnsignedInteger::from_u64(61);
+        let q = UnsignedInteger::from_u64(53);
+        let rsa = RSA::new(p, q).unwrap();
+
+        let message = UnsignedInteger::from_u64(42);
+        let ciphertext = rsa.encrypt(&message).unwrap();
+        let decrypted = rsa.decrypt(&ciphertext).unwrap();
+
+        assert_eq!(message, decrypted);
+    }
+
+    #[test]
+    fn test_rsa_bytes_encryption_decryption() {
+        let p = UnsignedInteger::from_u64(61);
+        let q = UnsignedInteger::from_u64(53);
+        let rsa = RSA::new(p, q).unwrap();
+
+        let message = b"A";
+        let cipher = rsa.encrypt_bytes_simple(message).unwrap();
+        let recovered = rsa.decrypt_bytes_simple(&cipher).unwrap();
+
+        assert_eq!(message, &recovered[..]);
+    }
+
+    #[test]
+    fn test_rsa_message_too_large() {
+        let p = UnsignedInteger::from_u64(61);
+        let q = UnsignedInteger::from_u64(53);
+        let rsa = RSA::new(p, q).unwrap();
+
+        // n = 61 * 53 = 3233
+        let message = UnsignedInteger::from_u64(3234); // Larger than n
+        let result = rsa.encrypt(&message);
+        assert!(matches!(result, Err(RSAError::MessageTooLarge)));
+    }
+
+    #[test]
+    fn test_rsa_invalid_ciphertext() {
+        let p = UnsignedInteger::from_u64(61);
+        let q = UnsignedInteger::from_u64(53);
+        let rsa = RSA::new(p, q).unwrap();
+
+        // n = 61 * 53 = 3233
+        let ciphertext = UnsignedInteger::from_u64(3234); // Larger than n
+        let result = rsa.decrypt(&ciphertext);
+        assert!(matches!(result, Err(RSAError::InvalidCiphertext)));
+    }
+
+    #[test]
+    fn test_rsa_modinv() {
+        let a = UnsignedInteger::from_u64(65537);
+        let m = UnsignedInteger::from_u64(3120); // φ(3233)
+        let result = RSA::modinv(&a, &m);
+        assert!(result.is_some());
+        // The inverse of 65537 modulo 3120 is 2753
+        assert_eq!(result.unwrap(), UnsignedInteger::from_u64(2753));
+    }
+
+    #[test]
+    fn test_rsa_modpow() {
+        let base = UnsignedInteger::from_u64(42);
+        let exponent = UnsignedInteger::from_u64(65537);
+        let modulus = UnsignedInteger::from_u64(3233);
+        let result = modpow(&base, &exponent, &modulus);
+        assert_eq!(result, UnsignedInteger::from_u64(2557)); // Expected value
+    }
 }

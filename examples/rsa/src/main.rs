@@ -4,8 +4,17 @@ use lambdaworks_math::unsigned_integer::element::UnsignedInteger;
 use rsa::RSA;
 use std::error::Error;
 
-/// Demonstrates basic RSA using small numbers (for educational purposes only).
-fn demo_basic_rsa() -> Result<(), Box<dyn Error>> {
+fn main() -> Result<(), Box<dyn Error>> {
+    println!("RSA Encryption Examples");
+    println!("======================");
+    println!("These examples demonstrate the core concepts of RSA encryption.");
+    println!("For simplicity, we use small prime numbers and basic operations.");
+    println!("In practice, you would use:");
+    println!("- Large prime numbers (2048+ bits)");
+    println!("- Proper padding schemes (e.g., PKCS#1)");
+    println!("- Secure random number generation");
+
+    // Example 1: Basic RSA Concepts
     println!("\nExample 1: Basic RSA Concepts");
     println!("============================");
     println!("This example uses small prime numbers to demonstrate RSA mechanics.");
@@ -40,19 +49,11 @@ fn demo_basic_rsa() -> Result<(), Box<dyn Error>> {
     println!("Decrypted: {}", decrypted);
     println!("Message recovered: {}", decrypted == message);
 
-    Ok(())
-}
-
-/// Demonstrates simple text encryption using RSA (without padding)
-fn demo_text_encryption() -> Result<(), Box<dyn Error>> {
+    // Example 2: Text Encryption
     println!("\nExample 2: Simple Text Encryption");
     println!("==============================");
     println!("This example shows how to encrypt text using basic RSA.");
     println!("Note: This is a simplified version without padding.\n");
-
-    let p = UnsignedInteger::from_u64(61);
-    let q = UnsignedInteger::from_u64(53);
-    let rsa = RSA::new(p, q).unwrap();
 
     // Encrypt a single character
     let message = b"A"; // ASCII 'A' = 65
@@ -69,30 +70,15 @@ fn demo_text_encryption() -> Result<(), Box<dyn Error>> {
     println!("Decrypted: '{}'", String::from_utf8_lossy(&recovered));
     println!("Message recovered: {}", message == &recovered[..]);
 
-    Ok(())
-}
-
-fn main() -> Result<(), Box<dyn Error>> {
-    println!("RSA Encryption Examples");
-    println!("======================");
-    println!("These examples demonstrate the core concepts of RSA encryption.");
-    println!("For simplicity, we use small prime numbers and basic operations.");
-    println!("In practice, you would use:");
-    println!("- Large prime numbers (2048+ bits)");
-    println!("- Proper padding schemes (e.g., PKCS#1)");
-    println!("- Secure random number generation");
-
-    demo_basic_rsa()?;
-    demo_text_encryption()?;
-
-    // Additional example with known RSA parameters
-    let e = UnsignedInteger::from_u64(17);
+    // Example 3: Known Parameters
+    println!("\nExample 3: Known Parameters");
+    println!("==========================");
+    let e = UnsignedInteger::from_u64(65537);
     let d = UnsignedInteger::from_u64(2753);
     let n = UnsignedInteger::from_u64(3233);
     let rsa = RSA { e, d, n };
 
     let message = UnsignedInteger::from_u64(42);
-    println!("\nAdditional Example:");
     println!("Original message: {}", message);
 
     let ciphertext = rsa.encrypt(&message)?;
