@@ -1,6 +1,6 @@
 # lambdaworks Fast Fourier Transform
 
-This folder contains the [fast Fourier transform](https://en.wikipedia.org/wiki/Fast_Fourier_transform) (FFT) over finite fields (also known as number theoretic transform, NTT). If you are unfamiliar with how lambdaworks handles fields, see [examples](https://github.com/lambdaclass/lambdaworks/blob/main/examples/README.md). Currently, the following algorithms are supported:
+This folder contains the [fast Fourier transform](https://en.wikipedia.org/wiki/Fast_Fourier_transform) (FFT) over finite fields (also known as number theoretic transform, NTT). If you are unfamiliar with how lambdaworks handles fields, see [examples](../../../../examples/README.md). Currently, the following algorithms are supported:
 - Cooley-Tukey Radix-2
 - Cooley-Tukey Radix-4
 

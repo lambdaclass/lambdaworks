@@ -24,11 +24,11 @@ Below is a list of examples to understand lambdaworks and learn what you can bui
 - [Shamir's secret sharing](./examples/shamir_secret_sharing/)
 - [BabySNARK](./examples/baby-snark/)
 - [Pinocchio](./examples/pinocchio/)
-- [Using Circom with lambdaworks's Groth16](./provers/groth16/circom-adapter/src/README.md)
+- [Using Circom with lambdaworks's Groth16](./examples/prove-verify-circom/circom_lambdaworks_tutorial.md)
 - [Proving Fibonacci using Circom and lambdaworks](./examples/prove-verify-circom/circom_lambdaworks_tutorial.md)
 
-- You can use Circom to generate circuits and use lambdaworks's capabilities to prove the execution with [Groth16](./provers/groth16/README.md).
-- You can use the [Stark prover](./provers/stark/src/) to define an algebraic intermediate representation (AIR) and prove the execution of a program
+- You can use Circom to generate circuits and use lambdaworks's capabilities to prove the execution with [Groth16](./crates/provers/groth16/README.md).
+- You can use the [Stark prover](./crates/provers/stark/README.md) to define an algebraic intermediate representation (AIR) and prove the execution of a program
 
 ## Why we built lambdaworks
 
@@ -215,6 +215,10 @@ The following links, repos, companies and projects have been important in the de
 - [Gnark](https://github.com/Consensys/gnark)
 - [Constantine](https://github.com/mratsim/constantine)
 - [Plonky3](https://github.com/Plonky3/Plonky3)
+- [Stwo](https://github.com/starkware-libs/stwo/tree/dev)
+- [Binius](https://gitlab.com/IrreducibleOSS/binius)
+- [Zorch](https://github.com/vbuterin/zorch/tree/main)
+- [Jolt](https://github.com/a16z/jolt)
 
 # Security
 

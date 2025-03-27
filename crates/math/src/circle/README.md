@@ -1,0 +1,5 @@
+# Circle Fast-Fourier Transform (CircleFFT)
+
+This folder contains all the necessary tools to work with the [circle FFT](https://eprint.iacr.org/2024/278), which is a suitable way of performing an analogue of the [radix-2 FFT algorithm](../fft/README.md) over fields which are not smooth. We say a finite field is smooth if the size of multiplicative group of the field is divisible by a sufficiently high power of 2. In the case of $\mathbb{Z}_p$, the previous sentence indicates that $p - 1 = 2^m c$, where $m$ is sufficiently large (for example, $2^{25}$), ensuring we can use the radix-2 Cooley-Tuckey algorithm for the FFT with vectors of size up to $2^{25}$.
+
+For an introduction to circle STARKs, we recommend [our blog](https://blog.lambdaclass.com/an-introduction-to-circle-starks/) or [Vitalik's explanation](https://vitalik.eth.limo/general/2024/07/23/circlestarks.html).
