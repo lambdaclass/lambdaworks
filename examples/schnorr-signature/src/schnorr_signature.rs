@@ -19,18 +19,18 @@ pub struct MessageSigned {
 impl SchnorrProtocol {
     pub fn get_public_key(private_key: &FE) -> CurvePoint {
         let g = Curve::generator();
-        // y = g^{-x}, where y = public_key and x = private_key.
+        // h = g^{-k}, where h = public_key and k = private_key.
         g.operate_with_self(private_key.representative()).neg()
     }
 
     pub fn sign_message(private_key: &FE, message: &str) -> MessageSigned {
         let g = Curve::generator();
 
-        // Choose k a random field element.
+        // Choose l a random field element.
         let rand = sample_field_elem();
         println!("k: {:?}", rand);
 
-        // r = g^k.
+        // r = g^l.
         let r = g.operate_with_self(rand.representative());
 
         // We want to compute e = H(r || message).
@@ -50,7 +50,7 @@ impl SchnorrProtocol {
         let hashed_data = hasher.finalize().to_vec();
         let e = FE::from_bytes_be(&hashed_data).unwrap();
 
-        // s = k + private_key * e
+        // s = l + private_key * e
         let s = rand + &(private_key * &e);
 
         MessageSigned {
@@ -64,7 +64,7 @@ impl SchnorrProtocol {
         let message = &message_signed.message;
         let (s, e) = &message_signed.signature;
 
-        // rv = g^s * y^e, with y = public_key and (s, e) = signature.
+        // rv = g^s * h^e, with h = public_key and (s, e) = signature.
         let rv = g
             .operate_with_self(s.representative())
             .operate_with(&(&public_key.operate_with_self(e.representative())));
