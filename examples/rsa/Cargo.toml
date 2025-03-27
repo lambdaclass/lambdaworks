@@ -1,0 +1,18 @@
+[package]
+name = "rsa"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[features]
+default = ["alloc"]
+alloc = ["lambdaworks-math/alloc"]
+
+[dependencies]
+num-bigint = "0.4"
+num-traits = "0.2"
+num-integer = "0.1"
+rand = "0.8"
+lambdaworks-math = { workspace = true, features = ["alloc"] }
+hex = "0.4"
