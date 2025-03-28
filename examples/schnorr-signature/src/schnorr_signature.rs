@@ -6,8 +6,7 @@ use lambdaworks_math::{
 
 use sha3::{Digest, Keccak256};
 
-use rand::{Rng, SeedableRng};
-use rand_chacha::ChaCha20Rng;
+use rand::SeedableRng;
 
 /// Schnorr Signature Scheme using an elliptic curve as the group.
 pub struct SchnorrProtocol {}

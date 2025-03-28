@@ -8,7 +8,7 @@ use lambdaworks_math::{
     },
     unsigned_integer::element::U256,
 };
-use rand::{Rng, SeedableRng};
+use rand::Rng;
 use rand_chacha::ChaCha20Rng;
 
 // We use the BN-254 Curve as the group. We could have used any other curve.
