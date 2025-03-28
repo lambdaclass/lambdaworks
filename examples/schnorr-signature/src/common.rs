@@ -1,26 +1,28 @@
 use lambdaworks_math::{
     elliptic_curve::{
-        short_weierstrass::curves::bls12_381::{
-            curve::BLS12381Curve,
+        short_weierstrass::curves::bn_254::{
+            curve::BN254Curve,
             default_types::{FrElement, FrField},
         },
         traits::IsEllipticCurve,
     },
-    field::element::FieldElement,
     unsigned_integer::element::U256,
 };
 use rand::{Rng, SeedableRng};
 
-pub type Curve = BLS12381Curve;
+// We use the BN-254 Curve as the group. We could have used any other curve.
+pub type Curve = BN254Curve;
 
+// We use the finite field Fr where r is the number of elements that the curve has,
+// i.e. r is the order of the group G form by the curve.
 pub type F = FrField;
 
 pub type FE = FrElement;
 
-pub type CurvePoint = <BLS12381Curve as IsEllipticCurve>::PointRepresentation;
+pub type CurvePoint = <BN254Curve as IsEllipticCurve>::PointRepresentation;
 
 pub fn sample_field_elem() -> FE {
-    let mut rng = rand_chacha::ChaCha20Rng::seed_from_u64(9001);
+    let mut rng = rand_chacha::ChaCha20Rng::from_entropy();
     FE::new(U256 {
         limbs: [
             rng.gen::<u64>(),

@@ -1,6 +1,6 @@
 # Schnorr Signature Scheme
 
-The Schnorr signature scheme is a simple and efficient digital signature algorithm, whose security is based on the intractability of cthe discrete logarithm problem.  This example demonstrates an implementation using elliptic curves.
+The Schnorr signature scheme is a simple and efficient digital signature algorithm, whose security is based on the intractability of the discrete logarithm problem.  This example demonstrates an implementation using elliptic curves.
 
 ## ⚠️ Disclaimer
 This implementation is not cryptographically secure due to non-constant time operations, so must not be used in production. It is intended to be just an educational example.
@@ -13,7 +13,7 @@ A digital signature is a cryptographic mechanism for signing messages that provi
 - *Integrity:* Ensures the message has not been changed.
 - *Non-repudiation:* The signer cannot deny having signed the message.
 
-For example, let's say Alice wants to send Bob a message, and Bob wants to be sure that this message came from Alice. First Alice chooses a private and a public key. Then she sends Bob the message appending a signature which is computed from the message and her private key. Finallly Bob uses Alice's public key to verify the authenticity of the signed message.
+For example, let's say Alice wants to send Bob a message, and Bob wants to be sure that this message came from Alice. First Alice chooses a private key, which will produce a public key known by everybody. Then she sends Bob the message appending a signature which is computed from the message and her private key. Finallly Bob uses Alice's public key to verify the authenticity of the signed message.
 
 ## Schnorr Protocol
 
@@ -36,7 +36,7 @@ For example, let's say Alice wants to send Bob a message, and Bob wants to be su
 - Check $e_v = e$.
 
 ## Implementation
-In `common.rs` you'll find the elliptic curve that we chose to use as the group. It can be used other elliptics curves or even other types of groups.
+In `common.rs`, you'll find the elliptic curve we chose  as the group. Other elliptic curves or even other types of groups could have been used. In this case, we use `BN254Curve` as the group $G$. Consequently, we must use `FrField` as $\mathbb{F}_p$, since `FrField` represents the field whose modulus is the order of $G$ (i.e. the number of elements in the curve).
 
 In `schnorr_signature.rs` you'll find the protocol. To test it see the below example:
 
