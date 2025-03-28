@@ -6,6 +6,9 @@ use lambdaworks_math::{
 
 use sha3::{Digest, Keccak256};
 
+use rand::{Rng, SeedableRng};
+use rand_chacha::ChaCha20Rng;
+
 /// Schnorr Signature Scheme using an elliptic curve as the group.
 pub struct SchnorrProtocol {}
 
@@ -25,7 +28,7 @@ impl SchnorrProtocol {
         let g = Curve::generator();
 
         // Choose l a random field element. This element should be different in each signature.
-        let rand = sample_field_elem();
+        let rand = sample_field_elem(rand_chacha::ChaCha20Rng::from_entropy());
 
         // r = g^l.
         let r = g.operate_with_self(rand.representative());
