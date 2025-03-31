@@ -6,10 +6,10 @@ use lambdaworks_math::{
 
 use sha3::{Digest, Keccak256};
 
-// QUESTION: - Can we implement it in lambdaworks using an arbitrary group of prime order p and the field Zp?
-// - I wanted to do it for a general curve but couldnt use to_affine() for PointRepresentation
-// - What is the simplier way to sample a random field element?
-pub struct SchnorrProtocol {}
+use rand::SeedableRng;
+
+/// Schnorr Signature Scheme using an elliptic curve as the group.
+pub struct SchnorrProtocol;
 
 pub struct MessageSigned {
     pub message: String,
@@ -26,9 +26,8 @@ impl SchnorrProtocol {
     pub fn sign_message(private_key: &FE, message: &str) -> MessageSigned {
         let g = Curve::generator();
 
-        // Choose l a random field element.
-        let rand = sample_field_elem();
-        println!("k: {:?}", rand);
+        // Choose l a random field element. This element should be different in each signature.
+        let rand = sample_field_elem(rand_chacha::ChaCha20Rng::from_entropy());
 
         // r = g^l.
         let r = g.operate_with_self(rand.representative());
@@ -36,13 +35,13 @@ impl SchnorrProtocol {
         // We want to compute e = H(r || message).
         let mut hasher = Keccak256::new();
 
-        // We update r.
+        // We append r to the hasher.
         let r_coordinate_x_bytes = &r.to_affine().x().to_bytes_be();
         let r_coordinate_y_bytes = &r.to_affine().y().to_bytes_be();
         hasher.update(r_coordinate_x_bytes);
         hasher.update(r_coordinate_y_bytes);
 
-        // We update the message
+        // We append the message to the hasher.
         let message_bytes = message.as_bytes();
         hasher.update(message_bytes);
 
@@ -72,13 +71,13 @@ impl SchnorrProtocol {
         // We want to compute ev = H(rv || M).
         let mut hasher = Keccak256::new();
 
-        // We update rv.
+        // We append rv to the hasher.
         let rv_coordinate_x_bytes = &rv.to_affine().x().to_bytes_be();
         let rv_coordinate_y_bytes = &rv.to_affine().y().to_bytes_be();
         hasher.update(rv_coordinate_x_bytes);
         hasher.update(rv_coordinate_y_bytes);
 
-        // We update the message.
+        // We append the message to the hasher.
         let message_bytes = message.as_bytes();
         hasher.update(message_bytes);
 
@@ -114,7 +113,7 @@ mod tests {
         let private_key =
             FE::from_hex_unchecked("73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff");
         let public_key = SchnorrProtocol::get_public_key(&private_key);
-        let message = "hello world";
+        let message = "5f103b0bd4397d4df560eb559f38353f80eeb6";
 
         let message_signed_1 = SchnorrProtocol::sign_message(&private_key, message);
         let signatue_1 = &message_signed_1.signature;
