@@ -9,7 +9,7 @@ use sha3::{Digest, Keccak256};
 use rand::SeedableRng;
 
 /// Schnorr Signature Scheme using an elliptic curve as the group.
-pub struct SchnorrProtocol {}
+pub struct SchnorrProtocol;
 
 pub struct MessageSigned {
     pub message: String,
