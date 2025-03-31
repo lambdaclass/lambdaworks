@@ -1,14 +1,20 @@
-# RSA Encryption Example
+# RSA Implementation
 
-This is a simple implementation of the RSA encryption algorithm using the `lambdaworks_math` library. The implementation demonstrates the core concepts of RSA encryption with small numbers for educational purposes.
+This is an implementation of the RSA (Rivest-Shamir-Adleman) cryptographic algorithm in Rust. RSA is one of the first public-key cryptosystems and is widely used for secure data transmission.
 
-## Mathematical Background
+
+## ⚠️ Disclaimer
+This implementation is not cryptographically secure due to non-constant time operations, so must not be used in production. It is intended to be just an educational example.
+
+## Overview
 
 RSA is an asymmetric cryptographic algorithm that uses a pair of keys:
 - **Public key**: Used for encryption and is shared openly
 - **Private key**: Used for decryption and must be kept secret
 
 The security of RSA relies on the practical difficulty of factoring the product of two large prime numbers.
+
+## Mathematical Background
 
 ### Key Generation
 
@@ -20,67 +26,66 @@ The security of RSA relies on the practical difficulty of factoring the product 
 
 The public key is $(e, n)$ and the private key is $d$.
 
-### Euler's Totient Function
-
-Euler's totient function $\phi(n)$ counts the positive integers up to $n$ that are coprime to $n$. For a prime number $p$, $\phi(p) = p-1$ since all numbers less than $p$ are coprime to $p$.
-
-For a product of two primes $n = p \cdot q$, $\phi(n) = \phi(p) \cdot \phi(q) = (p-1) \cdot (q-1)$.
-
 ### Encryption and Decryption
 
 - **Encryption**: $c = m^e \pmod{n}$ where $m$ is the message and $c$ is the ciphertext
 - **Decryption**: $m = c^d \pmod{n}$
 
+### PKCS#1 v1.5 Padding
 
-## Implementation Details
+For secure encryption of arbitrary byte data, we implement PKCS#1 v1.5 padding:
 
-The implementation uses:
-- 4 limbs for the `UnsignedInteger` type
-- Public exponent `e = 65537` (0x10001)
-- Small prime numbers for demonstration (not secure for real use)
-- No padding scheme (left as an exercise for the reader)
+```
+00 || 02 || PS || 00 || M
+```
 
-### Key Components
+Where:
+- `00`: First byte (block type)
+- `02`: Second byte (block type for encryption)
+- `PS`: Padding string of non-zero random bytes
+- `00`: Separator
+- `M`: Original message
 
-1. `RSA` struct:
-   - `e`: Public exponent (65537)
-   - `d`: Private exponent
-   - `n`: Modulus (product of two primes)
 
-2. Main functions:
-   - `new(p, q)`: Creates a new RSA instance from two primes
-   - `encrypt(message)`: Encrypts a numeric message
-   - `decrypt(ciphertext)`: Decrypts a numeric ciphertext
-   - `encrypt_bytes_simple(msg)`: Encrypts a byte array
-   - `decrypt_bytes_simple(cipher)`: Decrypts a byte array
 
-3. Helper functions:
-   - `modinv(a, m)`: Computes modular inverse using extended Euclidean algorithm
-   - `modpow(base, exponent, modulus)`: Computes modular exponentiation using square-and-multiply
-
-## Example Usage
+### Basic  Example
 
 ```rust
-// Create RSA instance with primes p=61 and q=53
-let p = UnsignedInteger::from_u64(61);
-let q = UnsignedInteger::from_u64(53);
-let rsa = RSA::new(p, q).unwrap();
+use rsa::RSA;
+use lambdaworks_math::unsigned_integer::element::UnsignedInteger;
 
-// Encrypt a message
-let message = UnsignedInteger::from_u64(42);
+// Create an RSA instance with small primes (for demonstration only)
+let p = UnsignedInteger::<4>::from_u64(61);
+let q = UnsignedInteger::<4>::from_u64(53);
+let rsa = RSA::new(p, q).expect("Error generating RSA");
+
+// Encrypt and decrypt a numeric message
+let message = UnsignedInteger::<4>::from_u64(42);
 let ciphertext = rsa.encrypt(&message).unwrap();
-
-// Decrypt the ciphertext
 let decrypted = rsa.decrypt(&ciphertext).unwrap();
+
 assert_eq!(message, decrypted);
 ```
 
-## Running the Examples
+### Byte Data with Padding
 
-```bash
-# Run the examples
-cargo run
+```rust
+// Encrypt and decrypt byte data using PKCS#1 v1.5 padding
+let msg_bytes = b"Hello RSA with padding!";
+let cipher_bytes = rsa.encrypt_bytes_pkcs1(msg_bytes).unwrap();
+let plain_bytes = rsa.decrypt_bytes_pkcs1(&cipher_bytes).unwrap();
 
-# Run the tests
-cargo test
+assert_eq!(msg_bytes.to_vec(), plain_bytes);
 ```
+
+## Security Considerations
+
+1. **Key Size**: In real-world applications, much larger primes should be used (typically 2048 bits or more).
+2. **Random Number Generation**: Secure random number generation is crucial for key generation and padding.
+3. **Padding**: PKCS#1 v1.5 padding prevents attacks like chosen-ciphertext attacks.
+4. **Side-Channel Attacks**: This implementation does not include protections against timing attacks.
+
+
+---
+
+**Note**: This implementation is for educational purposes. For production systems, use established cryptographic libraries that have undergone security audits.
