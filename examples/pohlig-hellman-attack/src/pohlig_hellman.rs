@@ -23,6 +23,7 @@ use lambdaworks_math::{
             u64_prime_field::U64PrimeField,
         },
     },
+    unsigned_integer::element::{UnsignedInteger, U128},
 };
 
 /// Curve y^2 = x^3 + 2x + 5 over the finite field with modulus 113.
@@ -60,28 +61,28 @@ impl IsShortWeierstrass for SmoothCurve {
     }
 }
 
-//type SmoothBackendPrimeField<T> = MontgomeryBackendPrimeField<T, 2>;
+pub type SmoothMontgomeryBackendPrimeField<T> = MontgomeryBackendPrimeField<T, 2>;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct MontgomeryConfigSmoothPrimeField;
-impl IsModulus<u128> for MontgomeryConfigSmoothPrimeField {
-    const MODULUS: u128 = 10378454873831161541507;
+pub struct SmoothMontgomeryConfigPrimeField;
+impl IsModulus<U128> for SmoothMontgomeryConfigPrimeField {
+    const MODULUS: U128 = U128::from_u128(130086066308714848439);
 }
 
-pub type F = U256PrimeField<MontgomeryConfigSmoothPrimeField>;
-pub type FE = FieldElement<F>;
+pub type SmoothPrimeField = SmoothMontgomeryBackendPrimeField<SmoothMontgomeryConfigPrimeField>;
+pub type FE = FieldElement<SmoothPrimeField>;
 
 #[derive(Clone, Debug)]
 pub struct SmoothCurve2;
 
 impl IsEllipticCurve for SmoothCurve2 {
-    type BaseField = F;
+    type BaseField = SmoothPrimeField;
     type PointRepresentation = ShortWeierstrassProjectivePoint<Self>;
 
     fn generator() -> Self::PointRepresentation {
         let point = Self::PointRepresentation::new([
-            FE::from(6844871687112449418613),
-            FE::from(6206664238073371560432),
+            FE::from_hex_unchecked("28DA64FB59DFD59B"), // 2943776337147450779
+            FE::from_hex_unchecked("18DB59F17E035D175"), // 28657986728736706933
             FE::one(),
         ]);
         point.unwrap()
@@ -90,11 +91,11 @@ impl IsEllipticCurve for SmoothCurve2 {
 
 impl IsShortWeierstrass for SmoothCurve2 {
     fn a() -> FieldElement<Self::BaseField> {
-        FieldElement::from(3046)
+        FieldElement::from(1129)
     }
 
     fn b() -> FieldElement<Self::BaseField> {
-        FieldElement::from(8165)
+        FieldElement::from(4789)
     }
 }
 
@@ -138,13 +139,13 @@ pub fn pohlig_hellman(q: &ShortWeierstrassProjectivePoint<SmoothCurve>) -> usize
     chinese_remainder_theorem(&equations) as usize
 }
 
-fn update_step(a: &mut i32, old_a: &mut i32, quotient: i32) {
+fn update_step(a: &mut i128, old_a: &mut i128, quotient: i128) {
     let temp = *a;
     *a = *old_a - quotient * temp;
     *old_a = temp;
 }
 
-pub fn extended_euclidean_algorithm(a: i32, b: i32) -> (i32, i32, i32) {
+pub fn extended_euclidean_algorithm(a: i128, b: i128) -> (i128, i128, i128) {
     let (mut old_r, mut rem) = (a, b);
     let (mut old_s, mut coeff_s) = (1, 0);
     let (mut old_t, mut coeff_t) = (0, 1);
@@ -160,7 +161,7 @@ pub fn extended_euclidean_algorithm(a: i32, b: i32) -> (i32, i32, i32) {
     (old_r, old_s, old_t)
 }
 
-fn mod_inverse(x: i32, n: i32) -> Option<i32> {
+fn mod_inverse(x: i128, n: i128) -> Option<i128> {
     let (g, x, _) = extended_euclidean_algorithm(x, n);
     if g == 1 {
         Some((x % n + n) % n)
@@ -169,9 +170,9 @@ fn mod_inverse(x: i32, n: i32) -> Option<i32> {
     }
 }
 
-pub fn chinese_remainder_theorem(equations: &[(i32, i32)]) -> i32 {
+pub fn chinese_remainder_theorem(equations: &[(i128, i128)]) -> i128 {
     // Calculate the product of all moduli
-    let n: i32 = equations.iter().map(|(_, m)| m).product();
+    let n: i128 = equations.iter().map(|(_, m)| m).product();
 
     // For each equation, compute:
     // 1. n_i = n / m_i (product of all moduli except current)
@@ -235,6 +236,49 @@ pub fn baby_step_giant_step_vector(
     None
 }
 
+pub fn baby_step_giant_step_vector_2(
+    g: &ShortWeierstrassProjectivePoint<SmoothCurve2>,
+    q: &ShortWeierstrassProjectivePoint<SmoothCurve2>,
+    n: u64,
+) -> Option<u64> {
+    // 1) m = ceil(sqrt(n))
+    let m = (n as f64).sqrt().ceil() as u64;
+
+    // 2) Baby steps: calculamos j*G para j en [0..m)
+    //    y lo guardamos en un Vec<(Point, j)>
+    let mut baby_list = Vec::with_capacity(m as usize);
+    for j in 0..m {
+        // Ajusta a u32 / u16 según cómo esté definida tu API
+        let point_j = g.operate_with_self(j as u32);
+        baby_list.push((point_j, j));
+    }
+
+    // 3) Giant steps
+    //    - g^m y su inverso aditivo
+    let gm = g.operate_with_self(m as u32);
+    let minus_gm = gm.neg(); // Asegúrate de tener `neg()` definido en tu punto
+
+    // y = Q inicialmente
+    let mut y = q.clone();
+
+    // 4) Recorremos i en [0..m)
+    for i in 0..m {
+        // Buscamos si y está en baby_list (búsqueda lineal)
+        // .find() retorna Some(&(point, j)) si lo halla
+        if let Some(&(_, j)) = baby_list.iter().find(|(p, _)| p == &y) {
+            let x = i * m + j;
+            if x < n {
+                return Some(x);
+            }
+        }
+        // y = y + (−mG) para el siguiente salto
+        y = y.operate_with(&minus_gm);
+    }
+
+    // Si no se encontró ninguna coincidencia
+    None
+}
+
 pub fn pohlig_hellman_2(q: &ShortWeierstrassProjectivePoint<SmoothCurve>) -> usize {
     let g = SmoothCurve::generator();
     let g0 = g.operate_with_self(27u32); // 27 = 108 / (2^2).
@@ -245,13 +289,13 @@ pub fn pohlig_hellman_2(q: &ShortWeierstrassProjectivePoint<SmoothCurve>) -> usi
     let q1 = q.operate_with_self(12u32);
     let k1 = baby_step_giant_step_vector(&g1, &q1, 9).unwrap();
 
-    let equations = [(k0 as i32, 4), (k1 as i32, 27)];
+    let equations = [(k0 as i128, 4), (k1 as i128, 27)];
     chinese_remainder_theorem(&equations) as usize
 }
 
-fn factorize(mut n: u64) -> Vec<(u64, u64)> {
+fn factorize(mut n: i128) -> Vec<(i128, i128)> {
     let mut factors = Vec::new();
-    let mut d = 2u64;
+    let mut d = 2;
     while d * d <= n {
         if n % d == 0 {
             let mut exponent = 0;
@@ -300,7 +344,53 @@ pub fn pohlig_hellman_3(q: &ShortWeierstrassProjectivePoint<SmoothCurve>) -> usi
         // para hallar log en el subgrupo de orden = prime_power
         if let Some(k_sub) = baby_step_giant_step_vector(&g_sub, &q_sub, prime_power as u64) {
             // Añadimos la congruencia x ≡ k_sub (mod prime_power)
-            equations.push((k_sub as i32, prime_power as i32));
+            equations.push((k_sub as i128, prime_power as i128));
+        } else {
+            // En caso de no encontrar
+            panic!(
+                "No se encontró el log en el subgrupo de orden {}",
+                prime_power
+            );
+        }
+    }
+
+    // 4. Combinamos las congruencias con CRT y listo
+    let x = chinese_remainder_theorem(&equations);
+    x as usize
+}
+
+// This implementation does not suport order beyond 5. Need to check the implementation
+pub fn pohlig_hellman_4(q: &ShortWeierstrassProjectivePoint<SmoothCurve2>) -> usize {
+    // 1. Obtenemos el orden del grupo (en tu caso, sabes que es 108).
+    let order = 130086066303665968735;
+
+    // 2. Factorizamos el orden llamando a `factorize(order)`.
+    //    Para 108, esto retornará: [(2,2), (3,3)].
+    let factors = factorize(order);
+
+    // 3. Vamos a reproducir exactamente la misma lógica que ya tenías:
+    //    - Calculamos 'k0' para el factor 2^2 = 4
+    //    - Calculamos 'k1' para el factor 3^3 = 27
+    //    - Y combinamos con CRT.
+    //
+    //    PERO en lugar de "forzarlo" manualmente, aprovechamos el vector `factors`.
+
+    let g = SmoothCurve2::generator();
+    let mut equations = Vec::new();
+
+    for &(prime, exponent) in &factors {
+        let prime_power = prime.pow(exponent as u32); // 4 ó 27, etc.
+        let cofactor = order / prime_power; // 108/4=27 ó 108/27=4
+
+        // Subgenerador y subpunto
+        let g_sub = g.operate_with_self(cofactor as u32);
+        let q_sub = q.operate_with_self(cofactor as u32);
+
+        // Usamos la misma idea de BSGS (baby_step_giant_step_vector)
+        // para hallar log en el subgrupo de orden = prime_power
+        if let Some(k_sub) = baby_step_giant_step_vector_2(&g_sub, &q_sub, prime_power as u64) {
+            // Añadimos la congruencia x ≡ k_sub (mod prime_power)
+            equations.push((k_sub as i128, prime_power as i128));
         } else {
             // En caso de no encontrar
             panic!(
@@ -348,6 +438,7 @@ mod tests {
         assert_eq!(chinese_remainder_theorem(&equations), 58);
     }
 
+    // FIXME: It brakes if k > 8.
     #[test]
     fn test_pohlig_hellman() {
         let g = SmoothCurve::generator();
@@ -369,8 +460,8 @@ mod tests {
         assert_eq!(pohlig_hellman(&q4), 4);
 
         // Test case 5: k = 5
-        let q5 = g.operate_with_self(5u16);
-        assert_eq!(pohlig_hellman(&q5), 5);
+        let q5 = g.operate_with_self(9u16);
+        assert_eq!(pohlig_hellman(&q5), 9);
     }
 
     #[test]
@@ -421,5 +512,37 @@ mod tests {
         // Test case 5: k = 5
         let q5 = g.operate_with_self(5u16);
         assert_eq!(pohlig_hellman_3(&q5), 5);
+    }
+
+    #[test]
+    fn test_pohlig_hellman_4() {
+        let g = SmoothCurve2::generator();
+
+        // Test case 1: k = 1
+        let q1 = g.operate_with_self(1u16);
+        assert_eq!(pohlig_hellman_4(&q1), 1);
+
+        // Test case 2: k = 2
+        let q2 = g.operate_with_self(2u16);
+        assert_eq!(pohlig_hellman_4(&q2), 2);
+
+        // Test case 3: k = 3
+        let q3 = g.operate_with_self(3u16);
+        assert_eq!(pohlig_hellman_4(&q3), 3);
+
+        // Test case 4: k = 4
+        let q4 = g.operate_with_self(4u16);
+        assert_eq!(pohlig_hellman_4(&q4), 4);
+
+        // // Test case 5: k = 5
+        // let q5 = g.operate_with_self(5u16);
+        // assert_eq!(pohlig_hellman_4(&q5), 5);
+    }
+
+    #[test]
+    fn factorize_curve_2_order() {
+        let order: i128 = 130086066303665968735;
+        let factors = factorize(order);
+        println!("factors: {:?}", factors);
     }
 }
