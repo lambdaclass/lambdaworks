@@ -390,11 +390,8 @@ mod tests {
 
         // If we successfully encrypted, we should be able to decrypt
         if let Ok(cipher) = result {
-            match rsa.decrypt_bytes_pkcs1(&cipher) {
-                Ok(recovered) => {
-                    assert_eq!(message, &recovered[..]);
-                }
-                Err(_) => {}
+            if let Ok(recovered) = rsa.decrypt_bytes_pkcs1(&cipher) {
+                assert_eq!(message, &recovered[..]);
             }
         }
     }

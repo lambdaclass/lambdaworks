@@ -66,7 +66,7 @@ pub fn verify_signature(public_key: &CurvePoint, message_signed: &MessageSigned)
     // rv = g^s * h^e, with h = public_key and (s, e) = signature.
     let rv = g
         .operate_with_self(s.representative())
-        .operate_with(&(&public_key.operate_with_self(e.representative())));
+        .operate_with(&public_key.operate_with_self(e.representative()));
 
     // We want to compute ev = H(rv || M).
     let mut hasher = Keccak256::new();
