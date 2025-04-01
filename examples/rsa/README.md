@@ -1,6 +1,6 @@
 # RSA Implementation
 
-This is an implementation of the RSA (Rivest-Shamir-Adleman) cryptographic algorithm in Rust. RSA is one of the first public-key cryptosystems and is widely used for secure data transmission.
+This is an implementation of the RSA cryptographic algorithm in Rust. RSA is one of the first public-key cryptosystems and is widely used for secure data transmission.
 
 
 ## ⚠️ Disclaimer
@@ -77,14 +77,6 @@ let plain_bytes = rsa.decrypt_bytes_pkcs1(&cipher_bytes).unwrap();
 
 assert_eq!(msg_bytes.to_vec(), plain_bytes);
 ```
-
-## Security Considerations
-
-1. **Key Size**: In real-world applications, much larger primes should be used (typically 2048 bits or more).
-2. **Random Number Generation**: Secure random number generation is crucial for key generation and padding.
-3. **Padding**: PKCS#1 v1.5 padding prevents attacks like chosen-ciphertext attacks.
-4. **Side-Channel Attacks**: This implementation does not include protections against timing attacks.
-
 
 ---
 

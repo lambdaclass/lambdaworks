@@ -12,8 +12,8 @@ pub enum RSAError {
     MessageTooLarge,
     InvalidBytes,
     InvalidCiphertext,
-    NonInvertible, // when e is not invertible modulo φ(n)
-    PaddingError,  // when padding or unpadding fails
+    NonInvertible,
+    PaddingError,
 }
 
 impl fmt::Display for RSAError {
@@ -84,7 +84,7 @@ impl<const N: usize> RSA<N> {
         Ok(modpow(ciphertext, &self.d, &self.n))
     }
 
-    /// Encrypts a byte array without padding (for testing purposes only).
+    /// Encrypts a byte array without padding
     #[cfg(feature = "alloc")]
     pub fn encrypt_bytes_simple(&self, msg: &[u8]) -> Result<Vec<u8>, RSAError> {
         // Create a fixed-size vector (N * 8 bytes)
@@ -128,7 +128,6 @@ impl<const N: usize> RSA<N> {
     /// Format: 00 || 02 || PS || 00 || M
     /// PS is a random padding string of non-zero bytes.
     /// For demonstration purposes, this implementation uses extremely minimal padding
-    /// to work with the small RSA keys in our examples.
     #[cfg(feature = "alloc")]
     pub fn encrypt_bytes_pkcs1(&self, msg: &[u8]) -> Result<Vec<u8>, RSAError> {
         // Calculate the actual bit size of n
