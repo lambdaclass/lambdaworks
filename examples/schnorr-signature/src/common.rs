@@ -15,7 +15,7 @@ use rand_chacha::ChaCha20Rng;
 pub type Curve = BN254Curve;
 
 // We use the finite field Fr where r is the number of elements that the curve has,
-// i.e. r is the order of the group G form by the curve.
+// i.e. r is the order of the group G formed by the curve.
 pub type F = FrField;
 
 pub type FE = FrElement;

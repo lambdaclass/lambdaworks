@@ -45,16 +45,16 @@ In `schnorr_signature.rs` you'll find the protocol. To test it see the below exa
 let private_key = FE::from(5);
 
 // Compute the public key.
-let public_key = SchnorrProtocol::get_public_key(&private_key);
+let public_key = get_public_key(&private_key);
 
 // Write the message
 let message = "hello world";
 
 // Sign the message
-let message_signed = SchnorrProtocol::sign_message(&private_key, message);
+let message_signed = sign_message(&private_key, message);
 
 // Verify the signature
-let is_the_signature_correct = SchnorrProtocol::verify_signature(
+let is_the_signature_correct = verify_signature(
     &public_key,
     &message_signed
 );
