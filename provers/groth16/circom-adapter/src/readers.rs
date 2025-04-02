@@ -11,10 +11,6 @@ pub enum CircomReaderError {
 }
 
 /// A witness for a Circom circuit, alias for a vector of field elements.
-///
-/// Note that the ordering of witness values between Circom and Lambdaworks differ:
-/// - **Circom**: `["1", ..outputs, ...inputs, ...other_signals]`
-/// - **Lambda**: `["1", ...inputs, ..outputs,  ...other_signals]`
 pub type CircomWitness = Vec<FrElement>;
 
 /// A rank-1 constraint system (R1CS) for a Circom circuit, as read from a JSON export of that R1CS.
@@ -24,7 +20,8 @@ pub type CircomWitness = Vec<FrElement>;
 /// - <https://github.com/iden3/snarkjs/blob/master/src/r1cs_export_json.js>
 #[derive(Debug, Clone, Deserialize)]
 pub struct CircomR1CS {
-    pub n8: usize, // TODO: document this field
+    /// Number of bytes per field element.
+    pub n8: usize,
     /// Order of the field used in this R1CS.
     pub prime: String,
     /// Number of variables in total.
@@ -50,14 +47,6 @@ pub struct CircomR1CS {
     /// Each `HashMap` contains mapping from witness index to coefficient for that linear combination.
     #[serde(deserialize_with = "constraint_deserializer")]
     pub constraints: Vec<[HashMap<usize, FrElement>; 3]>,
-    // NOTE: we ignore the following fields as they are ignored for Groth16
-    // #[serde(rename = "useCustomGates")]
-    // use_custom_gates: bool,
-    // #[serde(rename = "customGateUses")]
-    // custom_gates_uses: Vec<_>,
-    // #[serde(rename = "customGates")]
-    // custom_gates: Vec<_>,
-    // map: Vec<usize>,
 }
 
 fn constraint_deserializer<'de, D>(
@@ -108,15 +97,16 @@ pub fn read_circom_witness(path: impl AsRef<Path>) -> Result<CircomWitness, Circ
 
 /// Converts a string Circom field element to Lambda field element.
 ///
-/// The Circom field element can be in either decimal or hexadecimal format; otherwise,
-/// this function will panic.
+/// The Circom field element can be in either decimal or hexadecimal format;
+/// otherwise, this function will panic.
 #[inline]
 fn circom_str_to_lambda_field_element(value: impl AsRef<str>) -> FrElement {
     let value = value.as_ref();
+
     if let Ok(big_uint) = UnsignedInteger::<4>::from_dec_str(value) {
-        return FrElement::from(&big_uint);
+        FrElement::from(&big_uint)
     } else if let Ok(big_uint) = UnsignedInteger::<4>::from_hex(value) {
-        return FrElement::from(&big_uint);
+        FrElement::from(&big_uint)
     } else {
         panic!("Could not parse field element from string: {}", value);
     }
