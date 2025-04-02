@@ -27,11 +27,9 @@ fn vitalik_w_and_qap() {
 
     let (qap, wtns, pubs) = circom_to_lambda(circom_r1cs, circom_wtns);
 
-    // Circom witness contains outputs before circuit inputs where Lambdaworks puts inputs before the output.
-    // Freshly generated witness assignment "w" must be in form ["1", "x", "~out", "sym_1"]
+    // Freshly generated witness assignment "w" must be in form ["1", "~out", "x", "sym_1"]
     assert_eq!(
         wtns,
-        // ["1", "3", "23", "9"]
         // 1, out, x, sym_1
         ["1", "23", "3", "9"]
             .map(FrElement::from_hex_unchecked)
