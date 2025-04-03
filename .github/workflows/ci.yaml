@@ -167,6 +167,7 @@ jobs:
     runs-on: macos-latest
     env:
       CARGO_TERM_COLOR: always
+      RUST_BACKTRACE: 1
     steps:
       - uses: actions/checkout@v3
 
