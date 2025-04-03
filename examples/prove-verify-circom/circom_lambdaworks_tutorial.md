@@ -116,7 +116,7 @@ node fibonacci_js/generate_witness.js fibonacci_js/fibonacci.wasm input.json wit
 As our program inputs are json files we need to export the witness and r1cs files into the same format. To do that run:
 
 ```bash
-snarkjs wtns export json witness.wtns
+snarkjs wtns export json witness.wtns witness.wtns.json
 ```
 
 and
