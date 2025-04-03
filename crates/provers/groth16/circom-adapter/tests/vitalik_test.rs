@@ -1,23 +1,26 @@
 use lambdaworks_circom_adapter::{circom_to_lambda, read_circom_r1cs, read_circom_witness};
 use lambdaworks_groth16::{common::FrElement, QuadraticArithmeticProgram};
 
-/// Converts following Circom circuit and inputs into Lambdaworks-compatible QAP and witness assignments.
-///
-/// ```csharp
-/// template Test() {
-///	signal input x;
-///	signal output out;
-///
-///	signal sym_1;
-///	signal y;
-///
-///	sym_1 <== x * x;
-///	out <== (sym_1 * x) + (x + 5);
-/// }
-///
-/// // { "x": 3 }
-/// ```
-///
+// Converts following Circom circuit and inputs into Lambdaworks-compatible QAP and witness assignments.
+//
+// ```csharp
+// template Test() {
+//     signal input x;
+//     signal output out;
+//
+//	   signal sym_1;
+//	   signal y;
+//
+//	   sym_1 <== x * x;
+//	   out <== (sym_1 * x) + (x + 5);
+// }
+// ```
+//
+// The input used is:
+//
+// ```js
+// { "x": 3 }
+// ```
 #[test]
 fn vitalik_w_and_qap() {
     let circom_wtns = read_circom_witness("./tests/vitalik_example/witness.json")
