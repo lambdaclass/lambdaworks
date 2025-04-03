@@ -78,7 +78,7 @@ where
 
 /// A sequence that uses periodic columns. It has two columns
 /// - C1: at each step adds the last two values or does
-///       nothing depending on C2.
+/// nothing depending on C2.
 /// - C2: it is a binary column that cycles around [0, 1]
 ///
 ///   C1   |   C2
