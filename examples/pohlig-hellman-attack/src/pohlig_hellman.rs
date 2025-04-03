@@ -206,25 +206,25 @@ pub fn chinese_remainder_theorem(equations: &[(i128, i128)]) -> i128 {
 
     result
 }
+// Sacar
+// pub fn chinese_remainder_theorem_u256(equations: &[(U256, U256)]) -> U256 {
+//     // Calculate the product of all moduli
+//     let n: i128 = equations.iter().map(|(_, m)| m).product();
 
-pub fn chinese_remainder_theorem_u256(equations: &[(U256, U256)]) -> U256 {
-    // Calculate the product of all moduli
-    let n: i128 = equations.iter().map(|(_, m)| m).product();
+//     // For each equation, compute:
+//     // 1. n_i = n / m_i (product of all moduli except current)
+//     // 2. x_i = inverse of n_i modulo m_i
+//     // 3. Add a_i * n_i * x_i to the result
+//     let mut result = 0;
+//     for &(a, m) in equations {
+//         let n_i = n / m;
+//         // Find x_i such that n_i * x_i ≡ 1 (mod m)
+//         let x_i = mod_inverse(n_i, m).expect("Moduli must be pairwise coprime");
+//         result = (result + a * n_i * x_i) % n;
+//     }
 
-    // For each equation, compute:
-    // 1. n_i = n / m_i (product of all moduli except current)
-    // 2. x_i = inverse of n_i modulo m_i
-    // 3. Add a_i * n_i * x_i to the result
-    let mut result = 0;
-    for &(a, m) in equations {
-        let n_i = n / m;
-        // Find x_i such that n_i * x_i ≡ 1 (mod m)
-        let x_i = mod_inverse(n_i, m).expect("Moduli must be pairwise coprime");
-        result = (result + a * n_i * x_i) % n;
-    }
-
-    result
-}
+//     result
+// }
 
 /// Versión de Baby-step Giant-step usando un `Vec` en vez de `HashMap`.
 /// Busca x en [0..n-1] tal que x*G = Q, devolviendo Some(x) si existe.
@@ -317,26 +317,26 @@ pub fn baby_step_giant_step_vector_2(
 }
 
 /// Versión para curvas BLS12381
-pub fn baby_step_giant_step_vector_bls12(
+pub fn baby_step_giant_step_bls12(
     g: &ShortWeierstrassProjectivePoint<BLS12381Curve>,
     q: &ShortWeierstrassProjectivePoint<BLS12381Curve>,
-    n: U256,
-) -> Option<U256> {
+    n: u64,
+) -> Option<u64> {
     // 1) m = ceil(sqrt(n))
-    let m = n.sqrt().ceil() as u64;
+    let m = (n as f64).sqrt().ceil() as u64 + 1;
 
     // 2) Baby steps: calculamos j*G para j en [0..m)
     //    y lo guardamos en un Vec<(Point, j)>
     let mut baby_list = Vec::with_capacity(m as usize);
     for j in 0..m {
         // Ajusta a u32 / u16 según cómo esté definida tu API
-        let point_j = g.operate_with_self(j as u32);
+        let point_j = g.operate_with_self(j);
         baby_list.push((point_j, j));
     }
 
     // 3) Giant steps
     //    - g^m y su inverso aditivo
-    let gm = g.operate_with_self(m as u32);
+    let gm = g.operate_with_self(m);
     let minus_gm = gm.neg(); // Asegúrate de tener `neg()` definido en tu punto
 
     // y = Q inicialmente
@@ -351,6 +351,47 @@ pub fn baby_step_giant_step_vector_bls12(
             if x < n {
                 return Some(x);
             }
+        }
+        // y = y + (−mG) para el siguiente salto
+        y = y.operate_with(&minus_gm);
+    }
+
+    // Si no se encontró ninguna coincidencia
+    None
+}
+
+pub fn baby_step_giant_step_bls_2(
+    g: &ShortWeierstrassProjectivePoint<BLS12381Curve>,
+    q: &ShortWeierstrassProjectivePoint<BLS12381Curve>,
+    n: u64,
+) -> Option<u64> {
+    // 1) m = ceil(sqrt(n))
+    let m = (n as f64).sqrt().ceil() as u64;
+
+    // 2) Baby steps: calculamos j*G para j en [0..m)
+    //    y lo guardamos en un Vec<(Point, j)>
+    let mut baby_list = Vec::with_capacity(m as usize);
+    for j in 0..m {
+        // Ajusta a u32 / u16 según cómo esté definida tu API
+        let point_j = g.operate_with_self(j);
+        baby_list.push((point_j, j));
+    }
+
+    // 3) Giant steps
+    //    - g^m y su inverso aditivo
+    let gm = g.operate_with_self(m);
+    let minus_gm = gm.neg(); // Asegúrate de tener `neg()` definido en tu punto
+
+    // y = Q inicialmente
+    let mut y = q.clone();
+
+    // 4) Recorremos i en [0..m)
+    for i in 0..(n + 1) {
+        // Buscamos si y está en baby_list (búsqueda lineal)
+        // .find() retorna Some(&(point, j)) si lo halla
+        if let Some(&(_, j)) = baby_list.iter().find(|(p, _)| p == &y) {
+            let x = i * m + j;
+            return Some(x);
         }
         // y = y + (−mG) para el siguiente salto
         y = y.operate_with(&minus_gm);
@@ -636,29 +677,75 @@ pub fn pohlig_hellman_4(q: &ShortWeierstrassProjectivePoint<SmoothCurve2>) -> us
     0 // Para el caso de prueba con n = 10000000000, devolvemos 0 ya que n % 5 = 0
 }
 
-pub fn pohlig_hellman_5(q: &ShortWeierstrassProjectivePoint<BLS12381Curve>) -> usize {
+// pub fn pohlig_hellman_5(q: &ShortWeierstrassProjectivePoint<BLS12381Curve>) -> usize {
+//     // 1. Obtenemos el orden del grupo (en tu caso, sabes que es 108).
+//     let order = U256::from_dec_str(
+//         "52435875175126190479447740508185965838148530120832936978733365853859369451521",
+//     )
+//     .unwrap();
+
+//     // 2. Factorizamos el orden llamando a `factorize(order)`.
+//     //    Para 108, esto retornará: [(2,2), (3,3)].
+//     //let factors = factorize(order);
+//     let factors = vec![
+//         U256::from(3u64),
+//         U256::from(7u64),
+//         U256::from(13u64),
+//         U256::from(79u64),
+//         U256::from(2557u64),
+//         U256::from(33811u64),
+//         U256::from(1645861201u64),
+//         U256::from(75881076241177u64),
+//         U256::from(86906511869757553u64),
+//         U256::from_dec_str("2591021580831339586968049").unwrap(),
+//     ];
+
+//     // 3. Vamos a reproducir exactamente la misma lógica que ya tenías:
+//     //    - Calculamos 'k0' para el factor 2^2 = 4
+//     //    - Calculamos 'k1' para el factor 3^3 = 27
+//     //    - Y combinamos con CRT.
+//     //
+//     //    PERO en lugar de "forzarlo" manualmente, aprovechamos el vector `factors`.
+
+//     let g = BLS12381Curve::generator();
+//     let mut equations = Vec::new();
+
+//     for &prime_power in &factors {
+//         // let prime_power = prime.pow(exponent as u32); // 4 ó 27, etc.
+//         let (cofactor, _) = order.div_rem(&prime_power); // 108/4=27 ó 108/27=4
+
+//         // Subgenerador y subpunto
+//         let g_sub = g.operate_with_self(cofactor);
+//         let q_sub = q.operate_with_self(cofactor);
+
+//         // Usamos la misma idea de BSGS (baby_step_giant_step_vector)
+//         // para hallar log en el subgrupo de orden = prime_power
+//         if let Some(k_sub) =
+//             baby_step_giant_step_vector_bls12(&g_sub, &q_sub, prime_power.try_into().unwrap())
+//         {
+//             // Añadimos la congruencia x ≡ k_sub (mod prime_power)
+//             equations.push((k_sub, prime_power));
+//         } else {
+//             // En caso de no encontrar
+//             panic!(
+//                 "No se encontró el log en el subgrupo de orden {}",
+//                 prime_power
+//             );
+//         }
+//     }
+
+//     // 4. Combinamos las congruencias con CRT y listo
+//     let x = chinese_remainder_theorem(&equations);
+//     x as usize
+// }
+
+pub fn pohlig_hellman_bls(q: &ShortWeierstrassProjectivePoint<BLS12381Curve>) -> usize {
     // 1. Obtenemos el orden del grupo (en tu caso, sabes que es 108).
-    let order = U256::from_dec_str(
-        "52435875175126190479447740508185965838148530120832936978733365853859369451521",
-    )
-    .unwrap();
+    let order = 21567u64;
 
     // 2. Factorizamos el orden llamando a `factorize(order)`.
     //    Para 108, esto retornará: [(2,2), (3,3)].
-    //let factors = factorize(order);
-    let factors = vec![
-        U256::from(3u64),
-        U256::from(7u64),
-        U256::from(13u64),
-        U256::from(79u64),
-        U256::from(2557u64),
-        U256::from(33811u64),
-        U256::from(1645861201u64),
-        U256::from(75881076241177u64),
-        U256::from(86906511869757553u64),
-        U256::from_dec_str("2591021580831339586968049").unwrap(),
-    ];
-
+    let factors = vec![3u64, 7u64, 13u64, 79u64];
     // 3. Vamos a reproducir exactamente la misma lógica que ya tenías:
     //    - Calculamos 'k0' para el factor 2^2 = 4
     //    - Calculamos 'k1' para el factor 3^3 = 27
@@ -666,24 +753,28 @@ pub fn pohlig_hellman_5(q: &ShortWeierstrassProjectivePoint<BLS12381Curve>) -> u
     //
     //    PERO en lugar de "forzarlo" manualmente, aprovechamos el vector `factors`.
 
-    let g = BLS12381Curve::generator();
+    // h = generator of the subgroup of order 21567.
+    // t = r / 21567 = 2431301301763165506535342908526265397976006404267303611013741635547798463.
+    // Then h = g^t with g the generator of bls12-381 curve.
+    let t = U256::from_dec_str(
+        "2431301301763165506535342908526265397976006404267303611013741635547798463",
+    )
+    .unwrap();
+    let h = BLS12381Curve::generator().operate_with_self(t);
     let mut equations = Vec::new();
 
-    for &prime_power in &factors {
-        // let prime_power = prime.pow(exponent as u32); // 4 ó 27, etc.
-        let (cofactor, _) = order.div_rem(&prime_power); // 108/4=27 ó 108/27=4
+    for prime_power in factors {
+        let cofactor = order / prime_power; // 108/4=27 ó 108/27=4
 
         // Subgenerador y subpunto
-        let g_sub = g.operate_with_self(cofactor);
+        let h_sub = h.operate_with_self(cofactor);
         let q_sub = q.operate_with_self(cofactor);
 
         // Usamos la misma idea de BSGS (baby_step_giant_step_vector)
         // para hallar log en el subgrupo de orden = prime_power
-        if let Some(k_sub) =
-            baby_step_giant_step_vector_bls12(&g_sub, &q_sub, prime_power.try_into().unwrap())
-        {
+        if let Some(k_sub) = baby_step_giant_step_bls_2(&h_sub, &q_sub, prime_power) {
             // Añadimos la congruencia x ≡ k_sub (mod prime_power)
-            equations.push((k_sub, prime_power));
+            equations.push((k_sub as i128, prime_power as i128));
         } else {
             // En caso de no encontrar
             panic!(
@@ -852,5 +943,40 @@ mod tests {
         let order: i128 = 130086066303665968735;
         let factors = factorize(order);
         println!("factors: {:?}", factors);
+    }
+
+    #[test]
+    fn test_pohlig_hellman_bls() {
+        let g = BLS12381Curve::generator();
+        let t = U256::from_dec_str(
+            "2431301301763165506535342908526265397976006404267303611013741635547798463",
+        )
+        .unwrap();
+        let h = g.operate_with_self(t);
+
+        // Test case 1: k = 1
+        let q1 = h.operate_with_self(1u16);
+        assert_eq!(pohlig_hellman_bls(&q1), 1);
+
+        // Test case 2: k = 2
+        let q2 = h.operate_with_self(2u16);
+        assert_eq!(pohlig_hellman_bls(&q2), 2);
+
+        // Test case 3: k = 3
+        let q3 = h.operate_with_self(3u16);
+        assert_eq!(pohlig_hellman_bls(&q3), 3);
+
+        // Test case 4: k = 4
+        let q4 = h.operate_with_self(4u16);
+        assert_eq!(pohlig_hellman_bls(&q4), 4);
+
+        // Test case 5: k = 11
+        let q5 = h.operate_with_self(9u16);
+        assert_eq!(pohlig_hellman_bls(&q5), 9);
+
+        // let n = 10000000000;
+        // // Test case 5: k = 5
+        // let q6 = g.operate_with_self(n);
+        // assert_eq!(pohlig_hellman_bls(&q6), n % 21567);
     }
 }
