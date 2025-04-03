@@ -50,8 +50,8 @@ fn vitalik_w_and_qap() {
     // order of the rows in the same way it rearranges the witness ordering.
 
     const _M1_: &str = "0x73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000000";
-    const _0_: &str = "0x0";
-    const _1_: &str = "0x1";
+    const _0_: &str = "0";
+    const _1_: &str = "1";
 
     #[rustfmt::skip]
     let [temp_l, temp_r, temp_o] = [
