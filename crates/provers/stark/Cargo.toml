@@ -49,7 +49,6 @@ wasm-bindgen-test = "0.3.0"
 [features]
 test_fiat_shamir = []
 instruments = []                                                     # This enables timing prints in prover and verifier
-metal = ["lambdaworks-math/metal"]
 parallel = ["dep:rayon", "lambdaworks-crypto/parallel"]
 wasm = ["dep:wasm-bindgen", "dep:serde-wasm-bindgen", "dep:web-sys"]
 winter_compatibility = ["miden-core"]

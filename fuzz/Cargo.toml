@@ -1,5 +1,5 @@
 [workspace]
-members = ["no_gpu_fuzz", "metal_fuzz", "cuda_fuzz"]
+members = ["no_gpu_fuzz", "cuda_fuzz"]
 resolver = "2"
 
 [workspace.package]
@@ -15,4 +15,3 @@ libfuzzer-sys = "0.4"
 
 [profile.release]
 debug = 1
-

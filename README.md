@@ -135,7 +135,7 @@ This can be used in a multi prover setting for extra security, or as a standalon
 
 ### Fuzzers
 
-Fuzzers are divided between the ones that use only the CPU, the ones that use Metal, and the ones that use CUDA.
+Fuzzers are divided between the ones that use only the CPU, and the ones that use CUDA.
 
 To use them, make sure you have installed ```cargo fuzzer```
 
@@ -153,7 +153,7 @@ make run-fuzzer FUZZER=stark252
 
 The list of fuzzers can be found in `fuzz/no_gpu_fuzz`
 
-Fuzzers for FTT in Metal and Cuda can be run with `make run-metal-fuzzer` and `make run-cuda-fuzzer`
+Fuzzers for FTT in Cuda can be run with `make run-cuda-fuzzer`
 
 
 Run a specific fuzzer from the ones contained in **fuzz/fuzz_targets/** folder with`cargo`, for example to run the one for the target `field_from_hex`:
@@ -222,7 +222,7 @@ The following links, repos, companies and projects have been important in the de
 
 # Security
 
-We take security seriously. If you discover a vulnerability in this project, please report it responsibly. 
+We take security seriously. If you discover a vulnerability in this project, please report it responsibly.
 
 - You can report vulnerabilities directly via the **[GitHub "Report a Vulnerability" feature](../../security/advisories/new)**.
 - Alternatively, send an email to **[security@lambdaclass.com](mailto:security@lambdaclass.com)**.
