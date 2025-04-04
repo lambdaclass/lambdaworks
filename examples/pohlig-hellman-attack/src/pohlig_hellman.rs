@@ -13,11 +13,16 @@ use lambdaworks_math::{
 
 use crate::chinese_remainder_theorem::*;
 
+/// Errors that can occur during Pohlig-Hellman algorithm execution
 #[derive(Debug)]
 pub enum PohligHellmanError {
+    /// Error when no discrete logarithm solution could be found
     DiscreteLogNotFound,
+    /// Error from Chinese Remainder Theorem calculation
+    ChineseRemainderTheoremError(ChineseRemainderTheoremError),
 }
 
+/// Represents a group suitable for the Pohlig-Hellman algorithm
 #[derive(Clone, Debug)]
 pub struct PohligHellmanGroup {
     pub order: u64,
@@ -26,10 +31,12 @@ pub struct PohligHellmanGroup {
 }
 
 impl PohligHellmanGroup {
+    /// Creates a new subgroup of the BLS12-381 curve with a smooth order
+    /// that is suitable for the Pohlig-Hellman algorithm.
     pub fn new() -> Self {
         // Big subgroup of the BLS12-381 Elliptic Curve.
         // Its order's factorization is: 11 * 10177 * 859267 * 52437899 * 52435875175126190479447740508185965837690552500527637822603658699938581184513.
-        // We'll take the first three factors to form the subgroup we are going to atack.
+        // We'll take the first three factors to form the subgroup we are going to attack.
         let group_order = U384::from_hex_unchecked(
             "1FB322654A7CEF70462F7D205CF17F1D6B52ECA5FE8D9BBD809536AAD8A973FFF0AAAAAA5555AAAB",
         );
@@ -47,7 +54,7 @@ impl PohligHellmanGroup {
         let subgroup_order_factors = [11u64, 10177u64, 859267u64];
 
         // We construct the generator 'h' of the subgroup using:
-        // h = g^{n/s}, where 'g' is the big gorup generator, 'n' is its order and 's' the subgroup order.
+        // h = g^{n/s}, where 'g' is the big group generator, 'n' is its order and 's' the subgroup order.
         let quotient = group_order.div_rem(&U384::from(subgroup_order)).0;
         let subgroup_generator = group_generator.operate_with_self(quotient);
 
@@ -58,15 +65,18 @@ impl PohligHellmanGroup {
         }
     }
 
+    /// Performs the Pohlig-Hellman attack to find the discrete logarithm
+    ///
+    /// Given a point q = g^x, finds the value x using the Pohlig-Hellman algorithm.
     pub fn pohlig_hellman_attack(
         self,
         q: &ShortWeierstrassProjectivePoint<BLS12381Curve>,
     ) -> Result<usize, PohligHellmanError> {
         // In this vector we'll collect all the equations that we are going to use to find the exponent x using the Chinese Remainder Theorem.
-        // The elements of `equations` we'll be of the form (x', n), which represents that x satisfies x ≡ x' mod n.
+        // The elements of `equations` will be of the form (x', n), which represents that x satisfies x ≡ x' mod n.
         let mut equations = Vec::new();
 
-        // For each factor n in the factorization in primes powers of the order, we search x' such that
+        // For each factor n in the factorization of the order, we search for x' such that
         // x ≡ x' mod n, using the Baby Step Giant Step algorithm.
         for factor in self.order_factors {
             let cofactor = self.order / factor;
@@ -81,23 +91,27 @@ impl PohligHellmanGroup {
                 equations.push((x_prime as i128, factor as i128));
             } else {
                 // If we couldn't find the discrete logarithm in the subgroup of order `factor`, it
-                // means that there is no solution to the dsicrete logarithm equation proposed.
+                // means that there is no solution to the discrete logarithm equation proposed.
                 // That is, there is no 'k' such that h^k = q.
                 return Err(PohligHellmanError::DiscreteLogNotFound);
             }
         }
 
         // We combine the equations using the Chinese Remainder Theorem.
-        let x = chinese_remainder_theorem(&equations);
+        let x = chinese_remainder_theorem(&equations)?;
         Ok(x as usize)
     }
 
-    // Returns the exponent 0 <= x < n, such that h^x = q.
+    /// Implementation of the Baby-Step Giant-Step algorithm
+    ///
+    /// Finds the discrete logarithm x such that h^x = q in a cyclic group,
+    /// where 0 ≤ x < n.
     pub fn baby_step_giant_step(
         h: &ShortWeierstrassProjectivePoint<BLS12381Curve>,
         q: &ShortWeierstrassProjectivePoint<BLS12381Curve>,
         n: u64,
     ) -> Option<u64> {
+        // Compute optimal step size m ≈ sqrt(n)
         let m: u64 = (n as f64).sqrt().ceil() as u64 + 1;
 
         // We construct the list `baby_list`= [h^0, h^1, ..., h^{m-1}].
@@ -111,7 +125,7 @@ impl PohligHellmanGroup {
         let minus_hm = hm.neg();
 
         // y = q initially
-        let mut y: ShortWeierstrassProjectivePoint<BLS12381Curve> = q.clone();
+        let mut y = q.clone();
 
         for i in 0..m {
             // We check if y is in the baby_list
@@ -131,14 +145,20 @@ impl PohligHellmanGroup {
     }
 }
 
+// Convert from ChineseRemainderTheoremError to PohligHellmanError
+impl From<ChineseRemainderTheoremError> for PohligHellmanError {
+    fn from(error: ChineseRemainderTheoremError) -> Self {
+        PohligHellmanError::ChineseRemainderTheoremError(error)
+    }
+}
+
 #[cfg(test)]
 mod tests {
-
-    use std::time::{Duration, Instant};
-
+    use lambdaworks_math::elliptic_curve::short_weierstrass::curves::bls12_381::field_extension::BLS12381PrimeField;
     use lambdaworks_math::{elliptic_curve::traits::FromAffine, unsigned_integer::element::U384};
 
     use super::*;
+
     #[test]
     fn test_mod_inverse() {
         // Test case 1: Simple case
@@ -158,18 +178,16 @@ mod tests {
     fn test_chinese_remainder_theorem() {
         // Test case 1: Simple case
         let equations = [(2, 3), (3, 5), (2, 7)];
-        assert_eq!(chinese_remainder_theorem(&equations), 23);
+        assert_eq!(chinese_remainder_theorem(&equations).unwrap(), 23);
 
         // Test case 2: Our Pohlig-Hellman case
         let equations = [(1, 4), (2, 27)];
-        assert_eq!(chinese_remainder_theorem(&equations), 29);
+        assert_eq!(chinese_remainder_theorem(&equations).unwrap(), 29);
 
         // Test case 3: Another common case
         let equations = [(1, 3), (2, 4), (3, 5)];
-        assert_eq!(chinese_remainder_theorem(&equations), 58);
+        assert_eq!(chinese_remainder_theorem(&equations).unwrap(), 58);
     }
-
-    use lambdaworks_math::elliptic_curve::short_weierstrass::curves::bls12_381::field_extension::BLS12381PrimeField;
 
     #[test]
     fn new_group() {
@@ -200,10 +218,9 @@ mod tests {
     }
 
     #[test]
-    fn ph() {
+    fn test_pohlig_hellman_attack() {
         let test = PohligHellmanGroup::new();
 
-        // Test case 5: k = 5
         let n = 100000000000;
         let q5 = test.generator.operate_with_self(n);
         assert_eq!(
