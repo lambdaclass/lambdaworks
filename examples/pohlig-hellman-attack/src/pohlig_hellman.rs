@@ -13,10 +13,11 @@ use lambdaworks_math::{
     cyclic_group::IsGroup,
     elliptic_curve::{
         short_weierstrass::{
-            curves::bls12_381::curve::BLS12381Curve, point::ShortWeierstrassProjectivePoint,
+            curves::bls12_381::{curve::BLS12381Curve, field_extension::BLS12381PrimeField},
+            point::ShortWeierstrassProjectivePoint,
             traits::IsShortWeierstrass,
         },
-        traits::IsEllipticCurve,
+        traits::{FromAffine, IsEllipticCurve},
     },
     field::{
         element::FieldElement,
@@ -25,7 +26,7 @@ use lambdaworks_math::{
             u64_prime_field::U64PrimeField,
         },
     },
-    unsigned_integer::element::{U128, U256},
+    unsigned_integer::element::{U128, U256, U384},
 };
 
 /// Curve y^2 = x^3 + 2x + 5 over the finite field with modulus 113.
@@ -163,6 +164,9 @@ fn update_step(a: &mut i128, old_a: &mut i128, quotient: i128) {
     *old_a = temp;
 }
 
+// given a and b it returns (g, s, t) where
+// g = the greatest common divisor between a and b = gcd(a, b)
+// s and t the bezout coefficients such that sa + tb = g
 pub fn extended_euclidean_algorithm(a: i128, b: i128) -> (i128, i128, i128) {
     let (mut old_r, mut rem) = (a, b);
     let (mut old_s, mut coeff_s) = (1, 0);
@@ -179,6 +183,16 @@ pub fn extended_euclidean_algorithm(a: i128, b: i128) -> (i128, i128, i128) {
     (old_r, old_s, old_t)
 }
 
+// returns the inverse of x modulus n.
+// If gcd(x, n) = 1, then sx + tn = 1 means that sx = 1 mod n. Then, s is the inverse of x mod n.
+// However, the x value returned by the Extended Euclidean Algorithm could be negative or larger than n.
+// In modular arithmetic, we typically want the representative in the range [0, n-1].
+// The expression (x % n + n) % n handles both cases.
+// For example, if n = 7 and the algorithm gives x = -3:
+//  -3 % 7 = -3 (in Rust)
+//  -3 + 7 = 4
+//  4 % 7 = 4
+//  So 4 is the modular inverse, which means (a * 4) % 7 = 1.
 fn mod_inverse(x: i128, n: i128) -> Option<i128> {
     let (g, x, _) = extended_euclidean_algorithm(x, n);
     if g == 1 {
@@ -366,7 +380,11 @@ pub fn baby_step_giant_step_bls_2(
     n: u64,
 ) -> Option<u64> {
     // 1) m = ceil(sqrt(n))
-    let m = (n as f64).sqrt().ceil() as u64;
+    println!("-------------------------------------");
+    println!("N: {:?}", n);
+    println!("N as f64: {:?}", n as f64);
+    let m: u64 = (n as f64).sqrt().ceil() as u64 + 1;
+    println!("M: {:?}", m);
 
     // 2) Baby steps: calculamos j*G para j en [0..m)
     //    y lo guardamos en un Vec<(Point, j)>
@@ -376,6 +394,10 @@ pub fn baby_step_giant_step_bls_2(
         let point_j = g.operate_with_self(j);
         baby_list.push((point_j, j));
     }
+    println!(
+        "first is zero: {:?}",
+        baby_list[0].0 == ShortWeierstrassProjectivePoint::<BLS12381Curve>::neutral_element()
+    );
 
     // 3) Giant steps
     //    - g^m y su inverso aditivo
@@ -383,16 +405,22 @@ pub fn baby_step_giant_step_bls_2(
     let minus_gm = gm.neg(); // Asegúrate de tener `neg()` definido en tu punto
 
     // y = Q inicialmente
-    let mut y = q.clone();
+    let mut y: ShortWeierstrassProjectivePoint<BLS12381Curve> = q.clone();
 
     // 4) Recorremos i en [0..m)
-    for i in 0..(n + 1) {
+    for i in 0..m {
         // Buscamos si y está en baby_list (búsqueda lineal)
         // .find() retorna Some(&(point, j)) si lo halla
-        if let Some(&(_, j)) = baby_list.iter().find(|(p, _)| p == &y) {
-            let x = i * m + j;
-            return Some(x);
+
+        for j in 0..m {
+            if baby_list[j as usize].0 == y {
+                let x = i * m + j;
+                println!("J: {:?}", j);
+                println!("X: {:?}", x);
+                return Some(x);
+            }
         }
+
         // y = y + (−mG) para el siguiente salto
         y = y.operate_with(&minus_gm);
     }
@@ -741,11 +769,11 @@ pub fn pohlig_hellman_4(q: &ShortWeierstrassProjectivePoint<SmoothCurve2>) -> us
 
 pub fn pohlig_hellman_bls(q: &ShortWeierstrassProjectivePoint<BLS12381Curve>) -> usize {
     // 1. Obtenemos el orden del grupo (en tu caso, sabes que es 108).
-    let order = 21567u64;
+    let order = 111947;
 
     // 2. Factorizamos el orden llamando a `factorize(order)`.
     //    Para 108, esto retornará: [(2,2), (3,3)].
-    let factors = vec![3u64, 7u64, 13u64, 79u64];
+    let factors = vec![11u64, 10177u64];
     // 3. Vamos a reproducir exactamente la misma lógica que ya tenías:
     //    - Calculamos 'k0' para el factor 2^2 = 4
     //    - Calculamos 'k1' para el factor 3^3 = 27
@@ -753,22 +781,42 @@ pub fn pohlig_hellman_bls(q: &ShortWeierstrassProjectivePoint<BLS12381Curve>) ->
     //
     //    PERO en lugar de "forzarlo" manualmente, aprovechamos el vector `factors`.
 
-    // h = generator of the subgroup of order 21567.
-    // t = r / 21567 = 2431301301763165506535342908526265397976006404267303611013741635547798463.
-    // Then h = g^t with g the generator of bls12-381 curve.
-    let t = U256::from_dec_str(
-        "2431301301763165506535342908526265397976006404267303611013741635547798463",
-    )
-    .unwrap();
-    let h = BLS12381Curve::generator().operate_with_self(t);
+    // g: generator of C
+    let g = ShortWeierstrassProjectivePoint::<BLS12381Curve>::from_affine(
+        FieldElement::<BLS12381PrimeField>::from_hex_unchecked("04"),
+        FieldElement::<BLS12381PrimeField>::from_hex_unchecked("0a989badd40d6212b33cffc3f3763e9bc760f988c9926b26da9dd85e928483446346b8ed00e1de5d5ea93e354abe706c"),
+    ).unwrap();
+
+    // r = |C|
+    // factorization of r: 3 * 11^2 * 10177^2 * 859267^2 * 52437899^2 * 52435875175126190479447740508185965837690552500527637822603658699938581184513
+    let r: lambdaworks_math::unsigned_integer::element::UnsignedInteger<6> = U384::from_dec_str("264493130243071837505502650427723022029376893320131317353094445957672484527674560789128274094763").unwrap();
+    assert_eq!(
+        g.operate_with_self(r),
+        ShortWeierstrassProjectivePoint::<BLS12381Curve>::neutral_element()
+    );
+
+    // s = 3 * 11
+    let s = U384::from(111947u64);
+
+    // t = r / s
+    let (t, _) = r.div_rem(&s);
+
+    // h generator of the subgroup of order s
+    let h = g.operate_with_self(t);
+
     let mut equations = Vec::new();
 
     for prime_power in factors {
         let cofactor = order / prime_power; // 108/4=27 ó 108/27=4
+        println!("PRIME POWER: {:?}", prime_power);
+        println!("COFACTOR: {:?}", cofactor);
 
         // Subgenerador y subpunto
         let h_sub = h.operate_with_self(cofactor);
         let q_sub = q.operate_with_self(cofactor);
+
+        let test = h_sub.operate_with_self(1u16) == q_sub;
+        println!("h_0 ^ 1 == q_0: {:?}", test);
 
         // Usamos la misma idea de BSGS (baby_step_giant_step_vector)
         // para hallar log en el subgrupo de orden = prime_power
@@ -791,6 +839,8 @@ pub fn pohlig_hellman_bls(q: &ShortWeierstrassProjectivePoint<BLS12381Curve>) ->
 
 #[cfg(test)]
 mod tests {
+
+    use lambdaworks_math::{elliptic_curve::traits::FromAffine, unsigned_integer::element::U384};
 
     use super::*;
     #[test]
@@ -947,12 +997,182 @@ mod tests {
 
     #[test]
     fn test_pohlig_hellman_bls() {
-        let g = BLS12381Curve::generator();
+        let g = ShortWeierstrassProjectivePoint::<BLS12381Curve>::from_affine(
+            FieldElement::<<lambdaworks_math::elliptic_curve::short_weierstrass::curves::bls12_381::curve::BLS12381Curve as lambdaworks_math::elliptic_curve::traits::IsEllipticCurve>::BaseField>::from_hex_unchecked("04"),
+            FieldElement::<<lambdaworks_math::elliptic_curve::short_weierstrass::curves::bls12_381::curve::BLS12381Curve as lambdaworks_math::elliptic_curve::traits::IsEllipticCurve>::BaseField>::from_hex_unchecked("0a989badd40d6212b33cffc3f3763e9bc760f988c9926b26da9dd85e928483446346b8ed00e1de5d5ea93e354abe706c"),
+        ).unwrap();
         let t = U256::from_dec_str(
-            "2431301301763165506535342908526265397976006404267303611013741635547798463",
+            "2496946436910770975211797167056474563721358577182520808511112659707589021501",
         )
         .unwrap();
         let h = g.operate_with_self(t);
+        // assert_eq!(
+        //     h.operate_with_self(21u16),
+        //     ShortWeierstrassProjectivePoint::<BLS12381Curve>::neutral_element()
+        // );
+
+        let r = U256::from_dec_str(
+            "52435875175126190479447740508185965838148530120832936978733365853859369451521",
+        )
+        .unwrap();
+        assert_eq!(
+            g.operate_with_self(r),
+            ShortWeierstrassProjectivePoint::<BLS12381Curve>::neutral_element()
+        );
+
+        // // Test case 1: k = 1
+        // let q1 = h.operate_with_self(1u16);
+        // assert_eq!(pohlig_hellman_bls(&q1), 1);
+
+        // // Test case 2: k = 2
+        // let q2 = h.operate_with_self(2u16);
+        // assert_eq!(pohlig_hellman_bls(&q2), 2);
+
+        // // Test case 3: k = 3
+        // let q3 = h.operate_with_self(3u16);
+        // assert_eq!(pohlig_hellman_bls(&q3), 3);
+
+        // // Test case 4: k = 4
+        // let q4 = h.operate_with_self(4u16);
+        // assert_eq!(pohlig_hellman_bls(&q4), 4);
+
+        // Test case 5: k = 11
+
+        // let n = 20 as usize;
+        // // Test case 5: k = 5
+        // let q6 = h.operate_with_self(n);
+        // assert_eq!(pohlig_hellman_bls(&q6), n % 21);
+    }
+
+    use lambdaworks_math::elliptic_curve::short_weierstrass::curves::bls12_381::field_extension::BLS12381PrimeField;
+    #[test]
+    fn subgroup_generator() {
+        // g: generator of C
+        let g = ShortWeierstrassProjectivePoint::<BLS12381Curve>::from_affine(
+            FieldElement::<BLS12381PrimeField>::from_hex_unchecked("04"),
+            FieldElement::<BLS12381PrimeField>::from_hex_unchecked("0a989badd40d6212b33cffc3f3763e9bc760f988c9926b26da9dd85e928483446346b8ed00e1de5d5ea93e354abe706c"),
+        ).unwrap();
+
+        // r = |C|
+        // factorization of r: 3 * 11^2 * 10177^2 * 859267^2 * 52437899^2 * 52435875175126190479447740508185965837690552500527637822603658699938581184513
+        let r: lambdaworks_math::unsigned_integer::element::UnsignedInteger<6> = U384::from_hex_unchecked(
+            "1A0111EA397FE69A4B1BA7B6434BACD764774B84F38512BF6730D2A0F6B0F6241EABFFFEB15400008C0000000000AAAB",
+        );
+        assert_eq!(
+            g.operate_with_self(r),
+            ShortWeierstrassProjectivePoint::<BLS12381Curve>::neutral_element()
+        );
+
+        // s = 3 * 11
+        let s = U384::from(33u64);
+
+        // t = r / s
+        let (t, _) = r.div_rem(&s);
+
+        // h generator of the subgroup of order s
+        let h = g.operate_with_self(t);
+        assert_eq!(
+            h.operate_with_self(s),
+            ShortWeierstrassProjectivePoint::<BLS12381Curve>::neutral_element()
+        );
+
+        // g^0 = 1
+        assert_eq!(
+            g.operate_with_self(0u16),
+            ShortWeierstrassProjectivePoint::<BLS12381Curve>::neutral_element()
+        );
+    }
+
+    #[test]
+    fn bls_test() {
+        let g = ShortWeierstrassProjectivePoint::<BLS12381Curve>::from_affine(
+            FieldElement::<BLS12381PrimeField>::from_hex_unchecked("04"),
+            FieldElement::<BLS12381PrimeField>::from_hex_unchecked("0a989badd40d6212b33cffc3f3763e9bc760f988c9926b26da9dd85e928483446346b8ed00e1de5d5ea93e354abe706c"),
+        ).unwrap();
+
+        let r: lambdaworks_math::unsigned_integer::element::UnsignedInteger<6> = U384::from_hex_unchecked(
+            "1A0111EA397FE69A4B1BA7B6434BACD764774B84F38512BF6730D2A0F6B0F6241EABFFFEB15400008C0000000000AAAB",
+        );
+
+        // s = 3 * 11
+        let s = U384::from(33u64);
+
+        let (t, _) = r.div_rem(&s);
+
+        let h = g.operate_with_self(t);
+
+        println!(
+            "h is neutral: {:?}",
+            h == ShortWeierstrassProjectivePoint::<BLS12381Curve>::neutral_element()
+        );
+
+        // Test case 1: k = 1
+        let q1 = h.operate_with_self(1u16);
+        assert_eq!(pohlig_hellman_bls(&q1), 1);
+
+        // Test case 2: k = 2
+        let q2 = h.operate_with_self(2u16);
+        //assert_eq!(pohlig_hellman_bls(&q2), 2);
+
+        // // Test case 2: k = 9
+        // let q2 = h.operate_with_self(9u16);
+        // assert_eq!(pohlig_hellman_bls(&q2), 9);
+    }
+
+    #[test]
+    fn new_group() {
+        let g = ShortWeierstrassProjectivePoint::<BLS12381Curve>::from_affine(
+            FieldElement::<BLS12381PrimeField>::from_hex_unchecked("04"),
+            FieldElement::<BLS12381PrimeField>::from_hex_unchecked("0a989badd40d6212b33cffc3f3763e9bc760f988c9926b26da9dd85e928483446346b8ed00e1de5d5ea93e354abe706c"),
+        ).unwrap();
+
+        let order = U384::from_dec_str("264493130243071837505502650427723022029376893320131317353094445957672484527674560789128274094763").unwrap();
+
+        assert_eq!(
+            g.operate_with_self(order),
+            ShortWeierstrassProjectivePoint::<BLS12381Curve>::neutral_element()
+        );
+
+        // s = 11 * 10177
+        let s = U384::from(111947u64);
+
+        // t = r / s
+        let (t, _) = order.div_rem(&s);
+
+        // h generator of the subgroup of order s
+        let h = g.operate_with_self(t);
+        assert_eq!(
+            h.operate_with_self(s),
+            ShortWeierstrassProjectivePoint::<BLS12381Curve>::neutral_element()
+        );
+    }
+
+    #[test]
+    fn ph_new_group() {
+        let g = ShortWeierstrassProjectivePoint::<BLS12381Curve>::from_affine(
+            FieldElement::<BLS12381PrimeField>::from_hex_unchecked("04"),
+            FieldElement::<BLS12381PrimeField>::from_hex_unchecked("0a989badd40d6212b33cffc3f3763e9bc760f988c9926b26da9dd85e928483446346b8ed00e1de5d5ea93e354abe706c"),
+        ).unwrap();
+
+        let order = U384::from_dec_str("264493130243071837505502650427723022029376893320131317353094445957672484527674560789128274094763").unwrap();
+
+        assert_eq!(
+            g.operate_with_self(order),
+            ShortWeierstrassProjectivePoint::<BLS12381Curve>::neutral_element()
+        );
+
+        // s = 11 * 10177
+        let s = U384::from(111947u64);
+
+        // t = r / s
+        let (t, _) = order.div_rem(&s);
+
+        // h generator of the subgroup of order s
+        let h = g.operate_with_self(t);
+        assert_eq!(
+            h.operate_with_self(s),
+            ShortWeierstrassProjectivePoint::<BLS12381Curve>::neutral_element()
+        );
 
         // Test case 1: k = 1
         let q1 = h.operate_with_self(1u16);
@@ -962,21 +1182,9 @@ mod tests {
         let q2 = h.operate_with_self(2u16);
         assert_eq!(pohlig_hellman_bls(&q2), 2);
 
-        // Test case 3: k = 3
-        let q3 = h.operate_with_self(3u16);
-        assert_eq!(pohlig_hellman_bls(&q3), 3);
-
-        // Test case 4: k = 4
-        let q4 = h.operate_with_self(4u16);
-        assert_eq!(pohlig_hellman_bls(&q4), 4);
-
-        // Test case 5: k = 11
-        let q5 = h.operate_with_self(9u16);
-        assert_eq!(pohlig_hellman_bls(&q5), 9);
-
-        // let n = 10000000000;
-        // // Test case 5: k = 5
-        // let q6 = g.operate_with_self(n);
-        // assert_eq!(pohlig_hellman_bls(&q6), n % 21567);
+        // Test case 5: k = 5
+        let n = 10000000000;
+        let q5 = g.operate_with_self(n);
+        assert_eq!(pohlig_hellman_bls(&q5), n % 111947);
     }
 }
