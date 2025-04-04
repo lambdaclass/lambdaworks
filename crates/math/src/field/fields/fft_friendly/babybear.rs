@@ -253,7 +253,7 @@ mod tests {
 
             // Property-based test that ensures interpolation is the inverse operation of evaluation.
             #[test]
-            [cfg(not(feature = "cuda"))]
+            #[cfg(not(feature = "cuda"))]
             fn test_fft_interpolate_is_inverse_of_evaluate(
                 poly in poly(4).prop_filter("Avoid non pows of two", |poly| poly.coeff_len().is_power_of_two())) {
                 let (poly, new_poly) = gen_fft_interpolate_and_evaluate(poly);
