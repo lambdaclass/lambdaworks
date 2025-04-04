@@ -68,7 +68,7 @@ fn seq_poly_interpolation_benchmarks() {
     fft_functions::poly_interpolate_fft(black_box(&evals));
 }
 
-#[cfg(not(any(feature = "metal", feature = "cuda")))]
+#[cfg(not(feature = "cuda"))]
 iai_callgrind::main!(
     callgrind_args = "toggle-collect=util::*";
     functions = seq_fft_benchmarks_nr,
@@ -82,7 +82,7 @@ iai_callgrind::main!(
     seq_poly_interpolation_benchmarks
 );
 
-#[cfg(any(feature = "metal", feature = "cuda"))]
+#[cfg(feature = "cuda")]
 iai_callgrind::main!(
     callgrind_args = "toggle-collect=util::*";
     functions = seq_fft_benchmarks_nr,
