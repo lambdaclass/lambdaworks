@@ -77,6 +77,9 @@ pub fn gen_twiddles<F: IsFFTField>(
     }
 
     let len = (1 << order) / 2;
+    if len == 0 {
+        return Ok(Vec::new());
+    }
 
     let kernel = match config {
         RootsConfig::Natural => format!("calc_twiddles_{}", F::field_name()),
