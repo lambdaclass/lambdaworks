@@ -322,8 +322,9 @@ mod tests {
     #[test]
     fn test_rsa_encryption_decryption() {
         const N: usize = 16;
-        let p: UnsignedInteger<N> = UnsignedInteger::from_u64(61);
-        let q: UnsignedInteger<N> = UnsignedInteger::from_u64(53);
+        // Using larger primes to ensure e (65537) < φ(n)
+        let p: UnsignedInteger<N> = UnsignedInteger::from_u64(65539);
+        let q: UnsignedInteger<N> = UnsignedInteger::from_u64(65521);
         let rsa = RSA::new(p, q).unwrap();
 
         let message: UnsignedInteger<N> = UnsignedInteger::from_u64(42);
@@ -336,8 +337,9 @@ mod tests {
     #[test]
     fn test_rsa_bytes_encryption_decryption() {
         const N: usize = 16;
-        let p: UnsignedInteger<N> = UnsignedInteger::from_u64(61);
-        let q: UnsignedInteger<N> = UnsignedInteger::from_u64(53);
+        // Using larger primes to ensure e (65537) < φ(n)
+        let p: UnsignedInteger<N> = UnsignedInteger::from_u64(65539);
+        let q: UnsignedInteger<N> = UnsignedInteger::from_u64(65521);
         let rsa = RSA::new(p, q).unwrap();
 
         let message = b"A"; // Use a single-byte message
@@ -350,12 +352,13 @@ mod tests {
     #[test]
     fn test_rsa_message_too_large() {
         const N: usize = 16;
-        let p: UnsignedInteger<N> = UnsignedInteger::from_u64(61);
-        let q: UnsignedInteger<N> = UnsignedInteger::from_u64(53);
+        // Using larger primes to ensure e (65537) < φ(n)
+        let p: UnsignedInteger<N> = UnsignedInteger::from_u64(65539);
+        let q: UnsignedInteger<N> = UnsignedInteger::from_u64(65521);
         let rsa = RSA::new(p, q).unwrap();
 
-        // n = 61 * 53 = 3233
-        let message: UnsignedInteger<N> = UnsignedInteger::from_u64(3234); // Larger than n
+        // n = 65539 * 65521 = 4294343419
+        let message: UnsignedInteger<N> = UnsignedInteger::from_u64(4294343420); // Larger than n
         let result = rsa.encrypt(&message);
         assert!(matches!(result, Err(RSAError::MessageTooLarge)));
     }
@@ -363,12 +366,13 @@ mod tests {
     #[test]
     fn test_rsa_invalid_ciphertext() {
         const N: usize = 16;
-        let p: UnsignedInteger<N> = UnsignedInteger::from_u64(61);
-        let q: UnsignedInteger<N> = UnsignedInteger::from_u64(53);
+        // Using larger primes to ensure e (65537) < φ(n)
+        let p: UnsignedInteger<N> = UnsignedInteger::from_u64(65539);
+        let q: UnsignedInteger<N> = UnsignedInteger::from_u64(65521);
         let rsa = RSA::new(p, q).unwrap();
 
-        // n = 61 * 53 = 3233
-        let ciphertext: UnsignedInteger<N> = UnsignedInteger::from_u64(3234); // Larger than n
+        // n = 65539 * 65521 = 4294343419
+        let ciphertext: UnsignedInteger<N> = UnsignedInteger::from_u64(4294343420); // Larger than n
         let result = rsa.decrypt(&ciphertext);
         assert!(matches!(result, Err(RSAError::InvalidCiphertext)));
     }

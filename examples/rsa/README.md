@@ -53,15 +53,15 @@ Where:
 use rsa::RSA;
 use lambdaworks_math::unsigned_integer::element::UnsignedInteger;
 
-// Create an RSA instance with small primes (for demonstration only)
-let p = UnsignedInteger::<4>::from_u64(61);
-let q = UnsignedInteger::<4>::from_u64(53);
-let rsa = RSA::new(p, q).expect("Error generating RSA");
+// Create an RSA instance with primes that ensure e < φ(n)
+let p = UnsignedInteger::<16>::from_u64(65539);
+let q = UnsignedInteger::<16>::from_u64(65521);
+let rsa = RSA::<16>::new(p, q)?;
 
 // Encrypt and decrypt a numeric message
-let message = UnsignedInteger::<4>::from_u64(42);
-let ciphertext = rsa.encrypt(&message).unwrap();
-let decrypted = rsa.decrypt(&ciphertext).unwrap();
+let message = UnsignedInteger::<16>::from_u64(42);
+let ciphertext = rsa.encrypt(&message)?;
+let decrypted = rsa.decrypt(&ciphertext)?;
 
 assert_eq!(message, decrypted);
 ```
@@ -69,10 +69,18 @@ assert_eq!(message, decrypted);
 ### Byte Data with Padding
 
 ```rust
+use rsa::RSA;
+use lambdaworks_math::unsigned_integer::element::UnsignedInteger;
+
+// Create an RSA instance with primes that ensure e < φ(n)
+let p = UnsignedInteger::<16>::from_u64(65539);
+let q = UnsignedInteger::<16>::from_u64(65521);
+let rsa = RSA::<16>::new(p, q)?;
+
 // Encrypt and decrypt byte data using PKCS#1 v1.5 padding
 let msg_bytes = b"Hello RSA with padding!";
-let cipher_bytes = rsa.encrypt_bytes_pkcs1(msg_bytes).unwrap();
-let plain_bytes = rsa.decrypt_bytes_pkcs1(&cipher_bytes).unwrap();
+let cipher_bytes = rsa.encrypt_bytes_pkcs1(msg_bytes)?;
+let plain_bytes = rsa.decrypt_bytes_pkcs1(&cipher_bytes)?;
 
 assert_eq!(msg_bytes.to_vec(), plain_bytes);
 ```
