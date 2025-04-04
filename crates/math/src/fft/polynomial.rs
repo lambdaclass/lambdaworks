@@ -12,8 +12,6 @@ use alloc::{vec, vec::Vec};
 
 #[cfg(feature = "cuda")]
 use crate::fft::gpu::cuda::polynomial::{evaluate_fft_cuda, interpolate_fft_cuda};
-#[cfg(feature = "metal")]
-use crate::fft::gpu::metal::polynomial::{evaluate_fft_metal, interpolate_fft_metal};
 
 use super::cpu::{ops, roots_of_unity};
 
@@ -38,19 +36,6 @@ impl<E: IsField> Polynomial<FieldElement<E>> {
         coeffs.resize(len, FieldElement::zero());
         // padding with zeros will make FFT return more evaluations of the same polynomial.
 
-        #[cfg(feature = "metal")]
-        {
-            if !F::field_name().is_empty() {
-                Ok(evaluate_fft_metal::<F, E>(&coeffs)?)
-            } else {
-                println!(
-                    "GPU evaluation failed for field {}. Program will fallback to CPU.",
-                    core::any::type_name::<F>()
-                );
-                evaluate_fft_cpu::<F, E>(&coeffs)
-            }
-        }
-
         #[cfg(feature = "cuda")]
         {
             // TODO: support multiple fields with CUDA
@@ -61,7 +46,7 @@ impl<E: IsField> Polynomial<FieldElement<E>> {
             }
         }
 
-        #[cfg(all(not(feature = "metal"), not(feature = "cuda")))]
+        #[cfg(not(feature = "cuda"))]
         {
             evaluate_fft_cpu::<F, E>(&coeffs)
         }
@@ -87,19 +72,6 @@ impl<E: IsField> Polynomial<FieldElement<E>> {
     pub fn interpolate_fft<F: IsFFTField + IsSubFieldOf<E>>(
         fft_evals: &[FieldElement<E>],
     ) -> Result<Self, FFTError> {
-        #[cfg(feature = "metal")]
-        {
-            if !F::field_name().is_empty() {
-                Ok(interpolate_fft_metal::<F, E>(fft_evals)?)
-            } else {
-                println!(
-                    "GPU interpolation failed for field {}. Program will fallback to CPU.",
-                    core::any::type_name::<F>()
-                );
-                interpolate_fft_cpu::<F, E>(fft_evals)
-            }
-        }
-
         #[cfg(feature = "cuda")]
         {
             if !F::field_name().is_empty() {
@@ -109,7 +81,7 @@ impl<E: IsField> Polynomial<FieldElement<E>> {
             }
         }
 
-        #[cfg(all(not(feature = "metal"), not(feature = "cuda")))]
+        #[cfg(not(feature = "cuda"))]
         {
             interpolate_fft_cpu::<F, E>(fft_evals)
         }
@@ -175,7 +147,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    #[cfg(all(not(feature = "metal"), not(feature = "cuda")))]
+    #[cfg(not(feature = "cuda"))]
     use crate::field::traits::IsField;
 
     use alloc::format;
@@ -256,7 +228,7 @@ mod tests {
         (poly, new_poly)
     }
 
-    #[cfg(all(not(feature = "metal"), not(feature = "cuda")))]
+    #[cfg(not(feature = "cuda"))]
     mod u64_field_tests {
         use super::*;
         use crate::field::test_fields::u64_test_field::U64TestField;

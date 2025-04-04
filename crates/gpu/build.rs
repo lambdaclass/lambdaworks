@@ -50,43 +50,7 @@ fn compile_cuda_shaders() {
     });
 }
 
-#[cfg(feature = "metal")]
-fn compile_metal_shaders() {
-    use std::process::Command;
-    let source_dir = env!("CARGO_MANIFEST_DIR").to_string() + "/../math/src/gpu/metal";
-
-    // Tell cargo to invalidate the built crate whenever the source changes
-    println!("cargo:rerun-if-changed={source_dir}");
-
-    let input = source_dir.clone() + "/all.metal";
-    let output = source_dir + "/lib.metallib";
-
-    println!("cargo:warning=compiling:'{input}'->'{output}'");
-
-    let cmd = Command::new("xcrun")
-        .args(["-sdk", "macosx", "metal"])
-        .arg(&input)
-        .arg("-o")
-        .arg(&output)
-        .spawn()
-        .expect("Failed to spawn process");
-
-    let res = cmd.wait_with_output().expect("Command waiting failed");
-
-    if !res.status.success() {
-        println!();
-        println!("{}", String::from_utf8(res.stdout).unwrap());
-        println!();
-        eprintln!("{}", String::from_utf8(res.stderr).unwrap());
-        println!();
-        panic!("Compilation failed for source '{}'", input);
-    }
-}
-
 fn main() {
     #[cfg(feature = "cuda")]
     compile_cuda_shaders();
-
-    #[cfg(feature = "metal")]
-    compile_metal_shaders();
 }

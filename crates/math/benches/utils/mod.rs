@@ -4,6 +4,3 @@ pub mod fft_functions;
 pub mod stark252_utils;
 pub mod u64_goldilocks_utils;
 pub mod u64_utils;
-
-#[cfg(feature = "metal")]
-pub mod metal_functions;
