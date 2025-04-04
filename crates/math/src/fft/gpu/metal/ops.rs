@@ -36,6 +36,14 @@ where
     let input_buffer = state.alloc_buffer_data(input);
     let twiddles_buffer = state.alloc_buffer_data(twiddles);
     // TODO: twiddle factors security (right now anything can be passed as twiddle factors)
+    //
+    if input_buffer.is_null() {
+        println!("INPUT_BUFFER is NULL");
+    }
+
+    if twiddles_buffer.is_null() {
+        println!("TWIDDLES_BUFFER is NULL");
+    }
 
     objc::rc::autoreleasepool(|| {
         let (command_buffer, command_encoder) = state.setup_command(
