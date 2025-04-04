@@ -376,7 +376,7 @@ mod tests {
 
         let x = FieldElement::from(3);
 
-        let p0 = Polynomial::<FrElement>::new(&[FieldElement::from(9000)]);
+        let p0 = Polynomial::<FrElement>::new(&[FieldElement::from(9000)]); // Constant polynomial
         let p0_commitment: <BLS12381AtePairing as IsPairing>::G1Point = kzg.commit(&p0);
         let y0 = FieldElement::from(9000);
 
@@ -384,7 +384,7 @@ mod tests {
             FieldElement::from(1),
             FieldElement::from(2),
             -FieldElement::from(1),
-        ]);
+        ]); // p(x) = 1 + 2x - x²
         let p1_commitment: <BLS12381AtePairing as IsPairing>::G1Point = kzg.commit(&p1);
         let y1 = p1.evaluate(&x);
 
