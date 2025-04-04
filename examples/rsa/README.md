@@ -1,10 +1,11 @@
 # RSA Implementation
 
-This is an implementation of the RSA cryptographic algorithm in Rust. RSA is one of the first public-key cryptosystems and is widely used for secure data transmission.
+This is an implementation of the RSA cryptographic algorithm in Rust. RSA is one of the first public-key cryptosystems widely used for secure data transmission.
 
 
 ## ⚠️ Disclaimer
-This implementation is not cryptographically secure due to non-constant time operations, so must not be used in production. It is intended to be just an educational example.
+
+This implementation is not cryptographically secure due to non-constant time operations and other considerations, so it must not be used in production. It is intended to be just an educational example.
 
 ## Overview
 
@@ -46,8 +47,6 @@ Where:
 - `00`: Separator
 - `M`: Original message
 
-
-
 ### Basic  Example
 
 ```rust
@@ -80,4 +79,4 @@ assert_eq!(msg_bytes.to_vec(), plain_bytes);
 
 ---
 
-**Note**: This implementation is for educational purposes. For production systems, use established cryptographic libraries that have undergone security audits.
+**Note**: This implementation is for educational purposes. Production systems should use established cryptographic libraries that have undergone security audits.
