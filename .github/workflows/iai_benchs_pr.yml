@@ -11,7 +11,7 @@ concurrency:
 jobs:
   fetch_iai_benchs:
     name: Fetch iai benchmarks
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     steps:
     - name: Check cache
       id: cache-iai-results
@@ -53,7 +53,7 @@ jobs:
   run_iai_benchs:
     name: Run iai benchmarks
     needs: fetch_iai_benchs
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     steps:
     - name: Install valgrind
       run: |

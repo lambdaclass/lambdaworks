@@ -13,7 +13,7 @@ permissions:
 jobs:
   criterion_bench:
     name: Criterion benches (Ubuntu)
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     env:
       CARGO_TERM_COLOR: always
     steps:

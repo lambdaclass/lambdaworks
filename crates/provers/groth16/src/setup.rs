@@ -47,6 +47,8 @@ struct ToxicWaste {
 }
 
 impl ToxicWaste {
+    /// This will create a new random ToxicWaste from entropy. Bear in mind this is not safe to use.
+    /// A proper ceremony, like Powers of Tau should be used in production to get the randomness.
     pub fn new() -> Self {
         Self {
             tau: sample_fr_elem(),

@@ -26,7 +26,7 @@ pub type PairingOutput = FieldElement<<Pairing as IsPairing>::OutputField>;
 pub const ORDER_R_MINUS_1_ROOT_UNITY: FrElement = FrElement::from_hex_unchecked("7");
 
 pub fn sample_fr_elem() -> FrElement {
-    let mut rng = rand_chacha::ChaCha20Rng::seed_from_u64(9001);
+    let mut rng = rand_chacha::ChaCha20Rng::from_entropy();
     FrElement::new(U256 {
         limbs: [
             rng.gen::<u64>(),
