@@ -297,4 +297,14 @@ mod tests {
 
         assert_eq!(coeff, new_coeff);
     }
+
+    #[test]
+    fn evaluate_and_interpolate_2_pow_20_other_points() {
+        let coeff: Vec<FieldElement<Mersenne31Field>> =
+            (0..2_u32.pow(20)).map(|i| FE::from(&i)).collect();
+        let evals = evaluate_cfft(coeff.clone());
+        let new_coeff = interpolate_cfft(evals);
+
+        assert_eq!(coeff, new_coeff);
+    }
 }
