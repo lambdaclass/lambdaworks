@@ -1,84 +1,90 @@
-# Pohlig-Hellman Algorithm Implementation
+# Pohlig-Hellman Attack Implementation
 
-This implementation demonstrates the Pohlig-Hellman algorithm for solving the discrete logarithm problem on elliptic curves. The algorithm is particularly efficient when the order of the group has small prime factors.
+This implementation demonstrates the Pohlig-Hellman algorithm for solving the discrete logarithm problem on elliptic curves. The algorithm is useful when the order of the group has small prime factors.
 
 ## Discrete Logarithm Problem
 
-Given two points $P$ and $Q$ on an elliptic curve, where $Q = kP$ for some unknown integer $k$, the discrete logarithm problem consists of finding the value of $k$.
+Given two points $g$ and $h$ on an elliptic curve, where $$h = g^x$$ for some unknown integer $x$, the discrete logarithm problem consists of finding the value of $x$.
 
 ## Mathematical Foundations
 
 ### Group Structure
 
-Let $G$ be a finite cyclic group of order $n$ with generator $g$. The Pohlig-Hellman algorithm exploits the structure of $G$ when $n$ has small prime factors. If $n$ can be factorized as:
+Let $G$ be a finite cyclic group of order $n$ with generator $g$. Let's say we want to find $x$ such that $h = g^x$. The Pohlig-Hellman algorithm exploits the structure of $G$ when $n$ has small prime factors. In other worlds, if the factorization of $n$ is:
 
-$$n = \prod_{i=1}^{k} p_i^{e_i}$$
+$$n = \prod_{i=1}^{k} p_i^{e_i} = p_1^{e_1} \ldots p_k^{e_k},$$
 
-where $p_i$ are distinct primes and $e_i$ are positive integers, then the algorithm can solve the discrete logarithm problem efficiently.
+where $p_i$ are small distinct primes and $e_i$ are positive integers, then the algorithm can find $x$ efficiently.
 
 ### Algorithm Steps
 
-1. **Factorization**: Decompose the group order $n$ into its prime power factors
+1. **Factorization**: Decompose the group order $n$ into its prime power factors.
 2. **Subgroup Resolution**: For each prime power $p_i^{e_i}$:
-   - Compute $g_i = g^{n/p_i^{e_i}}$
-   - Compute $h_i = h^{n/p_i^{e_i}}$
-   - Solve $h_i = g_i^{x_i}$ in the subgroup of order $p_i^{e_i}$
-3. **Chinese Remainder Theorem**: Combine the solutions $x_i$ to find $x$ modulo $n$
+   - Compute $g_i = g^{n/p_i^{e_i}}$.
+   - Compute $h_i = h^{n/p_i^{e_i}}$.
+   - Solve $h_i = g_i^{x_i}$ in the subgroup of order $p_i^{e_i}$, using the Baby Step Giant Step algorithm. This will give us $x_i$ such that $x \equiv x_i \text{ mod } p_i^{e_i}$.
+3. **Chinese Remainder Theorem**: Combine the solutions $x_i$ to find $x$ modulus $n$.
 
-### Subgroup Resolution Method
+### Baby Step Giant Step Algorithm
+Given a generator point $g$ of a subgroup of order $n$ and another point $h$ such that 
+$$ h = g^x \text { mod } n$$
+the algorithm finds $x$, reducing he complexity of $O(n)$ (using brute force) to $O(\sqrt{n})$. 
 
-For each prime factor $p^e$ of the order, the algorithm:
+#### Algorithm Steps
 
-1. Works in a subgroup of order $p^e$
-2. Calculates the logarithm digit by digit in base $p$ using the following formula:
-   $$x = x_0 + x_1 p + x_2 p^2 + \dots + x_{e-1} p^{e-1}$$
-3. For each digit $x_i$, solves a discrete logarithm problem in a group of order $p$
+1. Compute the step size $m = \lceil \sqrt{n} \rceil$.
+2. Compute and store the list of points $\{g^0, g^1, \ldots, g^{m-1} \}$
+3. We compute each element of another list $\{hg^{-0m}, hg^{-1m}, hg^{-2m}, \ldots, hg^{-m^2}\}$, and look for a coincedence between both lists.
+4. If a match $g^j = hg^{-im}$ is found then the descrete log is $x = im + j$ because:
+$$
+\begin{aligned}
+g^j &= hg^{-im} \\
+g^{im + j} &= h
+\end{aligned}
+$$
+5. If no match is found after $m$ iterations, then no solution exists within the given subgroup.
 
 ### Chinese Remainder Theorem
 
 Once the subproblems are solved, the algorithm uses the Chinese Remainder Theorem to find a solution that satisfies all congruences:
 
-$$x \equiv a_1 \pmod{m_1}$$
-$$x \equiv a_2 \pmod{m_2}$$
+$$x \equiv x_1 \pmod{n_1}$$
+$$x \equiv x_2 \pmod{n_2}$$
 $$\vdots$$
-$$x \equiv a_k \pmod{m_k}$$
+$$x \equiv x_k \pmod{n_k}$$
 
 The solution is given by:
 $$x = \sum_{i=1}^{k} a_i M_i N_i \pmod{M}$$
-where $M = \prod_{i=1}^{k} m_i$, $M_i = M/m_i$, and $N_i$ is the modular inverse of $M_i$ modulo $m_i$.
-
-### Advantages
-
-- Significantly reduces computational complexity when the order has small factors
-- Perfectly complements algorithms like Baby-Step-Giant-Step
+where $N = \prod_{i=1}^{k} n_i$, $N_i = N/n_i$, and $M_i$ is the modular inverse of $N_i$ modulus $n_i$.
 
 ## Implementation
 
-The implementation includes:
+You'll find two files in this folder. The file `chinese_remainder_theorem` contains all the algorithms needed to compute the final step. 
 
-1. **Prime Factorization**: Efficient factorization of the group order
-2. **Subgroup Operations**: Working with subgroups of prime power order
-3. **Baby-Step Giant-Step**: Solving discrete logarithms in small groups
-4. **Chinese Remainder Theorem**: Combining solutions from different subgroups
+In the other file, called `pohlig_hellman` we define a group vulnerable to this attack and the algorithms that compute it.
 
-## Usage Example
+We chose to use a subgroup $H$ of the BLS12-381 Elliptic Curve of order 
+$$s = 96192362849 = 11 \cdot 10177 \cdot 859267.$$
+This group is vulnarble to the attack because its factorization consists of small primes.
+
+To find the generator $h$ of this group we took $g$ the generator of a bigger group of order $n$ and computed $$h = g^{\frac{n}{s}}.$$
+
+### Usage Example
 
 ```rust
-// Create the test instance
-let p = TestCurve::generator();
-let order = get_point_order(&p);
-// Factorization of 18 is 2 * 3²
-let factors = vec![(2, 1), (3, 2)];
+// Create the group
+let group = PohligHellmanGroup::new();
+let generator = &group.generator;
+let order = &group.order;
 
-// Point Q = kP for an unknown k
-let test_k = 7u64;
-let q = p.operate_with_self(test_k);
+// Define q = g^x.
+let x = 7u64;
+let q = generator.operate_with_self(x);
 
-// Solve the discrete logarithm
-let found_k = pohlig_hellman(&p, &q, order, &factors);
+// Find x.
+let x_found = group.pohlig_hellman_attack(&q).unwrap();
 
-// Verify the result
-let computed_point = p.operate_with_self(found_k.unwrap());
-assert_eq!(computed_point, q);
+// Check the result.
+assert_eq(generator.operate_with_self(x_found), q);
 ```
 

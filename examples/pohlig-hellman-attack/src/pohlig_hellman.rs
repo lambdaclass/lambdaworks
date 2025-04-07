@@ -37,12 +37,12 @@ impl PohligHellmanGroup {
         // Big subgroup of the BLS12-381 Elliptic Curve.
         // Its order's factorization is: 11 * 10177 * 859267 * 52437899 * 52435875175126190479447740508185965837690552500527637822603658699938581184513.
         // We'll take the first three factors to form the subgroup we are going to attack.
-        let group_order = U384::from_hex_unchecked(
+        let big_group_order = U384::from_hex_unchecked(
             "1FB322654A7CEF70462F7D205CF17F1D6B52ECA5FE8D9BBD809536AAD8A973FFF0AAAAAA5555AAAB",
         );
 
-        // Generator of the group of order `big_group_order`.
-        let group_generator = ShortWeierstrassProjectivePoint::<BLS12381Curve>::from_affine(
+        // Generator of the big group.
+        let big_group_generator = ShortWeierstrassProjectivePoint::<BLS12381Curve>::from_affine(
             FieldElement::<BLS12381PrimeField>::from_hex_unchecked("04"),
             FieldElement::<BLS12381PrimeField>::from_hex_unchecked("0a989badd40d6212b33cffc3f3763e9bc760f988c9926b26da9dd85e928483446346b8ed00e1de5d5ea93e354abe706c"),
         ).unwrap();
@@ -55,8 +55,8 @@ impl PohligHellmanGroup {
 
         // We construct the generator 'h' of the subgroup using:
         // h = g^{n/s}, where 'g' is the big group generator, 'n' is its order and 's' the subgroup order.
-        let quotient = group_order.div_rem(&U384::from(subgroup_order)).0;
-        let subgroup_generator = group_generator.operate_with_self(quotient);
+        let quotient = big_group_order.div_rem(&U384::from(subgroup_order)).0;
+        let subgroup_generator = big_group_generator.operate_with_self(quotient);
 
         Self {
             order: subgroup_order,
@@ -65,14 +65,15 @@ impl PohligHellmanGroup {
         }
     }
 
-    /// Performs the Pohlig-Hellman attack to find the discrete logarithm
+    /// Performs the Pohlig-Hellman attack to find the discrete logarithm.
     ///
-    /// Given a point q = g^x, finds the value x using the Pohlig-Hellman algorithm.
+    /// Given a point q = h^x (where h is the smooth group generator) finds the value x using the Pohlig-Hellman algorithm.
+    /// Note That the result 'x' is given modulus the group order.
     pub fn pohlig_hellman_attack(
-        self,
+        &self,
         q: &ShortWeierstrassProjectivePoint<BLS12381Curve>,
-    ) -> Result<usize, PohligHellmanError> {
-        // In this vector we'll collect all the equations that we are going to use to find the exponent x using the Chinese Remainder Theorem.
+    ) -> Result<u128, PohligHellmanError> {
+        // In this vector we'll collect all the equations that we´ll use to find the exponent x using the Chinese Remainder Theorem.
         // The elements of `equations` will be of the form (x', n), which represents that x satisfies x ≡ x' mod n.
         let mut equations = Vec::new();
 
@@ -92,17 +93,17 @@ impl PohligHellmanGroup {
             } else {
                 // If we couldn't find the discrete logarithm in the subgroup of order `factor`, it
                 // means that there is no solution to the discrete logarithm equation proposed.
-                // That is, there is no 'k' such that h^k = q.
+                // That is, there is no 'x' such that h^x = q.
                 return Err(PohligHellmanError::DiscreteLogNotFound);
             }
         }
 
         // We combine the equations using the Chinese Remainder Theorem.
         let x = chinese_remainder_theorem(&equations)?;
-        Ok(x as usize)
+        Ok(x as u128)
     }
 
-    /// Implementation of the Baby-Step Giant-Step algorithm
+    /// Implementation of the Baby-Step Giant-Step algorithm.
     ///
     /// Finds the discrete logarithm x such that h^x = q in a cyclic group,
     /// where 0 ≤ x < n.
@@ -121,6 +122,7 @@ impl PohligHellmanGroup {
         }
 
         // We want to compare the lists [h^0, h^1, ..., h^{m-1}] and [q * h^{-m}, q * h^{-2m}, q * h^{-3m}, ... , q * h^{-m*m}]
+        // to find a coincidence.
         let hm = h.operate_with_self(m);
         let minus_hm = hm.neg();
 
@@ -128,7 +130,7 @@ impl PohligHellmanGroup {
         let mut y = q.clone();
 
         for i in 0..m {
-            // We check if y is in the baby_list
+            // We check if y is in the baby_list.
             for j in 0..m {
                 if baby_list[j as usize] == y {
                     let x = i * m + j;
@@ -140,7 +142,7 @@ impl PohligHellmanGroup {
             y = y.operate_with(&minus_hm);
         }
 
-        // If there isn't any coincidence between lists, then there is no result x such that h^x = q.
+        // If there isn't any coincidence between the lists, then there is no result x such that h^x = q.
         None
     }
 }
@@ -160,72 +162,98 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_mod_inverse() {
-        // Test case 1: Simple case
-        assert_eq!(mod_inverse(3, 7), Some(5));
-
-        // Test case 2: Larger numbers
-        assert_eq!(mod_inverse(17, 3120), Some(2753));
-
-        // Test case 3: Non-invertible case
-        assert_eq!(mod_inverse(2, 4), None);
-
-        // Test case 4: Identity case
-        assert_eq!(mod_inverse(1, 5), Some(1));
-    }
-
-    #[test]
-    fn test_chinese_remainder_theorem() {
-        // Test case 1: Simple case
-        let equations = [(2, 3), (3, 5), (2, 7)];
-        assert_eq!(chinese_remainder_theorem(&equations).unwrap(), 23);
-
-        // Test case 2: Our Pohlig-Hellman case
-        let equations = [(1, 4), (2, 27)];
-        assert_eq!(chinese_remainder_theorem(&equations).unwrap(), 29);
-
-        // Test case 3: Another common case
-        let equations = [(1, 3), (2, 4), (3, 5)];
-        assert_eq!(chinese_remainder_theorem(&equations).unwrap(), 58);
-    }
-
-    #[test]
-    fn new_group() {
-        let g = ShortWeierstrassProjectivePoint::<BLS12381Curve>::from_affine(
+    fn check_group_generators_order() {
+        let big_group_generator = ShortWeierstrassProjectivePoint::<BLS12381Curve>::from_affine(
             FieldElement::<BLS12381PrimeField>::from_hex_unchecked("04"),
             FieldElement::<BLS12381PrimeField>::from_hex_unchecked("0a989badd40d6212b33cffc3f3763e9bc760f988c9926b26da9dd85e928483446346b8ed00e1de5d5ea93e354abe706c"),
         ).unwrap();
 
-        let order = U384::from_dec_str("264493130243071837505502650427723022029376893320131317353094445957672484527674560789128274094763").unwrap();
+        let big_group_order = U384::from_hex_unchecked(
+            "1FB322654A7CEF70462F7D205CF17F1D6B52ECA5FE8D9BBD809536AAD8A973FFF0AAAAAA5555AAAB",
+        );
 
+        // `big_group_generator` should have order `big_group_order`.
         assert_eq!(
-            g.operate_with_self(order),
+            big_group_generator.operate_with_self(big_group_order),
             ShortWeierstrassProjectivePoint::<BLS12381Curve>::neutral_element()
         );
 
-        // s = 11 * 10177
-        let s = U384::from(111947u64);
+        // We construct a subgroup of the big groups of order 96192362849.
+        let subgroup = PohligHellmanGroup::new();
+        let subgroup_generator = subgroup.generator;
+        let subgroup_order = subgroup.order;
 
-        // t = r / s
-        let (t, _) = order.div_rem(&s);
-
-        // h generator of the subgroup of order s
-        let h = g.operate_with_self(t);
+        // `subgroup_generator` should have order 96192362849.
         assert_eq!(
-            h.operate_with_self(s),
+            subgroup_generator.operate_with_self(subgroup_order),
             ShortWeierstrassProjectivePoint::<BLS12381Curve>::neutral_element()
         );
     }
 
     #[test]
     fn test_pohlig_hellman_attack() {
-        let test = PohligHellmanGroup::new();
+        let group = PohligHellmanGroup::new();
+        let generator = &group.generator;
+        let order = &group.order;
 
-        let n = 100000000000;
-        let q5 = test.generator.operate_with_self(n);
-        assert_eq!(
-            test.clone().pohlig_hellman_attack(&q5).unwrap(),
-            (n % test.order) as usize
-        );
+        // We solve the descrete log for q = g^5.
+        let x1 = 5u64;
+        let q1 = generator.operate_with_self(x1);
+        let x1_found = group.pohlig_hellman_attack(&q1).unwrap();
+
+        // g^{x1_found} = q1.
+        assert_eq!(generator.operate_with_self(x1_found), q1);
+        // `x1_found` = x1 (mod order).
+        assert_eq!(x1_found, (x1 % order) as u128);
+
+        // We solve the descrete log for q = g^{100000000000}.
+        let x2 = 100000000000;
+        let q2 = generator.operate_with_self(x2);
+        let x2_found = group.pohlig_hellman_attack(&q2).unwrap();
+
+        // g^{x2_found} = q2.
+        assert_eq!(generator.operate_with_self(x2_found), q2);
+        // `x2_found` = x2 (mod order).
+        assert_eq!(x2_found, (x2 % order) as u128);
+    }
+
+    #[test]
+    fn test_pohlig_hellman_big_exponent() {
+        let group = PohligHellmanGroup::new();
+        let generator = &group.generator;
+        let order = &group.order;
+
+        let x = 14901161193847656250000000000000000000u128;
+        let q = generator.operate_with_self(x);
+        let x_found = group.pohlig_hellman_attack(&q).unwrap();
+
+        assert_eq!(generator.operate_with_self(x_found), q);
+        assert_eq!(x_found, (x % (*order as u128)));
+    }
+
+    use std::time::Instant;
+
+    #[test]
+    fn brute_force() {
+        let start = Instant::now(); // Start the timer
+
+        let group = PohligHellmanGroup::new();
+        let generator = group.generator.clone();
+        let order = group.order;
+
+        let x = 14901161193847656250000000000000000000u128;
+        let q = generator.operate_with_self(x);
+
+        let mut current_q = generator.clone();
+
+        for i in 0..order {
+            if current_q == q {
+                let duration = start.elapsed(); // Stop the timer
+                println!("Discrete log found. Exponent x is: {:?}", i);
+                println!("Time taken: {:?}", duration);
+                break;
+            }
+            current_q = current_q.operate_with(&q);
+        }
     }
 }

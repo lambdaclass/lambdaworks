@@ -10,6 +10,7 @@ pub enum ChineseRemainderTheoremError {
 /// x ≡ x_k mod n_k.
 ///
 /// The moduli n_i should be pairwise coprimes.
+///
 /// The Chinese Remainder Theorem states that if the moduli n_i are pairwise coprimes,
 /// then there is always a unique solution x to these equations in the range [0, N-1]
 /// where N is the product of all moduli.
@@ -20,7 +21,7 @@ pub fn chinese_remainder_theorem(
     let n: i128 = equations.iter().map(|&(_, m)| m).product();
 
     // For each equation, compute:
-    // 1. n_i = n / m_i (product of all moduli except current)
+    // 1. n_i = n / m_i (product of all moduli except current).
     // 2. x_i = inverse of n_i modulo m_i.
     // 3. Add a_i * n_i * x_i to the result.
     let mut result = 0;
@@ -37,8 +38,7 @@ pub fn chinese_remainder_theorem(
     Ok((result % n + n) % n)
 }
 
-/// Computes the modular multiplicative inverse of x modulo n.
-
+/// Computes the multiplicative inverse of x modulo n.
 pub fn mod_inverse(x: i128, n: i128) -> Option<i128> {
     let (g, x, _) = extended_euclidean_algorithm(x, n);
     if g == 1 {
@@ -83,7 +83,7 @@ mod tests {
     fn test_mod_inverse() {
         assert_eq!(mod_inverse(3, 7), Some(5));
         assert_eq!(mod_inverse(17, 3120), Some(2753));
-        assert_eq!(mod_inverse(2, 4), None); // gcd(2, 4) = 2, so no inverse
+        assert_eq!(mod_inverse(2, 4), None); // gcd(2, 4) = 2, so '2' has no inverse modulus 4.
         assert_eq!(mod_inverse(1, 5), Some(1));
     }
 
