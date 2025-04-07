@@ -2,6 +2,8 @@
 
 This implementation demonstrates the Pohlig-Hellman algorithm for solving the discrete logarithm problem on elliptic curves. The algorithm is useful when the order of the group has small prime factors.
 
+This attack is significantly more efficient than attempting to solve the discrete logarithm problem using brute-force search. In the group used for our implementation, the logarithm can be recovered in under one second with the Pohlig-Hellman attack, whereas a brute-force approach would take several hours. This highlights the importance of avoiding groups with easily factorable orders in cryptographic applications.
+
 ## Discrete Logarithm Problem
 
 Given two points $g$ and $h$ on an elliptic curve, where $$h = g^x$$ for some unknown integer $x$, the discrete logarithm problem consists of finding the value of $x$.

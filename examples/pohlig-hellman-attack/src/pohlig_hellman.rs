@@ -42,6 +42,7 @@ impl PohligHellmanGroup {
         );
 
         // Generator of the big group.
+        // Constant taken from https://hackmd.io/@benjaminion/bls12-381#Generators.
         let big_group_generator = ShortWeierstrassProjectivePoint::<BLS12381Curve>::from_affine(
             FieldElement::<BLS12381PrimeField>::from_hex_unchecked("04"),
             FieldElement::<BLS12381PrimeField>::from_hex_unchecked("0a989badd40d6212b33cffc3f3763e9bc760f988c9926b26da9dd85e928483446346b8ed00e1de5d5ea93e354abe706c"),
@@ -229,34 +230,5 @@ mod tests {
 
         assert_eq!(generator.operate_with_self(x_found), q);
         assert_eq!(x_found, (x % (*order as u128)));
-    }
-
-    use std::time::Instant;
-
-    #[test]
-    fn brute_force() {
-        let start = Instant::now(); // Start the timer
-
-        let group = PohligHellmanGroup::new();
-        let generator = group.generator.clone();
-        let order = group.order;
-
-        let x = 14901161193847656250000000000000000000u128;
-        let q = generator.operate_with_self(x);
-
-        let mut current_q = generator.clone();
-
-        for i in 0..order {
-            if i % 100000 == 0 {
-                println!("iteration: {:?}", i)
-            }
-            if current_q == q {
-                let duration = start.elapsed(); // Stop the timer
-                println!("Discrete log found. Exponent x is: {:?}", i);
-                println!("Time taken: {:?}", duration);
-                break;
-            }
-            current_q = current_q.operate_with(&q);
-        }
     }
 }
