@@ -1,4 +1,4 @@
-.PHONY: test clippy docker-shell nix-shell benchmarks benchmark docs build-cuda build-metal clippy-metal test-metal coverage clean
+.PHONY: test clippy docker-shell nix-shell benchmarks benchmark docs build-cuda coverage clean
 
 FUZZ_DIR = fuzz/no_gpu_fuzz
 
@@ -33,18 +33,8 @@ benchmark:
 flamegraph_stark:
 	CARGO_PROFILE_BENCH_DEBUG=true cargo flamegraph --root --bench stark_benchmarks -- --bench
 
-coverage: 
+coverage:
 	cargo llvm-cov nextest --lcov --output-path lcov.info
-	
-METAL_DIR = math/src/gpu/metal
-build-metal:
-	xcrun -sdk macosx metal $(METAL_DIR)/all.metal -o $(METAL_DIR)/lib.metallib
-
-clippy-metal:
-	cargo clippy --workspace --all-targets -F metal -- -D warnings
-
-test-metal: 
-	cargo test -F metal
 
 CUDA_DIR = math/src/gpu/cuda/shaders
 CUDA_FILES:=$(wildcard $(CUDA_DIR)/**/*.cu)
@@ -69,10 +59,6 @@ run-fuzzer:
 
 proof-deserializer-fuzzer:
 		cargo +nightly fuzz run --fuzz-dir $(FUZZ_DIR)  deserialize_stark_proof
-		
-run-metal-fuzzer:
-		cd fuzz/metal_fuzz
-		cargo +nightly fuzz run --fuzz-dir  $(FUZZ_DIR) fft_diff
 
 run-cuda-fuzzer:
 		cd fuzz/cuda_fuzz
