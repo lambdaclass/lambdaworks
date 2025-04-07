@@ -155,6 +155,12 @@ impl From<ChineseRemainderTheoremError> for PohligHellmanError {
     }
 }
 
+impl Default for PohligHellmanGroup {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use lambdaworks_math::elliptic_curve::short_weierstrass::curves::bls12_381::field_extension::BLS12381PrimeField;
@@ -180,7 +186,7 @@ mod tests {
         );
 
         // We construct a subgroup of the big groups of order 96192362849.
-        let subgroup = PohligHellmanGroup::new();
+        let subgroup = PohligHellmanGroup::default();
         let subgroup_generator = subgroup.generator;
         let subgroup_order = subgroup.order;
 
@@ -193,7 +199,7 @@ mod tests {
 
     #[test]
     fn test_pohlig_hellman_attack() {
-        let group = PohligHellmanGroup::new();
+        let group = PohligHellmanGroup::default();
         let generator = &group.generator;
         let order = &group.order;
 
@@ -220,7 +226,7 @@ mod tests {
 
     #[test]
     fn test_pohlig_hellman_big_exponent() {
-        let group = PohligHellmanGroup::new();
+        let group = PohligHellmanGroup::default();
         let generator = &group.generator;
         let order = &group.order;
 
