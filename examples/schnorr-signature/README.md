@@ -28,7 +28,7 @@ For example, let's say Alice wants to send Bob a message, and Bob wants to be su
 - Compute $r = g^\ell \in G$
 - Compute $e = H(r || M) \in \mathbb{F}_p$, where $M$ is the message.
 - Compute $s = \ell + k \cdot e \in \mathbb{F}_p$.
-- Sends $M$ with the signatur $(s, e)$.
+- Sends $M$ with the signature $(s, e)$.
 
 ### Verifier
 - Compute $r_v = g^s \cdot h^e \in G$.
