@@ -19,13 +19,13 @@ The security of RSA relies on the practical difficulty of factoring the product 
 
 ### Key Generation
 
-1. Choose two distinct prime numbers $p$ and $q$
+1. Choose two distinct prime numbers $p$ and $q$ (these should be randomly generated, should be sufficiently large, and their magnitudes should not be similar)
 2. Compute $n = p \cdot q$
 3. Calculate Euler's totient function: $\phi(n) = (p-1) \cdot (q-1)$
 4. Choose an integer $e$ such that $1 < e < \phi(n)$ and $\gcd(e, \phi(n)) = 1$
 5. Compute $d$ such that $d \cdot e \equiv 1 \pmod{\phi(n)}$
 
-The public key is $(e, n)$ and the private key is $d$.
+The public key is $(e, n)$, and the private key is $d$. In practice, $e$ is chosen as a number with low Hamming weight (such as Fermat primes) and $d$ is computed by finding the inverse.
 
 ### Encryption and Decryption
 
