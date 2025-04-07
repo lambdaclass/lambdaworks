@@ -38,13 +38,7 @@ pub fn chinese_remainder_theorem(
 }
 
 /// Computes the modular multiplicative inverse of x modulo n.
-///
-/// If gcd(x, n) = 1, then there exists a value y such that (x * y) % n = 1.
-/// This y is the modular multiplicative inverse of x.
-///
-/// # Returns
-/// * `Some(y)` if the inverse exists
-/// * `None` if x and n are not coprime (gcd(x, n) ≠ 1)
+
 pub fn mod_inverse(x: i128, n: i128) -> Option<i128> {
     let (g, x, _) = extended_euclidean_algorithm(x, n);
     if g == 1 {
@@ -55,17 +49,6 @@ pub fn mod_inverse(x: i128, n: i128) -> Option<i128> {
 }
 
 /// Computes the extended Euclidean algorithm for two integers.
-///
-/// Given a and b, it returns (g, s, t) where:
-/// g = gcd(a, b)
-/// s and t are Bézout coefficients such that s*a + t*b = g
-///
-/// # Arguments
-/// * `a` - First integer
-/// * `b` - Second integer
-///
-/// # Returns
-/// * A tuple (g, s, t) as described above
 pub fn extended_euclidean_algorithm(a: i128, b: i128) -> (i128, i128, i128) {
     let (mut s, mut old_s) = (0, 1);
     let (mut t, mut old_t) = (1, 0);
