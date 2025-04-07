@@ -7,7 +7,7 @@ on:
 jobs:
   cache_iai_benchs:
     name: Cache iai benchs of main
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     steps:
     - name: Install valgrind
       run: |
