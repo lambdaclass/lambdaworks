@@ -247,6 +247,9 @@ mod tests {
         let mut current_q = generator.clone();
 
         for i in 0..order {
+            if i % 100000 == 0 {
+                println!("iteration: {:?}", i)
+            }
             if current_q == q {
                 let duration = start.elapsed(); // Stop the timer
                 println!("Discrete log found. Exponent x is: {:?}", i);
