@@ -102,7 +102,7 @@ impl PohligHellmanGroup {
         // We combine the equations using the Chinese Remainder Theorem.
         chinese_remainder_theorem(&equations)
             .map(|x| x as u128)
-            .map_err(|error| PohligHellmanError::ChineseRemainderTheoremError(error))
+            .map_err(PohligHellmanError::ChineseRemainderTheoremError)
     }
 
     /// Implementation of the Baby-Step Giant-Step algorithm.
