@@ -100,8 +100,7 @@ impl PohligHellmanGroup {
         }
 
         // We combine the equations using the Chinese Remainder Theorem.
-        let x = chinese_remainder_theorem(&equations)?;
-        Ok(x as u128)
+        Ok(chinese_remainder_theorem(&equations).and_then(|x| Ok(x as u128))?)
     }
 
     /// Implementation of the Baby-Step Giant-Step algorithm.
