@@ -58,11 +58,11 @@ impl Coset {
     pub fn get_coset_points(coset: &Self) -> Vec<CirclePoint<Mersenne31Field>> {
         // g_n the generator of the subgroup of order n.
         let generator_n = CirclePoint::get_generator_of_subgroup(coset.log_2_size);
-        let size: u32 = 1 << coset.log_2_size;
+        let size: usize = 1 << coset.log_2_size;
         core::iter::successors(Some(coset.shift.clone()), move |prev| {
             Some(prev + &generator_n)
         })
-        .take(size as usize)
+        .take(size)
         .collect()
     }
 }
