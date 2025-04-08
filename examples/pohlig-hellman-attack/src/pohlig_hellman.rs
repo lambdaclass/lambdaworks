@@ -100,7 +100,9 @@ impl PohligHellmanGroup {
         }
 
         // We combine the equations using the Chinese Remainder Theorem.
-        Ok(chinese_remainder_theorem(&equations).map(|x| x as u128)?)
+        chinese_remainder_theorem(&equations)
+            .map(|x| x as u128)
+            .map_err(|error| PohligHellmanError::ChineseRemainderTheoremError(error))
     }
 
     /// Implementation of the Baby-Step Giant-Step algorithm.
@@ -144,13 +146,6 @@ impl PohligHellmanGroup {
 
         // If there isn't any coincidence between the lists, then there is no result x such that h^x = q.
         None
-    }
-}
-
-// Convert from ChineseRemainderTheoremError to PohligHellmanError
-impl From<ChineseRemainderTheoremError> for PohligHellmanError {
-    fn from(error: ChineseRemainderTheoremError) -> Self {
-        PohligHellmanError::ChineseRemainderTheoremError(error)
     }
 }
 
