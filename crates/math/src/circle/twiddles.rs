@@ -63,7 +63,7 @@ mod tests {
 
     #[test]
     fn evaluation_twiddles_vectors_length_is_correct() {
-        let domain = Coset::new_standard(3);
+        let domain = Coset::new_standard(20);
         let config = TwiddlesConfig::Evaluation;
         let twiddles = get_twiddles(domain, config);
         for i in 0..twiddles.len() - 1 {
@@ -73,7 +73,7 @@ mod tests {
 
     #[test]
     fn interpolation_twiddles_vectors_length_is_correct() {
-        let domain = Coset::new_standard(3);
+        let domain = Coset::new_standard(20);
         let config = TwiddlesConfig::Interpolation;
         let twiddles = get_twiddles(domain, config);
         for i in 0..twiddles.len() - 1 {
