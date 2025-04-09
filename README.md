@@ -24,6 +24,9 @@ Below is a list of examples to understand lambdaworks and learn what you can bui
 - [Shamir's secret sharing](./examples/shamir_secret_sharing/)
 - [BabySNARK](./examples/baby-snark/)
 - [Pinocchio](./examples/pinocchio/)
+- [Pohlig-Hellman algorithm](./examples/pohlig-hellman-attack/)
+- [Naive RSA](./examples/rsa/)
+- [Naive Schnorr signatures](./examples/schnorr-signature/)
 - [Using Circom with lambdaworks's Groth16](./examples/prove-verify-circom/circom_lambdaworks_tutorial.md)
 - [Proving Fibonacci using Circom and lambdaworks](./examples/prove-verify-circom/circom_lambdaworks_tutorial.md)
 
