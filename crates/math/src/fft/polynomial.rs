@@ -97,6 +97,18 @@ impl<E: IsField> Polynomial<FieldElement<E>> {
         let scaled = Polynomial::interpolate_fft::<F>(fft_evals)?;
         Ok(scaled.scale(&offset.inv().unwrap()))
     }
+
+    pub fn fast_multiplication<F: IsFFTField + IsSubFieldOf<E>>(
+        &self,
+        other: &Self,
+    ) -> Result<Self, FFTError> {
+        let domain_size = self.degree() + other.degree() + 1;
+        let p = Polynomial::evaluate_fft::<F>(self, 1, Some(domain_size))?;
+        let q = Polynomial::evaluate_fft::<F>(other, 1, Some(domain_size))?;
+        let r = p.into_iter().zip(q).map(|(a, b)| a * b).collect::<Vec<_>>();
+
+        Polynomial::interpolate_fft::<F>(&r)
+    }
 }
 
 pub fn compose_fft<F, E>(
@@ -312,6 +324,11 @@ mod tests {
                 let (poly, new_poly) = gen_fft_interpolate_and_evaluate(poly);
 
                 prop_assert_eq!(poly, new_poly);
+            }
+
+            #[test]
+            fn test_fft_multiplication_works(poly in poly(7), other in poly(7)) {
+                prop_assert_eq!(poly.fast_multiplication::<F>(&other).unwrap(), poly * other);
             }
         }
 
