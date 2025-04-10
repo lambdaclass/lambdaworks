@@ -99,50 +99,6 @@ impl IsFFTField for Degree2ExtensionField {
         [FpE::const_from_raw(2), FpE::const_from_raw(1268011823)];
 }
 
-impl IsSubFieldOf<Degree4ExtensionField> for Degree2ExtensionField {
-    fn add(
-        a: &Self::BaseType,
-        b: &<Degree4ExtensionField as IsField>::BaseType,
-    ) -> <Degree4ExtensionField as IsField>::BaseType {
-        [Fp2E::from(a) + &b[0], b[1].clone()]
-    }
-
-    fn sub(
-        a: &Self::BaseType,
-        b: &<Degree4ExtensionField as IsField>::BaseType,
-    ) -> <Degree4ExtensionField as IsField>::BaseType {
-        [Fp2E::from(a) - &b[0], -&b[1]]
-    }
-
-    fn mul(
-        a: &Self::BaseType,
-        b: &<Degree4ExtensionField as IsField>::BaseType,
-    ) -> <Degree4ExtensionField as IsField>::BaseType {
-        [Fp2E::from(a) * &b[0], Fp2E::from(a) * &b[1]]
-    }
-
-    fn div(
-        a: &Self::BaseType,
-        b: &<Degree4ExtensionField as IsField>::BaseType,
-    ) -> Result<<Degree4ExtensionField as IsField>::BaseType, FieldError> {
-        let b_inv = Degree4ExtensionField::inv(b).map_err(|_| FieldError::DivisionByZero)?;
-        Ok(<Self as IsSubFieldOf<Degree4ExtensionField>>::mul(
-            a, &b_inv,
-        ))
-    }
-
-    fn embed(a: Self::BaseType) -> <Degree4ExtensionField as IsField>::BaseType {
-        [FieldElement::from_raw(a), FieldElement::zero()]
-    }
-
-    #[cfg(feature = "alloc")]
-    fn to_subfield_vec(
-        b: <Degree4ExtensionField as IsField>::BaseType,
-    ) -> alloc::vec::Vec<Self::BaseType> {
-        b.into_iter().map(|x| x.to_raw()).collect()
-    }
-}
-
 impl IsSubFieldOf<Degree2ExtensionField> for Mersenne31Field {
     fn add(
         a: &Self::BaseType,
