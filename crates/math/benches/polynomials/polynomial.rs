@@ -44,11 +44,6 @@ pub fn polynomial_benchmarks(c: &mut Criterion) {
         let y_poly = rand_poly(order);
         bench.iter(|| black_box(&x_poly) * black_box(&y_poly));
     });
-    group.bench_function("fast mul", |bench| {
-        let x_poly = rand_complex_mersenne_poly(order as u32);
-        let y_poly = rand_complex_mersenne_poly(order as u32);
-        bench.iter(|| black_box(&x_poly) * black_box(&y_poly));
-    });
 
     let big_order = 9;
     let x_poly = rand_complex_mersenne_poly(big_order);

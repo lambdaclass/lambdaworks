@@ -94,6 +94,8 @@ impl IsField for Degree2ExtensionField {
 }
 
 impl IsFFTField for Degree2ExtensionField {
+    // Values taken from stwo
+    // https://github.com/starkware-libs/stwo/blob/dev/crates/prover/src/core/circle.rs#L203-L209
     const TWO_ADICITY: u64 = 31;
     const TWO_ADIC_PRIMITVE_ROOT_OF_UNITY: Self::BaseType =
         [FpE::const_from_raw(2), FpE::const_from_raw(1268011823)];
