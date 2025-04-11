@@ -10,6 +10,7 @@ pub enum FFTError {
     RootOfUnityError(u64),
     InputError(usize),
     OrderError(u64),
+    DomainSizeError(usize),
     #[cfg(feature = "cuda")]
     CudaError(CudaError),
 }
@@ -23,6 +24,9 @@ impl Display for FFTError {
             }
             FFTError::OrderError(v) => {
                 write!(f, "Order should be less than or equal to 63, but is {v}")
+            }
+            FFTError::DomainSizeError(_) => {
+                write!(f, "Domain size exceeds two adicity of the field")
             }
             #[cfg(feature = "cuda")]
             FFTError::CudaError(_) => {

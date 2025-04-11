@@ -1,6 +1,12 @@
 use const_random::const_random;
 use lambdaworks_math::{
-    field::fields::u64_prime_field::{U64FieldElement, U64PrimeField},
+    field::{
+        element::FieldElement,
+        fields::{
+            mersenne31::{extensions::Degree2ExtensionField, field::Mersenne31Field},
+            u64_prime_field::{U64FieldElement, U64PrimeField},
+        },
+    },
     polynomial::{
         dense_multilinear_poly::DenseMultilinearPolynomial,
         sparse_multilinear_poly::SparseMultilinearPolynomial, Polynomial,
@@ -35,6 +41,28 @@ pub fn rand_field_elements(order: u64) -> Vec<FE> {
 #[export_name = "u64_utils::rand_poly"]
 pub fn rand_poly(order: u64) -> Polynomial<FE> {
     Polynomial::new(&rand_field_elements(order))
+}
+#[allow(dead_code)]
+#[inline(never)]
+#[export_name = "u64_utils::rand_complex_mersenne_field_elements"]
+pub fn rand_complex_mersenne_field_elements(
+    order: u32,
+) -> Vec<FieldElement<Degree2ExtensionField>> {
+    let mut result = Vec::with_capacity(1 << order);
+    for _ in 0..result.capacity() {
+        result.push(FieldElement::<Degree2ExtensionField>::new([
+            FieldElement::<Mersenne31Field>::new(random()),
+            FieldElement::<Mersenne31Field>::new(random()),
+        ]));
+    }
+    result
+}
+
+#[allow(dead_code)]
+#[inline(never)]
+#[export_name = "u64_utils::rand_complex_mersenne_poly"]
+pub fn rand_complex_mersenne_poly(order: u32) -> Polynomial<FieldElement<Degree2ExtensionField>> {
+    Polynomial::new(&rand_complex_mersenne_field_elements(order))
 }
 
 #[allow(dead_code)]

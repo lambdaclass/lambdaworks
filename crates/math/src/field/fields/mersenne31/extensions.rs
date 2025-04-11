@@ -2,7 +2,7 @@ use super::field::Mersenne31Field;
 use crate::field::{
     element::FieldElement,
     errors::FieldError,
-    traits::{IsField, IsSubFieldOf},
+    traits::{IsFFTField, IsField, IsSubFieldOf},
 };
 #[cfg(feature = "alloc")]
 use alloc::vec::Vec;
@@ -91,6 +91,14 @@ impl IsField for Degree2ExtensionField {
     fn from_base_type(x: Self::BaseType) -> Self::BaseType {
         x
     }
+}
+
+impl IsFFTField for Degree2ExtensionField {
+    // Values taken from stwo
+    // https://github.com/starkware-libs/stwo/blob/dev/crates/prover/src/core/circle.rs#L203-L209
+    const TWO_ADICITY: u64 = 31;
+    const TWO_ADIC_PRIMITVE_ROOT_OF_UNITY: Self::BaseType =
+        [FpE::const_from_raw(2), FpE::const_from_raw(1268011823)];
 }
 
 impl IsSubFieldOf<Degree2ExtensionField> for Mersenne31Field {
