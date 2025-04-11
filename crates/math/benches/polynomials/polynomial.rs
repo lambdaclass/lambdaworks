@@ -44,11 +44,6 @@ pub fn polynomial_benchmarks(c: &mut Criterion) {
         let y_poly = rand_poly(order);
         bench.iter(|| black_box(&x_poly) * black_box(&y_poly));
     });
-    group.bench_function("fast mul", |bench| {
-        let x_poly = rand_complex_mersenne_poly(order as u32);
-        let y_poly = rand_complex_mersenne_poly(order as u32);
-        bench.iter(|| black_box(&x_poly) * black_box(&y_poly));
-    });
 
     let big_order = 9;
     let x_poly = rand_complex_mersenne_poly(big_order);
@@ -64,18 +59,17 @@ pub fn polynomial_benchmarks(c: &mut Criterion) {
         bench.iter(|| black_box(&x_poly) * black_box(&y_poly));
     });
 
-    let big_order = 9;
-    let x_poly = rand_complex_mersenne_poly(big_order);
-    let y_poly = rand_complex_mersenne_poly(big_order);
-    group.bench_function("fast_mul big poly", |bench| {
-        bench.iter(|| {
-            black_box(&x_poly)
-                .fast_fft_multiplication::<Degree2ExtensionField>(black_box(&y_poly))
-                .unwrap()
-        });
+    let y_poly = rand_complex_mersenne_poly(big_order - 2);
+
+    group.bench_function("fast div big poly", |bench| {
+        let x_poly = rand_complex_mersenne_poly(order as u32);
+        let y_poly = rand_complex_mersenne_poly(order as u32);
+        bench
+            .iter(|| black_box(&x_poly).fast_division::<Degree2ExtensionField>(black_box(&y_poly)));
     });
-    group.bench_function("slow mul big poly", |bench| {
-        bench.iter(|| black_box(&x_poly) * black_box(&y_poly));
+
+    group.bench_function("slow div big poly", |bench| {
+        bench.iter(|| black_box(x_poly.clone()).long_division_with_remainder(black_box(&y_poly)));
     });
 
     group.bench_function("div", |bench| {

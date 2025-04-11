@@ -115,6 +115,63 @@ impl<E: IsField> Polynomial<FieldElement<E>> {
 
         Polynomial::interpolate_fft::<F>(&r)
     }
+
+    /// Divides two polynomials with remainder.
+    /// This is faster than the naive division if the degree of the divisor
+    /// is greater than the degree of the dividend and both degrees are large enough.
+    pub fn fast_division<F: IsSubFieldOf<E> + IsFFTField>(
+        &self,
+        divisor: &Self,
+    ) -> Result<(Self, Self), FFTError> {
+        let n = self.degree();
+        let m = divisor.degree();
+        if divisor.coefficients.is_empty() {
+            panic!("Division by zero polynomial");
+        }
+        if n < m {
+            return Ok((Self::zero(), self.clone()));
+        }
+        let d = n - m; // Degree of the quotient
+        let a_rev = self.reverse(n);
+        let b_rev = divisor.reverse(m);
+        let inv_b_rev = Self::invert_polynomial::<F>(&b_rev, d + 1)?;
+        let q = a_rev
+            .fast_multiplication::<F>(&inv_b_rev)?
+            .truncate(d + 1)
+            .reverse(d);
+
+        let r = self - q.fast_multiplication::<F>(divisor)?;
+        Ok((q, r))
+    }
+
+    /// Computes the inverse of polynomial P modulo x^k using Newton iteration.
+    /// P must have an invertible constant term.
+    pub fn invert_polynomial<F: IsSubFieldOf<E> + IsFFTField>(
+        p: &Self,
+        k: usize,
+    ) -> Result<Self, FFTError> {
+        if p.coefficients.is_empty() || p.coefficients.iter().all(|c| c == &FieldElement::zero()) {
+            panic!("Cannot invert polynomial with zero constant term");
+        }
+        let mut q = Self::new(&[p.coefficients[0].inv().unwrap()]);
+        let mut current_precision = 1;
+
+        while current_precision < k {
+            let temp = p
+                .fast_multiplication::<F>(&q)?
+                .truncate(2 * current_precision);
+            let two = Self::new(&[FieldElement::<F>::one() + FieldElement::one()]);
+            let correction = two - temp;
+            q = q
+                .fast_multiplication::<F>(&correction)?
+                .truncate(2 * current_precision);
+
+            current_precision *= 2;
+        }
+
+        // Final truncation to desired degree k
+        Ok(q.truncate(k))
+    }
 }
 
 pub fn compose_fft<F, E>(
@@ -274,12 +331,22 @@ mod tests {
             }
         }
         prop_compose! {
+            fn non_empty_field_vec(max_exp: u8)(vec in collection::vec(field_element(), 1 << max_exp)) -> Vec<FE> {
+                vec
+            }
+        }
+        prop_compose! {
             fn non_power_of_two_sized_field_vec(max_exp: u8)(vec in collection::vec(field_element(), 2..1<<max_exp).prop_filter("Avoid polynomials of size power of two", |vec| !vec.len().is_power_of_two())) -> Vec<FE> {
                 vec
             }
         }
         prop_compose! {
             fn poly(max_exp: u8)(coeffs in field_vec(max_exp)) -> Polynomial<FE> {
+                Polynomial::new(&coeffs)
+            }
+        }
+        prop_compose! {
+            fn non_zero_poly(max_exp: u8)(coeffs in non_empty_field_vec(max_exp)) -> Polynomial<FE> {
                 Polynomial::new(&coeffs)
             }
         }
@@ -336,6 +403,11 @@ mod tests {
             fn test_fft_multiplication_works(poly in poly(7), other in poly(7)) {
                 prop_assert_eq!(poly.fast_fft_multiplication::<F>(&other).unwrap(), poly * other);
             }
+
+            #[test]
+            fn test_fft_division_works(poly in non_zero_poly(7), other in non_zero_poly(7)) {
+                prop_assert_eq!(poly.fast_division::<F>(&other).unwrap(), poly.long_division_with_remainder(&other));
+            }
         }
 
         #[test]
@@ -372,12 +444,22 @@ mod tests {
             }
         }
         prop_compose! {
+            fn non_empty_field_vec(max_exp: u8)(vec in collection::vec(field_element(), 1 << max_exp)) -> Vec<FE> {
+                vec
+            }
+        }
+        prop_compose! {
             fn non_power_of_two_sized_field_vec(max_exp: u8)(vec in collection::vec(field_element(), 2..1<<max_exp).prop_filter("Avoid polynomials of size power of two", |vec| !vec.len().is_power_of_two())) -> Vec<FE> {
                 vec
             }
         }
         prop_compose! {
             fn poly(max_exp: u8)(coeffs in field_vec(max_exp)) -> Polynomial<FE> {
+                Polynomial::new(&coeffs)
+            }
+        }
+        prop_compose! {
+            fn non_zero_poly(max_exp: u8)(coeffs in non_empty_field_vec(max_exp)) -> Polynomial<FE> {
                 Polynomial::new(&coeffs)
             }
         }
@@ -435,6 +517,11 @@ mod tests {
             #[test]
             fn test_fft_multiplication_works(poly in poly(7), other in poly(7)) {
                 prop_assert_eq!(poly.fast_fft_multiplication::<F>(&other).unwrap(), poly * other);
+            }
+
+            #[test]
+            fn test_fft_division_works(poly in poly(7), other in non_zero_poly(7)) {
+                prop_assert_eq!(poly.fast_division::<F>(&other).unwrap(), poly.long_division_with_remainder(&other));
             }
         }
     }

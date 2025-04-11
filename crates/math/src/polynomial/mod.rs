@@ -317,6 +317,20 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
                 .collect(),
         }
     }
+
+    pub fn truncate(&self, k: usize) -> Self {
+        if k == 0 {
+            Self::zero()
+        } else {
+            Self::new(&self.coefficients[0..k.min(self.coefficients.len())])
+        }
+    }
+    pub fn reverse(&self, d: usize) -> Self {
+        let mut coeffs = self.coefficients.clone();
+        coeffs.resize(d + 1, FieldElement::zero());
+        coeffs.reverse();
+        Self::new(&coeffs)
+    }
 }
 
 impl<F: IsPrimeField> Polynomial<FieldElement<F>> {
