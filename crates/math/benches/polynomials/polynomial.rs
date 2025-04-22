@@ -51,7 +51,7 @@ pub fn polynomial_benchmarks(c: &mut Criterion) {
     group.bench_function("fast_mul big poly", |bench| {
         bench.iter(|| {
             black_box(&x_poly)
-                .fast_multiplication::<Degree2ExtensionField>(black_box(&y_poly))
+                .fast_fft_multiplication::<Degree2ExtensionField>(black_box(&y_poly))
                 .unwrap()
         });
     });

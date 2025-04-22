@@ -100,7 +100,11 @@ impl<E: IsField> Polynomial<FieldElement<E>> {
         Ok(scaled.scale(&offset.inv().unwrap()))
     }
 
-    pub fn fast_multiplication<F: IsFFTField + IsSubFieldOf<E>>(
+    /// Multiplies two polynomials using FFT.
+    /// It's faster than naive multiplication when the degree of the polynomials is large enough (>=2**6).
+    /// This works best with polynomials whose highest degree is equal to a power of 2 - 1.
+    /// Will return an error if the degree of the resulting polynomial is greater than 2**63.
+    pub fn fast_fft_multiplication<F: IsFFTField + IsSubFieldOf<E>>(
         &self,
         other: &Self,
     ) -> Result<Self, FFTError> {
@@ -330,7 +334,7 @@ mod tests {
 
             #[test]
             fn test_fft_multiplication_works(poly in poly(7), other in poly(7)) {
-                prop_assert_eq!(poly.fast_multiplication::<F>(&other).unwrap(), poly * other);
+                prop_assert_eq!(poly.fast_fft_multiplication::<F>(&other).unwrap(), poly * other);
             }
         }
 
@@ -430,7 +434,7 @@ mod tests {
 
             #[test]
             fn test_fft_multiplication_works(poly in poly(7), other in poly(7)) {
-                prop_assert_eq!(poly.fast_multiplication::<F>(&other).unwrap(), poly * other);
+                prop_assert_eq!(poly.fast_fft_multiplication::<F>(&other).unwrap(), poly * other);
             }
         }
     }
