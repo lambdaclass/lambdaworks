@@ -20,7 +20,7 @@ pub trait IsEllipticCurve {
     /// possible optimizations.
     type PointRepresentation: IsGroup + FromAffine<Self::BaseField>;
 
-    /// Returns the generator of the main subgroup.
+    /// Returns the generator of the main subgroup. 
     fn generator() -> Self::PointRepresentation;
 
     /// Returns an affine point.
@@ -42,6 +42,7 @@ pub trait IsPairing {
     type OutputField: IsField;
 
     /// Compute the product of the pairings for a list of point pairs.
+    /// More efficient than just calling the pairing for each pair of points individually
     fn compute_batch(
         pairs: &[(&Self::G1Point, &Self::G2Point)],
     ) -> Result<FieldElement<Self::OutputField>, PairingError>;
