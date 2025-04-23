@@ -79,4 +79,12 @@ $$p_{ee} (x^4) = a_0 + a_4 x^4$$
 $$p_{eo} (x^4) = a_2 + a_6 x^4$$
 $$p_{oe} (x^4) = a_1 + a_5 x^4$$
 $$p_{oo} (x^4) = a_3 + a_7 x^4$$
-Since ${\omega^r}^4 \equiv {\omega^4}^r \equiv (-1)^r \pmod{p}$, so $x^4$ can only take two values, -1 and 1. Each of the polynomials can be easily evaluated
+Since ${\omega^r}^4 \equiv {\omega^4}^r \equiv (-1)^r \pmod{p}$, so $x^4$ can only take two values, -1 and 1. Each of the polynomials can be easily evaluated:
+$$p_{ee} (1) = a_0 + a_4$$
+$$p_{ee} (- 1) = a_0 - a_4$$
+$$p_{eo} (1) = a_2 + a_6$$
+$$p_{eo} (- 1) = a_2 - a_6$$
+$$p_{oe} (1) = a_1 + a_5$$
+$$p_{oe} (- 1) = a_1 - a_5$$
+$$p_{oo} (1) = a_3 + a_7$$
+$$p_{oo} (- 1) = a_3 - a_7$$
