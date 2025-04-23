@@ -20,7 +20,7 @@ pub trait IsEllipticCurve {
     /// possible optimizations.
     type PointRepresentation: IsGroup + FromAffine<Self::BaseField>;
 
-    /// Returns the generator of the main subgroup. 
+    /// Returns the generator of the main subgroup.
     fn generator() -> Self::PointRepresentation;
 
     /// Returns an affine point.

@@ -22,7 +22,7 @@ pub type QuadraticExtensionFieldElement<F, T> = FieldElement<QuadraticExtensionF
 /// Trait to fix a quadratic non residue.
 /// Used to construct a quadratic extension field by adding
 /// a square root of `residue()`.
-/// If p is congruent to 3 modulo 4, then -1 is a quadractic non-residue 
+/// If p is congruent to 3 modulo 4, then -1 is a quadractic non-residue
 /// and can be used here
 pub trait HasQuadraticNonResidue<F: IsField> {
     fn residue() -> FieldElement<F>;

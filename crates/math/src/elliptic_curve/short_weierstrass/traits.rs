@@ -54,13 +54,13 @@ pub trait Compress {
     type Error;
 
     /// Gives a compressed representation of a G1 point in the elliptic curve
-    /// Providing the x coordinate and an additional bit provides a way of retrieving the 
+    /// Providing the x coordinate and an additional bit provides a way of retrieving the
     /// y coordinate by sending less information
     #[cfg(feature = "alloc")]
     fn compress_g1_point(point: &Self::G1Point) -> Self::G1Compressed;
 
     /// Gives a compressed representation of a G2 point in the elliptic curve
-    /// Providing the x coordinate and an additional bit provides a way of retrieving the 
+    /// Providing the x coordinate and an additional bit provides a way of retrieving the
     /// y coordinate by sending less information
     #[cfg(feature = "alloc")]
     fn compress_g2_point(point: &Self::G2Point) -> Self::G2Compressed;
