@@ -65,11 +65,11 @@ The 8th-roots of unity are $1, \omega, i, \omega^3, -1, -\omega, -i, -\omega^3$.
 $$p(1) = a_0 + a_1 + a_2 + a_3 + a_4 + a_5 + a^6 + a_7$$
 $$p(\omega) = a_0 + a_1 \omega + a_2 i + a_3 \omega^3 + - a_4 - a_5 \omega - a^6 i - a_7 \omega^3$$
 $$p(i) = a_0 + a_1 i - a_2 - a_3 i + a_4 + a_5 i - a^6 - a_7 i$$
-$$p(\omega^3) = a_0 + a_1 \omega^3 + a_2 i + a_3 \omega + - a_4 - a_5 \omega^3 - a^6 i - a_7 \omega$$
+$$p(\omega^3) = a_0 + a_1 \omega^3 - a_2 i + a_3 \omega  - a_4 - a_5 \omega^3 + a^6 i - a_7 \omega$$
 $$p(- 1) = a_0 - a_1 + a_2 - a_3 + a_4 - a_5 + a^6 - a_7$$
 $$p(- \omega) = a_0 - a_1 \omega + a_2 i - a_3 \omega^3 + - a_4 + a_5 \omega - a^6 i + a_7 \omega^3$$
 $$p(-i) = a_0 - a_1 i - a_2 + a_3 i + a_4 - a_5 i - a^6 + a_7 i$$
-$$p(- \omega^3) = a_0 - a_1 \omega^3 + a_2 i - a_3 \omega + - a_4 + a_5 \omega^3 - a^6 i + a_7 \omega$$
+$$p(\omega^3) = a_0 - a_1 \omega^3 - a_2 i - a_3 \omega + - a_4 + a_5 \omega^3 + a^6 i + a_7 \omega$$
 
 Let's work with the idea behind the FFT and see that we arrive at the same results (when doing the computations, we used $\omega^4 \equiv - 1 \pmod{p}$) and $i^2 \equiv -1 \pmod{p}$. The first step is breaking $p(x)$ into its odd and even parts:
 $$p_e (x^2) = a_0 + a_2 x^2 + a_4 x^4 + a_6 x^6$$
@@ -88,3 +88,46 @@ $$p_{oe} (1) = a_1 + a_5$$
 $$p_{oe} (- 1) = a_1 - a_5$$
 $$p_{oo} (1) = a_3 + a_7$$
 $$p_{oo} (- 1) = a_3 - a_7$$
+
+If you take a look at each pair of evaluations, they have the form:
+$$p(w) = a + w b$$
+$$p(-w) = a - wb$$
+These are the butterflies, where $w = 1$ in this case, which is one of the elements in the square roots of unity. We now have to go one level above, using $p_{ee} (1)$ and $p_{eo} (1)$ to obtain the evaluations of $p_e (x)$ at $x = \pm \sqrt{1}$. Remember that in the change of variables $y = x^2$ we sent both $x_0$ and $- x_0$ to the same point. Similarly, we can use $p_{ee} (- 1)$ and $p_{eo} (-1)$ to reconstruct the evaluations of $p_e (i)$ and $p_e (-i)$ since $i^2 = ( - i)^2 = - 1$. Below we are giving those 8 evaluations, four for $p_e (x)$ and four for $p_o (x)$:
+$$p_{e} (1) = (a_0 + a_4) + (a_2 + a_6)$$
+$$p_{e} (i) = (a_0 - a_4) + i (a_2 - a_6)$$
+$$p_{e} (- 1) = (a_0 + a_4) - (a_2 + a_6)$$
+$$p_{e} (- i) = (a_0 - a_4) - i (a_2 - a_6)$$
+$$p_{o} (1) = (a_1 + a_5) + (a_3 + a_7)$$
+$$p_{o} (i ) = (a_1 - a_5) + i (a_3 - a_7)$$
+$$p_{o} (- 1) = (a_1 + a_5) - (a_3 + a_7)$$
+$$p_{o} (- i ) = (a_1 - a_5) - i (a_3 - a_7)$$
+
+We have written things in this way so that you can clearly see the butterflies in this level. Each term from the level below is between brackets. If you look at the first and third elements, they are of the form:
+$$p_{e} (1) = a_e + b_e$$
+$$p_{e} (- 1) = a_e - b_e$$
+Similarly, for the second and fourth,
+$$p_{e} (i) = a_o + i b_o$$
+$$p_{e} (- i) = a_o - i b_o$$
+The same structure is followed by $p_o (x)$. Here there are two different elements when combining the elements: 1 and $i$, which correspond to the $4$-th roots of unity.
+
+Finally, we can go one step above and combine $p_e (t^2)$ and $p_o (t^2)$ to obtain $p (t)$. We take the first and fifth elements, $p_e (1)$ and $p_o (1)$ and generate $p (1)$ and $p(- 1)$:
+$$p (1) = ((a_0 + a_4) + (a_2 + a_6)) + ((a_1 + a_5) + (a_3 + a_7))$$
+$$p (\omega ) = ((a_0 - a_4) + i (a_2 - a_6)) + \omega ((a_1 - a_5) + i (a_3 - a_7))$$
+$$p (i) = ((a_0 + a_4) - (a_2 + a_6)) + i ((a_1 + a_5) - (a_3 + a_7))$$
+$$p (\omega^3) = ((a_0 - a_4) - i (a_2 - a_6)) + \omega^3 ((a_1 - a_5) - i (a_3 - a_7))$$
+$$p (- 1) = ((a_0 + a_4) + (a_2 + a_6)) - ((a_1 + a_5) + (a_3 + a_7))$$
+$$p (- \omega ) = ((a_0 - a_4) + i (a_2 - a_6)) - \omega ((a_1 - a_5) + i (a_3 - a_7))$$
+$$p (- i) = ((a_0 + a_4) - (a_2 + a_6)) - i ((a_1 + a_5) - (a_3 + a_7))$$
+$$p (- \omega^3) = ((a_0 - a_4) - i (a_2 - a_6)) - \omega^3 ((a_1 - a_5) - i (a_3 - a_7))$$
+
+The terms are organized differently than in the direct evaluation, but this is just to show clearly how all the butterflies have been combined at each stage. We can organize all the $a_k$ according to their index:
+$$p(1) = a_0 + a_1 + a_2 + a_3 + a_4 + a_5 + a_6 + a_7$$
+$$p(\omega) = a_0 + a_1 \omega + a_2 i + a_3 \omega^3 - a_4 - a_5 \omega - a_6 i  - a_7 \omega^3$$
+$$p(i) = a_0 + a_1 i - a_2 - a_3 i + a_4 + a_5 i - a_6 - a_7 i$$
+$$p (\omega^3) = a_0 + a_1 \omega^3 - a_2 i + a_3 \omega - a_4 - a_5 \omega^3 + a_6 i - a_7 \omega$$
+$$p(- 1) = a_0 - a_1 + a_2 - a_3 + a_4 - a_5 + a_6 - a_7$$
+$$p(- \omega) = a_0 - a_1 \omega + a_2 i - a_3 \omega^3 - a_4 + a_5 \omega - a_6 i  + a_7 \omega^3$$
+$$p(- i) = a_0 - a_1 i - a_2 + a_3 i + a_4 - a_5 i - a_6 + a_7 i$$
+$$p (- \omega^3) = a_0 - a_1 \omega^3 - a_2 i - a_3 \omega - a_4 + a_5 \omega^3 + a_6 i + a_7 \omega$$
+where we have used that $\omega i = \omega^3$ and $\omega^3 i = -\omega$. For larger FFTs, we just have to continue breaking down and combining the elements using the butterflies with the corresponding twiddle factors.
+
