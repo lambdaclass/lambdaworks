@@ -27,7 +27,9 @@ impl<E: IsField> Polynomial<FieldElement<E>> {
     ) -> Result<Vec<FieldElement<E>>, FFTError> {
         let domain_size = domain_size.unwrap_or(0);
         let len = core::cmp::max(poly.coeff_len(), domain_size).next_power_of_two() * blowup_factor;
-
+        if len.trailing_zeros() as u64 > F::TWO_ADICITY {
+            return Err(FFTError::DomainSizeError(len.trailing_zeros() as usize));
+        }
         if poly.coefficients().is_empty() {
             return Ok(vec![FieldElement::zero(); len]);
         }
@@ -96,6 +98,22 @@ impl<E: IsField> Polynomial<FieldElement<E>> {
     ) -> Result<Polynomial<FieldElement<E>>, FFTError> {
         let scaled = Polynomial::interpolate_fft::<F>(fft_evals)?;
         Ok(scaled.scale(&offset.inv().unwrap()))
+    }
+
+    /// Multiplies two polynomials using FFT.
+    /// It's faster than naive multiplication when the degree of the polynomials is large enough (>=2**6).
+    /// This works best with polynomials whose highest degree is equal to a power of 2 - 1.
+    /// Will return an error if the degree of the resulting polynomial is greater than 2**63.
+    pub fn fast_fft_multiplication<F: IsFFTField + IsSubFieldOf<E>>(
+        &self,
+        other: &Self,
+    ) -> Result<Self, FFTError> {
+        let domain_size = self.degree() + other.degree() + 1;
+        let p = Polynomial::evaluate_fft::<F>(self, 1, Some(domain_size))?;
+        let q = Polynomial::evaluate_fft::<F>(other, 1, Some(domain_size))?;
+        let r = p.into_iter().zip(q).map(|(a, b)| a * b).collect::<Vec<_>>();
+
+        Polynomial::interpolate_fft::<F>(&r)
     }
 }
 
@@ -313,6 +331,11 @@ mod tests {
 
                 prop_assert_eq!(poly, new_poly);
             }
+
+            #[test]
+            fn test_fft_multiplication_works(poly in poly(7), other in poly(7)) {
+                prop_assert_eq!(poly.fast_fft_multiplication::<F>(&other).unwrap(), poly * other);
+            }
         }
 
         #[test]
@@ -407,6 +430,11 @@ mod tests {
                 poly in poly(4).prop_filter("Avoid non pows of two", |poly| poly.coeff_len().is_power_of_two())) {
                 let (poly, new_poly) = gen_fft_interpolate_and_evaluate(poly);
                 prop_assert_eq!(poly, new_poly);
+            }
+
+            #[test]
+            fn test_fft_multiplication_works(poly in poly(7), other in poly(7)) {
+                prop_assert_eq!(poly.fast_fft_multiplication::<F>(&other).unwrap(), poly * other);
             }
         }
     }
