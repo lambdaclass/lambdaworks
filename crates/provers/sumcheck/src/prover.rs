@@ -7,6 +7,7 @@ use lambdaworks_math::polynomial::{
     dense_multilinear_poly::DenseMultilinearPolynomial, Polynomial,
 };
 use lambdaworks_math::traits::ByteConversion;
+
 /// Prover for the Sum-Check protocol using DenseMultilinearPolynomial.
 pub struct Prover<F: IsField>
 where
@@ -40,8 +41,19 @@ where
     pub fn round(&mut self, r_j: FieldElement<F>) -> Polynomial<FieldElement<F>> {
         // Fix the last variable
         self.poly = self.poly.fix_last_variable(&r_j);
-        // Obtain the univariate polynomial: sum of evaluations with the last variable fixed to 0 and 1.
-        let univar = self.poly.to_univariate();
+        // Get the univariate polynomial for the next variable
+        let univar = if self.poly.num_vars() > 1 {
+            // If there are more variables, we need to sum over all but the last one
+            let poly0 = self.poly.fix_last_variable(&FieldElement::zero());
+            let poly1 = self.poly.fix_last_variable(&FieldElement::one());
+            let sum0: FieldElement<F> = poly0.to_evaluations().into_iter().sum();
+            let sum1: FieldElement<F> = poly1.to_evaluations().into_iter().sum();
+            let diff = sum1 - &sum0;
+            Polynomial::new(&[sum0, diff])
+        } else {
+            // If this is the last variable, just convert to univariate
+            self.poly.to_univariate()
+        };
         self.current_round += 1;
         univar
     }
@@ -61,10 +73,13 @@ where
     let n = prover.poly.num_vars();
     let mut proof_polys = Vec::with_capacity(n);
 
+    // Initialize channel with claim
+    transcript.append_felt(&claimed_sum);
+
     let univar = prover.poly.to_univariate();
     proof_polys.push(univar.clone());
 
-    transcript.append_felt(&claimed_sum);
+    // Re-absorb message
     for coeff in &univar.coefficients {
         transcript.append_felt(coeff);
     }
@@ -74,16 +89,13 @@ where
 
     // Subsequent rounds
     for round in 0..n - 1 {
-        // Adjust challenge to include round number to avoid replay attacks
-        let r_j = &challenge + FieldElement::<F>::from(round as u64);
-
         // Execute round and get next univariate polynomial
-        let univar = prover.round(r_j.clone());
+        let univar = prover.round(challenge.clone());
         proof_polys.push(univar.clone());
 
         // Only generate next challenge if this isn't the final round
         if round < n - 2 {
-            let intermediate_sum = univar.evaluate(&r_j);
+            let intermediate_sum = univar.evaluate(&challenge);
             transcript.append_felt(&intermediate_sum);
             for coeff in &univar.coefficients {
                 transcript.append_felt(coeff);

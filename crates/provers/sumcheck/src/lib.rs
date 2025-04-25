@@ -44,22 +44,23 @@ mod tests {
 
     #[test]
     fn test_protocol() {
+        // Test with a simple linear polynomial
+        // Evaluations ordered as [f(0,0), f(0,1), f(1,0), f(1,1)]
         let poly = DenseMultilinearPolynomial::new(vec![
-            FE::from(3),
-            FE::from(5),
-            FE::from(7),
-            FE::from(11),
+            FE::from(3),  // f(0,0)
+            FE::from(5),  // f(0,1)
+            FE::from(7),  // f(1,0)
+            FE::from(11), // f(1,1)
         ]);
 
         let (claimed_sum, proof_polys) = prove(poly.clone());
-
         let result = verify(poly.num_vars(), claimed_sum, proof_polys, Some(poly));
-
         assert!(result.unwrap_or(false), "Valid proof should be accepted");
     }
 
     #[test]
     fn test_interactive_sumcheck() {
+        // Test the interactive version of the protocol
         let poly = DenseMultilinearPolynomial::new(vec![
             FE::from(1),
             FE::from(2),
@@ -310,6 +311,7 @@ mod tests {
 
     #[test]
     fn failing_verification_test() {
+        // Test with an incorrect claimed sum
         let poly = DenseMultilinearPolynomial::new(vec![
             FE::from(1),
             FE::from(2),
@@ -317,7 +319,7 @@ mod tests {
             FE::from(4),
         ]);
         let prover = prover::Prover::new(poly.clone());
-        // Deliberately use an incorrect claimed sum.
+        // Deliberately use an incorrect claimed sum
         let incorrect_c1 = FE::from(999);
         println!("\nInitial (incorrect) claimed sum c₁: {:?}", incorrect_c1);
         let mut transcript = DefaultTranscript::<F>::default();
@@ -342,5 +344,137 @@ mod tests {
             println!("\nExpected verification error: {:?}", e);
         }
         assert!(res0.is_err(), "Expected verification error");
+    }
+
+    #[test]
+    fn test_quadratic_sumcheck() {
+        // Create two multilinear polynomials
+        let poly_a = DenseMultilinearPolynomial::new(vec![
+            FE::from(1),
+            FE::from(2),
+            FE::from(3),
+            FE::from(4),
+        ]);
+
+        let poly_b = DenseMultilinearPolynomial::new(vec![
+            FE::from(1),
+            FE::from(1),
+            FE::from(1),
+            FE::from(1),
+        ]);
+
+        // Compute the product polynomial
+        let mut product_evals = Vec::with_capacity(poly_a.len());
+        for i in 0..poly_a.len() {
+            product_evals.push(&poly_a[i] * &poly_b[i]);
+        }
+        let product_poly = DenseMultilinearPolynomial::new(product_evals);
+
+        // Run the protocol
+        let (claimed_sum, proof_polys) = prove(product_poly.clone());
+
+        // Verify the proof
+        let result = verify(
+            product_poly.num_vars(),
+            claimed_sum,
+            proof_polys,
+            Some(product_poly),
+        );
+        assert!(result.unwrap_or(false));
+    }
+
+    #[test]
+    fn test_cubic_sumcheck() {
+        // Create three multilinear polynomials
+        let poly_a = DenseMultilinearPolynomial::new(vec![
+            FE::from(1),
+            FE::from(2),
+            FE::from(3),
+            FE::from(4),
+        ]);
+
+        let poly_b = DenseMultilinearPolynomial::new(vec![
+            FE::from(1),
+            FE::from(1),
+            FE::from(1),
+            FE::from(1),
+        ]);
+
+        let poly_c = DenseMultilinearPolynomial::new(vec![
+            FE::from(1),
+            FE::from(1),
+            FE::from(1),
+            FE::from(1),
+        ]);
+
+        // Compute the product polynomial
+        let mut product_evals = Vec::with_capacity(poly_a.len());
+        for i in 0..poly_a.len() {
+            product_evals.push(&poly_a[i] * &poly_b[i] * &poly_c[i]);
+        }
+        let product_poly = DenseMultilinearPolynomial::new(product_evals);
+
+        // Run the protocol
+        let (claimed_sum, proof_polys) = prove(product_poly.clone());
+
+        // Verify the proof
+        let result = verify(
+            product_poly.num_vars(),
+            claimed_sum,
+            proof_polys,
+            Some(product_poly),
+        );
+        assert!(result.unwrap_or(false));
+    }
+
+    #[test]
+    fn test_varying_degrees() {
+        // Test with a constant polynomial (degree 0)
+        let constant_poly = DenseMultilinearPolynomial::new(vec![
+            FE::from(1),
+            FE::from(1),
+            FE::from(1),
+            FE::from(1),
+        ]);
+        let (claimed_sum, proof_polys) = prove(constant_poly.clone());
+        let result = verify(
+            constant_poly.num_vars(),
+            claimed_sum,
+            proof_polys,
+            Some(constant_poly),
+        );
+        assert!(result.unwrap_or(false), "Constant polynomial test failed");
+
+        // Test with a linear polynomial (degree 1)
+        let linear_poly = DenseMultilinearPolynomial::new(vec![
+            FE::from(0),
+            FE::from(1),
+            FE::from(2),
+            FE::from(3),
+        ]);
+        let (claimed_sum, proof_polys) = prove(linear_poly.clone());
+        let result = verify(
+            linear_poly.num_vars(),
+            claimed_sum,
+            proof_polys,
+            Some(linear_poly),
+        );
+        assert!(result.unwrap_or(false), "Linear polynomial test failed");
+
+        // Test with a quadratic polynomial (degree 2)
+        let quadratic_poly = DenseMultilinearPolynomial::new(vec![
+            FE::from(0),
+            FE::from(1),
+            FE::from(4),
+            FE::from(9),
+        ]);
+        let (claimed_sum, proof_polys) = prove(quadratic_poly.clone());
+        let result = verify(
+            quadratic_poly.num_vars(),
+            claimed_sum,
+            proof_polys,
+            Some(quadratic_poly),
+        );
+        assert!(result.unwrap_or(false), "Quadratic polynomial test failed");
     }
 }

@@ -1,4 +1,4 @@
-use super::Channel;
+use crate::Channel;
 use lambdaworks_crypto::fiat_shamir::default_transcript::DefaultTranscript;
 use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::traits::HasDefaultTranscript;
@@ -9,11 +9,12 @@ use lambdaworks_math::polynomial::{
 use lambdaworks_math::traits::ByteConversion;
 use std::vec::Vec;
 
-pub enum VerifierRoundResult<F: IsField>
-where
-    <F as IsField>::BaseType: Send + Sync,
-{
+/// Result of a verifier round
+#[derive(Debug)]
+pub enum VerifierRoundResult<F: IsField> {
+    /// Next round with challenge
     NextRound(FieldElement<F>),
+    /// Final result
     Final(bool),
 }
 
@@ -43,16 +44,15 @@ where
     Unreachable,
 }
 
-/// Verifier for the Sum-Check protocol using DenseMultilinearPolynomial.
+/// Verifier for the Sum-Check protocol
 pub struct Verifier<F: IsField>
 where
     <F as IsField>::BaseType: Send + Sync,
 {
     pub n: usize,
-    pub c_1: FieldElement<F>,
     pub round: usize,
     pub poly: Option<DenseMultilinearPolynomial<F>>,
-    pub last_val: FieldElement<F>,
+    pub current_sum: FieldElement<F>,
     pub challenges: Vec<FieldElement<F>>,
 }
 
@@ -63,135 +63,112 @@ where
     pub fn new(
         n: usize,
         poly: Option<DenseMultilinearPolynomial<F>>,
-        c_1: FieldElement<F>,
+        claimed_sum: FieldElement<F>,
     ) -> Self {
         Self {
             n,
-            c_1,
             round: 0,
             poly,
-            last_val: FieldElement::zero(),
+            current_sum: claimed_sum,
             challenges: Vec::with_capacity(n),
         }
     }
 
-    /// Executes round `j` of the verifier.
+    /// Executes a single round of verification
     pub fn do_round<C: Channel<F>>(
         &mut self,
-        univar: Polynomial<FieldElement<F>>,
-        channel: &mut C,
+        g: Polynomial<FieldElement<F>>,
+        transcript: &mut C,
     ) -> Result<VerifierRoundResult<F>, VerifierError<F>> {
-        // Check that the polynomial degree is at most 1 (univariate from multilinear)
-        let degree = univar.degree();
-        if degree > 1 {
+        // Check if we've exceeded the number of rounds
+        if self.round >= self.n {
+            return Err(VerifierError::Unreachable);
+        }
+
+        // Check if the polynomial is of the correct degree
+        if g.degree() > 1 {
             return Err(VerifierError::InvalidDegree {
                 round: self.round,
-                actual_degree: degree,
+                actual_degree: g.degree(),
                 max_allowed: 1,
             });
         }
 
-        // Evaluate polynomial at 0 and 1 once, reusing the values.
-        let eval_0 = univar.evaluate(&FieldElement::<F>::zero());
-        let eval_1 = univar.evaluate(&FieldElement::<F>::one());
+        // Check if g(0) + g(1) = current_sum
+        let zero = FieldElement::<F>::zero();
+        let one = FieldElement::<F>::one();
+        let eval_0 = g.evaluate(&zero);
+        let eval_1 = g.evaluate(&one);
+        let sum = &eval_0 + &eval_1;
 
-        if self.round == 0 {
-            // Check intermediate consistency for round 0: s0 + s1 must equal c_1.
-            if &eval_0 + &eval_1 != self.c_1 {
-                return Err(VerifierError::InconsistentSum {
-                    round: self.round,
-                    s0: eval_0,
-                    s1: eval_1,
-                    expected: self.c_1.clone(),
-                });
-            }
-
-            channel.append_felt(&self.c_1);
-        } else {
-            let sum = &eval_0 + &eval_1;
-            // Check intermediate consistency: s0 + s1 must equal last_val.
-            if sum != self.last_val {
-                return Err(VerifierError::InconsistentSum {
-                    round: self.round,
-                    s0: eval_0,
-                    s1: eval_1,
-                    expected: self.last_val.clone(),
-                });
-            }
+        if sum != self.current_sum {
+            return Err(VerifierError::InconsistentSum {
+                round: self.round,
+                s0: eval_0,
+                s1: eval_1,
+                expected: self.current_sum.clone(),
+            });
         }
 
-        // Append all coefficients of the univariate polynomial to the channel
-        for coeff in &univar.coefficients {
-            channel.append_felt(coeff);
-        }
-
-        // Draw a random challenge for the round.
-        let base_challenge = channel.draw_felt();
-        let r_j = &base_challenge + FieldElement::<F>::from(self.round as u64);
-
-        let intermediate_sum = univar.evaluate(&r_j);
-        self.last_val = intermediate_sum.clone();
-
-        if self.round < self.n - 1 {
-            channel.append_felt(&intermediate_sum);
-        }
-
-        self.challenges.push(r_j.clone());
+        // Generate challenge for next round
+        let r = transcript.draw_felt();
+        self.challenges.push(r.clone());
+        self.current_sum = g.evaluate(&r);
         self.round += 1;
 
+        // If this is the final round, check the final evaluation
         if self.round == self.n {
-            // Final round
-            if let Some(ref poly) = self.poly {
+            if let Some(poly) = &self.poly {
                 let full_point = self.challenges.clone();
-                if let Ok(real_val) = poly.evaluate(full_point) {
-                    return Ok(VerifierRoundResult::Final(real_val == self.last_val));
-                } else {
-                    return Err(VerifierError::OracleEvaluationError);
+                match poly.evaluate(full_point) {
+                    Ok(expected) => {
+                        return Ok(VerifierRoundResult::Final(expected == self.current_sum));
+                    }
+                    Err(_) => return Err(VerifierError::OracleEvaluationError),
                 }
             }
-            Ok(VerifierRoundResult::Final(true))
-        } else {
-            Ok(VerifierRoundResult::NextRound(r_j))
+            return Ok(VerifierRoundResult::Final(true));
         }
+
+        Ok(VerifierRoundResult::NextRound(r))
     }
 }
 
+/// Main verification function for the sumcheck protocol
 pub fn verify<F>(
-    n: usize,
+    num_vars: usize,
     claimed_sum: FieldElement<F>,
     proof_polys: Vec<Polynomial<FieldElement<F>>>,
-    oracle_poly: Option<DenseMultilinearPolynomial<F>>,
+    oracle: Option<DenseMultilinearPolynomial<F>>,
 ) -> Result<bool, VerifierError<F>>
 where
     F: IsField + HasDefaultTranscript,
-    <F as IsField>::BaseType: Send + Sync,
+    F::BaseType: Send + Sync,
     FieldElement<F>: ByteConversion,
 {
-    // Verify that the proof contains the correct number of polynomials
-    let proof_len = proof_polys.len();
-    if proof_len != n {
+    if proof_polys.len() != num_vars {
         return Err(VerifierError::IncorrectProofLength {
-            expected: n,
-            actual: proof_len,
+            expected: num_vars,
+            actual: proof_polys.len(),
         });
     }
 
-    let mut verifier = Verifier::new(n, oracle_poly, claimed_sum);
+    let mut verifier = Verifier::new(num_vars, oracle, claimed_sum.clone());
     let mut transcript = DefaultTranscript::<F>::default();
 
-    for (i, univar) in proof_polys.into_iter().enumerate() {
-        match verifier.do_round(univar, &mut transcript)? {
-            VerifierRoundResult::NextRound(_) => {
-                // Continue to next round
-                if i == n - 1 {
-                    return Err(VerifierError::OracleEvaluationError);
-                }
-            }
-            VerifierRoundResult::Final(result) => {
-                return Ok(result);
-            }
+    // Initialize channel with claim
+    transcript.append_felt(&claimed_sum);
+
+    for poly in proof_polys {
+        // Re-absorb message
+        for coeff in &poly.coefficients {
+            transcript.append_felt(coeff);
+        }
+        match verifier.do_round(poly, &mut transcript)? {
+            VerifierRoundResult::NextRound(_) => continue,
+            VerifierRoundResult::Final(result) => return Ok(result),
         }
     }
 
-    Err(VerifierError::Unreachable)
+    Ok(false)
 }

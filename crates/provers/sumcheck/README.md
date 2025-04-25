@@ -1,6 +1,6 @@
 # Sumcheck Protocol
 
-A naive implementation of the Sumcheck Protocol. 
+A naive implementation of the Sumcheck Protocol with support for linear, quadratic, and cubic polynomials.
 
 ## Overview
 
