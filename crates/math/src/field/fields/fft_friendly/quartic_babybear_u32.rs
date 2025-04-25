@@ -22,9 +22,12 @@ pub const BETA: FieldElement<Babybear31PrimeField> =
 #[derive(Clone, Debug)]
 pub struct Degree4BabyBearU32ExtensionField;
 
+/// We implement directly the degree four extension for performance reasons, instead of using
+/// the default quadratic extension provided by the library
 impl IsField for Degree4BabyBearU32ExtensionField {
     type BaseType = [FieldElement<Babybear31PrimeField>; 4];
 
+    /// Addition of degree four field extension elements
     fn add(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
         [a[0] + b[0], a[1] + b[1], a[2] + b[2], a[3] + b[3]]
     }
@@ -32,6 +35,7 @@ impl IsField for Degree4BabyBearU32ExtensionField {
     /// Result of multiplying two polynomials a = a0 + a1 * x + a2 * x^2 + a3 * x^3 and
     /// b = b0 + b1 * x + b2 * x^2 + b3 * x^3 by applying distribution and taking
     /// the remainder of the division by x^4 + 11.
+    /// Multiplication of two degree four field extension elements
     fn mul(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
         [
             a[0] * b[0] - BETA * (a[1] * b[3] + a[3] * b[1] + a[2] * b[2]),
@@ -41,6 +45,8 @@ impl IsField for Degree4BabyBearU32ExtensionField {
         ]
     }
 
+    /// Returns the square of a degree four field extension element
+    /// More efficient to use instead of multiplying the element with itself
     fn square(a: &Self::BaseType) -> Self::BaseType {
         [
             a[0].square() - BETA * ((a[1] * a[3]).double() + a[2].square()),
@@ -50,10 +56,12 @@ impl IsField for Degree4BabyBearU32ExtensionField {
         ]
     }
 
+    /// Subtraction of degree four field extension elements
     fn sub(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
         [a[0] - b[0], a[1] - b[1], a[2] - b[2], a[3] - b[3]]
     }
 
+    /// Additive inverse of degree four field extension element
     fn neg(a: &Self::BaseType) -> Self::BaseType {
         [-&a[0], -&a[1], -&a[2], -&a[3]]
     }
@@ -159,6 +167,7 @@ impl IsField for Degree4BabyBearU32ExtensionField {
     }
 }
 
+/// Implements efficient operations between a BabyBear element and a degree four extension element
 impl IsSubFieldOf<Degree4BabyBearU32ExtensionField> for Babybear31PrimeField {
     fn mul(
         a: &Self::BaseType,

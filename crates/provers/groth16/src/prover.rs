@@ -65,7 +65,9 @@ impl Proof {
 
 pub struct Prover;
 impl Prover {
+    /// Computes a Groth16 proof from the witness, the quadratic arithmetic program description and the proving key
     pub fn prove(w: &[FrElement], qap: &QuadraticArithmeticProgram, pk: &ProvingKey) -> Proof {
+        // Compute the coefficients of the quotient polynomial
         let h_coefficients = qap
             .calculate_h_coefficients(w)
             .iter()

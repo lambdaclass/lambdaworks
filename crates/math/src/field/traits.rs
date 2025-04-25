@@ -78,6 +78,8 @@ pub trait IsFFTField: IsField {
     }
 
     /// Returns a primitive root of unity of order $2^{order}$.
+    /// This is an element w such that w^{2^order} = 1 modulo p and
+    /// w^k <> 1 modulo p for k not congruent to 2^order
     fn get_primitive_root_of_unity(order: u64) -> Result<FieldElement<Self>, FieldError> {
         let two_adic_primitive_root_of_unity =
             FieldElement::new(Self::TWO_ADIC_PRIMITVE_ROOT_OF_UNITY);
@@ -115,6 +117,9 @@ pub trait IsField: Debug + Clone {
         Self::mul(a, a)
     }
 
+    /// Returns the power of `a` to the `T`, a^T
+    /// Uses the square and multiply algorithm, which takes O(log2(T)) steps
+    /// This is a non-constant time implementation!
     fn pow<T>(a: &Self::BaseType, mut exponent: T) -> Self::BaseType
     where
         T: IsUnsignedInteger,
@@ -184,6 +189,12 @@ pub trait IsField: Debug + Clone {
     fn from_base_type(x: Self::BaseType) -> Self::BaseType;
 }
 
+/// Provides the Legendre symbol for an element modulo p
+/// The Legendre symbol is Zero if a is congruent to 0 modulo p
+/// It is equal to One if a is a square modulo p (which means it has a square root)
+/// It is equal to MinusOne if a is not a square modulo p
+/// For example, p - 1 is not a square modulo p if p is congruent to 3 modulo 4
+/// This applies to Mersenne primes, for example
 #[derive(PartialEq)]
 pub enum LegendreSymbol {
     MinusOne,
@@ -198,6 +209,7 @@ pub trait IsPrimeField: IsField {
     /// the range [0, p-1], where p the modulus
     fn representative(a: &Self::BaseType) -> Self::RepresentativeType;
 
+    /// Returns p - 1, which is -1 mod p
     fn modulus_minus_one() -> Self::RepresentativeType {
         Self::representative(&Self::neg(&Self::one()))
     }
@@ -215,6 +227,8 @@ pub trait IsPrimeField: IsField {
     /// This is `log2(max FE)` rounded up
     fn field_bit_size() -> usize;
 
+    /// Computes the Legendre symbol using Euler's criterion
+    /// This is important to ensure that we find the square root of elements that are quadratic residues
     fn legendre_symbol(a: &Self::BaseType) -> LegendreSymbol {
         let symbol = Self::pow(a, Self::modulus_minus_one() >> 1);
 

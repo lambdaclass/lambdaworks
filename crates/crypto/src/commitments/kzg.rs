@@ -14,7 +14,11 @@ use lambdaworks_math::{
 
 #[derive(PartialEq, Clone, Debug)]
 pub struct StructuredReferenceString<G1Point, G2Point> {
+    /// Vector of points in G1 encoding g1, s g1, s^2 g1, s^3 g1, ... s^n g1
     pub powers_main_group: Vec<G1Point>,
+    /// Slice of points in G2 encoding g2, s g2
+    /// We could relax this to include more powers, but for most applications
+    /// this suffices
     pub powers_secondary_group: [G2Point; 2],
 }
 
@@ -23,6 +27,7 @@ where
     G1Point: IsGroup,
     G2Point: IsGroup,
 {
+    /// Creates a new SRS from slices of G1points and a slice of length 2 of G2 points
     pub fn new(powers_main_group: &[G1Point], powers_secondary_group: &[G2Point; 2]) -> Self {
         Self {
             powers_main_group: powers_main_group.into(),
@@ -37,6 +42,7 @@ where
     G1Point: IsGroup + Deserializable,
     G2Point: IsGroup + Deserializable,
 {
+    /// Read SRS from file
     pub fn from_file(file_path: &str) -> Result<Self, crate::errors::SrsFromFileError> {
         let bytes = std::fs::read(file_path)?;
         Ok(Self::deserialize(&bytes)?)
@@ -48,6 +54,7 @@ where
     G1Point: IsGroup + AsBytes,
     G2Point: IsGroup + AsBytes,
 {
+    /// Serialize SRS
     fn as_bytes(&self) -> Vec<u8> {
         let mut serialized_data: Vec<u8> = Vec::new();
         // First 4 bytes encodes protocol version
@@ -155,6 +162,9 @@ impl<const N: usize, F: IsPrimeField<RepresentativeType = UnsignedInteger<N>>, P
 {
     type Commitment = P::G1Point;
 
+    /// Given a polynomial and an SRS, creates a commitment to p(x), which corresponds to a G1 point
+    /// The commitment is p(s) g1, evaluated as \sum_i c_i srs.powers_main_group[i], where c_i are the coefficients
+    /// of the polynomial.
     fn commit(&self, p: &Polynomial<FieldElement<F>>) -> Self::Commitment {
         let coefficients: Vec<_> = p
             .coefficients
@@ -168,6 +178,9 @@ impl<const N: usize, F: IsPrimeField<RepresentativeType = UnsignedInteger<N>>, P
         .expect("`points` is sliced by `cs`'s length")
     }
 
+    /// Creates an evaluation proof for the polynomial p at x equal to y.
+    /// This is a commitment to the quotient polynomial q(t) = (p(t) - y)/(t - x)
+    /// The commitment is simply q(s) g1, corresponding to a G1 point
     fn open(
         &self,
         x: &FieldElement<F>,
@@ -179,6 +192,11 @@ impl<const N: usize, F: IsPrimeField<RepresentativeType = UnsignedInteger<N>>, P
         self.commit(&poly_to_commit)
     }
 
+    /// Verifies the correct evaluation of a polynomial p by providing a commitment to p,
+    /// the point x, the evaluation y (p(x) = y) and an evaluation proof (commitment to the quotient polynomial)
+    /// Basically, we want to show that, at secret point s, p(s) - y = (s - x) q(s)
+    /// It uses pairings to verify the above condition, e(cm(p) - yg1,g2)*(cm(q), sg2 - xg2)^-1
+    /// Returns true for valid evaluation
     fn verify(
         &self,
         x: &FieldElement<F>,
@@ -203,6 +221,8 @@ impl<const N: usize, F: IsPrimeField<RepresentativeType = UnsignedInteger<N>>, P
         e == Ok(FieldElement::one())
     }
 
+    /// Creates an evaluation proof for several polynomials at a single point x. upsilon is used to
+    /// perform the random linear combination, using Horner's evaluation form
     fn open_batch(
         &self,
         x: &FieldElement<F>,
@@ -225,6 +245,9 @@ impl<const N: usize, F: IsPrimeField<RepresentativeType = UnsignedInteger<N>>, P
         self.open(x, &acc_y, &acc_polynomial)
     }
 
+    /// Verifies an evaluation proof for the evaluation of a batch of polynomials at x, using upsilon to perform the random
+    /// linear combination
+    /// Outputs true if the evaluation is correct
     fn verify_batch(
         &self,
         x: &FieldElement<F>,
