@@ -140,7 +140,7 @@ impl<E: IsField> Polynomial<FieldElement<E>> {
         let d = n - m; // Degree of the quotient
         let a_rev = self.reverse(n);
         let b_rev = divisor.reverse(m);
-        let inv_b_rev = Self::invert_polynomial::<F>(&b_rev, d + 1)?;
+        let inv_b_rev = Self::invert_polynomial_mod::<F>(&b_rev, d + 1)?;
         let q = a_rev
             .fast_fft_multiplication::<F>(&inv_b_rev)?
             .truncate(d + 1)
@@ -152,7 +152,7 @@ impl<E: IsField> Polynomial<FieldElement<E>> {
 
     /// Computes the inverse of polynomial P modulo x^k using Newton iteration.
     /// P must have an invertible constant term.
-    pub fn invert_polynomial<F: IsSubFieldOf<E> + IsFFTField>(
+    pub fn invert_polynomial_mod<F: IsSubFieldOf<E> + IsFFTField>(
         p: &Self,
         k: usize,
     ) -> Result<Self, FFTError> {
