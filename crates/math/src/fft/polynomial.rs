@@ -1,5 +1,6 @@
 use crate::fft::errors::FFTError;
 
+use crate::field::errors::FieldError;
 use crate::field::traits::{IsField, IsSubFieldOf};
 use crate::{
     field::{
@@ -125,8 +126,13 @@ impl<E: IsField> Polynomial<FieldElement<E>> {
     ) -> Result<(Self, Self), FFTError> {
         let n = self.degree();
         let m = divisor.degree();
-        if divisor.coefficients.is_empty() {
-            panic!("Division by zero polynomial");
+        if divisor.coefficients.is_empty()
+            || divisor
+                .coefficients
+                .iter()
+                .all(|c| c == &FieldElement::zero())
+        {
+            return Err(FieldError::DivisionByZero.into());
         }
         if n < m {
             return Ok((Self::zero(), self.clone()));
@@ -136,11 +142,11 @@ impl<E: IsField> Polynomial<FieldElement<E>> {
         let b_rev = divisor.reverse(m);
         let inv_b_rev = Self::invert_polynomial::<F>(&b_rev, d + 1)?;
         let q = a_rev
-            .fast_multiplication::<F>(&inv_b_rev)?
+            .fast_fft_multiplication::<F>(&inv_b_rev)?
             .truncate(d + 1)
             .reverse(d);
 
-        let r = self - q.fast_multiplication::<F>(divisor)?;
+        let r = self - q.fast_fft_multiplication::<F>(divisor)?;
         Ok((q, r))
     }
 
@@ -151,22 +157,21 @@ impl<E: IsField> Polynomial<FieldElement<E>> {
         k: usize,
     ) -> Result<Self, FFTError> {
         if p.coefficients.is_empty() || p.coefficients.iter().all(|c| c == &FieldElement::zero()) {
-            panic!("Cannot invert polynomial with zero constant term");
+            return Err(FieldError::DivisionByZero.into());
         }
-        let mut q = Self::new(&[p.coefficients[0].inv().unwrap()]);
+        let mut q = Self::new(&[p.coefficients[0].inv()?]);
         let mut current_precision = 1;
 
+        let two = Self::new(&[FieldElement::<F>::one() + FieldElement::one()]);
         while current_precision < k {
-            let temp = p
-                .fast_multiplication::<F>(&q)?
-                .truncate(2 * current_precision);
-            let two = Self::new(&[FieldElement::<F>::one() + FieldElement::one()]);
-            let correction = two - temp;
-            q = q
-                .fast_multiplication::<F>(&correction)?
-                .truncate(2 * current_precision);
-
             current_precision *= 2;
+            let temp = p
+                .fast_fft_multiplication::<F>(&q)?
+                .truncate(current_precision);
+            let correction = &two - temp;
+            q = q
+                .fast_fft_multiplication::<F>(&correction)?
+                .truncate(current_precision);
         }
 
         // Final truncation to desired degree k
