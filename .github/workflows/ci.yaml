@@ -182,7 +182,7 @@ jobs:
           components: clippy
 
       - name: Run clippy
-        run: make clippy-metal
+        run: make clippy
 
       - name: Run tests
-        run: make test-metal
+        run: make test

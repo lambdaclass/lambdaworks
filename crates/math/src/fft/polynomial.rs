@@ -12,8 +12,6 @@ use alloc::{vec, vec::Vec};
 
 #[cfg(feature = "cuda")]
 use crate::fft::gpu::cuda::polynomial::{evaluate_fft_cuda, interpolate_fft_cuda};
-#[cfg(feature = "metal")]
-use crate::fft::gpu::metal::polynomial::{evaluate_fft_metal, interpolate_fft_metal};
 
 use super::cpu::{ops, roots_of_unity};
 
@@ -29,7 +27,9 @@ impl<E: IsField> Polynomial<FieldElement<E>> {
     ) -> Result<Vec<FieldElement<E>>, FFTError> {
         let domain_size = domain_size.unwrap_or(0);
         let len = core::cmp::max(poly.coeff_len(), domain_size).next_power_of_two() * blowup_factor;
-
+        if len.trailing_zeros() as u64 > F::TWO_ADICITY {
+            return Err(FFTError::DomainSizeError(len.trailing_zeros() as usize));
+        }
         if poly.coefficients().is_empty() {
             return Ok(vec![FieldElement::zero(); len]);
         }
@@ -37,19 +37,6 @@ impl<E: IsField> Polynomial<FieldElement<E>> {
         let mut coeffs = poly.coefficients().to_vec();
         coeffs.resize(len, FieldElement::zero());
         // padding with zeros will make FFT return more evaluations of the same polynomial.
-
-        #[cfg(feature = "metal")]
-        {
-            if !F::field_name().is_empty() {
-                Ok(evaluate_fft_metal::<F, E>(&coeffs)?)
-            } else {
-                println!(
-                    "GPU evaluation failed for field {}. Program will fallback to CPU.",
-                    core::any::type_name::<F>()
-                );
-                evaluate_fft_cpu::<F, E>(&coeffs)
-            }
-        }
 
         #[cfg(feature = "cuda")]
         {
@@ -61,7 +48,7 @@ impl<E: IsField> Polynomial<FieldElement<E>> {
             }
         }
 
-        #[cfg(all(not(feature = "metal"), not(feature = "cuda")))]
+        #[cfg(not(feature = "cuda"))]
         {
             evaluate_fft_cpu::<F, E>(&coeffs)
         }
@@ -87,19 +74,6 @@ impl<E: IsField> Polynomial<FieldElement<E>> {
     pub fn interpolate_fft<F: IsFFTField + IsSubFieldOf<E>>(
         fft_evals: &[FieldElement<E>],
     ) -> Result<Self, FFTError> {
-        #[cfg(feature = "metal")]
-        {
-            if !F::field_name().is_empty() {
-                Ok(interpolate_fft_metal::<F, E>(fft_evals)?)
-            } else {
-                println!(
-                    "GPU interpolation failed for field {}. Program will fallback to CPU.",
-                    core::any::type_name::<F>()
-                );
-                interpolate_fft_cpu::<F, E>(fft_evals)
-            }
-        }
-
         #[cfg(feature = "cuda")]
         {
             if !F::field_name().is_empty() {
@@ -109,7 +83,7 @@ impl<E: IsField> Polynomial<FieldElement<E>> {
             }
         }
 
-        #[cfg(all(not(feature = "metal"), not(feature = "cuda")))]
+        #[cfg(not(feature = "cuda"))]
         {
             interpolate_fft_cpu::<F, E>(fft_evals)
         }
@@ -124,6 +98,22 @@ impl<E: IsField> Polynomial<FieldElement<E>> {
     ) -> Result<Polynomial<FieldElement<E>>, FFTError> {
         let scaled = Polynomial::interpolate_fft::<F>(fft_evals)?;
         Ok(scaled.scale(&offset.inv().unwrap()))
+    }
+
+    /// Multiplies two polynomials using FFT.
+    /// It's faster than naive multiplication when the degree of the polynomials is large enough (>=2**6).
+    /// This works best with polynomials whose highest degree is equal to a power of 2 - 1.
+    /// Will return an error if the degree of the resulting polynomial is greater than 2**63.
+    pub fn fast_fft_multiplication<F: IsFFTField + IsSubFieldOf<E>>(
+        &self,
+        other: &Self,
+    ) -> Result<Self, FFTError> {
+        let domain_size = self.degree() + other.degree() + 1;
+        let p = Polynomial::evaluate_fft::<F>(self, 1, Some(domain_size))?;
+        let q = Polynomial::evaluate_fft::<F>(other, 1, Some(domain_size))?;
+        let r = p.into_iter().zip(q).map(|(a, b)| a * b).collect::<Vec<_>>();
+
+        Polynomial::interpolate_fft::<F>(&r)
     }
 }
 
@@ -175,7 +165,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    #[cfg(all(not(feature = "metal"), not(feature = "cuda")))]
+    #[cfg(not(feature = "cuda"))]
     use crate::field::traits::IsField;
 
     use alloc::format;
@@ -256,7 +246,7 @@ mod tests {
         (poly, new_poly)
     }
 
-    #[cfg(all(not(feature = "metal"), not(feature = "cuda")))]
+    #[cfg(not(feature = "cuda"))]
     mod u64_field_tests {
         use super::*;
         use crate::field::test_fields::u64_test_field::U64TestField;
@@ -340,6 +330,11 @@ mod tests {
                 let (poly, new_poly) = gen_fft_interpolate_and_evaluate(poly);
 
                 prop_assert_eq!(poly, new_poly);
+            }
+
+            #[test]
+            fn test_fft_multiplication_works(poly in poly(7), other in poly(7)) {
+                prop_assert_eq!(poly.fast_fft_multiplication::<F>(&other).unwrap(), poly * other);
             }
         }
 
@@ -435,6 +430,11 @@ mod tests {
                 poly in poly(4).prop_filter("Avoid non pows of two", |poly| poly.coeff_len().is_power_of_two())) {
                 let (poly, new_poly) = gen_fft_interpolate_and_evaluate(poly);
                 prop_assert_eq!(poly, new_poly);
+            }
+
+            #[test]
+            fn test_fft_multiplication_works(poly in poly(7), other in poly(7)) {
+                prop_assert_eq!(poly.fast_fft_multiplication::<F>(&other).unwrap(), poly * other);
             }
         }
     }

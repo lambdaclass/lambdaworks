@@ -17,6 +17,7 @@ pub struct Proof<T: PartialEq + Eq> {
 }
 
 impl<T: PartialEq + Eq> Proof<T> {
+    /// Verifies a Merkle inclusion proof for the value contained at leaf index.
     pub fn verify<B>(&self, root_hash: &B::Node, mut index: usize, value: &B::Data) -> bool
     where
         B: IsMerkleTreeBackend<Node = T>,

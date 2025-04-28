@@ -24,11 +24,14 @@ Below is a list of examples to understand lambdaworks and learn what you can bui
 - [Shamir's secret sharing](./examples/shamir_secret_sharing/)
 - [BabySNARK](./examples/baby-snark/)
 - [Pinocchio](./examples/pinocchio/)
-- [Using Circom with lambdaworks's Groth16](./provers/groth16/circom-adapter/src/README.md)
+- [Pohlig-Hellman algorithm](./examples/pohlig-hellman-attack/)
+- [Naive RSA](./examples/rsa/)
+- [Naive Schnorr signatures](./examples/schnorr-signature/)
+- [Using Circom with lambdaworks's Groth16](./examples/prove-verify-circom/circom_lambdaworks_tutorial.md)
 - [Proving Fibonacci using Circom and lambdaworks](./examples/prove-verify-circom/circom_lambdaworks_tutorial.md)
 
-- You can use Circom to generate circuits and use lambdaworks's capabilities to prove the execution with [Groth16](./provers/groth16/README.md).
-- You can use the [Stark prover](./provers/stark/src/) to define an algebraic intermediate representation (AIR) and prove the execution of a program
+- You can use Circom to generate circuits and use lambdaworks's capabilities to prove the execution with [Groth16](./crates/provers/groth16/README.md).
+- You can use the [Stark prover](./crates/provers/stark/README.md) to define an algebraic intermediate representation (AIR) and prove the execution of a program
 
 ## Why we built lambdaworks
 
@@ -89,7 +92,7 @@ List of symbols:
 | Mersenne 31    | :heavy_check_mark: | :x:                | :x:      | :x:                | :x:         |
 | Baby Bear      | :heavy_check_mark: | :x:                | :x:      | :x:                | :x:         |
 | MiniGoldilocks | :heavy_check_mark: | :x:                | :x:      | :heavy_check_mark: | :x:         |
-| Binary fields  | :x: | :x:                | :x:      | :x:                | :x:         |
+| Binary fields  | :heavy_check_mark: | :x:                | :x:      | :x:                | :x:         |
 | **ZK friendly Hash function** | **Lambdaworks** | **Arkworks**       | **Halo2**          | **gnark** | **Constantine** |
 | Poseidon                      | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :x:       | :x:             |
 | Pedersen                      | 🏗️ | :heavy_check_mark: | :heavy_check_mark: | :x:       | :x:             |
@@ -135,7 +138,7 @@ This can be used in a multi prover setting for extra security, or as a standalon
 
 ### Fuzzers
 
-Fuzzers are divided between the ones that use only the CPU, the ones that use Metal, and the ones that use CUDA.
+Fuzzers are divided between the ones that use only the CPU, and the ones that use CUDA.
 
 To use them, make sure you have installed ```cargo fuzzer```
 
@@ -153,7 +156,7 @@ make run-fuzzer FUZZER=stark252
 
 The list of fuzzers can be found in `fuzz/no_gpu_fuzz`
 
-Fuzzers for FTT in Metal and Cuda can be run with `make run-metal-fuzzer` and `make run-cuda-fuzzer`
+Fuzzers for FTT in Cuda can be run with `make run-cuda-fuzzer`
 
 
 Run a specific fuzzer from the ones contained in **fuzz/fuzz_targets/** folder with`cargo`, for example to run the one for the target `field_from_hex`:
@@ -215,10 +218,14 @@ The following links, repos, companies and projects have been important in the de
 - [Gnark](https://github.com/Consensys/gnark)
 - [Constantine](https://github.com/mratsim/constantine)
 - [Plonky3](https://github.com/Plonky3/Plonky3)
+- [Stwo](https://github.com/starkware-libs/stwo/tree/dev)
+- [Binius](https://gitlab.com/IrreducibleOSS/binius)
+- [Zorch](https://github.com/vbuterin/zorch/tree/main)
+- [Jolt](https://github.com/a16z/jolt)
 
 # Security
 
-We take security seriously. If you discover a vulnerability in this project, please report it responsibly. 
+We take security seriously. If you discover a vulnerability in this project, please report it responsibly.
 
 - You can report vulnerabilities directly via the **[GitHub "Report a Vulnerability" feature](../../security/advisories/new)**.
 - Alternatively, send an email to **[security@lambdaclass.com](mailto:security@lambdaclass.com)**.

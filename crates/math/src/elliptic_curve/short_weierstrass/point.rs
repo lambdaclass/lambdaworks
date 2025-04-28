@@ -63,10 +63,13 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
         self.0.coordinates()
     }
 
+    /// Returns the affine representation of the point [x, y, 1]
     pub fn to_affine(&self) -> Self {
         Self(self.0.to_affine())
     }
 
+    /// Performs the group operation between a point and itself a + a = 2a in
+    /// additive notation
     pub fn double(&self) -> Self {
         if self.is_neutral_element() {
             return self.clone();
@@ -112,6 +115,7 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
         point.unwrap()
     }
     // https://hyperelliptic.org/EFD/g1p/data/shortw/projective/addition/madd-1998-cmo
+    /// More efficient than operate_with, but must ensure that other is in affine form
     pub fn operate_with_affine(&self, other: &Self) -> Self {
         if self.is_neutral_element() {
             return other.clone();
@@ -477,6 +481,7 @@ impl<E: IsShortWeierstrass> ShortWeierstrassJacobianPoint<E> {
         Self(self.0.to_affine())
     }
 
+    /// Applies the group operation between a point and itself
     pub fn double(&self) -> Self {
         if self.is_neutral_element() {
             return self.clone();
@@ -527,6 +532,7 @@ impl<E: IsShortWeierstrass> ShortWeierstrassJacobianPoint<E> {
         }
     }
 
+    /// More efficient than operate_with. Other should be in affine form!
     pub fn operate_with_affine(&self, other: &Self) -> Self {
         let [x1, y1, z1] = self.coordinates();
         let [x2, y2, _z2] = other.coordinates();

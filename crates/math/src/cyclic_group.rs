@@ -33,5 +33,8 @@ pub trait IsGroup: Clone + PartialEq + Eq {
     /// the notation of the particular group.
     fn operate_with(&self, other: &Self) -> Self;
 
+    /// Provides the inverse of the group element.
+    /// This is the unique y such that for any x
+    /// x.operate_with(y) returns the neutral element
     fn neg(&self) -> Self;
 }

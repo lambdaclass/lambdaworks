@@ -369,3 +369,4 @@ This defines a 6th degree extension over the scalar field of BLS12-381. We only 
 - [Developer math survival kit](https://blog.lambdaclass.com/math-survival-kit-for-developers/)
 - [Montgomery Arithmetic from a Software Perspective](https://eprint.iacr.org/2017/1057.pdf)
 - [Guajardo, Kumar, Paar, Perzl - Efficient software implementation of finite fields with applications to Cryptography](https://www.sandeep.de/my/papers/2006_ActaApplMath_EfficientSoftFiniteF.pdf)
+- [Ingonyama - Montgomery-Barrett duality](https://hackmd.io/@Ingonyama/Barret-Montgomery)

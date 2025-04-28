@@ -140,7 +140,7 @@ fn poly_interpolation_benchmarks(c: &mut Criterion) {
     group.finish();
 }
 
-#[cfg(not(any(feature = "metal", feature = "cuda")))]
+#[cfg(not(feature = "cuda"))]
 criterion_group!(
     name = seq_fft;
     config = Criterion::default().sample_size(10);
@@ -152,7 +152,7 @@ criterion_group!(
         poly_interpolation_benchmarks,
 );
 
-#[cfg(any(feature = "metal", feature = "cuda"))]
+#[cfg(feature = "cuda")]
 criterion_group!(
     name = seq_fft;
     config = Criterion::default().sample_size(10);
