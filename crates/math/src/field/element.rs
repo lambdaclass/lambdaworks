@@ -103,7 +103,9 @@ where
     }
 }
 
-/// From overloading for BigUint
+/// From overloading for BigUint.
+/// Creates a field element from a BigUint that is smaller than the modulus.
+/// Returns error if the value is bigger than the modulus.
 impl<F> TryFrom<BigUint> for FieldElement<F>
 where
     Self: ByteConversion,
@@ -503,86 +505,46 @@ where
         }
     }
 
-    // Converts from a BigUint that is smaller than the modulus.
-    // Returns error if the value is bigger than the modulus.
-    // pub fn from_reduced_big_uint(
-    //     value: &BigUint,
-    // ) -> Result<Self, crate::field::element::ByteConversionError>
-    // where
-    //     Self: ByteConversion,
-    //     F: IsPrimeField,
-    // {
-    //     let modulus_str = &F::modulus_minus_one().to_string();
-    //     // Remove "0x" prefix if present (case-insensitive)
-    //     let cleaned_str = modulus_str
-    //         .trim_start_matches("0x")
-    //         .trim_start_matches("0X");
-    //     let modulus = BigUint::from_str_radix(cleaned_str, 16)
-    //         .ok()
-    //         .unwrap()
-    //         .checked_add(&BigUint::from(1u32))
-    //         .unwrap();
-
-    //     if value >= &modulus {
-    //         Err(ByteConversionError::ValueNotReduced)
-    //     } else {
-    //         let mut bytes = value.to_bytes_be();
-    //         // We pad with zeros so that bytes has the length needed to do `from_bytes_le`.
-    //         // Since the biggest montgomery field uses 384 bits (6 limbs of 8 bytes), at most we'll need 48 bytes.
-    //         let pad = vec![0u8; 48];
-    //         bytes.extend_from_slice(&pad);
-
-    //         Ok(Self::from_bytes_le(&bytes).unwrap())
-    //     }
-    // }
-
-    /// Determina el tamaño en bytes requerido para el tipo base
+    // /// Returns the byte size of the base type.
     // fn base_type_byte_size() -> usize {
-    //     match core::any::type_name::<F::BaseType>() {
-    //         "lambdaworks::unsigned_integer::element::UnsignedInteger<4>" => 32, // 4 * 64 bits = 32 bytes
-    //         "lambdaworks::unsigned_integer::element::UnsignedInteger<6>" => 48, // 6 * 64 bits = 48 bytes
-    //         "lambdaworks::unsigned_integer::element::UnsignedInteger<8>" => 64, // 8 * 64 bits = 64 bytes
-    //         "lambdaworks::unsigned_integer::element::U256" => 32, // 256 bits = 32 bytes
-    //         "lambdaworks::unsigned_integer::element::U384" => 48, // 384 bits = 48 bytes
-    //         "u128" => 16,                                         // 128 bits = 16 bytes
-    //         "u64" => 8,                                           // 64 bits = 8 bytes
-    //         "u32" => 4,                                           // 32 bits = 4 bytes
-    //         _ => 48, // Valor por defecto como estaba originalmente
-    //     }
+    //     // let size_in_bits = core::mem::size_of::<F::BaseType>() * 8;
+    //     // (size_in_bits + 7) / 8
+    //     core::mem::size_of::<F::BaseType>()
     // }
-    fn base_type_byte_size() -> usize {
-        // Usa el tamaño del tipo en bits, redondeado a bytes
-        let size_in_bits = core::mem::size_of::<F::BaseType>() * 8;
-        (size_in_bits + 7) / 8 // Redondeo hacia arriba para bytes completos
-    }
+
+    /// Creates a field element from a BigUint that is smaller than the modulus.
+    /// Returns error if the value is bigger than the modulus.
     pub fn from_reduced_big_uint(value: &BigUint) -> Result<Self, ByteConversionError>
     where
         Self: ByteConversion,
         F: IsPrimeField,
     {
-        // `modulus_minus_one` viene como string (p.e. "0xFFFFFFFF" ó "16").
-        let m1_str = F::modulus_minus_one().to_string();
+        let mod_minus_one = F::modulus_minus_one().to_string();
+        println!("mod_minus_one: {:?}", mod_minus_one);
 
-        // Detectamos la base una sola vez:
-        let (digits, radix) = if let Some(hex) = m1_str
+        // We check if `mod_minus_one` is a hex string or a decimal string.
+        // In case it is a hex we remove the prefix `0x`.
+        let (digits, radix) = if let Some(hex) = mod_minus_one
             .strip_prefix("0x")
-            .or_else(|| m1_str.strip_prefix("0X"))
+            .or_else(|| mod_minus_one.strip_prefix("0X"))
         {
             (hex, 16)
         } else {
-            (m1_str.as_str(), 10)
+            (mod_minus_one.as_str(), 10)
         };
 
         let modulus =
-            BigUint::from_str_radix(digits, radix).expect("invalid modulus representation") + 1u32; // modulus = (modulus-1) + 1
+            BigUint::from_str_radix(digits, radix).expect("invalid modulus representation") + 1u32;
+        println!("modulus: {:?}", modulus);
 
         if value >= &modulus {
             Err(ByteConversionError::ValueNotReduced)
         } else {
-            // … el resto del cuerpo permanece igual …
             let mut bytes = value.to_bytes_be();
-            bytes.resize(Self::base_type_byte_size(), 0);
-            //bytes.resize(48, 0); // padding
+            // We pad the bytes to the size of the base type to be able to apply `from_bytes_le`.
+            bytes.resize(48, 0);
+            println!("bytes size: {:?}", core::mem::size_of::<F::BaseType>());
+            println!("fe: {:?}", Self::from_bytes_le(&bytes).unwrap());
             Ok(Self::from_bytes_le(&bytes).unwrap())
         }
     }
@@ -639,8 +601,8 @@ impl<F: IsPrimeField> FieldElement<F> {
     /// Creates a `FieldElement` from a hexstring. It can contain `0x` or not.
     /// Returns an `CreationError::InvalidHexString`if the value is not a hexstring.
     /// Returns a `CreationError::EmptyString` if the input string is empty.
-    /// Returns a `CreationError::HexStringIsTooBig` if the the input hex string is bigger
-    /// than the maximum amount of characters for this element.
+    /// Returns a `CreationError::HexStringIsTooBig` if the the input hex string is bigger than the
+    /// maximum amount of characters for this element.
     pub fn from_hex(hex_string: &str) -> Result<Self, CreationError> {
         if hex_string.is_empty() {
             return Err(CreationError::EmptyString);
@@ -854,7 +816,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::field::fields::fft_friendly::babybear::Babybear31PrimeField;
+    use crate::field::fields::fft_friendly::babybear_u32::Babybear31PrimeField;
     use crate::field::fields::fft_friendly::{
         stark_101_prime_field, stark_252_prime_field::Stark252PrimeField,
     };
@@ -1044,72 +1006,83 @@ mod tests {
         }
     }
 
-    // Tests for BigUint conversion with reduction.
-    type TestField = U64PrimeField<17>;
-    type FE = FieldElement<TestField>;
+    // Tests for BigUint conversion.
+    // We define different fields to test the conversion.
 
+    // Prime field with modulus 17 and base type u64.
+    type U64F17 = U64PrimeField<17>;
+    type U64F17Element = FieldElement<U64F17>;
+
+    // Baby Bear Prime field with u32 montgomery backend.
     type BabyBear = Babybear31PrimeField;
-    type BabyBearFE = FieldElement<BabyBear>;
+    type BabyBearElement = FieldElement<BabyBear>;
 
+    // Prime field with modulus 23, using u64 montgomery backend of 6 limbs.
     #[derive(Clone, Debug)]
     struct U384Modulus23;
     impl IsModulus<U384> for U384Modulus23 {
         const MODULUS: U384 = UnsignedInteger::from_u64(23);
     }
-
     type U384F23 = U384PrimeField<U384Modulus23>;
     type U384F23Element = FieldElement<U384F23>;
 
     #[test]
-    fn test_reduced_biguint_conversion_small_number() {
+    fn test_reduced_biguint_conversion_u64_field() {
         let value = BigUint::from(10u32);
-        let fe = FE::from_reduced_big_uint(&value).unwrap();
+        let fe = U64F17Element::try_from(value.clone()).unwrap();
         let back_to_biguint = fe.to_big_uint();
         assert_eq!(value, back_to_biguint);
     }
 
     #[test]
-    fn test_reduced_biguint_conversion_small_number_stark() {
-        let value = BigUint::from(10u32);
-        let fe = BabyBearFE::from_reduced_big_uint(&value).unwrap();
+    fn test_reduced_biguint_conversion_baby_bear() {
+        let value = BigUint::from(1000u32);
+        let fe = BabyBearElement::from_reduced_big_uint(&value).unwrap();
         let back_to_biguint = fe.to_big_uint();
         assert_eq!(value, back_to_biguint);
     }
 
     #[test]
-    fn test_reduced_biguint_conversion_small_number_u384() {
-        let value = BigUint::from(10u32);
+    fn test_reduced_biguint_conversion_u384_field() {
+        let value = BigUint::from(22u32);
         let fe = U384F23Element::from_reduced_big_uint(&value).unwrap();
         let back_to_biguint = fe.to_big_uint();
         assert_eq!(value, back_to_biguint);
     }
 
     #[test]
-    fn test_reduced_biguint_conversion_errors() {
+    fn non_reduced_biguint_value_conversion_errors_u64_field() {
         let value = BigUint::from(17u32);
-        let result = FE::from_reduced_big_uint(&value);
+        let result = U64F17Element::from_reduced_big_uint(&value);
+        assert_eq!(result, Err(ByteConversionError::ValueNotReduced));
+    }
+
+    #[test]
+    fn non_reduced_biguint_value_conversion_errors_baby_bear() {
+        let value = BigUint::from(2013265921u32);
+        let result = BabyBearElement::try_from(value);
         assert_eq!(result, Err(ByteConversionError::ValueNotReduced));
     }
 
     #[test]
     fn test_hex_string_conversion() {
         let hex_str = "0x0a";
-        let fe = FE::from_hex_str(hex_str).unwrap();
-        assert_eq!(fe, FE::from(10));
+        let fe = U64F17Element::from_hex_str(hex_str).unwrap();
+        assert_eq!(fe, U64F17Element::from(10));
         assert_eq!(fe.to_hex_str(), "0x0A");
     }
 
     #[test]
     fn test_invalid_hex_string() {
         let hex_str = "0xzz";
-        let result = FE::from_hex_str(hex_str);
+        let result = U64F17Element::from_hex_str(hex_str);
         assert!(result.is_err());
     }
 
     #[test]
     fn test_empty_hex_string() {
         let hex_str = "";
-        let result = FE::from_hex_str(hex_str);
+        let result = U64F17Element::from_hex_str(hex_str);
         assert!(result.is_err());
     }
 
