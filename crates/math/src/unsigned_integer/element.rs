@@ -935,6 +935,9 @@ impl<const NUM_LIMBS: usize> ByteConversion for UnsignedInteger<NUM_LIMBS> {
     }
 
     fn from_bytes_be(bytes: &[u8]) -> Result<Self, ByteConversionError> {
+        // We cut off extra bytes, this is useful when you use this function to generate the element from randomness
+        // In the future with the right algorithm this shouldn't be needed
+
         let needed_bytes = bytes
             .get(0..NUM_LIMBS * 8)
             .ok_or(ByteConversionError::FromBEBytesError)?;

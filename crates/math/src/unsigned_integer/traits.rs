@@ -3,7 +3,6 @@ use core::{
     ops::{Add, BitAnd, Shr, ShrAssign},
 };
 
-/// Trait for fixed-size unsigned integer types that can be used in field operations
 pub trait IsUnsignedInteger:
     Shr<usize, Output = Self>
     + ShrAssign<usize>
@@ -16,6 +15,7 @@ pub trait IsUnsignedInteger:
     + Add<Self, Output = Self>
 {
 }
+
 impl IsUnsignedInteger for u128 {}
 impl IsUnsignedInteger for u64 {}
 impl IsUnsignedInteger for u32 {}
