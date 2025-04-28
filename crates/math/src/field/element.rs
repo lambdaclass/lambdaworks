@@ -535,6 +535,26 @@ where
     //         Ok(Self::from_bytes_le(&bytes).unwrap())
     //     }
     // }
+
+    /// Determina el tamaño en bytes requerido para el tipo base
+    // fn base_type_byte_size() -> usize {
+    //     match core::any::type_name::<F::BaseType>() {
+    //         "lambdaworks::unsigned_integer::element::UnsignedInteger<4>" => 32, // 4 * 64 bits = 32 bytes
+    //         "lambdaworks::unsigned_integer::element::UnsignedInteger<6>" => 48, // 6 * 64 bits = 48 bytes
+    //         "lambdaworks::unsigned_integer::element::UnsignedInteger<8>" => 64, // 8 * 64 bits = 64 bytes
+    //         "lambdaworks::unsigned_integer::element::U256" => 32, // 256 bits = 32 bytes
+    //         "lambdaworks::unsigned_integer::element::U384" => 48, // 384 bits = 48 bytes
+    //         "u128" => 16,                                         // 128 bits = 16 bytes
+    //         "u64" => 8,                                           // 64 bits = 8 bytes
+    //         "u32" => 4,                                           // 32 bits = 4 bytes
+    //         _ => 48, // Valor por defecto como estaba originalmente
+    //     }
+    // }
+    fn base_type_byte_size() -> usize {
+        // Usa el tamaño del tipo en bits, redondeado a bytes
+        let size_in_bits = core::mem::size_of::<F::BaseType>() * 8;
+        (size_in_bits + 7) / 8 // Redondeo hacia arriba para bytes completos
+    }
     pub fn from_reduced_big_uint(value: &BigUint) -> Result<Self, ByteConversionError>
     where
         Self: ByteConversion,
@@ -561,7 +581,8 @@ where
         } else {
             // … el resto del cuerpo permanece igual …
             let mut bytes = value.to_bytes_be();
-            bytes.resize(48, 0); // padding
+            bytes.resize(Self::base_type_byte_size(), 0);
+            //bytes.resize(48, 0); // padding
             Ok(Self::from_bytes_le(&bytes).unwrap())
         }
     }
