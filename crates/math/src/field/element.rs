@@ -50,6 +50,9 @@ pub struct FieldElement<F: IsField> {
 #[cfg(feature = "alloc")]
 impl<F: IsField> FieldElement<F> {
     // Source: https://en.wikipedia.org/wiki/Modular_multiplicative_inverse#Multiple_inverses
+    /// Computes the multiplicative inverses of a slice of field elements
+    /// The algorithm just performs one inversion and several multiplications and should be used
+    /// when wanting to invert several elements together
     pub fn inplace_batch_inverse(numbers: &mut [Self]) -> Result<(), FieldError> {
         if numbers.is_empty() {
             return Ok(());
@@ -583,16 +586,19 @@ where
 }
 
 impl<F: IsPrimeField> FieldElement<F> {
-    // Returns the representative of the value stored
+    /// Returns the representative of the value stored
     pub fn representative(&self) -> F::RepresentativeType {
         F::representative(self.value())
     }
 
+    /// Returns the two square roots of a field element, provided it exists
+    /// The function returns the roots whenever the field element is a quadratic residue modulo p
     pub fn sqrt(&self) -> Option<(Self, Self)> {
         let sqrts = F::sqrt(&self.value);
         sqrts.map(|(sqrt1, sqrt2)| (Self { value: sqrt1 }, Self { value: sqrt2 }))
     }
 
+    /// Returns the Legendre symbol of a field element modulo p
     pub fn legendre_symbol(&self) -> LegendreSymbol {
         F::legendre_symbol(&self.value)
     }

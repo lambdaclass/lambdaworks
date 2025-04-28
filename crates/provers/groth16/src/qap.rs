@@ -12,6 +12,7 @@ pub struct QuadraticArithmeticProgram {
 }
 
 impl QuadraticArithmeticProgram {
+    /// Computes the quotient polynomial
     pub fn calculate_h_coefficients(&self, w: &[FrElement]) -> Vec<FrElement> {
         let offset = &ORDER_R_MINUS_1_ROOT_UNITY;
         let degree = self.num_of_gates * 2;
@@ -149,6 +150,7 @@ fn build_variable_polynomials(from_matrix: &[Vec<FrElement>]) -> Vec<Polynomial<
         .collect()
 }
 
+/// Pads the columns so that the length is a multiple of 2 and we can use radix-2 FFT
 #[inline]
 fn apply_padding(columns: &[Vec<FrElement>], pad_zeroes: usize) -> Vec<Vec<FrElement>> {
     columns

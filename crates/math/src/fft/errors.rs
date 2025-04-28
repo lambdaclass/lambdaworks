@@ -2,9 +2,6 @@ use core::fmt::Display;
 
 use crate::field::errors::FieldError;
 
-#[cfg(feature = "metal")]
-use lambdaworks_gpu::metal::abstractions::errors::MetalError;
-
 #[cfg(feature = "cuda")]
 use lambdaworks_gpu::cuda::abstractions::errors::CudaError;
 
@@ -13,8 +10,7 @@ pub enum FFTError {
     RootOfUnityError(u64),
     InputError(usize),
     OrderError(u64),
-    #[cfg(feature = "metal")]
-    MetalError(MetalError),
+    DomainSizeError(usize),
     #[cfg(feature = "cuda")]
     CudaError(CudaError),
 }
@@ -29,9 +25,8 @@ impl Display for FFTError {
             FFTError::OrderError(v) => {
                 write!(f, "Order should be less than or equal to 63, but is {v}")
             }
-            #[cfg(feature = "metal")]
-            FFTError::MetalError(_) => {
-                write!(f, "A Metal related error has ocurred")
+            FFTError::DomainSizeError(_) => {
+                write!(f, "Domain size exceeds two adicity of the field")
             }
             #[cfg(feature = "cuda")]
             FFTError::CudaError(_) => {
@@ -45,19 +40,10 @@ impl Display for FFTError {
 impl std::error::Error for FFTError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
-            #[cfg(feature = "metal")]
-            FFTError::MetalError(e) => Some(e),
             #[cfg(feature = "cuda")]
             FFTError::CudaError(_) => Some(e),
             _ => None,
         }
-    }
-}
-
-#[cfg(feature = "metal")]
-impl From<MetalError> for FFTError {
-    fn from(error: MetalError) -> Self {
-        Self::MetalError(error)
     }
 }
 

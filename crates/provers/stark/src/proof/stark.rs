@@ -306,9 +306,9 @@ impl StoneCompatibleSerializer {
     /// For each layer i there are:
     /// - X_i = { p_i(-d_j), p_i(d_j) for all queries j }, the elements the verifier needs.
     /// - Y_i = { p_i( d_j) for all queries j }, the elements that the verifier computes from
-    ///         previous layers.
+    ///   previous layers.
     /// - Z_i = X_i - Y_i, the elements that the verifier needs but cannot compute from previous layers.
-    ///         sorted by increasing value of query.
+    ///   sorted by increasing value of query.
     /// - MergedPathsLayer_i: the merged authentication paths for all p_i(-d_j) and p_i(d_j).
     ///
     /// This method appends:

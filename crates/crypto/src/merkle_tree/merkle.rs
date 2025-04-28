@@ -17,6 +17,15 @@ impl Display for Error {
 #[cfg(feature = "std")]
 impl std::error::Error for Error {}
 
+/// The struct for the Merkle tree, consisting of the root and the nodes.
+/// A typical tree would look like this
+///                 root
+///              /        \
+///          leaf 12     leaf 34
+///        /         \    /      \
+///    leaf 1     leaf 2 leaf 3  leaf 4
+/// The bottom leafs correspond to the hashes of the elements, while each upper
+/// layer contains the hash of the concatenation of the daughter nodes.
 #[derive(Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct MerkleTree<B: IsMerkleTreeBackend> {
@@ -30,6 +39,7 @@ impl<B> MerkleTree<B>
 where
     B: IsMerkleTreeBackend,
 {
+    /// Create a Merkle tree from a slice of data
     pub fn build(unhashed_leaves: &[B::Data]) -> Option<Self> {
         if unhashed_leaves.is_empty() {
             return None;
@@ -55,6 +65,9 @@ where
         })
     }
 
+    /// Returns a Merkle proof for the element/s at position pos
+    /// For example, give me an inclusion proof for the 3rd element in the
+    /// Merkle tree
     pub fn get_proof_by_pos(&self, pos: usize) -> Option<Proof<B::Node>> {
         let pos = pos + self.nodes.len() / 2;
         let Ok(merkle_path) = self.build_merkle_path(pos) else {
@@ -64,10 +77,12 @@ where
         self.create_proof(merkle_path)
     }
 
+    /// Creates a proof from a Merkle pasth
     fn create_proof(&self, merkle_path: Vec<B::Node>) -> Option<Proof<B::Node>> {
         Some(Proof { merkle_path })
     }
 
+    /// Returns the Merkle path for the element/s for the leaf at position pos
     fn build_merkle_path(&self, pos: usize) -> Result<Vec<B::Node>, Error> {
         let mut merkle_path = Vec::new();
         let mut pos = pos;

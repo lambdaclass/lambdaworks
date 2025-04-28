@@ -1,8 +1,10 @@
-use super::utils::{rand_field_elements, rand_poly, FE};
+use super::utils::{rand_complex_mersenne_poly, rand_field_elements, rand_poly, FE};
 use const_random::const_random;
 use core::hint::black_box;
 use criterion::Criterion;
-use lambdaworks_math::polynomial::Polynomial;
+use lambdaworks_math::{
+    field::fields::mersenne31::extensions::Degree2ExtensionField, polynomial::Polynomial,
+};
 
 pub fn polynomial_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("Polynomial");
@@ -40,6 +42,20 @@ pub fn polynomial_benchmarks(c: &mut Criterion) {
     group.bench_function("mul", |bench| {
         let x_poly = rand_poly(order);
         let y_poly = rand_poly(order);
+        bench.iter(|| black_box(&x_poly) * black_box(&y_poly));
+    });
+
+    let big_order = 9;
+    let x_poly = rand_complex_mersenne_poly(big_order);
+    let y_poly = rand_complex_mersenne_poly(big_order);
+    group.bench_function("fast_mul big poly", |bench| {
+        bench.iter(|| {
+            black_box(&x_poly)
+                .fast_fft_multiplication::<Degree2ExtensionField>(black_box(&y_poly))
+                .unwrap()
+        });
+    });
+    group.bench_function("slow mul big poly", |bench| {
         bench.iter(|| black_box(&x_poly) * black_box(&y_poly));
     });
 

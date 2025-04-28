@@ -1,6 +1,7 @@
 #[cfg(feature = "alloc")]
 use crate::field::{element::FieldElement, traits::IsFFTField};
 
+/// Computes the power of two that is equal or greater than n
 pub fn next_power_of_two(n: u64) -> u64 {
     if n <= 1 {
         1
@@ -9,6 +10,9 @@ pub fn next_power_of_two(n: u64) -> u64 {
     }
 }
 
+/// Pads the trace table with zeros until the length of the columns of the trace
+/// is equal to a power of 2
+/// This is required to ensure that we can use the radix-2 Cooley-Tukey FFT algorithm
 #[cfg(feature = "alloc")]
 pub fn resize_to_next_power_of_two<F: IsFFTField>(
     trace_colums: &mut [alloc::vec::Vec<FieldElement<F>>],

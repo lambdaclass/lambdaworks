@@ -18,6 +18,9 @@ members = [
     "examples/pinocchio",
     "examples/prove-verify-circom",
     "examples/baby-snark",
+    "examples/pohlig-hellman-attack",
+    "examples/schnorr-signature",
+    "examples/rsa",
 ]
 exclude = ["ensure-no_std"]
 resolver = "2"

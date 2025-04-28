@@ -75,6 +75,7 @@ impl<const NUM_LIMBS: usize> Ord for UnsignedInteger<NUM_LIMBS> {
     }
 }
 
+/// impl from u128 for UnSignedInteger
 impl<const NUM_LIMBS: usize> From<u128> for UnsignedInteger<NUM_LIMBS> {
     fn from(value: u128) -> Self {
         let mut limbs = [0u64; NUM_LIMBS];
@@ -84,12 +85,14 @@ impl<const NUM_LIMBS: usize> From<u128> for UnsignedInteger<NUM_LIMBS> {
     }
 }
 
+/// impl from u64 for UnSignedInteger
 impl<const NUM_LIMBS: usize> From<u64> for UnsignedInteger<NUM_LIMBS> {
     fn from(value: u64) -> Self {
         Self::from_u64(value)
     }
 }
 
+/// impl from u16 for UnSignedInteger
 impl<const NUM_LIMBS: usize> From<u16> for UnsignedInteger<NUM_LIMBS> {
     fn from(value: u16) -> Self {
         let mut limbs = [0u64; NUM_LIMBS];
@@ -125,7 +128,7 @@ impl<const NUM_LIMBS: usize> Display for UnsignedInteger<NUM_LIMBS> {
     }
 }
 
-// impl Add
+// impl Add for both references and variables
 
 impl<const NUM_LIMBS: usize> Add<&UnsignedInteger<NUM_LIMBS>> for &UnsignedInteger<NUM_LIMBS> {
     type Output = UnsignedInteger<NUM_LIMBS>;

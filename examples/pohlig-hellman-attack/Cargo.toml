@@ -1,0 +1,10 @@
+[package]
+name = "pohlig-hellman-attack"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+
+[dependencies]
+lambdaworks-math = { workspace = true }
