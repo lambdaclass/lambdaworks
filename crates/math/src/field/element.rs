@@ -1,4 +1,3 @@
-use crate::alloc::string::ToString;
 use crate::errors::{ByteConversionError, CreationError};
 use crate::field::errors::FieldError;
 use crate::field::traits::IsField;
@@ -6,8 +5,11 @@ use crate::traits::ByteConversion;
 use crate::unsigned_integer::element::UnsignedInteger;
 use crate::unsigned_integer::montgomery::MontgomeryAlgorithms;
 use crate::unsigned_integer::traits::IsUnsignedInteger;
-use alloc::format;
-use alloc::string::String;
+#[cfg(feature = "alloc")]
+use alloc::{
+    format,
+    string::{String, ToString},
+};
 use core::fmt;
 use core::fmt::Debug;
 use core::iter::Sum;
@@ -105,6 +107,7 @@ where
     }
 }
 
+#[cfg(feature = "alloc")]
 /// From overloading for BigUint.
 /// Creates a field element from a BigUint that is smaller than the modulus.
 /// Returns error if the BigUint value is bigger than the modulus.
@@ -507,6 +510,7 @@ where
         }
     }
 
+    #[cfg(feature = "alloc")]
     /// Creates a field element from a BigUint that is smaller than the modulus.
     /// Returns error if the value is bigger than the modulus.
     pub fn from_reduced_big_uint(value: &BigUint) -> Result<Self, ByteConversionError>
@@ -540,6 +544,7 @@ where
         }
     }
 
+    #[cfg(feature = "alloc")]
     /// Converts a field element into a BigUint.
     pub fn to_big_uint(&self) -> BigUint
     where
@@ -548,6 +553,7 @@ where
         BigUint::from_bytes_be(&self.to_bytes_be())
     }
 
+    #[cfg(feature = "alloc")]
     /// Converts a hex string into a field element.
     /// It returns error if the hex value is larger than the modulus.
     pub fn from_hex_str(hex: &str) -> Result<Self, CreationError>
@@ -566,6 +572,7 @@ where
         Self::from_reduced_big_uint(&value).map_err(|_| CreationError::InvalidHexString)
     }
 
+    #[cfg(feature = "alloc")]
     /// Converts a field element into a hex string.
     pub fn to_hex_str(&self) -> String
     where
