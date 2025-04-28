@@ -1,11 +1,13 @@
+use crate::alloc::string::ToString;
 use crate::errors::{ByteConversionError, CreationError};
 use crate::field::errors::FieldError;
 use crate::field::traits::IsField;
-//#[cfg(feature = "lambdaworks-serde-binary")]
 use crate::traits::ByteConversion;
 use crate::unsigned_integer::element::UnsignedInteger;
 use crate::unsigned_integer::montgomery::MontgomeryAlgorithms;
 use crate::unsigned_integer::traits::IsUnsignedInteger;
+use alloc::format;
+use alloc::string::String;
 use core::fmt;
 use core::fmt::Debug;
 use core::iter::Sum;
@@ -16,7 +18,7 @@ use core::iter::Sum;
 use core::marker::PhantomData;
 use core::ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Sub};
 use num_bigint::BigUint;
-use num_traits::{CheckedAdd, Num};
+use num_traits::Num;
 #[cfg(any(
     feature = "lambdaworks-serde-binary",
     feature = "lambdaworks-serde-string"
@@ -105,7 +107,7 @@ where
 
 /// From overloading for BigUint.
 /// Creates a field element from a BigUint that is smaller than the modulus.
-/// Returns error if the value is bigger than the modulus.
+/// Returns error if the BigUint value is bigger than the modulus.
 impl<F> TryFrom<BigUint> for FieldElement<F>
 where
     Self: ByteConversion,
@@ -505,13 +507,6 @@ where
         }
     }
 
-    // /// Returns the byte size of the base type.
-    // fn base_type_byte_size() -> usize {
-    //     // let size_in_bits = core::mem::size_of::<F::BaseType>() * 8;
-    //     // (size_in_bits + 7) / 8
-    //     core::mem::size_of::<F::BaseType>()
-    // }
-
     /// Creates a field element from a BigUint that is smaller than the modulus.
     /// Returns error if the value is bigger than the modulus.
     pub fn from_reduced_big_uint(value: &BigUint) -> Result<Self, ByteConversionError>
@@ -520,7 +515,6 @@ where
         F: IsPrimeField,
     {
         let mod_minus_one = F::modulus_minus_one().to_string();
-        println!("mod_minus_one: {:?}", mod_minus_one);
 
         // We check if `mod_minus_one` is a hex string or a decimal string.
         // In case it is a hex we remove the prefix `0x`.
@@ -535,16 +529,13 @@ where
 
         let modulus =
             BigUint::from_str_radix(digits, radix).expect("invalid modulus representation") + 1u32;
-        println!("modulus: {:?}", modulus);
 
         if value >= &modulus {
             Err(ByteConversionError::ValueNotReduced)
         } else {
-            let mut bytes = value.to_bytes_be();
+            let mut bytes = value.to_bytes_le();
             // We pad the bytes to the size of the base type to be able to apply `from_bytes_le`.
-            bytes.resize(48, 0);
-            println!("bytes size: {:?}", core::mem::size_of::<F::BaseType>());
-            println!("fe: {:?}", Self::from_bytes_le(&bytes).unwrap());
+            bytes.resize(core::mem::size_of::<F::BaseType>(), 0);
             Ok(Self::from_bytes_le(&bytes).unwrap())
         }
     }
@@ -558,6 +549,7 @@ where
     }
 
     /// Converts a hex string into a field element.
+    /// It returns error if the hex value is larger than the modulus.
     pub fn from_hex_str(hex: &str) -> Result<Self, CreationError>
     where
         Self: ByteConversion,
@@ -571,7 +563,7 @@ where
         let value =
             BigUint::from_str_radix(hex_str, 16).map_err(|_| CreationError::InvalidHexString)?;
 
-        Ok(Self::from_reduced_big_uint(&value).map_err(|_| CreationError::InvalidHexString)?)
+        Self::from_reduced_big_uint(&value).map_err(|_| CreationError::InvalidHexString)
     }
 
     /// Converts a field element into a hex string.
@@ -816,15 +808,12 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::field::fields::fft_friendly::babybear_u32::Babybear31PrimeField;
     use crate::field::fields::fft_friendly::{
-        stark_101_prime_field, stark_252_prime_field::Stark252PrimeField,
+        babybear_u32::Babybear31PrimeField, stark_252_prime_field::Stark252PrimeField,
     };
     use crate::field::fields::montgomery_backed_prime_fields::U384PrimeField;
     use crate::field::fields::u64_prime_field::U64PrimeField;
     use crate::field::test_fields::u64_test_field::U64TestField;
-    //#[cfg(feature = "lambdaworks-serde-binary")]
-    use crate::traits::ByteConversion;
     #[cfg(feature = "alloc")]
     use crate::unsigned_integer::element::UnsignedInteger;
     use crate::unsigned_integer::element::U384;
@@ -1038,6 +1027,7 @@ mod tests {
     fn test_reduced_biguint_conversion_baby_bear() {
         let value = BigUint::from(1000u32);
         let fe = BabyBearElement::from_reduced_big_uint(&value).unwrap();
+        assert_eq!(fe, BabyBearElement::from(1000));
         let back_to_biguint = fe.to_big_uint();
         assert_eq!(value, back_to_biguint);
     }
@@ -1065,7 +1055,14 @@ mod tests {
     }
 
     #[test]
-    fn test_hex_string_conversion() {
+    fn non_reduced_biguint_value_conversion_errors_u384_field() {
+        let value = BigUint::from(30u32);
+        let result = U384F23Element::try_from(value);
+        assert_eq!(result, Err(ByteConversionError::ValueNotReduced));
+    }
+
+    #[test]
+    fn test_hex_string_conversion_u64_field() {
         let hex_str = "0x0a";
         let fe = U64F17Element::from_hex_str(hex_str).unwrap();
         assert_eq!(fe, U64F17Element::from(10));
@@ -1073,9 +1070,33 @@ mod tests {
     }
 
     #[test]
-    fn test_invalid_hex_string() {
+    fn test_hex_string_conversion_baby_bear() {
+        let hex_str = "0x77FFFFFF"; // 2013265919
+        let fe = BabyBearElement::from_hex_str(hex_str).unwrap();
+        assert_eq!(fe, BabyBearElement::from(2013265919));
+        assert_eq!(fe.to_hex_str(), "0x77FFFFFF");
+    }
+
+    #[test]
+    fn test_hex_string_conversion_u384_field() {
+        let hex_str = "0x14"; // 20
+        let fe = U384F23Element::from_hex_str(hex_str).unwrap();
+        assert_eq!(fe, U384F23Element::from(20));
+        assert_eq!(fe.to_hex_str(), "0x14");
+    }
+
+    #[test]
+    fn test_invalid_hex_string_u64_field() {
         let hex_str = "0xzz";
         let result = U64F17Element::from_hex_str(hex_str);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_invalid_hex_string_baby_bear() {
+        // modulus = 0x78000001
+        let hex_str = "0x78000001";
+        let result = BabyBearElement::from_hex_str(hex_str);
         assert!(result.is_err());
     }
 
@@ -1085,15 +1106,4 @@ mod tests {
         let result = U64F17Element::from_hex_str(hex_str);
         assert!(result.is_err());
     }
-
-    // #[test]
-    // fn test_byte_conversion_with_reduction() {
-    //     let value = BigUint::from(20u32);
-    //     let fe = FE::from_big_uint(&value);
-    //     let bytes = fe.to_bytes_be();
-    //     let back_to_fe = FE::from_bytes_be(&bytes).unwrap();
-    //     assert_eq!(fe, back_to_fe);
-    //     let back_to_biguint = back_to_fe.to_big_uint();
-    //     assert_eq!(back_to_biguint, BigUint::from(3u32)); // 20 mod 17 = 3
-    // }
 }
