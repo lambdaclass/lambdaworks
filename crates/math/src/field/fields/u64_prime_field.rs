@@ -1,5 +1,4 @@
 use crate::cyclic_group::IsGroup;
-use crate::errors::ByteConversionError;
 use crate::errors::ByteConversionError::{FromBEBytesError, FromLEBytesError};
 use crate::errors::CreationError;
 use crate::errors::DeserializationError;
@@ -127,53 +126,21 @@ impl<const MODULUS: u64> ByteConversion for U64FieldElement<MODULUS> {
     #[cfg(feature = "alloc")]
     fn to_bytes_be(&self) -> alloc::vec::Vec<u8> {
         u64::to_be_bytes(*self.value()).into()
-        // let value = self.representative();
-        // let mut bytes = vec![0; 8];
-        // for i in 0..8 {
-        //     bytes[7 - i] = ((value >> (i * 8)) & 0xFF) as u8;
-        // }
-        // bytes
     }
 
     #[cfg(feature = "alloc")]
     fn to_bytes_le(&self) -> alloc::vec::Vec<u8> {
         u64::to_le_bytes(*self.value()).into()
-        // let value = self.representative();
-        // let mut bytes = vec![0; 8];
-        // for i in 0..8 {
-        //     bytes[i] = ((value >> (i * 8)) & 0xFF) as u8;
-        // }
-        // bytes
     }
 
     fn from_bytes_be(bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError> {
         let bytes: [u8; 8] = bytes[0..8].try_into().map_err(|_| FromBEBytesError)?;
         Ok(Self::from(u64::from_be_bytes(bytes)))
-        // if bytes.len() > 8 {
-        //     return Err(ByteConversionError::FromBEBytesError);
-        // }
-        // let mut value = 0u64;
-        // for &byte in bytes {
-        //     value = value
-        //         .checked_mul(256)
-        //         .ok_or(ByteConversionError::FromBEBytesError)?
-        //         .checked_add(byte as u64)
-        //         .ok_or(ByteConversionError::FromBEBytesError)?;
-        // }
-        // Ok(Self::from(value))
     }
 
     fn from_bytes_le(bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError> {
         let bytes: [u8; 8] = bytes[0..8].try_into().map_err(|_| FromLEBytesError)?;
         Ok(Self::from(u64::from_le_bytes(bytes)))
-        // if bytes.len() > 8 {
-        //     return Err(ByteConversionError::FromLEBytesError);
-        // }
-        // let mut value = 0u64;
-        // for (i, &byte) in bytes.iter().enumerate() {
-        //     value |= (byte as u64) << (i * 8);
-        // }
-        // Ok(Self::from(value))
     }
 }
 
