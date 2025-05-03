@@ -10,6 +10,14 @@ It is an essential building block for many SNARK protocols, given that it reduce
 
 The protocol proceeds in rounds, with one round per variable of the multivariate polynomial. In each round, the prover sends a univariate polynomial, and the verifier responds with a random challenge. This process reduces a claim about a multivariate polynomial to a claim about a single evaluation point.
 
+### Convenience Wrapper Functions
+
+This implementation provides the following convenience **wrapper functions** for common interaction degrees:
+- `prove_linear` / `verify_linear` (Sum of P(x))
+- `prove_quadratic` / `verify_quadratic` (Sum of P₁(x)P₂(x))
+- `prove_cubic` / `verify_cubic` (Sum of P₁(x)P₂(x)P₃(x))
+
+
 
 ## Example
 
@@ -23,22 +31,41 @@ use lambdaworks_sumcheck::{prove, verify};
 
 // Define the field
 type F = U64PrimeField<17>;
+type FE = FieldElement<F>;
 
 // Create a multilinear polynomial
+// P(x1, x2) = evals [3, 4, 5, 7]
 let evaluations = vec![
-    FieldElement::<F>::from(3),
-    FieldElement::<F>::from(4),
-    FieldElement::<F>::from(5),
-    FieldElement::<F>::from(7),
+    FE::from(3),
+    FE::from(4),
+    FE::from(5),
+    FE::from(7),
 ];
 let poly = DenseMultilinearPolynomial::new(evaluations);
+let num_vars = poly.num_vars();
 
-// Generate a proof
-let (claimed_sum, proof) = prove(poly);
+// Generate a proof using the linear wrapper
+let prove_result = prove_linear(poly.clone());
+assert!(prove_result.is_ok());
+let (claimed_sum, proof_polys) = prove_result.unwrap();
 
-// Verify the proof
-let result = verify(poly.num_vars(), claimed_sum, proof, Some(poly));
-assert!(result.is_ok() && result.unwrap());
+// Verify the proof using the linear wrapper
+let verification_result = verify_linear(num_vars, claimed_sum, proof_polys, poly);
+assert!(verification_result.is_ok() && verification_result.unwrap());
+println!("Simple verification successful!");
+```
+To use the quadratic wrapper, you can use the `prove_quadratic` and `verify_quadratic` functions. 
+
+```rust
+let prove_result = prove_quadratic(poly1, poly2);
+let verification_result = verify_quadratic(num_vars, claimed_sum, proof_polys, poly1, poly2);
+```
+
+To use the cubic wrapper, you can use the `prove_cubic` and `verify_cubic` functions.
+
+```rust
+let prove_result = prove_cubic(poly1, poly2, poly3);
+let verification_result = verify_cubic(num_vars, claimed_sum, proof_polys, poly1, poly2, poly3);
 ```
 
 

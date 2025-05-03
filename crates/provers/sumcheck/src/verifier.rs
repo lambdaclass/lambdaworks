@@ -54,6 +54,7 @@ where
 ///
 /// The Verifier checks the proof provided by the Prover for the claim
 /// \( \\sum_{x \\in \\{0,1\\}^n} \\prod_{i} P_i(x) = C \).
+#[derive(Debug)]
 pub struct Verifier<F: IsField>
 where
     F::BaseType: Send + Sync,
