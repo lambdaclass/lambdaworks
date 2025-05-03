@@ -1,107 +1,232 @@
-use crate::Channel;
+use crate::{sum_product_over_suffix, Channel};
 use lambdaworks_crypto::fiat_shamir::default_transcript::DefaultTranscript;
-use lambdaworks_math::field::element::FieldElement;
-use lambdaworks_math::field::traits::HasDefaultTranscript;
-use lambdaworks_math::field::traits::IsField;
-use lambdaworks_math::polynomial::{
-    dense_multilinear_poly::DenseMultilinearPolynomial, Polynomial,
+use lambdaworks_crypto::fiat_shamir::is_transcript::IsTranscript;
+use lambdaworks_math::{
+    field::{
+        element::FieldElement,
+        traits::{HasDefaultTranscript, IsField},
+    },
+    polynomial::{
+        dense_multilinear_poly::DenseMultilinearPolynomial, InterpolateError, Polynomial,
+    },
+    traits::ByteConversion,
 };
-use lambdaworks_math::traits::ByteConversion;
+use std::ops::Mul;
 
-/// Prover for the Sum-Check protocol using DenseMultilinearPolynomial.
+/// Errors that can occur during the Sumcheck proving process.
+#[derive(Debug)]
+pub enum ProverError {
+    /// Error when the input factors are inconsistent (e.g., empty, different number of variables).
+    FactorMismatch(String),
+    /// Error occurring during the calculation within a specific round.
+    RoundError(String),
+    /// Error during the polynomial interpolation step in a round.
+    InterpolationError(InterpolateError),
+    /// Error during the initial summation phase.
+    SummationError(String),
+    /// Error indicating the Prover is in an invalid state (e.g., too many challenges received).
+    InvalidState(String),
+}
+
+impl From<InterpolateError> for ProverError {
+    fn from(e: InterpolateError) -> Self {
+        ProverError::InterpolationError(e)
+    }
+}
+
+/// Represents the Prover for the Sum-Check protocol operating on a product of DenseMultilinearPolynomials.
+///
+/// The protocol aims to prove the sum \( \\sum_{x \\in \\{0,1\\}^n} \\prod_{i} P_i(x) = C \)
+/// for a claimed sum C and a set of multilinear polynomials \( P_i \).
 pub struct Prover<F: IsField>
 where
-    <F as IsField>::BaseType: Send + Sync,
+    F::BaseType: Send + Sync,
 {
-    pub poly: DenseMultilinearPolynomial<F>,
-    pub claimed_sum: FieldElement<F>,
-    pub current_round: usize,
+    num_vars: usize,
+    /// The factors \( P_i \) of the product being summed.
+    factors: Vec<DenseMultilinearPolynomial<F>>,
+    /// Challenges \( r_1, r_2, ... \) received from the Verifier in previous rounds.
+    challenges: Vec<FieldElement<F>>,
 }
 
 impl<F: IsField> Prover<F>
 where
-    <F as IsField>::BaseType: Send + Sync,
+    F::BaseType: Send + Sync,
+    FieldElement<F>: Clone + Mul<Output = FieldElement<F>>,
 {
-    pub fn new(poly: DenseMultilinearPolynomial<F>) -> Self {
-        let evals = poly.to_evaluations();
-        let claimed_sum = evals.into_iter().sum();
-        Self {
-            poly,
-            claimed_sum,
-            current_round: 0,
+    /// Creates a new Prover instance for the given factors.
+    ///
+    /// # Errors
+    /// Returns `ProverError::FactorMismatch` if the `factors` vector is empty
+    /// or if the polynomials in `factors` do not all have the same number of variables.
+    pub fn new(factors: Vec<DenseMultilinearPolynomial<F>>) -> Result<Self, ProverError> {
+        if factors.is_empty() {
+            return Err(ProverError::FactorMismatch(
+                "At least one polynomial factor is required.".to_string(),
+            ));
         }
+        let num_vars = factors[0].num_vars();
+        if factors.iter().any(|p| p.num_vars() != num_vars) {
+            return Err(ProverError::FactorMismatch(
+                "All factors must have the same number of variables.".to_string(),
+            ));
+        }
+        Ok(Self {
+            num_vars,
+            factors,
+            challenges: Vec::with_capacity(num_vars),
+        })
     }
 
-    pub fn c_1(&self) -> FieldElement<F> {
-        self.claimed_sum.clone()
+    /// Returns the number of variables in the polynomials handled by this prover.
+    pub fn num_vars(&self) -> usize {
+        self.num_vars
     }
 
-    /// Receives the challenge r_j from the verifier, fixes the last variable to that value,
-    /// and returns the univariate polynomial for the next variable.
-    pub fn round(&mut self, r_j: FieldElement<F>) -> Polynomial<FieldElement<F>> {
-        // Fix the last variable
-        self.poly = self.poly.fix_last_variable(&r_j);
-        // Get the univariate polynomial for the next variable
-        let univar = if self.poly.num_vars() > 1 {
-            // If there are more variables, we need to sum over all but the last one
-            let poly0 = self.poly.fix_last_variable(&FieldElement::zero());
-            let poly1 = self.poly.fix_last_variable(&FieldElement::one());
-            let sum0: FieldElement<F> = poly0.to_evaluations().into_iter().sum();
-            let sum1: FieldElement<F> = poly1.to_evaluations().into_iter().sum();
-            let diff = sum1 - &sum0;
-            Polynomial::new(&[sum0, diff])
-        } else {
-            // If this is the last variable, just convert to univariate
-            self.poly.to_univariate()
-        };
-        self.current_round += 1;
-        univar
+    /// Computes the initial claimed sum \( C = \\sum_{x \\in \\{0,1\\}^n} \\prod_i P_i(x) \).
+    ///
+    /// # Errors
+    /// Returns `ProverError::SummationError` if the calculation fails.
+    pub fn compute_initial_sum(&self) -> Result<FieldElement<F>, ProverError> {
+        // Call sum_product_over_suffix with an empty prefix to sum over the whole boolean hypercube.
+        sum_product_over_suffix(&self.factors, &[])
+            .map_err(|e| ProverError::SummationError(format!("Error computing initial sum: {}", e)))
+    }
+
+    /// Executes a round of the Sum-Check protocol.
+    ///
+    /// Given the challenge `r_prev` from the previous round (if any), this function
+    /// computes the round polynomial \( g_j(X_j) \).
+    /// \( g_j(X_j) = \\sum_{x_{j+1}, ..., x_n \\in \\{0,1\\}} \\prod_i P_i(r_1, ..., r_{j-1}, X_j, x_{j+1}, ..., x_n) \)
+    /// This is achieved by evaluating the sum at `deg(g_j) + 1` points and interpolating.
+    ///
+    /// # Arguments
+    /// * `r_prev`: The challenge element received from the verifier in the previous round. `None` for the first round.
+    ///
+    /// # Errors
+    /// Returns `ProverError` if:
+    /// *   `InvalidState`: A challenge is provided when all variables are already fixed, or no challenge is expected.
+    /// *   `RoundError`: An error occurs during the summation for evaluations.
+    /// *   `InterpolationError`: Polynomial interpolation fails.
+    pub fn round(
+        &mut self,
+        r_prev: Option<&FieldElement<F>>,
+    ) -> Result<Polynomial<FieldElement<F>>, ProverError> {
+        // Store the challenge from the previous round
+        if let Some(r) = r_prev {
+            if self.challenges.len() >= self.num_vars {
+                return Err(ProverError::InvalidState(
+                    "Received challenge when all variables are already fixed.".to_string(),
+                ));
+            }
+            self.challenges.push(r.clone());
+        }
+
+        // Check if all rounds are completed
+        let current_round_idx = self.challenges.len(); // This is j-1 if r_prev was Some(r_{j-1})
+        if current_round_idx >= self.num_vars {
+            return Err(ProverError::InvalidState(
+                "All variables already fixed, no more rounds to run.".to_string(),
+            ));
+        }
+
+        // Calculate the polynomial g_j(X_j) by interpolation.
+        // The degree of g_j is at most the number of factors.
+        let num_eval_points = self.factors.len() + 1;
+        let mut evaluation_points_x = Vec::with_capacity(num_eval_points);
+        let mut evaluations_y = Vec::with_capacity(num_eval_points);
+
+        // Prefix for evaluation points: (r1, r2, ..., r_{j-1}, eval_point_x)
+        let mut current_point_prefix = self.challenges.clone();
+        current_point_prefix.push(FieldElement::zero()); // Placeholder for X_j
+
+        for i in 0..num_eval_points {
+            // Point at which to evaluate X_j
+            let eval_point_x = FieldElement::from(i as u64);
+            evaluation_points_x.push(eval_point_x.clone());
+
+            // Set the actual value for X_j in the prefix
+            *current_point_prefix.last_mut().unwrap() = eval_point_x;
+
+            // Calculate g_j(eval_point_x) = sum_{x_{j+1}..x_n} prod P_i(r1..r_{j-1}, eval_point_x, x_{j+1}..x_n)
+            let g_j_at_eval_point = sum_product_over_suffix(&self.factors, &current_point_prefix)
+                .map_err(|e| {
+                ProverError::RoundError(format!("Error in summation for g_j({}): {}", i, e))
+            })?;
+            evaluations_y.push(g_j_at_eval_point);
+        }
+
+        // Interpolate the polynomial g_j from the evaluations
+        let poly_g_j = Polynomial::interpolate(&evaluation_points_x, &evaluations_y)?;
+
+        Ok(poly_g_j)
     }
 }
 
+/// Generates a non-interactive Sum-Check proof using the Fiat-Shamir heuristic.
+///
+/// # Arguments
+/// * `factors`: The vector of multilinear polynomials \( P_i \) whose product sum is being proven.
+///
+/// # Returns
+/// A tuple `(claimed_sum, proof_polys)` where:
+/// * `claimed_sum`: The computed sum \( C = \\sum_{x \\in \\{0,1\\}^n} \\prod_i P_i(x) \).
+/// * `proof_polys`: A vector of univariate polynomials \( g_0, g_1, ..., g_{n-1} \) constituting the proof.
+///
+/// # Errors
+/// Returns `ProverError` if the Prover initialization, initial sum calculation, or any round fails.
 pub fn prove<F>(
-    poly: DenseMultilinearPolynomial<F>,
-) -> (FieldElement<F>, Vec<Polynomial<FieldElement<F>>>)
+    factors: Vec<DenseMultilinearPolynomial<F>>,
+) -> Result<(FieldElement<F>, Vec<Polynomial<FieldElement<F>>>), ProverError>
 where
     F: IsField + HasDefaultTranscript,
-    <F as IsField>::BaseType: Send + Sync,
-    FieldElement<F>: ByteConversion,
+    F::BaseType: Send + Sync,
+    FieldElement<F>: Clone + Mul<Output = FieldElement<F>> + ByteConversion,
 {
-    let mut prover = Prover::new(poly);
-    let claimed_sum = prover.c_1();
-    let mut transcript = DefaultTranscript::<F>::default();
-    let n = prover.poly.num_vars();
-    let mut proof_polys = Vec::with_capacity(n);
+    // Initialize the prover
+    let mut prover = Prover::new(factors)?;
+    let num_vars = prover.num_vars();
+    // Compute the claimed sum C
+    let claimed_sum = prover.compute_initial_sum()?;
 
-    // Initialize channel with claim
+    // Initialize Fiat-Shamir transcript
+    let mut transcript = DefaultTranscript::<F>::default();
+    transcript.append_bytes(b"initial_sum");
     transcript.append_felt(&claimed_sum);
 
-    let univar = prover.poly.to_univariate();
-    proof_polys.push(univar.clone());
+    let mut proof_polys = Vec::with_capacity(num_vars);
+    let mut current_challenge: Option<FieldElement<F>> = None;
 
-    // Re-absorb message
-    for coeff in &univar.coefficients {
-        transcript.append_felt(coeff);
-    }
+    // Execute rounds
+    for j in 0..num_vars {
+        // Prover computes the round polynomial g_j
+        let g_j = prover.round(current_challenge.as_ref())?;
 
-    // Get first challenge
-    let mut challenge = transcript.draw_felt();
+        // Append g_j information to transcript for the verifier to derive challenge
+        let round_label = format!("round_{}_poly", j);
+        transcript.append_bytes(round_label.as_bytes());
 
-    // Subsequent rounds
-    for round in 0..n - 1 {
-        // Execute round and get next univariate polynomial
-        let univar = prover.round(challenge.clone());
-        proof_polys.push(univar.clone());
-
-        // Only generate next challenge if this isn't the final round
-        if round < n - 2 {
-            let intermediate_sum = univar.evaluate(&challenge);
-            transcript.append_felt(&intermediate_sum);
-            for coeff in &univar.coefficients {
+        let coeffs = g_j.coefficients();
+        transcript.append_bytes(&(coeffs.len() as u64).to_be_bytes()); // Append degree information
+        if coeffs.is_empty() {
+            // Handle zero polynomial case
+            transcript.append_felt(&FieldElement::zero());
+        } else {
+            for coeff in coeffs {
                 transcript.append_felt(coeff);
             }
-            challenge = transcript.draw_felt();
+        }
+
+        proof_polys.push(g_j);
+
+        // Derive challenge for the next round from transcript (if not the last round)
+        if j < num_vars - 1 {
+            current_challenge = Some(transcript.draw_felt());
+        } else {
+            // No challenge needed after the last round polynomial is sent
+            current_challenge = None;
         }
     }
-    (claimed_sum, proof_polys)
+
+    Ok((claimed_sum, proof_polys))
 }
