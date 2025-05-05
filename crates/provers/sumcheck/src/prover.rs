@@ -13,18 +13,23 @@ use lambdaworks_math::{
 };
 use std::ops::Mul;
 
-/// Errors that can occur during the Sumcheck proving process.
+// Define type alias for the success tuple
+pub type ProofResult<F> = (FieldElement<F>, Vec<Polynomial<FieldElement<F>>>);
+
+// Define type alias for the Result
+pub type ProverOutput<F> = Result<ProofResult<F>, ProverError>;
+
 #[derive(Debug)]
 pub enum ProverError {
-    /// Error when the input factors are inconsistent (e.g., empty, different number of variables).
+    /// Error when the input factors are inconsistent
     FactorMismatch(String),
     /// Error occurring during the calculation within a specific round.
     RoundError(String),
     /// Error during the polynomial interpolation step in a round.
     InterpolationError(InterpolateError),
-    /// Error during the initial summation phase.
+    /// Error during the initial sum calculation.
     SummationError(String),
-    /// Error indicating the Prover is in an invalid state (e.g., too many challenges received).
+    /// Error indicating the Prover is in an invalid state
     InvalidState(String),
 }
 
@@ -55,10 +60,6 @@ where
     FieldElement<F>: Clone + Mul<Output = FieldElement<F>>,
 {
     /// Creates a new Prover instance for the given factors.
-    ///
-    /// # Errors
-    /// Returns `ProverError::FactorMismatch` if the `factors` vector is empty
-    /// or if the polynomials in `factors` do not all have the same number of variables.
     pub fn new(factors: Vec<DenseMultilinearPolynomial<F>>) -> Result<Self, ProverError> {
         if factors.is_empty() {
             return Err(ProverError::FactorMismatch(
@@ -84,9 +85,6 @@ where
     }
 
     /// Computes the initial claimed sum \( C = \\sum_{x \\in \\{0,1\\}^n} \\prod_i P_i(x) \).
-    ///
-    /// # Errors
-    /// Returns `ProverError::SummationError` if the calculation fails.
     pub fn compute_initial_sum(&self) -> Result<FieldElement<F>, ProverError> {
         // Call sum_product_over_suffix with an empty prefix to sum over the whole boolean hypercube.
         sum_product_over_suffix(&self.factors, &[])
@@ -99,15 +97,6 @@ where
     /// computes the round polynomial \( g_j(X_j) \).
     /// \( g_j(X_j) = \\sum_{x_{j+1}, ..., x_n \\in \\{0,1\\}} \\prod_i P_i(r_1, ..., r_{j-1}, X_j, x_{j+1}, ..., x_n) \)
     /// This is achieved by evaluating the sum at `deg(g_j) + 1` points and interpolating.
-    ///
-    /// # Arguments
-    /// * `r_prev`: The challenge element received from the verifier in the previous round. `None` for the first round.
-    ///
-    /// # Errors
-    /// Returns `ProverError` if:
-    /// *   `InvalidState`: A challenge is provided when all variables are already fixed, or no challenge is expected.
-    /// *   `RoundError`: An error occurs during the summation for evaluations.
-    /// *   `InterpolationError`: Polynomial interpolation fails.
     pub fn round(
         &mut self,
         r_prev: Option<&FieldElement<F>>,
@@ -123,7 +112,7 @@ where
         }
 
         // Check if all rounds are completed
-        let current_round_idx = self.challenges.len(); // This is j-1 if r_prev was Some(r_{j-1})
+        let current_round_idx = self.challenges.len();
         if current_round_idx >= self.num_vars {
             return Err(ProverError::InvalidState(
                 "All variables already fixed, no more rounds to run.".to_string(),
@@ -138,7 +127,7 @@ where
 
         // Prefix for evaluation points: (r1, r2, ..., r_{j-1}, eval_point_x)
         let mut current_point_prefix = self.challenges.clone();
-        current_point_prefix.push(FieldElement::zero()); // Placeholder for X_j
+        current_point_prefix.push(FieldElement::zero());
 
         for i in 0..num_eval_points {
             // Point at which to evaluate X_j
@@ -156,28 +145,13 @@ where
             evaluations_y.push(g_j_at_eval_point);
         }
 
-        // Interpolate the polynomial g_j from the evaluations
         let poly_g_j = Polynomial::interpolate(&evaluation_points_x, &evaluations_y)?;
 
         Ok(poly_g_j)
     }
 }
 
-/// Generates a non-interactive Sum-Check proof using the Fiat-Shamir heuristic.
-///
-/// # Arguments
-/// * `factors`: The vector of multilinear polynomials \( P_i \) whose product sum is being proven.
-///
-/// # Returns
-/// A tuple `(claimed_sum, proof_polys)` where:
-/// * `claimed_sum`: The computed sum \( C = \\sum_{x \\in \\{0,1\\}^n} \\prod_i P_i(x) \).
-/// * `proof_polys`: A vector of univariate polynomials \( g_0, g_1, ..., g_{n-1} \) constituting the proof.
-///
-/// # Errors
-/// Returns `ProverError` if the Prover initialization, initial sum calculation, or any round fails.
-pub fn prove<F>(
-    factors: Vec<DenseMultilinearPolynomial<F>>,
-) -> Result<(FieldElement<F>, Vec<Polynomial<FieldElement<F>>>), ProverError>
+pub fn prove<F>(factors: Vec<DenseMultilinearPolynomial<F>>) -> ProverOutput<F>
 where
     F: IsField + HasDefaultTranscript,
     F::BaseType: Send + Sync,

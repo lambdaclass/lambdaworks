@@ -10,6 +10,7 @@ use lambdaworks_math::polynomial::Polynomial;
 use lambdaworks_math::traits::ByteConversion;
 use std::ops::Mul;
 
+pub use prover::ProverOutput;
 pub use prover::{prove, Prover, ProverError};
 pub use verifier::{verify, Verifier, VerifierError, VerifierRoundResult};
 
@@ -36,7 +37,7 @@ where
     let mut product = FieldElement::one();
     for factor in factors {
         let eval = factor.evaluate(point.to_vec()).map_err(|e| e.to_string())?;
-        product = product * eval;
+        product *= eval;
     }
     Ok(product)
 }
@@ -66,7 +67,6 @@ where
 
     // Iterate over all 2^num_suffix_vars assignments for the suffix variables
     for i in 0..(1 << num_suffix_vars) {
-        // Assign values to suffix variables based on the bits of i
         for k in 0..num_suffix_vars {
             if (i >> k) & 1 == 1 {
                 current_point[num_prefix_vars + k] = FieldElement::one();
@@ -83,10 +83,8 @@ where
     Ok(total_sum)
 }
 
-/// Convenience wrapper for `prove` for the linear case (m=1).
-pub fn prove_linear<F>(
-    poly: DenseMultilinearPolynomial<F>,
-) -> Result<(FieldElement<F>, Vec<Polynomial<FieldElement<F>>>), ProverError>
+// Wrapper for linear case m=1
+pub fn prove_linear<F>(poly: DenseMultilinearPolynomial<F>) -> ProverOutput<F>
 where
     F: IsField + HasDefaultTranscript,
     F::BaseType: Send + Sync,
@@ -95,7 +93,7 @@ where
     prove(vec![poly])
 }
 
-/// Convenience wrapper for `verify` for the linear case (m=1).
+// Wrapper for linear case m=1
 pub fn verify_linear<F>(
     num_vars: usize,
     claimed_sum: FieldElement<F>,
@@ -109,12 +107,11 @@ where
 {
     verify(num_vars, claimed_sum, proof_polys, vec![oracle_poly])
 }
-
-/// Convenience wrapper for `prove` for the quadratic case (m=2).
+// Wrapper for quadratic case m=2
 pub fn prove_quadratic<F>(
     poly1: DenseMultilinearPolynomial<F>,
     poly2: DenseMultilinearPolynomial<F>,
-) -> Result<(FieldElement<F>, Vec<Polynomial<FieldElement<F>>>), ProverError>
+) -> ProverOutput<F>
 where
     F: IsField + HasDefaultTranscript,
     F::BaseType: Send + Sync,
@@ -127,7 +124,7 @@ where
     prove(vec![poly1, poly2])
 }
 
-/// Convenience wrapper for `verify` for the quadratic case (m=2).
+// Wrapper for quadratic case m=2
 pub fn verify_quadratic<F>(
     num_vars: usize,
     claimed_sum: FieldElement<F>,
@@ -148,12 +145,12 @@ where
     )
 }
 
-/// Convenience wrapper for `prove` for the cubic case (m=3).
+// Wrapper for cubic case m=3
 pub fn prove_cubic<F>(
     poly1: DenseMultilinearPolynomial<F>,
     poly2: DenseMultilinearPolynomial<F>,
     poly3: DenseMultilinearPolynomial<F>,
-) -> Result<(FieldElement<F>, Vec<Polynomial<FieldElement<F>>>), ProverError>
+) -> ProverOutput<F>
 where
     F: IsField + HasDefaultTranscript,
     F::BaseType: Send + Sync,
@@ -166,7 +163,7 @@ where
     prove(vec![poly1, poly2, poly3])
 }
 
-/// Convenience wrapper for `verify` for the cubic case (m=3).
+// Wrapper for cubic case m=3
 pub fn verify_cubic<F>(
     num_vars: usize,
     claimed_sum: FieldElement<F>,
@@ -210,15 +207,13 @@ where
 #[cfg(test)]
 mod tests {
     use super::{
-        prove, verify, Channel, Prover, ProverError, Verifier, VerifierError, VerifierRoundResult,
-    };
-    use super::{
         prove_cubic, prove_linear, prove_quadratic, verify_cubic, verify_linear, verify_quadratic,
     };
+    use super::{Prover, Verifier, VerifierError, VerifierRoundResult};
     use lambdaworks_crypto::fiat_shamir::default_transcript::DefaultTranscript;
     use lambdaworks_math::{
-        field::{element::FieldElement, fields::u64_prime_field::U64PrimeField, traits::IsField},
-        polynomial::{dense_multilinear_poly::DenseMultilinearPolynomial, Polynomial},
+        field::{element::FieldElement, fields::u64_prime_field::U64PrimeField},
+        polynomial::dense_multilinear_poly::DenseMultilinearPolynomial,
     };
 
     // Using a smaller prime for simpler manual checks in some tests
@@ -226,7 +221,6 @@ mod tests {
     type F = U64PrimeField<MODULUS>;
     type FE = FieldElement<F>;
 
-    // Example test using the linear wrappers (similar to old test_protocol)
     #[test]
     fn test_sumcheck_linear() {
         // P(x1, x2) = evals [3, 5, 7, 11]
@@ -234,7 +228,7 @@ mod tests {
             FE::from(3),
             FE::from(5),
             FE::from(7),
-            FE::from(11), // n=2
+            FE::from(11),
         ]);
         let num_vars = poly.num_vars();
 
@@ -257,7 +251,6 @@ mod tests {
             verification_result.unwrap(),
             "Linear verification returned false"
         );
-        println!("Linear wrapper test passed!");
     }
 
     // Interactive test still needs direct Prover/Verifier interaction
@@ -279,7 +272,7 @@ mod tests {
         assert_eq!(claimed_sum, FE::from(8));
 
         let mut transcript = DefaultTranscript::<F>::default();
-        let mut verifier = Verifier::new(num_vars, factors.clone(), claimed_sum.clone()).unwrap();
+        let mut verifier = Verifier::new(num_vars, factors.clone(), claimed_sum).unwrap();
 
         let mut current_challenge: Option<FieldElement<F>> = None;
         for round in 0..num_vars {
@@ -343,7 +336,6 @@ mod tests {
             verification_result.unwrap(),
             "Book example verification returned false"
         );
-        println!("Book example test passed!");
     }
 
     #[test]
@@ -378,7 +370,6 @@ mod tests {
             verification_result.unwrap(),
             "Ported book example verification returned false"
         );
-        println!("Ported book example test passed!");
     }
 
     #[test]
@@ -424,9 +415,9 @@ mod tests {
             "g₀(0) = {:?}, g₀(1) = {:?}, sum = {:?}",
             eval_0,
             eval_1,
-            eval_0.clone() + eval_1.clone() // Should be 8
+            eval_0 + eval_1 // Should be 8
         );
-        assert_eq!(eval_0.clone() + eval_1.clone(), FE::from(8));
+        assert_eq!(eval_0 + eval_1, FE::from(8));
 
         // Verifier checks g0 against the *incorrect* claimed sum (999)
         let res0 = verifier.do_round(g0, &mut transcript);
@@ -440,7 +431,7 @@ mod tests {
         {
             println!(
                 "\nExpected verification error (InconsistentSum) at round {}, expected sum {:?}, got sum {:?}",
-                round, expected, s0.clone()+s1.clone()
+                round, expected, s0 + s1
             );
             assert_eq!(*round, 0, "Error should occur in round 0");
             assert_eq!(
@@ -452,7 +443,6 @@ mod tests {
             panic!("Expected InconsistentSum error, got {:?}", res0);
         }
         assert!(res0.is_err(), "Expected verification error");
-        println!("Failing verification test passed (failed as expected)!");
     }
 
     #[test]
@@ -479,7 +469,7 @@ mod tests {
         // Use .len() and index access, assuming DenseMultilinearPolynomial implements Index trait
         assert_eq!(poly_a.len(), 1 << num_vars, "Polynomial length mismatch");
         for i in 0..poly_a.len() {
-            expected_sum += poly_a[i].clone() * poly_b[i].clone();
+            expected_sum += poly_a[i] * poly_b[i];
         }
         println!("Quadratic sum expected: {:?}", expected_sum);
         assert_eq!(expected_sum, FE::from(70), "Manual calculation mismatch");
@@ -508,7 +498,6 @@ mod tests {
             verification_result.unwrap(),
             "Quadratic verification returned false"
         );
-        println!("Quadratic test passed!");
     }
 
     #[test]
@@ -525,7 +514,7 @@ mod tests {
         let mut expected_sum = FE::zero();
         assert_eq!(poly_a.len(), 1 << num_vars, "Polynomial length mismatch");
         for i in 0..poly_a.len() {
-            expected_sum += poly_a[i].clone() * poly_b[i].clone() * poly_c[i].clone();
+            expected_sum += poly_a[i] * poly_b[i] * poly_c[i];
         }
         println!("Cubic sum expected: {:?}", expected_sum);
         assert_eq!(expected_sum, FE::from(23), "Manual calculation mismatch");
@@ -554,7 +543,6 @@ mod tests {
             verification_result.unwrap(),
             "Cubic verification returned false"
         );
-        println!("Cubic test passed!");
     }
 
     #[test]
@@ -595,6 +583,5 @@ mod tests {
             verification_result.unwrap(),
             "Verification with zero polynomial returned false"
         );
-        println!("Zero polynomial test passed!");
     }
 }
