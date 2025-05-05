@@ -17,16 +17,20 @@ impl<F: IsField> SparseMultilinearPolynomial<F>
 where
     <F as IsField>::BaseType: Send + Sync,
 {
+    /// Creates a new sparse multilinear polynomial
     pub fn new(num_vars: usize, evals: Vec<(usize, FieldElement<F>)>) -> Self {
         SparseMultilinearPolynomial { num_vars, evals }
     }
 
+    /// Returns the number of variables of the sparse multilinear polynomial
     pub fn num_vars(&self) -> usize {
         self.num_vars
     }
 
     /// Computes the eq extension polynomial of the polynomial.
     /// return 1 when a == r, otherwise return 0.
+    /// Chi is the Lagrange basis polynomial evaluated at r
+    /// a indicates the binary decomposition of the index of the Lagrange basis polynomial
     fn compute_chi(a: &[bool], r: &[FieldElement<F>]) -> Result<FieldElement<F>, MultilinearError> {
         assert_eq!(a.len(), r.len());
         if a.len() != r.len() {
@@ -47,6 +51,7 @@ where
     }
 
     // Takes O(n log n)
+    /// Evaluates the multilinear polynomial at a point r
     pub fn evaluate(&self, r: &[FieldElement<F>]) -> Result<FieldElement<F>, MultilinearError> {
         if r.len() != self.num_vars() {
             return Err(MultilinearError::IncorrectNumberofEvaluationPoints(
@@ -78,6 +83,7 @@ where
     }
 
     // Takes O(n log n)
+    /// Evaluates the multilinear polynomial at a point r
     pub fn evaluate_with(
         num_vars: usize,
         evals: &[(usize, FieldElement<F>)],

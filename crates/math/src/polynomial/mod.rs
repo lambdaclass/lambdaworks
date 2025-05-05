@@ -30,12 +30,14 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
         }
     }
 
+    /// Creates a new monomial term coefficient*x^degree
     pub fn new_monomial(coefficient: FieldElement<F>, degree: usize) -> Self {
         let mut coefficients = vec![FieldElement::zero(); degree];
         coefficients.push(coefficient);
         Self::new(&coefficients)
     }
 
+    /// Creates the null polynomial
     pub fn zero() -> Self {
         Self::new(&[])
     }
@@ -43,6 +45,7 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
     /// Returns a polynomial that interpolates the points with x coordinates and y coordinates given by
     /// `xs` and `ys`.
     /// `xs` and `ys` must be the same length, and `xs` values should be unique. If not, panics.
+    /// In short, it finds P(x) such that P(xs[i]) = ys[i]
     pub fn interpolate(
         xs: &[FieldElement<F>],
         ys: &[FieldElement<F>],
@@ -95,6 +98,8 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
         Ok(result)
     }
 
+    /// Evaluates a polynomial P(t) at a point x, using Horner's algorithm
+    /// Returns y = P(x)
     pub fn evaluate<E>(&self, x: &FieldElement<E>) -> FieldElement<E>
     where
         E: IsField,
@@ -108,10 +113,14 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
             })
     }
 
+    /// Evaluates a polynomial P(t) at a slice of points x
+    /// Returns a vector y such that y[i] = P(input[i])
     pub fn evaluate_slice(&self, input: &[FieldElement<F>]) -> Vec<FieldElement<F>> {
         input.iter().map(|x| self.evaluate(x)).collect()
     }
 
+    /// Returns the degree of a polynomial, which corresponds to the highest power of x^d
+    /// with non-zero coefficient
     pub fn degree(&self) -> usize {
         if self.coefficients.is_empty() {
             0
@@ -120,6 +129,7 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
         }
     }
 
+    /// Returns the coefficient accompanying x^degree
     pub fn leading_coefficient(&self) -> FieldElement<F> {
         if let Some(coefficient) = self.coefficients.last() {
             coefficient.clone()
@@ -136,6 +146,7 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
         &self.coefficients
     }
 
+    /// Returns the length of the vector of coefficients
     pub fn coeff_len(&self) -> usize {
         self.coefficients().len()
     }
@@ -163,6 +174,7 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
         self.coefficients.pop();
     }
 
+    /// Computes the quotient of the division of P(x) with x - b using Ruffini's rule
     pub fn ruffini_division<L>(&self, b: &FieldElement<L>) -> Polynomial<FieldElement<L>>
     where
         L: IsField,
@@ -260,6 +272,8 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
         }
     }
 
+    /// Scales the coefficients of a polynomial P by a factor
+    /// Returns P(factor * x)
     pub fn scale<S: IsSubFieldOf<F>>(&self, factor: &FieldElement<S>) -> Self {
         let scaled_coefficients = self
             .coefficients
@@ -274,6 +288,7 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
         }
     }
 
+    /// Multiplies all coefficients by a factor
     pub fn scale_coeffs(&self, factor: &FieldElement<F>) -> Self {
         let scaled_coefficients = self
             .coefficients
@@ -305,6 +320,9 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
         parts
     }
 
+    /// Embeds the coefficients of a polynomial into an extension field
+    /// For example, given a polynomial with coefficients in F_p, returns the same
+    /// polynomial with its coefficients as elements in F_{p^2}
     pub fn to_extension<L: IsField>(self) -> Polynomial<FieldElement<L>>
     where
         F: IsSubFieldOf<L>,
@@ -357,6 +375,8 @@ impl<F: IsPrimeField> Polynomial<FieldElement<F>> {
     }
 }
 
+/// Pads a polynomial with zeros until the desired length
+/// This function can be useful when evaluating polynomials with the FFT
 pub fn pad_with_zero_coefficients_to_length<F: IsField>(
     pa: &mut Polynomial<FieldElement<F>>,
     n: usize,
@@ -380,6 +400,12 @@ pub fn pad_with_zero_coefficients<L: IsField, F: IsSubFieldOf<L>>(
     (pa, pb)
 }
 
+/// Computes the composition of polynomials P1(t) and P2(t), that is P1(P2(t))
+/// It uses interpolation to determine the evaluation at points x_i and evaluates
+/// P1(P2(x[i])). The interpolation theorem ensures that we can reconstruct the polynomial
+/// uniquely by interpolation over a suitable number of points
+/// This is an inefficient version, for something more efficient, use FFT for evaluation,
+/// provided the field satisfies the necessary traits
 pub fn compose<F>(
     poly_1: &Polynomial<FieldElement<F>>,
     poly_2: &Polynomial<FieldElement<F>>,
@@ -406,6 +432,7 @@ where
         .expect("xs and ys have equal length and xs are unique")
 }
 
+// impl Add
 impl<F, L> ops::Add<&Polynomial<FieldElement<L>>> for &Polynomial<FieldElement<F>>
 where
     L: IsField,
@@ -459,6 +486,7 @@ where
     }
 }
 
+// impl neg, that is, additive inverse for polynomials P(t) + Q(t) = 0
 impl<F: IsField> ops::Neg for &Polynomial<FieldElement<F>> {
     type Output = Polynomial<FieldElement<F>>;
 
@@ -480,6 +508,7 @@ impl<F: IsField> ops::Neg for Polynomial<FieldElement<F>> {
     }
 }
 
+// impl Sub
 impl<F, L> ops::Sub<&Polynomial<FieldElement<L>>> for &Polynomial<FieldElement<F>>
 where
     L: IsField,
