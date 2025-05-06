@@ -543,7 +543,7 @@ where
             let mut bytes = value.to_bytes_le();
             // We pad the bytes to the size of the base type to be able to apply `from_bytes_le`.
             bytes.resize(core::mem::size_of::<F::BaseType>(), 0);
-            Ok(Self::from_bytes_le(&bytes).unwrap())
+            Self::from_bytes_le(&bytes)
         }
     }
 
