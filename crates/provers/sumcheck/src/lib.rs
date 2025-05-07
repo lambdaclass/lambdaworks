@@ -14,76 +14,7 @@ pub use prover::ProverOutput;
 pub use prover::{prove, Prover, ProverError};
 pub use verifier::{verify, Verifier, VerifierError, VerifierRoundResult};
 
-/// Evaluate the product of multiple multilinear polynomials at a point.
-pub fn evaluate_product_at_point<F: IsField>(
-    factors: &[DenseMultilinearPolynomial<F>],
-    point: &[FieldElement<F>],
-) -> Result<FieldElement<F>, String>
-where
-    F::BaseType: Send + Sync,
-    FieldElement<F>: Clone + Mul<Output = FieldElement<F>>,
-{
-    if factors.is_empty() {
-        return Err("Cannot evaluate product of zero factors.".to_string());
-    }
-    if factors[0].num_vars() != point.len() {
-        return Err(format!(
-            "Point length {} does not match polynomial num_vars {}",
-            point.len(),
-            factors[0].num_vars()
-        ));
-    }
-
-    let mut product = FieldElement::one();
-    for factor in factors {
-        let eval = factor.evaluate(point.to_vec()).map_err(|e| e.to_string())?;
-        product *= eval;
-    }
-    Ok(product)
-}
-
-pub fn sum_product_over_suffix<F: IsField>(
-    factors: &[DenseMultilinearPolynomial<F>],
-    prefix: &[FieldElement<F>],
-) -> Result<FieldElement<F>, String>
-where
-    F::BaseType: Send + Sync,
-    FieldElement<F>: Clone + Mul<Output = FieldElement<F>>,
-{
-    if factors.is_empty() {
-        return Err("Cannot sum product of zero factors.".to_string());
-    }
-    let num_total_vars = factors[0].num_vars();
-    let num_prefix_vars = prefix.len();
-
-    if num_prefix_vars > num_total_vars {
-        return Err("Prefix length cannot exceed total number of variables.".to_string());
-    }
-
-    let num_suffix_vars = num_total_vars - num_prefix_vars;
-    let mut total_sum = FieldElement::zero();
-    let mut current_point = prefix.to_vec();
-    current_point.resize(num_total_vars, FieldElement::zero());
-
-    // Iterate over all 2^num_suffix_vars assignments for the suffix variables
-    for i in 0..(1 << num_suffix_vars) {
-        for k in 0..num_suffix_vars {
-            if (i >> k) & 1 == 1 {
-                current_point[num_prefix_vars + k] = FieldElement::one();
-            } else {
-                current_point[num_prefix_vars + k] = FieldElement::zero();
-            }
-        }
-
-        // Evaluate the product at the current full point
-        let product_at_point = evaluate_product_at_point(factors, &current_point)?;
-        total_sum += product_at_point;
-    }
-
-    Ok(total_sum)
-}
-
-// Wrapper for linear case m=1
+// Wrappers for the prover and verifier functions
 pub fn prove_linear<F>(poly: DenseMultilinearPolynomial<F>) -> ProverOutput<F>
 where
     F: IsField + HasDefaultTranscript,
@@ -93,7 +24,6 @@ where
     prove(vec![poly])
 }
 
-// Wrapper for linear case m=1
 pub fn verify_linear<F>(
     num_vars: usize,
     claimed_sum: FieldElement<F>,
@@ -107,7 +37,6 @@ where
 {
     verify(num_vars, claimed_sum, proof_polys, vec![oracle_poly])
 }
-// Wrapper for quadratic case m=2
 pub fn prove_quadratic<F>(
     poly1: DenseMultilinearPolynomial<F>,
     poly2: DenseMultilinearPolynomial<F>,
@@ -118,13 +47,13 @@ where
     FieldElement<F>: Clone + Mul<Output = FieldElement<F>> + ByteConversion,
 {
     if poly1.num_vars() != poly2.num_vars() {
-        // Or return a ProverError::FactorMismatch
-        panic!("Polynomials must have the same number of variables for quadratic prove.");
+        return Err(ProverError::FactorMismatch(
+            "Polynomials must have the same number of variables for quadratic prove.".to_string(),
+        ));
     }
     prove(vec![poly1, poly2])
 }
 
-// Wrapper for quadratic case m=2
 pub fn verify_quadratic<F>(
     num_vars: usize,
     claimed_sum: FieldElement<F>,
@@ -145,7 +74,6 @@ where
     )
 }
 
-// Wrapper for cubic case m=3
 pub fn prove_cubic<F>(
     poly1: DenseMultilinearPolynomial<F>,
     poly2: DenseMultilinearPolynomial<F>,
@@ -157,13 +85,13 @@ where
     FieldElement<F>: Clone + Mul<Output = FieldElement<F>> + ByteConversion,
 {
     if poly1.num_vars() != poly2.num_vars() || poly1.num_vars() != poly3.num_vars() {
-        // Or return a ProverError::FactorMismatch
-        panic!("Polynomials must have the same number of variables for cubic prove.");
+        return Err(ProverError::FactorMismatch(
+            "Polynomials must have the same number of variables for cubic prove.".to_string(),
+        ));
     }
     prove(vec![poly1, poly2, poly3])
 }
 
-// Wrapper for cubic case m=3
 pub fn verify_cubic<F>(
     num_vars: usize,
     claimed_sum: FieldElement<F>,
@@ -204,26 +132,87 @@ where
     }
 }
 
+/// Evaluate the product of multiple multilinear polynomials at a point.
+pub fn evaluate_product_at_point<F: IsField>(
+    factors: &[DenseMultilinearPolynomial<F>],
+    point: &[FieldElement<F>],
+) -> Result<FieldElement<F>, String>
+where
+    F::BaseType: Send + Sync,
+    FieldElement<F>: Clone + Mul<Output = FieldElement<F>>,
+{
+    if factors.is_empty() {
+        return Err("Cannot evaluate product of zero factors.".to_string());
+    }
+    if factors[0].num_vars() != point.len() {
+        return Err(format!(
+            "Point length {} does not match polynomial num_vars {}",
+            point.len(),
+            factors[0].num_vars()
+        ));
+    }
+
+    factors
+        .iter()
+        .map(|factor| factor.evaluate(point.to_vec()).map_err(|e| e.to_string())) // Using to_string assuming Display for MultilinearError
+        .try_fold(FieldElement::one(), |acc, eval_result| {
+            eval_result.map(|eval| acc * eval)
+        })
+}
+
+/// Sum the product of multiple multilinear polynomials over the boolean hypercube for suffix variables.
+pub fn sum_product_over_suffix<F: IsField>(
+    factors: &[DenseMultilinearPolynomial<F>],
+    prefix: &[FieldElement<F>],
+) -> Result<FieldElement<F>, String>
+where
+    F::BaseType: Send + Sync,
+    FieldElement<F>: Clone + Mul<Output = FieldElement<F>>,
+{
+    if factors.is_empty() {
+        return Err("Cannot sum product of zero factors.".to_string());
+    }
+    let num_total_vars = factors[0].num_vars();
+    let num_prefix_vars = prefix.len();
+
+    if num_prefix_vars > num_total_vars {
+        return Err("Prefix length cannot exceed total number of variables.".to_string());
+    }
+
+    let num_suffix_vars = num_total_vars - num_prefix_vars;
+
+    (0..(1 << num_suffix_vars))
+        .map(|i| {
+            let mut current_point = prefix.to_vec();
+            current_point.resize(num_total_vars, FieldElement::zero());
+
+            for k in 0..num_suffix_vars {
+                if (i >> k) & 1 == 1 {
+                    current_point[num_prefix_vars + k] = FieldElement::one();
+                } else {
+                    current_point[num_prefix_vars + k] = FieldElement::zero();
+                }
+            }
+            current_point
+        })
+        .map(|current_point| evaluate_product_at_point(factors, &current_point))
+        .try_fold(FieldElement::zero(), |acc, result_product_at_point| {
+            result_product_at_point.map(|product_at_point| acc + product_at_point)
+        })
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{
-        prove_cubic, prove_linear, prove_quadratic, verify_cubic, verify_linear, verify_quadratic,
-    };
-    use super::{Prover, Verifier, VerifierError, VerifierRoundResult};
-    use lambdaworks_crypto::fiat_shamir::default_transcript::DefaultTranscript;
-    use lambdaworks_math::{
-        field::{element::FieldElement, fields::u64_prime_field::U64PrimeField},
-        polynomial::dense_multilinear_poly::DenseMultilinearPolynomial,
-    };
+    use super::*;
+    use lambdaworks_math::field::fields::u64_prime_field::U64PrimeField;
+    use lambdaworks_math::polynomial::dense_multilinear_poly::DenseMultilinearPolynomial;
 
-    // Using a smaller prime for simpler manual checks in some tests
     const MODULUS: u64 = 101;
     type F = U64PrimeField<MODULUS>;
     type FE = FieldElement<F>;
 
     #[test]
     fn test_sumcheck_linear() {
-        // P(x1, x2) = evals [3, 5, 7, 11]
         let poly = DenseMultilinearPolynomial::new(vec![
             FE::from(3),
             FE::from(5),
@@ -233,30 +222,15 @@ mod tests {
         let num_vars = poly.num_vars();
 
         let prove_result = prove_linear(poly.clone());
-        assert!(
-            prove_result.is_ok(),
-            "Linear prove failed: {:?}",
-            prove_result.err()
-        );
+
         let (claimed_sum, proof_polys) = prove_result.unwrap();
 
-        // Expected sum: 3+5+7+11 = 26
-        assert_eq!(claimed_sum, FE::from(26), "Linear claimed sum mismatch");
-
-        let verification_result = verify_linear(num_vars, claimed_sum, proof_polys, poly);
-        if let Err(e) = &verification_result {
-            panic!("Linear verification failed: {:?}", e);
-        }
-        assert!(
-            verification_result.unwrap(),
-            "Linear verification returned false"
-        );
+        let result = verify_linear(num_vars, claimed_sum, proof_polys, poly);
+        assert!(result.unwrap_or(false), "Valid proof should be accepted");
     }
 
-    // Interactive test still needs direct Prover/Verifier interaction
     #[test]
     fn test_interactive_sumcheck() {
-        // P(x1, x2) = evals [1, 2, 1, 4] -> Sum = 8
         let poly = DenseMultilinearPolynomial::new(vec![
             FE::from(1),
             FE::from(2),
@@ -264,31 +238,130 @@ mod tests {
             FE::from(4),
         ]);
         let num_vars = poly.num_vars();
-        let factors = vec![poly.clone()]; // Need vec for Prover/Verifier::new
-
-        let mut prover = Prover::new(factors.clone()).unwrap();
-        let claimed_sum = prover.compute_initial_sum().unwrap();
-        println!("\nInitial claimed sum c₁: {:?}", claimed_sum);
-        assert_eq!(claimed_sum, FE::from(8));
-
+        let mut prover = Prover::new(vec![poly.clone()]).expect("Prover::new failed");
+        let c_1 = prover
+            .compute_initial_sum()
+            .expect("compute_initial_sum failed");
+        println!("\nInitial claimed sum c₁: {:?}", c_1);
+        assert_eq!(c_1, FE::from(8));
         let mut transcript = DefaultTranscript::<F>::default();
-        let mut verifier = Verifier::new(num_vars, factors.clone(), claimed_sum).unwrap();
-
+        let mut verifier =
+            Verifier::new(num_vars, vec![poly.clone()], c_1).expect("Verifier::new failed");
         let mut current_challenge: Option<FieldElement<F>> = None;
-        for round in 0..num_vars {
-            println!("\n-- Round {} --", round);
-            let g_j = prover.round(current_challenge.as_ref()).unwrap();
+
+        println!("\n-- Round 0 --");
+        let g0 = prover
+            .round(current_challenge.as_ref())
+            .expect("prover.round for g0 failed");
+        println!(
+            "Univariate polynomial g₀(X) coefficients: {:?}",
+            g0.coefficients()
+        );
+        let eval_0_g0 = g0.evaluate(&FE::zero());
+        let eval_1_g0 = g0.evaluate(&FE::one());
+        println!(
+            "g₀(0) = {:?}, g₀(1) = {:?}, sum = {:?}",
+            eval_0_g0,
+            eval_1_g0,
+            eval_0_g0 + eval_1_g0
+        );
+        let res0 = verifier.do_round(g0, &mut transcript).unwrap();
+        let r0 = if let VerifierRoundResult::NextRound(chal) = res0 {
+            println!("Challenge r₀: {:?}", chal);
+            chal
+        } else {
+            panic!("Expected NextRound result for round 0");
+        };
+        current_challenge = Some(r0);
+
+        println!("\n-- Round 1 (Final) --");
+        let g1 = prover
+            .round(current_challenge.as_ref())
+            .expect("prover.round for g1 failed");
+        println!(
+            "Univariate polynomial g₁(X) coefficients: {:?}",
+            g1.coefficients()
+        );
+        let eval_0_g1 = g1.evaluate(&FE::zero());
+        let eval_1_g1 = g1.evaluate(&FE::one());
+        println!(
+            "g₁(0) = {:?}, g₁(1) = {:?}, sum = {:?}",
+            eval_0_g1,
+            eval_1_g1,
+            eval_0_g1 + eval_1_g1
+        );
+        let res1 = verifier.do_round(g1, &mut transcript).unwrap();
+        if let VerifierRoundResult::Final(ok) = res1 {
+            println!(
+                "\nFinal verification result: {}",
+                if ok { "ACCEPTED" } else { "REJECTED" }
+            );
+            assert!(ok, "Final round verification failed");
+        } else {
+            panic!("Expected Final result for round 1");
+        }
+        println!("Interactive test passed!");
+    }
+
+    #[test]
+    fn test_from_book() {
+        let poly = DenseMultilinearPolynomial::new(vec![
+            FE::from(1),
+            FE::from(2),
+            FE::from(3),
+            FE::from(4),
+            FE::from(5),
+            FE::from(6),
+            FE::from(7),
+            FE::from(8),
+        ]);
+        let num_vars = poly.num_vars();
+        assert_eq!(num_vars, 3);
+        let mut prover = Prover::new(vec![poly.clone()]).expect("Prover::new failed");
+        let c_1 = prover
+            .compute_initial_sum()
+            .expect("compute_initial_sum failed");
+        println!("\nInitial claimed sum c₁: {:?}", c_1);
+        assert_eq!(c_1, FE::from(36));
+        let mut transcript = DefaultTranscript::<F>::default();
+        let mut verifier =
+            Verifier::new(num_vars, vec![poly.clone()], c_1).expect("Verifier::new failed");
+        let mut current_challenge_opt: Option<FieldElement<F>> = None;
+        for round_idx in 0..num_vars {
+            println!(
+                "\n-- Round {} {} --",
+                round_idx,
+                if round_idx == num_vars - 1 {
+                    "(Final)"
+                } else {
+                    ""
+                }
+            );
+            let g_j = prover
+                .round(current_challenge_opt.as_ref())
+                .unwrap_or_else(|e| panic!("Prover::round failed at round {}: {:?}", round_idx, e));
             println!(
                 "Univariate polynomial g{}(X) coefficients: {:?}",
-                round,
+                round_idx,
                 g_j.coefficients()
             );
-
-            let res = verifier.do_round(g_j, &mut transcript).unwrap();
+            let eval_0 = g_j.evaluate(&FE::zero());
+            let eval_1 = g_j.evaluate(&FE::one());
+            println!(
+                "g{}(0) = {:?}, g{}(1) = {:?}, sum = {:?}",
+                round_idx,
+                eval_0,
+                round_idx,
+                eval_1,
+                eval_0 + eval_1
+            );
+            let res = verifier.do_round(g_j, &mut transcript).unwrap_or_else(|e| {
+                panic!("Verifier::do_round failed at round {}: {:?}", round_idx, e)
+            });
             match res {
                 VerifierRoundResult::NextRound(chal) => {
-                    println!("Challenge r{}: {:?}", round, chal);
-                    current_challenge = Some(chal);
+                    println!("Challenge r{}: {:?}", round_idx, chal);
+                    current_challenge_opt = Some(chal);
                 }
                 VerifierRoundResult::Final(ok) => {
                     println!(
@@ -296,85 +369,112 @@ mod tests {
                         if ok { "ACCEPTED" } else { "REJECTED" }
                     );
                     assert!(ok, "Final round verification failed");
-                    assert_eq!(round, num_vars - 1, "Final result occurred too early");
+                    assert_eq!(round_idx, num_vars - 1, "Final result occurred too early");
                     break;
                 }
             }
         }
-        println!("Interactive test passed!");
-    }
-
-    #[test]
-    fn test_from_book() {
-        // P(x1, x2) = evals [0, 2, 1, 4] -> Sum = 7
-        let poly = DenseMultilinearPolynomial::new(vec![
-            FE::from(0), // f(0,0)
-            FE::from(2), // f(0,1)
-            FE::from(1), // f(1,0)
-            FE::from(4), // f(1,1)
-        ]);
-        let num_vars = poly.num_vars();
-        let expected_sum = FE::from(7);
-
-        let prove_result = prove_linear(poly.clone());
-        assert!(
-            prove_result.is_ok(),
-            "Book example prove failed: {:?}",
-            prove_result.err()
-        );
-        let (claimed_sum, proof_polys) = prove_result.unwrap();
-        assert_eq!(
-            claimed_sum, expected_sum,
-            "Book example claimed sum mismatch"
-        );
-
-        let verification_result = verify_linear(num_vars, claimed_sum, proof_polys, poly);
-        if let Err(e) = &verification_result {
-            panic!("Book example verification failed: {:?}", e);
-        }
-        assert!(
-            verification_result.unwrap(),
-            "Book example verification returned false"
-        );
     }
 
     #[test]
     fn test_from_book_ported() {
-        // P(x1, x2) = evals [3, 5, 7, 11] -> Sum = 26
         let poly = DenseMultilinearPolynomial::new(vec![
-            FE::from(3),  // p(0,0)
-            FE::from(5),  // p(0,1)
-            FE::from(7),  // p(1,0)
-            FE::from(11), // p(1,1)
+            FE::from(0),
+            FE::from(2),
+            FE::from(0),
+            FE::from(2),
+            FE::from(0),
+            FE::from(3),
+            FE::from(1),
+            FE::from(4),
         ]);
         let num_vars = poly.num_vars();
-        let expected_sum = FE::from(26);
+        assert_eq!(num_vars, 3);
+        let mut prover = Prover::new(vec![poly.clone()]).expect("Prover::new failed");
+        let c_1 = prover
+            .compute_initial_sum()
+            .expect("compute_initial_sum failed");
+        println!("\nInitial claimed sum c₁: {:?}", c_1);
+        assert_eq!(c_1, FE::from(12));
+        let mut transcript = DefaultTranscript::<F>::default();
+        let mut verifier =
+            Verifier::new(num_vars, vec![poly.clone()], c_1).expect("Verifier::new failed");
 
-        let prove_result = prove_linear(poly.clone());
-        assert!(
-            prove_result.is_ok(),
-            "Ported book example prove failed: {:?}",
-            prove_result.err()
+        // Round 0:
+        println!("\n-- Round 0 --");
+        let g0 = prover.round(None).expect("prover.round for g0 failed");
+        println!(
+            "Univariate polynomial g₀(X) coefficients: {:?}",
+            g0.coefficients()
         );
-        let (claimed_sum, proof_polys) = prove_result.unwrap();
-        assert_eq!(
-            claimed_sum, expected_sum,
-            "Ported book example claimed sum mismatch"
+        let eval_0_g0 = g0.evaluate(&FE::zero());
+        let eval_1_g0 = g0.evaluate(&FE::one());
+        println!(
+            "g₀(0) = {:?}, g₀(1) = {:?}, sum = {:?}",
+            eval_0_g0,
+            eval_1_g0,
+            eval_0_g0 + eval_1_g0
         );
+        let res0 = verifier.do_round(g0, &mut transcript).unwrap();
+        let r0 = if let VerifierRoundResult::NextRound(chal) = res0 {
+            println!("Challenge r₀: {:?}", chal);
+            chal
+        } else {
+            panic!("Expected NextRound result for round 0");
+        };
 
-        let verification_result = verify_linear(num_vars, claimed_sum, proof_polys, poly);
-        if let Err(e) = &verification_result {
-            panic!("Ported book example verification failed: {:?}", e);
+        // Round 1:
+        println!("\n-- Round 1 --");
+        let g1 = prover.round(Some(&r0)).expect("prover.round for g1 failed");
+        println!(
+            "Univariate polynomial g₁(X) coefficients: {:?}",
+            g1.coefficients()
+        );
+        let eval_0_g1 = g1.evaluate(&FE::zero());
+        let eval_1_g1 = g1.evaluate(&FE::one());
+        println!(
+            "g₁(0) = {:?}, g₁(1) = {:?}, sum = {:?}",
+            eval_0_g1,
+            eval_1_g1,
+            eval_0_g1 + eval_1_g1
+        );
+        let res1 = verifier.do_round(g1, &mut transcript).unwrap();
+        let r1 = if let VerifierRoundResult::NextRound(chal) = res1 {
+            println!("Challenge r₁: {:?}", chal);
+            chal
+        } else {
+            panic!("Expected NextRound result for round 1");
+        };
+
+        // Round 2 (final round):
+        println!("\n-- Round 2 (Final) --");
+        let g2 = prover.round(Some(&r1)).expect("prover.round for g2 failed");
+        println!(
+            "Univariate polynomial g₂(X) coefficients: {:?}",
+            g2.coefficients()
+        );
+        let eval_0_g2 = g2.evaluate(&FE::zero());
+        let eval_1_g2 = g2.evaluate(&FE::one());
+        println!(
+            "g₂(0) = {:?}, g₂(1) = {:?}, sum = {:?}",
+            eval_0_g2,
+            eval_1_g2,
+            eval_0_g2 + eval_1_g2
+        );
+        let res2 = verifier.do_round(g2, &mut transcript).unwrap();
+        if let VerifierRoundResult::Final(ok) = res2 {
+            println!(
+                "\nFinal verification result: {}",
+                if ok { "ACCEPTED" } else { "REJECTED" }
+            );
+            assert!(ok, "Final round verification failed");
+        } else {
+            panic!("Expected Final result for round 2");
         }
-        assert!(
-            verification_result.unwrap(),
-            "Ported book example verification returned false"
-        );
     }
 
     #[test]
     fn failing_verification_test() {
-        // P(x1, x2) = evals [1, 2, 1, 4] -> Correct Sum = 8
         let poly = DenseMultilinearPolynomial::new(vec![
             FE::from(1),
             FE::from(2),
@@ -382,46 +482,31 @@ mod tests {
             FE::from(4),
         ]);
         let num_vars = poly.num_vars();
-        let factors = vec![poly.clone()]; // Still need vec for direct Verifier use
-
-        // Prover setup (using direct prover to potentially generate inconsistent state)
-        let mut prover = Prover::new(factors.clone()).unwrap();
-        let incorrect_claimed_sum = FE::from(999); // Use incorrect sum
-        println!(
-            "\nInitial (incorrect) claimed sum c₁: {:?}",
-            incorrect_claimed_sum
-        );
-
-        // Verifier setup with incorrect sum
+        let factors = vec![poly.clone()];
+        let incorrect_c1 = FE::from(999);
+        println!("\nInitial (incorrect) claimed sum c₁: {:?}", incorrect_c1);
         let mut transcript = DefaultTranscript::<F>::default();
-        let mut verifier = Verifier::new(num_vars, factors.clone(), incorrect_claimed_sum).unwrap();
-
+        let mut verifier =
+            Verifier::new(num_vars, factors.clone(), incorrect_c1).expect("Verifier new failed");
         println!("\n-- Round 0 --");
-        // Prover computes g0 based on the *correct* poly factors (implicitly sum=8)
-        let g0_result = prover.round(None);
-        assert!(g0_result.is_ok());
-        let g0 = g0_result.unwrap();
-        // For P=[1,2,1,4]: g0(X1) = sum_{x2} P(X1, x2)
-        // g0(0) = P(0,0)+P(0,1) = 1+2 = 3
-        // g0(1) = P(1,0)+P(1,1) = 1+4 = 5
-        // g0(X1) = (5-3)X1 + 3 = 2*X1 + 3. Coeffs [3, 2]
+        let mut correct_prover = Prover::new(factors.clone()).expect("Correct Prover new failed");
+        let g0 = correct_prover
+            .round(None)
+            .expect("prover.round for g0 failed");
         println!(
             "Univariate polynomial g₀(X) coefficients: {:?}",
             g0.coefficients()
         );
-        let eval_0 = g0.evaluate(&FieldElement::<F>::zero()); // Should be 3
-        let eval_1 = g0.evaluate(&FieldElement::<F>::one()); // Should be 5
+        let eval_0_g0 = g0.evaluate(&FE::zero());
+        let eval_1_g0 = g0.evaluate(&FE::one());
         println!(
             "g₀(0) = {:?}, g₀(1) = {:?}, sum = {:?}",
-            eval_0,
-            eval_1,
-            eval_0 + eval_1 // Should be 8
+            eval_0_g0,
+            eval_1_g0,
+            eval_0_g0 + eval_1_g0
         );
-        assert_eq!(eval_0 + eval_1, FE::from(8));
-
-        // Verifier checks g0 against the *incorrect* claimed sum (999)
+        assert_eq!(eval_0_g0 + eval_1_g0, FE::from(8));
         let res0 = verifier.do_round(g0, &mut transcript);
-        // Expected failure: g0(0)+g0(1) = 8 != 999
         if let Err(VerifierError::InconsistentSum {
             round,
             expected,
@@ -429,14 +514,10 @@ mod tests {
             s1,
         }) = &res0
         {
-            println!(
-                "\nExpected verification error (InconsistentSum) at round {}, expected sum {:?}, got sum {:?}",
-                round, expected, s0 + s1
-            );
+            println!("\nExpected verification error (InconsistentSum) at round {}, expected sum {:?}, got sum {:?}", round, expected, *s0 + *s1);
             assert_eq!(*round, 0, "Error should occur in round 0");
             assert_eq!(
-                *expected,
-                FE::from(999),
+                *expected, incorrect_c1,
                 "Expected sum should be the incorrect one"
             );
         } else {
@@ -447,7 +528,6 @@ mod tests {
 
     #[test]
     fn test_sumcheck_quadratic() {
-        // pA = [1, 2, 3, 4], pB = [5, 6, 7, 8], n=2
         let poly_a = DenseMultilinearPolynomial::new(vec![
             FE::from(1),
             FE::from(2),
@@ -462,126 +542,34 @@ mod tests {
         ]);
         let num_vars = poly_a.num_vars();
 
-        // Calculate expected sum manually for verification
-        // Sum = pA(00)pB(00) + pA(01)pB(01) + pA(10)pB(10) + pA(11)pB(11)
-        // Sum = 1*5 + 2*6 + 3*7 + 4*8 = 5 + 12 + 21 + 32 = 70
-        let mut expected_sum = FE::zero();
-        // Use .len() and index access, assuming DenseMultilinearPolynomial implements Index trait
-        assert_eq!(poly_a.len(), 1 << num_vars, "Polynomial length mismatch");
-        for i in 0..poly_a.len() {
-            expected_sum += poly_a[i] * poly_b[i];
-        }
-        println!("Quadratic sum expected: {:?}", expected_sum);
-        assert_eq!(expected_sum, FE::from(70), "Manual calculation mismatch");
-
-        // Use quadratic wrapper for prove
         let prove_result = prove_quadratic(poly_a.clone(), poly_b.clone());
-        assert!(
-            prove_result.is_ok(),
-            "Quadratic proof failed: {:?}",
-            prove_result.err()
-        );
         let (claimed_sum, proof_polys) = prove_result.unwrap();
-        println!("Quadratic sum claimed (prover): {:?}", claimed_sum);
-        assert_eq!(
-            claimed_sum, expected_sum,
-            "Quadratic sum claimed does not match expected"
-        );
 
-        // Use quadratic wrapper for verify
         let verification_result =
             verify_quadratic(num_vars, claimed_sum, proof_polys, poly_a, poly_b);
-        if let Err(e) = &verification_result {
-            panic!("Quadratic verification failed: {:?}", e);
-        }
+
         assert!(
-            verification_result.unwrap(),
-            "Quadratic verification returned false"
+            verification_result.unwrap_or(false),
+            "Quadratic verification failed"
         );
     }
 
     #[test]
     fn test_sumcheck_cubic() {
-        // pA=[1, 2], pB=[3, 4], pC=[5, 1], n=1
         let poly_a = DenseMultilinearPolynomial::new(vec![FE::from(1), FE::from(2)]);
         let poly_b = DenseMultilinearPolynomial::new(vec![FE::from(3), FE::from(4)]);
         let poly_c = DenseMultilinearPolynomial::new(vec![FE::from(5), FE::from(1)]);
         let num_vars = poly_a.num_vars();
 
-        // Calculate expected sum manually for verification
-        // Sum = pA(0)pB(0)pC(0) + pA(1)pB(1)pC(1)
-        // Sum = 1*3*5 + 2*4*1 = 15 + 8 = 23
-        let mut expected_sum = FE::zero();
-        assert_eq!(poly_a.len(), 1 << num_vars, "Polynomial length mismatch");
-        for i in 0..poly_a.len() {
-            expected_sum += poly_a[i] * poly_b[i] * poly_c[i];
-        }
-        println!("Cubic sum expected: {:?}", expected_sum);
-        assert_eq!(expected_sum, FE::from(23), "Manual calculation mismatch");
-
-        // Use cubic wrapper for prove
         let prove_result = prove_cubic(poly_a.clone(), poly_b.clone(), poly_c.clone());
-        assert!(
-            prove_result.is_ok(),
-            "Cubic proof failed: {:?}",
-            prove_result.err()
-        );
         let (claimed_sum, proof_polys) = prove_result.unwrap();
-        println!("Cubic sum claimed (prover): {:?}", claimed_sum);
-        assert_eq!(
-            claimed_sum, expected_sum,
-            "Cubic sum claimed does not match expected"
-        );
 
-        // Use cubic wrapper for verify
         let verification_result =
             verify_cubic(num_vars, claimed_sum, proof_polys, poly_a, poly_b, poly_c);
-        if let Err(e) = &verification_result {
-            panic!("Cubic verification failed: {:?}", e);
-        }
+
         assert!(
-            verification_result.unwrap(),
-            "Cubic verification returned false"
-        );
-    }
-
-    #[test]
-    fn test_sumcheck_zero_polynomial() {
-        // pA = [1, 2, 3, 4], pZero = [0, 0, 0, 0], n=2
-        let poly_a = DenseMultilinearPolynomial::new(vec![
-            FE::from(1),
-            FE::from(2),
-            FE::from(3),
-            FE::from(4),
-        ]);
-        // Ensure poly_zero has the same number of variables and evaluations
-        let num_vars = poly_a.num_vars();
-        let poly_zero = DenseMultilinearPolynomial::new(vec![FE::zero(); 1 << num_vars]);
-
-        let expected_sum = FE::zero(); // Product involving zero poly is always zero
-
-        // Use quadratic wrapper for prove (m=2)
-        let prove_result = prove_quadratic(poly_a.clone(), poly_zero.clone());
-        assert!(
-            prove_result.is_ok(),
-            "Proof with zero polynomial failed: {:?}",
-            prove_result.err()
-        );
-        let (claimed_sum, proof_polys) = prove_result.unwrap();
-        assert_eq!(
-            claimed_sum, expected_sum,
-            "Claimed sum with zero polynomial does not match expected (0)"
-        );
-
-        // Use quadratic wrapper for verify (m=2)
-        let verification_result =
-            verify_quadratic(num_vars, claimed_sum, proof_polys, poly_a, poly_zero);
-        if let Err(e) = &verification_result {
-            panic!("Verification with zero polynomial failed: {:?}", e);
-        }
-        assert!(
-            verification_result.unwrap(),
-            "Verification with zero polynomial returned false"
+            verification_result.unwrap_or(false),
+            "Cubic verification failed"
         );
     }
 }

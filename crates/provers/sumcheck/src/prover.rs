@@ -1,4 +1,5 @@
-use crate::{sum_product_over_suffix, Channel};
+use crate::sum_product_over_suffix;
+use crate::Channel;
 use lambdaworks_crypto::fiat_shamir::default_transcript::DefaultTranscript;
 use lambdaworks_crypto::fiat_shamir::is_transcript::IsTranscript;
 use lambdaworks_math::{
@@ -13,10 +14,7 @@ use lambdaworks_math::{
 };
 use std::ops::Mul;
 
-// Define type alias for the success tuple
 pub type ProofResult<F> = (FieldElement<F>, Vec<Polynomial<FieldElement<F>>>);
-
-// Define type alias for the Result
 pub type ProverOutput<F> = Result<ProofResult<F>, ProverError>;
 
 #[derive(Debug)]
@@ -40,9 +38,6 @@ impl From<InterpolateError> for ProverError {
 }
 
 /// Represents the Prover for the Sum-Check protocol operating on a product of DenseMultilinearPolynomials.
-///
-/// The protocol aims to prove the sum \( \\sum_{x \\in \\{0,1\\}^n} \\prod_{i} P_i(x) = C \)
-/// for a claimed sum C and a set of multilinear polynomials \( P_i \).
 pub struct Prover<F: IsField>
 where
     F::BaseType: Send + Sync,
@@ -86,7 +81,6 @@ where
 
     /// Computes the initial claimed sum \( C = \\sum_{x \\in \\{0,1\\}^n} \\prod_i P_i(x) \).
     pub fn compute_initial_sum(&self) -> Result<FieldElement<F>, ProverError> {
-        // Call sum_product_over_suffix with an empty prefix to sum over the whole boolean hypercube.
         sum_product_over_suffix(&self.factors, &[])
             .map_err(|e| ProverError::SummationError(format!("Error computing initial sum: {}", e)))
     }
@@ -137,10 +131,9 @@ where
             // Set the actual value for X_j in the prefix
             *current_point_prefix.last_mut().unwrap() = eval_point_x;
 
-            // Calculate g_j(eval_point_x) = sum_{x_{j+1}..x_n} prod P_i(r1..r_{j-1}, eval_point_x, x_{j+1}..x_n)
             let g_j_at_eval_point = sum_product_over_suffix(&self.factors, &current_point_prefix)
                 .map_err(|e| {
-                ProverError::RoundError(format!("Error in summation for g_j({}): {}", i, e))
+                ProverError::RoundError(format!("Error in sum for g_j({}): {}", i, e))
             })?;
             evaluations_y.push(g_j_at_eval_point);
         }
@@ -181,9 +174,8 @@ where
         transcript.append_bytes(round_label.as_bytes());
 
         let coeffs = g_j.coefficients();
-        transcript.append_bytes(&(coeffs.len() as u64).to_be_bytes()); // Append degree information
+        transcript.append_bytes(&(coeffs.len() as u64).to_be_bytes());
         if coeffs.is_empty() {
-            // Handle zero polynomial case
             transcript.append_felt(&FieldElement::zero());
         } else {
             for coeff in coeffs {

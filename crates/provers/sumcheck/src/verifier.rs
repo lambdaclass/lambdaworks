@@ -1,6 +1,7 @@
-use crate::{evaluate_product_at_point, Channel}; // Use helper from lib.rs
+use crate::evaluate_product_at_point;
+use crate::Channel;
 use lambdaworks_crypto::fiat_shamir::default_transcript::DefaultTranscript;
-use lambdaworks_crypto::fiat_shamir::is_transcript::IsTranscript; // Import trait
+use lambdaworks_crypto::fiat_shamir::is_transcript::IsTranscript;
 use lambdaworks_math::{
     field::{
         element::FieldElement,
@@ -17,7 +18,6 @@ use std::vec::Vec;
 pub enum VerifierRoundResult<F: IsField> {
     /// The round was successful, providing the challenge for the next round.
     NextRound(FieldElement<F>),
-    /// This was the final round, indicating the overall success or failure of the verification.
     Final(bool),
 }
 
@@ -50,7 +50,6 @@ where
 }
 
 /// Represents the Verifier for the Sum-Check protocol operating on a product of DenseMultilinearPolynomials.
-
 #[derive(Debug)]
 pub struct Verifier<F: IsField>
 where
@@ -91,7 +90,8 @@ where
             num_vars,
             round: 0,
             oracle_factors,
-            current_sum: claimed_sum, // Starts with the initial claimed sum C
+            // Starts with the initial claimed sum C
+            current_sum: claimed_sum,
             challenges: Vec::with_capacity(num_vars),
         })
     }
@@ -100,7 +100,7 @@ where
     pub fn do_round<C: Channel<F>>(
         &mut self,
         g_j: Polynomial<FieldElement<F>>,
-        transcript: &mut C, // Transcript is now primarily used *here* to draw the challenge
+        transcript: &mut C,
     ) -> Result<VerifierRoundResult<F>, VerifierError<F>> {
         // Check if we are past the expected number of rounds.
         if self.round >= self.num_vars {
@@ -150,14 +150,12 @@ where
             // Perform the final check: evaluate prod P_i(r1, ..., rn)
             match evaluate_product_at_point(&self.oracle_factors, &self.challenges) {
                 Ok(expected_final_eval) => {
-                    // Compare with the value computed from the last round polynomial: g_{n-1}(r_{n-1})
                     let success = expected_final_eval == self.current_sum;
                     Ok(VerifierRoundResult::Final(success))
                 }
-                Err(e) => Err(VerifierError::OracleEvaluationError(e)), // Pass the specific evaluation error
+                Err(e) => Err(VerifierError::OracleEvaluationError(e)),
             }
         } else {
-            // Not the final round, return the challenge for the Prover's next step (though prover derives it too).
             Ok(VerifierRoundResult::NextRound(r_j))
         }
     }
@@ -174,7 +172,7 @@ where
     F::BaseType: Send + Sync,
     FieldElement<F>: Clone + Mul<Output = FieldElement<F>> + ByteConversion,
 {
-    // Basic check: ensure the number of polynomials matches the number of variables.
+    // ensure the number of polynomials matches the number of variables.
     if proof_polys.len() != num_vars {
         return Err(VerifierError::IncorrectProofLength {
             expected: num_vars,
@@ -182,10 +180,8 @@ where
         });
     }
 
-    // Initialize Verifier
     let mut verifier = Verifier::new(num_vars, oracle_factors, claimed_sum.clone())?;
 
-    // Initialize Fiat-Shamir transcript - must match the prover's initialization.
     let mut transcript = DefaultTranscript::<F>::default();
     transcript.append_bytes(b"initial_sum");
     transcript.append_felt(&claimed_sum);
