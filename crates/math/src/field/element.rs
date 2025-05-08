@@ -821,6 +821,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::elliptic_curve::short_weierstrass::curves::bn_254::field_extension::BN254PrimeField;
     use crate::field::fields::fft_friendly::{
         babybear_u32::Babybear31PrimeField, stark_252_prime_field::Stark252PrimeField,
     };
@@ -1049,6 +1050,14 @@ mod tests {
     fn test_reduced_biguint_conversion_u384_field() {
         let value = BigUint::from(22u32);
         let fe = U384F23Element::from_reduced_big_uint(&value).unwrap();
+        let back_to_biguint = fe.to_big_uint();
+        assert_eq!(value, back_to_biguint);
+    }
+    #[test]
+    fn test_bn254_field_biguint_conversion() {
+        type BN254Element = FieldElement<BN254PrimeField>;
+        let value = BigUint::from(1000u32);
+        let fe = BN254Element::from_reduced_big_uint(&value).unwrap();
         let back_to_biguint = fe.to_big_uint();
         assert_eq!(value, back_to_biguint);
     }
