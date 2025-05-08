@@ -1056,7 +1056,7 @@ mod tests {
     #[test]
     fn test_bn254_field_biguint_conversion() {
         type BN254Element = FieldElement<BN254PrimeField>;
-        let value = BigUint::from(1000u32);
+        let value = BigUint::from(1001u32);
         let fe = BN254Element::from_reduced_big_uint(&value).unwrap();
         let back_to_biguint = fe.to_big_uint();
         assert_eq!(value, back_to_biguint);
