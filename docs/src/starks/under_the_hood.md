@@ -2,7 +2,7 @@
 
 In this section we go over how a few things in the `prove` and `verify` functions are implemented. If you just need to *use* the prover, then you probably don't need to read this. If you're going through the code to try to understand it, read on.
 
-We will once again use the fibonacci example as an ilustration. Recall from the `recap` that the main steps for the prover and verifier are the following:
+We will once again use the fibonacci example as an illustration. Recall from the `recap` that the main steps for the prover and verifier are the following:
 
 ### Prover side
 
