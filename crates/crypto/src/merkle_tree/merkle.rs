@@ -145,4 +145,37 @@ mod tests {
     fn build_empty_tree_should_not_panic() {
         assert!(MerkleTree::<TestBackend<U64PF>>::build(&[]).is_none());
     }
+
+    use rand::{Rng, SeedableRng};
+    use rand_chacha::ChaCha12Rng;
+    use std::time::{Duration, Instant};
+
+    #[test]
+    fn bench_merkle_tree_creation() {
+        let num_leaves = [10, 100, 10_000, 100_000, 1_000_000];
+        let trials = 10;
+        let mut rng = ChaCha12Rng::from_entropy();
+
+        for num in num_leaves {
+            let mut times = Vec::with_capacity(trials);
+            for _ in 0..trials {
+                let values = (0..num)
+                    .map(|_| FE::new(rng.gen_range(0..MODULUS)))
+                    .collect::<Vec<_>>();
+
+                let start = Instant::now();
+                let merkle_tree = MerkleTree::<TestBackend<U64PF>>::build(&values).unwrap();
+
+                let duration = start.elapsed();
+                times.push(duration);
+            }
+            let average_time: Duration = times.iter().sum();
+
+            println!(
+                "Time for {} leaves: {:.3} ms",
+                num, // Number of polynomials
+                average_time.as_secs_f64() * 1000.0 / trials as f64
+            );
+        }
+    }
 }

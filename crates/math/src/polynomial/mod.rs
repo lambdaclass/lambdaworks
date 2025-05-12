@@ -1282,4 +1282,127 @@ mod tests {
         let p = Polynomial::new(&[FE::new(1), FE::new(2), FE::new(3)]);
         assert_eq!(p.print_as_sage_poly(None), "3*x^2 + 2*x + 1");
     }
+
+    use crate::field::fields::fft_friendly::babybear_u32::Babybear31PrimeField;
+    //use core::time::Duration;
+    //use std::time::Instant;
+    type BabyBearElem = FieldElement<Babybear31PrimeField>;
+
+    use rand::{Rng, SeedableRng};
+    use rand_chacha::ChaCha12Rng;
+    use rayon::prelude::*;
+    use std::time::{Duration, Instant};
+
+    #[test]
+    fn bench_polys_degree_2_pow_22_optimized() {
+        let num_polys = vec![1, 5, 10, 15, 20, 25, 30, 32];
+        let degree = 4_194_304;
+        let num_points = 2;
+        let trials = 10;
+
+        let mut rng = ChaCha12Rng::from_entropy();
+
+        for num in num_polys {
+            let mut times = Vec::with_capacity(trials);
+
+            for _ in 0..trials {
+                // Generate all polynomials and points first.
+                let polys: Vec<_> = (0..num)
+                    .map(|_| {
+                        let coeffs: Vec<_> = (0..=degree)
+                            .map(|_| BabyBearElem::from(rng.gen_range(0..2013265921)))
+                            .collect();
+                        Polynomial::new(&coeffs)
+                    })
+                    .collect();
+
+                let points: Vec<_> = (0..num_points)
+                    .map(|_| BabyBearElem::from(rng.gen_range(0..2013265921)))
+                    .collect();
+
+                // Start timing
+                let start = Instant::now();
+
+                // Parallel evaluation:
+
+                // // APPROACH 1: Parallel by polynomial
+                // polys.par_iter().for_each(|poly| {
+                //     for point in &points {
+                //         poly.evaluate(point);
+                //     }
+                // });
+
+                // APPROACH 2: Parallel by polynomial+point
+                polys.par_iter().for_each(|poly| {
+                    points.par_iter().for_each(|point| {
+                        poly.evaluate(point);
+                    });
+                });
+
+                let duration: Duration = start.elapsed();
+                times.push(duration);
+            }
+
+            let avg_time: Duration = times.iter().sum();
+            println!(
+                "Time for {} polys of degree 2^22: {:.3} ms",
+                num,
+                avg_time.as_secs_f64() * 1000.0 / trials as f64
+            );
+        }
+    }
+
+    #[test]
+    fn bench_one_poly_different_degrees() {
+        let num_polys = 1;
+        let degree = vec![
+            10, 32, 100, 1000, 1024, 10_000, 32_768, 100_000, 500_000, 1_000_000, 1_500_000,
+            4_194_304,
+        ];
+        let num_points = 2;
+        let trials = 10;
+
+        let mut rng = ChaCha12Rng::from_entropy();
+
+        for deg in degree {
+            let mut times = Vec::with_capacity(trials);
+
+            for _ in 0..trials {
+                // Generate random polynomials
+                let polys: Vec<Polynomial<BabyBearElem>> = (0..num_polys)
+                    .map(|_| {
+                        let coeffs: Vec<BabyBearElem> = (0..=deg)
+                            .map(|_| BabyBearElem::from(rng.gen_range(0..2013265921)))
+                            .collect();
+                        Polynomial::new(&coeffs)
+                    })
+                    .collect();
+
+                // Generate random evaluation points
+                let points: Vec<BabyBearElem> = (0..num_points)
+                    .map(|_| BabyBearElem::from(rng.gen_range(0..2013265921)))
+                    .collect();
+
+                // Benchmark
+                let start = Instant::now();
+
+                polys.par_iter().for_each(|poly| {
+                    points.par_iter().for_each(|point| {
+                        poly.evaluate(point);
+                    });
+                });
+
+                let duration = start.elapsed();
+                times.push(duration);
+            }
+            let average_time: Duration = times.iter().sum();
+
+            println!(
+                "Time for {} polys of degree {}: {:.3} ms",
+                num_polys, // Number of polynomials
+                deg,
+                average_time.as_secs_f64() * 1000.0 / trials as f64
+            );
+        }
+    }
 }
