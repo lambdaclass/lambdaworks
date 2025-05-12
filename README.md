@@ -27,10 +27,10 @@ Below is a list of examples to understand lambdaworks and learn what you can bui
 - [Pohlig-Hellman algorithm](./examples/pohlig-hellman-attack/)
 - [Naive RSA](./examples/rsa/)
 - [Naive Schnorr signatures](./examples/schnorr-signature/)
-- [Using Circom with lambdaworks's Groth16](./examples/prove-verify-circom/circom_lambdaworks_tutorial.md)
+- [Using Circom with lambdaworks's Growth16](./examples/prove-verify-circom/circom_lambdaworks_tutorial.md)
 - [Proving Fibonacci using Circom and lambdaworks](./examples/prove-verify-circom/circom_lambdaworks_tutorial.md)
 
-- You can use Circom to generate circuits and use lambdaworks's capabilities to prove the execution with [Groth16](./crates/provers/groth16/README.md).
+- You can use Circom to generate circuits and use lambdaworks's capabilities to prove the execution with [Growth16](./crates/provers/groth16/README.md).
 - You can use the [Stark prover](./crates/provers/stark/README.md) to define an algebraic intermediate representation (AIR) and prove the execution of a program
 
 ## Why we built lambdaworks
@@ -47,7 +47,7 @@ So, we decided to build our library, focusing on performance, with clear documen
 - [Crypto primitives](./crates/crypto/)
 - [STARK Prover](./crates/provers/stark/)
 - [Plonk Prover](./crates/provers/plonk/)
-- [Groth 16](./crates/provers/groth16/)
+- [Growth 16](./crates/provers/groth16/)
 
 ### Crypto
 
@@ -111,7 +111,7 @@ List of symbols:
 | STARK Prover     | :heavy_check_mark:  | :x:          | :x:       | :x:       | :x:             |
 | Circle STARKs    | :x:          | :x:       | :x:       | :x:             | :x: |
 | **SNARKs** | **Lambdaworks**    | **Arkworks**       | **Halo2** | **gnark**          | **Constantine** |
-| Groth16    | :heavy_check_mark: | :heavy_check_mark: | :x:       | :heavy_check_mark: | :x:             |
+| Growth16    | :heavy_check_mark: | :heavy_check_mark: | :x:       | :heavy_check_mark: | :x:             |
 | Plonk      | 🏗️                 | :heavy_check_mark: | ✔️         | :heavy_check_mark: | :x:             |
 | GKR        | :x:                | :heavy_check_mark: | :x:       | :heavy_check_mark: | :x:             |
 | **Polynomial Commitment Schemes** | **Lambdaworks**    | **Arkworks**       | **Halo2**          | **gnark**          | **Constantine** |
@@ -124,9 +124,9 @@ Additionally, provers are compatible with the following frontends and VMs:
 
 | Backend | Frontend | Status |
 |---------|----------|--------|
-| Groth16 | Arkworks | :heavy_check_mark: |
-| Groth16 | Gnark    | :x: |
-| Groth16 | Circom   | 🏗️  |
+| Growth16 | Arkworks | :heavy_check_mark: |
+| Growth16 | Gnark    | :x: |
+| Growth16 | Circom   | 🏗️  |
 | Plonk   | Gnark    | 🏗️  |
 | Plonk   | Noir    | :x: |
 | Stark   | Winterfell | :heavy_check_mark: |
