@@ -94,7 +94,7 @@ Each form and coordinate model has to implement the `IsGroup` trait, which will 
 - `fn neutral_element()`, the neutral element for the group operation. In the case of elliptic curves, this is the point at infinity.
 - `fn operate_with`, which defines the group operation; it takes two elements in the group and outputs a third one.
 - `fn neg`, which gives the inverse of the element.
-It also provides the method `fn operate_with_self`, which is used to indicate that repeteadly add one element against itself $n$ times. Here, $n$ should implement the `IsUnsignedInteger` trait. In the case of elliptic curves, this provides the scalar multiplication, $n P$, based on the double and add algorithm (square and multiply).
+It also provides the method `fn operate_with_self`, which is used to indicate that repeatedly add one element against itself $n$ times. Here, $n$ should implement the `IsUnsignedInteger` trait. In the case of elliptic curves, this provides the scalar multiplication, $n P$, based on the double and add algorithm (square and multiply).
 
 Operating is done in the following way:
 ```rust
