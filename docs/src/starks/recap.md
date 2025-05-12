@@ -153,7 +153,7 @@ Why not just take \\(H(x) = B(x) + C(x)\\)? The reason for the betas is to make 
 
 With what we discussed above, showing that the constraints are satisfied is equivalent to saying that `H` is a polynomial and not a rational function (we are simplifying things a bit here, but it works for our purposes).
 
-## Commiting to \\(H\\)
+## Committing to \\(H\\)
 
 To show \\(H\\) is a polynomial we are going to use the `FRI` protocol, which we treat as a black box. For all we care, a `FRI` proof will verify if what we committed to is indeed a polynomial. Thus, the prover will provide a `FRI` commitment to `H`, and if it passes, the verifier will be convinced that the constraints are satisfied.
 
@@ -161,7 +161,7 @@ There is one catch here though: how does the verifier know that `FRI` was applie
 
 
 ## Consistency check
-After commiting to `H`, the prover needs to show that `H` was constructed correctly according to the formula above. To do this, it will ask the prover to provide an evaluation of `H` on some random point `z` and evaluations of the trace at the points \\(t(z), t(zg)\\) and \\(t(zg^2)\\).
+After committing to `H`, the prover needs to show that `H` was constructed correctly according to the formula above. To do this, it will ask the prover to provide an evaluation of `H` on some random point `z` and evaluations of the trace at the points \\(t(z), t(zg)\\) and \\(t(zg^2)\\).
 
 Because the boundary and transition constraints are a public part of the protocol, the verifier knows them, and thus the only thing it needs to compute the evaluation \\((z)\\) by itself are the three trace evaluations mentioned above. Because it asked the prover for them, it can check both sides of the equation:
 
