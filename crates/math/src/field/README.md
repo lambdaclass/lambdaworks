@@ -8,9 +8,9 @@ This folder contains the different field backends, including field extensions. T
 - [Goldilocks-448](./fields/p448_goldilocks_prime_field.rs)
 - [Mersenne-31](./fields/mersenne31/): $2^{31} - 1$ and its [quadratic extension](./fields/mersenne31/extensions.rs)
 - [Baby Bear](./fields/fft_friendly/babybear_u32.rs) and its [quadratic extension](./fields/fft_friendly/quadratic_babybear.rs): FFT-friendly, $2^{31} - 2^{27} + 1$.
-- [Scalar field of BN-254](../elliptic_curve/short_weierstrass/curves/bn_254/default_types.rs), and its quadratic extension, quartic, sextic and twelth degree extensions. This coincides with the base field of [Grumpkin](../elliptic_curve/short_weierstrass/curves/grumpkin/curve.rs)
+- [Scalar field of BN-254](../elliptic_curve/short_weierstrass/curves/bn_254/default_types.rs), and its quadratic extension, quartic, sextic and twelfth degree extensions. This coincides with the base field of [Grumpkin](../elliptic_curve/short_weierstrass/curves/grumpkin/curve.rs)
 - [Base field of BN-254](../elliptic_curve/short_weierstrass/curves/bn_254/field_extension.rs) and its quadratic extension. The base field coincides with the scalar field of [Grumpkin](../elliptic_curve/short_weierstrass/curves/grumpkin/curve.rs)
-- [Scalar field of BLS12-381](../elliptic_curve/short_weierstrass/curves/bls12_381/default_types.rs), and its quadratic, sextic and twelth degree extensions. FFT-friendly.
+- [Scalar field of BLS12-381](../elliptic_curve/short_weierstrass/curves/bls12_381/default_types.rs), and its quadratic, sextic and twelfth degree extensions. FFT-friendly.
 - [Base field of BLS12-381](../elliptic_curve/short_weierstrass/curves/bls12_381/field_extension.rs) 
 - [Scalar field of BLS12-377](../elliptic_curve/short_weierstrass/curves/bls12_377/curve.rs)
 - [Base field of BLS12-377](../elliptic_curve/short_weierstrass/curves/bls12_377/field_extension.rs)
