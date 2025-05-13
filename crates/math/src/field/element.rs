@@ -1,11 +1,15 @@
-use crate::errors::CreationError;
+use crate::errors::{ByteConversionError, CreationError};
 use crate::field::errors::FieldError;
 use crate::field::traits::IsField;
-#[cfg(feature = "lambdaworks-serde-binary")]
 use crate::traits::ByteConversion;
 use crate::unsigned_integer::element::UnsignedInteger;
 use crate::unsigned_integer::montgomery::MontgomeryAlgorithms;
 use crate::unsigned_integer::traits::IsUnsignedInteger;
+#[cfg(feature = "alloc")]
+use alloc::{
+    format,
+    string::{String, ToString},
+};
 use core::fmt;
 use core::fmt::Debug;
 use core::iter::Sum;
@@ -15,6 +19,8 @@ use core::iter::Sum;
 ))]
 use core::marker::PhantomData;
 use core::ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Sub};
+use num_bigint::BigUint;
+use num_traits::Num;
 #[cfg(any(
     feature = "lambdaworks-serde-binary",
     feature = "lambdaworks-serde-string"
@@ -101,6 +107,21 @@ where
         Self {
             value: F::from_u64(value),
         }
+    }
+}
+
+#[cfg(feature = "alloc")]
+/// From overloading for BigUint.
+/// Creates a field element from a BigUint that is smaller than the modulus.
+/// Returns error if the BigUint value is bigger than the modulus.
+impl<F> TryFrom<BigUint> for FieldElement<F>
+where
+    Self: ByteConversion,
+    F: IsPrimeField,
+{
+    type Error = ByteConversionError;
+    fn try_from(value: BigUint) -> Result<Self, ByteConversionError> {
+        FieldElement::<F>::from_reduced_big_uint(&value)
     }
 }
 
@@ -491,6 +512,77 @@ where
             value: <F as IsSubFieldOf<L>>::embed(self.value),
         }
     }
+
+    #[cfg(feature = "alloc")]
+    /// Creates a field element from a BigUint that is smaller than the modulus.
+    /// Returns error if the value is bigger than the modulus.
+    pub fn from_reduced_big_uint(value: &BigUint) -> Result<Self, ByteConversionError>
+    where
+        Self: ByteConversion,
+        F: IsPrimeField,
+    {
+        let mod_minus_one = F::modulus_minus_one().to_string();
+
+        // We check if `mod_minus_one` is a hex string or a decimal string.
+        // In case it is a hex we remove the prefix `0x`.
+        let (digits, radix) = if let Some(hex) = mod_minus_one
+            .strip_prefix("0x")
+            .or_else(|| mod_minus_one.strip_prefix("0X"))
+        {
+            (hex, 16)
+        } else {
+            (mod_minus_one.as_str(), 10)
+        };
+
+        let modulus =
+            BigUint::from_str_radix(digits, radix).expect("invalid modulus representation") + 1u32;
+
+        if value >= &modulus {
+            Err(ByteConversionError::ValueNotReduced)
+        } else {
+            let mut bytes = value.to_bytes_le();
+            // We pad the bytes to the size of the base type to be able to apply `from_bytes_le`.
+            bytes.resize(core::mem::size_of::<F::BaseType>(), 0);
+            Self::from_bytes_le(&bytes)
+        }
+    }
+
+    #[cfg(feature = "alloc")]
+    /// Converts a field element into a BigUint.
+    pub fn to_big_uint(&self) -> BigUint
+    where
+        Self: ByteConversion,
+    {
+        BigUint::from_bytes_be(&self.to_bytes_be())
+    }
+
+    #[cfg(feature = "alloc")]
+    /// Converts a hex string into a field element.
+    /// It returns error if the hex value is larger than the modulus.
+    pub fn from_hex_str(hex: &str) -> Result<Self, CreationError>
+    where
+        Self: ByteConversion,
+        F: IsPrimeField,
+    {
+        let hex_str = hex.strip_prefix("0x").unwrap_or(hex);
+        if hex_str.is_empty() {
+            return Err(CreationError::EmptyString);
+        }
+
+        let value =
+            BigUint::from_str_radix(hex_str, 16).map_err(|_| CreationError::InvalidHexString)?;
+
+        Self::from_reduced_big_uint(&value).map_err(|_| CreationError::InvalidHexString)
+    }
+
+    #[cfg(feature = "alloc")]
+    /// Converts a field element into a hex string.
+    pub fn to_hex_str(&self) -> String
+    where
+        Self: ByteConversion,
+    {
+        format!("0x{:02X}", self.to_big_uint())
+    }
 }
 
 impl<F: IsPrimeField> FieldElement<F> {
@@ -514,8 +606,8 @@ impl<F: IsPrimeField> FieldElement<F> {
     /// Creates a `FieldElement` from a hexstring. It can contain `0x` or not.
     /// Returns an `CreationError::InvalidHexString`if the value is not a hexstring.
     /// Returns a `CreationError::EmptyString` if the input string is empty.
-    /// Returns a `CreationError::HexStringIsTooBig` if the the input hex string is bigger
-    /// than the maximum amount of characters for this element.
+    /// Returns a `CreationError::HexStringIsTooBig` if the the input hex string is bigger than the
+    /// maximum amount of characters for this element.
     pub fn from_hex(hex_string: &str) -> Result<Self, CreationError> {
         if hex_string.is_empty() {
             return Err(CreationError::EmptyString);
@@ -728,14 +820,20 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::field::element::FieldElement;
-    use crate::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;
+    use super::*;
+    use crate::elliptic_curve::short_weierstrass::curves::bn_254::field_extension::BN254PrimeField;
+    use crate::field::fields::fft_friendly::{
+        babybear_u32::Babybear31PrimeField, stark_252_prime_field::Stark252PrimeField,
+    };
+    use crate::field::fields::montgomery_backed_prime_fields::U384PrimeField;
     use crate::field::fields::u64_prime_field::U64PrimeField;
     use crate::field::test_fields::u64_test_field::U64TestField;
     #[cfg(feature = "alloc")]
     use crate::unsigned_integer::element::UnsignedInteger;
+    use crate::unsigned_integer::element::U384;
     #[cfg(feature = "alloc")]
     use alloc::vec::Vec;
+    use num_bigint::BigUint;
     #[cfg(feature = "alloc")]
     use proptest::collection;
     use proptest::{prelude::*, prop_compose, proptest, strategy::Strategy};
@@ -909,5 +1007,125 @@ mod tests {
                 prop_assert_eq!(x * input[i], FieldElement::<Stark252PrimeField>::one());
             }
         }
+    }
+
+    // Tests for BigUint conversion.
+    // We define different fields to test the conversion.
+
+    // Prime field with modulus 17 and base type u64.
+    type U64F17 = U64PrimeField<17>;
+    type U64F17Element = FieldElement<U64F17>;
+
+    // Baby Bear Prime field with u32 montgomery backend.
+    type BabyBear = Babybear31PrimeField;
+    type BabyBearElement = FieldElement<BabyBear>;
+
+    // Prime field with modulus 23, using u64 montgomery backend of 6 limbs.
+    #[derive(Clone, Debug)]
+    struct U384Modulus23;
+    impl IsModulus<U384> for U384Modulus23 {
+        const MODULUS: U384 = UnsignedInteger::from_u64(23);
+    }
+    type U384F23 = U384PrimeField<U384Modulus23>;
+    type U384F23Element = FieldElement<U384F23>;
+
+    #[test]
+    fn test_reduced_biguint_conversion_u64_field() {
+        let value = BigUint::from(10u32);
+        let fe = U64F17Element::try_from(value.clone()).unwrap();
+        let back_to_biguint = fe.to_big_uint();
+        assert_eq!(value, back_to_biguint);
+    }
+
+    #[test]
+    fn test_reduced_biguint_conversion_baby_bear() {
+        let value = BigUint::from(1000u32);
+        let fe = BabyBearElement::from_reduced_big_uint(&value).unwrap();
+        assert_eq!(fe, BabyBearElement::from(1000));
+        let back_to_biguint = fe.to_big_uint();
+        assert_eq!(value, back_to_biguint);
+    }
+
+    #[test]
+    fn test_reduced_biguint_conversion_u384_field() {
+        let value = BigUint::from(22u32);
+        let fe = U384F23Element::from_reduced_big_uint(&value).unwrap();
+        let back_to_biguint = fe.to_big_uint();
+        assert_eq!(value, back_to_biguint);
+    }
+    #[test]
+    fn test_bn254_field_biguint_conversion() {
+        type BN254Element = FieldElement<BN254PrimeField>;
+        let value = BigUint::from(1001u32);
+        let fe = BN254Element::from_reduced_big_uint(&value).unwrap();
+        let back_to_biguint = fe.to_big_uint();
+        assert_eq!(value, back_to_biguint);
+    }
+
+    #[test]
+    fn non_reduced_biguint_value_conversion_errors_u64_field() {
+        let value = BigUint::from(17u32);
+        let result = U64F17Element::from_reduced_big_uint(&value);
+        assert_eq!(result, Err(ByteConversionError::ValueNotReduced));
+    }
+
+    #[test]
+    fn non_reduced_biguint_value_conversion_errors_baby_bear() {
+        let value = BigUint::from(2013265921u32);
+        let result = BabyBearElement::try_from(value);
+        assert_eq!(result, Err(ByteConversionError::ValueNotReduced));
+    }
+
+    #[test]
+    fn non_reduced_biguint_value_conversion_errors_u384_field() {
+        let value = BigUint::from(30u32);
+        let result = U384F23Element::try_from(value);
+        assert_eq!(result, Err(ByteConversionError::ValueNotReduced));
+    }
+
+    #[test]
+    fn test_hex_string_conversion_u64_field() {
+        let hex_str = "0x0a";
+        let fe = U64F17Element::from_hex_str(hex_str).unwrap();
+        assert_eq!(fe, U64F17Element::from(10));
+        assert_eq!(fe.to_hex_str(), "0x0A");
+    }
+
+    #[test]
+    fn test_hex_string_conversion_baby_bear() {
+        let hex_str = "0x77FFFFFF"; // 2013265919
+        let fe = BabyBearElement::from_hex_str(hex_str).unwrap();
+        assert_eq!(fe, BabyBearElement::from(2013265919));
+        assert_eq!(fe.to_hex_str(), "0x77FFFFFF");
+    }
+
+    #[test]
+    fn test_hex_string_conversion_u384_field() {
+        let hex_str = "0x14"; // 20
+        let fe = U384F23Element::from_hex_str(hex_str).unwrap();
+        assert_eq!(fe, U384F23Element::from(20));
+        assert_eq!(fe.to_hex_str(), "0x14");
+    }
+
+    #[test]
+    fn test_invalid_hex_string_u64_field() {
+        let hex_str = "0xzz";
+        let result = U64F17Element::from_hex_str(hex_str);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_invalid_hex_string_baby_bear() {
+        // modulus = 0x78000001
+        let hex_str = "0x78000001";
+        let result = BabyBearElement::from_hex_str(hex_str);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_empty_hex_string() {
+        let hex_str = "";
+        let result = U64F17Element::from_hex_str(hex_str);
+        assert!(result.is_err());
     }
 }
