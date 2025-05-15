@@ -105,6 +105,10 @@ impl<E: IsField> Polynomial<FieldElement<E>> {
     /// It's faster than naive multiplication when the degree of the polynomials is large enough (>=2**6).
     /// This works best with polynomials whose highest degree is equal to a power of 2 - 1.
     /// Will return an error if the degree of the resulting polynomial is greater than 2**63.
+    ///
+    /// This is an implementation of the fast division algorithm from
+    /// [Gathen's book](https://www.cambridge.org/core/books/modern-computer-algebra/DB3563D4013401734851CF683D2F03F0)
+    /// chapter 9
     pub fn fast_fft_multiplication<F: IsFFTField + IsSubFieldOf<E>>(
         &self,
         other: &Self,
