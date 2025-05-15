@@ -180,10 +180,12 @@ where
         });
     }
 
-    let mut verifier = Verifier::new(num_vars, oracle_factors, claimed_sum.clone())?;
+    let mut verifier = Verifier::new(num_vars, oracle_factors.clone(), claimed_sum.clone())?;
 
     let mut transcript = DefaultTranscript::<F>::default();
     transcript.append_bytes(b"initial_sum");
+    transcript.append_felt(&FieldElement::from(num_vars as u64));
+    transcript.append_felt(&FieldElement::from(oracle_factors.len() as u64));
     transcript.append_felt(&claimed_sum);
 
     // Process each round polynomial from the proof.

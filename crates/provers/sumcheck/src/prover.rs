@@ -151,7 +151,7 @@ where
     FieldElement<F>: Clone + Mul<Output = FieldElement<F>> + ByteConversion,
 {
     // Initialize the prover
-    let mut prover = Prover::new(factors)?;
+    let mut prover = Prover::new(factors.clone())?;
     let num_vars = prover.num_vars();
     // Compute the claimed sum C
     let claimed_sum = prover.compute_initial_sum()?;
@@ -159,6 +159,8 @@ where
     // Initialize Fiat-Shamir transcript
     let mut transcript = DefaultTranscript::<F>::default();
     transcript.append_bytes(b"initial_sum");
+    transcript.append_felt(&FieldElement::from(num_vars as u64));
+    transcript.append_felt(&FieldElement::from(factors.len() as u64));
     transcript.append_felt(&claimed_sum);
 
     let mut proof_polys = Vec::with_capacity(num_vars);
