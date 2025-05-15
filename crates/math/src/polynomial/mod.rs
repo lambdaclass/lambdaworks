@@ -335,6 +335,20 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
                 .collect(),
         }
     }
+
+    pub fn truncate(&self, k: usize) -> Self {
+        if k == 0 {
+            Self::zero()
+        } else {
+            Self::new(&self.coefficients[0..k.min(self.coefficients.len())])
+        }
+    }
+    pub fn reverse(&self, d: usize) -> Self {
+        let mut coeffs = self.coefficients.clone();
+        coeffs.resize(d + 1, FieldElement::zero());
+        coeffs.reverse();
+        Self::new(&coeffs)
+    }
 }
 
 impl<F: IsPrimeField> Polynomial<FieldElement<F>> {
@@ -1275,6 +1289,21 @@ mod tests {
         // 0
         let dpdx = px.differentiate();
         assert_eq!(dpdx, Polynomial::new(&[FE::new(0)]));
+    }
+
+    #[test]
+    fn test_reverse() {
+        let p = Polynomial::new(&[FE::new(3), FE::new(2), FE::new(1)]);
+        assert_eq!(
+            p.reverse(3),
+            Polynomial::new(&[FE::new(0), FE::new(1), FE::new(2), FE::new(3)])
+        );
+    }
+
+    #[test]
+    fn test_truncate() {
+        let p = Polynomial::new(&[FE::new(3), FE::new(2), FE::new(1)]);
+        assert_eq!(p.truncate(2), Polynomial::new(&[FE::new(3), FE::new(2)]));
     }
 
     #[test]
