@@ -140,7 +140,7 @@ impl<E: IsField> Polynomial<FieldElement<E>> {
         let d = n - m; // Degree of the quotient
         let a_rev = self.reverse(n);
         let b_rev = divisor.reverse(m);
-        let inv_b_rev = Self::invert_polynomial_mod::<F>(&b_rev, d + 1)?;
+        let inv_b_rev = b_rev.invert_polynomial_mod::<F>(d + 1)?;
         let q = a_rev
             .fast_fft_multiplication::<F>(&inv_b_rev)?
             .truncate(d + 1)
@@ -153,19 +153,21 @@ impl<E: IsField> Polynomial<FieldElement<E>> {
     /// Computes the inverse of polynomial P modulo x^k using Newton iteration.
     /// P must have an invertible constant term.
     pub fn invert_polynomial_mod<F: IsSubFieldOf<E> + IsFFTField>(
-        p: &Self,
+        &self,
         k: usize,
     ) -> Result<Self, FFTError> {
-        if p.coefficients.is_empty() || p.coefficients.iter().all(|c| c == &FieldElement::zero()) {
+        if self.coefficients.is_empty()
+            || self.coefficients.iter().all(|c| c == &FieldElement::zero())
+        {
             return Err(FieldError::DivisionByZero.into());
         }
-        let mut q = Self::new(&[p.coefficients[0].inv()?]);
+        let mut q = Self::new(&[self.coefficients[0].inv()?]);
         let mut current_precision = 1;
 
         let two = Self::new(&[FieldElement::<F>::one() + FieldElement::one()]);
         while current_precision < k {
             current_precision *= 2;
-            let temp = p
+            let temp = self
                 .fast_fft_multiplication::<F>(&q)?
                 .truncate(current_precision);
             let correction = &two - temp;
@@ -413,6 +415,12 @@ mod tests {
             fn test_fft_division_works(poly in non_zero_poly(7), other in non_zero_poly(7)) {
                 prop_assert_eq!(poly.fast_division::<F>(&other).unwrap(), poly.long_division_with_remainder(&other));
             }
+
+            #[test]
+            fn test_invert_polynomial_mod_works(poly in non_zero_poly(7), k in powers_of_two(4)) {
+                let inverted_poly = poly.invert_polynomial_mod::<F>(k).unwrap();
+                prop_assert_eq!((poly * inverted_poly).truncate(k), Polynomial::new(&[FE::one()]));
+            }
         }
 
         #[test]
@@ -527,6 +535,12 @@ mod tests {
             #[test]
             fn test_fft_division_works(poly in poly(7), other in non_zero_poly(7)) {
                 prop_assert_eq!(poly.fast_division::<F>(&other).unwrap(), poly.long_division_with_remainder(&other));
+            }
+
+            #[test]
+            fn test_invert_polynomial_mod_works(poly in non_zero_poly(7), k in powers_of_two(4)) {
+                let inverted_poly = poly.invert_polynomial_mod::<F>(k).unwrap();
+                prop_assert_eq!((poly * inverted_poly).truncate(k), Polynomial::new(&[FE::one()]));
             }
         }
     }
