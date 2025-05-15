@@ -1,18 +1,22 @@
-use super::Channel;
+use crate::evaluate_product_at_point;
+use crate::Channel;
 use lambdaworks_crypto::fiat_shamir::default_transcript::DefaultTranscript;
-use lambdaworks_math::field::element::FieldElement;
-use lambdaworks_math::field::traits::HasDefaultTranscript;
-use lambdaworks_math::field::traits::IsField;
-use lambdaworks_math::polynomial::{
-    dense_multilinear_poly::DenseMultilinearPolynomial, Polynomial,
+use lambdaworks_crypto::fiat_shamir::is_transcript::IsTranscript;
+use lambdaworks_math::{
+    field::{
+        element::FieldElement,
+        traits::{HasDefaultTranscript, IsField},
+    },
+    polynomial::{dense_multilinear_poly::DenseMultilinearPolynomial, Polynomial},
+    traits::ByteConversion,
 };
-use lambdaworks_math::traits::ByteConversion;
+use std::ops::Mul;
 use std::vec::Vec;
 
-pub enum VerifierRoundResult<F: IsField>
-where
-    <F as IsField>::BaseType: Send + Sync,
-{
+/// Represents the result of a single round of verification.
+#[derive(Debug)]
+pub enum VerifierRoundResult<F: IsField> {
+    /// The round was successful, providing the challenge for the next round.
     NextRound(FieldElement<F>),
     Final(bool),
 }
@@ -20,136 +24,137 @@ where
 #[derive(Debug)]
 pub enum VerifierError<F: IsField>
 where
-    <F as IsField>::BaseType: Send + Sync,
+    F::BaseType: Send + Sync,
 {
-    /// The sum of evaluations at 0 and 1 does not match the expected value.
+    /// The sum check g(0) + g(1) == expected failed.
     InconsistentSum {
         round: usize,
         s0: FieldElement<F>,
         s1: FieldElement<F>,
         expected: FieldElement<F>,
     },
-    /// Error when evaluating the oracle polynomial in the final round.
-    OracleEvaluationError,
-    /// Error when the degree of the univariate polynomial is greater than 1.
+    /// Error evaluating the product of oracle polynomials at the claimed point.
+    OracleEvaluationError(String),
+    /// The degree of the polynomial sent by the prover is invalid for the current round.
     InvalidDegree {
         round: usize,
         actual_degree: usize,
         max_allowed: usize,
     },
-    /// Error when the proof contains an incorrect number of polynomials.
+    /// The proof contains an incorrect number of polynomials.
     IncorrectProofLength { expected: usize, actual: usize },
-    /// This represents a code path that should never be reached.
-    Unreachable,
+    /// The list of oracle factors provided was empty.
+    MissingOracle,
+    /// Error indicating the Verifier is in an invalid state (e.g., inconsistent factors, unexpected round result).
+    InvalidState(String),
 }
 
-/// Verifier for the Sum-Check protocol using DenseMultilinearPolynomial.
+/// Represents the Verifier for the Sum-Check protocol operating on a product of DenseMultilinearPolynomials.
+#[derive(Debug)]
 pub struct Verifier<F: IsField>
 where
-    <F as IsField>::BaseType: Send + Sync,
+    F::BaseType: Send + Sync,
+    FieldElement<F>: Clone + Mul<Output = FieldElement<F>>,
 {
-    pub n: usize,
-    pub c_1: FieldElement<F>,
-    pub round: usize,
-    pub poly: Option<DenseMultilinearPolynomial<F>>,
-    pub last_val: FieldElement<F>,
-    pub challenges: Vec<FieldElement<F>>,
+    num_vars: usize,
+    round: usize,
+    /// The claimed factors \( P_i \) of the product, used for the final check.
+    oracle_factors: Vec<DenseMultilinearPolynomial<F>>,
+    current_sum: FieldElement<F>,
+    challenges: Vec<FieldElement<F>>,
 }
 
 impl<F: IsField> Verifier<F>
 where
-    <F as IsField>::BaseType: Send + Sync,
+    F::BaseType: Send + Sync,
+    FieldElement<F>: Clone + Mul<Output = FieldElement<F>>,
 {
+    /// Creates a new Verifier instance.
     pub fn new(
-        n: usize,
-        poly: Option<DenseMultilinearPolynomial<F>>,
-        c_1: FieldElement<F>,
-    ) -> Self {
-        Self {
-            n,
-            c_1,
-            round: 0,
-            poly,
-            last_val: FieldElement::zero(),
-            challenges: Vec::with_capacity(n),
+        num_vars: usize,
+        oracle_factors: Vec<DenseMultilinearPolynomial<F>>,
+        claimed_sum: FieldElement<F>,
+    ) -> Result<Self, VerifierError<F>> {
+        if oracle_factors.is_empty() {
+            // Need at least one factor for the product evaluation.
+            return Err(VerifierError::MissingOracle);
         }
+        if oracle_factors.iter().any(|p| p.num_vars() != num_vars) {
+            // All factors must operate on the same number of variables.
+            return Err(VerifierError::InvalidState(
+                "Oracle factors have inconsistent number of variables.".to_string(),
+            ));
+        }
+
+        Ok(Self {
+            num_vars,
+            round: 0,
+            oracle_factors,
+            // Starts with the initial claimed sum C
+            current_sum: claimed_sum,
+            challenges: Vec::with_capacity(num_vars),
+        })
     }
 
-    /// Executes round `j` of the verifier.
+    /// Executes a verification round based on the polynomial \( g_j \) received from the prover.
     pub fn do_round<C: Channel<F>>(
         &mut self,
-        univar: Polynomial<FieldElement<F>>,
-        channel: &mut C,
+        g_j: Polynomial<FieldElement<F>>,
+        transcript: &mut C,
     ) -> Result<VerifierRoundResult<F>, VerifierError<F>> {
-        // Check that the polynomial degree is at most 1 (univariate from multilinear)
-        let degree = univar.degree();
-        if degree > 1 {
+        // Check if we are past the expected number of rounds.
+        if self.round >= self.num_vars {
+            return Err(VerifierError::InvalidState(
+                "Round number exceeds number of variables.".to_string(),
+            ));
+        }
+
+        // 1. Check degree of g_j.
+        // The degree of g_j(X_j) = sum_{...} prod P_i(...) can be at most the number of factors.
+        let max_degree = self.oracle_factors.len();
+        if g_j.degree() > max_degree {
             return Err(VerifierError::InvalidDegree {
                 round: self.round,
-                actual_degree: degree,
-                max_allowed: 1,
+                actual_degree: g_j.degree(),
+                max_allowed: max_degree,
             });
         }
 
-        // Evaluate polynomial at 0 and 1 once, reusing the values.
-        let eval_0 = univar.evaluate(&FieldElement::<F>::zero());
-        let eval_1 = univar.evaluate(&FieldElement::<F>::one());
+        // 2. Check consistency: g_j(0) + g_j(1) == expected_sum (current_sum)
+        let zero = FieldElement::<F>::zero();
+        let one = FieldElement::<F>::one();
+        let eval_0 = g_j.evaluate(&zero);
+        let eval_1 = g_j.evaluate(&one);
+        let sum_evals = eval_0.clone() + eval_1.clone();
 
-        if self.round == 0 {
-            // Check intermediate consistency for round 0: s0 + s1 must equal c_1.
-            if &eval_0 + &eval_1 != self.c_1 {
-                return Err(VerifierError::InconsistentSum {
-                    round: self.round,
-                    s0: eval_0,
-                    s1: eval_1,
-                    expected: self.c_1.clone(),
-                });
-            }
-
-            channel.append_felt(&self.c_1);
-        } else {
-            let sum = &eval_0 + &eval_1;
-            // Check intermediate consistency: s0 + s1 must equal last_val.
-            if sum != self.last_val {
-                return Err(VerifierError::InconsistentSum {
-                    round: self.round,
-                    s0: eval_0,
-                    s1: eval_1,
-                    expected: self.last_val.clone(),
-                });
-            }
+        if sum_evals != self.current_sum {
+            // The prover's polynomial g_j does not match the expected sum from the previous round (or initial C).
+            return Err(VerifierError::InconsistentSum {
+                round: self.round,
+                s0: eval_0,
+                s1: eval_1,
+                expected: self.current_sum.clone(),
+            });
         }
 
-        // Append all coefficients of the univariate polynomial to the channel
-        for coeff in &univar.coefficients {
-            channel.append_felt(coeff);
-        }
-
-        // Draw a random challenge for the round.
-        let base_challenge = channel.draw_felt();
-        let r_j = &base_challenge + FieldElement::<F>::from(self.round as u64);
-
-        let intermediate_sum = univar.evaluate(&r_j);
-        self.last_val = intermediate_sum.clone();
-
-        if self.round < self.n - 1 {
-            channel.append_felt(&intermediate_sum);
-        }
-
+        // 3. Obtain challenge r_j for this round from the transcript.
+        let r_j = transcript.draw_felt();
         self.challenges.push(r_j.clone());
+
+        // 4. Update the expected sum for the *next* round: current_sum = g_j(r_j)
+        self.current_sum = g_j.evaluate(&r_j);
         self.round += 1;
 
-        if self.round == self.n {
-            // Final round
-            if let Some(ref poly) = self.poly {
-                let full_point = self.challenges.clone();
-                if let Ok(real_val) = poly.evaluate(full_point) {
-                    return Ok(VerifierRoundResult::Final(real_val == self.last_val));
-                } else {
-                    return Err(VerifierError::OracleEvaluationError);
+        // 5. Check if this is the final round.
+        if self.round == self.num_vars {
+            // Perform the final check: evaluate prod P_i(r1, ..., rn)
+            match evaluate_product_at_point(&self.oracle_factors, &self.challenges) {
+                Ok(expected_final_eval) => {
+                    let success = expected_final_eval == self.current_sum;
+                    Ok(VerifierRoundResult::Final(success))
                 }
+                Err(e) => Err(VerifierError::OracleEvaluationError(e)),
             }
-            Ok(VerifierRoundResult::Final(true))
         } else {
             Ok(VerifierRoundResult::NextRound(r_j))
         }
@@ -157,41 +162,70 @@ where
 }
 
 pub fn verify<F>(
-    n: usize,
+    num_vars: usize,
     claimed_sum: FieldElement<F>,
     proof_polys: Vec<Polynomial<FieldElement<F>>>,
-    oracle_poly: Option<DenseMultilinearPolynomial<F>>,
+    oracle_factors: Vec<DenseMultilinearPolynomial<F>>,
 ) -> Result<bool, VerifierError<F>>
 where
     F: IsField + HasDefaultTranscript,
-    <F as IsField>::BaseType: Send + Sync,
-    FieldElement<F>: ByteConversion,
+    F::BaseType: Send + Sync,
+    FieldElement<F>: Clone + Mul<Output = FieldElement<F>> + ByteConversion,
 {
-    // Verify that the proof contains the correct number of polynomials
-    let proof_len = proof_polys.len();
-    if proof_len != n {
+    // ensure the number of polynomials matches the number of variables.
+    if proof_polys.len() != num_vars {
         return Err(VerifierError::IncorrectProofLength {
-            expected: n,
-            actual: proof_len,
+            expected: num_vars,
+            actual: proof_polys.len(),
         });
     }
 
-    let mut verifier = Verifier::new(n, oracle_poly, claimed_sum);
-    let mut transcript = DefaultTranscript::<F>::default();
+    let mut verifier = Verifier::new(num_vars, oracle_factors.clone(), claimed_sum.clone())?;
 
-    for (i, univar) in proof_polys.into_iter().enumerate() {
-        match verifier.do_round(univar, &mut transcript)? {
+    let mut transcript = DefaultTranscript::<F>::default();
+    transcript.append_bytes(b"initial_sum");
+    transcript.append_felt(&FieldElement::from(num_vars as u64));
+    transcript.append_felt(&FieldElement::from(oracle_factors.len() as u64));
+    transcript.append_felt(&claimed_sum);
+
+    // Process each round polynomial from the proof.
+    for (j, g_j) in proof_polys.into_iter().enumerate() {
+        // Reconstruct the transcript state before drawing the challenge.
+        let round_label = format!("round_{}_poly", j);
+        transcript.append_bytes(round_label.as_bytes());
+
+        let coeffs = g_j.coefficients();
+        transcript.append_bytes(&(coeffs.len() as u64).to_be_bytes());
+        if coeffs.is_empty() {
+            transcript.append_felt(&FieldElement::zero());
+        } else {
+            for coeff in coeffs {
+                transcript.append_felt(coeff);
+            }
+        }
+
+        match verifier.do_round(g_j, &mut transcript)? {
             VerifierRoundResult::NextRound(_) => {
-                // Continue to next round
-                if i == n - 1 {
-                    return Err(VerifierError::OracleEvaluationError);
-                }
+                // Consistency checks passed, challenge r_j generated and stored.
+                // Continue to the next round.
+                continue;
             }
             VerifierRoundResult::Final(result) => {
-                return Ok(result);
+                // This was the last round (j == num_vars - 1).
+                if j == num_vars - 1 {
+                    // Return the final result from the last round check.
+                    return Ok(result);
+                } else {
+                    // Should not get Final result before the last round.
+                    return Err(VerifierError::InvalidState(
+                        "Final result obtained before the last round.".to_string(),
+                    ));
+                }
             }
         }
     }
 
-    Err(VerifierError::Unreachable)
+    Err(VerifierError::InvalidState(
+        "Verification loop finished unexpectedly.".to_string(),
+    ))
 }
