@@ -1,5 +1,6 @@
 use crate::fft::errors::FFTError;
 
+use crate::field::errors::FieldError;
 use crate::field::traits::{IsField, IsSubFieldOf};
 use crate::{
     field::{
@@ -104,6 +105,10 @@ impl<E: IsField> Polynomial<FieldElement<E>> {
     /// It's faster than naive multiplication when the degree of the polynomials is large enough (>=2**6).
     /// This works best with polynomials whose highest degree is equal to a power of 2 - 1.
     /// Will return an error if the degree of the resulting polynomial is greater than 2**63.
+    ///
+    /// This is an implementation of the fast division algorithm from
+    /// [Gathen's book](https://www.cambridge.org/core/books/modern-computer-algebra/DB3563D4013401734851CF683D2F03F0)
+    /// chapter 9
     pub fn fast_fft_multiplication<F: IsFFTField + IsSubFieldOf<E>>(
         &self,
         other: &Self,
@@ -114,6 +119,69 @@ impl<E: IsField> Polynomial<FieldElement<E>> {
         let r = p.into_iter().zip(q).map(|(a, b)| a * b).collect::<Vec<_>>();
 
         Polynomial::interpolate_fft::<F>(&r)
+    }
+
+    /// Divides two polynomials with remainder.
+    /// This is faster than the naive division if the degree of the divisor
+    /// is greater than the degree of the dividend and both degrees are large enough.
+    pub fn fast_division<F: IsSubFieldOf<E> + IsFFTField>(
+        &self,
+        divisor: &Self,
+    ) -> Result<(Self, Self), FFTError> {
+        let n = self.degree();
+        let m = divisor.degree();
+        if divisor.coefficients.is_empty()
+            || divisor
+                .coefficients
+                .iter()
+                .all(|c| c == &FieldElement::zero())
+        {
+            return Err(FieldError::DivisionByZero.into());
+        }
+        if n < m {
+            return Ok((Self::zero(), self.clone()));
+        }
+        let d = n - m; // Degree of the quotient
+        let a_rev = self.reverse(n);
+        let b_rev = divisor.reverse(m);
+        let inv_b_rev = b_rev.invert_polynomial_mod::<F>(d + 1)?;
+        let q = a_rev
+            .fast_fft_multiplication::<F>(&inv_b_rev)?
+            .truncate(d + 1)
+            .reverse(d);
+
+        let r = self - q.fast_fft_multiplication::<F>(divisor)?;
+        Ok((q, r))
+    }
+
+    /// Computes the inverse of polynomial P modulo x^k using Newton iteration.
+    /// P must have an invertible constant term.
+    pub fn invert_polynomial_mod<F: IsSubFieldOf<E> + IsFFTField>(
+        &self,
+        k: usize,
+    ) -> Result<Self, FFTError> {
+        if self.coefficients.is_empty()
+            || self.coefficients.iter().all(|c| c == &FieldElement::zero())
+        {
+            return Err(FieldError::DivisionByZero.into());
+        }
+        let mut q = Self::new(&[self.coefficients[0].inv()?]);
+        let mut current_precision = 1;
+
+        let two = Self::new(&[FieldElement::<F>::one() + FieldElement::one()]);
+        while current_precision < k {
+            current_precision *= 2;
+            let temp = self
+                .fast_fft_multiplication::<F>(&q)?
+                .truncate(current_precision);
+            let correction = &two - temp;
+            q = q
+                .fast_fft_multiplication::<F>(&correction)?
+                .truncate(current_precision);
+        }
+
+        // Final truncation to desired degree k
+        Ok(q.truncate(k))
     }
 }
 
@@ -274,12 +342,22 @@ mod tests {
             }
         }
         prop_compose! {
+            fn non_empty_field_vec(max_exp: u8)(vec in collection::vec(field_element(), 1 << max_exp)) -> Vec<FE> {
+                vec
+            }
+        }
+        prop_compose! {
             fn non_power_of_two_sized_field_vec(max_exp: u8)(vec in collection::vec(field_element(), 2..1<<max_exp).prop_filter("Avoid polynomials of size power of two", |vec| !vec.len().is_power_of_two())) -> Vec<FE> {
                 vec
             }
         }
         prop_compose! {
             fn poly(max_exp: u8)(coeffs in field_vec(max_exp)) -> Polynomial<FE> {
+                Polynomial::new(&coeffs)
+            }
+        }
+        prop_compose! {
+            fn non_zero_poly(max_exp: u8)(coeffs in non_empty_field_vec(max_exp)) -> Polynomial<FE> {
                 Polynomial::new(&coeffs)
             }
         }
@@ -336,6 +414,17 @@ mod tests {
             fn test_fft_multiplication_works(poly in poly(7), other in poly(7)) {
                 prop_assert_eq!(poly.fast_fft_multiplication::<F>(&other).unwrap(), poly * other);
             }
+
+            #[test]
+            fn test_fft_division_works(poly in non_zero_poly(7), other in non_zero_poly(7)) {
+                prop_assert_eq!(poly.fast_division::<F>(&other).unwrap(), poly.long_division_with_remainder(&other));
+            }
+
+            #[test]
+            fn test_invert_polynomial_mod_works(poly in non_zero_poly(7), k in powers_of_two(4)) {
+                let inverted_poly = poly.invert_polynomial_mod::<F>(k).unwrap();
+                prop_assert_eq!((poly * inverted_poly).truncate(k), Polynomial::new(&[FE::one()]));
+            }
         }
 
         #[test]
@@ -372,12 +461,22 @@ mod tests {
             }
         }
         prop_compose! {
+            fn non_empty_field_vec(max_exp: u8)(vec in collection::vec(field_element(), 1 << max_exp)) -> Vec<FE> {
+                vec
+            }
+        }
+        prop_compose! {
             fn non_power_of_two_sized_field_vec(max_exp: u8)(vec in collection::vec(field_element(), 2..1<<max_exp).prop_filter("Avoid polynomials of size power of two", |vec| !vec.len().is_power_of_two())) -> Vec<FE> {
                 vec
             }
         }
         prop_compose! {
             fn poly(max_exp: u8)(coeffs in field_vec(max_exp)) -> Polynomial<FE> {
+                Polynomial::new(&coeffs)
+            }
+        }
+        prop_compose! {
+            fn non_zero_poly(max_exp: u8)(coeffs in non_empty_field_vec(max_exp)) -> Polynomial<FE> {
                 Polynomial::new(&coeffs)
             }
         }
@@ -435,6 +534,17 @@ mod tests {
             #[test]
             fn test_fft_multiplication_works(poly in poly(7), other in poly(7)) {
                 prop_assert_eq!(poly.fast_fft_multiplication::<F>(&other).unwrap(), poly * other);
+            }
+
+            #[test]
+            fn test_fft_division_works(poly in poly(7), other in non_zero_poly(7)) {
+                prop_assert_eq!(poly.fast_division::<F>(&other).unwrap(), poly.long_division_with_remainder(&other));
+            }
+
+            #[test]
+            fn test_invert_polynomial_mod_works(poly in non_zero_poly(7), k in powers_of_two(4)) {
+                let inverted_poly = poly.invert_polynomial_mod::<F>(k).unwrap();
+                prop_assert_eq!((poly * inverted_poly).truncate(k), Polynomial::new(&[FE::one()]));
             }
         }
     }

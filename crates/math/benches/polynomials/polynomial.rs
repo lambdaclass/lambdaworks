@@ -59,6 +59,17 @@ pub fn polynomial_benchmarks(c: &mut Criterion) {
         bench.iter(|| black_box(&x_poly) * black_box(&y_poly));
     });
 
+    let y_poly = rand_complex_mersenne_poly(big_order - 2);
+
+    group.bench_function("fast div big poly", |bench| {
+        bench
+            .iter(|| black_box(&x_poly).fast_division::<Degree2ExtensionField>(black_box(&y_poly)));
+    });
+
+    group.bench_function("slow div big poly", |bench| {
+        bench.iter(|| black_box(x_poly.clone()).long_division_with_remainder(black_box(&y_poly)));
+    });
+
     group.bench_function("div", |bench| {
         let x_poly = rand_poly(order);
         let y_poly = rand_poly(order);
