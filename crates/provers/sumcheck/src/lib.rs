@@ -169,10 +169,10 @@ where
     F::BaseType: Send + Sync,
     FieldElement<F>: Clone + Mul<Output = FieldElement<F>>,
 {
-    if factors.is_empty() {
-        return Err("Cannot sum product of zero factors.".to_string());
-    }
-    let num_total_vars = factors[0].num_vars();
+    let num_total_vars = factors
+        .first()
+        .ok_or_else(|| "Cannot sum product of zero factors.".to_string())?
+        .num_vars();
     let num_prefix_vars = prefix.len();
 
     if num_prefix_vars > num_total_vars {
