@@ -18,7 +18,7 @@ type FE = FieldElement<Stark252PrimeField>;
 
 fn load_fe_from_file(file_path: &String) -> Result<FE, io::Error> {
     FE::from_hex(&fs::read_to_string(file_path)?.replace('\n', ""))
-        .map_err(|e| io::Error::new(io::ErrorKind::Other, format!("{:?}", e)))
+        .map_err(|e| io::Error::other(format!("{:?}", e)))
 }
 
 fn load_tree_values(tree_path: &String) -> Result<Vec<FE>, io::Error> {
@@ -32,7 +32,7 @@ fn generate_merkle_tree(tree_path: String) -> Result<(), io::Error> {
     let values: Vec<FE> = load_tree_values(&tree_path)?;
 
     let merkle_tree = MerkleTree::<TreePoseidon<PoseidonCairoStark252>>::build(&values)
-        .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "requested empty tree"))?;
+        .ok_or_else(|| io::Error::other("requested empty tree"))?;
     let root = merkle_tree.root.representative().to_string();
     println!("Generated merkle tree with root: {:?}", root);
 
@@ -53,10 +53,10 @@ fn generate_merkle_tree(tree_path: String) -> Result<(), io::Error> {
 fn generate_merkle_proof(tree_path: String, pos: usize) -> Result<(), io::Error> {
     let values: Vec<FE> = load_tree_values(&tree_path)?;
     let merkle_tree = MerkleTree::<TreePoseidon<PoseidonCairoStark252>>::build(&values)
-        .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "requested empty tree"))?;
+        .ok_or_else(|| io::Error::other("requested empty tree"))?;
 
     let Some(proof) = merkle_tree.get_proof_by_pos(pos) else {
-        return Err(io::Error::new(io::ErrorKind::Other, "Index out of bounds"));
+        return Err(io::Error::other("Index out of bounds"));
     };
 
     let proof_path = tree_path.replace(".csv", format!("_proof_{pos}.json").as_str());
@@ -67,7 +67,7 @@ fn generate_merkle_proof(tree_path: String, pos: usize) -> Result<(), io::Error>
 
     let leaf_value = values
         .get(pos)
-        .ok_or_else(|| io::Error::new(io::ErrorKind::Other, "Invalid position"))?
+        .ok_or_else(|| io::Error::other("Invalid position"))?
         .representative()
         .to_string();
 
