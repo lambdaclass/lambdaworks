@@ -96,6 +96,57 @@ impl TowerFieldElement {
         format!("{:0width$b}", self.value, width = self.num_bits())
     }
 
+    /// Returns polynomial representation with variables
+    #[cfg(feature = "std")]
+    pub fn to_polynomial_string(&self) -> String {
+        if self.is_zero() {
+            return "0".to_string();
+        }
+
+        debug_assert!(
+            self.value < (1 << self.num_bits()),
+            "Invalid value for level"
+        );
+
+        let mut terms = Vec::new();
+        let num_possible_monomials = self.num_bits();
+        let num_vars = self.num_level();
+
+        // Collect terms in reverse order to get higher degree terms first
+        for i in (0..num_possible_monomials).rev() {
+            if (self.value >> i) & 1 == 1 {
+                let term = match i {
+                    0 => "1".to_string(),
+                    1 => "x_0".to_string(),
+                    2 => "x_1".to_string(),
+                    3 => "x_1 x_0".to_string(),
+                    4 => "x_2".to_string(),
+                    5 => "x_2 x_0".to_string(),
+                    6 => "x_2 x_1".to_string(),
+                    7 => "x_2 x_1 x_0".to_string(),
+                    _ => {
+                        let mut monomial_str = String::new();
+                        let mut first = true;
+                        // Iterate in reverse to get higher indices first
+                        for j in (0..num_vars).rev() {
+                            if ((i >> j) & 1) == 1 {
+                                if !first {
+                                    monomial_str.push('x');
+                                }
+                                monomial_str.push_str(&format!("_{}", j));
+                                first = false;
+                            }
+                        }
+                        monomial_str
+                    }
+                };
+                terms.push(term);
+            }
+        }
+
+        terms.join(" + ")
+    }
+
     /// Splits element into high and low parts.
     /// For example, if a = xy + y + x, then a = (x + 1)y + x and
     /// therefore, a_hi = x + 1 and a_lo = x.
@@ -466,7 +517,31 @@ mod tests {
         let a = TowerFieldElement::new(0b10, 1); // x
         let b = TowerFieldElement::new(0b0100, 2); // y
         let c = TowerFieldElement::new(0b1000, 2); // yx
+
         assert_eq!(a * b, c);
+    }
+
+    #[test]
+    fn mul_in_level_3() {
+        let a = TowerFieldElement::new(0b01000010, 3);
+        let b = TowerFieldElement::new(0b00100101, 3);
+        let result = a * b;
+
+        println!(
+            "a = {} (binary) = {} (polynomial)",
+            a.to_binary_string(),
+            a.to_polynomial_string()
+        );
+        println!(
+            "b = {} (binary) = {} (polynomial)",
+            b.to_binary_string(),
+            b.to_polynomial_string()
+        );
+        println!(
+            "result = {} (binary) = {} (polynomial)",
+            result.to_binary_string(),
+            result.to_polynomial_string()
+        );
     }
 
     #[test]

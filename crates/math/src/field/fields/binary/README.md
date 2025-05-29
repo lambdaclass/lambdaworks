@@ -33,12 +33,14 @@ $$\begin{aligned}
 
 **Level 2:** At level 2, we define the field extension $GF(2^{2^2})$. In this case the elements are polynomials with binary coefficients and two variables, $x_0$ and $x_1$. The first one keeps satisfying ${x_0}^2 = x_0 + 1$ and in addition the second one satisfies ${x_1}^2 = x_1 \cdot x_0 + 1$. This means that the polynomials are lineal in each variable. Therefore, this field extension has $2^{2^2}$ elements:
 
-$\begin{array}{llll}
-0000 = 0  & 0100 = x_1  & 1000 = x_1x_0 & 1100 = x_1x_0 + x_1 \\
-0001 = 1  & 0101 = x_1 + 1  & 1001 = x_1x_0 + 1  & 1101 = x_1x_0 + x_1 + 1 \\
-0010 = x_0  & 0110 = x_1 + x_0  & 1010 = x_1x_0 + x_0  & 1110 = x_1x_0 + x_1 + x_0 \\
-0011 = x_0 + 1  & 0111 = x_1 + x_0 + 1  & 1011 = x_1x_0 + x_0 + 1  & 1111 = x_1x_0 + x_1 + x_0 + 1
-\end{array}$
+$$
+\begin{array}{llll}
+0000 = 0 & 0100 = x_1 & 1000 = x_1x_0 & 1100 = x_1x_0 + x_1 \\
+0001 = 1 & 0101 = x_1 + 1 & 1001 = x_1x_0 + 1 & 1101 = x_1x_0 + x_1 + 1 \\
+0010 = x_0 & 0110 = x_1 + x_0 & 1010 = x_1x_0 + x_0 & 1110 = x_1x_0 + x_1 + x_0 \\
+0011 = x_0 + 1 & 0111 = x_1 + x_0 + 1 & 1011 = x_1x_0 + x_0 + 1 & 1111 = x_1x_0 + x_1 + x_0 + 1
+\end{array}
+$$ 
 
 **Level 3:** At level 3, we define $GF(2^{2^3})$ in the same way. This time the polynomials have three variables $x_0$, $x_1$ and $x_2$. The first two variables satisfy the equations mentioned before and in addition the last one satisfies ${x_2}^2 = x_2 \cdot x_1 + 1$. This field extension has $2^{2^3}$ elements.
 
