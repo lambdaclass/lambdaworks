@@ -8,7 +8,7 @@ The following links, repos and projects have been important in the development o
 - [Domb's fast modular multiplication](http://ingonyama.com/s/modular_multiplication.pdf)
 - [Rust crypto bigint](https://github.com/RustCrypto/crypto-bigint)
 - [Cairo felt](https://github.com/lambdaclass/cairo-rs/blob/main/felt/src/lib.rs)
-- [Various optimizations](https://github.com/mratsim/constantine/blob/master/docs/optimizations.md)
+- [Various optimizations](https://github.com/mratsim/constantine/blob/master/docs/crypto-optimizations.md)
 
 ## PLONK
 - [Simplified Plonk](https://hackmd.io/vUGG8CO_Rk2iEjruBL_gGw?view#Note-A-Mind-Boggling-Issue-with-Ultra-Plonk)
