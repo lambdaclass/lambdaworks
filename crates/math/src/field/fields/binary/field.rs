@@ -517,7 +517,6 @@ mod tests {
         let a = TowerFieldElement::new(0b10, 1); // x
         let b = TowerFieldElement::new(0b0100, 2); // y
         let c = TowerFieldElement::new(0b1000, 2); // yx
-
         assert_eq!(a * b, c);
     }
 
