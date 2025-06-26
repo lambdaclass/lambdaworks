@@ -11,6 +11,7 @@ members = [
     "crates/provers/plonk",
     "crates/provers/stark",
     "crates/provers/sumcheck",
+    "crates/provers/gkr",
     "crates/provers/winterfell_adapter",
     "examples/merkle-tree-cli",
     "examples/prove-miden",
@@ -38,6 +39,7 @@ lambdaworks-math = { path = "./crates/math", version = "0.12.0", default-feature
 lambdaworks-groth16 = { path = "./crates/provers/groth16" }
 lambdaworks-circom-adapter = { path = "./crates/provers/groth16/circom-adapter" }
 lambdaworks-sumcheck = { path = "./crates/provers/sumcheck" }
+lambdaworks-gkr = { path = "./crates/provers/gkr" }
 lambdaworks-winterfell-adapter = { path = "./crates/provers/winterfell_adapter" }
 stark-platinum-prover = { path = "./crates/provers/stark" }
 iai-callgrind = "0.3.1"
