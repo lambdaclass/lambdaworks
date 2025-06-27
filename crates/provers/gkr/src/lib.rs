@@ -233,6 +233,10 @@ mod tests {
     type F = U64PrimeField<MODULUS>;
     type FE = FieldElement<F>;
 
+    const MODULUS23: u64 = 23;
+    type F23 = U64PrimeField<MODULUS23>;
+    type F23E = FieldElement<F23>;
+
     /// Create the circuit from Thaler's book (Figure 4.12)
     fn circuit_from_book() -> Circuit {
         Circuit::new(
@@ -269,6 +273,39 @@ mod tests {
             ],
             8,
         )
+    }
+
+    fn circuit_from_lambda() -> Circuit {
+        Circuit::new(
+            vec![
+                CircuitLayer::new(vec![
+                    Gate::new(GateType::Mul, [0, 1]),
+                    Gate::new(GateType::Add, [2, 3]),
+                ]),
+                CircuitLayer::new(vec![
+                    Gate::new(GateType::Mul, [0, 1]),
+                    Gate::new(GateType::Add, [0, 0]),
+                    Gate::new(GateType::Add, [0, 1]),
+                    Gate::new(GateType::Mul, [0, 1]),
+                ]),
+            ],
+            2,
+        )
+    }
+
+    #[test]
+    fn test_circuit_evaluation_from_lambda() {
+        let circuit = circuit_from_lambda();
+        let input = [F23E::from(3), F23E::from(1)];
+        let evaluation = circuit.evaluate(&input);
+        // Expected layers: input -> [3, 6, 4, 3] -> [18, 7]
+        assert_eq!(evaluation.layers.len(), 3);
+        //assert_eq!(evaluation.layers[0], [F23E::from(18), F23E::from(7)]); // output
+        assert_eq!(
+            evaluation.layers[1],
+            [F23E::from(3), F23E::from(6), F23E::from(4), F23E::from(3)]
+        ); // middle
+        assert_eq!(evaluation.layers[2], input.to_vec()); // input
     }
 
     #[test]
@@ -439,9 +476,85 @@ mod tests {
     }
 
     #[test]
+    fn test_gkr_protocol_lambda() {
+        let circuit = circuit_from_lambda();
+        let input = [F23E::from(3), F23E::from(1)];
+
+        println!("\n=== GKR Protocol Test (three layers) ===");
+        println!("Input: {:?}", input);
+
+        // Evaluate the circuit
+        let evaluation = circuit.evaluate(&input);
+        println!("Expected output: {:?}", evaluation.layers[0]);
+
+        // Generate proof
+        println!("\n--- Generating proof ---");
+        let proof_result = gkr_prove(&circuit, &evaluation);
+        assert!(
+            proof_result.is_ok(),
+            "Proof generation failed: {:?}",
+            proof_result.err()
+        );
+
+        let proof = proof_result.unwrap();
+        println!("Proof generated successfully!");
+        println!("Number of sumcheck proofs: {}", proof.sumcheck_proofs.len());
+        println!("Number of claims: {}", proof.claims_phase2.len());
+
+        // Verify proof
+        println!("\n--- Verifying proof ---");
+        let verification_result = gkr_verify(&proof, &circuit, &evaluation);
+        assert!(
+            verification_result.is_ok(),
+            "Verification failed: {:?}",
+            verification_result.err()
+        );
+
+        let is_valid = verification_result.unwrap();
+        println!(
+            "Verification result: {}",
+            if is_valid { "ACCEPTED" } else { "REJECTED" }
+        );
+        assert!(is_valid, "Proof should be valid");
+
+        println!("GKR protocol test three layers PASSED! ✓");
+    }
+
+    #[test]
     fn test_gkr_complete_verification() {
         let circuit = circuit_from_book();
         let input = [FE::from(3), FE::from(2), FE::from(3), FE::from(1)];
+
+        println!("\n=== GKR Complete Verification Test ===");
+
+        // Evaluate the circuit
+        let evaluation = circuit.evaluate(&input);
+
+        // Generate proof
+        let proof = gkr_prove(&circuit, &evaluation).expect("Proof generation failed");
+
+        // Complete verification including input check
+        let verification_result = gkr_verify_complete(&proof, &circuit, &input);
+        assert!(
+            verification_result.is_ok(),
+            "Complete verification failed: {:?}",
+            verification_result.err()
+        );
+
+        let is_valid = verification_result.unwrap();
+        println!(
+            "Complete verification result: {}",
+            if is_valid { "ACCEPTED" } else { "REJECTED" }
+        );
+        assert!(is_valid, "Complete proof should be valid");
+
+        println!("GKR complete verification test PASSED! ✓");
+    }
+
+    #[test]
+    fn test_gkr_complete_verification_lambda() {
+        let circuit = circuit_from_lambda();
+        let input = [F23E::from(3), F23E::from(1)];
 
         println!("\n=== GKR Complete Verification Test ===");
 
