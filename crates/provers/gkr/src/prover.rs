@@ -18,6 +18,46 @@ pub enum ProverError {
     SumcheckFailed,
 }
 
+/// Builds the GKR polynomial for a given layer `i` by combining the wiring predicates
+/// with the evaluations of the next layer.
+///
+/// The GKR polynomial is defined as:
+/// f(b, c) = add(b, c) * (W(b) + W(c)) + mul(b, c) * (W(b) * W(c))
+pub(crate) fn build_gkr_polynomial<F: IsField>(
+    circuit: &Circuit,
+    r_i: &[FieldElement<F>],
+    evaluation: &CircuitEvaluation<FieldElement<F>>,
+    layer_idx: usize,
+) -> DenseMultilinearPolynomial<F>
+where
+    <F as IsField>::BaseType: Send + Sync + Copy,
+{
+    // Get the multilinear extensions of the wiring predicates fixed at r_i
+    let add_i_poly = circuit.add_i_ext::<F>(r_i, layer_idx);
+    let mul_i_poly = circuit.mul_i_ext::<F>(r_i, layer_idx);
+    let w_next_poly = DenseMultilinearPolynomial::new(evaluation.layers[layer_idx + 1].clone());
+
+    let add_i_evals = add_i_poly.to_evaluations();
+    let mul_i_evals = mul_i_poly.to_evaluations();
+    let w_next_evals = w_next_poly.to_evaluations();
+
+    let num_vars_next = circuit.num_vars_at(layer_idx + 1).unwrap_or(0);
+    let mut gkr_poly_evals = Vec::with_capacity(1 << (2 * num_vars_next));
+
+    // Construct the GKR polynomial evaluations directly
+    for c_idx in 0..(1 << num_vars_next) {
+        for b_idx in 0..(1 << num_vars_next) {
+            let bc_idx = b_idx + (c_idx << num_vars_next);
+            let w_b = &w_next_evals[b_idx];
+            let w_c = &w_next_evals[c_idx];
+            let gkr_eval = &add_i_evals[bc_idx] * (w_b + w_c) + &mul_i_evals[bc_idx] * (w_b * w_c);
+            gkr_poly_evals.push(gkr_eval);
+        }
+    }
+
+    DenseMultilinearPolynomial::new(gkr_poly_evals)
+}
+
 /// Generate a GKR proof
 /// This implements the prover side of the GKR protocol
 pub fn generate_proof<F>(
@@ -33,6 +73,7 @@ where
     let mut sumcheck_proofs = vec![];
     let mut claims_phase2 = vec![];
     let mut layer_commitments = vec![];
+    let mut layer_claims = vec![];
 
     // Generate commitments to layer evaluations
     for layer_evals in &evaluation.layers {
@@ -53,13 +94,11 @@ where
 
     // For each layer, run the GKR protocol
     for i in 0..circuit.layers().len() {
-        // For simplicity, we'll use the layer evaluations directly as the polynomial
-        // In a real implementation, this would construct the proper GKR polynomial
-        let next_layer_evals = &evaluation.layers[i + 1];
-        let g_i_mle = DenseMultilinearPolynomial::new(next_layer_evals.clone());
+        let gkr_poly = build_gkr_polynomial(circuit, &r_i, evaluation, i);
+        let w_next_poly = DenseMultilinearPolynomial::new(evaluation.layers[i + 1].clone());
 
-        // Run sumcheck on the layer polynomial
-        let (sum, proof) = prove(vec![g_i_mle]).map_err(|_| ProverError::SumcheckFailed)?;
+        // Run sumcheck on the GKR polynomial
+        let (sum, proof) = prove(vec![gkr_poly]).map_err(|_| ProverError::SumcheckFailed)?;
 
         // Update transcript and store results
         transcript.append_bytes(&sum.to_bytes_be());
@@ -84,10 +123,10 @@ where
             .map(|(bi, ci)| bi.clone() + r_last.clone() * (ci.clone() - bi.clone()))
             .collect();
 
-        // Evaluate the next layer at the new point and add to transcript
-        let w_next_poly = DenseMultilinearPolynomial::new(evaluation.layers[i + 1].clone());
+        // Evaluate W_{i+1} at the new point and add to transcript
         if let Ok(next_claim) = w_next_poly.evaluate(r_i_next.clone()) {
             transcript.append_bytes(&next_claim.to_bytes_be());
+            layer_claims.push(next_claim);
         }
 
         r_i = r_i_next;
@@ -113,13 +152,14 @@ where
         .evaluate(final_point.clone())
         .unwrap_or_else(|_| FieldElement::zero());
 
-    // Add the final claim to claims_phase2
-    claims_phase2.push(final_claim);
+    // Add the final claim to layer_claims (this is like m.last() in the reference)
+    layer_claims.push(final_claim);
 
     Ok(crate::Proof {
         sumcheck_proofs,
         claims_phase2,
         layer_commitments,
         final_point,
+        layer_claims,
     })
 }

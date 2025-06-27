@@ -1,4 +1,5 @@
 use crate::circuit::{Circuit, CircuitEvaluation};
+use crate::prover::build_gkr_polynomial;
 use crate::Proof;
 use lambdaworks_crypto::fiat_shamir::default_transcript::DefaultTranscript;
 use lambdaworks_crypto::fiat_shamir::is_transcript::IsTranscript;
@@ -58,21 +59,23 @@ impl Verifier {
                 return Err(VerifierError::InconsistentEvaluation);
             };
 
-            // Use the real layer evaluations from the circuit evaluation
-            let next_layer_evals = &evaluation.layers[layer_idx + 1];
-            let g_i_mle = DenseMultilinearPolynomial::new(next_layer_evals.clone());
+            // Build the GKR polynomial using the same logic as the prover
+            let gkr_poly = build_gkr_polynomial(circuit, &r_i, evaluation, layer_idx);
 
             // Verify the sumcheck proof
             let verification_result = verify(
-                g_i_mle.num_vars(),
+                gkr_poly.num_vars(),
                 claimed_sum.clone(),
                 sumcheck_proof.clone(),
-                vec![g_i_mle],
+                vec![gkr_poly],
             );
 
             if verification_result.is_err() || !verification_result.unwrap() {
                 return Err(VerifierError::SumcheckFailed);
             }
+
+            // Update transcript with the claimed sum to keep in sync with the prover
+            transcript.append_bytes(&claimed_sum.to_bytes_be());
 
             // Sample challenges for the next round (same as prover)
             let k_next = circuit.num_vars_at(layer_idx + 1).unwrap_or(0);
@@ -89,13 +92,9 @@ impl Verifier {
                 .map(|(bi, ci)| bi.clone() + r_last.clone() * (ci.clone() - bi.clone()))
                 .collect();
 
-            // Update transcript with the next claim
-            let next_claim = proof
-                .claims_phase2
-                .get(layer_idx)
-                .cloned()
-                .unwrap_or_default();
-            transcript.append_bytes(&next_claim.to_bytes_be());
+            // Update transcript with the next layer's claim from the proof
+            let next_layer_claim = proof.layer_claims[layer_idx].clone();
+            transcript.append_bytes(&next_layer_claim.to_bytes_be());
 
             r_i = r_i_next;
         }

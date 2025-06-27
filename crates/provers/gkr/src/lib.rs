@@ -7,8 +7,6 @@ use self::{
     prover::{generate_proof, ProverError},
     verifier::{Verifier, VerifierError},
 };
-use lambdaworks_crypto::fiat_shamir::default_transcript::DefaultTranscript;
-use lambdaworks_crypto::fiat_shamir::is_transcript::IsTranscript;
 use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::traits::{HasDefaultTranscript, IsField};
 use lambdaworks_math::polynomial::dense_multilinear_poly::DenseMultilinearPolynomial;
@@ -18,9 +16,10 @@ use lambdaworks_math::traits::ByteConversion;
 #[derive(Debug, Clone)]
 pub struct Proof<F: IsField> {
     pub sumcheck_proofs: Vec<Vec<lambdaworks_math::polynomial::Polynomial<FieldElement<F>>>>,
-    pub claims_phase2: Vec<FieldElement<F>>,
+    pub claims_phase2: Vec<FieldElement<F>>, // Sumcheck claims
     pub layer_commitments: Vec<FieldElement<F>>, // Commitments to layer evaluations
-    pub final_point: Vec<FieldElement<F>>,       // Final random point for input verification
+    pub final_point: Vec<FieldElement<F>>,   // Final random point for input verification
+    pub layer_claims: Vec<FieldElement<F>>,  // Claims for each layer (like m in reference)
 }
 
 /// The polynomial `W` that is used in the GKR protocol.
@@ -213,9 +212,9 @@ where
         .evaluate(final_point.to_vec())
         .map_err(|_| VerifierError::InconsistentEvaluation)?;
 
-    // Get the final claim from the proof (like self.m.last() in the reference)
+    // Get the final layer claim (like self.m.last() in the reference)
     let final_claim = proof
-        .claims_phase2
+        .layer_claims
         .last()
         .ok_or(VerifierError::InconsistentEvaluation)?;
 

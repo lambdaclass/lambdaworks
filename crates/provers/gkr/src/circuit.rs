@@ -170,9 +170,9 @@ impl Circuit {
             .unwrap_or(self.num_inputs) as f64)
             .log2() as usize;
 
-        for c in 0..1 << num_vars_next {
-            for b in 0..1 << num_vars_next {
-                for a in 0..1 << num_vars_current {
+        for a in 0..1 << num_vars_current {
+            for c in 0..1 << num_vars_next {
+                for b in 0..1 << num_vars_next {
                     add_i_evals.push(if self.add_i(i, a, b, c) {
                         FieldElement::one()
                     } else {
@@ -208,9 +208,9 @@ impl Circuit {
             .unwrap_or(self.num_inputs) as f64)
             .log2() as usize;
 
-        for c in 0..1 << num_vars_next {
-            for b in 0..1 << num_vars_next {
-                for a in 0..1 << num_vars_current {
+        for a in 0..1 << num_vars_current {
+            for c in 0..1 << num_vars_next {
+                for b in 0..1 << num_vars_next {
                     mul_i_evals.push(if self.mul_i(i, a, b, c) {
                         FieldElement::one()
                     } else {
