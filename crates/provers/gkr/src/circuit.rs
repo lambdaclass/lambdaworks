@@ -161,6 +161,7 @@ impl Circuit {
         F::BaseType: Send + Sync + Copy,
     {
         let mut add_i_evals: Vec<FieldElement<F>> = vec![];
+        // CHANGE THIS. put it in the struct
         let num_vars_current = (self.layers[i].len() as f64).log2() as usize;
 
         let num_vars_next = (self
@@ -170,9 +171,12 @@ impl Circuit {
             .unwrap_or(self.num_inputs) as f64)
             .log2() as usize;
 
+        // CHANGE THIS FUNCTION.
+        // Make a vector of length num_vars_current + 2 * num_vars_next full of zeros.
+        // Después recorrer los gates del layer i, y para cada gate ahí vemos qué tipo de layer es y en qué posición está. Para la posición que está metemos un 1.
         for a in 0..1 << num_vars_current {
-            for c in 0..1 << num_vars_next {
-                for b in 0..1 << num_vars_next {
+            for b in 0..1 << num_vars_next {
+                for c in 0..1 << num_vars_next {
                     add_i_evals.push(if self.add_i(i, a, b, c) {
                         FieldElement::one()
                     } else {
@@ -209,8 +213,8 @@ impl Circuit {
             .log2() as usize;
 
         for a in 0..1 << num_vars_current {
-            for c in 0..1 << num_vars_next {
-                for b in 0..1 << num_vars_next {
+            for b in 0..1 << num_vars_next {
+                for c in 0..1 << num_vars_next {
                     mul_i_evals.push(if self.mul_i(i, a, b, c) {
                         FieldElement::one()
                     } else {

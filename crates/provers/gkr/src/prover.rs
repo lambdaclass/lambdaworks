@@ -22,10 +22,12 @@ pub enum ProverError {
 /// with the evaluations of the next layer.
 ///
 /// The GKR polynomial is defined as:
-/// f(b, c) = add(b, c) * (W(b) + W(c)) + mul(b, c) * (W(b) * W(c))
+/// f~_{r_i}(b, c) = add~(r_i, b, c) * (W~_{i+1}(b) + W~_{i+1}(c)) + mul~(r_i, b, c) * (W~_{i+1}(b) * W~_{i+1}(c))
 pub(crate) fn build_gkr_polynomial<F: IsField>(
     circuit: &Circuit,
-    r_i: &[FieldElement<F>],
+    r_i: &[FieldElement<F>], // The random fixed values for the variable 'a'.
+    // e.g. In the post: i = 0. The gates are 0 and 1, then 'a' in F^1.
+    // i = 2. The gates are 00, 01, 10, 11. Then 'a' in F^2.
     evaluation: &CircuitEvaluation<FieldElement<F>>,
     layer_idx: usize,
 ) -> DenseMultilinearPolynomial<F>
@@ -35,20 +37,25 @@ where
     // Get the multilinear extensions of the wiring predicates fixed at r_i
     let add_i_poly = circuit.add_i_ext::<F>(r_i, layer_idx);
     let mul_i_poly = circuit.mul_i_ext::<F>(r_i, layer_idx);
-    let w_next_poly = DenseMultilinearPolynomial::new(evaluation.layers[layer_idx + 1].clone());
+    // QUESTION: Is it necessary x_next_poly. cant be directly w_next_evals?
+    //let w_next_poly = DenseMultilinearPolynomial::new(evaluation.layers[layer_idx + 1].clone());
 
     let add_i_evals = add_i_poly.to_evaluations();
     let mul_i_evals = mul_i_poly.to_evaluations();
-    let w_next_evals = w_next_poly.to_evaluations();
+
+    let w_next_evals = evaluation.layers[layer_idx + 1].clone();
+    //let w_next_evals = w_next_poly.to_evaluations();
 
     let num_vars_next = circuit.num_vars_at(layer_idx + 1).unwrap_or(0);
-    let mut gkr_poly_evals = Vec::with_capacity(1 << (2 * num_vars_next));
+    let mut gkr_poly_evals = Vec::with_capacity(1 << (2 * num_vars_next)); // 2^{2*k_{i+1}} because to build the DenseMultilinearPolynomial, we need the evaluations of f at b and c, each of them at the hypercube of the next layer.
 
     // Construct the GKR polynomial evaluations directly
     for c_idx in 0..(1 << num_vars_next) {
+        // 2^{k_{i+1}}. (00, ..., 11) = (0, ..., 3). 00
         for b_idx in 0..(1 << num_vars_next) {
-            let bc_idx = b_idx + (c_idx << num_vars_next);
-            let w_b = &w_next_evals[b_idx];
+            // 01
+            let bc_idx = c_idx + (b_idx << num_vars_next); // 0001
+            let w_b: &FieldElement<F> = &w_next_evals[b_idx];
             let w_c = &w_next_evals[c_idx];
             let gkr_eval = &add_i_evals[bc_idx] * (w_b + w_c) + &mul_i_evals[bc_idx] * (w_b * w_c);
             gkr_poly_evals.push(gkr_eval);
@@ -60,6 +67,7 @@ where
 
 /// Generate a GKR proof
 /// This implements the prover side of the GKR protocol
+/// TODO: generate_proof no tendría que tener como input evaluation sino los inputs del circuito y que el prover calcule las evaluaciones.
 pub fn generate_proof<F>(
     circuit: &Circuit,
     evaluation: &CircuitEvaluation<FieldElement<F>>,
@@ -76,6 +84,9 @@ where
     let mut layer_claims = vec![];
 
     // Generate commitments to layer evaluations
+    // TODO: cambiar esto por mandar al transcript algo que dependa del circuito, los inputs y los outputs.
+    // Lo que está ahora no sirve pq el verfiier no tiene acceso a las evaluaciones.
+    // https://eprint.iacr.org/2025/118.pdf pag 7 (2.1) y 8 (2.2)
     for layer_evals in &evaluation.layers {
         // Simple commitment: sum of all evaluations
         let mut commitment = FieldElement::zero();
@@ -87,6 +98,7 @@ where
     }
 
     // Get the number of variables for the output layer
+    // TODO: sacar el unwrap. num_vars queremos que este como parte del struct del layer.
     let k_0 = circuit.num_vars_at(0).unwrap_or(0);
     let mut r_i: Vec<FieldElement<F>> = (0..k_0)
         .map(|_| transcript.sample_field_element())
@@ -98,6 +110,8 @@ where
         let w_next_poly = DenseMultilinearPolynomial::new(evaluation.layers[i + 1].clone());
 
         // Run sumcheck on the GKR polynomial
+        // TODO: más documentación. que es sum. hacer referencia al post.
+        // Suponemos que proof tiene los polinomios g_i que va mandando el prover al verifier en el sumcheck protocol en nuestro post.
         let (sum, proof) = prove(vec![gkr_poly]).map_err(|_| ProverError::SumcheckFailed)?;
 
         // Update transcript and store results
@@ -109,14 +123,18 @@ where
         let k_next = circuit.num_vars_at(i + 1).unwrap_or(0);
         let num_sumcheck_challenges = 2 * k_next;
 
+        // (s_1, ..., s_{2k})
         let sumcheck_challenges: Vec<FieldElement<F>> = (0..num_sumcheck_challenges)
             .map(|_| transcript.sample_field_element())
             .collect();
 
+        // r* in the post
         let r_last = transcript.sample_field_element();
 
         // Construct the next round's random point
         let (b, c) = sumcheck_challenges.split_at(k_next);
+
+        // \ell(r*) in the post.
         let r_i_next: Vec<FieldElement<F>> = b
             .iter()
             .zip(c.iter())
@@ -124,6 +142,7 @@ where
             .collect();
 
         // Evaluate W_{i+1} at the new point and add to transcript
+        // TODO: cambiar. El verifier no conoce w_next_poly como para apendearlo al transcript.
         if let Ok(next_claim) = w_next_poly.evaluate(r_i_next.clone()) {
             transcript.append_bytes(&next_claim.to_bytes_be());
             layer_claims.push(next_claim);

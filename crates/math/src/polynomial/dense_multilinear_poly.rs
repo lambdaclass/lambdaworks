@@ -122,6 +122,7 @@ where
     /// computed explicitly as:
     ///     f(0,r) = f(0,0) + r*(f(0,1)-f(0,0)),
     ///     f(1,r) = f(1,0) + r*(f(1,1)-f(1,0))
+    /// TODO: change name: fix_first_variable
     pub fn fix_last_variable(&self, r: &FieldElement<F>) -> DenseMultilinearPolynomial<F> {
         let n = self.num_vars();
         assert!(n > 0, "Cannot fix variable in a 0-variable polynomial");
