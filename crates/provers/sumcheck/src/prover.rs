@@ -144,11 +144,45 @@ where
     }
 }
 
+/// Prover function that uses an external transcript (e.g., for GKR protocol)
+/// This function delegates to prove_backend using the provided transcript
+pub fn prove_with_transcript<F, T>(
+    factors: Vec<DenseMultilinearPolynomial<F>>,
+    transcript: &mut T,
+) -> ProverOutput<F>
+where
+    F: IsField + HasDefaultTranscript,
+    F::BaseType: Send + Sync,
+    FieldElement<F>: Clone + Mul<Output = FieldElement<F>> + ByteConversion,
+    T: Channel<F> + IsTranscript<F>,
+{
+    prove_backend(factors, transcript)
+}
+
+/// Prover function for standalone sumcheck (creates its own transcript)
+/// This function delegates to prove_backend with a fresh transcript
 pub fn prove<F>(factors: Vec<DenseMultilinearPolynomial<F>>) -> ProverOutput<F>
 where
     F: IsField + HasDefaultTranscript,
     F::BaseType: Send + Sync,
     FieldElement<F>: Clone + Mul<Output = FieldElement<F>> + ByteConversion,
+{
+    use lambdaworks_crypto::fiat_shamir::default_transcript::DefaultTranscript;
+    let mut tr = DefaultTranscript::<F>::default();
+    prove_backend(factors, &mut tr)
+}
+
+/// Backend implementation of the sumcheck prover
+/// This is the core function that both prove() and prove_with_transcript() delegate to
+pub fn prove_backend<F, T>(
+    factors: Vec<DenseMultilinearPolynomial<F>>,
+    transcript: &mut T,
+) -> ProverOutput<F>
+where
+    F: IsField + HasDefaultTranscript,
+    F::BaseType: Send + Sync,
+    FieldElement<F>: Clone + Mul<Output = FieldElement<F>> + ByteConversion,
+    T: Channel<F> + IsTranscript<F>,
 {
     // Initialize the prover
     let mut prover = Prover::new(factors.clone())?;
@@ -156,8 +190,7 @@ where
     // Compute the claimed sum C
     let claimed_sum = prover.compute_initial_sum()?;
 
-    // Initialize Fiat-Shamir transcript
-    let mut transcript = DefaultTranscript::<F>::default();
+    // Use the provided transcript
     transcript.append_bytes(b"initial_sum");
     transcript.append_felt(&FieldElement::from(num_vars as u64));
     transcript.append_felt(&FieldElement::from(factors.len() as u64));
@@ -170,6 +203,19 @@ where
     for j in 0..num_vars {
         // Prover computes the round polynomial g_j
         let g_j = prover.round(current_challenge.as_ref())?;
+
+        // Debug: Print the polynomial coefficients
+        println!(
+            "Sumcheck round {}: g_j coefficients: {:?}",
+            j,
+            g_j.coefficients()
+        );
+        println!(
+            "Sumcheck round {}: g_j(0) = {:?}, g_j(1) = {:?}",
+            j,
+            g_j.evaluate(&FieldElement::zero()),
+            g_j.evaluate(&FieldElement::one())
+        );
 
         // Append g_j information to transcript for the verifier to derive challenge
         let round_label = format!("round_{}_poly", j);
@@ -190,6 +236,10 @@ where
         // Derive challenge for the next round from transcript (if not the last round)
         if j < num_vars - 1 {
             current_challenge = Some(transcript.draw_felt());
+            println!(
+                "Sumcheck round {}: Generated challenge {:?}",
+                j, current_challenge
+            );
         } else {
             // No challenge needed after the last round polynomial is sent
             current_challenge = None;

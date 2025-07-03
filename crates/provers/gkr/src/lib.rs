@@ -2,24 +2,41 @@ pub mod circuit;
 pub mod prover;
 pub mod verifier;
 
-use self::{
-    circuit::{Circuit, CircuitEvaluation},
-    prover::{generate_proof, ProverError},
-    verifier::{Verifier, VerifierError},
-};
+use crate::circuit::{Circuit, CircuitEvaluation};
+use crate::prover::{generate_proof, ProverError};
+use crate::verifier::{Verifier, VerifierError};
+use blake2::{Blake2s256, Digest};
 use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::traits::{HasDefaultTranscript, IsField};
 use lambdaworks_math::polynomial::dense_multilinear_poly::DenseMultilinearPolynomial;
 use lambdaworks_math::traits::ByteConversion;
+
+/// Create a line polynomial between two points
+/// l(t) = b + t * (c - b)
+pub fn line<F>(
+    b: &[FieldElement<F>],
+    c: &[FieldElement<F>],
+    t: &FieldElement<F>,
+) -> Vec<FieldElement<F>>
+where
+    F: IsField,
+{
+    b.iter()
+        .zip(c.iter())
+        .map(|(b_val, c_val)| b_val.clone() + t.clone() * (c_val.clone() - b_val.clone()))
+        .collect()
+}
 
 /// A GKR proof.
 #[derive(Debug, Clone)]
 pub struct Proof<F: IsField> {
     pub sumcheck_proofs: Vec<Vec<lambdaworks_math::polynomial::Polynomial<FieldElement<F>>>>,
     pub claims_phase2: Vec<FieldElement<F>>, // Sumcheck claims
-    pub layer_commitments: Vec<FieldElement<F>>, // Commitments to layer evaluations
-    pub final_point: Vec<FieldElement<F>>,   // Final random point for input verification
-    pub layer_claims: Vec<FieldElement<F>>,  // Claims for each layer (like m in reference)
+    //pub layer_commitments: Vec<FieldElement<F>>, // Commitments to layer evaluations
+    //pub witness_comm: Vec<u8>, // commitent for the first layer,  α  in the paper
+    //pub line_polys: Vec<Vec<FieldElement<F>>>, // Coeffietints for q_i(t)
+    pub final_point: Vec<FieldElement<F>>, // Final random point for input verification
+    pub layer_claims: Vec<FieldElement<F>>, // Claims for each layer (like m in reference)
 }
 
 /// The polynomial `W` that is used in the GKR protocol.
@@ -156,16 +173,13 @@ fn idx(i: usize, j: usize, num_vars: usize) -> usize {
     (i << num_vars) | j
 }
 
-pub fn gkr_prove<F>(
-    circuit: &Circuit,
-    evaluation: &CircuitEvaluation<FieldElement<F>>,
-) -> Result<Proof<F>, ProverError>
+pub fn gkr_prove<F>(circuit: &Circuit, input: &[FieldElement<F>]) -> Result<Proof<F>, ProverError>
 where
     F: IsField + HasDefaultTranscript,
     FieldElement<F>: ByteConversion,
     <F as IsField>::BaseType: Send + Sync + Copy,
 {
-    generate_proof(circuit, evaluation)
+    generate_proof(circuit, input)
 }
 
 pub fn gkr_verify<F>(
@@ -210,17 +224,55 @@ where
     let input_poly = DenseMultilinearPolynomial::new(input.to_vec());
     let final_evaluation = input_poly
         .evaluate(final_point.to_vec())
-        .map_err(|_| VerifierError::InconsistentEvaluation)?;
+        .map_err(|_| VerifierError::EvaluationFailed)?;
 
     // Get the final layer claim (like self.m.last() in the reference)
     let final_claim = proof
         .layer_claims
         .last()
-        .ok_or(VerifierError::InconsistentEvaluation)?;
+        .ok_or(VerifierError::InvalidProof)?;
 
     // Verify that the input evaluation matches the final claim
     // This is the same check as in the reference: w.evaluate(r_last) == m_last
     Ok(final_evaluation == *final_claim)
+}
+
+pub fn hash_circuit(c: &Circuit) -> [u8; 32] {
+    let mut h = Blake2s256::new();
+    h.update(b"GKR-Circuit-v1");
+    h.update(&(c.layers().len() as u32).to_le_bytes());
+    h.update(&(c.num_inputs() as u32).to_le_bytes());
+
+    for layer in c.layers() {
+        h.update(&(layer.len() as u32).to_le_bytes());
+        for g in &layer.layer {
+            let gate_type = match g.ttype {
+                crate::circuit::GateType::Add => 0u8,
+                crate::circuit::GateType::Mul => 1u8,
+            };
+            h.update(&[gate_type]);
+            h.update(&(g.inputs[0] as u32).to_le_bytes());
+            h.update(&(g.inputs[1] as u32).to_le_bytes());
+        }
+    }
+    h.finalize().into()
+}
+
+/// Minimal commitment to the witness values
+/// TODO: Replace with proper PCS
+/// This is a simple hash-based commitment for now
+pub fn commit_witness<F: IsField>(w: &[FieldElement<F>]) -> [u8; 32]
+where
+    FieldElement<F>: ByteConversion,
+{
+    let mut h = Blake2s256::new();
+    h.update(b"GKR-Witness-v1");
+    h.update(&(w.len() as u32).to_le_bytes());
+
+    for wi in w {
+        h.update(&wi.to_bytes_be());
+    }
+    h.finalize().into()
 }
 
 #[cfg(test)]
@@ -291,6 +343,18 @@ mod tests {
             ],
             2,
         )
+    }
+
+    #[test]
+    fn print() {
+        let circuit = circuit_from_lambda();
+        // let input = [F23E::from(3), F23E::from(1)];
+        // let evaluation = circuit.evaluate(&input);
+        let a = circuit.mul_i(0, 0, 1, 0);
+        let b = circuit.mul_i(0, 0, 0, 1);
+
+        println!("{a}");
+        println!("{b}");
     }
 
     #[test]
@@ -390,7 +454,7 @@ mod tests {
 
         // Generate proof
         println!("\n--- Generating proof ---");
-        let proof_result = gkr_prove(&circuit, &evaluation);
+        let proof_result = gkr_prove(&circuit, &input);
         assert!(
             proof_result.is_ok(),
             "Proof generation failed: {:?}",
@@ -444,7 +508,7 @@ mod tests {
 
         // Generate proof
         println!("\n--- Generating proof ---");
-        let proof_result = gkr_prove(&circuit, &evaluation);
+        let proof_result = gkr_prove(&circuit, &input);
         assert!(
             proof_result.is_ok(),
             "Proof generation failed: {:?}",
@@ -489,7 +553,7 @@ mod tests {
 
         // Generate proof
         println!("\n--- Generating proof ---");
-        let proof_result = gkr_prove(&circuit, &evaluation);
+        let proof_result = gkr_prove(&circuit, &input);
         assert!(
             proof_result.is_ok(),
             "Proof generation failed: {:?}",
@@ -525,30 +589,11 @@ mod tests {
         let circuit = circuit_from_book();
         let input = [FE::from(3), FE::from(2), FE::from(3), FE::from(1)];
 
-        println!("\n=== GKR Complete Verification Test ===");
+        let proof = gkr_prove(&circuit, &input).unwrap();
+        let result = gkr_verify_complete(&proof, &circuit, &input);
 
-        // Evaluate the circuit
-        let evaluation = circuit.evaluate(&input);
-
-        // Generate proof
-        let proof = gkr_prove(&circuit, &evaluation).expect("Proof generation failed");
-
-        // Complete verification including input check
-        let verification_result = gkr_verify_complete(&proof, &circuit, &input);
-        assert!(
-            verification_result.is_ok(),
-            "Complete verification failed: {:?}",
-            verification_result.err()
-        );
-
-        let is_valid = verification_result.unwrap();
-        println!(
-            "Complete verification result: {}",
-            if is_valid { "ACCEPTED" } else { "REJECTED" }
-        );
-        assert!(is_valid, "Complete proof should be valid");
-
-        println!("GKR complete verification test PASSED! ✓");
+        assert!(result.is_ok());
+        assert!(result.unwrap());
     }
 
     #[test]
@@ -556,30 +601,11 @@ mod tests {
         let circuit = circuit_from_lambda();
         let input = [F23E::from(3), F23E::from(1)];
 
-        println!("\n=== GKR Complete Verification Test ===");
+        let proof = gkr_prove(&circuit, &input).unwrap();
+        let result = gkr_verify_complete(&proof, &circuit, &input);
 
-        // Evaluate the circuit
-        let evaluation = circuit.evaluate(&input);
-
-        // Generate proof
-        let proof = gkr_prove(&circuit, &evaluation).expect("Proof generation failed");
-
-        // Complete verification including input check
-        let verification_result = gkr_verify_complete(&proof, &circuit, &input);
-        assert!(
-            verification_result.is_ok(),
-            "Complete verification failed: {:?}",
-            verification_result.err()
-        );
-
-        let is_valid = verification_result.unwrap();
-        println!(
-            "Complete verification result: {}",
-            if is_valid { "ACCEPTED" } else { "REJECTED" }
-        );
-        assert!(is_valid, "Complete proof should be valid");
-
-        println!("GKR complete verification test PASSED! ✓");
+        assert!(result.is_ok());
+        assert!(result.unwrap());
     }
 
     #[test]
@@ -613,7 +639,7 @@ mod tests {
         let evaluation = circuit.evaluate(&input);
 
         // Generate a valid proof
-        let mut proof = gkr_prove(&circuit, &evaluation).expect("Proof generation failed");
+        let mut proof = gkr_prove(&circuit, &input).expect("Proof generation failed");
 
         // Corrupt the proof by modifying claims
         if !proof.claims_phase2.is_empty() {
