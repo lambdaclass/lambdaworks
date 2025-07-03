@@ -206,7 +206,7 @@ The following links, repos, companies and projects have been important in the de
 - [BrainSTARK](https://aszepieniec.github.io/stark-brainfuck/)
 - [Plonky2](https://github.com/mir-protocol/plonky2)
 - [Arkworks](https://github.com/arkworks-rs)
-- [Thank goodness it's FRIday](https://vitalik.ca/general/2017/11/22/starks_part_2.html)
+- [Thank goodness it's FRIday](https://vitalik.eth.limo/general/2017/11/22/starks_part_2.html)
 - [Diving DEEP FRI](https://blog.lambdaclass.com/diving-deep-fri/)
 - [Periodic constraints](https://blog.lambdaclass.com/periodic-constraints-and-recursion-in-zk-starks/)
 - [Chiplets Miden VM](https://wiki.polygon.technology/docs/miden/design/chiplets/main/)
