@@ -66,6 +66,12 @@ impl<F: Copy> CircuitEvaluation<F> {
     }
 }
 
+#[derive(Debug, Clone)]
+pub enum CircuitError {
+    InputsNotPowerOfTwo,
+    LayerNotPowerOfTwo(usize), // index of the layer that is not a power of two
+}
+
 /// The circuit in layered form.
 #[derive(Clone)]
 pub struct Circuit {
@@ -75,11 +81,29 @@ pub struct Circuit {
 
     /// Number of inputs
     num_inputs: usize,
+    layer_num_vars: Vec<usize>, // log2 of number of gates per layer
+    input_num_vars: usize,      // log2 of number of inputs
 }
 
 impl Circuit {
-    pub fn new(layers: Vec<CircuitLayer>, num_inputs: usize) -> Self {
-        Self { layers, num_inputs }
+    pub fn new(layers: Vec<CircuitLayer>, num_inputs: usize) -> Result<Self, CircuitError> {
+        if !num_inputs.is_power_of_two() {
+            return Err(CircuitError::InputsNotPowerOfTwo);
+        }
+        let input_num_vars = num_inputs.trailing_zeros() as usize;
+        let mut layer_num_vars = Vec::with_capacity(layers.len());
+        for (i, layer) in layers.iter().enumerate() {
+            if !layer.len().is_power_of_two() {
+                return Err(CircuitError::LayerNotPowerOfTwo(i));
+            }
+            layer_num_vars.push(layer.len().trailing_zeros() as usize);
+        }
+        Ok(Self {
+            layers,
+            num_inputs,
+            layer_num_vars,
+            input_num_vars,
+        })
     }
 
     pub fn num_vars_at(&self, layer: usize) -> Option<usize> {
@@ -160,34 +184,23 @@ impl Circuit {
     where
         F::BaseType: Send + Sync + Copy,
     {
-        let mut add_i_evals: Vec<FieldElement<F>> = vec![];
-        // CHANGE THIS. put it in the struct
-        let num_vars_current = (self.layers[i].len() as f64).log2() as usize;
-
-        let num_vars_next = (self
-            .layers
-            .get(i + 1)
-            .map(|c| c.len())
-            .unwrap_or(self.num_inputs) as f64)
-            .log2() as usize;
-
-        // TODO: CHANGE THIS FUNCTION.
-        // Make a vector of length num_vars_current + 2 * num_vars_next full of zeros.
-        // Después recorrer los gates del layer i, y para cada gate ahí vemos qué tipo de layer es y en qué posición está. Para la posición que está metemos un 1.
-        for a in 0..1 << num_vars_current {
-            for b in 0..1 << num_vars_next {
-                for c in 0..1 << num_vars_next {
-                    add_i_evals.push(if self.add_i(i, a, b, c) {
-                        FieldElement::one()
-                    } else {
-                        FieldElement::zero()
-                    });
-                }
+        let num_vars_current = self.layer_num_vars[i];
+        let num_vars_next = if let Some(n) = self.layer_num_vars.get(i + 1) {
+            *n
+        } else {
+            self.input_num_vars
+        };
+        let total_vars = num_vars_current + 2 * num_vars_next;
+        let mut add_i_evals = vec![FieldElement::zero(); 1 << total_vars];
+        for (a, gate) in self.layers[i].layer.iter().enumerate() {
+            if gate.ttype == GateType::Add {
+                let b = gate.inputs[0];
+                let c = gate.inputs[1];
+                let idx = (a << (2 * num_vars_next)) | (b << num_vars_next) | c;
+                add_i_evals[idx] = FieldElement::one();
             }
         }
-
-        let add_i = DenseMultilinearPolynomial::new(add_i_evals);
-        let mut p = add_i;
+        let mut p = DenseMultilinearPolynomial::new(add_i_evals);
         for (_i, val) in r_i.iter().enumerate() {
             p = p.fix_last_variable(val);
         }
@@ -202,30 +215,23 @@ impl Circuit {
     where
         F::BaseType: Send + Sync + Copy,
     {
-        let mut mul_i_evals: Vec<FieldElement<F>> = vec![];
-        let num_vars_current = (self.layers[i].len() as f64).log2() as usize;
-
-        let num_vars_next = (self
-            .layers
-            .get(i + 1)
-            .map(|c| c.len())
-            .unwrap_or(self.num_inputs) as f64)
-            .log2() as usize;
-
-        for a in 0..1 << num_vars_current {
-            for b in 0..1 << num_vars_next {
-                for c in 0..1 << num_vars_next {
-                    mul_i_evals.push(if self.mul_i(i, a, b, c) {
-                        FieldElement::one()
-                    } else {
-                        FieldElement::zero()
-                    });
-                }
+        let num_vars_current = self.layer_num_vars[i];
+        let num_vars_next = if let Some(n) = self.layer_num_vars.get(i + 1) {
+            *n
+        } else {
+            self.input_num_vars
+        };
+        let total_vars = num_vars_current + 2 * num_vars_next;
+        let mut mul_i_evals = vec![FieldElement::zero(); 1 << total_vars];
+        for (a, gate) in self.layers[i].layer.iter().enumerate() {
+            if gate.ttype == GateType::Mul {
+                let b = gate.inputs[0];
+                let c = gate.inputs[1];
+                let idx = (a << (2 * num_vars_next)) | (b << num_vars_next) | c;
+                mul_i_evals[idx] = FieldElement::one();
             }
         }
-
-        let mul_i = DenseMultilinearPolynomial::new(mul_i_evals);
-        let mut p = mul_i;
+        let mut p = DenseMultilinearPolynomial::new(mul_i_evals);
         for (_i, val) in r_i.iter().enumerate() {
             p = p.fix_last_variable(val);
         }

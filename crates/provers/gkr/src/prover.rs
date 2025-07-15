@@ -40,12 +40,16 @@ fn build_gkr_polynomial<F: IsField + Clone>(
     r_i: &[FieldElement<F>],
     evaluation: &[FieldElement<F>],
     layer_idx: usize,
-) -> Vec<Vec<DenseMultilinearPolynomial<F>>>
+) -> Result<Vec<Vec<DenseMultilinearPolynomial<F>>>, ProverError>
 where
     <F as IsField>::BaseType: Send + Sync + Copy,
 {
-    let k_i_plus_1 = circuit.num_vars_at(layer_idx + 1).unwrap();
-    let k_i = circuit.num_vars_at(layer_idx).unwrap();
+    let k_i_plus_1 = circuit
+        .num_vars_at(layer_idx + 1)
+        .ok_or(ProverError::EvaluationFailed)?;
+    let k_i = circuit
+        .num_vars_at(layer_idx)
+        .ok_or(ProverError::EvaluationFailed)?;
 
     // Step 1: Construct the full wiring polynomials `add_i(g, b, c)` and `mul_i(g, b, c)`.
     // These are defined over k_i + 2 * k_{i+1} variables and act as "selectors".
@@ -136,7 +140,7 @@ where
     let term1 = vec![add_i, w_sum]; // Corresponds to add_i(r_i,b,c) * (W_{i+1}(b) + W_{i+1}(c))
     let term2 = vec![mul_i, w_b, w_c]; // Corresponds to mul_i(r_i,b,c) * W_{i+1}(b) * W_{i+1}(c)
 
-    vec![term1, term2]
+    Ok(vec![term1, term2])
 }
 
 /// Generate a GKR proof
@@ -165,7 +169,9 @@ where
         transcript.append_bytes(&y.to_bytes_be());
     }
 
-    let k_0 = circuit.num_vars_at(0).unwrap();
+    let k_0 = circuit
+        .num_vars_at(0)
+        .ok_or(ProverError::EvaluationFailed)?;
     let mut r_i: Vec<FieldElement<F>> = (0..k_0)
         .map(|_| transcript.sample_field_element())
         .collect();
@@ -175,13 +181,15 @@ where
         let w_i_plus_1 = &evaluation.layers[layer_idx + 1];
 
         // Build the GKR polynomial terms
-        let gkr_poly_terms = build_gkr_polynomial(circuit, &r_i, w_i_plus_1, layer_idx);
+        let gkr_poly_terms = build_gkr_polynomial(circuit, &r_i, w_i_plus_1, layer_idx)?;
 
         let (initial_sum, sumcheck_proof, sumcheck_challenges) =
             gkr_sumcheck_prove(gkr_poly_terms.clone(), &mut transcript)?;
 
         // Sample challenges for the next round using line function
-        let k_i_plus_1 = circuit.num_vars_at(layer_idx + 1).unwrap();
+        let k_i_plus_1 = circuit
+            .num_vars_at(layer_idx + 1)
+            .ok_or(ProverError::EvaluationFailed)?;
 
         // r* in the Lambda post
         let mut r_last = transcript.sample_field_element();
@@ -234,7 +242,10 @@ where
     }
 
     // Evaluate the last layer at the final_point and store as the final claim
-    let last_layer_evaluation = &evaluation.layers.last().unwrap();
+    let last_layer_evaluation = evaluation
+        .layers
+        .last()
+        .ok_or(ProverError::EvaluationFailed)?;
     let last_layer_poly = DenseMultilinearPolynomial::new(last_layer_evaluation.to_vec());
     let final_claim = last_layer_poly
         .evaluate(r_i.clone())

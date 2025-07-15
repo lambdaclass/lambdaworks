@@ -2,7 +2,7 @@ pub mod circuit;
 pub mod prover;
 pub mod sumcheck;
 pub mod verifier;
-use crate::circuit::{Circuit, CircuitEvaluation};
+use crate::circuit::{Circuit, CircuitError, CircuitEvaluation};
 use crate::prover::ProverError;
 use crate::sumcheck::SumcheckProof;
 use crate::verifier::Verifier;
@@ -277,7 +277,7 @@ where
 }
 
 /// Create the circuit from Lambda post
-pub fn circuit_from_lambda() -> Circuit {
+pub fn circuit_from_lambda() -> Result<Circuit, CircuitError> {
     use crate::circuit::{Circuit, CircuitLayer, Gate, GateType};
     Circuit::new(
         vec![
@@ -299,7 +299,7 @@ pub fn circuit_from_lambda() -> Circuit {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::circuit::{Circuit, CircuitLayer, Gate, GateType};
+    use crate::circuit::{Circuit, CircuitError, CircuitLayer, Gate, GateType};
     use lambdaworks_math::field::fields::u64_prime_field::U64PrimeField;
 
     const MODULUS: u64 = 389;
@@ -311,7 +311,7 @@ mod tests {
     type F23E = FieldElement<F23>;
 
     /// Create the circuit from Thaler's book (Figure 4.12)
-    fn circuit_from_book() -> Circuit {
+    fn circuit_from_book() -> Result<Circuit, CircuitError> {
         Circuit::new(
             vec![
                 CircuitLayer::new(vec![
@@ -330,7 +330,7 @@ mod tests {
     }
 
     /// Create a three-layer circuit for testing
-    fn three_layer_circuit() -> Circuit {
+    fn three_layer_circuit() -> Result<Circuit, CircuitError> {
         Circuit::new(
             vec![
                 CircuitLayer::new(vec![
@@ -350,7 +350,7 @@ mod tests {
 
     #[test]
     fn print() {
-        let circuit = circuit_from_lambda();
+        let circuit = circuit_from_lambda().unwrap();
         // let input = [F23E::from(3), F23E::from(1)];
         // let evaluation = circuit.evaluate(&input);
         let a = circuit.mul_i(0, 0, 1, 0);
@@ -362,7 +362,7 @@ mod tests {
 
     #[test]
     fn test_circuit_evaluation_from_lambda() {
-        let circuit = circuit_from_lambda();
+        let circuit = circuit_from_lambda().unwrap();
         let input = [F23E::from(3), F23E::from(1)];
         let evaluation = circuit.evaluate(&input);
         // Expected layers: input -> [3, 6, 4, 3] -> [18, 7]
@@ -377,7 +377,7 @@ mod tests {
 
     #[test]
     fn test_circuit_evaluation_from_book() {
-        let circuit = circuit_from_book();
+        let circuit = circuit_from_book().unwrap();
         let input = [FE::from(3), FE::from(2), FE::from(3), FE::from(1)];
 
         let evaluation = circuit.evaluate(&input);
@@ -394,7 +394,7 @@ mod tests {
 
     #[test]
     fn test_three_layer_circuit_evaluation() {
-        let circuit = three_layer_circuit();
+        let circuit = three_layer_circuit().unwrap();
         let input = [
             FE::from(0),
             FE::from(1),
@@ -445,7 +445,7 @@ mod tests {
 
     #[test]
     fn test_gkr_protocol_from_book() {
-        let circuit = circuit_from_book();
+        let circuit = circuit_from_book().unwrap();
         let input = [FE::from(3), FE::from(2), FE::from(3), FE::from(1)];
 
         println!("\n=== GKR Protocol Test (from book) ===");
@@ -490,7 +490,7 @@ mod tests {
 
     #[test]
     fn test_gkr_protocol_three_layers() {
-        let circuit = three_layer_circuit();
+        let circuit = three_layer_circuit().unwrap();
         let input = [
             FE::from(0),
             FE::from(1),
@@ -544,7 +544,7 @@ mod tests {
 
     #[test]
     fn test_gkr_protocol_lambda() {
-        let circuit = circuit_from_lambda();
+        let circuit = circuit_from_lambda().unwrap();
         let input = [F23E::from(3), F23E::from(1)];
 
         // println!("\n=== GKR Protocol Test (three layers) ===");
@@ -590,7 +590,7 @@ mod tests {
 
     #[test]
     fn test_gkr_protocol_lambda_outputs_mentirosos() {
-        let circuit = circuit_from_lambda();
+        let circuit = circuit_from_lambda().unwrap();
         let input = [F23E::from(3), F23E::from(1)];
 
         println!("\n=== GKR Protocol Test (three layers) ===");
@@ -618,25 +618,20 @@ mod tests {
                                                                   // Verify proof
         println!("\n--- Verifying proof ---");
         let verification_result = gkr_verify(&proof, &circuit);
-        assert!(
-            verification_result.is_ok(),
-            "Verification failed: {:?}",
-            verification_result.err()
-        );
-
-        let is_valid = verification_result.unwrap();
-        println!(
-            "Verification result: {}",
-            if is_valid { "ACCEPTED" } else { "REJECTED" }
-        );
-        assert!(!is_valid, "Proof should be invalid");
-
-        println!("GKR protocol test three layers PASSED! ✓");
+        match verification_result {
+            Ok(false) | Err(VerifierError::InvalidProof) => {
+                // Test PASSED: el protocolo detectó el engaño
+                println!("Verification result: REJECTED (as expected)");
+            }
+            Ok(true) => panic!("El protocolo aceptó un output mentiroso"),
+            Err(e) => panic!("Error inesperado: {:?}", e),
+        }
+        println!("GKR protocol test lambda outputs mentirosos PASSED! ✓");
     }
 
     #[test]
     fn test_gkr_complete_verification() {
-        let circuit = circuit_from_book();
+        let circuit = circuit_from_book().unwrap();
         let input = [FE::from(3), FE::from(2), FE::from(3), FE::from(1)];
 
         let proof = gkr_prove(&circuit, &input).unwrap();
@@ -648,7 +643,7 @@ mod tests {
 
     #[test]
     fn test_gkr_complete_verification_lambda() {
-        let circuit = circuit_from_lambda();
+        let circuit = circuit_from_lambda().unwrap();
         let input = [F23E::from(3), F23E::from(1)];
 
         let proof = gkr_prove(&circuit, &input).unwrap();
@@ -660,7 +655,7 @@ mod tests {
 
     #[test]
     fn test_circuit_properties() {
-        let circuit = circuit_from_book();
+        let circuit = circuit_from_book().unwrap();
 
         // Test circuit properties
         assert_eq!(circuit.num_outputs(), 2);
@@ -682,7 +677,7 @@ mod tests {
 
     #[test]
     fn test_invalid_proof_rejection() {
-        let circuit = circuit_from_book();
+        let circuit = circuit_from_book().unwrap();
         let input = [FE::from(3), FE::from(2), FE::from(3), FE::from(1)];
 
         // Evaluate the circuit
