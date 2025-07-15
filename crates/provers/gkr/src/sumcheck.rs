@@ -17,63 +17,7 @@ pub struct SumcheckProof<F: IsField> {
     pub final_evaluation: FieldElement<F>,
 }
 
-/// Helper function to combine polynomial terms into a single polynomial
-/// This handles the GKR structure: term1 + term2 where each term is a product of polynomials
-fn combine_gkr_terms<F: IsField>(
-    terms: Vec<Vec<DenseMultilinearPolynomial<F>>>,
-) -> Result<DenseMultilinearPolynomial<F>, ProverError>
-where
-    <F as IsField>::BaseType: Send + Sync + Copy,
-{
-    if terms.len() != 2 {
-        return Err(ProverError::SumcheckFailed);
-    }
-
-    let num_vars = terms[0][0].num_vars();
-    let hypercube_size = 1 << num_vars;
-
-    // Compute evaluations for the combined polynomial: term1 + term2
-    let combined_evals: Result<Vec<_>, _> = (0..hypercube_size)
-        .map(|i| {
-            // Convert index to binary point
-            let point: Vec<FieldElement<F>> = (0..num_vars)
-                .map(|k| {
-                    if (i >> k) & 1 == 1 {
-                        FieldElement::one()
-                    } else {
-                        FieldElement::zero()
-                    }
-                })
-                .collect();
-
-            // Evaluate term1: product of all polynomials in the first term
-            let term1_value = terms[0]
-                .iter()
-                .map(|poly| {
-                    poly.evaluate(point.clone())
-                        .map_err(|_| ProverError::EvaluationFailed)
-                })
-                .try_fold(FieldElement::one(), |acc, res| res.map(|val| acc * val))?;
-
-            // Evaluate term2: product of all polynomials in the second term
-            let term2_value = terms[1]
-                .iter()
-                .map(|poly| {
-                    poly.evaluate(point.clone())
-                        .map_err(|_| ProverError::EvaluationFailed)
-                })
-                .try_fold(FieldElement::one(), |acc, res| res.map(|val| acc * val))?;
-
-            // Sum the terms
-            Ok(term1_value + term2_value)
-        })
-        .collect();
-
-    let evaluations = combined_evals?;
-    Ok(DenseMultilinearPolynomial::new(evaluations))
-}
-
-/// GKR-specific sumcheck prover that uses the existing sumcheck library
+/// GKR-specific sumcheck prover
 pub fn gkr_sumcheck_prove<F, T>(
     terms: Vec<Vec<DenseMultilinearPolynomial<F>>>,
     transcript: &mut T,
@@ -93,29 +37,13 @@ where
         return Err(ProverError::SumcheckFailed);
     }
 
-    // Combine the GKR terms into a single polynomial
-    // let combined_poly = combine_gkr_terms(terms)?;
-
-    // println!(
-    //     "🔹 GKR SUMCHECK PROVE - Combined polynomial has {} variables",
-    //     combined_poly.num_vars()
-    // );
-
-    // Use the sumcheck prover directly with manual transcript control
-    // let factors = vec![combined_poly];
     let factors_term_1 = terms[0].clone();
     let factors_term_2 = terms[1].clone();
-    // let mut prover = Prover::new(factors).map_err(|_| ProverError::SumcheckFailed)?;
 
     let mut prover_term_1 = Prover::new(factors_term_1).map_err(|_| ProverError::SumcheckFailed)?;
     let mut prover_term_2 = Prover::new(factors_term_2).map_err(|_| ProverError::SumcheckFailed)?;
 
     let num_vars = prover_term_1.num_vars();
-
-    // Compute the claimed sum
-    // let claimed_sum = prover
-    //     .compute_initial_sum()
-    //     .map_err(|_| ProverError::SumcheckFailed)?;
 
     let claimed_sum_term_1 = prover_term_1
         .compute_initial_sum()
@@ -126,15 +54,10 @@ where
         .map_err(|_| ProverError::SumcheckFailed)?;
     let claimed_sum = claimed_sum_term_1 + claimed_sum_term_2;
 
-    // println!("🔹 GKR SUMCHECK PROVE - Claimed sum: {:?}", claimed_sum);
-
-    // Add initial sum to transcript (mimicking prove_backend)
     transcript.append_bytes(b"initial_sum");
     transcript.append_felt(&FieldElement::from(num_vars as u64));
     transcript.append_felt(&FieldElement::from(1u64)); // single factor
     transcript.append_felt(&claimed_sum);
-    // transcript.append_felt(&claimed_sum_term_1);
-    // transcript.append_felt(&claimed_sum_term_2);
 
     let mut proof_polys = Vec::with_capacity(num_vars);
     let mut challenges = Vec::new();
@@ -142,7 +65,6 @@ where
 
     // Execute rounds manually
     for j in 0..num_vars {
-        // SOLO UNA LLAMADA a .round() por ronda para cada Prover
         let g_j_term_1 = match prover_term_1.round(current_challenge.as_ref()) {
             Ok(round) => {
                 println!("g_j_term_1 successfully created for j = {}.", j);
@@ -178,7 +100,7 @@ where
 
         println!("Poly g_j for j = {}: {:?}", j, g_j);
 
-        // Add polynomial info to transcript (mimicking prove_backend)
+        // Add polynomial to transcript
         let round_label = format!("round_{}_poly", j);
         transcript.append_bytes(round_label.as_bytes());
 
@@ -250,10 +172,9 @@ where
     Ok((claimed_sum, sumcheck_proof, challenges))
 }
 
-pub fn gkr_sumcheck_verify_complete<F, T>(
+pub fn gkr_sumcheck_verify<F, T>(
     claimed_sum: FieldElement<F>,
     sumcheck_proof: &SumcheckProof<F>,
-    poly_q: &Polynomial<FieldElement<F>>,
     transcript: &mut T,
 ) -> Result<(bool, Vec<FieldElement<F>>), crate::verifier::VerifierError>
 where
@@ -273,13 +194,6 @@ where
     let num_vars = proof_polys.len();
     println!("🔸 GKR SUMCHECK VERIFY - Number of rounds: {}", num_vars);
 
-    // let dummy_oracle = DenseMultilinearPolynomial::new(vec![FieldElement::zero(); 1 << num_vars]);
-    // let oracle_factors = vec![dummy_oracle];
-
-    // let mut verifier = Verifier::new(num_vars, oracle_factors, claimed_sum.clone())
-    //     .map_err(|_| crate::verifier::VerifierError::InvalidProof)?;
-
-    // Add initial sum to transcript (matching prover)
     transcript.append_bytes(b"initial_sum");
     transcript.append_felt(&FieldElement::from(num_vars as u64));
     transcript.append_felt(&FieldElement::from(1u64)); // single factor

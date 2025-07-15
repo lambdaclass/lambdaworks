@@ -1,9 +1,4 @@
-use crate::{
-    circuit::{Circuit, CircuitEvaluation},
-    sumcheck::gkr_sumcheck_verify_complete,
-    GkrProof,
-};
-use lambdaworks_math::polynomial::Polynomial;
+use crate::{circuit::Circuit, sumcheck::gkr_sumcheck_verify, GkrProof};
 use lambdaworks_math::{
     field::{
         element::FieldElement,
@@ -63,12 +58,8 @@ impl Verifier {
             .map_err(|_e| VerifierError::EvaluationFailed)?;
         for (layer_idx, layer_proof) in proof.layer_proofs.iter().enumerate() {
             // Complete GKR sumcheck verification with final evaluation check
-            let (sumcheck_verified, sumcheck_challenges) = gkr_sumcheck_verify_complete(
-                m_i.clone(),
-                &layer_proof.sumcheck_proof,
-                &layer_proof.poly_q,
-                &mut transcript,
-            )?;
+            let (sumcheck_verified, sumcheck_challenges) =
+                gkr_sumcheck_verify(m_i.clone(), &layer_proof.sumcheck_proof, &mut transcript)?;
             // Final sumcheck verification
             let last_poly = layer_proof
                 .sumcheck_proof
@@ -101,7 +92,7 @@ impl Verifier {
             if !sumcheck_verified {
                 return Ok(false);
             }
-            // Sample challenges for the next round using line function (as in Lambda post)
+            // Sample challenges for the next round using line function
             let k_i_plus_1 = circuit
                 .num_vars_at(layer_idx + 1)
                 .ok_or(VerifierError::EvaluationFailed)?;
@@ -114,7 +105,7 @@ impl Verifier {
                 r_last = FieldElement::<F>::from(17);
             }
             // Construct the next round's random point using line function
-            // This implements ℓ(x) = b + x * (c - b) from the Lambda post
+            // This implements the line function l(x) = b + x * (c - b)
             let (b, c) = sumcheck_challenges.split_at(k_i_plus_1);
             r_i = crate::line(b, c, &r_last);
             m_i = layer_proof.poly_q.evaluate(&r_last);
