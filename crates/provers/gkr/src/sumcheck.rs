@@ -209,6 +209,13 @@ where
             r_j = FieldElement::<F>::from(7);
         }
 
+        // Print g_j evaluated at r_j (like in the blogpost)
+        let g_j_at_r_j = proof_polys[j].evaluate::<F>(&r_j);
+        println!(
+            "🔹 GKR SUMCHECK PROVE - Round {}: g_j(r_j = {:?}) = {:?}",
+            j, r_j, g_j_at_r_j
+        );
+
         challenges.push(r_j.clone());
         current_challenge = Some(r_j.clone());
         println!(
@@ -343,6 +350,13 @@ where
         if j == 3 {
             r_j = FieldElement::<F>::from(7);
         }
+
+        // Print g_j evaluated at r_j (like in the blogpost)
+        let g_j_at_r_j = g_j.evaluate::<F>(&r_j);
+        println!(
+            "🔸 GKR SUMCHECK VERIFY - Round {}: g_j(r_j = {:?}) = {:?}",
+            j, r_j, g_j_at_r_j
+        );
 
         challenges.push(r_j.clone());
 
