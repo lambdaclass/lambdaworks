@@ -46,7 +46,7 @@ where
     /// The factors \( P_i \) of the product being summed.
     factors: Vec<DenseMultilinearPolynomial<F>>,
     /// Challenges \( r_1, r_2, ... \) received from the Verifier in previous rounds.
-    pub challenges: Vec<FieldElement<F>>,
+    challenges: Vec<FieldElement<F>>,
 }
 
 impl<F: IsField> Prover<F>

@@ -168,4 +168,4 @@ The transformation works by replacing the verifier's random challenges with outp
 
 - [Goldwasser, Kalai, and Rothblum. "Delegating computation: interactive proofs for muggles"](https://dl.acm.org/doi/10.1145/1374376.1374396)
 - [Proofs, Arguments, and Zero-Knowledge. Chapter 4](https://people.cs.georgetown.edu/jthaler/ProofsArgsAndZK.pdf)
-- [Lambdaclass Blog Post: Interactive Proofs](https://blog.lambdaclass.com/gkr-protocol-a-step-by-step-example/) 
+- [Lambdaclass Blog Post: GKR protocol: a step-by-step example](https://blog.lambdaclass.com/gkr-protocol-a-step-by-step-example/) 

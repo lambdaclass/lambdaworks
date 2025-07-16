@@ -3,7 +3,7 @@ pub mod prover;
 pub mod sumcheck;
 pub mod verifier;
 use crate::circuit::Circuit;
-use crate::prover::{GKRProof, ProverError};
+use crate::prover::{GKRProof, Prover, ProverError};
 use crate::verifier::Verifier;
 use crate::verifier::VerifierError;
 use lambdaworks_math::field::element::FieldElement;
@@ -57,7 +57,7 @@ where
     FieldElement<F>: ByteConversion,
     <F as IsField>::BaseType: Send + Sync + Copy,
 {
-    prover::generate_proof(circuit, input)
+    Prover::generate_proof(circuit, input)
 }
 
 pub fn gkr_verify<F>(proof: &GKRProof<F>, circuit: &Circuit) -> Result<bool, VerifierError>
