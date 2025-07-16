@@ -108,7 +108,6 @@ impl Verifier {
         }
 
         // Final check using the inputs.
-
         let input_poly_ext = DenseMultilinearPolynomial::new(proof.input_values.clone());
         if m_i
             != input_poly_ext

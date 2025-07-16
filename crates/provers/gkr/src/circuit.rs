@@ -29,11 +29,11 @@ impl Gate {
 
 /// Circuit layer structure
 ///
-///  Output:     o          o     <- layers[0]
+///  Output:     o          o     <- circuit.layers[0]
 ///            /   \      /   \
-///           o     o    o     o  <- layers[1]
-///             ...        ...
-///             o   o   o   o     <- layers[layer.len() - 1]
+///           o     o    o     o  <- circuit.layers[1]
+///                   ...        
+///             o   o   o   o     <- circuit.ayers[layer.len() - 1]
 ///            / \ / \ / \ / \
 ///  Input:    o o o o o o o o
 

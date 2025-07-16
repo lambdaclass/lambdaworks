@@ -122,8 +122,8 @@ mod tests {
             2,
         )
     }
-    /// Create a random circuit with four layers
-    pub fn four_layer_circuit() -> Result<Circuit, CircuitError> {
+    /// Create a random circuit with three layers
+    pub fn three_layer_circuit() -> Result<Circuit, CircuitError> {
         use crate::circuit::{CircuitLayer, Gate, GateType};
         use GateType::{Add, Mul};
 
@@ -182,8 +182,8 @@ mod tests {
     }
 
     #[test]
-    fn test_four_layer_circuit_evaluation() {
-        let circuit = four_layer_circuit().unwrap();
+    fn test_three_layer_circuit_evaluation() {
+        let circuit = three_layer_circuit().unwrap();
         let input: Vec<F23E> = (0u64..16u64).map(F23E::from).collect();
 
         let evaluation = circuit.evaluate(&input);
@@ -228,6 +228,18 @@ mod tests {
     fn test_gkr_complete_verification_lambda() {
         let circuit = lambda_post_circuit().unwrap();
         let input = [F23E::from(3), F23E::from(1)];
+
+        let proof = gkr_prove(&circuit, &input).unwrap();
+        let result = gkr_verify(&proof, &circuit);
+
+        assert!(result.is_ok());
+        assert!(result.unwrap());
+    }
+
+    #[test]
+    fn test_gkr_complete_verification_three_layer() {
+        let circuit = three_layer_circuit().unwrap();
+        let input: Vec<F23E> = (0u64..16u64).map(F23E::from).collect();
 
         let proof = gkr_prove(&circuit, &input).unwrap();
         let result = gkr_verify(&proof, &circuit);
