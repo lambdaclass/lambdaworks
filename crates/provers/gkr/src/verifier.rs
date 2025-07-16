@@ -51,7 +51,6 @@ impl Verifier {
         let mut r_i: Vec<FieldElement<F>> = (0..k_0)
             .map(|_| transcript.sample_field_element())
             .collect();
-        r_i = vec![FieldElement::<F>::from(2)];
         let output_poly_ext = DenseMultilinearPolynomial::new(proof.output_values.clone());
         let mut m_i = output_poly_ext
             .evaluate(r_i.clone())
@@ -86,24 +85,24 @@ impl Verifier {
                     println!("FAIL: Final claim does not match expected value.");
                     println!("final eval calculation: {:?}", final_eval);
                     println!("final eval expected from g_j: {:?}", expected_final_eval);
-                    return Ok(false);
+                    return Err(VerifierError::FinalCheckFailed);
                 }
             }
             if !sumcheck_verified {
-                return Ok(false);
+                return Err(VerifierError::SumcheckFailed);
             }
             // Sample challenges for the next round using line function
             let k_i_plus_1 = circuit
                 .num_vars_at(layer_idx + 1)
                 .ok_or(VerifierError::EvaluationFailed)?;
             // r* in the Lambda post
-            let mut r_last = transcript.sample_field_element();
-            if layer_idx == 0 {
-                r_last = FieldElement::<F>::from(6);
-            }
-            if layer_idx == 1 {
-                r_last = FieldElement::<F>::from(17);
-            }
+            let r_last = transcript.sample_field_element();
+            // if layer_idx == 0 {
+            //     r_last = FieldElement::<F>::from(6);
+            // }
+            // if layer_idx == 1 {
+            //     r_last = FieldElement::<F>::from(17);
+            // }
             // Construct the next round's random point using line function
             // This implements the line function l(x) = b + x * (c - b)
             let (b, c) = sumcheck_challenges.split_at(k_i_plus_1);
@@ -116,7 +115,7 @@ impl Verifier {
             .evaluate(r_i.clone())
             .map_err(|_e| VerifierError::EvaluationFailed)?;
         if final_claim != &expected_last_claim {
-            return Ok(false);
+            return Err(VerifierError::FinalCheckFailed);
         }
         Ok(true)
     }

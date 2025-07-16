@@ -16,16 +16,15 @@ pub enum GateType {
 #[derive(Clone, Copy)]
 pub struct Gate {
     /// A type of the gate.
-    pub ttype: GateType,
+    pub gate_type: GateType,
 
     /// Two inputs, indexes into the previous layer gates outputs.
     pub inputs: [usize; 2],
 }
 
 impl Gate {
-    /// Create a new `Gate`.
-    pub fn new(ttype: GateType, inputs: [usize; 2]) -> Self {
-        Self { ttype, inputs }
+    pub fn new(gate_type: GateType, inputs: [usize; 2]) -> Self {
+        Self { gate_type, inputs }
     }
 }
 
@@ -36,12 +35,10 @@ pub struct CircuitLayer {
 }
 
 impl CircuitLayer {
-    /// Create a new `CircuitLayer`.
     pub fn new(layer: Vec<Gate>) -> Self {
         Self { layer }
     }
 
-    /// The length of the layer.
     pub fn len(&self) -> usize {
         self.layer.len()
     }
@@ -52,8 +49,7 @@ impl CircuitLayer {
 }
 
 /// An evaluation of a `Circuit` on some input.
-/// Stores every circuit layer interediary evaluations and the
-/// circuit evaluation outputs.
+
 pub struct CircuitEvaluation<F> {
     /// Evaluations on per-layer basis.
     pub layers: Vec<Vec<F>>,
@@ -132,7 +128,7 @@ impl Circuit {
             let temp_layer: Vec<_> = layer
                 .layer
                 .iter()
-                .map(|e| match e.ttype {
+                .map(|e| match e.gate_type {
                     GateType::Add => {
                         current_input[e.inputs[0]].clone() + current_input[e.inputs[1]].clone()
                     }
@@ -153,15 +149,13 @@ impl Circuit {
     /// The $\text{add}_i(a, b, c)$ polynomial value at layer $i$.
     pub fn add_i(&self, i: usize, a: usize, b: usize, c: usize) -> bool {
         let gate = &self.layers[i].layer[a];
-
-        gate.ttype == GateType::Add && gate.inputs[0] == b && gate.inputs[1] == c
+        gate.gate_type == GateType::Add && gate.inputs[0] == b && gate.inputs[1] == c
     }
 
     /// The $\text{mul}_i(a, b, c)$ polynomial value at layer $i$.
     pub fn mul_i(&self, i: usize, a: usize, b: usize, c: usize) -> bool {
         let gate = &self.layers[i].layer[a];
-
-        gate.ttype == GateType::Mul && gate.inputs[0] == b && gate.inputs[1] == c
+        gate.gate_type == GateType::Mul && gate.inputs[0] == b && gate.inputs[1] == c
     }
 
     pub fn layers(&self) -> &[CircuitLayer] {
@@ -193,7 +187,7 @@ impl Circuit {
         let total_vars = num_vars_current + 2 * num_vars_next;
         let mut add_i_evals = vec![FieldElement::zero(); 1 << total_vars];
         for (a, gate) in self.layers[i].layer.iter().enumerate() {
-            if gate.ttype == GateType::Add {
+            if gate.gate_type == GateType::Add {
                 let b = gate.inputs[0];
                 let c = gate.inputs[1];
                 let idx = (a << (2 * num_vars_next)) | (b << num_vars_next) | c;
@@ -201,7 +195,7 @@ impl Circuit {
             }
         }
         let mut p = DenseMultilinearPolynomial::new(add_i_evals);
-        for (_i, val) in r_i.iter().enumerate() {
+        for val in r_i.iter() {
             p = p.fix_last_variable(val);
         }
         p
@@ -224,7 +218,7 @@ impl Circuit {
         let total_vars = num_vars_current + 2 * num_vars_next;
         let mut mul_i_evals = vec![FieldElement::zero(); 1 << total_vars];
         for (a, gate) in self.layers[i].layer.iter().enumerate() {
-            if gate.ttype == GateType::Mul {
+            if gate.gate_type == GateType::Mul {
                 let b = gate.inputs[0];
                 let c = gate.inputs[1];
                 let idx = (a << (2 * num_vars_next)) | (b << num_vars_next) | c;
@@ -232,7 +226,7 @@ impl Circuit {
             }
         }
         let mut p = DenseMultilinearPolynomial::new(mul_i_evals);
-        for (_i, val) in r_i.iter().enumerate() {
+        for val in r_i.iter() {
             p = p.fix_last_variable(val);
         }
         p

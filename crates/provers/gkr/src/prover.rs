@@ -175,7 +175,8 @@ where
     let mut r_i: Vec<FieldElement<F>> = (0..k_0)
         .map(|_| transcript.sample_field_element())
         .collect();
-    r_i = vec![FieldElement::<F>::from(2)];
+
+    // r_i = vec![FieldElement::<F>::from(2)]; // ← Para debug/post, dejar comentado
 
     for layer_idx in 0..circuit.layers().len() {
         let w_i_plus_1 = &evaluation.layers[layer_idx + 1];
@@ -192,15 +193,15 @@ where
             .ok_or(ProverError::EvaluationFailed)?;
 
         // r* in the Lambda post
-        let mut r_last = transcript.sample_field_element();
+        let r_last = transcript.sample_field_element();
 
-        if layer_idx == 0 {
-            r_last = FieldElement::<F>::from(6);
-        }
+        // if layer_idx == 0 {
+        //     r_last = FieldElement::<F>::from(6);
+        // }
 
-        if layer_idx == 1 {
-            r_last = FieldElement::<F>::from(17);
-        }
+        // if layer_idx == 1 {
+        //     r_last = FieldElement::<F>::from(17);
+        // }
 
         // Construct the next round's random point using line function
         //  l(x) = b + x * (c - b)

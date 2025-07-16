@@ -244,19 +244,19 @@ where
 pub fn hash_circuit(c: &Circuit) -> [u8; 32] {
     let mut h = Blake2s256::new();
     h.update(b"GKR-Circuit-v1");
-    h.update(&(c.layers().len() as u32).to_le_bytes());
-    h.update(&(c.num_inputs() as u32).to_le_bytes());
+    h.update((c.layers().len() as u32).to_le_bytes());
+    h.update((c.num_inputs() as u32).to_le_bytes());
 
     for layer in c.layers() {
-        h.update(&(layer.len() as u32).to_le_bytes());
+        h.update((layer.len() as u32).to_le_bytes());
         for g in &layer.layer {
-            let gate_type = match g.ttype {
+            let gate_type = match g.gate_type {
                 crate::circuit::GateType::Add => 0u8,
                 crate::circuit::GateType::Mul => 1u8,
             };
-            h.update(&[gate_type]);
-            h.update(&(g.inputs[0] as u32).to_le_bytes());
-            h.update(&(g.inputs[1] as u32).to_le_bytes());
+            h.update([gate_type]);
+            h.update((g.inputs[0] as u32).to_le_bytes());
+            h.update((g.inputs[1] as u32).to_le_bytes());
         }
     }
     h.finalize().into()

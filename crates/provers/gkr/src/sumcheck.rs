@@ -7,9 +7,12 @@ use lambdaworks_math::{
     polynomial::{dense_multilinear_poly::DenseMultilinearPolynomial, Polynomial},
     traits::ByteConversion,
 };
-use lambdaworks_sumcheck::{Channel, Prover, Verifier, VerifierRoundResult};
+use lambdaworks_sumcheck::{Channel, Prover};
 
 use crate::prover::ProverError;
+
+pub type GkrSumcheckProveResult<F> =
+    Result<(FieldElement<F>, SumcheckProof<F>, Vec<FieldElement<F>>), ProverError>;
 
 #[derive(Debug, Clone)]
 pub struct SumcheckProof<F: IsField> {
@@ -21,7 +24,7 @@ pub struct SumcheckProof<F: IsField> {
 pub fn gkr_sumcheck_prove<F, T>(
     terms: Vec<Vec<DenseMultilinearPolynomial<F>>>,
     transcript: &mut T,
-) -> Result<(FieldElement<F>, SumcheckProof<F>, Vec<FieldElement<F>>), ProverError>
+) -> GkrSumcheckProveResult<F>
 where
     F: IsField + HasDefaultTranscript,
     <F as IsField>::BaseType: Send + Sync + Copy,
@@ -117,20 +120,20 @@ where
         proof_polys.push(g_j);
 
         // Get challenge for next round (if not the last round)
-        let mut r_j = transcript.sample_field_element();
-        if j == 0 {
-            r_j = FieldElement::<F>::from(3);
-        }
-        if j == 1 {
-            r_j = FieldElement::<F>::from(2);
-        }
-        if j == 2 {
-            r_j = FieldElement::<F>::from(4);
-        }
-        if j == 3 {
-            r_j = FieldElement::<F>::from(7);
-        }
-
+        let r_j = transcript.sample_field_element();
+        // --- Para debug/post, dejar comentado:
+        // if j == 0 {
+        //     r_j = FieldElement::<F>::from(3);
+        // }
+        // if j == 1 {
+        //     r_j = FieldElement::<F>::from(2);
+        // }
+        // if j == 2 {
+        //     r_j = FieldElement::<F>::from(4);
+        // }
+        // if j == 3 {
+        //     r_j = FieldElement::<F>::from(7);
+        // }
         challenges.push(r_j.clone());
         current_challenge = Some(r_j.clone());
         println!(
@@ -243,23 +246,21 @@ where
             return Ok((false, challenges));
         }
 
-        let mut r_j = transcript.sample_field_element();
-
-        if j == 0 {
-            r_j = FieldElement::<F>::from(3);
-        }
-        if j == 1 {
-            r_j = FieldElement::<F>::from(2);
-        }
-        if j == 2 {
-            r_j = FieldElement::<F>::from(4);
-        }
-        if j == 3 {
-            r_j = FieldElement::<F>::from(7);
-        }
-
+        let r_j = transcript.sample_field_element();
+        // --- Para debug/post, dejar comentado:
+        // if j == 0 {
+        //     r_j = FieldElement::<F>::from(3);
+        // }
+        // if j == 1 {
+        //     r_j = FieldElement::<F>::from(2);
+        // }
+        // if j == 2 {
+        //     r_j = FieldElement::<F>::from(4);
+        // }
+        // if j == 3 {
+        //     r_j = FieldElement::<F>::from(7);
+        // }
         challenges.push(r_j.clone());
-
         println!(
             "🔸 GKR SUMCHECK VERIFY - Round {}: challenge r_j = {:?}",
             j, r_j
