@@ -7,7 +7,6 @@ use lambdaworks_math::polynomial::dense_multilinear_poly::DenseMultilinearPolyno
 pub enum GateType {
     /// An addition gate.
     Add,
-
     /// A multiplication gate.
     Mul,
 }
@@ -27,6 +26,22 @@ impl Gate {
         Self { gate_type, inputs }
     }
 }
+
+/// Circuit layer structure
+///
+///  Output:     o          o     <- layers[0]
+///            /   \      /   \
+///           o     o    o     o  <- layers[1]
+///             ...        ...
+///             o   o   o   o     <- layers[layer.len() - 1]
+///            / \ / \ / \ / \
+///  Input:    o o o o o o o o
+
+///
+/// - The top nodes are the circuit outputs (layers[0]).
+/// - The bottom nodes are the circuit inputs, they don't belong to the vector `layers`.
+/// - Each layer contains gates; edges represent wiring between layers.
+/// - The circuit is evaluated from inputs upward, but layers are stored from output to input.
 
 /// A layer of gates in the circuit.
 #[derive(Clone)]
@@ -196,7 +211,7 @@ impl Circuit {
         }
         let mut p = DenseMultilinearPolynomial::new(add_i_evals);
         for val in r_i.iter() {
-            p = p.fix_last_variable(val);
+            p = p.fix_first_variable(val);
         }
         p
     }
@@ -227,7 +242,7 @@ impl Circuit {
         }
         let mut p = DenseMultilinearPolynomial::new(mul_i_evals);
         for val in r_i.iter() {
-            p = p.fix_last_variable(val);
+            p = p.fix_first_variable(val);
         }
         p
     }

@@ -11,97 +11,65 @@ use lambdaworks_sumcheck::{Channel, Prover};
 
 use crate::prover::ProverError;
 
-pub type GkrSumcheckProveResult<F> =
-    Result<(FieldElement<F>, SumcheckProof<F>, Vec<FieldElement<F>>), ProverError>;
-
 #[derive(Debug, Clone)]
-pub struct SumcheckProof<F: IsField> {
+pub struct GKRSumcheckProof<F: IsField> {
+    pub claimed_sum: FieldElement<F>,
     pub round_polynomials: Vec<Polynomial<FieldElement<F>>>,
-    pub final_evaluation: FieldElement<F>,
+    pub challenges: Vec<FieldElement<F>>,
 }
 
 /// GKR-specific sumcheck prover
 pub fn gkr_sumcheck_prove<F, T>(
     terms: Vec<Vec<DenseMultilinearPolynomial<F>>>,
     transcript: &mut T,
-) -> GkrSumcheckProveResult<F>
+) -> Result<GKRSumcheckProof<F>, ProverError>
 where
     F: IsField + HasDefaultTranscript,
     <F as IsField>::BaseType: Send + Sync + Copy,
     FieldElement<F>: ByteConversion,
     T: IsTranscript<F> + Channel<F>,
 {
-    println!(
-        "🔹 GKR SUMCHECK PROVE - Starting with {} terms",
-        terms.len()
-    );
-
     if terms.is_empty() || terms[0].is_empty() {
-        return Err(ProverError::SumcheckFailed);
+        return Err(ProverError::SumcheckError);
     }
 
     let factors_term_1 = terms[0].clone();
     let factors_term_2 = terms[1].clone();
 
-    let mut prover_term_1 = Prover::new(factors_term_1).map_err(|_| ProverError::SumcheckFailed)?;
-    let mut prover_term_2 = Prover::new(factors_term_2).map_err(|_| ProverError::SumcheckFailed)?;
+    let mut prover_term_1 = Prover::new(factors_term_1).map_err(|_| ProverError::SumcheckError)?;
+    let mut prover_term_2 = Prover::new(factors_term_2).map_err(|_| ProverError::SumcheckError)?;
 
     let num_vars = prover_term_1.num_vars();
 
     let claimed_sum_term_1 = prover_term_1
         .compute_initial_sum()
-        .map_err(|_| ProverError::SumcheckFailed)?;
+        .map_err(|_| ProverError::SumcheckError)?;
 
     let claimed_sum_term_2 = prover_term_2
         .compute_initial_sum()
-        .map_err(|_| ProverError::SumcheckFailed)?;
+        .map_err(|_| ProverError::SumcheckError)?;
     let claimed_sum = claimed_sum_term_1 + claimed_sum_term_2;
 
     transcript.append_bytes(b"initial_sum");
     transcript.append_felt(&FieldElement::from(num_vars as u64));
-    transcript.append_felt(&FieldElement::from(1u64)); // single factor
+    transcript.append_felt(&FieldElement::from(1u64));
     transcript.append_felt(&claimed_sum);
 
     let mut proof_polys = Vec::with_capacity(num_vars);
     let mut challenges = Vec::new();
     let mut current_challenge: Option<FieldElement<F>> = None;
 
-    // Execute rounds manually
+    // Execute rounds
     for j in 0..num_vars {
-        let g_j_term_1 = match prover_term_1.round(current_challenge.as_ref()) {
-            Ok(round) => {
-                println!("g_j_term_1 successfully created for j = {}.", j);
-                round
-            }
-            Err(e) => {
-                println!("Failed to create g_j_term_1: {:?}", e);
-                return Err(ProverError::SumcheckFailed);
-            }
-        };
+        let g_j_term_1 = prover_term_1
+            .round(current_challenge.as_ref())
+            .map_err(|_| ProverError::SumcheckError)?;
 
-        let g_j_term_2 = match prover_term_2.round(current_challenge.as_ref()) {
-            Ok(round) => {
-                println!("g_j_term_2 successfully created for j = {}.", j);
-                round
-            }
-            Err(e) => {
-                println!("Failed to create g_j_term_2 for j = {}: {:?}", j, e);
-                return Err(ProverError::SumcheckFailed);
-            }
-        };
-
-        println!(
-            "challenges in term 1 for j = {}: {:?}",
-            j, prover_term_1.challenges
-        );
-        println!(
-            "challenges in term 2 for j = {}: {:?}",
-            j, prover_term_2.challenges
-        );
+        let g_j_term_2 = prover_term_2
+            .round(current_challenge.as_ref())
+            .map_err(|_| ProverError::SumcheckError)?;
 
         let g_j = g_j_term_1 + g_j_term_2;
-
-        println!("Poly g_j for j = {}: {:?}", j, g_j);
 
         // Add polynomial to transcript
         let round_label = format!("round_{}_poly", j);
@@ -121,63 +89,23 @@ where
 
         // Get challenge for next round (if not the last round)
         let r_j = transcript.sample_field_element();
-        // --- Para debug/post, dejar comentado:
-        // if j == 0 {
-        //     r_j = FieldElement::<F>::from(3);
-        // }
-        // if j == 1 {
-        //     r_j = FieldElement::<F>::from(2);
-        // }
-        // if j == 2 {
-        //     r_j = FieldElement::<F>::from(4);
-        // }
-        // if j == 3 {
-        //     r_j = FieldElement::<F>::from(7);
-        // }
+
         challenges.push(r_j.clone());
         current_challenge = Some(r_j.clone());
-        println!(
-            "🔹 GKR SUMCHECK PROVE - Round {}: challenge r_j = {:?}",
-            j, r_j
-        );
     }
 
-    // Get the final challenge for the last round
-    // if !proof_polys.is_empty() {
-    //     let r_j = transcript.sample_field_element();
-    //     challenges.push(r_j.clone());
-    //     println!(
-    //         "🔹 GKR SUMCHECK PROVE - Round {}: challenge r_j = {:?}",
-    //         num_vars - 1,
-    //         r_j
-    //     );
-    // }
-
-    println!("🔹 GKR SUMCHECK PROVE - Final challenges: {:?}", challenges);
-    println!(
-        "🔹 GKR SUMCHECK PROVE - Challenges length: {}",
-        challenges.len()
-    );
-
-    // Create the sumcheck proof in GKR format
-    let final_evaluation =
-        if let (Some(last_poly), Some(last_challenge)) = (proof_polys.last(), challenges.last()) {
-            last_poly.evaluate::<F>(last_challenge)
-        } else {
-            claimed_sum.clone()
-        };
-
-    let sumcheck_proof = SumcheckProof {
+    let sumcheck_proof = GKRSumcheckProof {
+        claimed_sum,
         round_polynomials: proof_polys,
-        final_evaluation,
+        challenges,
     };
 
-    Ok((claimed_sum, sumcheck_proof, challenges))
+    Ok(sumcheck_proof)
 }
 
 pub fn gkr_sumcheck_verify<F, T>(
     claimed_sum: FieldElement<F>,
-    sumcheck_proof: &SumcheckProof<F>,
+    sumcheck_proof: &GKRSumcheckProof<F>,
     transcript: &mut T,
 ) -> Result<(bool, Vec<FieldElement<F>>), crate::verifier::VerifierError>
 where
@@ -186,16 +114,12 @@ where
     FieldElement<F>: ByteConversion,
     T: IsTranscript<F> + Channel<F>,
 {
-    println!("🔸 GKR SUMCHECK VERIFY - Starting verification");
-    println!("🔸 GKR SUMCHECK VERIFY - Claimed sum: {:?}", claimed_sum);
-
     let proof_polys = &sumcheck_proof.round_polynomials;
     if proof_polys.is_empty() {
         return Err(crate::verifier::VerifierError::InvalidProof);
     }
 
     let num_vars = proof_polys.len();
-    println!("🔸 GKR SUMCHECK VERIFY - Number of rounds: {}", num_vars);
 
     transcript.append_bytes(b"initial_sum");
     transcript.append_felt(&FieldElement::from(num_vars as u64));
@@ -206,9 +130,7 @@ where
 
     // Process each round polynomial
     for (j, g_j) in proof_polys.iter().enumerate() {
-        println!("🔸 GKR SUMCHECK VERIFY - Round {}: Verifying polynomial", j);
-
-        // Add polynomial info to transcript (matching prover)
+        // Add polynomial info to transcript
         let round_label = format!("round_{}_poly", j);
         transcript.append_bytes(round_label.as_bytes());
 
@@ -222,7 +144,6 @@ where
             }
         }
 
-        // Manual verification check (instead of using verifier.do_round)
         let g_j_0 = g_j.evaluate::<F>(&FieldElement::zero());
         let g_j_1 = g_j.evaluate::<F>(&FieldElement::one());
         let sum_evals = g_j_0.clone() + g_j_1.clone();
@@ -237,64 +158,15 @@ where
             prev_poly.evaluate::<F>(prev_challenge)
         };
 
-        println!(" g_j for j = {}: {:?}", j, g_j);
-        println!("🔸 GKR SUMCHECK VERIFY - Round {}: g_j(0) = {:?}, g_j(1) = {:?}, sum = {:?}, expected = {:?}", 
-                j, g_j_0, g_j_1, sum_evals, expected_sum);
-
         if sum_evals != expected_sum {
-            println!("🔸 GKR SUMCHECK VERIFY - Round {}: Sum check FAILED", j);
+            println!("GKR Sumcheck verification failied at  Round {:}", j);
             return Ok((false, challenges));
         }
 
         let r_j = transcript.sample_field_element();
-        // --- Para debug/post, dejar comentado:
-        // if j == 0 {
-        //     r_j = FieldElement::<F>::from(3);
-        // }
-        // if j == 1 {
-        //     r_j = FieldElement::<F>::from(2);
-        // }
-        // if j == 2 {
-        //     r_j = FieldElement::<F>::from(4);
-        // }
-        // if j == 3 {
-        //     r_j = FieldElement::<F>::from(7);
-        // }
+
         challenges.push(r_j.clone());
-        println!(
-            "🔸 GKR SUMCHECK VERIFY - Round {}: challenge r_j = {:?}",
-            j, r_j
-        );
     }
 
-    println!(
-        "🔸 GKR SUMCHECK VERIFY - Final challenges: {:?}",
-        challenges
-    );
-    println!(
-        "🔸 GKR SUMCHECK VERIFY - Challenges length: {}",
-        challenges.len()
-    );
-
-    // Phase 2: Verify final evaluation against prover's claim
-    if let (Some(last_poly), Some(last_challenge)) = (proof_polys.last(), challenges.last()) {
-        let expected_final_eval = last_poly.evaluate::<F>(last_challenge);
-
-        println!(
-            "🔸 GKR SUMCHECK VERIFY - Expected final eval: {:?}",
-            expected_final_eval
-        );
-        println!(
-            "🔸 GKR SUMCHECK VERIFY - Prover's final eval: {:?}",
-            sumcheck_proof.final_evaluation
-        );
-
-        // if sumcheck_proof.final_evaluation != expected_final_eval {
-        //     println!("🔸 GKR SUMCHECK VERIFY - Final evaluation check FAILED");
-        //     return Ok((false, challenges));
-        // }
-    }
-
-    println!("🔸 GKR SUMCHECK VERIFY - Verification SUCCEEDED");
     Ok((true, challenges))
 }
