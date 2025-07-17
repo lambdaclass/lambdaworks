@@ -90,7 +90,7 @@ where
         let r_j = transcript.sample_field_element();
 
         challenges.push(r_j.clone());
-        current_challenge = Some(r_j.clone());
+        current_challenge = Some(r_j);
     }
 
     let sumcheck_proof = GKRSumcheckProof {
@@ -144,7 +144,7 @@ where
 
         let g_j_0 = g_j.evaluate::<F>(&FieldElement::zero());
         let g_j_1 = g_j.evaluate::<F>(&FieldElement::one());
-        let sum_evals = g_j_0.clone() + g_j_1.clone();
+        let sum_evals = &g_j_0 + &g_j_1;
 
         // We need to manually track the expected sum
         let expected_sum = if j == 0 {

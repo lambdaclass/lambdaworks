@@ -117,16 +117,15 @@ impl Prover {
     {
         let mut domain_points_x = Vec::new();
         let mut evaluation_values_y = Vec::new();
+        let w_next_poly = DenseMultilinearPolynomial::new(w_next_evals);
         for i in 0..3 {
             let eval_point_x = FieldElement::from(i as u64);
-            domain_points_x.push(eval_point_x.clone());
-
             let line_at_eval_point = crate::line(b, c, &eval_point_x);
-            let w_next_poly = DenseMultilinearPolynomial::new(w_next_evals.clone());
             let q_at_eval_point = w_next_poly
                 .evaluate(line_at_eval_point)
                 .map_err(|_| ProverError::MultilinearPolynomialEvaluationError)?;
 
+            domain_points_x.push(eval_point_x);
             evaluation_values_y.push(q_at_eval_point);
         }
         let poly_q = Polynomial::interpolate(&domain_points_x, &evaluation_values_y)
@@ -182,7 +181,7 @@ impl Prover {
             let gkr_poly_terms =
                 Prover::build_gkr_polynomial(circuit, &r_i, w_next_evals, layer_idx)?;
 
-            let sumcheck_proof = gkr_sumcheck_prove(gkr_poly_terms.clone(), &mut transcript)?;
+            let sumcheck_proof = gkr_sumcheck_prove(gkr_poly_terms, &mut transcript)?;
 
             let sumcheck_challenges = &sumcheck_proof.challenges;
 
@@ -205,14 +204,15 @@ impl Prover {
 
             let layer_proof = LayerProof {
                 sumcheck_proof,
-                poly_q: poly_q.clone(),
+                poly_q,
             };
             layer_proofs.push(layer_proof);
         }
 
+        let output_values = evaluation.layers[0].clone();
         let proof = GKRProof {
             input_values: input.to_vec(),
-            output_values: evaluation.layers[0].clone(),
+            output_values,
             layer_proofs,
         };
 

@@ -35,11 +35,11 @@ impl Verifier {
         // Append the circuit data to the transcript.
         transcript.append_bytes(&crate::circuit_to_bytes(circuit));
         // Append public inputs x.
-        for x in proof.input_values.clone() {
+        for x in &proof.input_values {
             transcript.append_bytes(&x.to_bytes_be());
         }
         // Append public outputs y (first layer of evaluation).
-        for y in proof.output_values.clone() {
+        for y in &proof.output_values {
             transcript.append_bytes(&y.to_bytes_be());
         }
 

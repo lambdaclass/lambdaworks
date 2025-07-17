@@ -20,14 +20,14 @@ pub fn circuit_to_bytes(circuit: &Circuit) -> Vec<u8> {
     // For each layer append the number of gates, the type and the input indeces of each gate.
     for layer in circuit.layers() {
         bytes.extend_from_slice(&(layer.len() as u32).to_le_bytes());
-        for gate in &layer.layer {
+        for gate in &layer.gates {
             let gate_type = match gate.gate_type {
                 crate::circuit::GateType::Add => 0u8,
                 crate::circuit::GateType::Mul => 1u8,
             };
             bytes.push(gate_type);
-            bytes.extend_from_slice(&(gate.inputs[0] as u32).to_le_bytes());
-            bytes.extend_from_slice(&(gate.inputs[1] as u32).to_le_bytes());
+            bytes.extend_from_slice(&(gate.inputs_idx[0] as u32).to_le_bytes());
+            bytes.extend_from_slice(&(gate.inputs_idx[1] as u32).to_le_bytes());
         }
     }
     bytes
@@ -47,7 +47,7 @@ where
 {
     b.iter()
         .zip(c.iter())
-        .map(|(b_val, c_val)| b_val.clone() + t.clone() * (c_val.clone() - b_val.clone()))
+        .map(|(b_val, c_val)| b_val + t * (c_val - b_val))
         .collect()
 }
 
