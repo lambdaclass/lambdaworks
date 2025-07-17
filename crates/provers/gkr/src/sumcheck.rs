@@ -11,13 +11,17 @@ use lambdaworks_sumcheck::{Channel, Prover};
 
 use crate::prover::ProverError;
 
+/// GKR-specific sumcheck proof, which contains each round polynomial `g_j` and the challenges used.
 #[derive(Debug, Clone)]
 pub struct GKRSumcheckProof<F: IsField> {
     pub round_polynomials: Vec<Polynomial<FieldElement<F>>>,
     pub challenges: Vec<FieldElement<F>>,
 }
 
-/// GKR-specific sumcheck prover
+/// GKR-specific sumcheck prover.
+/// This function will recieve a vector of two terms. Each term contains two multilinear polynomials.
+/// This separation of terms is necessary because the classic/original sumcheck only accepts a product of multilinear polynomials.
+/// In this way, we apply the sumcheck to two products, each consisting of two factors.
 pub fn gkr_sumcheck_prove<F, T>(
     terms: Vec<Vec<DenseMultilinearPolynomial<F>>>,
     transcript: &mut T,
@@ -35,9 +39,11 @@ where
     let factors_term_1 = terms[0].clone();
     let factors_term_2 = terms[1].clone();
 
+    // Create two separate sumcheck provers for each term.
     let mut prover_term_1 = Prover::new(factors_term_1).map_err(|_| ProverError::SumcheckError)?;
     let mut prover_term_2 = Prover::new(factors_term_2).map_err(|_| ProverError::SumcheckError)?;
 
+    // Both terms have the same number of variables.
     let num_vars = prover_term_1.num_vars();
 
     let claimed_sum_term_1 = prover_term_1
@@ -58,7 +64,7 @@ where
     let mut challenges = Vec::new();
     let mut current_challenge: Option<FieldElement<F>> = None;
 
-    // Execute rounds
+    // Execute sumcheck rounds
     for j in 0..num_vars {
         let g_j_term_1 = prover_term_1
             .round(current_challenge.as_ref())
@@ -101,6 +107,7 @@ where
     Ok(sumcheck_proof)
 }
 
+/// GKR-specific sumcheck Verifier.
 pub fn gkr_sumcheck_verify<F, T>(
     claimed_sum: FieldElement<F>,
     sumcheck_proof: &GKRSumcheckProof<F>,
@@ -126,12 +133,11 @@ where
 
     let mut challenges = Vec::new();
 
-    // Process each round polynomial
+    // Verify each round polynomial.
     for (j, g_j) in proof_polys.iter().enumerate() {
         // Add polynomial info to transcript
         let round_label = format!("round_{}_poly", j);
         transcript.append_bytes(round_label.as_bytes());
-
         let coeffs = g_j.coefficients();
         transcript.append_bytes(&(coeffs.len() as u64).to_be_bytes());
         if coeffs.is_empty() {
@@ -142,11 +148,12 @@ where
             }
         }
 
+        // Verify `g_j(0) + g_j(1) = m_{j-1}`, where:
+        // `m_{j-1} = g_{j-1} (s_{j-1})`, the previous claimed sum.
         let g_j_0 = g_j.evaluate::<F>(&FieldElement::zero());
         let g_j_1 = g_j.evaluate::<F>(&FieldElement::one());
         let sum_evals = &g_j_0 + &g_j_1;
 
-        // We need to manually track the expected sum
         let expected_sum = if j == 0 {
             claimed_sum.clone()
         } else {

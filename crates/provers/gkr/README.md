@@ -4,6 +4,8 @@ An implementation of the Goldwasser-Kalai-Rothblum (GKR) Non-Interactive Protoco
 
 To help with the understanding of this implementation, we recommend reading our [blog post](https://blog.lambdaclass.com/gkr-protocol-a-step-by-step-example/).
 
+**Warning:** This GKR implementation is for educational purposes and should not be used in production. It uses the Fiat-Shamir transform, which is vulnerable to practical attacks in this context (see ["How to Prove False Statments"](https://eprint.iacr.org/2025/118.pdf)). 
+
 ## Overview
 
 The GKR Protocol allows a Prover to convince a Verifier that he correctly evaluated an arithmetic circuit on a given input without the Verifier having to perform the entire computation.   
@@ -40,13 +42,13 @@ Each layer must have a power-of-two number of gates.
 ### Main Functions
 
 - `gkr_prove(circuit, input)` - Generate a GKR proof for a circuit evaluation.
-- `gkr_verify(proof, circuit, input)` - Verify a GKR proof with complete input checking.
+- `gkr_verify(proof, circuit, input)` - Verify a GKR proof.
 
 ### Circuit Construction
 
-- `Circuit::new(layers, num_inputs)` - Create a new circuit with specified layers and input count
-- `CircuitLayer::new(gates)` - Create a layer with the given gates
-- `Gate::new(gate_type, inputs)` - Create a gate with type (Add/Mul) and input connections
+- `Circuit::new(layers, num_inputs)` - Create a new circuit with specified layers, gates and number of inputs.
+- `CircuitLayer::new(gates)` - Create a layer with the given gates.
+- `Gate::new(gate_type, inputs_idx)` - Create a gate with type (Add/Mul) and certain input indeces.
 
 ## Example
 
@@ -57,29 +59,29 @@ use lambdaworks_math::field::fields::u64_prime_field::U64PrimeField;
 use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_gkr::{gkr_prove, gkr_verify, circuit_from_lambda};
 
-// Define the field (We use modulus 23 as in the example of our blog posr)
+// Define the field (We use modulus 23 as in the example of our blog post).
 const MODULUS23: u64 = 23;
 type F23 = U64PrimeField<MODULUS23>;
 type F23E = FieldElement<F23>;
 
-// Create the circuit from our blog post.
-// This creates a 2-layer circuit.
+// Create the circuit of our blog post.
+// This creates a 2-layer circuit plus the input layer.
 let circuit = lambda_post_circuit.unwrap();
 
-// Define input values (from the post example)
+// Define input values (from the post example).
 let input = [F23E::from(3), F23E::from(1)];
 
-// Generate proof
+// Generate proof.
 let proof_result = gkr_prove(&circuit, &input);
 assert!(proof_result.is_ok());
 let proof = proof_result.unwrap();
 
-// Verify proof
+// Verify proof.
 let verification_result = gkr_verify(&proof, &circuit, &input);
 assert!(verification_result.is_ok() && verification_result.unwrap());
 println!("GKR verification successful!");
 
-// You can also check the actual output
+// You can also check the actual output.
 let evaluation = circuit.evaluate(&input);
 println!("Circuit output: {:?}", evaluation.layers[0]);
 ```
@@ -109,10 +111,10 @@ let custom_circuit = Circuit::new(
 
 // Test with inputs [2, 3, 4, 5]
 let input = [F23E::from(2), F23E::from(3), F23E::from(4), F23E::from(5)];
-// This computes: Layer 1: [2*3, 4*5] = [6, 20], Layer 0: [6+20] = [26 mod 23] = [3]
 
 let proof = gkr_prove(&custom_circuit, &input).unwrap();
 let is_valid = gkr_verify(&proof, &custom_circuit, &input).unwrap();
+
 assert!(is_valid);
 ```
 

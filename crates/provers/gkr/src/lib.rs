@@ -125,7 +125,7 @@ mod tests {
             2,
         )
     }
-    /// Create a circuit with four layers (without counting the inputs).
+    /// Create a circuit with four layers (without counting the input layer).
     /// To picture this circuit, imagine a tree structure where each layer has twice the number of gates as the layer above.
     pub fn four_layer_circuit() -> Result<Circuit, CircuitError> {
         use crate::circuit::{CircuitLayer, Gate, GateType};
