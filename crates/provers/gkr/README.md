@@ -24,13 +24,13 @@ The protocol works by reducing claims about each layer of the circuit to claims 
 Circuits are organized in layers, with each layer containing gates that operate on outputs from the previous layer:
 
 ```
-///  Output:     o          o      <- circuit.layers[0]
-               /   \      /   \
-              o     o    o     o   <- circuit.layers[1]
-                      ...        
-                 o   o   o   o     <- circuit.layers[layer.len() - 1]
-                / \ / \ / \ / \
-Input:          o o o o o o o o
+Output:    o          o      <- circuit.layers[0]
+         /   \      /   \
+        o     o    o     o   <- circuit.layers[1]
+                ...        
+           o   o   o   o     <- circuit.layers[layer.len() - 1]
+          / \ / \ / \ / \
+Input:    o o o o o o o o
 ```
 
 Each layer must have a power-of-two number of gates.

@@ -32,13 +32,13 @@ impl Verifier {
         // Both parties need to to append to the transcript the circuit, the inputs and the outputs.
         // See https://eprint.iacr.org/2025/118.pdf, Sections 2.1 and 2.2
         let mut transcript = DefaultTranscript::<F>::default();
-        // 1. Append the circuit data to the transcript.
+        // Append the circuit data to the transcript.
         transcript.append_bytes(&crate::circuit_to_bytes(circuit));
-        // 2. x public inputs
+        // Append public inputs x.
         for x in proof.input_values.clone() {
             transcript.append_bytes(&x.to_bytes_be());
         }
-        // 3. y outputs (first layer of evaluation)
+        // Append public outputs y (first layer of evaluation).
         for y in proof.output_values.clone() {
             transcript.append_bytes(&y.to_bytes_be());
         }
@@ -48,21 +48,28 @@ impl Verifier {
             .map(|_| transcript.sample_field_element())
             .collect();
 
+        // Calculate the initial claimed sum `m_0 = W_0(r_0)`.
         let output_poly_ext = DenseMultilinearPolynomial::new(proof.output_values.clone());
-        let mut m_i = output_poly_ext
+        let mut claimed_sum = output_poly_ext
             .evaluate(r_i.clone())
             .map_err(|_e| VerifierError::MultilinearPolynomialEvaluationError)?;
+
+        // For each layer, verify the sumcheck proof and calculate the next layer's challenges and claimed sum.
         for (layer_idx, layer_proof) in proof.layer_proofs.iter().enumerate() {
-            // Complete GKR sumcheck verification with final evaluation check
-            let (sumcheck_verified, sumcheck_challenges) =
-                gkr_sumcheck_verify(m_i.clone(), &layer_proof.sumcheck_proof, &mut transcript)?;
+            // Sumcheck verification.
+            let (sumcheck_verified, sumcheck_challenges) = gkr_sumcheck_verify(
+                claimed_sum.clone(),
+                &layer_proof.sumcheck_proof,
+                &mut transcript,
+            )?;
 
             if !sumcheck_verified {
                 println!("Sumcheck verification failed at layer {}", layer_idx);
                 return Ok(false);
             }
 
-            // Final sumcheck verification
+            // Final sumcheck verification.
+            // The verifier must check the last claim using the polynommial q sent by the prover.
             let last_poly = layer_proof
                 .sumcheck_proof
                 .round_polynomials
@@ -87,29 +94,30 @@ impl Verifier {
 
             let final_eval = add_eval * (&q_at_0 + &q_at_1) + mul_eval * q_at_0 * q_at_1;
 
+            // Final claim verification.
             if final_eval != expected_final_eval {
                 println!("Final sumcheck verification failed at layer {}.", layer_idx);
                 return Ok(false);
             }
 
-            // Sample challenges for the next round using line function
-            let k_i_plus_1 = circuit
+            // Sample challenges for the next round using line function.
+            let num_vars_next = circuit
                 .num_vars_at(layer_idx + 1)
                 .ok_or(VerifierError::CircuitError)?;
 
-            // r* in the Lambda post
-            let r_last = transcript.sample_field_element();
+            // r* in our blog post <https://blog.lambdaclass.com/gkr-protocol-a-step-by-step-example/>
+            let r_new = transcript.sample_field_element();
 
-            // Construct the next round's random point using line function
-            // This implements the line function l(x) = b + x * (c - b)
-            let (b, c) = sumcheck_challenges.split_at(k_i_plus_1);
-            r_i = crate::line(b, c, &r_last);
-            m_i = layer_proof.poly_q.evaluate(&r_last);
+            // Construct the next round's random point using line function that goes from `b` to `c`.
+            let (b, c) = sumcheck_challenges.split_at(num_vars_next);
+            r_i = crate::line(b, c, &r_new);
+            // Set the next layer's claimed sum.
+            claimed_sum = layer_proof.poly_q.evaluate(&r_new);
         }
 
-        // Final check using the inputs.
+        // At the last layer the verifier checks the last claim using the input multilinear polynomial extension W.
         let input_poly_ext = DenseMultilinearPolynomial::new(proof.input_values.clone());
-        if m_i
+        if claimed_sum
             != input_poly_ext
                 .evaluate(r_i)
                 .map_err(|_| VerifierError::MultilinearPolynomialEvaluationError)?

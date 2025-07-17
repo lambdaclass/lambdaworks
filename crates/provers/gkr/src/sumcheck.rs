@@ -13,7 +13,6 @@ use crate::prover::ProverError;
 
 #[derive(Debug, Clone)]
 pub struct GKRSumcheckProof<F: IsField> {
-    pub claimed_sum: FieldElement<F>,
     pub round_polynomials: Vec<Polynomial<FieldElement<F>>>,
     pub challenges: Vec<FieldElement<F>>,
 }
@@ -95,7 +94,6 @@ where
     }
 
     let sumcheck_proof = GKRSumcheckProof {
-        claimed_sum,
         round_polynomials: proof_polys,
         challenges,
     };
@@ -159,7 +157,7 @@ where
         };
 
         if sum_evals != expected_sum {
-            println!("GKR Sumcheck verification failied at  Round {:}", j);
+            println!("Sumcheck verification failied at round {:}", j);
             return Ok((false, challenges));
         }
 
