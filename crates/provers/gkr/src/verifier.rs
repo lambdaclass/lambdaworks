@@ -14,6 +14,7 @@ use lambdaworks_crypto::fiat_shamir::{
 #[derive(Debug)]
 pub enum VerifierError {
     InvalidProof,
+    InvalidDegree,
     MultilinearPolynomialEvaluationError,
     SumcheckError,
     CircuitError,

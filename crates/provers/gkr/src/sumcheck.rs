@@ -148,6 +148,11 @@ where
             }
         }
 
+        // Check that the degree of g_j does not exceed the theoretical bound
+        if g_j.degree() > 2 {
+            return Err(crate::verifier::VerifierError::InvalidDegree);
+        }
+
         // Verify `g_j(0) + g_j(1) = m_{j-1}`, where:
         // `m_{j-1} = g_{j-1} (s_{j-1})`, the previous claimed sum.
         let g_j_0 = g_j.evaluate::<F>(&FieldElement::zero());
