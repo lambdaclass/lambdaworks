@@ -29,6 +29,11 @@ impl Verifier {
         FieldElement<F>: ByteConversion,
         <F as IsField>::BaseType: Send + Sync + Copy,
     {
+        // The proof should haver one layer-proof for each circuit layer.
+        if proof.layer_proofs.len() != circuit.layers().len() {
+            println!("The proof has an invalid number of proof layers");
+            return Ok(false);
+        }
         // Fiat-Shamir heuristic:
         // Both parties need to to append to the transcript the circuit, the inputs and the outputs.
         // See https://eprint.iacr.org/2025/118.pdf, Sections 2.1 and 2.2
@@ -57,6 +62,16 @@ impl Verifier {
 
         // For each layer, verify the sumcheck proof and calculate the next layer's challenges and claimed sum.
         for (layer_idx, layer_proof) in proof.layer_proofs.iter().enumerate() {
+            // The number of sumcheck round polynomials `g_j` should be `2 * k_{i+1}`,
+            // where `k_{i+1} = next_num_vars` is the number of variables in the next layer.
+            let next_num_vars = circuit
+                .num_vars_at(layer_idx + 1)
+                .ok_or(VerifierError::InvalidProof)?;
+            if layer_proof.sumcheck_proof.round_polynomials.len() != 2 * next_num_vars {
+                println!("The proof has an invalid number of sumcheck round polynomials at layer {layer_idx}");
+                return Ok(false);
+            }
+
             // Sumcheck verification.
             let (sumcheck_verified, sumcheck_challenges) = gkr_sumcheck_verify(
                 claimed_sum.clone(),

@@ -148,7 +148,9 @@ where
             }
         }
 
-        // Check that the degree of g_j does not exceed the theoretical bound
+        // Check that the degree of `g_j` does not exceed the theoretical bound.
+        // The polynomial `g_j` should be cuadratic since the polynomial `f(b,c)` to which the sumcheck is applied
+        // is the sum of of two products, where each one is the product of two multilinear polynomials.
         if g_j.degree() > 2 {
             return Err(crate::verifier::VerifierError::InvalidDegree);
         }
