@@ -16,7 +16,7 @@ pub fn point_double_projective(c: &mut Criterion) {
 
     {
         c.bench_function(
-            &format!("{} Projective Double | Starknet RS ", BENCHMARK_NAME),
+            &format!("{BENCHMARK_NAME} Projective Double | Starknet RS "),
             |b| {
                 b.iter(|| {
                     let mut initial_point = starknet_rs_projective_generator;
@@ -41,7 +41,7 @@ pub fn point_double_projective(c: &mut Criterion) {
 
     {
         c.bench_function(
-            &format!("{} Projective Double | Lambdaworks", BENCHMARK_NAME),
+            &format!("{BENCHMARK_NAME} Projective Double | Lambdaworks"),
             |b| {
                 b.iter(|| {
                     lambdaworks_affine_generator
@@ -71,10 +71,7 @@ pub fn point_add_projective_affine(c: &mut Criterion) {
 
     {
         c.bench_function(
-            &format!(
-                "{} 10k Add Projective-Affine | Starknet RS ",
-                BENCHMARK_NAME
-            ),
+            &format!("{BENCHMARK_NAME} 10k Add Projective-Affine | Starknet RS "),
             |b| {
                 b.iter(|| {
                     let mut projective_point_rs = starknet_rs_initial_projective;
@@ -93,9 +90,9 @@ pub fn point_add_projective_affine(c: &mut Criterion) {
     }
 
     let starknet_rs_x = AffinePoint::from(&projective_point_rs).x;
-    println!("Starknet RS result - X: {:#x} ", starknet_rs_x);
+    println!("Starknet RS result - X: {starknet_rs_x:#x} ");
     let starknet_rs_y = AffinePoint::from(&projective_point_rs).y;
-    println!("Starknet RS result - Y: {:#x} \n", starknet_rs_y);
+    println!("Starknet RS result - Y: {starknet_rs_y:#x} \n");
 
     let lambdaworks_affine_generator = StarkCurve::generator();
 
@@ -106,7 +103,7 @@ pub fn point_add_projective_affine(c: &mut Criterion) {
 
     {
         c.bench_function(
-            &format!("{} 10k Add Projective-Affine | Lambdaworks", BENCHMARK_NAME),
+            &format!("{BENCHMARK_NAME} 10k Add Projective-Affine | Lambdaworks"),
             |b| {
                 b.iter(|| {
                     let mut projective_point = lambdaworks_rs_initial_projective.clone();
@@ -128,8 +125,8 @@ pub fn point_add_projective_affine(c: &mut Criterion) {
 
     let lambdaworks_x = projective_point.to_affine().x().to_string();
     let lambdaworks_y = projective_point.to_affine().y().to_string();
-    println!("Lambdaworks result - X: {}", lambdaworks_x);
-    println!("Lambdaworks result - Y: {}", lambdaworks_y);
+    println!("Lambdaworks result - X: {lambdaworks_x}");
+    println!("Lambdaworks result - Y: {lambdaworks_y}");
 }
 
 pub fn point_add_projective_projective(c: &mut Criterion) {
@@ -140,10 +137,7 @@ pub fn point_add_projective_projective(c: &mut Criterion) {
 
     {
         c.bench_function(
-            &format!(
-                "{} 10k Add Projective-Projective | Starknet RS ",
-                BENCHMARK_NAME
-            ),
+            &format!("{BENCHMARK_NAME} 10k Add Projective-Projective | Starknet RS "),
             |b| {
                 b.iter(|| {
                     let mut projective_point_rs = starknet_rs_initial_projective;
@@ -163,9 +157,9 @@ pub fn point_add_projective_projective(c: &mut Criterion) {
     }
 
     let starknet_rs_x = AffinePoint::from(&projective_point_rs).x;
-    println!("Starknet RS result - X: {:#x} ", starknet_rs_x);
+    println!("Starknet RS result - X: {starknet_rs_x:#x} ");
     let starknet_rs_y = AffinePoint::from(&projective_point_rs).y;
-    println!("Starknet RS result - Y: {:#x} \n", starknet_rs_y);
+    println!("Starknet RS result - Y: {starknet_rs_y:#x} \n");
 
     let lambdaworks_affine_generator = StarkCurve::generator();
 
@@ -174,10 +168,7 @@ pub fn point_add_projective_projective(c: &mut Criterion) {
 
     {
         c.bench_function(
-            &format!(
-                "{} 10k Add Projective-Projective | Lambdaworks",
-                BENCHMARK_NAME
-            ),
+            &format!("{BENCHMARK_NAME} 10k Add Projective-Projective | Lambdaworks"),
             |b| {
                 b.iter(|| {
                     let mut projective_point = lambdaworks_rs_initial_projective.clone();
@@ -199,8 +190,8 @@ pub fn point_add_projective_projective(c: &mut Criterion) {
 
     let lambdaworks_x = projective_point.to_affine().x().to_string();
     let lambdaworks_y = projective_point.to_affine().y().to_string();
-    println!("Lambdaworks result - X: {}", lambdaworks_x);
-    println!("Lambdaworks result - Y: {}", lambdaworks_y);
+    println!("Lambdaworks result - X: {lambdaworks_x}");
+    println!("Lambdaworks result - Y: {lambdaworks_y}");
 }
 
 pub fn point_add_affine_affine(c: &mut Criterion) {
@@ -210,7 +201,7 @@ pub fn point_add_affine_affine(c: &mut Criterion) {
 
     {
         c.bench_function(
-            &format!("{} 10k Add Affine-Affine | Starknet RS ", BENCHMARK_NAME),
+            &format!("{BENCHMARK_NAME} 10k Add Affine-Affine | Starknet RS "),
             |b| {
                 b.iter(|| {
                     let mut point_rs = *starknet_rs_initial_point;
@@ -229,9 +220,9 @@ pub fn point_add_affine_affine(c: &mut Criterion) {
     }
 
     let starknet_rs_x = point_rs.x;
-    println!("Starknet RS result - X: {:#x} ", starknet_rs_x);
+    println!("Starknet RS result - X: {starknet_rs_x:#x} ");
     let starknet_rs_y = &point_rs.y;
-    println!("Starknet RS result - Y: {:#x} \n", starknet_rs_y);
+    println!("Starknet RS result - Y: {starknet_rs_y:#x} \n");
 
     let lambdaworks_affine_generator = StarkCurve::generator();
 
@@ -239,7 +230,7 @@ pub fn point_add_affine_affine(c: &mut Criterion) {
         StarkCurve::generator().operate_with(&StarkCurve::generator());
     {
         c.bench_function(
-            &format!("{} 10k Add Affine-Affine | Lambdaworks", BENCHMARK_NAME),
+            &format!("{BENCHMARK_NAME} 10k Add Affine-Affine | Lambdaworks"),
             |b| {
                 b.iter(|| {
                     let mut projective_point = lambdaworks_rs_initial_projective.clone();
@@ -261,8 +252,8 @@ pub fn point_add_affine_affine(c: &mut Criterion) {
 
     let lambdaworks_x = projective_point.to_affine().x().to_string();
     let lambdaworks_y = projective_point.to_affine().y().to_string();
-    println!("Lambdaworks result - X: {}", lambdaworks_x);
-    println!("Lambdaworks result - Y: {}", lambdaworks_y);
+    println!("Lambdaworks result - X: {lambdaworks_x}");
+    println!("Lambdaworks result - Y: {lambdaworks_y}");
 }
 
 criterion_group!(

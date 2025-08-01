@@ -121,7 +121,7 @@ pub fn bn_254_elliptic_curve_benchmarks(c: &mut Criterion) {
 
     // Batch Pairing
     for num_pairs in 1..=10 {
-        group.bench_function(format!("Ate Pairing ({} pairs)", num_pairs), |bencher| {
+        group.bench_function(format!("Ate Pairing ({num_pairs} pairs)"), |bencher| {
             let mut rng = StdRng::seed_from_u64(42);
             let mut g1_points: Vec<G1> = Vec::new();
             let mut g2_points: Vec<G2> = Vec::new();

@@ -103,7 +103,7 @@ impl<const MODULUS: u64> IsPrimeField for U64PrimeField<MODULUS> {
 
     #[cfg(feature = "std")]
     fn to_hex(x: &u64) -> String {
-        format!("{:X}", x)
+        format!("{x:X}")
     }
 }
 

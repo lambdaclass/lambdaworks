@@ -82,7 +82,7 @@ where
     /// Computes the initial claimed sum \( C = \\sum_{x \\in \\{0,1\\}^n} \\prod_i P_i(x) \).
     pub fn compute_initial_sum(&self) -> Result<FieldElement<F>, ProverError> {
         sum_product_over_suffix(&self.factors, &[])
-            .map_err(|e| ProverError::SummationError(format!("Error computing initial sum: {}", e)))
+            .map_err(|e| ProverError::SummationError(format!("Error computing initial sum: {e}")))
     }
 
     /// Executes a round of the Sum-Check protocol.
@@ -133,7 +133,7 @@ where
 
             let g_j_at_eval_point = sum_product_over_suffix(&self.factors, &current_point_prefix)
                 .map_err(|e| {
-                ProverError::RoundError(format!("Error in sum for g_j({}): {}", i, e))
+                ProverError::RoundError(format!("Error in sum for g_j({i}): {e}"))
             })?;
             evaluations_y.push(g_j_at_eval_point);
         }
@@ -172,7 +172,7 @@ where
         let g_j = prover.round(current_challenge.as_ref())?;
 
         // Append g_j information to transcript for the verifier to derive challenge
-        let round_label = format!("round_{}_poly", j);
+        let round_label = format!("round_{j}_poly");
         transcript.append_bytes(round_label.as_bytes());
 
         let coeffs = g_j.coefficients();

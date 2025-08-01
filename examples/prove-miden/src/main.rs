@@ -90,7 +90,7 @@ fn main() {
     )
     .unwrap();
     let elapsed0 = timer0.elapsed();
-    println!("Total time spent proving: {:?}", elapsed0);
+    println!("Total time spent proving: {elapsed0:?}");
 
     println!("\nVerifying ");
     let timer0 = Instant::now();
@@ -101,7 +101,7 @@ fn main() {
         QuadFeltTranscript::new(&[]),
     ));
     let elapsed0 = timer0.elapsed();
-    println!("Total time spent verifying: {:?}", elapsed0);
+    println!("Total time spent verifying: {elapsed0:?}");
 
     println!("\nDone!");
 }

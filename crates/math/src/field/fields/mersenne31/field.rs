@@ -181,7 +181,7 @@ impl IsPrimeField for Mersenne31Field {
 
     #[cfg(feature = "std")]
     fn to_hex(x: &u32) -> String {
-        format!("{:X}", x)
+        format!("{x:X}")
     }
 }
 
