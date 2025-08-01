@@ -80,7 +80,7 @@ impl Verifier {
             )?;
 
             if !sumcheck_verified {
-                println!("Sumcheck verification failed at layer {}", layer_idx);
+                println!("Sumcheck verification failed at layer {layer_idx}");
                 return Ok(false);
             }
 
@@ -112,7 +112,7 @@ impl Verifier {
 
             // Final claim verification.
             if final_eval != expected_final_eval {
-                println!("Final sumcheck verification failed at layer {}.", layer_idx);
+                println!("Final sumcheck verification failed at layer {layer_idx}.");
                 return Ok(false);
             }
 

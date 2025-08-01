@@ -56,21 +56,6 @@ impl CircuitLayer {
     }
 }
 
-/// An evaluation of a `Circuit` on some input.
-/// Stores every circuit layer intermediate evaluations and the
-/// circuit evaluation outputs.
-pub struct CircuitEvaluation<F> {
-    /// Evaluations on per-layer basis.
-    pub layers: Vec<Vec<F>>,
-}
-
-impl<F: Copy> CircuitEvaluation<F> {
-    /// Takes a gate label and outputs the corresponding gate's value at layer `layer`.
-    pub fn w(&self, layer: usize, label: usize) -> F {
-        self.layers[layer][label]
-    }
-}
-
 #[derive(Debug, Clone)]
 pub enum CircuitError {
     InputsNotPowerOfTwo,
@@ -114,6 +99,13 @@ pub struct Circuit {
 pub struct CircuitEvaluation<F: IsField> {
     /// Evaluations on per-layer. First layer is the output and last layer is the input.
     pub layers: Vec<Vec<FieldElement<F>>>,
+}
+
+impl<F: IsField> CircuitEvaluation<F> {
+    /// Takes a gate label and outputs the corresponding gate's value at layer `layer`.
+    pub fn w(&self, layer: usize, label: usize) -> FieldElement<F> {
+        self.layers[layer][label].clone()
+    }
 }
 
 impl Circuit {

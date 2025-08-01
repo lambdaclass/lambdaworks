@@ -77,7 +77,7 @@ where
         let g_j = g_j_term_1 + g_j_term_2;
 
         // Add polynomial to transcript
-        let round_label = format!("round_{}_poly", j);
+        let round_label = format!("round_{j}_poly");
         transcript.append_bytes(round_label.as_bytes());
 
         let coeffs = g_j.coefficients();
@@ -136,7 +136,7 @@ where
     // Verify each round polynomial.
     for (j, g_j) in proof_polys.iter().enumerate() {
         // Add polynomial info to transcript
-        let round_label = format!("round_{}_poly", j);
+        let round_label = format!("round_{j}_poly");
         transcript.append_bytes(round_label.as_bytes());
         let coeffs = g_j.coefficients();
         transcript.append_bytes(&(coeffs.len() as u64).to_be_bytes());
@@ -171,7 +171,7 @@ where
         };
 
         if sum_evals != expected_sum {
-            println!("Sumcheck verification failied at round {:}", j);
+            println!("Sumcheck verification failed at round {j}");
             return Ok((false, challenges));
         }
 
