@@ -242,7 +242,7 @@ mod tests {
         let c_1 = prover
             .compute_initial_sum()
             .expect("compute_initial_sum failed");
-        println!("\nInitial claimed sum c₁: {:?}", c_1);
+        println!("\nInitial claimed sum c₁: {c_1:?}");
         assert_eq!(c_1, FE::from(8));
         let mut transcript = DefaultTranscript::<F>::default();
         let mut verifier =
@@ -267,7 +267,7 @@ mod tests {
         );
         let res0 = verifier.do_round(g0, &mut transcript).unwrap();
         let r0 = if let VerifierRoundResult::NextRound(chal) = res0 {
-            println!("Challenge r₀: {:?}", chal);
+            println!("Challenge r₀: {chal:?}");
             chal
         } else {
             panic!("Expected NextRound result for round 0");
@@ -321,7 +321,7 @@ mod tests {
         let c_1 = prover
             .compute_initial_sum()
             .expect("compute_initial_sum failed");
-        println!("\nInitial claimed sum c₁: {:?}", c_1);
+        println!("\nInitial claimed sum c₁: {c_1:?}");
         assert_eq!(c_1, FE::from(36));
         let mut transcript = DefaultTranscript::<F>::default();
         let mut verifier =
@@ -339,7 +339,7 @@ mod tests {
             );
             let g_j = prover
                 .round(current_challenge_opt.as_ref())
-                .unwrap_or_else(|e| panic!("Prover::round failed at round {}: {:?}", round_idx, e));
+                .unwrap_or_else(|e| panic!("Prover::round failed at round {round_idx}: {e:?}"));
             println!(
                 "Univariate polynomial g{}(X) coefficients: {:?}",
                 round_idx,
@@ -356,11 +356,11 @@ mod tests {
                 eval_0 + eval_1
             );
             let res = verifier.do_round(g_j, &mut transcript).unwrap_or_else(|e| {
-                panic!("Verifier::do_round failed at round {}: {:?}", round_idx, e)
+                panic!("Verifier::do_round failed at round {round_idx}: {e:?}")
             });
             match res {
                 VerifierRoundResult::NextRound(chal) => {
-                    println!("Challenge r{}: {:?}", round_idx, chal);
+                    println!("Challenge r{round_idx}: {chal:?}");
                     current_challenge_opt = Some(chal);
                 }
                 VerifierRoundResult::Final(ok) => {
@@ -394,7 +394,7 @@ mod tests {
         let c_1 = prover
             .compute_initial_sum()
             .expect("compute_initial_sum failed");
-        println!("\nInitial claimed sum c₁: {:?}", c_1);
+        println!("\nInitial claimed sum c₁: {c_1:?}");
         assert_eq!(c_1, FE::from(12));
         let mut transcript = DefaultTranscript::<F>::default();
         let mut verifier =
@@ -417,7 +417,7 @@ mod tests {
         );
         let res0 = verifier.do_round(g0, &mut transcript).unwrap();
         let r0 = if let VerifierRoundResult::NextRound(chal) = res0 {
-            println!("Challenge r₀: {:?}", chal);
+            println!("Challenge r₀: {chal:?}");
             chal
         } else {
             panic!("Expected NextRound result for round 0");
@@ -440,7 +440,7 @@ mod tests {
         );
         let res1 = verifier.do_round(g1, &mut transcript).unwrap();
         let r1 = if let VerifierRoundResult::NextRound(chal) = res1 {
-            println!("Challenge r₁: {:?}", chal);
+            println!("Challenge r₁: {chal:?}");
             chal
         } else {
             panic!("Expected NextRound result for round 1");
@@ -484,7 +484,7 @@ mod tests {
         let num_vars = poly.num_vars();
         let factors = vec![poly.clone()];
         let incorrect_c1 = FE::from(999);
-        println!("\nInitial (incorrect) claimed sum c₁: {:?}", incorrect_c1);
+        println!("\nInitial (incorrect) claimed sum c₁: {incorrect_c1:?}");
         let mut transcript = DefaultTranscript::<F>::default();
         let mut verifier =
             Verifier::new(num_vars, factors.clone(), incorrect_c1).expect("Verifier new failed");
@@ -521,7 +521,7 @@ mod tests {
                 "Expected sum should be the incorrect one"
             );
         } else {
-            panic!("Expected InconsistentSum error, got {:?}", res0);
+            panic!("Expected InconsistentSum error, got {res0:?}");
         }
         assert!(res0.is_err(), "Expected verification error");
     }

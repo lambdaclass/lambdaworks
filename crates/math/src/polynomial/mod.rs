@@ -374,7 +374,7 @@ impl<F: IsPrimeField> Polynomial<FieldElement<F>> {
             if i == self.coefficients.len() - 1 {
                 string.push_str(&coeff_str);
             } else if i == self.coefficients.len() - 2 {
-                string.push_str(&format!("{}*{} + ", coeff_str, var_name));
+                string.push_str(&format!("{coeff_str}*{var_name} + "));
             } else {
                 string.push_str(&format!(
                     "{}*{}^{} + ",

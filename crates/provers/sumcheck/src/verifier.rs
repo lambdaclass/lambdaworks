@@ -191,7 +191,7 @@ where
     // Process each round polynomial from the proof.
     for (j, g_j) in proof_polys.into_iter().enumerate() {
         // Reconstruct the transcript state before drawing the challenge.
-        let round_label = format!("round_{}_poly", j);
+        let round_label = format!("round_{j}_poly");
         transcript.append_bytes(round_label.as_bytes());
 
         let coeffs = g_j.coefficients();

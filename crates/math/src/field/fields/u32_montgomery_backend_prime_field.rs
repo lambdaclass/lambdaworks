@@ -219,7 +219,7 @@ impl<const MODULUS: u32> IsPrimeField for U32MontgomeryBackendPrimeField<MODULUS
 
     #[cfg(feature = "std")]
     fn to_hex(x: &Self::BaseType) -> String {
-        format!("{:x}", x)
+        format!("{x:x}")
     }
 }
 

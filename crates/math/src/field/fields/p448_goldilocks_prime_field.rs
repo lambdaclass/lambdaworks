@@ -318,7 +318,7 @@ impl U56x8 {
     pub fn to_hex(&self) -> String {
         let mut hex_string = String::new();
         for &limb in self.limbs.iter().rev() {
-            hex_string.push_str(&format!("{:014X}", limb));
+            hex_string.push_str(&format!("{limb:014X}"));
         }
         hex_string.trim_start_matches('0').to_string()
     }

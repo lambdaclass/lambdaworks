@@ -799,10 +799,10 @@ mod tests {
 
         let hash_result = rescue.hash_bytes(input);
 
-        println!("Input: {:?}", input);
+        println!("Input: {input:?}");
         println!("Hash result:");
         for (i, value) in hash_result.iter().enumerate() {
-            println!("  {}: {}", i, value);
+            println!("  {i}: {value}");
         }
 
         println!("Hash as u64 values:");

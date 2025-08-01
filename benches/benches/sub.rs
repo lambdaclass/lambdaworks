@@ -12,7 +12,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     // arkworks-ff
     {
         c.bench_function(
-            &format!("{} 1M elements | ark-ff - ef8f758", BENCHMARK_NAME),
+            &format!("{BENCHMARK_NAME} 1M elements | ark-ff - ef8f758"),
             |b| {
                 b.iter(|| {
                     let mut iter = arkworks_vec.iter();
@@ -31,7 +31,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     {
         let lambdaworks_vec = to_lambdaworks_vec(&arkworks_vec);
         c.bench_function(
-            &format!("{} 1M elements | lambdaworks", BENCHMARK_NAME,),
+            &format!("{BENCHMARK_NAME} 1M elements | lambdaworks",),
             |b| {
                 b.iter(|| {
                     let mut iter = lambdaworks_vec.iter();
