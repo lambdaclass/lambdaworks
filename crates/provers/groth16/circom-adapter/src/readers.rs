@@ -108,6 +108,6 @@ fn circom_str_to_lambda_field_element(value: impl AsRef<str>) -> FrElement {
     } else if let Ok(big_uint) = UnsignedInteger::<4>::from_hex(value) {
         FrElement::from(&big_uint)
     } else {
-        panic!("Could not parse field element from string: {}", value);
+        panic!("Could not parse field element from string: {value}");
     }
 }

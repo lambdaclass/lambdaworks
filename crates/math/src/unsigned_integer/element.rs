@@ -116,11 +116,11 @@ impl<const NUM_LIMBS: usize> Display for UnsignedInteger<NUM_LIMBS> {
         } else {
             write!(f, "0x")?;
             if let Some(most_significant_limb) = limbs_iterator.next() {
-                write!(f, "{:x}", most_significant_limb)?;
+                write!(f, "{most_significant_limb:x}")?;
             }
 
             for limb in limbs_iterator {
-                write!(f, "{:016x}", limb)?;
+                write!(f, "{limb:016x}")?;
             }
         }
 
@@ -505,7 +505,7 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
     pub fn to_hex(&self) -> String {
         let mut hex_string = String::new();
         for &limb in self.limbs.iter() {
-            hex_string.push_str(&format!("{:016X}", limb));
+            hex_string.push_str(&format!("{limb:016X}"));
         }
         hex_string.trim_start_matches('0').to_string()
     }

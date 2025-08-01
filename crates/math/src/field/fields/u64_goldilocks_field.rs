@@ -178,7 +178,7 @@ impl IsPrimeField for Goldilocks64Field {
 
     #[cfg(feature = "std")]
     fn to_hex(x: &u64) -> String {
-        format!("{:X}", x)
+        format!("{x:X}")
     }
 }
 

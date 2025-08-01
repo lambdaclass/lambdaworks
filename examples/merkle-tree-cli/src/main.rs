@@ -18,7 +18,7 @@ type FE = FieldElement<Stark252PrimeField>;
 
 fn load_fe_from_file(file_path: &String) -> Result<FE, io::Error> {
     FE::from_hex(&fs::read_to_string(file_path)?.replace('\n', ""))
-        .map_err(|e| io::Error::other(format!("{:?}", e)))
+        .map_err(|e| io::Error::other(format!("{e:?}")))
 }
 
 fn load_tree_values(tree_path: &String) -> Result<Vec<FE>, io::Error> {
@@ -34,7 +34,7 @@ fn generate_merkle_tree(tree_path: String) -> Result<(), io::Error> {
     let merkle_tree = MerkleTree::<TreePoseidon<PoseidonCairoStark252>>::build(&values)
         .ok_or_else(|| io::Error::other("requested empty tree"))?;
     let root = merkle_tree.root.representative().to_string();
-    println!("Generated merkle tree with root: {:?}", root);
+    println!("Generated merkle tree with root: {root:?}");
 
     let generated_tree_path = tree_path.replace(".csv", ".json");
     let file = File::create(generated_tree_path)?;
@@ -74,10 +74,7 @@ fn generate_merkle_proof(tree_path: String, pos: usize) -> Result<(), io::Error>
     let leaf_file_path = tree_path.replace(".csv", format!("_leaf_{pos}.txt").as_str());
     let mut leaf_file = File::create(&leaf_file_path)?;
     leaf_file.write_all(leaf_value.as_bytes())?;
-    println!(
-        "Generated proof and saved to {}. Leaf saved to {}",
-        proof_path, leaf_file_path
-    );
+    println!("Generated proof and saved to {proof_path}. Leaf saved to {leaf_file_path}");
 
     Ok(())
 }
@@ -112,6 +109,6 @@ fn main() {
             verify_merkle_proof(args.root_path, args.index, args.proof_path, args.leaf_path)
         }
     } {
-        println!("Error while running command: {:?}", e);
+        println!("Error while running command: {e:?}");
     }
 }

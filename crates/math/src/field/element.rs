@@ -794,7 +794,7 @@ where
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let value: UnsignedInteger<NUM_LIMBS> = self.representative();
-        write!(f, "{}", value)
+        write!(f, "{value}")
     }
 }
 
@@ -869,7 +869,7 @@ mod tests {
         use alloc::format;
 
         let zero_field_element = FieldElement::<Stark252PrimeField>::from(0);
-        assert_eq!(format!("{}", zero_field_element), "0x0");
+        assert_eq!(format!("{zero_field_element}"), "0x0");
 
         let some_field_element =
             FieldElement::<Stark252PrimeField>::from(&UnsignedInteger::from_limbs([
@@ -878,7 +878,7 @@ mod tests {
 
         // it should start with the first non-zero digit. Each limb has 16 digits in hex.
         assert_eq!(
-            format!("{}", some_field_element),
+            format!("{some_field_element}"),
             format!("0x{}{}{}{}", "1", "0".repeat(16), "0".repeat(15), "1")
         );
     }
