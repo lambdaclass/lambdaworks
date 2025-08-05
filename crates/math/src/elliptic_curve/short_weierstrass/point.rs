@@ -7,6 +7,7 @@ use crate::{
     errors::DeserializationError,
     field::element::FieldElement,
     traits::{ByteConversion, Deserializable},
+    unsigned_integer::element::U256,
 };
 
 use super::traits::IsShortWeierstrass;
@@ -114,6 +115,7 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
         let point = Self::new([xp, yp, zp]);
         point.unwrap()
     }
+
     // https://hyperelliptic.org/EFD/g1p/data/shortw/projective/addition/madd-1998-cmo
     /// More efficient than operate_with, but must ensure that other is in affine form
     pub fn operate_with_affine(&self, other: &Self) -> Self {
@@ -163,6 +165,66 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
         // The assertion above verifies that the resulting point is valid.
         let point = Self::new([x, y, z]);
         point.unwrap()
+    }
+
+    /// Computes the addition of `self` and `other`.
+    /// Taken from "Moonmath" (Algorithm 7, page 89)
+    fn operate_with_unchecked(&self, other: &Self) -> Self {
+        let [px, py, pz] = self.coordinates();
+        let [qx, qy, qz] = other.coordinates();
+        let u1 = qy * pz;
+        let u2 = py * qz;
+        let v1 = qx * pz;
+        let v2 = px * qz;
+        if v1 == v2 {
+            if u1 != u2 || *py == FieldElement::zero() {
+                Self::neutral_element()
+            } else {
+                self.double()
+            }
+        } else {
+            let u = u1 - &u2;
+            let v = v1 - &v2;
+            let w = pz * qz;
+
+            let u_square = &u * &u;
+            let v_square = &v * &v;
+            let v_cube = &v * &v_square;
+            let v_square_v2 = &v_square * &v2;
+
+            let a = &u_square * &w - &v_cube - (&v_square_v2 + &v_square_v2);
+
+            let xp = &v * &a;
+            let yp = u * (&v_square_v2 - a) - &v_cube * u2;
+            let zp = &v_cube * w;
+
+            debug_assert_eq!(
+                E::defining_equation_projective(&xp, &yp, &zp),
+                FieldElement::<E::BaseField>::zero()
+            );
+            // SAFETY: The values `x_p, y_p, z_p` are computed correctly to be on the curve.
+            // The assertion above verifies that the resulting point is valid.
+            Self::new([xp, yp, zp]).unwrap()
+        }
+    }
+
+    pub fn operate_with_self_eip196(&self, mut exponent: U256) -> Self {
+        let mut result = Self::neutral_element();
+        let mut base = self.clone();
+
+        while exponent.limbs[3] != 0
+            && exponent.limbs[2] != 0
+            && exponent.limbs[1] != 0
+            && exponent.limbs[0] != 0
+        {
+            // check lsb
+            if exponent.limbs[3] & 1 == 1 {
+                result = Self::operate_with_unchecked(&result, &base);
+            }
+            exponent >>= 1;
+            base = self.double();
+        }
+        result
     }
 }
 
