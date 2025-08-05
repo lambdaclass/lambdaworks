@@ -4,7 +4,7 @@ An implementation of the Goldwasser-Kalai-Rothblum (GKR) Non-Interactive Protoco
 
 To help with the understanding of this implementation, we recommend reading our [blog post](https://blog.lambdaclass.com/gkr-protocol-a-step-by-step-example/).
 
-**Warning:** This GKR implementation is for educational purposes and should not be used in production. It uses the Fiat-Shamir transform, which is vulnerable to practical attacks in this context (see ["How to Prove False Statments"](https://eprint.iacr.org/2025/118.pdf)). 
+**Warning:** This GKR implementation is for educational purposes and should not be used in production. It uses the Fiat-Shamir transform, which is vulnerable to practical attacks in this context (see ["How to Prove False Statements"](https://eprint.iacr.org/2025/118.pdf)). 
 
 ## Overview
 
@@ -46,9 +46,9 @@ Each layer must have a power-of-two number of gates.
 
 ### Circuit Construction
 
-- `Circuit::new(layers, num_inputs)` - Create a new circuit with specified layers, gates and number of inputs.
+- `Circuit::new(layers, num_inputs)` - Create a new circuit with specified layers, gates, and number of inputs.
 - `CircuitLayer::new(gates)` - Create a layer with the given gates.
-- `Gate::new(gate_type, inputs_idx)` - Create a gate with type (Add/Mul) and certain input indeces.
+- `Gate::new(gate_type, inputs_idx)` - Create a gate with type (Add/Mul) and certain input indices.
 
 ## Example
 
@@ -88,7 +88,7 @@ println!("Circuit output: {:?}", evaluation.layers[0]);
 
 ### Creating Custom Circuits
 
-You can create custom circuits by defining your own layers, gates and number of inputs.:
+You can create custom circuits by defining your own layers, gates, and number of inputs.:
 
 ```rust
 use lambdaworks_gkr::circuit::{Circuit, CircuitLayer, Gate, GateType};
@@ -133,23 +133,23 @@ The GKR protocol works through the following steps:
         where $\tilde W_{i+1}$ is the multilinear extension of layer $i+1$ values.
 
     - **Line Function**: A line function transforms the two  claims of $\tilde W_{i+1}(b)$ and $\tilde W_{i+1}(c)$ into a single claim.
-3. **Input Verification**: The verifier checks the final claim evaluating the input multilinear polynomial extension at the final evaluation point.
+3. **Input Verification**: The verifier checks the final claim, evaluating the input multilinear polynomial extension at the final evaluation point.
 
 Each *layer proof* consists of:
 - The claimed sum (that the sumcheck proves).
-- All the univariate polynomials used in the sumcheck. They are built fixing the first variable and summing over the rest of them. 
+- All the univariate polynomials used in the sumcheck. They are built by fixing the first variable and summing over the remaining variables. 
 - The polynomial $q = \tilde W_{i+1} \circ \ell$ where $\ell$ is the line function.
 
-The protocol achieves $O(d \log S)$ verifier time and $O(S)$ prover time, where $d$ is the circuit depth and $S$ is the circuit size (i.e. the number of gates).
+The protocol achieves $O(d \log S)$ verifier time and $O(S)$ prover time, where $d$ is the circuit depth and $S$ is the circuit size (i.e., the number of gates).
 
 
 ## Fiat-Shamir transform
 
-This implementation uses  **Fiat-Shamir** to transform the interactive GKR protocol into a non-interactive proof system. Instead of requiring back-and-forth communication between prover and verifier, the prover generates all challenges deterministically using a cryptographic transcript.
+This implementation uses the **Fiat-Shamir** to transform the interactive GKR protocol into a non-interactive proof system. Instead of requiring back-and-forth communication between prover and verifier, the prover generates all challenges deterministically by applying a hash function to the transcript.
 
 ### How Fiat-Shamir is Applied
 
-The transformation works by replacing the verifier's random challenges with outputs from a cryptographic hash function (transcript):
+The transformation works by replacing the verifier's random challenges with outputs from a cryptographic hash function applied on the transcript:
 
 1. **Transcript Initialization**: A transcript is created and seeded with:
    - Circuit structure (via `circuit_to_bytes(circuit)`)
