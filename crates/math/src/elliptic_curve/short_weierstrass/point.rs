@@ -212,17 +212,17 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
         let mut result = Self::neutral_element();
         let mut base = self.clone();
 
-        while exponent.limbs[3] != 0
-            && exponent.limbs[2] != 0
-            && exponent.limbs[1] != 0
-            && exponent.limbs[0] != 0
+        while !(exponent.limbs[3] == 0
+            && exponent.limbs[2] == 0
+            && exponent.limbs[1] == 0
+            && exponent.limbs[0] == 0)
         {
             // check lsb
             if exponent.limbs[3] & 1 == 1 {
                 result = Self::operate_with_unchecked(&result, &base);
             }
             exponent >>= 1;
-            base = self.double();
+            base = base.double();
         }
         result
     }
