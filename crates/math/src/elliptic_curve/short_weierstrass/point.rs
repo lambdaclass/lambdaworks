@@ -219,7 +219,7 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
         {
             // check lsb
             if exponent.limbs[3] & 1 == 1 {
-                result = Self::operate_with_unchecked(&result, &base);
+                result = Self::operate_with(&result, &base);
             }
             exponent >>= 1;
             base = base.double();
