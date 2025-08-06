@@ -167,8 +167,11 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
         point.unwrap()
     }
 
-    /// Computes the addition of `self` and `other`.
-    /// Taken from "Moonmath" (Algorithm 7, page 89)
+    /// Sames as operate_with, but does not return early if any inputs is the point
+    /// at infinity, removing that check.
+    ///
+    /// This brings a performance boost in cases where `self` and `other` is known to
+    /// not be the point at infinity, like in the context of the EIP-196 ecmul precompile.
     fn operate_with_unchecked(&self, other: &Self) -> Self {
         let [px, py, pz] = self.coordinates();
         let [qx, qy, qz] = other.coordinates();
@@ -208,14 +211,21 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
         }
     }
 
+    /// Same as operate_with_self, but includes some assumptions given by the ecmul precompile
+    /// (as defined in EIP-196).
+    ///
+    /// These assumptions are:
+    /// 1. `exponent` is a 256 bit scalar
+    /// 2. `self` is never the point at infinity
+    /// 3. `self` is short weierstrass projective point
+    /// We can then use `operate_with_unchecked` and
     pub fn operate_with_self_eip196(&self, mut exponent: U256) -> Self {
-             let mut result = self.clone();
+        let mut result = self.clone();
 
         // TODO: return early if exponent == 0
 
         // find first high bit
-        while exponent.limbs[3] & 1 != 1
-        {
+        while exponent.limbs[3] & 1 != 1 {
             exponent >>= 1;
             result = result.double();
         }
