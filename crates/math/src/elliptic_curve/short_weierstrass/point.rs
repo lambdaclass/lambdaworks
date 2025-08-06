@@ -218,7 +218,6 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
     /// 1. `exponent` is a 256 bit scalar
     /// 2. `self` is never the point at infinity
     /// 3. `self` is short weierstrass projective point
-    /// We can then use `operate_with_unchecked` and
     pub fn operate_with_self_eip196(&self, mut exponent: U256) -> Self {
         let mut result = self.clone();
 
