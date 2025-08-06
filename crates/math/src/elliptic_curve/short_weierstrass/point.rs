@@ -1,3 +1,5 @@
+use core::array;
+
 use crate::{
     cyclic_group::IsGroup,
     elliptic_curve::{
@@ -219,31 +221,43 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
     /// 2. `self` is never the point at infinity
     /// 3. `self` is short weierstrass projective point
     pub fn operate_with_self_eip196(&self, mut exponent: U256) -> Self {
-        let mut result = self.clone();
-
         // TODO: return early if exponent == 0
 
-        // find first high bit
-        while exponent.limbs[3] & 1 != 1 {
-            exponent >>= 1;
-            result = result.double();
-        }
+        // the idea is that we would calculate the sum of the bits corresponding to each limb
+        // at the same time, and in the end do the appropiate exponentiation by a power of two
+        // of each component and add them all up to get the resulting point.
 
-        let mut base = result.clone();
+        // by doing this we should avoid the >> operator logic of an U256, that moves bits from
+        // one limb to another when it's actually not necessary.
+
+        let mut base = self.clone();
+        let mut result: [Self; 4] = array::from_fn(|_| Self::neutral_element());
 
         while !(exponent.limbs[3] == 0
             && exponent.limbs[2] == 0
             && exponent.limbs[1] == 0
             && exponent.limbs[0] == 0)
         {
-            exponent >>= 1;
-            base = base.double();
-            // check lsb
-            if exponent.limbs[3] & 1 == 1 {
-                result = Self::operate_with_unchecked(&result, &base);
+            for (i, limb) in exponent.limbs.iter_mut().enumerate() {
+                if *limb != 0 {
+                    if *limb & 1 == 1 {
+                        result[i] = Self::operate_with(&result[i], &base);
+                    }
+                    *limb >>= 1;
+                }
             }
+            base = base.double();
         }
-        result
+
+        let exp_64 = |mut point: Self| {
+            for _ in 0..64 {
+                point = point.double()
+            }
+            point
+        };
+
+        let [r0, r1, r2, r3] = result;
+        exp_64(r2.operate_with(&exp_64(r1.operate_with(&exp_64(r0))))).operate_with(&r3)
     }
 }
 
