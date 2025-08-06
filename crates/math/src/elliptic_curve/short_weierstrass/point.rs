@@ -209,20 +209,30 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
     }
 
     pub fn operate_with_self_eip196(&self, mut exponent: U256) -> Self {
-        let mut result = Self::neutral_element();
-        let mut base = self.clone();
+             let mut result = self.clone();
+
+        // TODO: return early if exponent == 0
+
+        // find first high bit
+        while exponent.limbs[3] & 1 != 1
+        {
+            exponent >>= 1;
+            result = result.double();
+        }
+
+        let mut base = result.clone();
 
         while !(exponent.limbs[3] == 0
             && exponent.limbs[2] == 0
             && exponent.limbs[1] == 0
             && exponent.limbs[0] == 0)
         {
-            // check lsb
-            if exponent.limbs[3] & 1 == 1 {
-                result = Self::operate_with(&result, &base);
-            }
             exponent >>= 1;
             base = base.double();
+            // check lsb
+            if exponent.limbs[3] & 1 == 1 {
+                result = Self::operate_with_unchecked(&result, &base);
+            }
         }
         result
     }
