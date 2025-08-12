@@ -32,7 +32,7 @@ jobs:
       uses: dtolnay/rust-toolchain@stable
       with:
           toolchain: stable
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v5
       if: ${{ steps.cache-iai-results.outputs.cache-hit != 'true' }}
       with:
         ref: ${{ github.event.pull_request.base.sha }}
@@ -64,7 +64,7 @@ jobs:
       uses: dtolnay/rust-toolchain@stable
       with:
           toolchain: stable
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v5
     - uses: Swatinem/rust-cache@v2
       with:
         shared-key: ${{ runner.os }}-iai-benchmark-cache

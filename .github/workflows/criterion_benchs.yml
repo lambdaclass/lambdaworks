@@ -21,7 +21,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v5
       - name: Run benchmark
         run: |
           cargo bench --no-fail-fast --bench "criterion_fft" \
@@ -46,7 +46,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v5
       - name: install GCC/GMP
         run: |
           brew install gcc
