@@ -19,11 +19,12 @@ pub struct GKRSumcheckProof<F: IsField> {
 }
 
 /// GKR-specific sumcheck prover.
-/// This function will recieve a vector of two terms. Each term contains two multilinear polynomials.
+/// This function will recieves two terms. Each term contains two multilinear polynomials.
 /// This separation of terms is necessary because the classic/original sumcheck only accepts a product of multilinear polynomials.
-/// In this way, we apply the sumcheck to two products, each consisting of two factors.
+/// In this way, we apply the sumcheck to two terms, each consisting of two factors.
 pub fn gkr_sumcheck_prove<F, T>(
-    terms: Vec<Vec<DenseMultilinearPolynomial<F>>>,
+    term_1: Vec<DenseMultilinearPolynomial<F>>,
+    term_2: Vec<DenseMultilinearPolynomial<F>>,
     transcript: &mut T,
 ) -> Result<GKRSumcheckProof<F>, ProverError>
 where
@@ -32,16 +33,9 @@ where
     FieldElement<F>: ByteConversion,
     T: IsTranscript<F> + Channel<F>,
 {
-    if terms.len() != 2 {
-        return Err(ProverError::SumcheckError);
-    }
-
-    let factors_term_1 = terms[0].clone();
-    let factors_term_2 = terms[1].clone();
-
     // Create two separate sumcheck provers for each term.
-    let mut prover_term_1 = Prover::new(factors_term_1).map_err(|_| ProverError::SumcheckError)?;
-    let mut prover_term_2 = Prover::new(factors_term_2).map_err(|_| ProverError::SumcheckError)?;
+    let mut prover_term_1 = Prover::new(term_1).map_err(|_| ProverError::SumcheckError)?;
+    let mut prover_term_2 = Prover::new(term_2).map_err(|_| ProverError::SumcheckError)?;
 
     // Both terms have the same number of variables.
     let num_vars = prover_term_1.num_vars();

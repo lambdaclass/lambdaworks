@@ -53,8 +53,10 @@ impl Prover {
     ///
     /// See our blog post: <https://blog.lambdaclass.com/gkr-protocol-a-step-by-step-example/>
     ///
-    /// This function is only known to the prover. It returns the components of `f` grouped
-    /// into two terms, ready to be used by the sumcheck prover, which expects a product of multilinear polynomials.
+    /// This function is only known to the prover.
+    ///
+    /// It returns the components of `f` grouped into two terms, ready to be used by the sumcheck prover, which expects
+    /// a product of multilinear polynomials.
     /// Both terms are the product of two multilinear polynomials.
     /// The first term is  `add_i(r_i, b, c) * (W_{i+1}(b) + W_{i+1}(c))`.
     /// And the second term is `mul_i(r_i, b, c) * (W_{i+1}(b) * W_{i+1}(c))`.
@@ -63,7 +65,13 @@ impl Prover {
         r_i: &[FieldElement<F>],
         w_next_evals: &[FieldElement<F>],
         layer_idx: usize,
-    ) -> Result<Vec<Vec<DenseMultilinearPolynomial<F>>>, ProverError>
+    ) -> Result<
+        (
+            Vec<DenseMultilinearPolynomial<F>>,
+            Vec<DenseMultilinearPolynomial<F>>,
+        ),
+        ProverError,
+    >
     where
         <F as IsField>::BaseType: Send + Sync + Copy,
     {
@@ -98,7 +106,7 @@ impl Prover {
         // Corresponds to mul_i(r_i,b,c) * W_{i+1}(b) * W_{i+1}(c)
         let term2 = vec![mul_i_ext, w_mul_ext];
 
-        Ok(vec![term1, term2])
+        Ok((term1, term2))
     }
 
     /// Given `b` and `c` (challenges for the input of the gates),
@@ -179,10 +187,10 @@ impl Prover {
             let w_next_evals = &evaluation.layers[layer_idx + 1];
 
             // Build the GKR polynomial terms
-            let gkr_poly_terms =
+            let (term_1, term_2) =
                 Prover::build_gkr_polynomial(circuit, &r_i, w_next_evals, layer_idx)?;
 
-            let sumcheck_proof = gkr_sumcheck_prove(gkr_poly_terms, &mut transcript)?;
+            let sumcheck_proof = gkr_sumcheck_prove(term_1, term_2, &mut transcript)?;
 
             let sumcheck_challenges = &sumcheck_proof.challenges;
 
