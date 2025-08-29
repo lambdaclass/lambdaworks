@@ -78,9 +78,9 @@ mod tests {
     use crate::circuit::{Circuit, CircuitError, CircuitLayer, Gate, GateType};
     use lambdaworks_math::{field::fields::u64_prime_field::U64PrimeField, polynomial::Polynomial};
 
-    const MODULUS: u64 = 389;
-    type F = U64PrimeField<MODULUS>;
-    type FE = FieldElement<F>;
+    const MODULUS389: u64 = 389;
+    type F389 = U64PrimeField<MODULUS389>;
+    type F389E = FieldElement<F389>;
 
     const MODULUS23: u64 = 23;
     type F23 = U64PrimeField<MODULUS23>;
@@ -173,15 +173,25 @@ mod tests {
     #[test]
     fn test_thaler_book_circuit_evaluation() {
         let circuit = thaler_book_circuit().unwrap();
-        let input = [FE::from(3), FE::from(2), FE::from(3), FE::from(1)];
+        let input = [
+            F389E::from(3),
+            F389E::from(2),
+            F389E::from(3),
+            F389E::from(1),
+        ];
 
         let evaluation = circuit.evaluate(&input);
 
         assert_eq!(evaluation.layers.len(), 3);
-        assert_eq!(evaluation.layers[0], [FE::from(36), FE::from(6)]);
+        assert_eq!(evaluation.layers[0], [F389E::from(36), F389E::from(6)]);
         assert_eq!(
             evaluation.layers[1],
-            [FE::from(9), FE::from(4), FE::from(6), FE::from(1)]
+            [
+                F389E::from(9),
+                F389E::from(4),
+                F389E::from(6),
+                F389E::from(1)
+            ]
         );
         assert_eq!(evaluation.layers[2], input.to_vec());
     }
@@ -220,7 +230,12 @@ mod tests {
     #[test]
     fn test_gkr_complete_verification() {
         let circuit = thaler_book_circuit().unwrap();
-        let input = [FE::from(3), FE::from(2), FE::from(3), FE::from(1)];
+        let input = [
+            F389E::from(3),
+            F389E::from(2),
+            F389E::from(3),
+            F389E::from(1),
+        ];
 
         let proof = gkr_prove(&circuit, &input).unwrap();
         let result = gkr_verify(&proof, &circuit);
@@ -275,14 +290,19 @@ mod tests {
     #[test]
     fn test_invalid_proof_rejection() {
         let circuit = thaler_book_circuit().unwrap();
-        let input = [FE::from(3), FE::from(2), FE::from(3), FE::from(1)];
+        let input = [
+            F389E::from(3),
+            F389E::from(2),
+            F389E::from(3),
+            F389E::from(1),
+        ];
 
         // Generate a valid proof
         let mut proof = gkr_prove(&circuit, &input).expect("Proof generation failed");
 
         // Corrupt the proof by modifying a round polynomial g_0.
         proof.layer_proofs[0].sumcheck_proof.round_polynomials[0] =
-            Polynomial::new(&[FE::from(1), FE::from(2), FE::from(3)]);
+            Polynomial::new(&[F389E::from(1), F389E::from(2), F389E::from(3)]);
 
         let verification_result = gkr_verify(&proof, &circuit);
 
