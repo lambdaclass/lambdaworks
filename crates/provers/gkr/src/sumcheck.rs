@@ -32,7 +32,7 @@ where
     FieldElement<F>: ByteConversion,
     T: IsTranscript<F> + Channel<F>,
 {
-    if terms.is_empty() || terms[0].is_empty() {
+    if terms.len() != 2 {
         return Err(ProverError::SumcheckError);
     }
 
