@@ -1,3 +1,4 @@
+use crate::errors::CreationError;
 use crate::field::element::FieldElement;
 use crate::field::errors::FieldError;
 use crate::field::traits::{HasDefaultTranscript, IsPrimeField};
@@ -305,8 +306,12 @@ where
         evaluated_bit + 1
     }
 
-    fn from_hex(hex_string: &str) -> Result<Self::BaseType, crate::errors::CreationError> {
+    fn from_hex(hex_string: &str) -> Result<Self::BaseType, CreationError> {
         let integer = Self::BaseType::from_hex(hex_string)?;
+        if integer > M::MODULUS {
+            return Err(CreationError::RepresentativeOutOfRange);
+        }
+
         Ok(MontgomeryAlgorithms::cios(
             &integer,
             &MontgomeryBackendPrimeField::<M, NUM_LIMBS>::R2,
