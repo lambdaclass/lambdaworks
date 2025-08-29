@@ -101,13 +101,6 @@ pub struct CircuitEvaluation<F: IsField> {
     pub layers: Vec<Vec<FieldElement<F>>>,
 }
 
-impl<F: IsField> CircuitEvaluation<F> {
-    /// Takes a gate label and outputs the corresponding gate's value at layer `layer`.
-    pub fn w(&self, layer: usize, label: usize) -> FieldElement<F> {
-        self.layers[layer][label].clone()
-    }
-}
-
 impl Circuit {
     pub fn new(layers: Vec<CircuitLayer>, num_inputs: usize) -> Result<Self, CircuitError> {
         if layers.is_empty() {

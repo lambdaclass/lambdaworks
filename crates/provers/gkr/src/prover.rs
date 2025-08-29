@@ -156,6 +156,10 @@ impl Prover {
         FieldElement<F>: ByteConversion,
         <F as IsField>::BaseType: Send + Sync + Copy,
     {
+        if input.len() != circuit.num_inputs() {
+            return Err(ProverError::CircuitError);
+        }
+
         // The prover evaluates the circuit.
         let evaluation = circuit.evaluate(input);
 
