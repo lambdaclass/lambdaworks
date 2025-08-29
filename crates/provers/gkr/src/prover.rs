@@ -78,9 +78,10 @@ impl Prover {
 
         let mut w_sum_evals: Vec<FieldElement<F>> = Vec::new();
         let mut w_mul_evals: Vec<FieldElement<F>> = Vec::new();
+        let next_layer_size = 1 << num_vars_next;
 
-        for c_idx in 0..(1 << num_vars_next) {
-            for b_idx in 0..(1 << num_vars_next) {
+        for c_idx in 0..next_layer_size {
+            for b_idx in 0..next_layer_size {
                 let w_b = &w_next_evals[b_idx];
                 let w_c = &w_next_evals[c_idx];
                 w_sum_evals.push(w_b + w_c);
