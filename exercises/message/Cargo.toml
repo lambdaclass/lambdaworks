@@ -12,8 +12,8 @@ lambdaworks-math = { git = "https://github.com/lambdaclass/lambdaworks", rev = "
 lambdaworks-crypto = { git = "https://github.com/lambdaclass/lambdaworks", rev = "a17b951" }
 thiserror = "1.0.38"
 log = "0.4.17"
-bincode = { tag = "v2.0.1", git = "https://git.sr.ht/~stygianentity/bincode" }
 sha3 = "0.10.6"
+bincode = { version = "2.0.1", features = ["serde"] }
 serde_json = "1.0"
 num-integer = "0.1.45"
 itertools = "0.11.0"
