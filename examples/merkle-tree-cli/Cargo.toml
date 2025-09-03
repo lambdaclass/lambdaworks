@@ -15,4 +15,4 @@ lambdaworks-crypto = { workspace = true, features = ["serde"]}
 lambdaworks-math = { workspace = true, features = ["lambdaworks-serde-string"] }
 serde = { version = "1.0" }
 serde_json = "1"
-bincode = { tag = "v2.0.1", git = "https://git.sr.ht/~stygianentity/bincode" }
+bincode = { tag = "v2.0.1", git = "https://git.sr.ht/~stygianentity/bincode", features= ['serde'] }

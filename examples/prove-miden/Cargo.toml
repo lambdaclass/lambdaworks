@@ -17,7 +17,7 @@ stark-platinum-prover = { git = "https://github.com/lambdaclass/lambdaworks" , b
 
 serde = { version = "1.0" }
 serde_json = "1"
-bincode = { tag = "v2.0.1", git = "https://git.sr.ht/~stygianentity/bincode" }
+bincode = { tag = "v2.0.1", git = "https://git.sr.ht/~stygianentity/bincode", features= ['serde'] }
 miden-core = { package = "miden-core" , version = "0.7"}
 miden-assembly = { package = "miden-assembly", version = "0.7" }
 miden-processor = { package = "miden-processor", version = "0.7" }
