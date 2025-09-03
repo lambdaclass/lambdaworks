@@ -276,6 +276,7 @@ impl<const N: usize, F: IsPrimeField<RepresentativeType = UnsignedInteger<N>>, P
 #[cfg(test)]
 mod tests {
     use alloc::vec::Vec;
+    use core::slice;
     use lambdaworks_math::{
         cyclic_group::IsGroup,
         elliptic_curve::{
@@ -367,7 +368,7 @@ mod tests {
         let y0 = FieldElement::from(9000);
         let upsilon = &FieldElement::from(1);
 
-        let proof = kzg.open_batch(&x, &[y0.clone()], &[p0], upsilon);
+        let proof = kzg.open_batch(&x, slice::from_ref(&y0), &[p0], upsilon);
 
         assert!(kzg.verify_batch(&x, &[y0], &[p0_commitment], &proof, upsilon));
     }
