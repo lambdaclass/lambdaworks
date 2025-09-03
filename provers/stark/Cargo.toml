@@ -16,7 +16,7 @@ miden-core = { git="https://github.com/lambdaclass/miden-vm", optional=true}
 rand = "0.8.5"
 thiserror = "1.0.38"
 log = "0.4.17"
-bincode = { version = "2.0.0-rc.2", tag = "v2.0.0-rc.2", git = "https://github.com/bincode-org/bincode.git" }
+bincode = { tag = "v2.0.1", git = "https://git.sr.ht/~stygianentity/bincode" }
 sha3 = "0.10.6"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"

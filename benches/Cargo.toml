@@ -9,8 +9,8 @@ ark-test-curves = { git = "https://github.com/arkworks-rs/algebra", rev = "ef8f7
 ark-std = "0.4.0"
 rand = "0.8.5"
 rand_chacha = "0.3.1"
-starknet-curve = { git = "https://github.com/xJonathanLEI/starknet-rs" }
-starknet-ff = { git = "https://github.com/xJonathanLEI/starknet-rs" }
+starknet-curve = { git = "https://github.com/xJonathanLEI/starknet-rs", rev="f33d3522eca61f6d9f7288527e8b048e84deeefd" }
+starknet-ff = { git = "https://github.com/xJonathanLEI/starknet-rs", rev="f33d3522eca61f6d9f7288527e8b048e84deeefd" }
 
 [dependencies.lambdaworks-math]
 path = "../math"
