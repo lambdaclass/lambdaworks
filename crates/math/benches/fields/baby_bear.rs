@@ -357,7 +357,7 @@ pub fn babybear_p3_ops_benchmarks(c: &mut Criterion) {
         group.bench_with_input(format!("Addition {:?}", &i.len()), &i, |bench, i| {
             bench.iter(|| {
                 for (x, y) in i {
-                    black_box(black_box(*x) + black_box(*y));
+                    let _ = black_box(black_box(*x) + black_box(*y));
                 }
             });
         });
@@ -367,7 +367,7 @@ pub fn babybear_p3_ops_benchmarks(c: &mut Criterion) {
         group.bench_with_input(format!("Multiplication {:?}", &i.len()), &i, |bench, i| {
             bench.iter(|| {
                 for (x, y) in i {
-                    black_box(black_box(*x) * black_box(*y));
+                    let _ = black_box(black_box(*x) * black_box(*y));
                 }
             });
         });
@@ -377,7 +377,7 @@ pub fn babybear_p3_ops_benchmarks(c: &mut Criterion) {
         group.bench_with_input(format!("Square {:?}", &i.len()), &i, |bench, i| {
             bench.iter(|| {
                 for (x, _) in i {
-                    black_box(black_box(x).square());
+                    let _ = black_box(black_box(x).square());
                 }
             });
         });
@@ -386,7 +386,7 @@ pub fn babybear_p3_ops_benchmarks(c: &mut Criterion) {
         group.bench_with_input(format!("Inverse {:?}", &i.len()), &i, |bench, i| {
             bench.iter(|| {
                 for (x, _) in i {
-                    black_box(black_box(x).inverse());
+                    let _ = black_box(black_box(x).inverse());
                 }
             });
         });
@@ -396,7 +396,7 @@ pub fn babybear_p3_ops_benchmarks(c: &mut Criterion) {
         group.bench_with_input(format!("Division {:?}", &i.len()), &i, |bench, i| {
             bench.iter(|| {
                 for (x, y) in i {
-                    black_box(black_box(*x) / black_box(*y));
+                    let _ = black_box(black_box(*x) / black_box(*y));
                 }
             });
         });
@@ -416,7 +416,7 @@ pub fn babybear_extension_ops_benchmarks_p3(c: &mut Criterion) {
         group.bench_with_input(format!("Addition of Fp4 {:?}", &i.len()), &i, |bench, i| {
             bench.iter(|| {
                 for (x, y) in i {
-                    black_box(black_box(*x) + black_box(*y));
+                    let _ = black_box(black_box(*x) + black_box(*y));
                 }
             });
         });
@@ -428,7 +428,7 @@ pub fn babybear_extension_ops_benchmarks_p3(c: &mut Criterion) {
             |bench, i| {
                 bench.iter(|| {
                     for (x, y) in i {
-                        black_box(black_box(*x) * black_box(*y));
+                        let _ = black_box(black_box(*x) * black_box(*y));
                     }
                 });
             },
@@ -438,7 +438,7 @@ pub fn babybear_extension_ops_benchmarks_p3(c: &mut Criterion) {
         group.bench_with_input(format!("Square of Fp4 {:?}", &i.len()), &i, |bench, i| {
             bench.iter(|| {
                 for (x, _) in i {
-                    black_box(black_box(x).square());
+                    let _ = black_box(black_box(x).square());
                 }
             });
         });
@@ -448,7 +448,7 @@ pub fn babybear_extension_ops_benchmarks_p3(c: &mut Criterion) {
         group.bench_with_input(format!("Inverse of Fp4 {:?}", &i.len()), &i, |bench, i| {
             bench.iter(|| {
                 for (x, _) in i {
-                    black_box(black_box(x).inverse());
+                    let _ = black_box(black_box(x).inverse());
                 }
             });
         });
@@ -458,7 +458,7 @@ pub fn babybear_extension_ops_benchmarks_p3(c: &mut Criterion) {
         group.bench_with_input(format!("Division of Fp4 {:?}", &i.len()), &i, |bench, i| {
             bench.iter(|| {
                 for (x, y) in i {
-                    black_box(black_box(*x) / black_box(*y));
+                    let _ = black_box(black_box(*x) / black_box(*y));
                 }
             });
         });
