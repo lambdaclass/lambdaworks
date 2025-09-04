@@ -13,6 +13,11 @@ use lambdaworks_math::{
     polynomial::dense_multilinear_poly::DenseMultilinearPolynomial,
     traits::ByteConversion,
 };
+
+type GKRPolynomialTerms<F> = (
+    Vec<DenseMultilinearPolynomial<F>>,
+    Vec<DenseMultilinearPolynomial<F>>,
+);
 #[derive(Debug)]
 pub enum ProverError {
     MultilinearPolynomialEvaluationError,
@@ -65,13 +70,7 @@ impl Prover {
         r_i: &[FieldElement<F>],
         w_next_evals: &[FieldElement<F>],
         layer_idx: usize,
-    ) -> Result<
-        (
-            Vec<DenseMultilinearPolynomial<F>>,
-            Vec<DenseMultilinearPolynomial<F>>,
-        ),
-        ProverError,
-    >
+    ) -> Result<GKRPolynomialTerms<F>, ProverError>
     where
         <F as IsField>::BaseType: Send + Sync + Copy,
     {
