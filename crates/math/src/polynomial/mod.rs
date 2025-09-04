@@ -2,7 +2,7 @@ use super::field::element::FieldElement;
 use crate::field::traits::{IsField, IsPrimeField, IsSubFieldOf};
 use alloc::string::{String, ToString};
 use alloc::{borrow::ToOwned, format, vec, vec::Vec};
-use core::{fmt::Display, ops};
+use core::{fmt::Display, ops, slice};
 pub mod dense_multilinear_poly;
 mod error;
 pub mod sparse_multilinear_poly;
@@ -79,7 +79,7 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
         let mut result = Polynomial::zero();
 
         for (i, y) in ys.iter().enumerate() {
-            let mut y_term = Polynomial::new(&[y.clone()]);
+            let mut y_term = Polynomial::new(slice::from_ref(y));
             for (j, x) in xs.iter().enumerate() {
                 if i == j {
                     continue;
