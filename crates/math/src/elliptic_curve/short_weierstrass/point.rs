@@ -23,7 +23,6 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
     /// Creates an elliptic curve point giving the projective [x: y: z] coordinates.
     pub fn new(value: [FieldElement<E::BaseField>; 3]) -> Result<Self, EllipticCurveError> {
         let (x, y, z) = (&value[0], &value[1], &value[2]);
-
         if z != &FieldElement::<E::BaseField>::zero()
             && E::defining_equation_projective(x, y, z) == FieldElement::<E::BaseField>::zero()
         {

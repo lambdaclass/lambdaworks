@@ -33,7 +33,7 @@ impl IsEllipticCurve for StarkCurve {
         // SAFETY:
         // - The generator point is mathematically verified to be a valid point on the curve.
         // - `unwrap()` is safe because the provided coordinates satisfy the curve equation.
-        let point = Self::PointRepresentation::new([
+        let point = Self::PointRepresentation::new_unchecked([
             FieldElement::<Self::BaseField>::from_hex_unchecked(
                 "1EF15C18599971B7BECED415A40F0C7DEACFD9B0D1819E03D723D8BC943CFCA",
             ),
@@ -42,7 +42,7 @@ impl IsEllipticCurve for StarkCurve {
             ),
             FieldElement::one(),
         ]);
-        point.unwrap()
+        point
     }
 }
 
