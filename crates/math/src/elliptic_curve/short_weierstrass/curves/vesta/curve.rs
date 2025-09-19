@@ -15,12 +15,12 @@ impl IsEllipticCurve for VestaCurve {
     fn generator() -> Self::PointRepresentation {
         // SAFETY:
         // - The generator point is mathematically verified to be a valid point on the curve.
-        let point = Self::PointRepresentation::new_unchecked([
+        let point = Self::PointRepresentation::new([
             -FieldElement::<Self::BaseField>::one(),
             FieldElement::<Self::BaseField>::from(2),
             FieldElement::one(),
         ]);
-        point
+        point.unwrap()
     }
 }
 
