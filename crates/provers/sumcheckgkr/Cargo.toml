@@ -1,0 +1,10 @@
+[package]
+name = "lambdaworks-sumcheckgkr"
+version = "0.1.0"
+edition = "2021"
+
+
+[dependencies]
+lambdaworks-math.workspace = true
+lambdaworks-crypto.workspace = true
+thiserror = "1.0"
