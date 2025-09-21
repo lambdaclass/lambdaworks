@@ -36,7 +36,6 @@ mod fft_helpers_test {
     use super::*;
     use crate::{field::test_fields::u64_test_field::U64TestField, polynomial::Polynomial};
 
-    use alloc::format;
     use proptest::{collection, prelude::*};
 
     type F = U64TestField;
