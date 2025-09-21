@@ -1222,7 +1222,6 @@ mod tests {
         assert_eq!(p1, &p1_expected);
     }
 
-    use alloc::format;
     use proptest::prelude::*;
     proptest! {
         #[test]
