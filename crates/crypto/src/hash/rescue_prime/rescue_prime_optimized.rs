@@ -205,7 +205,7 @@ impl RescuePrimeOptimized {
     pub fn hash(&self, input_sequence: &[Fp]) -> Vec<Fp> {
         let mut state = vec![Fp::zero(); self.m];
         let input_len = input_sequence.len();
-        if input_len % self.rate != 0 {
+        if !input_len.is_multiple_of(self.rate) {
             state[0] = Fp::one();
         }
         let num_full_chunks = input_len / self.rate;

@@ -122,7 +122,7 @@ where
     E: IsField,
 {
     debug_assert!(input.len().is_power_of_two());
-    debug_assert!(input.len().ilog2() % 2 == 0); // Even power of 2 => x is power of 4
+    debug_assert!(input.len().ilog2().is_multiple_of(2)); // Even power of 2 => x is power of 4
 
     // divide input in groups, starting with 1, duplicating the number of groups in each stage.
     let mut group_count = 1;
@@ -183,7 +183,6 @@ mod tests {
     use crate::fft::cpu::roots_of_unity::get_twiddles;
     use crate::fft::test_helpers::naive_matrix_dft_test;
     use crate::field::{test_fields::u64_test_field::U64TestField, traits::RootsConfig};
-    use alloc::format;
     use proptest::{collection, prelude::*};
 
     use super::*;

@@ -40,7 +40,7 @@ impl Mersenne31Field {
         iter: I,
     ) -> <Self as IsField>::BaseType {
         // Delayed reduction
-        Self::from_u64(iter.map(|x| (x as u64)).sum::<u64>())
+        Self::from_u64(iter.map(|x| x as u64).sum::<u64>())
     }
 
     /// Computes a * 2^k, with 0 < k < 31

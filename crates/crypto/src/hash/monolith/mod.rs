@@ -36,7 +36,7 @@ impl<const WIDTH: usize, const NUM_FULL_ROUNDS: usize> MonolithMersenne31<WIDTH,
     pub fn new() -> Self {
         assert!(WIDTH >= 8);
         assert!(WIDTH <= 24);
-        assert!(WIDTH % 4 == 0);
+        assert!(WIDTH.is_multiple_of(4));
         Self {
             round_constants: Self::instantiate_round_constants(),
             lookup1: Self::instantiate_lookup1(),

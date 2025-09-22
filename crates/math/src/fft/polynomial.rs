@@ -236,8 +236,6 @@ mod tests {
     #[cfg(not(feature = "cuda"))]
     use crate::field::traits::IsField;
 
-    use alloc::format;
-
     use crate::field::{
         test_fields::u64_test_field::{U64TestField, U64TestFieldExtension},
         traits::RootsConfig,

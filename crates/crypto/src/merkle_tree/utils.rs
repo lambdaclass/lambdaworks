@@ -5,7 +5,7 @@ use super::traits::IsMerkleTreeBackend;
 use rayon::prelude::*;
 
 pub fn sibling_index(node_index: usize) -> usize {
-    if node_index % 2 == 0 {
+    if node_index.is_multiple_of(2) {
         node_index - 1
     } else {
         node_index + 1
@@ -13,7 +13,7 @@ pub fn sibling_index(node_index: usize) -> usize {
 }
 
 pub fn parent_index(node_index: usize) -> usize {
-    if node_index % 2 == 0 {
+    if node_index.is_multiple_of(2) {
         (node_index - 1) / 2
     } else {
         node_index / 2

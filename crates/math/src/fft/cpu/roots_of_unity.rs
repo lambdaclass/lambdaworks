@@ -83,7 +83,6 @@ mod tests {
         },
         field::{test_fields::u64_test_field::U64TestField, traits::RootsConfig},
     };
-    use alloc::format;
     use proptest::prelude::*;
 
     type F = U64TestField;
