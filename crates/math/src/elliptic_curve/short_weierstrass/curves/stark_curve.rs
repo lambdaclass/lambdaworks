@@ -1,6 +1,5 @@
 use crate::{
     elliptic_curve::{
-        point::ProjectivePoint,
         short_weierstrass::{point::ShortWeierstrassProjectivePoint, traits::IsShortWeierstrass},
         traits::IsEllipticCurve,
     },
@@ -17,11 +16,12 @@ impl StarkCurve {
         x_hex: &str,
         y_hex: &str,
     ) -> ShortWeierstrassProjectivePoint<Self> {
-        ShortWeierstrassProjectivePoint(ProjectivePoint::new([
+        // SAFETY: The values `x_hex, y_hex`` should be constants valid for the curve.
+        ShortWeierstrassProjectivePoint::new_unchecked([
             FieldElement::<Stark252PrimeField>::from_hex_unchecked(x_hex),
             FieldElement::<Stark252PrimeField>::from_hex_unchecked(y_hex),
             FieldElement::<Stark252PrimeField>::from_hex_unchecked("1"),
-        ]))
+        ])
     }
 }
 

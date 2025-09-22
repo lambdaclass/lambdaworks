@@ -17,7 +17,7 @@ use crate::traits::AsBytes;
 use alloc::vec::Vec;
 
 #[derive(Clone, Debug)]
-pub struct ShortWeierstrassProjectivePoint<E: IsEllipticCurve>(pub ProjectivePoint<E>);
+pub struct ShortWeierstrassProjectivePoint<E: IsEllipticCurve>(ProjectivePoint<E>);
 
 impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
     /// Creates an elliptic curve point giving the projective [x: y: z] coordinates.
@@ -44,8 +44,13 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
 
     /// Creates an elliptic curve point giving the projective [x: y: z] coordinates without
     /// checking that the point satisfies the curve equation.
-    pub fn new_unchecked(value: [FieldElement<E::BaseField>; 3]) -> Self {
+    pub const fn new_unchecked(value: [FieldElement<E::BaseField>; 3]) -> Self {
         Self(ProjectivePoint::new(value))
+    }
+
+    /// Changes the point coordinates without checking that it satisfies the curve equation.
+    pub fn set_unchecked(&mut self, value: [FieldElement<E::BaseField>; 3]) {
+        self.0.value = value
     }
 
     /// Returns the `x` coordinate of the point.
