@@ -214,7 +214,7 @@ impl<const MODULUS: u32> IsPrimeField for U32MontgomeryBackendPrimeField<MODULUS
 
         u64::from_str_radix(hex, 16)
             .map_err(|_| CreationError::InvalidHexString)
-            .map(|value| ((value % MODULUS as u64) as u32))
+            .map(|value| (value % MODULUS as u64) as u32)
     }
 
     #[cfg(feature = "std")]
