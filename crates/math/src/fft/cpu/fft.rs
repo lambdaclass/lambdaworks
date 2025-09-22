@@ -183,7 +183,6 @@ mod tests {
     use crate::fft::cpu::roots_of_unity::get_twiddles;
     use crate::fft::test_helpers::naive_matrix_dft_test;
     use crate::field::{test_fields::u64_test_field::U64TestField, traits::RootsConfig};
-    use alloc::format;
     use proptest::{collection, prelude::*};
 
     use super::*;
