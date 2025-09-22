@@ -121,8 +121,7 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
         );
         // SAFETY: The values `x_p, y_p, z_p` are computed correctly to be on the curve.
         // The assertion above verifies that the resulting point is valid.
-        let point = Self::new_unchecked([xp, yp, zp]);
-        point
+        Self::new_unchecked([xp, yp, zp])
     }
     // https://hyperelliptic.org/EFD/g1p/data/shortw/projective/addition/madd-1998-cmo
     /// More efficient than operate_with, but must ensure that other is in affine form
@@ -170,8 +169,7 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
         );
         // SAFETY: The values `x, y, z` are computed correctly to be on the curve.
         // The assertion above verifies that the resulting point is valid.
-        let point = Self::new_unchecked([x, y, z]);
-        point
+        Self::new_unchecked([x, y, z])
     }
 }
 
