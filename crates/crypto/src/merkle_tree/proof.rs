@@ -25,7 +25,7 @@ impl<T: PartialEq + Eq> Proof<T> {
         let mut hashed_value = B::hash_data(value);
 
         for sibling_node in self.merkle_path.iter() {
-            if index % 2 == 0 {
+            if index.is_multiple_of(2) {
                 hashed_value = B::hash_new_parent(&hashed_value, sibling_node);
             } else {
                 hashed_value = B::hash_new_parent(sibling_node, &hashed_value);

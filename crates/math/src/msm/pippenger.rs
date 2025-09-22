@@ -170,7 +170,7 @@ mod tests {
         },
         unsigned_integer::element::UnsignedInteger,
     };
-    use alloc::{format, vec::Vec};
+    use alloc::vec::Vec;
     use proptest::{collection, prelude::*, prop_assert_eq, prop_compose, proptest};
 
     const _CASES: u32 = 20;

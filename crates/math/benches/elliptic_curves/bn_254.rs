@@ -106,7 +106,7 @@ pub fn bn_254_elliptic_curve_benchmarks(c: &mut Criterion) {
 
     // Subgroup Check G2
     group.bench_function("Subgroup Check G2", |bencher| {
-        bencher.iter(|| (black_box(a_g2.is_in_subgroup())));
+        bencher.iter(|| black_box(a_g2.is_in_subgroup()));
     });
 
     // Ate Pairing
