@@ -332,7 +332,7 @@ where
     ) -> Result<Self, DeserializationError> {
         match point_format {
             PointFormat::Projective => {
-                if bytes.len() % 3 != 0 {
+                if !bytes.len().is_multiple_of(3) {
                     return Err(DeserializationError::InvalidAmountOfBytes);
                 }
 
@@ -369,7 +369,7 @@ where
                 }
             }
             PointFormat::Uncompressed => {
-                if bytes.len() % 2 != 0 {
+                if !bytes.len().is_multiple_of(2) {
                     return Err(DeserializationError::InvalidAmountOfBytes);
                 }
 

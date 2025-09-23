@@ -85,7 +85,7 @@ pub fn bls12_381_elliptic_curve_benchmarks(c: &mut Criterion) {
 
     // Subgroup Check G1
     group.bench_function("Subgroup Check G1", |bencher| {
-        bencher.iter(|| (black_box(a_g1.is_in_subgroup())));
+        bencher.iter(|| black_box(a_g1.is_in_subgroup()));
     });
 
     // Ate Pairing
