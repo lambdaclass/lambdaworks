@@ -166,11 +166,22 @@ impl<const N: usize, F: IsPrimeField<RepresentativeType = UnsignedInteger<N>>, P
     /// The commitment is p(s) g1, evaluated as \sum_i c_i srs.powers_main_group[i], where c_i are the coefficients
     /// of the polynomial.
     fn commit(&self, p: &Polynomial<FieldElement<F>>) -> Self::Commitment {
+        // Guard against SRS underprovisioning: if the polynomial degree exceeds the
+        // available SRS powers, limit MSM inputs to the SRS size to avoid out-of-bounds
+        // slicing. Callers should ensure the SRS has at least as many powers as the
+        // number of polynomial coefficients.
+        let coeffs_to_use = p
+            .coefficients
+            .len()
+            .min(self.srs.powers_main_group.len());
+        
         let coefficients: Vec<_> = p
             .coefficients
             .iter()
+            .take(coeffs_to_use)
             .map(|coefficient| coefficient.representative())
             .collect();
+        
         msm(
             &coefficients,
             &self.srs.powers_main_group[..coefficients.len()],
