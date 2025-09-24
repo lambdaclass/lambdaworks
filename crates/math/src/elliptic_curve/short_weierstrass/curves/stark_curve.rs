@@ -12,11 +12,13 @@ use crate::{
 pub struct StarkCurve;
 
 impl StarkCurve {
-    pub const fn from_affine_hex_string(
+    pub const fn from_affine_hex_string_unchecked(
         x_hex: &str,
         y_hex: &str,
     ) -> ShortWeierstrassProjectivePoint<Self> {
-        // SAFETY: The values `x_hex, y_hex`` should be constants valid for the curve.
+        // SAFETY: The values `x_hex, y_hex` must represent valid coordinates that satisfy
+        // the curve equation. Invalid coordinates violate the invariant and produce
+        // silently incorrect results in subsequent operations.
         ShortWeierstrassProjectivePoint::new_unchecked([
             FieldElement::<Stark252PrimeField>::from_hex_unchecked(x_hex),
             FieldElement::<Stark252PrimeField>::from_hex_unchecked(y_hex),

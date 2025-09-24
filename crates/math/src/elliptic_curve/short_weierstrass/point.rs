@@ -45,11 +45,16 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
     /// Creates an elliptic curve point giving the projective [x: y: z] coordinates without
     /// checking that the point satisfies the curve equation.
     pub const fn new_unchecked(value: [FieldElement<E::BaseField>; 3]) -> Self {
+        // SAFETY: The caller MUST ensure that [x:y:z] represents valid point on the
+        // curve. Passing arbitrary coordinates here can violate the invariant
+        // and produce silently incorrect results in subsequent operations.
         Self(ProjectivePoint::new(value))
     }
 
     /// Changes the point coordinates without checking that it satisfies the curve equation.
     pub fn set_unchecked(&mut self, value: [FieldElement<E::BaseField>; 3]) {
+        // SAFETY: The caller MUST ensure that the provided coordinates represent a valid curve
+        // point. Setting invalid coordinates may lead to silently incorrect computations later on.
         self.0.value = value
     }
 
@@ -461,6 +466,9 @@ impl<E: IsShortWeierstrass> ShortWeierstrassJacobianPoint<E> {
     /// Creates an elliptic curve point giving the projective [x: y: z] coordinates without
     /// checking that the point satisfies the curve equation.
     pub const fn new_unchecked(value: [FieldElement<E::BaseField>; 3]) -> Self {
+        // SAFETY: The caller MUST ensure that [x:y:z] represents either a valid point on the
+        // curve. Passing arbitrary coordinates here can violate the invariant
+        // and produce silently incorrect results in subsequent operations.
         Self(JacobianPoint::new(value))
     }
 
