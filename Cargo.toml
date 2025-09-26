@@ -27,15 +27,15 @@ exclude = ["ensure-no_std"]
 resolver = "2"
 
 [workspace.package]
-version = "0.12.0"
+version = "0.13.0"
 edition = "2021"
 license = "Apache-2.0"
 repository = "https://github.com/lambdaclass/lambdaworks"
 
 [workspace.dependencies]
-lambdaworks-crypto = { path = "./crates/crypto", version = "0.12.0", default-features = false }
-lambdaworks-gpu = { path = "./crates/gpu", version = "0.12.0" }
-lambdaworks-math = { path = "./crates/math", version = "0.12.0", default-features = false }
+lambdaworks-crypto = { path = "./crates/crypto", version = "0.13.0", default-features = false }
+lambdaworks-gpu = { path = "./crates/gpu", version = "0.13.0" }
+lambdaworks-math = { path = "./crates/math", version = "0.13.0", default-features = false }
 lambdaworks-groth16 = { path = "./crates/provers/groth16" }
 lambdaworks-circom-adapter = { path = "./crates/provers/groth16/circom-adapter" }
 lambdaworks-sumcheck = { path = "./crates/provers/sumcheck" }

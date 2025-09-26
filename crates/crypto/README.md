@@ -8,7 +8,7 @@
 Add this to your `Cargo.toml`
 ```toml
 [dependencies]
-lambdaworks-crypto = "0.12.0"
+lambdaworks-crypto = "0.13.0"
 ```
 
 ## Structure
@@ -24,4 +24,3 @@ For examples on:
 - Hash functions, refer to [Hash functions' readme](./src/hash/README.md)
 - Fiat-Shamir heuristic, refer to [Fiat-Shamir's readme](./src/fiat_shamir/README.md)
 - Polynomial commitment schemes, refer to [PCS's readme](./src/commitments/README.md)
-
