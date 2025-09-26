@@ -608,6 +608,8 @@ impl<F: IsPrimeField> FieldElement<F> {
     /// Returns a `CreationError::EmptyString` if the input string is empty.
     /// Returns a `CreationError::HexStringIsTooBig` if the the input hex string is bigger than the
     /// maximum amount of characters for this element.
+    /// Returns a `CreationError::RepresentativeOutOfRange` if the representative of the value is
+    /// out of the range [0, p-1] where p is the modulus.
     pub fn from_hex(hex_string: &str) -> Result<Self, CreationError> {
         if hex_string.is_empty() {
             return Err(CreationError::EmptyString);
@@ -978,6 +980,14 @@ mod tests {
         type F = Stark252PrimeField;
         type FE = FieldElement<F>;
         assert!(FE::from_hex("").is_err());
+    }
+
+    #[test]
+    fn construct_new_field_element_from_value_bigger_than_modulus() {
+        type F = Stark252PrimeField;
+        type FE = FieldElement<F>;
+        // A number that consists of 255 1s is bigger than the `Stark252PrimeField` modulus
+        assert!(FE::from_hex(&format!("0x{}", "f".repeat(65))).is_err());
     }
 
     prop_compose! {

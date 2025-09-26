@@ -1,3 +1,4 @@
+use crate::errors::CreationError;
 use crate::field::element::FieldElement;
 use crate::field::errors::FieldError;
 use crate::field::traits::{HasDefaultTranscript, IsPrimeField};
@@ -305,8 +306,12 @@ where
         evaluated_bit + 1
     }
 
-    fn from_hex(hex_string: &str) -> Result<Self::BaseType, crate::errors::CreationError> {
+    fn from_hex(hex_string: &str) -> Result<Self::BaseType, CreationError> {
         let integer = Self::BaseType::from_hex(hex_string)?;
+        if integer > M::MODULUS {
+            return Err(CreationError::RepresentativeOutOfRange);
+        }
+
         Ok(MontgomeryAlgorithms::cios(
             &integer,
             &MontgomeryBackendPrimeField::<M, NUM_LIMBS>::R2,
@@ -1294,9 +1299,14 @@ mod tests_u256_prime_fields {
     }
 
     #[test]
-    fn creating_a_field_element_from_hex_works_on_the_size_limit() {
+    fn creating_a_field_element_from_hex_bigger_than_modulus_errors() {
+        // A number that consists of 255 1s is bigger than the `U256FP1` modulus
         let a = U256FP1Element::from_hex(&"f".repeat(64));
-        assert!(a.is_ok());
+        assert!(a.is_err());
+        assert_eq!(
+            a.unwrap_err(),
+            crate::errors::CreationError::RepresentativeOutOfRange
+        )
     }
 
     #[test]
