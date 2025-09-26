@@ -20,7 +20,7 @@ fn pedersen_benchmarks(c: &mut Criterion) {
 
     // Benchmark with black_box is 0.41% faster
     group.bench_function("Hashing with black_box", |bench| {
-        bench.iter(|| black_box(PedersenStarkCurve::hash(&x, &y)))
+        bench.iter(|| PedersenStarkCurve::hash(black_box(&x), black_box(&y)))
     });
 }
 criterion_group!(pedersen, pedersen_benchmarks);
