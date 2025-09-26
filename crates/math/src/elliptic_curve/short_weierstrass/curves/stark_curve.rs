@@ -1,6 +1,5 @@
 use crate::{
     elliptic_curve::{
-        point::ProjectivePoint,
         short_weierstrass::{point::ShortWeierstrassProjectivePoint, traits::IsShortWeierstrass},
         traits::IsEllipticCurve,
     },
@@ -13,15 +12,18 @@ use crate::{
 pub struct StarkCurve;
 
 impl StarkCurve {
-    pub const fn from_affine_hex_string(
+    pub const fn from_affine_hex_string_unchecked(
         x_hex: &str,
         y_hex: &str,
     ) -> ShortWeierstrassProjectivePoint<Self> {
-        ShortWeierstrassProjectivePoint(ProjectivePoint::new([
+        // SAFETY: The values `x_hex, y_hex` must represent valid coordinates that satisfy
+        // the curve equation. Invalid coordinates violate the invariant and produce
+        // silently incorrect results in subsequent operations.
+        ShortWeierstrassProjectivePoint::new_unchecked([
             FieldElement::<Stark252PrimeField>::from_hex_unchecked(x_hex),
             FieldElement::<Stark252PrimeField>::from_hex_unchecked(y_hex),
             FieldElement::<Stark252PrimeField>::from_hex_unchecked("1"),
-        ]))
+        ])
     }
 }
 
@@ -32,8 +34,7 @@ impl IsEllipticCurve for StarkCurve {
     fn generator() -> Self::PointRepresentation {
         // SAFETY:
         // - The generator point is mathematically verified to be a valid point on the curve.
-        // - `unwrap()` is safe because the provided coordinates satisfy the curve equation.
-        let point = Self::PointRepresentation::new([
+        Self::PointRepresentation::new_unchecked([
             FieldElement::<Self::BaseField>::from_hex_unchecked(
                 "1EF15C18599971B7BECED415A40F0C7DEACFD9B0D1819E03D723D8BC943CFCA",
             ),
@@ -41,8 +42,7 @@ impl IsEllipticCurve for StarkCurve {
                 "5668060AA49730B7BE4801DF46EC62DE53ECD11ABE43A32873000C36E8DC1F",
             ),
             FieldElement::one(),
-        ]);
-        point.unwrap()
+        ])
     }
 }
 

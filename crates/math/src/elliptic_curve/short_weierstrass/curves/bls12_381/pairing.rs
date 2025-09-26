@@ -159,7 +159,8 @@ fn double_accumulate_line(
     let x1_sq_3 = three * x1.square();
     let [x1_sq_30, x1_sq_31] = x1_sq_3.value();
 
-    t.0.value = [x3, y3, z3];
+    // SAFETY: The values `x_3, y_3, z_3` are computed correctly to be on the curve.
+    t.set_unchecked([x3, y3, z3]);
 
     // (a0 + a2w2 + a4w4 + a1w + a3w3 + a5w5) * (b0 + b2 w2 + b3 w3) =
     // (a0b0 + r (a3b3 + a4b2)) w0 + (a1b0 + r (a4b3 + a5b2)) w
@@ -213,7 +214,8 @@ fn add_accumulate_line(
     let y3 = &theta * (g - h) - i;
     let z3 = z1 * e;
 
-    t.0.value = [x3, y3, z3];
+    // SAFETY: The values `x_3, y_3, z_3` are computed correctly to be on the curve.
+    t.set_unchecked([x3, y3, z3]);
 
     let [lambda0, lambda1] = lambda.value();
     let [theta0, theta1] = theta.value();
