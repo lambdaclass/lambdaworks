@@ -13,6 +13,6 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v4
       - name: Install stable toolchain
-        uses: dtolnay/rust-toolchain@1.87.0
+        uses: dtolnay/rust-toolchain@1.90.0
       - name: Publish crate lambdaworks
-        run: cargo publish --token ${{ secrets.CARGO_REGISTRY_TOKEN }} --all-features
+        run: cargo publish --workspace --token ${{ secrets.CARGO_REGISTRY_TOKEN }} --all-features
