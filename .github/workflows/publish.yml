@@ -17,6 +17,6 @@ jobs:
       - name: Publish crate lambdaworks-gpu
         run: cargo publish -p lambdaworks-gpu --token ${{ secrets.CARGO_REGISTRY_TOKEN }}
       - name: Publish crate lambdaworks-math
-        run: cargo publish -p lambdaworks-math --token ${{ secrets.CARGO_REGISTRY_TOKEN }} --features "parallel std alloc lambdaworks-serde-binary lambdaworks-serde-string proptest instruments"
+        run: cargo publish -p lambdaworks-math --token ${{ secrets.CARGO_REGISTRY_TOKEN }} --features "parallel std alloc lambdaworks-serde-binary lambdaworks-serde-string proptest"
       - name: Publish crate lambdaworks-crypto
-        run: cargo publish -p lambdaworks-crypto --token ${{ secrets.CARGO_REGISTRY_TOKEN }} --features "asm std serde test_fiat_shamir parallel alloc"
+        run: cargo publish -p lambdaworks-crypto --token ${{ secrets.CARGO_REGISTRY_TOKEN }} --features "asm std serde parallel alloc"
