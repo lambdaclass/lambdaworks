@@ -109,7 +109,7 @@ List of symbols:
 | secq256r1           | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :x:                | :x:                | :x:         | 
 | **STARKs**       | **Lambdaworks**     | **Arkworks** | **Halo2** | **gnark** | **Constantine** | **Plonky3** |
 | STARK Prover     | :heavy_check_mark:  | :x:          | :x:       | :x:       | :x:             | :heavy_check_mark: |
-| Circle STARKs    | 🏗️          | :x:       | :x:       | :x:             | :x: | | :x: |
+| Circle STARKs    | 🏗️          | :x:       | :x:       | :x:             | :x: | :heavy_check_mark: |
 | **SNARKs** | **Lambdaworks**    | **Arkworks**       | **Halo2** | **gnark**          | **Constantine** | **Plonky3** |
 | Groth16    | :heavy_check_mark: | :heavy_check_mark: | :x:       | :heavy_check_mark: | :x:             | :x:         |
 | Plonk      | 🏗️                 | :heavy_check_mark: | ✔️         | :heavy_check_mark: | :x:             | :x:         |
@@ -118,7 +118,7 @@ List of symbols:
 | KZG10                             | :heavy_check_mark: | ✔️                  | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :x:         |
 | FRI                               | 🏗️                 | :x:                | :x:                | :heavy_check_mark: | :x:             | :heavy_check_mark: |
 | Binius        | :x:                | :x:                | :x: | :x:             | :x:             | :x:         |
-| Circle FRI    | 🏗️                | :x:                | :x: | :x:             | :x:             | :x:         |
+| Circle FRI    | 🏗️                | :x:                | :x: | :x:             | :x:             | :heavy_check_mark: |
 
 Additionally, provers are compatible with the following frontends and VMs:
 
