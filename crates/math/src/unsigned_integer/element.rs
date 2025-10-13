@@ -109,12 +109,15 @@ impl<const NUM_LIMBS: usize> From<&str> for UnsignedInteger<NUM_LIMBS> {
 
 impl<const NUM_LIMBS: usize> Display for UnsignedInteger<NUM_LIMBS> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if f.alternate() {
+            write!(f, "0x")?;
+        }
+
         let mut limbs_iterator = self.limbs.iter().skip_while(|limb| **limb == 0).peekable();
 
         if limbs_iterator.peek().is_none() {
-            write!(f, "0x0")?;
+            write!(f, "0")?;
         } else {
-            write!(f, "0x")?;
             if let Some(most_significant_limb) = limbs_iterator.next() {
                 write!(f, "{most_significant_limb:x}")?;
             }
