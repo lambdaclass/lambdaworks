@@ -6,10 +6,7 @@ use lambdaworks_math::{
     field::{element::FieldElement, traits::IsField},
     traits::AsBytes,
 };
-use sha3::{
-    digest::{generic_array::GenericArray, OutputSizeUser},
-    Digest,
-};
+use digest::{Digest, Output};
 
 #[derive(Clone)]
 pub struct FieldElementBackend<F, D: Digest, const NUM_BYTES: usize> {
@@ -31,7 +28,7 @@ impl<F, D: Digest, const NUM_BYTES: usize> IsMerkleTreeBackend
 where
     F: IsField,
     FieldElement<F>: AsBytes + Sync + Send,
-    [u8; NUM_BYTES]: From<GenericArray<u8, <D as OutputSizeUser>::OutputSize>>,
+    [u8; NUM_BYTES]: From<Output<D>>,
 {
     type Node = [u8; NUM_BYTES];
     type Data = FieldElement<F>;

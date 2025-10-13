@@ -11,7 +11,7 @@ lambdaworks-crypto = { workspace = true }
 lambdaworks-sumcheck = { workspace = true }
 thiserror = "1.0"
 blake2 = "0.10"
-sha3 = "0.10"
+sha3 = "0.10.8"
 digest = "0.10"
 
 
