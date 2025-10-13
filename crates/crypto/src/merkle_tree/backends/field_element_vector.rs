@@ -3,11 +3,11 @@ use core::marker::PhantomData;
 use crate::hash::poseidon::Poseidon;
 use crate::merkle_tree::traits::IsMerkleTreeBackend;
 use alloc::vec::Vec;
+use digest::{Digest, Output};
 use lambdaworks_math::{
     field::{element::FieldElement, traits::IsField},
     traits::AsBytes,
 };
-use digest::{Digest, Output};
 
 #[derive(Clone)]
 pub struct FieldElementVectorBackend<F, D: Digest, const NUM_BYTES: usize> {
