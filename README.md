@@ -86,39 +86,39 @@ List of symbols:
 - 🏗️ means that the feature is partially implemented or is under active construction.
 - :x: means that the feature is not currently supported.
 
-| Finite Fields  | Lambdaworks        | Arkworks           | Halo2    | gnark              | Constantine |
-| -------------- | ------------------ | ------------------ | -------- | ------------------ | ----------- |
-| StarkField 252 | :heavy_check_mark: | :heavy_check_mark: | :x:      | :heavy_check_mark: | :x:         |
-| Mersenne 31    | :heavy_check_mark: | :x:                | :x:      | :x:                | :x:         |
-| Baby Bear      | :heavy_check_mark: | :x:                | :x:      | :x:                | :x:         |
-| MiniGoldilocks | :heavy_check_mark: | :x:                | :x:      | :heavy_check_mark: | :x:         |
-| Binary fields  | :heavy_check_mark: | :x:                | :x:      | :x:                | :x:         |
-| **ZK friendly Hash function** | **Lambdaworks** | **Arkworks**       | **Halo2**          | **gnark** | **Constantine** |
-| Poseidon                      | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :x:       | :x:             |
-| Pedersen                      | 🏗️ | :heavy_check_mark: | :heavy_check_mark: | :x:       | :x:             |
-| Rescue Prime XLIX             | :x:             | :x:                | :x:                | :x:       | :x:             |
-| **Elliptic Curves** | **Lambdaworks** | **Arkworks**          | **Halo2**          | **gnark**          | **Constantine**    |
-| BLS12-381           | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |
-| BLS12-377           | :heavy_check_mark:                  | :heavy_check_mark: | :x:                | :heavy_check_mark: | :heavy_check_mark: |
-| BN-254              | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |
-| Pallas              | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :x:                | :heavy_check_mark: |
-| Vesta               | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :x:                | :heavy_check_mark: |
-| Bandersnatch        | 🏗️                 | :heavy_check_mark: | :x:                | :heavy_check_mark:  | :heavy_check_mark: |
-| secp256k1           | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark:  | :heavy_check_mark: |
-| secq256k1           | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :x:                | :x:                |
-| secq256r1           | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :x:                | :x:                |
-| **STARKs**       | **Lambdaworks**     | **Arkworks** | **Halo2** | **gnark** | **Constantine** |
-| STARK Prover     | :heavy_check_mark:  | :x:          | :x:       | :x:       | :x:             |
-| Circle STARKs    | :x:          | :x:       | :x:       | :x:             | :x: |
-| **SNARKs** | **Lambdaworks**    | **Arkworks**       | **Halo2** | **gnark**          | **Constantine** |
-| Groth16    | :heavy_check_mark: | :heavy_check_mark: | :x:       | :heavy_check_mark: | :x:             |
-| Plonk      | 🏗️                 | :heavy_check_mark: | ✔️         | :heavy_check_mark: | :x:             |
-| GKR        | :heavy_check_mark: | :heavy_check_mark: | :x:       | :heavy_check_mark: | :x:             |
-| **Polynomial Commitment Schemes** | **Lambdaworks**    | **Arkworks**       | **Halo2**          | **gnark**          | **Constantine** |
-| KZG10                             | :heavy_check_mark: | ✔️                  | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark:             |
-| FRI                               | 🏗️                 | :x:                | :x:                | :heavy_check_mark: | :x:             |
-| Binius        | :x:                | :x:                | :x: | :x:             | :x:             |
-| Circle FRI    | :x:                | :x:                | :x: | :x:             | :x:             |
+| Finite Fields  | Lambdaworks        | Arkworks           | Plonky3            | gnark              | Constantine |  Halo2      |
+| -------------- | ------------------ | ------------------ | ------------------ | ------------------ | ----------- | ----------- |
+| StarkField 252 | :heavy_check_mark: | :heavy_check_mark: | :x:                | :heavy_check_mark: | :x:         | :x:
+| Mersenne 31    | :heavy_check_mark: | :x:                | :heavy_check_mark: | :x:                | :x:         | :x:
+| Baby Bear      | :heavy_check_mark: | :x:                | :heavy_check_mark: | :x:                | :x:         | :x:
+| MiniGoldilocks | :heavy_check_mark: | :x:                | :heavy_check_mark: | :heavy_check_mark: | :x:         | :x:
+| Binary fields  | :heavy_check_mark: | :x:                | :x:                | :x:                | :x:         | :x:
+| **ZK friendly Hash function** | **Lambdaworks**    | **Arkworks**       | **Plonky3**        | **gnark** | **Constantine** | **Halo2**          |
+| Poseidon                      | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :x:       | :x:             | :heavy_check_mark: |
+| Pedersen                      | 🏗️                 | :heavy_check_mark: | :x:                | :x:       | :x:             | :heavy_check_mark: | 
+| Rescue Prime XLIX             | :x:                | :x:                | :heavy_check_mark: | :x:       | :x:             | :x:                |
+| **Elliptic Curves** | **Lambdaworks**    | **Arkworks**       | **Plonky3** | **gnark**          | **Constantine**    | **Halo2**          |
+| BLS12-381           | :heavy_check_mark: | :heavy_check_mark: | :x:         | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | 
+| BLS12-377           | :heavy_check_mark: | :heavy_check_mark: | :x:         | :heavy_check_mark: | :heavy_check_mark: | :x:                | 
+| BN-254              | :heavy_check_mark: | :heavy_check_mark: | :x:         | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | 
+| Pallas              | :heavy_check_mark: | :heavy_check_mark: | :x:         | :x:                | :heavy_check_mark: | :heavy_check_mark: | 
+| Vesta               | :heavy_check_mark: | :heavy_check_mark: | :x:         | :x:                | :heavy_check_mark: | :heavy_check_mark: | 
+| Bandersnatch        | 🏗️                 | :heavy_check_mark: | :x:         | :heavy_check_mark: | :heavy_check_mark: | :x:                | 
+| secp256k1           | :heavy_check_mark: | :heavy_check_mark: | :x:         | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | 
+| secq256k1           | :heavy_check_mark: | :heavy_check_mark: | :x:         | :x:                | :x:                | :heavy_check_mark: | 
+| secq256r1           | :heavy_check_mark: | :heavy_check_mark: | :x:         | :x:                | :x:                | :heavy_check_mark: | 
+| **STARKs**       | **Lambdaworks**     | **Arkworks** | **Plonky3**        | **gnark** | **Constantine** | **Halo2** |
+| STARK Prover     | :heavy_check_mark:  | :x:          | :heavy_check_mark: | :x:       | :x:             | :x:       |
+| Circle STARKs    | 🏗️                  | :x:          | :heavy_check_mark: | :x:       | :x:             | :x:        |
+| **SNARKs** | **Lambdaworks**    | **Arkworks**       | **Plonky3** | **gnark**          | **Constantine** | **Halo2**          |
+| Groth16    | :heavy_check_mark: | :heavy_check_mark: | :x:         | :heavy_check_mark: | :x:             | :x:                |
+| Plonk      | 🏗️                 | :heavy_check_mark: | :x:         | :heavy_check_mark: | :x:             | :heavy_check_mark: |
+| GKR        | :heavy_check_mark: | :heavy_check_mark: | :x:         | :heavy_check_mark: | :x:             | :x:                |
+| **Polynomial Commitment Schemes** | **Lambdaworks**    | **Arkworks**       | **Plonky3**        | **gnark**          | **Constantine**    | **Halo2**          |
+| KZG10                             | :heavy_check_mark: | :heavy_check_mark: | :x:                | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | 
+| FRI                               | 🏗️                 | :x:                | :heavy_check_mark: | :heavy_check_mark: | :x:                | :x:                |
+| Binius                            | :x:                | :x:                | :x:                | :x:                | :x:                | :x:                |
+| Circle FRI                        | 🏗️                 | :x:                | :heavy_check_mark: | :x:                | :x:                | :x:                |
 
 Additionally, provers are compatible with the following frontends and VMs:
 
