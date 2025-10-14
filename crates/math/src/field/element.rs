@@ -6,10 +6,7 @@ use crate::unsigned_integer::element::UnsignedInteger;
 use crate::unsigned_integer::montgomery::MontgomeryAlgorithms;
 use crate::unsigned_integer::traits::IsUnsignedInteger;
 #[cfg(feature = "alloc")]
-use alloc::{
-    format,
-    string::{String, ToString},
-};
+use alloc::{format, string::String};
 use core::fmt;
 use core::fmt::Debug;
 use core::iter::Sum;
@@ -521,21 +518,11 @@ where
         Self: ByteConversion,
         F: IsPrimeField,
     {
-        let mod_minus_one = F::modulus_minus_one().to_string();
+        let mod_minus_one = format!("{:x}", F::modulus_minus_one());
 
-        // We check if `mod_minus_one` is a hex string or a decimal string.
-        // In case it is a hex we remove the prefix `0x`.
-        let (digits, radix) = if let Some(hex) = mod_minus_one
-            .strip_prefix("0x")
-            .or_else(|| mod_minus_one.strip_prefix("0X"))
-        {
-            (hex, 16)
-        } else {
-            (mod_minus_one.as_str(), 10)
-        };
-
-        let modulus =
-            BigUint::from_str_radix(digits, radix).expect("invalid modulus representation") + 1u32;
+        let modulus = BigUint::from_str_radix(&mod_minus_one, 16)
+            .expect("invalid modulus representation")
+            + 1u32;
 
         if value >= &modulus {
             Err(ByteConversionError::ValueNotReduced)
