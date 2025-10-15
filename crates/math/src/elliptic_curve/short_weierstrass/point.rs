@@ -1,3 +1,5 @@
+use core::array;
+
 use crate::{
     cyclic_group::IsGroup,
     elliptic_curve::{
@@ -7,6 +9,7 @@ use crate::{
     errors::DeserializationError,
     field::element::FieldElement,
     traits::{ByteConversion, Deserializable},
+    unsigned_integer::element::U256,
 };
 
 use super::traits::IsShortWeierstrass;
@@ -128,6 +131,7 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
         // The assertion above verifies that the resulting point is valid.
         Self::new_unchecked([xp, yp, zp])
     }
+
     // https://hyperelliptic.org/EFD/g1p/data/shortw/projective/addition/madd-1998-cmo
     /// More efficient than operate_with, but must ensure that other is in affine form
     pub fn operate_with_affine(&self, other: &Self) -> Self {
@@ -175,6 +179,97 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
         // SAFETY: The values `x, y, z` are computed correctly to be on the curve.
         // The assertion above verifies that the resulting point is valid.
         Self::new_unchecked([x, y, z])
+    }
+
+    /// Sames as operate_with, but does not return early if any inputs is the point
+    /// at infinity, removing that check.
+    ///
+    /// This brings a performance boost in cases where `self` and `other` is known to
+    /// not be the point at infinity, like in the context of the EIP-196 ecmul precompile.
+    fn operate_with_unchecked(&self, other: &Self) -> Self {
+        let [px, py, pz] = self.coordinates();
+        let [qx, qy, qz] = other.coordinates();
+        let u1 = qy * pz;
+        let u2 = py * qz;
+        let v1 = qx * pz;
+        let v2 = px * qz;
+        if v1 == v2 {
+            if u1 != u2 || *py == FieldElement::zero() {
+                Self::neutral_element()
+            } else {
+                self.double()
+            }
+        } else {
+            let u = u1 - &u2;
+            let v = v1 - &v2;
+            let w = pz * qz;
+
+            let u_square = &u * &u;
+            let v_square = &v * &v;
+            let v_cube = &v * &v_square;
+            let v_square_v2 = &v_square * &v2;
+
+            let a = &u_square * &w - &v_cube - (&v_square_v2 + &v_square_v2);
+
+            let xp = &v * &a;
+            let yp = u * (&v_square_v2 - a) - &v_cube * u2;
+            let zp = &v_cube * w;
+
+            debug_assert_eq!(
+                E::defining_equation_projective(&xp, &yp, &zp),
+                FieldElement::<E::BaseField>::zero()
+            );
+            // SAFETY: The values `x_p, y_p, z_p` are computed correctly to be on the curve.
+            // The assertion above verifies that the resulting point is valid.
+            Self::new([xp, yp, zp]).unwrap()
+        }
+    }
+
+    /// Same as operate_with_self, but includes some assumptions given by the ecmul precompile
+    /// (as defined in EIP-196).
+    ///
+    /// These assumptions are:
+    /// 1. `exponent` is a 256 bit scalar
+    /// 2. `self` is never the point at infinity
+    /// 3. `self` is short weierstrass projective point
+    pub fn operate_with_self_eip196(&self, mut exponent: U256) -> Self {
+        // TODO: return early if exponent == 0
+
+        // the idea is that we would calculate the sum of the bits corresponding to each limb
+        // at the same time, and in the end do the appropiate exponentiation by a power of two
+        // of each component and add them all up to get the resulting point.
+
+        // by doing this we should avoid the >> operator logic of an U256, that moves bits from
+        // one limb to another when it's actually not necessary.
+
+        let mut base = self.clone();
+        let mut result: [Self; 4] = array::from_fn(|_| Self::neutral_element());
+
+        while !(exponent.limbs[3] == 0
+            && exponent.limbs[2] == 0
+            && exponent.limbs[1] == 0
+            && exponent.limbs[0] == 0)
+        {
+            for (i, limb) in exponent.limbs.iter_mut().enumerate() {
+                if *limb != 0 {
+                    if *limb & 1 == 1 {
+                        result[i] = Self::operate_with(&result[i], &base);
+                    }
+                    *limb >>= 1;
+                }
+            }
+            base = base.double();
+        }
+
+        let exp_64 = |mut point: Self| {
+            for _ in 0..64 {
+                point = point.double()
+            }
+            point
+        };
+
+        let [r0, r1, r2, r3] = result;
+        exp_64(r2.operate_with(&exp_64(r1.operate_with(&exp_64(r0))))).operate_with(&r3)
     }
 }
 
