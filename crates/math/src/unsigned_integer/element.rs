@@ -19,7 +19,7 @@ use crate::traits::AsBytes;
 use crate::traits::ByteConversion;
 use crate::unsigned_integer::traits::IsUnsignedInteger;
 
-use core::fmt::{self, Debug, Display};
+use core::fmt::{self, Debug, Display, LowerHex, UpperHex};
 
 pub type U384 = UnsignedInteger<6>;
 pub type U256 = UnsignedInteger<4>;
@@ -109,18 +109,67 @@ impl<const NUM_LIMBS: usize> From<&str> for UnsignedInteger<NUM_LIMBS> {
 
 impl<const NUM_LIMBS: usize> Display for UnsignedInteger<NUM_LIMBS> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "0x")?;
+
         let mut limbs_iterator = self.limbs.iter().skip_while(|limb| **limb == 0).peekable();
 
         if limbs_iterator.peek().is_none() {
-            write!(f, "0x0")?;
+            write!(f, "0")?;
         } else {
-            write!(f, "0x")?;
             if let Some(most_significant_limb) = limbs_iterator.next() {
                 write!(f, "{most_significant_limb:x}")?;
             }
 
             for limb in limbs_iterator {
                 write!(f, "{limb:016x}")?;
+            }
+        }
+
+        Ok(())
+    }
+}
+
+impl<const NUM_LIMBS: usize> LowerHex for UnsignedInteger<NUM_LIMBS> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if f.alternate() {
+            write!(f, "0x")?;
+        }
+
+        let mut limbs_iterator = self.limbs.iter().skip_while(|limb| **limb == 0).peekable();
+
+        if limbs_iterator.peek().is_none() {
+            write!(f, "0")?;
+        } else {
+            if let Some(most_significant_limb) = limbs_iterator.next() {
+                write!(f, "{most_significant_limb:x}")?;
+            }
+
+            for limb in limbs_iterator {
+                write!(f, "{limb:016x}")?;
+            }
+        }
+
+        Ok(())
+    }
+}
+
+impl<const NUM_LIMBS: usize> UpperHex for UnsignedInteger<NUM_LIMBS> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if f.alternate() {
+            write!(f, "0X")?;
+        }
+
+        let mut limbs_iterator = self.limbs.iter().skip_while(|limb| **limb == 0).peekable();
+
+        if limbs_iterator.peek().is_none() {
+            write!(f, "0")?;
+        } else {
+            if let Some(most_significant_limb) = limbs_iterator.next() {
+                write!(f, "{most_significant_limb:X}")?;
+            }
+
+            for limb in limbs_iterator {
+                write!(f, "{limb:016X}")?;
             }
         }
 

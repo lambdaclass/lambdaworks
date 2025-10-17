@@ -1,5 +1,5 @@
 use core::{
-    fmt::Display,
+    fmt::{Display, LowerHex, UpperHex},
     ops::{Add, BitAnd, Shr, ShrAssign},
 };
 
@@ -12,6 +12,8 @@ pub trait IsUnsignedInteger:
     + From<u16>
     + Copy
     + Display
+    + LowerHex
+    + UpperHex
     + Add<Self, Output = Self>
 {
 }
