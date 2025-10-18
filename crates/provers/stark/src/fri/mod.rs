@@ -50,11 +50,11 @@ where
         // Compute layer polynomial and domain
         current_poly = FieldElement::<F>::from(2) * fold_polynomial(&current_poly, &zeta);
         current_layer = new_fri_layer(&current_poly, &coset_offset, domain_size);
-        let new_data = &current_layer.merkle_tree.root;
-        fri_layer_list.push(current_layer.clone()); // TODO: remove this clone
+        let root = current_layer.merkle_tree.root;
+        fri_layer_list.push(current_layer);
 
         // >>>> Send commitment: [pₖ]
-        transcript.append_bytes(new_data);
+        transcript.append_bytes(&root);
     }
 
     // <<<< Receive challenge: 𝜁ₙ₋₁
