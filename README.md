@@ -175,7 +175,7 @@ make docs
 
 ## Learning resources
 
-If you want to learn about proof systems/cryptography, we have a list of resources available [here](./bootcamp/learning_resources.md)
+If you want to learn about proof systems/cryptography, we have a list of resources available [here](https://github.com/lambdaclass/sparkling_water_bootcamp/blob/main/bootcamp/learning_resources.md)
 
 ## 📚 References and acknowledgements
 
