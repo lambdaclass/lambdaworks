@@ -9,6 +9,7 @@ license.workspace = true
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
+digest = "0.10.7"
 lambdaworks-math = { workspace = true, features = [
     "std",
     "lambdaworks-serde-binary",
