@@ -1,6 +1,5 @@
 use core::cmp::Reverse;
 use itertools::Itertools;
-use core::hash;
 use std::marker::PhantomData;
 
 use digest::{Digest, Output};
@@ -53,12 +52,7 @@ where
                 .flat_map(|table| table.get_row(row_idx))
                 .collect();
 
-            let mut hasher = D::new();
-            for element in concatenated_row {
-                hasher.update(element.as_bytes());
-            }
-            let hash: [u8; NUM_BYTES] = hasher.finalize().into();
-
+            let hash = Self::hash_data(concatenated_row);
             nodes.push(hash);
         }
 
@@ -68,26 +62,30 @@ where
         while current_layer_size > 1 {
             let next_layer_size = current_layer_size / 2;
 
-            let next_layer_tables: Option<Vec<_>> = sorted_tables.peek().and_then(|next| {
-                if next.height == next_layer_size {
-                    Some(
-                        sorted_tables
-                            .peeking_take_while(|t| t.height == next_layer_size)
-                            .collect(),
-                    )
-                } else {
-                    None
-                }
-            });
+            let is_table_to_inject = sorted_tables
+                .peek()
+                .is_some_and(|next| next.height == next_layer_size);
+
+            let next_layer_tables = if is_table_to_inject {
+                Some(
+                    sorted_tables
+                        .peeking_take_while(|t| t.height == next_layer_size)
+                        .collect::<Vec<_>>(),
+                )
+            } else {
+                None
+            };
 
             for i in 0..next_layer_size {
                 let left_child = &nodes[current_layer_start + 2 * i];
                 let right_child = &nodes[current_layer_start + 2 * i + 1];
 
                 let hash = if let Some(ref tables) = next_layer_tables {
-                    hash_with_table_row(left_child, right_child, tables, i)
+                    let concatenated_row: Vec<&FieldElement<F>> =
+                        tables.iter().flat_map(|table| table.get_row(i)).collect();
+                    Self::hash_new_parent_with_injection(left_child, right_child, concatenated_row)
                 } else {
-                    hash_two_nodes(left_child, right_child)
+                    Self::hash_new_parent(left_child, right_child)
                 };
 
                 nodes.push(hash);
@@ -97,7 +95,6 @@ where
             current_layer_size = next_layer_size;
         }
 
-        println!("Nodes: {:?}", nodes);
         Some(MultiTableTree {
             root: nodes.last().unwrap().clone(),
             nodes,
@@ -106,7 +103,7 @@ where
     }
 
     /// This function takes a single row data and converts it to a node.
-    fn hash_data(row_data: &[FieldElement<F>]) -> [u8; NUM_BYTES] {
+    fn hash_data(row_data: Vec<&FieldElement<F>>) -> [u8; NUM_BYTES] {
         let mut hasher = D::new();
         for element in row_data.iter() {
             hasher.update(element.as_bytes());
@@ -118,10 +115,10 @@ where
 
     /// This function takes a list of data (a list of rows) from which the Merkle
     /// tree will be built from and converts it to a list of leaf nodes.
-    fn hash_leaves(unhashed_leaves: &[Vec<FieldElement<F>>]) -> Vec<[u8; NUM_BYTES]> {
-        let iter = unhashed_leaves.iter();
-        iter.map(|leaf| Self::hash_data(leaf)).collect()
-    }
+    // fn hash_leaves(unhashed_leaves: &[Vec<FieldElement<F>>]) -> Vec<[u8; NUM_BYTES]> {
+    //     let iter = unhashed_leaves.iter();
+    //     iter.map(|leaf| Self::hash_data(leaf)).collect()
+    // }
 
     /// This function takes to children nodes and builds a new parent node.
     /// It will be used in the construction of the Merkle tree.
@@ -145,7 +142,7 @@ where
     fn hash_new_parent_with_injection(
         left: &[u8; NUM_BYTES],
         right: &[u8; NUM_BYTES],
-        data_to_inject: &[FieldElement<F>],
+        data_to_inject: Vec<&FieldElement<F>>,
     ) -> [u8; NUM_BYTES] {
         let mut hasher = D::new();
 
@@ -193,28 +190,28 @@ mod tests {
             MultiTableTree::<F, Keccak256, 32>::build(&[table1, table2, table3]).unwrap();
     }
 
-    fn run_hash_new_parent_with_injection() {
-        let leaves_data = [
-            vec![FE::from(1u64), FE::from(10u64)],
-            vec![FE::from(2u64), FE::from(20u64)],
-            vec![FE::from(3u64), FE::from(30u64)],
-            vec![FE::from(4u64), FE::from(40u64)],
-            vec![FE::from(5u64), FE::from(50u64)],
-            vec![FE::from(6u64), FE::from(60u64)],
-            vec![FE::from(7u64), FE::from(70u64)],
-            vec![FE::from(8u64), FE::from(80u64)],
-        ];
+    // fn run_hash_new_parent_with_injection() {
+    //     let leaves_data = [
+    //         vec![FE::from(1u64), FE::from(10u64)],
+    //         vec![FE::from(2u64), FE::from(20u64)],
+    //         vec![FE::from(3u64), FE::from(30u64)],
+    //         vec![FE::from(4u64), FE::from(40u64)],
+    //         vec![FE::from(5u64), FE::from(50u64)],
+    //         vec![FE::from(6u64), FE::from(60u64)],
+    //         vec![FE::from(7u64), FE::from(70u64)],
+    //         vec![FE::from(8u64), FE::from(80u64)],
+    //     ];
 
-        let leaves_hashed = MultiTableTree::<F, Sha3_256, 32>::hash_leaves(&leaves_data);
+    //     let leaves_hashed = MultiTableTree::<F, Keccak256, 32>::hash_leaves(&leaves_data);
 
-        let data_to_inject = &[FE::from(9u64), FE::from(90u64)];
+    //     let data_to_inject = &[FE::from(9u64), FE::from(90u64)];
 
-        let parent_hash = MultiTableTree::<F, Sha3_256, 32>::hash_new_parent_with_injection(
-            &leaves_hashed[0],
-            &leaves_hashed[1],
-            data_to_inject,
-        );
+    //     let parent_hash = MultiTableTree::<F, Keccak256, 32>::hash_new_parent_with_injection(
+    //         &leaves_hashed[0],
+    //         &leaves_hashed[1],
+    //         data_to_inject,
+    //     );
 
-        println!("Parent hash with injection: {:?}", parent_hash);
-    }
+    //     println!("Parent hash with injection: {:?}", parent_hash);
+    // }
 }
