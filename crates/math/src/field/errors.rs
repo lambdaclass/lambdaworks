@@ -5,4 +5,6 @@ pub enum FieldError {
     RootOfUnityError(u64),
     /// Can't calculate inverse of zero
     InvZeroError,
+    /// usize conversion error
+    ConversionError,
 }

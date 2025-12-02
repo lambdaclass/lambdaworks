@@ -60,3 +60,7 @@ winter-crypto = { git = "https://github.com/lambdaclass/winterfell-for-lambdawor
 lto = true
 codegen-units = 1
 opt-level = 3
+
+[workspace.lints.clippy]
+restriction = "warn"
+as_conversions = "warn"

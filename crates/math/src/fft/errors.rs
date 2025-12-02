@@ -63,6 +63,9 @@ impl From<FieldError> for FFTError {
             FieldError::InvZeroError => {
                 panic!("Can't calculate inverse of zero during FFT");
             }
+            FieldError::ConversionError => {
+                panic!("Can't convert usize to integer type during FFT");
+            }
             FieldError::RootOfUnityError(order) => FFTError::RootOfUnityError(order),
         }
     }
