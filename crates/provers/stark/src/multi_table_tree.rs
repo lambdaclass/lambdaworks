@@ -1,3 +1,5 @@
+use core::cmp::Reverse;
+use itertools::Itertools;
 use std::marker::PhantomData;
 
 use digest::{Digest, Output};
@@ -19,100 +21,112 @@ where
     _phantom: PhantomData<(F, D)>,
 }
 
-const ROOT: usize = 0;
-
 impl<F, D: Digest, const NUM_BYTES: usize> MultiTableTree<F, D, NUM_BYTES>
 where
     F: IsField,
     FieldElement<F>: AsBytes,
     [u8; NUM_BYTES]: From<Output<D>>,
 {
-    /// This function takes a single variable `Data` and converts it to a node.
-    fn hash_data(leaf: ) -> [u8; NUM_BYTES] {
-
-    };
-
-    /// This function takes the list of data from which the Merkle
-    /// tree will be built from and converts it to a list of leaf nodes.
-    fn hash_leaves(unhashed_leaves: &[Self::Data]) -> Vec<Self::Node> {
-        #[cfg(feature = "parallel")]
-        let iter = unhashed_leaves.par_iter();
-        #[cfg(not(feature = "parallel"))]
-        let iter = unhashed_leaves.iter();
-
-        iter.map(|leaf| Self::hash_data(leaf)).collect()
-    }
-
-    /// This function takes to children nodes and builds a new parent node.
-    /// It will be used in the construction of the Merkle tree.
-    fn hash_new_parent(child_1: &Self::Node, child_2: &Self::Node) -> Self::Node;
-
-    /// Create a Merkle tree from a slice of data
+    /// Create a Merkle tree from a slice of tables.
+    /// Each table must have a power of two number of rows.
     pub fn build(tables: &[Table<F>]) -> Option<Self> {
+        let mut sorted_tables = tables
+            .iter()
+            .sorted_by_key(|t| Reverse(t.height))
+            .peekable();
 
-        tables.sort_by_key(|t| t.height);
-        let mut iter = tables.iter().peekable();
-        
+        let Some(first) = sorted_tables.peek() else {
+            return None;
+        };
+        let max_height = first.height;
+        // Podemos calcular la cantidad de nodos totales como 2 * Leafs - 1.
+        let mut nodes = Vec::with_capacity(2 * max_height - 1);
 
-        // if unhashed_leaves.is_empty() {
-        //     return None;
-        // }
+        let max_height_tables: Vec<_> = sorted_tables
+            .peeking_take_while(|t| t.height == max_height)
+            .collect();
 
-        // let hashed_leaves: Vec<B::Node> = B::hash_leaves(unhashed_leaves);
+        for row_idx in 0..max_height {
+            let concatenated_row: Vec<&FieldElement<F>> = max_height_tables
+                .iter()
+                .flat_map(|table| table.get_row(row_idx))
+                .collect();
 
-        // //The leaf must be a power of 2 set
-        // let hashed_leaves = complete_until_power_of_two(hashed_leaves);
-        // let leaves_len = hashed_leaves.len();
+            let mut hasher = D::new();
+            for element in concatenated_row {
+                hasher.update(element.as_bytes());
+            }
+            let hash: [u8; NUM_BYTES] = hasher.finalize().into();
 
-        // //The length of leaves minus one inner node in the merkle tree
-        // //The first elements are overwritten by build function, it doesn't matter what it's there
-        // let mut nodes = vec![hashed_leaves[0].clone(); leaves_len - 1];
-        // nodes.extend(hashed_leaves);
+            nodes.push(hash);
+        }
 
-        // //Build the inner nodes of the tree
-        // build::<B>(&mut nodes, leaves_len);
+        let mut current_layer_size = max_height;
+        let mut current_layer_start = 0;
 
-        // Some(MerkleTree {
-        //     root: nodes[ROOT].clone(),
-        //     nodes,
-        // })
+        while current_layer_size > 1 {
+            let next_layer_size = current_layer_size / 2;
+
+            let next_layer_tables: Option<Vec<_>> = sorted_tables.peek().and_then(|next| {
+                if next.height == next_layer_size {
+                    Some(
+                        sorted_tables
+                            .peeking_take_while(|t| t.height == next_layer_size)
+                            .collect(),
+                    )
+                } else {
+                    None
+                }
+            });
+
+            for i in 0..next_layer_size {
+                let left_child = &nodes[current_layer_start + 2 * i];
+                let right_child = &nodes[current_layer_start + 2 * i + 1];
+
+                let hash = if let Some(ref tables) = next_layer_tables {
+                    hash_with_table_row(left_child, right_child, tables, i)
+                } else {
+                    hash_two_nodes(left_child, right_child)
+                };
+
+                nodes.push(hash);
+            }
+
+            current_layer_start += current_layer_size;
+            current_layer_size = next_layer_size;
+        }
+
+        println!("Nodes: {:?}", nodes);
+        Some(MultiTableTree {
+            root: nodes.last().unwrap().clone(),
+            nodes,
+            _phantom: PhantomData::<(F, D)>,
+        })
     }
-
-    /// Returns a Merkle proof for the element/s at position pos
-    /// For example, give me an inclusion proof for the 3rd element in the
-    /// Merkle tree
-    // pub fn get_proof_by_pos(&self, pos: usize) -> Option<Proof<B::Node>> {
-    //     let pos = pos + self.nodes.len() / 2;
-    //     let Ok(merkle_path) = self.build_merkle_path(pos) else {
-    //         return None;
-    //     };
-
-    //     self.create_proof(merkle_path)
-    // }
-
-    // /// Creates a proof from a Merkle pasth
-    // fn create_proof(&self, merkle_path: Vec<B::Node>) -> Option<Proof<B::Node>> {
-    //     Some(Proof { merkle_path })
-    // }
-
-    // /// Returns the Merkle path for the element/s for the leaf at position pos
-    // fn build_merkle_path(&self, pos: usize) -> Result<Vec<B::Node>, Error> {
-    //     let mut merkle_path = Vec::new();
-    //     let mut pos = pos;
-
-    //     while pos != ROOT {
-    //         let Some(node) = self.nodes.get(sibling_index(pos)) else {
-    //             // out of bounds, exit returning the current merkle_path
-    //             return Err(Error::OutOfBounds);
-    //         };
-    //         merkle_path.push(node.clone());
-
-    //         pos = parent_index(pos);
-    //     }
-
-    //     Ok(merkle_path)
-    // }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::table::Table;
+    use lambdaworks_math::field::fields::fft_friendly::babybear_u32::Babybear31PrimeField;
+    use sha3::Keccak256;
 
+    type F = Babybear31PrimeField;
+    type FE = FieldElement<F>;
 
+    #[test]
+    fn build_tree() {
+        let data1: Vec<_> = (0..24).map(|i| FE::from(i)).collect();
+        let table1 = Table::new(data1, 3);
+
+        let data2: Vec<_> = (100..116).map(|i| FE::from(i)).collect();
+        let table2 = Table::new(data2, 2);
+
+        let data3: Vec<_> = (200..216).map(|i| FE::from(i)).collect();
+        let table3 = Table::new(data3, 4);
+
+        let merkle_tree =
+            MultiTableTree::<F, Keccak256, 32>::build(&[table1, table2, table3]).unwrap();
+    }
+}
