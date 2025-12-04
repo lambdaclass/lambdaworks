@@ -10,6 +10,19 @@ use lambdaworks_math::{
 
 use crate::table::Table;
 
+//                                   H(L|R)
+//                            /                     \
+//                    H(L|R)                         H(L|R)
+//                /         \                      /         \
+//      H(L|R|H(o0))     H(L|R|H(o1))   H(L|R|H(o2))   H(L|R|H(o3))
+//       /       \                                       /          \
+//  H(m0|n0)   H(m2|n2)             ...               H(m6|n6)       H(m7|n7)
+
+// Nodes: [H(m0‖n0), H(m2‖n2), ... , H(l|R)]
+// injected_leaves: < [H(o0), H(01), H(o2), H(o3)] >
+
+
+// TODO. Se tendría que poder usar para hashes que devuelvan field elements.
 pub struct MultiTableTree<F, D: Digest, const NUM_BYTES: usize>
 where
     F: IsField,
@@ -19,7 +32,14 @@ where
     pub root: [u8; NUM_BYTES],
     // TODO: Los nodos están ordenados de izquierda a derecha y de abajo hacia arriba.
     // Ver si lo sincronizamos con MerkleTree.
+
+    // Nodos de abajo hacia arriba. Incluye las leaves (que vienen de las tablas más altas).
     nodes: Vec<[u8; NUM_BYTES]>,
+    // Son los hashes de las filas de las tablas más bajas.
+    // están separados por lrgo de las tablas.
+    // Tener en cuenta que si hay varias tablas de la misma altura, se inyectan todas sus filas concatenadas.
+    // O sea que acá se guarda el hash de las filas concatenadas.
+    injected_leaves: Vec<Vec<[u8; NUM_BYTES]>>,
     _phantom: PhantomData<(F, D)>,
 }
 
@@ -77,7 +97,12 @@ where
         let mut current_layer_size = max_height;
         let mut current_layer_start = 0;
 
+        let mut injected_leaves = Vec::new();
+
         while current_layer_size > 1 {
+
+            let mut injected_leaves_for_this_layer = Vec::new();
+
             let next_layer_size = current_layer_size / 2;
 
             // TODO: Ver si es necesario tener esto
@@ -103,7 +128,9 @@ where
                 let hash = if let Some(ref tables) = next_layer_tables {
                     let concatenated_row: Vec<&FieldElement<F>> =
                         tables.iter().flat_map(|table| table.get_row(i)).collect();
-                    Self::hash_new_parent_with_injection(left_child, right_child, concatenated_row)
+                    let hash_to_inject = Self::hash_data(concatenated_row);
+                    injected_leaves_for_this_layer.push(hash_to_inject); 
+                    Self::hash_new_parent_with_injection(left_child, right_child, &hash_to_inject)
                 } else {
                     Self::hash_new_parent(left_child, right_child)
                 };
@@ -113,41 +140,47 @@ where
 
             current_layer_start += current_layer_size;
             current_layer_size = next_layer_size;
+
+            if injected_leaves_for_this_layer.len() > 0 {
+                injected_leaves.push(injected_leaves_for_this_layer);
+            } 
         }
 
         Ok(MultiTableTree {
             root: nodes.last().unwrap().clone(),
             nodes,
+            injected_leaves,
             _phantom: PhantomData::<(F, D)>,
         })
     }
 
-    /// Generates the Merkle path for a specific leaf index.
-    pub fn get_merkle_path(&self, index: usize) -> Vec<[u8; NUM_BYTES]> {
-        // leaves = (len + 1) / 2 
-        let max_height = (self.nodes.len() + 1) / 2;
+    // /// Generates the proof for a specific leaf index.
+    // fn build_proof(&self, index: usize) -> MultiTableProof<F, D, NUM_BYTES> {
+    //     // leaves = (len + 1) / 2 
+    //     let max_height = (self.nodes.len() + 1) / 2;
 
-        let mut merkle_path = Vec::new();
-        let mut current_index = index;
-        let mut current_layer_start = 0;
-        let mut current_layer_size = max_height;
+    //     let mut merkle_path = Vec::new();
+    //     let mut current_index = index;
+    //     let mut current_layer_start = 0;
+    //     let mut current_layer_size = max_height;
 
-        // move up to the root
-        while current_layer_size > 1 {
-            let sibling_index = if current_index % 2 == 0 {
-                current_index + 1
-            } else {
-                current_index - 1
-            };
+    //     // move up to the root
+    //     // refactor to use functions already created
+    //     while current_layer_size > 1 {
+    //         let sibling_index = if current_index % 2 == 0 {
+    //             current_index + 1
+    //         } else {
+    //             current_index - 1
+    //         };
 
-            merkle_path.push(self.nodes[current_layer_start + sibling_index]);
+    //         merkle_path.push(self.nodes[current_layer_start + sibling_index]);
 
-            current_layer_start += current_layer_size;
-            current_layer_size /= 2;
-            current_index /= 2;
-        }
-        merkle_path
-    }
+    //         current_layer_start += current_layer_size;
+    //         current_layer_size /= 2;
+    //         current_index /= 2;
+    //     }
+    //     MultiTableProof { merkle_path, _phantom }
+    // }
 
     /// This function takes a single row data and converts it to a node.
     fn hash_data(row_data: Vec<&FieldElement<F>>) -> [u8; NUM_BYTES] {
@@ -189,19 +222,20 @@ where
     fn hash_new_parent_with_injection(
         left: &[u8; NUM_BYTES],
         right: &[u8; NUM_BYTES],
-        data_to_inject: Vec<&FieldElement<F>>,
+        hash_to_inject: &[u8; NUM_BYTES],
     ) -> [u8; NUM_BYTES] {
         let mut hasher = D::new();
 
         hasher.update(left);
         hasher.update(right);
+        hasher.update(hash_to_inject);
 
         // // Option 1.
         // hasher.update(data_to_inject.as_bytes());
 
         // Option 2.
-        let hashed_injection = Self::hash_data(data_to_inject);
-        hasher.update(hashed_injection);
+        // let hashed_injection = Self::hash_data(data_to_inject);
+        // hasher.update(hashed_injection);
 
         // Option 3.
         // ...
@@ -214,12 +248,50 @@ where
 
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct MultiTableProof<const NUM_BYTES: usize> {
-    pub merkle_path: Vec<[u8; NUM_BYTES]>,
-    // DATA
+pub struct MultiTableProof<F, D: Digest, const NUM_BYTES: usize>
+where
+    F: IsField,
+    FieldElement<F>: AsBytes,
+    [u8; NUM_BYTES]: From<Output<D>>,
+{
+    pub merkle_path: Vec<Vec<[u8; NUM_BYTES]>>,
+    _phantom: PhantomData<(F, D)>,
+}
+    
+pub struct ValueByLayer<F: IsField> {
+    value: Vec<F>,
+    layer: usize,
 }
 
+impl <F, D, const NUM_BYTES: usize> MultiTableProof<F, D, NUM_BYTES> 
+where
+    F: IsField,
+    D: Digest,
+    FieldElement<F>: AsBytes,
+    [u8; NUM_BYTES]: From<Output<D>>,
 
+{
+
+    // /// Verifies a Merkle inclusion proof for the value contained at leaf index.
+    // pub fn verify(&self, root_hash: [u8; NUM_BYTES], mut index: usize, values: Vec<ValueByLayer<F>>) -> bool
+    // {
+    //     let number_of_layers = self.merkle_path.len();
+
+    //     let mut hashed_value = B::hash_data(values);
+
+    //     for sibling_node in self.merkle_path.iter() {
+    //         if index.is_multiple_of(2) {
+    //             hashed_value = B::hash_new_parent(&hashed_value, sibling_node);
+    //         } else {
+    //             hashed_value = B::hash_new_parent(sibling_node, &hashed_value);
+    //         }
+
+    //         index >>= 1;
+    //     }
+
+    //     root_hash == &hashed_value
+    // }
+}
 
 #[cfg(test)]
 mod tests {
@@ -412,9 +484,76 @@ mod tests {
         let expected_tree = MultiTableTree {
             root: expected_nodes[6].clone(),
             nodes: expected_nodes,
+            injected_leaves: vec![
+                vec![table_3_row_0_hash, table_3_row_1_hash],
+            ],
             _phantom: PhantomData::<(F, Keccak256)>,
         };
 
         assert_eq!(expected_tree.nodes, tree.nodes);
+        assert_eq!(expected_tree.injected_leaves, tree.injected_leaves);
+    }
+
+    #[test]
+    fn test_injected_leaves_for_several_tables(){
+        let table_1 = create_random_table(2, 1);
+        let table_2 = create_random_table(8, 2);
+        let table_3 = create_random_table(4, 3);
+        let table_4 = create_random_table(4, 4);
+        let table_5 = create_random_table(4, 5);
+        let table_6 = create_random_table(2, 6);
+
+        // We build the expected injected leaves:
+        let mut expected_injected_leaves = Vec::new();
+
+        let mut injected_length_4 = Vec::new();
+        for row_idx in 0..4 {
+            let mut hasher = Keccak256::new();
+            
+            for element in table_3.get_row(row_idx).iter() {
+                hasher.update(element.as_bytes());
+            }
+            for element in table_4.get_row(row_idx).iter() {
+                hasher.update(element.as_bytes());
+            }
+            for element in table_5.get_row(row_idx).iter() {
+                hasher.update(element.as_bytes());
+            }
+
+            let mut result_hash = [0_u8; 32];
+            result_hash.copy_from_slice(&hasher.finalize());
+            injected_length_4.push(result_hash);
+        }
+        expected_injected_leaves.push(injected_length_4);
+            
+        let mut injected_length_2 = Vec::new();
+        for row_idx in 0..2 {
+            let mut hasher = Keccak256::new();
+            
+            for element in table_1.get_row(row_idx).iter() {
+                hasher.update(element.as_bytes());
+            }
+            for element in table_6.get_row(row_idx).iter() {
+                hasher.update(element.as_bytes());
+            }
+
+            let mut result_hash = [0_u8; 32];
+            result_hash.copy_from_slice(&hasher.finalize());
+            injected_length_2.push(result_hash);
+        }
+        expected_injected_leaves.push(injected_length_2);
+        
+        
+
+        let tree = MultiTableTree::<F, Keccak256, 32>::build(&[
+            table_1.clone(), 
+            table_2.clone(), 
+            table_3.clone(), 
+            table_4.clone(), 
+            table_5.clone(), 
+            table_6.clone()]
+        ).unwrap();
+
+        assert_eq!(expected_injected_leaves, tree.injected_leaves);
     }
 }
