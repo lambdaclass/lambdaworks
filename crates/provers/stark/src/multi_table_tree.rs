@@ -21,7 +21,6 @@ use crate::table::Table;
 // Nodes: [H(m0‖n0), H(m2‖n2), ... , H(l|R)]
 // injected_leaves: < [H(o0), H(01), H(o2), H(o3)] >
 
-
 // TODO. Se tendría que poder usar para hashes que devuelvan field elements.
 pub struct MultiTableTree<F, D: Digest, const NUM_BYTES: usize>
 where
@@ -49,7 +48,6 @@ pub enum MultiTableTreeError {
     WrongHeight,
 }
 
-
 impl<F, D: Digest, const NUM_BYTES: usize> MultiTableTree<F, D, NUM_BYTES>
 where
     F: IsField,
@@ -59,7 +57,6 @@ where
     /// Create a Merkle tree from a slice of tables.
     /// Each table must have a power of two number of rows.
     pub fn build(tables: &[Table<F>]) -> Result<Self, MultiTableTreeError> {
-
         // Check all tables have a power of two number of rows.
         if tables.into_iter().any(|t| !t.height.is_power_of_two()) {
             return Err(MultiTableTreeError::WrongHeight);
@@ -75,7 +72,7 @@ where
             return Err(MultiTableTreeError::EmptyTree);
         };
         let max_height = first.height;
-        
+
         // Podemos calcular la cantidad de nodos totales como 2 * Leafs - 1.
         let mut nodes = Vec::with_capacity(2 * max_height - 1);
 
@@ -100,7 +97,6 @@ where
         let mut injected_leaves = Vec::new();
 
         while current_layer_size > 1 {
-
             let mut injected_leaves_for_this_layer = Vec::new();
 
             let next_layer_size = current_layer_size / 2;
@@ -124,12 +120,12 @@ where
                 let left_child = &nodes[current_layer_start + 2 * i];
                 let right_child = &nodes[current_layer_start + 2 * i + 1];
 
-                // TODO: No hace falta chequear todos los nodos, se puede hacer algo para que solo chquee una vez con 'has_tables_to_inject'. 
+                // TODO: No hace falta chequear todos los nodos, se puede hacer algo para que solo chquee una vez con 'has_tables_to_inject'.
                 let hash = if let Some(ref tables) = next_layer_tables {
                     let concatenated_row: Vec<&FieldElement<F>> =
                         tables.iter().flat_map(|table| table.get_row(i)).collect();
                     let hash_to_inject = Self::hash_data(concatenated_row);
-                    injected_leaves_for_this_layer.push(hash_to_inject); 
+                    injected_leaves_for_this_layer.push(hash_to_inject);
                     Self::hash_new_parent_with_injection(left_child, right_child, &hash_to_inject)
                 } else {
                     Self::hash_new_parent(left_child, right_child)
@@ -143,7 +139,7 @@ where
 
             if injected_leaves_for_this_layer.len() > 0 {
                 injected_leaves.push(injected_leaves_for_this_layer);
-            } 
+            }
         }
 
         Ok(MultiTableTree {
@@ -156,7 +152,7 @@ where
 
     // /// Generates the proof for a specific leaf index.
     // fn build_proof(&self, index: usize) -> MultiTableProof<F, D, NUM_BYTES> {
-    //     // leaves = (len + 1) / 2 
+    //     // leaves = (len + 1) / 2
     //     let max_height = (self.nodes.len() + 1) / 2;
 
     //     let mut merkle_path = Vec::new();
@@ -246,7 +242,6 @@ where
     }
 }
 
-
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MultiTableProof<F, D: Digest, const NUM_BYTES: usize>
 where
@@ -257,21 +252,19 @@ where
     pub merkle_path: Vec<Vec<[u8; NUM_BYTES]>>,
     _phantom: PhantomData<(F, D)>,
 }
-    
+
 pub struct ValueByLayer<F: IsField> {
     value: Vec<F>,
     layer: usize,
 }
 
-impl <F, D, const NUM_BYTES: usize> MultiTableProof<F, D, NUM_BYTES> 
+impl<F, D, const NUM_BYTES: usize> MultiTableProof<F, D, NUM_BYTES>
 where
     F: IsField,
     D: Digest,
     FieldElement<F>: AsBytes,
     [u8; NUM_BYTES]: From<Output<D>>,
-
 {
-
     // /// Verifies a Merkle inclusion proof for the value contained at leaf index.
     // pub fn verify(&self, root_hash: [u8; NUM_BYTES], mut index: usize, values: Vec<ValueByLayer<F>>) -> bool
     // {
@@ -291,13 +284,106 @@ where
 
     //     root_hash == &hashed_value
     // }
+    /// Verifies a Merkle inclusion proof for the value contained at leaf index.
+    /// The merkle_path structure is:
+    /// - Level 0: [sibling] - just the sibling of the leaf
+    /// - Level 1+: [injection?, sibling] - injection (if any) + sibling
+    pub fn verify(
+        &self,
+        root: &[u8; NUM_BYTES],
+        mut index: usize,
+        leaf_data: &[FieldElement<F>],
+    ) -> bool {
+        // 1. Hash the leaf data
+        let leaf_refs: Vec<&FieldElement<F>> = leaf_data.iter().collect();
+        let mut current_hash = MultiTableTree::<F, D, NUM_BYTES>::hash_data(leaf_refs);
+        let path_len = self.merkle_path.len();
+
+        // 2. Process each level of the path (from bottom to top)
+        for level_idx in 0..path_len {
+            let level_data = &self.merkle_path[level_idx];
+
+            // The sibling is always the last element
+            // for example if we have an injected element we will have [injection, sibling]
+            // and if we don't have an injected element we will have [sibling]
+            // so we always take the last element
+            let sibling = level_data.last().unwrap();
+
+            let (left, right) = if index % 2 == 0 {
+                (&current_hash, sibling)
+            } else {
+                (sibling, &current_hash)
+            };
+
+            // The injection for this level is in the next level
+            let injection = if level_idx + 1 < path_len {
+                let next_level = &self.merkle_path[level_idx + 1];
+                if next_level.len() > 1 {
+                    Some(&next_level[0])
+                } else {
+                    // if the next level has only one element, we don't have an injection
+                    None
+                }
+            } else {
+                None
+                // if we are at the last level, we don't have an injection
+            };
+
+            // Compute parent hash (with or without injection)
+            current_hash = if let Some(inj) = injection {
+                MultiTableTree::<F, D, NUM_BYTES>::hash_new_parent_with_injection(left, right, inj)
+            } else {
+                MultiTableTree::<F, D, NUM_BYTES>::hash_new_parent(left, right)
+            };
+
+            index >>= 1;
+        }
+
+        &current_hash == root
+    }
+
+    // Would be better to have these helper functions here?
+    // to avoid having to pass the MultiTableTree::<F, D, NUM_BYTES> to the functions
+
+    // fn hash_data(row_data: &[FieldElement<F>]) -> [u8; NUM_BYTES] {
+    //     let mut hasher = D::new();
+    //     for element in row_data.iter() {
+    //         hasher.update(element.as_bytes());
+    //     }
+    //     let mut result_hash = [0_u8; NUM_BYTES];
+    //     result_hash.copy_from_slice(&hasher.finalize());
+    //     result_hash
+    // }
+
+    // fn hash_new_parent(left: &[u8; NUM_BYTES], right: &[u8; NUM_BYTES]) -> [u8; NUM_BYTES] {
+    //     let mut hasher = D::new();
+    //     hasher.update(left);
+    //     hasher.update(right);
+    //     let mut result_hash = [0_u8; NUM_BYTES];
+    //     result_hash.copy_from_slice(&hasher.finalize());
+    //     result_hash
+    // }
+
+    // fn hash_new_parent_with_injection(
+    //     left: &[u8; NUM_BYTES],
+    //     right: &[u8; NUM_BYTES],
+    //     injection: &[u8; NUM_BYTES],
+    // ) -> [u8; NUM_BYTES] {
+    //     let mut hasher = D::new();
+    //     hasher.update(left);
+    //     hasher.update(right);
+    //     hasher.update(injection);
+    //     let mut result_hash = [0_u8; NUM_BYTES];
+    //     result_hash.copy_from_slice(&hasher.finalize());
+    //     result_hash
+    // }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::table::Table;
-    use lambdaworks_math::field::fields::fft_friendly::{babybear_u32::Babybear31PrimeField};
+    use lambdaworks_math::field::fields::fft_friendly::babybear_u32::Babybear31PrimeField;
     use proptest::result;
     use sha3::Keccak256;
 
@@ -309,18 +395,21 @@ mod tests {
     // Helper function to create a base field table for testing
     fn create_random_table(height: usize, width: usize) -> Table<F> {
         let data_size = width * height;
-        let data = (0..data_size).map(|_| FieldElement::<F>::from(random::<u64>())).collect();
-        Table { data, width, height }
+        let data = (0..data_size)
+            .map(|_| FieldElement::<F>::from(random::<u64>()))
+            .collect();
+        Table {
+            data,
+            width,
+            height,
+        }
     }
 
     #[test]
     fn test_build_empty_list_of_table() {
         let tables: Vec<Table<F>> = vec![];
         let tree = MultiTableTree::<F, Keccak256, 32>::build(&tables);
-        assert!(matches!(
-            tree,
-            Err(MultiTableTreeError::EmptyTree),
-        ));
+        assert!(matches!(tree, Err(MultiTableTreeError::EmptyTree),));
     }
 
     #[test]
@@ -329,10 +418,7 @@ mod tests {
         let table_2 = create_random_table(16, 0); // Empty table with 0 columns.
         let table_3 = create_random_table(8, 2);
         let tree = MultiTableTree::<F, Keccak256, 32>::build(&[table_1, table_2, table_3]);
-        assert!(matches!(
-            tree,
-            Err(MultiTableTreeError::WrongHeight),
-        ));
+        assert!(matches!(tree, Err(MultiTableTreeError::WrongHeight),));
     }
 
     #[test]
@@ -348,18 +434,19 @@ mod tests {
         let table = create_random_table(4, 6);
         let tree = MultiTableTree::<F, Keccak256, 32>::build(&[table]).unwrap();
         // For height 4: 4 leaves + 2 nodes in next layer + 1 root = 7 total nodes = 2 * 4 - 1
-        assert_eq!(tree.nodes.len(), 7, "Height 4 should produce 7 nodes (2 * 4 - 1)");
+        assert_eq!(
+            tree.nodes.len(),
+            7,
+            "Height 4 should produce 7 nodes (2 * 4 - 1)"
+        );
     }
 
     #[test]
     fn test_build_single_table_non_power_of_two() {
         let table = create_random_table(6, 4);
         let tree = MultiTableTree::<F, Keccak256, 32>::build(&[table]);
-        
-        assert!(matches!(
-            tree,
-            Err(MultiTableTreeError::WrongHeight),
-        ));
+
+        assert!(matches!(tree, Err(MultiTableTreeError::WrongHeight),));
     }
 
     #[test]
@@ -368,9 +455,10 @@ mod tests {
         let table_2 = create_random_table(8, 2);
         let table_3 = create_random_table(4, 3);
         let table_4 = create_random_table(4, 4);
-        
-        let tree = MultiTableTree::<F, Keccak256, 32>::build(&[table_1, table_2, table_3, table_4]).unwrap();
-        
+
+        let tree = MultiTableTree::<F, Keccak256, 32>::build(&[table_1, table_2, table_3, table_4])
+            .unwrap();
+
         assert_eq!(tree.nodes.len(), 8 * 2 - 1);
     }
 
@@ -379,37 +467,48 @@ mod tests {
         let table_1 = create_random_table(2, 3);
         let table_2 = create_random_table(8, 4);
         let table_3 = create_random_table(5, 2);
-        
+
         let tree = MultiTableTree::<F, Keccak256, 32>::build(&[table_1, table_2, table_3]);
-        
-        assert!(matches!(
-            tree,
-            Err(MultiTableTreeError::WrongHeight),
-        ));
+
+        assert!(matches!(tree, Err(MultiTableTreeError::WrongHeight),));
     }
 
     #[test]
     fn test_build_deterministic() {
         let table_1 = create_random_table(4, 90);
         let table_2 = create_random_table(2, 100);
-        
-        let tree_1 = MultiTableTree::<F, Keccak256, 32>::build(&[table_1.clone(), table_2.clone()]).unwrap();
+
+        let tree_1 =
+            MultiTableTree::<F, Keccak256, 32>::build(&[table_1.clone(), table_2.clone()]).unwrap();
         let tree_2 = MultiTableTree::<F, Keccak256, 32>::build(&[table_1, table_2]).unwrap();
-        
-        assert_eq!(tree_1.root, tree_2.root, "Same input should produce same root");
-        assert_eq!(tree_1.nodes, tree_2.nodes, "Same input should produce same nodes");
+
+        assert_eq!(
+            tree_1.root, tree_2.root,
+            "Same input should produce same root"
+        );
+        assert_eq!(
+            tree_1.nodes, tree_2.nodes,
+            "Same input should produce same nodes"
+        );
     }
 
     #[test]
     fn test_build_tables_order_doesnt_matter() {
         let table_1 = create_random_table(4, 90);
         let table_2 = create_random_table(2, 100);
-        
-        let tree_1 = MultiTableTree::<F, Keccak256, 32>::build(&[table_1.clone(), table_2.clone()]).unwrap();
+
+        let tree_1 =
+            MultiTableTree::<F, Keccak256, 32>::build(&[table_1.clone(), table_2.clone()]).unwrap();
         let tree_2 = MultiTableTree::<F, Keccak256, 32>::build(&[table_2, table_1]).unwrap();
-        
-        assert_eq!(tree_1.root, tree_2.root, "Same input in different order should produce same root");
-        assert_eq!(tree_1.nodes, tree_2.nodes, "Same input in different order should produce same nodes");
+
+        assert_eq!(
+            tree_1.root, tree_2.root,
+            "Same input in different order should produce same root"
+        );
+        assert_eq!(
+            tree_1.nodes, tree_2.nodes,
+            "Same input in different order should produce same nodes"
+        );
     }
 
     #[test]
@@ -418,14 +517,19 @@ mod tests {
         let table_2 = create_random_table(4, 2);
         let table_3 = create_random_table(2, 2);
 
-        let tree = MultiTableTree::<F, Keccak256, 32>::build(&[table_1.clone(), table_2.clone(), table_3.clone()]).unwrap();
+        let tree = MultiTableTree::<F, Keccak256, 32>::build(&[
+            table_1.clone(),
+            table_2.clone(),
+            table_3.clone(),
+        ])
+        .unwrap();
 
         let mut expected_nodes = Vec::new();
 
         // We build the first layer manually.
         for row_idx in 0..4 {
             let mut hasher = Keccak256::new();
-            
+
             for element in table_1.get_row(row_idx).iter() {
                 hasher.update(element.as_bytes());
             }
@@ -437,12 +541,12 @@ mod tests {
             result_hash.copy_from_slice(&hasher.finalize());
             expected_nodes.push(result_hash);
         }
-        
+
         // Get the hashes of the row 0 of table_3:
         let mut hasher = Keccak256::new();
         for element in table_3.get_row(0) {
             hasher.update(element.as_bytes());
-        } 
+        }
         let mut table_3_row_0_hash = [0_u8; 32];
         table_3_row_0_hash.copy_from_slice(&hasher.finalize());
 
@@ -450,7 +554,7 @@ mod tests {
         let mut hasher = Keccak256::new();
         for element in table_3.get_row(1) {
             hasher.update(element.as_bytes());
-        } 
+        }
         let mut table_3_row_1_hash = [0_u8; 32];
         table_3_row_1_hash.copy_from_slice(&hasher.finalize());
 
@@ -479,14 +583,12 @@ mod tests {
         let mut root_node_hash = [0_u8; 32];
         root_node_hash.copy_from_slice(&hasher.finalize());
         expected_nodes.push(root_node_hash);
-        
+
         // We define the expected tree:
         let expected_tree = MultiTableTree {
             root: expected_nodes[6].clone(),
             nodes: expected_nodes,
-            injected_leaves: vec![
-                vec![table_3_row_0_hash, table_3_row_1_hash],
-            ],
+            injected_leaves: vec![vec![table_3_row_0_hash, table_3_row_1_hash]],
             _phantom: PhantomData::<(F, Keccak256)>,
         };
 
@@ -495,7 +597,7 @@ mod tests {
     }
 
     #[test]
-    fn test_injected_leaves_for_several_tables(){
+    fn test_injected_leaves_for_several_tables() {
         let table_1 = create_random_table(2, 1);
         let table_2 = create_random_table(8, 2);
         let table_3 = create_random_table(4, 3);
@@ -509,7 +611,7 @@ mod tests {
         let mut injected_length_4 = Vec::new();
         for row_idx in 0..4 {
             let mut hasher = Keccak256::new();
-            
+
             for element in table_3.get_row(row_idx).iter() {
                 hasher.update(element.as_bytes());
             }
@@ -525,11 +627,11 @@ mod tests {
             injected_length_4.push(result_hash);
         }
         expected_injected_leaves.push(injected_length_4);
-            
+
         let mut injected_length_2 = Vec::new();
         for row_idx in 0..2 {
             let mut hasher = Keccak256::new();
-            
+
             for element in table_1.get_row(row_idx).iter() {
                 hasher.update(element.as_bytes());
             }
@@ -542,18 +644,113 @@ mod tests {
             injected_length_2.push(result_hash);
         }
         expected_injected_leaves.push(injected_length_2);
-        
-        
 
         let tree = MultiTableTree::<F, Keccak256, 32>::build(&[
-            table_1.clone(), 
-            table_2.clone(), 
-            table_3.clone(), 
-            table_4.clone(), 
-            table_5.clone(), 
-            table_6.clone()]
-        ).unwrap();
+            table_1.clone(),
+            table_2.clone(),
+            table_3.clone(),
+            table_4.clone(),
+            table_5.clone(),
+            table_6.clone(),
+        ])
+        .unwrap();
 
         assert_eq!(expected_injected_leaves, tree.injected_leaves);
+    }
+
+    #[test]
+    fn test_verify_merkle_proof_manual() {
+        //  2 tables M and N of height 8 and 1 table O of height 4 wich is injected
+        //  Maybe reuse this for the readme and its example
+        //
+        //                                    R = H(N4,N5)
+        //                                      nodes[14]
+        //                            /                       \
+        //                    N4 = H(N0,N1)                    N5 = H(N2,N3)
+        //                      nodes[12]                        nodes[13]
+        //                   /            \                   /            \
+        //   N0 = H(L0,L1,H(o0))   N1 = H(L2,L3,H(o1))   N2 = H(L4,L5,H(o2))   N3 = H(L6,L7,H(o3))
+        //             nodes[8]           nodes[9]           nodes[10]          nodes[11]
+        //            /        \         /        \         /        \         /        \
+        //          L0         L1      L2         L3      L4         L5      L6         L7
+        //        nodes[0]  nodes[1] nodes[2]  nodes[3] nodes[4]  nodes[5] nodes[6]  nodes[7]
+        //       H(m0|n0)  H(m1|n1) H(m2|n2)  H(m3|n3) H(m4|n4)  H(m5|n5) H(m6|n6)  H(m7|n7)
+        //
+        // Injected leaves: [[H(o0), H(o1), H(o2), H(o3)]]
+
+        let table_m = create_random_table(8, 3); // M: height 8
+        let table_n = create_random_table(8, 2); // N: height 8
+        let table_o = create_random_table(4, 4); // O: height 4 (injected)
+
+        let tree = MultiTableTree::<F, Keccak256, 32>::build(&[
+            table_m.clone(),
+            table_n.clone(),
+            table_o.clone(),
+        ])
+        .unwrap();
+
+        // Test for index 1 (second leaf = L1 = H(m1|n1))
+        // This "hardcoded" index is used to test the proof.
+        let index = 1;
+        let leaf_data: Vec<FieldElement<F>> = table_m
+            .get_row(index)
+            .iter()
+            .chain(table_n.get_row(index).iter())
+            .copied()
+            .collect();
+
+        // Build merkle_path manually for index 1: [[H(m0|n0)], [H(o0), H(L2|L3|H(o1))], [H(N2|N3)]]
+        // which is [[H(m0|n0)], [H(o0), N1], [N5]] in the structure shown above.
+
+        // Structure:
+        // - Level 0: [sibling] - just the sibling of the leaf
+        // - Level 1+: [injection?, sibling] - injection (if any) + sibling
+        // - The injection in level i is used to compute the parent of level i-1
+        let mut merkle_path = Vec::new();
+
+        // Level 0: only sibling L0
+        let sibling_0 = tree.nodes[0]; // L0 = H(m0|n0)
+        merkle_path.push(vec![sibling_0]);
+
+        // Level 1: injection H(o0) + sibling N1
+        // The injection H(o0) is used when combining L0 and L1 to get N0 = H(L0, L1, H(o0))
+        // Level 1 starts at index 8, so N1 is at 8 + 1 = 9
+        let injection_0 = tree.injected_leaves[0][0]; // H(o0) for parent at index 0
+        let sibling_1 = tree.nodes[9]; // N1 = H(L2,L3,H(o1))
+        merkle_path.push(vec![injection_0, sibling_1]);
+
+        // Level 2: only sibling N5 (no injection at this level)
+        // Level 2 starts at index 12, so N5 is at 12 + 1 = 13
+        let sibling_2 = tree.nodes[13]; // N5 = H(N2,N3)
+        merkle_path.push(vec![sibling_2]);
+
+        let proof = MultiTableProof {
+            merkle_path,
+            _phantom: PhantomData::<(F, Keccak256)>,
+        };
+
+        // Verify structure: [[H(m0|n0)], [H(o0),H(L2|L3|H(o1))], [H(N2|N3)]]
+        // which is [[H(m0|n0)], [H(o0), N1], [N5]] in the structure shown above.
+        assert_eq!(proof.merkle_path.len(), 3, "Proof should have 3 levels");
+        assert_eq!(
+            proof.merkle_path[0].len(),
+            1,
+            "Level 0 should have only [sibling]"
+        );
+        assert_eq!(
+            proof.merkle_path[1].len(),
+            2,
+            "Level 1 should have [injection, sibling]"
+        );
+        assert_eq!(
+            proof.merkle_path[2].len(),
+            1,
+            "Level 2 should have only [sibling]"
+        );
+
+        assert!(
+            proof.verify(&tree.root, index, &leaf_data),
+            "verify() should return true for valid proof"
+        );
     }
 }
