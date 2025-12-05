@@ -285,7 +285,7 @@ where
     ) -> bool
     where
         F: IsField,
-        FieldElement<F>: AsBytes, // ← Agrega esto
+        FieldElement<F>: AsBytes,
     {
         // 1. Hash the leaf data
         let leaf_refs: Vec<&FieldElement<F>> = leaf_data.iter().collect();
