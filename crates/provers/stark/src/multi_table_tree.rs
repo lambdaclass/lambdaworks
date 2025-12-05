@@ -396,7 +396,6 @@ mod tests {
     use super::*;
     use crate::table::Table;
     use lambdaworks_math::field::fields::fft_friendly::babybear_u32::Babybear31PrimeField;
-    use proptest::result;
     use sha3::Keccak256;
 
     use rand::random;
@@ -668,6 +667,18 @@ mod tests {
         .unwrap();
 
         assert_eq!(expected_injected_leaves, tree.injected_leaves);
+    }
+
+    #[test]
+    fn test_build_proof_wrong_index() {
+        let table_1 = create_random_table(16, 2);
+        let table_2 = create_random_table(4, 3);
+
+        let tree = MultiTableTree::<F, Keccak256, 32>::build(&[table_1, table_2]).unwrap();
+
+        let proof = tree.build_proof(16);
+
+        assert!(matches!(proof, Err(MultiTableTreeError::WrtongIndex)));
     }
 
     #[test]
