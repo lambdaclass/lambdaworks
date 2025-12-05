@@ -9,11 +9,13 @@ use lambdaworks_math::{
     },
     traits::AsBytes,
 };
+use sha3::Keccak256;
 
 use crate::{
     config::Commitment,
     domain::Domain,
     fri::fri_decommit::FriDecommitment,
+    multi_table_tree::MultiTableProof,
     table::Table,
     traits::AIR,
     transcript::StoneProverTranscript,
@@ -23,15 +25,22 @@ use crate::{
 use super::options::ProofOptions;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct PolynomialOpenings<F: IsField> {
-    pub proof: Proof<Commitment>,
-    pub proof_sym: Proof<Commitment>,
+pub struct PolynomialOpenings<F: IsField>
+where
+    FieldElement<F>: AsBytes,
+{
+    pub proof: MultiTableProof<F>,
+    pub proof_sym: MultiTableProof<F>,
     pub evaluations: Vec<FieldElement<F>>,
     pub evaluations_sym: Vec<FieldElement<F>>,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct DeepPolynomialOpening<F: IsSubFieldOf<E>, E: IsField> {
+pub struct DeepPolynomialOpening<F: IsSubFieldOf<E>, E: IsField>
+where
+    FieldElement<E>: AsBytes,
+    FieldElement<F>: AsBytes,
+{
     pub composition_poly: PolynomialOpenings<E>,
     pub main_trace_polys: PolynomialOpenings<F>,
     pub aux_trace_polys: Option<PolynomialOpenings<E>>,
@@ -40,7 +49,11 @@ pub struct DeepPolynomialOpening<F: IsSubFieldOf<E>, E: IsField> {
 pub type DeepPolynomialOpenings<F, E> = Vec<DeepPolynomialOpening<F, E>>;
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
-pub struct StarkProof<F: IsSubFieldOf<E>, E: IsField> {
+pub struct StarkProof<F: IsSubFieldOf<E>, E: IsField>
+where
+    FieldElement<E>: AsBytes,
+    FieldElement<F>: AsBytes,
+{
     // Length of the execution trace
     pub trace_length: usize,
     // Commitments of the trace columns
