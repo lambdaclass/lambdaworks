@@ -769,4 +769,37 @@ mod tests {
             "verify() should return true for valid proof"
         );
     }
+
+    #[test]
+    fn test_verify_merkle_proof_using_build_proof() {
+        //  Same structure as test_verify_merkle_proof_manual but using build_proof
+        let table_m = create_random_table(8, 3); // M: height 8
+        let table_n = create_random_table(8, 2); // N: height 8
+        let table_o = create_random_table(4, 4); // O: height 4 (injected)
+
+        let tree = MultiTableTree::<F, Keccak256, 32>::build(&[
+            table_m.clone(),
+            table_n.clone(),
+            table_o.clone(),
+        ])
+        .unwrap();
+
+        // Test for index 1 (second leaf = L1 = H(m1|n1))
+        let index = 1;
+        let leaf_data: Vec<FieldElement<F>> = table_m
+            .get_row(index)
+            .iter()
+            .chain(table_n.get_row(index).iter())
+            .copied()
+            .collect();
+
+        let proof = tree.build_proof(index).unwrap();
+
+        assert_eq!(proof.merkle_path.len(), 3, "Proof should have 3 levels");
+
+        assert!(
+            proof.verify(&tree.root, index, &leaf_data),
+            "verify() should return true for valid proof"
+        );
+    }
 }
