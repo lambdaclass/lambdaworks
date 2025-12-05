@@ -46,6 +46,7 @@ where
 pub enum MultiTableTreeError {
     EmptyTree,
     WrongHeight,
+    WrtongIndex,
 }
 
 impl<F, D: Digest, const NUM_BYTES: usize> MultiTableTree<F, D, NUM_BYTES>
@@ -150,33 +151,49 @@ where
         })
     }
 
-    // /// Generates the proof for a specific leaf index.
-    // fn build_proof(&self, index: usize) -> MultiTableProof<F, D, NUM_BYTES> {
-    //     // leaves = (len + 1) / 2
-    //     let max_height = (self.nodes.len() + 1) / 2;
+    /// Generates the proof for a specific leaf index.
+    pub fn build_proof(
+        &self,
+        index: usize,
+    ) -> Result<MultiTableProof<F, D, NUM_BYTES>, MultiTableTreeError> {
+        let max_height = (self.nodes.len() + 1) / 2;
+        if index >= max_height {
+            return Err(MultiTableTreeError::WrtongIndex);
+        }
 
-    //     let mut merkle_path = Vec::new();
-    //     let mut current_index = index;
-    //     let mut current_layer_start = 0;
-    //     let mut current_layer_size = max_height;
+        let mut merkle_path: Vec<Vec<[u8; NUM_BYTES]>> = Vec::with_capacity(max_height - 1);
 
-    //     // move up to the root
-    //     // refactor to use functions already created
-    //     while current_layer_size > 1 {
-    //         let sibling_index = if current_index % 2 == 0 {
-    //             current_index + 1
-    //         } else {
-    //             current_index - 1
-    //         };
+        let mut current_index = index;
+        let mut current_layer_start = 0;
+        let mut current_layer_size = max_height;
 
-    //         merkle_path.push(self.nodes[current_layer_start + sibling_index]);
+        while current_layer_size > 1 {
+            let sibling_index = current_index ^ 1;
 
-    //         current_layer_start += current_layer_size;
-    //         current_layer_size /= 2;
-    //         current_index /= 2;
-    //     }
-    //     MultiTableProof { merkle_path, _phantom }
-    // }
+            let mut layer_hashes: Vec<[u8; NUM_BYTES]> = Vec::new();
+
+            if let Some(injected_layer) = self
+                .injected_leaves
+                .iter()
+                .find(|layer| layer.len() == current_layer_size)
+            {
+                if let Some(&hash) = injected_layer.get(current_index) {
+                    layer_hashes.push(hash);
+                }
+            }
+
+            layer_hashes.push(self.nodes[current_layer_start + sibling_index]);
+            merkle_path.push(layer_hashes);
+
+            current_layer_start += current_layer_size;
+            current_layer_size /= 2;
+            current_index /= 2;
+        }
+        Ok(MultiTableProof {
+            merkle_path,
+            _phantom: PhantomData::<(F, D)>,
+        })
+    }
 
     /// This function takes a single row data and converts it to a node.
     fn hash_data(row_data: Vec<&FieldElement<F>>) -> [u8; NUM_BYTES] {
@@ -251,11 +268,6 @@ where
 {
     pub merkle_path: Vec<Vec<[u8; NUM_BYTES]>>,
     _phantom: PhantomData<(F, D)>,
-}
-
-pub struct ValueByLayer<F: IsField> {
-    value: Vec<F>,
-    layer: usize,
 }
 
 impl<F, D, const NUM_BYTES: usize> MultiTableProof<F, D, NUM_BYTES>
@@ -656,6 +668,28 @@ mod tests {
         .unwrap();
 
         assert_eq!(expected_injected_leaves, tree.injected_leaves);
+    }
+
+    #[test]
+    fn test_build_proof_len() {
+        let table_1 = create_random_table(2, 1);
+        let table_2 = create_random_table(4, 3);
+        let table_3 = create_random_table(4, 4);
+        let table_4 = create_random_table(16, 2);
+        let table_5 = create_random_table(16, 3);
+
+        let tree = MultiTableTree::<F, Keccak256, 32>::build(&[
+            table_1, table_2, table_3, table_4, table_5,
+        ])
+        .unwrap();
+
+        let proof = tree.build_proof(0).unwrap();
+
+        assert_eq!(proof.merkle_path.len(), 4);
+        assert_eq!(proof.merkle_path[0].len(), 1);
+        assert_eq!(proof.merkle_path[1].len(), 1);
+        assert_eq!(proof.merkle_path[2].len(), 2);
+        assert_eq!(proof.merkle_path[3].len(), 2);
     }
 
     #[test]
