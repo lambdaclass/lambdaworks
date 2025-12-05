@@ -277,25 +277,6 @@ where
     FieldElement<F>: AsBytes,
     [u8; NUM_BYTES]: From<Output<D>>,
 {
-    // /// Verifies a Merkle inclusion proof for the value contained at leaf index.
-    // pub fn verify(&self, root_hash: [u8; NUM_BYTES], mut index: usize, values: Vec<ValueByLayer<F>>) -> bool
-    // {
-    //     let number_of_layers = self.merkle_path.len();
-
-    //     let mut hashed_value = B::hash_data(values);
-
-    //     for sibling_node in self.merkle_path.iter() {
-    //         if index.is_multiple_of(2) {
-    //             hashed_value = B::hash_new_parent(&hashed_value, sibling_node);
-    //         } else {
-    //             hashed_value = B::hash_new_parent(sibling_node, &hashed_value);
-    //         }
-
-    //         index >>= 1;
-    //     }
-
-    //     root_hash == &hashed_value
-    // }
     /// Verifies a Merkle inclusion proof for the value contained at leaf index.
     /// The merkle_path structure is:
     /// - Level 0: [sibling] - just the sibling of the leaf
