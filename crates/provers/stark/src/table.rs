@@ -41,7 +41,7 @@ impl<'t, F: IsField> Table<F> {
     }
 
     /// Creates a Table instance from a vector of the intended columns.
-    pub fn from_columns(columns: Vec<Vec<FieldElement<F>>>) -> Self {
+    pub fn from_columns(columns: &[Vec<FieldElement<F>>]) -> Self {
         if columns.is_empty() {
             return Self::new(Vec::new(), 0);
         }

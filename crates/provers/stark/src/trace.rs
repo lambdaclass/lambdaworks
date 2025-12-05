@@ -83,8 +83,8 @@ where
         let num_main_columns = main_columns.len();
         let num_aux_columns = aux_columns.len();
 
-        let main_table = Table::from_columns(main_columns);
-        let aux_table = Table::from_columns(aux_columns);
+        let main_table = Table::from_columns(&main_columns);
+        let aux_table = Table::from_columns(&aux_columns);
 
         Self {
             main_table,
@@ -98,8 +98,8 @@ where
     pub fn from_columns_main(columns: Vec<Vec<FieldElement<F>>>, step_size: usize) -> Self {
         let num_main_columns = columns.len();
         let num_aux_columns = 0;
-        let main_table = Table::from_columns(columns);
-        let aux_table = Table::from_columns(Vec::new());
+        let main_table = Table::from_columns(&columns);
+        let aux_table = Table::from_columns(&Vec::new());
 
         Self {
             main_table,
@@ -261,8 +261,8 @@ where
         trace_step_size: usize,
         blowup_factor: usize,
     ) -> Self {
-        let main_table = Table::from_columns(main_columns);
-        let aux_table = Table::from_columns(aux_columns);
+        let main_table = Table::from_columns(&main_columns);
+        let aux_table = Table::from_columns(&aux_columns);
         let lde_step_size = trace_step_size * blowup_factor;
 
         Self {

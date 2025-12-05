@@ -17,4 +17,4 @@ pub const COMMITMENT_SIZE: usize = 32;
 pub type Commitment = [u8; COMMITMENT_SIZE];
 
 pub type BatchedMerkleTreeBackend<F> = BatchKeccak256Backend<F>;
-pub type BatchedMerkleTree<F> = MerkleTree<BatchedMerkleTreeBackend<F>>;
+pub type BatchedMerkleTree<F> = crate::multi_table_tree::MultiTableTree<F, sha3::Keccak256, 32>;

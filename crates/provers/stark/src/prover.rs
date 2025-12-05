@@ -177,7 +177,9 @@ pub trait IsStarkProver<A: AIR> {
     where
         FieldElement<A::Field>: AsBytes + Sync + Send,
     {
-        let tree = BatchedMerkleTree::build(vectors)?;
+        let the_table = Table::from_columns(vectors);
+
+        let tree = BatchedMerkleTree::build(&[the_table]).unwrap();
 
         let commitment = tree.root;
         Some((tree, commitment))
@@ -191,7 +193,9 @@ pub trait IsStarkProver<A: AIR> {
         FieldElement<A::Field>: AsBytes + Sync + Send,
         FieldElement<A::FieldExtension>: AsBytes + Sync + Send,
     {
-        let tree = BatchedMerkleTree::build(vectors)?;
+        let the_table = Table::from_columns(vectors);
+
+        let tree = BatchedMerkleTree::build(&[the_table]).unwrap();
 
         let commitment = tree.root;
         Some((tree, commitment))
@@ -234,10 +238,10 @@ pub trait IsStarkProver<A: AIR> {
         }
 
         // Compute commitment.
-        let lde_trace_permuted_rows = columns2rows(lde_trace_permuted);
+        // let lde_trace_permuted_rows = columns2rows(lde_trace_permuted);
 
         let (lde_trace_merkle_tree, lde_trace_merkle_root) =
-            Self::batch_commit_main(&lde_trace_permuted_rows)?;
+            Self::batch_commit_main(&lde_trace_permuted)?;
 
         // >>>> Send commitment.
         transcript.append_bytes(&lde_trace_merkle_root);
@@ -285,10 +289,10 @@ pub trait IsStarkProver<A: AIR> {
         }
 
         // Compute commitment.
-        let lde_trace_permuted_rows = columns2rows(lde_trace_permuted);
+        //let lde_trace_permuted_rows = columns2rows(lde_trace_permuted);
 
         let (lde_trace_merkle_tree, lde_trace_merkle_root) =
-            Self::batch_commit_extension(&lde_trace_permuted_rows)?;
+            Self::batch_commit_extension(&lde_trace_permuted)?;
 
         // >>>> Send commitment.
         transcript.append_bytes(&lde_trace_merkle_root);
