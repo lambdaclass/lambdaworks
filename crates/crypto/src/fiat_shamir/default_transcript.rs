@@ -77,7 +77,10 @@ mod tests {
     use super::*;
 
     use alloc::vec::Vec;
-    use lambdaworks_math::elliptic_curve::short_weierstrass::curves::bls12_381::default_types::FrField;
+    use lambdaworks_math::{
+        elliptic_curve::short_weierstrass::curves::bls12_381::default_types::FrField, 
+        field::fields::fft_friendly::{babybear_u32::Babybear31PrimeField, quartic_babybear_u32::Degree4BabyBearU32ExtensionField}
+    };
 
     #[test]
     fn basic_challenge() {
@@ -116,4 +119,26 @@ mod tests {
             ]
         );
     }
+
+    type FE = FieldElement<Babybear31PrimeField>;
+    type Fp4E = FieldElement<Degree4BabyBearU32ExtensionField>;
+
+    #[test]
+    fn quartic_baby_bear_transcript_distinguish_different_fe() {
+        let mut transcript_1 = DefaultTranscript::<Degree4BabyBearU32ExtensionField>::default();
+        transcript_1.append_field_element(&Fp4E::new([FE::one(), FE::zero(), FE::zero(), FE::zero()]));
+        let sample_1 = transcript_1.sample_field_element();
+
+        let mut transcript_2 = DefaultTranscript::<Degree4BabyBearU32ExtensionField>::default();
+        transcript_2.append_field_element(&Fp4E::new([FE::zero(), FE::zero(), FE::zero(), FE::one()]));
+        let sample_2 = transcript_2.sample_field_element();
+
+        let mut transcript_3 = DefaultTranscript::<Degree4BabyBearU32ExtensionField>::default();
+        transcript_3.append_field_element(&Fp4E::new([FE::one(), FE::zero(), FE::zero(), FE::zero()]));
+        let sample_3 = transcript_3.sample_field_element();
+
+        assert!(sample_1 != sample_2);
+        assert!(sample_1 == sample_3);
+    }
+
 }
