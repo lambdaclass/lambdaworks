@@ -155,7 +155,7 @@ where
     pub fn build_proof(
         &self,
         index: usize,
-    ) -> Result<MultiTableProof<F, D, NUM_BYTES>, MultiTableTreeError> {
+    ) -> Result<MultiTableProof<D, NUM_BYTES>, MultiTableTreeError> {
         let max_height = (self.nodes.len() + 1) / 2;
         if index >= max_height {
             return Err(MultiTableTreeError::WrtongIndex);
@@ -193,7 +193,7 @@ where
         }
         Ok(MultiTableProof {
             merkle_path,
-            _phantom: PhantomData::<(F, D)>,
+            _phantom: PhantomData::<D>,
         })
     }
 
@@ -262,33 +262,33 @@ where
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct MultiTableProof<F, D: Digest, const NUM_BYTES: usize>
+pub struct MultiTableProof<D: Digest, const NUM_BYTES: usize>
 where
-    F: IsField,
-    FieldElement<F>: AsBytes,
     [u8; NUM_BYTES]: From<Output<D>>,
 {
     pub merkle_path: Vec<Vec<[u8; NUM_BYTES]>>,
-    _phantom: PhantomData<(F, D)>,
+    _phantom: PhantomData<D>,
 }
 
-impl<F, D, const NUM_BYTES: usize> MultiTableProof<F, D, NUM_BYTES>
+impl<D, const NUM_BYTES: usize> MultiTableProof<D, NUM_BYTES>
 where
-    F: IsField,
     D: Digest,
-    FieldElement<F>: AsBytes,
     [u8; NUM_BYTES]: From<Output<D>>,
 {
     /// Verifies a Merkle inclusion proof for the value contained at leaf index.
     /// The merkle_path structure is:
     /// - Level 0: [sibling] - just the sibling of the leaf
     /// - Level 1+: [injection?, sibling] - injection (if any) + sibling
-    pub fn verify(
+    pub fn verify<F: IsField>(
         &self,
         root: &[u8; NUM_BYTES],
         mut index: usize,
         leaf_data: &[FieldElement<F>],
-    ) -> bool {
+    ) -> bool
+    where
+        F: IsField,
+        FieldElement<F>: AsBytes,
+    {
         // 1. Hash the leaf data
         let leaf_refs: Vec<&FieldElement<F>> = leaf_data.iter().collect();
         let mut current_hash = MultiTableTree::<F, D, NUM_BYTES>::hash_data(leaf_refs);
@@ -378,7 +378,6 @@ mod tests {
     use rand::random;
 
     type F = Babybear31PrimeField;
-    type FE = FieldElement<F>;
 
     // Helper function to create a base field table for testing
     fn create_random_table(height: usize, width: usize) -> Table<F> {
@@ -746,7 +745,7 @@ mod tests {
 
         let proof = MultiTableProof {
             merkle_path,
-            _phantom: PhantomData::<(F, Keccak256)>,
+            _phantom: PhantomData::<Keccak256>,
         };
 
         // Verify structure: [[H(o0), H(m0|n0)], [N1], [N5]]
