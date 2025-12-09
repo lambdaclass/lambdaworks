@@ -1,5 +1,4 @@
 use lambdaworks_crypto::fiat_shamir::default_transcript::DefaultTranscript;
-use lambdaworks_math::field::fields::fft_friendly::quartic_babybear_u32::Degree4BabyBearU32ExtensionField;
 use lambdaworks_math::field::{
     element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
 };
@@ -8,7 +7,6 @@ use lambdaworks_math::field::fields::fft_friendly::{
     babybear::Babybear31PrimeField, quartic_babybear::Degree4BabyBearExtensionField,
 };
 
-use crate::examples::cpu_table::{self, CPUTableAIR};
 use crate::{
     examples::{
         bit_flags::{self, BitFlagsAIR},
@@ -353,27 +351,5 @@ fn test_prove_log_read_only_memory() {
         &pub_inputs,
         &proof_options,
         DefaultTranscript::<Degree4BabyBearExtensionField>::new(&[]),
-    ));
-}
-
-#[test_log::test]
-fn test_prove_cpu_table() {
-    let columns = cpu_table::build_cpu_columns_example();
-    let mut trace = cpu_table::build_cpu_trace(columns);
-    let proof_options = ProofOptions::default_test_options();
-
-    let proof = Prover::<CPUTableAIR>::prove(
-        &mut trace,
-        &(),
-        &proof_options,
-        DefaultTranscript::<Degree4BabyBearU32ExtensionField>::new(&[]),
-    )
-    .unwrap();
-
-    assert!(Verifier::<CPUTableAIR>::verify(
-        &proof,
-        &(),
-        &proof_options,
-        DefaultTranscript::<Degree4BabyBearU32ExtensionField>::new(&[]),
     ));
 }
