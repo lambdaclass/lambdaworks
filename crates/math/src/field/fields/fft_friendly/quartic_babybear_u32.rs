@@ -2,7 +2,7 @@ use crate::field::{
     element::FieldElement,
     errors::FieldError,
     fields::fft_friendly::babybear_u32::Babybear31PrimeField,
-    traits::{IsFFTField, IsField, IsSubFieldOf},
+    traits::{HasDefaultTranscript, IsFFTField, IsField, IsSubFieldOf},
 };
 
 use crate::traits::ByteConversion;
@@ -340,6 +340,39 @@ impl IsFFTField for Degree4BabyBearU32ExtensionField {
         // where R = 2^32 and p = 2013265921.
         FieldElement::const_from_raw(1344142388),
     ];
+}
+
+impl HasDefaultTranscript for Degree4BabyBearU32ExtensionField {
+    fn get_random_field_element_from_rng(rng: &mut impl rand::Rng) -> FieldElement<Self> {
+        //Babybear Prime p = 2^31 - 2^27 + 1
+        const MODULUS: u64 = 2013265921;
+
+        //Babybear prime needs 31 bits and is represented with 32 bits.
+        //The mask is used to remove the first bit.
+        const MASK: u64 = 0x7FFF_FFFF;
+
+        let mut sample = [0u8; 8];
+
+        let mut coeffs = [
+            FieldElement::zero(),
+            FieldElement::zero(),
+            FieldElement::zero(),
+            FieldElement::zero(),
+        ];
+
+        for coeff in &mut coeffs {
+            loop {
+                rng.fill(&mut sample);
+                let int_sample = u64::from_be_bytes(sample) & MASK;
+                if int_sample < MODULUS {
+                    *coeff = FieldElement::from(int_sample);
+                    break;
+                }
+            }
+        }
+
+        FieldElement::<Self>::new(coeffs)
+    }
 }
 
 #[cfg(test)]

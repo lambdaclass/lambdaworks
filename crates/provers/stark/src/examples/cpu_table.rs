@@ -9,13 +9,16 @@ use crate::{
     traits::{TransitionEvaluationContext, AIR},
 };
 use lambdaworks_math::field::{
-    element::FieldElement, fields::fft_friendly::babybear_u32::Babybear31PrimeField,
+    element::FieldElement,
+    fields::fft_friendly::{
+        babybear_u32::Babybear31PrimeField, quartic_babybear_u32::Degree4BabyBearU32ExtensionField,
+    },
     traits::IsFFTField,
 };
 
 type FE = FieldElement<Babybear31PrimeField>;
 
-type CPUTraceTable = TraceTable<Babybear31PrimeField, Babybear31PrimeField>;
+type CPUTraceTable = TraceTable<Babybear31PrimeField, Degree4BabyBearU32ExtensionField>;
 
 #[derive(Clone)]
 pub struct BitConstraint {
@@ -32,7 +35,9 @@ impl BitConstraint {
     }
 }
 
-impl TransitionConstraint<Babybear31PrimeField, Babybear31PrimeField> for BitConstraint {
+impl TransitionConstraint<Babybear31PrimeField, Degree4BabyBearU32ExtensionField>
+    for BitConstraint
+{
     fn degree(&self) -> usize {
         2
     }
@@ -57,44 +62,56 @@ impl TransitionConstraint<Babybear31PrimeField, Babybear31PrimeField> for BitCon
         &self,
         evaluation_context: &TransitionEvaluationContext<
             Babybear31PrimeField,
-            Babybear31PrimeField,
+            Degree4BabyBearU32ExtensionField,
         >,
-        transition_evaluations: &mut [FieldElement<Babybear31PrimeField>],
+        transition_evaluations: &mut [FieldElement<Degree4BabyBearU32ExtensionField>],
     ) {
-        let (frame, _periodic_values, _rap_challenges) = match evaluation_context {
+        match evaluation_context {
             TransitionEvaluationContext::Prover {
                 frame,
-                periodic_values,
+                periodic_values: _periodic_values,
                 rap_challenges,
+            } => {
+                let step = frame.get_evaluation_step(0);
+
+                let flag = step.get_main_evaluation_element(0, self.column_idx);
+
+                let one = FieldElement::<Degree4BabyBearU32ExtensionField>::one();
+
+                let bit_constraint = flag * (flag - one);
+
+                transition_evaluations[self.constraint_idx()] = bit_constraint;
             }
-            | TransitionEvaluationContext::Verifier {
+
+            TransitionEvaluationContext::Verifier {
                 frame,
-                periodic_values,
+                periodic_values: _periodic_values,
                 rap_challenges,
-            } => (frame, periodic_values, rap_challenges),
-        };
+            } => {
+                let step = frame.get_evaluation_step(0);
 
-        let step = frame.get_evaluation_step(0);
+                let flag = step.get_main_evaluation_element(0, self.column_idx);
 
-        let flag = step.get_main_evaluation_element(0, self.column_idx);
+                let one = FieldElement::<Degree4BabyBearU32ExtensionField>::one();
 
-        let one = FieldElement::<Babybear31PrimeField>::one();
+                let bit_constraint = flag * (flag - one);
 
-        let bit_constraint = flag * (flag - one);
-
-        transition_evaluations[self.constraint_idx()] = bit_constraint;
+                transition_evaluations[self.constraint_idx()] = bit_constraint;
+            }
+        }
     }
 }
 
 pub struct CPUTableAIR {
     context: AirContext,
-    constraints: Vec<Box<dyn TransitionConstraint<Babybear31PrimeField, Babybear31PrimeField>>>,
+    constraints:
+        Vec<Box<dyn TransitionConstraint<Babybear31PrimeField, Degree4BabyBearU32ExtensionField>>>,
     trace_length: usize,
 }
 
 impl AIR for CPUTableAIR {
     type Field = Babybear31PrimeField;
-    type FieldExtension = Babybear31PrimeField;
+    type FieldExtension = Degree4BabyBearU32ExtensionField;
     type PublicInputs = ();
 
     const STEP_SIZE: usize = 1;
@@ -107,7 +124,7 @@ impl AIR for CPUTableAIR {
         // Constraint IS_BIT[f[i]] where:
         // f = [write_register, memory_2bytes, memory_4bytes, signed, signed2, muldiv_selector, ADD, SUB, SLT, AND, OR, XOR, SL, SR, JALR, BEQ, BLT, LOAD, STORE, MUL, DIVREM, ECALL, EBREAK]
         let columns_index_to_constraint = [
-            7, 8, 9, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 13,
+            7, 8, 9, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31,
         ];
         let constraints: Vec<Box<dyn TransitionConstraint<Self::Field, Self::FieldExtension>>> =
             columns_index_to_constraint
@@ -168,7 +185,11 @@ impl AIR for CPUTableAIR {
     }
 }
 
-pub fn cpu_trace() -> CPUTraceTable {
+pub fn build_cpu_trace(columns: Vec<Vec<FE>>) -> CPUTraceTable {
+    TraceTable::from_columns_main(columns, 1)
+}
+
+pub fn build_cpu_columns_example() -> Vec<Vec<FE>> {
     let mut columns = Vec::new();
     // Timestamp: A word2L column containing the values 2^{2*i} for i = 1,...
     // 2^{2 * 1}, 2^{2 * 2}, 2^{2 * 3}, 2^{2 * 4} = 4, 16, 64, 256
@@ -423,5 +444,5 @@ pub fn cpu_trace() -> CPUTraceTable {
     let branch_cond = vec![FE::zero(), FE::zero(), FE::zero(), FE::zero()];
     columns.push(branch_cond);
 
-    TraceTable::from_columns_main(columns, 1)
+    columns
 }
