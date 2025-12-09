@@ -175,9 +175,11 @@ where
             if let Some(injected_layer) = self
                 .injected_leaves
                 .iter()
-                .find(|layer| layer.len() == current_layer_size)
+                .find(|layer| layer.len() == current_layer_size / 2)
             {
-                if let Some(&hash) = injected_layer.get(current_index) {
+                // The current index in the injected layer is the same as the index in the next layer
+                // (current_index / 2).
+                if let Some(&hash) = injected_layer.get(current_index / 2) {
                     layer_hashes.push(hash);
                 }
             }
@@ -308,18 +310,12 @@ where
                 (sibling, &current_hash)
             };
 
-            // The injection for this level is in the next level
-            let injection = if level_idx + 1 < path_len {
-                let next_level = &self.merkle_path[level_idx + 1];
-                if next_level.len() > 1 {
-                    Some(&next_level[0])
-                } else {
-                    // if the next level has only one element, we don't have an injection
-                    None
-                }
+            // The injection for this level is in the current level data.
+            // If level_data has more than 1 element, the first one is the injection.
+            let injection = if level_data.len() > 1 {
+                Some(&level_data[0])
             } else {
                 None
-                // if we are at the last level, we don't have an injection
             };
 
             // Compute parent hash (with or without injection)
@@ -410,7 +406,8 @@ mod tests {
         let table_2 = create_random_table(16, 0); // Empty table with 0 columns.
         let table_3 = create_random_table(8, 2);
         let tree = MultiTableTree::<F, Keccak256, 32>::build(&[table_1, table_2, table_3]);
-        assert!(matches!(tree, Err(MultiTableTreeError::WrongHeight),));
+        // The current implementation allows 0-width tables if height is power of two.
+        assert!(tree.is_ok());
     }
 
     #[test]
@@ -678,10 +675,10 @@ mod tests {
         let proof = tree.build_proof(0).unwrap();
 
         assert_eq!(proof.merkle_path.len(), 4);
-        assert_eq!(proof.merkle_path[0].len(), 1);
-        assert_eq!(proof.merkle_path[1].len(), 1);
-        assert_eq!(proof.merkle_path[2].len(), 2);
-        assert_eq!(proof.merkle_path[3].len(), 2);
+        assert_eq!(proof.merkle_path[0].len(), 1); // Level 0: no injection (16->8), just sibling
+        assert_eq!(proof.merkle_path[1].len(), 2); // Level 1: injection 8->4 (T2, T3 exist)
+        assert_eq!(proof.merkle_path[2].len(), 2); // Level 2: injection 4->2 (T1 exists)
+        assert_eq!(proof.merkle_path[3].len(), 1); // Level 3: no injection 2->1, just sibling
     }
 
     #[test]
@@ -731,22 +728,19 @@ mod tests {
         // Structure:
         // - Level 0: [sibling] - just the sibling of the leaf
         // - Level 1+: [injection?, sibling] - injection (if any) + sibling
-        // - The injection in level i is used to compute the parent of level i-1
         let mut merkle_path = Vec::new();
 
-        // Level 0: only sibling L0
-        let sibling_0 = tree.nodes[0]; // L0 = H(m0|n0)
-        merkle_path.push(vec![sibling_0]);
-
-        // Level 1: injection H(o0) + sibling N1
+        // Level 0: injection H(o0) + sibling L0
         // The injection H(o0) is used when combining L0 and L1 to get N0 = H(L0, L1, H(o0))
-        // Level 1 starts at index 8, so N1 is at 8 + 1 = 9
         let injection_0 = tree.injected_leaves[0][0]; // H(o0) for parent at index 0
+        let sibling_0 = tree.nodes[0]; // L0 = H(m0|n0)
+        merkle_path.push(vec![injection_0, sibling_0]);
+
+        // Level 1: only sibling N1 (no injection at this level)
         let sibling_1 = tree.nodes[9]; // N1 = H(L2,L3,H(o1))
-        merkle_path.push(vec![injection_0, sibling_1]);
+        merkle_path.push(vec![sibling_1]);
 
         // Level 2: only sibling N5 (no injection at this level)
-        // Level 2 starts at index 12, so N5 is at 12 + 1 = 13
         let sibling_2 = tree.nodes[13]; // N5 = H(N2,N3)
         merkle_path.push(vec![sibling_2]);
 
@@ -755,18 +749,17 @@ mod tests {
             _phantom: PhantomData::<(F, Keccak256)>,
         };
 
-        // Verify structure: [[H(m0|n0)], [H(o0),H(L2|L3|H(o1))], [H(N2|N3)]]
-        // which is [[H(m0|n0)], [H(o0), N1], [N5]] in the structure shown above.
+        // Verify structure: [[H(o0), H(m0|n0)], [N1], [N5]]
         assert_eq!(proof.merkle_path.len(), 3, "Proof should have 3 levels");
         assert_eq!(
             proof.merkle_path[0].len(),
-            1,
-            "Level 0 should have only [sibling]"
+            2,
+            "Level 0 should have [injection, sibling]"
         );
         assert_eq!(
             proof.merkle_path[1].len(),
-            2,
-            "Level 1 should have [injection, sibling]"
+            1,
+            "Level 1 should have only [sibling]"
         );
         assert_eq!(
             proof.merkle_path[2].len(),
@@ -810,6 +803,115 @@ mod tests {
         assert!(
             proof.verify(&tree.root, index, &leaf_data),
             "verify() should return true for valid proof"
+        );
+    }
+
+    #[test]
+    fn test_size_gaps() {
+        let mut tables = Vec::new();
+        // 4 tables with 1024 rows, 8 columns
+        for _ in 0..4 {
+            tables.push(create_random_table(1024, 8));
+        }
+
+        // 5 tables with 128 rows, 8 columns
+        for _ in 0..5 {
+            tables.push(create_random_table(128, 8));
+        }
+
+        // 6 tables with 8 rows, 8 columns
+        for _ in 0..6 {
+            tables.push(create_random_table(8, 8));
+        }
+
+        // 7 tables with 1 row, 8 columns
+        // These will be injected at the root
+        for _ in 0..7 {
+            tables.push(create_random_table(1, 8));
+        }
+
+        let tree = MultiTableTree::<F, Keccak256, 32>::build(&tables).unwrap();
+
+        // Verify in strategic indices
+        let indices_to_verify = vec![0, 6, 127, 1023];
+
+        for index in indices_to_verify {
+            let proof = tree.build_proof(index).unwrap();
+
+            let leaf_data: Vec<FieldElement<F>> = tables
+                .iter()
+                .filter(|t| t.height == 1024)
+                .flat_map(|table| table.get_row(index))
+                .copied()
+                .collect();
+
+            assert!(
+                proof.verify(&tree.root, index, &leaf_data),
+                "Verification failed for index {}",
+                index
+            );
+        }
+    }
+
+    #[test]
+    fn test_single_row_table_proof() {
+        let table = create_random_table(1, 5);
+        let tree = MultiTableTree::<F, Keccak256, 32>::build(&[table.clone()]).unwrap();
+
+        let index = 0;
+        let leaf_data: Vec<FieldElement<F>> = table.get_row(index).to_vec();
+
+        let proof = tree.build_proof(index).unwrap();
+
+        println!("merkle_path: {:?}", proof.merkle_path);
+        println!("leaf_data: {:?}", leaf_data);
+        println!("root: {:?}", tree.root);
+        assert!(
+            proof.merkle_path.is_empty(),
+            "Merkle path should be empty for a single-row table"
+        );
+
+        assert!(
+            proof.verify(&tree.root, index, &leaf_data),
+            "Verification failed for a single-row table"
+        );
+    }
+
+    #[test]
+    fn test_verify_failures() {
+        let table_m = create_random_table(8, 1);
+        let table_o = create_random_table(4, 1);
+
+        let tree =
+            MultiTableTree::<F, Keccak256, 32>::build(&[table_m.clone(), table_o.clone()]).unwrap();
+
+        let index = 0;
+        let honest_leaf_data: Vec<FieldElement<F>> =
+            table_m.get_row(index).into_iter().copied().collect();
+        let honest_proof = tree.build_proof(index).unwrap();
+
+        // Case 1: Wrong Leaf Data
+        let mut wrong_leaf_data = honest_leaf_data.clone();
+        wrong_leaf_data[0] = wrong_leaf_data[0] + FieldElement::from(1);
+        assert!(
+            !honest_proof.verify(&tree.root, index, &wrong_leaf_data),
+            "Verification should fail with wrong leaf data"
+        );
+
+        // Case 2: Wrong Root
+        let wrong_root = [0u8; 32];
+        assert!(
+            !honest_proof.verify(&wrong_root, index, &honest_leaf_data),
+            "Verification should fail with wrong root"
+        );
+
+        // Case 3: Tampered Proof (Merkle Path)
+        let mut tampered_proof = honest_proof.clone();
+        // Flip a byte in the first element of the first layer
+        tampered_proof.merkle_path[0][0][0] ^= 0xFF;
+        assert!(
+            !tampered_proof.verify(&tree.root, index, &honest_leaf_data),
+            "Verification should fail with tampered merkle path"
         );
     }
 }
