@@ -3,9 +3,10 @@ use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::traits::IsField;
 
 use crate::config::Commitment;
+use crate::multi_table_tree::MultiTableProof;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct FriDecommitment<F: IsField> {
-    pub layers_auth_paths: Vec<Proof<Commitment>>,
+    pub layers_auth_paths: Vec<MultiTableProof>,
     pub layers_evaluations_sym: Vec<FieldElement<F>>,
 }

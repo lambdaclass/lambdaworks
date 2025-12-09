@@ -6,7 +6,7 @@ use super::{
     proof::{options::ProofOptions, stark::StarkProof},
     traits::{TransitionEvaluationContext, AIR},
 };
-use crate::{config::Commitment, proof::stark::DeepPolynomialOpening};
+use crate::{config::Commitment, multi_table_tree::MultiTableProof, proof::stark::DeepPolynomialOpening};
 use lambdaworks_crypto::{fiat_shamir::is_transcript::IsTranscript, merkle_tree::proof::Proof};
 use lambdaworks_math::{
     fft::cpu::bit_reversing::reverse_index,
@@ -92,7 +92,7 @@ pub trait IsStarkVerifier<A: AIR> {
         let rap_challenges = air.build_rap_challenges(transcript);
 
         if let Some(root) = proof.lde_trace_aux_merkle_root {
-            transcript.append_bytes(&root);
+            transcript.append_bytes(&root.as_slice());
         }
 
         // ===================================
@@ -217,7 +217,12 @@ pub trait IsStarkVerifier<A: AIR> {
         proof: &StarkProof<A::Field, A::FieldExtension>,
         domain: &Domain<A::Field>,
         challenges: &Challenges<A>,
-    ) -> bool {
+    ) -> bool 
+    where
+        FieldElement<A::FieldExtension>: AsBytes,
+        FieldElement<A::Field>: AsBytes,
+    
+    {
         let boundary_constraints = air.boundary_constraints(&challenges.rap_challenges);
 
         let trace_length = air.trace_length();
@@ -379,7 +384,7 @@ pub trait IsStarkVerifier<A: AIR> {
 
     /// Verifies the validity of the opening proof.
     fn verify_opening<E>(
-        proof: &Proof<Commitment>,
+        proof: &MultiTableProof,
         root: &Commitment,
         index: usize,
         value: &[FieldElement<E>],
@@ -390,7 +395,7 @@ pub trait IsStarkVerifier<A: AIR> {
         E: IsField,
         A::Field: IsSubFieldOf<E>,
     {
-        proof.verify::<BatchedMerkleTreeBackend<E>>(root, index, &value.to_owned())
+        proof.verify::<E>(root, index, &value.to_owned())
     }
 
     /// Verify opening Open(tⱼ(D_LDE), 𝜐) and Open(tⱼ(D_LDE), -𝜐) for all trace polynomials tⱼ,
@@ -464,7 +469,7 @@ pub trait IsStarkVerifier<A: AIR> {
         deep_poly_openings
             .composition_poly
             .proof
-            .verify::<BatchedMerkleTreeBackend<A::FieldExtension>>(
+            .verify::<A::FieldExtension>(
                 composition_poly_merkle_root,
                 *iota,
                 &value,
@@ -500,7 +505,7 @@ pub trait IsStarkVerifier<A: AIR> {
     /// Verifies the openings of a fold polynomial of an inner layer of FRI.
     fn verify_fri_layer_openings(
         merkle_root: &Commitment,
-        auth_path_sym: &Proof<Commitment>,
+        auth_path_sym: &MultiTableProof,
         evaluation: &FieldElement<A::FieldExtension>,
         evaluation_sym: &FieldElement<A::FieldExtension>,
         iota: usize,
@@ -515,7 +520,7 @@ pub trait IsStarkVerifier<A: AIR> {
             vec![evaluation.clone(), evaluation_sym.clone()]
         };
 
-        auth_path_sym.verify::<BatchedMerkleTreeBackend<A::FieldExtension>>(
+        auth_path_sym.verify::<A::FieldExtension>(
             merkle_root,
             iota >> 1,
             &evaluations,
@@ -608,7 +613,12 @@ pub trait IsStarkVerifier<A: AIR> {
         challenges: &Challenges<A>,
         domain: &Domain<A::Field>,
         proof: &StarkProof<A::Field, A::FieldExtension>,
-    ) -> DeepPolynomialEvaluations<A::FieldExtension> {
+    ) -> DeepPolynomialEvaluations<A::FieldExtension> 
+    where 
+        FieldElement<A::Field>: AsBytes,
+        FieldElement<A::FieldExtension>: AsBytes,
+
+    {
         let mut deep_poly_evaluations = Vec::new();
         let mut deep_poly_evaluations_sym = Vec::new();
         for (i, iota) in challenges.iotas.iter().enumerate() {
@@ -668,7 +678,11 @@ pub trait IsStarkVerifier<A: AIR> {
         challenges: &Challenges<A>,
         lde_trace_evaluations: &[FieldElement<A::FieldExtension>],
         lde_composition_poly_parts_evaluation: &[FieldElement<A::FieldExtension>],
-    ) -> FieldElement<A::FieldExtension> {
+    ) -> FieldElement<A::FieldExtension> 
+    where 
+        FieldElement<A::Field>: AsBytes,
+        FieldElement<A::FieldExtension>: AsBytes,
+    {
         let ood_evaluations_table_height = proof.trace_ood_evaluations.height;
         let ood_evaluations_table_width = proof.trace_ood_evaluations.width;
         let trace_term_coeffs = &challenges.trace_term_coeffs;

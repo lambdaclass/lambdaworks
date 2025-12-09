@@ -14,6 +14,7 @@ pub use lambdaworks_math::{
 };
 
 use crate::config::{BatchedMerkleTree, BatchedMerkleTreeBackend};
+use crate::table::Table;
 
 use self::fri_commitment::FriLayer;
 use self::fri_decommit::FriDecommitment;
@@ -27,7 +28,7 @@ pub fn commit_phase<F: IsFFTField + IsSubFieldOf<E>, E: IsField>(
     domain_size: usize,
 ) -> (
     FieldElement<E>,
-    Vec<FriLayer<E, BatchedMerkleTreeBackend<E>>>,
+    Vec<FriLayer<E>>,
 )
 where
     FieldElement<F>: AsBytes + Sync + Send,
@@ -36,7 +37,7 @@ where
     let mut domain_size = domain_size;
 
     let mut fri_layer_list = Vec::with_capacity(number_layers);
-    let mut current_layer: FriLayer<E, BatchedMerkleTreeBackend<E>>;
+    let mut current_layer: FriLayer<E>;
     let mut current_poly = p_0;
 
     let mut coset_offset = coset_offset.clone();
@@ -75,7 +76,7 @@ where
 }
 
 pub fn query_phase<F: IsField>(
-    fri_layers: &Vec<FriLayer<F, BatchedMerkleTreeBackend<F>>>,
+    fri_layers: &Vec<FriLayer<F>>,
     iotas: &[usize],
 ) -> Vec<FriDecommitment<F>>
 where
@@ -92,7 +93,7 @@ where
                 for layer in fri_layers {
                     // symmetric element
                     let evaluation_sym = layer.evaluation[index ^ 1].clone();
-                    let auth_path_sym = layer.merkle_tree.get_proof_by_pos(index >> 1).unwrap();
+                    let auth_path_sym = layer.merkle_tree.build_proof(index >> 1).unwrap();
                     layers_evaluations_sym.push(evaluation_sym);
                     layers_auth_paths_sym.push(auth_path_sym);
 
@@ -116,7 +117,7 @@ pub fn new_fri_layer<F: IsFFTField + IsSubFieldOf<E>, E: IsField>(
     poly: &Polynomial<FieldElement<E>>,
     coset_offset: &FieldElement<F>,
     domain_size: usize,
-) -> crate::fri::fri_commitment::FriLayer<E, BatchedMerkleTreeBackend<E>>
+) -> crate::fri::fri_commitment::FriLayer<E>
 where
     FieldElement<F>: AsBytes + Sync + Send,
     FieldElement<E>: AsBytes + Sync + Send,
@@ -126,12 +127,14 @@ where
 
     in_place_bit_reverse_permute(&mut evaluation);
 
-    let mut to_commit = Vec::new();
-    for chunk in evaluation.chunks(2) {
-        to_commit.push(vec![chunk[0].clone(), chunk[1].clone()]);
-    }
+    // let mut to_commit = Vec::new();
+    // for chunk in evaluation.chunks(2) {
+    //     to_commit.push(vec![chunk[0].clone(), chunk[1].clone()]);
+    // }
 
-    let merkle_tree = BatchedMerkleTree::build(&to_commit).unwrap();
+    let table = Table::new(evaluation.clone(), 2);
+
+    let merkle_tree = BatchedMerkleTree::build(&[table]).unwrap();
 
     FriLayer::new(
         &evaluation,

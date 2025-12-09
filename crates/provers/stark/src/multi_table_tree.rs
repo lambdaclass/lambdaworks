@@ -24,6 +24,7 @@ use crate::table::Table;
 // injected_leaves: < [H(o0), H(01), H(o2), H(o3)] >
 
 // TODO. Se tendría que poder usar para hashes que devuelvan field elements.
+#[derive(Clone)]
 pub struct MultiTableTree<F>
 where
     F: IsField,
@@ -40,7 +41,7 @@ where
     // Tener en cuenta que si hay varias tablas de la misma altura, se inyectan todas sus filas concatenadas.
     // O sea que acá se guarda el hash de las filas concatenadas.
     injected_leaves: Vec<Vec<[u8; 32]>>,
-    _phantom: PhantomData<(F)>,
+    _phantom: PhantomData<F>,
 }
 
 #[derive(Debug)]
@@ -147,7 +148,7 @@ where
             root: nodes.last().unwrap().clone(),
             nodes,
             injected_leaves,
-            _phantom: PhantomData::<(F)>,
+            _phantom: PhantomData::<F>,
         })
     }
 
@@ -558,7 +559,7 @@ mod tests {
             root: expected_nodes[6].clone(),
             nodes: expected_nodes,
             injected_leaves: vec![vec![table_3_row_0_hash, table_3_row_1_hash]],
-            _phantom: PhantomData::<(F)>,
+            _phantom: PhantomData::<F>,
         };
 
         assert_eq!(expected_tree.nodes, tree.nodes);

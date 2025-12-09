@@ -4,28 +4,28 @@ use lambdaworks_math::{
     traits::AsBytes,
 };
 
+use crate::multi_table_tree::MultiTableTree;
+
 #[derive(Clone)]
-pub struct FriLayer<F, B>
+pub struct FriLayer<F>
 where
     F: IsField,
     FieldElement<F>: AsBytes,
-    B: IsMerkleTreeBackend,
 {
     pub evaluation: Vec<FieldElement<F>>,
-    pub merkle_tree: MerkleTree<B>,
+    pub merkle_tree: MultiTableTree<F>,
     pub coset_offset: FieldElement<F>,
     pub domain_size: usize,
 }
 
-impl<F, B> FriLayer<F, B>
+impl<F> FriLayer<F>
 where
     F: IsField,
     FieldElement<F>: AsBytes,
-    B: IsMerkleTreeBackend,
 {
     pub fn new(
         evaluation: &[FieldElement<F>],
-        merkle_tree: MerkleTree<B>,
+        merkle_tree: MultiTableTree<F>,
         coset_offset: FieldElement<F>,
         domain_size: usize,
     ) -> Self {
