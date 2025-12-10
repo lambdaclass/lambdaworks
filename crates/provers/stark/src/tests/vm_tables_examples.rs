@@ -1,5 +1,5 @@
 use crate::{
-    examples::cpu_table::{self, CPUTableAIR},
+    examples::{add_table::{self, ADDTableAIR}, cpu_table::{self, CPUTableAIR}},
     proof::options::ProofOptions,
     prover::{IsStarkProver, Prover},
     verifier::{IsStarkVerifier, Verifier},
@@ -271,6 +271,39 @@ pub fn build_cpu_columns_example() -> Vec<Vec<FE>> {
     columns
 }
 
+/// lhs_1 | lhs_2 | rhs_1 | rhs_2 | result_1 | result_2
+/// 0     | 0     | 0     | 0     | 0        | 0           --> 0 + 0 = 0
+/// 2^16  | 2^16  | 2^16  | 2^16  | 0        | 0           --> 2^32 + 2^32 = 2^33 mod 2^32 = 0
+pub fn build_add_columns_example() -> Vec<Vec<FE>> {
+    let mut columns = Vec::new();
+
+    // Word2L left operand.
+    // let lhs_1 = vec![FE::zero(), FE::from(&(1 << 16))];
+    // let lhs_2 = vec![FE::zero(), FE::from(&(1 << 16))];
+    let lhs_1 = vec![FE::zero()];
+    let lhs_2 = vec![FE::zero()];
+    columns.push(lhs_1);
+    columns.push(lhs_2);
+
+    // Word2L right operand.
+    // let rhs_1 = vec![FE::zero(), FE::from(&(1 << 16))];
+    // let rhs_2 = vec![FE::zero(), FE::from(&(1 << 16))];
+    let rhs_1 = vec![FE::zero()];
+    let rhs_2 = vec![FE::zero()];
+    columns.push(rhs_1);
+    columns.push(rhs_2);
+
+    // Word2L result.
+    // let result_1 = vec![FE::zero(), FE::zero()];
+    // let result_2 = vec![FE::zero(), FE::zero()];
+    let result_1 = vec![FE::zero()];
+    let result_2 = vec![FE::zero()];
+    columns.push(result_1);
+    columns.push(result_2);
+
+    columns
+}
+
 #[test]
 fn test_prove_cpu_table() {
     let columns = build_cpu_columns_example();
@@ -286,6 +319,28 @@ fn test_prove_cpu_table() {
     .unwrap();
 
     assert!(Verifier::<CPUTableAIR>::verify(
+        &proof,
+        &(),
+        &proof_options,
+        DefaultTranscript::<Degree4BabyBearU32ExtensionField>::new(&[]),
+    ));
+}
+
+#[test]
+fn test_prove_add_table() {
+    let columns = build_add_columns_example();
+    let mut trace = add_table::build_add_trace(columns);
+    let proof_options = ProofOptions::default_test_options();
+
+    let proof = Prover::<ADDTableAIR>::prove(
+        &mut trace,
+        &(),
+        &proof_options,
+        DefaultTranscript::<Degree4BabyBearU32ExtensionField>::new(&[]),
+    )
+    .unwrap();
+
+    assert!(Verifier::<ADDTableAIR>::verify(
         &proof,
         &(),
         &proof_options,
