@@ -15,17 +15,15 @@ type FE = FieldElement<Babybear31PrimeField>;
 
 pub fn build_cpu_columns_example() -> Vec<Vec<FE>> {
     let mut columns = Vec::new();
-    // Timestamp: A word2L column containing the values 2^{2*i} for i = 1,...
-    // 2^{2 * 1}, 2^{2 * 2}, 2^{2 * 3}, 2^{2 * 4} = 4, 16, 64, 256
-    // TODO. Chequear si esto es así. Como tenemos timestamp chicos, suponemos que no necesitamos una segunda word.
+    // Timestamp: A word2L column containing the values 4 * i for i = 1,...
     // Column index: 0
     let timestamp_1 = vec![FE::zero(); 4];
     // Column index: 1
     let timestamp_2 = vec![
         FE::from(&4u32),
+        FE::from(&8u32),
+        FE::from(&12u32),
         FE::from(&16u32),
-        FE::from(&64u32),
-        FE::from(&256u32),
     ];
     columns.push(timestamp_1);
     columns.push(timestamp_2);
@@ -37,10 +35,10 @@ pub fn build_cpu_columns_example() -> Vec<Vec<FE>> {
     let pc_1 = vec![FE::zero(); 4];
     // Column index: 3
     let pc_2 = vec![
-        FE::from(&0u32),
-        FE::from(&1u32),
-        FE::from(&2u32),
-        FE::from(&3u32),
+        FE::from(&4u32),
+        FE::from(&8u32),
+        FE::from(&12u32),
+        FE::from(&16u32),
     ];
     columns.push(pc_1);
     columns.push(pc_2);
@@ -50,27 +48,30 @@ pub fn build_cpu_columns_example() -> Vec<Vec<FE>> {
     let rs_1 = vec![FE::from(&1), FE::from(&2), FE::from(&3), FE::from(&4)];
     columns.push(rs_1);
 
-    // Index of source register 2
+    // Index of source register 2.
     // Column index: 5
     let rs_2 = vec![FE::from(&5), FE::from(&6), FE::from(&7), FE::from(&8)];
     columns.push(rs_2);
 
-    // Index of destination register
+    // Index of destination register.
     // Column index: 6
     let rd = vec![FE::from(&9), FE::from(&10), FE::from(&11), FE::from(&12)];
     columns.push(rd);
 
-    // Should the result be written
+    // Should the result be written.
+    // Flag.
     // Column index: 7
     let write_register = vec![FE::one(), FE::zero(), FE::one(), FE::zero()];
     columns.push(write_register);
 
-    // Does the memory access (read or write) touch at least 2 bytes
+    // Does the memory access (read or write) touch at least 2 bytes.
+    // Flag.
     // Column index: 8
     let memory_2_bytes = vec![FE::one(), FE::zero(), FE::one(), FE::zero()];
     columns.push(memory_2_bytes);
 
-    // Does the memory access (read or write) touch 4 bytes
+    // Does the memory access (read or write) touch 4 bytes.
+    // Flag.
     // Column index: 9
     let memory_4_bytes = vec![FE::zero(), FE::zero(), FE::zero(), FE::zero()];
     columns.push(memory_4_bytes);
@@ -89,12 +90,12 @@ pub fn build_cpu_columns_example() -> Vec<Vec<FE>> {
     columns.push(imm_2);
 
     // check this two
-    // Flag
+    // Flag.
     // Column index: 12
     let signed = vec![FE::one(), FE::zero(), FE::one(), FE::zero()];
     columns.push(signed);
 
-    // Flag
+    // Flag.
     // Column index: 13
     let signed_2 = vec![FE::one(), FE::zero(), FE::one(), FE::zero()];
     columns.push(signed_2);
@@ -164,7 +165,7 @@ pub fn build_cpu_columns_example() -> Vec<Vec<FE>> {
     // Column index: 32
     let next_pc_1 = vec![FE::zero(); 4];
     // Column index: 33
-    let next_pc_2 = vec![FE::from(4), FE::from(5), FE::from(6), FE::from(7)];
+    let next_pc_2 = vec![FE::from(8), FE::from(12), FE::from(16), FE::from(20)];
     columns.push(next_pc_1);
     columns.push(next_pc_2);
 
@@ -259,11 +260,13 @@ pub fn build_cpu_columns_example() -> Vec<Vec<FE>> {
     columns.push(res_4);
 
     // Wether rv1 and arg2 are equal.
+    // Flag.
     // Column index: 52
     let is_equal = vec![FE::one(), FE::one(), FE::one(), FE::one()];
     columns.push(is_equal);
 
-    // Whether a branch is taken
+    // Whether a branch is taken.
+    // Flag.
     // Column index: 53
     let branch_cond = vec![FE::zero(), FE::zero(), FE::zero(), FE::zero()];
     columns.push(branch_cond);
