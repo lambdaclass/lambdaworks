@@ -19,7 +19,7 @@ use crate::traits::AsBytes;
 pub const BETA: FieldElement<Babybear31PrimeField> =
     FieldElement::<Babybear31PrimeField>::const_from_raw(939524073);
 
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 pub struct Degree4BabyBearU32ExtensionField;
 
 /// We implement directly the degree four extension for performance reasons, instead of using

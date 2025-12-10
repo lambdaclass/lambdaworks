@@ -173,7 +173,7 @@ impl AIR for CPUTableAIR {
     }
 
     fn trace_layout(&self) -> (usize, usize) {
-        (1, 0)
+        (54, 0)
     }
 
     fn pub_inputs(&self) -> &Self::PublicInputs {
