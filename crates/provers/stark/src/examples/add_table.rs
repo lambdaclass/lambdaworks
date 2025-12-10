@@ -5,7 +5,6 @@ use crate::{
     trace::TraceTable,
     traits::{TransitionEvaluationContext, AIR},
 };
-use itertools::ConsTuples;
 use lambdaworks_math::field::{
     element::FieldElement,
     fields::fft_friendly::{
@@ -77,7 +76,6 @@ impl TransitionConstraint<Babybear31PrimeField, Degree4BabyBearU32ExtensionField
             } => {
                 // - `carry[0] := (lhs[0] + rhs[0] - res[0])/65536`
                 // - `carry[1] := (lhs[1] + rhs[1] - res[1] + carry[0])/65536`
-
                 let step = frame.get_evaluation_step(0);
 
                 let lhs_0 = step.get_main_evaluation_element(0, 0);
@@ -100,6 +98,8 @@ impl TransitionConstraint<Babybear31PrimeField, Degree4BabyBearU32ExtensionField
                         carry_1 * (carry_1 - one)
                     }
                 };
+
+                transition_evaluations[self.constraint_idx()] = bit_contraint.to_extension();
             }
 
             TransitionEvaluationContext::Verifier {
@@ -107,28 +107,45 @@ impl TransitionConstraint<Babybear31PrimeField, Degree4BabyBearU32ExtensionField
                 periodic_values: _periodic_values,
                 rap_challenges: _rap_challenges,
             } => {
+                // - `carry[0] := (lhs[0] + rhs[0] - res[0])/65536`
+                // - `carry[1] := (lhs[1] + rhs[1] - res[1] + carry[0])/65536`
                 let step = frame.get_evaluation_step(0);
 
-                let flag = step.get_main_evaluation_element(0, self.column_idx);
+                let lhs_0 = step.get_main_evaluation_element(0, 0);
+                let rhs_0 = step.get_main_evaluation_element(0, 2);
+                let res_0 = step.get_main_evaluation_element(0, 4);
 
                 let one = FieldElement::<Degree4BabyBearU32ExtensionField>::one();
+                let inverse = FieldElement::<Degree4BabyBearU32ExtensionField>::from(65536)
+                    .inv()
+                    .unwrap();
+                let carry_0 = (lhs_0 + rhs_0 - res_0) * inverse;
 
-                let bit_constraint = flag * (flag - one);
+                let bit_contraint = match self.carry_idx {
+                    CarryIndex::Zero => carry_0 * (carry_0 - one),
+                    CarryIndex::One => {
+                        let lhs_1 = step.get_main_evaluation_element(0, 1);
+                        let rhs_1 = step.get_main_evaluation_element(0, 3);
+                        let res_1 = step.get_main_evaluation_element(0, 5);
+                        let carry_1 = (lhs_1 + rhs_1 - res_1 + carry_0) * inverse;
+                        carry_1 * (carry_1 - one)
+                    }
+                };
 
-                transition_evaluations[self.constraint_idx()] = bit_constraint;
+                transition_evaluations[self.constraint_idx()] = bit_contraint
             }
         }
     }
 }
 
-pub struct CPUTableAIR {
+pub struct ADDTableAIR {
     context: AirContext,
     constraints:
         Vec<Box<dyn TransitionConstraint<Babybear31PrimeField, Degree4BabyBearU32ExtensionField>>>,
     trace_length: usize,
 }
 
-impl AIR for CPUTableAIR {
+impl AIR for ADDTableAIR {
     type Field = Babybear31PrimeField;
     type FieldExtension = Degree4BabyBearU32ExtensionField;
     type PublicInputs = ();
@@ -140,27 +157,16 @@ impl AIR for CPUTableAIR {
         _pub_inputs: &Self::PublicInputs,
         proof_options: &ProofOptions,
     ) -> Self {
-        // Constraint IS_BIT[f[i]] where:
-        // f = [write_register, memory_2bytes, memory_4bytes, signed, signed2, muldiv_selector, ADD, SUB, SLT, AND, OR, XOR, SL, SR, JALR, BEQ, BLT, LOAD, STORE, MUL, DIVREM, ECALL, EBREAK]
-        let columns_index_to_constraint = [
-            7, 8, 9, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31,
+        let constraints: Vec<Box<dyn TransitionConstraint<Self::Field, Self::FieldExtension>>> = vec![
+            Box::new(CarryBitConstraint::new(CarryIndex::Zero, 0)),
+            Box::new(CarryBitConstraint::new(CarryIndex::One, 1)),
         ];
-        let constraints: Vec<Box<dyn TransitionConstraint<Self::Field, Self::FieldExtension>>> =
-            columns_index_to_constraint
-                .iter()
-                .enumerate()
-                .map(|(i, &column_idx)| {
-                    Box::new(BitConstraint::new(column_idx, i))
-                        as Box<dyn TransitionConstraint<Self::Field, Self::FieldExtension>>
-                })
-                .collect();
-        let num_transition_constraints = constraints.len();
 
         let context = AirContext {
             proof_options: proof_options.clone(),
-            trace_columns: 54,
+            trace_columns: 6,
             transition_offsets: vec![0],
-            num_transition_constraints,
+            num_transition_constraints: 2,
         };
 
         Self {
@@ -196,7 +202,7 @@ impl AIR for CPUTableAIR {
     }
 
     fn trace_layout(&self) -> (usize, usize) {
-        (1, 0)
+        (6, 0)
     }
 
     fn pub_inputs(&self) -> &Self::PublicInputs {
@@ -204,6 +210,6 @@ impl AIR for CPUTableAIR {
     }
 }
 
-pub fn build_cpu_trace(columns: Vec<Vec<FE>>) -> CPUTraceTable {
+pub fn build_add_trace(columns: Vec<Vec<FE>>) -> ADDTraceTable {
     TraceTable::from_columns_main(columns, 1)
 }
