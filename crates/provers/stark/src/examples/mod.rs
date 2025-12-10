@@ -1,3 +1,4 @@
+pub mod add_table;
 pub mod bit_flags;
 pub mod cpu_table;
 pub mod dummy_air;
