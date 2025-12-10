@@ -271,33 +271,86 @@ pub fn build_cpu_columns_example() -> Vec<Vec<FE>> {
     columns
 }
 
-/// lhs_1 | lhs_2 | rhs_1 | rhs_2 | result_1 | result_2
-/// 0     | 0     | 0     | 0     | 0        | 0           --> 0 + 0 = 0
-/// 2^16  | 2^16  | 2^16  | 2^16  | 0        | 0           --> 2^32 + 2^32 = 2^33 mod 2^32 = 0
+/// lhs_1    | lhs_2    | rhs_1    | rhs_2    | result_1  | result_2
+/// 0        | 0        | 0        | 0        | 0         | 0           --> 0 + 0 = 0
+/// 1        | 0        | 1        | 0        | 2         | 0           --> 1 + 1 = 2
+/// 2ˆ16 - 1 | 0        | 1        | 0        | 0         | 1           --> (2^16 - 1) + 1 = 2ˆ16
+/// 0        | 1        | 0        | 1        | 0         | 2           --> 2^16 + 2^16 = 2ˆ17
+/// 2^16 - 1 | 2^16 - 1 | 2^16 - 1 | 2^16 - 1 | 2^16 - 2  | 2^16 - 1    --> (2^32 - 1) + (2^32 - 1) = 2 * 2^32 - 2  = -2 (mod 2^32)
+/// 34602    | 2        | 30934    | 65533    | 0         | 0           --> 165674 + 4294801622 = 165674 + (-165674) = 0 mod 2^32
+/// 2^16 - 1 | 2^16 - 1 | 1        | 0        | 0         | 0           --> (2^32 - 1) + 1 = 0 mod 2^32
+/// 42793    | 12       | 0        | 0        | 42793     | 12          --> 829225 + 0 = 829225 mod 2^32
+
 pub fn build_add_columns_example() -> Vec<Vec<FE>> {
     let mut columns = Vec::new();
 
     // Word2L left operand.
-    // let lhs_1 = vec![FE::zero(), FE::from(&(1 << 16))];
-    // let lhs_2 = vec![FE::zero(), FE::from(&(1 << 16))];
-    let lhs_1 = vec![FE::zero()];
-    let lhs_2 = vec![FE::zero()];
+    let lhs_1 = vec![
+        FE::zero(),
+        FE::one(), 
+        FE::from(&((1<<16) - 1)), 
+        FE::zero(), 
+        FE::from(&((1<<16) - 1)), 
+        FE::from(&34602), 
+        FE::from(&((1<<16) - 1)), 
+        FE::from(&42793)];
+    let lhs_2 = vec![
+        FE::zero(),
+        FE::zero(),
+        FE::zero(),
+        FE::one(),
+        FE::from(&((1<<16) - 1)),
+        FE::from(&2),
+        FE::from(&((1<<16) - 1)),
+        FE::from(&12)
+        ];
     columns.push(lhs_1);
     columns.push(lhs_2);
 
     // Word2L right operand.
-    // let rhs_1 = vec![FE::zero(), FE::from(&(1 << 16))];
-    // let rhs_2 = vec![FE::zero(), FE::from(&(1 << 16))];
-    let rhs_1 = vec![FE::zero()];
-    let rhs_2 = vec![FE::zero()];
+    let rhs_1 = vec![
+        FE::zero(), 
+        FE::one(), 
+        FE::one(), 
+        FE::zero(), 
+        FE::from(&((1<<16) - 1)), 
+        FE::from(&30934), 
+        FE::one(), 
+        FE::zero()
+        ];
+    let rhs_2 = vec![
+        FE::zero(), 
+        FE::zero(), 
+        FE::zero(), 
+        FE::one(), 
+        FE::from(&((1<<16) - 1)), 
+        FE::from(&65533), 
+        FE::zero(), 
+        FE::zero()
+        ];
     columns.push(rhs_1);
     columns.push(rhs_2);
 
     // Word2L result.
-    // let result_1 = vec![FE::zero(), FE::zero()];
-    // let result_2 = vec![FE::zero(), FE::zero()];
-    let result_1 = vec![FE::zero()];
-    let result_2 = vec![FE::zero()];
+    let result_1 = vec![
+        FE::zero(),
+        FE::from(&2),
+        FE::zero(),
+        FE::zero(),
+        FE::from(&((1<< 16) - 2)),
+        FE::zero(),
+        FE::zero(),
+        FE::from(&42793)];
+    let result_2 = vec![
+        FE::zero(),
+        FE::zero(),
+        FE::one(),
+        FE::from(&2),
+        FE::from(&((1<< 16) - 1)),
+        FE::zero(), 
+        FE::zero(), 
+        FE::from(&12)
+        ];
     columns.push(result_1);
     columns.push(result_2);
 

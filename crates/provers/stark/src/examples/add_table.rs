@@ -210,6 +210,7 @@ impl AIR for ADDTableAIR {
     }
 }
 
+// We assume that the columns have a power of two number of rows.
 pub fn build_add_trace(columns: Vec<Vec<FE>>) -> ADDTraceTable {
     TraceTable::from_columns_main(columns, 1)
 }

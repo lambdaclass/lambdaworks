@@ -181,6 +181,7 @@ impl AIR for CPUTableAIR {
     }
 }
 
+// We assume that the columns have a power of two number of rows.
 pub fn build_cpu_trace(columns: Vec<Vec<FE>>) -> CPUTraceTable {
     TraceTable::from_columns_main(columns, 1)
 }
