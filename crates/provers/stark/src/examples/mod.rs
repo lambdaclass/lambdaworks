@@ -1,5 +1,6 @@
 pub mod add_table;
 pub mod bit_flags;
+pub mod constraints_template;
 pub mod cpu_table;
 pub mod dummy_air;
 pub mod fibonacci_2_cols_shifted;
