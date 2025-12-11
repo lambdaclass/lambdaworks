@@ -380,14 +380,14 @@ mod tests {
     fn test_mul_by_0() {
         let a = Fp4E::new([FpE::from(4), FpE::from(1), FpE::from(2), FpE::from(3)]);
         let b = Fp4E::new([FpE::zero(), FpE::zero(), FpE::zero(), FpE::zero()]);
-        assert_eq!(&a * &b, b);
+        assert_eq!(a * b, b);
     }
 
     #[test]
     fn test_mul_by_1() {
         let a = Fp4E::new([FpE::from(4), FpE::from(1), FpE::from(2), FpE::from(3)]);
         let b = Fp4E::new([FpE::one(), FpE::zero(), FpE::zero(), FpE::zero()]);
-        assert_eq!(&a * b, a);
+        assert_eq!(a * b, a);
     }
 
     #[test]
@@ -406,7 +406,7 @@ mod tests {
     #[test]
     fn test_pow() {
         let a = Fp4E::new([FpE::from(0), FpE::from(1), FpE::from(2), FpE::from(3)]);
-        let expected_result = &a * &a * &a;
+        let expected_result = a * a * a;
         assert_eq!(a.pow(3u64), expected_result);
     }
 
@@ -425,7 +425,7 @@ mod tests {
     #[test]
     fn test_mul_by_inv_is_identity() {
         let a = Fp4E::from(123456);
-        assert_eq!(&a * a.inv().unwrap(), Fp4E::one());
+        assert_eq!(a * a.inv().unwrap(), Fp4E::one());
     }
 
     #[test]
@@ -445,7 +445,7 @@ mod tests {
     fn test_double_equals_sum_two_times() {
         let a = Fp4E::new([FpE::from(2), FpE::from(4), FpE::from(6), FpE::from(8)]);
 
-        assert_eq!(a.double(), &a + &a);
+        assert_eq!(a.double(), a + a);
     }
 
     #[test]
