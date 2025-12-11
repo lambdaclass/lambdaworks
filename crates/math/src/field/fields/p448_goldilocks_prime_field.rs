@@ -435,6 +435,7 @@ mod tests {
         assert_eq!(num, U56x8::from_hex("1bee3d46a69887b0").unwrap());
     }
 
+    #[allow(unused_assignments)]
     #[test]
     fn p448_from_base_type_test_1() {
         let mut limbs = [0u64; 8];
