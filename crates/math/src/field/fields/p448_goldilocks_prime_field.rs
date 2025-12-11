@@ -450,6 +450,7 @@ mod tests {
     }
 
     #[cfg(feature = "std")]
+    #[allow(unused_assignments)]
     #[test]
     fn to_hex_test() {
         let mut limbs = [0u64; 8];
