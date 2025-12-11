@@ -305,11 +305,9 @@ pub fn fibonacci_rap_trace<F: IsFFTField>(
     let mut trace_cols = vec![fib_seq, fib_permuted];
     resize_to_next_power_of_two(&mut trace_cols);
 
-    let mut trace = TraceTable::allocate_with_zeros(trace_cols[0].len(), 2, 1, 1);
-    for i in 0..trace.num_rows() {
-        trace.set_main(i, 0, trace_cols[0][i].clone());
-        trace.set_main(i, 1, trace_cols[1][i].clone());
-    }
+    let aux_columns = vec![vec![FieldElement::<F>::zero(); trace_cols[0].len()]];
+
+    let trace: TraceTable<F, F> = TraceTable::from_columns(trace_cols, aux_columns, 1);
 
     trace
 }
