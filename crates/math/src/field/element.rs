@@ -1,6 +1,9 @@
-use crate::errors::{ByteConversionError, CreationError};
+#[cfg(feature = "alloc")]
+use crate::errors::ByteConversionError;
+use crate::errors::CreationError;
 use crate::field::errors::FieldError;
 use crate::field::traits::IsField;
+#[cfg(feature = "alloc")]
 use crate::traits::ByteConversion;
 use crate::unsigned_integer::element::UnsignedInteger;
 use crate::unsigned_integer::montgomery::MontgomeryAlgorithms;
@@ -16,7 +19,9 @@ use core::iter::Sum;
 ))]
 use core::marker::PhantomData;
 use core::ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Sub};
+#[cfg(feature = "alloc")]
 use num_bigint::BigUint;
+#[cfg(feature = "alloc")]
 use num_traits::Num;
 #[cfg(any(
     feature = "lambdaworks-serde-binary",
@@ -836,7 +841,7 @@ mod tests {
                 .map(|x| { FieldElement::<U64TestField>::from(x) })
                 .sum::<FieldElement<U64TestField>>()
                 .value,
-            ((n - 1) as f64 / 2. * ((n - 1) as f64 + 1.)) as u64 % MODULUS
+            n * (n - 1) / 2 % MODULUS
         );
     }
 
