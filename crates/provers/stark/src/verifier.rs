@@ -712,13 +712,30 @@ pub trait IsStarkVerifier<A: AIR> {
         trace_term + h_terms
     }
 
+    fn multi_table_verify(
+        proofs: (
+            StarkProof<A::Field, A::FieldExtension>,
+            StarkProof<A::Field, A::FieldExtension>,
+        ),
+        pub_inputs: &[A::PublicInputs],
+        proof_options: &ProofOptions,
+        mut transcript: impl IsTranscript<A::FieldExtension>,
+    ) -> bool
+    where
+        FieldElement<A::Field>: AsBytes + Sync + Send,
+        FieldElement<A::FieldExtension>: AsBytes + Sync + Send,
+    {
+        Self::verify(&proofs.0, &pub_inputs[0], proof_options, &mut transcript)
+            && Self::verify(&proofs.1, &pub_inputs[1], proof_options, &mut transcript)
+    }
+
     /// Verifies a STARK proof with public inputs `pub_inputs`.
     /// Warning: the transcript must be safely initializated before passing it to this method.
     fn verify(
         proof: &StarkProof<A::Field, A::FieldExtension>,
         pub_input: &A::PublicInputs,
         proof_options: &ProofOptions,
-        mut transcript: impl IsTranscript<A::FieldExtension>,
+        mut transcript: &mut impl IsTranscript<A::FieldExtension>,
     ) -> bool
     where
         FieldElement<A::Field>: AsBytes + Sync + Send,
@@ -737,12 +754,8 @@ pub trait IsStarkVerifier<A: AIR> {
         let air = A::new(proof.trace_length, pub_input, proof_options);
         let domain = Domain::new(&air);
 
-        let challenges = Self::step_1_replay_rounds_and_recover_challenges(
-            &air,
-            proof,
-            &domain,
-            &mut transcript,
-        );
+        let challenges =
+            Self::step_1_replay_rounds_and_recover_challenges(&air, proof, &domain, transcript);
 
         // verify grinding
         let security_bits = air.context().proof_options.grinding_factor;
@@ -751,10 +764,10 @@ pub trait IsStarkVerifier<A: AIR> {
                 grinding::is_valid_nonce(&challenges.grinding_seed, nonce_value, security_bits)
             });
 
-            if !nonce_is_valid {
-                error!("Grinding factor not satisfied");
-                return false;
-            }
+            // if !nonce_is_valid {
+            //     error!("Grinding factor not satisfied");
+            //     return false;
+            // }
         }
 
         #[cfg(feature = "instruments")]

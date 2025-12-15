@@ -52,7 +52,7 @@ fn test_prove_fib() {
         &proof,
         &pub_inputs,
         &proof_options,
-        StoneProverTranscript::new(&[]),
+        &mut StoneProverTranscript::new(&[]),
     ));
 }
 
@@ -78,7 +78,7 @@ fn test_prove_simple_periodic_8() {
         &proof,
         &pub_inputs,
         &proof_options,
-        StoneProverTranscript::new(&[]),
+        &mut StoneProverTranscript::new(&[]),
     ));
 }
 
@@ -104,7 +104,7 @@ fn test_prove_simple_periodic_32() {
         &proof,
         &pub_inputs,
         &proof_options,
-        StoneProverTranscript::new(&[]),
+        &mut StoneProverTranscript::new(&[]),
     ));
 }
 
@@ -130,7 +130,7 @@ fn test_prove_fib_2_cols() {
         &proof,
         &pub_inputs,
         &proof_options,
-        StoneProverTranscript::new(&[])
+        &mut StoneProverTranscript::new(&[])
     ));
 }
 
@@ -158,7 +158,7 @@ fn test_prove_fib_2_cols_shifted() {
         &proof,
         &pub_inputs,
         &proof_options,
-        StoneProverTranscript::new(&[])
+        &mut StoneProverTranscript::new(&[])
     ));
 }
 
@@ -183,7 +183,7 @@ fn test_prove_quadratic() {
         &proof,
         &pub_inputs,
         &proof_options,
-        StoneProverTranscript::new(&[])
+        &mut StoneProverTranscript::new(&[])
     ));
 }
 
@@ -211,7 +211,7 @@ fn test_prove_rap_fib() {
         &proof,
         &pub_inputs,
         &proof_options,
-        StoneProverTranscript::new(&[])
+        &mut StoneProverTranscript::new(&[])
     ));
 }
 
@@ -233,7 +233,7 @@ fn test_prove_dummy() {
         &proof,
         &(),
         &proof_options,
-        StoneProverTranscript::new(&[])
+        &mut StoneProverTranscript::new(&[])
     ));
 }
 
@@ -254,7 +254,7 @@ fn test_prove_bit_flags() {
         &proof,
         &(),
         &proof_options,
-        StoneProverTranscript::new(&[]),
+        &mut StoneProverTranscript::new(&[]),
     ));
 }
 
@@ -300,7 +300,7 @@ fn test_prove_read_only_memory() {
         &proof,
         &pub_inputs,
         &proof_options,
-        StoneProverTranscript::new(&[])
+        &mut StoneProverTranscript::new(&[])
     ));
 }
 
@@ -350,6 +350,39 @@ fn test_prove_log_read_only_memory() {
         &proof,
         &pub_inputs,
         &proof_options,
-        DefaultTranscript::<Degree4BabyBearExtensionField>::new(&[]),
+        &mut DefaultTranscript::<Degree4BabyBearExtensionField>::new(&[]),
     ));
+}
+
+#[test_log::test]
+fn test_prove_fib_2_tables() {
+    let mut trace_1 = simple_fibonacci::fibonacci_trace([Felt252::from(1), Felt252::from(1)], 8);
+    let mut trace_2 = simple_fibonacci::fibonacci_trace([Felt252::from(1), Felt252::from(1)], 8);
+
+    let proof_options = ProofOptions::default_test_options();
+
+    let pub_inputs_1 = FibonacciPublicInputs {
+        a0: Felt252::one(),
+        a1: Felt252::one(),
+    };
+    let pub_inputs_2 = FibonacciPublicInputs {
+        a0: Felt252::one(),
+        a1: Felt252::one(),
+    };
+
+    let proof = Prover::<FibonacciAIR<Stark252PrimeField>>::multi_table_prove(
+        &mut [trace_1, trace_2],
+        &[pub_inputs_1.clone(), pub_inputs_2.clone()],
+        &proof_options,
+        StoneProverTranscript::new(&[]),
+    )
+    .unwrap();
+    assert!(
+        Verifier::<FibonacciAIR<Stark252PrimeField>>::multi_table_verify(
+            proof,
+            &[pub_inputs_1, pub_inputs_2],
+            &proof_options,
+            StoneProverTranscript::new(&[]),
+        )
+    );
 }
