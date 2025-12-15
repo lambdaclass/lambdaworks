@@ -64,6 +64,7 @@ where
 {
     /// The out-of-domain challenge.
     pub z: FieldElement<A::FieldExtension>,
+    /// TODO: boundary_coeffs y transition_coeffs debería estar también doble o no?
     /// The composition polynomial coefficients corresponding to the boundary constraints terms.
     pub boundary_coeffs: Vec<FieldElement<A::FieldExtension>>,
     /// The composition polynomial coefficients corresponding to the transition constraints terms.
@@ -564,9 +565,9 @@ pub trait IsStarkVerifier<A: AIR> {
     fn multi_trace_step_2_verify_claimed_composition_polynomial(
         air_1: &A,
         air_2: &A,
-        proof: &StarkProof<A::Field, A::FieldExtension>,
+        proof: &MultiTraceStarkProof<A::Field, A::FieldExtension>,
         domain: &Domain<A::Field>,
-        challenges: &Challenges<A>,
+        challenges: &MultiTraceChallenges<A>,
     ) -> bool {
         let boundary_constraints_1 = air_1.boundary_constraints(&challenges.rap_challenges);
         let boundary_constraints_2 = air_2.boundary_constraints(&challenges.rap_challenges);
@@ -577,25 +578,54 @@ pub trait IsStarkVerifier<A: AIR> {
         let number_of_b_constraints_2 = boundary_constraints_2.constraints.len();
 
         #[allow(clippy::type_complexity)]
-        let (boundary_c_i_evaluations_num, mut boundary_c_i_evaluations_den): (
+        let (boundary_c_i_evaluations_num_1, mut boundary_c_i_evaluations_den): (
             Vec<FieldElement<A::FieldExtension>>,
             Vec<FieldElement<A::FieldExtension>>,
-        ) = (0..number_of_b_constraints)
+        ) = (0..number_of_b_constraints_1)
             .map(|index| {
-                let step = boundary_constraints.constraints[index].step;
-                let is_aux = boundary_constraints.constraints[index].is_aux;
+                let step = boundary_constraints_1.constraints[index].step;
+                let is_aux = boundary_constraints_1.constraints[index].is_aux;
                 let point = &domain.trace_primitive_root.pow(step as u64);
-                let column_idx = boundary_constraints.constraints[index].col;
+                let column_idx = boundary_constraints_1.constraints[index].col;
                 let trace_evaluation = if is_aux {
-                    let column_idx = air.trace_layout().0 + column_idx;
-                    &proof.trace_ood_evaluations.get_row(0)[column_idx]
+                    let column_idx = air_1.trace_layout().0 + column_idx;
+                    &proof.trace_ood_evaluations_1.get_row(0)[column_idx]
                 } else {
-                    &proof.trace_ood_evaluations.get_row(0)[column_idx]
+                    &proof.trace_ood_evaluations_1.get_row(0)[column_idx]
                 };
                 let boundary_zerofier_challenges_z_den = -point + &challenges.z;
 
                 let boundary_quotient_ood_evaluation_num =
-                    -&boundary_constraints.constraints[index].value + trace_evaluation;
+                    -&boundary_constraints_1.constraints[index].value + trace_evaluation;
+
+                (
+                    boundary_quotient_ood_evaluation_num,
+                    boundary_zerofier_challenges_z_den,
+                )
+            })
+            .collect::<Vec<_>>()
+            .into_iter()
+            .unzip();
+        #[allow(clippy::type_complexity)]
+        let (boundary_c_i_evaluations_num_2, mut boundary_c_i_evaluations_den): (
+            Vec<FieldElement<A::FieldExtension>>,
+            Vec<FieldElement<A::FieldExtension>>,
+        ) = (0..number_of_b_constraints_2)
+            .map(|index| {
+                let step = boundary_constraints_2.constraints[index].step;
+                let is_aux = boundary_constraints_2.constraints[index].is_aux;
+                let point = &domain.trace_primitive_root.pow(step as u64);
+                let column_idx = boundary_constraints_2.constraints[index].col;
+                let trace_evaluation = if is_aux {
+                    let column_idx = air_2.trace_layout().0 + column_idx;
+                    &proof.trace_ood_evaluations_2.get_row(0)[column_idx]
+                } else {
+                    &proof.trace_ood_evaluations_2.get_row(0)[column_idx]
+                };
+                let boundary_zerofier_challenges_z_den = -point + &challenges.z;
+
+                let boundary_quotient_ood_evaluation_num =
+                    -&boundary_constraints_2.constraints[index].value + trace_evaluation;
 
                 (
                     boundary_quotient_ood_evaluation_num,
@@ -608,61 +638,110 @@ pub trait IsStarkVerifier<A: AIR> {
 
         FieldElement::inplace_batch_inverse(&mut boundary_c_i_evaluations_den).unwrap();
 
-        let boundary_quotient_ood_evaluation: FieldElement<A::FieldExtension> =
-            boundary_c_i_evaluations_num
+        let boundary_quotient_ood_evaluation_1: FieldElement<A::FieldExtension> =
+            boundary_c_i_evaluations_num_1
+                .iter()
+                .zip(&boundary_c_i_evaluations_den)
+                .zip(&challenges.boundary_coeffs)
+                .map(|((num, den), beta)| num * den * beta)
+                .fold(FieldElement::<A::FieldExtension>::zero(), |acc, x| acc + x);
+        let boundary_quotient_ood_evaluation_2: FieldElement<A::FieldExtension> =
+            boundary_c_i_evaluations_num_2
                 .iter()
                 .zip(&boundary_c_i_evaluations_den)
                 .zip(&challenges.boundary_coeffs)
                 .map(|((num, den), beta)| num * den * beta)
                 .fold(FieldElement::<A::FieldExtension>::zero(), |acc, x| acc + x);
 
-        let periodic_values = air
+        let periodic_values_1 = air_1
+            .get_periodic_column_polynomials()
+            .iter()
+            .map(|poly| poly.evaluate(&challenges.z))
+            .collect::<Vec<FieldElement<A::FieldExtension>>>();
+        let periodic_values_2 = air_2
             .get_periodic_column_polynomials()
             .iter()
             .map(|poly| poly.evaluate(&challenges.z))
             .collect::<Vec<FieldElement<A::FieldExtension>>>();
 
-        let num_main_trace_columns =
-            proof.trace_ood_evaluations.width - air.num_auxiliary_rap_columns();
+        let num_main_trace_columns_1 =
+            proof.trace_ood_evaluations_1.width - air_1.num_auxiliary_rap_columns();
+        let num_main_trace_columns_2 =
+            proof.trace_ood_evaluations_2.width - air_2.num_auxiliary_rap_columns();
 
-        let ood_frame =
-            (proof.trace_ood_evaluations).into_frame(num_main_trace_columns, A::STEP_SIZE);
-        let transition_evaluation_context = TransitionEvaluationContext::new_verifier(
-            &ood_frame,
-            &periodic_values,
+        let ood_frame_1 =
+            (proof.trace_ood_evaluations_1).into_frame(num_main_trace_columns_1, A::STEP_SIZE);
+        let ood_frame_2 =
+            (proof.trace_ood_evaluations_2).into_frame(num_main_trace_columns_2, A::STEP_SIZE);
+        let transition_evaluation_context_1 = TransitionEvaluationContext::new_verifier(
+            &ood_frame_1,
+            &periodic_values_1,
             &challenges.rap_challenges,
         );
-        let transition_ood_frame_evaluations =
-            air.compute_transition(&transition_evaluation_context);
+        let transition_evaluation_context_2 = TransitionEvaluationContext::new_verifier(
+            &ood_frame_2,
+            &periodic_values_2,
+            &challenges.rap_challenges,
+        );
+        let transition_ood_frame_evaluations_1 =
+            air_1.compute_transition(&transition_evaluation_context_1);
+        let transition_ood_frame_evaluations_2 =
+            air_2.compute_transition(&transition_evaluation_context_2);
 
-        let mut denominators =
-            vec![FieldElement::<A::FieldExtension>::zero(); air.num_transition_constraints()];
-        air.transition_constraints().iter().for_each(|c| {
-            denominators[c.constraint_idx()] =
+        let mut denominators_1 =
+            vec![FieldElement::<A::FieldExtension>::zero(); air_1.num_transition_constraints()];
+        let mut denominators_2 =
+            vec![FieldElement::<A::FieldExtension>::zero(); air_2.num_transition_constraints()];
+        air_1.transition_constraints().iter().for_each(|c| {
+            denominators_1[c.constraint_idx()] =
+                c.evaluate_zerofier(&challenges.z, &domain.trace_primitive_root, trace_length);
+        });
+        air_2.transition_constraints().iter().for_each(|c| {
+            denominators_2[c.constraint_idx()] =
                 c.evaluate_zerofier(&challenges.z, &domain.trace_primitive_root, trace_length);
         });
 
-        let transition_c_i_evaluations_sum = itertools::izip!(
-            transition_ood_frame_evaluations,
+        // TODO: Tendría que haber dos transition_coeffs distintos.
+        let transition_c_i_evaluations_sum_1 = itertools::izip!(
+            transition_ood_frame_evaluations_1,
             &challenges.transition_coeffs,
-            denominators
+            denominators_1
         )
         .fold(FieldElement::zero(), |acc, (eval, beta, denominator)| {
             acc + beta * eval * &denominator
         });
 
-        let composition_poly_ood_evaluation =
-            &boundary_quotient_ood_evaluation + transition_c_i_evaluations_sum;
+        let transition_c_i_evaluations_sum_2 = itertools::izip!(
+            transition_ood_frame_evaluations_2,
+            &challenges.transition_coeffs,
+            denominators_2
+        )
+        .fold(FieldElement::zero(), |acc, (eval, beta, denominator)| {
+            acc + beta * eval * &denominator
+        });
 
-        let composition_poly_claimed_ood_evaluation = proof
-            .composition_poly_parts_ood_evaluation
+        let composition_poly_ood_evaluation_1 =
+            &boundary_quotient_ood_evaluation_1 + transition_c_i_evaluations_sum_1;
+        let composition_poly_ood_evaluation_2 =
+            &boundary_quotient_ood_evaluation_2 + transition_c_i_evaluations_sum_2;
+
+        let composition_poly_claimed_ood_evaluation_1 = proof
+            .composition_poly_parts_ood_evaluation_1
+            .iter()
+            .rev()
+            .fold(FieldElement::zero(), |acc, coeff| {
+                acc * &challenges.z + coeff
+            });
+        let composition_poly_claimed_ood_evaluation_2 = proof
+            .composition_poly_parts_ood_evaluation_2
             .iter()
             .rev()
             .fold(FieldElement::zero(), |acc, coeff| {
                 acc * &challenges.z + coeff
             });
 
-        composition_poly_claimed_ood_evaluation == composition_poly_ood_evaluation
+        (composition_poly_claimed_ood_evaluation_1 == composition_poly_ood_evaluation_1)
+            && (composition_poly_claimed_ood_evaluation_2 == composition_poly_ood_evaluation_2)
     }
     /// Reconstructs the Deep composition polynomial evaluations at the challenge indices values using the provided
     /// openings of the trace polynomials and the composition polynomial parts. It then uses these to verify that the
@@ -712,35 +791,39 @@ pub trait IsStarkVerifier<A: AIR> {
     fn multi_trace_step_3_verify_fri(
         proof: &MultiTraceStarkProof<A::Field, A::FieldExtension>,
         domain: &Domain<A::Field>,
-        challenges: &Challenges<A>,
+        challenges: &MultiTraceChallenges<A>,
     ) -> bool
     where
         FieldElement<A::Field>: AsBytes + Sync + Send,
         FieldElement<A::FieldExtension>: AsBytes + Sync + Send,
     {
-        let (deep_poly_evaluations_1, deep_poly_evaluations_sym_1) =
-            Self::reconstruct_deep_composition_poly_evaluations_for_all_queries(
-                challenges, domain, proof,
-            );
-            
-        let (deep_poly_evaluations, deep_poly_evaluations_sym) =
-            Self::reconstruct_deep_composition_poly_evaluations_for_all_queries(
-                challenges, domain, proof,
-            );
+        let (
+            (deep_poly_evaluations_1, deep_poly_evaluations_sym_1),
+            (deep_poly_evaluations_2, deep_poly_evaluations_sym_2),
+        ) = Self::multi_table_reconstruct_deep_composition_poly_evaluations_for_all_queries(
+            challenges, domain, proof,
+        );
 
         // verify FRI
-        let mut evaluation_point_inverse = challenges
-            .iotas
+        let mut evaluation_point_inverse_1 = challenges
+            .iotas_1
             .iter()
             .map(|iota| Self::query_challenge_to_evaluation_point(*iota, domain))
             .collect::<Vec<FieldElement<A::Field>>>();
-        FieldElement::inplace_batch_inverse(&mut evaluation_point_inverse).unwrap();
+        FieldElement::inplace_batch_inverse(&mut evaluation_point_inverse_1).unwrap();
+
+        let mut evaluation_point_inverse_2 = challenges
+            .iotas_2
+            .iter()
+            .map(|iota| Self::query_challenge_to_evaluation_point(*iota, domain))
+            .collect::<Vec<FieldElement<A::Field>>>();
+        FieldElement::inplace_batch_inverse(&mut evaluation_point_inverse_2).unwrap();
 
         proof
-            .query_list
+            .query_list_1
             .iter()
-            .zip(&challenges.iotas)
-            .zip(evaluation_point_inverse)
+            .zip(&challenges.iotas_1)
+            .zip(evaluation_point_inverse_1)
             .enumerate()
             .fold(true, |mut result, (i, ((proof_s, iota_s), eval))| {
                 result &= Self::verify_query_and_sym_openings(
@@ -749,11 +832,29 @@ pub trait IsStarkVerifier<A: AIR> {
                     *iota_s,
                     proof_s,
                     eval,
-                    &deep_poly_evaluations[i],
-                    &deep_poly_evaluations_sym[i],
+                    &deep_poly_evaluations_1[i],
+                    &deep_poly_evaluations_sym_1[i],
                 );
                 result
             })
+            && proof
+                .query_list_2
+                .iter()
+                .zip(&challenges.iotas_2)
+                .zip(evaluation_point_inverse_2)
+                .enumerate()
+                .fold(true, |mut result, (i, ((proof_s, iota_s), eval))| {
+                    result &= Self::verify_query_and_sym_openings(
+                        proof,
+                        &challenges.zetas,
+                        *iota_s,
+                        proof_s,
+                        eval,
+                        &deep_poly_evaluations_2[i],
+                        &deep_poly_evaluations_sym_2[i],
+                    );
+                    result
+                })
     }
 
     /// Returns the field element element of the domain `domain` corresponding to the given FRI query index challenge `iota`.
@@ -846,6 +947,110 @@ pub trait IsStarkVerifier<A: AIR> {
         result
     }
 
+    fn verify_trace_openings_1(
+        proof: &MultiTraceStarkProof<A::Field, A::FieldExtension>,
+        deep_poly_openings: &DeepPolynomialOpening<A::Field, A::FieldExtension>,
+        iota: usize,
+    ) -> bool
+    where
+        FieldElement<A::Field>: AsBytes + Sync + Send,
+        FieldElement<A::FieldExtension>: AsBytes + Sync + Send,
+    {
+        let index = iota * 2;
+        let index_sym = iota * 2 + 1;
+        let mut result = true;
+
+        result &= Self::verify_opening::<A::Field>(
+            &deep_poly_openings.main_trace_polys.proof,
+            &proof.lde_trace_main_merkle_root_1,
+            index,
+            &deep_poly_openings.main_trace_polys.evaluations,
+        );
+        result &= Self::verify_opening::<A::Field>(
+            &deep_poly_openings.main_trace_polys.proof_sym,
+            &proof.lde_trace_main_merkle_root_1,
+            index_sym,
+            &deep_poly_openings.main_trace_polys.evaluations_sym,
+        );
+
+        match (
+            proof.lde_trace_aux_merkle_root_1,
+            &deep_poly_openings.aux_trace_polys,
+        ) {
+            (None, Some(_)) => result = false,
+            (Some(_), None) => result = false,
+            (Some(aux_root), Some(aux_trace_polys_opening)) => {
+                result &= Self::verify_opening::<A::FieldExtension>(
+                    &aux_trace_polys_opening.proof,
+                    &aux_root,
+                    index,
+                    &aux_trace_polys_opening.evaluations,
+                );
+                result &= Self::verify_opening::<A::FieldExtension>(
+                    &aux_trace_polys_opening.proof_sym,
+                    &aux_root,
+                    index_sym,
+                    &aux_trace_polys_opening.evaluations_sym,
+                );
+            }
+            _ => {}
+        }
+
+        result
+    }
+
+    fn verify_trace_openings_2(
+        proof: &MultiTraceStarkProof<A::Field, A::FieldExtension>,
+        deep_poly_openings: &DeepPolynomialOpening<A::Field, A::FieldExtension>,
+        iota: usize,
+    ) -> bool
+    where
+        FieldElement<A::Field>: AsBytes + Sync + Send,
+        FieldElement<A::FieldExtension>: AsBytes + Sync + Send,
+    {
+        let index = iota * 2;
+        let index_sym = iota * 2 + 1;
+        let mut result = true;
+
+        result &= Self::verify_opening::<A::Field>(
+            &deep_poly_openings.main_trace_polys.proof,
+            &proof.lde_trace_main_merkle_root_2,
+            index,
+            &deep_poly_openings.main_trace_polys.evaluations,
+        );
+        result &= Self::verify_opening::<A::Field>(
+            &deep_poly_openings.main_trace_polys.proof_sym,
+            &proof.lde_trace_main_merkle_root_2,
+            index_sym,
+            &deep_poly_openings.main_trace_polys.evaluations_sym,
+        );
+
+        match (
+            proof.lde_trace_aux_merkle_root_2,
+            &deep_poly_openings.aux_trace_polys,
+        ) {
+            (None, Some(_)) => result = false,
+            (Some(_), None) => result = false,
+            (Some(aux_root), Some(aux_trace_polys_opening)) => {
+                result &= Self::verify_opening::<A::FieldExtension>(
+                    &aux_trace_polys_opening.proof,
+                    &aux_root,
+                    index,
+                    &aux_trace_polys_opening.evaluations,
+                );
+                result &= Self::verify_opening::<A::FieldExtension>(
+                    &aux_trace_polys_opening.proof_sym,
+                    &aux_root,
+                    index_sym,
+                    &aux_trace_polys_opening.evaluations_sym,
+                );
+            }
+            _ => {}
+        }
+
+        result
+    }
+
     /// Verify opening Open(Hᵢ(D_LDE), 𝜐) and Open(Hᵢ(D_LDE), -𝜐) for all parts Hᵢof the composition
     /// polynomial, where 𝜐 and -𝜐 are the elements corresponding to the index challenge `iota`.
     fn verify_composition_poly_opening(
@@ -894,6 +1099,45 @@ pub trait IsStarkVerifier<A: AIR> {
                 result
             },
         )
+    }
+
+    fn multi_trace_step_4_verify_trace_and_composition_openings(
+        proof: &MultiTraceStarkProof<A::Field, A::FieldExtension>,
+        challenges: &MultiTraceChallenges<A>,
+    ) -> bool
+    where
+        FieldElement<A::Field>: AsBytes + Sync + Send,
+        FieldElement<A::FieldExtension>: AsBytes + Sync + Send,
+    {
+        challenges
+            .iotas_1
+            .iter()
+            .zip(&proof.deep_poly_openings_1)
+            .fold(true, |mut result, (iota_n, deep_poly_opening)| {
+                result &= Self::verify_composition_poly_opening(
+                    deep_poly_opening,
+                    &proof.composition_poly_root_1,
+                    iota_n,
+                );
+
+                result &= Self::verify_trace_openings_1(proof, deep_poly_opening, *iota_n);
+                result
+            });
+
+        challenges
+            .iotas_2
+            .iter()
+            .zip(&proof.deep_poly_openings_2)
+            .fold(true, |mut result, (iota_n, deep_poly_opening)| {
+                result &= Self::verify_composition_poly_opening(
+                    deep_poly_opening,
+                    &proof.composition_poly_root_2,
+                    iota_n,
+                );
+
+                result &= Self::verify_trace_openings_2(proof, deep_poly_opening, *iota_n);
+                result
+            })
     }
 
     /// Verifies the openings of a fold polynomial of an inner layer of FRI.
@@ -1002,7 +1246,6 @@ pub trait IsStarkVerifier<A: AIR> {
                 },
             )
     }
-
     fn reconstruct_deep_composition_poly_evaluations_for_all_queries(
         challenges: &Challenges<A>,
         domain: &Domain<A::Field>,
@@ -1060,11 +1303,183 @@ pub trait IsStarkVerifier<A: AIR> {
         (deep_poly_evaluations, deep_poly_evaluations_sym)
     }
 
+    fn multi_table_reconstruct_deep_composition_poly_evaluations_for_all_queries(
+        challenges: &MultiTraceChallenges<A>,
+        domain: &Domain<A::Field>,
+        proof: &MultiTraceStarkProof<A::Field, A::FieldExtension>,
+    ) -> (
+        DeepPolynomialEvaluations<A::FieldExtension>,
+        DeepPolynomialEvaluations<A::FieldExtension>,
+    ) {
+        let mut deep_poly_evaluations_1 = Vec::new();
+        let mut deep_poly_evaluations_2 = Vec::new();
+
+        let mut deep_poly_evaluations_sym_1 = Vec::new();
+        let mut deep_poly_evaluations_sym_2 = Vec::new();
+
+        for (i, iota) in challenges.iotas_1.iter().enumerate() {
+            let primitive_root =
+                &A::Field::get_primitive_root_of_unity(domain.root_order as u64).unwrap();
+
+            let mut evaluations_1: Vec<FieldElement<A::FieldExtension>> = proof
+                .deep_poly_openings_1[i]
+                .main_trace_polys
+                .evaluations
+                .clone()
+                .into_iter()
+                .map(|x| x.to_extension())
+                .collect();
+            if let Some(aux_trace_polys) = &proof.deep_poly_openings_1[i].aux_trace_polys {
+                evaluations_1.extend_from_slice(&aux_trace_polys.evaluations);
+            }
+
+            let evaluation_point_1 = Self::query_challenge_to_evaluation_point(*iota, domain);
+            deep_poly_evaluations_1.push(Self::reconstruct_deep_composition_poly_evaluation_1(
+                proof,
+                &evaluation_point_1,
+                primitive_root,
+                challenges,
+                &evaluations_1,
+                &proof.deep_poly_openings_1[i].composition_poly.evaluations,
+            ));
+
+            let mut evaluations_sym_1: Vec<FieldElement<A::FieldExtension>> = proof
+                .deep_poly_openings_1[i]
+                .main_trace_polys
+                .evaluations_sym
+                .clone()
+                .into_iter()
+                .map(|x| x.to_extension())
+                .collect();
+            if let Some(aux_trace_polys) = &proof.deep_poly_openings_1[i].aux_trace_polys {
+                evaluations_sym_1.extend_from_slice(&aux_trace_polys.evaluations_sym);
+            }
+
+            let evaluation_point_1 = Self::query_challenge_to_evaluation_point_sym(*iota, domain);
+            deep_poly_evaluations_sym_1.push(Self::reconstruct_deep_composition_poly_evaluation(
+                proof,
+                &evaluation_point_1,
+                primitive_root,
+                challenges,
+                &evaluations_sym,
+                &proof.deep_poly_openings_1[i]
+                    .composition_poly
+                    .evaluations_sym,
+            ));
+        }
+
+        for (i, iota) in challenges.iotas_2.iter().enumerate() {
+            let primitive_root =
+                &A::Field::get_primitive_root_of_unity(domain.root_order as u64).unwrap();
+
+            let mut evaluations_2: Vec<FieldElement<A::FieldExtension>> = proof
+                .deep_poly_openings_2[i]
+                .main_trace_polys
+                .evaluations
+                .clone()
+                .into_iter()
+                .map(|x| x.to_extension())
+                .collect();
+            if let Some(aux_trace_polys) = &proof.deep_poly_openings_2[i].aux_trace_polys {
+                evaluations_2.extend_from_slice(&aux_trace_polys.evaluations);
+            }
+
+            let evaluation_point_1 = Self::query_challenge_to_evaluation_point(*iota, domain);
+            deep_poly_evaluations_1.push(Self::reconstruct_deep_composition_poly_evaluation_1(
+                proof,
+                &evaluation_point_2,
+                primitive_root,
+                challenges,
+                &evaluations_2,
+                &proof.deep_poly_openings_2[i].composition_poly.evaluations,
+            ));
+
+            let mut evaluations_sym_2: Vec<FieldElement<A::FieldExtension>> = proof
+                .deep_poly_openings_2[i]
+                .main_trace_polys
+                .evaluations_sym
+                .clone()
+                .into_iter()
+                .map(|x| x.to_extension())
+                .collect();
+            if let Some(aux_trace_polys) = &proof.deep_poly_openings_2[i].aux_trace_polys {
+                evaluations_sym_2.extend_from_slice(&aux_trace_polys.evaluations_sym);
+            }
+
+            let evaluation_point_1 = Self::query_challenge_to_evaluation_point_sym(*iota, domain);
+            deep_poly_evaluations_sym.push(Self::reconstruct_deep_composition_poly_evaluation(
+                proof,
+                &evaluation_point_1,
+                primitive_root,
+                challenges,
+                &evaluations_sym,
+                &proof.deep_poly_openings_1[i]
+                    .composition_poly
+                    .evaluations_sym,
+            ));
+        }
+        (
+            (deep_poly_evaluations_1, deep_poly_evaluations_sym_1),
+            (deep_poly_evaluations_2, deep_poly_evaluations_sym_2),
+        )
+    }
+
     fn reconstruct_deep_composition_poly_evaluation(
         proof: &StarkProof<A::Field, A::FieldExtension>,
         evaluation_point: &FieldElement<A::Field>,
         primitive_root: &FieldElement<A::Field>,
         challenges: &Challenges<A>,
+        lde_trace_evaluations: &[FieldElement<A::FieldExtension>],
+        lde_composition_poly_parts_evaluation: &[FieldElement<A::FieldExtension>],
+    ) -> FieldElement<A::FieldExtension> {
+        let ood_evaluations_table_height = proof.trace_ood_evaluations.height;
+        let ood_evaluations_table_width = proof.trace_ood_evaluations.width;
+        let trace_term_coeffs = &challenges.trace_term_coeffs;
+        debug_assert_eq!(
+            ood_evaluations_table_height * ood_evaluations_table_width,
+            trace_term_coeffs.len() * trace_term_coeffs[0].len()
+        );
+
+        let mut denoms_trace = (0..ood_evaluations_table_height)
+            .map(|row_idx| evaluation_point - primitive_root.pow(row_idx as u64) * &challenges.z)
+            .collect::<Vec<FieldElement<A::FieldExtension>>>();
+        FieldElement::inplace_batch_inverse(&mut denoms_trace).unwrap();
+
+        let trace_term = (0..ood_evaluations_table_width)
+            .zip(&challenges.trace_term_coeffs)
+            .fold(FieldElement::zero(), |trace_terms, (col_idx, coeff_row)| {
+                let trace_i = (0..ood_evaluations_table_height).zip(coeff_row).fold(
+                    FieldElement::zero(),
+                    |trace_t, (row_idx, coeff)| {
+                        let poly_evaluation = (lde_trace_evaluations[col_idx].clone()
+                            - proof.trace_ood_evaluations.get_row(row_idx)[col_idx].clone())
+                            * &denoms_trace[row_idx];
+                        trace_t + &poly_evaluation * coeff
+                    },
+                );
+                trace_terms + trace_i
+            });
+
+        let number_of_parts = lde_composition_poly_parts_evaluation.len();
+        let z_pow = &challenges.z.pow(number_of_parts);
+
+        let denom_composition = (evaluation_point - z_pow).inv().unwrap();
+        let mut h_terms = FieldElement::zero();
+        for (j, h_i_upsilon) in lde_composition_poly_parts_evaluation.iter().enumerate() {
+            let h_i_zpower = &proof.composition_poly_parts_ood_evaluation[j];
+            let h_i_term = (h_i_upsilon - h_i_zpower) * &challenges.gammas[j];
+            h_terms += h_i_term;
+        }
+        h_terms *= denom_composition;
+
+        trace_term + h_terms
+    }
+
+    fn multi_trace_reconstruct_deep_composition_poly_evaluation(
+        proof: &MultiTraceStarkProof<A::Field, A::FieldExtension>,
+        evaluation_point_1: &FieldElement<A::Field>,
+        primitive_root: &FieldElement<A::Field>,
+        challenges: &MultiTraceChallenges<A>,
         lde_trace_evaluations: &[FieldElement<A::FieldExtension>],
         lde_composition_poly_parts_evaluation: &[FieldElement<A::FieldExtension>],
     ) -> FieldElement<A::FieldExtension> {
@@ -1236,7 +1651,10 @@ pub trait IsStarkVerifier<A: AIR> {
         FieldElement<A::FieldExtension>: AsBytes + Sync + Send,
     {
         // Verify there are enough queries
-        if proof.query_list.len() < proof_options.fri_number_of_queries {
+        if proof.query_list_1.len() < proof_options.fri_number_of_queries {
+            return false;
+        }
+        if proof.query_list_2.len() < proof_options.fri_number_of_queries {
             return false;
         }
 
@@ -1283,7 +1701,7 @@ pub trait IsStarkVerifier<A: AIR> {
 
         if !Self::multi_trace_step_2_verify_claimed_composition_polynomial(
             &air_1,
-            &air_2
+            &air_2,
             proof,
             &domain,
             &challenges,
@@ -1318,7 +1736,7 @@ pub trait IsStarkVerifier<A: AIR> {
         let timer4 = Instant::now();
 
         #[allow(clippy::let_and_return)]
-        if !Self::step_4_verify_trace_and_composition_openings(proof, &challenges) {
+        if !Self::multi_trace_step_4_verify_trace_and_composition_openings(proof, &challenges) {
             error!("DEEP Composition Polynomial verification failed");
             return false;
         }
