@@ -68,6 +68,52 @@ pub struct StarkProof<F: IsSubFieldOf<E>, E: IsField> {
     pub nonce: Option<u64>,
 }
 
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+pub struct MultiTraceStarkProof<F: IsSubFieldOf<E>, E: IsField> {
+    // Length of the execution trace
+    pub trace_length: usize,
+    // Commitments of the trace columns
+    // [tⱼ]
+    pub lde_trace_main_merkle_root_1: Commitment,
+    pub lde_trace_main_merkle_root_2: Commitment,
+    // Commitments of auxiliary trace columns
+    // [tⱼ]
+    pub lde_trace_aux_merkle_root_1: Option<Commitment>,
+    pub lde_trace_aux_merkle_root_2: Option<Commitment>,
+
+    // tⱼ(zgᵏ)
+    pub trace_ood_evaluations_1: Table<E>,
+    pub trace_ood_evaluations_2: Table<E>,
+
+    // Commitments to Hᵢ
+    pub composition_poly_root_1: Commitment,
+    pub composition_poly_root_2: Commitment,
+
+    // Hᵢ(z^N)
+    pub composition_poly_parts_ood_evaluation_1: Vec<FieldElement<E>>,
+    pub composition_poly_parts_ood_evaluation_2: Vec<FieldElement<E>>,
+
+    // [pₖ]
+    pub fri_layers_merkle_roots_1: Vec<Commitment>,
+    pub fri_layers_merkle_roots_2: Vec<Commitment>,
+
+    // pₙ
+    pub fri_last_value_1: FieldElement<E>,
+    pub fri_last_value_2: FieldElement<E>,
+
+    // Open(pₖ(Dₖ), −𝜐ₛ^(2ᵏ))
+    pub query_list_1: Vec<FriDecommitment<E>>,
+    pub query_list_2: Vec<FriDecommitment<E>>,
+
+    // Open(H₁(D_LDE, 𝜐ᵢ), Open(H₂(D_LDE, 𝜐ᵢ), Open(tⱼ(D_LDE), 𝜐ᵢ)
+    // Open(H₁(D_LDE, -𝜐ᵢ), Open(H₂(D_LDE, -𝜐ᵢ), Open(tⱼ(D_LDE), -𝜐ᵢ)
+    pub deep_poly_openings_1: DeepPolynomialOpenings<F, E>,
+    pub deep_poly_openings_2: DeepPolynomialOpenings<F, E>,
+
+    // nonce obtained from grinding
+    pub nonce: Option<u64>,
+}
+
 /// Serializer compatible with Stone prover
 /// (https://github.com/starkware-libs/stone-prover/)
 pub struct StoneCompatibleSerializer;
