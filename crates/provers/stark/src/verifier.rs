@@ -7,7 +7,10 @@ use super::{
     traits::{TransitionEvaluationContext, AIR},
 };
 use crate::{config::Commitment, proof::stark::DeepPolynomialOpening};
-use lambdaworks_crypto::{fiat_shamir::is_transcript::IsTranscript, merkle_tree::proof::Proof};
+use lambdaworks_crypto::{
+    fiat_shamir::is_transcript::IsTranscript,
+    merkle_tree::proof::{self, Proof},
+};
 use lambdaworks_math::{
     fft::cpu::bit_reversing::reverse_index,
     field::{
@@ -779,65 +782,133 @@ pub trait IsStarkVerifier<A: AIR> {
         let rap_challenges_1 = Self::replay_round1(&air_1, &proofs.0, &mut transcript);
         let rap_challenges_2 = Self::replay_round1(&air_2, &proofs.1, &mut transcript);
 
-        // Then, for each table, replay rounds 2–4 and run the usual verification steps.
-        let challenges_1 = Self::replay_rounds_after_round1(
+        Self::single_table_verify(
             &air_1,
             &proofs.0,
             &domain_1,
             &mut transcript,
             rap_challenges_1,
-        );
-
-        // verify grinding
-        let security_bits = air_1.context().proof_options.grinding_factor;
-        if security_bits > 0 {
-            let nonce_is_valid = proofs.0.nonce.map_or(false, |nonce_value| {
-                grinding::is_valid_nonce(&challenges_1.grinding_seed, nonce_value, security_bits)
-            });
-
-            if !nonce_is_valid {
-                error!("Grinding factor not satisfied for table 1");
-                return false;
-            }
-        }
-
-        if !Self::step_2_verify_claimed_composition_polynomial(
-            &air_1,
-            &proofs.0,
-            &domain_1,
-            &challenges_1,
-        ) {
-            #[cfg(not(feature = "test_fiat_shamir"))]
-            error!("Composition Polynomial verification failed for table 1");
-            return false;
-        }
-
-        if !Self::step_3_verify_fri(&proofs.0, &domain_1, &challenges_1) {
-            #[cfg(not(feature = "test_fiat_shamir"))]
-            error!("FRI verification failed for table 1");
-            return false;
-        }
-
-        if !Self::step_4_verify_trace_and_composition_openings(&proofs.0, &challenges_1) {
-            #[cfg(not(feature = "test_fiat_shamir"))]
-            error!("DEEP Composition Polynomial verification failed for table 1");
-            return false;
-        }
-
-        println!("multi_table_verify: verify table 2");
-        let challenges_2 = Self::replay_rounds_after_round1(
+        ) && Self::single_table_verify(
             &air_2,
             &proofs.1,
             &domain_2,
             &mut transcript,
             rap_challenges_2,
-        );
+        )
+
+        // // TODO. Delete all this part if we want to use the function `single_table_verify`.
+        // // Then, for each table, replay rounds 2–4 and run the usual verification steps.
+        // let challenges_1 = Self::replay_rounds_after_round1(
+        //     &air_1,
+        //     &proofs.0,
+        //     &domain_1,
+        //     &mut transcript,
+        //     rap_challenges_1,
+        // );
+
+        // // verify grinding
+        // let security_bits = air_1.context().proof_options.grinding_factor;
+        // if security_bits > 0 {
+        //     let nonce_is_valid = proofs.0.nonce.map_or(false, |nonce_value| {
+        //         grinding::is_valid_nonce(&challenges_1.grinding_seed, nonce_value, security_bits)
+        //     });
+
+        //     if !nonce_is_valid {
+        //         error!("Grinding factor not satisfied for table 1");
+        //         return false;
+        //     }
+        // }
+
+        // if !Self::step_2_verify_claimed_composition_polynomial(
+        //     &air_1,
+        //     &proofs.0,
+        //     &domain_1,
+        //     &challenges_1,
+        // ) {
+        //     #[cfg(not(feature = "test_fiat_shamir"))]
+        //     error!("Composition Polynomial verification failed for table 1");
+        //     return false;
+        // }
+
+        // if !Self::step_3_verify_fri(&proofs.0, &domain_1, &challenges_1) {
+        //     #[cfg(not(feature = "test_fiat_shamir"))]
+        //     error!("FRI verification failed for table 1");
+        //     return false;
+        // }
+
+        // if !Self::step_4_verify_trace_and_composition_openings(&proofs.0, &challenges_1) {
+        //     #[cfg(not(feature = "test_fiat_shamir"))]
+        //     error!("DEEP Composition Polynomial verification failed for table 1");
+        //     return false;
+        // }
+
+        // println!("multi_table_verify: verify table 2");
+        // let challenges_2 = Self::replay_rounds_after_round1(
+        //     &air_2,
+        //     &proofs.1,
+        //     &domain_2,
+        //     &mut transcript,
+        //     rap_challenges_2,
+        // );
+
+        // // verify grinding
+        // let security_bits = air_2.context().proof_options.grinding_factor;
+        // if security_bits > 0 {
+        //     let nonce_is_valid = proofs.1.nonce.map_or(false, |nonce_value| {
+        //         grinding::is_valid_nonce(&challenges_2.grinding_seed, nonce_value, security_bits)
+        //     });
+
+        //     if !nonce_is_valid {
+        //         error!("Grinding factor not satisfied for table 2");
+        //         return false;
+        //     }
+        // }
+
+        // if !Self::step_2_verify_claimed_composition_polynomial(
+        //     &air_2,
+        //     &proofs.1,
+        //     &domain_2,
+        //     &challenges_2,
+        // ) {
+        //     #[cfg(not(feature = "test_fiat_shamir"))]
+        //     error!("Composition Polynomial verification failed for table 2");
+        //     return false;
+        // }
+
+        // if !Self::step_3_verify_fri(&proofs.1, &domain_2, &challenges_2) {
+        //     #[cfg(not(feature = "test_fiat_shamir"))]
+        //     error!("FRI verification failed for table 2");
+        //     return false;
+        // }
+
+        // if !Self::step_4_verify_trace_and_composition_openings(&proofs.1, &challenges_2) {
+        //     #[cfg(not(feature = "test_fiat_shamir"))]
+        //     error!("DEEP Composition Polynomial verification failed for table 2");
+        //     return false;
+        // }
+
+        // true
+    }
+
+    fn single_table_verify(
+        air: &A,
+        proof: &StarkProof<A::Field, A::FieldExtension>,
+        domain: &Domain<A::Field>,
+        transcript: &mut impl IsTranscript<A::FieldExtension>,
+        rap_challenges: Vec<FieldElement<A::FieldExtension>>,
+    ) -> bool
+    where
+        FieldElement<A::Field>: AsBytes + Sync + Send,
+        FieldElement<A::FieldExtension>: AsBytes + Sync + Send,
+    {
+        let challenges =
+            Self::replay_rounds_after_round1(&air, &proof, &domain, transcript, rap_challenges);
 
         // verify grinding
-        let security_bits = air_2.context().proof_options.grinding_factor;
+        let security_bits = air.context().proof_options.grinding_factor;
         if security_bits > 0 {
-            let nonce_is_valid = proofs.1.nonce.map_or(false, |nonce_value| {
-                grinding::is_valid_nonce(&challenges_2.grinding_seed, nonce_value, security_bits)
+            let nonce_is_valid = proof.nonce.map_or(false, |nonce_value| {
+                grinding::is_valid_nonce(&challenges.grinding_seed, nonce_value, security_bits)
             });
 
             if !nonce_is_valid {
@@ -846,24 +917,19 @@ pub trait IsStarkVerifier<A: AIR> {
             }
         }
 
-        if !Self::step_2_verify_claimed_composition_polynomial(
-            &air_2,
-            &proofs.1,
-            &domain_2,
-            &challenges_2,
-        ) {
+        if !Self::step_2_verify_claimed_composition_polynomial(&air, &proof, &domain, &challenges) {
             #[cfg(not(feature = "test_fiat_shamir"))]
             error!("Composition Polynomial verification failed for table 2");
             return false;
         }
 
-        if !Self::step_3_verify_fri(&proofs.1, &domain_2, &challenges_2) {
+        if !Self::step_3_verify_fri(&proof, &domain, &challenges) {
             #[cfg(not(feature = "test_fiat_shamir"))]
             error!("FRI verification failed for table 2");
             return false;
         }
 
-        if !Self::step_4_verify_trace_and_composition_openings(&proofs.1, &challenges_2) {
+        if !Self::step_4_verify_trace_and_composition_openings(&proof, &challenges) {
             #[cfg(not(feature = "test_fiat_shamir"))]
             error!("DEEP Composition Polynomial verification failed for table 2");
             return false;
