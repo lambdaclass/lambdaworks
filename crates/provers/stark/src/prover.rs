@@ -348,6 +348,7 @@ pub trait IsStarkProver<A: AIR> {
         else {
             return Err(ProvingError::EmptyCommitment);
         };
+        println!("prover round1 main root {:?}", main_merkle_root);
 
         let main = Round1CommitmentData::<A::Field> {
             trace_polys,
@@ -367,6 +368,7 @@ pub trait IsStarkProver<A: AIR> {
             else {
                 return Err(ProvingError::EmptyCommitment);
             };
+            println!("prover round1 aux root {:?}", aux_merkle_root);
             let aux_evaluations = aux_trace_polys_evaluations;
             let aux = Some(Round1CommitmentData::<A::FieldExtension> {
                 trace_polys: aux_trace_polys,
@@ -891,6 +893,7 @@ pub trait IsStarkProver<A: AIR> {
 
         let domain = Domain::new(&air_1);
 
+        println!("multi_table_prove: starting round 1 for table 1");
         let round_1_result_1 = Self::round_1_randomized_air_with_preprocessing(
             &air_1,
             trace_1,
@@ -898,6 +901,7 @@ pub trait IsStarkProver<A: AIR> {
             &mut transcript,
         )?;
 
+        println!("multi_table_prove: starting round 1 for table 2");
         let round_1_result_2 = Self::round_1_randomized_air_with_preprocessing(
             &air_2,
             trace_2,
@@ -962,8 +966,7 @@ pub trait IsStarkProver<A: AIR> {
         #[cfg(feature = "instruments")]
         let timer1 = Instant::now();
 
-        let round_1_result =
-            Self::round_1_randomized_air_with_preprocessing(&air, trace, &domain, transcript)?;
+        let round_1_result = round_1_result;
 
         #[cfg(debug_assertions)]
         validate_trace(
@@ -994,6 +997,8 @@ pub trait IsStarkProver<A: AIR> {
 
         // <<<< Receive challenge: 𝛽
         let beta = transcript.sample_field_element();
+        println!("single_table_prove: sampled beta:{:?}", beta);
+
         let num_boundary_constraints = air
             .boundary_constraints(&round_1_result.rap_challenges)
             .constraints
@@ -1040,6 +1045,8 @@ pub trait IsStarkProver<A: AIR> {
             &domain.lde_roots_of_unity_coset,
             &domain.trace_roots_of_unity,
         );
+        // Debug print to follow randomness flow on multi-table proofs.
+        println!("single_table_prove: sampled z{:?}", z);
 
         let round_3_result = Self::round_3_evaluate_polynomials_in_out_of_domain_element(
             &air,
@@ -1111,9 +1118,9 @@ pub trait IsStarkProver<A: AIR> {
 
         Ok(StarkProof::<A::Field, A::FieldExtension> {
             // [t]
-            lde_trace_main_merkle_root: round_1_result.main.lde_trace_merkle_root,
+            lde_trace_main_merkle_root: round_1_result.main.lde_trace_merkle_root.clone(),
             // [t]
-            lde_trace_aux_merkle_root: round_1_result.aux.map(|x| x.lde_trace_merkle_root),
+            lde_trace_aux_merkle_root: round_1_result.aux.as_ref().map(|x| x.lde_trace_merkle_root),
             // tⱼ(zgᵏ)
             trace_ood_evaluations: round_3_result.trace_ood_evaluations,
             // [H₁] and [H₂]
@@ -1207,6 +1214,7 @@ pub trait IsStarkProver<A: AIR> {
 
         // <<<< Receive challenge: 𝛽
         let beta = transcript.sample_field_element();
+        println!("single_table_prove: beta {:?}", beta);
         let num_boundary_constraints = air
             .boundary_constraints(&round_1_result.rap_challenges)
             .constraints
@@ -1253,6 +1261,7 @@ pub trait IsStarkProver<A: AIR> {
             &domain.lde_roots_of_unity_coset,
             &domain.trace_roots_of_unity,
         );
+        println!("single_table_prove: z {:?}", z);
 
         let round_3_result = Self::round_3_evaluate_polynomials_in_out_of_domain_element(
             &air,

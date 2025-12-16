@@ -88,11 +88,16 @@ pub trait IsStarkVerifier<A: AIR> {
 
         // <<<< Receive commitments:[tⱼ]
         transcript.append_bytes(&proof.lde_trace_main_merkle_root);
+        println!(
+            "verifier: replay round 1 main root {:?}",
+            proof.lde_trace_main_merkle_root
+        );
 
         let rap_challenges = air.build_rap_challenges(transcript);
 
         if let Some(root) = proof.lde_trace_aux_merkle_root {
             transcript.append_bytes(&root);
+            println!("verifier: replay round 1 aux root {:?}", root);
         }
 
         // ===================================
@@ -101,6 +106,7 @@ pub trait IsStarkVerifier<A: AIR> {
 
         // <<<< Receive challenge: 𝛽
         let beta = transcript.sample_field_element();
+        println!("verifier: sampled beta {:?}", beta);
         let num_boundary_constraints = air.boundary_constraints(&rap_challenges).constraints.len();
 
         let num_transition_constraints = air.context().num_transition_constraints;
@@ -124,6 +130,7 @@ pub trait IsStarkVerifier<A: AIR> {
             &domain.lde_roots_of_unity_coset,
             &domain.trace_roots_of_unity,
         );
+        println!("verifier: sampled z {:?}", z);
 
         // <<<< Receive values: tⱼ(zgᵏ)
         let trace_ood_evaluations_columns = proof.trace_ood_evaluations.columns();
@@ -145,6 +152,7 @@ pub trait IsStarkVerifier<A: AIR> {
         let num_terms_trace =
             air.context().transition_offsets.len() * A::STEP_SIZE * air.context().trace_columns;
         let gamma = transcript.sample_field_element();
+        println!("verifier: sampled gamma {:?}", gamma);
 
         // <<<< Receive challenges: 𝛾, 𝛾'
         let mut deep_composition_coefficients: Vec<_> =
@@ -195,6 +203,7 @@ pub trait IsStarkVerifier<A: AIR> {
         // <<<< Send challenges 𝜄ₛ (iota_s)
         let number_of_queries = air.options().fri_number_of_queries;
         let iotas = Self::sample_query_indexes(number_of_queries, domain, transcript);
+        println!("verifier: sampled iotas {:?}", iotas);
 
         Challenges {
             z,
@@ -725,7 +734,12 @@ pub trait IsStarkVerifier<A: AIR> {
         FieldElement<A::Field>: AsBytes + Sync + Send,
         FieldElement<A::FieldExtension>: AsBytes + Sync + Send,
     {
+        println!("multi_table_verify: verify table 1");
         Self::verify(&proofs.0, &pub_inputs[0], proof_options, &mut transcript)
+            && {
+                println!("multi_table_verify: verify table 2");
+                true
+            }
             && Self::verify(&proofs.1, &pub_inputs[1], proof_options, &mut transcript)
     }
 
