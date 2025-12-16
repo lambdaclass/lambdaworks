@@ -997,7 +997,7 @@ pub trait IsStarkProver<A: AIR> {
 
         // <<<< Receive challenge: 𝛽
         let beta = transcript.sample_field_element();
-        println!("single_table_prove: sampled beta:{:?}", beta);
+        println!("single_table_prove: sampled beta: {:?}", beta);
 
         let num_boundary_constraints = air
             .boundary_constraints(&round_1_result.rap_challenges)
@@ -1046,7 +1046,7 @@ pub trait IsStarkProver<A: AIR> {
             &domain.trace_roots_of_unity,
         );
         // Debug print to follow randomness flow on multi-table proofs.
-        println!("single_table_prove: sampled z{:?}", z);
+        println!("single_table_prove: sampled z: {:?}", z);
 
         let round_3_result = Self::round_3_evaluate_polynomials_in_out_of_domain_element(
             &air,

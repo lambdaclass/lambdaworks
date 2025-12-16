@@ -71,13 +71,14 @@ pub trait IsStarkVerifier<A: AIR> {
             .collect::<Vec<usize>>()
     }
 
-    /// Returns the list of challenges sent to the prover.
-    fn step_1_replay_rounds_and_recover_challenges(
+    /// Replays round 1 of the protocol for a given proof, appending the main and auxiliary
+    /// trace commitments to the transcript and returning the RAP challenges.
+    /// We need to split because the prover commits to all traces before sampling any further randomness.
+    fn replay_round1(
         air: &A,
         proof: &StarkProof<A::Field, A::FieldExtension>,
-        domain: &Domain<A::Field>,
         transcript: &mut impl IsTranscript<A::FieldExtension>,
-    ) -> Challenges<A>
+    ) -> Vec<FieldElement<A::FieldExtension>>
     where
         FieldElement<A::Field>: AsBytes,
         FieldElement<A::FieldExtension>: AsBytes,
@@ -100,6 +101,23 @@ pub trait IsStarkVerifier<A: AIR> {
             println!("verifier: replay round 1 aux root {:?}", root);
         }
 
+        rap_challenges
+    }
+
+    /// Replays rounds 2, 3 and 4 of the protocol for a given proof, assuming round 1 has
+    /// already been replayed and the RAP challenges are known. Returns the assembled list
+    /// of challenges used throughout the verification.
+    fn replay_rounds_after_round1(
+        air: &A,
+        proof: &StarkProof<A::Field, A::FieldExtension>,
+        domain: &Domain<A::Field>,
+        transcript: &mut impl IsTranscript<A::FieldExtension>,
+        rap_challenges: Vec<FieldElement<A::FieldExtension>>,
+    ) -> Challenges<A>
+    where
+        FieldElement<A::Field>: AsBytes,
+        FieldElement<A::FieldExtension>: AsBytes,
+    {
         // ===================================
         // ==========|   Round 2   |==========
         // ===================================
@@ -216,6 +234,21 @@ pub trait IsStarkVerifier<A: AIR> {
             rap_challenges,
             grinding_seed,
         }
+    }
+
+    /// Returns the list of challenges sent to the prover.
+    fn step_1_replay_rounds_and_recover_challenges(
+        air: &A,
+        proof: &StarkProof<A::Field, A::FieldExtension>,
+        domain: &Domain<A::Field>,
+        transcript: &mut impl IsTranscript<A::FieldExtension>,
+    ) -> Challenges<A>
+    where
+        FieldElement<A::Field>: AsBytes,
+        FieldElement<A::FieldExtension>: AsBytes,
+    {
+        let rap_challenges = Self::replay_round1(air, proof, transcript);
+        Self::replay_rounds_after_round1(air, proof, domain, transcript, rap_challenges)
     }
 
     /// Checks whether the purported evaluations of the composition polynomial parts and the trace
@@ -734,13 +767,109 @@ pub trait IsStarkVerifier<A: AIR> {
         FieldElement<A::Field>: AsBytes + Sync + Send,
         FieldElement<A::FieldExtension>: AsBytes + Sync + Send,
     {
+        // Build AIR and domain for each table.
+        let air_1 = A::new(proofs.0.trace_length, &pub_inputs[0], proof_options);
+        let air_2 = A::new(proofs.1.trace_length, &pub_inputs[1], proof_options);
+        let domain_1 = Domain::new(&air_1);
+        let domain_2 = Domain::new(&air_2);
+
+        // First, replay round 1 for both tables so the transcript state matches the prover,
+        // which commits to both traces before sampling any further randomness.
         println!("multi_table_verify: verify table 1");
-        Self::verify(&proofs.0, &pub_inputs[0], proof_options, &mut transcript)
-            && {
-                println!("multi_table_verify: verify table 2");
-                true
+        let rap_challenges_1 = Self::replay_round1(&air_1, &proofs.0, &mut transcript);
+        let rap_challenges_2 = Self::replay_round1(&air_2, &proofs.1, &mut transcript);
+
+        // Then, for each table, replay rounds 2–4 and run the usual verification steps.
+        let challenges_1 = Self::replay_rounds_after_round1(
+            &air_1,
+            &proofs.0,
+            &domain_1,
+            &mut transcript,
+            rap_challenges_1,
+        );
+
+        // verify grinding
+        let security_bits = air_1.context().proof_options.grinding_factor;
+        if security_bits > 0 {
+            let nonce_is_valid = proofs.0.nonce.map_or(false, |nonce_value| {
+                grinding::is_valid_nonce(&challenges_1.grinding_seed, nonce_value, security_bits)
+            });
+
+            if !nonce_is_valid {
+                error!("Grinding factor not satisfied for table 1");
+                return false;
             }
-            && Self::verify(&proofs.1, &pub_inputs[1], proof_options, &mut transcript)
+        }
+
+        if !Self::step_2_verify_claimed_composition_polynomial(
+            &air_1,
+            &proofs.0,
+            &domain_1,
+            &challenges_1,
+        ) {
+            #[cfg(not(feature = "test_fiat_shamir"))]
+            error!("Composition Polynomial verification failed for table 1");
+            return false;
+        }
+
+        if !Self::step_3_verify_fri(&proofs.0, &domain_1, &challenges_1) {
+            #[cfg(not(feature = "test_fiat_shamir"))]
+            error!("FRI verification failed for table 1");
+            return false;
+        }
+
+        if !Self::step_4_verify_trace_and_composition_openings(&proofs.0, &challenges_1) {
+            #[cfg(not(feature = "test_fiat_shamir"))]
+            error!("DEEP Composition Polynomial verification failed for table 1");
+            return false;
+        }
+
+        println!("multi_table_verify: verify table 2");
+        let challenges_2 = Self::replay_rounds_after_round1(
+            &air_2,
+            &proofs.1,
+            &domain_2,
+            &mut transcript,
+            rap_challenges_2,
+        );
+
+        // verify grinding
+        let security_bits = air_2.context().proof_options.grinding_factor;
+        if security_bits > 0 {
+            let nonce_is_valid = proofs.1.nonce.map_or(false, |nonce_value| {
+                grinding::is_valid_nonce(&challenges_2.grinding_seed, nonce_value, security_bits)
+            });
+
+            if !nonce_is_valid {
+                error!("Grinding factor not satisfied for table 2");
+                return false;
+            }
+        }
+
+        if !Self::step_2_verify_claimed_composition_polynomial(
+            &air_2,
+            &proofs.1,
+            &domain_2,
+            &challenges_2,
+        ) {
+            #[cfg(not(feature = "test_fiat_shamir"))]
+            error!("Composition Polynomial verification failed for table 2");
+            return false;
+        }
+
+        if !Self::step_3_verify_fri(&proofs.1, &domain_2, &challenges_2) {
+            #[cfg(not(feature = "test_fiat_shamir"))]
+            error!("FRI verification failed for table 2");
+            return false;
+        }
+
+        if !Self::step_4_verify_trace_and_composition_openings(&proofs.1, &challenges_2) {
+            #[cfg(not(feature = "test_fiat_shamir"))]
+            error!("DEEP Composition Polynomial verification failed for table 2");
+            return false;
+        }
+
+        true
     }
 
     /// Verifies a STARK proof with public inputs `pub_inputs`.
@@ -749,7 +878,7 @@ pub trait IsStarkVerifier<A: AIR> {
         proof: &StarkProof<A::Field, A::FieldExtension>,
         pub_input: &A::PublicInputs,
         proof_options: &ProofOptions,
-        mut transcript: &mut impl IsTranscript<A::FieldExtension>,
+        transcript: &mut impl IsTranscript<A::FieldExtension>,
     ) -> bool
     where
         FieldElement<A::Field>: AsBytes + Sync + Send,
@@ -778,10 +907,10 @@ pub trait IsStarkVerifier<A: AIR> {
                 grinding::is_valid_nonce(&challenges.grinding_seed, nonce_value, security_bits)
             });
 
-            // if !nonce_is_valid {
-            //     error!("Grinding factor not satisfied");
-            //     return false;
-            // }
+            if !nonce_is_valid {
+                error!("Grinding factor not satisfied");
+                return false;
+            }
         }
 
         #[cfg(feature = "instruments")]

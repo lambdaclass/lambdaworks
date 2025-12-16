@@ -356,8 +356,8 @@ fn test_prove_log_read_only_memory() {
 
 #[test_log::test]
 fn test_prove_fib_2_tables() {
-    let mut trace_1 = simple_fibonacci::fibonacci_trace([Felt252::from(1), Felt252::from(1)], 8);
-    let mut trace_2 = simple_fibonacci::fibonacci_trace([Felt252::from(1), Felt252::from(1)], 8);
+    let trace_1 = simple_fibonacci::fibonacci_trace([Felt252::from(1), Felt252::from(1)], 8);
+    let trace_2 = simple_fibonacci::fibonacci_trace([Felt252::from(1), Felt252::from(1)], 8);
 
     let proof_options = ProofOptions::default_test_options();
 
