@@ -891,13 +891,14 @@ pub trait IsStarkProver<A: AIR> {
         let air_1 = A::new(trace_1.num_rows(), &pub_inputs[0], proof_options);
         let air_2 = A::new(trace_2.num_rows(), &pub_inputs[1], proof_options);
 
-        let domain = Domain::new(&air_1);
+        let domain_1 = Domain::new(&air_1);
+        let domain_2 = Domain::new(&air_2);
 
         println!("multi_table_prove: starting round 1 for table 1");
         let round_1_result_1 = Self::round_1_randomized_air_with_preprocessing(
             &air_1,
             trace_1,
-            &domain,
+            &domain_1,
             &mut transcript,
         )?;
 
@@ -905,36 +906,36 @@ pub trait IsStarkProver<A: AIR> {
         let round_1_result_2 = Self::round_1_randomized_air_with_preprocessing(
             &air_2,
             trace_2,
-            &domain,
+            &domain_2,
             &mut transcript,
         )?;
 
         let proof_1 = Self::single_table_prove(
-            &mut trace_1,
-            &pub_inputs[0],
-            proof_options,
+            // &mut trace_1,
+            // &pub_inputs[0],
+            // proof_options,
             &mut transcript,
             &round_1_result_1,
             &air_1,
-            &domain,
+            &domain_1,
         )?;
         let proof_2 = Self::single_table_prove(
-            &mut trace_2,
-            &pub_inputs[1],
-            proof_options,
+            // &mut trace_2,
+            // &pub_inputs[1],
+            // proof_options,
             &mut transcript,
             &round_1_result_2,
             &air_2,
-            &domain,
+            &domain_2,
         )?;
 
         Ok((proof_1, proof_2))
     }
 
     fn single_table_prove(
-        trace: &mut TraceTable<A::Field, A::FieldExtension>,
-        pub_inputs: &A::PublicInputs,
-        proof_options: &ProofOptions,
+        // trace: &mut TraceTable<A::Field, A::FieldExtension>,
+        // pub_inputs: &A::PublicInputs,
+        // proof_options: &ProofOptions,
         mut transcript: &mut impl IsTranscript<A::FieldExtension>,
         round_1_result: &Round1<A>,
         air: &A,
@@ -966,7 +967,7 @@ pub trait IsStarkProver<A: AIR> {
         #[cfg(feature = "instruments")]
         let timer1 = Instant::now();
 
-        let round_1_result = round_1_result;
+        //let round_1_result = round_1_result;
 
         #[cfg(debug_assertions)]
         validate_trace(
