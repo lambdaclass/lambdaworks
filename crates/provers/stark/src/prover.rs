@@ -867,9 +867,11 @@ pub trait IsStarkProver<A: AIR> {
         openings
     }
 
-    fn multi_table_prove(
+    /// Generates a multi table proof which contains a STARK proof for each trace and its public inputs.
+    /// Warning: the transcript must be safely initializated before passing it to this method.
+    fn prove(
         traces: &mut [TraceTable<A::Field, A::FieldExtension>],
-        pub_inputs: &[A::PublicInputs],
+        pub_inputs: &[&A::PublicInputs],
         proof_options: &ProofOptions,
         mut transcript: impl IsTranscript<A::FieldExtension>,
     ) -> Result<MultiTableProof<A::Field, A::FieldExtension>, ProvingError>
@@ -885,13 +887,13 @@ pub trait IsStarkProver<A: AIR> {
         let mut airs = Vec::new();
         let mut domains = Vec::new();
         for (i, trace) in traces.iter().enumerate() {
-            let air = A::new(trace.num_rows(), &pub_inputs[i], proof_options);
+            let air = A::new(trace.num_rows(), pub_inputs[i], proof_options);
             let domain = Domain::new(&air);
             airs.push(air);
             domains.push(domain);
         }
 
-        // First, perform round 1 for all tables to commit all traces to the transcript
+        // First, perform round 1 for all tables to commit all traces to the transcript.
         let mut round_1_results = Vec::new();
         for i in 0..num_tables {
             let round_1_result = Self::round_1_randomized_air_with_preprocessing(
@@ -903,7 +905,7 @@ pub trait IsStarkProver<A: AIR> {
             round_1_results.push(round_1_result);
         }
 
-        // Then, for each table, perform rounds 2-4
+        // Then, for each table, perform rounds 2-4.
         let mut proofs = Vec::new();
         for i in 0..num_tables {
             let proof = Self::single_table_prove(
@@ -918,10 +920,8 @@ pub trait IsStarkProver<A: AIR> {
         Ok(proofs)
     }
 
+    // FIXME remove unwrap() calls and return errors
     fn single_table_prove(
-        // trace: &mut TraceTable<A::Field, A::FieldExtension>,
-        // pub_inputs: &A::PublicInputs,
-        // proof_options: &ProofOptions,
         transcript: &mut impl IsTranscript<A::FieldExtension>,
         round_1_result: &Round1<A>,
         air: &A,
@@ -1127,219 +1127,6 @@ pub trait IsStarkProver<A: AIR> {
             trace_length: air.trace_length(),
         })
     }
-
-    // FIXME remove unwrap() calls and return errors
-    /// Generates a STARK proof for the trace `main_trace` with public inputs `pub_inputs`.
-    /// Warning: the transcript must be safely initializated before passing it to this method.
-    fn prove(
-        trace: &mut TraceTable<A::Field, A::FieldExtension>,
-        pub_inputs: &A::PublicInputs,
-        proof_options: &ProofOptions,
-        mut transcript: impl IsTranscript<A::FieldExtension>,
-    ) -> Result<StarkProof<A::Field, A::FieldExtension>, ProvingError>
-    where
-        A: Send + Sync,
-        FieldElement<A::Field>: AsBytes + Send + Sync,
-        A::FieldExtension: IsFFTField,
-        FieldElement<A::FieldExtension>: AsBytes + Send + Sync,
-    {
-        info!("Started proof generation...");
-        #[cfg(feature = "instruments")]
-        println!("- Started round 0: Air Initialization");
-        #[cfg(feature = "instruments")]
-        let timer0 = Instant::now();
-
-        let air = A::new(trace.num_rows(), pub_inputs, proof_options);
-        let domain = Domain::new(&air);
-
-        #[cfg(feature = "instruments")]
-        let elapsed0 = timer0.elapsed();
-        #[cfg(feature = "instruments")]
-        println!("  Time spent: {:?}", elapsed0);
-
-        // ===================================
-        // ==========|   Round 1   |==========
-        // ===================================
-
-        #[cfg(feature = "instruments")]
-        println!("- Started round 1: RAP");
-        #[cfg(feature = "instruments")]
-        let timer1 = Instant::now();
-
-        let round_1_result =
-            Self::round_1_randomized_air_with_preprocessing(&air, trace, &domain, &mut transcript)?;
-
-        #[cfg(debug_assertions)]
-        validate_trace(
-            &air,
-            &round_1_result.main.trace_polys,
-            round_1_result
-                .aux
-                .as_ref()
-                .map(|a| &a.trace_polys)
-                .unwrap_or(&vec![]),
-            &domain,
-            &round_1_result.rap_challenges,
-        );
-
-        #[cfg(feature = "instruments")]
-        let elapsed1 = timer1.elapsed();
-        #[cfg(feature = "instruments")]
-        println!("  Time spent: {:?}", elapsed1);
-
-        // ===================================
-        // ==========|   Round 2   |==========
-        // ===================================
-
-        #[cfg(feature = "instruments")]
-        println!("- Started round 2: Compute composition polynomial");
-        #[cfg(feature = "instruments")]
-        let timer2 = Instant::now();
-
-        // <<<< Receive challenge: 𝛽
-        let beta = transcript.sample_field_element();
-        let num_boundary_constraints = air
-            .boundary_constraints(&round_1_result.rap_challenges)
-            .constraints
-            .len();
-
-        let num_transition_constraints = air.context().num_transition_constraints;
-
-        let mut coefficients: Vec<_> =
-            core::iter::successors(Some(FieldElement::one()), |x| Some(x * &beta))
-                .take(num_boundary_constraints + num_transition_constraints)
-                .collect();
-
-        let transition_coefficients: Vec<_> =
-            coefficients.drain(..num_transition_constraints).collect();
-        let boundary_coefficients = coefficients;
-
-        let round_2_result = Self::round_2_compute_composition_polynomial(
-            &air,
-            &domain,
-            &round_1_result,
-            &transition_coefficients,
-            &boundary_coefficients,
-        )?;
-
-        // >>>> Send commitments: [H₁], [H₂]
-        transcript.append_bytes(&round_2_result.composition_poly_root);
-
-        #[cfg(feature = "instruments")]
-        let elapsed2 = timer2.elapsed();
-        #[cfg(feature = "instruments")]
-        println!("  Time spent: {:?}", elapsed2);
-
-        // ===================================
-        // ==========|   Round 3   |==========
-        // ===================================
-
-        #[cfg(feature = "instruments")]
-        println!("- Started round 3: Evaluate polynomial in out of domain elements");
-        #[cfg(feature = "instruments")]
-        let timer3 = Instant::now();
-
-        // <<<< Receive challenge: z
-        let z = transcript.sample_z_ood(
-            &domain.lde_roots_of_unity_coset,
-            &domain.trace_roots_of_unity,
-        );
-
-        let round_3_result = Self::round_3_evaluate_polynomials_in_out_of_domain_element(
-            &air,
-            &domain,
-            &round_1_result,
-            &round_2_result,
-            &z,
-        );
-
-        // >>>> Send values: tⱼ(zgᵏ)
-        let trace_ood_evaluations_columns = round_3_result.trace_ood_evaluations.columns();
-        for col in trace_ood_evaluations_columns.iter() {
-            for elem in col.iter() {
-                transcript.append_field_element(elem);
-            }
-        }
-
-        // >>>> Send values: Hᵢ(z^N)
-        for element in round_3_result.composition_poly_parts_ood_evaluation.iter() {
-            transcript.append_field_element(element);
-        }
-
-        #[cfg(feature = "instruments")]
-        let elapsed3 = timer3.elapsed();
-        #[cfg(feature = "instruments")]
-        println!("  Time spent: {:?}", elapsed3);
-
-        // ===================================
-        // ==========|   Round 4   |==========
-        // ===================================
-
-        #[cfg(feature = "instruments")]
-        println!("- Started round 4: FRI");
-        #[cfg(feature = "instruments")]
-        let timer4 = Instant::now();
-
-        // Part of this round is running FRI, which is an interactive
-        // protocol on its own. Therefore we pass it the transcript
-        // to simulate the interactions with the verifier.
-        let round_4_result = Self::round_4_compute_and_run_fri_on_the_deep_composition_polynomial(
-            &air,
-            &domain,
-            &round_1_result,
-            &round_2_result,
-            &round_3_result,
-            &z,
-            &mut transcript,
-        );
-
-        #[cfg(feature = "instruments")]
-        let elapsed4 = timer4.elapsed();
-        #[cfg(feature = "instruments")]
-        println!("  Time spent: {:?}", elapsed4);
-
-        #[cfg(feature = "instruments")]
-        {
-            let total_time = elapsed1 + elapsed2 + elapsed3 + elapsed4;
-            println!(
-                " Fraction of proving time per round: {:.4} {:.4} {:.4} {:.4} {:.4}",
-                elapsed0.as_nanos() as f64 / total_time.as_nanos() as f64,
-                elapsed1.as_nanos() as f64 / total_time.as_nanos() as f64,
-                elapsed2.as_nanos() as f64 / total_time.as_nanos() as f64,
-                elapsed3.as_nanos() as f64 / total_time.as_nanos() as f64,
-                elapsed4.as_nanos() as f64 / total_time.as_nanos() as f64
-            );
-        }
-
-        info!("End proof generation");
-
-        Ok(StarkProof::<A::Field, A::FieldExtension> {
-            // [t]
-            lde_trace_main_merkle_root: round_1_result.main.lde_trace_merkle_root,
-            // [t]
-            lde_trace_aux_merkle_root: round_1_result.aux.map(|x| x.lde_trace_merkle_root),
-            // tⱼ(zgᵏ)
-            trace_ood_evaluations: round_3_result.trace_ood_evaluations,
-            // [H₁] and [H₂]
-            composition_poly_root: round_2_result.composition_poly_root,
-            // Hᵢ(z^N)
-            composition_poly_parts_ood_evaluation: round_3_result
-                .composition_poly_parts_ood_evaluation,
-            // [pₖ]
-            fri_layers_merkle_roots: round_4_result.fri_layers_merkle_roots,
-            // pₙ
-            fri_last_value: round_4_result.fri_last_value,
-            // Open(p₀(D₀), 𝜐ₛ), Open(pₖ(Dₖ), −𝜐ₛ^(2ᵏ))
-            query_list: round_4_result.query_list,
-            // Open(H₁(D_LDE, 𝜐₀), Open(H₂(D_LDE, 𝜐₀), Open(tⱼ(D_LDE), 𝜐₀)
-            // Open(H₁(D_LDE, -𝜐ᵢ), Open(H₂(D_LDE, -𝜐ᵢ), Open(tⱼ(D_LDE), -𝜐ᵢ)
-            deep_poly_openings: round_4_result.deep_poly_openings,
-            // nonce obtained from grinding
-            nonce: round_4_result.nonce,
-
-            trace_length: air.trace_length(),
-        })
-    }
 }
 
 #[cfg(test)]
@@ -1469,12 +1256,12 @@ mod tests {
     }
 
     fn proof_parts_stone_compatibility_case_1() -> (
-        StarkProof<Stark252PrimeField, Stark252PrimeField>,
+        MultiTableProof<Stark252PrimeField, Stark252PrimeField>,
         fibonacci_2_cols_shifted::PublicInputs<Stark252PrimeField>,
         ProofOptions,
         [u8; 4],
     ) {
-        let mut trace = fibonacci_2_cols_shifted::compute_trace(FieldElement::one(), 4);
+        let trace = fibonacci_2_cols_shifted::compute_trace(FieldElement::one(), 4);
 
         let claimed_index = 3;
         let col = 0;
@@ -1493,8 +1280,8 @@ mod tests {
         let transcript_init_seed = [0xca, 0xfe, 0xca, 0xfe];
 
         let proof = Prover::<Fibonacci2ColsShifted<_>>::prove(
-            &mut trace,
-            &pub_inputs,
+            &mut [trace],
+            &[&pub_inputs],
             &proof_options,
             StoneProverTranscript::new(&transcript_init_seed),
         )
@@ -1504,18 +1291,18 @@ mod tests {
 
     fn stone_compatibility_case_1_proof() -> StarkProof<Stark252PrimeField, Stark252PrimeField> {
         let (proof, _, _, _) = proof_parts_stone_compatibility_case_1();
-        proof
+        proof[0].clone()
     }
 
     fn stone_compatibility_case_1_challenges(
     ) -> Challenges<Fibonacci2ColsShifted<Stark252PrimeField>> {
         let (proof, public_inputs, options, seed) = proof_parts_stone_compatibility_case_1();
 
-        let air = Fibonacci2ColsShifted::new(proof.trace_length, &public_inputs, &options);
+        let air = Fibonacci2ColsShifted::new(proof[0].trace_length, &public_inputs, &options);
         let domain = Domain::new(&air);
         Verifier::step_1_replay_rounds_and_recover_challenges(
             &air,
-            &proof,
+            &proof[0],
             &domain,
             &mut StoneProverTranscript::new(&seed),
         )
@@ -1526,9 +1313,9 @@ mod tests {
         let (proof, public_inputs, options, seed) = proof_parts_stone_compatibility_case_1();
         assert!(Verifier::<Fibonacci2ColsShifted<_>>::verify(
             &proof,
-            &public_inputs,
+            &[public_inputs],
             &options,
-            &mut StoneProverTranscript::new(&seed)
+            StoneProverTranscript::new(&seed)
         ));
     }
 
@@ -1871,7 +1658,7 @@ mod tests {
         ProofOptions,
         [u8; 4],
     ) {
-        let mut trace = fibonacci_2_cols_shifted::compute_trace(FieldElement::from(12345), 512);
+        let trace = fibonacci_2_cols_shifted::compute_trace(FieldElement::from(12345), 512);
 
         let claimed_index = 420;
         let col = 0;
@@ -1890,12 +1677,13 @@ mod tests {
         let transcript_init_seed = [0xfa, 0xfa, 0xfa, 0xee];
 
         let proof = Prover::<Fibonacci2ColsShifted<_>>::prove(
-            &mut trace,
-            &pub_inputs,
+            &mut [trace],
+            &[&pub_inputs],
             &proof_options,
             StoneProverTranscript::new(&transcript_init_seed),
         )
-        .unwrap();
+        .unwrap()[0]
+            .clone();
         (proof, pub_inputs, proof_options, transcript_init_seed)
     }
 

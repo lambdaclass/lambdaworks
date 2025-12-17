@@ -745,8 +745,8 @@ pub trait IsStarkVerifier<A: AIR> {
         trace_term + h_terms
     }
 
-    fn multi_table_verify(
-        proofs: MultiTableProof<A::Field, A::FieldExtension>,
+    fn verify(
+        proofs: &MultiTableProof<A::Field, A::FieldExtension>,
         pub_inputs: &[A::PublicInputs],
         proof_options: &ProofOptions,
         mut transcript: impl IsTranscript<A::FieldExtension>,
@@ -790,7 +790,8 @@ pub trait IsStarkVerifier<A: AIR> {
 
         true
     }
-
+    /// Verifies a STARK proof with public inputs `pub_inputs`.
+    /// Warning: the transcript must be safely initializated before passing it to this method.
     fn single_table_verify(
         air: &A,
         proof: &StarkProof<A::Field, A::FieldExtension>,
@@ -834,113 +835,6 @@ pub trait IsStarkVerifier<A: AIR> {
             #[cfg(not(feature = "test_fiat_shamir"))]
             error!("DEEP Composition Polynomial verification failed");
             return false;
-        }
-
-        true
-    }
-
-    /// Verifies a STARK proof with public inputs `pub_inputs`.
-    /// Warning: the transcript must be safely initializated before passing it to this method.
-    fn verify(
-        proof: &StarkProof<A::Field, A::FieldExtension>,
-        pub_input: &A::PublicInputs,
-        proof_options: &ProofOptions,
-        transcript: &mut impl IsTranscript<A::FieldExtension>,
-    ) -> bool
-    where
-        FieldElement<A::Field>: AsBytes + Sync + Send,
-        FieldElement<A::FieldExtension>: AsBytes + Sync + Send,
-    {
-        // Verify there are enough queries
-        if proof.query_list.len() < proof_options.fri_number_of_queries {
-            return false;
-        }
-
-        #[cfg(feature = "instruments")]
-        println!("- Started step 1: Recover challenges");
-        #[cfg(feature = "instruments")]
-        let timer1 = Instant::now();
-
-        let air = A::new(proof.trace_length, pub_input, proof_options);
-        let domain = Domain::new(&air);
-
-        let challenges =
-            Self::step_1_replay_rounds_and_recover_challenges(&air, proof, &domain, transcript);
-
-        // verify grinding
-        let security_bits = air.context().proof_options.grinding_factor;
-        if security_bits > 0 {
-            let nonce_is_valid = proof.nonce.map_or(false, |nonce_value| {
-                grinding::is_valid_nonce(&challenges.grinding_seed, nonce_value, security_bits)
-            });
-
-            if !nonce_is_valid {
-                error!("Grinding factor not satisfied");
-                return false;
-            }
-        }
-
-        #[cfg(feature = "instruments")]
-        let elapsed1 = timer1.elapsed();
-        #[cfg(feature = "instruments")]
-        println!("  Time spent: {:?}", elapsed1);
-
-        #[cfg(feature = "instruments")]
-        println!("- Started step 2: Verify claimed polynomial");
-        #[cfg(feature = "instruments")]
-        let timer2 = Instant::now();
-
-        if !Self::step_2_verify_claimed_composition_polynomial(&air, proof, &domain, &challenges) {
-            error!("Composition Polynomial verification failed");
-            return false;
-        }
-
-        #[cfg(feature = "instruments")]
-        let elapsed2 = timer2.elapsed();
-        #[cfg(feature = "instruments")]
-        println!("  Time spent: {:?}", elapsed2);
-        #[cfg(feature = "instruments")]
-
-        println!("- Started step 3: Verify FRI");
-        #[cfg(feature = "instruments")]
-        let timer3 = Instant::now();
-
-        if !Self::step_3_verify_fri(proof, &domain, &challenges) {
-            error!("FRI verification failed");
-            return false;
-        }
-
-        #[cfg(feature = "instruments")]
-        let elapsed3 = timer3.elapsed();
-        #[cfg(feature = "instruments")]
-        println!("  Time spent: {:?}", elapsed3);
-
-        #[cfg(feature = "instruments")]
-        println!("- Started step 4: Verify deep composition polynomial");
-        #[cfg(feature = "instruments")]
-        let timer4 = Instant::now();
-
-        #[allow(clippy::let_and_return)]
-        if !Self::step_4_verify_trace_and_composition_openings(proof, &challenges) {
-            error!("DEEP Composition Polynomial verification failed");
-            return false;
-        }
-
-        #[cfg(feature = "instruments")]
-        let elapsed4 = timer4.elapsed();
-        #[cfg(feature = "instruments")]
-        println!("  Time spent: {:?}", elapsed4);
-
-        #[cfg(feature = "instruments")]
-        {
-            let total_time = elapsed1 + elapsed2 + elapsed3 + elapsed4;
-            println!(
-                " Fraction of verifying time per step: {:.4} {:.4} {:.4} {:.4}",
-                elapsed1.as_nanos() as f64 / total_time.as_nanos() as f64,
-                elapsed2.as_nanos() as f64 / total_time.as_nanos() as f64,
-                elapsed3.as_nanos() as f64 / total_time.as_nanos() as f64,
-                elapsed4.as_nanos() as f64 / total_time.as_nanos() as f64
-            );
         }
 
         true

@@ -39,7 +39,7 @@ pub struct DeepPolynomialOpening<F: IsSubFieldOf<E>, E: IsField> {
 
 pub type DeepPolynomialOpenings<F, E> = Vec<DeepPolynomialOpening<F, E>>;
 
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
 pub struct StarkProof<F: IsSubFieldOf<E>, E: IsField> {
     // Length of the execution trace
     pub trace_length: usize,
