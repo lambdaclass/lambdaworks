@@ -6,7 +6,7 @@ use super::{
     proof::{options::ProofOptions, stark::StarkProof},
     traits::{TransitionEvaluationContext, AIR},
 };
-use crate::{config::Commitment, proof::stark::DeepPolynomialOpening, prover::TwoTableProof};
+use crate::{config::Commitment, proof::stark::DeepPolynomialOpening, prover::MultiTableProof};
 use lambdaworks_crypto::{fiat_shamir::is_transcript::IsTranscript, merkle_tree::proof::Proof};
 use lambdaworks_math::{
     fft::cpu::bit_reversing::reverse_index,
@@ -89,16 +89,11 @@ pub trait IsStarkVerifier<A: AIR> {
 
         // <<<< Receive commitments:[tⱼ]
         transcript.append_bytes(&proof.lde_trace_main_merkle_root);
-        println!(
-            "verifier: replay round 1 main root {:?}",
-            proof.lde_trace_main_merkle_root
-        );
 
         let rap_challenges = air.build_rap_challenges(transcript);
 
         if let Some(root) = proof.lde_trace_aux_merkle_root {
             transcript.append_bytes(&root);
-            println!("verifier: replay round 1 aux root {:?}", root);
         }
 
         rap_challenges
@@ -124,7 +119,6 @@ pub trait IsStarkVerifier<A: AIR> {
 
         // <<<< Receive challenge: 𝛽
         let beta = transcript.sample_field_element();
-        println!("verifier: sampled beta {:?}", beta);
         let num_boundary_constraints = air.boundary_constraints(&rap_challenges).constraints.len();
 
         let num_transition_constraints = air.context().num_transition_constraints;
@@ -148,7 +142,6 @@ pub trait IsStarkVerifier<A: AIR> {
             &domain.lde_roots_of_unity_coset,
             &domain.trace_roots_of_unity,
         );
-        println!("verifier: sampled z {:?}", z);
 
         // <<<< Receive values: tⱼ(zgᵏ)
         let trace_ood_evaluations_columns = proof.trace_ood_evaluations.columns();
@@ -170,7 +163,6 @@ pub trait IsStarkVerifier<A: AIR> {
         let num_terms_trace =
             air.context().transition_offsets.len() * A::STEP_SIZE * air.context().trace_columns;
         let gamma = transcript.sample_field_element();
-        println!("verifier: sampled gamma {:?}", gamma);
 
         // <<<< Receive challenges: 𝛾, 𝛾'
         let mut deep_composition_coefficients: Vec<_> =
@@ -221,7 +213,6 @@ pub trait IsStarkVerifier<A: AIR> {
         // <<<< Send challenges 𝜄ₛ (iota_s)
         let number_of_queries = air.options().fri_number_of_queries;
         let iotas = Self::sample_query_indexes(number_of_queries, domain, transcript);
-        println!("verifier: sampled iotas {:?}", iotas);
 
         Challenges {
             z,
@@ -755,7 +746,7 @@ pub trait IsStarkVerifier<A: AIR> {
     }
 
     fn multi_table_verify(
-        proofs: TwoTableProof<A::Field, A::FieldExtension>,
+        proofs: MultiTableProof<A::Field, A::FieldExtension>,
         pub_inputs: &[A::PublicInputs],
         proof_options: &ProofOptions,
         mut transcript: impl IsTranscript<A::FieldExtension>,
@@ -764,124 +755,40 @@ pub trait IsStarkVerifier<A: AIR> {
         FieldElement<A::Field>: AsBytes + Sync + Send,
         FieldElement<A::FieldExtension>: AsBytes + Sync + Send,
     {
-        // Build AIR and domain for each table.
-        let air_1 = A::new(proofs.0.trace_length, &pub_inputs[0], proof_options);
-        let air_2 = A::new(proofs.1.trace_length, &pub_inputs[1], proof_options);
-        let domain_1 = Domain::new(&air_1);
-        let domain_2 = Domain::new(&air_2);
+        let num_tables = proofs.len();
 
-        // First, replay round 1 for both tables so the transcript state matches the prover,
-        // which commits to both traces before sampling any further randomness.
-        println!("multi_table_verify: verify table 1");
-        let rap_challenges_1 = Self::replay_round1(&air_1, &proofs.0, &mut transcript);
-        let rap_challenges_2 = Self::replay_round1(&air_2, &proofs.1, &mut transcript);
+        // Build AIR and domain for each table
+        let mut airs = Vec::new();
+        let mut domains = Vec::new();
+        for (i, proof) in proofs.iter().enumerate() {
+            let air = A::new(proof.trace_length, &pub_inputs[i], proof_options);
+            let domain = Domain::new(&air);
+            airs.push(air);
+            domains.push(domain);
+        }
 
-        Self::single_table_verify(
-            &air_1,
-            &proofs.0,
-            &domain_1,
-            &mut transcript,
-            rap_challenges_1,
-        ) && Self::single_table_verify(
-            &air_2,
-            &proofs.1,
-            &domain_2,
-            &mut transcript,
-            rap_challenges_2,
-        )
+        // First, replay round 1 for all tables so the transcript state matches the prover,
+        // which commits to all traces before sampling any further randomness.
+        let mut rap_challenges_vec = Vec::new();
+        for (proof, air) in proofs.iter().zip(airs.iter()) {
+            let rap_challenges = Self::replay_round1(air, proof, &mut transcript);
+            rap_challenges_vec.push(rap_challenges);
+        }
 
-        // // TODO. Delete all this part if we want to use the function `single_table_verify`.
-        // // Then, for each table, replay rounds 2–4 and run the usual verification steps.
-        // let challenges_1 = Self::replay_rounds_after_round1(
-        //     &air_1,
-        //     &proofs.0,
-        //     &domain_1,
-        //     &mut transcript,
-        //     rap_challenges_1,
-        // );
+        // Then, for each table, verify rounds 2-4
+        for i in 0..num_tables {
+            if !Self::single_table_verify(
+                &airs[i],
+                &proofs[i],
+                &domains[i],
+                &mut transcript,
+                rap_challenges_vec[i].clone(),
+            ) {
+                return false;
+            }
+        }
 
-        // // verify grinding
-        // let security_bits = air_1.context().proof_options.grinding_factor;
-        // if security_bits > 0 {
-        //     let nonce_is_valid = proofs.0.nonce.map_or(false, |nonce_value| {
-        //         grinding::is_valid_nonce(&challenges_1.grinding_seed, nonce_value, security_bits)
-        //     });
-
-        //     if !nonce_is_valid {
-        //         error!("Grinding factor not satisfied for table 1");
-        //         return false;
-        //     }
-        // }
-
-        // if !Self::step_2_verify_claimed_composition_polynomial(
-        //     &air_1,
-        //     &proofs.0,
-        //     &domain_1,
-        //     &challenges_1,
-        // ) {
-        //     #[cfg(not(feature = "test_fiat_shamir"))]
-        //     error!("Composition Polynomial verification failed for table 1");
-        //     return false;
-        // }
-
-        // if !Self::step_3_verify_fri(&proofs.0, &domain_1, &challenges_1) {
-        //     #[cfg(not(feature = "test_fiat_shamir"))]
-        //     error!("FRI verification failed for table 1");
-        //     return false;
-        // }
-
-        // if !Self::step_4_verify_trace_and_composition_openings(&proofs.0, &challenges_1) {
-        //     #[cfg(not(feature = "test_fiat_shamir"))]
-        //     error!("DEEP Composition Polynomial verification failed for table 1");
-        //     return false;
-        // }
-
-        // println!("multi_table_verify: verify table 2");
-        // let challenges_2 = Self::replay_rounds_after_round1(
-        //     &air_2,
-        //     &proofs.1,
-        //     &domain_2,
-        //     &mut transcript,
-        //     rap_challenges_2,
-        // );
-
-        // // verify grinding
-        // let security_bits = air_2.context().proof_options.grinding_factor;
-        // if security_bits > 0 {
-        //     let nonce_is_valid = proofs.1.nonce.map_or(false, |nonce_value| {
-        //         grinding::is_valid_nonce(&challenges_2.grinding_seed, nonce_value, security_bits)
-        //     });
-
-        //     if !nonce_is_valid {
-        //         error!("Grinding factor not satisfied for table 2");
-        //         return false;
-        //     }
-        // }
-
-        // if !Self::step_2_verify_claimed_composition_polynomial(
-        //     &air_2,
-        //     &proofs.1,
-        //     &domain_2,
-        //     &challenges_2,
-        // ) {
-        //     #[cfg(not(feature = "test_fiat_shamir"))]
-        //     error!("Composition Polynomial verification failed for table 2");
-        //     return false;
-        // }
-
-        // if !Self::step_3_verify_fri(&proofs.1, &domain_2, &challenges_2) {
-        //     #[cfg(not(feature = "test_fiat_shamir"))]
-        //     error!("FRI verification failed for table 2");
-        //     return false;
-        // }
-
-        // if !Self::step_4_verify_trace_and_composition_openings(&proofs.1, &challenges_2) {
-        //     #[cfg(not(feature = "test_fiat_shamir"))]
-        //     error!("DEEP Composition Polynomial verification failed for table 2");
-        //     return false;
-        // }
-
-        // true
+        true
     }
 
     fn single_table_verify(
@@ -906,26 +813,26 @@ pub trait IsStarkVerifier<A: AIR> {
             });
 
             if !nonce_is_valid {
-                error!("Grinding factor not satisfied for table 2");
+                error!("Grinding factor not satisfied");
                 return false;
             }
         }
 
         if !Self::step_2_verify_claimed_composition_polynomial(air, proof, domain, &challenges) {
             #[cfg(not(feature = "test_fiat_shamir"))]
-            error!("Composition Polynomial verification failed for table 2");
+            error!("Composition Polynomial verification failed");
             return false;
         }
 
         if !Self::step_3_verify_fri(proof, domain, &challenges) {
             #[cfg(not(feature = "test_fiat_shamir"))]
-            error!("FRI verification failed for table 2");
+            error!("FRI verification failed");
             return false;
         }
 
         if !Self::step_4_verify_trace_and_composition_openings(proof, &challenges) {
             #[cfg(not(feature = "test_fiat_shamir"))]
-            error!("DEEP Composition Polynomial verification failed for table 2");
+            error!("DEEP Composition Polynomial verification failed");
             return false;
         }
 

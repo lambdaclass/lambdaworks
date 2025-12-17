@@ -34,7 +34,7 @@ use super::proof::stark::{DeepPolynomialOpening, StarkProof};
 use super::trace::TraceTable;
 use super::traits::AIR;
 
-pub type TwoTableProof<F, FE> = (StarkProof<F, FE>, StarkProof<F, FE>);
+pub type MultiTableProof<F, FE> = Vec<StarkProof<F, FE>>;
 
 /// A default STARK prover implementing `IsStarkProver`.
 pub struct Prover<A: AIR> {
@@ -350,7 +350,6 @@ pub trait IsStarkProver<A: AIR> {
         else {
             return Err(ProvingError::EmptyCommitment);
         };
-        println!("prover round1 main root {:?}", main_merkle_root);
 
         let main = Round1CommitmentData::<A::Field> {
             trace_polys,
@@ -370,7 +369,6 @@ pub trait IsStarkProver<A: AIR> {
             else {
                 return Err(ProvingError::EmptyCommitment);
             };
-            println!("prover round1 aux root {:?}", aux_merkle_root);
             let aux_evaluations = aux_trace_polys_evaluations;
             let aux = Some(Round1CommitmentData::<A::FieldExtension> {
                 trace_polys: aux_trace_polys,
@@ -874,58 +872,50 @@ pub trait IsStarkProver<A: AIR> {
         pub_inputs: &[A::PublicInputs],
         proof_options: &ProofOptions,
         mut transcript: impl IsTranscript<A::FieldExtension>,
-    ) -> Result<TwoTableProof<A::Field, A::FieldExtension>, ProvingError>
+    ) -> Result<MultiTableProof<A::Field, A::FieldExtension>, ProvingError>
     where
         A: Send + Sync,
         FieldElement<A::Field>: AsBytes + Send + Sync,
         A::FieldExtension: IsFFTField,
         FieldElement<A::FieldExtension>: AsBytes + Send + Sync,
     {
-        let trace_1 = &mut traces[0].clone();
-        let trace_2 = &mut traces[1];
+        let num_tables = traces.len();
 
-        let air_1 = A::new(trace_1.num_rows(), &pub_inputs[0], proof_options);
-        let air_2 = A::new(trace_2.num_rows(), &pub_inputs[1], proof_options);
+        // Build AIR and domain for each table
+        let mut airs = Vec::new();
+        let mut domains = Vec::new();
+        for (i, trace) in traces.iter().enumerate() {
+            let air = A::new(trace.num_rows(), &pub_inputs[i], proof_options);
+            let domain = Domain::new(&air);
+            airs.push(air);
+            domains.push(domain);
+        }
 
-        let domain_1 = Domain::new(&air_1);
-        let domain_2 = Domain::new(&air_2);
+        // First, perform round 1 for all tables to commit all traces to the transcript
+        let mut round_1_results = Vec::new();
+        for i in 0..num_tables {
+            let round_1_result = Self::round_1_randomized_air_with_preprocessing(
+                &airs[i],
+                &mut traces[i],
+                &domains[i],
+                &mut transcript,
+            )?;
+            round_1_results.push(round_1_result);
+        }
 
-        println!("multi_table_prove: starting round 1 for table 1");
-        let round_1_result_1 = Self::round_1_randomized_air_with_preprocessing(
-            &air_1,
-            trace_1,
-            &domain_1,
-            &mut transcript,
-        )?;
+        // Then, for each table, perform rounds 2-4
+        let mut proofs = Vec::new();
+        for i in 0..num_tables {
+            let proof = Self::single_table_prove(
+                &mut transcript,
+                &round_1_results[i],
+                &airs[i],
+                &domains[i],
+            )?;
+            proofs.push(proof);
+        }
 
-        println!("multi_table_prove: starting round 1 for table 2");
-        let round_1_result_2 = Self::round_1_randomized_air_with_preprocessing(
-            &air_2,
-            trace_2,
-            &domain_2,
-            &mut transcript,
-        )?;
-
-        let proof_1 = Self::single_table_prove(
-            // &mut trace_1,
-            // &pub_inputs[0],
-            // proof_options,
-            &mut transcript,
-            &round_1_result_1,
-            &air_1,
-            &domain_1,
-        )?;
-        let proof_2 = Self::single_table_prove(
-            // &mut trace_2,
-            // &pub_inputs[1],
-            // proof_options,
-            &mut transcript,
-            &round_1_result_2,
-            &air_2,
-            &domain_2,
-        )?;
-
-        Ok((proof_1, proof_2))
+        Ok(proofs)
     }
 
     fn single_table_prove(
@@ -994,7 +984,6 @@ pub trait IsStarkProver<A: AIR> {
 
         // <<<< Receive challenge: 𝛽
         let beta = transcript.sample_field_element();
-        println!("single_table_prove: sampled beta: {:?}", beta);
 
         let num_boundary_constraints = air
             .boundary_constraints(&round_1_result.rap_challenges)
@@ -1042,8 +1031,6 @@ pub trait IsStarkProver<A: AIR> {
             &domain.lde_roots_of_unity_coset,
             &domain.trace_roots_of_unity,
         );
-        // Debug print to follow randomness flow on multi-table proofs.
-        println!("single_table_prove: sampled z: {:?}", z);
 
         let round_3_result = Self::round_3_evaluate_polynomials_in_out_of_domain_element(
             air,
@@ -1211,7 +1198,6 @@ pub trait IsStarkProver<A: AIR> {
 
         // <<<< Receive challenge: 𝛽
         let beta = transcript.sample_field_element();
-        println!("single_table_prove: beta {:?}", beta);
         let num_boundary_constraints = air
             .boundary_constraints(&round_1_result.rap_challenges)
             .constraints
@@ -1258,7 +1244,6 @@ pub trait IsStarkProver<A: AIR> {
             &domain.lde_roots_of_unity_coset,
             &domain.trace_roots_of_unity,
         );
-        println!("single_table_prove: z {:?}", z);
 
         let round_3_result = Self::round_3_evaluate_polynomials_in_out_of_domain_element(
             &air,
