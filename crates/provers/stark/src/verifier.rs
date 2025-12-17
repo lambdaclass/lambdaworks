@@ -6,11 +6,8 @@ use super::{
     proof::{options::ProofOptions, stark::StarkProof},
     traits::{TransitionEvaluationContext, AIR},
 };
-use crate::{config::Commitment, proof::stark::DeepPolynomialOpening};
-use lambdaworks_crypto::{
-    fiat_shamir::is_transcript::IsTranscript,
-    merkle_tree::proof::{self, Proof},
-};
+use crate::{config::Commitment, proof::stark::DeepPolynomialOpening, prover::TwoTableProof};
+use lambdaworks_crypto::{fiat_shamir::is_transcript::IsTranscript, merkle_tree::proof::Proof};
 use lambdaworks_math::{
     fft::cpu::bit_reversing::reverse_index,
     field::{
@@ -758,10 +755,7 @@ pub trait IsStarkVerifier<A: AIR> {
     }
 
     fn multi_table_verify(
-        proofs: (
-            StarkProof<A::Field, A::FieldExtension>,
-            StarkProof<A::Field, A::FieldExtension>,
-        ),
+        proofs: TwoTableProof<A::Field, A::FieldExtension>,
         pub_inputs: &[A::PublicInputs],
         proof_options: &ProofOptions,
         mut transcript: impl IsTranscript<A::FieldExtension>,
@@ -902,7 +896,7 @@ pub trait IsStarkVerifier<A: AIR> {
         FieldElement<A::FieldExtension>: AsBytes + Sync + Send,
     {
         let challenges =
-            Self::replay_rounds_after_round1(&air, &proof, &domain, transcript, rap_challenges);
+            Self::replay_rounds_after_round1(air, proof, domain, transcript, rap_challenges);
 
         // verify grinding
         let security_bits = air.context().proof_options.grinding_factor;
@@ -917,19 +911,19 @@ pub trait IsStarkVerifier<A: AIR> {
             }
         }
 
-        if !Self::step_2_verify_claimed_composition_polynomial(&air, &proof, &domain, &challenges) {
+        if !Self::step_2_verify_claimed_composition_polynomial(air, proof, domain, &challenges) {
             #[cfg(not(feature = "test_fiat_shamir"))]
             error!("Composition Polynomial verification failed for table 2");
             return false;
         }
 
-        if !Self::step_3_verify_fri(&proof, &domain, &challenges) {
+        if !Self::step_3_verify_fri(proof, domain, &challenges) {
             #[cfg(not(feature = "test_fiat_shamir"))]
             error!("FRI verification failed for table 2");
             return false;
         }
 
-        if !Self::step_4_verify_trace_and_composition_openings(&proof, &challenges) {
+        if !Self::step_4_verify_trace_and_composition_openings(proof, &challenges) {
             #[cfg(not(feature = "test_fiat_shamir"))]
             error!("DEEP Composition Polynomial verification failed for table 2");
             return false;

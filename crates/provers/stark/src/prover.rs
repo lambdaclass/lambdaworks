@@ -34,6 +34,8 @@ use super::proof::stark::{DeepPolynomialOpening, StarkProof};
 use super::trace::TraceTable;
 use super::traits::AIR;
 
+pub type TwoTableProof<F, FE> = (StarkProof<F, FE>, StarkProof<F, FE>);
+
 /// A default STARK prover implementing `IsStarkProver`.
 pub struct Prover<A: AIR> {
     phantom: PhantomData<A>,
@@ -872,21 +874,15 @@ pub trait IsStarkProver<A: AIR> {
         pub_inputs: &[A::PublicInputs],
         proof_options: &ProofOptions,
         mut transcript: impl IsTranscript<A::FieldExtension>,
-    ) -> Result<
-        (
-            StarkProof<A::Field, A::FieldExtension>,
-            StarkProof<A::Field, A::FieldExtension>,
-        ),
-        ProvingError,
-    >
+    ) -> Result<TwoTableProof<A::Field, A::FieldExtension>, ProvingError>
     where
         A: Send + Sync,
         FieldElement<A::Field>: AsBytes + Send + Sync,
         A::FieldExtension: IsFFTField,
         FieldElement<A::FieldExtension>: AsBytes + Send + Sync,
     {
-        let mut trace_1 = &mut traces[0].clone();
-        let mut trace_2 = &mut traces[1];
+        let trace_1 = &mut traces[0].clone();
+        let trace_2 = &mut traces[1];
 
         let air_1 = A::new(trace_1.num_rows(), &pub_inputs[0], proof_options);
         let air_2 = A::new(trace_2.num_rows(), &pub_inputs[1], proof_options);
@@ -936,7 +932,7 @@ pub trait IsStarkProver<A: AIR> {
         // trace: &mut TraceTable<A::Field, A::FieldExtension>,
         // pub_inputs: &A::PublicInputs,
         // proof_options: &ProofOptions,
-        mut transcript: &mut impl IsTranscript<A::FieldExtension>,
+        transcript: &mut impl IsTranscript<A::FieldExtension>,
         round_1_result: &Round1<A>,
         air: &A,
         domain: &Domain<A::Field>,
@@ -978,7 +974,7 @@ pub trait IsStarkProver<A: AIR> {
                 .as_ref()
                 .map(|a| &a.trace_polys)
                 .unwrap_or(&vec![]),
-            &domain,
+            domain,
             &round_1_result.rap_challenges,
         );
 
@@ -1017,9 +1013,9 @@ pub trait IsStarkProver<A: AIR> {
         let boundary_coefficients = coefficients;
 
         let round_2_result = Self::round_2_compute_composition_polynomial(
-            &air,
-            &domain,
-            &round_1_result,
+            air,
+            domain,
+            round_1_result,
             &transition_coefficients,
             &boundary_coefficients,
         )?;
@@ -1050,9 +1046,9 @@ pub trait IsStarkProver<A: AIR> {
         println!("single_table_prove: sampled z: {:?}", z);
 
         let round_3_result = Self::round_3_evaluate_polynomials_in_out_of_domain_element(
-            &air,
-            &domain,
-            &round_1_result,
+            air,
+            domain,
+            round_1_result,
             &round_2_result,
             &z,
         );
@@ -1088,9 +1084,9 @@ pub trait IsStarkProver<A: AIR> {
         // protocol on its own. Therefore we pass it the transcript
         // to simulate the interactions with the verifier.
         let round_4_result = Self::round_4_compute_and_run_fri_on_the_deep_composition_polynomial(
-            &air,
-            &domain,
-            &round_1_result,
+            air,
+            domain,
+            round_1_result,
             &round_2_result,
             &round_3_result,
             &z,
@@ -1119,7 +1115,7 @@ pub trait IsStarkProver<A: AIR> {
 
         Ok(StarkProof::<A::Field, A::FieldExtension> {
             // [t]
-            lde_trace_main_merkle_root: round_1_result.main.lde_trace_merkle_root.clone(),
+            lde_trace_main_merkle_root: round_1_result.main.lde_trace_merkle_root,
             // [t]
             lde_trace_aux_merkle_root: round_1_result.aux.as_ref().map(|x| x.lde_trace_merkle_root),
             // tⱼ(zgᵏ)
