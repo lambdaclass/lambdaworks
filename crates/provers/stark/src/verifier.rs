@@ -57,6 +57,19 @@ where
 
 pub type DeepPolynomialEvaluations<F> = (Vec<FieldElement<F>>, Vec<FieldElement<F>>);
 
+// In a STARK, all verifier "randomness" (beta, z, gamma, zetas, iotas, grinding seed)
+// is derived from the transcript state (Fiat–Shamir). Therefore the verifier must
+// replay the transcript in *exactly the same order* as the prover.
+//
+// Why the split?
+// In the multi-table prover, Round 1 commitments for all tables are appended first
+// (main root, optional aux root, RAP challenges derived from transcript). Only after
+// all tables are committed does the prover start sampling further challenges (Rounds 2–4).
+//
+// If a verifier naively verifies table-by-table (Rounds 1-4 for table 0, then table 1, ...),
+// then when it samples beta/z/gamma for table 0 its transcript does not include the
+// commitments of table 1..N yet, producing different challenges and breaking verification.
+
 /// The functionality of a STARK verifier providing methods to run the STARK Verify protocol
 /// https://lambdaclass.github.io/lambdaworks/starks/protocol.html
 pub trait IsStarkVerifier<A: AIR> {
@@ -757,6 +770,14 @@ pub trait IsStarkVerifier<A: AIR> {
     {
         let num_tables = proofs.len();
 
+        // Delete comment before merging
+        // Added this check, is the error message correct? or should we do error handling?
+
+        if num_tables != pub_inputs.len() {
+            error!("Number of tables does not match number of public inputs");
+            return false;
+        }
+
         // Build AIR and domain for each table
         let mut airs = Vec::new();
         let mut domains = Vec::new();
@@ -803,6 +824,19 @@ pub trait IsStarkVerifier<A: AIR> {
         FieldElement<A::Field>: AsBytes + Sync + Send,
         FieldElement<A::FieldExtension>: AsBytes + Sync + Send,
     {
+        // Delete comment before merging. Since we don't pass the proof_options to the verifier, we need to access it from the air.
+        // Is this correct?
+        if proof.query_list.len() < air.options().fri_number_of_queries {
+            return false;
+        }
+        #[cfg(feature = "instruments")]
+        println!("- Started step 1: Recover challenges");
+        #[cfg(feature = "instruments")]
+        let timer1 = Instant::now();
+
+        // Delete before merging: In the previous implementation, we also created the
+        // air and domain for each table here.
+
         let challenges =
             Self::replay_rounds_after_round1(air, proof, domain, transcript, rap_challenges);
 
@@ -819,11 +853,31 @@ pub trait IsStarkVerifier<A: AIR> {
             }
         }
 
+        #[cfg(feature = "instruments")]
+        let elapsed1 = timer1.elapsed();
+        #[cfg(feature = "instruments")]
+        println!("  Time spent: {:?}", elapsed1);
+
+        #[cfg(feature = "instruments")]
+        println!("- Started step 2: Verify claimed polynomial");
+        #[cfg(feature = "instruments")]
+        let timer2 = Instant::now();
+
         if !Self::step_2_verify_claimed_composition_polynomial(air, proof, domain, &challenges) {
             #[cfg(not(feature = "test_fiat_shamir"))]
             error!("Composition Polynomial verification failed");
             return false;
         }
+
+        #[cfg(feature = "instruments")]
+        let elapsed2 = timer2.elapsed();
+        #[cfg(feature = "instruments")]
+        println!("  Time spent: {:?}", elapsed2);
+        #[cfg(feature = "instruments")]
+
+        println!("- Started step 3: Verify FRI");
+        #[cfg(feature = "instruments")]
+        let timer3 = Instant::now();
 
         if !Self::step_3_verify_fri(proof, domain, &challenges) {
             #[cfg(not(feature = "test_fiat_shamir"))]
@@ -831,10 +885,38 @@ pub trait IsStarkVerifier<A: AIR> {
             return false;
         }
 
+        #[cfg(feature = "instruments")]
+        let elapsed3 = timer3.elapsed();
+        #[cfg(feature = "instruments")]
+        println!("  Time spent: {:?}", elapsed3);
+
+        #[cfg(feature = "instruments")]
+        println!("- Started step 4: Verify deep composition polynomial");
+        #[cfg(feature = "instruments")]
+        let timer4 = Instant::now();
+
+        #[allow(clippy::let_and_return)]
         if !Self::step_4_verify_trace_and_composition_openings(proof, &challenges) {
             #[cfg(not(feature = "test_fiat_shamir"))]
             error!("DEEP Composition Polynomial verification failed");
             return false;
+        }
+
+        #[cfg(feature = "instruments")]
+        let elapsed4 = timer4.elapsed();
+        #[cfg(feature = "instruments")]
+        println!("  Time spent: {:?}", elapsed4);
+
+        #[cfg(feature = "instruments")]
+        {
+            let total_time = elapsed1 + elapsed2 + elapsed3 + elapsed4;
+            println!(
+                " Fraction of verifying time per step: {:.4} {:.4} {:.4} {:.4}",
+                elapsed1.as_nanos() as f64 / total_time.as_nanos() as f64,
+                elapsed2.as_nanos() as f64 / total_time.as_nanos() as f64,
+                elapsed3.as_nanos() as f64 / total_time.as_nanos() as f64,
+                elapsed4.as_nanos() as f64 / total_time.as_nanos() as f64
+            );
         }
 
         true

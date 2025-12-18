@@ -893,7 +893,10 @@ pub trait IsStarkProver<A: AIR> {
             domains.push(domain);
         }
 
-        // First, perform round 1 for all tables to commit all traces to the transcript.
+        // Commitment Phase (Round 1): All tables are processed first, and their Merkle
+        // roots are appended to the transcript. This ensures that any subsequent
+        // randomness sampled from the transcript depends on the state of all
+        // committed execution traces.
         let mut round_1_results = Vec::new();
         for i in 0..num_tables {
             let round_1_result = Self::round_1_randomized_air_with_preprocessing(
@@ -905,7 +908,11 @@ pub trait IsStarkProver<A: AIR> {
             round_1_results.push(round_1_result);
         }
 
-        // Then, for each table, perform rounds 2-4.
+        // Proving Phase (Rounds 2-4): Once all tables have been committed to the
+        // transcript, the remaining protocol rounds are executed for each table
+        // individually. This ensures that each table's proof depends on the state
+        // of all committed execution traces.
+
         let mut proofs = Vec::new();
         for i in 0..num_tables {
             let proof = Self::single_table_prove(
@@ -952,8 +959,6 @@ pub trait IsStarkProver<A: AIR> {
         println!("- Started round 1: RAP");
         #[cfg(feature = "instruments")]
         let timer1 = Instant::now();
-
-        //let round_1_result = round_1_result;
 
         #[cfg(debug_assertions)]
         validate_trace(
