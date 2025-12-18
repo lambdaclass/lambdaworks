@@ -912,7 +912,6 @@ pub trait IsStarkProver<A: AIR> {
         // transcript, the remaining protocol rounds are executed for each table
         // individually. This ensures that each table's proof depends on the state
         // of all committed execution traces.
-
         let mut proofs = Vec::new();
         for i in 0..num_tables {
             let proof = Self::single_table_prove(
@@ -928,6 +927,7 @@ pub trait IsStarkProver<A: AIR> {
     }
 
     // FIXME remove unwrap() calls and return errors
+    // Validate Round 1 result and prove Round 2-4 for a single table.
     fn single_table_prove(
         transcript: &mut impl IsTranscript<A::FieldExtension>,
         round_1_result: &Round1<A>,

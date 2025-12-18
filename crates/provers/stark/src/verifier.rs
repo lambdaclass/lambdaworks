@@ -758,6 +758,8 @@ pub trait IsStarkVerifier<A: AIR> {
         trace_term + h_terms
     }
 
+    /// Verifies a multi table STARK proof with public inputs `pub_inputs`.
+    /// Warning: the transcript must be safely initializated before passing it to this method.
     fn verify(
         proofs: &MultiTableProof<A::Field, A::FieldExtension>,
         pub_inputs: &[A::PublicInputs],
@@ -772,7 +774,6 @@ pub trait IsStarkVerifier<A: AIR> {
 
         // Delete comment before merging
         // Added this check, is the error message correct? or should we do error handling?
-
         if num_tables != pub_inputs.len() {
             error!("Number of tables does not match number of public inputs");
             return false;
@@ -811,8 +812,7 @@ pub trait IsStarkVerifier<A: AIR> {
 
         true
     }
-    /// Verifies a STARK proof with public inputs `pub_inputs`.
-    /// Warning: the transcript must be safely initializated before passing it to this method.
+
     fn single_table_verify(
         air: &A,
         proof: &StarkProof<A::Field, A::FieldExtension>,
