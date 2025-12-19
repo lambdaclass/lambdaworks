@@ -6,7 +6,7 @@ use super::{
     proof::{options::ProofOptions, stark::StarkProof},
     traits::{TransitionEvaluationContext, AIR},
 };
-use crate::{config::Commitment, proof::stark::DeepPolynomialOpening};
+use crate::{config::Commitment, proof::stark::DeepPolynomialOpening, prover::MultiTableProof};
 use lambdaworks_crypto::{fiat_shamir::is_transcript::IsTranscript, merkle_tree::proof::Proof};
 use lambdaworks_math::{
     fft::cpu::bit_reversing::reverse_index,
@@ -71,13 +71,14 @@ pub trait IsStarkVerifier<A: AIR> {
             .collect::<Vec<usize>>()
     }
 
-    /// Returns the list of challenges sent to the prover.
-    fn step_1_replay_rounds_and_recover_challenges(
+    /// Replays round 1 of the protocol for a given proof, appending the main and auxiliary
+    /// trace commitments to the transcript and returning the RAP challenges.
+    /// We need to split because the prover commits to all traces before sampling any further randomness.
+    fn replay_round1(
         air: &A,
         proof: &StarkProof<A::Field, A::FieldExtension>,
-        domain: &Domain<A::Field>,
         transcript: &mut impl IsTranscript<A::FieldExtension>,
-    ) -> Challenges<A>
+    ) -> Vec<FieldElement<A::FieldExtension>>
     where
         FieldElement<A::Field>: AsBytes,
         FieldElement<A::FieldExtension>: AsBytes,
@@ -95,6 +96,23 @@ pub trait IsStarkVerifier<A: AIR> {
             transcript.append_bytes(&root);
         }
 
+        rap_challenges
+    }
+
+    /// Replays rounds 2, 3 and 4 of the protocol for a given proof, assuming round 1 has
+    /// already been replayed and the RAP challenges are known. Returns the assembled list
+    /// of challenges used throughout the verification.
+    fn replay_rounds_after_round1(
+        air: &A,
+        proof: &StarkProof<A::Field, A::FieldExtension>,
+        domain: &Domain<A::Field>,
+        transcript: &mut impl IsTranscript<A::FieldExtension>,
+        rap_challenges: Vec<FieldElement<A::FieldExtension>>,
+    ) -> Challenges<A>
+    where
+        FieldElement<A::Field>: AsBytes,
+        FieldElement<A::FieldExtension>: AsBytes,
+    {
         // ===================================
         // ==========|   Round 2   |==========
         // ===================================
@@ -207,6 +225,21 @@ pub trait IsStarkVerifier<A: AIR> {
             rap_challenges,
             grinding_seed,
         }
+    }
+
+    /// Returns the list of challenges sent to the prover.
+    fn step_1_replay_rounds_and_recover_challenges(
+        air: &A,
+        proof: &StarkProof<A::Field, A::FieldExtension>,
+        domain: &Domain<A::Field>,
+        transcript: &mut impl IsTranscript<A::FieldExtension>,
+    ) -> Challenges<A>
+    where
+        FieldElement<A::Field>: AsBytes,
+        FieldElement<A::FieldExtension>: AsBytes,
+    {
+        let rap_challenges = Self::replay_round1(air, proof, transcript);
+        Self::replay_rounds_after_round1(air, proof, domain, transcript, rap_challenges)
     }
 
     /// Checks whether the purported evaluations of the composition polynomial parts and the trace
@@ -712,6 +745,110 @@ pub trait IsStarkVerifier<A: AIR> {
         trace_term + h_terms
     }
 
+    fn single_table_verify(
+        air: &A,
+        proof: &StarkProof<A::Field, A::FieldExtension>,
+        domain: &Domain<A::Field>,
+        transcript: &mut impl IsTranscript<A::FieldExtension>,
+        rap_challenges: Vec<FieldElement<A::FieldExtension>>,
+    ) -> bool
+    where
+        FieldElement<A::Field>: AsBytes + Sync + Send,
+        FieldElement<A::FieldExtension>: AsBytes + Sync + Send,
+    {
+        if proof.query_list.len() < air.options().fri_number_of_queries {
+            return false;
+        }
+        #[cfg(feature = "instruments")]
+        println!("- Started step 1: Recover challenges");
+        #[cfg(feature = "instruments")]
+        let timer1 = Instant::now();
+
+        let challenges =
+            Self::replay_rounds_after_round1(air, proof, domain, transcript, rap_challenges);
+
+        // verify grinding
+        let security_bits = air.context().proof_options.grinding_factor;
+        if security_bits > 0 {
+            let nonce_is_valid = proof.nonce.map_or(false, |nonce_value| {
+                grinding::is_valid_nonce(&challenges.grinding_seed, nonce_value, security_bits)
+            });
+
+            if !nonce_is_valid {
+                error!("Grinding factor not satisfied");
+                return false;
+            }
+        }
+
+        #[cfg(feature = "instruments")]
+        let elapsed1 = timer1.elapsed();
+        #[cfg(feature = "instruments")]
+        println!("  Time spent: {:?}", elapsed1);
+
+        #[cfg(feature = "instruments")]
+        println!("- Started step 2: Verify claimed polynomial");
+        #[cfg(feature = "instruments")]
+        let timer2 = Instant::now();
+
+        if !Self::step_2_verify_claimed_composition_polynomial(air, proof, domain, &challenges) {
+            #[cfg(not(feature = "test_fiat_shamir"))]
+            error!("Composition Polynomial verification failed");
+            return false;
+        }
+
+        #[cfg(feature = "instruments")]
+        let elapsed2 = timer2.elapsed();
+        #[cfg(feature = "instruments")]
+        println!("  Time spent: {:?}", elapsed2);
+        #[cfg(feature = "instruments")]
+
+        println!("- Started step 3: Verify FRI");
+        #[cfg(feature = "instruments")]
+        let timer3 = Instant::now();
+
+        if !Self::step_3_verify_fri(proof, domain, &challenges) {
+            #[cfg(not(feature = "test_fiat_shamir"))]
+            error!("FRI verification failed");
+            return false;
+        }
+
+        #[cfg(feature = "instruments")]
+        let elapsed3 = timer3.elapsed();
+        #[cfg(feature = "instruments")]
+        println!("  Time spent: {:?}", elapsed3);
+
+        #[cfg(feature = "instruments")]
+        println!("- Started step 4: Verify deep composition polynomial");
+        #[cfg(feature = "instruments")]
+        let timer4 = Instant::now();
+
+        #[allow(clippy::let_and_return)]
+        if !Self::step_4_verify_trace_and_composition_openings(proof, &challenges) {
+            #[cfg(not(feature = "test_fiat_shamir"))]
+            error!("DEEP Composition Polynomial verification failed");
+            return false;
+        }
+
+        #[cfg(feature = "instruments")]
+        let elapsed4 = timer4.elapsed();
+        #[cfg(feature = "instruments")]
+        println!("  Time spent: {:?}", elapsed4);
+
+        #[cfg(feature = "instruments")]
+        {
+            let total_time = elapsed1 + elapsed2 + elapsed3 + elapsed4;
+            println!(
+                " Fraction of verifying time per step: {:.4} {:.4} {:.4} {:.4}",
+                elapsed1.as_nanos() as f64 / total_time.as_nanos() as f64,
+                elapsed2.as_nanos() as f64 / total_time.as_nanos() as f64,
+                elapsed3.as_nanos() as f64 / total_time.as_nanos() as f64,
+                elapsed4.as_nanos() as f64 / total_time.as_nanos() as f64
+            );
+        }
+
+        true
+    }
+
     /// Verifies a STARK proof with public inputs `pub_inputs`.
     /// Warning: the transcript must be safely initializated before passing it to this method.
     fn verify(
@@ -821,5 +958,58 @@ pub trait IsStarkVerifier<A: AIR> {
         }
 
         true
+    }
+}
+
+pub struct MultiTableVerifier<A1: AIR, A2: AIR> {
+    phantom: PhantomData<(A1, A2)>,
+}
+
+impl<A1, A2> MultiTableVerifier<A1, A2>
+where
+    A1: AIR,
+    A2: AIR<Field = A1::Field, FieldExtension = A1::FieldExtension>,
+{
+    pub fn verify(
+        proofs: &MultiTableProof<A1::Field, A1::FieldExtension>,
+        pub_inputs_1: &A1::PublicInputs,
+        pub_inputs_2: &A2::PublicInputs,
+        proof_options: &ProofOptions,
+        mut transcript: impl IsTranscript<A1::FieldExtension>,
+    ) -> bool
+    where
+        FieldElement<A1::Field>: AsBytes + Sync + Send,
+        FieldElement<A1::FieldExtension>: AsBytes + Sync + Send,
+    {
+        let air_1 = A1::new(proofs[0].trace_length, pub_inputs_1, proof_options);
+        let domain_1 = Domain::new(&air_1);
+
+        let air_2 = A2::new(proofs[1].trace_length, pub_inputs_2, proof_options);
+        let domain_2 = Domain::new(&air_2);
+
+        // Replay Round 1 for both
+        let rap_challenges_1 = Verifier::<A1>::replay_round1(&air_1, &proofs[0], &mut transcript);
+        let rap_challenges_2 = Verifier::<A2>::replay_round1(&air_2, &proofs[1], &mut transcript);
+
+        // Verify individually
+        let result_1 = Verifier::<A1>::single_table_verify(
+            &air_1,
+            &proofs[0],
+            &domain_1,
+            &mut transcript,
+            rap_challenges_1,
+        );
+
+        if !result_1 {
+            return false;
+        }
+
+        Verifier::<A2>::single_table_verify(
+            &air_2,
+            &proofs[1],
+            &domain_2,
+            &mut transcript,
+            rap_challenges_2,
+        )
     }
 }

@@ -7,6 +7,8 @@ use lambdaworks_math::field::fields::fft_friendly::{
     babybear::Babybear31PrimeField, quartic_babybear::Degree4BabyBearExtensionField,
 };
 
+use crate::prover::MultiTableProver;
+use crate::verifier::MultiTableVerifier;
 use crate::{
     examples::{
         bit_flags::{self, BitFlagsAIR},
@@ -352,4 +354,130 @@ fn test_prove_log_read_only_memory() {
         &proof_options,
         DefaultTranscript::<Degree4BabyBearExtensionField>::new(&[]),
     ));
+}
+
+#[test_log::test]
+fn test_prove_multi_table() {
+    let mut trace_1 = simple_fibonacci::fibonacci_trace([Felt252::from(1), Felt252::from(1)], 8);
+
+    let address_col = vec![
+        FieldElement::<Stark252PrimeField>::from(3), // a0
+        FieldElement::<Stark252PrimeField>::from(2), // a1
+        FieldElement::<Stark252PrimeField>::from(2), // a2
+        FieldElement::<Stark252PrimeField>::from(3), // a3
+        FieldElement::<Stark252PrimeField>::from(4), // a4
+        FieldElement::<Stark252PrimeField>::from(5), // a5
+        FieldElement::<Stark252PrimeField>::from(1), // a6
+        FieldElement::<Stark252PrimeField>::from(3), // a7
+    ];
+    let value_col = vec![
+        FieldElement::<Stark252PrimeField>::from(10), // v0
+        FieldElement::<Stark252PrimeField>::from(5),  // v1
+        FieldElement::<Stark252PrimeField>::from(5),  // v2
+        FieldElement::<Stark252PrimeField>::from(10), // v3
+        FieldElement::<Stark252PrimeField>::from(25), // v4
+        FieldElement::<Stark252PrimeField>::from(25), // v5
+        FieldElement::<Stark252PrimeField>::from(7),  // v6
+        FieldElement::<Stark252PrimeField>::from(10), // v7
+    ];
+
+    let pub_inputs_1 = FibonacciPublicInputs {
+        a0: Felt252::one(),
+        a1: Felt252::one(),
+    };
+    let pub_inputs_2 = ReadOnlyPublicInputs {
+        a0: FieldElement::<Stark252PrimeField>::from(3),
+        v0: FieldElement::<Stark252PrimeField>::from(10),
+        a_sorted0: FieldElement::<Stark252PrimeField>::from(1), // a6
+        v_sorted0: FieldElement::<Stark252PrimeField>::from(7), // v6
+    };
+    let mut trace_2 = sort_rap_trace(address_col, value_col);
+
+    let proof_options = ProofOptions::default_test_options();
+
+    let proof = MultiTableProver::<FibonacciAIR<Stark252PrimeField>, ReadOnlyRAP<Stark252PrimeField>>::prove(
+        &mut trace_1,
+        &mut trace_2,
+        &pub_inputs_1,
+        &pub_inputs_2,
+        &proof_options,
+        StoneProverTranscript::new(&[]),
+    )
+    .unwrap();
+    assert!(MultiTableVerifier::<
+        FibonacciAIR<Stark252PrimeField>,
+        ReadOnlyRAP<Stark252PrimeField>,
+    >::verify(
+        &proof,
+        &pub_inputs_1,
+        &pub_inputs_2,
+        &proof_options,
+        StoneProverTranscript::new(&[]),
+    ))
+}
+
+#[test_log::test]
+fn test_prove_multi_table_fail() {
+    let mut trace_1 = simple_fibonacci::fibonacci_trace([Felt252::from(1), Felt252::from(1)], 8);
+
+    let address_col = vec![
+        FieldElement::<Stark252PrimeField>::from(3), // a0
+        FieldElement::<Stark252PrimeField>::from(2), // a1
+        FieldElement::<Stark252PrimeField>::from(2), // a2
+        FieldElement::<Stark252PrimeField>::from(3), // a3
+        FieldElement::<Stark252PrimeField>::from(4), // a4
+        FieldElement::<Stark252PrimeField>::from(5), // a5
+        FieldElement::<Stark252PrimeField>::from(1), // a6
+        FieldElement::<Stark252PrimeField>::from(3), // a7
+    ];
+    let value_col = vec![
+        FieldElement::<Stark252PrimeField>::from(10), // v0
+        FieldElement::<Stark252PrimeField>::from(5),  // v1
+        FieldElement::<Stark252PrimeField>::from(5),  // v2
+        FieldElement::<Stark252PrimeField>::from(10), // v3
+        FieldElement::<Stark252PrimeField>::from(25), // v4
+        FieldElement::<Stark252PrimeField>::from(25), // v5
+        FieldElement::<Stark252PrimeField>::from(7),  // v6
+        FieldElement::<Stark252PrimeField>::from(10), // v7
+    ];
+
+    let pub_inputs_1 = FibonacciPublicInputs {
+        a0: Felt252::one(),
+        a1: Felt252::one(),
+    };
+    let pub_inputs_2 = ReadOnlyPublicInputs {
+        a0: FieldElement::<Stark252PrimeField>::from(3),
+        v0: FieldElement::<Stark252PrimeField>::from(10),
+        a_sorted0: FieldElement::<Stark252PrimeField>::from(1), // a6
+        v_sorted0: FieldElement::<Stark252PrimeField>::from(7), // v6
+    };
+    let mut trace_2 = sort_rap_trace(address_col, value_col);
+
+    let proof_options = ProofOptions::default_test_options();
+
+    let proof = MultiTableProver::<FibonacciAIR<Stark252PrimeField>, ReadOnlyRAP<Stark252PrimeField>>::prove(
+        &mut trace_1,
+        &mut trace_2,
+        &pub_inputs_1,
+        &pub_inputs_2,
+        &proof_options,
+        StoneProverTranscript::new(&[]),
+    )
+    .unwrap();
+
+    let invalid_pub_inputs_1 = FibonacciPublicInputs {
+        a0: Felt252::from(100),
+        a1: Felt252::one(),
+    };
+
+    assert!(!MultiTableVerifier::<
+        FibonacciAIR<Stark252PrimeField>,
+        ReadOnlyRAP<Stark252PrimeField>,
+    >::verify(
+        &proof,
+        &invalid_pub_inputs_1,
+        &pub_inputs_2,
+        &proof_options,
+        StoneProverTranscript::new(&[]),
+    ))
 }
