@@ -6,47 +6,56 @@ use crate::trace::LDETraceTable;
 use crate::traits::{TransitionEvaluationContext, AIR};
 use crate::{frame::Frame, prover::evaluate_polynomial_on_lde_domain};
 use itertools::Itertools;
+use lambdaworks_math::field::traits::{IsFFTField, IsSubFieldOf};
 #[cfg(not(feature = "parallel"))]
 use lambdaworks_math::polynomial::Polynomial;
-use lambdaworks_math::{fft::errors::FFTError, field::element::FieldElement, traits::AsBytes};
+use lambdaworks_math::{fft::errors::FFTError, field::element::FieldElement};
 #[cfg(feature = "parallel")]
 use rayon::{
     iter::IndexedParallelIterator,
     prelude::{IntoParallelIterator, ParallelIterator},
 };
 
+use std::marker::PhantomData;
 #[cfg(feature = "instruments")]
 use std::time::Instant;
 
-pub struct ConstraintEvaluator<A: AIR> {
-    boundary_constraints: BoundaryConstraints<A::FieldExtension>,
+pub struct ConstraintEvaluator<
+    Field: IsSubFieldOf<FieldExtension> + IsFFTField + Send + Sync,
+    FieldExtension: Send + Sync + IsFFTField,
+> {
+    boundary_constraints: BoundaryConstraints<FieldExtension>,
+    marker: PhantomData<Field>,
 }
-impl<A: AIR> ConstraintEvaluator<A> {
-    pub fn new(air: &A, rap_challenges: &[FieldElement<A::FieldExtension>]) -> Self {
+impl<Field, FieldExtension> ConstraintEvaluator<Field, FieldExtension>
+where
+    Field: IsSubFieldOf<FieldExtension> + IsFFTField + Send + Sync,
+    FieldExtension: Send + Sync + IsFFTField,
+{
+    pub fn new(
+        air: &dyn AIR<Field = Field, FieldExtension = FieldExtension, PublicInputs = Vec<Field>>,
+        rap_challenges: &[FieldElement<FieldExtension>],
+    ) -> Self {
         let boundary_constraints = air.boundary_constraints(rap_challenges);
 
         Self {
             boundary_constraints,
+            marker: PhantomData::<Field> {},
         }
     }
 
     pub(crate) fn evaluate(
         &self,
-        air: &A,
-        lde_trace: &LDETraceTable<A::Field, A::FieldExtension>,
-        domain: &Domain<A::Field>,
-        transition_coefficients: &[FieldElement<A::FieldExtension>],
-        boundary_coefficients: &[FieldElement<A::FieldExtension>],
-        rap_challenges: &[FieldElement<A::FieldExtension>],
-    ) -> Vec<FieldElement<A::FieldExtension>>
-    where
-        FieldElement<A::Field>: AsBytes + Send + Sync,
-        FieldElement<A::FieldExtension>: AsBytes + Send + Sync,
-        A: Send + Sync,
-    {
+        air: &dyn AIR<Field = Field, FieldExtension = FieldExtension, PublicInputs = Vec<Field>>,
+        lde_trace: &LDETraceTable<Field, FieldExtension>,
+        domain: &Domain<Field>,
+        transition_coefficients: &[FieldElement<FieldExtension>],
+        boundary_coefficients: &[FieldElement<FieldExtension>],
+        rap_challenges: &[FieldElement<FieldExtension>],
+    ) -> Vec<FieldElement<FieldExtension>> {
         let boundary_constraints = &self.boundary_constraints;
         let number_of_b_constraints = boundary_constraints.constraints.len();
-        let boundary_zerofiers_inverse_evaluations: Vec<Vec<FieldElement<A::Field>>> =
+        let boundary_zerofiers_inverse_evaluations: Vec<Vec<FieldElement<Field>>> =
             boundary_constraints
                 .constraints
                 .iter()
@@ -56,14 +65,14 @@ impl<A: AIR> ConstraintEvaluator<A> {
                         .lde_roots_of_unity_coset
                         .iter()
                         .map(|v| v.clone() - point)
-                        .collect::<Vec<FieldElement<A::Field>>>();
+                        .collect::<Vec<FieldElement<Field>>>();
                     FieldElement::inplace_batch_inverse(&mut evals).unwrap();
                     evals
                 })
-                .collect::<Vec<Vec<FieldElement<A::Field>>>>();
+                .collect::<Vec<Vec<FieldElement<Field>>>>();
 
         #[cfg(all(debug_assertions, not(feature = "parallel")))]
-        let boundary_polys: Vec<Polynomial<FieldElement<A::Field>>> = Vec::new();
+        let boundary_polys: Vec<Polynomial<FieldElement<Field>>> = Vec::new();
 
         #[cfg(feature = "instruments")]
         let timer = Instant::now();
@@ -79,7 +88,7 @@ impl<A: AIR> ConstraintEvaluator<A> {
                     &domain.coset_offset,
                 )
             })
-            .collect::<Result<Vec<Vec<FieldElement<A::Field>>>, FFTError>>()
+            .collect::<Result<Vec<Vec<FieldElement<Field>>>, FFTError>>()
             .unwrap();
 
         #[cfg(feature = "instruments")]
