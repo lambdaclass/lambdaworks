@@ -455,7 +455,7 @@ where
 
     fn build_rap_challenges(
         &self,
-        transcript: &mut impl IsStarkTranscript<Self::FieldExtension, Self::Field>,
+        transcript: &mut dyn IsStarkTranscript<Self::FieldExtension, Self::Field>,
     ) -> Vec<FieldElement<Self::FieldExtension>> {
         vec![
             transcript.sample_field_element(),
