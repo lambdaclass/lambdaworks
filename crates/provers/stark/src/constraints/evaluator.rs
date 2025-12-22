@@ -23,30 +23,32 @@ use std::time::Instant;
 pub struct ConstraintEvaluator<
     Field: IsSubFieldOf<FieldExtension> + IsFFTField + Send + Sync,
     FieldExtension: Send + Sync + IsFFTField,
+    PI: Send + Sync,
 > {
     boundary_constraints: BoundaryConstraints<FieldExtension>,
-    marker: PhantomData<Field>,
+    marker: PhantomData<(Field, PI)>,
 }
-impl<Field, FieldExtension> ConstraintEvaluator<Field, FieldExtension>
+impl<Field, FieldExtension, PI> ConstraintEvaluator<Field, FieldExtension, PI>
 where
     Field: IsSubFieldOf<FieldExtension> + IsFFTField + Send + Sync,
     FieldExtension: Send + Sync + IsFFTField,
+    PI: Send + Sync,
 {
     pub fn new(
-        air: &dyn AIR<Field = Field, FieldExtension = FieldExtension, PublicInputs = Vec<Field>>,
+        air: &dyn AIR<Field = Field, FieldExtension = FieldExtension, PublicInputs = PI>,
         rap_challenges: &[FieldElement<FieldExtension>],
     ) -> Self {
         let boundary_constraints = air.boundary_constraints(rap_challenges);
 
         Self {
             boundary_constraints,
-            marker: PhantomData::<Field> {},
+            marker: PhantomData::<(Field, PI)> {},
         }
     }
 
     pub(crate) fn evaluate(
         &self,
-        air: &dyn AIR<Field = Field, FieldExtension = FieldExtension, PublicInputs = Vec<Field>>,
+        air: &dyn AIR<Field = Field, FieldExtension = FieldExtension, PublicInputs = PI>,
         lde_trace: &LDETraceTable<Field, FieldExtension>,
         domain: &Domain<Field>,
         transition_coefficients: &[FieldElement<FieldExtension>],

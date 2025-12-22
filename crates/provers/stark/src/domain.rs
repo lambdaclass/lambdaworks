@@ -57,8 +57,8 @@ impl<F: IsFFTField> Domain<F> {
     }
 }
 
-pub fn new_domain<Field, FieldExtension>(
-    air: &dyn AIR<Field = Field, FieldExtension = FieldExtension, PublicInputs = Vec<Field>>,
+pub fn new_domain<Field, FieldExtension, PI>(
+    air: &dyn AIR<Field = Field, FieldExtension = FieldExtension, PublicInputs = PI>,
 ) -> Domain<Field>
 where
     Field: IsSubFieldOf<FieldExtension> + IsFFTField + Send + Sync,

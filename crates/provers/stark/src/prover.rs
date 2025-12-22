@@ -30,7 +30,6 @@ use super::constraints::evaluator::ConstraintEvaluator;
 use super::domain::Domain;
 use super::fri::fri_decommit::FriDecommitment;
 use super::grinding;
-use super::proof::options::ProofOptions;
 use super::proof::stark::{DeepPolynomialOpening, StarkProof};
 use super::trace::TraceTable;
 use super::traits::AIR;
@@ -39,14 +38,16 @@ use super::traits::AIR;
 pub struct Prover<
     Field: IsSubFieldOf<FieldExtension> + IsFFTField + Send + Sync,
     FieldExtension: Send + Sync + IsFFTField,
+    PI: Send + Sync,
 > {
-    p: PhantomData<(Field, FieldExtension)>,
+    p: PhantomData<(Field, FieldExtension, PI)>,
 }
 
 impl<
         Field: IsSubFieldOf<FieldExtension> + IsFFTField + Send + Sync,
         FieldExtension: Send + Sync + IsFFTField,
-    > IsStarkProver<Field, FieldExtension> for Prover<Field, FieldExtension>
+        PI: Send + Sync,
+    > IsStarkProver<Field, FieldExtension, PI> for Prover<Field, FieldExtension, PI>
 {
 }
 
@@ -189,6 +190,7 @@ where
 pub trait IsStarkProver<
     Field: IsSubFieldOf<FieldExtension> + IsFFTField + Send + Sync,
     FieldExtension: Send + Sync + IsFFTField,
+    PI: Send + Sync,
 >
 {
     /// Returns the Merkle tree and the commitment to the vectors `vectors`.
@@ -354,7 +356,7 @@ pub trait IsStarkProver<
 
     /// Returns the result of the first round of the STARK Prove protocol.
     fn round_1_randomized_air_with_preprocessing(
-        air: &dyn AIR<Field = Field, FieldExtension = FieldExtension, PublicInputs = Vec<Field>>,
+        air: &dyn AIR<Field = Field, FieldExtension = FieldExtension, PublicInputs = PI>,
         trace: &mut TraceTable<Field, FieldExtension>,
         domain: &Domain<Field>,
         transcript: &mut impl IsStarkTranscript<FieldExtension, Field>,
@@ -448,7 +450,7 @@ pub trait IsStarkProver<
 
     /// Returns the result of the second round of the STARK Prove protocol.
     fn round_2_compute_composition_polynomial(
-        air: &dyn AIR<Field = Field, FieldExtension = FieldExtension, PublicInputs = Vec<Field>>,
+        air: &dyn AIR<Field = Field, FieldExtension = FieldExtension, PublicInputs = PI>,
         domain: &Domain<Field>,
         round_1_result: &Round1<Field, FieldExtension>,
         transition_coefficients: &[FieldElement<FieldExtension>],
@@ -508,7 +510,7 @@ pub trait IsStarkProver<
 
     /// Returns the result of the third round of the STARK Prove protocol.
     fn round_3_evaluate_polynomials_in_out_of_domain_element(
-        air: &dyn AIR<Field = Field, FieldExtension = FieldExtension, PublicInputs = Vec<Field>>,
+        air: &dyn AIR<Field = Field, FieldExtension = FieldExtension, PublicInputs = PI>,
         domain: &Domain<Field>,
         round_1_result: &Round1<Field, FieldExtension>,
         round_2_result: &Round2<FieldExtension>,
@@ -558,7 +560,7 @@ pub trait IsStarkProver<
 
     /// Returns the result of the fourth round of the STARK Prove protocol.
     fn round_4_compute_and_run_fri_on_the_deep_composition_polynomial(
-        air: &dyn AIR<Field = Field, FieldExtension = FieldExtension, PublicInputs = Vec<Field>>,
+        air: &dyn AIR<Field = Field, FieldExtension = FieldExtension, PublicInputs = PI>,
         domain: &Domain<Field>,
         round_1_result: &Round1<Field, FieldExtension>,
         round_2_result: &Round2<FieldExtension>,
@@ -897,10 +899,8 @@ pub trait IsStarkProver<
     /// Generates a STARK proof for the trace `main_trace` with public inputs `pub_inputs`.
     /// Warning: the transcript must be safely initializated before passing it to this method.
     fn prove(
-        air: &dyn AIR<Field = Field, FieldExtension = FieldExtension, PublicInputs = Vec<Field>>,
+        air: &dyn AIR<Field = Field, FieldExtension = FieldExtension, PublicInputs = PI>,
         trace: &mut TraceTable<Field, FieldExtension>,
-        pub_inputs: &Vec<Field>,
-        proof_options: &ProofOptions,
         transcript: &mut impl IsStarkTranscript<FieldExtension, Field>,
     ) -> Result<StarkProof<Field, FieldExtension>, ProvingError>
     where
@@ -909,6 +909,7 @@ pub trait IsStarkProver<
         FieldElement<FieldExtension>: AsBytes + Send + Sync,
         <Field as IsField>::BaseType: Send + Sync,
         <FieldExtension as IsField>::BaseType: Sync + Send,
+        PI: Send + Sync,
     {
         info!("Started proof generation...");
         #[cfg(feature = "instruments")]
