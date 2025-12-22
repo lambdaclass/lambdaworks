@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use lambdaworks_crypto::fiat_shamir::is_transcript::IsTranscript;
+use lambdaworks_crypto::fiat_shamir::is_transcript::IsStarkTranscript;
 use lambdaworks_math::{
     field::{
         element::FieldElement,
@@ -96,7 +96,7 @@ pub trait AIR {
 
     fn build_rap_challenges(
         &self,
-        _transcript: &mut impl IsTranscript<Self::FieldExtension>,
+        _transcript: &mut impl IsStarkTranscript<Self::FieldExtension, Self::Field>,
     ) -> Vec<FieldElement<Self::FieldExtension>> {
         Vec::new()
     }

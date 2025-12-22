@@ -1,4 +1,4 @@
-use lambdaworks_crypto::fiat_shamir::is_transcript::IsTranscript;
+use lambdaworks_crypto::fiat_shamir::is_transcript::{IsStarkTranscript, IsTranscript};
 use lambdaworks_math::{
     field::{
         element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
@@ -129,6 +129,10 @@ impl IsTranscript<Stark252PrimeField> for StoneProverTranscript {
         let u64_val: u64 = u64::from_be_bytes(bytes);
         u64_val % upper_bound
     }
+}
+
+impl IsStarkTranscript<Stark252PrimeField, Stark252PrimeField> for StoneProverTranscript {
+    // nothing to implement: sample_z_ood uses the default body
 }
 
 /// Returns a batch of size `size` of field elements sampled from the transcript `transcript`.

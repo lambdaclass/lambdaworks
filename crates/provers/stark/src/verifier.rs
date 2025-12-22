@@ -7,7 +7,9 @@ use super::{
     traits::{TransitionEvaluationContext, AIR},
 };
 use crate::{config::Commitment, proof::stark::DeepPolynomialOpening};
-use lambdaworks_crypto::{fiat_shamir::is_transcript::IsTranscript, merkle_tree::proof::Proof};
+use lambdaworks_crypto::{
+    fiat_shamir::is_transcript::IsStarkTranscript, merkle_tree::proof::Proof,
+};
 use lambdaworks_math::{
     fft::cpu::bit_reversing::reverse_index,
     field::{
@@ -63,7 +65,7 @@ pub trait IsStarkVerifier<A: AIR> {
     fn sample_query_indexes(
         number_of_queries: usize,
         domain: &Domain<A::Field>,
-        transcript: &mut impl IsTranscript<A::FieldExtension>,
+        transcript: &mut impl IsStarkTranscript<A::FieldExtension, A::Field>,
     ) -> Vec<usize> {
         let domain_size = domain.lde_roots_of_unity_coset.len() as u64;
         (0..number_of_queries)
@@ -76,7 +78,7 @@ pub trait IsStarkVerifier<A: AIR> {
         air: &A,
         proof: &StarkProof<A::Field, A::FieldExtension>,
         domain: &Domain<A::Field>,
-        transcript: &mut impl IsTranscript<A::FieldExtension>,
+        transcript: &mut impl IsStarkTranscript<A::FieldExtension, A::Field>,
     ) -> Challenges<A>
     where
         FieldElement<A::Field>: AsBytes,
@@ -718,7 +720,7 @@ pub trait IsStarkVerifier<A: AIR> {
         proof: &StarkProof<A::Field, A::FieldExtension>,
         pub_input: &A::PublicInputs,
         proof_options: &ProofOptions,
-        mut transcript: impl IsTranscript<A::FieldExtension>,
+        mut transcript: impl IsStarkTranscript<A::FieldExtension, A::Field>,
     ) -> bool
     where
         FieldElement<A::Field>: AsBytes + Sync + Send,
