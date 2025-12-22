@@ -936,7 +936,6 @@ pub trait IsStarkProver<
             Self::round_1_randomized_air_with_preprocessing(air, trace, &domain, transcript)?;
 
         #[cfg(debug_assertions)]
-        unimplemented!();
         // validate_trace(
         //     air,
         //     &round_1_result.main.trace_polys,
@@ -948,7 +947,6 @@ pub trait IsStarkProver<
         //     &domain,
         //     &round_1_result.rap_challenges,
         // );
-
         #[cfg(feature = "instruments")]
         let elapsed1 = timer1.elapsed();
         #[cfg(feature = "instruments")]
