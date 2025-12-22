@@ -83,7 +83,9 @@ pub trait AIR {
         trace_length: usize,
         pub_inputs: &Self::PublicInputs,
         proof_options: &ProofOptions,
-    ) -> Self;
+    ) -> Self
+    where
+        Self: Sized;
 
     fn build_auxiliary_trace(
         &self,
@@ -96,7 +98,7 @@ pub trait AIR {
 
     fn build_rap_challenges(
         &self,
-        _transcript: &mut impl IsStarkTranscript<Self::FieldExtension, Self::Field>,
+        _transcript: &mut dyn IsStarkTranscript<Self::FieldExtension, Self::Field>,
     ) -> Vec<FieldElement<Self::FieldExtension>> {
         Vec::new()
     }
