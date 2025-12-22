@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 #[cfg(feature = "instruments")]
 use std::time::Instant;
 
-use lambdaworks_crypto::fiat_shamir::is_transcript::IsTranscript;
+use lambdaworks_crypto::fiat_shamir::is_transcript::{IsStarkTranscript};
 use lambdaworks_math::fft::cpu::bit_reversing::{in_place_bit_reverse_permute, reverse_index};
 use lambdaworks_math::fft::errors::FFTError;
 
@@ -208,7 +208,7 @@ pub trait IsStarkProver<A: AIR> {
     fn interpolate_and_commit_main(
         trace: &TraceTable<A::Field, A::FieldExtension>,
         domain: &Domain<A::Field>,
-        transcript: &mut impl IsTranscript<A::FieldExtension>,
+        transcript: &mut impl IsStarkTranscript<A::FieldExtension, A::Field>,
     ) -> Option<(
         Vec<Polynomial<FieldElement<A::Field>>>,
         Vec<Vec<FieldElement<A::Field>>>,
@@ -261,7 +261,7 @@ pub trait IsStarkProver<A: AIR> {
     fn interpolate_and_commit_aux(
         trace: &TraceTable<A::Field, A::FieldExtension>,
         domain: &Domain<A::Field>,
-        transcript: &mut impl IsTranscript<A::FieldExtension>,
+        transcript: &mut impl IsStarkTranscript<A::FieldExtension, A::Field>,
     ) -> Option<(
         Vec<Polynomial<FieldElement<A::FieldExtension>>>,
         Vec<Vec<FieldElement<A::FieldExtension>>>,
@@ -336,7 +336,7 @@ pub trait IsStarkProver<A: AIR> {
         air: &A,
         trace: &mut TraceTable<A::Field, A::FieldExtension>,
         domain: &Domain<A::Field>,
-        transcript: &mut impl IsTranscript<A::FieldExtension>,
+        transcript: &mut impl IsStarkTranscript<A::FieldExtension, A::Field>,
     ) -> Result<Round1<A>, ProvingError>
     where
         FieldElement<A::Field>: AsBytes + Send + Sync,
@@ -540,7 +540,7 @@ pub trait IsStarkProver<A: AIR> {
         round_2_result: &Round2<A::FieldExtension>,
         round_3_result: &Round3<A::FieldExtension>,
         z: &FieldElement<A::FieldExtension>,
-        transcript: &mut impl IsTranscript<A::FieldExtension>,
+        transcript: &mut impl IsStarkTranscript<A::FieldExtension, A::Field>,
     ) -> Round4<A::Field, A::FieldExtension>
     where
         FieldElement<A::Field>: AsBytes + Send + Sync,
@@ -628,7 +628,7 @@ pub trait IsStarkProver<A: AIR> {
     fn sample_query_indexes(
         number_of_queries: usize,
         domain: &Domain<A::Field>,
-        transcript: &mut impl IsTranscript<A::FieldExtension>,
+        transcript: &mut impl IsStarkTranscript<A::FieldExtension, A::Field>,
     ) -> Vec<usize> {
         let domain_size = domain.lde_roots_of_unity_coset.len() as u64;
         (0..number_of_queries)
@@ -872,7 +872,7 @@ pub trait IsStarkProver<A: AIR> {
         trace: &mut TraceTable<A::Field, A::FieldExtension>,
         pub_inputs: &A::PublicInputs,
         proof_options: &ProofOptions,
-        mut transcript: impl IsTranscript<A::FieldExtension>,
+        mut transcript: impl IsStarkTranscript<A::FieldExtension, A::Field>,
     ) -> Result<StarkProof<A::Field, A::FieldExtension>, ProvingError>
     where
         A: Send + Sync,

@@ -1,7 +1,8 @@
-use super::is_transcript::IsTranscript;
+use crate::fiat_shamir::is_transcript::{IsStarkTranscript, IsTranscript};
+
 use core::marker::PhantomData;
 use lambdaworks_math::{
-    field::{element::FieldElement, traits::HasDefaultTranscript},
+    field::{element::FieldElement, traits::{HasDefaultTranscript, IsField, IsSubFieldOf}},
     traits::ByteConversion,
 };
 use rand_chacha::{rand_core::SeedableRng, ChaCha20Rng};
@@ -70,6 +71,16 @@ where
     fn sample_u64(&mut self, upper_bound: u64) -> u64 {
         u64::from_be_bytes(self.state()[..8].try_into().unwrap()) % upper_bound
     }
+}
+
+
+impl<F, S> IsStarkTranscript<F, S> for DefaultTranscript<F>
+where
+    F: HasDefaultTranscript,
+    FieldElement<F>: ByteConversion,
+    S: IsField + IsSubFieldOf<F>,
+{
+    // nothing to implement: sample_z_ood uses the default body
 }
 
 #[cfg(test)]

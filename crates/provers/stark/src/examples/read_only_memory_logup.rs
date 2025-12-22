@@ -15,7 +15,7 @@ use crate::{
     traits::{TransitionEvaluationContext, AIR},
 };
 use itertools::Itertools;
-use lambdaworks_crypto::fiat_shamir::is_transcript::IsTranscript;
+use lambdaworks_crypto::fiat_shamir::is_transcript::IsStarkTranscript;
 use lambdaworks_math::{
     field::{
         element::FieldElement,
@@ -453,7 +453,7 @@ where
 
     fn build_rap_challenges(
         &self,
-        transcript: &mut impl IsTranscript<Self::FieldExtension>,
+        transcript: &mut impl IsStarkTranscript<Self::FieldExtension, Self::Field>,
     ) -> Vec<FieldElement<Self::FieldExtension>> {
         vec![
             transcript.sample_field_element(),

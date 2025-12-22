@@ -10,7 +10,7 @@ use crate::{
     trace::TraceTable,
     traits::{TransitionEvaluationContext, AIR},
 };
-use lambdaworks_crypto::fiat_shamir::is_transcript::IsTranscript;
+use lambdaworks_crypto::fiat_shamir::is_transcript::IsStarkTranscript;
 use lambdaworks_math::{
     field::{element::FieldElement, traits::IsFFTField},
     helpers::resize_to_next_power_of_two,
@@ -235,7 +235,7 @@ where
 
     fn build_rap_challenges(
         &self,
-        transcript: &mut impl IsTranscript<Self::Field>,
+        transcript: &mut impl IsStarkTranscript<Self::Field, Self::Field>,
     ) -> Vec<FieldElement<Self::FieldExtension>> {
         vec![transcript.sample_field_element()]
     }

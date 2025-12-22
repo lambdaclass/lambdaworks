@@ -1,8 +1,9 @@
 use crate::sumcheck::GKRSumcheckProof;
 use crate::{circuit::Circuit, sumcheck::gkr_sumcheck_prove};
 
+use lambdaworks_crypto::fiat_shamir::is_transcript::IsTranscript;
 use lambdaworks_crypto::fiat_shamir::{
-    default_transcript::DefaultTranscript, is_transcript::IsTranscript,
+    default_transcript::DefaultTranscript,
 };
 use lambdaworks_math::polynomial::Polynomial;
 use lambdaworks_math::{
