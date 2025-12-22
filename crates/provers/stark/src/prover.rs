@@ -381,7 +381,7 @@ pub trait IsStarkProver<A: AIR> {
         let lde_trace = LDETraceTable::from_columns(
             evaluations,
             aux_evaluations,
-            A::STEP_SIZE,
+            air.step_size(),
             domain.blowup_factor,
         );
 
@@ -523,7 +523,7 @@ pub trait IsStarkProver<A: AIR> {
                 z,
                 &air.context().transition_offsets,
                 &domain.trace_primitive_root,
-                A::STEP_SIZE,
+                air.step_size(),
             );
 
         Round3 {
@@ -553,7 +553,7 @@ pub trait IsStarkProver<A: AIR> {
 
         let n_terms_composition_poly = round_2_result.lde_composition_poly_evaluations.len();
         let num_terms_trace =
-            air.context().transition_offsets.len() * A::STEP_SIZE * air.context().trace_columns;
+            air.context().transition_offsets.len() * air.step_size() * air.context().trace_columns;
 
         // <<<< Receive challenges: 𝛾, 𝛾'
         let mut deep_composition_coefficients: Vec<_> =
@@ -564,7 +564,7 @@ pub trait IsStarkProver<A: AIR> {
         let trace_term_coeffs: Vec<_> = deep_composition_coefficients
             .drain(..num_terms_trace)
             .collect::<Vec<_>>()
-            .chunks(air.context().transition_offsets.len() * A::STEP_SIZE)
+            .chunks(air.context().transition_offsets.len() * air.step_size())
             .map(|chunk| chunk.to_vec())
             .collect();
 

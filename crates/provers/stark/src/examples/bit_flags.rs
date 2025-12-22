@@ -136,7 +136,9 @@ impl AIR for BitFlagsAIR {
     type FieldExtension = StarkField;
     type PublicInputs = ();
 
-    const STEP_SIZE: usize = 16;
+    fn step_size(&self) -> usize {
+        16
+    }
 
     fn new(
         trace_length: usize,

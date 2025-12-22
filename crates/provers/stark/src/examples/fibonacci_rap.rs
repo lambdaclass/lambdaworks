@@ -173,7 +173,9 @@ where
     type FieldExtension = F;
     type PublicInputs = FibonacciRAPPublicInputs<Self::Field>;
 
-    const STEP_SIZE: usize = 1;
+    fn step_size(&self) -> usize {
+        1
+    }
 
     fn new(
         trace_length: usize,
