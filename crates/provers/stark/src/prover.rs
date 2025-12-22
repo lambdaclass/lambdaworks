@@ -1240,35 +1240,37 @@ mod tests {
         ProofOptions,
         [u8; 4],
     ) {
-        unimplemented!();
-        // let mut trace = fibonacci_2_cols_shifted::compute_trace(FieldElement::one(), 4);
+        let mut trace = fibonacci_2_cols_shifted::compute_trace(FieldElement::one(), 4);
 
-        // let claimed_index = 3;
-        // let col = 0;
-        // let claimed_value = *trace.get_main(claimed_index, col);
-        // let mut proof_options = ProofOptions::default_test_options();
-        // proof_options.blowup_factor = 4;
-        // proof_options.coset_offset = 3;
-        // proof_options.grinding_factor = 0;
-        // proof_options.fri_number_of_queries = 1;
+        let claimed_index = 3;
+        let col = 0;
+        let claimed_value = *trace.get_main(claimed_index, col);
+        let mut proof_options = ProofOptions::default_test_options();
+        proof_options.blowup_factor = 4;
+        proof_options.coset_offset = 3;
+        proof_options.grinding_factor = 0;
+        proof_options.fri_number_of_queries = 1;
 
-        // let pub_inputs = fibonacci_2_cols_shifted::PublicInputs {
-        //     claimed_value,
-        //     claimed_index,
-        // };
+        let pub_inputs = fibonacci_2_cols_shifted::PublicInputs {
+            claimed_value,
+            claimed_index,
+        };
 
-        // let transcript_init_seed = [0xca, 0xfe, 0xca, 0xfe];
+        let transcript_init_seed = [0xca, 0xfe, 0xca, 0xfe];
 
-        // // Fibonacci2ColsShifted
+        let air = Fibonacci2ColsShifted::<Stark252PrimeField>::new(
+            trace.num_rows(),
+            &pub_inputs,
+            &proof_options,
+        );
 
-        // let proof = Prover::<_, _>::prove(
-        //     &mut trace,
-        //     &pub_inputs,
-        //     &proof_options,
-        //     &mut StoneProverTranscript::new(&transcript_init_seed),
-        // )
-        // .unwrap();
-        // (proof, pub_inputs, proof_options, transcript_init_seed)
+        let proof = Prover::prove(
+            &air,
+            &mut trace,
+            &mut StoneProverTranscript::new(&transcript_init_seed),
+        )
+        .unwrap();
+        (proof, pub_inputs, proof_options, transcript_init_seed)
     }
 
     fn stone_compatibility_case_1_proof() -> StarkProof<Stark252PrimeField, Stark252PrimeField> {
@@ -1640,33 +1642,37 @@ mod tests {
         ProofOptions,
         [u8; 4],
     ) {
-        // let mut trace = fibonacci_2_cols_shifted::compute_trace(FieldElement::from(12345), 512);
+        let mut trace = fibonacci_2_cols_shifted::compute_trace(FieldElement::from(12345), 512);
 
-        // let claimed_index = 420;
-        // let col = 0;
-        // let claimed_value = *trace.get_main(claimed_index, col);
-        // let mut proof_options = ProofOptions::default_test_options();
-        // proof_options.blowup_factor = 1 << 6;
-        // proof_options.coset_offset = 3;
-        // proof_options.grinding_factor = 0;
-        // proof_options.fri_number_of_queries = 1;
+        let claimed_index = 420;
+        let col = 0;
+        let claimed_value = *trace.get_main(claimed_index, col);
+        let mut proof_options = ProofOptions::default_test_options();
+        proof_options.blowup_factor = 1 << 6;
+        proof_options.coset_offset = 3;
+        proof_options.grinding_factor = 0;
+        proof_options.fri_number_of_queries = 1;
 
-        // let pub_inputs = fibonacci_2_cols_shifted::PublicInputs {
-        //     claimed_value,
-        //     claimed_index,
-        // };
+        let pub_inputs = fibonacci_2_cols_shifted::PublicInputs {
+            claimed_value,
+            claimed_index,
+        };
 
-        // let transcript_init_seed = [0xfa, 0xfa, 0xfa, 0xee];
+        let transcript_init_seed = [0xfa, 0xfa, 0xfa, 0xee];
 
-        // let proof = Prover::<Fibonacci2ColsShifted<_>>::prove(
-        //     &mut trace,
-        //     &pub_inputs,
-        //     &proof_options,
-        //     StoneProverTranscript::new(&transcript_init_seed),
-        // )
-        // .unwrap();
-        // (proof, pub_inputs, proof_options, transcript_init_seed)
-        unimplemented!()
+        let air = Fibonacci2ColsShifted::<Stark252PrimeField>::new(
+            trace.num_rows(),
+            &pub_inputs,
+            &proof_options,
+        );
+
+        let proof = Prover::prove(
+            &air,
+            &mut trace,
+            &mut StoneProverTranscript::new(&transcript_init_seed),
+        )
+        .unwrap();
+        (proof, pub_inputs, proof_options, transcript_init_seed)
     }
 
     fn stone_compatibility_case_2_proof() -> StarkProof<Stark252PrimeField, Stark252PrimeField> {
