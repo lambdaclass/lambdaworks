@@ -1,6 +1,7 @@
 use super::domain::Domain;
 use super::traits::{TransitionEvaluationContext, AIR};
 use crate::{frame::Frame, trace::LDETraceTable};
+use lambdaworks_math::field::traits::IsSubFieldOf;
 use lambdaworks_math::{
     field::{
         element::FieldElement,
@@ -11,12 +12,16 @@ use lambdaworks_math::{
 use log::{error, info};
 
 /// Validates that the trace is valid with respect to the supplied AIR constraints
-pub fn validate_trace<A: AIR>(
-    air: &A,
-    main_trace_polys: &[Polynomial<FieldElement<A::Field>>],
-    aux_trace_polys: &[Polynomial<FieldElement<A::FieldExtension>>],
-    domain: &Domain<A::Field>,
-    rap_challenges: &[FieldElement<A::FieldExtension>],
+pub fn validate_trace<
+    Field: IsSubFieldOf<FieldExtension> + IsFFTField + Send + Sync,
+    FieldExtension: Send + Sync + IsFFTField,
+    PI: Send + Sync,
+>(
+    air: &dyn AIR<Field = Field, FieldExtension = FieldExtension, PublicInputs = PI>,
+    main_trace_polys: &[Polynomial<FieldElement<Field>>],
+    aux_trace_polys: &[Polynomial<FieldElement<FieldExtension>>],
+    domain: &Domain<Field>,
+    rap_challenges: &[FieldElement<FieldExtension>],
 ) -> bool {
     info!("Starting constraints validation over trace...");
     let mut ret = true;
@@ -24,7 +29,7 @@ pub fn validate_trace<A: AIR>(
     let main_trace_columns: Vec<_> = main_trace_polys
         .iter()
         .map(|poly| {
-            Polynomial::<FieldElement<A::Field>>::evaluate_fft::<A::Field>(
+            Polynomial::<FieldElement<Field>>::evaluate_fft::<Field>(
                 poly,
                 1,
                 Some(domain.interpolation_domain_size),
@@ -36,7 +41,7 @@ pub fn validate_trace<A: AIR>(
     let aux_trace_columns: Vec<_> = aux_trace_polys
         .iter()
         .map(|poly| {
-            Polynomial::evaluate_fft::<A::Field>(poly, 1, Some(domain.interpolation_domain_size))
+            Polynomial::evaluate_fft::<Field>(poly, 1, Some(domain.interpolation_domain_size))
                 .unwrap()
         })
         .collect();
@@ -48,7 +53,7 @@ pub fn validate_trace<A: AIR>(
         .get_periodic_column_polynomials()
         .iter()
         .map(|poly| {
-            Polynomial::<FieldElement<A::Field>>::evaluate_fft::<A::Field>(
+            Polynomial::<FieldElement<Field>>::evaluate_fft::<Field>(
                 poly,
                 1,
                 Some(domain.interpolation_domain_size),
