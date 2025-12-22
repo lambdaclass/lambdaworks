@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 #[cfg(feature = "instruments")]
 use std::time::Instant;
 
-use lambdaworks_crypto::fiat_shamir::is_transcript::{IsStarkTranscript};
+use lambdaworks_crypto::fiat_shamir::is_transcript::IsStarkTranscript;
 use lambdaworks_math::fft::cpu::bit_reversing::{in_place_bit_reverse_permute, reverse_index};
 use lambdaworks_math::fft::errors::FFTError;
 

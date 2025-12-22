@@ -131,8 +131,7 @@ impl IsTranscript<Stark252PrimeField> for StoneProverTranscript {
     }
 }
 
-impl IsStarkTranscript<Stark252PrimeField, Stark252PrimeField> for StoneProverTranscript
-{
+impl IsStarkTranscript<Stark252PrimeField, Stark252PrimeField> for StoneProverTranscript {
     // nothing to implement: sample_z_ood uses the default body
 }
 

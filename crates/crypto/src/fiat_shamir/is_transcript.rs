@@ -1,8 +1,6 @@
-use lambdaworks_math::{
-    field::{
-        element::FieldElement,
-        traits::{IsField, IsSubFieldOf},
-    },
+use lambdaworks_math::field::{
+    element::FieldElement,
+    traits::{IsField, IsSubFieldOf},
 };
 
 /// The functionality of a transcript to be used in the STARK Prove and Verify protocols.
@@ -17,17 +15,15 @@ pub trait IsTranscript<F: IsField> {
     fn sample_field_element(&mut self) -> FieldElement<F>;
     /// Returns a random index between 0 and `upper_bound`.
     fn sample_u64(&mut self, upper_bound: u64) -> u64;
-
 }
 
-pub trait IsStarkTranscript<F: IsField, S: IsField + IsSubFieldOf<F>>: IsTranscript<F>{
+pub trait IsStarkTranscript<F: IsField, S: IsField + IsSubFieldOf<F>>: IsTranscript<F> {
     /// Returns a field element not contained in `lde_roots_of_unity_coset` or `trace_roots_of_unity`.
-    fn sample_z_ood<>(
+    fn sample_z_ood(
         &mut self,
         lde_roots_of_unity_coset: &[FieldElement<S>],
         trace_roots_of_unity: &[FieldElement<S>],
-    ) -> FieldElement<F>
-    {
+    ) -> FieldElement<F> {
         loop {
             let value: FieldElement<F> = self.sample_field_element();
             if !lde_roots_of_unity_coset
