@@ -305,6 +305,18 @@ pub trait IsStarkVerifier<A: AIR> {
         let num_main_trace_columns =
             proof.trace_ood_evaluations.width - air.num_auxiliary_rap_columns();
 
+        // if a proof for a different AIR s provided, `into_frame` may produce a frame with fewer
+        // steps than the AIR expects, which would later panic when evaluating transition constraints.
+        // Therefore, we check that the number of steps is divisible by the step size and that the number of steps is equal to the number of transition offsets.
+        let expected_transition_steps = air.context().transition_offsets.len();
+        if proof.trace_ood_evaluations.height % A::STEP_SIZE != 0 {
+            return false;
+        }
+        let actual_transition_steps = proof.trace_ood_evaluations.height / A::STEP_SIZE;
+        if actual_transition_steps != expected_transition_steps {
+            return false;
+        }
+
         let ood_frame =
             (proof.trace_ood_evaluations).into_frame(num_main_trace_columns, A::STEP_SIZE);
         let transition_evaluation_context = TransitionEvaluationContext::new_verifier(

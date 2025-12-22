@@ -358,7 +358,7 @@ fn test_prove_log_read_only_memory() {
 
 #[test_log::test]
 fn test_prove_multi_table() {
-    let mut trace_1 = simple_fibonacci::fibonacci_trace([Felt252::from(1), Felt252::from(1)], 8);
+    let mut trace_1 = simple_fibonacci::fibonacci_trace([Felt252::from(1), Felt252::from(1)], 16);
 
     let address_col = vec![
         FieldElement::<Stark252PrimeField>::from(3), // a0
@@ -404,7 +404,7 @@ fn test_prove_multi_table() {
         StoneProverTranscript::new(&[]),
     )
     .unwrap();
-    assert!(MultiTableVerifier::<
+    assert!(!MultiTableVerifier::<
         FibonacciAIR<Stark252PrimeField>,
         ReadOnlyRAP<Stark252PrimeField>,
     >::verify(
@@ -476,6 +476,74 @@ fn test_prove_multi_table_fail() {
     >::verify(
         &proof,
         &invalid_pub_inputs_1,
+        &pub_inputs_2,
+        &proof_options,
+        StoneProverTranscript::new(&[]),
+    ))
+}
+
+#[test_log::test]
+fn test_prove_multi_table_swaped_proofs() {
+    let mut trace_1 = simple_fibonacci::fibonacci_trace([Felt252::from(1), Felt252::from(1)], 16);
+
+    let address_col = vec![
+        FieldElement::<Stark252PrimeField>::from(3), // a0
+        FieldElement::<Stark252PrimeField>::from(2), // a1
+        FieldElement::<Stark252PrimeField>::from(2), // a2
+        FieldElement::<Stark252PrimeField>::from(3), // a3
+        FieldElement::<Stark252PrimeField>::from(4), // a4
+        FieldElement::<Stark252PrimeField>::from(5), // a5
+        FieldElement::<Stark252PrimeField>::from(1), // a6
+        FieldElement::<Stark252PrimeField>::from(3), // a7
+    ];
+    let value_col = vec![
+        FieldElement::<Stark252PrimeField>::from(10), // v0
+        FieldElement::<Stark252PrimeField>::from(5),  // v1
+        FieldElement::<Stark252PrimeField>::from(5),  // v2
+        FieldElement::<Stark252PrimeField>::from(10), // v3
+        FieldElement::<Stark252PrimeField>::from(25), // v4
+        FieldElement::<Stark252PrimeField>::from(25), // v5
+        FieldElement::<Stark252PrimeField>::from(7),  // v6
+        FieldElement::<Stark252PrimeField>::from(10), // v7
+    ];
+
+    let pub_inputs_1 = FibonacciPublicInputs {
+        a0: Felt252::one(),
+        a1: Felt252::one(),
+    };
+    let pub_inputs_2 = ReadOnlyPublicInputs {
+        a0: FieldElement::<Stark252PrimeField>::from(3),
+        v0: FieldElement::<Stark252PrimeField>::from(10),
+        a_sorted0: FieldElement::<Stark252PrimeField>::from(1), // a6
+        v_sorted0: FieldElement::<Stark252PrimeField>::from(7), // v6
+    };
+    let mut trace_2 = sort_rap_trace(address_col, value_col);
+
+    let proof_options = ProofOptions::default_test_options();
+
+    let mut proof = MultiTableProver::<
+        FibonacciAIR<Stark252PrimeField>,
+        ReadOnlyRAP<Stark252PrimeField>,
+    >::prove(
+        &mut trace_1,
+        &mut trace_2,
+        &pub_inputs_1,
+        &pub_inputs_2,
+        &proof_options,
+        StoneProverTranscript::new(&[]),
+    )
+    .unwrap();
+
+    // Since we don't hace clone implemented for StarkProof
+    //the alternative is to swap the proofs in-place
+    proof.swap(0, 1);
+
+    assert!(!MultiTableVerifier::<
+        FibonacciAIR<Stark252PrimeField>,
+        ReadOnlyRAP<Stark252PrimeField>,
+    >::verify(
+        &proof,
+        &pub_inputs_1,
         &pub_inputs_2,
         &proof_options,
         StoneProverTranscript::new(&[]),
