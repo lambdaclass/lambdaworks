@@ -42,7 +42,7 @@ pub fn validate_trace<A: AIR>(
         .collect();
 
     let lde_trace =
-        LDETraceTable::from_columns(main_trace_columns, aux_trace_columns, A::STEP_SIZE, 1);
+        LDETraceTable::from_columns(main_trace_columns, aux_trace_columns, air.step_size(), 1);
 
     let periodic_columns: Vec<_> = air
         .get_periodic_column_polynomials()

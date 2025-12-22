@@ -77,7 +77,7 @@ pub trait AIR {
     type FieldExtension: IsField + Send + Sync;
     type PublicInputs;
 
-    const STEP_SIZE: usize;
+    fn step_size(&self) -> usize;
 
     fn new(
         trace_length: usize,

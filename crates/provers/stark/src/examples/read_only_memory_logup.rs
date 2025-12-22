@@ -379,7 +379,9 @@ where
     type FieldExtension = E;
     type PublicInputs = LogReadOnlyPublicInputs<F>;
 
-    const STEP_SIZE: usize = 1;
+    fn step_size(&self) -> usize {
+        1
+    }
 
     fn new(
         trace_length: usize,

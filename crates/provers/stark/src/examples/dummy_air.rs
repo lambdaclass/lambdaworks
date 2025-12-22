@@ -144,7 +144,9 @@ impl AIR for DummyAIR {
     type FieldExtension = StarkField;
     type PublicInputs = ();
 
-    const STEP_SIZE: usize = 1;
+    fn step_size(&self) -> usize {
+        1
+    }
 
     fn new(
         trace_length: usize,
