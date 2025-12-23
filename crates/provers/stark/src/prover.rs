@@ -73,10 +73,8 @@ where
 }
 
 /// A container for the results of the first round of the STARK Prove protocol.
-pub struct Round1<
-    Field: IsSubFieldOf<FieldExtension> + IsFFTField + Send + Sync,
-    FieldExtension: Send + Sync + IsFFTField,
-> where
+pub struct Round1<Field, FieldExtension>
+where
     Field: IsSubFieldOf<FieldExtension> + IsFFTField + Send + Sync,
     FieldExtension: Send + Sync + IsFFTField,
     FieldElement<Field>: AsBytes + Send + Sync + AsBytes,
@@ -135,7 +133,7 @@ where
 }
 
 /// A container for the results of the third round of the STARK Prove protocol.
-pub struct Round3<F: IsField + Send + Sync> {
+pub struct Round3<F: IsField> {
     /// Evaluations of the trace polynomials, main ans auxiliary, at the out-of-domain challenge.
     trace_ood_evaluations: Table<F>,
     /// Evaluations of the composition polynomial parts at the out-of-domain challenge.
@@ -143,7 +141,7 @@ pub struct Round3<F: IsField + Send + Sync> {
 }
 
 /// A container for the results of the fourth round of the STARK Prove protocol.
-pub struct Round4<F: IsSubFieldOf<E> + Send + Sync, E: IsField + Send + Sync> {
+pub struct Round4<F: IsSubFieldOf<E>, E: IsField> {
     /// The final value resulting from folding the Deep composition polynomial all the way down to a constant value.
     fri_last_value: FieldElement<E>,
     /// The commitments to the fold polynomials of the inner layers of FRI.
