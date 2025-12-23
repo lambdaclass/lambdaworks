@@ -6,7 +6,7 @@ use crate::trace::LDETraceTable;
 use crate::traits::{TransitionEvaluationContext, AIR};
 use crate::{frame::Frame, prover::evaluate_polynomial_on_lde_domain};
 use itertools::Itertools;
-use lambdaworks_math::field::traits::{IsFFTField, IsField, IsSubFieldOf};
+use lambdaworks_math::field::traits::{IsFFTField, IsSubFieldOf};
 #[cfg(not(feature = "parallel"))]
 use lambdaworks_math::polynomial::Polynomial;
 use lambdaworks_math::{fft::errors::FFTError, field::element::FieldElement};
@@ -26,7 +26,7 @@ pub struct ConstraintEvaluator<
     PI: Send + Sync,
 > {
     boundary_constraints: BoundaryConstraints<FieldExtension>,
-    marker: PhantomData<(Field, PI)>,
+    phantom: PhantomData<(Field, PI)>,
 }
 impl<Field, FieldExtension, PI> ConstraintEvaluator<Field, FieldExtension, PI>
 where
@@ -42,7 +42,7 @@ where
 
         Self {
             boundary_constraints,
-            marker: PhantomData::<(Field, PI)> {},
+            phantom: PhantomData::<(Field, PI)> {},
         }
     }
 

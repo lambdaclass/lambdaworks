@@ -2,7 +2,7 @@ use lambdaworks_crypto::fiat_shamir::is_transcript::IsStarkTranscript;
 use lambdaworks_math::{
     field::{
         element::FieldElement,
-        traits::{IsFFTField, IsField, IsSubFieldOf},
+        traits::{IsFFTField, IsSubFieldOf},
     },
     traits::AsBytes,
 };
@@ -30,8 +30,6 @@ pub fn multi_prove<
 where
     FieldElement<F>: AsBytes + Send + Sync,
     FieldElement<E>: AsBytes + Send + Sync,
-    <F as IsField>::BaseType: Sync + Send,
-    <E as IsField>::BaseType: Sync + Send,
 {
     let mut proof = None;
     for (air, table) in airs {
