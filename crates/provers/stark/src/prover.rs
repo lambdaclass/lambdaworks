@@ -236,7 +236,6 @@ pub trait IsStarkProver<
     )>
     where
         FieldElement<Field>: AsBytes + Send + Sync,
-        // FieldElement<E>: AsBytes + Send + Sync,
         FieldElement<FieldExtension>: AsBytes + Send + Sync,
         Field: IsSubFieldOf<FieldExtension>,
     {
