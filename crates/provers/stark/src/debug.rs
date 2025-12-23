@@ -17,7 +17,7 @@ pub fn validate_trace<
     FieldExtension: Send + Sync + IsFFTField,
     PI: Send + Sync,
 >(
-    air: &Box<dyn AIR<Field = Field, FieldExtension = FieldExtension, PublicInputs = PI>>,
+    air: &dyn AIR<Field = Field, FieldExtension = FieldExtension, PublicInputs = PI>,
     main_trace_polys: &[Polynomial<FieldElement<Field>>],
     aux_trace_polys: &[Polynomial<FieldElement<FieldExtension>>],
     domain: &Domain<Field>,

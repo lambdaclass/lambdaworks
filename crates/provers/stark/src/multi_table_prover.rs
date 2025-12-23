@@ -16,7 +16,7 @@ use crate::{
 
 // List of airs and their associated table
 type Airs<'a, F, E, PI> = Vec<(
-    Box<dyn AIR<Field = F, FieldExtension = E, PublicInputs = PI>>,
+    &'a dyn AIR<Field = F, FieldExtension = E, PublicInputs = PI>,
     &'a mut TraceTable<F, E>,
 )>;
 pub fn multi_prove<
@@ -35,7 +35,7 @@ where
 {
     let mut proof = None;
     for (air, table) in airs {
-        let _ = proof.insert(Prover::<F, E, PI>::prove(&air, table, transcript)?);
+        let _ = proof.insert(Prover::<F, E, PI>::prove(air, table, transcript)?);
     }
     Ok(proof.unwrap())
 }

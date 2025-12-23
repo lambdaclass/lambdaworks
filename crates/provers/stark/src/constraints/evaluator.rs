@@ -50,7 +50,7 @@ where
 
     pub(crate) fn evaluate(
         &self,
-        air: &Box<dyn AIR<Field = Field, FieldExtension = FieldExtension, PublicInputs = PI>>,
+        air: &dyn AIR<Field = Field, FieldExtension = FieldExtension, PublicInputs = PI>,
         lde_trace: &LDETraceTable<Field, FieldExtension>,
         domain: &Domain<Field>,
         transition_coefficients: &[FieldElement<FieldExtension>],
@@ -237,3 +237,79 @@ where
         evaluations_t
     }
 }
+
+// fn foo<
+//     FieldExtension,
+//     Field,
+//     PI,
+//     A: AIR<Field = Field, FieldExtension = FieldExtension, PublicInputs = PI> + Sync,
+// >(
+//     //air: &AIR<Field = Field, FieldExtension = FieldExtension, PublicInputs = PI>,
+//     air: &A,
+//     boundary_evaluation: Vec<FieldElement<FieldExtension>>,
+//     evaluations_t_iter: std::ops::Range<usize>,
+//     lde_trace: &LDETraceTable<Field, FieldExtension>,
+//     lde_periodic_columns: Vec<Vec<FieldElement<Field>>>,
+//     rap_challenges: &[FieldElement<FieldExtension>],
+//     zerofiers_evals: Vec<Vec<FieldElement<Field>>>,
+//     transition_coefficients: &[FieldElement<FieldExtension>],
+// ) -> Vec<FieldElement<FieldExtension>>
+// where
+//     Field: IsSubFieldOf<FieldExtension> + IsFFTField + Send + Sync,
+//     FieldExtension: Send + Sync + IsFFTField,
+//     PI: Send + Sync,
+//     <Field as IsField>::BaseType: Send + Sync,
+//     <FieldExtension as IsField>::BaseType: Send + Sync,
+// {
+//     #[cfg(feature = "parallel")]
+//     let boundary_evaluation = boundary_evaluation.into_par_iter();
+//     #[cfg(feature = "parallel")]
+//     let evaluations_t_iter = evaluations_t_iter.into_par_iter();
+
+//     let evaluations_t = evaluations_t_iter
+//         .zip(boundary_evaluation)
+//         .map(|(i, boundary)| {
+//             let frame = Frame::read_from_lde(lde_trace, i, &air.context().transition_offsets);
+
+//             let periodic_values: Vec<_> = lde_periodic_columns
+//                 .iter()
+//                 .map(|col| col[i].clone())
+//                 .collect();
+
+//             // Compute all the transition constraints at this point of the LDE domain.
+//             let transition_evaluation_context =
+//                 TransitionEvaluationContext::new_prover(&frame, &periodic_values, rap_challenges);
+//             let evaluations_transition = air.compute_transition(&transition_evaluation_context);
+
+//             #[cfg(all(debug_assertions, not(feature = "parallel")))]
+//             transition_evaluations.push(evaluations_transition.clone());
+
+//             // Add each term of the transition constraints to the composition polynomial, including the zerofier,
+//             // the challenge and the exemption polynomial if it is necessary.
+//             let acc_transition = itertools::izip!(
+//                 evaluations_transition,
+//                 &zerofiers_evals,
+//                 transition_coefficients
+//             )
+//             .fold(FieldElement::zero(), |acc, (eval, zerof_eval, beta)| {
+//                 // Zerofier evaluations are cyclical, so we only calculate one cycle.
+//                 // This means that here we have to wrap around
+//                 // Ex: Suppose the full zerofier vector is Z = [1,2,3,1,2,3]
+//                 // we will instead have calculated Z' = [1,2,3]
+//                 // Now if you need Z[4] this is equal to Z'[1]
+//                 let wrapped_idx = i % zerof_eval.len();
+//                 acc + &zerof_eval[wrapped_idx] * eval * beta
+//             });
+
+//             acc_transition + boundary
+//         })
+//         .collect();
+
+//     #[cfg(feature = "instruments")]
+//     println!(
+//         "     Evaluated transitions and accumulated results: {:#?}",
+//         timer.elapsed()
+//     );
+
+//     evaluations_t
+// }
