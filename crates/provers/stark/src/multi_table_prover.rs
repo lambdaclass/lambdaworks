@@ -8,22 +8,23 @@ use lambdaworks_math::{
 };
 
 use crate::{
-    domain::new_domain,
     proof::stark::StarkProof,
     prover::{IsStarkProver, Prover, ProvingError},
     trace::TraceTable,
     traits::AIR,
 };
 
-fn multi_prove<
+// List of airs and their associated table
+type Airs<'a, F, E, PI> = Vec<(
+    Box<dyn AIR<Field = F, FieldExtension = E, PublicInputs = PI>>,
+    &'a mut TraceTable<F, E>,
+)>;
+pub fn multi_prove<
     F: IsSubFieldOf<E> + IsFFTField + Send + Sync,
     E: Send + Sync + IsFFTField,
     PI: Send + Sync,
 >(
-    airs: Vec<(
-        Box<dyn AIR<Field = F, FieldExtension = E, PublicInputs = PI>>,
-        &mut TraceTable<F, E>,
-    )>,
+    airs: Airs<F, E, PI>,
     transcript: &mut impl IsStarkTranscript<E, F>,
 ) -> Result<StarkProof<F, E>, ProvingError>
 where
@@ -34,8 +35,7 @@ where
 {
     let mut proof = None;
     for (air, table) in airs {
-        let domain = new_domain(air.as_ref());
-        proof.insert(Prover::<F, E, PI>::prove(air.as_ref(), table, transcript)?);
+        let _ = proof.insert(Prover::<F, E, PI>::prove(air.as_ref(), table, transcript)?);
     }
     Ok(proof.unwrap())
 }
