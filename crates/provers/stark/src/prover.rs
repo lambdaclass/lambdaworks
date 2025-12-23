@@ -81,8 +81,6 @@ pub struct Round1<
     FieldExtension: Send + Sync + IsFFTField,
     FieldElement<Field>: AsBytes + Send + Sync + AsBytes,
     FieldElement<FieldExtension>: AsBytes + Send + Sync + AsBytes,
-    <Field as IsField>::BaseType: Sync + Send,
-    <FieldExtension as IsField>::BaseType: Sync + Send,
 {
     /// The table of evaluations over the LDE of the main and auxiliary trace tables.
     pub(crate) lde_trace: LDETraceTable<Field, FieldExtension>,
@@ -100,8 +98,6 @@ where
     FieldExtension: Send + Sync + IsFFTField,
     FieldElement<Field>: AsBytes + Send + Sync + AsBytes,
     FieldElement<FieldExtension>: AsBytes + Send + Sync + AsBytes,
-    <Field as IsField>::BaseType: Sync + Send,
-    <FieldExtension as IsField>::BaseType: Sync + Send,
 {
     /// Returns the full list of the polynomials interpolating the trace. It includes both
     /// main and auxiliary trace polynomials. The main trace polynomials are casted to
@@ -364,8 +360,6 @@ pub trait IsStarkProver<
     where
         FieldElement<Field>: AsBytes + Send + Sync,
         FieldElement<FieldExtension>: AsBytes + Send + Sync,
-        <Field as IsField>::BaseType: Sync + Send,
-        <FieldExtension as IsField>::BaseType: Sync + Send,
     {
         let Some((trace_polys, evaluations, main_merkle_tree, main_merkle_root)) =
             Self::interpolate_and_commit_main(trace, domain, transcript)
@@ -450,7 +444,7 @@ pub trait IsStarkProver<
 
     /// Returns the result of the second round of the STARK Prove protocol.
     fn round_2_compute_composition_polynomial(
-        air: &dyn AIR<Field = Field, FieldExtension = FieldExtension, PublicInputs = PI>,
+        air: &Box<dyn AIR<Field = Field, FieldExtension = FieldExtension, PublicInputs = PI>>,
         domain: &Domain<Field>,
         round_1_result: &Round1<Field, FieldExtension>,
         transition_coefficients: &[FieldElement<FieldExtension>],
@@ -459,11 +453,9 @@ pub trait IsStarkProver<
     where
         FieldElement<Field>: AsBytes + Send + Sync,
         FieldElement<FieldExtension>: AsBytes + Send + Sync,
-        <Field as IsField>::BaseType: Sync + Send,
-        <FieldExtension as IsField>::BaseType: Sync + Send,
     {
         // Compute the evaluations of the composition polynomial on the LDE domain.
-        let evaluator = ConstraintEvaluator::new(air, &round_1_result.rap_challenges);
+        let evaluator = ConstraintEvaluator::new(air.as_ref(), &round_1_result.rap_challenges);
         let constraint_evaluations = evaluator.evaluate(
             air,
             &round_1_result.lde_trace,
@@ -519,8 +511,6 @@ pub trait IsStarkProver<
     where
         FieldElement<Field>: AsBytes + Send + Sync,
         FieldElement<FieldExtension>: AsBytes + Send + Sync,
-        <Field as IsField>::BaseType: Sync + Send,
-        <FieldExtension as IsField>::BaseType: Sync + Send,
     {
         let z_power = z.pow(round_2_result.composition_poly_parts.len());
 
@@ -857,8 +847,6 @@ pub trait IsStarkProver<
     where
         FieldElement<Field>: AsBytes + Send + Sync,
         FieldElement<FieldExtension>: AsBytes + Send + Sync,
-        <Field as IsField>::BaseType: Sync + Send,
-        <FieldExtension as IsField>::BaseType: Sync + Send,
     {
         let mut openings = Vec::new();
 
@@ -899,7 +887,7 @@ pub trait IsStarkProver<
     /// Generates a STARK proof for the trace `main_trace` with public inputs `pub_inputs`.
     /// Warning: the transcript must be safely initializated before passing it to this method.
     fn prove(
-        air: &dyn AIR<Field = Field, FieldExtension = FieldExtension, PublicInputs = PI>,
+        air: &Box<dyn AIR<Field = Field, FieldExtension = FieldExtension, PublicInputs = PI>>,
         trace: &mut TraceTable<Field, FieldExtension>,
         transcript: &mut impl IsStarkTranscript<FieldExtension, Field>,
     ) -> Result<StarkProof<Field, FieldExtension>, ProvingError>
@@ -907,8 +895,6 @@ pub trait IsStarkProver<
         FieldElement<Field>: AsBytes + Send + Sync,
         FieldExtension: IsFFTField,
         FieldElement<FieldExtension>: AsBytes + Send + Sync,
-        <Field as IsField>::BaseType: Send + Sync,
-        <FieldExtension as IsField>::BaseType: Sync + Send,
         PI: Send + Sync,
     {
         info!("Started proof generation...");
@@ -917,7 +903,7 @@ pub trait IsStarkProver<
         #[cfg(feature = "instruments")]
         let timer0 = Instant::now();
 
-        let domain = new_domain(air);
+        let domain = new_domain(air.as_ref());
 
         #[cfg(feature = "instruments")]
         let elapsed0 = timer0.elapsed();
@@ -933,8 +919,12 @@ pub trait IsStarkProver<
         #[cfg(feature = "instruments")]
         let timer1 = Instant::now();
 
-        let round_1_result =
-            Self::round_1_randomized_air_with_preprocessing(air, trace, &domain, transcript)?;
+        let round_1_result = Self::round_1_randomized_air_with_preprocessing(
+            air.as_ref(),
+            trace,
+            &domain,
+            transcript,
+        )?;
 
         #[cfg(debug_assertions)]
         validate_trace(
@@ -1012,7 +1002,7 @@ pub trait IsStarkProver<
         );
 
         let round_3_result = Self::round_3_evaluate_polynomials_in_out_of_domain_element(
-            air,
+            air.as_ref(),
             &domain,
             &round_1_result,
             &round_2_result,
@@ -1050,7 +1040,7 @@ pub trait IsStarkProver<
         // protocol on its own. Therefore we pass it the transcript
         // to simulate the interactions with the verifier.
         let round_4_result = Self::round_4_compute_and_run_fri_on_the_deep_composition_polynomial(
-            air,
+            air.as_ref(),
             &domain,
             &round_1_result,
             &round_2_result,
@@ -1258,11 +1248,12 @@ mod tests {
 
         let transcript_init_seed = [0xca, 0xfe, 0xca, 0xfe];
 
-        let air = Fibonacci2ColsShifted::<Stark252PrimeField>::new(
-            trace.num_rows(),
-            &pub_inputs,
-            &proof_options,
-        );
+        let air: Box<dyn AIR<Field = _, FieldExtension = _, PublicInputs = _>> =
+            Box::new(Fibonacci2ColsShifted::<Stark252PrimeField>::new(
+                trace.num_rows(),
+                &pub_inputs,
+                &proof_options,
+            ));
 
         let proof = Prover::prove(
             &air,
@@ -1660,11 +1651,12 @@ mod tests {
 
         let transcript_init_seed = [0xfa, 0xfa, 0xfa, 0xee];
 
-        let air = Fibonacci2ColsShifted::<Stark252PrimeField>::new(
-            trace.num_rows(),
-            &pub_inputs,
-            &proof_options,
-        );
+        let air: Box<dyn AIR<Field = _, FieldExtension = _, PublicInputs = _>> =
+            Box::new(Fibonacci2ColsShifted::<Stark252PrimeField>::new(
+                trace.num_rows(),
+                &pub_inputs,
+                &proof_options,
+            ));
 
         let proof = Prover::prove(
             &air,

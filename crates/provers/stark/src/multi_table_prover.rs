@@ -35,7 +35,7 @@ where
 {
     let mut proof = None;
     for (air, table) in airs {
-        let _ = proof.insert(Prover::<F, E, PI>::prove(air.as_ref(), table, transcript)?);
+        let _ = proof.insert(Prover::<F, E, PI>::prove(&air, table, transcript)?);
     }
     Ok(proof.unwrap())
 }

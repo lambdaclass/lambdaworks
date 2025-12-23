@@ -6,7 +6,7 @@ use crate::trace::LDETraceTable;
 use crate::traits::{TransitionEvaluationContext, AIR};
 use crate::{frame::Frame, prover::evaluate_polynomial_on_lde_domain};
 use itertools::Itertools;
-use lambdaworks_math::field::traits::{IsFFTField, IsSubFieldOf};
+use lambdaworks_math::field::traits::{IsFFTField, IsField, IsSubFieldOf};
 #[cfg(not(feature = "parallel"))]
 use lambdaworks_math::polynomial::Polynomial;
 use lambdaworks_math::{fft::errors::FFTError, field::element::FieldElement};
@@ -33,6 +33,8 @@ where
     Field: IsSubFieldOf<FieldExtension> + IsFFTField + Send + Sync,
     FieldExtension: Send + Sync + IsFFTField,
     PI: Send + Sync,
+    <Field as IsField>::BaseType: Send + Sync,
+    <FieldExtension as IsField>::BaseType: Send + Sync,
 {
     pub fn new(
         air: &dyn AIR<Field = Field, FieldExtension = FieldExtension, PublicInputs = PI>,
@@ -48,7 +50,7 @@ where
 
     pub(crate) fn evaluate(
         &self,
-        air: &dyn AIR<Field = Field, FieldExtension = FieldExtension, PublicInputs = PI>,
+        air: &Box<dyn AIR<Field = Field, FieldExtension = FieldExtension, PublicInputs = PI>>,
         lde_trace: &LDETraceTable<Field, FieldExtension>,
         domain: &Domain<Field>,
         transition_coefficients: &[FieldElement<FieldExtension>],

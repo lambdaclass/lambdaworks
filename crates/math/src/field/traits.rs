@@ -99,7 +99,7 @@ pub trait IsFFTField: IsField {
 pub trait IsField: Debug + Clone {
     /// The underlying base type for representing elements from the field.
     // TODO: Relax Unpin for non cuda usage
-    type BaseType: Clone + Debug + Unpin + ByteConversion + Default;
+    type BaseType: Clone + Debug + Unpin + ByteConversion + Default + Send + Sync;
 
     /// Returns the sum of `a` and `b`.
     fn add(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType;

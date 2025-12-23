@@ -72,7 +72,7 @@ where
 }
 
 /// AIR is a representation of the Constraints
-pub trait AIR {
+pub trait AIR: Send + Sync {
     type Field: IsFFTField + IsSubFieldOf<Self::FieldExtension> + Send + Sync;
     type FieldExtension: IsField + Send + Sync;
     type PublicInputs;
