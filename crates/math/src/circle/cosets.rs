@@ -14,7 +14,7 @@ use alloc::vec::Vec;
 pub struct Coset {
     // Coset: shift + <g_n> where n = 2^{log_2_size}.
     // Example: g_16 + <g_8>, n = 8, log_2_size = 3, shift = g_16.
-    pub log_2_size: u32, //TODO: Change log_2_size to u8 because log_2_size < 31.
+    pub log_2_size: u8, 
     pub shift: CirclePoint<Mersenne31Field>,
 }
 
@@ -23,8 +23,10 @@ impl Coset {
         Coset { log_2_size, shift }
     }
 
+          22 +    pub fn new(log_2_size: u8, shift: CirclePoint<Mersenne31Field>) -> Self {                            
+
     /// Returns the coset g_2n + <g_n>
-    pub fn new_standard(log_2_size: u32) -> Self {
+    ppub fn new_standard(log_2_size: u8) -> Self {
         // shift is a generator of the subgroup of order 2n = 2^{log_2_size + 1}.
         let shift = CirclePoint::get_generator_of_subgroup(log_2_size + 1);
         Coset { log_2_size, shift }
@@ -32,7 +34,7 @@ impl Coset {
 
     /// Returns g_n, the generator of the subgroup of order n = 2^log_2_size.
     pub fn get_generator(&self) -> CirclePoint<Mersenne31Field> {
-        CirclePoint::GENERATOR.repeated_double(31 - self.log_2_size)
+        CirclePoint::GENERATOR.repeated_double((31 - self.log_2_size) as u32) 
     }
 
     /// Given a standard coset g_2n + <g_n>, returns the subcoset with half size g_2n + <g_{n/2}>
