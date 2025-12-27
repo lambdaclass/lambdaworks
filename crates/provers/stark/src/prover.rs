@@ -713,10 +713,27 @@ pub trait IsStarkProver<A: AIR> {
         h_terms + trace_terms
     }
 
-    // FIXME: FIX THIS DOCS!
-    /// Adds to `accumulator` the term corresponding to the trace polynomial `t_j` of the Deep
-    /// composition polynomial. That is, returns `accumulator + \sum_i \gamma_i \frac{ t_j - t_j(zg^i) }{ X - zg^i }`,
-    /// where `i` ranges from `T * j` to `T * j + T - 1`, where `T` is the number of offsets in every frame.
+    /// Computes a trace term contribution to the Deep composition polynomial.
+    ///
+    /// Given a trace polynomial `t_j`, computes and adds to the accumulator:
+    /// `∑ᵢ γᵢ · (t_j - t_j(z·gⁱ)) / (X - z·gⁱ)`
+    ///
+    /// where:
+    /// • `i` ranges from 0 to the length of `trace_frame_evaluations`
+    /// • `g` is the `primitive_root` (generator of the trace domain)
+    /// • `γᵢ` are the random coefficients from `trace_terms_gammas`
+    /// • `z·gⁱ` are the out-of-domain evaluation points
+    ///
+    /// # Parameters
+    /// • `accumulator`: The current accumulated polynomial
+    /// • `trace_term_poly`: The trace polynomial `t_j` to process
+    /// • `trace_terms_gammas`: Random coefficients `γᵢ` for linear combination
+    /// • `trace_frame_evaluations`: Evaluations `t_j(z·gⁱ)` at shifted points
+    /// • `z`: The out-of-domain evaluation challenge point
+    /// • `primitive_root`: Generator `g` of the trace domain
+    ///
+    /// # Returns
+    /// The updated accumulator with the trace term contribution added.
     fn compute_trace_term(
         accumulator: &Polynomial<FieldElement<A::FieldExtension>>,
         trace_term_poly: &Polynomial<FieldElement<A::FieldExtension>>,
