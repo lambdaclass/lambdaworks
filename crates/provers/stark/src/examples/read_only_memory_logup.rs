@@ -415,9 +415,7 @@ where
         &self,
         trace: &mut TraceTable<Self::Field, Self::FieldExtension>,
         challenges: &[FieldElement<E>],
-    ) where
-        Self::FieldExtension: IsFFTField,
-    {
+    ) {
         // Main table
         let main_segment_cols = trace.columns_main();
         let a = &main_segment_cols[0];
@@ -455,7 +453,7 @@ where
 
     fn build_rap_challenges(
         &self,
-        transcript: &mut impl IsStarkTranscript<Self::FieldExtension, Self::Field>,
+        transcript: &mut dyn IsStarkTranscript<Self::FieldExtension, Self::Field>,
     ) -> Vec<FieldElement<Self::FieldExtension>> {
         vec![
             transcript.sample_field_element(),

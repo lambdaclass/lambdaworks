@@ -72,7 +72,7 @@ where
 }
 
 /// AIR is a representation of the Constraints
-pub trait AIR {
+pub trait AIR: Send + Sync {
     type Field: IsFFTField + IsSubFieldOf<Self::FieldExtension> + Send + Sync;
     type FieldExtension: IsField + Send + Sync;
     type PublicInputs;
@@ -83,20 +83,20 @@ pub trait AIR {
         trace_length: usize,
         pub_inputs: &Self::PublicInputs,
         proof_options: &ProofOptions,
-    ) -> Self;
+    ) -> Self
+    where
+        Self: Sized;
 
     fn build_auxiliary_trace(
         &self,
         _main_trace: &mut TraceTable<Self::Field, Self::FieldExtension>,
         _rap_challenges: &[FieldElement<Self::FieldExtension>],
-    ) where
-        Self::FieldExtension: IsFFTField,
-    {
+    ) {
     }
 
     fn build_rap_challenges(
         &self,
-        _transcript: &mut impl IsStarkTranscript<Self::FieldExtension, Self::Field>,
+        _transcript: &mut dyn IsStarkTranscript<Self::FieldExtension, Self::Field>,
     ) -> Vec<FieldElement<Self::FieldExtension>> {
         Vec::new()
     }

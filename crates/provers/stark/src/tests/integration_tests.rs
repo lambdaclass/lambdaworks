@@ -7,6 +7,7 @@ use lambdaworks_math::field::fields::fft_friendly::{
     babybear::Babybear31PrimeField, quartic_babybear::Degree4BabyBearExtensionField,
 };
 
+use crate::traits::AIR;
 use crate::{
     examples::{
         bit_flags::{self, BitFlagsAIR},
@@ -41,18 +42,14 @@ fn test_prove_fib() {
         a1: Felt252::one(),
     };
 
-    let proof = Prover::<FibonacciAIR<Stark252PrimeField>>::prove(
-        &mut trace,
-        &pub_inputs,
-        &proof_options,
-        StoneProverTranscript::new(&[]),
-    )
-    .unwrap();
-    assert!(Verifier::<FibonacciAIR<Stark252PrimeField>>::verify(
+    let air =
+        FibonacciAIR::<Stark252PrimeField>::new(trace.num_rows(), &pub_inputs, &proof_options);
+
+    let proof = Prover::prove(&air, &mut trace, &mut StoneProverTranscript::new(&[])).unwrap();
+    assert!(Verifier::verify(
         &proof,
-        &pub_inputs,
-        &proof_options,
-        StoneProverTranscript::new(&[]),
+        &air,
+        &mut StoneProverTranscript::new(&[]),
     ));
 }
 
@@ -67,18 +64,14 @@ fn test_prove_simple_periodic_8() {
         a1: Felt252::from(8),
     };
 
-    let proof = Prover::<SimplePeriodicAIR<Stark252PrimeField>>::prove(
-        &mut trace,
-        &pub_inputs,
-        &proof_options,
-        StoneProverTranscript::new(&[]),
-    )
-    .unwrap();
-    assert!(Verifier::<SimplePeriodicAIR<Stark252PrimeField>>::verify(
+    let air =
+        SimplePeriodicAIR::<Stark252PrimeField>::new(trace.num_rows(), &pub_inputs, &proof_options);
+
+    let proof = Prover::prove(&air, &mut trace, &mut StoneProverTranscript::new(&[])).unwrap();
+    assert!(Verifier::verify(
         &proof,
-        &pub_inputs,
-        &proof_options,
-        StoneProverTranscript::new(&[]),
+        &air,
+        &mut StoneProverTranscript::new(&[]),
     ));
 }
 
@@ -93,18 +86,15 @@ fn test_prove_simple_periodic_32() {
         a1: Felt252::from(32768),
     };
 
-    let proof = Prover::<SimplePeriodicAIR<Stark252PrimeField>>::prove(
-        &mut trace,
-        &pub_inputs,
-        &proof_options,
-        StoneProverTranscript::new(&[]),
-    )
-    .unwrap();
-    assert!(Verifier::<SimplePeriodicAIR<Stark252PrimeField>>::verify(
+    let air =
+        SimplePeriodicAIR::<Stark252PrimeField>::new(trace.num_rows(), &pub_inputs, &proof_options);
+
+    let proof = Prover::prove(&air, &mut trace, &mut StoneProverTranscript::new(&[])).unwrap();
+
+    assert!(Verifier::verify(
         &proof,
-        &pub_inputs,
-        &proof_options,
-        StoneProverTranscript::new(&[]),
+        &air,
+        &mut StoneProverTranscript::new(&[]),
     ));
 }
 
@@ -118,19 +108,15 @@ fn test_prove_fib_2_cols() {
         a1: Felt252::one(),
     };
 
-    let proof = Prover::<Fibonacci2ColsAIR<Stark252PrimeField>>::prove(
-        &mut trace,
-        &pub_inputs,
-        &proof_options,
-        StoneProverTranscript::new(&[]),
-    )
-    .unwrap();
+    let air =
+        Fibonacci2ColsAIR::<Stark252PrimeField>::new(trace.num_rows(), &pub_inputs, &proof_options);
 
-    assert!(Verifier::<Fibonacci2ColsAIR<Stark252PrimeField>>::verify(
+    let proof = Prover::prove(&air, &mut trace, &mut StoneProverTranscript::new(&[])).unwrap();
+
+    assert!(Verifier::verify(
         &proof,
-        &pub_inputs,
-        &proof_options,
-        StoneProverTranscript::new(&[])
+        &air,
+        &mut StoneProverTranscript::new(&[])
     ));
 }
 
@@ -147,18 +133,18 @@ fn test_prove_fib_2_cols_shifted() {
         claimed_index,
     };
 
-    let proof = Prover::<Fibonacci2ColsShifted<_>>::prove(
-        &mut trace,
+    let air = Fibonacci2ColsShifted::<Stark252PrimeField>::new(
+        trace.num_rows(),
         &pub_inputs,
         &proof_options,
-        StoneProverTranscript::new(&[]),
-    )
-    .unwrap();
-    assert!(Verifier::<Fibonacci2ColsShifted<_>>::verify(
+    );
+
+    let proof = Prover::prove(&air, &mut trace, &mut StoneProverTranscript::new(&[])).unwrap();
+
+    assert!(Verifier::verify(
         &proof,
-        &pub_inputs,
-        &proof_options,
-        StoneProverTranscript::new(&[])
+        &air,
+        &mut StoneProverTranscript::new(&[])
     ));
 }
 
@@ -172,18 +158,15 @@ fn test_prove_quadratic() {
         a0: Felt252::from(3),
     };
 
-    let proof = Prover::<QuadraticAIR<Stark252PrimeField>>::prove(
-        &mut trace,
-        &pub_inputs,
-        &proof_options,
-        StoneProverTranscript::new(&[]),
-    )
-    .unwrap();
-    assert!(Verifier::<QuadraticAIR<Stark252PrimeField>>::verify(
+    let air =
+        QuadraticAIR::<Stark252PrimeField>::new(trace.num_rows(), &pub_inputs, &proof_options);
+
+    let proof = Prover::prove(&air, &mut trace, &mut StoneProverTranscript::new(&[])).unwrap();
+
+    assert!(Verifier::verify(
         &proof,
-        &pub_inputs,
-        &proof_options,
-        StoneProverTranscript::new(&[])
+        &air,
+        &mut StoneProverTranscript::new(&[])
     ));
 }
 
@@ -200,18 +183,15 @@ fn test_prove_rap_fib() {
         a1: Felt252::one(),
     };
 
-    let proof = Prover::<FibonacciRAP<Stark252PrimeField>>::prove(
-        &mut trace,
-        &pub_inputs,
-        &proof_options,
-        StoneProverTranscript::new(&[]),
-    )
-    .unwrap();
-    assert!(Verifier::<FibonacciRAP<Stark252PrimeField>>::verify(
+    let air =
+        FibonacciRAP::<Stark252PrimeField>::new(trace.num_rows(), &pub_inputs, &proof_options);
+
+    let proof = Prover::prove(&air, &mut trace, &mut StoneProverTranscript::new(&[])).unwrap();
+
+    assert!(Verifier::verify(
         &proof,
-        &pub_inputs,
-        &proof_options,
-        StoneProverTranscript::new(&[])
+        &air,
+        &mut StoneProverTranscript::new(&[])
     ));
 }
 
@@ -222,18 +202,14 @@ fn test_prove_dummy() {
 
     let proof_options = ProofOptions::default_test_options();
 
-    let proof = Prover::<DummyAIR>::prove(
-        &mut trace,
-        &(),
-        &proof_options,
-        StoneProverTranscript::new(&[]),
-    )
-    .unwrap();
-    assert!(Verifier::<DummyAIR>::verify(
+    let air = DummyAIR::new(trace.num_rows(), &(), &proof_options);
+
+    let proof = Prover::prove(&air, &mut trace, &mut StoneProverTranscript::new(&[])).unwrap();
+
+    assert!(Verifier::verify(
         &proof,
-        &(),
-        &proof_options,
-        StoneProverTranscript::new(&[])
+        &air,
+        &mut StoneProverTranscript::new(&[])
     ));
 }
 
@@ -242,19 +218,14 @@ fn test_prove_bit_flags() {
     let mut trace = bit_flags::bit_prefix_flag_trace(32);
     let proof_options = ProofOptions::default_test_options();
 
-    let proof = Prover::<BitFlagsAIR>::prove(
-        &mut trace,
-        &(),
-        &proof_options,
-        StoneProverTranscript::new(&[]),
-    )
-    .unwrap();
+    let air = BitFlagsAIR::new(trace.num_rows(), &(), &proof_options);
 
-    assert!(Verifier::<BitFlagsAIR>::verify(
+    let proof = Prover::prove(&air, &mut trace, &mut StoneProverTranscript::new(&[])).unwrap();
+
+    assert!(Verifier::verify(
         &proof,
-        &(),
-        &proof_options,
-        StoneProverTranscript::new(&[]),
+        &air,
+        &mut StoneProverTranscript::new(&[]),
     ));
 }
 
@@ -289,18 +260,15 @@ fn test_prove_read_only_memory() {
     };
     let mut trace = sort_rap_trace(address_col, value_col);
     let proof_options = ProofOptions::default_test_options();
-    let proof = Prover::<ReadOnlyRAP<Stark252PrimeField>>::prove(
-        &mut trace,
-        &pub_inputs,
-        &proof_options,
-        StoneProverTranscript::new(&[]),
-    )
-    .unwrap();
-    assert!(Verifier::<ReadOnlyRAP<Stark252PrimeField>>::verify(
+
+    let air = ReadOnlyRAP::<Stark252PrimeField>::new(trace.num_rows(), &pub_inputs, &proof_options);
+
+    let proof = Prover::prove(&air, &mut trace, &mut StoneProverTranscript::new(&[])).unwrap();
+
+    assert!(Verifier::verify(
         &proof,
-        &pub_inputs,
-        &proof_options,
-        StoneProverTranscript::new(&[])
+        &air,
+        &mut StoneProverTranscript::new(&[])
     ));
 }
 
@@ -336,20 +304,23 @@ fn test_prove_log_read_only_memory() {
     };
     let mut trace = read_only_logup_trace(address_col, value_col);
     let proof_options = ProofOptions::default_test_options();
-    let proof =
-        Prover::<LogReadOnlyRAP<Babybear31PrimeField, Degree4BabyBearExtensionField>>::prove(
-            &mut trace,
-            &pub_inputs,
-            &proof_options,
-            DefaultTranscript::<Degree4BabyBearExtensionField>::new(&[]),
-        )
-        .unwrap();
-    assert!(Verifier::<
-        LogReadOnlyRAP<Babybear31PrimeField, Degree4BabyBearExtensionField>,
-    >::verify(
-        &proof,
+
+    let air = LogReadOnlyRAP::<Babybear31PrimeField, Degree4BabyBearExtensionField>::new(
+        trace.num_rows(),
         &pub_inputs,
         &proof_options,
-        DefaultTranscript::<Degree4BabyBearExtensionField>::new(&[]),
+    );
+
+    let proof = Prover::prove(
+        &air,
+        &mut trace,
+        &mut DefaultTranscript::<Degree4BabyBearExtensionField>::new(&[]),
+    )
+    .unwrap();
+
+    assert!(Verifier::verify(
+        &proof,
+        &air,
+        &mut DefaultTranscript::<Degree4BabyBearExtensionField>::new(&[]),
     ));
 }

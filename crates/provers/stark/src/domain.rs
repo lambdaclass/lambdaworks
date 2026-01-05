@@ -1,6 +1,9 @@
 use lambdaworks_math::{
     fft::cpu::roots_of_unity::get_powers_of_primitive_root_coset,
-    field::{element::FieldElement, traits::IsFFTField},
+    field::{
+        element::FieldElement,
+        traits::{IsFFTField, IsField, IsSubFieldOf},
+    },
 };
 
 use super::traits::AIR;
@@ -51,5 +54,45 @@ impl<F: IsFFTField> Domain<F> {
             coset_offset,
             interpolation_domain_size,
         }
+    }
+}
+
+pub fn new_domain<Field, FieldExtension, PI>(
+    air: &dyn AIR<Field = Field, FieldExtension = FieldExtension, PublicInputs = PI>,
+) -> Domain<Field>
+where
+    Field: IsSubFieldOf<FieldExtension> + IsFFTField + Send + Sync,
+    FieldExtension: Send + Sync + IsField,
+{
+    // Initial definitions
+    let blowup_factor = air.options().blowup_factor as usize;
+    let coset_offset = FieldElement::from(air.options().coset_offset);
+    let interpolation_domain_size = air.trace_length();
+    let root_order = air.trace_length().trailing_zeros();
+    // * Generate Coset
+    let trace_primitive_root = Field::get_primitive_root_of_unity(root_order as u64).unwrap();
+    let trace_roots_of_unity = get_powers_of_primitive_root_coset(
+        root_order as u64,
+        interpolation_domain_size,
+        &FieldElement::one(),
+    )
+    .unwrap();
+
+    let lde_root_order = (air.trace_length() * blowup_factor).trailing_zeros();
+    let lde_roots_of_unity_coset = get_powers_of_primitive_root_coset(
+        lde_root_order as u64,
+        air.trace_length() * blowup_factor,
+        &coset_offset,
+    )
+    .unwrap();
+
+    Domain {
+        root_order,
+        lde_roots_of_unity_coset,
+        trace_primitive_root,
+        trace_roots_of_unity,
+        blowup_factor,
+        coset_offset,
+        interpolation_domain_size,
     }
 }

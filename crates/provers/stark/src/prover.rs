@@ -19,6 +19,7 @@ use rayon::prelude::{IndexedParallelIterator, IntoParallelRefIterator, ParallelI
 
 #[cfg(debug_assertions)]
 use crate::debug::validate_trace;
+use crate::domain::new_domain;
 use crate::fri;
 use crate::proof::stark::{DeepPolynomialOpenings, PolynomialOpenings};
 use crate::table::Table;
@@ -29,17 +30,26 @@ use super::constraints::evaluator::ConstraintEvaluator;
 use super::domain::Domain;
 use super::fri::fri_decommit::FriDecommitment;
 use super::grinding;
-use super::proof::options::ProofOptions;
 use super::proof::stark::{DeepPolynomialOpening, StarkProof};
 use super::trace::TraceTable;
 use super::traits::AIR;
 
 /// A default STARK prover implementing `IsStarkProver`.
-pub struct Prover<A: AIR> {
-    phantom: PhantomData<A>,
+pub struct Prover<
+    Field: IsSubFieldOf<FieldExtension> + IsFFTField + Send + Sync,
+    FieldExtension: Send + Sync + IsField,
+    PI,
+> {
+    p: PhantomData<(Field, FieldExtension, PI)>,
 }
 
-impl<A: AIR> IsStarkProver<A> for Prover<A> {}
+impl<
+        Field: IsSubFieldOf<FieldExtension> + IsFFTField + Send + Sync,
+        FieldExtension: Send + Sync + IsField,
+        PI,
+    > IsStarkProver<Field, FieldExtension, PI> for Prover<Field, FieldExtension, PI>
+{
+}
 
 #[derive(Debug)]
 pub enum ProvingError {
@@ -52,7 +62,7 @@ pub enum ProvingError {
 pub struct Round1CommitmentData<F>
 where
     F: IsField,
-    FieldElement<F>: AsBytes + Send + Sync,
+    FieldElement<F>: AsBytes,
 {
     /// The result of the interpolation of the columns of the trace table.
     pub(crate) trace_polys: Vec<Polynomial<FieldElement<F>>>,
@@ -63,32 +73,34 @@ where
 }
 
 /// A container for the results of the first round of the STARK Prove protocol.
-pub struct Round1<A>
+pub struct Round1<Field, FieldExtension>
 where
-    A: AIR,
-    FieldElement<A::FieldExtension>: AsBytes + Sync + Send,
-    FieldElement<A::Field>: AsBytes + Sync + Send,
+    Field: IsSubFieldOf<FieldExtension> + IsFFTField,
+    FieldExtension: IsField,
+    FieldElement<Field>: AsBytes,
+    FieldElement<FieldExtension>: AsBytes,
 {
     /// The table of evaluations over the LDE of the main and auxiliary trace tables.
-    pub(crate) lde_trace: LDETraceTable<A::Field, A::FieldExtension>,
+    pub(crate) lde_trace: LDETraceTable<Field, FieldExtension>,
     /// The intermediate results of the commitment to the main trace table.
-    pub(crate) main: Round1CommitmentData<A::Field>,
+    pub(crate) main: Round1CommitmentData<Field>,
     /// The intermediate results of the commitment to the auxiliary trace table in case of RAP.
-    pub(crate) aux: Option<Round1CommitmentData<A::FieldExtension>>,
+    pub(crate) aux: Option<Round1CommitmentData<FieldExtension>>,
     /// The challenges of the RAP round.
-    pub(crate) rap_challenges: Vec<FieldElement<A::FieldExtension>>,
+    pub(crate) rap_challenges: Vec<FieldElement<FieldExtension>>,
 }
 
-impl<A> Round1<A>
+impl<Field, FieldExtension> Round1<Field, FieldExtension>
 where
-    A: AIR,
-    FieldElement<A::FieldExtension>: AsBytes + Sync + Send,
-    FieldElement<A::Field>: AsBytes + Sync + Send,
+    Field: IsSubFieldOf<FieldExtension> + IsFFTField,
+    FieldExtension: IsField,
+    FieldElement<Field>: AsBytes,
+    FieldElement<FieldExtension>: AsBytes,
 {
     /// Returns the full list of the polynomials interpolating the trace. It includes both
     /// main and auxiliary trace polynomials. The main trace polynomials are casted to
     /// polynomials with coefficients over `Self::FieldExtension`.
-    fn all_trace_polys(&self) -> Vec<Polynomial<FieldElement<A::FieldExtension>>> {
+    fn all_trace_polys(&self) -> Vec<Polynomial<FieldElement<FieldExtension>>> {
         let mut trace_polys: Vec<_> = self
             .main
             .trace_polys
@@ -108,7 +120,7 @@ where
 pub struct Round2<F>
 where
     F: IsField,
-    FieldElement<F>: AsBytes + Sync + Send,
+    FieldElement<F>: AsBytes,
 {
     /// The list of polynomials `H₀, ..., Hₙ` such that `H = ∑ᵢXⁱH(Xⁿ)`, where H is the composition polynomial.
     pub(crate) composition_poly_parts: Vec<Polynomial<FieldElement<F>>>,
@@ -169,13 +181,18 @@ where
 /// https://lambdaclass.github.io/lambdaworks/starks/protocol.html
 /// The default implementation is complete and is compatible with Stone prover
 /// https://github.com/starkware-libs/stone-prover
-pub trait IsStarkProver<A: AIR> {
+pub trait IsStarkProver<
+    Field: IsSubFieldOf<FieldExtension> + IsFFTField + Send + Sync,
+    FieldExtension: Send + Sync + IsField,
+    PI,
+>
+{
     /// Returns the Merkle tree and the commitment to the vectors `vectors`.
     fn batch_commit_main(
-        vectors: &[Vec<FieldElement<A::Field>>],
-    ) -> Option<(BatchedMerkleTree<A::Field>, Commitment)>
+        vectors: &[Vec<FieldElement<Field>>],
+    ) -> Option<(BatchedMerkleTree<Field>, Commitment)>
     where
-        FieldElement<A::Field>: AsBytes + Sync + Send,
+        FieldElement<Field>: AsBytes + Sync + Send,
     {
         let tree = BatchedMerkleTree::build(vectors)?;
 
@@ -185,11 +202,11 @@ pub trait IsStarkProver<A: AIR> {
 
     /// Returns the Merkle tree and the commitment to the vectors `vectors`.
     fn batch_commit_extension(
-        vectors: &[Vec<FieldElement<A::FieldExtension>>],
-    ) -> Option<(BatchedMerkleTree<A::FieldExtension>, Commitment)>
+        vectors: &[Vec<FieldElement<FieldExtension>>],
+    ) -> Option<(BatchedMerkleTree<FieldExtension>, Commitment)>
     where
-        FieldElement<A::Field>: AsBytes + Sync + Send,
-        FieldElement<A::FieldExtension>: AsBytes + Sync + Send,
+        FieldElement<Field>: AsBytes + Sync + Send,
+        FieldElement<FieldExtension>: AsBytes + Sync + Send,
     {
         let tree = BatchedMerkleTree::build(vectors)?;
 
@@ -206,27 +223,26 @@ pub trait IsStarkProver<A: AIR> {
     /// • The roots of the above Merkle trees.
     #[allow(clippy::type_complexity)]
     fn interpolate_and_commit_main(
-        trace: &TraceTable<A::Field, A::FieldExtension>,
-        domain: &Domain<A::Field>,
-        transcript: &mut impl IsStarkTranscript<A::FieldExtension, A::Field>,
+        trace: &TraceTable<Field, FieldExtension>,
+        domain: &Domain<Field>,
+        transcript: &mut impl IsStarkTranscript<FieldExtension, Field>,
     ) -> Option<(
-        Vec<Polynomial<FieldElement<A::Field>>>,
-        Vec<Vec<FieldElement<A::Field>>>,
-        BatchedMerkleTree<A::Field>,
+        Vec<Polynomial<FieldElement<Field>>>,
+        Vec<Vec<FieldElement<Field>>>,
+        BatchedMerkleTree<Field>,
         Commitment,
     )>
     where
-        FieldElement<A::Field>: AsBytes + Send + Sync,
-        // FieldElement<E>: AsBytes + Send + Sync,
-        FieldElement<A::FieldExtension>: AsBytes + Send + Sync,
-        A::Field: IsSubFieldOf<A::FieldExtension>,
+        FieldElement<Field>: AsBytes,
+        FieldElement<FieldExtension>: AsBytes,
+        Field: IsSubFieldOf<FieldExtension>,
     {
         // Interpolate columns of `trace`.
-        let trace_polys = trace.compute_trace_polys_main::<A::Field>();
+        let trace_polys = trace.compute_trace_polys_main::<Field>();
 
         // Evaluate those polynomials t_j on the large domain D_LDE.
         let lde_trace_evaluations =
-            Self::compute_lde_trace_evaluations::<A::Field>(&trace_polys, domain);
+            Self::compute_lde_trace_evaluations::<Field>(&trace_polys, domain);
 
         let mut lde_trace_permuted = lde_trace_evaluations.clone();
         for col in lde_trace_permuted.iter_mut() {
@@ -259,22 +275,22 @@ pub trait IsStarkProver<A: AIR> {
     /// • The roots of the above Merkle trees.
     #[allow(clippy::type_complexity)]
     fn interpolate_and_commit_aux(
-        trace: &TraceTable<A::Field, A::FieldExtension>,
-        domain: &Domain<A::Field>,
-        transcript: &mut impl IsStarkTranscript<A::FieldExtension, A::Field>,
+        trace: &TraceTable<Field, FieldExtension>,
+        domain: &Domain<Field>,
+        transcript: &mut impl IsStarkTranscript<FieldExtension, Field>,
     ) -> Option<(
-        Vec<Polynomial<FieldElement<A::FieldExtension>>>,
-        Vec<Vec<FieldElement<A::FieldExtension>>>,
-        BatchedMerkleTree<A::FieldExtension>,
+        Vec<Polynomial<FieldElement<FieldExtension>>>,
+        Vec<Vec<FieldElement<FieldExtension>>>,
+        BatchedMerkleTree<FieldExtension>,
         Commitment,
     )>
     where
-        FieldElement<A::Field>: AsBytes + Send + Sync,
-        FieldElement<A::FieldExtension>: AsBytes + Send + Sync,
-        A::Field: IsSubFieldOf<A::FieldExtension> + IsFFTField,
+        FieldElement<Field>: AsBytes,
+        FieldElement<FieldExtension>: AsBytes,
+        Field: IsSubFieldOf<FieldExtension> + IsFFTField,
     {
         // Interpolate columns of `trace`.
-        let trace_polys = trace.compute_trace_polys_aux::<A::Field>();
+        let trace_polys = trace.compute_trace_polys_aux::<Field>();
 
         // Evaluate those polynomials t_j on the large domain D_LDE.
         let lde_trace_evaluations = Self::compute_lde_trace_evaluations(&trace_polys, domain);
@@ -305,13 +321,11 @@ pub trait IsStarkProver<A: AIR> {
     /// The i-th entry of the returned vector contains the evaluations of the i-th polynomial in `trace_polys`.
     fn compute_lde_trace_evaluations<E>(
         trace_polys: &[Polynomial<FieldElement<E>>],
-        domain: &Domain<A::Field>,
+        domain: &Domain<Field>,
     ) -> Vec<Vec<FieldElement<E>>>
     where
-        FieldElement<E>: Send + Sync,
-        FieldElement<A::Field>: Send + Sync,
-        E: IsSubFieldOf<A::FieldExtension>,
-        A::Field: IsSubFieldOf<E>,
+        E: IsSubFieldOf<FieldExtension>,
+        Field: IsSubFieldOf<E>,
     {
         #[cfg(not(feature = "parallel"))]
         let trace_polys_iter = trace_polys.iter();
@@ -333,15 +347,14 @@ pub trait IsStarkProver<A: AIR> {
 
     /// Returns the result of the first round of the STARK Prove protocol.
     fn round_1_randomized_air_with_preprocessing(
-        air: &A,
-        trace: &mut TraceTable<A::Field, A::FieldExtension>,
-        domain: &Domain<A::Field>,
-        transcript: &mut impl IsStarkTranscript<A::FieldExtension, A::Field>,
-    ) -> Result<Round1<A>, ProvingError>
+        air: &dyn AIR<Field = Field, FieldExtension = FieldExtension, PublicInputs = PI>,
+        trace: &mut TraceTable<Field, FieldExtension>,
+        domain: &Domain<Field>,
+        transcript: &mut impl IsStarkTranscript<FieldExtension, Field>,
+    ) -> Result<Round1<Field, FieldExtension>, ProvingError>
     where
-        FieldElement<A::Field>: AsBytes + Send + Sync,
-        A::FieldExtension: IsFFTField,
-        FieldElement<A::FieldExtension>: AsBytes + Send + Sync,
+        FieldElement<Field>: AsBytes,
+        FieldElement<FieldExtension>: AsBytes,
     {
         let Some((trace_polys, evaluations, main_merkle_tree, main_merkle_root)) =
             Self::interpolate_and_commit_main(trace, domain, transcript)
@@ -349,7 +362,7 @@ pub trait IsStarkProver<A: AIR> {
             return Err(ProvingError::EmptyCommitment);
         };
 
-        let main = Round1CommitmentData::<A::Field> {
+        let main = Round1CommitmentData::<Field> {
             trace_polys,
             lde_trace_merkle_tree: main_merkle_tree,
             lde_trace_merkle_root: main_merkle_root,
@@ -368,7 +381,7 @@ pub trait IsStarkProver<A: AIR> {
                 return Err(ProvingError::EmptyCommitment);
             };
             let aux_evaluations = aux_trace_polys_evaluations;
-            let aux = Some(Round1CommitmentData::<A::FieldExtension> {
+            let aux = Some(Round1CommitmentData::<FieldExtension> {
                 trace_polys: aux_trace_polys,
                 lde_trace_merkle_tree: aux_merkle_tree,
                 lde_trace_merkle_root: aux_merkle_root,
@@ -396,11 +409,11 @@ pub trait IsStarkProver<A: AIR> {
     /// Returns the Merkle tree and the commitment to the evaluations of the parts of the
     /// composition polynomial.
     fn commit_composition_polynomial(
-        lde_composition_poly_parts_evaluations: &[Vec<FieldElement<A::FieldExtension>>],
-    ) -> Option<(BatchedMerkleTree<A::FieldExtension>, Commitment)>
+        lde_composition_poly_parts_evaluations: &[Vec<FieldElement<FieldExtension>>],
+    ) -> Option<(BatchedMerkleTree<FieldExtension>, Commitment)>
     where
-        FieldElement<A::Field>: AsBytes + Sync + Send,
-        FieldElement<A::FieldExtension>: AsBytes + Sync + Send,
+        FieldElement<Field>: AsBytes + Sync + Send,
+        FieldElement<FieldExtension>: AsBytes + Sync + Send,
     {
         // TODO: Remove clones
         let mut lde_composition_poly_evaluations = Vec::new();
@@ -426,16 +439,15 @@ pub trait IsStarkProver<A: AIR> {
 
     /// Returns the result of the second round of the STARK Prove protocol.
     fn round_2_compute_composition_polynomial(
-        air: &A,
-        domain: &Domain<A::Field>,
-        round_1_result: &Round1<A>,
-        transition_coefficients: &[FieldElement<A::FieldExtension>],
-        boundary_coefficients: &[FieldElement<A::FieldExtension>],
-    ) -> Result<Round2<A::FieldExtension>, ProvingError>
+        air: &dyn AIR<Field = Field, FieldExtension = FieldExtension, PublicInputs = PI>,
+        domain: &Domain<Field>,
+        round_1_result: &Round1<Field, FieldExtension>,
+        transition_coefficients: &[FieldElement<FieldExtension>],
+        boundary_coefficients: &[FieldElement<FieldExtension>],
+    ) -> Result<Round2<FieldExtension>, ProvingError>
     where
-        A: Send + Sync,
-        FieldElement<A::Field>: AsBytes + Send + Sync,
-        FieldElement<A::FieldExtension>: AsBytes + Send + Sync,
+        FieldElement<Field>: AsBytes,
+        FieldElement<FieldExtension>: AsBytes,
     {
         // Compute the evaluations of the composition polynomial on the LDE domain.
         let evaluator = ConstraintEvaluator::new(air, &round_1_result.rap_challenges);
@@ -485,15 +497,15 @@ pub trait IsStarkProver<A: AIR> {
 
     /// Returns the result of the third round of the STARK Prove protocol.
     fn round_3_evaluate_polynomials_in_out_of_domain_element(
-        air: &A,
-        domain: &Domain<A::Field>,
-        round_1_result: &Round1<A>,
-        round_2_result: &Round2<A::FieldExtension>,
-        z: &FieldElement<A::FieldExtension>,
-    ) -> Round3<A::FieldExtension>
+        air: &dyn AIR<Field = Field, FieldExtension = FieldExtension, PublicInputs = PI>,
+        domain: &Domain<Field>,
+        round_1_result: &Round1<Field, FieldExtension>,
+        round_2_result: &Round2<FieldExtension>,
+        z: &FieldElement<FieldExtension>,
+    ) -> Round3<FieldExtension>
     where
-        FieldElement<A::Field>: AsBytes + Sync + Send,
-        FieldElement<A::FieldExtension>: AsBytes + Sync + Send,
+        FieldElement<Field>: AsBytes,
+        FieldElement<FieldExtension>: AsBytes,
     {
         let z_power = z.pow(round_2_result.composition_poly_parts.len());
 
@@ -512,19 +524,18 @@ pub trait IsStarkProver<A: AIR> {
         //
         // In the fibonacci example, the ood frame is simply the evaluations `[t(z), t(z * g), t(z * g^2)]`, where `t` is the trace
         // polynomial and `g` is the primitive root of unity used when interpolating `t`.
-        let trace_ood_evaluations =
-            crate::trace::get_trace_evaluations::<A::Field, A::FieldExtension>(
-                &round_1_result.main.trace_polys,
-                round_1_result
-                    .aux
-                    .as_ref()
-                    .map(|aux| &aux.trace_polys)
-                    .unwrap_or(&vec![]),
-                z,
-                &air.context().transition_offsets,
-                &domain.trace_primitive_root,
-                air.step_size(),
-            );
+        let trace_ood_evaluations = crate::trace::get_trace_evaluations::<Field, FieldExtension>(
+            &round_1_result.main.trace_polys,
+            round_1_result
+                .aux
+                .as_ref()
+                .map(|aux| &aux.trace_polys)
+                .unwrap_or(&vec![]),
+            z,
+            &air.context().transition_offsets,
+            &domain.trace_primitive_root,
+            air.step_size(),
+        );
 
         Round3 {
             trace_ood_evaluations,
@@ -534,20 +545,20 @@ pub trait IsStarkProver<A: AIR> {
 
     /// Returns the result of the fourth round of the STARK Prove protocol.
     fn round_4_compute_and_run_fri_on_the_deep_composition_polynomial(
-        air: &A,
-        domain: &Domain<A::Field>,
-        round_1_result: &Round1<A>,
-        round_2_result: &Round2<A::FieldExtension>,
-        round_3_result: &Round3<A::FieldExtension>,
-        z: &FieldElement<A::FieldExtension>,
-        transcript: &mut impl IsStarkTranscript<A::FieldExtension, A::Field>,
-    ) -> Round4<A::Field, A::FieldExtension>
+        air: &dyn AIR<Field = Field, FieldExtension = FieldExtension, PublicInputs = PI>,
+        domain: &Domain<Field>,
+        round_1_result: &Round1<Field, FieldExtension>,
+        round_2_result: &Round2<FieldExtension>,
+        round_3_result: &Round3<FieldExtension>,
+        z: &FieldElement<FieldExtension>,
+        transcript: &mut impl IsStarkTranscript<FieldExtension, Field>,
+    ) -> Round4<Field, FieldExtension>
     where
-        FieldElement<A::Field>: AsBytes + Send + Sync,
-        FieldElement<A::FieldExtension>: AsBytes + Send + Sync,
+        FieldElement<FieldExtension>: AsBytes,
+        FieldElement<Field>: AsBytes,
     {
         let coset_offset_u64 = air.context().proof_options.coset_offset;
-        let coset_offset = FieldElement::<A::Field>::from(coset_offset_u64);
+        let coset_offset = FieldElement::<Field>::from(coset_offset_u64);
 
         let gamma = transcript.sample_field_element();
 
@@ -585,7 +596,7 @@ pub trait IsStarkProver<A: AIR> {
         let domain_size = domain.lde_roots_of_unity_coset.len();
 
         // FRI commit and query phases
-        let (fri_last_value, fri_layers) = fri::commit_phase::<A::Field, A::FieldExtension>(
+        let (fri_last_value, fri_layers) = fri::commit_phase::<Field, FieldExtension>(
             domain.root_order as usize,
             deep_composition_poly,
             transcript,
@@ -627,8 +638,8 @@ pub trait IsStarkProver<A: AIR> {
 
     fn sample_query_indexes(
         number_of_queries: usize,
-        domain: &Domain<A::Field>,
-        transcript: &mut impl IsStarkTranscript<A::FieldExtension, A::Field>,
+        domain: &Domain<Field>,
+        transcript: &mut impl IsStarkTranscript<FieldExtension, Field>,
     ) -> Vec<usize> {
         let domain_size = domain.lde_roots_of_unity_coset.len() as u64;
         (0..number_of_queries)
@@ -641,17 +652,17 @@ pub trait IsStarkProver<A: AIR> {
     /// composition polynomial, with coefficients sampled by the verifier (i.e. using Fiat-Shamir).
     #[allow(clippy::too_many_arguments)]
     fn compute_deep_composition_poly(
-        trace_polys: &[Polynomial<FieldElement<A::FieldExtension>>],
-        round_2_result: &Round2<A::FieldExtension>,
-        round_3_result: &Round3<A::FieldExtension>,
-        z: &FieldElement<A::FieldExtension>,
-        primitive_root: &FieldElement<A::Field>,
-        composition_poly_gammas: &[FieldElement<A::FieldExtension>],
-        trace_terms_gammas: &[Vec<FieldElement<A::FieldExtension>>],
-    ) -> Polynomial<FieldElement<A::FieldExtension>>
+        trace_polys: &[Polynomial<FieldElement<FieldExtension>>],
+        round_2_result: &Round2<FieldExtension>,
+        round_3_result: &Round3<FieldExtension>,
+        z: &FieldElement<FieldExtension>,
+        primitive_root: &FieldElement<Field>,
+        composition_poly_gammas: &[FieldElement<FieldExtension>],
+        trace_terms_gammas: &[Vec<FieldElement<FieldExtension>>],
+    ) -> Polynomial<FieldElement<FieldExtension>>
     where
-        FieldElement<A::Field>: AsBytes + Send + Sync,
-        FieldElement<A::FieldExtension>: AsBytes + Send + Sync,
+        FieldElement<Field>: AsBytes,
+        FieldElement<FieldExtension>: AsBytes,
     {
         let z_power = z.pow(round_2_result.composition_poly_parts.len());
 
@@ -718,15 +729,15 @@ pub trait IsStarkProver<A: AIR> {
     /// composition polynomial. That is, returns `accumulator + \sum_i \gamma_i \frac{ t_j - t_j(zg^i) }{ X - zg^i }`,
     /// where `i` ranges from `T * j` to `T * j + T - 1`, where `T` is the number of offsets in every frame.
     fn compute_trace_term(
-        accumulator: &Polynomial<FieldElement<A::FieldExtension>>,
-        trace_term_poly: &Polynomial<FieldElement<A::FieldExtension>>,
-        trace_terms_gammas: &[FieldElement<A::FieldExtension>],
-        trace_frame_evaluations: &[FieldElement<A::FieldExtension>],
-        (z, primitive_root): (&FieldElement<A::FieldExtension>, &FieldElement<A::Field>),
-    ) -> Polynomial<FieldElement<A::FieldExtension>>
+        accumulator: &Polynomial<FieldElement<FieldExtension>>,
+        trace_term_poly: &Polynomial<FieldElement<FieldExtension>>,
+        trace_terms_gammas: &[FieldElement<FieldExtension>],
+        trace_frame_evaluations: &[FieldElement<FieldExtension>],
+        (z, primitive_root): (&FieldElement<FieldExtension>, &FieldElement<Field>),
+    ) -> Polynomial<FieldElement<FieldExtension>>
     where
-        FieldElement<A::Field>: AsBytes + Send + Sync,
-        FieldElement<A::FieldExtension>: AsBytes + Send + Sync,
+        FieldElement<Field>: AsBytes,
+        FieldElement<FieldExtension>: AsBytes,
     {
         let trace_int = trace_frame_evaluations
             .iter()
@@ -750,13 +761,13 @@ pub trait IsStarkProver<A: AIR> {
     /// at the domain value corresponding to the FRI query challenge `index` and its symmetric
     /// element.
     fn open_composition_poly(
-        composition_poly_merkle_tree: &BatchedMerkleTree<A::FieldExtension>,
-        lde_composition_poly_evaluations: &[Vec<FieldElement<A::FieldExtension>>],
+        composition_poly_merkle_tree: &BatchedMerkleTree<FieldExtension>,
+        lde_composition_poly_evaluations: &[Vec<FieldElement<FieldExtension>>],
         index: usize,
-    ) -> PolynomialOpenings<A::FieldExtension>
+    ) -> PolynomialOpenings<FieldExtension>
     where
-        FieldElement<A::Field>: AsBytes + Sync + Send,
-        FieldElement<A::FieldExtension>: AsBytes + Sync + Send,
+        FieldElement<Field>: AsBytes + Sync + Send,
+        FieldElement<FieldExtension>: AsBytes + Sync + Send,
     {
         let proof = composition_poly_merkle_tree
             .get_proof_by_pos(index)
@@ -792,15 +803,15 @@ pub trait IsStarkProver<A: AIR> {
     /// at the domain value corresponding to the FRI query challenge `index` and its symmetric
     /// element.
     fn open_trace_polys<E>(
-        domain: &Domain<A::Field>,
+        domain: &Domain<Field>,
         tree: &BatchedMerkleTree<E>,
         lde_trace: &Table<E>,
         challenge: usize,
     ) -> PolynomialOpenings<E>
     where
-        FieldElement<A::Field>: AsBytes + Sync + Send,
+        FieldElement<Field>: AsBytes + Sync + Send,
         FieldElement<E>: AsBytes + Sync + Send,
-        A::Field: IsSubFieldOf<E>,
+        Field: IsSubFieldOf<E>,
         E: IsField,
     {
         let domain_size = domain.lde_roots_of_unity_coset.len();
@@ -821,19 +832,19 @@ pub trait IsStarkProver<A: AIR> {
 
     /// Open the deep composition polynomial on a list of indexes and their symmetric elements.
     fn open_deep_composition_poly(
-        domain: &Domain<A::Field>,
-        round_1_result: &Round1<A>,
-        round_2_result: &Round2<A::FieldExtension>,
+        domain: &Domain<Field>,
+        round_1_result: &Round1<Field, FieldExtension>,
+        round_2_result: &Round2<FieldExtension>,
         indexes_to_open: &[usize],
-    ) -> DeepPolynomialOpenings<A::Field, A::FieldExtension>
+    ) -> DeepPolynomialOpenings<Field, FieldExtension>
     where
-        FieldElement<A::Field>: AsBytes + Send + Sync,
-        FieldElement<A::FieldExtension>: AsBytes + Send + Sync,
+        FieldElement<Field>: AsBytes,
+        FieldElement<FieldExtension>: AsBytes,
     {
         let mut openings = Vec::new();
 
         for index in indexes_to_open.iter() {
-            let main_trace_opening = Self::open_trace_polys::<A::Field>(
+            let main_trace_opening = Self::open_trace_polys::<Field>(
                 domain,
                 &round_1_result.main.lde_trace_merkle_tree,
                 &round_1_result.lde_trace.main_table,
@@ -847,7 +858,7 @@ pub trait IsStarkProver<A: AIR> {
             );
 
             let aux_trace_polys = round_1_result.aux.as_ref().map(|aux| {
-                Self::open_trace_polys::<A::FieldExtension>(
+                Self::open_trace_polys::<FieldExtension>(
                     domain,
                     &aux.lde_trace_merkle_tree,
                     &round_1_result.lde_trace.aux_table,
@@ -869,16 +880,14 @@ pub trait IsStarkProver<A: AIR> {
     /// Generates a STARK proof for the trace `main_trace` with public inputs `pub_inputs`.
     /// Warning: the transcript must be safely initializated before passing it to this method.
     fn prove(
-        trace: &mut TraceTable<A::Field, A::FieldExtension>,
-        pub_inputs: &A::PublicInputs,
-        proof_options: &ProofOptions,
-        mut transcript: impl IsStarkTranscript<A::FieldExtension, A::Field>,
-    ) -> Result<StarkProof<A::Field, A::FieldExtension>, ProvingError>
+        air: &dyn AIR<Field = Field, FieldExtension = FieldExtension, PublicInputs = PI>,
+        trace: &mut TraceTable<Field, FieldExtension>,
+        transcript: &mut impl IsStarkTranscript<FieldExtension, Field>,
+    ) -> Result<StarkProof<Field, FieldExtension>, ProvingError>
     where
-        A: Send + Sync,
-        FieldElement<A::Field>: AsBytes + Send + Sync,
-        A::FieldExtension: IsFFTField,
-        FieldElement<A::FieldExtension>: AsBytes + Send + Sync,
+        FieldElement<Field>: AsBytes,
+        FieldElement<FieldExtension>: AsBytes,
+        FieldExtension: IsField,
     {
         info!("Started proof generation...");
         #[cfg(feature = "instruments")]
@@ -886,8 +895,7 @@ pub trait IsStarkProver<A: AIR> {
         #[cfg(feature = "instruments")]
         let timer0 = Instant::now();
 
-        let air = A::new(trace.num_rows(), pub_inputs, proof_options);
-        let domain = Domain::new(&air);
+        let domain = new_domain(air);
 
         #[cfg(feature = "instruments")]
         let elapsed0 = timer0.elapsed();
@@ -904,11 +912,11 @@ pub trait IsStarkProver<A: AIR> {
         let timer1 = Instant::now();
 
         let round_1_result =
-            Self::round_1_randomized_air_with_preprocessing(&air, trace, &domain, &mut transcript)?;
+            Self::round_1_randomized_air_with_preprocessing(air, trace, &domain, transcript)?;
 
         #[cfg(debug_assertions)]
         validate_trace(
-            &air,
+            air,
             &round_1_result.main.trace_polys,
             round_1_result
                 .aux
@@ -918,7 +926,6 @@ pub trait IsStarkProver<A: AIR> {
             &domain,
             &round_1_result.rap_challenges,
         );
-
         #[cfg(feature = "instruments")]
         let elapsed1 = timer1.elapsed();
         #[cfg(feature = "instruments")]
@@ -952,7 +959,7 @@ pub trait IsStarkProver<A: AIR> {
         let boundary_coefficients = coefficients;
 
         let round_2_result = Self::round_2_compute_composition_polynomial(
-            &air,
+            air,
             &domain,
             &round_1_result,
             &transition_coefficients,
@@ -983,7 +990,7 @@ pub trait IsStarkProver<A: AIR> {
         );
 
         let round_3_result = Self::round_3_evaluate_polynomials_in_out_of_domain_element(
-            &air,
+            air,
             &domain,
             &round_1_result,
             &round_2_result,
@@ -1021,13 +1028,13 @@ pub trait IsStarkProver<A: AIR> {
         // protocol on its own. Therefore we pass it the transcript
         // to simulate the interactions with the verifier.
         let round_4_result = Self::round_4_compute_and_run_fri_on_the_deep_composition_polynomial(
-            &air,
+            air,
             &domain,
             &round_1_result,
             &round_2_result,
             &round_3_result,
             &z,
-            &mut transcript,
+            transcript,
         );
 
         #[cfg(feature = "instruments")]
@@ -1050,7 +1057,7 @@ pub trait IsStarkProver<A: AIR> {
 
         info!("End proof generation");
 
-        Ok(StarkProof::<A::Field, A::FieldExtension> {
+        Ok(StarkProof::<Field, FieldExtension> {
             // [t]
             lde_trace_main_merkle_root: round_1_result.main.lde_trace_merkle_root,
             // [t]
@@ -1207,7 +1214,7 @@ mod tests {
 
     fn proof_parts_stone_compatibility_case_1() -> (
         StarkProof<Stark252PrimeField, Stark252PrimeField>,
-        fibonacci_2_cols_shifted::PublicInputs<Stark252PrimeField>,
+        Fibonacci2ColsShifted<Stark252PrimeField>,
         ProofOptions,
         [u8; 4],
     ) {
@@ -1229,14 +1236,19 @@ mod tests {
 
         let transcript_init_seed = [0xca, 0xfe, 0xca, 0xfe];
 
-        let proof = Prover::<Fibonacci2ColsShifted<_>>::prove(
-            &mut trace,
+        let air = Fibonacci2ColsShifted::<Stark252PrimeField>::new(
+            trace.num_rows(),
             &pub_inputs,
             &proof_options,
-            StoneProverTranscript::new(&transcript_init_seed),
+        );
+
+        let proof = Prover::prove(
+            &air,
+            &mut trace,
+            &mut StoneProverTranscript::new(&transcript_init_seed),
         )
         .unwrap();
-        (proof, pub_inputs, proof_options, transcript_init_seed)
+        (proof, air, proof_options, transcript_init_seed)
     }
 
     fn stone_compatibility_case_1_proof() -> StarkProof<Stark252PrimeField, Stark252PrimeField> {
@@ -1244,11 +1256,9 @@ mod tests {
         proof
     }
 
-    fn stone_compatibility_case_1_challenges(
-    ) -> Challenges<Fibonacci2ColsShifted<Stark252PrimeField>> {
-        let (proof, public_inputs, options, seed) = proof_parts_stone_compatibility_case_1();
+    fn stone_compatibility_case_1_challenges() -> Challenges<Stark252PrimeField> {
+        let (proof, air, _, seed) = proof_parts_stone_compatibility_case_1();
 
-        let air = Fibonacci2ColsShifted::new(proof.trace_length, &public_inputs, &options);
         let domain = Domain::new(&air);
         Verifier::step_1_replay_rounds_and_recover_challenges(
             &air,
@@ -1260,12 +1270,11 @@ mod tests {
 
     #[test]
     fn stone_compatibility_case_1_proof_is_valid() {
-        let (proof, public_inputs, options, seed) = proof_parts_stone_compatibility_case_1();
-        assert!(Verifier::<Fibonacci2ColsShifted<_>>::verify(
+        let (proof, air, _options, seed) = proof_parts_stone_compatibility_case_1();
+        assert!(Verifier::verify(
             &proof,
-            &public_inputs,
-            &options,
-            StoneProverTranscript::new(&seed)
+            &air,
+            &mut StoneProverTranscript::new(&seed)
         ));
     }
 
@@ -1626,11 +1635,16 @@ mod tests {
 
         let transcript_init_seed = [0xfa, 0xfa, 0xfa, 0xee];
 
-        let proof = Prover::<Fibonacci2ColsShifted<_>>::prove(
-            &mut trace,
+        let air = Fibonacci2ColsShifted::<Stark252PrimeField>::new(
+            trace.num_rows(),
             &pub_inputs,
             &proof_options,
-            StoneProverTranscript::new(&transcript_init_seed),
+        );
+
+        let proof = Prover::prove(
+            &air,
+            &mut trace,
+            &mut StoneProverTranscript::new(&transcript_init_seed),
         )
         .unwrap();
         (proof, pub_inputs, proof_options, transcript_init_seed)
@@ -1641,8 +1655,7 @@ mod tests {
         proof
     }
 
-    fn stone_compatibility_case_2_challenges(
-    ) -> Challenges<Fibonacci2ColsShifted<Stark252PrimeField>> {
+    fn stone_compatibility_case_2_challenges() -> Challenges<Stark252PrimeField> {
         let (proof, public_inputs, options, seed) = proof_parts_stone_compatibility_case_2();
 
         let air = Fibonacci2ColsShifted::new(proof.trace_length, &public_inputs, &options);
