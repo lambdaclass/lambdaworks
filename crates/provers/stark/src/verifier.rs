@@ -3,7 +3,7 @@ use super::{
     domain::Domain,
     fri::fri_decommit::FriDecommitment,
     grinding,
-    proof::{options::ProofOptions, stark::StarkProof},
+    proof::stark::StarkProof,
     traits::{TransitionEvaluationContext, AIR},
 };
 use crate::{config::Commitment, domain::new_domain, proof::stark::DeepPolynomialOpening};
@@ -734,7 +734,6 @@ pub trait IsStarkVerifier<
     fn verify(
         proof: &StarkProof<Field, FieldExtension>,
         air: &dyn AIR<Field = Field, FieldExtension = FieldExtension, PublicInputs = PI>,
-        proof_options: &ProofOptions,
         mut transcript: impl IsStarkTranscript<FieldExtension, Field>,
     ) -> bool
     where
@@ -742,7 +741,7 @@ pub trait IsStarkVerifier<
         FieldElement<FieldExtension>: AsBytes + Sync + Send,
     {
         // Verify there are enough queries
-        if proof.query_list.len() < proof_options.fri_number_of_queries {
+        if proof.query_list.len() < air.context().proof_options.fri_number_of_queries {
             return false;
         }
 

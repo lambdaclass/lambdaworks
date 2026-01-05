@@ -49,7 +49,6 @@ fn test_prove_fib() {
     assert!(Verifier::verify(
         &proof,
         &air,
-        &proof_options,
         StoneProverTranscript::new(&[]),
     ));
 }
@@ -72,7 +71,6 @@ fn test_prove_simple_periodic_8() {
     assert!(Verifier::verify(
         &proof,
         &air,
-        &proof_options,
         StoneProverTranscript::new(&[]),
     ));
 }
@@ -96,7 +94,6 @@ fn test_prove_simple_periodic_32() {
     assert!(Verifier::verify(
         &proof,
         &air,
-        &proof_options,
         StoneProverTranscript::new(&[]),
     ));
 }
@@ -119,7 +116,6 @@ fn test_prove_fib_2_cols() {
     assert!(Verifier::verify(
         &proof,
         &air,
-        &proof_options,
         StoneProverTranscript::new(&[])
     ));
 }
@@ -148,7 +144,6 @@ fn test_prove_fib_2_cols_shifted() {
     assert!(Verifier::verify(
         &proof,
         &air,
-        &proof_options,
         StoneProverTranscript::new(&[])
     ));
 }
@@ -171,7 +166,6 @@ fn test_prove_quadratic() {
     assert!(Verifier::verify(
         &proof,
         &air,
-        &proof_options,
         StoneProverTranscript::new(&[])
     ));
 }
@@ -197,7 +191,6 @@ fn test_prove_rap_fib() {
     assert!(Verifier::verify(
         &proof,
         &air,
-        &proof_options,
         StoneProverTranscript::new(&[])
     ));
 }
@@ -216,7 +209,6 @@ fn test_prove_dummy() {
     assert!(Verifier::verify(
         &proof,
         &air,
-        &proof_options,
         StoneProverTranscript::new(&[])
     ));
 }
@@ -233,7 +225,6 @@ fn test_prove_bit_flags() {
     assert!(Verifier::verify(
         &proof,
         &air,
-        &proof_options,
         StoneProverTranscript::new(&[]),
     ));
 }
@@ -277,7 +268,6 @@ fn test_prove_read_only_memory() {
     assert!(Verifier::verify(
         &proof,
         &air,
-        &proof_options,
         StoneProverTranscript::new(&[])
     ));
 }
@@ -331,7 +321,6 @@ fn test_prove_log_read_only_memory() {
     assert!(Verifier::verify(
         &proof,
         &air,
-        &proof_options,
         DefaultTranscript::<Degree4BabyBearExtensionField>::new(&[]),
     ));
 }

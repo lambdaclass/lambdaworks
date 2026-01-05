@@ -1270,11 +1270,10 @@ mod tests {
 
     #[test]
     fn stone_compatibility_case_1_proof_is_valid() {
-        let (proof, air, options, seed) = proof_parts_stone_compatibility_case_1();
+        let (proof, air, _options, seed) = proof_parts_stone_compatibility_case_1();
         assert!(Verifier::verify(
             &proof,
             &air,
-            &options,
             StoneProverTranscript::new(&seed)
         ));
     }
