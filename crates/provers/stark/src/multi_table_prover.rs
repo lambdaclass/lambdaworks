@@ -27,12 +27,12 @@ pub fn multi_prove<
 >(
     airs: &mut Airs<F, E, PI>,
     transcript: &mut impl IsStarkTranscript<E, F>,
-) -> Result<StarkProof<F, E>, ProvingError>
+) -> Result<Vec<StarkProof<F, E>>, ProvingError>
 where
     FieldElement<F>: AsBytes,
     FieldElement<E>: AsBytes,
 {
-    let mut proof = None;
+    let mut proofs = Vec::new();
 
     let mut round_1_results: Vec<Round1<F, E>> = Vec::new();
     let mut domains = Vec::new();
@@ -52,12 +52,13 @@ where
         .into_iter()
         .zip(domains)
     {
-        let _ = proof.insert(Prover::<F, E, PI>::single_table_prove(
+        let proof = Prover::<F, E, PI>::single_table_prove(
             *air,
             &round_1_result,
             transcript,
             &domain,
-        )?);
+        )?;
+        proofs.push(proof);
     }
-    Ok(proof.unwrap())
+    Ok(proofs)
 }

@@ -3,10 +3,8 @@ use lambdaworks_math::field::{
     element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
 };
 
-use lambdaworks_math::field::fields::fft_friendly::{
-    babybear::Babybear31PrimeField, quartic_babybear::Degree4BabyBearExtensionField,
-};
-
+use crate::multi_table_prover::multi_prove;
+use crate::multi_table_verifier::multi_verify;
 use crate::traits::AIR;
 use crate::{
     examples::{
@@ -25,6 +23,9 @@ use crate::{
     transcript::StoneProverTranscript,
     verifier::{IsStarkVerifier, Verifier},
     Felt252,
+};
+use lambdaworks_math::field::fields::fft_friendly::{
+    babybear::Babybear31PrimeField, quartic_babybear::Degree4BabyBearExtensionField,
 };
 
 use crate::examples::read_only_memory_logup::{
@@ -322,5 +323,62 @@ fn test_prove_log_read_only_memory() {
         &proof,
         &air,
         &mut DefaultTranscript::<Degree4BabyBearExtensionField>::new(&[]),
+    ));
+}
+
+#[test_log::test]
+fn test_prove_fib_3_tables() {
+    let mut trace_1 = simple_fibonacci::fibonacci_trace([Felt252::from(1), Felt252::from(1)], 8);
+    let mut trace_2 = simple_fibonacci::fibonacci_trace([Felt252::from(1), Felt252::from(1)], 16);
+    let mut trace_3 = simple_fibonacci::fibonacci_trace([Felt252::from(1), Felt252::from(1)], 32);
+    let proof_options = ProofOptions::default_test_options();
+
+    let pub_inputs_1 = FibonacciPublicInputs {
+        a0: Felt252::one(),
+        a1: Felt252::one(),
+    };
+    let pub_inputs_2 = FibonacciPublicInputs {
+        a0: Felt252::one(),
+        a1: Felt252::one(),
+    };
+    let pub_inputs_3 = FibonacciPublicInputs {
+        a0: Felt252::one(),
+        a1: Felt252::one(),
+    };
+
+    let air_1 = FibonacciAIR::new(8, &pub_inputs_1, &proof_options);
+    let air_2 = FibonacciAIR::new(16, &pub_inputs_2, &proof_options);
+    let air_3 = FibonacciAIR::new(32, &pub_inputs_3, &proof_options);
+
+    let mut airs: Vec<(
+        &dyn AIR<
+            Field = Stark252PrimeField,
+            FieldExtension = Stark252PrimeField,
+            PublicInputs = FibonacciPublicInputs<Stark252PrimeField>,
+        >,
+        &mut _,
+    )> = vec![
+        (&air_1, &mut trace_1),
+        (&air_2, &mut trace_2),
+        (&air_3, &mut trace_3),
+    ];
+    let proofs = multi_prove(&mut airs, &mut StoneProverTranscript::new(&[])).unwrap();
+
+    let airs_and_proofs: Vec<(
+        &dyn AIR<
+            Field = Stark252PrimeField,
+            FieldExtension = Stark252PrimeField,
+            PublicInputs = FibonacciPublicInputs<Stark252PrimeField>,
+        >,
+        &_,
+    )> = vec![
+        (&air_1, &proofs[0]),
+        (&air_2, &proofs[1]),
+        (&air_3, &proofs[2]),
+    ];
+
+    assert!(multi_verify(
+        airs_and_proofs,
+        &mut StoneProverTranscript::new(&[]),
     ));
 }
