@@ -46,12 +46,17 @@ where
         domains.push(domain);
     }
 
-    for ((air, table), round_1_result, domain) in airs.zip(round_1_results).zip(domains) {
+    for (((air, _), round_1_result), domain) in airs
+        .into_iter()
+        .zip(round_1_results)
+        .into_iter()
+        .zip(domains)
+    {
         let _ = proof.insert(Prover::<F, E, PI>::single_table_prove(
-            air,
-            round_1_result,
+            *air,
+            &round_1_result,
             transcript,
-            domain,
+            &domain,
         )?);
     }
     Ok(proof.unwrap())
