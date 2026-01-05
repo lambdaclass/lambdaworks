@@ -92,10 +92,10 @@ where
 
 impl<Field, FieldExtension> Round1<Field, FieldExtension>
 where
-    Field: IsSubFieldOf<FieldExtension> + IsFFTField + Send + Sync,
-    FieldExtension: Send + Sync + IsFFTField,
-    FieldElement<Field>: AsBytes + Send + Sync,
-    FieldElement<FieldExtension>: AsBytes + Send + Sync,
+    Field: IsSubFieldOf<FieldExtension> + IsFFTField,
+    FieldExtension: IsFFTField,
+    FieldElement<Field>: AsBytes,
+    FieldElement<FieldExtension>: AsBytes,
 {
     /// Returns the full list of the polynomials interpolating the trace. It includes both
     /// main and auxiliary trace polynomials. The main trace polynomials are casted to
@@ -119,8 +119,8 @@ where
 /// A container for the results of the second round of the STARK Prove protocol.
 pub struct Round2<F>
 where
-    F: IsField + Send + Sync,
-    FieldElement<F>: AsBytes + Sync + Send,
+    F: IsField,
+    FieldElement<F>: AsBytes,
 {
     /// The list of polynomials `H₀, ..., Hₙ` such that `H = ∑ᵢXⁱH(Xⁿ)`, where H is the composition polynomial.
     pub(crate) composition_poly_parts: Vec<Polynomial<FieldElement<F>>>,
@@ -233,8 +233,8 @@ pub trait IsStarkProver<
         Commitment,
     )>
     where
-        FieldElement<Field>: AsBytes + Send + Sync,
-        FieldElement<FieldExtension>: AsBytes + Send + Sync,
+        FieldElement<Field>: AsBytes,
+        FieldElement<FieldExtension>: AsBytes,
         Field: IsSubFieldOf<FieldExtension>,
     {
         // Interpolate columns of `trace`.
