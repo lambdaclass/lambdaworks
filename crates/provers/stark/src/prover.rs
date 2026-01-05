@@ -77,8 +77,8 @@ pub struct Round1<Field, FieldExtension>
 where
     Field: IsSubFieldOf<FieldExtension> + IsFFTField + Send + Sync,
     FieldExtension: Send + Sync + IsFFTField,
-    FieldElement<Field>: AsBytes + Send + Sync + AsBytes,
-    FieldElement<FieldExtension>: AsBytes + Send + Sync + AsBytes,
+    FieldElement<Field>: AsBytes + Send + Sync,
+    FieldElement<FieldExtension>: AsBytes + Send + Sync,
 {
     /// The table of evaluations over the LDE of the main and auxiliary trace tables.
     pub(crate) lde_trace: LDETraceTable<Field, FieldExtension>,
@@ -94,8 +94,8 @@ impl<Field, FieldExtension> Round1<Field, FieldExtension>
 where
     Field: IsSubFieldOf<FieldExtension> + IsFFTField + Send + Sync,
     FieldExtension: Send + Sync + IsFFTField,
-    FieldElement<Field>: AsBytes + Send + Sync + AsBytes,
-    FieldElement<FieldExtension>: AsBytes + Send + Sync + AsBytes,
+    FieldElement<Field>: AsBytes + Send + Sync,
+    FieldElement<FieldExtension>: AsBytes + Send + Sync,
 {
     /// Returns the full list of the polynomials interpolating the trace. It includes both
     /// main and auxiliary trace polynomials. The main trace polynomials are casted to
