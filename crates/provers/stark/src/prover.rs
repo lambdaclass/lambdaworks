@@ -1274,7 +1274,7 @@ mod tests {
         assert!(Verifier::verify(
             &proof,
             &air,
-            StoneProverTranscript::new(&seed)
+            &mut StoneProverTranscript::new(&seed)
         ));
     }
 

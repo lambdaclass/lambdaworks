@@ -734,7 +734,7 @@ pub trait IsStarkVerifier<
     fn verify(
         proof: &StarkProof<Field, FieldExtension>,
         air: &dyn AIR<Field = Field, FieldExtension = FieldExtension, PublicInputs = PI>,
-        mut transcript: impl IsStarkTranscript<FieldExtension, Field>,
+        transcript: &mut impl IsStarkTranscript<FieldExtension, Field>,
     ) -> bool
     where
         FieldElement<Field>: AsBytes + Sync + Send,
@@ -753,7 +753,7 @@ pub trait IsStarkVerifier<
         let domain = new_domain(air);
 
         let challenges =
-            Self::step_1_replay_rounds_and_recover_challenges(air, proof, &domain, &mut transcript);
+            Self::step_1_replay_rounds_and_recover_challenges(air, proof, &domain, transcript);
 
         // verify grinding
         let security_bits = air.context().proof_options.grinding_factor;

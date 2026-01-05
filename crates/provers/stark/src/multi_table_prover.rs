@@ -19,6 +19,7 @@ type Airs<'a, F, E, PI> = Vec<(
     &'a dyn AIR<Field = F, FieldExtension = E, PublicInputs = PI>,
     &'a mut TraceTable<F, E>,
 )>;
+
 pub fn multi_prove<F: IsSubFieldOf<E> + IsFFTField + Send + Sync, E: Send + Sync + IsFFTField, PI>(
     airs: Airs<F, E, PI>,
     transcript: &mut impl IsStarkTranscript<E, F>,
