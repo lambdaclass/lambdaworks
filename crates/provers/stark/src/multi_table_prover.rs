@@ -8,8 +8,9 @@ use lambdaworks_math::{
 };
 
 use crate::{
+    domain::new_domain,
     proof::stark::StarkProof,
-    prover::{IsStarkProver, Prover, ProvingError},
+    prover::{IsStarkProver, Prover, ProvingError, Round1},
     trace::TraceTable,
     traits::AIR,
 };
@@ -24,7 +25,7 @@ pub fn multi_prove<
     E: Send + Sync + IsFFTField,
     PI: Send + Sync,
 >(
-    airs: Airs<F, E, PI>,
+    airs: &mut Airs<F, E, PI>,
     transcript: &mut impl IsStarkTranscript<E, F>,
 ) -> Result<StarkProof<F, E>, ProvingError>
 where
@@ -32,8 +33,26 @@ where
     FieldElement<E>: AsBytes + Send + Sync,
 {
     let mut proof = None;
-    for (air, table) in airs {
-        let _ = proof.insert(Prover::<F, E, PI>::prove(air, table, transcript)?);
+
+    let mut round_1_results: Vec<Round1<F, E>> = Vec::new();
+    let mut domains = Vec::new();
+
+    for (air, table) in &mut *airs {
+        let domain = new_domain(*air);
+        let round_1_result = Prover::<F, E, PI>::round_1_randomized_air_with_preprocessing(
+            *air, table, &domain, transcript,
+        )?;
+        round_1_results.push(round_1_result);
+        domains.push(domain);
+    }
+
+    for ((air, table), round_1_result, domain) in airs.zip(round_1_results).zip(domains) {
+        let _ = proof.insert(Prover::<F, E, PI>::single_table_prove(
+            air,
+            round_1_result,
+            transcript,
+            domain,
+        )?);
     }
     Ok(proof.unwrap())
 }
