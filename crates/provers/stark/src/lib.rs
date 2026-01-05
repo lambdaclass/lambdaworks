@@ -11,6 +11,7 @@ pub mod frame;
 pub mod fri;
 pub mod grinding;
 pub mod multi_table_prover;
+pub mod multi_table_verifier;
 pub mod proof;
 pub mod prover;
 pub mod table;

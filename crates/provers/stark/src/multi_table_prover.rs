@@ -29,8 +29,8 @@ pub fn multi_prove<
     transcript: &mut impl IsStarkTranscript<E, F>,
 ) -> Result<StarkProof<F, E>, ProvingError>
 where
-    FieldElement<F>: AsBytes + Send + Sync,
-    FieldElement<E>: AsBytes + Send + Sync,
+    FieldElement<F>: AsBytes,
+    FieldElement<E>: AsBytes,
 {
     let mut proof = None;
 
