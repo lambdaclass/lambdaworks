@@ -19,17 +19,13 @@ type Airs<'a, F, E, PI> = Vec<(
     &'a dyn AIR<Field = F, FieldExtension = E, PublicInputs = PI>,
     &'a mut TraceTable<F, E>,
 )>;
-pub fn multi_prove<
-    F: IsSubFieldOf<E> + IsFFTField + Send + Sync,
-    E: Send + Sync + IsFFTField,
-    PI: Send + Sync,
->(
+pub fn multi_prove<F: IsSubFieldOf<E> + IsFFTField + Send + Sync, E: Send + Sync + IsFFTField, PI>(
     airs: Airs<F, E, PI>,
     transcript: &mut impl IsStarkTranscript<E, F>,
 ) -> Result<StarkProof<F, E>, ProvingError>
 where
-    FieldElement<F>: AsBytes + Send + Sync,
-    FieldElement<E>: AsBytes + Send + Sync,
+    FieldElement<F>: AsBytes,
+    FieldElement<E>: AsBytes,
 {
     let mut proof = None;
     for (air, table) in airs {

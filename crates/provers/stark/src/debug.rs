@@ -15,7 +15,7 @@ use log::{error, info};
 pub fn validate_trace<
     Field: IsSubFieldOf<FieldExtension> + IsFFTField + Send + Sync,
     FieldExtension: Send + Sync + IsFFTField,
-    PI: Send + Sync,
+    PI,
 >(
     air: &dyn AIR<Field = Field, FieldExtension = FieldExtension, PublicInputs = PI>,
     main_trace_polys: &[Polynomial<FieldElement<Field>>],

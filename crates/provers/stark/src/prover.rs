@@ -888,7 +888,6 @@ pub trait IsStarkProver<
         FieldElement<Field>: AsBytes,
         FieldExtension: IsFFTField,
         FieldElement<FieldExtension>: AsBytes,
-        PI: Send + Sync,
     {
         info!("Started proof generation...");
         #[cfg(feature = "instruments")]
