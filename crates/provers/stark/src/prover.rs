@@ -37,7 +37,7 @@ use super::traits::AIR;
 /// A default STARK prover implementing `IsStarkProver`.
 pub struct Prover<
     Field: IsSubFieldOf<FieldExtension> + IsFFTField + Send + Sync,
-    FieldExtension: Send + Sync + IsFFTField,
+    FieldExtension: Send + Sync + IsField,
     PI,
 > {
     p: PhantomData<(Field, FieldExtension, PI)>,
@@ -45,7 +45,7 @@ pub struct Prover<
 
 impl<
         Field: IsSubFieldOf<FieldExtension> + IsFFTField + Send + Sync,
-        FieldExtension: Send + Sync + IsFFTField,
+        FieldExtension: Send + Sync + IsField,
         PI,
     > IsStarkProver<Field, FieldExtension, PI> for Prover<Field, FieldExtension, PI>
 {
@@ -76,7 +76,7 @@ where
 pub struct Round1<Field, FieldExtension>
 where
     Field: IsSubFieldOf<FieldExtension> + IsFFTField,
-    FieldExtension: IsFFTField,
+    FieldExtension: IsField,
     FieldElement<Field>: AsBytes,
     FieldElement<FieldExtension>: AsBytes,
 {
@@ -93,7 +93,7 @@ where
 impl<Field, FieldExtension> Round1<Field, FieldExtension>
 where
     Field: IsSubFieldOf<FieldExtension> + IsFFTField,
-    FieldExtension: IsFFTField,
+    FieldExtension: IsField,
     FieldElement<Field>: AsBytes,
     FieldElement<FieldExtension>: AsBytes,
 {
@@ -183,7 +183,7 @@ where
 /// https://github.com/starkware-libs/stone-prover
 pub trait IsStarkProver<
     Field: IsSubFieldOf<FieldExtension> + IsFFTField + Send + Sync,
-    FieldExtension: Send + Sync + IsFFTField,
+    FieldExtension: Send + Sync + IsField,
     PI,
 >
 {
@@ -886,8 +886,8 @@ pub trait IsStarkProver<
     ) -> Result<StarkProof<Field, FieldExtension>, ProvingError>
     where
         FieldElement<Field>: AsBytes,
-        FieldExtension: IsFFTField,
         FieldElement<FieldExtension>: AsBytes,
+        FieldExtension: IsField,
     {
         info!("Started proof generation...");
         #[cfg(feature = "instruments")]
@@ -1214,7 +1214,7 @@ mod tests {
 
     fn proof_parts_stone_compatibility_case_1() -> (
         StarkProof<Stark252PrimeField, Stark252PrimeField>,
-        fibonacci_2_cols_shifted::PublicInputs<Stark252PrimeField>,
+        Fibonacci2ColsShifted<Stark252PrimeField>,
         ProofOptions,
         [u8; 4],
     ) {
@@ -1248,7 +1248,7 @@ mod tests {
             &mut StoneProverTranscript::new(&transcript_init_seed),
         )
         .unwrap();
-        (proof, pub_inputs, proof_options, transcript_init_seed)
+        (proof, air, proof_options, transcript_init_seed)
     }
 
     fn stone_compatibility_case_1_proof() -> StarkProof<Stark252PrimeField, Stark252PrimeField> {
@@ -1256,11 +1256,9 @@ mod tests {
         proof
     }
 
-    fn stone_compatibility_case_1_challenges(
-    ) -> Challenges<Fibonacci2ColsShifted<Stark252PrimeField>> {
-        let (proof, public_inputs, options, seed) = proof_parts_stone_compatibility_case_1();
+    fn stone_compatibility_case_1_challenges() -> Challenges<Stark252PrimeField> {
+        let (proof, air, _, seed) = proof_parts_stone_compatibility_case_1();
 
-        let air = Fibonacci2ColsShifted::new(proof.trace_length, &public_inputs, &options);
         let domain = Domain::new(&air);
         Verifier::step_1_replay_rounds_and_recover_challenges(
             &air,
@@ -1272,10 +1270,10 @@ mod tests {
 
     #[test]
     fn stone_compatibility_case_1_proof_is_valid() {
-        let (proof, public_inputs, options, seed) = proof_parts_stone_compatibility_case_1();
-        assert!(Verifier::<Fibonacci2ColsShifted<_>>::verify(
+        let (proof, air, options, seed) = proof_parts_stone_compatibility_case_1();
+        assert!(Verifier::verify(
             &proof,
-            &public_inputs,
+            &air,
             &options,
             StoneProverTranscript::new(&seed)
         ));
@@ -1658,8 +1656,7 @@ mod tests {
         proof
     }
 
-    fn stone_compatibility_case_2_challenges(
-    ) -> Challenges<Fibonacci2ColsShifted<Stark252PrimeField>> {
+    fn stone_compatibility_case_2_challenges() -> Challenges<Stark252PrimeField> {
         let (proof, public_inputs, options, seed) = proof_parts_stone_compatibility_case_2();
 
         let air = Fibonacci2ColsShifted::new(proof.trace_length, &public_inputs, &options);

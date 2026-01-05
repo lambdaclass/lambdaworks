@@ -14,7 +14,7 @@ use log::{error, info};
 /// Validates that the trace is valid with respect to the supplied AIR constraints
 pub fn validate_trace<
     Field: IsSubFieldOf<FieldExtension> + IsFFTField + Send + Sync,
-    FieldExtension: Send + Sync + IsFFTField,
+    FieldExtension: Send + Sync + IsField,
     PI,
 >(
     air: &dyn AIR<Field = Field, FieldExtension = FieldExtension, PublicInputs = PI>,

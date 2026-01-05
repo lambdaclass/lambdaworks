@@ -46,9 +46,9 @@ fn test_prove_fib() {
         FibonacciAIR::<Stark252PrimeField>::new(trace.num_rows(), &pub_inputs, &proof_options);
 
     let proof = Prover::prove(&air, &mut trace, &mut StoneProverTranscript::new(&[])).unwrap();
-    assert!(Verifier::<FibonacciAIR<Stark252PrimeField>>::verify(
+    assert!(Verifier::verify(
         &proof,
-        &pub_inputs,
+        &air,
         &proof_options,
         StoneProverTranscript::new(&[]),
     ));
@@ -69,9 +69,9 @@ fn test_prove_simple_periodic_8() {
         SimplePeriodicAIR::<Stark252PrimeField>::new(trace.num_rows(), &pub_inputs, &proof_options);
 
     let proof = Prover::prove(&air, &mut trace, &mut StoneProverTranscript::new(&[])).unwrap();
-    assert!(Verifier::<SimplePeriodicAIR<Stark252PrimeField>>::verify(
+    assert!(Verifier::verify(
         &proof,
-        &pub_inputs,
+        &air,
         &proof_options,
         StoneProverTranscript::new(&[]),
     ));
@@ -93,9 +93,9 @@ fn test_prove_simple_periodic_32() {
 
     let proof = Prover::prove(&air, &mut trace, &mut StoneProverTranscript::new(&[])).unwrap();
 
-    assert!(Verifier::<SimplePeriodicAIR<Stark252PrimeField>>::verify(
+    assert!(Verifier::verify(
         &proof,
-        &pub_inputs,
+        &air,
         &proof_options,
         StoneProverTranscript::new(&[]),
     ));
@@ -116,9 +116,9 @@ fn test_prove_fib_2_cols() {
 
     let proof = Prover::prove(&air, &mut trace, &mut StoneProverTranscript::new(&[])).unwrap();
 
-    assert!(Verifier::<Fibonacci2ColsAIR<Stark252PrimeField>>::verify(
+    assert!(Verifier::verify(
         &proof,
-        &pub_inputs,
+        &air,
         &proof_options,
         StoneProverTranscript::new(&[])
     ));
@@ -145,9 +145,9 @@ fn test_prove_fib_2_cols_shifted() {
 
     let proof = Prover::prove(&air, &mut trace, &mut StoneProverTranscript::new(&[])).unwrap();
 
-    assert!(Verifier::<Fibonacci2ColsShifted<_>>::verify(
+    assert!(Verifier::verify(
         &proof,
-        &pub_inputs,
+        &air,
         &proof_options,
         StoneProverTranscript::new(&[])
     ));
@@ -168,9 +168,9 @@ fn test_prove_quadratic() {
 
     let proof = Prover::prove(&air, &mut trace, &mut StoneProverTranscript::new(&[])).unwrap();
 
-    assert!(Verifier::<QuadraticAIR<Stark252PrimeField>>::verify(
+    assert!(Verifier::verify(
         &proof,
-        &pub_inputs,
+        &air,
         &proof_options,
         StoneProverTranscript::new(&[])
     ));
@@ -194,9 +194,9 @@ fn test_prove_rap_fib() {
 
     let proof = Prover::prove(&air, &mut trace, &mut StoneProverTranscript::new(&[])).unwrap();
 
-    assert!(Verifier::<FibonacciRAP<Stark252PrimeField>>::verify(
+    assert!(Verifier::verify(
         &proof,
-        &pub_inputs,
+        &air,
         &proof_options,
         StoneProverTranscript::new(&[])
     ));
@@ -213,9 +213,9 @@ fn test_prove_dummy() {
 
     let proof = Prover::prove(&air, &mut trace, &mut StoneProverTranscript::new(&[])).unwrap();
 
-    assert!(Verifier::<DummyAIR>::verify(
+    assert!(Verifier::verify(
         &proof,
-        &(),
+        &air,
         &proof_options,
         StoneProverTranscript::new(&[])
     ));
@@ -230,9 +230,9 @@ fn test_prove_bit_flags() {
 
     let proof = Prover::prove(&air, &mut trace, &mut StoneProverTranscript::new(&[])).unwrap();
 
-    assert!(Verifier::<BitFlagsAIR>::verify(
+    assert!(Verifier::verify(
         &proof,
-        &(),
+        &air,
         &proof_options,
         StoneProverTranscript::new(&[]),
     ));
@@ -274,9 +274,9 @@ fn test_prove_read_only_memory() {
 
     let proof = Prover::prove(&air, &mut trace, &mut StoneProverTranscript::new(&[])).unwrap();
 
-    assert!(Verifier::<ReadOnlyRAP<Stark252PrimeField>>::verify(
+    assert!(Verifier::verify(
         &proof,
-        &pub_inputs,
+        &air,
         &proof_options,
         StoneProverTranscript::new(&[])
     ));
@@ -328,11 +328,9 @@ fn test_prove_log_read_only_memory() {
     )
     .unwrap();
 
-    assert!(Verifier::<
-        LogReadOnlyRAP<Babybear31PrimeField, Degree4BabyBearExtensionField>,
-    >::verify(
+    assert!(Verifier::verify(
         &proof,
-        &pub_inputs,
+        &air,
         &proof_options,
         DefaultTranscript::<Degree4BabyBearExtensionField>::new(&[]),
     ));

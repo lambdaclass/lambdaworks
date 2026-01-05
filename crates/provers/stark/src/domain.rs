@@ -2,7 +2,7 @@ use lambdaworks_math::{
     fft::cpu::roots_of_unity::get_powers_of_primitive_root_coset,
     field::{
         element::FieldElement,
-        traits::{IsFFTField, IsSubFieldOf},
+        traits::{IsFFTField, IsField, IsSubFieldOf},
     },
 };
 
@@ -62,7 +62,7 @@ pub fn new_domain<Field, FieldExtension, PI>(
 ) -> Domain<Field>
 where
     Field: IsSubFieldOf<FieldExtension> + IsFFTField + Send + Sync,
-    FieldExtension: Send + Sync + IsFFTField,
+    FieldExtension: Send + Sync + IsField,
 {
     // Initial definitions
     let blowup_factor = air.options().blowup_factor as usize;
