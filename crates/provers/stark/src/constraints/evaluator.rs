@@ -23,7 +23,7 @@ use std::time::Instant;
 pub struct ConstraintEvaluator<
     Field: IsSubFieldOf<FieldExtension> + IsFFTField + Send + Sync,
     FieldExtension: Send + Sync + IsFFTField,
-    PI: Send + Sync,
+    PI,
 > {
     boundary_constraints: BoundaryConstraints<FieldExtension>,
     phantom: PhantomData<(Field, PI)>,
@@ -32,7 +32,6 @@ impl<Field, FieldExtension, PI> ConstraintEvaluator<Field, FieldExtension, PI>
 where
     Field: IsSubFieldOf<FieldExtension> + IsFFTField + Send + Sync,
     FieldExtension: Send + Sync + IsFFTField,
-    PI: Send + Sync,
 {
     pub fn new(
         air: &dyn AIR<Field = Field, FieldExtension = FieldExtension, PublicInputs = PI>,

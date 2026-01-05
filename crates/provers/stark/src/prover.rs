@@ -38,7 +38,7 @@ use super::traits::AIR;
 pub struct Prover<
     Field: IsSubFieldOf<FieldExtension> + IsFFTField + Send + Sync,
     FieldExtension: Send + Sync + IsFFTField,
-    PI: Send + Sync,
+    PI,
 > {
     p: PhantomData<(Field, FieldExtension, PI)>,
 }
@@ -46,7 +46,7 @@ pub struct Prover<
 impl<
         Field: IsSubFieldOf<FieldExtension> + IsFFTField + Send + Sync,
         FieldExtension: Send + Sync + IsFFTField,
-        PI: Send + Sync,
+        PI,
     > IsStarkProver<Field, FieldExtension, PI> for Prover<Field, FieldExtension, PI>
 {
 }
@@ -184,7 +184,7 @@ where
 pub trait IsStarkProver<
     Field: IsSubFieldOf<FieldExtension> + IsFFTField + Send + Sync,
     FieldExtension: Send + Sync + IsFFTField,
-    PI: Send + Sync,
+    PI,
 >
 {
     /// Returns the Merkle tree and the commitment to the vectors `vectors`.
