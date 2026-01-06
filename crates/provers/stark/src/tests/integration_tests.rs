@@ -327,7 +327,7 @@ fn test_prove_log_read_only_memory() {
 }
 
 #[test_log::test]
-fn test_prove_fib_3_tables() {
+fn test_multi_prove_fib_3_tables() {
     let mut trace_1 = simple_fibonacci::fibonacci_trace([Felt252::from(1), Felt252::from(1)], 8);
     let mut trace_2 = simple_fibonacci::fibonacci_trace([Felt252::from(1), Felt252::from(1)], 16);
     let mut trace_3 = simple_fibonacci::fibonacci_trace([Felt252::from(1), Felt252::from(1)], 32);
@@ -376,6 +376,41 @@ fn test_prove_fib_3_tables() {
         (&air_2, &proofs[1]),
         (&air_3, &proofs[2]),
     ];
+
+    assert!(multi_verify(
+        airs_and_proofs,
+        &mut StoneProverTranscript::new(&[]),
+    ));
+}
+
+#[test_log::test]
+fn test_multi_prove_different_airs() {
+    let mut trace_1 = dummy_air::dummy_trace(16);
+    let mut trace_2 = bit_flags::bit_prefix_flag_trace(32);
+    let proof_options = ProofOptions::default_test_options();
+
+    let air_1 = DummyAIR::new(trace_1.num_rows(), &(), &proof_options);
+    let air_2 = BitFlagsAIR::new(trace_2.num_rows(), &(), &proof_options);
+
+    let mut airs: Vec<(
+        &dyn AIR<
+            Field = Stark252PrimeField,
+            FieldExtension = Stark252PrimeField,
+            PublicInputs = (),
+        >,
+        &mut _,
+    )> = vec![(&air_1, &mut trace_1), (&air_2, &mut trace_2)];
+
+    let proofs = multi_prove(&mut airs, &mut StoneProverTranscript::new(&[])).unwrap();
+
+    let airs_and_proofs: Vec<(
+        &dyn AIR<
+            Field = Stark252PrimeField,
+            FieldExtension = Stark252PrimeField,
+            PublicInputs = (),
+        >,
+        &_,
+    )> = vec![(&air_1, &proofs[0]), (&air_2, &proofs[1])];
 
     assert!(multi_verify(
         airs_and_proofs,
