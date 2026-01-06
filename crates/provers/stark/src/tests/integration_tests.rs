@@ -384,6 +384,111 @@ fn test_multi_prove_fib_3_tables() {
 }
 
 #[test_log::test]
+fn test_multi_prove_2_tables_small_field() {
+    let address_col_1 = vec![
+        FieldElement::<Babybear31PrimeField>::from(3), // a0
+        FieldElement::<Babybear31PrimeField>::from(2), // a1
+        FieldElement::<Babybear31PrimeField>::from(2), // a2
+        FieldElement::<Babybear31PrimeField>::from(3), // a3
+        FieldElement::<Babybear31PrimeField>::from(4), // a4
+        FieldElement::<Babybear31PrimeField>::from(5), // a5
+        FieldElement::<Babybear31PrimeField>::from(1), // a6
+        FieldElement::<Babybear31PrimeField>::from(3), // a7
+    ];
+    let value_col_1 = vec![
+        FieldElement::<Babybear31PrimeField>::from(30), // v0
+        FieldElement::<Babybear31PrimeField>::from(20), // v1
+        FieldElement::<Babybear31PrimeField>::from(20), // v2
+        FieldElement::<Babybear31PrimeField>::from(30), // v3
+        FieldElement::<Babybear31PrimeField>::from(40), // v4
+        FieldElement::<Babybear31PrimeField>::from(50), // v5
+        FieldElement::<Babybear31PrimeField>::from(10), // v6
+        FieldElement::<Babybear31PrimeField>::from(30), // v7
+    ];
+
+    let address_col_2 = vec![
+        FieldElement::<Babybear31PrimeField>::from(15), // a0
+        FieldElement::<Babybear31PrimeField>::from(12), // a1
+        FieldElement::<Babybear31PrimeField>::from(17), // a2
+        FieldElement::<Babybear31PrimeField>::from(10), // a3
+        FieldElement::<Babybear31PrimeField>::from(14), // a4
+        FieldElement::<Babybear31PrimeField>::from(11), // a5
+        FieldElement::<Babybear31PrimeField>::from(16), // a6
+        FieldElement::<Babybear31PrimeField>::from(13), // a7
+    ];
+    let value_col_2 = vec![
+        FieldElement::<Babybear31PrimeField>::from(150), // v0
+        FieldElement::<Babybear31PrimeField>::from(120), // v1
+        FieldElement::<Babybear31PrimeField>::from(170), // v2
+        FieldElement::<Babybear31PrimeField>::from(100), // v3
+        FieldElement::<Babybear31PrimeField>::from(140), // v4
+        FieldElement::<Babybear31PrimeField>::from(110), // v5
+        FieldElement::<Babybear31PrimeField>::from(160), // v6
+        FieldElement::<Babybear31PrimeField>::from(130), // v7
+    ];
+
+    let pub_inputs_1 = LogReadOnlyPublicInputs {
+        a0: FieldElement::<Babybear31PrimeField>::from(3),
+        v0: FieldElement::<Babybear31PrimeField>::from(30),
+        a_sorted_0: FieldElement::<Babybear31PrimeField>::from(1),
+        v_sorted_0: FieldElement::<Babybear31PrimeField>::from(10),
+        m0: FieldElement::<Babybear31PrimeField>::from(1),
+    };
+
+    let pub_inputs_2 = LogReadOnlyPublicInputs {
+        a0: FieldElement::<Babybear31PrimeField>::from(15),
+        v0: FieldElement::<Babybear31PrimeField>::from(150),
+        a_sorted_0: FieldElement::<Babybear31PrimeField>::from(10),
+        v_sorted_0: FieldElement::<Babybear31PrimeField>::from(100),
+        m0: FieldElement::<Babybear31PrimeField>::from(1),
+    };
+
+    let mut trace_1 = read_only_logup_trace(address_col_1, value_col_1);
+    let mut trace_2 = read_only_logup_trace(address_col_2, value_col_2);
+    let proof_options = ProofOptions::default_test_options();
+
+    let air_1 = LogReadOnlyRAP::<Babybear31PrimeField, Degree4BabyBearExtensionField>::new(
+        trace_1.num_rows(),
+        &pub_inputs_1,
+        &proof_options,
+    );
+    let air_2 = LogReadOnlyRAP::<Babybear31PrimeField, Degree4BabyBearExtensionField>::new(
+        trace_2.num_rows(),
+        &pub_inputs_2,
+        &proof_options,
+    );
+
+    let mut airs: Vec<(
+        &dyn AIR<
+            Field = Babybear31PrimeField,
+            FieldExtension = Degree4BabyBearExtensionField,
+            PublicInputs = LogReadOnlyPublicInputs<Babybear31PrimeField>,
+        >,
+        &mut _,
+    )> = vec![(&air_1, &mut trace_1), (&air_2, &mut trace_2)];
+
+    let proofs = multi_prove(
+        &mut airs,
+        &mut DefaultTranscript::<Degree4BabyBearExtensionField>::new(&[]),
+    )
+    .unwrap();
+
+    let airs_and_proofs: Vec<(
+        &dyn AIR<
+            Field = Babybear31PrimeField,
+            FieldExtension = Degree4BabyBearExtensionField,
+            PublicInputs = LogReadOnlyPublicInputs<Babybear31PrimeField>,
+        >,
+        &_,
+    )> = vec![(&air_1, &proofs[0]), (&air_2, &proofs[1])];
+
+    assert!(multi_verify(
+        airs_and_proofs,
+        &mut DefaultTranscript::<Degree4BabyBearExtensionField>::new(&[]),
+    ));
+}
+
+#[test_log::test]
 fn test_multi_prove_different_airs() {
     let mut trace_1 = dummy_air::dummy_trace(16);
     let mut trace_2 = bit_flags::bit_prefix_flag_trace(32);
