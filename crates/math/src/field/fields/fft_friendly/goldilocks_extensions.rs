@@ -102,44 +102,6 @@ impl IsField for Degree2GoldilocksExtensionField {
     fn double(a: &Self::BaseType) -> Self::BaseType {
         [a[0].double(), a[1].double()]
     }
-
-    fn pow<T>(a: &Self::BaseType, mut exponent: T) -> Self::BaseType
-    where
-        T: crate::unsigned_integer::traits::IsUnsignedInteger,
-    {
-        let zero = T::from(0);
-        let one = T::from(1);
-
-        if exponent == zero {
-            return Self::one();
-        }
-        if exponent == one {
-            return *a;
-        }
-
-        let mut result = *a;
-
-        while exponent & one == zero {
-            result = Self::square(&result);
-            exponent >>= 1;
-            if exponent == zero {
-                return result;
-            }
-        }
-
-        let mut base = result;
-        exponent >>= 1;
-
-        while exponent != zero {
-            base = Self::square(&base);
-            if exponent & one == one {
-                result = <Self as IsField>::mul(&result, &base);
-            }
-            exponent >>= 1;
-        }
-
-        result
-    }
 }
 
 impl IsSubFieldOf<Degree2GoldilocksExtensionField> for U64GoldilocksPrimeField {
@@ -327,44 +289,6 @@ impl IsField for Degree3GoldilocksExtensionField {
 
     fn double(a: &Self::BaseType) -> Self::BaseType {
         [a[0].double(), a[1].double(), a[2].double()]
-    }
-
-    fn pow<T>(a: &Self::BaseType, mut exponent: T) -> Self::BaseType
-    where
-        T: crate::unsigned_integer::traits::IsUnsignedInteger,
-    {
-        let zero = T::from(0);
-        let one = T::from(1);
-
-        if exponent == zero {
-            return Self::one();
-        }
-        if exponent == one {
-            return *a;
-        }
-
-        let mut result = *a;
-
-        while exponent & one == zero {
-            result = Self::square(&result);
-            exponent >>= 1;
-            if exponent == zero {
-                return result;
-            }
-        }
-
-        let mut base = result;
-        exponent >>= 1;
-
-        while exponent != zero {
-            base = Self::square(&base);
-            if exponent & one == one {
-                result = <Self as IsField>::mul(&result, &base);
-            }
-            exponent >>= 1;
-        }
-
-        result
     }
 }
 
