@@ -731,5 +731,4 @@ mod tests {
         let result = (a / b).unwrap();
         assert_eq!(result * b, a);
     }
-
 }
