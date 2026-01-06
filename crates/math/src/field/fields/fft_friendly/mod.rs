@@ -18,3 +18,6 @@ pub mod babybear_u32;
 
 /// Implementation of the extension of degree 4 of the babybear field using u32.
 pub mod quartic_babybear_u32;
+
+/// Implementation of quadratic and cubic extensions of the Goldilocks field.
+pub mod goldilocks_extensions;
