@@ -1,4 +1,6 @@
+pub mod add;
 pub mod bit_flags;
+pub mod cpu;
 pub mod dummy_air;
 pub mod fibonacci_2_cols_shifted;
 pub mod fibonacci_2_columns;
