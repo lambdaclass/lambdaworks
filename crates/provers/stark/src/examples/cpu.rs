@@ -62,9 +62,10 @@ impl TransitionConstraint<F, E> for LogUpAddConstraint {
                 let s0 = first_step.get_aux_evaluation_element(0, 0);
                 let s1 = second_step.get_aux_evaluation_element(0, 0);
 
-                // Challenges
-                let z = &rap_challenges[0];
-                let alpha = &rap_challenges[1];
+                // let z = &rap_challenges[0];
+                // let alpha = &rap_challenges[1];
+                let z = &FieldElement::<E>::from(5);
+                let alpha = &FieldElement::<E>::from(6);
 
                 // Main frame elements
                 let flag = second_step.get_main_evaluation_element(0, 0);
@@ -98,9 +99,10 @@ impl TransitionConstraint<F, E> for LogUpAddConstraint {
                 let s0 = first_step.get_aux_evaluation_element(0, 0);
                 let s1 = second_step.get_aux_evaluation_element(0, 0);
 
-                // Challenges
-                let z = &rap_challenges[0];
-                let alpha = &rap_challenges[1];
+                // let z = &rap_challenges[0];
+                // let alpha = &rap_challenges[1];
+                let z = &FieldElement::<E>::from(5);
+                let alpha = &FieldElement::<E>::from(6);
 
                 // Main frame elements
                 let flag = second_step.get_main_evaluation_element(0, 0);
@@ -163,9 +165,10 @@ impl TransitionConstraint<F, E> for LogUpMulConstraint {
                 let s0 = first_step.get_aux_evaluation_element(0, 1);
                 let s1 = second_step.get_aux_evaluation_element(0, 1);
 
-                // Challenges
-                let z = &rap_challenges[0];
-                let alpha = &rap_challenges[1];
+                // let z = &rap_challenges[0];
+                // let alpha = &rap_challenges[1];
+                let z = &FieldElement::<E>::from(5);
+                let alpha = &FieldElement::<E>::from(6);
 
                 // Main frame elements
                 let flag = second_step.get_main_evaluation_element(0, 1);
@@ -198,9 +201,10 @@ impl TransitionConstraint<F, E> for LogUpMulConstraint {
                 let s0 = first_step.get_aux_evaluation_element(0, 1);
                 let s1 = second_step.get_aux_evaluation_element(0, 1);
 
-                // Challenges
-                let z = &rap_challenges[0];
-                let alpha = &rap_challenges[1];
+                // let z = &rap_challenges[0];
+                // let alpha = &rap_challenges[1];
+                let z = &FieldElement::<E>::from(5);
+                let alpha = &FieldElement::<E>::from(6);
 
                 // Main frame elements
                 let flag = second_step.get_main_evaluation_element(0, 1);
@@ -274,8 +278,10 @@ impl AIR for CPUAir {
         let c = &main_segment_cols[4];
 
         // Challenges
-        let z = &challenges[0];
-        let alpha = &challenges[1];
+        // let z = &challenges[0];
+        // let alpha = &challenges[1];
+        let z = &FieldElement::<E>::from(5);
+        let alpha = &FieldElement::<E>::from(6);
 
         let trace_len = trace.num_rows();
         let mut aux_add_col = Vec::new();
@@ -304,7 +310,7 @@ impl AIR for CPUAir {
                 .unwrap();
             aux_add_col.push(&aux_add_col[i] + &add_flag[i + 1] * fingerprint_inv.clone());
             aux_mul_col.push(&aux_mul_col[i] + &mul_flag[i + 1] * fingerprint_inv.clone());
-            aux_total_col.push(&aux_total_col[i] + &aux_add_col[i + 1] + &aux_mul_col[i + 1]);
+            aux_total_col.push(&aux_add_col[i + 1] + &aux_mul_col[i + 1]);
         }
 
         for i in 0..trace_len {
@@ -322,6 +328,10 @@ impl AIR for CPUAir {
             transcript.sample_field_element(),
             transcript.sample_field_element(),
         ]
+        // vec![
+        //     FieldElement::<Self::FieldExtension>::from(5),
+        //     FieldElement::<Self::FieldExtension>::from(6),
+        // ]
     }
 
     fn trace_layout(&self) -> (usize, usize) {

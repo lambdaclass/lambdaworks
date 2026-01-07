@@ -541,33 +541,82 @@ type ExtFE = FieldElement<Degree4BabyBearExtensionField>;
 #[test_log::test]
 fn test_multi_airs_log_up() {
     // CPU Trace
-    // ADD | MUL | a | b | c | aux add | aux mul | aux total ?
-    // 1   | 0   | 5 | 3 | 8 | 0       | 0       | 0
-    // 0   | 1   | 3 | 2 | 6 | 0       | 0       | 0
-    // 1   | 0   | 4 | 2 | 6 | 0       | 0       | 0
-    // 0   | 1   | 4 | 2 | 8 | 0       | 0       | 0
-    let add_column = vec![FE::one(), FE::zero(), FE::one(), FE::zero()];
-    let mul_column = vec![FE::zero(), FE::one(), FE::zero(), FE::one()];
-    let a_column = vec![FE::from(5), FE::from(3), FE::from(4), FE::from(4)];
-    let b_column = vec![FE::from(3), FE::from(2), FE::from(2), FE::from(2)];
-    let c_column = vec![FE::from(8), FE::from(6), FE::from(6), FE::from(8)];
+    // ADD | MUL | a | b  | c   | aux add | aux mul | aux total ?
+    // 1   | 0   | 1 | 10 | 11  | 0       | 0       | 0
+    // 0   | 1   | 2 | 20 | 40  | 0       | 0       | 0
+    // 1   | 0   | 3 | 30 | 33  | 0       | 0       | 0
+    // 0   | 1   | 4 | 40 | 160 | 0       | 0       | 0
+    // 1   | 0   | 5 | 50 | 55  | 0       | 0       | 0
+    // 1   | 0   | 6 | 60 | 66  | 0       | 0       | 0
+    // 0   | 1   | 7 | 70 | 490 | 0       | 0       | 0
+    // 0   | 1   | 8 | 80 | 640 | 0       | 0       | 0
+    let add_column = vec![
+        FE::one(),
+        FE::zero(),
+        FE::one(),
+        FE::zero(),
+        FE::one(),
+        FE::one(),
+        FE::zero(),
+        FE::zero(),
+    ];
+    let mul_column = vec![
+        FE::zero(),
+        FE::one(),
+        FE::zero(),
+        FE::one(),
+        FE::zero(),
+        FE::zero(),
+        FE::one(),
+        FE::one(),
+    ];
+    let a_column = vec![
+        FE::from(1),
+        FE::from(2),
+        FE::from(3),
+        FE::from(4),
+        FE::from(5),
+        FE::from(6),
+        FE::from(7),
+        FE::from(8),
+    ];
+    let b_column = vec![
+        FE::from(10),
+        FE::from(20),
+        FE::from(30),
+        FE::from(40),
+        FE::from(50),
+        FE::from(60),
+        FE::from(70),
+        FE::from(80),
+    ];
+    let c_column = vec![
+        FE::from(11),
+        FE::from(40),
+        FE::from(33),
+        FE::from(160),
+        FE::from(55),
+        FE::from(66),
+        FE::from(490),
+        FE::from(640),
+    ];
     let main_columns = vec![add_column, mul_column, a_column, b_column, c_column];
     let aux_columns = vec![
-        vec![ExtFE::zero(); 4],
-        vec![ExtFE::zero(); 4],
-        vec![ExtFE::zero(); 4],
+        vec![ExtFE::zero(); 8],
+        vec![ExtFE::zero(); 8],
+        vec![ExtFE::zero(); 8],
     ];
     let mut cpu_trace = TraceTable::from_columns(main_columns, aux_columns, 1);
 
     // ADD Trace
-    // a | b | c | aux cpu | aux total
-    // 5 | 3 | 8 | 0       | 0
-    // 4 | 2 | 6 | 0       | 0
-    // 5 | 3 | 8 | 0       | 0
-    // 4 | 2 | 6 | 0       | 0
-    let a_column = vec![FE::from(5), FE::from(4), FE::from(5), FE::from(4)];
-    let b_column = vec![FE::from(3), FE::from(2), FE::from(3), FE::from(2)];
-    let c_column = vec![FE::from(8), FE::from(6), FE::from(8), FE::from(6)];
+    // a | b  | c  | aux cpu | aux total
+    // 1 | 10 | 11 | 0       | 0
+    // 3 | 30 | 33 | 0       | 0
+    // 5 | 50 | 55 | 0       | 0
+    // 6 | 60 | 66 | 0       | 0
+    let a_column = vec![FE::from(1), FE::from(3), FE::from(5), FE::from(6)];
+    let b_column = vec![FE::from(10), FE::from(30), FE::from(50), FE::from(60)];
+    let c_column = vec![FE::from(11), FE::from(33), FE::from(55), FE::from(66)];
     let mut add_trace = TraceTable::from_columns(
         vec![a_column, b_column, c_column],
         vec![vec![ExtFE::zero(); 4], vec![ExtFE::zero(); 4]],
@@ -575,14 +624,14 @@ fn test_multi_airs_log_up() {
     );
 
     // MUL Trace
-    // a | b | c | aux cpu | aux total
-    // 3 | 2 | 6 | 0       | 0
-    // 4 | 2 | 8 | 0       | 0
-    // 3 | 2 | 6 | 0       | 0
-    // 4 | 2 | 8 | 0       | 0
-    let a_column = vec![FE::from(3), FE::from(4), FE::from(3), FE::from(4)];
-    let b_column = vec![FE::from(2), FE::from(2), FE::from(2), FE::from(2)];
-    let c_column = vec![FE::from(6), FE::from(8), FE::from(6), FE::from(8)];
+    // a | b  | c   | aux cpu | aux total
+    // 2 | 20 | 40  | 0       | 0
+    // 4 | 40 | 160 | 0       | 0
+    // 7 | 70 | 490 | 0       | 0
+    // 8 | 80 | 640 | 0       | 0
+    let a_column = vec![FE::from(2), FE::from(4), FE::from(7), FE::from(8)];
+    let b_column = vec![FE::from(20), FE::from(40), FE::from(70), FE::from(80)];
+    let c_column = vec![FE::from(40), FE::from(160), FE::from(490), FE::from(640)];
     let mut mul_trace = TraceTable::from_columns(
         vec![a_column, b_column, c_column],
         vec![vec![ExtFE::zero(); 4], vec![ExtFE::zero(); 4]],
@@ -616,6 +665,14 @@ fn test_multi_airs_log_up() {
     )
     .unwrap();
 
+    // TODO: This should be done by the prover.
+    let cpu_look_up_value = cpu_trace.aux_table.get(7, 2);
+    let add_look_up_value = cpu_trace.aux_table.get(3, 1);
+    let mul_look_up_value = cpu_trace.aux_table.get(3, 1);
+
+    let look_up_values: Vec<&FieldElement<Degree4BabyBearExtensionField>> =
+        vec![cpu_look_up_value, add_look_up_value, mul_look_up_value];
+
     let airs_and_proofs: Vec<(
         &dyn AIR<
             Field = Babybear31PrimeField,
@@ -629,7 +686,8 @@ fn test_multi_airs_log_up() {
         (&mul_air, &proofs[2]),
     ];
 
-    assert!(Verifier::verify(
+    assert!(Verifier::look_up_verify(
+        &look_up_values,
         &airs_and_proofs,
         &mut DefaultTranscript::<Degree4BabyBearExtensionField>::new(&[]),
     ));

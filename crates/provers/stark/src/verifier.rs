@@ -729,8 +729,47 @@ pub trait IsStarkVerifier<
         trace_term + h_terms
     }
 
+    fn look_up_verify(
+        look_up_values: &Vec<&FieldElement<FieldExtension>>,
+        airs_and_proofs: &[(
+            &dyn AIR<Field = Field, FieldExtension = FieldExtension, PublicInputs = PI>,
+            &StarkProof<Field, FieldExtension>,
+        )],
+        transcript: &mut impl IsStarkTranscript<FieldExtension, Field>,
+    ) -> bool
+    where
+        FieldElement<Field>: AsBytes + Sync + Send,
+        FieldElement<FieldExtension>: AsBytes + Sync + Send,
+    {
+        let mut sum = FieldElement::<FieldExtension>::zero(); // O el valor neutro apropiado
+        for &element in look_up_values {
+            sum = sum + element;
+        }
+
+        if sum != FieldElement::<FieldExtension>::zero() {
+            println!("look up sum isn't zero.");
+            return false;
+        }
+
+        // First, replay round 1 for all tables so the transcript state matches the prover,
+        // which commits to all traces before sampling any further randomness.
+        let mut rap_challenges_vec = Vec::new();
+        for (air, proof) in airs_and_proofs {
+            let rap_challenges = Self::replay_round_1(*air, proof, transcript);
+            rap_challenges_vec.push(rap_challenges);
+        }
+
+        // Verify each proof
+        for ((air, proof), rap_challenges) in airs_and_proofs.iter().zip(rap_challenges_vec) {
+            if !Self::single_table_verify(*air, proof, transcript, rap_challenges) {
+                return false;
+            }
+        }
+        true
+    }
+
     /// Verifies one or more STARK proofs with their corresponding AIRs.
-    /// 
+    ///
     /// This unified function handles both single-proof and multi-proof verification.
     /// For protocols like LogUp where challenges must be shared across tables,
     /// all proofs are passed together.
@@ -958,7 +997,8 @@ pub trait IsStarkVerifier<
         #[cfg(feature = "instruments")]
         let timer1 = Instant::now();
 
-        let challenges = Self::replay_rounds_after_round_1(air, proof, &domain, transcript, rap_challenges);
+        let challenges =
+            Self::replay_rounds_after_round_1(air, proof, &domain, transcript, rap_challenges);
 
         // verify grinding
         let security_bits = air.context().proof_options.grinding_factor;
