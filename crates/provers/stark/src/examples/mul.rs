@@ -4,7 +4,6 @@ use crate::{
     proof::options::ProofOptions,
     trace::TraceTable,
     traits::{TransitionEvaluationContext, AIR},
-    Felt252,
 };
 use lambdaworks_crypto::fiat_shamir::is_transcript::IsStarkTranscript;
 use lambdaworks_math::field::{
@@ -16,13 +15,17 @@ use lambdaworks_math::field::{
 type F = Babybear31PrimeField;
 type E = Degree4BabyBearExtensionField;
 
-pub struct AddAir {
+pub struct MulAir {
     context: AirContext,
     trace_length: usize,
     pub_inputs: Vec<F>,
     transition_constraints: Vec<Box<dyn TransitionConstraint<F, E>>>,
 }
 
+/// LogUp constraint for MUL operations.
+/// This constraint verifies that the running sum is correctly updated for each multiplication.
+/// The LogUp equation is: s1 = s0 - 1 / fingerprint
+/// where fingerprint = z - (a + b * alpha + c * alpha^2)
 struct LogUpCPUConstraint {}
 
 impl LogUpCPUConstraint {
@@ -123,7 +126,7 @@ impl TransitionConstraint<F, E> for LogUpCPUConstraint {
     }
 }
 
-impl AIR for AddAir {
+impl AIR for MulAir {
     type Field = F;
     type FieldExtension = E;
     type PublicInputs = Vec<F>;
@@ -215,12 +218,12 @@ impl AIR for AddAir {
     }
 
     fn trace_layout(&self) -> (usize, usize) {
-    (3, 2)
-}
+        (3, 2)
+    }
 
     fn boundary_constraints(
         &self,
-        rap_challenges: &[FieldElement<Self::FieldExtension>],
+        _rap_challenges: &[FieldElement<Self::FieldExtension>],
     ) -> BoundaryConstraints<Self::FieldExtension> {
         BoundaryConstraints::from_constraints(vec![])
     }

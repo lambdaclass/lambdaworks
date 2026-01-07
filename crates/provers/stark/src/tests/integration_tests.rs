@@ -5,6 +5,7 @@ use lambdaworks_math::field::{
 
 use crate::examples::add::AddAir;
 use crate::examples::cpu::CPUAir;
+use crate::examples::mul::MulAir;
 use crate::traits::AIR;
 use crate::{
     examples::{
@@ -562,25 +563,29 @@ fn test_multi_airs_log_up() {
     // a | b | c | aux cpu | aux total
     // 5 | 3 | 8 | 0       | 0
     // 4 | 2 | 6 | 0       | 0
-    let a_column = vec![FE::from(5), FE::from(4)];
-    let b_column = vec![FE::from(3), FE::from(2)];
-    let c_column = vec![FE::from(8), FE::from(6)];
+    // 5 | 3 | 8 | 0       | 0
+    // 4 | 2 | 6 | 0       | 0
+    let a_column = vec![FE::from(5), FE::from(4), FE::from(5), FE::from(4)];
+    let b_column = vec![FE::from(3), FE::from(2), FE::from(3), FE::from(2)];
+    let c_column = vec![FE::from(8), FE::from(6), FE::from(8), FE::from(6)];
     let mut add_trace = TraceTable::from_columns(
         vec![a_column, b_column, c_column],
-        vec![vec![ExtFE::zero(); 2], vec![ExtFE::zero(); 2]],
+        vec![vec![ExtFE::zero(); 4], vec![ExtFE::zero(); 4]],
         1,
     );
 
-    // MULL Trace
+    // MUL Trace
     // a | b | c | aux cpu | aux total
     // 3 | 2 | 6 | 0       | 0
     // 4 | 2 | 8 | 0       | 0
-    let a_column = vec![FE::from(3), FE::from(4)];
-    let b_column = vec![FE::from(2), FE::from(2)];
-    let c_column = vec![FE::from(6), FE::from(8)];
+    // 3 | 2 | 6 | 0       | 0
+    // 4 | 2 | 8 | 0       | 0
+    let a_column = vec![FE::from(3), FE::from(4), FE::from(3), FE::from(4)];
+    let b_column = vec![FE::from(2), FE::from(2), FE::from(2), FE::from(2)];
+    let c_column = vec![FE::from(6), FE::from(8), FE::from(6), FE::from(8)];
     let mut mul_trace = TraceTable::from_columns(
         vec![a_column, b_column, c_column],
-        vec![vec![FE::zero(); 2], vec![FE::zero(); 2]],
+        vec![vec![ExtFE::zero(); 4], vec![ExtFE::zero(); 4]],
         1,
     );
 
@@ -590,6 +595,7 @@ fn test_multi_airs_log_up() {
 
     let cpu_air = CPUAir::new(cpu_trace.num_rows(), &public_inputs, &proof_options);
     let add_air = AddAir::new(add_trace.num_rows(), &public_inputs, &proof_options);
+    let mul_air = MulAir::new(mul_trace.num_rows(), &public_inputs, &proof_options);
 
     let mut airs: Vec<(
         &dyn AIR<
@@ -598,7 +604,11 @@ fn test_multi_airs_log_up() {
             PublicInputs = Vec<Babybear31PrimeField>,
         >,
         &mut TraceTable<Babybear31PrimeField, Degree4BabyBearExtensionField>,
-    )> = vec![(&cpu_air, &mut cpu_trace), (&add_air, &mut add_trace)];
+    )> = vec![
+        (&cpu_air, &mut cpu_trace),
+        (&add_air, &mut add_trace),
+        (&mul_air, &mut mul_trace),
+    ];
 
     let proofs = Prover::prove(
         &mut airs,
@@ -613,7 +623,11 @@ fn test_multi_airs_log_up() {
             PublicInputs = Vec<Babybear31PrimeField>,
         >,
         &_,
-    )> = vec![(&cpu_air, &proofs[0]), (&add_air, &proofs[1])];
+    )> = vec![
+        (&cpu_air, &proofs[0]),
+        (&add_air, &proofs[1]),
+        (&mul_air, &proofs[2]),
+    ];
 
     assert!(Verifier::verify(
         &airs_and_proofs,
