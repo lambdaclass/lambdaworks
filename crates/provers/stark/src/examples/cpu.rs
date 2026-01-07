@@ -62,10 +62,8 @@ impl TransitionConstraint<F, E> for LogUpAddConstraint {
                 let s0 = first_step.get_aux_evaluation_element(0, 0);
                 let s1 = second_step.get_aux_evaluation_element(0, 0);
 
-                // let z = &rap_challenges[0];
-                // let alpha = &rap_challenges[1];
-                let z = &FieldElement::<E>::from(5);
-                let alpha = &FieldElement::<E>::from(6);
+                let z = &rap_challenges[0];
+                let alpha = &rap_challenges[1];
 
                 // Main frame elements
                 let flag = second_step.get_main_evaluation_element(0, 0);
@@ -99,10 +97,8 @@ impl TransitionConstraint<F, E> for LogUpAddConstraint {
                 let s0 = first_step.get_aux_evaluation_element(0, 0);
                 let s1 = second_step.get_aux_evaluation_element(0, 0);
 
-                // let z = &rap_challenges[0];
-                // let alpha = &rap_challenges[1];
-                let z = &FieldElement::<E>::from(5);
-                let alpha = &FieldElement::<E>::from(6);
+                let z = &rap_challenges[0];
+                let alpha = &rap_challenges[1];
 
                 // Main frame elements
                 let flag = second_step.get_main_evaluation_element(0, 0);
@@ -165,10 +161,8 @@ impl TransitionConstraint<F, E> for LogUpMulConstraint {
                 let s0 = first_step.get_aux_evaluation_element(0, 1);
                 let s1 = second_step.get_aux_evaluation_element(0, 1);
 
-                // let z = &rap_challenges[0];
-                // let alpha = &rap_challenges[1];
-                let z = &FieldElement::<E>::from(5);
-                let alpha = &FieldElement::<E>::from(6);
+                let z = &rap_challenges[0];
+                let alpha = &rap_challenges[1];
 
                 // Main frame elements
                 let flag = second_step.get_main_evaluation_element(0, 1);
@@ -201,10 +195,8 @@ impl TransitionConstraint<F, E> for LogUpMulConstraint {
                 let s0 = first_step.get_aux_evaluation_element(0, 1);
                 let s1 = second_step.get_aux_evaluation_element(0, 1);
 
-                // let z = &rap_challenges[0];
-                // let alpha = &rap_challenges[1];
-                let z = &FieldElement::<E>::from(5);
-                let alpha = &FieldElement::<E>::from(6);
+                let z = &rap_challenges[0];
+                let alpha = &rap_challenges[1];
 
                 // Main frame elements
                 let flag = second_step.get_main_evaluation_element(0, 1);
@@ -278,10 +270,8 @@ impl AIR for CPUAir {
         let c = &main_segment_cols[4];
 
         // Challenges
-        // let z = &challenges[0];
-        // let alpha = &challenges[1];
-        let z = &FieldElement::<E>::from(5);
-        let alpha = &FieldElement::<E>::from(6);
+        let z = &challenges[0];
+        let alpha = &challenges[1];
 
         let trace_len = trace.num_rows();
         let mut aux_add_col = Vec::new();
@@ -324,14 +314,14 @@ impl AIR for CPUAir {
         &self,
         transcript: &mut dyn IsStarkTranscript<Self::FieldExtension, Self::Field>,
     ) -> Vec<FieldElement<Self::FieldExtension>> {
-        vec![
-            transcript.sample_field_element(),
-            transcript.sample_field_element(),
-        ]
         // vec![
-        //     FieldElement::<Self::FieldExtension>::from(5),
-        //     FieldElement::<Self::FieldExtension>::from(6),
+        //     transcript.sample_field_element(),
+        //     transcript.sample_field_element(),
         // ]
+        vec![
+            FieldElement::<Self::FieldExtension>::from(5),
+            FieldElement::<Self::FieldExtension>::from(6),
+        ]
     }
 
     fn trace_layout(&self) -> (usize, usize) {
