@@ -40,7 +40,7 @@ impl Sha3Hasher {
         b_vals.push(b_1);
         for idx in 1..ell {
             let aux = Self::strxor(&b_0, &b_vals[idx as usize - 1]);
-            let b_i = [aux, Self::i2osp(idx, 1), dst_prime.clone()].concat();
+            let b_i = [aux, Self::i2osp(idx + 1, 1), dst_prime.clone()].concat();
             b_vals.push(Sha3_256::digest(b_i).to_vec());
         }
 
