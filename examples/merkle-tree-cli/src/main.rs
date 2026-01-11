@@ -1,6 +1,6 @@
 mod commands;
 use clap::Parser;
-use commands::{MerkleArgs, MerkleEntity};
+use commands::{MerkleArgs, MerkleCommand};
 use lambdaworks_crypto::hash::poseidon::starknet::PoseidonCairoStark252;
 use lambdaworks_crypto::merkle_tree::{
     backends::field_element::TreePoseidon, merkle::MerkleTree, proof::Proof,
@@ -102,10 +102,10 @@ fn verify_merkle_proof(
 
 fn main() {
     let args: MerkleArgs = MerkleArgs::parse();
-    if let Err(e) = match args.entity {
-        MerkleEntity::GenerateTree(args) => generate_merkle_tree(args.tree_path),
-        MerkleEntity::GenerateProof(args) => generate_merkle_proof(args.tree_path, args.position),
-        MerkleEntity::VerifyProof(args) => {
+    if let Err(e) = match args.command {
+        MerkleCommand::GenerateTree(args) => generate_merkle_tree(args.tree_path),
+        MerkleCommand::GenerateProof(args) => generate_merkle_proof(args.tree_path, args.position),
+        MerkleCommand::VerifyProof(args) => {
             verify_merkle_proof(args.root_path, args.index, args.proof_path, args.leaf_path)
         }
     } {
