@@ -4,11 +4,11 @@ use clap::{Args, Parser, Subcommand};
 #[command(author = "Lambdaworks", version, about)]
 pub struct MerkleArgs {
     #[clap(subcommand)]
-    pub entity: MerkleEntity,
+    pub command: MerkleCommand,
 }
 
 #[derive(Subcommand, Debug)]
-pub enum MerkleEntity {
+pub enum MerkleCommand {
     #[clap(about = "Generate a merkle tree")]
     GenerateTree(GenerateTreeArgs),
     #[clap(about = "Generate a merkle proof")]
