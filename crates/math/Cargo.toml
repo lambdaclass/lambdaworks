@@ -40,6 +40,13 @@ p3-baby-bear = { git = "https://github.com/Plonky3/Plonky3" }
 p3-field = { git = "https://github.com/Plonky3/Plonky3" }
 rand = { version = "0.8.5", features = ["std"] }
 
+# Arkworks for comparison benchmarks
+ark-bn254 = "0.4"
+ark-bls12-381 = "0.4"
+ark-ec = "0.4"
+ark-ff = "0.4"
+ark-std = "0.4"
+
 [features]
 default = ["parallel", "std"]
 std = ["alloc", "serde?/std", "serde_json?/std"]
@@ -93,4 +100,8 @@ harness = false
 
 [[bench]]
 name = "iai_fft"
+harness = false
+
+[[bench]]
+name = "comparison_arkworks"
 harness = false

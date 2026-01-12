@@ -85,19 +85,27 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
 
     /// Performs the group operation between a point and itself a + a = 2a in
     /// additive notation
+    /// Using optimized formulas from http://www.hyperelliptic.org/EFD/g1p/auto-shortw-projective.html
     pub fn double(&self) -> Self {
         if self.is_neutral_element() {
             return self.clone();
         }
         let [px, py, pz] = self.coordinates();
 
-        let px_square = px * px;
+        // Specialized formula for a=0 curves (BN254, BLS12-381, etc.)
+        // This avoids computing E::a() * pz * pz when a is zero
+        // Formula from http://www.hyperelliptic.org/EFD/g1p/auto-shortw-projective-0.html
+        let px_square = px.square();
         let three_px_square = &px_square + &px_square + &px_square;
-        let w = E::a() * pz * pz + three_px_square;
-        let w_square = &w * &w;
+        let w = if E::a() == FieldElement::zero() {
+            three_px_square
+        } else {
+            E::a() * pz * pz + three_px_square
+        };
+        let w_square = w.square();
 
         let s = py * pz;
-        let s_square = &s * &s;
+        let s_square = s.square();
         let s_cube = &s * &s_square;
         let two_s_cube = &s_cube + &s_cube;
         let four_s_cube = &two_s_cube + &two_s_cube;
@@ -111,7 +119,7 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
         let h = &w_square - eight_b;
         let hs = &h * &s;
 
-        let pys_square = py * py * s_square;
+        let pys_square = py.square() * s_square;
         let two_pys_square = &pys_square + &pys_square;
         let four_pys_square = &two_pys_square + &two_pys_square;
         let eight_pys_square = &four_pys_square + &four_pys_square;
