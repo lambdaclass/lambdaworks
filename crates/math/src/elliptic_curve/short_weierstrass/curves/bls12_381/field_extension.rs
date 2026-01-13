@@ -296,9 +296,7 @@ impl IsField for Degree6ExtensionField {
         let a0_a1_a2_nr = &a[0] * &a[1] * mul_fp2_by_nonresidue(&a[2]);
         let three_a0_a1_a2_nr = a0_a1_a2_nr.double() + a0_a1_a2_nr;
 
-        let d = a0_cube
-            + mul_fp2_by_nonresidue(&a1_cube)
-            + mul_fp2_by_residue_squared(&a2_cube)
+        let d = a0_cube + mul_fp2_by_nonresidue(&a1_cube) + mul_fp2_by_residue_squared(&a2_cube)
             - three_a0_a1_a2_nr;
         let inv = d.inv()?;
         Ok([
@@ -358,7 +356,9 @@ impl IsSubFieldOf<Degree6ExtensionField> for Degree2ExtensionField {
         b: &<Degree6ExtensionField as IsField>::BaseType,
     ) -> Result<<Degree6ExtensionField as IsField>::BaseType, FieldError> {
         let b_inv = <Degree6ExtensionField as IsField>::inv(b)?;
-        Ok(<Self as IsSubFieldOf<Degree6ExtensionField>>::mul(a, &b_inv))
+        Ok(<Self as IsSubFieldOf<Degree6ExtensionField>>::mul(
+            a, &b_inv,
+        ))
     }
 
     fn sub(
@@ -497,7 +497,9 @@ impl IsSubFieldOf<Degree12ExtensionField> for Degree6ExtensionField {
         b: &<Degree12ExtensionField as IsField>::BaseType,
     ) -> Result<<Degree12ExtensionField as IsField>::BaseType, FieldError> {
         let b_inv = <Degree12ExtensionField as IsField>::inv(b)?;
-        Ok(<Self as IsSubFieldOf<Degree12ExtensionField>>::mul(a, &b_inv))
+        Ok(<Self as IsSubFieldOf<Degree12ExtensionField>>::mul(
+            a, &b_inv,
+        ))
     }
 
     fn sub(

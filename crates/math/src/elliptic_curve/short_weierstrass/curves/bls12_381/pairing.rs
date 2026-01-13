@@ -1,4 +1,3 @@
-use alloc::vec::Vec;
 use super::{
     curve::BLS12381Curve,
     field_extension::{
@@ -17,6 +16,7 @@ use crate::{
     field::{element::FieldElement, extensions::cubic::HasCubicNonResidue},
     unsigned_integer::element::U256,
 };
+use alloc::vec::Vec;
 
 type FpE = FieldElement<BLS12381PrimeField>;
 type Fp2E = FieldElement<Degree2ExtensionField>;
@@ -105,9 +105,9 @@ fn precompute_double_line(
     let [x1_sq_30, x1_sq_31] = x1_sq_3.value();
     let [h0, h1] = h.value();
 
-    let b0 = &e - &b;  // Fully computed
-    let b2_scale = Fp2E::new([x1_sq_30.clone(), x1_sq_31.clone()]);  // Will be multiplied by px
-    let b3_scale = Fp2E::new([-h0.clone(), -h1.clone()]);  // Will be multiplied by py
+    let b0 = &e - &b; // Fully computed
+    let b2_scale = Fp2E::new([x1_sq_30.clone(), x1_sq_31.clone()]); // Will be multiplied by px
+    let b3_scale = Fp2E::new([-h0.clone(), -h1.clone()]); // Will be multiplied by py
 
     // Update T
     t.set_unchecked([x3, y3, z3]);

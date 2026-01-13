@@ -136,9 +136,7 @@ where
         let a2_cube = &a2_sq * &a[2];
         let residue = Q::residue();
         let residue_sq = residue.square();
-        let d = a0_cube
-            + a1_cube * &residue
-            + a2_cube * &residue_sq
+        let d = a0_cube + a1_cube * &residue + a2_cube * &residue_sq
             - three * &a[0] * &a[1] * &a[2] * &residue;
         let inv = d.inv()?;
         Ok([

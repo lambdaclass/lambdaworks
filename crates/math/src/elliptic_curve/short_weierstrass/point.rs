@@ -378,8 +378,7 @@ impl<E: IsShortWeierstrass> IsGroup for ShortWeierstrassProjectivePoint<E> {
                 } else {
                     // Jacobian addition
                     (result_x, result_y, result_z) = Self::jacobian_add_a0(
-                        &result_x, &result_y, &result_z,
-                        &base_x, &base_y, &base_z,
+                        &result_x, &result_y, &result_z, &base_x, &base_y, &base_z,
                     );
                 }
             }
@@ -410,18 +409,22 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
         x: &FieldElement<E::BaseField>,
         y: &FieldElement<E::BaseField>,
         z: &FieldElement<E::BaseField>,
-    ) -> (FieldElement<E::BaseField>, FieldElement<E::BaseField>, FieldElement<E::BaseField>) {
-        let a = x.square();                           // A = X1^2
-        let b = y.square();                           // B = Y1^2
-        let c = b.square();                           // C = B^2
+    ) -> (
+        FieldElement<E::BaseField>,
+        FieldElement<E::BaseField>,
+        FieldElement<E::BaseField>,
+    ) {
+        let a = x.square(); // A = X1^2
+        let b = y.square(); // B = Y1^2
+        let c = b.square(); // C = B^2
         let x_plus_b = x + &b;
         let d = (&x_plus_b.square() - &a - &c).double(); // D = 2*((X1+B)^2-A-C)
-        let e = &a.double() + &a;                     // E = 3*A
-        let f = e.square();                           // F = E^2
-        let x3 = &f - d.double();                     // X3 = F - 2*D
+        let e = &a.double() + &a; // E = 3*A
+        let f = e.square(); // F = E^2
+        let x3 = &f - d.double(); // X3 = F - 2*D
         let eight_c = c.double().double().double();
-        let y3 = &e * (&d - &x3) - eight_c;           // Y3 = E*(D-X3) - 8*C
-        let z3 = (y * z).double();                    // Z3 = 2*Y1*Z1
+        let y3 = &e * (&d - &x3) - eight_c; // Y3 = E*(D-X3) - 8*C
+        let z3 = (y * z).double(); // Z3 = 2*Y1*Z1
         (x3, y3, z3)
     }
 
@@ -429,9 +432,17 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
     /// From http://www.hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-0.html#addition-add-2007-bl
     #[inline(always)]
     fn jacobian_add_a0(
-        x1: &FieldElement<E::BaseField>, y1: &FieldElement<E::BaseField>, z1: &FieldElement<E::BaseField>,
-        x2: &FieldElement<E::BaseField>, y2: &FieldElement<E::BaseField>, z2: &FieldElement<E::BaseField>,
-    ) -> (FieldElement<E::BaseField>, FieldElement<E::BaseField>, FieldElement<E::BaseField>) {
+        x1: &FieldElement<E::BaseField>,
+        y1: &FieldElement<E::BaseField>,
+        z1: &FieldElement<E::BaseField>,
+        x2: &FieldElement<E::BaseField>,
+        y2: &FieldElement<E::BaseField>,
+        z2: &FieldElement<E::BaseField>,
+    ) -> (
+        FieldElement<E::BaseField>,
+        FieldElement<E::BaseField>,
+        FieldElement<E::BaseField>,
+    ) {
         // Handle neutral element cases
         if *z1 == FieldElement::zero() {
             return (x2.clone(), y2.clone(), z2.clone());
@@ -455,7 +466,11 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
                 return Self::jacobian_double_a0(x1, y1, z1);
             } else {
                 // P == -Q, return neutral element
-                return (FieldElement::zero(), FieldElement::one(), FieldElement::zero());
+                return (
+                    FieldElement::zero(),
+                    FieldElement::one(),
+                    FieldElement::zero(),
+                );
             }
         }
 
@@ -924,7 +939,11 @@ where
     /// Serialize the point in the given format.
     /// For Jacobian points, we convert to affine coordinates (x/z^2, y/z^3) for serialization.
     #[cfg(feature = "alloc")]
-    pub fn serialize(&self, point_format: PointFormat, endianness: Endianness) -> alloc::vec::Vec<u8> {
+    pub fn serialize(
+        &self,
+        point_format: PointFormat,
+        endianness: Endianness,
+    ) -> alloc::vec::Vec<u8> {
         let mut bytes: alloc::vec::Vec<u8> = alloc::vec::Vec::new();
         let x_bytes;
         let y_bytes;
@@ -1203,7 +1222,8 @@ mod tests {
     #[cfg(feature = "alloc")]
     #[test]
     fn byte_conversion_from_and_to_with_mixed_le_and_be_does_not_work_uncompressed() {
-        let bytes = point_projective().serialize(PointFormat::Uncompressed, Endianness::LittleEndian);
+        let bytes =
+            point_projective().serialize(PointFormat::Uncompressed, Endianness::LittleEndian);
 
         let result = ShortWeierstrassProjectivePoint::<BLS12381Curve>::deserialize(
             &bytes,
@@ -1383,17 +1403,19 @@ mod tests {
         let p = ShortWeierstrassProjectivePoint::<BLS12381Curve>::from_affine(x, y).unwrap();
 
         // Create multiple projective points with different z coordinates
-        let points: alloc::vec::Vec<_> = (1..=10)
-            .map(|i| p.operate_with_self(i as u16))
-            .collect();
+        let points: alloc::vec::Vec<_> = (1..=10).map(|i| p.operate_with_self(i as u16)).collect();
 
         // Convert using batch_to_affine
-        let batch_affine = ShortWeierstrassProjectivePoint::<BLS12381Curve>::batch_to_affine(&points);
+        let batch_affine =
+            ShortWeierstrassProjectivePoint::<BLS12381Curve>::batch_to_affine(&points);
 
         // Convert individually and compare
         for (batch, point) in batch_affine.iter().zip(points.iter()) {
             let individual = point.to_affine();
-            assert_eq!(batch, &individual, "batch_to_affine should match individual to_affine");
+            assert_eq!(
+                batch, &individual,
+                "batch_to_affine should match individual to_affine"
+            );
         }
     }
 
@@ -1415,7 +1437,8 @@ mod tests {
             p.operate_with_self(3_u16),
         ];
 
-        let batch_affine = ShortWeierstrassProjectivePoint::<BLS12381Curve>::batch_to_affine(&points);
+        let batch_affine =
+            ShortWeierstrassProjectivePoint::<BLS12381Curve>::batch_to_affine(&points);
 
         assert_eq!(batch_affine.len(), 5);
         assert_eq!(batch_affine[0], points[0].to_affine());

@@ -6,7 +6,6 @@ use super::{
     },
     twist::BN254TwistCurve,
 };
-use alloc::vec::Vec;
 use crate::{
     cyclic_group::IsGroup,
     elliptic_curve::{
@@ -24,6 +23,7 @@ use crate::{
     },
     field::element::FieldElement,
 };
+use alloc::vec::Vec;
 
 type FpE = FieldElement<BN254PrimeField>;
 type Fp2E = FieldElement<Degree2ExtensionField>;

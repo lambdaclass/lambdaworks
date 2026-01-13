@@ -174,12 +174,7 @@ mod aarch64_asm {
     /// Uses pure Rust with u128 arithmetic which LLVM optimizes well for ARM64
     /// Note: lambdaworks uses big-endian limb order (limbs[0] = MSB)
     #[inline(always)]
-    pub fn cios_4_limbs(
-        a: &[u64; 4],
-        b: &[u64; 4],
-        q: &[u64; 4],
-        mu: u64,
-    ) -> [u64; 4] {
+    pub fn cios_4_limbs(a: &[u64; 4], b: &[u64; 4], q: &[u64; 4], mu: u64) -> [u64; 4] {
         // Use the same algorithm as the generic CIOS but specialized for 4 limbs
         // LLVM generates efficient ARM64 code with MUL/UMULH for u128 operations
         const N: usize = 4;
@@ -226,12 +221,7 @@ mod aarch64_asm {
 
     /// ARM64 optimized CIOS Montgomery multiplication for 6 limbs (384-bit)
     #[inline(always)]
-    pub fn cios_6_limbs(
-        a: &[u64; 6],
-        b: &[u64; 6],
-        q: &[u64; 6],
-        mu: u64,
-    ) -> [u64; 6] {
+    pub fn cios_6_limbs(a: &[u64; 6], b: &[u64; 6], q: &[u64; 6], mu: u64) -> [u64; 6] {
         const N: usize = 6;
         let mut t = [0u64; N];
         let mut t_extra = [0u64; 2];
@@ -365,12 +355,7 @@ mod aarch64_asm {
     /// For moduli where the high limb is < 2^63 - 1
     /// Uses pure Rust with u128 (LLVM generates good ARM64 code)
     #[inline(always)]
-    pub fn cios_4_limbs_optimized(
-        a: &[u64; 4],
-        b: &[u64; 4],
-        q: &[u64; 4],
-        mu: u64,
-    ) -> [u64; 4] {
+    pub fn cios_4_limbs_optimized(a: &[u64; 4], b: &[u64; 4], q: &[u64; 4], mu: u64) -> [u64; 4] {
         const N: usize = 4;
         let mut t = [0u64; N];
 
@@ -741,12 +726,7 @@ mod aarch64_asm {
     /// ARM64 optimized CIOS for 6 limbs with spare bit optimization (EdMSM Algorithm 2)
     /// Uses pure Rust with u128 (LLVM generates good ARM64 code)
     #[inline(always)]
-    pub fn cios_6_limbs_optimized(
-        a: &[u64; 6],
-        b: &[u64; 6],
-        q: &[u64; 6],
-        mu: u64,
-    ) -> [u64; 6] {
+    pub fn cios_6_limbs_optimized(a: &[u64; 6], b: &[u64; 6], q: &[u64; 6], mu: u64) -> [u64; 6] {
         const N: usize = 6;
         let mut t = [0u64; N];
 
@@ -2081,7 +2061,9 @@ mod tests {
         #[test]
         fn add_asm_4_limbs_overflow() {
             // Test addition that causes overflow and needs reduction
-            let m = U256::from_hex_unchecked("30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001");
+            let m = U256::from_hex_unchecked(
+                "30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001",
+            );
             let x = m - U256::from_u64(1); // m - 1
             let y = U256::from_u64(2);
 
@@ -2092,7 +2074,9 @@ mod tests {
         #[test]
         fn sub_asm_4_limbs_borrow() {
             // Test subtraction that causes borrow and needs modulus addition
-            let m = U256::from_hex_unchecked("30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001");
+            let m = U256::from_hex_unchecked(
+                "30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001",
+            );
             let x = U256::from_u64(1);
             let y = U256::from_u64(2);
 
@@ -2159,7 +2143,8 @@ mod tests {
             let m = U256::from_u64(23_u64);
             let mu: u64 = 3208129404123400281;
 
-            let rust_result = MontgomeryAlgorithms::cios_optimized_for_moduli_with_one_spare_bit(&x, &y, &m, &mu);
+            let rust_result =
+                MontgomeryAlgorithms::cios_optimized_for_moduli_with_one_spare_bit(&x, &y, &m, &mu);
             let asm_result = MontgomeryAlgorithms::cios_true_asm_optimized(&x, &y, &m, &mu);
 
             assert_eq!(rust_result, asm_result);
@@ -2172,7 +2157,8 @@ mod tests {
             let m = U384::from_u64(23_u64);
             let mu: u64 = 3208129404123400281;
 
-            let rust_result = MontgomeryAlgorithms::cios_optimized_for_moduli_with_one_spare_bit(&x, &y, &m, &mu);
+            let rust_result =
+                MontgomeryAlgorithms::cios_optimized_for_moduli_with_one_spare_bit(&x, &y, &m, &mu);
             let asm_result = MontgomeryAlgorithms::cios_true_asm_optimized(&x, &y, &m, &mu);
 
             assert_eq!(rust_result, asm_result);
@@ -2181,13 +2167,20 @@ mod tests {
         #[test]
         fn cios_true_asm_4_limbs_bn254_modulus() {
             // Test with realistic BN254 values
-            let m = U256::from_hex_unchecked("30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001");
+            let m = U256::from_hex_unchecked(
+                "30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001",
+            );
             let mu: u64 = 14042775128853446655;
 
-            let x = U256::from_hex_unchecked("1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef");
-            let y = U256::from_hex_unchecked("fedcba0987654321fedcba0987654321fedcba0987654321fedcba0987654321");
+            let x = U256::from_hex_unchecked(
+                "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+            );
+            let y = U256::from_hex_unchecked(
+                "fedcba0987654321fedcba0987654321fedcba0987654321fedcba0987654321",
+            );
 
-            let rust_result = MontgomeryAlgorithms::cios_optimized_for_moduli_with_one_spare_bit(&x, &y, &m, &mu);
+            let rust_result =
+                MontgomeryAlgorithms::cios_optimized_for_moduli_with_one_spare_bit(&x, &y, &m, &mu);
             let asm_result = MontgomeryAlgorithms::cios_true_asm_optimized(&x, &y, &m, &mu);
 
             assert_eq!(rust_result, asm_result);
@@ -2202,7 +2195,8 @@ mod tests {
             let x = U384::from_hex_unchecked("123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0");
             let y = U384::from_hex_unchecked("fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210");
 
-            let rust_result = MontgomeryAlgorithms::cios_optimized_for_moduli_with_one_spare_bit(&x, &y, &m, &mu);
+            let rust_result =
+                MontgomeryAlgorithms::cios_optimized_for_moduli_with_one_spare_bit(&x, &y, &m, &mu);
             let asm_result = MontgomeryAlgorithms::cios_true_asm_optimized(&x, &y, &m, &mu);
 
             assert_eq!(rust_result, asm_result);

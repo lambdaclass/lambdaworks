@@ -10,17 +10,13 @@ use rand::{rngs::StdRng, Rng, SeedableRng};
 use lambdaworks_math::{
     cyclic_group::IsGroup,
     elliptic_curve::{
-        short_weierstrass::curves::bn_254::{
-            curve::BN254Curve,
-            field_extension::BN254PrimeField,
-            pairing::BN254AtePairing,
-            twist::BN254TwistCurve,
-        },
         short_weierstrass::curves::bls12_381::{
-            curve::BLS12381Curve,
-            field_extension::BLS12381PrimeField,
-            pairing::BLS12381AtePairing,
+            curve::BLS12381Curve, field_extension::BLS12381PrimeField, pairing::BLS12381AtePairing,
             twist::BLS12381TwistCurve,
+        },
+        short_weierstrass::curves::bn_254::{
+            curve::BN254Curve, field_extension::BN254PrimeField, pairing::BN254AtePairing,
+            twist::BN254TwistCurve,
         },
         short_weierstrass::point::ShortWeierstrassProjectivePoint,
         traits::{IsEllipticCurve, IsPairing},
@@ -29,14 +25,13 @@ use lambdaworks_math::{
 };
 
 // Arkworks imports
+use ark_bls12_381::{
+    Bls12_381, Fr as ArkBls12381Fr, G1Affine as ArkBls12381G1Affine, G1Projective as ArkBls12381G1,
+    G2Affine as ArkBls12381G2Affine, G2Projective as ArkBls12381G2,
+};
 use ark_bn254::{
     Bn254, Fr as ArkBn254Fr, G1Affine as ArkBn254G1Affine, G1Projective as ArkBn254G1,
     G2Affine as ArkBn254G2Affine, G2Projective as ArkBn254G2,
-};
-use ark_bls12_381::{
-    Bls12_381, Fr as ArkBls12381Fr, G1Affine as ArkBls12381G1Affine,
-    G1Projective as ArkBls12381G1, G2Affine as ArkBls12381G2Affine,
-    G2Projective as ArkBls12381G2,
 };
 use ark_ec::{pairing::Pairing, CurveGroup, Group};
 use ark_ff::Field;
@@ -295,9 +290,8 @@ fn bench_pairing(c: &mut Criterion) {
         let lw_g2 = BN254TwistCurve::generator().operate_with_self(a_val);
 
         group.bench_function("lambdaworks/BN254", |bencher| {
-            bencher.iter(|| {
-                BN254AtePairing::compute_batch(&[(black_box(&lw_g1), black_box(&lw_g2))])
-            })
+            bencher
+                .iter(|| BN254AtePairing::compute_batch(&[(black_box(&lw_g1), black_box(&lw_g2))]))
         });
 
         // Arkworks
@@ -363,9 +357,7 @@ fn bench_batch_pairing(c: &mut Criterion) {
             group.bench_with_input(
                 BenchmarkId::new("lambdaworks/BN254", num_pairs),
                 &lw_refs,
-                |bencher, pairs| {
-                    bencher.iter(|| BN254AtePairing::compute_batch(black_box(pairs)))
-                },
+                |bencher, pairs| bencher.iter(|| BN254AtePairing::compute_batch(black_box(pairs))),
             );
 
             // Arkworks

@@ -3,9 +3,7 @@ use lambdaworks_math::{
     cyclic_group::IsGroup,
     elliptic_curve::{
         short_weierstrass::curves::bls12_381::{
-            curve::BLS12381Curve,
-            pairing::BLS12381AtePairing,
-            twist::BLS12381TwistCurve,
+            curve::BLS12381Curve, pairing::BLS12381AtePairing, twist::BLS12381TwistCurve,
         },
         traits::{IsEllipticCurve, IsPairing},
     },

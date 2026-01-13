@@ -71,7 +71,9 @@ pub fn msm_benchmarks_with_size(
         group.bench_function(
             BenchmarkId::new("Parallel Signed Pippenger", window_size),
             |bench| {
-                bench.iter(|| black_box(pippenger::parallel_msm_with_signed(cs, points, window_size)));
+                bench.iter(|| {
+                    black_box(pippenger::parallel_msm_with_signed(cs, points, window_size))
+                });
             },
         );
     }
