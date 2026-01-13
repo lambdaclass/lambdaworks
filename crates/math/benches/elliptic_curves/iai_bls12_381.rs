@@ -6,7 +6,7 @@ use lambdaworks_math::{
             curves::bls12_381::{
                 curve::BLS12381Curve, pairing::BLS12381AtePairing, twist::BLS12381TwistCurve,
             },
-            point::ShortWeierstrassProjectivePoint,
+            point::ShortWeierstrassJacobianPoint,
             traits::Compress,
         },
         traits::{IsEllipticCurve, IsPairing},
@@ -15,9 +15,9 @@ use lambdaworks_math::{
 
 use rand::{rngs::StdRng, Rng, SeedableRng};
 #[allow(dead_code)]
-type G1 = ShortWeierstrassProjectivePoint<BLS12381Curve>;
+type G1 = ShortWeierstrassJacobianPoint<BLS12381Curve>;
 #[allow(dead_code)]
-type G2 = ShortWeierstrassProjectivePoint<BLS12381TwistCurve>;
+type G2 = ShortWeierstrassJacobianPoint<BLS12381TwistCurve>;
 
 #[allow(dead_code)]
 pub fn rand_points_g1() -> (G1, G1, u128, u128) {

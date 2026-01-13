@@ -2,7 +2,7 @@ use crate::{common::*, QuadraticArithmeticProgram};
 use lambdaworks_math::{
     cyclic_group::IsGroup,
     elliptic_curve::{
-        short_weierstrass::{point::ShortWeierstrassProjectivePoint, traits::IsShortWeierstrass},
+        short_weierstrass::{point::ShortWeierstrassJacobianPoint, traits::IsShortWeierstrass},
         traits::{IsEllipticCurve, IsPairing},
     },
 };
@@ -128,8 +128,8 @@ pub fn setup(qap: &QuadraticArithmeticProgram) -> (ProvingKey, VerifyingKey) {
 
 fn batch_operate<E: IsShortWeierstrass>(
     elems: &[FrElement],
-    point: &ShortWeierstrassProjectivePoint<E>,
-) -> Vec<ShortWeierstrassProjectivePoint<E>> {
+    point: &ShortWeierstrassJacobianPoint<E>,
+) -> Vec<ShortWeierstrassJacobianPoint<E>> {
     elems
         .iter()
         .map(|elem| point.operate_with_self(elem.representative()))

@@ -55,9 +55,25 @@ pub fn msm_benchmarks_with_size(
         );
 
         group.bench_function(
+            BenchmarkId::new("Sequential Signed Pippenger", window_size),
+            |bench| {
+                bench.iter(|| black_box(pippenger::msm_with_signed(cs, points, window_size)));
+            },
+        );
+
+        group.bench_function(
             BenchmarkId::new("Parallel Pippenger", window_size),
             |bench| {
                 bench.iter(|| black_box(pippenger::parallel_msm_with(cs, points, window_size)));
+            },
+        );
+
+        group.bench_function(
+            BenchmarkId::new("Parallel Signed Pippenger", window_size),
+            |bench| {
+                bench.iter(|| {
+                    black_box(pippenger::parallel_msm_with_signed(cs, points, window_size))
+                });
             },
         );
     }

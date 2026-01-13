@@ -105,6 +105,7 @@ pub trait IsField: Debug + Clone {
     fn add(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType;
 
     /// Returns the double of `a`.
+    #[inline]
     fn double(a: &Self::BaseType) -> Self::BaseType {
         Self::add(a, a)
     }
@@ -113,12 +114,13 @@ pub trait IsField: Debug + Clone {
     fn mul(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType;
 
     /// Returns the multiplication of `a` and `a`.
+    #[inline]
     fn square(a: &Self::BaseType) -> Self::BaseType {
         Self::mul(a, a)
     }
 
     /// Returns the power of `a` to the `T`, a^T
-    /// Uses the square and multiply algorithm, which takes O(log2(T)) steps
+    /// Uses right-to-left binary square-and-multiply, which takes O(log2(T)) steps.
     /// This is a non-constant time implementation!
     fn pow<T>(a: &Self::BaseType, mut exponent: T) -> Self::BaseType
     where
@@ -128,34 +130,26 @@ pub trait IsField: Debug + Clone {
         let one = T::from(1);
 
         if exponent == zero {
-            Self::one()
-        } else if exponent == one {
-            a.clone()
-        } else {
-            let mut result = a.clone();
-
-            while exponent & one == zero {
-                result = Self::square(&result);
-                exponent >>= 1;
-            }
-
-            if exponent == zero {
-                result
-            } else {
-                let mut base = result.clone();
-                exponent >>= 1;
-
-                while exponent != zero {
-                    base = Self::square(&base);
-                    if exponent & one == one {
-                        result = Self::mul(&result, &base);
-                    }
-                    exponent >>= 1;
-                }
-
-                result
-            }
+            return Self::one();
         }
+
+        // Right-to-left binary method:
+        // base tracks a^(2^i), result accumulates the product
+        let mut base = a.clone();
+        let mut result = Self::one();
+
+        loop {
+            if exponent & one == one {
+                result = Self::mul(&result, &base);
+            }
+            exponent >>= 1;
+            if exponent == zero {
+                break;
+            }
+            base = Self::square(&base);
+        }
+
+        result
     }
 
     /// Returns the subtraction of `a` and `b`.
