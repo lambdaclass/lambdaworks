@@ -53,6 +53,11 @@ impl IsShortWeierstrass for BLS12381Curve {
     fn b() -> FieldElement<Self::BaseField> {
         FieldElement::from(4)
     }
+
+    #[inline(always)]
+    fn a_is_zero() -> bool {
+        true
+    }
 }
 
 /// This is equal to the frobenius trace of the BLS12 381 curve minus one or seed value z.

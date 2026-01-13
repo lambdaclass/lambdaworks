@@ -62,6 +62,11 @@ impl IsShortWeierstrass for BN254TwistCurve {
             ),
         ])
     }
+
+    #[inline(always)]
+    fn a_is_zero() -> bool {
+        true
+    }
 }
 
 #[cfg(test)]
