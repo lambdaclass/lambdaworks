@@ -2,7 +2,7 @@ use super::{field_extension::BLS12381PrimeField, twist::BLS12381TwistCurve};
 use crate::{
     elliptic_curve::short_weierstrass::{
         curves::bls12_381::{curve::BLS12381Curve, field_extension::Degree2ExtensionField, sqrt},
-        point::ShortWeierstrassProjectivePoint,
+        point::ShortWeierstrassJacobianPoint,
         traits::Compress,
     },
     field::element::FieldElement,
@@ -14,8 +14,8 @@ use crate::{
     traits::ByteConversion,
 };
 
-type G1Point = ShortWeierstrassProjectivePoint<BLS12381Curve>;
-type G2Point = ShortWeierstrassProjectivePoint<BLS12381TwistCurve>;
+type G1Point = ShortWeierstrassJacobianPoint<BLS12381Curve>;
+type G2Point = ShortWeierstrassJacobianPoint<BLS12381TwistCurve>;
 type BLS12381FieldElement = FieldElement<BLS12381PrimeField>;
 
 /// This functionality includes the compression and decompression for points belonging to the BLS12-381, following the ideas in
