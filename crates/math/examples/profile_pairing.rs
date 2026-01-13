@@ -19,7 +19,7 @@ fn main() {
 
     // Warmup
     for _ in 0..10 {
-        black_box(BLS12381AtePairing::compute(black_box(&p), black_box(&q)));
+        let _ = black_box(BLS12381AtePairing::compute(black_box(&p), black_box(&q)));
     }
 
     // Benchmark full pairing

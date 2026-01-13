@@ -88,7 +88,7 @@ impl<F: IsField> FieldElement<F> {
 
         // Determine chunk size based on number of available threads
         let num_threads = rayon::current_num_threads();
-        let chunk_size = (numbers.len() + num_threads - 1) / num_threads;
+        let chunk_size = numbers.len().div_ceil(num_threads);
 
         // Process each chunk independently in parallel
         // Each chunk does its own batch inversion (one inversion per chunk)
