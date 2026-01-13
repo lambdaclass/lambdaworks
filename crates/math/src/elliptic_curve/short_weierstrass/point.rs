@@ -405,6 +405,7 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
     /// Cost: 2M + 5S (vs 7M + 5S for projective)
     /// From http://www.hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-0.html#doubling-dbl-2009-l
     #[inline(always)]
+    #[allow(clippy::type_complexity)]
     fn jacobian_double_a0(
         x: &FieldElement<E::BaseField>,
         y: &FieldElement<E::BaseField>,
@@ -431,6 +432,7 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
     /// Jacobian point addition for a=0 curves (add-2007-bl formula).
     /// From http://www.hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-0.html#addition-add-2007-bl
     #[inline(always)]
+    #[allow(clippy::type_complexity)]
     fn jacobian_add_a0(
         x1: &FieldElement<E::BaseField>,
         y1: &FieldElement<E::BaseField>,
