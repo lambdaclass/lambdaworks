@@ -769,53 +769,57 @@ impl CompressedCyclotomic {
     }
 }
 
-/// Optimized cyclotomic_pow_x using Karabina compression
-/// Does squarings in compressed form, decompresses only when multiplication needed
+/// Computes f^X using Karabina compression for efficient cyclotomic squaring.
 ///
-/// For X = 0xd201000000010000, the benefit comes from:
-/// - 64 squarings total, only 6 multiplications
-/// - Many consecutive squarings can stay in compressed form
+/// X = 0xd201000000010000 has only 6 set bits, allowing us to batch consecutive
+/// squarings in compressed form and only decompress when multiplication is needed.
 pub fn cyclotomic_pow_x_compressed(f: &Fp12E) -> Fp12E {
-    let mut result = Fp12E::one();
+    let mut result = f.clone();
 
-    // Track consecutive squarings to batch them in compressed form
-    let mut squares_pending = 0u32;
+    // Bit 1: f -> f^2 -> f^3
+    result = cyclotomic_square(&result);
+    result = &result * f;
 
-    for &bit in X_BINARY.iter() {
-        squares_pending += 1;
+    // Bit 3: f^3 -> f^12 -> f^13
+    result = apply_compressed_squares(&result, 2);
+    result = &result * f;
 
-        if bit {
-            // Apply pending squarings in compressed form, then decompress and multiply
-            result = apply_compressed_squares(&result, squares_pending);
-            squares_pending = 0;
-            result = &result * f;
-        }
-    }
+    // Bit 6: f^13 -> f^104 -> f^105
+    result = apply_compressed_squares(&result, 3);
+    result = &result * f;
 
-    // Apply any remaining squarings
-    if squares_pending > 0 {
-        result = apply_compressed_squares(&result, squares_pending);
-    }
+    // Bit 15: f^105 -> f^53760 -> f^53761
+    result = apply_compressed_squares(&result, 9);
+    result = &result * f;
 
-    result
+    // Bit 47: 32 squares then multiply
+    result = apply_compressed_squares(&result, 32);
+    result = &result * f;
+
+    // Final 16 trailing zeros
+    apply_compressed_squares(&result, 16)
 }
 
-/// Apply n squarings using compressed form
-/// Compress → n squares → decompress
+/// Applies n consecutive cyclotomic squarings, using Karabina compression for long runs.
+///
+/// For runs of 10+ squares, compression amortizes the decompression cost.
+/// For shorter runs, regular squaring avoids the inversion overhead.
 fn apply_compressed_squares(f: &Fp12E, n: u32) -> Fp12E {
-    if n == 0 {
-        return f.clone();
-    }
-    if n == 1 {
-        // For single square, regular cyclotomic_square might be faster
-        return cyclotomic_square(f);
-    }
+    const COMPRESSION_THRESHOLD: u32 = 10;
 
-    let mut compressed = CompressedCyclotomic::compress(f);
-    for _ in 0..n {
-        compressed = compressed.square();
+    if n < COMPRESSION_THRESHOLD {
+        let mut result = f.clone();
+        for _ in 0..n {
+            result = cyclotomic_square(&result);
+        }
+        result
+    } else {
+        let mut compressed = CompressedCyclotomic::compress(f);
+        for _ in 0..n {
+            compressed = compressed.square();
+        }
+        compressed.decompress()
     }
-    compressed.decompress()
 }
 
 #[cfg(test)]
