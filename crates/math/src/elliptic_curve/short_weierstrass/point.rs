@@ -86,10 +86,91 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
     /// Performs the group operation between a point and itself a + a = 2a in
     /// additive notation
     /// Using optimized formulas from http://www.hyperelliptic.org/EFD/g1p/auto-shortw-projective.html
+    #[inline]
     pub fn double(&self) -> Self {
         if self.is_neutral_element() {
             return self.clone();
         }
+        self.double_unchecked()
+    }
+
+    /// Jacobian point doubling for a=0 curves (dbl-2009-l formula).
+    /// Cost: 2M + 5S (vs 7M + 5S for projective)
+    /// From http://www.hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-0.html#doubling-dbl-2009-l
+    #[inline(always)]
+    fn jacobian_double_a0(
+        x: &FieldElement<E::BaseField>,
+        y: &FieldElement<E::BaseField>,
+        z: &FieldElement<E::BaseField>,
+    ) -> (FieldElement<E::BaseField>, FieldElement<E::BaseField>, FieldElement<E::BaseField>) {
+        let a = x.square();                           // A = X1^2
+        let b = y.square();                           // B = Y1^2
+        let c = b.square();                           // C = B^2
+        let x_plus_b = x + &b;
+        let d = (&x_plus_b.square() - &a - &c).double(); // D = 2*((X1+B)^2-A-C)
+        let e = &a.double() + &a;                     // E = 3*A
+        let f = e.square();                           // F = E^2
+        let x3 = &f - d.double();                     // X3 = F - 2*D
+        let eight_c = c.double().double().double();
+        let y3 = &e * (&d - &x3) - eight_c;           // Y3 = E*(D-X3) - 8*C
+        let z3 = (y * z).double();                    // Z3 = 2*Y1*Z1
+        (x3, y3, z3)
+    }
+
+    /// Jacobian point addition (add-2007-bl formula).
+    /// From http://www.hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-0.html#addition-add-2007-bl
+    /// Returns the neutral element (z=0) when appropriate.
+    #[inline(always)]
+    fn jacobian_add(
+        x1: &FieldElement<E::BaseField>,
+        y1: &FieldElement<E::BaseField>,
+        z1: &FieldElement<E::BaseField>,
+        x2: &FieldElement<E::BaseField>,
+        y2: &FieldElement<E::BaseField>,
+        z2: &FieldElement<E::BaseField>,
+    ) -> (FieldElement<E::BaseField>, FieldElement<E::BaseField>, FieldElement<E::BaseField>) {
+        // Handle neutral elements
+        if *z1 == FieldElement::zero() {
+            return (x2.clone(), y2.clone(), z2.clone());
+        }
+        if *z2 == FieldElement::zero() {
+            return (x1.clone(), y1.clone(), z1.clone());
+        }
+
+        let z1z1 = z1.square();                       // Z1Z1 = Z1^2
+        let z2z2 = z2.square();                       // Z2Z2 = Z2^2
+        let u1 = x1 * &z2z2;                          // U1 = X1*Z2Z2
+        let u2 = x2 * &z1z1;                          // U2 = X2*Z1Z1
+        let s1 = y1 * z2 * &z2z2;                     // S1 = Y1*Z2*Z2Z2
+        let s2 = y2 * z1 * &z1z1;                     // S2 = Y2*Z1*Z1Z1
+        let h = &u2 - &u1;                            // H = U2-U1
+        let i = h.double().square();                  // I = (2*H)^2
+        let j = &h * &i;                              // J = H*I
+        let r = (&s2 - &s1).double();                 // r = 2*(S2-S1)
+        let v = &u1 * &i;                             // V = U1*I
+
+        // Check if points are equal or inverses
+        if h == FieldElement::zero() {
+            if r == FieldElement::zero() {
+                // P == Q, need to double
+                return Self::jacobian_double_a0(x1, y1, z1);
+            } else {
+                // P == -Q, return neutral element
+                return (FieldElement::zero(), FieldElement::one(), FieldElement::zero());
+            }
+        }
+
+        let x3 = r.square() - &j - v.double();        // X3 = r^2-J-2*V
+        let y3 = &r * (&v - &x3) - s1.double() * &j;  // Y3 = r*(V-X3)-2*S1*J
+        let z3 = ((z1 + z2).square() - &z1z1 - &z2z2) * &h; // Z3 = ((Z1+Z2)^2-Z1Z1-Z2Z2)*H
+        (x3, y3, z3)
+    }
+
+    /// Doubling without neutral element check.
+    /// Caller must ensure the point is not the neutral element.
+    /// Using optimized formulas from http://www.hyperelliptic.org/EFD/g1p/auto-shortw-projective-0.html
+    #[inline]
+    fn double_unchecked(&self) -> Self {
         let [px, py, pz] = self.coordinates();
 
         // Specialized formula for a=0 curves (BN254, BLS12-381, etc.)
@@ -223,6 +304,7 @@ impl<E: IsShortWeierstrass> IsGroup for ShortWeierstrassProjectivePoint<E> {
 
     /// Computes the addition of `self` and `other`.
     /// Taken from "Moonmath" (Algorithm 7, page 89)
+    #[inline]
     fn operate_with(&self, other: &Self) -> Self {
         if other.is_neutral_element() {
             self.clone()
@@ -239,7 +321,8 @@ impl<E: IsShortWeierstrass> IsGroup for ShortWeierstrassProjectivePoint<E> {
                 if u1 != u2 || *py == FieldElement::zero() {
                     Self::neutral_element()
                 } else {
-                    self.double()
+                    // We already verified it's not neutral, use unchecked
+                    self.double_unchecked()
                 }
             } else {
                 let u = u1 - &u2;
@@ -265,6 +348,68 @@ impl<E: IsShortWeierstrass> IsGroup for ShortWeierstrassProjectivePoint<E> {
                 // The assertion above verifies that the resulting point is valid.
                 Self::new_unchecked([xp, yp, zp])
             }
+        }
+    }
+
+    /// Optimized scalar multiplication using Jacobian doubling formula.
+    /// Jacobian doubling is 2M+5S vs projective 7M+5S, a significant improvement.
+    #[inline]
+    fn operate_with_self<T: crate::unsigned_integer::traits::IsUnsignedInteger>(
+        &self,
+        mut exponent: T,
+    ) -> Self {
+        let zero = T::from(0);
+        let one = T::from(1);
+
+        if exponent == zero {
+            return Self::neutral_element();
+        }
+
+        // Handle neutral element case once at the start
+        if self.is_neutral_element() {
+            return Self::neutral_element();
+        }
+
+        // Convert to Jacobian coordinates for faster doubling
+        // Projective (X:Y:Z) -> Jacobian: X_j = X*Z, Y_j = Y*Z², Z_j = Z
+        let [px, py, pz] = self.coordinates();
+        let mut base_x = px * pz;
+        let mut base_y = py * pz.square();
+        let mut base_z = pz.clone();
+
+        let mut result_x = FieldElement::zero();
+        let mut result_y = FieldElement::one();
+        let mut result_z = FieldElement::zero(); // Neutral element in Jacobian: z=0
+
+        loop {
+            if exponent & one == one {
+                if result_z == FieldElement::zero() {
+                    // First accumulation - just copy base
+                    result_x = base_x.clone();
+                    result_y = base_y.clone();
+                    result_z = base_z.clone();
+                } else {
+                    // Add base to result using Jacobian addition
+                    (result_x, result_y, result_z) = Self::jacobian_add(
+                        &result_x, &result_y, &result_z,
+                        &base_x, &base_y, &base_z,
+                    );
+                }
+            }
+            exponent >>= 1;
+            if exponent == zero {
+                break;
+            }
+            // Jacobian doubling (dbl-2009-l formula for a=0)
+            (base_x, base_y, base_z) = Self::jacobian_double_a0(&base_x, &base_y, &base_z);
+        }
+
+        // Convert back to projective: X_p = X_j * Z_j, Y_p = Y_j, Z_p = Z_j³
+        if result_z == FieldElement::zero() {
+            Self::neutral_element()
+        } else {
+            let z_cubed = &result_z * result_z.square();
+            Self::new_unchecked([&result_x * &result_z, result_y, z_cubed])
         }
     }
 
