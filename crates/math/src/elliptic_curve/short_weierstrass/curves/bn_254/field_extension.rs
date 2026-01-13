@@ -455,3 +455,129 @@ mod tests {
         assert_eq!(mul_fp6_by_nonresidue(&a), a * LevelThreeResidue::residue())
     }
 }
+
+#[cfg(test)]
+mod proptest_field_axioms {
+    use super::*;
+    use crate::unsigned_integer::element::U256;
+    use proptest::prelude::*;
+
+    type FpE = FieldElement<BN254PrimeField>;
+
+    // Generate random field elements by generating random U256 values
+    fn arb_field_element() -> impl Strategy<Value = FpE> {
+        // Generate 4 random u64 limbs
+        (any::<u64>(), any::<u64>(), any::<u64>(), any::<u64>()).prop_map(|(l0, l1, l2, l3)| {
+            // Create U256 from limbs and reduce mod p by using from_u64 conversion
+            let val = U256 {
+                limbs: [l0, l1, l2, l3],
+            };
+            // Use the field's from_base_type which handles reduction
+            FpE::from(&val)
+        })
+    }
+
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(100))]
+
+        // Field axiom: Addition is commutative
+        #[test]
+        fn addition_is_commutative(a in arb_field_element(), b in arb_field_element()) {
+            prop_assert_eq!(&a + &b, &b + &a);
+        }
+
+        // Field axiom: Addition is associative
+        #[test]
+        fn addition_is_associative(a in arb_field_element(), b in arb_field_element(), c in arb_field_element()) {
+            prop_assert_eq!(&(&a + &b) + &c, &a + &(&b + &c));
+        }
+
+        // Field axiom: Zero is additive identity
+        #[test]
+        fn zero_is_additive_identity(a in arb_field_element()) {
+            let zero = FpE::zero();
+            prop_assert_eq!(&a + &zero, a.clone());
+            prop_assert_eq!(&zero + &a, a);
+        }
+
+        // Field axiom: Additive inverse exists
+        #[test]
+        fn additive_inverse_exists(a in arb_field_element()) {
+            let neg_a = -&a;
+            prop_assert_eq!(&a + &neg_a, FpE::zero());
+        }
+
+        // Field axiom: Multiplication is commutative
+        #[test]
+        fn multiplication_is_commutative(a in arb_field_element(), b in arb_field_element()) {
+            prop_assert_eq!(&a * &b, &b * &a);
+        }
+
+        // Field axiom: Multiplication is associative
+        #[test]
+        fn multiplication_is_associative(a in arb_field_element(), b in arb_field_element(), c in arb_field_element()) {
+            prop_assert_eq!(&(&a * &b) * &c, &a * &(&b * &c));
+        }
+
+        // Field axiom: One is multiplicative identity
+        #[test]
+        fn one_is_multiplicative_identity(a in arb_field_element()) {
+            let one = FpE::one();
+            prop_assert_eq!(&a * &one, a.clone());
+            prop_assert_eq!(&one * &a, a);
+        }
+
+        // Field axiom: Distributive law
+        #[test]
+        fn distributive_law(a in arb_field_element(), b in arb_field_element(), c in arb_field_element()) {
+            prop_assert_eq!(&a * &(&b + &c), &(&a * &b) + &(&a * &c));
+        }
+
+        // Property: Double equals adding to itself
+        #[test]
+        fn double_equals_add_self(a in arb_field_element()) {
+            prop_assert_eq!(a.double(), &a + &a);
+        }
+
+        // Property: Square equals multiplying by itself
+        #[test]
+        fn square_equals_mul_self(a in arb_field_element()) {
+            prop_assert_eq!(a.square(), &a * &a);
+        }
+
+        // Property: Subtraction is inverse of addition
+        #[test]
+        fn subtraction_is_addition_inverse(a in arb_field_element(), b in arb_field_element()) {
+            prop_assert_eq!(&(&a + &b) - &b, a);
+        }
+
+        // Property: Multiplicative inverse (for non-zero elements)
+        #[test]
+        fn multiplicative_inverse_exists(a in arb_field_element()) {
+            if a != FpE::zero() {
+                let a_inv = a.inv().unwrap();
+                prop_assert_eq!(&a * &a_inv, FpE::one());
+            }
+        }
+
+        // Property: pow(0) = 1
+        #[test]
+        fn pow_zero_is_one(a in arb_field_element()) {
+            if a != FpE::zero() {
+                prop_assert_eq!(a.pow(0u64), FpE::one());
+            }
+        }
+
+        // Property: pow(1) = self
+        #[test]
+        fn pow_one_is_self(a in arb_field_element()) {
+            prop_assert_eq!(a.pow(1u64), a);
+        }
+
+        // Property: pow(2) = square
+        #[test]
+        fn pow_two_is_square(a in arb_field_element()) {
+            prop_assert_eq!(a.pow(2u64), a.square());
+        }
+    }
+}

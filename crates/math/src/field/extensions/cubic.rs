@@ -96,13 +96,13 @@ where
         let three = FieldElement::<F>::from(3_u64);
         let d = a[0].pow(3_u64)
             + a[1].pow(3_u64) * Q::residue()
-            + a[2].pow(3_u64) * Q::residue().pow(2_u64)
+            + a[2].pow(3_u64) * Q::residue().square()
             - three * &a[0] * &a[1] * &a[2] * Q::residue();
         let inv = d.inv()?;
         Ok([
-            (a[0].pow(2_u64) - &a[1] * &a[2] * Q::residue()) * &inv,
-            (-&a[0] * &a[1] + a[2].pow(2_u64) * Q::residue()) * &inv,
-            (-&a[0] * &a[2] + a[1].pow(2_u64)) * &inv,
+            (a[0].square() - &a[1] * &a[2] * Q::residue()) * &inv,
+            (-&a[0] * &a[1] + a[2].square() * Q::residue()) * &inv,
+            (-&a[0] * &a[2] + a[1].square()) * &inv,
         ])
     }
 

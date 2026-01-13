@@ -1,0 +1,121 @@
+[package]
+name = "hyperfine_bench"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+lambdaworks-math = { path = "../crates/math" }
+ark-bn254 = "0.4"
+ark-bls12-381 = "0.4"
+ark-ec = "0.4"
+ark-ff = "0.4"
+rand = "0.8"
+
+[[bin]]
+name = "bench_lw_bn254_g1_add"
+path = "src/lw_bn254_g1_add.rs"
+
+[[bin]]
+name = "bench_ark_bn254_g1_add"
+path = "src/ark_bn254_g1_add.rs"
+
+[[bin]]
+name = "bench_lw_bn254_g1_double"
+path = "src/lw_bn254_g1_double.rs"
+
+[[bin]]
+name = "bench_ark_bn254_g1_double"
+path = "src/ark_bn254_g1_double.rs"
+
+[[bin]]
+name = "bench_lw_bn254_g1_scalar_mul"
+path = "src/lw_bn254_g1_scalar_mul.rs"
+
+[[bin]]
+name = "bench_ark_bn254_g1_scalar_mul"
+path = "src/ark_bn254_g1_scalar_mul.rs"
+
+[[bin]]
+name = "bench_lw_bn254_pairing"
+path = "src/lw_bn254_pairing.rs"
+
+[[bin]]
+name = "bench_ark_bn254_pairing"
+path = "src/ark_bn254_pairing.rs"
+
+[[bin]]
+name = "bench_lw_bls12381_g1_add"
+path = "src/lw_bls12381_g1_add.rs"
+
+[[bin]]
+name = "bench_ark_bls12381_g1_add"
+path = "src/ark_bls12381_g1_add.rs"
+
+[[bin]]
+name = "bench_lw_bls12381_pairing"
+path = "src/lw_bls12381_pairing.rs"
+
+[[bin]]
+name = "bench_ark_bls12381_pairing"
+path = "src/ark_bls12381_pairing.rs"
+
+[[bin]]
+name = "bench_lw_bn254_field_mul"
+path = "src/lw_bn254_field_mul.rs"
+
+[[bin]]
+name = "bench_ark_bn254_field_mul"
+path = "src/ark_bn254_field_mul.rs"
+
+[[bin]]
+name = "bench_lw_bn254_field_add"
+path = "src/lw_bn254_field_add.rs"
+
+[[bin]]
+name = "bench_lw_bn254_field_sub"
+path = "src/lw_bn254_field_sub.rs"
+
+[[bin]]
+name = "bench_lw_bn254_field_square"
+path = "src/lw_bn254_field_square.rs"
+
+[[bin]]
+name = "bench_lw_bn254_field_inv"
+path = "src/lw_bn254_field_inv.rs"
+
+[[bin]]
+name = "bench_lw_bls12381_field_mul"
+path = "src/lw_bls12381_field_mul.rs"
+
+[[bin]]
+name = "bench_lw_bls12381_field_add"
+path = "src/lw_bls12381_field_add.rs"
+
+[[bin]]
+name = "bench_lw_bls12381_g1_double"
+path = "src/lw_bls12381_g1_double.rs"
+
+[[bin]]
+name = "bench_lw_bls12381_g1_scalar_mul"
+path = "src/lw_bls12381_g1_scalar_mul.rs"
+
+[[bin]]
+name = "bench_lw_bn254_g2_add"
+path = "src/lw_bn254_g2_add.rs"
+
+[[bin]]
+name = "bench_lw_bn254_g2_scalar_mul"
+path = "src/lw_bn254_g2_scalar_mul.rs"
+
+[[bin]]
+name = "bench_lw_bls12381_g2_add"
+path = "src/lw_bls12381_g2_add.rs"
+
+[[bin]]
+name = "bench_lw_bls12381_g2_scalar_mul"
+path = "src/lw_bls12381_g2_scalar_mul.rs"
+
+[profile.release]
+lto = true
+codegen-units = 1
+opt-level = 3

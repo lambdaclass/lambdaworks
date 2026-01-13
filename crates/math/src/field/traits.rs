@@ -105,6 +105,7 @@ pub trait IsField: Debug + Clone {
     fn add(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType;
 
     /// Returns the double of `a`.
+    #[inline]
     fn double(a: &Self::BaseType) -> Self::BaseType {
         Self::add(a, a)
     }
@@ -113,6 +114,7 @@ pub trait IsField: Debug + Clone {
     fn mul(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType;
 
     /// Returns the multiplication of `a` and `a`.
+    #[inline]
     fn square(a: &Self::BaseType) -> Self::BaseType {
         Self::mul(a, a)
     }
