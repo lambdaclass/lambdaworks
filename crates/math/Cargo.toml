@@ -58,6 +58,8 @@ proptest = ["dep:proptest"]
 winter_compatibility = ["winter-math", "miden-core"]
 instruments = []
 
+# Assembly optimizations for field operations
+asm = []
 
 # gpu
 cuda = ["dep:cudarc", "dep:lambdaworks-gpu"]

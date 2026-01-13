@@ -61,6 +61,7 @@ where
     type BaseType = [FieldElement<F>; 3];
 
     /// Returns the component wise addition of `a` and `b`
+    #[inline]
     fn add(a: &[FieldElement<F>; 3], b: &[FieldElement<F>; 3]) -> [FieldElement<F>; 3] {
         [&a[0] + &b[0], &a[1] + &b[1], &a[2] + &b[2]]
     }
@@ -69,6 +70,7 @@ where
     /// equation:
     /// (a0 + a1 * t) * (b0 + b1 * t) = a0 * b0 + a1 * b1 * Q::residue() + (a0 * b1 + a1 * b0) * t
     /// where `t.pow(2)` equals `Q::residue()`.
+    #[inline]
     fn mul(a: &[FieldElement<F>; 3], b: &[FieldElement<F>; 3]) -> [FieldElement<F>; 3] {
         let v0 = &a[0] * &b[0];
         let v1 = &a[1] * &b[1];
@@ -82,27 +84,39 @@ where
     }
 
     /// Returns the component wise subtraction of `a` and `b`
+    #[inline]
     fn sub(a: &[FieldElement<F>; 3], b: &[FieldElement<F>; 3]) -> [FieldElement<F>; 3] {
         [&a[0] - &b[0], &a[1] - &b[1], &a[2] - &b[2]]
     }
 
     /// Returns the component wise negation of `a`
+    #[inline]
     fn neg(a: &[FieldElement<F>; 3]) -> [FieldElement<F>; 3] {
         [-&a[0], -&a[1], -&a[2]]
     }
 
     /// Returns the multiplicative inverse of `a`
+    #[inline]
     fn inv(a: &[FieldElement<F>; 3]) -> Result<[FieldElement<F>; 3], FieldError> {
         let three = FieldElement::<F>::from(3_u64);
-        let d = a[0].pow(3_u64)
-            + a[1].pow(3_u64) * Q::residue()
-            + a[2].pow(3_u64) * Q::residue().pow(2_u64)
-            - three * &a[0] * &a[1] * &a[2] * Q::residue();
+        // Use square() instead of pow(2) and cube for pow(3)
+        let a0_sq = a[0].square();
+        let a1_sq = a[1].square();
+        let a2_sq = a[2].square();
+        let a0_cube = &a0_sq * &a[0];
+        let a1_cube = &a1_sq * &a[1];
+        let a2_cube = &a2_sq * &a[2];
+        let residue = Q::residue();
+        let residue_sq = residue.square();
+        let d = a0_cube
+            + a1_cube * &residue
+            + a2_cube * &residue_sq
+            - three * &a[0] * &a[1] * &a[2] * &residue;
         let inv = d.inv()?;
         Ok([
-            (a[0].pow(2_u64) - &a[1] * &a[2] * Q::residue()) * &inv,
-            (-&a[0] * &a[1] + a[2].pow(2_u64) * Q::residue()) * &inv,
-            (-&a[0] * &a[2] + a[1].pow(2_u64)) * &inv,
+            (a0_sq - &a[1] * &a[2] * &residue) * &inv,
+            (-&a[0] * &a[1] + &a2_sq * &residue) * &inv,
+            (-&a[0] * &a[2] + a1_sq) * &inv,
         ])
     }
 

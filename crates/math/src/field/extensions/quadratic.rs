@@ -76,6 +76,7 @@ where
     type BaseType = [FieldElement<F>; 2];
 
     /// Returns the component wise addition of `a` and `b`
+    #[inline]
     fn add(a: &[FieldElement<F>; 2], b: &[FieldElement<F>; 2]) -> [FieldElement<F>; 2] {
         [&a[0] + &b[0], &a[1] + &b[1]]
     }
@@ -84,6 +85,7 @@ where
     /// equation:
     /// (a0 + a1 * t) * (b0 + b1 * t) = a0 * b0 + a1 * b1 * Q::residue() + (a0 * b1 + a1 * b0) * t
     /// where `t.pow(2)` equals `Q::residue()`.
+    #[inline]
     fn mul(a: &[FieldElement<F>; 2], b: &[FieldElement<F>; 2]) -> [FieldElement<F>; 2] {
         let q = Q::residue();
         let a0b0 = &a[0] * &b[0];
@@ -92,6 +94,7 @@ where
         [&a0b0 + &a1b1 * q, z - a0b0 - a1b1]
     }
 
+    #[inline]
     fn square(a: &[FieldElement<F>; 2]) -> [FieldElement<F>; 2] {
         let [a0, a1] = a;
         let v0 = a0 * a1;
@@ -101,19 +104,22 @@ where
     }
 
     /// Returns the component wise subtraction of `a` and `b`
+    #[inline]
     fn sub(a: &[FieldElement<F>; 2], b: &[FieldElement<F>; 2]) -> [FieldElement<F>; 2] {
         [&a[0] - &b[0], &a[1] - &b[1]]
     }
 
     /// Returns the component wise negation of `a`
+    #[inline]
     fn neg(a: &[FieldElement<F>; 2]) -> [FieldElement<F>; 2] {
         [-&a[0], -&a[1]]
     }
 
     /// Returns the multiplicative inverse of `a`
     /// This uses the equality `(a0 + a1 * t) * (a0 - a1 * t) = a0.pow(2) - a1.pow(2) * Q::residue()`
+    #[inline]
     fn inv(a: &[FieldElement<F>; 2]) -> Result<[FieldElement<F>; 2], FieldError> {
-        let inv_norm = (a[0].pow(2_u64) - Q::residue() * a[1].pow(2_u64)).inv()?;
+        let inv_norm = (a[0].square() - Q::residue() * a[1].square()).inv()?;
         Ok([&a[0] * &inv_norm, -&a[1] * inv_norm])
     }
 

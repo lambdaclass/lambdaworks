@@ -25,6 +25,210 @@ type Fp12E = FieldElement<Degree12ExtensionField>;
 
 pub const SUBGROUP_ORDER: U256 =
     U256::from_hex_unchecked("73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001");
+
+/// Precomputed line coefficients for Miller loop optimization.
+/// Stores (b0, b2, b3) coefficients from line functions during the Miller loop.
+/// This allows faster repeated pairings with the same G2 point.
+#[derive(Clone, Debug)]
+pub struct G2Prepared {
+    /// Precomputed coefficients for each Miller loop iteration.
+    /// Each entry is (b0, b2, b3) for line function multiplication.
+    pub coefficients: Vec<(Fp2E, Fp2E, Fp2E)>,
+    /// Whether this is the point at infinity
+    pub infinity: bool,
+}
+
+impl G2Prepared {
+    /// Precompute Miller loop coefficients for a G2 point.
+    /// This allows faster pairing computation when the same G2 point is used multiple times.
+    pub fn from_g2_affine(q: &ShortWeierstrassProjectivePoint<BLS12381TwistCurve>) -> Self {
+        if q.is_neutral_element() {
+            return Self {
+                coefficients: Vec::new(),
+                infinity: true,
+            };
+        }
+
+        let q_affine = q.to_affine();
+        let mut coefficients = Vec::with_capacity(X_BINARY.len());
+        let mut r = q_affine.clone();
+
+        // Precompute coefficients for each bit of X_BINARY (skip first bit)
+        for bit in X_BINARY.iter().skip(1) {
+            // Double step - compute line coefficients
+            let double_coeffs = precompute_double_line(&mut r);
+            coefficients.push(double_coeffs);
+
+            if *bit {
+                // Add step - compute line coefficients
+                let add_coeffs = precompute_add_line(&mut r, &q_affine);
+                coefficients.push(add_coeffs);
+            }
+        }
+
+        Self {
+            coefficients,
+            infinity: false,
+        }
+    }
+}
+
+/// Precompute doubling line coefficients without the P-dependent parts.
+/// Returns (b0_base, b2_scale, b3_scale) where:
+/// - b0 = b0_base (independent of P)
+/// - b2 = b2_scale * px (scaled by P.x)
+/// - b3 = b3_scale * py (scaled by P.y)
+fn precompute_double_line(
+    t: &mut ShortWeierstrassProjectivePoint<BLS12381TwistCurve>,
+) -> (Fp2E, Fp2E, Fp2E) {
+    let [x1, y1, z1] = t.coordinates();
+    let two_inv = FieldElement::<Degree2ExtensionField>::new_base("d0088f51cbff34d258dd3db21a5d66bb23ba5c279c2895fb39869507b587b120f55ffff58a9ffffdcff7fffffffd556");
+
+    let a = &two_inv * x1 * y1;
+    let b = y1.square();
+    let c = z1.square();
+    let d = triple_fp2(&c);
+    let e = BLS12381TwistCurve::b() * &d;
+    let f = triple_fp2(&e);
+    let g = &two_inv * (&b + &f);
+    let h = (y1 + z1).square() - (&b + &c);
+
+    let x3 = &a * (&b - &f);
+    let e_sq = e.square();
+    let y3 = g.square() - triple_fp2(&e_sq);
+    let z3 = &b * &h;
+
+    // Compute line coefficients (P-independent parts)
+    let x1_sq = x1.square();
+    let x1_sq_3 = triple_fp2(&x1_sq);
+    let [x1_sq_30, x1_sq_31] = x1_sq_3.value();
+    let [h0, h1] = h.value();
+
+    let b0 = &e - &b;  // Fully computed
+    let b2_scale = Fp2E::new([x1_sq_30.clone(), x1_sq_31.clone()]);  // Will be multiplied by px
+    let b3_scale = Fp2E::new([-h0.clone(), -h1.clone()]);  // Will be multiplied by py
+
+    // Update T
+    t.set_unchecked([x3, y3, z3]);
+
+    (b0, b2_scale, b3_scale)
+}
+
+/// Precompute addition line coefficients.
+fn precompute_add_line(
+    t: &mut ShortWeierstrassProjectivePoint<BLS12381TwistCurve>,
+    q: &ShortWeierstrassProjectivePoint<BLS12381TwistCurve>,
+) -> (Fp2E, Fp2E, Fp2E) {
+    let [x1, y1, z1] = t.coordinates();
+    let [x2, y2, _] = q.coordinates();
+
+    let a = y2 * z1;
+    let b = x2 * z1;
+    let theta = y1 - &a;
+    let lambda = x1 - &b;
+    let c = theta.square();
+    let d = lambda.square();
+    let e = &lambda * &d;
+    let f = z1 * &c;
+    let g = x1 * &d;
+    let h = &e + &f - g.double();
+    let i = y1 * &e;
+
+    let x3 = &lambda * &h;
+    let y3 = &theta * (&g - &h) - &i;
+    let z3 = z1 * &e;
+
+    // Compute line coefficients
+    let [lambda0, lambda1] = lambda.value();
+    let [theta0, theta1] = theta.value();
+
+    let b0 = -&lambda * y2 + &theta * x2;
+    let b2_scale = Fp2E::new([-theta0.clone(), -theta1.clone()]);
+    let b3_scale = Fp2E::new([lambda0.clone(), lambda1.clone()]);
+
+    // Update T
+    t.set_unchecked([x3, y3, z3]);
+
+    (b0, b2_scale, b3_scale)
+}
+
+/// Miller loop using precomputed G2 coefficients.
+/// This is faster than the standard miller() when pairing with the same G2 point multiple times.
+pub fn miller_with_prepared(
+    q_prepared: &G2Prepared,
+    p: &ShortWeierstrassProjectivePoint<BLS12381Curve>,
+) -> FieldElement<Degree12ExtensionField> {
+    if q_prepared.infinity {
+        return FieldElement::one();
+    }
+
+    let [px, py, _] = p.coordinates();
+    let residue = LevelTwoResidue::residue();
+    let mut f = FieldElement::<Degree12ExtensionField>::one();
+    let mut coeff_idx = 0;
+
+    for bit in X_BINARY.iter().skip(1) {
+        // Use precomputed doubling coefficients
+        let (b0, b2_scale, b3_scale) = &q_prepared.coefficients[coeff_idx];
+        coeff_idx += 1;
+
+        // Compute b2 and b3 using P coordinates
+        let [b2_0, b2_1] = b2_scale.value();
+        let [b3_0, b3_1] = b3_scale.value();
+        let b2 = Fp2E::new([b2_0 * px, b2_1 * px]);
+        let b3 = Fp2E::new([b3_0 * py, b3_1 * py]);
+
+        // Sparse multiplication
+        let f_sq = f.square();
+        let [x, y] = f_sq.value();
+        let [a0, a2, a4] = x.value();
+        let [a1, a3, a5] = y.value();
+
+        f = FieldElement::new([
+            FieldElement::new([
+                a0 * b0 + &residue * (a3 * &b3 + a4 * &b2),
+                a2 * b0 + &residue * a5 * &b3 + a0 * &b2,
+                a4 * b0 + a1 * &b3 + a2 * &b2,
+            ]),
+            FieldElement::new([
+                a1 * b0 + &residue * (a4 * &b3 + a5 * &b2),
+                a3 * b0 + a0 * &b3 + a1 * &b2,
+                a5 * b0 + a2 * &b3 + a3 * &b2,
+            ]),
+        ]);
+
+        if *bit {
+            // Use precomputed addition coefficients
+            let (b0, b2_scale, b3_scale) = &q_prepared.coefficients[coeff_idx];
+            coeff_idx += 1;
+
+            let [b2_0, b2_1] = b2_scale.value();
+            let [b3_0, b3_1] = b3_scale.value();
+            let b2 = Fp2E::new([b2_0 * px, b2_1 * px]);
+            let b3 = Fp2E::new([b3_0 * py, b3_1 * py]);
+
+            let [x, y] = f.value();
+            let [a0, a2, a4] = x.value();
+            let [a1, a3, a5] = y.value();
+
+            f = FieldElement::new([
+                FieldElement::new([
+                    a0 * b0 + &residue * (a3 * &b3 + a4 * &b2),
+                    a2 * b0 + &residue * a5 * &b3 + a0 * &b2,
+                    a4 * b0 + a1 * &b3 + a2 * &b2,
+                ]),
+                FieldElement::new([
+                    a1 * b0 + &residue * (a4 * &b3 + a5 * &b2),
+                    a3 * b0 + a0 * &b3 + a1 * &b2,
+                    a5 * b0 + a2 * &b3 + a3 * &b2,
+                ]),
+            ]);
+        }
+    }
+
+    f.conjugate()
+}
+
 // value of x in binary
 
 // We use |x|, then if needed we apply the minus sign in the final exponentiation by applying the inverse (in this case the conjugate because the element is in the cyclotomic subgroup)
@@ -131,6 +335,12 @@ pub fn miller(
     f.conjugate()
 }
 
+/// Multiplies an Fp2 element by 3 using addition chain: 3x = 2x + x
+#[inline]
+fn triple_fp2(x: &Fp2E) -> Fp2E {
+    x.double() + x
+}
+
 fn double_accumulate_line(
     t: &mut ShortWeierstrassProjectivePoint<BLS12381TwistCurve>,
     p: &ShortWeierstrassProjectivePoint<BLS12381Curve>,
@@ -140,23 +350,24 @@ fn double_accumulate_line(
     let [px, py, _] = p.coordinates();
     let residue = LevelTwoResidue::residue();
     let two_inv = FieldElement::<Degree2ExtensionField>::new_base("d0088f51cbff34d258dd3db21a5d66bb23ba5c279c2895fb39869507b587b120f55ffff58a9ffffdcff7fffffffd556");
-    let three = FieldElement::<BLS12381PrimeField>::from(3);
 
     let a = &two_inv * x1 * y1;
     let b = y1.square();
     let c = z1.square();
-    let d = &three * &c;
+    let d = triple_fp2(&c); // 3c via addition chain
     let e = BLS12381TwistCurve::b() * d;
-    let f = &three * &e;
+    let f = triple_fp2(&e); // 3e via addition chain
     let g = two_inv * (&b + &f);
     let h = (y1 + z1).square() - (&b + &c);
 
     let x3 = &a * (&b - &f);
-    let y3 = g.square() - (&three * e.square());
+    let e_sq = e.square();
+    let y3 = g.square() - triple_fp2(&e_sq); // 3*e^2 via addition chain
     let z3 = &b * &h;
 
     let [h0, h1] = h.value();
-    let x1_sq_3 = three * x1.square();
+    let x1_sq = x1.square();
+    let x1_sq_3 = triple_fp2(&x1_sq); // 3*x1^2 via addition chain
     let [x1_sq_30, x1_sq_31] = x1_sq_3.value();
 
     // SAFETY: The values `x_3, y_3, z_3` are computed correctly to be on the curve.
@@ -207,7 +418,7 @@ fn add_accumulate_line(
     let e = &lambda * &d;
     let f = z1 * c;
     let g = x1 * d;
-    let h = &e + f - FieldElement::<BLS12381PrimeField>::from(2) * &g;
+    let h = &e + f - g.double(); // 2*g via addition chain
     let i = y1 * &e;
 
     let x3 = &lambda * &h;
@@ -517,5 +728,41 @@ mod tests {
         let f_easy_aux = f.conjugate() * f.inv().unwrap(); // f ^ (p^6 - 1) because f^(p^6) = f.conjugate().
         let f_easy = &frobenius_square(&f_easy_aux) * f_easy_aux; // (f^{p^6 - 1})^(p^2) * (f^{p^6 - 1}).
         assert_eq!(cyclotomic_pow_x(&f_easy), f_easy.pow(X));
+    }
+
+    #[test]
+    fn prepared_miller_equals_standard_miller() {
+        let p = BLS12381Curve::generator();
+        let q = BLS12381TwistCurve::generator();
+
+        // Standard miller loop
+        let standard_result = miller(&q.to_affine(), &p.to_affine());
+
+        // Prepared miller loop
+        let q_prepared = G2Prepared::from_g2_affine(&q);
+        let prepared_result = miller_with_prepared(&q_prepared, &p.to_affine());
+
+        assert_eq!(standard_result, prepared_result);
+    }
+
+    #[test]
+    fn prepared_pairing_bilinearity() {
+        let p = BLS12381Curve::generator();
+        let q = BLS12381TwistCurve::generator();
+        let a: u64 = 17;
+        let b: u64 = 31;
+
+        // Compute e(aP, bQ) using prepared
+        let ap = p.operate_with_self(a).to_affine();
+        let bq = q.operate_with_self(b);
+        let bq_prepared = G2Prepared::from_g2_affine(&bq);
+        let f1 = miller_with_prepared(&bq_prepared, &ap);
+        let result1 = final_exponentiation(&f1);
+
+        // Compute e(P, Q)^(ab) using standard
+        let f2 = miller(&q.to_affine(), &p.to_affine());
+        let result2 = final_exponentiation(&f2).pow(a * b);
+
+        assert_eq!(result1, result2);
     }
 }
