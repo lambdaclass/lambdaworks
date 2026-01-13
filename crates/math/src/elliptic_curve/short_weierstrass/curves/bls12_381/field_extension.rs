@@ -285,19 +285,21 @@ impl IsField for Degree6ExtensionField {
 
     #[inline]
     fn inv(a: &Self::BaseType) -> Result<Self::BaseType, FieldError> {
-        let three = Fp2E::from(3_u64);
         let a0_sq = a[0].square();
         let a1_sq = a[1].square();
         let a2_sq = a[2].square();
         let a0_cube = &a0_sq * &a[0];
         let a1_cube = &a1_sq * &a[1];
         let a2_cube = &a2_sq * &a[2];
-        // residue = (1+u), residue² = 2u
-        let residue_sq = Fp2E::new([FieldElement::zero(), FieldElement::from(2_u64)]);
+
+        // 3 * a0 * a1 * (1+u) * a2 using addition chain: 3x = 2x + x
+        let a0_a1_a2_nr = &a[0] * &a[1] * mul_fp2_by_nonresidue(&a[2]);
+        let three_a0_a1_a2_nr = a0_a1_a2_nr.double() + a0_a1_a2_nr;
+
         let d = a0_cube
             + mul_fp2_by_nonresidue(&a1_cube)
-            + &a2_cube * &residue_sq
-            - three * &a[0] * &a[1] * mul_fp2_by_nonresidue(&a[2]);
+            + mul_fp2_by_residue_squared(&a2_cube)
+            - three_a0_a1_a2_nr;
         let inv = d.inv()?;
         Ok([
             (&a0_sq - mul_fp2_by_nonresidue(&(&a[1] * &a[2]))) * &inv,
@@ -602,6 +604,15 @@ pub fn mul_fp2_by_nonresidue(a: &Fp2E) -> Fp2E {
     let c1 = &a.value()[0] + &a.value()[1]; // c1 + c0
 
     Fp2E::new([c0, c1])
+}
+
+/// Multiply Fp2 element by residue² = (1+u)² = 2u
+/// For x = (x0, x1) = x0 + x1*u with u² = -1:
+/// x * 2u = 2*x0*u + 2*x1*u² = -2*x1 + 2*x0*u = (-2*x1, 2*x0)
+#[inline]
+pub fn mul_fp2_by_residue_squared(a: &Fp2E) -> Fp2E {
+    let [a0, a1] = a.value();
+    Fp2E::new([-a1.double(), a0.double()])
 }
 #[cfg(test)]
 mod tests {

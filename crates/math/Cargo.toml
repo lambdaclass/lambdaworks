@@ -110,6 +110,3 @@ harness = false
 
 [[example]]
 name = "profile_pairing"
-
-[[example]]
-name = "profile_ark_pairing"

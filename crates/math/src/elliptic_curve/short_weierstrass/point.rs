@@ -344,14 +344,15 @@ impl<E: IsShortWeierstrass> IsGroup for ShortWeierstrassProjectivePoint<E> {
             // Fall back to default double-and-add with projective coordinates
             let mut result = Self::neutral_element();
             let mut base = self.clone();
-            while exponent != zero {
+            loop {
                 if exponent & one == one {
                     result = result.operate_with(&base);
                 }
                 exponent >>= 1;
-                if exponent != zero {
-                    base = base.double();
+                if exponent == zero {
+                    break;
                 }
+                base = base.double();
             }
             return result;
         }
