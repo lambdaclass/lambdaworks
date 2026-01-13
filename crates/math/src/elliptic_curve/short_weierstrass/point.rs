@@ -915,6 +915,161 @@ impl<E: IsShortWeierstrass> IsGroup for ShortWeierstrassJacobianPoint<E> {
     }
 }
 
+impl<E> ShortWeierstrassJacobianPoint<E>
+where
+    E: IsShortWeierstrass,
+    FieldElement<E::BaseField>: ByteConversion,
+{
+    /// Serialize the point in the given format.
+    /// For Jacobian points, we convert to affine coordinates (x/z^2, y/z^3) for serialization.
+    #[cfg(feature = "alloc")]
+    pub fn serialize(&self, point_format: PointFormat, endianness: Endianness) -> alloc::vec::Vec<u8> {
+        let mut bytes: alloc::vec::Vec<u8> = alloc::vec::Vec::new();
+        let x_bytes;
+        let y_bytes;
+        let z_bytes;
+        match point_format {
+            PointFormat::Projective => {
+                // For "projective" format, serialize the raw Jacobian coordinates [x, y, z]
+                let [x, y, z] = self.coordinates();
+                if endianness == Endianness::BigEndian {
+                    x_bytes = x.to_bytes_be();
+                    y_bytes = y.to_bytes_be();
+                    z_bytes = z.to_bytes_be();
+                } else {
+                    x_bytes = x.to_bytes_le();
+                    y_bytes = y.to_bytes_le();
+                    z_bytes = z.to_bytes_le();
+                }
+                bytes.extend(&x_bytes);
+                bytes.extend(&y_bytes);
+                bytes.extend(&z_bytes);
+            }
+            PointFormat::Uncompressed => {
+                // Convert to affine: x_affine = x/z^2, y_affine = y/z^3
+                let affine_representation = self.to_affine();
+                let [x, y, _z] = affine_representation.coordinates();
+                if endianness == Endianness::BigEndian {
+                    x_bytes = x.to_bytes_be();
+                    y_bytes = y.to_bytes_be();
+                } else {
+                    x_bytes = x.to_bytes_le();
+                    y_bytes = y.to_bytes_le();
+                }
+                bytes.extend(&x_bytes);
+                bytes.extend(&y_bytes);
+            }
+        }
+        bytes
+    }
+
+    pub fn deserialize(
+        bytes: &[u8],
+        point_format: PointFormat,
+        endianness: Endianness,
+    ) -> Result<Self, DeserializationError> {
+        match point_format {
+            PointFormat::Projective => {
+                // Deserialize raw Jacobian coordinates [x, y, z]
+                if !bytes.len().is_multiple_of(3) {
+                    return Err(DeserializationError::InvalidAmountOfBytes);
+                }
+
+                let len = bytes.len() / 3;
+                let x: FieldElement<E::BaseField>;
+                let y: FieldElement<E::BaseField>;
+                let z: FieldElement<E::BaseField>;
+
+                if endianness == Endianness::BigEndian {
+                    x = ByteConversion::from_bytes_be(&bytes[..len])?;
+                    y = ByteConversion::from_bytes_be(&bytes[len..len * 2])?;
+                    z = ByteConversion::from_bytes_be(&bytes[len * 2..])?;
+                } else {
+                    x = ByteConversion::from_bytes_le(&bytes[..len])?;
+                    y = ByteConversion::from_bytes_le(&bytes[len..len * 2])?;
+                    z = ByteConversion::from_bytes_le(&bytes[len * 2..])?;
+                }
+
+                // Check if it's the point at infinity
+                if z == FieldElement::zero() {
+                    let point = Self::new([x, y, z])
+                        .map_err(|_| DeserializationError::FieldFromBytesError)?;
+                    return if point.is_neutral_element() {
+                        Ok(point)
+                    } else {
+                        Err(DeserializationError::FieldFromBytesError)
+                    };
+                }
+
+                // Verify point is on curve: check defining_equation_jacobian
+                if E::defining_equation_jacobian(&x, &y, &z) == FieldElement::zero() {
+                    Self::new([x, y, z]).map_err(|_| DeserializationError::FieldFromBytesError)
+                } else {
+                    Err(DeserializationError::FieldFromBytesError)
+                }
+            }
+            PointFormat::Uncompressed => {
+                // Deserialize affine coordinates [x, y] and create Jacobian point with z=1
+                if !bytes.len().is_multiple_of(2) {
+                    return Err(DeserializationError::InvalidAmountOfBytes);
+                }
+
+                let len = bytes.len() / 2;
+                let x: FieldElement<E::BaseField>;
+                let y: FieldElement<E::BaseField>;
+
+                if endianness == Endianness::BigEndian {
+                    x = ByteConversion::from_bytes_be(&bytes[..len])?;
+                    y = ByteConversion::from_bytes_be(&bytes[len..])?;
+                } else {
+                    x = ByteConversion::from_bytes_le(&bytes[..len])?;
+                    y = ByteConversion::from_bytes_le(&bytes[len..])?;
+                }
+
+                let z = FieldElement::<E::BaseField>::one();
+                let point =
+                    Self::new([x, y, z]).map_err(|_| DeserializationError::FieldFromBytesError)?;
+                Ok(point)
+            }
+        }
+    }
+}
+
+#[cfg(feature = "alloc")]
+impl<E> AsBytes for ShortWeierstrassJacobianPoint<E>
+where
+    E: IsShortWeierstrass,
+    FieldElement<E::BaseField>: ByteConversion,
+{
+    fn as_bytes(&self) -> alloc::vec::Vec<u8> {
+        self.serialize(PointFormat::Projective, Endianness::LittleEndian)
+    }
+}
+
+#[cfg(feature = "alloc")]
+impl<E> From<ShortWeierstrassJacobianPoint<E>> for alloc::vec::Vec<u8>
+where
+    E: IsShortWeierstrass,
+    FieldElement<E::BaseField>: ByteConversion,
+{
+    fn from(value: ShortWeierstrassJacobianPoint<E>) -> Self {
+        value.as_bytes()
+    }
+}
+
+impl<E> Deserializable for ShortWeierstrassJacobianPoint<E>
+where
+    E: IsShortWeierstrass,
+    FieldElement<E::BaseField>: ByteConversion,
+{
+    fn deserialize(bytes: &[u8]) -> Result<Self, DeserializationError>
+    where
+        Self: Sized,
+    {
+        Self::deserialize(bytes, PointFormat::Projective, Endianness::LittleEndian)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -934,6 +1089,7 @@ mod tests {
     type FEE = FieldElement<BLS12381PrimeField>;
 
     #[cfg(feature = "alloc")]
+    #[allow(dead_code)]
     fn point() -> ShortWeierstrassJacobianPoint<BLS12381Curve> {
         let x = FEE::new_base("36bb494facde72d0da5c770c4b16d9b2d45cfdc27604a25a1a80b020798e5b0dbd4c6d939a8f8820f042a29ce552ee5");
         let y = FEE::new_base("7acf6e49cc000ff53b06ee1d27056734019c0a1edfa16684da41ebb0c56750f73bc1b0eae4c6c241808a5e485af0ba0");

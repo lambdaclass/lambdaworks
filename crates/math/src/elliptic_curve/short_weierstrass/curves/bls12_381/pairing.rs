@@ -1,3 +1,4 @@
+use alloc::vec::Vec;
 use super::{
     curve::BLS12381Curve,
     field_extension::{
@@ -353,7 +354,6 @@ fn double_accumulate_line(
 ) {
     let [x1, y1, z1] = t.coordinates();
     let [px, py, _] = p.coordinates();
-    let residue = LevelTwoResidue::residue();
     let two_inv = FieldElement::<Degree2ExtensionField>::new_base("d0088f51cbff34d258dd3db21a5d66bb23ba5c279c2895fb39869507b587b120f55ffff58a9ffffdcff7fffffffd556");
 
     let a = &two_inv * x1 * y1;
@@ -378,27 +378,37 @@ fn double_accumulate_line(
     // SAFETY: The values `x_3, y_3, z_3` are computed correctly to be on the curve.
     t.set_unchecked([x3, y3, z3]);
 
+    // Sparse Fp12 multiplication: accumulator² * line_evaluation
     // (a0 + a2w2 + a4w4 + a1w + a3w3 + a5w5) * (b0 + b2 w2 + b3 w3) =
     // (a0b0 + r (a3b3 + a4b2)) w0 + (a1b0 + r (a4b3 + a5b2)) w
     // (a2b0 + r  a5b3 + a0b2 ) w2 + (a3b0 + a0b3 + a1b2    ) w3
     // (a4b0 +    a1b3 + a2b2 ) w4 + (a5b0 + a2b3 + a3b2    ) w5
+    // where r = (1+u) is the quadratic non-residue
     let accumulator_sq = accumulator.square();
     let [x, y] = accumulator_sq.value();
     let [a0, a2, a4] = x.value();
     let [a1, a3, a5] = y.value();
     let b0 = e - b;
-    let b2 = FieldElement::new([x1_sq_30 * px, x1_sq_31 * px]);
-    let b3 = FieldElement::<Degree2ExtensionField>::new([-h0 * py, -h1 * py]);
-    *accumulator = FieldElement::new([
-        FieldElement::new([
-            a0 * &b0 + &residue * (a3 * &b3 + a4 * &b2), // w0
-            a2 * &b0 + &residue * a5 * &b3 + a0 * &b2,   // w2
-            a4 * &b0 + a1 * &b3 + a2 * &b2,              // w4
+    let b2 = Fp2E::new([x1_sq_30 * px, x1_sq_31 * px]);
+    let b3 = Fp2E::new([-h0 * py, -h1 * py]);
+
+    // Use mul_fp2_by_nonresidue instead of full Fp2 multiplication by residue
+    let a3b3 = a3 * &b3;
+    let a4b2 = a4 * &b2;
+    let a5b3 = a5 * &b3;
+    let a4b3 = a4 * &b3;
+    let a5b2 = a5 * &b2;
+
+    *accumulator = Fp12E::new([
+        Fp6E::new([
+            a0 * &b0 + mul_fp2_by_nonresidue(&(&a3b3 + &a4b2)), // w0
+            a2 * &b0 + mul_fp2_by_nonresidue(&a5b3) + a0 * &b2, // w2
+            a4 * &b0 + a1 * &b3 + a2 * &b2,                     // w4
         ]),
-        FieldElement::new([
-            a1 * &b0 + &residue * (a4 * &b3 + a5 * &b2), // w1
-            a3 * &b0 + a0 * &b3 + a1 * &b2,              // w3
-            a5 * &b0 + a2 * &b3 + a3 * &b2,              // w5
+        Fp6E::new([
+            a1 * &b0 + mul_fp2_by_nonresidue(&(&a4b3 + &a5b2)), // w1
+            a3 * &b0 + a0 * &b3 + a1 * &b2,                     // w3
+            a5 * &b0 + a2 * &b3 + a3 * &b2,                     // w5
         ]),
     ]);
 }
@@ -412,7 +422,6 @@ fn add_accumulate_line(
     let [x1, y1, z1] = t.coordinates();
     let [x2, y2, _] = q.coordinates();
     let [px, py, _] = p.coordinates();
-    let residue = LevelTwoResidue::residue();
 
     let a = y2 * z1;
     let b = x2 * z1;
@@ -436,22 +445,31 @@ fn add_accumulate_line(
     let [lambda0, lambda1] = lambda.value();
     let [theta0, theta1] = theta.value();
 
+    // Sparse Fp12 multiplication: accumulator * line_evaluation
     let [x, y] = accumulator.value();
     let [a0, a2, a4] = x.value();
     let [a1, a3, a5] = y.value();
     let b0 = -lambda.clone() * y2 + theta.clone() * x2;
-    let b2 = FieldElement::new([-theta0 * px, -theta1 * px]);
-    let b3 = FieldElement::<Degree2ExtensionField>::new([lambda0 * py, lambda1 * py]);
-    *accumulator = FieldElement::new([
-        FieldElement::new([
-            a0 * &b0 + &residue * (a3 * &b3 + a4 * &b2), // w0
-            a2 * &b0 + &residue * a5 * &b3 + a0 * &b2,   // w2
-            a4 * &b0 + a1 * &b3 + a2 * &b2,              // w4
+    let b2 = Fp2E::new([-theta0 * px, -theta1 * px]);
+    let b3 = Fp2E::new([lambda0 * py, lambda1 * py]);
+
+    // Use mul_fp2_by_nonresidue instead of full Fp2 multiplication by residue
+    let a3b3 = a3 * &b3;
+    let a4b2 = a4 * &b2;
+    let a5b3 = a5 * &b3;
+    let a4b3 = a4 * &b3;
+    let a5b2 = a5 * &b2;
+
+    *accumulator = Fp12E::new([
+        Fp6E::new([
+            a0 * &b0 + mul_fp2_by_nonresidue(&(&a3b3 + &a4b2)), // w0
+            a2 * &b0 + mul_fp2_by_nonresidue(&a5b3) + a0 * &b2, // w2
+            a4 * &b0 + a1 * &b3 + a2 * &b2,                     // w4
         ]),
-        FieldElement::new([
-            a1 * &b0 + &residue * (a4 * &b3 + a5 * &b2), // w1
-            a3 * &b0 + a0 * &b3 + a1 * &b2,              // w3
-            a5 * &b0 + a2 * &b3 + a3 * &b2,              // w5
+        Fp6E::new([
+            a1 * &b0 + mul_fp2_by_nonresidue(&(&a4b3 + &a5b2)), // w1
+            a3 * &b0 + a0 * &b3 + a1 * &b2,                     // w3
+            a5 * &b0 + a2 * &b3 + a3 * &b2,                     // w5
         ]),
     ]);
 }
@@ -466,18 +484,18 @@ pub fn final_exponentiation(f: &Fp12E) -> Fp12E {
     let mut f_easy = frobenius_square(&f_easy_aux) * &f_easy_aux;
 
     let mut v2 = cyclotomic_square(&f_easy); // v2 = f²
-    let mut v0 = cyclotomic_pow_x(&f_easy).conjugate(); //  v0 = f^x
+    let mut v0 = cyclotomic_pow_x_compressed(&f_easy).conjugate(); //  v0 = f^x
     let mut v1 = f_easy.conjugate(); // v1 = f^-1
 
     //  (x−1)²
     v0 *= v1; // v0 = f^(x-1)
-    v1 = cyclotomic_pow_x(&v0).conjugate(); // v1 = (f^(x-1))^(x)
+    v1 = cyclotomic_pow_x_compressed(&v0).conjugate(); // v1 = (f^(x-1))^(x)
 
     v0 = v0.conjugate(); // v0 = (f^(x-1))^(-1)
     v0 *= &v1; // v0 = (f^(x-1))^(-1) * (f^(x-1))^x = (f^(x-1))^(x-1) =  f^((x-1)²)
 
     // (x+p)
-    v1 = cyclotomic_pow_x(&v0).conjugate(); // v1 = f^((x-1)².x)
+    v1 = cyclotomic_pow_x_compressed(&v0).conjugate(); // v1 = f^((x-1)².x)
     v0 = frobenius(&v0); // f^((x-1)².p)
     v0 *= &v1; // f^((x-1)².p + (x-1)².x) = f^((x-1)².(x+p))
 
@@ -485,8 +503,8 @@ pub fn final_exponentiation(f: &Fp12E) -> Fp12E {
     f_easy *= v2; // f^3
 
     // (x²+p²−1)
-    v2 = cyclotomic_pow_x(&v0).conjugate();
-    v1 = cyclotomic_pow_x(&v2).conjugate(); // v1 = f^((x-1)².(x+p).x²)
+    v2 = cyclotomic_pow_x_compressed(&v0).conjugate();
+    v1 = cyclotomic_pow_x_compressed(&v2).conjugate(); // v1 = f^((x-1)².(x+p).x²)
     v2 = frobenius_square(&v0); // v2 = f^((x-1)².(x+p).p²)
     v0 = v0.conjugate(); // v0 = f^((x-1)².(x+p).-1)
     v0 *= &v1; // v0 = f^((x-1)².(x+p).(x²-1))
@@ -597,6 +615,209 @@ pub fn cyclotomic_pow_x(f: &Fp12E) -> Fp12E {
     });
     result
 }
+
+////////////////// KARABINA COMPRESSION //////////////////
+// Karabina's compressed representation for cyclotomic subgroup elements
+// Based on "Squaring in Cyclotomic Subgroups" https://eprint.iacr.org/2010/542
+//
+// An Fp12 element f has 6 Fp2 coefficients: (g0, g1, g2, g3, g4, g5)
+// where f = (g0 + g1*v + g2*v²) + (g3 + g4*v + g5*v²)*w
+//
+// Compressed form stores only (g1, g2, g3, g5) - 4 Fp2 elements
+// g0 and g4 can be recovered using cyclotomic subgroup constraints
+
+/// Compressed representation of cyclotomic subgroup element
+/// Stores (g1, g2, g3, g5) - skipping g0 and g4
+#[derive(Clone, Debug)]
+pub struct CompressedCyclotomic {
+    pub g1: Fp2E,
+    pub g2: Fp2E,
+    pub g3: Fp2E,
+    pub g5: Fp2E,
+}
+
+impl CompressedCyclotomic {
+    /// Compress an Fp12 cyclotomic element to 4 Fp2 elements
+    pub fn compress(f: &Fp12E) -> Self {
+        let [c0, c1] = f.value();
+        let [g0, g1, g2] = c0.value();
+        let [g3, g4, g5] = c1.value();
+        let _ = (g0, g4); // These are recoverable
+        Self {
+            g1: g1.clone(),
+            g2: g2.clone(),
+            g3: g3.clone(),
+            g5: g5.clone(),
+        }
+    }
+
+    /// Decompress to full Fp12 element
+    /// Uses the cyclotomic constraint to recover g0 and g4
+    pub fn decompress(&self) -> Fp12E {
+        let g1 = &self.g1;
+        let g2 = &self.g2;
+        let g3 = &self.g3;
+        let g5 = &self.g5;
+
+        // E = non-residue (1 + u) in Fp2
+        // Recover g4:
+        // If g3 ≠ 0: g4 = (E * g5² + 3 * g1² - 2 * g2) / (4 * g3)
+        // If g3 = 0: g4 = (2 * g1 * g5) / g2
+        let g4 = if *g3 != Fp2E::zero() {
+            let g5_sq = g5.square();
+            let g1_sq = g1.square();
+            // E * g5² where E = (1+u)
+            let e_g5_sq = mul_fp2_by_nonresidue(&g5_sq);
+            // 3 * g1²
+            let three_g1_sq = &g1_sq + &g1_sq + &g1_sq;
+            // 2 * g2
+            let two_g2 = g2.double();
+            // numerator = E * g5² + 3 * g1² - 2 * g2
+            let num = &e_g5_sq + &three_g1_sq - &two_g2;
+            // denominator = 4 * g3
+            let four_g3 = g3.double().double();
+            &num * four_g3.inv().unwrap()
+        } else if *g2 != Fp2E::zero() {
+            // g4 = 2 * g1 * g5 / g2
+            let two_g1_g5 = (g1 * g5).double();
+            &two_g1_g5 * g2.inv().unwrap()
+        } else {
+            // Special case: return identity's g4 component
+            Fp2E::zero()
+        };
+
+        // Recover g0:
+        // g0 = E * (2 * g4² + g3 * g5 - 3 * g2 * g1) + 1
+        let g4_sq = g4.square();
+        let two_g4_sq = g4_sq.double();
+        let g3_g5 = g3 * g5;
+        let g2_g1 = g2 * g1;
+        let three_g2_g1 = &g2_g1 + &g2_g1 + &g2_g1;
+        let inner = &two_g4_sq + &g3_g5 - &three_g2_g1;
+        let g0 = mul_fp2_by_nonresidue(&inner) + Fp2E::one();
+
+        Fp12E::new([
+            Fp6E::new([g0, g1.clone(), g2.clone()]),
+            Fp6E::new([g3.clone(), g4, g5.clone()]),
+        ])
+    }
+
+    /// Square in compressed form (Karabina's algorithm)
+    /// Computes squared representation without computing g0, g4
+    ///
+    /// From the cyclotomic_square formulas with Fp4 squares:
+    /// - v0 = Fp4(g0, g4).square() = [g0² + α*g4², 2*g0*g4]
+    /// - v1 = Fp4(g3, g2).square() = [g3² + α*g2², 2*g3*g2]
+    /// - v2 = Fp4(g1, g5).square() = [g1² + α*g5², 2*g1*g5]
+    ///
+    /// Output formulas:
+    /// - g0' = 3*v0[0] - 2*g0  (needs g0, g4 - SKIP)
+    /// - g1' = 3*v1[0] - 2*g1  (only needs g3, g2, g1) ✓
+    /// - g2' = 3*v2[0] - 2*g2  (only needs g1, g5, g2) ✓
+    /// - g3' = 3*α*v2[1] + 2*g3  (only needs g1, g5, g3) ✓
+    /// - g4' = 3*v0[1] + 2*g4  (needs g0, g4 - SKIP)
+    /// - g5' = 3*v1[1] + 2*g5  (only needs g3, g2, g5) ✓
+    pub fn square(&self) -> Self {
+        let g1 = &self.g1;
+        let g2 = &self.g2;
+        let g3 = &self.g3;
+        let g5 = &self.g5;
+
+        // Compute the Fp4 squares we need (only v1 and v2)
+        // v1 = Fp4(g3, g2).square() = [g3² + α*g2², 2*g3*g2]
+        let v1 = Fp4E::new([g3.clone(), g2.clone()]).square();
+        let [v1_0, v1_1] = v1.value();
+
+        // v2 = Fp4(g1, g5).square() = [g1² + α*g5², 2*g1*g5]
+        let v2 = Fp4E::new([g1.clone(), g5.clone()]).square();
+        let [v2_0, v2_1] = v2.value();
+
+        // g1' = 3*v1[0] - 2*g1
+        let mut h1 = v1_0 - g1;
+        h1 = h1.double();
+        h1 = &h1 + v1_0;
+
+        // g2' = 3*v2[0] - 2*g2
+        let mut h2 = v2_0 - g2;
+        h2 = h2.double();
+        h2 = &h2 + v2_0;
+
+        // g3' = 3*α*v2[1] + 2*g3
+        // Note: v2[1] = 2*g1*g5, so α*v2[1] = mul_fp2_by_nonresidue(2*g1*g5)
+        let alpha_v2_1 = mul_fp2_by_nonresidue(v2_1);
+        let mut h3 = &alpha_v2_1 + g3;
+        h3 = h3.double();
+        h3 = &h3 + &alpha_v2_1;
+
+        // g5' = 3*v1[1] + 2*g5
+        // Note: v1[1] = 2*g3*g2
+        let mut h5 = v1_1 + g5;
+        h5 = h5.double();
+        h5 = &h5 + v1_1;
+
+        Self {
+            g1: h1,
+            g2: h2,
+            g3: h3,
+            g5: h5,
+        }
+    }
+
+    /// Multiply compressed element by full Fp12 element, returning full Fp12
+    pub fn mul_by_fp12(&self, other: &Fp12E) -> Fp12E {
+        self.decompress() * other
+    }
+}
+
+/// Optimized cyclotomic_pow_x using Karabina compression
+/// Does squarings in compressed form, decompresses only when multiplication needed
+///
+/// For X = 0xd201000000010000, the benefit comes from:
+/// - 64 squarings total, only 6 multiplications
+/// - Many consecutive squarings can stay in compressed form
+pub fn cyclotomic_pow_x_compressed(f: &Fp12E) -> Fp12E {
+    let mut result = Fp12E::one();
+
+    // Track consecutive squarings to batch them in compressed form
+    let mut squares_pending = 0u32;
+
+    for &bit in X_BINARY.iter() {
+        squares_pending += 1;
+
+        if bit {
+            // Apply pending squarings in compressed form, then decompress and multiply
+            result = apply_compressed_squares(&result, squares_pending);
+            squares_pending = 0;
+            result = &result * f;
+        }
+    }
+
+    // Apply any remaining squarings
+    if squares_pending > 0 {
+        result = apply_compressed_squares(&result, squares_pending);
+    }
+
+    result
+}
+
+/// Apply n squarings using compressed form
+/// Compress → n squares → decompress
+fn apply_compressed_squares(f: &Fp12E, n: u32) -> Fp12E {
+    if n == 0 {
+        return f.clone();
+    }
+    if n == 1 {
+        // For single square, regular cyclotomic_square might be faster
+        return cyclotomic_square(f);
+    }
+
+    let mut compressed = CompressedCyclotomic::compress(f);
+    for _ in 0..n {
+        compressed = compressed.square();
+    }
+    compressed.decompress()
+}
+
 #[cfg(test)]
 mod tests {
     use crate::{
@@ -701,6 +922,52 @@ mod tests {
         let f_easy_aux = f.conjugate() * f.inv().unwrap(); // f ^ (p^6 - 1) because f^(p^6) = f.conjugate().
         let f_easy = &frobenius_square(&f_easy_aux) * f_easy_aux; // (f^{p^6 - 1})^(p^2) * (f^{p^6 - 1}).
         assert_eq!(cyclotomic_pow_x(&f_easy), f_easy.pow(X));
+    }
+
+    #[test]
+    fn karabina_compress_decompress_roundtrip() {
+        let p = BLS12381Curve::generator();
+        let q = BLS12381TwistCurve::generator();
+        let f = miller(&q, &p);
+        // Get element in cyclotomic subgroup
+        let f_easy_aux = f.conjugate() * f.inv().unwrap();
+        let f_easy = &frobenius_square(&f_easy_aux) * f_easy_aux;
+
+        let compressed = CompressedCyclotomic::compress(&f_easy);
+        let decompressed = compressed.decompress();
+        assert_eq!(f_easy, decompressed);
+    }
+
+    #[test]
+    fn karabina_compressed_square_equals_cyclotomic_square() {
+        let p = BLS12381Curve::generator();
+        let q = BLS12381TwistCurve::generator();
+        let f = miller(&q, &p);
+        let f_easy_aux = f.conjugate() * f.inv().unwrap();
+        let f_easy = &frobenius_square(&f_easy_aux) * f_easy_aux;
+
+        // Normal cyclotomic square
+        let normal_sq = cyclotomic_square(&f_easy);
+
+        // Compressed square: compress -> square -> decompress
+        let compressed = CompressedCyclotomic::compress(&f_easy);
+        let compressed_sq = compressed.square();
+        let decompressed_sq = compressed_sq.decompress();
+
+        assert_eq!(normal_sq, decompressed_sq);
+    }
+
+    #[test]
+    fn cyclotomic_pow_x_compressed_equals_original() {
+        let p = BLS12381Curve::generator();
+        let q = BLS12381TwistCurve::generator();
+        let f = miller(&q, &p);
+        let f_easy_aux = f.conjugate() * f.inv().unwrap();
+        let f_easy = &frobenius_square(&f_easy_aux) * f_easy_aux;
+
+        let original = cyclotomic_pow_x(&f_easy);
+        let compressed = cyclotomic_pow_x_compressed(&f_easy);
+        assert_eq!(original, compressed);
     }
 
     #[test]
