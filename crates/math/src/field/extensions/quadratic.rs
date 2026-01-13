@@ -94,11 +94,17 @@ where
         [&a0b0 + &a1b1 * q, z - a0b0 - a1b1]
     }
 
+    /// Optimized squaring using the formula:
+    /// (a0 + a1*t)² = a0² + a1²*q + 2*a0*a1*t
+    /// where q = Q::residue()
     #[inline]
     fn square(a: &[FieldElement<F>; 2]) -> [FieldElement<F>; 2] {
         let [a0, a1] = a;
+        let q = Q::residue();
+        // c0 = a0² + q * a1²
+        let c0 = a0.square() + q * a1.square();
+        // c1 = 2 * a0 * a1
         let v0 = a0 * a1;
-        let c0 = (a0 + a1) * (a0 + Q::residue() * a1) - &v0 - Q::residue() * &v0;
         let c1 = &v0 + &v0;
         [c0, c1]
     }

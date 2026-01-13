@@ -66,21 +66,49 @@ where
         [&a[0] + &b[0], &a[1] + &b[1], &a[2] + &b[2]]
     }
 
-    /// Returns the multiplication of `a` and `b` using the following
-    /// equation:
-    /// (a0 + a1 * t) * (b0 + b1 * t) = a0 * b0 + a1 * b1 * Q::residue() + (a0 * b1 + a1 * b0) * t
-    /// where `t.pow(2)` equals `Q::residue()`.
+    /// Returns the multiplication of `a` and `b` using Karatsuba-style formula.
+    /// (a0 + a1*v + a2*v²) * (b0 + b1*v + b2*v²) where v³ = Q::residue()
     #[inline]
     fn mul(a: &[FieldElement<F>; 3], b: &[FieldElement<F>; 3]) -> [FieldElement<F>; 3] {
         let v0 = &a[0] * &b[0];
         let v1 = &a[1] * &b[1];
         let v2 = &a[2] * &b[2];
+        let q = Q::residue();
 
         [
-            &v0 + Q::residue() * ((&a[1] + &a[2]) * (&b[1] + &b[2]) - &v1 - &v2),
-            (&a[0] + &a[1]) * (&b[0] + &b[1]) - &v0 - &v1 + Q::residue() * &v2,
+            &v0 + &q * ((&a[1] + &a[2]) * (&b[1] + &b[2]) - &v1 - &v2),
+            (&a[0] + &a[1]) * (&b[0] + &b[1]) - &v0 - &v1 + &q * &v2,
             (&a[0] + &a[2]) * (&b[0] + &b[2]) - v0 + v1 - v2,
         ]
+    }
+
+    /// Optimized squaring using Chung-Hasan SQR2 formula.
+    /// (a0 + a1*v + a2*v²)² where v³ = Q::residue()
+    /// This requires 2 base field squares and 2 base field multiplications
+    /// instead of 6 multiplications from generic mul(a, a).
+    #[inline]
+    fn square(a: &[FieldElement<F>; 3]) -> [FieldElement<F>; 3] {
+        let s0 = a[0].square();
+        let s1 = a[1].square();
+        let s2 = a[2].square();
+        let ab = &a[0] * &a[1];
+        let bc = &a[1] * &a[2];
+        let ac = &a[0] * &a[2];
+        let q = Q::residue();
+
+        // c0 = s0 + q * 2bc
+        let two_bc = &bc + &bc;
+        let c0 = &s0 + &q * &two_bc;
+
+        // c1 = 2ab + q * s2
+        let two_ab = &ab + &ab;
+        let c1 = &two_ab + &q * &s2;
+
+        // c2 = 2ac + s1
+        let two_ac = &ac + &ac;
+        let c2 = two_ac + s1;
+
+        [c0, c1, c2]
     }
 
     /// Returns the component wise subtraction of `a` and `b`
