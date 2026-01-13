@@ -107,3 +107,9 @@ harness = false
 [[bench]]
 name = "comparison_arkworks"
 harness = false
+
+[[example]]
+name = "profile_pairing"
+
+[[example]]
+name = "profile_ark_pairing"

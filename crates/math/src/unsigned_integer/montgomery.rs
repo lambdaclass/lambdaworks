@@ -784,22 +784,14 @@ mod aarch64_asm {
     /// ARM64 inline assembly CIOS for 6 limbs with spare bit optimization
     /// Implements EdMSM Algorithm 2 using true ARM64 inline assembly for 384-bit fields
     ///
-    /// Register allocation strategy for 6 limbs (BLS12-381):
-    /// Due to the high register pressure (6 limbs + operands + temps = ~25 registers),
-    /// we use memory for some operands and load them as needed.
-    ///
-    /// Strategy:
-    /// - t0-t5: Accumulator limbs (kept in registers throughout)
-    /// - a_ptr, b_ptr, q_ptr: Pointers to operand arrays
-    /// - mu: Montgomery constant (kept in register)
-    /// - Operands loaded per-iteration as needed
-    ///
-    /// Key optimizations:
-    /// - Unrolled outer loop for all 6 iterations
-    /// - Inner loops for multiply-accumulate and reduction
-    /// - MUL/UMULH pairs for 64x64->128 multiplication
-    /// - ADDS/ADCS chains for carry propagation
-    /// - Constant-time final reduction using CSEL
+    /// CORRECTED VERSION: Uses proper carry propagation pattern matching 4-limb version.
+    /// The key pattern for (c_out, t[j]) = t[j] + a[j]*b[i] + c_in is:
+    ///   mul lo, aj, bi       // lo = (a[j] * b[i])[63:0]
+    ///   umulh hi, aj, bi     // hi = (a[j] * b[i])[127:64]
+    ///   adds tj, tj, lo      // tj += lo, carry1
+    ///   adcs hi, hi, xzr     // hi += carry1
+    ///   adds tj, tj, c       // tj += c_in, carry2
+    ///   adc c, hi, xzr       // c_out = hi + carry2
     #[inline(always)]
     pub fn cios_6_limbs_asm_optimized(
         a: &[u64; 6],
@@ -809,191 +801,170 @@ mod aarch64_asm {
     ) -> [u64; 6] {
         let mut t = [0u64; 6];
 
-        // For 6 limbs, register pressure is very high.
-        // We implement each iteration with explicit memory loads
-        // to balance register usage while maintaining performance.
-
         unsafe {
             asm!(
                 // ===== ITERATION i=5 (b[5] = LSB) =====
-                // Load b[5]
                 "ldr {bi}, [{b_ptr}, #40]",
 
-                // t += a * b[5]
-                // t[5] += a[5] * b[5]
+                // t[5] += a[5] * b[5] (first multiply, no incoming carry)
                 "ldr {ax}, [{a_ptr}, #40]",
                 "mul {lo}, {ax}, {bi}",
-                "umulh {hi}, {ax}, {bi}",
+                "umulh {c}, {ax}, {bi}",
                 "adds {t5}, {t5}, {lo}",
-                "adc {c}, {hi}, xzr",
+                "adc {c}, {c}, xzr",
 
-                // t[4] += a[4] * b[5] + carry
+                // t[4] += a[4] * b[5] + c
                 "ldr {ax}, [{a_ptr}, #32]",
                 "mul {lo}, {ax}, {bi}",
                 "umulh {hi}, {ax}, {bi}",
                 "adds {t4}, {t4}, {lo}",
-                "adcs {c}, {c}, {hi}",
-                "adc {t_extra}, xzr, xzr",
+                "adcs {hi}, {hi}, xzr",
                 "adds {t4}, {t4}, {c}",
-                "adc {c}, {t_extra}, xzr",
+                "adc {c}, {hi}, xzr",
 
-                // t[3] += a[3] * b[5] + carry
+                // t[3] += a[3] * b[5] + c
                 "ldr {ax}, [{a_ptr}, #24]",
                 "mul {lo}, {ax}, {bi}",
                 "umulh {hi}, {ax}, {bi}",
                 "adds {t3}, {t3}, {lo}",
-                "adcs {c}, {c}, {hi}",
-                "adc {t_extra}, xzr, xzr",
+                "adcs {hi}, {hi}, xzr",
                 "adds {t3}, {t3}, {c}",
-                "adc {c}, {t_extra}, xzr",
+                "adc {c}, {hi}, xzr",
 
-                // t[2] += a[2] * b[5] + carry
+                // t[2] += a[2] * b[5] + c
                 "ldr {ax}, [{a_ptr}, #16]",
                 "mul {lo}, {ax}, {bi}",
                 "umulh {hi}, {ax}, {bi}",
                 "adds {t2}, {t2}, {lo}",
-                "adcs {c}, {c}, {hi}",
-                "adc {t_extra}, xzr, xzr",
+                "adcs {hi}, {hi}, xzr",
                 "adds {t2}, {t2}, {c}",
-                "adc {c}, {t_extra}, xzr",
+                "adc {c}, {hi}, xzr",
 
-                // t[1] += a[1] * b[5] + carry
+                // t[1] += a[1] * b[5] + c
                 "ldr {ax}, [{a_ptr}, #8]",
                 "mul {lo}, {ax}, {bi}",
                 "umulh {hi}, {ax}, {bi}",
                 "adds {t1}, {t1}, {lo}",
-                "adcs {c}, {c}, {hi}",
-                "adc {t_extra}, xzr, xzr",
+                "adcs {hi}, {hi}, xzr",
                 "adds {t1}, {t1}, {c}",
-                "adc {c}, {t_extra}, xzr",
+                "adc {c}, {hi}, xzr",
 
-                // t[0] += a[0] * b[5] + carry
+                // t[0] += a[0] * b[5] + c, t_extra = final overflow
                 "ldr {ax}, [{a_ptr}]",
                 "mul {lo}, {ax}, {bi}",
                 "umulh {hi}, {ax}, {bi}",
                 "adds {t0}, {t0}, {lo}",
-                "adcs {c}, {c}, {hi}",
-                "adc {t_extra}, xzr, xzr",
+                "adcs {hi}, {hi}, xzr",
                 "adds {t0}, {t0}, {c}",
-                "adc {t_extra}, {t_extra}, xzr",
+                "adc {t_extra}, {hi}, xzr",
 
                 // m = t[5] * mu
                 "mul {m}, {t5}, {mu}",
 
                 // Reduction: t = (t + m * q) >> 64
-                // t[5] + m * q[5], discard low, keep carry
+                // First: discard (t[5] + m * q[5]) mod 2^64, keep carry
                 "ldr {qx}, [{q_ptr}, #40]",
                 "mul {lo}, {m}, {qx}",
                 "umulh {c}, {m}, {qx}",
                 "adds {lo}, {t5}, {lo}",
                 "adc {c}, {c}, xzr",
 
-                // t[5] = t[4] + m * q[4] + carry
+                // t[5] = t[4] + m * q[4] + c
                 "ldr {qx}, [{q_ptr}, #32]",
                 "mul {lo}, {m}, {qx}",
                 "umulh {hi}, {m}, {qx}",
                 "adds {t5}, {t4}, {lo}",
-                "adcs {c}, {c}, {hi}",
-                "adc {hi}, xzr, xzr",
+                "adcs {hi}, {hi}, xzr",
                 "adds {t5}, {t5}, {c}",
                 "adc {c}, {hi}, xzr",
 
-                // t[4] = t[3] + m * q[3] + carry
+                // t[4] = t[3] + m * q[3] + c
                 "ldr {qx}, [{q_ptr}, #24]",
                 "mul {lo}, {m}, {qx}",
                 "umulh {hi}, {m}, {qx}",
                 "adds {t4}, {t3}, {lo}",
-                "adcs {c}, {c}, {hi}",
-                "adc {hi}, xzr, xzr",
+                "adcs {hi}, {hi}, xzr",
                 "adds {t4}, {t4}, {c}",
                 "adc {c}, {hi}, xzr",
 
-                // t[3] = t[2] + m * q[2] + carry
+                // t[3] = t[2] + m * q[2] + c
                 "ldr {qx}, [{q_ptr}, #16]",
                 "mul {lo}, {m}, {qx}",
                 "umulh {hi}, {m}, {qx}",
                 "adds {t3}, {t2}, {lo}",
-                "adcs {c}, {c}, {hi}",
-                "adc {hi}, xzr, xzr",
+                "adcs {hi}, {hi}, xzr",
                 "adds {t3}, {t3}, {c}",
                 "adc {c}, {hi}, xzr",
 
-                // t[2] = t[1] + m * q[1] + carry
+                // t[2] = t[1] + m * q[1] + c
                 "ldr {qx}, [{q_ptr}, #8]",
                 "mul {lo}, {m}, {qx}",
                 "umulh {hi}, {m}, {qx}",
                 "adds {t2}, {t1}, {lo}",
-                "adcs {c}, {c}, {hi}",
-                "adc {hi}, xzr, xzr",
+                "adcs {hi}, {hi}, xzr",
                 "adds {t2}, {t2}, {c}",
                 "adc {c}, {hi}, xzr",
 
-                // t[1] = t[0] + m * q[0] + carry
+                // t[1] = t[0] + m * q[0] + c
                 "ldr {qx}, [{q_ptr}]",
                 "mul {lo}, {m}, {qx}",
                 "umulh {hi}, {m}, {qx}",
                 "adds {t1}, {t0}, {lo}",
-                "adcs {c}, {c}, {hi}",
-                "adc {hi}, xzr, xzr",
+                "adcs {hi}, {hi}, xzr",
                 "adds {t1}, {t1}, {c}",
                 "adc {c}, {hi}, xzr",
 
-                // t[0] = t_extra + carry
+                // t[0] = t_extra + c
                 "add {t0}, {t_extra}, {c}",
 
-                // ===== ITERATION i=4 (b[4]) =====
+                // ===== ITERATION i=4 =====
                 "ldr {bi}, [{b_ptr}, #32]",
 
                 "ldr {ax}, [{a_ptr}, #40]",
                 "mul {lo}, {ax}, {bi}",
-                "umulh {hi}, {ax}, {bi}",
+                "umulh {c}, {ax}, {bi}",
                 "adds {t5}, {t5}, {lo}",
-                "adc {c}, {hi}, xzr",
+                "adc {c}, {c}, xzr",
 
                 "ldr {ax}, [{a_ptr}, #32]",
                 "mul {lo}, {ax}, {bi}",
                 "umulh {hi}, {ax}, {bi}",
                 "adds {t4}, {t4}, {lo}",
-                "adcs {c}, {c}, {hi}",
-                "adc {t_extra}, xzr, xzr",
+                "adcs {hi}, {hi}, xzr",
                 "adds {t4}, {t4}, {c}",
-                "adc {c}, {t_extra}, xzr",
+                "adc {c}, {hi}, xzr",
 
                 "ldr {ax}, [{a_ptr}, #24]",
                 "mul {lo}, {ax}, {bi}",
                 "umulh {hi}, {ax}, {bi}",
                 "adds {t3}, {t3}, {lo}",
-                "adcs {c}, {c}, {hi}",
-                "adc {t_extra}, xzr, xzr",
+                "adcs {hi}, {hi}, xzr",
                 "adds {t3}, {t3}, {c}",
-                "adc {c}, {t_extra}, xzr",
+                "adc {c}, {hi}, xzr",
 
                 "ldr {ax}, [{a_ptr}, #16]",
                 "mul {lo}, {ax}, {bi}",
                 "umulh {hi}, {ax}, {bi}",
                 "adds {t2}, {t2}, {lo}",
-                "adcs {c}, {c}, {hi}",
-                "adc {t_extra}, xzr, xzr",
+                "adcs {hi}, {hi}, xzr",
                 "adds {t2}, {t2}, {c}",
-                "adc {c}, {t_extra}, xzr",
+                "adc {c}, {hi}, xzr",
 
                 "ldr {ax}, [{a_ptr}, #8]",
                 "mul {lo}, {ax}, {bi}",
                 "umulh {hi}, {ax}, {bi}",
                 "adds {t1}, {t1}, {lo}",
-                "adcs {c}, {c}, {hi}",
-                "adc {t_extra}, xzr, xzr",
+                "adcs {hi}, {hi}, xzr",
                 "adds {t1}, {t1}, {c}",
-                "adc {c}, {t_extra}, xzr",
+                "adc {c}, {hi}, xzr",
 
                 "ldr {ax}, [{a_ptr}]",
                 "mul {lo}, {ax}, {bi}",
                 "umulh {hi}, {ax}, {bi}",
                 "adds {t0}, {t0}, {lo}",
-                "adcs {c}, {c}, {hi}",
-                "adc {t_extra}, xzr, xzr",
+                "adcs {hi}, {hi}, xzr",
                 "adds {t0}, {t0}, {c}",
-                "adc {t_extra}, {t_extra}, xzr",
+                "adc {t_extra}, {hi}, xzr",
 
                 "mul {m}, {t5}, {mu}",
 
@@ -1007,8 +978,7 @@ mod aarch64_asm {
                 "mul {lo}, {m}, {qx}",
                 "umulh {hi}, {m}, {qx}",
                 "adds {t5}, {t4}, {lo}",
-                "adcs {c}, {c}, {hi}",
-                "adc {hi}, xzr, xzr",
+                "adcs {hi}, {hi}, xzr",
                 "adds {t5}, {t5}, {c}",
                 "adc {c}, {hi}, xzr",
 
@@ -1016,8 +986,7 @@ mod aarch64_asm {
                 "mul {lo}, {m}, {qx}",
                 "umulh {hi}, {m}, {qx}",
                 "adds {t4}, {t3}, {lo}",
-                "adcs {c}, {c}, {hi}",
-                "adc {hi}, xzr, xzr",
+                "adcs {hi}, {hi}, xzr",
                 "adds {t4}, {t4}, {c}",
                 "adc {c}, {hi}, xzr",
 
@@ -1025,8 +994,7 @@ mod aarch64_asm {
                 "mul {lo}, {m}, {qx}",
                 "umulh {hi}, {m}, {qx}",
                 "adds {t3}, {t2}, {lo}",
-                "adcs {c}, {c}, {hi}",
-                "adc {hi}, xzr, xzr",
+                "adcs {hi}, {hi}, xzr",
                 "adds {t3}, {t3}, {c}",
                 "adc {c}, {hi}, xzr",
 
@@ -1034,8 +1002,7 @@ mod aarch64_asm {
                 "mul {lo}, {m}, {qx}",
                 "umulh {hi}, {m}, {qx}",
                 "adds {t2}, {t1}, {lo}",
-                "adcs {c}, {c}, {hi}",
-                "adc {hi}, xzr, xzr",
+                "adcs {hi}, {hi}, xzr",
                 "adds {t2}, {t2}, {c}",
                 "adc {c}, {hi}, xzr",
 
@@ -1043,66 +1010,60 @@ mod aarch64_asm {
                 "mul {lo}, {m}, {qx}",
                 "umulh {hi}, {m}, {qx}",
                 "adds {t1}, {t0}, {lo}",
-                "adcs {c}, {c}, {hi}",
-                "adc {hi}, xzr, xzr",
+                "adcs {hi}, {hi}, xzr",
                 "adds {t1}, {t1}, {c}",
                 "adc {c}, {hi}, xzr",
 
                 "add {t0}, {t_extra}, {c}",
 
-                // ===== ITERATION i=3 (b[3]) =====
+                // ===== ITERATION i=3 =====
                 "ldr {bi}, [{b_ptr}, #24]",
 
                 "ldr {ax}, [{a_ptr}, #40]",
                 "mul {lo}, {ax}, {bi}",
-                "umulh {hi}, {ax}, {bi}",
+                "umulh {c}, {ax}, {bi}",
                 "adds {t5}, {t5}, {lo}",
-                "adc {c}, {hi}, xzr",
+                "adc {c}, {c}, xzr",
 
                 "ldr {ax}, [{a_ptr}, #32]",
                 "mul {lo}, {ax}, {bi}",
                 "umulh {hi}, {ax}, {bi}",
                 "adds {t4}, {t4}, {lo}",
-                "adcs {c}, {c}, {hi}",
-                "adc {t_extra}, xzr, xzr",
+                "adcs {hi}, {hi}, xzr",
                 "adds {t4}, {t4}, {c}",
-                "adc {c}, {t_extra}, xzr",
+                "adc {c}, {hi}, xzr",
 
                 "ldr {ax}, [{a_ptr}, #24]",
                 "mul {lo}, {ax}, {bi}",
                 "umulh {hi}, {ax}, {bi}",
                 "adds {t3}, {t3}, {lo}",
-                "adcs {c}, {c}, {hi}",
-                "adc {t_extra}, xzr, xzr",
+                "adcs {hi}, {hi}, xzr",
                 "adds {t3}, {t3}, {c}",
-                "adc {c}, {t_extra}, xzr",
+                "adc {c}, {hi}, xzr",
 
                 "ldr {ax}, [{a_ptr}, #16]",
                 "mul {lo}, {ax}, {bi}",
                 "umulh {hi}, {ax}, {bi}",
                 "adds {t2}, {t2}, {lo}",
-                "adcs {c}, {c}, {hi}",
-                "adc {t_extra}, xzr, xzr",
+                "adcs {hi}, {hi}, xzr",
                 "adds {t2}, {t2}, {c}",
-                "adc {c}, {t_extra}, xzr",
+                "adc {c}, {hi}, xzr",
 
                 "ldr {ax}, [{a_ptr}, #8]",
                 "mul {lo}, {ax}, {bi}",
                 "umulh {hi}, {ax}, {bi}",
                 "adds {t1}, {t1}, {lo}",
-                "adcs {c}, {c}, {hi}",
-                "adc {t_extra}, xzr, xzr",
+                "adcs {hi}, {hi}, xzr",
                 "adds {t1}, {t1}, {c}",
-                "adc {c}, {t_extra}, xzr",
+                "adc {c}, {hi}, xzr",
 
                 "ldr {ax}, [{a_ptr}]",
                 "mul {lo}, {ax}, {bi}",
                 "umulh {hi}, {ax}, {bi}",
                 "adds {t0}, {t0}, {lo}",
-                "adcs {c}, {c}, {hi}",
-                "adc {t_extra}, xzr, xzr",
+                "adcs {hi}, {hi}, xzr",
                 "adds {t0}, {t0}, {c}",
-                "adc {t_extra}, {t_extra}, xzr",
+                "adc {t_extra}, {hi}, xzr",
 
                 "mul {m}, {t5}, {mu}",
 
@@ -1116,8 +1077,7 @@ mod aarch64_asm {
                 "mul {lo}, {m}, {qx}",
                 "umulh {hi}, {m}, {qx}",
                 "adds {t5}, {t4}, {lo}",
-                "adcs {c}, {c}, {hi}",
-                "adc {hi}, xzr, xzr",
+                "adcs {hi}, {hi}, xzr",
                 "adds {t5}, {t5}, {c}",
                 "adc {c}, {hi}, xzr",
 
@@ -1125,8 +1085,7 @@ mod aarch64_asm {
                 "mul {lo}, {m}, {qx}",
                 "umulh {hi}, {m}, {qx}",
                 "adds {t4}, {t3}, {lo}",
-                "adcs {c}, {c}, {hi}",
-                "adc {hi}, xzr, xzr",
+                "adcs {hi}, {hi}, xzr",
                 "adds {t4}, {t4}, {c}",
                 "adc {c}, {hi}, xzr",
 
@@ -1134,8 +1093,7 @@ mod aarch64_asm {
                 "mul {lo}, {m}, {qx}",
                 "umulh {hi}, {m}, {qx}",
                 "adds {t3}, {t2}, {lo}",
-                "adcs {c}, {c}, {hi}",
-                "adc {hi}, xzr, xzr",
+                "adcs {hi}, {hi}, xzr",
                 "adds {t3}, {t3}, {c}",
                 "adc {c}, {hi}, xzr",
 
@@ -1143,8 +1101,7 @@ mod aarch64_asm {
                 "mul {lo}, {m}, {qx}",
                 "umulh {hi}, {m}, {qx}",
                 "adds {t2}, {t1}, {lo}",
-                "adcs {c}, {c}, {hi}",
-                "adc {hi}, xzr, xzr",
+                "adcs {hi}, {hi}, xzr",
                 "adds {t2}, {t2}, {c}",
                 "adc {c}, {hi}, xzr",
 
@@ -1152,66 +1109,60 @@ mod aarch64_asm {
                 "mul {lo}, {m}, {qx}",
                 "umulh {hi}, {m}, {qx}",
                 "adds {t1}, {t0}, {lo}",
-                "adcs {c}, {c}, {hi}",
-                "adc {hi}, xzr, xzr",
+                "adcs {hi}, {hi}, xzr",
                 "adds {t1}, {t1}, {c}",
                 "adc {c}, {hi}, xzr",
 
                 "add {t0}, {t_extra}, {c}",
 
-                // ===== ITERATION i=2 (b[2]) =====
+                // ===== ITERATION i=2 =====
                 "ldr {bi}, [{b_ptr}, #16]",
 
                 "ldr {ax}, [{a_ptr}, #40]",
                 "mul {lo}, {ax}, {bi}",
-                "umulh {hi}, {ax}, {bi}",
+                "umulh {c}, {ax}, {bi}",
                 "adds {t5}, {t5}, {lo}",
-                "adc {c}, {hi}, xzr",
+                "adc {c}, {c}, xzr",
 
                 "ldr {ax}, [{a_ptr}, #32]",
                 "mul {lo}, {ax}, {bi}",
                 "umulh {hi}, {ax}, {bi}",
                 "adds {t4}, {t4}, {lo}",
-                "adcs {c}, {c}, {hi}",
-                "adc {t_extra}, xzr, xzr",
+                "adcs {hi}, {hi}, xzr",
                 "adds {t4}, {t4}, {c}",
-                "adc {c}, {t_extra}, xzr",
+                "adc {c}, {hi}, xzr",
 
                 "ldr {ax}, [{a_ptr}, #24]",
                 "mul {lo}, {ax}, {bi}",
                 "umulh {hi}, {ax}, {bi}",
                 "adds {t3}, {t3}, {lo}",
-                "adcs {c}, {c}, {hi}",
-                "adc {t_extra}, xzr, xzr",
+                "adcs {hi}, {hi}, xzr",
                 "adds {t3}, {t3}, {c}",
-                "adc {c}, {t_extra}, xzr",
+                "adc {c}, {hi}, xzr",
 
                 "ldr {ax}, [{a_ptr}, #16]",
                 "mul {lo}, {ax}, {bi}",
                 "umulh {hi}, {ax}, {bi}",
                 "adds {t2}, {t2}, {lo}",
-                "adcs {c}, {c}, {hi}",
-                "adc {t_extra}, xzr, xzr",
+                "adcs {hi}, {hi}, xzr",
                 "adds {t2}, {t2}, {c}",
-                "adc {c}, {t_extra}, xzr",
+                "adc {c}, {hi}, xzr",
 
                 "ldr {ax}, [{a_ptr}, #8]",
                 "mul {lo}, {ax}, {bi}",
                 "umulh {hi}, {ax}, {bi}",
                 "adds {t1}, {t1}, {lo}",
-                "adcs {c}, {c}, {hi}",
-                "adc {t_extra}, xzr, xzr",
+                "adcs {hi}, {hi}, xzr",
                 "adds {t1}, {t1}, {c}",
-                "adc {c}, {t_extra}, xzr",
+                "adc {c}, {hi}, xzr",
 
                 "ldr {ax}, [{a_ptr}]",
                 "mul {lo}, {ax}, {bi}",
                 "umulh {hi}, {ax}, {bi}",
                 "adds {t0}, {t0}, {lo}",
-                "adcs {c}, {c}, {hi}",
-                "adc {t_extra}, xzr, xzr",
+                "adcs {hi}, {hi}, xzr",
                 "adds {t0}, {t0}, {c}",
-                "adc {t_extra}, {t_extra}, xzr",
+                "adc {t_extra}, {hi}, xzr",
 
                 "mul {m}, {t5}, {mu}",
 
@@ -1225,8 +1176,7 @@ mod aarch64_asm {
                 "mul {lo}, {m}, {qx}",
                 "umulh {hi}, {m}, {qx}",
                 "adds {t5}, {t4}, {lo}",
-                "adcs {c}, {c}, {hi}",
-                "adc {hi}, xzr, xzr",
+                "adcs {hi}, {hi}, xzr",
                 "adds {t5}, {t5}, {c}",
                 "adc {c}, {hi}, xzr",
 
@@ -1234,8 +1184,7 @@ mod aarch64_asm {
                 "mul {lo}, {m}, {qx}",
                 "umulh {hi}, {m}, {qx}",
                 "adds {t4}, {t3}, {lo}",
-                "adcs {c}, {c}, {hi}",
-                "adc {hi}, xzr, xzr",
+                "adcs {hi}, {hi}, xzr",
                 "adds {t4}, {t4}, {c}",
                 "adc {c}, {hi}, xzr",
 
@@ -1243,8 +1192,7 @@ mod aarch64_asm {
                 "mul {lo}, {m}, {qx}",
                 "umulh {hi}, {m}, {qx}",
                 "adds {t3}, {t2}, {lo}",
-                "adcs {c}, {c}, {hi}",
-                "adc {hi}, xzr, xzr",
+                "adcs {hi}, {hi}, xzr",
                 "adds {t3}, {t3}, {c}",
                 "adc {c}, {hi}, xzr",
 
@@ -1252,8 +1200,7 @@ mod aarch64_asm {
                 "mul {lo}, {m}, {qx}",
                 "umulh {hi}, {m}, {qx}",
                 "adds {t2}, {t1}, {lo}",
-                "adcs {c}, {c}, {hi}",
-                "adc {hi}, xzr, xzr",
+                "adcs {hi}, {hi}, xzr",
                 "adds {t2}, {t2}, {c}",
                 "adc {c}, {hi}, xzr",
 
@@ -1261,66 +1208,60 @@ mod aarch64_asm {
                 "mul {lo}, {m}, {qx}",
                 "umulh {hi}, {m}, {qx}",
                 "adds {t1}, {t0}, {lo}",
-                "adcs {c}, {c}, {hi}",
-                "adc {hi}, xzr, xzr",
+                "adcs {hi}, {hi}, xzr",
                 "adds {t1}, {t1}, {c}",
                 "adc {c}, {hi}, xzr",
 
                 "add {t0}, {t_extra}, {c}",
 
-                // ===== ITERATION i=1 (b[1]) =====
+                // ===== ITERATION i=1 =====
                 "ldr {bi}, [{b_ptr}, #8]",
 
                 "ldr {ax}, [{a_ptr}, #40]",
                 "mul {lo}, {ax}, {bi}",
-                "umulh {hi}, {ax}, {bi}",
+                "umulh {c}, {ax}, {bi}",
                 "adds {t5}, {t5}, {lo}",
-                "adc {c}, {hi}, xzr",
+                "adc {c}, {c}, xzr",
 
                 "ldr {ax}, [{a_ptr}, #32]",
                 "mul {lo}, {ax}, {bi}",
                 "umulh {hi}, {ax}, {bi}",
                 "adds {t4}, {t4}, {lo}",
-                "adcs {c}, {c}, {hi}",
-                "adc {t_extra}, xzr, xzr",
+                "adcs {hi}, {hi}, xzr",
                 "adds {t4}, {t4}, {c}",
-                "adc {c}, {t_extra}, xzr",
+                "adc {c}, {hi}, xzr",
 
                 "ldr {ax}, [{a_ptr}, #24]",
                 "mul {lo}, {ax}, {bi}",
                 "umulh {hi}, {ax}, {bi}",
                 "adds {t3}, {t3}, {lo}",
-                "adcs {c}, {c}, {hi}",
-                "adc {t_extra}, xzr, xzr",
+                "adcs {hi}, {hi}, xzr",
                 "adds {t3}, {t3}, {c}",
-                "adc {c}, {t_extra}, xzr",
+                "adc {c}, {hi}, xzr",
 
                 "ldr {ax}, [{a_ptr}, #16]",
                 "mul {lo}, {ax}, {bi}",
                 "umulh {hi}, {ax}, {bi}",
                 "adds {t2}, {t2}, {lo}",
-                "adcs {c}, {c}, {hi}",
-                "adc {t_extra}, xzr, xzr",
+                "adcs {hi}, {hi}, xzr",
                 "adds {t2}, {t2}, {c}",
-                "adc {c}, {t_extra}, xzr",
+                "adc {c}, {hi}, xzr",
 
                 "ldr {ax}, [{a_ptr}, #8]",
                 "mul {lo}, {ax}, {bi}",
                 "umulh {hi}, {ax}, {bi}",
                 "adds {t1}, {t1}, {lo}",
-                "adcs {c}, {c}, {hi}",
-                "adc {t_extra}, xzr, xzr",
+                "adcs {hi}, {hi}, xzr",
                 "adds {t1}, {t1}, {c}",
-                "adc {c}, {t_extra}, xzr",
+                "adc {c}, {hi}, xzr",
 
                 "ldr {ax}, [{a_ptr}]",
                 "mul {lo}, {ax}, {bi}",
                 "umulh {hi}, {ax}, {bi}",
                 "adds {t0}, {t0}, {lo}",
-                "adcs {c}, {c}, {hi}",
-                "adc {t_extra}, xzr, xzr",
+                "adcs {hi}, {hi}, xzr",
                 "adds {t0}, {t0}, {c}",
-                "adc {t_extra}, {t_extra}, xzr",
+                "adc {t_extra}, {hi}, xzr",
 
                 "mul {m}, {t5}, {mu}",
 
@@ -1334,8 +1275,7 @@ mod aarch64_asm {
                 "mul {lo}, {m}, {qx}",
                 "umulh {hi}, {m}, {qx}",
                 "adds {t5}, {t4}, {lo}",
-                "adcs {c}, {c}, {hi}",
-                "adc {hi}, xzr, xzr",
+                "adcs {hi}, {hi}, xzr",
                 "adds {t5}, {t5}, {c}",
                 "adc {c}, {hi}, xzr",
 
@@ -1343,8 +1283,7 @@ mod aarch64_asm {
                 "mul {lo}, {m}, {qx}",
                 "umulh {hi}, {m}, {qx}",
                 "adds {t4}, {t3}, {lo}",
-                "adcs {c}, {c}, {hi}",
-                "adc {hi}, xzr, xzr",
+                "adcs {hi}, {hi}, xzr",
                 "adds {t4}, {t4}, {c}",
                 "adc {c}, {hi}, xzr",
 
@@ -1352,8 +1291,7 @@ mod aarch64_asm {
                 "mul {lo}, {m}, {qx}",
                 "umulh {hi}, {m}, {qx}",
                 "adds {t3}, {t2}, {lo}",
-                "adcs {c}, {c}, {hi}",
-                "adc {hi}, xzr, xzr",
+                "adcs {hi}, {hi}, xzr",
                 "adds {t3}, {t3}, {c}",
                 "adc {c}, {hi}, xzr",
 
@@ -1361,8 +1299,7 @@ mod aarch64_asm {
                 "mul {lo}, {m}, {qx}",
                 "umulh {hi}, {m}, {qx}",
                 "adds {t2}, {t1}, {lo}",
-                "adcs {c}, {c}, {hi}",
-                "adc {hi}, xzr, xzr",
+                "adcs {hi}, {hi}, xzr",
                 "adds {t2}, {t2}, {c}",
                 "adc {c}, {hi}, xzr",
 
@@ -1370,66 +1307,60 @@ mod aarch64_asm {
                 "mul {lo}, {m}, {qx}",
                 "umulh {hi}, {m}, {qx}",
                 "adds {t1}, {t0}, {lo}",
-                "adcs {c}, {c}, {hi}",
-                "adc {hi}, xzr, xzr",
+                "adcs {hi}, {hi}, xzr",
                 "adds {t1}, {t1}, {c}",
                 "adc {c}, {hi}, xzr",
 
                 "add {t0}, {t_extra}, {c}",
 
-                // ===== ITERATION i=0 (b[0] = MSB) =====
+                // ===== ITERATION i=0 (MSB) =====
                 "ldr {bi}, [{b_ptr}]",
 
                 "ldr {ax}, [{a_ptr}, #40]",
                 "mul {lo}, {ax}, {bi}",
-                "umulh {hi}, {ax}, {bi}",
+                "umulh {c}, {ax}, {bi}",
                 "adds {t5}, {t5}, {lo}",
-                "adc {c}, {hi}, xzr",
+                "adc {c}, {c}, xzr",
 
                 "ldr {ax}, [{a_ptr}, #32]",
                 "mul {lo}, {ax}, {bi}",
                 "umulh {hi}, {ax}, {bi}",
                 "adds {t4}, {t4}, {lo}",
-                "adcs {c}, {c}, {hi}",
-                "adc {t_extra}, xzr, xzr",
+                "adcs {hi}, {hi}, xzr",
                 "adds {t4}, {t4}, {c}",
-                "adc {c}, {t_extra}, xzr",
+                "adc {c}, {hi}, xzr",
 
                 "ldr {ax}, [{a_ptr}, #24]",
                 "mul {lo}, {ax}, {bi}",
                 "umulh {hi}, {ax}, {bi}",
                 "adds {t3}, {t3}, {lo}",
-                "adcs {c}, {c}, {hi}",
-                "adc {t_extra}, xzr, xzr",
+                "adcs {hi}, {hi}, xzr",
                 "adds {t3}, {t3}, {c}",
-                "adc {c}, {t_extra}, xzr",
+                "adc {c}, {hi}, xzr",
 
                 "ldr {ax}, [{a_ptr}, #16]",
                 "mul {lo}, {ax}, {bi}",
                 "umulh {hi}, {ax}, {bi}",
                 "adds {t2}, {t2}, {lo}",
-                "adcs {c}, {c}, {hi}",
-                "adc {t_extra}, xzr, xzr",
+                "adcs {hi}, {hi}, xzr",
                 "adds {t2}, {t2}, {c}",
-                "adc {c}, {t_extra}, xzr",
+                "adc {c}, {hi}, xzr",
 
                 "ldr {ax}, [{a_ptr}, #8]",
                 "mul {lo}, {ax}, {bi}",
                 "umulh {hi}, {ax}, {bi}",
                 "adds {t1}, {t1}, {lo}",
-                "adcs {c}, {c}, {hi}",
-                "adc {t_extra}, xzr, xzr",
+                "adcs {hi}, {hi}, xzr",
                 "adds {t1}, {t1}, {c}",
-                "adc {c}, {t_extra}, xzr",
+                "adc {c}, {hi}, xzr",
 
                 "ldr {ax}, [{a_ptr}]",
                 "mul {lo}, {ax}, {bi}",
                 "umulh {hi}, {ax}, {bi}",
                 "adds {t0}, {t0}, {lo}",
-                "adcs {c}, {c}, {hi}",
-                "adc {t_extra}, xzr, xzr",
+                "adcs {hi}, {hi}, xzr",
                 "adds {t0}, {t0}, {c}",
-                "adc {t_extra}, {t_extra}, xzr",
+                "adc {t_extra}, {hi}, xzr",
 
                 "mul {m}, {t5}, {mu}",
 
@@ -1443,8 +1374,7 @@ mod aarch64_asm {
                 "mul {lo}, {m}, {qx}",
                 "umulh {hi}, {m}, {qx}",
                 "adds {t5}, {t4}, {lo}",
-                "adcs {c}, {c}, {hi}",
-                "adc {hi}, xzr, xzr",
+                "adcs {hi}, {hi}, xzr",
                 "adds {t5}, {t5}, {c}",
                 "adc {c}, {hi}, xzr",
 
@@ -1452,8 +1382,7 @@ mod aarch64_asm {
                 "mul {lo}, {m}, {qx}",
                 "umulh {hi}, {m}, {qx}",
                 "adds {t4}, {t3}, {lo}",
-                "adcs {c}, {c}, {hi}",
-                "adc {hi}, xzr, xzr",
+                "adcs {hi}, {hi}, xzr",
                 "adds {t4}, {t4}, {c}",
                 "adc {c}, {hi}, xzr",
 
@@ -1461,8 +1390,7 @@ mod aarch64_asm {
                 "mul {lo}, {m}, {qx}",
                 "umulh {hi}, {m}, {qx}",
                 "adds {t3}, {t2}, {lo}",
-                "adcs {c}, {c}, {hi}",
-                "adc {hi}, xzr, xzr",
+                "adcs {hi}, {hi}, xzr",
                 "adds {t3}, {t3}, {c}",
                 "adc {c}, {hi}, xzr",
 
@@ -1470,8 +1398,7 @@ mod aarch64_asm {
                 "mul {lo}, {m}, {qx}",
                 "umulh {hi}, {m}, {qx}",
                 "adds {t2}, {t1}, {lo}",
-                "adcs {c}, {c}, {hi}",
-                "adc {hi}, xzr, xzr",
+                "adcs {hi}, {hi}, xzr",
                 "adds {t2}, {t2}, {c}",
                 "adc {c}, {hi}, xzr",
 
@@ -1479,8 +1406,7 @@ mod aarch64_asm {
                 "mul {lo}, {m}, {qx}",
                 "umulh {hi}, {m}, {qx}",
                 "adds {t1}, {t0}, {lo}",
-                "adcs {c}, {c}, {hi}",
-                "adc {hi}, xzr, xzr",
+                "adcs {hi}, {hi}, xzr",
                 "adds {t1}, {t1}, {c}",
                 "adc {c}, {hi}, xzr",
 
@@ -1488,7 +1414,6 @@ mod aarch64_asm {
 
                 // ===== Final conditional reduction =====
                 // if t >= q, then t = t - q
-                // Load q values for comparison
                 "ldr {qx}, [{q_ptr}, #40]",
                 "subs {lo}, {t5}, {qx}",
                 "ldr {qx}, [{q_ptr}, #32]",
@@ -1510,13 +1435,11 @@ mod aarch64_asm {
                 "csel {t1}, {ax}, {t1}, cs",
                 "csel {t0}, {bi}, {t0}, cs",
 
-                // Input pointers
                 a_ptr = in(reg) a.as_ptr(),
                 b_ptr = in(reg) b.as_ptr(),
                 q_ptr = in(reg) q.as_ptr(),
                 mu = in(reg) mu,
 
-                // Accumulator (outputs)
                 t0 = inout(reg) t[0],
                 t1 = inout(reg) t[1],
                 t2 = inout(reg) t[2],
@@ -1524,7 +1447,6 @@ mod aarch64_asm {
                 t4 = inout(reg) t[4],
                 t5 = inout(reg) t[5],
 
-                // Temporaries
                 lo = out(reg) _,
                 hi = out(reg) _,
                 c = out(reg) _,
@@ -1633,12 +1555,11 @@ impl MontgomeryAlgorithms {
                 UnsignedInteger { limbs }
             }
             6 => {
-                // Use the working LLVM-optimized implementation for 6 limbs
-                // The true inline asm version (cios_6_limbs_asm_optimized) has carry bugs
+                // Use corrected true inline assembly for 6 limbs
                 let a_arr: &[u64; 6] = a.limbs.as_slice().try_into().unwrap();
                 let b_arr: &[u64; 6] = b.limbs.as_slice().try_into().unwrap();
                 let q_arr: &[u64; 6] = q.limbs.as_slice().try_into().unwrap();
-                let result = aarch64_asm::cios_6_limbs_optimized(a_arr, b_arr, q_arr, *mu);
+                let result = aarch64_asm::cios_6_limbs_asm_optimized(a_arr, b_arr, q_arr, *mu);
                 let mut limbs = [0u64; NUM_LIMBS];
                 limbs.copy_from_slice(&result);
                 UnsignedInteger { limbs }
