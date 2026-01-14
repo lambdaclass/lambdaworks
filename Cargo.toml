@@ -23,7 +23,7 @@ members = [
     "examples/schnorr-signature",
     "examples/rsa",
 ]
-exclude = ["ensure-no_std"]
+exclude = ["ensure-no_std", "hyperfine_bench"]
 resolver = "2"
 
 [workspace.package]
@@ -60,3 +60,13 @@ winter-crypto = { git = "https://github.com/lambdaclass/winterfell-for-lambdawor
 lto = true
 codegen-units = 1
 opt-level = 3
+
+# Release profile with aggressive optimizations for library consumers
+[profile.release]
+lto = "fat"
+codegen-units = 1
+opt-level = 3
+# Enable overflow checks in debug but not release - important for cryptographic code
+overflow-checks = false
+# Strip debug info for smaller binaries
+strip = "symbols"
