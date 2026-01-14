@@ -13,7 +13,10 @@ pub struct QuadraticArithmeticProgram {
 
 impl QuadraticArithmeticProgram {
     /// Computes the quotient polynomial
-    pub fn calculate_h_coefficients(&self, w: &[FrElement]) -> Result<Vec<FrElement>, Groth16Error> {
+    pub fn calculate_h_coefficients(
+        &self,
+        w: &[FrElement],
+    ) -> Result<Vec<FrElement>, Groth16Error> {
         let offset = &ORDER_R_MINUS_1_ROOT_UNITY;
         let degree = self.num_of_gates * 2;
 
@@ -24,8 +27,7 @@ impl QuadraticArithmeticProgram {
             Polynomial::new_monomial(FrElement::one(), self.num_of_gates) - FrElement::one();
         let mut t = Polynomial::evaluate_offset_fft(&t_poly, 1, Some(degree), offset)
             .map_err(|e| Groth16Error::FFTError(format!("{:?}", e)))?;
-        FrElement::inplace_batch_inverse(&mut t)
-            .map_err(|_| Groth16Error::BatchInversionFailed)?;
+        FrElement::inplace_batch_inverse(&mut t).map_err(|_| Groth16Error::BatchInversionFailed)?;
 
         let h_evaluated = l
             .iter()
@@ -62,11 +64,7 @@ impl QuadraticArithmeticProgram {
                 .map_err(|e| Groth16Error::FFTError(format!("{:?}", e)))?;
             results.push(evaluated);
         }
-        Ok([
-            results.remove(0),
-            results.remove(0),
-            results.remove(0),
-        ])
+        Ok([results.remove(0), results.remove(0), results.remove(0)])
     }
 
     pub fn num_of_private_inputs(&self) -> usize {
