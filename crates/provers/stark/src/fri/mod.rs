@@ -96,15 +96,16 @@ where
             for layer in fri_layers {
                 // symmetric element
                 let evaluation_sym = layer.evaluation[index ^ 1].clone();
-                let auth_path_sym = layer
-                    .merkle_tree
-                    .get_proof_by_pos(index >> 1)
-                    .ok_or_else(|| {
-                        ProvingError::MerkleTreeError(format!(
-                            "Failed to get proof at position {}",
-                            index >> 1
-                        ))
-                    })?;
+                let auth_path_sym =
+                    layer
+                        .merkle_tree
+                        .get_proof_by_pos(index >> 1)
+                        .ok_or_else(|| {
+                            ProvingError::MerkleTreeError(format!(
+                                "Failed to get proof at position {}",
+                                index >> 1
+                            ))
+                        })?;
                 layers_evaluations_sym.push(evaluation_sym);
                 layers_auth_paths_sym.push(auth_path_sym);
 
@@ -132,8 +133,7 @@ where
     FieldElement<F>: AsBytes + Sync + Send,
     FieldElement<E>: AsBytes + Sync + Send,
 {
-    let mut evaluation =
-        Polynomial::evaluate_offset_fft(poly, 1, Some(domain_size), coset_offset)?;
+    let mut evaluation = Polynomial::evaluate_offset_fft(poly, 1, Some(domain_size), coset_offset)?;
 
     in_place_bit_reverse_permute(&mut evaluation);
 

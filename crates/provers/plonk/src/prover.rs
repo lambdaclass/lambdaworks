@@ -136,8 +136,7 @@ where
             &self.w_zeta_1,
             &self.w_zeta_omega_1,
         ] {
-            serialized_proof
-                .extend(lambdaworks_math::traits::serialize_with_length(commitment));
+            serialized_proof.extend(lambdaworks_math::traits::serialize_with_length(commitment));
         }
 
         serialized_proof
