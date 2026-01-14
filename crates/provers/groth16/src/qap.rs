@@ -1,6 +1,6 @@
 use lambdaworks_math::polynomial::Polynomial;
 
-use crate::{common::*, r1cs::R1CS};
+use crate::{common::*, errors::Groth16Error, r1cs::R1CS};
 
 #[derive(Debug)]
 pub struct QuadraticArithmeticProgram {
@@ -13,17 +13,21 @@ pub struct QuadraticArithmeticProgram {
 
 impl QuadraticArithmeticProgram {
     /// Computes the quotient polynomial
-    pub fn calculate_h_coefficients(&self, w: &[FrElement]) -> Vec<FrElement> {
+    pub fn calculate_h_coefficients(
+        &self,
+        w: &[FrElement],
+    ) -> Result<Vec<FrElement>, Groth16Error> {
         let offset = &ORDER_R_MINUS_1_ROOT_UNITY;
         let degree = self.num_of_gates * 2;
 
-        let [l, r, o] = self.scale_and_accumulate_variable_polynomials(w, degree, offset);
+        let [l, r, o] = self.scale_and_accumulate_variable_polynomials(w, degree, offset)?;
 
         // TODO: Change to a vector of offsetted evaluations of x^N-1
         let t_poly =
             Polynomial::new_monomial(FrElement::one(), self.num_of_gates) - FrElement::one();
-        let mut t = Polynomial::evaluate_offset_fft(&t_poly, 1, Some(degree), offset).unwrap();
-        FrElement::inplace_batch_inverse(&mut t).unwrap();
+        let mut t = Polynomial::evaluate_offset_fft(&t_poly, 1, Some(degree), offset)
+            .map_err(|e| Groth16Error::FFTError(format!("{:?}", e)))?;
+        FrElement::inplace_batch_inverse(&mut t).map_err(|_| Groth16Error::BatchInversionFailed)?;
 
         let h_evaluated = l
             .iter()
@@ -33,10 +37,10 @@ impl QuadraticArithmeticProgram {
             .map(|(((l, r), o), t)| (l * r - o) * t)
             .collect::<Vec<_>>();
 
-        Polynomial::interpolate_offset_fft(&h_evaluated, offset)
-            .unwrap()
+        Ok(Polynomial::interpolate_offset_fft(&h_evaluated, offset)
+            .map_err(|e| Groth16Error::FFTError(format!("{:?}", e)))?
             .coefficients()
-            .to_vec()
+            .to_vec())
     }
 
     // Compute A.s by summing up polynomials A[0].s, A[1].s, ..., A[n].s
@@ -47,23 +51,20 @@ impl QuadraticArithmeticProgram {
         w: &[FrElement],
         degree: usize,
         offset: &FrElement,
-    ) -> [Vec<FrElement>; 3] {
-        [&self.l, &self.r, &self.o].map(|var_polynomials| {
-            Polynomial::evaluate_offset_fft(
-                &(var_polynomials
-                    .iter()
-                    .zip(w)
-                    .map(|(poly, coeff)| {
-                        poly.mul_with_ref(&Polynomial::new_monomial(coeff.clone(), 0))
-                    })
-                    .reduce(|poly1, poly2| poly1 + poly2)
-                    .unwrap()),
-                1,
-                Some(degree),
-                offset,
-            )
-            .unwrap()
-        })
+    ) -> Result<[Vec<FrElement>; 3], Groth16Error> {
+        let mut results = Vec::with_capacity(3);
+        for var_polynomials in [&self.l, &self.r, &self.o] {
+            let accumulated = var_polynomials
+                .iter()
+                .zip(w)
+                .map(|(poly, coeff)| poly.mul_with_ref(&Polynomial::new_monomial(coeff.clone(), 0)))
+                .reduce(|poly1, poly2| poly1 + poly2)
+                .ok_or_else(|| Groth16Error::QAPError("Empty polynomial list".to_string()))?;
+            let evaluated = Polynomial::evaluate_offset_fft(&accumulated, 1, Some(degree), offset)
+                .map_err(|e| Groth16Error::FFTError(format!("{:?}", e)))?;
+            results.push(evaluated);
+        }
+        Ok([results.remove(0), results.remove(0), results.remove(0)])
     }
 
     pub fn num_of_private_inputs(&self) -> usize {
