@@ -4,24 +4,26 @@ use lambdaworks_math::{
     field::element::FieldElement,
     unsigned_integer::element::UnsignedInteger,
 };
-use rand::{Rng, SeedableRng};
-use rand::rngs::StdRng;
 
 const ITERATIONS: usize = 10_000;
 const SEED: u64 = 42;
 
-fn main() {
-    let mut rng = StdRng::seed_from_u64(SEED);
+fn lcg_next(state: &mut u64) -> u64 {
+    *state = state.wrapping_mul(6364136223846793005).wrapping_add(1);
+    *state
+}
 
-    // Pre-generate random elements by sampling 4 u64 limbs each
-    // Ensure non-zero by OR-ing with 1
+fn main() {
+    let mut state = SEED;
+
+    // Pre-generate random non-zero elements
     let elements: Vec<FieldElement<FrField>> = (0..ITERATIONS)
         .map(|_| {
             let limbs: [u64; 4] = [
-                rng.gen::<u64>() | 1, // ensure non-zero
-                rng.gen(),
-                rng.gen(),
-                rng.gen(),
+                lcg_next(&mut state) | 1, // ensure non-zero
+                lcg_next(&mut state),
+                lcg_next(&mut state),
+                lcg_next(&mut state),
             ];
             FieldElement::new(UnsignedInteger { limbs })
         })

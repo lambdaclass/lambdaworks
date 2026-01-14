@@ -1,19 +1,26 @@
 //! Arkworks BLS12-381 scalar field (Fr) subtraction benchmark with random sampling
 use ark_bls12_381::Fr;
 use ark_ff::{BigInt, PrimeField};
-use rand::{Rng, SeedableRng};
-use rand::rngs::StdRng;
 
 const ITERATIONS: usize = 1_000_000;
 const SEED: u64 = 42;
 
-fn main() {
-    let mut rng = StdRng::seed_from_u64(SEED);
+fn lcg_next(state: &mut u64) -> u64 {
+    *state = state.wrapping_mul(6364136223846793005).wrapping_add(1);
+    *state
+}
 
-    // Pre-generate random elements by sampling 4 u64 limbs each
+fn main() {
+    let mut state = SEED;
+
     let elements: Vec<Fr> = (0..ITERATIONS)
         .map(|_| {
-            let limbs: [u64; 4] = [rng.gen(), rng.gen(), rng.gen(), rng.gen()];
+            let limbs: [u64; 4] = [
+                lcg_next(&mut state),
+                lcg_next(&mut state),
+                lcg_next(&mut state),
+                lcg_next(&mut state),
+            ];
             Fr::from_bigint(BigInt::new(limbs)).unwrap_or(Fr::from(1u64))
         })
         .collect();
