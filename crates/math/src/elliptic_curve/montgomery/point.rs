@@ -6,11 +6,24 @@ use crate::{
     },
     field::element::FieldElement,
 };
+use core::fmt::{self, Debug, Display};
 
 use super::traits::IsMontgomery;
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct MontgomeryProjectivePoint<E: IsEllipticCurve>(ProjectivePoint<E>);
+
+impl<E: IsEllipticCurve> Debug for MontgomeryProjectivePoint<E> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        Display::fmt(self, f)
+    }
+}
+
+impl<E: IsEllipticCurve> Display for MontgomeryProjectivePoint<E> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        Display::fmt(&self.0, f)
+    }
+}
 
 impl<E: IsEllipticCurve + IsMontgomery> MontgomeryProjectivePoint<E> {
     /// Creates an elliptic curve point giving the projective [x: y: z] coordinates.

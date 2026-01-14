@@ -31,7 +31,7 @@ pub type U64 = UnsignedInteger<1>;
 /// The most significant bit is in the left-most position.
 /// That is, the array `[a_n, ..., a_0]` represents the
 /// integer 2^{64 * n} * a_n + ... + 2^{64} * a_1 + a_0.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Copy, Clone, PartialEq, Eq, Hash)]
 pub struct UnsignedInteger<const NUM_LIMBS: usize> {
     pub limbs: [u64; NUM_LIMBS],
 }
@@ -109,23 +109,25 @@ impl<const NUM_LIMBS: usize> From<&str> for UnsignedInteger<NUM_LIMBS> {
 
 impl<const NUM_LIMBS: usize> Display for UnsignedInteger<NUM_LIMBS> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "0x")?;
+        use num_bigint::BigUint;
 
-        let mut limbs_iterator = self.limbs.iter().skip_while(|limb| **limb == 0).peekable();
-
-        if limbs_iterator.peek().is_none() {
-            write!(f, "0")?;
-        } else {
-            if let Some(most_significant_limb) = limbs_iterator.next() {
-                write!(f, "{most_significant_limb:x}")?;
-            }
-
-            for limb in limbs_iterator {
-                write!(f, "{limb:016x}")?;
-            }
+        // Convert limbs to BigUint for decimal formatting
+        // Limbs are big-endian (most significant first)
+        let mut bytes = [0u8; 64]; // Max 8 limbs * 8 bytes
+        let byte_len = NUM_LIMBS * 8;
+        for (i, limb) in self.limbs.iter().enumerate() {
+            let limb_bytes = limb.to_be_bytes();
+            bytes[i * 8..(i + 1) * 8].copy_from_slice(&limb_bytes);
         }
 
-        Ok(())
+        let big_uint = BigUint::from_bytes_be(&bytes[..byte_len]);
+        write!(f, "{}", big_uint)
+    }
+}
+
+impl<const NUM_LIMBS: usize> Debug for UnsignedInteger<NUM_LIMBS> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        Display::fmt(self, f)
     }
 }
 

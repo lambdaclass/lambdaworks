@@ -8,6 +8,7 @@ use crate::{
     field::element::FieldElement,
     traits::{ByteConversion, Deserializable},
 };
+use core::fmt::{self, Debug, Display};
 
 use super::traits::IsShortWeierstrass;
 
@@ -16,8 +17,20 @@ use crate::traits::AsBytes;
 #[cfg(feature = "alloc")]
 use alloc::vec::Vec;
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct ShortWeierstrassProjectivePoint<E: IsEllipticCurve>(ProjectivePoint<E>);
+
+impl<E: IsEllipticCurve> Debug for ShortWeierstrassProjectivePoint<E> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        Display::fmt(self, f)
+    }
+}
+
+impl<E: IsEllipticCurve> Display for ShortWeierstrassProjectivePoint<E> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        Display::fmt(&self.0, f)
+    }
+}
 
 impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
     /// Creates an elliptic curve point giving the projective [x: y: z] coordinates.
@@ -438,8 +451,20 @@ where
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct ShortWeierstrassJacobianPoint<E: IsEllipticCurve>(pub JacobianPoint<E>);
+
+impl<E: IsEllipticCurve> Debug for ShortWeierstrassJacobianPoint<E> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        Display::fmt(self, f)
+    }
+}
+
+impl<E: IsEllipticCurve> Display for ShortWeierstrassJacobianPoint<E> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        Display::fmt(&self.0, f)
+    }
+}
 
 impl<E: IsShortWeierstrass> ShortWeierstrassJacobianPoint<E> {
     /// Creates an elliptic curve point giving the jacobian [x: y: z] coordinates.

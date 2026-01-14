@@ -173,6 +173,13 @@ pub trait IsField: Debug + Clone {
     /// Returns a boolean indicating whether `a` and `b` are equal or not.
     fn eq(a: &Self::BaseType, b: &Self::BaseType) -> bool;
 
+    /// Formats the field element value for debug output.
+    /// Default implementation uses BaseType's Debug.
+    /// Montgomery-backed fields override this to show the representative.
+    fn debug_fmt(value: &Self::BaseType, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "{:?}", value)
+    }
+
     /// Returns the additive neutral element.
     fn zero() -> Self::BaseType {
         Self::BaseType::default()

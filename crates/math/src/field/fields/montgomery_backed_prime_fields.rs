@@ -282,6 +282,11 @@ where
     fn from_base_type(x: Self::BaseType) -> Self::BaseType {
         MontgomeryAlgorithms::cios(&x, &Self::R2, &M::MODULUS, &Self::MU)
     }
+
+    fn debug_fmt(value: &Self::BaseType, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        let representative = Self::representative(value);
+        write!(f, "{}", representative)
+    }
 }
 
 impl<M, const NUM_LIMBS: usize> IsPrimeField for MontgomeryBackendPrimeField<M, NUM_LIMBS>

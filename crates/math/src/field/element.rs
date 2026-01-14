@@ -39,7 +39,7 @@ use super::traits::{IsPrimeField, IsSubFieldOf, LegendreSymbol};
 
 /// A field element with operations algorithms defined in `F`
 #[allow(clippy::derived_hash_with_manual_eq)]
-#[derive(Debug, Clone, Hash, Copy)]
+#[derive(Clone, Hash, Copy)]
 pub struct FieldElement<F: IsField> {
     value: F::BaseType,
 }
@@ -776,14 +776,15 @@ impl<'de, F: IsPrimeField> Deserialize<'de> for FieldElement<F> {
     }
 }
 
-impl<M, const NUM_LIMBS: usize> fmt::Display
-    for FieldElement<MontgomeryBackendPrimeField<M, NUM_LIMBS>>
-where
-    M: IsModulus<UnsignedInteger<NUM_LIMBS>> + Clone + Debug,
-{
+impl<F: IsField> fmt::Debug for FieldElement<F> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let value: UnsignedInteger<NUM_LIMBS> = self.representative();
-        write!(f, "{value}")
+        F::debug_fmt(&self.value, f)
+    }
+}
+
+impl<F: IsField> fmt::Display for FieldElement<F> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        F::debug_fmt(&self.value, f)
     }
 }
 
@@ -858,18 +859,15 @@ mod tests {
         use alloc::format;
 
         let zero_field_element = FieldElement::<Stark252PrimeField>::from(0);
-        assert_eq!(format!("{zero_field_element}"), "0x0");
+        assert_eq!(format!("{zero_field_element}"), "0");
 
-        let some_field_element =
-            FieldElement::<Stark252PrimeField>::from(&UnsignedInteger::from_limbs([
-                0x0, 0x1, 0x0, 0x1,
-            ]));
+        // Test simple values display in decimal
+        let simple_element = FieldElement::<Stark252PrimeField>::from(12345u64);
+        assert_eq!(format!("{simple_element}"), "12345");
 
-        // it should start with the first non-zero digit. Each limb has 16 digits in hex.
-        assert_eq!(
-            format!("{some_field_element}"),
-            format!("0x{}{}{}{}", "1", "0".repeat(16), "0".repeat(15), "1")
-        );
+        // Test larger values
+        let large_element = FieldElement::<Stark252PrimeField>::from(1000000000u64);
+        assert_eq!(format!("{large_element}"), "1000000000");
     }
 
     #[test]

@@ -6,7 +6,6 @@ use crate::{
         traits::{IsField, IsPrimeField},
     },
 };
-use core::fmt::{self, Display};
 
 /// Represents a 31 bit integer value
 /// Invariants:
@@ -194,12 +193,6 @@ impl FieldElement<Mersenne31Field> {
     #[cfg(feature = "alloc")]
     pub fn to_bytes_be(&self) -> alloc::vec::Vec<u8> {
         self.representative().to_be_bytes().to_vec()
-    }
-}
-
-impl Display for FieldElement<Mersenne31Field> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{:x}", self.representative())
     }
 }
 

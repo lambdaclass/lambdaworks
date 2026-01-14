@@ -161,7 +161,7 @@ mod tests {
     ]);
 
     /// Computes the psi^2() 'Untwist Frobenius Endomorphism'
-    ///  
+    ///
     /// # Safety
     ///
     /// - This function assumes `p` is a valid point on the BLS12-381 twist curve.
@@ -258,6 +258,12 @@ mod tests {
     fn generator_g1_is_in_subgroup() {
         let g = BLS12381Curve::generator();
         assert!(g.is_in_subgroup())
+    }
+
+    #[test]
+    fn print() {
+        let g = BLS12381Curve::generator();
+        println!("{:?}", g);
     }
 
     #[test]

@@ -6,11 +6,24 @@ use crate::{
     },
     field::element::FieldElement,
 };
+use core::fmt::{self, Debug, Display};
 
 use super::traits::IsEdwards;
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct EdwardsProjectivePoint<E: IsEllipticCurve>(ProjectivePoint<E>);
+
+impl<E: IsEllipticCurve> Debug for EdwardsProjectivePoint<E> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        Display::fmt(self, f)
+    }
+}
+
+impl<E: IsEllipticCurve> Display for EdwardsProjectivePoint<E> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        Display::fmt(&self.0, f)
+    }
+}
 
 impl<E: IsEllipticCurve + IsEdwards> EdwardsProjectivePoint<E> {
     /// Creates an elliptic curve point giving the projective [x: y: z] coordinates.
