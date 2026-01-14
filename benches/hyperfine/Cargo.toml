@@ -388,3 +388,102 @@ path = "src/fields/lw_bls12381_fr_inv_rand.rs"
 [[bin]]
 name = "bench_ark_bls12381_fr_inv_rand"
 path = "src/fields/ark_bls12381_fr_inv_rand.rs"
+
+# BN254 Fq Random (all operations)
+[[bin]]
+name = "bench_lw_bn254_fq_add_rand"
+path = "src/fields/lw_bn254_fq_add_rand.rs"
+
+[[bin]]
+name = "bench_ark_bn254_fq_add_rand"
+path = "src/fields/ark_bn254_fq_add_rand.rs"
+
+[[bin]]
+name = "bench_lw_bn254_fq_sub_rand"
+path = "src/fields/lw_bn254_fq_sub_rand.rs"
+
+[[bin]]
+name = "bench_ark_bn254_fq_sub_rand"
+path = "src/fields/ark_bn254_fq_sub_rand.rs"
+
+[[bin]]
+name = "bench_lw_bn254_fq_square_rand"
+path = "src/fields/lw_bn254_fq_square_rand.rs"
+
+[[bin]]
+name = "bench_ark_bn254_fq_square_rand"
+path = "src/fields/ark_bn254_fq_square_rand.rs"
+
+[[bin]]
+name = "bench_lw_bn254_fq_inv_rand"
+path = "src/fields/lw_bn254_fq_inv_rand.rs"
+
+[[bin]]
+name = "bench_ark_bn254_fq_inv_rand"
+path = "src/fields/ark_bn254_fq_inv_rand.rs"
+
+# BN254 Fr Random (all operations)
+[[bin]]
+name = "bench_lw_bn254_fr_add_rand"
+path = "src/fields/lw_bn254_fr_add_rand.rs"
+
+[[bin]]
+name = "bench_ark_bn254_fr_add_rand"
+path = "src/fields/ark_bn254_fr_add_rand.rs"
+
+[[bin]]
+name = "bench_lw_bn254_fr_sub_rand"
+path = "src/fields/lw_bn254_fr_sub_rand.rs"
+
+[[bin]]
+name = "bench_ark_bn254_fr_sub_rand"
+path = "src/fields/ark_bn254_fr_sub_rand.rs"
+
+[[bin]]
+name = "bench_lw_bn254_fr_square_rand"
+path = "src/fields/lw_bn254_fr_square_rand.rs"
+
+[[bin]]
+name = "bench_ark_bn254_fr_square_rand"
+path = "src/fields/ark_bn254_fr_square_rand.rs"
+
+[[bin]]
+name = "bench_lw_bn254_fr_inv_rand"
+path = "src/fields/lw_bn254_fr_inv_rand.rs"
+
+[[bin]]
+name = "bench_ark_bn254_fr_inv_rand"
+path = "src/fields/ark_bn254_fr_inv_rand.rs"
+
+# BLS12-381 Fq Random (all operations)
+[[bin]]
+name = "bench_lw_bls12381_fq_add_rand"
+path = "src/fields/lw_bls12381_fq_add_rand.rs"
+
+[[bin]]
+name = "bench_ark_bls12381_fq_add_rand"
+path = "src/fields/ark_bls12381_fq_add_rand.rs"
+
+[[bin]]
+name = "bench_lw_bls12381_fq_sub_rand"
+path = "src/fields/lw_bls12381_fq_sub_rand.rs"
+
+[[bin]]
+name = "bench_ark_bls12381_fq_sub_rand"
+path = "src/fields/ark_bls12381_fq_sub_rand.rs"
+
+[[bin]]
+name = "bench_lw_bls12381_fq_square_rand"
+path = "src/fields/lw_bls12381_fq_square_rand.rs"
+
+[[bin]]
+name = "bench_ark_bls12381_fq_square_rand"
+path = "src/fields/ark_bls12381_fq_square_rand.rs"
+
+[[bin]]
+name = "bench_lw_bls12381_fq_inv_rand"
+path = "src/fields/lw_bls12381_fq_inv_rand.rs"
+
+[[bin]]
+name = "bench_ark_bls12381_fq_inv_rand"
+path = "src/fields/ark_bls12381_fq_inv_rand.rs"
