@@ -6,7 +6,7 @@ use crate::field::{
 pub type Babybear31PrimeField = U32MontgomeryBackendPrimeField<2013265921>;
 
 // p = 2^31 - 2^27 + 1 = 2^27 * (2^4-1) + 1, then
-// there is a gruop in the field of order 2^27.
+// there is a group in the field of order 2^27.
 // Since we want to have margin to be able to define a bigger group (blow-up group),
 // we define TWO_ADICITY as 24 (so the blow-up factor can be 2^3 = 8).
 // A two-adic primitive root of unity is 21^(2^24) because

@@ -10,7 +10,7 @@ use crate::traits::ByteConversion;
 #[cfg(feature = "alloc")]
 use crate::traits::AsBytes;
 
-/// We are implementig the extension of Baby Bear of degree 4 using the irreducible polynomial x^4 + 11.
+/// We are implementing the extension of Baby Bear of degree 4 using the irreducible polynomial x^4 + 11.
 /// BETA = 11 and -BETA = -11 is the non-residue.
 /// Since `const_from_raw()` doesn't make the montgomery conversion, we calculated it.
 /// The montgomery form of a number "a" is a * R mod p.
@@ -66,7 +66,7 @@ impl IsField for Degree4BabyBearExtensionField {
         [-&a[0], -&a[1], -&a[2], -&a[3]]
     }
 
-    /// Return te inverse of a fp4 element if exist.
+    /// Return te inverse of a fp4 element if it exists.
     /// This algorithm is inspired by Risc0 implementation:
     /// <https://github.com/risc0/risc0/blob/4c41c739779ef2759a01ebcf808faf0fbffe8793/risc0/core/src/field/baby_bear.rs#L460>
     fn inv(a: &Self::BaseType) -> Result<Self::BaseType, FieldError> {
