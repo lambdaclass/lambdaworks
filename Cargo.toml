@@ -23,7 +23,7 @@ members = [
     "examples/schnorr-signature",
     "examples/rsa",
 ]
-exclude = ["ensure-no_std", "hyperfine_bench"]
+exclude = ["ensure-no_std", "hyperfine_bench", "benches/hyperfine"]
 resolver = "2"
 
 [workspace.package]

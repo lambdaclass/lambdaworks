@@ -1,0 +1,70 @@
+[package]
+name = "hyperfine-benchmarks"
+version = "0.1.0"
+edition = "2021"
+
+[workspace]
+
+[dependencies]
+lambdaworks-math = { path = "../../crates/math" }
+ark-bls12-381 = "0.4"
+ark-bn254 = "0.4"
+ark-ec = "0.4"
+ark-ff = "0.4"
+rand = "0.8"
+
+[[bin]]
+name = "bench_lw_bls12381_pairing"
+path = "src/lw_bls12381_pairing.rs"
+
+[[bin]]
+name = "bench_ark_bls12381_pairing"
+path = "src/ark_bls12381_pairing.rs"
+
+[[bin]]
+name = "bench_lw_bn254_pairing"
+path = "src/lw_bn254_pairing.rs"
+
+[[bin]]
+name = "bench_ark_bn254_pairing"
+path = "src/ark_bn254_pairing.rs"
+
+[[bin]]
+name = "bench_lw_bls12381_g1_scalar_mul_256bit"
+path = "src/lw_bls12381_g1_scalar_mul_256bit.rs"
+
+[[bin]]
+name = "bench_ark_bls12381_g1_scalar_mul_256bit"
+path = "src/ark_bls12381_g1_scalar_mul_256bit.rs"
+
+[[bin]]
+name = "bench_lw_bls12381_g1_glv_scalar_mul"
+path = "src/lw_bls12381_g1_glv_scalar_mul.rs"
+
+[[bin]]
+name = "bench_lw_bn254_g1_scalar_mul_256bit"
+path = "src/lw_bn254_g1_scalar_mul_256bit.rs"
+
+[[bin]]
+name = "bench_ark_bn254_g1_scalar_mul_256bit"
+path = "src/ark_bn254_g1_scalar_mul_256bit.rs"
+
+[[bin]]
+name = "bench_lw_bls12381_field_mul"
+path = "src/lw_bls12381_field_mul.rs"
+
+[[bin]]
+name = "bench_ark_bls12381_field_mul"
+path = "src/ark_bls12381_field_mul.rs"
+
+[[bin]]
+name = "bench_lw_bls12381_g2_scalar_mul_256bit"
+path = "src/lw_bls12381_g2_scalar_mul_256bit.rs"
+
+[[bin]]
+name = "bench_ark_bls12381_g2_scalar_mul_256bit"
+path = "src/ark_bls12381_g2_scalar_mul_256bit.rs"
+
+[[bin]]
+name = "bench_lw_bls12381_g2_gls_scalar_mul"
+path = "src/lw_bls12381_g2_gls_scalar_mul.rs"
