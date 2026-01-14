@@ -68,3 +68,107 @@ path = "src/ark_bls12381_g2_scalar_mul_256bit.rs"
 [[bin]]
 name = "bench_lw_bls12381_g2_gls_scalar_mul"
 path = "src/lw_bls12381_g2_gls_scalar_mul.rs"
+
+# === FIELD BENCHMARKS ===
+
+# BN254 Base Field (Fq)
+[[bin]]
+name = "bench_lw_bn254_fq_mul"
+path = "src/fields/lw_bn254_fq_mul.rs"
+
+[[bin]]
+name = "bench_ark_bn254_fq_mul"
+path = "src/fields/ark_bn254_fq_mul.rs"
+
+# BN254 Scalar Field (Fr)
+[[bin]]
+name = "bench_lw_bn254_fr_mul"
+path = "src/fields/lw_bn254_fr_mul.rs"
+
+[[bin]]
+name = "bench_ark_bn254_fr_mul"
+path = "src/fields/ark_bn254_fr_mul.rs"
+
+# BLS12-381 Base Field (Fq)
+[[bin]]
+name = "bench_lw_bls12381_fq_mul"
+path = "src/fields/lw_bls12381_fq_mul.rs"
+
+[[bin]]
+name = "bench_ark_bls12381_fq_mul"
+path = "src/fields/ark_bls12381_fq_mul.rs"
+
+# BLS12-381 Scalar Field (Fr)
+[[bin]]
+name = "bench_lw_bls12381_fr_mul"
+path = "src/fields/lw_bls12381_fr_mul.rs"
+
+[[bin]]
+name = "bench_ark_bls12381_fr_mul"
+path = "src/fields/ark_bls12381_fr_mul.rs"
+
+# Stark252 Prime Field
+[[bin]]
+name = "bench_lw_stark252_mul"
+path = "src/fields/lw_stark252_mul.rs"
+
+# Goldilocks (u64)
+[[bin]]
+name = "bench_lw_goldilocks_mul"
+path = "src/fields/lw_goldilocks_mul.rs"
+
+
+# BabyBear
+[[bin]]
+name = "bench_lw_babybear_mul"
+path = "src/fields/lw_babybear_mul.rs"
+
+# Mersenne31
+[[bin]]
+name = "bench_lw_mersenne31_mul"
+path = "src/fields/lw_mersenne31_mul.rs"
+
+# === FIELD INVERSION BENCHMARKS ===
+
+[[bin]]
+name = "bench_lw_bn254_fq_inv"
+path = "src/fields/lw_bn254_fq_inv.rs"
+
+[[bin]]
+name = "bench_ark_bn254_fq_inv"
+path = "src/fields/ark_bn254_fq_inv.rs"
+
+[[bin]]
+name = "bench_lw_bls12381_fq_inv"
+path = "src/fields/lw_bls12381_fq_inv.rs"
+
+[[bin]]
+name = "bench_ark_bls12381_fq_inv"
+path = "src/fields/ark_bls12381_fq_inv.rs"
+
+[[bin]]
+name = "bench_lw_stark252_inv"
+path = "src/fields/lw_stark252_inv.rs"
+
+[[bin]]
+name = "bench_lw_goldilocks_inv"
+path = "src/fields/lw_goldilocks_inv.rs"
+
+
+# === FIELD SQUARING BENCHMARKS ===
+
+[[bin]]
+name = "bench_lw_bn254_fq_square"
+path = "src/fields/lw_bn254_fq_square.rs"
+
+[[bin]]
+name = "bench_ark_bn254_fq_square"
+path = "src/fields/ark_bn254_fq_square.rs"
+
+[[bin]]
+name = "bench_lw_stark252_square"
+path = "src/fields/lw_stark252_square.rs"
+
+[[bin]]
+name = "bench_lw_goldilocks_square"
+path = "src/fields/lw_goldilocks_square.rs"
