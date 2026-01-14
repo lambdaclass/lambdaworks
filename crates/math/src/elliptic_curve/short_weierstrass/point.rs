@@ -631,7 +631,7 @@ impl<E: IsShortWeierstrass> IsGroup for ShortWeierstrassJacobianPoint<E> {
     }
 
     /// Computes the addition of `self` and `other`.
-    /// https://github.com/mratsim/constantine/blob/65147ed815d96fa94a05d307c1d9980877b7d0e8/constantine/math/elliptic/ec_shortweierstrass_jacobian.md
+    /// See <https://github.com/mratsim/constantine/blob/65147ed815d96fa94a05d307c1d9980877b7d0e8/constantine/math/elliptic/ec_shortweierstrass_jacobian.md>.
     fn operate_with(&self, other: &Self) -> Self {
         if self.is_neutral_element() {
             return other.clone();

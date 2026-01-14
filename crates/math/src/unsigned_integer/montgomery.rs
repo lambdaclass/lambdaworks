@@ -7,7 +7,7 @@ impl MontgomeryAlgorithms {
     /// `mu` is the inverse of -q modulo 2^{64}
     /// Notice CIOS stands for Coarsely Integrated Operand Scanning
     /// For more information see section 2.3.2 of Tolga Acar's thesis
-    /// https://www.microsoft.com/en-us/research/wp-content/uploads/1998/06/97Acar.pdf
+    /// <https://www.microsoft.com/en-us/research/wp-content/uploads/1998/06/97Acar.pdf>.
     #[inline(always)]
     pub const fn cios<const NUM_LIMBS: usize>(
         a: &UnsignedInteger<NUM_LIMBS>,
@@ -78,7 +78,7 @@ impl MontgomeryAlgorithms {
     /// Compute CIOS multiplication of `a` * `b`
     /// This is the Algorithm 2 described in the paper
     /// "EdMSM: Multi-Scalar-Multiplication for SNARKs and Faster Montgomery multiplication"
-    /// https://eprint.iacr.org/2022/1400.pdf.
+    /// <https://eprint.iacr.org/2022/1400.pdf>.
     /// It is only suited for moduli with `q[0]` smaller than `2^63 - 1`.
     /// `q` is the modulus
     /// `mu` is the inverse of -q modulo 2^{64}

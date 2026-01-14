@@ -43,7 +43,7 @@ type G2Point = ShortWeierstrassProjectivePoint<BN254TwistCurve>;
 
 /// x = 4965661367192848881.
 /// A constant of the curve.
-/// See https://hackmd.io/@jpw/bn254#Barreto-Naehrig-curves
+/// See <https://hackmd.io/@jpw/bn254#Barreto-Naehrig-curves>.
 pub const X: u64 = 0x44e992b44a6909f1;
 
 /// x = 100010011101001100100101011010001001010011010010000100111110001
@@ -59,9 +59,9 @@ pub const X_BINARY: &[bool] = &[
 /// MILLER_CONSTANT = 6x + 2 = 29793968203157093288.
 /// Note that this is a representation using {1, -1, 0}, but it isn't a NAF representation
 /// because it has non-zero values adjacent.
-/// See arkworks library https://github.com/arkworks-rs/algebra/blob/master/curves/bn254/src/curves/mod.rs#L21 (constant called ATE_LOOP_COUNT).
+/// See arkworks library <https://github.com/arkworks-rs/algebra/blob/master/curves/bn254/src/curves/mod.rs#L21> (constant called ATE_LOOP_COUNT).
 /// Notice that MILLER_CONSTANT has been updated to one with hamming weight of 22 instead of 26.
-/// To see the old version of the constant check the post https://hackmd.io/@Wimet/ry7z1Xj-2#The-Pairing.
+/// To see the old version of the constant check the post <https://hackmd.io/@Wimet/ry7z1Xj-2#The-Pairing>.
 pub const MILLER_CONSTANT: &[i8] = &[
     0, 0, 0, 1, 0, 1, 0, -1, 0, 0, -1, 0, 0, 0, 1, 0, 0, -1, 0, -1, 0, 0, 0, 1, 0, -1, 0, 0, 0, 0,
     -1, 0, 0, 1, 0, -1, 0, 0, 1, 0, 0, 0, 0, 0, -1, 0, 0, -1, 0, 1, 0, -1, 0, 0, 0, -1, 0, -1, 0,
@@ -69,7 +69,7 @@ pub const MILLER_CONSTANT: &[i8] = &[
 ];
 
 /// GAMMA constants used to compute the Frobenius morphisms and G2 subgroup check.
-/// We took these constants from https://github.com/hecmas/zkNotebook/blob/main/src/BN254/constants.ts#L48
+/// We took these constants from <https://github.com/hecmas/zkNotebook/blob/main/src/BN254/constants.ts#L48>.
 /// GAMMA_1i = (9 + u)^{i(p-1) / 6} for all i = 1..5
 pub const GAMMA_11: Fp2E = Fp2E::const_from_raw([
     FpE::from_hex_unchecked("1284B71C2865A7DFE8B99FDD76E68B605C521E08292F2176D60B35DADCC9E470"),
@@ -174,7 +174,7 @@ impl IsPairing for BN254AtePairing {
 }
 
 /// Computes Miller loop using oprate_with(), operate_with_self() and line_naive().
-/// See https://eprint.iacr.org/2010/354.pdf (Page 4, Algorithm 1).
+/// See <https://eprint.iacr.org/2010/354.pdf> (Page 4, Algorithm 1).
 pub fn miller_naive(p: &G1Point, q: &G2Point) -> Fp12E {
     let mut t = q.clone();
     let mut f = Fp12E::one();
@@ -243,8 +243,8 @@ pub fn miller_optimized(p: &G1Point, q: &G2Point) -> Fp12E {
 /// Depending on the case, it computes the tangent line of t or the line
 /// between t and q evaluated in p.
 /// Algorithm adapted from Arkowork's double_in_place and add_in_place.
-/// See https://github.com/arkworks-rs/algebra/blob/master/ec/src/models/bn/g2.rs#L25.
-/// See https://eprint.iacr.org/2013/722.pdf (Page 13, Equations 11 and 13).
+/// See <https://github.com/arkworks-rs/algebra/blob/master/ec/src/models/bn/g2.rs#L25>.
+/// See <https://eprint.iacr.org/2013/722.pdf> (Page 13, Equations 11 and 13).
 fn line_naive(p: &G1Point, t: &G2Point, q: &G2Point) -> Fp12E {
     let [x_p, y_p, _] = p.coordinates();
 
@@ -282,8 +282,8 @@ fn line_naive(p: &G1Point, t: &G2Point, q: &G2Point) -> Fp12E {
 /// Depending on the case, it computes 2t or t + q and the tangent line of t or
 /// the line between t and q evaluated in p.
 /// Algorithm adapted from Arkowork's double_in_place and add_in_place.
-/// See https://github.com/arkworks-rs/algebra/blob/master/ec/src/models/bn/g2.rs#L25.
-/// See https://eprint.iacr.org/2013/722.pdf (Page 13, Equations 11 and 13).
+/// See <https://github.com/arkworks-rs/algebra/blob/master/ec/src/models/bn/g2.rs#L25>.
+/// See <https://eprint.iacr.org/2013/722.pdf> (Page 13, Equations 11 and 13).
 #[allow(clippy::ptr_eq)]
 fn line_optimized(p: &G1Point, t: &G2Point, q: &G2Point) -> (G2Point, Fp12E) {
     let [x_p, y_p, _] = p.coordinates();
@@ -356,7 +356,7 @@ fn line_optimized(p: &G1Point, t: &G2Point, q: &G2Point) -> (G2Point, Fp12E) {
 
 /// Computes f ^ {(p^12 - 1) / r}
 /// using that (p^12 - 1)/r = (p^6 - 1) * (p^2 + 1) * (p^4 - p^2 + 1)/r.
-/// Algorithm taken from https://hackmd.io/@Wimet/ry7z1Xj-2#Final-Exponentiation.
+/// Algorithm taken from <https://hackmd.io/@Wimet/ry7z1Xj-2#Final-Exponentiation>.
 pub fn final_exponentiation_naive(
     f: &FieldElement<Degree12ExtensionField>,
 ) -> FieldElement<Degree12ExtensionField> {
@@ -398,7 +398,7 @@ pub fn final_exponentiation_naive(
 
 /// Computes the final exponentiation algorithm optimized
 /// using cyclotomic_pow_x() and cyclotomic_square().
-/// See https://hackmd.io/@Wimet/ry7z1Xj-2#Final-Exponentiation.
+/// See <https://hackmd.io/@Wimet/ry7z1Xj-2#Final-Exponentiation>.
 pub fn final_exponentiation_optimized(
     f: &FieldElement<Degree12ExtensionField>,
 ) -> FieldElement<Degree12ExtensionField> {
@@ -443,7 +443,7 @@ pub fn final_exponentiation_optimized(
 ////////////////// FROBENIUS MORPHISIMS //////////////////
 
 /// Computes the Frobenius morphism: f^p.
-/// See https://hackmd.io/@Wimet/ry7z1Xj-2#Fp12-Arithmetic (First Frobenius Operator).
+/// See <https://hackmd.io/@Wimet/ry7z1Xj-2#Fp12-Arithmetic> (First Frobenius Operator).
 pub fn frobenius(f: &Fp12E) -> Fp12E {
     let [a, b] = f.value(); // f = a + bw, where a and b in Fp6.
     let [a0, a1, a2] = a.value(); // a = a0 + a1 * v + a2 * v^2, where a0, a1 and a2 in Fp2.
@@ -559,7 +559,7 @@ pub fn cyclotomic_square(a: &Fp12E) -> Fp12E {
 }
 
 /// Computes f^x where f is in the cyclotomic subgroup of Fp12.
-/// Algorithm from https://hackmd.io/@Wimet/ry7z1Xj-2#Exponentiation-in-the-Cyclotomic-Subgroup.
+/// Algorithm from <https://hackmd.io/@Wimet/ry7z1Xj-2#Exponentiation-in-the-Cyclotomic-Subgroup>.
 #[allow(clippy::needless_range_loop)]
 pub fn cyclotomic_pow_x(f: &Fp12E) -> Fp12E {
     let mut result = Fp12E::one();
