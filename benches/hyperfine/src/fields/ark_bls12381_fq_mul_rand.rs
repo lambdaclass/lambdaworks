@@ -1,0 +1,33 @@
+//! Arkworks BLS12-381 base field (Fq) multiplication benchmark with random sampling
+use ark_bls12_381::Fq;
+use ark_ff::{BigInt, PrimeField};
+use rand::{Rng, SeedableRng};
+use rand::rngs::StdRng;
+
+const ITERATIONS: usize = 100_000;
+const SEED: u64 = 42;
+
+fn main() {
+    let mut rng = StdRng::seed_from_u64(SEED);
+
+    // Pre-generate random elements by sampling 6 u64 limbs each (384-bit field)
+    let elements: Vec<Fq> = (0..ITERATIONS)
+        .map(|_| {
+            let limbs: [u64; 6] = [
+                rng.gen(),
+                rng.gen(),
+                rng.gen(),
+                rng.gen(),
+                rng.gen(),
+                rng.gen(),
+            ];
+            Fq::from_bigint(BigInt::new(limbs)).unwrap_or(Fq::from(1u64))
+        })
+        .collect();
+
+    let mut result = elements[0];
+    for i in 1..ITERATIONS {
+        result = result * elements[i];
+    }
+    std::hint::black_box(result);
+}

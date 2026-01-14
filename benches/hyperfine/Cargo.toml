@@ -318,3 +318,73 @@ path = "src/fields/lw_bls12381_fr_inv.rs"
 [[bin]]
 name = "bench_ark_bls12381_fr_inv"
 path = "src/fields/ark_bls12381_fr_inv.rs"
+
+# === RANDOM SAMPLING BENCHMARKS ===
+
+# BN254 Fq Random
+[[bin]]
+name = "bench_lw_bn254_fq_mul_rand"
+path = "src/fields/lw_bn254_fq_mul_rand.rs"
+
+[[bin]]
+name = "bench_ark_bn254_fq_mul_rand"
+path = "src/fields/ark_bn254_fq_mul_rand.rs"
+
+# BN254 Fr Random
+[[bin]]
+name = "bench_lw_bn254_fr_mul_rand"
+path = "src/fields/lw_bn254_fr_mul_rand.rs"
+
+[[bin]]
+name = "bench_ark_bn254_fr_mul_rand"
+path = "src/fields/ark_bn254_fr_mul_rand.rs"
+
+# BLS12-381 Fq Random
+[[bin]]
+name = "bench_lw_bls12381_fq_mul_rand"
+path = "src/fields/lw_bls12381_fq_mul_rand.rs"
+
+[[bin]]
+name = "bench_ark_bls12381_fq_mul_rand"
+path = "src/fields/ark_bls12381_fq_mul_rand.rs"
+
+# BLS12-381 Fr Random (all operations)
+[[bin]]
+name = "bench_lw_bls12381_fr_mul_rand"
+path = "src/fields/lw_bls12381_fr_mul_rand.rs"
+
+[[bin]]
+name = "bench_ark_bls12381_fr_mul_rand"
+path = "src/fields/ark_bls12381_fr_mul_rand.rs"
+
+[[bin]]
+name = "bench_lw_bls12381_fr_add_rand"
+path = "src/fields/lw_bls12381_fr_add_rand.rs"
+
+[[bin]]
+name = "bench_ark_bls12381_fr_add_rand"
+path = "src/fields/ark_bls12381_fr_add_rand.rs"
+
+[[bin]]
+name = "bench_lw_bls12381_fr_sub_rand"
+path = "src/fields/lw_bls12381_fr_sub_rand.rs"
+
+[[bin]]
+name = "bench_ark_bls12381_fr_sub_rand"
+path = "src/fields/ark_bls12381_fr_sub_rand.rs"
+
+[[bin]]
+name = "bench_lw_bls12381_fr_square_rand"
+path = "src/fields/lw_bls12381_fr_square_rand.rs"
+
+[[bin]]
+name = "bench_ark_bls12381_fr_square_rand"
+path = "src/fields/ark_bls12381_fr_square_rand.rs"
+
+[[bin]]
+name = "bench_lw_bls12381_fr_inv_rand"
+path = "src/fields/lw_bls12381_fr_inv_rand.rs"
+
+[[bin]]
+name = "bench_ark_bls12381_fr_inv_rand"
+path = "src/fields/ark_bls12381_fr_inv_rand.rs"
