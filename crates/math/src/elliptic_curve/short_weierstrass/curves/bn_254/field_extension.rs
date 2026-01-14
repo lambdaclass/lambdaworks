@@ -24,7 +24,7 @@ impl IsModulus<U256> for BN254FieldModulus {
 
 pub type BN254PrimeField = MontgomeryBackendPrimeField<BN254FieldModulus, 4>;
 
-/// We define Fp2E = Fp [u] / (u^2 + 1)
+/// We define `Fp2E = Fp[u] / (u^2 + 1)`
 /// We could define it using the quadratic extension of lambdaworks, but we can optimize its operations
 /// using these algorithms.
 #[derive(Clone, Debug)]
@@ -219,7 +219,7 @@ impl HasCubicNonResidue<Degree2ExtensionField> for LevelTwoResidue {
     }
 }
 
-/// We define Fp4 = Fp2 [V] / (V^2 - (9+u))
+/// We define `Fp4 = Fp2[V] / (V^2 - (9+u))`
 pub type Degree4ExtensionField = QuadraticExtensionField<Degree2ExtensionField, LevelTwoResidue>;
 
 /// Computes the multiplication of an element of fp2 by the level two non-residue 9+u.
@@ -231,12 +231,12 @@ pub fn mul_fp2_by_nonresidue(a: &Fp2E) -> Fp2E {
     Fp2E::new([c0, c1])
 }
 
-/// We define Fp6 = Fp2 [v] / (v^3 - (9+u))
+/// We define `Fp6 = Fp2[v] / (v^3 - (9+u))`
 pub type Degree6ExtensionField = CubicExtensionField<Degree2ExtensionField, LevelTwoResidue>;
 pub type Fp6E = FieldElement<Degree6ExtensionField>;
 
-/// Computes the multiplication of an element of fp6 by the level three non-residue v.
-/// See Sparse Multiplication A from https://hackmd.io/@Wimet/ry7z1Xj-2#Fp6-Arithmetic.
+/// Computes the multiplication of an element of fp6 by the level three non-residue `v`.
+/// See Sparse Multiplication A from <https://hackmd.io/@Wimet/ry7z1Xj-2#Fp6-Arithmetic>.
 pub fn mul_fp6_by_nonresidue(a: &Fp6E) -> Fp6E {
     Fp6E::new([
         mul_fp2_by_nonresidue(&a.value()[2]),
@@ -257,7 +257,7 @@ impl HasQuadraticNonResidue<Degree6ExtensionField> for LevelThreeResidue {
     }
 }
 
-/// We define Fp12 = Fp6 [w] / (w^2 - v)
+/// We define `Fp12 = Fp6[w] / (w^2 - v)`
 pub type Degree12ExtensionField = QuadraticExtensionField<Degree6ExtensionField, LevelThreeResidue>;
 pub type Fp12E = FieldElement<Degree12ExtensionField>;
 

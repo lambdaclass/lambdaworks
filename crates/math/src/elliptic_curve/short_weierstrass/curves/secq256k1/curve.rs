@@ -169,4 +169,86 @@ mod tests {
             g.operate_with_self(5u64).neg().to_affine()
         );
     }
+
+    #[test]
+    fn addition_with_neutral_element_returns_same_element() {
+        let g = Secq256k1Curve::generator();
+        let p = g.operate_with_self(12345u64);
+        let neutral = ShortWeierstrassProjectivePoint::<Secq256k1Curve>::neutral_element();
+
+        assert_eq!(p.operate_with(&neutral), p);
+        assert_eq!(neutral.operate_with(&p), p);
+    }
+
+    #[test]
+    fn neutral_element_plus_neutral_element_is_neutral_element() {
+        let neutral = ShortWeierstrassProjectivePoint::<Secq256k1Curve>::neutral_element();
+        assert_eq!(neutral.operate_with(&neutral), neutral);
+    }
+
+    #[test]
+    fn add_opposite_of_a_point_to_itself_gives_neutral_element() {
+        let g = Secq256k1Curve::generator();
+        let p = g.operate_with_self(54321u64);
+        let neg_p = p.neg();
+        let result = p.operate_with(&neg_p);
+        let neutral = ShortWeierstrassProjectivePoint::<Secq256k1Curve>::neutral_element();
+        assert_eq!(result, neutral);
+    }
+
+    #[test]
+    fn doubling_neutral_element_gives_neutral_element() {
+        let neutral = ShortWeierstrassProjectivePoint::<Secq256k1Curve>::neutral_element();
+        assert_eq!(neutral.operate_with_self(2u64), neutral);
+    }
+
+    #[test]
+    fn scalar_mul_by_zero_gives_neutral_element() {
+        let g = Secq256k1Curve::generator();
+        let result = g.operate_with_self(0u64);
+        assert!(result.is_neutral_element());
+    }
+
+    #[test]
+    fn scalar_mul_by_one_gives_same_point() {
+        let g = Secq256k1Curve::generator();
+        let result = g.operate_with_self(1u64);
+        assert_eq!(result.to_affine(), g.to_affine());
+    }
+
+    #[test]
+    fn associativity_holds() {
+        let g = Secq256k1Curve::generator();
+        let a = g.operate_with_self(111u64);
+        let b = g.operate_with_self(222u64);
+        let c = g.operate_with_self(333u64);
+
+        let left = a.operate_with(&b).operate_with(&c);
+        let right = a.operate_with(&b.operate_with(&c));
+        assert_eq!(left.to_affine(), right.to_affine());
+    }
+
+    #[test]
+    fn commutativity_holds() {
+        let g = Secq256k1Curve::generator();
+        let a = g.operate_with_self(12345u64);
+        let b = g.operate_with_self(67890u64);
+
+        assert_eq!(
+            a.operate_with(&b).to_affine(),
+            b.operate_with(&a).to_affine()
+        );
+    }
+
+    #[test]
+    fn distributivity_of_scalar_mul() {
+        let g = Secq256k1Curve::generator();
+        let a = 100u64;
+        let b = 200u64;
+
+        // g * (a + b) = g * a + g * b
+        let left = g.operate_with_self(a + b);
+        let right = g.operate_with_self(a).operate_with(&g.operate_with_self(b));
+        assert_eq!(left.to_affine(), right.to_affine());
+    }
 }

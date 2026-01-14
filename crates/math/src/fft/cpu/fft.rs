@@ -55,7 +55,7 @@ where
 }
 
 /// In-Place Radix-2 RN DIT FFT algorithm over a slice of two-adic field elements.
-/// It's required that the twiddle factors are naturally ordered (so w[i] = w^i). Else this
+/// It's required that the twiddle factors are naturally ordered (so `w[i] = w^i`). Else this
 /// function will not return fourier transformed values.
 /// Also the input size needs to be a power of two.
 /// It's recommended to use the current safe abstractions instead of this function.
