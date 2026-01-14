@@ -1,5 +1,3 @@
-use core::fmt::{self, Display};
-
 use crate::traits::ByteConversion;
 use crate::{
     errors::CreationError,
@@ -221,13 +219,6 @@ impl HasQuadraticNonResidue<Goldilocks64Field> for Goldilocks64Field {
     // `R.<x> = GF(p)[]; assert (x^2 - 7).is_irreducible()`
     fn residue() -> FieldElement<Goldilocks64Field> {
         FieldElement::from(Goldilocks64Field::from_u64(7u64))
-    }
-}
-
-impl Display for FieldElement<Goldilocks64Field> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{:x}", self.representative())?;
-        Ok(())
     }
 }
 

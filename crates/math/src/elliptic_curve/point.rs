@@ -1,12 +1,35 @@
 use crate::elliptic_curve::traits::IsEllipticCurve;
 use crate::field::element::FieldElement;
-use core::fmt::Debug;
+use core::fmt::{self, Debug, Display};
+
 /// Represents an elliptic curve point using the projective short Weierstrass form:
 /// y^2 * z = x^3 + a * x * z^2 + b * z^3,
 /// where `x`, `y` and `z` variables are field elements.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct ProjectivePoint<E: IsEllipticCurve> {
     pub value: [FieldElement<E::BaseField>; 3],
+}
+
+impl<E: IsEllipticCurve> Debug for ProjectivePoint<E> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        Display::fmt(self, f)
+    }
+}
+
+impl<E: IsEllipticCurve> Display for ProjectivePoint<E> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let [x, y, z] = &self.value;
+        if z == &FieldElement::one() {
+            writeln!(f, "(affine)")?;
+            writeln!(f, "  x: {}", x)?;
+            write!(f, "  y: {}", y)
+        } else {
+            writeln!(f, "(projective)")?;
+            writeln!(f, "  x: {}", x)?;
+            writeln!(f, "  y: {}", y)?;
+            write!(f, "  z: {}", z)
+        }
+    }
 }
 
 impl<E: IsEllipticCurve> ProjectivePoint<E> {
@@ -63,10 +86,32 @@ impl<E: IsEllipticCurve> PartialEq for ProjectivePoint<E> {
 }
 
 impl<E: IsEllipticCurve> Eq for ProjectivePoint<E> {}
-#[derive(Debug, Clone)]
 
+#[derive(Clone)]
 pub struct JacobianPoint<E: IsEllipticCurve> {
     pub value: [FieldElement<E::BaseField>; 3],
+}
+
+impl<E: IsEllipticCurve> Debug for JacobianPoint<E> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        Display::fmt(self, f)
+    }
+}
+
+impl<E: IsEllipticCurve> Display for JacobianPoint<E> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let [x, y, z] = &self.value;
+        if z == &FieldElement::one() {
+            writeln!(f, "(affine)")?;
+            writeln!(f, "  x: {}", x)?;
+            write!(f, "  y: {}", y)
+        } else {
+            writeln!(f, "(jacobian)")?;
+            writeln!(f, "  x: {}", x)?;
+            writeln!(f, "  y: {}", y)?;
+            write!(f, "  z: {}", z)
+        }
+    }
 }
 
 impl<E: IsEllipticCurve> JacobianPoint<E> {
