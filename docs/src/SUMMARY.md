@@ -1,6 +1,14 @@
 # Lambdaworks Documentation
 
 - [Introduction](./introduction.md)
+- [Getting Started](./getting-started.md)
+- [Architecture Overview](./architecture.md)
+
+- [Math Library](./math/overview.md)
+
+- [Crypto Library](./crypto/overview.md)
+
+- [Migration Guides](./migration.md)
 
 - [FFT Library]()
   - [Benchmarks](./fft/benchmarks.md)
