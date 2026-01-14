@@ -59,3 +59,64 @@ pub trait Deserializable {
 pub trait IsRandomFieldElementGenerator<F: IsField> {
     fn generate(&self) -> FieldElement<F>;
 }
+
+/// Serialize a value with a u32 big-endian length prefix.
+/// This is a common pattern used in proof serialization.
+#[cfg(feature = "alloc")]
+pub fn serialize_with_length<T: AsBytes>(item: &T) -> alloc::vec::Vec<u8> {
+    let bytes = item.as_bytes();
+    let mut result = alloc::vec::Vec::with_capacity(4 + bytes.len());
+    result.extend_from_slice(&(bytes.len() as u32).to_be_bytes());
+    result.extend_from_slice(&bytes);
+    result
+}
+
+/// Deserialize a value with a u32 big-endian length prefix.
+/// Returns the new offset and the deserialized value.
+/// This is a common pattern used in proof deserialization.
+pub fn deserialize_with_length<T: Deserializable>(
+    bytes: &[u8],
+    offset: usize,
+) -> Result<(usize, T), DeserializationError> {
+    const SIZE_OF_U32: usize = core::mem::size_of::<u32>();
+    let size_bytes: [u8; SIZE_OF_U32] = bytes
+        .get(offset..offset + SIZE_OF_U32)
+        .ok_or(DeserializationError::InvalidAmountOfBytes)?
+        .try_into()
+        .map_err(|_| DeserializationError::InvalidAmountOfBytes)?;
+    let size = u32::from_be_bytes(size_bytes) as usize;
+    let new_offset = offset + SIZE_OF_U32;
+    let item = T::deserialize(
+        bytes
+            .get(new_offset..new_offset + size)
+            .ok_or(DeserializationError::InvalidAmountOfBytes)?,
+    )?;
+    Ok((new_offset + size, item))
+}
+
+/// Deserialize a field element with a u32 big-endian length prefix.
+/// Returns the new offset and the deserialized field element.
+/// This is a common pattern used in proof deserialization for field elements
+/// that implement ByteConversion but not Deserializable.
+pub fn deserialize_field_element_with_length<F: IsField>(
+    bytes: &[u8],
+    offset: usize,
+) -> Result<(usize, FieldElement<F>), DeserializationError>
+where
+    FieldElement<F>: ByteConversion,
+{
+    const SIZE_OF_U32: usize = core::mem::size_of::<u32>();
+    let size_bytes: [u8; SIZE_OF_U32] = bytes
+        .get(offset..offset + SIZE_OF_U32)
+        .ok_or(DeserializationError::InvalidAmountOfBytes)?
+        .try_into()
+        .map_err(|_| DeserializationError::InvalidAmountOfBytes)?;
+    let size = u32::from_be_bytes(size_bytes) as usize;
+    let new_offset = offset + SIZE_OF_U32;
+    let field_element = FieldElement::from_bytes_be(
+        bytes
+            .get(new_offset..new_offset + size)
+            .ok_or(DeserializationError::InvalidAmountOfBytes)?,
+    )?;
+    Ok((new_offset + size, field_element))
+}

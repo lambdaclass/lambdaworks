@@ -1,9 +1,11 @@
 use lambdaworks_crypto::fiat_shamir::is_transcript::IsTranscript;
 use lambdaworks_math::errors::DeserializationError;
 use lambdaworks_math::field::traits::IsFFTField;
-use lambdaworks_math::traits::{AsBytes, Deserializable, IsRandomFieldElementGenerator};
+use lambdaworks_math::traits::{
+    deserialize_field_element_with_length, deserialize_with_length, AsBytes, Deserializable,
+    IsRandomFieldElementGenerator,
+};
 use std::marker::PhantomData;
-use std::mem::size_of;
 
 use crate::setup::{
     new_strong_fiat_shamir_transcript, CommonPreprocessedInput, VerificationKey, Witness,
@@ -133,56 +135,6 @@ where
     }
 }
 
-// TODO: Remove this once FieldElements implement Serializable
-fn deserialize_field_element<F>(
-    bytes: &[u8],
-    offset: usize,
-) -> Result<(usize, FieldElement<F>), DeserializationError>
-where
-    F: IsField,
-    FieldElement<F>: ByteConversion,
-{
-    let mut offset = offset;
-    let element_size_bytes: [u8; size_of::<u32>()] = bytes
-        .get(offset..offset + size_of::<u32>())
-        .ok_or(DeserializationError::InvalidAmountOfBytes)?
-        .try_into()
-        .map_err(|_| DeserializationError::InvalidAmountOfBytes)?;
-    let element_size = u32::from_be_bytes(element_size_bytes) as usize;
-    offset += size_of::<u32>();
-    let field_element = FieldElement::from_bytes_be(
-        bytes
-            .get(offset..offset + element_size)
-            .ok_or(DeserializationError::InvalidAmountOfBytes)?,
-    )?;
-    offset += element_size;
-    Ok((offset, field_element))
-}
-
-fn deserialize_commitment<Commitment>(
-    bytes: &[u8],
-    offset: usize,
-) -> Result<(usize, Commitment), DeserializationError>
-where
-    Commitment: Deserializable,
-{
-    let mut offset = offset;
-    let element_size_bytes: [u8; size_of::<u32>()] = bytes
-        .get(offset..offset + size_of::<u32>())
-        .ok_or(DeserializationError::InvalidAmountOfBytes)?
-        .try_into()
-        .map_err(|_| DeserializationError::InvalidAmountOfBytes)?;
-    let element_size = u32::from_be_bytes(element_size_bytes) as usize;
-    offset += size_of::<u32>();
-    let commitment = Commitment::deserialize(
-        bytes
-            .get(offset..offset + element_size)
-            .ok_or(DeserializationError::InvalidAmountOfBytes)?,
-    )?;
-    offset += element_size;
-    Ok((offset, commitment))
-}
-
 impl<F, CS> Deserializable for Proof<F, CS>
 where
     F: IsField,
@@ -194,24 +146,24 @@ where
     where
         Self: Sized,
     {
-        let (offset, a_zeta) = deserialize_field_element(bytes, 0)?;
-        let (offset, b_zeta) = deserialize_field_element(bytes, offset)?;
-        let (offset, c_zeta) = deserialize_field_element(bytes, offset)?;
-        let (offset, s1_zeta) = deserialize_field_element(bytes, offset)?;
-        let (offset, s2_zeta) = deserialize_field_element(bytes, offset)?;
-        let (offset, z_zeta_omega) = deserialize_field_element(bytes, offset)?;
-        let (offset, p_non_constant_zeta) = deserialize_field_element(bytes, offset)?;
-        let (offset, t_zeta) = deserialize_field_element(bytes, offset)?;
+        let (offset, a_zeta) = deserialize_field_element_with_length(bytes, 0)?;
+        let (offset, b_zeta) = deserialize_field_element_with_length(bytes, offset)?;
+        let (offset, c_zeta) = deserialize_field_element_with_length(bytes, offset)?;
+        let (offset, s1_zeta) = deserialize_field_element_with_length(bytes, offset)?;
+        let (offset, s2_zeta) = deserialize_field_element_with_length(bytes, offset)?;
+        let (offset, z_zeta_omega) = deserialize_field_element_with_length(bytes, offset)?;
+        let (offset, p_non_constant_zeta) = deserialize_field_element_with_length(bytes, offset)?;
+        let (offset, t_zeta) = deserialize_field_element_with_length(bytes, offset)?;
 
-        let (offset, a_1) = deserialize_commitment(bytes, offset)?;
-        let (offset, b_1) = deserialize_commitment(bytes, offset)?;
-        let (offset, c_1) = deserialize_commitment(bytes, offset)?;
-        let (offset, z_1) = deserialize_commitment(bytes, offset)?;
-        let (offset, t_lo_1) = deserialize_commitment(bytes, offset)?;
-        let (offset, t_mid_1) = deserialize_commitment(bytes, offset)?;
-        let (offset, t_hi_1) = deserialize_commitment(bytes, offset)?;
-        let (offset, w_zeta_1) = deserialize_commitment(bytes, offset)?;
-        let (_, w_zeta_omega_1) = deserialize_commitment(bytes, offset)?;
+        let (offset, a_1) = deserialize_with_length(bytes, offset)?;
+        let (offset, b_1) = deserialize_with_length(bytes, offset)?;
+        let (offset, c_1) = deserialize_with_length(bytes, offset)?;
+        let (offset, z_1) = deserialize_with_length(bytes, offset)?;
+        let (offset, t_lo_1) = deserialize_with_length(bytes, offset)?;
+        let (offset, t_mid_1) = deserialize_with_length(bytes, offset)?;
+        let (offset, t_hi_1) = deserialize_with_length(bytes, offset)?;
+        let (offset, w_zeta_1) = deserialize_with_length(bytes, offset)?;
+        let (_, w_zeta_omega_1) = deserialize_with_length(bytes, offset)?;
 
         Ok(Proof {
             a_1,
