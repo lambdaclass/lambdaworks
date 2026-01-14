@@ -35,6 +35,24 @@ pub enum ProverError {
     /// Commitment error
     CommitmentError(String),
 }
+
+impl std::fmt::Display for ProverError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ProverError::DivisionByZero => write!(f, "Division by zero"),
+            ProverError::FFTError(msg) => write!(f, "FFT error: {}", msg),
+            ProverError::PrimitiveRootNotFound(order) => {
+                write!(f, "Primitive root not found for order {}", order)
+            }
+            ProverError::BatchInversionFailed => write!(f, "Batch inversion failed"),
+            ProverError::SetupError(msg) => write!(f, "Setup error: {}", msg),
+            ProverError::CommitmentError(msg) => write!(f, "Commitment error: {}", msg),
+        }
+    }
+}
+
+impl std::error::Error for ProverError {}
+
 /// Plonk proof.
 /// The challenges are denoted
 ///     Round 2: β,γ,
@@ -136,8 +154,7 @@ where
             &self.w_zeta_1,
             &self.w_zeta_omega_1,
         ] {
-            serialized_proof
-                .extend(lambdaworks_math::traits::serialize_with_length(commitment));
+            serialized_proof.extend(lambdaworks_math::traits::serialize_with_length(commitment));
         }
 
         serialized_proof

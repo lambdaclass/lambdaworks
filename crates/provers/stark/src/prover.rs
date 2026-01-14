@@ -315,7 +315,8 @@ pub trait IsStarkProver<
         let trace_polys = trace.compute_trace_polys_aux::<Field>();
 
         // Evaluate those polynomials t_j on the large domain D_LDE.
-        let lde_trace_evaluations = Self::compute_lde_trace_evaluations(&trace_polys, domain).ok()?;
+        let lde_trace_evaluations =
+            Self::compute_lde_trace_evaluations(&trace_polys, domain).ok()?;
 
         let mut lde_trace_permuted = lde_trace_evaluations.clone();
         for col in lde_trace_permuted.iter_mut() {
@@ -791,10 +792,7 @@ pub trait IsStarkProver<
         let proof = composition_poly_merkle_tree
             .get_proof_by_pos(index)
             .ok_or_else(|| {
-                ProvingError::MerkleTreeError(format!(
-                    "Failed to get proof at position {}",
-                    index
-                ))
+                ProvingError::MerkleTreeError(format!("Failed to get proof at position {}", index))
             })?;
 
         let lde_composition_poly_parts_evaluation: Vec<_> = lde_composition_poly_evaluations
