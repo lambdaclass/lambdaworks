@@ -172,3 +172,149 @@ path = "src/fields/lw_stark252_square.rs"
 [[bin]]
 name = "bench_lw_goldilocks_square"
 path = "src/fields/lw_goldilocks_square.rs"
+
+# === FIELD ADDITION BENCHMARKS ===
+
+[[bin]]
+name = "bench_lw_bn254_fq_add"
+path = "src/fields/lw_bn254_fq_add.rs"
+
+[[bin]]
+name = "bench_ark_bn254_fq_add"
+path = "src/fields/ark_bn254_fq_add.rs"
+
+[[bin]]
+name = "bench_lw_bn254_fr_add"
+path = "src/fields/lw_bn254_fr_add.rs"
+
+[[bin]]
+name = "bench_ark_bn254_fr_add"
+path = "src/fields/ark_bn254_fr_add.rs"
+
+[[bin]]
+name = "bench_lw_bls12381_fq_add"
+path = "src/fields/lw_bls12381_fq_add.rs"
+
+[[bin]]
+name = "bench_ark_bls12381_fq_add"
+path = "src/fields/ark_bls12381_fq_add.rs"
+
+[[bin]]
+name = "bench_lw_bls12381_fr_add"
+path = "src/fields/lw_bls12381_fr_add.rs"
+
+[[bin]]
+name = "bench_ark_bls12381_fr_add"
+path = "src/fields/ark_bls12381_fr_add.rs"
+
+# === FIELD SUBTRACTION BENCHMARKS ===
+
+[[bin]]
+name = "bench_lw_bn254_fq_sub"
+path = "src/fields/lw_bn254_fq_sub.rs"
+
+[[bin]]
+name = "bench_ark_bn254_fq_sub"
+path = "src/fields/ark_bn254_fq_sub.rs"
+
+[[bin]]
+name = "bench_lw_bn254_fr_sub"
+path = "src/fields/lw_bn254_fr_sub.rs"
+
+[[bin]]
+name = "bench_ark_bn254_fr_sub"
+path = "src/fields/ark_bn254_fr_sub.rs"
+
+[[bin]]
+name = "bench_lw_bls12381_fq_sub"
+path = "src/fields/lw_bls12381_fq_sub.rs"
+
+[[bin]]
+name = "bench_ark_bls12381_fq_sub"
+path = "src/fields/ark_bls12381_fq_sub.rs"
+
+[[bin]]
+name = "bench_lw_bls12381_fr_sub"
+path = "src/fields/lw_bls12381_fr_sub.rs"
+
+[[bin]]
+name = "bench_ark_bls12381_fr_sub"
+path = "src/fields/ark_bls12381_fr_sub.rs"
+
+# === ADDITIONAL SQUARING BENCHMARKS ===
+
+[[bin]]
+name = "bench_lw_bn254_fr_square"
+path = "src/fields/lw_bn254_fr_square.rs"
+
+[[bin]]
+name = "bench_ark_bn254_fr_square"
+path = "src/fields/ark_bn254_fr_square.rs"
+
+[[bin]]
+name = "bench_lw_bls12381_fq_square"
+path = "src/fields/lw_bls12381_fq_square.rs"
+
+[[bin]]
+name = "bench_ark_bls12381_fq_square"
+path = "src/fields/ark_bls12381_fq_square.rs"
+
+[[bin]]
+name = "bench_lw_bls12381_fr_square"
+path = "src/fields/lw_bls12381_fr_square.rs"
+
+[[bin]]
+name = "bench_ark_bls12381_fr_square"
+path = "src/fields/ark_bls12381_fr_square.rs"
+
+# === FIELD EXPONENTIATION BENCHMARKS ===
+
+[[bin]]
+name = "bench_lw_bn254_fq_pow"
+path = "src/fields/lw_bn254_fq_pow.rs"
+
+[[bin]]
+name = "bench_ark_bn254_fq_pow"
+path = "src/fields/ark_bn254_fq_pow.rs"
+
+[[bin]]
+name = "bench_lw_bn254_fr_pow"
+path = "src/fields/lw_bn254_fr_pow.rs"
+
+[[bin]]
+name = "bench_ark_bn254_fr_pow"
+path = "src/fields/ark_bn254_fr_pow.rs"
+
+[[bin]]
+name = "bench_lw_bls12381_fq_pow"
+path = "src/fields/lw_bls12381_fq_pow.rs"
+
+[[bin]]
+name = "bench_ark_bls12381_fq_pow"
+path = "src/fields/ark_bls12381_fq_pow.rs"
+
+[[bin]]
+name = "bench_lw_bls12381_fr_pow"
+path = "src/fields/lw_bls12381_fr_pow.rs"
+
+[[bin]]
+name = "bench_ark_bls12381_fr_pow"
+path = "src/fields/ark_bls12381_fr_pow.rs"
+
+# === ADDITIONAL INVERSION BENCHMARKS ===
+
+[[bin]]
+name = "bench_lw_bn254_fr_inv"
+path = "src/fields/lw_bn254_fr_inv.rs"
+
+[[bin]]
+name = "bench_ark_bn254_fr_inv"
+path = "src/fields/ark_bn254_fr_inv.rs"
+
+[[bin]]
+name = "bench_lw_bls12381_fr_inv"
+path = "src/fields/lw_bls12381_fr_inv.rs"
+
+[[bin]]
+name = "bench_ark_bls12381_fr_inv"
+path = "src/fields/ark_bls12381_fr_inv.rs"
