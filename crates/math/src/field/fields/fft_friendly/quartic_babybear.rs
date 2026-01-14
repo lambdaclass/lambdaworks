@@ -198,7 +198,9 @@ impl IsSubFieldOf<Degree4BabyBearExtensionField> for Babybear31PrimeField {
         b: &<Degree4BabyBearExtensionField as IsField>::BaseType,
     ) -> Result<<Degree4BabyBearExtensionField as IsField>::BaseType, FieldError> {
         let b_inv = Degree4BabyBearExtensionField::inv(b)?;
-        Ok(<Self as IsSubFieldOf<Degree4BabyBearExtensionField>>::mul(a, &b_inv))
+        Ok(<Self as IsSubFieldOf<Degree4BabyBearExtensionField>>::mul(
+            a, &b_inv,
+        ))
     }
 
     fn sub(
@@ -490,8 +492,7 @@ mod tests {
 
     #[test]
     fn test_two_adic_primitve_root_of_unity() {
-        let generator =
-            Fp4E::new(Degree4BabyBearExtensionField::TWO_ADIC_PRIMITVE_ROOT_OF_UNITY);
+        let generator = Fp4E::new(Degree4BabyBearExtensionField::TWO_ADIC_PRIMITVE_ROOT_OF_UNITY);
         assert_eq!(
             generator.pow(2u64.pow(Degree4BabyBearExtensionField::TWO_ADICITY as u32)),
             Fp4E::one()

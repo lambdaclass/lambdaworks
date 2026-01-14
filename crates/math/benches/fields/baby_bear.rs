@@ -1,10 +1,10 @@
 use criterion::Criterion;
 use std::hint::black_box;
 
+use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::fields::fft_friendly::{
     babybear::Babybear31PrimeField, quartic_babybear::Degree4BabyBearExtensionField,
 };
-use lambdaworks_math::field::element::FieldElement;
 
 use p3_baby_bear::BabyBear;
 use p3_field::extension::BinomialExtensionField;
