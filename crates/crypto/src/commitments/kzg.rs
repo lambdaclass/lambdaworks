@@ -287,7 +287,7 @@ mod tests {
                     pairing::BLS12381AtePairing,
                     twist::BLS12381TwistCurve,
                 },
-                point::ShortWeierstrassProjectivePoint,
+                point::ShortWeierstrassJacobianPoint,
             },
             traits::{IsEllipticCurve, IsPairing},
         },
@@ -302,7 +302,7 @@ mod tests {
     use super::{KateZaveruchaGoldberg, StructuredReferenceString};
     use rand::Rng;
 
-    type G1 = ShortWeierstrassProjectivePoint<BLS12381Curve>;
+    type G1 = ShortWeierstrassJacobianPoint<BLS12381Curve>;
 
     #[allow(clippy::upper_case_acronyms)]
     type KZG = KateZaveruchaGoldberg<FrField, BLS12381AtePairing>;
@@ -430,8 +430,8 @@ mod tests {
         let srs = create_srs();
         let bytes = srs.as_bytes();
         let deserialized: StructuredReferenceString<
-            ShortWeierstrassProjectivePoint<BLS12381Curve>,
-            ShortWeierstrassProjectivePoint<BLS12381TwistCurve>,
+            ShortWeierstrassJacobianPoint<BLS12381Curve>,
+            ShortWeierstrassJacobianPoint<BLS12381TwistCurve>,
         > = StructuredReferenceString::deserialize(&bytes).unwrap();
 
         assert_eq!(srs, deserialized);
@@ -439,17 +439,29 @@ mod tests {
 
     #[test]
     #[cfg(feature = "std")]
-    fn load_srs_from_file() {
+    fn save_and_load_srs_from_file() {
         type TestSrsType = StructuredReferenceString<
-            ShortWeierstrassProjectivePoint<BLS12381Curve>,
-            ShortWeierstrassProjectivePoint<BLS12381TwistCurve>,
+            ShortWeierstrassJacobianPoint<BLS12381Curve>,
+            ShortWeierstrassJacobianPoint<BLS12381TwistCurve>,
         >;
 
+        // Create a small SRS
+        let g1 = BLS12381Curve::generator();
+        let g2 = BLS12381TwistCurve::generator();
+        let powers_main_group: Vec<ShortWeierstrassJacobianPoint<BLS12381Curve>> = (0..3)
+            .map(|exp| g1.operate_with_self(exp as u64))
+            .collect();
+        let powers_secondary_group = [g2.clone(), g2.operate_with_self(2_u64)];
+        let srs = TestSrsType::new(&powers_main_group, &powers_secondary_group);
+
+        // Save to temp file
         let base_dir = env!("CARGO_MANIFEST_DIR");
         let srs_file = base_dir.to_owned() + "/src/commitments/test_srs/srs_3_g1_elements.bin";
+        std::fs::write(&srs_file, srs.as_bytes()).unwrap();
 
-        let srs = TestSrsType::from_file(&srs_file).unwrap();
-
-        assert_eq!(srs.powers_main_group.len(), 3);
+        // Load back and verify
+        let loaded_srs = TestSrsType::from_file(&srs_file).unwrap();
+        assert_eq!(loaded_srs.powers_main_group.len(), 3);
+        assert_eq!(srs, loaded_srs);
     }
 }
