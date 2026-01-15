@@ -32,12 +32,8 @@ type Fp12E = FieldElement<Degree12ExtensionField>;
 type G1Point = ShortWeierstrassProjectivePoint<BN254Curve>;
 type G2Point = ShortWeierstrassProjectivePoint<BN254TwistCurve>;
 
-// You can find an explanation of the next implemetation in our post
+// You can find an explanation of the pairing implementation in our post:
 // https://blog.lambdaclass.com/how-we-implemented-the-bn254-ate-pairing-in-lambdaworks/
-// There you'll come across a path to understand the naive implementation of the pairing
-// using the functions miller_naive() and final_exponentiation_naive().
-// We then optimized the pairing using the functions miller_optimized() and final_exponentiation_optimized().
-// You'll find both the naive and optimized versions below.
 
 ////////////////// CONSTANTS //////////////////
 
@@ -173,39 +169,8 @@ impl IsPairing for BN254AtePairing {
     }
 }
 
-/// Computes Miller loop using oprate_with(), operate_with_self() and line_naive().
+/// Computes the Miller loop using line_optimized().
 /// See https://eprint.iacr.org/2010/354.pdf (Page 4, Algorithm 1).
-pub fn miller_naive(p: &G1Point, q: &G2Point) -> Fp12E {
-    let mut t = q.clone();
-    let mut f = Fp12E::one();
-    let q_neg = &q.neg();
-    MILLER_CONSTANT.iter().rev().skip(1).for_each(|m| {
-        f = f.square() * line_naive(p, &t, &t);
-        t = t.double();
-
-        if *m == -1 {
-            f *= line_naive(p, &t, q_neg);
-            t = t.operate_with_affine(q_neg);
-        } else if *m == 1 {
-            f *= line_naive(p, &t, q);
-            t = t.operate_with_affine(q);
-        }
-    });
-
-    // q1 = ((x_q)^p, (y_q)^p, (z_q)^p)
-    // See  https://hackmd.io/@Wimet/ry7z1Xj-2#The-Last-two-Lines
-    let q1 = q.phi();
-    f *= line_naive(p, &t, &q1);
-    t = t.operate_with(&q1);
-
-    // q2 = ((x_q1)^p, (y_q1)^p, (z_q1)^p)
-    let q2 = q1.phi();
-    f *= line_naive(p, &t, &q2.neg());
-
-    f
-}
-
-/// Computes the same algorithm as miller_naive but optimized  using line_optimized()
 pub fn miller_optimized(p: &G1Point, q: &G2Point) -> Fp12E {
     let mut t = q.clone();
     let mut f = Fp12E::one();
@@ -238,45 +203,6 @@ pub fn miller_optimized(p: &G1Point, q: &G2Point) -> Fp12E {
     f = sparse_fp12_mul(&f, &line_optimized(p, &t, &q2.neg()).1);
 
     f
-}
-
-/// Depending on the case, it computes the tangent line of t or the line
-/// between t and q evaluated in p.
-/// Algorithm adapted from Arkowork's double_in_place and add_in_place.
-/// See https://github.com/arkworks-rs/algebra/blob/master/ec/src/models/bn/g2.rs#L25.
-/// See https://eprint.iacr.org/2013/722.pdf (Page 13, Equations 11 and 13).
-fn line_naive(p: &G1Point, t: &G2Point, q: &G2Point) -> Fp12E {
-    let [x_p, y_p, _] = p.coordinates();
-
-    if t == q {
-        let b = t.y().square();
-        let c = t.z().square();
-        let e = BN254TwistCurve::b() * (c.double() + &c);
-        let h = (t.y() + t.z()).square() - (&b + &c);
-        let i = &e - &b;
-        let j = t.x().square();
-
-        // We are transforming one representation of Fp12 into another:
-        // If f in Fp12, then f = g + h * w = g0 + h0 * w + g1 * w^2 + h1 * w^3 + g2 * w^4 + h2 * w^5,
-        // where g = g0 + g1 * v + g2 * v^2,
-        // and h = h0 + h1 * v + h2 * v^2.
-        // See https://hackmd.io/@Wimet/ry7z1Xj-2#Tower-of-Extension-Fields.
-        Fp12E::new([
-            Fp6E::new([y_p * (-h), Fp2E::zero(), Fp2E::zero()]),
-            Fp6E::new([x_p * (j.double() + &j), i, Fp2E::zero()]),
-        ])
-    } else {
-        let [x_q, y_q, _] = q.coordinates();
-
-        let theta = t.y() - (y_q * t.z());
-        let lambda = t.x() - (x_q * t.z());
-        let j = &theta * x_q - (&lambda * y_q);
-
-        Fp12E::new([
-            Fp6E::new([y_p * lambda, Fp2E::zero(), Fp2E::zero()]),
-            Fp6E::new([x_p * (-theta), j, Fp2E::zero()]),
-        ])
-    }
 }
 
 /// Depending on the case, it computes 2t or t + q and the tangent line of t or
@@ -354,49 +280,7 @@ fn line_optimized(p: &G1Point, t: &G2Point, q: &G2Point) -> (G2Point, Fp12E) {
     }
 }
 
-/// Computes f ^ {(p^12 - 1) / r}
-/// using that (p^12 - 1)/r = (p^6 - 1) * (p^2 + 1) * (p^4 - p^2 + 1)/r.
-/// Algorithm taken from https://hackmd.io/@Wimet/ry7z1Xj-2#Final-Exponentiation.
-pub fn final_exponentiation_naive(
-    f: &FieldElement<Degree12ExtensionField>,
-) -> FieldElement<Degree12ExtensionField> {
-    // Easy part:
-    // Computes f ^ {(p^6 - 1) * (p^2 + 1)}
-    let f_easy_aux = f.conjugate() * f.inv().unwrap(); // f ^ (p^6 - 1) because f^(p^6) = f.conjugate().
-    let f_easy = &frobenius_square(&f_easy_aux) * f_easy_aux; // (f^{p^6 - 1})^(p^2) * (f^{p^6 - 1}).
-
-    // Hard part:
-    // Computes f_easy ^ ((p^4 - p^2 + 1) / r)
-    // See https://hackmd.io/@Wimet/ry7z1Xj-2#The-Hard-Part, where f_easy is called m.
-    // We define different exponentiation of f_easy that we will use later.
-    let mx = f_easy.pow(X);
-    let mx2 = mx.pow(X);
-    let mx3 = mx2.pow(X);
-    let mp = frobenius(&f_easy);
-    let mp2 = frobenius_square(&f_easy);
-    let mp3 = frobenius_cube(&f_easy);
-    let mxp = frobenius(&mx); // (m^x)^p
-    let mx2p = frobenius(&mx2); // (m^{x^2})^p
-    let mx3p = frobenius(&mx3); // (m^{x^3})^p
-    let mx2p2 = frobenius_square(&mx2); // (m^{x^2})^p^2
-
-    let y0 = mp * mp2 * mp3;
-    let y1 = f_easy.conjugate();
-    let y2 = mx2p2;
-    let y3 = mxp.conjugate();
-    let y4 = (mx * mx2p).conjugate();
-    let y5 = mx2.conjugate();
-    let y6 = (mx3 * mx3p).conjugate();
-
-    y0 * y1.square()
-        * y2.pow(6usize)
-        * y3.pow(12usize)
-        * y4.pow(18usize)
-        * y5.pow(30usize)
-        * y6.pow(36usize)
-}
-
-/// Computes the final exponentiation algorithm optimized
+/// Computes the final exponentiation f ^ {(p^12 - 1) / r}
 /// using cyclotomic_pow_x() and cyclotomic_square().
 /// See https://hackmd.io/@Wimet/ry7z1Xj-2#Final-Exponentiation.
 pub fn final_exponentiation_optimized(

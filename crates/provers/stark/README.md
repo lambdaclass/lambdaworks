@@ -32,7 +32,7 @@ The security of STARKs depends on collision-resistant hash functions. The securi
 
 The field (or base field $\mathbb{F}_p$ in case of extensions $\mathbb{F}_{p^k}$) has to implement the trait `IsFFTField`, ensuring we can use the [FFT algorithm](../../math/src/fft/README.md) (which is crucial for efficiency). Some fields implementing this trait are:
 - [STARK-252](../../math/src/field/fields/fft_friendly/stark_252_prime_field.rs)
-- [Baby-Bear](../../math/src/field/fields/fft_friendly/babybear_u32.rs) with its [quartic degree extension](../../math/src/field/fields/fft_friendly/quartic_babybear_u32.rs)
+- [Baby-Bear](../../math/src/field/fields/fft_friendly/babybear.rs) with its [quartic degree extension](../../math/src/field/fields/fft_friendly/quartic_babybear.rs)
 
 To prove a statement, we will need a description of it, in the form of an Algebraic Intermediate Representation (AIR). This consists of:
 - One or more tables (trace and auxiliary trace)
