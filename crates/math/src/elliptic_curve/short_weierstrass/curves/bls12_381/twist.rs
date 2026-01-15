@@ -48,6 +48,11 @@ impl IsShortWeierstrass for BLS12381TwistCurve {
     fn b() -> FieldElement<Self::BaseField> {
         FieldElement::new([FieldElement::from(4), FieldElement::from(4)])
     }
+
+    #[inline(always)]
+    fn a_is_zero() -> bool {
+        true
+    }
 }
 
 impl ShortWeierstrassProjectivePoint<BLS12381TwistCurve> {

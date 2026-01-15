@@ -43,7 +43,7 @@ pub fn sqrt_qfe(
         } else {
             // second part of the input field number is non-zero
             // instead of "sum" is: -beta
-            let alpha = a.pow(2u64) + b.pow(2u64);
+            let alpha = a.square() + b.square();
             let gamma = alpha.legendre_symbol();
             match gamma {
                 LegendreSymbol::One => {

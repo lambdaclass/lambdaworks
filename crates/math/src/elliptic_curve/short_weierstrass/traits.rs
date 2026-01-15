@@ -12,6 +12,13 @@ pub trait IsShortWeierstrass: IsEllipticCurve + Clone + Debug {
     /// `b` coefficient for the equation  `y^2 = x^3 + a * x  + b`.
     fn b() -> FieldElement<Self::BaseField>;
 
+    /// Returns true if a() == 0. Override this for compile-time optimization.
+    /// Curves with a=0 (like BN254, BLS12-381) can use faster doubling formulas.
+    #[inline(always)]
+    fn a_is_zero() -> bool {
+        false
+    }
+
     /// Evaluates the residual of the Short Weierstrass equation
     /// R = y^2 - x^3 - ax - b
     /// If R == 0, then the point is in the curve
