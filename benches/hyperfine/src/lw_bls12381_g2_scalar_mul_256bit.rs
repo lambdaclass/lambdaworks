@@ -1,4 +1,5 @@
 //! Lambdaworks BLS12-381 G2 scalar multiplication (256-bit scalar) benchmark
+//! Uses standard double-and-add algorithm.
 use lambdaworks_math::{
     cyclic_group::IsGroup,
     elliptic_curve::{
@@ -19,6 +20,7 @@ fn main() {
 
     for i in 0..ITERATIONS {
         let varied_scalar = scalar + U256::from_u64(i as u64);
+        // Standard double-and-add
         let result = g.operate_with_self(varied_scalar);
         std::hint::black_box(result);
     }

@@ -1,11 +1,9 @@
 //! Lambdaworks BLS12-381 G2 GLS scalar multiplication benchmark
-use lambdaworks_math::{
-    cyclic_group::IsGroup,
-    elliptic_curve::{
-        short_weierstrass::curves::bls12_381::twist::BLS12381TwistCurve, traits::IsEllipticCurve,
-    },
-    unsigned_integer::element::U256,
+//! Uses the Frobenius endomorphism ψ for speedup over standard double-and-add.
+use lambdaworks_math::elliptic_curve::{
+    short_weierstrass::curves::bls12_381::twist::BLS12381TwistCurve, traits::IsEllipticCurve,
 };
+use lambdaworks_math::unsigned_integer::element::U256;
 
 const ITERATIONS: usize = 500;
 
@@ -19,8 +17,8 @@ fn main() {
 
     for i in 0..ITERATIONS {
         let varied_scalar = scalar + U256::from_u64(i as u64);
-        // GLS uses the same operate_with_self but internally uses GLS decomposition
-        let result = g.operate_with_self(varied_scalar);
+        // GLS uses Frobenius endomorphism for faster scalar multiplication
+        let result = g.gls_mul(&varied_scalar);
         std::hint::black_box(result);
     }
 }
