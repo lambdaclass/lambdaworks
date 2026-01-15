@@ -19,13 +19,15 @@ After this point, typical steps of Groth16 can be performed using Lamdaworks: se
 ```rust
 let (pk, vk) = setup(&qap);
 
-let proof = Prover::prove(&w, &qap, &pk);
+let proof = Prover::prove(&w, &qap, &pk).expect("proving failed");
 
 let public_inputs = &w[..qap.num_of_public_inputs];
 let accept = verify(&vk, &proof, public_inputs);
 
 assert!(accept);
 ```
+
+> **Note:** `Prover::prove` returns a `Result<Proof, Groth16Error>`. Use `?` operator or `.expect()` to handle the result.
 
 ## Full Example
 
@@ -76,7 +78,7 @@ let (qap, w) = to_lambda(&cs);
 
 let (pk, vk) = setup(&qap);
 
-let proof = Prover::prove(&w, &qap, &pk);
+let proof = Prover::prove(&w, &qap, &pk).expect("proving failed");
 
 let public_inputs = &w[..qap.num_of_public_inputs];
 let accept = verify(&vk, &proof, public_inputs);

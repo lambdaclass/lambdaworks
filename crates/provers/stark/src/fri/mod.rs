@@ -14,10 +14,20 @@ pub use lambdaworks_math::{
 };
 
 use crate::config::{BatchedMerkleTree, BatchedMerkleTreeBackend};
+use crate::prover::ProvingError;
 
 use self::fri_commitment::FriLayer;
 use self::fri_decommit::FriDecommitment;
 use self::fri_functions::fold_polynomial;
+
+/// Result type for the FRI commit phase, containing the last value and all FRI layers.
+type CommitPhaseResult<E> = Result<
+    (
+        FieldElement<E>,
+        Vec<FriLayer<E, BatchedMerkleTreeBackend<E>>>,
+    ),
+    ProvingError,
+>;
 
 pub fn commit_phase<F: IsFFTField + IsSubFieldOf<E>, E: IsField>(
     number_layers: usize,
@@ -25,10 +35,7 @@ pub fn commit_phase<F: IsFFTField + IsSubFieldOf<E>, E: IsField>(
     transcript: &mut impl IsStarkTranscript<E, F>,
     coset_offset: &FieldElement<F>,
     domain_size: usize,
-) -> (
-    FieldElement<E>,
-    Vec<FriLayer<E, BatchedMerkleTreeBackend<E>>>,
-)
+) -> CommitPhaseResult<E>
 where
     FieldElement<F>: AsBytes + Sync + Send,
     FieldElement<E>: AsBytes + Sync + Send,
@@ -49,7 +56,7 @@ where
 
         // Compute layer polynomial and domain
         current_poly = FieldElement::<F>::from(2) * fold_polynomial(&current_poly, &zeta);
-        current_layer = new_fri_layer(&current_poly, &coset_offset, domain_size);
+        current_layer = new_fri_layer(&current_poly, &coset_offset, domain_size)?;
         let new_data = &current_layer.merkle_tree.root;
         fri_layer_list.push(current_layer.clone()); // TODO: remove this clone
 
@@ -71,44 +78,52 @@ where
     // >>>> Send value: pₙ
     transcript.append_field_element(&last_value);
 
-    (last_value, fri_layer_list)
+    Ok((last_value, fri_layer_list))
 }
 
 pub fn query_phase<F: IsField>(
     fri_layers: &Vec<FriLayer<F, BatchedMerkleTreeBackend<F>>>,
     iotas: &[usize],
-) -> Vec<FriDecommitment<F>>
+) -> Result<Vec<FriDecommitment<F>>, ProvingError>
 where
     FieldElement<F>: AsBytes + Sync + Send,
 {
     if !fri_layers.is_empty() {
-        let query_list = iotas
-            .iter()
-            .map(|iota_s| {
-                let mut layers_evaluations_sym = Vec::new();
-                let mut layers_auth_paths_sym = Vec::new();
+        let mut query_list = Vec::with_capacity(iotas.len());
 
-                let mut index = *iota_s;
-                for layer in fri_layers {
-                    // symmetric element
-                    let evaluation_sym = layer.evaluation[index ^ 1].clone();
-                    let auth_path_sym = layer.merkle_tree.get_proof_by_pos(index >> 1).unwrap();
-                    layers_evaluations_sym.push(evaluation_sym);
-                    layers_auth_paths_sym.push(auth_path_sym);
+        for iota_s in iotas {
+            let mut layers_evaluations_sym = Vec::new();
+            let mut layers_auth_paths_sym = Vec::new();
 
-                    index >>= 1;
-                }
+            let mut index = *iota_s;
+            for layer in fri_layers {
+                // symmetric element
+                let evaluation_sym = layer.evaluation[index ^ 1].clone();
+                let auth_path_sym =
+                    layer
+                        .merkle_tree
+                        .get_proof_by_pos(index >> 1)
+                        .ok_or_else(|| {
+                            ProvingError::MerkleTreeError(format!(
+                                "Failed to get proof at position {}",
+                                index >> 1
+                            ))
+                        })?;
+                layers_evaluations_sym.push(evaluation_sym);
+                layers_auth_paths_sym.push(auth_path_sym);
 
-                FriDecommitment {
-                    layers_auth_paths: layers_auth_paths_sym,
-                    layers_evaluations_sym,
-                }
-            })
-            .collect();
+                index >>= 1;
+            }
 
-        query_list
+            query_list.push(FriDecommitment {
+                layers_auth_paths: layers_auth_paths_sym,
+                layers_evaluations_sym,
+            });
+        }
+
+        Ok(query_list)
     } else {
-        vec![]
+        Ok(vec![])
     }
 }
 
@@ -116,13 +131,12 @@ pub fn new_fri_layer<F: IsFFTField + IsSubFieldOf<E>, E: IsField>(
     poly: &Polynomial<FieldElement<E>>,
     coset_offset: &FieldElement<F>,
     domain_size: usize,
-) -> crate::fri::fri_commitment::FriLayer<E, BatchedMerkleTreeBackend<E>>
+) -> Result<crate::fri::fri_commitment::FriLayer<E, BatchedMerkleTreeBackend<E>>, ProvingError>
 where
     FieldElement<F>: AsBytes + Sync + Send,
     FieldElement<E>: AsBytes + Sync + Send,
 {
-    let mut evaluation =
-        Polynomial::evaluate_offset_fft(poly, 1, Some(domain_size), coset_offset).unwrap(); // TODO: return error
+    let mut evaluation = Polynomial::evaluate_offset_fft(poly, 1, Some(domain_size), coset_offset)?;
 
     in_place_bit_reverse_permute(&mut evaluation);
 
@@ -131,12 +145,13 @@ where
         to_commit.push(vec![chunk[0].clone(), chunk[1].clone()]);
     }
 
-    let merkle_tree = BatchedMerkleTree::build(&to_commit).unwrap();
+    let merkle_tree = BatchedMerkleTree::build(&to_commit)
+        .ok_or_else(|| ProvingError::MerkleTreeError("Failed to build FRI merkle tree".into()))?;
 
-    FriLayer::new(
+    Ok(FriLayer::new(
         &evaluation,
         merkle_tree,
         coset_offset.clone().to_extension(),
         domain_size,
-    )
+    ))
 }

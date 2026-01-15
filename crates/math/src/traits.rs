@@ -59,3 +59,38 @@ pub trait Deserializable {
 pub trait IsRandomFieldElementGenerator<F: IsField> {
     fn generate(&self) -> FieldElement<F>;
 }
+
+/// Serialize an item with a u32 length prefix (big-endian).
+/// The format is: [4 bytes length (BE)] [serialized data]
+#[cfg(feature = "alloc")]
+pub fn serialize_with_length<T: AsBytes>(item: &T) -> alloc::vec::Vec<u8> {
+    let bytes = item.as_bytes();
+    let mut result = alloc::vec::Vec::with_capacity(4 + bytes.len());
+    result.extend_from_slice(&(bytes.len() as u32).to_be_bytes());
+    result.extend_from_slice(&bytes);
+    result
+}
+
+/// Deserialize an item with a u32 length prefix (big-endian).
+/// Returns the new offset and the deserialized item.
+pub fn deserialize_with_length<T: Deserializable>(
+    bytes: &[u8],
+    offset: usize,
+) -> Result<(usize, T), DeserializationError> {
+    const SIZE_OF_U32: usize = core::mem::size_of::<u32>();
+    let mut offset = offset;
+    let element_size_bytes: [u8; SIZE_OF_U32] = bytes
+        .get(offset..offset + SIZE_OF_U32)
+        .ok_or(DeserializationError::InvalidAmountOfBytes)?
+        .try_into()
+        .map_err(|_| DeserializationError::InvalidAmountOfBytes)?;
+    let element_size = u32::from_be_bytes(element_size_bytes) as usize;
+    offset += SIZE_OF_U32;
+    let item = T::deserialize(
+        bytes
+            .get(offset..offset + element_size)
+            .ok_or(DeserializationError::InvalidAmountOfBytes)?,
+    )?;
+    offset += element_size;
+    Ok((offset, item))
+}
