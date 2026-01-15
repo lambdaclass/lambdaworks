@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use crate::constraint_system::{get_permutation, ConstraintSystem, Variable};
+use crate::prover::ProverError;
 use crate::test_utils::utils::{generate_domain, generate_permutation_coefficients};
 use lambdaworks_crypto::commitments::traits::IsCommitmentScheme;
 use lambdaworks_crypto::fiat_shamir::{
@@ -60,10 +61,11 @@ impl<F: IsFFTField> CommonPreprocessedInput<F> {
     pub fn from_constraint_system(
         system: &ConstraintSystem<F>,
         order_r_minus_1_root_unity: &FieldElement<F>,
-    ) -> Self {
+    ) -> Result<Self, ProverError> {
         let (lro, q) = system.to_matrices();
         let n = lro.len() / 3;
-        let omega = F::get_primitive_root_of_unity(n.trailing_zeros() as u64).unwrap();
+        let omega = F::get_primitive_root_of_unity(n.trailing_zeros() as u64)
+            .map_err(|_| ProverError::PrimitiveRootNotFound(n.trailing_zeros() as u64))?;
         let domain = generate_domain(&omega, n);
 
         let m = q.len() / 5;
@@ -81,23 +83,31 @@ impl<F: IsFFTField> CommonPreprocessedInput<F> {
         let s2_lagrange: Vec<_> = permuted[n..2 * n].to_vec();
         let s3_lagrange: Vec<_> = permuted[2 * n..].to_vec();
 
-        Self {
+        Ok(Self {
             domain,
             n,
             omega,
             k1: order_r_minus_1_root_unity.clone(),
-            ql: Polynomial::interpolate_fft::<F>(&ql).unwrap(), // TODO: Remove unwraps
-            qr: Polynomial::interpolate_fft::<F>(&qr).unwrap(),
-            qo: Polynomial::interpolate_fft::<F>(&qo).unwrap(),
-            qm: Polynomial::interpolate_fft::<F>(&qm).unwrap(),
-            qc: Polynomial::interpolate_fft::<F>(&qc).unwrap(),
-            s1: Polynomial::interpolate_fft::<F>(&s1_lagrange).unwrap(),
-            s2: Polynomial::interpolate_fft::<F>(&s2_lagrange).unwrap(),
-            s3: Polynomial::interpolate_fft::<F>(&s3_lagrange).unwrap(),
+            ql: Polynomial::interpolate_fft::<F>(&ql)
+                .map_err(|e| ProverError::FFTError(format!("{:?}", e)))?,
+            qr: Polynomial::interpolate_fft::<F>(&qr)
+                .map_err(|e| ProverError::FFTError(format!("{:?}", e)))?,
+            qo: Polynomial::interpolate_fft::<F>(&qo)
+                .map_err(|e| ProverError::FFTError(format!("{:?}", e)))?,
+            qm: Polynomial::interpolate_fft::<F>(&qm)
+                .map_err(|e| ProverError::FFTError(format!("{:?}", e)))?,
+            qc: Polynomial::interpolate_fft::<F>(&qc)
+                .map_err(|e| ProverError::FFTError(format!("{:?}", e)))?,
+            s1: Polynomial::interpolate_fft::<F>(&s1_lagrange)
+                .map_err(|e| ProverError::FFTError(format!("{:?}", e)))?,
+            s2: Polynomial::interpolate_fft::<F>(&s2_lagrange)
+                .map_err(|e| ProverError::FFTError(format!("{:?}", e)))?,
+            s3: Polynomial::interpolate_fft::<F>(&s3_lagrange)
+                .map_err(|e| ProverError::FFTError(format!("{:?}", e)))?,
             s1_lagrange,
             s2_lagrange,
             s3_lagrange,
-        }
+        })
     }
 }
 

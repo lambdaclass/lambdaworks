@@ -17,7 +17,7 @@ fn vitalik() {
             .map(FrElement::from_hex_unchecked)
             .to_vec();
 
-        let serialized_proof = Prover::prove(&w, &qap, &pk).serialize();
+        let serialized_proof = Prover::prove(&w, &qap, &pk).unwrap().serialize();
         let deserialized_proof = Proof::deserialize(&serialized_proof).unwrap();
 
         let accept = verify(&vk, &deserialized_proof, &w[..qap.num_of_public_inputs]);
@@ -35,7 +35,7 @@ fn example() {
         .map(FrElement::from_hex_unchecked)
         .to_vec();
 
-    let serialized_proof = Prover::prove(&w, &qap, &pk).serialize();
+    let serialized_proof = Prover::prove(&w, &qap, &pk).unwrap().serialize();
     let deserialized_proof = Proof::deserialize(&serialized_proof).unwrap();
 
     let accept = verify(&vk, &deserialized_proof, &w[..qap.num_of_public_inputs]);

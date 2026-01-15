@@ -1,4 +1,4 @@
-use crate::{common::*, ProvingKey, QuadraticArithmeticProgram};
+use crate::{common::*, errors::Groth16Error, ProvingKey, QuadraticArithmeticProgram};
 use lambdaworks_math::errors::DeserializationError;
 use lambdaworks_math::traits::{deserialize_with_length, serialize_with_length};
 use lambdaworks_math::{cyclic_group::IsGroup, msm::pippenger::msm};
@@ -32,10 +32,14 @@ impl Proof {
 pub struct Prover;
 impl Prover {
     /// Computes a Groth16 proof from the witness, the quadratic arithmetic program description and the proving key
-    pub fn prove(w: &[FrElement], qap: &QuadraticArithmeticProgram, pk: &ProvingKey) -> Proof {
+    pub fn prove(
+        w: &[FrElement],
+        qap: &QuadraticArithmeticProgram,
+        pk: &ProvingKey,
+    ) -> Result<Proof, Groth16Error> {
         // Compute the coefficients of the quotient polynomial
         let h_coefficients = qap
-            .calculate_h_coefficients(w)
+            .calculate_h_coefficients(w)?
             .iter()
             .map(|elem| elem.representative())
             .collect::<Vec<_>>();
@@ -51,13 +55,13 @@ impl Prover {
 
         // [π_1]_1
         let pi1 = msm(&w, &pk.l_tau_g1)
-            .unwrap()
+            .map_err(|e| Groth16Error::MSMError(format!("{:?}", e)))?
             .operate_with(&pk.alpha_g1)
             .operate_with(&pk.delta_g1.operate_with_self(r.representative()));
 
         // [π_2]_2
         let pi2 = msm(&w, &pk.r_tau_g2)
-            .unwrap()
+            .map_err(|e| Groth16Error::MSMError(format!("{:?}", e)))?
             .operate_with(&pk.beta_g2)
             .operate_with(&pk.delta_g2.operate_with_self(s.representative()));
 
@@ -66,18 +70,18 @@ impl Prover {
             &h_coefficients,
             &pk.z_powers_of_tau_g1[..h_coefficients.len()],
         )
-        .unwrap();
+        .map_err(|e| Groth16Error::MSMError(format!("{:?}", e)))?;
 
         // [ƍ^{-1} * (β*l(τ) + α*r(τ) + o(τ))]_1
         let k_tau_assigned_prover_g1 = msm(
             &w[qap.num_of_public_inputs..],
             &pk.prover_k_tau_g1[..qap.num_of_private_inputs()],
         )
-        .unwrap();
+        .map_err(|e| Groth16Error::MSMError(format!("{:?}", e)))?;
 
         // [π_2]_1
         let pi2_g1 = msm(&w, &pk.r_tau_g1)
-            .unwrap()
+            .map_err(|e| Groth16Error::MSMError(format!("{:?}", e)))?
             .operate_with(&pk.beta_g1)
             .operate_with(&pk.delta_g1.operate_with_self(s.representative()));
 
@@ -91,7 +95,7 @@ impl Prover {
             // -rs[ƍ]_1
             .operate_with(&pk.delta_g1.operate_with_self((-(&r * &s)).representative()));
 
-        Proof { pi1, pi2, pi3 }
+        Ok(Proof { pi1, pi2, pi3 })
     }
 }
 

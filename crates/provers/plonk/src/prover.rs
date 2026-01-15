@@ -20,10 +20,40 @@ use lambdaworks_math::{
     traits::ByteConversion,
 };
 
+/// Errors that can occur during PLONK proving or verification.
 #[derive(Debug)]
 pub enum ProverError {
+    /// Division by zero in field operations
     DivisionByZero,
+    /// Error during FFT operation
+    FFTError(String),
+    /// Failed to get primitive root of unity for the given order
+    PrimitiveRootNotFound(u64),
+    /// Batch inversion failed (likely due to zero element)
+    BatchInversionFailed,
+    /// Setup error
+    SetupError(String),
+    /// Commitment error
+    CommitmentError(String),
 }
+
+impl std::fmt::Display for ProverError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ProverError::DivisionByZero => write!(f, "Division by zero"),
+            ProverError::FFTError(msg) => write!(f, "FFT error: {}", msg),
+            ProverError::PrimitiveRootNotFound(order) => {
+                write!(f, "Primitive root not found for order {}", order)
+            }
+            ProverError::BatchInversionFailed => write!(f, "Batch inversion failed"),
+            ProverError::SetupError(msg) => write!(f, "Setup error: {}", msg),
+            ProverError::CommitmentError(msg) => write!(f, "Commitment error: {}", msg),
+        }
+    }
+}
+
+impl std::error::Error for ProverError {}
+
 /// Plonk proof.
 /// The challenges are denoted
 ///     Round 2: β,γ,
@@ -95,7 +125,10 @@ where
     CS::Commitment: AsBytes,
 {
     fn as_bytes(&self) -> Vec<u8> {
-        let field_elements = [
+        let mut serialized_proof: Vec<u8> = Vec::new();
+
+        // Serialize field elements with length prefix
+        for element in [
             &self.a_zeta,
             &self.b_zeta,
             &self.c_zeta,
@@ -104,8 +137,14 @@ where
             &self.z_zeta_omega,
             &self.p_non_constant_zeta,
             &self.t_zeta,
-        ];
-        let commitments = [
+        ] {
+            let serialized_element = element.to_bytes_be();
+            serialized_proof.extend_from_slice(&(serialized_element.len() as u32).to_be_bytes());
+            serialized_proof.extend_from_slice(&serialized_element);
+        }
+
+        // Serialize commitments using shared helper
+        for commitment in [
             &self.a_1,
             &self.b_1,
             &self.c_1,
@@ -115,21 +154,9 @@ where
             &self.t_hi_1,
             &self.w_zeta_1,
             &self.w_zeta_omega_1,
-        ];
-
-        let mut serialized_proof: Vec<u8> = Vec::new();
-
-        field_elements.iter().for_each(|element| {
-            let serialized_element = element.to_bytes_be();
-            serialized_proof.extend_from_slice(&(serialized_element.len() as u32).to_be_bytes());
-            serialized_proof.extend_from_slice(&serialized_element);
-        });
-
-        commitments.iter().for_each(|commitment| {
-            let serialized_commitment = commitment.as_bytes();
-            serialized_proof.extend_from_slice(&(serialized_commitment.len() as u32).to_be_bytes());
-            serialized_proof.extend_from_slice(&serialized_commitment);
-        });
+        ] {
+            serialized_proof.extend(lambdaworks_math::traits::serialize_with_length(commitment));
+        }
 
         serialized_proof
     }

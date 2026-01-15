@@ -6,8 +6,8 @@ use lambdaworks_math::{
             curve::BN254Curve,
             field_extension::{BN254PrimeField, Degree12ExtensionField, Degree2ExtensionField},
             pairing::{
-                cyclotomic_pow_x, cyclotomic_square, final_exponentiation_naive,
-                final_exponentiation_optimized, miller_naive, miller_optimized, BN254AtePairing, X,
+                cyclotomic_pow_x, cyclotomic_square, final_exponentiation_optimized,
+                miller_optimized, BN254AtePairing, X,
             },
             twist::BN254TwistCurve,
         },
@@ -140,23 +140,13 @@ pub fn bn_254_elliptic_curve_benchmarks(c: &mut Criterion) {
         });
     }
 
-    // Miller Naive
-    group.bench_function("Miller Naive", |bencher| {
-        bencher.iter(|| black_box(miller_naive(black_box(&a_g1), black_box(&a_g2))))
-    });
-
-    // Miller Optimized
-    group.bench_function("Miller Optimized", |bencher| {
+    // Miller Loop
+    group.bench_function("Miller Loop", |bencher| {
         bencher.iter(|| black_box(miller_optimized(black_box(&a_g1), black_box(&a_g2))))
     });
 
-    // Final Exponentiation Naive
-    group.bench_function("Final Exponentiation Naive", |bencher| {
-        bencher.iter(|| black_box(final_exponentiation_naive(black_box(&miller_loop_output))))
-    });
-
-    // Final Exponentiation Optimized
-    group.bench_function("Final Exponentiation Optimized", |bencher| {
+    // Final Exponentiation
+    group.bench_function("Final Exponentiation", |bencher| {
         bencher.iter(|| {
             black_box(final_exponentiation_optimized(black_box(
                 &miller_loop_output,
