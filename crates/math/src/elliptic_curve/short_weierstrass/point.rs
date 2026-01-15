@@ -931,6 +931,42 @@ impl<E: IsShortWeierstrass> IsGroup for ShortWeierstrassJacobianPoint<E> {
         // - The result remains a valid curve point.
         Self::new_unchecked([x.clone(), -y, z.clone()])
     }
+
+    /// Scalar multiplication using double-and-add algorithm.
+    ///
+    /// Note: For BLS12-381 G1 with U256 scalars, consider using `glv_mul()` directly
+    /// for ~2x better performance via the GLV endomorphism.
+    fn operate_with_self<T: crate::unsigned_integer::traits::IsUnsignedInteger>(
+        &self,
+        mut exponent: T,
+    ) -> Self {
+        let zero = T::from(0u16);
+        let one = T::from(1u16);
+
+        if exponent == zero {
+            return Self::neutral_element();
+        }
+
+        if self.is_neutral_element() {
+            return Self::neutral_element();
+        }
+
+        // Standard double-and-add
+        let mut result = Self::neutral_element();
+        let mut base = self.clone();
+
+        loop {
+            if exponent & one == one {
+                result = result.operate_with(&base);
+            }
+            exponent >>= 1;
+            if exponent == zero {
+                break;
+            }
+            base = base.double();
+        }
+        result
+    }
 }
 
 impl<E> ShortWeierstrassJacobianPoint<E>

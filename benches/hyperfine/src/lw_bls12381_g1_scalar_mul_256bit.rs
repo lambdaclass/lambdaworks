@@ -1,11 +1,9 @@
 //! Lambdaworks BLS12-381 G1 scalar multiplication (256-bit scalar) benchmark
-use lambdaworks_math::{
-    cyclic_group::IsGroup,
-    elliptic_curve::{
-        short_weierstrass::curves::bls12_381::curve::BLS12381Curve, traits::IsEllipticCurve,
-    },
-    unsigned_integer::element::U256,
+//! Uses GLV endomorphism for ~2x speedup over standard double-and-add.
+use lambdaworks_math::elliptic_curve::{
+    short_weierstrass::curves::bls12_381::curve::BLS12381Curve, traits::IsEllipticCurve,
 };
+use lambdaworks_math::unsigned_integer::element::U256;
 
 const ITERATIONS: usize = 1000;
 
@@ -20,7 +18,8 @@ fn main() {
     for i in 0..ITERATIONS {
         // Vary the scalar slightly to prevent caching
         let varied_scalar = scalar + U256::from_u64(i as u64);
-        let result = g.operate_with_self(varied_scalar);
+        // Use GLV for ~2x speedup
+        let result = g.glv_mul(&varied_scalar);
         std::hint::black_box(result);
     }
 }

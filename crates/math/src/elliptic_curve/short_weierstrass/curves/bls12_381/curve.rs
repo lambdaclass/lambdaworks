@@ -133,6 +133,7 @@ impl ShortWeierstrassJacobianPoint<BLS12381Curve> {
 
         shamir_double_and_add(&p1, &k1, &p2, &k2)
     }
+
 }
 
 /// Decomposes scalar k into k₁ + k₂*ω (mod r) where |k₁|, |k₂| are approximately √r.
