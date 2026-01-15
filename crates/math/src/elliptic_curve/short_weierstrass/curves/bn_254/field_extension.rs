@@ -223,6 +223,7 @@ impl HasCubicNonResidue<Degree2ExtensionField> for LevelTwoResidue {
 pub type Degree4ExtensionField = QuadraticExtensionField<Degree2ExtensionField, LevelTwoResidue>;
 
 /// Computes the multiplication of an element of fp2 by the level two non-residue 9+u.
+#[inline]
 pub fn mul_fp2_by_nonresidue(a: &Fp2E) -> Fp2E {
     // (c0 + c1 * u) * (9 + u) = (9 * c0 - c1) + (9c1 + c0) * u
     let f = a.double().double().double();
@@ -237,6 +238,7 @@ pub type Fp6E = FieldElement<Degree6ExtensionField>;
 
 /// Computes the multiplication of an element of fp6 by the level three non-residue v.
 /// See Sparse Multiplication A from https://hackmd.io/@Wimet/ry7z1Xj-2#Fp6-Arithmetic.
+#[inline]
 pub fn mul_fp6_by_nonresidue(a: &Fp6E) -> Fp6E {
     Fp6E::new([
         mul_fp2_by_nonresidue(&a.value()[2]),
@@ -264,6 +266,7 @@ pub type Fp12E = FieldElement<Degree12ExtensionField>;
 ///Multiplication between a = a0 + a1 * w and b = b0 + b1 * w with
 /// b1 = b10 + b11 * v + 0 * v^2 which is the case of the line used
 /// in the miller loop.
+#[inline]
 pub fn sparse_fp12_mul(a: &Fp12E, b: &Fp12E) -> Fp12E {
     let [a0, a1] = a.value();
     let [b0, b1] = b.value();

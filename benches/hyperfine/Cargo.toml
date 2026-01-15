@@ -1,0 +1,489 @@
+[package]
+name = "hyperfine-benchmarks"
+version = "0.1.0"
+edition = "2021"
+
+[workspace]
+
+[dependencies]
+lambdaworks-math = { path = "../../crates/math" }
+ark-bls12-381 = "0.4"
+ark-bn254 = "0.4"
+ark-ec = "0.4"
+ark-ff = "0.4"
+rand = "0.8"
+
+[[bin]]
+name = "bench_lw_bls12381_pairing"
+path = "src/lw_bls12381_pairing.rs"
+
+[[bin]]
+name = "bench_ark_bls12381_pairing"
+path = "src/ark_bls12381_pairing.rs"
+
+[[bin]]
+name = "bench_lw_bn254_pairing"
+path = "src/lw_bn254_pairing.rs"
+
+[[bin]]
+name = "bench_ark_bn254_pairing"
+path = "src/ark_bn254_pairing.rs"
+
+[[bin]]
+name = "bench_lw_bls12381_g1_scalar_mul_256bit"
+path = "src/lw_bls12381_g1_scalar_mul_256bit.rs"
+
+[[bin]]
+name = "bench_ark_bls12381_g1_scalar_mul_256bit"
+path = "src/ark_bls12381_g1_scalar_mul_256bit.rs"
+
+[[bin]]
+name = "bench_lw_bls12381_g1_glv_scalar_mul"
+path = "src/lw_bls12381_g1_glv_scalar_mul.rs"
+
+[[bin]]
+name = "bench_lw_bn254_g1_scalar_mul_256bit"
+path = "src/lw_bn254_g1_scalar_mul_256bit.rs"
+
+[[bin]]
+name = "bench_ark_bn254_g1_scalar_mul_256bit"
+path = "src/ark_bn254_g1_scalar_mul_256bit.rs"
+
+[[bin]]
+name = "bench_lw_bls12381_field_mul"
+path = "src/lw_bls12381_field_mul.rs"
+
+[[bin]]
+name = "bench_ark_bls12381_field_mul"
+path = "src/ark_bls12381_field_mul.rs"
+
+[[bin]]
+name = "bench_lw_bls12381_g2_scalar_mul_256bit"
+path = "src/lw_bls12381_g2_scalar_mul_256bit.rs"
+
+[[bin]]
+name = "bench_ark_bls12381_g2_scalar_mul_256bit"
+path = "src/ark_bls12381_g2_scalar_mul_256bit.rs"
+
+[[bin]]
+name = "bench_lw_bls12381_g2_gls_scalar_mul"
+path = "src/lw_bls12381_g2_gls_scalar_mul.rs"
+
+# === FIELD BENCHMARKS ===
+
+# BN254 Base Field (Fq)
+[[bin]]
+name = "bench_lw_bn254_fq_mul"
+path = "src/fields/lw_bn254_fq_mul.rs"
+
+[[bin]]
+name = "bench_ark_bn254_fq_mul"
+path = "src/fields/ark_bn254_fq_mul.rs"
+
+# BN254 Scalar Field (Fr)
+[[bin]]
+name = "bench_lw_bn254_fr_mul"
+path = "src/fields/lw_bn254_fr_mul.rs"
+
+[[bin]]
+name = "bench_ark_bn254_fr_mul"
+path = "src/fields/ark_bn254_fr_mul.rs"
+
+# BLS12-381 Base Field (Fq)
+[[bin]]
+name = "bench_lw_bls12381_fq_mul"
+path = "src/fields/lw_bls12381_fq_mul.rs"
+
+[[bin]]
+name = "bench_ark_bls12381_fq_mul"
+path = "src/fields/ark_bls12381_fq_mul.rs"
+
+# BLS12-381 Scalar Field (Fr)
+[[bin]]
+name = "bench_lw_bls12381_fr_mul"
+path = "src/fields/lw_bls12381_fr_mul.rs"
+
+[[bin]]
+name = "bench_ark_bls12381_fr_mul"
+path = "src/fields/ark_bls12381_fr_mul.rs"
+
+# Stark252 Prime Field
+[[bin]]
+name = "bench_lw_stark252_mul"
+path = "src/fields/lw_stark252_mul.rs"
+
+# Goldilocks (u64)
+[[bin]]
+name = "bench_lw_goldilocks_mul"
+path = "src/fields/lw_goldilocks_mul.rs"
+
+
+# BabyBear
+[[bin]]
+name = "bench_lw_babybear_mul"
+path = "src/fields/lw_babybear_mul.rs"
+
+# Mersenne31
+[[bin]]
+name = "bench_lw_mersenne31_mul"
+path = "src/fields/lw_mersenne31_mul.rs"
+
+# === FIELD INVERSION BENCHMARKS ===
+
+[[bin]]
+name = "bench_lw_bn254_fq_inv"
+path = "src/fields/lw_bn254_fq_inv.rs"
+
+[[bin]]
+name = "bench_ark_bn254_fq_inv"
+path = "src/fields/ark_bn254_fq_inv.rs"
+
+[[bin]]
+name = "bench_lw_bls12381_fq_inv"
+path = "src/fields/lw_bls12381_fq_inv.rs"
+
+[[bin]]
+name = "bench_ark_bls12381_fq_inv"
+path = "src/fields/ark_bls12381_fq_inv.rs"
+
+[[bin]]
+name = "bench_lw_stark252_inv"
+path = "src/fields/lw_stark252_inv.rs"
+
+[[bin]]
+name = "bench_lw_goldilocks_inv"
+path = "src/fields/lw_goldilocks_inv.rs"
+
+
+# === FIELD SQUARING BENCHMARKS ===
+
+[[bin]]
+name = "bench_lw_bn254_fq_square"
+path = "src/fields/lw_bn254_fq_square.rs"
+
+[[bin]]
+name = "bench_ark_bn254_fq_square"
+path = "src/fields/ark_bn254_fq_square.rs"
+
+[[bin]]
+name = "bench_lw_stark252_square"
+path = "src/fields/lw_stark252_square.rs"
+
+[[bin]]
+name = "bench_lw_goldilocks_square"
+path = "src/fields/lw_goldilocks_square.rs"
+
+# === FIELD ADDITION BENCHMARKS ===
+
+[[bin]]
+name = "bench_lw_bn254_fq_add"
+path = "src/fields/lw_bn254_fq_add.rs"
+
+[[bin]]
+name = "bench_ark_bn254_fq_add"
+path = "src/fields/ark_bn254_fq_add.rs"
+
+[[bin]]
+name = "bench_lw_bn254_fr_add"
+path = "src/fields/lw_bn254_fr_add.rs"
+
+[[bin]]
+name = "bench_ark_bn254_fr_add"
+path = "src/fields/ark_bn254_fr_add.rs"
+
+[[bin]]
+name = "bench_lw_bls12381_fq_add"
+path = "src/fields/lw_bls12381_fq_add.rs"
+
+[[bin]]
+name = "bench_ark_bls12381_fq_add"
+path = "src/fields/ark_bls12381_fq_add.rs"
+
+[[bin]]
+name = "bench_lw_bls12381_fr_add"
+path = "src/fields/lw_bls12381_fr_add.rs"
+
+[[bin]]
+name = "bench_ark_bls12381_fr_add"
+path = "src/fields/ark_bls12381_fr_add.rs"
+
+# === FIELD SUBTRACTION BENCHMARKS ===
+
+[[bin]]
+name = "bench_lw_bn254_fq_sub"
+path = "src/fields/lw_bn254_fq_sub.rs"
+
+[[bin]]
+name = "bench_ark_bn254_fq_sub"
+path = "src/fields/ark_bn254_fq_sub.rs"
+
+[[bin]]
+name = "bench_lw_bn254_fr_sub"
+path = "src/fields/lw_bn254_fr_sub.rs"
+
+[[bin]]
+name = "bench_ark_bn254_fr_sub"
+path = "src/fields/ark_bn254_fr_sub.rs"
+
+[[bin]]
+name = "bench_lw_bls12381_fq_sub"
+path = "src/fields/lw_bls12381_fq_sub.rs"
+
+[[bin]]
+name = "bench_ark_bls12381_fq_sub"
+path = "src/fields/ark_bls12381_fq_sub.rs"
+
+[[bin]]
+name = "bench_lw_bls12381_fr_sub"
+path = "src/fields/lw_bls12381_fr_sub.rs"
+
+[[bin]]
+name = "bench_ark_bls12381_fr_sub"
+path = "src/fields/ark_bls12381_fr_sub.rs"
+
+# === ADDITIONAL SQUARING BENCHMARKS ===
+
+[[bin]]
+name = "bench_lw_bn254_fr_square"
+path = "src/fields/lw_bn254_fr_square.rs"
+
+[[bin]]
+name = "bench_ark_bn254_fr_square"
+path = "src/fields/ark_bn254_fr_square.rs"
+
+[[bin]]
+name = "bench_lw_bls12381_fq_square"
+path = "src/fields/lw_bls12381_fq_square.rs"
+
+[[bin]]
+name = "bench_ark_bls12381_fq_square"
+path = "src/fields/ark_bls12381_fq_square.rs"
+
+[[bin]]
+name = "bench_lw_bls12381_fr_square"
+path = "src/fields/lw_bls12381_fr_square.rs"
+
+[[bin]]
+name = "bench_ark_bls12381_fr_square"
+path = "src/fields/ark_bls12381_fr_square.rs"
+
+# === FIELD EXPONENTIATION BENCHMARKS ===
+
+[[bin]]
+name = "bench_lw_bn254_fq_pow"
+path = "src/fields/lw_bn254_fq_pow.rs"
+
+[[bin]]
+name = "bench_ark_bn254_fq_pow"
+path = "src/fields/ark_bn254_fq_pow.rs"
+
+[[bin]]
+name = "bench_lw_bn254_fr_pow"
+path = "src/fields/lw_bn254_fr_pow.rs"
+
+[[bin]]
+name = "bench_ark_bn254_fr_pow"
+path = "src/fields/ark_bn254_fr_pow.rs"
+
+[[bin]]
+name = "bench_lw_bls12381_fq_pow"
+path = "src/fields/lw_bls12381_fq_pow.rs"
+
+[[bin]]
+name = "bench_ark_bls12381_fq_pow"
+path = "src/fields/ark_bls12381_fq_pow.rs"
+
+[[bin]]
+name = "bench_lw_bls12381_fr_pow"
+path = "src/fields/lw_bls12381_fr_pow.rs"
+
+[[bin]]
+name = "bench_ark_bls12381_fr_pow"
+path = "src/fields/ark_bls12381_fr_pow.rs"
+
+# === ADDITIONAL INVERSION BENCHMARKS ===
+
+[[bin]]
+name = "bench_lw_bn254_fr_inv"
+path = "src/fields/lw_bn254_fr_inv.rs"
+
+[[bin]]
+name = "bench_ark_bn254_fr_inv"
+path = "src/fields/ark_bn254_fr_inv.rs"
+
+[[bin]]
+name = "bench_lw_bls12381_fr_inv"
+path = "src/fields/lw_bls12381_fr_inv.rs"
+
+[[bin]]
+name = "bench_ark_bls12381_fr_inv"
+path = "src/fields/ark_bls12381_fr_inv.rs"
+
+# === RANDOM SAMPLING BENCHMARKS ===
+
+# BN254 Fq Random
+[[bin]]
+name = "bench_lw_bn254_fq_mul_rand"
+path = "src/fields/lw_bn254_fq_mul_rand.rs"
+
+[[bin]]
+name = "bench_ark_bn254_fq_mul_rand"
+path = "src/fields/ark_bn254_fq_mul_rand.rs"
+
+# BN254 Fr Random
+[[bin]]
+name = "bench_lw_bn254_fr_mul_rand"
+path = "src/fields/lw_bn254_fr_mul_rand.rs"
+
+[[bin]]
+name = "bench_ark_bn254_fr_mul_rand"
+path = "src/fields/ark_bn254_fr_mul_rand.rs"
+
+# BLS12-381 Fq Random
+[[bin]]
+name = "bench_lw_bls12381_fq_mul_rand"
+path = "src/fields/lw_bls12381_fq_mul_rand.rs"
+
+[[bin]]
+name = "bench_ark_bls12381_fq_mul_rand"
+path = "src/fields/ark_bls12381_fq_mul_rand.rs"
+
+# BLS12-381 Fr Random (all operations)
+[[bin]]
+name = "bench_lw_bls12381_fr_mul_rand"
+path = "src/fields/lw_bls12381_fr_mul_rand.rs"
+
+[[bin]]
+name = "bench_ark_bls12381_fr_mul_rand"
+path = "src/fields/ark_bls12381_fr_mul_rand.rs"
+
+[[bin]]
+name = "bench_lw_bls12381_fr_add_rand"
+path = "src/fields/lw_bls12381_fr_add_rand.rs"
+
+[[bin]]
+name = "bench_ark_bls12381_fr_add_rand"
+path = "src/fields/ark_bls12381_fr_add_rand.rs"
+
+[[bin]]
+name = "bench_lw_bls12381_fr_sub_rand"
+path = "src/fields/lw_bls12381_fr_sub_rand.rs"
+
+[[bin]]
+name = "bench_ark_bls12381_fr_sub_rand"
+path = "src/fields/ark_bls12381_fr_sub_rand.rs"
+
+[[bin]]
+name = "bench_lw_bls12381_fr_square_rand"
+path = "src/fields/lw_bls12381_fr_square_rand.rs"
+
+[[bin]]
+name = "bench_ark_bls12381_fr_square_rand"
+path = "src/fields/ark_bls12381_fr_square_rand.rs"
+
+[[bin]]
+name = "bench_lw_bls12381_fr_inv_rand"
+path = "src/fields/lw_bls12381_fr_inv_rand.rs"
+
+[[bin]]
+name = "bench_ark_bls12381_fr_inv_rand"
+path = "src/fields/ark_bls12381_fr_inv_rand.rs"
+
+# BN254 Fq Random (all operations)
+[[bin]]
+name = "bench_lw_bn254_fq_add_rand"
+path = "src/fields/lw_bn254_fq_add_rand.rs"
+
+[[bin]]
+name = "bench_ark_bn254_fq_add_rand"
+path = "src/fields/ark_bn254_fq_add_rand.rs"
+
+[[bin]]
+name = "bench_lw_bn254_fq_sub_rand"
+path = "src/fields/lw_bn254_fq_sub_rand.rs"
+
+[[bin]]
+name = "bench_ark_bn254_fq_sub_rand"
+path = "src/fields/ark_bn254_fq_sub_rand.rs"
+
+[[bin]]
+name = "bench_lw_bn254_fq_square_rand"
+path = "src/fields/lw_bn254_fq_square_rand.rs"
+
+[[bin]]
+name = "bench_ark_bn254_fq_square_rand"
+path = "src/fields/ark_bn254_fq_square_rand.rs"
+
+[[bin]]
+name = "bench_lw_bn254_fq_inv_rand"
+path = "src/fields/lw_bn254_fq_inv_rand.rs"
+
+[[bin]]
+name = "bench_ark_bn254_fq_inv_rand"
+path = "src/fields/ark_bn254_fq_inv_rand.rs"
+
+# BN254 Fr Random (all operations)
+[[bin]]
+name = "bench_lw_bn254_fr_add_rand"
+path = "src/fields/lw_bn254_fr_add_rand.rs"
+
+[[bin]]
+name = "bench_ark_bn254_fr_add_rand"
+path = "src/fields/ark_bn254_fr_add_rand.rs"
+
+[[bin]]
+name = "bench_lw_bn254_fr_sub_rand"
+path = "src/fields/lw_bn254_fr_sub_rand.rs"
+
+[[bin]]
+name = "bench_ark_bn254_fr_sub_rand"
+path = "src/fields/ark_bn254_fr_sub_rand.rs"
+
+[[bin]]
+name = "bench_lw_bn254_fr_square_rand"
+path = "src/fields/lw_bn254_fr_square_rand.rs"
+
+[[bin]]
+name = "bench_ark_bn254_fr_square_rand"
+path = "src/fields/ark_bn254_fr_square_rand.rs"
+
+[[bin]]
+name = "bench_lw_bn254_fr_inv_rand"
+path = "src/fields/lw_bn254_fr_inv_rand.rs"
+
+[[bin]]
+name = "bench_ark_bn254_fr_inv_rand"
+path = "src/fields/ark_bn254_fr_inv_rand.rs"
+
+# BLS12-381 Fq Random (all operations)
+[[bin]]
+name = "bench_lw_bls12381_fq_add_rand"
+path = "src/fields/lw_bls12381_fq_add_rand.rs"
+
+[[bin]]
+name = "bench_ark_bls12381_fq_add_rand"
+path = "src/fields/ark_bls12381_fq_add_rand.rs"
+
+[[bin]]
+name = "bench_lw_bls12381_fq_sub_rand"
+path = "src/fields/lw_bls12381_fq_sub_rand.rs"
+
+[[bin]]
+name = "bench_ark_bls12381_fq_sub_rand"
+path = "src/fields/ark_bls12381_fq_sub_rand.rs"
+
+[[bin]]
+name = "bench_lw_bls12381_fq_square_rand"
+path = "src/fields/lw_bls12381_fq_square_rand.rs"
+
+[[bin]]
+name = "bench_ark_bls12381_fq_square_rand"
+path = "src/fields/ark_bls12381_fq_square_rand.rs"
+
+[[bin]]
+name = "bench_lw_bls12381_fq_inv_rand"
+path = "src/fields/lw_bls12381_fq_inv_rand.rs"
+
+[[bin]]
+name = "bench_ark_bls12381_fq_inv_rand"
+path = "src/fields/ark_bls12381_fq_inv_rand.rs"

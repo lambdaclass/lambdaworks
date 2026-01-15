@@ -83,6 +83,59 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
         Self(self.0.to_affine())
     }
 
+    /// Converts a slice of projective points to affine representation efficiently
+    /// using batch inversion (Montgomery's trick).
+    /// This uses only 1 inversion + 3(n-1) multiplications instead of n inversions.
+    #[cfg(feature = "alloc")]
+    pub fn batch_to_affine(points: &[Self]) -> alloc::vec::Vec<Self> {
+        if points.is_empty() {
+            return alloc::vec::Vec::new();
+        }
+
+        // Collect z coordinates, filtering out points at infinity
+        let mut z_coords: alloc::vec::Vec<FieldElement<E::BaseField>> =
+            alloc::vec::Vec::with_capacity(points.len());
+        let mut indices: alloc::vec::Vec<usize> = alloc::vec::Vec::with_capacity(points.len());
+
+        for (i, point) in points.iter().enumerate() {
+            if !point.is_neutral_element() {
+                z_coords.push(point.z().clone());
+                indices.push(i);
+            }
+        }
+
+        // Batch invert all z coordinates
+        if FieldElement::<E::BaseField>::inplace_batch_inverse(&mut z_coords).is_err() {
+            // If batch inverse fails, fall back to individual conversion
+            return points.iter().map(|p| p.to_affine()).collect();
+        }
+
+        // Build result vector
+        let mut result: alloc::vec::Vec<Self> = alloc::vec::Vec::with_capacity(points.len());
+        let mut inv_idx = 0;
+
+        for point in points.iter() {
+            if point.is_neutral_element() {
+                result.push(Self::neutral_element());
+            } else {
+                // Apply z_inv to get affine coordinates: x_affine = x * z_inv, y_affine = y * z_inv
+                let z_inv = &z_coords[inv_idx];
+                let [x, y, _z] = point.coordinates();
+                let x_affine = x * z_inv;
+                let y_affine = y * z_inv;
+                // SAFETY: Point is valid and z_inv is computed correctly
+                result.push(Self::new_unchecked([
+                    x_affine,
+                    y_affine,
+                    FieldElement::one(),
+                ]));
+                inv_idx += 1;
+            }
+        }
+
+        result
+    }
+
     /// Performs the group operation between a point and itself a + a = 2a in
     /// additive notation
     pub fn double(&self) -> Self {
@@ -266,6 +319,174 @@ impl<E: IsShortWeierstrass> IsGroup for ShortWeierstrassProjectivePoint<E> {
         // SAFETY:
         // - Negating `y` maintains the curve structure.
         Self::new_unchecked([px.clone(), -py, pz.clone()])
+    }
+
+    /// Optimized scalar multiplication for a=0 curves using Jacobian coordinates.
+    /// Jacobian doubling is 2M+5S vs projective 7M+5S, providing ~30% speedup.
+    /// For a != 0 curves, falls back to the default implementation.
+    fn operate_with_self<T: crate::unsigned_integer::traits::IsUnsignedInteger>(
+        &self,
+        mut exponent: T,
+    ) -> Self {
+        let zero = T::from(0u16);
+        let one = T::from(1u16);
+
+        if exponent == zero {
+            return Self::neutral_element();
+        }
+
+        if self.is_neutral_element() {
+            return Self::neutral_element();
+        }
+
+        // Only use Jacobian optimization for a=0 curves
+        if E::a() != FieldElement::zero() {
+            // Fall back to default double-and-add with projective coordinates
+            let mut result = Self::neutral_element();
+            let mut base = self.clone();
+            loop {
+                if exponent & one == one {
+                    result = result.operate_with(&base);
+                }
+                exponent >>= 1;
+                if exponent == zero {
+                    break;
+                }
+                base = base.double();
+            }
+            return result;
+        }
+
+        // For a=0 curves, use Jacobian coordinates internally for faster doubling
+        // Convert projective (X:Y:Z) to Jacobian: X_j = X*Z, Y_j = Y*Z², Z_j = Z
+        let [px, py, pz] = self.coordinates();
+        let mut base_x = px * pz;
+        let mut base_y = py * pz.square();
+        let mut base_z = pz.clone();
+
+        let mut result_x = FieldElement::zero();
+        let mut result_y = FieldElement::one();
+        let mut result_z = FieldElement::zero(); // Neutral element in Jacobian: z=0
+
+        loop {
+            if exponent & one == one {
+                if result_z == FieldElement::zero() {
+                    // First accumulation - just copy base
+                    result_x = base_x.clone();
+                    result_y = base_y.clone();
+                    result_z = base_z.clone();
+                } else {
+                    // Jacobian addition
+                    (result_x, result_y, result_z) = Self::jacobian_add_a0(
+                        &result_x, &result_y, &result_z, &base_x, &base_y, &base_z,
+                    );
+                }
+            }
+            exponent >>= 1;
+            if exponent == zero {
+                break;
+            }
+            // Jacobian doubling for a=0 (dbl-2009-l formula): 2M + 5S
+            (base_x, base_y, base_z) = Self::jacobian_double_a0(&base_x, &base_y, &base_z);
+        }
+
+        // Convert back to projective: X_p = X_j * Z_j, Y_p = Y_j, Z_p = Z_j³
+        if result_z == FieldElement::zero() {
+            Self::neutral_element()
+        } else {
+            let z_cubed = &result_z * result_z.square();
+            Self::new_unchecked([&result_x * &result_z, result_y, z_cubed])
+        }
+    }
+}
+
+impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
+    /// Jacobian point doubling for a=0 curves (dbl-2009-l formula).
+    /// Cost: 2M + 5S (vs 7M + 5S for projective)
+    /// From http://www.hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-0.html#doubling-dbl-2009-l
+    #[inline(always)]
+    #[allow(clippy::type_complexity)]
+    fn jacobian_double_a0(
+        x: &FieldElement<E::BaseField>,
+        y: &FieldElement<E::BaseField>,
+        z: &FieldElement<E::BaseField>,
+    ) -> (
+        FieldElement<E::BaseField>,
+        FieldElement<E::BaseField>,
+        FieldElement<E::BaseField>,
+    ) {
+        let a = x.square(); // A = X1^2
+        let b = y.square(); // B = Y1^2
+        let c = b.square(); // C = B^2
+        let x_plus_b = x + &b;
+        let d = (&x_plus_b.square() - &a - &c).double(); // D = 2*((X1+B)^2-A-C)
+        let e = &a.double() + &a; // E = 3*A
+        let f = e.square(); // F = E^2
+        let x3 = &f - d.double(); // X3 = F - 2*D
+        let eight_c = c.double().double().double();
+        let y3 = &e * (&d - &x3) - eight_c; // Y3 = E*(D-X3) - 8*C
+        let z3 = (y * z).double(); // Z3 = 2*Y1*Z1
+        (x3, y3, z3)
+    }
+
+    /// Jacobian point addition for a=0 curves (add-2007-bl formula).
+    /// From http://www.hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-0.html#addition-add-2007-bl
+    #[inline(always)]
+    #[allow(clippy::type_complexity)]
+    fn jacobian_add_a0(
+        x1: &FieldElement<E::BaseField>,
+        y1: &FieldElement<E::BaseField>,
+        z1: &FieldElement<E::BaseField>,
+        x2: &FieldElement<E::BaseField>,
+        y2: &FieldElement<E::BaseField>,
+        z2: &FieldElement<E::BaseField>,
+    ) -> (
+        FieldElement<E::BaseField>,
+        FieldElement<E::BaseField>,
+        FieldElement<E::BaseField>,
+    ) {
+        // Handle neutral element cases
+        if *z1 == FieldElement::zero() {
+            return (x2.clone(), y2.clone(), z2.clone());
+        }
+        if *z2 == FieldElement::zero() {
+            return (x1.clone(), y1.clone(), z1.clone());
+        }
+
+        let z1_sq = z1.square();
+        let z2_sq = z2.square();
+        let u1 = x1 * &z2_sq;
+        let u2 = x2 * &z1_sq;
+        let z1_cu = z1 * &z1_sq;
+        let z2_cu = z2 * &z2_sq;
+        let s1 = y1 * &z2_cu;
+        let s2 = y2 * &z1_cu;
+
+        if u1 == u2 {
+            if s1 == s2 {
+                // P == Q, use doubling
+                return Self::jacobian_double_a0(x1, y1, z1);
+            } else {
+                // P == -Q, return neutral element
+                return (
+                    FieldElement::zero(),
+                    FieldElement::one(),
+                    FieldElement::zero(),
+                );
+            }
+        }
+
+        let h = &u2 - &u1;
+        let i = h.double().square();
+        let j = &h * &i;
+        let r = (&s2 - &s1).double();
+        let v = &u1 * &i;
+
+        let x3 = r.square() - &j - v.double();
+        let y3 = &r * (&v - &x3) - (&s1 * &j).double();
+        let z3 = ((z1 + z2).square() - &z1_sq - &z2_sq) * &h;
+
+        (x3, y3, z3)
     }
 }
 
@@ -550,6 +771,13 @@ impl<E: IsShortWeierstrass> ShortWeierstrassJacobianPoint<E> {
         }
     }
 
+    /// Changes the point coordinates without checking that it satisfies the curve equation.
+    pub fn set_unchecked(&mut self, value: [FieldElement<E::BaseField>; 3]) {
+        // SAFETY: The caller MUST ensure that the provided coordinates represent a valid curve
+        // point. Setting invalid coordinates may lead to silently incorrect computations later on.
+        self.0.value = value
+    }
+
     /// More efficient than operate_with. Other should be in affine form!
     pub fn operate_with_affine(&self, other: &Self) -> Self {
         let [x1, y1, z1] = self.coordinates();
@@ -703,6 +931,201 @@ impl<E: IsShortWeierstrass> IsGroup for ShortWeierstrassJacobianPoint<E> {
         // - The result remains a valid curve point.
         Self::new_unchecked([x.clone(), -y, z.clone()])
     }
+
+    /// Scalar multiplication using double-and-add algorithm.
+    ///
+    /// Note: For BLS12-381 G1 with U256 scalars, consider using `glv_mul()` directly
+    /// for ~2x better performance via the GLV endomorphism.
+    fn operate_with_self<T: crate::unsigned_integer::traits::IsUnsignedInteger>(
+        &self,
+        mut exponent: T,
+    ) -> Self {
+        let zero = T::from(0u16);
+        let one = T::from(1u16);
+
+        if exponent == zero {
+            return Self::neutral_element();
+        }
+
+        if self.is_neutral_element() {
+            return Self::neutral_element();
+        }
+
+        // Standard double-and-add
+        let mut result = Self::neutral_element();
+        let mut base = self.clone();
+
+        loop {
+            if exponent & one == one {
+                result = result.operate_with(&base);
+            }
+            exponent >>= 1;
+            if exponent == zero {
+                break;
+            }
+            base = base.double();
+        }
+        result
+    }
+}
+
+impl<E> ShortWeierstrassJacobianPoint<E>
+where
+    E: IsShortWeierstrass,
+    FieldElement<E::BaseField>: ByteConversion,
+{
+    /// Serialize the point in the given format.
+    /// For Jacobian points, we convert to affine coordinates (x/z^2, y/z^3) for serialization.
+    #[cfg(feature = "alloc")]
+    pub fn serialize(
+        &self,
+        point_format: PointFormat,
+        endianness: Endianness,
+    ) -> alloc::vec::Vec<u8> {
+        let mut bytes: alloc::vec::Vec<u8> = alloc::vec::Vec::new();
+        let x_bytes;
+        let y_bytes;
+        let z_bytes;
+        match point_format {
+            PointFormat::Projective => {
+                // For "projective" format, serialize the raw Jacobian coordinates [x, y, z]
+                let [x, y, z] = self.coordinates();
+                if endianness == Endianness::BigEndian {
+                    x_bytes = x.to_bytes_be();
+                    y_bytes = y.to_bytes_be();
+                    z_bytes = z.to_bytes_be();
+                } else {
+                    x_bytes = x.to_bytes_le();
+                    y_bytes = y.to_bytes_le();
+                    z_bytes = z.to_bytes_le();
+                }
+                bytes.extend(&x_bytes);
+                bytes.extend(&y_bytes);
+                bytes.extend(&z_bytes);
+            }
+            PointFormat::Uncompressed => {
+                // Convert to affine: x_affine = x/z^2, y_affine = y/z^3
+                let affine_representation = self.to_affine();
+                let [x, y, _z] = affine_representation.coordinates();
+                if endianness == Endianness::BigEndian {
+                    x_bytes = x.to_bytes_be();
+                    y_bytes = y.to_bytes_be();
+                } else {
+                    x_bytes = x.to_bytes_le();
+                    y_bytes = y.to_bytes_le();
+                }
+                bytes.extend(&x_bytes);
+                bytes.extend(&y_bytes);
+            }
+        }
+        bytes
+    }
+
+    pub fn deserialize(
+        bytes: &[u8],
+        point_format: PointFormat,
+        endianness: Endianness,
+    ) -> Result<Self, DeserializationError> {
+        match point_format {
+            PointFormat::Projective => {
+                // Deserialize raw Jacobian coordinates [x, y, z]
+                if !bytes.len().is_multiple_of(3) {
+                    return Err(DeserializationError::InvalidAmountOfBytes);
+                }
+
+                let len = bytes.len() / 3;
+                let x: FieldElement<E::BaseField>;
+                let y: FieldElement<E::BaseField>;
+                let z: FieldElement<E::BaseField>;
+
+                if endianness == Endianness::BigEndian {
+                    x = ByteConversion::from_bytes_be(&bytes[..len])?;
+                    y = ByteConversion::from_bytes_be(&bytes[len..len * 2])?;
+                    z = ByteConversion::from_bytes_be(&bytes[len * 2..])?;
+                } else {
+                    x = ByteConversion::from_bytes_le(&bytes[..len])?;
+                    y = ByteConversion::from_bytes_le(&bytes[len..len * 2])?;
+                    z = ByteConversion::from_bytes_le(&bytes[len * 2..])?;
+                }
+
+                // Check if it's the point at infinity
+                if z == FieldElement::zero() {
+                    let point = Self::new([x, y, z])
+                        .map_err(|_| DeserializationError::FieldFromBytesError)?;
+                    return if point.is_neutral_element() {
+                        Ok(point)
+                    } else {
+                        Err(DeserializationError::FieldFromBytesError)
+                    };
+                }
+
+                // Verify point is on curve: check defining_equation_jacobian
+                if E::defining_equation_jacobian(&x, &y, &z) == FieldElement::zero() {
+                    Self::new([x, y, z]).map_err(|_| DeserializationError::FieldFromBytesError)
+                } else {
+                    Err(DeserializationError::FieldFromBytesError)
+                }
+            }
+            PointFormat::Uncompressed => {
+                // Deserialize affine coordinates [x, y] and create Jacobian point with z=1
+                if !bytes.len().is_multiple_of(2) {
+                    return Err(DeserializationError::InvalidAmountOfBytes);
+                }
+
+                let len = bytes.len() / 2;
+                let x: FieldElement<E::BaseField>;
+                let y: FieldElement<E::BaseField>;
+
+                if endianness == Endianness::BigEndian {
+                    x = ByteConversion::from_bytes_be(&bytes[..len])?;
+                    y = ByteConversion::from_bytes_be(&bytes[len..])?;
+                } else {
+                    x = ByteConversion::from_bytes_le(&bytes[..len])?;
+                    y = ByteConversion::from_bytes_le(&bytes[len..])?;
+                }
+
+                let z = FieldElement::<E::BaseField>::one();
+                let point =
+                    Self::new([x, y, z]).map_err(|_| DeserializationError::FieldFromBytesError)?;
+                Ok(point)
+            }
+        }
+    }
+}
+
+#[cfg(feature = "alloc")]
+impl<E> AsBytes for ShortWeierstrassJacobianPoint<E>
+where
+    E: IsShortWeierstrass,
+    FieldElement<E::BaseField>: ByteConversion,
+{
+    fn as_bytes(&self) -> alloc::vec::Vec<u8> {
+        self.serialize(PointFormat::Projective, Endianness::LittleEndian)
+    }
+}
+
+#[cfg(feature = "alloc")]
+impl<E> From<ShortWeierstrassJacobianPoint<E>> for alloc::vec::Vec<u8>
+where
+    E: IsShortWeierstrass,
+    FieldElement<E::BaseField>: ByteConversion,
+{
+    fn from(value: ShortWeierstrassJacobianPoint<E>) -> Self {
+        value.as_bytes()
+    }
+}
+
+impl<E> Deserializable for ShortWeierstrassJacobianPoint<E>
+where
+    E: IsShortWeierstrass,
+    FieldElement<E::BaseField>: ByteConversion,
+{
+    fn deserialize(bytes: &[u8]) -> Result<Self, DeserializationError>
+    where
+        Self: Sized,
+    {
+        Self::deserialize(bytes, PointFormat::Projective, Endianness::LittleEndian)
+    }
 }
 
 #[cfg(test)]
@@ -724,10 +1147,19 @@ mod tests {
     type FEE = FieldElement<BLS12381PrimeField>;
 
     #[cfg(feature = "alloc")]
-    fn point() -> ShortWeierstrassProjectivePoint<BLS12381Curve> {
+    #[allow(dead_code)]
+    fn point() -> ShortWeierstrassJacobianPoint<BLS12381Curve> {
         let x = FEE::new_base("36bb494facde72d0da5c770c4b16d9b2d45cfdc27604a25a1a80b020798e5b0dbd4c6d939a8f8820f042a29ce552ee5");
         let y = FEE::new_base("7acf6e49cc000ff53b06ee1d27056734019c0a1edfa16684da41ebb0c56750f73bc1b0eae4c6c241808a5e485af0ba0");
         BLS12381Curve::create_point_from_affine(x, y).unwrap()
+    }
+
+    // Helper function for projective point serialization tests
+    #[cfg(feature = "alloc")]
+    fn point_projective() -> ShortWeierstrassProjectivePoint<BLS12381Curve> {
+        let x = FEE::new_base("36bb494facde72d0da5c770c4b16d9b2d45cfdc27604a25a1a80b020798e5b0dbd4c6d939a8f8820f042a29ce552ee5");
+        let y = FEE::new_base("7acf6e49cc000ff53b06ee1d27056734019c0a1edfa16684da41ebb0c56750f73bc1b0eae4c6c241808a5e485af0ba0");
+        ShortWeierstrassProjectivePoint::from_affine(x, y).unwrap()
     }
 
     #[cfg(feature = "alloc")]
@@ -755,7 +1187,7 @@ mod tests {
     #[cfg(feature = "alloc")]
     #[test]
     fn byte_conversion_from_and_to_be_projective() {
-        let expected_point = point();
+        let expected_point = point_projective();
         let bytes_be = expected_point.serialize(PointFormat::Projective, Endianness::BigEndian);
 
         let result = ShortWeierstrassProjectivePoint::deserialize(
@@ -769,7 +1201,7 @@ mod tests {
     #[cfg(feature = "alloc")]
     #[test]
     fn byte_conversion_from_and_to_be_uncompressed() {
-        let expected_point = point();
+        let expected_point = point_projective();
         let bytes_be = expected_point.serialize(PointFormat::Uncompressed, Endianness::BigEndian);
         let result = ShortWeierstrassProjectivePoint::deserialize(
             &bytes_be,
@@ -782,7 +1214,7 @@ mod tests {
     #[cfg(feature = "alloc")]
     #[test]
     fn byte_conversion_from_and_to_le_projective() {
-        let expected_point = point();
+        let expected_point = point_projective();
         let bytes_be = expected_point.serialize(PointFormat::Projective, Endianness::LittleEndian);
 
         let result = ShortWeierstrassProjectivePoint::deserialize(
@@ -796,7 +1228,7 @@ mod tests {
     #[cfg(feature = "alloc")]
     #[test]
     fn byte_conversion_from_and_to_le_uncompressed() {
-        let expected_point = point();
+        let expected_point = point_projective();
         let bytes_be =
             expected_point.serialize(PointFormat::Uncompressed, Endianness::LittleEndian);
 
@@ -811,7 +1243,7 @@ mod tests {
     #[cfg(feature = "alloc")]
     #[test]
     fn byte_conversion_from_and_to_with_mixed_le_and_be_does_not_work_projective() {
-        let bytes = point().serialize(PointFormat::Projective, Endianness::LittleEndian);
+        let bytes = point_projective().serialize(PointFormat::Projective, Endianness::LittleEndian);
 
         let result = ShortWeierstrassProjectivePoint::<BLS12381Curve>::deserialize(
             &bytes,
@@ -828,7 +1260,8 @@ mod tests {
     #[cfg(feature = "alloc")]
     #[test]
     fn byte_conversion_from_and_to_with_mixed_le_and_be_does_not_work_uncompressed() {
-        let bytes = point().serialize(PointFormat::Uncompressed, Endianness::LittleEndian);
+        let bytes =
+            point_projective().serialize(PointFormat::Uncompressed, Endianness::LittleEndian);
 
         let result = ShortWeierstrassProjectivePoint::<BLS12381Curve>::deserialize(
             &bytes,
@@ -845,7 +1278,7 @@ mod tests {
     #[cfg(feature = "alloc")]
     #[test]
     fn byte_conversion_from_and_to_with_mixed_be_and_le_does_not_work_projective() {
-        let bytes = point().serialize(PointFormat::Projective, Endianness::BigEndian);
+        let bytes = point_projective().serialize(PointFormat::Projective, Endianness::BigEndian);
 
         let result = ShortWeierstrassProjectivePoint::<BLS12381Curve>::deserialize(
             &bytes,
@@ -862,7 +1295,7 @@ mod tests {
     #[cfg(feature = "alloc")]
     #[test]
     fn byte_conversion_from_and_to_with_mixed_be_and_le_does_not_work_uncompressed() {
-        let bytes = point().serialize(PointFormat::Uncompressed, Endianness::BigEndian);
+        let bytes = point_projective().serialize(PointFormat::Uncompressed, Endianness::BigEndian);
 
         let result = ShortWeierstrassProjectivePoint::<BLS12381Curve>::deserialize(
             &bytes,
@@ -997,5 +1430,59 @@ mod tests {
             g.is_neutral_element(),
             "Multiplication by order should result in the neutral element"
         );
+    }
+
+    #[cfg(feature = "alloc")]
+    #[test]
+    fn test_batch_to_affine() {
+        let x = FEE::new_base("36bb494facde72d0da5c770c4b16d9b2d45cfdc27604a25a1a80b020798e5b0dbd4c6d939a8f8820f042a29ce552ee5");
+        let y = FEE::new_base("7acf6e49cc000ff53b06ee1d27056734019c0a1edfa16684da41ebb0c56750f73bc1b0eae4c6c241808a5e485af0ba0");
+
+        let p = ShortWeierstrassProjectivePoint::<BLS12381Curve>::from_affine(x, y).unwrap();
+
+        // Create multiple projective points with different z coordinates
+        let points: alloc::vec::Vec<_> = (1..=10).map(|i| p.operate_with_self(i as u16)).collect();
+
+        // Convert using batch_to_affine
+        let batch_affine =
+            ShortWeierstrassProjectivePoint::<BLS12381Curve>::batch_to_affine(&points);
+
+        // Convert individually and compare
+        for (batch, point) in batch_affine.iter().zip(points.iter()) {
+            let individual = point.to_affine();
+            assert_eq!(
+                batch, &individual,
+                "batch_to_affine should match individual to_affine"
+            );
+        }
+    }
+
+    #[cfg(feature = "alloc")]
+    #[test]
+    fn test_batch_to_affine_with_neutral_element() {
+        let x = FEE::new_base("36bb494facde72d0da5c770c4b16d9b2d45cfdc27604a25a1a80b020798e5b0dbd4c6d939a8f8820f042a29ce552ee5");
+        let y = FEE::new_base("7acf6e49cc000ff53b06ee1d27056734019c0a1edfa16684da41ebb0c56750f73bc1b0eae4c6c241808a5e485af0ba0");
+
+        let p = ShortWeierstrassProjectivePoint::<BLS12381Curve>::from_affine(x, y).unwrap();
+        let neutral = ShortWeierstrassProjectivePoint::<BLS12381Curve>::neutral_element();
+
+        // Mix regular points with neutral elements
+        let points = alloc::vec![
+            p.clone(),
+            neutral.clone(),
+            p.operate_with_self(2_u16),
+            neutral.clone(),
+            p.operate_with_self(3_u16),
+        ];
+
+        let batch_affine =
+            ShortWeierstrassProjectivePoint::<BLS12381Curve>::batch_to_affine(&points);
+
+        assert_eq!(batch_affine.len(), 5);
+        assert_eq!(batch_affine[0], points[0].to_affine());
+        assert!(batch_affine[1].is_neutral_element());
+        assert_eq!(batch_affine[2], points[2].to_affine());
+        assert!(batch_affine[3].is_neutral_element());
+        assert_eq!(batch_affine[4], points[4].to_affine());
     }
 }

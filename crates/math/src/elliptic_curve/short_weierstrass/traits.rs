@@ -44,6 +44,7 @@ pub trait IsShortWeierstrass: IsEllipticCurve + Clone + Debug {
             - ((x.square() + Self::a() * z.square().square()) * x
                 + Self::b() * z.square().square() * z.square())
     }
+
 }
 
 pub trait Compress {
