@@ -16,6 +16,7 @@ use crate::{
     field::{element::FieldElement, extensions::cubic::HasCubicNonResidue},
     unsigned_integer::element::U256,
 };
+#[cfg(feature = "alloc")]
 use alloc::vec::Vec;
 
 type FpE = FieldElement<BLS12381PrimeField>;
@@ -30,6 +31,7 @@ pub const SUBGROUP_ORDER: U256 =
 /// Precomputed line coefficients for Miller loop optimization.
 /// Stores (b0, b2, b3) coefficients from line functions during the Miller loop.
 /// This allows faster repeated pairings with the same G2 point.
+#[cfg(feature = "alloc")]
 #[derive(Clone, Debug)]
 pub struct G2Prepared {
     /// Precomputed coefficients for each Miller loop iteration.
@@ -39,6 +41,7 @@ pub struct G2Prepared {
     pub infinity: bool,
 }
 
+#[cfg(feature = "alloc")]
 impl G2Prepared {
     /// Precompute Miller loop coefficients for a G2 point.
     /// This allows faster pairing computation when the same G2 point is used multiple times.
@@ -155,6 +158,7 @@ fn precompute_add_line(
 
 /// Miller loop using precomputed G2 coefficients.
 /// This is faster than the standard miller() when pairing with the same G2 point multiple times.
+#[cfg(feature = "alloc")]
 pub fn miller_with_prepared(
     q_prepared: &G2Prepared,
     p: &ShortWeierstrassJacobianPoint<BLS12381Curve>,

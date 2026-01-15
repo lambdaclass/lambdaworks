@@ -23,6 +23,7 @@ use crate::{
     },
     field::element::FieldElement,
 };
+#[cfg(feature = "alloc")]
 use alloc::vec::Vec;
 
 type FpE = FieldElement<BN254PrimeField>;
@@ -146,6 +147,8 @@ pub const TWO_INV: FpE =
 ////////////////// PAIRING //////////////////
 
 pub struct BN254AtePairing;
+
+#[cfg(feature = "alloc")]
 impl IsPairing for BN254AtePairing {
     type G1Point = ShortWeierstrassProjectivePoint<BN254Curve>;
     type G2Point = ShortWeierstrassProjectivePoint<BN254TwistCurve>;
@@ -177,8 +180,34 @@ impl IsPairing for BN254AtePairing {
     }
 }
 
+#[cfg(not(feature = "alloc"))]
+impl IsPairing for BN254AtePairing {
+    type G1Point = ShortWeierstrassProjectivePoint<BN254Curve>;
+    type G2Point = ShortWeierstrassProjectivePoint<BN254TwistCurve>;
+    type OutputField = Degree12ExtensionField;
+
+    /// Computes the product of the ate pairing for a list of point pairs.
+    fn compute_batch(
+        pairs: &[(&Self::G1Point, &Self::G2Point)],
+    ) -> Result<FieldElement<Self::OutputField>, PairingError> {
+        let mut result = Fp12E::one();
+        for (p, q) in pairs {
+            if !q.is_in_subgroup() {
+                return Err(PairingError::PointNotInSubgroup);
+            }
+            if !p.is_neutral_element() && !q.is_neutral_element() {
+                let p = p.to_affine();
+                let q = q.to_affine();
+                result *= miller_optimized(&p, &q);
+            }
+        }
+        Ok(final_exponentiation_optimized(&result))
+    }
+}
+
 /// Multi-Miller loop: computes product of Miller loops sharing squarings.
 /// This is more efficient than running individual Miller loops when n > 1.
+#[cfg(feature = "alloc")]
 #[inline]
 fn multi_miller_loop(pairs: &[(G1Point, G2Point)]) -> Fp12E {
     if pairs.len() == 1 {

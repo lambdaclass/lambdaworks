@@ -448,9 +448,8 @@ mod tests {
         // Create a small SRS
         let g1 = BLS12381Curve::generator();
         let g2 = BLS12381TwistCurve::generator();
-        let powers_main_group: Vec<ShortWeierstrassJacobianPoint<BLS12381Curve>> = (0..3)
-            .map(|exp| g1.operate_with_self(exp as u64))
-            .collect();
+        let powers_main_group: Vec<ShortWeierstrassJacobianPoint<BLS12381Curve>> =
+            (0..3).map(|exp| g1.operate_with_self(exp as u64)).collect();
         let powers_secondary_group = [g2.clone(), g2.operate_with_self(2_u64)];
         let srs = TestSrsType::new(&powers_main_group, &powers_secondary_group);
 
