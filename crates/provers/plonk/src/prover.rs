@@ -706,7 +706,7 @@ mod tests {
         elliptic_curve::{
             short_weierstrass::{
                 curves::bls12_381::{curve::BLS12381Curve, default_types::FrElement},
-                point::ShortWeierstrassProjectivePoint,
+                point::ShortWeierstrassJacobianPoint,
             },
             traits::IsEllipticCurve,
         },
@@ -820,7 +820,7 @@ mod tests {
             FpElement::from_hex_unchecked("f96d8a93f3f5be2ab2819891f41c9f883cacea63da423e6ed1701765fcd659fc11e056a48c554f5df3a9c6603d48ca8"),
             FpElement::from_hex_unchecked("14fa74fa049b7276007b739f3b8cfeac09e8cfabd4f858b6b99798c81124c34851960bebda90133cb03c981c08c8b6d3"),
         ).unwrap();
-        let t_hi_1_expected = ShortWeierstrassProjectivePoint::<BLS12381Curve>::neutral_element();
+        let t_hi_1_expected = ShortWeierstrassJacobianPoint::<BLS12381Curve>::neutral_element();
 
         assert_eq!(round_3.t_lo_1, t_lo_1_expected);
         assert_eq!(round_3.t_mid_1, t_mid_1_expected);
