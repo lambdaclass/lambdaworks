@@ -812,7 +812,7 @@ mod tests {
     use super::*;
     use crate::elliptic_curve::short_weierstrass::curves::bn_254::field_extension::BN254PrimeField;
     use crate::field::fields::fft_friendly::{
-        babybear_u32::Babybear31PrimeField, stark_252_prime_field::Stark252PrimeField,
+        babybear::Babybear31PrimeField, stark_252_prime_field::Stark252PrimeField,
     };
     use crate::field::fields::montgomery_backed_prime_fields::U384PrimeField;
     use crate::field::fields::u64_prime_field::U64PrimeField;

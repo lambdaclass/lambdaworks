@@ -10,65 +10,77 @@ use crate::traits::ByteConversion;
 #[cfg(feature = "alloc")]
 use crate::traits::AsBytes;
 
-/// We are implementig the extension of Baby Bear of degree 4 using the irreducible polynomial x^4 + 11.
+/// We are implementing the extension of Baby Bear of degree 4 using the irreducible polynomial x^4 + 11.
 /// BETA = 11 and -BETA = -11 is the non-residue.
+/// Since `const_from_raw()` doesn't make the montgomery conversion, we calculated it.
+/// The montgomery form of a number "a" is a * R mod p.
+/// In Baby Bear field, R = 2^32 and p = 2013265921.
+/// Then, 939524073 = 11 * 2^32 mod 2013265921.
 pub const BETA: FieldElement<Babybear31PrimeField> =
-    FieldElement::<Babybear31PrimeField>::from_hex_unchecked("b");
+    FieldElement::<Babybear31PrimeField>::const_from_raw(939524073);
 
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 pub struct Degree4BabyBearExtensionField;
 
+/// We implement directly the degree four extension for performance reasons, instead of using
+/// the default quadratic extension provided by the library
 impl IsField for Degree4BabyBearExtensionField {
     type BaseType = [FieldElement<Babybear31PrimeField>; 4];
 
+    /// Addition of degree four field extension elements
     fn add(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
-        [&a[0] + &b[0], &a[1] + &b[1], &a[2] + &b[2], &a[3] + &b[3]]
+        [a[0] + b[0], a[1] + b[1], a[2] + b[2], a[3] + b[3]]
     }
 
     /// Result of multiplying two polynomials a = a0 + a1 * x + a2 * x^2 + a3 * x^3 and
     /// b = b0 + b1 * x + b2 * x^2 + b3 * x^3 by applying distribution and taking
     /// the remainder of the division by x^4 + 11.
+    /// Multiplication of two degree four field extension elements
     fn mul(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
         [
-            &a[0] * &b[0] - BETA * (&a[1] * &b[3] + &a[3] * &b[1] + &a[2] * &b[2]),
-            &a[0] * &b[1] + &a[1] * &b[0] - BETA * (&a[2] * &b[3] + &a[3] * &b[2]),
-            &a[0] * &b[2] + &a[2] * &b[0] + &a[1] * &b[1] - BETA * (&a[3] * &b[3]),
-            &a[0] * &b[3] + &a[3] * &b[0] + &a[1] * &b[2] + &a[2] * &b[1],
+            a[0] * b[0] - BETA * (a[1] * b[3] + a[3] * b[1] + a[2] * b[2]),
+            a[0] * b[1] + a[1] * b[0] - BETA * (a[2] * b[3] + a[3] * b[2]),
+            a[0] * b[2] + a[2] * b[0] + a[1] * b[1] - BETA * (a[3] * b[3]),
+            a[0] * b[3] + a[3] * b[0] + a[1] * b[2] + a[2] * b[1],
         ]
     }
 
+    /// Returns the square of a degree four field extension element
+    /// More efficient to use instead of multiplying the element with itself
     fn square(a: &Self::BaseType) -> Self::BaseType {
         [
-            &a[0].square() - BETA * ((&a[1] * &a[3]).double() + &a[2].square()),
-            (&a[0] * &a[1] - BETA * (&a[2] * &a[3])).double(),
-            (&a[0] * &a[2]).double() + &a[1].square() - BETA * (&a[3].square()),
-            (&a[0] * &a[3] + &a[1] * &a[2]).double(),
+            a[0].square() - BETA * ((a[1] * a[3]).double() + a[2].square()),
+            (a[0] * a[1] - BETA * (a[2] * a[3])).double(),
+            (a[0] * a[2]).double() + a[1].square() - BETA * (a[3].square()),
+            (a[0] * a[3] + a[1] * a[2]).double(),
         ]
     }
 
+    /// Subtraction of degree four field extension elements
     fn sub(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
-        [&a[0] - &b[0], &a[1] - &b[1], &a[2] - &b[2], &a[3] - &b[3]]
+        [a[0] - b[0], a[1] - b[1], a[2] - b[2], a[3] - b[3]]
     }
 
+    /// Additive inverse of degree four field extension element
     fn neg(a: &Self::BaseType) -> Self::BaseType {
         [-&a[0], -&a[1], -&a[2], -&a[3]]
     }
 
-    /// Return te inverse of a fp4 element if exist.
+    /// Return te inverse of a fp4 element if it exists.
     /// This algorithm is inspired by Risc0 implementation:
     /// <https://github.com/risc0/risc0/blob/4c41c739779ef2759a01ebcf808faf0fbffe8793/risc0/core/src/field/baby_bear.rs#L460>
     fn inv(a: &Self::BaseType) -> Result<Self::BaseType, FieldError> {
-        let mut b0 = &a[0] * &a[0] + BETA * (&a[1] * (&a[3] + &a[3]) - &a[2] * &a[2]);
-        let mut b2 = &a[0] * (&a[2] + &a[2]) - &a[1] * &a[1] + BETA * (&a[3] * &a[3]);
-        let c = &b0.square() + BETA * b2.square();
+        let mut b0 = a[0] * a[0] + BETA * (a[1] * (a[3] + a[3]) - a[2] * a[2]);
+        let mut b2 = a[0] * (a[2] + a[2]) - a[1] * a[1] + BETA * (a[3] * a[3]);
+        let c = b0.square() + BETA * b2.square();
         let c_inv = c.inv()?;
         b0 *= &c_inv;
         b2 *= &c_inv;
         Ok([
-            &a[0] * &b0 + BETA * &a[2] * &b2,
-            -&a[1] * &b0 - BETA * &a[3] * &b2,
-            -&a[0] * &b2 + &a[2] * &b0,
-            &a[1] * &b2 - &a[3] * &b0,
+            a[0] * b0 + BETA * a[2] * b2,
+            -a[1] * b0 - BETA * a[3] * b2,
+            -a[0] * b2 + a[2] * b0,
+            a[1] * b2 - a[3] * b0,
         ])
     }
 
@@ -103,7 +115,7 @@ impl IsField for Degree4BabyBearExtensionField {
         ]
     }
 
-    /// Takes as input an element of BaseType and returns the internal representation
+    /// It takes as input an element of BaseType and returns the internal representation
     /// of that element in the field.
     /// Note: for this case this is simply the identity, because the components
     /// already have correct representations.
@@ -126,10 +138,10 @@ impl IsField for Degree4BabyBearExtensionField {
             return Self::one();
         }
         if exponent == one {
-            return a.clone();
+            return *a;
         }
 
-        let mut result = a.clone();
+        let mut result = *a;
 
         // Fast path for powers of 2
         while exponent & one == zero {
@@ -140,7 +152,7 @@ impl IsField for Degree4BabyBearExtensionField {
             }
         }
 
-        let mut base = result.clone();
+        let mut base = result;
         exponent >>= 1;
 
         while exponent != zero {
@@ -155,6 +167,7 @@ impl IsField for Degree4BabyBearExtensionField {
     }
 }
 
+/// Implements efficient operations between a BabyBear element and a degree four extension element
 impl IsSubFieldOf<Degree4BabyBearExtensionField> for Babybear31PrimeField {
     fn mul(
         a: &Self::BaseType,
@@ -184,8 +197,7 @@ impl IsSubFieldOf<Degree4BabyBearExtensionField> for Babybear31PrimeField {
         a: &Self::BaseType,
         b: &<Degree4BabyBearExtensionField as IsField>::BaseType,
     ) -> Result<<Degree4BabyBearExtensionField as IsField>::BaseType, FieldError> {
-        let b_inv =
-            Degree4BabyBearExtensionField::inv(b).map_err(|_| FieldError::DivisionByZero)?;
+        let b_inv = Degree4BabyBearExtensionField::inv(b)?;
         Ok(<Self as IsSubFieldOf<Degree4BabyBearExtensionField>>::mul(
             a, &b_inv,
         ))
@@ -242,7 +254,7 @@ impl ByteConversion for [FieldElement<Babybear31PrimeField>; 4] {
     where
         Self: Sized,
     {
-        const BYTES_PER_FIELD: usize = 64;
+        const BYTES_PER_FIELD: usize = 32;
 
         let x0 = FieldElement::from_bytes_be(&bytes[0..BYTES_PER_FIELD])?;
         let x1 = FieldElement::from_bytes_be(&bytes[BYTES_PER_FIELD..BYTES_PER_FIELD * 2])?;
@@ -256,7 +268,7 @@ impl ByteConversion for [FieldElement<Babybear31PrimeField>; 4] {
     where
         Self: Sized,
     {
-        const BYTES_PER_FIELD: usize = 64;
+        const BYTES_PER_FIELD: usize = 32;
 
         let x0 = FieldElement::from_bytes_le(&bytes[0..BYTES_PER_FIELD])?;
         let x1 = FieldElement::from_bytes_le(&bytes[BYTES_PER_FIELD..BYTES_PER_FIELD * 2])?;
@@ -276,7 +288,6 @@ impl ByteConversion for FieldElement<Degree4BabyBearExtensionField> {
         byte_slice.extend(ByteConversion::to_bytes_be(&self.value()[3]));
         byte_slice
     }
-
     #[cfg(feature = "alloc")]
     fn to_bytes_le(&self) -> alloc::vec::Vec<u8> {
         let mut byte_slice = ByteConversion::to_bytes_le(&self.value()[0]);
@@ -290,7 +301,7 @@ impl ByteConversion for FieldElement<Degree4BabyBearExtensionField> {
     where
         Self: Sized,
     {
-        const BYTES_PER_FIELD: usize = 8;
+        const BYTES_PER_FIELD: usize = 4;
         let x0 = FieldElement::from_bytes_be(&bytes[0..BYTES_PER_FIELD])?;
         let x1 = FieldElement::from_bytes_be(&bytes[BYTES_PER_FIELD..BYTES_PER_FIELD * 2])?;
         let x2 = FieldElement::from_bytes_be(&bytes[BYTES_PER_FIELD * 2..BYTES_PER_FIELD * 3])?;
@@ -303,7 +314,7 @@ impl ByteConversion for FieldElement<Degree4BabyBearExtensionField> {
     where
         Self: Sized,
     {
-        const BYTES_PER_FIELD: usize = 8;
+        const BYTES_PER_FIELD: usize = 4;
         let x0 = FieldElement::from_bytes_le(&bytes[0..BYTES_PER_FIELD])?;
         let x1 = FieldElement::from_bytes_le(&bytes[BYTES_PER_FIELD..BYTES_PER_FIELD * 2])?;
         let x2 = FieldElement::from_bytes_le(&bytes[BYTES_PER_FIELD * 2..BYTES_PER_FIELD * 3])?;
@@ -323,37 +334,40 @@ impl AsBytes for FieldElement<Degree4BabyBearExtensionField> {
 impl IsFFTField for Degree4BabyBearExtensionField {
     const TWO_ADICITY: u64 = 29;
     const TWO_ADIC_PRIMITVE_ROOT_OF_UNITY: Self::BaseType = [
-        FieldElement::from_hex_unchecked("0"),
-        FieldElement::from_hex_unchecked("0"),
-        FieldElement::from_hex_unchecked("0"),
-        FieldElement::from_hex_unchecked("771F1C8"),
+        FieldElement::const_from_raw(0),
+        FieldElement::const_from_raw(0),
+        FieldElement::const_from_raw(0),
+        // We are using the montgomery form of 124907976.
+        // That is: 1344142388 = 124907976 * R mod p,
+        // where R = 2^32 and p = 2013265921.
+        FieldElement::const_from_raw(1344142388),
     ];
 }
 
 impl HasDefaultTranscript for Degree4BabyBearExtensionField {
     fn get_random_field_element_from_rng(rng: &mut impl rand::Rng) -> FieldElement<Self> {
         //Babybear Prime p = 2^31 - 2^27 + 1
-        const MODULUS: u64 = 2013265921;
+        const MODULUS: u32 = 2013265921;
 
         //Babybear prime needs 31 bits and is represented with 32 bits.
         //The mask is used to remove the first bit.
-        const MASK: u64 = 0x7FFF_FFFF;
+        const MASK: u32 = 0x7FFF_FFFF;
 
-        let mut sample = [0u8; 8];
+        let mut sample = [0u8; 4];
 
         let mut coeffs = [
-            FieldElement::from(0u64),
-            FieldElement::from(0u64),
-            FieldElement::from(0u64),
-            FieldElement::from(0u64),
+            FieldElement::zero(),
+            FieldElement::zero(),
+            FieldElement::zero(),
+            FieldElement::zero(),
         ];
 
         for coeff in &mut coeffs {
             loop {
                 rng.fill(&mut sample);
-                let int_sample = u64::from_be_bytes(sample) & MASK;
+                let int_sample = u32::from_be_bytes(sample) & MASK;
                 if int_sample < MODULUS {
-                    *coeff = FieldElement::from(int_sample);
+                    *coeff = FieldElement::from(&int_sample);
                     break;
                 }
             }
@@ -366,6 +380,7 @@ impl HasDefaultTranscript for Degree4BabyBearExtensionField {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::field::element::FieldElement;
 
     type FpE = FieldElement<Babybear31PrimeField>;
     type Fp4E = FieldElement<Degree4BabyBearExtensionField>;
@@ -400,14 +415,14 @@ mod tests {
     fn test_mul_by_0() {
         let a = Fp4E::new([FpE::from(4), FpE::from(1), FpE::from(2), FpE::from(3)]);
         let b = Fp4E::new([FpE::zero(), FpE::zero(), FpE::zero(), FpE::zero()]);
-        assert_eq!(&a * &b, b);
+        assert_eq!(a * b, b);
     }
 
     #[test]
     fn test_mul_by_1() {
         let a = Fp4E::new([FpE::from(4), FpE::from(1), FpE::from(2), FpE::from(3)]);
         let b = Fp4E::new([FpE::one(), FpE::zero(), FpE::zero(), FpE::zero()]);
-        assert_eq!(&a * b, a);
+        assert_eq!(a * b, a);
     }
 
     #[test]
@@ -426,7 +441,7 @@ mod tests {
     #[test]
     fn test_pow() {
         let a = Fp4E::new([FpE::from(0), FpE::from(1), FpE::from(2), FpE::from(3)]);
-        let expected_result = &a * &a * &a;
+        let expected_result = a * a * a;
         assert_eq!(a.pow(3u64), expected_result);
     }
 
@@ -445,7 +460,7 @@ mod tests {
     #[test]
     fn test_mul_by_inv_is_identity() {
         let a = Fp4E::from(123456);
-        assert_eq!(&a * a.inv().unwrap(), Fp4E::one());
+        assert_eq!(a * a.inv().unwrap(), Fp4E::one());
     }
 
     #[test]
@@ -465,7 +480,7 @@ mod tests {
     fn test_double_equals_sum_two_times() {
         let a = Fp4E::new([FpE::from(2), FpE::from(4), FpE::from(6), FpE::from(8)]);
 
-        assert_eq!(a.double(), &a + &a);
+        assert_eq!(a.double(), a + a);
     }
 
     #[test]
@@ -482,6 +497,34 @@ mod tests {
             generator.pow(2u64.pow(Degree4BabyBearExtensionField::TWO_ADICITY as u32)),
             Fp4E::one()
         );
+    }
+
+    #[test]
+    #[cfg(feature = "alloc")]
+    fn to_bytes_from_bytes_be_is_the_identity() {
+        let x = Fp4E::new([FpE::from(2), FpE::from(4), FpE::from(6), FpE::from(8)]);
+        assert_eq!(Fp4E::from_bytes_be(&x.to_bytes_be()).unwrap(), x);
+    }
+
+    #[test]
+    #[cfg(feature = "alloc")]
+    fn from_bytes_to_bytes_be_is_the_identity() {
+        let bytes = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
+        assert_eq!(Fp4E::from_bytes_be(&bytes).unwrap().to_bytes_be(), bytes);
+    }
+
+    #[test]
+    #[cfg(feature = "alloc")]
+    fn to_bytes_from_bytes_le_is_the_identity() {
+        let x = Fp4E::new([FpE::from(2), FpE::from(4), FpE::from(6), FpE::from(8)]);
+        assert_eq!(Fp4E::from_bytes_le(&x.to_bytes_le()).unwrap(), x);
+    }
+
+    #[test]
+    #[cfg(feature = "alloc")]
+    fn from_bytes_to_bytes_le_is_the_identity() {
+        let bytes = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
+        assert_eq!(Fp4E::from_bytes_le(&bytes).unwrap().to_bytes_le(), bytes);
     }
 
     #[cfg(all(feature = "std", not(feature = "instruments")))]
