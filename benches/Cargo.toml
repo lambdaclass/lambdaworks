@@ -4,8 +4,11 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-ark-ff = { git = "https://github.com/arkworks-rs/algebra", rev = "ef8f758" }
-ark-test-curves = { git = "https://github.com/arkworks-rs/algebra", rev = "ef8f758" }
+ark-ff = { version = "0.5.0" }
+ark-ec = { version = "0.5.0" }
+ark-bls12-381 = { version = "0.5.0" }
+ark-bn254 = { version = "0.5.0" }
+ark-test-curves = { version = "0.5.0" }
 ark-std = "0.4.0"
 rand = "0.8.5"
 rand_chacha = "0.3.1"
@@ -52,3 +55,28 @@ harness = false
 [[bench]]
 name = "poseidon"
 harness = false
+
+# Standalone binaries for hyperfine benchmarks
+[[bin]]
+name = "bench_lw_bls12381_pairing"
+path = "src/bin/lw_bls12381_pairing.rs"
+
+[[bin]]
+name = "bench_ark_bls12381_pairing"
+path = "src/bin/ark_bls12381_pairing.rs"
+
+[[bin]]
+name = "bench_lw_bn254_pairing"
+path = "src/bin/lw_bn254_pairing.rs"
+
+[[bin]]
+name = "bench_ark_bn254_pairing"
+path = "src/bin/ark_bn254_pairing.rs"
+
+[[bin]]
+name = "bench_lw_bls12381_g1_scalar_mul"
+path = "src/bin/lw_bls12381_g1_scalar_mul.rs"
+
+[[bin]]
+name = "bench_ark_bls12381_g1_scalar_mul"
+path = "src/bin/ark_bls12381_g1_scalar_mul.rs"
