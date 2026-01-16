@@ -1,6 +1,6 @@
 use crate::{common::*, errors::Groth16Error, ProvingKey, QuadraticArithmeticProgram};
 use lambdaworks_math::errors::DeserializationError;
-use lambdaworks_math::traits::deserialize_with_length;
+use lambdaworks_math::traits::{deserialize_with_length, serialize_with_length};
 use lambdaworks_math::{cyclic_group::IsGroup, msm::pippenger::msm};
 
 pub struct Proof {
@@ -12,10 +12,9 @@ pub struct Proof {
 impl Proof {
     pub fn serialize(&self) -> Vec<u8> {
         let mut bytes: Vec<u8> = Vec::new();
-        // Use length-prefixed serialization for each commitment
-        bytes.extend(lambdaworks_math::traits::serialize_with_length(&self.pi1));
-        bytes.extend(lambdaworks_math::traits::serialize_with_length(&self.pi2));
-        bytes.extend(lambdaworks_math::traits::serialize_with_length(&self.pi3));
+        bytes.extend(serialize_with_length(&self.pi1));
+        bytes.extend(serialize_with_length(&self.pi2));
+        bytes.extend(serialize_with_length(&self.pi3));
         bytes
     }
 

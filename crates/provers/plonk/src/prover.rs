@@ -2,7 +2,8 @@ use lambdaworks_crypto::fiat_shamir::is_transcript::IsTranscript;
 use lambdaworks_math::errors::DeserializationError;
 use lambdaworks_math::field::traits::IsFFTField;
 use lambdaworks_math::traits::{
-    deserialize_with_length, AsBytes, Deserializable, IsRandomFieldElementGenerator,
+    deserialize_field_element_with_length, deserialize_with_length, AsBytes, Deserializable,
+    IsRandomFieldElementGenerator,
 };
 use std::marker::PhantomData;
 
@@ -161,34 +162,6 @@ where
     }
 }
 
-/// Deserialize a field element with length prefix.
-/// Note: FieldElement doesn't implement Deserializable trait, so we need this helper.
-fn deserialize_field_element<F>(
-    bytes: &[u8],
-    offset: usize,
-) -> Result<(usize, FieldElement<F>), DeserializationError>
-where
-    F: IsField,
-    FieldElement<F>: ByteConversion,
-{
-    const SIZE_OF_U32: usize = core::mem::size_of::<u32>();
-    let mut offset = offset;
-    let element_size_bytes: [u8; SIZE_OF_U32] = bytes
-        .get(offset..offset + SIZE_OF_U32)
-        .ok_or(DeserializationError::InvalidAmountOfBytes)?
-        .try_into()
-        .map_err(|_| DeserializationError::InvalidAmountOfBytes)?;
-    let element_size = u32::from_be_bytes(element_size_bytes) as usize;
-    offset += SIZE_OF_U32;
-    let field_element = FieldElement::from_bytes_be(
-        bytes
-            .get(offset..offset + element_size)
-            .ok_or(DeserializationError::InvalidAmountOfBytes)?,
-    )?;
-    offset += element_size;
-    Ok((offset, field_element))
-}
-
 impl<F, CS> Deserializable for Proof<F, CS>
 where
     F: IsField,
@@ -200,17 +173,15 @@ where
     where
         Self: Sized,
     {
-        // Deserialize field elements
-        let (offset, a_zeta) = deserialize_field_element(bytes, 0)?;
-        let (offset, b_zeta) = deserialize_field_element(bytes, offset)?;
-        let (offset, c_zeta) = deserialize_field_element(bytes, offset)?;
-        let (offset, s1_zeta) = deserialize_field_element(bytes, offset)?;
-        let (offset, s2_zeta) = deserialize_field_element(bytes, offset)?;
-        let (offset, z_zeta_omega) = deserialize_field_element(bytes, offset)?;
-        let (offset, p_non_constant_zeta) = deserialize_field_element(bytes, offset)?;
-        let (offset, t_zeta) = deserialize_field_element(bytes, offset)?;
+        let (offset, a_zeta) = deserialize_field_element_with_length(bytes, 0)?;
+        let (offset, b_zeta) = deserialize_field_element_with_length(bytes, offset)?;
+        let (offset, c_zeta) = deserialize_field_element_with_length(bytes, offset)?;
+        let (offset, s1_zeta) = deserialize_field_element_with_length(bytes, offset)?;
+        let (offset, s2_zeta) = deserialize_field_element_with_length(bytes, offset)?;
+        let (offset, z_zeta_omega) = deserialize_field_element_with_length(bytes, offset)?;
+        let (offset, p_non_constant_zeta) = deserialize_field_element_with_length(bytes, offset)?;
+        let (offset, t_zeta) = deserialize_field_element_with_length(bytes, offset)?;
 
-        // Deserialize commitments using shared helper
         let (offset, a_1) = deserialize_with_length(bytes, offset)?;
         let (offset, b_1) = deserialize_with_length(bytes, offset)?;
         let (offset, c_1) = deserialize_with_length(bytes, offset)?;
