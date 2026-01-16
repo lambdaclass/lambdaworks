@@ -97,3 +97,9 @@ name = "karabina_compression"
 path = "fuzz_targets/pairing/karabina_compression.rs"
 test = false
 doc = false
+
+[[bin]]
+name = "g2_prepared"
+path = "fuzz_targets/pairing/g2_prepared.rs"
+test = false
+doc = false
