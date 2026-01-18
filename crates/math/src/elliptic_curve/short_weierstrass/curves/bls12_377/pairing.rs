@@ -497,6 +497,107 @@ fn apply_compressed_squares(f: &Fp12E, n: u32) -> Fp12E {
     compressed.decompress()
 }
 
+////////////////// GT EXPONENTIATION WITH FROBENIUS //////////////////
+
+/// Cyclotomic inversion is free: for elements in the cyclotomic subgroup,
+/// a^{-1} = a^{p^6} = conjugate(a).
+#[inline]
+pub fn cyclotomic_inv(a: &Fp12E) -> Fp12E {
+    a.conjugate()
+}
+
+/// GT exponentiation using Frobenius decomposition for BLS12-377.
+///
+/// Decomposes exponent k into base-x components:
+/// k = k₀ + k₁·x + k₂·x² + k₃·x³ (where x = curve seed)
+///
+/// Then: a^k = a^k₀ · (a^x)^k₁ · (a^{x²})^k₂ · (a^{x³})^k₃
+pub fn gt_exp(a: &Fp12E, k: &U256) -> Fp12E {
+    // Handle special cases
+    if *k == U256::from_u64(0) {
+        return Fp12E::one();
+    }
+    if *k == U256::from_u64(1) {
+        return a.clone();
+    }
+
+    let x_val = U256::from_u64(X);
+
+    // For small exponents, use direct square-and-multiply
+    if *k < x_val {
+        return cyclotomic_pow_direct(a, k);
+    }
+
+    // Decompose k in base x: k = k₀ + k₁·x + k₂·x² + k₃·x³
+    let (q1, k0) = k.div_rem(&x_val);
+
+    if q1 < x_val {
+        // Two-component: k = k₀ + k₁·x
+        let a_k0 = cyclotomic_pow_direct(a, &k0);
+        let a_x = cyclotomic_pow_x_compressed(a);
+        let a_x_k1 = cyclotomic_pow_direct(&a_x, &q1);
+        return &a_k0 * &a_x_k1;
+    }
+
+    let (q2, k1) = q1.div_rem(&x_val);
+
+    if q2 < x_val {
+        // Three-component: k = k₀ + k₁·x + k₂·x²
+        let a_k0 = cyclotomic_pow_direct(a, &k0);
+        let a_x = cyclotomic_pow_x_compressed(a);
+        let a_x_k1 = cyclotomic_pow_direct(&a_x, &k1);
+        let a_x2 = cyclotomic_pow_x_compressed(&a_x);
+        let a_x2_k2 = cyclotomic_pow_direct(&a_x2, &q2);
+        return &(&a_k0 * &a_x_k1) * &a_x2_k2;
+    }
+
+    let (k3, k2) = q2.div_rem(&x_val);
+
+    // Four-component: k = k₀ + k₁·x + k₂·x² + k₃·x³
+    let a_k0 = cyclotomic_pow_direct(a, &k0);
+    let a_x = cyclotomic_pow_x_compressed(a);
+    let a_x_k1 = cyclotomic_pow_direct(&a_x, &k1);
+    let a_x2 = cyclotomic_pow_x_compressed(&a_x);
+    let a_x2_k2 = cyclotomic_pow_direct(&a_x2, &k2);
+    let a_x3 = cyclotomic_pow_x_compressed(&a_x2);
+    let a_x3_k3 = cyclotomic_pow_direct(&a_x3, &k3);
+
+    &(&(&a_k0 * &a_x_k1) * &a_x2_k2) * &a_x3_k3
+}
+
+/// Direct cyclotomic exponentiation using square-and-multiply.
+fn cyclotomic_pow_direct(a: &Fp12E, k: &U256) -> Fp12E {
+    if *k == U256::from_u64(0) {
+        return Fp12E::one();
+    }
+    if *k == U256::from_u64(1) {
+        return a.clone();
+    }
+
+    let bits = k.bits_le();
+    let mut result = Fp12E::one();
+    let mut first = true;
+
+    for i in (0..bits).rev() {
+        if !first {
+            result = cyclotomic_square(&result);
+        }
+
+        let limb_idx = 3 - i / 64;
+        let bit_idx = i % 64;
+        if (k.limbs[limb_idx] >> bit_idx) & 1 == 1 {
+            if first {
+                result = a.clone();
+                first = false;
+            } else {
+                result = &result * a;
+            }
+        }
+    }
+
+    result
+}
+
 #[cfg(test)]
 mod tests {
     use crate::{
@@ -665,5 +766,77 @@ mod tests {
         let original = cyclotomic_pow_x(&f_easy);
         let compressed = cyclotomic_pow_x_compressed(&f_easy);
         assert_eq!(original, compressed);
+    }
+
+    // GT Exponentiation tests
+
+    #[test]
+    fn cyclotomic_inv_is_conjugate() {
+        let p = BLS12377Curve::generator();
+        let q = BLS12377TwistCurve::generator();
+        let f = miller(&p, &q);
+        let f_easy_aux = f.conjugate() * f.inv().unwrap();
+        let f_easy = &frobenius_square(&f_easy_aux) * f_easy_aux;
+
+        let inv = cyclotomic_inv(&f_easy);
+        let product = &f_easy * &inv;
+        assert_eq!(product, Fp12E::one());
+    }
+
+    #[test]
+    fn gt_exp_small_exponent() {
+        let p = BLS12377Curve::generator();
+        let q = BLS12377TwistCurve::generator();
+        let f = miller(&p, &q);
+        let f_easy_aux = f.conjugate() * f.inv().unwrap();
+        let f_easy = &frobenius_square(&f_easy_aux) * f_easy_aux;
+
+        let k = U256::from_u64(12345);
+        let result_gt_exp = gt_exp(&f_easy, &k);
+        let result_pow = f_easy.pow(12345u64);
+
+        assert_eq!(result_gt_exp, result_pow);
+    }
+
+    #[test]
+    fn gt_exp_medium_exponent() {
+        let p = BLS12377Curve::generator();
+        let q = BLS12377TwistCurve::generator();
+        let f = miller(&p, &q);
+        let f_easy_aux = f.conjugate() * f.inv().unwrap();
+        let f_easy = &frobenius_square(&f_easy_aux) * f_easy_aux;
+
+        let k = U256::from_hex_unchecked("8508c00000000002"); // slightly larger than x
+        let result_gt_exp = gt_exp(&f_easy, &k);
+        let result_pow = f_easy.pow(k);
+
+        assert_eq!(result_gt_exp, result_pow);
+    }
+
+    #[test]
+    fn gt_exp_large_exponent() {
+        let p = BLS12377Curve::generator();
+        let q = BLS12377TwistCurve::generator();
+        let f = miller(&p, &q);
+        let f_easy_aux = f.conjugate() * f.inv().unwrap();
+        let f_easy = &frobenius_square(&f_easy_aux) * f_easy_aux;
+
+        let k = U256::from_hex_unchecked("ffffffffffffffff");
+        let result_gt_exp = gt_exp(&f_easy, &k);
+        let result_pow = f_easy.pow(k);
+
+        assert_eq!(result_gt_exp, result_pow);
+    }
+
+    #[test]
+    fn gt_exp_zero_returns_one() {
+        let p = BLS12377Curve::generator();
+        let q = BLS12377TwistCurve::generator();
+        let f = miller(&p, &q);
+        let f_easy_aux = f.conjugate() * f.inv().unwrap();
+        let f_easy = &frobenius_square(&f_easy_aux) * f_easy_aux;
+
+        let result = gt_exp(&f_easy, &U256::from_u64(0));
+        assert_eq!(result, Fp12E::one());
     }
 }

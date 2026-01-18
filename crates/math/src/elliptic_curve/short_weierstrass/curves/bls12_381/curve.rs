@@ -226,17 +226,33 @@ fn get_bit(n: &U256, pos: usize) -> bool {
     (n.limbs[limb_idx] >> bit_idx) & 1 == 1
 }
 
+/// Precomputed constants for ψ² endomorphism on G2.
+/// ψ²(x, y, z) = (ENDO_U_2 * x, ENDO_V_2 * y, z)
+/// Since ψ is the Frobenius, ψ² applies conjugate twice which is identity,
+/// so we only need multiplication by the constants.
+const ENDO_U_2: BLS12381TwistCurveFieldElement = BLS12381TwistCurveFieldElement::const_from_raw([
+    FieldElement::from_hex_unchecked(
+        "1a0111ea397fe699ec02408663d4de85aa0d857d89759ad4897d29650fb85f9b409427eb4f49fffd8bfd00000000aaac",
+    ),
+    FieldElement::from_hex_unchecked("0"),
+]);
+
+const ENDO_V_2: BLS12381TwistCurveFieldElement = BLS12381TwistCurveFieldElement::const_from_raw([
+    FieldElement::from_hex_unchecked(
+        "1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaaa",
+    ),
+    FieldElement::from_hex_unchecked("0"),
+]);
+
 impl ShortWeierstrassJacobianPoint<BLS12381TwistCurve> {
-    /// Computes 𝜓(P) 𝜓(P) = 𝜁 ∘ 𝜋ₚ ∘ 𝜁⁻¹, where 𝜁 is the isomorphism u:E'(𝔽ₚ₆) −> E(𝔽ₚ₁₂) from the twist to E,, 𝜋ₚ is the p-power frobenius endomorphism
-    /// and 𝜓 satisifies minmal equation 𝑋² + 𝑡𝑋 + 𝑞 = 𝑂
+    /// Computes 𝜓(P) = 𝜁 ∘ 𝜋ₚ ∘ 𝜁⁻¹, the Frobenius endomorphism on G2.
+    /// 𝜁 is the isomorphism u:E'(𝔽ₚ₆) −> E(𝔽ₚ₁₂) from the twist to E.
+    /// 𝜋ₚ is the p-power Frobenius endomorphism.
+    /// 𝜓 satisfies minimal equation 𝑋² + 𝑡𝑋 + 𝑞 = 𝑂
     /// https://eprint.iacr.org/2022/352.pdf 4.2 (7)
     ///
-    /// # Safety
-    ///
-    /// - This function assumes `self` is a valid point on the BLS12-381 **twist** curve.
-    /// - The conjugation operation preserves validity.
-    /// - `unwrap()` is used because `psi()` is defined to **always return a valid point**.
-    fn psi(&self) -> Self {
+    /// Crucially: 𝜓(P) = [-x]P where x = MILLER_LOOP_CONSTANT (curve seed).
+    pub fn psi(&self) -> Self {
         // The neutral element maps to itself
         if self.is_neutral_element() {
             return self.clone();
@@ -256,7 +272,23 @@ impl ShortWeierstrassJacobianPoint<BLS12381TwistCurve> {
         point.unwrap()
     }
 
-    /// 𝜓(P) = 𝑢P, where 𝑢 = SEED of the curve
+    /// Computes ψ²(P), the square of the Frobenius endomorphism.
+    /// Since conjugate² = identity, ψ² only needs multiplication by constants.
+    pub fn psi2(&self) -> Self {
+        if self.is_neutral_element() {
+            return self.clone();
+        }
+        let [x, y, z] = self.coordinates();
+        // SAFETY: ENDO_U_2 and ENDO_V_2 are precomputed to preserve curve validity.
+        Self::new_unchecked([x * ENDO_U_2, y * ENDO_V_2, z.clone()])
+    }
+
+    /// Computes ψ³(P) = ψ(ψ²(P)).
+    pub fn psi3(&self) -> Self {
+        self.psi2().psi()
+    }
+
+    /// 𝜓(P) = [-x]P, where x = SEED of the curve
     /// https://eprint.iacr.org/2022/352.pdf 4.2
     pub fn is_in_subgroup(&self) -> bool {
         // The neutral element is always in the subgroup
@@ -265,6 +297,162 @@ impl ShortWeierstrassJacobianPoint<BLS12381TwistCurve> {
         }
         self.psi() == self.operate_with_self(MILLER_LOOP_CONSTANT).neg()
     }
+
+    /// GLS scalar multiplication: computes [k]P using the Frobenius endomorphism.
+    ///
+    /// Uses 4-dimensional decomposition:
+    /// k·P = k₀·P + k₁·ψ(P) + k₂·ψ²(P) + k₃·ψ³(P)
+    ///
+    /// Each mini-scalar is approximately 64 bits (vs 256 bits for full scalar),
+    /// providing ~3-4x speedup over standard double-and-add.
+    pub fn gls_mul(&self, k: &U256) -> Self {
+        if self.is_neutral_element() {
+            return self.clone();
+        }
+
+        let zero = U256::from_u64(0);
+        if *k == zero {
+            return Self::neutral_element();
+        }
+
+        // For small scalars, direct computation is faster
+        if k.limbs[0] == 0 && k.limbs[1] == 0 && k.limbs[2] == 0 && k.limbs[3] < 1024 {
+            return self.operate_with_self(*k);
+        }
+
+        // Decompose k into 4 mini-scalars
+        let (k0_neg, k0, k1_neg, k1, k2_neg, k2, k3_neg, k3) = gls_decompose_4d(k);
+
+        // Compute ψ(P), ψ²(P), ψ³(P)
+        let psi_p = self.psi();
+        let psi2_p = self.psi2();
+        let psi3_p = self.psi3();
+
+        // Apply signs
+        let p0 = if k0_neg { self.neg() } else { self.clone() };
+        let p1 = if k1_neg { psi_p.neg() } else { psi_p };
+        let p2 = if k2_neg { psi2_p.neg() } else { psi2_p };
+        let p3 = if k3_neg { psi3_p.neg() } else { psi3_p };
+
+        // 4-way Shamir's trick
+        shamir_4way(&p0, &k0, &p1, &k1, &p2, &k2, &p3, &k3)
+    }
+}
+
+/// The curve seed x as U256 for division operations.
+const GLS_X: U256 = U256::from_u64(MILLER_LOOP_CONSTANT);
+
+/// GLS 4-dimensional scalar decomposition for BLS12-381 G2.
+///
+/// Decomposes scalar k into k₀ + k₁·λ + k₂·λ² + k₃·λ³ (mod r)
+/// where λ = -x (curve seed negated in the scalar field).
+///
+/// Uses the minimal polynomial property of the endomorphism:
+/// ψ²(P) + [t]ψ(P) + [q]P = O
+///
+/// For practical purposes, we use a simpler base-x decomposition:
+/// k = k₀ + k₁·x + k₂·x² + k₃·x³
+/// Then adjust signs based on ψ(P) = [-x]P property.
+///
+/// Returns (k0_neg, |k0|, k1_neg, |k1|, k2_neg, |k2|, k3_neg, |k3|)
+fn gls_decompose_4d(k: &U256) -> (bool, U256, bool, U256, bool, U256, bool, U256) {
+    let zero = U256::from_u64(0);
+
+    // Small scalars: no decomposition needed
+    if *k < GLS_X {
+        return (false, *k, false, zero, false, zero, false, zero);
+    }
+
+    // Decompose in base x: k = k₀ + k₁·x + k₂·x² + k₃·x³
+    let (q1, k0) = k.div_rem(&GLS_X);
+
+    if q1 < GLS_X {
+        // k fits in 2 limbs
+        return (false, k0, true, q1, false, zero, false, zero);
+    }
+
+    let (q2, k1) = q1.div_rem(&GLS_X);
+
+    if q2 < GLS_X {
+        // k fits in 3 limbs
+        return (false, k0, true, k1, false, q2, false, zero);
+    }
+
+    let (k3, k2) = q2.div_rem(&GLS_X);
+
+    // Full 4-dimensional decomposition
+    // Signs: k = k₀ - k₁·x + k₂·x² - k₃·x³ when using ψ(P) = [-x]P
+    // Alternating signs because ψⁱ(P) = (-x)ⁱ P
+    (false, k0, true, k1, false, k2, true, k3)
+}
+
+/// 4-way Shamir's trick for joint scalar multiplication.
+/// Computes [k0]P0 + [k1]P1 + [k2]P2 + [k3]P3 sharing doublings.
+fn shamir_4way(
+    p0: &ShortWeierstrassJacobianPoint<BLS12381TwistCurve>,
+    k0: &U256,
+    p1: &ShortWeierstrassJacobianPoint<BLS12381TwistCurve>,
+    k1: &U256,
+    p2: &ShortWeierstrassJacobianPoint<BLS12381TwistCurve>,
+    k2: &U256,
+    p3: &ShortWeierstrassJacobianPoint<BLS12381TwistCurve>,
+    k3: &U256,
+) -> ShortWeierstrassJacobianPoint<BLS12381TwistCurve> {
+    // Precompute all 15 non-trivial sums for 4-bit lookup
+    let p01 = p0.operate_with(p1);
+    let p02 = p0.operate_with(p2);
+    let p03 = p0.operate_with(p3);
+    let p12 = p1.operate_with(p2);
+    let p13 = p1.operate_with(p3);
+    let p23 = p2.operate_with(p3);
+    let p012 = p01.operate_with(p2);
+    let p013 = p01.operate_with(p3);
+    let p023 = p02.operate_with(p3);
+    let p123 = p12.operate_with(p3);
+    let p0123 = p012.operate_with(p3);
+
+    let max_len = core::cmp::max(
+        core::cmp::max(k0.bits_le(), k1.bits_le()),
+        core::cmp::max(k2.bits_le(), k3.bits_le()),
+    );
+
+    if max_len == 0 {
+        return ShortWeierstrassJacobianPoint::neutral_element();
+    }
+
+    let mut result = ShortWeierstrassJacobianPoint::neutral_element();
+
+    for i in (0..max_len).rev() {
+        result = result.double();
+
+        let b0 = get_bit(k0, i);
+        let b1 = get_bit(k1, i);
+        let b2 = get_bit(k2, i);
+        let b3 = get_bit(k3, i);
+
+        // 4-bit lookup table
+        let point = match (b0, b1, b2, b3) {
+            (false, false, false, false) => continue,
+            (true, false, false, false) => p0,
+            (false, true, false, false) => p1,
+            (true, true, false, false) => &p01,
+            (false, false, true, false) => p2,
+            (true, false, true, false) => &p02,
+            (false, true, true, false) => &p12,
+            (true, true, true, false) => &p012,
+            (false, false, false, true) => p3,
+            (true, false, false, true) => &p03,
+            (false, true, false, true) => &p13,
+            (true, true, false, true) => &p013,
+            (false, false, true, true) => &p23,
+            (true, false, true, true) => &p023,
+            (false, true, true, true) => &p123,
+            (true, true, true, true) => &p0123,
+        };
+        result = result.operate_with(point);
+    }
+
+    result
 }
 
 #[cfg(test)]
@@ -549,5 +737,124 @@ mod tests {
 
         assert_eq!(g_affine.x(), phi3_g_affine.x(), "φ³(G).x should equal G.x");
         assert_eq!(g_affine.y(), phi3_g_affine.y(), "φ³(G).y should equal G.y");
+    }
+
+    // G2 GLS scalar multiplication tests
+
+    #[test]
+    fn g2_gls_mul_small_scalar() {
+        // Test with a small scalar (< curve seed x)
+        let g = BLS12381TwistCurve::generator();
+        let k = U256::from_u64(12345);
+        let expected = g.operate_with_self(12345u64);
+        let result = g.gls_mul(&k);
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn g2_gls_mul_medium_scalar() {
+        // Test with a medium scalar that exercises decomposition
+        let g = BLS12381TwistCurve::generator();
+        let k = U256::from_hex_unchecked("123456789abcdef0123456789abcdef0");
+        let expected = g.operate_with_self(k);
+        let result = g.gls_mul(&k);
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn g2_gls_mul_large_scalar() {
+        // Test with a larger scalar that uses full 4D decomposition
+        let g = BLS12381TwistCurve::generator();
+        let k = U256::from_hex_unchecked(
+            "73eda753299d7d483339d80809a1d80553bda402fffe5bfefffffffe00000000",
+        );
+        let expected = g.operate_with_self(k);
+        let result = g.gls_mul(&k);
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn g2_gls_mul_neutral_element() {
+        // GLS mul of neutral element should return neutral element
+        let neutral = ShortWeierstrassJacobianPoint::<BLS12381TwistCurve>::neutral_element();
+        let k = U256::from_u64(12345);
+        let result = neutral.gls_mul(&k);
+        assert!(result.is_neutral_element());
+    }
+
+    #[test]
+    fn g2_gls_mul_zero_scalar() {
+        // [0]P should return neutral element
+        let g = BLS12381TwistCurve::generator();
+        let k = U256::from_u64(0);
+        let result = g.gls_mul(&k);
+        assert!(result.is_neutral_element());
+    }
+
+    #[test]
+    fn g2_psi_endomorphism_property() {
+        // Verify ψ(P) = [-x]P where x is the curve seed
+        let g = BLS12381TwistCurve::generator();
+        let psi_g = g.psi();
+        let neg_x_g = g.operate_with_self(MILLER_LOOP_CONSTANT).neg();
+
+        // Convert to affine for comparison
+        let psi_g_affine = psi_g.to_affine();
+        let neg_x_g_affine = neg_x_g.to_affine();
+
+        assert_eq!(
+            psi_g_affine.x(),
+            neg_x_g_affine.x(),
+            "ψ(G).x should equal [-x]G.x"
+        );
+        assert_eq!(
+            psi_g_affine.y(),
+            neg_x_g_affine.y(),
+            "ψ(G).y should equal [-x]G.y"
+        );
+    }
+
+    #[test]
+    fn g2_psi2_endomorphism() {
+        // Verify ψ²(P) = [x²]P (since ψ(P) = [-x]P, ψ²(P) = [x²]P)
+        let g = BLS12381TwistCurve::generator();
+        let psi2_g = g.psi2();
+        // ψ² can also be computed as ψ(ψ(P))
+        let psi_psi_g = g.psi().psi();
+
+        let psi2_g_affine = psi2_g.to_affine();
+        let psi_psi_g_affine = psi_psi_g.to_affine();
+
+        assert_eq!(
+            psi2_g_affine.x(),
+            psi_psi_g_affine.x(),
+            "ψ²(G).x should equal ψ(ψ(G)).x"
+        );
+        assert_eq!(
+            psi2_g_affine.y(),
+            psi_psi_g_affine.y(),
+            "ψ²(G).y should equal ψ(ψ(G)).y"
+        );
+    }
+
+    #[test]
+    fn g2_gls_mul_various_scalars() {
+        // Test with several different scalars to ensure correctness
+        let g = BLS12381TwistCurve::generator();
+        let scalars = [
+            U256::from_u64(1),
+            U256::from_u64(2),
+            U256::from_u64(1000),
+            U256::from_hex_unchecked("d201000000010000"), // = x
+            U256::from_hex_unchecked("d201000000010001"), // = x + 1
+            U256::from_hex_unchecked("ffffffffffffffff"),
+            U256::from_hex_unchecked("ffffffffffffffffffffffffffffffff"),
+        ];
+
+        for k in scalars.iter() {
+            let expected = g.operate_with_self(*k);
+            let result = g.gls_mul(k);
+            assert_eq!(result, expected, "GLS mul failed for scalar {:?}", k);
+        }
     }
 }
