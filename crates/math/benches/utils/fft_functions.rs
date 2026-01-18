@@ -3,7 +3,7 @@
 use criterion::black_box;
 use lambdaworks_math::fft::cpu::{
     bit_reversing::in_place_bit_reverse_permute,
-    fft::{in_place_nr_2radix_fft, in_place_nr_4radix_fft, in_place_rn_2radix_fft},
+    fft::{degree_aware_nr_2radix_fft, in_place_nr_2radix_fft, in_place_nr_4radix_fft, in_place_rn_2radix_fft},
     roots_of_unity::get_twiddles,
 };
 use lambdaworks_math::{field::traits::RootsConfig, polynomial::Polynomial};
@@ -36,4 +36,16 @@ pub fn poly_evaluate_fft(poly: &Polynomial<FE>) -> Vec<FE> {
 
 pub fn poly_interpolate_fft(evals: &[FE]) {
     Polynomial::interpolate_fft::<F>(evals).unwrap();
+}
+
+/// Standard FFT with bit-reverse permutation (complete operation)
+pub fn standard_fft_complete(input: &mut [FE], twiddles: &[FE]) {
+    in_place_nr_2radix_fft(input, twiddles);
+    in_place_bit_reverse_permute(input);
+}
+
+/// Degree-aware FFT with bit-reverse permutation (complete operation)
+pub fn degree_aware_fft_complete(input: &mut [FE], twiddles: &[FE], num_coeffs: usize) {
+    degree_aware_nr_2radix_fft(input, twiddles, num_coeffs);
+    in_place_bit_reverse_permute(input);
 }

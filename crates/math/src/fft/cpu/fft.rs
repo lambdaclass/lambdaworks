@@ -54,6 +54,94 @@ where
     }
 }
 
+/// Degree-aware Radix-2 NR DIT FFT that achieves O(n log d) complexity.
+/// When degree d << domain size n, skips first log(n/d) butterfly rounds.
+///
+/// This optimization is based on the observation that when a polynomial has
+/// degree d much smaller than the domain size n, the first log(n/d) rounds
+/// of the FFT are redundant because they operate on zero-padded values.
+///
+/// Parameters:
+/// - `input`: Pre-allocated buffer of size `domain_size`, with first `num_coeffs`
+///   elements containing the polynomial coefficients (rest should be zeros)
+/// - `twiddles`: Bit-reversed twiddle factors for the full domain
+/// - `num_coeffs`: Original number of coefficients (before padding)
+///
+/// It supports values in a field E and domain in a subfield F.
+pub fn degree_aware_nr_2radix_fft<F, E>(
+    input: &mut [FieldElement<E>],
+    twiddles: &[FieldElement<F>],
+    num_coeffs: usize,
+) where
+    F: IsFFTField + IsSubFieldOf<E>,
+    E: IsField,
+{
+    let domain_size = input.len();
+    if num_coeffs == 0 || domain_size == 0 {
+        return;
+    }
+
+    // If num_coeffs >= domain_size, fall back to standard FFT
+    if num_coeffs >= domain_size {
+        in_place_nr_2radix_fft(input, twiddles);
+        return;
+    }
+
+    // Calculate how many rounds we can skip
+    let log_d = num_coeffs.next_power_of_two().trailing_zeros();
+    let log_n = domain_size.trailing_zeros();
+    let rounds_to_skip = log_n - log_d;
+
+    // Duplicity: how many times each coefficient should be replicated
+    let duplicity = 1usize << rounds_to_skip;
+
+    // Replicate coefficients in interleaved pattern.
+    // After skipping S rounds, coefficient c_i should appear at positions:
+    // i, i+d, i+2d, ..., i+(duplicity-1)*d where d = padded_coeffs
+    //
+    // This matches what the first S rounds of FFT would produce:
+    // Round 0: butterflies on pairs (0, n/2), (1, n/2+1), etc.
+    // Round 1: butterflies on pairs (0, n/4), (1, n/4+1), etc.
+    // The pattern interleaves the coefficients across the domain.
+    let padded_coeffs = num_coeffs.next_power_of_two();
+    for i in (0..padded_coeffs).rev() {
+        let val = if i < num_coeffs {
+            input[i].clone()
+        } else {
+            FieldElement::zero()
+        };
+        for j in 0..duplicity {
+            input[i + j * padded_coeffs] = val.clone();
+        }
+    }
+
+    // Start FFT from round `rounds_to_skip` instead of 0
+    let mut group_count = duplicity; // Start at 2^rounds_to_skip
+    let mut group_size = domain_size / duplicity;
+
+    while group_count < domain_size {
+        #[allow(clippy::needless_range_loop)]
+        for group in 0..group_count {
+            let first_in_group = group * group_size;
+            let first_in_next_group = first_in_group + group_size / 2;
+
+            let w = &twiddles[group];
+
+            for i in first_in_group..first_in_next_group {
+                let wi = w * &input[i + group_size / 2];
+
+                let y0 = &input[i] + &wi;
+                let y1 = &input[i] - &wi;
+
+                input[i] = y0;
+                input[i + group_size / 2] = y1;
+            }
+        }
+        group_count *= 2;
+        group_size /= 2;
+    }
+}
+
 /// In-Place Radix-2 RN DIT FFT algorithm over a slice of two-adic field elements.
 /// It's required that the twiddle factors are naturally ordered (so w[i] = w^i). Else this
 /// function will not return fourier transformed values.
@@ -255,6 +343,114 @@ mod tests {
             in_place_bit_reverse_permute(&mut result);
 
             prop_assert_eq!(expected, result);
+        }
+
+        // Property-based test that ensures degree-aware FFT matches standard FFT.
+        #[test]
+        fn test_degree_aware_fft_matches_standard(coeffs in field_vec(6)) {
+            // Test with various domain sizes (2x, 4x, 8x, 16x the coefficient count)
+            let num_coeffs = coeffs.len();
+            for expansion_factor in [2, 4, 8, 16] {
+                let domain_size = (num_coeffs * expansion_factor).next_power_of_two();
+                if domain_size > 1 << 16 {
+                    continue; // Skip very large domains
+                }
+
+                let log_n = domain_size.trailing_zeros();
+                let twiddles = get_twiddles(log_n.into(), RootsConfig::BitReverse).unwrap();
+
+                // Standard FFT
+                let mut standard = coeffs.clone();
+                standard.resize(domain_size, FE::zero());
+                in_place_nr_2radix_fft::<F, F>(&mut standard, &twiddles);
+                in_place_bit_reverse_permute(&mut standard);
+
+                // Degree-aware FFT
+                let mut degree_aware = coeffs.clone();
+                degree_aware.resize(domain_size, FE::zero());
+                degree_aware_nr_2radix_fft::<F, F>(&mut degree_aware, &twiddles, num_coeffs);
+                in_place_bit_reverse_permute(&mut degree_aware);
+
+                prop_assert_eq!(&standard, &degree_aware,
+                    "Mismatch for degree {} on domain {}", num_coeffs, domain_size);
+            }
+        }
+    }
+
+    #[test]
+    fn test_degree_aware_fft_constant_polynomial() {
+        // FFT of constant polynomial: all outputs should be the constant
+        let constant = FE::from(42u64);
+        let num_coeffs = 1usize;
+        let domain_size = 16usize;
+
+        let log_n = domain_size.trailing_zeros() as u64;
+        let twiddles = get_twiddles::<F>(log_n, RootsConfig::BitReverse).unwrap();
+
+        let mut input = vec![constant.clone()];
+        input.resize(domain_size, FE::zero());
+
+        degree_aware_nr_2radix_fft::<F, F>(&mut input, &twiddles, num_coeffs);
+        in_place_bit_reverse_permute(&mut input);
+
+        // All outputs should equal the constant
+        for val in input {
+            assert_eq!(val, constant);
+        }
+    }
+
+    #[test]
+    fn test_degree_aware_fft_no_skipping() {
+        // When num_coeffs == domain_size, should behave identically to standard FFT
+        let coeffs: Vec<FE> = (1..=8).map(|i| FE::from(i as u64)).collect();
+        let num_coeffs = coeffs.len();
+        let domain_size = num_coeffs;
+
+        let log_n = domain_size.trailing_zeros();
+        let twiddles = get_twiddles::<F>(log_n.into(), RootsConfig::BitReverse).unwrap();
+
+        // Standard FFT
+        let mut standard = coeffs.clone();
+        in_place_nr_2radix_fft::<F, F>(&mut standard, &twiddles);
+        in_place_bit_reverse_permute(&mut standard);
+
+        // Degree-aware FFT (should fall back to standard)
+        let mut degree_aware = coeffs.clone();
+        degree_aware_nr_2radix_fft::<F, F>(&mut degree_aware, &twiddles, num_coeffs);
+        in_place_bit_reverse_permute(&mut degree_aware);
+
+        assert_eq!(standard, degree_aware);
+    }
+
+    #[test]
+    fn test_degree_aware_fft_various_sparsity_levels() {
+        // Test various sparsity levels explicitly
+        for log_d in 2u64..=6 {
+            for log_n in (log_d + 2)..=10 {
+                let num_coeffs = 1usize << log_d;
+                let domain_size = 1usize << log_n;
+
+                let coeffs: Vec<FE> = (0..num_coeffs).map(|i| FE::from(i as u64 + 1)).collect();
+                let twiddles = get_twiddles::<F>(log_n, RootsConfig::BitReverse).unwrap();
+
+                // Standard FFT
+                let mut standard = coeffs.clone();
+                standard.resize(domain_size, FE::zero());
+                in_place_nr_2radix_fft::<F, F>(&mut standard, &twiddles);
+                in_place_bit_reverse_permute(&mut standard);
+
+                // Degree-aware FFT
+                let mut degree_aware = coeffs.clone();
+                degree_aware.resize(domain_size, FE::zero());
+                degree_aware_nr_2radix_fft::<F, F>(&mut degree_aware, &twiddles, num_coeffs);
+                in_place_bit_reverse_permute(&mut degree_aware);
+
+                assert_eq!(
+                    standard, degree_aware,
+                    "Mismatch for degree {} on domain {}",
+                    num_coeffs, domain_size
+                );
+            }
         }
     }
 }

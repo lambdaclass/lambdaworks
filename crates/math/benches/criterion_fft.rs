@@ -140,6 +140,75 @@ fn poly_interpolation_benchmarks(c: &mut Criterion) {
     group.finish();
 }
 
+/// Benchmark comparing standard FFT vs degree-aware FFT at various sparsity levels.
+/// Tests sparse polynomials (few coefficients) evaluated on larger domains.
+fn degree_aware_fft_benchmarks(c: &mut Criterion) {
+    let mut group = c.benchmark_group("Degree-aware FFT");
+    group.sample_size(10);
+
+    // Test configurations: (log_domain_size, log_num_coeffs)
+    // These represent realistic ZK scenarios where polynomials are sparse
+    let configs: [(u64, u64); 6] = [
+        (16, 8),  // domain=65536, coeffs=256, ratio=256x
+        (16, 10), // domain=65536, coeffs=1024, ratio=64x
+        (16, 12), // domain=65536, coeffs=4096, ratio=16x
+        (18, 10), // domain=262144, coeffs=1024, ratio=256x
+        (18, 12), // domain=262144, coeffs=4096, ratio=64x
+        (20, 12), // domain=1048576, coeffs=4096, ratio=256x
+    ];
+
+    for (log_n, log_d) in configs {
+        let domain_size = 1u64 << log_n;
+        let num_coeffs = 1usize << log_d;
+        let ratio = domain_size / (num_coeffs as u64);
+
+        let coeffs = stark252_utils::rand_field_elements(log_d);
+        let twiddles = stark252_utils::twiddles(log_n, RootsConfig::BitReverse);
+
+        let bench_name = format!("n=2^{} d=2^{} ({}x)", log_n, log_d, ratio);
+
+        // Standard FFT benchmark
+        group.bench_with_input(
+            format!("{} standard", bench_name),
+            &(coeffs.clone(), twiddles.clone(), domain_size as usize),
+            |bench, (coeffs, twiddles, domain_size)| {
+                bench.iter_batched(
+                    || {
+                        let mut input = coeffs.clone();
+                        input.resize(*domain_size, stark252_utils::FE::zero());
+                        input
+                    },
+                    |mut input| {
+                        fft_functions::standard_fft_complete(&mut input, twiddles);
+                    },
+                    BatchSize::LargeInput,
+                );
+            },
+        );
+
+        // Degree-aware FFT benchmark
+        group.bench_with_input(
+            format!("{} degree-aware", bench_name),
+            &(coeffs, twiddles, domain_size as usize, num_coeffs),
+            |bench, (coeffs, twiddles, domain_size, num_coeffs)| {
+                bench.iter_batched(
+                    || {
+                        let mut input = coeffs.clone();
+                        input.resize(*domain_size, stark252_utils::FE::zero());
+                        input
+                    },
+                    |mut input| {
+                        fft_functions::degree_aware_fft_complete(&mut input, twiddles, *num_coeffs);
+                    },
+                    BatchSize::LargeInput,
+                );
+            },
+        );
+    }
+
+    group.finish();
+}
+
 #[cfg(not(feature = "cuda"))]
 criterion_group!(
     name = seq_fft;
@@ -150,6 +219,7 @@ criterion_group!(
         bitrev_permutation_benchmarks,
         poly_evaluation_benchmarks,
         poly_interpolation_benchmarks,
+        degree_aware_fft_benchmarks,
 );
 
 #[cfg(feature = "cuda")]

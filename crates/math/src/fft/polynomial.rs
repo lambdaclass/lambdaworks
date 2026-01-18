@@ -21,6 +21,9 @@ impl<E: IsField> Polynomial<FieldElement<E>> {
     /// are P(w^i), with w being a primitive root of unity).
     /// `N = max(self.coeff_len(), domain_size).next_power_of_two() * blowup_factor`.
     /// If `domain_size` is `None`, it defaults to 0.
+    ///
+    /// This uses degree-aware FFT optimization when the polynomial degree is much smaller
+    /// than the domain size, achieving O(n log d) complexity instead of O(n log n).
     pub fn evaluate_fft<F: IsFFTField + IsSubFieldOf<E>>(
         poly: &Polynomial<FieldElement<E>>,
         blowup_factor: usize,
@@ -35,6 +38,9 @@ impl<E: IsField> Polynomial<FieldElement<E>> {
             return Ok(vec![FieldElement::zero(); len]);
         }
 
+        // Capture the original coefficient count before padding for degree-aware optimization
+        let original_coeff_count = poly.coeff_len();
+
         let mut coeffs = poly.coefficients().to_vec();
         coeffs.resize(len, FieldElement::zero());
         // padding with zeros will make FFT return more evaluations of the same polynomial.
@@ -45,13 +51,13 @@ impl<E: IsField> Polynomial<FieldElement<E>> {
             if F::field_name() == "stark256" {
                 Ok(evaluate_fft_cuda(&coeffs)?)
             } else {
-                evaluate_fft_cpu::<F, E>(&coeffs)
+                evaluate_fft_cpu_degree_aware::<F, E>(&coeffs, original_coeff_count)
             }
         }
 
         #[cfg(not(feature = "cuda"))]
         {
-            evaluate_fft_cpu::<F, E>(&coeffs)
+            evaluate_fft_cpu_degree_aware::<F, E>(&coeffs, original_coeff_count)
         }
     }
 
@@ -212,6 +218,28 @@ where
     let twiddles = roots_of_unity::get_twiddles::<F>(order.into(), RootsConfig::BitReverse)?;
     // Bit reverse order is needed for NR DIT FFT.
     ops::fft(coeffs, &twiddles)
+}
+
+/// FFT evaluation with degree-aware optimization for sparse polynomials.
+///
+/// When the polynomial has degree d << domain size n, this achieves O(n log d)
+/// complexity instead of O(n log n).
+///
+/// Parameters:
+/// - `coeffs`: Polynomial coefficients padded to domain_size with zeros
+/// - `original_coeff_count`: Number of non-zero coefficients before padding
+pub fn evaluate_fft_cpu_degree_aware<F, E>(
+    coeffs: &[FieldElement<E>],
+    original_coeff_count: usize,
+) -> Result<Vec<FieldElement<E>>, FFTError>
+where
+    F: IsFFTField + IsSubFieldOf<E>,
+    E: IsField,
+{
+    let order = coeffs.len().trailing_zeros();
+    let twiddles = roots_of_unity::get_twiddles::<F>(order.into(), RootsConfig::BitReverse)?;
+    // Bit reverse order is needed for NR DIT FFT.
+    ops::fft_degree_aware(coeffs, &twiddles, original_coeff_count)
 }
 
 pub fn interpolate_fft_cpu<F, E>(
