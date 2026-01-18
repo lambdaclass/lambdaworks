@@ -9,6 +9,7 @@ use lambdaworks_math::{
                 cyclotomic_pow_x, cyclotomic_square, final_exponentiation_optimized,
                 miller_optimized, BN254AtePairing, X,
             },
+            sqrt::sqrt_fp,
             twist::BN254TwistCurve,
         },
         short_weierstrass::point::ShortWeierstrassProjectivePoint,
@@ -182,5 +183,26 @@ pub fn bn_254_elliptic_curve_benchmarks(c: &mut Criterion) {
     // Cyclotomic Square
     group.bench_function("Cyclotomic Square", |bencher| {
         bencher.iter(|| black_box(cyclotomic_square(black_box(&f_12))));
+    });
+
+    // Generate test squares for sqrt benchmarks
+    let squares: Vec<FpE> = (0..100u64).map(|i| FpE::from(i + 2).square()).collect();
+
+    // Sqrt Generic (Tonelli-Shanks)
+    group.bench_function("Sqrt Generic (Tonelli-Shanks)", |bencher| {
+        bencher.iter(|| {
+            for a in &squares {
+                black_box(black_box(a).sqrt());
+            }
+        });
+    });
+
+    // Sqrt Optimized (Addition Chain)
+    group.bench_function("Sqrt Optimized (Addition Chain)", |bencher| {
+        bencher.iter(|| {
+            for a in &squares {
+                black_box(sqrt_fp(black_box(a)));
+            }
+        });
     });
 }

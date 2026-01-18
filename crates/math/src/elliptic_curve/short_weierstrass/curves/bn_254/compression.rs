@@ -93,7 +93,8 @@ impl Compress for BN254Curve {
         // We apply the elliptic curve formula to know the y^2 value.
         let y_squared = x.pow(3_u16) + BN254FieldElement::from(3);
 
-        let (y_sqrt_1, y_sqrt_2) = &y_squared.sqrt().ok_or(ByteConversionError::InvalidValue)?;
+        // Use optimized sqrt with addition chain for BN254
+        let (y_sqrt_1, y_sqrt_2) = &sqrt::sqrt_fp(&y_squared).ok_or(ByteConversionError::InvalidValue)?;
 
         // If the frist two bits are 10, we take the smaller root.
         // If the first two bits are 11, we take the grater one.
