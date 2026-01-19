@@ -9,7 +9,7 @@ use lambdaworks_math::{
                 cyclotomic_pow_x, cyclotomic_square, final_exponentiation_optimized,
                 miller_optimized, BN254AtePairing, X,
             },
-            sqrt::sqrt_fp,
+            sqrt::optimized_sqrt,
             twist::BN254TwistCurve,
         },
         short_weierstrass::point::ShortWeierstrassProjectivePoint,
@@ -201,7 +201,7 @@ pub fn bn_254_elliptic_curve_benchmarks(c: &mut Criterion) {
     group.bench_function("Sqrt Optimized (Addition Chain)", |bencher| {
         bencher.iter(|| {
             for a in &squares {
-                black_box(sqrt_fp(black_box(a)));
+                black_box(optimized_sqrt(black_box(a)));
             }
         });
     });

@@ -145,7 +145,7 @@ fn invsqrt_addchain(a: &BN254FieldElement) -> BN254FieldElement {
 ///
 /// Returns `Some((sqrt, -sqrt))` if `a` is a quadratic residue, `None` otherwise.
 #[must_use]
-pub fn sqrt_fp(a: &BN254FieldElement) -> Option<(BN254FieldElement, BN254FieldElement)> {
+pub fn optimized_sqrt(a: &BN254FieldElement) -> Option<(BN254FieldElement, BN254FieldElement)> {
     if *a == BN254FieldElement::zero() {
         return Some((BN254FieldElement::zero(), BN254FieldElement::zero()));
     }
@@ -357,39 +357,39 @@ mod tests {
         assert_eq!(a_result, a);
     }
 
-    // Tests for optimized sqrt_fp (base field)
+    // Tests for optimized optimized_sqrt (base field)
 
     #[test]
-    fn test_sqrt_fp_small_values() {
+    fn test_optimized_sqrt_small_values() {
         // Test sqrt of 4 = 2
         let four = BN254FieldElement::from(4u64);
-        let (sqrt1, sqrt2) = super::sqrt_fp(&four).unwrap();
+        let (sqrt1, sqrt2) = super::optimized_sqrt(&four).unwrap();
         assert!(sqrt1.square() == four);
         assert!(sqrt2.square() == four);
 
         // Test sqrt of 9 = 3
         let nine = BN254FieldElement::from(9u64);
-        let (sqrt1, sqrt2) = super::sqrt_fp(&nine).unwrap();
+        let (sqrt1, sqrt2) = super::optimized_sqrt(&nine).unwrap();
         assert!(sqrt1.square() == nine);
         assert!(sqrt2.square() == nine);
     }
 
     #[test]
-    fn test_sqrt_fp_zero() {
+    fn test_optimized_sqrt_zero() {
         let zero = BN254FieldElement::zero();
-        let (sqrt1, sqrt2) = super::sqrt_fp(&zero).unwrap();
+        let (sqrt1, sqrt2) = super::optimized_sqrt(&zero).unwrap();
         assert_eq!(sqrt1, BN254FieldElement::zero());
         assert_eq!(sqrt2, BN254FieldElement::zero());
     }
 
     #[test]
-    fn test_sqrt_fp_random_squares() {
+    fn test_optimized_sqrt_random_squares() {
         let mut rng = StdRng::seed_from_u64(12345);
         for _ in 0..10 {
             let val: u64 = rng.gen();
             let a = BN254FieldElement::from(val);
             let a_squared = a.square();
-            let (sqrt1, sqrt2) = super::sqrt_fp(&a_squared).unwrap();
+            let (sqrt1, sqrt2) = super::optimized_sqrt(&a_squared).unwrap();
             assert!(sqrt1.square() == a_squared);
             assert!(sqrt2.square() == a_squared);
             assert!(sqrt1 == a || sqrt2 == a);
@@ -397,7 +397,7 @@ mod tests {
     }
 
     #[test]
-    fn test_sqrt_fp_matches_generic_sqrt() {
+    fn test_optimized_sqrt_matches_generic_sqrt() {
         // Verify our optimized sqrt matches the generic implementation
         let mut rng = StdRng::seed_from_u64(99999);
         for _ in 0..10 {
@@ -405,7 +405,7 @@ mod tests {
             let a = BN254FieldElement::from(val);
             let a_squared = a.square();
 
-            let (opt_sqrt1, opt_sqrt2) = super::sqrt_fp(&a_squared).unwrap();
+            let (opt_sqrt1, opt_sqrt2) = super::optimized_sqrt(&a_squared).unwrap();
             let (gen_sqrt1, gen_sqrt2) = a_squared.sqrt().unwrap();
 
             // Both should produce valid square roots
@@ -421,9 +421,9 @@ mod tests {
     }
 
     #[test]
-    fn test_sqrt_fp_non_residue_returns_none() {
+    fn test_optimized_sqrt_non_residue_returns_none() {
         // 3 is a quadratic non-residue for BN254
         let three = BN254FieldElement::from(3u64);
-        assert!(super::sqrt_fp(&three).is_none());
+        assert!(super::optimized_sqrt(&three).is_none());
     }
 }
