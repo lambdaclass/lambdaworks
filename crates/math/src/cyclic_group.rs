@@ -7,6 +7,7 @@ pub trait IsGroup: Clone + PartialEq + Eq {
     fn neutral_element() -> Self;
 
     /// Check if an element the neutral element.
+    #[inline]
     fn is_neutral_element(&self) -> bool {
         self == &Self::neutral_element()
     }
@@ -37,4 +38,10 @@ pub trait IsGroup: Clone + PartialEq + Eq {
     /// This is the unique y such that for any x
     /// x.operate_with(y) returns the neutral element
     fn neg(&self) -> Self;
+
+    /// Returns the double of the element (self + self)
+    #[inline]
+    fn double(&self) -> Self {
+        self.operate_with(self)
+    }
 }
