@@ -91,3 +91,21 @@ name = "deserialize_stark_proof"
 path = "fuzz_targets/deserialize_stark_proof.rs"
 test = false
 doc = false
+
+[[bin]]
+name = "parallel_batch_inverse"
+path = "fuzz_targets/field/parallel_batch_inverse.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "karabina_compression"
+path = "fuzz_targets/pairing/karabina_compression.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "g2_prepared"
+path = "fuzz_targets/pairing/g2_prepared.rs"
+test = false
+doc = false
