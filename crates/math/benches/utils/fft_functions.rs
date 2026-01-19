@@ -44,8 +44,8 @@ pub fn standard_fft_complete(input: &mut [FE], twiddles: &[FE]) {
     in_place_bit_reverse_permute(input);
 }
 
-/// Degree-aware FFT with bit-reverse permutation (complete operation)
+/// Degree-aware FFT (complete operation - outputs naturally ordered data)
+/// Note: degree_aware_nr_2radix_fft handles bit-reverse internally
 pub fn degree_aware_fft_complete(input: &mut [FE], twiddles: &[FE], num_coeffs: usize) {
     degree_aware_nr_2radix_fft(input, twiddles, num_coeffs);
-    in_place_bit_reverse_permute(input);
 }

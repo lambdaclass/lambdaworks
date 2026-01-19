@@ -61,6 +61,17 @@ where
 /// degree d much smaller than the domain size n, the first log(n/d) rounds
 /// of the FFT are redundant because they operate on zero-padded values.
 ///
+/// **IMPORTANT**: This function outputs data in NATURAL order (not bit-reversed).
+/// This is different from `in_place_nr_2radix_fft` which outputs bit-reversed data.
+///
+/// The approach:
+/// 1. Replicate coefficients in interleaved pattern (simulating skipped rounds)
+/// 2. Run remaining butterfly rounds
+/// 3. Bit-reverse the output to get natural order
+///
+/// We bit-reverse the small input (O(d)) and use an optimized replication
+/// to minimize cache misses during the final O(n) bit-reverse permutation.
+///
 /// Parameters:
 /// - `input`: Pre-allocated buffer of size `domain_size`, with first `num_coeffs`
 ///   elements containing the polynomial coefficients (rest should be zeros)
@@ -81,14 +92,16 @@ pub fn degree_aware_nr_2radix_fft<F, E>(
         return;
     }
 
-    // If num_coeffs >= domain_size, fall back to standard FFT
+    // If num_coeffs >= domain_size, fall back to standard FFT + bit-reverse
     if num_coeffs >= domain_size {
         in_place_nr_2radix_fft(input, twiddles);
+        super::bit_reversing::in_place_bit_reverse_permute(input);
         return;
     }
 
     // Calculate how many rounds we can skip
-    let log_d = num_coeffs.next_power_of_two().trailing_zeros();
+    let padded_coeffs = num_coeffs.next_power_of_two();
+    let log_d = padded_coeffs.trailing_zeros();
     let log_n = domain_size.trailing_zeros();
     let rounds_to_skip = log_n - log_d;
 
@@ -103,7 +116,6 @@ pub fn degree_aware_nr_2radix_fft<F, E>(
     // Round 0: butterflies on pairs (0, n/2), (1, n/2+1), etc.
     // Round 1: butterflies on pairs (0, n/4), (1, n/4+1), etc.
     // The pattern interleaves the coefficients across the domain.
-    let padded_coeffs = num_coeffs.next_power_of_two();
     for i in (0..padded_coeffs).rev() {
         let val = if i < num_coeffs {
             input[i].clone()
@@ -115,8 +127,8 @@ pub fn degree_aware_nr_2radix_fft<F, E>(
         }
     }
 
-    // Start FFT from round `rounds_to_skip` instead of 0
-    let mut group_count = duplicity; // Start at 2^rounds_to_skip
+    // Run FFT starting from round `rounds_to_skip` instead of 0
+    let mut group_count = duplicity;
     let mut group_size = domain_size / duplicity;
 
     while group_count < domain_size {
@@ -140,6 +152,9 @@ pub fn degree_aware_nr_2radix_fft<F, E>(
         group_count *= 2;
         group_size /= 2;
     }
+
+    // Bit-reverse to get natural order output
+    super::bit_reversing::in_place_bit_reverse_permute(input);
 }
 
 /// In-Place Radix-2 RN DIT FFT algorithm over a slice of two-adic field elements.
@@ -359,17 +374,16 @@ mod tests {
                 let log_n = domain_size.trailing_zeros();
                 let twiddles = get_twiddles(log_n.into(), RootsConfig::BitReverse).unwrap();
 
-                // Standard FFT
+                // Standard FFT (outputs bit-reversed, need to permute)
                 let mut standard = coeffs.clone();
                 standard.resize(domain_size, FE::zero());
                 in_place_nr_2radix_fft::<F, F>(&mut standard, &twiddles);
                 in_place_bit_reverse_permute(&mut standard);
 
-                // Degree-aware FFT
+                // Degree-aware FFT (outputs naturally ordered, no permute needed!)
                 let mut degree_aware = coeffs.clone();
                 degree_aware.resize(domain_size, FE::zero());
                 degree_aware_nr_2radix_fft::<F, F>(&mut degree_aware, &twiddles, num_coeffs);
-                in_place_bit_reverse_permute(&mut degree_aware);
 
                 prop_assert_eq!(&standard, &degree_aware,
                     "Mismatch for degree {} on domain {}", num_coeffs, domain_size);
@@ -390,8 +404,8 @@ mod tests {
         let mut input = vec![constant.clone()];
         input.resize(domain_size, FE::zero());
 
+        // degree_aware_nr_2radix_fft outputs naturally ordered (no bit-reverse needed)
         degree_aware_nr_2radix_fft::<F, F>(&mut input, &twiddles, num_coeffs);
-        in_place_bit_reverse_permute(&mut input);
 
         // All outputs should equal the constant
         for val in input {
@@ -409,15 +423,14 @@ mod tests {
         let log_n = domain_size.trailing_zeros();
         let twiddles = get_twiddles::<F>(log_n.into(), RootsConfig::BitReverse).unwrap();
 
-        // Standard FFT
+        // Standard FFT (outputs bit-reversed, need to permute)
         let mut standard = coeffs.clone();
         in_place_nr_2radix_fft::<F, F>(&mut standard, &twiddles);
         in_place_bit_reverse_permute(&mut standard);
 
-        // Degree-aware FFT (should fall back to standard)
+        // Degree-aware FFT (falls back to standard, but outputs naturally ordered)
         let mut degree_aware = coeffs.clone();
         degree_aware_nr_2radix_fft::<F, F>(&mut degree_aware, &twiddles, num_coeffs);
-        in_place_bit_reverse_permute(&mut degree_aware);
 
         assert_eq!(standard, degree_aware);
     }
@@ -433,17 +446,16 @@ mod tests {
                 let coeffs: Vec<FE> = (0..num_coeffs).map(|i| FE::from(i as u64 + 1)).collect();
                 let twiddles = get_twiddles::<F>(log_n, RootsConfig::BitReverse).unwrap();
 
-                // Standard FFT
+                // Standard FFT (outputs bit-reversed, need to permute)
                 let mut standard = coeffs.clone();
                 standard.resize(domain_size, FE::zero());
                 in_place_nr_2radix_fft::<F, F>(&mut standard, &twiddles);
                 in_place_bit_reverse_permute(&mut standard);
 
-                // Degree-aware FFT
+                // Degree-aware FFT (outputs naturally ordered, no permute needed!)
                 let mut degree_aware = coeffs.clone();
                 degree_aware.resize(domain_size, FE::zero());
                 degree_aware_nr_2radix_fft::<F, F>(&mut degree_aware, &twiddles, num_coeffs);
-                in_place_bit_reverse_permute(&mut degree_aware);
 
                 assert_eq!(
                     standard, degree_aware,

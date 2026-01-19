@@ -59,11 +59,14 @@ pub fn fft_degree_aware<F: IsFFTField + IsSubFieldOf<E>, E: IsField>(
     if num_coeffs > 0
         && num_coeffs.next_power_of_two() * DEGREE_AWARE_FFT_THRESHOLD_FACTOR <= domain_size
     {
+        // degree_aware_nr_2radix_fft outputs naturally ordered data
+        // (it handles bit-reverse internally)
         degree_aware_nr_2radix_fft(&mut results, twiddles, num_coeffs);
     } else {
+        // Standard FFT outputs bit-reversed data, so we need to permute
         in_place_nr_2radix_fft(&mut results, twiddles);
+        in_place_bit_reverse_permute(&mut results);
     }
 
-    in_place_bit_reverse_permute(&mut results);
     Ok(results)
 }
