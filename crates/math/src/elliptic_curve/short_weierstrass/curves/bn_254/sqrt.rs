@@ -233,10 +233,14 @@ pub fn sqrt_qfe(
 #[cfg(test)]
 mod tests {
     use super::super::curve::{BN254FieldElement, BN254TwistCurveFieldElement};
+    use super::super::field_extension::BN254_PRIME_FIELD_ORDER;
     use super::super::twist::BN254TwistCurve;
     use crate::cyclic_group::IsGroup;
     use crate::elliptic_curve::short_weierstrass::traits::IsShortWeierstrass;
     use crate::elliptic_curve::traits::IsEllipticCurve;
+    use crate::traits::ByteConversion;
+    use crate::unsigned_integer::element::U256;
+    use proptest::prelude::*;
     use rand::{rngs::StdRng, Rng, SeedableRng};
 
     #[test]
@@ -425,5 +429,29 @@ mod tests {
         // 3 is a quadratic non-residue for BN254
         let three = BN254FieldElement::from(3u64);
         assert!(super::optimized_sqrt(&three).is_none());
+    }
+
+    #[test]
+    fn test_invsqrt_addchain_matches_pow_random() {
+        let invsqrt_pow_exp = (BN254_PRIME_FIELD_ORDER - U256::from_u64(3)) >> 2;
+        let mut rng = StdRng::seed_from_u64(424242);
+        for _ in 0..32 {
+            let bytes: [u8; 32] = rng.gen();
+            let a = BN254FieldElement::from_bytes_be(&bytes).unwrap();
+            let invsqrt_addchain = super::invsqrt_addchain(&a);
+            let invsqrt_pow = a.pow(invsqrt_pow_exp);
+            assert_eq!(invsqrt_addchain, invsqrt_pow);
+        }
+    }
+
+    proptest! {
+        #[test]
+        fn prop_invsqrt_addchain_matches_pow(bytes in any::<[u8; 32]>()) {
+            let invsqrt_pow_exp = (BN254_PRIME_FIELD_ORDER - U256::from_u64(3)) >> 2;
+            let a = BN254FieldElement::from_bytes_be(&bytes).unwrap();
+            let invsqrt_addchain = super::invsqrt_addchain(&a);
+            let invsqrt_pow = a.pow(invsqrt_pow_exp);
+            prop_assert_eq!(invsqrt_addchain, invsqrt_pow);
+        }
     }
 }

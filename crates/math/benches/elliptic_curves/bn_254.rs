@@ -4,7 +4,10 @@ use lambdaworks_math::{
     elliptic_curve::{
         short_weierstrass::curves::bn_254::{
             curve::BN254Curve,
-            field_extension::{BN254PrimeField, Degree12ExtensionField, Degree2ExtensionField},
+            field_extension::{
+                BN254PrimeField, Degree12ExtensionField, Degree2ExtensionField,
+                BN254_PRIME_FIELD_ORDER,
+            },
             pairing::{
                 cyclotomic_pow_x, cyclotomic_square, final_exponentiation_optimized,
                 miller_optimized, BN254AtePairing, X,
@@ -16,6 +19,7 @@ use lambdaworks_math::{
         traits::{IsEllipticCurve, IsPairing},
     },
     field::element::FieldElement,
+    unsigned_integer::element::U256,
 };
 use rand::{rngs::StdRng, Rng, SeedableRng};
 
@@ -187,6 +191,7 @@ pub fn bn_254_elliptic_curve_benchmarks(c: &mut Criterion) {
 
     // Generate test squares for sqrt benchmarks
     let squares: Vec<FpE> = (0..100u64).map(|i| FpE::from(i + 2).square()).collect();
+    let sqrt_pow_exp = (BN254_PRIME_FIELD_ORDER + U256::from_u64(1)) >> 2;
 
     // Sqrt Generic (Tonelli-Shanks)
     group.bench_function("Sqrt Generic (Tonelli-Shanks)", |bencher| {
@@ -202,6 +207,15 @@ pub fn bn_254_elliptic_curve_benchmarks(c: &mut Criterion) {
         bencher.iter(|| {
             for a in &squares {
                 black_box(optimized_sqrt(black_box(a)));
+            }
+        });
+    });
+
+    // Sqrt Pow (a^((p+1)/4))
+    group.bench_function("Sqrt Pow (a^((p+1)/4))", |bencher| {
+        bencher.iter(|| {
+            for a in &squares {
+                black_box(black_box(a).pow(sqrt_pow_exp));
             }
         });
     });
