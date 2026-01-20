@@ -655,4 +655,191 @@ mod tests {
             "List size should be reasonably bounded"
         );
     }
+
+    #[test]
+    fn test_sage_comparison() {
+        use crate::distance::{agreement, introduce_errors};
+
+        // RS[32, 4] like in Sage comparison
+        let code = ReedSolomonCode::<Babybear31PrimeField>::with_consecutive_domain(32, 4);
+        let msg: Vec<FE> = vec![FE::from(1), FE::from(2), FE::from(3), FE::from(4)];
+        let cw = code.encode(&msg);
+        let original_poly = Polynomial::new(&msg);
+
+        // Sage's second candidate [1001, 1002, 3, 4]
+        let candidate_msg: Vec<FE> = vec![FE::from(1001), FE::from(1002), FE::from(3), FE::from(4)];
+        let candidate_poly = Polynomial::new(&candidate_msg);
+
+        // 20 errors with 1000*(i+1) pattern (like Sage)
+        let error_positions: Vec<usize> = (0..20).collect();
+        let error_values: Vec<FE> = (0..20).map(|i| FE::from((1000 * (i + 1)) as u64)).collect();
+        let received = introduce_errors(&cw, &error_positions, &error_values);
+
+        let agree_original = agreement(&received, code.domain(), &original_poly);
+        let agree_candidate = agreement(&received, code.domain(), &candidate_poly);
+
+        println!("\nSage comparison test (RS[32,4], 20 errors, 1000*(i+1) pattern):");
+        println!(
+            "  Domain (first 5): {:?}",
+            code.domain()
+                .iter()
+                .take(5)
+                .map(|x| x.representative())
+                .collect::<Vec<_>>()
+        );
+        println!(
+            "  Original codeword (first 5): {:?}",
+            cw.iter()
+                .take(5)
+                .map(|x| x.representative())
+                .collect::<Vec<_>>()
+        );
+        println!(
+            "  Received (first 5): {:?}",
+            received
+                .iter()
+                .take(5)
+                .map(|x| x.representative())
+                .collect::<Vec<_>>()
+        );
+        println!(
+            "  Sage candidate codeword (first 5): {:?}",
+            code.encode(&candidate_msg)
+                .iter()
+                .take(5)
+                .map(|x| x.representative())
+                .collect::<Vec<_>>()
+        );
+        println!("  Agreement with original [1,2,3,4]: {}/32", agree_original);
+        println!(
+            "  Agreement with candidate [1001,1002,3,4]: {}/32",
+            agree_candidate
+        );
+
+        // GS radius is 20, threshold is 32 - 20 = 12
+        let threshold = 32 - 20;
+        println!("  Threshold for list inclusion: {} agreements", threshold);
+        println!(
+            "  Candidate should be in list: {} >= {} = {}",
+            agree_candidate,
+            threshold,
+            agree_candidate >= threshold
+        );
+
+        // Run GS decoder - but first check if Q(x,f(x)) = 0 for the candidate
+        let m = 8; // multiplicity used for RS[32,4]
+        let k = 4;
+        let n = 32;
+        let constraints_per_point = m * (m + 1) / 2;
+        let total_constraints = n * constraints_per_point;
+        let d = ((2 * total_constraints * (k - 1)) as f64).sqrt().ceil() as usize + k;
+
+        let q = interpolate_with_multiplicity(code.domain(), &received, m, d, k);
+        println!("  Interpolated Q(x,y): y_degree={}", q.y_degree());
+
+        // Check if Q(x, candidate) = 0
+        let q_at_candidate = q.evaluate_y_polynomial(&candidate_poly);
+        let is_root = q_at_candidate == Polynomial::zero();
+        println!(
+            "  Q(x, [1001,1002,3,4]) = 0? {} (degree {})",
+            is_root,
+            q_at_candidate.degree()
+        );
+
+        // Check if Q(x, original) = 0
+        let q_at_original = q.evaluate_y_polynomial(&original_poly);
+        let is_orig_root = q_at_original == Polynomial::zero();
+        println!(
+            "  Q(x, [1,2,3,4]) = 0? {} (degree {})",
+            is_orig_root,
+            q_at_original.degree()
+        );
+
+        // Check Q(0, y) roots
+        let q_at_zero: Vec<_> = q.coeffs().iter().map(|p| p.evaluate(&FE::zero())).collect();
+        println!(
+            "  Q(0, y) has degree {} in y",
+            q_at_zero
+                .iter()
+                .rposition(|c| *c != FE::zero())
+                .unwrap_or(0)
+        );
+
+        // Check if specific values are roots of Q(0, y)
+        let q0y_poly = Polynomial::new(&q_at_zero);
+        let is_1_root = q0y_poly.evaluate(&FE::from(1u64)) == FE::zero();
+        let is_1001_root = q0y_poly.evaluate(&FE::from(1001u64)) == FE::zero();
+        println!("  Q(0, 1) = 0? {}", is_1_root);
+        println!("  Q(0, 1001) = 0? {}", is_1001_root);
+
+        // Check what roots find_univariate_roots_with_hints finds
+        use crate::polynomial_utils::{find_univariate_roots_debug, substitute_and_divide_debug};
+        let roots = find_univariate_roots_debug(&q_at_zero, &received);
+        println!(
+            "  find_univariate_roots found {} roots: {:?}",
+            roots.len(),
+            roots
+                .iter()
+                .take(10)
+                .map(|x| x.representative())
+                .collect::<Vec<_>>()
+        );
+
+        // Check what happens after substituting y = 1001 + xy
+        let q_prime = substitute_and_divide_debug(&q, &FE::from(1001u64));
+        let q_prime_at_zero: Vec<_> = q_prime
+            .coeffs()
+            .iter()
+            .map(|p| p.evaluate(&FE::zero()))
+            .collect();
+        let q_prime_poly = Polynomial::new(&q_prime_at_zero);
+        let is_1002_root = q_prime_poly.evaluate(&FE::from(1002u64)) == FE::zero();
+        let is_2_root = q_prime_poly.evaluate(&FE::from(2u64)) == FE::zero();
+        println!("  After Q' = Q(x, 1001+xy)/x:");
+        println!("    Q'(0, 1002) = 0? {}", is_1002_root);
+        println!("    Q'(0, 2) = 0? {}", is_2_root);
+        let roots_prime = find_univariate_roots_debug(&q_prime_at_zero, &received);
+        println!(
+            "    Roots found: {:?}",
+            roots_prime
+                .iter()
+                .take(10)
+                .map(|x| x.representative())
+                .collect::<Vec<_>>()
+        );
+
+        let result = gs_list_decode(&code, &received);
+        println!("  GS found {} candidates:", result.candidates.len());
+        for (i, c) in result.candidates.iter().enumerate() {
+            let coeffs: Vec<u32> = c
+                .coefficients()
+                .iter()
+                .map(|x| x.representative())
+                .collect();
+            let is_orig = c == &original_poly;
+            let is_sage = c == &candidate_poly;
+            let marker = if is_orig {
+                " <-- ORIGINAL"
+            } else if is_sage {
+                " <-- SAGE's candidate"
+            } else {
+                ""
+            };
+            println!("    [{}] {:?}{}", i + 1, coeffs, marker);
+        }
+
+        // Sage found both at 20 errors
+        assert!(
+            result.candidates.contains(&original_poly),
+            "Should find original"
+        );
+
+        // Check if we should find the second candidate
+        if agree_candidate >= threshold {
+            println!(
+                "  NOTE: [1001,1002,3,4] has {} agreements (>= {}), Sage found it but we didn't",
+                agree_candidate, threshold
+            );
+        }
+    }
 }

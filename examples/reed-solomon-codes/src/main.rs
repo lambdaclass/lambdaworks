@@ -10,7 +10,9 @@ use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::polynomial::Polynomial;
 
 use reed_solomon_codes::berlekamp_welch;
-use reed_solomon_codes::distance::{hamming_distance, introduce_errors_at_positions};
+use reed_solomon_codes::distance::{
+    hamming_distance, introduce_errors, introduce_errors_at_positions,
+};
 use reed_solomon_codes::guruswami_sudan::{gs_decoding_radius, gs_list_decode};
 use reed_solomon_codes::reed_solomon::ReedSolomonCode;
 use reed_solomon_codes::sudan::{sudan_decoding_radius, sudan_list_decode};
@@ -374,7 +376,11 @@ fn demo_guruswami_sudan_list_decoding() {
 
     for num_errors in [10, 15, 18, 20] {
         let error_positions: Vec<usize> = (0..num_errors).collect();
-        let received3 = introduce_errors_at_positions(&cw3, &error_positions);
+        // Use larger error values: 1000*(i+1) to match Sage test
+        let error_values: Vec<FE> = (0..num_errors)
+            .map(|i| FE::from((1000 * (i + 1)) as u64))
+            .collect();
+        let received3 = introduce_errors(&cw3, &error_positions, &error_values);
 
         println!("  {} errors:", num_errors);
 
