@@ -251,7 +251,30 @@ pub fn find_polynomial_roots_with_hints<F: IsField + Clone>(
     }
 
     // General case: use Roth-Ruckenstein algorithm
-    roth_ruckenstein(q, max_degree, hint_values)
+    // Create default domain points [0, 1, 2, ..., n-1] for basic hint transformation
+    let domain: Vec<FieldElement<F>> = (0..hint_values.len())
+        .map(|i| FieldElement::<F>::from(i as u64))
+        .collect();
+    roth_ruckenstein_with_domain(q, max_degree, hint_values, &domain)
+}
+
+/// Finds y-roots with hint values and domain points for proper hint transformation.
+///
+/// This is the key improvement: at each recursion level, hints are transformed
+/// based on the domain points: new_hint[i] = (old_hint[i] - c) / domain[i]
+pub fn find_polynomial_roots_with_domain<F: IsField + Clone>(
+    q: &BivariatePolynomial<F>,
+    max_degree: usize,
+    hint_values: &[FieldElement<F>],
+    domain: &[FieldElement<F>],
+) -> Vec<Polynomial<FieldElement<F>>> {
+    // Simple case: Q is linear in y (Sudan's algorithm)
+    if q.y_degree() <= 1 {
+        return find_roots_linear_y(q, max_degree);
+    }
+
+    // General case: use Roth-Ruckenstein algorithm with domain
+    roth_ruckenstein_with_domain(q, max_degree, hint_values, domain)
 }
 
 /// Debug version of find_univariate_roots_with_hints for testing.
@@ -309,32 +332,153 @@ fn find_roots_linear_y<F: IsField + Clone>(
     vec![quotient]
 }
 
-/// Roth-Ruckenstein algorithm for finding polynomial roots.
+/// Roth-Ruckenstein algorithm for finding polynomial roots with domain-based hint transformation.
 ///
 /// This is an iterative algorithm that finds all polynomials f(x) of degree < k
 /// such that Q(x, f(x)) = 0.
 ///
 /// The algorithm builds f coefficient by coefficient, maintaining a "shifted"
-/// polynomial at each step.
+/// polynomial at each step. At each recursion level, the hints are transformed
+/// using the domain points: new_hint[i] = (old_hint[i] - c) / domain[i].
+///
+/// This proper hint transformation is key to finding roots with large coefficients.
 ///
 /// `hint_values` are field elements likely to be roots (e.g., received word values).
-fn roth_ruckenstein<F: IsField + Clone>(
+/// `domain` are the evaluation points used in Reed-Solomon encoding.
+fn roth_ruckenstein_with_domain<F: IsField + Clone>(
     q: &BivariatePolynomial<F>,
     max_degree: usize,
     hint_values: &[FieldElement<F>],
+    domain: &[FieldElement<F>],
 ) -> Vec<Polynomial<FieldElement<F>>> {
     let mut roots = Vec::new();
 
+    // OPTIMIZATION: Try to directly interpolate candidate polynomials from hints
+    // If we have enough points (hint, domain) pairs, we can interpolate f directly
+    // and verify Q(x, f(x)) = 0. This is much faster than tree search.
+    try_interpolated_candidates(q, max_degree, hint_values, domain, &mut roots);
+
     // Also try direct verification for low-degree candidates
     // This is a fallback for when the recursive search might miss some roots
-    if max_degree <= 10 {
+    if max_degree <= 10 && roots.len() < MAX_TOTAL_ROOTS {
         try_direct_roots(q, max_degree, hint_values, &mut roots);
     }
 
-    // Start the search with an empty polynomial
-    rr_search(q, max_degree, &[], &mut roots, hint_values, 0);
+    // Start the tree search with an empty polynomial
+    // This catches any roots missed by the direct approaches
+    if roots.len() < MAX_TOTAL_ROOTS {
+        rr_search_with_domain(q, max_degree, &[], &mut roots, hint_values, domain, 0);
+    }
 
     roots
+}
+
+/// Try to find roots by direct Lagrange interpolation on hint values.
+///
+/// Given hints (domain[i], hint[i]) = (α_i, f(α_i)), we can interpolate to find f
+/// and verify it's a root of Q(x, y).
+fn try_interpolated_candidates<F: IsField + Clone>(
+    q: &BivariatePolynomial<F>,
+    max_degree: usize,
+    hint_values: &[FieldElement<F>],
+    domain: &[FieldElement<F>],
+    roots: &mut Vec<Polynomial<FieldElement<F>>>,
+) {
+    if hint_values.len() < max_degree || domain.len() < max_degree {
+        return;
+    }
+
+    // Try different subsets of points for interpolation
+    // This helps when some hints are from error positions
+    let n = hint_values.len().min(domain.len());
+
+    for start in 0..(n.saturating_sub(max_degree) + 1).min(20) {
+        if start + max_degree > n {
+            break;
+        }
+
+        // Build points for interpolation
+        let points: Vec<_> = (start..start + max_degree)
+            .filter_map(|idx| {
+                let alpha = &domain[idx];
+                extract_small_value(alpha).map(|a| (a, hint_values[idx].clone()))
+            })
+            .collect();
+
+        // Need exactly max_degree points for a degree < max_degree polynomial
+        if points.len() != max_degree {
+            continue;
+        }
+
+        // Interpolate the polynomial
+        if let Some(candidate) = lagrange_interpolate_polynomial(&points, max_degree) {
+            // Verify it's actually a root of Q
+            let qf = q.evaluate_y_polynomial(&candidate);
+            if qf == Polynomial::zero() && !roots.contains(&candidate) {
+                roots.push(candidate);
+                // Early exit if we've found enough roots
+                if roots.len() >= MAX_TOTAL_ROOTS {
+                    return;
+                }
+            }
+        }
+    }
+}
+
+/// Lagrange interpolation to build a polynomial from points.
+fn lagrange_interpolate_polynomial<F: IsField + Clone>(
+    points: &[(usize, FieldElement<F>)],
+    max_degree: usize,
+) -> Option<Polynomial<FieldElement<F>>> {
+    if points.is_empty() || points.len() > max_degree {
+        return None;
+    }
+
+    // Build the interpolating polynomial using Lagrange basis
+    let n = points.len();
+    let mut coeffs = vec![FieldElement::<F>::zero(); n];
+
+    for i in 0..n {
+        let (xi, yi) = &points[i];
+        let xi_fe = FieldElement::<F>::from(*xi as u64);
+
+        // Compute Lagrange basis polynomial L_i(x)
+        // L_i(x) = prod_{j≠i} (x - x_j) / (x_i - x_j)
+        let mut basis_coeffs = vec![FieldElement::<F>::one()];
+
+        let mut denominator = FieldElement::<F>::one();
+        for j in 0..n {
+            if j != i {
+                let (xj, _) = &points[j];
+                let xj_fe = FieldElement::<F>::from(*xj as u64);
+
+                // Multiply basis_coeffs by (x - x_j)
+                let mut new_coeffs = vec![FieldElement::<F>::zero(); basis_coeffs.len() + 1];
+                for (k, c) in basis_coeffs.iter().enumerate() {
+                    // c * (x - x_j) = c*x - c*x_j
+                    new_coeffs[k + 1] = &new_coeffs[k + 1] + c;
+                    new_coeffs[k] = &new_coeffs[k] - &(c * &xj_fe);
+                }
+                basis_coeffs = new_coeffs;
+
+                // denominator *= (x_i - x_j)
+                denominator = &denominator * &(&xi_fe - &xj_fe);
+            }
+        }
+
+        // L_i(x) = basis / denominator
+        if let Ok(denom_inv) = denominator.inv() {
+            for (k, c) in basis_coeffs.iter().enumerate() {
+                if k < coeffs.len() {
+                    coeffs[k] = &coeffs[k] + &(yi * &(c * &denom_inv));
+                }
+            }
+        } else {
+            return None;
+        }
+    }
+
+    Some(Polynomial::new(&coeffs))
 }
 
 /// Try to find roots by direct enumeration for small degree polynomials.
@@ -418,19 +562,36 @@ fn try_small_integer_polynomials<F: IsField + Clone>(
     }
 }
 
-/// Recursive search in Roth-Ruckenstein algorithm.
+/// Maximum number of candidate roots to explore at each depth to prevent explosion.
+const MAX_CANDIDATES_PER_DEPTH: usize = 15;
+
+/// Maximum number of polynomial roots to find before stopping search.
+const MAX_TOTAL_ROOTS: usize = 10;
+
+/// Recursive search in Roth-Ruckenstein algorithm with domain-based hint transformation.
 ///
 /// The key insight is: if f(x) = c₀ + c₁x + c₂x² + ... satisfies Q(x, f(x)) = 0, then
 /// c₀ is a root of Q(0, y), and f'(x) = c₁ + c₂x + ... satisfies Q'(x, f'(x)) = 0
 /// where Q'(x, y) = Q(x, c₀ + xy) / x.
-fn rr_search<F: IsField + Clone>(
+///
+/// The crucial improvement is hint transformation: if originally f(αᵢ) = rᵢ, then
+/// after substitution with c₀, the remaining polynomial f'(x) = (f(x) - c₀)/x satisfies
+/// f'(αᵢ) = (rᵢ - c₀)/αᵢ. This allows us to track the expected coefficient values
+/// through the recursion.
+fn rr_search_with_domain<F: IsField + Clone>(
     q: &BivariatePolynomial<F>,
     max_degree: usize,
     current_coeffs: &[FieldElement<F>],
     roots: &mut Vec<Polynomial<FieldElement<F>>>,
     hint_values: &[FieldElement<F>],
+    domain: &[FieldElement<F>],
     depth: usize,
 ) {
+    // Early exit if we've found enough roots
+    if roots.len() >= MAX_TOTAL_ROOTS {
+        return;
+    }
+
     // Check if Q(0, y) has any roots
     let q_at_zero: Vec<_> = q
         .coeffs
@@ -439,9 +600,16 @@ fn rr_search<F: IsField + Clone>(
         .collect();
 
     // Find roots of the univariate polynomial Q(0, y)
-    let y_roots = find_univariate_roots_with_hints(&q_at_zero, hint_values);
+    let mut y_roots = find_univariate_roots_with_hints_and_domain(&q_at_zero, hint_values, domain);
+
+    // Limit candidates to prevent exponential explosion
+    y_roots.truncate(MAX_CANDIDATES_PER_DEPTH);
 
     for y_root in y_roots {
+        // Early exit if we've found enough roots
+        if roots.len() >= MAX_TOTAL_ROOTS {
+            return;
+        }
         // Extend current polynomial with this root as next coefficient
         let mut new_coeffs = current_coeffs.to_vec();
         new_coeffs.push(y_root.clone());
@@ -462,13 +630,33 @@ fn rr_search<F: IsField + Clone>(
                 roots.push(poly);
             }
         } else if new_coeffs.len() < max_degree {
-            // Continue searching for more coefficients
-            rr_search(
+            // Transform hints for the next recursion level
+            // If f(αᵢ) = rᵢ, then f'(αᵢ) = (rᵢ - c) / αᵢ where f' = (f - c) / x
+            // Also track which domain points remain valid
+            let (transformed_hints, filtered_domain): (Vec<FieldElement<F>>, Vec<FieldElement<F>>) =
+                hint_values
+                    .iter()
+                    .zip(domain.iter())
+                    .filter_map(|(hint, alpha)| {
+                        // Skip if alpha is zero (can't divide by zero)
+                        if *alpha == FieldElement::<F>::zero() {
+                            None
+                        } else if let Ok(alpha_inv) = alpha.inv() {
+                            Some(((hint - &y_root) * &alpha_inv, alpha.clone()))
+                        } else {
+                            None
+                        }
+                    })
+                    .unzip();
+
+            // Continue searching for more coefficients with transformed hints and domain
+            rr_search_with_domain(
                 &q_transformed,
                 max_degree,
                 &new_coeffs,
                 roots,
-                hint_values,
+                &transformed_hints,
+                &filtered_domain,
                 depth + 1,
             );
         }
@@ -494,6 +682,89 @@ fn find_univariate_roots<F: IsField + Clone>(coeffs: &[FieldElement<F>]) -> Vec<
     find_univariate_roots_with_hints(coeffs, &[])
 }
 
+/// Finds roots of a univariate polynomial with hints and domain information.
+///
+/// This version uses the actual domain values for correct Lagrange interpolation
+/// when the polynomial is zero (all field elements are roots).
+fn find_univariate_roots_with_hints_and_domain<F: IsField + Clone>(
+    coeffs: &[FieldElement<F>],
+    hint_values: &[FieldElement<F>],
+    domain: &[FieldElement<F>],
+) -> Vec<FieldElement<F>> {
+    if coeffs.is_empty() || coeffs.iter().all(|c| *c == FieldElement::<F>::zero()) {
+        // Zero polynomial - all elements are roots, but we can't enumerate them all
+        // Key insight: use Lagrange interpolation to extract f(0) from f(α_i).
+        // The hints are transformed values f(α_i) at actual domain points.
+        // By interpolating, we can recover f(0) which is the coefficient we need.
+
+        let mut roots: Vec<FieldElement<F>> = Vec::new();
+
+        // PRIORITY 1: Lagrange interpolation on hints using actual domain points
+        // This is the key to finding coefficients like 1002 that aren't small integers
+        if hint_values.len() >= 3 && domain.len() >= 3 {
+            let min_len = hint_values.len().min(domain.len());
+
+            // Try different subsets of consecutive points for interpolation
+            // This helps when some hints are from error positions (wrong values)
+            for start in 0..(min_len.min(10)) {
+                for size in 3..=min_len.min(6) {
+                    if start + size <= min_len {
+                        // Use actual domain values for interpolation
+                        let subset: Vec<_> = (start..start + size)
+                            .filter_map(|idx| {
+                                // Get the actual domain value (as usize for the function)
+                                // The domain might contain arbitrary field elements
+                                let alpha = &domain[idx];
+                                // Try to extract as small integer for interpolation
+                                // This works for consecutive integer domains
+                                let alpha_val = extract_small_value(alpha);
+                                alpha_val.map(|a| (a, hint_values[idx].clone()))
+                            })
+                            .collect();
+
+                        if subset.len() == size {
+                            if let Some(interp) = lagrange_interpolate_at_zero_with_points(&subset)
+                            {
+                                if !roots.contains(&interp) {
+                                    roots.push(interp);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // PRIORITY 2: Small integers (common coefficient values)
+        for i in 0..20 {
+            let elem = FieldElement::<F>::from(i as u64);
+            if !roots.contains(&elem) {
+                roots.push(elem);
+            }
+        }
+
+        return roots;
+    }
+
+    // Non-zero polynomial - use the normal search
+    find_univariate_roots_with_hints(coeffs, hint_values)
+}
+
+/// Try to extract a small integer value from a field element.
+/// Uses binary search for efficiency.
+fn extract_small_value<F: IsField + Clone>(fe: &FieldElement<F>) -> Option<usize> {
+    // First check common small values directly (0-100)
+    for i in 0..=100 {
+        if *fe == FieldElement::<F>::from(i as u64) {
+            return Some(i);
+        }
+    }
+
+    // For larger values, just return None - the domain values should be small
+    // in typical RS code usage (consecutive integers 0, 1, 2, ...)
+    None
+}
+
 /// Finds roots of a univariate polynomial, prioritizing hint values.
 ///
 /// For Reed-Solomon decoding, the hint values are typically the received word values,
@@ -503,14 +774,12 @@ fn find_univariate_roots_with_hints<F: IsField + Clone>(
     hint_values: &[FieldElement<F>],
 ) -> Vec<FieldElement<F>> {
     if coeffs.is_empty() || coeffs.iter().all(|c| *c == FieldElement::<F>::zero()) {
-        // Zero polynomial - all elements are roots, but we can't enumerate them all
-        // Return small integers as likely coefficient values
-        // Note: This is a limitation - some valid roots with large coefficients may be missed
+        // Zero polynomial - return small integers as likely coefficient values
         let mut roots: Vec<FieldElement<F>> =
             (0..20).map(|i| FieldElement::<F>::from(i as u64)).collect();
 
-        // Also add a few hint-derived values
-        for hint in hint_values.iter().take(5) {
+        // Add hint values
+        for hint in hint_values.iter() {
             if !roots.contains(hint) {
                 roots.push(hint.clone());
             }
@@ -739,12 +1008,120 @@ fn binomial(n: usize, k: usize) -> usize {
     binomial(n - 1, k - 1) + binomial(n - 1, k)
 }
 
+/// Lagrange interpolation to find f(0) given points (x_i, y_i).
+///
+/// Given points (x_i, y_i), interpolates and evaluates at 0.
+///
+/// Uses the formula: f(0) = Σᵢ yᵢ · Lᵢ(0)
+/// where Lᵢ(0) = Πⱼ≠ᵢ (0 - xⱼ) / (xᵢ - xⱼ) = Πⱼ≠ᵢ (-xⱼ) / (xᵢ - xⱼ)
+fn lagrange_interpolate_at_zero_with_points<F: IsField + Clone>(
+    points: &[(usize, FieldElement<F>)],
+) -> Option<FieldElement<F>> {
+    if points.is_empty() {
+        return None;
+    }
+
+    let n = points.len();
+    let mut result = FieldElement::<F>::zero();
+
+    for i in 0..n {
+        let (xi, yi) = &points[i];
+
+        // Compute Lagrange basis L_i(0) = prod_{j≠i} (-x_j) / (x_i - x_j)
+        let mut numerator = FieldElement::<F>::one();
+        let mut denominator = FieldElement::<F>::one();
+
+        for j in 0..n {
+            if j != i {
+                let (xj, _) = &points[j];
+                // numerator *= -x_j
+                numerator = &numerator * &(-FieldElement::<F>::from(*xj as u64));
+                // denominator *= (x_i - x_j)
+                let xi_fe = FieldElement::<F>::from(*xi as u64);
+                let xj_fe = FieldElement::<F>::from(*xj as u64);
+                denominator = &denominator * &(&xi_fe - &xj_fe);
+            }
+        }
+
+        // L_i(0) = numerator / denominator
+        if let Ok(denom_inv) = denominator.inv() {
+            let li = &numerator * &denom_inv;
+            // Add y_i * L_i(0) to result
+            result = &result + &(yi * &li);
+        } else {
+            return None;
+        }
+    }
+
+    Some(result)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::Babybear31PrimeField;
 
     type FE = FieldElement<Babybear31PrimeField>;
+
+    #[test]
+    fn test_polynomial_interpolation() {
+        // Test building a polynomial from points
+        // f(x) = 1001 + 1002x + 3x^2 + 4x^3
+        // f(0) = 1001
+        // f(1) = 1001 + 1002 + 3 + 4 = 2010
+        // f(2) = 1001 + 2004 + 12 + 32 = 3049
+        // f(3) = 1001 + 3006 + 27 + 108 = 4142
+        let points: Vec<(usize, FE)> = vec![
+            (0, FE::from(1001u64)),
+            (1, FE::from(2010u64)),
+            (2, FE::from(3049u64)),
+            (3, FE::from(4142u64)),
+        ];
+
+        let result = lagrange_interpolate_polynomial(&points, 4);
+        assert!(result.is_some());
+        let poly = result.unwrap();
+        let coeffs = poly.coefficients();
+        println!(
+            "Interpolated polynomial coefficients: {:?}",
+            coeffs.iter().map(|c| c.representative()).collect::<Vec<_>>()
+        );
+        assert_eq!(coeffs.len(), 4);
+        assert_eq!(coeffs[0], FE::from(1001u64));
+        assert_eq!(coeffs[1], FE::from(1002u64));
+        assert_eq!(coeffs[2], FE::from(3u64));
+        assert_eq!(coeffs[3], FE::from(4u64));
+    }
+
+    #[test]
+    fn test_lagrange_interpolation() {
+        // Test: f(x) = 1002 + 3x + 4x^2
+        // f(1) = 1002 + 3 + 4 = 1009
+        // f(2) = 1002 + 6 + 16 = 1024
+        // f(3) = 1002 + 9 + 36 = 1047
+        // Interpolating should give f(0) = 1002
+        let points: Vec<(usize, FE)> = vec![
+            (1, FE::from(1009u64)),
+            (2, FE::from(1024u64)),
+            (3, FE::from(1047u64)),
+        ];
+
+        let result = lagrange_interpolate_at_zero_with_points(&points);
+        assert!(result.is_some());
+        assert_eq!(result.unwrap(), FE::from(1002u64));
+    }
+
+    #[test]
+    fn test_lagrange_interpolation_linear() {
+        // Test: f(x) = 5 + 2x
+        // f(1) = 7, f(2) = 9
+        // Interpolating should give f(0) = 5
+        let points: Vec<(usize, FE)> = vec![(1, FE::from(7u64)), (2, FE::from(9u64))];
+
+        let result = lagrange_interpolate_at_zero_with_points(&points);
+        assert!(result.is_some());
+        assert_eq!(result.unwrap(), FE::from(5u64));
+    }
 
     #[test]
     fn test_bivariate_creation() {

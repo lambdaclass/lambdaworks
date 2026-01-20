@@ -43,7 +43,7 @@ use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::traits::IsField;
 use lambdaworks_math::polynomial::Polynomial;
 
-use crate::polynomial_utils::{find_polynomial_roots_with_hints, BivariatePolynomial};
+use crate::polynomial_utils::{find_polynomial_roots_with_domain, BivariatePolynomial};
 use crate::reed_solomon::ReedSolomonCode;
 
 /// Result of Guruswami-Sudan list decoding.
@@ -180,9 +180,9 @@ pub fn gs_list_decode<F: IsField + Clone>(
     // Interpolation step: find Q(x, y) passing through all points with multiplicity m
     let q = interpolate_with_multiplicity(domain, received, m, d, k);
 
-    // Root finding step using Roth-Ruckenstein
-    // Pass the received values as hints - they are the most likely roots
-    let all_roots = find_polynomial_roots_with_hints(&q, k, received);
+    // Root finding step using Roth-Ruckenstein with domain-based hint transformation
+    // Pass the received values as hints and domain for proper hint transformation
+    let all_roots = find_polynomial_roots_with_domain(&q, k, received, domain);
 
     // Filter to those with sufficient agreement
     let error_bound = gs_decoding_radius(n, k);
@@ -232,7 +232,7 @@ pub fn gs_list_decode_with_multiplicity<F: IsField + Clone>(
     let d = ((2 * total_constraints * (k - 1)) as f64).sqrt().ceil() as usize + k;
 
     let q = interpolate_with_multiplicity(domain, received, m, d, k);
-    let all_roots = find_polynomial_roots_with_hints(&q, k, received);
+    let all_roots = find_polynomial_roots_with_domain(&q, k, received, domain);
 
     let error_bound = gs_decoding_radius(n, k);
     let agreement_threshold = n.saturating_sub(error_bound);
