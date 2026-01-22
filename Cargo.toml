@@ -22,6 +22,7 @@ members = [
     "examples/pohlig-hellman-attack",
     "examples/schnorr-signature",
     "examples/rsa",
+    "examples/xmss-signature",
 ]
 exclude = ["ensure-no_std"]
 resolver = "2"
