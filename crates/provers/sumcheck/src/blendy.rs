@@ -1,7 +1,16 @@
 //! Blendy: Memory-Efficient Sumcheck Prover
 //!
-//! Implements the time-space tradeoff algorithm from "A Time-Space Tradeoff
-//! for the Sumcheck Prover" (ePrint 2024/524).
+//! Blendy: Memory-Efficient Sumcheck Prover
+//!
+//! # References
+//!
+//! This implementation is based on:
+//!
+//! **"A Time-Space Tradeoff for the Sumcheck Prover"**
+//! Alessandro Chiesa, Elisabetta Fedele, and Giacomo Fenzi
+//! ePrint 2024/524
+//! <https://eprint.iacr.org/2024/524>
+//!
 //!
 //! The algorithm divides n rounds into k stages, achieving:
 //! - Time: O(k * 2^n)

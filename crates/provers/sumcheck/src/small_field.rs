@@ -1,8 +1,17 @@
 //! Small Field Optimizations for Sumcheck
 //!
 //! Implements optimizations for sumcheck over extension fields, based on
-//! "The Sum-Check Protocol over Fields of Small Characteristic" (ePrint 2024/1046)
-//! and "More Optimizations to Sum-Check Proving" (ePrint 2024/1210).
+//! # References
+//!
+//! **"The Sum-Check Protocol over Fields of Small Characteristic"**
+//! Ulrich Haböck
+//! ePrint 2024/1046
+//! <https://eprint.iacr.org/2024/1046>
+//!
+//! **"More Optimizations to Sum-Check Proving"**
+//! Angus Gruen
+//! ePrint 2024/1210
+//! <https://eprint.iacr.org/2024/1210>
 //!
 //! Key techniques:
 //! 1. Keep multiplications in base field as long as possible

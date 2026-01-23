@@ -1,5 +1,18 @@
 //! Optimized Sumcheck Prover using streaming algorithm
 //!
+//! # References
+//!
+//! This implementation is based on the streaming algorithm from:
+//!
+//! **"Efficient RAM and Control Flow in Verifiable Outsourced Computation"**
+//! Vu, Setty, Blumberg, and Walfish (VSBW13)
+//! NDSS 2013 / ePrint 2012/303
+//! <https://eprint.iacr.org/2012/303>
+//!
+//! The key insight is to maintain working copies of evaluations and update them
+//! in-place after each round, avoiding the O(n·2^n) re-evaluation cost of the
+//! naive algorithm.
+//!
 //! This implementation uses the VSBW13 streaming algorithm which achieves O(2^n) time
 //! complexity instead of the naive O(n · 2^2n) approach. The key insight is to maintain
 //! working copies of polynomial evaluations and update them in-place after each round.

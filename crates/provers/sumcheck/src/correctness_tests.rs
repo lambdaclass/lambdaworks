@@ -668,3 +668,327 @@ fn test_large_variable_count() {
         );
     }
 }
+
+// ============================================================================
+// Blendy (Memory-Efficient) Prover Tests
+// ============================================================================
+
+#[test]
+fn test_blendy_matches_optimized() {
+    // Test that Blendy prover produces same sum as optimized
+    for num_vars in [4, 6, 8] {
+        let poly = rand_poly(num_vars, num_vars as u64 * 100);
+
+        let (opt_sum, _) = prove_optimized(vec![poly.clone()]).unwrap();
+        let (blendy_sum, _) = crate::prove_blendy(poly.clone(), 2).unwrap();
+
+        assert_eq!(
+            opt_sum, blendy_sum,
+            "Blendy should match optimized for {} vars",
+            num_vars
+        );
+    }
+}
+
+#[test]
+fn test_blendy_different_stages() {
+    // Test Blendy with different stage configurations
+    let poly = rand_poly(8, 12345);
+
+    let (sum_2, _) = crate::prove_blendy(poly.clone(), 2).unwrap();
+    let (sum_4, _) = crate::prove_blendy(poly.clone(), 4).unwrap();
+    let (sum_8, _) = crate::prove_blendy(poly.clone(), 8).unwrap();
+
+    // All should produce the same sum
+    assert_eq!(sum_2, sum_4, "2 and 4 stages should match");
+    assert_eq!(sum_4, sum_8, "4 and 8 stages should match");
+}
+
+// ============================================================================
+// Small Field Prover Tests
+// ============================================================================
+
+#[test]
+fn test_small_field_matches_optimized() {
+    // Test that small field prover produces same results
+    let poly = rand_poly(6, 54321);
+
+    let (opt_sum, _) = prove_optimized(vec![poly.clone()]).unwrap();
+    let (sf_sum, _) = crate::prove_small_field(poly).unwrap();
+
+    assert_eq!(opt_sum, sf_sum, "Small field should match optimized");
+}
+
+#[test]
+fn test_small_field_proof_verifies() {
+    let poly = rand_poly(5, 11111);
+    let num_vars = poly.num_vars();
+
+    let (claimed_sum, proof) = crate::prove_small_field(poly.clone()).unwrap();
+    let result = verify(num_vars, claimed_sum, proof, vec![poly]);
+
+    assert!(result.unwrap(), "Small field proof should verify");
+}
+
+// ============================================================================
+// Sparse Prover Advanced Tests
+// ============================================================================
+
+#[test]
+fn test_sparse_very_sparse() {
+    // Test with only 1% non-zero entries
+    let num_vars = 8; // 256 total entries
+    let size = 1 << num_vars;
+
+    // Only 3 non-zero entries
+    let entries: Vec<(usize, FE)> = vec![
+        (0, FE::from(100)),
+        (127, FE::from(200)),
+        (255, FE::from(300)),
+    ];
+
+    let (sparse_sum, sparse_proof) = crate::prove_sparse(num_vars, entries.clone()).unwrap();
+
+    // Sum should be 100 + 200 + 300 = 600
+    assert_eq!(sparse_sum, FE::from(600));
+
+    // Create dense for verification
+    let dense_evals: Vec<FE> = (0..size)
+        .map(|i| {
+            entries
+                .iter()
+                .find(|(idx, _)| *idx == i)
+                .map(|(_, v)| v.clone())
+                .unwrap_or(FE::zero())
+        })
+        .collect();
+    let dense_poly = DenseMultilinearPolynomial::new(dense_evals);
+
+    let result = verify(num_vars, sparse_sum, sparse_proof, vec![dense_poly]);
+    assert!(result.unwrap(), "Very sparse proof should verify");
+}
+
+#[test]
+fn test_sparse_all_same_value() {
+    // Test sparse with same value at multiple indices
+    let num_vars = 4;
+    let val = FE::from(42);
+
+    let entries: Vec<(usize, FE)> = vec![
+        (1, val.clone()),
+        (3, val.clone()),
+        (7, val.clone()),
+        (15, val.clone()),
+    ];
+
+    let (sum, _) = crate::prove_sparse(num_vars, entries).unwrap();
+
+    // Sum should be 42 * 4 = 168
+    assert_eq!(sum, FE::from(168));
+}
+
+#[test]
+fn test_sparse_single_nonzero() {
+    // Edge case: only one non-zero entry
+    let num_vars = 6;
+
+    for idx in [0, 31, 63] {
+        let entries = vec![(idx, FE::from(99))];
+        let (sum, proof) = crate::prove_sparse(num_vars, entries.clone()).unwrap();
+
+        assert_eq!(sum, FE::from(99), "Sum should be the single value");
+
+        // Verify
+        let dense_evals: Vec<FE> = (0..(1 << num_vars))
+            .map(|i| if i == idx { FE::from(99) } else { FE::zero() })
+            .collect();
+        let dense_poly = DenseMultilinearPolynomial::new(dense_evals);
+
+        let result = verify(num_vars, sum, proof, vec![dense_poly]);
+        assert!(result.unwrap(), "Single entry proof should verify");
+    }
+}
+
+// ============================================================================
+// Cubic and Higher Degree Tests
+// ============================================================================
+
+#[test]
+fn test_cubic_all_provers() {
+    // Test cubic (product of 3 polynomials) with all provers
+    let poly1 = rand_poly(4, 1);
+    let poly2 = rand_poly(4, 2);
+    let poly3 = rand_poly(4, 3);
+    let num_vars = poly1.num_vars();
+
+    let factors = vec![poly1.clone(), poly2.clone(), poly3.clone()];
+
+    let (naive_sum, _) = prove(factors.clone()).unwrap();
+    let (opt_sum, opt_proof) = prove_optimized(factors.clone()).unwrap();
+    let (par_sum, _) = crate::prove_parallel(factors.clone()).unwrap();
+    let (fast_sum, _) = crate::prove_fast(factors.clone()).unwrap();
+
+    assert_eq!(naive_sum, opt_sum);
+    assert_eq!(naive_sum, par_sum);
+    assert_eq!(naive_sum, fast_sum);
+
+    // Verify optimized proof
+    let result = verify(num_vars, opt_sum, opt_proof, factors);
+    assert!(result.unwrap(), "Cubic proof should verify");
+}
+
+#[test]
+fn test_quartic_sumcheck() {
+    // Test product of 4 polynomials
+    let polys: Vec<DenseMultilinearPolynomial<F>> = (0..4)
+        .map(|i| rand_poly(3, 100 + i))
+        .collect();
+    let num_vars = polys[0].num_vars();
+
+    let (claimed_sum, proof) = prove_optimized(polys.clone()).unwrap();
+    let result = verify(num_vars, claimed_sum, proof, polys);
+
+    assert!(result.unwrap(), "Quartic (degree 4) proof should verify");
+}
+
+// ============================================================================
+// Edge Cases and Boundary Conditions
+// ============================================================================
+
+#[test]
+fn test_all_ones_polynomial() {
+    // Polynomial where all evaluations are 1
+    let num_vars = 5;
+    let size = 1 << num_vars;
+    let evals = vec![FE::one(); size];
+    let poly = DenseMultilinearPolynomial::new(evals);
+
+    let (claimed_sum, proof) = prove_optimized(vec![poly.clone()]).unwrap();
+
+    // Sum should be 2^5 = 32
+    assert_eq!(claimed_sum, FE::from(32));
+
+    let result = verify(num_vars, claimed_sum, proof, vec![poly]);
+    assert!(result.unwrap());
+}
+
+#[test]
+fn test_alternating_values() {
+    // Polynomial with alternating 0 and 1 values
+    let num_vars = 4;
+    let evals: Vec<FE> = (0..16).map(|i| FE::from((i % 2) as u64)).collect();
+    let poly = DenseMultilinearPolynomial::new(evals);
+
+    let (claimed_sum, proof) = prove_optimized(vec![poly.clone()]).unwrap();
+
+    // Sum should be 8 (half of 16)
+    assert_eq!(claimed_sum, FE::from(8));
+
+    let result = verify(num_vars, claimed_sum, proof, vec![poly]);
+    assert!(result.unwrap());
+}
+
+#[test]
+fn test_powers_of_two() {
+    // Polynomial with values 1, 2, 4, 8, ...
+    let num_vars = 4;
+    let evals: Vec<FE> = (0..16).map(|i| FE::from(1u64 << i)).collect();
+    let poly = DenseMultilinearPolynomial::new(evals);
+
+    let (claimed_sum, proof) = prove_optimized(vec![poly.clone()]).unwrap();
+
+    // Sum should be 2^16 - 1 = 65535
+    assert_eq!(claimed_sum, FE::from(65535));
+
+    let result = verify(num_vars, claimed_sum, proof, vec![poly]);
+    assert!(result.unwrap());
+}
+
+// ============================================================================
+// Soundness Tests - Malicious Prover Detection
+// ============================================================================
+
+#[test]
+fn test_wrong_round_polynomial_degree() {
+    // Prover sends polynomial of wrong degree
+    let poly = rand_poly(3, 999);
+    let num_vars = poly.num_vars();
+
+    let (claimed_sum, mut proof) = prove_optimized(vec![poly.clone()]).unwrap();
+
+    // Modify the first round polynomial to have wrong degree
+    // Add an extra coefficient
+    if !proof.is_empty() {
+        let coeffs = proof[0].coefficients();
+        let mut new_coeffs: Vec<FE> = coeffs.to_vec();
+        new_coeffs.push(FE::from(1));
+        proof[0] = lambdaworks_math::polynomial::Polynomial::new(&new_coeffs);
+    }
+
+    let result = verify(num_vars, claimed_sum, proof, vec![poly]);
+    assert!(result.is_err() || !result.unwrap(), "Should reject wrong degree");
+}
+
+#[test]
+fn test_modified_coefficient() {
+    // Prover modifies a coefficient in a round polynomial
+    let poly = rand_poly(4, 888);
+    let num_vars = poly.num_vars();
+
+    let (claimed_sum, mut proof) = prove_optimized(vec![poly.clone()]).unwrap();
+
+    // Modify a coefficient in the second round
+    if proof.len() > 1 {
+        let coeffs = proof[1].coefficients();
+        let mut new_coeffs: Vec<FE> = coeffs.to_vec();
+        if !new_coeffs.is_empty() {
+            new_coeffs[0] = &new_coeffs[0] + FE::one();
+        }
+        proof[1] = lambdaworks_math::polynomial::Polynomial::new(&new_coeffs);
+    }
+
+    let result = verify(num_vars, claimed_sum, proof, vec![poly]);
+    assert!(result.is_err() || !result.unwrap(), "Should reject modified proof");
+}
+
+// ============================================================================
+// Determinism and Reproducibility Tests
+// ============================================================================
+
+#[test]
+fn test_deterministic_proofs() {
+    // Same input should produce same proof
+    let poly = rand_poly(5, 77777);
+
+    let (sum1, proof1) = prove_optimized(vec![poly.clone()]).unwrap();
+    let (sum2, proof2) = prove_optimized(vec![poly.clone()]).unwrap();
+
+    assert_eq!(sum1, sum2, "Sums should be identical");
+    assert_eq!(proof1.len(), proof2.len(), "Proof lengths should match");
+
+    for (i, (p1, p2)) in proof1.iter().zip(proof2.iter()).enumerate() {
+        assert_eq!(
+            p1.coefficients(),
+            p2.coefficients(),
+            "Round {} polynomials should be identical",
+            i
+        );
+    }
+}
+
+#[test]
+fn test_proof_size() {
+    // Verify proof has correct number of round polynomials
+    for num_vars in [3, 5, 7, 10] {
+        let poly = rand_poly(num_vars, num_vars as u64);
+
+        let (_, proof) = prove_optimized(vec![poly]).unwrap();
+
+        assert_eq!(
+            proof.len(),
+            num_vars,
+            "Proof should have {} round polynomials",
+            num_vars
+        );
+    }
+}

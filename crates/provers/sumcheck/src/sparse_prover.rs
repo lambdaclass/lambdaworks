@@ -7,7 +7,17 @@
 //! Time complexity: O(n * k) where k is the number of non-zero evaluations
 //! Space complexity: O(k)
 //!
-//! Based on the Spark approach from Lasso (a16z).
+//! # References
+//!
+//! This implementation is inspired by the Spark approach from:
+//!
+//! **"Unlocking the Lookup Singularity with Lasso"**
+//! Srinath Setty, Justin Thaler, and Riad Wahby
+//! ePrint 2023/1216
+//! <https://eprint.iacr.org/2023/1216>
+//!
+//! The key insight is that for sparse polynomials, we only need to track
+//! non-zero entries and can collapse them efficiently when applying challenges.
 
 use crate::prover::{ProverError, ProverOutput};
 use crate::Channel;
