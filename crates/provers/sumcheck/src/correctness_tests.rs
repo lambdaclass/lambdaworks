@@ -504,3 +504,167 @@ fn test_sequential_1_to_8() {
     let result = verify(3, claimed_sum, proof, vec![poly]);
     assert!(result.unwrap());
 }
+
+// ============================================================================
+// Cross-Prover Validation Tests
+// ============================================================================
+
+#[test]
+fn test_all_provers_produce_same_sum() {
+    // Test that all prover implementations produce the same claimed sum
+    let poly = rand_poly(6, 42424);
+
+    let (naive_sum, _) = prove(vec![poly.clone()]).unwrap();
+    let (opt_sum, _) = prove_optimized(vec![poly.clone()]).unwrap();
+    let (parallel_sum, _) = crate::prove_parallel(vec![poly.clone()]).unwrap();
+    let (fast_sum, _) = crate::prove_fast(vec![poly.clone()]).unwrap();
+    let (small_field_sum, _) = crate::prove_small_field(poly.clone()).unwrap();
+    let (blendy_sum, _) = crate::prove_blendy(poly.clone(), 2).unwrap();
+
+    assert_eq!(naive_sum, opt_sum, "Optimized should match naive");
+    assert_eq!(naive_sum, parallel_sum, "Parallel should match naive");
+    assert_eq!(naive_sum, fast_sum, "Fast should match naive");
+    assert_eq!(naive_sum, small_field_sum, "SmallField should match naive");
+    assert_eq!(naive_sum, blendy_sum, "Blendy should match naive");
+}
+
+#[test]
+fn test_all_provers_produce_valid_proofs() {
+    // Test that all provers produce proofs that verify correctly
+    let poly = rand_poly(5, 12345);
+    let num_vars = poly.num_vars();
+
+    // Test optimized prover
+    let (opt_sum, opt_proof) = prove_optimized(vec![poly.clone()]).unwrap();
+    let opt_result = verify(num_vars, opt_sum, opt_proof, vec![poly.clone()]);
+    assert!(opt_result.unwrap(), "Optimized proof should verify");
+
+    // Test parallel prover
+    let (par_sum, par_proof) = crate::prove_parallel(vec![poly.clone()]).unwrap();
+    let par_result = verify(num_vars, par_sum, par_proof, vec![poly.clone()]);
+    assert!(par_result.unwrap(), "Parallel proof should verify");
+
+    // Test fast prover
+    let (fast_sum, fast_proof) = crate::prove_fast(vec![poly.clone()]).unwrap();
+    let fast_result = verify(num_vars, fast_sum, fast_proof, vec![poly.clone()]);
+    assert!(fast_result.unwrap(), "Fast proof should verify");
+
+    // Test small field prover
+    let (sf_sum, sf_proof) = crate::prove_small_field(poly.clone()).unwrap();
+    let sf_result = verify(num_vars, sf_sum, sf_proof, vec![poly.clone()]);
+    assert!(sf_result.unwrap(), "SmallField proof should verify");
+}
+
+#[test]
+fn test_sparse_prover_matches_dense() {
+    // Test sparse prover against dense for various sparsity patterns
+    for sparsity in [1, 4, 8, 16] {
+        let num_vars = 5;
+        let size = 1 << num_vars;
+
+        // Create sparse entries at regular intervals
+        let entries: Vec<(usize, FE)> = (0..size)
+            .step_by(size / sparsity)
+            .enumerate()
+            .map(|(i, idx)| (idx, FE::from((i + 1) as u64)))
+            .collect();
+
+        // Sparse prover
+        let (sparse_sum, sparse_proof) = crate::prove_sparse(num_vars, entries.clone()).unwrap();
+
+        // Create dense version
+        let dense_evals: Vec<FE> = (0..size)
+            .map(|i| {
+                entries
+                    .iter()
+                    .find(|(idx, _)| *idx == i)
+                    .map(|(_, v)| v.clone())
+                    .unwrap_or(FE::zero())
+            })
+            .collect();
+        let dense_poly = DenseMultilinearPolynomial::new(dense_evals);
+
+        let (dense_sum, _) = prove_optimized(vec![dense_poly.clone()]).unwrap();
+
+        assert_eq!(
+            sparse_sum, dense_sum,
+            "Sparse sum should match dense at sparsity 1/{}",
+            sparsity
+        );
+
+        // Verify sparse proof
+        let result = verify(num_vars, sparse_sum, sparse_proof, vec![dense_poly]);
+        assert!(
+            result.unwrap(),
+            "Sparse proof should verify at sparsity 1/{}",
+            sparsity
+        );
+    }
+}
+
+#[test]
+fn test_quadratic_all_provers() {
+    // Test quadratic (product) sumcheck with all applicable provers
+    let poly1 = rand_poly(4, 111);
+    let poly2 = rand_poly(4, 222);
+    let num_vars = poly1.num_vars();
+
+    let (naive_sum, naive_proof) = prove(vec![poly1.clone(), poly2.clone()]).unwrap();
+    let (opt_sum, opt_proof) = prove_optimized(vec![poly1.clone(), poly2.clone()]).unwrap();
+    let (par_sum, par_proof) = crate::prove_parallel(vec![poly1.clone(), poly2.clone()]).unwrap();
+    let (fast_sum, fast_proof) = crate::prove_fast(vec![poly1.clone(), poly2.clone()]).unwrap();
+
+    assert_eq!(naive_sum, opt_sum);
+    assert_eq!(naive_sum, par_sum);
+    assert_eq!(naive_sum, fast_sum);
+
+    // Verify all proofs
+    assert!(verify(num_vars, naive_sum, naive_proof, vec![poly1.clone(), poly2.clone()]).unwrap());
+    assert!(verify(num_vars, opt_sum, opt_proof, vec![poly1.clone(), poly2.clone()]).unwrap());
+    assert!(verify(num_vars, par_sum, par_proof, vec![poly1.clone(), poly2.clone()]).unwrap());
+    assert!(verify(num_vars, fast_sum, fast_proof, vec![poly1.clone(), poly2.clone()]).unwrap());
+}
+
+#[test]
+fn test_batched_sumcheck() {
+    // Test batched sumcheck with multiple instances
+    let polys: Vec<DenseMultilinearPolynomial<F>> = (0..3)
+        .map(|i| rand_poly(4, 1000 + i))
+        .collect();
+
+    let instances: Vec<Vec<DenseMultilinearPolynomial<F>>> =
+        polys.iter().map(|p| vec![p.clone()]).collect();
+
+    let proof = crate::prove_batched(instances.clone()).unwrap();
+
+    // Verify individual sums match
+    for (i, (poly, expected_sum)) in polys.iter().zip(proof.individual_sums.iter()).enumerate() {
+        let actual_sum: FE = poly.evals().iter().cloned().fold(FE::zero(), |a, b| a + b);
+        assert_eq!(
+            &actual_sum, expected_sum,
+            "Instance {} sum should match",
+            i
+        );
+    }
+
+    // Verify the batched proof
+    let result = crate::verify_batched(4, instances, &proof);
+    assert!(result.unwrap(), "Batched proof should verify");
+}
+
+#[test]
+fn test_large_variable_count() {
+    // Test with larger variable counts to stress test
+    for num_vars in [10, 12, 14] {
+        let poly = rand_poly(num_vars, num_vars as u64 * 1000);
+
+        let (claimed_sum, proof) = prove_optimized(vec![poly.clone()]).unwrap();
+        let result = verify(num_vars, claimed_sum, proof, vec![poly]);
+
+        assert!(
+            result.unwrap(),
+            "Should verify with {} variables",
+            num_vars
+        );
+    }
+}

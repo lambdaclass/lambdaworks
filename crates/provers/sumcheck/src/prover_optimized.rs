@@ -83,9 +83,9 @@ where
         for j in 0..size {
             let mut product = FieldElement::one();
             for factor_eval in &self.factor_evals {
-                product = product * factor_eval[j].clone();
+                product *= factor_eval[j].clone();
             }
-            sum = sum + product;
+            sum += product;
         }
 
         sum
@@ -98,6 +98,7 @@ where
     ///
     /// After computing g_j, if a challenge r_j is provided, the working evaluations
     /// are updated in-place to prepare for the next round.
+    #[allow(clippy::needless_range_loop)]
     pub fn round(
         &mut self,
         r_prev: Option<&FieldElement<F>>,
@@ -138,10 +139,10 @@ where
                     let p0 = &factor_eval[k];
                     let p1 = &factor_eval[k + half];
                     let interpolated = p0 + &t_fe * &(p1 - p0);
-                    product = product * interpolated;
+                    product *= interpolated;
                 }
 
-                sum = sum + product;
+                sum += product;
             }
 
             evaluations[t] = sum;

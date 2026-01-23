@@ -5,7 +5,8 @@ use lambdaworks_math::{
     polynomial::dense_multilinear_poly::DenseMultilinearPolynomial,
 };
 use lambdaworks_sumcheck::{
-    evaluate_product_at_point, prove, sum_product_over_suffix, verify, Prover,
+    evaluate_product_at_point, prove, prove_fast, prove_optimized, prove_parallel,
+    sum_product_over_suffix, verify, Prover,
 };
 use rand::Rng;
 
@@ -73,6 +74,115 @@ pub fn prover_benchmarks(c: &mut Criterion) {
                         poly3.clone(),
                     ]))
                 });
+            },
+        );
+    }
+
+    group.finish();
+}
+
+/// Benchmarks comparing naive vs optimized provers
+pub fn optimized_prover_benchmarks(c: &mut Criterion) {
+    let mut group = c.benchmark_group("Optimized Provers");
+
+    // Compare provers across different sizes
+    for num_vars in [10, 12, 14, 16, 18] {
+        let size = 1u64 << num_vars;
+        group.throughput(Throughput::Elements(size));
+
+        // Naive prover (baseline)
+        group.bench_with_input(
+            BenchmarkId::new("naive_linear", num_vars),
+            &num_vars,
+            |bench, &num_vars| {
+                let poly = rand_dense_multilinear_poly(num_vars);
+                bench.iter(|| prove(black_box(vec![poly.clone()])));
+            },
+        );
+
+        // Optimized prover (VSBW13)
+        group.bench_with_input(
+            BenchmarkId::new("optimized_linear", num_vars),
+            &num_vars,
+            |bench, &num_vars| {
+                let poly = rand_dense_multilinear_poly(num_vars);
+                bench.iter(|| prove_optimized(black_box(vec![poly.clone()])));
+            },
+        );
+
+        // Parallel prover
+        group.bench_with_input(
+            BenchmarkId::new("parallel_linear", num_vars),
+            &num_vars,
+            |bench, &num_vars| {
+                let poly = rand_dense_multilinear_poly(num_vars);
+                bench.iter(|| prove_parallel(black_box(vec![poly.clone()])));
+            },
+        );
+
+        // Fast prover (precomputed differences)
+        group.bench_with_input(
+            BenchmarkId::new("fast_linear", num_vars),
+            &num_vars,
+            |bench, &num_vars| {
+                let poly = rand_dense_multilinear_poly(num_vars);
+                bench.iter(|| prove_fast(black_box(vec![poly.clone()])));
+            },
+        );
+    }
+
+    group.finish();
+}
+
+/// Benchmarks for quadratic sumcheck (product of two polynomials)
+pub fn quadratic_prover_benchmarks(c: &mut Criterion) {
+    let mut group = c.benchmark_group("Quadratic Provers");
+
+    for num_vars in [8, 10, 12, 14, 16] {
+        let size = 1u64 << num_vars;
+        group.throughput(Throughput::Elements(size));
+
+        // Naive quadratic
+        group.bench_with_input(
+            BenchmarkId::new("naive", num_vars),
+            &num_vars,
+            |bench, &num_vars| {
+                let poly1 = rand_dense_multilinear_poly(num_vars);
+                let poly2 = rand_dense_multilinear_poly(num_vars);
+                bench.iter(|| prove(black_box(vec![poly1.clone(), poly2.clone()])));
+            },
+        );
+
+        // Optimized quadratic
+        group.bench_with_input(
+            BenchmarkId::new("optimized", num_vars),
+            &num_vars,
+            |bench, &num_vars| {
+                let poly1 = rand_dense_multilinear_poly(num_vars);
+                let poly2 = rand_dense_multilinear_poly(num_vars);
+                bench.iter(|| prove_optimized(black_box(vec![poly1.clone(), poly2.clone()])));
+            },
+        );
+
+        // Parallel quadratic
+        group.bench_with_input(
+            BenchmarkId::new("parallel", num_vars),
+            &num_vars,
+            |bench, &num_vars| {
+                let poly1 = rand_dense_multilinear_poly(num_vars);
+                let poly2 = rand_dense_multilinear_poly(num_vars);
+                bench.iter(|| prove_parallel(black_box(vec![poly1.clone(), poly2.clone()])));
+            },
+        );
+
+        // Fast quadratic
+        group.bench_with_input(
+            BenchmarkId::new("fast", num_vars),
+            &num_vars,
+            |bench, &num_vars| {
+                let poly1 = rand_dense_multilinear_poly(num_vars);
+                let poly2 = rand_dense_multilinear_poly(num_vars);
+                bench.iter(|| prove_fast(black_box(vec![poly1.clone(), poly2.clone()])));
             },
         );
     }

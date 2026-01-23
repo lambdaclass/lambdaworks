@@ -21,7 +21,10 @@
 mod prover;
 mod shaders;
 
-pub use prover::{prove_metal, MetalProver, MetalState};
+pub use prover::{prove_metal, prove_metal_multi, MetalMultiFactorProver, MetalProver, MetalState};
+
+#[cfg(all(target_os = "macos", feature = "metal"))]
+pub use prover::GoldilocksMetalProver;
 
 #[cfg(test)]
 mod tests;

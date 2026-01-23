@@ -1,7 +1,9 @@
 //! Tests for Metal GPU prover
 
 use super::*;
+use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::fields::u64_prime_field::U64PrimeField;
+use lambdaworks_math::polynomial::dense_multilinear_poly::DenseMultilinearPolynomial;
 
 const MODULUS: u64 = 101;
 type F = U64PrimeField<MODULUS>;

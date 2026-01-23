@@ -94,9 +94,9 @@ where
         for j in 0..size {
             let mut product = FieldElement::one();
             for factor_eval in &self.factor_evals {
-                product = product * factor_eval[j].clone();
+                product *= factor_eval[j].clone();
             }
-            sum = sum + product;
+            sum += product;
         }
         sum
     }
@@ -108,7 +108,7 @@ where
             .map(|j| {
                 let mut product = FieldElement::one();
                 for factor_eval in &self.factor_evals {
-                    product = product * factor_eval[j].clone();
+                    product *= factor_eval[j].clone();
                 }
                 product
             })
@@ -158,6 +158,7 @@ where
         Ok(poly)
     }
 
+    #[allow(clippy::needless_range_loop)]
     fn compute_round_poly_sequential(
         &self,
         half: usize,
@@ -176,10 +177,10 @@ where
                     let p0 = &factor_eval[k];
                     let p1 = &factor_eval[k + half];
                     let interpolated = p0 + &t_fe * &(p1 - p0);
-                    product = product * interpolated;
+                    product *= interpolated;
                 }
 
-                sum = sum + product;
+                sum += product;
             }
 
             evaluations[t] = sum;
@@ -209,7 +210,7 @@ where
                             let p0 = &factor_eval[k];
                             let p1 = &factor_eval[k + half];
                             let interpolated = p0 + &t_fe * &(p1 - p0);
-                            product = product * interpolated;
+                            product *= interpolated;
                         }
 
                         product
@@ -415,9 +416,9 @@ where
         for k in 0..half {
             let mut product = FieldElement::one();
             for f in 0..self.num_factors {
-                product = product * self.factor_evals_0[f][k].clone();
+                product *= self.factor_evals_0[f][k].clone();
             }
-            sum = sum + product;
+            sum += product;
         }
 
         // Sum products at x_0 = 1
@@ -426,9 +427,9 @@ where
             for f in 0..self.num_factors {
                 // eval_1 = eval_0 + diff
                 let eval_1 = &self.factor_evals_0[f][k] + &self.factor_diffs[f][k];
-                product = product * eval_1;
+                product *= eval_1;
             }
-            sum = sum + product;
+            sum += product;
         }
 
         sum
@@ -442,7 +443,7 @@ where
             .map(|k| {
                 let mut product = FieldElement::one();
                 for f in 0..self.num_factors {
-                    product = product * self.factor_evals_0[f][k].clone();
+                    product *= self.factor_evals_0[f][k].clone();
                 }
                 product
             })
@@ -455,7 +456,7 @@ where
                 let mut product = FieldElement::one();
                 for f in 0..self.num_factors {
                     let eval_1 = &self.factor_evals_0[f][k] + &self.factor_diffs[f][k];
-                    product = product * eval_1;
+                    product *= eval_1;
                 }
                 product
             })
@@ -503,6 +504,7 @@ where
         Ok(poly)
     }
 
+    #[allow(clippy::needless_range_loop)]
     fn compute_round_sequential(
         &self,
         half: usize,
@@ -519,9 +521,9 @@ where
                 for f in 0..self.num_factors {
                     // P(t) = P(0) + t * (P(1) - P(0)) = eval_0 + t * diff
                     let interpolated = &self.factor_evals_0[f][k] + &t_fe * &self.factor_diffs[f][k];
-                    product = product * interpolated;
+                    product *= interpolated;
                 }
-                sum = sum + product;
+                sum += product;
             }
             evaluations[t] = sum;
         }
@@ -542,7 +544,7 @@ where
                         for f in 0..self.num_factors {
                             let interpolated =
                                 &self.factor_evals_0[f][k] + &t_fe * &self.factor_diffs[f][k];
-                            product = product * interpolated;
+                            product *= interpolated;
                         }
                         product
                     })

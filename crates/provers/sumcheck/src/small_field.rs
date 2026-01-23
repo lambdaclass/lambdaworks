@@ -108,7 +108,8 @@ where
 {
     /// Number of evaluation points (degree + 1)
     num_points: usize,
-    /// Precomputed interpolation coefficients
+    /// Precomputed interpolation coefficients (reserved for future optimizations)
+    #[allow(dead_code)]
     coefficients: Vec<Vec<FieldElement<F>>>,
 }
 
@@ -234,7 +235,7 @@ where
         let evaluations = vec![sum_0, sum_1];
 
         Polynomial::interpolate(&eval_points, &evaluations)
-            .map_err(|e| ProverError::InterpolationError(e))
+            .map_err(ProverError::InterpolationError)
     }
 
     /// Computes round sums with optimized operations.
@@ -252,8 +253,8 @@ where
         let mut sum_1 = FieldElement::zero();
 
         for k in 0..half {
-            sum_0 = sum_0 + self.evals[k].clone();
-            sum_1 = sum_1 + self.evals[k + half].clone();
+            sum_0 += self.evals[k].clone();
+            sum_1 += self.evals[k + half].clone();
         }
 
         (sum_0, sum_1)

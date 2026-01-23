@@ -32,6 +32,7 @@ where
     F::BaseType: Send + Sync,
 {
     num_vars: usize,
+    #[allow(dead_code)]
     num_stages: usize,
     /// Original polynomial evaluations (read-only reference)
     original_evals: Vec<FieldElement<F>>,
@@ -71,7 +72,7 @@ where
             ));
         }
 
-        let rounds_per_stage = (num_vars + num_stages - 1) / num_stages;
+        let rounds_per_stage = num_vars.div_ceil(num_stages);
 
         let original_evals = poly.evals().clone();
 
@@ -112,6 +113,7 @@ where
     ///
     /// The stage table contains partial sums that allow computing round polynomials
     /// efficiently within the stage.
+    #[allow(clippy::needless_range_loop)]
     fn compute_stage_table(
         original_evals: &[FieldElement<F>],
         num_vars: usize,
@@ -124,7 +126,7 @@ where
         let stage_vars = stage_end_round - stage_start_round;
 
         // Variables before this stage (already fixed by challenges)
-        let prefix_vars = stage_start_round;
+        let _prefix_vars = stage_start_round;
         // Variables after this stage
         let suffix_vars = num_vars - stage_end_round;
 
@@ -147,15 +149,15 @@ where
                 for (i, challenge) in challenges.iter().enumerate() {
                     let bit = (full_idx >> (num_vars - 1 - i)) & 1;
                     if bit == 1 {
-                        eq_factor = eq_factor * challenge.clone();
+                        eq_factor *= challenge.clone();
                     } else {
-                        eq_factor = eq_factor * (FieldElement::one() - challenge);
+                        eq_factor *= FieldElement::one() - challenge;
                     }
                 }
 
                 // Add contribution weighted by eq polynomial
                 let eval_idx = full_idx % original_evals.len();
-                sum = sum + eq_factor * original_evals[eval_idx].clone();
+                sum += eq_factor * original_evals[eval_idx].clone();
             }
 
             table[stage_idx] = sum;
@@ -245,8 +247,8 @@ where
         let mut sum_1 = FieldElement::zero();
 
         for k in 0..half {
-            sum_0 = sum_0 + self.stage_table[k].clone();
-            sum_1 = sum_1 + self.stage_table[k + half].clone();
+            sum_0 += self.stage_table[k].clone();
+            sum_1 += self.stage_table[k + half].clone();
         }
 
         vec![sum_0, sum_1]

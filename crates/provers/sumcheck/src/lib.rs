@@ -31,11 +31,16 @@ pub use prover::{prove, Prover, ProverError};
 pub use prover_optimized::{prove_optimized, OptimizedProver};
 pub use prover_parallel::{prove_fast, prove_parallel, FastProver, ParallelProver};
 pub use small_field::{prove_small_field, SmallFieldProver};
-pub use sparse_prover::{prove_sparse, SparseProver};
+pub use sparse_prover::{prove_sparse, SparseEntry, SparseMultiFactorProver, SparseProver};
 pub use verifier::{verify, Verifier, VerifierError, VerifierRoundResult};
 
 #[cfg(feature = "metal")]
-pub use metal::{prove_metal, MetalProver, MetalState};
+pub use metal::{
+    prove_metal, prove_metal_multi, MetalMultiFactorProver, MetalProver, MetalState,
+};
+
+#[cfg(all(target_os = "macos", feature = "metal"))]
+pub use metal::GoldilocksMetalProver;
 
 // Wrappers for the prover and verifier functions
 pub fn prove_linear<F>(poly: DenseMultilinearPolynomial<F>) -> ProverOutput<F>

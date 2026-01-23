@@ -195,6 +195,7 @@ kernel void compute_product(
 "#;
 
 /// Shader source for BabyBear field (p = 2^31 - 2^27 + 1)
+#[allow(dead_code)]
 pub const BABYBEAR_SHADER_SOURCE: &str = r#"
 #include <metal_stdlib>
 using namespace metal;
@@ -271,6 +272,7 @@ kernel void apply_challenge_bb(
 "#;
 
 /// Shader source for Mersenne31 field (p = 2^31 - 1)
+#[allow(dead_code)]
 pub const MERSENNE31_SHADER_SOURCE: &str = r#"
 #include <metal_stdlib>
 using namespace metal;

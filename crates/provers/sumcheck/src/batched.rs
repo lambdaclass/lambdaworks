@@ -58,6 +58,7 @@ where
     /// Individual claimed sums (before batching)
     individual_sums: Vec<FieldElement<F>>,
     /// Batching coefficient
+    #[allow(dead_code)]
     batching_coeff: FieldElement<F>,
     /// Batched claimed sum
     batched_sum: FieldElement<F>,
@@ -134,8 +135,8 @@ where
         let mut batched_sum = FieldElement::zero();
         let mut rho_power = FieldElement::one();
         for sum in &individual_sums {
-            batched_sum = batched_sum + &rho_power * sum;
-            rho_power = rho_power * batching_coeff.clone();
+            batched_sum += &rho_power * sum;
+            rho_power *= batching_coeff.clone();
         }
 
         // Combine evaluations: f_1 + rho*f_2 + rho^2*f_3 + ...
@@ -146,7 +147,7 @@ where
             for (i, eval) in evals.iter().enumerate() {
                 combined_evals[i] = &combined_evals[i] + &rho_power * eval;
             }
-            rho_power = rho_power * batching_coeff.clone();
+            rho_power *= batching_coeff.clone();
         }
 
         Ok(Self {
@@ -211,8 +212,8 @@ where
         let mut sum_1 = FieldElement::zero();
 
         for k in 0..half {
-            sum_0 = sum_0 + self.combined_evals[k].clone();
-            sum_1 = sum_1 + self.combined_evals[k + half].clone();
+            sum_0 += self.combined_evals[k].clone();
+            sum_1 += self.combined_evals[k + half].clone();
         }
 
         self.current_round += 1;
@@ -222,7 +223,7 @@ where
         let evaluations = vec![sum_0, sum_1];
 
         Polynomial::interpolate(&eval_points, &evaluations)
-            .map_err(|e| ProverError::InterpolationError(e))
+            .map_err(ProverError::InterpolationError)
     }
 }
 
@@ -275,9 +276,9 @@ where
             for i in 0..size {
                 let mut product = FieldElement::one();
                 for factor in instance {
-                    product = product * factor.evals()[i].clone();
+                    product *= factor.evals()[i].clone();
                 }
-                sum = sum + product;
+                sum += product;
             }
             sum
         })
@@ -342,8 +343,8 @@ where
     let mut batched_sum = FieldElement::zero();
     let mut rho_power = FieldElement::one();
     for sum in &proof.individual_sums {
-        batched_sum = batched_sum + &rho_power * sum;
-        rho_power = rho_power * proof.batching_coeff.clone();
+        batched_sum += &rho_power * sum;
+        rho_power *= proof.batching_coeff.clone();
     }
 
     // Initialize transcript for verification
@@ -414,10 +415,10 @@ where
             let factor_eval = factor
                 .evaluate(challenges.clone())
                 .map_err(|e| VerifierError::OracleEvaluationError(format!("{:?}", e)))?;
-            instance_eval = instance_eval * factor_eval;
+            instance_eval *= factor_eval;
         }
-        combined_eval = combined_eval + &rho_power * &instance_eval;
-        rho_power = rho_power * proof.batching_coeff.clone();
+        combined_eval += &rho_power * &instance_eval;
+        rho_power *= proof.batching_coeff.clone();
     }
 
     if combined_eval != expected_sum {
@@ -439,6 +440,7 @@ where
     F::BaseType: Send + Sync,
 {
     num_vars: usize,
+    #[allow(dead_code)]
     num_instances: usize,
     /// Evaluations for each instance
     instance_evals: Vec<Vec<FieldElement<F>>>,
@@ -516,8 +518,8 @@ where
         let mut rho_power = FieldElement::one();
 
         for sum in individual_sums {
-            batched_sum = batched_sum + &rho_power * &sum;
-            rho_power = rho_power * self.batching_coeff.clone();
+            batched_sum += &rho_power * &sum;
+            rho_power *= self.batching_coeff.clone();
         }
 
         batched_sum
@@ -561,13 +563,13 @@ where
             let mut instance_sum_1 = FieldElement::zero();
 
             for k in 0..half {
-                instance_sum_0 = instance_sum_0 + evals[k].clone();
-                instance_sum_1 = instance_sum_1 + evals[k + half].clone();
+                instance_sum_0 += evals[k].clone();
+                instance_sum_1 += evals[k + half].clone();
             }
 
-            sum_0 = sum_0 + &rho_power * &instance_sum_0;
-            sum_1 = sum_1 + &rho_power * &instance_sum_1;
-            rho_power = rho_power * self.batching_coeff.clone();
+            sum_0 += &rho_power * &instance_sum_0;
+            sum_1 += &rho_power * &instance_sum_1;
+            rho_power *= self.batching_coeff.clone();
         }
 
         self.current_round += 1;
@@ -576,7 +578,7 @@ where
         let evaluations = vec![sum_0, sum_1];
 
         Polynomial::interpolate(&eval_points, &evaluations)
-            .map_err(|e| ProverError::InterpolationError(e))
+            .map_err(ProverError::InterpolationError)
     }
 }
 
