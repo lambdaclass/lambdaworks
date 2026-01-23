@@ -7,7 +7,7 @@
 //! ## Papers
 //!
 //! **"The Sum-Check Protocol over Fields of Small Characteristic"**
-//! Ulrich Haböck
+//! Ulrich Haboeck
 //! ePrint 2024/1046
 //! <https://eprint.iacr.org/2024/1046>
 //!
@@ -38,10 +38,11 @@
 //! - Mersenne31 with quadratic extension
 //! - BabyBear with extension fields
 
+use crate::common::{
+    apply_challenge_to_evals, check_round_bounds, compute_round_sums_single, run_sumcheck_protocol,
+    SumcheckProver,
+};
 use crate::prover::{ProverError, ProverOutput};
-use crate::Channel;
-use lambdaworks_crypto::fiat_shamir::default_transcript::DefaultTranscript;
-use lambdaworks_crypto::fiat_shamir::is_transcript::IsTranscript;
 use lambdaworks_math::{
     field::{
         element::FieldElement,
@@ -54,6 +55,9 @@ use std::ops::Mul;
 
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
+
+#[cfg(feature = "parallel")]
+use crate::common::PARALLEL_THRESHOLD;
 
 /// Trait for fields that support small-field optimizations.
 ///
@@ -203,19 +207,14 @@ where
             num_vars,
             evals,
             current_round: 0,
-            in_base_field: true, // Assume starting in base field
+            in_base_field: true,
         })
     }
 
-    /// Returns the number of variables.
-    pub fn num_vars(&self) -> usize {
-        self.num_vars
-    }
-
-    /// Computes the initial sum.
-    pub fn compute_initial_sum(&self) -> FieldElement<F> {
+    /// Computes the initial sum with optional parallelization.
+    fn compute_initial_sum_impl(&self) -> FieldElement<F> {
         #[cfg(feature = "parallel")]
-        if self.evals.len() >= 1024 {
+        if self.evals.len() >= PARALLEL_THRESHOLD {
             return self
                 .evals
                 .par_iter()
@@ -230,31 +229,21 @@ where
     }
 
     /// Executes a round using small-field optimizations.
-    pub fn round(
+    fn round_impl(
         &mut self,
         r_prev: Option<&FieldElement<F>>,
     ) -> Result<Polynomial<FieldElement<F>>, ProverError> {
-        // Apply previous challenge
         if let Some(r) = r_prev {
             self.apply_challenge(r);
-            // After applying a challenge, we may leave the base field
             self.in_base_field = false;
         }
 
-        if self.current_round >= self.num_vars {
-            return Err(ProverError::InvalidState(
-                "All variables already fixed.".to_string(),
-            ));
-        }
+        check_round_bounds(self.current_round, self.num_vars)?;
 
-        let half = self.evals.len() / 2;
-
-        // Compute sums at x=0 and x=1 using optimized accumulation
-        let (sum_0, sum_1) = self.compute_round_sums(half);
+        let (sum_0, sum_1) = self.compute_round_sums();
 
         self.current_round += 1;
 
-        // For linear sumcheck, the polynomial is: sum_0 + (sum_1 - sum_0) * x
         let eval_points = vec![FieldElement::zero(), FieldElement::one()];
         let evaluations = vec![sum_0, sum_1];
 
@@ -263,25 +252,15 @@ where
     }
 
     /// Computes round sums with optimized operations.
-    fn compute_round_sums(&self, half: usize) -> (FieldElement<F>, FieldElement<F>) {
+    fn compute_round_sums(&self) -> (FieldElement<F>, FieldElement<F>) {
+        let half = self.evals.len() / 2;
+
         #[cfg(feature = "parallel")]
-        if half >= 1024 {
+        if half >= PARALLEL_THRESHOLD {
             return self.compute_round_sums_parallel(half);
         }
 
-        self.compute_round_sums_sequential(half)
-    }
-
-    fn compute_round_sums_sequential(&self, half: usize) -> (FieldElement<F>, FieldElement<F>) {
-        let mut sum_0 = FieldElement::zero();
-        let mut sum_1 = FieldElement::zero();
-
-        for k in 0..half {
-            sum_0 += self.evals[k].clone();
-            sum_1 += self.evals[k + half].clone();
-        }
-
-        (sum_0, sum_1)
+        compute_round_sums_single(&self.evals)
     }
 
     #[cfg(feature = "parallel")]
@@ -304,28 +283,12 @@ where
         let half = self.evals.len() / 2;
 
         #[cfg(feature = "parallel")]
-        if half >= 1024 {
+        if half >= PARALLEL_THRESHOLD {
             self.apply_challenge_parallel(r, half);
             return;
         }
 
-        self.apply_challenge_sequential(r, half);
-    }
-
-    fn apply_challenge_sequential(&mut self, r: &FieldElement<F>, half: usize) {
-        // Optimized: compute (1-r) once
-        let one_minus_r = FieldElement::one() - r;
-
-        for k in 0..half {
-            // new[k] = (1-r) * old[k] + r * old[k+half]
-            // This form is better for small fields as it allows using
-            // precomputed (1-r) value
-            let v0 = &self.evals[k];
-            let v1 = &self.evals[k + half];
-            self.evals[k] = &one_minus_r * v0 + r * v1;
-        }
-
-        self.evals.truncate(half);
+        apply_challenge_to_evals(&mut self.evals, r);
     }
 
     #[cfg(feature = "parallel")]
@@ -345,6 +308,31 @@ where
     }
 }
 
+impl<F: IsField> SumcheckProver<F> for SmallFieldProver<F>
+where
+    F::BaseType: Send + Sync,
+    FieldElement<F>: Clone + Mul<Output = FieldElement<F>>,
+{
+    fn num_vars(&self) -> usize {
+        self.num_vars
+    }
+
+    fn num_factors(&self) -> usize {
+        1
+    }
+
+    fn compute_initial_sum(&self) -> FieldElement<F> {
+        self.compute_initial_sum_impl()
+    }
+
+    fn round(
+        &mut self,
+        r_prev: Option<&FieldElement<F>>,
+    ) -> Result<Polynomial<FieldElement<F>>, ProverError> {
+        self.round_impl(r_prev)
+    }
+}
+
 /// Proves a sumcheck using small-field optimizations.
 pub fn prove_small_field<F>(poly: DenseMultilinearPolynomial<F>) -> ProverOutput<F>
 where
@@ -352,41 +340,8 @@ where
     F::BaseType: Send + Sync,
     FieldElement<F>: Clone + Mul<Output = FieldElement<F>> + ByteConversion,
 {
-    let num_vars = poly.num_vars();
     let mut prover = SmallFieldProver::new(poly)?;
-
-    let claimed_sum = prover.compute_initial_sum();
-
-    // Use same transcript format as standard prover for compatibility
-    let mut transcript = DefaultTranscript::<F>::default();
-    transcript.append_bytes(b"initial_sum");
-    transcript.append_felt(&FieldElement::from(num_vars as u64));
-    transcript.append_felt(&FieldElement::from(1u64)); // num_factors = 1
-    transcript.append_felt(&claimed_sum);
-
-    let mut proof_polys = Vec::with_capacity(num_vars);
-    let mut current_challenge: Option<FieldElement<F>> = None;
-
-    for j in 0..num_vars {
-        let g_j = prover.round(current_challenge.as_ref())?;
-
-        let round_label = format!("round_{j}_poly");
-        transcript.append_bytes(round_label.as_bytes());
-
-        let coeffs = g_j.coefficients();
-        transcript.append_bytes(&(coeffs.len() as u64).to_be_bytes());
-        for coeff in coeffs {
-            transcript.append_felt(coeff);
-        }
-
-        proof_polys.push(g_j);
-
-        if j < num_vars - 1 {
-            current_challenge = Some(transcript.draw_felt());
-        }
-    }
-
-    Ok((claimed_sum, proof_polys))
+    run_sumcheck_protocol(&mut prover, 1)
 }
 
 /// Karatsuba-style multiplication helper for extension fields.

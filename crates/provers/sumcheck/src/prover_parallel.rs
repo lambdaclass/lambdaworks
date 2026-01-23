@@ -21,10 +21,11 @@
 //!
 //! Performance scales near-linearly with available CPU cores for large polynomials.
 
+use crate::common::{
+    check_round_bounds, compute_initial_sum_product, run_sumcheck_protocol, validate_factors,
+    SumcheckProver,
+};
 use crate::prover::{ProverError, ProverOutput};
-use crate::Channel;
-use lambdaworks_crypto::fiat_shamir::default_transcript::DefaultTranscript;
-use lambdaworks_crypto::fiat_shamir::is_transcript::IsTranscript;
 use lambdaworks_math::{
     field::{
         element::FieldElement,
@@ -63,18 +64,7 @@ where
 {
     /// Creates a new ParallelProver instance from the given factors.
     pub fn new(factors: Vec<DenseMultilinearPolynomial<F>>) -> Result<Self, ProverError> {
-        if factors.is_empty() {
-            return Err(ProverError::FactorMismatch(
-                "At least one polynomial factor is required.".to_string(),
-            ));
-        }
-
-        let num_vars = factors[0].num_vars();
-        if factors.iter().any(|p| p.num_vars() != num_vars) {
-            return Err(ProverError::FactorMismatch(
-                "All factors must have the same number of variables.".to_string(),
-            ));
-        }
+        let num_vars = validate_factors(&factors)?;
 
         let factor_evals: Vec<Vec<FieldElement<F>>> =
             factors.iter().map(|f| f.evals().clone()).collect();
@@ -86,13 +76,8 @@ where
         })
     }
 
-    /// Returns the number of variables in the polynomials.
-    pub fn num_vars(&self) -> usize {
-        self.num_vars
-    }
-
-    /// Computes the initial claimed sum over the boolean hypercube (parallelized).
-    pub fn compute_initial_sum(&self) -> FieldElement<F> {
+    /// Computes the initial claimed sum with optional parallelization.
+    fn compute_initial_sum_impl(&self) -> FieldElement<F> {
         let size = 1 << self.num_vars;
 
         #[cfg(feature = "parallel")]
@@ -100,19 +85,7 @@ where
             return self.compute_initial_sum_parallel(size);
         }
 
-        self.compute_initial_sum_sequential(size)
-    }
-
-    fn compute_initial_sum_sequential(&self, size: usize) -> FieldElement<F> {
-        let mut sum = FieldElement::zero();
-        for j in 0..size {
-            let mut product = FieldElement::one();
-            for factor_eval in &self.factor_evals {
-                product *= factor_eval[j].clone();
-            }
-            sum += product;
-        }
-        sum
+        compute_initial_sum_product(&self.factor_evals)
     }
 
     #[cfg(feature = "parallel")]
@@ -130,20 +103,15 @@ where
     }
 
     /// Executes a round of the Sum-Check protocol (parallelized).
-    pub fn round(
+    fn round_impl(
         &mut self,
         r_prev: Option<&FieldElement<F>>,
     ) -> Result<Polynomial<FieldElement<F>>, ProverError> {
-        // Apply previous challenge if provided
         if let Some(r) = r_prev {
             self.apply_challenge(r)?;
         }
 
-        if self.current_round >= self.num_vars {
-            return Err(ProverError::InvalidState(
-                "All variables already fixed, no more rounds to run.".to_string(),
-            ));
-        }
+        check_round_bounds(self.current_round, self.num_vars)?;
 
         let current_size = 1 << (self.num_vars - self.current_round);
         let half = current_size / 2;
@@ -160,7 +128,6 @@ where
         #[cfg(not(feature = "parallel"))]
         let evaluations = self.compute_round_poly_sequential(half, num_eval_points);
 
-        // Interpolate to get the polynomial
         let eval_points: Vec<FieldElement<F>> = (0..num_eval_points)
             .map(|i| FieldElement::from(i as u64))
             .collect();
@@ -269,7 +236,6 @@ where
     #[cfg(feature = "parallel")]
     fn apply_challenge_parallel(&mut self, r: &FieldElement<F>, half: usize) {
         for factor_eval in &mut self.factor_evals {
-            // Compute new values in parallel
             let new_evals: Vec<FieldElement<F>> = (0..half)
                 .into_par_iter()
                 .map(|k| {
@@ -279,10 +245,34 @@ where
                 })
                 .collect();
 
-            // Replace with new values
             factor_eval.clear();
             factor_eval.extend(new_evals);
         }
+    }
+}
+
+impl<F: IsField> SumcheckProver<F> for ParallelProver<F>
+where
+    F::BaseType: Send + Sync,
+    FieldElement<F>: Clone + Mul<Output = FieldElement<F>> + Send + Sync,
+{
+    fn num_vars(&self) -> usize {
+        self.num_vars
+    }
+
+    fn num_factors(&self) -> usize {
+        self.factor_evals.len()
+    }
+
+    fn compute_initial_sum(&self) -> FieldElement<F> {
+        self.compute_initial_sum_impl()
+    }
+
+    fn round(
+        &mut self,
+        r_prev: Option<&FieldElement<F>>,
+    ) -> Result<Polynomial<FieldElement<F>>, ProverError> {
+        self.round_impl(r_prev)
     }
 }
 
@@ -296,46 +286,9 @@ where
     F::BaseType: Send + Sync,
     FieldElement<F>: Clone + Mul<Output = FieldElement<F>> + ByteConversion + Send + Sync,
 {
-    let mut prover = ParallelProver::new(factors.clone())?;
-    let num_vars = prover.num_vars();
-
-    let claimed_sum = prover.compute_initial_sum();
-
-    let mut transcript = DefaultTranscript::<F>::default();
-    transcript.append_bytes(b"initial_sum");
-    transcript.append_felt(&FieldElement::from(num_vars as u64));
-    transcript.append_felt(&FieldElement::from(factors.len() as u64));
-    transcript.append_felt(&claimed_sum);
-
-    let mut proof_polys = Vec::with_capacity(num_vars);
-    let mut current_challenge: Option<FieldElement<F>> = None;
-
-    for j in 0..num_vars {
-        let g_j = prover.round(current_challenge.as_ref())?;
-
-        let round_label = format!("round_{j}_poly");
-        transcript.append_bytes(round_label.as_bytes());
-
-        let coeffs = g_j.coefficients();
-        transcript.append_bytes(&(coeffs.len() as u64).to_be_bytes());
-        if coeffs.is_empty() {
-            transcript.append_felt(&FieldElement::zero());
-        } else {
-            for coeff in coeffs {
-                transcript.append_felt(coeff);
-            }
-        }
-
-        proof_polys.push(g_j);
-
-        if j < num_vars - 1 {
-            current_challenge = Some(transcript.draw_felt());
-        } else {
-            current_challenge = None;
-        }
-    }
-
-    Ok((claimed_sum, proof_polys))
+    let num_factors = factors.len();
+    let mut prover = ParallelProver::new(factors)?;
+    run_sumcheck_protocol(&mut prover, num_factors)
 }
 
 // ============================================================================
@@ -367,23 +320,10 @@ where
 {
     /// Creates a new FastProver with precomputed differences.
     pub fn new(factors: Vec<DenseMultilinearPolynomial<F>>) -> Result<Self, ProverError> {
-        if factors.is_empty() {
-            return Err(ProverError::FactorMismatch(
-                "At least one polynomial factor is required.".to_string(),
-            ));
-        }
-
-        let num_vars = factors[0].num_vars();
-        if factors.iter().any(|p| p.num_vars() != num_vars) {
-            return Err(ProverError::FactorMismatch(
-                "All factors must have the same number of variables.".to_string(),
-            ));
-        }
-
+        let num_vars = validate_factors(&factors)?;
         let num_factors = factors.len();
         let half = 1 << (num_vars - 1);
 
-        // Precompute the differences for round 0
         let mut factor_evals_0 = Vec::with_capacity(num_factors);
         let mut factor_diffs = Vec::with_capacity(num_factors);
 
@@ -404,11 +344,6 @@ where
             factor_diffs,
             current_round: 0,
         })
-    }
-
-    /// Returns the number of variables.
-    pub fn num_vars(&self) -> usize {
-        self.num_vars
     }
 
     /// Computes the initial claimed sum using precomputed values.
@@ -480,20 +415,15 @@ where
     }
 
     /// Executes a round using the precomputed differences.
-    pub fn round(
+    fn round_impl(
         &mut self,
         r_prev: Option<&FieldElement<F>>,
     ) -> Result<Polynomial<FieldElement<F>>, ProverError> {
-        // Apply previous challenge
         if let Some(r) = r_prev {
             self.apply_challenge(r)?;
         }
 
-        if self.current_round >= self.num_vars {
-            return Err(ProverError::InvalidState(
-                "All variables already fixed, no more rounds to run.".to_string(),
-            ));
-        }
+        check_round_bounds(self.current_round, self.num_vars)?;
 
         let half = 1 << (self.num_vars - self.current_round - 1);
         let num_eval_points = self.num_factors + 1;
@@ -608,13 +538,11 @@ where
     #[cfg(feature = "parallel")]
     fn apply_challenge_parallel(&mut self, r: &FieldElement<F>, current_half: usize, new_half: usize) {
         for f in 0..self.num_factors {
-            // Compute updated evals in parallel
             let new_evals: Vec<FieldElement<F>> = (0..current_half)
                 .into_par_iter()
                 .map(|k| &self.factor_evals_0[f][k] + r * &self.factor_diffs[f][k])
                 .collect();
 
-            // Compute new diffs from updated evals
             let new_diffs: Vec<FieldElement<F>> = (0..new_half)
                 .into_par_iter()
                 .map(|k| &new_evals[k + new_half] - &new_evals[k])
@@ -626,6 +554,38 @@ where
     }
 }
 
+impl<F: IsField> SumcheckProver<F> for FastProver<F>
+where
+    F::BaseType: Send + Sync,
+    FieldElement<F>: Clone + Mul<Output = FieldElement<F>> + Send + Sync,
+{
+    fn num_vars(&self) -> usize {
+        self.num_vars
+    }
+
+    fn num_factors(&self) -> usize {
+        self.num_factors
+    }
+
+    fn compute_initial_sum(&self) -> FieldElement<F> {
+        let half = 1 << (self.num_vars - 1);
+
+        #[cfg(feature = "parallel")]
+        if half >= PARALLEL_THRESHOLD {
+            return self.compute_initial_sum_parallel(half);
+        }
+
+        self.compute_initial_sum_sequential(half)
+    }
+
+    fn round(
+        &mut self,
+        r_prev: Option<&FieldElement<F>>,
+    ) -> Result<Polynomial<FieldElement<F>>, ProverError> {
+        self.round_impl(r_prev)
+    }
+}
+
 /// Proves a sumcheck using the fast prover with precomputation.
 pub fn prove_fast<F>(factors: Vec<DenseMultilinearPolynomial<F>>) -> ProverOutput<F>
 where
@@ -633,46 +593,9 @@ where
     F::BaseType: Send + Sync,
     FieldElement<F>: Clone + Mul<Output = FieldElement<F>> + ByteConversion + Send + Sync,
 {
-    let mut prover = FastProver::new(factors.clone())?;
-    let num_vars = prover.num_vars();
-
-    let claimed_sum = prover.compute_initial_sum();
-
-    let mut transcript = DefaultTranscript::<F>::default();
-    transcript.append_bytes(b"initial_sum");
-    transcript.append_felt(&FieldElement::from(num_vars as u64));
-    transcript.append_felt(&FieldElement::from(factors.len() as u64));
-    transcript.append_felt(&claimed_sum);
-
-    let mut proof_polys = Vec::with_capacity(num_vars);
-    let mut current_challenge: Option<FieldElement<F>> = None;
-
-    for j in 0..num_vars {
-        let g_j = prover.round(current_challenge.as_ref())?;
-
-        let round_label = format!("round_{j}_poly");
-        transcript.append_bytes(round_label.as_bytes());
-
-        let coeffs = g_j.coefficients();
-        transcript.append_bytes(&(coeffs.len() as u64).to_be_bytes());
-        if coeffs.is_empty() {
-            transcript.append_felt(&FieldElement::zero());
-        } else {
-            for coeff in coeffs {
-                transcript.append_felt(coeff);
-            }
-        }
-
-        proof_polys.push(g_j);
-
-        if j < num_vars - 1 {
-            current_challenge = Some(transcript.draw_felt());
-        } else {
-            current_challenge = None;
-        }
-    }
-
-    Ok((claimed_sum, proof_polys))
+    let num_factors = factors.len();
+    let mut prover = FastProver::new(factors)?;
+    run_sumcheck_protocol(&mut prover, num_factors)
 }
 
 #[cfg(test)]

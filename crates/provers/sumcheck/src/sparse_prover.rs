@@ -18,7 +18,7 @@
 //!
 //! ## Implementations Consulted
 //!
-//! - **a]16z/jolt**: <https://github.com/a]16z/jolt>
+//! - **a16z/jolt**: <https://github.com/a16z/jolt>
 //!   Lasso/Jolt implementation with sparse polynomial handling
 //!
 //! - **microsoft/Spartan2**: <https://github.com/microsoft/Spartan2>
@@ -32,10 +32,8 @@
 //! The key insight is that for sparse polynomials, we only need to track
 //! non-zero entries and can collapse them efficiently when applying challenges.
 
+use crate::common::{check_round_bounds, run_sumcheck_protocol, validate_num_vars, SumcheckProver};
 use crate::prover::{ProverError, ProverOutput};
-use crate::Channel;
-use lambdaworks_crypto::fiat_shamir::default_transcript::DefaultTranscript;
-use lambdaworks_crypto::fiat_shamir::is_transcript::IsTranscript;
 use lambdaworks_math::{
     field::{
         element::FieldElement,
@@ -96,11 +94,7 @@ where
         num_vars: usize,
         entries: Vec<(usize, FieldElement<F>)>,
     ) -> Result<Self, ProverError> {
-        if num_vars == 0 {
-            return Err(ProverError::FactorMismatch(
-                "Number of variables must be at least 1.".to_string(),
-            ));
-        }
+        validate_num_vars(num_vars)?;
 
         let sparse_entries: Vec<SparseEntry<F>> = entries
             .into_iter()
@@ -149,23 +143,15 @@ where
     }
 
     /// Executes a round of the sparse sumcheck protocol.
-    ///
-    /// The round polynomial g_j(X) is computed by grouping entries based on
-    /// the value of the first variable (bit 0 vs bit 1), then interpolating.
-    pub fn round(
+    fn round_impl(
         &mut self,
         r_prev: Option<&FieldElement<F>>,
     ) -> Result<Polynomial<FieldElement<F>>, ProverError> {
-        // Apply previous challenge: collapse entries by fixing first variable
         if let Some(r) = r_prev {
             self.apply_challenge(r);
         }
 
-        if self.current_round >= self.total_vars {
-            return Err(ProverError::InvalidState(
-                "All variables already fixed.".to_string(),
-            ));
-        }
+        check_round_bounds(self.current_round, self.total_vars)?;
 
         if self.remaining_vars == 0 {
             return Err(ProverError::InvalidState(
@@ -173,14 +159,10 @@ where
             ));
         }
 
-        // Compute round polynomial by evaluating at t=0 and t=1
-        // g(t) = sum over suffix of [val_0(suffix) + t * (val_1(suffix) - val_0(suffix))]
-        //      = sum_0 + t * (sum_1 - sum_0)
         let (sum_0, sum_1) = self.compute_round_sums();
 
         self.current_round += 1;
 
-        // Interpolate: polynomial is sum_0 + (sum_1 - sum_0) * X
         let eval_points = vec![FieldElement::zero(), FieldElement::one()];
         let evaluations = vec![sum_0, sum_1];
 
@@ -281,6 +263,34 @@ where
     }
 }
 
+impl<F: IsField> SumcheckProver<F> for SparseProver<F>
+where
+    F::BaseType: Send + Sync,
+    FieldElement<F>: Clone + Mul<Output = FieldElement<F>>,
+{
+    fn num_vars(&self) -> usize {
+        self.total_vars
+    }
+
+    fn num_factors(&self) -> usize {
+        1
+    }
+
+    fn compute_initial_sum(&self) -> FieldElement<F> {
+        self.entries
+            .iter()
+            .map(|e| e.val.clone())
+            .fold(FieldElement::zero(), |a, b| a + b)
+    }
+
+    fn round(
+        &mut self,
+        r_prev: Option<&FieldElement<F>>,
+    ) -> Result<Polynomial<FieldElement<F>>, ProverError> {
+        self.round_impl(r_prev)
+    }
+}
+
 /// Proves a sumcheck for a single sparse polynomial.
 ///
 /// Time complexity: O(n * k) where k is the number of non-zero entries.
@@ -294,39 +304,7 @@ where
     FieldElement<F>: Clone + Mul<Output = FieldElement<F>> + ByteConversion,
 {
     let mut prover = SparseProver::new(num_vars, sparse_evals)?;
-
-    let claimed_sum = prover.compute_initial_sum();
-
-    // Use same transcript format as standard prover for compatibility
-    let mut transcript = DefaultTranscript::<F>::default();
-    transcript.append_bytes(b"initial_sum");
-    transcript.append_felt(&FieldElement::from(num_vars as u64));
-    transcript.append_felt(&FieldElement::from(1u64)); // num_factors = 1
-    transcript.append_felt(&claimed_sum);
-
-    let mut proof_polys = Vec::with_capacity(num_vars);
-    let mut current_challenge: Option<FieldElement<F>> = None;
-
-    for j in 0..num_vars {
-        let g_j = prover.round(current_challenge.as_ref())?;
-
-        let round_label = format!("round_{j}_poly");
-        transcript.append_bytes(round_label.as_bytes());
-
-        let coeffs = g_j.coefficients();
-        transcript.append_bytes(&(coeffs.len() as u64).to_be_bytes());
-        for coeff in coeffs {
-            transcript.append_felt(coeff);
-        }
-
-        proof_polys.push(g_j);
-
-        if j < num_vars - 1 {
-            current_challenge = Some(transcript.draw_felt());
-        }
-    }
-
-    Ok((claimed_sum, proof_polys))
+    run_sumcheck_protocol(&mut prover, 1)
 }
 
 /// Sparse multi-factor prover for product sumcheck.

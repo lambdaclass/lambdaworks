@@ -26,10 +26,8 @@
 //! For k=2, this gives O(2 * 2^n) time with O(2^(n/2)) = O(sqrt(N)) space,
 //! which is a 650x memory reduction with only ~2x slowdown for n=28.
 
+use crate::common::{run_sumcheck_protocol, SumcheckProver};
 use crate::prover::{ProverError, ProverOutput};
-use crate::Channel;
-use lambdaworks_crypto::fiat_shamir::default_transcript::DefaultTranscript;
-use lambdaworks_crypto::fiat_shamir::is_transcript::IsTranscript;
 use lambdaworks_math::{
     field::{
         element::FieldElement,
@@ -83,17 +81,16 @@ where
         let num_vars = poly.num_vars();
 
         if num_stages == 0 || num_stages > num_vars {
-            return Err(ProverError::InvalidState(
-                format!("num_stages must be between 1 and {}", num_vars),
-            ));
+            return Err(ProverError::InvalidState(format!(
+                "num_stages must be between 1 and {}",
+                num_vars
+            )));
         }
 
         let rounds_per_stage = num_vars.div_ceil(num_stages);
-
         let original_evals = poly.evals().clone();
-
-        // Compute initial stage table
-        let stage_table = Self::compute_stage_table(&original_evals, num_vars, 0, rounds_per_stage, &[]);
+        let stage_table =
+            Self::compute_stage_table(&original_evals, num_vars, 0, rounds_per_stage, &[]);
 
         Ok(Self {
             num_vars,
@@ -107,18 +104,13 @@ where
         })
     }
 
-    /// Returns the number of variables.
-    pub fn num_vars(&self) -> usize {
-        self.num_vars
-    }
-
     /// Returns the current memory usage (number of field elements in table).
     pub fn memory_usage(&self) -> usize {
         self.stage_table.len()
     }
 
     /// Computes the initial sum over the boolean hypercube.
-    pub fn compute_initial_sum(&self) -> FieldElement<F> {
+    fn compute_initial_sum_impl(&self) -> FieldElement<F> {
         self.original_evals
             .iter()
             .cloned()
@@ -183,23 +175,19 @@ where
     }
 
     /// Executes a round of the sumcheck protocol.
-    pub fn round(
+    fn round_impl(
         &mut self,
         r_prev: Option<&FieldElement<F>>,
     ) -> Result<Polynomial<FieldElement<F>>, ProverError> {
         let current_round = self.challenges.len();
 
-        // Apply previous challenge
         if let Some(r) = r_prev {
             self.challenges.push(r.clone());
-
-            // Check if we need to move to next stage
             self.round_in_stage += 1;
+
             if self.round_in_stage >= self.rounds_per_stage && current_round < self.num_vars - 1 {
                 self.current_stage += 1;
                 self.round_in_stage = 0;
-
-                // Recompute stage table with accumulated challenges
                 self.stage_table = Self::compute_stage_table(
                     &self.original_evals,
                     self.num_vars,
@@ -208,7 +196,6 @@ where
                     &self.challenges,
                 );
             } else {
-                // Update stage table within current stage
                 self.update_stage_table(r);
             }
         }
@@ -219,16 +206,12 @@ where
             ));
         }
 
-        // Compute round polynomial from stage table
         let evaluations = self.compute_round_from_table();
 
-        let eval_points: Vec<FieldElement<F>> = (0..2)
-            .map(|i| FieldElement::from(i as u64))
-            .collect();
+        let eval_points: Vec<FieldElement<F>> =
+            (0..2).map(|i| FieldElement::from(i as u64)).collect();
 
-        let poly = Polynomial::interpolate(&eval_points, &evaluations)?;
-
-        Ok(poly)
+        Polynomial::interpolate(&eval_points, &evaluations).map_err(ProverError::InterpolationError)
     }
 
     /// Updates the stage table after receiving a challenge (within a stage).
@@ -254,11 +237,9 @@ where
         let half = self.stage_table.len() / 2;
 
         if half == 0 {
-            // Last round: just return the single value
             return vec![self.stage_table[0].clone(), self.stage_table[0].clone()];
         }
 
-        // Sum over pairs
         let mut sum_0 = FieldElement::zero();
         let mut sum_1 = FieldElement::zero();
 
@@ -268,6 +249,31 @@ where
         }
 
         vec![sum_0, sum_1]
+    }
+}
+
+impl<F: IsField> SumcheckProver<F> for BlendyProver<F>
+where
+    F::BaseType: Send + Sync,
+    FieldElement<F>: Clone + Mul<Output = FieldElement<F>>,
+{
+    fn num_vars(&self) -> usize {
+        self.num_vars
+    }
+
+    fn num_factors(&self) -> usize {
+        1
+    }
+
+    fn compute_initial_sum(&self) -> FieldElement<F> {
+        self.compute_initial_sum_impl()
+    }
+
+    fn round(
+        &mut self,
+        r_prev: Option<&FieldElement<F>>,
+    ) -> Result<Polynomial<FieldElement<F>>, ProverError> {
+        self.round_impl(r_prev)
     }
 }
 
@@ -284,50 +290,14 @@ where
 /// Recommended values:
 /// - k=2: sqrt(N) memory, 2x time overhead
 /// - k=3: N^(1/3) memory, 3x time overhead
-pub fn prove_blendy<F>(
-    poly: DenseMultilinearPolynomial<F>,
-    num_stages: usize,
-) -> ProverOutput<F>
+pub fn prove_blendy<F>(poly: DenseMultilinearPolynomial<F>, num_stages: usize) -> ProverOutput<F>
 where
     F: IsField + HasDefaultTranscript,
     F::BaseType: Send + Sync,
     FieldElement<F>: Clone + Mul<Output = FieldElement<F>> + ByteConversion,
 {
-    let num_vars = poly.num_vars();
     let mut prover = BlendyProver::new(poly, num_stages)?;
-
-    let claimed_sum = prover.compute_initial_sum();
-
-    // Use same transcript format as standard prover for compatibility
-    let mut transcript = DefaultTranscript::<F>::default();
-    transcript.append_bytes(b"initial_sum");
-    transcript.append_felt(&FieldElement::from(num_vars as u64));
-    transcript.append_felt(&FieldElement::from(1u64)); // num_factors = 1
-    transcript.append_felt(&claimed_sum);
-
-    let mut proof_polys = Vec::with_capacity(num_vars);
-    let mut current_challenge: Option<FieldElement<F>> = None;
-
-    for j in 0..num_vars {
-        let g_j = prover.round(current_challenge.as_ref())?;
-
-        let round_label = format!("round_{j}_poly");
-        transcript.append_bytes(round_label.as_bytes());
-
-        let coeffs = g_j.coefficients();
-        transcript.append_bytes(&(coeffs.len() as u64).to_be_bytes());
-        for coeff in coeffs {
-            transcript.append_felt(coeff);
-        }
-
-        proof_polys.push(g_j);
-
-        if j < num_vars - 1 {
-            current_challenge = Some(transcript.draw_felt());
-        }
-    }
-
-    Ok((claimed_sum, proof_polys))
+    run_sumcheck_protocol(&mut prover, 1)
 }
 
 /// Memory-efficient prover using Blendy with 2 stages (sqrt(N) memory).

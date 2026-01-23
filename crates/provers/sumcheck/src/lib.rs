@@ -1,5 +1,6 @@
 pub mod batched;
 pub mod blendy;
+pub mod common;
 pub mod prover;
 pub mod prover_optimized;
 pub mod prover_parallel;
@@ -26,6 +27,7 @@ pub use batched::{
     prove_batched, verify_batched, BatchedProofOutput, BatchedProver, StructuredBatchedProver,
 };
 pub use blendy::{prove_blendy, prove_memory_efficient, BlendyProver};
+pub use common::SumcheckProver;
 pub use prover::ProverOutput;
 pub use prover::{prove, Prover, ProverError};
 pub use prover_optimized::{prove_optimized, OptimizedProver};

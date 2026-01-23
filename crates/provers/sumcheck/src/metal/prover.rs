@@ -22,10 +22,11 @@
 //! - `apply_challenge`: Updates evaluations with verifier challenge
 //! - `compute_round_sums`: Computes g(0) and g(1) for round polynomial
 
+use crate::common::{
+    apply_challenge_to_evals, check_round_bounds, compute_round_sums_single, run_sumcheck_protocol,
+    validate_factors, SumcheckProver,
+};
 use crate::prover::{ProverError, ProverOutput};
-use crate::Channel;
-use lambdaworks_crypto::fiat_shamir::default_transcript::DefaultTranscript;
-use lambdaworks_crypto::fiat_shamir::is_transcript::IsTranscript;
 use lambdaworks_math::{
     field::{
         element::FieldElement,
@@ -393,15 +394,11 @@ where
     FieldElement<F>: Clone + Mul<Output = FieldElement<F>>,
 {
     /// Creates a new MetalProver.
-    ///
-    /// Automatically determines whether to use GPU based on polynomial size
-    /// and Metal availability.
     pub fn new(poly: DenseMultilinearPolynomial<F>) -> Result<Self, ProverError> {
         let num_vars = poly.num_vars();
         let evals = poly.evals().clone();
         let metal_state = MetalState::new();
 
-        // Use GPU only if available and polynomial is large enough
         let using_gpu = metal_state.is_available() && evals.len() >= metal_state.min_gpu_size();
 
         Ok(Self {
@@ -421,7 +418,6 @@ where
         let num_vars = poly.num_vars();
         let evals = poly.evals().clone();
         let metal_state = MetalState::new();
-
         let using_gpu = prefer_gpu && metal_state.is_available();
 
         Ok(Self {
@@ -433,84 +429,62 @@ where
         })
     }
 
-    /// Returns the number of variables.
-    pub fn num_vars(&self) -> usize {
-        self.num_vars
-    }
-
     /// Returns whether GPU is being used.
     pub fn is_using_gpu(&self) -> bool {
         self.using_gpu
     }
 
-    /// Computes the initial sum over the boolean hypercube.
-    pub fn compute_initial_sum(&self) -> FieldElement<F> {
-        // Always use CPU for initial sum computation with field elements
-        // GPU is more beneficial for the challenge application phase
-        self.compute_initial_sum_cpu()
-    }
-
-    fn compute_initial_sum_cpu(&self) -> FieldElement<F> {
+    fn compute_initial_sum_impl(&self) -> FieldElement<F> {
         self.evals
             .iter()
             .cloned()
             .fold(FieldElement::zero(), |a, b| a + b)
     }
 
-    /// Executes a round of the sumcheck protocol.
-    pub fn round(
+    fn round_impl(
         &mut self,
         r_prev: Option<&FieldElement<F>>,
     ) -> Result<Polynomial<FieldElement<F>>, ProverError> {
-        // Apply previous challenge
         if let Some(r) = r_prev {
-            self.apply_challenge_cpu(r);
+            apply_challenge_to_evals(&mut self.evals, r);
         }
 
-        if self.current_round >= self.num_vars {
-            return Err(ProverError::InvalidState(
-                "All variables already fixed.".to_string(),
-            ));
-        }
+        check_round_bounds(self.current_round, self.num_vars)?;
 
-        let half = self.evals.len() / 2;
-
-        // Compute round sums
-        let (sum_0, sum_1) = self.compute_round_sums_cpu(half);
+        let (sum_0, sum_1) = compute_round_sums_single(&self.evals);
 
         self.current_round += 1;
 
-        // Interpolate round polynomial
         let eval_points = vec![FieldElement::zero(), FieldElement::one()];
         let evaluations = vec![sum_0, sum_1];
 
         Polynomial::interpolate(&eval_points, &evaluations)
             .map_err(ProverError::InterpolationError)
     }
+}
 
-    fn compute_round_sums_cpu(&self, half: usize) -> (FieldElement<F>, FieldElement<F>) {
-        let mut sum_0 = FieldElement::zero();
-        let mut sum_1 = FieldElement::zero();
-
-        for k in 0..half {
-            sum_0 += self.evals[k].clone();
-            sum_1 += self.evals[k + half].clone();
-        }
-
-        (sum_0, sum_1)
+impl<F: IsField> SumcheckProver<F> for MetalProver<F>
+where
+    F::BaseType: Send + Sync,
+    FieldElement<F>: Clone + Mul<Output = FieldElement<F>>,
+{
+    fn num_vars(&self) -> usize {
+        self.num_vars
     }
 
-    fn apply_challenge_cpu(&mut self, r: &FieldElement<F>) {
-        let half = self.evals.len() / 2;
-        let one_minus_r = FieldElement::one() - r;
+    fn num_factors(&self) -> usize {
+        1
+    }
 
-        for k in 0..half {
-            let v0 = &self.evals[k];
-            let v1 = &self.evals[k + half];
-            self.evals[k] = &one_minus_r * v0 + r * v1;
-        }
+    fn compute_initial_sum(&self) -> FieldElement<F> {
+        self.compute_initial_sum_impl()
+    }
 
-        self.evals.truncate(half);
+    fn round(
+        &mut self,
+        r_prev: Option<&FieldElement<F>>,
+    ) -> Result<Polynomial<FieldElement<F>>, ProverError> {
+        self.round_impl(r_prev)
     }
 }
 
@@ -526,41 +500,8 @@ where
     F::BaseType: Send + Sync,
     FieldElement<F>: Clone + Mul<Output = FieldElement<F>> + ByteConversion,
 {
-    let num_vars = poly.num_vars();
     let mut prover = MetalProver::new(poly)?;
-
-    let claimed_sum = prover.compute_initial_sum();
-
-    // Use same transcript format as standard prover for compatibility
-    let mut transcript = DefaultTranscript::<F>::default();
-    transcript.append_bytes(b"initial_sum");
-    transcript.append_felt(&FieldElement::from(num_vars as u64));
-    transcript.append_felt(&FieldElement::from(1u64)); // num_factors = 1
-    transcript.append_felt(&claimed_sum);
-
-    let mut proof_polys = Vec::with_capacity(num_vars);
-    let mut current_challenge: Option<FieldElement<F>> = None;
-
-    for j in 0..num_vars {
-        let g_j = prover.round(current_challenge.as_ref())?;
-
-        let round_label = format!("round_{j}_poly");
-        transcript.append_bytes(round_label.as_bytes());
-
-        let coeffs = g_j.coefficients();
-        transcript.append_bytes(&(coeffs.len() as u64).to_be_bytes());
-        for coeff in coeffs {
-            transcript.append_felt(coeff);
-        }
-
-        proof_polys.push(g_j);
-
-        if j < num_vars - 1 {
-            current_challenge = Some(transcript.draw_felt());
-        }
-    }
-
-    Ok((claimed_sum, proof_polys))
+    run_sumcheck_protocol(&mut prover, 1)
 }
 
 /// Multi-factor Metal prover for product sumcheck.
@@ -588,23 +529,7 @@ where
 {
     /// Creates a new multi-factor Metal prover.
     pub fn new(factors: Vec<DenseMultilinearPolynomial<F>>) -> Result<Self, ProverError> {
-        if factors.is_empty() {
-            return Err(ProverError::FactorMismatch(
-                "At least one polynomial factor is required.".to_string(),
-            ));
-        }
-
-        let num_vars = factors[0].num_vars();
-        for (i, f) in factors.iter().enumerate().skip(1) {
-            if f.num_vars() != num_vars {
-                return Err(ProverError::FactorMismatch(format!(
-                    "Factor {} has {} variables, expected {}",
-                    i,
-                    f.num_vars(),
-                    num_vars
-                )));
-            }
-        }
+        let num_vars = validate_factors(&factors)?;
 
         let factor_evals: Vec<Vec<FieldElement<F>>> =
             factors.into_iter().map(|p| p.evals().clone()).collect();
@@ -622,39 +547,14 @@ where
         })
     }
 
-    /// Returns the number of variables.
-    pub fn num_vars(&self) -> usize {
-        self.num_vars
+    fn compute_initial_sum_impl(&self) -> FieldElement<F> {
+        crate::common::compute_initial_sum_product(&self.factor_evals)
     }
 
-    /// Returns the number of factors.
-    pub fn num_factors(&self) -> usize {
-        self.factor_evals.len()
-    }
-
-    /// Computes the initial sum of products over the hypercube.
-    pub fn compute_initial_sum(&self) -> FieldElement<F> {
-        let size = self.factor_evals[0].len();
-        let mut sum = FieldElement::zero();
-
-        for i in 0..size {
-            let mut product = FieldElement::one();
-            for factor in &self.factor_evals {
-                product *= factor[i].clone();
-            }
-            sum += product;
-        }
-
-        sum
-    }
-
-    /// Executes a round of the sumcheck protocol.
-    #[allow(clippy::needless_range_loop)]
-    pub fn round(
+    fn round_impl(
         &mut self,
         r_prev: Option<&FieldElement<F>>,
     ) -> Result<Polynomial<FieldElement<F>>, ProverError> {
-        // Apply previous challenge to all factors
         if let Some(r) = r_prev {
             let one_minus_r = FieldElement::one() - r;
             for factor in &mut self.factor_evals {
@@ -668,47 +568,44 @@ where
             }
         }
 
-        if self.current_round >= self.num_vars {
-            return Err(ProverError::InvalidState(
-                "All variables already fixed.".to_string(),
-            ));
-        }
+        check_round_bounds(self.current_round, self.num_vars)?;
 
-        let half = self.factor_evals[0].len() / 2;
-        let num_factors = self.factor_evals.len();
-        let num_eval_points = num_factors + 1;
-
-        // Compute evaluations at points 0, 1, ..., d
-        let mut evaluations = vec![FieldElement::zero(); num_eval_points];
-
-        for t in 0..num_eval_points {
-            let t_fe = FieldElement::from(t as u64);
-            let mut sum = FieldElement::zero();
-
-            for k in 0..half {
-                let mut product = FieldElement::one();
-                for factor in &self.factor_evals {
-                    let v0 = &factor[k];
-                    let v1 = &factor[k + half];
-                    // Interpolate: v(t) = v0 + t * (v1 - v0)
-                    let v_t = v0 + &t_fe * &(v1 - v0);
-                    product *= v_t;
-                }
-                sum += product;
-            }
-
-            evaluations[t] = sum;
-        }
+        let evaluations = crate::common::compute_round_poly_product(&self.factor_evals);
+        let num_eval_points = self.factor_evals.len() + 1;
 
         self.current_round += 1;
 
-        // Interpolate
         let eval_points: Vec<FieldElement<F>> = (0..num_eval_points)
             .map(|i| FieldElement::from(i as u64))
             .collect();
 
         Polynomial::interpolate(&eval_points, &evaluations)
             .map_err(ProverError::InterpolationError)
+    }
+}
+
+impl<F: IsField> SumcheckProver<F> for MetalMultiFactorProver<F>
+where
+    F::BaseType: Send + Sync,
+    FieldElement<F>: Clone + Mul<Output = FieldElement<F>>,
+{
+    fn num_vars(&self) -> usize {
+        self.num_vars
+    }
+
+    fn num_factors(&self) -> usize {
+        self.factor_evals.len()
+    }
+
+    fn compute_initial_sum(&self) -> FieldElement<F> {
+        self.compute_initial_sum_impl()
+    }
+
+    fn round(
+        &mut self,
+        r_prev: Option<&FieldElement<F>>,
+    ) -> Result<Polynomial<FieldElement<F>>, ProverError> {
+        self.round_impl(r_prev)
     }
 }
 
@@ -720,40 +617,8 @@ where
     FieldElement<F>: Clone + Mul<Output = FieldElement<F>> + ByteConversion,
 {
     let num_factors = factors.len();
-    let num_vars = factors[0].num_vars();
     let mut prover = MetalMultiFactorProver::new(factors)?;
-
-    let claimed_sum = prover.compute_initial_sum();
-
-    let mut transcript = DefaultTranscript::<F>::default();
-    transcript.append_bytes(b"initial_sum");
-    transcript.append_felt(&FieldElement::from(num_vars as u64));
-    transcript.append_felt(&FieldElement::from(num_factors as u64));
-    transcript.append_felt(&claimed_sum);
-
-    let mut proof_polys = Vec::with_capacity(num_vars);
-    let mut current_challenge: Option<FieldElement<F>> = None;
-
-    for j in 0..num_vars {
-        let g_j = prover.round(current_challenge.as_ref())?;
-
-        let round_label = format!("round_{j}_poly");
-        transcript.append_bytes(round_label.as_bytes());
-
-        let coeffs = g_j.coefficients();
-        transcript.append_bytes(&(coeffs.len() as u64).to_be_bytes());
-        for coeff in coeffs {
-            transcript.append_felt(coeff);
-        }
-
-        proof_polys.push(g_j);
-
-        if j < num_vars - 1 {
-            current_challenge = Some(transcript.draw_felt());
-        }
-    }
-
-    Ok((claimed_sum, proof_polys))
+    run_sumcheck_protocol(&mut prover, num_factors)
 }
 
 /// GPU-accelerated prover for Goldilocks field (64-bit).
