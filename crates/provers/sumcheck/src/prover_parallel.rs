@@ -1,6 +1,20 @@
 //! Parallel Sumcheck Prover with optimizations
 //!
-//! This implementation includes:
+//! # References
+//!
+//! ## Implementations Consulted
+//!
+//! - **arkworks/sumcheck**: <https://github.com/arkworks-rs/sumcheck>
+//!   Parallel iterator patterns for multilinear evaluation
+//!
+//! - **microsoft/Nova**: <https://github.com/microsoft/Nova>
+//!   Efficient parallelization strategies for recursive SNARKs
+//!
+//! - **rayon-rs/rayon**: <https://github.com/rayon-rs/rayon>
+//!   Work-stealing parallelism patterns
+//!
+//! # Features
+//!
 //! 1. Rayon-based parallelization for hypercube summation
 //! 2. Parallel challenge application
 //! 3. Optimized memory access patterns

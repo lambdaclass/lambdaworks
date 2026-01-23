@@ -9,12 +9,25 @@
 //!
 //! # References
 //!
-//! This implementation is inspired by the Spark approach from:
+//! ## Paper
 //!
 //! **"Unlocking the Lookup Singularity with Lasso"**
 //! Srinath Setty, Justin Thaler, and Riad Wahby
 //! ePrint 2023/1216
 //! <https://eprint.iacr.org/2023/1216>
+//!
+//! ## Implementations Consulted
+//!
+//! - **a]16z/jolt**: <https://github.com/a]16z/jolt>
+//!   Lasso/Jolt implementation with sparse polynomial handling
+//!
+//! - **microsoft/Spartan2**: <https://github.com/microsoft/Spartan2>
+//!   Sparse R1CS with efficient memory-checking arguments
+//!
+//! - **nexus-xyz/nexus-zkvm**: <https://github.com/nexus-xyz/nexus-zkvm>
+//!   Production sparse sumcheck for zkVM
+//!
+//! # Algorithm
 //!
 //! The key insight is that for sparse polynomials, we only need to track
 //! non-zero entries and can collapse them efficiently when applying challenges.

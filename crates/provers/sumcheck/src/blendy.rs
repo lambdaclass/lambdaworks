@@ -1,16 +1,23 @@
 //! Blendy: Memory-Efficient Sumcheck Prover
 //!
-//! Blendy: Memory-Efficient Sumcheck Prover
-//!
 //! # References
 //!
-//! This implementation is based on:
+//! ## Paper
 //!
 //! **"A Time-Space Tradeoff for the Sumcheck Prover"**
 //! Alessandro Chiesa, Elisabetta Fedele, and Giacomo Fenzi
 //! ePrint 2024/524
 //! <https://eprint.iacr.org/2024/524>
 //!
+//! ## Implementations Consulted
+//!
+//! - **arkworks/sumcheck**: <https://github.com/arkworks-rs/sumcheck>
+//!   Clean trait abstractions for prover state management
+//!
+//! - **scroll-tech/ceno**: <https://github.com/scroll-tech/ceno>
+//!   Memory-efficient GKR with similar time-space tradeoffs
+//!
+//! # Algorithm
 //!
 //! The algorithm divides n rounds into k stages, achieving:
 //! - Time: O(k * 2^n)

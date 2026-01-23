@@ -2,12 +2,25 @@
 //!
 //! # References
 //!
-//! This implementation is based on the streaming algorithm from:
+//! ## Paper
 //!
 //! **"Efficient RAM and Control Flow in Verifiable Outsourced Computation"**
 //! Vu, Setty, Blumberg, and Walfish (VSBW13)
 //! NDSS 2013 / ePrint 2012/303
 //! <https://eprint.iacr.org/2012/303>
+//!
+//! ## Implementations Consulted
+//!
+//! - **arkworks/sumcheck**: <https://github.com/arkworks-rs/sumcheck>
+//!   Reference implementation with clean API design
+//!
+//! - **microsoft/Spartan**: <https://github.com/microsoft/Spartan>
+//!   Production-quality sumcheck with optimizations for R1CS
+//!
+//! - **HyperPlonk (EspressoSystems)**: <https://github.com/EspressoSystems/hyperplonk>
+//!   Multilinear polynomial commitment and sumcheck integration
+//!
+//! # Algorithm
 //!
 //! The key insight is to maintain working copies of evaluations and update them
 //! in-place after each round, avoiding the O(n·2^n) re-evaluation cost of the

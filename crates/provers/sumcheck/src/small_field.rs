@@ -1,7 +1,10 @@
 //! Small Field Optimizations for Sumcheck
 //!
-//! Implements optimizations for sumcheck over extension fields, based on
+//! Implements optimizations for sumcheck over extension fields.
+//!
 //! # References
+//!
+//! ## Papers
 //!
 //! **"The Sum-Check Protocol over Fields of Small Characteristic"**
 //! Ulrich Haböck
@@ -13,7 +16,19 @@
 //! ePrint 2024/1210
 //! <https://eprint.iacr.org/2024/1210>
 //!
-//! Key techniques:
+//! ## Implementations Consulted
+//!
+//! - **Plonky3**: <https://github.com/Plonky3/Plonky3>
+//!   State-of-the-art small field (BabyBear, Mersenne31) optimizations
+//!
+//! - **binius**: <https://github.com/IrreducibleOSS/binius>
+//!   Binary tower field arithmetic and sumcheck over F_2^k
+//!
+//! - **stwo (StarkWare)**: <https://github.com/starkware-libs/stwo>
+//!   Circle STARK with optimized M31 extension field operations
+//!
+//! # Key Techniques
+//!
 //! 1. Keep multiplications in base field as long as possible
 //! 2. Use Karatsuba-style multiplication to reduce field operations
 //! 3. Batch operations for SIMD-friendly execution

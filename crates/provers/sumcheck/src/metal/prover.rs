@@ -1,6 +1,26 @@
 //! Metal GPU Prover for Sumcheck
 //!
 //! Provides GPU-accelerated sumcheck proving using Apple's Metal API.
+//!
+//! # References
+//!
+//! ## Implementations Consulted
+//!
+//! - **lambdaworks GPU**: <https://github.com/lambdaclass/lambdaworks>
+//!   Metal integration patterns for finite field arithmetic
+//!
+//! - **Icicle (Ingonyama)**: <https://github.com/ingonyama-zk/icicle>
+//!   GPU-accelerated cryptographic primitives (CUDA/Metal)
+//!
+//! - **metal-rs**: <https://github.com/gfx-rs/metal-rs>
+//!   Rust bindings for Apple's Metal API
+//!
+//! # Architecture
+//!
+//! The prover uses three main GPU kernels:
+//! - `parallel_sum`: Computes partial sums across evaluation vectors
+//! - `apply_challenge`: Updates evaluations with verifier challenge
+//! - `compute_round_sums`: Computes g(0) and g(1) for round polynomial
 
 use crate::prover::{ProverError, ProverOutput};
 use crate::Channel;
