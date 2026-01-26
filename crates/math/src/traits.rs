@@ -35,6 +35,37 @@ pub trait AsBytes {
     fn as_bytes(&self) -> alloc::vec::Vec<u8>;
 }
 
+/// Trait for types that can be serialized to bytes.
+/// This is used for merkle tree proofs and similar structures.
+#[cfg(feature = "alloc")]
+pub trait Serializable {
+    /// Serialize the value to a byte vector.
+    fn serialize(&self) -> alloc::vec::Vec<u8>;
+}
+
+/// Blanket implementation: any type that implements AsBytes also implements Serializable
+#[cfg(feature = "alloc")]
+impl<T: AsBytes> Serializable for T {
+    fn serialize(&self) -> alloc::vec::Vec<u8> {
+        self.as_bytes()
+    }
+}
+
+/// Implementation for fixed-size byte arrays commonly used as hash outputs
+#[cfg(feature = "alloc")]
+impl Serializable for [u8; 32] {
+    fn serialize(&self) -> alloc::vec::Vec<u8> {
+        self.to_vec()
+    }
+}
+
+#[cfg(feature = "alloc")]
+impl Serializable for [u8; 64] {
+    fn serialize(&self) -> alloc::vec::Vec<u8> {
+        self.to_vec()
+    }
+}
+
 #[cfg(feature = "alloc")]
 impl AsBytes for u32 {
     fn as_bytes(&self) -> alloc::vec::Vec<u8> {

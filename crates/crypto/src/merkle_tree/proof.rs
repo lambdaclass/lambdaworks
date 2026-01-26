@@ -51,6 +51,15 @@ where
     }
 }
 
+/// Deserialize a proof from bytes.
+///
+/// **Important:** This implementation uses a heuristic to determine node size by attempting
+/// to deserialize nodes from the beginning of the byte slice. It works correctly when:
+/// 1. All nodes have the same fixed size
+/// 2. The byte slice length is exactly divisible by the node size
+///
+/// For variable-size nodes or more robust deserialization, consider using a format
+/// that includes explicit size metadata.
 impl<T> Deserializable for Proof<T>
 where
     T: Deserializable + PartialEq + Eq,
@@ -59,13 +68,51 @@ where
     where
         Self: Sized,
     {
+        if bytes.is_empty() {
+            return Ok(Self {
+                merkle_path: Vec::new(),
+            });
+        }
+
+        // Try to determine node size by attempting to deserialize the first node
+        // with increasing sizes until we find one that works
+        let node_size = find_node_size::<T>(bytes)?;
+
         let mut merkle_path = Vec::new();
-        for elem in bytes[0..].chunks(8) {
-            let node = T::deserialize(elem)?;
-            merkle_path.push(node);
+        for chunk in bytes.chunks(node_size) {
+            if chunk.len() == node_size {
+                let node = T::deserialize(chunk)?;
+                merkle_path.push(node);
+            }
         }
         Ok(Self { merkle_path })
     }
+}
+
+/// Attempts to find the size of a serialized node by trying common sizes.
+/// Returns the first size that successfully deserializes.
+fn find_node_size<T: Deserializable>(bytes: &[u8]) -> Result<usize, DeserializationError> {
+    // Common hash/node sizes: 8 (u64), 32 (SHA-256), 64 (SHA-512)
+    const COMMON_SIZES: [usize; 3] = [8, 32, 64];
+
+    for &size in &COMMON_SIZES {
+        if bytes.len() >= size && bytes.len() % size == 0 {
+            if T::deserialize(&bytes[..size]).is_ok() {
+                return Ok(size);
+            }
+        }
+    }
+
+    // Fallback: try to find any size that works and evenly divides the input
+    for size in 1..=bytes.len() {
+        if bytes.len() % size == 0 {
+            if T::deserialize(&bytes[..size]).is_ok() {
+                return Ok(size);
+            }
+        }
+    }
+
+    Err(DeserializationError::InvalidAmountOfBytes)
 }
 #[cfg(test)]
 mod tests {

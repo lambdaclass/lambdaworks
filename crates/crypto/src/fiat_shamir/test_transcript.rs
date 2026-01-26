@@ -1,13 +1,16 @@
-use super::transcript::Transcript;
-
 /// This transcript will ALWAYS return the exact same value every time it's called.
 /// It is meant for testing only, never use this in production.
+///
+/// Note: This is a simple test transcript that provides deterministic outputs.
+/// It does not implement the full IsTranscript trait as it's designed for basic testing.
 pub struct TestTranscript;
 
-impl Transcript for TestTranscript {
-    fn append(&mut self, _new_data: &[u8]) {}
+impl TestTranscript {
+    /// Append data (no-op for test transcript)
+    pub fn append(&mut self, _new_data: &[u8]) {}
 
-    fn challenge(&mut self) -> [u8; 32] {
+    /// Returns a deterministic challenge (all 1s)
+    pub fn challenge(&mut self) -> [u8; 32] {
         [1; 32]
     }
 }

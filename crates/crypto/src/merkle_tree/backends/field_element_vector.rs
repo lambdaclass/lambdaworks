@@ -37,8 +37,16 @@ where
 
     fn hash_data(input: &Vec<FieldElement<F>>) -> [u8; NUM_BYTES] {
         let mut hasher = D::new();
+        // Domain separation: prefix with "leaf" and the number of elements
+        // This prevents different vectors from colliding if AsBytes produces
+        // variable-length output
+        hasher.update(b"leaf");
+        hasher.update(&(input.len() as u64).to_le_bytes());
         for element in input.iter() {
-            hasher.update(element.as_bytes());
+            let bytes = element.as_bytes();
+            // Include length of each element for additional safety
+            hasher.update(&(bytes.len() as u64).to_le_bytes());
+            hasher.update(&bytes);
         }
         let mut result_hash = [0_u8; NUM_BYTES];
         result_hash.copy_from_slice(&hasher.finalize());
@@ -47,6 +55,8 @@ where
 
     fn hash_new_parent(left: &[u8; NUM_BYTES], right: &[u8; NUM_BYTES]) -> [u8; NUM_BYTES] {
         let mut hasher = D::new();
+        // Domain separation: prefix with "node" to distinguish from leaf hashes
+        hasher.update(b"node");
         hasher.update(left);
         hasher.update(right);
         let mut result_hash = [0_u8; NUM_BYTES];
