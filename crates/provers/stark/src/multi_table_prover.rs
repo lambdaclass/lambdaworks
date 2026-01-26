@@ -28,6 +28,9 @@ where
     FieldElement<F>: AsBytes,
     FieldElement<E>: AsBytes,
 {
+    if airs.is_empty() {
+        return Err(ProvingError::EmptyAirs);
+    }
     let mut proof = None;
     for (air, table) in airs {
         let _ = proof.insert(Prover::<F, E, PI>::prove(air, table, transcript)?);
