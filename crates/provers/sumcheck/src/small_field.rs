@@ -159,7 +159,8 @@ where
                     coeff_row.push(FieldElement::one());
                 } else {
                     // Lagrange coefficient contribution
-                    let diff = FieldElement::<F>::from(i as u64) - FieldElement::<F>::from(j as u64);
+                    let diff =
+                        FieldElement::<F>::from(i as u64) - FieldElement::<F>::from(j as u64);
                     coeff_row.push(diff);
                 }
             }
