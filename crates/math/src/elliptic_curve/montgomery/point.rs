@@ -143,10 +143,13 @@ impl<E: IsMontgomery> IsGroup for MontgomeryProjectivePoint<E> {
                 let num = &x1_square + &x1_square + x1_square + &x1a + x1a + &one;
                 let den = (&b + &b) * &y1;
 
-                // We are using that den != 0 because b and y1 aren't zero.
-                // b != 0 because the cofficient b of a montgomery elliptic curve has to be different from zero.
-                // y1 != 0 because if not, it woould be the case from above: x2 = x1 and y2 + y1 = 0.
-                let div = unsafe { (num / den).unwrap_unchecked() };
+                // The denominator is 2*b*y1, which is non-zero because:
+                // - b ≠ 0: Required for a valid Montgomery curve (see IsMontgomery trait)
+                // - y1 ≠ 0: If y1 = 0, then P = (x, 0) and P = -P, which would have been
+                //   caught by the earlier check (x2 == x1 && y2 + y1 == 0)
+                let div = (num / den).expect(
+                    "Division by zero in point doubling: b must be non-zero for Montgomery curves",
+                );
 
                 let new_x = &div * &div * &b - (&x1 + x2) - a;
                 let new_y = div * (x1 - &new_x) - y1;
@@ -161,7 +164,10 @@ impl<E: IsMontgomery> IsGroup for MontgomeryProjectivePoint<E> {
                 let num = &y2 - &y1;
                 let den = &x2 - &x1;
 
-                let div = unsafe { (num / den).unwrap_unchecked() };
+                // The denominator is x2 - x1, which is non-zero because we already
+                // checked that x1 != x2 (and the P == -Q and P == Q cases are handled above)
+                let div = (num / den)
+                    .expect("Division by zero in point addition: x coordinates should differ");
 
                 let new_x = &div * &div * E::b() - (&x1 + &x2) - E::a();
                 let new_y = div * (x1 - &new_x) - y1;

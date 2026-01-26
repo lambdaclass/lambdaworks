@@ -2,10 +2,25 @@ use crate::elliptic_curve::traits::IsEllipticCurve;
 use crate::field::element::FieldElement;
 use core::fmt::Debug;
 
-/// Trait to add elliptic curves behaviour to a struct.
+/// Trait to add Montgomery elliptic curve behavior to a struct.
+///
+/// A Montgomery curve is defined by the equation: `by² = x³ + ax² + x`
+///
+/// # Requirements
+///
+/// For a valid Montgomery curve, the following must hold:
+/// - `b ≠ 0` (required for the curve to be non-singular)
+/// - `a² ≠ 4` (required for the curve to be non-singular)
+///
+/// The addition formula implementation relies on `b ≠ 0` for correctness.
+/// If `b = 0`, division operations in point addition will fail.
 pub trait IsMontgomery: IsEllipticCurve + Clone + Debug {
+    /// Returns the coefficient `a` of the curve equation `by² = x³ + ax² + x`.
     fn a() -> FieldElement<Self::BaseField>;
 
+    /// Returns the coefficient `b` of the curve equation `by² = x³ + ax² + x`.
+    ///
+    /// **Important**: This must be non-zero for a valid Montgomery curve.
     fn b() -> FieldElement<Self::BaseField>;
 
     /// Evaluates the equation at (x, y).
