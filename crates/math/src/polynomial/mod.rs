@@ -45,7 +45,7 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
     /// Returns a polynomial that interpolates the points with x coordinates and y coordinates given by
     /// `xs` and `ys`.
     /// `xs` and `ys` must be the same length, and `xs` values should be unique. If not, panics.
-    /// In short, it finds P(x) such that P(xs[i]) = ys[i]
+    /// In short, it finds `P(x)` such that `P(xs[i]) = ys[i]`
     pub fn interpolate(
         xs: &[FieldElement<F>],
         ys: &[FieldElement<F>],
@@ -113,8 +113,8 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
             })
     }
 
-    /// Evaluates a polynomial P(t) at a slice of points x
-    /// Returns a vector y such that y[i] = P(input[i])
+    /// Evaluates a polynomial `P(t)` at a slice of points `x`
+    /// Returns a vector `y` such that `y[i] = P(input[i])`
     pub fn evaluate_slice(&self, input: &[FieldElement<F>]) -> Vec<FieldElement<F>> {
         input.iter().map(|x| self.evaluate(x)).collect()
     }
@@ -414,12 +414,12 @@ pub fn pad_with_zero_coefficients<L: IsField, F: IsSubFieldOf<L>>(
     (pa, pb)
 }
 
-/// Computes the composition of polynomials P1(t) and P2(t), that is P1(P2(t))
-/// It uses interpolation to determine the evaluation at points x_i and evaluates
-/// P1(P2(x[i])). The interpolation theorem ensures that we can reconstruct the polynomial
-/// uniquely by interpolation over a suitable number of points
+/// Computes the composition of polynomials `P1(t)` and `P2(t)`, that is `P1(P2(t))`
+/// It uses interpolation to determine the evaluation at points `x_i` and evaluates
+/// `P1(P2(x[i]))`. The interpolation theorem ensures that we can reconstruct the polynomial
+/// uniquely by interpolation over a suitable number of points.
 /// This is an inefficient version, for something more efficient, use FFT for evaluation,
-/// provided the field satisfies the necessary traits
+/// provided the field satisfies the necessary traits.
 pub fn compose<F>(
     poly_1: &Polynomial<FieldElement<F>>,
     poly_2: &Polynomial<FieldElement<F>>,
