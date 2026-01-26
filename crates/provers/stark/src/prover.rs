@@ -55,6 +55,8 @@ impl<
 pub enum ProvingError {
     WrongParameter(String),
     EmptyCommitment,
+    /// No AIRs provided to multi_prove
+    EmptyAirs,
     /// Error during FFT operation
     FFTError(FFTError),
     /// Failed to get primitive root of unity for the given order
