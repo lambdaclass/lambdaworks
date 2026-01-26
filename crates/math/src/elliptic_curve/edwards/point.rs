@@ -109,14 +109,28 @@ impl<E: IsEdwards> IsGroup for EdwardsProjectivePoint<E> {
 
     /// Computes the addition of `self` and `other` using the Edwards curve addition formula.
     ///
-    /// This implementation follows Equation (5.38) from "Moonmath" (page 97).
+    /// This implementation follows Equation (5.38) from "Moonmath" (page 97):
+    /// ```text
+    /// (x1, y1) + (x2, y2) = (
+    ///     (x1*y2 + y1*x2) / (1 + d*x1*x2*y1*y2),
+    ///     (y1*y2 - a*x1*x2) / (1 - d*x1*x2*y1*y2)
+    /// )
+    /// ```
     ///
-    /// # Safety
+    /// # Completeness Guarantee
     ///
-    /// - The function assumes both `self` and `other` are valid points on the curve.
-    /// - The resulting coordinates are computed using a well-defined formula that
-    ///   maintains the elliptic curve invariants.
-    /// - `unwrap()` is safe because the formula guarantees the result is valid.
+    /// For **complete** Edwards curves (where `a` is a square and `d` is a non-square),
+    /// the denominators `(1 + d*x1*x2*y1*y2)` and `(1 - d*x1*x2*y1*y2)` are guaranteed
+    /// to be non-zero for any pair of points on the curve.
+    ///
+    /// This is proven in Theorem 3.3 of <https://eprint.iacr.org/2007/286.pdf>:
+    /// > "If `d` is not a square in `k`, then the denominators [...] are always nonzero."
+    ///
+    /// # Panics
+    ///
+    /// This function will panic if used with a non-complete Edwards curve where the
+    /// denominator becomes zero. The `IsEdwards` trait should only be implemented for
+    /// complete curves.
     fn operate_with(&self, other: &Self) -> Self {
         // This avoids dropping, which in turn saves us from having to clone the coordinates.
         let (s_affine, o_affine) = (self.to_affine(), other.to_affine());
@@ -134,13 +148,18 @@ impl<E: IsEdwards> IsGroup for EdwardsProjectivePoint<E> {
 
         let num_s2 = &y1y2 - E::a() * &x1x2;
         let den_s2 = &one - &dx1x2y1y2;
-        // SAFETY: The creation of the result point is safe because the inputs are always points that belong to the curve.
-        // We are using that den_s1 and den_s2 aren't zero.
-        // See Theorem 3.3 from https://eprint.iacr.org/2007/286.pdf.
-        let x_coord = (&num_s1 / &den_s1).unwrap();
-        let y_coord = (&num_s2 / &den_s2).unwrap();
+
+        // For complete Edwards curves, these divisions are guaranteed to succeed.
+        // See the completeness guarantee documentation above.
+        let x_coord = (&num_s1 / &den_s1).expect(
+            "Division failed: curve may not be complete (d must be a non-square in the field)",
+        );
+        let y_coord = (&num_s2 / &den_s2).expect(
+            "Division failed: curve may not be complete (d must be a non-square in the field)",
+        );
+
         let point = Self::new([x_coord, y_coord, one]);
-        point.unwrap()
+        point.expect("Point construction failed: inputs were valid curve points")
     }
 
     /// Returns the additive inverse of the projective point `p`
