@@ -66,7 +66,7 @@ impl Compress for BN254Curve {
 
     fn decompress_g1_point(input_bytes: &mut [u8]) -> Result<Self::G1Point, Self::Error> {
         // We check that input_bytes has 32 bytes.
-        if !input_bytes.len() == 32 {
+        if input_bytes.len() != 32 {
             return Err(ByteConversionError::InvalidValue);
         }
 
@@ -80,8 +80,12 @@ impl Compress for BN254Curve {
         }
 
         // If first two bits are 01, then the compressed point is the
-        // point at infinity and we return it directly.
+        // point at infinity. Ensure the remaining bits/bytes are zero
+        // to enforce a canonical encoding.
         if prefix_bits == 1_u8 {
+            if (first_byte & 0x3f) != 0 || input_bytes[1..].iter().any(|&b| b != 0) {
+                return Err(ByteConversionError::InvalidValue);
+            }
             return Ok(G1Point::neutral_element());
         }
 
@@ -93,7 +97,9 @@ impl Compress for BN254Curve {
         // We apply the elliptic curve formula to know the y^2 value.
         let y_squared = x.pow(3_u16) + BN254FieldElement::from(3);
 
-        let (y_sqrt_1, y_sqrt_2) = &y_squared.sqrt().ok_or(ByteConversionError::InvalidValue)?;
+        // Use optimized sqrt with addition chain for BN254
+        let (y_sqrt_1, y_sqrt_2) =
+            &sqrt::optimized_sqrt(&y_squared).ok_or(ByteConversionError::InvalidValue)?;
 
         // If the frist two bits are 10, we take the smaller root.
         // If the first two bits are 11, we take the grater one.
@@ -159,7 +165,7 @@ impl Compress for BN254Curve {
 
     #[allow(unused)]
     fn decompress_g2_point(input_bytes: &mut [u8]) -> Result<Self::G2Point, Self::Error> {
-        if !input_bytes.len() == 64 {
+        if input_bytes.len() != 64 {
             return Err(ByteConversionError::InvalidValue);
         }
 
@@ -174,8 +180,12 @@ impl Compress for BN254Curve {
         }
 
         // If the first two bits are 01, then the compressed point is the
-        // point at infinity and we return it directly.
+        // point at infinity. Ensure the remaining bits/bytes are zero
+        // to enforce a canonical encoding.
         if prefix_bits == 1_u8 {
+            if (first_byte & 0x3f) != 0 || input_bytes[1..].iter().any(|&b| b != 0) {
+                return Err(ByteConversionError::InvalidValue);
+            }
             return Ok(Self::G2Point::neutral_element());
         }
 
