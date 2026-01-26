@@ -6,10 +6,11 @@
 //! Run with: cargo run -p frost-signature
 
 use frost_signature::frost::{
-    aggregate_signature, keygen, sign_round1, sign_round2, verify_signature,
+    aggregate_signature, keygen, sign_round1, sign_round2, verify_signature, FrostError,
+    PublicShare,
 };
 
-fn main() {
+fn main() -> Result<(), FrostError> {
     println!("=== FROST 2-of-2 Threshold Signature Demo (RFC 9591) ===\n");
 
     // Step 1: Key Generation (Shamir Secret Sharing)
@@ -45,25 +46,37 @@ fn main() {
     println!("  Combined nonce: R = (D_1 + rho_1*E_1) + (D_2 + rho_2*E_2)");
     println!("  Challenge: c = H(R || Y || message)");
     println!("  Party 1 computes z_1 = d_1 + e_1*rho_1 + lambda_1*s_1*c");
-    let partial1 = sign_round2(&share1, &nonces1, &all_commitments, message);
+    let partial1 = sign_round2(&share1, &nonces1, &all_commitments, message)?;
     println!("  Party 2 computes z_2 = d_2 + e_2*rho_2 + lambda_2*s_2*c");
-    let partial2 = sign_round2(&share2, &nonces2, &all_commitments, message);
+    let partial2 = sign_round2(&share2, &nonces2, &all_commitments, message)?;
     println!("  (lambda_i are Lagrange coefficients: lambda_1=2, lambda_2=-1)\n");
 
     // Step 4: Aggregation
     println!("Step 4: Signature Aggregation");
+    let public_shares = vec![
+        PublicShare {
+            identifier: share1.identifier,
+            public_share: share1.public_share.clone(),
+        },
+        PublicShare {
+            identifier: share2.identifier,
+            public_share: share2.public_share.clone(),
+        },
+    ];
+
     let signature = aggregate_signature(
         &share1.group_public_key,
         &all_commitments,
         &[partial1, partial2],
+        &public_shares,
         message,
-    );
+    )?;
     println!("  Combined signature: (R, z) where z = z_1 + z_2\n");
 
     // Step 5: Verification
     println!("Step 5: Signature Verification");
     println!("  Verifier checks: z*G == R + c*Y");
-    let is_valid = verify_signature(&share1.group_public_key, &signature, message);
+    let is_valid = verify_signature(&share1.group_public_key, &signature, message)?;
 
     if is_valid {
         println!("  Signature is VALID!\n");
@@ -75,7 +88,7 @@ fn main() {
     println!("=== Security Demonstration ===\n");
     println!("Attempting to verify with tampered message...");
     let tampered = "Transfer 1000 tokens to Alice";
-    let tampered_valid = verify_signature(&share1.group_public_key, &signature, tampered);
+    let tampered_valid = verify_signature(&share1.group_public_key, &signature, tampered)?;
     println!(
         "Tampered message verification: {}\n",
         if tampered_valid {
@@ -92,4 +105,6 @@ fn main() {
     println!("  - Lagrange coefficients enable threshold reconstruction");
     println!("  - Domain-separated hashing for cryptographic hygiene");
     println!("  - The signature is indistinguishable from standard Schnorr");
+
+    Ok(())
 }

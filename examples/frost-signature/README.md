@@ -116,6 +116,8 @@ With a single nonce, a malicious party could compute their nonce as $k_{\text{ba
 
 ### Key Functions
 
+
+
 ```rust
 // Generate Shamir secret shares for 2 parties
 let (share1, share2) = keygen();
@@ -128,19 +130,31 @@ let (nonces2, commitment2) = sign_round1(&share2);
 let all_commitments = vec![commitment1, commitment2];
 
 // Round 2: Each party computes their partial signature
-let partial1 = sign_round2(&share1, &nonces1, &all_commitments, message);
-let partial2 = sign_round2(&share2, &nonces2, &all_commitments, message);
+let partial1 = sign_round2(&share1, &nonces1, &all_commitments, message)?;
+let partial2 = sign_round2(&share2, &nonces2, &all_commitments, message)?;
+
+let public_shares = vec![
+    PublicShare {
+        identifier: share1.identifier,
+        public_share: share1.public_share.clone(),
+    },
+    PublicShare {
+        identifier: share2.identifier,
+        public_share: share2.public_share.clone(),
+    },
+];
 
 // Aggregate into final signature
 let signature = aggregate_signature(
     &share1.group_public_key,
     &all_commitments,
     &[partial1, partial2],
+    &public_shares,
     message,
-);
+)?;
 
 // Anyone can verify with just the public key
-assert!(verify_signature(&share1.group_public_key, &signature, message));
+assert!(verify_signature(&share1.group_public_key, &signature, message)?);
 ```
 
 ## Running the Example
