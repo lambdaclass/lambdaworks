@@ -102,9 +102,12 @@ impl ProofOptions {
         })
     }
 
-    /// Checks provable security of proof options given 128 bits of security
+    /// Checks provable security of proof options given a target security level.
     /// This is an approximation. It's stricter than the formula in the paper.
     /// See https://eprint.iacr.org/2021/582.pdf
+    ///
+    /// The security bound is approximately:
+    /// `security >= grinding_factor + log2(blowup_factor) * fri_number_of_queries / 2`
     pub fn new_with_checked_provable_security<F: IsPrimeField>(
         blowup_factor: u8,
         fri_number_of_queries: usize,
@@ -112,12 +115,22 @@ impl ProofOptions {
         grinding_factor: u8,
         security_target: u8,
     ) -> Result<Self, InsecureOptionError> {
+        // Validate blowup_factor is a power of two and at least 2
+        if blowup_factor < 2 || !blowup_factor.is_power_of_two() {
+            return Err(InsecureOptionError::InvalidBlowupFactor);
+        }
+
         Self::check_field_security::<F>(security_target)?;
 
-        let num_bits_blowup_factor = blowup_factor.leading_zeros() as usize;
+        // Use trailing_zeros to get log2(blowup_factor) for power-of-two values
+        // For blowup_factor=4: trailing_zeros=2, for blowup_factor=16: trailing_zeros=4
+        // This works because we validated above that blowup_factor is a power of two
+        let log2_blowup_factor = blowup_factor.trailing_zeros() as usize;
 
+        // Security formula from the paper: security >= grinding + log2(ρ) * q / 2
+        // where ρ is the blowup factor and q is the number of FRI queries
         if (security_target as usize)
-            < grinding_factor as usize + num_bits_blowup_factor * fri_number_of_queries / 2
+            < grinding_factor as usize + log2_blowup_factor * fri_number_of_queries / 2
         {
             return Err(InsecureOptionError::LowSecurityBits);
         }
