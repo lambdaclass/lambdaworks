@@ -1,6 +1,6 @@
-use crate::errors::CreationError;
 #[cfg(feature = "alloc")]
 use crate::errors::ByteConversionError;
+use crate::errors::CreationError;
 use crate::field::errors::FieldError;
 use crate::field::traits::IsField;
 #[cfg(feature = "alloc")]
