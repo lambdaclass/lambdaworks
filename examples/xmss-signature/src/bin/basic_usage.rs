@@ -23,15 +23,18 @@ fn main() {
 
     // Generate seed (in production, use a secure RNG!)
     let mut seed = [0u8; 96];
-    for i in 0..96 {
-        seed[i] = (i as u8).wrapping_mul(17).wrapping_add(42);
+    for (i, byte) in seed.iter_mut().enumerate() {
+        *byte = (i as u8).wrapping_mul(17).wrapping_add(42);
     }
 
     let (public_key, mut secret_key) = xmss.keygen(&seed);
 
     println!("    Public key root: {:02x?}...", &public_key.root[..8]);
     println!("    Public seed: {:02x?}...", &public_key.public_seed[..8]);
-    println!("    Remaining signatures: {}", secret_key.remaining_signatures());
+    println!(
+        "    Remaining signatures: {}",
+        secret_key.remaining_signatures()
+    );
     println!();
 
     // Sign first message
@@ -44,15 +47,22 @@ fn main() {
 
     let mut signatures = Vec::new();
     for (i, msg) in messages.iter().enumerate() {
-        let sig = xmss.sign(msg.as_bytes(), &mut secret_key).expect("signing failed");
+        let sig = xmss
+            .sign(msg.as_bytes(), &mut secret_key)
+            .expect("signing failed");
         println!("    Message {}: \"{}\"", i + 1, msg);
         println!("      Signature index: {}", sig.idx);
-        println!("      Signature size: {} bytes",
-            4 + 32 + sig.wots_sig.sig.len() * 32 + sig.auth_path.path.len() * 32);
+        println!(
+            "      Signature size: {} bytes",
+            4 + 32 + sig.wots_sig.sig.len() * 32 + sig.auth_path.path.len() * 32
+        );
         signatures.push(sig);
     }
     println!();
-    println!("    Remaining signatures: {}", secret_key.remaining_signatures());
+    println!(
+        "    Remaining signatures: {}",
+        secret_key.remaining_signatures()
+    );
     println!();
 
     // Verify signatures

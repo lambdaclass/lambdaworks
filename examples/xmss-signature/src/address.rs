@@ -198,10 +198,7 @@ mod tests {
         addr.set_layer(3);
         addr.set_tree(0x123456789ABCDEF0);
 
-        assert_eq!(
-            &addr.data[0..4],
-            &[0x00, 0x00, 0x00, 0x03]
-        );
+        assert_eq!(&addr.data[0..4], &[0x00, 0x00, 0x00, 0x03]);
         assert_eq!(
             &addr.data[4..12],
             &[0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC, 0xDE, 0xF0]

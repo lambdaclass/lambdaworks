@@ -26,19 +26,18 @@ pub trait XmssHasher: Clone + Default {
     /// H function: tree hash for internal nodes
     ///
     /// Computes: H(KEY || M) where M is concatenation of two child nodes
-    fn h(&self, left: &[u8; N], right: &[u8; N], public_seed: &[u8; N], address: &Address)
-        -> [u8; N];
+    fn h(
+        &self,
+        left: &[u8; N],
+        right: &[u8; N],
+        public_seed: &[u8; N],
+        address: &Address,
+    ) -> [u8; N];
 
     /// H_msg function: randomized message hashing
     ///
     /// Computes: H_msg(r || root || idx || M)
-    fn h_msg(
-        &self,
-        randomness: &[u8; N],
-        root: &[u8; N],
-        index: u64,
-        message: &[u8],
-    ) -> [u8; N];
+    fn h_msg(&self, randomness: &[u8; N], root: &[u8; N], index: u64, message: &[u8]) -> [u8; N];
 
     /// PRF function: pseudorandom function for key derivation
     ///
@@ -70,7 +69,7 @@ impl Sha256Hasher {
         // Domain separator: toByte(3, 32) - padding to 32 bytes with value 3
         let mut padding = [0u8; 32];
         padding[31] = 3;
-        hasher.update(&padding);
+        hasher.update(padding);
 
         hasher.update(key);
         hasher.update(input);
@@ -92,9 +91,9 @@ impl XmssHasher for Sha256Hasher {
         // Domain separator: toByte(0, 32)
         let mut padding = [0u8; 32];
         padding[31] = 0;
-        hasher.update(&padding);
+        hasher.update(padding);
 
-        hasher.update(&key);
+        hasher.update(key);
         hasher.update(input);
 
         let result = hasher.finalize();
@@ -118,9 +117,9 @@ impl XmssHasher for Sha256Hasher {
         // Domain separator: toByte(1, 32)
         let mut padding = [0u8; 32];
         padding[31] = 1;
-        hasher.update(&padding);
+        hasher.update(padding);
 
-        hasher.update(&key);
+        hasher.update(key);
         hasher.update(left);
         hasher.update(right);
 
@@ -130,19 +129,13 @@ impl XmssHasher for Sha256Hasher {
         output
     }
 
-    fn h_msg(
-        &self,
-        randomness: &[u8; N],
-        root: &[u8; N],
-        index: u64,
-        message: &[u8],
-    ) -> [u8; N] {
+    fn h_msg(&self, randomness: &[u8; N], root: &[u8; N], index: u64, message: &[u8]) -> [u8; N] {
         let mut hasher = Sha256::new();
 
         // Domain separator: toByte(2, 32)
         let mut padding = [0u8; 32];
         padding[31] = 2;
-        hasher.update(&padding);
+        hasher.update(padding);
 
         hasher.update(randomness);
         hasher.update(root);
@@ -150,7 +143,7 @@ impl XmssHasher for Sha256Hasher {
         // Index as 32 bytes (big-endian, zero-padded)
         let mut idx_bytes = [0u8; 32];
         idx_bytes[24..32].copy_from_slice(&index.to_be_bytes());
-        hasher.update(&idx_bytes);
+        hasher.update(idx_bytes);
 
         hasher.update(message);
 

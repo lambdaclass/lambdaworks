@@ -49,11 +49,7 @@ impl XmssTree {
     ///
     /// # Returns
     /// The complete XMSS tree
-    pub fn build<H: XmssHasher>(
-        hasher: &H,
-        secret_seed: &[u8; N],
-        public_seed: &[u8; N],
-    ) -> Self {
+    pub fn build<H: XmssHasher>(hasher: &H, secret_seed: &[u8; N], public_seed: &[u8; N]) -> Self {
         let num_leaves = 1usize << crate::params::H;
 
         // Initialize tree structure
@@ -110,7 +106,11 @@ impl XmssTree {
 
         for height in 0..crate::params::H {
             // Get sibling index
-            let sibling_idx = if idx % 2 == 0 { idx + 1 } else { idx - 1 };
+            let sibling_idx = if idx.is_multiple_of(2) {
+                idx + 1
+            } else {
+                idx - 1
+            };
 
             path.push(self.nodes[height][sibling_idx]);
 
@@ -190,7 +190,7 @@ pub fn compute_root<H: XmssHasher>(
         address.set_tree_index(idx / 2);
 
         // Determine if we're left or right child
-        current = if idx % 2 == 0 {
+        current = if idx.is_multiple_of(2) {
             // We're left child, sibling is right
             hasher.h(&current, &auth_path.path[height], public_seed, &address)
         } else {

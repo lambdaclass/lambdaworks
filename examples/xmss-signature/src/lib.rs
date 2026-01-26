@@ -233,7 +233,9 @@ mod integration_tests {
         let original_message = b"I agree to pay $100";
         let forged_message = b"I agree to pay $1000000";
 
-        let signature = xmss.sign(original_message, &mut sk).expect("signing failed");
+        let signature = xmss
+            .sign(original_message, &mut sk)
+            .expect("signing failed");
 
         // Signature is valid for original message
         assert!(xmss.verify(original_message, &signature, &pk));
@@ -301,10 +303,7 @@ mod integration_tests {
         sk.idx = 1024;
 
         let result = xmss.sign(b"This should fail", &mut sk);
-        assert!(
-            result.is_err(),
-            "Should fail when signatures are exhausted"
-        );
+        assert!(result.is_err(), "Should fail when signatures are exhausted");
         assert_eq!(result.unwrap_err(), XmssError::SignaturesExhausted);
     }
 
@@ -353,8 +352,8 @@ mod integration_tests {
 
         // Step 1: Generate keys (in reality, seed should come from secure RNG)
         let mut seed = [0u8; 96];
-        for i in 0..96 {
-            seed[i] = (i as u8).wrapping_mul(7).wrapping_add(13);
+        for (i, byte) in seed.iter_mut().enumerate() {
+            *byte = (i as u8).wrapping_mul(7).wrapping_add(13);
         }
         let (public_key, mut secret_key) = xmss.keygen(&seed);
 

@@ -64,7 +64,7 @@ impl XmssParams {
     pub fn new(n: usize, w: usize, h: usize) -> Self {
         // Calculate len_1 and len_2 based on n and w
         let log_w = (w as f64).log2() as usize;
-        let len_1 = (8 * n + log_w - 1) / log_w; // ceil(8n / log2(w))
+        let len_1 = (8 * n).div_ceil(log_w); // ceil(8n / log2(w))
         let len_2 = ((((len_1 * (w - 1)) as f64).log2() / log_w as f64).floor() as usize) + 1;
         let len = len_1 + len_2;
 

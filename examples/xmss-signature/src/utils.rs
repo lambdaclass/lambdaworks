@@ -29,7 +29,7 @@ pub fn base_w(input: &[u8], out_len: usize) -> Vec<u32> {
     let mut bits = 0u32;
     let mut total = 0u32;
 
-    for out_idx in 0..out_len {
+    for item in result.iter_mut() {
         if bits == 0 {
             if in_idx < input.len() {
                 total = input[in_idx] as u32;
@@ -40,7 +40,7 @@ pub fn base_w(input: &[u8], out_len: usize) -> Vec<u32> {
             bits = 8;
         }
         bits -= log_w;
-        result[out_idx] = (total >> bits) & ((W as u32) - 1);
+        *item = (total >> bits) & ((W as u32) - 1);
     }
 
     result
@@ -73,7 +73,7 @@ pub fn compute_checksum(msg_base_w: &[u32]) -> Vec<u32> {
     // Convert checksum to bytes then to base-w
     let csum_bytes = csum.to_be_bytes();
     // We need LEN_2 digits, which requires ceil(LEN_2 * log_w / 8) bytes
-    let needed_bytes = (LEN_2 * 4 + 7) / 8;
+    let needed_bytes = (LEN_2 * 4).div_ceil(8);
     let start = 4 - needed_bytes;
     base_w(&csum_bytes[start..], LEN_2)
 }

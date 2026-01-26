@@ -16,11 +16,11 @@
 use sha2::{Digest, Sha256};
 
 /// Reduced parameters for demonstration (smaller than real XMSS but more realistic)
-const TOY_N: usize = 16;        // Hash output size (bytes) - normally 32
-const TOY_W: u32 = 16;          // Winternitz parameter - SAME as real XMSS
-const TOY_LEN_1: usize = 32;    // Message digits (128 bits / 4 bits per digit) - normally 64
-const TOY_LEN_2: usize = 3;     // Checksum digits (same calculation as real XMSS)
-const TOY_LEN: usize = 35;      // Total chains - normally 67
+const TOY_N: usize = 16; // Hash output size (bytes) - normally 32
+const TOY_W: u32 = 16; // Winternitz parameter - SAME as real XMSS
+const TOY_LEN_1: usize = 32; // Message digits (128 bits / 4 bits per digit) - normally 64
+const TOY_LEN_2: usize = 3; // Checksum digits (same calculation as real XMSS)
+const TOY_LEN: usize = 35; // Total chains - normally 67
 
 fn main() {
     println!("{}", "=".repeat(70));
@@ -47,7 +47,7 @@ fn main() {
         .map(|i| {
             let mut h = Sha256::new();
             h.update(seed);
-            h.update(&[i as u8]);
+            h.update([i as u8]);
             let result = h.finalize();
             let mut arr = [0u8; TOY_N];
             arr.copy_from_slice(&result[..TOY_N]);
@@ -56,11 +56,16 @@ fn main() {
         .collect();
 
     // Generate WOTS+ public key (chain endpoints)
-    let public_chains: Vec<[u8; TOY_N]> = secret_chains.iter().enumerate()
+    let public_chains: Vec<[u8; TOY_N]> = secret_chains
+        .iter()
+        .enumerate()
         .map(|(i, start)| chain_hash(start, 0, TOY_W - 1, public_seed, i))
         .collect();
 
-    println!("  Secret key: {} chain starting points", secret_chains.len());
+    println!(
+        "  Secret key: {} chain starting points",
+        secret_chains.len()
+    );
     println!("  Public key: {} chain endpoints", public_chains.len());
     println!();
 
@@ -68,13 +73,19 @@ fn main() {
     println!("[Step 2] Alice signs message M1 (legitimate)...");
     let m1 = b"Transfer 100 to Bob";
     let m1_digits = message_to_digits(m1);
-    let sig1: Vec<[u8; TOY_N]> = secret_chains.iter().enumerate()
+    let sig1: Vec<[u8; TOY_N]> = secret_chains
+        .iter()
+        .enumerate()
         .map(|(i, start)| chain_hash(start, 0, m1_digits[i], public_seed, i))
         .collect();
 
     println!("  M1: \"{}\"", String::from_utf8_lossy(m1));
     println!("  M1 digits: {:?}", m1_digits);
-    println!("  Signature: {} chain values at positions {:?}", sig1.len(), m1_digits);
+    println!(
+        "  Signature: {} chain values at positions {:?}",
+        sig1.len(),
+        m1_digits
+    );
 
     // Verify
     let verified1 = verify_signature(&sig1, &m1_digits, &public_chains, public_seed);
@@ -85,7 +96,9 @@ fn main() {
     println!("[Step 3] DANGER: State rollback! Alice signs M2 with SAME key...");
     let m2 = b"Send 50 to Charlie";
     let m2_digits = message_to_digits(m2);
-    let sig2: Vec<[u8; TOY_N]> = secret_chains.iter().enumerate()
+    let sig2: Vec<[u8; TOY_N]> = secret_chains
+        .iter()
+        .enumerate()
         .map(|(i, start)| chain_hash(start, 0, m2_digits[i], public_seed, i))
         .collect();
 
@@ -106,9 +119,15 @@ fn main() {
         .collect();
 
     println!("  Chain analysis:");
-    println!("  {:>6} {:>8} {:>8} {:>8}", "Chain", "M1 pos", "M2 pos", "Min");
+    println!(
+        "  {:>6} {:>8} {:>8} {:>8}",
+        "Chain", "M1 pos", "M2 pos", "Min"
+    );
     for i in 0..TOY_LEN {
-        println!("  {:>6} {:>8} {:>8} {:>8}", i, m1_digits[i], m2_digits[i], min_positions[i]);
+        println!(
+            "  {:>6} {:>8} {:>8} {:>8}",
+            i, m1_digits[i], m2_digits[i], min_positions[i]
+        );
     }
     println!();
     println!("  From position p, attacker can chain FORWARD to reach positions >= p");
@@ -116,10 +135,15 @@ fn main() {
     println!();
 
     // Calculate probability: P(digit >= min_pos) = (W - min_pos) / W
-    let prob: f64 = min_positions.iter()
+    let prob: f64 = min_positions
+        .iter()
         .map(|&m| (TOY_W - m) as f64 / TOY_W as f64)
         .product();
-    let expected = if prob > 0.0 { (1.0 / prob) as u64 } else { u64::MAX };
+    let expected = if prob > 0.0 {
+        (1.0 / prob) as u64
+    } else {
+        u64::MAX
+    };
 
     println!("  Probability per candidate: {:.4}", prob);
     println!("  Expected attempts: ~{}", expected);
@@ -138,7 +162,9 @@ fn main() {
 
         // Check if ALL digits are >= min_positions (forgeable)
         // Attacker can chain forward from min_pos to reach any position >= min_pos
-        let forgeable = digits.iter().enumerate()
+        let forgeable = digits
+            .iter()
+            .enumerate()
             .all(|(j, &d)| d >= min_positions[j]);
 
         if forgeable {
@@ -169,28 +195,30 @@ fn main() {
     println!("[Step 6] Constructing forged signature...");
     println!();
 
-    let forged_sig: Vec<[u8; TOY_N]> = (0..TOY_LEN).map(|i| {
-        let target = forged_digits[i];
+    let forged_sig: Vec<[u8; TOY_N]> = (0..TOY_LEN)
+        .map(|i| {
+            let target = forged_digits[i];
 
-        // Choose source signature with position <= target (can chain forward to reach target)
-        // Prefer the one closer to target (fewer steps needed)
-        let (source, source_pos) = if m1_digits[i] <= target && m2_digits[i] <= target {
-            // Both work, pick the one closer to target
-            if m1_digits[i] >= m2_digits[i] {
+            // Choose source signature with position <= target (can chain forward to reach target)
+            // Prefer the one closer to target (fewer steps needed)
+            let (source, source_pos) = if m1_digits[i] <= target && m2_digits[i] <= target {
+                // Both work, pick the one closer to target
+                if m1_digits[i] >= m2_digits[i] {
+                    (&sig1[i], m1_digits[i])
+                } else {
+                    (&sig2[i], m2_digits[i])
+                }
+            } else if m1_digits[i] <= target {
                 (&sig1[i], m1_digits[i])
             } else {
                 (&sig2[i], m2_digits[i])
-            }
-        } else if m1_digits[i] <= target {
-            (&sig1[i], m1_digits[i])
-        } else {
-            (&sig2[i], m2_digits[i])
-        };
+            };
 
-        // Chain forward from source position to target position
-        let steps = target - source_pos;
-        chain_hash(source, source_pos, steps, public_seed, i)
-    }).collect();
+            // Chain forward from source position to target position
+            let steps = target - source_pos;
+            chain_hash(source, source_pos, steps, public_seed, i)
+        })
+        .collect();
 
     println!("  For each chain, attacker either:");
     println!("    - Uses sig1 value and chains forward, OR");
@@ -199,7 +227,10 @@ fn main() {
 
     // Show construction
     println!("  Forgery construction:");
-    println!("  {:>6} {:>8} {:>8} {:>8} {:>10}", "Chain", "Target", "Source", "Steps", "From");
+    println!(
+        "  {:>6} {:>8} {:>8} {:>8} {:>10}",
+        "Chain", "Target", "Source", "Steps", "From"
+    );
     for i in 0..TOY_LEN {
         let target = forged_digits[i];
         let (source_pos, from) = if m1_digits[i] <= target && m2_digits[i] <= target {
@@ -214,13 +245,17 @@ fn main() {
             (m2_digits[i], "sig2")
         };
         let steps = target - source_pos;
-        println!("  {:>6} {:>8} {:>8} {:>8} {:>10}", i, target, source_pos, steps, from);
+        println!(
+            "  {:>6} {:>8} {:>8} {:>8} {:>10}",
+            i, target, source_pos, steps, from
+        );
     }
     println!();
 
     // Verify the forged signature
     println!("[Step 7] Verifying forged signature...");
-    let verified_forged = verify_signature(&forged_sig, &forged_digits, &public_chains, public_seed);
+    let verified_forged =
+        verify_signature(&forged_sig, &forged_digits, &public_chains, public_seed);
 
     println!("  Forged signature verifies: {}", verified_forged);
     println!();
@@ -255,14 +290,20 @@ fn main() {
 }
 
 /// Hash chain function: iteratively applies hash
-fn chain_hash(input: &[u8; TOY_N], start: u32, steps: u32, seed: &[u8], chain_idx: usize) -> [u8; TOY_N] {
+fn chain_hash(
+    input: &[u8; TOY_N],
+    start: u32,
+    steps: u32,
+    seed: &[u8],
+    chain_idx: usize,
+) -> [u8; TOY_N] {
     let mut current = *input;
     for step in start..(start + steps) {
         let mut h = Sha256::new();
         h.update(seed);
-        h.update(&[chain_idx as u8]);
-        h.update(&[step as u8]);
-        h.update(&current);
+        h.update([chain_idx as u8]);
+        h.update([step as u8]);
+        h.update(current);
         let result = h.finalize();
         current.copy_from_slice(&result[..TOY_N]);
     }
@@ -282,9 +323,9 @@ fn message_to_digits(msg: &[u8]) -> Vec<u32> {
         let byte_idx = i / 2;
         let digit = if byte_idx < hash.len() {
             if i % 2 == 0 {
-                (hash[byte_idx] >> 4) as u32  // High nibble
+                (hash[byte_idx] >> 4) as u32 // High nibble
             } else {
-                (hash[byte_idx] & 0x0F) as u32  // Low nibble
+                (hash[byte_idx] & 0x0F) as u32 // Low nibble
             }
         } else {
             0
@@ -310,7 +351,7 @@ fn verify_signature(
     sig: &[[u8; TOY_N]],
     msg_digits: &[u32],
     public_key: &[[u8; TOY_N]],
-    seed: &[u8]
+    seed: &[u8],
 ) -> bool {
     // Complete each chain from signature position to end (w-1)
     for (i, (sig_elem, &digit)) in sig.iter().zip(msg_digits.iter()).enumerate() {

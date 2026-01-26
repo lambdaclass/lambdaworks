@@ -161,13 +161,13 @@ pub fn wots_sign<H: XmssHasher>(
 
     let mut sig = Vec::with_capacity(LEN);
 
-    for i in 0..LEN {
+    for (i, &msg_val) in msg_base_w.iter().enumerate().take(LEN) {
         // Generate secret key element
         let sk_i = wots_sk_element(hasher, secret_seed, address, i as u32);
 
         // Chain it msg[i] times
         address.set_chain_address(i as u32);
-        let sig_i = chain(hasher, &sk_i, 0, msg_base_w[i], public_seed, address);
+        let sig_i = chain(hasher, &sk_i, 0, msg_val, public_seed, address);
         sig.push(sig_i);
     }
 
@@ -202,15 +202,15 @@ pub fn wots_pk_from_sig<H: XmssHasher>(
 
     let mut pk = Vec::with_capacity(LEN);
 
-    for i in 0..LEN {
+    for (i, &msg_val) in msg_base_w.iter().enumerate().take(LEN) {
         // Complete the chain from signature value to public key
         // We need (w - 1 - msg[i]) more steps
         address.set_chain_address(i as u32);
-        let steps = (W as u32) - 1 - msg_base_w[i];
+        let steps = (W as u32) - 1 - msg_val;
         let pk_i = chain(
             hasher,
             &signature.sig[i],
-            msg_base_w[i],
+            msg_val,
             steps,
             public_seed,
             address,

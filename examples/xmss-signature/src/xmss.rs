@@ -349,8 +349,8 @@ mod tests {
 
     fn test_seed() -> [u8; 96] {
         let mut seed = [0u8; 96];
-        for i in 0..96 {
-            seed[i] = i as u8;
+        for (i, byte) in seed.iter_mut().enumerate() {
+            *byte = i as u8;
         }
         seed
     }
@@ -483,7 +483,11 @@ mod tests {
 
         // Expected size: 4 + 32 + 67*32 + 10*32 = 4 + 32 + 2144 + 320 = 2500 bytes
         let size = signature.size();
-        assert!(size > 2000 && size < 3000, "Unexpected signature size: {}", size);
+        assert!(
+            size > 2000 && size < 3000,
+            "Unexpected signature size: {}",
+            size
+        );
     }
 
     #[test]
