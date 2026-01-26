@@ -213,7 +213,7 @@ where
         }
 
         let half = 1 << (self.remaining_vars - 1);
-        let one_minus_r = FieldElement::one() - r;
+        let one_minus_r = FieldElement::<F>::one() - r;
 
         // Group entries by their suffix (index with first bit stripped)
         let mut groups: HashMap<usize, (FieldElement<F>, FieldElement<F>)> = HashMap::new();
@@ -382,7 +382,7 @@ where
         // Sum products over all indices
         let mut sum = FieldElement::zero();
         for idx in all_indices {
-            let mut product = FieldElement::one();
+            let mut product = FieldElement::<F>::one();
             let mut all_present = true;
 
             for map in &maps {
@@ -531,7 +531,7 @@ mod tests {
                 entries
                     .iter()
                     .find(|(idx, _)| *idx == i)
-                    .map(|(_, v)| v.clone())
+                    .map(|(_, v)| *v)
                     .unwrap_or(FE::zero())
             })
             .collect();
@@ -557,7 +557,7 @@ mod tests {
                 entries
                     .iter()
                     .find(|(idx, _)| *idx == i)
-                    .map(|(_, v)| v.clone())
+                    .map(|(_, v)| *v)
                     .unwrap_or(FE::zero())
             })
             .collect();
@@ -585,7 +585,7 @@ mod tests {
                 entries
                     .iter()
                     .find(|(idx, _)| *idx == i)
-                    .map(|(_, v)| v.clone())
+                    .map(|(_, v)| *v)
                     .unwrap_or(FE::zero())
             })
             .collect();

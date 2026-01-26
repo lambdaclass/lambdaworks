@@ -351,7 +351,7 @@ fn test_linearity_of_sum() {
 
     let (sum_p, _) = prove_optimized(vec![poly.clone()]).unwrap();
 
-    let scaled_poly = poly * scalar.clone();
+    let scaled_poly = poly * scalar;
     let (sum_scaled, _) = prove_optimized(vec![scaled_poly]).unwrap();
 
     assert_eq!(sum_scaled, sum_p * scalar, "Sum should be linear in scalar");
@@ -579,7 +579,7 @@ fn test_sparse_prover_matches_dense() {
                 entries
                     .iter()
                     .find(|(idx, _)| *idx == i)
-                    .map(|(_, v)| v.clone())
+                    .map(|(_, v)| *v)
                     .unwrap_or(FE::zero())
             })
             .collect();
@@ -774,7 +774,7 @@ fn test_sparse_very_sparse() {
             entries
                 .iter()
                 .find(|(idx, _)| *idx == i)
-                .map(|(_, v)| v.clone())
+                .map(|(_, v)| *v)
                 .unwrap_or(FE::zero())
         })
         .collect();
@@ -790,12 +790,7 @@ fn test_sparse_all_same_value() {
     let num_vars = 4;
     let val = FE::from(42);
 
-    let entries: Vec<(usize, FE)> = vec![
-        (1, val.clone()),
-        (3, val.clone()),
-        (7, val.clone()),
-        (15, val.clone()),
-    ];
+    let entries: Vec<(usize, FE)> = vec![(1, val), (3, val), (7, val), (15, val)];
 
     let (sum, _) = crate::prove_sparse(num_vars, entries).unwrap();
 
@@ -959,7 +954,7 @@ fn test_modified_coefficient() {
         let coeffs = proof[1].coefficients();
         let mut new_coeffs: Vec<FE> = coeffs.to_vec();
         if !new_coeffs.is_empty() {
-            new_coeffs[0] = &new_coeffs[0] + FE::one();
+            new_coeffs[0] += FE::one();
         }
         proof[1] = lambdaworks_math::polynomial::Polynomial::new(&new_coeffs);
     }

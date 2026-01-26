@@ -159,7 +159,7 @@ where
                     if bit == 1 {
                         eq_factor *= challenge.clone();
                     } else {
-                        eq_factor *= FieldElement::one() - challenge;
+                        eq_factor *= FieldElement::<F>::one() - challenge;
                     }
                 }
 

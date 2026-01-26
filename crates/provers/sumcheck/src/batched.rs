@@ -135,7 +135,7 @@ where
 
         // Compute batched sum: c_1 + rho*c_2 + rho^2*c_3 + ...
         let mut batched_sum = FieldElement::zero();
-        let mut rho_power = FieldElement::one();
+        let mut rho_power: FieldElement<F> = FieldElement::one();
         for sum in &individual_sums {
             batched_sum += &rho_power * sum;
             rho_power *= batching_coeff.clone();
@@ -143,7 +143,7 @@ where
 
         // Combine evaluations: f_1 + rho*f_2 + rho^2*f_3 + ...
         let mut combined_evals = vec![FieldElement::zero(); size];
-        let mut rho_power = FieldElement::one();
+        let mut rho_power = FieldElement::<F>::one();
 
         for evals in &instance_evals {
             for (i, eval) in evals.iter().enumerate() {
@@ -191,7 +191,7 @@ where
         // Apply previous challenge
         if let Some(r) = r_prev {
             let half = self.combined_evals.len() / 2;
-            let one_minus_r = FieldElement::one() - r;
+            let one_minus_r = FieldElement::<F>::one() - r;
 
             for k in 0..half {
                 let v0 = &self.combined_evals[k];
@@ -275,7 +275,7 @@ where
             let size = 1 << num_vars;
             let mut sum = FieldElement::zero();
             for i in 0..size {
-                let mut product = FieldElement::one();
+                let mut product: FieldElement<F> = FieldElement::one();
                 for factor in instance {
                     product *= factor.evals()[i].clone();
                 }
@@ -342,7 +342,7 @@ where
 
     // Recompute batched sum
     let mut batched_sum = FieldElement::zero();
-    let mut rho_power = FieldElement::one();
+    let mut rho_power: FieldElement<F> = FieldElement::one();
     for sum in &proof.individual_sums {
         batched_sum += &rho_power * sum;
         rho_power *= proof.batching_coeff.clone();
@@ -408,10 +408,10 @@ where
 
     // Oracle check: verify the final evaluation against combined polynomial
     let mut combined_eval = FieldElement::zero();
-    let mut rho_power = FieldElement::one();
+    let mut rho_power = FieldElement::<F>::one();
 
     for instance in &instances {
-        let mut instance_eval = FieldElement::one();
+        let mut instance_eval = FieldElement::<F>::one();
         for factor in instance {
             let factor_eval = factor
                 .evaluate(challenges.clone())
@@ -516,7 +516,7 @@ where
     pub fn compute_batched_sum(&self) -> FieldElement<F> {
         let individual_sums = self.compute_individual_sums();
         let mut batched_sum = FieldElement::zero();
-        let mut rho_power = FieldElement::one();
+        let mut rho_power: FieldElement<F> = FieldElement::one();
 
         for sum in individual_sums {
             batched_sum += &rho_power * &sum;
@@ -533,7 +533,7 @@ where
     ) -> Result<Polynomial<FieldElement<F>>, ProverError> {
         // Apply challenge to all instances
         if let Some(r) = r_prev {
-            let one_minus_r = FieldElement::one() - r;
+            let one_minus_r = FieldElement::<F>::one() - r;
 
             for evals in &mut self.instance_evals {
                 let half = evals.len() / 2;
@@ -557,11 +557,11 @@ where
         // Compute batched sums at x=0 and x=1
         let mut sum_0 = FieldElement::zero();
         let mut sum_1 = FieldElement::zero();
-        let mut rho_power = FieldElement::one();
+        let mut rho_power = FieldElement::<F>::one();
 
         for evals in &self.instance_evals {
-            let mut instance_sum_0 = FieldElement::zero();
-            let mut instance_sum_1 = FieldElement::zero();
+            let mut instance_sum_0 = FieldElement::<F>::zero();
+            let mut instance_sum_1 = FieldElement::<F>::zero();
 
             for k in 0..half {
                 instance_sum_0 += evals[k].clone();

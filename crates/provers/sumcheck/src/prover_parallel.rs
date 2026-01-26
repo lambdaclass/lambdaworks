@@ -148,11 +148,11 @@ where
         let mut evaluations = vec![FieldElement::zero(); num_eval_points];
 
         for t in 0..num_eval_points {
-            let t_fe = FieldElement::from(t as u64);
+            let t_fe: FieldElement<F> = FieldElement::from(t as u64);
             let mut sum = FieldElement::zero();
 
             for k in 0..half {
-                let mut product = FieldElement::one();
+                let mut product = FieldElement::<F>::one();
 
                 for factor_eval in &self.factor_evals {
                     let p0 = &factor_eval[k];
@@ -362,7 +362,7 @@ where
 
         // Sum products at x_0 = 0
         for k in 0..half {
-            let mut product = FieldElement::one();
+            let mut product: FieldElement<F> = FieldElement::one();
             for f in 0..self.num_factors {
                 product *= self.factor_evals_0[f][k].clone();
             }
@@ -371,7 +371,7 @@ where
 
         // Sum products at x_0 = 1
         for k in 0..half {
-            let mut product = FieldElement::one();
+            let mut product = FieldElement::<F>::one();
             for f in 0..self.num_factors {
                 // eval_1 = eval_0 + diff
                 let eval_1 = &self.factor_evals_0[f][k] + &self.factor_diffs[f][k];
@@ -456,11 +456,11 @@ where
         let mut evaluations = vec![FieldElement::zero(); num_eval_points];
 
         for t in 0..num_eval_points {
-            let t_fe = FieldElement::from(t as u64);
+            let t_fe: FieldElement<F> = FieldElement::from(t as u64);
             let mut sum = FieldElement::zero();
 
             for k in 0..half {
-                let mut product = FieldElement::one();
+                let mut product = FieldElement::<F>::one();
                 for f in 0..self.num_factors {
                     // P(t) = P(0) + t * (P(1) - P(0)) = eval_0 + t * diff
                     let interpolated =

@@ -159,7 +159,7 @@ where
                     coeff_row.push(FieldElement::one());
                 } else {
                     // Lagrange coefficient contribution
-                    let diff = FieldElement::from(i as u64) - FieldElement::from(j as u64);
+                    let diff = FieldElement::<F>::from(i as u64) - FieldElement::<F>::from(j as u64);
                     coeff_row.push(diff);
                 }
             }
@@ -292,7 +292,7 @@ where
 
     #[cfg(feature = "parallel")]
     fn apply_challenge_parallel(&mut self, r: &FieldElement<F>, half: usize) {
-        let one_minus_r = FieldElement::one() - r;
+        let one_minus_r = FieldElement::<F>::one() - r;
 
         let new_evals: Vec<FieldElement<F>> = (0..half)
             .into_par_iter()

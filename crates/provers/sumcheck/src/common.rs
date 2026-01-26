@@ -179,7 +179,7 @@ where
     FieldElement<F>: Clone + Mul<Output = FieldElement<F>>,
 {
     let half = evals.len() / 2;
-    let one_minus_r = FieldElement::one() - r;
+    let one_minus_r = FieldElement::<F>::one() - r;
 
     for k in 0..half {
         let v0 = &evals[k];
@@ -230,12 +230,12 @@ where
 
     let mut evaluations = vec![FieldElement::zero(); num_eval_points];
 
-    for t in 0..num_eval_points {
-        let t_fe = FieldElement::from(t as u64);
+    for (t, eval) in evaluations.iter_mut().enumerate().take(num_eval_points) {
+        let t_fe: FieldElement<F> = FieldElement::from(t as u64);
         let mut sum = FieldElement::zero();
 
         for k in 0..half {
-            let mut product = FieldElement::one();
+            let mut product = FieldElement::<F>::one();
 
             for factor_eval in factor_evals {
                 let p0 = &factor_eval[k];
@@ -247,7 +247,7 @@ where
             sum += product;
         }
 
-        evaluations[t] = sum;
+        *eval = sum;
     }
 
     evaluations
@@ -265,7 +265,7 @@ where
     let mut sum = FieldElement::zero();
 
     for j in 0..size {
-        let mut product = FieldElement::one();
+        let mut product: FieldElement<F> = FieldElement::one();
         for factor_eval in factor_evals {
             product *= factor_eval[j].clone();
         }
@@ -298,7 +298,7 @@ pub fn apply_challenge_to_evals_parallel<F: IsField>(
         return;
     }
 
-    let one_minus_r = FieldElement::one() - r;
+    let one_minus_r = FieldElement::<F>::one() - r;
 
     let new_evals: Vec<FieldElement<F>> = (0..half)
         .into_par_iter()

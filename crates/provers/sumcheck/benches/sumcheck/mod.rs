@@ -199,7 +199,7 @@ pub fn verifier_benchmarks(c: &mut Criterion) {
                 bench.iter(|| {
                     verify(
                         black_box(num_vars),
-                        black_box(claimed_sum.clone()),
+                        black_box(claimed_sum),
                         black_box(proof_polys.clone()),
                         black_box(vec![poly.clone()]),
                     )
@@ -218,7 +218,7 @@ pub fn verifier_benchmarks(c: &mut Criterion) {
                 bench.iter(|| {
                     verify(
                         black_box(num_vars),
-                        black_box(claimed_sum.clone()),
+                        black_box(claimed_sum),
                         black_box(proof_polys.clone()),
                         black_box(vec![poly1.clone(), poly2.clone()]),
                     )
