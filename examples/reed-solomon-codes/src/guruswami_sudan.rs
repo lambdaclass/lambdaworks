@@ -430,8 +430,7 @@ fn find_kernel_vector<F: IsField + Clone>(
         for row in 0..m {
             if row != pivot_row && mat[row][col] != FieldElement::<F>::zero() {
                 let factor = mat[row][col].clone();
-                for (row_elem, pivot_elem) in mat[row][col..n].iter_mut().zip(&pivot_row_data)
-                {
+                for (row_elem, pivot_elem) in mat[row][col..n].iter_mut().zip(&pivot_row_data) {
                     let sub = &factor * pivot_elem;
                     *row_elem = &*row_elem - &sub;
                 }

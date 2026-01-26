@@ -803,9 +803,7 @@ fn find_univariate_roots_with_hints<F: IsField + Clone>(
 
     // First, check all hint values (these are the most likely roots for RS decoding)
     for hint in hint_values {
-        if poly.evaluate(hint) == FieldElement::<F>::zero()
-            && !roots.contains(hint)
-        {
+        if poly.evaluate(hint) == FieldElement::<F>::zero() && !roots.contains(hint) {
             roots.push(hint.clone());
             if roots.len() >= max_roots {
                 return roots;
@@ -857,9 +855,7 @@ fn find_univariate_roots_with_hints<F: IsField + Clone>(
     // Also try negative small elements
     for i in 1..max_search {
         let elem = -FieldElement::<F>::from(i as u64);
-        if poly.evaluate(&elem) == FieldElement::<F>::zero()
-            && !roots.contains(&elem)
-        {
+        if poly.evaluate(&elem) == FieldElement::<F>::zero() && !roots.contains(&elem) {
             roots.push(elem);
             if roots.len() >= max_roots {
                 return roots;

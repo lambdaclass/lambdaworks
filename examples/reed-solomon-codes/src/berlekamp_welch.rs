@@ -320,9 +320,8 @@ fn gaussian_elimination<F: IsField + Clone>(
         for row in 0..n {
             if row != pivot_row && matrix[row][pivot_col] != FieldElement::<F>::zero() {
                 let factor = matrix[row][pivot_col].clone();
-                for (row_elem, pivot_elem) in matrix[row][pivot_col..m]
-                    .iter_mut()
-                    .zip(&pivot_row_data)
+                for (row_elem, pivot_elem) in
+                    matrix[row][pivot_col..m].iter_mut().zip(&pivot_row_data)
                 {
                     let sub = &factor * pivot_elem;
                     *row_elem = &*row_elem - &sub;
