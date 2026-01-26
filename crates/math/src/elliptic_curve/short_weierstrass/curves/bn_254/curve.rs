@@ -59,7 +59,7 @@ impl ShortWeierstrassProjectivePoint<BN254TwistCurve> {
     /// phi morphism used to G2 subgroup check for twisted curve.
     /// We also use phi at the last lines of the Miller Loop of the pairing.
     /// phi(q) = (x^p, y^p, z^p), where (x, y, z) are the projective coordinates of q.
-    /// See https://hackmd.io/@Wimet/ry7z1Xj-2#Subgroup-Checks.
+    /// See <https://hackmd.io/@Wimet/ry7z1Xj-2#Subgroup-Checks>.
     ///
     /// # Safety
     ///
