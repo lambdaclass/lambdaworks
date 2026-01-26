@@ -282,8 +282,13 @@ fn gaussian_elimination<F: IsField + Clone>(
 
         // Find pivot (partial pivoting)
         let mut max_row = pivot_row;
-        for row in (pivot_row + 1)..n {
-            if matrix[row][pivot_col] != FieldElement::<F>::zero() {
+        for (row, row_data) in matrix
+            .iter()
+            .enumerate()
+            .skip(pivot_row + 1)
+            .take(n - pivot_row - 1)
+        {
+            if row_data[pivot_col] != FieldElement::<F>::zero() {
                 max_row = row;
                 break;
             }
@@ -305,18 +310,22 @@ fn gaussian_elimination<F: IsField + Clone>(
         let pivot = matrix[pivot_row][pivot_col].clone();
         let pivot_inv = pivot.inv().map_err(|_| DecodingError::NoSolution)?;
 
-        for j in pivot_col..m {
-            matrix[pivot_row][j] = &matrix[pivot_row][j] * &pivot_inv;
+        for elem in &mut matrix[pivot_row][pivot_col..m] {
+            *elem = &*elem * &pivot_inv;
         }
         rhs[pivot_row] = &rhs[pivot_row] * &pivot_inv;
 
         // Eliminate column
+        let pivot_row_data: Vec<_> = matrix[pivot_row][pivot_col..m].to_vec();
         for row in 0..n {
             if row != pivot_row && matrix[row][pivot_col] != FieldElement::<F>::zero() {
                 let factor = matrix[row][pivot_col].clone();
-                for j in pivot_col..m {
-                    let sub = &factor * &matrix[pivot_row][j];
-                    matrix[row][j] = &matrix[row][j] - &sub;
+                for (row_elem, pivot_elem) in matrix[row][pivot_col..m]
+                    .iter_mut()
+                    .zip(&pivot_row_data)
+                {
+                    let sub = &factor * pivot_elem;
+                    *row_elem = &*row_elem - &sub;
                 }
                 let sub = &factor * &rhs[pivot_row];
                 rhs[row] = &rhs[row] - &sub;
@@ -327,23 +336,20 @@ fn gaussian_elimination<F: IsField + Clone>(
     }
 
     // Check for inconsistency (non-zero RHS with zero row)
-    for row in m..n {
-        if rhs[row] != FieldElement::<F>::zero() {
-            return Err(DecodingError::NoSolution);
-        }
+    if rhs[m..n]
+        .iter()
+        .any(|elem| *elem != FieldElement::<F>::zero())
+    {
+        return Err(DecodingError::NoSolution);
     }
 
     // Back substitution (matrix should be in reduced row echelon form)
     let mut solution = vec![FieldElement::<F>::zero(); m];
     for row in (0..m.min(n)).rev() {
         // Find the pivot column for this row
-        let mut pivot_col = None;
-        for col in 0..m {
-            if matrix[row][col] == FieldElement::<F>::one() {
-                pivot_col = Some(col);
-                break;
-            }
-        }
+        let pivot_col = matrix[row]
+            .iter()
+            .position(|elem| *elem == FieldElement::<F>::one());
 
         if let Some(col) = pivot_col {
             solution[col] = rhs[row].clone();
@@ -439,7 +445,7 @@ mod tests {
             let corrupted = introduce_errors_at_positions(&codeword, &error_positions);
 
             let result = decode(&code, &corrupted, None)
-                .expect(&format!("Should decode with {} errors", num_errors));
+                .unwrap_or_else(|_| panic!("Should decode with {} errors", num_errors));
 
             assert_eq!(
                 result.polynomial.coefficients(),

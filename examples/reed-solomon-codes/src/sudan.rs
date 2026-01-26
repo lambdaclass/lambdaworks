@@ -242,17 +242,20 @@ fn find_kernel_vector<F: IsField + Clone>(
         // Scale pivot row
         let pivot = mat[pivot_row][col].clone();
         let pivot_inv = pivot.inv().unwrap_or_else(|_| FieldElement::<F>::one());
-        for j in col..n {
-            mat[pivot_row][j] = &mat[pivot_row][j] * &pivot_inv;
+        for elem in &mut mat[pivot_row][col..n] {
+            *elem = &*elem * &pivot_inv;
         }
 
         // Eliminate other rows
+        let pivot_row_data: Vec<_> = mat[pivot_row][col..n].to_vec();
+        #[allow(clippy::needless_range_loop)]
         for row in 0..m {
             if row != pivot_row && mat[row][col] != FieldElement::<F>::zero() {
                 let factor = mat[row][col].clone();
-                for j in col..n {
-                    let sub = &factor * &mat[pivot_row][j];
-                    mat[row][j] = &mat[row][j] - &sub;
+                for (row_elem, pivot_elem) in mat[row][col..n].iter_mut().zip(&pivot_row_data)
+                {
+                    let sub = &factor * pivot_elem;
+                    *row_elem = &*row_elem - &sub;
                 }
             }
         }

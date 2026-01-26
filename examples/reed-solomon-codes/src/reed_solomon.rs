@@ -274,9 +274,9 @@ mod tests {
 
         // Check that ω^n = 1
         let omega = &domain[1];
-        let mut omega_n = omega.clone();
+        let mut omega_n = *omega;
         for _ in 1..8 {
-            omega_n = &omega_n * omega;
+            omega_n *= omega;
         }
         assert_eq!(omega_n, FE::one(), "ω^n should equal 1");
     }

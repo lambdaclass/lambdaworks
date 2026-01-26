@@ -39,7 +39,7 @@ impl<F: IsField + Clone> BivariatePolynomial<F> {
     pub fn new(coeffs: Vec<Polynomial<FieldElement<F>>>) -> Self {
         // Remove trailing zero polynomials
         let mut coeffs = coeffs;
-        while coeffs.len() > 1 && coeffs.last().map_or(false, |p| p == &Polynomial::zero()) {
+        while coeffs.len() > 1 && coeffs.last().is_some_and(|p| p == &Polynomial::zero()) {
             coeffs.pop();
         }
         Self { coeffs }
@@ -447,9 +447,8 @@ fn lagrange_interpolate_polynomial<F: IsField + Clone>(
         let mut basis_coeffs = vec![FieldElement::<F>::one()];
 
         let mut denominator = FieldElement::<F>::one();
-        for j in 0..n {
+        for (j, (xj, _)) in points.iter().enumerate().take(n) {
             if j != i {
-                let (xj, _) = &points[j];
                 let xj_fe = FieldElement::<F>::from(*xj as u64);
 
                 // Multiply basis_coeffs by (x - x_j)
@@ -502,7 +501,7 @@ fn try_direct_roots<F: IsField + Clone>(
 
     // Also try constant polynomials from hints
     for hint in hint_values {
-        let candidate = Polynomial::new(&[hint.clone()]);
+        let candidate = Polynomial::new(std::slice::from_ref(hint));
         let qf = q.evaluate_y_polynomial(&candidate);
         if qf == Polynomial::zero() && !roots.contains(&candidate) {
             roots.push(candidate);
@@ -585,7 +584,7 @@ fn rr_search_with_domain<F: IsField + Clone>(
     roots: &mut Vec<Polynomial<FieldElement<F>>>,
     hint_values: &[FieldElement<F>],
     domain: &[FieldElement<F>],
-    depth: usize,
+    _depth: usize,
 ) {
     // Early exit if we've found enough roots
     if roots.len() >= MAX_TOTAL_ROOTS {
@@ -657,7 +656,7 @@ fn rr_search_with_domain<F: IsField + Clone>(
                 roots,
                 &transformed_hints,
                 &filtered_domain,
-                depth + 1,
+                _depth + 1,
             );
         }
 
@@ -754,15 +753,9 @@ fn find_univariate_roots_with_hints_and_domain<F: IsField + Clone>(
 /// Uses binary search for efficiency.
 fn extract_small_value<F: IsField + Clone>(fe: &FieldElement<F>) -> Option<usize> {
     // First check common small values directly (0-100)
-    for i in 0..=100 {
-        if *fe == FieldElement::<F>::from(i as u64) {
-            return Some(i);
-        }
-    }
-
     // For larger values, just return None - the domain values should be small
     // in typical RS code usage (consecutive integers 0, 1, 2, ...)
-    None
+    (0..=100).find(|&i| *fe == FieldElement::<F>::from(i as u64))
 }
 
 /// Finds roots of a univariate polynomial, prioritizing hint values.
@@ -810,12 +803,12 @@ fn find_univariate_roots_with_hints<F: IsField + Clone>(
 
     // First, check all hint values (these are the most likely roots for RS decoding)
     for hint in hint_values {
-        if poly.evaluate(hint) == FieldElement::<F>::zero() {
-            if !roots.contains(hint) {
-                roots.push(hint.clone());
-                if roots.len() >= max_roots {
-                    return roots;
-                }
+        if poly.evaluate(hint) == FieldElement::<F>::zero()
+            && !roots.contains(hint)
+        {
+            roots.push(hint.clone());
+            if roots.len() >= max_roots {
+                return roots;
             }
         }
     }
@@ -830,7 +823,7 @@ fn find_univariate_roots_with_hints<F: IsField + Clone>(
             if !roots.contains(&elem) {
                 roots.push(elem.clone());
                 // Debug: print when we find roots around 1000
-                if std::env::var("RR_DEBUG").is_ok() && (i >= 1000 && i <= 1010) {
+                if std::env::var("RR_DEBUG").is_ok() && (1000..=1010).contains(&i) {
                     eprintln!("  Found root at i={}", i);
                 }
                 if roots.len() >= max_roots {
@@ -852,7 +845,7 @@ fn find_univariate_roots_with_hints<F: IsField + Clone>(
     if std::env::var("RR_DEBUG").is_ok() && found_count > 0 && poly.degree() > 5 {
         let test_1002 = FieldElement::<F>::from(1002u64);
         let is_root = poly.evaluate(&test_1002) == FieldElement::<F>::zero();
-        if is_root && !roots.iter().any(|r| *r == test_1002) {
+        if is_root && !roots.contains(&test_1002) {
             eprintln!(
                 "  WARNING: 1002 is a root but wasn't added! found_count={}, roots.len()={}",
                 found_count,
@@ -864,12 +857,12 @@ fn find_univariate_roots_with_hints<F: IsField + Clone>(
     // Also try negative small elements
     for i in 1..max_search {
         let elem = -FieldElement::<F>::from(i as u64);
-        if poly.evaluate(&elem) == FieldElement::<F>::zero() {
-            if !roots.contains(&elem) {
-                roots.push(elem);
-                if roots.len() >= max_roots {
-                    return roots;
-                }
+        if poly.evaluate(&elem) == FieldElement::<F>::zero()
+            && !roots.contains(&elem)
+        {
+            roots.push(elem);
+            if roots.len() >= max_roots {
+                return roots;
             }
         }
     }
@@ -910,7 +903,7 @@ fn substitute_and_divide<F: IsField + Clone>(
 
         let qj_coeffs = qj.coefficients();
 
-        for k in 0..=j {
+        for (k, result_row) in result_coeffs.iter_mut().enumerate().take(j + 1) {
             let binom = binomial(j, k);
             // c^{j-k}
             let c_power = c.pow(j - k);
@@ -921,7 +914,7 @@ fn substitute_and_divide<F: IsField + Clone>(
                 let contrib = qi_coeff * &binom_c;
                 let x_power = i + k;
                 if x_power <= max_x_deg + 1 && k <= max_y_deg {
-                    result_coeffs[k][x_power] = &result_coeffs[k][x_power] + &contrib;
+                    result_row[x_power] = &result_row[x_power] + &contrib;
                 }
             }
         }
@@ -958,14 +951,14 @@ fn shift_y<F: IsField + Clone>(
     for (j, qj) in q.coeffs.iter().enumerate() {
         // (y + c)^j = Σₖ C(j,k) y^k c^{j-k}
         let mut c_power = FieldElement::<F>::one();
-        for k in 0..=j {
+        for (k, result_coeff) in result_coeffs.iter_mut().enumerate().take(j + 1) {
             let binom = binomial(j, k);
             let coeff = &c_power * &FieldElement::<F>::from(binom as u64);
 
             // Add binom * c^{j-k} * Qⱼ(x) to coefficient of y^k
             let term: Vec<_> = qj.coefficients().iter().map(|x| x * &coeff).collect();
             let term_poly = Polynomial::new(&term);
-            result_coeffs[k] = result_coeffs[k].clone() + term_poly;
+            *result_coeff = result_coeff.clone() + term_poly;
 
             if k < j {
                 c_power = &c_power * c;
@@ -1031,9 +1024,8 @@ fn lagrange_interpolate_at_zero_with_points<F: IsField + Clone>(
         let mut numerator = FieldElement::<F>::one();
         let mut denominator = FieldElement::<F>::one();
 
-        for j in 0..n {
+        for (j, (xj, _)) in points.iter().enumerate().take(n) {
             if j != i {
-                let (xj, _) = &points[j];
                 // numerator *= -x_j
                 numerator = &numerator * &(-FieldElement::<F>::from(*xj as u64));
                 // denominator *= (x_i - x_j)
@@ -1084,7 +1076,10 @@ mod tests {
         let coeffs = poly.coefficients();
         println!(
             "Interpolated polynomial coefficients: {:?}",
-            coeffs.iter().map(|c| c.representative()).collect::<Vec<_>>()
+            coeffs
+                .iter()
+                .map(|c| c.representative())
+                .collect::<Vec<_>>()
         );
         assert_eq!(coeffs.len(), 4);
         assert_eq!(coeffs[0], FE::from(1001u64));
