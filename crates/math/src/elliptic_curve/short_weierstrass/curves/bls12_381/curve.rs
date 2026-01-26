@@ -98,14 +98,16 @@ BLS12381TwistCurveFieldElement::const_from_raw([
 
 impl ShortWeierstrassJacobianPoint<BLS12381Curve> {
     /// Applies the GLV endomorphism: φ(x, y) = (βx, y) where β is the cube root of unity.
-    /// Satisfies φ(P) = [λ]P where λ² + λ + 1 ≡ 0 (mod r).
+    /// Satisfies `φ(P) = [λ]P` where `λ² + λ + 1 ≡ 0 (mod r)`.
+    /// See <https://eprint.iacr.org/2022/352.pdf> Section 2 Preliminaries.
     #[inline(always)]
     pub fn phi(&self) -> Self {
         let [x, y, z] = self.coordinates();
         Self::new_unchecked([x * CUBE_ROOT_OF_UNITY_G1, y.clone(), z.clone()])
     }
 
-    /// Checks subgroup membership using φ(P) = -u²P.
+    /// Checks subgroup membership using `φ(P) = -u²P`.
+    /// See <https://eprint.iacr.org/2022/352.pdf> Section 4.3 Prop. 4.
     pub fn is_in_subgroup(&self) -> bool {
         if self.is_neutral_element() {
             return true;
@@ -227,9 +229,9 @@ fn get_bit(n: &U256, pos: usize) -> bool {
 }
 
 impl ShortWeierstrassJacobianPoint<BLS12381TwistCurve> {
-    /// Computes 𝜓(P) 𝜓(P) = 𝜁 ∘ 𝜋ₚ ∘ 𝜁⁻¹, where 𝜁 is the isomorphism u:E'(𝔽ₚ₆) −> E(𝔽ₚ₁₂) from the twist to E,, 𝜋ₚ is the p-power frobenius endomorphism
-    /// and 𝜓 satisifies minmal equation 𝑋² + 𝑡𝑋 + 𝑞 = 𝑂
-    /// https://eprint.iacr.org/2022/352.pdf 4.2 (7)
+    /// Computes 𝜓(P) = 𝜁 ∘ 𝜋ₚ ∘ 𝜁⁻¹, where 𝜁 is the isomorphism u:E'(𝔽ₚ₆) −> E(𝔽ₚ₁₂) from the twist to E, 𝜋ₚ is the p-power Frobenius endomorphism
+    /// and 𝜓 satisfies minimal equation 𝑋² + 𝑡𝑋 + 𝑞 = 𝑂.
+    /// See <https://eprint.iacr.org/2022/352.pdf> Section 4.2 (7).
     ///
     /// # Safety
     ///
@@ -256,8 +258,8 @@ impl ShortWeierstrassJacobianPoint<BLS12381TwistCurve> {
         point.unwrap()
     }
 
-    /// 𝜓(P) = 𝑢P, where 𝑢 = SEED of the curve
-    /// https://eprint.iacr.org/2022/352.pdf 4.2
+    /// 𝜓(P) = 𝑢P, where 𝑢 = SEED of the curve.
+    /// See <https://eprint.iacr.org/2022/352.pdf> Section 4.2.
     pub fn is_in_subgroup(&self) -> bool {
         // The neutral element is always in the subgroup
         if self.is_neutral_element() {
