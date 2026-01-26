@@ -12,7 +12,7 @@
 use crate::address::{Address, AddressType};
 use crate::hash::XmssHasher;
 use crate::ltree::ltree;
-use crate::params::{XmssParams, H, LEN, MAX_IDX, N};
+use crate::params::{H, LEN, MAX_IDX, N};
 use crate::wots::{wots_pk_from_sig, wots_sign, WotsSignature};
 use crate::xmss_tree::{compute_root, AuthPath, XmssTree};
 
@@ -89,6 +89,11 @@ pub struct XmssSecretKey {
     /// Public seed (also in public key, but needed for signing)
     pub public_seed: [u8; N],
     /// Current index (next available WOTS+ key pair)
+    ///
+    /// **WARNING**: Modifying this directly can compromise security.
+    /// XMSS requires each index to be used exactly once. Reusing an index
+    /// allows signature forgery (see `attack_demo` binary). This field is
+    /// public for testing/educational purposes only.
     pub idx: u32,
     /// Cached tree for efficient auth path retrieval
     tree: Option<XmssTree>,
@@ -244,28 +249,17 @@ impl XmssSignature {
 /// XMSS signature scheme implementation
 ///
 /// Generic over the hash function implementation.
+///
+/// Uses fixed parameters: n=32 (SHA-256), w=16, h=10 (1024 signatures).
+/// See `params.rs` for parameter definitions.
 pub struct Xmss<H: XmssHasher> {
     hasher: H,
-    params: XmssParams,
 }
 
 impl<H: XmssHasher> Xmss<H> {
-    /// Create a new XMSS instance with default parameters
+    /// Create a new XMSS instance
     pub fn new(hasher: H) -> Self {
-        Self {
-            hasher,
-            params: XmssParams::default(),
-        }
-    }
-
-    /// Create a new XMSS instance with custom parameters
-    pub fn with_params(hasher: H, params: XmssParams) -> Self {
-        Self { hasher, params }
-    }
-
-    /// Get the parameters
-    pub fn params(&self) -> &XmssParams {
-        &self.params
+        Self { hasher }
     }
 
     /// Generate an XMSS key pair from a 96-byte seed
