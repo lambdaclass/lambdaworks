@@ -169,8 +169,12 @@ fn main() {
         "multilinear-fix" => bench_multilinear_fix_variable(num_vars),
         "sum-product" => bench_sum_product(num_vars),
         "all" => {
-            println!("Running all benchmarks with {} variables (2^{} = {} evals)...",
-                     num_vars, num_vars, 1u64 << num_vars);
+            println!(
+                "Running all benchmarks with {} variables (2^{} = {} evals)...",
+                num_vars,
+                num_vars,
+                1u64 << num_vars
+            );
             println!();
 
             let start = Instant::now();
@@ -206,8 +210,12 @@ fn main() {
             println!("sum-product:        {:?}", start.elapsed());
         }
         "compare" => {
-            println!("Comparing provers ({} variables, 2^{} = {} evals)...",
-                     num_vars, num_vars, 1u64 << num_vars);
+            println!(
+                "Comparing provers ({} variables, 2^{} = {} evals)...",
+                num_vars,
+                num_vars,
+                1u64 << num_vars
+            );
             println!();
 
             let start = Instant::now();
@@ -233,9 +241,18 @@ fn main() {
 
                 println!();
                 println!("Speedup vs original:");
-                println!("  Fast:       {:.1}x", orig_time.as_secs_f64() / fast_time.as_secs_f64());
-                println!("  Parallel:   {:.1}x", orig_time.as_secs_f64() / parallel_time.as_secs_f64());
-                println!("  Optimized:  {:.1}x", orig_time.as_secs_f64() / opt_time.as_secs_f64());
+                println!(
+                    "  Fast:       {:.1}x",
+                    orig_time.as_secs_f64() / fast_time.as_secs_f64()
+                );
+                println!(
+                    "  Parallel:   {:.1}x",
+                    orig_time.as_secs_f64() / parallel_time.as_secs_f64()
+                );
+                println!(
+                    "  Optimized:  {:.1}x",
+                    orig_time.as_secs_f64() / opt_time.as_secs_f64()
+                );
             }
         }
         _ => {

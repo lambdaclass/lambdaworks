@@ -89,7 +89,9 @@ where
         let num_vars = instances[0]
             .first()
             .ok_or_else(|| {
-                ProverError::FactorMismatch("Each instance must have at least one factor.".to_string())
+                ProverError::FactorMismatch(
+                    "Each instance must have at least one factor.".to_string(),
+                )
             })?
             .num_vars();
 
@@ -222,8 +224,7 @@ where
         let eval_points = vec![FieldElement::zero(), FieldElement::one()];
         let evaluations = vec![sum_0, sum_1];
 
-        Polynomial::interpolate(&eval_points, &evaluations)
-            .map_err(ProverError::InterpolationError)
+        Polynomial::interpolate(&eval_points, &evaluations).map_err(ProverError::InterpolationError)
     }
 }
 
@@ -577,8 +578,7 @@ where
         let eval_points = vec![FieldElement::zero(), FieldElement::one()];
         let evaluations = vec![sum_0, sum_1];
 
-        Polynomial::interpolate(&eval_points, &evaluations)
-            .map_err(ProverError::InterpolationError)
+        Polynomial::interpolate(&eval_points, &evaluations).map_err(ProverError::InterpolationError)
     }
 }
 

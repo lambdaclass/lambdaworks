@@ -173,10 +173,8 @@ fn append_round_poly_to_transcript<F>(
 ///
 /// This computes: new[k] = (1-r) * old[k] + r * old[k + half]
 /// which is equivalent to fixing the first variable to r.
-pub fn apply_challenge_to_evals<F: IsField>(
-    evals: &mut Vec<FieldElement<F>>,
-    r: &FieldElement<F>,
-) where
+pub fn apply_challenge_to_evals<F: IsField>(evals: &mut Vec<FieldElement<F>>, r: &FieldElement<F>)
+where
     F::BaseType: Send + Sync,
     FieldElement<F>: Clone + Mul<Output = FieldElement<F>>,
 {
@@ -388,8 +386,12 @@ mod tests {
     #[test]
     fn test_validate_factors_mismatch() {
         let poly1 = DenseMultilinearPolynomial::new(vec![FE::from(1), FE::from(2)]);
-        let poly2 =
-            DenseMultilinearPolynomial::new(vec![FE::from(1), FE::from(2), FE::from(3), FE::from(4)]);
+        let poly2 = DenseMultilinearPolynomial::new(vec![
+            FE::from(1),
+            FE::from(2),
+            FE::from(3),
+            FE::from(4),
+        ]);
         let factors = vec![poly1, poly2];
         assert!(validate_factors(&factors).is_err());
     }

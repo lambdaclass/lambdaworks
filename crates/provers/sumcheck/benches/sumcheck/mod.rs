@@ -67,13 +67,7 @@ pub fn prover_benchmarks(c: &mut Criterion) {
                 let poly1 = rand_dense_multilinear_poly(num_vars);
                 let poly2 = rand_dense_multilinear_poly(num_vars);
                 let poly3 = rand_dense_multilinear_poly(num_vars);
-                bench.iter(|| {
-                    prove(black_box(vec![
-                        poly1.clone(),
-                        poly2.clone(),
-                        poly3.clone(),
-                    ]))
-                });
+                bench.iter(|| prove(black_box(vec![poly1.clone(), poly2.clone(), poly3.clone()])));
             },
         );
     }
@@ -220,8 +214,7 @@ pub fn verifier_benchmarks(c: &mut Criterion) {
             |bench, &num_vars| {
                 let poly1 = rand_dense_multilinear_poly(num_vars);
                 let poly2 = rand_dense_multilinear_poly(num_vars);
-                let (claimed_sum, proof_polys) =
-                    prove(vec![poly1.clone(), poly2.clone()]).unwrap();
+                let (claimed_sum, proof_polys) = prove(vec![poly1.clone(), poly2.clone()]).unwrap();
                 bench.iter(|| {
                     verify(
                         black_box(num_vars),

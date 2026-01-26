@@ -330,9 +330,8 @@ where
         for factor in &factors {
             let evals = factor.evals();
             let evals_0: Vec<FieldElement<F>> = (0..half).map(|k| evals[k].clone()).collect();
-            let diffs: Vec<FieldElement<F>> = (0..half)
-                .map(|k| &evals[k + half] - &evals[k])
-                .collect();
+            let diffs: Vec<FieldElement<F>> =
+                (0..half).map(|k| &evals[k + half] - &evals[k]).collect();
             factor_evals_0.push(evals_0);
             factor_diffs.push(diffs);
         }
@@ -464,7 +463,8 @@ where
                 let mut product = FieldElement::one();
                 for f in 0..self.num_factors {
                     // P(t) = P(0) + t * (P(1) - P(0)) = eval_0 + t * diff
-                    let interpolated = &self.factor_evals_0[f][k] + &t_fe * &self.factor_diffs[f][k];
+                    let interpolated =
+                        &self.factor_evals_0[f][k] + &t_fe * &self.factor_diffs[f][k];
                     product *= interpolated;
                 }
                 sum += product;
@@ -517,7 +517,12 @@ where
         Ok(())
     }
 
-    fn apply_challenge_sequential(&mut self, r: &FieldElement<F>, current_half: usize, new_half: usize) {
+    fn apply_challenge_sequential(
+        &mut self,
+        r: &FieldElement<F>,
+        current_half: usize,
+        new_half: usize,
+    ) {
         for f in 0..self.num_factors {
             // First, update eval_0 values: new_eval_0[k] = eval_0[k] + r * diff[k]
             for k in 0..current_half {
@@ -536,7 +541,12 @@ where
     }
 
     #[cfg(feature = "parallel")]
-    fn apply_challenge_parallel(&mut self, r: &FieldElement<F>, current_half: usize, new_half: usize) {
+    fn apply_challenge_parallel(
+        &mut self,
+        r: &FieldElement<F>,
+        current_half: usize,
+        new_half: usize,
+    ) {
         for f in 0..self.num_factors {
             let new_evals: Vec<FieldElement<F>> = (0..current_half)
                 .into_par_iter()

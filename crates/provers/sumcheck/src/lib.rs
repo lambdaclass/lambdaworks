@@ -37,9 +37,7 @@ pub use sparse_prover::{prove_sparse, SparseEntry, SparseMultiFactorProver, Spar
 pub use verifier::{verify, Verifier, VerifierError, VerifierRoundResult};
 
 #[cfg(feature = "metal")]
-pub use metal::{
-    prove_metal, prove_metal_multi, MetalMultiFactorProver, MetalProver, MetalState,
-};
+pub use metal::{prove_metal, prove_metal_multi, MetalMultiFactorProver, MetalProver, MetalState};
 
 #[cfg(all(target_os = "macos", feature = "metal"))]
 pub use metal::GoldilocksMetalProver;

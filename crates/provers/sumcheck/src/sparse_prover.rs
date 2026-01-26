@@ -166,8 +166,7 @@ where
         let eval_points = vec![FieldElement::zero(), FieldElement::one()];
         let evaluations = vec![sum_0, sum_1];
 
-        Polynomial::interpolate(&eval_points, &evaluations)
-            .map_err(ProverError::InterpolationError)
+        Polynomial::interpolate(&eval_points, &evaluations).map_err(ProverError::InterpolationError)
     }
 
     /// Computes the sums at X=0 and X=1 for the round polynomial.
@@ -204,7 +203,10 @@ where
                 // Final evaluation at challenge point
                 let (sum_0, sum_1) = self.compute_round_sums();
                 let final_val = &sum_0 + r * &(&sum_1 - &sum_0);
-                self.entries = vec![SparseEntry { idx: 0, val: final_val }];
+                self.entries = vec![SparseEntry {
+                    idx: 0,
+                    val: final_val,
+                }];
             }
             self.remaining_vars = 0;
             return;
@@ -369,19 +371,11 @@ where
         let maps: Vec<HashMap<usize, FieldElement<F>>> = self
             .factor_entries
             .iter()
-            .map(|entries| {
-                entries
-                    .iter()
-                    .map(|e| (e.idx, e.val.clone()))
-                    .collect()
-            })
+            .map(|entries| entries.iter().map(|e| (e.idx, e.val.clone())).collect())
             .collect();
 
         // Find all indices that appear in at least one factor
-        let mut all_indices: Vec<usize> = maps
-            .iter()
-            .flat_map(|m| m.keys().cloned())
-            .collect();
+        let mut all_indices: Vec<usize> = maps.iter().flat_map(|m| m.keys().cloned()).collect();
         all_indices.sort_unstable();
         all_indices.dedup();
 
@@ -599,7 +593,10 @@ mod tests {
 
         let (dense_sum, _) = crate::prove_optimized(vec![dense_poly]).unwrap();
 
-        assert_eq!(sparse_sum, dense_sum, "Sparse and dense should have same sum");
+        assert_eq!(
+            sparse_sum, dense_sum,
+            "Sparse and dense should have same sum"
+        );
     }
 
     #[test]

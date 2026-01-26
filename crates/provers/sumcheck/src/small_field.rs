@@ -247,8 +247,7 @@ where
         let eval_points = vec![FieldElement::zero(), FieldElement::one()];
         let evaluations = vec![sum_0, sum_1];
 
-        Polynomial::interpolate(&eval_points, &evaluations)
-            .map_err(ProverError::InterpolationError)
+        Polynomial::interpolate(&eval_points, &evaluations).map_err(ProverError::InterpolationError)
     }
 
     /// Computes round sums with optimized operations.

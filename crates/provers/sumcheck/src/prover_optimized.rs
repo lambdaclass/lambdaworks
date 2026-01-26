@@ -31,8 +31,8 @@
 //! working copies of polynomial evaluations and update them in-place after each round.
 
 use crate::common::{
-    check_round_bounds, compute_initial_sum_product, compute_round_poly_product, run_sumcheck_protocol,
-    validate_factors, SumcheckProver,
+    check_round_bounds, compute_initial_sum_product, compute_round_poly_product,
+    run_sumcheck_protocol, validate_factors, SumcheckProver,
 };
 use crate::prover::{ProverError, ProverOutput};
 use lambdaworks_math::{
@@ -232,7 +232,10 @@ mod tests {
             prove_optimized(vec![poly_a.clone(), poly_b.clone()]).unwrap();
 
         let result = crate::verify(num_vars, claimed_sum, proof_polys, vec![poly_a, poly_b]);
-        assert!(result.unwrap_or(false), "Quadratic proof should be accepted");
+        assert!(
+            result.unwrap_or(false),
+            "Quadratic proof should be accepted"
+        );
     }
 
     #[test]
@@ -245,8 +248,12 @@ mod tests {
         let (claimed_sum, proof_polys) =
             prove_optimized(vec![poly_a.clone(), poly_b.clone(), poly_c.clone()]).unwrap();
 
-        let result =
-            crate::verify(num_vars, claimed_sum, proof_polys, vec![poly_a, poly_b, poly_c]);
+        let result = crate::verify(
+            num_vars,
+            claimed_sum,
+            proof_polys,
+            vec![poly_a, poly_b, poly_c],
+        );
         assert!(result.unwrap_or(false), "Cubic proof should be accepted");
     }
 

@@ -176,9 +176,9 @@ impl MetalState {
     /// Creates an empty GPU buffer of the given size.
     #[cfg(all(target_os = "macos", feature = "metal"))]
     fn create_empty_buffer(&self, byte_len: usize) -> Option<Buffer> {
-        self.device.as_ref().map(|dev| {
-            dev.new_buffer(byte_len as u64, MTLResourceOptions::StorageModeShared)
-        })
+        self.device
+            .as_ref()
+            .map(|dev| dev.new_buffer(byte_len as u64, MTLResourceOptions::StorageModeShared))
     }
 
     /// Executes the parallel_sum kernel.
@@ -458,8 +458,7 @@ where
         let eval_points = vec![FieldElement::zero(), FieldElement::one()];
         let evaluations = vec![sum_0, sum_1];
 
-        Polynomial::interpolate(&eval_points, &evaluations)
-            .map_err(ProverError::InterpolationError)
+        Polynomial::interpolate(&eval_points, &evaluations).map_err(ProverError::InterpolationError)
     }
 }
 
@@ -579,8 +578,7 @@ where
             .map(|i| FieldElement::from(i as u64))
             .collect();
 
-        Polynomial::interpolate(&eval_points, &evaluations)
-            .map_err(ProverError::InterpolationError)
+        Polynomial::interpolate(&eval_points, &evaluations).map_err(ProverError::InterpolationError)
     }
 }
 
@@ -680,7 +678,9 @@ impl GoldilocksMetalProver {
     /// Applies a challenge using GPU if available.
     pub fn apply_challenge(&mut self, r: u64, one_minus_r: u64) {
         if self.metal_state.is_available()
-            && self.metal_state.apply_challenge_gpu(&mut self.evals_raw, r, one_minus_r)
+            && self
+                .metal_state
+                .apply_challenge_gpu(&mut self.evals_raw, r, one_minus_r)
         {
             self.evals_raw.truncate(self.evals_raw.len() / 2);
             return;

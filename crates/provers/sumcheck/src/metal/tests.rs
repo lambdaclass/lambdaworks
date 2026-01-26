@@ -11,12 +11,8 @@ type FE = FieldElement<F>;
 
 #[test]
 fn test_metal_prover_creation() {
-    let poly = DenseMultilinearPolynomial::new(vec![
-        FE::from(1),
-        FE::from(2),
-        FE::from(3),
-        FE::from(4),
-    ]);
+    let poly =
+        DenseMultilinearPolynomial::new(vec![FE::from(1), FE::from(2), FE::from(3), FE::from(4)]);
 
     let prover = MetalProver::<F>::new(poly).unwrap();
     assert_eq!(prover.num_vars(), 2);
@@ -26,12 +22,8 @@ fn test_metal_prover_creation() {
 
 #[test]
 fn test_metal_prover_initial_sum() {
-    let poly = DenseMultilinearPolynomial::new(vec![
-        FE::from(1),
-        FE::from(2),
-        FE::from(3),
-        FE::from(4),
-    ]);
+    let poly =
+        DenseMultilinearPolynomial::new(vec![FE::from(1), FE::from(2), FE::from(3), FE::from(4)]);
 
     let prover = MetalProver::<F>::new(poly).unwrap();
     let sum = prover.compute_initial_sum();
@@ -42,12 +34,8 @@ fn test_metal_prover_initial_sum() {
 
 #[test]
 fn test_metal_prove_correctness() {
-    let poly = DenseMultilinearPolynomial::new(vec![
-        FE::from(1),
-        FE::from(2),
-        FE::from(3),
-        FE::from(4),
-    ]);
+    let poly =
+        DenseMultilinearPolynomial::new(vec![FE::from(1), FE::from(2), FE::from(3), FE::from(4)]);
     let num_vars = poly.num_vars();
 
     let (claimed_sum, proof_polys) = prove_metal(poly.clone()).unwrap();
@@ -101,23 +89,14 @@ fn test_metal_state() {
 
 #[test]
 fn test_metal_multi_factor_prover() {
-    let poly1 = DenseMultilinearPolynomial::new(vec![
-        FE::from(1),
-        FE::from(2),
-        FE::from(3),
-        FE::from(4),
-    ]);
+    let poly1 =
+        DenseMultilinearPolynomial::new(vec![FE::from(1), FE::from(2), FE::from(3), FE::from(4)]);
 
-    let poly2 = DenseMultilinearPolynomial::new(vec![
-        FE::from(5),
-        FE::from(6),
-        FE::from(7),
-        FE::from(8),
-    ]);
+    let poly2 =
+        DenseMultilinearPolynomial::new(vec![FE::from(5), FE::from(6), FE::from(7), FE::from(8)]);
 
     let num_vars = poly1.num_vars();
-    let (claimed_sum, proof_polys) =
-        prove_metal_multi(vec![poly1.clone(), poly2.clone()]).unwrap();
+    let (claimed_sum, proof_polys) = prove_metal_multi(vec![poly1.clone(), poly2.clone()]).unwrap();
 
     // Verify using standard verifier
     let result = crate::verify(num_vars, claimed_sum, proof_polys, vec![poly1, poly2]);
@@ -126,19 +105,11 @@ fn test_metal_multi_factor_prover() {
 
 #[test]
 fn test_metal_multi_factor_sum() {
-    let poly1 = DenseMultilinearPolynomial::new(vec![
-        FE::from(1),
-        FE::from(0),
-        FE::from(0),
-        FE::from(2),
-    ]);
+    let poly1 =
+        DenseMultilinearPolynomial::new(vec![FE::from(1), FE::from(0), FE::from(0), FE::from(2)]);
 
-    let poly2 = DenseMultilinearPolynomial::new(vec![
-        FE::from(3),
-        FE::from(0),
-        FE::from(0),
-        FE::from(4),
-    ]);
+    let poly2 =
+        DenseMultilinearPolynomial::new(vec![FE::from(3), FE::from(0), FE::from(0), FE::from(4)]);
 
     let prover = MetalMultiFactorProver::new(vec![poly1, poly2]).unwrap();
     let sum = prover.compute_initial_sum();

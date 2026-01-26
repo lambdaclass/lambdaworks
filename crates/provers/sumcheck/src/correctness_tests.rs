@@ -32,7 +32,9 @@ fn rand_fe(seed: u64) -> FE {
 
 fn rand_poly(num_vars: usize, seed: u64) -> DenseMultilinearPolynomial<F> {
     let size = 1 << num_vars;
-    let evals: Vec<FE> = (0..size).map(|i| rand_fe(seed.wrapping_add(i as u64))).collect();
+    let evals: Vec<FE> = (0..size)
+        .map(|i| rand_fe(seed.wrapping_add(i as u64)))
+        .collect();
     DenseMultilinearPolynomial::new(evals)
 }
 
@@ -163,12 +165,8 @@ fn test_single_variable() {
 
 #[test]
 fn test_zero_polynomial() {
-    let poly = DenseMultilinearPolynomial::new(vec![
-        FE::zero(),
-        FE::zero(),
-        FE::zero(),
-        FE::zero(),
-    ]);
+    let poly =
+        DenseMultilinearPolynomial::new(vec![FE::zero(), FE::zero(), FE::zero(), FE::zero()]);
 
     let (claimed_sum, proof) = prove_optimized(vec![poly.clone()]).unwrap();
 
@@ -198,7 +196,10 @@ fn test_constant_polynomial() {
     assert_eq!(claimed_sum, FE::from(40u64));
 
     let result = verify(3, claimed_sum, proof, vec![poly]);
-    assert!(result.unwrap(), "Constant polynomial sumcheck should verify");
+    assert!(
+        result.unwrap(),
+        "Constant polynomial sumcheck should verify"
+    );
 }
 
 #[test]
@@ -619,18 +620,41 @@ fn test_quadratic_all_provers() {
     assert_eq!(naive_sum, fast_sum);
 
     // Verify all proofs
-    assert!(verify(num_vars, naive_sum, naive_proof, vec![poly1.clone(), poly2.clone()]).unwrap());
-    assert!(verify(num_vars, opt_sum, opt_proof, vec![poly1.clone(), poly2.clone()]).unwrap());
-    assert!(verify(num_vars, par_sum, par_proof, vec![poly1.clone(), poly2.clone()]).unwrap());
-    assert!(verify(num_vars, fast_sum, fast_proof, vec![poly1.clone(), poly2.clone()]).unwrap());
+    assert!(verify(
+        num_vars,
+        naive_sum,
+        naive_proof,
+        vec![poly1.clone(), poly2.clone()]
+    )
+    .unwrap());
+    assert!(verify(
+        num_vars,
+        opt_sum,
+        opt_proof,
+        vec![poly1.clone(), poly2.clone()]
+    )
+    .unwrap());
+    assert!(verify(
+        num_vars,
+        par_sum,
+        par_proof,
+        vec![poly1.clone(), poly2.clone()]
+    )
+    .unwrap());
+    assert!(verify(
+        num_vars,
+        fast_sum,
+        fast_proof,
+        vec![poly1.clone(), poly2.clone()]
+    )
+    .unwrap());
 }
 
 #[test]
 fn test_batched_sumcheck() {
     // Test batched sumcheck with multiple instances
-    let polys: Vec<DenseMultilinearPolynomial<F>> = (0..3)
-        .map(|i| rand_poly(4, 1000 + i))
-        .collect();
+    let polys: Vec<DenseMultilinearPolynomial<F>> =
+        (0..3).map(|i| rand_poly(4, 1000 + i)).collect();
 
     let instances: Vec<Vec<DenseMultilinearPolynomial<F>>> =
         polys.iter().map(|p| vec![p.clone()]).collect();
@@ -640,11 +664,7 @@ fn test_batched_sumcheck() {
     // Verify individual sums match
     for (i, (poly, expected_sum)) in polys.iter().zip(proof.individual_sums.iter()).enumerate() {
         let actual_sum: FE = poly.evals().iter().cloned().fold(FE::zero(), |a, b| a + b);
-        assert_eq!(
-            &actual_sum, expected_sum,
-            "Instance {} sum should match",
-            i
-        );
+        assert_eq!(&actual_sum, expected_sum, "Instance {} sum should match", i);
     }
 
     // Verify the batched proof
@@ -661,11 +681,7 @@ fn test_large_variable_count() {
         let (claimed_sum, proof) = prove_optimized(vec![poly.clone()]).unwrap();
         let result = verify(num_vars, claimed_sum, proof, vec![poly]);
 
-        assert!(
-            result.unwrap(),
-            "Should verify with {} variables",
-            num_vars
-        );
+        assert!(result.unwrap(), "Should verify with {} variables", num_vars);
     }
 }
 
@@ -840,9 +856,7 @@ fn test_cubic_all_provers() {
 #[test]
 fn test_quartic_sumcheck() {
     // Test product of 4 polynomials
-    let polys: Vec<DenseMultilinearPolynomial<F>> = (0..4)
-        .map(|i| rand_poly(3, 100 + i))
-        .collect();
+    let polys: Vec<DenseMultilinearPolynomial<F>> = (0..4).map(|i| rand_poly(3, 100 + i)).collect();
     let num_vars = polys[0].num_vars();
 
     let (claimed_sum, proof) = prove_optimized(polys.clone()).unwrap();
@@ -926,7 +940,10 @@ fn test_wrong_round_polynomial_degree() {
     }
 
     let result = verify(num_vars, claimed_sum, proof, vec![poly]);
-    assert!(result.is_err() || !result.unwrap(), "Should reject wrong degree");
+    assert!(
+        result.is_err() || !result.unwrap(),
+        "Should reject wrong degree"
+    );
 }
 
 #[test]
@@ -948,7 +965,10 @@ fn test_modified_coefficient() {
     }
 
     let result = verify(num_vars, claimed_sum, proof, vec![poly]);
-    assert!(result.is_err() || !result.unwrap(), "Should reject modified proof");
+    assert!(
+        result.is_err() || !result.unwrap(),
+        "Should reject modified proof"
+    );
 }
 
 // ============================================================================
