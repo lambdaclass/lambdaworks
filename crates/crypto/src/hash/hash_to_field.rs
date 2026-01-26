@@ -10,12 +10,27 @@ use lambdaworks_math::{
 /// Converts a hash, represented by an array of bytes, into a vector of field elements
 /// For more info, see
 /// https://www.ietf.org/id/draft-irtf-cfrg-hash-to-curve-16.html#name-hashing-to-a-finite-field
+///
+/// # Panics
+/// Panics if `pseudo_random_bytes` doesn't contain enough bytes for `count` field elements.
 pub fn hash_to_field<M: IsModulus<UnsignedInteger<N>> + Clone, const N: usize>(
     pseudo_random_bytes: &[u8],
     count: usize,
 ) -> Vec<FieldElement<MontgomeryBackendPrimeField<M, N>>> {
     let order = M::MODULUS;
     let l = compute_length(order);
+
+    // Bounds check: ensure we have enough bytes
+    let required_bytes = l * count;
+    assert!(
+        pseudo_random_bytes.len() >= required_bytes,
+        "pseudo_random_bytes has {} bytes, but {} bytes are required for {} field elements (L={})",
+        pseudo_random_bytes.len(),
+        required_bytes,
+        count,
+        l
+    );
+
     let mut u = vec![FieldElement::zero(); count];
     for (i, item) in u.iter_mut().enumerate() {
         let elm_offset = l * i;
@@ -27,9 +42,26 @@ pub fn hash_to_field<M: IsModulus<UnsignedInteger<N>> + Clone, const N: usize>(
 }
 
 fn compute_length<const N: usize>(order: UnsignedInteger<N>) -> usize {
-    //L = ceil((ceil(log2(p)) + k) / 8), where k is the security parameter of the cryptosystem (e.g. k = ceil(log2(p) / 2))
-    let log2_p = order.limbs.len() << 3;
-    ((log2_p << 3) + (log2_p << 2)) >> 3
+    // L = ceil((ceil(log2(p)) + k) / 8), where k is the security parameter of the cryptosystem
+    // (e.g. k = ceil(log2(p) / 2) for 128-bit security)
+    //
+    // We compute the actual bit length of the modulus, not just limb count * 64,
+    // to handle moduli with leading zeros correctly.
+    let log2_p = compute_bit_length(&order);
+    let k = (log2_p + 1) / 2; // ceil(log2_p / 2)
+    (log2_p + k + 7) / 8 // ceil((log2_p + k) / 8)
+}
+
+/// Computes the bit length of an unsigned integer (position of highest set bit + 1).
+fn compute_bit_length<const N: usize>(value: &UnsignedInteger<N>) -> usize {
+    for (i, &limb) in value.limbs.iter().enumerate() {
+        if limb != 0 {
+            // Found the first non-zero limb (most significant)
+            let limb_bits = 64 - limb.leading_zeros() as usize;
+            return (N - i) * 64 - (64 - limb_bits);
+        }
+    }
+    0 // Value is zero
 }
 
 /// Converts an octet string to a nonnegative integer.
@@ -39,31 +71,43 @@ fn os2ip<M: IsModulus<UnsignedInteger<N>> + Clone, const N: usize>(
 ) -> FieldElement<MontgomeryBackendPrimeField<M, N>> {
     let mut aux_x = x.to_vec();
     aux_x.reverse();
-    let two_to_the_nth = build_two_to_the_nth();
+    let two_to_the_nth = build_two_to_the_nth::<M, N>();
     let mut j = 0_u32;
-    let mut item_hex = String::with_capacity(N * 16);
+    // Each byte becomes 2 hex characters, and we process N*8 bytes (N*16 hex chars) at a time
+    let chunk_size = N * 16;
+    let mut item_hex = String::with_capacity(chunk_size);
     let mut result = FieldElement::zero();
+
     for item_u8 in aux_x.iter() {
-        item_hex += &format!("{item_u8:x}");
-        if item_hex.len() == item_hex.capacity() {
+        // Use 02x to ensure zero-padding (e.g., 0x0F becomes "0f", not "f")
+        item_hex += &format!("{item_u8:02x}");
+        if item_hex.len() == chunk_size {
             result += FieldElement::from_hex_unchecked(&item_hex) * two_to_the_nth.pow(j);
             item_hex.clear();
             j += 1;
         }
     }
+
+    // Flush any remaining partial chunk
+    if !item_hex.is_empty() {
+        result += FieldElement::from_hex_unchecked(&item_hex) * two_to_the_nth.pow(j);
+    }
+
     result
 }
 
-/// Builds a `FieldElement` for `2^(N*16)`, where `N` is the number of limbs of the `UnsignedInteger`
-/// used for the prime field.
+/// Builds a `FieldElement` for `2^(N*64)`, where `N` is the number of limbs of the `UnsignedInteger`
+/// used for the prime field. This is used as the base for processing N*8 bytes at a time.
 fn build_two_to_the_nth<M: IsModulus<UnsignedInteger<N>> + Clone, const N: usize>(
 ) -> FieldElement<MontgomeryBackendPrimeField<M, N>> {
-    // The hex used to build the FieldElement is a 1 followed by N * 16 zeros
-    let mut two_to_the_nth = String::with_capacity(N * 16);
-    for _ in 0..two_to_the_nth.capacity() - 1 {
-        two_to_the_nth.push('1');
+    // 2^(N*64) in hex is "1" followed by N*16 zeros (since each hex digit is 4 bits)
+    // For example, N=1: 2^64 = 0x10000000000000000 (1 followed by 16 zeros)
+    let mut hex_str = String::with_capacity(N * 16 + 1);
+    hex_str.push('1');
+    for _ in 0..N * 16 {
+        hex_str.push('0');
     }
-    FieldElement::from_hex_unchecked(&two_to_the_nth) + FieldElement::one()
+    FieldElement::from_hex_unchecked(&hex_str)
 }
 
 #[cfg(test)]
