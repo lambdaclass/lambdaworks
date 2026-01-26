@@ -1,8 +1,7 @@
-use crate::{common::*, ProvingKey, QuadraticArithmeticProgram};
+use crate::{common::*, errors::Groth16Error, ProvingKey, QuadraticArithmeticProgram};
 use lambdaworks_math::errors::DeserializationError;
-use lambdaworks_math::traits::{AsBytes, Deserializable};
+use lambdaworks_math::traits::{deserialize_with_length, serialize_with_length};
 use lambdaworks_math::{cyclic_group::IsGroup, msm::pippenger::msm};
-use std::mem::size_of;
 
 pub struct Proof {
     pub pi1: G1Point,
@@ -13,16 +12,9 @@ pub struct Proof {
 impl Proof {
     pub fn serialize(&self) -> Vec<u8> {
         let mut bytes: Vec<u8> = Vec::new();
-        [
-            Self::serialize_commitment(&self.pi1),
-            Self::serialize_commitment(&self.pi2),
-            Self::serialize_commitment(&self.pi3),
-        ]
-        .iter()
-        .for_each(|serialized| {
-            bytes.extend_from_slice(&(serialized.len() as u32).to_be_bytes());
-            bytes.extend_from_slice(serialized);
-        });
+        bytes.extend(serialize_with_length(&self.pi1));
+        bytes.extend(serialize_with_length(&self.pi2));
+        bytes.extend(serialize_with_length(&self.pi3));
         bytes
     }
 
@@ -30,46 +22,24 @@ impl Proof {
     where
         Self: Sized,
     {
-        let (offset, pi1) = Self::deserialize_commitment::<G1Point>(bytes, 0)?;
-        let (offset, pi2) = Self::deserialize_commitment::<G2Point>(bytes, offset)?;
-        let (_, pi3) = Self::deserialize_commitment::<G1Point>(bytes, offset)?;
+        let (offset, pi1) = deserialize_with_length::<G1Point>(bytes, 0)?;
+        let (offset, pi2) = deserialize_with_length::<G2Point>(bytes, offset)?;
+        let (_, pi3) = deserialize_with_length::<G1Point>(bytes, offset)?;
         Ok(Self { pi1, pi2, pi3 })
-    }
-
-    fn serialize_commitment<Commitment: AsBytes>(cm: &Commitment) -> Vec<u8> {
-        cm.as_bytes()
-    }
-
-    // Repetitive. Same as in plonk/src/prover.rs
-    fn deserialize_commitment<Commitment: Deserializable>(
-        bytes: &[u8],
-        offset: usize,
-    ) -> Result<(usize, Commitment), DeserializationError> {
-        let mut offset = offset;
-        let element_size_bytes: [u8; size_of::<u32>()] = bytes
-            .get(offset..offset + size_of::<u32>())
-            .ok_or(DeserializationError::InvalidAmountOfBytes)?
-            .try_into()
-            .map_err(|_| DeserializationError::InvalidAmountOfBytes)?;
-        let element_size = u32::from_be_bytes(element_size_bytes) as usize;
-        offset += size_of::<u32>();
-        let commitment = Commitment::deserialize(
-            bytes
-                .get(offset..offset + element_size)
-                .ok_or(DeserializationError::InvalidAmountOfBytes)?,
-        )?;
-        offset += element_size;
-        Ok((offset, commitment))
     }
 }
 
 pub struct Prover;
 impl Prover {
     /// Computes a Groth16 proof from the witness, the quadratic arithmetic program description and the proving key
-    pub fn prove(w: &[FrElement], qap: &QuadraticArithmeticProgram, pk: &ProvingKey) -> Proof {
+    pub fn prove(
+        w: &[FrElement],
+        qap: &QuadraticArithmeticProgram,
+        pk: &ProvingKey,
+    ) -> Result<Proof, Groth16Error> {
         // Compute the coefficients of the quotient polynomial
         let h_coefficients = qap
-            .calculate_h_coefficients(w)
+            .calculate_h_coefficients(w)?
             .iter()
             .map(|elem| elem.representative())
             .collect::<Vec<_>>();
@@ -85,13 +55,13 @@ impl Prover {
 
         // [π_1]_1
         let pi1 = msm(&w, &pk.l_tau_g1)
-            .unwrap()
+            .map_err(|e| Groth16Error::MSMError(format!("{:?}", e)))?
             .operate_with(&pk.alpha_g1)
             .operate_with(&pk.delta_g1.operate_with_self(r.representative()));
 
         // [π_2]_2
         let pi2 = msm(&w, &pk.r_tau_g2)
-            .unwrap()
+            .map_err(|e| Groth16Error::MSMError(format!("{:?}", e)))?
             .operate_with(&pk.beta_g2)
             .operate_with(&pk.delta_g2.operate_with_self(s.representative()));
 
@@ -100,18 +70,18 @@ impl Prover {
             &h_coefficients,
             &pk.z_powers_of_tau_g1[..h_coefficients.len()],
         )
-        .unwrap();
+        .map_err(|e| Groth16Error::MSMError(format!("{:?}", e)))?;
 
         // [ƍ^{-1} * (β*l(τ) + α*r(τ) + o(τ))]_1
         let k_tau_assigned_prover_g1 = msm(
             &w[qap.num_of_public_inputs..],
             &pk.prover_k_tau_g1[..qap.num_of_private_inputs()],
         )
-        .unwrap();
+        .map_err(|e| Groth16Error::MSMError(format!("{:?}", e)))?;
 
         // [π_2]_1
         let pi2_g1 = msm(&w, &pk.r_tau_g1)
-            .unwrap()
+            .map_err(|e| Groth16Error::MSMError(format!("{:?}", e)))?
             .operate_with(&pk.beta_g1)
             .operate_with(&pk.delta_g1.operate_with_self(s.representative()));
 
@@ -125,7 +95,7 @@ impl Prover {
             // -rs[ƍ]_1
             .operate_with(&pk.delta_g1.operate_with_self((-(&r * &s)).representative()));
 
-        Proof { pi1, pi2, pi3 }
+        Ok(Proof { pi1, pi2, pi3 })
     }
 }
 

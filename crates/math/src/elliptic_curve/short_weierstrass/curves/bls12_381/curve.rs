@@ -3,7 +3,7 @@ use super::{
     twist::BLS12381TwistCurve,
 };
 use crate::cyclic_group::IsGroup;
-use crate::elliptic_curve::short_weierstrass::point::ShortWeierstrassProjectivePoint;
+use crate::elliptic_curve::short_weierstrass::point::ShortWeierstrassJacobianPoint;
 use crate::elliptic_curve::traits::IsEllipticCurve;
 use crate::unsigned_integer::element::U256;
 use crate::{
@@ -24,7 +24,8 @@ pub struct BLS12381Curve;
 
 impl IsEllipticCurve for BLS12381Curve {
     type BaseField = BLS12381PrimeField;
-    type PointRepresentation = ShortWeierstrassProjectivePoint<Self>;
+    // Use Jacobian coordinates for optimized point doubling (2M + 5S vs ~8M + 5S for projective)
+    type PointRepresentation = ShortWeierstrassJacobianPoint<Self>;
 
     /// Returns the generator point of the BLS12-381 curve.
     ///
@@ -58,11 +59,28 @@ impl IsShortWeierstrass for BLS12381Curve {
 /// This is equal to the frobenius trace of the BLS12 381 curve minus one or seed value z.
 pub const MILLER_LOOP_CONSTANT: u64 = 0xd201000000010000;
 
-/// 𝛽 : primitive cube root of unity of 𝐹ₚ that §satisfies the minimal equation
+/// 𝛽 : primitive cube root of unity of 𝐹ₚ that satisfies the minimal equation
 /// 𝛽² + 𝛽 + 1 = 0 mod 𝑝
 pub const CUBE_ROOT_OF_UNITY_G1: BLS12381FieldElement = FieldElement::from_hex_unchecked(
     "5f19672fdf76ce51ba69c6076a0f77eaddb3a93be6f89688de17d813620a00022e01fffffffefffe",
 );
+
+// GLV (Gallant-Lambert-Vanstone) Scalar Multiplication Constants
+//
+// The endomorphism φ(x, y) = (βx, y) satisfies φ(P) = [λ]P for all P in the r-torsion subgroup.
+// GLV decomposition splits scalar k into k₁ + k₂·λ where |k₁|, |k₂| < √r.
+
+/// The eigenvalue λ of the GLV endomorphism, satisfying λ² + λ + 1 ≡ 0 (mod r).
+pub const GLV_LAMBDA: U256 =
+    U256::from_hex_unchecked("73eda753299d7d483339d80809a1d804a7780001fffcb7fcfffffffe00000001");
+
+/// The small cube root of unity ω in Fr (≈ 2^127), used for scalar decomposition.
+const GLV_OMEGA: U256 =
+    U256::from_hex_unchecked("00000000000000000000000000000000ac45a4010001a40200000000ffffffff");
+
+/// ω + 1, used in the decomposition formula.
+const GLV_OMEGA_PLUS_ONE: U256 =
+    U256::from_hex_unchecked("00000000000000000000000000000000ac45a4010001a4020000000100000000");
 
 /// x-coordinate of 𝜁 ∘ 𝜋_q ∘ 𝜁⁻¹, where 𝜁 is the isomorphism u:E'(𝔽ₚ₆) −> E(𝔽ₚ₁₂) from the twist to E
 pub const ENDO_U: BLS12381TwistCurveFieldElement =
@@ -78,28 +96,140 @@ BLS12381TwistCurveFieldElement::const_from_raw([
     FieldElement::from_hex_unchecked("6af0e0437ff400b6831e36d6bd17ffe48395dabc2d3435e77f76e17009241c5ee67992f72ec05f4c81084fbede3cc09")
 ]);
 
-impl ShortWeierstrassProjectivePoint<BLS12381Curve> {
-    /// Returns 𝜙(P) = (𝑥, 𝑦) ⇒ (𝛽𝑥, 𝑦), where 𝛽 is the Cube Root of Unity in the base prime field.
+impl ShortWeierstrassJacobianPoint<BLS12381Curve> {
+    /// Applies the GLV endomorphism: φ(x, y) = (βx, y) where β is the cube root of unity.
+    /// Satisfies `φ(P) = [λ]P` where `λ² + λ + 1 ≡ 0 (mod r)`.
     /// See <https://eprint.iacr.org/2022/352.pdf> Section 2 Preliminaries.
-    fn phi(&self) -> Self {
+    #[inline(always)]
+    pub fn phi(&self) -> Self {
         let [x, y, z] = self.coordinates();
-        let new_x = x * CUBE_ROOT_OF_UNITY_G1;
-        // SAFETY: The value `x` is computed correctly, so the point is in the curve.
-        Self::new_unchecked([new_x, y.clone(), z.clone()])
+        Self::new_unchecked([x * CUBE_ROOT_OF_UNITY_G1, y.clone(), z.clone()])
     }
 
-    /// 𝜙(P) = −𝑢²P.
+    /// Checks subgroup membership using `φ(P) = -u²P`.
     /// See <https://eprint.iacr.org/2022/352.pdf> Section 4.3 Prop. 4.
     pub fn is_in_subgroup(&self) -> bool {
+        if self.is_neutral_element() {
+            return true;
+        }
         self.operate_with_self(MILLER_LOOP_CONSTANT)
             .operate_with_self(MILLER_LOOP_CONSTANT)
             .neg()
             == self.phi()
     }
+
+    /// GLV scalar multiplication: computes [k]P using the endomorphism for ~2x speedup.
+    ///
+    /// Decomposes k = k1 + k2*ω with small k1, k2 (~128 bits each), then uses
+    /// Shamir's trick for joint scalar multiplication.
+    pub fn glv_mul(&self, k: &U256) -> Self {
+        if self.is_neutral_element() {
+            return self.clone();
+        }
+
+        let (k1_neg, k1, k2_neg, k2) = glv_decompose(k);
+        let phi_p = self.phi();
+
+        let p1 = if k1_neg { self.neg() } else { self.clone() };
+        let p2 = if k2_neg { phi_p } else { phi_p.neg() };
+
+        shamir_double_and_add(&p1, &k1, &p2, &k2)
+    }
 }
 
-impl ShortWeierstrassProjectivePoint<BLS12381TwistCurve> {
-    /// Computes 𝜓(P) = 𝜁 ∘ 𝜋ₚ ∘ 𝜁⁻¹, where 𝜁 is the isomorphism u:E'(𝔽ₚ₆) −> E(𝔽ₚ₁₂) from the twist to E, 𝜋ₚ is the p-power frobenius endomorphism
+/// Decomposes scalar k into k₁ + k₂*ω (mod r) where |k₁|, |k₂| are approximately √r.
+///
+/// Returns (a_neg, |a|, b_neg, |b|) for the GLV formula: [k]P = [a]P + [b]φ(P).
+fn glv_decompose(k: &U256) -> (bool, U256, bool, U256) {
+    let zero = U256::from_u64(0);
+
+    // Small scalars need no decomposition
+    if *k < GLV_OMEGA {
+        return (false, *k, false, zero);
+    }
+
+    // Compute k2 = k / (ω + 1)
+    let (k2, _) = k.div_rem(&GLV_OMEGA_PLUS_ONE);
+
+    // Compute k1 = k - k2*ω
+    let (k2_omega_lo, k2_omega_hi) = U256::mul(&k2, &GLV_OMEGA);
+
+    // Overflow check: fall back to direct computation if needed
+    if k2_omega_hi != zero {
+        return (false, *k, false, zero);
+    }
+
+    let (k1, k1_underflow) = if *k >= k2_omega_lo {
+        (U256::sub(k, &k2_omega_lo).0, false)
+    } else {
+        (U256::sub(&k2_omega_lo, k).0, true)
+    };
+
+    // Compute a = k1 - k2
+    let (a, a_neg) = if k1_underflow {
+        let (sum, _) = U256::add(&k1, &k2);
+        (sum, true)
+    } else if k1 >= k2 {
+        (U256::sub(&k1, &k2).0, false)
+    } else {
+        (U256::sub(&k2, &k1).0, true)
+    };
+
+    // Refine if a is still too large
+    if a >= GLV_OMEGA && !a_neg {
+        let (a_adj, _) = U256::sub(&a, &GLV_OMEGA);
+        let (b_adj, _) = U256::add(&k2, &U256::from_u64(1));
+        (false, a_adj, false, b_adj)
+    } else {
+        (a_neg, a, false, k2)
+    }
+}
+
+/// Shamir's trick: computes [k1]P1 + [k2]P2 using joint double-and-add.
+///
+/// Shares doublings between both scalar multiplications for efficiency.
+fn shamir_double_and_add(
+    p1: &ShortWeierstrassJacobianPoint<BLS12381Curve>,
+    k1: &U256,
+    p2: &ShortWeierstrassJacobianPoint<BLS12381Curve>,
+    k2: &U256,
+) -> ShortWeierstrassJacobianPoint<BLS12381Curve> {
+    let p1_plus_p2 = p1.operate_with(p2);
+    let max_len = core::cmp::max(k1.bits_le(), k2.bits_le());
+
+    if max_len == 0 {
+        return ShortWeierstrassJacobianPoint::neutral_element();
+    }
+
+    let mut result = ShortWeierstrassJacobianPoint::neutral_element();
+
+    for i in (0..max_len).rev() {
+        result = result.double();
+
+        match (get_bit(k1, i), get_bit(k2, i)) {
+            (false, false) => {}
+            (true, false) => result = result.operate_with(p1),
+            (false, true) => result = result.operate_with(p2),
+            (true, true) => result = result.operate_with(&p1_plus_p2),
+        }
+    }
+
+    result
+}
+
+/// Gets bit at position `pos` from a U256 (little-endian bit indexing).
+#[inline(always)]
+fn get_bit(n: &U256, pos: usize) -> bool {
+    if pos >= 256 {
+        return false;
+    }
+    let limb_idx = 3 - pos / 64;
+    let bit_idx = pos % 64;
+    (n.limbs[limb_idx] >> bit_idx) & 1 == 1
+}
+
+impl ShortWeierstrassJacobianPoint<BLS12381TwistCurve> {
+    /// Computes 𝜓(P) = 𝜁 ∘ 𝜋ₚ ∘ 𝜁⁻¹, where 𝜁 is the isomorphism u:E'(𝔽ₚ₆) −> E(𝔽ₚ₁₂) from the twist to E, 𝜋ₚ is the p-power Frobenius endomorphism
     /// and 𝜓 satisfies minimal equation 𝑋² + 𝑡𝑋 + 𝑞 = 𝑂.
     /// See <https://eprint.iacr.org/2022/352.pdf> Section 4.2 (7).
     ///
@@ -109,6 +239,10 @@ impl ShortWeierstrassProjectivePoint<BLS12381TwistCurve> {
     /// - The conjugation operation preserves validity.
     /// - `unwrap()` is used because `psi()` is defined to **always return a valid point**.
     fn psi(&self) -> Self {
+        // The neutral element maps to itself
+        if self.is_neutral_element() {
+            return self.clone();
+        }
         let [x, y, z] = self.coordinates();
         // SAFETY:
         // - `conjugate()` preserves the validity of the field element.
@@ -127,6 +261,10 @@ impl ShortWeierstrassProjectivePoint<BLS12381TwistCurve> {
     /// 𝜓(P) = 𝑢P, where 𝑢 = SEED of the curve.
     /// See <https://eprint.iacr.org/2022/352.pdf> Section 4.2.
     pub fn is_in_subgroup(&self) -> bool {
+        // The neutral element is always in the subgroup
+        if self.is_neutral_element() {
+            return true;
+        }
         self.psi() == self.operate_with_self(MILLER_LOOP_CONSTANT).neg()
     }
 }
@@ -168,15 +306,15 @@ mod tests {
     /// - The transformation involves multiplying the x and y coordinates by known constants.
     /// - `unwrap()` is used because the resulting point remains valid under the curve equations.
     fn psi_square(
-        p: &ShortWeierstrassProjectivePoint<BLS12381TwistCurve>,
-    ) -> ShortWeierstrassProjectivePoint<BLS12381TwistCurve> {
+        p: &ShortWeierstrassJacobianPoint<BLS12381TwistCurve>,
+    ) -> ShortWeierstrassJacobianPoint<BLS12381TwistCurve> {
         let [x, y, z] = p.coordinates();
         // Since power of frobenius map is 2 we apply once as applying twice is inverse
 
         // SAFETY:
         // - `ENDO_U_2` and `ENDO_V_2` are known valid constants.
         // - `unwrap()` is safe because the transformation preserves curve validity.
-        ShortWeierstrassProjectivePoint::new([x * ENDO_U_2, y * ENDO_V_2, z.clone()]).unwrap()
+        ShortWeierstrassJacobianPoint::new([x * ENDO_U_2, y * ENDO_V_2, z.clone()]).unwrap()
     }
 
     #[allow(clippy::upper_case_acronyms)]
@@ -184,13 +322,13 @@ mod tests {
     #[allow(clippy::upper_case_acronyms)]
     type FTE = FieldElement<Degree2ExtensionField>;
 
-    fn point_1() -> ShortWeierstrassProjectivePoint<BLS12381Curve> {
+    fn point_1() -> ShortWeierstrassJacobianPoint<BLS12381Curve> {
         let x = FEE::new_base("36bb494facde72d0da5c770c4b16d9b2d45cfdc27604a25a1a80b020798e5b0dbd4c6d939a8f8820f042a29ce552ee5");
         let y = FEE::new_base("7acf6e49cc000ff53b06ee1d27056734019c0a1edfa16684da41ebb0c56750f73bc1b0eae4c6c241808a5e485af0ba0");
         BLS12381Curve::create_point_from_affine(x, y).unwrap()
     }
 
-    fn point_1_times_5() -> ShortWeierstrassProjectivePoint<BLS12381Curve> {
+    fn point_1_times_5() -> ShortWeierstrassJacobianPoint<BLS12381Curve> {
         let x = FEE::new_base("32bcce7e71eb50384918e0c9809f73bde357027c6bf15092dd849aa0eac274d43af4c68a65fb2cda381734af5eecd5c");
         let y = FEE::new_base("11e48467b19458aabe7c8a42dc4b67d7390fdf1e150534caadddc7e6f729d8890b68a5ea6885a21b555186452b954d88");
         BLS12381Curve::create_point_from_affine(x, y).unwrap()
@@ -322,5 +460,96 @@ mod tests {
         // Minimal Polynomial of Untwist Frobenius Endomorphism: X^2 + tX + q, where X = psh(P) -> psi(p)^2 - t * psi(p) + q * p = 0
         let min_poly = psi_square.operate_with(&tx.neg()).operate_with(&q);
         assert!(min_poly.is_neutral_element())
+    }
+
+    // GLV scalar multiplication tests
+
+    #[test]
+    fn glv_mul_small_scalar() {
+        // Test with a small scalar (< λ)
+        let g = BLS12381Curve::generator();
+        let k = U256::from_u64(12345);
+        let expected = g.operate_with_self(12345u64);
+        let result = g.glv_mul(&k);
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn glv_mul_medium_scalar() {
+        // Test with a medium scalar
+        let g = BLS12381Curve::generator();
+        let k = U256::from_hex_unchecked("123456789abcdef0123456789abcdef0");
+        let expected = g.operate_with_self(k);
+        let result = g.glv_mul(&k);
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn glv_mul_large_scalar() {
+        // Test with a larger scalar that exercises the decomposition
+        let g = BLS12381Curve::generator();
+        let k = U256::from_hex_unchecked(
+            "73eda753299d7d483339d80809a1d80553bda402fffe5bfefffffffe00000000",
+        );
+        let expected = g.operate_with_self(k);
+        let result = g.glv_mul(&k);
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn glv_mul_neutral_element() {
+        // GLV mul of neutral element should return neutral element
+        let neutral = ShortWeierstrassJacobianPoint::<BLS12381Curve>::neutral_element();
+        let k = U256::from_u64(12345);
+        let result = neutral.glv_mul(&k);
+        assert!(result.is_neutral_element());
+    }
+
+    #[test]
+    fn glv_mul_zero_scalar() {
+        // [0]P should return neutral element
+        let g = BLS12381Curve::generator();
+        let k = U256::from_u64(0);
+        let result = g.glv_mul(&k);
+        assert!(result.is_neutral_element());
+    }
+
+    #[test]
+    fn phi_endomorphism_property() {
+        // Verify φ(P) = [λ]P by comparing in affine coordinates
+        let g = BLS12381Curve::generator();
+        let phi_g = g.phi();
+        let lambda_g = g.operate_with_self(GLV_LAMBDA);
+
+        // Convert to affine for comparison to rule out Jacobian representation issues
+        let phi_g_affine = phi_g.to_affine();
+        let lambda_g_affine = lambda_g.to_affine();
+
+        assert_eq!(
+            phi_g_affine.x(),
+            lambda_g_affine.x(),
+            "φ(G).x should equal [λ]G.x"
+        );
+        assert_eq!(
+            phi_g_affine.y(),
+            lambda_g_affine.y(),
+            "φ(G).y should equal [λ]G.y"
+        );
+    }
+
+    #[test]
+    fn phi_cube_is_identity() {
+        // φ³ = identity, since φ has order 3
+        let g = BLS12381Curve::generator();
+        let phi_g = g.phi();
+        let phi2_g = phi_g.phi();
+        let phi3_g = phi2_g.phi();
+
+        // Convert to affine for comparison
+        let g_affine = g.to_affine();
+        let phi3_g_affine = phi3_g.to_affine();
+
+        assert_eq!(g_affine.x(), phi3_g_affine.x(), "φ³(G).x should equal G.x");
+        assert_eq!(g_affine.y(), phi3_g_affine.y(), "φ³(G).y should equal G.y");
     }
 }
