@@ -1,6 +1,8 @@
 # Lambdaworks Documentation
 
 - [Introduction](./introduction.md)
+- [Getting Started](./getting-started.md)
+- [Architecture Overview](./architecture.md)
 
 - [FFT Library]()
   - [Benchmarks](./fft/benchmarks.md)
