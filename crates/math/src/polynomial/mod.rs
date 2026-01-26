@@ -151,6 +151,15 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
         self.coefficients().len()
     }
 
+    /// Returns true if the polynomial is zero (all coefficients are zero or empty).
+    ///
+    /// This is more robust than comparing with `Polynomial::zero()` because
+    /// some operations (like `scale_coeffs` with zero) may produce polynomials
+    /// with non-empty but all-zero coefficient vectors.
+    pub fn is_zero(&self) -> bool {
+        self.coefficients.iter().all(|c| *c == FieldElement::zero())
+    }
+
     /// Returns the derivative of the polynomial with respect to x.
     pub fn differentiate(&self) -> Self {
         let degree = self.degree();
@@ -200,26 +209,23 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
     ///
     /// # Panics
     /// Panics if the divisor is the zero polynomial.
-    pub fn long_division_with_remainder(self, dividend: &Self) -> (Self, Self) {
-        assert!(
-            *dividend != Polynomial::zero(),
-            "Cannot divide by the zero polynomial"
-        );
-        if dividend.degree() > self.degree() {
+    pub fn long_division_with_remainder(self, divisor: &Self) -> (Self, Self) {
+        assert!(!divisor.is_zero(), "Cannot divide by the zero polynomial");
+        if divisor.degree() > self.degree() {
             (Polynomial::zero(), self)
         } else {
             let mut n = self;
             let mut q: Vec<FieldElement<F>> = vec![FieldElement::zero(); n.degree() + 1];
-            let denominator = dividend
+            let denominator = divisor
                 .leading_coefficient()
                 .inv()
                 .expect("Leading coefficient should be non-zero for non-zero polynomial");
-            while n != Polynomial::zero() && n.degree() >= dividend.degree() {
+            while !n.is_zero() && n.degree() >= divisor.degree() {
                 let new_coefficient = n.leading_coefficient() * &denominator;
-                q[n.degree() - dividend.degree()] = new_coefficient.clone();
-                let d = dividend.mul_with_ref(&Polynomial::new_monomial(
+                q[n.degree() - divisor.degree()] = new_coefficient.clone();
+                let d = divisor.mul_with_ref(&Polynomial::new_monomial(
                     new_coefficient,
-                    n.degree() - dividend.degree(),
+                    n.degree() - divisor.degree(),
                 ));
                 n = n - d;
             }
@@ -240,7 +246,7 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
         let zero = Polynomial::zero();
 
         // Handle special cases where one or both polynomials are zero
-        if *self == zero && *y == zero {
+        if self.is_zero() && y.is_zero() {
             panic!("xgcd(0, 0) is undefined");
         }
 
@@ -248,7 +254,7 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
         let (mut old_s, mut s) = (one.clone(), zero.clone());
         let (mut old_t, mut t) = (zero.clone(), one.clone());
 
-        while r != Polynomial::zero() {
+        while !r.is_zero() {
             let quotient = old_r.clone().div_with_ref(&r);
             old_r = old_r - &quotient * &r;
             core::mem::swap(&mut old_r, &mut r);
@@ -269,8 +275,8 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
         )
     }
 
-    pub fn div_with_ref(self, dividend: &Self) -> Self {
-        let (quotient, _remainder) = self.long_division_with_remainder(dividend);
+    pub fn div_with_ref(self, divisor: &Self) -> Self {
+        let (quotient, _remainder) = self.long_division_with_remainder(divisor);
         quotient
     }
 
@@ -599,8 +605,8 @@ where
 {
     type Output = Polynomial<FieldElement<F>>;
 
-    fn div(self, dividend: Polynomial<FieldElement<F>>) -> Polynomial<FieldElement<F>> {
-        self.div_with_ref(&dividend)
+    fn div(self, divisor: Polynomial<FieldElement<F>>) -> Polynomial<FieldElement<F>> {
+        self.div_with_ref(&divisor)
     }
 }
 
@@ -1331,5 +1337,59 @@ mod tests {
     fn test_print_as_sage_poly() {
         let p = Polynomial::new(&[FE::new(1), FE::new(2), FE::new(3)]);
         assert_eq!(p.print_as_sage_poly(None), "3*x^2 + 2*x + 1");
+    }
+
+    #[test]
+    fn test_is_zero() {
+        // Canonical zero polynomial
+        assert!(Polynomial::<FE>::zero().is_zero());
+
+        // Empty coefficients
+        assert!(Polynomial::<FE>::new(&[]).is_zero());
+
+        // Single zero coefficient
+        assert!(Polynomial::new(&[FE::new(0)]).is_zero());
+
+        // Non-zero polynomial
+        assert!(!Polynomial::new(&[FE::new(1)]).is_zero());
+        assert!(!Polynomial::new(&[FE::new(0), FE::new(1)]).is_zero());
+
+        // Non-canonical zero (created via scale_coeffs with zero)
+        let p = Polynomial::new(&[FE::new(1), FE::new(2)]);
+        let scaled = p.scale_coeffs(&FE::new(0));
+        assert!(scaled.is_zero());
+    }
+
+    #[test]
+    #[should_panic(expected = "Cannot divide by the zero polynomial")]
+    fn test_division_by_zero_panics() {
+        let p = Polynomial::new(&[FE::new(1), FE::new(2)]);
+        let zero = Polynomial::<FE>::zero();
+        let _ = p.long_division_with_remainder(&zero);
+    }
+
+    #[test]
+    #[should_panic(expected = "Cannot divide by the zero polynomial")]
+    fn test_division_by_non_canonical_zero_panics() {
+        let p = Polynomial::new(&[FE::new(1), FE::new(2)]);
+        // Create a non-canonical zero polynomial via scale_coeffs
+        let non_canonical_zero = Polynomial::new(&[FE::new(1)]).scale_coeffs(&FE::new(0));
+        let _ = p.long_division_with_remainder(&non_canonical_zero);
+    }
+
+    #[test]
+    #[should_panic(expected = "xgcd(0, 0) is undefined")]
+    fn test_xgcd_both_zero_panics() {
+        let zero = Polynomial::<FE>::zero();
+        let _ = zero.xgcd(&zero);
+    }
+
+    #[test]
+    #[should_panic(expected = "xgcd(0, 0) is undefined")]
+    fn test_xgcd_non_canonical_zeros_panics() {
+        // Create non-canonical zero polynomials
+        let zero1 = Polynomial::new(&[FE::new(1)]).scale_coeffs(&FE::new(0));
+        let zero2 = Polynomial::new(&[FE::new(2), FE::new(3)]).scale_coeffs(&FE::new(0));
+        let _ = zero1.xgcd(&zero2);
     }
 }
