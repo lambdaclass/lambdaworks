@@ -12,7 +12,7 @@
 use crate::address::{Address, AddressType};
 use crate::hash::XmssHasher;
 use crate::ltree::ltree;
-use crate::params::{XmssParams, MAX_IDX, N};
+use crate::params::{XmssParams, H, LEN, MAX_IDX, N};
 use crate::wots::{wots_pk_from_sig, wots_sign, WotsSignature};
 use crate::xmss_tree::{compute_root, AuthPath, XmssTree};
 
@@ -157,13 +157,87 @@ pub struct XmssSignature {
     pub auth_path: AuthPath,
 }
 
+/// Signature size in bytes: 4 (idx) + N (randomness) + LEN*N (wots) + H*N (auth)
+pub const SIGNATURE_SIZE: usize = 4 + N + LEN * N + H * N;
+
 impl XmssSignature {
-    /// Get the approximate size of the signature in bytes
+    /// Get the size of the signature in bytes
     pub fn size(&self) -> usize {
-        4 // idx
-        + N // randomness
-        + self.wots_sig.len() * N // WOTS+ signature
-        + self.auth_path.path.len() * N // auth path
+        SIGNATURE_SIZE
+    }
+
+    /// Serialize the signature to bytes
+    pub fn to_bytes(&self) -> [u8; SIGNATURE_SIZE] {
+        let mut bytes = [0u8; SIGNATURE_SIZE];
+        let mut offset = 0;
+
+        // idx (4 bytes, big-endian)
+        bytes[offset..offset + 4].copy_from_slice(&self.idx.to_be_bytes());
+        offset += 4;
+
+        // randomness (N bytes)
+        bytes[offset..offset + N].copy_from_slice(&self.randomness);
+        offset += N;
+
+        // WOTS+ signature (LEN * N bytes)
+        for elem in &self.wots_sig.sig {
+            bytes[offset..offset + N].copy_from_slice(elem);
+            offset += N;
+        }
+
+        // Auth path (H * N bytes)
+        for elem in &self.auth_path.path {
+            bytes[offset..offset + N].copy_from_slice(elem);
+            offset += N;
+        }
+
+        bytes
+    }
+
+    /// Deserialize a signature from bytes
+    pub fn from_bytes(bytes: &[u8; SIGNATURE_SIZE]) -> Self {
+        let mut offset = 0;
+
+        // idx (4 bytes, big-endian)
+        let idx = u32::from_be_bytes([
+            bytes[offset],
+            bytes[offset + 1],
+            bytes[offset + 2],
+            bytes[offset + 3],
+        ]);
+        offset += 4;
+
+        // randomness (N bytes)
+        let mut randomness = [0u8; N];
+        randomness.copy_from_slice(&bytes[offset..offset + N]);
+        offset += N;
+
+        // WOTS+ signature (LEN * N bytes)
+        let mut wots_sig_data = Vec::with_capacity(LEN);
+        for _ in 0..LEN {
+            let mut elem = [0u8; N];
+            elem.copy_from_slice(&bytes[offset..offset + N]);
+            wots_sig_data.push(elem);
+            offset += N;
+        }
+        let wots_sig = WotsSignature::new(wots_sig_data);
+
+        // Auth path (H * N bytes)
+        let mut auth_path_data = Vec::with_capacity(H);
+        for _ in 0..H {
+            let mut elem = [0u8; N];
+            elem.copy_from_slice(&bytes[offset..offset + N]);
+            auth_path_data.push(elem);
+            offset += N;
+        }
+        let auth_path = AuthPath::new(auth_path_data);
+
+        Self {
+            idx,
+            randomness,
+            wots_sig,
+            auth_path,
+        }
     }
 }
 
@@ -502,6 +576,33 @@ mod tests {
 
         assert_eq!(pk.root, pk_recovered.root);
         assert_eq!(pk.public_seed, pk_recovered.public_seed);
+    }
+
+    #[test]
+    fn test_signature_serialization() {
+        let xmss = Xmss::new(Sha256Hasher::new());
+        let seed = test_seed();
+
+        let (pk, mut sk) = xmss.keygen(&seed);
+
+        let message = b"Test message for serialization";
+        let signature = xmss.sign(message, &mut sk).unwrap();
+
+        // Serialize
+        let bytes = signature.to_bytes();
+        assert_eq!(bytes.len(), super::SIGNATURE_SIZE);
+
+        // Deserialize
+        let recovered = XmssSignature::from_bytes(&bytes);
+
+        // Verify fields match
+        assert_eq!(signature.idx, recovered.idx);
+        assert_eq!(signature.randomness, recovered.randomness);
+        assert_eq!(signature.wots_sig.sig, recovered.wots_sig.sig);
+        assert_eq!(signature.auth_path.path, recovered.auth_path.path);
+
+        // Verify recovered signature works
+        assert!(xmss.verify(message, &recovered, &pk));
     }
 
     #[test]

@@ -76,7 +76,7 @@ pub use address::{Address, AddressType};
 pub use hash::{hash_message, Sha256Hasher, XmssHasher};
 pub use params::{XmssParams, H, LEN, LEN_1, LEN_2, N, W};
 pub use wots::{chain, WotsPublicKey, WotsSignature};
-pub use xmss::{Xmss, XmssError, XmssPublicKey, XmssSecretKey, XmssSignature};
+pub use xmss::{Xmss, XmssError, XmssPublicKey, XmssSecretKey, XmssSignature, SIGNATURE_SIZE};
 pub use xmss_tree::{AuthPath, XmssTree};
 
 #[cfg(test)]
@@ -392,5 +392,35 @@ mod integration_tests {
         // Step 7: Demonstrate that old signatures remain valid
         // (signatures don't expire, they're permanently valid)
         assert!(xmss.verify(transactions[0], &signatures[0], &public_key));
+    }
+
+    #[test]
+    fn test_full_serialization_roundtrip() {
+        // Simulates a network scenario: sign on one machine, verify on another
+        let xmss = Xmss::new(Sha256Hasher::new());
+        let seed = random_seed();
+
+        // === Signer side ===
+        let (pk, mut sk) = xmss.keygen(&seed);
+        let message = b"Transfer 1000 tokens to 0xABCD...";
+        let signature = xmss.sign(message, &mut sk).expect("signing failed");
+
+        // Serialize for transmission (e.g., save to disk or send over network)
+        let pk_bytes = pk.to_bytes();
+        let sig_bytes = signature.to_bytes();
+
+        // === Verifier side (different machine, only has serialized data) ===
+        let recovered_pk = XmssPublicKey::from_bytes(&pk_bytes);
+        let recovered_sig = XmssSignature::from_bytes(&sig_bytes);
+
+        // Verify with recovered data
+        assert!(
+            xmss.verify(message, &recovered_sig, &recovered_pk),
+            "Signature verification failed after serialization roundtrip"
+        );
+
+        // Ensure sizes are as expected
+        assert_eq!(pk_bytes.len(), 64); // 2 * N
+        assert_eq!(sig_bytes.len(), SIGNATURE_SIZE); // 2500 bytes
     }
 }
