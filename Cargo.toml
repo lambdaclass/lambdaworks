@@ -21,6 +21,7 @@ members = [
     "examples/baby-snark",
     "examples/pohlig-hellman-attack",
     "examples/schnorr-signature",
+    "examples/frost-signature",
     "examples/rsa",
     "examples/reed-solomon-codes",
 ]
