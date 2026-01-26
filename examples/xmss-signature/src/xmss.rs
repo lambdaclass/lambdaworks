@@ -113,7 +113,11 @@ impl XmssSecretKey {
 
     /// Get remaining signatures available
     pub fn remaining_signatures(&self) -> u32 {
-        MAX_IDX - self.idx + 1
+        if self.idx > MAX_IDX {
+            0
+        } else {
+            MAX_IDX - self.idx + 1
+        }
     }
 
     /// Build and cache the tree (for efficient auth path retrieval)

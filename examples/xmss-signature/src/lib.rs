@@ -329,6 +329,24 @@ mod integration_tests {
     }
 
     #[test]
+    fn test_remaining_signatures_exhausted() {
+        // Test that remaining_signatures returns 0 when index exceeds MAX_IDX
+        // (avoids integer underflow)
+        let xmss = Xmss::new(Sha256Hasher::new());
+        let seed = random_seed();
+
+        let (_, mut sk) = xmss.keygen(&seed);
+
+        // Set index past maximum (simulating exhaustion after last signature)
+        sk.idx = 1024;
+        assert_eq!(sk.remaining_signatures(), 0);
+
+        // Even larger values should still return 0
+        sk.idx = u32::MAX;
+        assert_eq!(sk.remaining_signatures(), 0);
+    }
+
+    #[test]
     fn test_e2e_realistic_workflow() {
         // End-to-end test simulating a realistic signing workflow
         let xmss = Xmss::new(Sha256Hasher::new());
