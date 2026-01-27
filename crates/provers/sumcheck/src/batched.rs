@@ -253,9 +253,9 @@ where
     F::BaseType: Send + Sync,
     FieldElement<F>: Clone + Mul<Output = FieldElement<F>> + ByteConversion,
 {
-    if instances.is_empty() {
+    if instances.is_empty() || instances[0].is_empty() {
         return Err(ProverError::FactorMismatch(
-            "At least one instance is required.".to_string(),
+            "At least one instance with one polynomial factor is required.".to_string(),
         ));
     }
 
