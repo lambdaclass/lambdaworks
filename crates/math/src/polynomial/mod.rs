@@ -261,8 +261,11 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
         let (mut old_t, mut t) = (zero.clone(), one.clone());
 
         while !r.is_zero() {
-            // Safe to unwrap: r is not zero in this loop
-            let quotient = old_r.clone().div_with_ref(&r).unwrap();
+            // Division is safe: the loop condition guarantees r is non-zero
+            let quotient = old_r
+                .clone()
+                .div_with_ref(&r)
+                .expect("divisor is non-zero by loop invariant");
             old_r = old_r - &quotient * &r;
             core::mem::swap(&mut old_r, &mut r);
             old_s = old_s - &quotient * &s;
