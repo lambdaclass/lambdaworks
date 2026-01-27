@@ -118,9 +118,10 @@ fn create_mul_chain_witness(
 
 fn benchmark_prover(c: &mut Criterion) {
     let mut group = c.benchmark_group("PLONK Prover");
+    group.sample_size(10); // Reduce sample size for large circuits
 
     // Benchmark different circuit sizes (powers of 2)
-    for size in [4, 8, 16, 32] {
+    for size in [64, 256, 1024, 4096, 16384, 32768] {
         let cs = create_mul_chain_circuit(size);
         let cpi = CommonPreprocessedInput::from_constraint_system(&cs, &ORDER_R_MINUS_1_ROOT_UNITY)
             .expect("Failed to create CPI");
@@ -157,9 +158,10 @@ fn benchmark_prover(c: &mut Criterion) {
 
 fn benchmark_verifier(c: &mut Criterion) {
     let mut group = c.benchmark_group("PLONK Verifier");
+    group.sample_size(10);
 
     // Benchmark different circuit sizes
-    for size in [4, 8, 16, 32] {
+    for size in [64, 256, 1024, 4096, 16384, 32768] {
         let cs = create_mul_chain_circuit(size);
         let cpi = CommonPreprocessedInput::from_constraint_system(&cs, &ORDER_R_MINUS_1_ROOT_UNITY)
             .expect("Failed to create CPI");
@@ -199,8 +201,9 @@ fn benchmark_verifier(c: &mut Criterion) {
 
 fn benchmark_setup(c: &mut Criterion) {
     let mut group = c.benchmark_group("PLONK Setup");
+    group.sample_size(10);
 
-    for size in [4, 8, 16, 32] {
+    for size in [64, 256, 1024, 4096, 16384, 32768] {
         let cs = create_mul_chain_circuit(size);
         let cpi = CommonPreprocessedInput::from_constraint_system(&cs, &ORDER_R_MINUS_1_ROOT_UNITY)
             .expect("Failed to create CPI");
@@ -222,8 +225,9 @@ fn benchmark_setup(c: &mut Criterion) {
 
 fn benchmark_end_to_end(c: &mut Criterion) {
     let mut group = c.benchmark_group("PLONK End-to-End");
+    group.sample_size(10);
 
-    for size in [4, 8, 16] {
+    for size in [256, 1024, 4096] {
         group.bench_with_input(
             BenchmarkId::new("prove_and_verify", format!("{}_constraints", size)),
             &size,
