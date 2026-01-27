@@ -111,11 +111,11 @@ impl RescuePrimeOptimized {
         };
         let mds_vector = self.mds_vector.as_slice();
 
-        let mds_ntt = ntt(mds_vector, omega);
+        let mds_ntt = ntt(mds_vector, omega)?;
         let state_rev: Vec<Fp> = iter::once(state[0])
             .chain(state[1..].iter().rev().cloned())
             .collect();
-        let state_ntt = ntt(&state_rev, omega);
+        let state_ntt = ntt(&state_rev, omega)?;
 
         let mut product_ntt = vec![Fp::zero(); m];
         for i in 0..m {

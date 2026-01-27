@@ -38,28 +38,35 @@ impl<const WIDTH: usize, const NUM_FULL_ROUNDS: usize> MonolithMersenne31<WIDTH,
         assert!(WIDTH <= 24);
         assert!(WIDTH.is_multiple_of(4));
         Self {
-            round_constants: Self::instantiate_round_constants(),
+            round_constants: Self::instantiate_round_constants().unwrap(),
             lookup1: Self::instantiate_lookup1(),
             lookup2: Self::instantiate_lookup2(),
         }
     }
 
-    fn instantiate_round_constants() -> Vec<Vec<u32>> {
+    fn instantiate_round_constants() -> Result<Vec<Vec<u32>>, String> {
         let mut shake = Shake128::default();
         shake.update("Monolith".as_bytes());
-        shake.update(&[WIDTH as u8, (NUM_FULL_ROUNDS + 1) as u8]);
+        let num_full_round_plus_one =
+            u8::try_from(NUM_FULL_ROUNDS + 1).map_err(|e| format!("size conversion error: {e}"))?;
+        shake.update(&[
+            u8::try_from(WIDTH).expect("as 8<=WIDTH<=24, this should never fail"),
+            num_full_round_plus_one,
+        ]);
         shake.update(&MERSENNE_31_PRIME_FIELD_ORDER.to_le_bytes());
         shake.update(&[8, 8, 8, 7]);
         let mut shake_finalized = shake.finalize_xof();
-        random_matrix(&mut shake_finalized, NUM_FULL_ROUNDS, WIDTH)
+        Ok(random_matrix(&mut shake_finalized, NUM_FULL_ROUNDS, WIDTH))
     }
 
     fn instantiate_lookup1() -> Vec<u16> {
         (0..=u16::MAX)
             .map(|i| {
-                let hi = (i >> 8) as u8;
-                let lo = i as u8;
-                ((Self::s_box(hi) as u16) << 8) | Self::s_box(lo) as u16
+                let hi =
+                    u8::try_from(i >> 8).expect("as (i>>8) <=  u8::MAX this should never fail");
+                let lo = u8::try_from(i & 0xFF)
+                    .expect("as (i & 0xFF) <=  u8::MAX this should never fail");
+                (u16::from(Self::s_box(hi)) << 8) | u16::from(Self::s_box(lo))
             })
             .collect()
     }
@@ -67,9 +74,11 @@ impl<const WIDTH: usize, const NUM_FULL_ROUNDS: usize> MonolithMersenne31<WIDTH,
     fn instantiate_lookup2() -> Vec<u16> {
         (0..(1 << 15))
             .map(|i| {
-                let hi = (i >> 8) as u8;
-                let lo: u8 = i as u8;
-                ((Self::final_s_box(hi) as u16) << 8) | Self::s_box(lo) as u16
+                let hi =
+                    u8::try_from(i >> 8).expect("as (i>>8) <=  u8::MAX and this should never fail");
+                let lo = u8::try_from(i & 0xFF)
+                    .expect("as (i & 0xFF) <=  u8::MAX this should never fail");
+                ((u16::from(Self::final_s_box(hi))) << 8) | u16::from(Self::s_box(lo))
             })
             .collect()
     }
@@ -89,39 +98,55 @@ impl<const WIDTH: usize, const NUM_FULL_ROUNDS: usize> MonolithMersenne31<WIDTH,
     }
 
     pub fn permutation(&self, state: &mut Vec<u32>) {
-        self.concrete(state);
+        self.concrete(state).unwrap();
         for round in 0..NUM_FULL_ROUNDS {
             self.bars(state);
             Self::bricks(state);
-            self.concrete(state);
+            self.concrete(state).unwrap();
             Self::add_round_constants(state, &self.round_constants[round]);
         }
         self.bars(state);
         Self::bricks(state);
-        self.concrete(state);
+        self.concrete(state).unwrap();
     }
 
     // MDS matrix
-    fn concrete(&self, state: &mut Vec<u32>) {
+    fn concrete(&self, state: &mut Vec<u32>) -> Result<(), Box<dyn std::error::Error>> {
         *state = if WIDTH == 16 {
             Self::apply_circulant(&mut MATRIX_CIRC_MDS_16_MERSENNE31_MONOLITH.clone(), state)
         } else {
             let mut shake = Shake128::default();
             shake.update("Monolith".as_bytes());
-            shake.update(&[WIDTH as u8, (NUM_FULL_ROUNDS + 1) as u8]);
+            let num_full_round_plus_one = u8::try_from(NUM_FULL_ROUNDS + 1)
+                .map_err(|e| format!("size conversion error: {e}"))?;
+            shake.update(&[
+                u8::try_from(WIDTH).expect("as 8<=WIDTH<=24 this should never fail"),
+                num_full_round_plus_one,
+            ]);
             shake.update(&MERSENNE_31_PRIME_FIELD_ORDER.to_le_bytes());
             shake.update(&[16, 15]);
             shake.update("MDS".as_bytes());
             let mut shake_finalized = shake.finalize_xof();
             Self::apply_cauchy_mds_matrix(&mut shake_finalized, state)
         };
+        Ok(())
     }
 
     // S-box lookups
     fn bars(&self, state: &mut [u32]) {
         for state in state.iter_mut().take(NUM_BARS) {
-            *state = ((self.lookup2[(*state >> 16) as u16 as usize] as u32) << 16)
-                | (self.lookup1[*state as u16 as usize] as u32);
+            *state = ((u32::from(
+                self.lookup2[usize::from(
+                    u16::try_from((*state >> 16) & 0xFFFF)
+                        .expect("as (*state >> 16) & 0xFFFF <=  u16::MAX this should never fail"),
+                )],
+            )) << 16)
+                | (u32::from(
+                    self.lookup1[usize::from(
+                        u16::try_from(*state & 0xFFFF)
+                            .expect("as *state & 0xFFFF <=  u16::MAX this should never fail"),
+                    )],
+                ));
         }
     }
 
@@ -153,7 +178,7 @@ impl<const WIDTH: usize, const NUM_FULL_ROUNDS: usize> MonolithMersenne31<WIDTH,
         let mut output = vec![F::zero(); WIDTH];
 
         let bits: u32 = u64::BITS
-            - (MERSENNE_31_PRIME_FIELD_ORDER as u64)
+            - (u64::from(MERSENNE_31_PRIME_FIELD_ORDER))
                 .saturating_sub(1)
                 .leading_zeros();
 
@@ -183,13 +208,19 @@ mod tests {
     use super::*;
 
     fn get_test_input(width: usize) -> Vec<u32> {
-        (0..width).map(|i| F::from_base_type(i as u32)).collect()
+        (0..width)
+            .map(|i| {
+                F::from_base_type(u32::try_from(i).expect("as 8<=WIDTH<=24 this should never fail"))
+            })
+            .collect()
     }
 
     #[test]
     fn from_plonky3_concrete_width_16() {
         let mut input = get_test_input(16);
-        MonolithMersenne31::<16, 5>::new().concrete(&mut input);
+        MonolithMersenne31::<16, 5>::new()
+            .concrete(&mut input)
+            .expect("as WIDTH = 16 this never fails");
         assert_eq!(
             input,
             [
@@ -202,7 +233,9 @@ mod tests {
     #[test]
     fn from_plonky3_concrete_width_12() {
         let mut input = get_test_input(12);
-        MonolithMersenne31::<12, 5>::new().concrete(&mut input);
+        MonolithMersenne31::<12, 5>::new()
+            .concrete(&mut input)
+            .expect("as WIDTH = 12 this never fails");
         assert_eq!(
             input,
             [

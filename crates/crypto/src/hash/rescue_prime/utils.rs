@@ -20,20 +20,22 @@ pub fn bytes_to_field_elements(input: &[u8]) -> Vec<Fp> {
         .collect()
 }
 
-pub fn ntt(input: &[Fp], omega: Fp) -> Vec<Fp> {
-    (0..input.len())
+pub fn ntt(input: &[Fp], omega: Fp) -> Result<Vec<Fp>, FieldError> {
+    let input_64 = u64::try_from(input.len()).map_err(|_| FieldError::ConversionError)?;
+    Ok((0..input_64)
         .map(|i| {
             input.iter().enumerate().fold(Fp::zero(), |acc, (j, val)| {
-                acc + *val * omega.pow((i * j) as u64)
+                let j = u64::try_from(j).expect("as j < input_64 this should never fail");
+                acc + *val * omega.pow(i * j)
             })
         })
-        .collect()
+        .collect())
 }
 
 pub fn intt(input: &[Fp], omega_inv: Fp) -> Result<Vec<Fp>, FieldError> {
-    let n = input.len() as u64;
+    let n = u64::try_from(input.len()).map_err(|_| FieldError::ConversionError)?;
     let inv_n = Fp::from(n).inv()?;
-    let transformed = ntt(input, omega_inv);
+    let transformed = ntt(input, omega_inv)?;
     Ok(transformed.into_iter().map(|val| val * inv_n).collect())
 }
 

@@ -5,6 +5,7 @@ use super::{
     cosets::Coset,
     twiddles::{get_twiddles, TwiddlesConfig},
 };
+#[cfg(feature = "alloc")]
 use crate::{
     fft::cpu::bit_reversing::in_place_bit_reverse_permute,
     field::{element::FieldElement, fields::mersenne31::field::Mersenne31Field},
@@ -66,9 +67,11 @@ pub fn interpolate_cfft(
     // The icfft returns all the coefficients multiplied by 2^n, the length of the evaluations.
     // So we multiply every element that outputs the icfft by the inverse of 2^n to get the actual coefficients.
     // Note that this `unwrap` will never panic because eval.len() != 0.
-    let factor = (FieldElement::<Mersenne31Field>::from(eval.len() as u64))
-        .inv()
-        .unwrap();
+    let factor = (FieldElement::<Mersenne31Field>::from(
+        u64::try_from(eval.len()).expect("as usize fits in u64 this should never fail"),
+    ))
+    .inv()
+    .unwrap();
     eval_ordered.iter().map(|coef| coef * factor).collect()
 }
 
