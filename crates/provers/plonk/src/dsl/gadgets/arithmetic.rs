@@ -148,7 +148,9 @@ impl<F: IsField> Gadget<F> for FromBits {
         bits: Self::Input,
     ) -> Result<Self::Output, GadgetError> {
         if bits.is_empty() {
-            return Err(GadgetError::InvalidInput("bits cannot be empty".to_string()));
+            return Err(GadgetError::InvalidInput(
+                "bits cannot be empty".to_string(),
+            ));
         }
 
         let mut result = builder.constant(FieldElement::<F>::zero());

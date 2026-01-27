@@ -2,8 +2,8 @@
 
 use crate::constraint_system::ConstraintSystem;
 use crate::dsl::types::{AsFieldVar, BoolVar, FieldVar, Var};
-use crate::setup::{CommonPreprocessedInput, Witness, WitnessBuilder};
 use crate::prover::ProverError;
+use crate::setup::{CommonPreprocessedInput, Witness, WitnessBuilder};
 use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::traits::{IsFFTField, IsField};
 use std::collections::HashMap;
@@ -186,7 +186,9 @@ impl<F: IsField> CircuitBuilder<F> {
 
     /// Adds two variables: result = a + b
     pub fn add<A: AsFieldVar, B: AsFieldVar>(&mut self, a: &A, b: &B) -> FieldVar {
-        let result = self.cs.add(&a.as_field_var().inner, &b.as_field_var().inner);
+        let result = self
+            .cs
+            .add(&a.as_field_var().inner, &b.as_field_var().inner);
         FieldVar::new(result)
     }
 
@@ -200,16 +202,18 @@ impl<F: IsField> CircuitBuilder<F> {
 
     /// Multiplies two variables: result = a * b
     pub fn mul<A: AsFieldVar, B: AsFieldVar>(&mut self, a: &A, b: &B) -> FieldVar {
-        let result = self.cs.mul(&a.as_field_var().inner, &b.as_field_var().inner);
+        let result = self
+            .cs
+            .mul(&a.as_field_var().inner, &b.as_field_var().inner);
         FieldVar::new(result)
     }
 
     /// Multiplies a variable by a constant: result = a * c
     pub fn mul_constant<A: AsFieldVar>(&mut self, a: &A, c: FieldElement<F>) -> FieldVar {
         // linear_function(v, c, b, hint) creates w = c * v + b
-        let result = self
-            .cs
-            .linear_function(&a.as_field_var().inner, c, FieldElement::zero(), None);
+        let result =
+            self.cs
+                .linear_function(&a.as_field_var().inner, c, FieldElement::zero(), None);
         FieldVar::new(result)
     }
 
@@ -235,7 +239,9 @@ impl<F: IsField> CircuitBuilder<F> {
     /// # Note
     /// This constrains `b * result = a`, which fails if `b = 0`.
     pub fn div<A: AsFieldVar, B: AsFieldVar>(&mut self, a: &A, b: &B) -> FieldVar {
-        let result = self.cs.div(&a.as_field_var().inner, &b.as_field_var().inner);
+        let result = self
+            .cs
+            .div(&a.as_field_var().inner, &b.as_field_var().inner);
         FieldVar::new(result)
     }
 

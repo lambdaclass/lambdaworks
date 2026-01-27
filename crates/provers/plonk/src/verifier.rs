@@ -61,7 +61,8 @@ pub trait SubgroupCheck: IsGroup {
     /// Checks if the element is in the prime-order subgroup.
     /// This is done by verifying that multiplying by the subgroup order yields the identity.
     fn is_in_subgroup(&self) -> bool {
-        self.operate_with_self(Self::subgroup_order()).is_neutral_element()
+        self.operate_with_self(Self::subgroup_order())
+            .is_neutral_element()
     }
 }
 
@@ -126,9 +127,7 @@ impl<F: IsField + IsFFTField + HasDefaultTranscript, CS: IsCommitmentScheme<F>> 
     /// # Returns
     /// * `Ok(())` if all commitments are valid
     /// * `Err(VerifierError)` if any commitment is invalid
-    pub fn validate_proof_commitments(
-        p: &Proof<F, CS>,
-    ) -> Result<(), VerifierError>
+    pub fn validate_proof_commitments(p: &Proof<F, CS>) -> Result<(), VerifierError>
     where
         CS::Commitment: SubgroupCheck,
     {
@@ -309,13 +308,10 @@ impl<F: IsField + IsFFTField + HasDefaultTranscript, CS: IsCommitmentScheme<F>> 
             vk.s2_1.clone(),
         ];
 
-        if !self.commitment_scheme.verify_batch(
-            &zeta,
-            &ys,
-            &commitments,
-            &p.w_zeta_1,
-            &upsilon,
-        ) {
+        if !self
+            .commitment_scheme
+            .verify_batch(&zeta, &ys, &commitments, &p.w_zeta_1, &upsilon)
+        {
             return Err(VerifierError::BatchOpeningFailed);
         }
 

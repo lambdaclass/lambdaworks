@@ -117,7 +117,10 @@ mod tests {
         // IsZero creates internal variables and constraints
         // Verify the output is a valid BoolVar
         let is_zero_output = result.unwrap();
-        assert!(is_zero_output.variable() > x.variable(), "IsZero should create new variables");
+        assert!(
+            is_zero_output.variable() > x.variable(),
+            "IsZero should create new variables"
+        );
     }
 
     #[test]
@@ -142,7 +145,10 @@ mod tests {
 
         // Verify the output is a valid BoolVar
         let lt_output = result.unwrap();
-        assert!(lt_output.variable() > b.variable(), "LessThan should create new variables");
+        assert!(
+            lt_output.variable() > b.variable(),
+            "LessThan should create new variables"
+        );
     }
 
     #[test]

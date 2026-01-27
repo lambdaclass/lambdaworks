@@ -269,9 +269,9 @@ fn mds_mix<F: IsField, P: PoseidonParams<F>>(
         // Compute row i of matrix-vector product
         let mut sum = builder.constant(FieldElement::<F>::zero());
 
-        for j in 0..n {
+        for (j, state_j) in state.iter().enumerate() {
             let mds_val = P::mds_element(i, j);
-            let scaled = builder.mul_constant(&state[j], mds_val);
+            let scaled = builder.mul_constant(state_j, mds_val);
             sum = builder.add(&sum, &scaled);
         }
 
@@ -325,8 +325,8 @@ mod tests {
         let mut builder = CircuitBuilder::<F>::new();
 
         let x = builder.public_input("x");
-        let _hash = PoseidonHash::<DefaultPoseidonParams>::synthesize(&mut builder, vec![x])
-            .unwrap();
+        let _hash =
+            PoseidonHash::<DefaultPoseidonParams>::synthesize(&mut builder, vec![x]).unwrap();
     }
 
     #[test]
@@ -335,8 +335,8 @@ mod tests {
 
         let a = builder.public_input("a");
         let b = builder.public_input("b");
-        let _hash = PoseidonHash::<DefaultPoseidonParams>::synthesize(&mut builder, vec![a, b])
-            .unwrap();
+        let _hash =
+            PoseidonHash::<DefaultPoseidonParams>::synthesize(&mut builder, vec![a, b]).unwrap();
     }
 
     #[test]
@@ -345,11 +345,9 @@ mod tests {
 
         let left = builder.public_input("left");
         let right = builder.public_input("right");
-        let _hash = PoseidonTwoToOne::<DefaultPoseidonParams>::synthesize(
-            &mut builder,
-            (left, right),
-        )
-        .unwrap();
+        let _hash =
+            PoseidonTwoToOne::<DefaultPoseidonParams>::synthesize(&mut builder, (left, right))
+                .unwrap();
     }
 
     #[test]

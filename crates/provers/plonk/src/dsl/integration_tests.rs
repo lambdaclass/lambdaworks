@@ -11,17 +11,16 @@ mod tests {
     use crate::dsl::gadgets::Gadget;
     use crate::prover::Prover;
     use crate::setup::setup;
-    use crate::test_utils::utils::{test_srs, TestRandomFieldGenerator, ORDER_R_MINUS_1_ROOT_UNITY, KZG};
+    use crate::test_utils::utils::{
+        test_srs, TestRandomFieldGenerator, KZG, ORDER_R_MINUS_1_ROOT_UNITY,
+    };
     use crate::verifier::Verifier;
     use lambdaworks_math::elliptic_curve::short_weierstrass::curves::bls12_381::default_types::{
         FrElement, FrField,
     };
 
     /// Helper to run the complete prove/verify cycle for a circuit.
-    fn prove_and_verify(
-        builder: &CircuitBuilder<FrField>,
-        inputs: &[(&str, FrElement)],
-    ) -> bool {
+    fn prove_and_verify(builder: &CircuitBuilder<FrField>, inputs: &[(&str, FrElement)]) -> bool {
         // Build common preprocessed input
         let cpi = builder
             .build_cpi(&ORDER_R_MINUS_1_ROOT_UNITY)
@@ -75,7 +74,10 @@ mod tests {
             ],
         );
 
-        assert!(result, "Proof verification failed for simple multiplication");
+        assert!(
+            result,
+            "Proof verification failed for simple multiplication"
+        );
     }
 
     #[test]

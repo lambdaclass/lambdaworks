@@ -48,7 +48,10 @@ impl std::fmt::Display for SRSError {
             SRSError::IoError(msg) => write!(f, "I/O error: {}", msg),
             SRSError::DeserializationError(msg) => write!(f, "Deserialization error: {}", msg),
             SRSError::ValidationFailed(msg) => write!(f, "SRS validation failed: {}", msg),
-            SRSError::InsufficientSize { required, available } => {
+            SRSError::InsufficientSize {
+                required,
+                available,
+            } => {
                 write!(
                     f,
                     "SRS too small: circuit requires {} powers, SRS has {}",
@@ -104,7 +107,9 @@ impl SRSManager {
     /// # Returns
     /// * `Ok(StructuredReferenceString)` on success
     /// * `Err(SRSError)` if loading fails
-    pub fn load<G1, G2, P: AsRef<Path>>(path: P) -> Result<StructuredReferenceString<G1, G2>, SRSError>
+    pub fn load<G1, G2, P: AsRef<Path>>(
+        path: P,
+    ) -> Result<StructuredReferenceString<G1, G2>, SRSError>
     where
         G1: Deserializable + IsGroup,
         G2: Deserializable + IsGroup,
@@ -207,14 +212,18 @@ impl SRSManager {
         let mut powers_main_group = Vec::with_capacity(g1_count);
         for _ in 0..g1_count {
             if offset + 4 > bytes.len() {
-                return Err(SRSError::InvalidFormat("Truncated G1 point length".to_string()));
+                return Err(SRSError::InvalidFormat(
+                    "Truncated G1 point length".to_string(),
+                ));
             }
             let point_len =
                 u32::from_be_bytes(bytes[offset..offset + 4].try_into().unwrap()) as usize;
             offset += 4;
 
             if offset + point_len > bytes.len() {
-                return Err(SRSError::InvalidFormat("Truncated G1 point data".to_string()));
+                return Err(SRSError::InvalidFormat(
+                    "Truncated G1 point data".to_string(),
+                ));
             }
             let point = G1::deserialize(&bytes[offset..offset + point_len])?;
             powers_main_group.push(point);
@@ -240,14 +249,18 @@ impl SRSManager {
         let mut g2_points: Vec<G2> = Vec::with_capacity(G2_POWERS_COUNT);
         for _ in 0..G2_POWERS_COUNT {
             if offset + 4 > bytes.len() {
-                return Err(SRSError::InvalidFormat("Truncated G2 point length".to_string()));
+                return Err(SRSError::InvalidFormat(
+                    "Truncated G2 point length".to_string(),
+                ));
             }
             let point_len =
                 u32::from_be_bytes(bytes[offset..offset + 4].try_into().unwrap()) as usize;
             offset += 4;
 
             if offset + point_len > bytes.len() {
-                return Err(SRSError::InvalidFormat("Truncated G2 point data".to_string()));
+                return Err(SRSError::InvalidFormat(
+                    "Truncated G2 point data".to_string(),
+                ));
             }
             let point = G2::deserialize(&bytes[offset..offset + point_len])?;
             g2_points.push(point);
@@ -255,9 +268,9 @@ impl SRSManager {
         }
 
         // Convert Vec to fixed-size array
-        let powers_secondary_group: [G2; 2] = g2_points
-            .try_into()
-            .map_err(|_| SRSError::InvalidFormat("Failed to convert G2 powers to array".to_string()))?;
+        let powers_secondary_group: [G2; 2] = g2_points.try_into().map_err(|_| {
+            SRSError::InvalidFormat("Failed to convert G2 powers to array".to_string())
+        })?;
 
         Ok(StructuredReferenceString::new(
             &powers_main_group,
@@ -287,7 +300,10 @@ impl SRSManager {
         let available = srs.powers_main_group.len();
 
         if available < required {
-            return Err(SRSError::InsufficientSize { required, available });
+            return Err(SRSError::InsufficientSize {
+                required,
+                available,
+            });
         }
 
         Ok(())
@@ -318,13 +334,20 @@ mod tests {
             SRSManager::from_bytes(&bytes).expect("Deserialization failed");
 
         // Verify
-        assert_eq!(srs.powers_main_group.len(), deserialized.powers_main_group.len());
+        assert_eq!(
+            srs.powers_main_group.len(),
+            deserialized.powers_main_group.len()
+        );
         assert_eq!(
             srs.powers_secondary_group.len(),
             deserialized.powers_secondary_group.len()
         );
 
-        for (a, b) in srs.powers_main_group.iter().zip(deserialized.powers_main_group.iter()) {
+        for (a, b) in srs
+            .powers_main_group
+            .iter()
+            .zip(deserialized.powers_main_group.iter())
+        {
             assert_eq!(a, b);
         }
         for (a, b) in srs

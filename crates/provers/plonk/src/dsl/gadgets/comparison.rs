@@ -145,9 +145,9 @@ impl<F: IsField, const BITS: usize> Gadget<F> for LessThan<BITS> {
         builder.assert_eq(&accumulated, &diff);
 
         // The top bit indicates a >= b, so result is NOT(top_bit)
-        let top_bit = bits.last().ok_or_else(|| {
-            GadgetError::SynthesisError("No bits in decomposition".to_string())
-        })?;
+        let top_bit = bits
+            .last()
+            .ok_or_else(|| GadgetError::SynthesisError("No bits in decomposition".to_string()))?;
         Ok(builder.not(top_bit))
     }
 
@@ -283,6 +283,8 @@ mod tests {
     fn test_comparison_constraint_counts() {
         // Use explicit type annotations to avoid inference issues
         assert!(<IsZero as Gadget<F>>::constraint_count() > 0);
-        assert!(<IsEqual as Gadget<F>>::constraint_count() > <IsZero as Gadget<F>>::constraint_count());
+        assert!(
+            <IsEqual as Gadget<F>>::constraint_count() > <IsZero as Gadget<F>>::constraint_count()
+        );
     }
 }

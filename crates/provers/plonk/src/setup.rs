@@ -7,10 +7,10 @@ use lambdaworks_crypto::commitments::traits::IsCommitmentScheme;
 use lambdaworks_crypto::fiat_shamir::{
     default_transcript::DefaultTranscript, is_transcript::IsTranscript,
 };
+use lambdaworks_math::errors::DeserializationError;
 use lambdaworks_math::field::traits::{HasDefaultTranscript, IsFFTField};
 use lambdaworks_math::field::{element::FieldElement, traits::IsField};
 use lambdaworks_math::polynomial::Polynomial;
-use lambdaworks_math::errors::DeserializationError;
 use lambdaworks_math::traits::{
     deserialize_with_length, serialize_with_length, AsBytes, ByteConversion, Deserializable,
 };
@@ -26,14 +26,21 @@ pub enum PublicInputError {
     /// Duplicate public input name
     DuplicateName(String),
     /// Public input hash mismatch (layout differs between prover and verifier)
-    LayoutMismatch { prover_hash: String, verifier_hash: String },
+    LayoutMismatch {
+        prover_hash: String,
+        verifier_hash: String,
+    },
 }
 
 impl std::fmt::Display for PublicInputError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             PublicInputError::CountMismatch { expected, got } => {
-                write!(f, "Public input count mismatch: expected {}, got {}", expected, got)
+                write!(
+                    f,
+                    "Public input count mismatch: expected {}, got {}",
+                    expected, got
+                )
             }
             PublicInputError::NameNotFound(name) => {
                 write!(f, "Public input '{}' not found in layout", name)
@@ -41,7 +48,10 @@ impl std::fmt::Display for PublicInputError {
             PublicInputError::DuplicateName(name) => {
                 write!(f, "Duplicate public input name: '{}'", name)
             }
-            PublicInputError::LayoutMismatch { prover_hash, verifier_hash } => {
+            PublicInputError::LayoutMismatch {
+                prover_hash,
+                verifier_hash,
+            } => {
                 write!(
                     f,
                     "Public input layout mismatch: prover={}, verifier={}",
@@ -73,9 +83,9 @@ impl std::error::Error for PublicInputError {}
 ///
 /// // Define the layout with named inputs
 /// let layout = PublicInputLayout::new()
-///     .add("merkle_root")?
-///     .add("nullifier")?
-///     .add("amount")?;
+///     .with_input("merkle_root")?
+///     .with_input("nullifier")?
+///     .with_input("amount")?;
 ///
 /// // Get the layout hash for verification
 /// let hash = layout.compute_hash();
@@ -103,11 +113,11 @@ impl PublicInputLayout {
 
     /// Adds a named public input to the layout.
     ///
-    /// The order of `add()` calls determines the ordering of public inputs.
+    /// The order of `with_input()` calls determines the ordering of public inputs.
     ///
     /// # Errors
     /// Returns `PublicInputError::DuplicateName` if the name already exists.
-    pub fn add(mut self, name: &str) -> Result<Self, PublicInputError> {
+    pub fn with_input(mut self, name: &str) -> Result<Self, PublicInputError> {
         if self.name_to_index.contains_key(name) {
             return Err(PublicInputError::DuplicateName(name.to_string()));
         }
@@ -446,10 +456,7 @@ impl<F: IsField> WitnessBuilder<F> {
             }
         }
 
-        let abc: Vec<_> = lro
-            .iter()
-            .map(|v| self.assignments[v].clone())
-            .collect();
+        let abc: Vec<_> = lro.iter().map(|v| self.assignments[v].clone()).collect();
         let n = lro.len() / 3;
 
         Ok(Witness {
@@ -604,16 +611,19 @@ where
         if current_offset + 4 > bytes.len() {
             return Err(DeserializationError::InvalidAmountOfBytes);
         }
-        let elem_len =
-            u32::from_be_bytes(bytes[current_offset..current_offset + 4].try_into().unwrap())
-                as usize;
+        let elem_len = u32::from_be_bytes(
+            bytes[current_offset..current_offset + 4]
+                .try_into()
+                .unwrap(),
+        ) as usize;
         current_offset += 4;
 
         if current_offset + elem_len > bytes.len() {
             return Err(DeserializationError::InvalidAmountOfBytes);
         }
-        let elem = FieldElement::<F>::from_bytes_be(&bytes[current_offset..current_offset + elem_len])
-            .map_err(|_| DeserializationError::FieldFromBytesError)?;
+        let elem =
+            FieldElement::<F>::from_bytes_be(&bytes[current_offset..current_offset + elem_len])
+                .map_err(|_| DeserializationError::FieldFromBytesError)?;
         elements.push(elem);
         current_offset += elem_len;
     }
@@ -715,8 +725,7 @@ where
         if offset + 4 > bytes.len() {
             return Err(DeserializationError::InvalidAmountOfBytes);
         }
-        let omega_len =
-            u32::from_be_bytes(bytes[offset..offset + 4].try_into().unwrap()) as usize;
+        let omega_len = u32::from_be_bytes(bytes[offset..offset + 4].try_into().unwrap()) as usize;
         offset += 4;
         if offset + omega_len > bytes.len() {
             return Err(DeserializationError::InvalidAmountOfBytes);
@@ -822,13 +831,7 @@ where
         // Serialize all 8 commitments in a consistent order
         // Order: qm, ql, qr, qo, qc, s1, s2, s3
         for commitment in [
-            &self.qm_1,
-            &self.ql_1,
-            &self.qr_1,
-            &self.qo_1,
-            &self.qc_1,
-            &self.s1_1,
-            &self.s2_1,
+            &self.qm_1, &self.ql_1, &self.qr_1, &self.qo_1, &self.qc_1, &self.s1_1, &self.s2_1,
             &self.s3_1,
         ] {
             bytes.extend(serialize_with_length(commitment));
@@ -1043,9 +1046,7 @@ mod tests {
         let _v2 = system.add(&v0, &v1);
 
         // Try to build without providing v1
-        let result = WitnessBuilder::new()
-            .assign(v0, FE::from(10))
-            .build(system);
+        let result = WitnessBuilder::new().assign(v0, FE::from(10)).build(system);
 
         assert!(result.is_err());
         assert!(matches!(
@@ -1236,16 +1237,40 @@ mod tests {
         }
 
         // Verify selector polynomials
-        assert_eq!(common_input.ql.coefficients(), deserialized.ql.coefficients());
-        assert_eq!(common_input.qr.coefficients(), deserialized.qr.coefficients());
-        assert_eq!(common_input.qo.coefficients(), deserialized.qo.coefficients());
-        assert_eq!(common_input.qm.coefficients(), deserialized.qm.coefficients());
-        assert_eq!(common_input.qc.coefficients(), deserialized.qc.coefficients());
+        assert_eq!(
+            common_input.ql.coefficients(),
+            deserialized.ql.coefficients()
+        );
+        assert_eq!(
+            common_input.qr.coefficients(),
+            deserialized.qr.coefficients()
+        );
+        assert_eq!(
+            common_input.qo.coefficients(),
+            deserialized.qo.coefficients()
+        );
+        assert_eq!(
+            common_input.qm.coefficients(),
+            deserialized.qm.coefficients()
+        );
+        assert_eq!(
+            common_input.qc.coefficients(),
+            deserialized.qc.coefficients()
+        );
 
         // Verify permutation polynomials
-        assert_eq!(common_input.s1.coefficients(), deserialized.s1.coefficients());
-        assert_eq!(common_input.s2.coefficients(), deserialized.s2.coefficients());
-        assert_eq!(common_input.s3.coefficients(), deserialized.s3.coefficients());
+        assert_eq!(
+            common_input.s1.coefficients(),
+            deserialized.s1.coefficients()
+        );
+        assert_eq!(
+            common_input.s2.coefficients(),
+            deserialized.s2.coefficients()
+        );
+        assert_eq!(
+            common_input.s3.coefficients(),
+            deserialized.s3.coefficients()
+        );
 
         // Verify Lagrange form vectors
         assert_eq!(common_input.s1_lagrange, deserialized.s1_lagrange);
@@ -1315,11 +1340,7 @@ mod tests {
 
     #[test]
     fn test_public_input_layout_basic() {
-        let layout = PublicInputLayout::new()
-            .add("x")
-            .unwrap()
-            .add("y")
-            .unwrap();
+        let layout = PublicInputLayout::new().with_input("x").unwrap().with_input("y").unwrap();
 
         assert_eq!(layout.len(), 2);
         assert_eq!(layout.names(), &["x", "y"]);
@@ -1330,10 +1351,7 @@ mod tests {
 
     #[test]
     fn test_public_input_layout_rejects_duplicate() {
-        let result = PublicInputLayout::new()
-            .add("x")
-            .unwrap()
-            .add("x");
+        let result = PublicInputLayout::new().with_input("x").unwrap().with_input("x");
 
         assert!(result.is_err());
         assert!(matches!(result, Err(PublicInputError::DuplicateName(_))));
@@ -1342,11 +1360,11 @@ mod tests {
     #[test]
     fn test_public_input_layout_build_inputs() {
         let layout = PublicInputLayout::new()
-            .add("a")
+            .with_input("a")
             .unwrap()
-            .add("b")
+            .with_input("b")
             .unwrap()
-            .add("c")
+            .with_input("c")
             .unwrap();
 
         // Build in different order than layout
@@ -1366,28 +1384,23 @@ mod tests {
 
     #[test]
     fn test_public_input_layout_build_inputs_wrong_count() {
-        let layout = PublicInputLayout::new()
-            .add("a")
-            .unwrap()
-            .add("b")
-            .unwrap();
+        let layout = PublicInputLayout::new().with_input("a").unwrap().with_input("b").unwrap();
 
         let result = layout.build_inputs::<FrField>(&[("a", FE::from(1_u64))]);
 
         assert!(result.is_err());
         assert!(matches!(
             result,
-            Err(PublicInputError::CountMismatch { expected: 2, got: 1 })
+            Err(PublicInputError::CountMismatch {
+                expected: 2,
+                got: 1
+            })
         ));
     }
 
     #[test]
     fn test_public_input_layout_build_inputs_wrong_name() {
-        let layout = PublicInputLayout::new()
-            .add("a")
-            .unwrap()
-            .add("b")
-            .unwrap();
+        let layout = PublicInputLayout::new().with_input("a").unwrap().with_input("b").unwrap();
 
         let result = layout.build_inputs(&[
             ("a", FE::<FrField>::from(1_u64)),
@@ -1400,17 +1413,9 @@ mod tests {
 
     #[test]
     fn test_public_input_layout_hash_deterministic() {
-        let layout1 = PublicInputLayout::new()
-            .add("x")
-            .unwrap()
-            .add("y")
-            .unwrap();
+        let layout1 = PublicInputLayout::new().with_input("x").unwrap().with_input("y").unwrap();
 
-        let layout2 = PublicInputLayout::new()
-            .add("x")
-            .unwrap()
-            .add("y")
-            .unwrap();
+        let layout2 = PublicInputLayout::new().with_input("x").unwrap().with_input("y").unwrap();
 
         assert_eq!(layout1.compute_hash(), layout2.compute_hash());
         assert!(layout1.matches(&layout2));
@@ -1418,17 +1423,9 @@ mod tests {
 
     #[test]
     fn test_public_input_layout_hash_differs_by_order() {
-        let layout1 = PublicInputLayout::new()
-            .add("x")
-            .unwrap()
-            .add("y")
-            .unwrap();
+        let layout1 = PublicInputLayout::new().with_input("x").unwrap().with_input("y").unwrap();
 
-        let layout2 = PublicInputLayout::new()
-            .add("y")
-            .unwrap()
-            .add("x")
-            .unwrap();
+        let layout2 = PublicInputLayout::new().with_input("y").unwrap().with_input("x").unwrap();
 
         assert_ne!(layout1.compute_hash(), layout2.compute_hash());
         assert!(!layout1.matches(&layout2));
@@ -1436,17 +1433,9 @@ mod tests {
 
     #[test]
     fn test_public_input_layout_hash_differs_by_name() {
-        let layout1 = PublicInputLayout::new()
-            .add("x")
-            .unwrap()
-            .add("y")
-            .unwrap();
+        let layout1 = PublicInputLayout::new().with_input("x").unwrap().with_input("y").unwrap();
 
-        let layout2 = PublicInputLayout::new()
-            .add("x")
-            .unwrap()
-            .add("z")
-            .unwrap();
+        let layout2 = PublicInputLayout::new().with_input("x").unwrap().with_input("z").unwrap();
 
         assert_ne!(layout1.compute_hash(), layout2.compute_hash());
         assert!(!layout1.matches(&layout2));
@@ -1454,29 +1443,20 @@ mod tests {
 
     #[test]
     fn test_public_input_layout_verify_matches() {
-        let layout1 = PublicInputLayout::new()
-            .add("x")
-            .unwrap()
-            .add("y")
-            .unwrap();
+        let layout1 = PublicInputLayout::new().with_input("x").unwrap().with_input("y").unwrap();
 
-        let layout2 = PublicInputLayout::new()
-            .add("x")
-            .unwrap()
-            .add("y")
-            .unwrap();
+        let layout2 = PublicInputLayout::new().with_input("x").unwrap().with_input("y").unwrap();
 
         assert!(layout1.verify_matches(&layout2).is_ok());
 
-        let layout3 = PublicInputLayout::new()
-            .add("a")
-            .unwrap()
-            .add("b")
-            .unwrap();
+        let layout3 = PublicInputLayout::new().with_input("a").unwrap().with_input("b").unwrap();
 
         let result = layout1.verify_matches(&layout3);
         assert!(result.is_err());
-        assert!(matches!(result, Err(PublicInputError::LayoutMismatch { .. })));
+        assert!(matches!(
+            result,
+            Err(PublicInputError::LayoutMismatch { .. })
+        ));
     }
 
     #[test]

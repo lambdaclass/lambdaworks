@@ -294,11 +294,8 @@ mod tests {
         let leaf2 = builder.public_input("leaf2");
         let leaf3 = builder.public_input("leaf3");
 
-        let _root = MerkleRoot::<4>::synthesize(
-            &mut builder,
-            vec![leaf0, leaf1, leaf2, leaf3],
-        )
-        .unwrap();
+        let _root =
+            MerkleRoot::<4>::synthesize(&mut builder, vec![leaf0, leaf1, leaf2, leaf3]).unwrap();
     }
 
     #[test]

@@ -76,10 +76,7 @@ fn create_mul_chain_circuit(num_constraints: usize) -> ConstraintSystem<FrField>
 /// Creates witness values for the multiplication chain circuit.
 fn create_mul_chain_witness(
     num_constraints: usize,
-) -> (
-    lambdaworks_plonk::setup::Witness<FrField>,
-    Vec<FrElement>,
-) {
+) -> (lambdaworks_plonk::setup::Witness<FrField>, Vec<FrElement>) {
     // For simplicity, use values that multiply to give predictable results
     // x=2, all multipliers=1, so output=2
     let x = FrElement::from(2u64);
@@ -235,9 +232,11 @@ fn benchmark_end_to_end(c: &mut Criterion) {
                 b.iter(|| {
                     // Build circuit
                     let cs = create_mul_chain_circuit(size);
-                    let cpi =
-                        CommonPreprocessedInput::from_constraint_system(&cs, &ORDER_R_MINUS_1_ROOT_UNITY)
-                            .expect("Failed to create CPI");
+                    let cpi = CommonPreprocessedInput::from_constraint_system(
+                        &cs,
+                        &ORDER_R_MINUS_1_ROOT_UNITY,
+                    )
+                    .expect("Failed to create CPI");
 
                     // Setup
                     let srs = bench_srs(cpi.n);
