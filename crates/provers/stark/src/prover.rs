@@ -437,26 +437,38 @@ pub trait IsStarkProver<
         FieldElement<Field>: AsBytes + Sync + Send,
         FieldElement<FieldExtension>: AsBytes + Sync + Send,
     {
-        // TODO: Remove clones
-        let mut lde_composition_poly_evaluations = Vec::new();
-        for i in 0..lde_composition_poly_parts_evaluations[0].len() {
-            let mut row = Vec::new();
-            for evaluation in lde_composition_poly_parts_evaluations.iter() {
-                row.push(evaluation[i].clone());
+        // Build merged rows directly in final order to avoid extra clones and allocations.
+        // Each Merkle leaf corresponds to evaluations at indices reverse_index(2*i) and reverse_index(2*i+1)
+        // for all parts, matching how openings are reconstructed.
+        let parts = lde_composition_poly_parts_evaluations;
+        if parts.is_empty() {
+            return None;
+        }
+
+        let domain_len = parts[0].len();
+        #[cfg(debug_assertions)]
+        {
+            debug_assert!(parts.iter().all(|p| p.len() == domain_len));
+            debug_assert_eq!(domain_len % 2, 0);
+        }
+
+        let num_parts = parts.len();
+        let mut merged_rows: Vec<Vec<FieldElement<A::FieldExtension>>> =
+            Vec::with_capacity(domain_len / 2);
+
+        for i in 0..(domain_len / 2) {
+            let idx0 = reverse_index(i * 2, domain_len as u64);
+            let idx1 = reverse_index(i * 2 + 1, domain_len as u64);
+
+            let mut row: Vec<FieldElement<A::FieldExtension>> = Vec::with_capacity(num_parts * 2);
+            for part in parts.iter() {
+                row.push(part[idx0].clone());
+                row.push(part[idx1].clone());
             }
-            lde_composition_poly_evaluations.push(row);
+            merged_rows.push(row);
         }
 
-        in_place_bit_reverse_permute(&mut lde_composition_poly_evaluations);
-
-        let mut lde_composition_poly_evaluations_merged = Vec::new();
-        for chunk in lde_composition_poly_evaluations.chunks(2) {
-            let (mut chunk0, chunk1) = (chunk[0].clone(), &chunk[1]);
-            chunk0.extend_from_slice(chunk1);
-            lde_composition_poly_evaluations_merged.push(chunk0);
-        }
-
-        Self::batch_commit_extension(&lde_composition_poly_evaluations_merged)
+        Self::batch_commit_extension(&merged_rows)
     }
 
     /// Returns the result of the second round of the STARK Prove protocol.
