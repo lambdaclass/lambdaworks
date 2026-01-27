@@ -1,4 +1,4 @@
-use alloc::{string::String, vec::Vec};
+use alloc::vec::Vec;
 use lambdaworks_math::{
     field::{
         element::FieldElement,
@@ -48,8 +48,8 @@ fn compute_length<const N: usize>(order: UnsignedInteger<N>) -> usize {
     // We compute the actual bit length of the modulus, not just limb count * 64,
     // to handle moduli with leading zeros correctly.
     let log2_p = compute_bit_length(&order);
-    let k = (log2_p + 1) / 2; // ceil(log2_p / 2)
-    (log2_p + k + 7) / 8 // ceil((log2_p + k) / 8)
+    let k = log2_p.div_ceil(2);
+    (log2_p + k).div_ceil(8)
 }
 
 /// Computes the bit length of an unsigned integer (position of highest set bit + 1).
@@ -69,45 +69,15 @@ fn compute_bit_length<const N: usize>(value: &UnsignedInteger<N>) -> usize {
 fn os2ip<M: IsModulus<UnsignedInteger<N>> + Clone, const N: usize>(
     x: &[u8],
 ) -> FieldElement<MontgomeryBackendPrimeField<M, N>> {
-    let mut aux_x = x.to_vec();
-    aux_x.reverse();
-    let two_to_the_nth = build_two_to_the_nth::<M, N>();
-    let mut j = 0_u32;
-    // Each byte becomes 2 hex characters, and we process N*8 bytes (N*16 hex chars) at a time
-    let chunk_size = N * 16;
-    let mut item_hex = String::with_capacity(chunk_size);
-    let mut result = FieldElement::zero();
-
-    for item_u8 in aux_x.iter() {
-        // Use 02x to ensure zero-padding (e.g., 0x0F becomes "0f", not "f")
-        item_hex += &format!("{item_u8:02x}");
-        if item_hex.len() == chunk_size {
-            result += FieldElement::from_hex_unchecked(&item_hex) * two_to_the_nth.pow(j);
-            item_hex.clear();
-            j += 1;
-        }
+    type F<M, const N: usize> = MontgomeryBackendPrimeField<M, N>;
+    // Use Horner's method: result = sum(byte[i] * 256^(n-1-i))
+    // Process bytes from most significant to least significant
+    let mut result: FieldElement<F<M, N>> = FieldElement::zero();
+    let base: FieldElement<F<M, N>> = FieldElement::from(256u64);
+    for byte in x.iter() {
+        result = result * &base + FieldElement::from(*byte as u64);
     }
-
-    // Flush any remaining partial chunk
-    if !item_hex.is_empty() {
-        result += FieldElement::from_hex_unchecked(&item_hex) * two_to_the_nth.pow(j);
-    }
-
     result
-}
-
-/// Builds a `FieldElement` for `2^(N*64)`, where `N` is the number of limbs of the `UnsignedInteger`
-/// used for the prime field. This is used as the base for processing N*8 bytes at a time.
-fn build_two_to_the_nth<M: IsModulus<UnsignedInteger<N>> + Clone, const N: usize>(
-) -> FieldElement<MontgomeryBackendPrimeField<M, N>> {
-    // 2^(N*64) in hex is "1" followed by N*16 zeros (since each hex digit is 4 bits)
-    // For example, N=1: 2^64 = 0x10000000000000000 (1 followed by 16 zeros)
-    let mut hex_str = String::with_capacity(N * 16 + 1);
-    hex_str.push('1');
-    for _ in 0..N * 16 {
-        hex_str.push('0');
-    }
-    FieldElement::from_hex_unchecked(&hex_str)
 }
 
 #[cfg(test)]
@@ -137,5 +107,13 @@ mod tests {
         let field_elements: Vec<FieldElement<F>> = hash_to_field(&input, 40);
         let other_field_elements = hash_to_field(&input, 40);
         assert_eq!(field_elements, other_field_elements);
+    }
+
+    #[test]
+    fn test_os2ip_big_endian_bytes() {
+        let input = [0x01_u8, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08];
+        let expected = FieldElement::<F>::from_hex_unchecked("0102030405060708");
+        let got = super::os2ip::<U64, 1>(&input);
+        assert_eq!(got, expected);
     }
 }
