@@ -23,6 +23,7 @@ members = [
     "examples/schnorr-signature",
     "examples/frost-signature",
     "examples/rsa",
+    "examples/reed-solomon-codes",
 ]
 exclude = ["ensure-no_std"]
 resolver = "2"
