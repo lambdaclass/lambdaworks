@@ -10,7 +10,228 @@ use lambdaworks_crypto::fiat_shamir::{
 use lambdaworks_math::field::traits::{HasDefaultTranscript, IsFFTField};
 use lambdaworks_math::field::{element::FieldElement, traits::IsField};
 use lambdaworks_math::polynomial::Polynomial;
-use lambdaworks_math::traits::{AsBytes, ByteConversion};
+use lambdaworks_math::errors::DeserializationError;
+use lambdaworks_math::traits::{
+    deserialize_with_length, serialize_with_length, AsBytes, ByteConversion, Deserializable,
+};
+use sha3::{Digest, Keccak256};
+
+/// Error types for public input handling.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PublicInputError {
+    /// Number of public inputs doesn't match the layout
+    CountMismatch { expected: usize, got: usize },
+    /// Public input name not found in layout
+    NameNotFound(String),
+    /// Duplicate public input name
+    DuplicateName(String),
+    /// Public input hash mismatch (layout differs between prover and verifier)
+    LayoutMismatch { prover_hash: String, verifier_hash: String },
+}
+
+impl std::fmt::Display for PublicInputError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            PublicInputError::CountMismatch { expected, got } => {
+                write!(f, "Public input count mismatch: expected {}, got {}", expected, got)
+            }
+            PublicInputError::NameNotFound(name) => {
+                write!(f, "Public input '{}' not found in layout", name)
+            }
+            PublicInputError::DuplicateName(name) => {
+                write!(f, "Duplicate public input name: '{}'", name)
+            }
+            PublicInputError::LayoutMismatch { prover_hash, verifier_hash } => {
+                write!(
+                    f,
+                    "Public input layout mismatch: prover={}, verifier={}",
+                    prover_hash, verifier_hash
+                )
+            }
+        }
+    }
+}
+
+impl std::error::Error for PublicInputError {}
+
+/// Defines the structure and ordering of public inputs for a PLONK circuit.
+///
+/// Public input ordering is critical for correct verification. The prover and verifier
+/// must use the exact same ordering, otherwise verification will fail. This struct
+/// provides a way to define named public inputs with explicit ordering.
+///
+/// # Public Input Ordering Contract
+///
+/// Public inputs in PLONK are encoded in the first rows of the constraint system.
+/// The order is determined by the sequence of `new_public_input()` calls when
+/// building the circuit. This layout must match exactly between prover and verifier.
+///
+/// # Example
+///
+/// ```ignore
+/// use lambdaworks_plonk::setup::PublicInputLayout;
+///
+/// // Define the layout with named inputs
+/// let layout = PublicInputLayout::new()
+///     .add("merkle_root")?
+///     .add("nullifier")?
+///     .add("amount")?;
+///
+/// // Get the layout hash for verification
+/// let hash = layout.compute_hash();
+///
+/// // Build public inputs by name (order-independent)
+/// let public_inputs = layout.build_inputs(&[
+///     ("amount", FieldElement::from(100)),
+///     ("merkle_root", merkle_root),
+///     ("nullifier", nullifier),
+/// ])?;
+/// ```
+#[derive(Clone, Debug, Default)]
+pub struct PublicInputLayout {
+    /// Names of public inputs in order
+    names: Vec<String>,
+    /// Map from name to index for fast lookup
+    name_to_index: HashMap<String, usize>,
+}
+
+impl PublicInputLayout {
+    /// Creates a new empty public input layout.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Adds a named public input to the layout.
+    ///
+    /// The order of `add()` calls determines the ordering of public inputs.
+    ///
+    /// # Errors
+    /// Returns `PublicInputError::DuplicateName` if the name already exists.
+    pub fn add(mut self, name: &str) -> Result<Self, PublicInputError> {
+        if self.name_to_index.contains_key(name) {
+            return Err(PublicInputError::DuplicateName(name.to_string()));
+        }
+        let index = self.names.len();
+        self.names.push(name.to_string());
+        self.name_to_index.insert(name.to_string(), index);
+        Ok(self)
+    }
+
+    /// Returns the number of public inputs in the layout.
+    pub fn len(&self) -> usize {
+        self.names.len()
+    }
+
+    /// Returns true if the layout has no public inputs.
+    pub fn is_empty(&self) -> bool {
+        self.names.is_empty()
+    }
+
+    /// Returns the names in order.
+    pub fn names(&self) -> &[String] {
+        &self.names
+    }
+
+    /// Returns the index of a public input by name.
+    pub fn index_of(&self, name: &str) -> Option<usize> {
+        self.name_to_index.get(name).copied()
+    }
+
+    /// Computes a hash of the layout for comparison between prover and verifier.
+    ///
+    /// This hash can be included in the verification key or checked during
+    /// proof generation/verification to ensure both parties use the same layout.
+    pub fn compute_hash(&self) -> [u8; 32] {
+        let mut hasher = Keccak256::new();
+        // Hash the number of inputs
+        hasher.update((self.names.len() as u64).to_be_bytes());
+        // Hash each name in order
+        for name in &self.names {
+            hasher.update((name.len() as u32).to_be_bytes());
+            hasher.update(name.as_bytes());
+        }
+        hasher.finalize().into()
+    }
+
+    /// Computes a hex string hash for display purposes.
+    pub fn compute_hash_hex(&self) -> String {
+        let hash = self.compute_hash();
+        hex::encode(&hash[..8]) // First 8 bytes for readability
+    }
+
+    /// Builds a vector of public inputs from name-value pairs.
+    ///
+    /// The values are reordered according to the layout, so the input order
+    /// of the pairs doesn't matter.
+    ///
+    /// # Arguments
+    /// * `inputs` - Name-value pairs for public inputs
+    ///
+    /// # Returns
+    /// * `Ok(Vec<FieldElement>)` - Public inputs in correct order
+    /// * `Err(PublicInputError)` - If names don't match the layout
+    pub fn build_inputs<F: IsField>(
+        &self,
+        inputs: &[(&str, FieldElement<F>)],
+    ) -> Result<Vec<FieldElement<F>>, PublicInputError> {
+        if inputs.len() != self.names.len() {
+            return Err(PublicInputError::CountMismatch {
+                expected: self.names.len(),
+                got: inputs.len(),
+            });
+        }
+
+        // Create a map from names to values
+        let mut value_map: HashMap<&str, FieldElement<F>> = HashMap::new();
+        for (name, value) in inputs {
+            if !self.name_to_index.contains_key(*name) {
+                return Err(PublicInputError::NameNotFound((*name).to_string()));
+            }
+            value_map.insert(*name, value.clone());
+        }
+
+        // Build the vector in layout order
+        let mut result = Vec::with_capacity(self.names.len());
+        for name in &self.names {
+            match value_map.get(name.as_str()) {
+                Some(value) => result.push(value.clone()),
+                None => return Err(PublicInputError::NameNotFound(name.clone())),
+            }
+        }
+
+        Ok(result)
+    }
+
+    /// Validates that the provided public inputs match the layout count.
+    pub fn validate_count<F: IsField>(
+        &self,
+        inputs: &[FieldElement<F>],
+    ) -> Result<(), PublicInputError> {
+        if inputs.len() != self.names.len() {
+            return Err(PublicInputError::CountMismatch {
+                expected: self.names.len(),
+                got: inputs.len(),
+            });
+        }
+        Ok(())
+    }
+
+    /// Compares two layouts for equality using their hashes.
+    pub fn matches(&self, other: &PublicInputLayout) -> bool {
+        self.compute_hash() == other.compute_hash()
+    }
+
+    /// Verifies that this layout matches another, returning an error with details if not.
+    pub fn verify_matches(&self, other: &PublicInputLayout) -> Result<(), PublicInputError> {
+        if self.compute_hash() != other.compute_hash() {
+            return Err(PublicInputError::LayoutMismatch {
+                prover_hash: self.compute_hash_hex(),
+                verifier_hash: other.compute_hash_hex(),
+            });
+        }
+        Ok(())
+    }
+}
 
 /// Validates that k1 is a valid coset generator for PLONK.
 ///
@@ -345,6 +566,233 @@ impl<F: IsFFTField> CommonPreprocessedInput<F> {
     }
 }
 
+/// Serialization format version for CommonPreprocessedInput.
+const CPI_SERIALIZATION_VERSION: u8 = 1;
+
+/// Helper to serialize a vector of field elements with length prefix.
+fn serialize_field_element_vec<F: IsField>(elements: &[FieldElement<F>], bytes: &mut Vec<u8>)
+where
+    FieldElement<F>: ByteConversion,
+{
+    // Write length as u64
+    bytes.extend_from_slice(&(elements.len() as u64).to_be_bytes());
+    // Write each element with length prefix
+    for elem in elements {
+        let elem_bytes = elem.to_bytes_be();
+        bytes.extend_from_slice(&(elem_bytes.len() as u32).to_be_bytes());
+        bytes.extend_from_slice(&elem_bytes);
+    }
+}
+
+/// Helper to deserialize a vector of field elements.
+fn deserialize_field_element_vec<F: IsField>(
+    bytes: &[u8],
+    offset: usize,
+) -> Result<(usize, Vec<FieldElement<F>>), DeserializationError>
+where
+    FieldElement<F>: ByteConversion,
+{
+    if offset + 8 > bytes.len() {
+        return Err(DeserializationError::InvalidAmountOfBytes);
+    }
+
+    let len = u64::from_be_bytes(bytes[offset..offset + 8].try_into().unwrap()) as usize;
+    let mut current_offset = offset + 8;
+    let mut elements = Vec::with_capacity(len);
+
+    for _ in 0..len {
+        if current_offset + 4 > bytes.len() {
+            return Err(DeserializationError::InvalidAmountOfBytes);
+        }
+        let elem_len =
+            u32::from_be_bytes(bytes[current_offset..current_offset + 4].try_into().unwrap())
+                as usize;
+        current_offset += 4;
+
+        if current_offset + elem_len > bytes.len() {
+            return Err(DeserializationError::InvalidAmountOfBytes);
+        }
+        let elem = FieldElement::<F>::from_bytes_be(&bytes[current_offset..current_offset + elem_len])
+            .map_err(|_| DeserializationError::FieldFromBytesError)?;
+        elements.push(elem);
+        current_offset += elem_len;
+    }
+
+    Ok((current_offset, elements))
+}
+
+/// Helper to serialize a polynomial (just its coefficients).
+fn serialize_polynomial<F: IsField>(poly: &Polynomial<FieldElement<F>>, bytes: &mut Vec<u8>)
+where
+    FieldElement<F>: ByteConversion,
+{
+    serialize_field_element_vec(poly.coefficients(), bytes);
+}
+
+/// Helper to deserialize a polynomial.
+fn deserialize_polynomial<F: IsField>(
+    bytes: &[u8],
+    offset: usize,
+) -> Result<(usize, Polynomial<FieldElement<F>>), DeserializationError>
+where
+    FieldElement<F>: ByteConversion,
+{
+    let (new_offset, coeffs) = deserialize_field_element_vec(bytes, offset)?;
+    Ok((new_offset, Polynomial::new(&coeffs)))
+}
+
+impl<F: IsFFTField> AsBytes for CommonPreprocessedInput<F>
+where
+    FieldElement<F>: ByteConversion,
+{
+    fn as_bytes(&self) -> Vec<u8> {
+        let mut bytes = Vec::new();
+
+        // Version byte
+        bytes.push(CPI_SERIALIZATION_VERSION);
+
+        // Domain size n (u64)
+        bytes.extend_from_slice(&(self.n as u64).to_be_bytes());
+
+        // omega and k1 (field elements with length prefix)
+        let omega_bytes = self.omega.to_bytes_be();
+        bytes.extend_from_slice(&(omega_bytes.len() as u32).to_be_bytes());
+        bytes.extend_from_slice(&omega_bytes);
+
+        let k1_bytes = self.k1.to_bytes_be();
+        bytes.extend_from_slice(&(k1_bytes.len() as u32).to_be_bytes());
+        bytes.extend_from_slice(&k1_bytes);
+
+        // Selector polynomials (coefficient form)
+        serialize_polynomial(&self.ql, &mut bytes);
+        serialize_polynomial(&self.qr, &mut bytes);
+        serialize_polynomial(&self.qo, &mut bytes);
+        serialize_polynomial(&self.qm, &mut bytes);
+        serialize_polynomial(&self.qc, &mut bytes);
+
+        // Permutation polynomials (coefficient form)
+        serialize_polynomial(&self.s1, &mut bytes);
+        serialize_polynomial(&self.s2, &mut bytes);
+        serialize_polynomial(&self.s3, &mut bytes);
+
+        // Lagrange form vectors (for efficiency, avoid recomputation)
+        serialize_field_element_vec(&self.s1_lagrange, &mut bytes);
+        serialize_field_element_vec(&self.s2_lagrange, &mut bytes);
+        serialize_field_element_vec(&self.s3_lagrange, &mut bytes);
+
+        bytes
+    }
+}
+
+impl<F: IsFFTField> Deserializable for CommonPreprocessedInput<F>
+where
+    FieldElement<F>: ByteConversion,
+{
+    fn deserialize(bytes: &[u8]) -> Result<Self, DeserializationError>
+    where
+        Self: Sized,
+    {
+        if bytes.is_empty() {
+            return Err(DeserializationError::InvalidAmountOfBytes);
+        }
+
+        // Check version
+        let version = bytes[0];
+        if version != CPI_SERIALIZATION_VERSION {
+            return Err(DeserializationError::InvalidValue);
+        }
+
+        let mut offset = 1;
+
+        // Read n
+        if offset + 8 > bytes.len() {
+            return Err(DeserializationError::InvalidAmountOfBytes);
+        }
+        let n = u64::from_be_bytes(bytes[offset..offset + 8].try_into().unwrap()) as usize;
+        offset += 8;
+
+        // Read omega
+        if offset + 4 > bytes.len() {
+            return Err(DeserializationError::InvalidAmountOfBytes);
+        }
+        let omega_len =
+            u32::from_be_bytes(bytes[offset..offset + 4].try_into().unwrap()) as usize;
+        offset += 4;
+        if offset + omega_len > bytes.len() {
+            return Err(DeserializationError::InvalidAmountOfBytes);
+        }
+        let omega = FieldElement::<F>::from_bytes_be(&bytes[offset..offset + omega_len])
+            .map_err(|_| DeserializationError::FieldFromBytesError)?;
+        offset += omega_len;
+
+        // Read k1
+        if offset + 4 > bytes.len() {
+            return Err(DeserializationError::InvalidAmountOfBytes);
+        }
+        let k1_len = u32::from_be_bytes(bytes[offset..offset + 4].try_into().unwrap()) as usize;
+        offset += 4;
+        if offset + k1_len > bytes.len() {
+            return Err(DeserializationError::InvalidAmountOfBytes);
+        }
+        let k1 = FieldElement::<F>::from_bytes_be(&bytes[offset..offset + k1_len])
+            .map_err(|_| DeserializationError::FieldFromBytesError)?;
+        offset += k1_len;
+
+        // Read selector polynomials
+        let (new_offset, ql) = deserialize_polynomial(bytes, offset)?;
+        offset = new_offset;
+        let (new_offset, qr) = deserialize_polynomial(bytes, offset)?;
+        offset = new_offset;
+        let (new_offset, qo) = deserialize_polynomial(bytes, offset)?;
+        offset = new_offset;
+        let (new_offset, qm) = deserialize_polynomial(bytes, offset)?;
+        offset = new_offset;
+        let (new_offset, qc) = deserialize_polynomial(bytes, offset)?;
+        offset = new_offset;
+
+        // Read permutation polynomials
+        let (new_offset, s1) = deserialize_polynomial(bytes, offset)?;
+        offset = new_offset;
+        let (new_offset, s2) = deserialize_polynomial(bytes, offset)?;
+        offset = new_offset;
+        let (new_offset, s3) = deserialize_polynomial(bytes, offset)?;
+        offset = new_offset;
+
+        // Read Lagrange form vectors
+        let (new_offset, s1_lagrange) = deserialize_field_element_vec(bytes, offset)?;
+        offset = new_offset;
+        let (new_offset, s2_lagrange) = deserialize_field_element_vec(bytes, offset)?;
+        offset = new_offset;
+        let (_, s3_lagrange) = deserialize_field_element_vec(bytes, offset)?;
+
+        // Regenerate domain from omega and n
+        let domain = generate_domain(&omega, n);
+
+        Ok(CommonPreprocessedInput {
+            n,
+            domain,
+            omega,
+            k1,
+            ql,
+            qr,
+            qo,
+            qm,
+            qc,
+            s1,
+            s2,
+            s3,
+            s1_lagrange,
+            s2_lagrange,
+            s3_lagrange,
+        })
+    }
+}
+
+/// PLONK verification key containing commitments to selector and permutation polynomials.
+///
+/// The verification key is derived from the circuit's constraint system during setup
+/// and is used by the verifier to check proofs.
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct VerificationKey<G1Point> {
     pub qm_1: G1Point,
     pub ql_1: G1Point,
@@ -355,6 +803,88 @@ pub struct VerificationKey<G1Point> {
     pub s1_1: G1Point,
     pub s2_1: G1Point,
     pub s3_1: G1Point,
+}
+
+/// Serialization format version for VerificationKey.
+/// Increment this when making breaking changes to the serialization format.
+const VK_SERIALIZATION_VERSION: u8 = 1;
+
+impl<G1Point> AsBytes for VerificationKey<G1Point>
+where
+    G1Point: AsBytes,
+{
+    fn as_bytes(&self) -> Vec<u8> {
+        let mut bytes = Vec::new();
+
+        // Version byte for forward compatibility
+        bytes.push(VK_SERIALIZATION_VERSION);
+
+        // Serialize all 8 commitments in a consistent order
+        // Order: qm, ql, qr, qo, qc, s1, s2, s3
+        for commitment in [
+            &self.qm_1,
+            &self.ql_1,
+            &self.qr_1,
+            &self.qo_1,
+            &self.qc_1,
+            &self.s1_1,
+            &self.s2_1,
+            &self.s3_1,
+        ] {
+            bytes.extend(serialize_with_length(commitment));
+        }
+
+        bytes
+    }
+}
+
+impl<G1Point> Deserializable for VerificationKey<G1Point>
+where
+    G1Point: Deserializable,
+{
+    fn deserialize(bytes: &[u8]) -> Result<Self, DeserializationError>
+    where
+        Self: Sized,
+    {
+        if bytes.is_empty() {
+            return Err(DeserializationError::InvalidAmountOfBytes);
+        }
+
+        // Check version (use InvalidValue for version mismatch)
+        let version = bytes[0];
+        if version != VK_SERIALIZATION_VERSION {
+            return Err(DeserializationError::InvalidValue);
+        }
+
+        let mut offset = 1; // Skip version byte
+
+        let (new_offset, qm_1) = deserialize_with_length(bytes, offset)?;
+        offset = new_offset;
+        let (new_offset, ql_1) = deserialize_with_length(bytes, offset)?;
+        offset = new_offset;
+        let (new_offset, qr_1) = deserialize_with_length(bytes, offset)?;
+        offset = new_offset;
+        let (new_offset, qo_1) = deserialize_with_length(bytes, offset)?;
+        offset = new_offset;
+        let (new_offset, qc_1) = deserialize_with_length(bytes, offset)?;
+        offset = new_offset;
+        let (new_offset, s1_1) = deserialize_with_length(bytes, offset)?;
+        offset = new_offset;
+        let (new_offset, s2_1) = deserialize_with_length(bytes, offset)?;
+        offset = new_offset;
+        let (_, s3_1) = deserialize_with_length(bytes, offset)?;
+
+        Ok(VerificationKey {
+            qm_1,
+            ql_1,
+            qr_1,
+            qo_1,
+            qc_1,
+            s1_1,
+            s2_1,
+            s3_1,
+        })
+    }
 }
 
 pub fn setup<F: IsField, CS: IsCommitmentScheme<F>>(
@@ -621,5 +1151,342 @@ mod tests {
             &common_preprocessed_input,
             &verifying_key
         ));
+    }
+
+    // VerificationKey serialization tests
+
+    #[test]
+    fn test_verification_key_serialization_roundtrip() {
+        let common_input = test_common_preprocessed_input_1();
+        let srs = test_srs(common_input.n);
+        let kzg = KZG::new(srs);
+
+        let vk = setup::<FrField, KZG>(&common_input, &kzg);
+
+        // Serialize
+        let serialized = vk.as_bytes();
+
+        // Check version byte
+        assert_eq!(serialized[0], 1, "Version byte should be 1");
+
+        // Deserialize
+        use crate::test_utils::utils::G1Point;
+        let deserialized: VerificationKey<G1Point> =
+            VerificationKey::deserialize(&serialized).expect("Deserialization failed");
+
+        // Verify all fields match
+        assert_eq!(vk.qm_1, deserialized.qm_1);
+        assert_eq!(vk.ql_1, deserialized.ql_1);
+        assert_eq!(vk.qr_1, deserialized.qr_1);
+        assert_eq!(vk.qo_1, deserialized.qo_1);
+        assert_eq!(vk.qc_1, deserialized.qc_1);
+        assert_eq!(vk.s1_1, deserialized.s1_1);
+        assert_eq!(vk.s2_1, deserialized.s2_1);
+        assert_eq!(vk.s3_1, deserialized.s3_1);
+    }
+
+    #[test]
+    fn test_verification_key_deserialization_empty_bytes() {
+        use crate::test_utils::utils::G1Point;
+        let result: Result<VerificationKey<G1Point>, _> = VerificationKey::deserialize(&[]);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_verification_key_deserialization_wrong_version() {
+        let common_input = test_common_preprocessed_input_1();
+        let srs = test_srs(common_input.n);
+        let kzg = KZG::new(srs);
+        let vk = setup::<FrField, KZG>(&common_input, &kzg);
+
+        let mut serialized = vk.as_bytes();
+        // Modify version byte to invalid version
+        serialized[0] = 99;
+
+        use crate::test_utils::utils::G1Point;
+        let result: Result<VerificationKey<G1Point>, _> = VerificationKey::deserialize(&serialized);
+        assert!(result.is_err());
+    }
+
+    // CommonPreprocessedInput serialization tests
+
+    #[test]
+    fn test_common_preprocessed_input_serialization_roundtrip() {
+        let common_input = test_common_preprocessed_input_1();
+
+        // Serialize
+        let serialized = common_input.as_bytes();
+
+        // Check version byte
+        assert_eq!(serialized[0], 1, "Version byte should be 1");
+
+        // Deserialize
+        let deserialized: CommonPreprocessedInput<FrField> =
+            CommonPreprocessedInput::deserialize(&serialized).expect("Deserialization failed");
+
+        // Verify core fields
+        assert_eq!(common_input.n, deserialized.n);
+        assert_eq!(common_input.omega, deserialized.omega);
+        assert_eq!(common_input.k1, deserialized.k1);
+
+        // Verify domain is correctly regenerated
+        assert_eq!(common_input.domain.len(), deserialized.domain.len());
+        for (a, b) in common_input.domain.iter().zip(deserialized.domain.iter()) {
+            assert_eq!(a, b);
+        }
+
+        // Verify selector polynomials
+        assert_eq!(common_input.ql.coefficients(), deserialized.ql.coefficients());
+        assert_eq!(common_input.qr.coefficients(), deserialized.qr.coefficients());
+        assert_eq!(common_input.qo.coefficients(), deserialized.qo.coefficients());
+        assert_eq!(common_input.qm.coefficients(), deserialized.qm.coefficients());
+        assert_eq!(common_input.qc.coefficients(), deserialized.qc.coefficients());
+
+        // Verify permutation polynomials
+        assert_eq!(common_input.s1.coefficients(), deserialized.s1.coefficients());
+        assert_eq!(common_input.s2.coefficients(), deserialized.s2.coefficients());
+        assert_eq!(common_input.s3.coefficients(), deserialized.s3.coefficients());
+
+        // Verify Lagrange form vectors
+        assert_eq!(common_input.s1_lagrange, deserialized.s1_lagrange);
+        assert_eq!(common_input.s2_lagrange, deserialized.s2_lagrange);
+        assert_eq!(common_input.s3_lagrange, deserialized.s3_lagrange);
+    }
+
+    #[test]
+    fn test_common_preprocessed_input_deserialization_empty_bytes() {
+        let result: Result<CommonPreprocessedInput<FrField>, _> =
+            CommonPreprocessedInput::deserialize(&[]);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_common_preprocessed_input_deserialization_wrong_version() {
+        let common_input = test_common_preprocessed_input_1();
+        let mut serialized = common_input.as_bytes();
+
+        // Modify version byte to invalid version
+        serialized[0] = 99;
+
+        let result: Result<CommonPreprocessedInput<FrField>, _> =
+            CommonPreprocessedInput::deserialize(&serialized);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_common_preprocessed_input_proof_still_verifies_after_roundtrip() {
+        use crate::prover::Prover;
+        use crate::test_utils::utils::TestRandomFieldGenerator;
+        use crate::verifier::Verifier;
+
+        // Create circuit and common preprocessed input
+        let common_input = test_common_preprocessed_input_1();
+
+        // Serialize and deserialize
+        let serialized = common_input.as_bytes();
+        let deserialized: CommonPreprocessedInput<FrField> =
+            CommonPreprocessedInput::deserialize(&serialized).expect("Deserialization failed");
+
+        // Setup with deserialized input
+        let srs = test_srs(deserialized.n);
+        let kzg = KZG::new(srs);
+        let vk = setup(&deserialized, &kzg);
+
+        // Create witness
+        use crate::test_utils::circuit_1::test_witness_1;
+        let x = FE::from(4_u64);
+        let y = FE::from(12_u64);
+        let e = FE::from(3_u64);
+        let public_input = vec![x.clone(), y];
+        let witness = test_witness_1(x, e);
+
+        // Prove and verify
+        let random_generator = TestRandomFieldGenerator {};
+        let prover = Prover::new(kzg.clone(), random_generator);
+        let proof = prover
+            .prove(&witness, &public_input, &deserialized, &vk)
+            .unwrap();
+
+        let verifier = Verifier::new(kzg);
+        assert!(verifier.verify(&proof, &public_input, &deserialized, &vk));
+    }
+
+    // PublicInputLayout tests
+
+    #[test]
+    fn test_public_input_layout_basic() {
+        let layout = PublicInputLayout::new()
+            .add("x")
+            .unwrap()
+            .add("y")
+            .unwrap();
+
+        assert_eq!(layout.len(), 2);
+        assert_eq!(layout.names(), &["x", "y"]);
+        assert_eq!(layout.index_of("x"), Some(0));
+        assert_eq!(layout.index_of("y"), Some(1));
+        assert_eq!(layout.index_of("z"), None);
+    }
+
+    #[test]
+    fn test_public_input_layout_rejects_duplicate() {
+        let result = PublicInputLayout::new()
+            .add("x")
+            .unwrap()
+            .add("x");
+
+        assert!(result.is_err());
+        assert!(matches!(result, Err(PublicInputError::DuplicateName(_))));
+    }
+
+    #[test]
+    fn test_public_input_layout_build_inputs() {
+        let layout = PublicInputLayout::new()
+            .add("a")
+            .unwrap()
+            .add("b")
+            .unwrap()
+            .add("c")
+            .unwrap();
+
+        // Build in different order than layout
+        let inputs = layout
+            .build_inputs(&[
+                ("c", FE::<FrField>::from(3_u64)),
+                ("a", FE::from(1_u64)),
+                ("b", FE::from(2_u64)),
+            ])
+            .unwrap();
+
+        // Should be reordered to layout order: a, b, c
+        assert_eq!(inputs[0], FE::from(1_u64));
+        assert_eq!(inputs[1], FE::from(2_u64));
+        assert_eq!(inputs[2], FE::from(3_u64));
+    }
+
+    #[test]
+    fn test_public_input_layout_build_inputs_wrong_count() {
+        let layout = PublicInputLayout::new()
+            .add("a")
+            .unwrap()
+            .add("b")
+            .unwrap();
+
+        let result = layout.build_inputs::<FrField>(&[("a", FE::from(1_u64))]);
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result,
+            Err(PublicInputError::CountMismatch { expected: 2, got: 1 })
+        ));
+    }
+
+    #[test]
+    fn test_public_input_layout_build_inputs_wrong_name() {
+        let layout = PublicInputLayout::new()
+            .add("a")
+            .unwrap()
+            .add("b")
+            .unwrap();
+
+        let result = layout.build_inputs(&[
+            ("a", FE::<FrField>::from(1_u64)),
+            ("c", FE::from(2_u64)), // Wrong name
+        ]);
+
+        assert!(result.is_err());
+        assert!(matches!(result, Err(PublicInputError::NameNotFound(_))));
+    }
+
+    #[test]
+    fn test_public_input_layout_hash_deterministic() {
+        let layout1 = PublicInputLayout::new()
+            .add("x")
+            .unwrap()
+            .add("y")
+            .unwrap();
+
+        let layout2 = PublicInputLayout::new()
+            .add("x")
+            .unwrap()
+            .add("y")
+            .unwrap();
+
+        assert_eq!(layout1.compute_hash(), layout2.compute_hash());
+        assert!(layout1.matches(&layout2));
+    }
+
+    #[test]
+    fn test_public_input_layout_hash_differs_by_order() {
+        let layout1 = PublicInputLayout::new()
+            .add("x")
+            .unwrap()
+            .add("y")
+            .unwrap();
+
+        let layout2 = PublicInputLayout::new()
+            .add("y")
+            .unwrap()
+            .add("x")
+            .unwrap();
+
+        assert_ne!(layout1.compute_hash(), layout2.compute_hash());
+        assert!(!layout1.matches(&layout2));
+    }
+
+    #[test]
+    fn test_public_input_layout_hash_differs_by_name() {
+        let layout1 = PublicInputLayout::new()
+            .add("x")
+            .unwrap()
+            .add("y")
+            .unwrap();
+
+        let layout2 = PublicInputLayout::new()
+            .add("x")
+            .unwrap()
+            .add("z")
+            .unwrap();
+
+        assert_ne!(layout1.compute_hash(), layout2.compute_hash());
+        assert!(!layout1.matches(&layout2));
+    }
+
+    #[test]
+    fn test_public_input_layout_verify_matches() {
+        let layout1 = PublicInputLayout::new()
+            .add("x")
+            .unwrap()
+            .add("y")
+            .unwrap();
+
+        let layout2 = PublicInputLayout::new()
+            .add("x")
+            .unwrap()
+            .add("y")
+            .unwrap();
+
+        assert!(layout1.verify_matches(&layout2).is_ok());
+
+        let layout3 = PublicInputLayout::new()
+            .add("a")
+            .unwrap()
+            .add("b")
+            .unwrap();
+
+        let result = layout1.verify_matches(&layout3);
+        assert!(result.is_err());
+        assert!(matches!(result, Err(PublicInputError::LayoutMismatch { .. })));
+    }
+
+    #[test]
+    fn test_public_input_layout_empty() {
+        let layout = PublicInputLayout::new();
+        assert!(layout.is_empty());
+        assert_eq!(layout.len(), 0);
+
+        // Building with empty layout should work with empty inputs
+        let inputs = layout.build_inputs::<FrField>(&[]).unwrap();
+        assert!(inputs.is_empty());
     }
 }
