@@ -1172,4 +1172,85 @@ mod tests {
         let result = U64F17Element::from_hex_str(hex_str);
         assert!(result.is_err());
     }
+
+    // Edge case tests for field arithmetic
+
+    #[test]
+    fn inverse_of_zero_returns_error() {
+        let zero = FieldElement::<U64TestField>::zero();
+        assert!(zero.inv().is_err());
+    }
+
+    #[test]
+    fn mul_by_zero_gives_zero() {
+        let a = FieldElement::<U64TestField>::from(12345u64);
+        let zero = FieldElement::<U64TestField>::zero();
+        assert_eq!(&a * &zero, zero);
+        assert_eq!(&zero * &a, zero);
+    }
+
+    #[test]
+    fn add_zero_gives_same_element() {
+        let a = FieldElement::<U64TestField>::from(12345u64);
+        let zero = FieldElement::<U64TestField>::zero();
+        assert_eq!(&a + &zero, a);
+        assert_eq!(&zero + &a, a);
+    }
+
+    #[test]
+    fn sub_element_from_itself_gives_zero() {
+        let a = FieldElement::<U64TestField>::from(12345u64);
+        assert_eq!(&a - &a, FieldElement::<U64TestField>::zero());
+    }
+
+    #[test]
+    fn mul_by_one_gives_same_element() {
+        let a = FieldElement::<U64TestField>::from(12345u64);
+        let one = FieldElement::<U64TestField>::one();
+        assert_eq!(&a * &one, a);
+        assert_eq!(&one * &a, a);
+    }
+
+    #[test]
+    fn square_of_zero_is_zero() {
+        let zero = FieldElement::<U64TestField>::zero();
+        assert_eq!(zero.square(), zero);
+    }
+
+    #[test]
+    fn neg_of_zero_is_zero() {
+        let zero = FieldElement::<U64TestField>::zero();
+        assert_eq!(-&zero, zero);
+    }
+
+    #[test]
+    fn double_of_element_equals_add_to_itself() {
+        let a = FieldElement::<U64TestField>::from(12345u64);
+        assert_eq!(a.double(), &a + &a);
+    }
+
+    #[test]
+    fn element_mul_inverse_gives_one() {
+        let a = FieldElement::<U64TestField>::from(12345u64);
+        let inv_a = a.inv().unwrap();
+        assert_eq!(&a * &inv_a, FieldElement::<U64TestField>::one());
+    }
+
+    #[test]
+    fn pow_zero_gives_one() {
+        let a = FieldElement::<U64TestField>::from(12345u64);
+        assert_eq!(a.pow(0u64), FieldElement::<U64TestField>::one());
+    }
+
+    #[test]
+    fn pow_one_gives_same_element() {
+        let a = FieldElement::<U64TestField>::from(12345u64);
+        assert_eq!(a.pow(1u64), a);
+    }
+
+    #[test]
+    fn pow_two_equals_square() {
+        let a = FieldElement::<U64TestField>::from(12345u64);
+        assert_eq!(a.pow(2u64), a.square());
+    }
 }
