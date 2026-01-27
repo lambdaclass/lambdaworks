@@ -12,6 +12,8 @@
 
 pub mod arithmetic;
 pub mod comparison;
+#[cfg(test)]
+mod correctness_tests;
 pub mod merkle;
 pub mod poseidon;
 

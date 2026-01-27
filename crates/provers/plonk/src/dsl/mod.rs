@@ -35,6 +35,8 @@
 
 pub mod builder;
 pub mod gadgets;
+#[cfg(test)]
+mod integration_tests;
 pub mod types;
 
 pub use builder::CircuitBuilder;
