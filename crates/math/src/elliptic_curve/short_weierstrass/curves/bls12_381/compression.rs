@@ -76,8 +76,11 @@ impl Compress for BLS12381Curve {
         }
         let second_bit = (prefix_bits & 2_u8) >> 1;
         // If the second bit is 1, then the compressed point is the
-        // point at infinity and we return it directly.
+        // point at infinity. Validate canonical encoding: remaining bits/bytes must be zero.
         if second_bit == 1 {
+            if (first_byte & 0x1f) != 0 || input_bytes[1..].iter().any(|&b| b != 0) {
+                return Err(ByteConversionError::InvalidValue);
+            }
             return Ok(G1Point::neutral_element());
         }
         // We obtain the third bit
@@ -175,8 +178,11 @@ impl Compress for BLS12381Curve {
         }
         let second_bit = (prefix_bits & 2_u8) >> 1;
         // If the second bit is 1, then the compressed point is the
-        // point at infinity and we return it directly.
+        // point at infinity. Validate canonical encoding: remaining bits/bytes must be zero.
         if second_bit == 1 {
+            if (first_byte & 0x1f) != 0 || input_bytes[1..].iter().any(|&b| b != 0) {
+                return Err(ByteConversionError::InvalidValue);
+            }
             return Ok(Self::G2Point::neutral_element());
         }
 
