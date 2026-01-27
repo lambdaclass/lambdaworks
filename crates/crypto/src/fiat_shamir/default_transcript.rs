@@ -72,7 +72,9 @@ where
     }
 
     fn sample_u64(&mut self, upper_bound: u64) -> u64 {
-        u64::from_be_bytes(self.state()[..8].try_into().unwrap()) % upper_bound
+        let mut bytes = [0u8; 8];
+        bytes.copy_from_slice(&self.sample()[..8]);
+        u64::from_be_bytes(bytes) % upper_bound
     }
 }
 

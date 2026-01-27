@@ -46,7 +46,10 @@ impl IsStarkTranscript<Felt> for FeltTranscript {
     }
 
     fn sample_u64(&mut self, upper_bound: u64) -> u64 {
-        u64::from_be_bytes(self.state()[..8].try_into().unwrap()) % upper_bound
+        let bytes = self.sample(8);
+        let mut arr = [0u8; 8];
+        arr.copy_from_slice(&bytes);
+        u64::from_be_bytes(arr) % upper_bound
     }
 }
 
@@ -82,6 +85,9 @@ impl IsStarkTranscript<QuadFelt> for QuadFeltTranscript {
     }
 
     fn sample_u64(&mut self, upper_bound: u64) -> u64 {
-        u64::from_be_bytes(self.state()[..8].try_into().unwrap()) % upper_bound
+        let bytes = self.felt_transcript.sample(8);
+        let mut arr = [0u8; 8];
+        arr.copy_from_slice(&bytes);
+        u64::from_be_bytes(arr) % upper_bound
     }
 }
