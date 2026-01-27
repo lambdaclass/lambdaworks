@@ -84,6 +84,11 @@ impl ProofOptions {
         grinding_factor: u8,
         security_target: u8,
     ) -> Result<Self, InsecureOptionError> {
+        // Validate blowup_factor is a power of two and at least 2
+        if blowup_factor < 2 || !blowup_factor.is_power_of_two() {
+            return Err(InsecureOptionError::InvalidBlowupFactor);
+        }
+
         Self::check_field_security::<F>(security_target)?;
 
         let num_bits_blowup_factor = blowup_factor.trailing_zeros() as usize;
