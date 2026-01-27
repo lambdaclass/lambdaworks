@@ -96,19 +96,18 @@ fn find_node_size<T: Deserializable>(bytes: &[u8]) -> Result<usize, Deserializat
     const COMMON_SIZES: [usize; 3] = [8, 32, 64];
 
     for &size in &COMMON_SIZES {
-        if bytes.len() >= size && bytes.len() % size == 0 {
-            if T::deserialize(&bytes[..size]).is_ok() {
-                return Ok(size);
-            }
+        if bytes.len() >= size
+            && bytes.len().is_multiple_of(size)
+            && T::deserialize(&bytes[..size]).is_ok()
+        {
+            return Ok(size);
         }
     }
 
     // Fallback: try to find any size that works and evenly divides the input
     for size in 1..=bytes.len() {
-        if bytes.len() % size == 0 {
-            if T::deserialize(&bytes[..size]).is_ok() {
-                return Ok(size);
-            }
+        if bytes.len().is_multiple_of(size) && T::deserialize(&bytes[..size]).is_ok() {
+            return Ok(size);
         }
     }
 
@@ -185,6 +184,36 @@ mod tests {
         let serialize_proof = proof.serialize();
         let proof: TestProofEcgfp5 = Proof::deserialize(&serialize_proof).unwrap();
         assert!(proof.verify::<TestBackend<Ecgfp5>>(&merkle_tree.root, 1, &Ecgfp5FE::new(2)));
+    }
+
+    #[test]
+    #[cfg(feature = "alloc")]
+    fn proof_u8_32_roundtrip() {
+        let mut node2 = [0u8; 32];
+        for (i, b) in node2.iter_mut().enumerate() {
+            *b = i as u8;
+        }
+        let original = Proof::<[u8; 32]> {
+            merkle_path: vec![[0u8; 32], [1u8; 32], node2],
+        };
+        let serialized = original.serialize();
+        let deserialized: Proof<[u8; 32]> = Proof::deserialize(&serialized).unwrap();
+        assert_eq!(original.merkle_path, deserialized.merkle_path);
+    }
+
+    #[test]
+    #[cfg(feature = "alloc")]
+    fn proof_u8_64_roundtrip() {
+        let mut node2 = [0u8; 64];
+        for (i, b) in node2.iter_mut().enumerate() {
+            *b = i as u8;
+        }
+        let original = Proof::<[u8; 64]> {
+            merkle_path: vec![[0u8; 64], [1u8; 64], node2],
+        };
+        let serialized = original.serialize();
+        let deserialized: Proof<[u8; 64]> = Proof::deserialize(&serialized).unwrap();
+        assert_eq!(original.merkle_path, deserialized.merkle_path);
     }
 
     #[test]

@@ -66,6 +66,22 @@ impl Serializable for [u8; 64] {
     }
 }
 
+impl Deserializable for [u8; 32] {
+    fn deserialize(bytes: &[u8]) -> Result<Self, DeserializationError> {
+        bytes
+            .try_into()
+            .map_err(|_| DeserializationError::InvalidAmountOfBytes)
+    }
+}
+
+impl Deserializable for [u8; 64] {
+    fn deserialize(bytes: &[u8]) -> Result<Self, DeserializationError> {
+        bytes
+            .try_into()
+            .map_err(|_| DeserializationError::InvalidAmountOfBytes)
+    }
+}
+
 #[cfg(feature = "alloc")]
 impl AsBytes for u32 {
     fn as_bytes(&self) -> alloc::vec::Vec<u8> {
