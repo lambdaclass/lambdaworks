@@ -415,7 +415,7 @@ mod tests {
 
             #[test]
             fn test_fft_division_works(poly in non_zero_poly(7), other in non_zero_poly(7)) {
-                prop_assert_eq!(poly.fast_division::<F>(&other).unwrap(), poly.long_division_with_remainder(&other));
+                prop_assert_eq!(poly.fast_division::<F>(&other).unwrap(), poly.long_division_with_remainder(&other).unwrap());
             }
 
             #[test]
@@ -536,7 +536,7 @@ mod tests {
 
             #[test]
             fn test_fft_division_works(poly in poly(7), other in non_zero_poly(7)) {
-                prop_assert_eq!(poly.fast_division::<F>(&other).unwrap(), poly.long_division_with_remainder(&other));
+                prop_assert_eq!(poly.fast_division::<F>(&other).unwrap(), poly.long_division_with_remainder(&other).unwrap());
             }
 
             #[test]

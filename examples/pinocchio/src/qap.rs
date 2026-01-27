@@ -51,7 +51,9 @@ impl QuadraticArithmeticProgram {
     }
 
     pub fn h_polynomial(&self, c: &[FE]) -> Polynomial<FE> {
-        self.p_polynomial(c).div_with_ref(&self.target)
+        self.p_polynomial(c)
+            .div_with_ref(&self.target)
+            .expect("target polynomial should not be zero")
     }
 
     /// Receives C elements of a solution of the circuit.
