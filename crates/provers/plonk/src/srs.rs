@@ -293,76 +293,9 @@ impl SRSManager {
         Ok(())
     }
 
-    /// Validates SRS consistency using pairing checks.
-    ///
-    /// This performs the following checks:
-    /// 1. The G1 powers form a geometric sequence: e(s^i * G1, G2) = e(s^(i-1) * G1, s * G2)
-    /// 2. The G2 powers are consistent with G1: e(s * G1, G2) = e(G1, s * G2)
-    ///
-    /// # Security Note
-    ///
-    /// This validation ensures internal consistency but does NOT prove the SRS
-    /// was generated honestly. A malicious party could generate a consistent
-    /// but biased SRS. For production use, only use SRS from trusted ceremonies.
-    ///
-    /// # Arguments
-    /// * `srs` - The SRS to validate
-    ///
-    /// # Returns
-    /// * `Ok(())` if validation passes
-    /// * `Err(SRSError::ValidationFailed)` if validation fails
-    #[cfg(feature = "srs_validation")]
-    pub fn validate<G1, G2, P>(srs: &StructuredReferenceString<G1, G2>) -> Result<(), SRSError>
-    where
-        P: lambdaworks_math::elliptic_curve::traits::IsPairing<G1 = G1, G2 = G2>,
-    {
-        // Requires at least 2 G1 powers and 2 G2 powers for validation
-        if srs.powers_main_group.len() < 2 {
-            return Err(SRSError::ValidationFailed(
-                "SRS needs at least 2 G1 powers for validation".to_string(),
-            ));
-        }
-        if srs.powers_secondary_group.len() < 2 {
-            return Err(SRSError::ValidationFailed(
-                "SRS needs at least 2 G2 powers for validation".to_string(),
-            ));
-        }
-
-        let g1 = &srs.powers_main_group[0];
-        let s_g1 = &srs.powers_main_group[1];
-        let g2 = &srs.powers_secondary_group[0];
-        let s_g2 = &srs.powers_secondary_group[1];
-
-        // Check: e(s * G1, G2) = e(G1, s * G2)
-        let lhs = P::compute_batch(&[(s_g1, g2)]);
-        let rhs = P::compute_batch(&[(g1, s_g2)]);
-
-        if lhs != rhs {
-            return Err(SRSError::ValidationFailed(
-                "Pairing check failed: e(s*G1, G2) != e(G1, s*G2)".to_string(),
-            ));
-        }
-
-        // Optionally check more powers for additional confidence
-        // This is O(n) in the number of powers but provides stronger guarantees
-        for i in 2..srs.powers_main_group.len().min(10) {
-            let s_i_minus_1 = &srs.powers_main_group[i - 1];
-            let s_i = &srs.powers_main_group[i];
-
-            // Check: e(s^i * G1, G2) = e(s^(i-1) * G1, s * G2)
-            let lhs = P::compute_batch(&[(s_i, g2)]);
-            let rhs = P::compute_batch(&[(s_i_minus_1, s_g2)]);
-
-            if lhs != rhs {
-                return Err(SRSError::ValidationFailed(format!(
-                    "Pairing check failed at power {}: e(s^{} * G1, G2) != e(s^{} * G1, s * G2)",
-                    i, i, i - 1
-                )));
-            }
-        }
-
-        Ok(())
-    }
+    // Note: SRS validation using pairing checks would go here.
+    // This requires proper pairing trait bounds which depend on the specific curve.
+    // For BLS12-381, use the BLS12381AtePairing type.
 }
 
 #[cfg(test)]
