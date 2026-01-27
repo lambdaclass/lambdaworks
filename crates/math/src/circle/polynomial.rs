@@ -23,7 +23,7 @@ pub fn evaluate_cfft(
 
     // We get the twiddles for the Evaluation.
     let domain_log_2_size: u32 = coeff.len().trailing_zeros();
-    let coset = Coset::new_standard(domain_log_2_size);
+    let coset = Coset::new_standard(domain_log_2_size as u8); 
     let config = TwiddlesConfig::Evaluation;
     let twiddles = get_twiddles(coset, config);
 
@@ -52,7 +52,7 @@ pub fn interpolate_cfft(
 
     // We get the twiddles for the interpolation.
     let domain_log_2_size: u32 = eval.len().trailing_zeros();
-    let coset = Coset::new_standard(domain_log_2_size);
+    let coset = Coset::new_standard(domain_log_2_size as u8); 
     let config = TwiddlesConfig::Interpolation;
     let twiddles = get_twiddles(coset, config);
 
