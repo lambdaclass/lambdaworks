@@ -12,6 +12,54 @@ use lambdaworks_math::field::{element::FieldElement, traits::IsField};
 use lambdaworks_math::polynomial::Polynomial;
 use lambdaworks_math::traits::{AsBytes, ByteConversion};
 
+/// Validates that k1 is a valid coset generator for PLONK.
+///
+/// For the copy constraint permutation to work correctly, the cosets H, k1*H, and k2*H
+/// (where k2 = k1^2) must be disjoint. This requires:
+/// 1. k1 is not in the domain H (k1^n != 1)
+/// 2. k2 is not in the domain H (k2^n != 1)
+/// 3. k1 != 1 (trivial case)
+///
+/// # Arguments
+/// * `k1` - The coset generator
+/// * `n` - The size of the domain H
+///
+/// # Returns
+/// * `Ok(())` if k1 is valid
+/// * `Err(ProverError::SetupError)` if validation fails
+pub fn validate_coset_generator<F: IsField>(
+    k1: &FieldElement<F>,
+    n: usize,
+) -> Result<(), ProverError> {
+    // k1 must not be 1 (trivial case)
+    if *k1 == FieldElement::one() {
+        return Err(ProverError::SetupError(
+            "Coset generator k1 cannot be 1".to_string(),
+        ));
+    }
+
+    // k1 must not be in the domain H (i.e., k1^n != 1)
+    let k1_pow_n = k1.pow(n as u64);
+    if k1_pow_n == FieldElement::one() {
+        return Err(ProverError::SetupError(format!(
+            "Coset generator k1 is in the domain H (k1^{} = 1)",
+            n
+        )));
+    }
+
+    // k2 = k1^2 must not be in the domain H (i.e., k2^n != 1)
+    let k2 = k1 * k1;
+    let k2_pow_n = k2.pow(n as u64);
+    if k2_pow_n == FieldElement::one() {
+        return Err(ProverError::SetupError(format!(
+            "Coset generator k2 = k1^2 is in the domain H (k2^{} = 1)",
+            n
+        )));
+    }
+
+    Ok(())
+}
+
 // TODO: implement getters
 pub struct Witness<F: IsField> {
     pub a: Vec<FieldElement<F>>,
@@ -29,6 +77,189 @@ impl<F: IsField> Witness<F> {
             a: abc[..n].to_vec(),
             b: abc[n..2 * n].to_vec(),
             c: abc[2 * n..].to_vec(),
+        }
+    }
+}
+
+/// Error types for witness building.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum WitnessBuilderError {
+    /// A required variable was not assigned a value
+    MissingVariable(Variable),
+    /// The constraint system reference is missing
+    MissingConstraintSystem,
+    /// Duplicate assignment to a variable
+    DuplicateAssignment(Variable),
+}
+
+impl std::fmt::Display for WitnessBuilderError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            WitnessBuilderError::MissingVariable(v) => {
+                write!(f, "Missing value for variable {}", v)
+            }
+            WitnessBuilderError::MissingConstraintSystem => {
+                write!(f, "Constraint system not provided")
+            }
+            WitnessBuilderError::DuplicateAssignment(v) => {
+                write!(f, "Duplicate assignment to variable {}", v)
+            }
+        }
+    }
+}
+
+impl std::error::Error for WitnessBuilderError {}
+
+/// Builder for constructing witnesses with validation.
+///
+/// `WitnessBuilder` provides a safe, ergonomic API for creating PLONK witnesses.
+/// It validates that all required variables have values before building.
+///
+/// # Example
+///
+/// ```ignore
+/// use lambdaworks_plonk::setup::WitnessBuilder;
+///
+/// let witness = WitnessBuilder::new()
+///     .set(x_var, FieldElement::from(4))
+///     .set(y_var, FieldElement::from(12))
+///     .set(e_var, FieldElement::from(3))
+///     .build(&constraint_system)?;
+/// ```
+pub struct WitnessBuilder<F: IsField> {
+    assignments: HashMap<Variable, FieldElement<F>>,
+    allow_overwrite: bool,
+}
+
+impl<F: IsField> Default for WitnessBuilder<F> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<F: IsField> WitnessBuilder<F> {
+    /// Creates a new empty WitnessBuilder.
+    pub fn new() -> Self {
+        Self {
+            assignments: HashMap::new(),
+            allow_overwrite: false,
+        }
+    }
+
+    /// Creates a new WitnessBuilder from existing assignments.
+    pub fn from_assignments(assignments: HashMap<Variable, FieldElement<F>>) -> Self {
+        Self {
+            assignments,
+            allow_overwrite: false,
+        }
+    }
+
+    /// Allow overwriting existing variable assignments.
+    /// By default, attempting to assign to an already-assigned variable returns an error.
+    pub fn allow_overwrite(mut self, allow: bool) -> Self {
+        self.allow_overwrite = allow;
+        self
+    }
+
+    /// Assigns a value to a variable.
+    ///
+    /// Returns an error if the variable already has a value (unless `allow_overwrite` is set).
+    pub fn set(
+        mut self,
+        variable: Variable,
+        value: FieldElement<F>,
+    ) -> Result<Self, WitnessBuilderError> {
+        if !self.allow_overwrite && self.assignments.contains_key(&variable) {
+            return Err(WitnessBuilderError::DuplicateAssignment(variable));
+        }
+        self.assignments.insert(variable, value);
+        Ok(self)
+    }
+
+    /// Assigns a value to a variable (infallible version for chaining).
+    ///
+    /// Panics if the variable already has a value (unless `allow_overwrite` is set).
+    /// Use `set()` if you want error handling instead of panics.
+    pub fn assign(self, variable: Variable, value: FieldElement<F>) -> Self {
+        self.set(variable, value)
+            .expect("Duplicate variable assignment")
+    }
+
+    /// Assigns values to multiple variables from an iterator.
+    pub fn set_many(
+        mut self,
+        assignments: impl IntoIterator<Item = (Variable, FieldElement<F>)>,
+    ) -> Result<Self, WitnessBuilderError> {
+        for (var, val) in assignments {
+            self = self.set(var, val)?;
+        }
+        Ok(self)
+    }
+
+    /// Returns the current assignments.
+    pub fn assignments(&self) -> &HashMap<Variable, FieldElement<F>> {
+        &self.assignments
+    }
+
+    /// Returns a mutable reference to the current assignments.
+    pub fn assignments_mut(&mut self) -> &mut HashMap<Variable, FieldElement<F>> {
+        &mut self.assignments
+    }
+
+    /// Builds the witness from the constraint system.
+    ///
+    /// This method validates that all variables referenced in the constraint system
+    /// have assigned values, then constructs the witness.
+    ///
+    /// # Errors
+    ///
+    /// Returns `WitnessBuilderError::MissingVariable` if any required variable
+    /// is missing a value.
+    pub fn build(self, system: &ConstraintSystem<F>) -> Result<Witness<F>, WitnessBuilderError> {
+        let (lro, _) = system.to_matrices();
+
+        // Validate all required variables have values
+        for var in &lro {
+            if !self.assignments.contains_key(var) {
+                return Err(WitnessBuilderError::MissingVariable(*var));
+            }
+        }
+
+        let abc: Vec<_> = lro
+            .iter()
+            .map(|v| self.assignments[v].clone())
+            .collect();
+        let n = lro.len() / 3;
+
+        Ok(Witness {
+            a: abc[..n].to_vec(),
+            b: abc[n..2 * n].to_vec(),
+            c: abc[2 * n..].to_vec(),
+        })
+    }
+
+    /// Builds the witness using the solver to fill in missing values.
+    ///
+    /// This method first attempts to solve for any missing variable values using
+    /// the constraint system's solver, then builds the witness.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the solver cannot determine values for all variables.
+    pub fn build_with_solver(
+        mut self,
+        system: &ConstraintSystem<F>,
+    ) -> Result<Witness<F>, WitnessBuilderError> {
+        // Use the solver to fill in missing values
+        match system.solve(self.assignments.clone()) {
+            Ok(solved) => {
+                self.assignments = solved;
+                self.build(system)
+            }
+            Err(_) => {
+                // Try to build anyway and let it fail with specific missing variable
+                self.build(system)
+            }
         }
     }
 }
@@ -67,6 +298,9 @@ impl<F: IsFFTField> CommonPreprocessedInput<F> {
         let omega = F::get_primitive_root_of_unity(n.trailing_zeros() as u64)
             .map_err(|_| ProverError::PrimitiveRootNotFound(n.trailing_zeros() as u64))?;
         let domain = generate_domain(&omega, n);
+
+        // Validate coset generator k1 ensures disjoint cosets H, k1*H, k2*H
+        validate_coset_generator(order_r_minus_1_root_unity, n)?;
 
         let m = q.len() / 5;
         let ql: Vec<_> = q[..m].to_vec();
@@ -174,10 +408,29 @@ mod tests {
     use lambdaworks_math::elliptic_curve::{
         short_weierstrass::curves::bls12_381::curve::BLS12381Curve, traits::IsEllipticCurve,
     };
+    use lambdaworks_math::field::element::FieldElement as FE;
+    use lambdaworks_math::field::fields::u64_prime_field::U64PrimeField;
 
     use super::*;
     use crate::test_utils::circuit_1::test_common_preprocessed_input_1;
-    use crate::test_utils::utils::{test_srs, FpElement, KZG};
+    use crate::test_utils::utils::{test_srs, FpElement, KZG, ORDER_R_MINUS_1_ROOT_UNITY};
+
+    #[test]
+    fn test_validate_coset_generator_rejects_one() {
+        use lambdaworks_math::field::element::FieldElement;
+        let k1 = FieldElement::<FrField>::one();
+        let result = validate_coset_generator(&k1, 4);
+        assert!(result.is_err());
+        assert!(matches!(result, Err(ProverError::SetupError(_))));
+    }
+
+    #[test]
+    fn test_validate_coset_generator_accepts_valid() {
+        use crate::test_utils::utils::ORDER_R_MINUS_1_ROOT_UNITY;
+        // The standard test k1 should be valid for n=4
+        let result = validate_coset_generator(&ORDER_R_MINUS_1_ROOT_UNITY, 4);
+        assert!(result.is_ok());
+    }
 
     #[test]
     fn setup_works_for_simple_circuit() {
@@ -225,5 +478,148 @@ mod tests {
         assert_eq!(vk.s1_1, expected_s1);
         assert_eq!(vk.s2_1, expected_s2);
         assert_eq!(vk.s3_1, expected_s3);
+    }
+
+    // WitnessBuilder tests
+
+    #[test]
+    fn test_witness_builder_basic() {
+        let system = &mut ConstraintSystem::<U64PrimeField<65537>>::new();
+
+        let v0 = system.new_variable();
+        let v1 = system.new_variable();
+        let _v2 = system.add(&v0, &v1);
+
+        // Build witness with explicit values
+        let witness = WitnessBuilder::new()
+            .assign(v0, FE::from(10))
+            .assign(v1, FE::from(20))
+            .build_with_solver(system)
+            .unwrap();
+
+        // The witness should have vectors of equal length
+        assert_eq!(witness.a.len(), witness.b.len());
+        assert_eq!(witness.b.len(), witness.c.len());
+        // Should have at least one constraint
+        assert!(witness.a.len() >= 1);
+    }
+
+    #[test]
+    fn test_witness_builder_detects_missing_variable() {
+        let system = &mut ConstraintSystem::<U64PrimeField<65537>>::new();
+
+        let v0 = system.new_variable();
+        let v1 = system.new_variable();
+        let _v2 = system.add(&v0, &v1);
+
+        // Try to build without providing v1
+        let result = WitnessBuilder::new()
+            .assign(v0, FE::from(10))
+            .build(system);
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result,
+            Err(WitnessBuilderError::MissingVariable(_))
+        ));
+    }
+
+    #[test]
+    fn test_witness_builder_detects_duplicate_assignment() {
+        let result = WitnessBuilder::<U64PrimeField<65537>>::new()
+            .set(0, FE::from(10))
+            .and_then(|b| b.set(0, FE::from(20)));
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result,
+            Err(WitnessBuilderError::DuplicateAssignment(0))
+        ));
+    }
+
+    #[test]
+    fn test_witness_builder_allows_overwrite_when_enabled() {
+        let builder = WitnessBuilder::<U64PrimeField<65537>>::new()
+            .allow_overwrite(true)
+            .set(0, FE::from(10))
+            .unwrap()
+            .set(0, FE::from(20))
+            .unwrap();
+
+        assert_eq!(builder.assignments().get(&0), Some(&FE::from(20)));
+    }
+
+    #[test]
+    fn test_witness_builder_from_assignments() {
+        let mut initial = HashMap::new();
+        initial.insert(0, FE::<U64PrimeField<65537>>::from(10));
+        initial.insert(1, FE::from(20));
+
+        let builder = WitnessBuilder::from_assignments(initial);
+        assert_eq!(builder.assignments().len(), 2);
+        assert_eq!(builder.assignments().get(&0), Some(&FE::from(10)));
+    }
+
+    #[test]
+    fn test_witness_builder_set_many() {
+        let assignments = vec![(0, FE::<U64PrimeField<65537>>::from(10)), (1, FE::from(20))];
+
+        let builder = WitnessBuilder::new().set_many(assignments).unwrap();
+
+        assert_eq!(builder.assignments().len(), 2);
+    }
+
+    #[test]
+    fn test_witness_builder_with_prover() {
+        use crate::prover::Prover;
+        use crate::test_utils::utils::TestRandomFieldGenerator;
+        use crate::verifier::Verifier;
+
+        // Create a simple multiplication circuit: x * e == y
+        let system = &mut ConstraintSystem::<FrField>::new();
+
+        let e = system.new_variable();
+        let x = system.new_public_input();
+        let y = system.new_public_input();
+
+        let z = system.mul(&x, &e);
+        system.assert_eq(&y, &z);
+
+        // Setup
+        let common_preprocessed_input =
+            CommonPreprocessedInput::from_constraint_system(system, &ORDER_R_MINUS_1_ROOT_UNITY)
+                .unwrap();
+        let srs = test_srs(common_preprocessed_input.n);
+        let kzg = KZG::new(srs);
+        let verifying_key = setup(&common_preprocessed_input, &kzg);
+
+        // Build witness using WitnessBuilder with solver
+        let witness = WitnessBuilder::new()
+            .assign(x, FE::from(4))
+            .assign(e, FE::from(3))
+            .build_with_solver(system)
+            .expect("Witness building failed");
+
+        let public_inputs = vec![FE::from(4), FE::from(12)]; // x=4, y=4*3=12
+
+        // Generate and verify proof
+        let random_generator = TestRandomFieldGenerator {};
+        let prover = Prover::new(kzg.clone(), random_generator);
+        let proof = prover
+            .prove(
+                &witness,
+                &public_inputs,
+                &common_preprocessed_input,
+                &verifying_key,
+            )
+            .unwrap();
+
+        let verifier = Verifier::new(kzg);
+        assert!(verifier.verify(
+            &proof,
+            &public_inputs,
+            &common_preprocessed_input,
+            &verifying_key
+        ));
     }
 }
