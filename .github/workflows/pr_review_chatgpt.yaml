@@ -1,0 +1,61 @@
+name: ChatGPT PR Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: ChatGPT Code Review
+        uses: anc95/ChatGPT-CodeReview@v2.0.3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        with:
+          model: gpt-4o
+          max_tokens: 4096
+          review_comment_lgtm: false
+          prompt: |
+            You are reviewing code for lambdaworks, a Rust cryptographic library implementing finite fields,
+            elliptic curves, and zero-knowledge proof systems (STARKs, SNARKs).
+
+            Review the code changes focusing on:
+
+            **Correctness:**
+            - Mathematical operations (modular arithmetic, field operations, curve operations)
+            - Edge cases (zero, identity elements, infinity points)
+            - Polynomial and FFT implementations
+            - Proof system correctness
+
+            **Security:**
+            - Timing side-channels (constant-time operations on secrets)
+            - Proper zeroization of sensitive data
+            - Cryptographically secure randomness
+            - No secret-dependent branching
+            - Hash function domain separation
+
+            **Performance:**
+            - Unnecessary allocations
+            - Redundant field inversions
+            - MSM and FFT efficiency
+
+            **Bugs & Errors:**
+            - Potential panics or unwraps
+            - Memory safety issues
+            - Off-by-one errors
+            - Integer overflow/underflow
+
+            **Code Simplicity:**
+            - Overly complex implementations
+            - Duplicated code
+            - Poor abstractions
+
+            Be concise. Only comment on actual issues, not style preferences.

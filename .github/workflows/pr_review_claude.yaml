@@ -1,0 +1,74 @@
+name: Claude PR Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+
+jobs:
+  review:
+    if: |
+      github.event_name == 'pull_request' ||
+      (github.event_name == 'issue_comment' && github.event.issue.pull_request && contains(github.event.comment.body, '@claude')) ||
+      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude'))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      id-token: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Run Claude Code Review
+        uses: anthropics/claude-code-action@beta
+        with:
+          model: claude-sonnet-4-20250514
+          trigger_phrase: "@claude"
+          custom_instructions: |
+            You are reviewing code for lambdaworks, a Rust library implementing cryptographic primitives,
+            finite field arithmetic, elliptic curve operations, and zero-knowledge proof systems (STARKs, SNARKs).
+
+            Focus your review on:
+
+            **Correctness & Mathematical Accuracy:**
+            - Verify mathematical operations are correctly implemented (modular arithmetic, field operations)
+            - Check elliptic curve point operations (addition, doubling, scalar multiplication)
+            - Ensure proper handling of edge cases (identity elements, zero, infinity points)
+            - Validate polynomial arithmetic and FFT implementations
+            - Check proof system logic (commitment schemes, Fiat-Shamir transforms)
+
+            **Cryptographic Security:**
+            - Look for timing side-channel vulnerabilities (non-constant-time operations on secrets)
+            - Check for proper zeroization of sensitive data
+            - Verify random number generation uses cryptographically secure sources
+            - Ensure no secret-dependent branching or memory access patterns
+            - Check for proper domain separation in hash functions
+            - Validate proper serialization/deserialization (no malleability issues)
+
+            **Performance:**
+            - Identify opportunities for Montgomery multiplication optimizations
+            - Check for unnecessary allocations in hot paths
+            - Verify efficient use of SIMD/parallel operations where applicable
+            - Look for redundant field inversions (batch inversions preferred)
+            - Check MSM (multi-scalar multiplication) implementations
+
+            **Rust Best Practices:**
+            - Ensure proper error handling (no unwrap on fallible operations in library code)
+            - Check for memory safety issues
+            - Verify no-std compatibility where expected
+            - Look for proper use of const generics and type safety
+            - Check for proper documentation of unsafe blocks
+
+            **Code Quality:**
+            - Ensure code is simple, readable, and maintainable
+            - Check for proper test coverage of edge cases
+            - Verify documentation accuracy for public APIs
+
+            Be concise and actionable. Prioritize security and correctness issues.

@@ -1,0 +1,88 @@
+name: Kimi PR Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get PR diff
+        id: diff
+        run: |
+          DIFF=$(gh pr diff ${{ github.event.pull_request.number }} --repo ${{ github.repository }})
+          # Truncate if too large (100KB limit)
+          if [ ${#DIFF} -gt 100000 ]; then
+            DIFF="${DIFF:0:100000}... [truncated]"
+          fi
+          # Save to file to handle special characters
+          echo "$DIFF" > /tmp/pr_diff.txt
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Call Kimi API for review
+        id: kimi_review
+        run: |
+          DIFF=$(cat /tmp/pr_diff.txt)
+
+          # Escape the diff for JSON
+          ESCAPED_DIFF=$(echo "$DIFF" | jq -Rs .)
+
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "https://api.moonshot.ai/v1/chat/completions" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${{ secrets.KIMI_API_KEY }}" \
+            -d @- << EOF
+          {
+            "model": "moonshot-v1-128k",
+            "messages": [
+              {
+                "role": "system",
+                "content": "You are a code reviewer for lambdaworks, a Rust cryptographic library implementing finite fields, elliptic curves, and zero-knowledge proof systems (STARKs, SNARKs). Review code changes focusing on: 1) Mathematical correctness (field operations, curve arithmetic, polynomial operations), 2) Cryptographic security (timing side-channels, constant-time operations, proper randomness, zeroization), 3) Performance (unnecessary allocations, efficient algorithms), 4) Bugs and errors (panics, memory safety, edge cases), 5) Code simplicity and maintainability. Be concise and only comment on actual issues."
+              },
+              {
+                "role": "user",
+                "content": "Review this PR diff and provide feedback on any issues found. Be specific about file names and line numbers when possible:\n\n$ESCAPED_DIFF"
+              }
+            ],
+            "temperature": 0.3
+          }
+          EOF
+          )
+
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "Kimi API request failed with status $HTTP_CODE"
+            echo "Response: $BODY"
+            exit 1
+          fi
+
+          REVIEW=$(echo "$BODY" | jq -r '.choices[0].message.content')
+          echo "review<<EOF" >> $GITHUB_OUTPUT
+          echo "$REVIEW" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Post review comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const review = `${{ steps.kimi_review.outputs.review }}`;
+
+            if (review && review.trim() !== '') {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: `## Kimi AI Review\n\n${review}`
+              });
+            }
