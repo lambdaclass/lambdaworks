@@ -105,9 +105,9 @@ where
 
 /// Recode scalars to signed digits for Pippenger's algorithm.
 /// Returns a flat vector of signed digits, stored contiguously to avoid
-/// per-scalar heap allocations. Uses signed representation to halve the 
+/// per-scalar heap allocations. Uses signed representation to halve the
 /// bucket count from 2^c - 1 to 2^(c-1).
-/// 
+///
 /// The flat layout stores all digits for scalar i at indices:
 ///   [i * total_windows, i * total_windows + total_windows)
 fn recode_scalars_signed<const NUM_LIMBS: usize>(
@@ -156,7 +156,12 @@ fn recode_scalars_signed<const NUM_LIMBS: usize>(
 
 /// Get the digit for scalar `scalar_idx` at window `window_idx` from flat storage.
 #[inline(always)]
-fn get_digit(flat_digits: &[i64], total_windows: usize, scalar_idx: usize, window_idx: usize) -> i64 {
+fn get_digit(
+    flat_digits: &[i64],
+    total_windows: usize,
+    scalar_idx: usize,
+    window_idx: usize,
+) -> i64 {
     flat_digits[scalar_idx * total_windows + window_idx]
 }
 

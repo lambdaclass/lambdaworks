@@ -16,6 +16,12 @@ use crate::fft::gpu::cuda::polynomial::{evaluate_fft_cuda, interpolate_fft_cuda}
 
 use super::cpu::{ops, roots_of_unity};
 
+fn reserve_fft_buffer<T>(buffer: &mut Vec<T>, len: usize) {
+    if buffer.capacity() < len {
+        buffer.reserve(len.saturating_sub(buffer.len()));
+    }
+}
+
 impl<E: IsField> Polynomial<FieldElement<E>> {
     /// Returns `N` evaluations of this polynomial using FFT over a domain in a subfield F of E (so the results
     /// are P(w^i), with w being a primitive root of unity).
@@ -128,9 +134,7 @@ impl<E: IsField> Polynomial<FieldElement<E>> {
         }
 
         // Reserve capacity if needed (avoids reallocation)
-        if buffer.capacity() < len {
-            buffer.reserve(len - buffer.capacity());
-        }
+        reserve_fft_buffer(buffer, len);
 
         let coeffs = poly.coefficients();
 
@@ -675,5 +679,15 @@ mod tests {
             .unwrap();
 
         assert_eq!(standard_result2, buffer);
+    }
+
+    #[test]
+    fn test_reserve_fft_buffer_reserves_full_len() {
+        let mut buffer: Vec<FieldElement<U64TestField>> = Vec::with_capacity(5);
+        buffer.clear();
+
+        super::reserve_fft_buffer(&mut buffer, 10);
+
+        assert!(buffer.capacity() >= 10);
     }
 }
