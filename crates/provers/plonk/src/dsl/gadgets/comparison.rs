@@ -115,7 +115,8 @@ impl<F: IsField, const BITS: usize> Gadget<F> for LessThan<BITS> {
         }
 
         // Compute diff = 2^BITS + a - b
-        let offset = FieldElement::<F>::from(1u64 << BITS);
+        // Use field exponentiation to avoid shift overflow when BITS >= 64.
+        let offset = FieldElement::<F>::from(2u64).pow(BITS as u64);
         let a_plus_offset = builder.add_constant(&a, offset);
         let diff = builder.sub(&a_plus_offset, &b);
 
@@ -277,6 +278,17 @@ mod tests {
 
         // Test with 8-bit comparison
         let _result = LessThan::<8>::synthesize(&mut builder, (a, b)).unwrap();
+    }
+
+    #[test]
+    fn test_less_than_64_bits_does_not_overflow() {
+        let mut builder = CircuitBuilder::<F>::new();
+
+        let a = builder.public_input("a");
+        let b = builder.public_input("b");
+
+        // Ensure large bit widths don't overflow during synthesis.
+        let _result = LessThan::<64>::synthesize(&mut builder, (a, b)).unwrap();
     }
 
     #[test]
