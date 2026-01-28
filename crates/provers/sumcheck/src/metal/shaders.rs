@@ -20,8 +20,12 @@ constant uint64_t MODULUS = 0xFFFFFFFF00000001ULL;
 // Modular addition
 inline uint64_t mod_add(uint64_t a, uint64_t b) {
     uint64_t sum = a + b;
-    // Handle overflow and reduction
-    if (sum < a || sum >= MODULUS) {
+    bool overflow = sum < a;
+    // If overflow occurred, we need to add 2^64 - MODULUS = NEG_ORDER
+    if (overflow) {
+        sum += NEG_ORDER;  // NEG_ORDER = 2^32 - 1
+    }
+    if (sum >= MODULUS) {
         sum -= MODULUS;
     }
     return sum;
