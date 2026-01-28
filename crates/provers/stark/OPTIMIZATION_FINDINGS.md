@@ -192,7 +192,9 @@ evals[c.constraint_idx()] = Rc::clone(zerofier_groups.get(&key).unwrap());
 | Zerofier base/exemptions split caching | ✅ Done | Benefits multi-constraint AIRs |
 | Parallelize zerofier computation | ✅ Done | 65-67% faster (parallel mode) |
 | In-place polynomial arithmetic (h_terms) | ✅ Done | 19 MB total reduction (2.5%) |
-| evaluate_offset_fft_with_buffer in LDE | ⬜ TODO | Est. 10 MB reduction |
+| Boundary zerofier caching by step | ✅ Done | Benefits AIRs with multi-step constraints |
+| Pre-compute z_shifted values | ✅ Done | Avoids redundant pow() per trace column |
+| evaluate_offset_fft_with_buffer in LDE | ⬜ TODO | Est. 10 MB reduction (requires math crate changes) |
 
 ---
 
@@ -225,15 +227,16 @@ samply record ./target/release/deps/prover_profile-* --trace-length 16
 1. Pre-allocate vectors with known capacity
 2. Buffer reuse in hot loops
 
-### Phase 2 - Memory Reduction (Next)
-1. Eliminate `lde_trace_evaluations.clone()`
-2. Fuse bit-reverse with transpose
-3. Optimize boundary constraint evaluation
+### Phase 2 - Memory Reduction ✅ MOSTLY DONE
+1. ✅ Fuse bit-reverse with transpose
+2. ✅ Optimize boundary constraint evaluation (zerofier caching)
+3. ⬜ Eliminate `lde_trace_evaluations.clone()` (complex, requires API changes)
 
-### Phase 3 - CPU Optimization
-1. Parallelize zerofier computation
-2. In-place polynomial arithmetic
-3. Better FFT buffer management
+### Phase 3 - CPU Optimization ✅ MOSTLY DONE
+1. ✅ Parallelize zerofier computation
+2. ✅ In-place polynomial arithmetic (h_terms)
+3. ✅ Pre-compute z_shifted values
+4. ⬜ Better FFT buffer management (requires math crate changes)
 
 ### Expected Final Results
 With all optimizations:
