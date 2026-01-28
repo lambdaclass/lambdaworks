@@ -681,14 +681,35 @@ pub trait IsStarkProver<
         let z_power = z.pow(round_2_result.composition_poly_parts.len());
 
         // ∑ᵢ 𝛾ᵢ ( Hᵢ − Hᵢ(z^N) ) / ( X − z^N )
-        let mut h_terms = Polynomial::zero();
+        // Optimized: accumulate directly into coefficient buffer to avoid intermediate allocations
+        let max_degree = round_2_result
+            .composition_poly_parts
+            .iter()
+            .map(|p| p.degree())
+            .max()
+            .unwrap_or(0);
+
+        let mut h_coeffs: Vec<FieldElement<FieldExtension>> =
+            vec![FieldElement::zero(); max_degree + 1];
+
         for (i, part) in round_2_result.composition_poly_parts.iter().enumerate() {
-            // h_i_eval is the evaluation of the i-th part of the composition polynomial at z^N,
-            // where N is the number of parts of the composition polynomial.
             let h_i_eval = &round_3_result.composition_poly_parts_ood_evaluation[i];
-            let h_i_term = &composition_poly_gammas[i] * (part - h_i_eval);
-            h_terms = h_terms + h_i_term;
+            let gamma = &composition_poly_gammas[i];
+
+            // Add gamma * (part - h_i_eval) directly to h_coeffs
+            // part - h_i_eval means subtract h_i_eval from constant term only
+            for (j, coeff) in part.coefficients().iter().enumerate() {
+                if j == 0 {
+                    // Constant term: gamma * (coeff - h_i_eval)
+                    h_coeffs[j] = &h_coeffs[j] + gamma * (coeff - h_i_eval);
+                } else {
+                    // Other terms: gamma * coeff
+                    h_coeffs[j] = &h_coeffs[j] + gamma * coeff;
+                }
+            }
         }
+
+        let mut h_terms = Polynomial::new(&h_coeffs);
         assert_eq!(h_terms.evaluate(&z_power), FieldElement::zero());
         h_terms.ruffini_division_inplace(&z_power);
 
