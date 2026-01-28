@@ -65,6 +65,8 @@ pub enum ProvingError {
     MerkleTreeError(String),
     /// Field operation failed (e.g., inversion of zero)
     FieldOperationError(String),
+    /// Trace length must be a positive power of two (required for FFT)
+    InvalidTraceLength(usize),
 }
 
 impl From<FFTError> for ProvingError {
@@ -430,6 +432,11 @@ pub trait IsStarkProver<
 
     /// Returns the Merkle tree and the commitment to the evaluations of the parts of the
     /// composition polynomial.
+    ///
+    /// Returns `None` if:
+    /// - `lde_composition_poly_parts_evaluations` is empty
+    /// - Any part has different length than others
+    /// - The LDE length is not even (required for pairing evaluations)
     fn commit_composition_polynomial(
         lde_composition_poly_parts_evaluations: &[Vec<FieldElement<FieldExtension>>],
     ) -> Option<(BatchedMerkleTree<FieldExtension>, Commitment)>
@@ -437,10 +444,31 @@ pub trait IsStarkProver<
         FieldElement<Field>: AsBytes + Sync + Send,
         FieldElement<FieldExtension>: AsBytes + Sync + Send,
     {
+        // Validate input: must have at least one part with at least one evaluation
+        let first_part = lde_composition_poly_parts_evaluations.first()?;
+        let lde_len = first_part.len();
+
+        if lde_len == 0 {
+            return None;
+        }
+
+        // LDE length must be even for the chunking below to work correctly
+        if lde_len % 2 != 0 {
+            return None;
+        }
+
+        // All parts must have the same length
+        if !lde_composition_poly_parts_evaluations
+            .iter()
+            .all(|part| part.len() == lde_len)
+        {
+            return None;
+        }
+
         // TODO: Remove clones
-        let mut lde_composition_poly_evaluations = Vec::new();
-        for i in 0..lde_composition_poly_parts_evaluations[0].len() {
-            let mut row = Vec::new();
+        let mut lde_composition_poly_evaluations = Vec::with_capacity(lde_len);
+        for i in 0..lde_len {
+            let mut row = Vec::with_capacity(lde_composition_poly_parts_evaluations.len());
             for evaluation in lde_composition_poly_parts_evaluations.iter() {
                 row.push(evaluation[i].clone());
             }
@@ -449,8 +477,8 @@ pub trait IsStarkProver<
 
         in_place_bit_reverse_permute(&mut lde_composition_poly_evaluations);
 
-        let mut lde_composition_poly_evaluations_merged = Vec::new();
-        for chunk in lde_composition_poly_evaluations.chunks(2) {
+        let mut lde_composition_poly_evaluations_merged = Vec::with_capacity(lde_len / 2);
+        for chunk in lde_composition_poly_evaluations.chunks_exact(2) {
             let (mut chunk0, chunk1) = (chunk[0].clone(), &chunk[1]);
             chunk0.extend_from_slice(chunk1);
             lde_composition_poly_evaluations_merged.push(chunk0);
@@ -487,6 +515,11 @@ pub trait IsStarkProver<
             Polynomial::interpolate_offset_fft(&constraint_evaluations, &domain.coset_offset)?;
 
         let number_of_parts = air.composition_poly_degree_bound() / air.trace_length();
+        if number_of_parts == 0 {
+            return Err(ProvingError::WrongParameter(
+                "composition_poly_degree_bound must be >= trace_length".to_string(),
+            ));
+        }
         let composition_poly_parts = composition_poly.break_in_parts(number_of_parts);
 
         let lde_composition_poly_parts_evaluations: Vec<_> = composition_poly_parts
