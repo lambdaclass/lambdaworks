@@ -1,0 +1,60 @@
+name: ChatGPT PR Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  review:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: ChatGPT Code Review
+        uses: anc95/ChatGPT-CodeReview@6fdbaeafc6f9e0eaebb844f8cfafff67cb2947f0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          MODEL: gpt-4o
+          max_tokens: "4096"
+          PROMPT: |
+            You are reviewing code for lambdaworks, a Rust cryptographic library implementing finite fields,
+            elliptic curves, and zero-knowledge proof systems (STARKs, SNARKs).
+
+            Review the code changes focusing on:
+
+            **Correctness:**
+            - Mathematical operations (modular arithmetic, field operations, curve operations)
+            - Edge cases (zero, identity elements, infinity points)
+            - Polynomial and FFT implementations
+            - Proof system correctness
+
+            **Security:**
+            - Timing side-channels (constant-time operations on secrets)
+            - Proper zeroization of sensitive data
+            - Cryptographically secure randomness
+            - No secret-dependent branching
+            - Hash function domain separation
+
+            **Performance:**
+            - Unnecessary allocations
+            - Redundant field inversions
+            - MSM and FFT efficiency
+
+            **Bugs & Errors:**
+            - Potential panics or unwraps
+            - Memory safety issues
+            - Off-by-one errors
+            - Integer overflow/underflow
+
+            **Code Simplicity:**
+            - Overly complex implementations
+            - Duplicated code
+            - Poor abstractions
+
+            Be concise. Only comment on actual issues, not style preferences.
