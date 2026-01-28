@@ -204,15 +204,10 @@ impl IsPrimeField for Goldilocks64Field {
     }
 
     fn from_hex(hex_string: &str) -> Result<Self::BaseType, CreationError> {
-        let mut hex_string = hex_string;
-        // Remove 0x if it's on the string
-        let mut char_iterator = hex_string.chars();
-        if hex_string.len() > 2
-            && char_iterator.next().unwrap() == '0'
-            && char_iterator.next().unwrap() == 'x'
-        {
-            hex_string = &hex_string[2..];
-        }
+        let hex_string = hex_string
+            .strip_prefix("0x")
+            .or_else(|| hex_string.strip_prefix("0X"))
+            .unwrap_or(hex_string);
         u64::from_str_radix(hex_string, 16).map_err(|_| CreationError::InvalidHexString)
     }
 
@@ -238,8 +233,7 @@ impl IsFFTField for Goldilocks64Field {
 
 impl Display for FieldElement<Goldilocks64Field> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{:x}", self.representative())?;
-        Ok(())
+        write!(f, "{:x}", self.representative())
     }
 }
 
@@ -465,48 +459,29 @@ impl IsField for Degree2GoldilocksExtensionField {
 }
 
 impl IsSubFieldOf<Degree2GoldilocksExtensionField> for Goldilocks64Field {
-    fn mul(
-        a: &Self::BaseType,
-        b: &<Degree2GoldilocksExtensionField as IsField>::BaseType,
-    ) -> <Degree2GoldilocksExtensionField as IsField>::BaseType {
-        let c0 = FpE::from_raw(<Self as IsField>::mul(a, b[0].value()));
-        let c1 = FpE::from_raw(<Self as IsField>::mul(a, b[1].value()));
-        [c0, c1]
+    fn mul(a: &Self::BaseType, b: &[FpE; 2]) -> [FpE; 2] {
+        [FpE::from(*a) * b[0], FpE::from(*a) * b[1]]
     }
 
-    fn add(
-        a: &Self::BaseType,
-        b: &<Degree2GoldilocksExtensionField as IsField>::BaseType,
-    ) -> <Degree2GoldilocksExtensionField as IsField>::BaseType {
-        let c0 = FpE::from_raw(<Self as IsField>::add(a, b[0].value()));
-        [c0, b[1]]
+    fn add(a: &Self::BaseType, b: &[FpE; 2]) -> [FpE; 2] {
+        [FpE::from(*a) + b[0], b[1]]
     }
 
-    fn div(
-        a: &Self::BaseType,
-        b: &<Degree2GoldilocksExtensionField as IsField>::BaseType,
-    ) -> Result<<Degree2GoldilocksExtensionField as IsField>::BaseType, FieldError> {
+    fn div(a: &Self::BaseType, b: &[FpE; 2]) -> Result<[FpE; 2], FieldError> {
         let b_inv = Degree2GoldilocksExtensionField::inv(b)?;
         Ok(<Self as IsSubFieldOf<Degree2GoldilocksExtensionField>>::mul(a, &b_inv))
     }
 
-    fn sub(
-        a: &Self::BaseType,
-        b: &<Degree2GoldilocksExtensionField as IsField>::BaseType,
-    ) -> <Degree2GoldilocksExtensionField as IsField>::BaseType {
-        let c0 = FpE::from_raw(<Self as IsField>::sub(a, b[0].value()));
-        let c1 = FpE::from_raw(<Self as IsField>::neg(b[1].value()));
-        [c0, c1]
+    fn sub(a: &Self::BaseType, b: &[FpE; 2]) -> [FpE; 2] {
+        [FpE::from(*a) - b[0], -b[1]]
     }
 
-    fn embed(a: Self::BaseType) -> <Degree2GoldilocksExtensionField as IsField>::BaseType {
+    fn embed(a: Self::BaseType) -> [FpE; 2] {
         [FpE::from_raw(a), FpE::zero()]
     }
 
     #[cfg(feature = "alloc")]
-    fn to_subfield_vec(
-        b: <Degree2GoldilocksExtensionField as IsField>::BaseType,
-    ) -> alloc::vec::Vec<Self::BaseType> {
+    fn to_subfield_vec(b: [FpE; 2]) -> alloc::vec::Vec<Self::BaseType> {
         b.into_iter().map(|x| x.to_raw()).collect()
     }
 }
@@ -604,8 +579,8 @@ impl IsField for Degree3GoldilocksExtensionField {
         let a0a1a2 = a[0] * a[1] * a[2];
 
         // N = a0^3 + 2*a1^3 + 4*a2^3 - 6*a0*a1*a2
-        let norm = a0_cubed + a1_cubed.double() + a2_cubed.double().double()
-            - (a0a1a2.double() + a0a1a2).double();
+        let six_a0a1a2 = a0a1a2.double() + a0a1a2.double().double();
+        let norm = a0_cubed + a1_cubed.double() + a2_cubed.double().double() - six_a0a1a2;
 
         let norm_inv = norm.inv()?;
 
@@ -654,50 +629,30 @@ impl IsField for Degree3GoldilocksExtensionField {
 }
 
 impl IsSubFieldOf<Degree3GoldilocksExtensionField> for Goldilocks64Field {
-    fn mul(
-        a: &Self::BaseType,
-        b: &<Degree3GoldilocksExtensionField as IsField>::BaseType,
-    ) -> <Degree3GoldilocksExtensionField as IsField>::BaseType {
-        let c0 = FpE::from_raw(<Self as IsField>::mul(a, b[0].value()));
-        let c1 = FpE::from_raw(<Self as IsField>::mul(a, b[1].value()));
-        let c2 = FpE::from_raw(<Self as IsField>::mul(a, b[2].value()));
-        [c0, c1, c2]
+    fn mul(a: &Self::BaseType, b: &[FpE; 3]) -> [FpE; 3] {
+        let scalar = FpE::from(*a);
+        [scalar * b[0], scalar * b[1], scalar * b[2]]
     }
 
-    fn add(
-        a: &Self::BaseType,
-        b: &<Degree3GoldilocksExtensionField as IsField>::BaseType,
-    ) -> <Degree3GoldilocksExtensionField as IsField>::BaseType {
-        let c0 = FpE::from_raw(<Self as IsField>::add(a, b[0].value()));
-        [c0, b[1], b[2]]
+    fn add(a: &Self::BaseType, b: &[FpE; 3]) -> [FpE; 3] {
+        [FpE::from(*a) + b[0], b[1], b[2]]
     }
 
-    fn div(
-        a: &Self::BaseType,
-        b: &<Degree3GoldilocksExtensionField as IsField>::BaseType,
-    ) -> Result<<Degree3GoldilocksExtensionField as IsField>::BaseType, FieldError> {
+    fn div(a: &Self::BaseType, b: &[FpE; 3]) -> Result<[FpE; 3], FieldError> {
         let b_inv = Degree3GoldilocksExtensionField::inv(b)?;
         Ok(<Self as IsSubFieldOf<Degree3GoldilocksExtensionField>>::mul(a, &b_inv))
     }
 
-    fn sub(
-        a: &Self::BaseType,
-        b: &<Degree3GoldilocksExtensionField as IsField>::BaseType,
-    ) -> <Degree3GoldilocksExtensionField as IsField>::BaseType {
-        let c0 = FpE::from_raw(<Self as IsField>::sub(a, b[0].value()));
-        let c1 = FpE::from_raw(<Self as IsField>::neg(b[1].value()));
-        let c2 = FpE::from_raw(<Self as IsField>::neg(b[2].value()));
-        [c0, c1, c2]
+    fn sub(a: &Self::BaseType, b: &[FpE; 3]) -> [FpE; 3] {
+        [FpE::from(*a) - b[0], -b[1], -b[2]]
     }
 
-    fn embed(a: Self::BaseType) -> <Degree3GoldilocksExtensionField as IsField>::BaseType {
+    fn embed(a: Self::BaseType) -> [FpE; 3] {
         [FpE::from_raw(a), FpE::zero(), FpE::zero()]
     }
 
     #[cfg(feature = "alloc")]
-    fn to_subfield_vec(
-        b: <Degree3GoldilocksExtensionField as IsField>::BaseType,
-    ) -> alloc::vec::Vec<Self::BaseType> {
+    fn to_subfield_vec(b: [FpE; 3]) -> alloc::vec::Vec<Self::BaseType> {
         b.into_iter().map(|x| x.to_raw()).collect()
     }
 }
