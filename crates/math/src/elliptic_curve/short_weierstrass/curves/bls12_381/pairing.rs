@@ -558,8 +558,8 @@ fn frobenius_square(
 // subgroup of Fp12, we can optimize the square and pow operations used in the Hard Part.
 
 /// Computes the square of an element of a cyclotomic subgroup of Fp12.
-/// Algorithm from Constantine's cyclotomic_square_quad_over_cube
-/// https://github.com/mratsim/constantine/blob/master/constantine/math/pairings/cyclotomic_subgroups.nim#L354
+/// Algorithm from Constantine's cyclotomic_square_quad_over_cube.
+/// See <https://github.com/mratsim/constantine/blob/master/constantine/math/pairings/cyclotomic_subgroups.nim#L354>.
 pub fn cyclotomic_square(a: &Fp12E) -> Fp12E {
     // a = g + h * w
     let [g, h] = a.value();
