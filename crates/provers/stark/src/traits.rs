@@ -125,11 +125,25 @@ pub trait AIR: Send + Sync {
     ) -> Vec<FieldElement<Self::FieldExtension>> {
         let mut evaluations =
             vec![FieldElement::<Self::FieldExtension>::zero(); self.num_transition_constraints()];
+        self.compute_transition_into(evaluation_context, &mut evaluations);
+        evaluations
+    }
+
+    /// Evaluate transition constraints into a pre-allocated buffer.
+    /// This avoids allocation when called in a loop with a reusable buffer.
+    /// The buffer must have length >= `num_transition_constraints()`.
+    fn compute_transition_into(
+        &self,
+        evaluation_context: &TransitionEvaluationContext<Self::Field, Self::FieldExtension>,
+        evaluations: &mut [FieldElement<Self::FieldExtension>],
+    ) {
+        // Zero out the buffer
+        for eval in evaluations.iter_mut() {
+            *eval = FieldElement::zero();
+        }
         self.transition_constraints()
             .iter()
-            .for_each(|c| c.evaluate(evaluation_context, &mut evaluations));
-
-        evaluations
+            .for_each(|c| c.evaluate(evaluation_context, evaluations));
     }
 
     fn boundary_constraints(

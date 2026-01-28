@@ -176,54 +176,101 @@ where
 
         #[cfg(feature = "instruments")]
         let timer = Instant::now();
-        let evaluations_t_iter = 0..domain.lde_roots_of_unity_coset.len();
+
+        // Pre-allocate buffer for periodic values to avoid allocation in the hot loop
+        let num_periodic_cols = lde_periodic_columns.len();
 
         #[cfg(feature = "parallel")]
-        let boundary_evaluation = boundary_evaluation.into_par_iter();
-        #[cfg(feature = "parallel")]
-        let evaluations_t_iter = evaluations_t_iter.into_par_iter();
+        let evaluations_t = {
+            let boundary_evaluation = boundary_evaluation.into_par_iter();
+            let evaluations_t_iter = (0..domain.lde_roots_of_unity_coset.len()).into_par_iter();
 
-        let evaluations_t = evaluations_t_iter
-            .zip(boundary_evaluation)
-            .map(|(i, boundary)| {
+            evaluations_t_iter
+                .zip(boundary_evaluation)
+                .map(|(i, boundary)| {
+                    let frame =
+                        Frame::read_from_lde(lde_trace, i, &air.context().transition_offsets);
+
+                    // Collect periodic values for this index
+                    let periodic_values: Vec<_> = lde_periodic_columns
+                        .iter()
+                        .map(|col| col[i].clone())
+                        .collect();
+
+                    let transition_evaluation_context = TransitionEvaluationContext::new_prover(
+                        &frame,
+                        &periodic_values,
+                        rap_challenges,
+                    );
+                    let evaluations_transition =
+                        air.compute_transition(&transition_evaluation_context);
+
+                    // Accumulate transition constraints
+                    let acc_transition = itertools::izip!(
+                        evaluations_transition,
+                        &zerofiers_evals,
+                        transition_coefficients
+                    )
+                    .fold(
+                        FieldElement::zero(),
+                        |acc, (eval, zerof_eval, beta)| {
+                            let wrapped_idx = i % zerof_eval.len();
+                            acc + &zerof_eval[wrapped_idx] * eval * beta
+                        },
+                    );
+
+                    acc_transition + boundary
+                })
+                .collect()
+        };
+
+        #[cfg(not(feature = "parallel"))]
+        let evaluations_t = {
+            // Pre-allocate reusable buffers for the sequential case
+            let mut periodic_values_buffer: Vec<FieldElement<Field>> =
+                Vec::with_capacity(num_periodic_cols);
+            let mut transition_buffer: Vec<FieldElement<FieldExtension>> =
+                vec![FieldElement::zero(); air.num_transition_constraints()];
+
+            let mut result = Vec::with_capacity(domain.lde_roots_of_unity_coset.len());
+
+            for (i, boundary) in boundary_evaluation.into_iter().enumerate() {
                 let frame = Frame::read_from_lde(lde_trace, i, &air.context().transition_offsets);
 
-                let periodic_values: Vec<_> = lde_periodic_columns
-                    .iter()
-                    .map(|col| col[i].clone())
-                    .collect();
+                // Reuse periodic values buffer - clear and refill
+                periodic_values_buffer.clear();
+                for col in &lde_periodic_columns {
+                    periodic_values_buffer.push(col[i].clone());
+                }
 
-                // Compute all the transition constraints at this point of the LDE domain.
                 let transition_evaluation_context = TransitionEvaluationContext::new_prover(
                     &frame,
-                    &periodic_values,
+                    &periodic_values_buffer,
                     rap_challenges,
                 );
-                let evaluations_transition = air.compute_transition(&transition_evaluation_context);
 
-                #[cfg(all(debug_assertions, not(feature = "parallel")))]
-                transition_evaluations.push(evaluations_transition.clone());
+                // Use buffer-reuse variant to avoid allocation
+                air.compute_transition_into(&transition_evaluation_context, &mut transition_buffer);
 
-                // Add each term of the transition constraints to the composition polynomial, including the zerofier,
-                // the challenge and the exemption polynomial if it is necessary.
+                #[cfg(debug_assertions)]
+                transition_evaluations.push(transition_buffer.clone());
+
+                // Accumulate transition constraints
                 let acc_transition = itertools::izip!(
-                    evaluations_transition,
+                    &transition_buffer,
                     &zerofiers_evals,
                     transition_coefficients
                 )
                 .fold(FieldElement::zero(), |acc, (eval, zerof_eval, beta)| {
-                    // Zerofier evaluations are cyclical, so we only calculate one cycle.
-                    // This means that here we have to wrap around
-                    // Ex: Suppose the full zerofier vector is Z = [1,2,3,1,2,3]
-                    // we will instead have calculated Z' = [1,2,3]
-                    // Now if you need Z[4] this is equal to Z'[1]
                     let wrapped_idx = i % zerof_eval.len();
                     acc + &zerof_eval[wrapped_idx] * eval * beta
                 });
 
-                acc_transition + boundary
-            })
-            .collect();
+                result.push(acc_transition + boundary);
+            }
+
+            result
+        };
 
         #[cfg(feature = "instruments")]
         println!(
