@@ -131,28 +131,19 @@ let mut all_boundary_polys = Vec::with_capacity(total_evals);
 
 ### MEDIUM PRIORITY - CPU Time
 
-#### 4. Parallelize zerofier computation in Round 2
+#### 4. ✅ Parallelize zerofier computation in Round 2 (DONE)
 
-**Location**: `traits.rs:208-244` - `transition_zerofier_evaluations`
+**Location**: `traits.rs:305-475` - `transition_zerofier_evaluations`
 
-Currently sequential. The base zerofier and end exemptions computations could be parallelized:
+**Implemented**: Zerofier computation now parallelizes both base zerofier and end exemptions
+calculations when the `parallel` feature is enabled.
 
-```rust
-#[cfg(feature = "parallel")]
-use rayon::prelude::*;
+**Results** (2^16 trace with parallel feature):
+- Boundary evaluation: 27ms → 8.9ms (**67% faster**)
+- Transitions evaluation: 81ms → 31ms (**65% faster**)
 
-// Parallel computation of unique base zerofiers
-let base_zerofiers: HashMap<_, _> = unique_base_keys
-    .par_iter()
-    .map(|key| (key, compute_base_zerofier(key)))
-    .collect();
-```
-
-**Note**: The zerofier computation now uses split caching (base zerofier + end exemptions),
-which already reduces redundant computation for AIRs with multiple constraints sharing
-the same `(period, offset)` but different `end_exemptions`. Most real-world AIRs have
-all constraints with `period=1, offset=0`, so the base zerofier `1/(x^n - 1)` is computed
-only once.
+**Note**: For simple AIRs with 1 constraint (like Fibonacci), parallel overhead exceeds
+benefits. Optimization primarily helps complex AIRs with many unique zerofiers.
 
 #### 5. In-place polynomial arithmetic in `compute_deep_composition_poly`
 
@@ -209,7 +200,7 @@ evals[c.constraint_idx()] = Rc::clone(zerofier_groups.get(&key).unwrap());
 | Pre-allocate Vec in `commit_composition_polynomial` | ✅ Done | 18.9% peak reduction |
 | Fused bit-reverse + transpose | ✅ Done | 1% total allocation reduction |
 | Zerofier base/exemptions split caching | ✅ Done | Benefits multi-constraint AIRs |
-| Parallelize zerofier computation | ⬜ TODO | Est. 10-15% speedup |
+| Parallelize zerofier computation | ✅ Done | 65-67% faster (parallel mode) |
 | In-place polynomial arithmetic | ⬜ TODO | Est. 24 MB total reduction |
 | evaluate_offset_fft_with_buffer in LDE | ⬜ TODO | Est. 10 MB reduction |
 
