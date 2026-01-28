@@ -7,7 +7,7 @@ use crate::traits::{TransitionEvaluationContext, AIR};
 use crate::{frame::Frame, prover::evaluate_polynomial_on_lde_domain};
 use itertools::Itertools;
 use lambdaworks_math::field::traits::{IsFFTField, IsField, IsSubFieldOf};
-#[cfg(not(feature = "parallel"))]
+#[cfg(all(debug_assertions, not(feature = "parallel")))]
 use lambdaworks_math::polynomial::Polynomial;
 use lambdaworks_math::{fft::errors::FFTError, field::element::FieldElement};
 #[cfg(feature = "parallel")]

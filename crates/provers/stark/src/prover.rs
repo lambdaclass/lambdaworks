@@ -23,7 +23,7 @@ use crate::domain::new_domain;
 use crate::fri;
 use crate::proof::stark::{DeepPolynomialOpenings, PolynomialOpenings};
 use crate::table::Table;
-use crate::trace::{columns2rows, LDETraceTable};
+use crate::trace::{columns2rows_bit_reversed, LDETraceTable};
 
 use super::config::{BatchedMerkleTree, Commitment};
 use super::constraints::evaluator::ConstraintEvaluator;
@@ -266,13 +266,8 @@ pub trait IsStarkProver<
         let lde_trace_evaluations =
             Self::compute_lde_trace_evaluations::<Field>(&trace_polys, domain).ok()?;
 
-        let mut lde_trace_permuted = lde_trace_evaluations.clone();
-        for col in lde_trace_permuted.iter_mut() {
-            in_place_bit_reverse_permute(col);
-        }
-
-        // Compute commitment.
-        let lde_trace_permuted_rows = columns2rows(lde_trace_permuted);
+        // Compute commitment using fused bit-reverse + transpose (avoids cloning)
+        let lde_trace_permuted_rows = columns2rows_bit_reversed(&lde_trace_evaluations);
 
         let (lde_trace_merkle_tree, lde_trace_merkle_root) =
             Self::batch_commit_main(&lde_trace_permuted_rows)?;
@@ -318,13 +313,8 @@ pub trait IsStarkProver<
         let lde_trace_evaluations =
             Self::compute_lde_trace_evaluations(&trace_polys, domain).ok()?;
 
-        let mut lde_trace_permuted = lde_trace_evaluations.clone();
-        for col in lde_trace_permuted.iter_mut() {
-            in_place_bit_reverse_permute(col);
-        }
-
-        // Compute commitment.
-        let lde_trace_permuted_rows = columns2rows(lde_trace_permuted);
+        // Compute commitment using fused bit-reverse + transpose (avoids cloning)
+        let lde_trace_permuted_rows = columns2rows_bit_reversed(&lde_trace_evaluations);
 
         let (lde_trace_merkle_tree, lde_trace_merkle_root) =
             Self::batch_commit_extension(&lde_trace_permuted_rows)?;
