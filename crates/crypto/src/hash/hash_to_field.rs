@@ -7,29 +7,27 @@ use lambdaworks_math::{
     unsigned_integer::element::UnsignedInteger,
 };
 
+#[derive(Debug)]
+pub struct HashToFieldError;
+
 /// Converts a hash, represented by an array of bytes, into a vector of field elements
 /// For more info, see
 /// https://www.ietf.org/id/draft-irtf-cfrg-hash-to-curve-16.html#name-hashing-to-a-finite-field
 ///
-/// # Panics
-/// Panics if `pseudo_random_bytes` doesn't contain enough bytes for `count` field elements.
+/// # Errors
+/// Returns an error if `pseudo_random_bytes` doesn't contain enough bytes for `count` field elements.
 pub fn hash_to_field<M: IsModulus<UnsignedInteger<N>> + Clone, const N: usize>(
     pseudo_random_bytes: &[u8],
     count: usize,
-) -> Vec<FieldElement<MontgomeryBackendPrimeField<M, N>>> {
+) -> Result<Vec<FieldElement<MontgomeryBackendPrimeField<M, N>>>, HashToFieldError> {
     let order = M::MODULUS;
     let l = compute_length(order);
 
     // Bounds check: ensure we have enough bytes
     let required_bytes = l * count;
-    assert!(
-        pseudo_random_bytes.len() >= required_bytes,
-        "pseudo_random_bytes has {} bytes, but {} bytes are required for {} field elements (L={})",
-        pseudo_random_bytes.len(),
-        required_bytes,
-        count,
-        l
-    );
+    if pseudo_random_bytes.len() < required_bytes {
+        return Err(HashToFieldError);
+    }
 
     let mut u = vec![FieldElement::zero(); count];
     for (i, item) in u.iter_mut().enumerate() {
@@ -38,7 +36,7 @@ pub fn hash_to_field<M: IsModulus<UnsignedInteger<N>> + Clone, const N: usize>(
 
         *item = os2ip::<M, N>(tv);
     }
-    u
+    Ok(u)
 }
 
 fn compute_length<const N: usize>(order: UnsignedInteger<N>) -> usize {
@@ -104,8 +102,8 @@ mod tests {
     #[test]
     fn test_same_message_produce_same_field_elements() {
         let input = Sha3Hasher::expand_message(b"helloworld", b"dsttest", 500).unwrap();
-        let field_elements: Vec<FieldElement<F>> = hash_to_field(&input, 40);
-        let other_field_elements = hash_to_field(&input, 40);
+        let field_elements: Vec<FieldElement<F>> = hash_to_field(&input, 40).unwrap();
+        let other_field_elements = hash_to_field(&input, 40).unwrap();
         assert_eq!(field_elements, other_field_elements);
     }
 
