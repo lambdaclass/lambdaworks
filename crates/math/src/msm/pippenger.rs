@@ -133,70 +133,7 @@ fn recode_scalars_signed<const NUM_LIMBS: usize>(
             let shift = window_idx * window_size;
             let raw_val = if shift < 64 * NUM_LIMBS {
                 (scalar >> shift).limbs[NUM_LIMBS - 1] & mask
-            } else {
-                0
-            };
-            let window_val = raw_val as i64 + carry;
-
-            // Convert to signed representation
-            if window_val >= half_bucket {
-                digits[base_idx + window_idx] = window_val - full_bucket;
-                carry = 1;
-            } else {
-                digits[base_idx + window_idx] = window_val;
-                carry = 0;
-            }
-        }
-        // Handle final carry
-        digits[base_idx + num_windows] = carry; // carry is 0 if no carry, already padded
-    }
-
-    digits
-}
-
-/// Get the digit for scalar `scalar_idx` at window `window_idx` from flat storage.
-#[inline(always)]
-fn get_digit(
-    flat_digits: &[i64],
-    total_windows: usize,
-    scalar_idx: usize,
-    window_idx: usize,
-) -> i64 {
-    flat_digits[scalar_idx * total_windows + window_idx]
-}
-
-/// MSM using signed bucket recoding (Pippenger with signed digits).
-/// This uses 2^(c-1) buckets instead of 2^c - 1, providing ~10-20% speedup.
-pub fn msm_with_signed<const NUM_LIMBS: usize, G>(
-    cs: &[UnsignedInteger<NUM_LIMBS>],
-    points: &[G],
-    window_size: usize,
-) -> G
-where
-    G: IsGroup,
-{
-    const MIN_WINDOW_SIZE: usize = 2;
-    const MAX_WINDOW_SIZE: usize = 32;
-
-    let window_size = window_size.clamp(MIN_WINDOW_SIZE, MAX_WINDOW_SIZE);
-    let num_windows = (64 * NUM_LIMBS - 1) / window_size + 1;
-    // +1 to handle potential carry from signed recoding
-    let total_windows = num_windows + 1;
-
-    // Half the buckets compared to unsigned version!
-    let n_buckets = (1 << (window_size - 1)) as usize;
-
-    // Precompute signed digits for all scalars (flat allocation)
-    let signed_digits = recode_scalars_signed(cs, window_size, num_windows, total_windows);
-
-    (0..total_windows)
-        .rev()
-        .map(|window_idx| {
-            // Fresh buckets for each window (simpler and avoids clearing bugs)
-            let mut buckets = vec![G::neutral_element(); n_buckets];
-
-            // Accumulate points into buckets based on signed digits
-            for (scalar_idx, p) in points.iter().enumerate() {
+            for (scalar_idx, p) in points.iter().take(cs.len()).enumerate() {
                 let digit = get_digit(&signed_digits, total_windows, scalar_idx, window_idx);
                 if digit > 0 {
                     let idx = digit as usize - 1;
@@ -257,7 +194,7 @@ where
             let mut buckets = vec![G::neutral_element(); n_buckets];
 
             // Accumulate points into buckets using flat digit storage
-            for (scalar_idx, p) in points.iter().enumerate() {
+            for (scalar_idx, p) in points.iter().take(cs.len()).enumerate() {
                 let digit = get_digit(&signed_digits, total_windows, scalar_idx, window_idx);
                 if digit > 0 {
                     let idx = digit as usize - 1;
@@ -449,5 +386,37 @@ mod tests {
 
             prop_assert_eq!(parallel, sequential);
         }
+    }
+
+    // Regression test: ensure signed MSM handles points.len() > cs.len() without panic
+    #[test]
+    fn test_signed_msm_with_more_points_than_scalars() {
+        let cs: Vec<UnsignedInteger<6>> =
+            Vec::from([UnsignedInteger::from_u64(1), UnsignedInteger::from_u64(2)]);
+        let points: Vec<_> = (0..5)
+            .map(|i| BLS12381Curve::generator().operate_with_self(i as u64 + 1))
+            .collect();
+
+        // Should not panic, uses only first cs.len() points
+        let result = pippenger::msm_with_signed(&cs, &points, 4);
+
+        // Verify correctness: 1*G + 2*2G = G + 4G = 5G
+        let expected = BLS12381Curve::generator().operate_with_self(5u64);
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    #[cfg(feature = "parallel")]
+    fn test_parallel_signed_msm_with_more_points_than_scalars() {
+        let cs: Vec<UnsignedInteger<6>> =
+            Vec::from([UnsignedInteger::from_u64(1), UnsignedInteger::from_u64(2)]);
+        let points: Vec<_> = (0..5)
+            .map(|i| BLS12381Curve::generator().operate_with_self(i as u64 + 1))
+            .collect();
+
+        let result = pippenger::parallel_msm_with_signed(&cs, &points, 4);
+
+        let expected = BLS12381Curve::generator().operate_with_self(5u64);
+        assert_eq!(result, expected);
     }
 }
