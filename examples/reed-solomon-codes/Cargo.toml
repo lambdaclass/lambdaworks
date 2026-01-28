@@ -1,0 +1,12 @@
+[package]
+name = "reed-solomon-codes"
+version = "0.1.0"
+edition = "2021"
+description = "Educational example demonstrating Reed-Solomon codes, decoding algorithms, and their connection to zero-knowledge proofs"
+license = "Apache-2.0"
+
+[dependencies]
+lambdaworks-math = { path = "../../crates/math" }
+
+[dev-dependencies]
+rand = "0.8"
