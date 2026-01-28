@@ -11,8 +11,8 @@
 use core::fmt::{self, Display};
 
 use crate::errors::CreationError;
-use crate::field::{element::FieldElement, errors::FieldError};
 use crate::field::traits::{IsFFTField, IsField, IsPrimeField, IsSubFieldOf};
+use crate::field::{element::FieldElement, errors::FieldError};
 use crate::traits::ByteConversion;
 
 // =====================================================
@@ -60,11 +60,9 @@ impl ByteConversion for u64 {
         let needed_bytes = bytes
             .get(0..8)
             .ok_or(crate::errors::ByteConversionError::FromBEBytesError)?;
-        Ok(u64::from_be_bytes(
-            needed_bytes
-                .try_into()
-                .map_err(|_| crate::errors::ByteConversionError::FromBEBytesError)?,
-        ))
+        Ok(u64::from_be_bytes(needed_bytes.try_into().map_err(
+            |_| crate::errors::ByteConversionError::FromBEBytesError,
+        )?))
     }
 
     fn from_bytes_le(bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError>
@@ -74,11 +72,9 @@ impl ByteConversion for u64 {
         let needed_bytes = bytes
             .get(0..8)
             .ok_or(crate::errors::ByteConversionError::FromLEBytesError)?;
-        Ok(u64::from_le_bytes(
-            needed_bytes
-                .try_into()
-                .map_err(|_| crate::errors::ByteConversionError::FromLEBytesError)?,
-        ))
+        Ok(u64::from_le_bytes(needed_bytes.try_into().map_err(
+            |_| crate::errors::ByteConversionError::FromLEBytesError,
+        )?))
     }
 }
 
@@ -821,7 +817,7 @@ mod quadratic_extension_tests {
     fn fp2_add() {
         let a = Fp2E::new([FpE::from(3u64), FpE::from(4u64)]);
         let b = Fp2E::new([FpE::from(1u64), FpE::from(2u64)]);
-        let c = &a + &b;
+        let c = a + b;
         assert_eq!(c.value()[0], FpE::from(4u64));
         assert_eq!(c.value()[1], FpE::from(6u64));
     }
@@ -831,7 +827,7 @@ mod quadratic_extension_tests {
         let a = Fp2E::new([FpE::from(3u64), FpE::from(4u64)]);
         let b = Fp2E::new([FpE::from(1u64), FpE::from(2u64)]);
         // (3 + 4w)(1 + 2w) = 3 + 6w + 4w + 8w^2 = 3 + 10w + 8*7 = 59 + 10w
-        let c = &a * &b;
+        let c = a * b;
         assert_eq!(c.value()[0], FpE::from(59u64));
         assert_eq!(c.value()[1], FpE::from(10u64));
     }
@@ -840,7 +836,7 @@ mod quadratic_extension_tests {
     fn fp2_square() {
         let a = Fp2E::new([FpE::from(3u64), FpE::from(4u64)]);
         let sq = a.square();
-        let mul = &a * &a;
+        let mul = a * a;
         assert_eq!(sq, mul);
     }
 
@@ -848,7 +844,7 @@ mod quadratic_extension_tests {
     fn fp2_inv() {
         let a = Fp2E::new([FpE::from(3u64), FpE::from(4u64)]);
         let a_inv = a.inv().unwrap();
-        let product = &a * &a_inv;
+        let product = a * a_inv;
         assert_eq!(product, Fp2E::one());
     }
 
@@ -876,7 +872,7 @@ mod cubic_extension_tests {
     fn fp3_add() {
         let a = Fp3E::new([FpE::from(1u64), FpE::from(2u64), FpE::from(3u64)]);
         let b = Fp3E::new([FpE::from(4u64), FpE::from(5u64), FpE::from(6u64)]);
-        let c = &a + &b;
+        let c = a + b;
         assert_eq!(c.value()[0], FpE::from(5u64));
         assert_eq!(c.value()[1], FpE::from(7u64));
         assert_eq!(c.value()[2], FpE::from(9u64));
@@ -886,7 +882,7 @@ mod cubic_extension_tests {
     fn fp3_sub() {
         let a = Fp3E::new([FpE::from(10u64), FpE::from(20u64), FpE::from(30u64)]);
         let b = Fp3E::new([FpE::from(4u64), FpE::from(5u64), FpE::from(6u64)]);
-        let c = &a - &b;
+        let c = a - b;
         assert_eq!(c.value()[0], FpE::from(6u64));
         assert_eq!(c.value()[1], FpE::from(15u64));
         assert_eq!(c.value()[2], FpE::from(24u64));
@@ -896,21 +892,21 @@ mod cubic_extension_tests {
     fn fp3_mul_by_one() {
         let a = Fp3E::new([FpE::from(1u64), FpE::from(2u64), FpE::from(3u64)]);
         let one = Fp3E::one();
-        assert_eq!(&a * &one, a);
+        assert_eq!(a * one, a);
     }
 
     #[test]
     fn fp3_mul_by_zero() {
         let a = Fp3E::new([FpE::from(1u64), FpE::from(2u64), FpE::from(3u64)]);
         let zero = Fp3E::zero();
-        assert_eq!(&a * &zero, zero);
+        assert_eq!(a * zero, zero);
     }
 
     #[test]
     fn fp3_square() {
         let a = Fp3E::new([FpE::from(1u64), FpE::from(2u64), FpE::from(3u64)]);
         let sq = a.square();
-        let mul = &a * &a;
+        let mul = a * a;
         assert_eq!(sq, mul);
     }
 
@@ -918,7 +914,7 @@ mod cubic_extension_tests {
     fn fp3_inv() {
         let a = Fp3E::new([FpE::from(1u64), FpE::from(2u64), FpE::from(3u64)]);
         let a_inv = a.inv().unwrap();
-        let product = &a * &a_inv;
+        let product = a * a_inv;
         assert_eq!(product, Fp3E::one());
     }
 
@@ -926,8 +922,8 @@ mod cubic_extension_tests {
     fn fp3_mul_then_inv() {
         let a = Fp3E::new([FpE::from(1u64), FpE::from(2u64), FpE::from(3u64)]);
         let b = Fp3E::new([FpE::from(4u64), FpE::from(5u64), FpE::from(6u64)]);
-        let c = &a * &b;
-        let c_div_a = &c * &a.inv().unwrap();
+        let c = a * b;
+        let c_div_a = c * a.inv().unwrap();
         assert_eq!(c_div_a, b);
     }
 }
