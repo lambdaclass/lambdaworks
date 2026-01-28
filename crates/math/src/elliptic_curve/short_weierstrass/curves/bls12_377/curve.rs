@@ -86,8 +86,8 @@ pub const ENDO_V: BLS12377TwistCurveFieldElement =
     ]);
 
 impl ShortWeierstrassProjectivePoint<BLS12377Curve> {
-    /// Returns 𝜙(P) = (𝑥, 𝑦) ⇒ (𝛽𝑥, 𝑦), where 𝛽 is the Cube Root of Unity in the base prime field
-    /// https://eprint.iacr.org/2022/352.pdf 2 Preliminaries
+    /// Returns 𝜙(P) = (𝑥, 𝑦) ⇒ (𝛽𝑥, 𝑦), where 𝛽 is the Cube Root of Unity in the base prime field.
+    /// See <https://eprint.iacr.org/2022/352.pdf> Section 2 Preliminaries.
     fn phi(&self) -> Self {
         let [x, y, z] = self.coordinates();
         let new_x = x * CUBE_ROOT_OF_UNITY_G1;
@@ -95,8 +95,8 @@ impl ShortWeierstrassProjectivePoint<BLS12377Curve> {
         Self::new_unchecked([new_x, y.clone(), z.clone()])
     }
 
-    /// 𝜙(P) = −𝑢²P
-    /// https://eprint.iacr.org/2022/352.pdf 4.3 Prop. 4
+    /// 𝜙(P) = −𝑢²P.
+    /// See <https://eprint.iacr.org/2022/352.pdf> Section 4.3 Prop. 4.
     pub fn is_in_subgroup(&self) -> bool {
         self.operate_with_self(MILLER_LOOP_CONSTANT)
             .operate_with_self(MILLER_LOOP_CONSTANT)
@@ -106,9 +106,9 @@ impl ShortWeierstrassProjectivePoint<BLS12377Curve> {
 }
 
 impl ShortWeierstrassProjectivePoint<BLS12377TwistCurve> {
-    /// Computes 𝜓(P) = 𝜁 ∘ 𝜋ₚ ∘ 𝜁⁻¹, where 𝜁 is the isomorphism u:E'(𝔽ₚ₆) −> E(𝔽ₚ₁₂) from the twist to E,, 𝜋ₚ is the p-power frobenius endomorphism
-    /// and 𝜓 satisifies minmal equation 𝑋² + 𝑡𝑋 + 𝑞 = 𝑂
-    /// https://eprint.iacr.org/2022/352.pdf 4.2 (7)
+    /// Computes 𝜓(P) = 𝜁 ∘ 𝜋ₚ ∘ 𝜁⁻¹, where 𝜁 is the isomorphism u:E'(𝔽ₚ₆) −> E(𝔽ₚ₁₂) from the twist to E, 𝜋ₚ is the p-power frobenius endomorphism
+    /// and 𝜓 satisfies minimal equation 𝑋² + 𝑡𝑋 + 𝑞 = 𝑂.
+    /// See <https://eprint.iacr.org/2022/352.pdf> Section 4.2 (7).
     /// ψ(P) = (ψ_x * conjugate(x), ψ_y * conjugate(y), conjugate(z))
     ///
     /// # Safety
@@ -132,8 +132,8 @@ impl ShortWeierstrassProjectivePoint<BLS12377TwistCurve> {
         point.unwrap()
     }
 
-    /// 𝜓(P) = 𝑢P, where 𝑢 = SEED of the curve
-    /// https://eprint.iacr.org/2022/352.pdf 4.2
+    /// 𝜓(P) = 𝑢P, where 𝑢 = SEED of the curve.
+    /// See <https://eprint.iacr.org/2022/352.pdf> Section 4.2.
     pub fn is_in_subgroup(&self) -> bool {
         self.psi() == self.operate_with_self(MILLER_LOOP_CONSTANT)
     }
