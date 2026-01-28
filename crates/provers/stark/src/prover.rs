@@ -437,10 +437,13 @@ pub trait IsStarkProver<
         FieldElement<Field>: AsBytes + Sync + Send,
         FieldElement<FieldExtension>: AsBytes + Sync + Send,
     {
-        // TODO: Remove clones
-        let mut lde_composition_poly_evaluations = Vec::new();
-        for i in 0..lde_composition_poly_parts_evaluations[0].len() {
-            let mut row = Vec::new();
+        let num_rows = lde_composition_poly_parts_evaluations[0].len();
+        let num_parts = lde_composition_poly_parts_evaluations.len();
+
+        // Pre-allocate with known capacity to avoid incremental growth
+        let mut lde_composition_poly_evaluations = Vec::with_capacity(num_rows);
+        for i in 0..num_rows {
+            let mut row = Vec::with_capacity(num_parts);
             for evaluation in lde_composition_poly_parts_evaluations.iter() {
                 row.push(evaluation[i].clone());
             }
@@ -449,7 +452,8 @@ pub trait IsStarkProver<
 
         in_place_bit_reverse_permute(&mut lde_composition_poly_evaluations);
 
-        let mut lde_composition_poly_evaluations_merged = Vec::new();
+        // Pre-allocate merged vector
+        let mut lde_composition_poly_evaluations_merged = Vec::with_capacity(num_rows / 2);
         for chunk in lde_composition_poly_evaluations.chunks(2) {
             let (mut chunk0, chunk1) = (chunk[0].clone(), &chunk[1]);
             chunk0.extend_from_slice(chunk1);
