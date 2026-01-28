@@ -45,6 +45,7 @@ assert_matches = "1.5.0"
 rstest = "0.17.0"
 rand = "0.8.5"
 wasm-bindgen-test = "0.3.0"
+dhat = "0.3"
 
 [features]
 test_fiat_shamir = []
@@ -52,6 +53,7 @@ instruments = []                                                     # This enab
 parallel = ["dep:rayon", "lambdaworks-crypto/parallel"]
 wasm = ["dep:wasm-bindgen", "dep:serde-wasm-bindgen", "dep:web-sys"]
 winter_compatibility = ["miden-core"]
+dhat-heap = []                                                       # Enable dhat heap profiling
 
 [target.'cfg(not(all(target_arch = "wasm32", target_os = "unknown")))'.dev-dependencies]
 proptest = "1.2.0"
@@ -96,3 +98,7 @@ debug-js-glue = false
 demangle-name-section = true
 dwarf-debug-info = false
 omit-default-module-path = false
+
+[[bench]]
+name = "prover_profile"
+harness = false
