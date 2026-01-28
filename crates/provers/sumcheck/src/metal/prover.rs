@@ -35,6 +35,9 @@ use lambdaworks_math::{
     polynomial::{dense_multilinear_poly::DenseMultilinearPolynomial, Polynomial},
     traits::ByteConversion,
 };
+
+#[cfg(all(target_os = "macos", feature = "metal"))]
+use lambdaworks_math::field::fields::u64_goldilocks_field::Goldilocks64Field;
 use std::ops::Mul;
 
 #[cfg(all(target_os = "macos", feature = "metal"))]
@@ -555,7 +558,7 @@ where
         r_prev: Option<&FieldElement<F>>,
     ) -> Result<Polynomial<FieldElement<F>>, ProverError> {
         if let Some(r) = r_prev {
-            let one_minus_r = FieldElement::one() - r;
+            let one_minus_r = FieldElement::<F>::one() - r;
             for factor in &mut self.factor_evals {
                 let half = factor.len() / 2;
                 for k in 0..half {
@@ -671,8 +674,10 @@ impl GoldilocksMetalProver {
             }
         }
 
-        // Fallback to CPU
-        self.evals_raw.iter().fold(0u64, |a, &b| a.wrapping_add(b))
+        // Fallback to CPU using proper Goldilocks field arithmetic
+        self.evals_raw
+            .iter()
+            .fold(0u64, |a, &b| Goldilocks64Field::add(&a, &b))
     }
 
     /// Applies a challenge using GPU if available.
@@ -686,15 +691,15 @@ impl GoldilocksMetalProver {
             return;
         }
 
-        // Fallback to CPU
+        // Fallback to CPU using proper Goldilocks field arithmetic
+        // Computes: new[k] = (1-r) * v0 + r * v1 in the Goldilocks field
         let half = self.evals_raw.len() / 2;
         for k in 0..half {
             let v0 = self.evals_raw[k];
             let v1 = self.evals_raw[k + half];
-            // Simplified: assuming proper modular arithmetic is handled elsewhere
-            self.evals_raw[k] = one_minus_r
-                .wrapping_mul(v0)
-                .wrapping_add(r.wrapping_mul(v1));
+            let term1 = Goldilocks64Field::mul(&one_minus_r, &v0);
+            let term2 = Goldilocks64Field::mul(&r, &v1);
+            self.evals_raw[k] = Goldilocks64Field::add(&term1, &term2);
         }
         self.evals_raw.truncate(half);
     }
@@ -707,14 +712,14 @@ impl GoldilocksMetalProver {
             }
         }
 
-        // Fallback to CPU
+        // Fallback to CPU using proper Goldilocks field arithmetic
         let half = self.evals_raw.len() / 2;
         let sum_0: u64 = self.evals_raw[..half]
             .iter()
-            .fold(0u64, |a, &b| a.wrapping_add(b));
+            .fold(0u64, |a, &b| Goldilocks64Field::add(&a, &b));
         let sum_1: u64 = self.evals_raw[half..]
             .iter()
-            .fold(0u64, |a, &b| a.wrapping_add(b));
+            .fold(0u64, |a, &b| Goldilocks64Field::add(&a, &b));
         (sum_0, sum_1)
     }
 }
