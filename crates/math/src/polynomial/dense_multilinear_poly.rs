@@ -169,15 +169,18 @@ where
         debug_assert_eq!(self.evals.len(), self.len);
     }
 
-    /// Merges a series of DenseMultilinearPolynomials into one polynomial.
+    /// Merges a series of DenseMultilinearPolynomials into one polynomial by concatenating
+    /// their evaluation vectors in order.
     /// Zero-pads the final merged polynomial to the next power-of-two length if necessary.
     pub fn merge(polys: &[DenseMultilinearPolynomial<F>]) -> DenseMultilinearPolynomial<F> {
-        // TODO (performance): pre-allocate vector to avoid repeated resizing.
-        let mut z: Vec<FieldElement<F>> = Vec::new();
+        // Calculate total size needed for pre-allocation
+        let total_len: usize = polys.iter().map(|p| p.evals.len()).sum();
+        let final_len = total_len.next_power_of_two();
+        let mut z: Vec<FieldElement<F>> = Vec::with_capacity(final_len);
         for poly in polys {
             z.extend(poly.evals.iter().cloned());
         }
-        z.resize(z.len().next_power_of_two(), FieldElement::zero());
+        z.resize(final_len, FieldElement::zero());
         DenseMultilinearPolynomial::new(z)
     }
 
@@ -375,11 +378,22 @@ mod tests {
     #[test]
     fn merge() {
         let a = DenseMultilinearPolynomial::new(vec![FE::from(3); 4]);
-        let b = DenseMultilinearPolynomial::new(vec![FE::from(3); 2]);
+        let b = DenseMultilinearPolynomial::new(vec![FE::from(2); 2]);
         let c = DenseMultilinearPolynomial::merge(&[a, b]);
         assert_eq!(c.len(), 8);
         assert_eq!(c[c.len() - 1], FE::zero());
         assert_eq!(c[c.len() - 2], FE::zero());
+        let d = DenseMultilinearPolynomial::new(vec![
+            FE::from(3),
+            FE::from(3),
+            FE::from(3),
+            FE::from(3),
+            FE::from(2),
+            FE::from(2),
+            FE::zero(),
+            FE::zero(),
+        ]);
+        assert_eq!(c, d);
     }
 
     #[test]

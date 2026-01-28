@@ -111,8 +111,8 @@ impl IsField for P448GoldilocksPrimeField {
     }
 
     /// Implements fast Karatsuba Multiplication optimized for the
-    /// Godilocks Prime field. Taken from Mike Hamburg's implemenation:
-    /// https://sourceforge.net/p/ed448goldilocks/code/ci/master/tree/src/p448/arch_ref64/f_impl.c
+    /// Goldilocks Prime field. Taken from Mike Hamburg's implementation:
+    /// <https://sourceforge.net/p/ed448goldilocks/code/ci/master/tree/src/p448/arch_ref64/f_impl.c>.
     fn mul(a: &U56x8, b: &U56x8) -> U56x8 {
         let (a, b) = (&a.limbs, &b.limbs);
         let mut c = [0u64; 8];
@@ -211,7 +211,7 @@ impl IsField for P448GoldilocksPrimeField {
         Ok(Self::mul(a, b_inv))
     }
 
-    /// Taken from https://sourceforge.net/p/ed448goldilocks/code/ci/master/tree/src/per_field/f_generic.tmpl.c
+    /// Taken from <https://sourceforge.net/p/ed448goldilocks/code/ci/master/tree/src/per_field/f_generic.tmpl.c>.
     fn eq(a: &U56x8, b: &U56x8) -> bool {
         let mut c = Self::sub(a, b);
         Self::strong_reduce(&mut c);
@@ -293,7 +293,7 @@ impl P448GoldilocksPrimeField {
     }
 
     /// Reduces the number to its canonical form
-    /// Taken from https://sourceforge.net/p/ed448goldilocks/code/ci/master/tree/src/per_field/f_generic.tmpl.c
+    /// Taken from <https://sourceforge.net/p/ed448goldilocks/code/ci/master/tree/src/per_field/f_generic.tmpl.c>.
     fn strong_reduce(a: &mut U56x8) {
         P448GoldilocksPrimeField::weak_reduce(a);
 
