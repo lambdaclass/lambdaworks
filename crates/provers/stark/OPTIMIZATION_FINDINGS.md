@@ -1,20 +1,17 @@
 # STARK Prover Optimization Findings
 
-## Current State (After Optimizations)
-
-### Trace 2^14 (16,384 rows)
-- **Total allocations**: 189 MB in 822K blocks
-- **Peak memory**: 27 MB
-- **Proving time**: ~350ms (release, single-threaded)
+## Current State (After All Optimizations)
 
 ### Trace 2^16 (65,536 rows)
-- **Total allocations**: 757 MB in 3.54M blocks
+- **Total allocations**: 729 MB in 3.54M blocks
 - **Peak memory**: 108 MB
 - **Proving time**: ~1.43s (release, single-threaded)
+- **Proving time (parallel)**: ~1.37s (with `parallel` feature)
 
-### Improvements Achieved
-- Peak memory reduced from 133 MB → 108 MB (**18.9% reduction**)
-- Total allocations reduced from 792 MB → 757 MB (**4.4% reduction**)
+### Improvements Achieved (from baseline)
+- Peak memory: 133 MB → 108 MB (**18.9% reduction**)
+- Total allocations: 792 MB → 729 MB (**8.0% reduction**)
+- Parallel mode: 65-67% faster boundary/transition evaluation
 
 ---
 
@@ -145,24 +142,17 @@ calculations when the `parallel` feature is enabled.
 **Note**: For simple AIRs with 1 constraint (like Fibonacci), parallel overhead exceeds
 benefits. Optimization primarily helps complex AIRs with many unique zerofiers.
 
-#### 5. In-place polynomial arithmetic in `compute_deep_composition_poly`
+#### 5. ✅ In-place polynomial arithmetic in `compute_deep_composition_poly` (DONE)
 
-**Location**: `prover.rs:694-701`
+**Location**: `prover.rs:683-710`
 
-```rust
-// Current: Creates new polynomial on each iteration
-for (i, part) in composition_poly_parts.iter().enumerate() {
-    let h_i_term = &composition_poly_gammas[i] * (part - h_i_eval);
-    h_terms = h_terms + h_i_term;  // Allocates new Vec
-}
+**Implemented**: The h_terms accumulation now pre-allocates a coefficient buffer and
+accumulates `gamma * (part - h_i_eval)` directly into coefficients, avoiding
+intermediate polynomial allocations.
 
-// Better: Accumulate in-place
-let mut h_terms_coeffs = vec![FieldElement::zero(); max_degree];
-for (i, part) in composition_poly_parts.iter().enumerate() {
-    // Add scaled coefficients directly into accumulator
-    add_scaled_poly_inplace(&mut h_terms_coeffs, part, &composition_poly_gammas[i], h_i_eval);
-}
-```
+**Results** (2^16 trace):
+- Total allocations: 748 MB → 729 MB (**2.5% reduction**, ~19 MB savings)
+- Peak memory: unchanged (optimization targets total, not peak)
 
 #### 6. Use `evaluate_offset_fft_with_buffer` in LDE evaluation
 
@@ -201,7 +191,7 @@ evals[c.constraint_idx()] = Rc::clone(zerofier_groups.get(&key).unwrap());
 | Fused bit-reverse + transpose | ✅ Done | 1% total allocation reduction |
 | Zerofier base/exemptions split caching | ✅ Done | Benefits multi-constraint AIRs |
 | Parallelize zerofier computation | ✅ Done | 65-67% faster (parallel mode) |
-| In-place polynomial arithmetic | ⬜ TODO | Est. 24 MB total reduction |
+| In-place polynomial arithmetic (h_terms) | ✅ Done | 19 MB total reduction (2.5%) |
 | evaluate_offset_fft_with_buffer in LDE | ⬜ TODO | Est. 10 MB reduction |
 
 ---
