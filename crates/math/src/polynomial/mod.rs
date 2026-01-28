@@ -197,13 +197,23 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
     /// Computes quotient and remainder of polynomial division.
     ///
     /// Output: (quotient, remainder)
+    ///
+    /// # Panics
+    /// Panics if the divisor is the zero polynomial.
     pub fn long_division_with_remainder(self, dividend: &Self) -> (Self, Self) {
+        assert!(
+            *dividend != Polynomial::zero(),
+            "Cannot divide by the zero polynomial"
+        );
         if dividend.degree() > self.degree() {
             (Polynomial::zero(), self)
         } else {
             let mut n = self;
             let mut q: Vec<FieldElement<F>> = vec![FieldElement::zero(); n.degree() + 1];
-            let denominator = dividend.leading_coefficient().inv().unwrap();
+            let denominator = dividend
+                .leading_coefficient()
+                .inv()
+                .expect("Leading coefficient should be non-zero for non-zero polynomial");
             while n != Polynomial::zero() && n.degree() >= dividend.degree() {
                 let new_coefficient = n.leading_coefficient() * &denominator;
                 q[n.degree() - dividend.degree()] = new_coefficient.clone();
@@ -222,9 +232,18 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
     /// This method computes the extended greatest common divisor (GCD) of two polynomials `self` and `y`.
     /// It returns a tuple of three elements: `(a, b, g)` such that `a * self + b * y = g`, where `g` is the
     /// greatest common divisor of `self` and `y`.
+    ///
+    /// # Panics
+    /// Panics if both polynomials are zero, as gcd(0, 0) is undefined.
     pub fn xgcd(&self, y: &Self) -> (Self, Self, Self) {
         let one = Polynomial::new(&[FieldElement::one()]);
         let zero = Polynomial::zero();
+
+        // Handle special cases where one or both polynomials are zero
+        if *self == zero && *y == zero {
+            panic!("xgcd(0, 0) is undefined");
+        }
+
         let (mut old_r, mut r) = (self.clone(), y.clone());
         let (mut old_s, mut s) = (one.clone(), zero.clone());
         let (mut old_t, mut t) = (zero.clone(), one.clone());
@@ -239,7 +258,10 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
             core::mem::swap(&mut old_t, &mut t);
         }
 
-        let lcinv = old_r.leading_coefficient().inv().unwrap();
+        let lcinv = old_r
+            .leading_coefficient()
+            .inv()
+            .expect("GCD should be non-zero when at least one input is non-zero");
         (
             old_s.scale_coeffs(&lcinv),
             old_t.scale_coeffs(&lcinv),

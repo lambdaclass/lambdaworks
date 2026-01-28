@@ -89,13 +89,18 @@ impl<'t, F: IsField> Table<F> {
     /// Returns a vector of vectors of field elements representing the table
     /// columns
     pub fn columns(&self) -> Vec<Vec<FieldElement<F>>> {
-        (0..self.width)
-            .map(|col_idx| {
-                (0..self.height)
-                    .map(|row_idx| self.data[row_idx * self.width + col_idx].clone())
-                    .collect()
-            })
-            .collect()
+        // Pre-allocate all column vectors to avoid repeated allocations
+        let mut columns: Vec<Vec<FieldElement<F>>> = (0..self.width)
+            .map(|_| Vec::with_capacity(self.height))
+            .collect();
+
+        // Single pass through the data, distributing elements to their columns
+        for (idx, elem) in self.data.iter().enumerate() {
+            let col_idx = idx % self.width;
+            columns[col_idx].push(elem.clone());
+        }
+
+        columns
     }
 
     pub fn get_column(&self, col_idx: usize) -> Vec<FieldElement<F>> {
