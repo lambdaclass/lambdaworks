@@ -104,52 +104,65 @@ where
 }
 
 /// Recode scalars to signed digits for Pippenger's algorithm.
-/// Returns a vector of signed digit vectors, one per scalar.
-/// Uses signed representation to halve the bucket count from 2^c - 1 to 2^(c-1).
+/// Returns a flat vector of signed digits, stored contiguously to avoid
+/// per-scalar heap allocations. Uses signed representation to halve the
+/// bucket count from 2^c - 1 to 2^(c-1).
+///
+/// The flat layout stores all digits for scalar i at indices:
+///   [i * total_windows, i * total_windows + total_windows)
 fn recode_scalars_signed<const NUM_LIMBS: usize>(
     scalars: &[UnsignedInteger<NUM_LIMBS>],
     window_size: usize,
     num_windows: usize,
-) -> Vec<Vec<i64>> {
+    total_windows: usize,
+) -> Vec<i64> {
     let half_bucket = 1i64 << (window_size - 1);
     let full_bucket = 1i64 << window_size;
     let mask = (1u64 << window_size) - 1;
+    let n_scalars = scalars.len();
 
-    scalars
-        .iter()
-        .map(|scalar| {
-            // +1 window to handle potential final carry
-            let mut digits = Vec::with_capacity(num_windows + 1);
-            let mut carry = 0i64;
+    // Single allocation for all digits: n_scalars * total_windows
+    let mut digits = vec![0i64; n_scalars * total_windows];
 
-            for window_idx in 0..num_windows {
-                // Extract window value
-                let shift = window_idx * window_size;
-                let raw_val = if shift < 64 * NUM_LIMBS {
-                    (scalar >> shift).limbs[NUM_LIMBS - 1] & mask
-                } else {
-                    0
-                };
-                let window_val = raw_val as i64 + carry;
+    for (i, scalar) in scalars.iter().enumerate() {
+        let mut carry = 0i64;
+        let base_idx = i * total_windows;
 
-                // Convert to signed representation
-                if window_val >= half_bucket {
-                    digits.push(window_val - full_bucket);
-                    carry = 1;
-                } else {
-                    digits.push(window_val);
-                    carry = 0;
-                }
-            }
-            // Handle final carry
-            if carry != 0 {
-                digits.push(carry);
+        for window_idx in 0..num_windows {
+            // Extract window value
+            let shift = window_idx * window_size;
+            let raw_val = if shift < 64 * NUM_LIMBS {
+                (scalar >> shift).limbs[NUM_LIMBS - 1] & mask
             } else {
-                digits.push(0); // Pad to expected length
+                0
+            };
+            let window_val = raw_val as i64 + carry;
+
+            // Convert to signed representation
+            if window_val >= half_bucket {
+                digits[base_idx + window_idx] = window_val - full_bucket;
+                carry = 1;
+            } else {
+                digits[base_idx + window_idx] = window_val;
+                carry = 0;
             }
-            digits
-        })
-        .collect()
+        }
+        // Handle final carry
+        digits[base_idx + num_windows] = carry; // carry is 0 if no carry, already padded
+    }
+
+    digits
+}
+
+/// Get the digit for scalar `scalar_idx` at window `window_idx` from flat storage.
+#[inline(always)]
+fn get_digit(
+    flat_digits: &[i64],
+    total_windows: usize,
+    scalar_idx: usize,
+    window_idx: usize,
+) -> i64 {
+    flat_digits[scalar_idx * total_windows + window_idx]
 }
 
 /// MSM using signed bucket recoding (Pippenger with signed digits).
@@ -173,8 +186,8 @@ where
     // Half the buckets compared to unsigned version!
     let n_buckets = (1 << (window_size - 1)) as usize;
 
-    // Precompute signed digits for all scalars
-    let signed_digits = recode_scalars_signed(cs, window_size, num_windows);
+    // Precompute signed digits for all scalars (flat allocation)
+    let signed_digits = recode_scalars_signed(cs, window_size, num_windows, total_windows);
 
     (0..total_windows)
         .rev()
@@ -183,8 +196,8 @@ where
             let mut buckets = vec![G::neutral_element(); n_buckets];
 
             // Accumulate points into buckets based on signed digits
-            signed_digits.iter().zip(points).for_each(|(digits, p)| {
-                let digit = digits[window_idx];
+            for (scalar_idx, p) in points.iter().take(cs.len()).enumerate() {
+                let digit = get_digit(&signed_digits, total_windows, scalar_idx, window_idx);
                 if digit > 0 {
                     let idx = digit as usize - 1;
                     buckets[idx] = buckets[idx].operate_with(p);
@@ -194,7 +207,7 @@ where
                     buckets[idx] = buckets[idx].operate_with(&p.neg());
                 }
                 // digit == 0: skip (contributes nothing)
-            });
+            }
 
             // Bucket reduction
             let mut m = G::neutral_element();
@@ -234,8 +247,8 @@ where
     let total_windows = num_windows + 1;
     let n_buckets = (1 << (window_size - 1)) as usize;
 
-    // Precompute signed digits for all scalars (sequential, but fast)
-    let signed_digits = recode_scalars_signed(cs, window_size, num_windows);
+    // Precompute signed digits for all scalars (flat allocation, sequential but fast)
+    let signed_digits = recode_scalars_signed(cs, window_size, num_windows, total_windows);
 
     // Process windows in parallel
     (0..total_windows)
@@ -243,9 +256,9 @@ where
         .map(|window_idx| {
             let mut buckets = vec![G::neutral_element(); n_buckets];
 
-            // Accumulate points into buckets
-            signed_digits.iter().zip(points).for_each(|(digits, p)| {
-                let digit = digits[window_idx];
+            // Accumulate points into buckets using flat digit storage
+            for (scalar_idx, p) in points.iter().take(cs.len()).enumerate() {
+                let digit = get_digit(&signed_digits, total_windows, scalar_idx, window_idx);
                 if digit > 0 {
                     let idx = digit as usize - 1;
                     buckets[idx] = buckets[idx].operate_with(p);
@@ -253,7 +266,7 @@ where
                     let idx = (-digit) as usize - 1;
                     buckets[idx] = buckets[idx].operate_with(&p.neg());
                 }
-            });
+            }
 
             // Bucket reduction
             let mut m = G::neutral_element();
@@ -436,5 +449,37 @@ mod tests {
 
             prop_assert_eq!(parallel, sequential);
         }
+    }
+
+    // Regression test: ensure signed MSM handles points.len() > cs.len() without panic
+    #[test]
+    fn test_signed_msm_with_more_points_than_scalars() {
+        let cs: Vec<UnsignedInteger<6>> =
+            Vec::from([UnsignedInteger::from_u64(1), UnsignedInteger::from_u64(2)]);
+        let points: Vec<_> = (0..5)
+            .map(|i| BLS12381Curve::generator().operate_with_self(i as u64 + 1))
+            .collect();
+
+        // Should not panic, uses only first cs.len() points
+        let result = pippenger::msm_with_signed(&cs, &points, 4);
+
+        // Verify correctness: 1*G + 2*2G = G + 4G = 5G
+        let expected = BLS12381Curve::generator().operate_with_self(5u64);
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    #[cfg(feature = "parallel")]
+    fn test_parallel_signed_msm_with_more_points_than_scalars() {
+        let cs: Vec<UnsignedInteger<6>> =
+            Vec::from([UnsignedInteger::from_u64(1), UnsignedInteger::from_u64(2)]);
+        let points: Vec<_> = (0..5)
+            .map(|i| BLS12381Curve::generator().operate_with_self(i as u64 + 1))
+            .collect();
+
+        let result = pippenger::parallel_msm_with_signed(&cs, &points, 4);
+
+        let expected = BLS12381Curve::generator().operate_with_self(5u64);
+        assert_eq!(result, expected);
     }
 }

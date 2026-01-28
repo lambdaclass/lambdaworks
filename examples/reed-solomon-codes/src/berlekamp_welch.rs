@@ -236,7 +236,10 @@ fn decode_with_error_count<F: IsField + Clone>(
     let n_poly = Polynomial::new(&n_coeffs);
 
     // Compute P(x) = N(x) / E(x)
-    let (quotient, remainder) = n_poly.clone().long_division_with_remainder(&error_locator);
+    let Ok((quotient, remainder)) = n_poly.clone().long_division_with_remainder(&error_locator)
+    else {
+        return Err(DecodingError::DivisionFailed);
+    };
 
     // Check that E(x) divides N(x) exactly
     if remainder != Polynomial::zero() {
