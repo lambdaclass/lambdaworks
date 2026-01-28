@@ -722,6 +722,13 @@ pub trait IsStarkProver<
 
         let trace_evaluations_columns = &trace_frame_evaluations.columns();
 
+        // Pre-compute z_shifted values: z_shifted[k] = z * g^k
+        // This avoids recomputing primitive_root.pow(offset) * z for every trace polynomial
+        let num_offsets = trace_frame_evaluations.height;
+        let z_shifted_values: Vec<FieldElement<FieldExtension>> = (0..num_offsets)
+            .map(|offset| primitive_root.pow(offset) * z)
+            .collect();
+
         #[cfg(feature = "parallel")]
         let trace_terms = trace_polys
             .par_iter()
@@ -734,7 +741,7 @@ pub trait IsStarkProver<
                     t_j,
                     gammas_i,
                     trace_evaluations_i,
-                    (z, primitive_root),
+                    &z_shifted_values,
                 )
             })
             .reduce(Polynomial::zero, |a, b| a + b);
@@ -752,7 +759,7 @@ pub trait IsStarkProver<
                         t_j,
                         gammas_i,
                         trace_evaluations_i,
-                        (z, primitive_root),
+                        &z_shifted_values,
                     )
                 });
 
@@ -768,7 +775,7 @@ pub trait IsStarkProver<
         trace_term_poly: &Polynomial<FieldElement<FieldExtension>>,
         trace_terms_gammas: &[FieldElement<FieldExtension>],
         trace_frame_evaluations: &[FieldElement<FieldExtension>],
-        (z, primitive_root): (&FieldElement<FieldExtension>, &FieldElement<Field>),
+        z_shifted_values: &[FieldElement<FieldExtension>],
     ) -> Polynomial<FieldElement<FieldExtension>>
     where
         FieldElement<Field>: AsBytes,
@@ -776,15 +783,13 @@ pub trait IsStarkProver<
     {
         let trace_int = trace_frame_evaluations
             .iter()
-            .enumerate()
+            .zip(z_shifted_values)
             .zip(trace_terms_gammas)
             .fold(
                 Polynomial::zero(),
-                |trace_agg, ((offset, trace_term_poly_evaluation), trace_gamma)| {
-                    // @@@ this can be pre-computed
-                    let z_shifted = primitive_root.pow(offset) * z;
+                |trace_agg, ((trace_term_poly_evaluation, z_shifted), trace_gamma)| {
                     let mut poly = trace_term_poly - trace_term_poly_evaluation;
-                    poly.ruffini_division_inplace(&z_shifted);
+                    poly.ruffini_division_inplace(z_shifted);
                     trace_agg + poly * trace_gamma
                 },
             );

@@ -55,22 +55,31 @@ where
         rap_challenges: &[FieldElement<FieldExtension>],
     ) -> Vec<FieldElement<FieldExtension>> {
         let boundary_constraints = &self.boundary_constraints;
-        let number_of_b_constraints = boundary_constraints.constraints.len();
-        let boundary_zerofiers_inverse_evaluations: Vec<Vec<FieldElement<Field>>> =
-            boundary_constraints
-                .constraints
-                .iter()
-                .map(|bc| {
-                    let point = &domain.trace_primitive_root.pow(bc.step as u64);
-                    let mut evals = domain
-                        .lde_roots_of_unity_coset
-                        .iter()
-                        .map(|v| v.clone() - point)
-                        .collect::<Vec<FieldElement<Field>>>();
-                    FieldElement::inplace_batch_inverse(&mut evals).unwrap();
-                    evals
-                })
-                .collect::<Vec<Vec<FieldElement<Field>>>>();
+
+        // Cache boundary zerofiers by step - multiple constraints at the same step share zerofier
+        // Use HashMap for deduplication, then build Vec of references for fast inner loop access
+        use std::collections::HashMap;
+        let mut zerofier_cache: HashMap<usize, Vec<FieldElement<Field>>> = HashMap::new();
+
+        for bc in boundary_constraints.constraints.iter() {
+            zerofier_cache.entry(bc.step).or_insert_with(|| {
+                let point = domain.trace_primitive_root.pow(bc.step as u64);
+                let mut evals: Vec<FieldElement<Field>> = domain
+                    .lde_roots_of_unity_coset
+                    .iter()
+                    .map(|v| v - &point)
+                    .collect();
+                FieldElement::inplace_batch_inverse(&mut evals).unwrap();
+                evals
+            });
+        }
+
+        // Pre-build Vec of references to avoid HashMap lookup in the hot loop
+        let boundary_zerofiers_refs: Vec<&Vec<FieldElement<Field>>> = boundary_constraints
+            .constraints
+            .iter()
+            .map(|bc| zerofier_cache.get(&bc.step).unwrap())
+            .collect();
 
         #[cfg(all(debug_assertions, not(feature = "parallel")))]
         let boundary_polys: Vec<Polynomial<FieldElement<Field>>> = Vec::new();
@@ -101,27 +110,28 @@ where
         #[cfg(feature = "instruments")]
         let timer = Instant::now();
 
-        let boundary_polys_evaluations = boundary_constraints
-            .constraints
-            .iter()
-            .map(|constraint| {
-                if constraint.is_aux {
-                    (0..lde_trace.num_rows())
-                        .map(|row| {
-                            let v = lde_trace.get_aux(row, constraint.col);
-                            v - &constraint.value
-                        })
-                        .collect_vec()
-                } else {
-                    (0..lde_trace.num_rows())
-                        .map(|row| {
-                            let v = lde_trace.get_main(row, constraint.col);
-                            v - &constraint.value
-                        })
-                        .collect_vec()
-                }
-            })
-            .collect_vec();
+        let boundary_polys_evaluations: Vec<Vec<FieldElement<FieldExtension>>> =
+            boundary_constraints
+                .constraints
+                .iter()
+                .map(|constraint| {
+                    if constraint.is_aux {
+                        (0..lde_trace.num_rows())
+                            .map(|row| {
+                                let v = lde_trace.get_aux(row, constraint.col);
+                                v - &constraint.value
+                            })
+                            .collect_vec()
+                    } else {
+                        (0..lde_trace.num_rows())
+                            .map(|row| {
+                                let v = lde_trace.get_main(row, constraint.col);
+                                v - &constraint.value
+                            })
+                            .collect_vec()
+                    }
+                })
+                .collect_vec();
 
         #[cfg(feature = "instruments")]
         println!("     Created boundary polynomials: {:#?}", timer.elapsed());
@@ -135,14 +145,17 @@ where
 
         let boundary_evaluation: Vec<_> = boundary_eval_iter
             .map(|domain_index| {
-                (0..number_of_b_constraints)
-                    .zip(boundary_coefficients)
-                    .fold(FieldElement::zero(), |acc, (constraint_index, beta)| {
-                        acc + &boundary_zerofiers_inverse_evaluations[constraint_index]
-                            [domain_index]
-                            * beta
-                            * &boundary_polys_evaluations[constraint_index][domain_index]
-                    })
+                itertools::izip!(
+                    &boundary_zerofiers_refs,
+                    &boundary_polys_evaluations,
+                    boundary_coefficients
+                )
+                .fold(
+                    FieldElement::zero(),
+                    |acc, (zerofier, boundary_poly, beta)| {
+                        acc + &zerofier[domain_index] * beta * &boundary_poly[domain_index]
+                    },
+                )
             })
             .collect();
 
