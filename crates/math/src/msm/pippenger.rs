@@ -455,7 +455,7 @@ mod tests {
     #[test]
     fn test_signed_msm_with_more_points_than_scalars() {
         let cs: Vec<UnsignedInteger<6>> =
-            vec![UnsignedInteger::from_u64(1), UnsignedInteger::from_u64(2)];
+            Vec::from([UnsignedInteger::from_u64(1), UnsignedInteger::from_u64(2)]);
         let points: Vec<_> = (0..5)
             .map(|i| BLS12381Curve::generator().operate_with_self(i as u64 + 1))
             .collect();
@@ -472,7 +472,7 @@ mod tests {
     #[cfg(feature = "parallel")]
     fn test_parallel_signed_msm_with_more_points_than_scalars() {
         let cs: Vec<UnsignedInteger<6>> =
-            vec![UnsignedInteger::from_u64(1), UnsignedInteger::from_u64(2)];
+            Vec::from([UnsignedInteger::from_u64(1), UnsignedInteger::from_u64(2)]);
         let points: Vec<_> = (0..5)
             .map(|i| BLS12381Curve::generator().operate_with_self(i as u64 + 1))
             .collect();
