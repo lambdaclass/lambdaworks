@@ -28,7 +28,7 @@ jobs:
           fetch-depth: 1
 
       - name: Run Claude Code Review
-        uses: anthropics/claude-code-action@beta
+        uses: anthropics/claude-code-action@v1
         with:
           model: claude-sonnet-4-20250514
           trigger_phrase: "@claude"

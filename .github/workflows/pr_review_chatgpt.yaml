@@ -16,15 +16,13 @@ jobs:
         uses: actions/checkout@v4
 
       - name: ChatGPT Code Review
-        uses: anc95/ChatGPT-CodeReview@v2.0.3
+        uses: anc95/ChatGPT-CodeReview@6fdbaeafc6f9e0eaebb844f8cfafff67cb2947f0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        with:
-          model: gpt-4o
-          max_tokens: 4096
-          review_comment_lgtm: false
-          prompt: |
+          MODEL: gpt-4o
+          max_tokens: "4096"
+          PROMPT: |
             You are reviewing code for lambdaworks, a Rust cryptographic library implementing finite fields,
             elliptic curves, and zero-knowledge proof systems (STARKs, SNARKs).
 

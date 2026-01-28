@@ -33,51 +33,54 @@ jobs:
       - name: Call Kimi API for review
         id: kimi_review
         run: |
-          DIFF=$(cat /tmp/pr_diff.txt)
+          SYSTEM_PROMPT="You are a code reviewer for lambdaworks, a Rust cryptographic library implementing finite fields, elliptic curves, and zero-knowledge proof systems (STARKs, SNARKs). Review code changes focusing on: 1) Mathematical correctness (field operations, curve arithmetic, polynomial operations), 2) Cryptographic security (timing side-channels, constant-time operations, proper randomness, zeroization), 3) Performance (unnecessary allocations, efficient algorithms), 4) Bugs and errors (panics, memory safety, edge cases), 5) Code simplicity and maintainability. Be concise and only comment on actual issues."
 
-          # Escape the diff for JSON
-          ESCAPED_DIFF=$(echo "$DIFF" | jq -Rs .)
+          USER_PROMPT="Review this PR diff and provide feedback on any issues found. Be specific about file names and line numbers when possible:"
+
+          # Build JSON payload safely using jq
+          DIFF_CONTENT=$(cat /tmp/pr_diff.txt)
+          PAYLOAD=$(jq -n \
+            --arg model "moonshot-v1-128k" \
+            --arg system "$SYSTEM_PROMPT" \
+            --arg user "$USER_PROMPT" \
+            --arg diff "$DIFF_CONTENT" \
+            '{
+              model: $model,
+              messages: [
+                { role: "system", content: $system },
+                { role: "user", content: ($user + "\n\n" + $diff) }
+              ],
+              temperature: 0.3
+            }')
 
           RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "https://api.moonshot.ai/v1/chat/completions" \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer ${{ secrets.KIMI_API_KEY }}" \
-            -d @- << EOF
-          {
-            "model": "moonshot-v1-128k",
-            "messages": [
-              {
-                "role": "system",
-                "content": "You are a code reviewer for lambdaworks, a Rust cryptographic library implementing finite fields, elliptic curves, and zero-knowledge proof systems (STARKs, SNARKs). Review code changes focusing on: 1) Mathematical correctness (field operations, curve arithmetic, polynomial operations), 2) Cryptographic security (timing side-channels, constant-time operations, proper randomness, zeroization), 3) Performance (unnecessary allocations, efficient algorithms), 4) Bugs and errors (panics, memory safety, edge cases), 5) Code simplicity and maintainability. Be concise and only comment on actual issues."
-              },
-              {
-                "role": "user",
-                "content": "Review this PR diff and provide feedback on any issues found. Be specific about file names and line numbers when possible:\n\n$ESCAPED_DIFF"
-              }
-            ],
-            "temperature": 0.3
-          }
-          EOF
-          )
+            -d "$PAYLOAD")
 
           HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
           BODY=$(echo "$RESPONSE" | sed '$d')
 
           if [ "$HTTP_CODE" != "200" ]; then
-            echo "Kimi API request failed with status $HTTP_CODE"
-            echo "Response: $BODY"
-            exit 1
+            echo "error=true" >> $GITHUB_OUTPUT
+            echo "error_message=Kimi API request failed with status $HTTP_CODE" >> $GITHUB_OUTPUT
+            exit 0
           fi
 
           REVIEW=$(echo "$BODY" | jq -r '.choices[0].message.content')
-          echo "review<<EOF" >> $GITHUB_OUTPUT
-          echo "$REVIEW" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          # Save review to file to avoid output escaping issues
+          echo "$REVIEW" > /tmp/review.txt
+          echo "success=true" >> $GITHUB_OUTPUT
 
       - name: Post review comment
+        if: steps.kimi_review.outputs.success == 'true'
         uses: actions/github-script@v7
+        env:
+          REVIEW_CONTENT: ${{ steps.kimi_review.outputs.success == 'true' && '' || '' }}
         with:
           script: |
-            const review = `${{ steps.kimi_review.outputs.review }}`;
+            const fs = require('fs');
+            const review = fs.readFileSync('/tmp/review.txt', 'utf8');
 
             if (review && review.trim() !== '') {
               await github.rest.issues.createComment({
@@ -87,3 +90,15 @@ jobs:
                 body: `## Kimi AI Review\n\n${review}`
               });
             }
+
+      - name: Post error comment
+        if: steps.kimi_review.outputs.error == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `## Kimi AI Review\n\n:warning: Review failed: ${{ steps.kimi_review.outputs.error_message }}`
+            });
