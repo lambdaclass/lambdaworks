@@ -123,7 +123,7 @@ impl IsTranscript<Stark252PrimeField> for StoneProverTranscript {
     }
 
     fn sample_u64(&mut self, upper_bound: u64) -> u64 {
-        // assert!(upper_bound < (1 << 12));
+        assert!(upper_bound > 0, "upper_bound must be greater than 0");
         let mut bytes = [0u8; 8];
         bytes.copy_from_slice(&self.sample(8));
         let u64_val: u64 = u64::from_be_bytes(bytes);
