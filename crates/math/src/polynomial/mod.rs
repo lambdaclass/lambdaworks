@@ -5,6 +5,7 @@ use alloc::{borrow::ToOwned, format, vec, vec::Vec};
 use core::{fmt::Display, ops, slice};
 pub mod dense_multilinear_poly;
 mod error;
+pub use error::PolynomialError;
 pub mod sparse_multilinear_poly;
 
 /// Represents the polynomial c_0 + c_1 * X + c_2 * X^2 + ... + c_n * X^n
@@ -151,6 +152,15 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
         self.coefficients().len()
     }
 
+    /// Returns true if the polynomial is zero (all coefficients are zero or empty).
+    ///
+    /// This is more robust than comparing with `Polynomial::zero()` because
+    /// some operations (like `scale_coeffs` with zero) may produce polynomials
+    /// with non-empty but all-zero coefficient vectors.
+    pub fn is_zero(&self) -> bool {
+        self.coefficients.iter().all(|c| *c == FieldElement::zero())
+    }
+
     /// Returns the derivative of the polynomial with respect to x.
     pub fn differentiate(&self) -> Self {
         let degree = self.degree();
@@ -196,24 +206,36 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
 
     /// Computes quotient and remainder of polynomial division.
     ///
-    /// Output: (quotient, remainder)
-    pub fn long_division_with_remainder(self, dividend: &Self) -> (Self, Self) {
-        if dividend.degree() > self.degree() {
-            (Polynomial::zero(), self)
+    /// Output: `Ok((quotient, remainder))`
+    ///
+    /// # Errors
+    /// Returns `PolynomialError::DivisionByZero` if the divisor is the zero polynomial.
+    pub fn long_division_with_remainder(
+        self,
+        divisor: &Self,
+    ) -> Result<(Self, Self), PolynomialError> {
+        if divisor.is_zero() {
+            return Err(PolynomialError::DivisionByZero);
+        }
+        if divisor.degree() > self.degree() {
+            Ok((Polynomial::zero(), self))
         } else {
             let mut n = self;
             let mut q: Vec<FieldElement<F>> = vec![FieldElement::zero(); n.degree() + 1];
-            let denominator = dividend.leading_coefficient().inv().unwrap();
-            while n != Polynomial::zero() && n.degree() >= dividend.degree() {
+            let denominator = divisor
+                .leading_coefficient()
+                .inv()
+                .expect("Leading coefficient should be non-zero for non-zero polynomial");
+            while !n.is_zero() && n.degree() >= divisor.degree() {
                 let new_coefficient = n.leading_coefficient() * &denominator;
-                q[n.degree() - dividend.degree()] = new_coefficient.clone();
-                let d = dividend.mul_with_ref(&Polynomial::new_monomial(
+                q[n.degree() - divisor.degree()] = new_coefficient.clone();
+                let d = divisor.mul_with_ref(&Polynomial::new_monomial(
                     new_coefficient,
-                    n.degree() - dividend.degree(),
+                    n.degree() - divisor.degree(),
                 ));
                 n = n - d;
             }
-            (Polynomial::new(&q), n)
+            Ok((Polynomial::new(&q), n))
         }
     }
 
@@ -222,15 +244,28 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
     /// This method computes the extended greatest common divisor (GCD) of two polynomials `self` and `y`.
     /// It returns a tuple of three elements: `(a, b, g)` such that `a * self + b * y = g`, where `g` is the
     /// greatest common divisor of `self` and `y`.
-    pub fn xgcd(&self, y: &Self) -> (Self, Self, Self) {
+    ///
+    /// # Errors
+    /// Returns `PolynomialError::XgcdBothZero` if both polynomials are zero, as gcd(0, 0) is undefined.
+    pub fn xgcd(&self, y: &Self) -> Result<(Self, Self, Self), PolynomialError> {
         let one = Polynomial::new(&[FieldElement::one()]);
         let zero = Polynomial::zero();
+
+        // Handle special cases where one or both polynomials are zero
+        if self.is_zero() && y.is_zero() {
+            return Err(PolynomialError::XgcdBothZero);
+        }
+
         let (mut old_r, mut r) = (self.clone(), y.clone());
         let (mut old_s, mut s) = (one.clone(), zero.clone());
         let (mut old_t, mut t) = (zero.clone(), one.clone());
 
-        while r != Polynomial::zero() {
-            let quotient = old_r.clone().div_with_ref(&r);
+        while !r.is_zero() {
+            // Division is safe: the loop condition guarantees r is non-zero
+            let quotient = old_r
+                .clone()
+                .div_with_ref(&r)
+                .expect("divisor is non-zero by loop invariant");
             old_r = old_r - &quotient * &r;
             core::mem::swap(&mut old_r, &mut r);
             old_s = old_s - &quotient * &s;
@@ -239,17 +274,24 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
             core::mem::swap(&mut old_t, &mut t);
         }
 
-        let lcinv = old_r.leading_coefficient().inv().unwrap();
-        (
+        let lcinv = old_r
+            .leading_coefficient()
+            .inv()
+            .expect("GCD should be non-zero when at least one input is non-zero");
+        Ok((
             old_s.scale_coeffs(&lcinv),
             old_t.scale_coeffs(&lcinv),
             old_r.scale_coeffs(&lcinv),
-        )
+        ))
     }
 
-    pub fn div_with_ref(self, dividend: &Self) -> Self {
-        let (quotient, _remainder) = self.long_division_with_remainder(dividend);
-        quotient
+    /// Divides this polynomial by the divisor, returning only the quotient.
+    ///
+    /// # Errors
+    /// Returns `PolynomialError::DivisionByZero` if the divisor is the zero polynomial.
+    pub fn div_with_ref(self, divisor: &Self) -> Result<Self, PolynomialError> {
+        let (quotient, _remainder) = self.long_division_with_remainder(divisor)?;
+        Ok(quotient)
     }
 
     pub fn mul_with_ref(&self, factor: &Self) -> Self {
@@ -577,8 +619,14 @@ where
 {
     type Output = Polynomial<FieldElement<F>>;
 
-    fn div(self, dividend: Polynomial<FieldElement<F>>) -> Polynomial<FieldElement<F>> {
-        self.div_with_ref(&dividend)
+    /// Divides this polynomial by the divisor.
+    ///
+    /// # Panics
+    /// Panics if the divisor is the zero polynomial. For error handling,
+    /// use `div_with_ref` or `long_division_with_remainder` instead.
+    fn div(self, divisor: Polynomial<FieldElement<F>>) -> Polynomial<FieldElement<F>> {
+        self.div_with_ref(&divisor)
+            .expect("Cannot divide by the zero polynomial")
     }
 }
 
@@ -1254,7 +1302,7 @@ mod tests {
         // Case 1: Simple polynomials
         let p1 = Polynomial::new(&[FE::new(1), FE::new(0), FE::new(1)]); // x^2 + 1
         let p2 = Polynomial::new(&[FE::new(1), FE::new(1)]); // x + 1
-        let (a, b, g) = p1.xgcd(&p2);
+        let (a, b, g) = p1.xgcd(&p2).unwrap();
         // Check that a * p1 + b * p2 = g
         let lhs = a.mul_with_ref(&p1) + b.mul_with_ref(&p2);
         assert_eq!(a, Polynomial::new(&[FE::new(12)]));
@@ -1266,7 +1314,7 @@ mod tests {
         let p3 = Polynomial::new(&[FE::new(ORDER - 1), FE::new(0), FE::new(1)]);
         // x^3-x = x(x^2-1)
         let p4 = Polynomial::new(&[FE::new(0), FE::new(ORDER - 1), FE::new(0), FE::new(1)]);
-        let (a, b, g) = p3.xgcd(&p4);
+        let (a, b, g) = p3.xgcd(&p4).unwrap();
 
         let lhs = a.mul_with_ref(&p3) + b.mul_with_ref(&p4);
         assert_eq!(a, Polynomial::new(&[FE::new(1)]));
@@ -1309,5 +1357,59 @@ mod tests {
     fn test_print_as_sage_poly() {
         let p = Polynomial::new(&[FE::new(1), FE::new(2), FE::new(3)]);
         assert_eq!(p.print_as_sage_poly(None), "3*x^2 + 2*x + 1");
+    }
+
+    #[test]
+    fn test_is_zero() {
+        // Canonical zero polynomial
+        assert!(Polynomial::<FE>::zero().is_zero());
+
+        // Empty coefficients
+        assert!(Polynomial::<FE>::new(&[]).is_zero());
+
+        // Single zero coefficient
+        assert!(Polynomial::new(&[FE::new(0)]).is_zero());
+
+        // Non-zero polynomial
+        assert!(!Polynomial::new(&[FE::new(1)]).is_zero());
+        assert!(!Polynomial::new(&[FE::new(0), FE::new(1)]).is_zero());
+
+        // Non-canonical zero (created via scale_coeffs with zero)
+        let p = Polynomial::new(&[FE::new(1), FE::new(2)]);
+        let scaled = p.scale_coeffs(&FE::new(0));
+        assert!(scaled.is_zero());
+    }
+
+    #[test]
+    fn test_division_by_zero_returns_error() {
+        let p = Polynomial::new(&[FE::new(1), FE::new(2)]);
+        let zero = Polynomial::<FE>::zero();
+        let result = p.long_division_with_remainder(&zero);
+        assert_eq!(result, Err(super::PolynomialError::DivisionByZero));
+    }
+
+    #[test]
+    fn test_division_by_non_canonical_zero_returns_error() {
+        let p = Polynomial::new(&[FE::new(1), FE::new(2)]);
+        // Create a non-canonical zero polynomial via scale_coeffs
+        let non_canonical_zero = Polynomial::new(&[FE::new(1)]).scale_coeffs(&FE::new(0));
+        let result = p.long_division_with_remainder(&non_canonical_zero);
+        assert_eq!(result, Err(super::PolynomialError::DivisionByZero));
+    }
+
+    #[test]
+    fn test_xgcd_both_zero_returns_error() {
+        let zero = Polynomial::<FE>::zero();
+        let result = zero.xgcd(&zero);
+        assert_eq!(result, Err(super::PolynomialError::XgcdBothZero));
+    }
+
+    #[test]
+    fn test_xgcd_non_canonical_zeros_returns_error() {
+        // Create non-canonical zero polynomials
+        let zero1 = Polynomial::new(&[FE::new(1)]).scale_coeffs(&FE::new(0));
+        let zero2 = Polynomial::new(&[FE::new(2), FE::new(3)]).scale_coeffs(&FE::new(0));
+        let result = zero1.xgcd(&zero2);
+        assert_eq!(result, Err(super::PolynomialError::XgcdBothZero));
     }
 }

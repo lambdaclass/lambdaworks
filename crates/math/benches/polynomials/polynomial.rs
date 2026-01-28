@@ -67,7 +67,11 @@ pub fn polynomial_benchmarks(c: &mut Criterion) {
     });
 
     group.bench_function("slow div big poly", |bench| {
-        bench.iter(|| black_box(x_poly.clone()).long_division_with_remainder(black_box(&y_poly)));
+        bench.iter(|| {
+            black_box(x_poly.clone())
+                .long_division_with_remainder(black_box(&y_poly))
+                .expect("benchmark divisor should be non-zero")
+        });
     });
 
     group.bench_function("div", |bench| {
