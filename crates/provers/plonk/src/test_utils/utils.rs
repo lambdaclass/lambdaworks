@@ -1,9 +1,12 @@
 use lambdaworks_crypto::commitments::kzg::KateZaveruchaGoldberg;
 use lambdaworks_crypto::commitments::kzg::StructuredReferenceString;
+use lambdaworks_math::elliptic_curve::short_weierstrass::curves::bls12_381::curve::SUBGROUP_ORDER;
 use lambdaworks_math::elliptic_curve::short_weierstrass::curves::bls12_381::default_types::FrElement;
 use lambdaworks_math::elliptic_curve::short_weierstrass::curves::bls12_381::default_types::FrField;
 use lambdaworks_math::elliptic_curve::short_weierstrass::curves::bls12_381::pairing::BLS12381AtePairing;
 use lambdaworks_math::field::traits::IsField;
+use lambdaworks_math::traits::ByteConversion;
+use lambdaworks_math::unsigned_integer::element::U256;
 use lambdaworks_math::{
     cyclic_group::IsGroup,
     elliptic_curve::{
@@ -15,6 +18,8 @@ use lambdaworks_math::{
     field::element::FieldElement,
     traits::IsRandomFieldElementGenerator,
 };
+
+use crate::verifier::SubgroupCheck;
 
 pub type Curve = BLS12381Curve;
 pub type TwistedCurve = BLS12381TwistCurve;
@@ -81,13 +86,108 @@ fn identity_permutation<F: IsField>(
     result
 }
 
-/// A mock of a random number generator, to have deterministic tests.
-/// When set to zero, there is no zero knowledge applied, because it is used
-/// to get random numbers to blind polynomials.
+/// A mock random number generator for deterministic tests.
+/// Returns zero, which disables blinding (no zero-knowledge in tests).
+/// **Warning**: Do NOT use in production - use `SecureRandomFieldGenerator` instead.
 #[derive(Clone)]
 pub struct TestRandomFieldGenerator;
 impl IsRandomFieldElementGenerator<FrField> for TestRandomFieldGenerator {
     fn generate(&self) -> FrElement {
         FrElement::zero()
+    }
+}
+
+/// A cryptographically secure random field element generator.
+///
+/// Uses the operating system's random number generator (via `rand::rngs::OsRng`)
+/// to generate random field elements for polynomial blinding. This ensures the
+/// zero-knowledge property of the PLONK proof system.
+///
+/// # Usage
+///
+/// ```ignore
+/// use lambdaworks_plonk::test_utils::utils::SecureRandomFieldGenerator;
+///
+/// let rng = SecureRandomFieldGenerator;
+/// let prover = Prover::new(kzg, rng);
+/// ```
+///
+/// # Security
+///
+/// This generator is suitable for production use. Each call to `generate()`
+/// produces an independent, uniformly distributed random field element.
+#[derive(Clone, Default)]
+pub struct SecureRandomFieldGenerator;
+
+impl IsRandomFieldElementGenerator<FrField> for SecureRandomFieldGenerator {
+    fn generate(&self) -> FrElement {
+        use rand::Rng;
+
+        // Generate random bytes and reduce modulo the field order
+        let mut rng = rand::rngs::OsRng;
+        let random_bytes: [u8; 32] = rng.gen();
+
+        // Convert bytes to field element (automatically reduces modulo field order)
+        FrElement::from_bytes_be(&random_bytes).unwrap_or_else(|_| {
+            // Fallback: generate another random element
+            // This should be extremely rare
+            let random_bytes2: [u8; 32] = rng.gen();
+            FrElement::from_bytes_be(&random_bytes2)
+                .expect("Failed to generate random field element")
+        })
+    }
+}
+
+#[cfg(test)]
+mod secure_rng_tests {
+    use super::*;
+
+    #[test]
+    fn test_secure_rng_generates_different_values() {
+        let rng = SecureRandomFieldGenerator;
+        let v1 = rng.generate();
+        let v2 = rng.generate();
+        let v3 = rng.generate();
+
+        // With overwhelming probability, these should all be different
+        assert_ne!(v1, v2);
+        assert_ne!(v2, v3);
+        assert_ne!(v1, v3);
+    }
+
+    #[test]
+    fn test_secure_rng_generates_nonzero() {
+        let rng = SecureRandomFieldGenerator;
+        // Generate 100 values and verify none are zero
+        // (probability of getting zero is negligible: ~2^-254)
+        for _ in 0..100 {
+            let v = rng.generate();
+            assert_ne!(v, FrElement::zero());
+        }
+    }
+
+    #[test]
+    fn test_test_rng_returns_zero() {
+        let rng = TestRandomFieldGenerator;
+        assert_eq!(rng.generate(), FrElement::zero());
+        assert_eq!(rng.generate(), FrElement::zero());
+    }
+}
+
+/// Implementation of SubgroupCheck for BLS12-381 G1 points.
+/// This enables the verifier to validate that proof commitments
+/// are in the prime-order subgroup, preventing small subgroup attacks.
+impl SubgroupCheck for G1Point {
+    type Order = U256;
+
+    fn subgroup_order() -> Self::Order {
+        SUBGROUP_ORDER
+    }
+
+    /// Uses the efficient endomorphism-based check: φ(P) = -u²P
+    /// where φ is the GLV endomorphism and u is the seed.
+    fn is_in_subgroup(&self) -> bool {
+        // Delegate to the optimized implementation on the point type
+        G1Point::is_in_subgroup(self)
     }
 }

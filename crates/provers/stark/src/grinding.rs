@@ -12,14 +12,29 @@ const PREFIX: [u8; 8] = [0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xed];
 ///
 /// * `seed`: the input seed,
 /// * `nonce`: the value to be tested,
-/// * `grinding_factor`: the number of leading zeros needed.
+/// * `grinding_factor`: the number of leading zeros needed (must be 0-63).
 ///
 /// # Returns
 ///
 /// `true` if the number of leading zeros is at least `grinding_factor`, and `false` otherwise.
+///
+/// # Panics
+///
+/// Panics if `grinding_factor > 63`. A grinding factor of 64 would require finding a hash
+/// with all 64 leading bits as zero, which is computationally infeasible.
 pub fn is_valid_nonce(seed: &[u8; 32], nonce: u64, grinding_factor: u8) -> bool {
+    assert!(
+        grinding_factor <= 63,
+        "grinding_factor must be at most 63, got {grinding_factor}"
+    );
+
+    // Special case: grinding_factor == 0 means no PoW requirement (always valid)
+    if grinding_factor == 0 {
+        return true;
+    }
+
     let inner_hash = get_inner_hash(seed, grinding_factor);
-    let limit = 1 << (64 - grinding_factor);
+    let limit = 1_u64 << (64 - grinding_factor);
     is_valid_nonce_for_inner_hash(&inner_hash, nonce, limit)
 }
 
@@ -32,14 +47,29 @@ pub fn is_valid_nonce(seed: &[u8; 32], nonce: u64, grinding_factor: u8) -> bool 
 /// # Parameters
 ///
 /// * `seed`: the input seed,
-/// * `grinding_factor`: the number of leading zeros needed.
+/// * `grinding_factor`: the number of leading zeros needed (must be 0-63).
 ///
 /// # Returns
 ///
-/// A `nonce` satisfying the required condition.
+/// A `nonce` satisfying the required condition, or `Some(0)` if `grinding_factor` is 0.
+///
+/// # Panics
+///
+/// Panics if `grinding_factor > 63`. A grinding factor of 64 would require finding a hash
+/// with all 64 leading bits as zero, which is computationally infeasible.
 pub fn generate_nonce(seed: &[u8; 32], grinding_factor: u8) -> Option<u64> {
+    assert!(
+        grinding_factor <= 63,
+        "grinding_factor must be at most 63, got {grinding_factor}"
+    );
+
+    // Special case: grinding_factor == 0 means no PoW requirement
+    if grinding_factor == 0 {
+        return Some(0);
+    }
+
     let inner_hash = get_inner_hash(seed, grinding_factor);
-    let limit = 1 << (64 - grinding_factor);
+    let limit = 1_u64 << (64 - grinding_factor);
 
     #[cfg(not(feature = "parallel"))]
     return (0..u64::MAX).find(|&candidate_nonce| {
@@ -165,5 +195,35 @@ mod test {
         let nonce = 0x4cc3123f;
         let grinding_factor = 33;
         assert!(is_valid_nonce(&seed, nonce, grinding_factor));
+    }
+
+    #[test]
+    fn test_grinding_factor_zero_always_valid() {
+        // With grinding_factor = 0, any nonce should be valid (no PoW requirement)
+        let seed = [0u8; 32];
+        assert!(is_valid_nonce(&seed, 0, 0));
+        assert!(is_valid_nonce(&seed, 12345, 0));
+        assert!(is_valid_nonce(&seed, u64::MAX, 0));
+    }
+
+    #[test]
+    fn test_generate_nonce_with_zero_grinding_factor() {
+        let seed = [0u8; 32];
+        let nonce = crate::grinding::generate_nonce(&seed, 0);
+        assert_eq!(nonce, Some(0));
+    }
+
+    #[test]
+    #[should_panic(expected = "grinding_factor must be at most 63")]
+    fn test_is_valid_nonce_panics_on_grinding_factor_64() {
+        let seed = [0u8; 32];
+        is_valid_nonce(&seed, 0, 64);
+    }
+
+    #[test]
+    #[should_panic(expected = "grinding_factor must be at most 63")]
+    fn test_generate_nonce_panics_on_grinding_factor_65() {
+        let seed = [0u8; 32];
+        crate::grinding::generate_nonce(&seed, 65);
     }
 }
