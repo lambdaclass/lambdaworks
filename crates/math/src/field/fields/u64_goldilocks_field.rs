@@ -22,7 +22,7 @@ use crate::traits::ByteConversion;
 /// The Goldilocks prime: p = 2^64 - 2^32 + 1
 pub const GOLDILOCKS_PRIME: u64 = 0xFFFF_FFFF_0000_0001;
 
-/// EPSILON = 2^32 - 1 = p - 2^64 (i.e., -2^64 mod p)
+/// EPSILON = 2^32 - 1, with 2^64 = p + EPSILON (so 2^64 ≡ EPSILON mod p)
 /// This is the key constant for fast reduction.
 const EPSILON: u64 = 0xFFFF_FFFF;
 
