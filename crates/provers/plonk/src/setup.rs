@@ -1034,7 +1034,7 @@ mod tests {
         assert_eq!(witness.a.len(), witness.b.len());
         assert_eq!(witness.b.len(), witness.c.len());
         // Should have at least one constraint
-        assert!(witness.a.len() >= 1);
+        assert!(!witness.a.is_empty());
     }
 
     #[test]
@@ -1340,7 +1340,11 @@ mod tests {
 
     #[test]
     fn test_public_input_layout_basic() {
-        let layout = PublicInputLayout::new().with_input("x").unwrap().with_input("y").unwrap();
+        let layout = PublicInputLayout::new()
+            .with_input("x")
+            .unwrap()
+            .with_input("y")
+            .unwrap();
 
         assert_eq!(layout.len(), 2);
         assert_eq!(layout.names(), &["x", "y"]);
@@ -1351,7 +1355,10 @@ mod tests {
 
     #[test]
     fn test_public_input_layout_rejects_duplicate() {
-        let result = PublicInputLayout::new().with_input("x").unwrap().with_input("x");
+        let result = PublicInputLayout::new()
+            .with_input("x")
+            .unwrap()
+            .with_input("x");
 
         assert!(result.is_err());
         assert!(matches!(result, Err(PublicInputError::DuplicateName(_))));
@@ -1384,7 +1391,11 @@ mod tests {
 
     #[test]
     fn test_public_input_layout_build_inputs_wrong_count() {
-        let layout = PublicInputLayout::new().with_input("a").unwrap().with_input("b").unwrap();
+        let layout = PublicInputLayout::new()
+            .with_input("a")
+            .unwrap()
+            .with_input("b")
+            .unwrap();
 
         let result = layout.build_inputs::<FrField>(&[("a", FE::from(1_u64))]);
 
@@ -1400,7 +1411,11 @@ mod tests {
 
     #[test]
     fn test_public_input_layout_build_inputs_wrong_name() {
-        let layout = PublicInputLayout::new().with_input("a").unwrap().with_input("b").unwrap();
+        let layout = PublicInputLayout::new()
+            .with_input("a")
+            .unwrap()
+            .with_input("b")
+            .unwrap();
 
         let result = layout.build_inputs(&[
             ("a", FE::<FrField>::from(1_u64)),
@@ -1413,9 +1428,17 @@ mod tests {
 
     #[test]
     fn test_public_input_layout_hash_deterministic() {
-        let layout1 = PublicInputLayout::new().with_input("x").unwrap().with_input("y").unwrap();
+        let layout1 = PublicInputLayout::new()
+            .with_input("x")
+            .unwrap()
+            .with_input("y")
+            .unwrap();
 
-        let layout2 = PublicInputLayout::new().with_input("x").unwrap().with_input("y").unwrap();
+        let layout2 = PublicInputLayout::new()
+            .with_input("x")
+            .unwrap()
+            .with_input("y")
+            .unwrap();
 
         assert_eq!(layout1.compute_hash(), layout2.compute_hash());
         assert!(layout1.matches(&layout2));
@@ -1423,9 +1446,17 @@ mod tests {
 
     #[test]
     fn test_public_input_layout_hash_differs_by_order() {
-        let layout1 = PublicInputLayout::new().with_input("x").unwrap().with_input("y").unwrap();
+        let layout1 = PublicInputLayout::new()
+            .with_input("x")
+            .unwrap()
+            .with_input("y")
+            .unwrap();
 
-        let layout2 = PublicInputLayout::new().with_input("y").unwrap().with_input("x").unwrap();
+        let layout2 = PublicInputLayout::new()
+            .with_input("y")
+            .unwrap()
+            .with_input("x")
+            .unwrap();
 
         assert_ne!(layout1.compute_hash(), layout2.compute_hash());
         assert!(!layout1.matches(&layout2));
@@ -1433,9 +1464,17 @@ mod tests {
 
     #[test]
     fn test_public_input_layout_hash_differs_by_name() {
-        let layout1 = PublicInputLayout::new().with_input("x").unwrap().with_input("y").unwrap();
+        let layout1 = PublicInputLayout::new()
+            .with_input("x")
+            .unwrap()
+            .with_input("y")
+            .unwrap();
 
-        let layout2 = PublicInputLayout::new().with_input("x").unwrap().with_input("z").unwrap();
+        let layout2 = PublicInputLayout::new()
+            .with_input("x")
+            .unwrap()
+            .with_input("z")
+            .unwrap();
 
         assert_ne!(layout1.compute_hash(), layout2.compute_hash());
         assert!(!layout1.matches(&layout2));
@@ -1443,13 +1482,25 @@ mod tests {
 
     #[test]
     fn test_public_input_layout_verify_matches() {
-        let layout1 = PublicInputLayout::new().with_input("x").unwrap().with_input("y").unwrap();
+        let layout1 = PublicInputLayout::new()
+            .with_input("x")
+            .unwrap()
+            .with_input("y")
+            .unwrap();
 
-        let layout2 = PublicInputLayout::new().with_input("x").unwrap().with_input("y").unwrap();
+        let layout2 = PublicInputLayout::new()
+            .with_input("x")
+            .unwrap()
+            .with_input("y")
+            .unwrap();
 
         assert!(layout1.verify_matches(&layout2).is_ok());
 
-        let layout3 = PublicInputLayout::new().with_input("a").unwrap().with_input("b").unwrap();
+        let layout3 = PublicInputLayout::new()
+            .with_input("a")
+            .unwrap()
+            .with_input("b")
+            .unwrap();
 
         let result = layout1.verify_matches(&layout3);
         assert!(result.is_err());

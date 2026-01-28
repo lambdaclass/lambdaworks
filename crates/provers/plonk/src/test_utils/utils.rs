@@ -138,6 +138,24 @@ impl IsRandomFieldElementGenerator<FrField> for SecureRandomFieldGenerator {
     }
 }
 
+/// Implementation of SubgroupCheck for BLS12-381 G1 points.
+/// This enables the verifier to validate that proof commitments
+/// are in the prime-order subgroup, preventing small subgroup attacks.
+impl SubgroupCheck for G1Point {
+    type Order = U256;
+
+    fn subgroup_order() -> Self::Order {
+        SUBGROUP_ORDER
+    }
+
+    /// Uses the efficient endomorphism-based check: φ(P) = -u²P
+    /// where φ is the GLV endomorphism and u is the seed.
+    fn is_in_subgroup(&self) -> bool {
+        // Delegate to the optimized implementation on the point type
+        G1Point::is_in_subgroup(self)
+    }
+}
+
 #[cfg(test)]
 mod secure_rng_tests {
     use super::*;
@@ -171,23 +189,5 @@ mod secure_rng_tests {
         let rng = TestRandomFieldGenerator;
         assert_eq!(rng.generate(), FrElement::zero());
         assert_eq!(rng.generate(), FrElement::zero());
-    }
-}
-
-/// Implementation of SubgroupCheck for BLS12-381 G1 points.
-/// This enables the verifier to validate that proof commitments
-/// are in the prime-order subgroup, preventing small subgroup attacks.
-impl SubgroupCheck for G1Point {
-    type Order = U256;
-
-    fn subgroup_order() -> Self::Order {
-        SUBGROUP_ORDER
-    }
-
-    /// Uses the efficient endomorphism-based check: φ(P) = -u²P
-    /// where φ is the GLV endomorphism and u is the seed.
-    fn is_in_subgroup(&self) -> bool {
-        // Delegate to the optimized implementation on the point type
-        G1Point::is_in_subgroup(self)
     }
 }

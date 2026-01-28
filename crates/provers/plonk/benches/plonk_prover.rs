@@ -21,7 +21,7 @@ use lambdaworks_plonk::verifier::Verifier;
 
 type G1Point = <BLS12381Curve as IsEllipticCurve>::PointRepresentation;
 type G2Point = <BLS12381TwistCurve as IsEllipticCurve>::PointRepresentation;
-type KZG = KateZaveruchaGoldberg<FrField, BLS12381AtePairing>;
+type Kzg = KateZaveruchaGoldberg<FrField, BLS12381AtePairing>;
 
 const ORDER_R_MINUS_1_ROOT_UNITY: FrElement = FrElement::from_hex_unchecked("7");
 
@@ -124,7 +124,7 @@ fn benchmark_prover(c: &mut Criterion) {
             .expect("Failed to create CPI");
 
         let srs = bench_srs(cpi.n);
-        let kzg = KZG::new(srs);
+        let kzg = Kzg::new(srs);
         let vk = setup(&cpi, &kzg);
 
         let (witness, public_input) = create_mul_chain_witness(size);
@@ -164,7 +164,7 @@ fn benchmark_verifier(c: &mut Criterion) {
             .expect("Failed to create CPI");
 
         let srs = bench_srs(cpi.n);
-        let kzg = KZG::new(srs);
+        let kzg = Kzg::new(srs);
         let vk = setup(&cpi, &kzg);
 
         let (witness, public_input) = create_mul_chain_witness(size);
@@ -206,7 +206,7 @@ fn benchmark_setup(c: &mut Criterion) {
             .expect("Failed to create CPI");
 
         let srs = bench_srs(cpi.n);
-        let kzg = KZG::new(srs);
+        let kzg = Kzg::new(srs);
 
         group.bench_with_input(
             BenchmarkId::new("setup", format!("{}_constraints", size)),
@@ -240,7 +240,7 @@ fn benchmark_end_to_end(c: &mut Criterion) {
 
                     // Setup
                     let srs = bench_srs(cpi.n);
-                    let kzg = KZG::new(srs);
+                    let kzg = Kzg::new(srs);
                     let vk = setup(&cpi, &kzg);
 
                     // Prove

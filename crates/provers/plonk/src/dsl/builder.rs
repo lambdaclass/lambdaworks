@@ -428,8 +428,8 @@ mod tests {
     type F = U64PrimeField<65537>;
 
     // Use an FFT-compatible field for tests that need build_witness/extract_public_inputs
-    type FFTField = U64TestField;
-    type FFTFE = FieldElement<FFTField>;
+    type FftField = U64TestField;
+    type FftFe = FieldElement<FftField>;
 
     #[test]
     fn test_circuit_builder_basic() {
@@ -515,7 +515,7 @@ mod tests {
 
     #[test]
     fn test_circuit_builder_build_witness() {
-        let mut builder = CircuitBuilder::<FFTField>::new();
+        let mut builder = CircuitBuilder::<FftField>::new();
 
         let x = builder.public_input("x");
         let y = builder.public_input("y");
@@ -527,9 +527,9 @@ mod tests {
         // x=4, e=3, y=12 satisfies x*e=y
         let witness = builder
             .build_witness(&[
-                ("x", FFTFE::from(4u64)),
-                ("e", FFTFE::from(3u64)),
-                ("y", FFTFE::from(12u64)),
+                ("x", FftFe::from(4u64)),
+                ("e", FftFe::from(3u64)),
+                ("y", FftFe::from(12u64)),
             ])
             .unwrap();
 
@@ -539,7 +539,7 @@ mod tests {
 
     #[test]
     fn test_circuit_builder_extract_public_inputs() {
-        let mut builder = CircuitBuilder::<FFTField>::new();
+        let mut builder = CircuitBuilder::<FftField>::new();
 
         builder.public_input("x");
         builder.public_input("y");
@@ -547,13 +547,13 @@ mod tests {
 
         let public_inputs = builder
             .extract_public_inputs(&[
-                ("y", FFTFE::from(12u64)),
-                ("x", FFTFE::from(4u64)),
-                ("e", FFTFE::from(3u64)),
+                ("y", FftFe::from(12u64)),
+                ("x", FftFe::from(4u64)),
+                ("e", FftFe::from(3u64)),
             ])
             .unwrap();
 
         // Should be in order: x, y
-        assert_eq!(public_inputs, vec![FFTFE::from(4u64), FFTFE::from(12u64)]);
+        assert_eq!(public_inputs, vec![FftFe::from(4u64), FftFe::from(12u64)]);
     }
 }
