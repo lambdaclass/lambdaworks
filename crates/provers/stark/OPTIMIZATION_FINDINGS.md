@@ -135,21 +135,24 @@ let mut all_boundary_polys = Vec::with_capacity(total_evals);
 
 **Location**: `traits.rs:208-244` - `transition_zerofier_evaluations`
 
-Currently sequential. Each zerofier group's FFT evaluation is independent:
+Currently sequential. The base zerofier and end exemptions computations could be parallelized:
 
 ```rust
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
 
-let zerofier_groups: HashMap<_, _> = self.transition_constraints()
-    .par_iter()  // Parallelize constraint processing
-    .map(|c| {
-        let key = (c.period(), c.offset(), ...);
-        let evals = c.zerofier_evaluations_on_extended_domain(domain);
-        (key, evals)
-    })
+// Parallel computation of unique base zerofiers
+let base_zerofiers: HashMap<_, _> = unique_base_keys
+    .par_iter()
+    .map(|key| (key, compute_base_zerofier(key)))
     .collect();
 ```
+
+**Note**: The zerofier computation now uses split caching (base zerofier + end exemptions),
+which already reduces redundant computation for AIRs with multiple constraints sharing
+the same `(period, offset)` but different `end_exemptions`. Most real-world AIRs have
+all constraints with `period=1, offset=0`, so the base zerofier `1/(x^n - 1)` is computed
+only once.
 
 #### 5. In-place polynomial arithmetic in `compute_deep_composition_poly`
 
@@ -204,12 +207,11 @@ evals[c.constraint_idx()] = Rc::clone(zerofier_groups.get(&key).unwrap());
 | `compute_transition_into()` buffer reuse | ✅ Done | 6.9% fewer blocks |
 | Pre-allocate periodic_values buffer | ✅ Done | Included above |
 | Pre-allocate Vec in `commit_composition_polynomial` | ✅ Done | 18.9% peak reduction |
-| Avoid lde_trace clone | ⬜ TODO | Est. 16 MB peak reduction |
-| Optimize columns2rows | ⬜ TODO | Est. 8 MB peak reduction |
+| Fused bit-reverse + transpose | ✅ Done | 1% total allocation reduction |
+| Zerofier base/exemptions split caching | ✅ Done | Benefits multi-constraint AIRs |
 | Parallelize zerofier computation | ⬜ TODO | Est. 10-15% speedup |
 | In-place polynomial arithmetic | ⬜ TODO | Est. 24 MB total reduction |
 | evaluate_offset_fft_with_buffer in LDE | ⬜ TODO | Est. 10 MB reduction |
-| Rc for zerofier caching | ⬜ TODO | Est. 5-10% speedup |
 
 ---
 
