@@ -10,11 +10,11 @@
 //!
 //! Based on analysis of Plonky3's implementation and academic literature on FFT optimization.
 
+use crate::fft::cpu::bit_reversing::in_place_bit_reverse_permute;
 use crate::field::{
     element::FieldElement,
     traits::{IsFFTField, IsField, IsSubFieldOf},
 };
-use crate::fft::cpu::bit_reversing::in_place_bit_reverse_permute;
 
 #[cfg(feature = "alloc")]
 use alloc::vec::Vec;
@@ -181,7 +181,11 @@ impl<E: IsField> FftMatrix<E> {
             data.extend(poly);
         }
 
-        Self { data, width, height }
+        Self {
+            data,
+            width,
+            height,
+        }
     }
 
     /// Get a mutable slice for polynomial at index `row`
@@ -252,8 +256,7 @@ fn butterfly_2_layers<F, E>(
     block_size: usize,
     tw_stride_layer0: usize,
     tw_stride_layer1: usize,
-)
-where
+) where
     F: IsFFTField + IsSubFieldOf<E>,
     E: IsField,
 {
@@ -457,8 +460,8 @@ where
 #[cfg(all(test, feature = "alloc"))]
 mod tests {
     use super::*;
-    use crate::field::fields::u64_goldilocks_field::Goldilocks64Field;
     use crate::fft::cpu::roots_of_unity::get_powers_of_primitive_root;
+    use crate::field::fields::u64_goldilocks_field::Goldilocks64Field;
     use crate::field::traits::RootsConfig;
 
     type F = Goldilocks64Field;

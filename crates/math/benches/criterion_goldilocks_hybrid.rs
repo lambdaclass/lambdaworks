@@ -8,14 +8,14 @@
 
 use criterion::{black_box, criterion_group, criterion_main, BatchSize, Criterion, Throughput};
 
-use lambdaworks_math::field::element::FieldElement;
-use lambdaworks_math::field::fields::goldilocks_hybrid::Goldilocks64HybridField;
-use lambdaworks_math::field::fields::u64_goldilocks_field::Goldilocks64Field;
-use lambdaworks_math::field::traits::RootsConfig;
 use lambdaworks_math::fft::cpu::bit_reversing::in_place_bit_reverse_permute;
 use lambdaworks_math::fft::cpu::bowers_fft::{bowers_fft, bowers_fft_fused};
 use lambdaworks_math::fft::cpu::fft::in_place_nr_2radix_fft;
 use lambdaworks_math::fft::cpu::roots_of_unity::get_powers_of_primitive_root;
+use lambdaworks_math::field::element::FieldElement;
+use lambdaworks_math::field::fields::goldilocks_hybrid::Goldilocks64HybridField;
+use lambdaworks_math::field::fields::u64_goldilocks_field::Goldilocks64Field;
+use lambdaworks_math::field::traits::RootsConfig;
 
 type FOriginal = Goldilocks64Field;
 type FEOriginal = FieldElement<FOriginal>;
@@ -47,7 +47,7 @@ fn bench_field_add(c: &mut Criterion) {
             let mut acc = values_original[0];
             for _ in 0..FIELD_OP_ITERATIONS {
                 for v in &values_original {
-                    acc = acc + *v;
+                    acc += *v;
                 }
             }
             black_box(acc)
@@ -59,7 +59,7 @@ fn bench_field_add(c: &mut Criterion) {
             let mut acc = values_hybrid[0];
             for _ in 0..FIELD_OP_ITERATIONS {
                 for v in &values_hybrid {
-                    acc = acc + *v;
+                    acc += *v;
                 }
             }
             black_box(acc)
@@ -85,7 +85,7 @@ fn bench_field_mul(c: &mut Criterion) {
             let mut acc = values_original[1];
             for _ in 0..FIELD_OP_ITERATIONS {
                 for v in &values_original[1..] {
-                    acc = acc * *v;
+                    acc *= *v;
                 }
             }
             black_box(acc)
@@ -97,7 +97,7 @@ fn bench_field_mul(c: &mut Criterion) {
             let mut acc = values_hybrid[1];
             for _ in 0..FIELD_OP_ITERATIONS {
                 for v in &values_hybrid[1..] {
-                    acc = acc * *v;
+                    acc *= *v;
                 }
             }
             black_box(acc)
@@ -111,12 +111,8 @@ fn bench_field_inv(c: &mut Criterion) {
     let mut group = c.benchmark_group("Goldilocks Inv");
     group.throughput(Throughput::Elements(1000));
 
-    let values_original: Vec<FEOriginal> = (1..1001)
-        .map(|i| FEOriginal::from(i as u64))
-        .collect();
-    let values_hybrid: Vec<FEHybrid> = (1..1001)
-        .map(|i| FEHybrid::from(i as u64))
-        .collect();
+    let values_original: Vec<FEOriginal> = (1..1001).map(|i| FEOriginal::from(i as u64)).collect();
+    let values_hybrid: Vec<FEHybrid> = (1..1001).map(|i| FEHybrid::from(i as u64)).collect();
 
     group.bench_function("Original", |b| {
         b.iter(|| {
@@ -188,21 +184,33 @@ fn bench_fft_comparison(c: &mut Criterion) {
         group.throughput(Throughput::Elements(size));
 
         let input_original = generate_input_original(order);
-        let twiddles_br_original =
-            get_powers_of_primitive_root::<FOriginal>(order, (size / 2) as usize, RootsConfig::BitReverse)
-                .unwrap();
-        let twiddles_nat_original =
-            get_powers_of_primitive_root::<FOriginal>(order, (size / 2) as usize, RootsConfig::Natural)
-                .unwrap();
+        let twiddles_br_original = get_powers_of_primitive_root::<FOriginal>(
+            order,
+            (size / 2) as usize,
+            RootsConfig::BitReverse,
+        )
+        .unwrap();
+        let twiddles_nat_original = get_powers_of_primitive_root::<FOriginal>(
+            order,
+            (size / 2) as usize,
+            RootsConfig::Natural,
+        )
+        .unwrap();
         let _ = &twiddles_nat_original; // Kept for potential future benchmarks
 
         let input_hybrid = generate_input_hybrid(order);
-        let twiddles_br_hybrid =
-            get_powers_of_primitive_root::<FHybrid>(order, (size / 2) as usize, RootsConfig::BitReverse)
-                .unwrap();
-        let twiddles_nat_hybrid =
-            get_powers_of_primitive_root::<FHybrid>(order, (size / 2) as usize, RootsConfig::Natural)
-                .unwrap();
+        let twiddles_br_hybrid = get_powers_of_primitive_root::<FHybrid>(
+            order,
+            (size / 2) as usize,
+            RootsConfig::BitReverse,
+        )
+        .unwrap();
+        let twiddles_nat_hybrid = get_powers_of_primitive_root::<FHybrid>(
+            order,
+            (size / 2) as usize,
+            RootsConfig::Natural,
+        )
+        .unwrap();
 
         // Standard NR FFT with Original field
         group.bench_with_input(

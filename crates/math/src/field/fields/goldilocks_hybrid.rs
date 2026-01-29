@@ -484,7 +484,9 @@ impl IsSubFieldOf<Degree2GoldilocksHybridExtensionField> for Goldilocks64HybridF
 
     fn div(a: &Self::BaseType, b: &[FpE; 2]) -> Result<[FpE; 2], FieldError> {
         let b_inv = Degree2GoldilocksHybridExtensionField::inv(b)?;
-        Ok(<Self as IsSubFieldOf<Degree2GoldilocksHybridExtensionField>>::mul(a, &b_inv))
+        Ok(<Self as IsSubFieldOf<
+            Degree2GoldilocksHybridExtensionField,
+        >>::mul(a, &b_inv))
     }
 
     fn sub(a: &Self::BaseType, b: &[FpE; 2]) -> [FpE; 2] {
