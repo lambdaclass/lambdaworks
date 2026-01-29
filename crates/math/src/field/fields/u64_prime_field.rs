@@ -153,6 +153,13 @@ impl<const MODULUS: u64> Deserializable for FieldElement<U64PrimeField<MODULUS>>
     }
 }
 
+#[cfg(feature = "alloc")]
+impl<const MODULUS: u64> crate::traits::AsBytes for FieldElement<U64PrimeField<MODULUS>> {
+    fn as_bytes(&self) -> alloc::vec::Vec<u8> {
+        self.to_bytes_be()
+    }
+}
+
 impl<const MODULUS: u64> HasDefaultTranscript for U64PrimeField<MODULUS> {
     fn get_random_field_element_from_rng(rng: &mut impl rand::Rng) -> FieldElement<Self> {
         let mask = u64::MAX >> MODULUS.leading_zeros();

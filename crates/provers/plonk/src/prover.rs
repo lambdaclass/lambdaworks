@@ -2,7 +2,8 @@ use lambdaworks_crypto::fiat_shamir::is_transcript::IsTranscript;
 use lambdaworks_math::errors::DeserializationError;
 use lambdaworks_math::field::traits::IsFFTField;
 use lambdaworks_math::traits::{
-    deserialize_with_length, AsBytes, Deserializable, IsRandomFieldElementGenerator,
+    deserialize_field_element_with_length, deserialize_with_length, AsBytes, Deserializable,
+    IsRandomFieldElementGenerator,
 };
 use std::marker::PhantomData;
 
@@ -161,34 +162,6 @@ where
     }
 }
 
-/// Deserialize a field element with length prefix.
-/// Note: FieldElement doesn't implement Deserializable trait, so we need this helper.
-fn deserialize_field_element<F>(
-    bytes: &[u8],
-    offset: usize,
-) -> Result<(usize, FieldElement<F>), DeserializationError>
-where
-    F: IsField,
-    FieldElement<F>: ByteConversion,
-{
-    const SIZE_OF_U32: usize = core::mem::size_of::<u32>();
-    let mut offset = offset;
-    let element_size_bytes: [u8; SIZE_OF_U32] = bytes
-        .get(offset..offset + SIZE_OF_U32)
-        .ok_or(DeserializationError::InvalidAmountOfBytes)?
-        .try_into()
-        .map_err(|_| DeserializationError::InvalidAmountOfBytes)?;
-    let element_size = u32::from_be_bytes(element_size_bytes) as usize;
-    offset += SIZE_OF_U32;
-    let field_element = FieldElement::from_bytes_be(
-        bytes
-            .get(offset..offset + element_size)
-            .ok_or(DeserializationError::InvalidAmountOfBytes)?,
-    )?;
-    offset += element_size;
-    Ok((offset, field_element))
-}
-
 impl<F, CS> Deserializable for Proof<F, CS>
 where
     F: IsField,
@@ -200,17 +173,15 @@ where
     where
         Self: Sized,
     {
-        // Deserialize field elements
-        let (offset, a_zeta) = deserialize_field_element(bytes, 0)?;
-        let (offset, b_zeta) = deserialize_field_element(bytes, offset)?;
-        let (offset, c_zeta) = deserialize_field_element(bytes, offset)?;
-        let (offset, s1_zeta) = deserialize_field_element(bytes, offset)?;
-        let (offset, s2_zeta) = deserialize_field_element(bytes, offset)?;
-        let (offset, z_zeta_omega) = deserialize_field_element(bytes, offset)?;
-        let (offset, p_non_constant_zeta) = deserialize_field_element(bytes, offset)?;
-        let (offset, t_zeta) = deserialize_field_element(bytes, offset)?;
+        let (offset, a_zeta) = deserialize_field_element_with_length(bytes, 0)?;
+        let (offset, b_zeta) = deserialize_field_element_with_length(bytes, offset)?;
+        let (offset, c_zeta) = deserialize_field_element_with_length(bytes, offset)?;
+        let (offset, s1_zeta) = deserialize_field_element_with_length(bytes, offset)?;
+        let (offset, s2_zeta) = deserialize_field_element_with_length(bytes, offset)?;
+        let (offset, z_zeta_omega) = deserialize_field_element_with_length(bytes, offset)?;
+        let (offset, p_non_constant_zeta) = deserialize_field_element_with_length(bytes, offset)?;
+        let (offset, t_zeta) = deserialize_field_element_with_length(bytes, offset)?;
 
-        // Deserialize commitments using shared helper
         let (offset, a_1) = deserialize_with_length(bytes, offset)?;
         let (offset, b_1) = deserialize_with_length(bytes, offset)?;
         let (offset, c_1) = deserialize_with_length(bytes, offset)?;
@@ -735,7 +706,7 @@ mod tests {
         elliptic_curve::{
             short_weierstrass::{
                 curves::bls12_381::{curve::BLS12381Curve, default_types::FrElement},
-                point::ShortWeierstrassProjectivePoint,
+                point::ShortWeierstrassJacobianPoint,
             },
             traits::IsEllipticCurve,
         },
@@ -849,7 +820,7 @@ mod tests {
             FpElement::from_hex_unchecked("f96d8a93f3f5be2ab2819891f41c9f883cacea63da423e6ed1701765fcd659fc11e056a48c554f5df3a9c6603d48ca8"),
             FpElement::from_hex_unchecked("14fa74fa049b7276007b739f3b8cfeac09e8cfabd4f858b6b99798c81124c34851960bebda90133cb03c981c08c8b6d3"),
         ).unwrap();
-        let t_hi_1_expected = ShortWeierstrassProjectivePoint::<BLS12381Curve>::neutral_element();
+        let t_hi_1_expected = ShortWeierstrassJacobianPoint::<BLS12381Curve>::neutral_element();
 
         assert_eq!(round_3.t_lo_1, t_lo_1_expected);
         assert_eq!(round_3.t_mid_1, t_mid_1_expected);
