@@ -39,8 +39,8 @@
 static ALLOC: dhat::Alloc = dhat::Alloc;
 
 use stark_platinum_prover::{
-    examples::simple_fibonacci::{fibonacci_trace, FibonacciAIR, FibonacciPublicInputs},
     examples::read_only_memory::{sort_rap_trace, ReadOnlyPublicInputs, ReadOnlyRAP},
+    examples::simple_fibonacci::{fibonacci_trace, FibonacciAIR, FibonacciPublicInputs},
     proof::options::ProofOptions,
     prover::{IsStarkProver, Prover},
     traits::AIR,
@@ -88,7 +88,10 @@ fn parse_args() -> (u32, usize, AirType) {
                         "fibonacci" | "fib" => AirType::Fibonacci,
                         "read_only_memory" | "rom" => AirType::ReadOnlyMemory,
                         _ => {
-                            eprintln!("Unknown AIR type: {}. Use 'fibonacci' or 'read_only_memory'", args[i]);
+                            eprintln!(
+                                "Unknown AIR type: {}. Use 'fibonacci' or 'read_only_memory'",
+                                args[i]
+                            );
                             std::process::exit(1);
                         }
                     };

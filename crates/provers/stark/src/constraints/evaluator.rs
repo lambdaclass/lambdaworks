@@ -56,8 +56,14 @@ where
     ) -> Vec<FieldElement<FieldExtension>> {
         let boundary_constraints = &self.boundary_constraints;
 
-        // Cache boundary zerofiers by step - multiple constraints at the same step share zerofier
-        // Use HashMap for deduplication, then build Vec of references for fast inner loop access
+        // Optimization: Cache boundary zerofiers by step.
+        // Multiple boundary constraints can apply at the same step (e.g., constraining different
+        // columns at step 0). Since the zerofier only depends on the step, we compute each unique
+        // zerofier once and reuse it. This avoids redundant batch inversions (which are expensive)
+        // when multiple constraints share the same step.
+        //
+        // The zerofier for step `s` is: 1/(x - g^s) evaluated at each LDE domain point,
+        // where g is the trace primitive root of unity.
         use std::collections::HashMap;
         let mut zerofier_cache: HashMap<usize, Vec<FieldElement<Field>>> = HashMap::new();
 

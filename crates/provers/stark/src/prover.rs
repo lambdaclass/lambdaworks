@@ -128,13 +128,13 @@ where
         let mut trace_polys: Vec<_> = self
             .main
             .trace_polys
-            .clone()
-            .into_iter()
+            .iter()
+            .cloned()
             .map(|poly| poly.to_extension())
             .collect();
 
         if let Some(aux) = &self.aux {
-            trace_polys.extend_from_slice(&aux.trace_polys.to_owned())
+            trace_polys.extend(aux.trace_polys.iter().cloned())
         }
         trace_polys
     }
@@ -683,24 +683,12 @@ pub trait IsStarkProver<
         let z_power = z.pow(round_2_result.composition_poly_parts.len());
 
         // ∑ᵢ 𝛾ᵢ ( Hᵢ − Hᵢ(z^N) ) / ( X − z^N )
-        // Optimized: accumulate directly into coefficient buffer to avoid intermediate allocations
-        let max_degree = round_2_result
-            .composition_poly_parts
-            .iter()
-            .map(|p| p.degree())
-            .max()
-            .unwrap_or(0);
-
-        let mut h_coeffs: Vec<FieldElement<FieldExtension>> =
-            vec![FieldElement::zero(); max_degree + 1];
-
+        let mut h_terms = Polynomial::zero();
         for (i, part) in round_2_result.composition_poly_parts.iter().enumerate() {
             let h_i_eval = &round_3_result.composition_poly_parts_ood_evaluation[i];
             let h_i_term = &composition_poly_gammas[i] * (part - h_i_eval);
             h_terms += h_i_term;
         }
-
-        let mut h_terms = Polynomial::new(&h_coeffs);
         assert_eq!(h_terms.evaluate(&z_power), FieldElement::zero());
         h_terms.ruffini_division_inplace(&z_power);
 

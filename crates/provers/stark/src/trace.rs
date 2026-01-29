@@ -406,6 +406,10 @@ pub fn columns2rows_bit_reversed<F>(columns: &[Vec<F>]) -> Vec<Vec<F>>
 where
     F: Clone,
 {
+    if columns.is_empty() {
+        return Vec::new();
+    }
+
     use lambdaworks_math::fft::cpu::bit_reversing::reverse_index;
 
     let num_rows = columns[0].len();
