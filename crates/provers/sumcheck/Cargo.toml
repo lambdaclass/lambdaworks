@@ -7,3 +7,24 @@ edition = "2021"
 [dependencies]
 lambdaworks-math.workspace = true
 lambdaworks-crypto.workspace = true
+rayon = { version = "1.7", optional = true }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+metal = { version = "0.31", optional = true }
+objc = { version = "0.2", optional = true }
+block = { version = "0.1", optional = true }
+
+[dev-dependencies]
+criterion = { version = "0.5.1", features = ["html_reports"] }
+rand = "0.8.5"
+pprof = { version = "0.13.0", features = ["criterion", "flamegraph"] }
+
+[features]
+default = ["parallel"]
+parallel = ["dep:rayon", "lambdaworks-math/parallel"]
+# Metal GPU acceleration (macOS only)
+metal = ["dep:metal", "dep:objc", "dep:block"]
+
+[[bench]]
+name = "criterion_sumcheck"
+harness = false
