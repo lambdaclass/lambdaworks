@@ -10,8 +10,7 @@ use rayon::prelude::*;
 
 use lambdaworks_math::fft::cpu::bit_reversing::in_place_bit_reverse_permute;
 use lambdaworks_math::fft::cpu::bowers_fft::{
-    bowers_fft, bowers_fft_fused, bowers_fft_opt, bowers_fft_opt_fused,
-    bowers_fft_opt_fused_parallel, bowers_fft_opt_parallel, bowers_fft_parallel, LayerTwiddles,
+    bowers_fft_opt_fused, bowers_fft_opt_fused_parallel, LayerTwiddles,
 };
 use lambdaworks_math::fft::cpu::fft::in_place_nr_2radix_fft;
 use lambdaworks_math::fft::cpu::roots_of_unity::get_powers_of_primitive_root;
@@ -54,9 +53,6 @@ fn bench_fft_comparison(c: &mut Criterion) {
         let twiddles_br =
             get_powers_of_primitive_root::<F>(order, (size / 2) as usize, RootsConfig::BitReverse)
                 .unwrap();
-        let twiddles_nat =
-            get_powers_of_primitive_root::<F>(order, (size / 2) as usize, RootsConfig::Natural)
-                .unwrap();
 
         // Standard NR Radix-2 FFT
         group.bench_with_input(
@@ -75,76 +71,8 @@ fn bench_fft_comparison(c: &mut Criterion) {
             },
         );
 
-        // Bowers FFT
-        group.bench_with_input(
-            format!("Bowers 2^{}", order),
-            &(input.clone(), twiddles_nat.clone()),
-            |bench, (input, twiddles)| {
-                bench.iter_batched(
-                    || input.clone(),
-                    |mut data| {
-                        bowers_fft(&mut data, twiddles);
-                        in_place_bit_reverse_permute(&mut data);
-                        black_box(data)
-                    },
-                    BatchSize::LargeInput,
-                );
-            },
-        );
-
-        // Bowers Fused FFT
-        group.bench_with_input(
-            format!("Bowers Fused 2^{}", order),
-            &(input.clone(), twiddles_nat.clone()),
-            |bench, (input, twiddles)| {
-                bench.iter_batched(
-                    || input.clone(),
-                    |mut data| {
-                        bowers_fft_fused(&mut data, twiddles);
-                        in_place_bit_reverse_permute(&mut data);
-                        black_box(data)
-                    },
-                    BatchSize::LargeInput,
-                );
-            },
-        );
-
-        // Bowers Parallel FFT (internal parallelism, strided twiddles)
-        group.bench_with_input(
-            format!("Bowers Parallel 2^{}", order),
-            &(input.clone(), twiddles_nat),
-            |bench, (input, twiddles)| {
-                bench.iter_batched(
-                    || input.clone(),
-                    |mut data| {
-                        bowers_fft_parallel(&mut data, twiddles);
-                        in_place_bit_reverse_permute(&mut data);
-                        black_box(data)
-                    },
-                    BatchSize::LargeInput,
-                );
-            },
-        );
-
         // Pre-compute LayerTwiddles for optimized versions
         let layer_twiddles = LayerTwiddles::<F>::new(order);
-
-        // Bowers Optimized FFT (with LayerTwiddles - sequential access)
-        group.bench_with_input(
-            format!("Bowers Opt 2^{}", order),
-            &(input.clone(), layer_twiddles.clone()),
-            |bench, (input, layer_twiddles)| {
-                bench.iter_batched(
-                    || input.clone(),
-                    |mut data| {
-                        bowers_fft_opt(&mut data, layer_twiddles);
-                        in_place_bit_reverse_permute(&mut data);
-                        black_box(data)
-                    },
-                    BatchSize::LargeInput,
-                );
-            },
-        );
 
         // Bowers Optimized Fused FFT (LayerTwiddles + 2-layer fusion)
         group.bench_with_input(
@@ -155,23 +83,6 @@ fn bench_fft_comparison(c: &mut Criterion) {
                     || input.clone(),
                     |mut data| {
                         bowers_fft_opt_fused(&mut data, layer_twiddles);
-                        in_place_bit_reverse_permute(&mut data);
-                        black_box(data)
-                    },
-                    BatchSize::LargeInput,
-                );
-            },
-        );
-
-        // Bowers Optimized Parallel FFT (LayerTwiddles + internal parallelism)
-        group.bench_with_input(
-            format!("Bowers Opt Parallel 2^{}", order),
-            &(input.clone(), layer_twiddles.clone()),
-            |bench, (input, layer_twiddles)| {
-                bench.iter_batched(
-                    || input.clone(),
-                    |mut data| {
-                        bowers_fft_opt_parallel(&mut data, layer_twiddles);
                         in_place_bit_reverse_permute(&mut data);
                         black_box(data)
                     },
@@ -219,12 +130,9 @@ fn bench_fft_parallel_batch(c: &mut Criterion) {
         let twiddles_br =
             get_powers_of_primitive_root::<F>(order, (size / 2) as usize, RootsConfig::BitReverse)
                 .unwrap();
-        let twiddles_nat =
-            get_powers_of_primitive_root::<F>(order, (size / 2) as usize, RootsConfig::Natural)
-                .unwrap();
         let layer_twiddles = LayerTwiddles::<F>::new(order);
 
-        // Standard NR - parallel
+        // Standard NR - parallel across polys
         group.bench_with_input(
             format!("Standard NR 2^{}", order),
             &(inputs.clone(), twiddles_br.clone()),
@@ -234,82 +142,6 @@ fn bench_fft_parallel_batch(c: &mut Criterion) {
                     |mut polys| {
                         polys.par_iter_mut().for_each(|poly| {
                             in_place_nr_2radix_fft::<F, F>(poly, twiddles);
-                            in_place_bit_reverse_permute(poly);
-                        });
-                        black_box(polys)
-                    },
-                    BatchSize::LargeInput,
-                );
-            },
-        );
-
-        // Bowers - parallel across polys
-        group.bench_with_input(
-            format!("Bowers 2^{}", order),
-            &(inputs.clone(), twiddles_nat.clone()),
-            |bench, (inputs, twiddles)| {
-                bench.iter_batched(
-                    || inputs.clone(),
-                    |mut polys| {
-                        polys.par_iter_mut().for_each(|poly| {
-                            bowers_fft(poly, twiddles);
-                            in_place_bit_reverse_permute(poly);
-                        });
-                        black_box(polys)
-                    },
-                    BatchSize::LargeInput,
-                );
-            },
-        );
-
-        // Bowers Fused - parallel across polys
-        group.bench_with_input(
-            format!("Bowers Fused 2^{}", order),
-            &(inputs.clone(), twiddles_nat.clone()),
-            |bench, (inputs, twiddles)| {
-                bench.iter_batched(
-                    || inputs.clone(),
-                    |mut polys| {
-                        polys.par_iter_mut().for_each(|poly| {
-                            bowers_fft_fused(poly, twiddles);
-                            in_place_bit_reverse_permute(poly);
-                        });
-                        black_box(polys)
-                    },
-                    BatchSize::LargeInput,
-                );
-            },
-        );
-
-        // Bowers Parallel - parallel across polys + internal parallel
-        group.bench_with_input(
-            format!("Bowers Parallel 2^{}", order),
-            &(inputs.clone(), twiddles_nat),
-            |bench, (inputs, twiddles)| {
-                bench.iter_batched(
-                    || inputs.clone(),
-                    |mut polys| {
-                        polys.par_iter_mut().for_each(|poly| {
-                            bowers_fft_parallel(poly, twiddles);
-                            in_place_bit_reverse_permute(poly);
-                        });
-                        black_box(polys)
-                    },
-                    BatchSize::LargeInput,
-                );
-            },
-        );
-
-        // Bowers Optimized - parallel across polys
-        group.bench_with_input(
-            format!("Bowers Opt 2^{}", order),
-            &(inputs.clone(), layer_twiddles.clone()),
-            |bench, (inputs, twiddles)| {
-                bench.iter_batched(
-                    || inputs.clone(),
-                    |mut polys| {
-                        polys.par_iter_mut().for_each(|poly| {
-                            bowers_fft_opt(poly, twiddles);
                             in_place_bit_reverse_permute(poly);
                         });
                         black_box(polys)
@@ -329,25 +161,6 @@ fn bench_fft_parallel_batch(c: &mut Criterion) {
                     |mut polys| {
                         polys.par_iter_mut().for_each(|poly| {
                             bowers_fft_opt_fused(poly, twiddles);
-                            in_place_bit_reverse_permute(poly);
-                        });
-                        black_box(polys)
-                    },
-                    BatchSize::LargeInput,
-                );
-            },
-        );
-
-        // Bowers Optimized Parallel - parallel across polys + internal parallel
-        group.bench_with_input(
-            format!("Bowers OptPar 2^{}", order),
-            &(inputs.clone(), layer_twiddles.clone()),
-            |bench, (inputs, twiddles)| {
-                bench.iter_batched(
-                    || inputs.clone(),
-                    |mut polys| {
-                        polys.par_iter_mut().for_each(|poly| {
-                            bowers_fft_opt_parallel(poly, twiddles);
                             in_place_bit_reverse_permute(poly);
                         });
                         black_box(polys)
@@ -395,37 +208,17 @@ fn bench_fft_internal_parallel(c: &mut Criterion) {
         group.throughput(Throughput::Elements(size));
 
         let input = generate_input(order);
-        let twiddles_nat =
-            get_powers_of_primitive_root::<F>(order, (size / 2) as usize, RootsConfig::Natural)
-                .unwrap();
         let layer_twiddles = LayerTwiddles::<F>::new(order);
 
-        // Bowers Parallel (legacy with strided twiddles)
+        // Bowers Opt Fused (sequential baseline)
         group.bench_with_input(
-            format!("Bowers Parallel 2^{}", order),
-            &(input.clone(), twiddles_nat.clone()),
-            |bench, (input, twiddles)| {
-                bench.iter_batched(
-                    || input.clone(),
-                    |mut data| {
-                        bowers_fft_parallel(&mut data, twiddles);
-                        in_place_bit_reverse_permute(&mut data);
-                        black_box(data)
-                    },
-                    BatchSize::LargeInput,
-                );
-            },
-        );
-
-        // Bowers Opt Parallel (with LayerTwiddles)
-        group.bench_with_input(
-            format!("Bowers OptParallel 2^{}", order),
+            format!("Bowers OptFused 2^{}", order),
             &(input.clone(), layer_twiddles.clone()),
             |bench, (input, layer_twiddles)| {
                 bench.iter_batched(
                     || input.clone(),
                     |mut data| {
-                        bowers_fft_opt_parallel(&mut data, layer_twiddles);
+                        bowers_fft_opt_fused(&mut data, layer_twiddles);
                         in_place_bit_reverse_permute(&mut data);
                         black_box(data)
                     },
@@ -434,7 +227,7 @@ fn bench_fft_internal_parallel(c: &mut Criterion) {
             },
         );
 
-        // Bowers Opt Fused Parallel (with LayerTwiddles + 2-layer fusion)
+        // Bowers Opt Fused Parallel (with LayerTwiddles + 2-layer fusion + internal parallelism)
         group.bench_with_input(
             format!("Bowers OptFusedParallel 2^{}", order),
             &(input.clone(), layer_twiddles),
