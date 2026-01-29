@@ -7,7 +7,7 @@ use rayon::prelude::*;
 
 use lambdaworks_math::fft::cpu::bit_reversing::in_place_bit_reverse_permute;
 use lambdaworks_math::fft::cpu::bowers_fft::{
-    bowers_fft, bowers_fft_fused, bowers_fft_opt, bowers_fft_opt_fused, BowersFft, LayerTwiddles,
+    bowers_fft, bowers_fft_fused, bowers_fft_opt, bowers_fft_opt_fused, LayerTwiddles,
 };
 use lambdaworks_math::fft::cpu::fft::in_place_nr_2radix_fft;
 use lambdaworks_math::fft::cpu::roots_of_unity::get_powers_of_primitive_root;
@@ -226,66 +226,6 @@ fn bench_fft_parallel_batch(c: &mut Criterion) {
 }
 
 // =====================================================
-// CACHED FFT (BowersFft with RwLock cache)
-// =====================================================
-
-fn bench_fft_cached(c: &mut Criterion) {
-    let mut group = c.benchmark_group("FFT Cached 60 Polys");
-
-    let batch_orders: [u64; 3] = [14, 16, 18];
-
-    for order in batch_orders {
-        let size = 1u64 << order;
-        let total_elements = size * BATCH_SIZE as u64;
-        group.throughput(Throughput::Elements(total_elements));
-
-        let inputs = generate_batch_input(order, BATCH_SIZE);
-
-        // Create cached FFT instance and precompute twiddles
-        let fft = BowersFft::<F>::new();
-        fft.precompute(order);
-
-        // BowersFft cached - parallel
-        group.bench_with_input(
-            format!("BowersFft Cached 2^{}", order),
-            &inputs,
-            |bench, inputs| {
-                bench.iter_batched(
-                    || inputs.clone(),
-                    |mut polys| {
-                        polys.par_iter_mut().for_each(|poly| {
-                            fft.fft(poly);
-                        });
-                        black_box(polys)
-                    },
-                    BatchSize::LargeInput,
-                );
-            },
-        );
-
-        // BowersFft cached fused - parallel
-        group.bench_with_input(
-            format!("BowersFft CachedFused 2^{}", order),
-            &inputs,
-            |bench, inputs| {
-                bench.iter_batched(
-                    || inputs.clone(),
-                    |mut polys| {
-                        polys.par_iter_mut().for_each(|poly| {
-                            fft.fft_fused(poly);
-                        });
-                        black_box(polys)
-                    },
-                    BatchSize::LargeInput,
-                );
-            },
-        );
-    }
-
-    group.finish();
-}
-
-// =====================================================
 // FIELD OPERATIONS
 // =====================================================
 
@@ -346,15 +286,9 @@ criterion_group!(
 );
 
 criterion_group!(
-    name = fft_cached_benchmarks;
-    config = Criterion::default().sample_size(10);
-    targets = bench_fft_cached,
-);
-
-criterion_group!(
     name = field_benchmarks;
     config = Criterion::default().sample_size(10);
     targets = bench_field_ops,
 );
 
-criterion_main!(fft_benchmarks, fft_parallel_benchmarks, fft_cached_benchmarks, field_benchmarks);
+criterion_main!(fft_benchmarks, fft_parallel_benchmarks, field_benchmarks);
