@@ -2,9 +2,11 @@ use super::field::element::FieldElement;
 use crate::field::traits::{IsField, IsPrimeField, IsSubFieldOf};
 use alloc::string::{String, ToString};
 use alloc::{borrow::ToOwned, format, vec, vec::Vec};
+use core::ops::{AddAssign, MulAssign, SubAssign};
 use core::{fmt::Display, ops, slice};
 pub mod dense_multilinear_poly;
 mod error;
+pub use error::PolynomialError;
 pub mod sparse_multilinear_poly;
 
 /// Represents the polynomial c_0 + c_1 * X + c_2 * X^2 + ... + c_n * X^n
@@ -93,7 +95,7 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
                 let numerator = Polynomial::new(&[-x, FieldElement::one()]);
                 y_term = y_term.mul_with_ref(&(numerator * denominator_poly));
             }
-            result = result + y_term;
+            result += y_term;
         }
         Ok(result)
     }
@@ -151,6 +153,15 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
         self.coefficients().len()
     }
 
+    /// Returns true if the polynomial is zero (all coefficients are zero or empty).
+    ///
+    /// This is more robust than comparing with `Polynomial::zero()` because
+    /// some operations (like `scale_coeffs` with zero) may produce polynomials
+    /// with non-empty but all-zero coefficient vectors.
+    pub fn is_zero(&self) -> bool {
+        self.coefficients.iter().all(|c| *c == FieldElement::zero())
+    }
+
     /// Returns the derivative of the polynomial with respect to x.
     pub fn differentiate(&self) -> Self {
         let degree = self.degree();
@@ -196,24 +207,36 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
 
     /// Computes quotient and remainder of polynomial division.
     ///
-    /// Output: (quotient, remainder)
-    pub fn long_division_with_remainder(self, dividend: &Self) -> (Self, Self) {
-        if dividend.degree() > self.degree() {
-            (Polynomial::zero(), self)
+    /// Output: `Ok((quotient, remainder))`
+    ///
+    /// # Errors
+    /// Returns `PolynomialError::DivisionByZero` if the divisor is the zero polynomial.
+    pub fn long_division_with_remainder(
+        self,
+        divisor: &Self,
+    ) -> Result<(Self, Self), PolynomialError> {
+        if divisor.is_zero() {
+            return Err(PolynomialError::DivisionByZero);
+        }
+        if divisor.degree() > self.degree() {
+            Ok((Polynomial::zero(), self))
         } else {
             let mut n = self;
             let mut q: Vec<FieldElement<F>> = vec![FieldElement::zero(); n.degree() + 1];
-            let denominator = dividend.leading_coefficient().inv().unwrap();
-            while n != Polynomial::zero() && n.degree() >= dividend.degree() {
+            let denominator = divisor
+                .leading_coefficient()
+                .inv()
+                .expect("Leading coefficient should be non-zero for non-zero polynomial");
+            while !n.is_zero() && n.degree() >= divisor.degree() {
                 let new_coefficient = n.leading_coefficient() * &denominator;
-                q[n.degree() - dividend.degree()] = new_coefficient.clone();
-                let d = dividend.mul_with_ref(&Polynomial::new_monomial(
+                q[n.degree() - divisor.degree()] = new_coefficient.clone();
+                let d = divisor.mul_with_ref(&Polynomial::new_monomial(
                     new_coefficient,
-                    n.degree() - dividend.degree(),
+                    n.degree() - divisor.degree(),
                 ));
-                n = n - d;
+                n -= d;
             }
-            (Polynomial::new(&q), n)
+            Ok((Polynomial::new(&q), n))
         }
     }
 
@@ -222,34 +245,62 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
     /// This method computes the extended greatest common divisor (GCD) of two polynomials `self` and `y`.
     /// It returns a tuple of three elements: `(a, b, g)` such that `a * self + b * y = g`, where `g` is the
     /// greatest common divisor of `self` and `y`.
-    pub fn xgcd(&self, y: &Self) -> (Self, Self, Self) {
-        let one = Polynomial::new(&[FieldElement::one()]);
-        let zero = Polynomial::zero();
-        let (mut old_r, mut r) = (self.clone(), y.clone());
-        let (mut old_s, mut s) = (one.clone(), zero.clone());
-        let (mut old_t, mut t) = (zero.clone(), one.clone());
+    ///
+    /// # Errors
+    /// Returns `PolynomialError::XgcdBothZero` if both polynomials are zero, as gcd(0, 0) is undefined.
+    pub fn xgcd(&self, y: &Self) -> Result<(Self, Self, Self), PolynomialError> {
+        // Handle special cases where one or both polynomials are zero
+        if self.is_zero() && y.is_zero() {
+            return Err(PolynomialError::XgcdBothZero);
+        }
 
-        while r != Polynomial::zero() {
-            let quotient = old_r.clone().div_with_ref(&r);
-            old_r = old_r - &quotient * &r;
+        let (mut old_r, mut r) = (self.clone(), y.clone());
+        let (mut old_s, mut s) = (Polynomial::new(&[FieldElement::one()]), Polynomial::zero());
+        let (mut old_t, mut t) = (Polynomial::zero(), Polynomial::new(&[FieldElement::one()]));
+
+        while !r.is_zero() {
+            // Division is safe: the loop condition guarantees r is non-zero
+            let quotient = old_r
+                .clone()
+                .div_with_ref(&r)
+                .expect("divisor is non-zero by loop invariant");
+
+            // old_r = old_r - quotient * r, then swap
+            let qr = quotient.mul_with_ref(&r);
+            old_r.sub_assign(&qr);
             core::mem::swap(&mut old_r, &mut r);
-            old_s = old_s - &quotient * &s;
+
+            // old_s = old_s - quotient * s, then swap
+            let qs = quotient.mul_with_ref(&s);
+            old_s.sub_assign(&qs);
             core::mem::swap(&mut old_s, &mut s);
-            old_t = old_t - &quotient * &t;
+
+            // old_t = old_t - quotient * t, then swap
+            let qt = quotient.mul_with_ref(&t);
+            old_t.sub_assign(&qt);
             core::mem::swap(&mut old_t, &mut t);
         }
 
-        let lcinv = old_r.leading_coefficient().inv().unwrap();
-        (
-            old_s.scale_coeffs(&lcinv),
-            old_t.scale_coeffs(&lcinv),
-            old_r.scale_coeffs(&lcinv),
-        )
+        let lcinv = old_r
+            .leading_coefficient()
+            .inv()
+            .expect("GCD should be non-zero when at least one input is non-zero");
+
+        // Scale results in-place
+        old_s.scale_coeffs_mut(&lcinv);
+        old_t.scale_coeffs_mut(&lcinv);
+        old_r.scale_coeffs_mut(&lcinv);
+
+        Ok((old_s, old_t, old_r))
     }
 
-    pub fn div_with_ref(self, dividend: &Self) -> Self {
-        let (quotient, _remainder) = self.long_division_with_remainder(dividend);
-        quotient
+    /// Divides this polynomial by the divisor, returning only the quotient.
+    ///
+    /// # Errors
+    /// Returns `PolynomialError::DivisionByZero` if the divisor is the zero polynomial.
+    pub fn div_with_ref(self, divisor: &Self) -> Result<Self, PolynomialError> {
+        let (quotient, _remainder) = self.long_division_with_remainder(divisor)?;
+        Ok(quotient)
     }
 
     pub fn mul_with_ref(&self, factor: &Self) -> Self {
@@ -297,6 +348,68 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
             .collect();
         Self {
             coefficients: scaled_coefficients,
+        }
+    }
+
+    /// Multiplies all coefficients by a factor in-place
+    pub fn scale_coeffs_mut(&mut self, factor: &FieldElement<F>) {
+        for coeff in self.coefficients.iter_mut() {
+            *coeff = &*coeff * factor;
+        }
+        // Remove trailing zeros
+        while self
+            .coefficients
+            .last()
+            .is_some_and(|c| *c == FieldElement::zero())
+        {
+            self.coefficients.pop();
+        }
+    }
+
+    /// Adds another polynomial to this one in-place.
+    /// If the other polynomial has higher degree, this polynomial is extended.
+    pub fn add_assign(&mut self, other: &Self) {
+        if other.coefficients.len() > self.coefficients.len() {
+            self.coefficients
+                .resize(other.coefficients.len(), FieldElement::zero());
+        }
+        for (a, b) in self.coefficients.iter_mut().zip(other.coefficients.iter()) {
+            *a = &*a + b;
+        }
+        // Remove trailing zeros
+        while self
+            .coefficients
+            .last()
+            .is_some_and(|c| *c == FieldElement::zero())
+        {
+            self.coefficients.pop();
+        }
+    }
+
+    /// Subtracts another polynomial from this one in-place.
+    /// If the other polynomial has higher degree, this polynomial is extended.
+    pub fn sub_assign(&mut self, other: &Self) {
+        if other.coefficients.len() > self.coefficients.len() {
+            self.coefficients
+                .resize(other.coefficients.len(), FieldElement::zero());
+        }
+        for (a, b) in self.coefficients.iter_mut().zip(other.coefficients.iter()) {
+            *a = &*a - b;
+        }
+        // Remove trailing zeros
+        while self
+            .coefficients
+            .last()
+            .is_some_and(|c| *c == FieldElement::zero())
+        {
+            self.coefficients.pop();
+        }
+    }
+
+    /// Negates all coefficients in-place
+    pub fn neg_mut(&mut self) {
+        for coeff in self.coefficients.iter_mut() {
+            *coeff = -&*coeff;
         }
     }
 
@@ -454,13 +567,27 @@ where
 {
     type Output = Polynomial<FieldElement<L>>;
 
-    fn add(self, a_polynomial: &Polynomial<FieldElement<L>>) -> Self::Output {
-        let (pa, pb) = pad_with_zero_coefficients(self, a_polynomial);
-        let iter_coeff_pa = pa.coefficients.iter();
-        let iter_coeff_pb = pb.coefficients.iter();
-        let new_coefficients = iter_coeff_pa.zip(iter_coeff_pb).map(|(x, y)| x + y);
-        let new_coefficients_vec = new_coefficients.collect::<Vec<FieldElement<L>>>();
-        Polynomial::new(&new_coefficients_vec)
+    fn add(self, other: &Polynomial<FieldElement<L>>) -> Self::Output {
+        let max_len = self.coefficients.len().max(other.coefficients.len());
+        let mut result = Vec::with_capacity(max_len);
+
+        // Add coefficients where both polynomials have terms
+        let common_len = self.coefficients.len().min(other.coefficients.len());
+        for i in 0..common_len {
+            result.push(self.coefficients[i].clone().to_extension::<L>() + &other.coefficients[i]);
+        }
+
+        // Handle remaining coefficients from self (F -> L extension)
+        for coeff in self.coefficients.iter().skip(common_len) {
+            result.push(coeff.clone().to_extension::<L>());
+        }
+
+        // Handle remaining coefficients from other (already in L)
+        for coeff in other.coefficients.iter().skip(common_len) {
+            result.push(coeff.clone());
+        }
+
+        Polynomial::new(&result)
     }
 }
 
@@ -530,8 +657,27 @@ where
 {
     type Output = Polynomial<FieldElement<L>>;
 
-    fn sub(self, substrahend: &Polynomial<FieldElement<L>>) -> Polynomial<FieldElement<L>> {
-        self + (-substrahend)
+    fn sub(self, other: &Polynomial<FieldElement<L>>) -> Polynomial<FieldElement<L>> {
+        let max_len = self.coefficients.len().max(other.coefficients.len());
+        let mut result = Vec::with_capacity(max_len);
+
+        // Subtract coefficients where both polynomials have terms
+        let common_len = self.coefficients.len().min(other.coefficients.len());
+        for i in 0..common_len {
+            result.push(self.coefficients[i].clone().to_extension::<L>() - &other.coefficients[i]);
+        }
+
+        // Handle remaining coefficients from self (F -> L extension)
+        for coeff in self.coefficients.iter().skip(common_len) {
+            result.push(coeff.clone().to_extension::<L>());
+        }
+
+        // Handle remaining coefficients from other (negate them)
+        for coeff in other.coefficients.iter().skip(common_len) {
+            result.push(-coeff);
+        }
+
+        Polynomial::new(&result)
     }
 }
 
@@ -577,8 +723,14 @@ where
 {
     type Output = Polynomial<FieldElement<F>>;
 
-    fn div(self, dividend: Polynomial<FieldElement<F>>) -> Polynomial<FieldElement<F>> {
-        self.div_with_ref(&dividend)
+    /// Divides this polynomial by the divisor.
+    ///
+    /// # Panics
+    /// Panics if the divisor is the zero polynomial. For error handling,
+    /// use `div_with_ref` or `long_division_with_remainder` instead.
+    fn div(self, divisor: Polynomial<FieldElement<F>>) -> Polynomial<FieldElement<F>> {
+        self.div_with_ref(&divisor)
+            .expect("Cannot divide by the zero polynomial")
     }
 }
 
@@ -620,14 +772,7 @@ where
     type Output = Polynomial<FieldElement<L>>;
 
     fn mul(self, multiplicand: FieldElement<F>) -> Polynomial<FieldElement<L>> {
-        let new_coefficients = self
-            .coefficients
-            .iter()
-            .map(|value| &multiplicand * value)
-            .collect();
-        Polynomial {
-            coefficients: new_coefficients,
-        }
+        &self * &multiplicand
     }
 }
 
@@ -639,7 +784,12 @@ where
     type Output = Polynomial<FieldElement<L>>;
 
     fn mul(self, multiplicand: &FieldElement<F>) -> Polynomial<FieldElement<L>> {
-        self.clone() * multiplicand.clone()
+        let new_coefficients: Vec<_> = self
+            .coefficients
+            .iter()
+            .map(|value| multiplicand * value)
+            .collect();
+        Polynomial::new(&new_coefficients)
     }
 }
 
@@ -909,6 +1059,43 @@ where
 
     fn sub(self, other: &Polynomial<FieldElement<L>>) -> Polynomial<FieldElement<L>> {
         &self - other
+    }
+}
+
+// In-place assignment operators
+impl<F: IsField> AddAssign<&Polynomial<FieldElement<F>>> for Polynomial<FieldElement<F>> {
+    fn add_assign(&mut self, other: &Polynomial<FieldElement<F>>) {
+        Polynomial::add_assign(self, other);
+    }
+}
+
+impl<F: IsField> AddAssign<Polynomial<FieldElement<F>>> for Polynomial<FieldElement<F>> {
+    fn add_assign(&mut self, other: Polynomial<FieldElement<F>>) {
+        self.add_assign(&other);
+    }
+}
+
+impl<F: IsField> SubAssign<&Polynomial<FieldElement<F>>> for Polynomial<FieldElement<F>> {
+    fn sub_assign(&mut self, other: &Polynomial<FieldElement<F>>) {
+        Polynomial::sub_assign(self, other);
+    }
+}
+
+impl<F: IsField> SubAssign<Polynomial<FieldElement<F>>> for Polynomial<FieldElement<F>> {
+    fn sub_assign(&mut self, other: Polynomial<FieldElement<F>>) {
+        Polynomial::sub_assign(self, &other);
+    }
+}
+
+impl<F: IsField> MulAssign<&FieldElement<F>> for Polynomial<FieldElement<F>> {
+    fn mul_assign(&mut self, scalar: &FieldElement<F>) {
+        self.scale_coeffs_mut(scalar);
+    }
+}
+
+impl<F: IsField> MulAssign<FieldElement<F>> for Polynomial<FieldElement<F>> {
+    fn mul_assign(&mut self, scalar: FieldElement<F>) {
+        self.scale_coeffs_mut(&scalar);
     }
 }
 
@@ -1254,7 +1441,7 @@ mod tests {
         // Case 1: Simple polynomials
         let p1 = Polynomial::new(&[FE::new(1), FE::new(0), FE::new(1)]); // x^2 + 1
         let p2 = Polynomial::new(&[FE::new(1), FE::new(1)]); // x + 1
-        let (a, b, g) = p1.xgcd(&p2);
+        let (a, b, g) = p1.xgcd(&p2).unwrap();
         // Check that a * p1 + b * p2 = g
         let lhs = a.mul_with_ref(&p1) + b.mul_with_ref(&p2);
         assert_eq!(a, Polynomial::new(&[FE::new(12)]));
@@ -1266,7 +1453,7 @@ mod tests {
         let p3 = Polynomial::new(&[FE::new(ORDER - 1), FE::new(0), FE::new(1)]);
         // x^3-x = x(x^2-1)
         let p4 = Polynomial::new(&[FE::new(0), FE::new(ORDER - 1), FE::new(0), FE::new(1)]);
-        let (a, b, g) = p3.xgcd(&p4);
+        let (a, b, g) = p3.xgcd(&p4).unwrap();
 
         let lhs = a.mul_with_ref(&p3) + b.mul_with_ref(&p4);
         assert_eq!(a, Polynomial::new(&[FE::new(1)]));
@@ -1309,5 +1496,195 @@ mod tests {
     fn test_print_as_sage_poly() {
         let p = Polynomial::new(&[FE::new(1), FE::new(2), FE::new(3)]);
         assert_eq!(p.print_as_sage_poly(None), "3*x^2 + 2*x + 1");
+    }
+
+    #[test]
+    fn test_is_zero() {
+        // Canonical zero polynomial
+        assert!(Polynomial::<FE>::zero().is_zero());
+
+        // Empty coefficients
+        assert!(Polynomial::<FE>::new(&[]).is_zero());
+
+        // Single zero coefficient
+        assert!(Polynomial::new(&[FE::new(0)]).is_zero());
+
+        // Non-zero polynomial
+        assert!(!Polynomial::new(&[FE::new(1)]).is_zero());
+        assert!(!Polynomial::new(&[FE::new(0), FE::new(1)]).is_zero());
+
+        // Non-canonical zero (created via scale_coeffs with zero)
+        let p = Polynomial::new(&[FE::new(1), FE::new(2)]);
+        let scaled = p.scale_coeffs(&FE::new(0));
+        assert!(scaled.is_zero());
+    }
+
+    #[test]
+    fn test_division_by_zero_returns_error() {
+        let p = Polynomial::new(&[FE::new(1), FE::new(2)]);
+        let zero = Polynomial::<FE>::zero();
+        let result = p.long_division_with_remainder(&zero);
+        assert_eq!(result, Err(super::PolynomialError::DivisionByZero));
+    }
+
+    #[test]
+    fn test_division_by_non_canonical_zero_returns_error() {
+        let p = Polynomial::new(&[FE::new(1), FE::new(2)]);
+        // Create a non-canonical zero polynomial via scale_coeffs
+        let non_canonical_zero = Polynomial::new(&[FE::new(1)]).scale_coeffs(&FE::new(0));
+        let result = p.long_division_with_remainder(&non_canonical_zero);
+        assert_eq!(result, Err(super::PolynomialError::DivisionByZero));
+    }
+
+    #[test]
+    fn test_xgcd_both_zero_returns_error() {
+        let zero = Polynomial::<FE>::zero();
+        let result = zero.xgcd(&zero);
+        assert_eq!(result, Err(super::PolynomialError::XgcdBothZero));
+    }
+
+    #[test]
+    fn test_xgcd_non_canonical_zeros_returns_error() {
+        // Create non-canonical zero polynomials
+        let zero1 = Polynomial::new(&[FE::new(1)]).scale_coeffs(&FE::new(0));
+        let zero2 = Polynomial::new(&[FE::new(2), FE::new(3)]).scale_coeffs(&FE::new(0));
+        let result = zero1.xgcd(&zero2);
+        assert_eq!(result, Err(super::PolynomialError::XgcdBothZero));
+    }
+
+    // Tests for in-place operations
+    #[test]
+    fn test_add_assign() {
+        let mut p = polynomial_a();
+        p.add_assign(&polynomial_b());
+        assert_eq!(p, polynomial_a_plus_b());
+    }
+
+    #[test]
+    fn test_add_assign_different_lengths() {
+        // Longer polynomial on the left
+        let mut p = Polynomial::new(&[FE::new(1), FE::new(2), FE::new(3)]);
+        let q = Polynomial::new(&[FE::new(4), FE::new(5)]);
+        p.add_assign(&q);
+        assert_eq!(p, Polynomial::new(&[FE::new(5), FE::new(7), FE::new(3)]));
+
+        // Shorter polynomial on the left
+        let mut p = Polynomial::new(&[FE::new(1), FE::new(2)]);
+        let q = Polynomial::new(&[FE::new(3), FE::new(4), FE::new(5)]);
+        p.add_assign(&q);
+        assert_eq!(p, Polynomial::new(&[FE::new(4), FE::new(6), FE::new(5)]));
+    }
+
+    #[test]
+    fn test_add_assign_trims_zeros() {
+        let mut p = Polynomial::new(&[FE::new(1), FE::new(2), FE::new(3)]);
+        let q = Polynomial::new(&[FE::new(0), FE::new(0), FE::new(ORDER - 3)]); // -3 in the field
+        p.add_assign(&q);
+        assert_eq!(p, Polynomial::new(&[FE::new(1), FE::new(2)]));
+    }
+
+    #[test]
+    fn test_sub_assign() {
+        let mut p = polynomial_b();
+        Polynomial::sub_assign(&mut p, &polynomial_a());
+        assert_eq!(p, polynomial_b_minus_a());
+    }
+
+    #[test]
+    fn test_sub_assign_different_lengths() {
+        // Longer polynomial on the left
+        let mut p = Polynomial::new(&[FE::new(5), FE::new(6), FE::new(3)]);
+        let q = Polynomial::new(&[FE::new(1), FE::new(2)]);
+        Polynomial::sub_assign(&mut p, &q);
+        assert_eq!(p, Polynomial::new(&[FE::new(4), FE::new(4), FE::new(3)]));
+
+        // Shorter polynomial on the left
+        let mut p = Polynomial::new(&[FE::new(5), FE::new(6)]);
+        let q = Polynomial::new(&[FE::new(1), FE::new(2), FE::new(3)]);
+        Polynomial::sub_assign(&mut p, &q);
+        assert_eq!(
+            p,
+            Polynomial::new(&[FE::new(4), FE::new(4), FE::new(ORDER - 3)])
+        );
+    }
+
+    #[test]
+    fn test_sub_assign_trims_zeros() {
+        let mut p = Polynomial::new(&[FE::new(1), FE::new(2), FE::new(3)]);
+        let q = Polynomial::new(&[FE::new(0), FE::new(0), FE::new(3)]);
+        Polynomial::sub_assign(&mut p, &q);
+        assert_eq!(p, Polynomial::new(&[FE::new(1), FE::new(2)]));
+    }
+
+    #[test]
+    fn test_scale_coeffs_mut() {
+        let mut p = Polynomial::new(&[FE::new(1), FE::new(2), FE::new(3)]);
+        p.scale_coeffs_mut(&FE::new(2));
+        assert_eq!(p, Polynomial::new(&[FE::new(2), FE::new(4), FE::new(6)]));
+    }
+
+    #[test]
+    fn test_scale_coeffs_mut_by_zero() {
+        let mut p = Polynomial::new(&[FE::new(1), FE::new(2), FE::new(3)]);
+        p.scale_coeffs_mut(&FE::new(0));
+        // Note: scale_coeffs_mut doesn't trim, but is_zero handles non-canonical zeros
+        assert!(p.is_zero());
+    }
+
+    #[test]
+    fn test_neg_mut() {
+        let mut p = polynomial_a();
+        p.neg_mut();
+        assert_eq!(p, polynomial_minus_a());
+    }
+
+    #[test]
+    fn test_neg_mut_double_negation() {
+        let mut p = polynomial_a();
+        p.neg_mut();
+        p.neg_mut();
+        assert_eq!(p, polynomial_a());
+    }
+
+    #[test]
+    fn test_add_assign_trait() {
+        let mut p = polynomial_a();
+        p += &polynomial_b();
+        assert_eq!(p, polynomial_a_plus_b());
+    }
+
+    #[test]
+    fn test_add_assign_trait_owned() {
+        let mut p = polynomial_a();
+        p += polynomial_b();
+        assert_eq!(p, polynomial_a_plus_b());
+    }
+
+    #[test]
+    fn test_sub_assign_trait() {
+        let mut p = polynomial_b();
+        p -= &polynomial_a();
+        assert_eq!(p, polynomial_b_minus_a());
+    }
+
+    #[test]
+    fn test_sub_assign_trait_owned() {
+        let mut p = polynomial_b();
+        p -= polynomial_a();
+        assert_eq!(p, polynomial_b_minus_a());
+    }
+
+    #[test]
+    fn test_mul_assign_trait() {
+        let mut p = Polynomial::new(&[FE::new(1), FE::new(2), FE::new(3)]);
+        p *= &FE::new(2);
+        assert_eq!(p, Polynomial::new(&[FE::new(2), FE::new(4), FE::new(6)]));
+    }
+
+    #[test]
+    fn test_mul_assign_trait_owned() {
+        let mut p = Polynomial::new(&[FE::new(1), FE::new(2), FE::new(3)]);
+        p *= FE::new(2);
+        assert_eq!(p, Polynomial::new(&[FE::new(2), FE::new(4), FE::new(6)]));
     }
 }
