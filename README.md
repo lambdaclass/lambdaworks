@@ -27,6 +27,7 @@ Below is a list of examples to understand lambdaworks and learn what you can bui
 - [Pohlig-Hellman algorithm](./examples/pohlig-hellman-attack/)
 - [Naive RSA](./examples/rsa/)
 - [Naive Schnorr signatures](./examples/schnorr-signature/)
+- [Reed-Solomon Codes](./examples/reed-solomon-codes/)
 - [Using Circom with lambdaworks's Groth16](./examples/prove-verify-circom/circom_lambdaworks_tutorial.md)
 - [Proving Fibonacci using Circom and lambdaworks](./examples/prove-verify-circom/circom_lambdaworks_tutorial.md)
 
@@ -40,6 +41,84 @@ Zero-Knowledge and Validity Proofs have gained a lot of attention over the last 
 So, we decided to build our library, focusing on performance, with clear documentation and developer-focused. Our core team is a group of passionate people from different backgrounds and different strengths; we think that the whole is greater than just the addition of the parts. We don't want to be a compilation of every research result in the ZK space. We want this to be a library that can be used in production, not just in academic research. We want to offer developers the main building blocks and proof systems so that they can build their applications on top of this library.
 
 ## [Documentation](https://lambdaclass.github.io/lambdaworks)
+
+## Quick Start
+
+Add lambdaworks to your project:
+
+```toml
+[dependencies]
+lambdaworks-math = "0.13.0"
+lambdaworks-crypto = "0.13.0"
+```
+
+### Field arithmetic
+
+```rust
+use lambdaworks_math::field::{
+    element::FieldElement,
+    fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
+};
+
+// Create field elements
+type FE = FieldElement<Stark252PrimeField>;
+
+let a = FE::from(5u64);
+let b = FE::from(3u64);
+
+// Arithmetic operations
+let sum = &a + &b;           // 8
+let product = &a * &b;       // 15
+let square = a.square();     // 25
+let inverse = b.inv().unwrap();
+assert_eq!(&b * &inverse, FE::one());
+```
+
+### Elliptic curve operations
+
+```rust
+use lambdaworks_math::elliptic_curve::{
+    short_weierstrass::curves::bls12_381::curve::BLS12381Curve,
+    traits::IsEllipticCurve,
+};
+
+// Get the generator point
+let g = BLS12381Curve::generator();
+
+// Scalar multiplication
+let g2 = g.operate_with_self(2u64);
+let g3 = g.operate_with(&g2);
+
+// Convert to affine coordinates
+let g3_affine = g3.to_affine();
+```
+
+### Polynomial operations
+
+```rust
+use lambdaworks_math::{
+    field::element::FieldElement,
+    field::fields::u64_prime_field::U64PrimeField,
+    polynomial::Polynomial,
+};
+
+type F = U64PrimeField<65537>;
+type FE = FieldElement<F>;
+
+// Create polynomial: p(x) = 1 + 2x + 3x²
+let p = Polynomial::new(&[FE::from(1), FE::from(2), FE::from(3)]);
+
+// Evaluate at a point
+let result = p.evaluate(&FE::from(2)); // 1 + 4 + 12 = 17
+
+// Interpolate from points
+let poly = Polynomial::interpolate(
+    &[FE::from(0), FE::from(1), FE::from(2)],
+    &[FE::from(1), FE::from(2), FE::from(5)], // values of some quadratic
+).unwrap();
+```
+
+For more examples, see the [examples directory](./examples/) and the [math crate documentation](./crates/math/README.md).
 
 ## Main crates
 

@@ -234,7 +234,7 @@ impl HasQuadraticNonResidue<Degree6ExtensionField> for LevelThreeResidue {
     }
 }
 
-/// We define Fp12 = Fp6 [w] / (w^2 - v)
+/// We define `Fp12 = Fp6[w] / (w^2 - v)`
 pub type Degree12ExtensionField = QuadraticExtensionField<Degree6ExtensionField, LevelThreeResidue>;
 pub type Fp12E = FieldElement<Degree12ExtensionField>;
 
