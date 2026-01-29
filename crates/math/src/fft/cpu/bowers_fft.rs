@@ -64,11 +64,13 @@ where
 
                 // Twiddle index for Bowers G: sequential access within stage
                 let tw_idx = j * twiddle_stride;
-                let w = if tw_idx < twiddles.len() {
-                    &twiddles[tw_idx]
-                } else {
-                    &twiddles[0] // Safety fallback
-                };
+                debug_assert!(
+                    tw_idx < twiddles.len(),
+                    "Twiddle index {} out of bounds (len: {})",
+                    tw_idx,
+                    twiddles.len()
+                );
+                let w = &twiddles[tw_idx];
 
                 // DIF butterfly: (a, b) -> (a + b, (a - b) * w)
                 let sum = &input[i0] + &input[i1];
@@ -118,11 +120,13 @@ where
                 let i1 = i0 + half_block;
 
                 let tw_idx = j * twiddle_stride;
-                let w = if tw_idx < twiddles.len() {
-                    &twiddles[tw_idx]
-                } else {
-                    &twiddles[0]
-                };
+                debug_assert!(
+                    tw_idx < twiddles.len(),
+                    "Twiddle index {} out of bounds (len: {})",
+                    tw_idx,
+                    twiddles.len()
+                );
+                let w = &twiddles[tw_idx];
 
                 // DIT butterfly: (a, b) -> (a + b*w, a - b*w)
                 let bw = w * &input[i1];
@@ -272,8 +276,10 @@ fn butterfly_2_layers<F, E>(
         let tw0_idx = j * tw_stride_layer0;
         let tw1_idx = (j + quarter) * tw_stride_layer0;
 
-        let w0 = &twiddles[tw0_idx % twiddles.len()];
-        let w1 = &twiddles[tw1_idx % twiddles.len()];
+        debug_assert!(tw0_idx < twiddles.len(), "tw0_idx out of bounds");
+        debug_assert!(tw1_idx < twiddles.len(), "tw1_idx out of bounds");
+        let w0 = &twiddles[tw0_idx];
+        let w1 = &twiddles[tw1_idx];
 
         // Layer 0 butterflies
         let sum_01 = &data[i0] + &data[i2];
@@ -286,7 +292,8 @@ fn butterfly_2_layers<F, E>(
 
         // Layer 1 twiddle index
         let tw2_idx = j * tw_stride_layer1;
-        let w2 = &twiddles[tw2_idx % twiddles.len()];
+        debug_assert!(tw2_idx < twiddles.len(), "tw2_idx out of bounds");
+        let w2 = &twiddles[tw2_idx];
 
         // Layer 1 butterflies
         let final_0 = &sum_01 + &sum_23;
@@ -364,7 +371,8 @@ where
                 let i1 = i0 + half_block;
 
                 let tw_idx = j * twiddle_stride;
-                let w = &twiddles[tw_idx % twiddles.len()];
+                debug_assert!(tw_idx < twiddles.len(), "tw_idx out of bounds");
+                let w = &twiddles[tw_idx];
 
                 let sum = &input[i0] + &input[i1];
                 let diff = &input[i0] - &input[i1];
@@ -419,7 +427,8 @@ where
             input.par_chunks_mut(block_size).for_each(|block| {
                 for j in 0..half_block {
                     let tw_idx = j * twiddle_stride;
-                    let w = &twiddles[tw_idx % twiddles.len()];
+                    debug_assert!(tw_idx < twiddles.len(), "tw_idx out of bounds");
+                    let w = &twiddles[tw_idx];
 
                     let sum = &block[j] + &block[j + half_block];
                     let diff = &block[j] - &block[j + half_block];
@@ -437,7 +446,8 @@ where
                     let i1 = i0 + half_block;
 
                     let tw_idx = j * twiddle_stride;
-                    let w = &twiddles[tw_idx % twiddles.len()];
+                    debug_assert!(tw_idx < twiddles.len(), "tw_idx out of bounds");
+                    let w = &twiddles[tw_idx];
 
                     let sum = &input[i0] + &input[i1];
                     let diff = &input[i0] - &input[i1];
