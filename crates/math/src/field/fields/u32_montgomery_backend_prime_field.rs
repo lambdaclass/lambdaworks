@@ -90,6 +90,12 @@ impl<const MODULUS: u32> U32MontgomeryBackendPrimeField<MODULUS> {
 impl<const MODULUS: u32> IsField for U32MontgomeryBackendPrimeField<MODULUS> {
     type BaseType = u32;
 
+    /// Formats the field element for display, converting from Montgomery form.
+    fn debug_fmt(value: &Self::BaseType, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        let representative = Self::representative(value);
+        write!(f, "{}", representative)
+    }
+
     #[inline(always)]
     fn add(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
         let mut sum = a + b;

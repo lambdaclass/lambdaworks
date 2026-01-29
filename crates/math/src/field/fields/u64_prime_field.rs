@@ -1,90 +1,169 @@
-use crate::cyclic_group::IsGroup;
-use crate::errors::ByteConversionError::{FromBEBytesError, FromLEBytesError};
-use crate::errors::CreationError;
-use crate::errors::DeserializationError;
-use crate::field::element::FieldElement;
-use crate::field::errors::FieldError;
-use crate::field::traits::{HasDefaultTranscript, IsFFTField, IsField, IsPrimeField};
-use crate::traits::{ByteConversion, Deserializable};
+use crate::traits::ByteConversion;
+use crate::{
+    errors::CreationError,
+    field::{
+        element::FieldElement,
+        errors::FieldError,
+        extensions::quadratic::{HasQuadraticNonResidue, QuadraticExtensionField},
+        traits::{IsField, IsPrimeField},
+    },
+};
 
-/// Type representing prime fields over unsigned 64-bit integers.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct U64PrimeField<const MODULUS: u64>;
-pub type U64FieldElement<const MODULUS: u64> = FieldElement<U64PrimeField<MODULUS>>;
+/// Goldilocks Prime Field F_p where p = 2^64 - 2^32 + 1;
+#[derive(Debug, Clone, Copy, Hash, PartialOrd, Ord, PartialEq, Eq)]
+pub struct Goldilocks64Field;
 
-pub type F17 = U64PrimeField<17>;
-pub type FE17 = U64FieldElement<17>;
-
-impl IsFFTField for F17 {
-    const TWO_ADICITY: u64 = 4;
-    const TWO_ADIC_PRIMITVE_ROOT_OF_UNITY: u64 = 3;
+impl Goldilocks64Field {
+    pub const ORDER: u64 = 0xFFFF_FFFF_0000_0001;
+    // Two's complement of `ORDER` i.e. `2^64 - ORDER = 2^32 - 1`
+    pub const NEG_ORDER: u64 = Self::ORDER.wrapping_neg();
 }
 
-impl<const MODULUS: u64> IsField for U64PrimeField<MODULUS> {
+impl ByteConversion for u64 {
+    #[cfg(feature = "alloc")]
+    fn to_bytes_be(&self) -> alloc::vec::Vec<u8> {
+        unimplemented!()
+    }
+
+    #[cfg(feature = "alloc")]
+    fn to_bytes_le(&self) -> alloc::vec::Vec<u8> {
+        unimplemented!()
+    }
+
+    fn from_bytes_be(_bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError>
+    where
+        Self: Sized,
+    {
+        unimplemented!()
+    }
+
+    fn from_bytes_le(_bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError>
+    where
+        Self: Sized,
+    {
+        unimplemented!()
+    }
+}
+
+//NOTE: This implementation was inspired by and borrows from the work done by the Plonky3 team
+//https://github.com/Plonky3/Plonky3/blob/main/goldilocks/src/lib.rs
+// Thank you for pushing this technology forward.
+impl IsField for Goldilocks64Field {
     type BaseType = u64;
 
+    /// Formats the field element for display.
+    fn debug_fmt(value: &Self::BaseType, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "{}", Self::representative(value))
+    }
+
     fn add(a: &u64, b: &u64) -> u64 {
-        ((*a as u128 + *b as u128) % MODULUS as u128) as u64
-    }
-
-    fn sub(a: &u64, b: &u64) -> u64 {
-        (((*a as u128 + MODULUS as u128) - *b as u128) % MODULUS as u128) as u64
-    }
-
-    fn neg(a: &u64) -> u64 {
-        MODULUS - a
+        let (sum, over) = a.overflowing_add(*b);
+        let (mut sum, over) = sum.overflowing_add(u64::from(over) * Self::NEG_ORDER);
+        if over {
+            sum += Self::NEG_ORDER
+        }
+        Self::representative(&sum)
     }
 
     fn mul(a: &u64, b: &u64) -> u64 {
-        ((*a as u128 * *b as u128) % MODULUS as u128) as u64
+        Self::representative(&reduce_128(u128::from(*a) * u128::from(*b)))
     }
 
+    fn sub(a: &u64, b: &u64) -> u64 {
+        let (diff, under) = a.overflowing_sub(*b);
+        let (mut diff, under) = diff.overflowing_sub(u64::from(under) * Self::NEG_ORDER);
+        if under {
+            diff -= Self::NEG_ORDER;
+        }
+        Self::representative(&diff)
+    }
+
+    fn neg(a: &u64) -> u64 {
+        Self::sub(&Self::ORDER, &Self::representative(a))
+    }
+
+    /// Returns the multiplicative inverse of `a`.
+    fn inv(a: &u64) -> Result<u64, FieldError> {
+        if *a == Self::zero() || *a == Self::ORDER {
+            return Err(FieldError::InvZeroError);
+        }
+
+        // a^11
+        let t2 = Self::mul(&Self::square(a), a);
+
+        // a^111
+        let t3 = Self::mul(&Self::square(&t2), a);
+
+        // compute base^111111 (6 ones) by repeatedly squaring t3 3 times and multiplying by t3
+        let t6 = exp_acc::<3>(&t3, &t3);
+        let t60 = Self::square(&t6);
+        let t7 = Self::mul(&t60, a);
+
+        // compute base^111111111111 (12 ones)
+        // repeatedly square t6 6 times and multiply by t6
+        let t12 = exp_acc::<5>(&t60, &t6);
+
+        // compute base^111111111111111111111111 (24 ones)
+        // repeatedly square t12 12 times and multiply by t12
+        let t24 = exp_acc::<12>(&t12, &t12);
+
+        // compute base^1111111111111111111111111111111 (31 ones)
+        // repeatedly square t24 6 times and multiply by t6 first. then square t30 and multiply by base
+        let t31 = exp_acc::<7>(&t24, &t7);
+
+        // compute base^111111111111111111111111111111101111111111111111111111111111111
+        // repeatedly square t31 32 times and multiply by t31
+        let t63 = exp_acc::<32>(&t31, &t31);
+
+        Ok(Self::mul(&Self::square(&t63), a))
+    }
+
+    /// Returns the division of `a` and `b`.
     fn div(a: &u64, b: &u64) -> Result<u64, FieldError> {
         let b_inv = &Self::inv(b)?;
         Ok(Self::mul(a, b_inv))
     }
 
-    fn inv(a: &u64) -> Result<u64, FieldError> {
-        if *a == 0 {
-            return Err(FieldError::InvZeroError);
-        }
-        Ok(Self::pow(a, MODULUS - 2))
-    }
-
+    /// Returns a boolean indicating whether `a` and `b` are equal or not.
     fn eq(a: &u64, b: &u64) -> bool {
-        Self::from_u64(*a) == Self::from_u64(*b)
+        Self::representative(a) == Self::representative(b)
     }
 
+    /// Returns the additive neutral element.
     fn zero() -> u64 {
-        0
+        0u64
     }
 
+    /// Returns the multiplicative neutral element.
     fn one() -> u64 {
-        1
+        1u64
     }
 
+    /// Returns the element `x * 1` where 1 is the multiplicative neutral element.
     fn from_u64(x: u64) -> u64 {
-        x % MODULUS
+        Self::representative(&x)
     }
 
+    /// Takes as input an element of BaseType and returns the internal representation
+    /// of that element in the field.
     fn from_base_type(x: u64) -> u64 {
-        Self::from_u64(x)
+        Self::representative(&x)
     }
 }
 
-impl<const MODULUS: u64> Copy for U64FieldElement<MODULUS> {}
-
-impl<const MODULUS: u64> IsPrimeField for U64PrimeField<MODULUS> {
+impl IsPrimeField for Goldilocks64Field {
     type RepresentativeType = u64;
 
     fn representative(x: &u64) -> u64 {
-        *x
+        let mut u = *x;
+        if u >= Self::ORDER {
+            u -= Self::ORDER;
+        }
+        u
     }
 
-    /// Returns how many bits do you need to represent the biggest field element
-    /// It expects the MODULUS to be a Prime
     fn field_bit_size() -> usize {
-        ((MODULUS - 1).ilog2() + 1) as usize
+        ((self::Goldilocks64Field::ORDER - 1).ilog2() + 1) as usize
     }
 
     fn from_hex(hex_string: &str) -> Result<Self::BaseType, CreationError> {
@@ -97,7 +176,6 @@ impl<const MODULUS: u64> IsPrimeField for U64PrimeField<MODULUS> {
         {
             hex_string = &hex_string[2..];
         }
-
         u64::from_str_radix(hex_string, 16).map_err(|_| CreationError::InvalidHexString)
     }
 
@@ -107,76 +185,57 @@ impl<const MODULUS: u64> IsPrimeField for U64PrimeField<MODULUS> {
     }
 }
 
-/// Represents an element in Fp. (E.g: 0, 1, 2 are the elements of F3)
-impl<const MODULUS: u64> IsGroup for U64FieldElement<MODULUS> {
-    fn neutral_element() -> U64FieldElement<MODULUS> {
-        U64FieldElement::zero()
+#[inline(always)]
+fn reduce_128(x: u128) -> u64 {
+    //possibly split apart into separate function to ensure inline
+    let (x_lo, x_hi) = (x as u64, (x >> 64) as u64);
+    let x_hi_hi = x_hi >> 32;
+    let x_hi_lo = x_hi & Goldilocks64Field::NEG_ORDER;
+
+    let (mut t0, borrow) = x_lo.overflowing_sub(x_hi_hi);
+    if borrow {
+        t0 -= Goldilocks64Field::NEG_ORDER // Cannot underflow
     }
 
-    fn operate_with(&self, other: &Self) -> Self {
-        *self + *other
-    }
-
-    fn neg(&self) -> Self {
-        -self
-    }
+    let t1 = x_hi_lo * Goldilocks64Field::NEG_ORDER;
+    let (res_wrapped, carry) = t0.overflowing_add(t1);
+    // Below cannot overflow unless the assumption if x + y < 2**64 + ORDER is incorrect.
+    res_wrapped + Goldilocks64Field::NEG_ORDER * u64::from(carry)
 }
 
-impl<const MODULUS: u64> ByteConversion for U64FieldElement<MODULUS> {
-    #[cfg(feature = "alloc")]
-    fn to_bytes_be(&self) -> alloc::vec::Vec<u8> {
-        u64::to_be_bytes(*self.value()).into()
-    }
-
-    #[cfg(feature = "alloc")]
-    fn to_bytes_le(&self) -> alloc::vec::Vec<u8> {
-        u64::to_le_bytes(*self.value()).into()
-    }
-
-    fn from_bytes_be(bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError> {
-        let bytes: [u8; 8] = bytes[0..8].try_into().map_err(|_| FromBEBytesError)?;
-        Ok(Self::from(u64::from_be_bytes(bytes)))
-    }
-
-    fn from_bytes_le(bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError> {
-        let bytes: [u8; 8] = bytes[0..8].try_into().map_err(|_| FromLEBytesError)?;
-        Ok(Self::from(u64::from_le_bytes(bytes)))
-    }
+#[inline(always)]
+fn exp_acc<const N: usize>(base: &u64, tail: &u64) -> u64 {
+    Goldilocks64Field::mul(&exp_power_of_2::<N>(base), tail)
 }
 
-impl<const MODULUS: u64> Deserializable for FieldElement<U64PrimeField<MODULUS>> {
-    fn deserialize(bytes: &[u8]) -> Result<Self, DeserializationError>
-    where
-        Self: Sized,
-    {
-        Self::from_bytes_be(bytes).map_err(|x| x.into())
+#[must_use]
+fn exp_power_of_2<const POWER_LOG: usize>(base: &u64) -> u64 {
+    let mut res = *base;
+    for _ in 0..POWER_LOG {
+        res = Goldilocks64Field::square(&res);
     }
+    res
 }
 
-impl<const MODULUS: u64> HasDefaultTranscript for U64PrimeField<MODULUS> {
-    fn get_random_field_element_from_rng(rng: &mut impl rand::Rng) -> FieldElement<Self> {
-        let mask = u64::MAX >> MODULUS.leading_zeros();
-        let mut sample = [0u8; 8];
-        let field;
-        loop {
-            rng.fill(&mut sample);
-            let int_sample = u64::from_be_bytes(sample) & mask;
-            if int_sample < MODULUS {
-                field = FieldElement::from(int_sample);
-                break;
-            }
-        }
-        field
+pub type Goldilocks64ExtensionField = QuadraticExtensionField<Goldilocks64Field, Goldilocks64Field>;
+
+impl HasQuadraticNonResidue<Goldilocks64Field> for Goldilocks64Field {
+    // Verifiable in Sage with
+    // `R.<x> = GF(p)[]; assert (x^2 - 7).is_irreducible()`
+    fn residue() -> FieldElement<Goldilocks64Field> {
+        FieldElement::from(Goldilocks64Field::from_u64(7u64))
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    const MODULUS: u64 = 13;
-    type F = U64PrimeField<MODULUS>;
-    type FE = FieldElement<F>;
+    type F = Goldilocks64Field;
 
+    // Over the Goldilocks field, the following set of equations hold
+    // p               = 0
+    // 2^64 - 2^32 + 1 = 0
+    // 2^64            = 2^32 - 1
     #[test]
     fn from_hex_for_b_is_11() {
         assert_eq!(F::from_hex("B").unwrap(), 11);
@@ -187,215 +246,243 @@ mod tests {
         assert_eq!(F::from_hex("0x1a").unwrap(), 26);
     }
 
-    #[cfg(feature = "std")]
     #[test]
-    fn to_hex_test_works_1() {
-        let num = F::from_hex("B").unwrap();
-        assert_eq!(F::to_hex(&num), "B");
-    }
-
-    #[cfg(feature = "std")]
-    #[test]
-    fn to_hex_test_works_2() {
-        let num = F::from_hex("0x1a").unwrap();
-        assert_eq!(F::to_hex(&num), "1A");
-    }
-
-    #[test]
-    fn bit_size_of_mod_13_field_is_4() {
+    fn bit_size_of_field_is_64() {
         assert_eq!(
-            <U64PrimeField<MODULUS> as crate::field::traits::IsPrimeField>::field_bit_size(),
-            4
-        );
-    }
-
-    #[test]
-    fn bit_size_of_big_mod_field_is_64() {
-        const MODULUS: u64 = 10000000000000000000;
-        assert_eq!(
-            <U64PrimeField<MODULUS> as crate::field::traits::IsPrimeField>::field_bit_size(),
+            <F as crate::field::traits::IsPrimeField>::field_bit_size(),
             64
         );
     }
 
     #[test]
-    fn bit_size_of_63_bit_mod_field_is_63() {
-        const MODULUS: u64 = 9000000000000000000;
-        assert_eq!(
-            <U64PrimeField<MODULUS> as crate::field::traits::IsPrimeField>::field_bit_size(),
-            63
-        );
+    fn one_plus_one_is_two() {
+        let a = F::one();
+        let b = F::one();
+        let c = F::add(&a, &b);
+        assert_eq!(c, 2u64);
     }
 
     #[test]
-    fn two_plus_one_is_three() {
-        assert_eq!(FE::new(2) + FE::new(1), FE::new(3));
+    fn neg_one_plus_one_is_zero() {
+        let a = F::neg(&F::one());
+        let b = F::one();
+        let c = F::add(&a, &b);
+        assert_eq!(c, F::zero());
     }
 
     #[test]
-    fn max_order_plus_1_is_0() {
-        assert_eq!(FE::new(MODULUS - 1) + FE::new(1), FE::new(0));
+    fn neg_one_plus_two_is_one() {
+        let a = F::neg(&F::one());
+        let b = F::from_base_type(2u64);
+        let c = F::add(&a, &b);
+        assert_eq!(c, F::one());
     }
 
     #[test]
-    fn when_comparing_13_and_13_they_are_equal() {
-        let a: FE = FE::new(13);
-        let b: FE = FE::new(13);
+    fn max_order_plus_one_is_zero() {
+        let a = F::from_base_type(F::ORDER - 1);
+        let b = F::one();
+        let c = F::add(&a, &b);
+        assert_eq!(c, F::zero());
+    }
+
+    #[test]
+    fn comparing_13_and_13_are_equal() {
+        let a = F::from_base_type(13);
+        let b = F::from_base_type(13);
         assert_eq!(a, b);
     }
 
     #[test]
-    fn when_comparing_13_and_8_they_are_different() {
-        let a: FE = FE::new(13);
-        let b: FE = FE::new(8);
+    fn comparing_13_and_8_they_are_not_equal() {
+        let a = F::from_base_type(13);
+        let b = F::from_base_type(8);
         assert_ne!(a, b);
     }
 
     #[test]
+    fn one_sub_one_is_zero() {
+        let a = F::one();
+        let b = F::one();
+        let c = F::sub(&a, &b);
+        assert_eq!(c, F::zero());
+    }
+
+    #[test]
+    fn zero_sub_one_is_order_minus_1() {
+        let a = F::zero();
+        let b = F::one();
+        let c = F::sub(&a, &b);
+        assert_eq!(c, F::ORDER - 1);
+    }
+
+    #[test]
+    fn neg_one_sub_neg_one_is_zero() {
+        let a = F::neg(&F::one());
+        let b = F::neg(&F::one());
+        let c = F::sub(&a, &b);
+        assert_eq!(c, F::zero());
+    }
+
+    #[test]
+    fn neg_one_sub_one_is_neg_one() {
+        let a = F::neg(&F::one());
+        let b = F::zero();
+        let c = F::sub(&a, &b);
+        assert_eq!(c, F::neg(&F::one()));
+    }
+
+    #[test]
     fn mul_neutral_element() {
-        let a: FE = FE::new(1);
-        let b: FE = FE::new(2);
-        assert_eq!(a * b, FE::new(2));
+        let a = F::from_base_type(1);
+        let b = F::from_base_type(2);
+        let c = F::mul(&a, &b);
+        assert_eq!(c, F::from_base_type(2));
     }
 
     #[test]
-    fn mul_2_3_is_6() {
-        let a: FE = FE::new(2);
-        let b: FE = FE::new(3);
-        assert_eq!(a * b, FE::new(6));
+    fn mul_two_three_is_six() {
+        let a = F::from_base_type(2);
+        let b = F::from_base_type(3);
+        assert_eq!(a * b, F::from_base_type(6));
     }
 
     #[test]
-    fn mul_order_minus_1() {
-        let a: FE = FE::new(MODULUS - 1);
-        let b: FE = FE::new(MODULUS - 1);
-        assert_eq!(a * b, FE::new(1));
+    fn mul_order_neg_one() {
+        let a = F::from_base_type(F::ORDER - 1);
+        let b = F::from_base_type(F::ORDER - 1);
+        let c = F::mul(&a, &b);
+        assert_eq!(c, F::from_base_type(1));
     }
 
     #[test]
-    fn inv_0_error() {
-        let result = FE::new(0).inv();
+    fn pow_p_neg_one() {
+        assert_eq!(F::pow(&F::from_base_type(2), F::ORDER - 1), F::one())
+    }
+
+    #[test]
+    fn inv_zero_error() {
+        let result = F::inv(&F::zero());
         assert!(matches!(result, Err(FieldError::InvZeroError)));
     }
 
     #[test]
-    fn inv_2() {
-        let a: FE = FE::new(2);
-        assert_eq!(a * a.inv().unwrap(), FE::new(1));
+    fn inv_two() {
+        let result = F::inv(&F::from_base_type(2u64)).unwrap();
+        // sage: 1 / F(2) = 9223372034707292161
+        assert_eq!(result, 9223372034707292161);
     }
 
     #[test]
-    fn pow_2_3() {
-        assert_eq!(FE::new(2).pow(3_u64), FE::new(8))
+    fn pow_two_three() {
+        assert_eq!(F::pow(&F::from_base_type(2), 3_u64), 8)
     }
 
     #[test]
-    fn pow_p_minus_1() {
-        assert_eq!(FE::new(2).pow(MODULUS - 1), FE::new(1))
-    }
-
-    #[test]
-    fn div_1() {
-        assert_eq!(FE::new(2) * FE::new(1).inv().unwrap(), FE::new(2))
+    fn div_one() {
+        assert_eq!(
+            F::div(&F::from_base_type(2), &F::from_base_type(1)).unwrap(),
+            2
+        )
     }
 
     #[test]
     fn div_4_2() {
-        assert_eq!(FE::new(4) * FE::new(2).inv().unwrap(), FE::new(2))
+        assert_eq!(
+            F::div(&F::from_base_type(4), &F::from_base_type(2)).unwrap(),
+            2
+        )
     }
 
+    // 1431655766
     #[test]
     fn div_4_3() {
+        // sage: F(4) / F(3) = 12297829379609722882
         assert_eq!(
-            FE::new(4) * FE::new(3).inv().unwrap() * FE::new(3),
-            FE::new(4)
+            F::div(&F::from_base_type(4), &F::from_base_type(3)).unwrap(),
+            12297829379609722882
         )
     }
 
     #[test]
     fn two_plus_its_additive_inv_is_0() {
-        let two = FE::new(2);
+        let two = F::from_base_type(2);
 
-        assert_eq!(two + (-two), FE::new(0))
+        assert_eq!(F::add(&two, &F::neg(&two)), F::zero())
     }
 
     #[test]
-    fn four_minus_three_is_1() {
-        let four = FE::new(4);
-        let three = FE::new(3);
-
-        assert_eq!(four - three, FE::new(1))
+    fn from_u64_test() {
+        let num = F::from_u64(1u64);
+        assert_eq!(num, F::one());
     }
 
     #[test]
-    fn zero_minus_1_is_order_minus_1() {
-        let zero = FE::new(0);
-        let one = FE::new(1);
-
-        assert_eq!(zero - one, FE::new(MODULUS - 1))
+    fn from_u64_zero_test() {
+        let num = F::from_u64(0);
+        assert_eq!(num, F::zero());
     }
 
     #[test]
-    fn neg_zero_is_zero() {
-        let zero = FE::new(0);
-
-        assert_eq!(-zero, zero);
+    fn from_u64_max_test() {
+        let num = F::from_u64(u64::MAX);
+        assert_eq!(num, u32::MAX as u64 - 1);
     }
 
     #[test]
-    fn zero_constructor_returns_zero() {
-        assert_eq!(FE::new(0), FE::new(0));
-    }
-
-    #[test]
-    fn field_element_as_group_element_multiplication_by_scalar_works_as_multiplication_in_finite_fields(
-    ) {
-        let a = FE::new(3);
-        let b = FE::new(12);
-        assert_eq!(a * b, a.operate_with_self(12_u16));
-    }
-
-    #[test]
-    #[cfg(feature = "alloc")]
-    fn to_bytes_from_bytes_be_is_the_identity() {
-        let x = FE::new(12345);
-        assert_eq!(FE::from_bytes_be(&x.to_bytes_be()).unwrap(), x);
-    }
-
-    #[test]
-    #[cfg(feature = "alloc")]
-    fn from_bytes_to_bytes_be_is_the_identity_for_one() {
-        let bytes = [0, 0, 0, 0, 0, 0, 0, 1];
-        assert_eq!(FE::from_bytes_be(&bytes).unwrap().to_bytes_be(), bytes);
-    }
-
-    #[test]
-    #[cfg(feature = "alloc")]
-    fn to_bytes_from_bytes_le_is_the_identity() {
-        let x = FE::new(12345);
-        assert_eq!(FE::from_bytes_le(&x.to_bytes_le()).unwrap(), x);
-    }
-
-    #[test]
-    #[cfg(feature = "alloc")]
-    fn from_bytes_to_bytes_le_is_the_identity_for_one() {
-        let bytes = [1, 0, 0, 0, 0, 0, 0, 0];
-        assert_eq!(FE::from_bytes_le(&bytes).unwrap().to_bytes_le(), bytes);
+    fn from_u64_order_test() {
+        let num = F::from_u64(F::ORDER);
+        assert_eq!(num, F::zero());
     }
 
     #[test]
     fn creating_a_field_element_from_its_representative_returns_the_same_element_1() {
         let change = 1;
-        let f1 = FE::new(MODULUS + change);
-        let f2 = FE::new(f1.representative());
+        let f1 = F::from_base_type(F::ORDER + change);
+        let f2 = F::from_base_type(F::representative(&f1));
         assert_eq!(f1, f2);
+    }
+
+    #[test]
+    fn reduct_128() {
+        let x = u128::MAX;
+        let y = reduce_128(x);
+        // The following equalitiy sequence holds, modulo p = 2^64 - 2^32 + 1
+        // 2^128 - 1 = (2^64 - 1) * (2^64 + 1)
+        //           = (2^32 - 1 - 1) * (2^32 - 1 + 1)
+        //           = (2^32 - 2) * (2^32)
+        //           = 2^64 - 2 * 2^32
+        //           = 2^64 - 2^33
+        //           = 2^32 - 1 - 2^33
+        //           = - 2^32 - 1
+        let expected_result = F::neg(&F::add(&F::from_base_type(2_u64.pow(32)), &F::one()));
+        assert_eq!(y, expected_result);
+    }
+
+    #[test]
+    fn u64_max_as_representative_less_than_u32_max_sub_1() {
+        let f = F::from_base_type(u64::MAX);
+        assert_eq!(F::representative(&f), u32::MAX as u64 - 1)
     }
 
     #[test]
     fn creating_a_field_element_from_its_representative_returns_the_same_element_2() {
         let change = 8;
-        let f1 = FE::new(MODULUS + change);
-        let f2 = FE::new(f1.representative());
+        let f1 = F::from_base_type(F::ORDER + change);
+        let f2 = F::from_base_type(F::representative(&f1));
         assert_eq!(f1, f2);
+    }
+
+    #[test]
+    fn from_base_type_test() {
+        let b = F::from_base_type(1u64);
+        assert_eq!(b, F::one());
+    }
+
+    #[cfg(feature = "std")]
+    #[test]
+    fn to_hex_test() {
+        let num = F::from_hex("B").unwrap();
+        assert_eq!(F::to_hex(&num), "B");
     }
 }

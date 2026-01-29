@@ -319,7 +319,12 @@ where
 
     fn debug_fmt(value: &Self::BaseType, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         let representative = Self::representative(value);
-        write!(f, "{}", representative)
+        // Use hex for large fields (more than 64 bits)
+        if NUM_LIMBS > 1 {
+            write!(f, "0x{:x}", representative)
+        } else {
+            write!(f, "{}", representative)
+        }
     }
 }
 

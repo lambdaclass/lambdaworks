@@ -74,6 +74,11 @@ pub const MERSENNE_31_PRIME_FIELD_ORDER: u32 = (1 << 31) - 1;
 impl IsField for Mersenne31Field {
     type BaseType = u32;
 
+    /// Formats the field element for display.
+    fn debug_fmt(value: &Self::BaseType, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "{}", Self::as_representative(value))
+    }
+
     /// Returns the sum of `a` and `b`.
     fn add(a: &u32, b: &u32) -> u32 {
         // We are using that if a and b are field elements of Mersenne31, then

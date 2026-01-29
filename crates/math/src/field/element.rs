@@ -907,16 +907,15 @@ mod tests {
     fn test_display_montgomery_field() {
         use alloc::format;
 
+        // Large fields (NUM_LIMBS > 1) display in hex
         let zero_field_element = FieldElement::<Stark252PrimeField>::from(0);
-        assert_eq!(format!("{zero_field_element}"), "0");
+        assert_eq!(format!("{zero_field_element}"), "0x0");
 
-        // Test simple values display in decimal
         let simple_element = FieldElement::<Stark252PrimeField>::from(12345u64);
-        assert_eq!(format!("{simple_element}"), "12345");
+        assert_eq!(format!("{simple_element}"), "0x3039");
 
-        // Test larger values
         let large_element = FieldElement::<Stark252PrimeField>::from(1000000000u64);
-        assert_eq!(format!("{large_element}"), "1000000000");
+        assert_eq!(format!("{large_element}"), "0x3b9aca00");
     }
 
     #[test]

@@ -19,12 +19,14 @@ impl<E: IsEllipticCurve> Debug for ProjectivePoint<E> {
 impl<E: IsEllipticCurve> Display for ProjectivePoint<E> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let [x, y, z] = &self.value;
-        if z == &FieldElement::one() {
-            writeln!(f, "(affine)")?;
+        if z == &FieldElement::zero() {
+            write!(f, "Point at Infinity")
+        } else if z == &FieldElement::one() {
+            writeln!(f, "Affine:")?;
             writeln!(f, "  x: {}", x)?;
             write!(f, "  y: {}", y)
         } else {
-            writeln!(f, "(projective)")?;
+            writeln!(f, "Projective:")?;
             writeln!(f, "  x: {}", x)?;
             writeln!(f, "  y: {}", y)?;
             write!(f, "  z: {}", z)
@@ -101,12 +103,14 @@ impl<E: IsEllipticCurve> Debug for JacobianPoint<E> {
 impl<E: IsEllipticCurve> Display for JacobianPoint<E> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let [x, y, z] = &self.value;
-        if z == &FieldElement::one() {
-            writeln!(f, "(affine)")?;
+        if z == &FieldElement::zero() {
+            write!(f, "Point at Infinity")
+        } else if z == &FieldElement::one() {
+            writeln!(f, "Affine:")?;
             writeln!(f, "  x: {}", x)?;
             write!(f, "  y: {}", y)
         } else {
-            writeln!(f, "(jacobian)")?;
+            writeln!(f, "Jacobian:")?;
             writeln!(f, "  x: {}", x)?;
             writeln!(f, "  y: {}", y)?;
             write!(f, "  z: {}", z)
