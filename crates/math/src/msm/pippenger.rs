@@ -156,7 +156,12 @@ fn recode_scalars_signed<const NUM_LIMBS: usize>(
 
 /// Get the digit for scalar `scalar_idx` at window `window_idx` from flat storage.
 #[inline(always)]
-fn get_digit(flat_digits: &[i64], total_windows: usize, scalar_idx: usize, window_idx: usize) -> i64 {
+fn get_digit(
+    flat_digits: &[i64],
+    total_windows: usize,
+    scalar_idx: usize,
+    window_idx: usize,
+) -> i64 {
     flat_digits[scalar_idx * total_windows + window_idx]
 }
 
@@ -191,7 +196,8 @@ where
             let mut buckets = vec![G::neutral_element(); n_buckets];
 
             // Accumulate points into buckets based on signed digits
-            for (scalar_idx, p) in points.iter().enumerate() {
+            // Use .take(cs.len()) to prevent out-of-bounds access when points.len() > cs.len()
+            for (scalar_idx, p) in points.iter().take(cs.len()).enumerate() {
                 let digit = get_digit(&signed_digits, total_windows, scalar_idx, window_idx);
                 if digit > 0 {
                     let idx = digit as usize - 1;
@@ -252,7 +258,8 @@ where
             let mut buckets = vec![G::neutral_element(); n_buckets];
 
             // Accumulate points into buckets using flat digit storage
-            for (scalar_idx, p) in points.iter().enumerate() {
+            // Use .take(cs.len()) to prevent out-of-bounds access when points.len() > cs.len()
+            for (scalar_idx, p) in points.iter().take(cs.len()).enumerate() {
                 let digit = get_digit(&signed_digits, total_windows, scalar_idx, window_idx);
                 if digit > 0 {
                     let idx = digit as usize - 1;
