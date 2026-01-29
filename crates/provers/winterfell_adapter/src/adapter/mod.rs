@@ -19,6 +19,14 @@ impl FeltTranscript {
         res.append_bytes(data);
         res
     }
+
+    fn sample(&mut self) -> [u8; 32] {
+        let mut result_hash = [0_u8; 32];
+        result_hash.copy_from_slice(&self.hasher.finalize_reset());
+        result_hash.reverse();
+        self.hasher.update(result_hash);
+        result_hash
+    }
 }
 
 impl IsStarkTranscript<Felt> for FeltTranscript {
@@ -35,18 +43,25 @@ impl IsStarkTranscript<Felt> for FeltTranscript {
     }
 
     fn sample_field_element(&mut self) -> FieldElement<Felt> {
-        let mut bytes = self.state()[..8].try_into().unwrap();
-        let mut x = u64::from_be_bytes(bytes);
-        while x >= Felt::MODULUS {
-            self.append_bytes(&bytes);
-            bytes = self.state()[..8].try_into().unwrap();
-            x = u64::from_be_bytes(bytes);
+        loop {
+            let bytes = self.sample();
+            let candidate = u64::from_be_bytes(bytes[..8].try_into().unwrap());
+            if candidate < Felt::MODULUS {
+                return FieldElement::const_from_raw(Felt::new(candidate));
+            }
         }
-        FieldElement::const_from_raw(Felt::new(x))
     }
 
     fn sample_u64(&mut self, upper_bound: u64) -> u64 {
-        u64::from_be_bytes(self.state()[..8].try_into().unwrap()) % upper_bound
+        assert!(upper_bound > 0, "upper_bound must be greater than 0");
+        let zone = u64::MAX - (u64::MAX % upper_bound);
+        loop {
+            let bytes = self.sample();
+            let candidate = u64::from_be_bytes(bytes[..8].try_into().unwrap());
+            if candidate < zone {
+                return candidate % upper_bound;
+            }
+        }
     }
 }
 
@@ -82,6 +97,6 @@ impl IsStarkTranscript<QuadFelt> for QuadFeltTranscript {
     }
 
     fn sample_u64(&mut self, upper_bound: u64) -> u64 {
-        u64::from_be_bytes(self.state()[..8].try_into().unwrap()) % upper_bound
+        self.felt_transcript.sample_u64(upper_bound)
     }
 }
