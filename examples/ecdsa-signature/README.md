@@ -6,7 +6,6 @@ The Elliptic Curve Digital Signature Algorithm (ECDSA) is a widely-used digital 
 
 This implementation is **NOT cryptographically secure** due to non-constant time operations. It should only be used for:
 - Educational purposes
-- Signature verification
 - Testing and development
 
 For production signing, use a constant-time implementation with proper side-channel protections.
