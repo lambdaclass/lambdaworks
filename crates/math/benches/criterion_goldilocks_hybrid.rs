@@ -1,14 +1,14 @@
 //! Benchmarks for Goldilocks field and Bowers FFT
 //!
-//! This benchmark suite compares:
-//! - Standard NR FFT vs Bowers FFT on the Goldilocks field
-//!
 //! Run with: cargo bench --bench criterion_goldilocks_hybrid
 
 use criterion::{black_box, criterion_group, criterion_main, BatchSize, Criterion, Throughput};
+use rayon::prelude::*;
 
 use lambdaworks_math::fft::cpu::bit_reversing::in_place_bit_reverse_permute;
-use lambdaworks_math::fft::cpu::bowers_fft::{bowers_fft, bowers_fft_fused};
+use lambdaworks_math::fft::cpu::bowers_fft::{
+    bowers_fft, bowers_fft_fused, bowers_fft_opt, bowers_fft_opt_fused, BowersFft, LayerTwiddles,
+};
 use lambdaworks_math::fft::cpu::fft::in_place_nr_2radix_fft;
 use lambdaworks_math::fft::cpu::roots_of_unity::get_powers_of_primitive_root;
 use lambdaworks_math::field::element::FieldElement;
@@ -19,14 +19,25 @@ type F = Goldilocks64Field;
 type FE = FieldElement<F>;
 
 const FFT_ORDERS: [u64; 4] = [14, 16, 18, 20];
-
-// =====================================================
-// FFT BENCHMARKS
-// =====================================================
+const BATCH_SIZE: usize = 60;
 
 fn generate_input(order: u64) -> Vec<FE> {
     (0..(1u64 << order)).map(|i| FE::from(i * 7 + 1)).collect()
 }
+
+fn generate_batch_input(order: u64, num_polys: usize) -> Vec<Vec<FE>> {
+    (0..num_polys)
+        .map(|p| {
+            (0..(1u64 << order))
+                .map(|i| FE::from(i * 7 + 1 + p as u64 * 1000))
+                .collect()
+        })
+        .collect()
+}
+
+// =====================================================
+// SINGLE POLYNOMIAL FFT
+// =====================================================
 
 fn bench_fft_comparison(c: &mut Criterion) {
     let mut group = c.benchmark_group("FFT Comparison");
@@ -42,8 +53,9 @@ fn bench_fft_comparison(c: &mut Criterion) {
         let twiddles_nat =
             get_powers_of_primitive_root::<F>(order, (size / 2) as usize, RootsConfig::Natural)
                 .unwrap();
+        let layer_twiddles = LayerTwiddles::<F>::new(order);
 
-        // Standard NR Radix-2 FFT
+        // Standard NR
         group.bench_with_input(
             format!("Standard NR 2^{}", order),
             &(input.clone(), twiddles_br.clone()),
@@ -60,7 +72,7 @@ fn bench_fft_comparison(c: &mut Criterion) {
             },
         );
 
-        // Bowers FFT
+        // Bowers Legacy
         group.bench_with_input(
             format!("Bowers 2^{}", order),
             &(input.clone(), twiddles_nat.clone()),
@@ -77,7 +89,7 @@ fn bench_fft_comparison(c: &mut Criterion) {
             },
         );
 
-        // Bowers Fused FFT
+        // Bowers Fused Legacy
         group.bench_with_input(
             format!("Bowers Fused 2^{}", order),
             &(input.clone(), twiddles_nat),
@@ -93,20 +105,193 @@ fn bench_fft_comparison(c: &mut Criterion) {
                 );
             },
         );
+
+        // Bowers Optimized (LayerTwiddles)
+        group.bench_with_input(
+            format!("Bowers Opt 2^{}", order),
+            &(input.clone(), layer_twiddles.clone()),
+            |bench, (input, twiddles)| {
+                bench.iter_batched(
+                    || input.clone(),
+                    |mut data| {
+                        bowers_fft_opt(&mut data, twiddles);
+                        in_place_bit_reverse_permute(&mut data);
+                        black_box(data)
+                    },
+                    BatchSize::LargeInput,
+                );
+            },
+        );
+
+        // Bowers Optimized Fused
+        group.bench_with_input(
+            format!("Bowers OptFused 2^{}", order),
+            &(input.clone(), layer_twiddles),
+            |bench, (input, twiddles)| {
+                bench.iter_batched(
+                    || input.clone(),
+                    |mut data| {
+                        bowers_fft_opt_fused(&mut data, twiddles);
+                        in_place_bit_reverse_permute(&mut data);
+                        black_box(data)
+                    },
+                    BatchSize::LargeInput,
+                );
+            },
+        );
     }
 
     group.finish();
 }
 
 // =====================================================
-// FIELD OPERATION BENCHMARKS
+// PARALLEL BATCH FFT (60 polynomials)
+// =====================================================
+
+fn bench_fft_parallel_batch(c: &mut Criterion) {
+    let mut group = c.benchmark_group("FFT Parallel 60 Polys");
+
+    let batch_orders: [u64; 3] = [14, 16, 18];
+
+    for order in batch_orders {
+        let size = 1u64 << order;
+        let total_elements = size * BATCH_SIZE as u64;
+        group.throughput(Throughput::Elements(total_elements));
+
+        let inputs = generate_batch_input(order, BATCH_SIZE);
+        let twiddles_br =
+            get_powers_of_primitive_root::<F>(order, (size / 2) as usize, RootsConfig::BitReverse)
+                .unwrap();
+        let layer_twiddles = LayerTwiddles::<F>::new(order);
+
+        // Standard NR - parallel
+        group.bench_with_input(
+            format!("Standard NR 2^{}", order),
+            &(inputs.clone(), twiddles_br.clone()),
+            |bench, (inputs, twiddles)| {
+                bench.iter_batched(
+                    || inputs.clone(),
+                    |mut polys| {
+                        polys.par_iter_mut().for_each(|poly| {
+                            in_place_nr_2radix_fft::<F, F>(poly, twiddles);
+                            in_place_bit_reverse_permute(poly);
+                        });
+                        black_box(polys)
+                    },
+                    BatchSize::LargeInput,
+                );
+            },
+        );
+
+        // Bowers Optimized - parallel
+        group.bench_with_input(
+            format!("Bowers Opt 2^{}", order),
+            &(inputs.clone(), layer_twiddles.clone()),
+            |bench, (inputs, twiddles)| {
+                bench.iter_batched(
+                    || inputs.clone(),
+                    |mut polys| {
+                        polys.par_iter_mut().for_each(|poly| {
+                            bowers_fft_opt(poly, twiddles);
+                            in_place_bit_reverse_permute(poly);
+                        });
+                        black_box(polys)
+                    },
+                    BatchSize::LargeInput,
+                );
+            },
+        );
+
+        // Bowers Optimized Fused - parallel
+        group.bench_with_input(
+            format!("Bowers OptFused 2^{}", order),
+            &(inputs.clone(), layer_twiddles),
+            |bench, (inputs, twiddles)| {
+                bench.iter_batched(
+                    || inputs.clone(),
+                    |mut polys| {
+                        polys.par_iter_mut().for_each(|poly| {
+                            bowers_fft_opt_fused(poly, twiddles);
+                            in_place_bit_reverse_permute(poly);
+                        });
+                        black_box(polys)
+                    },
+                    BatchSize::LargeInput,
+                );
+            },
+        );
+    }
+
+    group.finish();
+}
+
+// =====================================================
+// CACHED FFT (BowersFft with RwLock cache)
+// =====================================================
+
+fn bench_fft_cached(c: &mut Criterion) {
+    let mut group = c.benchmark_group("FFT Cached 60 Polys");
+
+    let batch_orders: [u64; 3] = [14, 16, 18];
+
+    for order in batch_orders {
+        let size = 1u64 << order;
+        let total_elements = size * BATCH_SIZE as u64;
+        group.throughput(Throughput::Elements(total_elements));
+
+        let inputs = generate_batch_input(order, BATCH_SIZE);
+
+        // Create cached FFT instance and precompute twiddles
+        let fft = BowersFft::<F>::new();
+        fft.precompute(order);
+
+        // BowersFft cached - parallel
+        group.bench_with_input(
+            format!("BowersFft Cached 2^{}", order),
+            &inputs,
+            |bench, inputs| {
+                bench.iter_batched(
+                    || inputs.clone(),
+                    |mut polys| {
+                        polys.par_iter_mut().for_each(|poly| {
+                            fft.fft(poly);
+                        });
+                        black_box(polys)
+                    },
+                    BatchSize::LargeInput,
+                );
+            },
+        );
+
+        // BowersFft cached fused - parallel
+        group.bench_with_input(
+            format!("BowersFft CachedFused 2^{}", order),
+            &inputs,
+            |bench, inputs| {
+                bench.iter_batched(
+                    || inputs.clone(),
+                    |mut polys| {
+                        polys.par_iter_mut().for_each(|poly| {
+                            fft.fft_fused(poly);
+                        });
+                        black_box(polys)
+                    },
+                    BatchSize::LargeInput,
+                );
+            },
+        );
+    }
+
+    group.finish();
+}
+
+// =====================================================
+// FIELD OPERATIONS
 // =====================================================
 
 fn bench_field_ops(c: &mut Criterion) {
     let mut group = c.benchmark_group("Goldilocks Field Ops");
-
     let values: Vec<FE> = (1..1001).map(|i| FE::from(i as u64)).collect();
-
     group.throughput(Throughput::Elements(1000));
 
     group.bench_function("mul x1000", |b| {
@@ -148,14 +333,22 @@ fn bench_field_ops(c: &mut Criterion) {
     group.finish();
 }
 
-// =====================================================
-// CRITERION GROUPS
-// =====================================================
-
 criterion_group!(
     name = fft_benchmarks;
     config = Criterion::default().sample_size(10);
     targets = bench_fft_comparison,
+);
+
+criterion_group!(
+    name = fft_parallel_benchmarks;
+    config = Criterion::default().sample_size(10);
+    targets = bench_fft_parallel_batch,
+);
+
+criterion_group!(
+    name = fft_cached_benchmarks;
+    config = Criterion::default().sample_size(10);
+    targets = bench_fft_cached,
 );
 
 criterion_group!(
@@ -164,4 +357,4 @@ criterion_group!(
     targets = bench_field_ops,
 );
 
-criterion_main!(fft_benchmarks, field_benchmarks);
+criterion_main!(fft_benchmarks, fft_parallel_benchmarks, fft_cached_benchmarks, field_benchmarks);
