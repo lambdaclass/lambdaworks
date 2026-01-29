@@ -1,5 +1,5 @@
 use lambdaworks_circom_adapter::{circom_to_lambda, read_circom_r1cs, read_circom_witness};
-use lambdaworks_groth16::{common::FrElement, QuadraticArithmeticProgram};
+use lambdaworks_groth16::{common::FrElement, Groth16Error, QuadraticArithmeticProgram};
 
 // Converts following Circom circuit and inputs into Lambdaworks-compatible QAP and witness assignments.
 //
@@ -22,7 +22,7 @@ use lambdaworks_groth16::{common::FrElement, QuadraticArithmeticProgram};
 // { "x": 3 }
 // ```
 #[test]
-fn vitalik_w_and_qap() {
+fn vitalik_w_and_qap() -> Result<(), Groth16Error> {
     let circom_wtns = read_circom_witness("./tests/vitalik_example/witness.json")
         .expect("could not read witness");
     let circom_r1cs =
@@ -91,7 +91,8 @@ fn vitalik_w_and_qap() {
 
     // check proofs
     let (pk, vk) = lambdaworks_groth16::setup(&qap);
-    let proof = lambdaworks_groth16::Prover::prove(&wtns, &qap, &pk);
+    let proof = lambdaworks_groth16::Prover::prove(&wtns, &qap, &pk)?;
     let accept = lambdaworks_groth16::verify(&vk, &proof, &pubs);
     assert!(accept, "proof verification failed");
+    Ok(())
 }

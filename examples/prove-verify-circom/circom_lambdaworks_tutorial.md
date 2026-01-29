@@ -210,10 +210,10 @@ let (pk, vk) = setup(&qap);
 With the proving key in hand, you can generate a proof using the `Prover::prove` function:
 
 ```rust
-let proof = Prover::prove(&wtns, &qap, &pk);
+let proof = Prover::prove(&wtns, &qap, &pk).expect("proving failed");
 ```
 
-`Prover::prove`: This function takes the witness, QAP, and proving key to generate a proof that certifies the correctness of the computation represented by the circuit.
+`Prover::prove`: This function takes the witness, QAP, and proving key to generate a proof that certifies the correctness of the computation represented by the circuit. It returns a `Result<Proof, Groth16Error>`, so you need to handle the result appropriately.
 
 ### Step 4: Verify the Proof
 
@@ -223,7 +223,7 @@ To ensure the proof is valid, use the `verify` function:
 let accept = verify(&vk, &proof, &pubs);
 ```
 
-Here, `verify` takes the verifying key, proof, and public inputs to check if the proof is valid. It ensures that the proof matches the expected output of the computation without revealing the private inputs.
+Here, `verify` takes the verifying key, a reference to the proof, and public inputs to check if the proof is valid. It ensures that the proof matches the expected output of the computation without revealing the private inputs.
 
 ### Step 5: Assert the Verification Result
 
@@ -241,9 +241,10 @@ Create a new file within [`test`](../../crates/provers/groth16/circom-adapter/te
 
 ```rust
 use lambdaworks_circom_adapter::*;
+use lambdaworks_groth16::Groth16Error;
 
 #[test]
-fn fibonacci_verify() {
+fn fibonacci_verify() -> Result<(), Groth16Error> {
     // Step 1: Read circuit files & process them
     let circom_wtns = read_circom_witness("./tests/fibonacci/witness.json")
         .expect("could not read witness");
@@ -255,7 +256,7 @@ fn fibonacci_verify() {
     let (pk, vk) = setup(&qap);
 
     // Step 3: Generate the proof using the proving key and witness
-    let proof = Prover::prove(&wtns, &qap, &pk);
+    let proof = Prover::prove(&wtns, &qap, &pk)?;
 
     // Step 4: Verify the proof using the verifying key and public inputs
     let accept = verify(&vk, &proof, &pubs);
@@ -264,6 +265,7 @@ fn fibonacci_verify() {
     assert!(accept, "Proof verification failed.");
 
     println!("Proof verification succeeded. All steps completed.");
+    Ok(())
 }
 ```
 

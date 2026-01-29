@@ -249,8 +249,8 @@ impl<const NUM_LIMBS: usize> Sub<UnsignedInteger<NUM_LIMBS>> for &UnsignedIntege
     }
 }
 
-/// Multi-precision multiplication returning lower NUM_LIMBS limbs (wrapping semantics).
-/// Uses const bounds so LLVM can fully unroll the loops (~2x faster than runtime bounds).
+/// Multi-precision multiplication.
+/// Algorithm 14.12 of "Handbook of Applied Cryptography" (<https://cacr.uwaterloo.ca/hac/>).
 impl<const NUM_LIMBS: usize> Mul<&UnsignedInteger<NUM_LIMBS>> for &UnsignedInteger<NUM_LIMBS> {
     type Output = UnsignedInteger<NUM_LIMBS>;
 
@@ -656,7 +656,7 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
     }
 
     /// Multi-precision subtraction.
-    /// Adapted from Algorithm 14.9 of "Handbook of Applied Cryptography" (https://cacr.uwaterloo.ca/hac/)
+    /// Adapted from Algorithm 14.9 of "Handbook of Applied Cryptography" (<https://cacr.uwaterloo.ca/hac/>).
     /// Returns the results and a flag that is set if the substraction underflowed
     #[inline(always)]
     pub const fn sub(
@@ -684,7 +684,7 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
     }
 
     /// Multi-precision multiplication.
-    /// Adapted from Algorithm 14.12 of "Handbook of Applied Cryptography" (https://cacr.uwaterloo.ca/hac/)
+    /// Adapted from Algorithm 14.12 of "Handbook of Applied Cryptography" (<https://cacr.uwaterloo.ca/hac/>).
     pub const fn mul(
         a: &UnsignedInteger<NUM_LIMBS>,
         b: &UnsignedInteger<NUM_LIMBS>,

@@ -1,4 +1,4 @@
-use alloc::{string::String, vec::Vec};
+use alloc::vec::Vec;
 use lambdaworks_math::{
     field::{
         element::FieldElement,
@@ -7,15 +7,28 @@ use lambdaworks_math::{
     unsigned_integer::element::UnsignedInteger,
 };
 
+#[derive(Debug)]
+pub struct HashToFieldError;
+
 /// Converts a hash, represented by an array of bytes, into a vector of field elements
 /// For more info, see
 /// https://www.ietf.org/id/draft-irtf-cfrg-hash-to-curve-16.html#name-hashing-to-a-finite-field
+///
+/// # Errors
+/// Returns an error if `pseudo_random_bytes` doesn't contain enough bytes for `count` field elements.
 pub fn hash_to_field<M: IsModulus<UnsignedInteger<N>> + Clone, const N: usize>(
     pseudo_random_bytes: &[u8],
     count: usize,
-) -> Vec<FieldElement<MontgomeryBackendPrimeField<M, N>>> {
+) -> Result<Vec<FieldElement<MontgomeryBackendPrimeField<M, N>>>, HashToFieldError> {
     let order = M::MODULUS;
     let l = compute_length(order);
+
+    // Bounds check: ensure we have enough bytes
+    let required_bytes = l * count;
+    if pseudo_random_bytes.len() < required_bytes {
+        return Err(HashToFieldError);
+    }
+
     let mut u = vec![FieldElement::zero(); count];
     for (i, item) in u.iter_mut().enumerate() {
         let elm_offset = l * i;
@@ -23,13 +36,30 @@ pub fn hash_to_field<M: IsModulus<UnsignedInteger<N>> + Clone, const N: usize>(
 
         *item = os2ip::<M, N>(tv);
     }
-    u
+    Ok(u)
 }
 
 fn compute_length<const N: usize>(order: UnsignedInteger<N>) -> usize {
-    //L = ceil((ceil(log2(p)) + k) / 8), where k is the security parameter of the cryptosystem (e.g. k = ceil(log2(p) / 2))
-    let log2_p = order.limbs.len() << 3;
-    ((log2_p << 3) + (log2_p << 2)) >> 3
+    // L = ceil((ceil(log2(p)) + k) / 8), where k is the security parameter of the cryptosystem
+    // (e.g. k = ceil(log2(p) / 2) for 128-bit security)
+    //
+    // We compute the actual bit length of the modulus, not just limb count * 64,
+    // to handle moduli with leading zeros correctly.
+    let log2_p = compute_bit_length(&order);
+    let k = log2_p.div_ceil(2);
+    (log2_p + k).div_ceil(8)
+}
+
+/// Computes the bit length of an unsigned integer (position of highest set bit + 1).
+fn compute_bit_length<const N: usize>(value: &UnsignedInteger<N>) -> usize {
+    for (i, &limb) in value.limbs.iter().enumerate() {
+        if limb != 0 {
+            // Found the first non-zero limb (most significant)
+            let limb_bits = 64 - limb.leading_zeros() as usize;
+            return (N - i) * 64 - (64 - limb_bits);
+        }
+    }
+    0 // Value is zero
 }
 
 /// Converts an octet string to a nonnegative integer.
@@ -37,33 +67,15 @@ fn compute_length<const N: usize>(order: UnsignedInteger<N>) -> usize {
 fn os2ip<M: IsModulus<UnsignedInteger<N>> + Clone, const N: usize>(
     x: &[u8],
 ) -> FieldElement<MontgomeryBackendPrimeField<M, N>> {
-    let mut aux_x = x.to_vec();
-    aux_x.reverse();
-    let two_to_the_nth = build_two_to_the_nth();
-    let mut j = 0_u32;
-    let mut item_hex = String::with_capacity(N * 16);
-    let mut result = FieldElement::zero();
-    for item_u8 in aux_x.iter() {
-        item_hex += &format!("{item_u8:x}");
-        if item_hex.len() == item_hex.capacity() {
-            result += FieldElement::from_hex_unchecked(&item_hex) * two_to_the_nth.pow(j);
-            item_hex.clear();
-            j += 1;
-        }
+    type F<M, const N: usize> = MontgomeryBackendPrimeField<M, N>;
+    // Use Horner's method: result = sum(byte[i] * 256^(n-1-i))
+    // Process bytes from most significant to least significant
+    let mut result: FieldElement<F<M, N>> = FieldElement::zero();
+    let base: FieldElement<F<M, N>> = FieldElement::from(256u64);
+    for byte in x.iter() {
+        result = result * &base + FieldElement::from(*byte as u64);
     }
     result
-}
-
-/// Builds a `FieldElement` for `2^(N*16)`, where `N` is the number of limbs of the `UnsignedInteger`
-/// used for the prime field.
-fn build_two_to_the_nth<M: IsModulus<UnsignedInteger<N>> + Clone, const N: usize>(
-) -> FieldElement<MontgomeryBackendPrimeField<M, N>> {
-    // The hex used to build the FieldElement is a 1 followed by N * 16 zeros
-    let mut two_to_the_nth = String::with_capacity(N * 16);
-    for _ in 0..two_to_the_nth.capacity() - 1 {
-        two_to_the_nth.push('1');
-    }
-    FieldElement::from_hex_unchecked(&two_to_the_nth) + FieldElement::one()
 }
 
 #[cfg(test)]
@@ -90,8 +102,16 @@ mod tests {
     #[test]
     fn test_same_message_produce_same_field_elements() {
         let input = Sha3Hasher::expand_message(b"helloworld", b"dsttest", 500).unwrap();
-        let field_elements: Vec<FieldElement<F>> = hash_to_field(&input, 40);
-        let other_field_elements = hash_to_field(&input, 40);
+        let field_elements: Vec<FieldElement<F>> = hash_to_field(&input, 40).unwrap();
+        let other_field_elements = hash_to_field(&input, 40).unwrap();
         assert_eq!(field_elements, other_field_elements);
+    }
+
+    #[test]
+    fn test_os2ip_big_endian_bytes() {
+        let input = [0x01_u8, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08];
+        let expected = FieldElement::<F>::from_hex_unchecked("0102030405060708");
+        let got = super::os2ip::<U64, 1>(&input);
+        assert_eq!(got, expected);
     }
 }

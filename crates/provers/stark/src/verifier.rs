@@ -270,7 +270,9 @@ pub trait IsStarkVerifier<
             .into_iter()
             .unzip();
 
-        FieldElement::inplace_batch_inverse(&mut boundary_c_i_evaluations_den).unwrap();
+        if FieldElement::inplace_batch_inverse(&mut boundary_c_i_evaluations_den).is_err() {
+            return false;
+        }
 
         let boundary_quotient_ood_evaluation: FieldElement<FieldExtension> =
             boundary_c_i_evaluations_num
@@ -342,9 +344,12 @@ pub trait IsStarkVerifier<
         FieldElement<FieldExtension>: AsBytes + Sync + Send,
     {
         let (deep_poly_evaluations, deep_poly_evaluations_sym) =
-            Self::reconstruct_deep_composition_poly_evaluations_for_all_queries(
+            match Self::reconstruct_deep_composition_poly_evaluations_for_all_queries(
                 challenges, domain, proof,
-            );
+            ) {
+                Some(evals) => evals,
+                None => return false,
+            };
 
         // verify FRI
         let mut evaluation_point_inverse = challenges
@@ -352,7 +357,9 @@ pub trait IsStarkVerifier<
             .iter()
             .map(|iota| Self::query_challenge_to_evaluation_point(*iota, domain))
             .collect::<Vec<FieldElement<Field>>>();
-        FieldElement::inplace_batch_inverse(&mut evaluation_point_inverse).unwrap();
+        if FieldElement::inplace_batch_inverse(&mut evaluation_point_inverse).is_err() {
+            return false;
+        }
 
         proof
             .query_list
@@ -625,12 +632,12 @@ pub trait IsStarkVerifier<
         challenges: &Challenges<FieldExtension>,
         domain: &Domain<Field>,
         proof: &StarkProof<Field, FieldExtension>,
-    ) -> DeepPolynomialEvaluations<FieldExtension> {
+    ) -> Option<DeepPolynomialEvaluations<FieldExtension>> {
         let mut deep_poly_evaluations = Vec::new();
         let mut deep_poly_evaluations_sym = Vec::new();
         for (i, iota) in challenges.iotas.iter().enumerate() {
             let primitive_root =
-                &Field::get_primitive_root_of_unity(domain.root_order as u64).unwrap();
+                Field::get_primitive_root_of_unity(domain.root_order as u64).ok()?;
 
             let mut evaluations: Vec<FieldElement<FieldExtension>> = proof.deep_poly_openings[i]
                 .main_trace_polys
@@ -647,11 +654,11 @@ pub trait IsStarkVerifier<
             deep_poly_evaluations.push(Self::reconstruct_deep_composition_poly_evaluation(
                 proof,
                 &evaluation_point,
-                primitive_root,
+                &primitive_root,
                 challenges,
                 &evaluations,
                 &proof.deep_poly_openings[i].composition_poly.evaluations,
-            ));
+            )?);
 
             let mut evaluations_sym: Vec<FieldElement<FieldExtension>> = proof.deep_poly_openings
                 [i]
@@ -669,13 +676,13 @@ pub trait IsStarkVerifier<
             deep_poly_evaluations_sym.push(Self::reconstruct_deep_composition_poly_evaluation(
                 proof,
                 &evaluation_point,
-                primitive_root,
+                &primitive_root,
                 challenges,
                 &evaluations_sym,
                 &proof.deep_poly_openings[i].composition_poly.evaluations_sym,
-            ));
+            )?);
         }
-        (deep_poly_evaluations, deep_poly_evaluations_sym)
+        Some((deep_poly_evaluations, deep_poly_evaluations_sym))
     }
 
     fn reconstruct_deep_composition_poly_evaluation(
@@ -685,7 +692,7 @@ pub trait IsStarkVerifier<
         challenges: &Challenges<FieldExtension>,
         lde_trace_evaluations: &[FieldElement<FieldExtension>],
         lde_composition_poly_parts_evaluation: &[FieldElement<FieldExtension>],
-    ) -> FieldElement<FieldExtension> {
+    ) -> Option<FieldElement<FieldExtension>> {
         let ood_evaluations_table_height = proof.trace_ood_evaluations.height;
         let ood_evaluations_table_width = proof.trace_ood_evaluations.width;
         let trace_term_coeffs = &challenges.trace_term_coeffs;
@@ -697,7 +704,7 @@ pub trait IsStarkVerifier<
         let mut denoms_trace = (0..ood_evaluations_table_height)
             .map(|row_idx| evaluation_point - primitive_root.pow(row_idx as u64) * &challenges.z)
             .collect::<Vec<FieldElement<FieldExtension>>>();
-        FieldElement::inplace_batch_inverse(&mut denoms_trace).unwrap();
+        FieldElement::inplace_batch_inverse(&mut denoms_trace).ok()?;
 
         let trace_term = (0..ood_evaluations_table_width)
             .zip(&challenges.trace_term_coeffs)
@@ -717,7 +724,7 @@ pub trait IsStarkVerifier<
         let number_of_parts = lde_composition_poly_parts_evaluation.len();
         let z_pow = &challenges.z.pow(number_of_parts);
 
-        let denom_composition = (evaluation_point - z_pow).inv().unwrap();
+        let denom_composition = (evaluation_point - z_pow).inv().ok()?;
         let mut h_terms = FieldElement::zero();
         for (j, h_i_upsilon) in lde_composition_poly_parts_evaluation.iter().enumerate() {
             let h_i_zpower = &proof.composition_poly_parts_ood_evaluation[j];
@@ -726,7 +733,7 @@ pub trait IsStarkVerifier<
         }
         h_terms *= denom_composition;
 
-        trace_term + h_terms
+        Some(trace_term + h_terms)
     }
 
     /// Verifies a STARK proof with public inputs `pub_inputs`.
@@ -750,7 +757,13 @@ pub trait IsStarkVerifier<
         #[cfg(feature = "instruments")]
         let timer1 = Instant::now();
 
-        let domain = new_domain(air);
+        let domain = match new_domain(air) {
+            Ok(d) => d,
+            Err(_) => {
+                log::error!("Failed to create domain");
+                return false;
+            }
+        };
 
         let challenges =
             Self::step_1_replay_rounds_and_recover_challenges(air, proof, &domain, transcript);

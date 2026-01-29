@@ -22,7 +22,7 @@ fn main() {
     let (pk, vk) = setup(&qap);
 
     println!("Proving");
-    let proof = Prover::prove(&witness, &qap, &pk);
+    let proof = Prover::prove(&witness, &qap, &pk).expect("Proof generation failed");
 
     println!("Verifying");
     let accept = verify(&vk, &proof, &witness[..qap.num_of_public_inputs]);
