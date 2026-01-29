@@ -252,21 +252,38 @@ impl<const NUM_LIMBS: usize> Sub<UnsignedInteger<NUM_LIMBS>> for &UnsignedIntege
 /// Multi-precision multiplication.
 /// Adapted from Algorithm 14.12 of "Handbook of Applied Cryptography" (<https://cacr.uwaterloo.ca/hac/>).
 ///
+/// # Performance
+///
 /// Uses const bounds (`0..NUM_LIMBS`) instead of runtime bounds to enable LLVM loop unrolling,
 /// providing approximately 2x performance improvement for U256 multiplication.
+///
+/// # Overflow Behavior
+///
+/// This implementation is optimized for **field arithmetic** contexts where operands are
+/// guaranteed to be reduced modulo a field prime, ensuring the product fits within `NUM_LIMBS`.
+///
+/// - **Debug builds**: Overflow is detected via `debug_assert!` to catch logic errors during development.
+/// - **Release builds**: For performance, overflow checking is minimal. Products that would exceed
+///   `NUM_LIMBS` are not accumulated (wrapping semantics).
+///
+/// If you need overflow detection in release builds for non-field-arithmetic use cases,
+/// use [`UnsignedInteger::mul`] which returns `(high, low)` parts.
 impl<const NUM_LIMBS: usize> Mul<&UnsignedInteger<NUM_LIMBS>> for &UnsignedInteger<NUM_LIMBS> {
     type Output = UnsignedInteger<NUM_LIMBS>;
 
     #[inline(always)]
     fn mul(self, other: &UnsignedInteger<NUM_LIMBS>) -> UnsignedInteger<NUM_LIMBS> {
         let mut limbs = [0u64; NUM_LIMBS];
-        let mut carry: u128 = 0;
+
+        // Track overflow in debug builds
+        #[cfg(debug_assertions)]
+        let mut overflow_detected = false;
 
         // Column-wise multiplication with const bounds for LLVM unrolling.
         // The guard `i + j < NUM_LIMBS` ensures we only accumulate products
-        // that fit within NUM_LIMBS, implementing wrapping semantics.
+        // that fit within NUM_LIMBS.
         for i in 0..NUM_LIMBS {
-            carry = 0;
+            let mut carry: u128 = 0;
             for j in 0..NUM_LIMBS {
                 if i + j < NUM_LIMBS {
                     let idx = NUM_LIMBS - 1 - (i + j);
@@ -276,10 +293,37 @@ impl<const NUM_LIMBS: usize> Mul<&UnsignedInteger<NUM_LIMBS>> for &UnsignedInteg
                         + carry;
                     carry = uv >> 64;
                     limbs[idx] = uv as u64;
+                } else {
+                    // In debug builds, check if this skipped product would have contributed
+                    #[cfg(debug_assertions)]
+                    {
+                        let product = (self.limbs[NUM_LIMBS - 1 - j] as u128)
+                            * (other.limbs[NUM_LIMBS - 1 - i] as u128);
+                        if product != 0 {
+                            overflow_detected = true;
+                        }
+                    }
                 }
             }
+            // In debug builds, check if carry would overflow into non-existent higher limb.
+            // This happens when there's a carry left after processing a column that would
+            // go into limbs[-1] (i.e., beyond the array bounds).
+            #[cfg(debug_assertions)]
+            if carry != 0 {
+                // After processing column i, the next carry would go to limbs[NUM_LIMBS - 2 - i].
+                // If i >= NUM_LIMBS - 1, this would be out of bounds.
+                // But more importantly, any non-zero carry after processing means
+                // there's overflow that we're losing.
+                overflow_detected = true;
+            }
         }
-        assert_eq!(carry, 0, "UnsignedInteger multiplication overflow.");
+
+        #[cfg(debug_assertions)]
+        debug_assert!(
+            !overflow_detected,
+            "UnsignedInteger multiplication overflow: product exceeds {}-limb capacity",
+            NUM_LIMBS
+        );
 
         Self::Output { limbs }
     }
@@ -1830,14 +1874,13 @@ mod tests_u384 {
     }
 
     #[test]
-    fn mul_two_384_bit_integers_wrapping() {
-        // Const bounds implementation uses wrapping semantics for performance.
-        // 0x80...00 * 2 = 0x100...00, which wraps to 0x00...00 (lower 384 bits)
+    #[should_panic(expected = "UnsignedInteger multiplication overflow")]
+    fn mul_two_384_bit_integers_overflow_panics() {
+        // Overflow is detected via debug_assert in debug builds.
+        // 0x80...00 * 2 = 0x100...00, which exceeds 384 bits.
         let a = U384::from_hex_unchecked("800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000");
         let b = U384::from_hex_unchecked("2");
-        let c = &a * &b;
-        // Result wraps to zero since the product exceeds 384 bits
-        assert_eq!(c, U384::from_u64(0));
+        let _ = &a * &b;
     }
 
     #[test]
@@ -3301,20 +3344,15 @@ mod tests_u256 {
     }
 
     #[test]
-    fn mul_wrapping_behavior() {
-        // The const bounds implementation uses wrapping semantics for performance.
-        // Overflow that doesn't produce a final carry wraps silently.
-        // This test verifies the wrapping behavior is consistent.
+    #[should_panic(expected = "UnsignedInteger multiplication overflow")]
+    fn mul_overflow_panics_in_debug() {
+        // Overflow is detected via debug_assert in debug builds.
+        // 0xFF...FF * 2 = 0x1FF...FE, which exceeds 256 bits.
         let a = U256::from_hex_unchecked(
             "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
         );
         let b = U256::from_u64(2);
-        // Result wraps: 0xFF...FF * 2 = 0x1FF...FE, but we only keep lower 256 bits
-        let result = &a * &b;
-        let expected = U256::from_hex_unchecked(
-            "fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe",
-        );
-        assert_eq!(result, expected);
+        let _ = &a * &b;
     }
 
     #[test]
