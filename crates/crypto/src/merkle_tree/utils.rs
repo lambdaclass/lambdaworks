@@ -22,6 +22,8 @@ pub fn parent_index(node_index: usize) -> usize {
 
 /// Pads the list of values to a power of two length.
 ///
+/// Returns the input unchanged if it's empty or already a power of two length.
+///
 /// NOTE: This implementation repeats the last value for padding, which means
 /// that trees with different original lengths could potentially produce the
 /// same root if the padding results in identical leaf sets. For applications
@@ -31,6 +33,10 @@ pub fn parent_index(node_index: usize) -> usize {
 /// 3. Using a domain-separated padding scheme
 pub fn complete_until_power_of_two<T: Clone>(mut values: Vec<T>) -> Vec<T> {
     let len = values.len();
+    // Handle empty input - nothing to pad
+    if len == 0 {
+        return values;
+    }
     if is_power_of_two(len) {
         return values;
     }
@@ -39,7 +45,7 @@ pub fn complete_until_power_of_two<T: Clone>(mut values: Vec<T>) -> Vec<T> {
     let padding_count = target_len - len;
     values.reserve(padding_count);
     let last_value = values[len - 1].clone();
-    values.extend(core::iter::repeat(last_value).take(padding_count));
+    values.extend(core::iter::repeat_n(last_value, padding_count));
     values
 }
 
@@ -48,8 +54,9 @@ pub fn complete_until_power_of_two<T: Clone>(mut values: Vec<T>) -> Vec<T> {
 // In turn, this makes the smallest tree of one leaf, possible.
 // The function is private and is only used to ensure the tree
 // has a power of 2 number of leaves.
+// Note: 0 is not considered a power of two.
 fn is_power_of_two(x: usize) -> bool {
-    (x & (x - 1)) == 0
+    x != 0 && (x & (x - 1)) == 0
 }
 
 /// Minimum number of nodes at a level to use parallel processing.
@@ -164,6 +171,13 @@ mod tests {
         assert_eq!(hashed_leaves[0], expected_leaves[0]);
     }
 
+    #[test]
+    fn complete_empty_vector_returns_empty() {
+        let values: Vec<FE> = vec![];
+        let result = complete_until_power_of_two(values);
+        assert!(result.is_empty());
+    }
+
     const ROOT: usize = 0;
 
     #[test]
@@ -173,7 +187,7 @@ mod tests {
         let leaves_len = leaves.len();
 
         let mut nodes = Vec::with_capacity(2 * leaves_len - 1);
-        nodes.extend(core::iter::repeat(FE::zero()).take(leaves_len - 1));
+        nodes.extend(core::iter::repeat_n(FE::zero(), leaves_len - 1));
         nodes.extend(leaves);
 
         build::<TestBackend<U64PF>>(&mut nodes, leaves_len);
