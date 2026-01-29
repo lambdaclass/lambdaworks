@@ -472,9 +472,9 @@ mod tests {
         let root = F::get_primitive_root_of_unity(n.trailing_zeros() as u64).unwrap();
         let mut result = vec![FE::zero(); n];
 
-        for k in 0..n {
-            for j in 0..n {
-                result[k] = result[k] + input[j] * root.pow((j * k) as u64);
+        for (k, res) in result.iter_mut().enumerate() {
+            for (j, inp) in input.iter().enumerate() {
+                *res += *inp * root.pow((j * k) as u64);
             }
         }
 
