@@ -461,6 +461,8 @@ mod tests {
     use crate::fft::cpu::roots_of_unity::get_powers_of_primitive_root;
     use crate::field::fields::u64_goldilocks_field::Goldilocks64Field;
     use crate::field::traits::RootsConfig;
+    use alloc::vec;
+    use alloc::vec::Vec;
 
     type F = Goldilocks64Field;
     type FE = FieldElement<F>;
