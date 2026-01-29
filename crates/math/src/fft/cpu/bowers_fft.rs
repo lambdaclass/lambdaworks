@@ -415,10 +415,8 @@ where
         let num_blocks = n / block_size;
 
         if num_blocks >= PARALLEL_THRESHOLD {
-            // Parallel processing for many blocks
-            let chunks: Vec<&mut [FieldElement<E>]> = input.chunks_mut(block_size).collect();
-
-            chunks.into_par_iter().for_each(|block| {
+            // Parallel processing for many blocks using par_chunks_mut
+            input.par_chunks_mut(block_size).for_each(|block| {
                 for j in 0..half_block {
                     let tw_idx = j * twiddle_stride;
                     let w = &twiddles[tw_idx % twiddles.len()];
