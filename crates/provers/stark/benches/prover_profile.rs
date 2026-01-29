@@ -165,8 +165,8 @@ fn run_read_only_memory_prover(trace_length: usize) {
     let mut trace = sort_rap_trace(address.clone(), value.clone());
 
     let pub_inputs = ReadOnlyPublicInputs {
-        a0: address[0].clone(),
-        v0: value[0].clone(),
+        a0: address[0],
+        v0: value[0],
         a_sorted0: FE::from(0u64), // Sorted addresses start at 0
         v_sorted0: FE::from(0u64), // Sorted values start at 0
     };
