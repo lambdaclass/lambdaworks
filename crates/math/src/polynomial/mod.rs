@@ -2,8 +2,8 @@ use super::field::element::FieldElement;
 use crate::field::traits::{IsField, IsPrimeField, IsSubFieldOf};
 use alloc::string::{String, ToString};
 use alloc::{borrow::ToOwned, format, vec, vec::Vec};
+use core::ops::{AddAssign, MulAssign, SubAssign};
 use core::{fmt::Display, ops, slice};
-use core::ops::{AddAssign, SubAssign, MulAssign};
 pub mod dense_multilinear_poly;
 mod error;
 pub use error::PolynomialError;
@@ -95,7 +95,7 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
                 let numerator = Polynomial::new(&[-x, FieldElement::one()]);
                 y_term = y_term.mul_with_ref(&(numerator * denominator_poly));
             }
-            result = result + y_term;
+            result += y_term;
         }
         Ok(result)
     }
@@ -234,7 +234,7 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
                     new_coefficient,
                     n.degree() - divisor.degree(),
                 ));
-                n = n - d;
+                n -= d;
             }
             Ok((Polynomial::new(&q), n))
         }
@@ -255,14 +255,8 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
         }
 
         let (mut old_r, mut r) = (self.clone(), y.clone());
-        let (mut old_s, mut s) = (
-            Polynomial::new(&[FieldElement::one()]),
-            Polynomial::zero(),
-        );
-        let (mut old_t, mut t) = (
-            Polynomial::zero(),
-            Polynomial::new(&[FieldElement::one()]),
-        );
+        let (mut old_s, mut s) = (Polynomial::new(&[FieldElement::one()]), Polynomial::zero());
+        let (mut old_t, mut t) = (Polynomial::zero(), Polynomial::new(&[FieldElement::one()]));
 
         while !r.is_zero() {
             // Division is safe: the loop condition guarantees r is non-zero
@@ -375,7 +369,11 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
             *a = &*a + b;
         }
         // Remove trailing zeros
-        while self.coefficients.last().map_or(false, |c| *c == FieldElement::zero()) {
+        while self
+            .coefficients
+            .last()
+            .is_some_and(|c| *c == FieldElement::zero())
+        {
             self.coefficients.pop();
         }
     }
@@ -391,7 +389,11 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
             *a = &*a - b;
         }
         // Remove trailing zeros
-        while self.coefficients.last().map_or(false, |c| *c == FieldElement::zero()) {
+        while self
+            .coefficients
+            .last()
+            .is_some_and(|c| *c == FieldElement::zero())
+        {
             self.coefficients.pop();
         }
     }
@@ -1064,7 +1066,7 @@ where
 // In-place assignment operators
 impl<F: IsField> AddAssign<&Polynomial<FieldElement<F>>> for Polynomial<FieldElement<F>> {
     fn add_assign(&mut self, other: &Polynomial<FieldElement<F>>) {
-        self.add_assign(other);
+        Polynomial::add_assign(self, other);
     }
 }
 
