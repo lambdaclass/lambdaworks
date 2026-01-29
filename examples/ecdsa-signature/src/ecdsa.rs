@@ -1,6 +1,17 @@
 //! ECDSA implementation for secp256k1.
 //!
 //! This module provides ECDSA signing and verification using the secp256k1 curve.
+//!
+//! # Security Warning
+//!
+//! This implementation is for **educational purposes only**. It is NOT suitable for
+//! production use because:
+//!
+//! - Operations are NOT constant-time (vulnerable to timing attacks)
+//! - Nonce generation is the caller's responsibility (must use RFC 6979 or CSPRNG)
+//! - No protection against fault attacks
+//!
+//! For production use, consider well-audited libraries like `k256` or `secp256k1`.
 
 use lambdaworks_math::cyclic_group::IsGroup;
 use lambdaworks_math::elliptic_curve::short_weierstrass::curves::secp256k1::curve::Secp256k1Curve;
@@ -9,6 +20,7 @@ use lambdaworks_math::elliptic_curve::traits::IsEllipticCurve;
 use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::fields::secp256k1_scalarfield::Secp256k1ScalarField;
 use lambdaworks_math::traits::ByteConversion;
+use lambdaworks_math::unsigned_integer::element::U256;
 
 /// Type alias for scalar field elements
 pub type ScalarFE = FieldElement<Secp256k1ScalarField>;
@@ -28,9 +40,9 @@ pub struct Signature {
 /// Errors that can occur during ECDSA operations
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum EcdsaError {
-    /// The signature r component is zero
+    /// The signature r component is zero or out of range
     InvalidRValue,
-    /// The signature s component is zero
+    /// The signature s component is zero or out of range
     InvalidSValue,
     /// The nonce k is invalid (zero or >= order)
     InvalidNonce,
@@ -40,6 +52,36 @@ pub enum EcdsaError {
     InvalidMessageHash,
     /// Signature verification failed
     VerificationFailed,
+    /// Public key is not a valid curve point
+    InvalidPublicKey,
+}
+
+/// Half of the curve order n, used for low-S normalization.
+/// n/2 = 0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A0
+fn half_order() -> U256 {
+    U256::from_hex_unchecked("7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A0")
+}
+
+/// Check if a point is on the secp256k1 curve.
+/// Verifies that y² = x³ + 7 (mod p).
+fn is_point_on_curve(point: &CurvePoint) -> bool {
+    use lambdaworks_math::elliptic_curve::short_weierstrass::traits::IsShortWeierstrass;
+
+    // Point at infinity is technically on the curve
+    if *point == CurvePoint::neutral_element() {
+        return true;
+    }
+
+    let affine = point.to_affine();
+    let x = affine.x();
+    let y = affine.y();
+
+    // Check curve equation: y² = x³ + b (where b = 7 for secp256k1)
+    let y_sq = y * y;
+    let x_cubed = x * x * x;
+    let rhs = x_cubed + Secp256k1Curve::b();
+
+    y_sq == rhs
 }
 
 impl Signature {
@@ -122,10 +164,16 @@ pub fn sign(
     let k_inv = nonce.inv().map_err(|_| EcdsaError::InverseError)?;
 
     // s = k^(-1) * (z + r * d) mod n
-    let s = &k_inv * &(&z + &(&r * private_key));
+    let mut s = &k_inv * &(&z + &(&r * private_key));
 
     if s == ScalarFE::zero() {
         return Err(EcdsaError::InvalidSValue);
+    }
+
+    // Normalize to low-S form to prevent signature malleability.
+    // If s > n/2, use n - s instead.
+    if s.representative() > half_order() {
+        s = -s;
     }
 
     Signature::new(r, s)
@@ -136,21 +184,39 @@ pub fn sign(
 /// # Arguments
 /// * `message_hash` - The 32-byte hash of the signed message
 /// * `signature` - The signature to verify
-/// * `public_key` - The public key point (should be on the curve)
+/// * `public_key` - The public key point (must be on the curve)
 ///
 /// # Returns
 /// `Ok(())` if the signature is valid, `Err` otherwise.
+///
+/// # Security
+/// This function rejects high-S signatures to prevent signature malleability.
 pub fn verify(
     message_hash: &[u8; 32],
     signature: &Signature,
     public_key: &CurvePoint,
 ) -> Result<(), EcdsaError> {
-    // Validate r and s are in [1, n-1]
+    // Validate r and s are non-zero (they're already reduced mod n by FieldElement)
     if signature.r == ScalarFE::zero() {
         return Err(EcdsaError::InvalidRValue);
     }
     if signature.s == ScalarFE::zero() {
         return Err(EcdsaError::InvalidSValue);
+    }
+
+    // Reject high-S signatures to prevent malleability
+    if signature.s.representative() > half_order() {
+        return Err(EcdsaError::InvalidSValue);
+    }
+
+    // Validate public key is on the curve
+    if !is_point_on_curve(public_key) {
+        return Err(EcdsaError::InvalidPublicKey);
+    }
+
+    // Reject point at infinity as public key
+    if *public_key == CurvePoint::neutral_element() {
+        return Err(EcdsaError::InvalidPublicKey);
     }
 
     // z = message_hash as scalar field element
@@ -337,5 +403,56 @@ mod tests {
         let y_sq = y.pow(2u16);
         let x_cubed_plus_b = x.pow(3u16) + Secp256k1Curve::b();
         assert_eq!(y_sq, x_cubed_plus_b);
+    }
+
+    #[test]
+    fn test_signature_has_low_s() {
+        let private_key = test_private_key();
+        let nonce = test_nonce();
+        let message_hash = test_message_hash();
+
+        let signature = sign(&message_hash, &private_key, &nonce).expect("Signing failed");
+
+        // Verify s is in low-S form (s <= n/2)
+        assert!(
+            signature.s.representative() <= super::half_order(),
+            "Signature s should be in low-S form"
+        );
+    }
+
+    #[test]
+    fn test_high_s_signature_rejected() {
+        let private_key = test_private_key();
+        let public_key = derive_public_key(&private_key);
+        let nonce = test_nonce();
+        let message_hash = test_message_hash();
+
+        let signature = sign(&message_hash, &private_key, &nonce).expect("Signing failed");
+
+        // Create a high-S signature by negating s
+        // Note: -s mod n = n - s, which is > n/2 when s < n/2
+        let high_s = -signature.s.clone();
+        let high_s_signature = Signature {
+            r: signature.r,
+            s: high_s,
+        };
+
+        // High-S signature should be rejected
+        let result = verify(&message_hash, &high_s_signature, &public_key);
+        assert_eq!(result, Err(EcdsaError::InvalidSValue));
+    }
+
+    #[test]
+    fn test_point_at_infinity_rejected_as_public_key() {
+        let private_key = test_private_key();
+        let nonce = test_nonce();
+        let message_hash = test_message_hash();
+
+        let signature = sign(&message_hash, &private_key, &nonce).expect("Signing failed");
+
+        // Try to verify with point at infinity as public key
+        let infinity = CurvePoint::neutral_element();
+        let result = verify(&message_hash, &signature, &infinity);
+        assert_eq!(result, Err(EcdsaError::InvalidPublicKey));
     }
 }
