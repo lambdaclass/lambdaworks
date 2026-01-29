@@ -695,7 +695,7 @@ pub trait IsStarkProver<
             // where N is the number of parts of the composition polynomial.
             let h_i_eval = &round_3_result.composition_poly_parts_ood_evaluation[i];
             let h_i_term = &composition_poly_gammas[i] * (part - h_i_eval);
-            h_terms = h_terms + h_i_term;
+            h_terms += h_i_term;
         }
         assert_eq!(h_terms.evaluate(&z_power), FieldElement::zero());
         h_terms.ruffini_division_inplace(&z_power);
