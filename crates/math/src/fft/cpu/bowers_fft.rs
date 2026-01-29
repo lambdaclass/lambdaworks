@@ -3,15 +3,34 @@
 //! This module implements the Bowers G network FFT algorithm, which provides
 //! improved twiddle factor access patterns compared to the standard Cooley-Tukey FFT.
 //!
-//! Key optimizations:
-//! - Bowers G network: Improved memory access pattern for twiddle factors
-//! - Structure of Arrays (SoA): Better cache utilization for batch processing
-//! - Multi-layer butterfly fusion: Process 2 layers at once to reduce memory traffic
+//! # Key optimizations
+//!
+//! - **Bowers G network**: Improved memory access pattern for twiddle factors
+//! - **LayerTwiddles**: Pre-computed twiddles per layer for O(N) sequential access
+//!   instead of O(N log N) strided access
+//! - **Multi-layer butterfly fusion**: Process 2 layers at once to keep intermediate
+//!   values in registers and reduce memory traffic
+//! - **Internal parallelization**: Uses rayon to parallelize across blocks when
+//!   there are enough blocks (>= 64) to amortize threading overhead
+//!
+//! # Usage
+//!
+//! ```ignore
+//! use lambdaworks_math::fft::cpu::bowers_fft::{LayerTwiddles, bowers_fft_opt_fused};
+//!
+//! let order = 10u64; // FFT size = 2^10 = 1024
+//! let layer_twiddles = LayerTwiddles::<F>::new(order).unwrap();
+//!
+//! let mut data = vec![...]; // your polynomial coefficients
+//! bowers_fft_opt_fused(&mut data, &layer_twiddles);
+//! in_place_bit_reverse_permute(&mut data);
+//! ```
 //!
 //! Based on analysis of Plonky3's implementation and academic literature on FFT optimization.
 
 #[cfg(feature = "alloc")]
 use crate::fft::cpu::bit_reversing::in_place_bit_reverse_permute;
+#[cfg(feature = "alloc")]
 use crate::field::{
     element::FieldElement,
     traits::{IsFFTField, IsField, IsSubFieldOf},
@@ -19,6 +38,14 @@ use crate::field::{
 
 #[cfg(feature = "alloc")]
 use alloc::vec::Vec;
+
+/// Maximum supported FFT order to prevent integer overflow.
+/// With order 63, n = 2^63 which is the largest power of 2 that fits in usize on 64-bit.
+/// For 32-bit systems, max order is 31.
+#[cfg(all(feature = "alloc", target_pointer_width = "64"))]
+const MAX_FFT_ORDER: u64 = 63;
+#[cfg(all(feature = "alloc", target_pointer_width = "32"))]
+const MAX_FFT_ORDER: u64 = 31;
 
 // =====================================================
 // STRUCTURE OF ARRAYS (SoA) FFT
@@ -46,6 +73,9 @@ pub struct FftMatrix<E: IsField> {
 #[cfg(feature = "alloc")]
 impl<E: IsField> FftMatrix<E> {
     /// Create a new FFT matrix from a list of polynomials
+    ///
+    /// # Panics
+    /// Panics if polynomials have different lengths.
     pub fn from_polynomials(polys: Vec<Vec<FieldElement<E>>>) -> Self {
         if polys.is_empty() {
             return Self {
@@ -61,7 +91,11 @@ impl<E: IsField> FftMatrix<E> {
         // Flatten in row-major order (SoA layout)
         let mut data = Vec::with_capacity(height * width);
         for poly in polys {
-            debug_assert_eq!(poly.len(), width, "All polynomials must have same length");
+            assert_eq!(
+                poly.len(),
+                width,
+                "All polynomials must have same length"
+            );
             data.extend(poly);
         }
 
@@ -104,10 +138,25 @@ use rayon::prelude::*;
 
 /// Optimized Parallel Bowers FFT with 2-layer fusion using LayerTwiddles
 ///
-/// Combines the benefits of:
-/// 1. Sequential twiddle access via LayerTwiddles
-/// 2. 2-layer fusion to keep intermediate values in registers
-/// 3. Internal parallelization across blocks
+/// This is the recommended FFT for large inputs (>= 2^16 elements) when
+/// the `parallel` feature is enabled. It combines:
+///
+/// 1. **Sequential twiddle access**: LayerTwiddles stores twiddles per layer
+///    for cache-friendly sequential reads instead of strided access
+/// 2. **2-layer fusion**: Processes two FFT layers at once, keeping intermediate
+///    values in registers to reduce memory traffic
+/// 3. **Internal parallelization**: Uses `par_chunks_mut` to process independent
+///    blocks in parallel when there are >= 64 blocks (PARALLEL_THRESHOLD)
+///
+/// # Parallelization Strategy
+///
+/// The FFT is structured in layers, where each layer processes blocks of decreasing size.
+/// Early layers have few large blocks (not enough parallelism), while later layers have
+/// many small blocks (good parallelism). We only parallelize when `num_blocks >= 64`
+/// to ensure the threading overhead is amortized.
+///
+/// # Panics
+/// Panics if input length is not a power of two.
 #[cfg(all(feature = "alloc", feature = "parallel"))]
 #[allow(clippy::needless_range_loop)]
 pub fn bowers_fft_opt_fused_parallel<F, E>(
@@ -119,10 +168,12 @@ pub fn bowers_fft_opt_fused_parallel<F, E>(
     FieldElement<F>: Send + Sync,
     FieldElement<E>: Send + Sync,
 {
+    // Minimum number of blocks required to use parallel processing.
+    // Below this threshold, the threading overhead exceeds the benefit.
     const PARALLEL_THRESHOLD: usize = 64;
 
     let n = input.len();
-    debug_assert!(n.is_power_of_two());
+    assert!(n.is_power_of_two(), "Input length must be a power of two");
 
     if n <= 1 {
         return;
@@ -137,7 +188,9 @@ pub fn bowers_fft_opt_fused_parallel<F, E>(
     let log_n = n.trailing_zeros() as usize;
     let mut layer = 0;
 
-    // Process pairs of layers with fusion
+    // Process pairs of layers with 2-layer fusion.
+    // This keeps intermediate values (sum_02, diff_02, etc.) in registers
+    // instead of writing them back to memory between layers.
     while layer + 1 < log_n {
         let block_size = n >> layer;
 
@@ -147,78 +200,15 @@ pub fn bowers_fft_opt_fused_parallel<F, E>(
             let num_blocks = n / block_size;
 
             if num_blocks >= PARALLEL_THRESHOLD {
+                // Parallel path: process blocks concurrently
                 input.par_chunks_mut(block_size).for_each(|block| {
-                    let quarter = block_size >> 2;
-                    for j in 0..quarter {
-                        let i0 = j;
-                        let i1 = j + quarter;
-                        let i2 = j + 2 * quarter;
-                        let i3 = j + 3 * quarter;
-
-                        let w0 = &twiddles_l0[j];
-                        let w1 = &twiddles_l0[j + quarter];
-
-                        let sum_02 = &block[i0] + &block[i2];
-                        let diff_02 = &block[i0] - &block[i2];
-                        let diff_02_w = w0 * &diff_02;
-
-                        let sum_13 = &block[i1] + &block[i3];
-                        let diff_13 = &block[i1] - &block[i3];
-                        let diff_13_w = w1 * &diff_13;
-
-                        let w2 = &twiddles_l1[j];
-
-                        let final_0 = &sum_02 + &sum_13;
-                        let diff_sums = &sum_02 - &sum_13;
-                        let final_1 = w2 * &diff_sums;
-
-                        let final_2 = &diff_02_w + &diff_13_w;
-                        let diff_diffs = &diff_02_w - &diff_13_w;
-                        let final_3 = w2 * &diff_diffs;
-
-                        block[i0] = final_0;
-                        block[i1] = final_1;
-                        block[i2] = final_2;
-                        block[i3] = final_3;
-                    }
+                    process_fused_block(block, twiddles_l0, twiddles_l1);
                 });
             } else {
+                // Sequential path: not enough blocks to justify threading
                 for block_start in (0..n).step_by(block_size) {
-                    let quarter = block_size >> 2;
                     let block = &mut input[block_start..block_start + block_size];
-
-                    for j in 0..quarter {
-                        let i0 = j;
-                        let i1 = j + quarter;
-                        let i2 = j + 2 * quarter;
-                        let i3 = j + 3 * quarter;
-
-                        let w0 = &twiddles_l0[j];
-                        let w1 = &twiddles_l0[j + quarter];
-
-                        let sum_02 = &block[i0] + &block[i2];
-                        let diff_02 = &block[i0] - &block[i2];
-                        let diff_02_w = w0 * &diff_02;
-
-                        let sum_13 = &block[i1] + &block[i3];
-                        let diff_13 = &block[i1] - &block[i3];
-                        let diff_13_w = w1 * &diff_13;
-
-                        let w2 = &twiddles_l1[j];
-
-                        let final_0 = &sum_02 + &sum_13;
-                        let diff_sums = &sum_02 - &sum_13;
-                        let final_1 = w2 * &diff_sums;
-
-                        let final_2 = &diff_02_w + &diff_13_w;
-                        let diff_diffs = &diff_02_w - &diff_13_w;
-                        let final_3 = w2 * &diff_diffs;
-
-                        block[i0] = final_0;
-                        block[i1] = final_1;
-                        block[i2] = final_2;
-                        block[i3] = final_3;
-                    }
+                    process_fused_block(block, twiddles_l0, twiddles_l1);
                 }
             }
             layer += 2;
@@ -227,7 +217,7 @@ pub fn bowers_fft_opt_fused_parallel<F, E>(
         }
     }
 
-    // Process remaining single layers
+    // Process remaining single layers (if odd number of layers)
     while layer < log_n {
         let block_size = n >> layer;
         let half_block = block_size >> 1;
@@ -236,16 +226,7 @@ pub fn bowers_fft_opt_fused_parallel<F, E>(
 
         if num_blocks >= PARALLEL_THRESHOLD {
             input.par_chunks_mut(block_size).for_each(|block| {
-                for j in 0..half_block {
-                    let w = &twiddles[j];
-
-                    let sum = &block[j] + &block[j + half_block];
-                    let diff = &block[j] - &block[j + half_block];
-                    let diff_w = w * &diff;
-
-                    block[j] = sum;
-                    block[j + half_block] = diff_w;
-                }
+                process_single_layer_block(block, twiddles, half_block);
             });
         } else {
             for block_start in (0..n).step_by(block_size) {
@@ -267,6 +248,79 @@ pub fn bowers_fft_opt_fused_parallel<F, E>(
     }
 }
 
+/// Process a single block with 2-layer fusion (DIF butterfly).
+#[cfg(all(feature = "alloc", feature = "parallel"))]
+#[inline]
+fn process_fused_block<F, E>(
+    block: &mut [FieldElement<E>],
+    twiddles_l0: &[FieldElement<F>],
+    twiddles_l1: &[FieldElement<F>],
+) where
+    F: IsFFTField + IsSubFieldOf<E>,
+    E: IsField,
+{
+    let block_size = block.len();
+    let quarter = block_size >> 2;
+
+    for j in 0..quarter {
+        let i0 = j;
+        let i1 = j + quarter;
+        let i2 = j + 2 * quarter;
+        let i3 = j + 3 * quarter;
+
+        let w0 = &twiddles_l0[j];
+        let w1 = &twiddles_l0[j + quarter];
+
+        // First layer butterflies
+        let sum_02 = &block[i0] + &block[i2];
+        let diff_02 = &block[i0] - &block[i2];
+        let diff_02_w = w0 * &diff_02;
+
+        let sum_13 = &block[i1] + &block[i3];
+        let diff_13 = &block[i1] - &block[i3];
+        let diff_13_w = w1 * &diff_13;
+
+        let w2 = &twiddles_l1[j];
+
+        // Second layer butterflies
+        let final_0 = &sum_02 + &sum_13;
+        let diff_sums = &sum_02 - &sum_13;
+        let final_1 = w2 * &diff_sums;
+
+        let final_2 = &diff_02_w + &diff_13_w;
+        let diff_diffs = &diff_02_w - &diff_13_w;
+        let final_3 = w2 * &diff_diffs;
+
+        block[i0] = final_0;
+        block[i1] = final_1;
+        block[i2] = final_2;
+        block[i3] = final_3;
+    }
+}
+
+/// Process a single layer block (used for remaining odd layer).
+#[cfg(all(feature = "alloc", feature = "parallel"))]
+#[inline]
+fn process_single_layer_block<F, E>(
+    block: &mut [FieldElement<E>],
+    twiddles: &[FieldElement<F>],
+    half_block: usize,
+) where
+    F: IsFFTField + IsSubFieldOf<E>,
+    E: IsField,
+{
+    for j in 0..half_block {
+        let w = &twiddles[j];
+
+        let sum = &block[j] + &block[j + half_block];
+        let diff = &block[j] - &block[j + half_block];
+        let diff_w = w * &diff;
+
+        block[j] = sum;
+        block[j + half_block] = diff_w;
+    }
+}
+
 // =====================================================
 // LAYER-SPECIFIC TWIDDLE TABLES (OPTIMIZED)
 // =====================================================
@@ -276,6 +330,15 @@ pub fn bowers_fft_opt_fused_parallel<F, E>(
 /// Instead of accessing twiddles with strided patterns (j * 2^layer),
 /// we store each layer's twiddles contiguously for sequential access.
 /// This reduces twiddle memory accesses from O(N log N) random to O(N) sequential.
+///
+/// # Memory Layout
+///
+/// For an FFT of size n = 2^order:
+/// - Layer 0: n/2 twiddles (w^0, w^1, w^2, ...)
+/// - Layer 1: n/4 twiddles (w^0, w^2, w^4, ...)
+/// - Layer k: n/2^(k+1) twiddles (w^0, w^(2^k), w^(2*2^k), ...)
+///
+/// Total memory: n - 1 twiddles (same as flat storage, but organized for locality).
 #[cfg(feature = "alloc")]
 #[derive(Clone)]
 pub struct LayerTwiddles<F: IsField> {
@@ -289,9 +352,25 @@ impl<F: IsFFTField> LayerTwiddles<F> {
     ///
     /// For an FFT of size n = 2^order, layer k needs n/2^(k+1) twiddles.
     /// The twiddles for layer k are: w^0, w^(2^k), w^(2*2^k), w^(3*2^k), ...
-    pub fn new(order: u64) -> Self {
+    ///
+    /// # Errors
+    /// Returns `None` if:
+    /// - `order` exceeds the maximum supported value (would cause integer overflow)
+    /// - The field doesn't have a primitive root of unity for the given order
+    ///
+    /// # Example
+    /// ```ignore
+    /// let layer_twiddles = LayerTwiddles::<Goldilocks64Field>::new(10)
+    ///     .expect("Failed to create twiddles for order 10");
+    /// ```
+    pub fn new(order: u64) -> Option<Self> {
+        // Check for potential integer overflow
+        if order > MAX_FFT_ORDER {
+            return None;
+        }
+
         let n = 1usize << order;
-        let root = F::get_primitive_root_of_unity(order).unwrap();
+        let root = F::get_primitive_root_of_unity(order).ok()?;
 
         let mut layers = Vec::with_capacity(order as usize);
 
@@ -311,9 +390,10 @@ impl<F: IsFFTField> LayerTwiddles<F> {
             layers.push(layer_twiddles);
         }
 
-        Self { layers }
+        Some(Self { layers })
     }
 
+    /// Get the twiddles for a specific layer.
     #[inline(always)]
     pub fn get_layer(&self, layer: usize) -> &[FieldElement<F>] {
         &self.layers[layer]
@@ -321,6 +401,9 @@ impl<F: IsFFTField> LayerTwiddles<F> {
 }
 
 /// Optimized Bowers IFFT with sequential twiddle access.
+///
+/// # Panics
+/// Panics if input length is not a power of two.
 #[cfg(feature = "alloc")]
 #[allow(clippy::needless_range_loop)]
 pub fn bowers_ifft_opt<F, E>(input: &mut [FieldElement<E>], layer_twiddles: &LayerTwiddles<F>)
@@ -329,7 +412,7 @@ where
     E: IsField,
 {
     let n = input.len();
-    debug_assert!(n.is_power_of_two());
+    assert!(n.is_power_of_two(), "Input length must be a power of two");
 
     if n <= 1 {
         return;
@@ -361,11 +444,17 @@ where
 
 /// Optimized Bowers FFT with 2-layer fusion and sequential twiddle access.
 ///
-/// Combines the benefits of:
-/// 1. Sequential twiddle access via LayerTwiddles
-/// 2. 2-layer fusion to keep intermediate values in registers
+/// This is the recommended single-threaded FFT. It combines:
 ///
-/// This provides the best single-threaded performance.
+/// 1. **Sequential twiddle access**: LayerTwiddles stores twiddles per layer
+///    for cache-friendly sequential reads
+/// 2. **2-layer fusion**: Processes two FFT layers at once, keeping intermediate
+///    values in registers to reduce memory traffic
+///
+/// For multi-threaded execution, use `bowers_fft_opt_fused_parallel` instead.
+///
+/// # Panics
+/// Panics if input length is not a power of two.
 #[cfg(feature = "alloc")]
 #[allow(clippy::needless_range_loop)]
 pub fn bowers_fft_opt_fused<F, E>(input: &mut [FieldElement<E>], layer_twiddles: &LayerTwiddles<F>)
@@ -374,7 +463,7 @@ where
     E: IsField,
 {
     let n = input.len();
-    debug_assert!(n.is_power_of_two());
+    assert!(n.is_power_of_two(), "Input length must be a power of two");
 
     if n <= 1 {
         return;
@@ -409,6 +498,7 @@ where
 
     let mut layer = 0;
 
+    // Process pairs of layers with 2-layer fusion
     while layer + 1 < log_n {
         let block_size = n >> layer;
 
@@ -429,6 +519,7 @@ where
                     let w0 = &twiddles_l0[j];
                     let w1 = &twiddles_l0[j + quarter];
 
+                    // First layer butterflies
                     let sum_02 = &block[i0] + &block[i2];
                     let diff_02 = &block[i0] - &block[i2];
                     let diff_02_w = w0 * &diff_02;
@@ -439,6 +530,7 @@ where
 
                     let w2 = &twiddles_l1[j];
 
+                    // Second layer butterflies
                     let final_0 = &sum_02 + &sum_13;
                     let diff_sums = &sum_02 - &sum_13;
                     let final_1 = w2 * &diff_sums;
@@ -459,6 +551,7 @@ where
         }
     }
 
+    // Process remaining single layers (if odd number of layers)
     while layer < log_n {
         let block_size = n >> layer;
         let half_block = block_size >> 1;
@@ -483,6 +576,9 @@ where
 }
 
 /// Batch FFT using optimized Bowers algorithm with LayerTwiddles
+///
+/// # Panics
+/// Panics if polynomial width is not a power of two.
 #[cfg(feature = "alloc")]
 pub fn bowers_batch_fft_opt<F, E>(matrix: &mut FftMatrix<E>, layer_twiddles: &LayerTwiddles<F>)
 where
@@ -546,7 +642,7 @@ mod tests {
     #[test]
     fn test_layer_twiddles_creation() {
         let order = 4u64;
-        let layer_twiddles = LayerTwiddles::<F>::new(order);
+        let layer_twiddles = LayerTwiddles::<F>::new(order).unwrap();
 
         assert_eq!(layer_twiddles.layers.len(), 4);
         assert_eq!(layer_twiddles.layers[0].len(), 8);
@@ -561,11 +657,18 @@ mod tests {
     }
 
     #[test]
+    fn test_layer_twiddles_overflow_protection() {
+        // Order 64 would overflow on 64-bit systems
+        let result = LayerTwiddles::<F>::new(64);
+        assert!(result.is_none());
+    }
+
+    #[test]
     fn test_bowers_fft_opt_fused_small() {
         let input: Vec<FE> = (0..4).map(|i| FE::from(i as u64)).collect();
         let expected = naive_dft(&input);
 
-        let layer_twiddles = LayerTwiddles::<F>::new(2);
+        let layer_twiddles = LayerTwiddles::<F>::new(2).unwrap();
         let mut result = input.clone();
         bowers_fft_opt_fused(&mut result, &layer_twiddles);
         in_place_bit_reverse_permute(&mut result);
@@ -578,7 +681,7 @@ mod tests {
         let input: Vec<FE> = (0..16).map(|i| FE::from(i as u64)).collect();
         let expected = naive_dft(&input);
 
-        let layer_twiddles = LayerTwiddles::<F>::new(4);
+        let layer_twiddles = LayerTwiddles::<F>::new(4).unwrap();
         let mut result = input.clone();
         bowers_fft_opt_fused(&mut result, &layer_twiddles);
         in_place_bit_reverse_permute(&mut result);
@@ -591,7 +694,7 @@ mod tests {
         let input: Vec<FE> = (0..256).map(|i| FE::from(i as u64)).collect();
         let expected = naive_dft(&input);
 
-        let layer_twiddles = LayerTwiddles::<F>::new(8);
+        let layer_twiddles = LayerTwiddles::<F>::new(8).unwrap();
         let mut result = input.clone();
         bowers_fft_opt_fused(&mut result, &layer_twiddles);
         in_place_bit_reverse_permute(&mut result);
@@ -602,7 +705,7 @@ mod tests {
     #[test]
     fn test_bowers_ifft_opt() {
         let input: Vec<FE> = (0..64).map(|i| FE::from(i as u64)).collect();
-        let layer_twiddles = LayerTwiddles::<F>::new(6);
+        let layer_twiddles = LayerTwiddles::<F>::new(6).unwrap();
 
         // Forward FFT
         let mut transformed = input.clone();
@@ -629,10 +732,106 @@ mod tests {
         let expected: Vec<Vec<FE>> = polys.iter().map(|p| naive_dft(p)).collect();
 
         let mut matrix = FftMatrix::from_polynomials(polys);
-        let layer_twiddles = LayerTwiddles::<F>::new(3);
+        let layer_twiddles = LayerTwiddles::<F>::new(3).unwrap();
         bowers_batch_fft_opt(&mut matrix, &layer_twiddles);
 
         let result = matrix.to_polynomials();
         assert_eq!(result, expected);
+    }
+
+    #[test]
+    #[should_panic(expected = "Input length must be a power of two")]
+    fn test_bowers_fft_non_power_of_two() {
+        let input: Vec<FE> = (0..7).map(|i| FE::from(i as u64)).collect();
+        let layer_twiddles = LayerTwiddles::<F>::new(3).unwrap();
+        let mut result = input;
+        bowers_fft_opt_fused(&mut result, &layer_twiddles);
+    }
+}
+
+/// Tests that require the parallel feature
+#[cfg(all(test, feature = "alloc", feature = "parallel"))]
+mod parallel_tests {
+    use super::*;
+    use crate::fft::cpu::bit_reversing::in_place_bit_reverse_permute;
+    use crate::field::fields::u64_goldilocks_field::Goldilocks64Field;
+    use alloc::vec;
+    use alloc::vec::Vec;
+
+    type F = Goldilocks64Field;
+    type FE = FieldElement<F>;
+
+    fn naive_dft(input: &[FE]) -> Vec<FE> {
+        let n = input.len();
+        let root = F::get_primitive_root_of_unity(n.trailing_zeros() as u64).unwrap();
+        let mut result = vec![FE::zero(); n];
+
+        for (k, res) in result.iter_mut().enumerate() {
+            for (j, inp) in input.iter().enumerate() {
+                *res += *inp * root.pow((j * k) as u64);
+            }
+        }
+
+        result
+    }
+
+    #[test]
+    fn test_bowers_fft_opt_fused_parallel_small() {
+        // Small input - should use sequential path
+        let input: Vec<FE> = (0..16).map(|i| FE::from(i as u64)).collect();
+        let expected = naive_dft(&input);
+
+        let layer_twiddles = LayerTwiddles::<F>::new(4).unwrap();
+        let mut result = input.clone();
+        bowers_fft_opt_fused_parallel(&mut result, &layer_twiddles);
+        in_place_bit_reverse_permute(&mut result);
+
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_bowers_fft_opt_fused_parallel_medium() {
+        // Medium input
+        let input: Vec<FE> = (0..256).map(|i| FE::from(i as u64)).collect();
+        let expected = naive_dft(&input);
+
+        let layer_twiddles = LayerTwiddles::<F>::new(8).unwrap();
+        let mut result = input.clone();
+        bowers_fft_opt_fused_parallel(&mut result, &layer_twiddles);
+        in_place_bit_reverse_permute(&mut result);
+
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_bowers_fft_opt_fused_parallel_large() {
+        // Large input - should exercise parallel paths
+        let input: Vec<FE> = (0..4096).map(|i| FE::from(i as u64)).collect();
+        let expected = naive_dft(&input);
+
+        let layer_twiddles = LayerTwiddles::<F>::new(12).unwrap();
+        let mut result = input.clone();
+        bowers_fft_opt_fused_parallel(&mut result, &layer_twiddles);
+        in_place_bit_reverse_permute(&mut result);
+
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_parallel_matches_sequential() {
+        // Verify parallel and sequential produce identical results
+        let input: Vec<FE> = (0..1024).map(|i| FE::from(i as u64)).collect();
+
+        let layer_twiddles = LayerTwiddles::<F>::new(10).unwrap();
+
+        let mut result_seq = input.clone();
+        bowers_fft_opt_fused(&mut result_seq, &layer_twiddles);
+        in_place_bit_reverse_permute(&mut result_seq);
+
+        let mut result_par = input.clone();
+        bowers_fft_opt_fused_parallel(&mut result_par, &layer_twiddles);
+        in_place_bit_reverse_permute(&mut result_par);
+
+        assert_eq!(result_seq, result_par);
     }
 }

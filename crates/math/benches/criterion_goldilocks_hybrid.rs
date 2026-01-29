@@ -72,7 +72,7 @@ fn bench_fft_comparison(c: &mut Criterion) {
         );
 
         // Pre-compute LayerTwiddles for optimized versions
-        let layer_twiddles = LayerTwiddles::<F>::new(order);
+        let layer_twiddles = LayerTwiddles::<F>::new(order).expect("Failed to create twiddles");
 
         // Bowers Optimized Fused FFT (LayerTwiddles + 2-layer fusion)
         group.bench_with_input(
@@ -130,7 +130,7 @@ fn bench_fft_parallel_batch(c: &mut Criterion) {
         let twiddles_br =
             get_powers_of_primitive_root::<F>(order, (size / 2) as usize, RootsConfig::BitReverse)
                 .unwrap();
-        let layer_twiddles = LayerTwiddles::<F>::new(order);
+        let layer_twiddles = LayerTwiddles::<F>::new(order).expect("Failed to create twiddles");
 
         // Standard NR - parallel across polys
         group.bench_with_input(
@@ -208,7 +208,7 @@ fn bench_fft_internal_parallel(c: &mut Criterion) {
         group.throughput(Throughput::Elements(size));
 
         let input = generate_input(order);
-        let layer_twiddles = LayerTwiddles::<F>::new(order);
+        let layer_twiddles = LayerTwiddles::<F>::new(order).expect("Failed to create twiddles");
 
         // Bowers Opt Fused (sequential baseline)
         group.bench_with_input(
