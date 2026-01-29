@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1769706951915,
+  "lastUpdate": 1769715860828,
   "repoUrl": "https://github.com/lambdaclass/lambdaworks",
   "entries": {
     "Benchmark": [
@@ -23590,6 +23590,474 @@ window.BENCHMARK_DATA = {
           {
             "name": "Polynomial/evaluate 10",
             "value": 0,
+            "range": "± 0",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "43053772+diegokingston@users.noreply.github.com",
+            "name": "Diego K",
+            "username": "diegokingston"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1a52040bed529db78cba4c22374ace55fef7f085",
+          "message": "Stark prover profiling (#1100)\n\n* Add profiling instrumentation to STARK prover\n\n- Add dhat-heap feature for memory profiling with dhat\n- Create prover_profile benchmark binary for profiling\n- Support samply and flamegraph for CPU profiling\n- Add PROFILING.md with detailed usage instructions\n\nThe profiling binary supports:\n- Configurable trace length (--trace-length N for 2^N rows)\n- Multiple iterations (--iterations N)\n- Parallel mode (--parallel with parallel feature)\n- dhat heap profiling (--features dhat-heap)\n\nExample memory profile with 2^14 rows:\n- Total allocations: 200 MB in 952K blocks\n- Peak memory: 33 MB\n\n* Optimize constraint evaluator to reduce allocations in hot loop\n\nBased on profiling with dhat, identified that the constraint evaluation\nloop was allocating a new Vec for transition evaluations on every\niteration (65K+ times for a 16K trace with 4x blowup).\n\nChanges:\n- Add compute_transition_into() to AIR trait for buffer reuse\n- Optimize non-parallel path to reuse buffers for both periodic values\n  and transition evaluations\n- Add OPTIMIZATION_FINDINGS.md documenting profiling results\n\nBenchmark results (2^14 trace):\n- Before: 952,106 allocation blocks\n- After: 886,571 allocation blocks\n- Improvement: 65,535 fewer blocks (6.9% reduction)\n\nThe number of eliminated allocations matches exactly the number of\nloop iterations, confirming the optimization is effective.\n\n* Optimize peak memory in commit_composition_polynomial with pre-allocation\n\nPre-allocate vectors with known capacity in commit_composition_polynomial\nto avoid incremental growth via push(). This was the largest peak memory\ncontributor (32 MB via grow_one pattern).\n\nResults:\n- 2^14 trace: Peak 33→27 MB (18.9% reduction)\n- 2^16 trace: Peak 133→108 MB (18.9% reduction)\n\n* Add fused bit-reverse transpose to eliminate LDE trace clone\n\n- Add columns2rows_bit_reversed() that combines bit-reverse permutation\n  with column-to-row transpose in a single pass\n- Update interpolate_and_commit_main/aux to use fused function\n- Eliminates clone of lde_trace_evaluations (~8 MB per trace)\n- Fix conditional import of Polynomial to match usage context\n\nResults:\n- Total allocations: 757 → 749 MB (1% reduction)\n- Code is cleaner with single-pass operation\n\n* Optimize zerofier computation with split base/exemptions caching\n\nMost transition constraints share the same base zerofier 1/(x^n - 1) with\nperiod=1, offset=0. Previously, the full zerofier (including end exemptions\npolynomial) was cached per unique combination of all parameters.\n\nNow we cache separately:\n1. Base zerofier by (period, offset, exemptions_period, periodic_exemptions_offset)\n2. End exemptions polynomial evaluations by (end_exemptions, period)\n\nThis benefits AIRs with multiple constraints sharing the same base zerofier\nbut different end_exemptions values (common pattern). The expensive batch\ninverse for the base zerofier is computed only once.\n\nExample: fibonacci_2_cols_shifted has 2 constraints both with period=1,\noffset=0, end_exemptions=1 - they now share the same zerofier computation.\n\n* Parallelize zerofier computation for multi-constraint AIRs\n\nRefactored transition_zerofier_evaluations to support parallel computation:\n\n1. Extract helper functions (compute_base_zerofier, compute_end_exemptions_evals,\n   compute_end_exemptions_poly) to module level for object-safety\n\n2. Pre-collect unique keys before computation to enable parallelism\n\n3. Use par_iter when parallel feature is enabled to compute:\n   - Base zerofiers in parallel\n   - End exemptions evaluations in parallel\n\n4. Combine results sequentially (cheap operation)\n\nPerformance with parallel feature (2^16 trace):\n- Boundary evaluation: 27ms → 8.9ms (67% faster)\n- Transitions evaluation: 81ms → 31ms (65% faster)\n\nNote: For simple AIRs with 1 constraint (like Fibonacci), the parallel\noverhead exceeds benefits. Optimization primarily benefits complex AIRs\nwith many constraints.\n\n* Update OPTIMIZATION_FINDINGS.md with parallelization results\n\n* Optimize h_terms accumulation with in-place coefficient addition\n\nReplace intermediate polynomial allocations in compute_deep_composition_poly\nwith direct coefficient accumulation. Instead of creating new polynomials\non each iteration with h_terms = h_terms + h_i_term, we now:\n\n1. Pre-allocate coefficient buffer with max degree\n2. Accumulate gamma * (part - h_i_eval) directly into coefficients\n3. Create final polynomial once from accumulated coefficients\n\nResults (2^16 trace):\n- Total allocations: 748 MB → 729 MB (2.5% reduction, ~19 MB savings)\n- Peak memory: unchanged (108 MB)\n\n* Update OPTIMIZATION_FINDINGS.md with in-place polynomial results\n\n* Optimize boundary zerofier caching and z_shifted pre-computation\n\n- Cache boundary zerofiers by step: multiple constraints at the same\n  step now share the same zerofier computation\n- Pre-build Vec of references to avoid HashMap lookup in hot loop\n- Pre-compute z_shifted values in compute_deep_composition_poly to\n  avoid redundant primitive_root.pow() calculations per trace column\n\nThese optimizations benefit complex AIRs with multiple boundary\nconstraints at the same step and reduce redundant computation in\nthe deep composition polynomial.\n\n* Update OPTIMIZATION_FINDINGS.md with completed optimizations\n\nMark boundary zerofier caching and z_shifted pre-computation as done.\nUpdate phase sections to reflect current progress.\n\n* Add support for multiple AIRs in prover profiling benchmark\n\nAdd --air option to select between:\n- fibonacci: Simple AIR with 1 transition, 2 boundary constraints\n- read_only_memory (rom): Complex AIR with 3 transition, 6 boundary constraints\n\nThe ReadOnlyMemory AIR better demonstrates the boundary zerofier caching\noptimization since it has 5 constraints at step 0 that share a zerofier.\n\n* Address PR review comments for stark prover profiling\n\n- Make dhat dependency optional (only compiled with dhat-heap feature)\n- Add empty input safety check in columns2rows_bit_reversed\n- Remove unnecessary Vec allocation by using iter().cloned() instead of clone().into_iter()\n- Add documentation for zerofier_cache optimization explaining the deduplication strategy\n- Fix bug where h_terms was used before definition (incomplete optimization)\n\n* fix: Restore .take(cs.len()) bounds check in signed MSM functions\n\nThe previous changes accidentally removed .take(cs.len()) from the point\niteration loops in msm_with_signed and parallel_msm_with_signed. This could\ncause out-of-bounds access to signed_digits when points.len() > cs.len(),\nsince signed_digits is sized for cs.len() scalars.\n\n* fix: Remove unnecessary clone() on Copy types in prover_profile\n\n* fix: Move num_periodic_cols into non-parallel block where it's used",
+          "timestamp": "2026-01-29T16:19:18-03:00",
+          "tree_id": "1a253eff8453e985bb679e2f319da7186494733b",
+          "url": "https://github.com/lambdaclass/lambdaworks/commit/1a52040bed529db78cba4c22374ace55fef7f085"
+        },
+        "date": 1769715858950,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "Ordered FFT/Sequential from NR radix2",
+            "value": 328088435,
+            "range": "± 666660",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Sequential from RN radix2",
+            "value": 364504556,
+            "range": "± 810661",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Sequential from NR radix4",
+            "value": 277423547,
+            "range": "± 634367",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Sequential from NR radix2 #2",
+            "value": 691230993,
+            "range": "± 468773",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Sequential from RN radix2 #2",
+            "value": 776374437,
+            "range": "± 2749369",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Sequential from NR radix2 #3",
+            "value": 1447237529,
+            "range": "± 915813",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Sequential from RN radix2 #3",
+            "value": 1624882622,
+            "range": "± 5749585",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Sequential from NR radix4 #2",
+            "value": 1223714841,
+            "range": "± 296191",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Sequential from NR radix2 #4",
+            "value": 3029725172,
+            "range": "± 10148366",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Sequential from RN radix2 #4",
+            "value": 3404820654,
+            "range": "± 7384724",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Sequential from NR radix2 #5",
+            "value": 6333035733,
+            "range": "± 9111944",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Sequential from RN radix2 #5",
+            "value": 7204975363,
+            "range": "± 62435286",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Sequential from NR radix4 #3",
+            "value": 5366526235,
+            "range": "± 8726927",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/natural",
+            "value": 7645765,
+            "range": "± 54187",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/natural inversed",
+            "value": 7671395,
+            "range": "± 3799",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/bit-reversed",
+            "value": 9647972,
+            "range": "± 134125",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/bit-reversed inversed",
+            "value": 9638484,
+            "range": "± 34493",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/natural #2",
+            "value": 17492411,
+            "range": "± 28573",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/natural inversed #2",
+            "value": 17460144,
+            "range": "± 39329",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/bit-reversed #2",
+            "value": 25395060,
+            "range": "± 918762",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/bit-reversed inversed #2",
+            "value": 25832344,
+            "range": "± 290064",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/natural #3",
+            "value": 35687713,
+            "range": "± 153589",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/natural inversed #3",
+            "value": 35578373,
+            "range": "± 68492",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/bit-reversed #3",
+            "value": 68244576,
+            "range": "± 940221",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/bit-reversed inversed #3",
+            "value": 66283736,
+            "range": "± 1216597",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/natural #4",
+            "value": 72239348,
+            "range": "± 159511",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/natural inversed #4",
+            "value": 71907512,
+            "range": "± 310100",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/bit-reversed #4",
+            "value": 141790059,
+            "range": "± 1391913",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/bit-reversed inversed #4",
+            "value": 141809280,
+            "range": "± 738854",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/natural #5",
+            "value": 144268503,
+            "range": "± 176752",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/natural inversed #5",
+            "value": 144399541,
+            "range": "± 202298",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/bit-reversed #5",
+            "value": 285925278,
+            "range": "± 4073161",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/bit-reversed inversed #5",
+            "value": 283946355,
+            "range": "± 3795311",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Sequential",
+            "value": 10300032,
+            "range": "± 528609",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Sequential #2",
+            "value": 30918117,
+            "range": "± 321568",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Sequential #3",
+            "value": 69552415,
+            "range": "± 1081671",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Sequential #4",
+            "value": 144843589,
+            "range": "± 2845032",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Sequential #5",
+            "value": 382074072,
+            "range": "± 3136641",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial evaluation/Sequential FFT",
+            "value": 360044572,
+            "range": "± 2084630",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial evaluation/Sequential FFT #2",
+            "value": 771217914,
+            "range": "± 2520567",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial evaluation/Sequential FFT #3",
+            "value": 1624219157,
+            "range": "± 10070448",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial evaluation/Sequential FFT #4",
+            "value": 3387095399,
+            "range": "± 4275789",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial evaluation/Sequential FFT #5",
+            "value": 7133492557,
+            "range": "± 30544927",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial interpolation/Sequential FFT",
+            "value": 389366329,
+            "range": "± 832852",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial interpolation/Sequential FFT #2",
+            "value": 809754223,
+            "range": "± 2171026",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial interpolation/Sequential FFT #3",
+            "value": 1707769122,
+            "range": "± 3865012",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial interpolation/Sequential FFT #4",
+            "value": 3543615577,
+            "range": "± 6969332",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial interpolation/Sequential FFT #5",
+            "value": 7466660788,
+            "range": "± 13315319",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate",
+            "value": 103,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_slice",
+            "value": 1684,
+            "range": "± 20",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/add",
+            "value": 169,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/neg",
+            "value": 104,
+            "range": "± 1",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/sub",
+            "value": 155,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/mul",
+            "value": 1719,
+            "range": "± 77",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/fast_mul big poly",
+            "value": 142226,
+            "range": "± 392",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/slow mul big poly",
+            "value": 1577837,
+            "range": "± 88597",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/fast div big poly",
+            "value": 796824,
+            "range": "± 3056",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/slow div big poly",
+            "value": 1082819,
+            "range": "± 9326",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/div",
+            "value": 425,
+            "range": "± 137",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/div by 'x - b' with generic div",
+            "value": 4039,
+            "range": "± 124",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/div by 'x - b' with Ruffini",
+            "value": 110,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate #2",
+            "value": 14,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_with",
+            "value": 82,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/merge",
+            "value": 47,
+            "range": "± 1",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/add #2",
+            "value": 10896,
+            "range": "± 728",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/mul #2",
+            "value": 46,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate 3",
+            "value": 1,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate 4",
+            "value": 1,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate 5",
+            "value": 1,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate 6",
+            "value": 1,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate 7",
+            "value": 1,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate 8",
+            "value": 1,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate 9",
+            "value": 1,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate 10",
+            "value": 1,
             "range": "± 0",
             "unit": "ns/iter"
           }
