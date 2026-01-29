@@ -1,11 +1,11 @@
 use crate::arkworks_cs_to_lambda_cs;
 use ark_bls12_381::Fr;
 use ark_relations::{lc, r1cs::ConstraintSystem, r1cs::Variable};
-use lambdaworks_groth16::{setup, verify, Prover, QuadraticArithmeticProgram};
+use lambdaworks_groth16::{setup, verify, Groth16Error, Prover, QuadraticArithmeticProgram};
 use rand::Rng;
 
 #[test]
-fn pinocchio_paper_example() {
+fn pinocchio_paper_example() -> Result<(), Groth16Error> {
     /*
         pub inp a, b, c, d
         pub out result
@@ -41,16 +41,14 @@ fn pinocchio_paper_example() {
 
     let (pk, vk) = setup(&qap);
 
-    let accept = verify(
-        &vk,
-        &Prover::prove(&lambda_cs.witness, &qap, &pk),
-        &lambda_cs.witness[..qap.num_of_public_inputs],
-    );
+    let proof = Prover::prove(&lambda_cs.witness, &qap, &pk)?;
+    let accept = verify(&vk, &proof, &lambda_cs.witness[..qap.num_of_public_inputs]);
     assert!(accept);
+    Ok(())
 }
 
 #[test]
-fn vitalik_example() {
+fn vitalik_example() -> Result<(), Groth16Error> {
     /*
         pub out ~out
         sig x, sym_1, y, sym_2
@@ -96,16 +94,14 @@ fn vitalik_example() {
 
     let (pk, vk) = setup(&qap);
 
-    let accept = verify(
-        &vk,
-        &Prover::prove(&lambda_cs.witness, &qap, &pk),
-        &lambda_cs.witness[..qap.num_of_public_inputs],
-    );
+    let proof = Prover::prove(&lambda_cs.witness, &qap, &pk)?;
+    let accept = verify(&vk, &proof, &lambda_cs.witness[..qap.num_of_public_inputs]);
     assert!(accept);
+    Ok(())
 }
 
 #[test]
-fn failing_vitalik() {
+fn failing_vitalik() -> Result<(), Groth16Error> {
     // Same circuit as vitalik_example, but with an incorrect witness assignment.
     let cs = ConstraintSystem::<Fr>::new_ref();
 
@@ -143,16 +139,14 @@ fn failing_vitalik() {
 
     let (pk, vk) = setup(&qap);
 
-    let accept = verify(
-        &vk,
-        &Prover::prove(&lambda_cs.witness, &qap, &pk),
-        &lambda_cs.witness[..qap.num_of_public_inputs],
-    );
+    let proof = Prover::prove(&lambda_cs.witness, &qap, &pk)?;
+    let accept = verify(&vk, &proof, &lambda_cs.witness[..qap.num_of_public_inputs]);
     assert!(!accept);
+    Ok(())
 }
 
 #[test]
-fn exponentiation_example() {
+fn exponentiation_example() -> Result<(), Groth16Error> {
     /*
         Generates a "linear exponentiation" circuit with a random base and a random exponent.
         Only the output ~out is public input.
@@ -187,9 +181,10 @@ fn exponentiation_example() {
 
     let (pk, vk) = setup(&qap);
 
-    let proof = Prover::prove(&lambda_cs.witness, &qap, &pk);
+    let proof = Prover::prove(&lambda_cs.witness, &qap, &pk)?;
 
     let public_inputs = &lambda_cs.witness[..qap.num_of_public_inputs];
     let accept = verify(&vk, &proof, public_inputs);
     assert!(accept);
+    Ok(())
 }

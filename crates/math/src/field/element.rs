@@ -1,6 +1,9 @@
-use crate::errors::{ByteConversionError, CreationError};
+#[cfg(feature = "alloc")]
+use crate::errors::ByteConversionError;
+use crate::errors::CreationError;
 use crate::field::errors::FieldError;
 use crate::field::traits::IsField;
+#[cfg(feature = "alloc")]
 use crate::traits::ByteConversion;
 use crate::unsigned_integer::element::UnsignedInteger;
 use crate::unsigned_integer::montgomery::MontgomeryAlgorithms;
@@ -16,7 +19,9 @@ use core::iter::Sum;
 ))]
 use core::marker::PhantomData;
 use core::ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Sub};
+#[cfg(feature = "alloc")]
 use num_bigint::BigUint;
+#[cfg(feature = "alloc")]
 use num_traits::Num;
 #[cfg(any(
     feature = "lambdaworks-serde-binary",
@@ -68,6 +73,33 @@ impl<F: IsField> FieldElement<F> {
         }
         numbers[0] = bi_inv;
         Ok(())
+    }
+
+    #[cfg(feature = "parallel")]
+    /// Parallel batch inversion using chunked Montgomery's trick.
+    /// Each chunk performs independent batch inversion in parallel.
+    /// Falls back to sequential for small batches.
+    ///
+    /// Trade-off: Uses one inversion per chunk instead of one total,
+    /// but parallelism provides net speedup for large batches (>= 4096).
+    pub fn inplace_batch_inverse_parallel(numbers: &mut [Self]) -> Result<(), FieldError> {
+        use rayon::prelude::*;
+
+        const PARALLEL_THRESHOLD: usize = 4096;
+
+        if numbers.len() < PARALLEL_THRESHOLD {
+            return Self::inplace_batch_inverse(numbers);
+        }
+
+        // Determine chunk size based on number of available threads
+        let num_threads = rayon::current_num_threads();
+        let chunk_size = numbers.len().div_ceil(num_threads);
+
+        // Process each chunk independently in parallel
+        // Each chunk does its own batch inversion (one inversion per chunk)
+        numbers
+            .par_chunks_mut(chunk_size)
+            .try_for_each(|chunk| Self::inplace_batch_inverse(chunk))
     }
 
     #[inline(always)]
@@ -156,6 +188,7 @@ where
 {
     type Output = FieldElement<L>;
 
+    #[inline]
     fn add(self, rhs: &FieldElement<L>) -> Self::Output {
         Self::Output {
             value: <F as IsSubFieldOf<L>>::add(&self.value, &rhs.value),
@@ -170,6 +203,7 @@ where
 {
     type Output = FieldElement<L>;
 
+    #[inline]
     fn add(self, rhs: FieldElement<L>) -> Self::Output {
         &self + &rhs
     }
@@ -182,6 +216,7 @@ where
 {
     type Output = FieldElement<L>;
 
+    #[inline]
     fn add(self, rhs: &FieldElement<L>) -> Self::Output {
         &self + rhs
     }
@@ -194,6 +229,7 @@ where
 {
     type Output = FieldElement<L>;
 
+    #[inline]
     fn add(self, rhs: FieldElement<L>) -> Self::Output {
         self + &rhs
     }
@@ -205,6 +241,7 @@ where
     F: IsSubFieldOf<L>,
     L: IsField,
 {
+    #[inline]
     fn add_assign(&mut self, rhs: FieldElement<F>) {
         self.value = <F as IsSubFieldOf<L>>::add(&rhs.value, &self.value);
     }
@@ -228,6 +265,7 @@ where
 {
     type Output = FieldElement<L>;
 
+    #[inline]
     fn sub(self, rhs: &FieldElement<L>) -> Self::Output {
         Self::Output {
             value: <F as IsSubFieldOf<L>>::sub(&self.value, &rhs.value),
@@ -242,6 +280,7 @@ where
 {
     type Output = FieldElement<L>;
 
+    #[inline]
     fn sub(self, rhs: FieldElement<L>) -> Self::Output {
         &self - &rhs
     }
@@ -254,6 +293,7 @@ where
 {
     type Output = FieldElement<L>;
 
+    #[inline]
     fn sub(self, rhs: &FieldElement<L>) -> Self::Output {
         &self - rhs
     }
@@ -266,6 +306,7 @@ where
 {
     type Output = FieldElement<L>;
 
+    #[inline]
     fn sub(self, rhs: FieldElement<L>) -> Self::Output {
         self - &rhs
     }
@@ -279,6 +320,7 @@ where
 {
     type Output = FieldElement<L>;
 
+    #[inline]
     fn mul(self, rhs: &FieldElement<L>) -> Self::Output {
         Self::Output {
             value: <F as IsSubFieldOf<L>>::mul(&self.value, &rhs.value),
@@ -293,6 +335,7 @@ where
 {
     type Output = FieldElement<L>;
 
+    #[inline]
     fn mul(self, rhs: FieldElement<L>) -> Self::Output {
         &self * &rhs
     }
@@ -305,6 +348,7 @@ where
 {
     type Output = FieldElement<L>;
 
+    #[inline]
     fn mul(self, rhs: &FieldElement<L>) -> Self::Output {
         &self * rhs
     }
@@ -317,6 +361,7 @@ where
 {
     type Output = FieldElement<L>;
 
+    #[inline]
     fn mul(self, rhs: FieldElement<L>) -> Self::Output {
         self * &rhs
     }
@@ -328,6 +373,7 @@ where
     F: IsSubFieldOf<L>,
     L: IsField,
 {
+    #[inline]
     fn mul_assign(&mut self, rhs: FieldElement<F>) {
         self.value = <F as IsSubFieldOf<L>>::mul(&rhs.value, &self.value);
     }
@@ -339,6 +385,7 @@ where
     F: IsSubFieldOf<L>,
     L: IsField,
 {
+    #[inline]
     fn mul_assign(&mut self, rhs: &FieldElement<F>) {
         self.value = <F as IsSubFieldOf<L>>::mul(&rhs.value, &self.value);
     }
@@ -401,6 +448,7 @@ where
 {
     type Output = FieldElement<F>;
 
+    #[inline]
     fn neg(self) -> Self::Output {
         Self::Output {
             value: F::neg(&self.value),
@@ -414,6 +462,7 @@ where
 {
     type Output = FieldElement<F>;
 
+    #[inline]
     fn neg(self) -> Self::Output {
         -&self
     }
@@ -812,7 +861,7 @@ mod tests {
     use super::*;
     use crate::elliptic_curve::short_weierstrass::curves::bn_254::field_extension::BN254PrimeField;
     use crate::field::fields::fft_friendly::{
-        babybear_u32::Babybear31PrimeField, stark_252_prime_field::Stark252PrimeField,
+        babybear::Babybear31PrimeField, stark_252_prime_field::Stark252PrimeField,
     };
     use crate::field::fields::montgomery_backed_prime_fields::U384PrimeField;
     use crate::field::fields::u64_prime_field::U64PrimeField;

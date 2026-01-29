@@ -72,7 +72,15 @@ where
     }
 
     fn sample_u64(&mut self, upper_bound: u64) -> u64 {
-        u64::from_be_bytes(self.state()[..8].try_into().unwrap()) % upper_bound
+        assert!(upper_bound > 0, "upper_bound must be greater than 0");
+        let zone = u64::MAX - (u64::MAX % upper_bound);
+        loop {
+            let bytes = self.sample();
+            let candidate = u64::from_be_bytes(bytes[..8].try_into().unwrap());
+            if candidate < zone {
+                return candidate % upper_bound;
+            }
+        }
     }
 }
 
@@ -93,8 +101,7 @@ mod tests {
     use lambdaworks_math::{
         elliptic_curve::short_weierstrass::curves::bls12_381::default_types::FrField,
         field::fields::fft_friendly::{
-            babybear_u32::Babybear31PrimeField,
-            quartic_babybear_u32::Degree4BabyBearU32ExtensionField,
+            babybear::Babybear31PrimeField, quartic_babybear::Degree4BabyBearExtensionField,
         },
     };
 
@@ -137,11 +144,11 @@ mod tests {
     }
 
     type FE = FieldElement<Babybear31PrimeField>;
-    type Fp4E = FieldElement<Degree4BabyBearU32ExtensionField>;
+    type Fp4E = FieldElement<Degree4BabyBearExtensionField>;
 
     #[test]
     fn quartic_baby_bear_transcript_distinguish_different_fe() {
-        let mut transcript_1 = DefaultTranscript::<Degree4BabyBearU32ExtensionField>::default();
+        let mut transcript_1 = DefaultTranscript::<Degree4BabyBearExtensionField>::default();
         transcript_1.append_field_element(&Fp4E::new([
             FE::one(),
             FE::zero(),
@@ -150,7 +157,7 @@ mod tests {
         ]));
         let sample_1 = transcript_1.sample_field_element();
 
-        let mut transcript_2 = DefaultTranscript::<Degree4BabyBearU32ExtensionField>::default();
+        let mut transcript_2 = DefaultTranscript::<Degree4BabyBearExtensionField>::default();
         transcript_2.append_field_element(&Fp4E::new([
             FE::zero(),
             FE::zero(),
@@ -159,7 +166,7 @@ mod tests {
         ]));
         let sample_2 = transcript_2.sample_field_element();
 
-        let mut transcript_3 = DefaultTranscript::<Degree4BabyBearU32ExtensionField>::default();
+        let mut transcript_3 = DefaultTranscript::<Degree4BabyBearExtensionField>::default();
         transcript_3.append_field_element(&Fp4E::new([
             FE::one(),
             FE::zero(),
@@ -170,5 +177,28 @@ mod tests {
 
         assert!(sample_1 != sample_2);
         assert!(sample_1 == sample_3);
+    }
+
+    #[test]
+    fn sample_u64_consecutive_calls_return_different_values() {
+        // This test documents/verifies the expected behavior:
+        // consecutive calls to sample_u64 should return DIFFERENT values
+        // because each call should advance the transcript state.
+        let mut transcript = DefaultTranscript::<FrField>::default();
+        transcript.append_bytes(&[0x01, 0x02, 0x03]);
+
+        let sample1 = transcript.sample_u64(1000);
+        let sample2 = transcript.sample_u64(1000);
+        let sample3 = transcript.sample_u64(1000);
+
+        // All samples should be different (state advances each time)
+        assert_ne!(
+            sample1, sample2,
+            "consecutive sample_u64 calls should return different values"
+        );
+        assert_ne!(
+            sample2, sample3,
+            "consecutive sample_u64 calls should return different values"
+        );
     }
 }

@@ -62,11 +62,13 @@ fn poseidon_parse_prove_verify() {
     );
 
     let (pk, vk) = setup(&qap);
-    let proof = Prover::prove(&wtns, &qap, &pk);
+    let proof = Prover::prove(&wtns, &qap, &pk).expect("proving failed");
     let accept = verify(&vk, &proof, &pubs);
     assert!(accept);
 }
 ```
+
+> **Note:** `Prover::prove` returns a `Result<Proof, Groth16Error>`. Use `?` operator or `.expect()` to handle the result.
 
 ## Examples
 

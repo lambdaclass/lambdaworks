@@ -129,9 +129,14 @@ pub fn check_boundary_polys_divisibility<F: IsFFTField>(
         .zip(boundary_zerofiers.iter())
         .enumerate()
     {
-        let (_, b) = poly.clone().long_division_with_remainder(z);
-        if b != Polynomial::zero() {
-            error!("Boundary poly {i} is not divisible by its zerofier");
+        match poly.clone().long_division_with_remainder(z) {
+            Ok((_, b)) if b != Polynomial::zero() => {
+                error!("Boundary poly {i} is not divisible by its zerofier");
+            }
+            Err(e) => {
+                error!("Boundary poly {i} division failed: {e}");
+            }
+            _ => {}
         }
     }
 }

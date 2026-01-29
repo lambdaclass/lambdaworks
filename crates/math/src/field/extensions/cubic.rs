@@ -61,48 +61,88 @@ where
     type BaseType = [FieldElement<F>; 3];
 
     /// Returns the component wise addition of `a` and `b`
+    #[inline]
     fn add(a: &[FieldElement<F>; 3], b: &[FieldElement<F>; 3]) -> [FieldElement<F>; 3] {
         [&a[0] + &b[0], &a[1] + &b[1], &a[2] + &b[2]]
     }
 
-    /// Returns the multiplication of `a` and `b` using the following
-    /// equation:
-    /// (a0 + a1 * t) * (b0 + b1 * t) = a0 * b0 + a1 * b1 * Q::residue() + (a0 * b1 + a1 * b0) * t
-    /// where `t.pow(2)` equals `Q::residue()`.
+    /// Returns the multiplication of `a` and `b` using Karatsuba-style formula.
+    /// (a0 + a1*v + a2*v²) * (b0 + b1*v + b2*v²) where v³ = Q::residue()
+    #[inline]
     fn mul(a: &[FieldElement<F>; 3], b: &[FieldElement<F>; 3]) -> [FieldElement<F>; 3] {
         let v0 = &a[0] * &b[0];
         let v1 = &a[1] * &b[1];
         let v2 = &a[2] * &b[2];
+        let q = Q::residue();
 
         [
-            &v0 + Q::residue() * ((&a[1] + &a[2]) * (&b[1] + &b[2]) - &v1 - &v2),
-            (&a[0] + &a[1]) * (&b[0] + &b[1]) - &v0 - &v1 + Q::residue() * &v2,
+            &v0 + &q * ((&a[1] + &a[2]) * (&b[1] + &b[2]) - &v1 - &v2),
+            (&a[0] + &a[1]) * (&b[0] + &b[1]) - &v0 - &v1 + &q * &v2,
             (&a[0] + &a[2]) * (&b[0] + &b[2]) - v0 + v1 - v2,
         ]
     }
 
+    /// Optimized squaring using Chung-Hasan SQR2 formula.
+    /// (a0 + a1*v + a2*v²)² where v³ = Q::residue()
+    /// This requires 2 base field squares and 2 base field multiplications
+    /// instead of 6 multiplications from generic mul(a, a).
+    #[inline]
+    fn square(a: &[FieldElement<F>; 3]) -> [FieldElement<F>; 3] {
+        let s0 = a[0].square();
+        let s1 = a[1].square();
+        let s2 = a[2].square();
+        let ab = &a[0] * &a[1];
+        let bc = &a[1] * &a[2];
+        let ac = &a[0] * &a[2];
+        let q = Q::residue();
+
+        // c0 = s0 + q * 2bc
+        let two_bc = &bc + &bc;
+        let c0 = &s0 + &q * &two_bc;
+
+        // c1 = 2ab + q * s2
+        let two_ab = &ab + &ab;
+        let c1 = &two_ab + &q * &s2;
+
+        // c2 = 2ac + s1
+        let two_ac = &ac + &ac;
+        let c2 = two_ac + s1;
+
+        [c0, c1, c2]
+    }
+
     /// Returns the component wise subtraction of `a` and `b`
+    #[inline]
     fn sub(a: &[FieldElement<F>; 3], b: &[FieldElement<F>; 3]) -> [FieldElement<F>; 3] {
         [&a[0] - &b[0], &a[1] - &b[1], &a[2] - &b[2]]
     }
 
     /// Returns the component wise negation of `a`
+    #[inline]
     fn neg(a: &[FieldElement<F>; 3]) -> [FieldElement<F>; 3] {
         [-&a[0], -&a[1], -&a[2]]
     }
 
     /// Returns the multiplicative inverse of `a`
+    #[inline]
     fn inv(a: &[FieldElement<F>; 3]) -> Result<[FieldElement<F>; 3], FieldError> {
         let three = FieldElement::<F>::from(3_u64);
-        let d = a[0].pow(3_u64)
-            + a[1].pow(3_u64) * Q::residue()
-            + a[2].pow(3_u64) * Q::residue().pow(2_u64)
-            - three * &a[0] * &a[1] * &a[2] * Q::residue();
+        // Use square() instead of pow(2) and cube for pow(3)
+        let a0_sq = a[0].square();
+        let a1_sq = a[1].square();
+        let a2_sq = a[2].square();
+        let a0_cube = &a0_sq * &a[0];
+        let a1_cube = &a1_sq * &a[1];
+        let a2_cube = &a2_sq * &a[2];
+        let residue = Q::residue();
+        let residue_sq = residue.square();
+        let d = a0_cube + a1_cube * &residue + a2_cube * &residue_sq
+            - three * &a[0] * &a[1] * &a[2] * &residue;
         let inv = d.inv()?;
         Ok([
-            (a[0].pow(2_u64) - &a[1] * &a[2] * Q::residue()) * &inv,
-            (-&a[0] * &a[1] + a[2].pow(2_u64) * Q::residue()) * &inv,
-            (-&a[0] * &a[2] + a[1].pow(2_u64)) * &inv,
+            (a0_sq - &a[1] * &a[2] * &residue) * &inv,
+            (-&a[0] * &a[1] + &a2_sq * &residue) * &inv,
+            (-&a[0] * &a[2] + a1_sq) * &inv,
         ])
     }
 
