@@ -50,6 +50,7 @@ lambdaworks-serde-string = ["dep:serde", "dep:serde_json", "alloc"]
 proptest = ["dep:proptest"]
 winter_compatibility = ["winter-math", "miden-core"]
 instruments = []
+asm = []
 
 
 # gpu

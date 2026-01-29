@@ -6,6 +6,7 @@ use lambdaworks_math::{
     },
 };
 
+use super::prover::ProvingError;
 use super::traits::AIR;
 
 pub struct Domain<F: IsFFTField> {
@@ -59,7 +60,7 @@ impl<F: IsFFTField> Domain<F> {
 
 pub fn new_domain<Field, FieldExtension, PI>(
     air: &dyn AIR<Field = Field, FieldExtension = FieldExtension, PublicInputs = PI>,
-) -> Domain<Field>
+) -> Result<Domain<Field>, ProvingError>
 where
     Field: IsSubFieldOf<FieldExtension> + IsFFTField + Send + Sync,
     FieldExtension: Send + Sync + IsField,
@@ -70,23 +71,22 @@ where
     let interpolation_domain_size = air.trace_length();
     let root_order = air.trace_length().trailing_zeros();
     // * Generate Coset
-    let trace_primitive_root = Field::get_primitive_root_of_unity(root_order as u64).unwrap();
+    let trace_primitive_root = Field::get_primitive_root_of_unity(root_order as u64)
+        .map_err(|_| ProvingError::PrimitiveRootNotFound(root_order as u64))?;
     let trace_roots_of_unity = get_powers_of_primitive_root_coset(
         root_order as u64,
         interpolation_domain_size,
         &FieldElement::one(),
-    )
-    .unwrap();
+    )?;
 
     let lde_root_order = (air.trace_length() * blowup_factor).trailing_zeros();
     let lde_roots_of_unity_coset = get_powers_of_primitive_root_coset(
         lde_root_order as u64,
         air.trace_length() * blowup_factor,
         &coset_offset,
-    )
-    .unwrap();
+    )?;
 
-    Domain {
+    Ok(Domain {
         root_order,
         lde_roots_of_unity_coset,
         trace_primitive_root,
@@ -94,5 +94,5 @@ where
         blowup_factor,
         coset_offset,
         interpolation_domain_size,
-    }
+    })
 }

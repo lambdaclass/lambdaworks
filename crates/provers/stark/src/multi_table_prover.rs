@@ -28,9 +28,29 @@ where
     FieldElement<F>: AsBytes,
     FieldElement<E>: AsBytes,
 {
+    if airs.is_empty() {
+        return Err(ProvingError::EmptyAirs);
+    }
     let mut proof = None;
     for (air, table) in airs {
         let _ = proof.insert(Prover::<F, E, PI>::prove(air, table, transcript)?);
     }
     Ok(proof.unwrap())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::transcript::StoneProverTranscript;
+    use lambdaworks_math::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;
+
+    #[test]
+    fn test_multi_prove_empty_airs_returns_error() {
+        let airs: Airs<Stark252PrimeField, Stark252PrimeField, ()> = vec![];
+        let mut transcript = StoneProverTranscript::new(&[]);
+
+        let result = multi_prove(airs, &mut transcript);
+
+        assert!(matches!(result, Err(ProvingError::EmptyAirs)));
+    }
 }

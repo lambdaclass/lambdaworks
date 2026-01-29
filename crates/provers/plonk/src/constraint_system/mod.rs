@@ -294,7 +294,8 @@ mod tests {
 
         // Common preprocessed input
         let common_preprocessed_input =
-            CommonPreprocessedInput::from_constraint_system(system, &ORDER_R_MINUS_1_ROOT_UNITY);
+            CommonPreprocessedInput::from_constraint_system(system, &ORDER_R_MINUS_1_ROOT_UNITY)
+                .unwrap();
 
         // Setup
         let srs = test_srs(common_preprocessed_input.n);
