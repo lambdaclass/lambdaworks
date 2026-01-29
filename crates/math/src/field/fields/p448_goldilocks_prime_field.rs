@@ -534,8 +534,8 @@ mod tests {
         let bytes = one.to_bytes_be();
         // Should be 55 zeros followed by 0x01
         assert_eq!(bytes[55], 1);
-        for i in 0..55 {
-            assert_eq!(bytes[i], 0);
+        for byte in &bytes[..55] {
+            assert_eq!(*byte, 0);
         }
     }
 
@@ -547,8 +547,8 @@ mod tests {
         let bytes = one.to_bytes_le();
         // Should be 0x01 followed by 55 zeros
         assert_eq!(bytes[0], 1);
-        for i in 1..56 {
-            assert_eq!(bytes[i], 0);
+        for byte in &bytes[1..] {
+            assert_eq!(*byte, 0);
         }
     }
 
