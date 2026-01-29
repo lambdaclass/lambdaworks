@@ -16,6 +16,8 @@ pub mod secp256r1_field;
 pub mod u32_montgomery_backend_prime_field;
 /// Implementation of the u64 Goldilocks Prime field (p = 2^64 - 2^32 + 1)
 pub mod u64_goldilocks_field;
+/// Hybrid Goldilocks implementation with optimized arithmetic (combines best operations)
+pub mod goldilocks_hybrid;
 /// Implementation of prime fields over 64 bit unsigned integers.
 pub mod u64_prime_field;
 
