@@ -356,6 +356,14 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
         for coeff in self.coefficients.iter_mut() {
             *coeff = &*coeff * factor;
         }
+        // Remove trailing zeros
+        while self
+            .coefficients
+            .last()
+            .is_some_and(|c| *c == FieldElement::zero())
+        {
+            self.coefficients.pop();
+        }
     }
 
     /// Adds another polynomial to this one in-place.
@@ -764,14 +772,7 @@ where
     type Output = Polynomial<FieldElement<L>>;
 
     fn mul(self, multiplicand: FieldElement<F>) -> Polynomial<FieldElement<L>> {
-        let new_coefficients = self
-            .coefficients
-            .iter()
-            .map(|value| &multiplicand * value)
-            .collect();
-        Polynomial {
-            coefficients: new_coefficients,
-        }
+        &self * &multiplicand
     }
 }
 
@@ -783,14 +784,12 @@ where
     type Output = Polynomial<FieldElement<L>>;
 
     fn mul(self, multiplicand: &FieldElement<F>) -> Polynomial<FieldElement<L>> {
-        let new_coefficients = self
+        let new_coefficients: Vec<_> = self
             .coefficients
             .iter()
             .map(|value| multiplicand * value)
             .collect();
-        Polynomial {
-            coefficients: new_coefficients,
-        }
+        Polynomial::new(&new_coefficients)
     }
 }
 
