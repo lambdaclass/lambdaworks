@@ -585,10 +585,10 @@ where
             * &r2.beta
             * &r4.z_zeta_omega
             * &cpi.s3;
-        p_non_constant = p_non_constant + (r_2_2 - r_2_1) * &r3.alpha;
+        p_non_constant += (r_2_2 - r_2_1) * &r3.alpha;
 
         let r_3 = &r2.p_z * l1_zeta;
-        p_non_constant = p_non_constant + (r_3 * &r3.alpha * &r3.alpha);
+        p_non_constant += r_3 * &r3.alpha * &r3.alpha;
 
         let partial_t = &r3.p_t_lo + zeta_raised_n * &r3.p_t_mid + zeta_raised_2n * &r3.p_t_hi;
 

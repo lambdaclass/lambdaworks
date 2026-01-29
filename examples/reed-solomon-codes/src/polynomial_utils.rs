@@ -146,7 +146,7 @@ impl<F: IsField + Clone> BivariatePolynomial<F> {
         for coeff in &self.coeffs {
             // Add coeff(x) * f(x)^j to result
             let term = coeff.mul_with_ref(&f_power);
-            result = result + term;
+            result += term;
             f_power = f_power.mul_with_ref(f);
         }
 
