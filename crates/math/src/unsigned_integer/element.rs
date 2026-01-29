@@ -3276,9 +3276,9 @@ mod tests_u256 {
 
         // Test all Mul trait variants
         let result1 = &a * &b;
-        let result2 = a.clone() * b.clone();
-        let result3 = a.clone() * &b;
-        let result4 = &a * b.clone();
+        let result2 = a * b;
+        let result3 = a * &b;
+        let result4 = &a * b;
 
         assert_eq!(result1, result2);
         assert_eq!(result2, result3);
