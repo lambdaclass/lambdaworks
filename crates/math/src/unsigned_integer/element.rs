@@ -3312,7 +3312,7 @@ mod tests_u256 {
         // Numbers spanning two limbs
         let a = U256::from_hex_unchecked("10000000000000001"); // 2^64 + 1
         let b = U256::from_hex_unchecked("10000000000000001"); // 2^64 + 1
-        // (2^64 + 1)^2 = 2^128 + 2^65 + 1
+                                                               // (2^64 + 1)^2 = 2^128 + 2^65 + 1
         let expected = U256::from_hex_unchecked("100000000000000020000000000000001");
         assert_eq!(&a * &b, expected);
     }
