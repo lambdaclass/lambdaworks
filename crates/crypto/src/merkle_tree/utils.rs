@@ -20,7 +20,15 @@ pub fn parent_index(node_index: usize) -> usize {
     }
 }
 
-// The list of values is completed repeating the last value to a power of two length
+/// Pads the list of values to a power of two length.
+///
+/// NOTE: This implementation repeats the last value for padding, which means
+/// that trees with different original lengths could potentially produce the
+/// same root if the padding results in identical leaf sets. For applications
+/// requiring commitment to the exact leaf count, consider:
+/// 1. Including the leaf count as an additional leaf or in the root computation
+/// 2. Using a distinct padding value (e.g., hash of empty string or zero)
+/// 3. Using a domain-separated padding scheme
 pub fn complete_until_power_of_two<T: Clone>(mut values: Vec<T>) -> Vec<T> {
     while !is_power_of_two(values.len()) {
         values.push(values[values.len() - 1].clone());
