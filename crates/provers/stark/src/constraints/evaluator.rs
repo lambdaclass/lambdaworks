@@ -196,9 +196,6 @@ where
         #[cfg(feature = "instruments")]
         let timer = Instant::now();
 
-        // Pre-allocate buffer for periodic values to avoid allocation in the hot loop
-        let num_periodic_cols = lde_periodic_columns.len();
-
         #[cfg(feature = "parallel")]
         let evaluations_t = {
             let boundary_evaluation = boundary_evaluation.into_par_iter();
@@ -246,6 +243,7 @@ where
         #[cfg(not(feature = "parallel"))]
         let evaluations_t = {
             // Pre-allocate reusable buffers for the sequential case
+            let num_periodic_cols = lde_periodic_columns.len();
             let mut periodic_values_buffer: Vec<FieldElement<Field>> =
                 Vec::with_capacity(num_periodic_cols);
             let mut transition_buffer: Vec<FieldElement<FieldExtension>> =
