@@ -1,19 +1,14 @@
-//! ECDSA signature scheme for secp256k1 curve.
+//! ECDSA implementation for secp256k1.
 //!
-//! This implementation is NOT constant-time and should only be used for
-//! signature verification or in non-production/testing contexts.
-//!
-//! For production signing, use a constant-time implementation.
+//! This module provides ECDSA signing and verification using the secp256k1 curve.
 
-use crate::cyclic_group::IsGroup;
-use crate::elliptic_curve::short_weierstrass::point::ShortWeierstrassProjectivePoint;
-use crate::elliptic_curve::traits::IsEllipticCurve;
-use crate::field::element::FieldElement;
-use crate::field::fields::secp256k1_scalarfield::Secp256k1ScalarField;
-use crate::traits::ByteConversion;
-
-use super::curve::Secp256k1Curve;
-use crate::elliptic_curve::short_weierstrass::traits::IsShortWeierstrass;
+use lambdaworks_math::cyclic_group::IsGroup;
+use lambdaworks_math::elliptic_curve::short_weierstrass::curves::secp256k1::curve::Secp256k1Curve;
+use lambdaworks_math::elliptic_curve::short_weierstrass::point::ShortWeierstrassProjectivePoint;
+use lambdaworks_math::elliptic_curve::traits::IsEllipticCurve;
+use lambdaworks_math::field::element::FieldElement;
+use lambdaworks_math::field::fields::secp256k1_scalarfield::Secp256k1ScalarField;
+use lambdaworks_math::traits::ByteConversion;
 
 /// Type alias for scalar field elements
 pub type ScalarFE = FieldElement<Secp256k1ScalarField>;
@@ -211,6 +206,7 @@ pub fn derive_public_key(private_key: &ScalarFE) -> CurvePoint {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use lambdaworks_math::elliptic_curve::short_weierstrass::traits::IsShortWeierstrass;
 
     fn test_private_key() -> ScalarFE {
         // A valid test private key (DO NOT use in production)
