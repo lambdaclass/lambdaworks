@@ -105,9 +105,9 @@ where
 
 /// Recode scalars to signed digits for Pippenger's algorithm.
 /// Returns a flat vector of signed digits, stored contiguously to avoid
-/// per-scalar heap allocations. Uses signed representation to halve the 
+/// per-scalar heap allocations. Uses signed representation to halve the
 /// bucket count from 2^c - 1 to 2^(c-1).
-/// 
+///
 /// The flat layout stores all digits for scalar i at indices:
 ///   [i * total_windows, i * total_windows + total_windows)
 fn recode_scalars_signed<const NUM_LIMBS: usize>(
@@ -444,5 +444,37 @@ mod tests {
 
             prop_assert_eq!(parallel, sequential);
         }
+    }
+
+    // Regression test: ensure signed MSM handles points.len() > cs.len() without panic
+    #[test]
+    fn test_signed_msm_with_more_points_than_scalars() {
+        let cs: Vec<UnsignedInteger<6>> =
+            Vec::from([UnsignedInteger::from_u64(1), UnsignedInteger::from_u64(2)]);
+        let points: Vec<_> = (0..5)
+            .map(|i| BLS12381Curve::generator().operate_with_self(i as u64 + 1))
+            .collect();
+
+        // Should not panic, uses only first cs.len() points
+        let result = pippenger::msm_with_signed(&cs, &points, 4);
+
+        // Verify correctness: 1*G + 2*2G = G + 4G = 5G
+        let expected = BLS12381Curve::generator().operate_with_self(5u64);
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    #[cfg(feature = "parallel")]
+    fn test_parallel_signed_msm_with_more_points_than_scalars() {
+        let cs: Vec<UnsignedInteger<6>> =
+            Vec::from([UnsignedInteger::from_u64(1), UnsignedInteger::from_u64(2)]);
+        let points: Vec<_> = (0..5)
+            .map(|i| BLS12381Curve::generator().operate_with_self(i as u64 + 1))
+            .collect();
+
+        let result = pippenger::parallel_msm_with_signed(&cs, &points, 4);
+
+        let expected = BLS12381Curve::generator().operate_with_self(5u64);
+        assert_eq!(result, expected);
     }
 }

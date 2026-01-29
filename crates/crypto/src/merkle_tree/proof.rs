@@ -51,6 +51,15 @@ where
     }
 }
 
+/// Deserialize a proof from bytes.
+///
+/// **Important:** This implementation uses a heuristic to determine node size by attempting
+/// to deserialize nodes from the beginning of the byte slice. It works correctly when:
+/// 1. All nodes have the same fixed size
+/// 2. The byte slice length is exactly divisible by the node size
+///
+/// For variable-size nodes or more robust deserialization, consider using a format
+/// that includes explicit size metadata.
 impl<T> Deserializable for Proof<T>
 where
     T: Deserializable + PartialEq + Eq,
@@ -59,13 +68,50 @@ where
     where
         Self: Sized,
     {
+        if bytes.is_empty() {
+            return Ok(Self {
+                merkle_path: Vec::new(),
+            });
+        }
+
+        // Try to determine node size by attempting to deserialize the first node
+        // with increasing sizes until we find one that works
+        let node_size = find_node_size::<T>(bytes)?;
+
         let mut merkle_path = Vec::new();
-        for elem in bytes[0..].chunks(8) {
-            let node = T::deserialize(elem)?;
-            merkle_path.push(node);
+        for chunk in bytes.chunks(node_size) {
+            if chunk.len() == node_size {
+                let node = T::deserialize(chunk)?;
+                merkle_path.push(node);
+            }
         }
         Ok(Self { merkle_path })
     }
+}
+
+/// Attempts to find the size of a serialized node by trying common sizes.
+/// Returns the first size that successfully deserializes.
+fn find_node_size<T: Deserializable>(bytes: &[u8]) -> Result<usize, DeserializationError> {
+    // Common hash/node sizes: 8 (u64), 32 (SHA-256), 64 (SHA-512)
+    const COMMON_SIZES: [usize; 3] = [8, 32, 64];
+
+    for &size in &COMMON_SIZES {
+        if bytes.len() >= size
+            && bytes.len().is_multiple_of(size)
+            && T::deserialize(&bytes[..size]).is_ok()
+        {
+            return Ok(size);
+        }
+    }
+
+    // Fallback: try to find any size that works and evenly divides the input
+    for size in 1..=bytes.len() {
+        if bytes.len().is_multiple_of(size) && T::deserialize(&bytes[..size]).is_ok() {
+            return Ok(size);
+        }
+    }
+
+    Err(DeserializationError::InvalidAmountOfBytes)
 }
 #[cfg(test)]
 mod tests {
@@ -138,6 +184,36 @@ mod tests {
         let serialize_proof = proof.serialize();
         let proof: TestProofEcgfp5 = Proof::deserialize(&serialize_proof).unwrap();
         assert!(proof.verify::<TestBackend<Ecgfp5>>(&merkle_tree.root, 1, &Ecgfp5FE::new(2)));
+    }
+
+    #[test]
+    #[cfg(feature = "alloc")]
+    fn proof_u8_32_roundtrip() {
+        let mut node2 = [0u8; 32];
+        for (i, b) in node2.iter_mut().enumerate() {
+            *b = i as u8;
+        }
+        let original = Proof::<[u8; 32]> {
+            merkle_path: vec![[0u8; 32], [1u8; 32], node2],
+        };
+        let serialized = original.serialize();
+        let deserialized: Proof<[u8; 32]> = Proof::deserialize(&serialized).unwrap();
+        assert_eq!(original.merkle_path, deserialized.merkle_path);
+    }
+
+    #[test]
+    #[cfg(feature = "alloc")]
+    fn proof_u8_64_roundtrip() {
+        let mut node2 = [0u8; 64];
+        for (i, b) in node2.iter_mut().enumerate() {
+            *b = i as u8;
+        }
+        let original = Proof::<[u8; 64]> {
+            merkle_path: vec![[0u8; 64], [1u8; 64], node2],
+        };
+        let serialized = original.serialize();
+        let deserialized: Proof<[u8; 64]> = Proof::deserialize(&serialized).unwrap();
+        assert_eq!(original.merkle_path, deserialized.merkle_path);
     }
 
     #[test]

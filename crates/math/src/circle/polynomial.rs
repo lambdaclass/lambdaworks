@@ -5,6 +5,7 @@ use super::{
     cosets::Coset,
     twiddles::{get_twiddles, TwiddlesConfig},
 };
+#[cfg(feature = "alloc")]
 use crate::{
     fft::cpu::bit_reversing::in_place_bit_reverse_permute,
     field::{element::FieldElement, fields::mersenne31::field::Mersenne31Field},

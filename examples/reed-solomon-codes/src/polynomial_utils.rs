@@ -146,7 +146,7 @@ impl<F: IsField + Clone> BivariatePolynomial<F> {
         for coeff in &self.coeffs {
             // Add coeff(x) * f(x)^j to result
             let term = coeff.mul_with_ref(&f_power);
-            result = result + term;
+            result += term;
             f_power = f_power.mul_with_ref(f);
         }
 
@@ -306,10 +306,6 @@ fn find_roots_linear_y<F: IsField + Clone>(
     let a = &q.coeffs[0]; // A(x)
     let b = &q.coeffs[1]; // B(x)
 
-    if *b == Polynomial::zero() {
-        return vec![];
-    }
-
     // f(x) = -A(x) / B(x)
     // Check if B divides A
     let neg_a = {
@@ -317,7 +313,10 @@ fn find_roots_linear_y<F: IsField + Clone>(
         Polynomial::new(&coeffs)
     };
 
-    let (quotient, remainder) = neg_a.long_division_with_remainder(b);
+    // If B(x) is zero, return the empty vector.
+    let Ok((quotient, remainder)) = neg_a.long_division_with_remainder(b) else {
+        return vec![];
+    };
 
     if remainder != Polynomial::zero() {
         // B doesn't divide A

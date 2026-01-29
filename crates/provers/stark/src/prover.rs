@@ -55,6 +55,8 @@ impl<
 pub enum ProvingError {
     WrongParameter(String),
     EmptyCommitment,
+    /// No AIRs provided to multi_prove
+    EmptyAirs,
     /// Error during FFT operation
     FFTError(FFTError),
     /// Failed to get primitive root of unity for the given order
@@ -694,19 +696,8 @@ pub trait IsStarkProver<
 
         for (i, part) in round_2_result.composition_poly_parts.iter().enumerate() {
             let h_i_eval = &round_3_result.composition_poly_parts_ood_evaluation[i];
-            let gamma = &composition_poly_gammas[i];
-
-            // Add gamma * (part - h_i_eval) directly to h_coeffs
-            // part - h_i_eval means subtract h_i_eval from constant term only
-            for (j, coeff) in part.coefficients().iter().enumerate() {
-                if j == 0 {
-                    // Constant term: gamma * (coeff - h_i_eval)
-                    h_coeffs[j] = &h_coeffs[j] + gamma * (coeff - h_i_eval);
-                } else {
-                    // Other terms: gamma * coeff
-                    h_coeffs[j] = &h_coeffs[j] + gamma * coeff;
-                }
-            }
+            let h_i_term = &composition_poly_gammas[i] * (part - h_i_eval);
+            h_terms += h_i_term;
         }
 
         let mut h_terms = Polynomial::new(&h_coeffs);
