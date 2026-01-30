@@ -72,7 +72,8 @@ impl StoneProverTranscript {
     }
 
     pub fn sample_big_int(&mut self) -> U256 {
-        U256::from_bytes_be(&self.sample(32)).unwrap()
+        U256::from_bytes_be(&self.sample(32))
+            .expect("sample(32) always returns exactly 32 bytes for U256")
     }
 
     fn keccak_hash(data: &[u8]) -> [u8; 32] {
@@ -103,7 +104,8 @@ impl IsTranscript<Stark252PrimeField> for StoneProverTranscript {
         result_hash.copy_from_slice(&self.state);
         result_hash.reverse();
 
-        let digest = U256::from_bytes_be(&self.state).unwrap();
+        let digest = U256::from_bytes_be(&self.state)
+            .expect("self.state is always exactly 32 bytes for U256");
         let new_seed = (digest + self.seed_increment).to_bytes_be();
         self.state = Self::keccak_hash(&[&new_seed, new_bytes].concat());
         self.counter = 0;

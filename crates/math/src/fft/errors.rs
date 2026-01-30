@@ -11,6 +11,10 @@ pub enum FFTError {
     InputError(usize),
     OrderError(u64),
     DomainSizeError(usize),
+    /// Division by zero encountered during FFT computation
+    DivisionByZero,
+    /// Attempted to compute inverse of zero during FFT
+    InverseOfZero,
     #[cfg(feature = "cuda")]
     CudaError(CudaError),
 }
@@ -28,6 +32,12 @@ impl Display for FFTError {
             FFTError::DomainSizeError(_) => {
                 write!(f, "Domain size exceeds two adicity of the field")
             }
+            FFTError::DivisionByZero => {
+                write!(f, "Division by zero encountered during FFT computation")
+            }
+            FFTError::InverseOfZero => {
+                write!(f, "Cannot compute inverse of zero during FFT")
+            }
             #[cfg(feature = "cuda")]
             FFTError::CudaError(_) => {
                 write!(f, "A CUDA related error has ocurred")
@@ -41,7 +51,7 @@ impl std::error::Error for FFTError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
             #[cfg(feature = "cuda")]
-            FFTError::CudaError(_) => Some(e),
+            FFTError::CudaError(e) => Some(e),
             _ => None,
         }
     }
@@ -57,12 +67,8 @@ impl From<CudaError> for FFTError {
 impl From<FieldError> for FFTError {
     fn from(error: FieldError) -> Self {
         match error {
-            FieldError::DivisionByZero => {
-                panic!("Can't divide by zero during FFT");
-            }
-            FieldError::InvZeroError => {
-                panic!("Can't calculate inverse of zero during FFT");
-            }
+            FieldError::DivisionByZero => FFTError::DivisionByZero,
+            FieldError::InvZeroError => FFTError::InverseOfZero,
             FieldError::RootOfUnityError(order) => FFTError::RootOfUnityError(order),
         }
     }

@@ -48,15 +48,22 @@ fn compute_base_zerofier<F: IsFFTField>(
             .map(|exponent| {
                 let x = lde_root.pow(exponent);
                 let offset_times_x = coset_offset * &x;
-                let offset_exponent =
-                    trace_length * periodic_exemptions_offset.unwrap() / exemptions_period_val;
+                let offset_exponent = trace_length
+                    * periodic_exemptions_offset.expect(
+                        "periodic_exemptions_offset must be Some when exemptions_period is Some"
+                    )
+                    / exemptions_period_val;
 
                 let numerator = offset_times_x.pow(trace_length / exemptions_period_val)
                     - trace_primitive_root.pow(offset_exponent);
                 let denominator = offset_times_x.pow(trace_length / period)
                     - trace_primitive_root.pow(offset * trace_length / period);
 
-                unsafe { numerator.div(denominator).unwrap_unchecked() }
+                // Safety: The denominator is non-zero because the coset offset ensures
+                // lde_root powers are disjoint from trace_primitive_root powers
+                numerator.div(denominator).expect(
+                    "zerofier denominator should be non-zero: coset offset ensures disjoint domains"
+                )
             })
             .collect()
     } else {
@@ -70,7 +77,9 @@ fn compute_base_zerofier<F: IsFFTField>(
             })
             .collect_vec();
 
-        FieldElement::inplace_batch_inverse(&mut evaluations).unwrap();
+        FieldElement::inplace_batch_inverse(&mut evaluations).expect(
+            "batch inverse failed: zerofier evaluation contains zero element"
+        );
         evaluations
     }
 }
@@ -95,7 +104,7 @@ fn compute_end_exemptions_evals<F: IsFFTField>(
         interpolation_domain_size,
         coset_offset,
     )
-    .unwrap()
+    .expect("failed to evaluate end exemptions polynomial on LDE domain")
 }
 
 /// Compute the end exemptions polynomial
@@ -269,7 +278,9 @@ pub trait AIR: Send + Sync {
         let trace_length = self.trace_length();
         let root_of_unity_order = u64::from(trace_length.trailing_zeros());
 
-        Self::Field::get_primitive_root_of_unity(root_of_unity_order).unwrap()
+        Self::Field::get_primitive_root_of_unity(root_of_unity_order).expect(
+            "failed to get primitive root of unity: trace length may exceed field's two-adicity"
+        )
     }
 
     fn num_transition_constraints(&self) -> usize {
@@ -293,7 +304,7 @@ pub trait AIR: Send + Sync {
                 .collect();
             let poly =
                 Polynomial::<FieldElement<Self::Field>>::interpolate_fft::<Self::Field>(&values)
-                    .unwrap();
+                    .expect("failed to interpolate periodic column polynomial via FFT");
             result.push(poly);
         }
         result
@@ -316,7 +327,9 @@ pub trait AIR: Send + Sync {
         let trace_primitive_root = &domain.trace_primitive_root;
         let coset_offset = &domain.coset_offset;
         let lde_root_order = u64::from((blowup_factor * trace_length).trailing_zeros());
-        let lde_root = Self::Field::get_primitive_root_of_unity(lde_root_order).unwrap();
+        let lde_root = Self::Field::get_primitive_root_of_unity(lde_root_order).expect(
+            "failed to get LDE primitive root: blowup factor * trace length may exceed field's two-adicity"
+        );
 
         // Step 1: Collect unique keys
         let mut unique_base_keys: Vec<BaseZerofierKey> = Vec::new();
@@ -456,8 +469,12 @@ pub trait AIR: Send + Sync {
             );
             let end_key: EndExemptionsKey = (end_exemptions, period);
 
-            let base_zerofier = base_zerofier_map.get(&base_key).unwrap();
-            let end_exemptions_evals = end_exemptions_map.get(&end_key).unwrap();
+            let base_zerofier = base_zerofier_map.get(&base_key).expect(
+                "base zerofier cache miss: constraint key not found in precomputed map"
+            );
+            let end_exemptions_evals = end_exemptions_map.get(&end_key).expect(
+                "end exemptions cache miss: constraint key not found in precomputed map"
+            );
 
             // Combine base zerofier with end exemptions
             let cycled_base = base_zerofier

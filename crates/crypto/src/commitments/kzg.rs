@@ -97,10 +97,11 @@ where
         const MAIN_GROUP_OFFSET: usize = 12;
 
         let main_group_len_u64 = u64::from_le_bytes(
-            // This unwrap can't fail since we are fixing the size of the slice
-            bytes[MAIN_GROUP_LEN_OFFSET..MAIN_GROUP_OFFSET]
+            bytes
+                .get(MAIN_GROUP_LEN_OFFSET..MAIN_GROUP_OFFSET)
+                .ok_or(DeserializationError::InvalidAmountOfBytes)?
                 .try_into()
-                .unwrap(),
+                .expect("slice length is exactly 8 bytes for u64"),
         );
 
         let main_group_len = usize::try_from(main_group_len_u64)
@@ -113,25 +114,27 @@ where
         let size_g2_point = mem::size_of::<G2Point>();
 
         for i in 0..main_group_len {
-            // The second unwrap shouldn't fail since the amount of bytes is fixed
-            let point = G1Point::deserialize(
-                bytes[i * size_g1_point + MAIN_GROUP_OFFSET
-                    ..i * size_g1_point + size_g1_point + MAIN_GROUP_OFFSET]
-                    .try_into()
-                    .unwrap(),
-            )?;
+            let start = i * size_g1_point + MAIN_GROUP_OFFSET;
+            let end = start + size_g1_point;
+            let point_bytes = bytes
+                .get(start..end)
+                .ok_or(DeserializationError::InvalidAmountOfBytes)?
+                .try_into()
+                .expect("slice length equals size_g1_point");
+            let point = G1Point::deserialize(point_bytes)?;
             main_group.push(point);
         }
 
         let g2s_offset = size_g1_point * main_group_len + 12;
         for i in 0..2 {
-            // The second unwrap shouldn't fail since the amount of bytes is fixed
-            let point = G2Point::deserialize(
-                bytes[i * size_g2_point + g2s_offset
-                    ..i * size_g2_point + g2s_offset + size_g2_point]
-                    .try_into()
-                    .unwrap(),
-            )?;
+            let start = i * size_g2_point + g2s_offset;
+            let end = start + size_g2_point;
+            let point_bytes = bytes
+                .get(start..end)
+                .ok_or(DeserializationError::InvalidAmountOfBytes)?
+                .try_into()
+                .expect("slice length equals size_g2_point");
+            let point = G2Point::deserialize(point_bytes)?;
             secondary_group.push(point);
         }
 

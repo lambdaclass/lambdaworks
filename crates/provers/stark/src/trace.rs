@@ -193,7 +193,7 @@ where
 
         iter.map(|col| Polynomial::interpolate_fft::<S>(col))
             .collect::<Result<Vec<Polynomial<FieldElement<F>>>, FFTError>>()
-            .unwrap()
+            .expect("FFT interpolation failed: trace column length must be power of 2")
     }
 
     pub fn compute_trace_polys_aux<S>(&self) -> Vec<Polynomial<FieldElement<E>>>
@@ -209,7 +209,7 @@ where
 
         iter.map(|col| Polynomial::interpolate_fft::<F>(col))
             .collect::<Result<Vec<Polynomial<FieldElement<E>>>, FFTError>>()
-            .unwrap()
+            .expect("FFT interpolation failed: aux trace column length must be power of 2")
     }
 
     pub fn get_column_main(&self, col_idx: usize) -> Vec<FieldElement<F>> {

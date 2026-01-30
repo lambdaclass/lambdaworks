@@ -35,7 +35,8 @@ where
     for (air, table) in airs {
         let _ = proof.insert(Prover::<F, E, PI>::prove(air, table, transcript)?);
     }
-    Ok(proof.unwrap())
+    // proof is Some because we checked airs is non-empty above
+    Ok(proof.expect("proof is Some after processing non-empty airs"))
 }
 
 #[cfg(test)]
