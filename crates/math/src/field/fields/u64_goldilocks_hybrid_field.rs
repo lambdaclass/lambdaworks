@@ -2,8 +2,7 @@
 //!
 //! Based on benchmark results:
 //! - mul/square: Optimized implementation
-//! - inv: Optimized implementation
-//! - pow: addition chain
+//! - inv: Optimized addition chain implementation
 //! - add/sub: Original implementation
 //! - neg: Using optimized version
 //! Inspired by Plonky3 and Constantine
@@ -25,12 +24,6 @@ impl Goldilocks64HybridField {
     pub const ORDER: u64 = 0xFFFF_FFFF_0000_0001;
     /// NEG_ORDER = 2^32 - 1 = 0xFFFFFFFF
     pub const NEG_ORDER: u64 = Self::ORDER.wrapping_neg();
-
-    /// Maximum allowed value before reduction (2^64 - 1)
-    pub const MAX: u64 = u64::MAX;
-
-    /// Double the order for reduction
-    pub const ORDER_DOUBLED: u128 = (Self::ORDER as u128) * 2;
 
     /// Canonicalize a field element to [0, p)
     /// This is needed for comparisons and serialization
@@ -249,6 +242,7 @@ impl Display for FieldElement<Goldilocks64HybridField> {
 
 /// Binary exponentiation for arbitrary exponents
 /// This is a general-purpose exponentiation algorithm using square-and-multiply
+#[cfg(test)]
 #[inline(always)]
 fn pow_binary(mut base: u64, mut exp: u64) -> u64 {
     let mut result = 1u64;
