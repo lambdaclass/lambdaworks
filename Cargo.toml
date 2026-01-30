@@ -49,10 +49,10 @@ stark-platinum-prover = { path = "./crates/provers/stark" }
 iai-callgrind = "0.3.1"
 
 [patch.crates-io]
-miden-air = { git = "https://github.com/lambdaclass/miden-vm", branch = "lambdaworks-backup" }
-miden-assembly = { git = "https://github.com/lambdaclass/miden-vm", branch = "lambdaworks-backup" }
-miden-core = { git = "https://github.com/lambdaclass/miden-vm", branch = "lambdaworks-backup" }
-miden-processor = { git = "https://github.com/lambdaclass/miden-vm", branch = "lambdaworks-backup" }
+miden-air = { git = "https://github.com/lambdaclass/miden-vm", tag = "v0.7.0" }
+miden-assembly = { git = "https://github.com/lambdaclass/miden-vm", tag = "v0.7.0" }
+miden-core = { git = "https://github.com/lambdaclass/miden-vm", tag = "v0.7.0" }
+miden-processor = { git = "https://github.com/lambdaclass/miden-vm", tag = "v0.7.0" }
 winter-air = { git = "https://github.com/lambdaclass/winterfell-for-lambdaworks.git", branch = "derive-clone-v6.4" }
 winter-prover = { git = "https://github.com/lambdaclass/winterfell-for-lambdaworks.git", branch = "derive-clone-v6.4" }
 winter-math = { git = "https://github.com/lambdaclass/winterfell-for-lambdaworks.git", branch = "derive-clone-v6.4" }
