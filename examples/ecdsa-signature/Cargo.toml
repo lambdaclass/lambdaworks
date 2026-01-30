@@ -1,0 +1,12 @@
+[package]
+name = "ecdsa-signature"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "ECDSA signature scheme example using lambdaworks"
+
+[dependencies]
+lambdaworks-math = { path = "../../crates/math" }
+
+[dev-dependencies]
+hex = "0.4"
