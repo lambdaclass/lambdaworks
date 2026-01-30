@@ -490,7 +490,7 @@ mod tests {
     type FE = FieldElement<Babybear31PrimeField>;
 
     // This test verifies GS decoding across the full error correction radius.
-    // It's slow in debug mode (~70s) due to the multiple decoding iterations.
+    // It's slow in debug mode due to the multiple decoding iterations.
     // Run with: cargo test --release test_gs_full_radius -- --ignored
     #[test]
     #[ignore = "slow in debug mode"]
@@ -663,7 +663,7 @@ mod tests {
     }
 
     // This test compares our GS implementation against SageMath's reference output.
-    // It's slow in debug mode (~135s) due to heavy polynomial arithmetic.
+    // It's slow in debug mode due to heavy polynomial arithmetic.
     // Run with: cargo test --release test_sage_comparison -- --ignored
     #[test]
     #[ignore = "slow in debug mode"]
