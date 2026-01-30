@@ -1,9 +1,9 @@
 //! Hybrid Goldilocks64Field implementation combining the best operations from each approach.
-//! 
+//!
 //! Based on benchmark results:
-//! - mul/square: Optimized implementation 
+//! - mul/square: Optimized implementation
 //! - inv: Optimized implementation
-//! - pow: addition chain 
+//! - pow: addition chain
 //! - add/sub: Original implementation
 //! - neg: Using optimized version
 //! Inspired by Plonky3 and Constantine
@@ -63,7 +63,7 @@ impl IsField for Goldilocks64HybridField {
         Self::representative(&sum)
     }
 
-    /// OPTIMIZED: Multiplication 
+    /// OPTIMIZED: Multiplication
     /// Uses optimized reduce_128 from the optimized implementation
     #[inline(always)]
     fn mul(a: &u64, b: &u64) -> u64 {
@@ -76,7 +76,7 @@ impl IsField for Goldilocks64HybridField {
         reduce_128(u128::from(*a) * u128::from(*a))
     }
 
-    /// ORIGINAL: Subtraction 
+    /// ORIGINAL: Subtraction
     /// Uses simple underflow handling without branch hints
     #[inline(always)]
     fn sub(a: &u64, b: &u64) -> u64 {
@@ -88,7 +88,7 @@ impl IsField for Goldilocks64HybridField {
         Self::representative(&diff)
     }
 
-    /// OPTIMIZED: Negation 
+    /// OPTIMIZED: Negation
     #[inline(always)]
     fn neg(a: &u64) -> u64 {
         let c = Self::canonicalize(*a);
@@ -99,7 +99,7 @@ impl IsField for Goldilocks64HybridField {
         }
     }
 
-    /// OPTIMIZED: Inversion 
+    /// OPTIMIZED: Inversion
     /// Uses the addition chain from the optimized implementation
     fn inv(a: &u64) -> Result<u64, FieldError> {
         if *a == Self::zero() {
@@ -247,36 +247,8 @@ impl Display for FieldElement<Goldilocks64HybridField> {
     }
 }
 
-// ============================================================================
-// OPTIMIZED ADDITION CHAIN FOR POW
-// Should speed up
-// ============================================================================
-
-/// Compute a^exp using optimized addition chain for Goldilocks field
-///
-/// This is optimized for the specific structure of Goldilocks field exponents:
-/// p - 2 = 0xFFFFFFFE_FFFFFFFF = 2^64 - 2^32 - 1
-/// Binary structure: 32 ones, one zero, 31 ones
-///
-/// NOTE: This uses a fixed addition chain optimized for the Goldilocks field
-/// structure, not arbitrary exponents. For general exponentiation, use
-/// the standard pow() method or pow_binary().
-pub fn pow_diego_addition_chain(base: u64, exp: u64) -> u64 {
-    if exp == 0 {
-        return 1;
-    }
-
-    // For small exponents, use binary exponentiation
-    if exp < 100 {
-        return pow_binary(base, exp);
-    }
-
-    // For large exponents (typical in crypto), use addition chain
-    // This computes a^exp where exp is typically large
-    pow_addition_chain_optimized(base, exp)
-}
-
-/// Binary exponentiation for small exponents
+/// Binary exponentiation for arbitrary exponents
+/// This is a general-purpose exponentiation algorithm using square-and-multiply
 #[inline(always)]
 fn pow_binary(mut base: u64, mut exp: u64) -> u64 {
     let mut result = 1u64;
@@ -288,55 +260,6 @@ fn pow_binary(mut base: u64, mut exp: u64) -> u64 {
         exp >>= 1;
     }
     result
-}
-
-/// optimized addition chain for pow
-/// Optimized for the structure of Goldilocks field exponents
-#[inline(never)]
-pub fn pow_addition_chain_optimized(base: u64, _exp: u64) -> u64 {
-    // Helper: square n times then multiply by tail
-    #[inline(always)]
-    fn exp_acc_local(base: u64, tail: u64, n: u32) -> u64 {
-        let mut result = base;
-        for _ in 0..n {
-            result = Goldilocks64HybridField::square(&result);
-        }
-        Goldilocks64HybridField::mul(&result, &tail)
-    }
-
-    let x = base;
-    let x2 = Goldilocks64HybridField::square(&x); // x^2
-    let x3 = Goldilocks64HybridField::mul(&x2, &x); // x^3
-
-    // x^(2^3 - 1) = x^7 = (x^3)^2 * x
-    let x7 = exp_acc_local(x3, x, 1);
-
-    // x^(2^6 - 1) = x^63 = (x^7)^8 * x^7
-    let x63 = exp_acc_local(x7, x7, 3);
-
-    // x^(2^12 - 1) = (x^63)^64 * x^63
-    let x12m1 = exp_acc_local(x63, x63, 6);
-
-    // x^(2^24 - 1) = (x^(2^12-1))^4096 * x^(2^12-1)
-    let x24m1 = exp_acc_local(x12m1, x12m1, 12);
-
-    // x^(2^30 - 1) = (x^(2^24-1))^64 * x^63
-    let x30m1 = exp_acc_local(x24m1, x63, 6);
-
-    // x^(2^31 - 1) = (x^(2^30-1))^2 * x
-    let x31m1 = exp_acc_local(x30m1, x, 1);
-
-    // x^(2^32 - 1) = (x^(2^31-1))^2 * x
-    let x32m1 = exp_acc_local(x31m1, x, 1);
-
-    // (x^(2^31-1))^(2^33) = square x31m1 33 times
-    let mut t = x31m1;
-    for _ in 0..33 {
-        t = Goldilocks64HybridField::square(&t);
-    }
-
-    // Final result: t * x^(2^32-1)
-    Goldilocks64HybridField::mul(&t, &x32m1)
 }
 
 // ============================================================================
@@ -393,7 +316,7 @@ mod tests {
     #[test]
     fn test_pow_basic() {
         let a = F::from_u64(2);
-        let result = pow_diego_addition_chain(a, 10);
+        let result = pow_binary(a, 10);
         // 2^10 = 1024
         assert_eq!(F::representative(&result), 1024);
     }
@@ -401,14 +324,14 @@ mod tests {
     #[test]
     fn test_pow_zero() {
         let a = F::from_u64(5);
-        let result = pow_diego_addition_chain(a, 0);
+        let result = pow_binary(a, 0);
         assert_eq!(result, 1);
     }
 
     #[test]
     fn test_pow_one() {
         let a = F::from_u64(5);
-        let result = pow_diego_addition_chain(a, 1);
+        let result = pow_binary(a, 1);
         assert_eq!(F::representative(&result), 5);
     }
 
