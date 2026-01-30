@@ -95,7 +95,7 @@ impl IsField for Goldilocks64HybridField {
     /// OPTIMIZED: Inversion
     /// Uses the addition chain from the optimized implementation
     fn inv(a: &u64) -> Result<u64, FieldError> {
-        if *a == Self::zero() {
+        if Self::representative(a) == Self::zero() {
             return Err(FieldError::InvZeroError);
         }
 
@@ -454,6 +454,13 @@ mod tests {
     #[test]
     fn inv_zero_error() {
         let result = FieldElement::<F>::zero().inv();
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn inv_non_canonical_zero_error() {
+        // Test that inverting ORDER (non-canonical zero) also returns error
+        let result = F::inv(&F::ORDER);
         assert!(result.is_err());
     }
 
