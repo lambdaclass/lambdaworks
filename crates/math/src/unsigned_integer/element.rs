@@ -315,10 +315,8 @@ impl<const NUM_LIMBS: usize> Mul<&UnsignedInteger<NUM_LIMBS>> for &UnsignedInteg
             // go into limbs[-1] (i.e., beyond the array bounds).
             #[cfg(debug_assertions)]
             if carry != 0 {
-                // After processing column i, the next carry would go to limbs[NUM_LIMBS - 2 - i].
-                // If i >= NUM_LIMBS - 1, this would be out of bounds.
-                // But more importantly, any non-zero carry after processing means
-                // there's overflow that we're losing.
+                // Any non-zero carry after processing all valid products indicates overflow.
+                // The carry cannot be stored as it would go beyond the most significant limb.
                 overflow_detected = true;
             }
         }
