@@ -819,7 +819,7 @@ mod tests {
 
     #[test]
     fn test_bowers_vs_native_various_sizes() {
-        for order in 1..=10u64 {
+        for order in 0..=10u64 {
             let input: Vec<FE> = (0..(1 << order)).map(|i| FE::from(i as u64)).collect();
             compare_bowers_vs_native(&input);
         }
