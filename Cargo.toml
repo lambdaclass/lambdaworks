@@ -26,6 +26,7 @@ members = [
     "examples/rsa",
     "examples/xmss-signature",
     "examples/reed-solomon-codes",
+    "examples/zk-mastermind",
 ]
 exclude = ["ensure-no_std"]
 resolver = "2"

@@ -1,0 +1,25 @@
+[package]
+name = "zk-mastermind"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.70"
+
+[dependencies]
+stark-platinum-prover = { path = "../../crates/provers/stark" }
+lambdaworks-math = { path = "../../crates/math" }
+lambdaworks-crypto = { path = "../../crates/crypto" }
+rand = "0.8"
+sha3 = "0.10"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+[dev-dependencies]
+test-log = { version = "0.2", features = ["log"] }
+
+[[bin]]
+name = "zk-mastermind"
+path = "src/main.rs"
+
+[lib]
+name = "zk_mastermind"
+path = "src/lib.rs"
