@@ -6,4 +6,6 @@ pub mod rules;
 pub mod types;
 
 pub use rules::{calculate_feedback, verify_feedback};
-pub use types::{Color, Feedback, Felt252, Guess, MastermindPublicInputs, SecretCode};
+pub use types::{
+    compute_secret_commitment, Color, Feedback, Felt252, Guess, MastermindPublicInputs, SecretCode,
+};

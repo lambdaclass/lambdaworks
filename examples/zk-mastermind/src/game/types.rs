@@ -171,21 +171,57 @@ pub struct MastermindPublicInputs<F: IsFFTField> {
     pub guess: [FieldElement<F>; 4],
     /// The expected feedback
     pub feedback: [FieldElement<F>; 2],
+    /// Commitment to the secret code: s0 + s1*6 + s2*36 + s3*216
+    /// This binds the prover to a specific secret that was committed before guessing.
+    pub secret_commitment: FieldElement<F>,
+}
+
+/// Compute the secret commitment: s0 + s1*6 + s2*36 + s3*216
+/// This encodes a 4-color secret (each color 0-5) as a unique number 0-1295.
+pub fn compute_secret_commitment(secret: &SecretCode) -> Felt252 {
+    let s0 = secret.0[0] as u64;
+    let s1 = secret.0[1] as u64;
+    let s2 = secret.0[2] as u64;
+    let s3 = secret.0[3] as u64;
+    Felt252::from(s0 + s1 * 6 + s2 * 36 + s3 * 216)
 }
 
 impl MastermindPublicInputs<Stark252PrimeField> {
-    pub fn new(guess: &Guess, feedback: &Feedback) -> Self {
+    /// Create new public inputs with secret commitment
+    pub fn new(secret: &SecretCode, guess: &Guess, feedback: &Feedback) -> Self {
         Self {
             guess: guess.to_fields(),
             feedback: feedback.to_fields(),
+            secret_commitment: compute_secret_commitment(secret),
+        }
+    }
+
+    /// Create public inputs for verification (when you only have the commitment)
+    pub fn for_verification(
+        guess: &Guess,
+        feedback: &Feedback,
+        secret_commitment: Felt252,
+    ) -> Self {
+        Self {
+            guess: guess.to_fields(),
+            feedback: feedback.to_fields(),
+            secret_commitment,
         }
     }
 }
 
 impl<F: IsFFTField> MastermindPublicInputs<F> {
     /// Create from raw field elements
-    pub fn from_fields(guess: [FieldElement<F>; 4], feedback: [FieldElement<F>; 2]) -> Self {
-        Self { guess, feedback }
+    pub fn from_fields(
+        guess: [FieldElement<F>; 4],
+        feedback: [FieldElement<F>; 2],
+        secret_commitment: FieldElement<F>,
+    ) -> Self {
+        Self {
+            guess,
+            feedback,
+            secret_commitment,
+        }
     }
 }
 

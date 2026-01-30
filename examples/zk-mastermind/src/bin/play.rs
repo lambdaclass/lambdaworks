@@ -10,7 +10,8 @@ use std::io::{self, Write};
 use std::time::Instant;
 
 use zk_mastermind::{
-    generate_proof, proof_size, verify_proof, Color, GameState, Guess, SecretCode,
+    compute_secret_commitment, generate_proof, proof_size, verify_proof, Color, GameState, Guess,
+    SecretCode,
 };
 
 fn main() {
@@ -29,9 +30,16 @@ fn main() {
     let secret = generate_secret_from_seed(seed);
     let game = GameState::new(secret.clone());
 
+    // Compute the commitment (this would be shared publicly before the game starts)
+    let commitment = compute_secret_commitment(&secret);
+
     println!(
         "  A secret 4-color code has been generated from seed: {}",
         seed
+    );
+    println!(
+        "  Secret commitment: {} (prevents cheating)",
+        commitment.representative().to_string().chars().take(16).collect::<String>()
     );
     println!();
     print_rules();
@@ -81,7 +89,7 @@ fn main() {
         io::stdout().flush().unwrap();
 
         let start = Instant::now();
-        let is_valid = verify_proof(&proof, &guess, &feedback);
+        let is_valid = verify_proof(&proof, &guess, &feedback, commitment);
         let verify_time = start.elapsed();
 
         if is_valid {

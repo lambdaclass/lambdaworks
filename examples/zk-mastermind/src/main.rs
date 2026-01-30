@@ -8,7 +8,8 @@
 use std::time::Instant;
 
 use zk_mastermind::{
-    generate_proof, proof_size, verify_proof, Color, GameState, Guess, SecretCode,
+    compute_secret_commitment, generate_proof, proof_size, verify_proof, Color, GameState, Guess,
+    SecretCode,
 };
 
 fn main() {
@@ -27,9 +28,12 @@ fn main() {
     let secret = SecretCode::new([Color::Red, Color::Blue, Color::Green, Color::Yellow]);
     let game = GameState::new(secret.clone());
 
+    // Compute the commitment (this would be shared publicly before the game starts)
+    let commitment = compute_secret_commitment(&secret);
+
     println!("Setup Phase");
     println!("   CodeMaker has chosen a secret code: [R, B, G, Y]");
-    println!("   Secret commitment (simulated hash): 0x1234...5678");
+    println!("   Secret commitment: {} (prevents cheating)", commitment);
     println!();
 
     // 2. Turn 1: CodeBreaker makes a guess
@@ -53,9 +57,9 @@ fn main() {
     println!("   Proof generation time: {:?}", prove_time1);
     println!("   Proof size: {} bytes", proof_size(&proof1));
 
-    // CodeBreaker verifies the proof
+    // CodeBreaker verifies the proof (using the public commitment)
     let start = Instant::now();
-    let is_valid1 = verify_proof(&proof1, &guess1, &feedback1);
+    let is_valid1 = verify_proof(&proof1, &guess1, &feedback1, commitment);
     let verify_time1 = start.elapsed();
 
     println!("   Verification time: {:?}", verify_time1);
@@ -86,7 +90,7 @@ fn main() {
     println!("   Proof size: {} bytes", proof_size(&proof2));
 
     let start = Instant::now();
-    let is_valid2 = verify_proof(&proof2, &guess2, &feedback2);
+    let is_valid2 = verify_proof(&proof2, &guess2, &feedback2, commitment);
     let verify_time2 = start.elapsed();
 
     println!("   Verification time: {:?}", verify_time2);
@@ -117,7 +121,7 @@ fn main() {
     println!("   Proof size: {} bytes", proof_size(&proof3));
 
     let start = Instant::now();
-    let is_valid3 = verify_proof(&proof3, &guess3, &feedback3);
+    let is_valid3 = verify_proof(&proof3, &guess3, &feedback3, commitment);
     let verify_time3 = start.elapsed();
 
     println!("   Verification time: {:?}", verify_time3);

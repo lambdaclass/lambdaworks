@@ -29,7 +29,7 @@ pub type Proof = stark_platinum_prover::proof::stark::StarkProof<F, F>;
 /// * `feedback` - The expected feedback (public input)
 ///
 /// # Returns
-/// A STARK proof that can be verified
+/// A STARK proof that can be verified, along with the secret commitment
 pub fn generate_proof(
     secret: &SecretCode,
     guess: &Guess,
@@ -38,8 +38,8 @@ pub fn generate_proof(
     // Generate the trace table
     let mut trace = generate_computation_trace::<F>(secret, guess);
 
-    // Create public inputs
-    let pub_inputs = MastermindPublicInputs::new(guess, feedback);
+    // Create public inputs with secret commitment
+    let pub_inputs = MastermindPublicInputs::new(secret, guess, feedback);
 
     // Create proof options
     let proof_options = ProofOptions::default_test_options();
@@ -67,7 +67,7 @@ pub fn generate_proof_with_options(
     proof_options: &ProofOptions,
 ) -> Result<Proof, String> {
     let mut trace = generate_computation_trace::<F>(secret, guess);
-    let pub_inputs = MastermindPublicInputs::new(guess, feedback);
+    let pub_inputs = MastermindPublicInputs::new(secret, guess, feedback);
     let air = MastermindAIR::<F>::new(trace.num_rows(), &pub_inputs, proof_options);
 
     let transcript = &mut DefaultTranscript::<F>::new(&[]);

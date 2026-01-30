@@ -1,19 +1,31 @@
-//! Constraint functions for ZK Mastermind circuit
+//! Constraint helper functions for ZK Mastermind circuit
 //!
-//! This module provides helper functions for computing constraints.
+//! # Educational Example - Runtime Helpers Only
+//!
+//! **WARNING**: The functions in this module perform **runtime computations**,
+//! NOT algebraic constraint generation. They are used for:
+//! - Testing and validation
+//! - Trace table generation (computing witness values)
+//! - Educational demonstration of Mastermind logic
+//!
+//! These functions do NOT generate ZK-compatible algebraic constraints.
+//! For a production ZK circuit, you would need to:
+//! 1. Replace branching logic with polynomial arithmetic
+//! 2. Use auxiliary witness columns for intermediate values
+//! 3. Express all operations as low-degree polynomial constraints
+//!
+//! For example, `is_zero(x)` in a real ZK circuit requires:
+//! - An auxiliary witness `inv_x` (inverse of x, or 0 if x=0)
+//! - Constraints: `x * inv_x = 1 - is_zero` and `x * is_zero = 0`
 
 use lambdaworks_math::field::{element::FieldElement, traits::IsFFTField};
 
-/// Check if a value is zero, returns 1 if zero, 0 otherwise
-/// This uses the property that for a value x:
-/// - If x = 0: x * inv(x) would be undefined, so we handle it specially
-/// - If x != 0: we can compute inv(x)
+/// Check if a value is zero, returns 1 if zero, 0 otherwise.
 ///
-/// For the circuit, we use: is_zero = 1 - x * inv_helper
-/// where inv_helper is the inverse of x if x != 0, or 0 if x = 0
+/// **Note**: This is a runtime computation, not an algebraic constraint.
+/// In a real ZK circuit, this would require auxiliary witness columns
+/// and polynomial constraints as described in the module documentation.
 pub fn is_zero<F: IsFFTField>(value: &FieldElement<F>) -> FieldElement<F> {
-    // In a real ZK circuit, this would require an auxiliary witness
-    // For now, we compute directly
     if *value == FieldElement::zero() {
         FieldElement::one()
     } else {

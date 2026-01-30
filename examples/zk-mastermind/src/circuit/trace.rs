@@ -1,9 +1,10 @@
 //! Trace table generation for ZK Mastermind
 //!
-//! The trace table layout (12 columns):
+//! The trace table layout (14 columns):
 //! - Columns 0-3: Secret code (private witness)
 //! - Columns 4-7: Guess code (public input)
-//! - Columns 8-11: Auxiliary columns for calculations
+//! - Columns 8-9: Feedback (exact and partial counts)
+//! - Columns 10-13: Equality indicators (eq_i = 1 if secret[i] == guess[i])
 
 use lambdaworks_math::field::{element::FieldElement, traits::IsFFTField};
 use stark_platinum_prover::trace::TraceTable;
@@ -28,8 +29,10 @@ pub mod cols {
     pub const GUESS_3: usize = 7;
     pub const AUX_EXACT: usize = 8;
     pub const AUX_PARTIAL: usize = 9;
-    pub const AUX_S_COUNT: usize = 10;
-    pub const AUX_G_COUNT: usize = 11;
+    pub const EQ_0: usize = 10;
+    pub const EQ_1: usize = 11;
+    pub const EQ_2: usize = 12;
+    pub const EQ_3: usize = 13;
 }
 
 /// Generate a trace table for the Mastermind circuit
@@ -49,7 +52,7 @@ pub fn generate_trace<F: IsFFTField>(
     // Trace length must be a power of 2 for FFT
     // We use 16 rows which is sufficient for our constraints
     let trace_length = 16;
-    let num_cols = 12;
+    let num_cols = 14;
 
     // Create columns as vectors of field elements
     let mut columns: Vec<Vec<FieldElement<F>>> = vec![vec![]; num_cols];
@@ -58,8 +61,16 @@ pub fn generate_trace<F: IsFFTField>(
     let secret_values: Vec<u64> = secret.0.iter().map(|c| *c as u64).collect();
     let guess_values: Vec<u64> = guess.0.iter().map(|c| *c as u64).collect();
 
+    // Compute equality indicators: eq_i = 1 if secret[i] == guess[i], else 0
+    let eq_indicators: [u64; 4] = [
+        if secret_values[0] == guess_values[0] { 1 } else { 0 },
+        if secret_values[1] == guess_values[1] { 1 } else { 0 },
+        if secret_values[2] == guess_values[2] { 1 } else { 0 },
+        if secret_values[3] == guess_values[3] { 1 } else { 0 },
+    ];
+
     // Fill the trace table
-    for row in 0..trace_length {
+    for _row in 0..trace_length {
         // Columns 0-3: Secret code (repeated in all rows)
         for i in 0..4 {
             columns[i].push(FieldElement::from(secret_values[i]));
@@ -78,29 +89,14 @@ pub fn generate_trace<F: IsFFTField>(
         let partial = FieldElement::from(feedback.partial as u64);
         columns[cols::AUX_PARTIAL].push(partial);
 
-        // Columns 10-11: Color count accumulators
-        let (secret_counts, guess_counts) = calculate_color_counts(secret, guess);
-
-        // Use row index to determine which color counts to store
-        let color_idx = row % 6;
-        columns[cols::AUX_S_COUNT].push(FieldElement::from(secret_counts[color_idx] as u64));
-        columns[cols::AUX_G_COUNT].push(FieldElement::from(guess_counts[color_idx] as u64));
+        // Columns 10-13: Equality indicators
+        columns[cols::EQ_0].push(FieldElement::from(eq_indicators[0]));
+        columns[cols::EQ_1].push(FieldElement::from(eq_indicators[1]));
+        columns[cols::EQ_2].push(FieldElement::from(eq_indicators[2]));
+        columns[cols::EQ_3].push(FieldElement::from(eq_indicators[3]));
     }
 
     TraceTable::from_columns_main(columns, 1)
-}
-
-/// Calculate color counts for partial match calculation
-fn calculate_color_counts(secret: &SecretCode, guess: &Guess) -> ([u8; 6], [u8; 6]) {
-    let mut secret_counts = [0u8; 6];
-    let mut guess_counts = [0u8; 6];
-
-    for i in 0..4 {
-        secret_counts[secret.0[i] as usize] += 1;
-        guess_counts[guess.0[i] as usize] += 1;
-    }
-
-    (secret_counts, guess_counts)
 }
 
 /// Generate a trace table for proving knowledge of a valid secret
@@ -111,7 +107,7 @@ pub fn generate_computation_trace<F: IsFFTField>(
     guess: &Guess,
 ) -> TraceTable<F, F> {
     let trace_length = 16;
-    let num_cols = 12;
+    let num_cols = 14;
 
     // Create columns as vectors
     let mut columns: Vec<Vec<FieldElement<F>>> = vec![vec![]; num_cols];
@@ -120,15 +116,20 @@ pub fn generate_computation_trace<F: IsFFTField>(
     let exact_count = count_exact_matches(secret, guess);
     let partial_count = count_partial_matches(secret, guess);
 
-    // Calculate color counts
-    let (secret_counts, guess_counts) = calculate_color_counts(secret, guess);
-
     // Convert to u64 values
     let secret_values: Vec<u64> = secret.0.iter().map(|c| *c as u64).collect();
     let guess_values: Vec<u64> = guess.0.iter().map(|c| *c as u64).collect();
 
+    // Compute equality indicators: eq_i = 1 if secret[i] == guess[i], else 0
+    let eq_indicators: [u64; 4] = [
+        if secret_values[0] == guess_values[0] { 1 } else { 0 },
+        if secret_values[1] == guess_values[1] { 1 } else { 0 },
+        if secret_values[2] == guess_values[2] { 1 } else { 0 },
+        if secret_values[3] == guess_values[3] { 1 } else { 0 },
+    ];
+
     // Fill the trace table
-    for row in 0..trace_length {
+    for _row in 0..trace_length {
         // Secret columns
         for i in 0..4 {
             columns[cols::SECRET_0 + i].push(FieldElement::from(secret_values[i]));
@@ -139,25 +140,15 @@ pub fn generate_computation_trace<F: IsFFTField>(
             columns[cols::GUESS_0 + i].push(FieldElement::from(guess_values[i]));
         }
 
-        // Auxiliary columns: store accumulated counts and intermediate values
-        // Row 0: Store exact count and partial count
-        if row == 0 {
-            columns[cols::AUX_EXACT].push(FieldElement::from(exact_count as u64));
-            columns[cols::AUX_PARTIAL].push(FieldElement::from(partial_count as u64));
-        } else {
-            // Other rows: store individual equality checks for verification
-            let eq_idx = (row - 1) % 4;
-            let s = secret_values[eq_idx];
-            let g = guess_values[eq_idx];
-            let is_eq = if s == g { 1 } else { 0 };
-            columns[cols::AUX_EXACT].push(FieldElement::from(is_eq));
-            columns[cols::AUX_PARTIAL].push(FieldElement::zero());
-        }
+        // Feedback columns (same in all rows)
+        columns[cols::AUX_EXACT].push(FieldElement::from(exact_count as u64));
+        columns[cols::AUX_PARTIAL].push(FieldElement::from(partial_count as u64));
 
-        // Color count columns
-        let color_idx = row % 6;
-        columns[cols::AUX_S_COUNT].push(FieldElement::from(secret_counts[color_idx] as u64));
-        columns[cols::AUX_G_COUNT].push(FieldElement::from(guess_counts[color_idx] as u64));
+        // Equality indicator columns (same in all rows)
+        columns[cols::EQ_0].push(FieldElement::from(eq_indicators[0]));
+        columns[cols::EQ_1].push(FieldElement::from(eq_indicators[1]));
+        columns[cols::EQ_2].push(FieldElement::from(eq_indicators[2]));
+        columns[cols::EQ_3].push(FieldElement::from(eq_indicators[3]));
     }
 
     TraceTable::from_columns_main(columns, 1)
@@ -216,7 +207,7 @@ mod tests {
         let trace = generate_trace::<F>(&secret, &guess, &feedback);
 
         assert_eq!(trace.num_rows(), 16);
-        assert_eq!(trace.num_cols(), 12);
+        assert_eq!(trace.num_cols(), 14);
 
         // Check that secret is in column 0
         let s0 = &trace.main_table.get_row(0)[cols::SECRET_0];
@@ -224,20 +215,41 @@ mod tests {
     }
 
     #[test]
-    fn test_color_counts() {
-        let secret = SecretCode::new([Color::Red, Color::Red, Color::Blue, Color::Green]);
-        let guess = Guess::new([Color::Red, Color::Blue, Color::Blue, Color::Yellow]);
+    fn test_equality_indicators() {
+        let secret = SecretCode::new([Color::Red, Color::Blue, Color::Green, Color::Yellow]);
+        let guess = Guess::new([Color::Red, Color::Green, Color::Blue, Color::Yellow]);
+        let feedback = Feedback::new(2, 2);
 
-        let (s_counts, g_counts) = calculate_color_counts(&secret, &guess);
+        let trace = generate_trace::<F>(&secret, &guess, &feedback);
 
-        // Secret: 2 Red, 1 Blue, 1 Green
-        assert_eq!(s_counts[0], 2); // Red
-        assert_eq!(s_counts[1], 1); // Blue
-        assert_eq!(s_counts[2], 1); // Green
+        // Check equality indicators
+        let row = trace.main_table.get_row(0);
 
-        // Guess: 1 Red, 2 Blue, 1 Yellow
-        assert_eq!(g_counts[0], 1); // Red
-        assert_eq!(g_counts[1], 2); // Blue
-        assert_eq!(g_counts[3], 1); // Yellow
+        // Position 0: Red == Red -> eq_0 = 1
+        assert_eq!(row[cols::EQ_0], FieldElement::from(1u64));
+        // Position 1: Blue != Green -> eq_1 = 0
+        assert_eq!(row[cols::EQ_1], FieldElement::from(0u64));
+        // Position 2: Green != Blue -> eq_2 = 0
+        assert_eq!(row[cols::EQ_2], FieldElement::from(0u64));
+        // Position 3: Yellow == Yellow -> eq_3 = 1
+        assert_eq!(row[cols::EQ_3], FieldElement::from(1u64));
+    }
+
+    #[test]
+    fn test_computation_trace() {
+        let secret = SecretCode::new([Color::Red, Color::Blue, Color::Green, Color::Yellow]);
+        let guess = Guess::new([Color::Red, Color::Green, Color::Blue, Color::Yellow]);
+
+        let trace = generate_computation_trace::<F>(&secret, &guess);
+
+        assert_eq!(trace.num_rows(), 16);
+        assert_eq!(trace.num_cols(), 14);
+
+        let row = trace.main_table.get_row(0);
+
+        // Should have computed 2 exact matches (positions 0 and 3)
+        assert_eq!(row[cols::AUX_EXACT], FieldElement::from(2u64));
+        // Should have computed 2 partial matches (Blue and Green swapped)
+        assert_eq!(row[cols::AUX_PARTIAL], FieldElement::from(2u64));
     }
 }

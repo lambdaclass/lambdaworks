@@ -3,10 +3,38 @@
 //! This crate implements a zero-knowledge version of the Mastermind game
 //! using STARK proofs via the stark_platinum_prover from lambdaworks.
 //!
-//! # Overview
+//! # Educational Example
 //!
-//! In ZK Mastermind, the CodeMaker can prove that their feedback on a guess
-//! is correct without revealing the secret code.
+//! This is an educational example demonstrating how to build STARK proofs
+//! with lambdaworks.
+//!
+//! ## What this example demonstrates:
+//! - How to define an AIR (Algebraic Intermediate Representation)
+//! - How to generate execution traces
+//! - How to use boundary and transition constraints
+//! - How to generate and verify STARK proofs
+//! - How to prevent prover cheating using commitments
+//!
+//! ## Security Model
+//!
+//! The circuit enforces:
+//! - **Secret Commitment**: The prover commits to a secret before guesses begin.
+//!   The commitment (s0 + s1*6 + s2*36 + s3*216) binds the prover to a specific secret.
+//! - **Exact Match Verification**: Uses boolean equality indicators (eq_i) with:
+//!   - Boolean constraint: eq_i * (1 - eq_i) = 0 (ensures 0 or 1)
+//!   - Equality constraint: eq_i * (secret[i] - guess[i]) = 0 (if eq=1, must match)
+//!   - Sum constraint: exact_count = eq_0 + eq_1 + eq_2 + eq_3
+//! - **Range Checks**: All colors are validated to be in range [0, 5]
+//!
+//! ## Known Limitations
+//!
+//! - Partial match verification is NOT cryptographically enforced (would require
+//!   additional color frequency counting constraints)
+//! - No constant-time operations (timing side-channel vulnerable)
+//! - Memory is not zeroized after use
+//! - Uses `thread_rng()` instead of cryptographic RNG
+//!
+//! See [`circuit::air`] module documentation for constraint details.
 //!
 //! # Components
 //!
@@ -20,8 +48,8 @@ pub mod prover;
 
 // Re-export main types for convenience
 pub use game::{
-    calculate_feedback, verify_feedback, Color, Feedback, Felt252, Guess, MastermindPublicInputs,
-    SecretCode,
+    calculate_feedback, compute_secret_commitment, verify_feedback, Color, Feedback, Felt252,
+    Guess, MastermindPublicInputs, SecretCode,
 };
 
 pub use prover::{generate_proof, proof_size, verify_proof, Proof};
