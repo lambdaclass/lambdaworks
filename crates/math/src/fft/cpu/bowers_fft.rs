@@ -646,9 +646,13 @@ where
 #[cfg(all(test, feature = "alloc"))]
 mod tests {
     use super::*;
+    use crate::fft::cpu::fft::in_place_nr_2radix_fft;
+    use crate::fft::cpu::roots_of_unity::get_twiddles;
     use crate::field::fields::u64_goldilocks_field::Goldilocks64Field;
+    use crate::field::traits::RootsConfig;
     use alloc::vec;
     use alloc::vec::Vec;
+    use proptest::{collection, prelude::*};
 
     type F = Goldilocks64Field;
     type FE = FieldElement<F>;
@@ -789,6 +793,112 @@ mod tests {
         let mut result = input;
         let err = bowers_fft_opt_fused(&mut result, &layer_twiddles);
         assert!(matches!(err, Err(FFTError::InputError(7))));
+    }
+
+    // =========================================================================
+    // Bowers vs Native FFT comparison tests
+    // =========================================================================
+
+    fn compare_bowers_vs_native(input: &[FE]) {
+        let order = input.len().trailing_zeros() as u64;
+
+        // Native Cooley-Tukey FFT
+        let native_twiddles = get_twiddles(order, RootsConfig::BitReverse).unwrap();
+        let mut native_result = input.to_vec();
+        in_place_nr_2radix_fft::<F, F>(&mut native_result, &native_twiddles);
+        in_place_bit_reverse_permute(&mut native_result);
+
+        // Bowers FFT
+        let layer_twiddles = LayerTwiddles::<F>::new(order).unwrap();
+        let mut bowers_result = input.to_vec();
+        bowers_fft_opt_fused(&mut bowers_result, &layer_twiddles).unwrap();
+        in_place_bit_reverse_permute(&mut bowers_result);
+
+        assert_eq!(bowers_result, native_result);
+    }
+
+    #[test]
+    fn test_bowers_vs_native_various_sizes() {
+        for order in 1..=10u64 {
+            let input: Vec<FE> = (0..(1 << order)).map(|i| FE::from(i as u64)).collect();
+            compare_bowers_vs_native(&input);
+        }
+    }
+
+    #[test]
+    fn test_bowers_vs_native_edge_cases() {
+        // All zeros
+        let zeros: Vec<FE> = (0..64).map(|_| FE::zero()).collect();
+        compare_bowers_vs_native(&zeros);
+
+        // All ones
+        let ones: Vec<FE> = (0..64).map(|_| FE::one()).collect();
+        compare_bowers_vs_native(&ones);
+
+        // Alternating
+        let alternating: Vec<FE> = (0..64)
+            .map(|i| if i % 2 == 0 { FE::zero() } else { FE::one() })
+            .collect();
+        compare_bowers_vs_native(&alternating);
+
+        // Large values near field order
+        let large: Vec<FE> = (0..64).map(|i| FE::from(F::ORDER - 1 - i)).collect();
+        compare_bowers_vs_native(&large);
+    }
+
+    // =========================================================================
+    // Property-based tests (proptest)
+    // =========================================================================
+
+    prop_compose! {
+        fn field_element()(num in any::<u64>()) -> FE {
+            FE::from(num)
+        }
+    }
+
+    prop_compose! {
+        fn field_vec(max_exp: u8)(exp in 1u8..=max_exp)(
+            vec in collection::vec(field_element(), 1usize << exp)
+        ) -> Vec<FE> {
+            vec
+        }
+    }
+
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(50))]
+
+        #[test]
+        fn proptest_bowers_matches_naive_dft(coeffs in field_vec(8)) {
+            let expected = naive_dft(&coeffs);
+
+            let order = coeffs.len().trailing_zeros() as u64;
+            let layer_twiddles = LayerTwiddles::<F>::new(order).unwrap();
+
+            let mut result = coeffs;
+            bowers_fft_opt_fused(&mut result, &layer_twiddles).unwrap();
+            in_place_bit_reverse_permute(&mut result);
+
+            prop_assert_eq!(result, expected);
+        }
+
+        #[test]
+        fn proptest_bowers_matches_native_fft(coeffs in field_vec(8)) {
+            let order = coeffs.len().trailing_zeros() as u64;
+
+            // Native FFT
+            let native_twiddles = get_twiddles(order, RootsConfig::BitReverse).unwrap();
+            let mut native_result = coeffs.clone();
+            in_place_nr_2radix_fft::<F, F>(&mut native_result, &native_twiddles);
+            in_place_bit_reverse_permute(&mut native_result);
+
+            // Bowers FFT
+            let layer_twiddles = LayerTwiddles::<F>::new(order).unwrap();
+            let mut bowers_result = coeffs;
+            bowers_fft_opt_fused(&mut bowers_result, &layer_twiddles).unwrap();
+            in_place_bit_reverse_permute(&mut bowers_result);
+
+            prop_assert_eq!(bowers_result, native_result);
+        }
     }
 }
 
