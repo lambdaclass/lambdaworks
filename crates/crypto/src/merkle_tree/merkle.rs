@@ -51,9 +51,11 @@ where
         let hashed_leaves = complete_until_power_of_two(hashed_leaves);
         let leaves_len = hashed_leaves.len();
 
-        //The length of leaves minus one inner node in the merkle tree
-        //The first elements are overwritten by build function, it doesn't matter what it's there
-        let mut nodes = vec![hashed_leaves[0].clone(); leaves_len - 1];
+        // Pre-allocate space for inner nodes + leaves in a single allocation.
+        // Inner nodes are initialized with clones of the first leaf hash - these will be
+        // overwritten by the build function. Using with_capacity + extend ensures single allocation.
+        let mut nodes = Vec::with_capacity(2 * leaves_len - 1);
+        nodes.extend(core::iter::repeat_with(|| hashed_leaves[0].clone()).take(leaves_len - 1));
         nodes.extend(hashed_leaves);
 
         //Build the inner nodes of the tree

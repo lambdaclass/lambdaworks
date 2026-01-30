@@ -22,6 +22,8 @@ pub fn parent_index(node_index: usize) -> usize {
 
 /// Pads the list of values to a power of two length.
 ///
+/// Returns the input unchanged if it's empty or already a power of two length.
+///
 /// NOTE: This implementation repeats the last value for padding, which means
 /// that trees with different original lengths could potentially produce the
 /// same root if the padding results in identical leaf sets. For applications
@@ -30,9 +32,20 @@ pub fn parent_index(node_index: usize) -> usize {
 /// 2. Using a distinct padding value (e.g., hash of empty string or zero)
 /// 3. Using a domain-separated padding scheme
 pub fn complete_until_power_of_two<T: Clone>(mut values: Vec<T>) -> Vec<T> {
-    while !is_power_of_two(values.len()) {
-        values.push(values[values.len() - 1].clone());
+    let len = values.len();
+    // Handle empty input - nothing to pad
+    if len == 0 {
+        return values;
     }
+    if is_power_of_two(len) {
+        return values;
+    }
+    // Calculate next power of two and reserve capacity upfront
+    let target_len = len.next_power_of_two();
+    let padding_count = target_len - len;
+    values.reserve(padding_count);
+    let last_value = values[len - 1].clone();
+    values.extend(core::iter::repeat_n(last_value, padding_count));
     values
 }
 
@@ -41,9 +54,15 @@ pub fn complete_until_power_of_two<T: Clone>(mut values: Vec<T>) -> Vec<T> {
 // In turn, this makes the smallest tree of one leaf, possible.
 // The function is private and is only used to ensure the tree
 // has a power of 2 number of leaves.
+// Note: 0 is not considered a power of two.
 fn is_power_of_two(x: usize) -> bool {
-    (x & (x - 1)) == 0
+    x != 0 && (x & (x - 1)) == 0
 }
+
+/// Minimum number of nodes at a level to use parallel processing.
+/// Below this threshold, sequential processing is more efficient due to parallelization overhead.
+#[cfg(feature = "parallel")]
+const PARALLEL_THRESHOLD: usize = 1024;
 
 // ! CAUTION !
 // Make sure n=nodes.len()+1 is a power of two, and the last n/2 elements (leaves) are populated with hashes.
@@ -61,17 +80,34 @@ where
         let (new_level_iter, children_iter) =
             nodes[new_level_begin_index..level_end_index + 1].split_at_mut(new_level_length);
 
+        // Use parallel processing only for large levels to avoid overhead on small trees
         #[cfg(feature = "parallel")]
-        let parent_and_children_zipped_iter = new_level_iter
-            .into_par_iter()
-            .zip(children_iter.par_chunks_exact(2));
+        {
+            if new_level_length >= PARALLEL_THRESHOLD {
+                new_level_iter
+                    .par_iter_mut()
+                    .zip(children_iter.par_chunks_exact(2))
+                    .for_each(|(new_parent, children)| {
+                        *new_parent = B::hash_new_parent(&children[0], &children[1]);
+                    });
+            } else {
+                new_level_iter
+                    .iter_mut()
+                    .zip(children_iter.chunks_exact(2))
+                    .for_each(|(new_parent, children)| {
+                        *new_parent = B::hash_new_parent(&children[0], &children[1]);
+                    });
+            }
+        }
         #[cfg(not(feature = "parallel"))]
-        let parent_and_children_zipped_iter =
-            new_level_iter.iter_mut().zip(children_iter.chunks_exact(2));
-
-        parent_and_children_zipped_iter.for_each(|(new_parent, children)| {
-            *new_parent = B::hash_new_parent(&children[0], &children[1]);
-        });
+        {
+            new_level_iter
+                .iter_mut()
+                .zip(children_iter.chunks_exact(2))
+                .for_each(|(new_parent, children)| {
+                    *new_parent = B::hash_new_parent(&children[0], &children[1]);
+                });
+        }
 
         level_end_index = level_begin_index - 1;
         level_begin_index = new_level_begin_index;
@@ -135,6 +171,13 @@ mod tests {
         assert_eq!(hashed_leaves[0], expected_leaves[0]);
     }
 
+    #[test]
+    fn complete_empty_vector_returns_empty() {
+        let values: Vec<FE> = vec![];
+        let result = complete_until_power_of_two(values);
+        assert!(result.is_empty());
+    }
+
     const ROOT: usize = 0;
 
     #[test]
@@ -143,7 +186,8 @@ mod tests {
         let leaves: Vec<FE> = (1..9).map(FE::new).collect();
         let leaves_len = leaves.len();
 
-        let mut nodes = vec![FE::zero(); leaves.len() - 1];
+        let mut nodes = Vec::with_capacity(2 * leaves_len - 1);
+        nodes.extend(core::iter::repeat_n(FE::zero(), leaves_len - 1));
         nodes.extend(leaves);
 
         build::<TestBackend<U64PF>>(&mut nodes, leaves_len);
