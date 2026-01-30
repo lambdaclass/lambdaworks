@@ -20,6 +20,10 @@ test-log = { version = "0.2", features = ["log"] }
 name = "zk-mastermind"
 path = "src/main.rs"
 
+[[bin]]
+name = "play"
+path = "src/bin/play.rs"
+
 [lib]
 name = "zk_mastermind"
 path = "src/lib.rs"
