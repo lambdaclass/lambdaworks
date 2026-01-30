@@ -252,22 +252,27 @@ impl<const NUM_LIMBS: usize> Sub<UnsignedInteger<NUM_LIMBS>> for &UnsignedIntege
 /// Multi-precision multiplication.
 /// Adapted from Algorithm 14.12 of "Handbook of Applied Cryptography" (<https://cacr.uwaterloo.ca/hac/>).
 ///
+/// # ⚠️ WARNING: Wraps on Overflow in Release Builds
+///
+/// Multiplication **silently wraps** in release builds (discards high bits).
+/// - **Safe** for field arithmetic where inputs are pre-reduced < modulus
+/// - **WRONG** for general arbitrary-precision arithmetic
+///
+/// - **Debug builds**: Overflow triggers `debug_assert!` panic
+/// - **Release builds**: Overflow wraps silently - high bits are lost!
+///
+/// ## Safe Alternatives for General Math
+///
+/// - Use [`UnsignedInteger::mul(a, b)`] which returns `(high, low)` tuple for full result
+/// - Use [`UnsignedInteger::checked_mul`] which returns `None` on overflow
+///
 /// # Performance
 ///
 /// Uses const bounds (`0..NUM_LIMBS`) instead of runtime bounds to enable LLVM loop unrolling,
 /// providing approximately 2x performance improvement for U256 multiplication.
 ///
-/// # Overflow Behavior
-///
 /// This implementation is optimized for **field arithmetic** contexts where operands are
 /// guaranteed to be reduced modulo a field prime, ensuring the product fits within `NUM_LIMBS`.
-///
-/// - **Debug builds**: Overflow is detected via `debug_assert!` to catch logic errors during development.
-/// - **Release builds**: For performance, overflow checking is minimal. Products that would exceed
-///   `NUM_LIMBS` are not accumulated (wrapping semantics).
-///
-/// If you need overflow detection in release builds for non-field-arithmetic use cases,
-/// use [`UnsignedInteger::mul`] which returns `(high, low)` parts.
 impl<const NUM_LIMBS: usize> Mul<&UnsignedInteger<NUM_LIMBS>> for &UnsignedInteger<NUM_LIMBS> {
     type Output = UnsignedInteger<NUM_LIMBS>;
 
@@ -775,6 +780,38 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
         }
         // 3.
         (Self { limbs: hi }, Self { limbs: lo })
+    }
+
+    /// Checked multiplication that returns `None` if the result overflows.
+    ///
+    /// This is the safe version for general-purpose arithmetic where overflow
+    /// is possible and should be detected. For field arithmetic where inputs
+    /// are guaranteed to be pre-reduced, use the `*` operator directly.
+    ///
+    /// # Returns
+    /// - `Some(result)` if multiplication fits in `NUM_LIMBS` limbs (high part is zero)
+    /// - `None` if multiplication would overflow (high part is non-zero)
+    ///
+    /// # Examples
+    /// ```
+    /// use lambdaworks_math::unsigned_integer::element::U256;
+    ///
+    /// let a = U256::from(100u64);
+    /// let b = U256::from(200u64);
+    /// assert_eq!(a.checked_mul(&b), Some(U256::from(20000u64)));
+    ///
+    /// // Overflow example: max * 2 doesn't fit
+    /// let max = U256::from_hex("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff").unwrap();
+    /// assert_eq!(max.checked_mul(&U256::from(2u64)), None);
+    /// ```
+    pub fn checked_mul(&self, other: &Self) -> Option<Self> {
+        let (high, low) = Self::mul(self, other);
+        // If high part is zero, result fits in NUM_LIMBS
+        if high == Self::from_u64(0) {
+            Some(low)
+        } else {
+            None
+        }
     }
 
     #[inline(always)]
