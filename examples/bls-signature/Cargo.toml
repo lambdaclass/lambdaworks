@@ -9,4 +9,3 @@ repository.workspace = true
 lambdaworks-math = { workspace = true }
 lambdaworks-crypto = { workspace = true }
 sha3 = { version = "0.10.8", default-features = false }
-rand = "0.8.5"
