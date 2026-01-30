@@ -196,6 +196,7 @@ where
             let mut buckets = vec![G::neutral_element(); n_buckets];
 
             // Accumulate points into buckets based on signed digits
+            // Use .take(cs.len()) to prevent out-of-bounds access when points.len() > cs.len()
             for (scalar_idx, p) in points.iter().take(cs.len()).enumerate() {
                 let digit = get_digit(&signed_digits, total_windows, scalar_idx, window_idx);
                 if digit > 0 {
@@ -257,6 +258,7 @@ where
             let mut buckets = vec![G::neutral_element(); n_buckets];
 
             // Accumulate points into buckets using flat digit storage
+            // Use .take(cs.len()) to prevent out-of-bounds access when points.len() > cs.len()
             for (scalar_idx, p) in points.iter().take(cs.len()).enumerate() {
                 let digit = get_digit(&signed_digits, total_windows, scalar_idx, window_idx);
                 if digit > 0 {

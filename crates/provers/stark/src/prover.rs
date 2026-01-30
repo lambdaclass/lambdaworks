@@ -23,7 +23,7 @@ use crate::domain::new_domain;
 use crate::fri;
 use crate::proof::stark::{DeepPolynomialOpenings, PolynomialOpenings};
 use crate::table::Table;
-use crate::trace::{columns2rows, LDETraceTable};
+use crate::trace::{columns2rows_bit_reversed, LDETraceTable};
 
 use super::config::{BatchedMerkleTree, Commitment};
 use super::constraints::evaluator::ConstraintEvaluator;
@@ -128,13 +128,13 @@ where
         let mut trace_polys: Vec<_> = self
             .main
             .trace_polys
-            .clone()
-            .into_iter()
+            .iter()
+            .cloned()
             .map(|poly| poly.to_extension())
             .collect();
 
         if let Some(aux) = &self.aux {
-            trace_polys.extend_from_slice(&aux.trace_polys.to_owned())
+            trace_polys.extend(aux.trace_polys.iter().cloned())
         }
         trace_polys
     }
@@ -268,13 +268,8 @@ pub trait IsStarkProver<
         let lde_trace_evaluations =
             Self::compute_lde_trace_evaluations::<Field>(&trace_polys, domain).ok()?;
 
-        let mut lde_trace_permuted = lde_trace_evaluations.clone();
-        for col in lde_trace_permuted.iter_mut() {
-            in_place_bit_reverse_permute(col);
-        }
-
-        // Compute commitment.
-        let lde_trace_permuted_rows = columns2rows(lde_trace_permuted);
+        // Compute commitment using fused bit-reverse + transpose (avoids cloning)
+        let lde_trace_permuted_rows = columns2rows_bit_reversed(&lde_trace_evaluations);
 
         let (lde_trace_merkle_tree, lde_trace_merkle_root) =
             Self::batch_commit_main(&lde_trace_permuted_rows)?;
@@ -320,13 +315,8 @@ pub trait IsStarkProver<
         let lde_trace_evaluations =
             Self::compute_lde_trace_evaluations(&trace_polys, domain).ok()?;
 
-        let mut lde_trace_permuted = lde_trace_evaluations.clone();
-        for col in lde_trace_permuted.iter_mut() {
-            in_place_bit_reverse_permute(col);
-        }
-
-        // Compute commitment.
-        let lde_trace_permuted_rows = columns2rows(lde_trace_permuted);
+        // Compute commitment using fused bit-reverse + transpose (avoids cloning)
+        let lde_trace_permuted_rows = columns2rows_bit_reversed(&lde_trace_evaluations);
 
         let (lde_trace_merkle_tree, lde_trace_merkle_root) =
             Self::batch_commit_extension(&lde_trace_permuted_rows)?;
@@ -439,10 +429,13 @@ pub trait IsStarkProver<
         FieldElement<Field>: AsBytes + Sync + Send,
         FieldElement<FieldExtension>: AsBytes + Sync + Send,
     {
-        // TODO: Remove clones
-        let mut lde_composition_poly_evaluations = Vec::new();
-        for i in 0..lde_composition_poly_parts_evaluations[0].len() {
-            let mut row = Vec::new();
+        let num_rows = lde_composition_poly_parts_evaluations[0].len();
+        let num_parts = lde_composition_poly_parts_evaluations.len();
+
+        // Pre-allocate with known capacity to avoid incremental growth
+        let mut lde_composition_poly_evaluations = Vec::with_capacity(num_rows);
+        for i in 0..num_rows {
+            let mut row = Vec::with_capacity(num_parts);
             for evaluation in lde_composition_poly_parts_evaluations.iter() {
                 row.push(evaluation[i].clone());
             }
@@ -451,7 +444,8 @@ pub trait IsStarkProver<
 
         in_place_bit_reverse_permute(&mut lde_composition_poly_evaluations);
 
-        let mut lde_composition_poly_evaluations_merged = Vec::new();
+        // Pre-allocate merged vector
+        let mut lde_composition_poly_evaluations_merged = Vec::with_capacity(num_rows / 2);
         for chunk in lde_composition_poly_evaluations.chunks(2) {
             let (mut chunk0, chunk1) = (chunk[0].clone(), &chunk[1]);
             chunk0.extend_from_slice(chunk1);
@@ -691,11 +685,9 @@ pub trait IsStarkProver<
         // ∑ᵢ 𝛾ᵢ ( Hᵢ − Hᵢ(z^N) ) / ( X − z^N )
         let mut h_terms = Polynomial::zero();
         for (i, part) in round_2_result.composition_poly_parts.iter().enumerate() {
-            // h_i_eval is the evaluation of the i-th part of the composition polynomial at z^N,
-            // where N is the number of parts of the composition polynomial.
             let h_i_eval = &round_3_result.composition_poly_parts_ood_evaluation[i];
             let h_i_term = &composition_poly_gammas[i] * (part - h_i_eval);
-            h_terms = h_terms + h_i_term;
+            h_terms += h_i_term;
         }
         assert_eq!(h_terms.evaluate(&z_power), FieldElement::zero());
         h_terms.ruffini_division_inplace(&z_power);
@@ -709,6 +701,13 @@ pub trait IsStarkProver<
 
         let trace_evaluations_columns = &trace_frame_evaluations.columns();
 
+        // Pre-compute z_shifted values: z_shifted[k] = z * g^k
+        // This avoids recomputing primitive_root.pow(offset) * z for every trace polynomial
+        let num_offsets = trace_frame_evaluations.height;
+        let z_shifted_values: Vec<FieldElement<FieldExtension>> = (0..num_offsets)
+            .map(|offset| primitive_root.pow(offset) * z)
+            .collect();
+
         #[cfg(feature = "parallel")]
         let trace_terms = trace_polys
             .par_iter()
@@ -721,7 +720,7 @@ pub trait IsStarkProver<
                     t_j,
                     gammas_i,
                     trace_evaluations_i,
-                    (z, primitive_root),
+                    &z_shifted_values,
                 )
             })
             .reduce(Polynomial::zero, |a, b| a + b);
@@ -739,7 +738,7 @@ pub trait IsStarkProver<
                         t_j,
                         gammas_i,
                         trace_evaluations_i,
-                        (z, primitive_root),
+                        &z_shifted_values,
                     )
                 });
 
@@ -755,7 +754,7 @@ pub trait IsStarkProver<
         trace_term_poly: &Polynomial<FieldElement<FieldExtension>>,
         trace_terms_gammas: &[FieldElement<FieldExtension>],
         trace_frame_evaluations: &[FieldElement<FieldExtension>],
-        (z, primitive_root): (&FieldElement<FieldExtension>, &FieldElement<Field>),
+        z_shifted_values: &[FieldElement<FieldExtension>],
     ) -> Polynomial<FieldElement<FieldExtension>>
     where
         FieldElement<Field>: AsBytes,
@@ -763,15 +762,13 @@ pub trait IsStarkProver<
     {
         let trace_int = trace_frame_evaluations
             .iter()
-            .enumerate()
+            .zip(z_shifted_values)
             .zip(trace_terms_gammas)
             .fold(
                 Polynomial::zero(),
-                |trace_agg, ((offset, trace_term_poly_evaluation), trace_gamma)| {
-                    // @@@ this can be pre-computed
-                    let z_shifted = primitive_root.pow(offset) * z;
+                |trace_agg, ((trace_term_poly_evaluation, z_shifted), trace_gamma)| {
                     let mut poly = trace_term_poly - trace_term_poly_evaluation;
-                    poly.ruffini_division_inplace(&z_shifted);
+                    poly.ruffini_division_inplace(z_shifted);
                     trace_agg + poly * trace_gamma
                 },
             );
