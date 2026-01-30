@@ -1,16 +1,12 @@
 //! Hybrid Goldilocks64Field implementation combining the best operations from each approach.
-//!
+//! 
 //! Based on benchmark results:
-//! - mul/square: Optimized implementation (55-56% faster than Plonky3)
-//! - inv: Optimized implementation (3% faster than Plonky3)
-//! - pow: Diego's addition chain (19% faster than Plonky3)
-//! - add/sub: Original implementation (~20% faster)
+//! - mul/square: Optimized implementation 
+//! - inv: Optimized implementation
+//! - pow: addition chain 
+//! - add/sub: Original implementation
 //! - neg: Using optimized version
-//!
-//! This implementation combines the strengths of:
-//! 1. Original Lambdaworks (fast add/sub)
-//! 2. Optimized (fast mul/square/inv)
-//! 3. Diego's implementation (optimized pow via addition chain)
+//! Inspired by Plonky3 and Constantine
 
 use core::fmt::{self, Display};
 
@@ -55,7 +51,7 @@ impl Goldilocks64HybridField {
 impl IsField for Goldilocks64HybridField {
     type BaseType = u64;
 
-    /// ORIGINAL: Addition - found to be ~20% faster
+    /// ORIGINAL: Addition
     /// Uses simple overflow handling without branch hints
     #[inline(always)]
     fn add(a: &u64, b: &u64) -> u64 {
@@ -67,7 +63,7 @@ impl IsField for Goldilocks64HybridField {
         Self::representative(&sum)
     }
 
-    /// OPTIMIZED: Multiplication - 55% faster than Plonky3
+    /// OPTIMIZED: Multiplication 
     /// Uses optimized reduce_128 from the optimized implementation
     #[inline(always)]
     fn mul(a: &u64, b: &u64) -> u64 {
@@ -80,7 +76,7 @@ impl IsField for Goldilocks64HybridField {
         reduce_128(u128::from(*a) * u128::from(*a))
     }
 
-    /// ORIGINAL: Subtraction - found to be ~20% faster
+    /// ORIGINAL: Subtraction 
     /// Uses simple underflow handling without branch hints
     #[inline(always)]
     fn sub(a: &u64, b: &u64) -> u64 {
@@ -92,7 +88,7 @@ impl IsField for Goldilocks64HybridField {
         Self::representative(&diff)
     }
 
-    /// OPTIMIZED: Negation from optimized implementation
+    /// OPTIMIZED: Negation 
     #[inline(always)]
     fn neg(a: &u64) -> u64 {
         let c = Self::canonicalize(*a);
@@ -103,7 +99,7 @@ impl IsField for Goldilocks64HybridField {
         }
     }
 
-    /// OPTIMIZED: Inversion - 3% faster than Plonky3
+    /// OPTIMIZED: Inversion 
     /// Uses the addition chain from the optimized implementation
     fn inv(a: &u64) -> Result<u64, FieldError> {
         if *a == Self::zero() {
@@ -163,7 +159,7 @@ impl IsField for Goldilocks64HybridField {
 }
 
 /// OPTIMIZED: 128-bit reduction - used by mul
-/// From the optimized implementation (55% faster than Plonky3)
+/// From the optimized implementation
 #[inline(always)]
 fn reduce_128(x: u128) -> u64 {
     let (x_lo, x_hi) = (x as u64, (x >> 64) as u64);
@@ -252,11 +248,11 @@ impl Display for FieldElement<Goldilocks64HybridField> {
 }
 
 // ============================================================================
-// DIEGO'S OPTIMIZED ADDITION CHAIN FOR POW
-// 19% faster than Plonky3 (when used for field exponentiation)
+// OPTIMIZED ADDITION CHAIN FOR POW
+// Should speed up
 // ============================================================================
 
-/// Compute a^exp using Diego's optimized addition chain for Goldilocks field
+/// Compute a^exp using optimized addition chain for Goldilocks field
 ///
 /// This is optimized for the specific structure of Goldilocks field exponents:
 /// p - 2 = 0xFFFFFFFE_FFFFFFFF = 2^64 - 2^32 - 1
@@ -294,7 +290,7 @@ fn pow_binary(mut base: u64, mut exp: u64) -> u64 {
     result
 }
 
-/// Diego's optimized addition chain for pow
+/// optimized addition chain for pow
 /// Optimized for the structure of Goldilocks field exponents
 #[inline(never)]
 pub fn pow_addition_chain_optimized(base: u64, _exp: u64) -> u64 {
