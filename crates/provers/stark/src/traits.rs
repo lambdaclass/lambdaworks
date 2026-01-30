@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::ops::Div;
 
 use lambdaworks_crypto::fiat_shamir::is_transcript::IsStarkTranscript;
 use lambdaworks_math::{
@@ -17,6 +18,103 @@ use super::{
 };
 
 type ZerofierGroupKey = (usize, usize, Option<usize>, Option<usize>, usize);
+
+/// Key for caching base zerofier evaluations (without end exemptions)
+/// (period, offset, exemptions_period, periodic_exemptions_offset)
+type BaseZerofierKey = (usize, usize, Option<usize>, Option<usize>);
+
+/// Key for caching end exemptions polynomial evaluations
+/// (end_exemptions, period)
+type EndExemptionsKey = (usize, usize);
+
+/// Compute base zerofier evaluations (without end exemptions)
+#[allow(clippy::too_many_arguments)]
+fn compute_base_zerofier<F: IsFFTField>(
+    period: usize,
+    offset: usize,
+    exemptions_period: Option<usize>,
+    periodic_exemptions_offset: Option<usize>,
+    blowup_factor: usize,
+    trace_length: usize,
+    trace_primitive_root: &FieldElement<F>,
+    coset_offset: &FieldElement<F>,
+    lde_root: &FieldElement<F>,
+) -> Vec<FieldElement<F>> {
+    use itertools::Itertools;
+
+    if let Some(exemptions_period_val) = exemptions_period {
+        let last_exponent = blowup_factor * exemptions_period_val;
+        (0..last_exponent)
+            .map(|exponent| {
+                let x = lde_root.pow(exponent);
+                let offset_times_x = coset_offset * &x;
+                let offset_exponent =
+                    trace_length * periodic_exemptions_offset.unwrap() / exemptions_period_val;
+
+                let numerator = offset_times_x.pow(trace_length / exemptions_period_val)
+                    - trace_primitive_root.pow(offset_exponent);
+                let denominator = offset_times_x.pow(trace_length / period)
+                    - trace_primitive_root.pow(offset * trace_length / period);
+
+                unsafe { numerator.div(denominator).unwrap_unchecked() }
+            })
+            .collect()
+    } else {
+        // Standard case: compute 1/(x^(n/period) - g^(offset*n/period))
+        let last_exponent = blowup_factor * period;
+        let mut evaluations = (0..last_exponent)
+            .map(|exponent| {
+                let x = lde_root.pow(exponent);
+                (coset_offset * &x).pow(trace_length / period)
+                    - trace_primitive_root.pow(offset * trace_length / period)
+            })
+            .collect_vec();
+
+        FieldElement::inplace_batch_inverse(&mut evaluations).unwrap();
+        evaluations
+    }
+}
+
+/// Compute end exemptions polynomial evaluations
+fn compute_end_exemptions_evals<F: IsFFTField>(
+    end_exemptions: usize,
+    period: usize,
+    blowup_factor: usize,
+    trace_length: usize,
+    trace_primitive_root: &FieldElement<F>,
+    coset_offset: &FieldElement<F>,
+    interpolation_domain_size: usize,
+) -> Vec<FieldElement<F>> {
+    use crate::prover::evaluate_polynomial_on_lde_domain;
+
+    let end_exemptions_poly =
+        compute_end_exemptions_poly(end_exemptions, period, trace_primitive_root, trace_length);
+    evaluate_polynomial_on_lde_domain(
+        &end_exemptions_poly,
+        blowup_factor,
+        interpolation_domain_size,
+        coset_offset,
+    )
+    .unwrap()
+}
+
+/// Compute the end exemptions polynomial
+fn compute_end_exemptions_poly<F: IsFFTField>(
+    end_exemptions: usize,
+    period: usize,
+    trace_primitive_root: &FieldElement<F>,
+    trace_length: usize,
+) -> Polynomial<FieldElement<F>> {
+    let one_poly = Polynomial::new_monomial(FieldElement::<F>::one(), 0);
+    if end_exemptions == 0 {
+        return one_poly;
+    }
+    (1..=end_exemptions)
+        .map(|exemption| trace_primitive_root.pow(trace_length - exemption * period))
+        .fold(one_poly, |acc, offset| {
+            acc * (Polynomial::new_monomial(FieldElement::<F>::one(), 1) - offset)
+        })
+}
 
 /// This enum is necessary because, while both the prover and verifier perform the same operations
 ///  to compute transition constraints, their frames differ.
@@ -125,11 +223,25 @@ pub trait AIR: Send + Sync {
     ) -> Vec<FieldElement<Self::FieldExtension>> {
         let mut evaluations =
             vec![FieldElement::<Self::FieldExtension>::zero(); self.num_transition_constraints()];
+        self.compute_transition_into(evaluation_context, &mut evaluations);
+        evaluations
+    }
+
+    /// Evaluate transition constraints into a pre-allocated buffer.
+    /// This avoids allocation when called in a loop with a reusable buffer.
+    /// The buffer must have length >= `num_transition_constraints()`.
+    fn compute_transition_into(
+        &self,
+        evaluation_context: &TransitionEvaluationContext<Self::Field, Self::FieldExtension>,
+        evaluations: &mut [FieldElement<Self::FieldExtension>],
+    ) {
+        // Zero out the buffer
+        for eval in evaluations.iter_mut() {
+            *eval = FieldElement::zero();
+        }
         self.transition_constraints()
             .iter()
-            .for_each(|c| c.evaluate(evaluation_context, &mut evaluations));
-
-        evaluations
+            .for_each(|c| c.evaluate(evaluation_context, evaluations));
     }
 
     fn boundary_constraints(
@@ -195,36 +307,171 @@ pub trait AIR: Send + Sync {
         &self,
         domain: &Domain<Self::Field>,
     ) -> Vec<Vec<FieldElement<Self::Field>>> {
-        let mut evals = vec![Vec::new(); self.num_transition_constraints()];
+        #[cfg(feature = "parallel")]
+        use rayon::prelude::*;
 
-        let mut zerofier_groups: HashMap<ZerofierGroupKey, Vec<FieldElement<Self::Field>>> =
+        let constraints = self.transition_constraints();
+        let blowup_factor = domain.blowup_factor;
+        let trace_length = domain.trace_roots_of_unity.len();
+        let trace_primitive_root = &domain.trace_primitive_root;
+        let coset_offset = &domain.coset_offset;
+        let lde_root_order = u64::from((blowup_factor * trace_length).trailing_zeros());
+        let lde_root = Self::Field::get_primitive_root_of_unity(lde_root_order).unwrap();
+
+        // Step 1: Collect unique keys
+        let mut unique_base_keys: Vec<BaseZerofierKey> = Vec::new();
+        let mut unique_end_exemptions_keys: Vec<EndExemptionsKey> = Vec::new();
+
+        for c in constraints.iter() {
+            let base_key: BaseZerofierKey = (
+                c.period(),
+                c.offset(),
+                c.exemptions_period(),
+                c.periodic_exemptions_offset(),
+            );
+            if !unique_base_keys.contains(&base_key) {
+                unique_base_keys.push(base_key);
+            }
+
+            let end_key: EndExemptionsKey = (c.end_exemptions(), c.period());
+            if !unique_end_exemptions_keys.contains(&end_key) {
+                unique_end_exemptions_keys.push(end_key);
+            }
+        }
+
+        // Step 2: Compute base zerofiers (parallel if feature enabled)
+        #[cfg(feature = "parallel")]
+        let base_zerofiers: Vec<_> = unique_base_keys
+            .par_iter()
+            .map(
+                |&(period, offset, exemptions_period, periodic_exemptions_offset)| {
+                    compute_base_zerofier(
+                        period,
+                        offset,
+                        exemptions_period,
+                        periodic_exemptions_offset,
+                        blowup_factor,
+                        trace_length,
+                        trace_primitive_root,
+                        coset_offset,
+                        &lde_root,
+                    )
+                },
+            )
+            .collect();
+
+        #[cfg(not(feature = "parallel"))]
+        let base_zerofiers: Vec<_> = unique_base_keys
+            .iter()
+            .map(
+                |&(period, offset, exemptions_period, periodic_exemptions_offset)| {
+                    compute_base_zerofier(
+                        period,
+                        offset,
+                        exemptions_period,
+                        periodic_exemptions_offset,
+                        blowup_factor,
+                        trace_length,
+                        trace_primitive_root,
+                        coset_offset,
+                        &lde_root,
+                    )
+                },
+            )
+            .collect();
+
+        let base_zerofier_map: HashMap<BaseZerofierKey, Vec<FieldElement<Self::Field>>> =
+            unique_base_keys.into_iter().zip(base_zerofiers).collect();
+
+        // Step 3: Compute end exemptions polynomial evaluations (parallel if feature enabled)
+        #[cfg(feature = "parallel")]
+        let end_exemptions_evals: Vec<_> = unique_end_exemptions_keys
+            .par_iter()
+            .map(|&(end_exemptions, period)| {
+                compute_end_exemptions_evals(
+                    end_exemptions,
+                    period,
+                    blowup_factor,
+                    trace_length,
+                    trace_primitive_root,
+                    coset_offset,
+                    domain.interpolation_domain_size,
+                )
+            })
+            .collect();
+
+        #[cfg(not(feature = "parallel"))]
+        let end_exemptions_evals: Vec<_> = unique_end_exemptions_keys
+            .iter()
+            .map(|&(end_exemptions, period)| {
+                compute_end_exemptions_evals(
+                    end_exemptions,
+                    period,
+                    blowup_factor,
+                    trace_length,
+                    trace_primitive_root,
+                    coset_offset,
+                    domain.interpolation_domain_size,
+                )
+            })
+            .collect();
+
+        let end_exemptions_map: HashMap<EndExemptionsKey, Vec<FieldElement<Self::Field>>> =
+            unique_end_exemptions_keys
+                .into_iter()
+                .zip(end_exemptions_evals)
+                .collect();
+
+        // Step 4: Build final zerofiers by combining base + end_exemptions
+        let mut evals = vec![Vec::new(); self.num_transition_constraints()];
+        let mut full_zerofier_cache: HashMap<ZerofierGroupKey, Vec<FieldElement<Self::Field>>> =
             HashMap::new();
 
-        self.transition_constraints().iter().for_each(|c| {
+        for c in constraints.iter() {
             let period = c.period();
             let offset = c.offset();
             let exemptions_period = c.exemptions_period();
             let periodic_exemptions_offset = c.periodic_exemptions_offset();
             let end_exemptions = c.end_exemptions();
 
-            // This hashmap is used to avoid recomputing with an fft the same zerofier evaluation
-            // If there are multiple domain and subdomains it can be further optimized
-            // as to share computation between them
-
-            let zerofier_group_key = (
+            let full_key = (
                 period,
                 offset,
                 exemptions_period,
                 periodic_exemptions_offset,
                 end_exemptions,
             );
-            zerofier_groups
-                .entry(zerofier_group_key)
-                .or_insert_with(|| c.zerofier_evaluations_on_extended_domain(domain));
 
-            let zerofier_evaluations = zerofier_groups.get(&zerofier_group_key).unwrap();
-            evals[c.constraint_idx()] = zerofier_evaluations.clone();
-        });
+            // Check if we already have the full zerofier cached
+            if let Some(cached) = full_zerofier_cache.get(&full_key) {
+                evals[c.constraint_idx()] = cached.clone();
+                continue;
+            }
+
+            let base_key: BaseZerofierKey = (
+                period,
+                offset,
+                exemptions_period,
+                periodic_exemptions_offset,
+            );
+            let end_key: EndExemptionsKey = (end_exemptions, period);
+
+            let base_zerofier = base_zerofier_map.get(&base_key).unwrap();
+            let end_exemptions_evals = end_exemptions_map.get(&end_key).unwrap();
+
+            // Combine base zerofier with end exemptions
+            let cycled_base = base_zerofier
+                .iter()
+                .cycle()
+                .take(end_exemptions_evals.len());
+
+            let final_zerofier: Vec<_> = std::iter::zip(cycled_base, end_exemptions_evals.iter())
+                .map(|(base, exemption)| base * exemption)
+                .collect();
+
+            full_zerofier_cache.insert(full_key, final_zerofier.clone());
+            evals[c.constraint_idx()] = final_zerofier;
+        }
 
         evals
     }
