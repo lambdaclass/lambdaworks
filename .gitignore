@@ -26,3 +26,6 @@ ensure-no_std/target
 **/artifacts/**
 /.idea/
 
+# mdBook build output
+docs/book/
+

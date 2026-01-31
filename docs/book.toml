@@ -1,8 +1,22 @@
 [book]
-authors = ["Javier Chatruc", "Estéfano Bargas", "Mauro Toscano", "Diego Kingston", "Sergio Chouhy", "Agustín Garassino", "Mariano Nicolini"]
+title = "lambdaworks Documentation"
+authors = ["Javier Chatruc", "Estefano Bargas", "Mauro Toscano", "Diego Kingston", "Sergio Chouhy", "Agustin Garassino", "Mariano Nicolini"]
 language = "en"
-multilingual = false
 src = "src"
-title = "docs"
+description = "A modular cryptographic library focused on zero-knowledge proofs and proving systems"
 
-[preprocessor.katex]
+[build]
+build-dir = "book"
+create-missing = false
+
+[output.html]
+default-theme = "rust"
+preferred-dark-theme = "ayu"
+git-repository-url = "https://github.com/lambdaclass/lambdaworks"
+edit-url-template = "https://github.com/lambdaclass/lambdaworks/edit/main/docs/{path}"
+mathjax-support = true
+additional-js = ["mermaid-init.js"]
+
+[output.html.fold]
+enable = true
+level = 1
