@@ -87,36 +87,68 @@ impl IsField for Goldilocks64Field {
     /// If a + b overflows, we add EPSILON (since 2^64 ≡ EPSILON mod p)
     #[inline(always)]
     fn add(a: &u64, b: &u64) -> u64 {
-        let (sum, over) = a.overflowing_add(*b);
-        let (sum, over2) = sum.overflowing_add((over as u64) * EPSILON);
-        if over2 {
-            sum.wrapping_add(EPSILON)
-        } else {
-            sum
+        #[cfg(all(target_arch = "x86_64", feature = "asm"))]
+        {
+            x86_64_asm::add_asm(*a, *b)
+        }
+
+        #[cfg(not(all(target_arch = "x86_64", feature = "asm")))]
+        {
+            let (sum, over) = a.overflowing_add(*b);
+            let (sum, over2) = sum.overflowing_add((over as u64) * EPSILON);
+            if over2 {
+                sum.wrapping_add(EPSILON)
+            } else {
+                sum
+            }
         }
     }
 
     /// Multiplication using 128-bit intermediate and fast reduction.
     #[inline(always)]
     fn mul(a: &u64, b: &u64) -> u64 {
-        reduce128((*a as u128) * (*b as u128))
+        #[cfg(all(target_arch = "x86_64", feature = "asm"))]
+        {
+            x86_64_asm::mul_asm(*a, *b)
+        }
+
+        #[cfg(not(all(target_arch = "x86_64", feature = "asm")))]
+        {
+            reduce128((*a as u128) * (*b as u128))
+        }
     }
 
     /// Squaring using 128-bit intermediate and fast reduction.
     #[inline(always)]
     fn square(a: &u64) -> u64 {
-        reduce128((*a as u128) * (*a as u128))
+        #[cfg(all(target_arch = "x86_64", feature = "asm"))]
+        {
+            x86_64_asm::square_asm(*a)
+        }
+
+        #[cfg(not(all(target_arch = "x86_64", feature = "asm")))]
+        {
+            reduce128((*a as u128) * (*a as u128))
+        }
     }
 
     /// Subtraction with underflow handling.
     #[inline(always)]
     fn sub(a: &u64, b: &u64) -> u64 {
-        let (diff, under) = a.overflowing_sub(*b);
-        let (diff, under2) = diff.overflowing_sub((under as u64) * EPSILON);
-        if under2 {
-            diff.wrapping_sub(EPSILON)
-        } else {
-            diff
+        #[cfg(all(target_arch = "x86_64", feature = "asm"))]
+        {
+            x86_64_asm::sub_asm(*a, *b)
+        }
+
+        #[cfg(not(all(target_arch = "x86_64", feature = "asm")))]
+        {
+            let (diff, under) = a.overflowing_sub(*b);
+            let (diff, under2) = diff.overflowing_sub((under as u64) * EPSILON);
+            if under2 {
+                diff.wrapping_sub(EPSILON)
+            } else {
+                diff
+            }
         }
     }
 
@@ -262,12 +294,168 @@ impl ByteConversion for FieldElement<Goldilocks64Field> {
 }
 
 // =====================================================
+// x86-64 ASSEMBLY OPTIMIZATIONS
+// =====================================================
+
+#[cfg(all(target_arch = "x86_64", feature = "asm"))]
+mod x86_64_asm {
+    use super::EPSILON;
+    use core::arch::asm;
+
+    /// Optimized addition for Goldilocks field using x86-64 assembly.
+    /// Computes a + b mod p where p = 2^64 - 2^32 + 1.
+    ///
+    /// If a + b overflows (>= 2^64), we add EPSILON since 2^64 ≡ EPSILON (mod p).
+    /// If the result is still >= 2^64 after adding EPSILON, add EPSILON again.
+    #[inline(always)]
+    pub fn add_asm(a: u64, b: u64) -> u64 {
+        let result: u64;
+        // SAFETY: This assembly block performs modular addition for the Goldilocks prime.
+        // It uses only general-purpose registers and does not modify memory outside the output.
+        unsafe {
+            asm!(
+                // sum = a + b (sets CF if overflow)
+                "add {a}, {b}",
+                // if CF, add EPSILON (2^32 - 1)
+                "mov {tmp}, {eps}",
+                "cmovc {tmp}, {eps}",  // tmp = CF ? EPSILON : EPSILON (always EPSILON, but only add if CF)
+                "mov {zero}, 0",
+                "cmovnc {tmp}, {zero}", // tmp = CF ? EPSILON : 0
+                "add {a}, {tmp}",
+                // Second overflow check: if CF again, add EPSILON
+                "mov {tmp}, 0",
+                "cmovc {tmp}, {eps}",
+                "add {a}, {tmp}",
+                a = inout(reg) a => result,
+                b = in(reg) b,
+                tmp = out(reg) _,
+                zero = out(reg) _,
+                eps = in(reg) EPSILON,
+                options(pure, nomem, nostack)
+            );
+        }
+        result
+    }
+
+    /// Optimized subtraction for Goldilocks field using x86-64 assembly.
+    /// Computes a - b mod p where p = 2^64 - 2^32 + 1.
+    ///
+    /// If a - b underflows (a < b), we subtract EPSILON since -2^64 ≡ -EPSILON (mod p).
+    #[inline(always)]
+    pub fn sub_asm(a: u64, b: u64) -> u64 {
+        let result: u64;
+        // SAFETY: This assembly block performs modular subtraction for the Goldilocks prime.
+        // It uses only general-purpose registers and does not modify memory outside the output.
+        unsafe {
+            asm!(
+                // diff = a - b (sets CF if borrow)
+                "sub {a}, {b}",
+                // if CF (borrow), subtract EPSILON
+                "mov {tmp}, 0",
+                "cmovc {tmp}, {eps}",
+                "sub {a}, {tmp}",
+                // Second underflow check
+                "mov {tmp}, 0",
+                "cmovc {tmp}, {eps}",
+                "sub {a}, {tmp}",
+                a = inout(reg) a => result,
+                b = in(reg) b,
+                tmp = out(reg) _,
+                eps = in(reg) EPSILON,
+                options(pure, nomem, nostack)
+            );
+        }
+        result
+    }
+
+    /// Optimized multiplication for Goldilocks field using x86-64 assembly.
+    /// Computes a * b mod p where p = 2^64 - 2^32 + 1.
+    ///
+    /// Uses the MUL instruction for 64x64->128 bit multiplication,
+    /// then fast reduction using the special structure of the Goldilocks prime.
+    #[inline(always)]
+    pub fn mul_asm(a: u64, b: u64) -> u64 {
+        let result: u64;
+        // SAFETY: This assembly block performs modular multiplication for the Goldilocks prime.
+        // The MUL instruction uses RAX implicitly for the multiplicand and outputs to RDX:RAX.
+        // We then perform fast reduction using the identity 2^64 ≡ EPSILON (mod p).
+        unsafe {
+            asm!(
+                // 128-bit multiply: RDX:RAX = a * b
+                "mul {b}",
+                // Now RAX = low 64 bits, RDX = high 64 bits
+                // Reduce: result = lo + hi * EPSILON (mod p)
+                // But hi * EPSILON can overflow, so we need to be careful
+                //
+                // Split hi into hi_hi (top 32 bits) and hi_lo (bottom 32 bits)
+                // hi * EPSILON = hi * (2^32 - 1) = (hi << 32) - hi
+                //
+                // Algorithm:
+                // 1. t0 = lo - hi_hi (with borrow handling)
+                // 2. t1 = hi_lo * EPSILON = (hi_lo << 32) - hi_lo
+                // 3. result = t0 + t1 (with overflow handling)
+
+                // Save hi in a temp register
+                "mov {hi}, rdx",
+
+                // hi_hi = hi >> 32
+                "mov {hi_hi}, {hi}",
+                "shr {hi_hi}, 32",
+
+                // hi_lo = hi & 0xFFFFFFFF
+                "mov {hi_lo:e}, {hi:e}",  // Zero-extends to 64 bits
+
+                // t0 = lo - hi_hi
+                "sub rax, {hi_hi}",
+                // if borrow, subtract EPSILON
+                "mov {tmp}, 0",
+                "cmovc {tmp}, {eps}",
+                "sub rax, {tmp}",
+
+                // t1 = hi_lo * EPSILON = (hi_lo << 32) - hi_lo
+                "mov {t1}, {hi_lo}",
+                "shl {t1}, 32",
+                "sub {t1}, {hi_lo}",
+
+                // result = t0 + t1
+                "add rax, {t1}",
+                // if overflow, add EPSILON
+                "mov {tmp}, 0",
+                "cmovc {tmp}, {eps}",
+                "add rax, {tmp}",
+
+                inout("rax") a => result,
+                b = in(reg) b,
+                out("rdx") _,
+                hi = out(reg) _,
+                hi_hi = out(reg) _,
+                hi_lo = out(reg) _,
+                t1 = out(reg) _,
+                tmp = out(reg) _,
+                eps = in(reg) EPSILON,
+                options(pure, nomem, nostack)
+            );
+        }
+        result
+    }
+
+    /// Optimized squaring for Goldilocks field using x86-64 assembly.
+    /// Computes a^2 mod p where p = 2^64 - 2^32 + 1.
+    #[inline(always)]
+    pub fn square_asm(a: u64) -> u64 {
+        // Squaring uses the same algorithm as multiplication
+        mul_asm(a, a)
+    }
+}
+
+// =====================================================
 // HELPER FUNCTIONS
 // =====================================================
 
 /// Reduce a 128-bit value to a 64-bit Goldilocks field element.
 ///
 /// Uses the identity: 2^64 ≡ 2^32 - 1 (mod p)
+#[cfg(not(all(target_arch = "x86_64", feature = "asm")))]
 #[inline(always)]
 fn reduce128(x: u128) -> u64 {
     let x_lo = x as u64;

@@ -1625,6 +1625,568 @@ impl MontgomeryAlgorithms {
     }
 }
 
+// x86-64 assembly implementations for Montgomery multiplication
+#[cfg(all(target_arch = "x86_64", feature = "asm"))]
+mod x86_64_asm {
+    use core::arch::asm;
+
+    /// x86-64 inline assembly for 4-limb addition: r = a + b
+    /// Returns (result, overflow)
+    /// Uses ADD/ADC chain for efficient carry propagation
+    /// Note: lambdaworks uses big-endian limb order (limbs[0] = MSB)
+    #[inline(always)]
+    pub fn add_4_limbs_asm(a: &[u64; 4], b: &[u64; 4]) -> ([u64; 4], bool) {
+        let mut r = [0u64; 4];
+        let overflow: u8;
+
+        unsafe {
+            asm!(
+                // Add with carry chain starting from LSB (index 3)
+                "add {r3}, {b3}",        // r[3] = a[3] + b[3], set carry
+                "adc {r2}, {b2}",        // r[2] = a[2] + b[2] + carry
+                "adc {r1}, {b1}",        // r[1] = a[1] + b[1] + carry
+                "adc {r0}, {b0}",        // r[0] = a[0] + b[0] + carry
+                "setc {ovf}",            // capture final carry
+
+                r0 = inout(reg) a[0] => r[0],
+                r1 = inout(reg) a[1] => r[1],
+                r2 = inout(reg) a[2] => r[2],
+                r3 = inout(reg) a[3] => r[3],
+                b0 = in(reg) b[0],
+                b1 = in(reg) b[1],
+                b2 = in(reg) b[2],
+                b3 = in(reg) b[3],
+                ovf = out(reg_byte) overflow,
+                options(pure, nomem, nostack),
+            );
+        }
+
+        (r, overflow != 0)
+    }
+
+    /// x86-64 inline assembly for 4-limb subtraction: r = a - b
+    /// Returns (result, borrow)
+    /// Uses SUB/SBB chain for efficient borrow propagation
+    #[inline(always)]
+    pub fn sub_4_limbs_asm(a: &[u64; 4], b: &[u64; 4]) -> ([u64; 4], bool) {
+        let mut r = [0u64; 4];
+        let borrow: u8;
+
+        unsafe {
+            asm!(
+                // Subtract with borrow chain starting from LSB (index 3)
+                "sub {r3}, {b3}",        // r[3] = a[3] - b[3], set borrow
+                "sbb {r2}, {b2}",        // r[2] = a[2] - b[2] - borrow
+                "sbb {r1}, {b1}",        // r[1] = a[1] - b[1] - borrow
+                "sbb {r0}, {b0}",        // r[0] = a[0] - b[0] - borrow
+                "setc {brw}",            // capture final borrow (CF=1 means borrow)
+
+                r0 = inout(reg) a[0] => r[0],
+                r1 = inout(reg) a[1] => r[1],
+                r2 = inout(reg) a[2] => r[2],
+                r3 = inout(reg) a[3] => r[3],
+                b0 = in(reg) b[0],
+                b1 = in(reg) b[1],
+                b2 = in(reg) b[2],
+                b3 = in(reg) b[3],
+                brw = out(reg_byte) borrow,
+                options(pure, nomem, nostack),
+            );
+        }
+
+        (r, borrow != 0)
+    }
+
+    /// x86-64 inline assembly for 6-limb addition: r = a + b
+    /// Returns (result, overflow)
+    #[inline(always)]
+    pub fn add_6_limbs_asm(a: &[u64; 6], b: &[u64; 6]) -> ([u64; 6], bool) {
+        let mut r = [0u64; 6];
+        let overflow: u8;
+
+        unsafe {
+            asm!(
+                // Add with carry chain starting from LSB (index 5)
+                "add {r5}, {b5}",
+                "adc {r4}, {b4}",
+                "adc {r3}, {b3}",
+                "adc {r2}, {b2}",
+                "adc {r1}, {b1}",
+                "adc {r0}, {b0}",
+                "setc {ovf}",
+
+                r0 = inout(reg) a[0] => r[0],
+                r1 = inout(reg) a[1] => r[1],
+                r2 = inout(reg) a[2] => r[2],
+                r3 = inout(reg) a[3] => r[3],
+                r4 = inout(reg) a[4] => r[4],
+                r5 = inout(reg) a[5] => r[5],
+                b0 = in(reg) b[0],
+                b1 = in(reg) b[1],
+                b2 = in(reg) b[2],
+                b3 = in(reg) b[3],
+                b4 = in(reg) b[4],
+                b5 = in(reg) b[5],
+                ovf = out(reg_byte) overflow,
+                options(pure, nomem, nostack),
+            );
+        }
+
+        (r, overflow != 0)
+    }
+
+    /// x86-64 inline assembly for 6-limb subtraction: r = a - b
+    /// Returns (result, borrow)
+    #[inline(always)]
+    pub fn sub_6_limbs_asm(a: &[u64; 6], b: &[u64; 6]) -> ([u64; 6], bool) {
+        let mut r = [0u64; 6];
+        let borrow: u8;
+
+        unsafe {
+            asm!(
+                "sub {r5}, {b5}",
+                "sbb {r4}, {b4}",
+                "sbb {r3}, {b3}",
+                "sbb {r2}, {b2}",
+                "sbb {r1}, {b1}",
+                "sbb {r0}, {b0}",
+                "setc {brw}",
+
+                r0 = inout(reg) a[0] => r[0],
+                r1 = inout(reg) a[1] => r[1],
+                r2 = inout(reg) a[2] => r[2],
+                r3 = inout(reg) a[3] => r[3],
+                r4 = inout(reg) a[4] => r[4],
+                r5 = inout(reg) a[5] => r[5],
+                b0 = in(reg) b[0],
+                b1 = in(reg) b[1],
+                b2 = in(reg) b[2],
+                b3 = in(reg) b[3],
+                b4 = in(reg) b[4],
+                b5 = in(reg) b[5],
+                brw = out(reg_byte) borrow,
+                options(pure, nomem, nostack),
+            );
+        }
+
+        (r, borrow != 0)
+    }
+
+    #[inline(always)]
+    fn const_ge_4(a: &[u64; 4], b: &[u64; 4]) -> bool {
+        for i in 0..4 {
+            if a[i] > b[i] {
+                return true;
+            }
+            if a[i] < b[i] {
+                return false;
+            }
+        }
+        true // equal
+    }
+
+    #[inline(always)]
+    fn const_ge_6(a: &[u64; 6], b: &[u64; 6]) -> bool {
+        for i in 0..6 {
+            if a[i] > b[i] {
+                return true;
+            }
+            if a[i] < b[i] {
+                return false;
+            }
+        }
+        true // equal
+    }
+
+    #[inline(always)]
+    fn sub_4(a: &mut [u64; 4], b: &[u64; 4]) {
+        let (result, _) = sub_4_limbs_asm(a, b);
+        *a = result;
+    }
+
+    #[inline(always)]
+    fn sub_6(a: &mut [u64; 6], b: &[u64; 6]) {
+        let (result, _) = sub_6_limbs_asm(a, b);
+        *a = result;
+    }
+
+    /// Modular addition for 4 limbs: r = (a + b) mod q
+    #[inline(always)]
+    pub fn mod_add_4_limbs(a: &[u64; 4], b: &[u64; 4], q: &[u64; 4]) -> [u64; 4] {
+        let (sum, overflow) = add_4_limbs_asm(a, b);
+        if overflow || const_ge_4(&sum, q) {
+            let (reduced, _) = sub_4_limbs_asm(&sum, q);
+            reduced
+        } else {
+            sum
+        }
+    }
+
+    /// Modular subtraction for 4 limbs: r = (a - b) mod q
+    #[inline(always)]
+    pub fn mod_sub_4_limbs(a: &[u64; 4], b: &[u64; 4], q: &[u64; 4]) -> [u64; 4] {
+        let (diff, borrow) = sub_4_limbs_asm(a, b);
+        if borrow {
+            let (result, _) = add_4_limbs_asm(&diff, q);
+            result
+        } else {
+            diff
+        }
+    }
+
+    /// Modular addition for 6 limbs: r = (a + b) mod q
+    #[inline(always)]
+    pub fn mod_add_6_limbs(a: &[u64; 6], b: &[u64; 6], q: &[u64; 6]) -> [u64; 6] {
+        let (sum, overflow) = add_6_limbs_asm(a, b);
+        if overflow || const_ge_6(&sum, q) {
+            let (reduced, _) = sub_6_limbs_asm(&sum, q);
+            reduced
+        } else {
+            sum
+        }
+    }
+
+    /// Modular subtraction for 6 limbs: r = (a - b) mod q
+    #[inline(always)]
+    pub fn mod_sub_6_limbs(a: &[u64; 6], b: &[u64; 6], q: &[u64; 6]) -> [u64; 6] {
+        let (diff, borrow) = sub_6_limbs_asm(a, b);
+        if borrow {
+            let (result, _) = add_6_limbs_asm(&diff, q);
+            result
+        } else {
+            diff
+        }
+    }
+
+    /// x86-64 optimized CIOS Montgomery multiplication for 4 limbs (256-bit)
+    /// Uses Rust u128 arithmetic which LLVM optimizes to MUL/MULX instructions
+    /// Note: lambdaworks uses big-endian limb order (limbs[0] = MSB)
+    #[inline(always)]
+    pub fn cios_4_limbs(a: &[u64; 4], b: &[u64; 4], q: &[u64; 4], mu: u64) -> [u64; 4] {
+        const N: usize = 4;
+        let mut t = [0u64; N];
+        let mut t_extra = [0u64; 2];
+
+        // Iterate from LSB to MSB (i = N-1 down to 0)
+        for i in (0..N).rev() {
+            // t += a * b[i]
+            let mut c: u128 = 0;
+            for j in (0..N).rev() {
+                let cs = t[j] as u128 + (a[j] as u128) * (b[i] as u128) + c;
+                c = cs >> 64;
+                t[j] = cs as u64;
+            }
+            let cs = (t_extra[1] as u128) + c;
+            t_extra[0] = (cs >> 64) as u64;
+            t_extra[1] = cs as u64;
+
+            // m := t[N-1] * mu mod 2^64
+            let m = t[N - 1].wrapping_mul(mu) as u128;
+
+            // t += m * q, then shift right by 64
+            let mut c: u128 = (t[N - 1] as u128 + m * (q[N - 1] as u128)) >> 64;
+            for j in (0..N - 1).rev() {
+                let cs = t[j] as u128 + m * (q[j] as u128) + c;
+                c = cs >> 64;
+                t[j + 1] = cs as u64;
+            }
+            let cs = (t_extra[1] as u128) + c;
+            c = cs >> 64;
+            t[0] = cs as u64;
+            t_extra[1] = t_extra[0] + c as u64;
+            t_extra[0] = 0;
+        }
+
+        // Final reduction
+        let overflow = t_extra[1] > 0;
+        if overflow || const_ge_4(&t, q) {
+            sub_4(&mut t, q);
+        }
+        t
+    }
+
+    /// x86-64 optimized CIOS Montgomery multiplication for 6 limbs (384-bit)
+    #[inline(always)]
+    pub fn cios_6_limbs(a: &[u64; 6], b: &[u64; 6], q: &[u64; 6], mu: u64) -> [u64; 6] {
+        const N: usize = 6;
+        let mut t = [0u64; N];
+        let mut t_extra = [0u64; 2];
+
+        for i in (0..N).rev() {
+            // t += a * b[i]
+            let mut c: u128 = 0;
+            for j in (0..N).rev() {
+                let cs = t[j] as u128 + (a[j] as u128) * (b[i] as u128) + c;
+                c = cs >> 64;
+                t[j] = cs as u64;
+            }
+            let cs = (t_extra[1] as u128) + c;
+            t_extra[0] = (cs >> 64) as u64;
+            t_extra[1] = cs as u64;
+
+            // m := t[N-1] * mu mod 2^64
+            let m = t[N - 1].wrapping_mul(mu) as u128;
+
+            // t += m * q, then shift right by 64
+            let mut c: u128 = (t[N - 1] as u128 + m * (q[N - 1] as u128)) >> 64;
+            for j in (0..N - 1).rev() {
+                let cs = t[j] as u128 + m * (q[j] as u128) + c;
+                c = cs >> 64;
+                t[j + 1] = cs as u64;
+            }
+            let cs = (t_extra[1] as u128) + c;
+            c = cs >> 64;
+            t[0] = cs as u64;
+            t_extra[1] = t_extra[0] + c as u64;
+            t_extra[0] = 0;
+        }
+
+        // Final reduction
+        let overflow = t_extra[1] > 0;
+        if overflow || const_ge_6(&t, q) {
+            sub_6(&mut t, q);
+        }
+        t
+    }
+
+    /// x86-64 optimized CIOS for 4 limbs with spare bit optimization (EdMSM Algorithm 2)
+    /// For moduli where the high limb is < 2^63 - 1
+    #[inline(always)]
+    pub fn cios_4_limbs_optimized(a: &[u64; 4], b: &[u64; 4], q: &[u64; 4], mu: u64) -> [u64; 4] {
+        const N: usize = 4;
+        let mut t = [0u64; N];
+
+        for i in (0..N).rev() {
+            // t += a * b[i]
+            let mut c: u128 = 0;
+            for j in (0..N).rev() {
+                let cs = t[j] as u128 + (a[j] as u128) * (b[i] as u128) + c;
+                c = cs >> 64;
+                t[j] = cs as u64;
+            }
+            let t_extra = c as u64;
+
+            // m := t[N-1] * mu mod 2^64
+            let m = t[N - 1].wrapping_mul(mu) as u128;
+
+            // t += m * q, then shift right by 64
+            let mut c: u128 = (t[N - 1] as u128 + m * (q[N - 1] as u128)) >> 64;
+            for j in (0..N - 1).rev() {
+                let cs = t[j] as u128 + m * (q[j] as u128) + c;
+                c = cs >> 64;
+                t[j + 1] = cs as u64;
+            }
+            let cs = (t_extra as u128) + c;
+            t[0] = cs as u64;
+        }
+
+        // Final reduction (no overflow possible with spare bit)
+        if const_ge_4(&t, q) {
+            sub_4(&mut t, q);
+        }
+        t
+    }
+
+    /// x86-64 optimized CIOS for 6 limbs with spare bit optimization
+    #[inline(always)]
+    pub fn cios_6_limbs_optimized(a: &[u64; 6], b: &[u64; 6], q: &[u64; 6], mu: u64) -> [u64; 6] {
+        const N: usize = 6;
+        let mut t = [0u64; N];
+
+        for i in (0..N).rev() {
+            // t += a * b[i]
+            let mut c: u128 = 0;
+            for j in (0..N).rev() {
+                let cs = t[j] as u128 + (a[j] as u128) * (b[i] as u128) + c;
+                c = cs >> 64;
+                t[j] = cs as u64;
+            }
+            let t_extra = c as u64;
+
+            // m := t[N-1] * mu mod 2^64
+            let m = t[N - 1].wrapping_mul(mu) as u128;
+
+            // t += m * q, then shift right by 64
+            let mut c: u128 = (t[N - 1] as u128 + m * (q[N - 1] as u128)) >> 64;
+            for j in (0..N - 1).rev() {
+                let cs = t[j] as u128 + m * (q[j] as u128) + c;
+                c = cs >> 64;
+                t[j + 1] = cs as u64;
+            }
+            let cs = (t_extra as u128) + c;
+            t[0] = cs as u64;
+        }
+
+        // Final reduction (no overflow possible with spare bit)
+        if const_ge_6(&t, q) {
+            sub_6(&mut t, q);
+        }
+        t
+    }
+}
+
+// x86-64 assembly dispatch methods
+#[cfg(all(target_arch = "x86_64", feature = "asm"))]
+impl MontgomeryAlgorithms {
+    /// x86-64 assembly optimized CIOS multiplication
+    /// Automatically dispatches to the appropriate implementation based on NUM_LIMBS
+    ///
+    /// # Safety invariant
+    /// The match arms are only reached when NUM_LIMBS equals the expected value,
+    /// so the slice-to-array conversions are guaranteed to succeed.
+    #[inline(always)]
+    pub fn cios_asm<const NUM_LIMBS: usize>(
+        a: &UnsignedInteger<NUM_LIMBS>,
+        b: &UnsignedInteger<NUM_LIMBS>,
+        q: &UnsignedInteger<NUM_LIMBS>,
+        mu: &u64,
+    ) -> UnsignedInteger<NUM_LIMBS> {
+        // Dispatch to specialized assembly implementations
+        // SAFETY: Each match arm only executes when NUM_LIMBS equals the array size,
+        // so try_into() is guaranteed to succeed. We use unwrap() to match the
+        // existing aarch64_asm pattern in this file.
+        match NUM_LIMBS {
+            4 => {
+                let a_arr: &[u64; 4] = a.limbs.as_slice().try_into().unwrap();
+                let b_arr: &[u64; 4] = b.limbs.as_slice().try_into().unwrap();
+                let q_arr: &[u64; 4] = q.limbs.as_slice().try_into().unwrap();
+                let result = x86_64_asm::cios_4_limbs(a_arr, b_arr, q_arr, *mu);
+                let mut limbs = [0u64; NUM_LIMBS];
+                limbs.copy_from_slice(&result);
+                UnsignedInteger { limbs }
+            }
+            6 => {
+                let a_arr: &[u64; 6] = a.limbs.as_slice().try_into().unwrap();
+                let b_arr: &[u64; 6] = b.limbs.as_slice().try_into().unwrap();
+                let q_arr: &[u64; 6] = q.limbs.as_slice().try_into().unwrap();
+                let result = x86_64_asm::cios_6_limbs(a_arr, b_arr, q_arr, *mu);
+                let mut limbs = [0u64; NUM_LIMBS];
+                limbs.copy_from_slice(&result);
+                UnsignedInteger { limbs }
+            }
+            // Fallback to pure Rust for other sizes
+            _ => Self::cios(a, b, q, mu),
+        }
+    }
+
+    /// x86-64 optimized CIOS for moduli with one spare bit (EdMSM Algorithm 2)
+    ///
+    /// # Safety invariant
+    /// The match arms are only reached when NUM_LIMBS equals the expected value.
+    #[inline(always)]
+    pub fn cios_asm_optimized<const NUM_LIMBS: usize>(
+        a: &UnsignedInteger<NUM_LIMBS>,
+        b: &UnsignedInteger<NUM_LIMBS>,
+        q: &UnsignedInteger<NUM_LIMBS>,
+        mu: &u64,
+    ) -> UnsignedInteger<NUM_LIMBS> {
+        // SAFETY: Each match arm only executes when NUM_LIMBS equals the array size.
+        match NUM_LIMBS {
+            4 => {
+                let a_arr: &[u64; 4] = a.limbs.as_slice().try_into().unwrap();
+                let b_arr: &[u64; 4] = b.limbs.as_slice().try_into().unwrap();
+                let q_arr: &[u64; 4] = q.limbs.as_slice().try_into().unwrap();
+                let result = x86_64_asm::cios_4_limbs_optimized(a_arr, b_arr, q_arr, *mu);
+                let mut limbs = [0u64; NUM_LIMBS];
+                limbs.copy_from_slice(&result);
+                UnsignedInteger { limbs }
+            }
+            6 => {
+                let a_arr: &[u64; 6] = a.limbs.as_slice().try_into().unwrap();
+                let b_arr: &[u64; 6] = b.limbs.as_slice().try_into().unwrap();
+                let q_arr: &[u64; 6] = q.limbs.as_slice().try_into().unwrap();
+                let result = x86_64_asm::cios_6_limbs_optimized(a_arr, b_arr, q_arr, *mu);
+                let mut limbs = [0u64; NUM_LIMBS];
+                limbs.copy_from_slice(&result);
+                UnsignedInteger { limbs }
+            }
+            // Fallback to pure Rust optimized version for other sizes
+            _ => Self::cios_optimized_for_moduli_with_one_spare_bit(a, b, q, mu),
+        }
+    }
+
+    /// x86-64 optimized modular addition
+    ///
+    /// # Safety invariant
+    /// The match arms are only reached when NUM_LIMBS equals the expected value.
+    #[inline(always)]
+    pub fn add_asm<const NUM_LIMBS: usize>(
+        a: &UnsignedInteger<NUM_LIMBS>,
+        b: &UnsignedInteger<NUM_LIMBS>,
+        q: &UnsignedInteger<NUM_LIMBS>,
+    ) -> UnsignedInteger<NUM_LIMBS> {
+        // SAFETY: Each match arm only executes when NUM_LIMBS equals the array size.
+        match NUM_LIMBS {
+            4 => {
+                let a_arr: &[u64; 4] = a.limbs.as_slice().try_into().unwrap();
+                let b_arr: &[u64; 4] = b.limbs.as_slice().try_into().unwrap();
+                let q_arr: &[u64; 4] = q.limbs.as_slice().try_into().unwrap();
+                let result = x86_64_asm::mod_add_4_limbs(a_arr, b_arr, q_arr);
+                let mut limbs = [0u64; NUM_LIMBS];
+                limbs.copy_from_slice(&result);
+                UnsignedInteger { limbs }
+            }
+            6 => {
+                let a_arr: &[u64; 6] = a.limbs.as_slice().try_into().unwrap();
+                let b_arr: &[u64; 6] = b.limbs.as_slice().try_into().unwrap();
+                let q_arr: &[u64; 6] = q.limbs.as_slice().try_into().unwrap();
+                let result = x86_64_asm::mod_add_6_limbs(a_arr, b_arr, q_arr);
+                let mut limbs = [0u64; NUM_LIMBS];
+                limbs.copy_from_slice(&result);
+                UnsignedInteger { limbs }
+            }
+            _ => {
+                let (sum, overflow) = UnsignedInteger::add(a, b);
+                if overflow || sum >= *q {
+                    UnsignedInteger::sub(&sum, q).0
+                } else {
+                    sum
+                }
+            }
+        }
+    }
+
+    /// x86-64 optimized modular subtraction
+    ///
+    /// # Safety invariant
+    /// The match arms are only reached when NUM_LIMBS equals the expected value.
+    #[inline(always)]
+    pub fn sub_asm<const NUM_LIMBS: usize>(
+        a: &UnsignedInteger<NUM_LIMBS>,
+        b: &UnsignedInteger<NUM_LIMBS>,
+        q: &UnsignedInteger<NUM_LIMBS>,
+    ) -> UnsignedInteger<NUM_LIMBS> {
+        // SAFETY: Each match arm only executes when NUM_LIMBS equals the array size.
+        match NUM_LIMBS {
+            4 => {
+                let a_arr: &[u64; 4] = a.limbs.as_slice().try_into().unwrap();
+                let b_arr: &[u64; 4] = b.limbs.as_slice().try_into().unwrap();
+                let q_arr: &[u64; 4] = q.limbs.as_slice().try_into().unwrap();
+                let result = x86_64_asm::mod_sub_4_limbs(a_arr, b_arr, q_arr);
+                let mut limbs = [0u64; NUM_LIMBS];
+                limbs.copy_from_slice(&result);
+                UnsignedInteger { limbs }
+            }
+            6 => {
+                let a_arr: &[u64; 6] = a.limbs.as_slice().try_into().unwrap();
+                let b_arr: &[u64; 6] = b.limbs.as_slice().try_into().unwrap();
+                let q_arr: &[u64; 6] = q.limbs.as_slice().try_into().unwrap();
+                let result = x86_64_asm::mod_sub_6_limbs(a_arr, b_arr, q_arr);
+                let mut limbs = [0u64; NUM_LIMBS];
+                limbs.copy_from_slice(&result);
+                UnsignedInteger { limbs }
+            }
+            _ => {
+                if b <= a {
+                    *a - *b
+                } else {
+                    *q - (*b - *a)
+                }
+            }
+        }
+    }
+}
+
 impl MontgomeryAlgorithms {
     /// Compute CIOS multiplication of `a` * `b`
     /// `q` is the modulus

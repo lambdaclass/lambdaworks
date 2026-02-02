@@ -125,7 +125,15 @@ where
             MontgomeryAlgorithms::add_asm(a, b, &M::MODULUS)
         }
 
-        #[cfg(not(all(target_arch = "aarch64", feature = "asm")))]
+        #[cfg(all(target_arch = "x86_64", feature = "asm"))]
+        {
+            MontgomeryAlgorithms::add_asm(a, b, &M::MODULUS)
+        }
+
+        #[cfg(not(any(
+            all(target_arch = "aarch64", feature = "asm"),
+            all(target_arch = "x86_64", feature = "asm")
+        )))]
         {
             let (sum, overflow) = UnsignedInteger::add(a, b);
             if Self::MODULUS_HAS_ONE_SPARE_BIT {
@@ -152,7 +160,15 @@ where
                 MontgomeryAlgorithms::cios_asm_optimized(a, b, &M::MODULUS, &Self::MU)
             }
 
-            #[cfg(not(all(target_arch = "aarch64", feature = "asm")))]
+            #[cfg(all(target_arch = "x86_64", feature = "asm"))]
+            {
+                MontgomeryAlgorithms::cios_asm_optimized(a, b, &M::MODULUS, &Self::MU)
+            }
+
+            #[cfg(not(any(
+                all(target_arch = "aarch64", feature = "asm"),
+                all(target_arch = "x86_64", feature = "asm")
+            )))]
             {
                 MontgomeryAlgorithms::cios_optimized_for_moduli_with_one_spare_bit(
                     a,
@@ -162,13 +178,21 @@ where
                 )
             }
         } else {
-            // For moduli without spare bit, use ARM64 asm when available
+            // For moduli without spare bit, use assembly when available
             #[cfg(all(target_arch = "aarch64", feature = "asm"))]
             {
                 MontgomeryAlgorithms::cios_asm(a, b, &M::MODULUS, &Self::MU)
             }
 
-            #[cfg(not(all(target_arch = "aarch64", feature = "asm")))]
+            #[cfg(all(target_arch = "x86_64", feature = "asm"))]
+            {
+                MontgomeryAlgorithms::cios_asm(a, b, &M::MODULUS, &Self::MU)
+            }
+
+            #[cfg(not(any(
+                all(target_arch = "aarch64", feature = "asm"),
+                all(target_arch = "x86_64", feature = "asm")
+            )))]
             {
                 MontgomeryAlgorithms::cios(a, b, &M::MODULUS, &Self::MU)
             }
@@ -187,7 +211,15 @@ where
             MontgomeryAlgorithms::sub_asm(a, b, &M::MODULUS)
         }
 
-        #[cfg(not(all(target_arch = "aarch64", feature = "asm")))]
+        #[cfg(all(target_arch = "x86_64", feature = "asm"))]
+        {
+            MontgomeryAlgorithms::sub_asm(a, b, &M::MODULUS)
+        }
+
+        #[cfg(not(any(
+            all(target_arch = "aarch64", feature = "asm"),
+            all(target_arch = "x86_64", feature = "asm")
+        )))]
         {
             if b <= a {
                 a - b
