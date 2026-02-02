@@ -30,13 +30,14 @@ impl<F: IsFFTField> Domain<F> {
         let interpolation_domain_size = air.trace_length();
         let root_order = air.trace_length().trailing_zeros();
         // * Generate Coset
-        let trace_primitive_root = F::get_primitive_root_of_unity(root_order as u64).unwrap();
+        let trace_primitive_root = F::get_primitive_root_of_unity(root_order as u64)
+            .expect("primitive root of unity must exist for valid trace length");
         let trace_roots_of_unity = get_powers_of_primitive_root_coset(
             root_order as u64,
             interpolation_domain_size,
             &FieldElement::one(),
         )
-        .unwrap();
+        .expect("trace roots of unity computation must succeed for valid parameters");
 
         let lde_root_order = (air.trace_length() * blowup_factor).trailing_zeros();
         let lde_roots_of_unity_coset = get_powers_of_primitive_root_coset(
@@ -44,7 +45,7 @@ impl<F: IsFFTField> Domain<F> {
             air.trace_length() * blowup_factor,
             &coset_offset,
         )
-        .unwrap();
+        .expect("LDE roots of unity computation must succeed for valid blowup factor");
 
         Self {
             root_order,

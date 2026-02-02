@@ -347,12 +347,15 @@ where
                 * lp(b_i, &(&cpi.domain[i] * &cpi.k1))
                 * lp(c_i, &(&cpi.domain[i] * &k2));
             let den = lp(a_i, &s1[i]) * lp(b_i, &s2[i]) * lp(c_i, &s3[i]);
-            // We are using that den != 0 with high probability because beta and gamma are random elements.
-            let new_factor = (num / den)
-                .map_err(|_| ProverError::DivisionByZero)
-                .unwrap();
+            // den != 0 with overwhelming probability because beta and gamma are random elements.
+            let new_factor = (num / den).expect(
+                "division by zero in permutation polynomial: beta and gamma should prevent this",
+            );
 
-            let new_term = coefficients.last().unwrap() * &new_factor;
+            let new_term = coefficients
+                .last()
+                .expect("coefficients vector is non-empty")
+                * &new_factor;
             coefficients.push(new_term);
         }
 
@@ -409,23 +412,38 @@ where
         // TODO: check a factor of 4 is a sensible upper bound
         let degree = 4 * cpi.n;
         let offset = &cpi.k1;
-        let p_a_eval = Polynomial::evaluate_offset_fft(p_a, 1, Some(degree), offset).unwrap();
-        let p_b_eval = Polynomial::evaluate_offset_fft(p_b, 1, Some(degree), offset).unwrap();
-        let p_c_eval = Polynomial::evaluate_offset_fft(p_c, 1, Some(degree), offset).unwrap();
-        let ql_eval = Polynomial::evaluate_offset_fft(&cpi.ql, 1, Some(degree), offset).unwrap();
-        let qr_eval = Polynomial::evaluate_offset_fft(&cpi.qr, 1, Some(degree), offset).unwrap();
-        let qm_eval = Polynomial::evaluate_offset_fft(&cpi.qm, 1, Some(degree), offset).unwrap();
-        let qo_eval = Polynomial::evaluate_offset_fft(&cpi.qo, 1, Some(degree), offset).unwrap();
-        let qc_eval = Polynomial::evaluate_offset_fft(&cpi.qc, 1, Some(degree), offset).unwrap();
-        let p_pi_eval = Polynomial::evaluate_offset_fft(&p_pi, 1, Some(degree), offset).unwrap();
-        let p_x_eval = Polynomial::evaluate_offset_fft(p_x, 1, Some(degree), offset).unwrap();
-        let p_z_eval = Polynomial::evaluate_offset_fft(p_z, 1, Some(degree), offset).unwrap();
-        let p_z_x_omega_eval =
-            Polynomial::evaluate_offset_fft(&z_x_omega, 1, Some(degree), offset).unwrap();
-        let p_s1_eval = Polynomial::evaluate_offset_fft(&cpi.s1, 1, Some(degree), offset).unwrap();
-        let p_s2_eval = Polynomial::evaluate_offset_fft(&cpi.s2, 1, Some(degree), offset).unwrap();
-        let p_s3_eval = Polynomial::evaluate_offset_fft(&cpi.s3, 1, Some(degree), offset).unwrap();
-        let l1_eval = Polynomial::evaluate_offset_fft(&l1, 1, Some(degree), offset).unwrap();
+        let p_a_eval = Polynomial::evaluate_offset_fft(p_a, 1, Some(degree), offset)
+            .expect("FFT evaluation of p_a must succeed");
+        let p_b_eval = Polynomial::evaluate_offset_fft(p_b, 1, Some(degree), offset)
+            .expect("FFT evaluation of p_b must succeed");
+        let p_c_eval = Polynomial::evaluate_offset_fft(p_c, 1, Some(degree), offset)
+            .expect("FFT evaluation of p_c must succeed");
+        let ql_eval = Polynomial::evaluate_offset_fft(&cpi.ql, 1, Some(degree), offset)
+            .expect("FFT evaluation of ql must succeed");
+        let qr_eval = Polynomial::evaluate_offset_fft(&cpi.qr, 1, Some(degree), offset)
+            .expect("FFT evaluation of qr must succeed");
+        let qm_eval = Polynomial::evaluate_offset_fft(&cpi.qm, 1, Some(degree), offset)
+            .expect("FFT evaluation of qm must succeed");
+        let qo_eval = Polynomial::evaluate_offset_fft(&cpi.qo, 1, Some(degree), offset)
+            .expect("FFT evaluation of qo must succeed");
+        let qc_eval = Polynomial::evaluate_offset_fft(&cpi.qc, 1, Some(degree), offset)
+            .expect("FFT evaluation of qc must succeed");
+        let p_pi_eval = Polynomial::evaluate_offset_fft(&p_pi, 1, Some(degree), offset)
+            .expect("FFT evaluation of p_pi must succeed");
+        let p_x_eval = Polynomial::evaluate_offset_fft(p_x, 1, Some(degree), offset)
+            .expect("FFT evaluation of p_x must succeed");
+        let p_z_eval = Polynomial::evaluate_offset_fft(p_z, 1, Some(degree), offset)
+            .expect("FFT evaluation of p_z must succeed");
+        let p_z_x_omega_eval = Polynomial::evaluate_offset_fft(&z_x_omega, 1, Some(degree), offset)
+            .expect("FFT evaluation of z_x_omega must succeed");
+        let p_s1_eval = Polynomial::evaluate_offset_fft(&cpi.s1, 1, Some(degree), offset)
+            .expect("FFT evaluation of s1 must succeed");
+        let p_s2_eval = Polynomial::evaluate_offset_fft(&cpi.s2, 1, Some(degree), offset)
+            .expect("FFT evaluation of s2 must succeed");
+        let p_s3_eval = Polynomial::evaluate_offset_fft(&cpi.s3, 1, Some(degree), offset)
+            .expect("FFT evaluation of s3 must succeed");
+        let l1_eval = Polynomial::evaluate_offset_fft(&l1, 1, Some(degree), offset)
+            .expect("FFT evaluation of l1 must succeed");
 
         let p_constraints_eval: Vec<_> = p_a_eval
             .iter()
@@ -487,14 +505,17 @@ where
             .map(|((p2, p1), co)| (p2 * &alpha + p1) * &alpha + co)
             .collect();
 
-        let mut zh_eval = Polynomial::evaluate_offset_fft(&zh, 1, Some(degree), offset).unwrap();
-        FieldElement::inplace_batch_inverse(&mut zh_eval).unwrap();
+        let mut zh_eval = Polynomial::evaluate_offset_fft(&zh, 1, Some(degree), offset)
+            .expect("FFT evaluation of vanishing polynomial must succeed");
+        FieldElement::inplace_batch_inverse(&mut zh_eval)
+            .expect("vanishing polynomial evaluations are non-zero on coset");
         let c: Vec<_> = p_eval
             .iter()
             .zip(zh_eval.iter())
             .map(|(a, b)| a * b)
             .collect();
-        let mut t = Polynomial::interpolate_offset_fft(&c, offset).unwrap();
+        let mut t = Polynomial::interpolate_offset_fft(&c, offset)
+            .expect("FFT interpolation of quotient polynomial must succeed");
 
         polynomial::pad_with_zero_coefficients_to_length(&mut t, 3 * (&cpi.n + 2));
         let p_t_lo = Polynomial::new(&t.coefficients[..&cpi.n + 2]);
@@ -564,11 +585,10 @@ where
         let zeta_raised_n = Polynomial::new_monomial(r4.zeta.pow(cpi.n + 2), 0); // TODO: Paper says n and 2n, but Gnark uses n+2 and 2n+4
         let zeta_raised_2n = Polynomial::new_monomial(r4.zeta.pow(2 * cpi.n + 4), 0);
 
-        // We are using that zeta != 0 because is sampled outside the set of roots of unity,
-        // and n != 0 because is the length of the trace.
+        // zeta is sampled outside the set of roots of unity so zeta != 1, and n != 0.
         let l1_zeta = ((&r4.zeta.pow(cpi.n as u64) - FieldElement::<F>::one())
             / ((&r4.zeta - FieldElement::<F>::one()) * FieldElement::<F>::from(cpi.n as u64)))
-        .unwrap();
+        .expect("zeta is outside roots of unity so denominator is non-zero");
 
         let mut p_non_constant = &cpi.qm * &r4.a_zeta * &r4.b_zeta
             + &r4.a_zeta * &cpi.ql
