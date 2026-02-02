@@ -21,16 +21,14 @@ pub struct U56x8 {
 }
 
 impl ByteConversion for U56x8 {
-    /// Convert to 56 bytes in big-endian order.
-    /// Most significant limb (index 7) goes first.
+    /// Converts U56x8 to big-endian bytes (56 bytes total).
+    /// Each limb is 56 bits (7 bytes), with limbs[7] being most significant.
     #[cfg(feature = "alloc")]
     fn to_bytes_be(&self) -> alloc::vec::Vec<u8> {
         let mut bytes = alloc::vec![0u8; 56];
         for i in 0..8 {
-            // limbs[7-i] maps to bytes[i*7..(i+1)*7]
             let limb = self.limbs[7 - i];
-            // Each limb is 56 bits (7 bytes), stored in u64
-            // We need the lower 7 bytes in big-endian order
+            // Extract 7 bytes from each 56-bit limb in big-endian order
             for j in 0..7 {
                 bytes[i * 7 + j] = ((limb >> (48 - j * 8)) & 0xFF) as u8;
             }
@@ -38,16 +36,14 @@ impl ByteConversion for U56x8 {
         bytes
     }
 
-    /// Convert to 56 bytes in little-endian order.
-    /// Least significant limb (index 0) goes first.
+    /// Converts U56x8 to little-endian bytes (56 bytes total).
+    /// Each limb is 56 bits (7 bytes), with limbs[0] being least significant.
     #[cfg(feature = "alloc")]
     fn to_bytes_le(&self) -> alloc::vec::Vec<u8> {
         let mut bytes = alloc::vec![0u8; 56];
         for i in 0..8 {
-            // limbs[i] maps to bytes[i*7..(i+1)*7]
             let limb = self.limbs[i];
-            // Each limb is 56 bits (7 bytes), stored in u64
-            // We need the lower 7 bytes in little-endian order
+            // Extract 7 bytes from each 56-bit limb in little-endian order
             for j in 0..7 {
                 bytes[i * 7 + j] = ((limb >> (j * 8)) & 0xFF) as u8;
             }
@@ -55,40 +51,40 @@ impl ByteConversion for U56x8 {
         bytes
     }
 
-    /// Parse 56 bytes in big-endian order into U56x8.
+    /// Parses U56x8 from big-endian bytes (expects exactly 56 bytes).
     fn from_bytes_be(bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError>
     where
         Self: Sized,
     {
         if bytes.len() != 56 {
-            return Err(crate::errors::ByteConversionError::FromBEBytesError);
+            return Err(crate::errors::ByteConversionError::InvalidValue);
         }
         let mut limbs = [0u64; 8];
         for i in 0..8 {
-            // bytes[i*7..(i+1)*7] maps to limbs[7-i]
             let mut limb = 0u64;
+            // Parse 7 bytes into each 56-bit limb from big-endian
             for j in 0..7 {
-                limb = (limb << 8) | (bytes[i * 7 + j] as u64);
+                limb |= (bytes[i * 7 + j] as u64) << (48 - j * 8);
             }
             limbs[7 - i] = limb;
         }
         Ok(U56x8 { limbs })
     }
 
-    /// Parse 56 bytes in little-endian order into U56x8.
+    /// Parses U56x8 from little-endian bytes (expects exactly 56 bytes).
     fn from_bytes_le(bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError>
     where
         Self: Sized,
     {
         if bytes.len() != 56 {
-            return Err(crate::errors::ByteConversionError::FromLEBytesError);
+            return Err(crate::errors::ByteConversionError::InvalidValue);
         }
         let mut limbs = [0u64; 8];
         for i in 0..8 {
-            // bytes[i*7..(i+1)*7] maps to limbs[i]
             let mut limb = 0u64;
-            for j in (0..7).rev() {
-                limb = (limb << 8) | (bytes[i * 7 + j] as u64);
+            // Parse 7 bytes into each 56-bit limb from little-endian
+            for j in 0..7 {
+                limb |= (bytes[i * 7 + j] as u64) << (j * 8);
             }
             limbs[i] = limb;
         }
@@ -510,48 +506,61 @@ mod tests {
         assert_eq!(U56x8::to_hex(&num), "564A75B90AE34F8155D5821D7E9484")
     }
 
+    #[cfg(feature = "alloc")]
     #[test]
-    fn byte_conversion_roundtrip_be() {
+    fn to_bytes_from_bytes_be_roundtrip() {
         let num = U56x8::from_hex("b7aa542ac8824fbf654ee0ab4ea5eb3b0ad65b48bfef5e4d8b84ab5737e9283c06ecbadd799688cdf73cd7d077d53b5e6f738b264086d034").unwrap();
         let bytes = num.to_bytes_be();
+        assert_eq!(bytes.len(), 56);
         let recovered = U56x8::from_bytes_be(&bytes).unwrap();
         assert_eq!(num, recovered);
     }
 
+    #[cfg(feature = "alloc")]
     #[test]
-    fn byte_conversion_roundtrip_le() {
+    fn to_bytes_from_bytes_le_roundtrip() {
         let num = U56x8::from_hex("b7aa542ac8824fbf654ee0ab4ea5eb3b0ad65b48bfef5e4d8b84ab5737e9283c06ecbadd799688cdf73cd7d077d53b5e6f738b264086d034").unwrap();
         let bytes = num.to_bytes_le();
+        assert_eq!(bytes.len(), 56);
         let recovered = U56x8::from_bytes_le(&bytes).unwrap();
         assert_eq!(num, recovered);
     }
 
+    #[cfg(feature = "alloc")]
     #[test]
-    fn byte_conversion_be_le_different() {
-        let num = U56x8::from_hex("123456789abcdef0").unwrap();
-        let bytes_be = num.to_bytes_be();
-        let bytes_le = num.to_bytes_le();
-        // BE and LE should produce different byte orders for non-symmetric values
-        assert_ne!(bytes_be, bytes_le);
+    fn to_bytes_be_known_value() {
+        // Test with a simple value: 1
+        let one = U56x8::from_hex("1").unwrap();
+        let bytes = one.to_bytes_be();
+        // Should be 55 zeros followed by 0x01
+        assert_eq!(bytes[55], 1);
+        for byte in &bytes[..55] {
+            assert_eq!(*byte, 0);
+        }
+    }
+
+    #[cfg(feature = "alloc")]
+    #[test]
+    fn to_bytes_le_known_value() {
+        // Test with a simple value: 1
+        let one = U56x8::from_hex("1").unwrap();
+        let bytes = one.to_bytes_le();
+        // Should be 0x01 followed by 55 zeros
+        assert_eq!(bytes[0], 1);
+        for byte in &bytes[1..] {
+            assert_eq!(*byte, 0);
+        }
     }
 
     #[test]
-    fn byte_conversion_one() {
-        let one = P448GoldilocksPrimeField::one();
-        let bytes_be = one.to_bytes_be();
-        let bytes_le = one.to_bytes_le();
-        // One should have 1 at the end in BE, at the start in LE
-        assert_eq!(bytes_be[55], 1);
-        assert_eq!(bytes_le[0], 1);
-        // Roundtrip
-        assert_eq!(U56x8::from_bytes_be(&bytes_be).unwrap(), one);
-        assert_eq!(U56x8::from_bytes_le(&bytes_le).unwrap(), one);
+    fn from_bytes_be_invalid_length() {
+        let bytes = [0u8; 32]; // Wrong length
+        assert!(U56x8::from_bytes_be(&bytes).is_err());
     }
 
     #[test]
-    fn byte_conversion_invalid_length() {
-        let short_bytes = [0u8; 32];
-        assert!(U56x8::from_bytes_be(&short_bytes).is_err());
-        assert!(U56x8::from_bytes_le(&short_bytes).is_err());
+    fn from_bytes_le_invalid_length() {
+        let bytes = [0u8; 32]; // Wrong length
+        assert!(U56x8::from_bytes_le(&bytes).is_err());
     }
 }
