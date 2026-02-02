@@ -27,8 +27,16 @@ impl<F: IsFFTField> Domain<F> {
         // Initial definitions
         let blowup_factor = air.options().blowup_factor as usize;
         let coset_offset = FieldElement::from(air.options().coset_offset);
-        let interpolation_domain_size = air.trace_length();
-        let root_order = air.trace_length().trailing_zeros();
+        let trace_length = air.trace_length();
+
+        // Validate that trace length is a power of two (required for FFT)
+        assert!(
+            trace_length > 0 && trace_length.is_power_of_two(),
+            "trace_length must be a positive power of two, got {trace_length}"
+        );
+
+        let interpolation_domain_size = trace_length;
+        let root_order = trace_length.trailing_zeros();
         // * Generate Coset
         let trace_primitive_root = F::get_primitive_root_of_unity(root_order as u64)
             .expect("primitive root of unity must exist for valid trace length");
@@ -69,8 +77,15 @@ where
     // Initial definitions
     let blowup_factor = air.options().blowup_factor as usize;
     let coset_offset = FieldElement::from(air.options().coset_offset);
-    let interpolation_domain_size = air.trace_length();
-    let root_order = air.trace_length().trailing_zeros();
+    let trace_length = air.trace_length();
+
+    // Validate that trace length is a power of two (required for FFT)
+    if trace_length == 0 || !trace_length.is_power_of_two() {
+        return Err(ProvingError::InvalidTraceLength(trace_length));
+    }
+
+    let interpolation_domain_size = trace_length;
+    let root_order = trace_length.trailing_zeros();
     // * Generate Coset
     let trace_primitive_root = Field::get_primitive_root_of_unity(root_order as u64)
         .map_err(|_| ProvingError::PrimitiveRootNotFound(root_order as u64))?;
