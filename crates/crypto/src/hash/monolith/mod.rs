@@ -168,9 +168,9 @@ impl<const WIDTH: usize, const NUM_FULL_ROUNDS: usize> MonolithMersenne31<WIDTH,
             for (j, yj) in y.iter().enumerate() {
                 output[i] = F::add(
                     &output[i],
-                    // We are using that x_i + yj != 0 because they are both much smaller than the modulus.
+                    // We are using that x_i + yj != 0 in Mersenne31 because they are both much smaller than the modulus.
                     &F::div(&to_multiply[j], &F::add(x_i, yj))
-                        .expect("x_i + yj != 0 because both are much smaller than the modulus"),
+                        .expect("x_i + yj != 0 in Mersenne31 because both are limited by bit masks ensuring they're < modulus"),
                 );
             }
         }

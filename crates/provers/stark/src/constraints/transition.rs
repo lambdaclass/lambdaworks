@@ -161,7 +161,7 @@ where
                 domain.interpolation_domain_size,
                 coset_offset,
             )
-            .expect("FFT evaluation of end exemptions polynomial must succeed");
+            .expect("FFT evaluation of end exemptions polynomial must be within field's two-adicity limit");
 
             let cycled_evaluations = evaluations
                 .iter()
@@ -187,7 +187,7 @@ where
                 .collect_vec();
 
             FieldElement::inplace_batch_inverse(&mut evaluations)
-                .expect("zerofier evaluations are non-zero due to coset offset");
+                .expect("zerofier evaluations are non-zero because (offset_coset)^(n/period) and trace_root^offset*(n/period) are from disjoint subgroups");
 
             // FIXME: Instead of computing this evaluations for each constraint, they can be computed
             // once for every constraint with the same end exemptions (combination of end_exemptions()
@@ -198,7 +198,7 @@ where
                 domain.interpolation_domain_size,
                 coset_offset,
             )
-            .expect("FFT evaluation of end exemptions polynomial must succeed");
+            .expect("FFT evaluation of end exemptions polynomial must be within field's two-adicity limit");
 
             let cycled_evaluations = evaluations
                 .iter()

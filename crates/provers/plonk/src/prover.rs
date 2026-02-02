@@ -413,37 +413,37 @@ where
         let degree = 4 * cpi.n;
         let offset = &cpi.k1;
         let p_a_eval = Polynomial::evaluate_offset_fft(p_a, 1, Some(degree), offset)
-            .expect("FFT evaluation of p_a must succeed");
+            .expect("FFT evaluation of p_a must be within field's two-adicity limit");
         let p_b_eval = Polynomial::evaluate_offset_fft(p_b, 1, Some(degree), offset)
-            .expect("FFT evaluation of p_b must succeed");
+            .expect("FFT evaluation of p_b must be within field's two-adicity limit");
         let p_c_eval = Polynomial::evaluate_offset_fft(p_c, 1, Some(degree), offset)
-            .expect("FFT evaluation of p_c must succeed");
+            .expect("FFT evaluation of p_c must be within field's two-adicity limit");
         let ql_eval = Polynomial::evaluate_offset_fft(&cpi.ql, 1, Some(degree), offset)
-            .expect("FFT evaluation of ql must succeed");
+            .expect("FFT evaluation of ql must be within field's two-adicity limit");
         let qr_eval = Polynomial::evaluate_offset_fft(&cpi.qr, 1, Some(degree), offset)
-            .expect("FFT evaluation of qr must succeed");
+            .expect("FFT evaluation of qr must be within field's two-adicity limit");
         let qm_eval = Polynomial::evaluate_offset_fft(&cpi.qm, 1, Some(degree), offset)
-            .expect("FFT evaluation of qm must succeed");
+            .expect("FFT evaluation of qm must be within field's two-adicity limit");
         let qo_eval = Polynomial::evaluate_offset_fft(&cpi.qo, 1, Some(degree), offset)
-            .expect("FFT evaluation of qo must succeed");
+            .expect("FFT evaluation of qo must be within field's two-adicity limit");
         let qc_eval = Polynomial::evaluate_offset_fft(&cpi.qc, 1, Some(degree), offset)
-            .expect("FFT evaluation of qc must succeed");
+            .expect("FFT evaluation of qc must be within field's two-adicity limit");
         let p_pi_eval = Polynomial::evaluate_offset_fft(&p_pi, 1, Some(degree), offset)
-            .expect("FFT evaluation of p_pi must succeed");
+            .expect("FFT evaluation of p_pi must be within field's two-adicity limit");
         let p_x_eval = Polynomial::evaluate_offset_fft(p_x, 1, Some(degree), offset)
-            .expect("FFT evaluation of p_x must succeed");
+            .expect("FFT evaluation of p_x must be within field's two-adicity limit");
         let p_z_eval = Polynomial::evaluate_offset_fft(p_z, 1, Some(degree), offset)
-            .expect("FFT evaluation of p_z must succeed");
+            .expect("FFT evaluation of p_z must be within field's two-adicity limit");
         let p_z_x_omega_eval = Polynomial::evaluate_offset_fft(&z_x_omega, 1, Some(degree), offset)
-            .expect("FFT evaluation of z_x_omega must succeed");
+            .expect("FFT evaluation of z_x_omega must be within field's two-adicity limit");
         let p_s1_eval = Polynomial::evaluate_offset_fft(&cpi.s1, 1, Some(degree), offset)
-            .expect("FFT evaluation of s1 must succeed");
+            .expect("FFT evaluation of s1 must be within field's two-adicity limit");
         let p_s2_eval = Polynomial::evaluate_offset_fft(&cpi.s2, 1, Some(degree), offset)
-            .expect("FFT evaluation of s2 must succeed");
+            .expect("FFT evaluation of s2 must be within field's two-adicity limit");
         let p_s3_eval = Polynomial::evaluate_offset_fft(&cpi.s3, 1, Some(degree), offset)
-            .expect("FFT evaluation of s3 must succeed");
+            .expect("FFT evaluation of s3 must be within field's two-adicity limit");
         let l1_eval = Polynomial::evaluate_offset_fft(&l1, 1, Some(degree), offset)
-            .expect("FFT evaluation of l1 must succeed");
+            .expect("FFT evaluation of l1 must be within field's two-adicity limit");
 
         let p_constraints_eval: Vec<_> = p_a_eval
             .iter()
@@ -506,9 +506,9 @@ where
             .collect();
 
         let mut zh_eval = Polynomial::evaluate_offset_fft(&zh, 1, Some(degree), offset)
-            .expect("FFT evaluation of vanishing polynomial must succeed");
+            .expect("FFT evaluation of vanishing polynomial must be within field's two-adicity limit");
         FieldElement::inplace_batch_inverse(&mut zh_eval)
-            .expect("vanishing polynomial evaluations are non-zero on coset");
+            .expect("vanishing polynomial evaluations are non-zero because evaluated on coset offset from the roots of unity");
         let c: Vec<_> = p_eval
             .iter()
             .zip(zh_eval.iter())
