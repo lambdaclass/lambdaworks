@@ -310,26 +310,26 @@ mod x86_64_asm {
     #[inline(always)]
     pub fn add_asm(a: u64, b: u64) -> u64 {
         let result: u64;
+        let zero: u64 = 0;
         // SAFETY: This assembly block performs modular addition for the Goldilocks prime.
         // It uses only general-purpose registers and does not modify memory outside the output.
         unsafe {
             asm!(
                 // sum = a + b (sets CF if overflow)
                 "add {a}, {b}",
-                // if CF, add EPSILON (2^32 - 1)
-                "mov {tmp}, {eps}",
-                "cmovc {tmp}, {eps}",  // tmp = CF ? EPSILON : EPSILON (always EPSILON, but only add if CF)
-                "mov {zero}, 0",
-                "cmovnc {tmp}, {zero}", // tmp = CF ? EPSILON : 0
+                // if CF, add EPSILON (2^32 - 1) since 2^64 ≡ EPSILON (mod p)
+                // Note: use mov/cmov instead of xor to preserve CF
+                "mov {tmp}, {zero}",    // tmp = 0 (mov doesn't affect flags)
+                "cmovc {tmp}, {eps}",   // tmp = CF ? EPSILON : 0
                 "add {a}, {tmp}",
                 // Second overflow check: if CF again, add EPSILON
-                "mov {tmp}, 0",
-                "cmovc {tmp}, {eps}",
+                "mov {tmp}, {zero}",    // tmp = 0 (mov doesn't affect flags)
+                "cmovc {tmp}, {eps}",   // tmp = CF ? EPSILON : 0
                 "add {a}, {tmp}",
                 a = inout(reg) a => result,
                 b = in(reg) b,
                 tmp = out(reg) _,
-                zero = out(reg) _,
+                zero = in(reg) zero,
                 eps = in(reg) EPSILON,
                 options(pure, nomem, nostack)
             );

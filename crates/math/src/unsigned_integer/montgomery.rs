@@ -1859,7 +1859,19 @@ mod x86_64_asm {
     }
 
     /// x86-64 optimized CIOS Montgomery multiplication for 4 limbs (256-bit)
-    /// Uses Rust u128 arithmetic which LLVM optimizes to MUL/MULX instructions
+    ///
+    /// # Design Note
+    /// This implementation uses Rust u128 arithmetic for the multiply-accumulate
+    /// operations rather than full inline assembly. LLVM optimizes u128 arithmetic
+    /// to efficient MUL/MULX instructions on x86-64. This approach provides:
+    /// - Significantly simpler code (~40 lines vs ~400 lines of full asm)
+    /// - Easier maintenance and verification
+    /// - Good performance (LLVM generates near-optimal code)
+    ///
+    /// The critical add/sub operations with carry chains DO use inline assembly
+    /// for optimal performance. This hybrid approach balances performance and
+    /// maintainability, similar to the aarch64 implementation strategy.
+    ///
     /// Note: lambdaworks uses big-endian limb order (limbs[0] = MSB)
     #[inline(always)]
     pub fn cios_4_limbs(a: &[u64; 4], b: &[u64; 4], q: &[u64; 4], mu: u64) -> [u64; 4] {
