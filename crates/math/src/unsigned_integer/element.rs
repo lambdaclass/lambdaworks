@@ -524,8 +524,14 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
         let mut string = value;
         let mut char_iterator = value.chars();
         if string.len() > 2
-            && char_iterator.next().unwrap() == '0'
-            && char_iterator.next().unwrap() == 'x'
+            && char_iterator
+                .next()
+                .expect("string length > 2 guarantees first char exists")
+                == '0'
+            && char_iterator
+                .next()
+                .expect("string length > 2 guarantees second char exists")
+                == 'x'
         {
             string = &string[2..];
         }
