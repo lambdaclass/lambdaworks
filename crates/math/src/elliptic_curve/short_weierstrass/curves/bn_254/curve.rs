@@ -47,6 +47,11 @@ impl IsShortWeierstrass for BN254Curve {
     fn b() -> FieldElement<Self::BaseField> {
         FieldElement::from(3)
     }
+
+    #[inline(always)]
+    fn a_is_zero() -> bool {
+        true
+    }
 }
 
 impl ShortWeierstrassProjectivePoint<BN254Curve> {

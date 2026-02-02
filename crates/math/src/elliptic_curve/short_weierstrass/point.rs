@@ -137,39 +137,41 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
     }
 
     /// Performs the group operation between a point and itself a + a = 2a in
-    /// additive notation
+    /// additive notation.
+    /// Optimized for a=0 curves (like BN254, BLS12-381) which skip the a*z² term.
     pub fn double(&self) -> Self {
         if self.is_neutral_element() {
             return self.clone();
         }
         let [px, py, pz] = self.coordinates();
 
-        let px_square = px * px;
-        let three_px_square = &px_square + &px_square + &px_square;
-        let w = E::a() * pz * pz + three_px_square;
-        let w_square = &w * &w;
+        let px_square = px.square();
+        let three_px_square = px_square.double() + &px_square;
+
+        // For a=0 curves, skip the E::a() * pz² term entirely
+        let w = if E::a_is_zero() {
+            three_px_square
+        } else {
+            E::a() * pz.square() + three_px_square
+        };
+        let w_square = w.square();
 
         let s = py * pz;
-        let s_square = &s * &s;
+        let s_square = s.square();
         let s_cube = &s * &s_square;
-        let two_s_cube = &s_cube + &s_cube;
-        let four_s_cube = &two_s_cube + &two_s_cube;
-        let eight_s_cube = &four_s_cube + &four_s_cube;
+        let eight_s_cube = s_cube.double().double().double();
 
         let b = px * py * &s;
-        let two_b = &b + &b;
-        let four_b = &two_b + &two_b;
-        let eight_b = &four_b + &four_b;
+        let four_b = b.double().double();
+        let eight_b = four_b.double();
 
-        let h = &w_square - eight_b;
+        let h = &w_square - &eight_b;
         let hs = &h * &s;
 
-        let pys_square = py * py * s_square;
-        let two_pys_square = &pys_square + &pys_square;
-        let four_pys_square = &two_pys_square + &two_pys_square;
-        let eight_pys_square = &four_pys_square + &four_pys_square;
+        let pys_square = py.square() * s_square;
+        let eight_pys_square = pys_square.double().double().double();
 
-        let xp = &hs + &hs;
+        let xp = hs.double();
         let yp = w * (four_b - &h) - eight_pys_square;
         let zp = eight_s_cube;
 
