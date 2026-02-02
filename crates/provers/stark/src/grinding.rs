@@ -105,7 +105,7 @@ fn get_inner_hash(seed: &[u8; 32], grinding_factor: u8) -> [u8; 32] {
 
 #[cfg(test)]
 mod test {
-    use crate::grinding::is_valid_nonce;
+    use crate::grinding::{generate_nonce, is_valid_nonce};
 
     #[test]
     fn test_invalid_nonce_grinding_factor_6() {
@@ -189,5 +189,42 @@ mod test {
         let nonce = 0x4cc3123f;
         let grinding_factor = 33;
         assert!(is_valid_nonce(&seed, nonce, grinding_factor));
+    }
+
+    #[test]
+    fn test_is_valid_nonce_grinding_factor_0() {
+        let seed = [0u8; 32];
+        // Any nonce should be valid when grinding_factor is 0 (no leading zeros required)
+        assert!(is_valid_nonce(&seed, 0, 0));
+        assert!(is_valid_nonce(&seed, u64::MAX, 0));
+    }
+
+    #[test]
+    fn test_generate_nonce_grinding_factor_0() {
+        let seed = [0u8; 32];
+        // Should return Some(0) immediately when grinding_factor is 0
+        assert_eq!(generate_nonce(&seed, 0), Some(0));
+    }
+
+    #[test]
+    fn test_is_valid_nonce_grinding_factor_64() {
+        let seed = [0u8; 32];
+        // grinding_factor 64 requires all 64 leading zeros (only hash with top 8 bytes == 0 passes)
+        // This is extremely unlikely for any nonce, so we just verify it doesn't panic
+        assert!(!is_valid_nonce(&seed, 0, 64));
+    }
+
+    #[test]
+    #[should_panic(expected = "grinding_factor must be at most 64")]
+    fn test_is_valid_nonce_grinding_factor_overflow() {
+        let seed = [0u8; 32];
+        is_valid_nonce(&seed, 0, 65);
+    }
+
+    #[test]
+    #[should_panic(expected = "grinding_factor must be at most 64")]
+    fn test_generate_nonce_grinding_factor_overflow() {
+        let seed = [0u8; 32];
+        generate_nonce(&seed, 65);
     }
 }

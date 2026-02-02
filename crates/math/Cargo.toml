@@ -95,3 +95,11 @@ harness = false
 [[bench]]
 name = "iai_fft"
 harness = false
+
+[[bench]]
+name = "criterion_goldilocks_hybrid"
+harness = false
+
+[[bench]]
+name = "criterion_goldilocks_comparison"
+harness = false
