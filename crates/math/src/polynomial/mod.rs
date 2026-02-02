@@ -76,7 +76,8 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
             }
         }
 
-        FieldElement::inplace_batch_inverse(&mut denominators).unwrap();
+        FieldElement::inplace_batch_inverse(&mut denominators)
+            .expect("batch inverse failed: denominators contain a zero element, which should not happen as xs are unique");
 
         let mut result = Polynomial::zero();
 
