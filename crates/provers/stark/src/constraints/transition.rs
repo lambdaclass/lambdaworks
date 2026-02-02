@@ -111,7 +111,8 @@ where
         let trace_primitive_root = &domain.trace_primitive_root;
         let coset_offset = &domain.coset_offset;
         let lde_root_order = u64::from((blowup_factor * trace_length).trailing_zeros());
-        let lde_root = F::get_primitive_root_of_unity(lde_root_order).unwrap();
+        let lde_root = F::get_primitive_root_of_unity(lde_root_order)
+            .expect("primitive root of unity must exist for LDE domain size");
 
         let end_exemptions_poly = self.end_exemptions_poly(trace_primitive_root, trace_length);
 
@@ -135,7 +136,8 @@ where
                 .map(|exponent| {
                     let x = lde_root.pow(exponent);
                     let offset_times_x = coset_offset * &x;
-                    let offset_exponent = trace_length * self.periodic_exemptions_offset().unwrap()
+                    let offset_exponent = trace_length * self.periodic_exemptions_offset()
+                        .expect("periodic_exemptions_offset must be Some when exemptions_period is Some")
                         / exemptions_period;
 
                     let numerator = offset_times_x.pow(trace_length / exemptions_period)
@@ -159,7 +161,7 @@ where
                 domain.interpolation_domain_size,
                 coset_offset,
             )
-            .unwrap();
+            .expect("FFT evaluation of end exemptions polynomial must be within field's two-adicity limit");
 
             let cycled_evaluations = evaluations
                 .iter()
@@ -184,7 +186,8 @@ where
                 })
                 .collect_vec();
 
-            FieldElement::inplace_batch_inverse(&mut evaluations).unwrap();
+            FieldElement::inplace_batch_inverse(&mut evaluations)
+                .expect("zerofier evaluations are non-zero because (offset_coset)^(n/period) and trace_root^offset*(n/period) are from disjoint subgroups");
 
             // FIXME: Instead of computing this evaluations for each constraint, they can be computed
             // once for every constraint with the same end exemptions (combination of end_exemptions()
@@ -195,7 +198,7 @@ where
                 domain.interpolation_domain_size,
                 coset_offset,
             )
-            .unwrap();
+            .expect("FFT evaluation of end exemptions polynomial must be within field's two-adicity limit");
 
             let cycled_evaluations = evaluations
                 .iter()
@@ -225,7 +228,9 @@ where
 
             debug_assert!(self.periodic_exemptions_offset().is_some());
 
-            let periodic_exemptions_offset = self.periodic_exemptions_offset().unwrap();
+            let periodic_exemptions_offset = self
+                .periodic_exemptions_offset()
+                .expect("periodic_exemptions_offset must be Some when exemptions_period is Some");
             let offset_exponent = trace_length * periodic_exemptions_offset / exemptions_period;
 
             let numerator = -trace_primitive_root.pow(offset_exponent)
@@ -241,7 +246,7 @@ where
         (-trace_primitive_root.pow(self.offset() * trace_length / self.period())
             + z.pow(trace_length / self.period()))
         .inv()
-        .unwrap()
+        .expect("z is sampled outside primitive roots so denominator is non-zero")
             * end_exemptions_poly.evaluate(z)
     }
 }
