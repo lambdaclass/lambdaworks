@@ -2035,6 +2035,229 @@ mod x86_64_asm {
         }
         t
     }
+
+    /// MULX-based CIOS Montgomery multiplication for 4 limbs (256-bit)
+    /// Requires BMI2 (available on Intel Haswell 2013+, AMD Excavator 2015+)
+    ///
+    /// MULX advantages over MUL:
+    /// - Doesn't clobber flags (allows better instruction scheduling)
+    /// - Explicit output registers (not hardcoded to rdx:rax)
+    /// - Can be interleaved with add/adc chains more efficiently
+    #[cfg(target_feature = "bmi2")]
+    #[inline(always)]
+    pub fn cios_4_limbs_mulx(a: &[u64; 4], b: &[u64; 4], q: &[u64; 4], mu: u64) -> [u64; 4] {
+        let mut t = [0u64; 4];
+        let mut t_extra: u64;
+
+        for i in (0..4).rev() {
+            let bi = b[i];
+
+            // Multiply-accumulate: t += a * b[i] using MULX
+            // MULX puts the multiplier in RDX and outputs hi:lo to any registers
+            let (hi0, hi1, hi2, hi3): (u64, u64, u64, u64);
+            let mut carry: u64;
+            unsafe {
+                asm!(
+                    // a[3] * b[i]
+                    "mulx {hi0}, {lo}, {a3}",
+                    "add {t3}, {lo}",
+                    // a[2] * b[i]
+                    "mulx {hi1}, {lo}, {a2}",
+                    "adc {t2}, {lo}",
+                    // a[1] * b[i]
+                    "mulx {hi2}, {lo}, {a1}",
+                    "adc {t1}, {lo}",
+                    // a[0] * b[i]
+                    "mulx {hi3}, {lo}, {a0}",
+                    "adc {t0}, {lo}",
+                    "setc {carry}",
+
+                    inout("rdx") bi => _,
+                    a0 = in(reg) a[0],
+                    a1 = in(reg) a[1],
+                    a2 = in(reg) a[2],
+                    a3 = in(reg) a[3],
+                    t0 = inout(reg) t[0],
+                    t1 = inout(reg) t[1],
+                    t2 = inout(reg) t[2],
+                    t3 = inout(reg) t[3],
+                    lo = out(reg) _,
+                    hi0 = out(reg) hi0,
+                    hi1 = out(reg) hi1,
+                    hi2 = out(reg) hi2,
+                    hi3 = out(reg) hi3,
+                    carry = out(reg_byte) carry,
+                    options(pure, nomem, nostack),
+                );
+            }
+
+            // Add the high parts with carry chain
+            unsafe {
+                asm!(
+                    "add {t2}, {hi0}",
+                    "adc {t1}, {hi1}",
+                    "adc {t0}, {hi2}",
+                    "adc {carry}, {hi3}",
+                    t0 = inout(reg) t[0],
+                    t1 = inout(reg) t[1],
+                    t2 = inout(reg) t[2],
+                    hi0 = in(reg) hi0,
+                    hi1 = in(reg) hi1,
+                    hi2 = in(reg) hi2,
+                    hi3 = in(reg) hi3,
+                    carry = inout(reg) carry as u64 => carry,
+                    options(pure, nomem, nostack),
+                );
+            }
+            t_extra = carry;
+
+            // Montgomery reduction step
+            let m = t[3].wrapping_mul(mu);
+
+            // t += m * q using MULX, then shift right
+            let (qhi0, qhi1, qhi2, qhi3): (u64, u64, u64, u64);
+            unsafe {
+                asm!(
+                    // m * q[3]
+                    "mulx {hi0}, {lo}, {q3}",
+                    "add {t3}, {lo}",
+                    // m * q[2]
+                    "mulx {hi1}, {lo}, {q2}",
+                    "adc {t2}, {lo}",
+                    // m * q[1]
+                    "mulx {hi2}, {lo}, {q1}",
+                    "adc {t1}, {lo}",
+                    // m * q[0]
+                    "mulx {hi3}, {lo}, {q0}",
+                    "adc {t0}, {lo}",
+                    "adc {extra}, 0",
+
+                    inout("rdx") m => _,
+                    q0 = in(reg) q[0],
+                    q1 = in(reg) q[1],
+                    q2 = in(reg) q[2],
+                    q3 = in(reg) q[3],
+                    t0 = inout(reg) t[0],
+                    t1 = inout(reg) t[1],
+                    t2 = inout(reg) t[2],
+                    t3 = inout(reg) t[3],
+                    extra = inout(reg) t_extra,
+                    lo = out(reg) _,
+                    hi0 = out(reg) qhi0,
+                    hi1 = out(reg) qhi1,
+                    hi2 = out(reg) qhi2,
+                    hi3 = out(reg) qhi3,
+                    options(pure, nomem, nostack),
+                );
+            }
+
+            // Shift right by 64 bits and add high parts
+            // t[3] becomes t[2] + qhi0, t[2] becomes t[1] + qhi1, etc.
+            unsafe {
+                asm!(
+                    "add {t2}, {hi0}",
+                    "adc {t1}, {hi1}",
+                    "adc {t0}, {hi2}",
+                    "adc {extra}, {hi3}",
+                    t0 = inout(reg) t[0],
+                    t1 = inout(reg) t[1],
+                    t2 = inout(reg) t[2],
+                    hi0 = in(reg) qhi0,
+                    hi1 = in(reg) qhi1,
+                    hi2 = in(reg) qhi2,
+                    hi3 = in(reg) qhi3,
+                    extra = inout(reg) t_extra,
+                    options(pure, nomem, nostack),
+                );
+            }
+
+            // Shift: t[3] = t[2], t[2] = t[1], t[1] = t[0], t[0] = t_extra
+            t[3] = t[2];
+            t[2] = t[1];
+            t[1] = t[0];
+            t[0] = t_extra;
+        }
+
+        // Final reduction
+        if t_extra > 0 || const_ge_4(&t, q) {
+            sub_4(&mut t, q);
+        }
+        t
+    }
+
+    /// MULX-based CIOS Montgomery multiplication for 6 limbs (384-bit)
+    /// Requires BMI2 (available on Intel Haswell 2013+, AMD Excavator 2015+)
+    #[cfg(target_feature = "bmi2")]
+    #[inline(always)]
+    pub fn cios_6_limbs_mulx(a: &[u64; 6], b: &[u64; 6], q: &[u64; 6], mu: u64) -> [u64; 6] {
+        let mut t = [0u64; 6];
+        let mut t_extra = [0u64; 2];
+
+        for i in (0..6).rev() {
+            let bi = b[i];
+
+            // Multiply-accumulate using MULX
+            // Since we have 6 limbs and limited registers, we do this in parts
+            let mut carry: u128 = 0;
+            for j in (0..6).rev() {
+                let mut lo: u64;
+                let mut hi: u64;
+                unsafe {
+                    asm!(
+                        "mulx {hi}, {lo}, {aj}",
+                        inout("rdx") bi => _,
+                        aj = in(reg) a[j],
+                        lo = out(reg) lo,
+                        hi = out(reg) hi,
+                        options(pure, nomem, nostack),
+                    );
+                }
+                let cs = t[j] as u128 + lo as u128 + carry;
+                carry = (cs >> 64) + hi as u128;
+                t[j] = cs as u64;
+            }
+            let cs = (t_extra[1] as u128) + carry;
+            t_extra[0] = (cs >> 64) as u64;
+            t_extra[1] = cs as u64;
+
+            // Montgomery reduction
+            let m = t[5].wrapping_mul(mu);
+
+            // t += m * q, then shift right
+            let mut c: u128 = 0;
+            for j in (0..6).rev() {
+                let mut lo: u64;
+                let mut hi: u64;
+                unsafe {
+                    asm!(
+                        "mulx {hi}, {lo}, {qj}",
+                        inout("rdx") m => _,
+                        qj = in(reg) q[j],
+                        lo = out(reg) lo,
+                        hi = out(reg) hi,
+                        options(pure, nomem, nostack),
+                    );
+                }
+                let cs = t[j] as u128 + lo as u128 + c;
+                c = (cs >> 64) + hi as u128;
+                if j < 5 {
+                    t[j + 1] = cs as u64;
+                }
+            }
+            let cs = (t_extra[1] as u128) + c;
+            c = cs >> 64;
+            t[0] = cs as u64;
+            t_extra[1] = t_extra[0] + c as u64;
+            t_extra[0] = 0;
+        }
+
+        // Final reduction
+        let overflow = t_extra[1] > 0;
+        if overflow || const_ge_6(&t, q) {
+            sub_6(&mut t, q);
+        }
+        t
+    }
 }
 
 // x86-64 assembly dispatch methods

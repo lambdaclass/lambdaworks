@@ -376,6 +376,7 @@ mod x86_64_asm {
     #[inline(always)]
     pub fn mul_asm(a: u64, b: u64) -> u64 {
         let result: u64;
+        let zero: u64 = 0;
         // SAFETY: This assembly block performs modular multiplication for the Goldilocks prime.
         // The MUL instruction uses RAX implicitly for the multiplicand and outputs to RDX:RAX.
         // We then perform fast reduction using the identity 2^64 ≡ EPSILON (mod p).
@@ -384,43 +385,39 @@ mod x86_64_asm {
                 // 128-bit multiply: RDX:RAX = a * b
                 "mul {b}",
                 // Now RAX = low 64 bits, RDX = high 64 bits
-                // Reduce: result = lo + hi * EPSILON (mod p)
-                // But hi * EPSILON can overflow, so we need to be careful
                 //
-                // Split hi into hi_hi (top 32 bits) and hi_lo (bottom 32 bits)
-                // hi * EPSILON = hi * (2^32 - 1) = (hi << 32) - hi
+                // Reduction for p = 2^64 - 2^32 + 1:
+                // We use: 2^64 ≡ 2^32 - 1 (mod p)
+                // So: hi * 2^64 ≡ hi * (2^32 - 1) = (hi << 32) - hi (mod p)
                 //
-                // Algorithm:
-                // 1. t0 = lo - hi_hi (with borrow handling)
-                // 2. t1 = hi_lo * EPSILON = (hi_lo << 32) - hi_lo
-                // 3. result = t0 + t1 (with overflow handling)
+                // Split hi into hi_hi (top 32 bits) and hi_lo (bottom 32 bits):
+                // hi = hi_hi * 2^32 + hi_lo
+                // hi * (2^32 - 1) = hi_hi * 2^64 - hi_hi * 2^32 + hi_lo * 2^32 - hi_lo
+                //                 = hi_hi * (2^32 - 1) - hi_hi * 2^32 + hi_lo * 2^32 - hi_lo  (mod p)
+                //                 ≡ -hi_hi + (hi_lo << 32) - hi_lo (mod p)
+                //
+                // Final: result = lo - hi_hi + (hi_lo << 32) - hi_lo (mod p)
 
-                // Save hi in a temp register
+                // Save hi, extract hi_hi and hi_lo
                 "mov {hi}, rdx",
-
-                // hi_hi = hi >> 32
-                "mov {hi_hi}, {hi}",
+                "mov {hi_hi}, rdx",
                 "shr {hi_hi}, 32",
-
-                // hi_lo = hi & 0xFFFFFFFF
                 "mov {hi_lo:e}, {hi:e}",  // Zero-extends to 64 bits
 
-                // t0 = lo - hi_hi
-                "sub rax, {hi_hi}",
-                // if borrow, subtract EPSILON
-                "mov {tmp}, 0",
-                "cmovc {tmp}, {eps}",
-                "sub rax, {tmp}",
-
-                // t1 = hi_lo * EPSILON = (hi_lo << 32) - hi_lo
+                // Compute (hi_lo << 32) - hi_lo using LEA for efficiency
+                // t1 = hi_lo * (2^32 - 1) = hi_lo * 0xFFFFFFFF
                 "mov {t1}, {hi_lo}",
                 "shl {t1}, 32",
                 "sub {t1}, {hi_lo}",
 
-                // result = t0 + t1
+                // result = lo - hi_hi + t1
+                "sub rax, {hi_hi}",
+                "mov {tmp}, {zero}",
+                "cmovc {tmp}, {eps}",
+                "sub rax, {tmp}",
+
                 "add rax, {t1}",
-                // if overflow, add EPSILON
-                "mov {tmp}, 0",
+                "mov {tmp}, {zero}",
                 "cmovc {tmp}, {eps}",
                 "add rax, {tmp}",
 
@@ -432,6 +429,56 @@ mod x86_64_asm {
                 hi_lo = out(reg) _,
                 t1 = out(reg) _,
                 tmp = out(reg) _,
+                zero = in(reg) zero,
+                eps = in(reg) EPSILON,
+                options(pure, nomem, nostack)
+            );
+        }
+        result
+    }
+
+    /// MULX-based multiplication for CPUs with BMI2 (Broadwell 2013+).
+    /// MULX doesn't clobber flags, allowing better instruction scheduling.
+    #[cfg(target_feature = "bmi2")]
+    #[inline(always)]
+    pub fn mul_asm_mulx(a: u64, b: u64) -> u64 {
+        let result: u64;
+        let zero: u64 = 0;
+        unsafe {
+            asm!(
+                // MULX: {hi}:{lo} = RDX * {b}, doesn't touch flags
+                "mulx {hi}, {lo}, {b}",
+
+                // Extract hi_hi and hi_lo
+                "mov {hi_hi}, {hi}",
+                "shr {hi_hi}, 32",
+                "mov {hi_lo:e}, {hi:e}",
+
+                // t1 = hi_lo * (2^32 - 1)
+                "mov {t1}, {hi_lo}",
+                "shl {t1}, 32",
+                "sub {t1}, {hi_lo}",
+
+                // result = lo - hi_hi + t1
+                "sub {lo}, {hi_hi}",
+                "mov {tmp}, {zero}",
+                "cmovc {tmp}, {eps}",
+                "sub {lo}, {tmp}",
+
+                "add {lo}, {t1}",
+                "mov {tmp}, {zero}",
+                "cmovc {tmp}, {eps}",
+                "add {lo}, {tmp}",
+
+                inout("rdx") a => _,
+                b = in(reg) b,
+                lo = out(reg) result,
+                hi = out(reg) _,
+                hi_hi = out(reg) _,
+                hi_lo = out(reg) _,
+                t1 = out(reg) _,
+                tmp = out(reg) _,
+                zero = in(reg) zero,
                 eps = in(reg) EPSILON,
                 options(pure, nomem, nostack)
             );
@@ -441,10 +488,52 @@ mod x86_64_asm {
 
     /// Optimized squaring for Goldilocks field using x86-64 assembly.
     /// Computes a^2 mod p where p = 2^64 - 2^32 + 1.
+    ///
+    /// While mathematically equivalent to mul(a, a), having a dedicated
+    /// function allows the compiler to potentially optimize call sites
+    /// where the same value is squared.
     #[inline(always)]
     pub fn square_asm(a: u64) -> u64 {
-        // Squaring uses the same algorithm as multiplication
-        mul_asm(a, a)
+        let result: u64;
+        let zero: u64 = 0;
+        unsafe {
+            asm!(
+                // a^2: RAX already has a, multiply by itself
+                "mul rax",
+
+                // Same reduction as mul_asm
+                "mov {hi}, rdx",
+                "mov {hi_hi}, rdx",
+                "shr {hi_hi}, 32",
+                "mov {hi_lo:e}, {hi:e}",
+
+                "mov {t1}, {hi_lo}",
+                "shl {t1}, 32",
+                "sub {t1}, {hi_lo}",
+
+                "sub rax, {hi_hi}",
+                "mov {tmp}, {zero}",
+                "cmovc {tmp}, {eps}",
+                "sub rax, {tmp}",
+
+                "add rax, {t1}",
+                "mov {tmp}, {zero}",
+                "cmovc {tmp}, {eps}",
+                "add rax, {tmp}",
+
+                inout("rax") a => result,
+                out("rdx") _,
+                hi = out(reg) _,
+                hi_hi = out(reg) _,
+                hi_lo = out(reg) _,
+                t1 = out(reg) _,
+                tmp = out(reg) _,
+                zero = in(reg) zero,
+                eps = in(reg) EPSILON,
+                options(pure, nomem, nostack)
+            );
+        }
+        result
     }
 }
 
