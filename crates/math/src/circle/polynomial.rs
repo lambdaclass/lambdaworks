@@ -1,7 +1,7 @@
 extern crate alloc;
 #[cfg(feature = "alloc")]
 use super::{
-    cfft::{cfft, icfft, order_cfft_result_naive, order_icfft_input_naive},
+    cfft::{cfft, icfft, order_cfft_result_in_place, order_icfft_input_in_place},
     cosets::Coset,
     twiddles::{get_twiddles, TwiddlesConfig},
 };
@@ -33,7 +33,9 @@ pub fn evaluate_cfft(
     cfft(&mut coeff, twiddles);
 
     // The cfft returns the evaluations in a certain order, so we permute them to get the natural order.
-    order_cfft_result_naive(&coeff)
+    // This is now done in-place without allocating a new vector.
+    order_cfft_result_in_place(&mut coeff);
+    coeff
 }
 
 /// Interpolates the 2^n evaluations of a two-variables polynomial of degree 2^n - 1 on the points of the standard coset of size 2^n.
@@ -58,19 +60,20 @@ pub fn interpolate_cfft(
     let twiddles = get_twiddles(coset, config);
 
     // For our algorithm to work, we must give as input the evaluations ordered in a certain way.
-    let mut eval_ordered = order_icfft_input_naive(&mut eval);
-    icfft(&mut eval_ordered, twiddles);
+    // This is now done in-place without allocating a new vector.
+    order_icfft_input_in_place(&mut eval);
+    icfft(&mut eval, twiddles);
 
-    // The icfft returns the polynomial coefficients in bit reverse order. So we premute it to get the natural order.
-    in_place_bit_reverse_permute::<FieldElement<Mersenne31Field>>(&mut eval_ordered);
+    // The icfft returns the polynomial coefficients in bit reverse order. So we permute it to get the natural order.
+    in_place_bit_reverse_permute::<FieldElement<Mersenne31Field>>(&mut eval);
 
     // The icfft returns all the coefficients multiplied by 2^n, the length of the evaluations.
     // So we multiply every element that outputs the icfft by the inverse of 2^n to get the actual coefficients.
-    // Note that this `unwrap` will never panic because eval.len() != 0.
+    // Note that this `expect` will never panic because eval.len() != 0.
     let factor = (FieldElement::<Mersenne31Field>::from(eval.len() as u64))
         .inv()
-        .unwrap();
-    eval_ordered.iter().map(|coef| coef * factor).collect()
+        .expect("eval.len() is guaranteed to be non-zero at this point");
+    eval.iter().map(|coef| coef * factor).collect()
 }
 
 #[cfg(test)]
