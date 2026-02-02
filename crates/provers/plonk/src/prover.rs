@@ -505,8 +505,9 @@ where
             .map(|((p2, p1), co)| (p2 * &alpha + p1) * &alpha + co)
             .collect();
 
-        let mut zh_eval = Polynomial::evaluate_offset_fft(&zh, 1, Some(degree), offset)
-            .expect("FFT evaluation of vanishing polynomial must be within field's two-adicity limit");
+        let mut zh_eval = Polynomial::evaluate_offset_fft(&zh, 1, Some(degree), offset).expect(
+            "FFT evaluation of vanishing polynomial must be within field's two-adicity limit",
+        );
         FieldElement::inplace_batch_inverse(&mut zh_eval)
             .expect("vanishing polynomial evaluations are non-zero because evaluated on coset offset from the roots of unity");
         let c: Vec<_> = p_eval
