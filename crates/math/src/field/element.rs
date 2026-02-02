@@ -1101,12 +1101,12 @@ mod tests {
         #[test]
         fn test_parallel_batch_inverse_single_element() {
             let original = FieldElement::<Stark252PrimeField>::from(42u64);
-            let mut numbers = vec![original.clone()];
+            let mut numbers = vec![original];
             FieldElement::inplace_batch_inverse_parallel(&mut numbers)
                 .expect("single element batch should succeed");
 
             assert_eq!(
-                &numbers[0] * &original,
+                numbers[0] * original,
                 FieldElement::<Stark252PrimeField>::one()
             );
         }
@@ -1177,13 +1177,13 @@ mod tests {
             // Both should produce valid inverses (not necessarily identical due to chunking)
             for (i, orig) in input.iter().enumerate() {
                 assert_eq!(
-                    &sequential[i] * orig,
+                    sequential[i] * orig,
                     FieldElement::<Stark252PrimeField>::one(),
                     "sequential inverse at index {} is incorrect",
                     i
                 );
                 assert_eq!(
-                    &parallel[i] * orig,
+                    parallel[i] * orig,
                     FieldElement::<Stark252PrimeField>::one(),
                     "parallel inverse at index {} is incorrect",
                     i
