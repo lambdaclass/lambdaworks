@@ -470,7 +470,7 @@ pub trait IsStarkProver<
         in_place_bit_reverse_permute(&mut lde_composition_poly_evaluations);
 
         // Pre-allocate merged vector
-        let mut lde_composition_poly_evaluations_merged = Vec::with_capacity(num_rows / 2);
+        let mut lde_composition_poly_evaluations_merged = Vec::with_capacity(lde_len / 2);
         for chunk in lde_composition_poly_evaluations.chunks(2) {
             let (mut chunk0, chunk1) = (chunk[0].clone(), &chunk[1]);
             chunk0.extend_from_slice(chunk1);
