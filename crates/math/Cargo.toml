@@ -103,3 +103,7 @@ harness = false
 [[bench]]
 name = "criterion_goldilocks_comparison"
 harness = false
+
+[[bench]]
+name = "criterion_evaluate_offset_fft"
+harness = false
