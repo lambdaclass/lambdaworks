@@ -1,4 +1,4 @@
-use core::fmt::Display;
+use core::fmt;
 
 /// Errors that can occur during polynomial operations.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -9,8 +9,8 @@ pub enum PolynomialError {
     XgcdBothZero,
 }
 
-impl Display for PolynomialError {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+impl fmt::Display for PolynomialError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             PolynomialError::DivisionByZero => {
                 write!(f, "Cannot divide by the zero polynomial")
@@ -32,15 +32,25 @@ pub enum MultilinearError {
     ChisAndEvalsLengthMismatch(usize, usize),
 }
 
-impl Display for MultilinearError {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+impl fmt::Display for MultilinearError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            MultilinearError::InvalidMergeLength => write!(f, "Invalid Merge Length"),
-            MultilinearError::IncorrectNumberofEvaluationPoints(x, y) => {
-                write!(f, "points: {x}, vars: {y}")
+            MultilinearError::InvalidMergeLength => {
+                write!(f, "Invalid merge length for multilinear polynomial")
             }
-            MultilinearError::ChisAndEvalsLengthMismatch(x, y) => {
-                write!(f, "chis: {x}, evals: {y}")
+            MultilinearError::IncorrectNumberofEvaluationPoints(points, vars) => {
+                write!(
+                    f,
+                    "Incorrect number of evaluation points: got {} points, expected {} variables",
+                    points, vars
+                )
+            }
+            MultilinearError::ChisAndEvalsLengthMismatch(chis, evals) => {
+                write!(
+                    f,
+                    "Chis and evals length mismatch: chis has {} elements, evals has {} elements",
+                    chis, evals
+                )
             }
         }
     }

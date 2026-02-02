@@ -51,28 +51,26 @@ impl<
 {
 }
 
-#[derive(Debug)]
-pub enum ProvingError {
-    WrongParameter(String),
-    EmptyCommitment,
-    /// No AIRs provided to multi_prove
-    EmptyAirs,
-    /// Error during FFT operation
-    FFTError(FFTError),
-    /// Failed to get primitive root of unity for the given order
-    PrimitiveRootNotFound(u64),
-    /// Batch inversion failed (likely due to zero element)
-    BatchInversionFailed,
-    /// Merkle tree operation failed
-    MerkleTreeError(String),
-    /// Field operation failed (e.g., inversion of zero)
-    FieldOperationError(String),
-}
+use thiserror::Error;
 
-impl From<FFTError> for ProvingError {
-    fn from(err: FFTError) -> Self {
-        ProvingError::FFTError(err)
-    }
+#[derive(Debug, Error)]
+pub enum ProvingError {
+    #[error("Wrong parameter: {0}")]
+    WrongParameter(String),
+    #[error("Empty commitment: tree construction returned None")]
+    EmptyCommitment,
+    #[error("No AIRs provided to multi_prove")]
+    EmptyAirs,
+    #[error("FFT operation failed: {0}")]
+    FFTError(#[from] FFTError),
+    #[error("Failed to get primitive root of unity for order {0}")]
+    PrimitiveRootNotFound(u64),
+    #[error("Batch inversion failed, likely due to zero element")]
+    BatchInversionFailed,
+    #[error("Merkle tree operation failed: {0}")]
+    MerkleTreeError(String),
+    #[error("Field operation failed: {0}")]
+    FieldOperationError(String),
 }
 
 impl From<lambdaworks_math::field::errors::FieldError> for ProvingError {

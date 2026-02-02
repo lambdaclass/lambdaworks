@@ -1,4 +1,4 @@
-use core::fmt::Display;
+use core::fmt;
 
 use crate::field::errors::FieldError;
 
@@ -11,26 +11,41 @@ pub enum FFTError {
     InputError(usize),
     OrderError(u64),
     DomainSizeError(usize),
+    /// Field error during FFT operation
+    FieldError(FieldError),
     #[cfg(feature = "cuda")]
     CudaError(CudaError),
 }
 
-impl Display for FFTError {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+impl fmt::Display for FFTError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            FFTError::RootOfUnityError(_) => write!(f, "Could not calculate root of unity"),
-            FFTError::InputError(v) => {
-                write!(f, "Input length is {v}, which is not a power of two")
+            FFTError::RootOfUnityError(order) => {
+                write!(
+                    f,
+                    "Could not calculate primitive root of unity for order {}",
+                    order
+                )
             }
-            FFTError::OrderError(v) => {
-                write!(f, "Order should be less than or equal to 63, but is {v}")
+            FFTError::InputError(len) => {
+                write!(f, "Input length {} is not a power of two", len)
             }
-            FFTError::DomainSizeError(_) => {
-                write!(f, "Domain size exceeds two adicity of the field")
+            FFTError::OrderError(order) => {
+                write!(
+                    f,
+                    "Order should be less than or equal to 63, but is {}",
+                    order
+                )
+            }
+            FFTError::DomainSizeError(size) => {
+                write!(f, "Domain size {} exceeds two adicity of the field", size)
+            }
+            FFTError::FieldError(err) => {
+                write!(f, "Field error during FFT: {}", err)
             }
             #[cfg(feature = "cuda")]
-            FFTError::CudaError(_) => {
-                write!(f, "A CUDA related error has ocurred")
+            FFTError::CudaError(err) => {
+                write!(f, "CUDA error: {}", err)
             }
         }
     }
@@ -39,31 +54,26 @@ impl Display for FFTError {
 #[cfg(feature = "std")]
 impl std::error::Error for FFTError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match self {
-            #[cfg(feature = "cuda")]
-            FFTError::CudaError(_) => Some(e),
-            _ => None,
+        #[cfg(feature = "cuda")]
+        if let FFTError::CudaError(err) = self {
+            return Some(err);
         }
+        None
     }
 }
 
 #[cfg(feature = "cuda")]
 impl From<CudaError> for FFTError {
     fn from(error: CudaError) -> Self {
-        Self::CudaError(error)
+        FFTError::CudaError(error)
     }
 }
 
 impl From<FieldError> for FFTError {
     fn from(error: FieldError) -> Self {
         match error {
-            FieldError::DivisionByZero => {
-                panic!("Can't divide by zero during FFT");
-            }
-            FieldError::InvZeroError => {
-                panic!("Can't calculate inverse of zero during FFT");
-            }
             FieldError::RootOfUnityError(order) => FFTError::RootOfUnityError(order),
+            other => FFTError::FieldError(other),
         }
     }
 }

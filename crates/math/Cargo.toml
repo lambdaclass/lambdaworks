@@ -8,6 +8,7 @@ license.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+thiserror = { version = "1.0", optional = true }
 serde = { version = "1.0", default-features = false, features = [
     "derive",
 ], optional = true }
@@ -42,7 +43,7 @@ rand = { version = "0.8.5", features = ["std"] }
 
 [features]
 default = ["parallel", "std"]
-std = ["alloc", "serde?/std", "serde_json?/std"]
+std = ["alloc", "serde?/std", "serde_json?/std", "dep:thiserror"]
 alloc = []
 parallel = ["dep:rayon"]
 lambdaworks-serde-binary = ["dep:serde", "alloc"]

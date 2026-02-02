@@ -8,6 +8,7 @@ license.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+thiserror = "1.0"
 lambdaworks-math = { workspace = true, features = ["alloc"] }
 digest = "0.10.7"
 sha3 = { version = "0.10.8", default-features = false }

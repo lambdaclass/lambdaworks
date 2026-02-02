@@ -5,5 +5,6 @@ edition = "2021"
 
 
 [dependencies]
-lambdaworks-math.workspace = true
+thiserror = "1.0"
+lambdaworks-math = { workspace = true, features = ["std"] }
 lambdaworks-crypto.workspace = true

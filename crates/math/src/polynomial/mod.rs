@@ -2,11 +2,12 @@ use super::field::element::FieldElement;
 use crate::field::traits::{IsField, IsPrimeField, IsSubFieldOf};
 use alloc::string::{String, ToString};
 use alloc::{borrow::ToOwned, format, vec, vec::Vec};
+use core::fmt::{self, Display};
 use core::ops::{AddAssign, MulAssign, SubAssign};
-use core::{fmt::Display, ops, slice};
+use core::{ops, slice};
 pub mod dense_multilinear_poly;
-mod error;
-pub use error::PolynomialError;
+pub mod error;
+pub use error::{MultilinearError, PolynomialError};
 pub mod sparse_multilinear_poly;
 
 /// Represents the polynomial c_0 + c_1 * X + c_2 * X^2 + ... + c_n * X^n
@@ -1106,12 +1107,16 @@ pub enum InterpolateError {
 }
 
 impl Display for InterpolateError {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             InterpolateError::UnequalLengths(x, y) => {
-                write!(f, "xs and ys must be the same length. Got: {x} != {y}")
+                write!(
+                    f,
+                    "xs and ys must be the same length: got {} xs and {} ys",
+                    x, y
+                )
             }
-            InterpolateError::NonUniqueXs => write!(f, "xs values should be unique."),
+            InterpolateError::NonUniqueXs => write!(f, "xs values must be unique"),
         }
     }
 }
