@@ -2777,3 +2777,195 @@ mod tests {
         }
     }
 }
+
+// =====================================================
+// DIFFERENTIAL FUZZING: x86-64 ASM vs PURE RUST
+// =====================================================
+// Property-based tests comparing x86-64 assembly implementations
+// against pure Rust to ensure correctness across all inputs.
+
+#[cfg(all(test, target_arch = "x86_64", feature = "asm"))]
+mod differential_x86_64_asm_tests {
+    use super::*;
+    use crate::unsigned_integer::element::{U256, U384};
+    use proptest::prelude::*;
+
+    /// Generate random U256 values for testing
+    fn arb_u256() -> impl Strategy<Value = U256> {
+        (any::<u64>(), any::<u64>(), any::<u64>(), any::<u64>())
+            .prop_map(|(a, b, c, d)| U256 { limbs: [a, b, c, d] })
+    }
+
+    /// Generate random U384 values for testing
+    fn arb_u384() -> impl Strategy<Value = U384> {
+        (
+            any::<u64>(),
+            any::<u64>(),
+            any::<u64>(),
+            any::<u64>(),
+            any::<u64>(),
+            any::<u64>(),
+        )
+            .prop_map(|(a, b, c, d, e, f)| U384 {
+                limbs: [a, b, c, d, e, f],
+            })
+    }
+
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(1000))]
+
+        #[test]
+        fn test_add_4_limbs_asm_matches_rust(
+            a in arb_u256(),
+            b in arb_u256()
+        ) {
+            let (asm_result, asm_overflow) = x86_64_asm::add_4_limbs_asm(&a.limbs, &b.limbs);
+            let (rust_result, rust_overflow) = UnsignedInteger::add(&a, &b);
+
+            prop_assert_eq!(asm_result, rust_result.limbs,
+                "add_4_limbs_asm result mismatch for {:?} + {:?}", a, b);
+            prop_assert_eq!(asm_overflow, rust_overflow,
+                "add_4_limbs_asm overflow mismatch for {:?} + {:?}", a, b);
+        }
+
+        #[test]
+        fn test_sub_4_limbs_asm_matches_rust(
+            a in arb_u256(),
+            b in arb_u256()
+        ) {
+            let (asm_result, asm_borrow) = x86_64_asm::sub_4_limbs_asm(&a.limbs, &b.limbs);
+            let (rust_result, rust_borrow) = UnsignedInteger::sub(&a, &b);
+
+            prop_assert_eq!(asm_result, rust_result.limbs,
+                "sub_4_limbs_asm result mismatch for {:?} - {:?}", a, b);
+            prop_assert_eq!(asm_borrow, rust_borrow,
+                "sub_4_limbs_asm borrow mismatch for {:?} - {:?}", a, b);
+        }
+
+        #[test]
+        fn test_add_6_limbs_asm_matches_rust(
+            a in arb_u384(),
+            b in arb_u384()
+        ) {
+            let (asm_result, asm_overflow) = x86_64_asm::add_6_limbs_asm(&a.limbs, &b.limbs);
+            let (rust_result, rust_overflow) = UnsignedInteger::add(&a, &b);
+
+            prop_assert_eq!(asm_result, rust_result.limbs,
+                "add_6_limbs_asm result mismatch for {:?} + {:?}", a, b);
+            prop_assert_eq!(asm_overflow, rust_overflow,
+                "add_6_limbs_asm overflow mismatch for {:?} + {:?}", a, b);
+        }
+
+        #[test]
+        fn test_sub_6_limbs_asm_matches_rust(
+            a in arb_u384(),
+            b in arb_u384()
+        ) {
+            let (asm_result, asm_borrow) = x86_64_asm::sub_6_limbs_asm(&a.limbs, &b.limbs);
+            let (rust_result, rust_borrow) = UnsignedInteger::sub(&a, &b);
+
+            prop_assert_eq!(asm_result, rust_result.limbs,
+                "sub_6_limbs_asm result mismatch for {:?} - {:?}", a, b);
+            prop_assert_eq!(asm_borrow, rust_borrow,
+                "sub_6_limbs_asm borrow mismatch for {:?} - {:?}", a, b);
+        }
+    }
+
+    // Edge case tests
+    #[test]
+    fn test_add_4_limbs_edge_cases() {
+        // Zero + Zero
+        let zero = [0u64; 4];
+        let (result, overflow) = x86_64_asm::add_4_limbs_asm(&zero, &zero);
+        assert_eq!(result, zero);
+        assert!(!overflow);
+
+        // Max + 1 = overflow
+        let max = [u64::MAX; 4];
+        let one = [0, 0, 0, 1];
+        let (_, overflow) = x86_64_asm::add_4_limbs_asm(&max, &one);
+        assert!(overflow);
+
+        // Carry propagation test
+        let a = [0, 0, 0, u64::MAX];
+        let b = [0, 0, 0, 1];
+        let (result, overflow) = x86_64_asm::add_4_limbs_asm(&a, &b);
+        assert_eq!(result, [0, 0, 1, 0]);
+        assert!(!overflow);
+    }
+
+    #[test]
+    fn test_sub_4_limbs_edge_cases() {
+        // Zero - Zero
+        let zero = [0u64; 4];
+        let (result, borrow) = x86_64_asm::sub_4_limbs_asm(&zero, &zero);
+        assert_eq!(result, zero);
+        assert!(!borrow);
+
+        // 0 - 1 = underflow
+        let one = [0, 0, 0, 1];
+        let (_, borrow) = x86_64_asm::sub_4_limbs_asm(&zero, &one);
+        assert!(borrow);
+
+        // Borrow propagation test
+        let a = [0, 0, 1, 0];
+        let b = [0, 0, 0, 1];
+        let (result, borrow) = x86_64_asm::sub_4_limbs_asm(&a, &b);
+        assert_eq!(result, [0, 0, 0, u64::MAX]);
+        assert!(!borrow);
+    }
+
+    // CIOS differential tests with fixed modulus
+    #[test]
+    fn test_cios_4_limbs_matches_rust() {
+        // Use secp256k1 modulus for testing
+        let q = U256::from_hex_unchecked(
+            "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F",
+        );
+        let mu: u64 = 15580212934572586289; // precomputed -q^{-1} mod 2^64
+
+        // Test several random-ish values
+        let test_cases: Vec<(U256, U256)> = vec![
+            (U256::from_u64(1), U256::from_u64(1)),
+            (U256::from_u64(123456789), U256::from_u64(987654321)),
+            (
+                U256::from_hex_unchecked("deadbeefcafebabe"),
+                U256::from_hex_unchecked("0123456789abcdef"),
+            ),
+        ];
+
+        for (a, b) in test_cases {
+            let asm_result = x86_64_asm::cios_4_limbs(&a.limbs, &b.limbs, &q.limbs, mu);
+            let rust_result = MontgomeryAlgorithms::cios(&a, &b, &q, &mu);
+            assert_eq!(
+                asm_result, rust_result.limbs,
+                "CIOS 4-limbs mismatch for {:?} * {:?}",
+                a, b
+            );
+        }
+    }
+
+    #[test]
+    fn test_cios_6_limbs_matches_rust() {
+        // Use BLS12-381 modulus for testing
+        let q = U384::from_hex_unchecked(
+            "1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaab",
+        );
+        let mu: u64 = 9940570264628428797; // precomputed
+
+        let test_cases: Vec<(U384, U384)> = vec![
+            (U384::from_u64(1), U384::from_u64(1)),
+            (U384::from_u64(123456789), U384::from_u64(987654321)),
+        ];
+
+        for (a, b) in test_cases {
+            let asm_result = x86_64_asm::cios_6_limbs(&a.limbs, &b.limbs, &q.limbs, mu);
+            let rust_result = MontgomeryAlgorithms::cios(&a, &b, &q, &mu);
+            assert_eq!(
+                asm_result, rust_result.limbs,
+                "CIOS 6-limbs mismatch for {:?} * {:?}",
+                a, b
+            );
+        }
+    }
+}

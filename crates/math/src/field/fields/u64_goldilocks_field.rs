@@ -1115,3 +1115,144 @@ mod cubic_extension_tests {
         assert_eq!(c_div_a, b);
     }
 }
+
+// =====================================================
+// DIFFERENTIAL FUZZING: ASM vs PURE RUST
+// =====================================================
+// These tests compare x86-64 assembly implementations against
+// pure Rust to ensure correctness across all inputs.
+
+#[cfg(all(test, target_arch = "x86_64", feature = "asm"))]
+mod differential_asm_tests {
+    use super::*;
+    use proptest::prelude::*;
+
+    /// Pure Rust addition (reference implementation)
+    fn add_rust(a: u64, b: u64) -> u64 {
+        let (sum, over) = a.overflowing_add(b);
+        let (sum, over2) = sum.overflowing_add((over as u64) * EPSILON);
+        if over2 {
+            sum.wrapping_add(EPSILON)
+        } else {
+            sum
+        }
+    }
+
+    /// Pure Rust subtraction (reference implementation)
+    fn sub_rust(a: u64, b: u64) -> u64 {
+        let (diff, under) = a.overflowing_sub(b);
+        let (diff, under2) = diff.overflowing_sub((under as u64) * EPSILON);
+        if under2 {
+            diff.wrapping_sub(EPSILON)
+        } else {
+            diff
+        }
+    }
+
+    /// Pure Rust multiplication (reference implementation)
+    fn mul_rust(a: u64, b: u64) -> u64 {
+        let x = (a as u128) * (b as u128);
+        let x_lo = x as u64;
+        let x_hi = (x >> 64) as u64;
+        let x_hi_hi = x_hi >> 32;
+        let x_hi_lo = x_hi & EPSILON;
+
+        let (t0, borrow) = x_lo.overflowing_sub(x_hi_hi);
+        let t0 = if borrow { t0.wrapping_sub(EPSILON) } else { t0 };
+
+        let t1 = (x_hi_lo << 32).wrapping_sub(x_hi_lo);
+
+        let (result, carry) = t0.overflowing_add(t1);
+        if carry {
+            result.wrapping_add(EPSILON)
+        } else {
+            result
+        }
+    }
+
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(10000))]
+
+        #[test]
+        fn test_add_asm_matches_rust(a in any::<u64>(), b in any::<u64>()) {
+            let asm_result = x86_64_asm::add_asm(a, b);
+            let rust_result = add_rust(a, b);
+            prop_assert_eq!(asm_result, rust_result,
+                "add_asm({}, {}) = {} but add_rust = {}", a, b, asm_result, rust_result);
+        }
+
+        #[test]
+        fn test_sub_asm_matches_rust(a in any::<u64>(), b in any::<u64>()) {
+            let asm_result = x86_64_asm::sub_asm(a, b);
+            let rust_result = sub_rust(a, b);
+            prop_assert_eq!(asm_result, rust_result,
+                "sub_asm({}, {}) = {} but sub_rust = {}", a, b, asm_result, rust_result);
+        }
+
+        #[test]
+        fn test_mul_asm_matches_rust(a in any::<u64>(), b in any::<u64>()) {
+            let asm_result = x86_64_asm::mul_asm(a, b);
+            let rust_result = mul_rust(a, b);
+            prop_assert_eq!(asm_result, rust_result,
+                "mul_asm({}, {}) = {} but mul_rust = {}", a, b, asm_result, rust_result);
+        }
+
+        #[test]
+        fn test_square_asm_matches_mul(a in any::<u64>()) {
+            let square_result = x86_64_asm::square_asm(a);
+            let mul_result = x86_64_asm::mul_asm(a, a);
+            prop_assert_eq!(square_result, mul_result,
+                "square_asm({}) = {} but mul_asm(a, a) = {}", a, square_result, mul_result);
+        }
+    }
+
+    // Edge case tests for specific boundary values
+    #[test]
+    fn test_add_edge_cases() {
+        // Test overflow at exactly 2^64
+        let max = u64::MAX;
+        assert_eq!(x86_64_asm::add_asm(max, 1), add_rust(max, 1));
+        assert_eq!(x86_64_asm::add_asm(max, max), add_rust(max, max));
+
+        // Test around EPSILON boundary
+        assert_eq!(x86_64_asm::add_asm(EPSILON, 1), add_rust(EPSILON, 1));
+        assert_eq!(x86_64_asm::add_asm(EPSILON, EPSILON), add_rust(EPSILON, EPSILON));
+
+        // Test around modulus
+        let p = GOLDILOCKS_PRIME;
+        assert_eq!(x86_64_asm::add_asm(p - 1, 1), add_rust(p - 1, 1));
+        assert_eq!(x86_64_asm::add_asm(p - 1, 2), add_rust(p - 1, 2));
+    }
+
+    #[test]
+    fn test_sub_edge_cases() {
+        // Test underflow
+        assert_eq!(x86_64_asm::sub_asm(0, 1), sub_rust(0, 1));
+        assert_eq!(x86_64_asm::sub_asm(1, 2), sub_rust(1, 2));
+
+        // Test around EPSILON boundary
+        assert_eq!(x86_64_asm::sub_asm(EPSILON, EPSILON + 1), sub_rust(EPSILON, EPSILON + 1));
+
+        // Test modulus boundary
+        let p = GOLDILOCKS_PRIME;
+        assert_eq!(x86_64_asm::sub_asm(0, p - 1), sub_rust(0, p - 1));
+    }
+
+    #[test]
+    fn test_mul_edge_cases() {
+        // Test with small values
+        assert_eq!(x86_64_asm::mul_asm(0, 0), mul_rust(0, 0));
+        assert_eq!(x86_64_asm::mul_asm(1, 1), mul_rust(1, 1));
+        assert_eq!(x86_64_asm::mul_asm(2, 3), mul_rust(2, 3));
+
+        // Test with large values
+        let max = u64::MAX;
+        assert_eq!(x86_64_asm::mul_asm(max, max), mul_rust(max, max));
+        assert_eq!(x86_64_asm::mul_asm(max, 2), mul_rust(max, 2));
+
+        // Test around modulus
+        let p = GOLDILOCKS_PRIME;
+        assert_eq!(x86_64_asm::mul_asm(p - 1, p - 1), mul_rust(p - 1, p - 1));
+        assert_eq!(x86_64_asm::mul_asm(p - 1, 2), mul_rust(p - 1, 2));
+    }
+}
