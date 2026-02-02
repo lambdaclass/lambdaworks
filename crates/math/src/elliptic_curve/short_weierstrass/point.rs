@@ -720,6 +720,86 @@ impl<E: IsShortWeierstrass> ShortWeierstrassJacobianPoint<E> {
         Self(self.0.to_affine())
     }
 
+    /// Converts a slice of Jacobian points to affine representation efficiently
+    /// using batch inversion (Montgomery's trick).
+    ///
+    /// For Jacobian coordinates `(X : Y : Z)`, affine coordinates are `(X/Z^2, Y/Z^3)`.
+    /// This uses only 1 inversion + O(n) multiplications instead of n inversions.
+    ///
+    /// # Algorithm
+    ///
+    /// 1. Compute `Z^3` for each point
+    /// 2. Batch invert all `Z^3` values
+    /// 3. Compute `Z^{-2} = Z^{-3} * Z` and apply:
+    ///    - `x_affine = X * Z^{-2}`
+    ///    - `y_affine = Y * Z^{-3}`
+    ///
+    /// # Arguments
+    ///
+    /// * `points` - A slice of Jacobian points to convert
+    ///
+    /// # Returns
+    ///
+    /// A vector of affine points (Z=1). Points at infinity remain unchanged.
+    #[cfg(feature = "alloc")]
+    pub fn batch_to_affine(points: &[Self]) -> alloc::vec::Vec<Self> {
+        if points.is_empty() {
+            return alloc::vec::Vec::new();
+        }
+
+        // Collect Z^3 values for non-infinity points
+        let mut z_cubes: alloc::vec::Vec<FieldElement<E::BaseField>> =
+            alloc::vec::Vec::with_capacity(points.len());
+        let mut z_values: alloc::vec::Vec<FieldElement<E::BaseField>> =
+            alloc::vec::Vec::with_capacity(points.len());
+
+        for point in points.iter() {
+            if !point.is_neutral_element() {
+                let z = point.z();
+                let z_sq = z.square();
+                let z_cu = &z_sq * z;
+                z_cubes.push(z_cu);
+                z_values.push(z.clone());
+            }
+        }
+
+        // Batch invert all Z^3 values
+        if FieldElement::<E::BaseField>::inplace_batch_inverse(&mut z_cubes).is_err() {
+            // Fall back to individual conversion
+            return points.iter().map(|p| p.to_affine()).collect();
+        }
+
+        // Build result vector
+        let mut result: alloc::vec::Vec<Self> = alloc::vec::Vec::with_capacity(points.len());
+        let mut inv_idx = 0;
+
+        for point in points.iter() {
+            if point.is_neutral_element() {
+                result.push(Self::neutral_element());
+            } else {
+                // z_inv_cubed = 1/Z^3
+                // z_inv_squared = z_inv_cubed * Z = 1/Z^2
+                let z_inv_cubed = &z_cubes[inv_idx];
+                let z_inv_squared = z_inv_cubed * &z_values[inv_idx];
+
+                let [x, y, _z] = point.coordinates();
+                // x_affine = X * Z^{-2}
+                let x_affine = x * &z_inv_squared;
+                // y_affine = Y * Z^{-3}
+                let y_affine = y * z_inv_cubed;
+
+                result.push(Self::new_unchecked([
+                    x_affine,
+                    y_affine,
+                    FieldElement::one(),
+                ]));
+                inv_idx += 1;
+            }
+        }
+
+        result
+    }
+
     /// Applies the group operation between a point and itself
     pub fn double(&self) -> Self {
         if self.is_neutral_element() {
@@ -1448,5 +1528,69 @@ mod tests {
         assert_eq!(batch_affine[2], points[2].to_affine());
         assert!(batch_affine[3].is_neutral_element());
         assert_eq!(batch_affine[4], points[4].to_affine());
+    }
+
+    #[cfg(feature = "alloc")]
+    #[test]
+    fn test_jacobian_batch_to_affine() {
+        let x = FEE::new_base("36bb494facde72d0da5c770c4b16d9b2d45cfdc27604a25a1a80b020798e5b0dbd4c6d939a8f8820f042a29ce552ee5");
+        let y = FEE::new_base("7acf6e49cc000ff53b06ee1d27056734019c0a1edfa16684da41ebb0c56750f73bc1b0eae4c6c241808a5e485af0ba0");
+
+        let p = ShortWeierstrassJacobianPoint::<BLS12381Curve>::from_affine(x, y)
+            .expect("test: hardcoded coordinates must be valid");
+
+        // Create multiple Jacobian points with different Z coordinates
+        let points: alloc::vec::Vec<_> = (1..=10).map(|i| p.operate_with_self(i as u16)).collect();
+
+        // Convert using batch_to_affine
+        let batch_affine = ShortWeierstrassJacobianPoint::<BLS12381Curve>::batch_to_affine(&points);
+
+        // Convert individually and compare
+        for (batch, point) in batch_affine.iter().zip(points.iter()) {
+            let individual = point.to_affine();
+            assert_eq!(
+                batch, &individual,
+                "batch_to_affine should match individual to_affine"
+            );
+            assert_eq!(batch.z(), &FEE::one(), "Affine points should have Z=1");
+        }
+    }
+
+    #[cfg(feature = "alloc")]
+    #[test]
+    fn test_jacobian_batch_to_affine_with_neutral_element() {
+        let x = FEE::new_base("36bb494facde72d0da5c770c4b16d9b2d45cfdc27604a25a1a80b020798e5b0dbd4c6d939a8f8820f042a29ce552ee5");
+        let y = FEE::new_base("7acf6e49cc000ff53b06ee1d27056734019c0a1edfa16684da41ebb0c56750f73bc1b0eae4c6c241808a5e485af0ba0");
+
+        let p = ShortWeierstrassJacobianPoint::<BLS12381Curve>::from_affine(x, y)
+            .expect("test: hardcoded coordinates must be valid");
+        let neutral = ShortWeierstrassJacobianPoint::<BLS12381Curve>::neutral_element();
+
+        // Mix regular points with neutral elements
+        let points = alloc::vec![
+            p.clone(),
+            neutral.clone(),
+            p.operate_with_self(2_u16),
+            neutral.clone(),
+            p.operate_with_self(3_u16),
+        ];
+
+        let batch_affine = ShortWeierstrassJacobianPoint::<BLS12381Curve>::batch_to_affine(&points);
+
+        assert_eq!(batch_affine.len(), 5);
+        assert_eq!(batch_affine[0], points[0].to_affine());
+        assert!(batch_affine[1].is_neutral_element());
+        assert_eq!(batch_affine[2], points[2].to_affine());
+        assert!(batch_affine[3].is_neutral_element());
+        assert_eq!(batch_affine[4], points[4].to_affine());
+    }
+
+    #[cfg(feature = "alloc")]
+    #[test]
+    fn test_jacobian_batch_to_affine_empty() {
+        let points: alloc::vec::Vec<ShortWeierstrassJacobianPoint<BLS12381Curve>> =
+            alloc::vec::Vec::new();
+        let result = ShortWeierstrassJacobianPoint::<BLS12381Curve>::batch_to_affine(&points);
+        assert!(result.is_empty());
     }
 }
