@@ -118,9 +118,7 @@ where
             let end = start + size_g1_point;
             let point_bytes = bytes
                 .get(start..end)
-                .ok_or(DeserializationError::InvalidAmountOfBytes)?
-                .try_into()
-                .expect("slice length equals size_g1_point");
+                .ok_or(DeserializationError::InvalidAmountOfBytes)?;
             let point = G1Point::deserialize(point_bytes)?;
             main_group.push(point);
         }
@@ -131,9 +129,7 @@ where
             let end = start + size_g2_point;
             let point_bytes = bytes
                 .get(start..end)
-                .ok_or(DeserializationError::InvalidAmountOfBytes)?
-                .try_into()
-                .expect("slice length equals size_g2_point");
+                .ok_or(DeserializationError::InvalidAmountOfBytes)?;
             let point = G2Point::deserialize(point_bytes)?;
             secondary_group.push(point);
         }

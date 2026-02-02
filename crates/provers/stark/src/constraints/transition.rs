@@ -191,9 +191,8 @@ where
                 })
                 .collect_vec();
 
-            FieldElement::inplace_batch_inverse(&mut evaluations).expect(
-                "batch inverse failed: zerofier evaluation contains zero element"
-            );
+            FieldElement::inplace_batch_inverse(&mut evaluations)
+                .expect("batch inverse failed: zerofier evaluation contains zero element");
 
             // FIXME: Instead of computing this evaluations for each constraint, they can be computed
             // once for every constraint with the same end exemptions (combination of end_exemptions()
@@ -234,9 +233,9 @@ where
 
             debug_assert!(self.periodic_exemptions_offset().is_some());
 
-            let periodic_exemptions_offset = self.periodic_exemptions_offset().expect(
-                "periodic_exemptions_offset must be Some when exemptions_period is Some"
-            );
+            let periodic_exemptions_offset = self
+                .periodic_exemptions_offset()
+                .expect("periodic_exemptions_offset must be Some when exemptions_period is Some");
             let offset_exponent = trace_length * periodic_exemptions_offset / exemptions_period;
 
             let numerator = -trace_primitive_root.pow(offset_exponent)
@@ -246,7 +245,7 @@ where
                 + z.pow(trace_length / self.period());
             // The denominator isn't zero because z is sampled outside the set of primitive roots.
             return numerator.div(denominator).expect(
-                "zerofier denominator should be non-zero: z is sampled outside primitive roots set"
+                "zerofier denominator should be non-zero: z is sampled outside primitive roots set",
             ) * end_exemptions_poly.evaluate(z);
         }
 

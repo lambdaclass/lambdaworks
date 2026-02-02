@@ -50,7 +50,7 @@ fn compute_base_zerofier<F: IsFFTField>(
                 let offset_times_x = coset_offset * &x;
                 let offset_exponent = trace_length
                     * periodic_exemptions_offset.expect(
-                        "periodic_exemptions_offset must be Some when exemptions_period is Some"
+                        "periodic_exemptions_offset must be Some when exemptions_period is Some",
                     )
                     / exemptions_period_val;
 
@@ -77,9 +77,8 @@ fn compute_base_zerofier<F: IsFFTField>(
             })
             .collect_vec();
 
-        FieldElement::inplace_batch_inverse(&mut evaluations).expect(
-            "batch inverse failed: zerofier evaluation contains zero element"
-        );
+        FieldElement::inplace_batch_inverse(&mut evaluations)
+            .expect("batch inverse failed: zerofier evaluation contains zero element");
         evaluations
     }
 }
@@ -279,7 +278,7 @@ pub trait AIR: Send + Sync {
         let root_of_unity_order = u64::from(trace_length.trailing_zeros());
 
         Self::Field::get_primitive_root_of_unity(root_of_unity_order).expect(
-            "failed to get primitive root of unity: trace length may exceed field's two-adicity"
+            "failed to get primitive root of unity: trace length may exceed field's two-adicity",
         )
     }
 
@@ -469,12 +468,12 @@ pub trait AIR: Send + Sync {
             );
             let end_key: EndExemptionsKey = (end_exemptions, period);
 
-            let base_zerofier = base_zerofier_map.get(&base_key).expect(
-                "base zerofier cache miss: constraint key not found in precomputed map"
-            );
-            let end_exemptions_evals = end_exemptions_map.get(&end_key).expect(
-                "end exemptions cache miss: constraint key not found in precomputed map"
-            );
+            let base_zerofier = base_zerofier_map
+                .get(&base_key)
+                .expect("base zerofier cache miss: constraint key not found in precomputed map");
+            let end_exemptions_evals = end_exemptions_map
+                .get(&end_key)
+                .expect("end exemptions cache miss: constraint key not found in precomputed map");
 
             // Combine base zerofier with end exemptions
             let cycled_base = base_zerofier

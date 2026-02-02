@@ -75,9 +75,8 @@ where
                     .iter()
                     .map(|v| v - &point)
                     .collect();
-                FieldElement::inplace_batch_inverse(&mut evals).expect(
-                    "batch inverse failed: boundary zerofier contains zero element"
-                );
+                FieldElement::inplace_batch_inverse(&mut evals)
+                    .expect("batch inverse failed: boundary zerofier contains zero element");
                 evals
             });
         }
@@ -88,7 +87,7 @@ where
             .iter()
             .map(|bc| {
                 zerofier_cache.get(&bc.step).expect(
-                    "zerofier cache miss: boundary constraint step not found in precomputed cache"
+                    "zerofier cache miss: boundary constraint step not found in precomputed cache",
                 )
             })
             .collect();

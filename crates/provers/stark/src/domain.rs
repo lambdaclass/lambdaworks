@@ -44,8 +44,9 @@ impl<F: IsFFTField> Domain<F> {
         let interpolation_domain_size = trace_length;
         let root_order = trace_length.trailing_zeros();
         // * Generate Coset
-        let trace_primitive_root = F::get_primitive_root_of_unity(root_order as u64)
-            .expect("failed to get primitive root of unity: trace length may exceed field's two-adicity");
+        let trace_primitive_root = F::get_primitive_root_of_unity(root_order as u64).expect(
+            "failed to get primitive root of unity: trace length may exceed field's two-adicity",
+        );
         let trace_roots_of_unity = get_powers_of_primitive_root_coset(
             root_order as u64,
             interpolation_domain_size,

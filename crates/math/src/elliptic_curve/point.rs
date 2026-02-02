@@ -50,7 +50,9 @@ impl<E: IsEllipticCurve> ProjectivePoint<E> {
             ]);
         };
         // z is guaranteed non-zero by the check above
-        let inv_z = z.inv().expect("z is non-zero after point-at-infinity check");
+        let inv_z = z
+            .inv()
+            .expect("z is non-zero after point-at-infinity check");
         ProjectivePoint::new([x * &inv_z, y * inv_z, FieldElement::one()])
     }
 }
@@ -108,7 +110,9 @@ impl<E: IsEllipticCurve> JacobianPoint<E> {
             ]);
         };
         // z is guaranteed non-zero by the check above
-        let inv_z = z.inv().expect("z is non-zero after point-at-infinity check");
+        let inv_z = z
+            .inv()
+            .expect("z is non-zero after point-at-infinity check");
         let inv_z_square = inv_z.square();
         let inv_z_cube = &inv_z_square * &inv_z;
         JacobianPoint::new([x * inv_z_square, y * inv_z_cube, FieldElement::one()])
