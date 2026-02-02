@@ -5,6 +5,7 @@ use alloc::{borrow::ToOwned, format, vec, vec::Vec};
 use core::ops::{AddAssign, MulAssign, SubAssign};
 use core::{fmt::Display, ops, slice};
 pub mod dense_multilinear_poly;
+pub use dense_multilinear_poly::{eq_eval, eq_polynomial, DenseMultilinearPolynomial};
 mod error;
 pub use error::PolynomialError;
 pub mod sparse_multilinear_poly;
