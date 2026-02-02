@@ -13,7 +13,7 @@ pub trait IsTranscript<F: IsField> {
     fn state(&self) -> [u8; 32];
     /// Returns a random field element.
     fn sample_field_element(&mut self) -> FieldElement<F>;
-    /// Returns a random index between 0 and `upper_bound`.
+    /// Returns a random index in [0, `upper_bound`).
     fn sample_u64(&mut self, upper_bound: u64) -> u64;
 }
 
