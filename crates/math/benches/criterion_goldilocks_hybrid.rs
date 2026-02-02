@@ -93,7 +93,9 @@ fn create_layer_twiddles_hybrid(order: u64) -> LayerTwiddles<FHybrid> {
 fn generate_random_input_hybrid(order: u64, seed: u64) -> Vec<FEHybrid> {
     let mut rng = StdRng::seed_from_u64(seed);
     let size = 1usize << order;
-    (0..size).map(|_| FEHybrid::from(rng.gen::<u64>())).collect()
+    (0..size)
+        .map(|_| FEHybrid::from(rng.gen::<u64>()))
+        .collect()
 }
 
 /// Generates a batch of random Hybrid polynomials for parallel FFT benchmarks.

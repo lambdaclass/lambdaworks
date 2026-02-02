@@ -341,7 +341,9 @@ impl IsSubFieldOf<Degree2GoldilocksHybridExtensionField> for Goldilocks64HybridF
 
     fn div(a: &Self::BaseType, b: &[FpE; 2]) -> Result<[FpE; 2], FieldError> {
         let b_inv = Degree2GoldilocksHybridExtensionField::inv(b)?;
-        Ok(<Self as IsSubFieldOf<Degree2GoldilocksHybridExtensionField>>::mul(a, &b_inv))
+        Ok(<Self as IsSubFieldOf<
+            Degree2GoldilocksHybridExtensionField,
+        >>::mul(a, &b_inv))
     }
 
     fn sub(a: &Self::BaseType, b: &[FpE; 2]) -> [FpE; 2] {
@@ -515,7 +517,9 @@ impl IsSubFieldOf<Degree3GoldilocksHybridExtensionField> for Goldilocks64HybridF
 
     fn div(a: &Self::BaseType, b: &[FpE; 3]) -> Result<[FpE; 3], FieldError> {
         let b_inv = Degree3GoldilocksHybridExtensionField::inv(b)?;
-        Ok(<Self as IsSubFieldOf<Degree3GoldilocksHybridExtensionField>>::mul(a, &b_inv))
+        Ok(<Self as IsSubFieldOf<
+            Degree3GoldilocksHybridExtensionField,
+        >>::mul(a, &b_inv))
     }
 
     fn sub(a: &Self::BaseType, b: &[FpE; 3]) -> [FpE; 3] {
@@ -849,8 +853,6 @@ mod fft_tests {
 mod ext2_tests {
     use super::*;
 
-    type Fp2 = Degree2GoldilocksHybridExtensionField;
-
     #[test]
     fn ext2_add_works() {
         let a = Fp2E::new([FpE::from(1u64), FpE::from(2u64)]);
@@ -885,7 +887,7 @@ mod ext2_tests {
         let a = Fp2E::new([FpE::from(1u64), FpE::from(2u64)]);
         let c = a.square();
         assert_eq!(c.value()[0], FpE::from(29u64)); // 1 + 4*7 = 29
-        assert_eq!(c.value()[1], FpE::from(4u64));  // 2*1*2 = 4
+        assert_eq!(c.value()[1], FpE::from(4u64)); // 2*1*2 = 4
     }
 
     #[test]
@@ -954,7 +956,7 @@ mod ext3_tests {
     fn ext3_square_equals_mul_self() {
         let a = Fp3E::new([FpE::from(3u64), FpE::from(5u64), FpE::from(7u64)]);
         let sq = a.square();
-        let mul = a.clone() * a;
+        let mul = a * a;
         assert_eq!(sq, mul);
     }
 

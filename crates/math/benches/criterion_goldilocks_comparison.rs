@@ -49,7 +49,7 @@ fn bench_classic_base(c: &mut Criterion) {
             b.iter(|| {
                 let mut acc = vals[0];
                 for v in &vals[1..] {
-                    acc = acc * v;
+                    acc *= v;
                 }
                 black_box(acc)
             })
@@ -109,7 +109,7 @@ fn bench_hybrid_base(c: &mut Criterion) {
             b.iter(|| {
                 let mut acc = vals[0];
                 for v in &vals[1..] {
-                    acc = acc * v;
+                    acc *= v;
                 }
                 black_box(acc)
             })
@@ -169,7 +169,7 @@ fn bench_montgomery_base(c: &mut Criterion) {
             b.iter(|| {
                 let mut acc = vals[0];
                 for v in &vals[1..] {
-                    acc = acc * v;
+                    acc *= v;
                 }
                 black_box(acc)
             })
@@ -239,9 +239,9 @@ fn bench_classic_ext2(c: &mut Criterion) {
 
         group.bench_with_input(BenchmarkId::new("mul", size), &values, |b, vals| {
             b.iter(|| {
-                let mut acc = vals[0].clone();
+                let mut acc = vals[0];
                 for v in &vals[1..] {
-                    acc = acc * v;
+                    acc *= v;
                 }
                 black_box(acc)
             })
@@ -249,7 +249,7 @@ fn bench_classic_ext2(c: &mut Criterion) {
 
         group.bench_with_input(BenchmarkId::new("add", size), &values, |b, vals| {
             b.iter(|| {
-                let mut acc = vals[0].clone();
+                let mut acc = vals[0];
                 for v in &vals[1..] {
                     acc = acc + v;
                 }
@@ -297,9 +297,9 @@ fn bench_hybrid_ext2(c: &mut Criterion) {
 
         group.bench_with_input(BenchmarkId::new("mul", size), &values, |b, vals| {
             b.iter(|| {
-                let mut acc = vals[0].clone();
+                let mut acc = vals[0];
                 for v in &vals[1..] {
-                    acc = acc * v;
+                    acc *= v;
                 }
                 black_box(acc)
             })
@@ -307,7 +307,7 @@ fn bench_hybrid_ext2(c: &mut Criterion) {
 
         group.bench_with_input(BenchmarkId::new("add", size), &values, |b, vals| {
             b.iter(|| {
-                let mut acc = vals[0].clone();
+                let mut acc = vals[0];
                 for v in &vals[1..] {
                     acc = acc + v;
                 }
@@ -360,9 +360,9 @@ fn bench_classic_ext3(c: &mut Criterion) {
 
         group.bench_with_input(BenchmarkId::new("mul", size), &values, |b, vals| {
             b.iter(|| {
-                let mut acc = vals[0].clone();
+                let mut acc = vals[0];
                 for v in &vals[1..] {
-                    acc = acc * v;
+                    acc *= v;
                 }
                 black_box(acc)
             })
@@ -370,7 +370,7 @@ fn bench_classic_ext3(c: &mut Criterion) {
 
         group.bench_with_input(BenchmarkId::new("add", size), &values, |b, vals| {
             b.iter(|| {
-                let mut acc = vals[0].clone();
+                let mut acc = vals[0];
                 for v in &vals[1..] {
                     acc = acc + v;
                 }
@@ -419,9 +419,9 @@ fn bench_hybrid_ext3(c: &mut Criterion) {
 
         group.bench_with_input(BenchmarkId::new("mul", size), &values, |b, vals| {
             b.iter(|| {
-                let mut acc = vals[0].clone();
+                let mut acc = vals[0];
                 for v in &vals[1..] {
-                    acc = acc * v;
+                    acc *= v;
                 }
                 black_box(acc)
             })
@@ -429,7 +429,7 @@ fn bench_hybrid_ext3(c: &mut Criterion) {
 
         group.bench_with_input(BenchmarkId::new("add", size), &values, |b, vals| {
             b.iter(|| {
-                let mut acc = vals[0].clone();
+                let mut acc = vals[0];
                 for v in &vals[1..] {
                     acc = acc + v;
                 }
