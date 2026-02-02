@@ -11,10 +11,7 @@ use lambdaworks_math::field::traits::{IsFFTField, IsField, IsSubFieldOf};
 use lambdaworks_math::polynomial::Polynomial;
 use lambdaworks_math::{fft::errors::FFTError, field::element::FieldElement};
 #[cfg(feature = "parallel")]
-use rayon::{
-    iter::IndexedParallelIterator,
-    prelude::{IntoParallelIterator, ParallelIterator},
-};
+use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 
 use std::marker::PhantomData;
 #[cfg(feature = "instruments")]
@@ -198,46 +195,78 @@ where
 
         #[cfg(feature = "parallel")]
         let evaluations_t = {
-            let boundary_evaluation = boundary_evaluation.into_par_iter();
-            let evaluations_t_iter = (0..domain.lde_roots_of_unity_coset.len()).into_par_iter();
+            use rayon::prelude::*;
 
-            evaluations_t_iter
-                .zip(boundary_evaluation)
-                .map(|(i, boundary)| {
-                    let frame =
-                        Frame::read_from_lde(lde_trace, i, &air.context().transition_offsets);
+            let domain_size = domain.lde_roots_of_unity_coset.len();
+            let num_transition_constraints = air.num_transition_constraints();
+            let num_periodic_cols = lde_periodic_columns.len();
+            let transition_offsets = &air.context().transition_offsets;
 
-                    // Collect periodic values for this index
-                    let periodic_values: Vec<_> = lde_periodic_columns
+            // Determine chunk size for better cache locality and reduced allocation overhead.
+            // Each thread processes a chunk of domain points with its own reusable buffers.
+            // Chunk size of 256 balances parallelism with allocation overhead reduction.
+            let chunk_size = 256
+                .min(domain_size / rayon::current_num_threads().max(1))
+                .max(1);
+
+            // Process domain points in parallel chunks, each with thread-local buffers
+            let indices: Vec<usize> = (0..domain_size).collect();
+            let chunked_results: Vec<Vec<FieldElement<FieldExtension>>> = indices
+                .par_chunks(chunk_size)
+                .map(|chunk_indices| {
+                    // Thread-local reusable buffers to avoid per-iteration allocation
+                    let mut periodic_values_buffer: Vec<FieldElement<Field>> =
+                        Vec::with_capacity(num_periodic_cols);
+                    let mut transition_buffer: Vec<FieldElement<FieldExtension>> =
+                        vec![FieldElement::zero(); num_transition_constraints];
+
+                    chunk_indices
                         .iter()
-                        .map(|col| col[i].clone())
-                        .collect();
+                        .map(|&i| {
+                            let frame = Frame::read_from_lde(lde_trace, i, transition_offsets);
 
-                    let transition_evaluation_context = TransitionEvaluationContext::new_prover(
-                        &frame,
-                        &periodic_values,
-                        rap_challenges,
-                    );
-                    let evaluations_transition =
-                        air.compute_transition(&transition_evaluation_context);
+                            // Reuse periodic values buffer - clear and refill
+                            periodic_values_buffer.clear();
+                            for col in &lde_periodic_columns {
+                                periodic_values_buffer.push(col[i].clone());
+                            }
 
-                    // Accumulate transition constraints
-                    let acc_transition = itertools::izip!(
-                        evaluations_transition,
-                        &zerofiers_evals,
-                        transition_coefficients
-                    )
-                    .fold(
-                        FieldElement::zero(),
-                        |acc, (eval, zerof_eval, beta)| {
-                            let wrapped_idx = i % zerof_eval.len();
-                            acc + &zerof_eval[wrapped_idx] * eval * beta
-                        },
-                    );
+                            let transition_evaluation_context =
+                                TransitionEvaluationContext::new_prover(
+                                    &frame,
+                                    &periodic_values_buffer,
+                                    rap_challenges,
+                                );
 
-                    acc_transition + boundary
+                            // Use buffer-reuse variant to avoid allocation
+                            air.compute_transition_into(
+                                &transition_evaluation_context,
+                                &mut transition_buffer,
+                            );
+
+                            // Accumulate transition constraints
+                            let acc_transition = itertools::izip!(
+                                &transition_buffer,
+                                &zerofiers_evals,
+                                transition_coefficients
+                            )
+                            .fold(
+                                FieldElement::zero(),
+                                |acc, (eval, zerof_eval, beta)| {
+                                    let wrapped_idx = i % zerof_eval.len();
+                                    acc + &zerof_eval[wrapped_idx] * eval * beta
+                                },
+                            );
+
+                            // Add boundary evaluation
+                            acc_transition + &boundary_evaluation[i]
+                        })
+                        .collect()
                 })
-                .collect()
+                .collect();
+
+            // Flatten the chunked results into a single Vec
+            chunked_results.into_iter().flatten().collect()
         };
 
         #[cfg(not(feature = "parallel"))]
@@ -298,3 +327,15 @@ where
         evaluations_t
     }
 }
+
+// Tests for the constraint evaluator are covered by the integration tests in
+// `crates/provers/stark/src/tests/integration_tests.rs`.
+//
+// The integration tests verify the full prover-verifier flow with various AIR
+// examples (Fibonacci, quadratic, RAP, etc.) which exercises the constraint
+// evaluator through the complete proof generation process.
+//
+// Since the parallel and sequential code paths are selected at compile time via
+// the `parallel` feature flag, both paths should be tested by running:
+// - `cargo test -p stark-platinum-prover` (sequential)
+// - `cargo test -p stark-platinum-prover --features parallel` (parallel)
