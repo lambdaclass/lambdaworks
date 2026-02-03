@@ -45,8 +45,9 @@
 //! ```
 
 use crate::field::element::FieldElement;
-use crate::field::traits::IsField;
+use crate::field::traits::{IsField, IsPrimeField};
 use alloc::collections::BTreeMap;
+use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use core::ops::{Add, Mul, Neg, Sub};
 
@@ -483,6 +484,36 @@ impl<F: IsField> SparsePolynomial<F> {
     /// Returns the underlying coefficient map.
     pub fn coefficients(&self) -> &BTreeMap<usize, FieldElement<F>> {
         &self.coefficients
+    }
+}
+
+impl<F: IsPrimeField> SparsePolynomial<F> {
+    /// Print the polynomial as a string ready to be used in SageMath, or just for pretty printing.
+    pub fn print_as_sage_poly(&self, var_name: Option<char>) -> String {
+        if self.is_zero() {
+            return String::new();
+        }
+
+        let var_name = var_name.unwrap_or('x');
+        let mut string = String::new();
+        let mut first = true;
+
+        for (&deg, coeff) in self.coefficients.iter().rev() {
+            let coeff_str = coeff.representative().to_string();
+
+            if !first {
+                string.push_str(" + ");
+            }
+            first = false;
+
+            match deg {
+                0 => string.push_str(&coeff_str),
+                1 => string.push_str(&format!("{coeff_str}*{var_name}")),
+                _ => string.push_str(&format!("{coeff_str}*{var_name}^{deg}")),
+            }
+        }
+
+        string
     }
 }
 
@@ -1198,5 +1229,40 @@ mod tests {
         assert_eq!(*terms[0].0, 0);
         assert_eq!(*terms[1].0, 2);
         assert_eq!(*terms[2].0, 5);
+    }
+
+    #[test]
+    fn test_print_as_sage_poly_basic() {
+        // 3*X^2 + 2*X + 1
+        let poly = SparsePolynomial::from_coefficients(vec![
+            (0, FE::from(1)),
+            (1, FE::from(2)),
+            (2, FE::from(3)),
+        ]);
+        assert_eq!(poly.print_as_sage_poly(None), "3*x^2 + 2*x + 1");
+    }
+
+    #[test]
+    fn test_print_as_sage_poly_custom_var() {
+        let poly = SparsePolynomial::from_coefficients(vec![(0, FE::from(5)), (3, FE::from(7))]);
+        assert_eq!(poly.print_as_sage_poly(Some('t')), "7*t^3 + 5");
+    }
+
+    #[test]
+    fn test_print_as_sage_poly_zero() {
+        let poly: SparsePolynomial<F> = SparsePolynomial::zero();
+        assert_eq!(poly.print_as_sage_poly(None), "");
+    }
+
+    #[test]
+    fn test_print_as_sage_poly_constant() {
+        let poly = SparsePolynomial::from_coefficients(vec![(0, FE::from(17))]);
+        assert_eq!(poly.print_as_sage_poly(None), "17");
+    }
+
+    #[test]
+    fn test_print_as_sage_poly_single_term() {
+        let poly = SparsePolynomial::from_coefficients(vec![(5, FE::from(3))]);
+        assert_eq!(poly.print_as_sage_poly(None), "3*x^5");
     }
 }
