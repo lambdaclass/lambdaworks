@@ -167,6 +167,7 @@ impl<F: IsField> SparsePolynomial<F> {
     /// ]);
     /// assert_eq!(poly.degree(), 100);
     /// ```
+    #[inline]
     pub fn degree(&self) -> usize {
         // BTreeMap keys are ordered, so last_key_value gives the maximum
         self.coefficients
@@ -211,6 +212,7 @@ impl<F: IsField> SparsePolynomial<F> {
     /// # Arguments
     ///
     /// * `degree` - The degree to query
+    #[inline]
     pub fn get_coefficient(&self, degree: usize) -> FieldElement<F> {
         self.coefficients
             .get(&degree)
@@ -221,6 +223,7 @@ impl<F: IsField> SparsePolynomial<F> {
     /// Returns the leading coefficient (coefficient of the highest degree term).
     ///
     /// Returns zero for the zero polynomial.
+    #[inline]
     pub fn leading_coefficient(&self) -> FieldElement<F> {
         self.coefficients
             .last_key_value()
@@ -361,6 +364,7 @@ impl<F: IsField> SparsePolynomial<F> {
     /// # Complexity
     ///
     /// O(k) where k is the number of non-zero terms.
+    #[inline]
     pub fn mul_by_scalar(&self, scalar: &FieldElement<F>) -> Self {
         if *scalar == FieldElement::zero() {
             return Self::zero();
