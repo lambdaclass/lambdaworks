@@ -86,9 +86,9 @@ where
             .constraints
             .iter()
             .map(|bc| {
-                zerofier_cache
-                    .get(&bc.step)
-                    .expect("zerofier was computed for all boundary constraint steps")
+                zerofier_cache.get(&bc.step).expect(
+                    "zerofier cache miss: boundary constraint step not found in precomputed cache",
+                )
             })
             .collect();
 
@@ -110,7 +110,7 @@ where
                 )
             })
             .collect::<Result<Vec<Vec<FieldElement<Field>>>, FFTError>>()
-            .expect("FFT evaluation of periodic columns on LDE domain must succeed");
+            .expect("failed to evaluate periodic column polynomials on LDE domain");
 
         #[cfg(feature = "instruments")]
         println!(
