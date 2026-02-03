@@ -895,10 +895,10 @@ mod tests {
         for x in [FE::zero(), FE::one()] {
             for z in [FE::zero(), FE::one()] {
                 let g_eval = g
-                    .evaluate(vec![x.clone(), z.clone()])
+                    .evaluate(vec![x, z])
                     .expect("Valid evaluation point for g");
                 let f_eval = poly
-                    .evaluate(vec![x.clone(), r.clone(), z.clone()])
+                    .evaluate(vec![x, r, z])
                     .expect("Valid evaluation point for f");
                 assert_eq!(g_eval, f_eval);
             }
@@ -923,16 +923,16 @@ mod tests {
         let r2 = FE::from(7);
 
         // Fix x = r1, z = r2, leaving only y
-        let g = poly.partial_evaluate_many(&[(0, r1.clone()), (2, r2.clone())]);
+        let g = poly.partial_evaluate_many(&[(0, r1), (2, r2)]);
         assert_eq!(g.num_vars(), 1);
 
         // Verify by comparing with sequential partial evaluations
         for y in [FE::zero(), FE::one()] {
             let g_eval = g
-                .evaluate(vec![y.clone()])
+                .evaluate(vec![y])
                 .expect("Valid evaluation point for g");
             let f_eval = poly
-                .evaluate(vec![r1.clone(), y.clone(), r2.clone()])
+                .evaluate(vec![r1, y, r2])
                 .expect("Valid evaluation point for f");
             assert_eq!(g_eval, f_eval);
         }
@@ -1030,11 +1030,11 @@ mod tests {
             for y1 in [FE::zero(), FE::one()] {
                 for y2 in [FE::zero(), FE::one()] {
                     let h_eval = h
-                        .evaluate(vec![x.clone(), y1.clone(), y2.clone()])
+                        .evaluate(vec![x, y1, y2])
                         .expect("Valid point for h");
-                    let f_eval = f.evaluate(vec![x.clone()]).expect("Valid point for f");
+                    let f_eval = f.evaluate(vec![x]).expect("Valid point for f");
                     let g_eval = g
-                        .evaluate(vec![y1.clone(), y2.clone()])
+                        .evaluate(vec![y1, y2])
                         .expect("Valid point for g");
                     assert_eq!(h_eval, f_eval * g_eval);
                 }
@@ -1195,7 +1195,7 @@ mod tests {
 
         // Evaluate directly
         let direct = poly
-            .evaluate(vec![a.clone(), b.clone(), c.clone()])
+            .evaluate(vec![a, b, c])
             .expect("Valid point");
 
         // Evaluate via sequential partial evaluation
