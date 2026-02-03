@@ -76,7 +76,8 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
             }
         }
 
-        FieldElement::inplace_batch_inverse(&mut denominators).unwrap();
+        FieldElement::inplace_batch_inverse(&mut denominators)
+            .expect("Lagrange interpolation denominators are non-zero for distinct x values");
 
         let mut result = Polynomial::zero();
 

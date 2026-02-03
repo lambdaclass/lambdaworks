@@ -432,17 +432,20 @@ where
         let mut aux_col = Vec::new();
 
         // s_0 = m_0/(z - (a'_0 + α * v'_0) - 1/(z - (a_0 + α * v_0)
-        let unsorted_term = (-(&a[0] + &v[0] * alpha) + z).inv().unwrap();
-        let sorted_term = (-(&a_sorted[0] + &v_sorted[0] * alpha) + z).inv().unwrap();
+        let unsorted_term = (-(&a[0] + &v[0] * alpha) + z).inv()
+            .expect("LogUp inverse: random z,α make z - (a + α*v) ≠ 0 with overwhelming probability");
+        let sorted_term = (-(&a_sorted[0] + &v_sorted[0] * alpha) + z).inv()
+            .expect("LogUp inverse: random z,α make z - (a' + α*v') ≠ 0 with overwhelming probability");
         aux_col.push(&m[0] * sorted_term - unsorted_term);
 
         // Apply the same equation given in the permutation transition contraint to the rest of the trace.
         // s_{i+1} = s_i + m_{i+1}/(z - (a'_{i+1} + α * v'_{i+1}) - 1/(z - (a_{i+1} + α * v_{i+1})
         for i in 0..trace_len - 1 {
-            let unsorted_term = (-(&a[i + 1] + &v[i + 1] * alpha) + z).inv().unwrap();
+            let unsorted_term = (-(&a[i + 1] + &v[i + 1] * alpha) + z).inv()
+                .expect("LogUp inverse: random z,α make z - (a + α*v) ≠ 0 with overwhelming probability");
             let sorted_term = (-(&a_sorted[i + 1] + &v_sorted[i + 1] * alpha) + z)
                 .inv()
-                .unwrap();
+                .expect("LogUp inverse: random z,α make z - (a' + α*v') ≠ 0 with overwhelming probability");
             aux_col.push(&aux_col[i] + &m[i + 1] * sorted_term - unsorted_term);
         }
 
@@ -485,8 +488,10 @@ where
         let c5 = BoundaryConstraint::new_main(4, 0, m0.clone().to_extension());
 
         // Auxiliary boundary constraints
-        let unsorted_term = (-(a0 + v0 * alpha) + z).inv().unwrap();
-        let sorted_term = (-(a_sorted_0 + v_sorted_0 * alpha) + z).inv().unwrap();
+        let unsorted_term = (-(a0 + v0 * alpha) + z).inv()
+            .expect("LogUp boundary inverse: random z,α make z - (a + α*v) ≠ 0 with overwhelming probability");
+        let sorted_term = (-(a_sorted_0 + v_sorted_0 * alpha) + z).inv()
+            .expect("LogUp boundary inverse: random z,α make z - (a' + α*v') ≠ 0 with overwhelming probability");
         let p0_value = m0 * sorted_term - unsorted_term;
 
         let c_aux1 = BoundaryConstraint::new_aux(0, 0, p0_value);
@@ -553,8 +558,10 @@ pub fn read_only_logup_trace<
 
     // We resize the sorted addresses and values with the last value of each one so they have the
     // same number of rows as the original addresses and values. However, their multiplicity should be zero.
-    sorted_addresses.resize(addresses.len(), sorted_addresses.last().unwrap().clone());
-    sorted_values.resize(addresses.len(), sorted_values.last().unwrap().clone());
+    sorted_addresses.resize(addresses.len(), sorted_addresses.last()
+        .expect("sorted_addresses is non-empty after grouping").clone());
+    sorted_values.resize(addresses.len(), sorted_values.last()
+        .expect("sorted_values is non-empty after grouping").clone());
     multiplicities.resize(addresses.len(), FieldElement::<F>::zero());
 
     let main_columns = vec![

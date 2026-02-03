@@ -129,7 +129,8 @@ where
             evaluation_points_x.push(eval_point_x.clone());
 
             // Set the actual value for X_j in the prefix
-            *current_point_prefix.last_mut().unwrap() = eval_point_x;
+            *current_point_prefix.last_mut()
+                .expect("current_point_prefix is initialized with challenges plus one zero element") = eval_point_x;
 
             let g_j_at_eval_point = sum_product_over_suffix(&self.factors, &current_point_prefix)
                 .map_err(|e| {

@@ -45,7 +45,8 @@ impl IsStarkTranscript<Felt> for FeltTranscript {
     fn sample_field_element(&mut self) -> FieldElement<Felt> {
         loop {
             let bytes = self.sample();
-            let candidate = u64::from_be_bytes(bytes[..8].try_into().unwrap());
+            let candidate = u64::from_be_bytes(bytes[..8].try_into()
+                .expect("sample() returns 32-byte array, slice of first 8 bytes always fits [u8; 8]"));
             if candidate < Felt::MODULUS {
                 return FieldElement::const_from_raw(Felt::new(candidate));
             }
@@ -57,7 +58,8 @@ impl IsStarkTranscript<Felt> for FeltTranscript {
         let zone = u64::MAX - (u64::MAX % upper_bound);
         loop {
             let bytes = self.sample();
-            let candidate = u64::from_be_bytes(bytes[..8].try_into().unwrap());
+            let candidate = u64::from_be_bytes(bytes[..8].try_into()
+                .expect("sample() returns 32-byte array, slice of first 8 bytes always fits [u8; 8]"));
             if candidate < zone {
                 return candidate % upper_bound;
             }

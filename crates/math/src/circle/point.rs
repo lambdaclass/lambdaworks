@@ -27,7 +27,8 @@ impl<F: IsField + HasCircleParams<F>> CirclePoint<F> {
 
     /// Neutral element of the Circle group (with additive notation).
     pub fn zero() -> Self {
-        Self::new(FieldElement::one(), FieldElement::zero()).unwrap()
+        Self::new(FieldElement::one(), FieldElement::zero())
+            .expect("(1, 0) satisfies x² + y² = 1 by definition of the identity")
     }
 
     /// Computes 2(x, y) = (2x^2 - 1, 2xy).
@@ -36,7 +37,7 @@ impl<F: IsField + HasCircleParams<F>> CirclePoint<F> {
             self.x.square().double() - FieldElement::one(),
             self.x.double() * self.y.clone(),
         )
-        .unwrap()
+        .expect("Circle doubling preserves the circle equation: if (x,y) is on circle, so is 2(x,y)")
     }
 
     /// Computes 2^n * (x, y).

@@ -35,7 +35,8 @@ impl IsWinterfellFieldElement for AdapterFieldElement {
     const ONE: Self = Self::from_hex_unchecked("1");
 
     fn inv(self) -> Self {
-        AdapterFieldElement(FieldElement::<Stark252PrimeField>::inv(&self.0).unwrap())
+        AdapterFieldElement(FieldElement::<Stark252PrimeField>::inv(&self.0)
+            .expect("Field element inverse: caller must ensure element is non-zero"))
     }
 
     fn conjugate(&self) -> Self {
