@@ -73,8 +73,8 @@ impl<F: IsField + HasCircleParams<F>> CirclePoint<F> {
 
     /// Returns the generator of the subgroup of order n = 2^log_2_size.
     /// We are using that 2^k * g is a generator of the subgroup of order 2^{31 - k}.
-    pub fn get_generator_of_subgroup(log_2_size: u32) -> Self {
-        Self::GENERATOR.repeated_double(31 - log_2_size)
+    pub fn get_generator_of_subgroup(log_2_size: u8) -> Self {              
+        Self::GENERATOR.repeated_double((31 - log_2_size) as u32) 
     }
 
     pub const ORDER: u128 = F::ORDER;
