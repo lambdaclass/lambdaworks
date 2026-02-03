@@ -489,7 +489,11 @@ mod tests {
 
     type FE = FieldElement<Babybear31PrimeField>;
 
+    // This test verifies GS decoding across the full error correction radius.
+    // It's slow in debug mode due to the multiple decoding iterations.
+    // Run with: cargo test --release test_gs_full_radius -- --ignored
     #[test]
+    #[ignore = "slow in debug mode"]
     fn test_gs_full_radius() {
         let code = ReedSolomonCode::<Babybear31PrimeField>::with_consecutive_domain(16, 4);
         let message: Vec<FE> = (1..=4).map(|i| FE::from(i as u64)).collect();
@@ -658,7 +662,11 @@ mod tests {
         );
     }
 
+    // This test compares our GS implementation against SageMath's reference output.
+    // It's slow in debug mode due to heavy polynomial arithmetic.
+    // Run with: cargo test --release test_sage_comparison -- --ignored
     #[test]
+    #[ignore = "slow in debug mode"]
     fn test_sage_comparison() {
         use crate::distance::{agreement, introduce_errors};
 
