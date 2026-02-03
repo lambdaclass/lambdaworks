@@ -173,14 +173,16 @@ pub fn map_to_curve_sswu(u: &Fp2Element) -> (Fp2Element, Fp2Element) {
     let tv1 = if tv1_denom == Fp2Element::zero() {
         Fp2Element::zero()
     } else {
-        tv1_denom.inv().expect("non-zero denom")
+        tv1_denom
+            .inv()
+            .expect("SSWU: tv1_denom is non-zero after explicit check")
     };
 
     // x1 = (-B / A) * (1 + tv1)
-    let neg_b_over_a = -&b * a.inv().expect("A is non-zero");
+    let neg_b_over_a = -&b * a.inv().expect("SSWU: A'=240i is a non-zero constant");
     let x1 = if tv1 == Fp2Element::zero() {
         // Exceptional case: x1 = B / (Z * A)
-        &b * (&z * &a).inv().expect("Z*A non-zero")
+        &b * (&z * &a).inv().expect("SSWU: Z*A is non-zero (both are non-zero constants)")
     } else {
         &neg_b_over_a * (&one + &tv1)
     };

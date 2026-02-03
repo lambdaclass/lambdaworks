@@ -199,20 +199,35 @@ impl Signature {
     /// # Format
     /// The output is 96 bytes: the x-coordinate of the G2 point (two 48-byte Fp elements).
     /// The highest bit of the first byte encodes the sign of the y-coordinate for compression.
+    ///
+    /// # Note
+    /// This is a simplified serialization for educational purposes. Production implementations
+    /// should follow the BLS12-381 serialization spec (e.g., ZCash or IETF formats) which include:
+    /// - Proper infinity point handling
+    /// - Subgroup membership flags
+    /// - Consistent big-endian ordering with padding
     pub fn to_bytes(&self) -> Vec<u8> {
         let affine = self.sig.to_affine();
         let [x, y, _] = affine.coordinates();
         let [x0, x1] = x.value();
         let [y0, _y1] = y.value();
 
-        let mut bytes = Vec::with_capacity(96);
-        bytes.extend_from_slice(&x0.to_bytes_be());
-        bytes.extend_from_slice(&x1.to_bytes_be());
+        // Serialize x-coordinate (two 48-byte Fp elements in big-endian)
+        let x0_bytes = x0.to_bytes_be();
+        let x1_bytes = x1.to_bytes_be();
 
-        // Add sign bit for compression (simplified - just use y0's sign)
-        // The y-coordinate's least significant bit determines the sign
+        let mut bytes = Vec::with_capacity(96);
+        bytes.extend_from_slice(&x0_bytes);
+        bytes.extend_from_slice(&x1_bytes);
+
+        // Add sign bit for point compression
+        // The sign is determined by the lexicographically larger y-coordinate
+        // For Fp2 = (y0, y1), we use y0's parity when y1 == 0, otherwise y1's parity
         let y0_bytes = y0.to_bytes_be();
-        let sign_bit = y0_bytes.last().map(|b| b & 1 == 1).unwrap_or(false);
+        let sign_bit = y0_bytes
+            .last()
+            .map(|b| b & 1 == 1)
+            .expect("Fp element serialization is never empty");
         bytes[0] |= if sign_bit { 0x80 } else { 0x00 };
 
         bytes
