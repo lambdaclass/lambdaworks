@@ -2313,8 +2313,8 @@ impl MontgomeryAlgorithms {
                 let b_arr: &[u64; 6] = b.limbs.as_slice().try_into().unwrap();
                 let q_arr: &[u64; 6] = q.limbs.as_slice().try_into().unwrap();
                 // Don't use MULX assembly for 6 limbs - register pressure causes 12% regression.
-                // The pure Rust version with u128 lets LLVM generate better code.
-                let result = x86_64_asm::cios_6_limbs_optimized(a_arr, b_arr, q_arr, *mu);
+                // Use the general cios_6_limbs (not optimized, which requires spare bit moduli).
+                let result = x86_64_asm::cios_6_limbs(a_arr, b_arr, q_arr, *mu);
                 let mut limbs = [0u64; NUM_LIMBS];
                 limbs.copy_from_slice(&result);
                 UnsignedInteger { limbs }
