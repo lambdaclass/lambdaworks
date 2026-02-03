@@ -85,24 +85,52 @@ impl IsField for Goldilocks64Field {
 
     /// Addition with overflow handling.
     /// If a + b overflows, we add EPSILON (since 2^64 ≡ EPSILON mod p)
+    ///
+    /// Note: Benchmarks show LLVM generates excellent code for this operation.
+    /// The assembly version may actually be slower due to blocking LLVM optimizations.
+    /// Use `asm` feature to enable assembly, or disable for pure Rust.
     #[inline(always)]
     fn add(a: &u64, b: &u64) -> u64 {
-        let (sum, over) = a.overflowing_add(*b);
-        let (sum, over2) = sum.overflowing_add((over as u64) * EPSILON);
-        if over2 {
-            sum.wrapping_add(EPSILON)
-        } else {
-            sum
+        // IMPORTANT: Benchmarks on x86-64 showed the Rust version can be faster
+        // because LLVM can inline and optimize across function boundaries,
+        // while asm! blocks are opaque to the optimizer.
+        //
+        // The assembly is kept for reference and for cases where constant-time
+        // execution is required (the Rust version uses branches).
+        #[cfg(all(target_arch = "x86_64", feature = "asm"))]
+        {
+            x86_64_asm::add_asm(*a, *b)
+        }
+
+        #[cfg(not(all(target_arch = "x86_64", feature = "asm")))]
+        {
+            let (sum, over) = a.overflowing_add(*b);
+            let (sum, over2) = sum.overflowing_add((over as u64) * EPSILON);
+            if over2 {
+                sum.wrapping_add(EPSILON)
+            } else {
+                sum
+            }
         }
     }
 
     /// Multiplication using 128-bit intermediate and fast reduction.
+    ///
+    /// Uses Plonky3-style approach: Let LLVM handle the 128-bit multiply
+    /// (it generates optimal code), then use reduce128 which applies asm
+    /// only for the final add where the sbb trick provides real benefit.
     #[inline(always)]
     fn mul(a: &u64, b: &u64) -> u64 {
+        // Plonky3 insight: LLVM generates excellent code for u128 multiply.
+        // Using full assembly for mul blocks LLVM's ability to optimize
+        // across function boundaries. Only use asm where it truly helps.
         reduce128((*a as u128) * (*b as u128))
     }
 
     /// Squaring using 128-bit intermediate and fast reduction.
+    ///
+    /// Same approach as mul - let LLVM handle the multiply, use asm only
+    /// for the final add in reduction.
     #[inline(always)]
     fn square(a: &u64) -> u64 {
         reduce128((*a as u128) * (*a as u128))
@@ -111,12 +139,20 @@ impl IsField for Goldilocks64Field {
     /// Subtraction with underflow handling.
     #[inline(always)]
     fn sub(a: &u64, b: &u64) -> u64 {
-        let (diff, under) = a.overflowing_sub(*b);
-        let (diff, under2) = diff.overflowing_sub((under as u64) * EPSILON);
-        if under2 {
-            diff.wrapping_sub(EPSILON)
-        } else {
-            diff
+        #[cfg(all(target_arch = "x86_64", feature = "asm"))]
+        {
+            x86_64_asm::sub_asm(*a, *b)
+        }
+
+        #[cfg(not(all(target_arch = "x86_64", feature = "asm")))]
+        {
+            let (diff, under) = a.overflowing_sub(*b);
+            let (diff, under2) = diff.overflowing_sub((under as u64) * EPSILON);
+            if under2 {
+                diff.wrapping_sub(EPSILON)
+            } else {
+                diff
+            }
         }
     }
 
@@ -262,12 +298,313 @@ impl ByteConversion for FieldElement<Goldilocks64Field> {
 }
 
 // =====================================================
+// x86-64 ASSEMBLY OPTIMIZATIONS
+// =====================================================
+
+#[cfg(all(target_arch = "x86_64", feature = "asm"))]
+mod x86_64_asm {
+    use super::EPSILON;
+    use core::arch::asm;
+
+    /// Optimized addition for Goldilocks field using x86-64 assembly.
+    /// Computes a + b mod p where p = 2^64 - 2^32 + 1.
+    ///
+    /// Uses the "sbb trick" from Plonky3: `sbb reg, reg` sets the register to
+    /// 0xFFFFFFFF (= EPSILON = NEG_ORDER) if carry flag is set, or 0 otherwise.
+    /// This is more efficient than CMOV because it's a single instruction.
+    ///
+    /// For canonical inputs (a, b < p), a + b < 2p < 2^64 + p, so a single
+    /// correction is sufficient. We keep a second correction for safety with
+    /// potentially non-canonical inputs.
+    #[inline(always)]
+    pub fn add_asm(a: u64, b: u64) -> u64 {
+        let result: u64;
+        // SAFETY: This assembly block performs modular addition for the Goldilocks prime.
+        // It uses only general-purpose registers and does not modify memory outside the output.
+        unsafe {
+            asm!(
+                // sum = a + b (sets CF if overflow)
+                "add {a}, {b}",
+                // The sbb trick: sbb {b:e}, {b:e} computes {b:e} - {b:e} - CF
+                // If CF=1: 0 - 0 - 1 = 0xFFFFFFFF (which equals EPSILON = 2^32 - 1)
+                // If CF=0: 0 - 0 - 0 = 0
+                // Using :e (32-bit register) zero-extends to 64-bit automatically
+                "sbb {b:e}, {b:e}",
+                // Add the adjustment (0 or EPSILON)
+                "add {a}, {b}",
+                // Second overflow check (rare, but needed for non-canonical inputs)
+                "sbb {b:e}, {b:e}",
+                "add {a}, {b}",
+                a = inout(reg) a => result,
+                b = inout(reg) b => _,
+                options(pure, nomem, nostack)
+            );
+        }
+        result
+    }
+
+    /// Optimized subtraction for Goldilocks field using x86-64 assembly.
+    /// Computes a - b mod p where p = 2^64 - 2^32 + 1.
+    ///
+    /// Uses the "sbb trick": if borrow occurred, sbb reg, reg gives 0xFFFFFFFF (EPSILON).
+    /// We then subtract this adjustment.
+    #[inline(always)]
+    pub fn sub_asm(a: u64, b: u64) -> u64 {
+        let result: u64;
+        // SAFETY: This assembly block performs modular subtraction for the Goldilocks prime.
+        // It uses only general-purpose registers and does not modify memory outside the output.
+        unsafe {
+            asm!(
+                // diff = a - b (sets CF if borrow)
+                "sub {a}, {b}",
+                // The sbb trick: if CF (borrow), {b:e} becomes 0xFFFFFFFF, else 0
+                "sbb {b:e}, {b:e}",
+                // Subtract the adjustment (subtracting EPSILON when borrow = adding ORDER - EPSILON = adding 1... wait)
+                // Actually: if borrow, we need to ADD p (which is 2^64 - EPSILON)
+                // But adding 2^64 wraps to 0, so we subtract EPSILON
+                // -EPSILON mod 2^64 = 2^64 - EPSILON... this is getting confusing
+                // Let's think: a - b underflowed, so result = (a - b) + 2^64
+                // We want (a - b) mod p = (a - b) + 2^64 - p = result - p + 2^64
+                // Since we already have result = (a-b) mod 2^64, and p = 2^64 - EPSILON
+                // (a - b) mod p = result + (2^64 - p) mod 2^64 = result + EPSILON... wait no
+                //
+                // Let me think again:
+                // If a >= b: no borrow, result = a - b, correct
+                // If a < b: borrow, CPU gives us (a - b + 2^64) mod 2^64
+                //   We need (a - b) mod p = (a - b + p) (since a - b < 0)
+                //   (a - b + 2^64) + (p - 2^64) = (a - b + 2^64) - EPSILON
+                //   So we SUBTRACT EPSILON when there's borrow
+                "sub {a}, {b}",
+                // Second underflow check
+                "sbb {b:e}, {b:e}",
+                "sub {a}, {b}",
+                a = inout(reg) a => result,
+                b = inout(reg) b => _,
+                options(pure, nomem, nostack)
+            );
+        }
+        result
+    }
+
+    /// Optimized multiplication for Goldilocks field using x86-64 assembly.
+    /// Computes a * b mod p where p = 2^64 - 2^32 + 1.
+    ///
+    /// Uses the MUL instruction for 64x64->128 bit multiplication,
+    /// then fast reduction using the special structure of the Goldilocks prime.
+    /// Uses the "sbb trick" from Plonky3 for efficient carry/borrow handling.
+    #[inline(always)]
+    pub fn mul_asm(a: u64, b: u64) -> u64 {
+        let result: u64;
+        // SAFETY: This assembly block performs modular multiplication for the Goldilocks prime.
+        // The MUL instruction uses RAX implicitly for the multiplicand and outputs to RDX:RAX.
+        // We then perform fast reduction using the identity 2^64 ≡ EPSILON (mod p).
+        unsafe {
+            asm!(
+                // 128-bit multiply: RDX:RAX = a * b
+                "mul {b}",
+                // Now RAX = low 64 bits, RDX = high 64 bits
+                //
+                // Reduction for p = 2^64 - 2^32 + 1:
+                // We use: 2^64 ≡ 2^32 - 1 (mod p)
+                // So: hi * 2^64 ≡ hi * (2^32 - 1) = (hi << 32) - hi (mod p)
+                //
+                // Split hi into hi_hi (top 32 bits) and hi_lo (bottom 32 bits):
+                // hi = hi_hi * 2^32 + hi_lo
+                // hi * (2^32 - 1) ≡ -hi_hi + (hi_lo << 32) - hi_lo (mod p)
+                //
+                // Final: result = lo - hi_hi + (hi_lo << 32) - hi_lo (mod p)
+
+                // Save hi, extract hi_hi and hi_lo
+                "mov {hi}, rdx",
+                "mov {hi_hi}, rdx",
+                "shr {hi_hi}, 32",
+                "mov {hi_lo:e}, {hi:e}",  // Zero-extends to 64 bits
+
+                // Compute t1 = hi_lo * (2^32 - 1) = (hi_lo << 32) - hi_lo
+                "mov {t1}, {hi_lo}",
+                "shl {t1}, 32",
+                "sub {t1}, {hi_lo}",
+
+                // result = lo - hi_hi (with borrow handling via sbb trick)
+                "sub rax, {hi_hi}",
+                "sbb {hi_hi:e}, {hi_hi:e}",  // hi_hi = borrow ? 0xFFFFFFFF : 0
+                "sub rax, {hi_hi}",
+
+                // result += t1 (with overflow handling via sbb trick)
+                "add rax, {t1}",
+                "sbb {t1:e}, {t1:e}",  // t1 = overflow ? 0xFFFFFFFF : 0
+                "add rax, {t1}",
+
+                inout("rax") a => result,
+                b = in(reg) b,
+                out("rdx") _,
+                hi = out(reg) _,
+                hi_hi = out(reg) _,
+                hi_lo = out(reg) _,
+                t1 = out(reg) _,
+                options(pure, nomem, nostack)
+            );
+        }
+        result
+    }
+
+    /// MULX-based multiplication for CPUs with BMI2 (Broadwell 2013+).
+    /// MULX doesn't clobber flags, allowing better instruction scheduling.
+    /// Uses the "sbb trick" for efficient carry handling.
+    #[cfg(target_feature = "bmi2")]
+    #[inline(always)]
+    pub fn mul_asm_mulx(a: u64, b: u64) -> u64 {
+        let result: u64;
+        unsafe {
+            asm!(
+                // MULX: {hi}:{lo} = RDX * {b}, doesn't touch flags
+                "mulx {hi}, {lo}, {b}",
+
+                // Extract hi_hi and hi_lo
+                "mov {hi_hi}, {hi}",
+                "shr {hi_hi}, 32",
+                "mov {hi_lo:e}, {hi:e}",
+
+                // t1 = hi_lo * (2^32 - 1)
+                "mov {t1}, {hi_lo}",
+                "shl {t1}, 32",
+                "sub {t1}, {hi_lo}",
+
+                // result = lo - hi_hi (with sbb trick for borrow)
+                "sub {lo}, {hi_hi}",
+                "sbb {hi_hi:e}, {hi_hi:e}",
+                "sub {lo}, {hi_hi}",
+
+                // result += t1 (with sbb trick for overflow)
+                "add {lo}, {t1}",
+                "sbb {t1:e}, {t1:e}",
+                "add {lo}, {t1}",
+
+                inout("rdx") a => _,
+                b = in(reg) b,
+                lo = out(reg) result,
+                hi = out(reg) _,
+                hi_hi = out(reg) _,
+                hi_lo = out(reg) _,
+                t1 = out(reg) _,
+                options(pure, nomem, nostack)
+            );
+        }
+        result
+    }
+
+    /// Optimized squaring for Goldilocks field using x86-64 assembly.
+    /// Computes a^2 mod p where p = 2^64 - 2^32 + 1.
+    /// Uses the "sbb trick" for efficient carry handling.
+    #[inline(always)]
+    pub fn square_asm(a: u64) -> u64 {
+        let result: u64;
+        unsafe {
+            asm!(
+                // a^2: RAX already has a, multiply by itself
+                "mul rax",
+
+                // Same reduction as mul_asm
+                "mov {hi}, rdx",
+                "mov {hi_hi}, rdx",
+                "shr {hi_hi}, 32",
+                "mov {hi_lo:e}, {hi:e}",
+
+                "mov {t1}, {hi_lo}",
+                "shl {t1}, 32",
+                "sub {t1}, {hi_lo}",
+
+                // result = lo - hi_hi (with sbb trick)
+                "sub rax, {hi_hi}",
+                "sbb {hi_hi:e}, {hi_hi:e}",
+                "sub rax, {hi_hi}",
+
+                // result += t1 (with sbb trick)
+                "add rax, {t1}",
+                "sbb {t1:e}, {t1:e}",
+                "add rax, {t1}",
+
+                inout("rax") a => result,
+                out("rdx") _,
+                hi = out(reg) _,
+                hi_hi = out(reg) _,
+                hi_lo = out(reg) _,
+                t1 = out(reg) _,
+                options(pure, nomem, nostack)
+            );
+        }
+        result
+    }
+
+    /// Plonky3-style add without full canonicalization.
+    /// Returns x + y mod 2^64 with a single correction if overflow.
+    ///
+    /// This is the key insight from Plonky3: use assembly ONLY for the final add
+    /// where the sbb trick provides real benefit. Let LLVM optimize everything else.
+    ///
+    /// The result may be in [0, 2^64) rather than [0, p), which is fine for
+    /// intermediate computations.
+    #[inline(always)]
+    pub fn add_no_canonicalize_asm(x: u64, y: u64) -> u64 {
+        let res_wrapped: u64;
+        let adjustment: u64;
+        // SAFETY: This assembly performs addition with carry-conditional adjustment.
+        // Uses only general-purpose registers, no memory access.
+        unsafe {
+            asm!(
+                "add {0}, {1}",
+                "sbb {1:e}, {1:e}",  // If CF: 0xFFFFFFFF (=EPSILON), else 0
+                inlateout(reg) x => res_wrapped,
+                inlateout(reg) y => adjustment,
+                options(pure, nomem, nostack),
+            );
+        }
+        res_wrapped.wrapping_add(adjustment)
+    }
+}
+
+// =====================================================
 // HELPER FUNCTIONS
 // =====================================================
 
 /// Reduce a 128-bit value to a 64-bit Goldilocks field element.
 ///
 /// Uses the identity: 2^64 ≡ 2^32 - 1 (mod p)
+///
+/// Plonky3-style implementation: Use Rust for reduction logic (LLVM optimizes well),
+/// but use assembly only for the final add where the sbb trick provides real benefit.
+#[cfg(all(target_arch = "x86_64", feature = "asm"))]
+#[inline(always)]
+fn reduce128(x: u128) -> u64 {
+    let x_lo = x as u64;
+    let x_hi = (x >> 64) as u64;
+    let x_hi_hi = x_hi >> 32;
+    let x_hi_lo = x_hi & EPSILON;
+
+    // Step 1: t0 = x_lo - x_hi_hi (with borrow handling)
+    let (t0, borrow) = x_lo.overflowing_sub(x_hi_hi);
+    // If borrow, we need to subtract EPSILON (wrapping)
+    // This is a cold branch - borrow is rare for random inputs
+    let t0 = if borrow {
+        // Hint to compiler that this branch is unlikely
+        #[cold]
+        fn branch_hint() {}
+        branch_hint();
+        t0.wrapping_sub(EPSILON)
+    } else {
+        t0
+    };
+
+    // Step 2: t1 = x_hi_lo * EPSILON = x_hi_lo * (2^32 - 1) = (x_hi_lo << 32) - x_hi_lo
+    let t1 = (x_hi_lo << 32).wrapping_sub(x_hi_lo);
+
+    // Step 3: result = t0 + t1 (using asm for efficient overflow handling)
+    // This is where the sbb trick really shines - avoiding a branch
+    x86_64_asm::add_no_canonicalize_asm(t0, t1)
+}
+
+/// Reduce a 128-bit value to a 64-bit Goldilocks field element (pure Rust).
+#[cfg(not(all(target_arch = "x86_64", feature = "asm")))]
 #[inline(always)]
 fn reduce128(x: u128) -> u64 {
     let x_lo = x as u64;
@@ -925,5 +1262,152 @@ mod cubic_extension_tests {
         let c = a * b;
         let c_div_a = c * a.inv().unwrap();
         assert_eq!(c_div_a, b);
+    }
+}
+
+// =====================================================
+// DIFFERENTIAL FUZZING: ASM vs PURE RUST
+// =====================================================
+// These tests compare x86-64 assembly implementations against
+// pure Rust to ensure correctness across all inputs.
+
+#[cfg(all(test, target_arch = "x86_64", feature = "asm"))]
+mod differential_asm_tests {
+    use super::*;
+    use proptest::prelude::*;
+
+    /// Pure Rust addition (reference implementation)
+    fn add_rust(a: u64, b: u64) -> u64 {
+        let (sum, over) = a.overflowing_add(b);
+        let (sum, over2) = sum.overflowing_add((over as u64) * EPSILON);
+        if over2 {
+            sum.wrapping_add(EPSILON)
+        } else {
+            sum
+        }
+    }
+
+    /// Pure Rust subtraction (reference implementation)
+    fn sub_rust(a: u64, b: u64) -> u64 {
+        let (diff, under) = a.overflowing_sub(b);
+        let (diff, under2) = diff.overflowing_sub((under as u64) * EPSILON);
+        if under2 {
+            diff.wrapping_sub(EPSILON)
+        } else {
+            diff
+        }
+    }
+
+    /// Pure Rust multiplication (reference implementation)
+    fn mul_rust(a: u64, b: u64) -> u64 {
+        let x = (a as u128) * (b as u128);
+        let x_lo = x as u64;
+        let x_hi = (x >> 64) as u64;
+        let x_hi_hi = x_hi >> 32;
+        let x_hi_lo = x_hi & EPSILON;
+
+        let (t0, borrow) = x_lo.overflowing_sub(x_hi_hi);
+        let t0 = if borrow { t0.wrapping_sub(EPSILON) } else { t0 };
+
+        let t1 = (x_hi_lo << 32).wrapping_sub(x_hi_lo);
+
+        let (result, carry) = t0.overflowing_add(t1);
+        if carry {
+            result.wrapping_add(EPSILON)
+        } else {
+            result
+        }
+    }
+
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(10000))]
+
+        #[test]
+        fn test_add_asm_matches_rust(a in any::<u64>(), b in any::<u64>()) {
+            let asm_result = x86_64_asm::add_asm(a, b);
+            let rust_result = add_rust(a, b);
+            prop_assert_eq!(asm_result, rust_result,
+                "add_asm({}, {}) = {} but add_rust = {}", a, b, asm_result, rust_result);
+        }
+
+        #[test]
+        fn test_sub_asm_matches_rust(a in any::<u64>(), b in any::<u64>()) {
+            let asm_result = x86_64_asm::sub_asm(a, b);
+            let rust_result = sub_rust(a, b);
+            prop_assert_eq!(asm_result, rust_result,
+                "sub_asm({}, {}) = {} but sub_rust = {}", a, b, asm_result, rust_result);
+        }
+
+        #[test]
+        fn test_mul_asm_matches_rust(a in any::<u64>(), b in any::<u64>()) {
+            let asm_result = x86_64_asm::mul_asm(a, b);
+            let rust_result = mul_rust(a, b);
+            prop_assert_eq!(asm_result, rust_result,
+                "mul_asm({}, {}) = {} but mul_rust = {}", a, b, asm_result, rust_result);
+        }
+
+        #[test]
+        fn test_square_asm_matches_mul(a in any::<u64>()) {
+            let square_result = x86_64_asm::square_asm(a);
+            let mul_result = x86_64_asm::mul_asm(a, a);
+            prop_assert_eq!(square_result, mul_result,
+                "square_asm({}) = {} but mul_asm(a, a) = {}", a, square_result, mul_result);
+        }
+    }
+
+    // Edge case tests for specific boundary values
+    #[test]
+    fn test_add_edge_cases() {
+        // Test overflow at exactly 2^64
+        let max = u64::MAX;
+        assert_eq!(x86_64_asm::add_asm(max, 1), add_rust(max, 1));
+        assert_eq!(x86_64_asm::add_asm(max, max), add_rust(max, max));
+
+        // Test around EPSILON boundary
+        assert_eq!(x86_64_asm::add_asm(EPSILON, 1), add_rust(EPSILON, 1));
+        assert_eq!(
+            x86_64_asm::add_asm(EPSILON, EPSILON),
+            add_rust(EPSILON, EPSILON)
+        );
+
+        // Test around modulus
+        let p = GOLDILOCKS_PRIME;
+        assert_eq!(x86_64_asm::add_asm(p - 1, 1), add_rust(p - 1, 1));
+        assert_eq!(x86_64_asm::add_asm(p - 1, 2), add_rust(p - 1, 2));
+    }
+
+    #[test]
+    fn test_sub_edge_cases() {
+        // Test underflow
+        assert_eq!(x86_64_asm::sub_asm(0, 1), sub_rust(0, 1));
+        assert_eq!(x86_64_asm::sub_asm(1, 2), sub_rust(1, 2));
+
+        // Test around EPSILON boundary
+        assert_eq!(
+            x86_64_asm::sub_asm(EPSILON, EPSILON + 1),
+            sub_rust(EPSILON, EPSILON + 1)
+        );
+
+        // Test modulus boundary
+        let p = GOLDILOCKS_PRIME;
+        assert_eq!(x86_64_asm::sub_asm(0, p - 1), sub_rust(0, p - 1));
+    }
+
+    #[test]
+    fn test_mul_edge_cases() {
+        // Test with small values
+        assert_eq!(x86_64_asm::mul_asm(0, 0), mul_rust(0, 0));
+        assert_eq!(x86_64_asm::mul_asm(1, 1), mul_rust(1, 1));
+        assert_eq!(x86_64_asm::mul_asm(2, 3), mul_rust(2, 3));
+
+        // Test with large values
+        let max = u64::MAX;
+        assert_eq!(x86_64_asm::mul_asm(max, max), mul_rust(max, max));
+        assert_eq!(x86_64_asm::mul_asm(max, 2), mul_rust(max, 2));
+
+        // Test around modulus
+        let p = GOLDILOCKS_PRIME;
+        assert_eq!(x86_64_asm::mul_asm(p - 1, p - 1), mul_rust(p - 1, p - 1));
+        assert_eq!(x86_64_asm::mul_asm(p - 1, 2), mul_rust(p - 1, 2));
     }
 }
