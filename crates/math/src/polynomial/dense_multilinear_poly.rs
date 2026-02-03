@@ -928,9 +928,7 @@ mod tests {
 
         // Verify by comparing with sequential partial evaluations
         for y in [FE::zero(), FE::one()] {
-            let g_eval = g
-                .evaluate(vec![y])
-                .expect("Valid evaluation point for g");
+            let g_eval = g.evaluate(vec![y]).expect("Valid evaluation point for g");
             let f_eval = poly
                 .evaluate(vec![r1, y, r2])
                 .expect("Valid evaluation point for f");
@@ -1029,13 +1027,9 @@ mod tests {
         for x in [FE::zero(), FE::one()] {
             for y1 in [FE::zero(), FE::one()] {
                 for y2 in [FE::zero(), FE::one()] {
-                    let h_eval = h
-                        .evaluate(vec![x, y1, y2])
-                        .expect("Valid point for h");
+                    let h_eval = h.evaluate(vec![x, y1, y2]).expect("Valid point for h");
                     let f_eval = f.evaluate(vec![x]).expect("Valid point for f");
-                    let g_eval = g
-                        .evaluate(vec![y1, y2])
-                        .expect("Valid point for g");
+                    let g_eval = g.evaluate(vec![y1, y2]).expect("Valid point for g");
                     assert_eq!(h_eval, f_eval * g_eval);
                 }
             }
@@ -1194,9 +1188,7 @@ mod tests {
         let c = FE::from(23);
 
         // Evaluate directly
-        let direct = poly
-            .evaluate(vec![a, b, c])
-            .expect("Valid point");
+        let direct = poly.evaluate(vec![a, b, c]).expect("Valid point");
 
         // Evaluate via sequential partial evaluation
         let step1 = poly.partial_evaluate(0, &a);
