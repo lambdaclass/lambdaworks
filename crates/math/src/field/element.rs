@@ -51,9 +51,29 @@ pub struct FieldElement<F: IsField> {
 
 /// Minimum batch size for parallel inversion.
 /// Below this threshold, sequential inversion is used to avoid parallelization overhead.
-/// Empirically, 1024 provides a good balance for most workloads.
-#[cfg(all(feature = "alloc", feature = "parallel"))]
+///
+/// Architecture-specific defaults based on empirical benchmarking:
+/// - x86-64 (AMD/Intel): 1024 elements (thread spawning overhead is low, ~10-30% speedup)
+/// - ARM64 (Apple M1/M2): 32768 elements (higher overhead, optimized for 64-bit fields like Goldilocks)
+///
+/// Note: The ARM64 threshold is optimized for small fields (u64 Goldilocks: 3-4x faster operations).
+/// For larger fields (252-bit Stark252), a smaller threshold like 8192 may be better.
+/// Override via `LAMBDAWORKS_PARALLEL_THRESHOLD` environment variable if needed:
+///   export LAMBDAWORKS_PARALLEL_THRESHOLD=8192
+///
+/// Benchmarking methodology: see `benches/benches/batch_inverse.rs`
+#[cfg(all(feature = "alloc", feature = "parallel", target_arch = "x86_64"))]
 pub const PARALLEL_INVERSION_THRESHOLD: usize = 1024;
+
+#[cfg(all(feature = "alloc", feature = "parallel", target_arch = "aarch64"))]
+pub const PARALLEL_INVERSION_THRESHOLD: usize = 32768;
+
+#[cfg(all(
+    feature = "alloc",
+    feature = "parallel",
+    not(any(target_arch = "x86_64", target_arch = "aarch64"))
+))]
+pub const PARALLEL_INVERSION_THRESHOLD: usize = 4096;
 
 /// Minimum chunk size for parallel batch inversion.
 /// Ensures each thread has enough work to amortize parallelization overhead
@@ -85,6 +105,25 @@ impl<F: IsField> FieldElement<F> {
         }
         numbers[0] = bi_inv;
         Ok(())
+    }
+
+    #[cfg(feature = "parallel")]
+    /// Gets the parallelization threshold, with optional runtime override.
+    ///
+    /// Returns the threshold from `LAMBDAWORKS_PARALLEL_THRESHOLD` environment variable
+    /// if set, otherwise uses the architecture-specific default.
+    ///
+    /// This allows tuning for specific hardware without recompilation.
+    fn get_parallel_threshold() -> usize {
+        #[cfg(feature = "std")]
+        {
+            if let Ok(threshold_str) = std::env::var("LAMBDAWORKS_PARALLEL_THRESHOLD") {
+                if let Ok(threshold) = threshold_str.parse::<usize>() {
+                    return threshold;
+                }
+            }
+        }
+        PARALLEL_INVERSION_THRESHOLD
     }
 
     #[cfg(feature = "parallel")]
@@ -121,7 +160,8 @@ impl<F: IsField> FieldElement<F> {
     pub fn inplace_batch_inverse_parallel(numbers: &mut [Self]) -> Result<(), FieldError> {
         use rayon::prelude::*;
 
-        if numbers.len() < PARALLEL_INVERSION_THRESHOLD {
+        let threshold = Self::get_parallel_threshold();
+        if numbers.len() < threshold {
             return Self::inplace_batch_inverse(numbers);
         }
 
