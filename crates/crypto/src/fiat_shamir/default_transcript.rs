@@ -72,7 +72,19 @@ where
     }
 
     fn sample_u64(&mut self, upper_bound: u64) -> u64 {
-        u64::from_be_bytes(self.state()[..8].try_into().unwrap()) % upper_bound
+        assert!(upper_bound > 0, "upper_bound must be greater than 0");
+        let zone = u64::MAX - (u64::MAX % upper_bound);
+        loop {
+            let bytes = self.sample();
+            let candidate = u64::from_be_bytes(
+                bytes[..8]
+                    .try_into()
+                    .expect("sample() returns 32 bytes, slicing first 8 always succeeds"),
+            );
+            if candidate < zone {
+                return candidate % upper_bound;
+            }
+        }
     }
 }
 
@@ -169,5 +181,28 @@ mod tests {
 
         assert!(sample_1 != sample_2);
         assert!(sample_1 == sample_3);
+    }
+
+    #[test]
+    fn sample_u64_consecutive_calls_return_different_values() {
+        // This test documents/verifies the expected behavior:
+        // consecutive calls to sample_u64 should return DIFFERENT values
+        // because each call should advance the transcript state.
+        let mut transcript = DefaultTranscript::<FrField>::default();
+        transcript.append_bytes(&[0x01, 0x02, 0x03]);
+
+        let sample1 = transcript.sample_u64(1000);
+        let sample2 = transcript.sample_u64(1000);
+        let sample3 = transcript.sample_u64(1000);
+
+        // All samples should be different (state advances each time)
+        assert_ne!(
+            sample1, sample2,
+            "consecutive sample_u64 calls should return different values"
+        );
+        assert_ne!(
+            sample2, sample3,
+            "consecutive sample_u64 calls should return different values"
+        );
     }
 }

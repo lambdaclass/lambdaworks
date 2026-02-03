@@ -193,7 +193,7 @@ where
 
         iter.map(|col| Polynomial::interpolate_fft::<S>(col))
             .collect::<Result<Vec<Polynomial<FieldElement<F>>>, FFTError>>()
-            .unwrap()
+            .expect("FFT interpolation failed: trace column length must be power of 2")
     }
 
     pub fn compute_trace_polys_aux<S>(&self) -> Vec<Polynomial<FieldElement<E>>>
@@ -209,7 +209,7 @@ where
 
         iter.map(|col| Polynomial::interpolate_fft::<F>(col))
             .collect::<Result<Vec<Polynomial<FieldElement<E>>>, FFTError>>()
-            .unwrap()
+            .expect("FFT interpolation failed: aux trace column length must be power of 2")
     }
 
     pub fn get_column_main(&self, col_idx: usize) -> Vec<FieldElement<F>> {
@@ -381,6 +381,46 @@ where
         .map(|row_index| {
             (0..num_cols)
                 .map(|col_index| columns[col_index][row_index].clone())
+                .collect()
+        })
+        .collect()
+}
+
+/// Performs a fused bit-reverse permutation and column-to-row transpose.
+/// This avoids the need to clone the columns for bit-reversal before transposing.
+///
+/// Instead of:
+/// ```ignore
+/// let mut permuted = columns.clone();  // Allocates full copy
+/// for col in permuted.iter_mut() {
+///     in_place_bit_reverse_permute(col);
+/// }
+/// let rows = columns2rows(permuted);
+/// ```
+///
+/// Use:
+/// ```ignore
+/// let rows = columns2rows_bit_reversed(&columns);  // No clone needed
+/// ```
+pub fn columns2rows_bit_reversed<F>(columns: &[Vec<F>]) -> Vec<Vec<F>>
+where
+    F: Clone,
+{
+    if columns.is_empty() {
+        return Vec::new();
+    }
+
+    use lambdaworks_math::fft::cpu::bit_reversing::reverse_index;
+
+    let num_rows = columns[0].len();
+    let num_cols = columns.len();
+
+    (0..num_rows)
+        .map(|row_index| {
+            // Apply bit-reverse permutation while building the row
+            let permuted_index = reverse_index(row_index, num_rows as u64);
+            (0..num_cols)
+                .map(|col_index| columns[col_index][permuted_index].clone())
                 .collect()
         })
         .collect()

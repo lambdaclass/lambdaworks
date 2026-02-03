@@ -34,7 +34,7 @@ pub fn validate_trace<
                 1,
                 Some(domain.interpolation_domain_size),
             )
-            .unwrap()
+            .expect("FFT evaluation of main trace polynomial must succeed")
         })
         .collect();
 
@@ -42,7 +42,7 @@ pub fn validate_trace<
         .iter()
         .map(|poly| {
             Polynomial::evaluate_fft::<Field>(poly, 1, Some(domain.interpolation_domain_size))
-                .unwrap()
+                .expect("FFT evaluation of aux trace polynomial must succeed")
         })
         .collect();
 
@@ -58,7 +58,7 @@ pub fn validate_trace<
                 1,
                 Some(domain.interpolation_domain_size),
             )
-            .unwrap()
+            .expect("FFT evaluation of periodic column polynomial must succeed")
         })
         .collect();
 
@@ -129,9 +129,14 @@ pub fn check_boundary_polys_divisibility<F: IsFFTField>(
         .zip(boundary_zerofiers.iter())
         .enumerate()
     {
-        let (_, b) = poly.clone().long_division_with_remainder(z);
-        if b != Polynomial::zero() {
-            error!("Boundary poly {i} is not divisible by its zerofier");
+        match poly.clone().long_division_with_remainder(z) {
+            Ok((_, b)) if b != Polynomial::zero() => {
+                error!("Boundary poly {i} is not divisible by its zerofier");
+            }
+            Err(e) => {
+                error!("Boundary poly {i} division failed: {e}");
+            }
+            _ => {}
         }
     }
 }

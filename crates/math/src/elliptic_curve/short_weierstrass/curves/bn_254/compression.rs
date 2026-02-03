@@ -195,8 +195,8 @@ impl Compress for BN254Curve {
 
         let input1 = &input_bytes[0..32];
         let input0 = &input_bytes[32..];
-        let x0 = BN254FieldElement::from_bytes_be(input0).unwrap();
-        let x1 = BN254FieldElement::from_bytes_be(input1).unwrap();
+        let x0 = BN254FieldElement::from_bytes_be(input0)?;
+        let x1 = BN254FieldElement::from_bytes_be(input1)?;
         let x: FieldElement<Degree2ExtensionField> = FieldElement::new([x0, x1]);
 
         let b_param_qfe = BN254TwistCurve::b();
@@ -206,7 +206,13 @@ impl Compress for BN254Curve {
         let y = sqrt::sqrt_qfe(&(x.pow(3_u64) + b_param_qfe), second_bit)
             .ok_or(ByteConversionError::InvalidValue)?;
 
-        Self::G2Point::from_affine(x, y).map_err(|_| ByteConversionError::InvalidValue)
+        let point =
+            Self::G2Point::from_affine(x, y).map_err(|_| ByteConversionError::InvalidValue)?;
+
+        point
+            .is_in_subgroup()
+            .then_some(point)
+            .ok_or(ByteConversionError::PointNotInSubgroup)
     }
 }
 
