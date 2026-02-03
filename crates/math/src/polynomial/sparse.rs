@@ -47,6 +47,7 @@
 use crate::field::element::FieldElement;
 use crate::field::traits::{IsField, IsPrimeField};
 use alloc::collections::BTreeMap;
+use alloc::format;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
 use core::ops::{Add, Mul, Neg, Sub};
