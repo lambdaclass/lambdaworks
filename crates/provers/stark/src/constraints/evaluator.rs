@@ -76,7 +76,7 @@ where
                     .map(|v| v - &point)
                     .collect();
                 FieldElement::inplace_batch_inverse(&mut evals)
-                    .expect("batch inverse failed: boundary zerofier contains zero element");
+                    .expect("boundary zerofier evaluations are non-zero because trace domain and LDE coset are disjoint");
                 evals
             });
         }

@@ -60,7 +60,7 @@ impl<F: IsFFTField> Domain<F> {
             air.trace_length() * blowup_factor,
             &coset_offset,
         )
-        .expect("failed to generate LDE roots of unity coset: blowup factor may be too large");
+        .expect("LDE roots of unity computation must succeed for valid blowup factor");
 
         Self {
             root_order,

@@ -1,3 +1,53 @@
+//! # AIR (Algebraic Intermediate Representation) Traits
+//!
+//! This module defines the core traits for expressing computations as algebraic constraints
+//! over an execution trace.
+//!
+//! ## What is AIR?
+//!
+//! AIR is a way to represent computations as polynomial constraints that must be satisfied
+//! by a valid execution trace. Given a computation with `n` steps and `w` state variables,
+//! the execution trace is a `n × w` matrix where each row represents the state at one step.
+//!
+//! ## Constraint Types
+//!
+//! ### Boundary Constraints
+//! Fix specific values at specific positions in the trace:
+//! ```text
+//! B_i(x) = t_col(x) - value,  where x = ω^step
+//! ```
+//!
+//! ### Transition Constraints
+//! Relate values in consecutive rows:
+//! ```text
+//! C_i(t_0(x), t_1(x), ..., t_0(ω·x), t_1(ω·x), ...) = 0
+//! ```
+//! where `t_j(x)` are trace column polynomials and `ω` is the trace domain generator.
+//!
+//! ## Composition Polynomial
+//!
+//! All constraints are combined into a single composition polynomial:
+//! ```text
+//! H(x) = Σ α_i · C_i(x) / Z_i(x)
+//! ```
+//! where:
+//! - `C_i(x)` are the constraint polynomials
+//! - `Z_i(x)` are the zerofier polynomials (vanish where constraints should hold)
+//! - `α_i` are random coefficients from the verifier
+//!
+//! ## Zerofier Polynomials
+//!
+//! Zerofiers define where constraints must be satisfied:
+//! - **Full zerofier**: `Z(x) = x^n - 1` (all rows)
+//! - **Boundary zerofier**: `(x - ω^step)` (single row)
+//! - **Periodic zerofier**: `x^(n/period) - 1` (every `period` rows)
+//!
+//! ## References
+//!
+//! - [STARK Paper](https://eprint.iacr.org/2018/046) Section 4 - AIR formalization
+//! - [ethSTARK Documentation](https://eprint.iacr.org/2021/582) - Practical AIR design
+//! - [Cairo Whitepaper](https://eprint.iacr.org/2021/1063) - AIR for CPU execution
+
 use std::collections::HashMap;
 use std::ops::Div;
 
@@ -17,14 +67,16 @@ use super::{
     proof::options::ProofOptions, trace::TraceTable,
 };
 
+/// Key for grouping constraints with identical zerofier parameters.
+/// Components: (period, offset, exemptions_period, periodic_exemptions_offset, end_exemptions)
 type ZerofierGroupKey = (usize, usize, Option<usize>, Option<usize>, usize);
 
-/// Key for caching base zerofier evaluations (without end exemptions)
-/// (period, offset, exemptions_period, periodic_exemptions_offset)
+/// Key for caching base zerofier evaluations (without end exemptions).
+/// Components: (period, offset, exemptions_period, periodic_exemptions_offset)
 type BaseZerofierKey = (usize, usize, Option<usize>, Option<usize>);
 
-/// Key for caching end exemptions polynomial evaluations
-/// (end_exemptions, period)
+/// Key for caching end exemptions polynomial evaluations.
+/// Components: (end_exemptions, period)
 type EndExemptionsKey = (usize, usize);
 
 /// Compute base zerofier evaluations (without end exemptions)
@@ -303,7 +355,7 @@ pub trait AIR: Send + Sync {
                 .collect();
             let poly =
                 Polynomial::<FieldElement<Self::Field>>::interpolate_fft::<Self::Field>(&values)
-                    .expect("failed to interpolate periodic column polynomial via FFT");
+                    .expect("FFT interpolation of periodic column must succeed");
             result.push(poly);
         }
         result
@@ -326,9 +378,8 @@ pub trait AIR: Send + Sync {
         let trace_primitive_root = &domain.trace_primitive_root;
         let coset_offset = &domain.coset_offset;
         let lde_root_order = u64::from((blowup_factor * trace_length).trailing_zeros());
-        let lde_root = Self::Field::get_primitive_root_of_unity(lde_root_order).expect(
-            "failed to get LDE primitive root: blowup factor * trace length may exceed field's two-adicity"
-        );
+        let lde_root = Self::Field::get_primitive_root_of_unity(lde_root_order)
+            .expect("primitive root of unity must exist for LDE domain size");
 
         // Step 1: Collect unique keys
         let mut unique_base_keys: Vec<BaseZerofierKey> = Vec::new();
@@ -470,10 +521,10 @@ pub trait AIR: Send + Sync {
 
             let base_zerofier = base_zerofier_map
                 .get(&base_key)
-                .expect("base zerofier cache miss: constraint key not found in precomputed map");
+                .expect("base_key was inserted into map in previous step");
             let end_exemptions_evals = end_exemptions_map
                 .get(&end_key)
-                .expect("end exemptions cache miss: constraint key not found in precomputed map");
+                .expect("end_key was inserted into map in previous step");
 
             // Combine base zerofier with end exemptions
             let cycled_base = base_zerofier

@@ -137,10 +137,8 @@ where
                 .map(|exponent| {
                     let x = lde_root.pow(exponent);
                     let offset_times_x = coset_offset * &x;
-                    let offset_exponent = trace_length
-                        * self.periodic_exemptions_offset().expect(
-                            "periodic_exemptions_offset must be Some when exemptions_period is Some"
-                        )
+                    let offset_exponent = trace_length * self.periodic_exemptions_offset()
+                        .expect("periodic_exemptions_offset must be Some when exemptions_period is Some")
                         / exemptions_period;
 
                     let numerator = offset_times_x.pow(trace_length / exemptions_period)

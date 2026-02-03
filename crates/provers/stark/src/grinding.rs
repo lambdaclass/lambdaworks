@@ -89,7 +89,7 @@ fn is_valid_nonce_for_inner_hash(inner_hash: &[u8; 32], candidate_nonce: u64, li
     let seed_head = u64::from_be_bytes(
         digest[..8]
             .try_into()
-            .expect("digest slice is exactly 8 bytes"),
+            .expect("digest is 32 bytes, slicing first 8 always succeeds"),
     );
     seed_head < limit
 }
