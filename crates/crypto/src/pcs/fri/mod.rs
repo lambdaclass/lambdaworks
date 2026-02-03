@@ -295,17 +295,17 @@ impl<F: IsFFTField> PolynomialCommitmentScheme<F> for FRIPcs<F> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use lambdaworks_math::field::fields::u64_prime_field::U64PrimeField;
+    use lambdaworks_math::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;
 
-    // A simple test field
-    type TestField = U64PrimeField<65537>;
+    // Use Stark252 field which implements IsFFTField
+    type TestField = Stark252PrimeField;
 
     #[test]
     fn test_fri_pcs_creation() {
         let fri: FRIPcs<TestField> = FRIPcs::new(1024, 4, 10);
-        assert_eq!(fri.max_degree(), 1024);
-        assert_eq!(fri.blowup_factor(), 4);
-        assert_eq!(fri.num_layers(), 10);
+        assert_eq!(fri.max_degree, 1024);
+        assert_eq!(fri.blowup_factor, 4);
+        assert_eq!(fri.num_layers, 10);
     }
 
     #[test]

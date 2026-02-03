@@ -78,7 +78,6 @@ pub trait PCSTranscript {
         count: usize,
     ) -> Vec<FieldElement<F>>
     where
-        F: IsField,
         FieldElement<F>: FromBytes,
     {
         (0..count)

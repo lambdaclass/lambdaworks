@@ -25,6 +25,8 @@ mod srs;
 
 use crate::pcs::error::PCSError;
 use crate::pcs::traits::PolynomialCommitmentScheme;
+#[cfg(feature = "alloc")]
+use crate::pcs::traits::BatchPCS;
 
 pub use commitment::KZGCommitment;
 pub use proof::KZGProof;
@@ -244,6 +246,161 @@ where
     }
 }
 
+/// Implement batch operations for KZG.
+///
+/// Batch operations use random linear combinations (via the challenge parameter)
+/// to combine multiple polynomials/commitments into a single proof/verification.
+#[cfg(feature = "alloc")]
+impl<const N: usize, F, P> BatchPCS<F> for KZG<F, P>
+where
+    F: IsPrimeField<CanonicalType = UnsignedInteger<N>>,
+    P: IsPairing,
+    P::G1Point: Clone + PartialEq + Eq,
+    P::G2Point: Clone,
+{
+    type BatchProof = KZGProof<P>;
+
+    fn batch_open_single_point(
+        ck: &KZGCommitterKey<P>,
+        polynomials: &[Polynomial<FieldElement<F>>],
+        _commitment_states: &[KZGCommitmentState<F>],
+        point: &FieldElement<F>,
+        challenge: &FieldElement<F>,
+    ) -> Result<KZGProof<P>, PCSError> {
+        if polynomials.is_empty() {
+            return Err(PCSError::opening("Cannot batch open empty polynomial list"));
+        }
+
+        // Compute evaluations
+        let evaluations: Vec<_> = polynomials.iter().map(|p| p.evaluate(point)).collect();
+
+        // Combine polynomials using random linear combination (Horner's method)
+        // acc = p_n + challenge * (p_{n-1} + challenge * (p_{n-2} + ...))
+        let combined_poly = polynomials
+            .iter()
+            .rev()
+            .fold(Polynomial::zero(), |acc, poly| {
+                acc * challenge.clone() + poly
+            });
+
+        // Combine evaluations similarly
+        let combined_eval = evaluations
+            .iter()
+            .rev()
+            .fold(FieldElement::zero(), |acc, eval| {
+                acc * challenge.clone() + eval
+            });
+
+        // Compute quotient: q(x) = (combined_poly(x) - combined_eval) / (x - point)
+        let mut quotient = &combined_poly - &combined_eval;
+        quotient.ruffini_division_inplace(point);
+
+        // Commit to quotient
+        let coefficients: Vec<_> = quotient
+            .coefficients
+            .iter()
+            .map(|c| c.canonical())
+            .collect();
+
+        if coefficients.len() > ck.powers_of_g1.len() {
+            return Err(PCSError::opening(
+                "Quotient polynomial degree exceeds committer key capacity",
+            ));
+        }
+
+        let proof_point = msm(&coefficients, &ck.powers_of_g1[..coefficients.len()])
+            .map_err(|_| PCSError::opening("MSM failed during batch proof generation"))?;
+
+        Ok(KZGProof::new(proof_point))
+    }
+
+    fn batch_verify_single_point(
+        vk: &KZGVerifierKey<P>,
+        commitments: &[KZGCommitment<P>],
+        point: &FieldElement<F>,
+        evaluations: &[FieldElement<F>],
+        proof: &KZGProof<P>,
+        challenge: &FieldElement<F>,
+    ) -> Result<bool, PCSError> {
+        if commitments.len() != evaluations.len() {
+            return Err(PCSError::length_mismatch(commitments.len(), evaluations.len()));
+        }
+
+        if commitments.is_empty() {
+            return Err(PCSError::verification(
+                "Cannot batch verify empty commitment list",
+            ));
+        }
+
+        // Combine commitments using random linear combination (Horner's method)
+        // acc_commitment = C_n + challenge * (C_{n-1} + challenge * ...)
+        let combined_commitment = commitments
+            .iter()
+            .rev()
+            .fold(P::G1Point::neutral_element(), |acc, c| {
+                acc.operate_with_self(challenge.canonical())
+                    .operate_with(&c.point)
+            });
+
+        // Combine evaluations similarly
+        let combined_eval = evaluations
+            .iter()
+            .rev()
+            .fold(FieldElement::zero(), |acc, eval| {
+                acc * challenge.clone() + eval
+            });
+
+        // Verify using the standard pairing check with combined values
+        let g1 = &vk.g1;
+        let g2 = &vk.g2;
+        let tau_g2 = &vk.tau_g2;
+
+        // Compute combined_commitment - combined_eval·G1
+        let eval_g1 = g1.operate_with_self(combined_eval.canonical());
+        let lhs_g1 = combined_commitment.operate_with(&eval_g1.neg());
+
+        // Compute τ·G2 - point·G2
+        let point_g2 = g2.operate_with_self(point.canonical());
+        let rhs_g2 = tau_g2.operate_with(&point_g2.neg());
+
+        // Pairing check: e(lhs_g1, G2) · e(-π, rhs_g2) = 1
+        let result = P::compute_batch(&[(&lhs_g1, g2), (&proof.point.neg(), &rhs_g2)]);
+
+        match result {
+            Ok(pairing_result) => Ok(pairing_result == FieldElement::one()),
+            Err(_) => Err(PCSError::PairingCheckFailed),
+        }
+    }
+
+    fn batch_open_multi_point(
+        _ck: &KZGCommitterKey<P>,
+        _polynomials: &[Polynomial<FieldElement<F>>],
+        _commitment_states: &[KZGCommitmentState<F>],
+        _points: &[FieldElement<F>],
+        _challenge: &FieldElement<F>,
+    ) -> Result<KZGProof<P>, PCSError> {
+        // Multi-point batch opening requires more complex techniques
+        // (e.g., Kate-Zaverucha-Goldberg multi-point scheme or Shplonk)
+        Err(PCSError::opening(
+            "Multi-point batch opening not yet implemented - use single-point batch or individual openings",
+        ))
+    }
+
+    fn batch_verify_multi_point(
+        _vk: &KZGVerifierKey<P>,
+        _commitments: &[KZGCommitment<P>],
+        _points: &[FieldElement<F>],
+        _evaluations: &[Vec<FieldElement<F>>],
+        _proof: &KZGProof<P>,
+        _challenge: &FieldElement<F>,
+    ) -> Result<bool, PCSError> {
+        // Multi-point batch verification requires the corresponding opening implementation
+        Err(PCSError::verification(
+            "Multi-point batch verification not yet implemented",
+        ))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -432,6 +589,175 @@ mod tests {
 
         // Verify
         let is_valid = TestKZG::verify(&vk, &commitment, &x, &y, &proof).unwrap();
+        assert!(is_valid);
+    }
+
+    // ==================== Batch Operation Tests ====================
+
+    #[test]
+    #[cfg(feature = "alloc")]
+    fn test_kzg_batch_single_polynomial() {
+        use crate::pcs::traits::BatchPCS;
+
+        let pp = create_test_srs(10);
+        let (ck, vk) = TestKZG::trim(&pp, 10).unwrap();
+
+        // Single polynomial p(x) = 1 + x
+        let p = Polynomial::new(&[FieldElement::<FrField>::one(), FieldElement::one()]);
+        let (commitment, state) = TestKZG::commit(&ck, &p).unwrap();
+
+        let x = FieldElement::<FrField>::from(3u64);
+        let y = p.evaluate(&x);
+
+        // Batch open with a single polynomial
+        let challenge = FieldElement::<FrField>::from(7u64);
+        let proof =
+            TestKZG::batch_open_single_point(&ck, &[p], &[state], &x, &challenge).unwrap();
+
+        // Batch verify
+        let is_valid =
+            TestKZG::batch_verify_single_point(&vk, &[commitment], &x, &[y], &proof, &challenge)
+                .unwrap();
+        assert!(is_valid);
+    }
+
+    #[test]
+    #[cfg(feature = "alloc")]
+    fn test_kzg_batch_two_polynomials() {
+        use crate::pcs::traits::BatchPCS;
+
+        let pp = create_test_srs(10);
+        let (ck, vk) = TestKZG::trim(&pp, 10).unwrap();
+
+        // Two polynomials
+        let p0 = Polynomial::new(&[FieldElement::<FrField>::from(9000u64)]); // constant
+        let p1 = Polynomial::new(&[
+            FieldElement::<FrField>::from(1u64),
+            FieldElement::from(2u64),
+            -FieldElement::from(1u64),
+        ]); // 1 + 2x - x²
+
+        let (c0, s0) = TestKZG::commit(&ck, &p0).unwrap();
+        let (c1, s1) = TestKZG::commit(&ck, &p1).unwrap();
+
+        let x = FieldElement::<FrField>::from(3u64);
+        let y0 = p0.evaluate(&x); // 9000
+        let y1 = p1.evaluate(&x); // 1 + 6 - 9 = -2
+
+        let challenge = FieldElement::<FrField>::from(5u64);
+
+        // Batch open
+        let proof = TestKZG::batch_open_single_point(
+            &ck,
+            &[p0, p1],
+            &[s0, s1],
+            &x,
+            &challenge,
+        )
+        .unwrap();
+
+        // Batch verify
+        let is_valid = TestKZG::batch_verify_single_point(
+            &vk,
+            &[c0, c1],
+            &x,
+            &[y0, y1],
+            &proof,
+            &challenge,
+        )
+        .unwrap();
+        assert!(is_valid);
+    }
+
+    #[test]
+    #[cfg(feature = "alloc")]
+    fn test_kzg_batch_verification_fails_for_wrong_evaluation() {
+        use crate::pcs::traits::BatchPCS;
+
+        let pp = create_test_srs(10);
+        let (ck, vk) = TestKZG::trim(&pp, 10).unwrap();
+
+        let p0 = Polynomial::new(&[FieldElement::<FrField>::from(100u64)]);
+        let p1 = Polynomial::new(&[FieldElement::<FrField>::one(), FieldElement::one()]);
+
+        let (c0, s0) = TestKZG::commit(&ck, &p0).unwrap();
+        let (c1, s1) = TestKZG::commit(&ck, &p1).unwrap();
+
+        let x = FieldElement::<FrField>::from(2u64);
+        let y0 = p0.evaluate(&x);
+        let _y1 = p1.evaluate(&x);
+        let wrong_y1 = FieldElement::<FrField>::from(999u64); // Wrong!
+
+        let challenge = FieldElement::<FrField>::from(3u64);
+
+        let proof = TestKZG::batch_open_single_point(
+            &ck,
+            &[p0, p1],
+            &[s0, s1],
+            &x,
+            &challenge,
+        )
+        .unwrap();
+
+        // Should fail with wrong evaluation
+        let is_valid = TestKZG::batch_verify_single_point(
+            &vk,
+            &[c0, c1],
+            &x,
+            &[y0, wrong_y1],
+            &proof,
+            &challenge,
+        )
+        .unwrap();
+        assert!(!is_valid);
+    }
+
+    #[test]
+    #[cfg(feature = "alloc")]
+    fn test_kzg_batch_three_polynomials() {
+        use crate::pcs::traits::BatchPCS;
+
+        let pp = create_test_srs(10);
+        let (ck, vk) = TestKZG::trim(&pp, 10).unwrap();
+
+        // Three polynomials of varying degrees
+        let p0 = Polynomial::new(&[FieldElement::<FrField>::from(42u64)]);
+        let p1 = Polynomial::new(&[FieldElement::<FrField>::one(), FieldElement::from(2u64)]);
+        let p2 = Polynomial::new(&[
+            FieldElement::<FrField>::from(1u64),
+            FieldElement::from(2u64),
+            FieldElement::from(3u64),
+        ]);
+
+        let (c0, s0) = TestKZG::commit(&ck, &p0).unwrap();
+        let (c1, s1) = TestKZG::commit(&ck, &p1).unwrap();
+        let (c2, s2) = TestKZG::commit(&ck, &p2).unwrap();
+
+        let x = FieldElement::<FrField>::from(5u64);
+        let y0 = p0.evaluate(&x);
+        let y1 = p1.evaluate(&x);
+        let y2 = p2.evaluate(&x);
+
+        let challenge = FieldElement::<FrField>::from(11u64);
+
+        let proof = TestKZG::batch_open_single_point(
+            &ck,
+            &[p0, p1, p2],
+            &[s0, s1, s2],
+            &x,
+            &challenge,
+        )
+        .unwrap();
+
+        let is_valid = TestKZG::batch_verify_single_point(
+            &vk,
+            &[c0, c1, c2],
+            &x,
+            &[y0, y1, y2],
+            &proof,
+            &challenge,
+        )
+        .unwrap();
         assert!(is_valid);
     }
 }
