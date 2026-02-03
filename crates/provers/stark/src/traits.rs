@@ -1,3 +1,53 @@
+//! # AIR (Algebraic Intermediate Representation) Traits
+//!
+//! This module defines the core traits for expressing computations as algebraic constraints
+//! over an execution trace.
+//!
+//! ## What is AIR?
+//!
+//! AIR is a way to represent computations as polynomial constraints that must be satisfied
+//! by a valid execution trace. Given a computation with `n` steps and `w` state variables,
+//! the execution trace is a `n × w` matrix where each row represents the state at one step.
+//!
+//! ## Constraint Types
+//!
+//! ### Boundary Constraints
+//! Fix specific values at specific positions in the trace:
+//! ```text
+//! B_i(x) = t_col(x) - value,  where x = ω^step
+//! ```
+//!
+//! ### Transition Constraints
+//! Relate values in consecutive rows:
+//! ```text
+//! C_i(t_0(x), t_1(x), ..., t_0(ω·x), t_1(ω·x), ...) = 0
+//! ```
+//! where `t_j(x)` are trace column polynomials and `ω` is the trace domain generator.
+//!
+//! ## Composition Polynomial
+//!
+//! All constraints are combined into a single composition polynomial:
+//! ```text
+//! H(x) = Σ α_i · C_i(x) / Z_i(x)
+//! ```
+//! where:
+//! - `C_i(x)` are the constraint polynomials
+//! - `Z_i(x)` are the zerofier polynomials (vanish where constraints should hold)
+//! - `α_i` are random coefficients from the verifier
+//!
+//! ## Zerofier Polynomials
+//!
+//! Zerofiers define where constraints must be satisfied:
+//! - **Full zerofier**: `Z(x) = x^n - 1` (all rows)
+//! - **Boundary zerofier**: `(x - ω^step)` (single row)
+//! - **Periodic zerofier**: `x^(n/period) - 1` (every `period` rows)
+//!
+//! ## References
+//!
+//! - [STARK Paper](https://eprint.iacr.org/2018/046) Section 4 - AIR formalization
+//! - [ethSTARK Documentation](https://eprint.iacr.org/2021/582) - Practical AIR design
+//! - [Cairo Whitepaper](https://eprint.iacr.org/2021/1063) - AIR for CPU execution
+
 use std::collections::HashMap;
 use std::ops::Div;
 
@@ -17,14 +67,16 @@ use super::{
     proof::options::ProofOptions, trace::TraceTable,
 };
 
+/// Key for grouping constraints with identical zerofier parameters.
+/// Components: (period, offset, exemptions_period, periodic_exemptions_offset, end_exemptions)
 type ZerofierGroupKey = (usize, usize, Option<usize>, Option<usize>, usize);
 
-/// Key for caching base zerofier evaluations (without end exemptions)
-/// (period, offset, exemptions_period, periodic_exemptions_offset)
+/// Key for caching base zerofier evaluations (without end exemptions).
+/// Components: (period, offset, exemptions_period, periodic_exemptions_offset)
 type BaseZerofierKey = (usize, usize, Option<usize>, Option<usize>);
 
-/// Key for caching end exemptions polynomial evaluations
-/// (end_exemptions, period)
+/// Key for caching end exemptions polynomial evaluations.
+/// Components: (end_exemptions, period)
 type EndExemptionsKey = (usize, usize);
 
 /// Compute base zerofier evaluations (without end exemptions)
@@ -48,15 +100,22 @@ fn compute_base_zerofier<F: IsFFTField>(
             .map(|exponent| {
                 let x = lde_root.pow(exponent);
                 let offset_times_x = coset_offset * &x;
-                let offset_exponent =
-                    trace_length * periodic_exemptions_offset.unwrap() / exemptions_period_val;
+                let offset_exponent = trace_length
+                    * periodic_exemptions_offset.expect(
+                        "periodic_exemptions_offset must be Some when exemptions_period is Some",
+                    )
+                    / exemptions_period_val;
 
                 let numerator = offset_times_x.pow(trace_length / exemptions_period_val)
                     - trace_primitive_root.pow(offset_exponent);
                 let denominator = offset_times_x.pow(trace_length / period)
                     - trace_primitive_root.pow(offset * trace_length / period);
 
-                unsafe { numerator.div(denominator).unwrap_unchecked() }
+                // Safety: The denominator is non-zero because the coset offset ensures
+                // lde_root powers are disjoint from trace_primitive_root powers
+                numerator.div(denominator).expect(
+                    "zerofier denominator should be non-zero: coset offset ensures disjoint domains"
+                )
             })
             .collect()
     } else {
@@ -70,7 +129,8 @@ fn compute_base_zerofier<F: IsFFTField>(
             })
             .collect_vec();
 
-        FieldElement::inplace_batch_inverse(&mut evaluations).unwrap();
+        FieldElement::inplace_batch_inverse(&mut evaluations)
+            .expect("batch inverse failed: zerofier evaluation contains zero element");
         evaluations
     }
 }
@@ -95,7 +155,7 @@ fn compute_end_exemptions_evals<F: IsFFTField>(
         interpolation_domain_size,
         coset_offset,
     )
-    .unwrap()
+    .expect("failed to evaluate end exemptions polynomial on LDE domain")
 }
 
 /// Compute the end exemptions polynomial
@@ -269,7 +329,9 @@ pub trait AIR: Send + Sync {
         let trace_length = self.trace_length();
         let root_of_unity_order = u64::from(trace_length.trailing_zeros());
 
-        Self::Field::get_primitive_root_of_unity(root_of_unity_order).unwrap()
+        Self::Field::get_primitive_root_of_unity(root_of_unity_order).expect(
+            "failed to get primitive root of unity: trace length may exceed field's two-adicity",
+        )
     }
 
     fn num_transition_constraints(&self) -> usize {
@@ -293,7 +355,7 @@ pub trait AIR: Send + Sync {
                 .collect();
             let poly =
                 Polynomial::<FieldElement<Self::Field>>::interpolate_fft::<Self::Field>(&values)
-                    .unwrap();
+                    .expect("FFT interpolation of periodic column must succeed");
             result.push(poly);
         }
         result
@@ -316,7 +378,8 @@ pub trait AIR: Send + Sync {
         let trace_primitive_root = &domain.trace_primitive_root;
         let coset_offset = &domain.coset_offset;
         let lde_root_order = u64::from((blowup_factor * trace_length).trailing_zeros());
-        let lde_root = Self::Field::get_primitive_root_of_unity(lde_root_order).unwrap();
+        let lde_root = Self::Field::get_primitive_root_of_unity(lde_root_order)
+            .expect("primitive root of unity must exist for LDE domain size");
 
         // Step 1: Collect unique keys
         let mut unique_base_keys: Vec<BaseZerofierKey> = Vec::new();
@@ -456,8 +519,12 @@ pub trait AIR: Send + Sync {
             );
             let end_key: EndExemptionsKey = (end_exemptions, period);
 
-            let base_zerofier = base_zerofier_map.get(&base_key).unwrap();
-            let end_exemptions_evals = end_exemptions_map.get(&end_key).unwrap();
+            let base_zerofier = base_zerofier_map
+                .get(&base_key)
+                .expect("base_key was inserted into map in previous step");
+            let end_exemptions_evals = end_exemptions_map
+                .get(&end_key)
+                .expect("end_key was inserted into map in previous step");
 
             // Combine base zerofier with end exemptions
             let cycled_base = base_zerofier

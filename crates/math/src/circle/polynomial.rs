@@ -66,10 +66,9 @@ pub fn interpolate_cfft(
 
     // The icfft returns all the coefficients multiplied by 2^n, the length of the evaluations.
     // So we multiply every element that outputs the icfft by the inverse of 2^n to get the actual coefficients.
-    // Note that this `unwrap` will never panic because eval.len() != 0.
     let factor = (FieldElement::<Mersenne31Field>::from(eval.len() as u64))
         .inv()
-        .unwrap();
+        .expect("evaluation length is non-zero, so its inverse exists");
     eval_ordered.iter().map(|coef| coef * factor).collect()
 }
 
