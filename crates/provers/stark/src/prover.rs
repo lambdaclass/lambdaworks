@@ -15,7 +15,9 @@ use lambdaworks_math::{
 use log::info;
 
 #[cfg(feature = "parallel")]
-use rayon::prelude::{IndexedParallelIterator, IntoParallelRefIterator, ParallelIterator};
+use rayon::prelude::{
+    IndexedParallelIterator, IntoParallelIterator, IntoParallelRefIterator, ParallelIterator,
+};
 
 #[cfg(debug_assertions)]
 use crate::debug::validate_trace;
@@ -432,15 +434,32 @@ pub trait IsStarkProver<
         let num_rows = lde_composition_poly_parts_evaluations[0].len();
         let num_parts = lde_composition_poly_parts_evaluations.len();
 
-        // Pre-allocate with known capacity to avoid incremental growth
-        let mut lde_composition_poly_evaluations = Vec::with_capacity(num_rows);
-        for i in 0..num_rows {
-            let mut row = Vec::with_capacity(num_parts);
-            for evaluation in lde_composition_poly_parts_evaluations.iter() {
-                row.push(evaluation[i].clone());
+        // Build lde_composition_poly_evaluations in parallel when feature is enabled
+        #[cfg(feature = "parallel")]
+        let mut lde_composition_poly_evaluations: Vec<Vec<FieldElement<FieldExtension>>> =
+            (0..num_rows)
+                .into_par_iter()
+                .map(|i| {
+                    let mut row = Vec::with_capacity(num_parts);
+                    for evaluation in lde_composition_poly_parts_evaluations.iter() {
+                        row.push(evaluation[i].clone());
+                    }
+                    row
+                })
+                .collect();
+
+        #[cfg(not(feature = "parallel"))]
+        let mut lde_composition_poly_evaluations: Vec<Vec<FieldElement<FieldExtension>>> = {
+            let mut result = Vec::with_capacity(num_rows);
+            for i in 0..num_rows {
+                let mut row = Vec::with_capacity(num_parts);
+                for evaluation in lde_composition_poly_parts_evaluations.iter() {
+                    row.push(evaluation[i].clone());
+                }
+                result.push(row);
             }
-            lde_composition_poly_evaluations.push(row);
-        }
+            result
+        };
 
         in_place_bit_reverse_permute(&mut lde_composition_poly_evaluations);
 
@@ -485,6 +504,21 @@ pub trait IsStarkProver<
         let number_of_parts = air.composition_poly_degree_bound() / air.trace_length();
         let composition_poly_parts = composition_poly.break_in_parts(number_of_parts);
 
+        // Parallelize LDE evaluation of composition polynomial parts
+        #[cfg(feature = "parallel")]
+        let lde_composition_poly_parts_evaluations: Vec<_> = composition_poly_parts
+            .par_iter()
+            .map(|part| {
+                evaluate_polynomial_on_lde_domain(
+                    part,
+                    domain.blowup_factor,
+                    domain.interpolation_domain_size,
+                    &domain.coset_offset,
+                )
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+
+        #[cfg(not(feature = "parallel"))]
         let lde_composition_poly_parts_evaluations: Vec<_> = composition_poly_parts
             .iter()
             .map(|part| {
@@ -526,7 +560,15 @@ pub trait IsStarkProver<
         let z_power = z.pow(round_2_result.composition_poly_parts.len());
 
         // Evaluate H_i in z^N for all i, where N is the number of parts the composition poly was
-        // broken into.
+        // broken into. Parallelize this evaluation.
+        #[cfg(feature = "parallel")]
+        let composition_poly_parts_ood_evaluation: Vec<_> = round_2_result
+            .composition_poly_parts
+            .par_iter()
+            .map(|part| part.evaluate(&z_power))
+            .collect();
+
+        #[cfg(not(feature = "parallel"))]
         let composition_poly_parts_ood_evaluation: Vec<_> = round_2_result
             .composition_poly_parts
             .iter()
