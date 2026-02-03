@@ -188,10 +188,10 @@ impl IsField for Goldilocks64Field {
 }
 
 impl IsPrimeField for Goldilocks64Field {
-    type RepresentativeType = u64;
+    type CanonicalType = u64;
 
     #[inline(always)]
-    fn representative(x: &u64) -> u64 {
+    fn canonical(x: &u64) -> u64 {
         canonicalize(*x)
     }
 
@@ -229,19 +229,19 @@ impl IsFFTField for Goldilocks64Field {
 
 impl Display for FieldElement<Goldilocks64Field> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{:x}", self.representative())
+        write!(f, "{:x}", self.canonical())
     }
 }
 
 impl ByteConversion for FieldElement<Goldilocks64Field> {
     #[cfg(feature = "alloc")]
     fn to_bytes_be(&self) -> alloc::vec::Vec<u8> {
-        self.representative().to_be_bytes().to_vec()
+        self.canonical().to_be_bytes().to_vec()
     }
 
     #[cfg(feature = "alloc")]
     fn to_bytes_le(&self) -> alloc::vec::Vec<u8> {
-        self.representative().to_le_bytes().to_vec()
+        self.canonical().to_le_bytes().to_vec()
     }
 
     fn from_bytes_be(bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError>

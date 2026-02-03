@@ -322,9 +322,9 @@ impl<M, const NUM_LIMBS: usize> IsPrimeField for MontgomeryBackendPrimeField<M, 
 where
     M: IsModulus<UnsignedInteger<NUM_LIMBS>> + Clone + Debug,
 {
-    type RepresentativeType = Self::BaseType;
+    type CanonicalType = Self::BaseType;
 
-    fn representative(x: &Self::BaseType) -> Self::RepresentativeType {
+    fn canonical(x: &Self::BaseType) -> Self::CanonicalType {
         MontgomeryAlgorithms::cios(x, &UnsignedInteger::from_u64(1), &M::MODULUS, &Self::MU)
     }
 
@@ -343,7 +343,7 @@ where
     fn from_hex(hex_string: &str) -> Result<Self::BaseType, CreationError> {
         let integer = Self::BaseType::from_hex(hex_string)?;
         if integer > M::MODULUS {
-            return Err(CreationError::RepresentativeOutOfRange);
+            return Err(CreationError::CanonicalValueOutOfRange);
         }
 
         Ok(MontgomeryAlgorithms::cios(
@@ -561,7 +561,7 @@ mod tests_u384_prime_fields {
         let a: U384 = UnsignedInteger {
             limbs: [0, 0, 0, 0, 0, 11],
         };
-        assert_eq!(U384F23::representative(&U384F23::from_u64(770_u64)), a);
+        assert_eq!(U384F23::canonical(&U384F23::from_u64(770_u64)), a);
     }
 
     #[test]
@@ -972,7 +972,7 @@ mod tests_u256_prime_fields {
         let a: U256 = UnsignedInteger {
             limbs: [0, 0, 0, 16],
         };
-        assert_eq!(U256F29::representative(&U256F29::from_u64(770_u64)), a);
+        assert_eq!(U256F29::canonical(&U256F29::from_u64(770_u64)), a);
     }
 
     #[test]
@@ -1301,7 +1301,7 @@ mod tests_u256_prime_fields {
     fn creating_a_field_element_from_its_representative_returns_the_same_element_1() {
         let change = U256::from_u64(1);
         let f1 = U256FP1Element::new(U256ModulusP1::MODULUS + change);
-        let f2 = U256FP1Element::new(f1.representative());
+        let f2 = U256FP1Element::new(f1.canonical());
         assert_eq!(f1, f2);
     }
 
@@ -1309,7 +1309,7 @@ mod tests_u256_prime_fields {
     fn creating_a_field_element_from_its_representative_returns_the_same_element_2() {
         let change = U256::from_u64(27);
         let f1 = U256F29Element::new(U256Modulus29::MODULUS + change);
-        let f2 = U256F29Element::new(f1.representative());
+        let f2 = U256F29Element::new(f1.canonical());
         assert_eq!(f1, f2);
     }
 
@@ -1339,7 +1339,7 @@ mod tests_u256_prime_fields {
         assert!(a.is_err());
         assert_eq!(
             a.unwrap_err(),
-            crate::errors::CreationError::RepresentativeOutOfRange
+            crate::errors::CreationError::CanonicalValueOutOfRange
         )
     }
 

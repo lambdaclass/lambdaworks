@@ -121,7 +121,7 @@ impl SecretKey {
     /// Derive the corresponding public key.
     pub fn public_key(&self) -> PublicKey {
         let g1 = BLS12381Curve::generator();
-        let pk = g1.operate_with_self(self.sk.representative());
+        let pk = g1.operate_with_self(self.sk.canonical());
         PublicKey { pk }
     }
 
@@ -131,7 +131,7 @@ impl SecretKey {
     /// where H(m) is the hash of the message mapped to G2.
     pub fn sign(&self, message: &[u8]) -> Signature {
         let h = hash_to_g2(message);
-        let sig = h.operate_with_self(self.sk.representative());
+        let sig = h.operate_with_self(self.sk.canonical());
         Signature { sig }
     }
 

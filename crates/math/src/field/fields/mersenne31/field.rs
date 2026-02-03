@@ -27,7 +27,7 @@ impl Mersenne31Field {
         res + msb_reduced
     }
 
-    fn as_representative(n: &u32) -> u32 {
+    fn as_canonical(n: &u32) -> u32 {
         if *n == MERSENNE_31_PRIME_FIELD_ORDER {
             0
         } else {
@@ -124,7 +124,7 @@ impl IsField for Mersenne31Field {
 
     /// Returns a boolean indicating whether `a` and `b` are equal or not.
     fn eq(a: &u32, b: &u32) -> bool {
-        Self::as_representative(a) == Self::representative(b)
+        Self::as_canonical(a) == Self::as_canonical(b)
     }
 
     /// Returns the additive neutral element.
@@ -153,13 +153,13 @@ impl IsField for Mersenne31Field {
 }
 
 impl IsPrimeField for Mersenne31Field {
-    type RepresentativeType = u32;
+    type CanonicalType = u32;
 
     // Since our invariant guarantees that `value` fits in 31 bits, there is only one possible value
     // `value` that is not canonical, namely 2^31 - 1 = p = 0.
-    fn representative(x: &u32) -> u32 {
+    fn canonical(x: &u32) -> u32 {
         debug_assert!((x >> 31) == 0);
-        Self::as_representative(x)
+        Self::as_canonical(x)
     }
 
     fn field_bit_size() -> usize {
@@ -188,18 +188,18 @@ impl IsPrimeField for Mersenne31Field {
 impl FieldElement<Mersenne31Field> {
     #[cfg(feature = "alloc")]
     pub fn to_bytes_le(&self) -> alloc::vec::Vec<u8> {
-        self.representative().to_le_bytes().to_vec()
+        self.canonical().to_le_bytes().to_vec()
     }
 
     #[cfg(feature = "alloc")]
     pub fn to_bytes_be(&self) -> alloc::vec::Vec<u8> {
-        self.representative().to_be_bytes().to_vec()
+        self.canonical().to_be_bytes().to_vec()
     }
 }
 
 impl Display for FieldElement<Mersenne31Field> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{:x}", self.representative())
+        write!(f, "{:x}", self.canonical())
     }
 }
 
@@ -409,7 +409,7 @@ mod tests {
     fn creating_a_field_element_from_its_representative_returns_the_same_element_1() {
         let change: u32 = MERSENNE_31_PRIME_FIELD_ORDER + 1;
         let f1 = FE::from(&change);
-        let f2 = FE::from(&FE::representative(&f1));
+        let f2 = FE::from(&FE::canonical(&f1));
         assert_eq!(f1, f2);
     }
 
@@ -417,7 +417,7 @@ mod tests {
     fn creating_a_field_element_from_its_representative_returns_the_same_element_2() {
         let change: u32 = MERSENNE_31_PRIME_FIELD_ORDER + 8;
         let f1 = FE::from(&change);
-        let f2 = FE::from(&FE::representative(&f1));
+        let f2 = FE::from(&FE::canonical(&f1));
         assert_eq!(f1, f2);
     }
 

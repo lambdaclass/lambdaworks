@@ -87,19 +87,19 @@ pub fn setup(qap: &QuadraticArithmeticProgram) -> (ProvingKey, VerifyingKey) {
         })
         .collect();
 
-    let alpha_g1 = g1.operate_with_self(tw.alpha.representative());
-    let beta_g2 = g2.operate_with_self(tw.beta.representative());
+    let alpha_g1 = g1.operate_with_self(tw.alpha.canonical());
+    let beta_g2 = g2.operate_with_self(tw.beta.canonical());
 
     let alpha_g1_times_beta_g2 = Pairing::compute(&alpha_g1, &beta_g2).unwrap();
 
-    let delta_g2 = g2.operate_with_self(tw.delta.representative());
+    let delta_g2 = g2.operate_with_self(tw.delta.canonical());
 
     (
         ProvingKey {
             alpha_g1,
-            beta_g1: g1.operate_with_self(tw.beta.representative()),
+            beta_g1: g1.operate_with_self(tw.beta.canonical()),
             beta_g2,
-            delta_g1: g1.operate_with_self(tw.delta.representative()),
+            delta_g1: g1.operate_with_self(tw.delta.canonical()),
             delta_g2: delta_g2.clone(),
             l_tau_g1: batch_operate(&l_tau, &g1),
             r_tau_g1: batch_operate(&r_tau, &g1),
@@ -120,7 +120,7 @@ pub fn setup(qap: &QuadraticArithmeticProgram) -> (ProvingKey, VerifyingKey) {
         VerifyingKey {
             alpha_g1_times_beta_g2,
             delta_g2,
-            gamma_g2: g2.operate_with_self(tw.gamma.representative()),
+            gamma_g2: g2.operate_with_self(tw.gamma.canonical()),
             verifier_k_tau_g1: batch_operate(&k_tau[..qap.num_of_public_inputs], &g1),
         },
     )
@@ -132,6 +132,6 @@ fn batch_operate<E: IsShortWeierstrass>(
 ) -> Vec<ShortWeierstrassJacobianPoint<E>> {
     elems
         .iter()
-        .map(|elem| point.operate_with_self(elem.representative()))
+        .map(|elem| point.operate_with_self(elem.canonical()))
         .collect()
 }
