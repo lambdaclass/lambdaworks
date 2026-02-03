@@ -40,7 +40,7 @@ pub type Fp2Element = FieldElement<Degree2ExtensionField>;
 pub type G2Point = ShortWeierstrassJacobianPoint<BLS12381TwistCurve>;
 
 /// Domain separation tag for BLS signatures (following IETF standard)
-pub const BLS_SIG_DST: &[u8] = b"BLS_SIG_BLS12381G2_XMD:SHA-256_SSWU_RO_NUL_";
+pub const BLS_SIG_DST: &[u8] = b"BLS_SIG_BLS12381G2_XMD:SHA3-256_SSWU_RO_NUL_";
 
 /// Hash a message to a point on G2.
 ///
