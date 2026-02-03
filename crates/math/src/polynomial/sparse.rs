@@ -1157,7 +1157,7 @@ mod tests {
         let poly = SparsePolynomial::from_coefficients(vec![(0, FE::from(5))]);
         let scalar = FE::from(3);
 
-        let result1 = poly.clone() * scalar.clone();
+        let result1 = poly.clone() * scalar;
         let result2 = scalar * poly;
 
         assert_eq!(result1.get_coefficient(0), FE::from(15));
