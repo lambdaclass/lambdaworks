@@ -1644,40 +1644,6 @@ mod x86_64_asm {
     // Requirements: Intel Broadwell+ (2015) or AMD Ryzen+ (2017)
     // Enable with: RUSTFLAGS="-C target-feature=+bmi2,+adx"
 
-    /// ADX-optimized CIOS Montgomery multiplication for 4 limbs (256-bit)
-    /// Uses MULX + ADCX + ADOX for parallel carry chains.
-    ///
-    /// This can provide 20-30% speedup over the u128-based implementation
-    /// because LLVM cannot generate ADCX/ADOX instructions automatically.
-    ///
-    /// The key insight is that ADCX uses CF (carry flag) while ADOX uses OF
-    /// (overflow flag), allowing two independent carry chains to execute in parallel.
-    ///
-    /// Note: lambdaworks uses big-endian limb order (limbs[0] = MSB, limbs[3] = LSB)
-    #[cfg(all(target_feature = "bmi2", target_feature = "adx"))]
-    #[inline(always)]
-    pub fn cios_4_limbs_adx(a: &[u64; 4], b: &[u64; 4], q: &[u64; 4], mu: u64) -> [u64; 4] {
-        // Use the same algorithm as cios_4_limbs but with MULX for multiplications
-        // The main benefit is MULX doesn't clobber flags, allowing better scheduling
-        // For true parallel carry chains, we'd need to restructure the algorithm
-        // to interleave two independent addition sequences.
-
-        // For now, use the optimized u128 version which LLVM handles well
-        // The real optimization would require fully unrolled assembly with
-        // carefully scheduled MULX + ADCX + ADOX sequences.
-        //
-        // TODO: Implement fully unrolled CIOS with interleaved ADCX/ADOX
-        // Reference: arkworks-rs/algebra ff-asm implementation
-        cios_4_limbs(a, b, q, mu)
-    }
-
-    /// Fallback for systems without ADX support
-    #[cfg(not(all(target_feature = "bmi2", target_feature = "adx")))]
-    #[inline(always)]
-    pub fn cios_4_limbs_adx(a: &[u64; 4], b: &[u64; 4], q: &[u64; 4], mu: u64) -> [u64; 4] {
-        cios_4_limbs(a, b, q, mu)
-    }
-
     /// x86-64 inline assembly for 4-limb addition: r = a + b
     /// Returns (result, overflow)
     /// Uses ADD/ADC chain for efficient carry propagation
@@ -2333,6 +2299,10 @@ impl MontgomeryAlgorithms {
                 let a_arr: &[u64; 4] = a.limbs.as_slice().try_into().unwrap();
                 let b_arr: &[u64; 4] = b.limbs.as_slice().try_into().unwrap();
                 let q_arr: &[u64; 4] = q.limbs.as_slice().try_into().unwrap();
+                // Use MULX variant when BMI2 is available (better instruction scheduling)
+                #[cfg(target_feature = "bmi2")]
+                let result = x86_64_asm::cios_4_limbs_mulx(a_arr, b_arr, q_arr, *mu);
+                #[cfg(not(target_feature = "bmi2"))]
                 let result = x86_64_asm::cios_4_limbs(a_arr, b_arr, q_arr, *mu);
                 let mut limbs = [0u64; NUM_LIMBS];
                 limbs.copy_from_slice(&result);
@@ -2342,7 +2312,9 @@ impl MontgomeryAlgorithms {
                 let a_arr: &[u64; 6] = a.limbs.as_slice().try_into().unwrap();
                 let b_arr: &[u64; 6] = b.limbs.as_slice().try_into().unwrap();
                 let q_arr: &[u64; 6] = q.limbs.as_slice().try_into().unwrap();
-                let result = x86_64_asm::cios_6_limbs(a_arr, b_arr, q_arr, *mu);
+                // Don't use MULX assembly for 6 limbs - register pressure causes 12% regression.
+                // The pure Rust version with u128 lets LLVM generate better code.
+                let result = x86_64_asm::cios_6_limbs_optimized(a_arr, b_arr, q_arr, *mu);
                 let mut limbs = [0u64; NUM_LIMBS];
                 limbs.copy_from_slice(&result);
                 UnsignedInteger { limbs }
@@ -2409,15 +2381,8 @@ impl MontgomeryAlgorithms {
                 limbs.copy_from_slice(&result);
                 UnsignedInteger { limbs }
             }
-            6 => {
-                let a_arr: &[u64; 6] = a.limbs.as_slice().try_into().unwrap();
-                let b_arr: &[u64; 6] = b.limbs.as_slice().try_into().unwrap();
-                let q_arr: &[u64; 6] = q.limbs.as_slice().try_into().unwrap();
-                let result = x86_64_asm::mod_add_6_limbs(a_arr, b_arr, q_arr);
-                let mut limbs = [0u64; NUM_LIMBS];
-                limbs.copy_from_slice(&result);
-                UnsignedInteger { limbs }
-            }
+            // Don't use assembly for 6 limbs - benchmarks show 15% regression
+            // Fall through to pure Rust implementation which LLVM optimizes well
             _ => {
                 let (sum, overflow) = UnsignedInteger::add(a, b);
                 if overflow || sum >= *q {
@@ -2450,15 +2415,8 @@ impl MontgomeryAlgorithms {
                 limbs.copy_from_slice(&result);
                 UnsignedInteger { limbs }
             }
-            6 => {
-                let a_arr: &[u64; 6] = a.limbs.as_slice().try_into().unwrap();
-                let b_arr: &[u64; 6] = b.limbs.as_slice().try_into().unwrap();
-                let q_arr: &[u64; 6] = q.limbs.as_slice().try_into().unwrap();
-                let result = x86_64_asm::mod_sub_6_limbs(a_arr, b_arr, q_arr);
-                let mut limbs = [0u64; NUM_LIMBS];
-                limbs.copy_from_slice(&result);
-                UnsignedInteger { limbs }
-            }
+            // Don't use assembly for 6 limbs - benchmarks show regression
+            // Fall through to pure Rust implementation which LLVM optimizes well
             _ => {
                 if b <= a {
                     *a - *b

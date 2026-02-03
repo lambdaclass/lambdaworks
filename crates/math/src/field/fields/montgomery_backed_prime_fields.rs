@@ -120,6 +120,8 @@ where
 
     #[inline(always)]
     fn add(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
+        // Use assembly for 4-limb fields (BN254) where benchmarks show improvement.
+        // For 6-limb fields (BLS12-381), pure Rust is faster due to LLVM optimizations.
         #[cfg(all(target_arch = "aarch64", feature = "asm"))]
         {
             MontgomeryAlgorithms::add_asm(a, b, &M::MODULUS)
@@ -127,7 +129,26 @@ where
 
         #[cfg(all(target_arch = "x86_64", feature = "asm"))]
         {
-            MontgomeryAlgorithms::add_asm(a, b, &M::MODULUS)
+            // Use match to ensure compile-time evaluation of NUM_LIMBS
+            match NUM_LIMBS {
+                4 => MontgomeryAlgorithms::add_asm(a, b, &M::MODULUS),
+                // 6-limb and other sizes: use pure Rust (LLVM optimizes better)
+                _ => {
+                    let (sum, overflow) = UnsignedInteger::add(a, b);
+                    if Self::MODULUS_HAS_ONE_SPARE_BIT {
+                        if sum >= M::MODULUS {
+                            sum - M::MODULUS
+                        } else {
+                            sum
+                        }
+                    } else if overflow || sum >= M::MODULUS {
+                        let (diff, _) = UnsignedInteger::sub(&sum, &M::MODULUS);
+                        diff
+                    } else {
+                        sum
+                    }
+                }
+            }
         }
 
         #[cfg(not(any(
@@ -206,6 +227,8 @@ where
 
     #[inline(always)]
     fn sub(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
+        // Use assembly for 4-limb fields (BN254) where benchmarks show improvement.
+        // For 6-limb fields (BLS12-381), pure Rust is faster due to LLVM optimizations.
         #[cfg(all(target_arch = "aarch64", feature = "asm"))]
         {
             MontgomeryAlgorithms::sub_asm(a, b, &M::MODULUS)
@@ -213,7 +236,18 @@ where
 
         #[cfg(all(target_arch = "x86_64", feature = "asm"))]
         {
-            MontgomeryAlgorithms::sub_asm(a, b, &M::MODULUS)
+            // Use match to ensure compile-time evaluation of NUM_LIMBS
+            match NUM_LIMBS {
+                4 => MontgomeryAlgorithms::sub_asm(a, b, &M::MODULUS),
+                // 6-limb and other sizes: use pure Rust (LLVM optimizes better)
+                _ => {
+                    if b <= a {
+                        a - b
+                    } else {
+                        M::MODULUS - (b - a)
+                    }
+                }
+            }
         }
 
         #[cfg(not(any(
