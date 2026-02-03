@@ -182,7 +182,9 @@ pub fn map_to_curve_sswu(u: &Fp2Element) -> (Fp2Element, Fp2Element) {
     let neg_b_over_a = -&b * a.inv().expect("SSWU: A'=240i is a non-zero constant");
     let x1 = if tv1 == Fp2Element::zero() {
         // Exceptional case: x1 = B / (Z * A)
-        &b * (&z * &a).inv().expect("SSWU: Z*A is non-zero (both are non-zero constants)")
+        &b * (&z * &a)
+            .inv()
+            .expect("SSWU: Z*A is non-zero (both are non-zero constants)")
     } else {
         &neg_b_over_a * (&one + &tv1)
     };
@@ -383,6 +385,9 @@ mod tests {
         let (x2, y2) = map_to_curve_sswu(&u2);
 
         // Different inputs should produce different points
-        assert!(x1 != x2 || y1 != y2, "Different inputs should map to different points");
+        assert!(
+            x1 != x2 || y1 != y2,
+            "Different inputs should map to different points"
+        );
     }
 }
