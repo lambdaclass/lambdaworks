@@ -49,7 +49,7 @@ impl<E: IsEllipticCurve> ProjectivePoint<E> {
                 FieldElement::zero(),
             ]);
         };
-        let inv_z = z.inv().unwrap();
+        let inv_z = z.inv().expect("z-coordinate is non-zero after check above");
         ProjectivePoint::new([x * &inv_z, y * inv_z, FieldElement::one()])
     }
 }
@@ -106,7 +106,7 @@ impl<E: IsEllipticCurve> JacobianPoint<E> {
                 FieldElement::zero(),
             ]);
         };
-        let inv_z = z.inv().unwrap();
+        let inv_z = z.inv().expect("z-coordinate is non-zero after check above");
         let inv_z_square = inv_z.square();
         let inv_z_cube = &inv_z_square * &inv_z;
         JacobianPoint::new([x * inv_z_square, y * inv_z_cube, FieldElement::one()])

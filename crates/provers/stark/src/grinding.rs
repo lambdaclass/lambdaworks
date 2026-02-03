@@ -86,7 +86,11 @@ fn is_valid_nonce_for_inner_hash(inner_hash: &[u8; 32], candidate_nonce: u64, li
 
     let digest = Keccak256::digest(data);
 
-    let seed_head = u64::from_be_bytes(digest[..8].try_into().unwrap());
+    let seed_head = u64::from_be_bytes(
+        digest[..8]
+            .try_into()
+            .expect("digest is 32 bytes, slicing first 8 always succeeds"),
+    );
     seed_head < limit
 }
 
@@ -100,7 +104,9 @@ fn get_inner_hash(seed: &[u8; 32], grinding_factor: u8) -> [u8; 32] {
     inner_data[40] = grinding_factor;
 
     let digest = Keccak256::digest(inner_data);
-    digest[..32].try_into().unwrap()
+    digest[..32]
+        .try_into()
+        .expect("Keccak256 digest is exactly 32 bytes")
 }
 
 #[cfg(test)]
