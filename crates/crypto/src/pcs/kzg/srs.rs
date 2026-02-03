@@ -122,13 +122,33 @@ where
 ///
 /// A subset of the public parameters used by the prover
 /// to commit to polynomials and generate opening proofs.
-#[derive(Clone, Debug)]
 pub struct KZGCommitterKey<P: IsPairing> {
     /// Powers of τ in G1, truncated to the supported degree.
     pub powers_of_g1: Vec<P::G1Point>,
 
     /// Maximum polynomial degree supported by this key.
     pub max_degree: usize,
+}
+
+impl<P: IsPairing> Clone for KZGCommitterKey<P>
+where
+    P::G1Point: Clone,
+{
+    fn clone(&self) -> Self {
+        Self {
+            powers_of_g1: self.powers_of_g1.clone(),
+            max_degree: self.max_degree,
+        }
+    }
+}
+
+impl<P: IsPairing> core::fmt::Debug for KZGCommitterKey<P> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("KZGCommitterKey")
+            .field("max_degree", &self.max_degree)
+            .field("num_powers", &self.powers_of_g1.len())
+            .finish()
+    }
 }
 
 impl<P: IsPairing> KZGCommitterKey<P> {
@@ -141,7 +161,6 @@ impl<P: IsPairing> KZGCommitterKey<P> {
 /// KZG Verifier Key.
 ///
 /// Minimal data needed for verification.
-#[derive(Clone, Debug)]
 pub struct KZGVerifierKey<P: IsPairing> {
     /// Generator of G1.
     pub g1: P::G1Point,
@@ -151,6 +170,26 @@ pub struct KZGVerifierKey<P: IsPairing> {
 
     /// τ·g2 (tau times the G2 generator).
     pub tau_g2: P::G2Point,
+}
+
+impl<P: IsPairing> Clone for KZGVerifierKey<P>
+where
+    P::G1Point: Clone,
+    P::G2Point: Clone,
+{
+    fn clone(&self) -> Self {
+        Self {
+            g1: self.g1.clone(),
+            g2: self.g2.clone(),
+            tau_g2: self.tau_g2.clone(),
+        }
+    }
+}
+
+impl<P: IsPairing> core::fmt::Debug for KZGVerifierKey<P> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("KZGVerifierKey").finish()
+    }
 }
 
 impl<P: IsPairing> KZGVerifierKey<P> {

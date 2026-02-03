@@ -3,6 +3,37 @@ use lambdaworks_math::{
     polynomial::Polynomial,
 };
 
+/// Legacy commitment scheme trait.
+///
+/// # Deprecation Notice
+///
+/// This trait is deprecated in favor of [`crate::pcs::PolynomialCommitmentScheme`],
+/// which provides:
+/// - Proper error handling with `Result` types
+/// - Separate `CommitterKey` and `VerifierKey` types
+/// - Explicit `setup` and `trim` methods
+/// - Better batch operation support
+///
+/// ## Migration Guide
+///
+/// Replace:
+/// ```ignore
+/// use lambdaworks_crypto::commitments::traits::IsCommitmentScheme;
+/// let kzg = KateZaveruchaGoldberg::new(srs);
+/// let commitment = kzg.commit(&polynomial);
+/// ```
+///
+/// With:
+/// ```ignore
+/// use lambdaworks_crypto::pcs::{PolynomialCommitmentScheme, kzg::KZG};
+/// let pp = KZGPublicParams::from_srs(srs);
+/// let (ck, vk) = KZG::<F, P>::trim(&pp, degree)?;
+/// let (commitment, state) = KZG::commit(&ck, &polynomial)?;
+/// ```
+#[deprecated(
+    since = "0.14.0",
+    note = "Use `lambdaworks_crypto::pcs::PolynomialCommitmentScheme` instead"
+)]
 pub trait IsCommitmentScheme<F: IsField> {
     type Commitment;
 
