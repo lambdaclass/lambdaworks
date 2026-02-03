@@ -637,6 +637,7 @@ impl<F: IsField> Mul<&SparsePolynomial<F>> for &FieldElement<F> {
 mod tests {
     use super::*;
     use crate::field::fields::u64_prime_field::U64PrimeField;
+    use alloc::vec;
 
     const ORDER: u64 = 23;
     type F = U64PrimeField<ORDER>;
