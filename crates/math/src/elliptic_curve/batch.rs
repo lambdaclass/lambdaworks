@@ -248,6 +248,7 @@ mod tests {
     };
     use crate::elliptic_curve::traits::FromAffine;
     use crate::field::element::FieldElement;
+    use alloc::vec;
 
     type FE = FieldElement<BLS12381PrimeField>;
     type G1Point = ShortWeierstrassProjectivePoint<BLS12381Curve>;
