@@ -95,12 +95,10 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
         // Collect z coordinates, filtering out points at infinity
         let mut z_coords: alloc::vec::Vec<FieldElement<E::BaseField>> =
             alloc::vec::Vec::with_capacity(points.len());
-        let mut indices: alloc::vec::Vec<usize> = alloc::vec::Vec::with_capacity(points.len());
 
-        for (i, point) in points.iter().enumerate() {
+        for point in points.iter() {
             if !point.is_neutral_element() {
                 z_coords.push(point.z().clone());
-                indices.push(i);
             }
         }
 

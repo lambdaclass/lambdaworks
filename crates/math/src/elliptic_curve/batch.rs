@@ -168,16 +168,14 @@ pub fn batch_normalize_jacobian<E: IsShortWeierstrass>(
     // Collect Z^3 values for non-infinity points
     let mut z_cubes: Vec<FieldElement<E::BaseField>> = Vec::with_capacity(points.len());
     let mut z_values: Vec<FieldElement<E::BaseField>> = Vec::with_capacity(points.len());
-    let mut indices: Vec<usize> = Vec::with_capacity(points.len());
 
-    for (i, point) in points.iter().enumerate() {
+    for point in points.iter() {
         if !point.is_neutral_element() {
             let z = point.z();
             let z_sq = z.square();
             let z_cu = &z_sq * z;
             z_cubes.push(z_cu);
             z_values.push(z.clone());
-            indices.push(i);
         }
     }
 
