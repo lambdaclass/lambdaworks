@@ -35,7 +35,9 @@ pub fn get_twiddles(
         );
         for _ in 0..(domain.log_2_size - 2) {
             // The rest of the sets of twiddles are the "square" of the x coordinates of the first half of the previous set.
-            let prev = twiddles.last().unwrap();
+            let prev = twiddles
+                .last()
+                .expect("twiddles vector is non-empty at this point");
             let cur = prev
                 .iter()
                 .take(prev.len() / 2)
@@ -47,10 +49,10 @@ pub fn get_twiddles(
 
     if config == TwiddlesConfig::Interpolation {
         // For the interpolation, we need to take the inverse element of each twiddle in the default order.
-        // We can take inverse being sure that the `unwrap` won't panic because the twiddles are coordinates
-        // of elements of the coset (or their squares) so they can't be zero.
+        // The twiddles are coordinates of elements of the coset (or their squares) so they can't be zero.
         twiddles.iter_mut().for_each(|x| {
-            FieldElement::<Mersenne31Field>::inplace_batch_inverse(x).unwrap();
+            FieldElement::<Mersenne31Field>::inplace_batch_inverse(x)
+                .expect("twiddle batch inverse failed: coset coordinates are non-zero");
         });
     } else {
         // For the evaluation, we need reverse the order of the vector of twiddles.
