@@ -132,6 +132,7 @@ impl IsField for Goldilocks64Field {
     }
 
     /// Returns the multiplicative inverse of `a` using optimized addition chain.
+    #[inline]
     fn inv(a: &u64) -> Result<u64, FieldError> {
         let canonical = canonicalize(*a);
         if canonical == 0 {
@@ -141,6 +142,7 @@ impl IsField for Goldilocks64Field {
     }
 
     /// Returns the division of `a` and `b`.
+    #[inline]
     fn div(a: &u64, b: &u64) -> Result<u64, FieldError> {
         let b_inv = <Self as IsField>::inv(b)?;
         Ok(<Self as IsField>::mul(a, &b_inv))
@@ -415,6 +417,7 @@ impl IsField for Degree2GoldilocksExtensionField {
 
     /// Returns the multiplicative inverse of `a`:
     /// (a0 + a1*w)^-1 = (a0 - a1*w) / (a0^2 - 7*a1^2)
+    #[inline]
     fn inv(a: &Self::BaseType) -> Result<Self::BaseType, FieldError> {
         let a0_sq = a[0].square();
         let a1_sq = a[1].square();
@@ -424,19 +427,23 @@ impl IsField for Degree2GoldilocksExtensionField {
         Ok([a[0] * norm_inv, -a[1] * norm_inv])
     }
 
+    #[inline]
     fn div(a: &Self::BaseType, b: &Self::BaseType) -> Result<Self::BaseType, FieldError> {
         let b_inv = Self::inv(b)?;
         Ok(<Self as IsField>::mul(a, &b_inv))
     }
 
+    #[inline(always)]
     fn eq(a: &Self::BaseType, b: &Self::BaseType) -> bool {
         a[0] == b[0] && a[1] == b[1]
     }
 
+    #[inline(always)]
     fn zero() -> Self::BaseType {
         [FpE::zero(), FpE::zero()]
     }
 
+    #[inline(always)]
     fn one() -> Self::BaseType {
         [FpE::one(), FpE::zero()]
     }
