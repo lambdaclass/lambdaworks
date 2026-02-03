@@ -1071,10 +1071,7 @@ mod tests {
         let coeffs = poly.coefficients();
         println!(
             "Interpolated polynomial coefficients: {:?}",
-            coeffs
-                .iter()
-                .map(|c| c.representative())
-                .collect::<Vec<_>>()
+            coeffs.iter().map(|c| c.canonical()).collect::<Vec<_>>()
         );
         assert_eq!(coeffs.len(), 4);
         assert_eq!(coeffs[0], FE::from(1001u64));

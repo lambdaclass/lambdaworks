@@ -41,13 +41,10 @@ impl Prover {
         let h_coefficients = qap
             .calculate_h_coefficients(w)?
             .iter()
-            .map(|elem| elem.representative())
+            .map(|elem| elem.canonical())
             .collect::<Vec<_>>();
 
-        let w = w
-            .iter()
-            .map(|elem| elem.representative())
-            .collect::<Vec<_>>();
+        let w = w.iter().map(|elem| elem.canonical()).collect::<Vec<_>>();
 
         // Sample randomness for hiding
         let r = sample_fr_elem();
@@ -57,13 +54,13 @@ impl Prover {
         let pi1 = msm(&w, &pk.l_tau_g1)
             .map_err(|e| Groth16Error::MSMError(format!("{:?}", e)))?
             .operate_with(&pk.alpha_g1)
-            .operate_with(&pk.delta_g1.operate_with_self(r.representative()));
+            .operate_with(&pk.delta_g1.operate_with_self(r.canonical()));
 
         // [π_2]_2
         let pi2 = msm(&w, &pk.r_tau_g2)
             .map_err(|e| Groth16Error::MSMError(format!("{:?}", e)))?
             .operate_with(&pk.beta_g2)
-            .operate_with(&pk.delta_g2.operate_with_self(s.representative()));
+            .operate_with(&pk.delta_g2.operate_with_self(s.canonical()));
 
         // [ƍ^{-1} * t(τ)*h(τ)]_1
         let t_tau_h_tau_assigned_g1 = msm(
@@ -83,17 +80,17 @@ impl Prover {
         let pi2_g1 = msm(&w, &pk.r_tau_g1)
             .map_err(|e| Groth16Error::MSMError(format!("{:?}", e)))?
             .operate_with(&pk.beta_g1)
-            .operate_with(&pk.delta_g1.operate_with_self(s.representative()));
+            .operate_with(&pk.delta_g1.operate_with_self(s.canonical()));
 
         // [π_3]_1
         let pi3 = k_tau_assigned_prover_g1
             .operate_with(&t_tau_h_tau_assigned_g1)
             // s[π_1]_1
-            .operate_with(&pi1.operate_with_self(s.representative()))
+            .operate_with(&pi1.operate_with_self(s.canonical()))
             // r[π_2]_1
-            .operate_with(&pi2_g1.operate_with_self(r.representative()))
+            .operate_with(&pi2_g1.operate_with_self(r.canonical()))
             // -rs[ƍ]_1
-            .operate_with(&pk.delta_g1.operate_with_self((-(&r * &s)).representative()));
+            .operate_with(&pk.delta_g1.operate_with_self((-(&r * &s)).canonical()));
 
         Ok(Proof { pi1, pi2, pi3 })
     }
@@ -108,9 +105,9 @@ mod tests {
     #[test]
     fn serde() {
         let proof = Proof {
-            pi1: Curve::generator().operate_with_self(sample_fr_elem().representative()),
-            pi2: TwistedCurve::generator().operate_with_self(sample_fr_elem().representative()),
-            pi3: Curve::generator().operate_with_self(sample_fr_elem().representative()),
+            pi1: Curve::generator().operate_with_self(sample_fr_elem().canonical()),
+            pi2: TwistedCurve::generator().operate_with_self(sample_fr_elem().canonical()),
+            pi3: Curve::generator().operate_with_self(sample_fr_elem().canonical()),
         };
         let deserialized_proof = Proof::deserialize(&proof.serialize()).unwrap();
 

@@ -69,10 +69,7 @@ fn demo_encoding() {
 
     println!(
         "Message (polynomial coefficients): {:?}",
-        message
-            .iter()
-            .map(|x| x.representative())
-            .collect::<Vec<_>>()
+        message.iter().map(|x| x.canonical()).collect::<Vec<_>>()
     );
     println!("  p(x) = 1 + 2x + 3x^2 + 4x^3 + 5x^4 + 6x^5 + 7x^6 + 8x^7");
     println!();
@@ -84,7 +81,7 @@ fn demo_encoding() {
         if i > 0 {
             print!(", ");
         }
-        print!("{}", eval.representative());
+        print!("{}", eval.canonical());
     }
     println!("]");
     println!();
@@ -109,10 +106,7 @@ fn demo_berlekamp_welch() {
 
     println!(
         "Original message: {:?}",
-        message
-            .iter()
-            .map(|x| x.representative())
-            .collect::<Vec<_>>()
+        message.iter().map(|x| x.canonical()).collect::<Vec<_>>()
     );
     println!();
 
@@ -137,10 +131,8 @@ fn demo_berlekamp_welch() {
                 let dist_to_received = hamming_distance(&received, &recovered_codeword);
                 let dist_to_original = hamming_distance(&original_codeword, &recovered_codeword);
 
-                let recovered_msg: Vec<_> = recovered_coeffs
-                    .iter()
-                    .map(|x| x.representative())
-                    .collect();
+                let recovered_msg: Vec<_> =
+                    recovered_coeffs.iter().map(|x| x.canonical()).collect();
 
                 println!("    Decoded polynomial: {:?}", recovered_msg);
                 println!("    Distance to received word: {}", dist_to_received);
@@ -195,10 +187,7 @@ fn demo_sudan_list_decoding() {
 
     println!(
         "Original message: {:?}",
-        message
-            .iter()
-            .map(|x| x.representative())
-            .collect::<Vec<_>>()
+        message.iter().map(|x| x.canonical()).collect::<Vec<_>>()
     );
     println!();
 
@@ -226,7 +215,7 @@ fn demo_sudan_list_decoding() {
             let dist_to_received = hamming_distance(&received, &candidate_codeword);
             let dist_to_original = hamming_distance(&original_codeword, &candidate_codeword);
 
-            let coeffs_repr: Vec<_> = coeffs.iter().map(|x| x.representative()).collect();
+            let coeffs_repr: Vec<_> = coeffs.iter().map(|x| x.canonical()).collect();
 
             let is_original = candidate == &original_poly;
             let marker = if is_original { " <-- ORIGINAL" } else { "" };
@@ -281,10 +270,7 @@ fn demo_guruswami_sudan_list_decoding() {
 
     println!(
         "Original message: {:?}",
-        message
-            .iter()
-            .map(|x| x.representative())
-            .collect::<Vec<_>>()
+        message.iter().map(|x| x.canonical()).collect::<Vec<_>>()
     );
     println!();
 
@@ -316,7 +302,7 @@ fn demo_guruswami_sudan_list_decoding() {
             let dist_to_received = hamming_distance(&received, &candidate_codeword);
             let dist_to_original = hamming_distance(&original_codeword, &candidate_codeword);
 
-            let coeffs_repr: Vec<_> = coeffs.iter().map(|x| x.representative()).collect();
+            let coeffs_repr: Vec<_> = coeffs.iter().map(|x| x.canonical()).collect();
 
             let is_original = candidate == &original_poly;
             let marker = if is_original { " <-- ORIGINAL" } else { "" };
@@ -370,7 +356,7 @@ fn demo_guruswami_sudan_list_decoding() {
 
     println!(
         "  Original message: {:?}",
-        msg3.iter().map(|x| x.representative()).collect::<Vec<_>>()
+        msg3.iter().map(|x| x.canonical()).collect::<Vec<_>>()
     );
     println!();
 
@@ -397,7 +383,7 @@ fn demo_guruswami_sudan_list_decoding() {
             let dist_to_received = hamming_distance(&received3, &candidate_codeword);
             let dist_to_original = hamming_distance(&cw3, &candidate_codeword);
 
-            let coeffs_repr: Vec<_> = coeffs.iter().map(|x| x.representative()).collect();
+            let coeffs_repr: Vec<_> = coeffs.iter().map(|x| x.canonical()).collect();
 
             let is_original = candidate == &original_poly3;
             let marker = if is_original { " <-- ORIGINAL" } else { "" };

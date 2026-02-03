@@ -694,22 +694,19 @@ mod tests {
             code.domain()
                 .iter()
                 .take(5)
-                .map(|x| x.representative())
+                .map(|x| x.canonical())
                 .collect::<Vec<_>>()
         );
         println!(
             "  Original codeword (first 5): {:?}",
-            cw.iter()
-                .take(5)
-                .map(|x| x.representative())
-                .collect::<Vec<_>>()
+            cw.iter().take(5).map(|x| x.canonical()).collect::<Vec<_>>()
         );
         println!(
             "  Received (first 5): {:?}",
             received
                 .iter()
                 .take(5)
-                .map(|x| x.representative())
+                .map(|x| x.canonical())
                 .collect::<Vec<_>>()
         );
         println!(
@@ -717,7 +714,7 @@ mod tests {
             code.encode(&candidate_msg)
                 .iter()
                 .take(5)
-                .map(|x| x.representative())
+                .map(|x| x.canonical())
                 .collect::<Vec<_>>()
         );
         println!("  Agreement with original [1,2,3,4]: {}/32", agree_original);
@@ -791,7 +788,7 @@ mod tests {
             roots
                 .iter()
                 .take(10)
-                .map(|x| x.representative())
+                .map(|x| x.canonical())
                 .collect::<Vec<_>>()
         );
 
@@ -814,18 +811,14 @@ mod tests {
             roots_prime
                 .iter()
                 .take(10)
-                .map(|x| x.representative())
+                .map(|x| x.canonical())
                 .collect::<Vec<_>>()
         );
 
         let result = gs_list_decode(&code, &received);
         println!("  GS found {} candidates:", result.candidates.len());
         for (i, c) in result.candidates.iter().enumerate() {
-            let coeffs: Vec<u32> = c
-                .coefficients()
-                .iter()
-                .map(|x| x.representative())
-                .collect();
+            let coeffs: Vec<u32> = c.coefficients().iter().map(|x| x.canonical()).collect();
             let is_orig = c == &original_poly;
             let is_sage = c == &candidate_poly;
             let marker = if is_orig {

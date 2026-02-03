@@ -483,7 +483,7 @@ impl<F: IsPrimeField> Polynomial<FieldElement<F>> {
                 continue;
             }
 
-            let coeff_str = coeff.representative().to_string();
+            let coeff_str = coeff.canonical().to_string();
 
             if i == self.coefficients.len() - 1 {
                 string.push_str(&coeff_str);

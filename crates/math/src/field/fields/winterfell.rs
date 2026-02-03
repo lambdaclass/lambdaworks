@@ -24,9 +24,9 @@ impl IsFFTField for Felt {
 }
 
 impl IsPrimeField for Felt {
-    type RepresentativeType = U256;
+    type CanonicalType = U256;
 
-    fn representative(_a: &Self::BaseType) -> Self::RepresentativeType {
+    fn canonical(_a: &Self::BaseType) -> Self::CanonicalType {
         todo!()
     }
 

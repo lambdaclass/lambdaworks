@@ -124,21 +124,21 @@ impl<F: IsField + IsFFTField + HasDefaultTranscript, CS: IsCommitmentScheme<F>> 
             .t_lo_1
             .operate_with(
                 &p.t_mid_1
-                    .operate_with_self(zeta.pow(input.n + 2).representative()),
+                    .operate_with_self(zeta.pow(input.n + 2).canonical()),
             )
             .operate_with(
                 &p.t_hi_1
-                    .operate_with_self(zeta.pow(2 * input.n + 4).representative()),
+                    .operate_with_self(zeta.pow(2 * input.n + 4).canonical()),
             );
 
         // Compute commitment of the non constant part of the linearization of p
         // The first term corresponds to the gates constraints
         let mut first_term = vk
             .qm_1
-            .operate_with_self((&p.a_zeta * &p.b_zeta).representative());
-        first_term = first_term.operate_with(&vk.ql_1.operate_with_self(p.a_zeta.representative()));
-        first_term = first_term.operate_with(&vk.qr_1.operate_with_self(p.b_zeta.representative()));
-        first_term = first_term.operate_with(&vk.qo_1.operate_with_self(p.c_zeta.representative()));
+            .operate_with_self((&p.a_zeta * &p.b_zeta).canonical());
+        first_term = first_term.operate_with(&vk.ql_1.operate_with_self(p.a_zeta.canonical()));
+        first_term = first_term.operate_with(&vk.qr_1.operate_with_self(p.b_zeta.canonical()));
+        first_term = first_term.operate_with(&vk.qo_1.operate_with_self(p.c_zeta.canonical()));
         first_term = first_term.operate_with(&vk.qc_1);
 
         // Second and third terms correspond to copy constraints
@@ -152,13 +152,13 @@ impl<F: IsField + IsFFTField + HasDefaultTranscript, CS: IsCommitmentScheme<F>> 
             * &p.z_zeta_omega;
         let second_term = p
             .z_1
-            .operate_with_self(z_coefficient.representative())
-            .operate_with(&vk.s3_1.operate_with_self(s3_coefficient.representative()))
-            .operate_with_self(alpha.representative());
+            .operate_with_self(z_coefficient.canonical())
+            .operate_with(&vk.s3_1.operate_with_self(s3_coefficient.canonical()))
+            .operate_with_self(alpha.canonical());
         // α²*L₁(ζ)*Z(X)
         let third_term = p
             .z_1
-            .operate_with_self((&alpha * &alpha * l1_zeta).representative());
+            .operate_with_self((&alpha * &alpha * l1_zeta).canonical());
 
         let p_non_constant_1 = first_term
             .operate_with(&second_term)
