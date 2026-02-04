@@ -17,6 +17,7 @@
 //! - FFT/NTT operations on finite fields
 //! - Twiddle factor generation
 //! - Bit-reverse permutation
+//! - Merkle tree construction with Poseidon hash
 //! - Support for 256-bit fields (Stark252)
 //!
 //! # Usage

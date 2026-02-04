@@ -3,6 +3,10 @@
 //! This module provides abstractions for managing Metal device state, including
 //! device initialization, shader library loading, and buffer management.
 //!
+//! Two state types are provided:
+//! - [`MetalState`]: Uses a pre-compiled Metal shader library (for FFT operations).
+//! - [`DynamicMetalState`]: Compiles shaders from source at runtime (for Merkle tree operations).
+//!
 //! Inspired by:
 //! - Original lambdaworks Metal implementation (pre-PR#993)
 //! - ICICLE's multi-backend architecture
@@ -10,9 +14,12 @@
 
 use super::errors::MetalError;
 use metal::{
-    Buffer, CommandBufferRef, CommandQueue, ComputeCommandEncoderRef, ComputePipelineState, Device,
-    Library, MTLResourceOptions,
+    Buffer, CommandBufferRef, CommandQueue, CompileOptions, ComputeCommandEncoderRef,
+    ComputePipelineState, Device, Library, MTLResourceOptions,
 };
+use std::collections::hash_map::Entry;
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex, MutexGuard};
 use std::{ffi, mem};
 
 /// Pre-compiled Metal shader library.
@@ -21,8 +28,8 @@ const LIB_DATA: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/lib.metallib")
 
 /// Structure for abstracting basic calls to a Metal device and saving the state.
 ///
-/// Used for implementing GPU parallel computations on Apple Silicon and other
-/// Metal-compatible GPUs.
+/// Uses a pre-compiled Metal shader library for GPU parallel computations
+/// on Apple Silicon and other Metal-compatible GPUs.
 ///
 /// # Example
 ///
@@ -163,4 +170,185 @@ impl MetalState {
 #[inline]
 pub fn void_ptr<T>(v: &T) -> *const ffi::c_void {
     v as *const T as *const ffi::c_void
+}
+
+/// Metal GPU state manager with runtime shader compilation.
+///
+/// Unlike [`MetalState`] which uses pre-compiled shaders, this type compiles
+/// Metal shaders from source at runtime. It also provides pipeline caching
+/// and a higher-level compute execution API.
+///
+/// Used by the Merkle tree backend for Poseidon hash GPU acceleration.
+pub struct DynamicMetalState {
+    /// The Metal device (GPU).
+    device: Device,
+    /// Command queue for submitting work.
+    command_queue: CommandQueue,
+    /// Cached compute pipelines by function name.
+    pipelines: HashMap<String, ComputePipelineState>,
+    /// Compiled Metal library.
+    library: Option<Library>,
+}
+
+impl DynamicMetalState {
+    /// Create a new dynamic Metal state with the default GPU device.
+    pub fn new() -> Result<Self, MetalError> {
+        let device = Device::system_default().ok_or(MetalError::DeviceNotFound)?;
+        let command_queue = device.new_command_queue();
+
+        Ok(Self {
+            device,
+            command_queue,
+            pipelines: HashMap::new(),
+            library: None,
+        })
+    }
+
+    /// Get a reference to the Metal device.
+    pub fn device(&self) -> &Device {
+        &self.device
+    }
+
+    /// Get a reference to the command queue.
+    pub fn command_queue(&self) -> &CommandQueue {
+        &self.command_queue
+    }
+
+    /// Load a Metal shader library from source code.
+    pub fn load_library(&mut self, source: &str) -> Result<(), MetalError> {
+        let options = CompileOptions::new();
+        let library = self
+            .device
+            .new_library_with_source(source, &options)
+            .map_err(|e| MetalError::LibraryError(e.to_string()))?;
+        self.library = Some(library);
+        Ok(())
+    }
+
+    /// Get or create a compute pipeline for the given function name.
+    pub fn get_pipeline(
+        &mut self,
+        function_name: &str,
+    ) -> Result<&ComputePipelineState, MetalError> {
+        match self.pipelines.entry(function_name.to_string()) {
+            Entry::Occupied(entry) => Ok(entry.into_mut()),
+            Entry::Vacant(entry) => {
+                let library = self
+                    .library
+                    .as_ref()
+                    .ok_or_else(|| MetalError::LibraryError("No library loaded".to_string()))?;
+
+                let function = library
+                    .get_function(function_name, None)
+                    .map_err(|_| MetalError::FunctionError(function_name.to_string()))?;
+
+                let pipeline = self
+                    .device
+                    .new_compute_pipeline_state_with_function(&function)
+                    .map_err(|e| MetalError::PipelineError(e.to_string()))?;
+
+                Ok(entry.insert(pipeline))
+            }
+        }
+    }
+
+    /// Allocate a new Metal buffer with the given data.
+    pub fn alloc_buffer_with_data<T: Copy>(&self, data: &[T]) -> Result<Buffer, MetalError> {
+        let size = std::mem::size_of_val(data);
+        let buffer = self.device.new_buffer_with_data(
+            data.as_ptr() as *const _,
+            size as u64,
+            MTLResourceOptions::StorageModeShared,
+        );
+        Ok(buffer)
+    }
+
+    /// Allocate an empty Metal buffer of the given size in bytes.
+    pub fn alloc_buffer(&self, size: usize) -> Result<Buffer, MetalError> {
+        let buffer = self
+            .device
+            .new_buffer(size as u64, MTLResourceOptions::StorageModeShared);
+        Ok(buffer)
+    }
+
+    /// Read data from a Metal buffer.
+    ///
+    /// # Safety
+    /// The buffer must contain valid data of type T and have sufficient size.
+    pub unsafe fn read_buffer<T: Copy>(&self, buffer: &Buffer, count: usize) -> Vec<T> {
+        let ptr = buffer.contents() as *const T;
+        let slice = std::slice::from_raw_parts(ptr, count);
+        slice.to_vec()
+    }
+
+    /// Ensure a pipeline is created for the given function name and return its max thread count.
+    pub fn prepare_pipeline(&mut self, function_name: &str) -> Result<u64, MetalError> {
+        let pipeline = self.get_pipeline(function_name)?;
+        Ok(pipeline.max_total_threads_per_threadgroup())
+    }
+
+    /// Execute a compute operation with a pre-prepared pipeline.
+    ///
+    /// Call `prepare_pipeline` first to ensure the pipeline exists.
+    pub fn execute_compute(
+        &self,
+        function_name: &str,
+        buffers: &[&Buffer],
+        thread_count: u64,
+        max_threads: u64,
+    ) -> Result<(), MetalError> {
+        use metal::MTLSize;
+
+        let pipeline = self
+            .pipelines
+            .get(function_name)
+            .ok_or_else(|| MetalError::FunctionError(function_name.to_string()))?;
+
+        let threads_per_group = max_threads.min(256);
+        let thread_groups = thread_count.div_ceil(threads_per_group);
+
+        let command_buffer = self.command_queue.new_command_buffer();
+        let encoder = command_buffer.new_compute_command_encoder();
+
+        encoder.set_compute_pipeline_state(pipeline);
+        for (i, buffer) in buffers.iter().enumerate() {
+            encoder.set_buffer(i as u64, Some(buffer), 0);
+        }
+
+        let threads_per_threadgroup = MTLSize::new(threads_per_group, 1, 1);
+        let threadgroups = MTLSize::new(thread_groups, 1, 1);
+
+        encoder.dispatch_thread_groups(threadgroups, threads_per_threadgroup);
+        encoder.end_encoding();
+
+        command_buffer.commit();
+        command_buffer.wait_until_completed();
+
+        Ok(())
+    }
+}
+
+/// Thread-safe wrapper around DynamicMetalState.
+pub struct SharedMetalState(Arc<Mutex<DynamicMetalState>>);
+
+impl SharedMetalState {
+    /// Create a new shared Metal state.
+    pub fn new() -> Result<Self, MetalError> {
+        Ok(Self(Arc::new(Mutex::new(DynamicMetalState::new()?))))
+    }
+
+    /// Access the inner state with a lock.
+    ///
+    /// Returns an error if the mutex is poisoned.
+    pub fn lock(&self) -> Result<MutexGuard<'_, DynamicMetalState>, MetalError> {
+        self.0
+            .lock()
+            .map_err(|_| MetalError::ExecutionError("Metal state mutex poisoned".to_string()))
+    }
+}
+
+impl Clone for SharedMetalState {
+    fn clone(&self) -> Self {
+        Self(Arc::clone(&self.0))
+    }
 }
