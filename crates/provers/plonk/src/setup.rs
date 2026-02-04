@@ -197,7 +197,10 @@ impl PublicInputLayout {
             if !self.name_to_index.contains_key(*name) {
                 return Err(PublicInputError::NameNotFound((*name).to_string()));
             }
-            value_map.insert(*name, value.clone());
+            // Check for duplicate names in the input
+            if value_map.insert(*name, value.clone()).is_some() {
+                return Err(PublicInputError::DuplicateName((*name).to_string()));
+            }
         }
 
         // Build the vector in layout order
@@ -1424,6 +1427,30 @@ mod tests {
 
         assert!(result.is_err());
         assert!(matches!(result, Err(PublicInputError::NameNotFound(_))));
+    }
+
+    #[test]
+    fn test_public_input_layout_build_inputs_rejects_duplicate_in_call() {
+        let layout = PublicInputLayout::new()
+            .with_input("a")
+            .unwrap()
+            .with_input("b")
+            .unwrap()
+            .with_input("c")
+            .unwrap();
+
+        // Attempt to provide duplicate "a" in the same build_inputs call
+        let result = layout.build_inputs(&[
+            ("a", FE::<FrField>::from(1_u64)),
+            ("b", FE::from(2_u64)),
+            ("a", FE::from(99_u64)), // Duplicate name
+        ]);
+
+        assert!(result.is_err());
+        assert!(matches!(
+            result,
+            Err(PublicInputError::DuplicateName(ref name)) if name == "a"
+        ));
     }
 
     #[test]
