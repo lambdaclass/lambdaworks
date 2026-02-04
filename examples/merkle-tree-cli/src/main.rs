@@ -33,7 +33,7 @@ fn generate_merkle_tree(tree_path: String) -> Result<(), io::Error> {
 
     let merkle_tree = MerkleTree::<TreePoseidon<PoseidonCairoStark252>>::build(&values)
         .ok_or_else(|| io::Error::other("requested empty tree"))?;
-    let root = merkle_tree.root.representative().to_string();
+    let root = merkle_tree.root.canonical().to_string();
     println!("Generated merkle tree with root: {root:?}");
 
     let generated_tree_path = tree_path.replace(".csv", ".json");
@@ -68,7 +68,7 @@ fn generate_merkle_proof(tree_path: String, pos: usize) -> Result<(), io::Error>
     let leaf_value = values
         .get(pos)
         .ok_or_else(|| io::Error::other("Invalid position"))?
-        .representative()
+        .canonical()
         .to_string();
 
     let leaf_file_path = tree_path.replace(".csv", format!("_leaf_{pos}.txt").as_str());

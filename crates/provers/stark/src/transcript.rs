@@ -72,7 +72,8 @@ impl StoneProverTranscript {
     }
 
     pub fn sample_big_int(&mut self) -> U256 {
-        U256::from_bytes_be(&self.sample(32)).unwrap()
+        U256::from_bytes_be(&self.sample(32))
+            .expect("sample(32) always returns exactly 32 bytes for U256")
     }
 
     fn keccak_hash(data: &[u8]) -> [u8; 32] {
@@ -103,7 +104,8 @@ impl IsTranscript<Stark252PrimeField> for StoneProverTranscript {
         result_hash.copy_from_slice(&self.state);
         result_hash.reverse();
 
-        let digest = U256::from_bytes_be(&self.state).unwrap();
+        let digest = U256::from_bytes_be(&self.state)
+            .expect("self.state is always exactly 32 bytes for U256");
         let new_seed = (digest + self.seed_increment).to_bytes_be();
         self.state = Self::keccak_hash(&[&new_seed, new_bytes].concat());
         self.counter = 0;
@@ -123,15 +125,31 @@ impl IsTranscript<Stark252PrimeField> for StoneProverTranscript {
     }
 
     fn sample_u64(&mut self, upper_bound: u64) -> u64 {
-        assert!(upper_bound > 0, "upper_bound must be greater than 0");
-        let zone = u64::MAX - (u64::MAX % upper_bound);
+        assert!(
+            upper_bound > 0,
+            "sample_u64: upper_bound must be positive, got 0"
+        );
+
+        // For power-of-two bounds, use simple masking (no bias)
+        if upper_bound.is_power_of_two() {
+            let mask = upper_bound - 1;
+            let mut bytes = [0u8; 8];
+            bytes.copy_from_slice(&self.sample(8));
+            return u64::from_be_bytes(bytes) & mask;
+        }
+
+        // For non-power-of-two bounds, use rejection sampling to avoid modulo bias.
+        // The threshold ensures uniform distribution: we reject values >= threshold
+        // where threshold is the largest multiple of upper_bound that fits in u64.
+        let threshold = u64::MAX - (u64::MAX % upper_bound);
         loop {
             let mut bytes = [0u8; 8];
             bytes.copy_from_slice(&self.sample(8));
-            let candidate: u64 = u64::from_be_bytes(bytes);
-            if candidate < zone {
-                return candidate % upper_bound;
+            let u64_val = u64::from_be_bytes(bytes);
+            if u64_val < threshold {
+                return u64_val % upper_bound;
             }
+            // Reject and resample (very rare for reasonable upper_bound values)
         }
     }
 }
@@ -443,5 +461,20 @@ mod tests {
         transcript.append_bytes(&[0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x3b, 0xb8]);
         assert_eq!(transcript.sample_u64(128), 28);
         assert_eq!(transcript.sample_u64(128), 31);
+    }
+
+    #[test]
+    #[should_panic(expected = "upper_bound must be positive")]
+    fn test_sample_u64_panics_on_zero_bound() {
+        let mut transcript = StoneProverTranscript::new(&[0x01, 0x02]);
+        transcript.sample_u64(0);
+    }
+
+    #[test]
+    fn test_sample_u64_power_of_two_bounds() {
+        // Power-of-two bounds should use masking (fast path)
+        let mut transcript = StoneProverTranscript::new(&[0x01, 0x02]);
+        let result = transcript.sample_u64(256);
+        assert!(result < 256);
     }
 }

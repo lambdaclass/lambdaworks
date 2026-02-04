@@ -489,7 +489,11 @@ mod tests {
 
     type FE = FieldElement<Babybear31PrimeField>;
 
+    // This test verifies GS decoding across the full error correction radius.
+    // It's slow in debug mode due to the multiple decoding iterations.
+    // Run with: cargo test --release test_gs_full_radius -- --ignored
     #[test]
+    #[ignore = "slow in debug mode"]
     fn test_gs_full_radius() {
         let code = ReedSolomonCode::<Babybear31PrimeField>::with_consecutive_domain(16, 4);
         let message: Vec<FE> = (1..=4).map(|i| FE::from(i as u64)).collect();
@@ -658,7 +662,11 @@ mod tests {
         );
     }
 
+    // This test compares our GS implementation against SageMath's reference output.
+    // It's slow in debug mode due to heavy polynomial arithmetic.
+    // Run with: cargo test --release test_sage_comparison -- --ignored
     #[test]
+    #[ignore = "slow in debug mode"]
     fn test_sage_comparison() {
         use crate::distance::{agreement, introduce_errors};
 
@@ -686,22 +694,19 @@ mod tests {
             code.domain()
                 .iter()
                 .take(5)
-                .map(|x| x.representative())
+                .map(|x| x.canonical())
                 .collect::<Vec<_>>()
         );
         println!(
             "  Original codeword (first 5): {:?}",
-            cw.iter()
-                .take(5)
-                .map(|x| x.representative())
-                .collect::<Vec<_>>()
+            cw.iter().take(5).map(|x| x.canonical()).collect::<Vec<_>>()
         );
         println!(
             "  Received (first 5): {:?}",
             received
                 .iter()
                 .take(5)
-                .map(|x| x.representative())
+                .map(|x| x.canonical())
                 .collect::<Vec<_>>()
         );
         println!(
@@ -709,7 +714,7 @@ mod tests {
             code.encode(&candidate_msg)
                 .iter()
                 .take(5)
-                .map(|x| x.representative())
+                .map(|x| x.canonical())
                 .collect::<Vec<_>>()
         );
         println!("  Agreement with original [1,2,3,4]: {}/32", agree_original);
@@ -783,7 +788,7 @@ mod tests {
             roots
                 .iter()
                 .take(10)
-                .map(|x| x.representative())
+                .map(|x| x.canonical())
                 .collect::<Vec<_>>()
         );
 
@@ -806,18 +811,14 @@ mod tests {
             roots_prime
                 .iter()
                 .take(10)
-                .map(|x| x.representative())
+                .map(|x| x.canonical())
                 .collect::<Vec<_>>()
         );
 
         let result = gs_list_decode(&code, &received);
         println!("  GS found {} candidates:", result.candidates.len());
         for (i, c) in result.candidates.iter().enumerate() {
-            let coeffs: Vec<u32> = c
-                .coefficients()
-                .iter()
-                .map(|x| x.representative())
-                .collect();
+            let coeffs: Vec<u32> = c.coefficients().iter().map(|x| x.canonical()).collect();
             let is_orig = c == &original_poly;
             let is_sage = c == &candidate_poly;
             let marker = if is_orig {

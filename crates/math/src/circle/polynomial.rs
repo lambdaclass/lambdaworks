@@ -72,7 +72,7 @@ pub fn interpolate_cfft(
     // Note that this `expect` will never panic because eval.len() != 0.
     let factor = (FieldElement::<Mersenne31Field>::from(eval.len() as u64))
         .inv()
-        .expect("eval.len() is guaranteed to be non-zero at this point");
+        .expect("evaluation length is non-zero, so its inverse exists");
     eval.iter().map(|coef| coef * factor).collect()
 }
 

@@ -17,11 +17,11 @@ fuzz_target!(|bytes: ([u8;32], [u8;32])| {
     let a = FE::from_bytes_be(&bytes_a).unwrap();
     let b = FE::from_bytes_be(&bytes_b).unwrap();
 
-    let a_hex = a.representative().to_string()[2..].to_string();
-    let b_hex = b.representative().to_string()[2..].to_string();
+    let a_hex = a.canonical().to_string()[2..].to_string();
+    let b_hex = b.canonical().to_string()[2..].to_string();
 
     let c = a + &b;
-    let c_hex = c.representative().to_string()[2..].to_string();
+    let c_hex = c.canonical().to_string()[2..].to_string();
 
     let prime = 
     UBig::from_str_radix("800000000000011000000000000000000000000000000000000000000000001", 16).unwrap();

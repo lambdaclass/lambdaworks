@@ -20,12 +20,12 @@ pub type Mersenne31MontgomeryPrimeField =
 
 impl FieldElement<Mersenne31MontgomeryPrimeField> {
     pub fn to_bytes_le(&self) -> [u8; 8] {
-        let limbs = self.representative().limbs;
+        let limbs = self.canonical().limbs;
         limbs[0].to_le_bytes()
     }
 
     pub fn to_bytes_be(&self) -> [u8; 8] {
-        let limbs = self.representative().limbs;
+        let limbs = self.canonical().limbs;
         limbs[0].to_be_bytes()
     }
 }
@@ -33,12 +33,12 @@ impl FieldElement<Mersenne31MontgomeryPrimeField> {
 #[allow(clippy::non_canonical_partial_ord_impl)]
 impl PartialOrd for FieldElement<Mersenne31MontgomeryPrimeField> {
     fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
-        self.representative().partial_cmp(&other.representative())
+        self.canonical().partial_cmp(&other.canonical())
     }
 }
 
 impl Ord for FieldElement<Mersenne31MontgomeryPrimeField> {
     fn cmp(&self, other: &Self) -> core::cmp::Ordering {
-        self.representative().cmp(&other.representative())
+        self.canonical().cmp(&other.canonical())
     }
 }
