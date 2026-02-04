@@ -151,6 +151,54 @@ impl<F: IsField + IsFFTField + HasDefaultTranscript, CS: IsCommitmentScheme<F>> 
         Ok(())
     }
 
+    /// Validates all commitments in the verification key.
+    ///
+    /// # Security
+    ///
+    /// While verification keys typically come from a trusted setup ceremony,
+    /// validating them is important when:
+    /// - Loading verification keys from files or network
+    /// - Using verification keys from external or untrusted sources
+    /// - Implementing defense-in-depth security practices
+    ///
+    /// Without validation, a malicious verification key with invalid points could
+    /// compromise the soundness of the pairing-based verification.
+    ///
+    /// # Arguments
+    ///
+    /// * `vk` - The verification key to validate
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(())` if all verification key commitments are valid
+    /// * `Err(VerifierError)` if any commitment fails validation
+    ///
+    /// # Validation Checks
+    ///
+    /// Validates all 8 G1 commitments in the verification key:
+    /// - `qm_1`, `ql_1`, `qr_1`, `qo_1`, `qc_1`: Gate selector commitments
+    /// - `s1_1`, `s2_1`, `s3_1`: Permutation polynomial commitments
+    pub fn validate_verification_key(
+        vk: &VerificationKey<CS::Commitment>,
+    ) -> Result<(), VerifierError>
+    where
+        CS::Commitment: IsValidProofCommitment,
+    {
+        // Validate gate selector commitments
+        vk.qm_1.validate()?;
+        vk.ql_1.validate()?;
+        vk.qr_1.validate()?;
+        vk.qo_1.validate()?;
+        vk.qc_1.validate()?;
+
+        // Validate permutation commitments (used in batch opening verification)
+        vk.s1_1.validate()?;
+        vk.s2_1.validate()?;
+        vk.s3_1.validate()?;
+
+        Ok(())
+    }
+
     fn compute_challenges(
         &self,
         p: &Proof<F, CS>,
@@ -223,10 +271,15 @@ impl<F: IsField + IsFFTField + HasDefaultTranscript, CS: IsCommitmentScheme<F>> 
         CS::Commitment: AsBytes + IsGroup + IsValidProofCommitment,
         FieldElement<F>: ByteConversion,
     {
-        // Step 1-3: Validate proof elements (CRITICAL FOR SECURITY)
-        // - Check all commitments are valid points on the curve
-        // - Check all commitments are in the correct subgroup
+        // Step 1-2: Validate proof elements (CRITICAL FOR SECURITY)
+        // - Check all proof commitments are valid points on the curve
+        // - Check all proof commitments are in the correct subgroup
         Self::validate_proof_elements(p)?;
+
+        // Step 3: Validate verification key elements (CRITICAL FOR SECURITY)
+        // - Check all VK commitments are valid points on the curve
+        // - Check all VK commitments are in the correct subgroup
+        Self::validate_verification_key(vk)?;
 
         // Proceed with standard verification
         Ok(self.verify_internal(p, public_input, input, vk))
@@ -826,5 +879,61 @@ mod tests {
             format!("{}", err).contains("field element"),
             "InvalidFieldElement should mention field element"
         );
+    }
+
+    #[test]
+    fn test_valid_verification_key_passes_validation() {
+        // Test that a properly constructed verification key passes validation
+        let common_preprocessed_input = test_common_preprocessed_input_1();
+        let srs = test_srs(common_preprocessed_input.n);
+        let kzg = KZG::new(srs);
+
+        let verifying_key = setup(&common_preprocessed_input, &kzg);
+
+        // Validation should pass for a legitimately generated verification key
+        let validation_result = Verifier::<_, KZG>::validate_verification_key(&verifying_key);
+        assert!(
+            validation_result.is_ok(),
+            "Valid verification key should pass validation"
+        );
+    }
+
+    #[test]
+    fn test_verify_with_validation_validates_both_proof_and_vk() {
+        // Test that verify_with_validation validates both proof elements and VK
+        let common_preprocessed_input = test_common_preprocessed_input_1();
+        let srs = test_srs(common_preprocessed_input.n);
+
+        let x = FieldElement::from(4_u64);
+        let y = FieldElement::from(12_u64);
+        let e = FieldElement::from(3_u64);
+
+        let public_input = vec![x.clone(), y];
+        let witness = test_witness_1(x, e);
+
+        let kzg = KZG::new(srs);
+        let verifying_key = setup(&common_preprocessed_input, &kzg);
+        let random_generator = TestRandomFieldGenerator {};
+
+        let prover = Prover::new(kzg.clone(), random_generator);
+        let proof = prover.prove(
+            &witness,
+            &public_input,
+            &common_preprocessed_input,
+            &verifying_key,
+        );
+
+        let verifier = Verifier::new(kzg);
+
+        // verify_with_validation should validate both proof and VK
+        let result = verifier.verify_with_validation(
+            &proof,
+            &public_input,
+            &common_preprocessed_input,
+            &verifying_key,
+        );
+
+        assert!(result.is_ok(), "Validation should succeed");
+        assert!(result.unwrap(), "Valid proof with valid VK should verify");
     }
 }
