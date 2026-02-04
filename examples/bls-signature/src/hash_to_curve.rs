@@ -72,7 +72,7 @@ pub fn hash_to_g2(message: &[u8]) -> G2Point {
     let fp2 = bytes_to_fp2(&expanded);
 
     // Derive a scalar from the Fp2 element
-    // We use the first Fp component's representative, which has ~381 bits
+    // We use the first Fp component's canonical value, which has ~381 bits
     // This is reduced mod r (~255 bits) for full entropy coverage
     let [fp0, _fp1] = fp2.value();
     let fp_repr = fp0.canonical();

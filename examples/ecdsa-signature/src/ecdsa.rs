@@ -144,8 +144,8 @@ pub fn sign(
 
     // R = k * G
     let generator = Secp256k1Curve::generator();
-    let k_representative = nonce.canonical();
-    let r_point = generator.operate_with_self(k_representative);
+    let k_canonical = nonce.canonical();
+    let r_point = generator.operate_with_self(k_canonical);
     let r_affine = r_point.to_affine();
 
     // r = R.x mod n

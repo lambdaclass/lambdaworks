@@ -50,7 +50,7 @@ fuzz_target!(|bytes: ([u8;32], [u8;32])| {
     let multiplication = &a_ring * &b_ring;
     assert_eq!(&(mul.to_string())[2..], multiplication.residue().in_radix(16).to_string());
 
-    let pow = &a.pow(b.representative());
+    let pow = &a.pow(b.canonical());
     let expected_pow = a_ring.pow(&b_ring.residue());
     assert_eq!(&(pow.to_string())[2..], expected_pow.residue().in_radix(16).to_string());
     

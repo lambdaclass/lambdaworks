@@ -623,7 +623,7 @@ mod tests_u384_prime_fields {
     }
 
     #[test]
-    fn montgomery_backend_primefield_representative() {
+    fn montgomery_backend_primefield_canonical() {
         let a: U384 = UnsignedInteger {
             limbs: [0, 0, 0, 0, 0, 11],
         };
@@ -1033,7 +1033,7 @@ mod tests_u256_prime_fields {
     }
 
     #[test]
-    fn montgomery_backend_primefield_representative() {
+    fn montgomery_backend_primefield_canonical() {
         // 770%29
         let a: U256 = UnsignedInteger {
             limbs: [0, 0, 0, 16],
@@ -1364,7 +1364,7 @@ mod tests_u256_prime_fields {
 
     #[test]
     #[cfg(feature = "alloc")]
-    fn creating_a_field_element_from_its_representative_returns_the_same_element_1() {
+    fn creating_a_field_element_from_its_canonical_returns_the_same_element_1() {
         let change = U256::from_u64(1);
         let f1 = U256FP1Element::new(U256ModulusP1::MODULUS + change);
         let f2 = U256FP1Element::new(f1.canonical());
@@ -1372,7 +1372,7 @@ mod tests_u256_prime_fields {
     }
 
     #[test]
-    fn creating_a_field_element_from_its_representative_returns_the_same_element_2() {
+    fn creating_a_field_element_from_its_canonical_returns_the_same_element_2() {
         let change = U256::from_u64(27);
         let f1 = U256F29Element::new(U256Modulus29::MODULUS + change);
         let f2 = U256F29Element::new(f1.canonical());

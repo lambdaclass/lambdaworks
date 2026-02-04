@@ -425,7 +425,7 @@ mod tests {
     }
 
     #[test]
-    fn creating_a_field_element_from_its_representative_returns_the_same_element_1() {
+    fn creating_a_field_element_from_its_canonical_returns_the_same_element_1() {
         let change: u32 = MERSENNE_31_PRIME_FIELD_ORDER + 1;
         let f1 = FE::from(&change);
         let f2 = FE::from(&FE::canonical(&f1));
@@ -433,7 +433,7 @@ mod tests {
     }
 
     #[test]
-    fn creating_a_field_element_from_its_representative_returns_the_same_element_2() {
+    fn creating_a_field_element_from_its_canonical_returns_the_same_element_2() {
         let change: u32 = MERSENNE_31_PRIME_FIELD_ORDER + 8;
         let f1 = FE::from(&change);
         let f2 = FE::from(&FE::canonical(&f1));

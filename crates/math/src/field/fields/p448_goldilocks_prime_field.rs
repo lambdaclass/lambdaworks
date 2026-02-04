@@ -415,7 +415,7 @@ mod tests {
     }
 
     #[test]
-    fn representative_test() {
+    fn canonical_test() {
         let num = U56x8::from_hex("ffffffffffffffffffffffffffffffffffffffffffffffffffffffff00000000000000000000000000000000000000000000000000000029").unwrap();
         let r = P448GoldilocksPrimeField::canonical(&num);
         assert_eq!(r, U448::from_u64(42));

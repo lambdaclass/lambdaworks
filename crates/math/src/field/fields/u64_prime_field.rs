@@ -391,7 +391,7 @@ mod tests {
     }
 
     #[test]
-    fn creating_a_field_element_from_its_representative_returns_the_same_element_1() {
+    fn creating_a_field_element_from_its_canonical_returns_the_same_element_1() {
         let change = 1;
         let f1 = FE::new(MODULUS + change);
         let f2 = FE::new(f1.canonical());
@@ -399,7 +399,7 @@ mod tests {
     }
 
     #[test]
-    fn creating_a_field_element_from_its_representative_returns_the_same_element_2() {
+    fn creating_a_field_element_from_its_canonical_returns_the_same_element_2() {
         let change = 8;
         let f1 = FE::new(MODULUS + change);
         let f2 = FE::new(f1.canonical());
