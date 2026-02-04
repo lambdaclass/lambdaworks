@@ -1,5 +1,6 @@
 extern crate alloc;
 use crate::field::{element::FieldElement, fields::mersenne31::field::Mersenne31Field};
+use alloc::vec;
 use alloc::vec::Vec;
 
 #[cfg(feature = "alloc")]
