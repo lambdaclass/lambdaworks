@@ -167,9 +167,9 @@ unsafe fn add_no_double_overflow_64_64s_s(x: __m256i, y_s: __m256i) -> __m256i {
     let res_wrapped_s = _mm256_add_epi64(x, y_s);
     // If res_wrapped_s < y_s (signed comparison on shifted), overflow occurred
     let mask = _mm256_cmpgt_epi64(y_s, res_wrapped_s);
-    // On overflow, add EPSILON (right-shifted by 32 gives 1)
+    // On overflow, add EPSILON to correct (2^64 ≡ EPSILON mod p)
     let wrapback_amt = _mm256_srli_epi64::<32>(mask);
-    _mm256_sub_epi64(res_wrapped_s, wrapback_amt)
+    _mm256_add_epi64(res_wrapped_s, wrapback_amt)
 }
 
 /// Subtract a small value from a shifted value.
@@ -177,10 +177,10 @@ unsafe fn add_no_double_overflow_64_64s_s(x: __m256i, y_s: __m256i) -> __m256i {
 #[target_feature(enable = "avx2")]
 unsafe fn sub_small_64s_64_s(x_s: __m256i, y: __m256i) -> __m256i {
     let res_wrapped_s = _mm256_sub_epi64(x_s, y);
-    // If underflow (res > x in signed shifted domain), add back EPSILON
+    // If underflow (res > x in signed shifted domain), subtract EPSILON to correct
     let mask = _mm256_cmpgt_epi64(res_wrapped_s, x_s);
     let wrapback_amt = _mm256_srli_epi64::<32>(mask);
-    _mm256_add_epi64(res_wrapped_s, wrapback_amt)
+    _mm256_sub_epi64(res_wrapped_s, wrapback_amt)
 }
 
 /// Add a small value to a shifted value.
@@ -188,10 +188,10 @@ unsafe fn sub_small_64s_64_s(x_s: __m256i, y: __m256i) -> __m256i {
 #[target_feature(enable = "avx2")]
 unsafe fn add_small_64s_64_s(x_s: __m256i, y: __m256i) -> __m256i {
     let res_wrapped_s = _mm256_add_epi64(x_s, y);
-    // If overflow (res < x in signed shifted domain), subtract EPSILON
+    // If overflow (res < x in signed shifted domain), add EPSILON to correct
     let mask = _mm256_cmpgt_epi64(x_s, res_wrapped_s);
     let wrapback_amt = _mm256_srli_epi64::<32>(mask);
-    _mm256_sub_epi64(res_wrapped_s, wrapback_amt)
+    _mm256_add_epi64(res_wrapped_s, wrapback_amt)
 }
 
 // ============================================================

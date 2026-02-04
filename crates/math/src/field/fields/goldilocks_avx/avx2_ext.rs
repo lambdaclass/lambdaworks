@@ -11,11 +11,12 @@ use core::ops::{Add, AddAssign, Mul, MulAssign, Sub, SubAssign};
 
 use crate::field::element::FieldElement;
 use crate::field::fields::u64_goldilocks_field::{
-    Degree2GoldilocksExtensionField, Degree3GoldilocksExtensionField,
+    Degree2GoldilocksExtensionField, Degree3GoldilocksExtensionField, Goldilocks64Field,
 };
 
 use super::avx2::{PackedGoldilocksAVX2, WIDTH as BASE_WIDTH};
 
+type FpE = FieldElement<Goldilocks64Field>;
 type Fp2E = FieldElement<Degree2GoldilocksExtensionField>;
 type Fp3E = FieldElement<Degree3GoldilocksExtensionField>;
 
