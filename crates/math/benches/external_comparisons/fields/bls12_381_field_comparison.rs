@@ -4,7 +4,7 @@
 //! - Lambdaworks BLS12-381
 //! - Arkworks ark-bls12-381
 //!
-//! Operations: add, sub, mul, square, inv
+//! Operations: add, sub, mul, square, inv, sqrt, pow
 
 use criterion::{black_box, BenchmarkId, Criterion, Throughput};
 use rand::rngs::StdRng;
@@ -81,6 +81,25 @@ pub fn bench_bls12_381_fr_lambdaworks(c: &mut Criterion) {
                 }
             })
         });
+
+        // sqrt
+        group.bench_with_input(BenchmarkId::new("sqrt", size), &values, |b, vals| {
+            b.iter(|| {
+                for v in vals {
+                    black_box(v.sqrt());
+                }
+            })
+        });
+
+        // pow with a fixed exponent
+        let exp = 1000u64;
+        group.bench_with_input(BenchmarkId::new("pow", size), &values, |b, vals| {
+            b.iter(|| {
+                for v in vals {
+                    black_box(v.pow(exp));
+                }
+            })
+        });
     }
     group.finish();
 }
@@ -136,6 +155,25 @@ pub fn bench_bls12_381_fr_arkworks(c: &mut Criterion) {
             b.iter(|| {
                 for v in vals {
                     black_box(v.inverse().unwrap());
+                }
+            })
+        });
+
+        // sqrt
+        group.bench_with_input(BenchmarkId::new("sqrt", size), &values, |b, vals| {
+            b.iter(|| {
+                for v in vals {
+                    black_box(v.sqrt());
+                }
+            })
+        });
+
+        // pow with a fixed exponent
+        let exp: [u64; 1] = [1000u64];
+        group.bench_with_input(BenchmarkId::new("pow", size), &values, |b, vals| {
+            b.iter(|| {
+                for v in vals {
+                    black_box(v.pow(exp));
                 }
             })
         });
@@ -202,6 +240,25 @@ pub fn bench_bls12_381_fq_lambdaworks(c: &mut Criterion) {
                 }
             })
         });
+
+        // sqrt
+        group.bench_with_input(BenchmarkId::new("sqrt", size), &values, |b, vals| {
+            b.iter(|| {
+                for v in vals {
+                    black_box(v.sqrt());
+                }
+            })
+        });
+
+        // pow with a fixed exponent
+        let exp = 1000u64;
+        group.bench_with_input(BenchmarkId::new("pow", size), &values, |b, vals| {
+            b.iter(|| {
+                for v in vals {
+                    black_box(v.pow(exp));
+                }
+            })
+        });
     }
     group.finish();
 }
@@ -257,6 +314,25 @@ pub fn bench_bls12_381_fq_arkworks(c: &mut Criterion) {
             b.iter(|| {
                 for v in vals {
                     black_box(v.inverse().unwrap());
+                }
+            })
+        });
+
+        // sqrt
+        group.bench_with_input(BenchmarkId::new("sqrt", size), &values, |b, vals| {
+            b.iter(|| {
+                for v in vals {
+                    black_box(v.sqrt());
+                }
+            })
+        });
+
+        // pow with a fixed exponent
+        let exp: [u64; 1] = [1000u64];
+        group.bench_with_input(BenchmarkId::new("pow", size), &values, |b, vals| {
+            b.iter(|| {
+                for v in vals {
+                    black_box(v.pow(exp));
                 }
             })
         });

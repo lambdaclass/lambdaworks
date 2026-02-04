@@ -4,7 +4,7 @@
 //! - Lambdaworks Mersenne31Field
 //! - Plonky3 Mersenne31
 //!
-//! Operations: add, sub, mul, square, inv
+//! Operations: add, sub, mul, square, inv, pow
 
 use criterion::{black_box, BenchmarkId, Criterion, Throughput};
 use rand::rngs::StdRng;
@@ -81,6 +81,16 @@ pub fn bench_lambdaworks(c: &mut Criterion) {
                 }
             })
         });
+
+        // pow with a fixed exponent
+        let exp = 1000u64;
+        group.bench_with_input(BenchmarkId::new("pow", size), &values, |b, vals| {
+            b.iter(|| {
+                for v in vals {
+                    black_box(v.pow(exp));
+                }
+            })
+        });
     }
     group.finish();
 }
@@ -142,6 +152,16 @@ pub fn bench_plonky3(c: &mut Criterion) {
             b.iter(|| {
                 for v in vals {
                     black_box((*v).inverse());
+                }
+            })
+        });
+
+        // pow with a fixed exponent
+        let exp = 1000u64;
+        group.bench_with_input(BenchmarkId::new("pow", size), &values, |b, vals| {
+            b.iter(|| {
+                for v in vals {
+                    black_box(v.exp_u64(exp));
                 }
             })
         });
