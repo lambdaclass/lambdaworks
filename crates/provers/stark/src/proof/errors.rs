@@ -6,6 +6,6 @@ pub enum InsecureOptionError {
     FieldSize,
     #[error("Number of security bits is insufficient")]
     LowSecurityBits,
-    /// Blowup factor must be a power of two >= 2
+    #[error("Blowup factor must be a power of two >= 2")]
     InvalidBlowupFactor,
 }

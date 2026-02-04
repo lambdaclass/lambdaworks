@@ -62,7 +62,7 @@ pub enum ProvingError {
     #[error("No AIRs provided to multi_prove")]
     EmptyAirs,
     #[error("FFT operation failed: {0}")]
-    FFTError(#[from] FFTError),
+    FFTError(FFTError),
     #[error("Failed to get primitive root of unity for order {0}")]
     PrimitiveRootNotFound(u64),
     #[error("Batch inversion failed, likely due to zero element")]
@@ -71,8 +71,14 @@ pub enum ProvingError {
     MerkleTreeError(String),
     #[error("Field operation failed: {0}")]
     FieldOperationError(String),
-    /// Trace length must be a positive power of two (required for FFT)
+    #[error("Trace length must be a positive power of two (required for FFT): {0}")]
     InvalidTraceLength(usize),
+}
+
+impl From<FFTError> for ProvingError {
+    fn from(err: FFTError) -> Self {
+        ProvingError::FFTError(err)
+    }
 }
 
 impl From<lambdaworks_math::field::errors::FieldError> for ProvingError {
