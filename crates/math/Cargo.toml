@@ -104,3 +104,7 @@ harness = false
 [[bench]]
 name = "criterion_goldilocks_comparison"
 harness = false
+
+[[bench]]
+name = "criterion_asm_fields"
+harness = false

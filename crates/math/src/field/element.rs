@@ -120,6 +120,7 @@ where
     F::BaseType: Clone,
     F: IsField,
 {
+    #[inline]
     fn from(value: &F::BaseType) -> Self {
         Self {
             value: F::from_base_type(value.clone()),
@@ -132,6 +133,7 @@ impl<F> From<u64> for FieldElement<F>
 where
     F: IsField,
 {
+    #[inline]
     fn from(value: u64) -> Self {
         Self {
             value: F::from_u64(value),
@@ -159,6 +161,7 @@ where
     F::BaseType: Clone,
     F: IsField,
 {
+    #[inline(always)]
     pub fn from_raw(value: F::BaseType) -> Self {
         Self { value }
     }
@@ -173,6 +176,7 @@ impl<F> PartialEq<FieldElement<F>> for FieldElement<F>
 where
     F: IsField,
 {
+    #[inline]
     fn eq(&self, other: &FieldElement<F>) -> bool {
         F::eq(&self.value, &other.value)
     }
@@ -399,6 +403,7 @@ where
 {
     type Output = Result<FieldElement<L>, FieldError>;
 
+    #[inline]
     fn div(self, rhs: &FieldElement<L>) -> Self::Output {
         let value = <F as IsSubFieldOf<L>>::div(&self.value, &rhs.value)?;
         Ok(FieldElement::<L> { value })
@@ -412,6 +417,7 @@ where
 {
     type Output = Result<FieldElement<L>, FieldError>;
 
+    #[inline]
     fn div(self, rhs: FieldElement<L>) -> Self::Output {
         &self / &rhs
     }
@@ -424,6 +430,7 @@ where
 {
     type Output = Result<FieldElement<L>, FieldError>;
 
+    #[inline]
     fn div(self, rhs: &FieldElement<L>) -> Self::Output {
         &self / rhs
     }
@@ -436,6 +443,7 @@ where
 {
     type Output = Result<FieldElement<L>, FieldError>;
 
+    #[inline]
     fn div(self, rhs: FieldElement<L>) -> Self::Output {
         self / &rhs
     }
@@ -472,6 +480,7 @@ impl<F> Default for FieldElement<F>
 where
     F: IsField,
 {
+    #[inline]
     fn default() -> Self {
         Self { value: F::zero() }
     }
@@ -545,6 +554,7 @@ where
     }
 
     /// Returns the raw base type
+    #[inline(always)]
     pub fn to_raw(self) -> F::BaseType {
         self.value
     }

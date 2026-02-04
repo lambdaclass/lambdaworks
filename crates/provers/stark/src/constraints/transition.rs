@@ -111,8 +111,9 @@ where
         let trace_primitive_root = &domain.trace_primitive_root;
         let coset_offset = &domain.coset_offset;
         let lde_root_order = u64::from((blowup_factor * trace_length).trailing_zeros());
-        let lde_root = F::get_primitive_root_of_unity(lde_root_order)
-            .expect("primitive root of unity must exist for LDE domain size");
+        let lde_root = F::get_primitive_root_of_unity(lde_root_order).expect(
+            "failed to get LDE primitive root: blowup_factor * trace_length may exceed field's two-adicity"
+        );
 
         let end_exemptions_poly = self.end_exemptions_poly(trace_primitive_root, trace_length);
 
@@ -148,7 +149,9 @@ where
                     // The denominator is guaranteed to be non-zero because the sets of powers of `offset_times_x`
                     // and `trace_primitive_root` are disjoint, provided that the offset is neither an element of the
                     // interpolation domain nor part of a subgroup with order less than n.
-                    unsafe { numerator.div(denominator).unwrap_unchecked() }
+                    numerator.div(denominator).expect(
+                        "zerofier denominator should be non-zero: offset_times_x and trace_primitive_root powers are disjoint"
+                    )
                 })
                 .collect();
 
@@ -161,7 +164,7 @@ where
                 domain.interpolation_domain_size,
                 coset_offset,
             )
-            .expect("FFT evaluation of end exemptions polynomial must be within field's two-adicity limit");
+            .expect("failed to evaluate end exemptions polynomial on LDE domain");
 
             let cycled_evaluations = evaluations
                 .iter()
@@ -187,7 +190,7 @@ where
                 .collect_vec();
 
             FieldElement::inplace_batch_inverse(&mut evaluations)
-                .expect("zerofier evaluations are non-zero because (offset_coset)^(n/period) and trace_root^offset*(n/period) are from disjoint subgroups");
+                .expect("batch inverse failed: zerofier evaluation contains zero element");
 
             // FIXME: Instead of computing this evaluations for each constraint, they can be computed
             // once for every constraint with the same end exemptions (combination of end_exemptions()
@@ -198,7 +201,7 @@ where
                 domain.interpolation_domain_size,
                 coset_offset,
             )
-            .expect("FFT evaluation of end exemptions polynomial must be within field's two-adicity limit");
+            .expect("failed to evaluate end exemptions polynomial on LDE domain");
 
             let cycled_evaluations = evaluations
                 .iter()
@@ -239,14 +242,15 @@ where
                 .pow(self.offset() * trace_length / self.period())
                 + z.pow(trace_length / self.period());
             // The denominator isn't zero because z is sampled outside the set of primitive roots.
-            return unsafe { numerator.div(denominator).unwrap_unchecked() }
-                * end_exemptions_poly.evaluate(z);
+            return numerator.div(denominator).expect(
+                "zerofier denominator should be non-zero: z is sampled outside primitive roots set",
+            ) * end_exemptions_poly.evaluate(z);
         }
 
         (-trace_primitive_root.pow(self.offset() * trace_length / self.period())
             + z.pow(trace_length / self.period()))
         .inv()
-        .expect("z is sampled outside primitive roots so denominator is non-zero")
+        .expect("zerofier inverse failed: z should not equal primitive root power")
             * end_exemptions_poly.evaluate(z)
     }
 }

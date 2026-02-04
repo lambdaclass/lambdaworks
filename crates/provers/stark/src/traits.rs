@@ -111,7 +111,11 @@ fn compute_base_zerofier<F: IsFFTField>(
                 let denominator = offset_times_x.pow(trace_length / period)
                     - trace_primitive_root.pow(offset * trace_length / period);
 
-                unsafe { numerator.div(denominator).unwrap_unchecked() }
+                // Safety: The denominator is non-zero because the coset offset ensures
+                // lde_root powers are disjoint from trace_primitive_root powers
+                numerator.div(denominator).expect(
+                    "zerofier denominator should be non-zero: coset offset ensures disjoint domains"
+                )
             })
             .collect()
     } else {
@@ -126,7 +130,7 @@ fn compute_base_zerofier<F: IsFFTField>(
             .collect_vec();
 
         FieldElement::inplace_batch_inverse(&mut evaluations)
-            .expect("zerofier evaluations are non-zero due to coset offset");
+            .expect("batch inverse failed: zerofier evaluation contains zero element");
         evaluations
     }
 }
@@ -151,7 +155,7 @@ fn compute_end_exemptions_evals<F: IsFFTField>(
         interpolation_domain_size,
         coset_offset,
     )
-    .expect("FFT evaluation of end exemptions polynomial must succeed")
+    .expect("failed to evaluate end exemptions polynomial on LDE domain")
 }
 
 /// Compute the end exemptions polynomial
@@ -325,8 +329,9 @@ pub trait AIR: Send + Sync {
         let trace_length = self.trace_length();
         let root_of_unity_order = u64::from(trace_length.trailing_zeros());
 
-        Self::Field::get_primitive_root_of_unity(root_of_unity_order)
-            .expect("primitive root of unity must exist for valid trace length")
+        Self::Field::get_primitive_root_of_unity(root_of_unity_order).expect(
+            "failed to get primitive root of unity: trace length may exceed field's two-adicity",
+        )
     }
 
     fn num_transition_constraints(&self) -> usize {

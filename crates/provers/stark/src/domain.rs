@@ -20,6 +20,12 @@ pub struct Domain<F: IsFFTField> {
 }
 
 impl<F: IsFFTField> Domain<F> {
+    /// Creates a new domain for the given AIR.
+    ///
+    /// # Panics
+    ///
+    /// Panics if primitive root of unity cannot be found for the trace length,
+    /// or if coset generation fails. For fallible construction, use [`new_domain`].
     pub fn new<A>(air: &A) -> Self
     where
         A: AIR<Field = F>,
@@ -38,14 +44,15 @@ impl<F: IsFFTField> Domain<F> {
         let interpolation_domain_size = trace_length;
         let root_order = trace_length.trailing_zeros();
         // * Generate Coset
-        let trace_primitive_root = F::get_primitive_root_of_unity(root_order as u64)
-            .expect("primitive root of unity must exist for valid trace length");
+        let trace_primitive_root = F::get_primitive_root_of_unity(root_order as u64).expect(
+            "failed to get primitive root of unity: trace length may exceed field's two-adicity",
+        );
         let trace_roots_of_unity = get_powers_of_primitive_root_coset(
             root_order as u64,
             interpolation_domain_size,
             &FieldElement::one(),
         )
-        .expect("trace roots of unity computation must succeed for valid parameters");
+        .expect("failed to generate trace roots of unity coset");
 
         let lde_root_order = (air.trace_length() * blowup_factor).trailing_zeros();
         let lde_roots_of_unity_coset = get_powers_of_primitive_root_coset(

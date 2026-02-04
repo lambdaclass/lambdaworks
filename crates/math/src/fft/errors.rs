@@ -11,8 +11,10 @@ pub enum FFTError {
     InputError(usize),
     OrderError(u64),
     DomainSizeError(usize),
-    /// Field error during FFT operation
-    FieldError(FieldError),
+    /// Division by zero encountered during FFT computation
+    DivisionByZero,
+    /// Attempted to compute inverse of zero during FFT
+    InverseOfZero,
     #[cfg(feature = "cuda")]
     CudaError(CudaError),
 }
@@ -40,8 +42,11 @@ impl fmt::Display for FFTError {
             FFTError::DomainSizeError(size) => {
                 write!(f, "Domain size {} exceeds two adicity of the field", size)
             }
-            FFTError::FieldError(err) => {
-                write!(f, "Field error during FFT: {}", err)
+            FFTError::DivisionByZero => {
+                write!(f, "Division by zero encountered during FFT computation")
+            }
+            FFTError::InverseOfZero => {
+                write!(f, "Cannot compute inverse of zero during FFT")
             }
             #[cfg(feature = "cuda")]
             FFTError::CudaError(err) => {
@@ -54,11 +59,11 @@ impl fmt::Display for FFTError {
 #[cfg(feature = "std")]
 impl std::error::Error for FFTError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        #[cfg(feature = "cuda")]
-        if let FFTError::CudaError(err) = self {
-            return Some(err);
+        match self {
+            #[cfg(feature = "cuda")]
+            FFTError::CudaError(e) => Some(e),
+            _ => None,
         }
-        None
     }
 }
 
@@ -72,8 +77,9 @@ impl From<CudaError> for FFTError {
 impl From<FieldError> for FFTError {
     fn from(error: FieldError) -> Self {
         match error {
+            FieldError::DivisionByZero => FFTError::DivisionByZero,
+            FieldError::InvZeroError => FFTError::InverseOfZero,
             FieldError::RootOfUnityError(order) => FFTError::RootOfUnityError(order),
-            other => FFTError::FieldError(other),
         }
     }
 }
