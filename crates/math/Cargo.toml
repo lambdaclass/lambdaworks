@@ -37,7 +37,16 @@ iai-callgrind.workspace = true
 proptest = "1.1.0"
 pprof = { version = "0.13.0", features = ["criterion", "flamegraph"] }
 p3-baby-bear = { git = "https://github.com/Plonky3/Plonky3" }
+p3-goldilocks = { git = "https://github.com/Plonky3/Plonky3" }
+p3-mersenne-31 = { git = "https://github.com/Plonky3/Plonky3" }
 p3-field = { git = "https://github.com/Plonky3/Plonky3" }
+p3-dft = { git = "https://github.com/Plonky3/Plonky3" }
+p3-matrix = { git = "https://github.com/Plonky3/Plonky3" }
+ark-ff = "0.5"
+ark-ec = "0.5"
+ark-bn254 = "0.5"
+ark-bls12-381 = "0.5"
+ark-std = "0.5"
 rand = { version = "0.8.5", features = ["std"] }
 
 [features]
@@ -106,4 +115,8 @@ harness = false
 
 [[bench]]
 name = "criterion_asm_fields"
+harness = false
+
+[[bench]]
+name = "criterion_external_comparisons"
 harness = false
