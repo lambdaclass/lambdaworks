@@ -83,3 +83,90 @@ impl From<FieldError> for FFTError {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_fft_error_display_root_of_unity() {
+        let error = FFTError::RootOfUnityError(8);
+        let msg = format!("{}", error);
+        assert!(msg.contains("root of unity"));
+        assert!(msg.contains("8"));
+    }
+
+    #[test]
+    fn test_fft_error_display_input_error() {
+        let error = FFTError::InputError(7);
+        let msg = format!("{}", error);
+        assert!(msg.contains("Input length"));
+        assert!(msg.contains("7"));
+        assert!(msg.contains("power of two"));
+    }
+
+    #[test]
+    fn test_fft_error_display_order_error() {
+        let error = FFTError::OrderError(64);
+        let msg = format!("{}", error);
+        assert!(msg.contains("Order"));
+        assert!(msg.contains("64"));
+    }
+
+    #[test]
+    fn test_fft_error_display_domain_size() {
+        let error = FFTError::DomainSizeError(1024);
+        let msg = format!("{}", error);
+        assert!(msg.contains("Domain size"));
+        assert!(msg.contains("1024"));
+        assert!(msg.contains("two adicity"));
+    }
+
+    #[test]
+    fn test_fft_error_display_division_by_zero() {
+        let error = FFTError::DivisionByZero;
+        let msg = format!("{}", error);
+        assert!(msg.contains("Division by zero"));
+        assert!(msg.contains("FFT"));
+    }
+
+    #[test]
+    fn test_fft_error_display_inverse_of_zero() {
+        let error = FFTError::InverseOfZero;
+        let msg = format!("{}", error);
+        assert!(msg.contains("inverse of zero"));
+        assert!(msg.contains("FFT"));
+    }
+
+    #[test]
+    fn test_field_error_to_fft_error_division_by_zero() {
+        let field_err = FieldError::DivisionByZero;
+        let fft_err: FFTError = field_err.into();
+        assert!(matches!(fft_err, FFTError::DivisionByZero));
+    }
+
+    #[test]
+    fn test_field_error_to_fft_error_inverse_of_zero() {
+        let field_err = FieldError::InvZeroError;
+        let fft_err: FFTError = field_err.into();
+        assert!(matches!(fft_err, FFTError::InverseOfZero));
+    }
+
+    #[test]
+    fn test_field_error_to_fft_error_root_of_unity() {
+        let field_err = FieldError::RootOfUnityError(16);
+        let fft_err: FFTError = field_err.into();
+        match fft_err {
+            FFTError::RootOfUnityError(order) => assert_eq!(order, 16),
+            _ => panic!("Expected RootOfUnityError"),
+        }
+    }
+
+    #[cfg(feature = "std")]
+    #[test]
+    fn test_fft_error_source_returns_none() {
+        use std::error::Error;
+        let error = FFTError::DivisionByZero;
+        assert!(error.source().is_none());
+    }
+}

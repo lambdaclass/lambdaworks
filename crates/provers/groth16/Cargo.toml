@@ -9,7 +9,7 @@ repository.workspace = true
 
 [dependencies]
 thiserror = "1.0"
-lambdaworks-math = { workspace = true, features = ["std"] }
+lambdaworks-math = { workspace = true }
 lambdaworks-crypto.workspace = true
 rand_chacha = "0.3.1"
 serde = "1.0"
