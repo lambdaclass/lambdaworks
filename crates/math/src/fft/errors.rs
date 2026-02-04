@@ -87,6 +87,7 @@ impl From<FieldError> for FFTError {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use alloc::format;
 
     #[test]
     fn test_fft_error_display_root_of_unity() {
