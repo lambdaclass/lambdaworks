@@ -13,9 +13,6 @@ use rand::{Rng, SeedableRng};
 // Lambdaworks
 use lambdaworks_math::elliptic_curve::short_weierstrass::curves::bn_254::curve::BN254FieldElement;
 use lambdaworks_math::elliptic_curve::short_weierstrass::curves::bn_254::default_types::FrElement as LwBN254Fr;
-use lambdaworks_math::field::element::FieldElement;
-use lambdaworks_math::field::fields::montgomery_backed_prime_fields::IsModulus;
-use lambdaworks_math::unsigned_integer::element::U256;
 
 // Arkworks
 use ark_bn254::{Fq as ArkBN254Fq, Fr as ArkBN254Fr};

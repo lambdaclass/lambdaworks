@@ -18,7 +18,6 @@ use lambdaworks_math::polynomial::Polynomial;
 // Plonky3
 use p3_baby_bear::BabyBear as P3BabyBear;
 use p3_dft::{Radix2Dit, TwoAdicSubgroupDft};
-use p3_field::PrimeCharacteristicRing;
 
 const SEED: u64 = 0xBEEF;
 const SIZES: [usize; 4] = [1 << 12, 1 << 14, 1 << 16, 1 << 18];

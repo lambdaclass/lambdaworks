@@ -15,7 +15,6 @@ use lambdaworks_math::elliptic_curve::short_weierstrass::curves::bls12_381::curv
 use lambdaworks_math::elliptic_curve::short_weierstrass::curves::bls12_381::default_types::FrElement as LwBLS12381Fr;
 use lambdaworks_math::elliptic_curve::short_weierstrass::curves::bn_254::curve::BN254FieldElement;
 use lambdaworks_math::elliptic_curve::short_weierstrass::curves::bn_254::default_types::FrElement as LwBN254Fr;
-use lambdaworks_math::field::element::FieldElement;
 
 // Arkworks
 use ark_bls12_381::{Fq as ArkBLS12381Fq, Fr as ArkBLS12381Fr};

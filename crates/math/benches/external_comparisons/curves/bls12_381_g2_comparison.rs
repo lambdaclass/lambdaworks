@@ -19,7 +19,7 @@ use lambdaworks_math::unsigned_integer::element::U256;
 
 // Arkworks
 use ark_bls12_381::{Fr as ArkFr, G2Projective as ArkG2};
-use ark_ec::{AdditiveGroup, CurveGroup};
+use ark_ec::AdditiveGroup;
 use ark_ff::UniformRand;
 
 const SEED: u64 = 0xBEEF;
@@ -74,7 +74,7 @@ pub fn bench_lambdaworks(c: &mut Criterion) {
             |b, (pts, scs)| {
                 b.iter(|| {
                     for (p, s) in pts.iter().zip(scs.iter()) {
-                        black_box(p.operate_with_self(s.clone()));
+                        black_box(p.operate_with_self(*s));
                     }
                 })
             },
@@ -111,7 +111,7 @@ pub fn bench_arkworks(c: &mut Criterion) {
         group.bench_with_input(BenchmarkId::new("double", size), &points, |b, pts| {
             b.iter(|| {
                 for p in pts {
-                    black_box(p.double());
+                    let _ = black_box(p.double());
                 }
             })
         });
@@ -122,7 +122,7 @@ pub fn bench_arkworks(c: &mut Criterion) {
             |b, (pts, scs)| {
                 b.iter(|| {
                     for (p, s) in pts.iter().zip(scs.iter()) {
-                        black_box(*p * s);
+                        let _ = black_box(*p * s);
                     }
                 })
             },

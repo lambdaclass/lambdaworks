@@ -52,6 +52,7 @@ pub fn bench_lambdaworks(c: &mut Criterion) {
 
         group.throughput(Throughput::Elements(size as u64));
 
+        #[allow(clippy::assign_op_pattern)]
         group.bench_with_input(BenchmarkId::new("mul", size), &values, |b, vals| {
             b.iter(|| {
                 let mut acc = vals[0];
@@ -62,6 +63,7 @@ pub fn bench_lambdaworks(c: &mut Criterion) {
             })
         });
 
+        #[allow(clippy::assign_op_pattern)]
         group.bench_with_input(BenchmarkId::new("add", size), &values, |b, vals| {
             b.iter(|| {
                 let mut acc = vals[0];
@@ -72,6 +74,7 @@ pub fn bench_lambdaworks(c: &mut Criterion) {
             })
         });
 
+        #[allow(clippy::assign_op_pattern)]
         group.bench_with_input(BenchmarkId::new("sub", size), &values, |b, vals| {
             b.iter(|| {
                 let mut acc = vals[0];
@@ -129,7 +132,7 @@ pub fn bench_plonky3(c: &mut Criterion) {
             b.iter(|| {
                 let mut acc = vals[0];
                 for v in &vals[1..] {
-                    acc = acc * *v;
+                    acc *= *v;
                 }
                 black_box(acc)
             })
@@ -139,7 +142,7 @@ pub fn bench_plonky3(c: &mut Criterion) {
             b.iter(|| {
                 let mut acc = vals[0];
                 for v in &vals[1..] {
-                    acc = acc + *v;
+                    acc += *v;
                 }
                 black_box(acc)
             })
@@ -149,7 +152,7 @@ pub fn bench_plonky3(c: &mut Criterion) {
             b.iter(|| {
                 let mut acc = vals[0];
                 for v in &vals[1..] {
-                    acc = acc - *v;
+                    acc -= *v;
                 }
                 black_box(acc)
             })
@@ -158,7 +161,7 @@ pub fn bench_plonky3(c: &mut Criterion) {
         group.bench_with_input(BenchmarkId::new("square", size), &values, |b, vals| {
             b.iter(|| {
                 for v in vals {
-                    black_box(*v * *v);
+                    let _ = black_box(*v * *v);
                 }
             })
         });
@@ -166,7 +169,7 @@ pub fn bench_plonky3(c: &mut Criterion) {
         group.bench_with_input(BenchmarkId::new("inv", size), &values, |b, vals| {
             b.iter(|| {
                 for v in vals {
-                    black_box(v.try_inverse().unwrap());
+                    let _ = black_box(v.try_inverse().unwrap());
                 }
             })
         });

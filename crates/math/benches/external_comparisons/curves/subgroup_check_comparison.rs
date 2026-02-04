@@ -23,7 +23,6 @@ use lambdaworks_math::unsigned_integer::element::U256;
 // Arkworks
 use ark_bls12_381::{G1Affine as ArkBLS12381G1Affine, G2Affine as ArkBLS12381G2Affine};
 use ark_bn254::{G1Affine as ArkBN254G1Affine, G2Affine as ArkBN254G2Affine};
-use ark_ec::AffineRepr;
 use ark_ff::UniformRand;
 
 const SEED: u64 = 0xBEEF;

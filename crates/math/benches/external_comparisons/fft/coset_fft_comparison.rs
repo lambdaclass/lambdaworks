@@ -93,16 +93,12 @@ pub fn bench_goldilocks_plonky3(c: &mut Criterion) {
             let added_bits = blowup.trailing_zeros() as usize;
             let shift = P3Goldilocks::GENERATOR;
 
-            group.bench_with_input(
-                BenchmarkId::new(&bench_name, size),
-                &matrix,
-                |b, m| {
-                    b.iter(|| {
-                        // coset_lde_batch takes: matrix, added_bits (log2 of blowup), shift
-                        black_box(dft.coset_lde_batch(m.clone(), added_bits, shift))
-                    })
-                },
-            );
+            group.bench_with_input(BenchmarkId::new(&bench_name, size), &matrix, |b, m| {
+                b.iter(|| {
+                    // coset_lde_batch takes: matrix, added_bits (log2 of blowup), shift
+                    black_box(dft.coset_lde_batch(m.clone(), added_bits, shift))
+                })
+            });
         }
     }
     group.finish();
@@ -170,16 +166,12 @@ pub fn bench_babybear_plonky3(c: &mut Criterion) {
             let added_bits = blowup.trailing_zeros() as usize;
             let shift = P3BabyBear::GENERATOR;
 
-            group.bench_with_input(
-                BenchmarkId::new(&bench_name, size),
-                &matrix,
-                |b, m| {
-                    b.iter(|| {
-                        // coset_lde_batch takes: matrix, added_bits (log2 of blowup), shift
-                        black_box(dft.coset_lde_batch(m.clone(), added_bits, shift))
-                    })
-                },
-            );
+            group.bench_with_input(BenchmarkId::new(&bench_name, size), &matrix, |b, m| {
+                b.iter(|| {
+                    // coset_lde_batch takes: matrix, added_bits (log2 of blowup), shift
+                    black_box(dft.coset_lde_batch(m.clone(), added_bits, shift))
+                })
+            });
         }
     }
     group.finish();

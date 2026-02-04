@@ -6,7 +6,7 @@
 //!
 //! Operations: full pairing, miller loop, final exponentiation
 
-use criterion::{black_box, BenchmarkId, Criterion, Throughput};
+use criterion::{black_box, Criterion, Throughput};
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 
@@ -21,7 +21,7 @@ use lambdaworks_math::elliptic_curve::traits::{IsEllipticCurve, IsPairing};
 use lambdaworks_math::unsigned_integer::element::U256;
 
 // Arkworks
-use ark_bn254::{Bn254, Fr as ArkBN254Fr, G1Projective as ArkG1, G2Projective as ArkG2};
+use ark_bn254::{Bn254, G1Projective as ArkG1, G2Projective as ArkG2};
 use ark_ec::{pairing::Pairing, CurveGroup};
 use ark_ff::UniformRand;
 

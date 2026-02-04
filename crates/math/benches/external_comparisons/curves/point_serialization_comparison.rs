@@ -51,7 +51,7 @@ pub fn bench_bn254_g1_lambdaworks(c: &mut Criterion) {
         // Pre-compress for decompression benchmarks
         let compressed: Vec<_> = points
             .iter()
-            .map(|p| BN254Curve::compress_g1_point(p))
+            .map(BN254Curve::compress_g1_point)
             .collect();
 
         group.throughput(Throughput::Elements(size as u64));
@@ -106,7 +106,8 @@ pub fn bench_bn254_g1_arkworks(c: &mut Criterion) {
             b.iter(|| {
                 for p in pts {
                     let mut bytes = Vec::new();
-                    black_box(p.serialize_with_mode(&mut bytes, ArkCompress::Yes).unwrap());
+                    p.serialize_with_mode(&mut bytes, ArkCompress::Yes).unwrap();
+                    black_box(&bytes);
                 }
             })
         });
@@ -117,7 +118,7 @@ pub fn bench_bn254_g1_arkworks(c: &mut Criterion) {
             |b, ser| {
                 b.iter(|| {
                     for s in ser {
-                        black_box(
+                        let _ = black_box(
                             ArkBN254G1Affine::deserialize_with_mode(
                                 s.as_slice(),
                                 ArkCompress::Yes,
@@ -154,7 +155,7 @@ pub fn bench_bn254_g2_lambdaworks(c: &mut Criterion) {
 
         let compressed: Vec<_> = points
             .iter()
-            .map(|p| BN254Curve::compress_g2_point(p))
+            .map(BN254Curve::compress_g2_point)
             .collect();
 
         group.throughput(Throughput::Elements(size as u64));
@@ -208,7 +209,8 @@ pub fn bench_bn254_g2_arkworks(c: &mut Criterion) {
             b.iter(|| {
                 for p in pts {
                     let mut bytes = Vec::new();
-                    black_box(p.serialize_with_mode(&mut bytes, ArkCompress::Yes).unwrap());
+                    p.serialize_with_mode(&mut bytes, ArkCompress::Yes).unwrap();
+                    black_box(&bytes);
                 }
             })
         });
@@ -219,7 +221,7 @@ pub fn bench_bn254_g2_arkworks(c: &mut Criterion) {
             |b, ser| {
                 b.iter(|| {
                     for s in ser {
-                        black_box(
+                        let _ = black_box(
                             ArkBN254G2Affine::deserialize_with_mode(
                                 s.as_slice(),
                                 ArkCompress::Yes,
@@ -256,7 +258,7 @@ pub fn bench_bls12_381_g1_lambdaworks(c: &mut Criterion) {
 
         let compressed: Vec<_> = points
             .iter()
-            .map(|p| BLS12381Curve::compress_g1_point(p))
+            .map(BLS12381Curve::compress_g1_point)
             .collect();
 
         group.throughput(Throughput::Elements(size as u64));
@@ -310,7 +312,8 @@ pub fn bench_bls12_381_g1_arkworks(c: &mut Criterion) {
             b.iter(|| {
                 for p in pts {
                     let mut bytes = Vec::new();
-                    black_box(p.serialize_with_mode(&mut bytes, ArkCompress::Yes).unwrap());
+                    p.serialize_with_mode(&mut bytes, ArkCompress::Yes).unwrap();
+                    black_box(&bytes);
                 }
             })
         });
@@ -321,7 +324,7 @@ pub fn bench_bls12_381_g1_arkworks(c: &mut Criterion) {
             |b, ser| {
                 b.iter(|| {
                     for s in ser {
-                        black_box(
+                        let _ = black_box(
                             ArkBLS12381G1Affine::deserialize_with_mode(
                                 s.as_slice(),
                                 ArkCompress::Yes,
@@ -358,7 +361,7 @@ pub fn bench_bls12_381_g2_lambdaworks(c: &mut Criterion) {
 
         let compressed: Vec<_> = points
             .iter()
-            .map(|p| BLS12381Curve::compress_g2_point(p))
+            .map(BLS12381Curve::compress_g2_point)
             .collect();
 
         group.throughput(Throughput::Elements(size as u64));
@@ -412,7 +415,8 @@ pub fn bench_bls12_381_g2_arkworks(c: &mut Criterion) {
             b.iter(|| {
                 for p in pts {
                     let mut bytes = Vec::new();
-                    black_box(p.serialize_with_mode(&mut bytes, ArkCompress::Yes).unwrap());
+                    p.serialize_with_mode(&mut bytes, ArkCompress::Yes).unwrap();
+                    black_box(&bytes);
                 }
             })
         });
@@ -423,7 +427,7 @@ pub fn bench_bls12_381_g2_arkworks(c: &mut Criterion) {
             |b, ser| {
                 b.iter(|| {
                     for s in ser {
-                        black_box(
+                        let _ = black_box(
                             ArkBLS12381G2Affine::deserialize_with_mode(
                                 s.as_slice(),
                                 ArkCompress::Yes,

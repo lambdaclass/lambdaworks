@@ -181,13 +181,9 @@ pub fn bench_goldilocks_batch_ifft_plonky3(c: &mut Criterion) {
 
             let bench_name = format!("batch_{}", batch_size);
 
-            group.bench_with_input(
-                BenchmarkId::new(&bench_name, poly_size),
-                &matrix,
-                |b, m| {
-                    b.iter(|| black_box(dft.idft_batch(m.clone())))
-                },
-            );
+            group.bench_with_input(BenchmarkId::new(&bench_name, poly_size), &matrix, |b, m| {
+                b.iter(|| black_box(dft.idft_batch(m.clone())))
+            });
         }
     }
     group.finish();
@@ -247,13 +243,9 @@ pub fn bench_babybear_batch_ifft_plonky3(c: &mut Criterion) {
 
             let bench_name = format!("batch_{}", batch_size);
 
-            group.bench_with_input(
-                BenchmarkId::new(&bench_name, poly_size),
-                &matrix,
-                |b, m| {
-                    b.iter(|| black_box(dft.idft_batch(m.clone())))
-                },
-            );
+            group.bench_with_input(BenchmarkId::new(&bench_name, poly_size), &matrix, |b, m| {
+                b.iter(|| black_box(dft.idft_batch(m.clone())))
+            });
         }
     }
     group.finish();

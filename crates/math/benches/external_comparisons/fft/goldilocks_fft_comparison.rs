@@ -17,7 +17,6 @@ use lambdaworks_math::polynomial::Polynomial;
 
 // Plonky3
 use p3_dft::{Radix2Dit, TwoAdicSubgroupDft};
-use p3_field::PrimeCharacteristicRing;
 use p3_goldilocks::Goldilocks as P3Goldilocks;
 
 const SEED: u64 = 0xBEEF;
