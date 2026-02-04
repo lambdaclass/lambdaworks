@@ -30,7 +30,7 @@ fuzz_target!(|values: (u64, u64)| {
     
     let _mul_u64 = &a * &b;
     
-    let _pow = &a.pow(b.representative());
+    let _pow = &a.pow(b.canonical());
     
     if value_u64_b != 0 {
         

@@ -64,9 +64,9 @@ impl<const MODULUS: u64> IsField for U64Field<MODULUS> {
 }
 
 impl<const MODULUS: u64> IsPrimeField for U64Field<MODULUS> {
-    type RepresentativeType = u64;
+    type CanonicalType = u64;
 
-    fn representative(x: &u64) -> u64 {
+    fn canonical(x: &u64) -> u64 {
         *x
     }
 

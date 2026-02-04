@@ -43,7 +43,7 @@ pub enum CreationError {
     InvalidHexString,
     InvalidDecString,
     HexStringIsTooBig,
-    RepresentativeOutOfRange,
+    CanonicalValueOutOfRange,
     EmptyString,
 }
 

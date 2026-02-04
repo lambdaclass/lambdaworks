@@ -18,7 +18,7 @@ pub struct MessageSigned {
 pub fn get_public_key(private_key: &FE) -> CurvePoint {
     let g = Curve::generator();
     // h = g^{-k}, where h = public_key and k = private_key.
-    g.operate_with_self(private_key.representative()).neg()
+    g.operate_with_self(private_key.canonical()).neg()
 }
 
 /// Function that should use the signer to sign a message.
@@ -29,7 +29,7 @@ pub fn sign_message(private_key: &FE, message: &str) -> MessageSigned {
     let rand = sample_field_elem(rand_chacha::ChaCha20Rng::from_entropy());
 
     // r = g^l.
-    let r = g.operate_with_self(rand.representative());
+    let r = g.operate_with_self(rand.canonical());
 
     // We want to compute e = H(r || message).
     let mut hasher = Keccak256::new();
@@ -65,8 +65,8 @@ pub fn verify_signature(public_key: &CurvePoint, message_signed: &MessageSigned)
 
     // rv = g^s * h^e, with h = public_key and (s, e) = signature.
     let rv = g
-        .operate_with_self(s.representative())
-        .operate_with(&public_key.operate_with_self(e.representative()));
+        .operate_with_self(s.canonical())
+        .operate_with(&public_key.operate_with_self(e.canonical()));
 
     // We want to compute ev = H(rv || M).
     let mut hasher = Keccak256::new();

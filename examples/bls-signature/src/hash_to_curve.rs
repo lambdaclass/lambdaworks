@@ -72,10 +72,10 @@ pub fn hash_to_g2(message: &[u8]) -> G2Point {
     let fp2 = bytes_to_fp2(&expanded);
 
     // Derive a scalar from the Fp2 element
-    // We use the first Fp component's representative, which has ~381 bits
+    // We use the first Fp component's canonical value, which has ~381 bits
     // This is reduced mod r (~255 bits) for full entropy coverage
     let [fp0, _fp1] = fp2.value();
-    let fp_repr = fp0.representative();
+    let fp_repr = fp0.canonical();
 
     // Convert U384 to U256 for FrElement (take lower 256 bits)
     let fp_bytes = fp_repr.to_bytes_be();
@@ -95,7 +95,7 @@ pub fn hash_to_g2(message: &[u8]) -> G2Point {
     // Multiply G2 generator by the hash-derived scalar
     // This always produces a valid point in the prime-order G2 subgroup
     let g2 = BLS12381TwistCurve::generator();
-    g2.operate_with_self(scalar.representative())
+    g2.operate_with_self(scalar.canonical())
 }
 
 /// Convert 96 bytes to an Fp2 element.
@@ -229,7 +229,7 @@ fn sgn0_fp2(x: &Fp2Element) -> bool {
 
 /// Compute the sign of an Fp element (least significant bit)
 fn sgn0_fp(x: &FpElement) -> bool {
-    let bytes = x.representative().to_bytes_be();
+    let bytes = x.canonical().to_bytes_be();
     bytes.last().map(|b| b & 1 == 1).unwrap_or(false)
 }
 

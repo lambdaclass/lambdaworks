@@ -103,7 +103,7 @@ impl StarkField for AdapterFieldElement {
     }
 
     fn as_int(&self) -> Self::PositiveInteger {
-        AdapterPositiveInteger(FieldElement::representative(&self.0))
+        AdapterPositiveInteger(self.0.representative())
     }
 }
 

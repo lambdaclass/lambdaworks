@@ -243,9 +243,9 @@ impl IsField for P448GoldilocksPrimeField {
 }
 
 impl IsPrimeField for P448GoldilocksPrimeField {
-    type RepresentativeType = U448;
+    type CanonicalType = U448;
 
-    fn representative(a: &U56x8) -> U448 {
+    fn canonical(a: &U56x8) -> U448 {
         let mut a = *a;
         Self::strong_reduce(&mut a);
 
@@ -415,9 +415,9 @@ mod tests {
     }
 
     #[test]
-    fn representative_test() {
+    fn canonical_test() {
         let num = U56x8::from_hex("ffffffffffffffffffffffffffffffffffffffffffffffffffffffff00000000000000000000000000000000000000000000000000000029").unwrap();
-        let r = P448GoldilocksPrimeField::representative(&num);
+        let r = P448GoldilocksPrimeField::canonical(&num);
         assert_eq!(r, U448::from_u64(42));
     }
 
