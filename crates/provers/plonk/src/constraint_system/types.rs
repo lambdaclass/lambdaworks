@@ -50,7 +50,7 @@ where
 
     /// Returns 32 new variables `[b31, b30,..., b1, b0]` constrained to take either
     /// `0` or `1` values and to represent the binary decomposition
-    /// of the representative of the value of `v`:
+    /// of the canonical value of `v`:
     /// `v = b0 + b1 * 2 + b2 * 2^2 + ... + b31 * 2^31`.
     pub fn new_u32(&mut self, v: &Variable) -> Vec<Variable>
     where
@@ -59,7 +59,7 @@ where
         let bits: Vec<_> = (0..32).map(|_| self.new_boolean()).collect();
         let mut aux_vars: Vec<Variable> = Vec::new();
         let hint_function = |v: &FE<F>| {
-            if v.representative() & 1.into() == 1.into() {
+            if v.canonical() & 1.into() == 1.into() {
                 FE::one()
             } else {
                 FE::zero()
@@ -160,7 +160,7 @@ mod tests {
         #[allow(clippy::needless_range_loop)]
         for i in 0..32 {
             assert_eq!(
-                assignments.get(&u32_var[i]).unwrap().representative(),
+                assignments.get(&u32_var[i]).unwrap().canonical(),
                 (a >> (31 - i)) & 1
             );
         }

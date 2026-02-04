@@ -88,7 +88,7 @@ impl IsField for Goldilocks64HybridField {
     /// OPTIMIZED: Inversion
     /// Uses the addition chain from the optimized implementation
     fn inv(a: &u64) -> Result<u64, FieldError> {
-        if Self::representative(a) == Self::zero() {
+        if Self::canonical(a) == Self::zero() {
             return Err(FieldError::InvZeroError);
         }
 
@@ -115,7 +115,7 @@ impl IsField for Goldilocks64HybridField {
 
     /// Uses canonical form comparison
     fn eq(a: &u64, b: &u64) -> bool {
-        Self::representative(a) == Self::representative(b)
+        Self::canonical(a) == Self::canonical(b)
     }
 
     #[inline(always)]
@@ -130,12 +130,12 @@ impl IsField for Goldilocks64HybridField {
 
     #[inline(always)]
     fn from_u64(x: u64) -> u64 {
-        Self::representative(&x)
+        Self::canonical(&x)
     }
 
     #[inline(always)]
     fn from_base_type(x: u64) -> u64 {
-        Self::representative(&x)
+        Self::canonical(&x)
     }
 
     #[inline(always)]
@@ -182,11 +182,11 @@ fn exp_power_of_2<const POWER_LOG: usize>(base: &u64) -> u64 {
 }
 
 impl IsPrimeField for Goldilocks64HybridField {
-    type RepresentativeType = u64;
+    type CanonicalType = u64;
 
     /// Always returns canonical representation
     #[inline(always)]
-    fn representative(x: &u64) -> u64 {
+    fn canonical(x: &u64) -> u64 {
         Goldilocks64HybridField::canonicalize(*x)
     }
 
@@ -204,7 +204,7 @@ impl IsPrimeField for Goldilocks64HybridField {
 
     #[cfg(feature = "std")]
     fn to_hex(x: &u64) -> String {
-        format!("{:X}", Self::representative(x))
+        format!("{:X}", Self::canonical(x))
     }
 }
 
@@ -541,7 +541,7 @@ pub type Fp3E = FieldElement<Degree3GoldilocksHybridExtensionField>;
 
 impl Display for FieldElement<Goldilocks64HybridField> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{:x}", self.representative())?;
+        write!(f, "{:x}", self.canonical())?;
         Ok(())
     }
 }
@@ -575,42 +575,42 @@ mod tests {
     fn test_add_basic() {
         let a = F::from_u64(5);
         let b = F::from_u64(3);
-        assert_eq!(F::representative(&<F as IsField>::add(&a, &b)), 8);
+        assert_eq!(F::canonical(&<F as IsField>::add(&a, &b)), 8);
     }
 
     #[test]
     fn test_add_overflow() {
         let a = F::ORDER - 1;
         let b = F::from_u64(1);
-        assert_eq!(F::representative(&<F as IsField>::add(&a, &b)), 0);
+        assert_eq!(F::canonical(&<F as IsField>::add(&a, &b)), 0);
     }
 
     #[test]
     fn test_mul_basic() {
         let a = F::from_u64(5);
         let b = F::from_u64(3);
-        assert_eq!(F::representative(&<F as IsField>::mul(&a, &b)), 15);
+        assert_eq!(F::canonical(&<F as IsField>::mul(&a, &b)), 15);
     }
 
     #[test]
     fn test_sub_basic() {
         let a = F::from_u64(5);
         let b = F::from_u64(3);
-        assert_eq!(F::representative(&<F as IsField>::sub(&a, &b)), 2);
+        assert_eq!(F::canonical(&<F as IsField>::sub(&a, &b)), 2);
     }
 
     #[test]
     fn test_neg_basic() {
         let a = F::from_u64(5);
         let neg_a = F::neg(&a);
-        assert_eq!(F::representative(&<F as IsField>::add(&a, &neg_a)), 0);
+        assert_eq!(F::canonical(&<F as IsField>::add(&a, &neg_a)), 0);
     }
 
     #[test]
     fn test_inv_basic() {
         let a = F::from_u64(5);
         let a_inv = F::inv(&a).unwrap();
-        assert_eq!(F::representative(&<F as IsField>::mul(&a, &a_inv)), 1);
+        assert_eq!(F::canonical(&<F as IsField>::mul(&a, &a_inv)), 1);
     }
 
     #[test]
@@ -618,7 +618,7 @@ mod tests {
         let a = F::from_u64(2);
         let result = pow_binary(a, 10);
         // 2^10 = 1024
-        assert_eq!(F::representative(&result), 1024);
+        assert_eq!(F::canonical(&result), 1024);
     }
 
     #[test]
@@ -632,7 +632,7 @@ mod tests {
     fn test_pow_one() {
         let a = F::from_u64(5);
         let result = pow_binary(a, 1);
-        assert_eq!(F::representative(&result), 5);
+        assert_eq!(F::canonical(&result), 5);
     }
 
     #[test]
@@ -642,12 +642,7 @@ mod tests {
             let a = F::from_u64(i);
             let neg_a = F::neg(&a);
             let sum = <F as IsField>::add(&a, &neg_a);
-            assert_eq!(
-                F::representative(&sum),
-                0,
-                "Add/neg property failed for {}",
-                i
-            );
+            assert_eq!(F::canonical(&sum), 0, "Add/neg property failed for {}", i);
         }
 
         // Test that a * a^(-1) = 1
@@ -655,12 +650,7 @@ mod tests {
             let a = F::from_u64(i);
             let a_inv = F::inv(&a).unwrap();
             let product = <F as IsField>::mul(&a, &a_inv);
-            assert_eq!(
-                F::representative(&product),
-                1,
-                "Inv property failed for {}",
-                i
-            );
+            assert_eq!(F::canonical(&product), 1, "Inv property failed for {}", i);
         }
     }
 
@@ -687,8 +677,8 @@ mod tests {
                 };
 
                 assert_eq!(
-                    F::representative(&result_binary),
-                    F::representative(&expected),
+                    F::canonical(&result_binary),
+                    F::canonical(&expected),
                     "Binary pow mismatch for base={}, exp={}",
                     base,
                     exp

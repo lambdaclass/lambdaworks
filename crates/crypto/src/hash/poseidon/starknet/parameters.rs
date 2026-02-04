@@ -478,13 +478,13 @@ impl PoseidonCairoStark252 {
             res = format!(
                 "{}, \n FE::from_hex_unchecked(\"{}\")",
                 res,
-                c_current[2].representative().to_hex()
+                c_current[2].canonical().to_hex()
             );
             if i == 86 {
                 c_next[0] += Self::UNOPTIMIZED_ROUND_CONSTANTS[3 * 87];
                 c_next[1] += Self::UNOPTIMIZED_ROUND_CONSTANTS[3 * 87 + 1];
                 c_next[2] += Self::UNOPTIMIZED_ROUND_CONSTANTS[3 * 87 + 2];
-                res = format!("{}, Last constant: \n FE::from_hex_unchecked(\"{}\"), \n FE::from_hex_unchecked(\"{}\"), \n FE::from_hex_unchecked(\"{}\")", res, c_next[0].representative().to_hex(), c_next[1].representative().to_hex(),c_next[2].representative().to_hex());
+                res = format!("{}, Last constant: \n FE::from_hex_unchecked(\"{}\"), \n FE::from_hex_unchecked(\"{}\"), \n FE::from_hex_unchecked(\"{}\")", res, c_next[0].canonical().to_hex(), c_next[1].canonical().to_hex(),c_next[2].canonical().to_hex());
             }
             i += 1;
         }

@@ -199,9 +199,9 @@ impl<const MODULUS: u32> IsField for U32MontgomeryBackendPrimeField<MODULUS> {
 }
 
 impl<const MODULUS: u32> IsPrimeField for U32MontgomeryBackendPrimeField<MODULUS> {
-    type RepresentativeType = Self::BaseType;
+    type CanonicalType = Self::BaseType;
 
-    fn representative(x: &Self::BaseType) -> Self::RepresentativeType {
+    fn canonical(x: &Self::BaseType) -> Self::CanonicalType {
         MontgomeryAlgorithms::mul(x, &1u32, &MODULUS, &Self::MU)
     }
 

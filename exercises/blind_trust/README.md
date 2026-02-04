@@ -38,7 +38,7 @@ OUTPUT:
   ASSERT y == h * x + b
 ```
 
-The flag is `x.representative() || h.representative()`. The objective of the challenge is to utilize the provided information in order to retrieve the private inputs.
+The flag is `x.canonical() || h.canonical()`. The objective of the challenge is to utilize the provided information in order to retrieve the private inputs.
 
 ## Data provided to participants
 

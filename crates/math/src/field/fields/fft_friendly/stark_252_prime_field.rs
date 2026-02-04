@@ -33,7 +33,7 @@ impl FieldElement<Stark252PrimeField> {
     /// This follows the convention used by
     /// Starkware and Lambdaclass Cairo VM It's the same as ByteConversion to_bytes_le.
     pub fn to_bytes_le(&self) -> [u8; 32] {
-        let limbs = self.representative().limbs;
+        let limbs = self.canonical().limbs;
         let mut bytes: [u8; 32] = [0; 32];
 
         for i in (0..4).rev() {
@@ -48,7 +48,7 @@ impl FieldElement<Stark252PrimeField> {
 
     /// This follows the convention used by starknet-rs
     pub fn to_bits_le(&self) -> [bool; 256] {
-        let limbs = self.representative().limbs;
+        let limbs = self.canonical().limbs;
         let mut bits = [false; 256];
 
         for i in (0..4).rev() {
@@ -70,7 +70,7 @@ impl FieldElement<Stark252PrimeField> {
     /// This follows the convention used by
     /// Starkware and Lambdaclass Cairo VM It's the same as ByteConversion to_bytes_be.
     pub fn to_bytes_be(&self) -> [u8; 32] {
-        let limbs = self.representative().limbs;
+        let limbs = self.canonical().limbs;
         let mut bytes: [u8; 32] = [0; 32];
 
         for i in 0..4 {
@@ -86,13 +86,13 @@ impl FieldElement<Stark252PrimeField> {
 #[allow(clippy::non_canonical_partial_ord_impl)]
 impl PartialOrd for FieldElement<Stark252PrimeField> {
     fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
-        self.representative().partial_cmp(&other.representative())
+        self.canonical().partial_cmp(&other.canonical())
     }
 }
 
 impl Ord for FieldElement<Stark252PrimeField> {
     fn cmp(&self, other: &Self) -> core::cmp::Ordering {
-        self.representative().cmp(&other.representative())
+        self.canonical().cmp(&other.canonical())
     }
 }
 

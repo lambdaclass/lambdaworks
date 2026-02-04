@@ -47,7 +47,7 @@ fuzz_target!(|values: (String, String)| {
             assert_eq!(&(div.to_string())[2..], expected_div.residue().in_radix(16).to_string());
         }
 
-        let pow = &a.pow(b.representative());
+        let pow = &a.pow(b.canonical());
         let expected_pow = a_expected.pow(&b_expected.residue());
         assert_eq!(&(pow.to_string())[2..], expected_pow.residue().in_radix(16).to_string());
 
