@@ -16,6 +16,7 @@ use core::fmt::{self, Display};
 pub struct Mersenne31Field;
 
 impl Mersenne31Field {
+    #[inline(always)]
     fn weak_reduce(n: u32) -> u32 {
         // To reduce 'n' to 31 bits we clear its MSB, then add it back in its reduced form.
         let msb = n & (1 << 31);
@@ -27,6 +28,7 @@ impl Mersenne31Field {
         res + msb_reduced
     }
 
+    #[inline(always)]
     fn as_representative(n: &u32) -> u32 {
         if *n == MERSENNE_31_PRIME_FIELD_ORDER {
             0
@@ -44,12 +46,14 @@ impl Mersenne31Field {
     }
 
     /// Computes a * 2^k, with 0 < k < 31
+    #[inline(always)]
     pub fn mul_power_two(a: u32, k: u32) -> u32 {
         let msb = (a & (u32::MAX << (31 - k))) >> (31 - k); // The k + 1 msf shifted right .
         let lsb = (a & (u32::MAX >> (k + 1))) << k; // The 31 - k lsb shifted left.
         Self::weak_reduce(msb + lsb)
     }
 
+    #[inline]
     pub fn pow_2(a: &u32, order: u32) -> u32 {
         let mut res = *a;
         (0..order).for_each(|_| res = Self::square(&res));
@@ -58,6 +62,7 @@ impl Mersenne31Field {
 
     /// TODO: See if we can optimize this function.
     /// Computes 2a^2 - 1
+    #[inline(always)]
     pub fn two_square_minus_one(a: &u32) -> u32 {
         if *a == 0 {
             MERSENNE_31_PRIME_FIELD_ORDER - 1
@@ -76,6 +81,7 @@ impl IsField for Mersenne31Field {
     type BaseType = u32;
 
     /// Returns the sum of `a` and `b`.
+    #[inline(always)]
     fn add(a: &u32, b: &u32) -> u32 {
         // We are using that if a and b are field elements of Mersenne31, then
         // a + b has at most 32 bits, so we can use the weak_reduce function to take mudulus p.
@@ -84,21 +90,25 @@ impl IsField for Mersenne31Field {
 
     /// Returns the multiplication of `a` and `b`.
     // Note: for powers of 2 we can perform bit shifting this would involve overriding the trait implementation
+    #[inline(always)]
     fn mul(a: &u32, b: &u32) -> u32 {
         Self::from_u64(u64::from(*a) * u64::from(*b))
     }
 
+    #[inline(always)]
     fn sub(a: &u32, b: &u32) -> u32 {
         Self::weak_reduce(a + MERSENNE_31_PRIME_FIELD_ORDER - b)
     }
 
     /// Returns the additive inverse of `a`.
+    #[inline(always)]
     fn neg(a: &u32) -> u32 {
         // NOTE: MODULUS known to have 31 bit clear
         MERSENNE_31_PRIME_FIELD_ORDER - a
     }
 
     /// Returns the multiplicative inverse of `a`.
+    #[inline]
     fn inv(x: &u32) -> Result<u32, FieldError> {
         if *x == Self::zero() || *x == MERSENNE_31_PRIME_FIELD_ORDER {
             return Err(FieldError::InvZeroError);
@@ -117,36 +127,44 @@ impl IsField for Mersenne31Field {
     }
 
     /// Returns the division of `a` and `b`.
+    #[inline]
     fn div(a: &u32, b: &u32) -> Result<u32, FieldError> {
         let b_inv = Self::inv(b).map_err(|_| FieldError::DivisionByZero)?;
         Ok(Self::mul(a, &b_inv))
     }
 
     /// Returns a boolean indicating whether `a` and `b` are equal or not.
+    #[inline(always)]
     fn eq(a: &u32, b: &u32) -> bool {
         Self::as_representative(a) == Self::representative(b)
     }
 
     /// Returns the additive neutral element.
+    #[inline(always)]
     fn zero() -> u32 {
         0u32
     }
 
     /// Returns the multiplicative neutral element.
+    #[inline(always)]
     fn one() -> u32 {
         1u32
     }
 
     /// Returns the element `x * 1` where 1 is the multiplicative neutral element.
+    #[inline(always)]
     fn from_u64(x: u64) -> u32 {
         (((((x >> 31) + x + 1) >> 31) + x) & (MERSENNE_31_PRIME_FIELD_ORDER as u64)) as u32
     }
 
     /// Takes as input an element of BaseType and returns the internal representation
     /// of that element in the field.
+    #[inline(always)]
     fn from_base_type(x: u32) -> u32 {
         Self::weak_reduce(x)
     }
+
+    #[inline(always)]
     fn double(a: &u32) -> u32 {
         Self::weak_reduce(a << 1)
     }
@@ -157,6 +175,7 @@ impl IsPrimeField for Mersenne31Field {
 
     // Since our invariant guarantees that `value` fits in 31 bits, there is only one possible value
     // `value` that is not canonical, namely 2^31 - 1 = p = 0.
+    #[inline(always)]
     fn representative(x: &u32) -> u32 {
         debug_assert!((x >> 31) == 0);
         Self::as_representative(x)

@@ -34,7 +34,7 @@ pub fn validate_trace<
                 1,
                 Some(domain.interpolation_domain_size),
             )
-            .unwrap()
+            .expect("FFT evaluation of main trace polynomial must succeed")
         })
         .collect();
 
@@ -42,7 +42,7 @@ pub fn validate_trace<
         .iter()
         .map(|poly| {
             Polynomial::evaluate_fft::<Field>(poly, 1, Some(domain.interpolation_domain_size))
-                .unwrap()
+                .expect("FFT evaluation of aux trace polynomial must succeed")
         })
         .collect();
 
@@ -58,7 +58,7 @@ pub fn validate_trace<
                 1,
                 Some(domain.interpolation_domain_size),
             )
-            .unwrap()
+            .expect("FFT evaluation of periodic column polynomial must succeed")
         })
         .collect();
 
