@@ -28,25 +28,25 @@ fuzz_target!(|values: (u32, u32)| {
     let add_u32 = &a + &b;
     let addition = a_expected + b_expected;
     
-    assert_eq!(add_u32.representative(), addition.as_canonical_u32());
+    assert_eq!(add_u32.canonical(), addition.as_canonical_u32());
 
     let sub_u32 = &a - &b;
     let substraction = a_expected - b_expected;
-    assert_eq!(sub_u32.representative(), substraction.as_canonical_u32());
+    assert_eq!(sub_u32.canonical(), substraction.as_canonical_u32());
     
     let mul_u32 = &a * &b;
     let multiplication = a_expected * b_expected;
-    assert_eq!(mul_u32.representative(), multiplication.as_canonical_u32());
+    assert_eq!(mul_u32.canonical(), multiplication.as_canonical_u32());
 
-    let pow = &a.pow(b.representative());
+    let pow = &a.pow(b.canonical());
     let expected_pow = a_expected.exp_u64(b_expected.as_canonical_u64());
-    assert_eq!(pow.representative(), expected_pow.as_canonical_u32());
+    assert_eq!(pow.canonical(), expected_pow.as_canonical_u32());
     
     if value_u32_b != 0 && b.inv().is_ok() && b_expected.try_inverse().is_some() {
         let div = &a / &b; 
         assert_eq!(&div * &b, a.clone());
         let expected_div = a_expected / b_expected;
-        assert_eq!(div.representative(), expected_div.as_canonical_u32());
+        assert_eq!(div.canonical(), expected_div.as_canonical_u32());
     }
 
     for n in [&a, &b] {

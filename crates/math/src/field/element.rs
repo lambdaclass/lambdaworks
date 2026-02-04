@@ -120,6 +120,7 @@ where
     F::BaseType: Clone,
     F: IsField,
 {
+    #[inline]
     fn from(value: &F::BaseType) -> Self {
         Self {
             value: F::from_base_type(value.clone()),
@@ -132,6 +133,7 @@ impl<F> From<u64> for FieldElement<F>
 where
     F: IsField,
 {
+    #[inline]
     fn from(value: u64) -> Self {
         Self {
             value: F::from_u64(value),
@@ -159,6 +161,7 @@ where
     F::BaseType: Clone,
     F: IsField,
 {
+    #[inline(always)]
     pub fn from_raw(value: F::BaseType) -> Self {
         Self { value }
     }
@@ -173,6 +176,7 @@ impl<F> PartialEq<FieldElement<F>> for FieldElement<F>
 where
     F: IsField,
 {
+    #[inline]
     fn eq(&self, other: &FieldElement<F>) -> bool {
         F::eq(&self.value, &other.value)
     }
@@ -399,6 +403,7 @@ where
 {
     type Output = Result<FieldElement<L>, FieldError>;
 
+    #[inline]
     fn div(self, rhs: &FieldElement<L>) -> Self::Output {
         let value = <F as IsSubFieldOf<L>>::div(&self.value, &rhs.value)?;
         Ok(FieldElement::<L> { value })
@@ -412,6 +417,7 @@ where
 {
     type Output = Result<FieldElement<L>, FieldError>;
 
+    #[inline]
     fn div(self, rhs: FieldElement<L>) -> Self::Output {
         &self / &rhs
     }
@@ -424,6 +430,7 @@ where
 {
     type Output = Result<FieldElement<L>, FieldError>;
 
+    #[inline]
     fn div(self, rhs: &FieldElement<L>) -> Self::Output {
         &self / rhs
     }
@@ -436,6 +443,7 @@ where
 {
     type Output = Result<FieldElement<L>, FieldError>;
 
+    #[inline]
     fn div(self, rhs: FieldElement<L>) -> Self::Output {
         self / &rhs
     }
@@ -472,6 +480,7 @@ impl<F> Default for FieldElement<F>
 where
     F: IsField,
 {
+    #[inline]
     fn default() -> Self {
         Self { value: F::zero() }
     }
@@ -545,6 +554,7 @@ where
     }
 
     /// Returns the raw base type
+    #[inline(always)]
     pub fn to_raw(self) -> F::BaseType {
         self.value
     }
@@ -622,9 +632,11 @@ where
 }
 
 impl<F: IsPrimeField> FieldElement<F> {
-    /// Returns the representative of the value stored
-    pub fn representative(&self) -> F::RepresentativeType {
-        F::representative(self.value())
+    /// Returns the canonical representation of the value stored.
+    /// This converts from internal representation (e.g., Montgomery form)
+    /// to the standard form in range [0, p-1].
+    pub fn canonical(&self) -> F::CanonicalType {
+        F::canonical(self.value())
     }
 
     /// Returns the two square roots of a field element, provided it exists
@@ -644,7 +656,7 @@ impl<F: IsPrimeField> FieldElement<F> {
     /// Returns a `CreationError::EmptyString` if the input string is empty.
     /// Returns a `CreationError::HexStringIsTooBig` if the the input hex string is bigger than the
     /// maximum amount of characters for this element.
-    /// Returns a `CreationError::RepresentativeOutOfRange` if the representative of the value is
+    /// Returns a `CreationError::CanonicalValueOutOfRange` if the canonical value is
     /// out of the range [0, p-1] where p is the modulus.
     pub fn from_hex(hex_string: &str) -> Result<Self, CreationError> {
         if hex_string.is_empty() {
@@ -689,7 +701,7 @@ impl<F: IsPrimeField> Serialize for FieldElement<F> {
     {
         use crate::alloc::string::ToString;
         let mut state = serializer.serialize_struct("FieldElement", 1)?;
-        state.serialize_field("value", &F::representative(self.value()).to_string())?;
+        state.serialize_field("value", &F::canonical(self.value()).to_string())?;
         state.end()
     }
 }
@@ -831,7 +843,7 @@ where
     M: IsModulus<UnsignedInteger<NUM_LIMBS>> + Clone + Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let value: UnsignedInteger<NUM_LIMBS> = self.representative();
+        let value: UnsignedInteger<NUM_LIMBS> = self.canonical();
         write!(f, "{value}")
     }
 }

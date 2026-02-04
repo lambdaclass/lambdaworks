@@ -146,11 +146,11 @@ pub fn keygen() -> (KeyShare, KeyShare) {
     let s2 = &s + &(&a * &FE::from(2u64)); // f(2) = s + 2a
 
     // Compute public shares: Y_i = s_i * G
-    let y1 = g.operate_with_self(s1.representative());
-    let y2 = g.operate_with_self(s2.representative());
+    let y1 = g.operate_with_self(s1.canonical());
+    let y2 = g.operate_with_self(s2.canonical());
 
     // Group public key: Y = s * G (the secret point)
-    let group_public_key = g.operate_with_self(s.representative());
+    let group_public_key = g.operate_with_self(s.canonical());
 
     let share1 = KeyShare {
         identifier: 1,
@@ -181,8 +181,8 @@ pub fn sign_round1(key_share: &KeyShare) -> (SigningNonces, NonceCommitment) {
     let binding = sample_field_elem(rand_chacha::ChaCha20Rng::from_entropy());
 
     // Compute commitments: D = hiding * G, E = binding * G
-    let hiding_commitment = g.operate_with_self(hiding.representative());
-    let binding_commitment = g.operate_with_self(binding.representative());
+    let hiding_commitment = g.operate_with_self(hiding.canonical());
+    let binding_commitment = g.operate_with_self(binding.canonical());
 
     let nonces = SigningNonces { hiding, binding };
 
@@ -266,7 +266,7 @@ fn compute_group_commitment(
         // R_i = D_i + ρ_i * E_i
         let rho_e = commitment
             .binding_commitment
-            .operate_with_self(rho.representative());
+            .operate_with_self(rho.canonical());
         let r_i = commitment.hiding_commitment.operate_with(&rho_e);
 
         r = r.operate_with(&r_i);
@@ -442,14 +442,14 @@ pub fn aggregate_signature(
 
         let lambda_i = compute_lagrange_coefficient(partial.identifier)?;
 
-        let left = g.operate_with_self(partial.z_i.representative());
+        let left = g.operate_with_self(partial.z_i.canonical());
         let rho_e = commitment
             .binding_commitment
-            .operate_with_self(rho.representative());
+            .operate_with_self(rho.canonical());
         let lambda_c = &lambda_i * &c;
         let lambda_c_y = public_share
             .public_share
-            .operate_with_self(lambda_c.representative());
+            .operate_with_self(lambda_c.canonical());
         let right = commitment
             .hiding_commitment
             .operate_with(&rho_e)
@@ -487,10 +487,10 @@ pub fn verify_signature(
     let c = compute_challenge(&signature.r, group_public_key, message)?;
 
     // Compute left side: z * G
-    let left = g.operate_with_self(signature.z.representative());
+    let left = g.operate_with_self(signature.z.canonical());
 
     // Compute right side: R + c * Y
-    let c_y = group_public_key.operate_with_self(c.representative());
+    let c_y = group_public_key.operate_with_self(c.canonical());
     let right = signature.r.operate_with(&c_y);
 
     Ok(left == right)
@@ -559,7 +559,7 @@ mod tests {
             &(&lambda_1 * &share1.secret_share) + &(&lambda_2 * &share2.secret_share);
 
         // Verify: reconstructed_secret * G == group_public_key
-        let reconstructed_public = g.operate_with_self(reconstructed_secret.representative());
+        let reconstructed_public = g.operate_with_self(reconstructed_secret.canonical());
         assert_eq!(reconstructed_public, share1.group_public_key);
         Ok(())
     }
@@ -661,9 +661,9 @@ mod tests {
         let s1 = &s + &a;
         let s2 = &s + &(&a * &FE::from(2u64));
 
-        let group_public_key = g.operate_with_self(s.representative());
-        let public_share1 = g.operate_with_self(s1.representative());
-        let public_share2 = g.operate_with_self(s2.representative());
+        let group_public_key = g.operate_with_self(s.canonical());
+        let public_share1 = g.operate_with_self(s1.canonical());
+        let public_share2 = g.operate_with_self(s2.canonical());
         let share1 = KeyShare {
             identifier: 1,
             secret_share: s1,
@@ -688,13 +688,13 @@ mod tests {
 
         let commitment1 = NonceCommitment {
             identifier: share1.identifier,
-            hiding_commitment: g.operate_with_self(nonces1.hiding.representative()),
-            binding_commitment: g.operate_with_self(nonces1.binding.representative()),
+            hiding_commitment: g.operate_with_self(nonces1.hiding.canonical()),
+            binding_commitment: g.operate_with_self(nonces1.binding.canonical()),
         };
         let commitment2 = NonceCommitment {
             identifier: share2.identifier,
-            hiding_commitment: g.operate_with_self(nonces2.hiding.representative()),
-            binding_commitment: g.operate_with_self(nonces2.binding.representative()),
+            hiding_commitment: g.operate_with_self(nonces2.hiding.canonical()),
+            binding_commitment: g.operate_with_self(nonces2.binding.canonical()),
         };
 
         let commitments_signers = vec![commitment1.clone(), commitment2.clone()];
@@ -740,9 +740,9 @@ mod tests {
         let s1 = &s + &a;
         let s2 = &s + &(&a * &FE::from(2u64));
 
-        let group_public_key = g.operate_with_self(s.representative());
-        let public_share1 = g.operate_with_self(s1.representative());
-        let public_share2 = g.operate_with_self(s2.representative());
+        let group_public_key = g.operate_with_self(s.canonical());
+        let public_share1 = g.operate_with_self(s1.canonical());
+        let public_share2 = g.operate_with_self(s2.canonical());
         let share1 = KeyShare {
             identifier: 1,
             secret_share: s1,
@@ -767,13 +767,13 @@ mod tests {
 
         let commitment1 = NonceCommitment {
             identifier: share1.identifier,
-            hiding_commitment: g.operate_with_self(nonces1.hiding.representative()),
-            binding_commitment: g.operate_with_self(nonces1.binding.representative()),
+            hiding_commitment: g.operate_with_self(nonces1.hiding.canonical()),
+            binding_commitment: g.operate_with_self(nonces1.binding.canonical()),
         };
         let commitment2 = NonceCommitment {
             identifier: share2.identifier,
-            hiding_commitment: g.operate_with_self(nonces2.hiding.representative()),
-            binding_commitment: g.operate_with_self(nonces2.binding.representative()),
+            hiding_commitment: g.operate_with_self(nonces2.hiding.canonical()),
+            binding_commitment: g.operate_with_self(nonces2.binding.canonical()),
         };
 
         let commitments = vec![commitment1, commitment2];

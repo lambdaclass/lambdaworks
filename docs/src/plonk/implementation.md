@@ -286,7 +286,7 @@ The underlying hasher function we use is `h=sha3`.
 
 ### Field elements
 
-The result of every challenge is a $256$-bit string, which is interpreted as an integer in big-endian order. A field element is constructed out of it by taking modulo the field order. The prime field used in this implementation has a $255$-bit order. Therefore some field elements are more probable to occur than others because they have more representatives as 256-bit integers.
+The result of every challenge is a $256$-bit string, which is interpreted as an integer in big-endian order. A field element is constructed out of it by taking modulo the field order. The prime field used in this implementation has a $255$-bit order. Therefore some field elements are more probable to occur than others because they have more 256-bit integer representations.
 
 ### Strong Fiat-Shamir
 

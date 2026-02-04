@@ -70,52 +70,51 @@ pub fn setup(u: &SquareSpanProgram) -> (ProvingKey, VerifyingKey) {
         u_tau_g1: u_tau
             .clone()
             .take(u.number_of_public_inputs)
-            .map(|ui| g1.operate_with_self(ui.representative()))
+            .map(|ui| g1.operate_with_self(ui.canonical()))
             .collect(),
         u_tau_g2: u_tau
             .clone()
             .take(u.number_of_public_inputs)
-            .map(|ui| g2.operate_with_self(ui.representative()))
+            .map(|ui| g2.operate_with_self(ui.canonical()))
             .collect(),
         t_tau_g2: g2.operate_with_self(
-            (tw.tau.pow(u.number_of_constraints) - FrElement::one()).representative(),
+            (tw.tau.pow(u.number_of_constraints) - FrElement::one()).canonical(),
         ),
         inv_pairing_g1_g2: Pairing::compute(&g1, &g2).unwrap().inv().unwrap(),
-        beta_gamma_g1: g1.operate_with_self((&tw.beta * &tw.gamma).representative()),
-        gamma_g2: g2.operate_with_self(tw.gamma.representative()),
+        beta_gamma_g1: g1.operate_with_self((&tw.beta * &tw.gamma).canonical()),
+        gamma_g2: g2.operate_with_self(tw.gamma.canonical()),
     };
 
     let pk = ProvingKey {
         k_powers_of_tau_g1: (0..u.number_of_constraints + 1)
-            .map(|k| g1.operate_with_self(tw.tau.pow(k).representative()))
+            .map(|k| g1.operate_with_self(tw.tau.pow(k).canonical()))
             .collect(),
         u_tau_g1: u_tau
             .clone()
             .take(u.number_of_constraints + 1)
             .skip(u.number_of_public_inputs)
-            .map(|ui| g1.operate_with_self(ui.representative()))
+            .map(|ui| g1.operate_with_self(ui.canonical()))
             .collect(),
         u_tau_g2: u_tau
             .clone()
             .take(u.number_of_constraints + 1)
             .skip(u.number_of_public_inputs)
-            .map(|ui| g2.operate_with_self(ui.representative()))
+            .map(|ui| g2.operate_with_self(ui.canonical()))
             .collect(),
         beta_u_tau_g1: u_tau
             .clone()
             .take(u.number_of_constraints + 1)
             .skip(u.number_of_public_inputs)
-            .map(|ui| g1.operate_with_self((ui * (&tw.beta)).representative()))
+            .map(|ui| g1.operate_with_self((ui * (&tw.beta)).canonical()))
             .collect(),
         t_tau_g1: g1.operate_with_self(
-            (tw.tau.pow(u.number_of_constraints) - FrElement::one()).representative(),
+            (tw.tau.pow(u.number_of_constraints) - FrElement::one()).canonical(),
         ),
         beta_t_tau_g1: g1.operate_with_self(
-            ((&tw.beta) * (tw.tau.pow(u.number_of_constraints) - FrElement::one()))
-                .representative(),
+            ((&tw.beta) * (tw.tau.pow(u.number_of_constraints) - FrElement::one())).canonical(),
         ),
         t_tau_g2: g2.operate_with_self(
-            (tw.tau.pow(u.number_of_constraints) - FrElement::one()).representative(),
+            (tw.tau.pow(u.number_of_constraints) - FrElement::one()).canonical(),
         ),
     };
 

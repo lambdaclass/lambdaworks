@@ -9,10 +9,7 @@ pub fn select_sqrt_value_from_third_bit(
     sqrt_2: BLS12381FieldElement,
     third_bit: u8,
 ) -> BLS12381FieldElement {
-    match (
-        sqrt_1.representative().cmp(&sqrt_2.representative()),
-        third_bit,
-    ) {
+    match (sqrt_1.canonical().cmp(&sqrt_2.canonical()), third_bit) {
         (Ordering::Greater, 0) => sqrt_2,
         (Ordering::Greater, _) | (Ordering::Less, 0) | (Ordering::Equal, _) => sqrt_1,
         (Ordering::Less, _) => sqrt_2,

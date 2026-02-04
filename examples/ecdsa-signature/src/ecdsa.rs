@@ -144,8 +144,8 @@ pub fn sign(
 
     // R = k * G
     let generator = Secp256k1Curve::generator();
-    let k_representative = nonce.representative();
-    let r_point = generator.operate_with_self(k_representative);
+    let k_canonical = nonce.canonical();
+    let r_point = generator.operate_with_self(k_canonical);
     let r_affine = r_point.to_affine();
 
     // r = R.x mod n
@@ -172,7 +172,7 @@ pub fn sign(
 
     // Normalize to low-S form to prevent signature malleability.
     // If s > n/2, use n - s instead.
-    if s.representative() > half_order() {
+    if s.canonical() > half_order() {
         s = -s;
     }
 
@@ -205,7 +205,7 @@ pub fn verify(
     }
 
     // Reject high-S signatures to prevent malleability
-    if signature.s.representative() > half_order() {
+    if signature.s.canonical() > half_order() {
         return Err(EcdsaError::InvalidSValue);
     }
 
@@ -233,8 +233,8 @@ pub fn verify(
 
     // R' = u1 * G + u2 * Q
     let generator = Secp256k1Curve::generator();
-    let u1_g = generator.operate_with_self(u1.representative());
-    let u2_q = public_key.operate_with_self(u2.representative());
+    let u1_g = generator.operate_with_self(u1.canonical());
+    let u2_q = public_key.operate_with_self(u2.canonical());
     let r_prime = u1_g.operate_with(&u2_q);
 
     // Check if R' is the point at infinity
@@ -266,7 +266,7 @@ pub fn verify(
 /// The corresponding public key point Q = d * G
 pub fn derive_public_key(private_key: &ScalarFE) -> CurvePoint {
     let generator = Secp256k1Curve::generator();
-    generator.operate_with_self(private_key.representative())
+    generator.operate_with_self(private_key.canonical())
 }
 
 #[cfg(test)]
@@ -415,7 +415,7 @@ mod tests {
 
         // Verify s is in low-S form (s <= n/2)
         assert!(
-            signature.s.representative() <= super::half_order(),
+            signature.s.canonical() <= super::half_order(),
             "Signature s should be in low-S form"
         );
     }

@@ -14,10 +14,7 @@ pub fn verify(verification_key: &VerificationKey, proof: &Proof, c_inputs_output
 
 pub fn check_divisibility(verification_key: &VerificationKey, proof: &Proof, c_io: &[FE]) -> bool {
     // We transform c_io into UnsignedIntegers.
-    let c_io = c_io
-        .iter()
-        .map(|elem| elem.representative())
-        .collect::<Vec<_>>();
+    let c_io = c_io.iter().map(|elem| elem.canonical()).collect::<Vec<_>>();
 
     let v_io =
         verification_key.g1_vk[0].operate_with(&msm(&c_io, &verification_key.g1_vk[1..]).unwrap());
