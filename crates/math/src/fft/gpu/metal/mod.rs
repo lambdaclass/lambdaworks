@@ -12,6 +12,8 @@
 //!
 //! # Usage
 //!
+//! ## Base Field FFT
+//!
 //! ```ignore
 //! use lambdaworks_math::fft::gpu::metal::ops::{fft, gen_twiddles};
 //! use lambdaworks_math::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;
@@ -26,7 +28,30 @@
 //! // Perform FFT on GPU
 //! let result = fft(&input, &twiddles, &state)?;
 //! ```
+//!
+//! ## Extension Field FFT
+//!
+//! For FFT with extension field coefficients and base field twiddles:
+//!
+//! ```ignore
+//! use lambdaworks_math::fft::gpu::metal::ops::{fft_extension, gen_twiddles};
+//! use lambdaworks_math::field::fields::u64_goldilocks_field::{
+//!     Goldilocks64Field, Degree2GoldilocksExtensionField
+//! };
+//! use lambdaworks_gpu::metal::abstractions::state::MetalState;
+//!
+//! let state = MetalState::new(None)?;
+//!
+//! // Twiddles are in base Goldilocks field
+//! let twiddles = gen_twiddles::<Goldilocks64Field>(10, RootsConfig::BitReverse, &state)?;
+//!
+//! // Input is in Fp2 extension field
+//! let result = fft_extension::<Degree2GoldilocksExtensionField>(&fp2_input, &twiddles, &state)?;
+//! ```
 
 pub mod ops;
 
-pub use ops::{bitrev_permutation, fft, gen_twiddles};
+pub use ops::{
+    bitrev_permutation, bitrev_permutation_extension, fft, fft_extension, gen_twiddles,
+    HasMetalExtensionKernel,
+};

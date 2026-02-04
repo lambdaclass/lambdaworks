@@ -10,9 +10,22 @@
 //! - Original lambdaworks Metal implementation (pre-PR#993)
 //! - ICICLE's multi-backend GPU architecture
 //! - VkFFT's efficient FFT patterns
+//!
+//! # Extension Field Support
+//!
+//! This module supports FFT over extension fields with base field twiddles:
+//! - `fft`: For base field FFT (twiddles and coefficients in same field)
+//! - `fft_extension`: For extension field FFT (base field twiddles, extension field coefficients)
+//!
+//! Supported extension fields:
+//! - Goldilocks Fp2 (quadratic extension)
+//! - Goldilocks Fp3 (cubic extension)
 
 use crate::field::{
     element::FieldElement,
+    fields::u64_goldilocks_field::{
+        Degree2GoldilocksExtensionField, Degree3GoldilocksExtensionField, Goldilocks64Field,
+    },
     traits::{IsFFTField, IsField, IsSubFieldOf, RootsConfig},
 };
 use lambdaworks_gpu::metal::abstractions::{errors::MetalError, state::*};
@@ -20,6 +33,35 @@ use lambdaworks_gpu::metal::abstractions::{errors::MetalError, state::*};
 use metal::MTLSize;
 
 use core::mem;
+
+/// Trait for extension fields that have Metal GPU kernel support.
+///
+/// This trait provides the kernel suffix used to locate the Metal shaders
+/// for FFT operations on extension fields with base field twiddles.
+pub trait HasMetalExtensionKernel {
+    /// The base FFT field (provides twiddle factors)
+    type BaseField: IsFFTField;
+
+    /// Returns the kernel suffix for this extension field.
+    /// For example, "fp2" for quadratic extensions, "fp3" for cubic.
+    fn extension_kernel_suffix() -> &'static str;
+}
+
+impl HasMetalExtensionKernel for Degree2GoldilocksExtensionField {
+    type BaseField = Goldilocks64Field;
+
+    fn extension_kernel_suffix() -> &'static str {
+        "fp2"
+    }
+}
+
+impl HasMetalExtensionKernel for Degree3GoldilocksExtensionField {
+    type BaseField = Goldilocks64Field;
+
+    fn extension_kernel_suffix() -> &'static str {
+        "fp3"
+    }
+}
 
 /// Executes parallel ordered FFT over a slice of field elements using Metal GPU.
 ///
@@ -83,6 +125,131 @@ where
     let result = MetalState::retrieve_contents(&input_buffer);
     let result = bitrev_permutation::<F, _>(&result, state)?;
     Ok(result.into_iter().map(FieldElement::from_raw).collect())
+}
+
+/// Executes parallel ordered FFT over extension field elements using Metal GPU.
+///
+/// This function performs FFT where:
+/// - Coefficients are in an extension field `E`
+/// - Twiddle factors are in the base field `F`
+///
+/// This is commonly used in STARK/PLONK provers where polynomials with
+/// extension field coefficients need to be evaluated using base field FFT.
+///
+/// # Type Parameters
+///
+/// - `E`: The extension field (must implement `HasMetalExtensionKernel`)
+///
+/// # Arguments
+///
+/// - `input`: Slice of extension field elements to transform
+/// - `twiddles`: Pre-computed twiddle factors in base field (bit-reverse order)
+/// - `state`: Metal state containing device and shader library
+///
+/// # Errors
+///
+/// Returns `MetalError::InputError` if input length is not a power of two.
+/// Returns `MetalError::PipelineError` if kernel setup fails.
+///
+/// # Example
+///
+/// ```ignore
+/// use lambdaworks_math::fft::gpu::metal::ops::fft_extension;
+/// use lambdaworks_math::field::fields::u64_goldilocks_field::{
+///     Goldilocks64Field, Degree2GoldilocksExtensionField
+/// };
+///
+/// // Twiddles in base Goldilocks field
+/// let twiddles = gen_twiddles::<Goldilocks64Field>(order, RootsConfig::BitReverse, &state)?;
+///
+/// // Input in Fp2 extension field
+/// let result = fft_extension::<Degree2GoldilocksExtensionField>(&fp2_input, &twiddles, &state)?;
+/// ```
+pub fn fft_extension<E>(
+    input: &[FieldElement<E>],
+    twiddles: &[FieldElement<E::BaseField>],
+    state: &MetalState,
+) -> Result<Vec<FieldElement<E>>, MetalError>
+where
+    E: IsField + HasMetalExtensionKernel,
+    E::BaseField: IsFFTField + IsSubFieldOf<E>,
+{
+    if !input.len().is_power_of_two() {
+        return Err(MetalError::InputError(input.len()));
+    }
+
+    // Use extension-specific kernel: e.g., "radix2_dit_butterfly_goldilocks_fp2"
+    let kernel_name = format!(
+        "radix2_dit_butterfly_{}_{}",
+        E::BaseField::field_name(),
+        E::extension_kernel_suffix()
+    );
+    let pipeline = state.setup_pipeline(&kernel_name)?;
+
+    let input_buffer = state.alloc_buffer_data(input);
+    let twiddles_buffer = state.alloc_buffer_data(twiddles);
+
+    objc::rc::autoreleasepool(|| {
+        let (command_buffer, command_encoder) = state.setup_command(
+            &pipeline,
+            Some(&[(0, &input_buffer), (1, &twiddles_buffer)]),
+        );
+
+        let order = input.len().trailing_zeros();
+        for stage in 0..order {
+            command_encoder.set_bytes(2, mem::size_of_val(&stage) as u64, void_ptr(&stage));
+
+            let grid_size = MTLSize::new(input.len() as u64 / 2, 1, 1);
+            let threadgroup_size = MTLSize::new(pipeline.thread_execution_width(), 1, 1);
+
+            command_encoder.dispatch_threads(grid_size, threadgroup_size);
+        }
+        command_encoder.end_encoding();
+
+        command_buffer.commit();
+        command_buffer.wait_until_completed();
+    });
+
+    let result = MetalState::retrieve_contents(&input_buffer);
+    let result = bitrev_permutation_extension::<E>(&result, state)?;
+    Ok(result.into_iter().map(FieldElement::from_raw).collect())
+}
+
+/// Performs bit-reverse permutation on extension field elements.
+///
+/// Uses extension-specific Metal kernel for the permutation.
+pub fn bitrev_permutation_extension<E>(
+    input: &[E::BaseType],
+    state: &MetalState,
+) -> Result<Vec<E::BaseType>, MetalError>
+where
+    E: IsField + HasMetalExtensionKernel,
+{
+    let kernel_name = format!(
+        "bitrev_permutation_{}_{}",
+        E::BaseField::field_name(),
+        E::extension_kernel_suffix()
+    );
+    let pipeline = state.setup_pipeline(&kernel_name)?;
+
+    let input_buffer = state.alloc_buffer_data(input);
+    let result_buffer = state.alloc_buffer::<E::BaseType>(input.len());
+
+    objc::rc::autoreleasepool(|| {
+        let (command_buffer, command_encoder) =
+            state.setup_command(&pipeline, Some(&[(0, &input_buffer), (1, &result_buffer)]));
+
+        let grid_size = MTLSize::new(input.len() as u64, 1, 1);
+        let threadgroup_size = MTLSize::new(pipeline.max_total_threads_per_threadgroup(), 1, 1);
+
+        command_encoder.dispatch_threads(grid_size, threadgroup_size);
+        command_encoder.end_encoding();
+
+        command_buffer.commit();
+        command_buffer.wait_until_completed();
+    });
+
+    Ok(MetalState::retrieve_contents::<E::BaseType>(&result_buffer))
 }
 
 /// Generates twiddle factors in parallel on the GPU.
@@ -538,5 +705,157 @@ mod tests {
 
             prop_assert_eq!(&input, &recovered, "Goldilocks roundtrip failed");
         }
+    }
+
+    // ==================== Extension Field Tests ====================
+
+    use crate::field::fields::u64_goldilocks_field::{Fp2E, Fp3E};
+
+    type GoldilocksFp2 = Degree2GoldilocksExtensionField;
+    type GoldilocksFp3 = Degree3GoldilocksExtensionField;
+
+    prop_compose! {
+        fn goldilocks_fp2_element()(c0 in any::<u64>(), c1 in any::<u64>()) -> Fp2E {
+            Fp2E::new([GoldilocksFE::from(c0), GoldilocksFE::from(c1)])
+        }
+    }
+
+    fn goldilocks_fp2_vec(max_exp: u8) -> impl Strategy<Value = Vec<Fp2E>> {
+        powers_of_two(max_exp).prop_flat_map(|size| collection::vec(goldilocks_fp2_element(), size))
+    }
+
+    prop_compose! {
+        fn goldilocks_fp3_element()(c0 in any::<u64>(), c1 in any::<u64>(), c2 in any::<u64>()) -> Fp3E {
+            Fp3E::new([GoldilocksFE::from(c0), GoldilocksFE::from(c1), GoldilocksFE::from(c2)])
+        }
+    }
+
+    fn goldilocks_fp3_vec(max_exp: u8) -> impl Strategy<Value = Vec<Fp3E>> {
+        powers_of_two(max_exp).prop_flat_map(|size| collection::vec(goldilocks_fp3_element(), size))
+    }
+
+    proptest! {
+        /// Test extension field FFT for Goldilocks Fp2 matches CPU implementation.
+        #[test]
+        fn test_metal_fft_goldilocks_fp2_matches_cpu(input in goldilocks_fp2_vec(6)) {
+            let metal_state = match MetalState::new(None) {
+                Ok(state) => state,
+                Err(_) => return Ok(()),
+            };
+            let order = input.len().trailing_zeros();
+
+            let twiddles = get_twiddles::<GoldilocksF>(order.into(), RootsConfig::BitReverse)
+                .map_err(|e| TestCaseError::fail(format!("{:?}", e)))?;
+
+            let metal_result = fft_extension::<GoldilocksFp2>(&input, &twiddles, &metal_state)
+                .map_err(|e| TestCaseError::fail(format!("{:?}", e)))?;
+            let cpu_result = crate::fft::cpu::ops::fft(&input, &twiddles)
+                .map_err(|e| TestCaseError::fail(format!("{:?}", e)))?;
+
+            prop_assert_eq!(&metal_result, &cpu_result);
+        }
+
+        /// Test extension field FFT for Goldilocks Fp3 matches CPU implementation.
+        #[test]
+        fn test_metal_fft_goldilocks_fp3_matches_cpu(input in goldilocks_fp3_vec(6)) {
+            let metal_state = match MetalState::new(None) {
+                Ok(state) => state,
+                Err(_) => return Ok(()),
+            };
+            let order = input.len().trailing_zeros();
+
+            let twiddles = get_twiddles::<GoldilocksF>(order.into(), RootsConfig::BitReverse)
+                .map_err(|e| TestCaseError::fail(format!("{:?}", e)))?;
+
+            let metal_result = fft_extension::<GoldilocksFp3>(&input, &twiddles, &metal_state)
+                .map_err(|e| TestCaseError::fail(format!("{:?}", e)))?;
+            let cpu_result = crate::fft::cpu::ops::fft(&input, &twiddles)
+                .map_err(|e| TestCaseError::fail(format!("{:?}", e)))?;
+
+            prop_assert_eq!(&metal_result, &cpu_result);
+        }
+
+        /// Roundtrip test for Goldilocks Fp2 extension field.
+        #[test]
+        fn test_roundtrip_goldilocks_fp2(input in goldilocks_fp2_vec(6)) {
+            let metal_state = match MetalState::new(None) {
+                Ok(state) => state,
+                Err(_) => return Ok(()),
+            };
+            let order = input.len().trailing_zeros();
+
+            let fwd_twiddles = get_twiddles::<GoldilocksF>(order.into(), RootsConfig::BitReverse)
+                .map_err(|e| TestCaseError::fail(format!("{:?}", e)))?;
+            let transformed = fft_extension::<GoldilocksFp2>(&input, &fwd_twiddles, &metal_state)
+                .map_err(|e| TestCaseError::fail(format!("{:?}", e)))?;
+
+            let inv_twiddles = get_twiddles::<GoldilocksF>(order.into(), RootsConfig::BitReverseInversed)
+                .map_err(|e| TestCaseError::fail(format!("{:?}", e)))?;
+            let recovered = fft_extension::<GoldilocksFp2>(&transformed, &inv_twiddles, &metal_state)
+                .map_err(|e| TestCaseError::fail(format!("{:?}", e)))?;
+
+            let n_inv = GoldilocksFE::from(input.len() as u64).inv()
+                .map_err(|e| TestCaseError::fail(format!("{:?}", e)))?;
+            let n_inv_ext = Fp2E::new([n_inv, GoldilocksFE::zero()]);
+            let recovered: Vec<_> = recovered.iter().map(|x| x * &n_inv_ext).collect();
+
+            prop_assert_eq!(&input, &recovered);
+        }
+
+        /// Roundtrip test for Goldilocks Fp3 extension field.
+        #[test]
+        fn test_roundtrip_goldilocks_fp3(input in goldilocks_fp3_vec(6)) {
+            let metal_state = match MetalState::new(None) {
+                Ok(state) => state,
+                Err(_) => return Ok(()),
+            };
+            let order = input.len().trailing_zeros();
+
+            let fwd_twiddles = get_twiddles::<GoldilocksF>(order.into(), RootsConfig::BitReverse)
+                .map_err(|e| TestCaseError::fail(format!("{:?}", e)))?;
+            let transformed = fft_extension::<GoldilocksFp3>(&input, &fwd_twiddles, &metal_state)
+                .map_err(|e| TestCaseError::fail(format!("{:?}", e)))?;
+
+            let inv_twiddles = get_twiddles::<GoldilocksF>(order.into(), RootsConfig::BitReverseInversed)
+                .map_err(|e| TestCaseError::fail(format!("{:?}", e)))?;
+            let recovered = fft_extension::<GoldilocksFp3>(&transformed, &inv_twiddles, &metal_state)
+                .map_err(|e| TestCaseError::fail(format!("{:?}", e)))?;
+
+            let n_inv = GoldilocksFE::from(input.len() as u64).inv()
+                .map_err(|e| TestCaseError::fail(format!("{:?}", e)))?;
+            let n_inv_ext = Fp3E::new([n_inv, GoldilocksFE::zero(), GoldilocksFE::zero()]);
+            let recovered: Vec<_> = recovered.iter().map(|x| x * &n_inv_ext).collect();
+
+            prop_assert_eq!(&input, &recovered);
+        }
+    }
+
+    #[test]
+    fn test_extension_field_fft_basic() {
+        let metal_state = match MetalState::new(None) {
+            Ok(state) => state,
+            Err(_) => return,
+        };
+
+        let fp2_input: Vec<Fp2E> = (0..8)
+            .map(|i| Fp2E::new([GoldilocksFE::from(i as u64), GoldilocksFE::from(i as u64 + 1)]))
+            .collect();
+
+        let twiddles = match get_twiddles::<GoldilocksF>(3, RootsConfig::BitReverse) {
+            Ok(tw) => tw,
+            Err(_) => return,
+        };
+
+        let metal_result = match fft_extension::<GoldilocksFp2>(&fp2_input, &twiddles, &metal_state) {
+            Ok(r) => r,
+            Err(_) => return,
+        };
+
+        let cpu_result = match crate::fft::cpu::ops::fft(&fp2_input, &twiddles) {
+            Ok(r) => r,
+            Err(_) => return,
+        };
+
+        assert_eq!(metal_result, cpu_result);
     }
 }
