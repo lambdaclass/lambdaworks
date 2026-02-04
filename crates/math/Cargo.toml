@@ -46,6 +46,7 @@ ark-ff = "0.5"
 ark-ec = "0.5"
 ark-bn254 = "0.5"
 ark-bls12-381 = "0.5"
+ark-serialize = "0.5"
 ark-std = "0.5"
 rand = { version = "0.8.5", features = ["std"] }
 

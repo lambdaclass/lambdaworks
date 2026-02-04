@@ -76,6 +76,42 @@ pub fn bench_lambdaworks(c: &mut Criterion) {
         })
     });
 
+    // Full pairing (batch of 4)
+    group.throughput(Throughput::Elements(4));
+    group.bench_function("pairing/4", |b| {
+        b.iter(|| {
+            black_box(
+                BN254AtePairing::compute_batch(&[
+                    (&g1_points[0], &g2_points[0]),
+                    (&g1_points[1], &g2_points[1]),
+                    (&g1_points[2], &g2_points[2]),
+                    (&g1_points[3], &g2_points[3]),
+                ])
+                .unwrap(),
+            )
+        })
+    });
+
+    // Full pairing (batch of 8)
+    group.throughput(Throughput::Elements(8));
+    group.bench_function("pairing/8", |b| {
+        b.iter(|| {
+            black_box(
+                BN254AtePairing::compute_batch(&[
+                    (&g1_points[0], &g2_points[0]),
+                    (&g1_points[1], &g2_points[1]),
+                    (&g1_points[2], &g2_points[2]),
+                    (&g1_points[3], &g2_points[3]),
+                    (&g1_points[4], &g2_points[4]),
+                    (&g1_points[5], &g2_points[5]),
+                    (&g1_points[6], &g2_points[6]),
+                    (&g1_points[7], &g2_points[7]),
+                ])
+                .unwrap(),
+            )
+        })
+    });
+
     // Miller loop only
     group.throughput(Throughput::Elements(1));
     group.bench_function("miller_loop", |b| {
@@ -121,6 +157,46 @@ pub fn bench_arkworks(c: &mut Criterion) {
             black_box(Bn254::multi_pairing(
                 [g1_affine[0], g1_affine[1]],
                 [g2_affine[0], g2_affine[1]],
+            ))
+        })
+    });
+
+    // Full pairing (batch of 4)
+    group.throughput(Throughput::Elements(4));
+    group.bench_function("pairing/4", |b| {
+        b.iter(|| {
+            black_box(Bn254::multi_pairing(
+                [g1_affine[0], g1_affine[1], g1_affine[2], g1_affine[3]],
+                [g2_affine[0], g2_affine[1], g2_affine[2], g2_affine[3]],
+            ))
+        })
+    });
+
+    // Full pairing (batch of 8)
+    group.throughput(Throughput::Elements(8));
+    group.bench_function("pairing/8", |b| {
+        b.iter(|| {
+            black_box(Bn254::multi_pairing(
+                [
+                    g1_affine[0],
+                    g1_affine[1],
+                    g1_affine[2],
+                    g1_affine[3],
+                    g1_affine[4],
+                    g1_affine[5],
+                    g1_affine[6],
+                    g1_affine[7],
+                ],
+                [
+                    g2_affine[0],
+                    g2_affine[1],
+                    g2_affine[2],
+                    g2_affine[3],
+                    g2_affine[4],
+                    g2_affine[5],
+                    g2_affine[6],
+                    g2_affine[7],
+                ],
             ))
         })
     });

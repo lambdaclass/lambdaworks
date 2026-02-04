@@ -12,12 +12,14 @@ use criterion::{criterion_group, criterion_main, Criterion};
 use external_comparisons::curves::{
     bls12_381_curve_comparison, bls12_381_g2_comparison, bls12_381_msm_comparison,
     bls12_381_pairing_comparison, bn254_curve_comparison, bn254_g2_comparison,
-    bn254_msm_comparison, bn254_pairing_comparison,
+    bn254_msm_comparison, bn254_pairing_comparison, point_serialization_comparison,
+    subgroup_check_comparison,
 };
 use external_comparisons::fft::{baby_bear_fft_comparison, goldilocks_fft_comparison};
 use external_comparisons::fields::{
-    baby_bear_comparison, bls12_381_field_comparison, bn254_field_comparison,
-    goldilocks_comparison, mersenne31_comparison,
+    baby_bear_comparison, batch_inversion_comparison, bls12_381_field_comparison,
+    bn254_field_comparison, extension_field_comparison, goldilocks_comparison,
+    mersenne31_comparison,
 };
 use external_comparisons::polynomials::polynomial_comparison;
 
@@ -65,6 +67,58 @@ criterion_group!(
         bls12_381_field_comparison::bench_bls12_381_fr_arkworks,
         bls12_381_field_comparison::bench_bls12_381_fq_lambdaworks,
         bls12_381_field_comparison::bench_bls12_381_fq_arkworks
+);
+
+// ============================================
+// EXTENSION FIELD BENCHMARKS (LW vs Arkworks)
+// ============================================
+
+criterion_group!(
+    name = bn254_extension_fields;
+    config = Criterion::default().sample_size(10);
+    targets =
+        extension_field_comparison::bench_bn254_fp2_lambdaworks,
+        extension_field_comparison::bench_bn254_fp2_arkworks,
+        extension_field_comparison::bench_bn254_fp6_lambdaworks,
+        extension_field_comparison::bench_bn254_fp6_arkworks,
+        extension_field_comparison::bench_bn254_fp12_lambdaworks,
+        extension_field_comparison::bench_bn254_fp12_arkworks
+);
+
+criterion_group!(
+    name = bls12_381_extension_fields;
+    config = Criterion::default().sample_size(10);
+    targets =
+        extension_field_comparison::bench_bls12_381_fp2_lambdaworks,
+        extension_field_comparison::bench_bls12_381_fp2_arkworks,
+        extension_field_comparison::bench_bls12_381_fp6_lambdaworks,
+        extension_field_comparison::bench_bls12_381_fp6_arkworks,
+        extension_field_comparison::bench_bls12_381_fp12_lambdaworks,
+        extension_field_comparison::bench_bls12_381_fp12_arkworks
+);
+
+// ============================================
+// BATCH INVERSION BENCHMARKS (LW vs Arkworks)
+// ============================================
+
+criterion_group!(
+    name = bn254_batch_inv;
+    config = Criterion::default().sample_size(10);
+    targets =
+        batch_inversion_comparison::bench_bn254_fr_lambdaworks,
+        batch_inversion_comparison::bench_bn254_fr_arkworks,
+        batch_inversion_comparison::bench_bn254_fq_lambdaworks,
+        batch_inversion_comparison::bench_bn254_fq_arkworks
+);
+
+criterion_group!(
+    name = bls12_381_batch_inv;
+    config = Criterion::default().sample_size(10);
+    targets =
+        batch_inversion_comparison::bench_bls12_381_fr_lambdaworks,
+        batch_inversion_comparison::bench_bls12_381_fr_arkworks,
+        batch_inversion_comparison::bench_bls12_381_fq_lambdaworks,
+        batch_inversion_comparison::bench_bls12_381_fq_arkworks
 );
 
 // ============================================
@@ -174,6 +228,54 @@ criterion_group!(
 );
 
 // ============================================
+// POINT SERIALIZATION BENCHMARKS (LW vs Arkworks)
+// ============================================
+
+criterion_group!(
+    name = bn254_serialization;
+    config = Criterion::default().sample_size(10);
+    targets =
+        point_serialization_comparison::bench_bn254_g1_lambdaworks,
+        point_serialization_comparison::bench_bn254_g1_arkworks,
+        point_serialization_comparison::bench_bn254_g2_lambdaworks,
+        point_serialization_comparison::bench_bn254_g2_arkworks
+);
+
+criterion_group!(
+    name = bls12_381_serialization;
+    config = Criterion::default().sample_size(10);
+    targets =
+        point_serialization_comparison::bench_bls12_381_g1_lambdaworks,
+        point_serialization_comparison::bench_bls12_381_g1_arkworks,
+        point_serialization_comparison::bench_bls12_381_g2_lambdaworks,
+        point_serialization_comparison::bench_bls12_381_g2_arkworks
+);
+
+// ============================================
+// SUBGROUP CHECK BENCHMARKS (LW vs Arkworks)
+// ============================================
+
+criterion_group!(
+    name = bn254_subgroup;
+    config = Criterion::default().sample_size(10);
+    targets =
+        subgroup_check_comparison::bench_bn254_g1_lambdaworks,
+        subgroup_check_comparison::bench_bn254_g1_arkworks,
+        subgroup_check_comparison::bench_bn254_g2_lambdaworks,
+        subgroup_check_comparison::bench_bn254_g2_arkworks
+);
+
+criterion_group!(
+    name = bls12_381_subgroup;
+    config = Criterion::default().sample_size(10);
+    targets =
+        subgroup_check_comparison::bench_bls12_381_g1_lambdaworks,
+        subgroup_check_comparison::bench_bls12_381_g1_arkworks,
+        subgroup_check_comparison::bench_bls12_381_g2_lambdaworks,
+        subgroup_check_comparison::bench_bls12_381_g2_arkworks
+);
+
+// ============================================
 // MAIN
 // ============================================
 
@@ -185,6 +287,12 @@ criterion_main!(
     // Fields (LW vs Arkworks)
     bn254_field,
     bls12_381_field,
+    // Extension Fields (LW vs Arkworks)
+    bn254_extension_fields,
+    bls12_381_extension_fields,
+    // Batch Inversion (LW vs Arkworks)
+    bn254_batch_inv,
+    bls12_381_batch_inv,
     // FFT (LW vs Plonky3)
     goldilocks_fft,
     baby_bear_fft,
@@ -201,5 +309,11 @@ criterion_main!(
     bls12_381_msm,
     // Pairings (LW vs Arkworks)
     bn254_pairing,
-    bls12_381_pairing
+    bls12_381_pairing,
+    // Point Serialization (LW vs Arkworks)
+    bn254_serialization,
+    bls12_381_serialization,
+    // Subgroup Checks (LW vs Arkworks)
+    bn254_subgroup,
+    bls12_381_subgroup
 );
