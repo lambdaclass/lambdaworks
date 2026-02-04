@@ -50,7 +50,92 @@ fn compile_cuda_shaders() {
     });
 }
 
+/// Compiles Metal shaders (.metal) to a Metal library (.metallib)
+/// Uses xcrun to invoke the Metal compiler toolchain.
+///
+/// This function is only called on macOS where xcrun is guaranteed to be available
+/// when Xcode Command Line Tools are installed. Panics are acceptable here because
+/// build scripts should fail fast if the toolchain is misconfigured.
+#[cfg(feature = "metal")]
+fn compile_metal_shaders() {
+    use std::path::Path;
+    use std::process::Command;
+
+    let source_dir = "../math/src/gpu/metal";
+    let source_file = format!("{}/all.metal", source_dir);
+    let output_file = format!("{}/lib.metallib", source_dir);
+
+    // Tell cargo to invalidate the built crate whenever the source changes
+    println!("cargo:rerun-if-changed={source_dir}");
+
+    // Check if source file exists - skip compilation if shaders haven't been created yet
+    if !Path::new(&source_file).exists() {
+        println!("cargo:warning=Metal source file not found: {}", source_file);
+        println!("cargo:warning=Skipping Metal shader compilation - create shaders first");
+        return;
+    }
+
+    println!(
+        "cargo:warning=Compiling Metal shaders: '{}' -> '{}'",
+        source_file, output_file
+    );
+
+    // Compile .metal to .air (intermediate representation)
+    // Panics are acceptable in build scripts when the toolchain is missing
+    let air_file = format!("{}/all.air", source_dir);
+    let metal_compile = Command::new("xcrun")
+        .args([
+            "-sdk",
+            "macosx",
+            "metal",
+            "-c",
+            &source_file,
+            "-o",
+            &air_file,
+        ])
+        .output()
+        .expect("xcrun metal compiler not found - install Xcode Command Line Tools");
+
+    if !metal_compile.status.success() {
+        eprintln!(
+            "Metal compilation failed:\n{}",
+            String::from_utf8_lossy(&metal_compile.stderr)
+        );
+        panic!("Metal shader compilation failed - check shader syntax");
+    }
+
+    // Link .air to .metallib
+    // Panics are acceptable in build scripts when the toolchain is missing
+    let metallib_link = Command::new("xcrun")
+        .args([
+            "-sdk",
+            "macosx",
+            "metallib",
+            &air_file,
+            "-o",
+            &output_file,
+        ])
+        .output()
+        .expect("xcrun metallib linker not found - install Xcode Command Line Tools");
+
+    if !metallib_link.status.success() {
+        eprintln!(
+            "Metal linking failed:\n{}",
+            String::from_utf8_lossy(&metallib_link.stderr)
+        );
+        panic!("Metal library linking failed");
+    }
+
+    // Clean up intermediate .air file - ignore errors as this is just cleanup
+    let _ = std::fs::remove_file(&air_file);
+
+    println!("cargo:warning=Metal shaders compiled successfully");
+}
+
 fn main() {
     #[cfg(feature = "cuda")]
     compile_cuda_shaders();
+
+    #[cfg(feature = "metal")]
+    compile_metal_shaders();
 }
