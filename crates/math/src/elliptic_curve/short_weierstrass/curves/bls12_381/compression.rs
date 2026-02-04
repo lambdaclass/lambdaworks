@@ -56,7 +56,7 @@ impl Compress for BLS12381Curve {
             x_bytes[0] |= 1 << 7;
 
             let y_neg = core::ops::Neg::neg(y);
-            if y_neg.representative() < y.representative() {
+            if y_neg.canonical() < y.canonical() {
                 x_bytes[0] |= 1 << 5;
             }
             x_bytes
@@ -100,10 +100,7 @@ impl Compress for BLS12381Curve {
         // we call "negative" to the greate root,
         // if the third bit is 1, we take this grater value.
         // Otherwise, we take the second one.
-        let y = match (
-            y_sqrt_1.representative().cmp(&y_sqrt_2.representative()),
-            third_bit,
-        ) {
+        let y = match (y_sqrt_1.canonical().cmp(&y_sqrt_2.canonical()), third_bit) {
             (Ordering::Greater, 0) => y_sqrt_2,
             (Ordering::Greater, _) => y_sqrt_1,
             (Ordering::Less, 0) => y_sqrt_1,
@@ -147,12 +144,8 @@ impl Compress for BLS12381Curve {
             let y_neg = -y;
 
             match (
-                y.value()[0]
-                    .representative()
-                    .cmp(&y_neg.value()[0].representative()),
-                y.value()[1]
-                    .representative()
-                    .cmp(&y_neg.value()[1].representative()),
+                y.value()[0].canonical().cmp(&y_neg.value()[0].canonical()),
+                y.value()[1].canonical().cmp(&y_neg.value()[1].canonical()),
             ) {
                 (Ordering::Greater, _) | (Ordering::Equal, Ordering::Greater) => {
                     x_bytes[0] |= 1 << 5;

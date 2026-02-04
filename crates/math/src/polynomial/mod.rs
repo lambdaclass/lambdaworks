@@ -5,6 +5,14 @@ use alloc::{borrow::ToOwned, format, vec, vec::Vec};
 use core::ops::{AddAssign, MulAssign, SubAssign};
 use core::{fmt::Display, ops, slice};
 pub mod dense_multilinear_poly;
+
+/// Re-exports from dense_multilinear_poly module for convenience.
+///
+/// - [`DenseMultilinearPolynomial`]: A multilinear polynomial represented by its evaluations
+///   over the boolean hypercube {0,1}^n.
+/// - [`eq_eval`]: Evaluates the equality polynomial eq(x, r) = ∏(x_i * r_i + (1-x_i)(1-r_i)).
+/// - [`eq_polynomial`]: Computes the equality polynomial evaluations for sumcheck protocols.
+pub use dense_multilinear_poly::{eq_eval, eq_polynomial, DenseMultilinearPolynomial};
 mod error;
 pub use error::PolynomialError;
 pub mod sparse_multilinear_poly;
@@ -483,7 +491,7 @@ impl<F: IsPrimeField> Polynomial<FieldElement<F>> {
                 continue;
             }
 
-            let coeff_str = coeff.representative().to_string();
+            let coeff_str = coeff.canonical().to_string();
 
             if i == self.coefficients.len() - 1 {
                 string.push_str(&coeff_str);

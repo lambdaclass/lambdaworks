@@ -120,12 +120,41 @@ where
 
     #[inline(always)]
     fn add(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
+        // Use assembly for 4-limb fields (BN254) where benchmarks show improvement.
+        // For 6-limb fields (BLS12-381), pure Rust is faster due to LLVM optimizations.
         #[cfg(all(target_arch = "aarch64", feature = "asm"))]
         {
             MontgomeryAlgorithms::add_asm(a, b, &M::MODULUS)
         }
 
-        #[cfg(not(all(target_arch = "aarch64", feature = "asm")))]
+        #[cfg(all(target_arch = "x86_64", feature = "asm"))]
+        {
+            // Use match to ensure compile-time evaluation of NUM_LIMBS
+            match NUM_LIMBS {
+                4 => MontgomeryAlgorithms::add_asm(a, b, &M::MODULUS),
+                // 6-limb and other sizes: use pure Rust (LLVM optimizes better)
+                _ => {
+                    let (sum, overflow) = UnsignedInteger::add(a, b);
+                    if Self::MODULUS_HAS_ONE_SPARE_BIT {
+                        if sum >= M::MODULUS {
+                            sum - M::MODULUS
+                        } else {
+                            sum
+                        }
+                    } else if overflow || sum >= M::MODULUS {
+                        let (diff, _) = UnsignedInteger::sub(&sum, &M::MODULUS);
+                        diff
+                    } else {
+                        sum
+                    }
+                }
+            }
+        }
+
+        #[cfg(not(any(
+            all(target_arch = "aarch64", feature = "asm"),
+            all(target_arch = "x86_64", feature = "asm")
+        )))]
         {
             let (sum, overflow) = UnsignedInteger::add(a, b);
             if Self::MODULUS_HAS_ONE_SPARE_BIT {
@@ -152,7 +181,15 @@ where
                 MontgomeryAlgorithms::cios_asm_optimized(a, b, &M::MODULUS, &Self::MU)
             }
 
-            #[cfg(not(all(target_arch = "aarch64", feature = "asm")))]
+            #[cfg(all(target_arch = "x86_64", feature = "asm"))]
+            {
+                MontgomeryAlgorithms::cios_asm_optimized(a, b, &M::MODULUS, &Self::MU)
+            }
+
+            #[cfg(not(any(
+                all(target_arch = "aarch64", feature = "asm"),
+                all(target_arch = "x86_64", feature = "asm")
+            )))]
             {
                 MontgomeryAlgorithms::cios_optimized_for_moduli_with_one_spare_bit(
                     a,
@@ -162,13 +199,21 @@ where
                 )
             }
         } else {
-            // For moduli without spare bit, use ARM64 asm when available
+            // For moduli without spare bit, use assembly when available
             #[cfg(all(target_arch = "aarch64", feature = "asm"))]
             {
                 MontgomeryAlgorithms::cios_asm(a, b, &M::MODULUS, &Self::MU)
             }
 
-            #[cfg(not(all(target_arch = "aarch64", feature = "asm")))]
+            #[cfg(all(target_arch = "x86_64", feature = "asm"))]
+            {
+                MontgomeryAlgorithms::cios_asm(a, b, &M::MODULUS, &Self::MU)
+            }
+
+            #[cfg(not(any(
+                all(target_arch = "aarch64", feature = "asm"),
+                all(target_arch = "x86_64", feature = "asm")
+            )))]
             {
                 MontgomeryAlgorithms::cios(a, b, &M::MODULUS, &Self::MU)
             }
@@ -182,12 +227,33 @@ where
 
     #[inline(always)]
     fn sub(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
+        // Use assembly for 4-limb fields (BN254) where benchmarks show improvement.
+        // For 6-limb fields (BLS12-381), pure Rust is faster due to LLVM optimizations.
         #[cfg(all(target_arch = "aarch64", feature = "asm"))]
         {
             MontgomeryAlgorithms::sub_asm(a, b, &M::MODULUS)
         }
 
-        #[cfg(not(all(target_arch = "aarch64", feature = "asm")))]
+        #[cfg(all(target_arch = "x86_64", feature = "asm"))]
+        {
+            // Use match to ensure compile-time evaluation of NUM_LIMBS
+            match NUM_LIMBS {
+                4 => MontgomeryAlgorithms::sub_asm(a, b, &M::MODULUS),
+                // 6-limb and other sizes: use pure Rust (LLVM optimizes better)
+                _ => {
+                    if b <= a {
+                        a - b
+                    } else {
+                        M::MODULUS - (b - a)
+                    }
+                }
+            }
+        }
+
+        #[cfg(not(any(
+            all(target_arch = "aarch64", feature = "asm"),
+            all(target_arch = "x86_64", feature = "asm")
+        )))]
         {
             if b <= a {
                 a - b
@@ -322,9 +388,9 @@ impl<M, const NUM_LIMBS: usize> IsPrimeField for MontgomeryBackendPrimeField<M, 
 where
     M: IsModulus<UnsignedInteger<NUM_LIMBS>> + Clone + Debug,
 {
-    type RepresentativeType = Self::BaseType;
+    type CanonicalType = Self::BaseType;
 
-    fn representative(x: &Self::BaseType) -> Self::RepresentativeType {
+    fn canonical(x: &Self::BaseType) -> Self::CanonicalType {
         MontgomeryAlgorithms::cios(x, &UnsignedInteger::from_u64(1), &M::MODULUS, &Self::MU)
     }
 
@@ -343,7 +409,7 @@ where
     fn from_hex(hex_string: &str) -> Result<Self::BaseType, CreationError> {
         let integer = Self::BaseType::from_hex(hex_string)?;
         if integer > M::MODULUS {
-            return Err(CreationError::RepresentativeOutOfRange);
+            return Err(CreationError::CanonicalValueOutOfRange);
         }
 
         Ok(MontgomeryAlgorithms::cios(
@@ -557,11 +623,11 @@ mod tests_u384_prime_fields {
     }
 
     #[test]
-    fn montgomery_backend_primefield_representative() {
+    fn montgomery_backend_primefield_canonical() {
         let a: U384 = UnsignedInteger {
             limbs: [0, 0, 0, 0, 0, 11],
         };
-        assert_eq!(U384F23::representative(&U384F23::from_u64(770_u64)), a);
+        assert_eq!(U384F23::canonical(&U384F23::from_u64(770_u64)), a);
     }
 
     #[test]
@@ -967,12 +1033,12 @@ mod tests_u256_prime_fields {
     }
 
     #[test]
-    fn montgomery_backend_primefield_representative() {
+    fn montgomery_backend_primefield_canonical() {
         // 770%29
         let a: U256 = UnsignedInteger {
             limbs: [0, 0, 0, 16],
         };
-        assert_eq!(U256F29::representative(&U256F29::from_u64(770_u64)), a);
+        assert_eq!(U256F29::canonical(&U256F29::from_u64(770_u64)), a);
     }
 
     #[test]
@@ -1298,18 +1364,18 @@ mod tests_u256_prime_fields {
 
     #[test]
     #[cfg(feature = "alloc")]
-    fn creating_a_field_element_from_its_representative_returns_the_same_element_1() {
+    fn creating_a_field_element_from_its_canonical_returns_the_same_element_1() {
         let change = U256::from_u64(1);
         let f1 = U256FP1Element::new(U256ModulusP1::MODULUS + change);
-        let f2 = U256FP1Element::new(f1.representative());
+        let f2 = U256FP1Element::new(f1.canonical());
         assert_eq!(f1, f2);
     }
 
     #[test]
-    fn creating_a_field_element_from_its_representative_returns_the_same_element_2() {
+    fn creating_a_field_element_from_its_canonical_returns_the_same_element_2() {
         let change = U256::from_u64(27);
         let f1 = U256F29Element::new(U256Modulus29::MODULUS + change);
-        let f2 = U256F29Element::new(f1.representative());
+        let f2 = U256F29Element::new(f1.canonical());
         assert_eq!(f1, f2);
     }
 
@@ -1339,7 +1405,7 @@ mod tests_u256_prime_fields {
         assert!(a.is_err());
         assert_eq!(
             a.unwrap_err(),
-            crate::errors::CreationError::RepresentativeOutOfRange
+            crate::errors::CreationError::CanonicalValueOutOfRange
         )
     }
 

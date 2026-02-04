@@ -101,9 +101,9 @@ fuzz_target!(|data: (u32, u32, u32, u8)| {
                 assert_eq!(
                     &a * &a_inv,
                     FE::one(),
-                    "Multiplicative inverse failed: a={}, a_inv representative={:?}",
+                    "Multiplicative inverse failed: a={}, a_inv canonical={:?}",
                     a_val,
-                    a_inv.representative()
+                    a_inv.canonical()
                 );
             }
             Err(_) => panic!("Inverse of non-zero element failed: a={}", a_val),
@@ -158,14 +158,14 @@ fuzz_target!(|data: (u32, u32, u32, u8)| {
             FE::one(),
             "Fermat's little theorem failed: a={}, a^(p-1)={:?}",
             a_val,
-            a_pow_p_minus_1.representative()
+            a_pow_p_minus_1.canonical()
         );
     }
 
     // ===== TEST 16: Modular reduction correctness =====
-    // Verify that representatives are in range [0, p)
-    let a_rep = a.representative();
-    assert!(a_rep < P as u32, "Representative out of range: {:?}", a_rep);
+    // Verify that canonical values are in range [0, p)
+    let a_rep = a.canonical();
+    assert!(a_rep < P as u32, "Canonical value out of range: {:?}", a_rep);
 
     // ===== TEST 17: Edge case - operations with p-1 =====
     let p_minus_1 = FE::from(P - 1);
@@ -204,8 +204,8 @@ fuzz_target!(|data: (u32, u32, u32, u8)| {
         a_from_bytes,
         a,
         "Bytes roundtrip failed: original={:?}, after={:?}",
-        a.representative(),
-        a_from_bytes.representative()
+        a.canonical(),
+        a_from_bytes.canonical()
     );
 
     // ===== TEST 21: Two-adicity and root of unity =====

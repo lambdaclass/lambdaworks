@@ -538,7 +538,7 @@ pub fn read_only_logup_trace<
     values: Vec<FieldElement<F>>,
 ) -> TraceTable<F, E> {
     let mut address_value_pairs: Vec<_> = addresses.iter().zip(values.iter()).collect();
-    address_value_pairs.sort_by_key(|(addr, _)| addr.representative());
+    address_value_pairs.sort_by_key(|(addr, _)| addr.canonical());
 
     let mut multiplicities = Vec::new();
     let mut sorted_addresses = Vec::new();

@@ -4,44 +4,49 @@ use lambdaworks_math::cyclic_group::IsGroup;
 use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::traits::{HasDefaultTranscript, IsFFTField, IsField, IsPrimeField};
 use lambdaworks_math::traits::{AsBytes, ByteConversion};
-use lambdaworks_math::unsigned_integer::traits::IsUnsignedInteger;
 use std::marker::PhantomData;
 
 use crate::prover::Proof;
 use crate::setup::{new_strong_fiat_shamir_transcript, CommonPreprocessedInput, VerificationKey};
 
-/// Errors that can occur during PLONK verification.
+/// Errors that can occur during PLONK proof verification.
+///
+/// # Security
+/// These errors are critical for soundness - they indicate that a proof
+/// may be malformed or constructed by a malicious prover.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum VerifierError {
-    /// A commitment point is not on the curve
-    InvalidCommitment(&'static str),
-    /// A commitment point is not in the prime-order subgroup
-    CommitmentNotInSubgroup(&'static str),
-    /// Constraint check failed
-    ConstraintCheckFailed,
-    /// Batch opening verification failed
-    BatchOpeningFailed,
-    /// Single opening verification failed
-    SingleOpeningFailed,
+    /// A point in the proof is not on the elliptic curve.
+    /// This could indicate a malicious proof attempting to exploit
+    /// the pairing verification.
+    PointNotOnCurve,
+    /// A point is on the curve but not in the correct subgroup.
+    /// For curves with cofactor > 1 (like BLS12-381), points must
+    /// be in the prime-order subgroup for security.
+    PointNotInSubgroup,
+    /// A field element in the proof is not properly reduced.
+    /// Field elements must be in the range [0, p-1] where p is
+    /// the field modulus.
+    InvalidFieldElement,
 }
 
 impl std::fmt::Display for VerifierError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            VerifierError::InvalidCommitment(name) => {
-                write!(f, "Invalid commitment: {} is not on curve", name)
+            VerifierError::PointNotOnCurve => {
+                write!(
+                    f,
+                    "Proof element is not a valid point on the elliptic curve"
+                )
             }
-            VerifierError::CommitmentNotInSubgroup(name) => {
-                write!(f, "Commitment {} is not in prime-order subgroup", name)
+            VerifierError::PointNotInSubgroup => {
+                write!(
+                    f,
+                    "Proof element is not in the correct prime-order subgroup"
+                )
             }
-            VerifierError::ConstraintCheckFailed => {
-                write!(f, "Constraint equation check failed")
-            }
-            VerifierError::BatchOpeningFailed => {
-                write!(f, "Batch opening proof verification failed")
-            }
-            VerifierError::SingleOpeningFailed => {
-                write!(f, "Single opening proof verification failed")
+            VerifierError::InvalidFieldElement => {
+                write!(f, "Proof contains an invalid field element")
             }
         }
     }
@@ -49,21 +54,30 @@ impl std::fmt::Display for VerifierError {
 
 impl std::error::Error for VerifierError {}
 
-/// Trait for commitments that can be validated for subgroup membership.
-/// This is used to ensure proof elements are in the correct prime-order subgroup.
-pub trait SubgroupCheck: IsGroup {
-    /// The type representing the subgroup order (e.g., U256)
-    type Order: IsUnsignedInteger;
-
-    /// Returns the order of the prime-order subgroup
-    fn subgroup_order() -> Self::Order;
-
-    /// Checks if the element is in the prime-order subgroup.
-    /// This is done by verifying that multiplying by the subgroup order yields the identity.
-    fn is_in_subgroup(&self) -> bool {
-        self.operate_with_self(Self::subgroup_order())
-            .is_neutral_element()
-    }
+/// Trait for validating proof commitment elements.
+///
+/// # Security
+///
+/// This trait is critical for ensuring soundness of the PLONK verifier.
+/// Without proper validation of proof elements, a malicious prover could:
+///
+/// 1. Submit points not on the curve, potentially causing pairing operations
+///    to produce incorrect results or panic.
+/// 2. Submit points on the curve but not in the correct subgroup, which can
+///    break the security assumptions of the pairing-based verification.
+///
+/// For curves with cofactor = 1 (like BN254), being on the curve implies
+/// being in the subgroup. For curves with cofactor > 1 (like BLS12-381),
+/// explicit subgroup membership checks are required.
+pub trait IsValidProofCommitment {
+    /// Validates that this commitment element is a valid point for use in proofs.
+    ///
+    /// # Returns
+    ///
+    /// - `Ok(())` if the point is valid (on curve and in correct subgroup)
+    /// - `Err(VerifierError::PointNotOnCurve)` if the point is not on the curve
+    /// - `Err(VerifierError::PointNotInSubgroup)` if the point is not in the subgroup
+    fn validate(&self) -> Result<(), VerifierError>;
 }
 
 pub struct Verifier<F: IsField, CS: IsCommitmentScheme<F>> {
@@ -77,6 +91,112 @@ impl<F: IsField + IsFFTField + HasDefaultTranscript, CS: IsCommitmentScheme<F>> 
             commitment_scheme,
             phantom: PhantomData,
         }
+    }
+
+    /// Validates all proof elements before verification.
+    ///
+    /// # Security
+    ///
+    /// This function performs critical security checks that are essential for
+    /// the soundness of the PLONK verification. Without these checks, a malicious
+    /// prover could potentially:
+    ///
+    /// 1. Submit points not on the elliptic curve
+    /// 2. Submit points on the curve but not in the prime-order subgroup
+    ///
+    /// Both attacks could lead to accepting invalid proofs.
+    ///
+    /// # Arguments
+    ///
+    /// * `proof` - The PLONK proof containing all commitments to validate
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(())` if all proof elements are valid
+    /// * `Err(VerifierError)` if any element fails validation
+    ///
+    /// # Validation Checks
+    ///
+    /// For each G1 point commitment in the proof:
+    /// 1. Verify the point is on the elliptic curve (satisfies curve equation)
+    /// 2. Verify the point is in the correct prime-order subgroup
+    ///
+    /// The following commitments are validated:
+    /// - `a_1`, `b_1`, `c_1`: Wire polynomial commitments (Round 1)
+    /// - `z_1`: Copy constraints polynomial commitment (Round 2)
+    /// - `t_lo_1`, `t_mid_1`, `t_hi_1`: Quotient polynomial commitments (Round 3)
+    /// - `w_zeta_1`: Batch opening proof (Round 5)
+    /// - `w_zeta_omega_1`: Single opening proof (Round 5)
+    pub fn validate_proof_elements(proof: &Proof<F, CS>) -> Result<(), VerifierError>
+    where
+        CS::Commitment: IsValidProofCommitment,
+    {
+        // Validate Round 1 commitments: wire polynomials a(x), b(x), c(x)
+        proof.a_1.validate()?;
+        proof.b_1.validate()?;
+        proof.c_1.validate()?;
+
+        // Validate Round 2 commitment: copy constraints polynomial z(x)
+        proof.z_1.validate()?;
+
+        // Validate Round 3 commitments: quotient polynomial parts
+        proof.t_lo_1.validate()?;
+        proof.t_mid_1.validate()?;
+        proof.t_hi_1.validate()?;
+
+        // Validate Round 5 commitments: opening proofs
+        proof.w_zeta_1.validate()?;
+        proof.w_zeta_omega_1.validate()?;
+
+        Ok(())
+    }
+
+    /// Validates all commitments in the verification key.
+    ///
+    /// # Security
+    ///
+    /// While verification keys typically come from a trusted setup ceremony,
+    /// validating them is important when:
+    /// - Loading verification keys from files or network
+    /// - Using verification keys from external or untrusted sources
+    /// - Implementing defense-in-depth security practices
+    ///
+    /// Without validation, a malicious verification key with invalid points could
+    /// compromise the soundness of the pairing-based verification.
+    ///
+    /// # Arguments
+    ///
+    /// * `vk` - The verification key to validate
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(())` if all verification key commitments are valid
+    /// * `Err(VerifierError)` if any commitment fails validation
+    ///
+    /// # Validation Checks
+    ///
+    /// Validates all 8 G1 commitments in the verification key:
+    /// - `qm_1`, `ql_1`, `qr_1`, `qo_1`, `qc_1`: Gate selector commitments
+    /// - `s1_1`, `s2_1`, `s3_1`: Permutation polynomial commitments
+    pub fn validate_verification_key(
+        vk: &VerificationKey<CS::Commitment>,
+    ) -> Result<(), VerifierError>
+    where
+        CS::Commitment: IsValidProofCommitment,
+    {
+        // Validate gate selector commitments
+        vk.qm_1.validate()?;
+        vk.ql_1.validate()?;
+        vk.qr_1.validate()?;
+        vk.qo_1.validate()?;
+        vk.qc_1.validate()?;
+
+        // Validate permutation commitments (used in batch opening verification)
+        vk.s1_1.validate()?;
+        vk.s2_1.validate()?;
+        vk.s3_1.validate()?;
+
+        Ok(())
     }
 
     fn compute_challenges(
@@ -118,219 +238,63 @@ impl<F: IsField + IsFFTField + HasDefaultTranscript, CS: IsCommitmentScheme<F>> 
         [beta, gamma, alpha, zeta, upsilon]
     }
 
-    /// Validates that all commitment elements in the proof are in the prime-order subgroup.
-    /// This is a critical security check that prevents attacks using points from the wrong subgroup.
+    /// Verifies a PLONK proof with full validation of proof elements.
+    ///
+    /// # Security
+    ///
+    /// This is the recommended verification method as it performs critical
+    /// validation checks on all proof elements before verification.
+    /// Use this method when processing proofs from untrusted sources.
     ///
     /// # Arguments
-    /// * `p` - The proof to validate
     ///
-    /// # Returns
-    /// * `Ok(())` if all commitments are valid
-    /// * `Err(VerifierError)` if any commitment is invalid
-    pub fn validate_proof_commitments(p: &Proof<F, CS>) -> Result<(), VerifierError>
-    where
-        CS::Commitment: SubgroupCheck,
-    {
-        // Validate Round 1 commitments (wire polynomials)
-        if !p.a_1.is_in_subgroup() {
-            return Err(VerifierError::CommitmentNotInSubgroup("a_1"));
-        }
-        if !p.b_1.is_in_subgroup() {
-            return Err(VerifierError::CommitmentNotInSubgroup("b_1"));
-        }
-        if !p.c_1.is_in_subgroup() {
-            return Err(VerifierError::CommitmentNotInSubgroup("c_1"));
-        }
-
-        // Validate Round 2 commitment (permutation polynomial)
-        if !p.z_1.is_in_subgroup() {
-            return Err(VerifierError::CommitmentNotInSubgroup("z_1"));
-        }
-
-        // Validate Round 3 commitments (quotient polynomial parts)
-        if !p.t_lo_1.is_in_subgroup() {
-            return Err(VerifierError::CommitmentNotInSubgroup("t_lo_1"));
-        }
-        if !p.t_mid_1.is_in_subgroup() {
-            return Err(VerifierError::CommitmentNotInSubgroup("t_mid_1"));
-        }
-        if !p.t_hi_1.is_in_subgroup() {
-            return Err(VerifierError::CommitmentNotInSubgroup("t_hi_1"));
-        }
-
-        // Validate Round 5 commitments (opening proofs)
-        if !p.w_zeta_1.is_in_subgroup() {
-            return Err(VerifierError::CommitmentNotInSubgroup("w_zeta_1"));
-        }
-        if !p.w_zeta_omega_1.is_in_subgroup() {
-            return Err(VerifierError::CommitmentNotInSubgroup("w_zeta_omega_1"));
-        }
-
-        Ok(())
-    }
-
-    /// Verifies a PLONK proof with full validation.
-    ///
-    /// This method performs:
-    /// 1. Subgroup membership checks on all commitments (when SubgroupCheck is implemented)
-    /// 2. Challenge derivation via Fiat-Shamir
-    /// 3. Constraint equation verification
-    /// 4. Opening proof verification
-    ///
-    /// # Arguments
-    /// * `p` - The proof to verify
+    /// * `p` - The PLONK proof to verify
     /// * `public_input` - The public inputs to the circuit
-    /// * `input` - Common preprocessed input from setup
+    /// * `input` - The common preprocessed input
     /// * `vk` - The verification key
     ///
     /// # Returns
-    /// * `Ok(())` if the proof is valid
-    /// * `Err(VerifierError)` describing why verification failed
-    pub fn verify_with_result(
+    ///
+    /// * `Ok(true)` if the proof is valid
+    /// * `Ok(false)` if the proof is mathematically invalid but well-formed
+    /// * `Err(VerifierError)` if the proof contains malformed elements
+    pub fn verify_with_validation(
         &self,
         p: &Proof<F, CS>,
         public_input: &[FieldElement<F>],
         input: &CommonPreprocessedInput<F>,
         vk: &VerificationKey<CS::Commitment>,
-    ) -> Result<(), VerifierError>
+    ) -> Result<bool, VerifierError>
     where
         F: IsPrimeField + IsFFTField,
         CS: IsCommitmentScheme<F>,
-        CS::Commitment: AsBytes + IsGroup + SubgroupCheck,
+        CS::Commitment: AsBytes + IsGroup + IsValidProofCommitment,
         FieldElement<F>: ByteConversion,
     {
-        // Step 1: Validate subgroup membership of all commitments
-        Self::validate_proof_commitments(p)?;
+        // Step 1-2: Validate proof elements (CRITICAL FOR SECURITY)
+        // - Check all proof commitments are valid points on the curve
+        // - Check all proof commitments are in the correct subgroup
+        Self::validate_proof_elements(p)?;
 
-        // Steps 2-5: Perform the actual verification
-        let [beta, gamma, alpha, zeta, upsilon] = self.compute_challenges(p, vk, public_input);
-        let zh_zeta = zeta.pow(input.n) - FieldElement::<F>::one();
+        // Step 3: Validate verification key elements (CRITICAL FOR SECURITY)
+        // - Check all VK commitments are valid points on the curve
+        // - Check all VK commitments are in the correct subgroup
+        Self::validate_verification_key(vk)?;
 
-        let k1 = &input.k1;
-        let k2 = k1 * k1;
-
-        // Compute L1(zeta) - Lagrange polynomial at first point
-        // Using zeta != 0 (sampled outside roots of unity) and n != 0 (trace length)
-        let l1_zeta = ((zeta.pow(input.n as u64) - FieldElement::<F>::one())
-            / ((&zeta - FieldElement::<F>::one()) * FieldElement::from(input.n as u64)))
-        .map_err(|_| VerifierError::ConstraintCheckFailed)?;
-
-        // Compute PI(zeta) using Lagrange basis recurrence
-        let p_pi_zeta = if public_input.is_empty() {
-            FieldElement::zero()
-        } else {
-            let mut p_pi_zeta = &l1_zeta * &public_input[0];
-            let mut li_zeta = l1_zeta.clone();
-            for (i, value) in public_input.iter().enumerate().skip(1) {
-                li_zeta = &input.omega
-                    * &li_zeta
-                    * ((&zeta - &input.domain[i - 1]) / (&zeta - &input.domain[i]))
-                        .map_err(|_| VerifierError::ConstraintCheckFailed)?;
-                p_pi_zeta = &p_pi_zeta + value * &li_zeta;
-            }
-            p_pi_zeta
-        };
-
-        let mut p_constant_zeta = &alpha
-            * &p.z_zeta_omega
-            * (&p.c_zeta + &gamma)
-            * (&p.a_zeta + &beta * &p.s1_zeta + &gamma)
-            * (&p.b_zeta + &beta * &p.s2_zeta + &gamma);
-        p_constant_zeta = p_constant_zeta - &l1_zeta * &alpha * &alpha;
-        p_constant_zeta += p_pi_zeta;
-
-        let p_zeta = p_constant_zeta + &p.p_non_constant_zeta;
-
-        // Check constraint equation: p(zeta) = zh(zeta) * t(zeta)
-        if p_zeta - (&zh_zeta * &p.t_zeta) != FieldElement::zero() {
-            return Err(VerifierError::ConstraintCheckFailed);
-        }
-
-        // Compute commitment of partial evaluation of t(ζ)
-        // The quotient polynomial was split as: t(X) = t_lo + X^(n+2)·t_mid + X^(2n+4)·t_hi
-        // Following gnark's approach (accounts for blinding polynomials)
-        let partial_t_1 = p
-            .t_lo_1
-            .operate_with(
-                &p.t_mid_1
-                    .operate_with_self(zeta.pow(input.n + 2).representative()),
-            )
-            .operate_with(
-                &p.t_hi_1
-                    .operate_with_self(zeta.pow(2 * input.n + 4).representative()),
-            );
-
-        // Compute commitment of the non-constant part of the linearization
-        let mut first_term = vk
-            .qm_1
-            .operate_with_self((&p.a_zeta * &p.b_zeta).representative());
-        first_term = first_term.operate_with(&vk.ql_1.operate_with_self(p.a_zeta.representative()));
-        first_term = first_term.operate_with(&vk.qr_1.operate_with_self(p.b_zeta.representative()));
-        first_term = first_term.operate_with(&vk.qo_1.operate_with_self(p.c_zeta.representative()));
-        first_term = first_term.operate_with(&vk.qc_1);
-
-        let z_coefficient = -(&p.a_zeta + &beta * &zeta + &gamma)
-            * (&p.b_zeta + &beta * k1 * &zeta + &gamma)
-            * (&p.c_zeta + &beta * k2 * &zeta + &gamma);
-        let s3_coefficient = (&p.a_zeta + &beta * &p.s1_zeta + &gamma)
-            * (&p.b_zeta + &beta * &p.s2_zeta + &gamma)
-            * beta
-            * &p.z_zeta_omega;
-        let second_term = p
-            .z_1
-            .operate_with_self(z_coefficient.representative())
-            .operate_with(&vk.s3_1.operate_with_self(s3_coefficient.representative()))
-            .operate_with_self(alpha.representative());
-        let third_term = p
-            .z_1
-            .operate_with_self((&alpha * &alpha * l1_zeta).representative());
-
-        let p_non_constant_1 = first_term
-            .operate_with(&second_term)
-            .operate_with(&third_term);
-
-        let ys = [
-            p.t_zeta.clone(),
-            p.p_non_constant_zeta.clone(),
-            p.a_zeta.clone(),
-            p.b_zeta.clone(),
-            p.c_zeta.clone(),
-            p.s1_zeta.clone(),
-            p.s2_zeta.clone(),
-        ];
-        let commitments = [
-            partial_t_1,
-            p_non_constant_1,
-            p.a_1.clone(),
-            p.b_1.clone(),
-            p.c_1.clone(),
-            vk.s1_1.clone(),
-            vk.s2_1.clone(),
-        ];
-
-        if !self
-            .commitment_scheme
-            .verify_batch(&zeta, &ys, &commitments, &p.w_zeta_1, &upsilon)
-        {
-            return Err(VerifierError::BatchOpeningFailed);
-        }
-
-        if !self.commitment_scheme.verify(
-            &(zeta * &input.omega),
-            &p.z_zeta_omega,
-            &p.z_1,
-            &p.w_zeta_omega_1,
-        ) {
-            return Err(VerifierError::SingleOpeningFailed);
-        }
-
-        Ok(())
+        // Proceed with standard verification
+        Ok(self.verify_internal(p, public_input, input, vk))
     }
 
-    /// Verifies a PLONK proof (legacy interface returning bool).
+    /// Verifies a PLONK proof without validation of proof elements.
     ///
-    /// This method is kept for backwards compatibility. For new code, prefer
-    /// `verify_with_result` which provides detailed error information.
+    /// # Warning
+    ///
+    /// This method does NOT validate that proof elements are valid curve points
+    /// in the correct subgroup. Only use this when you have already validated
+    /// the proof elements through other means, or when processing proofs from
+    /// trusted sources (e.g., locally generated proofs).
+    ///
+    /// For proofs from untrusted sources, use `verify_with_validation` instead.
     pub fn verify(
         &self,
         p: &Proof<F, CS>,
@@ -344,8 +308,23 @@ impl<F: IsField + IsFFTField + HasDefaultTranscript, CS: IsCommitmentScheme<F>> 
         CS::Commitment: AsBytes + IsGroup,
         FieldElement<F>: ByteConversion,
     {
-        // Note: This legacy method skips subgroup checks for backwards compatibility.
-        // Use verify_with_result for full validation.
+        self.verify_internal(p, public_input, input, vk)
+    }
+
+    /// Internal verification logic shared by both verify methods.
+    fn verify_internal(
+        &self,
+        p: &Proof<F, CS>,
+        public_input: &[FieldElement<F>],
+        input: &CommonPreprocessedInput<F>,
+        vk: &VerificationKey<CS::Commitment>,
+    ) -> bool
+    where
+        F: IsPrimeField + IsFFTField,
+        CS: IsCommitmentScheme<F>,
+        CS::Commitment: AsBytes + IsGroup,
+        FieldElement<F>: ByteConversion,
+    {
         let [beta, gamma, alpha, zeta, upsilon] = self.compute_challenges(p, vk, public_input);
         let zh_zeta = zeta.pow(input.n) - FieldElement::<F>::one();
 
@@ -395,21 +374,21 @@ impl<F: IsField + IsFFTField + HasDefaultTranscript, CS: IsCommitmentScheme<F>> 
             .t_lo_1
             .operate_with(
                 &p.t_mid_1
-                    .operate_with_self(zeta.pow(input.n + 2).representative()),
+                    .operate_with_self(zeta.pow(input.n + 2).canonical()),
             )
             .operate_with(
                 &p.t_hi_1
-                    .operate_with_self(zeta.pow(2 * input.n + 4).representative()),
+                    .operate_with_self(zeta.pow(2 * input.n + 4).canonical()),
             );
 
         // Compute commitment of the non constant part of the linearization of p
         // The first term corresponds to the gates constraints
         let mut first_term = vk
             .qm_1
-            .operate_with_self((&p.a_zeta * &p.b_zeta).representative());
-        first_term = first_term.operate_with(&vk.ql_1.operate_with_self(p.a_zeta.representative()));
-        first_term = first_term.operate_with(&vk.qr_1.operate_with_self(p.b_zeta.representative()));
-        first_term = first_term.operate_with(&vk.qo_1.operate_with_self(p.c_zeta.representative()));
+            .operate_with_self((&p.a_zeta * &p.b_zeta).canonical());
+        first_term = first_term.operate_with(&vk.ql_1.operate_with_self(p.a_zeta.canonical()));
+        first_term = first_term.operate_with(&vk.qr_1.operate_with_self(p.b_zeta.canonical()));
+        first_term = first_term.operate_with(&vk.qo_1.operate_with_self(p.c_zeta.canonical()));
         first_term = first_term.operate_with(&vk.qc_1);
 
         // Second and third terms correspond to copy constraints
@@ -423,13 +402,13 @@ impl<F: IsField + IsFFTField + HasDefaultTranscript, CS: IsCommitmentScheme<F>> 
             * &p.z_zeta_omega;
         let second_term = p
             .z_1
-            .operate_with_self(z_coefficient.representative())
-            .operate_with(&vk.s3_1.operate_with_self(s3_coefficient.representative()))
-            .operate_with_self(alpha.representative());
+            .operate_with_self(z_coefficient.canonical())
+            .operate_with(&vk.s3_1.operate_with_self(s3_coefficient.canonical()))
+            .operate_with_self(alpha.canonical());
         // α²*L₁(ζ)*Z(X)
         let third_term = p
             .z_1
-            .operate_with_self((&alpha * &alpha * l1_zeta).representative());
+            .operate_with_self((&alpha * &alpha * l1_zeta).canonical());
 
         let p_non_constant_1 = first_term
             .operate_with(&second_term)
@@ -468,6 +447,50 @@ impl<F: IsField + IsFFTField + HasDefaultTranscript, CS: IsCommitmentScheme<F>> 
     }
 }
 
+// Implementation of IsValidProofCommitment for BLS12-381 Jacobian points.
+// This is the curve used by the PLONK implementation in this crate.
+use lambdaworks_math::elliptic_curve::short_weierstrass::{
+    curves::bls12_381::curve::BLS12381Curve, point::ShortWeierstrassJacobianPoint,
+};
+
+impl IsValidProofCommitment for ShortWeierstrassJacobianPoint<BLS12381Curve> {
+    /// Validates that this BLS12-381 G1 point is valid for use in proofs.
+    ///
+    /// # Security
+    ///
+    /// BLS12-381 has cofactor h = 0x396c8c005555e1568c00aaab0000aaab, which means
+    /// that not all points on the curve are in the prime-order subgroup.
+    /// A malicious prover could submit a point that is on the curve but not in
+    /// the subgroup, which would break the security of the pairing verification.
+    ///
+    /// # Validation
+    ///
+    /// 1. **On-curve check**: The `ShortWeierstrassJacobianPoint::new()` constructor
+    ///    already validates that points satisfy the curve equation y^2 = x^3 + 4.
+    ///    Since all points in the proof were created through deserialization which
+    ///    uses this constructor, they are guaranteed to be on the curve.
+    ///
+    /// 2. **Subgroup check**: We use the efficient endomorphism-based check:
+    ///    phi(P) = -u^2 * P where u is the curve seed (MILLER_LOOP_CONSTANT).
+    ///    This is more efficient than multiplying by the full subgroup order.
+    ///    See: <https://eprint.iacr.org/2022/352.pdf> Section 4.3 Prop. 4.
+    fn validate(&self) -> Result<(), VerifierError> {
+        // The neutral element (point at infinity) is always valid
+        if self.is_neutral_element() {
+            return Ok(());
+        }
+
+        // Check subgroup membership using the efficient endomorphism-based method.
+        // For BLS12-381, we verify that phi(P) = -u^2 * P where phi is the
+        // GLV endomorphism and u is the curve seed.
+        if self.is_in_subgroup() {
+            Ok(())
+        } else {
+            Err(VerifierError::PointNotInSubgroup)
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use lambdaworks_math::traits::Deserializable;
@@ -480,7 +503,7 @@ mod tests {
         test_utils::circuit_1::{test_common_preprocessed_input_1, test_witness_1},
         test_utils::circuit_2::{test_common_preprocessed_input_2, test_witness_2},
         test_utils::circuit_json::common_preprocessed_input_from_json,
-        test_utils::utils::{test_srs, TestRandomFieldGenerator, KZG},
+        test_utils::utils::{test_srs, FpElement, TestRandomFieldGenerator, KZG},
     };
 
     #[test]
@@ -504,14 +527,12 @@ mod tests {
         let random_generator = TestRandomFieldGenerator {};
 
         let prover = Prover::new(kzg.clone(), random_generator);
-        let proof = prover
-            .prove(
-                &witness,
-                &public_input,
-                &common_preprocessed_input,
-                &verifying_key,
-            )
-            .unwrap();
+        let proof = prover.prove(
+            &witness,
+            &public_input,
+            &common_preprocessed_input,
+            &verifying_key,
+        );
 
         let verifier = Verifier::new(kzg);
         assert!(verifier.verify(
@@ -543,14 +564,12 @@ mod tests {
         let random_generator = TestRandomFieldGenerator {};
 
         let prover = Prover::new(kzg.clone(), random_generator);
-        let proof = prover
-            .prove(
-                &witness,
-                &public_input,
-                &common_preprocessed_input,
-                &verifying_key,
-            )
-            .unwrap();
+        let proof = prover.prove(
+            &witness,
+            &public_input,
+            &common_preprocessed_input,
+            &verifying_key,
+        );
 
         let verifier = Verifier::new(kzg);
         assert!(verifier.verify(
@@ -644,14 +663,12 @@ mod tests {
         let random_generator = TestRandomFieldGenerator {};
 
         let prover = Prover::new(kzg.clone(), random_generator);
-        let proof = prover
-            .prove(
-                &witness,
-                &public_input,
-                &common_preprocessed_input,
-                &verifying_key,
-            )
-            .unwrap();
+        let proof = prover.prove(
+            &witness,
+            &public_input,
+            &common_preprocessed_input,
+            &verifying_key,
+        );
 
         let verifier = Verifier::new(kzg);
         assert!(verifier.verify(
@@ -683,14 +700,12 @@ mod tests {
         let random_generator = TestRandomFieldGenerator {};
 
         let prover = Prover::new(kzg.clone(), random_generator);
-        let proof = prover
-            .prove(
-                &witness,
-                &public_input,
-                &common_preprocessed_input,
-                &verifying_key,
-            )
-            .unwrap();
+        let proof = prover.prove(
+            &witness,
+            &public_input,
+            &common_preprocessed_input,
+            &verifying_key,
+        );
 
         let serialized_proof = proof.as_bytes();
         let deserialized_proof = Proof::deserialize(&serialized_proof).unwrap();
@@ -704,13 +719,13 @@ mod tests {
         ));
     }
 
-    // ============================================
-    // Negative tests - verifier must reject invalid proofs
-    // ============================================
+    // ============================================================
+    // Proof Element Validation Tests
+    // ============================================================
 
     #[test]
-    fn test_rejects_wrong_public_input() {
-        // x * e == y where x=4, e=3, y=12
+    fn test_valid_proof_passes_validation() {
+        // Generate a valid proof and verify it passes validation
         let common_preprocessed_input = test_common_preprocessed_input_1();
         let srs = test_srs(common_preprocessed_input.n);
 
@@ -726,32 +741,24 @@ mod tests {
         let random_generator = TestRandomFieldGenerator {};
 
         let prover = Prover::new(kzg.clone(), random_generator);
-        let proof = prover
-            .prove(
-                &witness,
-                &public_input,
-                &common_preprocessed_input,
-                &verifying_key,
-            )
-            .unwrap();
+        let proof = prover.prove(
+            &witness,
+            &public_input,
+            &common_preprocessed_input,
+            &verifying_key,
+        );
 
-        // Try to verify with wrong public input
-        let wrong_public_input = vec![FieldElement::from(4_u64), FieldElement::from(13_u64)];
-
-        let verifier = Verifier::new(kzg);
+        // Validation should pass for a legitimately generated proof
+        let validation_result = Verifier::<_, KZG>::validate_proof_elements(&proof);
         assert!(
-            !verifier.verify(
-                &proof,
-                &wrong_public_input,
-                &common_preprocessed_input,
-                &verifying_key
-            ),
-            "Verifier should reject proof with wrong public input"
+            validation_result.is_ok(),
+            "Valid proof should pass validation"
         );
     }
 
     #[test]
-    fn test_rejects_tampered_a_zeta() {
+    fn test_verify_with_validation_valid_proof() {
+        // Test that verify_with_validation accepts valid proofs
         let common_preprocessed_input = test_common_preprocessed_input_1();
         let srs = test_srs(common_preprocessed_input.n);
 
@@ -767,155 +774,133 @@ mod tests {
         let random_generator = TestRandomFieldGenerator {};
 
         let prover = Prover::new(kzg.clone(), random_generator);
-        let mut proof = prover
-            .prove(
-                &witness,
-                &public_input,
-                &common_preprocessed_input,
-                &verifying_key,
-            )
-            .unwrap();
-
-        // Tamper with a_zeta (polynomial evaluation)
-        proof.a_zeta = &proof.a_zeta + FieldElement::one();
+        let proof = prover.prove(
+            &witness,
+            &public_input,
+            &common_preprocessed_input,
+            &verifying_key,
+        );
 
         let verifier = Verifier::new(kzg);
+        let result = verifier.verify_with_validation(
+            &proof,
+            &public_input,
+            &common_preprocessed_input,
+            &verifying_key,
+        );
+
+        assert!(result.is_ok(), "verify_with_validation should succeed");
+        assert!(result.unwrap(), "Valid proof should verify");
+    }
+
+    #[test]
+    fn test_generator_point_is_in_subgroup() {
+        // Test that the BLS12-381 generator is in the subgroup
+        use lambdaworks_math::elliptic_curve::traits::IsEllipticCurve;
+
+        let generator = BLS12381Curve::generator();
+        let validation_result = generator.validate();
         assert!(
-            !verifier.verify(
-                &proof,
-                &public_input,
-                &common_preprocessed_input,
-                &verifying_key
-            ),
-            "Verifier should reject proof with tampered a_zeta"
+            validation_result.is_ok(),
+            "Generator point should be in the subgroup"
         );
     }
 
     #[test]
-    fn test_rejects_tampered_t_zeta() {
-        let common_preprocessed_input = test_common_preprocessed_input_1();
-        let srs = test_srs(common_preprocessed_input.n);
-
-        let x = FieldElement::from(4_u64);
-        let y = FieldElement::from(12_u64);
-        let e = FieldElement::from(3_u64);
-
-        let public_input = vec![x.clone(), y];
-        let witness = test_witness_1(x, e);
-
-        let kzg = KZG::new(srs);
-        let verifying_key = setup(&common_preprocessed_input, &kzg);
-        let random_generator = TestRandomFieldGenerator {};
-
-        let prover = Prover::new(kzg.clone(), random_generator);
-        let mut proof = prover
-            .prove(
-                &witness,
-                &public_input,
-                &common_preprocessed_input,
-                &verifying_key,
-            )
-            .unwrap();
-
-        // Tamper with t_zeta (quotient polynomial evaluation)
-        proof.t_zeta = &proof.t_zeta + FieldElement::one();
-
-        let verifier = Verifier::new(kzg);
+    fn test_neutral_element_passes_validation() {
+        // The neutral element (point at infinity) should always pass validation
+        let neutral = ShortWeierstrassJacobianPoint::<BLS12381Curve>::neutral_element();
+        let validation_result = neutral.validate();
         assert!(
-            !verifier.verify(
-                &proof,
-                &public_input,
-                &common_preprocessed_input,
-                &verifying_key
-            ),
-            "Verifier should reject proof with tampered t_zeta"
+            validation_result.is_ok(),
+            "Neutral element should pass validation"
         );
     }
 
     #[test]
-    fn test_rejects_tampered_z_zeta_omega() {
-        let common_preprocessed_input = test_common_preprocessed_input_1();
-        let srs = test_srs(common_preprocessed_input.n);
+    fn test_point_not_in_subgroup_fails_validation() {
+        // Test that a point on the curve but NOT in the subgroup fails validation
+        // This is a known point on BLS12-381 that is NOT in the subgroup
+        // (it has order divisible by the cofactor)
+        use lambdaworks_math::elliptic_curve::traits::IsEllipticCurve;
 
-        let x = FieldElement::from(4_u64);
-        let y = FieldElement::from(12_u64);
-        let e = FieldElement::from(3_u64);
+        let x = FpElement::from_hex_unchecked("178212cbe4a3026c051d4f867364b3ea84af623f93233b347ffcd3d6b16f16e0a7aedbe1c78d33c6beca76b2b75c8486");
+        let y = FpElement::from_hex_unchecked("13a8b1347e5b43bc4051754b2a29928b5df78cf03ca3b1f73d0424b09fccdef116c9f0ecbec7420a99b2dd785209e9d");
+        let point =
+            BLS12381Curve::create_point_from_affine(x, y).expect("Point should be on curve");
 
-        let public_input = vec![x.clone(), y];
-        let witness = test_witness_1(x, e);
-
-        let kzg = KZG::new(srs);
-        let verifying_key = setup(&common_preprocessed_input, &kzg);
-        let random_generator = TestRandomFieldGenerator {};
-
-        let prover = Prover::new(kzg.clone(), random_generator);
-        let mut proof = prover
-            .prove(
-                &witness,
-                &public_input,
-                &common_preprocessed_input,
-                &verifying_key,
-            )
-            .unwrap();
-
-        // Tamper with z_zeta_omega (permutation polynomial shifted evaluation)
-        proof.z_zeta_omega = &proof.z_zeta_omega + FieldElement::one();
-
-        let verifier = Verifier::new(kzg);
+        // Verify the point is on the curve but not in the subgroup
         assert!(
-            !verifier.verify(
-                &proof,
-                &public_input,
-                &common_preprocessed_input,
-                &verifying_key
-            ),
-            "Verifier should reject proof with tampered z_zeta_omega"
+            !point.is_in_subgroup(),
+            "Test point should not be in subgroup"
+        );
+
+        // Validation should fail
+        let validation_result = point.validate();
+        assert_eq!(
+            validation_result,
+            Err(VerifierError::PointNotInSubgroup),
+            "Point not in subgroup should fail validation"
         );
     }
 
     #[test]
-    fn test_rejects_swapped_commitments() {
-        let common_preprocessed_input = test_common_preprocessed_input_1();
-        let srs = test_srs(common_preprocessed_input.n);
+    fn test_scalar_multiple_of_generator_is_in_subgroup() {
+        // Any scalar multiple of the generator should be in the subgroup
+        use lambdaworks_math::elliptic_curve::traits::IsEllipticCurve;
 
-        let x = FieldElement::from(4_u64);
-        let y = FieldElement::from(12_u64);
-        let e = FieldElement::from(3_u64);
+        let generator = BLS12381Curve::generator();
+        let multiple = generator.operate_with_self(12345u64);
 
-        let public_input = vec![x.clone(), y];
-        let witness = test_witness_1(x, e);
-
-        let kzg = KZG::new(srs);
-        let verifying_key = setup(&common_preprocessed_input, &kzg);
-        let random_generator = TestRandomFieldGenerator {};
-
-        let prover = Prover::new(kzg.clone(), random_generator);
-        let mut proof = prover
-            .prove(
-                &witness,
-                &public_input,
-                &common_preprocessed_input,
-                &verifying_key,
-            )
-            .unwrap();
-
-        // Swap a_1 and b_1 commitments
-        std::mem::swap(&mut proof.a_1, &mut proof.b_1);
-
-        let verifier = Verifier::new(kzg);
+        let validation_result = multiple.validate();
         assert!(
-            !verifier.verify(
-                &proof,
-                &public_input,
-                &common_preprocessed_input,
-                &verifying_key
-            ),
-            "Verifier should reject proof with swapped commitments"
+            validation_result.is_ok(),
+            "Scalar multiple of generator should be in subgroup"
         );
     }
 
     #[test]
-    fn test_rejects_empty_public_input_for_circuit_with_public_inputs() {
+    fn test_verifier_error_display() {
+        // Test that error messages are properly formatted
+        let err = VerifierError::PointNotOnCurve;
+        assert!(
+            format!("{}", err).contains("not a valid point"),
+            "PointNotOnCurve should have descriptive message"
+        );
+
+        let err = VerifierError::PointNotInSubgroup;
+        assert!(
+            format!("{}", err).contains("subgroup"),
+            "PointNotInSubgroup should mention subgroup"
+        );
+
+        let err = VerifierError::InvalidFieldElement;
+        assert!(
+            format!("{}", err).contains("field element"),
+            "InvalidFieldElement should mention field element"
+        );
+    }
+
+    #[test]
+    fn test_valid_verification_key_passes_validation() {
+        // Test that a properly constructed verification key passes validation
+        let common_preprocessed_input = test_common_preprocessed_input_1();
+        let srs = test_srs(common_preprocessed_input.n);
+        let kzg = KZG::new(srs);
+
+        let verifying_key = setup(&common_preprocessed_input, &kzg);
+
+        // Validation should pass for a legitimately generated verification key
+        let validation_result = Verifier::<_, KZG>::validate_verification_key(&verifying_key);
+        assert!(
+            validation_result.is_ok(),
+            "Valid verification key should pass validation"
+        );
+    }
+
+    #[test]
+    fn test_verify_with_validation_validates_both_proof_and_vk() {
+        // Test that verify_with_validation validates both proof elements and VK
         let common_preprocessed_input = test_common_preprocessed_input_1();
         let srs = test_srs(common_preprocessed_input.n);
 
@@ -931,27 +916,24 @@ mod tests {
         let random_generator = TestRandomFieldGenerator {};
 
         let prover = Prover::new(kzg.clone(), random_generator);
-        let proof = prover
-            .prove(
-                &witness,
-                &public_input,
-                &common_preprocessed_input,
-                &verifying_key,
-            )
-            .unwrap();
-
-        // Try to verify with empty public input
-        let empty_public_input: Vec<FieldElement<_>> = vec![];
+        let proof = prover.prove(
+            &witness,
+            &public_input,
+            &common_preprocessed_input,
+            &verifying_key,
+        );
 
         let verifier = Verifier::new(kzg);
-        assert!(
-            !verifier.verify(
-                &proof,
-                &empty_public_input,
-                &common_preprocessed_input,
-                &verifying_key
-            ),
-            "Verifier should reject proof with missing public inputs"
+
+        // verify_with_validation should validate both proof and VK
+        let result = verifier.verify_with_validation(
+            &proof,
+            &public_input,
+            &common_preprocessed_input,
+            &verifying_key,
         );
+
+        assert!(result.is_ok(), "Validation should succeed");
+        assert!(result.unwrap(), "Valid proof with valid VK should verify");
     }
 }

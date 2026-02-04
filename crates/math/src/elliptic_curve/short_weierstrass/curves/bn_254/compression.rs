@@ -57,7 +57,7 @@ impl Compress for BN254Curve {
             x_bytes[0] |= 1 << 7; // x_bytes = 10000000
 
             let y_neg = core::ops::Neg::neg(y);
-            if y_neg.representative() < y.representative() {
+            if y_neg.canonical() < y.canonical() {
                 x_bytes[0] |= 1 << 6; // x_bytes = 11000000
             }
             x_bytes
@@ -103,10 +103,7 @@ impl Compress for BN254Curve {
 
         // If the frist two bits are 10, we take the smaller root.
         // If the first two bits are 11, we take the grater one.
-        let y = match (
-            y_sqrt_1.representative().cmp(&y_sqrt_2.representative()),
-            prefix_bits,
-        ) {
+        let y = match (y_sqrt_1.canonical().cmp(&y_sqrt_2.canonical()), prefix_bits) {
             (Ordering::Greater, 2_u8) => y_sqrt_2,
             (Ordering::Greater, _) => y_sqrt_1,
             (Ordering::Less, 2_u8) => y_sqrt_1,
@@ -147,12 +144,8 @@ impl Compress for BN254Curve {
             // a0 = b0 and a1 < b1.
             let y_neg = -y;
             match (
-                y.value()[0]
-                    .representative()
-                    .cmp(&y_neg.value()[0].representative()),
-                y.value()[1]
-                    .representative()
-                    .cmp(&y_neg.value()[1].representative()),
+                y.value()[0].canonical().cmp(&y_neg.value()[0].canonical()),
+                y.value()[1].canonical().cmp(&y_neg.value()[1].canonical()),
             ) {
                 (Ordering::Greater, _) | (Ordering::Equal, Ordering::Greater) => {
                     x_bytes[0] |= 1 << 6; // Prefix: 11

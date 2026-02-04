@@ -156,7 +156,7 @@ impl<F: IsPrimeField, P: IsPairing> KateZaveruchaGoldberg<F, P> {
     }
 }
 
-impl<const N: usize, F: IsPrimeField<RepresentativeType = UnsignedInteger<N>>, P: IsPairing>
+impl<const N: usize, F: IsPrimeField<CanonicalType = UnsignedInteger<N>>, P: IsPairing>
     IsCommitmentScheme<F> for KateZaveruchaGoldberg<F, P>
 {
     type Commitment = P::G1Point;
@@ -168,7 +168,7 @@ impl<const N: usize, F: IsPrimeField<RepresentativeType = UnsignedInteger<N>>, P
         let coefficients: Vec<_> = p
             .coefficients
             .iter()
-            .map(|coefficient| coefficient.representative())
+            .map(|coefficient| coefficient.canonical())
             .collect();
         msm(
             &coefficients,
@@ -209,12 +209,12 @@ impl<const N: usize, F: IsPrimeField<RepresentativeType = UnsignedInteger<N>>, P
 
         let e = P::compute_batch(&[
             (
-                &p_commitment.operate_with(&(g1.operate_with_self(y.representative())).neg()),
+                &p_commitment.operate_with(&(g1.operate_with_self(y.canonical())).neg()),
                 g2,
             ),
             (
                 &proof.neg(),
-                &(alpha_g2.operate_with(&(g2.operate_with_self(x.representative())).neg())),
+                &(alpha_g2.operate_with(&(g2.operate_with_self(x.canonical())).neg())),
             ),
         ]);
         e == Ok(FieldElement::one())
@@ -260,7 +260,7 @@ impl<const N: usize, F: IsPrimeField<RepresentativeType = UnsignedInteger<N>>, P
                 .iter()
                 .rev()
                 .fold(P::G1Point::neutral_element(), |acc, point| {
-                    acc.operate_with_self(upsilon.to_owned().representative())
+                    acc.operate_with_self(upsilon.to_owned().canonical())
                         .operate_with(point)
                 });
 
@@ -322,14 +322,9 @@ mod tests {
         let g1 = BLS12381Curve::generator();
         let g2 = BLS12381TwistCurve::generator();
         let powers_main_group: Vec<G1> = (0..100)
-            .map(|exponent| {
-                g1.operate_with_self(toxic_waste.pow(exponent as u128).representative())
-            })
+            .map(|exponent| g1.operate_with_self(toxic_waste.pow(exponent as u128).canonical()))
             .collect();
-        let powers_secondary_group = [
-            g2.clone(),
-            g2.operate_with_self(toxic_waste.representative()),
-        ];
+        let powers_secondary_group = [g2.clone(), g2.operate_with_self(toxic_waste.canonical())];
         StructuredReferenceString::new(&powers_main_group, &powers_secondary_group)
     }
 
