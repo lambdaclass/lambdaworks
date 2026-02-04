@@ -16,7 +16,8 @@ use external_comparisons::curves::{
     subgroup_check_comparison,
 };
 use external_comparisons::fft::{
-    baby_bear_fft_comparison, batch_fft_comparison, coset_fft_comparison, goldilocks_fft_comparison,
+    baby_bear_fft_comparison, batch_fft_comparison, coset_fft_comparison,
+    goldilocks_fft_comparison, ifft_comparison,
 };
 use external_comparisons::fields::{
     baby_bear_comparison, babybear_fp4_comparison, batch_inversion_comparison,
@@ -238,6 +239,34 @@ criterion_group!(
 );
 
 // ============================================
+// IFFT / INTERPOLATION BENCHMARKS (LW vs Plonky3)
+// ============================================
+
+criterion_group!(
+    name = goldilocks_ifft;
+    config = Criterion::default().sample_size(10);
+    targets = ifft_comparison::bench_goldilocks_lambdaworks, ifft_comparison::bench_goldilocks_plonky3
+);
+
+criterion_group!(
+    name = babybear_ifft;
+    config = Criterion::default().sample_size(10);
+    targets = ifft_comparison::bench_babybear_lambdaworks, ifft_comparison::bench_babybear_plonky3
+);
+
+criterion_group!(
+    name = goldilocks_batch_ifft;
+    config = Criterion::default().sample_size(10);
+    targets = ifft_comparison::bench_goldilocks_batch_ifft_lambdaworks, ifft_comparison::bench_goldilocks_batch_ifft_plonky3
+);
+
+criterion_group!(
+    name = babybear_batch_ifft;
+    config = Criterion::default().sample_size(10);
+    targets = ifft_comparison::bench_babybear_batch_ifft_lambdaworks, ifft_comparison::bench_babybear_batch_ifft_plonky3
+);
+
+// ============================================
 // POLYNOMIAL BENCHMARKS (LW vs Plonky3)
 // ============================================
 
@@ -344,6 +373,11 @@ criterion_main!(
     // Batch FFT (LW vs Plonky3)
     goldilocks_batch_fft,
     babybear_batch_fft,
+    // IFFT / Interpolation (LW vs Plonky3)
+    goldilocks_ifft,
+    babybear_ifft,
+    goldilocks_batch_ifft,
+    babybear_batch_ifft,
     // Polynomials (LW vs Plonky3)
     polynomial_ops,
     // Curves G1 (LW vs Arkworks)
