@@ -19,9 +19,9 @@ use external_comparisons::fft::{
     baby_bear_fft_comparison, batch_fft_comparison, coset_fft_comparison, goldilocks_fft_comparison,
 };
 use external_comparisons::fields::{
-    baby_bear_comparison, batch_inversion_comparison, bls12_381_field_comparison,
-    bn254_field_comparison, extension_field_comparison, goldilocks_comparison,
-    mersenne31_comparison,
+    baby_bear_comparison, babybear_fp4_comparison, batch_inversion_comparison,
+    bls12_381_field_comparison, bn254_field_comparison, extension_field_comparison,
+    goldilocks_comparison, mersenne31_comparison,
 };
 use external_comparisons::polynomials::polynomial_comparison;
 
@@ -45,6 +45,12 @@ criterion_group!(
     name = mersenne31_field;
     config = Criterion::default().sample_size(10);
     targets = mersenne31_comparison::bench_lambdaworks, mersenne31_comparison::bench_plonky3
+);
+
+criterion_group!(
+    name = babybear_fp4_field;
+    config = Criterion::default().sample_size(10);
+    targets = babybear_fp4_comparison::bench_lambdaworks, babybear_fp4_comparison::bench_plonky3
 );
 
 // ============================================
@@ -318,6 +324,8 @@ criterion_main!(
     goldilocks_field,
     baby_bear_field,
     mersenne31_field,
+    // Extension Fields (LW vs Plonky3)
+    babybear_fp4_field,
     // Fields (LW vs Arkworks)
     bn254_field,
     bls12_381_field,

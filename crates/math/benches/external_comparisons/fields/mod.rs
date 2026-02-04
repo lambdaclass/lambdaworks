@@ -1,4 +1,5 @@
 pub mod baby_bear_comparison;
+pub mod babybear_fp4_comparison;
 pub mod batch_inversion_comparison;
 pub mod bls12_381_field_comparison;
 pub mod bn254_field_comparison;
