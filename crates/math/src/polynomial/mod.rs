@@ -6,6 +6,14 @@ use core::fmt::{self, Display};
 use core::ops::{AddAssign, MulAssign, SubAssign};
 use core::{ops, slice};
 pub mod dense_multilinear_poly;
+
+/// Re-exports from dense_multilinear_poly module for convenience.
+///
+/// - [`DenseMultilinearPolynomial`]: A multilinear polynomial represented by its evaluations
+///   over the boolean hypercube {0,1}^n.
+/// - [`eq_eval`]: Evaluates the equality polynomial eq(x, r) = ∏(x_i * r_i + (1-x_i)(1-r_i)).
+/// - [`eq_polynomial`]: Computes the equality polynomial evaluations for sumcheck protocols.
+pub use dense_multilinear_poly::{eq_eval, eq_polynomial, DenseMultilinearPolynomial};
 pub mod error;
 pub use error::{MultilinearError, PolynomialError};
 pub mod sparse_multilinear_poly;
