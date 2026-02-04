@@ -198,18 +198,10 @@ mod test {
     }
 
     #[test]
-<<<<<<< feat/plonk-dsl
-    fn test_grinding_factor_zero_always_valid() {
-        // With grinding_factor = 0, any nonce should be valid (no PoW requirement)
-        let seed = [0u8; 32];
-        assert!(is_valid_nonce(&seed, 0, 0));
-        assert!(is_valid_nonce(&seed, 12345, 0));
-=======
     fn test_is_valid_nonce_grinding_factor_0() {
         let seed = [0u8; 32];
         // Any nonce should be valid when grinding_factor is 0 (no leading zeros required)
         assert!(is_valid_nonce(&seed, 0, 0));
->>>>>>> main
         assert!(is_valid_nonce(&seed, u64::MAX, 0));
     }
 

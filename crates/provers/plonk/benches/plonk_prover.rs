@@ -41,9 +41,9 @@ fn bench_srs(n: usize) -> StructuredReferenceString<G1Point, G2Point> {
     let g2 = <BLS12381TwistCurve as IsEllipticCurve>::generator();
 
     let powers_main_group: Vec<G1Point> = (0..n + 3)
-        .map(|exp| g1.operate_with_self(s.pow(exp as u64).representative()))
+        .map(|exp| g1.operate_with_self(s.pow(exp as u64).canonical()))
         .collect();
-    let powers_secondary_group = [g2.clone(), g2.operate_with_self(s.representative())];
+    let powers_secondary_group = [g2.clone(), g2.operate_with_self(s.canonical())];
 
     StructuredReferenceString::new(&powers_main_group, &powers_secondary_group)
 }

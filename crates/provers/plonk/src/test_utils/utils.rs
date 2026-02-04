@@ -1,12 +1,10 @@
 use lambdaworks_crypto::commitments::kzg::KateZaveruchaGoldberg;
 use lambdaworks_crypto::commitments::kzg::StructuredReferenceString;
-use lambdaworks_math::elliptic_curve::short_weierstrass::curves::bls12_381::curve::SUBGROUP_ORDER;
 use lambdaworks_math::elliptic_curve::short_weierstrass::curves::bls12_381::default_types::FrElement;
 use lambdaworks_math::elliptic_curve::short_weierstrass::curves::bls12_381::default_types::FrField;
 use lambdaworks_math::elliptic_curve::short_weierstrass::curves::bls12_381::pairing::BLS12381AtePairing;
 use lambdaworks_math::field::traits::IsField;
 use lambdaworks_math::traits::ByteConversion;
-use lambdaworks_math::unsigned_integer::element::U256;
 use lambdaworks_math::{
     cyclic_group::IsGroup,
     elliptic_curve::{
@@ -18,8 +16,6 @@ use lambdaworks_math::{
     field::element::FieldElement,
     traits::IsRandomFieldElementGenerator,
 };
-
-use crate::verifier::SubgroupCheck;
 
 pub type Curve = BLS12381Curve;
 pub type TwistedCurve = BLS12381TwistCurve;
@@ -135,24 +131,6 @@ impl IsRandomFieldElementGenerator<FrField> for SecureRandomFieldGenerator {
             FrElement::from_bytes_be(&random_bytes2)
                 .expect("Failed to generate random field element")
         })
-    }
-}
-
-/// Implementation of SubgroupCheck for BLS12-381 G1 points.
-/// This enables the verifier to validate that proof commitments
-/// are in the prime-order subgroup, preventing small subgroup attacks.
-impl SubgroupCheck for G1Point {
-    type Order = U256;
-
-    fn subgroup_order() -> Self::Order {
-        SUBGROUP_ORDER
-    }
-
-    /// Uses the efficient endomorphism-based check: φ(P) = -u²P
-    /// where φ is the GLV endomorphism and u is the seed.
-    fn is_in_subgroup(&self) -> bool {
-        // Delegate to the optimized implementation on the point type
-        G1Point::is_in_subgroup(self)
     }
 }
 
