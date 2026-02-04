@@ -209,7 +209,14 @@ impl<F: IsField, const NUM_LEAVES: usize, P: PoseidonParams<F>> Gadget<F>
             current_level = next_level;
         }
 
-        Ok(current_level.into_iter().next().unwrap())
+        current_level
+            .into_iter()
+            .next()
+            .ok_or_else(|| {
+                GadgetError::SynthesisError(
+                    "MerkleRoot computation resulted in empty tree".to_string(),
+                )
+            })
     }
 
     fn constraint_count() -> usize {

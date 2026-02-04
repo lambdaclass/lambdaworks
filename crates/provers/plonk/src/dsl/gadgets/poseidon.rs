@@ -52,7 +52,25 @@ pub trait PoseidonParams<F: IsField>: Clone {
 
 /// Default Poseidon parameters (simplified for testing).
 ///
-/// For production use with specific curves, provide concrete parameters.
+/// # ⚠️ SECURITY WARNING - DO NOT USE IN PRODUCTION ⚠️
+///
+/// These parameters use simplified constants that provide **NO cryptographic security**.
+/// They are only suitable for:
+/// - Unit tests
+/// - Development and debugging
+/// - Circuit structure verification
+///
+/// **Using these parameters in production will result in cryptographically weak proofs
+/// that can be forged or attacked.**
+///
+/// For production use, implement `PoseidonParams` with cryptographically secure constants
+/// derived from proper parameter generation (e.g., using the Grain LFSR or similar method).
+///
+/// # What's Wrong With These Parameters?
+///
+/// 1. **Round constants are all 1**: Removes randomness that prevents differential attacks
+/// 2. **MDS matrix is trivially structured**: Potentially allows algebraic attacks
+/// 3. **Not derived from secure randomness**: No security proof or analysis
 #[derive(Clone)]
 pub struct DefaultPoseidonParams;
 
@@ -64,15 +82,14 @@ impl<F: IsField> PoseidonParams<F> for DefaultPoseidonParams {
     const PARTIAL_ROUNDS: usize = 83;
 
     fn round_constant(_round: usize, _position: usize) -> FieldElement<F> {
-        // Simplified: use deterministic but non-zero constants
-        // In production, use cryptographically derived constants
+        // ⚠️ INSECURE: All round constants are 1
+        // Production: Use cryptographically derived constants from Grain LFSR or similar
         FieldElement::<F>::from(1u64)
     }
 
     fn mds_element(row: usize, col: usize) -> FieldElement<F> {
-        // Simplified MDS matrix: Cauchy matrix variant
-        // M[i][j] = 1 / (x_i + y_j) where x and y are distinct
-        // Simplified: just return sum + 1 for now
+        // ⚠️ INSECURE: Trivial MDS matrix structure
+        // Production: Use proper Cauchy matrix with secure parameters
         FieldElement::<F>::from((row + col + 1) as u64)
     }
 }
