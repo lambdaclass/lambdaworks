@@ -55,8 +55,8 @@ impl fmt::Display for CreationError {
             CreationError::HexStringIsTooBig => {
                 write!(f, "Hexadecimal string exceeds maximum allowed size")
             }
-            CreationError::RepresentativeOutOfRange => {
-                write!(f, "Representative is out of the valid range for the field")
+            CreationError::CanonicalValueOutOfRange => {
+                write!(f, "Canonical value is out of the valid range for the field")
             }
             CreationError::EmptyString => write!(f, "Cannot create element from empty string"),
         }
