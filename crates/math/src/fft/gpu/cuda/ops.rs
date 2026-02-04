@@ -81,14 +81,20 @@ mod tests {
     use super::*;
     use crate::fft::cpu::roots_of_unity::get_twiddles;
     use crate::field::{
-        element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
+        element::FieldElement,
+        fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
+        fields::u64_goldilocks_field::Goldilocks64Field,
         traits::RootsConfig,
     };
     use proptest::{collection, prelude::*};
 
-    // FFT related tests
+    // FFT related tests for Stark252
     type F = Stark252PrimeField;
     type FE = FieldElement<F>;
+
+    // FFT tests for Goldilocks
+    type GF = Goldilocks64Field;
+    type GFE = FieldElement<GF>;
 
     prop_compose! {
         fn powers_of_two(max_exp: u8)(exp in 1..max_exp) -> usize { 1 << exp }
@@ -141,5 +147,112 @@ mod tests {
         let twiddles = gen_twiddles::<F>(64, RootsConfig::Natural, &state);
 
         assert!(matches!(twiddles, Err(CudaError::FunctionError(_))));
+    }
+
+    // =====================================================
+    // GOLDILOCKS FIELD CUDA FFT TESTS
+    // =====================================================
+
+    prop_compose! {
+        fn goldilocks_powers_of_two(max_exp: u8)(exp in 1..max_exp) -> usize { 1 << exp }
+    }
+
+    prop_compose! {
+        fn goldilocks_field_element()(num in any::<u64>().prop_filter("Avoid null coefficients", |x| x != &0)) -> GFE {
+            GFE::from(num)
+        }
+    }
+
+    fn goldilocks_field_vec(max_exp: u8) -> impl Strategy<Value = Vec<GFE>> {
+        goldilocks_powers_of_two(max_exp).prop_flat_map(|size| collection::vec(goldilocks_field_element(), size))
+    }
+
+    proptest! {
+        #[test]
+        fn test_goldilocks_cuda_fft_matches_cpu_fft(input in goldilocks_field_vec(4)) {
+            let state = CudaState::new().unwrap();
+            let order = input.len().trailing_zeros();
+            let twiddles = get_twiddles(order.into(), RootsConfig::BitReverse).unwrap();
+
+            let cuda_fft = fft(&input, &twiddles, &state).unwrap();
+            let cpu_fft = crate::fft::cpu::ops::fft(&input, &twiddles).unwrap();
+
+            prop_assert_eq!(cuda_fft, cpu_fft);
+        }
+
+        #[test]
+        fn test_goldilocks_cuda_twiddles_match_cpu_twiddles(order in 1u64..10) {
+            let state = CudaState::new().unwrap();
+
+            let cuda_twiddles: Vec<GFE> = gen_twiddles(order, RootsConfig::Natural, &state).unwrap();
+            let cpu_twiddles: Vec<GFE> = get_twiddles(order, RootsConfig::Natural).unwrap();
+
+            prop_assert_eq!(cuda_twiddles, cpu_twiddles);
+        }
+    }
+
+    #[test]
+    fn test_goldilocks_cuda_fft_simple() {
+        // Test with a simple known input
+        let input: Vec<GFE> = vec![
+            GFE::from(1u64),
+            GFE::from(2u64),
+            GFE::from(3u64),
+            GFE::from(4u64),
+        ];
+
+        let state = CudaState::new().unwrap();
+        let order = input.len().trailing_zeros();
+        let twiddles = get_twiddles(order.into(), RootsConfig::BitReverse).unwrap();
+
+        let cuda_result = fft(&input, &twiddles, &state).unwrap();
+        let cpu_result = crate::fft::cpu::ops::fft(&input, &twiddles).unwrap();
+
+        assert_eq!(cuda_result, cpu_result);
+    }
+
+    #[test]
+    fn test_goldilocks_cuda_fft_large_input() {
+        const ORDER: usize = 16;
+        let input: Vec<GFE> = (0..(1 << ORDER)).map(|i| GFE::from(i as u64 + 1)).collect();
+
+        let state = CudaState::new().unwrap();
+        let order = input.len().trailing_zeros();
+        let twiddles = get_twiddles(order.into(), RootsConfig::BitReverse).unwrap();
+
+        let cuda_result = fft(&input, &twiddles, &state).unwrap();
+        let cpu_result = crate::fft::cpu::ops::fft(&input, &twiddles).unwrap();
+
+        assert_eq!(cuda_result, cpu_result);
+    }
+
+    #[test]
+    fn test_goldilocks_cuda_bitrev_permutation() {
+        let input: Vec<GFE> = (0..8).map(|i| GFE::from(i + 1)).collect();
+        let state = CudaState::new().unwrap();
+
+        let cuda_result = bitrev_permutation(input.clone(), &state).unwrap();
+
+        // Expected bit-reversed order for 8 elements:
+        // 0 (000) -> 0 (000)
+        // 1 (001) -> 4 (100)
+        // 2 (010) -> 2 (010)
+        // 3 (011) -> 6 (110)
+        // 4 (100) -> 1 (001)
+        // 5 (101) -> 5 (101)
+        // 6 (110) -> 3 (011)
+        // 7 (111) -> 7 (111)
+        let expected: Vec<GFE> = vec![
+            GFE::from(1u64),
+            GFE::from(5u64),
+            GFE::from(3u64),
+            GFE::from(7u64),
+            GFE::from(2u64),
+            GFE::from(6u64),
+            GFE::from(4u64),
+            GFE::from(8u64),
+        ];
+
+        assert_eq!(cuda_result, expected);
     }
 }
