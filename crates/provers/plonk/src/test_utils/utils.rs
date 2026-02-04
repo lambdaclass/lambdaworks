@@ -1,5 +1,8 @@
-use lambdaworks_crypto::commitments::kzg::KateZaveruchaGoldberg;
-use lambdaworks_crypto::commitments::kzg::StructuredReferenceString;
+use lambdaworks_crypto::pcs::kzg::{
+    KZGAdapter, KZGCommitment, KZGCommitterKey, KZGPublicParams, KZGVerifierKey,
+    StructuredReferenceString, KZG as KZGImpl,
+};
+use lambdaworks_crypto::pcs::PolynomialCommitmentScheme;
 use lambdaworks_math::elliptic_curve::short_weierstrass::curves::bls12_381::default_types::FrElement;
 use lambdaworks_math::elliptic_curve::short_weierstrass::curves::bls12_381::default_types::FrField;
 use lambdaworks_math::elliptic_curve::short_weierstrass::curves::bls12_381::pairing::BLS12381AtePairing;
@@ -21,7 +24,16 @@ pub type TwistedCurve = BLS12381TwistCurve;
 pub type FpField = BLS12381PrimeField;
 pub type FpElement = FieldElement<FpField>;
 pub type Pairing = BLS12381AtePairing;
-pub type KZG = KateZaveruchaGoldberg<FrField, Pairing>;
+
+/// Type alias for the KZG adapter that implements `IsCommitmentScheme`.
+/// This provides backward compatibility with the PLONK prover.
+pub type KZG = KZGAdapter<Pairing>;
+pub type TestKZG = KZGImpl<FrField, Pairing>;
+pub type TestCommitment = KZGCommitment<Pairing>;
+pub type TestCommitterKey = KZGCommitterKey<Pairing>;
+pub type TestVerifierKey = KZGVerifierKey<Pairing>;
+pub type TestPublicParams = KZGPublicParams<Pairing>;
+
 pub const ORDER_R_MINUS_1_ROOT_UNITY: FrElement = FrElement::from_hex_unchecked("7");
 
 pub type G1Point = <BLS12381Curve as IsEllipticCurve>::PointRepresentation;
@@ -40,6 +52,17 @@ pub fn test_srs(n: usize) -> StructuredReferenceString<G1Point, G2Point> {
     let powers_secondary_group = [g2.clone(), g2.operate_with_self(s.canonical())];
 
     StructuredReferenceString::new(&powers_main_group, &powers_secondary_group)
+}
+
+/// Create test public parameters from an SRS
+pub fn test_public_params(n: usize) -> TestPublicParams {
+    KZGPublicParams::from_srs(test_srs(n))
+}
+
+/// Create test committer and verifier keys
+pub fn test_keys(n: usize) -> (TestCommitterKey, TestVerifierKey) {
+    let pp = test_public_params(n);
+    TestKZG::trim(&pp, n + 2).expect("trim should succeed for valid degree")
 }
 
 /// Generates a domain to interpolate: 1, omega, omega², ..., omega^size

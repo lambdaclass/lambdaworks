@@ -19,7 +19,9 @@
 //!
 //! - [KZG10 Paper](https://www.iacr.org/archive/asiacrypt2010/6477178/6477178.pdf)
 
+mod adapter;
 mod commitment;
+mod legacy_srs;
 mod proof;
 mod srs;
 
@@ -28,7 +30,9 @@ use crate::pcs::traits::PolynomialCommitmentScheme;
 #[cfg(feature = "alloc")]
 use crate::pcs::traits::BatchPCS;
 
+pub use adapter::KZGAdapter;
 pub use commitment::KZGCommitment;
+pub use legacy_srs::StructuredReferenceString;
 pub use proof::KZGProof;
 pub use srs::{KZGCommitterKey, KZGPublicParams, KZGVerifierKey};
 
@@ -152,6 +156,7 @@ where
         Ok((ck, vk))
     }
 
+    #[inline]
     fn commit(
         ck: &Self::CommitterKey,
         polynomial: &Polynomial<FieldElement<F>>,
@@ -179,6 +184,7 @@ where
         Ok((commitment, state))
     }
 
+    #[inline]
     fn open(
         ck: &Self::CommitterKey,
         polynomial: &Polynomial<FieldElement<F>>,
@@ -211,6 +217,7 @@ where
         Ok(KZGProof::new(proof_point))
     }
 
+    #[inline]
     fn verify(
         vk: &Self::VerifierKey,
         commitment: &Self::Commitment,

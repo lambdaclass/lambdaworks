@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use crate::constraint_system::{get_permutation, ConstraintSystem, Variable};
 use crate::prover::ProverError;
 use crate::test_utils::utils::{generate_domain, generate_permutation_coefficients};
-use lambdaworks_crypto::commitments::traits::IsCommitmentScheme;
+use lambdaworks_crypto::pcs::IsCommitmentScheme;
 use lambdaworks_crypto::fiat_shamir::{
     default_transcript::DefaultTranscript, is_transcript::IsTranscript,
 };

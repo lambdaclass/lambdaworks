@@ -10,7 +10,7 @@ use std::marker::PhantomData;
 use crate::setup::{
     new_strong_fiat_shamir_transcript, CommonPreprocessedInput, VerificationKey, Witness,
 };
-use lambdaworks_crypto::commitments::traits::IsCommitmentScheme;
+use lambdaworks_crypto::pcs::IsCommitmentScheme;
 use lambdaworks_math::{
     field::element::FieldElement,
     polynomial::{self, Polynomial},

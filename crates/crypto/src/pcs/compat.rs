@@ -1,47 +1,28 @@
+//! Compatibility layer for legacy code.
+//!
+//! This module provides the old `IsCommitmentScheme` trait and an adapter
+//! to bridge legacy code with the new PCS interface.
+
 use lambdaworks_math::{
     field::{element::FieldElement, traits::IsField},
     polynomial::Polynomial,
 };
 
+#[cfg(feature = "alloc")]
+use alloc::vec::Vec;
+
 /// Legacy commitment scheme trait.
 ///
-/// # Deprecation Notice
-///
-/// This trait is deprecated in favor of [`crate::pcs::PolynomialCommitmentScheme`],
-/// which provides:
-/// - Proper error handling with `Result` types
-/// - Separate `CommitterKey` and `VerifierKey` types
-/// - Explicit `setup` and `trim` methods
-/// - Better batch operation support
-///
-/// ## Migration Guide
-///
-/// Replace:
-/// ```ignore
-/// use lambdaworks_crypto::commitments::traits::IsCommitmentScheme;
-/// let kzg = KateZaveruchaGoldberg::new(srs);
-/// let commitment = kzg.commit(&polynomial);
-/// ```
-///
-/// With:
-/// ```ignore
-/// use lambdaworks_crypto::pcs::{PolynomialCommitmentScheme, kzg::KZG};
-/// let pp = KZGPublicParams::from_srs(srs);
-/// let (ck, vk) = KZG::<F, P>::trim(&pp, degree)?;
-/// let (commitment, state) = KZG::commit(&ck, &polynomial)?;
-/// ```
-#[deprecated(
-    since = "0.14.0",
-    note = "Use `lambdaworks_crypto::pcs::PolynomialCommitmentScheme` instead"
-)]
+/// This trait is provided for backward compatibility with existing code.
+/// New code should use [`PolynomialCommitmentScheme`](super::PolynomialCommitmentScheme) instead.
 pub trait IsCommitmentScheme<F: IsField> {
+    /// The commitment type
     type Commitment;
 
     /// Create a commitment to a polynomial
     fn commit(&self, p: &Polynomial<FieldElement<F>>) -> Self::Commitment;
 
     /// Create an evaluation proof for a polynomial at x equal to y
-    /// p(x) = y
     fn open(
         &self,
         x: &FieldElement<F>,
@@ -50,7 +31,6 @@ pub trait IsCommitmentScheme<F: IsField> {
     ) -> Self::Commitment;
 
     /// Create an evaluation proof for a slice of polynomials at x equal to y_i
-    /// that is, we show that we evaluated correctly p_i (x) = y_i
     fn open_batch(
         &self,
         x: &FieldElement<F>,
@@ -59,7 +39,7 @@ pub trait IsCommitmentScheme<F: IsField> {
         upsilon: &FieldElement<F>,
     ) -> Self::Commitment;
 
-    /// Verify an evaluation proof given the commitment to p, the point x and the evaluation y
+    /// Verify an evaluation proof
     fn verify(
         &self,
         x: &FieldElement<F>,
@@ -68,7 +48,7 @@ pub trait IsCommitmentScheme<F: IsField> {
         proof: &Self::Commitment,
     ) -> bool;
 
-    /// Verify an evaluation proof given the commitments to p, the point x and the evaluations ys
+    /// Verify a batch evaluation proof
     fn verify_batch(
         &self,
         x: &FieldElement<F>,
@@ -78,3 +58,6 @@ pub trait IsCommitmentScheme<F: IsField> {
         upsilon: &FieldElement<F>,
     ) -> bool;
 }
+
+// Re-export KZG adapter
+pub use super::kzg::KZGAdapter;

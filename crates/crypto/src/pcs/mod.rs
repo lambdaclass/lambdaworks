@@ -58,6 +58,7 @@
 //! - Separate `Commitment` and `Proof` types
 //! - Transcript integration for Fiat-Shamir
 
+pub mod compat;
 pub mod error;
 pub mod traits;
 pub mod transcript;
@@ -74,3 +75,6 @@ pub use traits::PolynomialCommitmentScheme;
 #[cfg(feature = "alloc")]
 pub use traits::{BatchPCS, SerializablePCS};
 pub use transcript::{AsBytes, FromBytes, PCSTranscript, PCSTranscriptExt};
+
+// Legacy compatibility re-exports
+pub use compat::IsCommitmentScheme;

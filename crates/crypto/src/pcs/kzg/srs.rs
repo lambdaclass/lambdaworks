@@ -5,10 +5,9 @@ use lambdaworks_math::elliptic_curve::traits::IsPairing;
 use lambdaworks_math::errors::DeserializationError;
 use lambdaworks_math::traits::{AsBytes, Deserializable};
 
-#[cfg(feature = "alloc")]
 use alloc::vec::Vec;
 
-use crate::commitments::kzg::StructuredReferenceString;
+use super::legacy_srs::StructuredReferenceString;
 
 /// KZG Public Parameters (Structured Reference String).
 ///
