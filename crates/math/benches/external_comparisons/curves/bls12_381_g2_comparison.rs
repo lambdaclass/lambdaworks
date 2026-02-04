@@ -1,8 +1,8 @@
-//! External comparison benchmarks: Lambdaworks vs Arkworks (BLS12-381 G1 curve)
+//! External comparison benchmarks: Lambdaworks vs Arkworks (BLS12-381 G2 curve)
 //!
 //! Compares:
-//! - Lambdaworks BLS12381Curve (Projective)
-//! - Arkworks ark-bls12-381 G1Projective
+//! - Lambdaworks BLS12381TwistCurve (Jacobian)
+//! - Arkworks ark-bls12-381 G2Projective
 //!
 //! Operations: add, double, scalar_mul
 
@@ -12,34 +12,34 @@ use rand::{Rng, SeedableRng};
 
 // Lambdaworks
 use lambdaworks_math::cyclic_group::IsGroup;
-use lambdaworks_math::elliptic_curve::short_weierstrass::curves::bls12_381::curve::BLS12381Curve;
+use lambdaworks_math::elliptic_curve::short_weierstrass::curves::bls12_381::twist::BLS12381TwistCurve;
 use lambdaworks_math::elliptic_curve::short_weierstrass::point::ShortWeierstrassJacobianPoint;
 use lambdaworks_math::elliptic_curve::traits::IsEllipticCurve;
 use lambdaworks_math::unsigned_integer::element::U256;
 
 // Arkworks
-use ark_bls12_381::{Fr as ArkBLS12381Fr, G1Projective as ArkBLS12381G1};
+use ark_bls12_381::{Fr as ArkFr, G2Projective as ArkG2};
 use ark_ec::{AdditiveGroup, CurveGroup};
 use ark_ff::UniformRand;
 
 const SEED: u64 = 0xBEEF;
 const SIZES: [usize; 3] = [100, 500, 1000];
 
-type LwBLS12381G1 = ShortWeierstrassJacobianPoint<BLS12381Curve>;
+type LwBLS12381G2 = ShortWeierstrassJacobianPoint<BLS12381TwistCurve>;
 
 // ============================================
 // LAMBDAWORKS BENCHMARKS
 // ============================================
 
 pub fn bench_lambdaworks(c: &mut Criterion) {
-    let mut group = c.benchmark_group("BLS12-381 G1 Lambdaworks");
+    let mut group = c.benchmark_group("BLS12-381 G2 Lambdaworks");
 
     let mut rng = StdRng::seed_from_u64(SEED);
-    let generator = BLS12381Curve::generator();
+    let generator = BLS12381TwistCurve::generator();
 
     for size in SIZES {
         // Generate random points by scalar multiplication of generator
-        let points: Vec<LwBLS12381G1> = (0..size)
+        let points: Vec<LwBLS12381G2> = (0..size)
             .map(|_| {
                 let scalar = U256::from(rng.gen::<u64>());
                 generator.operate_with_self(scalar)
@@ -88,14 +88,13 @@ pub fn bench_lambdaworks(c: &mut Criterion) {
 // ============================================
 
 pub fn bench_arkworks(c: &mut Criterion) {
-    let mut group = c.benchmark_group("BLS12-381 G1 Arkworks");
+    let mut group = c.benchmark_group("BLS12-381 G2 Arkworks");
 
     let mut rng = StdRng::seed_from_u64(SEED);
 
     for size in SIZES {
-        let points: Vec<ArkBLS12381G1> = (0..size).map(|_| ArkBLS12381G1::rand(&mut rng)).collect();
-        let scalars: Vec<ArkBLS12381Fr> =
-            (0..size).map(|_| ArkBLS12381Fr::rand(&mut rng)).collect();
+        let points: Vec<ArkG2> = (0..size).map(|_| ArkG2::rand(&mut rng)).collect();
+        let scalars: Vec<ArkFr> = (0..size).map(|_| ArkFr::rand(&mut rng)).collect();
 
         group.throughput(Throughput::Elements(size as u64));
 

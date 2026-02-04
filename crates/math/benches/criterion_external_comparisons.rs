@@ -10,14 +10,16 @@ mod external_comparisons;
 use criterion::{criterion_group, criterion_main, Criterion};
 
 use external_comparisons::curves::{
-    bls12_381_curve_comparison, bls12_381_msm_comparison, bls12_381_pairing_comparison,
-    bn254_curve_comparison, bn254_msm_comparison, bn254_pairing_comparison,
+    bls12_381_curve_comparison, bls12_381_g2_comparison, bls12_381_msm_comparison,
+    bls12_381_pairing_comparison, bn254_curve_comparison, bn254_g2_comparison,
+    bn254_msm_comparison, bn254_pairing_comparison,
 };
 use external_comparisons::fft::{baby_bear_fft_comparison, goldilocks_fft_comparison};
 use external_comparisons::fields::{
     baby_bear_comparison, bls12_381_field_comparison, bn254_field_comparison,
     goldilocks_comparison, mersenne31_comparison,
 };
+use external_comparisons::polynomials::polynomial_comparison;
 
 // ============================================
 // FIELD BENCHMARKS (LW vs Plonky3)
@@ -86,6 +88,26 @@ criterion_group!(
 );
 
 // ============================================
+// G2 CURVE BENCHMARKS (LW vs Arkworks)
+// ============================================
+
+criterion_group!(
+    name = bn254_g2;
+    config = Criterion::default().sample_size(10);
+    targets =
+        bn254_g2_comparison::bench_lambdaworks,
+        bn254_g2_comparison::bench_arkworks
+);
+
+criterion_group!(
+    name = bls12_381_g2;
+    config = Criterion::default().sample_size(10);
+    targets =
+        bls12_381_g2_comparison::bench_lambdaworks,
+        bls12_381_g2_comparison::bench_arkworks
+);
+
+// ============================================
 // MSM BENCHMARKS (LW vs Arkworks)
 // ============================================
 
@@ -119,6 +141,16 @@ criterion_group!(
     name = baby_bear_fft;
     config = Criterion::default().sample_size(10);
     targets = baby_bear_fft_comparison::bench_lambdaworks, baby_bear_fft_comparison::bench_plonky3
+);
+
+// ============================================
+// POLYNOMIAL BENCHMARKS (LW vs Plonky3)
+// ============================================
+
+criterion_group!(
+    name = polynomial_ops;
+    config = Criterion::default().sample_size(10);
+    targets = polynomial_comparison::bench_lambdaworks, polynomial_comparison::bench_plonky3
 );
 
 // ============================================
@@ -156,9 +188,14 @@ criterion_main!(
     // FFT (LW vs Plonky3)
     goldilocks_fft,
     baby_bear_fft,
-    // Curves (LW vs Arkworks)
+    // Polynomials (LW vs Plonky3)
+    polynomial_ops,
+    // Curves G1 (LW vs Arkworks)
     bn254_curve,
     bls12_381_curve,
+    // Curves G2 (LW vs Arkworks)
+    bn254_g2,
+    bls12_381_g2,
     // MSM (LW vs Arkworks)
     bn254_msm,
     bls12_381_msm,

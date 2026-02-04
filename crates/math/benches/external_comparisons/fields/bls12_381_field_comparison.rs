@@ -212,9 +212,7 @@ pub fn bench_bls12_381_fq_arkworks(c: &mut Criterion) {
     let mut rng = StdRng::seed_from_u64(SEED);
 
     for size in SIZES {
-        let values: Vec<ArkBLS12381Fq> = (0..size)
-            .map(|_| ArkBLS12381Fq::rand(&mut rng))
-            .collect();
+        let values: Vec<ArkBLS12381Fq> = (0..size).map(|_| ArkBLS12381Fq::rand(&mut rng)).collect();
         group.throughput(Throughput::Elements(size as u64));
 
         group.bench_with_input(BenchmarkId::new("mul", size), &values, |b, vals| {

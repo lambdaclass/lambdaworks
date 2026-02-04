@@ -51,3 +51,7 @@ harness = false
 [[bench]]
 name = "criterion_pedersen"
 harness = false
+
+[[bench]]
+name = "criterion_external_comparisons"
+harness = false

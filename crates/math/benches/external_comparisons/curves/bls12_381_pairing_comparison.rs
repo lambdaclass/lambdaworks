@@ -58,9 +58,7 @@ pub fn bench_lambdaworks(c: &mut Criterion) {
     group.throughput(Throughput::Elements(1));
     group.bench_function("pairing/1", |b| {
         b.iter(|| {
-            black_box(
-                BLS12381AtePairing::compute_batch(&[(&g1_points[0], &g2_points[0])]).unwrap(),
-            )
+            black_box(BLS12381AtePairing::compute_batch(&[(&g1_points[0], &g2_points[0])]).unwrap())
         })
     });
 

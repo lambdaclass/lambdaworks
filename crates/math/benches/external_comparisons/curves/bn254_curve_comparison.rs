@@ -94,9 +94,7 @@ pub fn bench_arkworks(c: &mut Criterion) {
 
     for size in SIZES {
         let points: Vec<ArkBN254G1> = (0..size).map(|_| ArkBN254G1::rand(&mut rng)).collect();
-        let scalars: Vec<ArkBN254Fr> = (0..size)
-            .map(|_| ArkBN254Fr::rand(&mut rng))
-            .collect();
+        let scalars: Vec<ArkBN254Fr> = (0..size).map(|_| ArkBN254Fr::rand(&mut rng)).collect();
 
         group.throughput(Throughput::Elements(size as u64));
 
