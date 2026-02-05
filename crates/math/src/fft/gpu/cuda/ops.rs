@@ -81,10 +81,8 @@ mod tests {
     use super::*;
     use crate::fft::cpu::roots_of_unity::get_twiddles;
     use crate::field::{
-        element::FieldElement,
-        fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
-        fields::u64_goldilocks_field::Goldilocks64Field,
-        traits::RootsConfig,
+        element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
+        fields::u64_goldilocks_field::Goldilocks64Field, traits::RootsConfig,
     };
     use proptest::{collection, prelude::*};
 
@@ -164,7 +162,8 @@ mod tests {
     }
 
     fn goldilocks_field_vec(max_exp: u8) -> impl Strategy<Value = Vec<GFE>> {
-        goldilocks_powers_of_two(max_exp).prop_flat_map(|size| collection::vec(goldilocks_field_element(), size))
+        goldilocks_powers_of_two(max_exp)
+            .prop_flat_map(|size| collection::vec(goldilocks_field_element(), size))
     }
 
     proptest! {
