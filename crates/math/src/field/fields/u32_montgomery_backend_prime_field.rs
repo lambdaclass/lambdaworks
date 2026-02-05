@@ -126,43 +126,28 @@ impl<const MODULUS: u32> IsField for U32MontgomeryBackendPrimeField<MODULUS> {
     /// Computes multiplicative inverse using Fermat's Little Theorem
     /// It states that for any non-zero element a in field F_p: a^(p-1) ≡ 1 (mod p)
     /// Therefore: a^(p-2) * a ≡ 1 (mod p), so a^(p-2) is the multiplicative inverse
-    /// Implementation inspired by Plonky3's work.
-    /// <https://github.com/Plonky3/Plonky3/blob/636ed23f3b0de1fe16e87b67d1f25402414fa5d7/baby-bear/src/baby_bear.rs#L36>
+    ///
+    /// Uses generic square-and-multiply algorithm that works for any prime modulus.
     #[inline(always)]
     fn inv(a: &Self::BaseType) -> Result<Self::BaseType, FieldError> {
         if *a == Self::ZERO {
             return Err(FieldError::InvZeroError);
         }
-        let p100000000 = MontgomeryAlgorithms::exp_power_of_2(a, 8, &MODULUS, &Self::MU);
-        let p100000001 = Self::mul(&p100000000, a);
-        let p10000000000000000 =
-            MontgomeryAlgorithms::exp_power_of_2(&p100000000, 8, &MODULUS, &Self::MU);
-        let p10000000100000001 = Self::mul(&p10000000000000000, &p100000001);
-        let p10000000100000001000 =
-            MontgomeryAlgorithms::exp_power_of_2(&p10000000100000001, 3, &MODULUS, &Self::MU);
-        let p1000000010000000100000000 =
-            MontgomeryAlgorithms::exp_power_of_2(&p10000000100000001000, 5, &MODULUS, &Self::MU);
-        let p1000000010000000100000001 = Self::mul(&p1000000010000000100000000, a);
-        let p1000010010000100100001001 =
-            Self::mul(&p1000000010000000100000001, &p10000000100000001000);
-        let p10000000100000001000000010 = Self::square(&p1000000010000000100000001);
+        // Compute a^(p-2) using square-and-multiply
+        let exp = MODULUS - 2;
+        let mut result = Self::ONE;
+        let mut base = *a;
+        let mut e = exp;
 
-        let p11000010110000101100001011 =
-            Self::mul(&p10000000100000001000000010, &p1000010010000100100001001);
-        let p100000001000000010000000100 = Self::square(&p10000000100000001000000010);
-        let p111000011110000111100001111 =
-            Self::mul(&p100000001000000010000000100, &p11000010110000101100001011);
-        let p1110000111100001111000011110000 = MontgomeryAlgorithms::exp_power_of_2(
-            &p111000011110000111100001111,
-            4,
-            &MODULUS,
-            &Self::MU,
-        );
-        let p1110111111111111111111111111111 = Self::mul(
-            &p1110000111100001111000011110000,
-            &p111000011110000111100001111,
-        );
-        Ok(p1110111111111111111111111111111)
+        while e > 0 {
+            if e & 1 == 1 {
+                result = Self::mul(&result, &base);
+            }
+            base = Self::mul(&base, &base);
+            e >>= 1;
+        }
+
+        Ok(result)
     }
 
     #[inline(always)]
