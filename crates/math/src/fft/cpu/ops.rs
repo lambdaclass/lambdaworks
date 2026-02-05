@@ -24,3 +24,20 @@ pub fn fft<F: IsFFTField + IsSubFieldOf<E>, E: IsField>(
 
     Ok(results)
 }
+
+/// Executes Fast Fourier Transform in-place on a mutable buffer.
+/// The buffer must have a power-of-two length and already contain the input data.
+/// This avoids allocation when the caller provides a pre-allocated buffer.
+pub fn fft_in_place<F: IsFFTField + IsSubFieldOf<E>, E: IsField>(
+    buffer: &mut [FieldElement<E>],
+    twiddles: &[FieldElement<F>],
+) -> Result<(), FFTError> {
+    if !buffer.len().is_power_of_two() {
+        return Err(FFTError::InputError(buffer.len()));
+    }
+
+    in_place_nr_2radix_fft(buffer, twiddles);
+    in_place_bit_reverse_permute(buffer);
+
+    Ok(())
+}

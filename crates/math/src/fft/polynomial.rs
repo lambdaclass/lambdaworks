@@ -16,6 +16,12 @@ use crate::fft::gpu::cuda::polynomial::{evaluate_fft_cuda, interpolate_fft_cuda}
 
 use super::cpu::{ops, roots_of_unity};
 
+fn reserve_fft_buffer<T>(buffer: &mut Vec<T>, len: usize) {
+    if buffer.capacity() < len {
+        buffer.reserve(len.saturating_sub(buffer.len()));
+    }
+}
+
 impl<E: IsField> Polynomial<FieldElement<E>> {
     /// Returns `N` evaluations of this polynomial using FFT over a domain in a subfield F of E (so the results
     /// are P(w^i), with w being a primitive root of unity).
@@ -59,14 +65,95 @@ impl<E: IsField> Polynomial<FieldElement<E>> {
     /// (so the results are P(w^i), with w being a primitive root of unity).
     /// `N = max(self.coeff_len(), domain_size).next_power_of_two() * blowup_factor`.
     /// If `domain_size` is `None`, it defaults to 0.
+    ///
+    /// This implementation scales coefficients directly into the FFT buffer, avoiding an
+    /// intermediate allocation for the scaled polynomial.
     pub fn evaluate_offset_fft<F: IsFFTField + IsSubFieldOf<E>>(
         poly: &Polynomial<FieldElement<E>>,
         blowup_factor: usize,
         domain_size: Option<usize>,
         offset: &FieldElement<F>,
     ) -> Result<Vec<FieldElement<E>>, FFTError> {
-        let scaled = poly.scale(offset);
-        Polynomial::evaluate_fft::<F>(&scaled, blowup_factor, domain_size)
+        let domain_size = domain_size.unwrap_or(0);
+        let len = core::cmp::max(poly.coeff_len(), domain_size).next_power_of_two() * blowup_factor;
+        if len.trailing_zeros() as u64 > F::TWO_ADICITY {
+            return Err(FFTError::DomainSizeError(len.trailing_zeros() as usize));
+        }
+        if poly.coefficients().is_empty() {
+            return Ok(vec![FieldElement::zero(); len]);
+        }
+
+        // Allocate buffer and scale coefficients directly into it
+        let mut buffer = Vec::with_capacity(len);
+        let coeffs = poly.coefficients();
+
+        // Scale coefficients: coeff[i] * offset^i
+        let mut power = FieldElement::<F>::one();
+        for coeff in coeffs.iter() {
+            buffer.push(&power * coeff);
+            power = &power * offset;
+        }
+
+        // Pad with zeros
+        buffer.resize(len, FieldElement::zero());
+
+        // Run FFT in-place
+        let order = len.trailing_zeros();
+        let twiddles = roots_of_unity::get_twiddles::<F>(order.into(), RootsConfig::BitReverse)?;
+        ops::fft_in_place::<F, E>(&mut buffer, &twiddles)?;
+
+        Ok(buffer)
+    }
+
+    /// Returns `N` evaluations with an offset using a caller-provided scratch buffer.
+    /// This avoids allocation when called in a loop, as the buffer can be reused.
+    ///
+    /// The buffer will be resized to fit the FFT output. For best performance,
+    /// pre-allocate with sufficient capacity for the expected output size.
+    ///
+    /// `N = max(self.coeff_len(), domain_size).next_power_of_two() * blowup_factor`.
+    /// If `domain_size` is `None`, it defaults to 0.
+    pub fn evaluate_offset_fft_with_buffer<F: IsFFTField + IsSubFieldOf<E>>(
+        poly: &Polynomial<FieldElement<E>>,
+        blowup_factor: usize,
+        domain_size: Option<usize>,
+        offset: &FieldElement<F>,
+        buffer: &mut Vec<FieldElement<E>>,
+    ) -> Result<(), FFTError> {
+        let domain_size = domain_size.unwrap_or(0);
+        let len = core::cmp::max(poly.coeff_len(), domain_size).next_power_of_two() * blowup_factor;
+        if len.trailing_zeros() as u64 > F::TWO_ADICITY {
+            return Err(FFTError::DomainSizeError(len.trailing_zeros() as usize));
+        }
+
+        buffer.clear();
+
+        if poly.coefficients().is_empty() {
+            buffer.resize(len, FieldElement::zero());
+            return Ok(());
+        }
+
+        // Reserve capacity if needed (avoids reallocation)
+        reserve_fft_buffer(buffer, len);
+
+        let coeffs = poly.coefficients();
+
+        // Scale coefficients directly into buffer: coeff[i] * offset^i
+        let mut power = FieldElement::<F>::one();
+        for coeff in coeffs.iter() {
+            buffer.push(&power * coeff);
+            power = &power * offset;
+        }
+
+        // Pad with zeros
+        buffer.resize(len, FieldElement::zero());
+
+        // Run FFT in-place
+        let order = len.trailing_zeros();
+        let twiddles = roots_of_unity::get_twiddles::<F>(order.into(), RootsConfig::BitReverse)?;
+        ops::fft_in_place::<F, E>(buffer, &twiddles)?;
+
+        Ok(())
     }
 
     /// Returns a new polynomial that interpolates `(w^i, fft_evals[i])`, with `w` being a
@@ -575,5 +662,45 @@ mod tests {
         let new_poly =
             Polynomial::interpolate_offset_fft::<TF>(&eval, &FieldElement::from(2)).unwrap();
         assert_eq!(poly, new_poly);
+    }
+
+    #[test]
+    fn test_evaluate_offset_fft_with_buffer_matches_standard() {
+        type TF = U64TestField;
+
+        let coeffs: Vec<FieldElement<TF>> = (0..16).map(|i| FieldElement::from(i as u64)).collect();
+        let poly = Polynomial::new(&coeffs);
+        let offset = FieldElement::<TF>::from(3u64);
+
+        // Standard version
+        let standard_result =
+            Polynomial::evaluate_offset_fft::<TF>(&poly, 2, None, &offset).unwrap();
+
+        // Buffer version
+        let mut buffer = Vec::new();
+        Polynomial::evaluate_offset_fft_with_buffer::<TF>(&poly, 2, None, &offset, &mut buffer)
+            .unwrap();
+
+        assert_eq!(standard_result, buffer);
+
+        // Test buffer reuse - should work for multiple calls
+        let offset2 = FieldElement::<TF>::from(5u64);
+        let standard_result2 =
+            Polynomial::evaluate_offset_fft::<TF>(&poly, 2, None, &offset2).unwrap();
+
+        Polynomial::evaluate_offset_fft_with_buffer::<TF>(&poly, 2, None, &offset2, &mut buffer)
+            .unwrap();
+
+        assert_eq!(standard_result2, buffer);
+    }
+
+    #[test]
+    fn test_reserve_fft_buffer_reserves_full_len() {
+        let mut buffer: Vec<FieldElement<U64TestField>> = Vec::with_capacity(5);
+        buffer.clear();
+
+        super::reserve_fft_buffer(&mut buffer, 10);
+
+        assert!(buffer.capacity() >= 10);
     }
 }
