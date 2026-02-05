@@ -340,7 +340,9 @@ where
 
         let lp = |w: &FieldElement<F>, eta: &FieldElement<F>| w + &beta * eta + &gamma;
 
-        // Compute all numerators and denominators first
+        // Compute all numerators and denominators first.
+        // We need n-1 factors to compute n coefficients: z[0]=1, z[i+1]=z[i]*factor[i] for i in 0..n-1.
+        // This matches the original loop range `0..cpi.n - 1`.
         let n_minus_1 = cpi.n - 1;
         let mut numerators = Vec::with_capacity(n_minus_1);
         let mut denominators = Vec::with_capacity(n_minus_1);
@@ -397,7 +399,6 @@ where
         let cpi = common_preprocessed_input;
         let k2 = &cpi.k1 * &cpi.k1;
 
-
         let z_x_omega_coefficients: Vec<FieldElement<F>> = p_z
             .coefficients()
             .iter()
@@ -441,6 +442,8 @@ where
 
         // Optimization: p_x = X (identity polynomial), so p_x(offset * ω^i) = offset * ω^i.
         // Generate the coset directly instead of using FFT.
+        // Note: This uses the same primitive root that evaluate_offset_fft uses internally,
+        // since both derive it from F::get_primitive_root_of_unity for the same domain size.
         let omega = F::get_primitive_root_of_unity(degree.trailing_zeros() as u64)
             .expect("primitive root exists for degree");
         let p_x_eval: Vec<_> = (0..degree)
@@ -450,6 +453,11 @@ where
                 Some(val)
             })
             .collect();
+        debug_assert_eq!(
+            p_x_eval.len(),
+            p_a_eval.len(),
+            "p_x_eval length must match FFT evaluation length"
+        );
         let p_z_eval = Polynomial::evaluate_offset_fft(p_z, 1, Some(degree), offset)
             .expect("FFT evaluation of p_z must be within field's two-adicity limit");
         let p_z_x_omega_eval = Polynomial::evaluate_offset_fft(&z_x_omega, 1, Some(degree), offset)
@@ -527,6 +535,14 @@ where
         // On coset {offset * ω^i : i = 0..4n-1} where ω is primitive 4n-th root:
         //   Z_H(offset * ω^i) = offset^n * (ω^n)^i - 1
         // Since ω^n is a 4th root of unity, (ω^n)^i cycles through 4 values.
+        //
+        // SAFETY: This optimization assumes degree == 4 * n. If degree changes (see TODO above),
+        // this optimization must be revisited.
+        debug_assert_eq!(
+            degree,
+            4 * cpi.n,
+            "Z_H optimization requires degree == 4n; if degree formula changes, update this code"
+        );
         let omega_4n = F::get_primitive_root_of_unity(degree.trailing_zeros() as u64)
             .expect("primitive root exists for degree");
         let omega_n = omega_4n.pow(cpi.n as u64); // ω^n where ω is 4n-th root; this is a 4th root of unity
@@ -537,10 +553,10 @@ where
         let omega_n_sq = &omega_n * &omega_n;
         let omega_n_cubed = &omega_n_sq * &omega_n;
         let mut zh_base = [
-            &offset_to_n - FieldElement::<F>::one(),                   // i ≡ 0 (mod 4)
-            &offset_to_n * &omega_n - FieldElement::<F>::one(),        // i ≡ 1 (mod 4)
-            &offset_to_n * &omega_n_sq - FieldElement::<F>::one(),     // i ≡ 2 (mod 4)
-            &offset_to_n * &omega_n_cubed - FieldElement::<F>::one(),  // i ≡ 3 (mod 4)
+            &offset_to_n - FieldElement::<F>::one(), // i ≡ 0 (mod 4)
+            &offset_to_n * &omega_n - FieldElement::<F>::one(), // i ≡ 1 (mod 4)
+            &offset_to_n * &omega_n_sq - FieldElement::<F>::one(), // i ≡ 2 (mod 4)
+            &offset_to_n * &omega_n_cubed - FieldElement::<F>::one(), // i ≡ 3 (mod 4)
         ];
         FieldElement::inplace_batch_inverse(&mut zh_base)
             .expect("Z_H evaluations are non-zero on coset offset from roots of unity");
