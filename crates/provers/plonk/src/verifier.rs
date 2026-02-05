@@ -411,7 +411,7 @@ impl<F: IsField + IsFFTField + HasDefaultTranscript, CS: IsCommitmentScheme<F>> 
         // α²*L₁(ζ)*Z(X)
         let third_term = p
             .z_1
-            .operate_with_self((&alpha * &alpha * l1_zeta).canonical());
+            .operate_with_self((&alpha_squared * l1_zeta).canonical());
 
         let p_non_constant_1 = first_term
             .operate_with(&second_term)

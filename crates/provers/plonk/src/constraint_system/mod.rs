@@ -193,13 +193,10 @@ where
         &self,
         values: &HashMap<Variable, FieldElement<F>>,
     ) -> Vec<FieldElement<F>> {
-        let mut public_inputs = Vec::new();
-        for key in &self.public_input_variables {
-            if let Some(value) = values.get(key) {
-                public_inputs.push(value.clone());
-            }
-        }
-        public_inputs
+        self.public_input_variables
+            .iter()
+            .filter_map(|key| values.get(key).cloned())
+            .collect()
     }
 }
 
