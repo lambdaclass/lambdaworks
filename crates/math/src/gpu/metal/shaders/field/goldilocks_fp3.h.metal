@@ -8,12 +8,13 @@
 #pragma once
 
 #include "fp_u64.h.metal"
-#include "fp3_Goldilocks.h.metal"
+#include "fp3_goldilocks.h.metal"
 
 #include "../fft/fft_extension.h.metal"
 #include "../fft/permutation.h.metal"
 
 // Type aliases for clarity
+typedef Fp64Goldilocks FpBaseGoldilocks;
 typedef Fp3Goldilocks FpExtFp3;
 
 // ============================================================

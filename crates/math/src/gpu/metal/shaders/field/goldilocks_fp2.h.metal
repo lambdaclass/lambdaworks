@@ -8,7 +8,7 @@
 #pragma once
 
 #include "fp_u64.h.metal"
-#include "fp2_Goldilocks.h.metal"
+#include "fp2_goldilocks.h.metal"
 
 #include "../fft/fft_extension.h.metal"
 #include "../fft/permutation.h.metal"
