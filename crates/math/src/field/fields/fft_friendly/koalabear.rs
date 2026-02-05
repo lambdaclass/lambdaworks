@@ -1,6 +1,5 @@
 use crate::field::{
-    fields::u32_montgomery_backend_prime_field::U32MontgomeryBackendPrimeField,
-    traits::IsFFTField,
+    fields::u32_montgomery_backend_prime_field::U32MontgomeryBackendPrimeField, traits::IsFFTField,
 };
 
 /// KoalaBear Prime Field p = 2^31 - 2^24 + 1 = 0x7f000001 = 2130706433
@@ -218,10 +217,7 @@ mod tests {
         #[cfg(feature = "alloc")]
         fn to_bytes_from_bytes_be_is_the_identity() {
             let x = FE::from_hex("5f103b").expect("valid hex");
-            assert_eq!(
-                FE::from_bytes_be(&x.to_bytes_be()).expect("valid bytes"),
-                x
-            );
+            assert_eq!(FE::from_bytes_be(&x.to_bytes_be()).expect("valid bytes"), x);
         }
 
         #[test]
@@ -240,10 +236,7 @@ mod tests {
         #[cfg(feature = "alloc")]
         fn to_bytes_from_bytes_le_is_the_identity() {
             let x = FE::from_hex("5f103b").expect("valid hex");
-            assert_eq!(
-                FE::from_bytes_le(&x.to_bytes_le()).expect("valid bytes"),
-                x
-            );
+            assert_eq!(FE::from_bytes_le(&x.to_bytes_le()).expect("valid bytes"), x);
         }
 
         #[test]
@@ -263,7 +256,9 @@ mod tests {
         fn byte_serialization_for_a_number_matches_with_byte_conversion_implementation_le() {
             let element = FE::from_hex("0123456701234567").expect("valid hex");
             let bytes = element.to_bytes_le();
-            let expected_bytes: [u8; 4] = ByteConversion::to_bytes_le(&element).try_into().expect("4 bytes");
+            let expected_bytes: [u8; 4] = ByteConversion::to_bytes_le(&element)
+                .try_into()
+                .expect("4 bytes");
             assert_eq!(bytes, expected_bytes);
         }
 
@@ -272,7 +267,9 @@ mod tests {
         fn byte_serialization_for_a_number_matches_with_byte_conversion_implementation_be() {
             let element = FE::from_hex("0123456701234567").expect("valid hex");
             let bytes = element.to_bytes_be();
-            let expected_bytes: [u8; 4] = ByteConversion::to_bytes_be(&element).try_into().expect("4 bytes");
+            let expected_bytes: [u8; 4] = ByteConversion::to_bytes_be(&element)
+                .try_into()
+                .expect("4 bytes");
             assert_eq!(bytes, expected_bytes);
         }
 
@@ -312,8 +309,8 @@ mod tests {
         ) -> (Vec<FieldElement<F>>, Vec<FieldElement<F>>) {
             let len = poly.coeff_len().next_power_of_two();
             let order = len.trailing_zeros();
-            let twiddles =
-                get_powers_of_primitive_root(order.into(), len, RootsConfig::Natural).expect("valid roots");
+            let twiddles = get_powers_of_primitive_root(order.into(), len, RootsConfig::Natural)
+                .expect("valid roots");
 
             let fft_eval = Polynomial::evaluate_fft::<F>(&poly, 1, None).expect("valid FFT");
             let naive_eval = poly.evaluate_slice(&twiddles);
@@ -334,7 +331,8 @@ mod tests {
                     .expect("valid coset roots");
 
             let fft_eval =
-                Polynomial::evaluate_offset_fft::<F>(&poly, blowup_factor, None, &offset).expect("valid offset FFT");
+                Polynomial::evaluate_offset_fft::<F>(&poly, blowup_factor, None, &offset)
+                    .expect("valid offset FFT");
             let naive_eval = poly.evaluate_slice(&twiddles);
 
             (fft_eval, naive_eval)
@@ -345,11 +343,13 @@ mod tests {
             fft_evals: &[FieldElement<F>],
         ) -> (Polynomial<FieldElement<F>>, Polynomial<FieldElement<F>>) {
             let order = fft_evals.len().trailing_zeros() as u64;
-            let twiddles =
-                get_powers_of_primitive_root(order, 1 << order, RootsConfig::Natural).expect("valid roots");
+            let twiddles = get_powers_of_primitive_root(order, 1 << order, RootsConfig::Natural)
+                .expect("valid roots");
 
-            let naive_poly = Polynomial::interpolate(&twiddles, fft_evals).expect("valid interpolation");
-            let fft_poly = Polynomial::interpolate_fft::<F>(fft_evals).expect("valid FFT interpolation");
+            let naive_poly =
+                Polynomial::interpolate(&twiddles, fft_evals).expect("valid interpolation");
+            let fft_poly =
+                Polynomial::interpolate_fft::<F>(fft_evals).expect("valid FFT interpolation");
 
             (fft_poly, naive_poly)
         }
@@ -360,10 +360,13 @@ mod tests {
             offset: &FieldElement<F>,
         ) -> (Polynomial<FieldElement<F>>, Polynomial<FieldElement<F>>) {
             let order = fft_evals.len().trailing_zeros() as u64;
-            let twiddles = get_powers_of_primitive_root_coset(order, 1 << order, offset).expect("valid coset roots");
+            let twiddles = get_powers_of_primitive_root_coset(order, 1 << order, offset)
+                .expect("valid coset roots");
 
-            let naive_poly = Polynomial::interpolate(&twiddles, fft_evals).expect("valid interpolation");
-            let fft_poly = Polynomial::interpolate_offset_fft(fft_evals, offset).expect("valid offset interpolation");
+            let naive_poly =
+                Polynomial::interpolate(&twiddles, fft_evals).expect("valid interpolation");
+            let fft_poly = Polynomial::interpolate_offset_fft(fft_evals, offset)
+                .expect("valid offset interpolation");
 
             (fft_poly, naive_poly)
         }

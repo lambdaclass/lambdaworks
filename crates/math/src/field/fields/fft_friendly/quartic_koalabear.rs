@@ -24,9 +24,7 @@ pub const BETA: FieldElement<Koalabear31PrimeField> =
 /// Multiplies a field element by BETA (= 3) efficiently using additions.
 /// Since 3 * x = x + x + x = x.double() + x, this avoids expensive multiplication.
 #[inline(always)]
-fn mul_by_beta(
-    x: FieldElement<Koalabear31PrimeField>,
-) -> FieldElement<Koalabear31PrimeField> {
+fn mul_by_beta(x: FieldElement<Koalabear31PrimeField>) -> FieldElement<Koalabear31PrimeField> {
     x.double() + x
 }
 
@@ -454,12 +452,8 @@ mod tests {
         //    = 0*6 + 2*2 + 1*4 + 3*3*8 = 4 + 4 + 72 = 80
         // c3 = a0*b3 + a3*b0 + a1*b2 + a2*b1
         //    = 0*8 + 3*2 + 1*6 + 2*4 = 6 + 6 + 8 = 20
-        let expected_result = Fp4E::new([
-            FpE::from(96),
-            FpE::from(104),
-            FpE::from(80),
-            FpE::from(20),
-        ]);
+        let expected_result =
+            Fp4E::new([FpE::from(96), FpE::from(104), FpE::from(80), FpE::from(20)]);
         assert_eq!(a * b, expected_result);
     }
 
@@ -525,28 +519,43 @@ mod tests {
     #[cfg(feature = "alloc")]
     fn to_bytes_from_bytes_be_is_the_identity() {
         let x = Fp4E::new([FpE::from(2), FpE::from(4), FpE::from(6), FpE::from(8)]);
-        assert_eq!(Fp4E::from_bytes_be(&x.to_bytes_be()).expect("valid bytes"), x);
+        assert_eq!(
+            Fp4E::from_bytes_be(&x.to_bytes_be()).expect("valid bytes"),
+            x
+        );
     }
 
     #[test]
     #[cfg(feature = "alloc")]
     fn from_bytes_to_bytes_be_is_the_identity() {
         let bytes = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
-        assert_eq!(Fp4E::from_bytes_be(&bytes).expect("valid bytes").to_bytes_be(), bytes);
+        assert_eq!(
+            Fp4E::from_bytes_be(&bytes)
+                .expect("valid bytes")
+                .to_bytes_be(),
+            bytes
+        );
     }
 
     #[test]
     #[cfg(feature = "alloc")]
     fn to_bytes_from_bytes_le_is_the_identity() {
         let x = Fp4E::new([FpE::from(2), FpE::from(4), FpE::from(6), FpE::from(8)]);
-        assert_eq!(Fp4E::from_bytes_le(&x.to_bytes_le()).expect("valid bytes"), x);
+        assert_eq!(
+            Fp4E::from_bytes_le(&x.to_bytes_le()).expect("valid bytes"),
+            x
+        );
     }
 
     #[test]
     #[cfg(feature = "alloc")]
     fn from_bytes_to_bytes_le_is_the_identity() {
         let bytes = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
-        assert_eq!(Fp4E::from_bytes_le(&bytes).expect("valid bytes").to_bytes_le(), bytes);
+        assert_eq!(
+            Fp4E::from_bytes_le(&bytes)
+                .expect("valid bytes")
+                .to_bytes_le(),
+            bytes
+        );
     }
-
 }
