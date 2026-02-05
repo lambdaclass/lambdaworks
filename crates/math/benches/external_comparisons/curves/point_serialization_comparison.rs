@@ -99,12 +99,15 @@ pub fn bench_bn254_g1_arkworks(c: &mut Criterion) {
 
         group.throughput(Throughput::Elements(size as u64));
 
+        let buf_size = serialized[0].len();
+
         group.bench_with_input(BenchmarkId::new("compress", size), &points, |b, pts| {
+            let mut buf = Vec::with_capacity(buf_size);
             b.iter(|| {
                 for p in pts {
-                    let mut bytes = Vec::new();
-                    p.serialize_with_mode(&mut bytes, ArkCompress::Yes).unwrap();
-                    black_box(&bytes);
+                    buf.clear();
+                    p.serialize_with_mode(&mut buf, ArkCompress::Yes).unwrap();
+                    black_box(&buf);
                 }
             })
         });
@@ -199,12 +202,15 @@ pub fn bench_bn254_g2_arkworks(c: &mut Criterion) {
 
         group.throughput(Throughput::Elements(size as u64));
 
+        let buf_size = serialized[0].len();
+
         group.bench_with_input(BenchmarkId::new("compress", size), &points, |b, pts| {
+            let mut buf = Vec::with_capacity(buf_size);
             b.iter(|| {
                 for p in pts {
-                    let mut bytes = Vec::new();
-                    p.serialize_with_mode(&mut bytes, ArkCompress::Yes).unwrap();
-                    black_box(&bytes);
+                    buf.clear();
+                    p.serialize_with_mode(&mut buf, ArkCompress::Yes).unwrap();
+                    black_box(&buf);
                 }
             })
         });
@@ -302,12 +308,15 @@ pub fn bench_bls12_381_g1_arkworks(c: &mut Criterion) {
 
         group.throughput(Throughput::Elements(size as u64));
 
+        let buf_size = serialized[0].len();
+
         group.bench_with_input(BenchmarkId::new("compress", size), &points, |b, pts| {
+            let mut buf = Vec::with_capacity(buf_size);
             b.iter(|| {
                 for p in pts {
-                    let mut bytes = Vec::new();
-                    p.serialize_with_mode(&mut bytes, ArkCompress::Yes).unwrap();
-                    black_box(&bytes);
+                    buf.clear();
+                    p.serialize_with_mode(&mut buf, ArkCompress::Yes).unwrap();
+                    black_box(&buf);
                 }
             })
         });
@@ -405,12 +414,15 @@ pub fn bench_bls12_381_g2_arkworks(c: &mut Criterion) {
 
         group.throughput(Throughput::Elements(size as u64));
 
+        let buf_size = serialized[0].len();
+
         group.bench_with_input(BenchmarkId::new("compress", size), &points, |b, pts| {
+            let mut buf = Vec::with_capacity(buf_size);
             b.iter(|| {
                 for p in pts {
-                    let mut bytes = Vec::new();
-                    p.serialize_with_mode(&mut bytes, ArkCompress::Yes).unwrap();
-                    black_box(&bytes);
+                    buf.clear();
+                    p.serialize_with_mode(&mut buf, ArkCompress::Yes).unwrap();
+                    black_box(&buf);
                 }
             })
         });
