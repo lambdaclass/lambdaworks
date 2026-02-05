@@ -1,8 +1,9 @@
 # lambdaworks Polynomials
 
 Contains all the relevant tools for polynomials. Supports:
-- [Univariate polynomials](./mod.rs)
-- [Dense Multivariate polynomials](../polynomial/dense_multilinear_poly.rs) and [Sparse Multilinear polynomials](../polynomial/sparse_multilinear_poly.rs)
+- [Dense univariate polynomials](./mod.rs)
+- [Sparse univariate polynomials](./sparse.rs) - memory-efficient for polynomials with few non-zero terms
+- [Dense multilinear polynomials](../polynomial/dense_multilinear_poly.rs) and [Sparse multilinear polynomials](../polynomial/sparse_multilinear_poly.rs)
 
 lambdaworks's polynomials work over [Finite Fields](../field/README.md).
 
@@ -66,6 +67,29 @@ let p = Polynomial::interpolate(&[FE::new(0), FE::new(1)], &[FE::new(2), FE::new
 ```
 
 Many polynomial operations can go faster by using the [Fast Fourier Transform](../fft/polynomial.rs).
+
+## Sparse Univariate Polynomials
+
+When a polynomial has few non-zero coefficients relative to its degree (e.g., `X^1000 - 1`), using a sparse representation is more memory-efficient. Sparse polynomials store only non-zero terms as `(degree, coefficient)` pairs.
+
+```rust
+use lambdaworks_math::polynomial::sparse::SparsePolynomial;
+
+// Create polynomial 3*X^100 + 2*X^50 + 1
+let poly = SparsePolynomial::from_coefficients(vec![
+    (0, FE::from(1)),
+    (50, FE::from(2)),
+    (100, FE::from(3)),
+]);
+
+assert_eq!(poly.degree(), 100);
+assert_eq!(poly.num_terms(), 3);
+```
+
+Sparse polynomials support arithmetic operations (add, subtract, multiply) and can be converted to/from dense representation when needed. They are useful for:
+- Vanishing polynomials like `X^n - 1`
+- R1CS constraint systems
+- Custom gates in PLONK-like systems
 
 ## Multilinear polynomials
 

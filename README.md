@@ -19,17 +19,25 @@ This library provides efficient implementation of cryptographic primitives used 
 
 Below is a list of examples to understand lambdaworks and learn what you can build with the tools provided.
 
-- [Merkle Tree CLI](./examples/merkle-tree-cli/)
-- [Proving Miden](./examples/prove-miden/)
-- [Shamir's secret sharing](./examples/shamir_secret_sharing/)
+### Cryptographic Signatures
+- [ECDSA signatures (secp256k1)](./examples/ecdsa-signature/)
+- [BLS signatures](./examples/bls-signature/)
+- [Schnorr signatures](./examples/schnorr-signature/)
+- [FROST threshold signatures](./examples/frost-signature/)
+- [XMSS post-quantum signatures](./examples/xmss-signature/)
+
+### Proof Systems & SNARKs
 - [BabySNARK](./examples/baby-snark/)
 - [Pinocchio](./examples/pinocchio/)
-- [Pohlig-Hellman algorithm](./examples/pohlig-hellman-attack/)
-- [Naive RSA](./examples/rsa/)
-- [Naive Schnorr signatures](./examples/schnorr-signature/)
-- [Reed-Solomon Codes](./examples/reed-solomon-codes/)
 - [Using Circom with lambdaworks's Groth16](./examples/prove-verify-circom/circom_lambdaworks_tutorial.md)
-- [Proving Fibonacci using Circom and lambdaworks](./examples/prove-verify-circom/circom_lambdaworks_tutorial.md)
+- [Proving Miden](./examples/prove-miden/)
+
+### Cryptographic Primitives
+- [Merkle Tree CLI](./examples/merkle-tree-cli/)
+- [Shamir's secret sharing](./examples/shamir_secret_sharing/)
+- [Reed-Solomon Codes](./examples/reed-solomon-codes/)
+- [Naive RSA](./examples/rsa/)
+- [Pohlig-Hellman algorithm](./examples/pohlig-hellman-attack/)
 
 - You can use Circom to generate circuits and use lambdaworks's capabilities to prove the execution with [Groth16](./crates/provers/groth16/README.md).
 - You can use the [Stark prover](./crates/provers/stark/README.md) to define an algebraic intermediate representation (AIR) and prove the execution of a program
@@ -134,6 +142,14 @@ For more examples, see the [examples directory](./examples/) and the [math crate
 - [Multiscalar multiplication](./crates/math/src/msm/)
 - [Hashes](./crates/crypto/src/hash/)
 
+### Performance Features
+
+- **x86-64 Assembly Optimizations**: Hand-tuned assembly for field arithmetic on supported platforms
+- **GPU Acceleration**: CUDA backend for Merkle tree construction and FFT operations
+- **Metal Backend**: Apple Silicon GPU acceleration for FFT and field operations
+- **Sparse Polynomials**: Memory-efficient representation for polynomials with few non-zero coefficients
+- **Optimized FFT**: Circle FFT and NTT implementations with field-specific optimizations
+
 Most of math and crypto crates supports no-std without allocation with `no-default-features`. A few functions and modules require the `alloc` feature.
 
 Both Math and Crypto support wasm with target `wasm32-unknown-unknown`. To see an example of how to use this to deploy a verifier in a browser, check the Cairo Prover wasm-pack verifier.
@@ -168,8 +184,10 @@ List of symbols:
 | Finite Fields  | Lambdaworks        | Arkworks           | Plonky3            | gnark              | Constantine |  Halo2      |
 | -------------- | ------------------ | ------------------ | ------------------ | ------------------ | ----------- | ----------- |
 | StarkField 252 | :heavy_check_mark: | :heavy_check_mark: | :x:                | :heavy_check_mark: | :x:         | :x:
+| Goldilocks     | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :x:         | :x:
 | Mersenne 31    | :heavy_check_mark: | :x:                | :heavy_check_mark: | :x:                | :x:         | :x:
 | Baby Bear      | :heavy_check_mark: | :x:                | :heavy_check_mark: | :x:                | :x:         | :x:
+| KoalaBear      | :heavy_check_mark: | :x:                | :heavy_check_mark: | :x:                | :x:         | :x:
 | MiniGoldilocks | :heavy_check_mark: | :x:                | :heavy_check_mark: | :heavy_check_mark: | :x:         | :x:
 | Binary fields  | :heavy_check_mark: | :x:                | :x:                | :x:                | :x:         | :x:
 | **ZK friendly Hash function** | **Lambdaworks**    | **Arkworks**       | **Plonky3**        | **gnark** | **Constantine** | **Halo2**          |
