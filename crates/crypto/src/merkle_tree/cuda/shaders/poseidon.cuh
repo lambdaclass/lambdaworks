@@ -91,10 +91,7 @@ __device__ void hades_permutation(Fp* state, const Fp* round_constants) {
     // const_idx is now 12 + 83 = 95
 
     // Second half of full rounds (4 rounds)
-    // The optimized constants for these start at index 95
-    // But they're stored in groups of 3, so we use a different indexing
-    int full_round_idx = (POSEIDON_N_ROUND_CONSTANTS - HALF_FULL_ROUNDS * STATE_SIZE) / STATE_SIZE;
-    // Actually let's use linear indexing for the last full rounds
+    // The optimized constants for these are stored at the end of the array
     #pragma unroll
     for (int r = 0; r < HALF_FULL_ROUNDS; r++) {
         // For the last full rounds, constants are at the end of the array

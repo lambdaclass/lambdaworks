@@ -191,10 +191,27 @@ mod tests {
         }
 
         let leaves: Vec<Fp> = (0..256).map(Fp::from).collect();
-        let (cuda_root, _cuda_nodes) = CudaPoseidonBackend::build_tree_cuda(&leaves).unwrap();
+        let (cuda_root, cuda_nodes) = CudaPoseidonBackend::build_tree_cuda(&leaves).unwrap();
 
         let cpu_tree = MerkleTree::<CpuBackend>::build(&leaves).unwrap();
 
+        // Verify root matches
         assert_eq!(cuda_root, cpu_tree.root);
+
+        // Verify nodes vector layout:
+        // For n leaves (padded to power of 2), should have 2n-1 total nodes
+        let n = leaves.len().next_power_of_two();
+        let expected_node_count = 2 * n - 1;
+        assert_eq!(
+            cuda_nodes.len(),
+            expected_node_count,
+            "Expected {} nodes for {} leaves, got {}",
+            expected_node_count,
+            n,
+            cuda_nodes.len()
+        );
+
+        // Verify root is first element in nodes array
+        assert_eq!(cuda_nodes[0], cuda_root, "First node should be the root");
     }
 }

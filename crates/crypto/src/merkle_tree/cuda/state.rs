@@ -8,8 +8,7 @@ use cudarc::{
 };
 use lambdaworks_gpu::cuda::abstractions::errors::CudaError;
 use lambdaworks_math::field::{
-    element::FieldElement,
-    fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
+    element::FieldElement, fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
 };
 use std::sync::Arc;
 
@@ -33,9 +32,7 @@ pub struct CudaFieldElement {
 impl From<&Fp> for CudaFieldElement {
     fn from(fe: &Fp) -> Self {
         let value = fe.value();
-        Self {
-            limbs: value.limbs,
-        }
+        Self { limbs: value.limbs }
     }
 }
 
@@ -61,8 +58,8 @@ pub struct CudaMerkleState {
 impl CudaMerkleState {
     /// Creates a new CUDA state for Merkle tree operations
     pub fn new() -> Result<Self, CudaError> {
-        let device = CudaDevice::new(0)
-            .map_err(|err| CudaError::DeviceNotFound(err.to_string()))?;
+        let device =
+            CudaDevice::new(0).map_err(|err| CudaError::DeviceNotFound(err.to_string()))?;
 
         let functions = ["hash_leaves", "compute_parents"];
         device
@@ -148,9 +145,7 @@ impl CudaMerkleState {
     pub fn build_layer(&self, children: &[Fp]) -> Result<Vec<Fp>, CudaError> {
         let num_children = children.len();
         if num_children < 2 {
-            return Err(CudaError::FunctionError(
-                "Need at least 2 children".into(),
-            ));
+            return Err(CudaError::FunctionError("Need at least 2 children".into()));
         }
 
         let num_parents = num_children / 2;
@@ -236,16 +231,15 @@ impl CudaMerkleState {
         // Safe: we always have at least one layer with at least one element
         let root = current_layer[0].clone();
 
-        // Reconstruct nodes array in the expected format
+        // Reconstruct nodes array in the expected compact format:
+        // [root][level 1][level 2]...[leaf hashes]
+        // Total: 2*n - 1 nodes for n leaves (after padding to power of 2)
         let mut nodes = Vec::new();
 
-        // Add internal nodes in reverse order (from root down)
-        for layer in all_layers.iter().rev().skip(1) {
+        // Add all layers in reverse order (from root down to leaves)
+        for layer in all_layers.iter().rev() {
             nodes.extend(layer.iter().cloned());
         }
-
-        // Add leaf hashes
-        nodes.extend(all_layers[0].iter().cloned());
 
         Ok((root, nodes))
     }

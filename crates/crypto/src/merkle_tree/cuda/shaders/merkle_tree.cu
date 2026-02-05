@@ -74,42 +74,6 @@ __global__ void build_tree_layer(
     nodes[parent_idx] = poseidon::hash_pair(nodes[left_child_idx], nodes[right_child_idx], round_constants);
 }
 
-// Alternative: Build tree using the compact layout
-// nodes layout: [internal nodes][leaf hashes]
-// Where internal nodes start at index 0, leaves start at (num_leaves - 1)
-// This matches the CPU Merkle tree implementation
-__global__ void build_tree_compact_layer(
-    Fp* nodes,
-    const Fp* round_constants,
-    const unsigned int level_begin,    // Start index of current level in internal nodes
-    const unsigned int level_size      // Number of nodes to compute at this level
-) {
-    unsigned int idx = blockIdx.x * blockDim.x + threadIdx.x;
-    if (idx >= level_size) return;
-
-    // For the compact layout:
-    // - level_begin is the start of the parent level
-    // - Children are at 2*level_begin + 1 + 2*idx and 2*level_begin + 2 + 2*idx
-    // Actually the layout is different - see the CPU build function
-
-    unsigned int parent_idx = level_begin + idx;
-
-    // In the compact layout used by lambdaworks:
-    // parent at index i has children at indices (2*i + 1) and (2*i + 2)
-    // But leaves are stored after internal nodes
-
-    // For a tree with n leaves:
-    // - Internal nodes: indices 0 to n-2 (total n-1 nodes)
-    // - Leaves: indices n-1 to 2n-2 (total n nodes)
-
-    // The CPU code works differently - it processes layers from bottom to top
-    // with level_begin_index starting at (leaves_len - 1)
-
-    // Let me use the simpler direct indexing approach
-    // Children are at the "next level" which starts at level_begin * 2 - level_begin + level_size
-    // This is getting complex - let's use a different approach
-}
-
 // Simpler approach: work on a flat array where:
 // - First call: leaves are hashed to produce first layer of internal nodes
 // - Subsequent calls: each layer produces the parent layer
