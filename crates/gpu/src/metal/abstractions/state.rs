@@ -15,7 +15,7 @@
 use super::errors::MetalError;
 use metal::{
     Buffer, CommandBufferRef, CommandQueue, CompileOptions, ComputeCommandEncoderRef,
-    ComputePipelineState, Device, Library, MTLResourceOptions,
+    ComputePipelineState, Device, Library, MTLCommandBufferStatus, MTLResourceOptions,
 };
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
@@ -323,6 +323,12 @@ impl DynamicMetalState {
 
         command_buffer.commit();
         command_buffer.wait_until_completed();
+
+        if command_buffer.status() == MTLCommandBufferStatus::Error {
+            return Err(MetalError::ExecutionError(
+                "GPU command buffer completed with error".to_string(),
+            ));
+        }
 
         Ok(())
     }

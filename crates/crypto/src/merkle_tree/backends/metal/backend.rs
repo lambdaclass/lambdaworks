@@ -26,15 +26,25 @@ pub struct GpuFieldElement {
 impl From<&FE> for GpuFieldElement {
     fn from(fe: &FE) -> Self {
         let canonical: U256 = fe.canonical();
+        // Reverse limbs: Rust U256 is MSB-first (limbs[0] = most significant),
+        // Metal shader is LSB-first (limbs[0] = least significant).
         Self {
-            limbs: canonical.limbs,
+            limbs: [
+                canonical.limbs[3],
+                canonical.limbs[2],
+                canonical.limbs[1],
+                canonical.limbs[0],
+            ],
         }
     }
 }
 
 impl From<GpuFieldElement> for FE {
     fn from(gpu: GpuFieldElement) -> Self {
-        FE::from(&U256 { limbs: gpu.limbs })
+        // Reverse limbs: Metal LSB-first -> Rust MSB-first
+        FE::from(&U256 {
+            limbs: [gpu.limbs[3], gpu.limbs[2], gpu.limbs[1], gpu.limbs[0]],
+        })
     }
 }
 
@@ -92,12 +102,19 @@ impl MetalPoseidonBackend {
         let output_buffer =
             state.alloc_buffer(leaves.len() * std::mem::size_of::<GpuFieldElement>())?;
         let constants_buffer = state.alloc_buffer_with_data(&round_constants)?;
+        let count = [leaves.len() as u32];
+        let count_buffer = state.alloc_buffer_with_data(&count)?;
 
         // Prepare pipeline and execute
         let max_threads = state.prepare_pipeline("hash_single")?;
         state.execute_compute(
             "hash_single",
-            &[&input_buffer, &output_buffer, &constants_buffer],
+            &[
+                &input_buffer,
+                &output_buffer,
+                &constants_buffer,
+                &count_buffer,
+            ],
             leaves.len() as u64,
             max_threads,
         )?;
@@ -146,12 +163,19 @@ impl MetalPoseidonBackend {
         let output_buffer =
             state.alloc_buffer(output_count * std::mem::size_of::<GpuFieldElement>())?;
         let constants_buffer = state.alloc_buffer_with_data(&round_constants)?;
+        let count = [output_count as u32];
+        let count_buffer = state.alloc_buffer_with_data(&count)?;
 
         // Prepare pipeline and execute
         let max_threads = state.prepare_pipeline("merkle_hash_level")?;
         state.execute_compute(
             "merkle_hash_level",
-            &[&input_buffer, &output_buffer, &constants_buffer],
+            &[
+                &input_buffer,
+                &output_buffer,
+                &constants_buffer,
+                &count_buffer,
+            ],
             output_count as u64,
             max_threads,
         )?;
@@ -207,38 +231,120 @@ mod tests {
     }
 
     #[test]
-    fn test_metal_backend_matches_cpu() {
-        // Create test data
+    fn test_gpu_field_element_conversion_all_limbs() {
+        // Test values that exercise all four limbs after canonical conversion
+        let values = [
+            FE::from(0u64),
+            FE::from(1u64),
+            FE::from(u64::MAX),
+            FE::from_hex_unchecked(
+                "0x800000000000010FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE",
+            ),
+        ];
+        for fe in &values {
+            let gpu = GpuFieldElement::from(fe);
+            let back = FE::from(gpu);
+            assert_eq!(*fe, back, "Roundtrip failed for {fe}");
+        }
+    }
+
+    #[test]
+    fn test_metal_backend_matches_cpu_small() {
+        // Small input (< 64 leaves): exercises CPU fallback path
         let values: Vec<FE> = (1..9u64).map(FE::from).collect();
 
-        // Build tree with CPU backend
         let cpu_tree = MerkleTree::<TreePoseidon<PoseidonCairoStark252>>::build(&values);
-
-        // Build tree with Metal backend
         let metal_tree = MerkleTree::<MetalPoseidonBackend>::build(&values);
 
-        // If both succeeded, roots should match
         if let (Some(cpu), Some(metal)) = (cpu_tree, metal_tree) {
             assert_eq!(cpu.root, metal.root);
         }
     }
 
     #[test]
+    fn test_hash_leaves_gpu_matches_cpu() {
+        // 128 elements: exceeds the 64-element threshold to exercise the GPU path
+        let leaves: Vec<FE> = (1..129u64).map(FE::from).collect();
+
+        let gpu_result = MetalPoseidonBackend::hash_leaves_gpu(&leaves);
+        assert!(
+            gpu_result.is_ok(),
+            "GPU hashing failed: {:?}",
+            gpu_result.err()
+        );
+
+        let gpu_hashes = gpu_result.unwrap();
+        let cpu_hashes: Vec<FE> = leaves
+            .iter()
+            .map(|l| PoseidonCairoStark252::hash_single(l))
+            .collect();
+
+        assert_eq!(gpu_hashes.len(), cpu_hashes.len());
+        for (i, (gpu, cpu)) in gpu_hashes.iter().zip(cpu_hashes.iter()).enumerate() {
+            assert_eq!(gpu, cpu, "Hash mismatch at leaf index {i}");
+        }
+    }
+
+    #[test]
+    fn test_metal_backend_merkle_tree_large() {
+        // 128 leaves: GPU path for leaf hashing
+        let values: Vec<FE> = (1..129u64).map(FE::from).collect();
+
+        let cpu_tree = MerkleTree::<TreePoseidon<PoseidonCairoStark252>>::build(&values);
+        let metal_tree = MerkleTree::<MetalPoseidonBackend>::build(&values);
+
+        if let (Some(cpu), Some(metal)) = (cpu_tree, metal_tree) {
+            assert_eq!(
+                cpu.root, metal.root,
+                "GPU and CPU Merkle roots differ for 128 leaves"
+            );
+        }
+    }
+
+    #[test]
     fn test_hash_leaves_small_cpu_fallback() {
-        // Small input should use CPU path
+        // Small input should use CPU path and produce correct results
         let leaves: Vec<FE> = (1..5u64).map(FE::from).collect();
 
         let result = MetalPoseidonBackend::hash_leaves_gpu(&leaves);
         assert!(result.is_ok());
 
-        let gpu_result = result.ok();
+        let gpu_result = result.unwrap();
         let cpu_result: Vec<FE> = leaves
             .iter()
             .map(|l| PoseidonCairoStark252::hash_single(l))
             .collect();
 
-        if let Some(gpu) = gpu_result {
-            assert_eq!(gpu, cpu_result);
+        assert_eq!(gpu_result, cpu_result);
+    }
+
+    #[test]
+    fn test_hash_leaves_empty() {
+        let result = MetalPoseidonBackend::hash_leaves_gpu(&[]);
+        assert!(result.is_ok());
+        assert!(result.unwrap().is_empty());
+    }
+
+    #[test]
+    fn test_hash_level_gpu_matches_cpu() {
+        // 128 nodes -> 64 pairs, exceeds the 32-element threshold for GPU path
+        let nodes: Vec<FE> = (1..129u64).map(FE::from).collect();
+
+        let gpu_result = MetalPoseidonBackend::hash_level_gpu(&nodes);
+        assert!(
+            gpu_result.is_ok(),
+            "GPU level hashing failed: {:?}",
+            gpu_result.err()
+        );
+
+        let gpu_parents = gpu_result.unwrap();
+        let cpu_parents: Vec<FE> = (0..64)
+            .map(|i| PoseidonCairoStark252::hash(&nodes[i * 2], &nodes[i * 2 + 1]))
+            .collect();
+
+        assert_eq!(gpu_parents.len(), cpu_parents.len());
+        for (i, (gpu, cpu)) in gpu_parents.iter().zip(cpu_parents.iter()).enumerate() {
+            assert_eq!(gpu, cpu, "Level hash mismatch at pair index {i}");
         }
     }
 }

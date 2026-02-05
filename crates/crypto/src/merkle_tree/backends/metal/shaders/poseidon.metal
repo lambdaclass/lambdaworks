@@ -25,10 +25,10 @@ struct U256 {
 // p = 2^251 + 17 * 2^192 + 1
 // = 0x800000000000011000000000000000000000000000000000000000000000001
 constant ulong4 STARK_PRIME = ulong4(
-    0x0000000000000001UL,  // limbs[0] (least significant)
+    0x0000000000000001UL,  // limbs[0] (least significant): the +1
     0x0000000000000000UL,  // limbs[1]
-    0x0000000000000011UL,  // limbs[2]
-    0x0800000000000000UL   // limbs[3] (most significant)
+    0x0000000000000000UL,  // limbs[2]
+    0x0800000000000011UL   // limbs[3] (most significant): 2^251 + 17*2^192
 );
 
 // ============================================================
@@ -70,24 +70,20 @@ inline U256 sub_u256(U256 a, U256 b, thread bool& borrow) {
     ulong br = 0;
 
     // Limb 0
-    ulong diff0 = a.limbs[0] - b.limbs[0];
+    result.limbs[0] = a.limbs[0] - b.limbs[0];
     br = (a.limbs[0] < b.limbs[0]) ? 1 : 0;
-    result.limbs[0] = diff0;
 
-    // Limb 1
-    ulong diff1 = a.limbs[1] - b.limbs[1] - br;
-    br = (a.limbs[1] < b.limbs[1] + br) ? 1 : 0;
-    result.limbs[1] = diff1;
+    // Limb 1: check borrow without overflow in (b.limbs[1] + br)
+    result.limbs[1] = a.limbs[1] - b.limbs[1] - br;
+    br = (a.limbs[1] < b.limbs[1] || (br && a.limbs[1] == b.limbs[1])) ? 1 : 0;
 
     // Limb 2
-    ulong diff2 = a.limbs[2] - b.limbs[2] - br;
-    br = (a.limbs[2] < b.limbs[2] + br) ? 1 : 0;
-    result.limbs[2] = diff2;
+    result.limbs[2] = a.limbs[2] - b.limbs[2] - br;
+    br = (a.limbs[2] < b.limbs[2] || (br && a.limbs[2] == b.limbs[2])) ? 1 : 0;
 
     // Limb 3
-    ulong diff3 = a.limbs[3] - b.limbs[3] - br;
-    br = (a.limbs[3] < b.limbs[3] + br) ? 1 : 0;
-    result.limbs[3] = diff3;
+    result.limbs[3] = a.limbs[3] - b.limbs[3] - br;
+    br = (a.limbs[3] < b.limbs[3] || (br && a.limbs[3] == b.limbs[3])) ? 1 : 0;
 
     borrow = (br != 0);
     return result;
@@ -151,80 +147,26 @@ inline U256 double_mod(U256 a) {
     return add_mod(a, a);
 }
 
-/// Multiply two 64-bit values, return 128-bit result as two 64-bit values
-inline void mul64(ulong a, ulong b, thread ulong& lo, thread ulong& hi) {
-    // Split into 32-bit parts
-    ulong a_lo = a & 0xFFFFFFFFUL;
-    ulong a_hi = a >> 32;
-    ulong b_lo = b & 0xFFFFFFFFUL;
-    ulong b_hi = b >> 32;
-
-    // Partial products
-    ulong p0 = a_lo * b_lo;
-    ulong p1 = a_lo * b_hi;
-    ulong p2 = a_hi * b_lo;
-    ulong p3 = a_hi * b_hi;
-
-    // Combine
-    ulong mid = p1 + (p0 >> 32);
-    mid += p2;
-    if (mid < p2) p3 += 0x100000000UL; // carry
-
-    lo = (p0 & 0xFFFFFFFFUL) | (mid << 32);
-    hi = p3 + (mid >> 32);
-}
-
-/// Multiply two 256-bit field elements (simplified schoolbook, then reduce)
-/// Note: For full precision we'd need 512-bit intermediate, but we use
-/// Montgomery multiplication in practice. This is a reference implementation.
+/// Modular multiplication using binary double-and-add method.
+/// Computes a * b mod p by iterating over bits of b.
+/// This is a correct reference implementation; a production version
+/// would use Montgomery or Barrett reduction for better performance.
 inline U256 mul_mod(U256 a, U256 b) {
-    // For Merkle tree hashing, we primarily need add, sub, and cubing (x^3)
-    // We implement a simplified multiplication that handles the Poseidon use case
+    U256 result = U256(0);
+    U256 current = a;
 
-    // 512-bit intermediate result (8 limbs)
-    ulong result[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+    // Iterate over bits of b (Stark252 values are < p < 2^252)
+    for (int bit = 0; bit < 252; bit++) {
+        int limb_idx = bit / 64;
+        int bit_idx = bit % 64;
 
-    // Schoolbook multiplication
-    for (int i = 0; i < 4; i++) {
-        ulong carry = 0;
-        for (int j = 0; j < 4; j++) {
-            ulong lo, hi;
-            mul64(a.limbs[i], b.limbs[j], lo, hi);
-
-            // Add to result[i+j]
-            ulong sum = result[i + j] + lo + carry;
-            carry = (sum < result[i + j] || sum < lo) ? 1 : 0;
-            carry += hi;
-            result[i + j] = sum;
+        if ((b.limbs[limb_idx] >> bit_idx) & 1UL) {
+            result = add_mod(result, current);
         }
-        result[i + 4] += carry;
+        current = double_mod(current);
     }
 
-    // Reduce modulo prime (simplified - proper implementation would use Barrett/Montgomery)
-    // For now, we do repeated subtraction for the high bits
-    U256 prime;
-    prime.limbs = STARK_PRIME;
-
-    // Take lower 256 bits and reduce
-    U256 r;
-    r.limbs = ulong4(result[0], result[1], result[2], result[3]);
-
-    // Handle overflow from upper bits (simplified reduction)
-    // This is a reference implementation - production would use Montgomery
-    for (int i = 7; i >= 4; i--) {
-        while (result[i] > 0) {
-            bool borrow;
-            r = sub_u256(r, prime, borrow);
-            if (borrow) {
-                bool carry;
-                r = add_u256(r, prime, carry);
-                break;
-            }
-            result[i]--;
-        }
-    }
-
-    return reduce_stark(r);
+    return result;
 }
 
 /// Cube a field element (x^3) - used in Poseidon S-box
@@ -329,8 +271,11 @@ kernel void hash_pair(
     device const U256* right [[buffer(1)]],
     device U256* output [[buffer(2)]],
     device const U256* round_constants [[buffer(3)]],
+    constant uint& count [[buffer(4)]],
     uint gid [[thread_position_in_grid]]
 ) {
+    if (gid >= count) return;
+
     U256 state[STATE_SIZE];
     state[0] = left[gid];
     state[1] = right[gid];
@@ -347,8 +292,11 @@ kernel void hash_single(
     device const U256* input [[buffer(0)]],
     device U256* output [[buffer(1)]],
     device const U256* round_constants [[buffer(2)]],
+    constant uint& count [[buffer(3)]],
     uint gid [[thread_position_in_grid]]
 ) {
+    if (gid >= count) return;
+
     U256 state[STATE_SIZE];
     state[0] = input[gid];
     state[1] = U256(0);
@@ -365,8 +313,11 @@ kernel void merkle_hash_level(
     device const U256* input [[buffer(0)]],
     device U256* output [[buffer(1)]],
     device const U256* round_constants [[buffer(2)]],
+    constant uint& count [[buffer(3)]],
     uint gid [[thread_position_in_grid]]
 ) {
+    if (gid >= count) return;
+
     uint left_idx = gid * 2;
     uint right_idx = left_idx + 1;
 
