@@ -1004,18 +1004,39 @@ pub type Fp3E = FieldElement<Degree3GoldilocksExtensionField>;
 // TESTS
 // =====================================================
 
+// Comprehensive field axiom tests via macro
 #[cfg(test)]
-mod tests {
+crate::impl_field_axiom_tests!(
+    field: Goldilocks64Field,
+    element: FpE,
+);
+
+// FFT field tests via macro
+#[cfg(test)]
+crate::impl_fft_field_tests!(
+    field: Goldilocks64Field,
+    element: FpE,
+    two_adicity: 32,
+);
+
+#[cfg(test)]
+mod goldilocks_specific_tests {
     use super::*;
 
     #[test]
     fn from_hex_for_b_is_11() {
-        assert_eq!(Goldilocks64Field::from_hex("B").unwrap(), 11);
+        assert_eq!(
+            Goldilocks64Field::from_hex("B").expect("valid hex"),
+            11
+        );
     }
 
     #[test]
     fn from_hex_for_0x1_a_is_26() {
-        assert_eq!(Goldilocks64Field::from_hex("0x1a").unwrap(), 26);
+        assert_eq!(
+            Goldilocks64Field::from_hex("0x1a").expect("valid hex"),
+            26
+        );
     }
 
     #[test]
@@ -1024,48 +1045,25 @@ mod tests {
     }
 
     #[test]
-    fn one_plus_one_is_two() {
-        let a = FpE::one();
-        let b = FpE::one();
-        let c = a + b;
-        assert_eq!(c, FpE::from(2u64));
-    }
-
-    #[test]
-    fn neg_one_plus_one_is_zero() {
-        let a = -FpE::one();
-        let b = FpE::one();
-        let c = a + b;
-        assert_eq!(c, FpE::zero());
-    }
-
-    #[test]
     fn max_order_plus_one_is_zero() {
+        // Goldilocks-specific: test p-1 + 1 = 0
         let a = FpE::from(Goldilocks64Field::ORDER - 1);
         let b = FpE::one();
-        let c = a + b;
-        assert_eq!(c, FpE::zero());
+        assert_eq!(a + b, FpE::zero());
     }
 
     #[test]
-    fn mul_two_three_is_six() {
-        let a = FpE::from(2u64);
-        let b = FpE::from(3u64);
-        assert_eq!(a * b, FpE::from(6u64));
+    fn mul_order_neg_one_squared_is_one() {
+        // Goldilocks-specific: (-1)^2 = 1
+        let neg_one = FpE::from(Goldilocks64Field::ORDER - 1);
+        assert_eq!(neg_one * neg_one, FpE::one());
     }
 
     #[test]
-    fn mul_order_neg_one() {
-        let a = FpE::from(Goldilocks64Field::ORDER - 1);
-        let b = FpE::from(Goldilocks64Field::ORDER - 1);
-        let c = a * b;
-        assert_eq!(c, FpE::one());
-    }
-
-    #[test]
-    fn pow_p_neg_one() {
+    fn fermats_little_theorem() {
+        // a^(p-1) = 1 for any nonzero a
         let two = FpE::from(2u64);
-        assert_eq!(two.pow(Goldilocks64Field::ORDER - 1), FpE::one())
+        assert_eq!(two.pow(Goldilocks64Field::ORDER - 1), FpE::one());
     }
 
     #[test]
@@ -1074,82 +1072,16 @@ mod tests {
         assert!(result.is_err());
     }
 
-    #[test]
-    fn inv_two() {
-        let two = FpE::from(2u64);
-        let result = two.inv().unwrap();
-        let product = two * result;
-        assert_eq!(product, FpE::one());
-    }
-
-    #[test]
-    fn div_4_2() {
-        let four = FpE::from(4u64);
-        let two = FpE::from(2u64);
-        assert_eq!((four / two).unwrap(), FpE::from(2u64))
-    }
-
-    #[test]
-    fn two_plus_its_additive_inv_is_0() {
-        let two = FpE::from(2u64);
-        assert_eq!(two + (-two), FpE::zero())
-    }
-
     #[cfg(feature = "std")]
     #[test]
     fn to_hex_test() {
-        let num = Goldilocks64Field::from_hex("B").unwrap();
+        let num = Goldilocks64Field::from_hex("B").expect("valid hex");
         assert_eq!(Goldilocks64Field::to_hex(&num), "B");
-    }
-}
-
-#[cfg(test)]
-mod fft_tests {
-    use super::*;
-    type F = Goldilocks64Field;
-
-    #[test]
-    fn two_adicity_is_32() {
-        assert_eq!(F::TWO_ADICITY, 32);
-    }
-
-    #[test]
-    fn primitive_root_of_unity_has_correct_order() {
-        let root = FpE::new(F::TWO_ADIC_PRIMITIVE_ROOT_OF_UNITY);
-        let order = 1u64 << 32;
-        assert_eq!(root.pow(order), FpE::one());
-    }
-
-    #[test]
-    fn primitive_root_is_not_lower_order() {
-        let root = FpE::new(F::TWO_ADIC_PRIMITIVE_ROOT_OF_UNITY);
-        let half_order = 1u64 << 31;
-        assert_ne!(root.pow(half_order), FpE::one());
-    }
-
-    #[test]
-    fn get_primitive_root_of_unity_works() {
-        let root = F::get_primitive_root_of_unity(10).unwrap();
-        let order = 1u64 << 10;
-        assert_eq!(root.pow(order), FpE::one());
-        assert_ne!(root.pow(order / 2), FpE::one());
-    }
-
-    #[test]
-    fn get_primitive_root_of_unity_order_0_returns_one() {
-        let root = F::get_primitive_root_of_unity(0).unwrap();
-        assert_eq!(root, FpE::one());
-    }
-
-    #[test]
-    fn get_primitive_root_of_unity_fails_for_too_large_order() {
-        let result = F::get_primitive_root_of_unity(33);
-        assert!(result.is_err());
     }
 
     #[test]
     fn field_name_is_goldilocks() {
-        assert_eq!(F::field_name(), "Goldilocks");
+        assert_eq!(Goldilocks64Field::field_name(), "Goldilocks");
     }
 }
 

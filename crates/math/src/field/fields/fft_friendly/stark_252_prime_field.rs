@@ -96,6 +96,23 @@ impl Ord for FieldElement<Stark252PrimeField> {
     }
 }
 
+// Comprehensive field axiom tests via macro
+#[cfg(test)]
+type Stark252FE = FieldElement<Stark252PrimeField>;
+
+#[cfg(test)]
+crate::impl_field_axiom_tests!(
+    field: Stark252PrimeField,
+    element: Stark252FE,
+);
+
+#[cfg(test)]
+crate::impl_fft_field_tests!(
+    field: Stark252PrimeField,
+    element: Stark252FE,
+    two_adicity: 192,
+);
+
 #[cfg(test)]
 mod test_stark_252_bytes_ops {
     use super::Stark252PrimeField;

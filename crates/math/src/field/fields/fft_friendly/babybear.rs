@@ -23,10 +23,28 @@ impl IsFFTField for Babybear31PrimeField {
     }
 }
 
+// Comprehensive field axiom tests via macro
+#[cfg(test)]
+type BabybearFE = crate::field::element::FieldElement<Babybear31PrimeField>;
+
+#[cfg(test)]
+crate::impl_field_axiom_tests!(
+    field: Babybear31PrimeField,
+    element: BabybearFE,
+);
+
+// FFT field tests via macro (only when FFT is available)
+#[cfg(all(test, not(feature = "cuda")))]
+crate::impl_fft_field_tests!(
+    field: Babybear31PrimeField,
+    element: BabybearFE,
+    two_adicity: 24,
+);
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    mod test_babybear_31_ops {
+    mod babybear_specific_tests {
         use super::*;
         use crate::{
             errors::CreationError,
@@ -34,148 +52,28 @@ mod tests {
             traits::ByteConversion,
         };
         type FE = FieldElement<Babybear31PrimeField>;
-
-        #[test]
-        fn two_plus_one_is_three() {
-            let a = FE::from(2);
-            let b = FE::one();
-            let res = FE::from(3);
-
-            assert_eq!(a + b, res)
-        }
-
-        #[test]
-        fn one_minus_two_is_minus_one() {
-            let a = FE::from(2);
-            let b = FE::one();
-            let res = FE::from(2013265920);
-            assert_eq!(b - a, res)
-        }
-
-        #[test]
-        fn mul_by_zero_is_zero() {
-            let a = FE::from(2);
-            let b = FE::zero();
-            assert_eq!(a * b, b)
-        }
-
-        #[test]
-        fn neg_zero_is_zero() {
-            let zero = FE::from(0);
-
-            assert_eq!(-&zero, zero);
-        }
-
-        #[test]
-        fn doubling() {
-            assert_eq!(FE::from(2).double(), FE::from(2) + FE::from(2),);
-        }
-
         const ORDER: usize = 2013265921;
 
         #[test]
-        fn order_is_0() {
+        fn babybear_uses_31_bits() {
+            assert_eq!(Babybear31PrimeField::field_bit_size(), 31);
+        }
+
+        #[test]
+        fn order_is_correct() {
             assert_eq!(FE::from((ORDER - 1) as u64) + FE::from(1), FE::from(0));
         }
 
         #[test]
-        fn when_comparing_13_and_13_they_are_equal() {
-            let a: FE = FE::from(13);
-            let b: FE = FE::from(13);
-            assert_eq!(a, b);
-        }
-
-        #[test]
-        fn when_comparing_13_and_8_they_are_different() {
-            let a: FE = FE::from(13);
-            let b: FE = FE::from(8);
-            assert_ne!(a, b);
-        }
-
-        #[test]
-        fn mul_neutral_element() {
-            let a: FE = FE::from(1);
-            let b: FE = FE::from(2);
-            assert_eq!(a * b, FE::from(2));
-        }
-
-        #[test]
-        fn mul_2_3_is_6() {
-            let a: FE = FE::from(2);
-            let b: FE = FE::from(3);
-            assert_eq!(a * b, FE::from(6));
-        }
-
-        #[test]
-        fn mul_order_minus_1() {
-            let a: FE = FE::from((ORDER - 1) as u64);
-            let b: FE = FE::from((ORDER - 1) as u64);
-            assert_eq!(a * b, FE::from(1));
+        fn fermats_little_theorem() {
+            // a^(p-1) = 1 for any nonzero a
+            assert_eq!(FE::from(2).pow(ORDER - 1), FE::from(1));
         }
 
         #[test]
         fn inv_0_error() {
             let result = FE::from(0).inv();
-            assert!(matches!(result, Err(FieldError::InvZeroError)))
-        }
-
-        #[test]
-        fn inv_2_mul_2_is_1() {
-            let a: FE = FE::from(2);
-            assert_eq!(a * a.inv().unwrap(), FE::from(1));
-        }
-
-        #[test]
-        fn square_2_is_4() {
-            assert_eq!(FE::from(2).square(), FE::from(4))
-        }
-
-        #[test]
-        fn pow_2_3_is_8() {
-            assert_eq!(FE::from(2).pow(3_u64), FE::from(8))
-        }
-
-        #[test]
-        fn pow_p_minus_1() {
-            assert_eq!(FE::from(2).pow(ORDER - 1), FE::from(1))
-        }
-
-        #[test]
-        fn div_1() {
-            assert_eq!((FE::from(2) / FE::from(1)).unwrap(), FE::from(2))
-        }
-
-        #[test]
-        fn div_4_2() {
-            assert_eq!((FE::from(4) / FE::from(2)).unwrap(), FE::from(2))
-        }
-
-        #[test]
-        fn two_plus_its_additive_inv_is_0() {
-            let two = FE::from(2);
-
-            assert_eq!(two + (-&two), FE::from(0))
-        }
-
-        #[test]
-        fn four_minus_three_is_1() {
-            let four = FE::from(4);
-            let three = FE::from(3);
-
-            assert_eq!(four - three, FE::from(1))
-        }
-
-        #[test]
-        fn zero_minus_1_is_order_minus_1() {
-            let zero = FE::from(0);
-            let one = FE::from(1);
-
-            assert_eq!(zero - one, FE::from((ORDER - 1) as u64))
-        }
-
-        #[test]
-        fn babybear_uses_31_bits() {
-            assert_eq!(Babybear31PrimeField::field_bit_size(), 31);
+            assert!(matches!(result, Err(FieldError::InvZeroError)));
         }
 
         #[test]
@@ -194,68 +92,68 @@ mod tests {
         #[cfg(feature = "alloc")]
         fn from_hex_bigger_than_u64_returns_error() {
             let x = FE::from_hex("5f103b0bd4397d4df560eb559f38353f80eeb6");
-            assert!(matches!(x, Err(CreationError::InvalidHexString)))
+            assert!(matches!(x, Err(CreationError::InvalidHexString)));
         }
 
         #[test]
         #[cfg(feature = "alloc")]
         fn to_bytes_from_bytes_be_is_the_identity() {
-            let x = FE::from_hex("5f103b").unwrap();
-            assert_eq!(FE::from_bytes_be(&x.to_bytes_be()).unwrap(), x);
+            let x = FE::from_hex("5f103b").expect("valid hex");
+            assert_eq!(FE::from_bytes_be(&x.to_bytes_be()).expect("valid bytes"), x);
         }
 
         #[test]
         #[cfg(feature = "alloc")]
         fn from_bytes_to_bytes_be_is_the_identity() {
             let bytes = [0, 0, 0, 1];
-            assert_eq!(FE::from_bytes_be(&bytes).unwrap().to_bytes_be(), bytes);
+            assert_eq!(FE::from_bytes_be(&bytes).expect("valid bytes").to_bytes_be(), bytes);
         }
 
         #[test]
         #[cfg(feature = "alloc")]
         fn to_bytes_from_bytes_le_is_the_identity() {
-            let x = FE::from_hex("5f103b").unwrap();
-            assert_eq!(FE::from_bytes_le(&x.to_bytes_le()).unwrap(), x);
+            let x = FE::from_hex("5f103b").expect("valid hex");
+            assert_eq!(FE::from_bytes_le(&x.to_bytes_le()).expect("valid bytes"), x);
         }
 
         #[test]
         #[cfg(feature = "alloc")]
         fn from_bytes_to_bytes_le_is_the_identity_4_bytes() {
             let bytes = [1, 0, 0, 0];
-            assert_eq!(FE::from_bytes_le(&bytes).unwrap().to_bytes_le(), bytes);
+            assert_eq!(FE::from_bytes_le(&bytes).expect("valid bytes").to_bytes_le(), bytes);
         }
 
         #[test]
         #[cfg(feature = "alloc")]
         fn byte_serialization_for_a_number_matches_with_byte_conversion_implementation_le() {
-            let element = FE::from_hex("0123456701234567").unwrap();
+            let element = FE::from_hex("0123456701234567").expect("valid hex");
             let bytes = element.to_bytes_le();
-            let expected_bytes: [u8; 4] = ByteConversion::to_bytes_le(&element).try_into().unwrap();
+            let expected_bytes: [u8; 4] = ByteConversion::to_bytes_le(&element).try_into().expect("4 bytes");
             assert_eq!(bytes, expected_bytes);
         }
 
         #[test]
         #[cfg(feature = "alloc")]
         fn byte_serialization_for_a_number_matches_with_byte_conversion_implementation_be() {
-            let element = FE::from_hex("0123456701234567").unwrap();
+            let element = FE::from_hex("0123456701234567").expect("valid hex");
             let bytes = element.to_bytes_be();
-            let expected_bytes: [u8; 4] = ByteConversion::to_bytes_be(&element).try_into().unwrap();
+            let expected_bytes: [u8; 4] = ByteConversion::to_bytes_be(&element).try_into().expect("4 bytes");
             assert_eq!(bytes, expected_bytes);
         }
 
         #[test]
         fn byte_serialization_and_deserialization_works_le() {
-            let element = FE::from_hex("0x7654321076543210").unwrap();
+            let element = FE::from_hex("0x7654321076543210").expect("valid hex");
             let bytes = element.to_bytes_le();
-            let from_bytes = FE::from_bytes_le(&bytes).unwrap();
+            let from_bytes = FE::from_bytes_le(&bytes).expect("valid bytes");
             assert_eq!(element, from_bytes);
         }
 
         #[test]
         fn byte_serialization_and_deserialization_works_be() {
-            let element = FE::from_hex("7654321076543210").unwrap();
+            let element = FE::from_hex("7654321076543210").expect("valid hex");
             let bytes = element.to_bytes_be();
-            let from_bytes = FE::from_bytes_be(&bytes).unwrap();
+            let from_bytes = FE::from_bytes_be(&bytes).expect("valid bytes");
             assert_eq!(element, from_bytes);
         }
     }

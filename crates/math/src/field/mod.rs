@@ -7,5 +7,8 @@ pub mod extensions;
 pub mod fields;
 /// Field for test purposes.
 pub mod test_fields;
+/// Test helpers and macros for field testing.
+#[cfg(test)]
+pub mod test_helpers;
 /// Common behaviour for field elements.
 pub mod traits;
