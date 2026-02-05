@@ -58,18 +58,27 @@ fn compile_cuda_shaders() {
 /// build scripts should fail fast if the toolchain is misconfigured.
 #[cfg(feature = "metal")]
 fn compile_metal_shaders() {
+    use std::env;
     use std::path::Path;
     use std::process::Command;
 
     let source_dir = "../math/src/gpu/metal";
     let source_file = format!("{}/all.metal", source_dir);
-    let output_file = format!("{}/lib.metallib", source_dir);
+    let out_dir = env::var("OUT_DIR").expect("OUT_DIR not set");
+    let output_file = format!("{}/lib.metallib", out_dir);
 
     // Tell cargo to invalidate the built crate whenever the source changes
     println!("cargo:rerun-if-changed={source_dir}");
 
+    if !cfg!(target_os = "macos") {
+        std::fs::write(&output_file, []).expect("failed to write placeholder metallib");
+        println!("cargo:warning=Metal shaders are only compiled on macOS; using empty metallib");
+        return;
+    }
+
     // Check if source file exists - skip compilation if shaders haven't been created yet
     if !Path::new(&source_file).exists() {
+        std::fs::write(&output_file, []).expect("failed to write placeholder metallib");
         println!("cargo:warning=Metal source file not found: {}", source_file);
         println!("cargo:warning=Skipping Metal shader compilation - create shaders first");
         return;
@@ -82,7 +91,7 @@ fn compile_metal_shaders() {
 
     // Compile .metal to .air (intermediate representation)
     // Panics are acceptable in build scripts when the toolchain is missing
-    let air_file = format!("{}/all.air", source_dir);
+    let air_file = format!("{}/all.air", out_dir);
     let metal_compile = Command::new("xcrun")
         .args([
             "-sdk",
