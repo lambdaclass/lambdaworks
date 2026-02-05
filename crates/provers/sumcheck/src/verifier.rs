@@ -1,5 +1,6 @@
 use crate::evaluate_product_at_point;
 use crate::Channel;
+use crate::EvaluationError;
 use lambdaworks_crypto::fiat_shamir::default_transcript::DefaultTranscript;
 use lambdaworks_crypto::fiat_shamir::is_transcript::IsTranscript;
 use lambdaworks_math::{
@@ -10,6 +11,7 @@ use lambdaworks_math::{
     polynomial::{dense_multilinear_poly::DenseMultilinearPolynomial, Polynomial},
     traits::ByteConversion,
 };
+use std::fmt;
 use std::ops::Mul;
 use std::vec::Vec;
 
@@ -34,7 +36,7 @@ where
         expected: FieldElement<F>,
     },
     /// Error evaluating the product of oracle polynomials at the claimed point.
-    OracleEvaluationError(String),
+    OracleEvaluationError(EvaluationError),
     /// The degree of the polynomial sent by the prover is invalid for the current round.
     InvalidDegree {
         round: usize,
@@ -48,6 +50,57 @@ where
     /// Error indicating the Verifier is in an invalid state (e.g., inconsistent factors, unexpected round result).
     InvalidState(String),
 }
+
+impl<F: IsField> fmt::Display for VerifierError<F>
+where
+    F::BaseType: Send + Sync,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            VerifierError::InconsistentSum {
+                round, expected, ..
+            } => {
+                write!(
+                    f,
+                    "Inconsistent sum at round {}: expected {:?}",
+                    round, expected
+                )
+            }
+            VerifierError::OracleEvaluationError(err) => {
+                write!(f, "Oracle evaluation error: {}", err)
+            }
+            VerifierError::InvalidDegree {
+                round,
+                actual_degree,
+                max_allowed,
+            } => {
+                write!(
+                    f,
+                    "Invalid degree at round {}: got {}, max allowed {}",
+                    round, actual_degree, max_allowed
+                )
+            }
+            VerifierError::IncorrectProofLength { expected, actual } => {
+                write!(
+                    f,
+                    "Incorrect proof length: expected {}, got {}",
+                    expected, actual
+                )
+            }
+            VerifierError::MissingOracle => {
+                write!(
+                    f,
+                    "Missing oracle: at least one polynomial factor is required"
+                )
+            }
+            VerifierError::InvalidState(msg) => {
+                write!(f, "Invalid verifier state: {}", msg)
+            }
+        }
+    }
+}
+
+impl<F: IsField> std::error::Error for VerifierError<F> where F::BaseType: Send + Sync {}
 
 /// Represents the Verifier for the Sum-Check protocol operating on a product of DenseMultilinearPolynomials.
 #[derive(Debug)]

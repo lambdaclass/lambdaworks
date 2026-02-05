@@ -3,12 +3,28 @@ use crate::{
     errors::PairingError,
     field::{element::FieldElement, traits::IsField},
 };
-use core::fmt::Debug;
+use core::fmt::{self, Debug};
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum EllipticCurveError {
     InvalidPoint,
 }
+
+impl fmt::Display for EllipticCurveError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            EllipticCurveError::InvalidPoint => {
+                write!(
+                    f,
+                    "Invalid elliptic curve point: coordinates do not satisfy the curve equation"
+                )
+            }
+        }
+    }
+}
+
+#[cfg(feature = "std")]
+impl std::error::Error for EllipticCurveError {}
 
 pub trait IsEllipticCurve {
     /// BaseField is the field used for each of the coordinates of a point p
