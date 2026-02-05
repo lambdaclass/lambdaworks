@@ -79,85 +79,11 @@ public:
 
     // Modular inverse using Fermat's little theorem: a^(-1) = a^(p-2) mod p
     // p - 2 = 0xFFFFFFFEFFFFFFFF
+    //
+    // Note: This uses variable-time exponentiation which is acceptable for FFT
+    // operations where the values being inverted are not secret. For applications
+    // requiring constant-time inversion, use a different implementation.
     __device__ Fp64 inverse() const {
-        // Use addition chain for p - 2 = 2^64 - 2^32 - 1
-        // This is more efficient than naive square-and-multiply
-
-        // Precompute small powers
-        Fp64 x2 = *this * *this;           // x^2
-        Fp64 x3 = x2 * *this;              // x^3
-        Fp64 x4 = x2 * x2;                 // x^4
-        Fp64 x5 = x4 * *this;              // x^5
-        Fp64 x10 = x5 * x5;                // x^10
-        Fp64 x11 = x10 * *this;            // x^11
-        Fp64 x22 = x11 * x11;              // x^22
-        Fp64 x44 = sqn<22>(x22);           // x^(22 * 2^22) = x^(22 * 2^22)
-
-        // Build up x^(2^32 - 1) = x^0xFFFFFFFF
-        // 2^32 - 1 = 4294967295
-        Fp64 x_2_32_m1 = sqn<32>(*this);   // Start fresh
-        x_2_32_m1 = x_2_32_m1 * *this;
-
-        // Actually, let's use a cleaner approach:
-        // x^(2^k - 1) can be computed as x * x^2 * x^4 * ... * x^(2^(k-1))
-        // Or: x^(2^k - 1) = (x^(2^(k-1) - 1))^2 * x^(2^(k-1) - 1) * x
-        //                = (x^(2^(k-1) - 1))^2 * x
-
-        // Build x^(2^32 - 1)
-        Fp64 e1 = *this;                    // x^(2^1 - 1) = x^1
-        Fp64 e2 = sqn<1>(e1) * e1;          // x^(2^2 - 1) = x^3
-        Fp64 e4 = sqn<2>(e2) * e2;          // x^(2^4 - 1) = x^15
-        Fp64 e8 = sqn<4>(e4) * e4;          // x^(2^8 - 1) = x^255
-        Fp64 e16 = sqn<8>(e8) * e8;         // x^(2^16 - 1) = x^65535
-        Fp64 e32 = sqn<16>(e16) * e16;      // x^(2^32 - 1)
-
-        // Now compute x^(p-2) = x^(2^64 - 2^32 - 1)
-        // = x^(2^32 - 1) * x^((2^32 - 1) * 2^32 - 1) -- NO, let me recalculate
-        // p - 2 = 2^64 - 2^32 - 1 = (2^32 - 1) * 2^32 + (2^32 - 2)
-        //       = 0xFFFFFFFF * 2^32 + 0xFFFFFFFE
-        //       = 0xFFFFFFFF_FFFFFFFE
-        // Wait that's not right either. Let me verify:
-        // p = 0xFFFFFFFF_00000001
-        // p - 2 = 0xFFFFFFFF_00000001 - 2 = 0xFFFFFFFE_FFFFFFFF
-
-        // 0xFFFFFFFE_FFFFFFFF = (2^32 - 2) * 2^32 + (2^32 - 1)
-        //                     = 0xFFFFFFFE * 2^32 + 0xFFFFFFFF
-        //                     = (2^32 - 1 - 1) * 2^32 + (2^32 - 1)
-        //                     = (2^32 - 1) * 2^32 - 2^32 + 2^32 - 1
-        //                     = (2^32 - 1) * 2^32 + (2^32 - 1) - 2^32
-        //                     = (2^32 - 1) * (2^32 + 1) - 2^32
-        // Actually let's just compute it directly:
-        // 0xFFFFFFFE_FFFFFFFF = 2^64 - 2^32 - 1
-
-        // We can write: 2^64 - 2^32 - 1 = 2^32 * (2^32 - 1) + (2^32 - 1)
-        //                               = (2^32 - 1) * (2^32 + 1)
-        // But 2^32 + 1 is not a power of 2, so this doesn't help directly.
-
-        // Instead: x^(2^64 - 2^32 - 1) = x^((2^32-1)*2^32) * x^(2^32 - 1) / x^(2^32)
-        // That's also not clean.
-
-        // Let's use: exp = 0xFFFFFFFE_FFFFFFFF
-        // exp = 0xFFFFFFFF_00000000 + 0xFFFFFFFF - 0x100000000
-        //     = (2^32-1)*2^32 + (2^32-1) - 2^32
-        //     = (2^32-1)(2^32 + 1) - 2^32
-
-        // Alternative approach: direct square-and-multiply on the exponent
-        // exp high 32 bits: 0xFFFFFFFE
-        // exp low 32 bits: 0xFFFFFFFF
-
-        // x^exp = x^(high * 2^32 + low)
-        //       = (x^high)^(2^32) * x^low
-        //       = (x^(2^32-2))^(2^32) * x^(2^32-1)
-
-        // x^(2^32-2) = x^(2^32-1) / x = e32 * x.inverse()... circular!
-        // x^(2^32-2) = x^(2^32-1) * x^(-1)... still circular
-
-        // Better: x^(2^32-2) = x^(2*(2^31-1)) = (x^2)^(2^31-1)
-        Fp64 x_2_31_m1 = sqn<15>(e16) * e16 * *this; // x^(2^31-1)
-        // Wait, e16 = x^(2^16-1), sqn<15>(e16) = x^((2^16-1)*2^15)
-        // That's not x^(2^31-1)
-
-        // Let me just use the loop-based approach with the known exponent
         return pow_u64(0xFFFFFFFEFFFFFFFFULL);
     }
 
@@ -166,17 +92,6 @@ public:
     }
 
 private:
-    // Square n times
-    template <unsigned N>
-    __device__ Fp64 sqn(Fp64 base) const {
-        Fp64 result = base;
-        #pragma unroll
-        for (unsigned i = 0; i < N; i++) {
-            result = result * result;
-        }
-        return result;
-    }
-
     // Power with 64-bit exponent
     __device__ Fp64 pow_u64(uint64_t exp) const {
         Fp64 result(1);
