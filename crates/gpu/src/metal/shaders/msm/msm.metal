@@ -409,9 +409,40 @@ void store_point(device ulong* buffer, uint point_idx, JacobianPoint p) {
     }
 }
 
-// Atomic point addition to bucket (simplified - actual impl needs atomic ops)
-// Note: This is a simplified version. Production code needs proper atomic operations
-// or a different algorithm (e.g., sorting-based approach from cuZK).
+// Load a Jacobian point from the buckets buffer
+JacobianPoint load_bucket(device ulong* buckets, uint bucket_idx) {
+    uint base = bucket_idx * LIMBS_PER_POINT;
+    JacobianPoint p;
+
+    for (uint i = 0; i < NUM_LIMBS; i++) {
+        p.x.limbs[i] = buckets[base + i];
+        p.y.limbs[i] = buckets[base + NUM_LIMBS + i];
+        p.z.limbs[i] = buckets[base + 2 * NUM_LIMBS + i];
+    }
+
+    return p;
+}
+
+// Store a Jacobian point to the buckets buffer
+void store_bucket(device ulong* buckets, uint bucket_idx, JacobianPoint p) {
+    uint base = bucket_idx * LIMBS_PER_POINT;
+
+    for (uint i = 0; i < NUM_LIMBS; i++) {
+        buckets[base + i] = p.x.limbs[i];
+        buckets[base + NUM_LIMBS + i] = p.y.limbs[i];
+        buckets[base + 2 * NUM_LIMBS + i] = p.z.limbs[i];
+    }
+}
+
+// Bucket accumulation kernel
+// WARNING: This kernel has a RACE CONDITION when multiple threads write to the same bucket.
+// For production use, implement one of:
+// 1. Sorting-based approach (cuZK paper) - sort (bucket_idx, point) pairs, then scan
+// 2. Atomic operations for point addition (complex for 256-bit)
+// 3. Per-thread local buckets with tree reduction
+//
+// Current behavior: The last thread to write to a bucket wins, producing incorrect results
+// when multiple points map to the same bucket.
 kernel void bucket_accumulation(
     device const int* scalars [[buffer(0)]],      // Signed digits [num_scalars * num_windows]
     device const ulong* points [[buffer(1)]],     // Jacobian points [num_scalars * LIMBS_PER_POINT]
@@ -454,17 +485,15 @@ kernel void bucket_accumulation(
         p = jacobian_neg(p, BLS12_381_P);
     }
 
-    // Calculate bucket buffer offset
-    uint bucket_offset = (window_idx * num_buckets + bucket_idx) * LIMBS_PER_POINT;
+    // Calculate global bucket index
+    uint global_bucket_idx = window_idx * num_buckets + bucket_idx;
 
-    // TODO: This is a simplified version that doesn't handle concurrent writes properly.
-    // Production implementation needs either:
-    // 1. Atomic operations for point addition (complex)
-    // 2. Sorting-based approach (cuZK paper)
-    // 3. Per-thread local buckets with reduction
-
-    // For now, just store (will be overwritten - placeholder)
-    store_point(buckets, window_idx * num_buckets + bucket_idx, p);
+    // Load current bucket value, add point, store back
+    // WARNING: This read-modify-write is NOT atomic and causes race conditions
+    // when multiple threads access the same bucket.
+    JacobianPoint bucket = load_bucket(buckets, global_bucket_idx);
+    bucket = jacobian_add(bucket, p, BLS12_381_P, BLS12_381_INV);
+    store_bucket(buckets, global_bucket_idx, bucket);
 }
 
 // =============================================================================
