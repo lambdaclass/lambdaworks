@@ -297,15 +297,14 @@ where
 
     let pipeline = state.setup_pipeline(&kernel)?;
 
+    let root = F::get_primitive_root_of_unity(order)
+        .map_err(|_| MetalError::FunctionError(format!("No root of unity for order {}", order)))?;
+
     let result_buffer = state.alloc_buffer::<F::BaseType>(len);
 
     objc::rc::autoreleasepool(|| {
         let (command_buffer, command_encoder) =
             state.setup_command(&pipeline, Some(&[(0, &result_buffer)]));
-
-        let root = F::get_primitive_root_of_unity(order)
-            .map_err(|_| MetalError::FunctionError(format!("No root of unity for order {}", order)))
-            .expect("Failed to get primitive root of unity");
 
         command_encoder.set_bytes(1, mem::size_of::<F::BaseType>() as u64, void_ptr(&root));
 
