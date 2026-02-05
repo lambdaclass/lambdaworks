@@ -78,10 +78,10 @@ This crate contains all the relevant mathematical building blocks needed for pro
 |-----------|-------------|---------------|
 | **Finite Fields** | Montgomery and specialized field implementations | [README](./src/field/README.md) |
 | **Elliptic Curves** | BLS12-381, BN254, secp256k1, Pallas/Vesta, and more | [README](./src/elliptic_curve/README.md) |
-| **Polynomials** | Univariate and multilinear polynomials | [README](./src/polynomial/README.md) |
+| **Polynomials** | Univariate, multilinear, and sparse polynomials | [README](./src/polynomial/README.md) |
 | **FFT** | Radix-2 and Radix-4 NTT for polynomial operations | [README](./src/fft/README.md) |
 | **Circle FFT** | FFT over the circle group for non-smooth fields (Mersenne31) | [README](./src/circle/README.md) |
-| **MSM** | Pippenger's algorithm for multi-scalar multiplication | [README](./src/msm/README.md) |
+| **MSM** | Pippenger's algorithm with adaptive window sizing | [README](./src/msm/README.md) |
 | **Unsigned Integers** | Large integer arithmetic (U256, U384, etc.) | [Source](./src/unsigned_integer/) |
 
 ## Supported Fields
@@ -89,9 +89,10 @@ This crate contains all the relevant mathematical building blocks needed for pro
 | Field | Bits | FFT-Friendly | Notes |
 |-------|------|--------------|-------|
 | Stark252 | 252 | Yes | Used by Starknet |
+| Goldilocks | 64 | Yes | p = 2^64 - 2^32 + 1, hybrid SIMD + x86-64 asm |
 | Mersenne31 | 31 | No (use Circle FFT) | Used in Stwo/Plonky3 |
 | BabyBear | 31 | Yes | Used in RISC Zero/Plonky3 |
-| Goldilocks | 64 | Yes | 2^64 - 2^32 + 1 |
+| KoalaBear | 31 | Yes | p = 2^31 - 2^24 + 1, with degree-4 extension |
 | BLS12-381 (scalar) | 255 | Yes | Pairing-friendly curve |
 | BN254 (scalar) | 254 | Yes | Ethereum's curve |
 
@@ -124,3 +125,11 @@ Run benchmarks locally:
 ```bash
 make benchmark BENCH=field
 ```
+
+### Optimizations
+
+- **x86-64 Assembly**: Hand-tuned assembly for field arithmetic (Stark252, Goldilocks)
+- **SIMD**: Vectorized operations for compatible fields
+- **Adaptive MSM**: Window size selection based on input size for optimal performance
+- **LTO**: Link-time optimization enabled for release builds
+- **GPU Backends**: CUDA and Metal acceleration available in separate crates

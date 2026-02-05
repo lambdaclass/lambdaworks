@@ -93,10 +93,14 @@ use lambdaworks_math::polynomial::Polynomial;
 
 - `std` (default): Standard library support
 - `alloc`: Enable allocation without full std
+- `cuda`: CUDA GPU acceleration for Merkle tree construction
 
 ```toml
 # No-std with allocation
 lambdaworks-crypto = { version = "0.13.0", default-features = false, features = ["alloc"] }
+
+# With CUDA acceleration (requires CUDA toolkit)
+lambdaworks-crypto = { version = "0.13.0", features = ["cuda"] }
 ```
 
 ## Examples

@@ -32,10 +32,16 @@ use lambdaworks_math::fft::cpu::fft::in_place_nr_2radix_fft;
 use lambdaworks_math::fft::cpu::roots_of_unity::get_powers_of_primitive_root;
 use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::fields::u64_goldilocks_field::Goldilocks64Field;
+use lambdaworks_math::field::fields::u64_goldilocks_hybrid_field::Goldilocks64HybridField;
 use lambdaworks_math::field::traits::RootsConfig;
 
+// Classic Goldilocks
 type F = Goldilocks64Field;
 type FE = FieldElement<F>;
+
+// Hybrid Goldilocks
+type FHybrid = Goldilocks64HybridField;
+type FEHybrid = FieldElement<FHybrid>;
 
 /// FFT sizes to benchmark (as powers of 2)
 const FFT_ORDERS: [u64; 4] = [14, 16, 18, 20];
@@ -74,6 +80,28 @@ fn generate_random_input(order: u64, seed: u64) -> Vec<FE> {
 fn generate_random_batch(order: u64, batch_size: usize, seed: u64) -> Vec<Vec<FE>> {
     (0..batch_size)
         .map(|i| generate_random_input(order, seed.wrapping_add(i as u64)))
+        .collect()
+}
+
+/// Creates LayerTwiddles for Hybrid field
+fn create_layer_twiddles_hybrid(order: u64) -> LayerTwiddles<FHybrid> {
+    LayerTwiddles::<FHybrid>::new(order)
+        .expect("Failed to create LayerTwiddles for Hybrid: order too large or no root of unity")
+}
+
+/// Generates random Hybrid field elements for FFT input.
+fn generate_random_input_hybrid(order: u64, seed: u64) -> Vec<FEHybrid> {
+    let mut rng = StdRng::seed_from_u64(seed);
+    let size = 1usize << order;
+    (0..size)
+        .map(|_| FEHybrid::from(rng.gen::<u64>()))
+        .collect()
+}
+
+/// Generates a batch of random Hybrid polynomials for parallel FFT benchmarks.
+fn generate_random_batch_hybrid(order: u64, batch_size: usize, seed: u64) -> Vec<Vec<FEHybrid>> {
+    (0..batch_size)
+        .map(|i| generate_random_input_hybrid(order, seed.wrapping_add(i as u64)))
         .collect()
 }
 
@@ -373,6 +401,187 @@ fn bench_field_ops(c: &mut Criterion) {
 }
 
 // =====================================================
+// CLASSIC VS HYBRID FFT COMPARISON
+// =====================================================
+
+/// Compares FFT performance between Classic and Hybrid Goldilocks implementations.
+///
+/// Both use Bowers OptFused FFT to isolate the impact of field operation
+/// optimizations (especially the optimized `sub` in Hybrid).
+fn bench_classic_vs_hybrid_fft(c: &mut Criterion) {
+    let mut group = c.benchmark_group("FFT Classic vs Hybrid");
+
+    // Test a range of sizes
+    let orders: [u64; 3] = [16, 18, 20];
+
+    for order in orders {
+        let size = 1u64 << order;
+        group.throughput(Throughput::Elements(size));
+
+        // Classic Goldilocks
+        let input_classic = generate_random_input(order, BENCH_SEED);
+        let twiddles_classic = create_layer_twiddles(order);
+
+        group.bench_with_input(
+            format!("Classic Bowers 2^{}", order),
+            &(input_classic, twiddles_classic),
+            |bench, (input, twiddles)| {
+                bench.iter_batched(
+                    || input.clone(),
+                    |mut data| {
+                        bowers_fft_opt_fused(&mut data, twiddles).unwrap();
+                        in_place_bit_reverse_permute(&mut data);
+                        black_box(data)
+                    },
+                    BatchSize::LargeInput,
+                );
+            },
+        );
+
+        // Hybrid Goldilocks
+        let input_hybrid = generate_random_input_hybrid(order, BENCH_SEED);
+        let twiddles_hybrid = create_layer_twiddles_hybrid(order);
+
+        group.bench_with_input(
+            format!("Hybrid Bowers 2^{}", order),
+            &(input_hybrid, twiddles_hybrid),
+            |bench, (input, twiddles)| {
+                bench.iter_batched(
+                    || input.clone(),
+                    |mut data| {
+                        bowers_fft_opt_fused(&mut data, twiddles).unwrap();
+                        in_place_bit_reverse_permute(&mut data);
+                        black_box(data)
+                    },
+                    BatchSize::LargeInput,
+                );
+            },
+        );
+    }
+
+    group.finish();
+}
+
+/// Compares parallel FFT performance between Classic and Hybrid Goldilocks.
+///
+/// Uses Bowers OptFused Parallel for large single FFTs.
+fn bench_classic_vs_hybrid_fft_parallel(c: &mut Criterion) {
+    let mut group = c.benchmark_group("FFT Classic vs Hybrid Parallel");
+
+    // Test larger sizes where parallelism helps
+    let orders: [u64; 3] = [18, 20, 22];
+
+    for order in orders {
+        let size = 1u64 << order;
+        group.throughput(Throughput::Elements(size));
+
+        // Classic Goldilocks - Parallel
+        let input_classic = generate_random_input(order, BENCH_SEED);
+        let twiddles_classic = create_layer_twiddles(order);
+
+        group.bench_with_input(
+            format!("Classic Parallel 2^{}", order),
+            &(input_classic, twiddles_classic),
+            |bench, (input, twiddles)| {
+                bench.iter_batched(
+                    || input.clone(),
+                    |mut data| {
+                        bowers_fft_opt_fused_parallel(&mut data, twiddles).unwrap();
+                        in_place_bit_reverse_permute(&mut data);
+                        black_box(data)
+                    },
+                    BatchSize::LargeInput,
+                );
+            },
+        );
+
+        // Hybrid Goldilocks - Parallel
+        let input_hybrid = generate_random_input_hybrid(order, BENCH_SEED);
+        let twiddles_hybrid = create_layer_twiddles_hybrid(order);
+
+        group.bench_with_input(
+            format!("Hybrid Parallel 2^{}", order),
+            &(input_hybrid, twiddles_hybrid),
+            |bench, (input, twiddles)| {
+                bench.iter_batched(
+                    || input.clone(),
+                    |mut data| {
+                        bowers_fft_opt_fused_parallel(&mut data, twiddles).unwrap();
+                        in_place_bit_reverse_permute(&mut data);
+                        black_box(data)
+                    },
+                    BatchSize::LargeInput,
+                );
+            },
+        );
+    }
+
+    group.finish();
+}
+
+/// Compares batch FFT (60 polynomials) between Classic and Hybrid Goldilocks.
+///
+/// Uses Bowers OptFused with parallel iteration across polynomials.
+/// This is the most realistic benchmark for STARK proving workloads.
+fn bench_classic_vs_hybrid_batch(c: &mut Criterion) {
+    let mut group = c.benchmark_group("FFT Classic vs Hybrid Batch 60");
+
+    let batch_orders: [u64; 3] = [16, 18, 20];
+
+    for order in batch_orders {
+        let size = 1u64 << order;
+        let total_elements = size * BATCH_SIZE as u64;
+        group.throughput(Throughput::Elements(total_elements));
+
+        // Classic Goldilocks - 60 polynomials
+        let inputs_classic = generate_random_batch(order, BATCH_SIZE, BENCH_SEED);
+        let twiddles_classic = create_layer_twiddles(order);
+
+        group.bench_with_input(
+            format!("Classic 60x 2^{}", order),
+            &(inputs_classic, twiddles_classic),
+            |bench, (inputs, twiddles)| {
+                bench.iter_batched(
+                    || inputs.clone(),
+                    |mut polys| {
+                        polys.par_iter_mut().for_each(|poly| {
+                            bowers_fft_opt_fused(poly, twiddles).unwrap();
+                            in_place_bit_reverse_permute(poly);
+                        });
+                        black_box(polys)
+                    },
+                    BatchSize::LargeInput,
+                );
+            },
+        );
+
+        // Hybrid Goldilocks - 60 polynomials
+        let inputs_hybrid = generate_random_batch_hybrid(order, BATCH_SIZE, BENCH_SEED);
+        let twiddles_hybrid = create_layer_twiddles_hybrid(order);
+
+        group.bench_with_input(
+            format!("Hybrid 60x 2^{}", order),
+            &(inputs_hybrid, twiddles_hybrid),
+            |bench, (inputs, twiddles)| {
+                bench.iter_batched(
+                    || inputs.clone(),
+                    |mut polys| {
+                        polys.par_iter_mut().for_each(|poly| {
+                            bowers_fft_opt_fused(poly, twiddles).unwrap();
+                            in_place_bit_reverse_permute(poly);
+                        });
+                        black_box(polys)
+                    },
+                    BatchSize::LargeInput,
+                );
+            },
+        );
+    }
+
+    group.finish();
+}
+
+// =====================================================
 // CRITERION GROUPS
 // =====================================================
 
@@ -380,6 +589,24 @@ criterion_group!(
     name = fft_benchmarks;
     config = Criterion::default().sample_size(10);
     targets = bench_fft_comparison,
+);
+
+criterion_group!(
+    name = classic_vs_hybrid_benchmarks;
+    config = Criterion::default().sample_size(10);
+    targets = bench_classic_vs_hybrid_fft,
+);
+
+criterion_group!(
+    name = classic_vs_hybrid_parallel_benchmarks;
+    config = Criterion::default().sample_size(10);
+    targets = bench_classic_vs_hybrid_fft_parallel,
+);
+
+criterion_group!(
+    name = classic_vs_hybrid_batch_benchmarks;
+    config = Criterion::default().sample_size(10);
+    targets = bench_classic_vs_hybrid_batch,
 );
 
 criterion_group!(
@@ -404,5 +631,8 @@ criterion_main!(
     fft_benchmarks,
     fft_parallel_benchmarks,
     fft_internal_parallel_benchmarks,
-    field_benchmarks
+    field_benchmarks,
+    classic_vs_hybrid_benchmarks,
+    classic_vs_hybrid_parallel_benchmarks,
+    classic_vs_hybrid_batch_benchmarks
 );

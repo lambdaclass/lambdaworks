@@ -32,12 +32,21 @@ where
     Ok(msm_with(cs, points, window_size))
 }
 
-fn optimum_window_size(data_length: usize) -> usize {
-    const SCALE_FACTORS: (usize, usize) = (4, 5);
-
-    // We approximate the optimum window size with: f(n) = k * log2(n), where k is a scaling factor
-    let len_isqrt = data_length.checked_ilog2().unwrap_or(0);
-    (len_isqrt as usize * SCALE_FACTORS.0) / SCALE_FACTORS.1
+/// Select optimal window size based on number of scalars.
+/// Uses empirically-tuned values based on arkworks benchmarks.
+/// The window size balances bucket count (2^c) against number of windows (bits/c).
+fn optimum_window_size(num_scalars: usize) -> usize {
+    match num_scalars {
+        0..=4 => 2,
+        5..=32 => 3,
+        33..=128 => 4,
+        129..=500 => 6,
+        501..=2048 => 8,
+        2049..=8192 => 10,
+        8193..=32768 => 12,
+        32769..=131072 => 14,
+        _ => 16,
+    }
 }
 
 pub fn msm_with<const NUM_LIMBS: usize, G>(

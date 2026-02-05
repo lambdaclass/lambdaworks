@@ -164,7 +164,7 @@ Additionally, you have the following methods:
 - `to_bytes_le` : transforms the element to bytes in little-endian form.
 - `from_bytes_be` : creates an element from byte array in big-endian form.
 - `from_bytes_le` : creates an element from byte array in little-endian form.
-- `representative` : transforms the element from Montgomery form to standard form.
+- `canonical` : transforms the element from Montgomery form to standard form.
 - `to_hex` : transforms the element to a hex string.
 
 To practice some operations, we are going to define a new field and do some operations. The following is the base field for the `secp256k1` elliptic curve, best known as Bitcoin's curve:
@@ -214,14 +214,14 @@ assert_eq!(three * three_inv, SecpMontElement::one());
 
 Note: if you need to invert several elements, you should use the `inplace_batch_inverse`, since computing field inversion is usually expensive.
 
-If you print the hex representation of three, `three.to_hex()`, you will get `0x300000B73`. This is the Montgomery representation, which is different from the standard form `0x3`. If you perform `three.representative().to_hex()`, it will transform first to standard form, then give `0x3`. Let's look at the output of several functions:
+If you print the hex representation of three, `three.to_hex()`, you will get `0x300000B73`. This is the Montgomery representation, which is different from the standard form `0x3`. If you perform `three.canonical().to_hex()`, it will transform first to standard form, then give `0x3`. Let's look at the output of several functions:
 - `three.to_hex()` : `0x300000B73`
-- `three.representative().to_hex()` : `0x3`
+- `three.canonical().to_hex()` : `0x3`
 - `three.to_bytes_be()`: Returns a vector of 32 bytes (256 bits), all of which are `0x0`, except for the last one, `0x3`
 - `three.to_bytes_le()`: Returns a vector of 32 bytes (256 bits), all of which are `0x0`, except for the first one, `0x3`
 - `SecpMontElement::from_bytes_be(&three.to_bytes_be())`: will return the Montgomery form of the number 3.
 - `SecpMontElement::from_hex(&three.to_hex())`: this will not return the Montgomery form of 3!
-- `SecpMontElement::from_hex(&three.representative().to_hex())`: this will return the Montgomery form of 3.
+- `SecpMontElement::from_hex(&three.canonical().to_hex())`: this will return the Montgomery form of 3.
 
 ## Montgomery arithmetic
 

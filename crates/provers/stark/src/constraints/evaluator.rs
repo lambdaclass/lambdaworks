@@ -75,7 +75,8 @@ where
                     .iter()
                     .map(|v| v - &point)
                     .collect();
-                FieldElement::inplace_batch_inverse(&mut evals).unwrap();
+                FieldElement::inplace_batch_inverse(&mut evals)
+                    .expect("boundary zerofier evaluations are non-zero because trace domain and LDE coset are disjoint");
                 evals
             });
         }
@@ -84,7 +85,11 @@ where
         let boundary_zerofiers_refs: Vec<&Vec<FieldElement<Field>>> = boundary_constraints
             .constraints
             .iter()
-            .map(|bc| zerofier_cache.get(&bc.step).unwrap())
+            .map(|bc| {
+                zerofier_cache.get(&bc.step).expect(
+                    "zerofier cache miss: boundary constraint step not found in precomputed cache",
+                )
+            })
             .collect();
 
         #[cfg(all(debug_assertions, not(feature = "parallel")))]
@@ -105,7 +110,7 @@ where
                 )
             })
             .collect::<Result<Vec<Vec<FieldElement<Field>>>, FFTError>>()
-            .unwrap();
+            .expect("failed to evaluate periodic column polynomials on LDE domain");
 
         #[cfg(feature = "instruments")]
         println!(
