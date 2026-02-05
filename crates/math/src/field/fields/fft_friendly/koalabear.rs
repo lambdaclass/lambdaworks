@@ -21,7 +21,7 @@ pub type Koalabear31PrimeField = U32MontgomeryBackendPrimeField<2130706433>;
 impl IsFFTField for Koalabear31PrimeField {
     const TWO_ADICITY: u64 = 24;
 
-    const TWO_ADIC_PRIMITVE_ROOT_OF_UNITY: Self::BaseType = 1791270792;
+    const TWO_ADIC_PRIMITIVE_ROOT_OF_UNITY: Self::BaseType = 1791270792;
 
     fn field_name() -> &'static str {
         "koalabear31"
@@ -193,7 +193,7 @@ mod tests {
         #[test]
         fn test_two_adic_primitive_root_of_unity() {
             // Verify that 3^(2^24) = 1 mod p
-            let root = FE::from(Koalabear31PrimeField::TWO_ADIC_PRIMITVE_ROOT_OF_UNITY as u64);
+            let root = FE::from(Koalabear31PrimeField::TWO_ADIC_PRIMITIVE_ROOT_OF_UNITY as u64);
             let order = 1u64 << Koalabear31PrimeField::TWO_ADICITY;
             assert_eq!(root.pow(order), FE::one());
         }
@@ -201,7 +201,7 @@ mod tests {
         #[test]
         fn test_two_adic_primitive_root_is_primitive() {
             // Verify that 3^(2^23) != 1 mod p (it's actually a primitive root)
-            let root = FE::from(Koalabear31PrimeField::TWO_ADIC_PRIMITVE_ROOT_OF_UNITY as u64);
+            let root = FE::from(Koalabear31PrimeField::TWO_ADIC_PRIMITIVE_ROOT_OF_UNITY as u64);
             let half_order = 1u64 << (Koalabear31PrimeField::TWO_ADICITY - 1);
             assert_ne!(root.pow(half_order), FE::one());
         }

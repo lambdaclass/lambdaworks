@@ -210,7 +210,7 @@ impl IsPrimeField for Goldilocks64HybridField {
 
 impl IsFFTField for Goldilocks64HybridField {
     const TWO_ADICITY: u64 = 32;
-    const TWO_ADIC_PRIMITVE_ROOT_OF_UNITY: Self::BaseType = 1753635133440165772;
+    const TWO_ADIC_PRIMITIVE_ROOT_OF_UNITY: Self::BaseType = 1753635133440165772;
 
     fn field_name() -> &'static str {
         "GoldilocksHybrid"
@@ -801,14 +801,14 @@ mod fft_tests {
 
     #[test]
     fn primitive_root_of_unity_has_correct_order() {
-        let root = FieldElement::<F>::new(F::TWO_ADIC_PRIMITVE_ROOT_OF_UNITY);
+        let root = FieldElement::<F>::new(F::TWO_ADIC_PRIMITIVE_ROOT_OF_UNITY);
         let order = 1u64 << 32;
         assert_eq!(root.pow(order), FieldElement::<F>::one());
     }
 
     #[test]
     fn primitive_root_is_not_lower_order() {
-        let root = FieldElement::<F>::new(F::TWO_ADIC_PRIMITVE_ROOT_OF_UNITY);
+        let root = FieldElement::<F>::new(F::TWO_ADIC_PRIMITIVE_ROOT_OF_UNITY);
         let half_order = 1u64 << 31;
         assert_ne!(root.pow(half_order), FieldElement::<F>::one());
     }

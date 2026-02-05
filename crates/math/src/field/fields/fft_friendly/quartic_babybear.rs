@@ -333,7 +333,7 @@ impl AsBytes for FieldElement<Degree4BabyBearExtensionField> {
 
 impl IsFFTField for Degree4BabyBearExtensionField {
     const TWO_ADICITY: u64 = 29;
-    const TWO_ADIC_PRIMITVE_ROOT_OF_UNITY: Self::BaseType = [
+    const TWO_ADIC_PRIMITIVE_ROOT_OF_UNITY: Self::BaseType = [
         FieldElement::const_from_raw(0),
         FieldElement::const_from_raw(0),
         FieldElement::const_from_raw(0),
@@ -492,7 +492,7 @@ mod tests {
 
     #[test]
     fn test_two_adic_primitve_root_of_unity() {
-        let generator = Fp4E::new(Degree4BabyBearExtensionField::TWO_ADIC_PRIMITVE_ROOT_OF_UNITY);
+        let generator = Fp4E::new(Degree4BabyBearExtensionField::TWO_ADIC_PRIMITIVE_ROOT_OF_UNITY);
         assert_eq!(
             generator.pow(2u64.pow(Degree4BabyBearExtensionField::TWO_ADICITY as u32)),
             Fp4E::one()

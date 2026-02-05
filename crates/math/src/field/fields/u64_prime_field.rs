@@ -17,7 +17,7 @@ pub type FE17 = U64FieldElement<17>;
 
 impl IsFFTField for F17 {
     const TWO_ADICITY: u64 = 4;
-    const TWO_ADIC_PRIMITVE_ROOT_OF_UNITY: u64 = 3;
+    const TWO_ADIC_PRIMITIVE_ROOT_OF_UNITY: u64 = 3;
 }
 
 impl<const MODULUS: u64> IsField for U64PrimeField<MODULUS> {
