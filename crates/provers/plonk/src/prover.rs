@@ -620,11 +620,19 @@ where
         let (r1, r2, r3, r4) = (round_1, round_2, round_3, round_4);
         // Precompute variables
         let k2 = &cpi.k1 * &cpi.k1;
-        let zeta_raised_n = Polynomial::new_monomial(r4.zeta.pow(cpi.n + 2), 0); // TODO: Paper says n and 2n, but Gnark uses n+2 and 2n+4
-        let zeta_raised_2n = Polynomial::new_monomial(r4.zeta.pow(2 * cpi.n + 4), 0);
+
+        // Compute zeta powers efficiently: zeta^n, zeta^(n+2), zeta^(2n+4)
+        // Start with zeta^n, then derive others to avoid redundant exponentiations
+        let zeta_n = r4.zeta.pow(cpi.n as u64);
+        let zeta_sq = &r4.zeta * &r4.zeta;
+        let zeta_n_plus_2 = &zeta_n * &zeta_sq; // zeta^(n+2) = zeta^n * zeta^2
+        let zeta_2n_plus_4 = &zeta_n_plus_2 * &zeta_n_plus_2; // zeta^(2n+4) = (zeta^(n+2))^2
+
+        let zeta_raised_n = Polynomial::new_monomial(zeta_n_plus_2, 0); // TODO: Paper says n and 2n, but Gnark uses n+2 and 2n+4
+        let zeta_raised_2n = Polynomial::new_monomial(zeta_2n_plus_4, 0);
 
         // zeta is sampled outside the set of roots of unity so zeta != 1, and n != 0.
-        let l1_zeta = ((&r4.zeta.pow(cpi.n as u64) - FieldElement::<F>::one())
+        let l1_zeta = ((&zeta_n - FieldElement::<F>::one())
             / ((&r4.zeta - FieldElement::<F>::one()) * FieldElement::<F>::from(cpi.n as u64)))
         .expect("zeta is outside roots of unity so denominator is non-zero");
 
@@ -643,10 +651,11 @@ where
             * &r2.beta
             * &r4.z_zeta_omega
             * &cpi.s3;
+        let alpha_squared = &r3.alpha * &r3.alpha;
         p_non_constant += (r_2_2 - r_2_1) * &r3.alpha;
 
         let r_3 = &r2.p_z * l1_zeta;
-        p_non_constant += r_3 * &r3.alpha * &r3.alpha;
+        p_non_constant += r_3 * &alpha_squared;
 
         let partial_t = &r3.p_t_lo + zeta_raised_n * &r3.p_t_mid + zeta_raised_2n * &r3.p_t_hi;
 
