@@ -25,16 +25,13 @@ pub struct GpuFieldElement {
 
 impl From<&FE> for GpuFieldElement {
     fn from(fe: &FE) -> Self {
-        let canonical: U256 = fe.canonical();
+        // Send values in Montgomery form (aR mod p) to the GPU, which operates
+        // entirely in Montgomery form for fast CIOS multiplication.
         // Reverse limbs: Rust U256 is MSB-first (limbs[0] = most significant),
         // Metal shader is LSB-first (limbs[0] = least significant).
+        let mont = fe.value();
         Self {
-            limbs: [
-                canonical.limbs[3],
-                canonical.limbs[2],
-                canonical.limbs[1],
-                canonical.limbs[0],
-            ],
+            limbs: [mont.limbs[3], mont.limbs[2], mont.limbs[1], mont.limbs[0]],
         }
     }
 }
@@ -223,16 +220,23 @@ mod tests {
     use crate::merkle_tree::merkle::MerkleTree;
 
     #[test]
-    fn test_gpu_field_element_conversion() {
+    fn test_gpu_field_element_sends_montgomery_form() {
+        // GpuFieldElement now sends Montgomery form to the GPU.
+        // Verify that the limbs match fe.value() (reversed for LSB-first).
         let fe = FE::from(12345u64);
         let gpu = GpuFieldElement::from(&fe);
-        let back = FE::from(gpu);
-        assert_eq!(fe, back);
+        let mont = fe.value();
+        assert_eq!(gpu.limbs[0], mont.limbs[3]); // LSB in Metal = MSB in Rust
+        assert_eq!(gpu.limbs[1], mont.limbs[2]);
+        assert_eq!(gpu.limbs[2], mont.limbs[1]);
+        assert_eq!(gpu.limbs[3], mont.limbs[0]);
     }
 
     #[test]
-    fn test_gpu_field_element_conversion_all_limbs() {
-        // Test values that exercise all four limbs after canonical conversion
+    fn test_gpu_field_element_canonical_roundtrip() {
+        // The full pipeline: CPU sends Montgomery form to GPU, GPU returns
+        // canonical form. Verify using FE::from(GpuFieldElement) which
+        // takes a canonical value and converts to Montgomery internally.
         let values = [
             FE::from(0u64),
             FE::from(1u64),
@@ -242,8 +246,17 @@ mod tests {
             ),
         ];
         for fe in &values {
-            let gpu = GpuFieldElement::from(fe);
-            let back = FE::from(gpu);
+            // Simulate what the GPU does: receive Montgomery, return canonical
+            let canonical = fe.canonical();
+            let gpu_output = GpuFieldElement {
+                limbs: [
+                    canonical.limbs[3],
+                    canonical.limbs[2],
+                    canonical.limbs[1],
+                    canonical.limbs[0],
+                ],
+            };
+            let back = FE::from(gpu_output);
             assert_eq!(*fe, back, "Roundtrip failed for {fe}");
         }
     }

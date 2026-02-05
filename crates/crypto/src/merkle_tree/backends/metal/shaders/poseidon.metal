@@ -31,6 +31,17 @@ constant ulong4 STARK_PRIME = ulong4(
     0x0800000000000011UL   // limbs[3] (most significant): 2^251 + 17*2^192
 );
 
+// Montgomery constants for CIOS multiplication
+// MU = -p^{-1} mod 2^64
+constant ulong MONTY_MU = 0xFFFFFFFFFFFFFFFFUL;
+// R^2 mod p (LSB-first), where R = 2^256
+constant ulong4 MONTY_R2 = ulong4(
+    0xFFFFFD737E000401UL,  // limbs[0] (least significant)
+    0x00000001330FFFFFul,  // limbs[1]
+    0xFFFFFFFFFF6F8000UL,  // limbs[2]
+    0x07FFD4AB5E008810UL   // limbs[3] (most significant)
+);
+
 // ============================================================
 // 256-bit Arithmetic Operations
 // ============================================================
@@ -147,32 +158,96 @@ inline U256 double_mod(U256 a) {
     return add_mod(a, a);
 }
 
-/// Modular multiplication using binary double-and-add method.
-/// Computes a * b mod p by iterating over bits of b.
-/// This is a correct reference implementation; a production version
-/// would use Montgomery or Barrett reduction for better performance.
-inline U256 mul_mod(U256 a, U256 b) {
-    U256 result = U256(0);
-    U256 current = a;
+/// CIOS Montgomery multiplication: computes a * b * R^{-1} mod p.
+/// When a and b are in Montgomery form (aR, bR), the result is abR (still in Montgomery form).
+/// Ported from crates/math/src/unsigned_integer/montgomery.rs:177-220,
+/// adapted for LSB-first limb order.
+inline U256 monty_mul(U256 a, U256 b) {
+    ulong t[4] = {0, 0, 0, 0};
+    ulong t_extra0 = 0;
+    ulong t_extra1 = 0;
 
-    // Iterate over bits of b (Stark252 values are < p < 2^252)
-    for (int bit = 0; bit < 252; bit++) {
-        int limb_idx = bit / 64;
-        int bit_idx = bit % 64;
+    constant ulong* q = (constant ulong*)&STARK_PRIME;
 
-        if ((b.limbs[limb_idx] >> bit_idx) & 1UL) {
-            result = add_mod(result, current);
+    for (int i = 0; i < 4; i++) {
+        ulong bi = b.limbs[i];
+
+        // Step 1: t += a * b[i]
+        ulong c = 0;
+        for (int j = 0; j < 4; j++) {
+            ulong hi = mulhi(a.limbs[j], bi);
+            ulong lo = a.limbs[j] * bi;
+            ulong sum = t[j] + lo;
+            ulong carry1 = (sum < t[j]) ? 1UL : 0UL;
+            ulong sum2 = sum + c;
+            ulong carry2 = (sum2 < sum) ? 1UL : 0UL;
+            t[j] = sum2;
+            c = hi + carry1 + carry2;
         }
-        current = double_mod(current);
+        ulong cs = t_extra1 + c;
+        ulong cs_carry = (cs < t_extra1) ? 1UL : 0UL;
+        t_extra0 = cs_carry;
+        t_extra1 = cs;
+
+        // Step 2: Montgomery reduction factor
+        ulong m = t[0] * MONTY_MU;
+
+        // Step 3: t += m * q, shift right by 64 bits
+        // j=0: bottom 64 bits guaranteed to be 0, only need carry
+        ulong mq_hi = mulhi(m, q[0]);
+        ulong mq_lo = m * q[0];
+        ulong s = t[0] + mq_lo;
+        c = mq_hi + ((s < t[0]) ? 1UL : 0UL);
+
+        // j=1,2,3: compute m*q[j], add to t[j], shift into t[j-1]
+        for (int j = 1; j < 4; j++) {
+            ulong hi = mulhi(m, q[j]);
+            ulong lo = m * q[j];
+            ulong sum = t[j] + lo;
+            ulong carry1 = (sum < t[j]) ? 1UL : 0UL;
+            ulong sum2 = sum + c;
+            ulong carry2 = (sum2 < sum) ? 1UL : 0UL;
+            t[j - 1] = sum2;
+            c = hi + carry1 + carry2;
+        }
+        cs = t_extra1 + c;
+        cs_carry = (cs < t_extra1) ? 1UL : 0UL;
+        t[3] = cs;
+        t_extra1 = t_extra0 + cs_carry;
+        t_extra0 = 0;
     }
 
+    // Final reduction: if t >= p, subtract p
+    U256 result;
+    result.limbs = ulong4(t[0], t[1], t[2], t[3]);
+
+    U256 prime;
+    prime.limbs = STARK_PRIME;
+
+    if (t_extra1 > 0 || gte_u256(result, prime)) {
+        bool borrow;
+        result = sub_u256(result, prime, borrow);
+    }
     return result;
 }
 
-/// Cube a field element (x^3) - used in Poseidon S-box
+/// Convert a canonical value to Montgomery form: a -> aR mod p
+inline U256 to_montgomery(U256 a) {
+    U256 r2;
+    r2.limbs = MONTY_R2;
+    return monty_mul(a, r2);
+}
+
+/// Convert from Montgomery form to canonical: aR -> a mod p
+inline U256 from_montgomery(U256 a) {
+    return monty_mul(a, U256(1));
+}
+
+/// Cube a field element (x^3) - used in Poseidon S-box.
+/// Inputs and output are in Montgomery form.
 inline U256 cube_mod(U256 a) {
-    U256 a2 = mul_mod(a, a);
-    return mul_mod(a2, a);
+    U256 a2 = monty_mul(a, a);
+    return monty_mul(a2, a);
 }
 
 // ============================================================
@@ -266,6 +341,8 @@ inline void hades_permutation(
 
 /// Hash two field elements (for parent node computation)
 /// hash(x, y) = permutation([x, y, 2])[0]
+/// Inputs and round constants are in Montgomery form.
+/// Output is converted back to canonical form.
 kernel void hash_pair(
     device const U256* left [[buffer(0)]],
     device const U256* right [[buffer(1)]],
@@ -279,15 +356,17 @@ kernel void hash_pair(
     U256 state[STATE_SIZE];
     state[0] = left[gid];
     state[1] = right[gid];
-    state[2] = U256(2);  // Domain separator for hash(x, y)
+    state[2] = to_montgomery(U256(2));
 
     hades_permutation(state, round_constants);
 
-    output[gid] = state[0];
+    output[gid] = from_montgomery(state[0]);
 }
 
 /// Hash a single field element (for leaf hashing)
 /// hash_single(x) = permutation([x, 0, 1])[0]
+/// Inputs and round constants are in Montgomery form.
+/// Output is converted back to canonical form.
 kernel void hash_single(
     device const U256* input [[buffer(0)]],
     device U256* output [[buffer(1)]],
@@ -299,16 +378,18 @@ kernel void hash_single(
 
     U256 state[STATE_SIZE];
     state[0] = input[gid];
-    state[1] = U256(0);
-    state[2] = U256(1);  // Domain separator for hash_single
+    state[1] = U256(0);  // 0 is the same in Montgomery form
+    state[2] = to_montgomery(U256(1));
 
     hades_permutation(state, round_constants);
 
-    output[gid] = state[0];
+    output[gid] = from_montgomery(state[0]);
 }
 
 /// Build one level of the Merkle tree (hash pairs of nodes)
-/// Takes 2N input nodes and produces N output nodes
+/// Takes 2N input nodes and produces N output nodes.
+/// Inputs and round constants are in Montgomery form.
+/// Output is converted back to canonical form.
 kernel void merkle_hash_level(
     device const U256* input [[buffer(0)]],
     device U256* output [[buffer(1)]],
@@ -324,9 +405,9 @@ kernel void merkle_hash_level(
     U256 state[STATE_SIZE];
     state[0] = input[left_idx];
     state[1] = input[right_idx];
-    state[2] = U256(2);
+    state[2] = to_montgomery(U256(2));
 
     hades_permutation(state, round_constants);
 
-    output[gid] = state[0];
+    output[gid] = from_montgomery(state[0]);
 }
