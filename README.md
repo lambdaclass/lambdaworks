@@ -2,7 +2,7 @@
 
 > From the heights of these towers of fields, forty centuries of mathematics look down on us.
 
-This library provides efficient implementation of cryptographic primitives used to build proving systems. Along with it, many backends for proving systems are shipped, and compatibility with different frontends is supported.
+This library provides an efficient implementation of cryptographic primitives used to build proving systems. Along with it, many backends for proving systems are shipped, and compatibility with different frontends is supported.
 
 - [Transforming the Future with Zero-Knowledge Proofs, Fully Homomorphic Encryption and new Distributed Systems algorithms](https://blog.lambdaclass.com/transforming-the-future-with-zero-knowledge-proofs-fully-homomorphic-encryption-and-new-distributed-systems-algorithms/)
 - [Lambda Crypto Doctrine](https://blog.lambdaclass.com/lambda-crypto-doctrine/)
@@ -17,28 +17,36 @@ This library provides efficient implementation of cryptographic primitives used 
 
 ## Examples - mini apps
 
-Below is a list of examples to understand lambdaworks and learn what you can build with the tools provided.
+Below is a list of examples to understand lambdaworks and learn what you can build with the tools provided. Most are educational examples and must not be used in production.
 
-- [Merkle Tree CLI](./examples/merkle-tree-cli/)
-- [Proving Miden](./examples/prove-miden/)
-- [Shamir's secret sharing](./examples/shamir_secret_sharing/)
+### Cryptographic Signatures
+- [ECDSA signatures (secp256k1)](./examples/ecdsa-signature/)
+- [BLS signatures](./examples/bls-signature/)
+- [Schnorr signatures](./examples/schnorr-signature/)
+- [FROST threshold signatures](./examples/frost-signature/)
+- [XMSS post-quantum signatures](./examples/xmss-signature/)
+
+### Proof Systems & SNARKs
 - [BabySNARK](./examples/baby-snark/)
 - [Pinocchio](./examples/pinocchio/)
-- [Pohlig-Hellman algorithm](./examples/pohlig-hellman-attack/)
-- [Naive RSA](./examples/rsa/)
-- [Naive Schnorr signatures](./examples/schnorr-signature/)
-- [Reed-Solomon Codes](./examples/reed-solomon-codes/)
 - [Using Circom with lambdaworks's Groth16](./examples/prove-verify-circom/circom_lambdaworks_tutorial.md)
-- [Proving Fibonacci using Circom and lambdaworks](./examples/prove-verify-circom/circom_lambdaworks_tutorial.md)
+- [Proving Miden](./examples/prove-miden/)
+
+### Cryptographic Primitives
+- [Merkle Tree CLI](./examples/merkle-tree-cli/)
+- [Shamir's secret sharing](./examples/shamir_secret_sharing/)
+- [Reed-Solomon Codes](./examples/reed-solomon-codes/)
+- [Naive RSA](./examples/rsa/)
+- [Pohlig-Hellman algorithm](./examples/pohlig-hellman-attack/)
 
 - You can use Circom to generate circuits and use lambdaworks's capabilities to prove the execution with [Groth16](./crates/provers/groth16/README.md).
 - You can use the [Stark prover](./crates/provers/stark/README.md) to define an algebraic intermediate representation (AIR) and prove the execution of a program
 
 ## Why we built lambdaworks
 
-Zero-Knowledge and Validity Proofs have gained a lot of attention over the last few years. We strongly believe in this potential and that is why we decided to start working in this challenging ecosystem, where math, cryptography and distributed systems meet. The main barrier in the beginning was not the cryptography or math but the lack of good libraries which are performant and developer friendly. There are some exceptions, though, like gnark or halo2. Some have nice APIs and are easy to work with, but they are not written in Rust, and some are written in Rust but have poor programming and engineering practices. Most of them don't have support for CUDA, Metal and WebGPU or distributed FFT calculation using schedulers like Dask.
+Zero-Knowledge and Validity Proofs have attracted significant attention over the last few years. We strongly believe in this potential, and that is why we decided to start working in this challenging ecosystem, where math, cryptography, and distributed systems meet. The main barrier at the beginning was not cryptography or math, but the lack of good, performant, developer-friendly libraries. There are some exceptions, though, like gnark or Halo 2. Some have nice APIs and are easy to work with, but they are not written in Rust; others are written in Rust but have poor programming and engineering practices. Most of them don't support CUDA, Metal, WebGPU, or distributed FFT calculations using schedulers like Dask.
 
-So, we decided to build our library, focusing on performance, with clear documentation and developer-focused. Our core team is a group of passionate people from different backgrounds and different strengths; we think that the whole is greater than just the addition of the parts. We don't want to be a compilation of every research result in the ZK space. We want this to be a library that can be used in production, not just in academic research. We want to offer developers the main building blocks and proof systems so that they can build their applications on top of this library.
+So, we decided to build our library with performance in mind, providing clear documentation and a developer-focused approach. Our core team is a group of passionate people from diverse backgrounds and strengths; we believe the whole is greater than the sum of its parts. We don't want to be a compilation of every research result in the ZK space. We want this to be a library that can be used in production, not just in academic research. We want to offer developers the main building blocks and proof systems so that they can build their applications on top of this library.
 
 ## [Documentation](https://lambdaclass.github.io/lambdaworks)
 
@@ -134,7 +142,15 @@ For more examples, see the [examples directory](./examples/) and the [math crate
 - [Multiscalar multiplication](./crates/math/src/msm/)
 - [Hashes](./crates/crypto/src/hash/)
 
-Most of math and crypto crates supports no-std without allocation with `no-default-features`. A few functions and modules require the `alloc` feature.
+### Performance Features
+
+- **x86-64 Assembly Optimizations**: Hand-tuned assembly for field arithmetic on supported platforms
+- **GPU Acceleration**: CUDA backend for Merkle tree construction and FFT operations
+- **Metal Backend**: Apple Silicon GPU acceleration for FFT and field operations
+- **Sparse Polynomials**: Memory-efficient representation for polynomials with few non-zero coefficients
+- **Optimized FFT**: Circle FFT and NTT implementations with field-specific optimizations
+
+Most of the math and crypto crates support no-std without allocation with `no-default-features`. A few functions and modules require the `alloc` feature.
 
 Both Math and Crypto support wasm with target `wasm32-unknown-unknown`. To see an example of how to use this to deploy a verifier in a browser, check the Cairo Prover wasm-pack verifier.
 
@@ -158,7 +174,7 @@ If you use ```lambdaworks``` libraries in your research projects, please cite th
 
 ## List of features
 
-Disclaimer: This list contains cryptographic primitives and mathematical structures that we want to support in lambdaworks. It can be expanded later to include new primitives. If you find there is a mistake or there has been an update in another library, please let us know.
+Disclaimer: This list contains cryptographic primitives and mathematical structures that we want to support in lambdaworks. It can be expanded later to include new primitives. If you find a mistake or notice an update in another library, please let us know.
 
 List of symbols:
 - :heavy_check_mark: means the feature is currently supported.
@@ -168,8 +184,10 @@ List of symbols:
 | Finite Fields  | Lambdaworks        | Arkworks           | Plonky3            | gnark              | Constantine |  Halo2      |
 | -------------- | ------------------ | ------------------ | ------------------ | ------------------ | ----------- | ----------- |
 | StarkField 252 | :heavy_check_mark: | :heavy_check_mark: | :x:                | :heavy_check_mark: | :x:         | :x:
+| Goldilocks     | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :x:         | :x:
 | Mersenne 31    | :heavy_check_mark: | :x:                | :heavy_check_mark: | :x:                | :x:         | :x:
 | Baby Bear      | :heavy_check_mark: | :x:                | :heavy_check_mark: | :x:                | :x:         | :x:
+| KoalaBear      | :heavy_check_mark: | :x:                | :heavy_check_mark: | :x:                | :x:         | :x:
 | MiniGoldilocks | :heavy_check_mark: | :x:                | :heavy_check_mark: | :heavy_check_mark: | :x:         | :x:
 | Binary fields  | :heavy_check_mark: | :x:                | :x:                | :x:                | :x:         | :x:
 | **ZK friendly Hash function** | **Lambdaworks**    | **Arkworks**       | **Plonky3**        | **gnark** | **Constantine** | **Halo2**          |
@@ -211,13 +229,13 @@ Additionally, provers are compatible with the following frontends and VMs:
 | Stark   | Winterfell | :heavy_check_mark: |
 | Stark   | Miden | :heavy_check_mark: |
 
-This can be used in a multi prover setting for extra security, or as a standalone to be used with Rust.
+This can be used in a multi-prover setting for extra security, or as a standalone to be used with Rust.
 
 ## Additional tooling usage
 
 ### Fuzzers
 
-Fuzzers are divided between the ones that use only the CPU, and the ones that use CUDA.
+Fuzzers are divided between those that use only the CPU and those that use CUDA.
 
 To use them, make sure you have installed ```cargo fuzzer```
 
