@@ -41,25 +41,17 @@ pub fn bench_lambdaworks(c: &mut Criterion) {
         group.throughput(Throughput::Elements(size as u64));
 
         // Forward CFFT (evaluation)
-        group.bench_with_input(
-            BenchmarkId::new("cfft", size),
-            &coeffs,
-            |b, coeffs| {
-                b.iter(|| black_box(evaluate_cfft(coeffs.clone())))
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("cfft", size), &coeffs, |b, coeffs| {
+            b.iter(|| black_box(evaluate_cfft(coeffs.clone())))
+        });
 
         // Get evaluations for inverse CFFT bench
         let evals = evaluate_cfft(coeffs.clone());
 
         // Inverse CFFT (interpolation)
-        group.bench_with_input(
-            BenchmarkId::new("icfft", size),
-            &evals,
-            |b, evals| {
-                b.iter(|| black_box(interpolate_cfft(evals.clone())))
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("icfft", size), &evals, |b, evals| {
+            b.iter(|| black_box(interpolate_cfft(evals.clone())))
+        });
     }
     group.finish();
 }
@@ -88,24 +80,16 @@ pub fn bench_plonky3(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::new("cfft", size),
             &coeffs_matrix,
-            |b, coeffs| {
-                b.iter(|| {
-                    black_box(CircleEvaluations::evaluate(domain, coeffs.clone()))
-                })
-            },
+            |b, coeffs| b.iter(|| black_box(CircleEvaluations::evaluate(domain, coeffs.clone()))),
         );
 
         // Get evaluations for inverse CFFT bench
         let evals = CircleEvaluations::evaluate(domain, coeffs_matrix.clone());
 
         // Inverse CFFT (interpolation)
-        group.bench_with_input(
-            BenchmarkId::new("icfft", size),
-            &evals,
-            |b, evals| {
-                b.iter(|| black_box(evals.clone().interpolate()))
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("icfft", size), &evals, |b, evals| {
+            b.iter(|| black_box(evals.clone().interpolate()))
+        });
     }
     group.finish();
 }

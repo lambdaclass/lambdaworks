@@ -49,10 +49,7 @@ pub fn bench_bn254_g1_lambdaworks(c: &mut Criterion) {
             .collect();
 
         // Pre-compress for decompression benchmarks
-        let compressed: Vec<_> = points
-            .iter()
-            .map(BN254Curve::compress_g1_point)
-            .collect();
+        let compressed: Vec<_> = points.iter().map(BN254Curve::compress_g1_point).collect();
 
         group.throughput(Throughput::Elements(size as u64));
 
@@ -153,10 +150,7 @@ pub fn bench_bn254_g2_lambdaworks(c: &mut Criterion) {
             })
             .collect();
 
-        let compressed: Vec<_> = points
-            .iter()
-            .map(BN254Curve::compress_g2_point)
-            .collect();
+        let compressed: Vec<_> = points.iter().map(BN254Curve::compress_g2_point).collect();
 
         group.throughput(Throughput::Elements(size as u64));
 
