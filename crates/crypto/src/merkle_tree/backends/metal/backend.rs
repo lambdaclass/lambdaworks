@@ -127,9 +127,13 @@ impl MetalPoseidonBackend {
     ///
     /// Takes `2N` nodes and produces `N` parent nodes.
     pub fn hash_level_gpu(nodes: &[FE]) -> Result<Vec<FE>, MetalError> {
-        if nodes.is_empty() || !nodes.len().is_multiple_of(2) {
+        if nodes.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        if !nodes.len().is_multiple_of(2) {
             return Err(MetalError::InvalidInputSize {
-                expected: nodes.len() + (nodes.len() % 2),
+                expected: nodes.len() + 1,
                 actual: nodes.len(),
             });
         }
