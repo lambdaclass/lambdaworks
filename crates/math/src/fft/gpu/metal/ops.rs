@@ -91,6 +91,7 @@ pub fn fft<F, E>(
 where
     F: IsFFTField + IsSubFieldOf<E>,
     E: IsField,
+    E::BaseType: Copy,
 {
     if !input.len().is_power_of_two() {
         return Err(MetalError::InputError(input.len()));
@@ -173,6 +174,7 @@ pub fn fft_extension<E>(
 where
     E: IsField + HasMetalExtensionKernel,
     E::BaseField: IsFFTField + IsSubFieldOf<E>,
+    E::BaseType: Copy,
 {
     if !input.len().is_power_of_two() {
         return Err(MetalError::InputError(input.len()));
@@ -224,6 +226,7 @@ pub fn bitrev_permutation_extension<E>(
 ) -> Result<Vec<E::BaseType>, MetalError>
 where
     E: IsField + HasMetalExtensionKernel,
+    E::BaseType: Copy,
 {
     let kernel_name = format!(
         "bitrev_permutation_{}_{}",
@@ -266,11 +269,15 @@ where
 ///
 /// Returns `MetalError::FunctionError` if order > 63.
 /// Returns `MetalError::PipelineError` if kernel setup fails.
-pub fn gen_twiddles<F: IsFFTField>(
+pub fn gen_twiddles<F>(
     order: u64,
     config: RootsConfig,
     state: &MetalState,
-) -> Result<Vec<FieldElement<F>>, MetalError> {
+) -> Result<Vec<FieldElement<F>>, MetalError>
+where
+    F: IsFFTField,
+    F::BaseType: Copy,
+{
     if order > 63 {
         return Err(MetalError::FunctionError(
             "Order should be less than or equal to 63".to_string(),
@@ -329,7 +336,7 @@ pub fn gen_twiddles<F: IsFFTField>(
 /// # Errors
 ///
 /// Returns `MetalError::PipelineError` if kernel setup fails.
-pub fn bitrev_permutation<F: IsFFTField, T: Clone>(
+pub fn bitrev_permutation<F: IsFFTField, T: Clone + Copy>(
     input: &[T],
     state: &MetalState,
 ) -> Result<Vec<T>, MetalError> {

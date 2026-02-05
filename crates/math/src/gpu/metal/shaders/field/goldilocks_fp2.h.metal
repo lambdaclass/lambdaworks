@@ -8,36 +8,34 @@
 #pragma once
 
 #include "fp_u64.h.metal"
-#include "fp2_goldilocks.h.metal"
+#include "fp2_Goldilocks.h.metal"
 
 #include "../fft/fft_extension.h.metal"
 #include "../fft/permutation.h.metal"
 
 // Type aliases for clarity
-namespace {
-    typedef Fp64Goldilocks FpBase;
-    typedef Fp2Goldilocks FpExt;
-}
+typedef Fp64Goldilocks FpBaseGoldilocks;
+typedef Fp2Goldilocks FpExtFp2;
 
 // ============================================================
 // FFT Kernel Instantiations for Goldilocks Fp2
 // ============================================================
 
 // Butterfly kernel for extension field FFT with base field twiddles
-template [[ host_name("radix2_dit_butterfly_goldilocks_fp2") ]]
-[[kernel]] void radix2_dit_butterfly_ext<FpExt, FpBase>(
-    device FpExt*,
-    constant FpBase*,
+template [[ host_name("radix2_dit_butterfly_Goldilocks_fp2") ]]
+[[kernel]] void radix2_dit_butterfly_ext<FpExtFp2, FpBaseGoldilocks>(
+    device FpExtFp2*,
+    constant FpBaseGoldilocks*,
     constant uint32_t&,
     uint32_t,
     uint32_t
 );
 
 // Bit-reverse permutation for extension field elements
-template [[ host_name("bitrev_permutation_goldilocks_fp2") ]]
-[[kernel]] void bitrev_permutation_ext<FpExt>(
-    device FpExt*,
-    device FpExt*,
+template [[ host_name("bitrev_permutation_Goldilocks_fp2") ]]
+[[kernel]] void bitrev_permutation_ext<FpExtFp2>(
+    device FpExtFp2*,
+    device FpExtFp2*,
     uint32_t,
     uint32_t
 );
