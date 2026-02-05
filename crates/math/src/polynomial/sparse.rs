@@ -500,7 +500,7 @@ impl<F: IsPrimeField> SparsePolynomial<F> {
         let mut first = true;
 
         for (&deg, coeff) in self.coefficients.iter().rev() {
-            let coeff_str = coeff.representative().to_string();
+            let coeff_str = coeff.canonical().to_string();
 
             if !first {
                 string.push_str(" + ");

@@ -431,7 +431,8 @@ mod tests {
     }
 
     fn goldilocks_field_vec(max_exp: u8) -> impl Strategy<Value = Vec<GoldilocksFE>> {
-        powers_of_two(max_exp).prop_flat_map(|size| collection::vec(goldilocks_field_element(), size))
+        powers_of_two(max_exp)
+            .prop_flat_map(|size| collection::vec(goldilocks_field_element(), size))
     }
 
     proptest! {
@@ -838,7 +839,12 @@ mod tests {
         };
 
         let fp2_input: Vec<Fp2E> = (0..8)
-            .map(|i| Fp2E::new([GoldilocksFE::from(i as u64), GoldilocksFE::from(i as u64 + 1)]))
+            .map(|i| {
+                Fp2E::new([
+                    GoldilocksFE::from(i as u64),
+                    GoldilocksFE::from(i as u64 + 1),
+                ])
+            })
             .collect();
 
         let twiddles = match get_twiddles::<GoldilocksF>(3, RootsConfig::BitReverse) {
@@ -846,7 +852,8 @@ mod tests {
             Err(_) => return,
         };
 
-        let metal_result = match fft_extension::<GoldilocksFp2>(&fp2_input, &twiddles, &metal_state) {
+        let metal_result = match fft_extension::<GoldilocksFp2>(&fp2_input, &twiddles, &metal_state)
+        {
             Ok(r) => r,
             Err(_) => return,
         };

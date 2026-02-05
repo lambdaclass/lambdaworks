@@ -107,14 +107,7 @@ fn compile_metal_shaders() {
     // Link .air to .metallib
     // Panics are acceptable in build scripts when the toolchain is missing
     let metallib_link = Command::new("xcrun")
-        .args([
-            "-sdk",
-            "macosx",
-            "metallib",
-            &air_file,
-            "-o",
-            &output_file,
-        ])
+        .args(["-sdk", "macosx", "metallib", &air_file, "-o", &output_file])
         .output()
         .expect("xcrun metallib linker not found - install Xcode Command Line Tools");
 
