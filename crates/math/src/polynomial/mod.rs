@@ -16,7 +16,9 @@ pub mod dense_multilinear_poly;
 pub use dense_multilinear_poly::{eq_eval, eq_polynomial, DenseMultilinearPolynomial};
 pub mod error;
 pub use error::{MultilinearError, PolynomialError};
+pub mod sparse;
 pub mod sparse_multilinear_poly;
+pub use sparse::SparsePolynomial;
 
 /// Represents the polynomial c_0 + c_1 * X + c_2 * X^2 + ... + c_n * X^n
 /// as a vector of coefficients `[c_0, c_1, ... , c_n]`

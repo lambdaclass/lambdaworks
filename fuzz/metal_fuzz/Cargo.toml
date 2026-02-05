@@ -1,0 +1,30 @@
+[package]
+name = "metal_fuzz"
+version.workspace = true
+edition.workspace = true
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+lambdaworks-math = { workspace = true, features = ["metal"] }
+lambdaworks-gpu = { workspace = true, features = ["metal"] }
+honggfuzz = "0.5.55"
+
+[[bin]]
+name = "metal_fft_stark252"
+path = "src/metal_fft_stark252.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "metal_fft_goldilocks"
+path = "src/metal_fft_goldilocks.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "metal_twiddles_diff"
+path = "src/metal_twiddles_diff.rs"
+test = false
+doc = false
