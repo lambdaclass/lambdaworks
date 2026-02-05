@@ -33,11 +33,11 @@ mod tests {
     use super::*;
     mod test_koalabear_31_ops {
         use super::*;
-        use crate::{
-            errors::CreationError,
-            field::{element::FieldElement, errors::FieldError, traits::IsPrimeField},
-            traits::ByteConversion,
-        };
+        #[cfg(feature = "alloc")]
+        use crate::errors::CreationError;
+        use crate::field::{element::FieldElement, errors::FieldError, traits::IsPrimeField};
+        #[cfg(feature = "alloc")]
+        use crate::traits::ByteConversion;
         type FE = FieldElement<Koalabear31PrimeField>;
 
         // KoalaBear modulus
@@ -274,6 +274,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg(feature = "alloc")]
         fn byte_serialization_and_deserialization_works_le() {
             let element = FE::from_hex("0x7654321076543210").expect("valid hex");
             let bytes = element.to_bytes_le();
@@ -282,6 +283,7 @@ mod tests {
         }
 
         #[test]
+        #[cfg(feature = "alloc")]
         fn byte_serialization_and_deserialization_works_be() {
             let element = FE::from_hex("7654321076543210").expect("valid hex");
             let bytes = element.to_bytes_be();
