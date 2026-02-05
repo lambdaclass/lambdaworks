@@ -1,4 +1,4 @@
-use crate::{common::*, QuadraticArithmeticProgram};
+use crate::{common::*, errors::Groth16Error, QuadraticArithmeticProgram};
 use lambdaworks_math::{
     cyclic_group::IsGroup,
     elliptic_curve::{
@@ -7,37 +7,56 @@ use lambdaworks_math::{
     },
 };
 
+/// The verifying key used to verify Groth16 proofs.
+///
+/// This key is generated during the setup phase and can be made public.
+/// It contains the minimal information needed to verify proofs.
 pub struct VerifyingKey {
-    // e([alpha]_1, [beta]_2) computed during setup as it's a constant
+    /// e([alpha]_1, [beta]_2) computed during setup as it's a constant
     pub alpha_g1_times_beta_g2: PairingOutput,
+    /// [delta]_2
     pub delta_g2: G2Point,
+    /// [gamma]_2
     pub gamma_g2: G2Point,
-    // [K_0(τ)]_1, [K_1(τ)]_1, ..., [K_k(τ)]_1
-    // where K_i(τ) = γ^{-1} * (β*l(τ) + α*r(τ) + o(τ))
-    // and "k" is the number of public inputs
+    /// [K_0(τ)]_1, [K_1(τ)]_1, ..., [K_k(τ)]_1
+    /// where K_i(τ) = γ^{-1} * (β*l(τ) + α*r(τ) + o(τ))
+    /// and "k" is the number of public inputs
     pub verifier_k_tau_g1: Vec<G1Point>,
 }
 
+/// The proving key used to generate Groth16 proofs.
+///
+/// This key is generated during the setup phase and must be kept
+/// by the prover. It contains all information needed to create proofs.
 pub struct ProvingKey {
+    /// [alpha]_1
     pub alpha_g1: G1Point,
+    /// [beta]_1
     pub beta_g1: G1Point,
+    /// [beta]_2
     pub beta_g2: G2Point,
+    /// [delta]_1
     pub delta_g1: G1Point,
+    /// [delta]_2
     pub delta_g2: G2Point,
-    // [A_0(τ)]_1, [A_1(τ)]_1, ..., [A_n(τ)]_1
+    /// [A_0(τ)]_1, [A_1(τ)]_1, ..., [A_n(τ)]_1
     pub l_tau_g1: Vec<G1Point>,
-    // [B_0(τ)]_1, [B_1(τ)]_1, ..., [B_n(τ)]_1
+    /// [B_0(τ)]_1, [B_1(τ)]_1, ..., [B_n(τ)]_1
     pub r_tau_g1: Vec<G1Point>,
-    // [B_0(τ)]_2, [B_1(τ)]_2, ..., [B_n(τ)]_2
+    /// [B_0(τ)]_2, [B_1(τ)]_2, ..., [B_n(τ)]_2
     pub r_tau_g2: Vec<G2Point>,
-    // [K_{k+1}(τ)]_1, [K_{k+2}(τ)]_1, ..., [K_n(τ)]_1
-    // where K_i(τ) = ƍ^{-1} * (β*l(τ) + α*r(τ) + o(τ))
-    // and "k" is the number of public inputs
+    /// [K_{k+1}(τ)]_1, [K_{k+2}(τ)]_1, ..., [K_n(τ)]_1
+    /// where K_i(τ) = δ^{-1} * (β*l(τ) + α*r(τ) + o(τ))
+    /// and "k" is the number of public inputs
     pub prover_k_tau_g1: Vec<G1Point>,
-    // [delta^{-1} * t(τ) * tau^0]_1, [delta^{-1} * t(τ) * τ^1]_1, ..., [delta^{-1} * t(τ) * τ^m]_1
+    /// [delta^{-1} * t(τ) * τ^0]_1, [delta^{-1} * t(τ) * τ^1]_1, ..., [delta^{-1} * t(τ) * τ^m]_1
     pub z_powers_of_tau_g1: Vec<G1Point>,
 }
 
+/// Toxic waste from the trusted setup ceremony.
+///
+/// These values must be securely destroyed after setup.
+/// In production, a multi-party computation (MPC) ceremony should be used.
 struct ToxicWaste {
     tau: FrElement,
     alpha: FrElement,
@@ -47,9 +66,13 @@ struct ToxicWaste {
 }
 
 impl ToxicWaste {
-    /// This will create a new random ToxicWaste from entropy. Bear in mind this is not safe to use.
-    /// A proper ceremony, like Powers of Tau should be used in production to get the randomness.
-    pub fn new() -> Self {
+    /// Creates new random toxic waste from entropy.
+    ///
+    /// # Warning
+    ///
+    /// This uses local randomness and is NOT safe for production use.
+    /// A proper ceremony like Powers of Tau should be used instead.
+    fn new() -> Self {
         Self {
             tau: sample_fr_elem(),
             alpha: sample_fr_elem(),
@@ -60,7 +83,21 @@ impl ToxicWaste {
     }
 }
 
-pub fn setup(qap: &QuadraticArithmeticProgram) -> (ProvingKey, VerifyingKey) {
+/// Performs the Groth16 trusted setup ceremony.
+///
+/// # Arguments
+///
+/// * `qap` - The Quadratic Arithmetic Program representing the circuit
+///
+/// # Returns
+///
+/// A tuple of (ProvingKey, VerifyingKey) on success.
+///
+/// # Warning
+///
+/// This function uses local randomness for the toxic waste. In production,
+/// use a multi-party computation ceremony to generate the keys securely.
+pub fn setup(qap: &QuadraticArithmeticProgram) -> Result<(ProvingKey, VerifyingKey), Groth16Error> {
     let g1: G1Point = Curve::generator();
     let g2: G2Point = TwistedCurve::generator();
 
@@ -70,7 +107,8 @@ pub fn setup(qap: &QuadraticArithmeticProgram) -> (ProvingKey, VerifyingKey) {
     let r_tau: Vec<_> = qap.r.iter().map(|p| p.evaluate(&tw.tau)).collect();
 
     let mut to_be_inversed = [tw.delta.clone(), tw.gamma.clone()];
-    FrElement::inplace_batch_inverse(&mut to_be_inversed).unwrap();
+    FrElement::inplace_batch_inverse(&mut to_be_inversed)
+        .map_err(|_| Groth16Error::SetupError("batch inverse failed (zero element?)".into()))?;
     let [delta_inv, gamma_inv] = to_be_inversed;
 
     let k_tau: Vec<_> = l_tau
@@ -90,11 +128,12 @@ pub fn setup(qap: &QuadraticArithmeticProgram) -> (ProvingKey, VerifyingKey) {
     let alpha_g1 = g1.operate_with_self(tw.alpha.canonical());
     let beta_g2 = g2.operate_with_self(tw.beta.canonical());
 
-    let alpha_g1_times_beta_g2 = Pairing::compute(&alpha_g1, &beta_g2).unwrap();
+    let alpha_g1_times_beta_g2 = Pairing::compute(&alpha_g1, &beta_g2)
+        .map_err(|e| Groth16Error::PairingError(format!("{:?}", e)))?;
 
     let delta_g2 = g2.operate_with_self(tw.delta.canonical());
 
-    (
+    Ok((
         ProvingKey {
             alpha_g1,
             beta_g1: g1.operate_with_self(tw.beta.canonical()),
@@ -123,7 +162,7 @@ pub fn setup(qap: &QuadraticArithmeticProgram) -> (ProvingKey, VerifyingKey) {
             gamma_g2: g2.operate_with_self(tw.gamma.canonical()),
             verifier_k_tau_g1: batch_operate(&k_tau[..qap.num_of_public_inputs], &g1),
         },
-    )
+    ))
 }
 
 fn batch_operate<E: IsShortWeierstrass>(
