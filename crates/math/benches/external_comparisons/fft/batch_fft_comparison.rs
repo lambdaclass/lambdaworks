@@ -18,7 +18,7 @@ use rand::{Rng, SeedableRng};
 use lambdaworks_math::fft::cpu::bowers_fft::{bowers_batch_fft_opt, FftMatrix, LayerTwiddles};
 use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::fields::fft_friendly::babybear::Babybear31PrimeField;
-use lambdaworks_math::field::fields::u64_goldilocks_field::Goldilocks64Field;
+use lambdaworks_math::field::fields::u64_goldilocks_hybrid_field::Goldilocks64HybridField;
 
 // Plonky3
 use p3_baby_bear::BabyBear as P3BabyBear;
@@ -37,7 +37,7 @@ const BATCH_SIZES: [usize; 4] = [4, 8, 16, 32];
 pub fn bench_goldilocks_lambdaworks(c: &mut Criterion) {
     let mut group = c.benchmark_group("Goldilocks Batch FFT Lambdaworks");
 
-    type F = Goldilocks64Field;
+    type F = Goldilocks64HybridField;
     type FE = FieldElement<F>;
 
     let mut rng = StdRng::seed_from_u64(SEED);

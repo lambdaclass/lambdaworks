@@ -17,14 +17,13 @@ use external_comparisons::curves::{
 };
 use external_comparisons::fft::{
     baby_bear_fft_comparison, batch_fft_comparison, coset_fft_comparison,
-    goldilocks_fft_comparison, ifft_comparison,
+    goldilocks_fft_comparison, ifft_comparison, mersenne31_cfft_comparison,
 };
 use external_comparisons::fields::{
     baby_bear_comparison, babybear_fp4_comparison, batch_inversion_comparison,
     bls12_381_field_comparison, bn254_field_comparison, extension_field_comparison,
     goldilocks_comparison, mersenne31_comparison,
 };
-use external_comparisons::polynomials::polynomial_comparison;
 
 // ============================================
 // FIELD BENCHMARKS (LW vs Plonky3)
@@ -207,6 +206,16 @@ criterion_group!(
 );
 
 // ============================================
+// CIRCLE FFT BENCHMARKS (LW vs Plonky3)
+// ============================================
+
+criterion_group!(
+    name = mersenne31_cfft;
+    config = Criterion::default().sample_size(10);
+    targets = mersenne31_cfft_comparison::bench_lambdaworks, mersenne31_cfft_comparison::bench_plonky3
+);
+
+// ============================================
 // COSET FFT / LDE BENCHMARKS (LW vs Plonky3)
 // ============================================
 
@@ -264,16 +273,6 @@ criterion_group!(
     name = babybear_batch_ifft;
     config = Criterion::default().sample_size(10);
     targets = ifft_comparison::bench_babybear_batch_ifft_lambdaworks, ifft_comparison::bench_babybear_batch_ifft_plonky3
-);
-
-// ============================================
-// POLYNOMIAL BENCHMARKS (LW vs Plonky3)
-// ============================================
-
-criterion_group!(
-    name = polynomial_ops;
-    config = Criterion::default().sample_size(10);
-    targets = polynomial_comparison::bench_lambdaworks, polynomial_comparison::bench_plonky3
 );
 
 // ============================================
@@ -367,6 +366,8 @@ criterion_main!(
     // FFT (LW vs Plonky3)
     goldilocks_fft,
     baby_bear_fft,
+    // Circle FFT (LW vs Plonky3)
+    mersenne31_cfft,
     // Coset FFT / LDE (LW vs Plonky3)
     goldilocks_coset_fft,
     babybear_coset_fft,
@@ -378,8 +379,6 @@ criterion_main!(
     babybear_ifft,
     goldilocks_batch_ifft,
     babybear_batch_ifft,
-    // Polynomials (LW vs Plonky3)
-    polynomial_ops,
     // Curves G1 (LW vs Arkworks)
     bn254_curve,
     bls12_381_curve,

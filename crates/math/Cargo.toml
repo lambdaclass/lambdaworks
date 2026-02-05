@@ -42,6 +42,7 @@ p3-mersenne-31 = { git = "https://github.com/Plonky3/Plonky3" }
 p3-field = { git = "https://github.com/Plonky3/Plonky3" }
 p3-dft = { git = "https://github.com/Plonky3/Plonky3" }
 p3-matrix = { git = "https://github.com/Plonky3/Plonky3" }
+p3-circle = { git = "https://github.com/Plonky3/Plonky3" }
 ark-ff = "0.5"
 ark-ec = "0.5"
 ark-bn254 = "0.5"

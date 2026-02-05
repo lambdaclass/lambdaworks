@@ -63,7 +63,7 @@ pub fn bench_lambdaworks(c: &mut Criterion) {
         group.bench_with_input(BenchmarkId::new("double", size), &points, |b, pts| {
             b.iter(|| {
                 for p in pts {
-                    black_box(p.operate_with_self(U256::from(2u64)));
+                    black_box(p.double());
                 }
             })
         });
