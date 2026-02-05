@@ -29,8 +29,9 @@
 //! let product = builder.mul(&x, &secret);
 //! builder.assert_eq(&product, &y);
 //!
-//! // Build the circuit
-//! let circuit = builder.build();
+//! // Build preprocessed input and witness for proving
+//! let cpi = builder.build_cpi(&root_of_unity)?;
+//! let witness = builder.build_witness(&[("x", x_val), ("y", y_val), ("secret", s_val)])?;
 //! ```
 
 pub mod builder;

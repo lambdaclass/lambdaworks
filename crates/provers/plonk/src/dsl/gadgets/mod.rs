@@ -5,9 +5,9 @@
 //!
 //! # Available Gadgets
 //!
-//! - **Arithmetic**: Range checks, division with remainder
+//! - **Arithmetic**: Range checks, bit decomposition
 //! - **Comparison**: Less than, equality, zero check
-//! - **Hash**: Poseidon, MiMC
+//! - **Hash**: Poseidon (HADES construction)
 //! - **Merkle**: Merkle proof verification
 
 pub mod arithmetic;

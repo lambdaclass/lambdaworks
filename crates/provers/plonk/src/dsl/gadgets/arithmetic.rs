@@ -104,8 +104,11 @@ impl<F: IsField, const BITS: usize> Gadget<F> for RangeCheck<BITS> {
 
 /// Decomposes a field element into bits (LSB first).
 ///
-/// Unlike RangeCheck, this doesn't add a recomposition constraint,
-/// so it's useful when you need the bits for other purposes.
+/// This gadget performs a range check internally, which includes:
+/// - Boolean constraints for each bit
+/// - A recomposition constraint ensuring the bits sum to the original value
+///
+/// This ensures the value fits within BITS bits while providing the decomposition.
 pub struct ToBits<const BITS: usize>;
 
 impl<F: IsField, const BITS: usize> Gadget<F> for ToBits<BITS> {
@@ -127,7 +130,7 @@ impl<F: IsField, const BITS: usize> Gadget<F> for ToBits<BITS> {
     }
 
     fn constraint_count() -> usize {
-        // Same as RangeCheck: BITS boolean constraints + 1 equality + BITS multiplications
+        // Same as RangeCheck (uses it internally)
         BITS * 2 + 1
     }
 
@@ -167,8 +170,10 @@ impl<F: IsField> Gadget<F> for FromBits {
     }
 
     fn constraint_count() -> usize {
-        // Depends on number of bits (computed at runtime)
-        0 // Can't know statically
+        // Constraint count depends on the number of input bits, which is only known at runtime.
+        // Each bit requires one multiplication for scaling (bit * 2^i).
+        // Returns 0 as a placeholder; actual count is approximately 2 * num_bits.
+        0
     }
 
     fn name() -> &'static str {

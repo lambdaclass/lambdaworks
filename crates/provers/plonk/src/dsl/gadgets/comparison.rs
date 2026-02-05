@@ -181,7 +181,7 @@ impl<F: IsField, const BITS: usize> Gadget<F> for LessThanOrEqual<BITS> {
     }
 
     fn constraint_count() -> usize {
-        // LessThan constraint count + 1 for NOT
+        // LessThan constraints + 1 for NOT
         (BITS + 1) * 2 + 2 + 1
     }
 
@@ -208,7 +208,7 @@ impl<F: IsField, const BITS: usize> Gadget<F> for GreaterThan<BITS> {
     }
 
     fn constraint_count() -> usize {
-        // Same as LessThan
+        // Same as LessThan (just swaps arguments)
         (BITS + 1) * 2 + 2
     }
 
@@ -236,7 +236,7 @@ impl<F: IsField, const BITS: usize> Gadget<F> for GreaterThanOrEqual<BITS> {
     }
 
     fn constraint_count() -> usize {
-        // LessThan constraint count + 1 for NOT
+        // LessThan constraints + 1 for NOT
         (BITS + 1) * 2 + 2 + 1
     }
 
