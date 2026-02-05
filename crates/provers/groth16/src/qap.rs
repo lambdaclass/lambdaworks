@@ -44,21 +44,35 @@ impl QuadraticArithmeticProgram {
         let [l_evals, r_evals, o_evals] =
             self.scale_and_accumulate_variable_polynomials(w, degree, offset)?;
 
-        // Compute t(x) = x^n - 1 evaluations and their inverses
-        let t_poly =
-            Polynomial::new_monomial(FrElement::one(), self.num_of_gates) - FrElement::one();
-        let mut t_evals = Polynomial::evaluate_offset_fft(&t_poly, 1, Some(degree), offset)
-            .map_err(|e| Groth16Error::FFTError(format!("{:?}", e)))?;
-        FrElement::inplace_batch_inverse(&mut t_evals)
+        // Compute t(x) = x^n - 1 inverse evaluations.
+        //
+        // Key insight: On a coset of size 2n with primitive root ω (where ω^(2n) = 1),
+        // we have ω^n = -1. Therefore t(offset·ω^i) = offset^n·(-1)^i - 1, giving only
+        // two distinct values that alternate:
+        //   - Even indices: offset^n - 1
+        //   - Odd indices:  -offset^n - 1
+        //
+        // This avoids an O(n log n) FFT and O(n) batch inverse, replacing them with
+        // just one exponentiation and two field inversions.
+        let offset_to_n = offset.pow(self.num_of_gates);
+        let mut t_inv = [
+            &offset_to_n - FrElement::one(),  // t_even = offset^n - 1
+            -&offset_to_n - FrElement::one(), // t_odd = -offset^n - 1
+        ];
+        FrElement::inplace_batch_inverse(&mut t_inv)
             .map_err(|_| Groth16Error::BatchInversionFailed)?;
+        let [t_even_inv, t_odd_inv] = t_inv;
 
         // Compute h(x) evaluations: (L * R - O) / t
         let h_evaluated: Vec<_> = l_evals
             .iter()
             .zip(&r_evals)
             .zip(&o_evals)
-            .zip(&t_evals)
-            .map(|(((l, r), o), t_inv)| (l * r - o) * t_inv)
+            .enumerate()
+            .map(|(i, ((l, r), o))| {
+                let t_inv = if i % 2 == 0 { &t_even_inv } else { &t_odd_inv };
+                (l * r - o) * t_inv
+            })
             .collect();
 
         Polynomial::interpolate_offset_fft(&h_evaluated, offset)
