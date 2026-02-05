@@ -334,28 +334,39 @@ where
         gamma: FieldElement<F>,
     ) -> Round2Result<F, CS::Commitment> {
         let cpi = common_preprocessed_input;
-        let mut coefficients: Vec<FieldElement<F>> = vec![FieldElement::one()];
         let (s1, s2, s3) = (&cpi.s1_lagrange, &cpi.s2_lagrange, &cpi.s3_lagrange);
 
         let k2 = &cpi.k1 * &cpi.k1;
 
         let lp = |w: &FieldElement<F>, eta: &FieldElement<F>| w + &beta * eta + &gamma;
 
-        for i in 0..&cpi.n - 1 {
+        // Compute all numerators and denominators first
+        let n_minus_1 = cpi.n - 1;
+        let mut numerators = Vec::with_capacity(n_minus_1);
+        let mut denominators = Vec::with_capacity(n_minus_1);
+
+        for i in 0..n_minus_1 {
             let (a_i, b_i, c_i) = (&witness.a[i], &witness.b[i], &witness.c[i]);
             let num = lp(a_i, &cpi.domain[i])
                 * lp(b_i, &(&cpi.domain[i] * &cpi.k1))
                 * lp(c_i, &(&cpi.domain[i] * &k2));
             let den = lp(a_i, &s1[i]) * lp(b_i, &s2[i]) * lp(c_i, &s3[i]);
-            // den != 0 with overwhelming probability because beta and gamma are random elements.
-            let new_factor = (num / den).expect(
-                "division by zero in permutation polynomial: beta and gamma should prevent this",
-            );
+            numerators.push(num);
+            denominators.push(den);
+        }
 
-            let new_term = coefficients
-                .last()
-                .expect("coefficients vector is non-empty")
-                * &new_factor;
+        // Batch invert all denominators at once (much faster than n-1 individual inversions)
+        FieldElement::inplace_batch_inverse(&mut denominators).expect(
+            "batch inversion failed in permutation polynomial: beta and gamma should prevent zeros",
+        );
+
+        // Compute coefficients using the inverted denominators
+        let mut coefficients: Vec<FieldElement<F>> = Vec::with_capacity(cpi.n);
+        coefficients.push(FieldElement::one());
+
+        for i in 0..n_minus_1 {
+            let factor = &numerators[i] * &denominators[i];
+            let new_term = coefficients.last().expect("coefficients non-empty") * &factor;
             coefficients.push(new_term);
         }
 
@@ -386,9 +397,6 @@ where
         let cpi = common_preprocessed_input;
         let k2 = &cpi.k1 * &cpi.k1;
 
-        let one = Polynomial::new_monomial(FieldElement::one(), 0);
-        let p_x = &Polynomial::new_monomial(FieldElement::<F>::one(), 1);
-        let zh = Polynomial::new_monomial(FieldElement::<F>::one(), cpi.n) - &one;
 
         let z_x_omega_coefficients: Vec<FieldElement<F>> = p_z
             .coefficients()
@@ -430,8 +438,18 @@ where
             .expect("FFT evaluation of qc must be within field's two-adicity limit");
         let p_pi_eval = Polynomial::evaluate_offset_fft(&p_pi, 1, Some(degree), offset)
             .expect("FFT evaluation of p_pi must be within field's two-adicity limit");
-        let p_x_eval = Polynomial::evaluate_offset_fft(p_x, 1, Some(degree), offset)
-            .expect("FFT evaluation of p_x must be within field's two-adicity limit");
+
+        // Optimization: p_x = X (identity polynomial), so p_x(offset * ω^i) = offset * ω^i.
+        // Generate the coset directly instead of using FFT.
+        let omega = F::get_primitive_root_of_unity(degree.trailing_zeros() as u64)
+            .expect("primitive root exists for degree");
+        let p_x_eval: Vec<_> = (0..degree)
+            .scan(offset.clone(), |current, _| {
+                let val = current.clone();
+                *current = &*current * &omega;
+                Some(val)
+            })
+            .collect();
         let p_z_eval = Polynomial::evaluate_offset_fft(p_z, 1, Some(degree), offset)
             .expect("FFT evaluation of p_z must be within field's two-adicity limit");
         let p_z_x_omega_eval = Polynomial::evaluate_offset_fft(&z_x_omega, 1, Some(degree), offset)
@@ -505,11 +523,30 @@ where
             .map(|((p2, p1), co)| (p2 * &alpha + p1) * &alpha + co)
             .collect();
 
-        let mut zh_eval = Polynomial::evaluate_offset_fft(&zh, 1, Some(degree), offset).expect(
-            "FFT evaluation of vanishing polynomial must be within field's two-adicity limit",
-        );
-        FieldElement::inplace_batch_inverse(&mut zh_eval)
-            .expect("vanishing polynomial evaluations are non-zero because evaluated on coset offset from the roots of unity");
+        // Optimization: Z_H(x) = x^n - 1 has only 4 distinct values on a coset of size 4n.
+        // On coset {offset * ω^i : i = 0..4n-1} where ω is primitive 4n-th root:
+        //   Z_H(offset * ω^i) = offset^n * (ω^n)^i - 1
+        // Since ω^n is a 4th root of unity, (ω^n)^i cycles through 4 values.
+        let omega_4n = F::get_primitive_root_of_unity(degree.trailing_zeros() as u64)
+            .expect("primitive root exists for degree");
+        let omega_n = omega_4n.pow(cpi.n as u64); // ω^n where ω is 4n-th root; this is a 4th root of unity
+        let offset_to_n = offset.pow(cpi.n as u64);
+
+        // Compute the 4 distinct Z_H values and their inverses
+        // Use multiplication chain for small powers (faster than pow)
+        let omega_n_sq = &omega_n * &omega_n;
+        let omega_n_cubed = &omega_n_sq * &omega_n;
+        let mut zh_base = [
+            &offset_to_n - FieldElement::<F>::one(),                   // i ≡ 0 (mod 4)
+            &offset_to_n * &omega_n - FieldElement::<F>::one(),        // i ≡ 1 (mod 4)
+            &offset_to_n * &omega_n_sq - FieldElement::<F>::one(),     // i ≡ 2 (mod 4)
+            &offset_to_n * &omega_n_cubed - FieldElement::<F>::one(),  // i ≡ 3 (mod 4)
+        ];
+        FieldElement::inplace_batch_inverse(&mut zh_base)
+            .expect("Z_H evaluations are non-zero on coset offset from roots of unity");
+
+        // Build full evaluation vector by cycling through the 4 values
+        let zh_eval: Vec<_> = (0..degree).map(|i| zh_base[i % 4].clone()).collect();
         let c: Vec<_> = p_eval
             .iter()
             .zip(zh_eval.iter())
