@@ -28,10 +28,28 @@ impl IsFFTField for Koalabear31PrimeField {
     }
 }
 
+// Comprehensive field axiom tests via macro
+#[cfg(test)]
+type KoalabearFE = crate::field::element::FieldElement<Koalabear31PrimeField>;
+
+#[cfg(test)]
+crate::impl_field_axiom_tests!(
+    field: Koalabear31PrimeField,
+    element: KoalabearFE,
+);
+
+// FFT field tests via macro (only when FFT is available)
+#[cfg(all(test, not(feature = "cuda")))]
+crate::impl_fft_field_tests!(
+    field: Koalabear31PrimeField,
+    element: KoalabearFE,
+    two_adicity: 24,
+);
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    mod test_koalabear_31_ops {
+    mod koalabear_specific_tests {
         use super::*;
         #[cfg(feature = "alloc")]
         use crate::errors::CreationError;

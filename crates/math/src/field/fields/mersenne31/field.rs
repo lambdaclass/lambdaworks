@@ -222,11 +222,25 @@ impl Display for FieldElement<Mersenne31Field> {
     }
 }
 
+// Comprehensive field axiom tests via macro
+#[cfg(test)]
+type Mersenne31FE = FieldElement<Mersenne31Field>;
+
+#[cfg(test)]
+crate::impl_field_axiom_tests!(
+    field: Mersenne31Field,
+    element: Mersenne31FE,
+);
+
 #[cfg(test)]
 mod tests {
     use super::*;
     type F = Mersenne31Field;
     type FE = FieldElement<F>;
+
+    // ==================== MERSENNE31-SPECIFIC TESTS ====================
+    // These tests cover functionality specific to Mersenne31 that are not
+    // covered by the generic field axiom tests.
 
     #[test]
     fn mul_power_two_is_correct() {
