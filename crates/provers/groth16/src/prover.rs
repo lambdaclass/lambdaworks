@@ -1,15 +1,40 @@
+//! Groth16 proof generation.
+//!
+//! This module contains the prover implementation that generates zero-knowledge
+//! proofs from witnesses satisfying an R1CS constraint system.
+
 use crate::{common::*, errors::Groth16Error, ProvingKey, QuadraticArithmeticProgram};
 use lambdaworks_math::errors::DeserializationError;
 use lambdaworks_math::traits::{deserialize_with_length, serialize_with_length};
 use lambdaworks_math::{cyclic_group::IsGroup, msm::pippenger::msm};
 
+/// A Groth16 proof consisting of three group elements.
+///
+/// The proof is constant-size (3 group elements) regardless of the circuit complexity.
+/// - `pi1` (A): Element in G1
+/// - `pi2` (B): Element in G2
+/// - `pi3` (C): Element in G1
+///
+/// The proof satisfies the pairing equation:
+/// `e(A, B) = e(α, β) · e(L, γ) · e(C, δ)`
+/// where L is derived from the public inputs.
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Proof {
+    /// First proof element [π₁]₁ in G1
     pub pi1: G1Point,
+    /// Second proof element [π₂]₂ in G2
     pub pi2: G2Point,
+    /// Third proof element [π₃]₁ in G1
     pub pi3: G1Point,
 }
 
 impl Proof {
+    /// Serializes the proof to bytes.
+    ///
+    /// The serialization format is:
+    /// - pi1 (G1 point with length prefix)
+    /// - pi2 (G2 point with length prefix)
+    /// - pi3 (G1 point with length prefix)
     pub fn serialize(&self) -> Vec<u8> {
         let mut bytes: Vec<u8> = Vec::new();
         bytes.extend(serialize_with_length(&self.pi1));
@@ -18,6 +43,11 @@ impl Proof {
         bytes
     }
 
+    /// Deserializes a proof from bytes.
+    ///
+    /// # Errors
+    ///
+    /// Returns `DeserializationError` if the bytes don't represent a valid proof.
     pub fn deserialize(bytes: &[u8]) -> Result<Self, DeserializationError>
     where
         Self: Sized,
@@ -29,9 +59,30 @@ impl Proof {
     }
 }
 
+/// The Groth16 prover.
+///
+/// This struct provides the `prove` method to generate zero-knowledge proofs.
 pub struct Prover;
+
 impl Prover {
-    /// Computes a Groth16 proof from the witness, the quadratic arithmetic program description and the proving key
+    /// Generates a Groth16 proof for the given witness.
+    ///
+    /// # Arguments
+    ///
+    /// * `w` - The full witness vector including public inputs and private values.
+    ///   The first `qap.num_of_public_inputs` elements are public inputs.
+    /// * `qap` - The Quadratic Arithmetic Program describing the circuit
+    /// * `pk` - The proving key from the trusted setup
+    ///
+    /// # Returns
+    ///
+    /// A `Proof` that can be verified with the corresponding verifying key.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Groth16Error` if:
+    /// - QAP coefficient computation fails
+    /// - Multi-scalar multiplication fails
     pub fn prove(
         w: &[FrElement],
         qap: &QuadraticArithmeticProgram,
