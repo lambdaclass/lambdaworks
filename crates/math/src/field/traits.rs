@@ -5,7 +5,7 @@ use core::fmt::Debug;
 
 /// Represents different configurations that powers of roots of unity can be in. Some of these may
 /// be necessary for FFT (as twiddle factors).
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum RootsConfig {
     Natural,            // w^0, w^1, w^2...
     NaturalInversed,    // w^0, w^-1, w^-2...
