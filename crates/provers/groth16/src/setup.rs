@@ -128,8 +128,8 @@ pub fn setup(qap: &QuadraticArithmeticProgram) -> Result<(ProvingKey, VerifyingK
     let alpha_g1 = g1.operate_with_self(tw.alpha.canonical());
     let beta_g2 = g2.operate_with_self(tw.beta.canonical());
 
-    let alpha_g1_times_beta_g2 = Pairing::compute(&alpha_g1, &beta_g2)
-        .map_err(|e| Groth16Error::PairingError(format!("{:?}", e)))?;
+    let alpha_g1_times_beta_g2 =
+        Pairing::compute(&alpha_g1, &beta_g2).map_err(Groth16Error::pairing)?;
 
     let delta_g2 = g2.operate_with_self(tw.delta.canonical());
 

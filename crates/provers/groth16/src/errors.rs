@@ -31,3 +31,15 @@ impl fmt::Display for Groth16Error {
 }
 
 impl std::error::Error for Groth16Error {}
+
+impl Groth16Error {
+    /// Creates an MSMError from any Debug-printable error.
+    pub fn msm<E: core::fmt::Debug>(e: E) -> Self {
+        Self::MSMError(format!("{:?}", e))
+    }
+
+    /// Creates a PairingError from any Debug-printable error.
+    pub fn pairing<E: core::fmt::Debug>(e: E) -> Self {
+        Self::PairingError(format!("{:?}", e))
+    }
+}

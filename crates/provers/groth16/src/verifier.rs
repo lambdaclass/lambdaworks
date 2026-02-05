@@ -23,23 +23,16 @@ pub fn verify(
     pub_inputs: &[FrElement],
 ) -> Result<bool, Groth16Error> {
     // [γ^{-1} * (β*l(τ) + α*r(τ) + o(τ))]_1
-    let k_tau_assigned_verifier_g1 = msm(
-        &pub_inputs
-            .iter()
-            .map(|elem| elem.canonical())
-            .collect::<Vec<_>>(),
-        &vk.verifier_k_tau_g1,
-    )
-    .map_err(|e| Groth16Error::MSMError(format!("{:?}", e)))?;
+    let pub_inputs_canonical: Vec<_> = pub_inputs.iter().map(|elem| elem.canonical()).collect();
+    let k_tau_assigned_verifier_g1 =
+        msm(&pub_inputs_canonical, &vk.verifier_k_tau_g1).map_err(Groth16Error::msm)?;
 
-    let lhs = Pairing::compute(&proof.pi3, &vk.delta_g2)
-        .map_err(|e| Groth16Error::PairingError(format!("{:?}", e)))?
+    let lhs = Pairing::compute(&proof.pi3, &vk.delta_g2).map_err(Groth16Error::pairing)?
         * vk.alpha_g1_times_beta_g2.clone()
         * Pairing::compute(&k_tau_assigned_verifier_g1, &vk.gamma_g2)
-            .map_err(|e| Groth16Error::PairingError(format!("{:?}", e)))?;
+            .map_err(Groth16Error::pairing)?;
 
-    let rhs = Pairing::compute(&proof.pi1, &proof.pi2)
-        .map_err(|e| Groth16Error::PairingError(format!("{:?}", e)))?;
+    let rhs = Pairing::compute(&proof.pi1, &proof.pi2).map_err(Groth16Error::pairing)?;
 
     Ok(lhs == rhs)
 }

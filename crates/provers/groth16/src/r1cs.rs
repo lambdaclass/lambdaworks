@@ -65,14 +65,14 @@ impl R1CS {
         c: Vec<Vec<FrElement>>,
         number_of_inputs: usize,
     ) -> Self {
+        let constraints = a
+            .into_iter()
+            .zip(b)
+            .zip(c)
+            .map(|((a, b), c)| Constraint { a, b, c })
+            .collect();
         Self {
-            constraints: (0..a.len())
-                .map(|i| Constraint {
-                    a: a[i].clone(),
-                    b: b[i].clone(),
-                    c: c[i].clone(),
-                })
-                .collect(),
+            constraints,
             number_of_inputs,
         }
     }

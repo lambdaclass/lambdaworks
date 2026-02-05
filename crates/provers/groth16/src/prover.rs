@@ -36,11 +36,12 @@ impl Proof {
     /// - pi2 (G2 point with length prefix)
     /// - pi3 (G1 point with length prefix)
     pub fn serialize(&self) -> Vec<u8> {
-        let mut bytes: Vec<u8> = Vec::new();
-        bytes.extend(serialize_with_length(&self.pi1));
-        bytes.extend(serialize_with_length(&self.pi2));
-        bytes.extend(serialize_with_length(&self.pi3));
-        bytes
+        [
+            serialize_with_length(&self.pi1),
+            serialize_with_length(&self.pi2),
+            serialize_with_length(&self.pi3),
+        ]
+        .concat()
     }
 
     /// Deserializes a proof from bytes.
@@ -89,13 +90,13 @@ impl Prover {
         pk: &ProvingKey,
     ) -> Result<Proof, Groth16Error> {
         // Compute the coefficients of the quotient polynomial
-        let h_coefficients = qap
+        let h_coefficients: Vec<_> = qap
             .calculate_h_coefficients(w)?
-            .iter()
+            .into_iter()
             .map(|elem| elem.canonical())
-            .collect::<Vec<_>>();
+            .collect();
 
-        let w = w.iter().map(|elem| elem.canonical()).collect::<Vec<_>>();
+        let w: Vec<_> = w.iter().map(|elem| elem.canonical()).collect();
 
         // Sample randomness for hiding
         let r = sample_fr_elem();
@@ -103,33 +104,31 @@ impl Prover {
 
         // [π_1]_1
         let pi1 = msm(&w, &pk.l_tau_g1)
-            .map_err(|e| Groth16Error::MSMError(format!("{:?}", e)))?
+            .map_err(Groth16Error::msm)?
             .operate_with(&pk.alpha_g1)
             .operate_with(&pk.delta_g1.operate_with_self(r.canonical()));
 
         // [π_2]_2
         let pi2 = msm(&w, &pk.r_tau_g2)
-            .map_err(|e| Groth16Error::MSMError(format!("{:?}", e)))?
+            .map_err(Groth16Error::msm)?
             .operate_with(&pk.beta_g2)
             .operate_with(&pk.delta_g2.operate_with_self(s.canonical()));
 
         // [ƍ^{-1} * t(τ)*h(τ)]_1
-        let t_tau_h_tau_assigned_g1 = msm(
-            &h_coefficients,
-            &pk.z_powers_of_tau_g1[..h_coefficients.len()],
-        )
-        .map_err(|e| Groth16Error::MSMError(format!("{:?}", e)))?;
+        let t_tau_h_tau_assigned_g1 =
+            msm(&h_coefficients, &pk.z_powers_of_tau_g1[..h_coefficients.len()])
+                .map_err(Groth16Error::msm)?;
 
         // [ƍ^{-1} * (β*l(τ) + α*r(τ) + o(τ))]_1
         let k_tau_assigned_prover_g1 = msm(
             &w[qap.num_of_public_inputs..],
             &pk.prover_k_tau_g1[..qap.num_of_private_inputs()],
         )
-        .map_err(|e| Groth16Error::MSMError(format!("{:?}", e)))?;
+        .map_err(Groth16Error::msm)?;
 
         // [π_2]_1
         let pi2_g1 = msm(&w, &pk.r_tau_g1)
-            .map_err(|e| Groth16Error::MSMError(format!("{:?}", e)))?
+            .map_err(Groth16Error::msm)?
             .operate_with(&pk.beta_g1)
             .operate_with(&pk.delta_g1.operate_with_self(s.canonical()));
 
