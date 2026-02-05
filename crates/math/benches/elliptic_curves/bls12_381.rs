@@ -141,14 +141,9 @@ pub fn bls12_381_elliptic_curve_benchmarks(c: &mut Criterion) {
         );
 
         // Benchmark individual operations for comparison
-        batch_group.bench_function(
-            format!("individual_to_affine/{}", size),
-            |bencher| {
-                bencher.iter(|| {
-                    black_box(points.iter().map(|p| p.to_affine()).collect::<Vec<_>>())
-                });
-            },
-        );
+        batch_group.bench_function(format!("individual_to_affine/{}", size), |bencher| {
+            bencher.iter(|| black_box(points.iter().map(|p| p.to_affine()).collect::<Vec<_>>()));
+        });
     }
 
     // Benchmark batch_add_sw (batch addition using mixed addition)
@@ -167,14 +162,13 @@ pub fn bls12_381_elliptic_curve_benchmarks(c: &mut Criterion) {
             })
             .collect();
 
-        batch_group.bench_function(
-            format!("batch_add_sw/{}", size),
-            |bencher| {
-                bencher.iter(|| {
-                    black_box(lambdaworks_math::elliptic_curve::batch::batch_add_sw::<BLS12381Curve>(black_box(&affine_points)))
-                });
-            },
-        );
+        batch_group.bench_function(format!("batch_add_sw/{}", size), |bencher| {
+            bencher.iter(|| {
+                black_box(lambdaworks_math::elliptic_curve::batch::batch_add_sw::<
+                    BLS12381Curve,
+                >(black_box(&affine_points)))
+            });
+        });
 
         // Compare with naive loop
         batch_group.bench_function(
@@ -199,14 +193,15 @@ pub fn bls12_381_elliptic_curve_benchmarks(c: &mut Criterion) {
             .collect();
 
         // batch_normalize_jacobian
-        batch_group.bench_function(
-            format!("batch_normalize_jacobian/{}", size),
-            |bencher| {
-                bencher.iter(|| {
-                    black_box(lambdaworks_math::elliptic_curve::batch::batch_normalize_jacobian::<BLS12381Curve>(black_box(&jac_points)))
-                });
-            },
-        );
+        batch_group.bench_function(format!("batch_normalize_jacobian/{}", size), |bencher| {
+            bencher.iter(|| {
+                black_box(
+                    lambdaworks_math::elliptic_curve::batch::batch_normalize_jacobian::<
+                        BLS12381Curve,
+                    >(black_box(&jac_points)),
+                )
+            });
+        });
 
         batch_group.bench_function(
             format!("individual_jacobian_to_affine/{}", size),
@@ -220,14 +215,15 @@ pub fn bls12_381_elliptic_curve_benchmarks(c: &mut Criterion) {
         // batch_add_jacobian
         let jac_affine_points: Vec<_> = jac_points.iter().map(|p| p.to_affine()).collect();
 
-        batch_group.bench_function(
-            format!("batch_add_jacobian/{}", size),
-            |bencher| {
-                bencher.iter(|| {
-                    black_box(lambdaworks_math::elliptic_curve::batch::batch_add_jacobian::<BLS12381Curve>(black_box(&jac_affine_points)))
-                });
-            },
-        );
+        batch_group.bench_function(format!("batch_add_jacobian/{}", size), |bencher| {
+            bencher.iter(|| {
+                black_box(
+                    lambdaworks_math::elliptic_curve::batch::batch_add_jacobian::<BLS12381Curve>(
+                        black_box(&jac_affine_points),
+                    ),
+                )
+            });
+        });
 
         batch_group.bench_function(
             format!("individual_jacobian_add/{}", size),
