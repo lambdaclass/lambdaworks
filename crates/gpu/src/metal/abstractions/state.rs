@@ -144,23 +144,12 @@ impl MetalState {
     /// - The buffer contains valid data of type `T`
     /// - The buffer was allocated with enough space for the data
     /// - The data has been synchronized (command buffer completed)
-    ///
-    /// Uses `read_unaligned` to handle potential alignment issues with GPU buffers.
-    pub fn retrieve_contents<T: Clone>(buffer: &Buffer) -> Vec<T> {
+    pub fn retrieve_contents<T: Copy>(buffer: &Buffer) -> Vec<T> {
         let ptr = buffer.contents() as *const T;
         let len = buffer.length() as usize / mem::size_of::<T>();
-        let mut contents = Vec::with_capacity(len);
-
-        for i in 0..len {
-            // Safety: We read potentially unaligned data from GPU buffer
-            // and clone it to avoid double-free when buffer is released
-            let val = unsafe { ptr.add(i).read_unaligned() };
-            contents.push(val.clone());
-            // Forget the original to avoid double-drop
-            core::mem::forget(val);
-        }
-
-        contents
+        // Safety: Metal buffers with StorageModeShared are in unified memory
+        // and properly aligned. The caller ensures synchronization.
+        unsafe { std::slice::from_raw_parts(ptr, len).to_vec() }
     }
 }
 
