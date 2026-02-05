@@ -97,10 +97,11 @@ where
         const MAIN_GROUP_OFFSET: usize = 12;
 
         let main_group_len_u64 = u64::from_le_bytes(
-            // This unwrap can't fail since we are fixing the size of the slice
-            bytes[MAIN_GROUP_LEN_OFFSET..MAIN_GROUP_OFFSET]
+            bytes
+                .get(MAIN_GROUP_LEN_OFFSET..MAIN_GROUP_OFFSET)
+                .ok_or(DeserializationError::InvalidAmountOfBytes)?
                 .try_into()
-                .unwrap(),
+                .expect("slice length is exactly 8 bytes for u64"),
         );
 
         let main_group_len = usize::try_from(main_group_len_u64)
@@ -113,25 +114,23 @@ where
         let size_g2_point = mem::size_of::<G2Point>();
 
         for i in 0..main_group_len {
-            // The second unwrap shouldn't fail since the amount of bytes is fixed
-            let point = G1Point::deserialize(
-                bytes[i * size_g1_point + MAIN_GROUP_OFFSET
-                    ..i * size_g1_point + size_g1_point + MAIN_GROUP_OFFSET]
-                    .try_into()
-                    .unwrap(),
-            )?;
+            let start = i * size_g1_point + MAIN_GROUP_OFFSET;
+            let end = start + size_g1_point;
+            let point_bytes = bytes
+                .get(start..end)
+                .ok_or(DeserializationError::InvalidAmountOfBytes)?;
+            let point = G1Point::deserialize(point_bytes)?;
             main_group.push(point);
         }
 
         let g2s_offset = size_g1_point * main_group_len + 12;
         for i in 0..2 {
-            // The second unwrap shouldn't fail since the amount of bytes is fixed
-            let point = G2Point::deserialize(
-                bytes[i * size_g2_point + g2s_offset
-                    ..i * size_g2_point + g2s_offset + size_g2_point]
-                    .try_into()
-                    .unwrap(),
-            )?;
+            let start = i * size_g2_point + g2s_offset;
+            let end = start + size_g2_point;
+            let point_bytes = bytes
+                .get(start..end)
+                .ok_or(DeserializationError::InvalidAmountOfBytes)?;
+            let point = G2Point::deserialize(point_bytes)?;
             secondary_group.push(point);
         }
 
@@ -157,7 +156,7 @@ impl<F: IsPrimeField, P: IsPairing> KateZaveruchaGoldberg<F, P> {
     }
 }
 
-impl<const N: usize, F: IsPrimeField<RepresentativeType = UnsignedInteger<N>>, P: IsPairing>
+impl<const N: usize, F: IsPrimeField<CanonicalType = UnsignedInteger<N>>, P: IsPairing>
     IsCommitmentScheme<F> for KateZaveruchaGoldberg<F, P>
 {
     type Commitment = P::G1Point;
@@ -169,7 +168,7 @@ impl<const N: usize, F: IsPrimeField<RepresentativeType = UnsignedInteger<N>>, P
         let coefficients: Vec<_> = p
             .coefficients
             .iter()
-            .map(|coefficient| coefficient.representative())
+            .map(|coefficient| coefficient.canonical())
             .collect();
         msm(
             &coefficients,
@@ -210,12 +209,12 @@ impl<const N: usize, F: IsPrimeField<RepresentativeType = UnsignedInteger<N>>, P
 
         let e = P::compute_batch(&[
             (
-                &p_commitment.operate_with(&(g1.operate_with_self(y.representative())).neg()),
+                &p_commitment.operate_with(&(g1.operate_with_self(y.canonical())).neg()),
                 g2,
             ),
             (
                 &proof.neg(),
-                &(alpha_g2.operate_with(&(g2.operate_with_self(x.representative())).neg())),
+                &(alpha_g2.operate_with(&(g2.operate_with_self(x.canonical())).neg())),
             ),
         ]);
         e == Ok(FieldElement::one())
@@ -261,7 +260,7 @@ impl<const N: usize, F: IsPrimeField<RepresentativeType = UnsignedInteger<N>>, P
                 .iter()
                 .rev()
                 .fold(P::G1Point::neutral_element(), |acc, point| {
-                    acc.operate_with_self(upsilon.to_owned().representative())
+                    acc.operate_with_self(upsilon.to_owned().canonical())
                         .operate_with(point)
                 });
 
@@ -323,14 +322,9 @@ mod tests {
         let g1 = BLS12381Curve::generator();
         let g2 = BLS12381TwistCurve::generator();
         let powers_main_group: Vec<G1> = (0..100)
-            .map(|exponent| {
-                g1.operate_with_self(toxic_waste.pow(exponent as u128).representative())
-            })
+            .map(|exponent| g1.operate_with_self(toxic_waste.pow(exponent as u128).canonical()))
             .collect();
-        let powers_secondary_group = [
-            g2.clone(),
-            g2.operate_with_self(toxic_waste.representative()),
-        ];
+        let powers_secondary_group = [g2.clone(), g2.operate_with_self(toxic_waste.canonical())];
         StructuredReferenceString::new(&powers_main_group, &powers_secondary_group)
     }
 

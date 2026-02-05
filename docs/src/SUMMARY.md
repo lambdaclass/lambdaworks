@@ -3,6 +3,7 @@
 - [Introduction](./introduction.md)
 - [Getting Started](./getting-started.md)
 - [Architecture Overview](./architecture.md)
+- [Performance Optimization](./performance.md)
 
 - [FFT Library]()
   - [Benchmarks](./fft/benchmarks.md)

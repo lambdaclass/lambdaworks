@@ -197,15 +197,17 @@ pub enum LegendreSymbol {
 }
 
 pub trait IsPrimeField: IsField {
-    type RepresentativeType: IsUnsignedInteger;
+    type CanonicalType: IsUnsignedInteger;
 
-    /// Returns the integer representative in
-    /// the range [0, p-1], where p the modulus
-    fn representative(a: &Self::BaseType) -> Self::RepresentativeType;
+    /// Returns the canonical integer representation in
+    /// the range [0, p-1], where p is the modulus.
+    /// This converts from internal representation (e.g., Montgomery form)
+    /// to the standard form.
+    fn canonical(a: &Self::BaseType) -> Self::CanonicalType;
 
     /// Returns p - 1, which is -1 mod p
-    fn modulus_minus_one() -> Self::RepresentativeType {
-        Self::representative(&Self::neg(&Self::one()))
+    fn modulus_minus_one() -> Self::CanonicalType {
+        Self::canonical(&Self::neg(&Self::one()))
     }
 
     /// Creates a BaseType from a Hex String
@@ -242,7 +244,7 @@ pub trait IsPrimeField: IsField {
             LegendreSymbol::One => (),
         };
 
-        let integer_one = Self::RepresentativeType::from(1_u16);
+        let integer_one = Self::CanonicalType::from(1_u16);
         let mut s: usize = 0;
         let mut q = Self::modulus_minus_one();
 

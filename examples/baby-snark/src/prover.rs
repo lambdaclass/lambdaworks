@@ -33,27 +33,27 @@ impl Prover {
         let h_coefficients = ssp
             .calculate_h_coefficients(inputs, &delta)
             .iter()
-            .map(|elem| elem.representative())
+            .map(|elem| elem.canonical())
             .collect::<Vec<_>>();
 
         let h = msm(&h_coefficients, &pk.k_powers_of_tau_g1).unwrap();
         let w = inputs
             .iter()
             .skip(ssp.number_of_public_inputs)
-            .map(|elem| elem.representative())
+            .map(|elem| elem.canonical())
             .collect::<Vec<_>>();
 
         let v_w = msm(&w, &pk.u_tau_g1)
             .unwrap()
-            .operate_with(&pk.t_tau_g1.operate_with_self(delta.representative()));
+            .operate_with(&pk.t_tau_g1.operate_with_self(delta.canonical()));
 
         let v_w_prime = msm(&w, &pk.u_tau_g2)
             .unwrap()
-            .operate_with(&pk.t_tau_g2.operate_with_self(delta.representative()));
+            .operate_with(&pk.t_tau_g2.operate_with_self(delta.canonical()));
 
         let b_w = msm(&w, &pk.beta_u_tau_g1)
             .unwrap()
-            .operate_with(&pk.beta_t_tau_g1.operate_with_self(delta.representative()));
+            .operate_with(&pk.beta_t_tau_g1.operate_with_self(delta.canonical()));
 
         Ok(Proof {
             h,

@@ -23,17 +23,14 @@ pub fn generate_proof(
     let cmid =
         &qap_c_coefficients[qap.number_of_inputs..qap_c_coefficients.len() - qap.number_of_outputs];
     // We transform each FieldElement of the cmid into an UnsignedInteger so we can multiply them to g1.
-    let c_mid = cmid
-        .iter()
-        .map(|elem| elem.representative())
-        .collect::<Vec<_>>();
+    let c_mid = cmid.iter().map(|elem| elem.canonical()).collect::<Vec<_>>();
 
     let h_polynomial = qap.h_polynomial(qap_c_coefficients);
     // We transform h_polynomial into UnsignedIntegers.
     let h_coefficients = h_polynomial
         .coefficients
         .iter()
-        .map(|elem| elem.representative())
+        .map(|elem| elem.canonical())
         .collect::<Vec<_>>();
     let h_degree = h_polynomial.degree();
 

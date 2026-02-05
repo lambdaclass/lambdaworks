@@ -21,7 +21,7 @@ pub fn verify(vk: &VerifyingKey, proof: &Proof, pub_inputs: &[FrElement]) -> boo
     let v_u = msm(
         &pub_inputs
             .iter()
-            .map(|elem| elem.representative())
+            .map(|elem| elem.canonical())
             .collect::<Vec<_>>(),
         &vk.u_tau_g1,
     )
@@ -29,7 +29,7 @@ pub fn verify(vk: &VerifyingKey, proof: &Proof, pub_inputs: &[FrElement]) -> boo
     let v_u_prime = msm(
         &pub_inputs
             .iter()
-            .map(|elem| elem.representative())
+            .map(|elem| elem.canonical())
             .collect::<Vec<_>>(),
         &vk.u_tau_g2,
     )

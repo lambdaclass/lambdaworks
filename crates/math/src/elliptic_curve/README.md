@@ -124,7 +124,7 @@ fn commit(&self, p: &Polynomial<FieldElement<F>>) -> Self::Commitment {
         let coefficients: Vec<_> = p
             .coefficients
             .iter()
-            .map(|coefficient| coefficient.representative())
+            .map(|coefficient| coefficient.canonical())
             .collect();
         msm(
             &coefficients,

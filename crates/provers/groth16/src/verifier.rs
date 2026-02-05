@@ -9,7 +9,7 @@ pub fn verify(vk: &VerifyingKey, proof: &Proof, pub_inputs: &[FrElement]) -> boo
     let k_tau_assigned_verifier_g1 = msm(
         &pub_inputs
             .iter()
-            .map(|elem| elem.representative())
+            .map(|elem| elem.canonical())
             .collect::<Vec<_>>(),
         &vk.verifier_k_tau_g1,
     )

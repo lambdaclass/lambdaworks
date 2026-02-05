@@ -390,7 +390,7 @@ pub fn sort_rap_trace<F: IsFFTField + IsPrimeField>(
 ) -> TraceTable<F, F> {
     let mut address_value_pairs: Vec<_> = address.iter().zip(value.iter()).collect();
 
-    address_value_pairs.sort_by_key(|(addr, _)| addr.representative());
+    address_value_pairs.sort_by_key(|(addr, _)| addr.canonical());
 
     let (sorted_address, sorted_value): (Vec<FieldElement<F>>, Vec<FieldElement<F>>) =
         address_value_pairs

@@ -26,6 +26,7 @@ members = [
     "examples/rsa",
     "examples/xmss-signature",
     "examples/reed-solomon-codes",
+    "examples/bls-signature",
 ]
 exclude = ["ensure-no_std"]
 resolver = "2"
@@ -59,6 +60,10 @@ winter-math = { git = "https://github.com/lambdaclass/winterfell-for-lambdaworks
 winter-utils = { git = "https://github.com/lambdaclass/winterfell-for-lambdaworks.git", branch = "derive-clone-v6.4" }
 winter-crypto = { git = "https://github.com/lambdaclass/winterfell-for-lambdaworks.git", branch = "derive-clone-v6.4" }
 
+
+[profile.release]
+lto = "fat"
+codegen-units = 1
 
 [profile.bench]
 lto = true
