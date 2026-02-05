@@ -112,6 +112,7 @@ pub fn batch_normalize_sw<E: IsShortWeierstrass>(
 /// For `n` points:
 /// - This function: `O(11n * M)` field operations
 /// - Naive approach with projective addition: `O(16n * M)` field operations
+/// - Threshold: n ≥ 50 for optimal performance (below this, use simple loop)
 ///
 /// # Example
 ///
@@ -123,10 +124,24 @@ pub fn batch_normalize_sw<E: IsShortWeierstrass>(
 pub fn batch_add_sw<E: IsShortWeierstrass>(
     points: &[ShortWeierstrassProjectivePoint<E>],
 ) -> ShortWeierstrassProjectivePoint<E> {
+    // Threshold determined empirically from benchmarks
+    // Below this size, the overhead isn't worth it - use simple addition
+    const BATCH_THRESHOLD: usize = 50;
+
     if points.is_empty() {
         return ShortWeierstrassProjectivePoint::neutral_element();
     }
 
+    // For small batches, use simple operate_with to avoid any overhead
+    if points.len() < BATCH_THRESHOLD {
+        let mut accumulator = ShortWeierstrassProjectivePoint::neutral_element();
+        for point in points {
+            accumulator = accumulator.operate_with(point);
+        }
+        return accumulator;
+    }
+
+    // For larger batches, use mixed addition for better performance
     let mut accumulator = ShortWeierstrassProjectivePoint::neutral_element();
     for point in points {
         // Use operate_with_affine for mixed addition (faster when point is affine)
