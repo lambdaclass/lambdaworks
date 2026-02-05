@@ -89,9 +89,9 @@ impl<const MODULUS: u32> IsField for U32Field<MODULUS> {
 }
 
 impl<const MODULUS: u32> IsPrimeField for U32Field<MODULUS> {
-    type RepresentativeType = u32;
+    type CanonicalType = u32;
 
-    fn representative(a: &Self::BaseType) -> u32 {
+    fn canonical(a: &Self::BaseType) -> u32 {
         *a
     }
 

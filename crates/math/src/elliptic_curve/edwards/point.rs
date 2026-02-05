@@ -61,6 +61,69 @@ impl<E: IsEllipticCurve + IsEdwards> EdwardsProjectivePoint<E> {
     pub fn to_affine(&self) -> Self {
         Self(self.0.to_affine())
     }
+
+    /// Converts a slice of projective points to affine representation efficiently
+    /// using batch inversion (Montgomery's trick).
+    ///
+    /// This uses only 1 inversion + 3(n-1) multiplications instead of n inversions,
+    /// providing significant speedup for large batches.
+    ///
+    /// # Algorithm
+    ///
+    /// For Edwards curves, the affine coordinates are (x/z, y/z).
+    /// We batch invert all Z coordinates and apply them to get affine form.
+    ///
+    /// # Arguments
+    ///
+    /// * `points` - A slice of projective Edwards points
+    ///
+    /// # Returns
+    ///
+    /// A vector of affine points (Z=1). Neutral elements remain unchanged.
+    #[cfg(feature = "alloc")]
+    pub fn batch_to_affine(points: &[Self]) -> alloc::vec::Vec<Self> {
+        if points.is_empty() {
+            return alloc::vec::Vec::new();
+        }
+
+        // Collect Z coordinates, filtering out neutral elements
+        let mut z_coords: alloc::vec::Vec<FieldElement<E::BaseField>> =
+            alloc::vec::Vec::with_capacity(points.len());
+
+        for point in points.iter() {
+            if !point.is_neutral_element() {
+                z_coords.push(point.z().clone());
+            }
+        }
+
+        // Batch invert all Z coordinates
+        if FieldElement::<E::BaseField>::inplace_batch_inverse(&mut z_coords).is_err() {
+            // If batch inverse fails (e.g., contains zero), fall back to individual conversion
+            return points.iter().map(|p| p.to_affine()).collect();
+        }
+
+        // Build result vector
+        let mut result: alloc::vec::Vec<Self> = alloc::vec::Vec::with_capacity(points.len());
+        let mut inv_idx = 0;
+
+        for point in points.iter() {
+            if point.is_neutral_element() {
+                result.push(Self::neutral_element());
+            } else {
+                let z_inv = &z_coords[inv_idx];
+                let [x, y, _z] = point.coordinates();
+                let x_affine = x * z_inv;
+                let y_affine = y * z_inv;
+                // SAFETY: Point is valid and z_inv is computed correctly from a valid Z coordinate
+                let affine_point = Self::new([x_affine, y_affine, FieldElement::one()])
+                    .expect("batch_to_affine: affine conversion of valid point must succeed");
+                result.push(affine_point);
+                inv_idx += 1;
+            }
+        }
+
+        result
+    }
 }
 
 impl<E: IsEllipticCurve> PartialEq for EdwardsProjectivePoint<E> {
@@ -252,5 +315,76 @@ mod tests {
         assert_eq!(g.operate_with_self(18_u16), create_point(5, 5));
         assert_eq!(g.operate_with_self(19_u16), create_point(1, 11));
         assert_eq!(g.operate_with_self(20_u16), create_point(0, 1));
+    }
+
+    #[cfg(feature = "alloc")]
+    #[test]
+    fn test_batch_to_affine_edwards() {
+        let g = create_point(12, 11);
+
+        // Create multiple points with different Z coordinates (not in affine form)
+        let points: alloc::vec::Vec<_> = (1..=10).map(|i| g.operate_with_self(i as u16)).collect();
+
+        // Convert using batch_to_affine
+        let batch_affine = EdwardsProjectivePoint::<TinyJubJubEdwards>::batch_to_affine(&points);
+
+        // Convert individually and compare
+        for (batch, point) in batch_affine.iter().zip(points.iter()) {
+            let individual = point.to_affine();
+            assert_eq!(
+                batch, &individual,
+                "batch_to_affine should match individual to_affine"
+            );
+            assert_eq!(
+                batch.z(),
+                &FieldElement::one(),
+                "Affine points should have Z=1"
+            );
+        }
+    }
+
+    #[cfg(feature = "alloc")]
+    #[test]
+    fn test_batch_to_affine_edwards_with_neutral_element() {
+        let g = create_point(12, 11);
+        let neutral = EdwardsProjectivePoint::<TinyJubJubEdwards>::neutral_element();
+
+        // Mix regular points with neutral elements
+        let points = alloc::vec![
+            g.clone(),
+            neutral.clone(),
+            g.operate_with_self(2_u16),
+            neutral.clone(),
+            g.operate_with_self(3_u16),
+        ];
+
+        let batch_affine = EdwardsProjectivePoint::<TinyJubJubEdwards>::batch_to_affine(&points);
+
+        assert_eq!(batch_affine.len(), 5);
+        assert_eq!(batch_affine[0], points[0].to_affine());
+        assert!(batch_affine[1].is_neutral_element());
+        assert_eq!(batch_affine[2], points[2].to_affine());
+        assert!(batch_affine[3].is_neutral_element());
+        assert_eq!(batch_affine[4], points[4].to_affine());
+    }
+
+    #[cfg(feature = "alloc")]
+    #[test]
+    fn test_batch_to_affine_edwards_empty() {
+        let points: alloc::vec::Vec<EdwardsProjectivePoint<TinyJubJubEdwards>> =
+            alloc::vec::Vec::new();
+        let result = EdwardsProjectivePoint::<TinyJubJubEdwards>::batch_to_affine(&points);
+        assert!(result.is_empty());
+    }
+
+    #[cfg(feature = "alloc")]
+    #[test]
+    fn test_batch_to_affine_edwards_single_point() {
+        let g = create_point(12, 11);
+        let points = alloc::vec![g.operate_with_self(5_u16)];
+        let batch_result = EdwardsProjectivePoint::<TinyJubJubEdwards>::batch_to_affine(&points);
+
+        assert_eq!(batch_result.len(), 1);
+        assert_eq!(batch_result[0], points[0].to_affine());
     }
 }

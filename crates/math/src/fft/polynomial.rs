@@ -185,7 +185,8 @@ impl<E: IsField> Polynomial<FieldElement<E>> {
         offset: &FieldElement<F>,
     ) -> Result<Polynomial<FieldElement<E>>, FFTError> {
         let scaled = Polynomial::interpolate_fft::<F>(fft_evals)?;
-        Ok(scaled.scale(&offset.inv().unwrap()))
+        let offset_inv = offset.inv().map_err(|_| FFTError::InverseOfZero)?;
+        Ok(scaled.scale(&offset_inv))
     }
 
     /// Multiplies two polynomials using FFT.
@@ -280,14 +281,16 @@ where
     F: IsFFTField + IsSubFieldOf<E>,
     E: IsField,
 {
-    let poly_2_evaluations = Polynomial::evaluate_fft::<F>(poly_2, 1, None).unwrap();
+    let poly_2_evaluations = Polynomial::evaluate_fft::<F>(poly_2, 1, None)
+        .expect("failed to evaluate polynomial via FFT during composition");
 
     let values: Vec<_> = poly_2_evaluations
         .iter()
         .map(|value| poly_1.evaluate(value))
         .collect();
 
-    Polynomial::interpolate_fft::<F>(values.as_slice()).unwrap()
+    Polynomial::interpolate_fft::<F>(values.as_slice())
+        .expect("failed to interpolate polynomial via FFT during composition")
 }
 
 pub fn evaluate_fft_cpu<F, E>(coeffs: &[FieldElement<E>]) -> Result<Vec<FieldElement<E>>, FFTError>
@@ -314,7 +317,9 @@ where
 
     let coeffs = ops::fft(fft_evals, &twiddles)?;
 
-    let scale_factor = FieldElement::from(fft_evals.len() as u64).inv().unwrap();
+    let scale_factor = FieldElement::from(fft_evals.len() as u64)
+        .inv()
+        .map_err(|_| FFTError::InverseOfZero)?;
     Ok(Polynomial::new(&coeffs).scale_coeffs(&scale_factor))
 }
 

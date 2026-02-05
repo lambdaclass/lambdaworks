@@ -30,7 +30,7 @@ pub fn to_lambdaworks_vec(arkworks_vec: &[Fq]) -> Vec<FieldElement<Stark252Prime
 
         let a: FieldElement<Stark252PrimeField> = FieldElement::from(&UnsignedInteger { limbs });
 
-        assert_eq!(a.representative().limbs, limbs);
+        assert_eq!(a.canonical().limbs, limbs);
 
         lambdaworks_vec.push(a);
     }
