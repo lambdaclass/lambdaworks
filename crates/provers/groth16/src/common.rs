@@ -1,7 +1,20 @@
 //! Common types and utilities for Groth16.
 //!
 //! This module defines the concrete curve types used by the Groth16 implementation.
-//! Currently uses the BLS12-381 pairing-friendly curve.
+//! Currently configured for the BLS12-381 pairing-friendly curve.
+//!
+//! # Using a Different Curve
+//!
+//! To use Groth16 with a different pairing-friendly curve (e.g., BN254):
+//!
+//! 1. Change the imports to your target curve
+//! 2. Update all the type aliases below to match
+//! 3. Ensure your curve's scalar field has FFT-friendly properties
+//!
+//! The implementation requires:
+//! - A pairing-friendly curve with types `Curve`, `TwistedCurve`, and `Pairing`
+//! - A scalar field `FrElement` that supports FFT operations
+//! - The scalar field must have a generator for the multiplicative group
 
 use lambdaworks_math::{
     elliptic_curve::{

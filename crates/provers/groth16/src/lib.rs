@@ -37,6 +37,12 @@
 //! In production, you MUST use a multi-party computation (MPC) ceremony
 //! to generate the proving and verifying keys securely.
 //!
+//! # Curve Configuration
+//!
+//! This implementation is configured for BLS12-381. To use a different curve,
+//! modify the type aliases in [`common`]. The curve must be pairing-friendly
+//! and have a scalar field that supports FFT (i.e., has roots of unity).
+//!
 //! # References
 //!
 //! - [Groth16 paper](https://eprint.iacr.org/2016/260)
