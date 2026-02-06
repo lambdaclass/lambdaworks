@@ -115,9 +115,11 @@ impl Prover {
             .operate_with(&pk.delta_g2.operate_with_self(s.canonical()));
 
         // [ƍ^{-1} * t(τ)*h(τ)]_1
-        let t_tau_h_tau_assigned_g1 =
-            msm(&h_coefficients, &pk.z_powers_of_tau_g1[..h_coefficients.len()])
-                .map_err(Groth16Error::msm)?;
+        let t_tau_h_tau_assigned_g1 = msm(
+            &h_coefficients,
+            &pk.z_powers_of_tau_g1[..h_coefficients.len()],
+        )
+        .map_err(Groth16Error::msm)?;
 
         // [ƍ^{-1} * (β*l(τ) + α*r(τ) + o(τ))]_1
         let k_tau_assigned_prover_g1 = msm(

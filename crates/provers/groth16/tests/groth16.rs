@@ -110,7 +110,10 @@ fn qap_too_many_public_inputs_rejected() {
     let o = vec![vec![FrElement::one()]];
 
     let result = QuadraticArithmeticProgram::from_variable_matrices(5, &l, &r, &o);
-    assert!(result.is_err(), "more public inputs than variables should fail");
+    assert!(
+        result.is_err(),
+        "more public inputs than variables should fail"
+    );
 }
 
 #[test]
@@ -157,9 +160,9 @@ fn proof_determinism() {
     );
 
     // But both should verify
-    let accept1 = verify(&vk, &proof1, &w[..qap.num_of_public_inputs])
-        .expect("verification should succeed");
-    let accept2 = verify(&vk, &proof2, &w[..qap.num_of_public_inputs])
-        .expect("verification should succeed");
+    let accept1 =
+        verify(&vk, &proof1, &w[..qap.num_of_public_inputs]).expect("verification should succeed");
+    let accept2 =
+        verify(&vk, &proof2, &w[..qap.num_of_public_inputs]).expect("verification should succeed");
     assert!(accept1 && accept2, "both proofs should verify");
 }

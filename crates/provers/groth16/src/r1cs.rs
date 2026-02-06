@@ -4,6 +4,7 @@
 //! Each constraint has the form: `<A, w> * <B, w> = <C, w>` where `w` is the witness.
 
 use crate::common::FrElement;
+use crate::errors::Groth16Error;
 use lambdaworks_math::field::{element::FieldElement, traits::IsField};
 
 /// A constraint system combining R1CS constraints with a witness.
@@ -56,25 +57,33 @@ impl R1CS {
     /// * `c` - Output matrix
     /// * `number_of_inputs` - Number of public inputs
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics if the matrices have different numbers of rows.
+    /// Returns an error if the matrices have different numbers of rows.
     pub fn from_matrices(
         a: Vec<Vec<FrElement>>,
         b: Vec<Vec<FrElement>>,
         c: Vec<Vec<FrElement>>,
         number_of_inputs: usize,
-    ) -> Self {
+    ) -> Result<Self, Groth16Error> {
+        if a.len() != b.len() || a.len() != c.len() {
+            return Err(Groth16Error::QAPError(format!(
+                "R1CS matrices have inconsistent row counts: a={}, b={}, c={}",
+                a.len(),
+                b.len(),
+                c.len()
+            )));
+        }
         let constraints = a
             .into_iter()
             .zip(b)
             .zip(c)
             .map(|((a, b), c)| Constraint { a, b, c })
             .collect();
-        Self {
+        Ok(Self {
             constraints,
             number_of_inputs,
-        }
+        })
     }
 
     /// Returns the number of constraints in the system.

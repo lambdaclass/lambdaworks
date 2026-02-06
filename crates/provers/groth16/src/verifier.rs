@@ -1,4 +1,6 @@
-use lambdaworks_math::{cyclic_group::IsGroup, elliptic_curve::traits::IsPairing, msm::pippenger::msm};
+use lambdaworks_math::{
+    cyclic_group::IsGroup, elliptic_curve::traits::IsPairing, msm::pippenger::msm,
+};
 
 use crate::common::{FrElement, Pairing};
 use crate::errors::Groth16Error;
@@ -29,8 +31,7 @@ pub fn verify(
 ) -> Result<bool, Groth16Error> {
     // Compute [γ^{-1} * (β*l(τ) + α*r(τ) + o(τ))]_1 from public inputs
     let pub_inputs_canonical: Vec<_> = pub_inputs.iter().map(|elem| elem.canonical()).collect();
-    let k_tau_g1 =
-        msm(&pub_inputs_canonical, &vk.verifier_k_tau_g1).map_err(Groth16Error::msm)?;
+    let k_tau_g1 = msm(&pub_inputs_canonical, &vk.verifier_k_tau_g1).map_err(Groth16Error::msm)?;
 
     // Groth16 verification equation:
     //   e(A, B) = e(α, β) · e(L, γ) · e(C, δ)
