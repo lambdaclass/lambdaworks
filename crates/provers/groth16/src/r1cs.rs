@@ -93,10 +93,13 @@ impl R1CS {
 
     /// Returns the size of the witness vector (number of variables).
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics if the constraint system is empty.
-    pub fn witness_size(&self) -> usize {
-        self.constraints[0].a.len()
+    /// Returns `Groth16Error::QAPError` if the constraint system is empty.
+    pub fn witness_size(&self) -> Result<usize, Groth16Error> {
+        self.constraints
+            .first()
+            .map(|c| c.a.len())
+            .ok_or_else(|| Groth16Error::QAPError("Empty constraint system".into()))
     }
 }

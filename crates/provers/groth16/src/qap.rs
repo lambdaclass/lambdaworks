@@ -1,6 +1,6 @@
 use lambdaworks_math::polynomial::Polynomial;
 
-use crate::{common::*, errors::Groth16Error, r1cs::R1CS};
+use crate::{common::*, errors::Groth16Error, r1cs::{Constraint, R1CS}};
 
 /// Quadratic Arithmetic Program representation of a circuit.
 ///
@@ -76,7 +76,7 @@ impl QuadraticArithmeticProgram {
             .collect();
 
         Polynomial::interpolate_offset_fft(&h_evaluated, offset)
-            .map_err(|e| Groth16Error::FFTError(format!("{:?}", e)))
+            .map_err(|e| Groth16Error::FFTError(format!("{e:?}")))
             .map(|p| p.coefficients().to_vec())
     }
 
@@ -99,7 +99,7 @@ impl QuadraticArithmeticProgram {
                 .ok_or_else(|| Groth16Error::QAPError("Empty polynomial list".into()))?;
 
             Polynomial::evaluate_offset_fft(&accumulated, 1, Some(degree), offset)
-                .map_err(|e| Groth16Error::FFTError(format!("{:?}", e)))
+                .map_err(|e| Groth16Error::FFTError(format!("{e:?}")))
         };
 
         Ok([
@@ -130,17 +130,13 @@ impl QuadraticArithmeticProgram {
         let next_power_of_two = num_gates.next_power_of_two();
         let pad_zeroes = next_power_of_two - num_gates;
 
-        let mut l = Vec::with_capacity(r1cs.witness_size());
-        let mut r = Vec::with_capacity(r1cs.witness_size());
-        let mut o = Vec::with_capacity(r1cs.witness_size());
-
-        for i in 0..r1cs.witness_size() {
-            let [l_poly, r_poly, o_poly] =
-                get_variable_lro_polynomials_from_r1cs(&r1cs, i, pad_zeroes)?;
-            l.push(l_poly);
-            r.push(r_poly);
-            o.push(o_poly);
-        }
+        let witness_size = r1cs.witness_size()?;
+        let (l, (r, o)) = (0..witness_size)
+            .map(|i| {
+                let [l, r, o] = get_variable_lro_polynomials_from_r1cs(&r1cs, i, pad_zeroes)?;
+                Ok((l, (r, o)))
+            })
+            .collect::<Result<(Vec<_>, (Vec<_>, Vec<_>)), Groth16Error>>()?;
 
         Ok(QuadraticArithmeticProgram {
             l,
@@ -227,26 +223,17 @@ fn get_variable_lro_polynomials_from_r1cs(
     var_idx: usize,
     pad_zeroes: usize,
 ) -> Result<[Polynomial<FrElement>; 3], Groth16Error> {
-    let cap = r1cs.number_of_constraints() + pad_zeroes;
-    let mut current_var_l = vec![FrElement::zero(); cap];
-    let mut current_var_r = vec![FrElement::zero(); cap];
-    let mut current_var_o = vec![FrElement::zero(); cap];
-
-    for (i, c) in r1cs.constraints.iter().enumerate() {
-        current_var_l[i].clone_from(&c.a[var_idx]);
-        current_var_r[i].clone_from(&c.b[var_idx]);
-        current_var_o[i].clone_from(&c.c[var_idx]);
-    }
-
-    let interpolate = |evals: Vec<FrElement>| {
+    let extract_and_pad = |select: fn(&Constraint) -> &Vec<FrElement>| {
+        let mut evals: Vec<_> = r1cs.constraints.iter().map(|c| select(c)[var_idx].clone()).collect();
+        evals.resize(evals.len() + pad_zeroes, FrElement::zero());
         Polynomial::interpolate_fft::<FrField>(&evals)
-            .map_err(|e| Groth16Error::FFTError(format!("{:?}", e)))
+            .map_err(|e| Groth16Error::FFTError(format!("{e:?}")))
     };
 
     Ok([
-        interpolate(current_var_l)?,
-        interpolate(current_var_r)?,
-        interpolate(current_var_o)?,
+        extract_and_pad(|c| &c.a)?,
+        extract_and_pad(|c| &c.b)?,
+        extract_and_pad(|c| &c.c)?,
     ])
 }
 
@@ -262,7 +249,7 @@ fn build_variable_polynomials(
             let mut padded = row.clone();
             padded.resize(row.len() + pad_zeroes, FrElement::zero());
             Polynomial::interpolate_fft::<FrField>(&padded)
-                .map_err(|e| Groth16Error::FFTError(format!("{:?}", e)))
+                .map_err(|e| Groth16Error::FFTError(format!("{e:?}")))
         })
         .collect()
 }
