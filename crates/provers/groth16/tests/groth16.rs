@@ -117,6 +117,59 @@ fn qap_too_many_public_inputs_rejected() {
 }
 
 #[test]
+fn qap_inconsistent_constraint_counts_rejected() {
+    // L matrix has inconsistent inner vector lengths
+    let l = vec![
+        vec![FrElement::one(); 4], // 4 constraints
+        vec![FrElement::one(); 8], // 8 constraints - INCONSISTENT!
+        vec![FrElement::one(); 4], // 4 constraints
+    ];
+    let r = vec![
+        vec![FrElement::one(); 4],
+        vec![FrElement::one(); 4],
+        vec![FrElement::one(); 4],
+    ];
+    let o = vec![
+        vec![FrElement::one(); 4],
+        vec![FrElement::one(); 4],
+        vec![FrElement::one(); 4],
+    ];
+
+    let result = QuadraticArithmeticProgram::from_variable_matrices(1, &l, &r, &o);
+    assert!(
+        result.is_err(),
+        "L matrix with inconsistent constraint counts should fail"
+    );
+
+    // Also test R matrix with inconsistent lengths
+    let l_consistent = vec![vec![FrElement::one(); 4]; 3];
+    let r_inconsistent = vec![
+        vec![FrElement::one(); 4],
+        vec![FrElement::one(); 6], // INCONSISTENT!
+        vec![FrElement::one(); 4],
+    ];
+    let result2 =
+        QuadraticArithmeticProgram::from_variable_matrices(1, &l_consistent, &r_inconsistent, &o);
+    assert!(
+        result2.is_err(),
+        "R matrix with inconsistent constraint counts should fail"
+    );
+
+    // Also test O matrix with inconsistent lengths
+    let o_inconsistent = vec![
+        vec![FrElement::one(); 4],
+        vec![FrElement::one(); 4],
+        vec![FrElement::one(); 7], // INCONSISTENT!
+    ];
+    let result3 =
+        QuadraticArithmeticProgram::from_variable_matrices(1, &l_consistent, &r, &o_inconsistent);
+    assert!(
+        result3.is_err(),
+        "O matrix with inconsistent constraint counts should fail"
+    );
+}
+
+#[test]
 fn multiple_proofs_same_circuit() {
     // Tests that multiple valid witnesses produce valid proofs with the same keys
     let qap = test_qap_2();

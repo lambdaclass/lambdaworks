@@ -160,9 +160,13 @@ impl QuadraticArithmeticProgram {
     /// * `r` - Right input matrix (variables × constraints)
     /// * `o` - Output matrix (variables × constraints)
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics if the matrices are empty or have inconsistent dimensions.
+    /// Returns an error if:
+    /// - The matrices are empty
+    /// - The matrices have inconsistent outer dimensions
+    /// - Inner vectors (rows) have inconsistent lengths
+    /// - `num_of_public_inputs` exceeds the number of variables
     pub fn from_variable_matrices(
         num_of_public_inputs: usize,
         l: &[Vec<FrElement>],
@@ -185,6 +189,24 @@ impl QuadraticArithmeticProgram {
         }
 
         let num_of_gates = l[0].len();
+
+        // Validate all rows have the same length
+        let validate_inner_lengths = |matrix: &[Vec<FrElement>], name: &str| {
+            for (i, row) in matrix.iter().enumerate() {
+                if row.len() != num_of_gates {
+                    return Err(Groth16Error::QAPError(format!(
+                        "Inconsistent constraint count in {} matrix: row {} has {} constraints, expected {}",
+                        name, i, row.len(), num_of_gates
+                    )));
+                }
+            }
+            Ok(())
+        };
+
+        validate_inner_lengths(l, "L")?;
+        validate_inner_lengths(r, "R")?;
+        validate_inner_lengths(o, "O")?;
+
         let next_power_of_two = num_of_gates.next_power_of_two();
         let pad_zeroes = next_power_of_two - num_of_gates;
 
