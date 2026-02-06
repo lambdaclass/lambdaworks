@@ -200,7 +200,7 @@ List of symbols:
 | BN-254              | :heavy_check_mark: | :heavy_check_mark: | :x:         | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | 
 | Pallas              | :heavy_check_mark: | :heavy_check_mark: | :x:         | :x:                | :heavy_check_mark: | :heavy_check_mark: | 
 | Vesta               | :heavy_check_mark: | :heavy_check_mark: | :x:         | :x:                | :heavy_check_mark: | :heavy_check_mark: | 
-| Bandersnatch        | 🏗️                 | :heavy_check_mark: | :x:         | :heavy_check_mark: | :heavy_check_mark: | :x:                | 
+| Bandersnatch        | :heavy_check_mark: | :heavy_check_mark: | :x:         | :heavy_check_mark: | :heavy_check_mark: | :x:                | 
 | secp256k1           | :heavy_check_mark: | :heavy_check_mark: | :x:         | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | 
 | secq256k1           | :heavy_check_mark: | :heavy_check_mark: | :x:         | :x:                | :x:                | :heavy_check_mark: | 
 | secq256r1           | :heavy_check_mark: | :heavy_check_mark: | :x:         | :x:                | :x:                | :heavy_check_mark: | 
