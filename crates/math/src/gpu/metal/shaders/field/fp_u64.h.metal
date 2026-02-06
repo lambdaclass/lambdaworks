@@ -30,6 +30,12 @@ public:
 
     constexpr explicit operator uint64_t() const { return inner; }
 
+    /// Zero element.
+    static Fp64Goldilocks zero() { return Fp64Goldilocks(0); }
+
+    /// One element.
+    static Fp64Goldilocks one() { return Fp64Goldilocks(1); }
+
     /// Field addition: (a + b) mod p
     /// If overflow occurs, we add EPSILON (since 2^64 ≡ EPSILON mod p)
     Fp64Goldilocks operator+(const Fp64Goldilocks rhs) const {
