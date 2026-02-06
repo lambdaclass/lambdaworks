@@ -51,23 +51,27 @@ impl<
 {
 }
 
-#[derive(Debug)]
+use thiserror::Error;
+
+#[derive(Debug, Error)]
 pub enum ProvingError {
+    #[error("Wrong parameter: {0}")]
     WrongParameter(String),
+    #[error("Empty commitment: tree construction returned None")]
     EmptyCommitment,
-    /// No AIRs provided to multi_prove
+    #[error("No AIRs provided to multi_prove")]
     EmptyAirs,
-    /// Error during FFT operation
+    #[error("FFT operation failed: {0}")]
     FFTError(FFTError),
-    /// Failed to get primitive root of unity for the given order
+    #[error("Failed to get primitive root of unity for order {0}")]
     PrimitiveRootNotFound(u64),
-    /// Batch inversion failed (likely due to zero element)
+    #[error("Batch inversion failed, likely due to zero element")]
     BatchInversionFailed,
-    /// Merkle tree operation failed
+    #[error("Merkle tree operation failed: {0}")]
     MerkleTreeError(String),
-    /// Field operation failed (e.g., inversion of zero)
+    #[error("Field operation failed: {0}")]
     FieldOperationError(String),
-    /// Trace length must be a positive power of two (required for FFT)
+    #[error("Trace length must be a positive power of two (required for FFT): {0}")]
     InvalidTraceLength(usize),
 }
 
@@ -1763,5 +1767,65 @@ mod tests {
             proof.query_list[0].layers_auth_paths[7].merkle_path[5].to_vec(),
             decode_hex("f12f159b548ca2c571a270870d43e7ec2ead78b3e93b635738c31eb9bcda3dda").unwrap()
         );
+    }
+
+    // Error type tests
+    #[test]
+    fn test_proving_error_display_wrong_parameter() {
+        let error = ProvingError::WrongParameter("test param".to_string());
+        let msg = format!("{}", error);
+        assert!(msg.contains("Wrong parameter"));
+        assert!(msg.contains("test param"));
+    }
+
+    #[test]
+    fn test_proving_error_display_empty_commitment() {
+        let error = ProvingError::EmptyCommitment;
+        let msg = format!("{}", error);
+        assert!(msg.contains("Empty commitment"));
+        assert!(msg.contains("tree construction"));
+    }
+
+    #[test]
+    fn test_proving_error_display_empty_airs() {
+        let error = ProvingError::EmptyAirs;
+        let msg = format!("{}", error);
+        assert!(msg.contains("No AIRs"));
+        assert!(msg.contains("multi_prove"));
+    }
+
+    #[test]
+    fn test_proving_error_display_invalid_trace_length() {
+        let error = ProvingError::InvalidTraceLength(1024);
+        let msg = format!("{}", error);
+        assert!(msg.contains("Trace length"));
+        assert!(msg.contains("power of two"));
+        assert!(msg.contains("1024"));
+    }
+
+    #[test]
+    fn test_fft_error_to_proving_error_conversion() {
+        use lambdaworks_math::fft::errors::FFTError;
+        let fft_err = FFTError::RootOfUnityError(16);
+        let prov_err: ProvingError = fft_err.into();
+        match prov_err {
+            ProvingError::FFTError(err) => {
+                assert!(matches!(err, FFTError::RootOfUnityError(16)));
+            }
+            _ => panic!("Expected FFTError variant"),
+        }
+    }
+
+    #[test]
+    fn test_field_error_to_proving_error_conversion() {
+        use lambdaworks_math::field::errors::FieldError;
+        let field_err = FieldError::DivisionByZero;
+        let prov_err: ProvingError = field_err.into();
+        match prov_err {
+            ProvingError::FieldOperationError(msg) => {
+                assert!(msg.contains("DivisionByZero"));
+            }
+            _ => panic!("Expected FieldOperationError variant"),
+        }
     }
 }
