@@ -29,6 +29,10 @@ use super::abstractions::{
 const MSM_SHADER_SOURCE: &str = include_str!("shaders/msm/msm.metal");
 
 /// Configuration for MSM computation.
+///
+/// Currently only BLS12-381 is supported. Both the Metal shader and
+/// CPU-side arithmetic hardcode BLS12-381 field constants (modulus, R²,
+/// Montgomery inverse).
 #[derive(Debug, Clone)]
 pub struct MSMConfig {
     /// Window size in bits for Pippenger's algorithm.
@@ -50,16 +54,6 @@ impl MSMConfig {
             num_limbs: 4,
             bits_per_limb: 64,
             point_coord_limbs: 6,
-        }
-    }
-
-    /// Creates a new MSM configuration for BN254 (256-bit scalars, 254-bit base field).
-    pub fn bn254() -> Self {
-        Self {
-            window_size: 16,
-            num_limbs: 4,
-            bits_per_limb: 64,
-            point_coord_limbs: 4,
         }
     }
 
@@ -470,7 +464,16 @@ impl JacobianPoint {
     }
 
     /// Creates a point from a flat array of u64 limbs.
+    ///
+    /// # Panics
+    /// Panics if `limbs.len() < COORD_LIMBS * 3`.
     fn from_limbs(limbs: &[u64]) -> Self {
+        assert!(
+            limbs.len() >= COORD_LIMBS * 3,
+            "from_limbs requires at least {} limbs, got {}",
+            COORD_LIMBS * 3,
+            limbs.len()
+        );
         let mut x = [0u64; COORD_LIMBS];
         let mut y = [0u64; COORD_LIMBS];
         let mut z = [0u64; COORD_LIMBS];
