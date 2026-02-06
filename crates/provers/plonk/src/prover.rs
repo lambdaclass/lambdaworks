@@ -1,5 +1,6 @@
 use lambdaworks_crypto::fiat_shamir::is_transcript::IsTranscript;
 use lambdaworks_math::errors::DeserializationError;
+use lambdaworks_math::fft::errors::FFTError;
 use lambdaworks_math::field::traits::IsFFTField;
 use lambdaworks_math::traits::{
     deserialize_field_element_with_length, deserialize_with_length, AsBytes, Deserializable,
@@ -54,23 +55,49 @@ impl std::fmt::Display for ProverError {
 
 impl std::error::Error for ProverError {}
 
-/// Plonk proof.
-/// The challenges are denoted
-///     Round 2: β,γ,
-///     Round 3: α,
-///     Round 4: ζ,
-///     Round 5: υ.
-/// Here `Z_H` denotes the domain polynomial, `z` is the polynomial
-/// that encodes the copy constraints, and `p` is the sum of `z` and
-/// the polynomial that encodes the gates constraints.
-/// The polynomial `t` is defined as `p / Z_H`.
-/// `a`, `b`, and `c` are the wire assignment polynomials.
-/// `S_σ1(ζ), S_σ2(ζ) and S_σ3(ζ)` are the copy permutation polynomials.
-/// The polynomial `p` can be "linearized" and the result can be written as
-/// `linearized_p = p_non_constant + p_constant`, where
-/// `p_non_constant` is the sum of all the terms with a "non-constant"
-/// polynomial factor, such as `b(ζ)Q_R(X)`, and `p_constant` is the
-/// sum of all the rest (such as `PI(ζ)`).
+impl From<FFTError> for ProverError {
+    fn from(err: FFTError) -> Self {
+        ProverError::FFTError(format!("{:?}", err))
+    }
+}
+
+/// PLONK proof structure.
+///
+/// # Challenge Schedule (Fiat-Shamir)
+/// - Round 2: β, γ (permutation challenges)
+/// - Round 3: α (gate/permutation combination)
+/// - Round 4: ζ (evaluation point)
+/// - Round 5: υ (batching challenge)
+///
+/// # Key Polynomials
+/// - `Z_H`: Vanishing polynomial for domain H
+/// - `z`: Permutation polynomial encoding copy constraints
+/// - `p`: Combined constraint polynomial (gates + permutation)
+/// - `t = p / Z_H`: Quotient polynomial
+/// - `a, b, c`: Wire assignment polynomials
+/// - `S_σ1, S_σ2, S_σ3`: Copy permutation polynomials
+///
+/// # Quotient Polynomial Split (gnark-compatible)
+///
+/// The quotient polynomial `t(X)` has degree approximately 3n and is split into
+/// three parts for efficient commitment:
+///
+/// ```text
+/// t(X) = t_lo(X) + X^(n+2) · t_mid(X) + X^(2n+4) · t_hi(X)
+/// ```
+///
+/// The exponents `n+2` and `2n+4` (instead of `n` and `2n`) account for the
+/// blinding factors added to ensure zero-knowledge. Each part has degree at
+/// most `n+1`, allowing commitment with an SRS of size `n+3`.
+///
+/// This approach follows gnark's implementation, which differs slightly from
+/// the original PLONK paper's `n` and `2n` exponents.
+///
+/// # Linearization
+/// The polynomial `p` is linearized for efficient verification:
+/// `linearized_p = p_non_constant + p_constant`
+/// where `p_non_constant` contains terms with polynomial factors (e.g., `b(ζ)·Q_R(X)`)
+/// and `p_constant` contains the rest (e.g., `PI(ζ)`).
 pub struct Proof<F: IsField, CS: IsCommitmentScheme<F>> {
     // Round 1.
     /// Commitment to the wire polynomial `a(x)`
@@ -332,7 +359,7 @@ where
         common_preprocessed_input: &CommonPreprocessedInput<F>,
         beta: FieldElement<F>,
         gamma: FieldElement<F>,
-    ) -> Round2Result<F, CS::Commitment> {
+    ) -> Result<Round2Result<F, CS::Commitment>, ProverError> {
         let cpi = common_preprocessed_input;
         let mut coefficients: Vec<FieldElement<F>> = vec![FieldElement::one()];
         let (s1, s2, s3) = (&cpi.s1_lagrange, &cpi.s2_lagrange, &cpi.s3_lagrange);
@@ -359,18 +386,17 @@ where
             coefficients.push(new_term);
         }
 
-        let p_z = Polynomial::interpolate_fft::<F>(&coefficients)
-            .expect("xs and ys have equal length and xs are unique");
+        let p_z = Polynomial::interpolate_fft::<F>(&coefficients)?;
         let z_h = Polynomial::new_monomial(FieldElement::one(), common_preprocessed_input.n)
             - FieldElement::<F>::one();
         let p_z = self.blind_polynomial(&p_z, &z_h, 3);
         let z_1 = self.commitment_scheme.commit(&p_z);
-        Round2Result {
+        Ok(Round2Result {
             z_1,
             p_z,
             beta,
             gamma,
-        }
+        })
     }
 
     fn round_3(
@@ -382,7 +408,7 @@ where
             p_z, beta, gamma, ..
         }: &Round2Result<F, CS::Commitment>,
         alpha: FieldElement<F>,
-    ) -> Round3Result<F, CS::Commitment> {
+    ) -> Result<Round3Result<F, CS::Commitment>, ProverError> {
         let cpi = common_preprocessed_input;
         let k2 = &cpi.k1 * &cpi.k1;
 
@@ -399,17 +425,14 @@ where
         let z_x_omega = Polynomial::new(&z_x_omega_coefficients);
         let mut e1 = vec![FieldElement::<F>::zero(); cpi.domain.len()];
         e1[0] = FieldElement::one();
-        let l1 = Polynomial::interpolate_fft::<F>(&e1)
-            .expect("xs and ys have equal length and xs are unique");
+        let l1 = Polynomial::interpolate_fft::<F>(&e1)?;
         let mut p_pi_y = public_input.to_vec();
         p_pi_y.append(&mut vec![FieldElement::zero(); cpi.n - public_input.len()]);
-        let p_pi = Polynomial::interpolate_fft::<F>(&p_pi_y)
-            .expect("xs and ys have equal length and xs are unique");
+        let p_pi = Polynomial::interpolate_fft::<F>(&p_pi_y)?;
 
-        // Compute p
-        // To leverage FFT we work with the evaluation form of every polynomial
-        // involved
-        // TODO: check a factor of 4 is a sensible upper bound
+        // Compute p using FFT evaluation form for efficiency
+        // Quotient polynomial degree bound: 4n covers standard PLONK gates
+        // (constraint polynomial degree is ~4n, divided by zh of degree n gives ~3n)
         let degree = 4 * cpi.n;
         let offset = &cpi.k1;
         let p_a_eval = Polynomial::evaluate_offset_fft(p_a, 1, Some(degree), offset)
@@ -518,6 +541,8 @@ where
         let mut t = Polynomial::interpolate_offset_fft(&c, offset)
             .expect("FFT interpolation of quotient polynomial must succeed");
 
+        // Split quotient polynomial into 3 parts following gnark's approach:
+        // t(X) = t_lo(X) + X^(n+2) * t_mid(X) + X^(2n+4) * t_hi(X)
         polynomial::pad_with_zero_coefficients_to_length(&mut t, 3 * (&cpi.n + 2));
         let p_t_lo = Polynomial::new(&t.coefficients[..&cpi.n + 2]);
         let p_t_mid = Polynomial::new(&t.coefficients[&cpi.n + 2..2 * (&cpi.n + 2)]);
@@ -535,7 +560,7 @@ where
         let t_mid_1 = self.commitment_scheme.commit(&p_t_mid);
         let t_hi_1 = self.commitment_scheme.commit(&p_t_hi);
 
-        Round3Result {
+        Ok(Round3Result {
             t_lo_1,
             t_mid_1,
             t_hi_1,
@@ -543,7 +568,7 @@ where
             p_t_mid,
             p_t_hi,
             alpha,
-        }
+        })
     }
 
     fn round_4(
@@ -578,12 +603,13 @@ where
         round_3: &Round3Result<F, CS::Commitment>,
         round_4: &Round4Result<F>,
         upsilon: FieldElement<F>,
-    ) -> Round5Result<F, CS::Commitment> {
+    ) -> Result<Round5Result<F, CS::Commitment>, ProverError> {
         let cpi = common_preprocessed_input;
         let (r1, r2, r3, r4) = (round_1, round_2, round_3, round_4);
         // Precompute variables
         let k2 = &cpi.k1 * &cpi.k1;
-        let zeta_raised_n = Polynomial::new_monomial(r4.zeta.pow(cpi.n + 2), 0); // TODO: Paper says n and 2n, but Gnark uses n+2 and 2n+4
+        // Following gnark's approach: quotient split uses n+2 and 2n+4 exponents
+        let zeta_raised_n = Polynomial::new_monomial(r4.zeta.pow(cpi.n + 2), 0);
         let zeta_raised_2n = Polynomial::new_monomial(r4.zeta.pow(2 * cpi.n + 4), 0);
 
         // zeta is sampled outside the set of roots of unity so zeta != 1, and n != 0.
@@ -632,38 +658,48 @@ where
             self.commitment_scheme
                 .open(&(&r4.zeta * &cpi.omega), &r4.z_zeta_omega, &r2.p_z);
 
-        Round5Result {
+        Ok(Round5Result {
             w_zeta_1,
             w_zeta_omega_1,
             p_non_constant_zeta: ys[1].clone(),
             t_zeta: ys[0].clone(),
-        }
+        })
     }
 
+    /// Generates a PLONK proof for the given witness and public inputs.
+    ///
+    /// # Arguments
+    /// * `witness` - The witness assignment (values for all variables)
+    /// * `public_input` - The public input values
+    /// * `common_preprocessed_input` - Preprocessed circuit data from setup
+    /// * `vk` - The verification key
+    ///
+    /// # Returns
+    /// * `Ok(Proof)` on success
+    /// * `Err(ProverError)` if proving fails (e.g., FFT errors, invalid witness)
     pub fn prove(
         &self,
         witness: &Witness<F>,
         public_input: &[FieldElement<F>],
         common_preprocessed_input: &CommonPreprocessedInput<F>,
         vk: &VerificationKey<CS::Commitment>,
-    ) -> Proof<F, CS> {
+    ) -> Result<Proof<F, CS>, ProverError> {
         let mut transcript = new_strong_fiat_shamir_transcript::<F, CS>(vk, public_input);
 
-        // Round 1
+        // Round 1: Commit to wire polynomials
         let round_1 = self.round_1(witness, common_preprocessed_input);
         transcript.append_bytes(&round_1.a_1.as_bytes());
         transcript.append_bytes(&round_1.b_1.as_bytes());
         transcript.append_bytes(&round_1.c_1.as_bytes());
 
-        // Round 2
-        // TODO: Handle error
+        // Round 2: Commit to permutation polynomial
         let beta = transcript.sample_field_element();
         let gamma = transcript.sample_field_element();
 
-        let round_2 = self.round_2(witness, common_preprocessed_input, beta, gamma);
+        let round_2 = self.round_2(witness, common_preprocessed_input, beta, gamma)?;
         transcript.append_bytes(&round_2.z_1.as_bytes());
 
-        // Round 3
+        // Round 3: Compute and commit to quotient polynomial
         let alpha = transcript.sample_field_element();
         let round_3 = self.round_3(
             common_preprocessed_input,
@@ -671,12 +707,12 @@ where
             &round_1,
             &round_2,
             alpha,
-        );
+        )?;
         transcript.append_bytes(&round_3.t_lo_1.as_bytes());
         transcript.append_bytes(&round_3.t_mid_1.as_bytes());
         transcript.append_bytes(&round_3.t_hi_1.as_bytes());
 
-        // Round 4
+        // Round 4: Evaluate polynomials at challenge point
         let zeta = transcript.sample_field_element();
         let round_4 = self.round_4(common_preprocessed_input, &round_1, &round_2, zeta);
 
@@ -687,7 +723,7 @@ where
         transcript.append_field_element(&round_4.s2_zeta);
         transcript.append_field_element(&round_4.z_zeta_omega);
 
-        // Round 5
+        // Round 5: Compute opening proofs
         let upsilon = transcript.sample_field_element();
         let round_5 = self.round_5(
             common_preprocessed_input,
@@ -696,9 +732,9 @@ where
             &round_3,
             &round_4,
             upsilon,
-        );
+        )?;
 
-        Proof {
+        Ok(Proof {
             a_1: round_1.a_1,
             b_1: round_1.b_1,
             c_1: round_1.c_1,
@@ -716,7 +752,7 @@ where
             w_zeta_omega_1: round_5.w_zeta_omega_1,
             p_non_constant_zeta: round_5.p_non_constant_zeta,
             t_zeta: round_5.t_zeta,
-        }
+        })
     }
 }
 
@@ -806,7 +842,9 @@ mod tests {
         let random_generator = TestRandomFieldGenerator {};
         let prover = Prover::new(kzg, random_generator);
 
-        let result_2 = prover.round_2(&witness, &common_preprocessed_input, beta(), gamma());
+        let result_2 = prover
+            .round_2(&witness, &common_preprocessed_input, beta(), gamma())
+            .unwrap();
         let z_1_expected = BLS12381Curve::create_point_from_affine(
             FpElement::from_hex_unchecked("3e8322968c3496cf1b5786d4d71d158a646ec90c14edf04e758038e1f88dcdfe8443fcecbb75f3074a872a380391742"),
             FpElement::from_hex_unchecked("11eac40d09796ff150004e7b858d83ddd9fe995dced0b3fbd7535d6e361729b25d488799da61fdf1d7b5022684053327"),
@@ -824,14 +862,18 @@ mod tests {
         let random_generator = TestRandomFieldGenerator {};
         let prover = Prover::new(kzg, random_generator);
         let round_1 = prover.round_1(&witness, &common_preprocessed_input);
-        let round_2 = prover.round_2(&witness, &common_preprocessed_input, beta(), gamma());
-        let round_3 = prover.round_3(
-            &common_preprocessed_input,
-            &public_input,
-            &round_1,
-            &round_2,
-            alpha(),
-        );
+        let round_2 = prover
+            .round_2(&witness, &common_preprocessed_input, beta(), gamma())
+            .unwrap();
+        let round_3 = prover
+            .round_3(
+                &common_preprocessed_input,
+                &public_input,
+                &round_1,
+                &round_2,
+                alpha(),
+            )
+            .unwrap();
 
         let t_lo_1_expected = BLS12381Curve::create_point_from_affine(
             FpElement::from_hex_unchecked("9f511a769e77e87537b0749d65f467532fbf0f9dc1bcc912c333741be9d0a613f61e5fe595996964646ce30794701e5"),
@@ -858,7 +900,9 @@ mod tests {
         let prover = Prover::new(kzg, random_generator);
 
         let round_1 = prover.round_1(&witness, &common_preprocessed_input);
-        let round_2 = prover.round_2(&witness, &common_preprocessed_input, beta(), gamma());
+        let round_2 = prover
+            .round_2(&witness, &common_preprocessed_input, beta(), gamma())
+            .unwrap();
 
         let round_4 = prover.round_4(&common_preprocessed_input, &round_1, &round_2, zeta());
         let expected_a_value = FrElement::from_hex_unchecked(
@@ -899,15 +943,19 @@ mod tests {
         let prover = Prover::new(kzg, random_generator);
 
         let round_1 = prover.round_1(&witness, &common_preprocessed_input);
-        let round_2 = prover.round_2(&witness, &common_preprocessed_input, beta(), gamma());
+        let round_2 = prover
+            .round_2(&witness, &common_preprocessed_input, beta(), gamma())
+            .unwrap();
 
-        let round_3 = prover.round_3(
-            &common_preprocessed_input,
-            &public_input,
-            &round_1,
-            &round_2,
-            alpha(),
-        );
+        let round_3 = prover
+            .round_3(
+                &common_preprocessed_input,
+                &public_input,
+                &round_1,
+                &round_2,
+                alpha(),
+            )
+            .unwrap();
 
         let round_4 = prover.round_4(&common_preprocessed_input, &round_1, &round_2, zeta());
 
@@ -920,14 +968,16 @@ mod tests {
             FpElement::from_hex_unchecked("1254347a0fa2ac856917825a5cff5f9583d39a52edbc2be5bb10fabd0c04d23019bcb963404345743120310fd734a61a"),
         ).unwrap();
 
-        let round_5 = prover.round_5(
-            &common_preprocessed_input,
-            &round_1,
-            &round_2,
-            &round_3,
-            &round_4,
-            upsilon(),
-        );
+        let round_5 = prover
+            .round_5(
+                &common_preprocessed_input,
+                &round_1,
+                &round_2,
+                &round_3,
+                &round_4,
+                upsilon(),
+            )
+            .unwrap();
         assert_eq!(round_5.w_zeta_1, expected_w_zeta_1);
         assert_eq!(round_5.w_zeta_omega_1, expected_w_zeta_omega_1);
     }
