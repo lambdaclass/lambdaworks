@@ -512,45 +512,34 @@ where
     /// Serialize the points in the given format
     #[cfg(feature = "alloc")]
     pub fn serialize(&self, point_format: PointFormat, endianness: Endianness) -> Vec<u8> {
-        // TODO: Add more compact serialization formats
-        // Uncompressed affine / Compressed
-
-        let mut bytes: Vec<u8> = Vec::new();
-        let x_bytes: Vec<u8>;
-        let y_bytes: Vec<u8>;
-        let z_bytes: Vec<u8>;
-
         match point_format {
             PointFormat::Projective => {
                 let [x, y, z] = self.coordinates();
-                if endianness == Endianness::BigEndian {
-                    x_bytes = x.to_bytes_be();
-                    y_bytes = y.to_bytes_be();
-                    z_bytes = z.to_bytes_be();
+                let (x_bytes, y_bytes, z_bytes) = if endianness == Endianness::BigEndian {
+                    (x.to_bytes_be(), y.to_bytes_be(), z.to_bytes_be())
                 } else {
-                    x_bytes = x.to_bytes_le();
-                    y_bytes = y.to_bytes_le();
-                    z_bytes = z.to_bytes_le();
-                }
+                    (x.to_bytes_le(), y.to_bytes_le(), z.to_bytes_le())
+                };
+                let mut bytes = Vec::with_capacity(x_bytes.len() + y_bytes.len() + z_bytes.len());
                 bytes.extend(&x_bytes);
                 bytes.extend(&y_bytes);
                 bytes.extend(&z_bytes);
+                bytes
             }
             PointFormat::Uncompressed => {
                 let affine_representation = self.to_affine();
                 let [x, y, _z] = affine_representation.coordinates();
-                if endianness == Endianness::BigEndian {
-                    x_bytes = x.to_bytes_be();
-                    y_bytes = y.to_bytes_be();
+                let (x_bytes, y_bytes) = if endianness == Endianness::BigEndian {
+                    (x.to_bytes_be(), y.to_bytes_be())
                 } else {
-                    x_bytes = x.to_bytes_le();
-                    y_bytes = y.to_bytes_le();
-                }
+                    (x.to_bytes_le(), y.to_bytes_le())
+                };
+                let mut bytes = Vec::with_capacity(x_bytes.len() + y_bytes.len());
                 bytes.extend(&x_bytes);
                 bytes.extend(&y_bytes);
+                bytes
             }
         }
-        bytes
     }
 
     pub fn deserialize(
@@ -1024,43 +1013,37 @@ where
         point_format: PointFormat,
         endianness: Endianness,
     ) -> alloc::vec::Vec<u8> {
-        let mut bytes: alloc::vec::Vec<u8> = alloc::vec::Vec::new();
-        let x_bytes;
-        let y_bytes;
-        let z_bytes;
         match point_format {
             PointFormat::Projective => {
                 // For "projective" format, serialize the raw Jacobian coordinates [x, y, z]
                 let [x, y, z] = self.coordinates();
-                if endianness == Endianness::BigEndian {
-                    x_bytes = x.to_bytes_be();
-                    y_bytes = y.to_bytes_be();
-                    z_bytes = z.to_bytes_be();
+                let (x_bytes, y_bytes, z_bytes) = if endianness == Endianness::BigEndian {
+                    (x.to_bytes_be(), y.to_bytes_be(), z.to_bytes_be())
                 } else {
-                    x_bytes = x.to_bytes_le();
-                    y_bytes = y.to_bytes_le();
-                    z_bytes = z.to_bytes_le();
-                }
+                    (x.to_bytes_le(), y.to_bytes_le(), z.to_bytes_le())
+                };
+                let mut bytes =
+                    alloc::vec::Vec::with_capacity(x_bytes.len() + y_bytes.len() + z_bytes.len());
                 bytes.extend(&x_bytes);
                 bytes.extend(&y_bytes);
                 bytes.extend(&z_bytes);
+                bytes
             }
             PointFormat::Uncompressed => {
                 // Convert to affine: x_affine = x/z^2, y_affine = y/z^3
                 let affine_representation = self.to_affine();
                 let [x, y, _z] = affine_representation.coordinates();
-                if endianness == Endianness::BigEndian {
-                    x_bytes = x.to_bytes_be();
-                    y_bytes = y.to_bytes_be();
+                let (x_bytes, y_bytes) = if endianness == Endianness::BigEndian {
+                    (x.to_bytes_be(), y.to_bytes_be())
                 } else {
-                    x_bytes = x.to_bytes_le();
-                    y_bytes = y.to_bytes_le();
-                }
+                    (x.to_bytes_le(), y.to_bytes_le())
+                };
+                let mut bytes = alloc::vec::Vec::with_capacity(x_bytes.len() + y_bytes.len());
                 bytes.extend(&x_bytes);
                 bytes.extend(&y_bytes);
+                bytes
             }
         }
-        bytes
     }
 
     pub fn deserialize(

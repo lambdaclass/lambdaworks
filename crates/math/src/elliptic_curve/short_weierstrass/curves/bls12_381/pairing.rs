@@ -86,7 +86,7 @@ fn precompute_double_line(
     t: &mut ShortWeierstrassJacobianPoint<BLS12381TwistCurve>,
 ) -> (Fp2E, Fp2E, Fp2E) {
     let [x1, y1, z1] = t.coordinates();
-    let two_inv = FieldElement::<Degree2ExtensionField>::new_base("d0088f51cbff34d258dd3db21a5d66bb23ba5c279c2895fb39869507b587b120f55ffff58a9ffffdcff7fffffffd556");
+    let two_inv = two_inv();
 
     let a = &two_inv * x1 * y1;
     let b = y1.square();
@@ -345,6 +345,13 @@ pub fn miller(
     f.conjugate()
 }
 
+/// Returns the multiplicative inverse of 2 in Fp2.
+/// Used by the line function computations in the Miller loop.
+#[inline]
+fn two_inv() -> Fp2E {
+    Fp2E::new_base("d0088f51cbff34d258dd3db21a5d66bb23ba5c279c2895fb39869507b587b120f55ffff58a9ffffdcff7fffffffd556")
+}
+
 /// Multiplies an Fp2 element by 3 using addition chain: 3x = 2x + x
 #[inline]
 fn triple_fp2(x: &Fp2E) -> Fp2E {
@@ -358,7 +365,7 @@ fn double_accumulate_line(
 ) {
     let [x1, y1, z1] = t.coordinates();
     let [px, py, _] = p.coordinates();
-    let two_inv = FieldElement::<Degree2ExtensionField>::new_base("d0088f51cbff34d258dd3db21a5d66bb23ba5c279c2895fb39869507b587b120f55ffff58a9ffffdcff7fffffffd556");
+    let two_inv = two_inv();
 
     let a = &two_inv * x1 * y1;
     let b = y1.square();
