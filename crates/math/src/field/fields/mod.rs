@@ -1,5 +1,11 @@
 /// Implementation of two-adic prime fields to use with the Fast Fourier Transform (FFT).
 pub mod fft_friendly;
+/// AVX2/AVX-512 SIMD optimized Goldilocks field arithmetic
+#[cfg(all(
+    target_arch = "x86_64",
+    any(target_feature = "avx2", target_feature = "avx512f")
+))]
+pub mod goldilocks_avx;
 /// Implementation of the 32-bit Mersenne Prime field (p = 2^31 - 1)
 pub mod mersenne31;
 pub mod montgomery_backed_prime_fields;
