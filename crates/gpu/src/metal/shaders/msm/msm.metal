@@ -19,8 +19,8 @@ using namespace metal;
 // Configuration Constants
 // =============================================================================
 
-// Number of 64-bit limbs for 256-bit integers (BLS12-381, BN254)
-constant uint NUM_LIMBS = 4;
+// Number of 64-bit limbs for BLS12-381 base field Fq (381 bits → 6 × 64 = 384 bits)
+constant uint NUM_LIMBS = 6;
 
 // Limbs per Jacobian point coordinate (x, y, z each have NUM_LIMBS limbs)
 constant uint LIMBS_PER_COORD = NUM_LIMBS;
@@ -40,7 +40,7 @@ struct BigIntWide {
 };
 
 // Zero constant
-constant BigInt BIGINT_ZERO = {{0, 0, 0, 0}};
+constant BigInt BIGINT_ZERO = {{0, 0, 0, 0, 0, 0}};
 
 // Check if BigInt is zero
 bool bigint_is_zero(BigInt a) {
@@ -94,24 +94,29 @@ bool bigint_gte(BigInt a, BigInt b) {
 // Montgomery Field Arithmetic
 // =============================================================================
 
-// BLS12-381 prime field modulus p
+// BLS12-381 prime field modulus p (little-endian limbs)
 // p = 0x1a0111ea397fe69a4b1ba7b6434bacd764774b84f38512bf6730d2a0f6b0f6241eabfffeb153ffffb9feffffffffaaab
 constant BigInt BLS12_381_P = {{
-    0xb9feffffffffaaab,
+    0xb9feffffffffaaab,  // limb 0 (LSB)
     0x1eabfffeb153ffff,
     0x6730d2a0f6b0f624,
-    0x64774b84f38512bf
+    0x64774b84f38512bf,
+    0x4b1ba7b6434bacd7,
+    0x1a0111ea397fe69a   // limb 5 (MSB)
 }};
 
 // Montgomery parameter: -p^(-1) mod 2^64
+// Depends only on LSB of modulus, unchanged from 4-limb version
 constant ulong BLS12_381_INV = 0x89f3fffcfffcfffd;
 
-// R^2 mod p for Montgomery conversion
+// R^2 mod p where R = 2^384 (little-endian limbs)
 constant BigInt BLS12_381_R2 = {{
     0xf4df1f341c341746,
     0x0a76e6a609d104f1,
     0x8de5476c4c95b6d5,
-    0x67eb88a9939d83c0
+    0x67eb88a9939d83c0,
+    0x9a793e85b519952d,
+    0x11988fe592cae3aa
 }};
 
 // Montgomery reduction: given T (up to 2*p bits), compute T * R^(-1) mod p
@@ -130,9 +135,13 @@ BigInt mont_reduce(BigIntWide t, BigInt p, ulong inv) {
             lo = m * p.limbs[j];
             hi = mulhi(m, p.limbs[j]);
 
-            ulong sum = tmp.limbs[i + j] + lo + carry;
-            carry = hi + ((sum < lo) ? 1 : 0);
-            tmp.limbs[i + j] = sum;
+            ulong old = tmp.limbs[i + j];
+            ulong sum1 = old + lo;
+            ulong c1 = (sum1 < old) ? 1UL : 0UL;
+            ulong sum2 = sum1 + carry;
+            ulong c2 = (sum2 < sum1) ? 1UL : 0UL;
+            tmp.limbs[i + j] = sum2;
+            carry = hi + c1 + c2;
         }
 
         // Propagate carry
@@ -169,9 +178,14 @@ BigInt mont_mul(BigInt a, BigInt b, BigInt p, ulong inv) {
             ulong hi = mulhi(a.limbs[i], b.limbs[j]);
             ulong lo = a.limbs[i] * b.limbs[j];
 
-            ulong sum = product.limbs[i + j] + lo + carry;
-            carry = hi + ((sum < lo) ? 1 : 0);
-            product.limbs[i + j] = sum;
+            // Add lo to product[i+j] with carry tracking
+            ulong old = product.limbs[i + j];
+            ulong sum1 = old + lo;
+            ulong c1 = (sum1 < old) ? 1UL : 0UL;
+            ulong sum2 = sum1 + carry;
+            ulong c2 = (sum2 < sum1) ? 1UL : 0UL;
+            product.limbs[i + j] = sum2;
+            carry = hi + c1 + c2;
         }
         product.limbs[i + NUM_LIMBS] += carry;
     }
@@ -324,6 +338,19 @@ JacobianPoint jacobian_add(JacobianPoint p, JacobianPoint q, BigInt field_p, ulo
 
     // H = U2-U1
     BigInt H = field_sub(U2, U1, field_p);
+
+    // Handle P == Q case: when H == 0, the addition formula degenerates.
+    // If H == 0 and S1 == S2, the points are equal → use doubling.
+    // If H == 0 and S1 != S2, the points are inverses → return identity.
+    if (bigint_is_zero(H)) {
+        BigInt S_diff = field_sub(S2, S1, field_p);
+        if (bigint_is_zero(S_diff)) {
+            return jacobian_double(p, field_p, inv);
+        } else {
+            return jacobian_identity();
+        }
+    }
+
     // I = (2*H)^2
     BigInt I = field_double(H, field_p);
     I = mont_square(I, field_p, inv);

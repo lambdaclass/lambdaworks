@@ -34,28 +34,32 @@ pub struct MSMConfig {
     /// Window size in bits for Pippenger's algorithm.
     /// Larger windows = fewer windows but more buckets.
     pub window_size: usize,
-    /// Number of limbs in the scalar representation.
+    /// Number of limbs in the scalar representation (e.g., 4 for 256-bit Fr).
     pub num_limbs: usize,
     /// Bits per limb (typically 64).
     pub bits_per_limb: usize,
+    /// Number of limbs per point coordinate (e.g., 6 for BLS12-381 Fq).
+    pub point_coord_limbs: usize,
 }
 
 impl MSMConfig {
-    /// Creates a new MSM configuration for BLS12-381 (256-bit scalars).
+    /// Creates a new MSM configuration for BLS12-381 (256-bit scalars, 381-bit base field).
     pub fn bls12_381() -> Self {
         Self {
             window_size: 16,
             num_limbs: 4,
             bits_per_limb: 64,
+            point_coord_limbs: 6,
         }
     }
 
-    /// Creates a new MSM configuration for BN254 (256-bit scalars).
+    /// Creates a new MSM configuration for BN254 (256-bit scalars, 254-bit base field).
     pub fn bn254() -> Self {
         Self {
             window_size: 16,
             num_limbs: 4,
             bits_per_limb: 64,
+            point_coord_limbs: 4,
         }
     }
 
@@ -171,7 +175,7 @@ impl MetalMSM {
         let num_limbs = self.config.num_limbs;
         let num_scalars = scalars.len() / num_limbs;
         let coords_per_point = 3; // Jacobian: x, y, z
-        let limbs_per_coord = num_limbs;
+        let limbs_per_coord = self.config.point_coord_limbs;
         let limbs_per_point = coords_per_point * limbs_per_coord;
         let num_points = points.len() / limbs_per_point;
 
@@ -325,7 +329,12 @@ impl MetalMSM {
 
         self.state.execute_compute(
             "bucket_accumulation",
-            &[scalars_buffer, points_buffer, buckets_buffer, &config_buffer],
+            &[
+                scalars_buffer,
+                points_buffer,
+                buckets_buffer,
+                &config_buffer,
+            ],
             total_threads,
             self.max_threads_accumulation,
         )?;
@@ -397,21 +406,26 @@ impl MetalMSM {
 // CPU-side Jacobian Point Arithmetic for Window Combination
 // =============================================================================
 
+/// Number of 64-bit limbs for BLS12-381 base field Fq coordinates.
+const COORD_LIMBS: usize = 6;
+
 /// Jacobian point representation for CPU-side arithmetic.
 /// Uses the same Montgomery representation as the GPU.
 #[derive(Clone, Debug)]
 struct JacobianPoint {
-    x: [u64; 4],
-    y: [u64; 4],
-    z: [u64; 4],
+    x: [u64; COORD_LIMBS],
+    y: [u64; COORD_LIMBS],
+    z: [u64; COORD_LIMBS],
 }
 
-/// BLS12-381 prime field modulus
-const BLS12_381_P: [u64; 4] = [
-    0xb9feffffffffaaab,
+/// BLS12-381 prime field modulus (little-endian limbs)
+const BLS12_381_P: [u64; COORD_LIMBS] = [
+    0xb9feffffffffaaab, // limb 0 (LSB)
     0x1eabfffeb153ffff,
     0x6730d2a0f6b0f624,
     0x64774b84f38512bf,
+    0x4b1ba7b6434bacd7,
+    0x1a0111ea397fe69a, // limb 5 (MSB)
 ];
 
 /// Montgomery parameter: -p^(-1) mod 2^64
@@ -422,28 +436,28 @@ impl JacobianPoint {
     #[allow(dead_code)] // Used in tests
     fn identity() -> Self {
         Self {
-            x: [0; 4],
-            y: [0; 4],
-            z: [0; 4],
+            x: [0; COORD_LIMBS],
+            y: [0; COORD_LIMBS],
+            z: [0; COORD_LIMBS],
         }
     }
 
     /// Creates a point from a flat array of u64 limbs.
     fn from_limbs(limbs: &[u64]) -> Self {
-        let mut x = [0u64; 4];
-        let mut y = [0u64; 4];
-        let mut z = [0u64; 4];
+        let mut x = [0u64; COORD_LIMBS];
+        let mut y = [0u64; COORD_LIMBS];
+        let mut z = [0u64; COORD_LIMBS];
 
-        x.copy_from_slice(&limbs[0..4]);
-        y.copy_from_slice(&limbs[4..8]);
-        z.copy_from_slice(&limbs[8..12]);
+        x.copy_from_slice(&limbs[0..COORD_LIMBS]);
+        y.copy_from_slice(&limbs[COORD_LIMBS..COORD_LIMBS * 2]);
+        z.copy_from_slice(&limbs[COORD_LIMBS * 2..COORD_LIMBS * 3]);
 
         Self { x, y, z }
     }
 
     /// Converts the point to a flat array of u64 limbs.
     fn to_limbs(&self) -> Vec<u64> {
-        let mut result = Vec::with_capacity(12);
+        let mut result = Vec::with_capacity(COORD_LIMBS * 3);
         result.extend_from_slice(&self.x);
         result.extend_from_slice(&self.y);
         result.extend_from_slice(&self.z);
@@ -529,6 +543,18 @@ impl JacobianPoint {
 
         // H = U2-U1
         let h = field_sub(&u2, &u1);
+
+        // Handle P == Q case: when H == 0, the addition formula degenerates.
+        let zero = [0u64; COORD_LIMBS];
+        if h == zero {
+            let s_diff = field_sub(&s2, &s1);
+            if s_diff == zero {
+                return self.double();
+            } else {
+                return Self::identity();
+            }
+        }
+
         // I = (2*H)^2
         let i = field_double(&h);
         let i = mont_square(&i);
@@ -573,12 +599,12 @@ impl JacobianPoint {
 // Field Arithmetic (CPU-side, matching GPU implementation)
 // =============================================================================
 
-/// Add two 256-bit integers, returns (result, carry).
-fn bigint_add(a: &[u64; 4], b: &[u64; 4]) -> ([u64; 4], u64) {
-    let mut result = [0u64; 4];
+/// Add two big integers, returns (result, carry).
+fn bigint_add(a: &[u64; COORD_LIMBS], b: &[u64; COORD_LIMBS]) -> ([u64; COORD_LIMBS], u64) {
+    let mut result = [0u64; COORD_LIMBS];
     let mut carry = 0u64;
 
-    for i in 0..4 {
+    for i in 0..COORD_LIMBS {
         let (sum1, c1) = a[i].overflowing_add(b[i]);
         let (sum2, c2) = sum1.overflowing_add(carry);
         result[i] = sum2;
@@ -588,12 +614,12 @@ fn bigint_add(a: &[u64; 4], b: &[u64; 4]) -> ([u64; 4], u64) {
     (result, carry)
 }
 
-/// Subtract two 256-bit integers, returns (result, borrow).
-fn bigint_sub(a: &[u64; 4], b: &[u64; 4]) -> ([u64; 4], u64) {
-    let mut result = [0u64; 4];
+/// Subtract two big integers, returns (result, borrow).
+fn bigint_sub(a: &[u64; COORD_LIMBS], b: &[u64; COORD_LIMBS]) -> ([u64; COORD_LIMBS], u64) {
+    let mut result = [0u64; COORD_LIMBS];
     let mut borrow = 0u64;
 
-    for i in 0..4 {
+    for i in 0..COORD_LIMBS {
         let (diff1, b1) = a[i].overflowing_sub(b[i]);
         let (diff2, b2) = diff1.overflowing_sub(borrow);
         result[i] = diff2;
@@ -604,7 +630,7 @@ fn bigint_sub(a: &[u64; 4], b: &[u64; 4]) -> ([u64; 4], u64) {
 }
 
 /// Field addition: (a + b) mod p
-fn field_add(a: &[u64; 4], b: &[u64; 4]) -> [u64; 4] {
+fn field_add(a: &[u64; COORD_LIMBS], b: &[u64; COORD_LIMBS]) -> [u64; COORD_LIMBS] {
     let (sum, carry) = bigint_add(a, b);
     let (reduced, borrow) = bigint_sub(&sum, &BLS12_381_P);
 
@@ -616,7 +642,7 @@ fn field_add(a: &[u64; 4], b: &[u64; 4]) -> [u64; 4] {
 }
 
 /// Field subtraction: (a - b) mod p
-fn field_sub(a: &[u64; 4], b: &[u64; 4]) -> [u64; 4] {
+fn field_sub(a: &[u64; COORD_LIMBS], b: &[u64; COORD_LIMBS]) -> [u64; COORD_LIMBS] {
     let (diff, borrow) = bigint_sub(a, b);
 
     if borrow != 0 {
@@ -628,7 +654,7 @@ fn field_sub(a: &[u64; 4], b: &[u64; 4]) -> [u64; 4] {
 }
 
 /// Field doubling: 2a mod p
-fn field_double(a: &[u64; 4]) -> [u64; 4] {
+fn field_double(a: &[u64; COORD_LIMBS]) -> [u64; COORD_LIMBS] {
     field_add(a, a)
 }
 
@@ -639,14 +665,14 @@ fn mul_wide(a: u64, b: u64) -> (u64, u64) {
 }
 
 /// Montgomery reduction: T * R^(-1) mod p
-fn mont_reduce(t: &[u64; 8]) -> [u64; 4] {
+fn mont_reduce(t: &[u64; COORD_LIMBS * 2]) -> [u64; COORD_LIMBS] {
     let mut tmp = *t;
 
-    for i in 0..4 {
+    for i in 0..COORD_LIMBS {
         let m = tmp[i].wrapping_mul(BLS12_381_INV);
 
         let mut carry = 0u64;
-        for j in 0..4 {
+        for j in 0..COORD_LIMBS {
             let (lo, hi) = mul_wide(m, BLS12_381_P[j]);
             let (sum1, c1) = tmp[i + j].overflowing_add(lo);
             let (sum2, c2) = sum1.overflowing_add(carry);
@@ -655,7 +681,7 @@ fn mont_reduce(t: &[u64; 8]) -> [u64; 4] {
         }
 
         // Propagate carry
-        for j in 4..(8 - i) {
+        for j in COORD_LIMBS..(COORD_LIMBS * 2 - i) {
             let (sum, c) = tmp[i + j].overflowing_add(carry);
             tmp[i + j] = sum;
             carry = c as u64;
@@ -666,8 +692,8 @@ fn mont_reduce(t: &[u64; 8]) -> [u64; 4] {
     }
 
     // Result is in upper half
-    let mut result = [0u64; 4];
-    result.copy_from_slice(&tmp[4..8]);
+    let mut result = [0u64; COORD_LIMBS];
+    result.copy_from_slice(&tmp[COORD_LIMBS..COORD_LIMBS * 2]);
 
     // Final reduction if result >= p
     let (reduced, borrow) = bigint_sub(&result, &BLS12_381_P);
@@ -679,27 +705,27 @@ fn mont_reduce(t: &[u64; 8]) -> [u64; 4] {
 }
 
 /// Montgomery multiplication: a * b * R^(-1) mod p
-fn mont_mul(a: &[u64; 4], b: &[u64; 4]) -> [u64; 4] {
-    let mut product = [0u64; 8];
+fn mont_mul(a: &[u64; COORD_LIMBS], b: &[u64; COORD_LIMBS]) -> [u64; COORD_LIMBS] {
+    let mut product = [0u64; COORD_LIMBS * 2];
 
     // Multiply a * b
-    for i in 0..4 {
+    for i in 0..COORD_LIMBS {
         let mut carry = 0u64;
-        for j in 0..4 {
+        for j in 0..COORD_LIMBS {
             let (lo, hi) = mul_wide(a[i], b[j]);
             let (sum1, c1) = product[i + j].overflowing_add(lo);
             let (sum2, c2) = sum1.overflowing_add(carry);
             product[i + j] = sum2;
             carry = hi + (c1 as u64) + (c2 as u64);
         }
-        product[i + 4] = carry;
+        product[i + COORD_LIMBS] = carry;
     }
 
     mont_reduce(&product)
 }
 
 /// Montgomery squaring
-fn mont_square(a: &[u64; 4]) -> [u64; 4] {
+fn mont_square(a: &[u64; COORD_LIMBS]) -> [u64; COORD_LIMBS] {
     mont_mul(a, a)
 }
 
@@ -713,6 +739,7 @@ mod tests {
             window_size: 8,
             num_limbs: 4,
             bits_per_limb: 64,
+            point_coord_limbs: 6,
         };
 
         assert_eq!(config.num_windows(), 32); // 256 bits / 8 bits per window
@@ -734,23 +761,23 @@ mod tests {
     #[test]
     fn test_field_add_basic() {
         // Test a + 0 = a
-        let a = [1u64, 2, 3, 4];
-        let zero = [0u64; 4];
+        let a = [1u64, 2, 3, 4, 5, 6];
+        let zero = [0u64; COORD_LIMBS];
         assert_eq!(field_add(&a, &zero), a);
     }
 
     #[test]
     fn test_field_sub_basic() {
         // Test a - a = 0
-        let a = [1u64, 2, 3, 4];
+        let a = [1u64, 2, 3, 4, 5, 6];
         let result = field_sub(&a, &a);
-        assert_eq!(result, [0u64; 4]);
+        assert_eq!(result, [0u64; COORD_LIMBS]);
     }
 
     #[test]
     fn test_field_double_basic() {
         // Test 2 * 0 = 0
-        let zero = [0u64; 4];
+        let zero = [0u64; COORD_LIMBS];
         assert_eq!(field_double(&zero), zero);
     }
 
@@ -771,9 +798,9 @@ mod tests {
     fn test_jacobian_add_identity() {
         let id = JacobianPoint::identity();
         let p = JacobianPoint {
-            x: [1, 2, 3, 4],
-            y: [5, 6, 7, 8],
-            z: [1, 0, 0, 0], // Non-identity (z != 0)
+            x: [1, 2, 3, 4, 5, 6],
+            y: [7, 8, 9, 10, 11, 12],
+            z: [1, 0, 0, 0, 0, 0], // Non-identity (z != 0)
         };
 
         // id + p = p
@@ -791,29 +818,73 @@ mod tests {
 
     #[test]
     fn test_bigint_add_no_overflow() {
-        let a = [1u64, 2, 3, 4];
-        let b = [5u64, 6, 7, 8];
+        let a = [1u64, 2, 3, 4, 5, 6];
+        let b = [5u64, 6, 7, 8, 9, 10];
         let (result, carry) = bigint_add(&a, &b);
-        assert_eq!(result, [6, 8, 10, 12]);
+        assert_eq!(result, [6, 8, 10, 12, 14, 16]);
         assert_eq!(carry, 0);
     }
 
     #[test]
     fn test_bigint_sub_no_borrow() {
-        let a = [5u64, 6, 7, 8];
-        let b = [1u64, 2, 3, 4];
+        let a = [5u64, 6, 7, 8, 9, 10];
+        let b = [1u64, 2, 3, 4, 5, 6];
         let (result, borrow) = bigint_sub(&a, &b);
-        assert_eq!(result, [4, 4, 4, 4]);
+        assert_eq!(result, [4, 4, 4, 4, 4, 4]);
         assert_eq!(borrow, 0);
     }
 
     #[test]
     fn test_mont_mul_zero() {
         // a * 0 = 0 (in Montgomery form)
-        let a = [1u64, 2, 3, 4];
-        let zero = [0u64; 4];
+        let a = [1u64, 2, 3, 4, 5, 6];
+        let zero = [0u64; COORD_LIMBS];
         let result = mont_mul(&a, &zero);
         assert_eq!(result, zero);
+    }
+
+    #[test]
+    fn test_mont_square_one() {
+        // Montgomery form of 1 is R mod p
+        let one_mont: [u64; COORD_LIMBS] = [
+            0x760900000002fffd,
+            0xebf4000bc40c0002,
+            0x5f48985753c758ba,
+            0x77ce585370525745,
+            0x5c071a97a256ec6d,
+            0x15f65ec3fa80e493,
+        ];
+        // mont_square(R mod p) should equal R mod p (since 1*1 = 1 in the field)
+        let result = mont_square(&one_mont);
+        assert_eq!(result, one_mont, "mont_square(1_mont) should be 1_mont");
+    }
+
+    #[test]
+    fn test_mont_square_gx() {
+        // G.x in Montgomery LE form
+        let gx_mont: [u64; COORD_LIMBS] = [
+            0x5cb38790fd530c16,
+            0x7817fc679976fff5,
+            0x154f95c7143ba1c1,
+            0xf0ae6acdf3d0e747,
+            0xedce6ecc21dbf440,
+            0x120177419e0bfb75,
+        ];
+        // Expected result from Python: mont_square(gx) = gx^2 * R^(-1) mod p
+        let expected: [u64; COORD_LIMBS] = [
+            0x9e5c25e1f840429e,
+            0x0bb5e06755c1bb91,
+            0x34b02a9a934e43b1,
+            0x13b6742f7c29eca5,
+            0x53e41a48a899ccd5,
+            0x0a55331f9bb57ced,
+        ];
+        let result = mont_square(&gx_mont);
+        assert_eq!(
+            result, expected,
+            "mont_square(gx) mismatch\ngot:      {:x?}\nexpected: {:x?}",
+            result, expected
+        );
     }
 
     #[test]
@@ -836,6 +907,7 @@ mod tests {
             window_size: 4,
             num_limbs: 4,
             bits_per_limb: 64,
+            point_coord_limbs: 6,
         };
         let msm = MetalMSM::new(config).expect("Metal device required");
 
@@ -853,6 +925,7 @@ mod tests {
             window_size: 4,
             num_limbs: 4,
             bits_per_limb: 64,
+            point_coord_limbs: 6,
         };
         let msm = MetalMSM::new(config).expect("Metal device required");
 
@@ -889,19 +962,19 @@ mod fuzz_tests {
     use super::*;
     use proptest::prelude::*;
 
-    // NOTE: For full CPU vs Metal MSM comparison, we would need to expose
-    // the internal Montgomery representation from lambdaworks-math FieldElements.
-    // This is left as a TODO for future integration work.
-    //
-    // use lambdaworks_math::{
-    //     cyclic_group::IsGroup,
-    //     elliptic_curve::{
-    //         short_weierstrass::curves::bls12_381::curve::BLS12381Curve,
-    //         traits::IsEllipticCurve,
-    //     },
-    //     msm::pippenger,
-    //     unsigned_integer::element::UnsignedInteger,
-    // };
+    use lambdaworks_math::{
+        cyclic_group::IsGroup,
+        elliptic_curve::{
+            short_weierstrass::{
+                curves::bls12_381::{curve::BLS12381Curve, field_extension::BLS12381PrimeField},
+                point::ShortWeierstrassJacobianPoint,
+            },
+            traits::IsEllipticCurve,
+        },
+        field::element::FieldElement,
+        msm::pippenger,
+        unsigned_integer::element::UnsignedInteger,
+    };
 
     proptest! {
         #![proptest_config(ProptestConfig {
@@ -916,6 +989,7 @@ mod fuzz_tests {
                 window_size,
                 num_limbs: 4,
                 bits_per_limb: 64,
+                point_coord_limbs: 6,
             };
 
             let total_bits = config.num_limbs * config.bits_per_limb;
@@ -936,6 +1010,7 @@ mod fuzz_tests {
                 window_size,
                 num_limbs: 4,
                 bits_per_limb: 64,
+                point_coord_limbs: 6,
             };
             let msm = MetalMSM::new(config).expect("Metal device required");
 
@@ -958,9 +1033,9 @@ mod fuzz_tests {
         // Create a non-identity point (using placeholder values)
         // In a real test, we'd use actual BLS12-381 curve points
         let p = JacobianPoint {
-            x: [0x1234, 0x5678, 0x9abc, 0xdef0],
-            y: [0xfedc, 0xba98, 0x7654, 0x3210],
-            z: [1, 0, 0, 0], // z = 1 (in Montgomery form this would be R mod p)
+            x: [0x1234, 0x5678, 0x9abc, 0xdef0, 0x1111, 0x2222],
+            y: [0xfedc, 0xba98, 0x7654, 0x3210, 0x3333, 0x4444],
+            z: [1, 0, 0, 0, 0, 0], // z = 1 (in Montgomery form this would be R mod p)
         };
 
         // P + identity = P
@@ -988,12 +1063,14 @@ mod fuzz_tests {
             window_size: 4,
             num_limbs: 4,
             bits_per_limb: 64,
+            point_coord_limbs: 6,
         };
         let msm = MetalMSM::new(config).expect("Metal device required");
 
-        // Single window: result should be that window
-        let window_sum = vec![1u64, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
-        let result = msm.combine_windows(&window_sum, 1, 12);
+        // Single window: result should be that window (18 limbs = 3 coords * 6 limbs)
+        let point_size = COORD_LIMBS * 3;
+        let window_sum: Vec<u64> = (1..=point_size as u64).collect();
+        let result = msm.combine_windows(&window_sum, 1, point_size);
         assert_eq!(result, window_sum);
     }
 
@@ -1004,17 +1081,177 @@ mod fuzz_tests {
             window_size: 4,
             num_limbs: 4,
             bits_per_limb: 64,
+            point_coord_limbs: 6,
         };
         let msm = MetalMSM::new(config).expect("Metal device required");
 
+        let point_size = COORD_LIMBS * 3;
         // All identity windows
-        let window_sums = vec![0u64; 24]; // 2 windows * 12 limbs
-        let result = msm.combine_windows(&window_sums, 2, 12);
+        let window_sums = vec![0u64; 2 * point_size]; // 2 windows
+        let result = msm.combine_windows(&window_sums, 2, point_size);
 
         // Result should be identity (z = 0)
         assert!(
-            result[8..12].iter().all(|&x| x == 0),
+            result[COORD_LIMBS * 2..COORD_LIMBS * 3]
+                .iter()
+                .all(|&x| x == 0),
             "Expected identity point"
+        );
+    }
+
+    // =========================================================================
+    // Differential Tests: GPU MSM vs CPU pippenger
+    // =========================================================================
+
+    /// Convert a FieldElement (big-endian Montgomery) to GPU little-endian limbs.
+    fn fe_to_gpu_limbs(fe: &FieldElement<BLS12381PrimeField>) -> [u64; 6] {
+        let be_limbs = fe.value().limbs; // big-endian: limbs[0] = MSB
+        let mut le_limbs = [0u64; 6];
+        for i in 0..6 {
+            le_limbs[i] = be_limbs[5 - i];
+        }
+        le_limbs
+    }
+
+    /// Convert GPU little-endian limbs back to a FieldElement (big-endian Montgomery).
+    fn gpu_limbs_to_fe(le_limbs: &[u64]) -> FieldElement<BLS12381PrimeField> {
+        let mut be_limbs = [0u64; 6];
+        for i in 0..6 {
+            be_limbs[i] = le_limbs[5 - i];
+        }
+        FieldElement::from_raw(UnsignedInteger::from_limbs(be_limbs))
+    }
+
+    /// Convert a Jacobian point to flat GPU buffer (little-endian Montgomery limbs).
+    fn point_to_gpu_flat(point: &ShortWeierstrassJacobianPoint<BLS12381Curve>) -> Vec<u64> {
+        let [x, y, z] = point.coordinates();
+        let mut flat = Vec::with_capacity(18);
+        flat.extend_from_slice(&fe_to_gpu_limbs(x));
+        flat.extend_from_slice(&fe_to_gpu_limbs(y));
+        flat.extend_from_slice(&fe_to_gpu_limbs(z));
+        flat
+    }
+
+    /// Convert GPU result limbs back to a Jacobian point.
+    fn gpu_flat_to_point(limbs: &[u64]) -> ShortWeierstrassJacobianPoint<BLS12381Curve> {
+        let x = gpu_limbs_to_fe(&limbs[0..6]);
+        let y = gpu_limbs_to_fe(&limbs[6..12]);
+        let z = gpu_limbs_to_fe(&limbs[12..18]);
+        // Use new_unchecked since these are raw Montgomery values from GPU
+        ShortWeierstrassJacobianPoint::new_unchecked([x, y, z])
+    }
+
+    /// Convert a scalar UnsignedInteger<4> to flat GPU buffer (little-endian limbs).
+    fn scalar_to_gpu_limbs(scalar: &UnsignedInteger<4>) -> Vec<u64> {
+        let be_limbs = scalar.limbs; // big-endian
+        let mut le_limbs = vec![0u64; 4];
+        for i in 0..4 {
+            le_limbs[i] = be_limbs[3 - i];
+        }
+        le_limbs
+    }
+
+    /// Differential test: compute scalar * G via Metal MSM and compare with
+    /// CPU pippenger. Uses a single point to avoid the race condition in
+    /// bucket_accumulation.
+    #[test]
+    fn test_metal_msm_single_point() {
+        let g = BLS12381Curve::generator();
+        let scalar_val = 7u64;
+        let scalar = UnsignedInteger::<4>::from_u64(scalar_val);
+
+        // CPU reference: pippenger MSM
+        let cpu_result =
+            pippenger::msm(&[scalar], std::slice::from_ref(&g)).expect("CPU MSM failed");
+        let cpu_affine = cpu_result.to_affine();
+
+        // GPU: prepare buffers
+        let scalars_flat = scalar_to_gpu_limbs(&scalar);
+        let points_flat = point_to_gpu_flat(&g);
+
+        let mut msm = MetalMSM::new_bls12_381().expect("Metal device required");
+        let gpu_result_flat = msm
+            .compute(&scalars_flat, &points_flat)
+            .expect("Metal MSM compute failed");
+
+        // Convert GPU result back to lambdaworks point and normalize to affine
+        let gpu_point = gpu_flat_to_point(&gpu_result_flat);
+        let gpu_affine = gpu_point.to_affine();
+
+        assert_eq!(
+            cpu_affine.x(),
+            gpu_affine.x(),
+            "x-coordinate mismatch for {} * G",
+            scalar_val
+        );
+        assert_eq!(
+            cpu_affine.y(),
+            gpu_affine.y(),
+            "y-coordinate mismatch for {} * G",
+            scalar_val
+        );
+    }
+
+    /// Differential test: 1 * G should equal G.
+    #[test]
+    fn test_metal_msm_identity_scalar() {
+        let g = BLS12381Curve::generator();
+        let scalar = UnsignedInteger::<4>::from_u64(1);
+
+        let scalars_flat = scalar_to_gpu_limbs(&scalar);
+        let points_flat = point_to_gpu_flat(&g);
+
+        let mut msm = MetalMSM::new_bls12_381().expect("Metal device required");
+        let gpu_result_flat = msm
+            .compute(&scalars_flat, &points_flat)
+            .expect("Metal MSM compute failed");
+
+        let gpu_point = gpu_flat_to_point(&gpu_result_flat);
+        let gpu_affine = gpu_point.to_affine();
+        let g_affine = g.to_affine();
+
+        assert_eq!(
+            g_affine.x(),
+            gpu_affine.x(),
+            "1 * G should have same x as G"
+        );
+        assert_eq!(
+            g_affine.y(),
+            gpu_affine.y(),
+            "1 * G should have same y as G"
+        );
+    }
+
+    /// Differential test: 2 * G should equal G + G.
+    #[test]
+    fn test_metal_msm_generator_double() {
+        let g = BLS12381Curve::generator();
+        let scalar = UnsignedInteger::<4>::from_u64(2);
+
+        // CPU reference
+        let cpu_2g = g.operate_with(&g).to_affine();
+
+        // GPU
+        let scalars_flat = scalar_to_gpu_limbs(&scalar);
+        let points_flat = point_to_gpu_flat(&g);
+
+        let mut msm = MetalMSM::new_bls12_381().expect("Metal device required");
+        let gpu_result_flat = msm
+            .compute(&scalars_flat, &points_flat)
+            .expect("Metal MSM compute failed");
+
+        let gpu_point = gpu_flat_to_point(&gpu_result_flat);
+        let gpu_affine = gpu_point.to_affine();
+
+        assert_eq!(
+            cpu_2g.x(),
+            gpu_affine.x(),
+            "2 * G should have same x as G + G"
+        );
+        assert_eq!(
+            cpu_2g.y(),
+            gpu_affine.y(),
+            "2 * G should have same y as G + G"
         );
     }
 }
