@@ -9,11 +9,12 @@
 
 #include "fp_goldilocks.cuh"
 
-class Fp3_64 {
+class Fp3_64
+{
 public:
-    Fp64 c0;  // Coefficient of 1
-    Fp64 c1;  // Coefficient of w
-    Fp64 c2;  // Coefficient of w^2
+    Fp64 c0; // Coefficient of 1
+    Fp64 c1; // Coefficient of w
+    Fp64 c2; // Coefficient of w^2
 
     Fp3_64() = default;
 
@@ -22,12 +23,14 @@ public:
     __device__ constexpr Fp3_64(uint64_t val) : c0(val), c1(0), c2(0) {}
 
     // Addition: component-wise
-    __device__ Fp3_64 operator+(const Fp3_64 rhs) const {
+    __device__ Fp3_64 operator+(const Fp3_64 rhs) const
+    {
         return Fp3_64(c0 + rhs.c0, c1 + rhs.c1, c2 + rhs.c2);
     }
 
     // Subtraction: component-wise
-    __device__ Fp3_64 operator-(const Fp3_64 rhs) const {
+    __device__ Fp3_64 operator-(const Fp3_64 rhs) const
+    {
         return Fp3_64(c0 - rhs.c0, c1 - rhs.c1, c2 - rhs.c2);
     }
 
@@ -41,23 +44,24 @@ public:
     // c0 = v0 + 2*((a1+a2)(b1+b2) - v1 - v2)
     // c1 = (a0+a1)(b0+b1) - v0 - v1 + 2*v2
     // c2 = (a0+a2)(b0+b2) - v0 + v1 - v2
-    __device__ Fp3_64 operator*(const Fp3_64 rhs) const {
+    __device__ Fp3_64 operator*(const Fp3_64 rhs) const
+    {
         Fp64 v0 = c0 * rhs.c0;
         Fp64 v1 = c1 * rhs.c1;
         Fp64 v2 = c2 * rhs.c2;
 
-        Fp64 t0 = (c1 + c2) * (rhs.c1 + rhs.c2) - v1 - v2;  // (a1+a2)(b1+b2) - v1 - v2
-        Fp64 t1 = (c0 + c1) * (rhs.c0 + rhs.c1) - v0 - v1;  // (a0+a1)(b0+b1) - v0 - v1
-        Fp64 t2 = (c0 + c2) * (rhs.c0 + rhs.c2) - v0 - v2;  // (a0+a2)(b0+b2) - v0 - v2
+        Fp64 t0 = (c1 + c2) * (rhs.c1 + rhs.c2) - v1 - v2; // (a1+a2)(b1+b2) - v1 - v2
+        Fp64 t1 = (c0 + c1) * (rhs.c0 + rhs.c1) - v0 - v1; // (a0+a1)(b0+b1) - v0 - v1
+        Fp64 t2 = (c0 + c2) * (rhs.c0 + rhs.c2) - v0 - v2; // (a0+a2)(b0+b2) - v0 - v2
 
         // 2*x = x + x
         Fp64 t0_2 = t0 + t0;
         Fp64 v2_2 = v2 + v2;
 
         return Fp3_64(
-            v0 + t0_2,       // c0 = v0 + 2*t0
-            t1 + v2_2,       // c1 = t1 + 2*v2
-            t2 + v1          // c2 = t2 + v1
+            v0 + t0_2, // c0 = v0 + 2*t0
+            t1 + v2_2, // c1 = t1 + 2*v2
+            t2 + v1    // c2 = t2 + v1
         );
     }
 
@@ -74,7 +78,8 @@ public:
     // c0 = s0 + 4*a12    (since 2*w^3 = 4, and a12*w^3 = a12*2)
     // c1 = 2*a01 + 2*s2
     // c2 = 2*a02 + s1
-    __device__ Fp3_64 square() const {
+    __device__ Fp3_64 square() const
+    {
         Fp64 s0 = c0 * c0;
         Fp64 s1 = c1 * c1;
         Fp64 s2 = c2 * c2;
@@ -92,19 +97,22 @@ public:
         Fp64 a02_2 = a02 + a02;
 
         return Fp3_64(
-            s0 + a12_4,     // c0 = s0 + 4*a12
-            a01_2 + s2_2,   // c1 = 2*a01 + 2*s2
-            a02_2 + s1      // c2 = 2*a02 + s1
+            s0 + a12_4,   // c0 = s0 + 4*a12
+            a01_2 + s2_2, // c1 = 2*a01 + 2*s2
+            a02_2 + s1    // c2 = 2*a02 + s1
         );
     }
 
     // Exponentiation by squaring
-    __device__ Fp3_64 pow(unsigned exp) const {
+    __device__ Fp3_64 pow(unsigned exp) const
+    {
         Fp3_64 result(Fp64(1), Fp64(0), Fp64(0));
         Fp3_64 base = *this;
 
-        while (exp > 0) {
-            if (exp & 1) {
+        while (exp > 0)
+        {
+            if (exp & 1)
+            {
                 result = result * base;
             }
             exp >>= 1;
@@ -120,7 +128,10 @@ public:
     // inv[0] = (a0^2 - 2*a1*a2) / norm
     // inv[1] = (2*a2^2 - a0*a1) / norm
     // inv[2] = (a1^2 - a0*a2) / norm
-    __device__ Fp3_64 inverse() const {
+    //
+    // The inverse of zero is undefined; caller must ensure the element is nonzero.
+    __device__ Fp3_64 inverse() const
+    {
         Fp64 a0_sq = c0 * c0;
         Fp64 a1_sq = c1 * c1;
         Fp64 a2_sq = c2 * c2;
@@ -145,6 +156,7 @@ public:
 
         // norm = a0^3 + 2*a1^3 + 4*a2^3 - 6*a0*a1*a2
         Fp64 norm = a0_cubed + a1_cubed_2 + a2_cubed_4 - a0a1a2_6;
+        assert(norm.inner != 0 && "Fp3_64::inverse() called on zero element");
         Fp64 norm_inv = norm.inverse();
 
         // 2*a1a2, 2*a2_sq
@@ -157,22 +169,24 @@ public:
         return Fp3_64(
             (a0_sq - a1a2_2) * norm_inv,
             (a2_sq_2 - a0a1) * norm_inv,
-            (a1_sq - a0a2) * norm_inv
-        );
+            (a1_sq - a0a2) * norm_inv);
     }
 
     // Negation: component-wise
-    __device__ Fp3_64 neg() const {
+    __device__ Fp3_64 neg() const
+    {
         return Fp3_64(c0.neg(), c1.neg(), c2.neg());
     }
 
     // Multiply by base field element
-    __device__ Fp3_64 mul_by_fp(const Fp64 scalar) const {
+    __device__ Fp3_64 mul_by_fp(const Fp64 scalar) const
+    {
         return Fp3_64(c0 * scalar, c1 * scalar, c2 * scalar);
     }
 };
 
-namespace goldilocks {
+namespace goldilocks
+{
     using Fp3 = Fp3_64;
 } // namespace goldilocks
 
