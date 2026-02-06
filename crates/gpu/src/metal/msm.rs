@@ -77,14 +77,33 @@ impl MSMConfig {
         }
     }
 
+    /// Maximum supported window size (limited by i32 signed digit representation).
+    pub const MAX_WINDOW_SIZE: usize = 30;
+
     /// Returns the number of windows needed.
+    ///
+    /// # Panics
+    /// Panics if `window_size` is 0 or exceeds `MAX_WINDOW_SIZE`.
     pub fn num_windows(&self) -> usize {
+        assert!(
+            self.window_size > 0 && self.window_size <= Self::MAX_WINDOW_SIZE,
+            "window_size must be in 1..={}",
+            Self::MAX_WINDOW_SIZE
+        );
         let total_bits = self.num_limbs * self.bits_per_limb;
         total_bits.div_ceil(self.window_size)
     }
 
     /// Returns the number of buckets per window (for signed representation).
+    ///
+    /// # Panics
+    /// Panics if `window_size` is 0 or exceeds `MAX_WINDOW_SIZE`.
     pub fn num_buckets(&self) -> usize {
+        assert!(
+            self.window_size > 0 && self.window_size <= Self::MAX_WINDOW_SIZE,
+            "window_size must be in 1..={}",
+            Self::MAX_WINDOW_SIZE
+        );
         1 << (self.window_size - 1)
     }
 }
@@ -173,10 +192,18 @@ impl MetalMSM {
         }
 
         let num_limbs = self.config.num_limbs;
-        let num_scalars = scalars.len() / num_limbs;
         let coords_per_point = 3; // Jacobian: x, y, z
         let limbs_per_coord = self.config.point_coord_limbs;
         let limbs_per_point = coords_per_point * limbs_per_coord;
+
+        if !scalars.len().is_multiple_of(num_limbs) {
+            return Err(MetalError::LengthMismatch(scalars.len(), num_limbs));
+        }
+        if !points.len().is_multiple_of(limbs_per_point) {
+            return Err(MetalError::LengthMismatch(points.len(), limbs_per_point));
+        }
+
+        let num_scalars = scalars.len() / num_limbs;
         let num_points = points.len() / limbs_per_point;
 
         if num_scalars != num_points {
