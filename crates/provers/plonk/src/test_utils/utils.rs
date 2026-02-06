@@ -34,20 +34,28 @@ pub fn test_srs(n: usize) -> StructuredReferenceString<G1Point, G2Point> {
     let g1 = <BLS12381Curve as IsEllipticCurve>::generator();
     let g2 = <BLS12381TwistCurve as IsEllipticCurve>::generator();
 
+    // Use iterative multiplication instead of pow() for efficiency
     let powers_main_group: Vec<G1Point> = (0..n + 3)
-        .map(|exp| g1.operate_with_self(s.pow(exp as u64).canonical()))
+        .scan(FrElement::one(), |s_power, _| {
+            let result = g1.operate_with_self(s_power.canonical());
+            *s_power = &*s_power * &s;
+            Some(result)
+        })
         .collect();
     let powers_secondary_group = [g2.clone(), g2.operate_with_self(s.canonical())];
 
     StructuredReferenceString::new(&powers_main_group, &powers_secondary_group)
 }
 
-/// Generates a domain to interpolate: 1, omega, omega², ..., omega^size
+/// Generates a domain to interpolate: 1, omega, omega², ..., omega^(size-1)
 pub fn generate_domain<F: IsField>(omega: &FieldElement<F>, size: usize) -> Vec<FieldElement<F>> {
-    (1..size).fold(vec![FieldElement::one()], |mut acc, _| {
-        acc.push(acc.last().unwrap() * omega);
-        acc
-    })
+    (0..size)
+        .scan(FieldElement::one(), |power, _| {
+            let result = power.clone();
+            *power = &*power * omega;
+            Some(result)
+        })
+        .collect()
 }
 
 /// Generates the permutation coefficients for the copy constraints.
@@ -59,10 +67,11 @@ pub fn generate_permutation_coefficients<F: IsField>(
     order_r_minus_1_root_unity: &FieldElement<F>,
 ) -> Vec<FieldElement<F>> {
     let identity = identity_permutation(omega, n, order_r_minus_1_root_unity);
-    let permuted: Vec<FieldElement<F>> = (0..n * 3)
-        .map(|i| identity[permutation[i]].clone())
-        .collect();
-    permuted
+    permutation
+        .iter()
+        .take(n * 3)
+        .map(|&i| identity[i].clone())
+        .collect()
 }
 
 /// The identity permutation, auxiliary function to generate the copy constraints.
@@ -72,11 +81,27 @@ fn identity_permutation<F: IsField>(
     order_r_minus_1_root_unity: &FieldElement<F>,
 ) -> Vec<FieldElement<F>> {
     let u = order_r_minus_1_root_unity;
-    let mut result: Vec<FieldElement<F>> = vec![];
-    for index_column in 0..=2 {
-        for index_row in 0..n {
-            result.push(w.pow(index_row) * u.pow(index_column as u64));
-        }
+    let u_sq = u * u;
+
+    // Precompute w^i for i in 0..n using iterative multiplication
+    let w_powers: Vec<_> = (0..n)
+        .scan(FieldElement::one(), |w_power, _| {
+            let result = w_power.clone();
+            *w_power = &*w_power * w;
+            Some(result)
+        })
+        .collect();
+
+    // Build result: [w^i * u^0, w^i * u^1, w^i * u^2] for each column
+    let mut result = Vec::with_capacity(3 * n);
+    for w_i in &w_powers {
+        result.push(w_i.clone());
+    }
+    for w_i in &w_powers {
+        result.push(w_i * u);
+    }
+    for w_i in &w_powers {
+        result.push(w_i * &u_sq);
     }
     result
 }
