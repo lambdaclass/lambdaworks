@@ -49,10 +49,7 @@ impl Proof {
     /// # Errors
     ///
     /// Returns `DeserializationError` if the bytes don't represent a valid proof.
-    pub fn deserialize(bytes: &[u8]) -> Result<Self, DeserializationError>
-    where
-        Self: Sized,
-    {
+    pub fn deserialize(bytes: &[u8]) -> Result<Self, DeserializationError> {
         let (offset, pi1) = deserialize_with_length::<G1Point>(bytes, 0)?;
         let (offset, pi2) = deserialize_with_length::<G2Point>(bytes, offset)?;
         let (_, pi3) = deserialize_with_length::<G1Point>(bytes, offset)?;

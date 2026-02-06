@@ -77,8 +77,7 @@ fn tampered_proof_rejected() {
     // Tamper with pi1 by adding a random element
     let tampered_proof = Proof {
         pi1: proof.pi1.operate_with_self(2u64),
-        pi2: proof.pi2.clone(),
-        pi3: proof.pi3.clone(),
+        ..proof
     };
 
     let accept = verify(&vk, &tampered_proof, &w[..qap.num_of_public_inputs])

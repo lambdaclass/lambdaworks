@@ -114,14 +114,12 @@ pub fn setup(qap: &QuadraticArithmeticProgram) -> Result<(ProvingKey, VerifyingK
     let k_tau: Vec<_> = l_tau
         .iter()
         .zip(&r_tau)
+        .zip(&qap.o)
         .enumerate()
-        .map(|(i, (l, r))| {
-            let unshifted = &tw.beta * l + &tw.alpha * r + &qap.o[i].evaluate(&tw.tau);
-            if i < qap.num_of_public_inputs {
-                &gamma_inv * &unshifted
-            } else {
-                &delta_inv * &unshifted
-            }
+        .map(|(i, ((l, r), o_poly))| {
+            let unshifted = &tw.beta * l + &tw.alpha * r + o_poly.evaluate(&tw.tau);
+            let inv = if i < qap.num_of_public_inputs { &gamma_inv } else { &delta_inv };
+            inv * &unshifted
         })
         .collect();
 
@@ -144,17 +142,18 @@ pub fn setup(qap: &QuadraticArithmeticProgram) -> Result<(ProvingKey, VerifyingK
             r_tau_g1: batch_operate(&r_tau, &g1),
             r_tau_g2: batch_operate(&r_tau, &g2),
             prover_k_tau_g1: batch_operate(&k_tau[qap.num_of_public_inputs..], &g1),
-            z_powers_of_tau_g1: batch_operate(
-                &core::iter::successors(
-                    // Start from delta^{-1} * t(τ)
-                    // Note that t(τ) = (τ^N - 1) because our domain is roots of unity
-                    Some(&delta_inv * (&tw.tau.pow(qap.num_of_gates) - FrElement::one())),
+            z_powers_of_tau_g1: {
+                // delta^{-1} * t(τ) * τ^i for i = 0..2n
+                // where t(τ) = τ^N - 1 (vanishing polynomial over roots of unity)
+                let delta_inv_t_tau = &delta_inv * (&tw.tau.pow(qap.num_of_gates) - FrElement::one());
+                let powers: Vec<_> = core::iter::successors(
+                    Some(delta_inv_t_tau),
                     |prev| Some(prev * &tw.tau),
                 )
                 .take(qap.num_of_gates * 2)
-                .collect::<Vec<_>>(),
-                &g1,
-            ),
+                .collect();
+                batch_operate(&powers, &g1)
+            },
         },
         VerifyingKey {
             alpha_g1_times_beta_g2,

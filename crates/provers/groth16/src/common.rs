@@ -67,12 +67,5 @@ pub const ORDER_R_MINUS_1_ROOT_UNITY: FrElement = FrElement::from_hex_unchecked(
 /// This is used during proof generation for the blinding factors.
 pub fn sample_fr_elem() -> FrElement {
     let mut rng = rand_chacha::ChaCha20Rng::from_entropy();
-    FrElement::new(U256 {
-        limbs: [
-            rng.gen::<u64>(),
-            rng.gen::<u64>(),
-            rng.gen::<u64>(),
-            rng.gen::<u64>(),
-        ],
-    })
+    FrElement::new(U256 { limbs: rng.gen() })
 }
