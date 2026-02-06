@@ -72,9 +72,12 @@ BigInt bigint_sub(BigInt a, BigInt b, thread ulong& borrow_out) {
     ulong borrow = 0;
 
     for (uint i = 0; i < NUM_LIMBS; i++) {
-        ulong diff = a.limbs[i] - b.limbs[i] - borrow;
-        borrow = (a.limbs[i] < b.limbs[i] + borrow) ? 1 : 0;
-        result.limbs[i] = diff;
+        ulong diff1 = a.limbs[i] - b.limbs[i];
+        ulong b1 = (a.limbs[i] < b.limbs[i]) ? 1UL : 0UL;
+        ulong diff2 = diff1 - borrow;
+        ulong b2 = (diff1 < borrow) ? 1UL : 0UL;
+        result.limbs[i] = diff2;
+        borrow = b1 + b2;
     }
 
     borrow_out = borrow;

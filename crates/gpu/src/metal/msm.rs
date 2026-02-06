@@ -190,10 +190,10 @@ impl MetalMSM {
         let limbs_per_coord = self.config.point_coord_limbs;
         let limbs_per_point = coords_per_point * limbs_per_coord;
 
-        if !scalars.len().is_multiple_of(num_limbs) {
+        if scalars.len() % num_limbs != 0 {
             return Err(MetalError::LengthMismatch(scalars.len(), num_limbs));
         }
-        if !points.len().is_multiple_of(limbs_per_point) {
+        if points.len() % limbs_per_point != 0 {
             return Err(MetalError::LengthMismatch(points.len(), limbs_per_point));
         }
 
@@ -984,7 +984,7 @@ mod tests {
 }
 
 // =============================================================================
-// Fuzzing Tests (compare Metal vs CPU implementation)
+// Differential Fuzzing Tests (compare Metal vs CPU implementation)
 // =============================================================================
 
 #[cfg(test)]
@@ -1023,7 +1023,7 @@ mod fuzz_tests {
             };
 
             let total_bits = config.num_limbs * config.bits_per_limb;
-            let expected_windows = total_bits.div_ceil(window_size);
+            let expected_windows = (total_bits + window_size - 1) / window_size;
             let expected_buckets = 1 << (window_size - 1);
 
             prop_assert_eq!(config.num_windows(), expected_windows);
@@ -1055,17 +1055,97 @@ mod fuzz_tests {
                     "Digit {} out of range [-{}, {})", digit, half_bucket, half_bucket);
             }
         }
+
+        /// Property test: Scalar recoding reconstructs original scalar value.
+        /// Verifies that sum(digit_i * 2^(i*window_size)) equals the original scalar.
+        #[test]
+        fn prop_scalar_recoding_reconstruction(
+            limbs in prop::array::uniform4(any::<u64>()),
+            window_size in 2usize..=8
+        ) {
+            let config = MSMConfig {
+                window_size,
+                num_limbs: 4,
+                bits_per_limb: 64,
+                point_coord_limbs: 6,
+            };
+            let num_windows = config.num_windows();
+            let msm = MetalMSM::new(config).expect("Metal device required");
+
+            let scalars: Vec<u64> = limbs.to_vec();
+            let digits = msm.recode_scalars_signed(&scalars, 1);
+
+            // Reconstruct scalar from signed digits using big integer arithmetic.
+            // scalar = sum(digit_i * 2^(i * window_size)) (mod 2^256)
+            let mut reconstructed = [0u128; 4]; // Use u128 for intermediate carry
+            for (i, &digit) in digits.iter().enumerate().take(num_windows) {
+                let bit_offset = i * window_size;
+                let limb_idx = bit_offset / 64;
+                let bit_in_limb = bit_offset % 64;
+
+                if limb_idx >= 4 {
+                    continue;
+                }
+
+                let digit_val = digit as i128;
+                // Add digit * 2^bit_offset to reconstructed (with sign extension)
+                if digit_val >= 0 {
+                    reconstructed[limb_idx] += (digit_val as u128) << bit_in_limb;
+                } else {
+                    // For negative digits, subtract the absolute value
+                    let abs_val = (-digit_val) as u128;
+                    // Borrow propagation: subtract from current limb
+                    let sub = abs_val << bit_in_limb;
+                    if reconstructed[limb_idx] >= sub {
+                        reconstructed[limb_idx] -= sub;
+                    } else {
+                        reconstructed[limb_idx] = reconstructed[limb_idx].wrapping_sub(sub);
+                        // Propagate borrow
+                        for k in (limb_idx + 1)..4 {
+                            if reconstructed[k] > 0 {
+                                reconstructed[k] -= 1;
+                                break;
+                            } else {
+                                reconstructed[k] = reconstructed[k].wrapping_sub(1);
+                            }
+                        }
+                    }
+                }
+
+                // Handle cross-limb overflow for positive values
+                if limb_idx + 1 < 4 && digit_val >= 0 {
+                    let overflow = reconstructed[limb_idx] >> 64;
+                    reconstructed[limb_idx] &= u64::MAX as u128;
+                    reconstructed[limb_idx + 1] += overflow;
+                }
+            }
+
+            // Propagate carries
+            for k in 0..3 {
+                let overflow = reconstructed[k] >> 64;
+                reconstructed[k] &= u64::MAX as u128;
+                reconstructed[k + 1] = reconstructed[k + 1].wrapping_add(overflow);
+            }
+            reconstructed[3] &= u64::MAX as u128;
+
+            // Compare (mod 2^256)
+            for i in 0..4 {
+                prop_assert_eq!(
+                    reconstructed[i] as u64, limbs[i],
+                    "Reconstruction mismatch at limb {} for window_size {}",
+                    i, window_size
+                );
+            }
+        }
     }
 
     /// Test that the CPU-side Jacobian point arithmetic is self-consistent.
     #[test]
     fn test_jacobian_arithmetic_consistency() {
-        // Create a non-identity point (using placeholder values)
-        // In a real test, we'd use actual BLS12-381 curve points
         let p = JacobianPoint {
             x: [0x1234, 0x5678, 0x9abc, 0xdef0, 0x1111, 0x2222],
             y: [0xfedc, 0xba98, 0x7654, 0x3210, 0x3333, 0x4444],
-            z: [1, 0, 0, 0, 0, 0], // z = 1 (in Montgomery form this would be R mod p)
+            z: [1, 0, 0, 0, 0, 0],
         };
 
         // P + identity = P
@@ -1116,8 +1196,7 @@ mod fuzz_tests {
         let msm = MetalMSM::new(config).expect("Metal device required");
 
         let point_size = COORD_LIMBS * 3;
-        // All identity windows
-        let window_sums = vec![0u64; 2 * point_size]; // 2 windows
+        let window_sums = vec![0u64; 2 * point_size];
         let result = msm.combine_windows(&window_sums, 2, point_size);
 
         // Result should be identity (z = 0)
@@ -1167,7 +1246,6 @@ mod fuzz_tests {
         let x = gpu_limbs_to_fe(&limbs[0..6]);
         let y = gpu_limbs_to_fe(&limbs[6..12]);
         let z = gpu_limbs_to_fe(&limbs[12..18]);
-        // Use new_unchecked since these are raw Montgomery values from GPU
         ShortWeierstrassJacobianPoint::new_unchecked([x, y, z])
     }
 
@@ -1181,45 +1259,37 @@ mod fuzz_tests {
         le_limbs
     }
 
-    /// Differential test: compute scalar * G via Metal MSM and compare with
-    /// CPU pippenger. Uses a single point to avoid the race condition in
-    /// bucket_accumulation.
-    #[test]
-    fn test_metal_msm_single_point() {
-        let g = BLS12381Curve::generator();
-        let scalar_val = 7u64;
-        let scalar = UnsignedInteger::<4>::from_u64(scalar_val);
-
-        // CPU reference: pippenger MSM
+    /// Helper: run single-point Metal MSM and compare with CPU pippenger.
+    fn assert_gpu_cpu_match(scalar: &UnsignedInteger<4>, point: &ShortWeierstrassJacobianPoint<BLS12381Curve>, label: &str) {
+        // CPU reference
         let cpu_result =
-            pippenger::msm(&[scalar], std::slice::from_ref(&g)).expect("CPU MSM failed");
+            pippenger::msm(&[*scalar], std::slice::from_ref(point)).expect("CPU MSM failed");
         let cpu_affine = cpu_result.to_affine();
 
-        // GPU: prepare buffers
-        let scalars_flat = scalar_to_gpu_limbs(&scalar);
-        let points_flat = point_to_gpu_flat(&g);
+        // GPU
+        let scalars_flat = scalar_to_gpu_limbs(scalar);
+        let points_flat = point_to_gpu_flat(point);
 
         let mut msm = MetalMSM::new_bls12_381().expect("Metal device required");
         let gpu_result_flat = msm
             .compute(&scalars_flat, &points_flat)
             .expect("Metal MSM compute failed");
 
-        // Convert GPU result back to lambdaworks point and normalize to affine
         let gpu_point = gpu_flat_to_point(&gpu_result_flat);
         let gpu_affine = gpu_point.to_affine();
 
-        assert_eq!(
-            cpu_affine.x(),
-            gpu_affine.x(),
-            "x-coordinate mismatch for {} * G",
-            scalar_val
-        );
-        assert_eq!(
-            cpu_affine.y(),
-            gpu_affine.y(),
-            "y-coordinate mismatch for {} * G",
-            scalar_val
-        );
+        assert_eq!(cpu_affine.x(), gpu_affine.x(), "x mismatch: {}", label);
+        assert_eq!(cpu_affine.y(), gpu_affine.y(), "y mismatch: {}", label);
+    }
+
+    /// Differential test: compute scalar * G via Metal MSM and compare with
+    /// CPU pippenger. Uses a single point to avoid the race condition in
+    /// bucket_accumulation.
+    #[test]
+    fn test_metal_msm_single_point() {
+        let g = BLS12381Curve::generator();
+        let scalar = UnsignedInteger::<4>::from_u64(7);
+        assert_gpu_cpu_match(&scalar, &g, "7 * G");
     }
 
     /// Differential test: 1 * G should equal G.
@@ -1227,29 +1297,7 @@ mod fuzz_tests {
     fn test_metal_msm_identity_scalar() {
         let g = BLS12381Curve::generator();
         let scalar = UnsignedInteger::<4>::from_u64(1);
-
-        let scalars_flat = scalar_to_gpu_limbs(&scalar);
-        let points_flat = point_to_gpu_flat(&g);
-
-        let mut msm = MetalMSM::new_bls12_381().expect("Metal device required");
-        let gpu_result_flat = msm
-            .compute(&scalars_flat, &points_flat)
-            .expect("Metal MSM compute failed");
-
-        let gpu_point = gpu_flat_to_point(&gpu_result_flat);
-        let gpu_affine = gpu_point.to_affine();
-        let g_affine = g.to_affine();
-
-        assert_eq!(
-            g_affine.x(),
-            gpu_affine.x(),
-            "1 * G should have same x as G"
-        );
-        assert_eq!(
-            g_affine.y(),
-            gpu_affine.y(),
-            "1 * G should have same y as G"
-        );
+        assert_gpu_cpu_match(&scalar, &g, "1 * G");
     }
 
     /// Differential test: 2 * G should equal G + G.
@@ -1257,31 +1305,244 @@ mod fuzz_tests {
     fn test_metal_msm_generator_double() {
         let g = BLS12381Curve::generator();
         let scalar = UnsignedInteger::<4>::from_u64(2);
+        assert_gpu_cpu_match(&scalar, &g, "2 * G");
+    }
 
-        // CPU reference
-        let cpu_2g = g.operate_with(&g).to_affine();
+    /// Differential test: large scalar (> 64 bits) to exercise multi-limb recoding.
+    #[test]
+    fn test_metal_msm_large_scalar() {
+        let g = BLS12381Curve::generator();
+        // Scalar that spans multiple 64-bit limbs
+        let scalar = UnsignedInteger::<4>::from_limbs([
+            0x0000000000000001, // MSB (big-endian)
+            0xFFFFFFFFFFFFFFFF,
+            0x123456789ABCDEF0,
+            0xFEDCBA9876543210, // LSB
+        ]);
+        assert_gpu_cpu_match(&scalar, &g, "large multi-limb scalar * G");
+    }
 
-        // GPU
-        let scalars_flat = scalar_to_gpu_limbs(&scalar);
-        let points_flat = point_to_gpu_flat(&g);
+    /// Differential test: scalar with all bits set (maximum scalar).
+    #[test]
+    fn test_metal_msm_max_scalar() {
+        let g = BLS12381Curve::generator();
+        let scalar = UnsignedInteger::<4>::from_limbs([
+            u64::MAX, u64::MAX, u64::MAX, u64::MAX,
+        ]);
+        assert_gpu_cpu_match(&scalar, &g, "max scalar * G");
+    }
 
-        let mut msm = MetalMSM::new_bls12_381().expect("Metal device required");
-        let gpu_result_flat = msm
-            .compute(&scalars_flat, &points_flat)
-            .expect("Metal MSM compute failed");
+    /// Differential test: power of two scalars to exercise window boundaries.
+    #[test]
+    fn test_metal_msm_power_of_two_scalars() {
+        let g = BLS12381Curve::generator();
+        for shift in [1, 15, 16, 17, 63, 64, 65, 127, 128, 255] {
+            let scalar = UnsignedInteger::<4>::from_u64(1) << shift;
+            assert_gpu_cpu_match(&scalar, &g, &format!("2^{} * G", shift));
+        }
+    }
 
-        let gpu_point = gpu_flat_to_point(&gpu_result_flat);
-        let gpu_affine = gpu_point.to_affine();
+    /// Differential test: scalar * P where P = k*G (non-generator base point).
+    #[test]
+    fn test_metal_msm_non_generator_point() {
+        let g = BLS12381Curve::generator();
+        let p = g.operate_with_self(42u64); // P = 42*G
+        let scalar = UnsignedInteger::<4>::from_u64(1337);
+        assert_gpu_cpu_match(&scalar, &p, "1337 * (42*G)");
+    }
 
-        assert_eq!(
-            cpu_2g.x(),
-            gpu_affine.x(),
-            "2 * G should have same x as G + G"
-        );
-        assert_eq!(
-            cpu_2g.y(),
-            gpu_affine.y(),
-            "2 * G should have same y as G + G"
-        );
+    /// Differential test: CPU-side field arithmetic matches lambdaworks.
+    /// Verifies that our CPU JacobianPoint.double() produces the same result
+    /// as lambdaworks for the BLS12-381 generator.
+    #[test]
+    fn test_cpu_point_double_matches_lambdaworks() {
+        let g = BLS12381Curve::generator();
+        let lw_2g = g.operate_with(&g).to_affine();
+
+        // Convert generator to our CPU-side representation
+        let g_flat = point_to_gpu_flat(&g);
+        let cpu_g = super::JacobianPoint::from_limbs(&g_flat);
+
+        // Double using our CPU arithmetic
+        let cpu_2g = cpu_g.double();
+        let cpu_2g_flat = cpu_2g.to_limbs();
+        let cpu_2g_point = gpu_flat_to_point(&cpu_2g_flat);
+        let cpu_2g_affine = cpu_2g_point.to_affine();
+
+        assert_eq!(lw_2g.x(), cpu_2g_affine.x(), "double x mismatch");
+        assert_eq!(lw_2g.y(), cpu_2g_affine.y(), "double y mismatch");
+    }
+
+    /// Differential test: CPU-side field arithmetic add matches lambdaworks.
+    #[test]
+    fn test_cpu_point_add_matches_lambdaworks() {
+        let g = BLS12381Curve::generator();
+        let p2 = g.operate_with_self(5u64);
+        let lw_sum = g.operate_with(&p2).to_affine();
+
+        let g_flat = point_to_gpu_flat(&g);
+        let p2_flat = point_to_gpu_flat(&p2);
+        let cpu_g = super::JacobianPoint::from_limbs(&g_flat);
+        let cpu_p2 = super::JacobianPoint::from_limbs(&p2_flat);
+
+        let cpu_sum = cpu_g.add(&cpu_p2);
+        let cpu_sum_flat = cpu_sum.to_limbs();
+        let cpu_sum_point = gpu_flat_to_point(&cpu_sum_flat);
+        let cpu_sum_affine = cpu_sum_point.to_affine();
+
+        assert_eq!(lw_sum.x(), cpu_sum_affine.x(), "add x mismatch");
+        assert_eq!(lw_sum.y(), cpu_sum_affine.y(), "add y mismatch");
+    }
+
+    // =========================================================================
+    // Proptest Differential Fuzzing: GPU MSM vs CPU pippenger
+    // =========================================================================
+
+    proptest! {
+        #![proptest_config(ProptestConfig {
+            cases: 20,
+            ..ProptestConfig::default()
+        })]
+
+        /// Differential fuzz: random scalar * G, GPU vs CPU.
+        /// Uses single-point MSM to avoid the bucket_accumulation race condition.
+        #[test]
+        fn prop_metal_msm_random_scalar_vs_cpu(
+            limbs in prop::array::uniform4(any::<u64>())
+        ) {
+            let g = BLS12381Curve::generator();
+            let scalar = UnsignedInteger::<4>::from_limbs(limbs);
+
+            // CPU reference
+            let cpu_result =
+                pippenger::msm(&[scalar], std::slice::from_ref(&g)).expect("CPU MSM failed");
+            let cpu_affine = cpu_result.to_affine();
+
+            // GPU
+            let scalars_flat = scalar_to_gpu_limbs(&scalar);
+            let points_flat = point_to_gpu_flat(&g);
+
+            let mut msm = MetalMSM::new_bls12_381().expect("Metal device required");
+            let gpu_result_flat = msm
+                .compute(&scalars_flat, &points_flat)
+                .expect("Metal MSM compute failed");
+
+            let gpu_point = gpu_flat_to_point(&gpu_result_flat);
+            let gpu_affine = gpu_point.to_affine();
+
+            prop_assert_eq!(
+                cpu_affine.x(), gpu_affine.x(),
+                "x mismatch for random scalar"
+            );
+            prop_assert_eq!(
+                cpu_affine.y(), gpu_affine.y(),
+                "y mismatch for random scalar"
+            );
+        }
+
+        /// Differential fuzz: random scalar * random_point, GPU vs CPU.
+        /// Tests non-generator base points.
+        #[test]
+        fn prop_metal_msm_random_scalar_random_point_vs_cpu(
+            scalar_limbs in prop::array::uniform4(any::<u64>()),
+            point_power in 1u64..100000
+        ) {
+            let base_point = BLS12381Curve::generator().operate_with_self(point_power);
+            let scalar = UnsignedInteger::<4>::from_limbs(scalar_limbs);
+
+            // CPU reference
+            let cpu_result =
+                pippenger::msm(&[scalar], std::slice::from_ref(&base_point)).expect("CPU MSM failed");
+            let cpu_affine = cpu_result.to_affine();
+
+            // GPU
+            let scalars_flat = scalar_to_gpu_limbs(&scalar);
+            let points_flat = point_to_gpu_flat(&base_point);
+
+            let mut msm = MetalMSM::new_bls12_381().expect("Metal device required");
+            let gpu_result_flat = msm
+                .compute(&scalars_flat, &points_flat)
+                .expect("Metal MSM compute failed");
+
+            let gpu_point = gpu_flat_to_point(&gpu_result_flat);
+            let gpu_affine = gpu_point.to_affine();
+
+            prop_assert_eq!(
+                cpu_affine.x(), gpu_affine.x(),
+                "x mismatch for random scalar * random point"
+            );
+            prop_assert_eq!(
+                cpu_affine.y(), gpu_affine.y(),
+                "y mismatch for random scalar * random point"
+            );
+        }
+
+        /// Differential fuzz: CPU-side point doubling matches lambdaworks.
+        #[test]
+        fn prop_cpu_double_matches_lambdaworks(
+            k in 1u64..100000
+        ) {
+            let p = BLS12381Curve::generator().operate_with_self(k);
+            let lw_double = p.operate_with(&p).to_affine();
+
+            let p_flat = point_to_gpu_flat(&p);
+            let cpu_p = super::JacobianPoint::from_limbs(&p_flat);
+            let cpu_double = cpu_p.double();
+            let cpu_double_flat = cpu_double.to_limbs();
+            let cpu_double_point = gpu_flat_to_point(&cpu_double_flat);
+            let cpu_double_affine = cpu_double_point.to_affine();
+
+            prop_assert_eq!(lw_double.x(), cpu_double_affine.x(), "double x mismatch for {}*G", k);
+            prop_assert_eq!(lw_double.y(), cpu_double_affine.y(), "double y mismatch for {}*G", k);
+        }
+
+        /// Differential fuzz: CPU-side point addition matches lambdaworks.
+        #[test]
+        fn prop_cpu_add_matches_lambdaworks(
+            k1 in 1u64..100000,
+            k2 in 1u64..100000
+        ) {
+            let g = BLS12381Curve::generator();
+            let p1 = g.operate_with_self(k1);
+            let p2 = g.operate_with_self(k2);
+            let lw_sum = p1.operate_with(&p2).to_affine();
+
+            let p1_flat = point_to_gpu_flat(&p1);
+            let p2_flat = point_to_gpu_flat(&p2);
+            let cpu_p1 = super::JacobianPoint::from_limbs(&p1_flat);
+            let cpu_p2 = super::JacobianPoint::from_limbs(&p2_flat);
+            let cpu_sum = cpu_p1.add(&cpu_p2);
+            let cpu_sum_flat = cpu_sum.to_limbs();
+            let cpu_sum_point = gpu_flat_to_point(&cpu_sum_flat);
+            let cpu_sum_affine = cpu_sum_point.to_affine();
+
+            prop_assert_eq!(lw_sum.x(), cpu_sum_affine.x(), "add x mismatch for {}*G + {}*G", k1, k2);
+            prop_assert_eq!(lw_sum.y(), cpu_sum_affine.y(), "add y mismatch for {}*G + {}*G", k1, k2);
+        }
+    }
+
+    /// Differential test: edge case scalars that exercise window boundaries.
+    #[test]
+    fn test_metal_msm_window_boundary_scalars() {
+        let g = BLS12381Curve::generator();
+
+        // Scalars at window boundaries for window_size=16 (default)
+        let edge_scalars: Vec<u64> = vec![
+            0,                     // zero (handled specially)
+            1,                     // minimum non-zero
+            (1u64 << 16) - 1,     // max single window
+            1u64 << 16,           // exactly one window boundary
+            (1u64 << 16) + 1,    // just past boundary
+            (1u64 << 32) - 1,     // two full windows
+            u64::MAX,             // max single limb
+        ];
+
+        for &s in &edge_scalars {
+            if s == 0 {
+                continue; // zero scalar gives identity, skip
+            }
+            let scalar = UnsignedInteger::<4>::from_u64(s);
+            assert_gpu_cpu_match(&scalar, &g, &format!("edge scalar {} * G", s));
+        }
     }
 }
