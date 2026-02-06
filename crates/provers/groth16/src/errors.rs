@@ -1,36 +1,21 @@
-use core::fmt;
+use thiserror::Error;
 
 /// Errors that can occur during Groth16 proving, verification, or setup.
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum Groth16Error {
-    /// Error during FFT operation
+    #[error("FFT error: {0}")]
     FFTError(String),
-    /// Batch inversion failed (likely due to zero element)
+    #[error("Batch inversion failed, likely due to zero element")]
     BatchInversionFailed,
-    /// Pairing computation failed
+    #[error("Pairing error: {0}")]
     PairingError(String),
-    /// Multi-scalar multiplication failed
+    #[error("Multi-scalar multiplication error: {0}")]
     MSMError(String),
-    /// QAP computation error
+    #[error("QAP computation error: {0}")]
     QAPError(String),
-    /// Setup error
+    #[error("Setup error: {0}")]
     SetupError(String),
 }
-
-impl fmt::Display for Groth16Error {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Groth16Error::FFTError(msg) => write!(f, "FFT error: {}", msg),
-            Groth16Error::BatchInversionFailed => write!(f, "Batch inversion failed"),
-            Groth16Error::PairingError(msg) => write!(f, "Pairing error: {}", msg),
-            Groth16Error::MSMError(msg) => write!(f, "MSM error: {}", msg),
-            Groth16Error::QAPError(msg) => write!(f, "QAP error: {}", msg),
-            Groth16Error::SetupError(msg) => write!(f, "Setup error: {}", msg),
-        }
-    }
-}
-
-impl std::error::Error for Groth16Error {}
 
 impl Groth16Error {
     /// Creates an MSMError from any Debug-printable error.

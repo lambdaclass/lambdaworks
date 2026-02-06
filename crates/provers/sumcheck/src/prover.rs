@@ -1,5 +1,6 @@
 use crate::sum_product_over_suffix;
 use crate::Channel;
+use crate::EvaluationError;
 use lambdaworks_crypto::fiat_shamir::default_transcript::DefaultTranscript;
 use lambdaworks_crypto::fiat_shamir::is_transcript::IsTranscript;
 use lambdaworks_math::{
@@ -13,28 +14,23 @@ use lambdaworks_math::{
     traits::ByteConversion,
 };
 use std::ops::Mul;
+use thiserror::Error;
 
 pub type ProofResult<F> = (FieldElement<F>, Vec<Polynomial<FieldElement<F>>>);
 pub type ProverOutput<F> = Result<ProofResult<F>, ProverError>;
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum ProverError {
-    /// Error when the input factors are inconsistent
+    #[error("Factor mismatch: {0}")]
     FactorMismatch(String),
-    /// Error occurring during the calculation within a specific round.
-    RoundError(String),
-    /// Error during the polynomial interpolation step in a round.
-    InterpolationError(InterpolateError),
-    /// Error during the initial sum calculation.
-    SummationError(String),
-    /// Error indicating the Prover is in an invalid state
+    #[error("Round computation error: {0}")]
+    RoundError(#[from] EvaluationError),
+    #[error("Polynomial interpolation failed: {0}")]
+    InterpolationError(#[from] InterpolateError),
+    #[error("Summation error: {0}")]
+    SummationError(EvaluationError),
+    #[error("Invalid prover state: {0}")]
     InvalidState(String),
-}
-
-impl From<InterpolateError> for ProverError {
-    fn from(e: InterpolateError) -> Self {
-        ProverError::InterpolationError(e)
-    }
 }
 
 /// Represents the Prover for the Sum-Check protocol operating on a product of DenseMultilinearPolynomials.
@@ -81,8 +77,7 @@ where
 
     /// Computes the initial claimed sum \( C = \\sum_{x \\in \\{0,1\\}^n} \\prod_i P_i(x) \).
     pub fn compute_initial_sum(&self) -> Result<FieldElement<F>, ProverError> {
-        sum_product_over_suffix(&self.factors, &[])
-            .map_err(|e| ProverError::SummationError(format!("Error computing initial sum: {e}")))
+        sum_product_over_suffix(&self.factors, &[]).map_err(ProverError::SummationError)
     }
 
     /// Executes a round of the Sum-Check protocol.
@@ -131,10 +126,7 @@ where
             // Set the actual value for X_j in the prefix
             *current_point_prefix.last_mut().unwrap() = eval_point_x;
 
-            let g_j_at_eval_point = sum_product_over_suffix(&self.factors, &current_point_prefix)
-                .map_err(|e| {
-                ProverError::RoundError(format!("Error in sum for g_j({i}): {e}"))
-            })?;
+            let g_j_at_eval_point = sum_product_over_suffix(&self.factors, &current_point_prefix)?;
             evaluations_y.push(g_j_at_eval_point);
         }
 
