@@ -118,7 +118,11 @@ pub fn setup(qap: &QuadraticArithmeticProgram) -> Result<(ProvingKey, VerifyingK
         .enumerate()
         .map(|(i, ((l, r), o_poly))| {
             let unshifted = &tw.beta * l + &tw.alpha * r + o_poly.evaluate(&tw.tau);
-            let inv = if i < qap.num_of_public_inputs { &gamma_inv } else { &delta_inv };
+            let inv = if i < qap.num_of_public_inputs {
+                &gamma_inv
+            } else {
+                &delta_inv
+            };
             inv * &unshifted
         })
         .collect();
@@ -145,13 +149,12 @@ pub fn setup(qap: &QuadraticArithmeticProgram) -> Result<(ProvingKey, VerifyingK
             z_powers_of_tau_g1: {
                 // delta^{-1} * t(τ) * τ^i for i = 0..2n
                 // where t(τ) = τ^N - 1 (vanishing polynomial over roots of unity)
-                let delta_inv_t_tau = &delta_inv * (&tw.tau.pow(qap.num_of_gates) - FrElement::one());
-                let powers: Vec<_> = core::iter::successors(
-                    Some(delta_inv_t_tau),
-                    |prev| Some(prev * &tw.tau),
-                )
-                .take(qap.num_of_gates * 2)
-                .collect();
+                let delta_inv_t_tau =
+                    &delta_inv * (&tw.tau.pow(qap.num_of_gates) - FrElement::one());
+                let powers: Vec<_> =
+                    core::iter::successors(Some(delta_inv_t_tau), |prev| Some(prev * &tw.tau))
+                        .take(qap.num_of_gates * 2)
+                        .collect();
                 batch_operate(&powers, &g1)
             },
         },
