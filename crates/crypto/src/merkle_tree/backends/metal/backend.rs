@@ -364,4 +364,54 @@ mod tests {
             assert_eq!(gpu, cpu, "Level hash mismatch at pair index {i}");
         }
     }
+
+    use proptest::prelude::*;
+
+    fn arb_field_element() -> impl Strategy<Value = FE> {
+        prop::array::uniform4(any::<u64>()).prop_map(|limbs| FE::from(&U256 { limbs }))
+    }
+
+    fn arb_field_vec(len: usize) -> impl Strategy<Value = Vec<FE>> {
+        prop::collection::vec(arb_field_element(), len)
+    }
+
+    proptest! {
+        #[test]
+        fn proptest_hash_leaves_gpu_vs_cpu(leaves in arb_field_vec(128)) {
+            let gpu_hashes = MetalPoseidonBackend::hash_leaves_gpu(&leaves)
+                .expect("GPU hashing failed");
+            let cpu_hashes: Vec<FE> = leaves
+                .iter()
+                .map(PoseidonCairoStark252::hash_single)
+                .collect();
+
+            prop_assert_eq!(gpu_hashes.len(), cpu_hashes.len());
+            for (i, (gpu, cpu)) in gpu_hashes.iter().zip(cpu_hashes.iter()).enumerate() {
+                prop_assert_eq!(gpu, cpu, "Hash mismatch at leaf {}", i);
+            }
+        }
+
+        #[test]
+        fn proptest_hash_level_gpu_vs_cpu(nodes in arb_field_vec(128)) {
+            let gpu_parents = MetalPoseidonBackend::hash_level_gpu(&nodes)
+                .expect("GPU level hashing failed");
+            let cpu_parents: Vec<FE> = (0..64)
+                .map(|i| PoseidonCairoStark252::hash(&nodes[i * 2], &nodes[i * 2 + 1]))
+                .collect();
+
+            prop_assert_eq!(gpu_parents.len(), cpu_parents.len());
+            for (i, (gpu, cpu)) in gpu_parents.iter().zip(cpu_parents.iter()).enumerate() {
+                prop_assert_eq!(gpu, cpu, "Level hash mismatch at pair {}", i);
+            }
+        }
+
+        #[test]
+        fn proptest_merkle_tree_gpu_vs_cpu(leaves in arb_field_vec(128)) {
+            let cpu_tree =
+                MerkleTree::<TreePoseidon<PoseidonCairoStark252>>::build(&leaves).unwrap();
+            let metal_tree = MerkleTree::<MetalPoseidonBackend>::build(&leaves).unwrap();
+
+            prop_assert_eq!(cpu_tree.root, metal_tree.root);
+        }
+    }
 }

@@ -28,6 +28,7 @@ criterion = "0.4"
 iai-callgrind.workspace = true
 rand = "0.8.5"
 rand_chacha = "0.3.1"
+proptest = "1.1.0"
 
 [features]
 default = ["asm", "std"]
