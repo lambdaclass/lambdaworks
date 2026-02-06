@@ -8,6 +8,7 @@ license.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+thiserror = { version = "1.0", optional = true }
 lambdaworks-math = { workspace = true, features = ["alloc"] }
 digest = "0.10.7"
 sha3 = { version = "0.10.8", default-features = false }
@@ -30,7 +31,7 @@ rand_chacha = "0.3.1"
 [features]
 default = ["asm", "std"]
 asm = ["sha3/asm"]
-std = ["lambdaworks-math/std", "sha2/std", "sha3/std", "serde?/std"]
+std = ["dep:thiserror", "lambdaworks-math/std", "sha2/std", "sha3/std", "serde?/std"]
 serde = ["dep:serde"]
 test_fiat_shamir = []
 parallel = ["dep:rayon"]

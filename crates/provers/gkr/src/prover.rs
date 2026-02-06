@@ -17,11 +17,17 @@ type GKRPolynomialTerms<F> = (
     Vec<DenseMultilinearPolynomial<F>>,
     Vec<DenseMultilinearPolynomial<F>>,
 );
-#[derive(Debug)]
+use thiserror::Error;
+
+#[derive(Debug, Error)]
 pub enum ProverError {
+    #[error("Failed to evaluate multilinear polynomial")]
     MultilinearPolynomialEvaluationError,
+    #[error("Sumcheck protocol error")]
     SumcheckError,
+    #[error("Circuit evaluation or configuration error")]
     CircuitError,
+    #[error("Polynomial interpolation failed")]
     InterpolationError,
 }
 

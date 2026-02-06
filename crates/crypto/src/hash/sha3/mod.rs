@@ -1,8 +1,30 @@
-use alloc::{
-    string::{String, ToString},
-    vec::Vec,
-};
+use alloc::vec::Vec;
+use core::fmt;
 use sha3::{Digest, Sha3_256};
+
+/// Error type for SHA3 message expansion
+#[derive(Debug)]
+pub enum Sha3Error {
+    /// Message expansion length too large
+    ExpansionLengthTooLarge(u64),
+}
+
+impl fmt::Display for Sha3Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Sha3Error::ExpansionLengthTooLarge(ell) => {
+                write!(
+                    f,
+                    "Message expansion length too large: ell value {} exceeds maximum of 255",
+                    ell
+                )
+            }
+        }
+    }
+}
+
+#[cfg(feature = "std")]
+impl std::error::Error for Sha3Error {}
 
 pub struct Sha3Hasher;
 
@@ -13,12 +35,12 @@ impl Sha3Hasher {
         Self
     }
 
-    pub fn expand_message(msg: &[u8], dst: &[u8], len_in_bytes: u64) -> Result<Vec<u8>, String> {
+    pub fn expand_message(msg: &[u8], dst: &[u8], len_in_bytes: u64) -> Result<Vec<u8>, Sha3Error> {
         let b_in_bytes = Sha3_256::output_size() as u64;
 
         let ell = len_in_bytes.div_ceil(b_in_bytes);
         if ell > 255 {
-            return Err("Abort".to_string());
+            return Err(Sha3Error::ExpansionLengthTooLarge(ell));
         }
 
         let dst_prime: Vec<u8> = [dst, &Self::i2osp(dst.len() as u64, 1)].concat();

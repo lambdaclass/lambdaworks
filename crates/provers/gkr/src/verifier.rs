@@ -11,12 +11,19 @@ use lambdaworks_math::{
 use lambdaworks_crypto::fiat_shamir::{
     default_transcript::DefaultTranscript, is_transcript::IsTranscript,
 };
-#[derive(Debug)]
+use thiserror::Error;
+
+#[derive(Debug, Error)]
 pub enum VerifierError {
+    #[error("Invalid proof structure or content")]
     InvalidProof,
+    #[error("Invalid polynomial degree in proof")]
     InvalidDegree,
+    #[error("Failed to evaluate multilinear polynomial")]
     MultilinearPolynomialEvaluationError,
+    #[error("Sumcheck verification failed")]
     SumcheckError,
+    #[error("Circuit configuration error")]
     CircuitError,
 }
 
