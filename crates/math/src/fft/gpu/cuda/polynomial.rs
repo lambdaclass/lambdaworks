@@ -8,7 +8,11 @@ use crate::{
     },
     field::{
         element::FieldElement,
-        traits::{IsFFTField, RootsConfig},
+        fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
+        fields::u64_goldilocks_field::{
+            Degree2GoldilocksExtensionField, Degree3GoldilocksExtensionField, Goldilocks64Field,
+        },
+        traits::{IsFFTField, IsField, RootsConfig},
     },
     polynomial::Polynomial,
 };
@@ -16,6 +20,72 @@ use crate::{
 use super::ops::{fft, fft_ext};
 use lambdaworks_gpu::cuda::abstractions::errors::CudaError;
 use std::cell::RefCell;
+
+/// Trait for field types that support CUDA-accelerated FFT.
+///
+/// Each implementation encapsulates the correct CUDA kernel dispatch for a
+/// specific field type. The generic `evaluate_fft`/`interpolate_fft` functions
+/// in `fft/polynomial.rs` use this trait to delegate to the appropriate CUDA path.
+pub(crate) trait HasCudaFft: IsField {
+    fn cuda_evaluate_fft(
+        coeffs: &[FieldElement<Self>],
+    ) -> Result<Vec<FieldElement<Self>>, FFTError>;
+    fn cuda_interpolate_fft(
+        evals: &[FieldElement<Self>],
+    ) -> Result<Polynomial<FieldElement<Self>>, FFTError>;
+}
+
+impl HasCudaFft for Stark252PrimeField {
+    fn cuda_evaluate_fft(
+        coeffs: &[FieldElement<Self>],
+    ) -> Result<Vec<FieldElement<Self>>, FFTError> {
+        evaluate_fft_cuda(coeffs).map_err(Into::into)
+    }
+    fn cuda_interpolate_fft(
+        evals: &[FieldElement<Self>],
+    ) -> Result<Polynomial<FieldElement<Self>>, FFTError> {
+        interpolate_fft_cuda(evals)
+    }
+}
+
+impl HasCudaFft for Goldilocks64Field {
+    fn cuda_evaluate_fft(
+        coeffs: &[FieldElement<Self>],
+    ) -> Result<Vec<FieldElement<Self>>, FFTError> {
+        evaluate_fft_cuda(coeffs).map_err(Into::into)
+    }
+    fn cuda_interpolate_fft(
+        evals: &[FieldElement<Self>],
+    ) -> Result<Polynomial<FieldElement<Self>>, FFTError> {
+        interpolate_fft_cuda(evals)
+    }
+}
+
+impl HasCudaFft for Degree2GoldilocksExtensionField {
+    fn cuda_evaluate_fft(
+        coeffs: &[FieldElement<Self>],
+    ) -> Result<Vec<FieldElement<Self>>, FFTError> {
+        evaluate_fft_ext_cuda::<Goldilocks64Field, Self>(coeffs).map_err(Into::into)
+    }
+    fn cuda_interpolate_fft(
+        evals: &[FieldElement<Self>],
+    ) -> Result<Polynomial<FieldElement<Self>>, FFTError> {
+        interpolate_fft_ext_cuda::<Goldilocks64Field, Self>(evals)
+    }
+}
+
+impl HasCudaFft for Degree3GoldilocksExtensionField {
+    fn cuda_evaluate_fft(
+        coeffs: &[FieldElement<Self>],
+    ) -> Result<Vec<FieldElement<Self>>, FFTError> {
+        evaluate_fft_ext_cuda::<Goldilocks64Field, Self>(coeffs).map_err(Into::into)
+    }
+    fn cuda_interpolate_fft(
+        evals: &[FieldElement<Self>],
+    ) -> Result<Polynomial<FieldElement<Self>>, FFTError> {
+        interpolate_fft_ext_cuda::<Goldilocks64Field, Self>(evals)
+    }
+}
 
 thread_local! {
     static CUDA_STATE: RefCell<Option<CudaState>> = const { RefCell::new(None) };
