@@ -35,4 +35,8 @@ pub enum MetalError {
     /// A Metal command failed to execute.
     #[error("Metal command execution failed: {0}")]
     ExecutionError(String),
+
+    /// Input size is invalid for the operation.
+    #[error("Invalid input size: expected {expected}, got {actual}")]
+    InvalidInputSize { expected: usize, actual: usize },
 }
