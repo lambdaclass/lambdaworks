@@ -1260,7 +1260,11 @@ mod fuzz_tests {
     }
 
     /// Helper: run single-point Metal MSM and compare with CPU pippenger.
-    fn assert_gpu_cpu_match(scalar: &UnsignedInteger<4>, point: &ShortWeierstrassJacobianPoint<BLS12381Curve>, label: &str) {
+    fn assert_gpu_cpu_match(
+        scalar: &UnsignedInteger<4>,
+        point: &ShortWeierstrassJacobianPoint<BLS12381Curve>,
+        label: &str,
+    ) {
         // CPU reference
         let cpu_result =
             pippenger::msm(&[*scalar], std::slice::from_ref(point)).expect("CPU MSM failed");
@@ -1326,9 +1330,7 @@ mod fuzz_tests {
     #[test]
     fn test_metal_msm_max_scalar() {
         let g = BLS12381Curve::generator();
-        let scalar = UnsignedInteger::<4>::from_limbs([
-            u64::MAX, u64::MAX, u64::MAX, u64::MAX,
-        ]);
+        let scalar = UnsignedInteger::<4>::from_limbs([u64::MAX, u64::MAX, u64::MAX, u64::MAX]);
         assert_gpu_cpu_match(&scalar, &g, "max scalar * G");
     }
 
@@ -1528,13 +1530,13 @@ mod fuzz_tests {
 
         // Scalars at window boundaries for window_size=16 (default)
         let edge_scalars: Vec<u64> = vec![
-            0,                     // zero (handled specially)
-            1,                     // minimum non-zero
-            (1u64 << 16) - 1,     // max single window
-            1u64 << 16,           // exactly one window boundary
-            (1u64 << 16) + 1,    // just past boundary
-            (1u64 << 32) - 1,     // two full windows
-            u64::MAX,             // max single limb
+            0,                // zero (handled specially)
+            1,                // minimum non-zero
+            (1u64 << 16) - 1, // max single window
+            1u64 << 16,       // exactly one window boundary
+            (1u64 << 16) + 1, // just past boundary
+            (1u64 << 32) - 1, // two full windows
+            u64::MAX,         // max single limb
         ];
 
         for &s in &edge_scalars {

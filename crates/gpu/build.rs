@@ -107,7 +107,10 @@ fn compile_metal_shaders() {
         Ok(output) => output,
         Err(e) => {
             std::fs::write(&output_file, []).expect("failed to write placeholder metallib");
-            println!("cargo:warning=Metal compiler not available ({}), using empty metallib", e);
+            println!(
+                "cargo:warning=Metal compiler not available ({}), using empty metallib",
+                e
+            );
             println!("cargo:warning=Install Xcode (not just Command Line Tools) to compile Metal shaders");
             return;
         }
