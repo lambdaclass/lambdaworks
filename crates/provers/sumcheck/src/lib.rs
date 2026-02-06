@@ -6,13 +6,28 @@ use lambdaworks_crypto::fiat_shamir::is_transcript::IsTranscript;
 use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::traits::{HasDefaultTranscript, IsField};
 use lambdaworks_math::polynomial::dense_multilinear_poly::DenseMultilinearPolynomial;
+use lambdaworks_math::polynomial::error::MultilinearError;
 use lambdaworks_math::polynomial::Polynomial;
 use lambdaworks_math::traits::ByteConversion;
 use std::ops::Mul;
+use thiserror::Error;
 
 pub use prover::ProverOutput;
 pub use prover::{prove, Prover, ProverError};
 pub use verifier::{verify, Verifier, VerifierError, VerifierRoundResult};
+
+/// Error type for evaluation operations in sumcheck
+#[derive(Debug, Error)]
+pub enum EvaluationError {
+    #[error("Cannot evaluate product of zero factors")]
+    EmptyFactors,
+    #[error("Point length {point_len} does not match polynomial num_vars {num_vars}")]
+    PointLengthMismatch { point_len: usize, num_vars: usize },
+    #[error("Prefix length cannot exceed total number of variables")]
+    PrefixTooLong,
+    #[error("Multilinear polynomial evaluation failed: {0}")]
+    MultilinearError(#[from] MultilinearError),
+}
 
 // Wrappers for the prover and verifier functions
 pub fn prove_linear<F>(poly: DenseMultilinearPolynomial<F>) -> ProverOutput<F>
@@ -136,25 +151,28 @@ where
 pub fn evaluate_product_at_point<F: IsField>(
     factors: &[DenseMultilinearPolynomial<F>],
     point: &[FieldElement<F>],
-) -> Result<FieldElement<F>, String>
+) -> Result<FieldElement<F>, EvaluationError>
 where
     F::BaseType: Send + Sync,
     FieldElement<F>: Clone + Mul<Output = FieldElement<F>>,
 {
     if factors.is_empty() {
-        return Err("Cannot evaluate product of zero factors.".to_string());
+        return Err(EvaluationError::EmptyFactors);
     }
     if factors[0].num_vars() != point.len() {
-        return Err(format!(
-            "Point length {} does not match polynomial num_vars {}",
-            point.len(),
-            factors[0].num_vars()
-        ));
+        return Err(EvaluationError::PointLengthMismatch {
+            point_len: point.len(),
+            num_vars: factors[0].num_vars(),
+        });
     }
 
     factors
         .iter()
-        .map(|factor| factor.evaluate(point.to_vec()).map_err(|e| e.to_string())) // Using to_string assuming Display for MultilinearError
+        .map(|factor| {
+            factor
+                .evaluate(point.to_vec())
+                .map_err(EvaluationError::from)
+        })
         .try_fold(FieldElement::one(), |acc, eval_result| {
             eval_result.map(|eval| acc * eval)
         })
@@ -164,19 +182,19 @@ where
 pub fn sum_product_over_suffix<F: IsField>(
     factors: &[DenseMultilinearPolynomial<F>],
     prefix: &[FieldElement<F>],
-) -> Result<FieldElement<F>, String>
+) -> Result<FieldElement<F>, EvaluationError>
 where
     F::BaseType: Send + Sync,
     FieldElement<F>: Clone + Mul<Output = FieldElement<F>>,
 {
     let num_total_vars = factors
         .first()
-        .ok_or_else(|| "Cannot sum product of zero factors.".to_string())?
+        .ok_or(EvaluationError::EmptyFactors)?
         .num_vars();
     let num_prefix_vars = prefix.len();
 
     if num_prefix_vars > num_total_vars {
-        return Err("Prefix length cannot exceed total number of variables.".to_string());
+        return Err(EvaluationError::PrefixTooLong);
     }
 
     let num_suffix_vars = num_total_vars - num_prefix_vars;
