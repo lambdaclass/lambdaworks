@@ -5,3 +5,6 @@ pub mod proof;
 pub mod test_merkle;
 pub mod traits;
 mod utils;
+
+#[cfg(feature = "cuda")]
+pub mod cuda;
