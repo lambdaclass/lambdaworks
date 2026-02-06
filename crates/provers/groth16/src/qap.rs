@@ -1,6 +1,10 @@
 use lambdaworks_math::polynomial::Polynomial;
 
-use crate::{common::*, errors::Groth16Error, r1cs::{Constraint, R1CS}};
+use crate::{
+    common::*,
+    errors::Groth16Error,
+    r1cs::{Constraint, R1CS},
+};
 
 /// Quadratic Arithmetic Program representation of a circuit.
 ///
@@ -224,7 +228,11 @@ fn get_variable_lro_polynomials_from_r1cs(
     pad_zeroes: usize,
 ) -> Result<[Polynomial<FrElement>; 3], Groth16Error> {
     let extract_and_pad = |select: fn(&Constraint) -> &Vec<FrElement>| {
-        let mut evals: Vec<_> = r1cs.constraints.iter().map(|c| select(c)[var_idx].clone()).collect();
+        let mut evals: Vec<_> = r1cs
+            .constraints
+            .iter()
+            .map(|c| select(c)[var_idx].clone())
+            .collect();
         evals.resize(evals.len() + pad_zeroes, FrElement::zero());
         Polynomial::interpolate_fft::<FrField>(&evals)
             .map_err(|e| Groth16Error::FFTError(format!("{e:?}")))
