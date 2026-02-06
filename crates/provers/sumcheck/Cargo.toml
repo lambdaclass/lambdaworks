@@ -3,8 +3,11 @@ name = "lambdaworks-sumcheck"
 version = "0.1.0"
 edition = "2021"
 
-
 [dependencies]
 thiserror = "1.0"
 lambdaworks-math = { workspace = true }
 lambdaworks-crypto.workspace = true
+
+[[bench]]
+name = "sumcheck_bench"
+harness = false
