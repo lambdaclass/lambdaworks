@@ -59,6 +59,9 @@ impl IsShortWeierstrass for BLS12381Curve {
 /// This is equal to the frobenius trace of the BLS12 381 curve minus one or seed value z.
 pub const MILLER_LOOP_CONSTANT: u64 = 0xd201000000010000;
 
+/// MILLER_LOOP_CONSTANT², used for faster subgroup checks: φ(P) = -u²P.
+const MILLER_LOOP_CONSTANT_SQ: u128 = (MILLER_LOOP_CONSTANT as u128) * (MILLER_LOOP_CONSTANT as u128);
+
 /// 𝛽 : primitive cube root of unity of 𝐹ₚ that satisfies the minimal equation
 /// 𝛽² + 𝛽 + 1 = 0 mod 𝑝
 pub const CUBE_ROOT_OF_UNITY_G1: BLS12381FieldElement = FieldElement::from_hex_unchecked(
@@ -112,8 +115,7 @@ impl ShortWeierstrassJacobianPoint<BLS12381Curve> {
         if self.is_neutral_element() {
             return true;
         }
-        self.operate_with_self(MILLER_LOOP_CONSTANT)
-            .operate_with_self(MILLER_LOOP_CONSTANT)
+        self.operate_with_self(MILLER_LOOP_CONSTANT_SQ)
             .neg()
             == self.phi()
     }

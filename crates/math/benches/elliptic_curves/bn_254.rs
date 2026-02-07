@@ -155,7 +155,7 @@ pub fn bn_254_elliptic_curve_benchmarks(c: &mut Criterion) {
         bencher.iter(|| {
             black_box(final_exponentiation_optimized(black_box(
                 &miller_loop_output,
-            )))
+            )).unwrap())
         })
     });
 
