@@ -322,8 +322,8 @@ impl<E: IsShortWeierstrass> IsGroup for ShortWeierstrassProjectivePoint<E> {
         &self,
         mut exponent: T,
     ) -> Self {
-        let zero = T::from(0u16);
-        let one = T::from(1u16);
+        let zero = T::from(0);
+        let one = T::from(1);
 
         if exponent == zero {
             return Self::neutral_element();
@@ -959,8 +959,8 @@ impl<E: IsShortWeierstrass> IsGroup for ShortWeierstrassJacobianPoint<E> {
         &self,
         mut exponent: T,
     ) -> Self {
-        let zero = T::from(0u16);
-        let one = T::from(1u16);
+        let zero = T::from(0);
+        let one = T::from(1);
 
         if exponent == zero || self.is_neutral_element() {
             return Self::neutral_element();
