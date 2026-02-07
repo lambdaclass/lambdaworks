@@ -18,13 +18,18 @@ pub trait IsGroup: Clone + PartialEq + Eq {
     fn operate_with_self<T: IsUnsignedInteger>(&self, mut exponent: T) -> Self {
         let mut result = Self::neutral_element();
         let mut base = self.clone();
+        let zero = T::from(0);
+        let one = T::from(1);
 
-        while exponent != T::from(0) {
-            if exponent & T::from(1) == T::from(1) {
-                result = Self::operate_with(&result, &base);
+        loop {
+            if exponent & one == one {
+                result = result.operate_with(&base);
             }
             exponent >>= 1;
-            base = Self::operate_with(&base, &base);
+            if exponent == zero {
+                break;
+            }
+            base = base.double();
         }
         result
     }
