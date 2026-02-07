@@ -1,4 +1,5 @@
 use baby_snark::common::FrElement;
+use lambdaworks_math::cyclic_group::IsGroup;
 use baby_snark::scs::SquareConstraintSystem;
 use baby_snark::ssp::SquareSpanProgram;
 use baby_snark::utils::{i64_matrix_to_field, i64_vec_to_field};
