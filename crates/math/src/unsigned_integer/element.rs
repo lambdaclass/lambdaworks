@@ -44,24 +44,14 @@ impl<const NUM_LIMBS: usize> Default for UnsignedInteger<NUM_LIMBS> {
     }
 }
 
-// NOTE: manually implementing `PartialOrd` may seem unorthodox, but the
-// derived implementation had terrible performance.
-#[allow(clippy::non_canonical_partial_ord_impl)]
 impl<const NUM_LIMBS: usize> PartialOrd for UnsignedInteger<NUM_LIMBS> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        let mut i = 0;
-        while i < NUM_LIMBS {
-            if self.limbs[i] != other.limbs[i] {
-                return Some(self.limbs[i].cmp(&other.limbs[i]));
-            }
-            i += 1;
-        }
-        Some(Ordering::Equal)
+        Some(self.cmp(other))
     }
 }
 
-// NOTE: because we implemented `PartialOrd`, clippy asks us to implement
-// this manually too.
+// NOTE: manually implementing `Ord` because the derived implementation
+// had terrible performance.
 impl<const NUM_LIMBS: usize> Ord for UnsignedInteger<NUM_LIMBS> {
     fn cmp(&self, other: &Self) -> Ordering {
         let mut i = 0;
@@ -107,25 +97,32 @@ impl<const NUM_LIMBS: usize> From<&str> for UnsignedInteger<NUM_LIMBS> {
     }
 }
 
+fn fmt_hex(limbs: &[u64], f: &mut fmt::Formatter<'_>, uppercase: bool) -> fmt::Result {
+    let mut iter = limbs.iter().skip_while(|l| **l == 0).peekable();
+    if iter.peek().is_none() {
+        return write!(f, "0");
+    }
+    if let Some(first) = iter.next() {
+        if uppercase {
+            write!(f, "{first:X}")?;
+        } else {
+            write!(f, "{first:x}")?;
+        }
+    }
+    for limb in iter {
+        if uppercase {
+            write!(f, "{limb:016X}")?;
+        } else {
+            write!(f, "{limb:016x}")?;
+        }
+    }
+    Ok(())
+}
+
 impl<const NUM_LIMBS: usize> Display for UnsignedInteger<NUM_LIMBS> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "0x")?;
-
-        let mut limbs_iterator = self.limbs.iter().skip_while(|limb| **limb == 0).peekable();
-
-        if limbs_iterator.peek().is_none() {
-            write!(f, "0")?;
-        } else {
-            if let Some(most_significant_limb) = limbs_iterator.next() {
-                write!(f, "{most_significant_limb:x}")?;
-            }
-
-            for limb in limbs_iterator {
-                write!(f, "{limb:016x}")?;
-            }
-        }
-
-        Ok(())
+        fmt_hex(&self.limbs, f, false)
     }
 }
 
@@ -134,22 +131,7 @@ impl<const NUM_LIMBS: usize> LowerHex for UnsignedInteger<NUM_LIMBS> {
         if f.alternate() {
             write!(f, "0x")?;
         }
-
-        let mut limbs_iterator = self.limbs.iter().skip_while(|limb| **limb == 0).peekable();
-
-        if limbs_iterator.peek().is_none() {
-            write!(f, "0")?;
-        } else {
-            if let Some(most_significant_limb) = limbs_iterator.next() {
-                write!(f, "{most_significant_limb:x}")?;
-            }
-
-            for limb in limbs_iterator {
-                write!(f, "{limb:016x}")?;
-            }
-        }
-
-        Ok(())
+        fmt_hex(&self.limbs, f, false)
     }
 }
 
@@ -158,22 +140,7 @@ impl<const NUM_LIMBS: usize> UpperHex for UnsignedInteger<NUM_LIMBS> {
         if f.alternate() {
             write!(f, "0X")?;
         }
-
-        let mut limbs_iterator = self.limbs.iter().skip_while(|limb| **limb == 0).peekable();
-
-        if limbs_iterator.peek().is_none() {
-            write!(f, "0")?;
-        } else {
-            if let Some(most_significant_limb) = limbs_iterator.next() {
-                write!(f, "{most_significant_limb:X}")?;
-            }
-
-            for limb in limbs_iterator {
-                write!(f, "{limb:016X}")?;
-            }
-        }
-
-        Ok(())
+        fmt_hex(&self.limbs, f, true)
     }
 }
 
@@ -521,20 +488,7 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
     /// Returns a `CreationError::HexStringIsTooBig` if the the input hex string is bigger
     /// than the maximum amount of characters for this element.
     pub fn from_hex(value: &str) -> Result<Self, CreationError> {
-        let mut string = value;
-        let mut char_iterator = value.chars();
-        if string.len() > 2
-            && char_iterator
-                .next()
-                .expect("string length > 2 guarantees first char exists")
-                == '0'
-            && char_iterator
-                .next()
-                .expect("string length > 2 guarantees second char exists")
-                == 'x'
-        {
-            string = &string[2..];
-        }
+        let string = value.strip_prefix("0x").unwrap_or(value);
         if string.is_empty() {
             return Err(CreationError::EmptyString);
         }
@@ -594,9 +548,10 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
     /// Creates a hexstring from a `FieldElement` without `0x`.
     #[cfg(feature = "std")]
     pub fn to_hex(&self) -> String {
-        let mut hex_string = String::new();
+        let mut hex_string = String::with_capacity(NUM_LIMBS * 16);
         for &limb in self.limbs.iter() {
-            hex_string.push_str(&format!("{limb:016X}"));
+            use core::fmt::Write;
+            write!(hex_string, "{limb:016X}").unwrap();
         }
         hex_string.trim_start_matches('0').to_string()
     }
@@ -811,7 +766,7 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
     pub fn checked_mul(&self, other: &Self) -> Option<Self> {
         let (high, low) = Self::mul(self, other);
         // If high part is zero, result fits in NUM_LIMBS
-        if high == Self::from_u64(0) {
+        if high.limbs == [0u64; NUM_LIMBS] {
             Some(low)
         } else {
             None
@@ -1120,12 +1075,11 @@ impl<const NUM_LIMBS: usize> From<UnsignedInteger<NUM_LIMBS>> for u16 {
 #[cfg(feature = "alloc")]
 impl<const NUM_LIMBS: usize> AsBytes for UnsignedInteger<NUM_LIMBS> {
     fn as_bytes(&self) -> alloc::vec::Vec<u8> {
-        self.limbs
-            .into_iter()
-            .fold(alloc::vec::Vec::new(), |mut acc, limb| {
-                acc.extend_from_slice(&limb.as_bytes());
-                acc
-            })
+        let mut v = alloc::vec::Vec::with_capacity(NUM_LIMBS * 8);
+        for limb in self.limbs {
+            v.extend_from_slice(&limb.to_le_bytes());
+        }
+        v
     }
 }
 
