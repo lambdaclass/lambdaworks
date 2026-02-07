@@ -1,11 +1,12 @@
-use super::field::Mersenne31Field;
+use super::field::{Mersenne31Field, MERSENNE_31_PRIME_FIELD_ORDER};
 use crate::field::{
     element::FieldElement,
     errors::FieldError,
-    traits::{IsFFTField, IsField, IsSubFieldOf},
+    traits::{HasDefaultTranscript, IsFFTField, IsField, IsSubFieldOf},
 };
 #[cfg(feature = "alloc")]
-use alloc::vec::Vec;
+use crate::traits::AsBytes;
+use crate::traits::ByteConversion;
 
 type FpE = FieldElement<Mersenne31Field>;
 type Fp2E = FieldElement<Degree2ExtensionField>;
@@ -65,7 +66,7 @@ impl IsField for Degree2ExtensionField {
 
     /// Returns the division of `a` and `b`
     fn div(a: &Self::BaseType, b: &Self::BaseType) -> Result<Self::BaseType, FieldError> {
-        let b_inv = &Self::inv(b).map_err(|_| FieldError::DivisionByZero)?;
+        let b_inv = &Self::inv(b)?;
         Ok(<Self as IsField>::mul(a, b_inv))
     }
 
@@ -127,7 +128,7 @@ impl IsSubFieldOf<Degree2ExtensionField> for Mersenne31Field {
         a: &Self::BaseType,
         b: &<Degree2ExtensionField as IsField>::BaseType,
     ) -> Result<<Degree2ExtensionField as IsField>::BaseType, FieldError> {
-        let b_inv = Degree2ExtensionField::inv(b).map_err(|_| FieldError::DivisionByZero)?;
+        let b_inv = Degree2ExtensionField::inv(b)?;
         Ok(<Self as IsSubFieldOf<Degree2ExtensionField>>::mul(
             a, &b_inv,
         ))
@@ -142,6 +143,66 @@ impl IsSubFieldOf<Degree2ExtensionField> for Mersenne31Field {
         b: <Degree2ExtensionField as IsField>::BaseType,
     ) -> alloc::vec::Vec<Self::BaseType> {
         b.into_iter().map(|x| x.to_raw()).collect()
+    }
+}
+
+impl ByteConversion for FieldElement<Degree2ExtensionField> {
+    #[cfg(feature = "alloc")]
+    fn to_bytes_be(&self) -> alloc::vec::Vec<u8> {
+        let mut byte_slice = ByteConversion::to_bytes_be(&self.value()[0]);
+        byte_slice.extend(ByteConversion::to_bytes_be(&self.value()[1]));
+        byte_slice
+    }
+
+    #[cfg(feature = "alloc")]
+    fn to_bytes_le(&self) -> alloc::vec::Vec<u8> {
+        let mut byte_slice = ByteConversion::to_bytes_le(&self.value()[0]);
+        byte_slice.extend(ByteConversion::to_bytes_le(&self.value()[1]));
+        byte_slice
+    }
+
+    fn from_bytes_be(bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError> {
+        const BYTES_PER_FIELD: usize = 4;
+        let x0 = FieldElement::from_bytes_be(&bytes[0..BYTES_PER_FIELD])?;
+        let x1 = FieldElement::from_bytes_be(&bytes[BYTES_PER_FIELD..BYTES_PER_FIELD * 2])?;
+        Ok(Self::new([x0, x1]))
+    }
+
+    fn from_bytes_le(bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError> {
+        const BYTES_PER_FIELD: usize = 4;
+        let x0 = FieldElement::from_bytes_le(&bytes[0..BYTES_PER_FIELD])?;
+        let x1 = FieldElement::from_bytes_le(&bytes[BYTES_PER_FIELD..BYTES_PER_FIELD * 2])?;
+        Ok(Self::new([x0, x1]))
+    }
+}
+
+#[cfg(feature = "alloc")]
+impl AsBytes for FieldElement<Degree2ExtensionField> {
+    fn as_bytes(&self) -> alloc::vec::Vec<u8> {
+        self.to_bytes_be()
+    }
+}
+
+impl HasDefaultTranscript for Degree2ExtensionField {
+    fn get_random_field_element_from_rng(rng: &mut impl rand::Rng) -> FieldElement<Self> {
+        const MODULUS: u32 = MERSENNE_31_PRIME_FIELD_ORDER;
+        const MASK: u32 = 0x7FFF_FFFF;
+
+        let mut sample = [0u8; 4];
+        let mut coeffs = [FieldElement::zero(), FieldElement::zero()];
+
+        for coeff in &mut coeffs {
+            loop {
+                rng.fill(&mut sample);
+                let int_sample = u32::from_be_bytes(sample) & MASK;
+                if int_sample < MODULUS {
+                    *coeff = FieldElement::from(&int_sample);
+                    break;
+                }
+            }
+        }
+
+        FieldElement::<Self>::new(coeffs)
     }
 }
 
@@ -198,7 +259,7 @@ impl IsField for Degree4ExtensionField {
     }
 
     fn div(a: &Self::BaseType, b: &Self::BaseType) -> Result<Self::BaseType, FieldError> {
-        let b_inv = &Self::inv(b).map_err(|_| FieldError::DivisionByZero)?;
+        let b_inv = &Self::inv(b)?;
         Ok(<Self as IsField>::mul(a, b_inv))
     }
 
@@ -251,7 +312,7 @@ impl IsSubFieldOf<Degree4ExtensionField> for Mersenne31Field {
         a: &Self::BaseType,
         b: &<Degree4ExtensionField as IsField>::BaseType,
     ) -> Result<<Degree4ExtensionField as IsField>::BaseType, FieldError> {
-        let b_inv = Degree4ExtensionField::inv(b).map_err(|_| FieldError::DivisionByZero)?;
+        let b_inv = Degree4ExtensionField::inv(b)?;
         Ok(<Self as IsSubFieldOf<Degree4ExtensionField>>::mul(
             a, &b_inv,
         ))
@@ -268,14 +329,117 @@ impl IsSubFieldOf<Degree4ExtensionField> for Mersenne31Field {
     fn to_subfield_vec(
         b: <Degree4ExtensionField as IsField>::BaseType,
     ) -> alloc::vec::Vec<Self::BaseType> {
-        // TODO: Repace this for with a map similarly to this:
-        // b.into_iter().map(|x| x.to_raw()).collect()
-        let mut result = Vec::new();
-        for fp2e in b {
-            result.push(fp2e.value()[0].to_raw());
-            result.push(fp2e.value()[1].to_raw());
+        b.into_iter()
+            .flat_map(|fp2e| [fp2e.value()[0].to_raw(), fp2e.value()[1].to_raw()])
+            .collect()
+    }
+}
+
+impl IsSubFieldOf<Degree4ExtensionField> for Degree2ExtensionField {
+    fn mul(
+        a: &Self::BaseType,
+        b: &<Degree4ExtensionField as IsField>::BaseType,
+    ) -> <Degree4ExtensionField as IsField>::BaseType {
+        let a = Fp2E::from_raw(*a);
+        [&a * &b[0], &a * &b[1]]
+    }
+
+    fn add(
+        a: &Self::BaseType,
+        b: &<Degree4ExtensionField as IsField>::BaseType,
+    ) -> <Degree4ExtensionField as IsField>::BaseType {
+        [Fp2E::from_raw(*a) + &b[0], b[1].clone()]
+    }
+
+    fn sub(
+        a: &Self::BaseType,
+        b: &<Degree4ExtensionField as IsField>::BaseType,
+    ) -> <Degree4ExtensionField as IsField>::BaseType {
+        [Fp2E::from_raw(*a) - &b[0], -&b[1]]
+    }
+
+    fn div(
+        a: &Self::BaseType,
+        b: &<Degree4ExtensionField as IsField>::BaseType,
+    ) -> Result<<Degree4ExtensionField as IsField>::BaseType, FieldError> {
+        let b_inv = Degree4ExtensionField::inv(b)?;
+        Ok(<Self as IsSubFieldOf<Degree4ExtensionField>>::mul(
+            a, &b_inv,
+        ))
+    }
+
+    fn embed(a: Self::BaseType) -> <Degree4ExtensionField as IsField>::BaseType {
+        [Fp2E::from_raw(a), Fp2E::zero()]
+    }
+
+    #[cfg(feature = "alloc")]
+    fn to_subfield_vec(
+        b: <Degree4ExtensionField as IsField>::BaseType,
+    ) -> alloc::vec::Vec<Self::BaseType> {
+        b.into_iter().map(|x| x.to_raw()).collect()
+    }
+}
+
+impl ByteConversion for FieldElement<Degree4ExtensionField> {
+    #[cfg(feature = "alloc")]
+    fn to_bytes_be(&self) -> alloc::vec::Vec<u8> {
+        let mut byte_slice = ByteConversion::to_bytes_be(&self.value()[0]);
+        byte_slice.extend(ByteConversion::to_bytes_be(&self.value()[1]));
+        byte_slice
+    }
+
+    #[cfg(feature = "alloc")]
+    fn to_bytes_le(&self) -> alloc::vec::Vec<u8> {
+        let mut byte_slice = ByteConversion::to_bytes_le(&self.value()[0]);
+        byte_slice.extend(ByteConversion::to_bytes_le(&self.value()[1]));
+        byte_slice
+    }
+
+    fn from_bytes_be(bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError> {
+        const BYTES_PER_FIELD: usize = 8; // 2 × 4 bytes per Fp2E
+        let x0 = FieldElement::from_bytes_be(&bytes[0..BYTES_PER_FIELD])?;
+        let x1 = FieldElement::from_bytes_be(&bytes[BYTES_PER_FIELD..BYTES_PER_FIELD * 2])?;
+        Ok(Self::new([x0, x1]))
+    }
+
+    fn from_bytes_le(bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError> {
+        const BYTES_PER_FIELD: usize = 8; // 2 × 4 bytes per Fp2E
+        let x0 = FieldElement::from_bytes_le(&bytes[0..BYTES_PER_FIELD])?;
+        let x1 = FieldElement::from_bytes_le(&bytes[BYTES_PER_FIELD..BYTES_PER_FIELD * 2])?;
+        Ok(Self::new([x0, x1]))
+    }
+}
+
+#[cfg(feature = "alloc")]
+impl AsBytes for FieldElement<Degree4ExtensionField> {
+    fn as_bytes(&self) -> alloc::vec::Vec<u8> {
+        self.to_bytes_be()
+    }
+}
+
+impl HasDefaultTranscript for Degree4ExtensionField {
+    fn get_random_field_element_from_rng(rng: &mut impl rand::Rng) -> FieldElement<Self> {
+        const MODULUS: u32 = MERSENNE_31_PRIME_FIELD_ORDER;
+        const MASK: u32 = 0x7FFF_FFFF;
+
+        let mut sample = [0u8; 4];
+        let mut base_coeffs = [FpE::zero(), FpE::zero(), FpE::zero(), FpE::zero()];
+
+        for coeff in &mut base_coeffs {
+            loop {
+                rng.fill(&mut sample);
+                let int_sample = u32::from_be_bytes(sample) & MASK;
+                if int_sample < MODULUS {
+                    *coeff = FieldElement::from(&int_sample);
+                    break;
+                }
+            }
         }
-        result
+
+        FieldElement::<Self>::new([
+            Fp2E::new([base_coeffs[0], base_coeffs[1]]),
+            Fp2E::new([base_coeffs[2], base_coeffs[3]]),
+        ])
     }
 }
 
