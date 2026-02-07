@@ -16,10 +16,15 @@ pub trait IsGroup: Clone + PartialEq + Eq {
     /// The operation can be addition or multiplication depending on
     /// the notation of the particular group.
     fn operate_with_self<T: IsUnsignedInteger>(&self, mut exponent: T) -> Self {
-        let mut result = Self::neutral_element();
-        let mut base = self.clone();
         let zero = T::from(0);
         let one = T::from(1);
+
+        if exponent == zero {
+            return Self::neutral_element();
+        }
+
+        let mut result = Self::neutral_element();
+        let mut base = self.clone();
 
         loop {
             if exponent & one == one {
