@@ -63,7 +63,8 @@ impl IsShortWeierstrass for BLS12377Curve {
 pub const MILLER_LOOP_CONSTANT: u64 = 0x8508c00000000001;
 
 /// MILLER_LOOP_CONSTANT², used for faster subgroup checks: φ(P) = -u²P.
-const MILLER_LOOP_CONSTANT_SQ: u128 = (MILLER_LOOP_CONSTANT as u128) * (MILLER_LOOP_CONSTANT as u128);
+const MILLER_LOOP_CONSTANT_SQ: u128 =
+    (MILLER_LOOP_CONSTANT as u128) * (MILLER_LOOP_CONSTANT as u128);
 
 /// 𝛽 : primitive cube root of unity of 𝐹ₚ that §satisfies the minimal equation
 /// 𝛽² + 𝛽 + 1 = 0 mod 𝑝
@@ -87,9 +88,7 @@ impl ShortWeierstrassProjectivePoint<BLS12377Curve> {
         if self.is_neutral_element() {
             return true;
         }
-        self.operate_with_self(MILLER_LOOP_CONSTANT_SQ)
-            .neg()
-            == self.phi()
+        self.operate_with_self(MILLER_LOOP_CONSTANT_SQ).neg() == self.phi()
     }
 }
 

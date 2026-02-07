@@ -10,8 +10,7 @@ use crate::{cyclic_group::IsGroup, elliptic_curve::traits::IsPairing, errors::Pa
 use crate::{
     elliptic_curve::short_weierstrass::{
         curves::bls12_381::field_extension::Degree6ExtensionField,
-        point::ShortWeierstrassJacobianPoint,
-        traits::IsShortWeierstrass,
+        point::ShortWeierstrassJacobianPoint, traits::IsShortWeierstrass,
     },
     field::element::FieldElement,
     unsigned_integer::element::U256,

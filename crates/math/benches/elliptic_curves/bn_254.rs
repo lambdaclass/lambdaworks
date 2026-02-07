@@ -153,9 +153,7 @@ pub fn bn_254_elliptic_curve_benchmarks(c: &mut Criterion) {
     // Final Exponentiation
     group.bench_function("Final Exponentiation", |bencher| {
         bencher.iter(|| {
-            black_box(final_exponentiation_optimized(black_box(
-                &miller_loop_output,
-            )).unwrap())
+            black_box(final_exponentiation_optimized(black_box(&miller_loop_output)).unwrap())
         })
     });
 

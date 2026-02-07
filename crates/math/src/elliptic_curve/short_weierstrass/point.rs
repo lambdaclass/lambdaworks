@@ -796,8 +796,7 @@ impl<E: IsShortWeierstrass> ShortWeierstrassJacobianPoint<E> {
         //http://www.hyperelliptic.org/EFD/g1p/data/shortw/jacobian-0/doubling/dbl-2009-l
 
         if E::a() == FieldElement::zero() {
-            let (x3, y3, z3) =
-                ShortWeierstrassProjectivePoint::<E>::jacobian_double_a0(x1, y1, z1);
+            let (x3, y3, z3) = ShortWeierstrassProjectivePoint::<E>::jacobian_double_a0(x1, y1, z1);
 
             debug_assert_eq!(
                 E::defining_equation_jacobian(&x3, &y3, &z3),

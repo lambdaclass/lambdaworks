@@ -120,7 +120,11 @@ impl<E: IsEllipticCurve + IsEdwards> EdwardsProjectivePoint<E> {
                 let [x, y, _z] = point.coordinates();
                 let x_affine = x * z_inv;
                 let y_affine = y * z_inv;
-                result.push(Self::new_unchecked([x_affine, y_affine, FieldElement::one()]));
+                result.push(Self::new_unchecked([
+                    x_affine,
+                    y_affine,
+                    FieldElement::one(),
+                ]));
                 inv_idx += 1;
             }
         }
