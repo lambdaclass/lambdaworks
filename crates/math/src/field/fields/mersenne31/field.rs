@@ -186,15 +186,7 @@ impl IsPrimeField for Mersenne31Field {
     }
 
     fn from_hex(hex_string: &str) -> Result<Self::BaseType, CreationError> {
-        let mut hex_string = hex_string;
-        // Remove 0x if it's on the string
-        let mut char_iterator = hex_string.chars();
-        if hex_string.len() > 2
-            && char_iterator.next().unwrap() == '0'
-            && char_iterator.next().unwrap() == 'x'
-        {
-            hex_string = &hex_string[2..];
-        }
+        let hex_string = hex_string.strip_prefix("0x").unwrap_or(hex_string);
         u32::from_str_radix(hex_string, 16).map_err(|_| CreationError::InvalidHexString)
     }
 

@@ -66,7 +66,7 @@ impl IsField for Degree4BabyBearExtensionField {
         [-&a[0], -&a[1], -&a[2], -&a[3]]
     }
 
-    /// Return te inverse of a fp4 element if it exists.
+    /// Return the inverse of a fp4 element if it exists.
     /// This algorithm is inspired by Risc0 implementation:
     /// <https://github.com/risc0/risc0/blob/4c41c739779ef2759a01ebcf808faf0fbffe8793/risc0/core/src/field/baby_bear.rs#L460>
     fn inv(a: &Self::BaseType) -> Result<Self::BaseType, FieldError> {
@@ -85,7 +85,7 @@ impl IsField for Degree4BabyBearExtensionField {
     }
 
     fn div(a: &Self::BaseType, b: &Self::BaseType) -> Result<Self::BaseType, FieldError> {
-        let b_inv = &Self::inv(b).map_err(|_| FieldError::DivisionByZero)?;
+        let b_inv = &Self::inv(b)?;
         Ok(<Self as IsField>::mul(a, b_inv))
     }
 
@@ -121,49 +121,6 @@ impl IsField for Degree4BabyBearExtensionField {
     /// already have correct representations.
     fn from_base_type(x: Self::BaseType) -> Self::BaseType {
         x
-    }
-
-    fn double(a: &Self::BaseType) -> Self::BaseType {
-        <Degree4BabyBearExtensionField as IsField>::add(a, a)
-    }
-
-    fn pow<T>(a: &Self::BaseType, mut exponent: T) -> Self::BaseType
-    where
-        T: crate::unsigned_integer::traits::IsUnsignedInteger,
-    {
-        let zero = T::from(0);
-        let one = T::from(1);
-
-        if exponent == zero {
-            return Self::one();
-        }
-        if exponent == one {
-            return *a;
-        }
-
-        let mut result = *a;
-
-        // Fast path for powers of 2
-        while exponent & one == zero {
-            result = Self::square(&result);
-            exponent >>= 1;
-            if exponent == zero {
-                return result;
-            }
-        }
-
-        let mut base = result;
-        exponent >>= 1;
-
-        while exponent != zero {
-            base = Self::square(&base);
-            if exponent & one == one {
-                result = <Degree4BabyBearExtensionField as IsField>::mul(&result, &base);
-            }
-            exponent >>= 1;
-        }
-
-        result
     }
 }
 
@@ -254,7 +211,7 @@ impl ByteConversion for [FieldElement<Babybear31PrimeField>; 4] {
     where
         Self: Sized,
     {
-        const BYTES_PER_FIELD: usize = 32;
+        const BYTES_PER_FIELD: usize = 4;
 
         let x0 = FieldElement::from_bytes_be(&bytes[0..BYTES_PER_FIELD])?;
         let x1 = FieldElement::from_bytes_be(&bytes[BYTES_PER_FIELD..BYTES_PER_FIELD * 2])?;
@@ -268,7 +225,7 @@ impl ByteConversion for [FieldElement<Babybear31PrimeField>; 4] {
     where
         Self: Sized,
     {
-        const BYTES_PER_FIELD: usize = 32;
+        const BYTES_PER_FIELD: usize = 4;
 
         let x0 = FieldElement::from_bytes_le(&bytes[0..BYTES_PER_FIELD])?;
         let x1 = FieldElement::from_bytes_le(&bytes[BYTES_PER_FIELD..BYTES_PER_FIELD * 2])?;

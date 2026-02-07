@@ -62,8 +62,9 @@ impl<F: IsField> FieldElement<F> {
         let count = numbers.len();
         let mut prod_prefix = alloc::vec::Vec::with_capacity(count);
         prod_prefix.push(numbers[0].clone());
-        for i in 1..count {
-            prod_prefix.push(&prod_prefix[i - 1] * &numbers[i]);
+        for num in numbers.iter().skip(1) {
+            let prev = prod_prefix.last().unwrap();
+            prod_prefix.push(prev * num);
         }
         let mut bi_inv = prod_prefix[count - 1].inv()?;
         for i in (1..count).rev() {
@@ -109,7 +110,7 @@ impl<F: IsField> FieldElement<F> {
     {
         S::to_subfield_vec(self.value)
             .into_iter()
-            .map(|x| FieldElement::from_raw(x))
+            .map(FieldElement::from_raw)
             .collect()
     }
 }
@@ -156,11 +157,7 @@ where
     }
 }
 
-impl<F> FieldElement<F>
-where
-    F::BaseType: Clone,
-    F: IsField,
-{
+impl<F: IsField> FieldElement<F> {
     #[inline(always)]
     pub fn from_raw(value: F::BaseType) -> Self {
         Self { value }
@@ -257,7 +254,7 @@ where
     F: IsField,
 {
     fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
-        iter.fold(Self::zero(), |augend, addend| augend + addend)
+        iter.fold(Self::zero(), |augend, addend| &augend + &addend)
     }
 }
 
@@ -747,7 +744,7 @@ where
                     }
                 }
                 let value = value.ok_or_else(|| de::Error::missing_field("value"))?;
-                let val = F::BaseType::from_bytes_be(&value).unwrap();
+                let val = F::BaseType::from_bytes_be(&value).map_err(|e| de::Error::custom(e))?;
                 Ok(FieldElement::from_raw(val))
             }
 
@@ -763,7 +760,7 @@ where
                     value = Some(val);
                 }
                 let value = value.ok_or_else(|| de::Error::missing_field("value"))?;
-                let val = F::BaseType::from_bytes_be(&value).unwrap();
+                let val = F::BaseType::from_bytes_be(&value).map_err(|e| de::Error::custom(e))?;
                 Ok(FieldElement::from_raw(val))
             }
         }
@@ -813,7 +810,7 @@ impl<'de, F: IsPrimeField> Deserialize<'de> for FieldElement<F> {
                     }
                 }
                 let value = value.ok_or_else(|| de::Error::missing_field("value"))?;
-                FieldElement::from_hex(&value).map_err(|_| de::Error::custom("invalid hex"))
+                FieldElement::from_hex(value).map_err(|_| de::Error::custom("invalid hex"))
             }
 
             fn visit_seq<S>(self, mut seq: S) -> Result<FieldElement<F>, S::Error>
@@ -828,7 +825,7 @@ impl<'de, F: IsPrimeField> Deserialize<'de> for FieldElement<F> {
                     value = Some(val);
                 }
                 let value = value.ok_or_else(|| de::Error::missing_field("value"))?;
-                FieldElement::from_hex(&value).map_err(|_| de::Error::custom("invalid hex"))
+                FieldElement::from_hex(value).map_err(|_| de::Error::custom("invalid hex"))
             }
         }
 
@@ -897,7 +894,7 @@ mod tests {
                 .map(|x| { FieldElement::<U64TestField>::from(x) })
                 .sum::<FieldElement<U64TestField>>()
                 .value,
-            ((n - 1) as f64 / 2. * ((n - 1) as f64 + 1.)) as u64 % MODULUS
+            (n * (n - 1) / 2) % MODULUS
         );
     }
 
