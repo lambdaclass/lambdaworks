@@ -39,7 +39,7 @@ fn generate_cyclotomic_element(a: u64, b: u64) -> Fp12E {
     let f = miller(&q.to_affine(), &p.to_affine());
 
     // Final exponentiation puts f in the cyclotomic subgroup
-    final_exponentiation(&f)
+    final_exponentiation(&f).unwrap()
 }
 
 fuzz_target!(|data: (u64, u64, u8)| {

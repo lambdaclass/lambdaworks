@@ -176,7 +176,7 @@ impl IsPairing for BN254AtePairing {
 
         // Use multi-Miller loop for multiple pairs (shares squarings)
         let result = multi_miller_loop(&valid_pairs);
-        Ok(final_exponentiation_optimized(&result))
+        final_exponentiation_optimized(&result)
     }
 }
 
@@ -201,7 +201,7 @@ impl IsPairing for BN254AtePairing {
                 result *= miller_optimized(&p, &q);
             }
         }
-        Ok(final_exponentiation_optimized(&result))
+        final_exponentiation_optimized(&result)
     }
 }
 
@@ -264,6 +264,7 @@ fn multi_miller_loop(pairs: &[(G1Point, G2Point)]) -> Fp12E {
 
 /// Computes Miller loop using oprate_with(), operate_with_self() and line_naive().
 /// See <https://eprint.iacr.org/2010/354.pdf> (Page 4, Algorithm 1).
+#[cfg(test)]
 pub fn miller_naive(p: &G1Point, q: &G2Point) -> Fp12E {
     let mut t = q.clone();
     let mut f = Fp12E::one();
@@ -335,6 +336,7 @@ pub fn miller_optimized(p: &G1Point, q: &G2Point) -> Fp12E {
 /// Algorithm adapted from Arkowork's double_in_place and add_in_place.
 /// See <https://github.com/arkworks-rs/algebra/blob/master/ec/src/models/bn/g2.rs#L25>.
 /// See <https://eprint.iacr.org/2013/722.pdf> (Page 13, Equations 11 and 13).
+#[cfg(test)]
 fn line_naive(p: &G1Point, t: &G2Point, q: &G2Point) -> Fp12E {
     let [x_p, y_p, _] = p.coordinates();
 
@@ -448,6 +450,7 @@ fn line_optimized(p: &G1Point, t: &G2Point, q: &G2Point) -> (G2Point, Fp12E) {
 /// Computes f ^ {(p^12 - 1) / r}
 /// using that (p^12 - 1)/r = (p^6 - 1) * (p^2 + 1) * (p^4 - p^2 + 1)/r.
 /// Algorithm taken from <https://hackmd.io/@Wimet/ry7z1Xj-2#Final-Exponentiation>.
+#[cfg(test)]
 pub fn final_exponentiation_naive(
     f: &FieldElement<Degree12ExtensionField>,
 ) -> FieldElement<Degree12ExtensionField> {
@@ -493,10 +496,10 @@ pub fn final_exponentiation_naive(
 #[inline]
 pub fn final_exponentiation_optimized(
     f: &FieldElement<Degree12ExtensionField>,
-) -> FieldElement<Degree12ExtensionField> {
+) -> Result<FieldElement<Degree12ExtensionField>, PairingError> {
     // Easy part:
     // Computes f ^ {(p^6 - 1) * (p^2 + 1)}
-    let f_easy_aux = f.conjugate() * f.inv().unwrap();
+    let f_easy_aux = f.conjugate() * f.inv().map_err(|_| PairingError::DivisionByZero)?;
     let f_easy = &frobenius_square(&f_easy_aux) * f_easy_aux;
 
     // Optimal Hard Part from the post
@@ -529,7 +532,7 @@ pub fn final_exponentiation_optimized(
     let t03 = t13 * y1;
     //let t04 = cyclotomic_square(&t03) * t14;
 
-    cyclotomic_square(&t03) * t14
+    Ok(cyclotomic_square(&t03) * t14)
 }
 
 ////////////////// FROBENIUS MORPHISIMS //////////////////

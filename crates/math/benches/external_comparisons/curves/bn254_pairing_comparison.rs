@@ -121,7 +121,7 @@ pub fn bench_lambdaworks(c: &mut Criterion) {
     // Final exponentiation only
     let f = miller_optimized(&g1_points[0], &g2_points[0]);
     group.bench_function("final_exp", |b| {
-        b.iter(|| black_box(final_exponentiation_optimized(&f)))
+        b.iter(|| black_box(final_exponentiation_optimized(&f).unwrap()))
     });
 
     group.finish();

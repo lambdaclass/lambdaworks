@@ -36,6 +36,12 @@ impl<E: IsEllipticCurve + IsMontgomery> MontgomeryProjectivePoint<E> {
         }
     }
 
+    /// Creates a point without validating it lies on the curve.
+    /// Only use when the caller guarantees the coordinates are valid.
+    pub fn new_unchecked(value: [FieldElement<E::BaseField>; 3]) -> Self {
+        Self(ProjectivePoint::new(value))
+    }
+
     /// Returns the `x` coordinate of the point.
     pub fn x(&self) -> &FieldElement<E::BaseField> {
         self.0.x()
@@ -107,88 +113,113 @@ impl<E: IsMontgomery> IsGroup for MontgomeryProjectivePoint<E> {
         pz == &FieldElement::zero()
     }
 
-    /// Computes the addition of `self` and `other`.
+    /// Computes the addition of `self` and `other` in projective coordinates
+    /// without field inversions.
     ///
-    /// This implementation follows the addition law for Montgomery curves as described in:
-    /// **Moonmath Manual, Definition 5.2.2.1, Page 94**.
+    /// Uses projective addition formulas for Montgomery curves `by² = x³ + ax² + x`.
+    /// For P=(X1:Y1:Z1), Q=(X2:Y2:Z2) where affine (x,y) = (X/Z, Y/Z):
     ///
-    /// # Safety
-    ///
-    /// - This function assumes that both `self` and `other` are **valid** points on the curve.
-    /// - The resulting point is **guaranteed** to be valid due to the **Montgomery curve addition formula**.
-    /// - `unwrap()` is used because the formula ensures the result remains a valid curve point.
+    /// Addition (P ≠ Q):
+    ///   U = Y2*Z1 - Y1*Z2, V = X2*Z1 - X1*Z2, W = Z1*Z2
+    ///   V² = V², V³ = V*V², A = b*U²*W - V³ - V²*(X1*Z2 + X2*Z1) - a*V²*W
+    ///   X3 = V*A, Y3 = U*(V²*X1*Z2 - A) - V³*Y1*Z2, Z3 = V³*W
     fn operate_with(&self, other: &Self) -> Self {
-        // One of them is the neutral element.
         if self.is_neutral_element() {
-            other.clone()
-        } else if other.is_neutral_element() {
-            self.clone()
-        } else {
-            let [x1, y1, _] = self.to_affine().coordinates().clone();
-            let [x2, y2, _] = other.to_affine().coordinates().clone();
-            // In this case P == -Q
-            if x2 == x1 && &y2 + &y1 == FieldElement::zero() {
-                Self::neutral_element()
-            // The points are the same P == Q
-            } else if self == other {
-                // P = Q = (x, y)
-                // y cant be zero here because if y = 0 then
-                // P = Q = (x, 0) and P = -Q, which is the
-                // previous case.
-                let one = FieldElement::from(1);
-                let (a, b) = (E::a(), E::b());
+            return other.clone();
+        }
+        if other.is_neutral_element() {
+            return self.clone();
+        }
 
-                let x1a = &a * &x1;
-                let x1_square = &x1 * &x1;
-                let num = &x1_square + &x1_square + x1_square + &x1a + x1a + &one;
-                let den = (&b + &b) * &y1;
+        let [x1, y1, z1] = self.coordinates();
+        let [x2, y2, z2] = other.coordinates();
 
-                // We are using that den != 0 because b and y1 aren't zero.
-                // b != 0 because the cofficient b of a montgomery elliptic curve has to be different from zero.
-                // y1 != 0 because if not, it woould be the case from above: x2 = x1 and y2 + y1 = 0.
-                let div = unsafe { (num / den).unwrap_unchecked() };
+        // Check if points have the same x-coordinate (projective equality: X1*Z2 == X2*Z1)
+        let x1z2 = x1 * z2;
+        let x2z1 = x2 * z1;
 
-                let new_x = &div * &div * &b - (&x1 + x2) - a;
-                let new_y = div * (x1 - &new_x) - y1;
-
-                // SAFETY:
-                // - The Montgomery addition formula guarantees a **valid** curve point.
-                // - `unwrap()` is safe because the input points are **valid**.
-                let point = Self::new([new_x, new_y, one]);
-                point.unwrap()
-            // In the rest of the cases we have x1 != x2
+        if x1z2 == x2z1 {
+            // Same x-coordinate: either P == Q (double) or P == -Q (neutral)
+            let y1z2 = y1 * z2;
+            let y2z1 = y2 * z1;
+            if y1z2 == y2z1 {
+                // P == Q: use doubling
+                return self.double();
             } else {
-                let num = &y2 - &y1;
-                let den = &x2 - &x1;
-
-                let div = unsafe { (num / den).unwrap_unchecked() };
-
-                let new_x = &div * &div * E::b() - (&x1 + &x2) - E::a();
-                let new_y = div * (x1 - &new_x) - y1;
-
-                // SAFETY:
-                // - The result of the Montgomery addition formula is **guaranteed** to be a valid point.
-                // - `unwrap()` is safe because we **control** the inputs.
-                let point = Self::new([new_x, new_y, FieldElement::one()]);
-                point.unwrap()
+                // P == -Q: return neutral element
+                return Self::neutral_element();
             }
         }
+
+        let (a, b) = (E::a(), E::b());
+
+        // General addition: x1 ≠ x2
+        // Affine: λ = (y2-y1)/(x2-x1), x3 = b*λ² - x1 - x2 - a, y3 = λ*(x1-x3) - y1
+        // Projective: U = Y2*Z1 - Y1*Z2, V = X2*Z1 - X1*Z2, W = Z1*Z2
+        let u = y2 * z1 - y1 * z2;
+        let v = &x2z1 - &x1z2;
+        let w = z1 * z2;
+        let v_sq = v.square();
+        let v_cu = &v * &v_sq;
+
+        // X3_raw = b*U²*W - V²*(X1Z2 + X2Z1) - a*V²*W  (has denominator V²*W)
+        // Multiply by V*Z1 to share denominator V³*W*Z1 with Y3
+        let x3_raw = &b * u.square() * &w - &v_sq * (&x1z2 + &x2z1) - &a * &v_sq * &w;
+
+        let x3 = &v * z1 * &x3_raw;
+        let y3 = &u * (x1 * &v_sq * &w - &x3_raw * z1) - y1 * &v_cu * &w;
+        let z3 = &v_cu * &w * z1;
+
+        Self::new_unchecked([x3, y3, z3])
+    }
+
+    /// Point doubling in projective coordinates without field inversions.
+    ///
+    /// For Montgomery curve by² = x³ + ax² + x, the doubling formula uses:
+    ///   λ = (3X² + 2aXZ + Z²) / (2bYZ) in affine
+    /// In projective: multiply through by denominator to avoid division.
+    fn double(&self) -> Self {
+        if self.is_neutral_element() {
+            return self.clone();
+        }
+
+        let [x1, y1, z1] = self.coordinates();
+        let (a, b) = (E::a(), E::b());
+
+        // Numerator of λ: 3X1² + 2aX1Z1 + Z1²
+        let x1_sq = x1.square();
+        let z1_sq = z1.square();
+        let num = &x1_sq + &x1_sq + &x1_sq + (&a + &a) * x1 * z1 + &z1_sq;
+
+        // Denominator of λ: 2bY1Z1
+        let den = (&b + &b) * y1 * z1;
+
+        // x3_affine = b*λ² - 2*x1 - a = b*num²/den² - 2*X1/Z1 - a
+        // Multiply through by den²*Z1 to get projective result.
+        // X3 = b*num²*Z1 - den²*(2*X1 + a*Z1)
+        let num_sq = num.square();
+        let den_sq = den.square();
+        let two_x1 = x1.double();
+
+        // X3_raw = b*num²*Z1 - den²*(2X1 + a*Z1), with denominator den²*Z1
+        // Multiply by den to share denominator den³*Z1 with Y3
+        let x3_raw = &b * &num_sq * z1 - &den_sq * (&two_x1 + &a * z1);
+        let den_cu = &den * &den_sq;
+        let x3 = &den * &x3_raw;
+
+        // Y3 = num*(X1*den² - X3_raw) - Y1*den³ with denominator den³*Z1
+        let y3 = &num * (x1 * &den_sq - &x3_raw) - y1 * &den_cu;
+
+        // Z3 = den³ * Z1
+        let z3 = den_cu * z1;
+
+        Self::new_unchecked([x3, y3, z3])
     }
 
     /// Returns the additive inverse of the projective point `p`
-    ///
-    /// # Safety
-    ///
-    /// - The negation formula preserves the curve equation.
-    /// - `unwrap()` is safe because negation **does not** create invalid points.
     fn neg(&self) -> Self {
         let [px, py, pz] = self.coordinates();
-        // SAFETY:
-        // - Negating `y` maintains the curve structure.
-        // - `unwrap()` is safe because negation **is always valid**.
-        let point = Self::new([px.clone(), -py, pz.clone()]);
-        debug_assert!(point.is_ok());
-        point.unwrap()
+        Self::new_unchecked([px.clone(), -py, pz.clone()])
     }
 }
 

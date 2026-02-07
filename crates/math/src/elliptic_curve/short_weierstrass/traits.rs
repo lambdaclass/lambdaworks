@@ -30,7 +30,8 @@ pub trait IsShortWeierstrass: IsEllipticCurve + Clone + Debug {
         y: &FieldElement<Self::BaseField>,
         z: &FieldElement<Self::BaseField>,
     ) -> FieldElement<Self::BaseField> {
-        y.square() * z - ((x.square() + Self::a() * z.square()) * x + Self::b() * z.square() * z)
+        let z2 = z.square();
+        y.square() * z - ((x.square() + Self::a() * &z2) * x + Self::b() * z2 * z)
     }
 
     // Evaluates the jacobian equation:
@@ -40,9 +41,9 @@ pub trait IsShortWeierstrass: IsEllipticCurve + Clone + Debug {
         y: &FieldElement<Self::BaseField>,
         z: &FieldElement<Self::BaseField>,
     ) -> FieldElement<Self::BaseField> {
-        y.square()
-            - ((x.square() + Self::a() * z.square().square()) * x
-                + Self::b() * z.square().square() * z.square())
+        let z2 = z.square();
+        let z4 = z2.square();
+        y.square() - ((x.square() + Self::a() * &z4) * x + Self::b() * z4 * z2)
     }
 }
 

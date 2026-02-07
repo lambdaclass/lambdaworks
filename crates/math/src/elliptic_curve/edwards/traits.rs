@@ -13,9 +13,9 @@ pub trait IsEdwards: IsEllipticCurve + Clone + Debug {
         x: &FieldElement<Self::BaseField>,
         y: &FieldElement<Self::BaseField>,
     ) -> FieldElement<Self::BaseField> {
-        (Self::a() * x.pow(2_u16) + y.pow(2_u16))
-            - FieldElement::<Self::BaseField>::one()
-            - Self::d() * x.pow(2_u16) * y.pow(2_u16)
+        let x2 = x.square();
+        let y2 = y.square();
+        (Self::a() * &x2 + &y2) - FieldElement::<Self::BaseField>::one() - Self::d() * x2 * y2
     }
 
     // Edwards equation in projective coordinates.
@@ -25,8 +25,9 @@ pub trait IsEdwards: IsEllipticCurve + Clone + Debug {
         y: &FieldElement<Self::BaseField>,
         z: &FieldElement<Self::BaseField>,
     ) -> FieldElement<Self::BaseField> {
-        Self::a() * x.square() * z.square() + y.square() * z.square()
-            - z.square().square()
-            - Self::d() * x.square() * y.square()
+        let x2 = x.square();
+        let y2 = y.square();
+        let z2 = z.square();
+        Self::a() * &x2 * &z2 + &y2 * &z2 - z2.square() - Self::d() * x2 * y2
     }
 }

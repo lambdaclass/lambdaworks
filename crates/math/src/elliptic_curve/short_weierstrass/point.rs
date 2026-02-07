@@ -142,9 +142,9 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
         }
         let [px, py, pz] = self.coordinates();
 
-        let px_square = px * px;
-        let three_px_square = &px_square + &px_square + &px_square;
-        let w = E::a() * pz * pz + three_px_square;
+        let px_square = px.square();
+        let three_px_square = px_square.double() + &px_square;
+        let w = E::a() * pz.square() + three_px_square;
         let w_square = &w * &w;
 
         let s = py * pz;
@@ -404,7 +404,7 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
     /// From http://www.hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-0.html#doubling-dbl-2009-l
     #[inline(always)]
     #[allow(clippy::type_complexity)]
-    fn jacobian_double_a0(
+    pub(crate) fn jacobian_double_a0(
         x: &FieldElement<E::BaseField>,
         y: &FieldElement<E::BaseField>,
         z: &FieldElement<E::BaseField>,
@@ -512,45 +512,34 @@ where
     /// Serialize the points in the given format
     #[cfg(feature = "alloc")]
     pub fn serialize(&self, point_format: PointFormat, endianness: Endianness) -> Vec<u8> {
-        // TODO: Add more compact serialization formats
-        // Uncompressed affine / Compressed
-
-        let mut bytes: Vec<u8> = Vec::new();
-        let x_bytes: Vec<u8>;
-        let y_bytes: Vec<u8>;
-        let z_bytes: Vec<u8>;
-
         match point_format {
             PointFormat::Projective => {
                 let [x, y, z] = self.coordinates();
-                if endianness == Endianness::BigEndian {
-                    x_bytes = x.to_bytes_be();
-                    y_bytes = y.to_bytes_be();
-                    z_bytes = z.to_bytes_be();
+                let (x_bytes, y_bytes, z_bytes) = if endianness == Endianness::BigEndian {
+                    (x.to_bytes_be(), y.to_bytes_be(), z.to_bytes_be())
                 } else {
-                    x_bytes = x.to_bytes_le();
-                    y_bytes = y.to_bytes_le();
-                    z_bytes = z.to_bytes_le();
-                }
+                    (x.to_bytes_le(), y.to_bytes_le(), z.to_bytes_le())
+                };
+                let mut bytes = Vec::with_capacity(x_bytes.len() + y_bytes.len() + z_bytes.len());
                 bytes.extend(&x_bytes);
                 bytes.extend(&y_bytes);
                 bytes.extend(&z_bytes);
+                bytes
             }
             PointFormat::Uncompressed => {
                 let affine_representation = self.to_affine();
                 let [x, y, _z] = affine_representation.coordinates();
-                if endianness == Endianness::BigEndian {
-                    x_bytes = x.to_bytes_be();
-                    y_bytes = y.to_bytes_be();
+                let (x_bytes, y_bytes) = if endianness == Endianness::BigEndian {
+                    (x.to_bytes_be(), y.to_bytes_be())
                 } else {
-                    x_bytes = x.to_bytes_le();
-                    y_bytes = y.to_bytes_le();
-                }
+                    (x.to_bytes_le(), y.to_bytes_le())
+                };
+                let mut bytes = Vec::with_capacity(x_bytes.len() + y_bytes.len());
                 bytes.extend(&x_bytes);
                 bytes.extend(&y_bytes);
+                bytes
             }
         }
-        bytes
     }
 
     pub fn deserialize(
@@ -658,7 +647,7 @@ where
 }
 
 #[derive(Clone, Debug)]
-pub struct ShortWeierstrassJacobianPoint<E: IsEllipticCurve>(pub JacobianPoint<E>);
+pub struct ShortWeierstrassJacobianPoint<E: IsEllipticCurve>(JacobianPoint<E>);
 
 impl<E: IsShortWeierstrass> ShortWeierstrassJacobianPoint<E> {
     /// Creates an elliptic curve point giving the jacobian [x: y: z] coordinates.
@@ -807,24 +796,12 @@ impl<E: IsShortWeierstrass> ShortWeierstrassJacobianPoint<E> {
         //http://www.hyperelliptic.org/EFD/g1p/data/shortw/jacobian-0/doubling/dbl-2009-l
 
         if E::a() == FieldElement::zero() {
-            let a = x1.square(); // A = x1^2
-            let b = y1.square(); // B = y1^2
-            let c = b.square(); // C = B^2
-            let x1_plus_b = x1 + &b; // (X1 + B)
-            let x1_plus_b_square = x1_plus_b.square(); // (X1 + B)^2
-            let d = (&x1_plus_b_square - &a - &c).double(); // D = 2 * ((X1 + B)^2 - A - C)
-            let e = &a.double() + &a; // E = 3 * A
-            let f = e.square(); // F = E^2
-            let x3 = &f - &d.double(); // X3 = F - 2 * D
-            let y3 = &e * (&d - &x3) - &c.double().double().double(); // Y3 = E * (D - X3) - 8 * C
-            let z3 = (y1 * z1).double(); // Z3 = 2 * Y1 * Z1
+            let (x3, y3, z3) = ShortWeierstrassProjectivePoint::<E>::jacobian_double_a0(x1, y1, z1);
 
             debug_assert_eq!(
                 E::defining_equation_jacobian(&x3, &y3, &z3),
                 FieldElement::<E::BaseField>::zero()
             );
-            // SAFETY: The values `x_3, y_3, z_3` are computed correctly to be on the curve.
-            // The assertion above verifies that the resulting point is valid.
             Self::new_unchecked([x3, y3, z3])
         } else {
             // http://www.hyperelliptic.org/EFD/g1p/data/shortw/jacobian-0/doubling/dbl-2009-alnr
@@ -1024,43 +1001,37 @@ where
         point_format: PointFormat,
         endianness: Endianness,
     ) -> alloc::vec::Vec<u8> {
-        let mut bytes: alloc::vec::Vec<u8> = alloc::vec::Vec::new();
-        let x_bytes;
-        let y_bytes;
-        let z_bytes;
         match point_format {
             PointFormat::Projective => {
                 // For "projective" format, serialize the raw Jacobian coordinates [x, y, z]
                 let [x, y, z] = self.coordinates();
-                if endianness == Endianness::BigEndian {
-                    x_bytes = x.to_bytes_be();
-                    y_bytes = y.to_bytes_be();
-                    z_bytes = z.to_bytes_be();
+                let (x_bytes, y_bytes, z_bytes) = if endianness == Endianness::BigEndian {
+                    (x.to_bytes_be(), y.to_bytes_be(), z.to_bytes_be())
                 } else {
-                    x_bytes = x.to_bytes_le();
-                    y_bytes = y.to_bytes_le();
-                    z_bytes = z.to_bytes_le();
-                }
+                    (x.to_bytes_le(), y.to_bytes_le(), z.to_bytes_le())
+                };
+                let mut bytes =
+                    alloc::vec::Vec::with_capacity(x_bytes.len() + y_bytes.len() + z_bytes.len());
                 bytes.extend(&x_bytes);
                 bytes.extend(&y_bytes);
                 bytes.extend(&z_bytes);
+                bytes
             }
             PointFormat::Uncompressed => {
                 // Convert to affine: x_affine = x/z^2, y_affine = y/z^3
                 let affine_representation = self.to_affine();
                 let [x, y, _z] = affine_representation.coordinates();
-                if endianness == Endianness::BigEndian {
-                    x_bytes = x.to_bytes_be();
-                    y_bytes = y.to_bytes_be();
+                let (x_bytes, y_bytes) = if endianness == Endianness::BigEndian {
+                    (x.to_bytes_be(), y.to_bytes_be())
                 } else {
-                    x_bytes = x.to_bytes_le();
-                    y_bytes = y.to_bytes_le();
-                }
+                    (x.to_bytes_le(), y.to_bytes_le())
+                };
+                let mut bytes = alloc::vec::Vec::with_capacity(x_bytes.len() + y_bytes.len());
                 bytes.extend(&x_bytes);
                 bytes.extend(&y_bytes);
+                bytes
             }
         }
-        bytes
     }
 
     pub fn deserialize(

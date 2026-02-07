@@ -15,7 +15,8 @@ pub trait IsMontgomery: IsEllipticCurve + Clone + Debug {
         x: &FieldElement<Self::BaseField>,
         y: &FieldElement<Self::BaseField>,
     ) -> FieldElement<Self::BaseField> {
-        (Self::b() * y.square()) - (x.pow(3_u16) + Self::a() * x.square() + x)
+        let x2 = x.square();
+        (Self::b() * y.square()) - (&x2 * x + Self::a() * x2 + x)
     }
 
     /// Evaluates the equation at the projective point (x, y, z).
@@ -25,6 +26,7 @@ pub trait IsMontgomery: IsEllipticCurve + Clone + Debug {
         y: &FieldElement<Self::BaseField>,
         z: &FieldElement<Self::BaseField>,
     ) -> FieldElement<Self::BaseField> {
-        z * Self::b() * y.square() - x.pow(3_u16) - z * Self::a() * x.square() - z.square() * x
+        let x2 = x.square();
+        z * Self::b() * y.square() - &x2 * x - z * Self::a() * x2 - z.square() * x
     }
 }
