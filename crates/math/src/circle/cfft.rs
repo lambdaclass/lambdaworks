@@ -13,6 +13,20 @@ pub fn cfft(
     // If the input size is 2^n, then log_2_size is n.
     let log_2_size = input.len().trailing_zeros();
 
+    debug_assert!(
+        input.len().is_power_of_two(),
+        "cfft input length must be a power of two, got {}",
+        input.len()
+    );
+    debug_assert_eq!(
+        twiddles.len(),
+        log_2_size as usize,
+        "cfft expects {} twiddle layers for input size {}, got {}",
+        log_2_size,
+        input.len(),
+        twiddles.len()
+    );
+
     // The cfft has n layers.
     (0..log_2_size).for_each(|i| {
         // In each layer i we split the current input in chunks of size 2^{i+1}.
@@ -45,6 +59,20 @@ pub fn icfft(
 ) {
     // If the input size is 2^n, then log_2_size is n.
     let log_2_size = input.len().trailing_zeros();
+
+    debug_assert!(
+        input.len().is_power_of_two(),
+        "icfft input length must be a power of two, got {}",
+        input.len()
+    );
+    debug_assert_eq!(
+        twiddles.len(),
+        log_2_size as usize,
+        "icfft expects {} twiddle layers for input size {}, got {}",
+        log_2_size,
+        input.len(),
+        twiddles.len()
+    );
 
     // The icfft has n layers.
     (0..log_2_size).for_each(|i| {

@@ -36,7 +36,14 @@ impl Coset {
     }
 
     /// Given a standard coset g_2n + <g_n>, returns the subcoset with half size g_2n + <g_{n/2}>
+    ///
+    /// # Panics
+    /// Panics if `log_2_size == 0` (cannot halve a coset of size 1).
     pub fn half_coset(&self) -> Self {
+        assert!(
+            self.log_2_size > 0,
+            "Cannot halve a coset of size 1 (log_2_size == 0)"
+        );
         Coset {
             log_2_size: self.log_2_size - 1,
             shift: self.shift.clone(),
@@ -83,8 +90,8 @@ mod tests {
         let coset = Coset::new_standard(3);
         let points = coset.get_coset_points();
         let point = points[2].clone();
-        let anitpode_point = points[6].clone();
-        assert_eq!(anitpode_point, point.antipode())
+        let antipode_point = points[6].clone();
+        assert_eq!(antipode_point, point.antipode())
     }
 
     #[test]
