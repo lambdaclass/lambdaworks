@@ -5,7 +5,7 @@ use crate::{
     field::{element::FieldElement, fields::mersenne31::field::Mersenne31Field},
 };
 #[cfg(feature = "alloc")]
-use alloc::vec::Vec;
+use alloc::{vec, vec::Vec};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TwiddlesConfig {
@@ -41,7 +41,7 @@ pub fn get_twiddles(
             let cur = prev
                 .iter()
                 .take(prev.len() / 2)
-                .map(|x| x.square().double() - FieldElement::<Mersenne31Field>::one())
+                .map(|x: &FieldElement<Mersenne31Field>| x.square().double() - FieldElement::one())
                 .collect();
             twiddles.push(cur);
         }
