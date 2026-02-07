@@ -17,7 +17,7 @@ pub type CubicExtensionFieldElement<F, T> = FieldElement<CubicExtensionField<F, 
 
 /// Trait to fix a cubic non residue.
 /// Used to construct a cubic extension field by adding
-/// a square root of `residue()`.
+/// a cube root of `residue()`.
 pub trait HasCubicNonResidue<F: IsField> {
     /// This function must return an element that is not a cube in Fp,
     /// that is, a cubic non-residue.
@@ -84,7 +84,7 @@ where
 
     /// Optimized squaring using Chung-Hasan SQR2 formula.
     /// (a0 + a1*v + a2*v²)² where v³ = Q::residue()
-    /// This requires 2 base field squares and 2 base field multiplications
+    /// This requires 3 base field squares and 3 base field multiplications
     /// instead of 6 multiplications from generic mul(a, a).
     #[inline]
     fn square(a: &[FieldElement<F>; 3]) -> [FieldElement<F>; 3] {
@@ -151,7 +151,7 @@ where
         a: &[FieldElement<F>; 3],
         b: &[FieldElement<F>; 3],
     ) -> Result<[FieldElement<F>; 3], FieldError> {
-        let b_inv = &Self::inv(b).map_err(|_| FieldError::DivisionByZero)?;
+        let b_inv = &Self::inv(b)?;
         Ok(<Self as IsField>::mul(a, b_inv))
     }
 

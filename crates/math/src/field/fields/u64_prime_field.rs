@@ -32,7 +32,11 @@ impl<const MODULUS: u64> IsField for U64PrimeField<MODULUS> {
     }
 
     fn neg(a: &u64) -> u64 {
-        MODULUS - a
+        if *a == 0 {
+            0
+        } else {
+            MODULUS - a
+        }
     }
 
     fn mul(a: &u64, b: &u64) -> u64 {
@@ -88,16 +92,7 @@ impl<const MODULUS: u64> IsPrimeField for U64PrimeField<MODULUS> {
     }
 
     fn from_hex(hex_string: &str) -> Result<Self::BaseType, CreationError> {
-        let mut hex_string = hex_string;
-        // Remove 0x if it's on the string
-        let mut char_iterator = hex_string.chars();
-        if hex_string.len() > 2
-            && char_iterator.next().unwrap() == '0'
-            && char_iterator.next().unwrap() == 'x'
-        {
-            hex_string = &hex_string[2..];
-        }
-
+        let hex_string = hex_string.strip_prefix("0x").unwrap_or(hex_string);
         u64::from_str_radix(hex_string, 16).map_err(|_| CreationError::InvalidHexString)
     }
 

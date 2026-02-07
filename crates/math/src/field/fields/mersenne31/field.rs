@@ -1,10 +1,13 @@
+#[cfg(feature = "alloc")]
+use crate::traits::AsBytes;
 use crate::{
-    errors::CreationError,
+    errors::{ByteConversionError, CreationError},
     field::{
         element::FieldElement,
         errors::FieldError,
-        traits::{IsField, IsPrimeField},
+        traits::{HasDefaultTranscript, IsField, IsPrimeField},
     },
+    traits::ByteConversion,
 };
 use core::fmt::{self, Display};
 
@@ -129,7 +132,7 @@ impl IsField for Mersenne31Field {
     /// Returns the division of `a` and `b`.
     #[inline]
     fn div(a: &u32, b: &u32) -> Result<u32, FieldError> {
-        let b_inv = Self::inv(b).map_err(|_| FieldError::DivisionByZero)?;
+        let b_inv = Self::inv(b)?;
         Ok(Self::mul(a, &b_inv))
     }
 
@@ -186,15 +189,7 @@ impl IsPrimeField for Mersenne31Field {
     }
 
     fn from_hex(hex_string: &str) -> Result<Self::BaseType, CreationError> {
-        let mut hex_string = hex_string;
-        // Remove 0x if it's on the string
-        let mut char_iterator = hex_string.chars();
-        if hex_string.len() > 2
-            && char_iterator.next().unwrap() == '0'
-            && char_iterator.next().unwrap() == 'x'
-        {
-            hex_string = &hex_string[2..];
-        }
+        let hex_string = hex_string.strip_prefix("0x").unwrap_or(hex_string);
         u32::from_str_radix(hex_string, 16).map_err(|_| CreationError::InvalidHexString)
     }
 
@@ -204,15 +199,54 @@ impl IsPrimeField for Mersenne31Field {
     }
 }
 
-impl FieldElement<Mersenne31Field> {
+impl ByteConversion for FieldElement<Mersenne31Field> {
     #[cfg(feature = "alloc")]
-    pub fn to_bytes_le(&self) -> alloc::vec::Vec<u8> {
-        self.canonical().to_le_bytes().to_vec()
+    fn to_bytes_be(&self) -> alloc::vec::Vec<u8> {
+        self.canonical().to_be_bytes().to_vec()
     }
 
     #[cfg(feature = "alloc")]
-    pub fn to_bytes_be(&self) -> alloc::vec::Vec<u8> {
-        self.canonical().to_be_bytes().to_vec()
+    fn to_bytes_le(&self) -> alloc::vec::Vec<u8> {
+        self.canonical().to_le_bytes().to_vec()
+    }
+
+    fn from_bytes_be(bytes: &[u8]) -> Result<Self, ByteConversionError> {
+        let bytes: [u8; 4] = bytes
+            .try_into()
+            .map_err(|_| ByteConversionError::FromBEBytesError)?;
+        Ok(Self::from(&u32::from_be_bytes(bytes)))
+    }
+
+    fn from_bytes_le(bytes: &[u8]) -> Result<Self, ByteConversionError> {
+        let bytes: [u8; 4] = bytes
+            .try_into()
+            .map_err(|_| ByteConversionError::FromLEBytesError)?;
+        Ok(Self::from(&u32::from_le_bytes(bytes)))
+    }
+}
+
+#[cfg(feature = "alloc")]
+impl AsBytes for FieldElement<Mersenne31Field> {
+    fn as_bytes(&self) -> alloc::vec::Vec<u8> {
+        self.to_bytes_be()
+    }
+}
+
+impl HasDefaultTranscript for Mersenne31Field {
+    fn get_random_field_element_from_rng(rng: &mut impl rand::Rng) -> FieldElement<Self> {
+        // Mersenne31 Prime p = 2^31 - 1
+        const MODULUS: u32 = MERSENNE_31_PRIME_FIELD_ORDER;
+        // Mersenne31 prime needs 31 bits. The mask clears the top bit.
+        const MASK: u32 = 0x7FFF_FFFF;
+
+        let mut sample = [0u8; 4];
+        loop {
+            rng.fill(&mut sample);
+            let int_sample = u32::from_be_bytes(sample) & MASK;
+            if int_sample < MODULUS {
+                return FieldElement::from(&int_sample);
+            }
+        }
     }
 }
 

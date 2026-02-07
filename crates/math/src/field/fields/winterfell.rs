@@ -154,7 +154,7 @@ impl ByteConversion for QuadFelt {
     fn to_bytes_le(&self) -> Vec<u8> {
         let [b0, b1] = self.to_base_elements();
         let mut bytes = b0.to_bytes_le();
-        bytes.extend(&b1.to_bytes_be());
+        bytes.extend(&b1.to_bytes_le());
         bytes
     }
 

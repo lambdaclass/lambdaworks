@@ -3,7 +3,6 @@ use pprof::criterion::{Output, PProfProfiler};
 
 mod fields;
 use fields::mersenne31::{mersenne31_extension_ops_benchmarks, mersenne31_ops_benchmarks};
-use fields::mersenne31_montgomery::mersenne31_mont_ops_benchmarks;
 use fields::{
     baby_bear::{
         babybear_extension_ops_benchmarks, babybear_extension_ops_benchmarks_p3,
@@ -26,7 +25,6 @@ criterion_group!(
               binary_ops_benchmarks,
               mersenne31_ops_benchmarks,
               mersenne31_extension_ops_benchmarks,
-              mersenne31_mont_ops_benchmarks,
               starkfield_ops_benchmarks,
               u64_goldilocks_ops_benchmarks,
               u64_goldilocks_montgomery_ops_benchmarks,

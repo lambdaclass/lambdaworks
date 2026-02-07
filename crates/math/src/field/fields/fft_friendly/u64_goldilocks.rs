@@ -11,7 +11,7 @@ pub type U64MontgomeryBackendPrimeField<T> = MontgomeryBackendPrimeField<T, 1>;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct MontgomeryConfigU64GoldilocksPrimeField;
 impl IsModulus<U64> for MontgomeryConfigU64GoldilocksPrimeField {
-    //Babybear Prime p = 2^64 - 2^32 + 1
+    //Goldilocks Prime p = 2^64 - 2^32 + 1
     const MODULUS: U64 = U64::from_u64(18446744069414584321);
 }
 

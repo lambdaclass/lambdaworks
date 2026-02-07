@@ -541,8 +541,7 @@ pub type Fp3E = FieldElement<Degree3GoldilocksHybridExtensionField>;
 
 impl Display for FieldElement<Goldilocks64HybridField> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{:x}", self.canonical())?;
-        Ok(())
+        write!(f, "{:x}", self.canonical())
     }
 }
 
