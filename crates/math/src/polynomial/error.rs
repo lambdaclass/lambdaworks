@@ -59,7 +59,7 @@ impl fmt::Display for MultilinearError {
 #[cfg(feature = "std")]
 impl std::error::Error for MultilinearError {}
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum InterpolateError {
     UnequalLengths(usize, usize),
     NonUniqueXs,

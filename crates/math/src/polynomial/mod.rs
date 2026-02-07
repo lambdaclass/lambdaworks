@@ -320,18 +320,16 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
         let degree = self.degree() + factor.degree();
         let mut coefficients = vec![FieldElement::zero(); degree + 1];
 
-        {
-            for i in 0..=factor.degree() {
-                if factor.coefficients[i] != FieldElement::zero() {
-                    for j in 0..=self.degree() {
-                        if self.coefficients[j] != FieldElement::zero() {
-                            coefficients[i + j] += &factor.coefficients[i] * &self.coefficients[j];
-                        }
+        for i in 0..=factor.degree() {
+            if factor.coefficients[i] != FieldElement::zero() {
+                for j in 0..=self.degree() {
+                    if self.coefficients[j] != FieldElement::zero() {
+                        coefficients[i + j] += &factor.coefficients[i] * &self.coefficients[j];
                     }
                 }
             }
-            Polynomial::new(&coefficients)
         }
+        Polynomial::new(&coefficients)
     }
 
     /// Scales the coefficients of a polynomial P by a factor

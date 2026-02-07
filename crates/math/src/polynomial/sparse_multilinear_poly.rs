@@ -27,6 +27,21 @@ where
         self.num_vars
     }
 
+    /// Computes chi(idx, r) * coeff, where chi is the Lagrange basis polynomial
+    /// evaluated at r for the boolean hypercube point corresponding to idx.
+    fn chi_term(idx: usize, coeff: &FieldElement<F>, r: &[FieldElement<F>]) -> FieldElement<F> {
+        let num_bits = r.len();
+        let mut chi_i = FieldElement::<F>::one();
+        for (j, r_j) in r.iter().enumerate() {
+            if (idx >> (num_bits - 1 - j)) & 1 == 1 {
+                chi_i *= r_j;
+            } else {
+                chi_i *= FieldElement::<F>::one() - r_j;
+            }
+        }
+        chi_i * coeff
+    }
+
     // Takes O(n log n)
     /// Evaluates the multilinear polynomial at a point r
     pub fn evaluate(&self, r: &[FieldElement<F>]) -> Result<FieldElement<F>, MultilinearError> {
@@ -37,8 +52,6 @@ where
             ));
         }
 
-        let num_bits = r.len();
-
         #[cfg(feature = "parallel")]
         let iter = (0..self.evals.len()).into_par_iter();
 
@@ -48,16 +61,7 @@ where
         Ok(iter
             .map(|i| {
                 let (idx, ref coeff) = self.evals[i];
-                let mut chi_i = FieldElement::<F>::one();
-                for (j, r_j) in r.iter().enumerate() {
-                    let bit = (idx >> (num_bits - 1 - j)) & 1 == 1;
-                    if bit {
-                        chi_i *= r_j;
-                    } else {
-                        chi_i *= FieldElement::<F>::one() - r_j;
-                    }
-                }
-                chi_i * coeff
+                Self::chi_term(idx, coeff, r)
             })
             .sum())
     }
@@ -76,8 +80,6 @@ where
             ));
         }
 
-        let num_bits = r.len();
-
         #[cfg(feature = "parallel")]
         let iter = (0..evals.len()).into_par_iter();
 
@@ -86,16 +88,7 @@ where
         Ok(iter
             .map(|i| {
                 let (idx, ref coeff) = evals[i];
-                let mut chi_i = FieldElement::<F>::one();
-                for (j, r_j) in r.iter().enumerate() {
-                    let bit = (idx >> (num_bits - 1 - j)) & 1 == 1;
-                    if bit {
-                        chi_i *= r_j;
-                    } else {
-                        chi_i *= FieldElement::<F>::one() - r_j;
-                    }
-                }
-                chi_i * coeff
+                Self::chi_term(idx, coeff, r)
             })
             .sum())
     }
