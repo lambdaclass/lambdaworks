@@ -27,38 +27,17 @@ where
         self.num_vars
     }
 
-    /// Computes the eq extension polynomial of the polynomial.
-    /// return 1 when a == r, otherwise return 0.
-    /// Chi is the Lagrange basis polynomial evaluated at r
-    /// a indicates the binary decomposition of the index of the Lagrange basis polynomial
-    fn compute_chi(a: &[bool], r: &[FieldElement<F>]) -> Result<FieldElement<F>, MultilinearError> {
-        assert_eq!(a.len(), r.len());
-        if a.len() != r.len() {
-            return Err(MultilinearError::ChisAndEvalsLengthMismatch(
-                a.len(),
-                r.len(),
-            ));
-        }
-        let mut chi_i = FieldElement::one();
-        for j in 0..r.len() {
-            if a[j] {
-                chi_i *= &r[j];
-            } else {
-                chi_i *= FieldElement::<F>::one() - &r[j];
-            }
-        }
-        Ok(chi_i)
-    }
-
     // Takes O(n log n)
     /// Evaluates the multilinear polynomial at a point r
     pub fn evaluate(&self, r: &[FieldElement<F>]) -> Result<FieldElement<F>, MultilinearError> {
         if r.len() != self.num_vars() {
-            return Err(MultilinearError::IncorrectNumberofEvaluationPoints(
+            return Err(MultilinearError::IncorrectNumberOfEvaluationPoints(
                 r.len(),
                 self.num_vars(),
             ));
         }
+
+        let num_bits = r.len();
 
         #[cfg(feature = "parallel")]
         let iter = (0..self.evals.len()).into_par_iter();
@@ -68,16 +47,17 @@ where
 
         Ok(iter
             .map(|i| {
-                let bits = get_bits(self.evals[i].0, r.len());
+                let (idx, ref coeff) = self.evals[i];
                 let mut chi_i = FieldElement::<F>::one();
-                for j in 0..r.len() {
-                    if bits[j] {
-                        chi_i *= &r[j];
+                for (j, r_j) in r.iter().enumerate() {
+                    let bit = (idx >> (num_bits - 1 - j)) & 1 == 1;
+                    if bit {
+                        chi_i *= r_j;
                     } else {
-                        chi_i *= FieldElement::<F>::one() - &r[j];
+                        chi_i *= FieldElement::<F>::one() - r_j;
                     }
                 }
-                chi_i * &self.evals[i].1
+                chi_i * coeff
             })
             .sum())
     }
@@ -89,13 +69,14 @@ where
         evals: &[(usize, FieldElement<F>)],
         r: &[FieldElement<F>],
     ) -> Result<FieldElement<F>, MultilinearError> {
-        assert_eq!(num_vars, r.len());
         if r.len() != num_vars {
-            return Err(MultilinearError::IncorrectNumberofEvaluationPoints(
+            return Err(MultilinearError::IncorrectNumberOfEvaluationPoints(
                 r.len(),
                 num_vars,
             ));
         }
+
+        let num_bits = r.len();
 
         #[cfg(feature = "parallel")]
         let iter = (0..evals.len()).into_par_iter();
@@ -104,18 +85,20 @@ where
         let iter = 0..evals.len();
         Ok(iter
             .map(|i| {
-                let bits = get_bits(evals[i].0, r.len());
-                SparseMultilinearPolynomial::compute_chi(&bits, r).unwrap() * &evals[i].1
+                let (idx, ref coeff) = evals[i];
+                let mut chi_i = FieldElement::<F>::one();
+                for (j, r_j) in r.iter().enumerate() {
+                    let bit = (idx >> (num_bits - 1 - j)) & 1 == 1;
+                    if bit {
+                        chi_i *= r_j;
+                    } else {
+                        chi_i *= FieldElement::<F>::one() - r_j;
+                    }
+                }
+                chi_i * coeff
             })
             .sum())
     }
-}
-
-/// Returns the bit decomposition (Vec<bool>) of the `index` of an evaluation within the sparse multilinear polynomial.
-fn get_bits(n: usize, num_bits: usize) -> Vec<bool> {
-    (0..num_bits)
-        .map(|shift_amount| (n & (1 << (num_bits - shift_amount - 1))) > 0)
-        .collect::<Vec<bool>>()
 }
 
 #[cfg(test)]
