@@ -59,3 +59,8 @@ harness = false
 [[bench]]
 name = "criterion_pedersen"
 harness = false
+
+[[bench]]
+name = "criterion_merkle_cuda"
+harness = false
+required-features = ["cuda"]
