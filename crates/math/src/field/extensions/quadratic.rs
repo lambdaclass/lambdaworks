@@ -22,7 +22,7 @@ pub type QuadraticExtensionFieldElement<F, T> = FieldElement<QuadraticExtensionF
 /// Trait to fix a quadratic non residue.
 /// Used to construct a quadratic extension field by adding
 /// a square root of `residue()`.
-/// If p is congruent to 3 modulo 4, then -1 is a quadractic non-residue
+/// If p is congruent to 3 modulo 4, then -1 is a quadratic non-residue
 /// and can be used here
 pub trait HasQuadraticNonResidue<F: IsField> {
     fn residue() -> FieldElement<F>;
@@ -134,7 +134,7 @@ where
         a: &[FieldElement<F>; 2],
         b: &[FieldElement<F>; 2],
     ) -> Result<[FieldElement<F>; 2], FieldError> {
-        let b_inv = &Self::inv(b).map_err(|_| FieldError::DivisionByZero)?;
+        let b_inv = &Self::inv(b)?;
         Ok(<Self as IsField>::mul(a, b_inv))
     }
 
@@ -218,11 +218,6 @@ where
     ) -> alloc::vec::Vec<Self::BaseType> {
         b.into_iter().map(|x| x.to_raw()).collect()
     }
-}
-
-impl<F: IsField, Q: Clone + Debug + HasQuadraticNonResidue<F>>
-    FieldElement<QuadraticExtensionField<F, Q>>
-{
 }
 
 #[cfg(test)]
