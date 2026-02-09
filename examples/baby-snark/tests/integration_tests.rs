@@ -1,9 +1,9 @@
 use baby_snark::common::FrElement;
-use lambdaworks_math::cyclic_group::IsGroup;
 use baby_snark::scs::SquareConstraintSystem;
 use baby_snark::ssp::SquareSpanProgram;
 use baby_snark::utils::{i64_matrix_to_field, i64_vec_to_field};
 use baby_snark::{setup, verify, Prover};
+use lambdaworks_math::cyclic_group::IsGroup;
 #[test]
 fn identity_matrix() {
     let u = vec![i64_vec_to_field(&[1, 0]), i64_vec_to_field(&[0, 1])];
