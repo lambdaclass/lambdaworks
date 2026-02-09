@@ -41,7 +41,6 @@ where
 {
     evals: Vec<FieldElement<F>>,
     n_vars: usize,
-    len: usize,
 }
 
 impl<F: IsField> DenseMultilinearPolynomial<F>
@@ -54,12 +53,8 @@ where
         while !evals.len().is_power_of_two() {
             evals.push(FieldElement::zero());
         }
-        let len = evals.len();
-        DenseMultilinearPolynomial {
-            n_vars: log_2(len),
-            evals,
-            len,
-        }
+        let n_vars = log_2(evals.len());
+        DenseMultilinearPolynomial { n_vars, evals }
     }
 
     /// Returns the number of variables.
@@ -67,28 +62,27 @@ where
         self.n_vars
     }
 
-    /// Returns a reference to the evaluations vector.
-    pub fn evals(&self) -> &Vec<FieldElement<F>> {
+    /// Returns a reference to the evaluations.
+    pub fn evals(&self) -> &[FieldElement<F>] {
         &self.evals
     }
 
     /// Returns the total number of evaluations (2^num_vars).
     #[allow(clippy::len_without_is_empty)]
     pub fn len(&self) -> usize {
-        self.len
+        self.evals.len()
     }
 
     /// Evaluates `self` at the point `r` (a vector of FieldElements) in O(n) time.
     /// `r` must have a value for each variable.
     pub fn evaluate(&self, r: Vec<FieldElement<F>>) -> Result<FieldElement<F>, MultilinearError> {
         if r.len() != self.num_vars() {
-            return Err(MultilinearError::IncorrectNumberofEvaluationPoints(
+            return Err(MultilinearError::IncorrectNumberOfEvaluationPoints(
                 r.len(),
                 self.num_vars(),
             ));
         }
-        let mut chis: Vec<FieldElement<F>> =
-            vec![FieldElement::one(); (2usize).pow(r.len() as u32)];
+        let mut chis: Vec<FieldElement<F>> = vec![FieldElement::one(); 1 << r.len()];
         let mut size = 1;
         for j in r {
             size *= 2;
@@ -111,8 +105,7 @@ where
         evals: &[FieldElement<F>],
         r: &[FieldElement<F>],
     ) -> Result<FieldElement<F>, MultilinearError> {
-        let mut chis: Vec<FieldElement<F>> =
-            vec![FieldElement::one(); (2usize).pow(r.len() as u32)];
+        let mut chis: Vec<FieldElement<F>> = vec![FieldElement::one(); 1 << r.len()];
         if chis.len() != evals.len() {
             return Err(MultilinearError::ChisAndEvalsLengthMismatch(
                 chis.len(),
@@ -327,7 +320,7 @@ where
         // Validate all points first
         for point in points {
             if point.len() != self.num_vars() {
-                return Err(MultilinearError::IncorrectNumberofEvaluationPoints(
+                return Err(MultilinearError::IncorrectNumberOfEvaluationPoints(
                     point.len(),
                     self.num_vars(),
                 ));
@@ -388,7 +381,7 @@ where
     /// ```
     pub fn tensor_product(&self, other: &Self) -> Self {
         let new_num_vars = self.n_vars + other.n_vars;
-        let new_len = self.len * other.len;
+        let new_len = self.evals.len() * other.evals.len();
         let mut new_evals = Vec::with_capacity(new_len);
 
         // Kronecker product: for each eval in self, multiply by all evals in other
@@ -401,7 +394,6 @@ where
         DenseMultilinearPolynomial {
             evals: new_evals,
             n_vars: new_num_vars,
-            len: new_len,
         }
     }
 
@@ -432,12 +424,9 @@ where
 
     /// Extends this DenseMultilinearPolynomial by concatenating another polynomial of the same length.
     pub fn extend(&mut self, other: &DenseMultilinearPolynomial<F>) {
-        debug_assert_eq!(self.evals.len(), self.len);
-        debug_assert_eq!(other.evals.len(), self.len);
-        self.evals.extend(other.evals.iter().cloned());
+        debug_assert_eq!(other.evals.len(), self.evals.len());
+        self.evals.extend_from_slice(&other.evals);
         self.n_vars += 1;
-        self.len *= 2;
-        debug_assert_eq!(self.evals.len(), self.len);
     }
 
     /// Merges a series of DenseMultilinearPolynomials into one polynomial by concatenating
@@ -449,7 +438,7 @@ where
         let final_len = total_len.next_power_of_two();
         let mut z: Vec<FieldElement<F>> = Vec::with_capacity(final_len);
         for poly in polys {
-            z.extend(poly.evals.iter().cloned());
+            z.extend_from_slice(&poly.evals);
         }
         z.resize(final_len, FieldElement::zero());
         DenseMultilinearPolynomial::new(z)
@@ -676,7 +665,6 @@ where
         DenseMultilinearPolynomial {
             n_vars: num_vars,
             evals: evaluations,
-            len: 1 << num_vars,
         }
     }
 }
@@ -690,7 +678,7 @@ mod tests {
     type FE = FieldElement<F>;
 
     pub fn evals(r: Vec<FE>) -> Vec<FE> {
-        let mut evals: Vec<FE> = vec![FE::one(); (2usize).pow(r.len() as u32)];
+        let mut evals: Vec<FE> = vec![FE::one(); 1 << r.len()];
         let mut size = 1;
         for j in r {
             size *= 2;
@@ -717,7 +705,7 @@ mod tests {
         // Ensure size is even.
         assert!(size % 2 == 0);
         // n = 2^size
-        let n = (2usize).pow(size as u32);
+        let n = 1 << size;
         // Compute m = sqrt(n) = 2^(l/2)
         let m = (n as f64).sqrt() as usize;
         // Compute vector-matrix product between L and Z (viewed as a matrix)
