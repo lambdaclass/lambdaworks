@@ -663,9 +663,9 @@ impl<E: IsShortWeierstrass> ShortWeierstrassJacobianPoint<E> {
             && E::defining_equation_jacobian(x, y, z) == FieldElement::<E::BaseField>::zero()
         {
             Ok(Self(JacobianPoint::new(value)))
-        // The point at infinity is (1, 1, 0)
-        // We convert every (x, x, 0) into the infinity.
-        } else if z == &FieldElement::<E::BaseField>::zero() && x == y {
+        // The point at infinity is any (_, _, 0).
+        // We canonicalize every z==0 to (1, 1, 0).
+        } else if z == &FieldElement::<E::BaseField>::zero() {
             Ok(Self(JacobianPoint::new([
                 FieldElement::<E::BaseField>::one(),
                 FieldElement::<E::BaseField>::one(),
