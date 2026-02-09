@@ -516,6 +516,8 @@ mod tests_u384_prime_fields {
     use crate::traits::ByteConversion;
     use crate::unsigned_integer::element::U384;
     use crate::unsigned_integer::element::{UnsignedInteger, U256};
+    #[cfg(feature = "alloc")]
+    use alloc::format;
 
     use rand::Rng;
     use rand_chacha::{rand_core::SeedableRng, ChaCha20Rng};
