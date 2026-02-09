@@ -660,7 +660,10 @@ mod tests {
     #[test]
     #[should_panic(expected = "cfft expects 3 twiddle layers")]
     fn cfft_panics_with_mismatched_twiddle_count() {
-        use crate::circle::{cosets::Coset, twiddles::{get_twiddles, TwiddlesConfig}};
+        use crate::circle::{
+            cosets::Coset,
+            twiddles::{get_twiddles, TwiddlesConfig},
+        };
 
         // Input size: 2^3 = 8 elements (expects 3 twiddle layers)
         let mut input = vec![FE::from(1); 8];
@@ -676,7 +679,10 @@ mod tests {
     #[test]
     #[should_panic(expected = "icfft expects 4 twiddle layers")]
     fn icfft_panics_with_mismatched_twiddle_count() {
-        use crate::circle::{cosets::Coset, twiddles::{get_twiddles, TwiddlesConfig}};
+        use crate::circle::{
+            cosets::Coset,
+            twiddles::{get_twiddles, TwiddlesConfig},
+        };
 
         // Input size: 2^4 = 16 elements (expects 4 twiddle layers)
         let mut input = vec![FE::from(1); 16];
