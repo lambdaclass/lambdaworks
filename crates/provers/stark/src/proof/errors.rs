@@ -1,9 +1,11 @@
-#[derive(Debug)]
+use thiserror::Error;
+
+#[derive(Debug, Error)]
 pub enum InsecureOptionError {
-    /// Field Size is not big enough
+    #[error("Field size is not big enough for the required security level")]
     FieldSize,
-    /// Number of security bits is not enough
+    #[error("Number of security bits is insufficient")]
     LowSecurityBits,
-    /// Blowup factor must be a power of two >= 2
+    #[error("Blowup factor must be a power of two >= 2")]
     InvalidBlowupFactor,
 }
