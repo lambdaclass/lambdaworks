@@ -744,7 +744,7 @@ where
                     }
                 }
                 let value = value.ok_or_else(|| de::Error::missing_field("value"))?;
-                let val = F::BaseType::from_bytes_be(&value).map_err(|e| de::Error::custom(e))?;
+                let val = F::BaseType::from_bytes_be(&value).map_err(de::Error::custom)?;
                 Ok(FieldElement::from_raw(val))
             }
 
@@ -760,7 +760,7 @@ where
                     value = Some(val);
                 }
                 let value = value.ok_or_else(|| de::Error::missing_field("value"))?;
-                let val = F::BaseType::from_bytes_be(&value).map_err(|e| de::Error::custom(e))?;
+                let val = F::BaseType::from_bytes_be(&value).map_err(de::Error::custom)?;
                 Ok(FieldElement::from_raw(val))
             }
         }
