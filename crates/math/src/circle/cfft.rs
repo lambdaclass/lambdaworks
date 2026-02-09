@@ -6,6 +6,17 @@ use alloc::vec::Vec;
 #[cfg(feature = "alloc")]
 /// fft in place algorithm used to evaluate a polynomial of degree 2^n - 1 in 2^n points.
 /// Input must be of size 2^n for some n.
+///
+/// # Parameters
+/// * `input` - Mutable slice of field elements with length that is a power of two.
+/// * `twiddles` - Pre-computed twiddle factors from `get_twiddles()`.
+///   Must contain exactly `log_2(input.len())` layers, where each layer
+///   is a vector of twiddle factors for that FFT stage.
+///
+/// # Panics
+/// Panics in debug builds if:
+/// - `input.len()` is not a power of two
+/// - `twiddles.len()` doesn't match `log_2(input.len())`
 pub fn cfft(
     input: &mut [FieldElement<Mersenne31Field>],
     twiddles: &[Vec<FieldElement<Mersenne31Field>>],
@@ -53,6 +64,17 @@ pub fn cfft(
 #[cfg(feature = "alloc")]
 /// The inverse fft algorithm used to interpolate 2^n points.
 /// Input must be of size 2^n for some n.
+///
+/// # Parameters
+/// * `input` - Mutable slice of field elements with length that is a power of two.
+/// * `twiddles` - Pre-computed twiddle factors from `get_twiddles()`.
+///   Must contain exactly `log_2(input.len())` layers, where each layer
+///   is a vector of twiddle factors for that FFT stage.
+///
+/// # Panics
+/// Panics in debug builds if:
+/// - `input.len()` is not a power of two
+/// - `twiddles.len()` doesn't match `log_2(input.len())`
 pub fn icfft(
     input: &mut [FieldElement<Mersenne31Field>],
     twiddles: &[Vec<FieldElement<Mersenne31Field>>],

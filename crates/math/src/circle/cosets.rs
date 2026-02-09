@@ -100,4 +100,11 @@ mod tests {
         let generator_n = coset.get_generator();
         assert_eq!(generator_n.repeated_double(2), CirclePoint::zero());
     }
+
+    #[test]
+    #[should_panic(expected = "Cannot halve a coset of size 1")]
+    fn half_coset_panics_on_size_one() {
+        let coset = Coset::new(0, CirclePoint::GENERATOR);
+        let _ = coset.half_coset(); // Should panic
+    }
 }
