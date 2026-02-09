@@ -264,7 +264,7 @@ mod tests {
             circle_fri_query(&commitment, &query_indices, n).expect("query should succeed");
 
         // Tamper with the claimed evaluation
-        query_evaluations[0] = query_evaluations[0] + FE::from(1u64);
+        query_evaluations[0] += FE::from(1u64);
 
         let proof = CircleFriProof {
             layer_merkle_roots: commitment
