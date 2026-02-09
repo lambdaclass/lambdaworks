@@ -163,15 +163,23 @@ impl ByteConversion for FieldElement<Degree2ExtensionField> {
 
     fn from_bytes_be(bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError> {
         const BYTES_PER_FIELD: usize = 4;
+        const EXPECTED_LEN: usize = BYTES_PER_FIELD * 2;
+        if bytes.len() < EXPECTED_LEN {
+            return Err(crate::errors::ByteConversionError::FromBEBytesError);
+        }
         let x0 = FieldElement::from_bytes_be(&bytes[0..BYTES_PER_FIELD])?;
-        let x1 = FieldElement::from_bytes_be(&bytes[BYTES_PER_FIELD..BYTES_PER_FIELD * 2])?;
+        let x1 = FieldElement::from_bytes_be(&bytes[BYTES_PER_FIELD..EXPECTED_LEN])?;
         Ok(Self::new([x0, x1]))
     }
 
     fn from_bytes_le(bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError> {
         const BYTES_PER_FIELD: usize = 4;
+        const EXPECTED_LEN: usize = BYTES_PER_FIELD * 2;
+        if bytes.len() < EXPECTED_LEN {
+            return Err(crate::errors::ByteConversionError::FromLEBytesError);
+        }
         let x0 = FieldElement::from_bytes_le(&bytes[0..BYTES_PER_FIELD])?;
-        let x1 = FieldElement::from_bytes_le(&bytes[BYTES_PER_FIELD..BYTES_PER_FIELD * 2])?;
+        let x1 = FieldElement::from_bytes_le(&bytes[BYTES_PER_FIELD..EXPECTED_LEN])?;
         Ok(Self::new([x0, x1]))
     }
 }
@@ -397,15 +405,23 @@ impl ByteConversion for FieldElement<Degree4ExtensionField> {
 
     fn from_bytes_be(bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError> {
         const BYTES_PER_FIELD: usize = 8; // 2 × 4 bytes per Fp2E
+        const EXPECTED_LEN: usize = BYTES_PER_FIELD * 2;
+        if bytes.len() < EXPECTED_LEN {
+            return Err(crate::errors::ByteConversionError::FromBEBytesError);
+        }
         let x0 = FieldElement::from_bytes_be(&bytes[0..BYTES_PER_FIELD])?;
-        let x1 = FieldElement::from_bytes_be(&bytes[BYTES_PER_FIELD..BYTES_PER_FIELD * 2])?;
+        let x1 = FieldElement::from_bytes_be(&bytes[BYTES_PER_FIELD..EXPECTED_LEN])?;
         Ok(Self::new([x0, x1]))
     }
 
     fn from_bytes_le(bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError> {
         const BYTES_PER_FIELD: usize = 8; // 2 × 4 bytes per Fp2E
+        const EXPECTED_LEN: usize = BYTES_PER_FIELD * 2;
+        if bytes.len() < EXPECTED_LEN {
+            return Err(crate::errors::ByteConversionError::FromLEBytesError);
+        }
         let x0 = FieldElement::from_bytes_le(&bytes[0..BYTES_PER_FIELD])?;
-        let x1 = FieldElement::from_bytes_le(&bytes[BYTES_PER_FIELD..BYTES_PER_FIELD * 2])?;
+        let x1 = FieldElement::from_bytes_le(&bytes[BYTES_PER_FIELD..EXPECTED_LEN])?;
         Ok(Self::new([x0, x1]))
     }
 }
@@ -793,6 +809,14 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "alloc")]
+    fn fp2_from_bytes_rejects_short_slice() {
+        let short_bytes = [1u8, 2, 3]; // Only 3 bytes, needs 8
+        assert!(Fp2E::from_bytes_be(&short_bytes).is_err());
+        assert!(Fp2E::from_bytes_le(&short_bytes).is_err());
+    }
+
+    #[test]
     fn mul_fp4_by_zero_is_zero() {
         let a = Fp4E::new([
             Fp2E::new([FpE::from(2), FpE::from(3)]),
@@ -912,5 +936,13 @@ mod tests {
         let le = elem.to_bytes_le();
         let be = elem.to_bytes_be();
         assert_ne!(le, be, "LE and BE byte representations should differ");
+    }
+
+    #[test]
+    #[cfg(feature = "alloc")]
+    fn fp4_from_bytes_rejects_short_slice() {
+        let short_bytes = [1u8, 2, 3, 4, 5]; // Only 5 bytes, needs 16
+        assert!(Fp4E::from_bytes_be(&short_bytes).is_err());
+        assert!(Fp4E::from_bytes_le(&short_bytes).is_err());
     }
 }
