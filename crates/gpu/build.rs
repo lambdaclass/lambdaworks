@@ -71,16 +71,16 @@ fn compile_metal_shaders() {
     println!("cargo:rerun-if-changed={source_dir}");
 
     if !cfg!(target_os = "macos") {
-        std::fs::write(&output_file, []).expect("failed to write placeholder metallib");
-        println!("cargo:warning=Metal shaders are only compiled on macOS; using empty metallib");
+        println!("cargo:warning=Metal shaders are only compiled on macOS; MetalState will not be available");
         return;
     }
 
     // Check if source file exists - skip compilation if shaders haven't been created yet
     if !Path::new(&source_file).exists() {
-        std::fs::write(&output_file, []).expect("failed to write placeholder metallib");
         println!("cargo:warning=Metal source file not found: {}", source_file);
-        println!("cargo:warning=Skipping Metal shader compilation - create shaders first");
+        println!(
+            "cargo:warning=Skipping Metal shader compilation - MetalState will not be available"
+        );
         return;
     }
 
@@ -147,9 +147,13 @@ fn compile_metal_shaders() {
     let _ = std::fs::remove_file(&air_file);
 
     println!("cargo:warning=Metal shaders compiled successfully");
+    println!("cargo:rustc-cfg=metal_shaders_compiled");
 }
 
 fn main() {
+    // Declare the expected cfg for the compiler
+    println!("cargo:rustc-check-cfg=cfg(metal_shaders_compiled)");
+
     #[cfg(feature = "cuda")]
     compile_cuda_shaders();
 

@@ -191,10 +191,16 @@ impl MetalMSM {
         let limbs_per_point = coords_per_point * limbs_per_coord;
 
         if scalars.len() % num_limbs != 0 {
-            return Err(MetalError::LengthMismatch(scalars.len(), num_limbs));
+            return Err(MetalError::InvalidInputSize {
+                expected: num_limbs,
+                actual: scalars.len(),
+            });
         }
         if points.len() % limbs_per_point != 0 {
-            return Err(MetalError::LengthMismatch(points.len(), limbs_per_point));
+            return Err(MetalError::InvalidInputSize {
+                expected: limbs_per_point,
+                actual: points.len(),
+            });
         }
 
         let num_scalars = scalars.len() / num_limbs;
