@@ -44,9 +44,7 @@ where
     FieldElement<F>: Clone + Mul<Output = FieldElement<F>>,
 {
     /// Creates a new Metal sumcheck prover.
-    pub fn new(
-        factors: Vec<DenseMultilinearPolynomial<F>>,
-    ) -> Result<Self, OptimizedProverError> {
+    pub fn new(factors: Vec<DenseMultilinearPolynomial<F>>) -> Result<Self, OptimizedProverError> {
         let cpu_prover = OptimizedProver::new(factors)?;
         Ok(Self { cpu_prover })
     }
@@ -71,10 +69,7 @@ where
     }
 
     /// Folds tables after receiving a challenge.
-    pub fn receive_challenge(
-        &mut self,
-        r: &FieldElement<F>,
-    ) -> Result<(), OptimizedProverError> {
+    pub fn receive_challenge(&mut self, r: &FieldElement<F>) -> Result<(), OptimizedProverError> {
         self.cpu_prover.receive_challenge(r)
     }
 }

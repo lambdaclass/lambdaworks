@@ -10,7 +10,9 @@ type FE = FieldElement<F>;
 
 fn random_poly(num_vars: usize) -> DenseMultilinearPolynomial<F> {
     let len = 1 << num_vars;
-    let evals: Vec<FE> = (0..len).map(|i| FE::from((i * 37 + 13) as u64 % MODULUS)).collect();
+    let evals: Vec<FE> = (0..len)
+        .map(|i| FE::from((i * 37 + 13) as u64 % MODULUS))
+        .collect();
     DenseMultilinearPolynomial::new(evals)
 }
 
@@ -19,13 +21,9 @@ fn bench_linear(c: &mut Criterion) {
     for num_vars in [10, 14, 18] {
         let poly = random_poly(num_vars);
 
-        group.bench_with_input(
-            BenchmarkId::new("naive", num_vars),
-            &num_vars,
-            |b, _| {
-                b.iter(|| prove(vec![poly.clone()]).unwrap());
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("naive", num_vars), &num_vars, |b, _| {
+            b.iter(|| prove(vec![poly.clone()]).unwrap());
+        });
 
         group.bench_with_input(
             BenchmarkId::new("optimized", num_vars),
@@ -44,13 +42,9 @@ fn bench_quadratic(c: &mut Criterion) {
         let poly_a = random_poly(num_vars);
         let poly_b = random_poly(num_vars);
 
-        group.bench_with_input(
-            BenchmarkId::new("naive", num_vars),
-            &num_vars,
-            |b, _| {
-                b.iter(|| prove(vec![poly_a.clone(), poly_b.clone()]).unwrap());
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("naive", num_vars), &num_vars, |b, _| {
+            b.iter(|| prove(vec![poly_a.clone(), poly_b.clone()]).unwrap());
+        });
 
         group.bench_with_input(
             BenchmarkId::new("optimized", num_vars),
@@ -70,23 +64,16 @@ fn bench_cubic(c: &mut Criterion) {
         let poly_b = random_poly(num_vars);
         let poly_c = random_poly(num_vars);
 
-        group.bench_with_input(
-            BenchmarkId::new("naive", num_vars),
-            &num_vars,
-            |b, _| {
-                b.iter(|| {
-                    prove(vec![poly_a.clone(), poly_b.clone(), poly_c.clone()]).unwrap()
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("naive", num_vars), &num_vars, |b, _| {
+            b.iter(|| prove(vec![poly_a.clone(), poly_b.clone(), poly_c.clone()]).unwrap());
+        });
 
         group.bench_with_input(
             BenchmarkId::new("optimized", num_vars),
             &num_vars,
             |b, _| {
                 b.iter(|| {
-                    prove_optimized(vec![poly_a.clone(), poly_b.clone(), poly_c.clone()])
-                        .unwrap()
+                    prove_optimized(vec![poly_a.clone(), poly_b.clone(), poly_c.clone()]).unwrap()
                 });
             },
         );

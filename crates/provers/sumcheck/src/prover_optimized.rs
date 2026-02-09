@@ -65,9 +65,7 @@ where
     FieldElement<F>: Clone + Mul<Output = FieldElement<F>>,
 {
     /// Creates a new OptimizedProver from factor polynomials.
-    pub fn new(
-        factors: Vec<DenseMultilinearPolynomial<F>>,
-    ) -> Result<Self, OptimizedProverError> {
+    pub fn new(factors: Vec<DenseMultilinearPolynomial<F>>) -> Result<Self, OptimizedProverError> {
         if factors.is_empty() {
             return Err(OptimizedProverError::FactorMismatch(
                 "At least one polynomial factor is required.".to_string(),
@@ -80,8 +78,7 @@ where
             ));
         }
 
-        let tables: Vec<Vec<FieldElement<F>>> =
-            factors.iter().map(|f| f.evals().clone()).collect();
+        let tables: Vec<Vec<FieldElement<F>>> = factors.iter().map(|f| f.evals().clone()).collect();
 
         Ok(Self {
             num_vars,
@@ -102,9 +99,9 @@ where
         for j in 0..table_len {
             let mut prod = self.tables[0][j].clone();
             for k in 1..self.num_factors {
-                prod = prod * self.tables[k][j].clone();
+                prod *= self.tables[k][j].clone();
             }
-            sum = sum + prod;
+            sum += prod;
         }
         sum
     }
@@ -138,7 +135,7 @@ where
 
             let mut sum = FieldElement::zero();
             for j in 0..half {
-                let mut prod = FieldElement::one();
+                let mut prod: FieldElement<F> = FieldElement::one();
                 for k in 0..self.num_factors {
                     let val = if i == 0 {
                         // t=0: interpolated value is table[j]
@@ -153,9 +150,9 @@ where
                         let diff = hi.clone() - lo.clone();
                         lo.clone() + t.clone() * diff
                     };
-                    prod = prod * val;
+                    prod *= val;
                 }
-                sum = sum + prod;
+                sum += prod;
             }
             eval_values_y.push(sum);
         }
@@ -248,7 +245,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{verify_linear, verify_quadratic, verify_cubic};
+    use crate::{verify_cubic, verify_linear, verify_quadratic};
     use lambdaworks_math::field::fields::u64_prime_field::U64PrimeField;
     use lambdaworks_math::polynomial::dense_multilinear_poly::DenseMultilinearPolynomial;
 
@@ -315,7 +312,10 @@ mod tests {
         let (claimed_sum, proof_polys) = prove_optimized(vec![poly.clone()]).unwrap();
 
         let result = verify_linear(num_vars, claimed_sum, proof_polys, poly);
-        assert!(result.unwrap_or(false), "Optimized linear proof should verify");
+        assert!(
+            result.unwrap_or(false),
+            "Optimized linear proof should verify"
+        );
     }
 
     #[test]
@@ -337,8 +337,7 @@ mod tests {
         let (claimed_sum, proof_polys) =
             prove_optimized(vec![poly_a.clone(), poly_b.clone()]).unwrap();
 
-        let result =
-            verify_quadratic(num_vars, claimed_sum, proof_polys, poly_a, poly_b);
+        let result = verify_quadratic(num_vars, claimed_sum, proof_polys, poly_a, poly_b);
         assert!(
             result.unwrap_or(false),
             "Optimized quadratic proof should verify"
@@ -355,9 +354,7 @@ mod tests {
         let (claimed_sum, proof_polys) =
             prove_optimized(vec![poly_a.clone(), poly_b.clone(), poly_c.clone()]).unwrap();
 
-        let result = verify_cubic(
-            num_vars, claimed_sum, proof_polys, poly_a, poly_b, poly_c,
-        );
+        let result = verify_cubic(num_vars, claimed_sum, proof_polys, poly_a, poly_b, poly_c);
         assert!(
             result.unwrap_or(false),
             "Optimized cubic proof should verify"
@@ -409,7 +406,10 @@ mod tests {
         let (claimed_sum, proof_polys) = prove_optimized(vec![poly.clone()]).unwrap();
 
         let result = verify_linear(num_vars, claimed_sum, proof_polys, poly);
-        assert!(result.unwrap_or(false), "Optimized 3-var proof should verify");
+        assert!(
+            result.unwrap_or(false),
+            "Optimized 3-var proof should verify"
+        );
     }
 
     #[test]
