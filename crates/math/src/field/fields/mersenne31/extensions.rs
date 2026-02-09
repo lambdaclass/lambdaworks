@@ -1,11 +1,12 @@
-use super::field::Mersenne31Field;
+use super::field::{Mersenne31Field, MERSENNE_31_PRIME_FIELD_ORDER};
 use crate::field::{
     element::FieldElement,
     errors::FieldError,
-    traits::{IsFFTField, IsField, IsSubFieldOf},
+    traits::{HasDefaultTranscript, IsFFTField, IsField, IsSubFieldOf},
 };
 #[cfg(feature = "alloc")]
-use alloc::vec::Vec;
+use crate::traits::AsBytes;
+use crate::traits::ByteConversion;
 
 type FpE = FieldElement<Mersenne31Field>;
 type Fp2E = FieldElement<Degree2ExtensionField>;
@@ -65,7 +66,7 @@ impl IsField for Degree2ExtensionField {
 
     /// Returns the division of `a` and `b`
     fn div(a: &Self::BaseType, b: &Self::BaseType) -> Result<Self::BaseType, FieldError> {
-        let b_inv = &Self::inv(b).map_err(|_| FieldError::DivisionByZero)?;
+        let b_inv = &Self::inv(b)?;
         Ok(<Self as IsField>::mul(a, b_inv))
     }
 
@@ -127,7 +128,7 @@ impl IsSubFieldOf<Degree2ExtensionField> for Mersenne31Field {
         a: &Self::BaseType,
         b: &<Degree2ExtensionField as IsField>::BaseType,
     ) -> Result<<Degree2ExtensionField as IsField>::BaseType, FieldError> {
-        let b_inv = Degree2ExtensionField::inv(b).map_err(|_| FieldError::DivisionByZero)?;
+        let b_inv = Degree2ExtensionField::inv(b)?;
         Ok(<Self as IsSubFieldOf<Degree2ExtensionField>>::mul(
             a, &b_inv,
         ))
@@ -142,6 +143,74 @@ impl IsSubFieldOf<Degree2ExtensionField> for Mersenne31Field {
         b: <Degree2ExtensionField as IsField>::BaseType,
     ) -> alloc::vec::Vec<Self::BaseType> {
         b.into_iter().map(|x| x.to_raw()).collect()
+    }
+}
+
+impl ByteConversion for FieldElement<Degree2ExtensionField> {
+    #[cfg(feature = "alloc")]
+    fn to_bytes_be(&self) -> alloc::vec::Vec<u8> {
+        let mut byte_slice = ByteConversion::to_bytes_be(&self.value()[0]);
+        byte_slice.extend(ByteConversion::to_bytes_be(&self.value()[1]));
+        byte_slice
+    }
+
+    #[cfg(feature = "alloc")]
+    fn to_bytes_le(&self) -> alloc::vec::Vec<u8> {
+        let mut byte_slice = ByteConversion::to_bytes_le(&self.value()[0]);
+        byte_slice.extend(ByteConversion::to_bytes_le(&self.value()[1]));
+        byte_slice
+    }
+
+    fn from_bytes_be(bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError> {
+        const BYTES_PER_FIELD: usize = 4;
+        const EXPECTED_LEN: usize = BYTES_PER_FIELD * 2;
+        if bytes.len() < EXPECTED_LEN {
+            return Err(crate::errors::ByteConversionError::FromBEBytesError);
+        }
+        let x0 = FieldElement::from_bytes_be(&bytes[0..BYTES_PER_FIELD])?;
+        let x1 = FieldElement::from_bytes_be(&bytes[BYTES_PER_FIELD..EXPECTED_LEN])?;
+        Ok(Self::new([x0, x1]))
+    }
+
+    fn from_bytes_le(bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError> {
+        const BYTES_PER_FIELD: usize = 4;
+        const EXPECTED_LEN: usize = BYTES_PER_FIELD * 2;
+        if bytes.len() < EXPECTED_LEN {
+            return Err(crate::errors::ByteConversionError::FromLEBytesError);
+        }
+        let x0 = FieldElement::from_bytes_le(&bytes[0..BYTES_PER_FIELD])?;
+        let x1 = FieldElement::from_bytes_le(&bytes[BYTES_PER_FIELD..EXPECTED_LEN])?;
+        Ok(Self::new([x0, x1]))
+    }
+}
+
+#[cfg(feature = "alloc")]
+impl AsBytes for FieldElement<Degree2ExtensionField> {
+    fn as_bytes(&self) -> alloc::vec::Vec<u8> {
+        self.to_bytes_be()
+    }
+}
+
+impl HasDefaultTranscript for Degree2ExtensionField {
+    fn get_random_field_element_from_rng(rng: &mut impl rand::Rng) -> FieldElement<Self> {
+        const MODULUS: u32 = MERSENNE_31_PRIME_FIELD_ORDER;
+        const MASK: u32 = 0x7FFF_FFFF;
+
+        let mut sample = [0u8; 4];
+        let mut coeffs = [FieldElement::zero(), FieldElement::zero()];
+
+        for coeff in &mut coeffs {
+            loop {
+                rng.fill(&mut sample);
+                let int_sample = u32::from_be_bytes(sample) & MASK;
+                if int_sample < MODULUS {
+                    *coeff = FieldElement::from(&int_sample);
+                    break;
+                }
+            }
+        }
+
+        FieldElement::<Self>::new(coeffs)
     }
 }
 
@@ -198,7 +267,7 @@ impl IsField for Degree4ExtensionField {
     }
 
     fn div(a: &Self::BaseType, b: &Self::BaseType) -> Result<Self::BaseType, FieldError> {
-        let b_inv = &Self::inv(b).map_err(|_| FieldError::DivisionByZero)?;
+        let b_inv = &Self::inv(b)?;
         Ok(<Self as IsField>::mul(a, b_inv))
     }
 
@@ -251,7 +320,7 @@ impl IsSubFieldOf<Degree4ExtensionField> for Mersenne31Field {
         a: &Self::BaseType,
         b: &<Degree4ExtensionField as IsField>::BaseType,
     ) -> Result<<Degree4ExtensionField as IsField>::BaseType, FieldError> {
-        let b_inv = Degree4ExtensionField::inv(b).map_err(|_| FieldError::DivisionByZero)?;
+        let b_inv = Degree4ExtensionField::inv(b)?;
         Ok(<Self as IsSubFieldOf<Degree4ExtensionField>>::mul(
             a, &b_inv,
         ))
@@ -268,14 +337,125 @@ impl IsSubFieldOf<Degree4ExtensionField> for Mersenne31Field {
     fn to_subfield_vec(
         b: <Degree4ExtensionField as IsField>::BaseType,
     ) -> alloc::vec::Vec<Self::BaseType> {
-        // TODO: Repace this for with a map similarly to this:
-        // b.into_iter().map(|x| x.to_raw()).collect()
-        let mut result = Vec::new();
-        for fp2e in b {
-            result.push(fp2e.value()[0].to_raw());
-            result.push(fp2e.value()[1].to_raw());
+        b.into_iter()
+            .flat_map(|fp2e| [fp2e.value()[0].to_raw(), fp2e.value()[1].to_raw()])
+            .collect()
+    }
+}
+
+impl IsSubFieldOf<Degree4ExtensionField> for Degree2ExtensionField {
+    fn mul(
+        a: &Self::BaseType,
+        b: &<Degree4ExtensionField as IsField>::BaseType,
+    ) -> <Degree4ExtensionField as IsField>::BaseType {
+        let a = Fp2E::from_raw(*a);
+        [&a * &b[0], &a * &b[1]]
+    }
+
+    fn add(
+        a: &Self::BaseType,
+        b: &<Degree4ExtensionField as IsField>::BaseType,
+    ) -> <Degree4ExtensionField as IsField>::BaseType {
+        [Fp2E::from_raw(*a) + &b[0], b[1].clone()]
+    }
+
+    fn sub(
+        a: &Self::BaseType,
+        b: &<Degree4ExtensionField as IsField>::BaseType,
+    ) -> <Degree4ExtensionField as IsField>::BaseType {
+        [Fp2E::from_raw(*a) - &b[0], -&b[1]]
+    }
+
+    fn div(
+        a: &Self::BaseType,
+        b: &<Degree4ExtensionField as IsField>::BaseType,
+    ) -> Result<<Degree4ExtensionField as IsField>::BaseType, FieldError> {
+        let b_inv = Degree4ExtensionField::inv(b)?;
+        Ok(<Self as IsSubFieldOf<Degree4ExtensionField>>::mul(
+            a, &b_inv,
+        ))
+    }
+
+    fn embed(a: Self::BaseType) -> <Degree4ExtensionField as IsField>::BaseType {
+        [Fp2E::from_raw(a), Fp2E::zero()]
+    }
+
+    #[cfg(feature = "alloc")]
+    fn to_subfield_vec(
+        b: <Degree4ExtensionField as IsField>::BaseType,
+    ) -> alloc::vec::Vec<Self::BaseType> {
+        b.into_iter().map(|x| x.to_raw()).collect()
+    }
+}
+
+impl ByteConversion for FieldElement<Degree4ExtensionField> {
+    #[cfg(feature = "alloc")]
+    fn to_bytes_be(&self) -> alloc::vec::Vec<u8> {
+        let mut byte_slice = ByteConversion::to_bytes_be(&self.value()[0]);
+        byte_slice.extend(ByteConversion::to_bytes_be(&self.value()[1]));
+        byte_slice
+    }
+
+    #[cfg(feature = "alloc")]
+    fn to_bytes_le(&self) -> alloc::vec::Vec<u8> {
+        let mut byte_slice = ByteConversion::to_bytes_le(&self.value()[0]);
+        byte_slice.extend(ByteConversion::to_bytes_le(&self.value()[1]));
+        byte_slice
+    }
+
+    fn from_bytes_be(bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError> {
+        const BYTES_PER_FIELD: usize = 8; // 2 × 4 bytes per Fp2E
+        const EXPECTED_LEN: usize = BYTES_PER_FIELD * 2;
+        if bytes.len() < EXPECTED_LEN {
+            return Err(crate::errors::ByteConversionError::FromBEBytesError);
         }
-        result
+        let x0 = FieldElement::from_bytes_be(&bytes[0..BYTES_PER_FIELD])?;
+        let x1 = FieldElement::from_bytes_be(&bytes[BYTES_PER_FIELD..EXPECTED_LEN])?;
+        Ok(Self::new([x0, x1]))
+    }
+
+    fn from_bytes_le(bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError> {
+        const BYTES_PER_FIELD: usize = 8; // 2 × 4 bytes per Fp2E
+        const EXPECTED_LEN: usize = BYTES_PER_FIELD * 2;
+        if bytes.len() < EXPECTED_LEN {
+            return Err(crate::errors::ByteConversionError::FromLEBytesError);
+        }
+        let x0 = FieldElement::from_bytes_le(&bytes[0..BYTES_PER_FIELD])?;
+        let x1 = FieldElement::from_bytes_le(&bytes[BYTES_PER_FIELD..EXPECTED_LEN])?;
+        Ok(Self::new([x0, x1]))
+    }
+}
+
+#[cfg(feature = "alloc")]
+impl AsBytes for FieldElement<Degree4ExtensionField> {
+    fn as_bytes(&self) -> alloc::vec::Vec<u8> {
+        self.to_bytes_be()
+    }
+}
+
+impl HasDefaultTranscript for Degree4ExtensionField {
+    fn get_random_field_element_from_rng(rng: &mut impl rand::Rng) -> FieldElement<Self> {
+        const MODULUS: u32 = MERSENNE_31_PRIME_FIELD_ORDER;
+        const MASK: u32 = 0x7FFF_FFFF;
+
+        let mut sample = [0u8; 4];
+        let mut base_coeffs = [FpE::zero(), FpE::zero(), FpE::zero(), FpE::zero()];
+
+        for coeff in &mut base_coeffs {
+            loop {
+                rng.fill(&mut sample);
+                let int_sample = u32::from_be_bytes(sample) & MASK;
+                if int_sample < MODULUS {
+                    *coeff = FieldElement::from(&int_sample);
+                    break;
+                }
+            }
+        }
+
+        FieldElement::<Self>::new([
+            Fp2E::new([base_coeffs[0], base_coeffs[1]]),
+            Fp2E::new([base_coeffs[2], base_coeffs[3]]),
+        ])
     }
 }
 
@@ -585,6 +765,58 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "alloc")]
+    fn fp2_to_bytes_from_bytes_be_is_identity() {
+        let elem = Fp2E::new([FpE::from(12345), FpE::from(67890)]);
+        let bytes = elem.to_bytes_be();
+        let decoded = Fp2E::from_bytes_be(&bytes).unwrap();
+        assert_eq!(elem, decoded);
+    }
+
+    #[test]
+    #[cfg(feature = "alloc")]
+    fn fp2_from_bytes_to_bytes_be_is_identity() {
+        // 2 Mersenne31 elements × 4 bytes = 8 bytes
+        let bytes = [0u8, 1, 2, 3, 4, 5, 6, 7];
+        let elem = Fp2E::from_bytes_be(&bytes).unwrap();
+        assert_eq!(elem.to_bytes_be(), bytes);
+    }
+
+    #[test]
+    #[cfg(feature = "alloc")]
+    fn fp2_to_bytes_from_bytes_le_is_identity() {
+        let elem = Fp2E::new([FpE::from(0x12345678), FpE::from(0x1ABCDEF0)]);
+        let bytes = elem.to_bytes_le();
+        let decoded = Fp2E::from_bytes_le(&bytes).unwrap();
+        assert_eq!(elem, decoded);
+    }
+
+    #[test]
+    #[cfg(feature = "alloc")]
+    fn fp2_from_bytes_to_bytes_le_is_identity() {
+        let bytes = [7u8, 6, 5, 4, 3, 2, 1, 0];
+        let elem = Fp2E::from_bytes_le(&bytes).unwrap();
+        assert_eq!(elem.to_bytes_le(), bytes);
+    }
+
+    #[test]
+    #[cfg(feature = "alloc")]
+    fn fp2_le_be_bytes_are_different() {
+        let elem = Fp2E::new([FpE::from(0x01020304), FpE::from(0x05060708)]);
+        let le = elem.to_bytes_le();
+        let be = elem.to_bytes_be();
+        assert_ne!(le, be, "LE and BE byte representations should differ");
+    }
+
+    #[test]
+    #[cfg(feature = "alloc")]
+    fn fp2_from_bytes_rejects_short_slice() {
+        let short_bytes = [1u8, 2, 3]; // Only 3 bytes, needs 8
+        assert!(Fp2E::from_bytes_be(&short_bytes).is_err());
+        assert!(Fp2E::from_bytes_le(&short_bytes).is_err());
+    }
+
+    #[test]
     fn mul_fp4_by_zero_is_zero() {
         let a = Fp4E::new([
             Fp2E::new([FpE::from(2), FpE::from(3)]),
@@ -646,5 +878,71 @@ mod tests {
             Fp2E::new([FpE::from(3), FpE::from(4)]),
         ]);
         assert_eq!(a * &b, a_extension * b);
+    }
+
+    #[test]
+    #[cfg(feature = "alloc")]
+    fn fp4_to_bytes_from_bytes_be_is_identity() {
+        let elem = Fp4E::new([
+            Fp2E::new([FpE::from(1), FpE::from(2)]),
+            Fp2E::new([FpE::from(3), FpE::from(4)]),
+        ]);
+        let bytes = elem.to_bytes_be();
+        let decoded = Fp4E::from_bytes_be(&bytes).unwrap();
+        assert_eq!(elem, decoded);
+    }
+
+    #[test]
+    #[cfg(feature = "alloc")]
+    fn fp4_from_bytes_to_bytes_be_is_identity() {
+        // 4 Mersenne31 elements × 4 bytes = 16 bytes
+        let bytes = [
+            0u8, 1, 2, 3, // field 0
+            4, 5, 6, 7, // field 1
+            8, 9, 10, 11, // field 2
+            12, 13, 14, 15, // field 3
+        ];
+        let elem = Fp4E::from_bytes_be(&bytes).unwrap();
+        assert_eq!(elem.to_bytes_be(), bytes);
+    }
+
+    #[test]
+    #[cfg(feature = "alloc")]
+    fn fp4_to_bytes_from_bytes_le_is_identity() {
+        let elem = Fp4E::new([
+            Fp2E::new([FpE::from(0x11111111), FpE::from(0x22222222)]),
+            Fp2E::new([FpE::from(0x33333333), FpE::from(0x44444444)]),
+        ]);
+        let bytes = elem.to_bytes_le();
+        let decoded = Fp4E::from_bytes_le(&bytes).unwrap();
+        assert_eq!(elem, decoded);
+    }
+
+    #[test]
+    #[cfg(feature = "alloc")]
+    fn fp4_from_bytes_to_bytes_le_is_identity() {
+        let bytes = [15u8, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0];
+        let elem = Fp4E::from_bytes_le(&bytes).unwrap();
+        assert_eq!(elem.to_bytes_le(), bytes);
+    }
+
+    #[test]
+    #[cfg(feature = "alloc")]
+    fn fp4_le_be_bytes_are_different() {
+        let elem = Fp4E::new([
+            Fp2E::new([FpE::from(0x01020304), FpE::from(0x05060708)]),
+            Fp2E::new([FpE::from(0x090A0B0C), FpE::from(0x0D0E0F10)]),
+        ]);
+        let le = elem.to_bytes_le();
+        let be = elem.to_bytes_be();
+        assert_ne!(le, be, "LE and BE byte representations should differ");
+    }
+
+    #[test]
+    #[cfg(feature = "alloc")]
+    fn fp4_from_bytes_rejects_short_slice() {
+        let short_bytes = [1u8, 2, 3, 4, 5]; // Only 5 bytes, needs 16
+        assert!(Fp4E::from_bytes_be(&short_bytes).is_err());
+        assert!(Fp4E::from_bytes_le(&short_bytes).is_err());
     }
 }

@@ -99,7 +99,7 @@ impl IsField for Degree4KoalaBearExtensionField {
     }
 
     fn div(a: &Self::BaseType, b: &Self::BaseType) -> Result<Self::BaseType, FieldError> {
-        let b_inv = &Self::inv(b).map_err(|_| FieldError::DivisionByZero)?;
+        let b_inv = &Self::inv(b)?;
         Ok(<Self as IsField>::mul(a, b_inv))
     }
 
@@ -135,49 +135,6 @@ impl IsField for Degree4KoalaBearExtensionField {
     /// already have correct representations.
     fn from_base_type(x: Self::BaseType) -> Self::BaseType {
         x
-    }
-
-    fn double(a: &Self::BaseType) -> Self::BaseType {
-        <Degree4KoalaBearExtensionField as IsField>::add(a, a)
-    }
-
-    fn pow<T>(a: &Self::BaseType, mut exponent: T) -> Self::BaseType
-    where
-        T: crate::unsigned_integer::traits::IsUnsignedInteger,
-    {
-        let zero = T::from(0);
-        let one = T::from(1);
-
-        if exponent == zero {
-            return Self::one();
-        }
-        if exponent == one {
-            return *a;
-        }
-
-        let mut result = *a;
-
-        // Fast path for powers of 2
-        while exponent & one == zero {
-            result = Self::square(&result);
-            exponent >>= 1;
-            if exponent == zero {
-                return result;
-            }
-        }
-
-        let mut base = result;
-        exponent >>= 1;
-
-        while exponent != zero {
-            base = Self::square(&base);
-            if exponent & one == one {
-                result = <Degree4KoalaBearExtensionField as IsField>::mul(&result, &base);
-            }
-            exponent >>= 1;
-        }
-
-        result
     }
 }
 

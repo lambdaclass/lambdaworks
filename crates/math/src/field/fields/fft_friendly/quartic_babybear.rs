@@ -66,7 +66,7 @@ impl IsField for Degree4BabyBearExtensionField {
         [-&a[0], -&a[1], -&a[2], -&a[3]]
     }
 
-    /// Return te inverse of a fp4 element if it exists.
+    /// Return the inverse of a fp4 element if it exists.
     /// This algorithm is inspired by Risc0 implementation:
     /// <https://github.com/risc0/risc0/blob/4c41c739779ef2759a01ebcf808faf0fbffe8793/risc0/core/src/field/baby_bear.rs#L460>
     fn inv(a: &Self::BaseType) -> Result<Self::BaseType, FieldError> {
@@ -85,7 +85,7 @@ impl IsField for Degree4BabyBearExtensionField {
     }
 
     fn div(a: &Self::BaseType, b: &Self::BaseType) -> Result<Self::BaseType, FieldError> {
-        let b_inv = &Self::inv(b).map_err(|_| FieldError::DivisionByZero)?;
+        let b_inv = &Self::inv(b)?;
         Ok(<Self as IsField>::mul(a, b_inv))
     }
 
@@ -121,49 +121,6 @@ impl IsField for Degree4BabyBearExtensionField {
     /// already have correct representations.
     fn from_base_type(x: Self::BaseType) -> Self::BaseType {
         x
-    }
-
-    fn double(a: &Self::BaseType) -> Self::BaseType {
-        <Degree4BabyBearExtensionField as IsField>::add(a, a)
-    }
-
-    fn pow<T>(a: &Self::BaseType, mut exponent: T) -> Self::BaseType
-    where
-        T: crate::unsigned_integer::traits::IsUnsignedInteger,
-    {
-        let zero = T::from(0);
-        let one = T::from(1);
-
-        if exponent == zero {
-            return Self::one();
-        }
-        if exponent == one {
-            return *a;
-        }
-
-        let mut result = *a;
-
-        // Fast path for powers of 2
-        while exponent & one == zero {
-            result = Self::square(&result);
-            exponent >>= 1;
-            if exponent == zero {
-                return result;
-            }
-        }
-
-        let mut base = result;
-        exponent >>= 1;
-
-        while exponent != zero {
-            base = Self::square(&base);
-            if exponent & one == one {
-                result = <Degree4BabyBearExtensionField as IsField>::mul(&result, &base);
-            }
-            exponent >>= 1;
-        }
-
-        result
     }
 }
 
@@ -254,7 +211,7 @@ impl ByteConversion for [FieldElement<Babybear31PrimeField>; 4] {
     where
         Self: Sized,
     {
-        const BYTES_PER_FIELD: usize = 32;
+        const BYTES_PER_FIELD: usize = 4;
 
         let x0 = FieldElement::from_bytes_be(&bytes[0..BYTES_PER_FIELD])?;
         let x1 = FieldElement::from_bytes_be(&bytes[BYTES_PER_FIELD..BYTES_PER_FIELD * 2])?;
@@ -268,7 +225,7 @@ impl ByteConversion for [FieldElement<Babybear31PrimeField>; 4] {
     where
         Self: Sized,
     {
-        const BYTES_PER_FIELD: usize = 32;
+        const BYTES_PER_FIELD: usize = 4;
 
         let x0 = FieldElement::from_bytes_le(&bytes[0..BYTES_PER_FIELD])?;
         let x1 = FieldElement::from_bytes_le(&bytes[BYTES_PER_FIELD..BYTES_PER_FIELD * 2])?;
@@ -525,6 +482,31 @@ mod tests {
     fn from_bytes_to_bytes_le_is_the_identity() {
         let bytes = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
         assert_eq!(Fp4E::from_bytes_le(&bytes).unwrap().to_bytes_le(), bytes);
+    }
+
+    #[test]
+    #[cfg(feature = "alloc")]
+    fn quartic_extension_bytes_per_field_is_correct() {
+        // Test the fixed bug: BYTES_PER_FIELD was 32 instead of 4
+        let elem = Fp4E::new([
+            FpE::from(1u64),
+            FpE::from(2u64),
+            FpE::from(3u64),
+            FpE::from(4u64),
+        ]);
+
+        let bytes_le = elem.to_bytes_le();
+        let bytes_be = elem.to_bytes_be();
+
+        // Each BabyBear field element is 4 bytes, so 4 elements = 16 bytes total
+        assert_eq!(bytes_le.len(), 16, "Expected 16 bytes (4 fields × 4 bytes)");
+        assert_eq!(bytes_be.len(), 16, "Expected 16 bytes (4 fields × 4 bytes)");
+
+        // Verify round-trip
+        let decoded_le = Fp4E::from_bytes_le(&bytes_le).unwrap();
+        let decoded_be = Fp4E::from_bytes_be(&bytes_be).unwrap();
+        assert_eq!(elem, decoded_le);
+        assert_eq!(elem, decoded_be);
     }
 
     #[cfg(all(feature = "std", not(feature = "instruments")))]

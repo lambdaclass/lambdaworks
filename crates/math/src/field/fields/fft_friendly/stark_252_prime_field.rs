@@ -37,11 +37,7 @@ impl FieldElement<Stark252PrimeField> {
         let mut bytes: [u8; 32] = [0; 32];
 
         for i in (0..4).rev() {
-            let limb_bytes = limbs[i].to_le_bytes();
-            for j in 0..8 {
-                // i = 3 ->
-                bytes[(3 - i) * 8 + j] = limb_bytes[j]
-            }
+            bytes[(3 - i) * 8..(3 - i) * 8 + 8].copy_from_slice(&limbs[i].to_le_bytes());
         }
         bytes
     }
@@ -74,10 +70,7 @@ impl FieldElement<Stark252PrimeField> {
         let mut bytes: [u8; 32] = [0; 32];
 
         for i in 0..4 {
-            let limb_bytes = limbs[i].to_be_bytes();
-            for j in 0..8 {
-                bytes[i * 8 + j] = limb_bytes[j]
-            }
+            bytes[i * 8..i * 8 + 8].copy_from_slice(&limbs[i].to_be_bytes());
         }
         bytes
     }
