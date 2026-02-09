@@ -1,3 +1,26 @@
+//! Circle FFT operations for polynomial evaluation and interpolation.
+//!
+//! # Example
+//! ```
+//! use lambdaworks_math::circle::cfft::{cfft, order_cfft_result_in_place};
+//! use lambdaworks_math::circle::cosets::Coset;
+//! use lambdaworks_math::circle::twiddles::{get_twiddles, TwiddlesConfig};
+//! use lambdaworks_math::field::element::FieldElement;
+//! use lambdaworks_math::field::fields::mersenne31::field::Mersenne31Field;
+//!
+//! // Prepare input: 8 coefficients (2^3)
+//! let mut coeffs: Vec<FieldElement<Mersenne31Field>> =
+//!     (1..=8).map(FieldElement::from).collect();
+//!
+//! // Get twiddles for matching coset size
+//! let coset = Coset::new_standard(3); // log_2_size = 3
+//! let twiddles = get_twiddles(coset, TwiddlesConfig::Evaluation);
+//!
+//! // Perform FFT (twiddles length matches input size)
+//! cfft(&mut coeffs, &twiddles);
+//! order_cfft_result_in_place(&mut coeffs);
+//! ```
+
 extern crate alloc;
 use crate::field::{element::FieldElement, fields::mersenne31::field::Mersenne31Field};
 use alloc::vec;
@@ -632,5 +655,37 @@ mod tests {
         order_icfft_input_in_place(&mut slice2);
         // Natural [0, 1] -> ICFFT order [0, 1]
         assert_eq!(slice2, [FE::from(0), FE::from(1)]);
+    }
+
+    #[test]
+    #[should_panic(expected = "cfft expects 3 twiddle layers")]
+    fn cfft_panics_with_mismatched_twiddle_count() {
+        use crate::circle::{cosets::Coset, twiddles::{get_twiddles, TwiddlesConfig}};
+
+        // Input size: 2^3 = 8 elements (expects 3 twiddle layers)
+        let mut input = vec![FE::from(1); 8];
+
+        // Twiddles for wrong size: 2^2 = 4 (only 2 layers)
+        let coset = Coset::new_standard(2);
+        let twiddles = get_twiddles(coset, TwiddlesConfig::Evaluation);
+
+        // Should panic: twiddle count mismatch (2 vs 3)
+        cfft(&mut input, &twiddles);
+    }
+
+    #[test]
+    #[should_panic(expected = "icfft expects 4 twiddle layers")]
+    fn icfft_panics_with_mismatched_twiddle_count() {
+        use crate::circle::{cosets::Coset, twiddles::{get_twiddles, TwiddlesConfig}};
+
+        // Input size: 2^4 = 16 elements (expects 4 twiddle layers)
+        let mut input = vec![FE::from(1); 16];
+
+        // Twiddles for wrong size: 2^3 = 8 (only 3 layers)
+        let coset = Coset::new_standard(3);
+        let twiddles = get_twiddles(coset, TwiddlesConfig::Interpolation);
+
+        // Should panic: twiddle count mismatch (3 vs 4)
+        icfft(&mut input, &twiddles);
     }
 }
