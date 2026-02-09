@@ -236,12 +236,7 @@ impl<E: IsField> Polynomial<FieldElement<E>> {
     ) -> Result<(Self, Self), FFTError> {
         let n = self.degree();
         let m = divisor.degree();
-        if divisor.coefficients.is_empty()
-            || divisor
-                .coefficients
-                .iter()
-                .all(|c| c == &FieldElement::zero())
-        {
+        if divisor.is_zero() {
             return Err(FieldError::DivisionByZero.into());
         }
         if n < m {
@@ -266,9 +261,7 @@ impl<E: IsField> Polynomial<FieldElement<E>> {
         &self,
         k: usize,
     ) -> Result<Self, FFTError> {
-        if self.coefficients.is_empty()
-            || self.coefficients.iter().all(|c| c == &FieldElement::zero())
-        {
+        if self.is_zero() {
             return Err(FieldError::DivisionByZero.into());
         }
         let mut q = Self::new(&[self.coefficients[0].inv()?]);
@@ -294,13 +287,12 @@ impl<E: IsField> Polynomial<FieldElement<E>> {
 pub fn compose_fft<F, E>(
     poly_1: &Polynomial<FieldElement<E>>,
     poly_2: &Polynomial<FieldElement<E>>,
-) -> Polynomial<FieldElement<E>>
+) -> Result<Polynomial<FieldElement<E>>, FFTError>
 where
     F: IsFFTField + IsSubFieldOf<E>,
     E: IsField,
 {
-    let poly_2_evaluations = Polynomial::evaluate_fft::<F>(poly_2, 1, None)
-        .expect("failed to evaluate polynomial via FFT during composition");
+    let poly_2_evaluations = Polynomial::evaluate_fft::<F>(poly_2, 1, None)?;
 
     let values: Vec<_> = poly_2_evaluations
         .iter()
@@ -308,7 +300,6 @@ where
         .collect();
 
     Polynomial::interpolate_fft::<F>(values.as_slice())
-        .expect("failed to interpolate polynomial via FFT during composition")
 }
 
 pub fn evaluate_fft_cpu<F, E>(coeffs: &[FieldElement<E>]) -> Result<Vec<FieldElement<E>>, FFTError>
@@ -455,11 +446,6 @@ mod tests {
             }
         }
         prop_compose! {
-            fn non_power_of_two_sized_field_vec(max_exp: u8)(vec in collection::vec(field_element(), 2..1<<max_exp).prop_filter("Avoid polynomials of size power of two", |vec| !vec.len().is_power_of_two())) -> Vec<FE> {
-                vec
-            }
-        }
-        prop_compose! {
             fn poly(max_exp: u8)(coeffs in field_vec(max_exp)) -> Polynomial<FE> {
                 Polynomial::new(&coeffs)
             }
@@ -469,12 +455,6 @@ mod tests {
                 Polynomial::new(&coeffs)
             }
         }
-        prop_compose! {
-            fn poly_with_non_power_of_two_coeffs(max_exp: u8)(coeffs in non_power_of_two_sized_field_vec(max_exp)) -> Polynomial<FE> {
-                Polynomial::new(&coeffs)
-            }
-        }
-
         proptest! {
             // Property-based test that ensures FFT eval. gives same result as a naive polynomial evaluation.
             #[test]
@@ -544,7 +524,7 @@ mod tests {
             let p = Polynomial::new(&[FE::new(0), FE::new(2)]);
             let q = Polynomial::new(&[FE::new(0), FE::new(0), FE::new(0), FE::new(1)]);
             assert_eq!(
-                compose_fft::<F, F>(&p, &q),
+                compose_fft::<F, F>(&p, &q).unwrap(),
                 Polynomial::new(&[FE::new(0), FE::new(0), FE::new(0), FE::new(2)])
             );
         }
@@ -578,22 +558,12 @@ mod tests {
             }
         }
         prop_compose! {
-            fn non_power_of_two_sized_field_vec(max_exp: u8)(vec in collection::vec(field_element(), 2..1<<max_exp).prop_filter("Avoid polynomials of size power of two", |vec| !vec.len().is_power_of_two())) -> Vec<FE> {
-                vec
-            }
-        }
-        prop_compose! {
             fn poly(max_exp: u8)(coeffs in field_vec(max_exp)) -> Polynomial<FE> {
                 Polynomial::new(&coeffs)
             }
         }
         prop_compose! {
             fn non_zero_poly(max_exp: u8)(coeffs in non_empty_field_vec(max_exp)) -> Polynomial<FE> {
-                Polynomial::new(&coeffs)
-            }
-        }
-        prop_compose! {
-            fn poly_with_non_power_of_two_coeffs(max_exp: u8)(coeffs in non_power_of_two_sized_field_vec(max_exp)) -> Polynomial<FE> {
                 Polynomial::new(&coeffs)
             }
         }

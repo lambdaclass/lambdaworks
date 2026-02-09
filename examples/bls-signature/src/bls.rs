@@ -13,6 +13,7 @@
 //!
 //! - Operations may not be constant-time
 //! - No protection against rogue key attacks in aggregation (would need proof-of-possession)
+//! - SecretKey will be zeroized on drop when the `alloc` feature is enabled in lambdaworks-math
 //!
 //! For production use, consider well-audited libraries like `blst` or `bls-signatures`.
 
