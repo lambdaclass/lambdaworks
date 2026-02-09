@@ -112,7 +112,7 @@ mod tests {
             );
             assert_eq!(
                 points[i].y,
-                -points[n - 1 - i].y.clone(),
+                -points[n - 1 - i].y,
                 "Points {} and {} should have opposite y-coordinates",
                 i,
                 n - 1 - i
@@ -128,7 +128,7 @@ mod tests {
 
         for i in 0..n / 2 {
             assert_eq!(points[i].x, points[n - 1 - i].x);
-            assert_eq!(points[i].y, -points[n - 1 - i].y.clone());
+            assert_eq!(points[i].y, -points[n - 1 - i].y);
         }
     }
 
@@ -144,14 +144,14 @@ mod tests {
         for i in 0..half {
             assert_eq!(
                 points[i].x,
-                -points[i + half].x.clone(),
+                -points[i + half].x,
                 "Points {} and {} should have opposite x-coordinates (antipode)",
                 i,
                 i + half
             );
             assert_eq!(
                 points[i].y,
-                -points[i + half].y.clone(),
+                -points[i + half].y,
                 "Points {} and {} should have opposite y-coordinates (antipode)",
                 i,
                 i + half

@@ -58,8 +58,13 @@ where
     FieldElement<F>: AsBytes,
 {
     let n = evaluations.len();
-    assert!(n.is_power_of_two() && n >= 2);
-    assert_eq!(n, domain.size());
+    let domain_size = domain.size();
+    if n != domain_size || !n.is_power_of_two() || n < 2 {
+        return Err(CircleFriError::InvalidEvaluationsLength {
+            expected: domain_size,
+            got: n,
+        });
+    }
 
     // Precompute all twiddle layers (interpolation = inverse twiddles)
     let inv_twiddles = get_twiddles(domain.coset.clone(), TwiddlesConfig::Interpolation);

@@ -45,6 +45,26 @@ where
 {
     let num_layers = proof.layer_merkle_roots.len();
 
+    if proof.query_indices.len() != proof.decommitments.len() {
+        return Err(CircleFriError::InconsistentProof(
+            "query_indices and decommitments have different lengths",
+        ));
+    }
+    if proof.query_indices.len() != proof.query_evaluations.len() {
+        return Err(CircleFriError::InconsistentProof(
+            "query_indices and query_evaluations have different lengths",
+        ));
+    }
+    let domain_size = domain.size();
+    for &idx in &proof.query_indices {
+        if idx >= domain_size {
+            return Err(CircleFriError::QueryIndexOutOfBounds {
+                index: idx,
+                domain_size,
+            });
+        }
+    }
+
     // Precompute inverse twiddles (same as the prover)
     let inv_twiddles = get_twiddles(domain.coset.clone(), TwiddlesConfig::Interpolation);
 
@@ -264,7 +284,7 @@ mod tests {
             circle_fri_query(&commitment, &query_indices, n).expect("query should succeed");
 
         // Tamper with the claimed evaluation
-        query_evaluations[0] = query_evaluations[0] + FE::from(1u64);
+        query_evaluations[0] += FE::from(1u64);
 
         let proof = CircleFriProof {
             layer_merkle_roots: commitment
