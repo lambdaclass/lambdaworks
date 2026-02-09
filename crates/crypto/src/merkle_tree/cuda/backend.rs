@@ -36,10 +36,15 @@ fn get_cuda_state() -> Option<&'static CudaMerkleState> {
 ///
 /// # Example
 ///
-/// ```ignore
+/// ```no_run
 /// use lambdaworks_crypto::merkle_tree::merkle::MerkleTree;
 /// use lambdaworks_crypto::merkle_tree::cuda::CudaPoseidonBackend;
+/// use lambdaworks_math::field::{
+///     element::FieldElement,
+///     fields::fft_friendly::stark_252_prime_field::Stark252PrimeField,
+/// };
 ///
+/// type Fp = FieldElement<Stark252PrimeField>;
 /// let leaves: Vec<Fp> = (0..1024).map(Fp::from).collect();
 /// let tree = MerkleTree::<CudaPoseidonBackend>::build(&leaves).unwrap();
 /// ```
@@ -59,7 +64,9 @@ impl IsMerkleTreeBackend for CudaPoseidonBackend {
     /// Hash all leaves in parallel using GPU when available.
     /// Falls back to CPU if CUDA initialization failed.
     fn hash_leaves(unhashed_leaves: &[Fp]) -> Vec<Fp> {
-        // For small inputs, CPU may be faster due to GPU transfer overhead
+        // Below this threshold CPU is faster because the CUDA kernel launch +
+        // host-to-device transfer overhead dominates. 64 matches the Metal
+        // backend and is approximately 2 warps of work.
         const GPU_THRESHOLD: usize = 64;
 
         if unhashed_leaves.len() < GPU_THRESHOLD {
@@ -73,9 +80,8 @@ impl IsMerkleTreeBackend for CudaPoseidonBackend {
         if let Some(state) = get_cuda_state() {
             match state.hash_leaves(unhashed_leaves) {
                 Ok(result) => return result,
-                Err(e) => {
-                    // Log error and fall back to CPU
-                    eprintln!("CUDA hash_leaves failed, falling back to CPU: {}", e);
+                Err(_) => {
+                    // Fall back to CPU silently
                 }
             }
         }
@@ -96,8 +102,9 @@ impl IsMerkleTreeBackend for CudaPoseidonBackend {
 
 /// CUDA-accelerated full tree builder.
 ///
-/// This provides an alternative tree-building method that keeps data on the GPU
-/// throughout construction, avoiding repeated CPU-GPU transfers.
+/// This provides an alternative tree-building method that builds all tree
+/// layers on the GPU, uploading leaf data once and only downloading each
+/// computed layer (no per-layer re-uploads).
 impl CudaPoseidonBackend {
     /// Build a complete Merkle tree using GPU acceleration.
     ///

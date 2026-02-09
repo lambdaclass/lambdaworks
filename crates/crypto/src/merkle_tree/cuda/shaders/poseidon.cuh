@@ -24,6 +24,8 @@ constexpr int STATE_SIZE = 3;
 constexpr int FULL_ROUNDS = 8;
 constexpr int PARTIAL_ROUNDS = 83;
 constexpr int HALF_FULL_ROUNDS = FULL_ROUNDS / 2;
+constexpr int N_ROUND_CONSTANTS = 107;
+#define POSEIDON_N_ROUND_CONSTANTS 107
 
 // S-box: x^3
 __device__ inline Fp sbox(const Fp& x) {
@@ -105,17 +107,13 @@ __device__ void hades_permutation(Fp* state, const Fp* round_constants) {
     }
 }
 
-// Total number of round constants needed
-constexpr int N_ROUND_CONSTANTS = 107;
-#define POSEIDON_N_ROUND_CONSTANTS 107
-
 // Hash two field elements (for Merkle tree parent computation)
 // Returns hash in state[0]
 __device__ Fp hash_pair(const Fp& left, const Fp& right, const Fp* round_constants) {
     Fp state[STATE_SIZE];
     state[0] = left;
     state[1] = right;
-    state[2] = Fp(2);  // Domain separator for 2-to-1 hash
+    state[2] = Fp::from_int(2);  // Domain separator for 2-to-1 hash (Montgomery form)
 
     hades_permutation(state, round_constants);
 
@@ -127,8 +125,8 @@ __device__ Fp hash_pair(const Fp& left, const Fp& right, const Fp* round_constan
 __device__ Fp hash_single(const Fp& input, const Fp* round_constants) {
     Fp state[STATE_SIZE];
     state[0] = input;
-    state[1] = Fp(0);
-    state[2] = Fp(1);  // Domain separator for 1-to-1 hash
+    state[1] = Fp(0);  // Montgomery form of 0 is 0
+    state[2] = Fp::from_int(1);  // Domain separator for 1-to-1 hash (Montgomery form)
 
     hades_permutation(state, round_constants);
 

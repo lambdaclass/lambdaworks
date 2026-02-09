@@ -41,7 +41,7 @@ serde = ["dep:serde"]
 test_fiat_shamir = []
 parallel = ["dep:rayon"]
 alloc = []
-cuda = ["dep:cudarc", "dep:lambdaworks-gpu"]
+cuda = ["dep:cudarc", "dep:lambdaworks-gpu", "lambdaworks-gpu/cuda"]
 metal = ["dep:metal", "dep:lambdaworks-gpu", "lambdaworks-gpu/metal"]
 
 [[bench]]
