@@ -16,16 +16,18 @@ fn main() {
         read_circom_witness("./examples/prove-verify-circom/input_files/witness.json").unwrap();
 
     println!("Converting to Lambdaworks-compatible QAP and witness assignments");
-    let (qap, witness, _) = circom_to_lambda(circom_r1cs, circom_witness);
+    let (qap, witness, _) = circom_to_lambda(circom_r1cs, circom_witness)
+        .expect("Failed to convert Circom to Lambdaworks");
 
     println!("Performing trusted setup");
-    let (pk, vk) = setup(&qap);
+    let (pk, vk) = setup(&qap).expect("Setup failed");
 
     println!("Proving");
     let proof = Prover::prove(&witness, &qap, &pk).expect("Proof generation failed");
 
     println!("Verifying");
-    let accept = verify(&vk, &proof, &witness[..qap.num_of_public_inputs]);
+    let accept =
+        verify(&vk, &proof, &witness[..qap.num_of_public_inputs]).expect("Verification failed");
 
     assert!(accept, "Proof verification failed!");
     println!("Proof verified!");
