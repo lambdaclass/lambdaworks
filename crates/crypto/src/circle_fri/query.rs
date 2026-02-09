@@ -2,21 +2,20 @@ extern crate alloc;
 use alloc::vec::Vec;
 
 use lambdaworks_math::circle::fold::natural_to_butterfly;
+use lambdaworks_math::circle::traits::IsCircleFriField;
 use lambdaworks_math::field::element::FieldElement;
-use lambdaworks_math::field::fields::mersenne31::field::Mersenne31Field;
+use lambdaworks_math::traits::AsBytes;
 
 use crate::merkle_tree::proof::Proof;
 
 use super::commit::CircleFriCommitment;
 use super::errors::CircleFriError;
 
-type FE = FieldElement<Mersenne31Field>;
-
 /// Decommitment for a single query across all FRI layers.
 #[derive(Debug, Clone)]
-pub struct CircleFriDecommitment {
+pub struct CircleFriDecommitment<F: IsCircleFriField> {
     /// For each layer: the evaluation at the query's fold-partner position.
-    pub layer_sibling_evals: Vec<FE>,
+    pub layer_sibling_evals: Vec<FieldElement<F>>,
     /// For each layer: Merkle authentication paths for both the query position
     /// and its fold-partner position.
     pub layer_auth_paths_own: Vec<Proof<[u8; 32]>>,
@@ -32,11 +31,14 @@ pub struct CircleFriDecommitment {
 ///
 /// # Returns
 /// One `CircleFriDecommitment` per query index.
-pub fn circle_fri_query(
-    commitment: &CircleFriCommitment,
+pub fn circle_fri_query<F: IsCircleFriField>(
+    commitment: &CircleFriCommitment<F>,
     query_indices: &[usize],
     domain_size: usize,
-) -> Result<Vec<CircleFriDecommitment>, CircleFriError> {
+) -> Result<Vec<CircleFriDecommitment<F>>, CircleFriError>
+where
+    FieldElement<F>: AsBytes,
+{
     let mut decommitments = Vec::with_capacity(query_indices.len());
 
     for &nat_idx in query_indices {
@@ -56,7 +58,7 @@ pub fn circle_fri_query(
             let sibling_idx = if idx < half { idx + half } else { idx - half };
 
             // Extract sibling evaluation
-            sibling_evals.push(layer.evaluations[sibling_idx]);
+            sibling_evals.push(layer.evaluations[sibling_idx].clone());
 
             // Merkle proofs for both positions
             let proof_own = layer
@@ -92,6 +94,9 @@ mod tests {
     use crate::fiat_shamir::default_transcript::DefaultTranscript;
     use lambdaworks_math::circle::domain::CircleDomain;
     use lambdaworks_math::circle::polynomial::evaluate_cfft;
+    use lambdaworks_math::field::fields::mersenne31::field::Mersenne31Field;
+
+    type FE = FieldElement<Mersenne31Field>;
 
     #[test]
     fn query_produces_correct_number_of_decommitments() {
@@ -99,10 +104,12 @@ mod tests {
         let evals = evaluate_cfft(coeffs);
         let domain = CircleDomain::new_standard(3);
         let mut transcript = DefaultTranscript::<Mersenne31Field>::new(&[]);
-        let commitment = circle_fri_commit(&evals, &domain, &mut transcript).unwrap();
+        let commitment = circle_fri_commit(&evals, &domain, &mut transcript)
+            .expect("commit should succeed for valid inputs");
 
         let queries = vec![0, 3, 5];
-        let decommitments = circle_fri_query(&commitment, &queries, domain.size()).unwrap();
+        let decommitments = circle_fri_query(&commitment, &queries, domain.size())
+            .expect("query should succeed for valid inputs");
         assert_eq!(decommitments.len(), 3);
 
         for d in &decommitments {

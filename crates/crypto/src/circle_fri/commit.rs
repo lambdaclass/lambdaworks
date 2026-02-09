@@ -3,9 +3,10 @@ use alloc::vec::Vec;
 
 use lambdaworks_math::circle::domain::CircleDomain;
 use lambdaworks_math::circle::fold::{fold, reorder_natural_to_butterfly};
+use lambdaworks_math::circle::traits::IsCircleFriField;
 use lambdaworks_math::circle::twiddles::{get_twiddles, TwiddlesConfig};
 use lambdaworks_math::field::element::FieldElement;
-use lambdaworks_math::field::fields::mersenne31::field::Mersenne31Field;
+use lambdaworks_math::traits::AsBytes;
 
 use crate::fiat_shamir::is_transcript::IsTranscript;
 use crate::merkle_tree::backends::types::Keccak256Backend;
@@ -13,23 +14,26 @@ use crate::merkle_tree::merkle::MerkleTree;
 
 use super::errors::CircleFriError;
 
-type FE = FieldElement<Mersenne31Field>;
-type FriMerkleTree = MerkleTree<Keccak256Backend<Mersenne31Field>>;
-
 /// A single layer of the Circle FRI commitment.
-pub struct CircleFriLayer {
+pub struct CircleFriLayer<F: IsCircleFriField>
+where
+    FieldElement<F>: AsBytes,
+{
     /// Evaluations at this layer in butterfly order (size is a power of two).
-    pub evaluations: Vec<FE>,
+    pub evaluations: Vec<FieldElement<F>>,
     /// Merkle tree committing to individual evaluations.
-    pub merkle_tree: FriMerkleTree,
+    pub merkle_tree: MerkleTree<Keccak256Backend<F>>,
 }
 
 /// Result of the Circle FRI commit phase.
-pub struct CircleFriCommitment {
+pub struct CircleFriCommitment<F: IsCircleFriField>
+where
+    FieldElement<F>: AsBytes,
+{
     /// All committed layers (one per fold round).
-    pub layers: Vec<CircleFriLayer>,
+    pub layers: Vec<CircleFriLayer<F>>,
     /// The final constant value after all folds.
-    pub final_value: FE,
+    pub final_value: FieldElement<F>,
 }
 
 /// Runs the Circle FRI commit phase.
@@ -45,11 +49,14 @@ pub struct CircleFriCommitment {
 ///
 /// # Returns
 /// A `CircleFriCommitment` containing all layers and the final value.
-pub fn circle_fri_commit(
-    evaluations: &[FE],
-    domain: &CircleDomain,
-    transcript: &mut impl IsTranscript<Mersenne31Field>,
-) -> Result<CircleFriCommitment, CircleFriError> {
+pub fn circle_fri_commit<F: IsCircleFriField>(
+    evaluations: &[FieldElement<F>],
+    domain: &CircleDomain<F>,
+    transcript: &mut impl IsTranscript<F>,
+) -> Result<CircleFriCommitment<F>, CircleFriError>
+where
+    FieldElement<F>: AsBytes,
+{
     let n = evaluations.len();
     assert!(n.is_power_of_two() && n >= 2);
     assert_eq!(n, domain.size());
@@ -66,8 +73,8 @@ pub fn circle_fri_commit(
     // Fold through all layers until we reach a single value
     for inv_twiddle_layer in &inv_twiddles {
         // Commit current evaluations
-        let merkle_tree =
-            FriMerkleTree::build(&current_evals).ok_or(CircleFriError::MerkleTreeBuildFailed)?;
+        let merkle_tree = MerkleTree::<Keccak256Backend<F>>::build(&current_evals)
+            .ok_or(CircleFriError::MerkleTreeBuildFailed)?;
 
         // Send Merkle root to transcript
         transcript.append_bytes(&merkle_tree.root);
@@ -78,14 +85,14 @@ pub fn circle_fri_commit(
         });
 
         // Sample folding challenge
-        let alpha: FE = transcript.sample_field_element();
+        let alpha: FieldElement<F> = transcript.sample_field_element();
 
         // Fold: halves the number of evaluations
         current_evals = fold(&current_evals, inv_twiddle_layer, &alpha);
     }
 
     assert_eq!(current_evals.len(), 1);
-    let final_value = current_evals[0];
+    let final_value = current_evals[0].clone();
 
     // Send final value to transcript
     transcript.append_field_element(&final_value);
@@ -101,6 +108,9 @@ mod tests {
     use super::*;
     use crate::fiat_shamir::default_transcript::DefaultTranscript;
     use lambdaworks_math::circle::polynomial::evaluate_cfft;
+    use lambdaworks_math::field::fields::mersenne31::field::Mersenne31Field;
+
+    type FE = FieldElement<Mersenne31Field>;
 
     #[test]
     fn commit_phase_produces_correct_number_of_layers() {

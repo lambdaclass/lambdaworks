@@ -3,9 +3,10 @@ use alloc::vec::Vec;
 
 use lambdaworks_math::circle::domain::CircleDomain;
 use lambdaworks_math::circle::fold::{fold_pair, natural_to_butterfly};
+use lambdaworks_math::circle::traits::IsCircleFriField;
 use lambdaworks_math::circle::twiddles::{get_twiddles, TwiddlesConfig};
 use lambdaworks_math::field::element::FieldElement;
-use lambdaworks_math::field::fields::mersenne31::field::Mersenne31Field;
+use lambdaworks_math::traits::AsBytes;
 
 use crate::fiat_shamir::is_transcript::IsTranscript;
 use crate::merkle_tree::backends::types::Keccak256Backend;
@@ -13,22 +14,19 @@ use crate::merkle_tree::backends::types::Keccak256Backend;
 use super::errors::CircleFriError;
 use super::query::CircleFriDecommitment;
 
-type FE = FieldElement<Mersenne31Field>;
-type FriBackend = Keccak256Backend<Mersenne31Field>;
-
 /// All data the verifier needs from the prover.
 #[derive(Debug, Clone)]
-pub struct CircleFriProof {
+pub struct CircleFriProof<F: IsCircleFriField> {
     /// Merkle roots for each committed layer.
     pub layer_merkle_roots: Vec<[u8; 32]>,
     /// The final constant value.
-    pub final_value: FE,
+    pub final_value: FieldElement<F>,
     /// Decommitments for each query.
-    pub decommitments: Vec<CircleFriDecommitment>,
+    pub decommitments: Vec<CircleFriDecommitment<F>>,
     /// The queried indices in natural order.
     pub query_indices: Vec<usize>,
     /// The evaluation at each queried index in the original domain.
-    pub query_evaluations: Vec<FE>,
+    pub query_evaluations: Vec<FieldElement<F>>,
 }
 
 /// Verifies a Circle FRI proof.
@@ -37,11 +35,14 @@ pub struct CircleFriProof {
 /// * `proof`      - The Circle FRI proof to verify
 /// * `domain`     - The original evaluation domain
 /// * `transcript` - Fiat-Shamir transcript (must be seeded identically to the prover)
-pub fn circle_fri_verify(
-    proof: &CircleFriProof,
-    domain: &CircleDomain,
-    transcript: &mut impl IsTranscript<Mersenne31Field>,
-) -> Result<bool, CircleFriError> {
+pub fn circle_fri_verify<F: IsCircleFriField>(
+    proof: &CircleFriProof<F>,
+    domain: &CircleDomain<F>,
+    transcript: &mut impl IsTranscript<F>,
+) -> Result<bool, CircleFriError>
+where
+    FieldElement<F>: AsBytes,
+{
     let num_layers = proof.layer_merkle_roots.len();
 
     // Precompute inverse twiddles (same as the prover)
@@ -51,7 +52,7 @@ pub fn circle_fri_verify(
     let mut challenges = Vec::with_capacity(num_layers);
     for layer_idx in 0..num_layers {
         transcript.append_bytes(&proof.layer_merkle_roots[layer_idx]);
-        let challenge: FE = transcript.sample_field_element();
+        let challenge: FieldElement<F> = transcript.sample_field_element();
         challenges.push(challenge);
     }
     transcript.append_field_element(&proof.final_value);
@@ -68,8 +69,8 @@ pub fn circle_fri_verify(
             .query_indices
             .iter()
             .position(|&x| x == nat_idx)
-            .unwrap();
-        let mut current_eval = proof.query_evaluations[q_eval_pos];
+            .expect("query index must be present in proof.query_indices");
+        let mut current_eval = proof.query_evaluations[q_eval_pos].clone();
 
         let mut layer_size = domain_size;
 
@@ -78,7 +79,7 @@ pub fn circle_fri_verify(
             let pair_idx = idx % half;
             let is_first_half = idx < half;
 
-            let sibling_eval = decommitment.layer_sibling_evals[layer_idx];
+            let sibling_eval = decommitment.layer_sibling_evals[layer_idx].clone();
             let sibling_idx = if is_first_half {
                 idx + half
             } else {
@@ -86,7 +87,7 @@ pub fn circle_fri_verify(
             };
 
             // Verify Merkle proof for own evaluation
-            if !decommitment.layer_auth_paths_own[layer_idx].verify::<FriBackend>(
+            if !decommitment.layer_auth_paths_own[layer_idx].verify::<Keccak256Backend<F>>(
                 &proof.layer_merkle_roots[layer_idx],
                 idx,
                 &current_eval,
@@ -98,7 +99,7 @@ pub fn circle_fri_verify(
             }
 
             // Verify Merkle proof for sibling evaluation
-            if !decommitment.layer_auth_paths_sibling[layer_idx].verify::<FriBackend>(
+            if !decommitment.layer_auth_paths_sibling[layer_idx].verify::<Keccak256Backend<F>>(
                 &proof.layer_merkle_roots[layer_idx],
                 sibling_idx,
                 &sibling_eval,
@@ -144,6 +145,9 @@ mod tests {
     use crate::circle_fri::query::circle_fri_query;
     use crate::fiat_shamir::default_transcript::DefaultTranscript;
     use lambdaworks_math::circle::polynomial::evaluate_cfft;
+    use lambdaworks_math::field::fields::mersenne31::field::Mersenne31Field;
+
+    type FE = FieldElement<Mersenne31Field>;
 
     fn run_circle_fri_protocol(log_domain_size: u32, num_queries: usize) {
         let n = 1usize << log_domain_size;
@@ -154,7 +158,8 @@ mod tests {
         // Prover: commit phase
         let seed = [0x13, 0x37];
         let mut prover_transcript = DefaultTranscript::<Mersenne31Field>::new(&seed);
-        let commitment = circle_fri_commit(&evals, &domain, &mut prover_transcript).unwrap();
+        let commitment = circle_fri_commit(&evals, &domain, &mut prover_transcript)
+            .expect("commit should succeed");
 
         // Prover: sample query indices from transcript
         let query_indices: Vec<usize> = (0..num_queries)
@@ -163,7 +168,8 @@ mod tests {
         let query_evaluations: Vec<FE> = query_indices.iter().map(|&i| evals[i]).collect();
 
         // Prover: query phase
-        let decommitments = circle_fri_query(&commitment, &query_indices, n).unwrap();
+        let decommitments =
+            circle_fri_query(&commitment, &query_indices, n).expect("query should succeed");
 
         // Build proof
         let proof = CircleFriProof {
@@ -182,7 +188,7 @@ mod tests {
         let mut verifier_transcript = DefaultTranscript::<Mersenne31Field>::new(&seed);
         let result = circle_fri_verify(&proof, &domain, &mut verifier_transcript);
         assert!(result.is_ok(), "Verification failed: {:?}", result.err());
-        assert!(result.unwrap());
+        assert!(result.expect("already checked is_ok"));
     }
 
     #[test]
@@ -214,11 +220,13 @@ mod tests {
 
         let seed = [0xAB, 0xCD];
         let mut prover_transcript = DefaultTranscript::<Mersenne31Field>::new(&seed);
-        let commitment = circle_fri_commit(&evals, &domain, &mut prover_transcript).unwrap();
+        let commitment = circle_fri_commit(&evals, &domain, &mut prover_transcript)
+            .expect("commit should succeed");
 
         let query_indices = vec![0, 3];
         let query_evaluations: Vec<FE> = query_indices.iter().map(|&i| evals[i]).collect();
-        let decommitments = circle_fri_query(&commitment, &query_indices, n).unwrap();
+        let decommitments =
+            circle_fri_query(&commitment, &query_indices, n).expect("query should succeed");
 
         // Tamper with the final value
         let proof = CircleFriProof {
@@ -247,11 +255,13 @@ mod tests {
 
         let seed = [0x00];
         let mut prover_transcript = DefaultTranscript::<Mersenne31Field>::new(&seed);
-        let commitment = circle_fri_commit(&evals, &domain, &mut prover_transcript).unwrap();
+        let commitment = circle_fri_commit(&evals, &domain, &mut prover_transcript)
+            .expect("commit should succeed");
 
         let query_indices = vec![1];
         let mut query_evaluations: Vec<FE> = query_indices.iter().map(|&i| evals[i]).collect();
-        let decommitments = circle_fri_query(&commitment, &query_indices, n).unwrap();
+        let decommitments =
+            circle_fri_query(&commitment, &query_indices, n).expect("query should succeed");
 
         // Tamper with the claimed evaluation
         query_evaluations[0] = query_evaluations[0] + FE::from(1u64);
