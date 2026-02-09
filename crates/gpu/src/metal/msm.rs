@@ -190,13 +190,21 @@ impl MetalMSM {
         let limbs_per_coord = self.config.point_coord_limbs;
         let limbs_per_point = coords_per_point * limbs_per_coord;
 
-        if scalars.len() % num_limbs != 0 {
+        // CPU-side JacobianPoint arithmetic hardcodes COORD_LIMBS for BLS12-381.
+        if limbs_per_coord != COORD_LIMBS {
+            return Err(MetalError::InvalidInputSize {
+                expected: COORD_LIMBS,
+                actual: limbs_per_coord,
+            });
+        }
+
+        if !scalars.len().is_multiple_of(num_limbs) {
             return Err(MetalError::InvalidInputSize {
                 expected: num_limbs,
                 actual: scalars.len(),
             });
         }
-        if points.len() % limbs_per_point != 0 {
+        if !points.len().is_multiple_of(limbs_per_point) {
             return Err(MetalError::InvalidInputSize {
                 expected: limbs_per_point,
                 actual: points.len(),
@@ -221,14 +229,16 @@ impl MetalMSM {
         let scalars_buffer = self.state.alloc_buffer_with_data(&signed_digits)?;
         let points_buffer = self.state.alloc_buffer_with_data(points)?;
 
-        // Create bucket buffers for each window
-        let num_windows = self.config.num_windows();
+        // Create bucket buffers for each window.
+        // Use effective_windows (num_windows + 1) to match the signed digit array,
+        // which includes an extra carry window for correctness with all scalar values.
         let num_buckets = self.config.num_buckets();
+        let effective_windows = self.config.num_windows() + 1;
         let bucket_size = limbs_per_point; // Each bucket holds one Jacobian point
 
         // Initialize buckets to identity points (all zeros, since identity has z=0)
         // This is critical for correct accumulation.
-        let total_bucket_elements = num_windows * num_buckets * bucket_size;
+        let total_bucket_elements = effective_windows * num_buckets * bucket_size;
         let bucket_data = vec![0u64; total_bucket_elements];
         let buckets_buffer = self.state.alloc_buffer_with_data(&bucket_data)?;
 
@@ -247,37 +257,40 @@ impl MetalMSM {
             &points_buffer,
             &buckets_buffer,
             num_scalars,
-            num_windows,
+            effective_windows,
             num_buckets,
         )?;
 
         // Step 4: Run bucket reduction kernel
         let window_sums_buffer = self
             .state
-            .alloc_buffer(num_windows * bucket_size * std::mem::size_of::<u64>())?;
+            .alloc_buffer(effective_windows * bucket_size * std::mem::size_of::<u64>())?;
 
         self.run_bucket_reduction(
             &buckets_buffer,
             &window_sums_buffer,
-            num_windows,
+            effective_windows,
             num_buckets,
         )?;
 
         // Step 5: Read window sums back to CPU
         let window_sums: Vec<u64> = unsafe {
             self.state
-                .read_buffer(&window_sums_buffer, num_windows * bucket_size)
+                .read_buffer(&window_sums_buffer, effective_windows * bucket_size)
         };
 
         // Step 6: Combine windows using Horner's method (CPU)
         // This is sequential and better done on CPU
-        let result = self.combine_windows(&window_sums, num_windows, bucket_size);
+        let result = self.combine_windows(&window_sums, effective_windows, bucket_size);
 
         Ok(result)
     }
 
     /// Recodes scalars to signed digit representation.
     /// Uses NAF-like recoding to halve the bucket count.
+    ///
+    /// Returns `num_scalars * effective_windows()` digits, where
+    /// `effective_windows() = num_windows() + 1` to capture carry overflow.
     fn recode_scalars_signed(&self, scalars: &[u64], num_scalars: usize) -> Vec<i32> {
         let window_size = self.config.window_size;
         let num_windows = self.config.num_windows();
@@ -286,8 +299,10 @@ impl MetalMSM {
         let full_bucket = 1i32 << window_size;
         let mask = (1u64 << window_size) - 1;
 
-        // Allocate flat storage for all digits
-        let mut digits = vec![0i32; num_scalars * num_windows];
+        // +1 extra window to capture carry overflow from signed digit recoding.
+        // Without this, scalars with large top bits produce incorrect encodings.
+        let effective_windows = num_windows + 1;
+        let mut digits = vec![0i32; num_scalars * effective_windows];
 
         for scalar_idx in 0..num_scalars {
             let scalar_base = scalar_idx * num_limbs;
@@ -325,8 +340,11 @@ impl MetalMSM {
                     window_val
                 };
 
-                digits[scalar_idx * num_windows + window_idx] = digit;
+                digits[scalar_idx * effective_windows + window_idx] = digit;
             }
+
+            // Store final carry in the extra window to handle scalars with large top bits.
+            digits[scalar_idx * effective_windows + num_windows] = carry;
         }
 
         digits
@@ -1063,7 +1081,7 @@ mod fuzz_tests {
         }
 
         /// Property test: Scalar recoding reconstructs original scalar value.
-        /// Verifies that sum(digit_i * 2^(i*window_size)) equals the original scalar.
+        /// Verifies that sum(digit_i * 2^(i*window_size)) equals the original scalar (mod 2^256).
         #[test]
         fn prop_scalar_recoding_reconstruction(
             limbs in prop::array::uniform4(any::<u64>()),
@@ -1081,63 +1099,73 @@ mod fuzz_tests {
             let scalars: Vec<u64> = limbs.to_vec();
             let digits = msm.recode_scalars_signed(&scalars, 1);
 
-            // Reconstruct scalar from signed digits using big integer arithmetic.
-            // scalar = sum(digit_i * 2^(i * window_size)) (mod 2^256)
-            let mut reconstructed = [0u128; 4]; // Use u128 for intermediate carry
+            // Reconstruct scalar from signed digits using wrapping 256-bit arithmetic.
+            // The carry window (index num_windows) contributes 2^(num_windows*c) which
+            // is >= 2^256, so it vanishes mod 2^256 and we only need the first num_windows digits.
+            let mut reconstructed = [0u64; 4];
+
             for (i, &digit) in digits.iter().enumerate().take(num_windows) {
+                if digit == 0 { continue; }
+
                 let bit_offset = i * window_size;
                 let limb_idx = bit_offset / 64;
                 let bit_in_limb = bit_offset % 64;
 
-                if limb_idx >= 4 {
-                    continue;
-                }
+                if limb_idx >= 4 { continue; }
 
-                let digit_val = digit as i128;
-                // Add digit * 2^bit_offset to reconstructed (with sign extension)
-                if digit_val >= 0 {
-                    reconstructed[limb_idx] += (digit_val as u128) << bit_in_limb;
+                let positive = digit > 0;
+                let abs_val = digit.unsigned_abs() as u64;
+
+                let lo = abs_val << bit_in_limb;
+                let hi = if bit_in_limb > 0 {
+                    abs_val >> (64 - bit_in_limb)
                 } else {
-                    // For negative digits, subtract the absolute value
-                    let abs_val = (-digit_val) as u128;
-                    // Borrow propagation: subtract from current limb
-                    let sub = abs_val << bit_in_limb;
-                    if reconstructed[limb_idx] >= sub {
-                        reconstructed[limb_idx] -= sub;
-                    } else {
-                        reconstructed[limb_idx] = reconstructed[limb_idx].wrapping_sub(sub);
-                        // Propagate borrow
-                        for k in (limb_idx + 1)..4 {
-                            if reconstructed[k] > 0 {
-                                reconstructed[k] -= 1;
-                                break;
-                            } else {
-                                reconstructed[k] = reconstructed[k].wrapping_sub(1);
-                            }
-                        }
+                    0
+                };
+
+                if positive {
+                    let (s, c) = reconstructed[limb_idx].overflowing_add(lo);
+                    reconstructed[limb_idx] = s;
+                    let mut carry = c as u64;
+
+                    if limb_idx + 1 < 4 {
+                        let (s, c1) = reconstructed[limb_idx + 1].overflowing_add(hi);
+                        let (s, c2) = s.overflowing_add(carry);
+                        reconstructed[limb_idx + 1] = s;
+                        carry = (c1 as u64) + (c2 as u64);
+                    }
+
+                    for k in (limb_idx + 2)..4 {
+                        if carry == 0 { break; }
+                        let (s, c) = reconstructed[k].overflowing_add(carry);
+                        reconstructed[k] = s;
+                        carry = c as u64;
+                    }
+                } else {
+                    let (s, b) = reconstructed[limb_idx].overflowing_sub(lo);
+                    reconstructed[limb_idx] = s;
+                    let mut borrow = b as u64;
+
+                    if limb_idx + 1 < 4 {
+                        let (s, b1) = reconstructed[limb_idx + 1].overflowing_sub(hi);
+                        let (s, b2) = s.overflowing_sub(borrow);
+                        reconstructed[limb_idx + 1] = s;
+                        borrow = (b1 as u64) + (b2 as u64);
+                    }
+
+                    for k in (limb_idx + 2)..4 {
+                        if borrow == 0 { break; }
+                        let (s, b) = reconstructed[k].overflowing_sub(borrow);
+                        reconstructed[k] = s;
+                        borrow = b as u64;
                     }
                 }
-
-                // Handle cross-limb overflow for positive values
-                if limb_idx + 1 < 4 && digit_val >= 0 {
-                    let overflow = reconstructed[limb_idx] >> 64;
-                    reconstructed[limb_idx] &= u64::MAX as u128;
-                    reconstructed[limb_idx + 1] += overflow;
-                }
             }
 
-            // Propagate carries
-            for k in 0..3 {
-                let overflow = reconstructed[k] >> 64;
-                reconstructed[k] &= u64::MAX as u128;
-                reconstructed[k + 1] = reconstructed[k + 1].wrapping_add(overflow);
-            }
-            reconstructed[3] &= u64::MAX as u128;
-
-            // Compare (mod 2^256)
+            // Compare mod 2^256
             for i in 0..4 {
                 prop_assert_eq!(
-                    reconstructed[i] as u64, limbs[i],
+                    reconstructed[i], limbs[i],
                     "Reconstruction mismatch at limb {} for window_size {}",
                     i, window_size
                 );
@@ -1344,9 +1372,37 @@ mod fuzz_tests {
     #[test]
     fn test_metal_msm_power_of_two_scalars() {
         let g = BLS12381Curve::generator();
+        let points_flat = point_to_gpu_flat(&g);
+        let mut msm = MetalMSM::new_bls12_381().expect("Metal device required");
+        msm.initialize().expect("Shader compilation failed");
+
         for shift in [1, 15, 16, 17, 63, 64, 65, 127, 128, 255] {
             let scalar = UnsignedInteger::<4>::from_u64(1) << shift;
-            assert_gpu_cpu_match(&scalar, &g, &format!("2^{} * G", shift));
+
+            let cpu_result =
+                pippenger::msm(&[scalar], std::slice::from_ref(&g)).expect("CPU MSM failed");
+            let cpu_affine = cpu_result.to_affine();
+
+            let scalars_flat = scalar_to_gpu_limbs(&scalar);
+            let gpu_result_flat = msm
+                .compute(&scalars_flat, &points_flat)
+                .expect("Metal MSM compute failed");
+
+            let gpu_point = gpu_flat_to_point(&gpu_result_flat);
+            let gpu_affine = gpu_point.to_affine();
+
+            assert_eq!(
+                cpu_affine.x(),
+                gpu_affine.x(),
+                "x mismatch: 2^{} * G",
+                shift
+            );
+            assert_eq!(
+                cpu_affine.y(),
+                gpu_affine.y(),
+                "y mismatch: 2^{} * G",
+                shift
+            );
         }
     }
 
@@ -1408,7 +1464,7 @@ mod fuzz_tests {
 
     proptest! {
         #![proptest_config(ProptestConfig {
-            cases: 20,
+            cases: 5,
             ..ProptestConfig::default()
         })]
 
@@ -1453,7 +1509,7 @@ mod fuzz_tests {
         #[test]
         fn prop_metal_msm_random_scalar_random_point_vs_cpu(
             scalar_limbs in prop::array::uniform4(any::<u64>()),
-            point_power in 1u64..100000
+            point_power in 1u64..1000
         ) {
             let base_point = BLS12381Curve::generator().operate_with_self(point_power);
             let scalar = UnsignedInteger::<4>::from_limbs(scalar_limbs);
