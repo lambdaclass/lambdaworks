@@ -13,6 +13,7 @@
 //!
 //! - Operations may not be constant-time
 //! - No protection against rogue key attacks in aggregation (would need proof-of-possession)
+//! - SecretKey will be zeroized on drop when the `alloc` feature is enabled in lambdaworks-math
 //!
 //! For production use, consider well-audited libraries like `blst` or `bls-signatures`.
 
@@ -331,7 +332,7 @@ pub fn batch_verify(
         let f = miller(&h.to_affine(), &pk.pk.to_affine());
         lhs *= f;
     }
-    let lhs = final_exponentiation(&lhs);
+    let lhs = final_exponentiation(&lhs).map_err(|_| BlsError::PairingError)?;
 
     // Compute e(G1, sig_sum)
     let rhs = BLS12381AtePairing::compute_batch(&[(&g1.to_affine(), &sig_sum.to_affine())])

@@ -35,4 +35,19 @@ pub enum MetalError {
     /// A Metal command failed to execute.
     #[error("Metal command execution failed: {0}")]
     ExecutionError(String),
+
+    /// Input size is invalid for the operation.
+    #[error("Invalid input size: expected {expected}, got {actual}")]
+    InvalidInputSize { expected: usize, actual: usize },
+
+    /// MSM input length mismatch (scalars vs points).
+    #[error("MSM length mismatch: {0} scalars vs {1} points")]
+    LengthMismatch(usize, usize),
+
+    /// MSM received empty input.
+    #[error("MSM received empty input")]
+    EmptyInput,
 }
+
+/// Result type alias for Metal operations.
+pub type MetalResult<T> = Result<T, MetalError>;

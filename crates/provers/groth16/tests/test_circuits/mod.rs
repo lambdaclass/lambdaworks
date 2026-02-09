@@ -38,6 +38,7 @@ pub fn vitalik_qap() -> QAP {
     ]
     .map(|matrix| matrix.map(|row| row.map(FrElement::from_hex_unchecked).to_vec()));
     QAP::from_variable_matrices(num_of_public_inputs, &l, &r, &o)
+        .expect("valid QAP from Vitalik's example")
 }
 
 /*
@@ -90,8 +91,8 @@ pub fn test_qap_2() -> QAP {
     .map(|matrix| {
         matrix.map(|row| {
             row.map(|elem| {
-                if elem.starts_with('-') {
-                    -FrElement::from_hex_unchecked(&elem.chars().skip(1).collect::<String>())
+                if let Some(stripped) = elem.strip_prefix('-') {
+                    -FrElement::from_hex_unchecked(stripped)
                 } else {
                     FrElement::from_hex_unchecked(elem)
                 }
@@ -100,4 +101,5 @@ pub fn test_qap_2() -> QAP {
         })
     });
     QAP::from_variable_matrices(num_of_public_inputs, &l, &r, &o)
+        .expect("valid QAP from test circuit 2")
 }

@@ -16,3 +16,15 @@ pub enum Groth16Error {
     #[error("Setup error: {0}")]
     SetupError(String),
 }
+
+impl Groth16Error {
+    /// Creates an MSMError from any Debug-printable error.
+    pub fn msm<E: core::fmt::Debug>(e: E) -> Self {
+        Self::MSMError(format!("{e:?}"))
+    }
+
+    /// Creates a PairingError from any Debug-printable error.
+    pub fn pairing<E: core::fmt::Debug>(e: E) -> Self {
+        Self::PairingError(format!("{e:?}"))
+    }
+}

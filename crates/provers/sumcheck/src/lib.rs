@@ -1,5 +1,9 @@
 pub mod prover;
+pub mod prover_optimized;
 pub mod verifier;
+
+#[cfg(feature = "metal")]
+pub mod gpu;
 
 use lambdaworks_crypto::fiat_shamir::default_transcript::DefaultTranscript;
 use lambdaworks_crypto::fiat_shamir::is_transcript::IsTranscript;
@@ -14,6 +18,7 @@ use thiserror::Error;
 
 pub use prover::ProverOutput;
 pub use prover::{prove, Prover, ProverError};
+pub use prover_optimized::{prove_optimized, OptimizedProver, OptimizedProverError};
 pub use verifier::{verify, Verifier, VerifierError, VerifierRoundResult};
 
 /// Error type for evaluation operations in sumcheck
@@ -99,6 +104,50 @@ where
     FieldElement<F>: Clone + Mul<Output = FieldElement<F>> + ByteConversion,
 {
     prove(vec![poly1, poly2, poly3])
+}
+
+pub fn prove_linear_optimized<F>(poly: DenseMultilinearPolynomial<F>) -> ProverOutput<F>
+where
+    F: IsField + HasDefaultTranscript,
+    F::BaseType: Send + Sync,
+    FieldElement<F>: Clone + Mul<Output = FieldElement<F>> + ByteConversion,
+{
+    prove_optimized(vec![poly])
+}
+
+pub fn prove_quadratic_optimized<F>(
+    poly1: DenseMultilinearPolynomial<F>,
+    poly2: DenseMultilinearPolynomial<F>,
+) -> ProverOutput<F>
+where
+    F: IsField + HasDefaultTranscript,
+    F::BaseType: Send + Sync,
+    FieldElement<F>: Clone + Mul<Output = FieldElement<F>> + ByteConversion,
+{
+    if poly1.num_vars() != poly2.num_vars() {
+        return Err(ProverError::FactorMismatch(
+            "Polynomials must have the same number of variables for quadratic prove.".to_string(),
+        ));
+    }
+    prove_optimized(vec![poly1, poly2])
+}
+
+pub fn prove_cubic_optimized<F>(
+    poly1: DenseMultilinearPolynomial<F>,
+    poly2: DenseMultilinearPolynomial<F>,
+    poly3: DenseMultilinearPolynomial<F>,
+) -> ProverOutput<F>
+where
+    F: IsField + HasDefaultTranscript,
+    F::BaseType: Send + Sync,
+    FieldElement<F>: Clone + Mul<Output = FieldElement<F>> + ByteConversion,
+{
+    if poly1.num_vars() != poly2.num_vars() || poly1.num_vars() != poly3.num_vars() {
+        return Err(ProverError::FactorMismatch(
+            "Polynomials must have the same number of variables for cubic prove.".to_string(),
+        ));
+    }
+    prove_optimized(vec![poly1, poly2, poly3])
 }
 
 pub fn verify_cubic<F>(

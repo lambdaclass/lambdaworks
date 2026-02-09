@@ -1,14 +1,18 @@
-use lambdaworks_groth16::{common::FrElement, QuadraticArithmeticProgram};
+use lambdaworks_groth16::{common::FrElement, Groth16Error, QuadraticArithmeticProgram};
 
 mod readers;
 pub use readers::*;
 
 /// Given a [`CircomR1CS`] and [`CircomWitness`] it returns a [QAP](QuadraticArithmeticProgram),
 /// witness, and public signals; all compatible with Lambdaworks.
+///
+/// # Errors
+///
+/// Returns an error if QAP construction fails (e.g., matrices have inconsistent dimensions).
 pub fn circom_to_lambda(
     circom_r1cs: CircomR1CS,
     witness: CircomWitness,
-) -> (QuadraticArithmeticProgram, Vec<FrElement>, Vec<FrElement>) {
+) -> Result<(QuadraticArithmeticProgram, Vec<FrElement>, Vec<FrElement>), Groth16Error> {
     let num_of_outputs = circom_r1cs.num_outputs;
     let num_of_pub_inputs = circom_r1cs.num_pub_inputs;
 
@@ -18,9 +22,9 @@ pub fn circom_to_lambda(
 
     // get L,R,O matrices from R1CS
     let [l, r, o] = build_lro_from_circom_r1cs(circom_r1cs);
-    let qap = QuadraticArithmeticProgram::from_variable_matrices(public_inputs.len(), &l, &r, &o);
+    let qap = QuadraticArithmeticProgram::from_variable_matrices(public_inputs.len(), &l, &r, &o)?;
 
-    (qap, witness, public_inputs)
+    Ok((qap, witness, public_inputs))
 }
 
 /// Takes as input circom.r1cs.json file and outputs LRO matrices

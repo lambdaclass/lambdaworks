@@ -19,6 +19,7 @@ proptest = { version = "1.1.0", optional = true }
 winter-math = { package = "winter-math", version = "0.6.4", default-features = false, optional = true }
 miden-core = { package = "miden-core", version = "0.7", default-features = false, optional = true }
 rand = { version = "0.8.5", default-features = false }
+zeroize = { version = "1.8", optional = true }
 
 # rayon
 rayon = { version = "1.7", optional = true }
@@ -41,14 +42,25 @@ const-random = "0.1.15"
 iai-callgrind.workspace = true
 proptest = "1.1.0"
 pprof = { version = "0.13.0", features = ["criterion", "flamegraph"] }
-p3-baby-bear = { git = "https://github.com/Plonky3/Plonky3" }
-p3-field = { git = "https://github.com/Plonky3/Plonky3" }
+p3-baby-bear = { git = "https://github.com/Plonky3/Plonky3", rev = "5fcf8d7" }
+p3-goldilocks = { git = "https://github.com/Plonky3/Plonky3", rev = "5fcf8d7" }
+p3-mersenne-31 = { git = "https://github.com/Plonky3/Plonky3", rev = "5fcf8d7" }
+p3-field = { git = "https://github.com/Plonky3/Plonky3", rev = "5fcf8d7" }
+p3-dft = { git = "https://github.com/Plonky3/Plonky3", rev = "5fcf8d7" }
+p3-matrix = { git = "https://github.com/Plonky3/Plonky3", rev = "5fcf8d7" }
+p3-circle = { git = "https://github.com/Plonky3/Plonky3", rev = "5fcf8d7" }
+ark-ff = "0.5"
+ark-ec = "0.5"
+ark-bn254 = "0.5"
+ark-bls12-381 = "0.5"
+ark-serialize = "0.5"
+ark-std = "0.5"
 rand = { version = "0.8.5", features = ["std"] }
 
 [features]
 default = ["parallel", "std"]
 std = ["alloc", "serde?/std", "serde_json?/std", "dep:thiserror"]
-alloc = []
+alloc = ["dep:zeroize"]
 parallel = ["dep:rayon"]
 lambdaworks-serde-binary = ["dep:serde", "alloc"]
 lambdaworks-serde-string = ["dep:serde", "dep:serde_json", "alloc"]
@@ -112,4 +124,8 @@ harness = false
 
 [[bench]]
 name = "criterion_asm_fields"
+harness = false
+
+[[bench]]
+name = "criterion_external_comparisons"
 harness = false
