@@ -66,7 +66,7 @@ where
             ));
         }
         let num_factors = factors.len();
-        let tables = factors.into_iter().map(|f| f.evals().clone()).collect();
+        let tables = factors.into_iter().map(|f| f.evals().to_vec()).collect();
         Ok(Self {
             num_vars,
             num_factors,
