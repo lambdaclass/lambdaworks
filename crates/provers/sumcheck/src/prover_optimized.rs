@@ -270,7 +270,7 @@ mod tests {
 
         // Reference: fix_first_variable
         let fixed = poly.fix_first_variable(&r);
-        let expected_evals = fixed.evals().clone();
+        let expected_evals = fixed.evals().to_vec();
 
         // Table folding
         let mut prover = OptimizedProver::new(vec![poly]).unwrap();

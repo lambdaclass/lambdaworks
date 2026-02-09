@@ -3,7 +3,6 @@ name = "lambdaworks-sumcheck"
 version = "0.1.0"
 edition = "2021"
 
-
 [dependencies]
 thiserror = "1.0"
 lambdaworks-math = { workspace = true, features = ["std"] }
@@ -19,6 +18,10 @@ metal = ["dep:metal", "dep:objc", "lambdaworks-gpu/metal"]
 
 [dev-dependencies]
 criterion = "0.5.1"
+
+[[bench]]
+name = "sumcheck_bench"
+harness = false
 
 [[bench]]
 name = "criterion_sumcheck"
