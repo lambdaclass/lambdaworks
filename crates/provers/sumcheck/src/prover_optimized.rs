@@ -78,7 +78,8 @@ where
             ));
         }
 
-        let tables: Vec<Vec<FieldElement<F>>> = factors.iter().map(|f| f.evals().to_vec()).collect();
+        let tables: Vec<Vec<FieldElement<F>>> =
+            factors.iter().map(|f| f.evals().to_vec()).collect();
 
         Ok(Self {
             num_vars,
