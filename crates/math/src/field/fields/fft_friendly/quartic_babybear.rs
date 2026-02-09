@@ -484,6 +484,31 @@ mod tests {
         assert_eq!(Fp4E::from_bytes_le(&bytes).unwrap().to_bytes_le(), bytes);
     }
 
+    #[test]
+    #[cfg(feature = "alloc")]
+    fn quartic_extension_bytes_per_field_is_correct() {
+        // Test the fixed bug: BYTES_PER_FIELD was 32 instead of 4
+        let elem = Fp4E::new([
+            FpE::from(1u64),
+            FpE::from(2u64),
+            FpE::from(3u64),
+            FpE::from(4u64),
+        ]);
+
+        let bytes_le = elem.to_bytes_le();
+        let bytes_be = elem.to_bytes_be();
+
+        // Each BabyBear field element is 4 bytes, so 4 elements = 16 bytes total
+        assert_eq!(bytes_le.len(), 16, "Expected 16 bytes (4 fields × 4 bytes)");
+        assert_eq!(bytes_be.len(), 16, "Expected 16 bytes (4 fields × 4 bytes)");
+
+        // Verify round-trip
+        let decoded_le = Fp4E::from_bytes_le(&bytes_le).unwrap();
+        let decoded_be = Fp4E::from_bytes_be(&bytes_be).unwrap();
+        assert_eq!(elem, decoded_le);
+        assert_eq!(elem, decoded_be);
+    }
+
     #[cfg(all(feature = "std", not(feature = "instruments")))]
     mod test_babybear_31_fft {
         use super::*;

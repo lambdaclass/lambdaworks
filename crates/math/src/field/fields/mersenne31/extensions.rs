@@ -749,6 +749,50 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "alloc")]
+    fn fp2_to_bytes_from_bytes_be_is_identity() {
+        let elem = Fp2E::new([FpE::from(12345), FpE::from(67890)]);
+        let bytes = elem.to_bytes_be();
+        let decoded = Fp2E::from_bytes_be(&bytes).unwrap();
+        assert_eq!(elem, decoded);
+    }
+
+    #[test]
+    #[cfg(feature = "alloc")]
+    fn fp2_from_bytes_to_bytes_be_is_identity() {
+        // 2 Mersenne31 elements × 4 bytes = 8 bytes
+        let bytes = [0u8, 1, 2, 3, 4, 5, 6, 7];
+        let elem = Fp2E::from_bytes_be(&bytes).unwrap();
+        assert_eq!(elem.to_bytes_be(), bytes);
+    }
+
+    #[test]
+    #[cfg(feature = "alloc")]
+    fn fp2_to_bytes_from_bytes_le_is_identity() {
+        let elem = Fp2E::new([FpE::from(0x12345678), FpE::from(0x1ABCDEF0)]);
+        let bytes = elem.to_bytes_le();
+        let decoded = Fp2E::from_bytes_le(&bytes).unwrap();
+        assert_eq!(elem, decoded);
+    }
+
+    #[test]
+    #[cfg(feature = "alloc")]
+    fn fp2_from_bytes_to_bytes_le_is_identity() {
+        let bytes = [7u8, 6, 5, 4, 3, 2, 1, 0];
+        let elem = Fp2E::from_bytes_le(&bytes).unwrap();
+        assert_eq!(elem.to_bytes_le(), bytes);
+    }
+
+    #[test]
+    #[cfg(feature = "alloc")]
+    fn fp2_le_be_bytes_are_different() {
+        let elem = Fp2E::new([FpE::from(0x01020304), FpE::from(0x05060708)]);
+        let le = elem.to_bytes_le();
+        let be = elem.to_bytes_be();
+        assert_ne!(le, be, "LE and BE byte representations should differ");
+    }
+
+    #[test]
     fn mul_fp4_by_zero_is_zero() {
         let a = Fp4E::new([
             Fp2E::new([FpE::from(2), FpE::from(3)]),
@@ -810,5 +854,63 @@ mod tests {
             Fp2E::new([FpE::from(3), FpE::from(4)]),
         ]);
         assert_eq!(a * &b, a_extension * b);
+    }
+
+    #[test]
+    #[cfg(feature = "alloc")]
+    fn fp4_to_bytes_from_bytes_be_is_identity() {
+        let elem = Fp4E::new([
+            Fp2E::new([FpE::from(1), FpE::from(2)]),
+            Fp2E::new([FpE::from(3), FpE::from(4)]),
+        ]);
+        let bytes = elem.to_bytes_be();
+        let decoded = Fp4E::from_bytes_be(&bytes).unwrap();
+        assert_eq!(elem, decoded);
+    }
+
+    #[test]
+    #[cfg(feature = "alloc")]
+    fn fp4_from_bytes_to_bytes_be_is_identity() {
+        // 4 Mersenne31 elements × 4 bytes = 16 bytes
+        let bytes = [
+            0u8, 1, 2, 3, // field 0
+            4, 5, 6, 7, // field 1
+            8, 9, 10, 11, // field 2
+            12, 13, 14, 15, // field 3
+        ];
+        let elem = Fp4E::from_bytes_be(&bytes).unwrap();
+        assert_eq!(elem.to_bytes_be(), bytes);
+    }
+
+    #[test]
+    #[cfg(feature = "alloc")]
+    fn fp4_to_bytes_from_bytes_le_is_identity() {
+        let elem = Fp4E::new([
+            Fp2E::new([FpE::from(0x11111111), FpE::from(0x22222222)]),
+            Fp2E::new([FpE::from(0x33333333), FpE::from(0x44444444)]),
+        ]);
+        let bytes = elem.to_bytes_le();
+        let decoded = Fp4E::from_bytes_le(&bytes).unwrap();
+        assert_eq!(elem, decoded);
+    }
+
+    #[test]
+    #[cfg(feature = "alloc")]
+    fn fp4_from_bytes_to_bytes_le_is_identity() {
+        let bytes = [15u8, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0];
+        let elem = Fp4E::from_bytes_le(&bytes).unwrap();
+        assert_eq!(elem.to_bytes_le(), bytes);
+    }
+
+    #[test]
+    #[cfg(feature = "alloc")]
+    fn fp4_le_be_bytes_are_different() {
+        let elem = Fp4E::new([
+            Fp2E::new([FpE::from(0x01020304), FpE::from(0x05060708)]),
+            Fp2E::new([FpE::from(0x090A0B0C), FpE::from(0x0D0E0F10)]),
+        ]);
+        let le = elem.to_bytes_le();
+        let be = elem.to_bytes_be();
+        assert_ne!(le, be, "LE and BE byte representations should differ");
     }
 }

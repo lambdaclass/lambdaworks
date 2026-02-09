@@ -43,6 +43,22 @@ use super::fields::montgomery_backed_prime_fields::{IsModulus, MontgomeryBackend
 use super::traits::{IsPrimeField, IsSubFieldOf, LegendreSymbol};
 
 /// A field element with operations algorithms defined in `F`
+///
+/// # Security Considerations
+///
+/// **WARNING**: This implementation is for educational and research purposes.
+/// For production cryptographic use, be aware:
+///
+/// - **Timing attacks**: Field operations are NOT constant-time. Operations on
+///   secret data (private keys, nonces) may leak information through timing
+///   side-channels.
+/// - **Zeroization**: When the `alloc` feature is enabled, use the `Zeroize` trait
+///   to clear sensitive field elements from memory when done. Stack-based copies
+///   are NOT automatically zeroized.
+/// - **Side-channel resistance**: No protection against power analysis, cache
+///   timing, or other side-channel attacks.
+///
+/// See GitHub issue for constant-time operation implementation plan (to be created).
 #[allow(clippy::derived_hash_with_manual_eq)]
 #[derive(Debug, Clone, Hash, Copy)]
 pub struct FieldElement<F: IsField> {
@@ -862,6 +878,17 @@ where
                 &MontgomeryBackendPrimeField::<M, NUM_LIMBS>::MU,
             ),
         }
+    }
+}
+
+#[cfg(feature = "alloc")]
+impl<F> zeroize::Zeroize for FieldElement<F>
+where
+    F: IsField,
+    F::BaseType: zeroize::Zeroize,
+{
+    fn zeroize(&mut self) {
+        self.value.zeroize();
     }
 }
 
