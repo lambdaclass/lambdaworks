@@ -1,5 +1,5 @@
 use super::{
-    field_extension::{BLS12377PrimeField, Degree2ExtensionField},
+    field_extension::BLS12377PrimeField,
     pairing::{GAMMA_12, GAMMA_13},
     twist::BLS12377TwistCurve,
 };
@@ -18,7 +18,6 @@ pub const SUBGROUP_ORDER: U256 =
 pub const CURVE_COFACTOR: U256 = U256::from_hex_unchecked("0x170b5d44300000000000000000000000");
 
 pub type BLS12377FieldElement = FieldElement<BLS12377PrimeField>;
-pub type BLS12377TwistCurveFieldElement = FieldElement<Degree2ExtensionField>;
 
 /// The description of the curve.
 #[derive(Clone, Debug)]
@@ -63,27 +62,15 @@ impl IsShortWeierstrass for BLS12377Curve {
 /// This is equal to the frobenius trace of the BLS12 377 curve minus one or seed value z.
 pub const MILLER_LOOP_CONSTANT: u64 = 0x8508c00000000001;
 
+/// MILLER_LOOP_CONSTANT², used for faster subgroup checks: φ(P) = -u²P.
+const MILLER_LOOP_CONSTANT_SQ: u128 =
+    (MILLER_LOOP_CONSTANT as u128) * (MILLER_LOOP_CONSTANT as u128);
+
 /// 𝛽 : primitive cube root of unity of 𝐹ₚ that §satisfies the minimal equation
 /// 𝛽² + 𝛽 + 1 = 0 mod 𝑝
 pub const CUBE_ROOT_OF_UNITY_G1: BLS12377FieldElement = FieldElement::from_hex_unchecked(
     "0x1ae3a4617c510eabc8756ba8f8c524eb8882a75cc9bc8e359064ee822fb5bffd1e945779fffffffffffffffffffffff",
 );
-
-/// x-coordinate of 𝜁 ∘ 𝜋_q ∘ 𝜁⁻¹, where 𝜁 is the isomorphism u:E'(𝔽ₚ₆) −> E(𝔽ₚ₁₂) from the twist to E
-pub const ENDO_U: BLS12377TwistCurveFieldElement =
-    BLS12377TwistCurveFieldElement::const_from_raw([
-        FieldElement::from_hex_unchecked(
-            "9B3AF05DD14F6EC619AAF7D34594AABC5ED1347970DEC00452217CC900000008508C00000000002",
-        ),
-        FieldElement::from_hex_unchecked("0"),
-    ]);
-
-/// y-coordinate of 𝜁 ∘ 𝜋_q ∘ 𝜁⁻¹, where 𝜁 is the isomorphism u:E'(𝔽ₚ₆) −> E(𝔽ₚ₁₂) from the twist to E
-pub const ENDO_V: BLS12377TwistCurveFieldElement =
-    BLS12377TwistCurveFieldElement::const_from_raw([
-        FieldElement::from_hex_unchecked("1680A40796537CAC0C534DB1A79BEB1400398F50AD1DEC1BCE649CF436B0F6299588459BFF27D8E6E76D5ECF1391C63"),
-        FieldElement::from_hex_unchecked("0"),
-    ]);
 
 impl ShortWeierstrassProjectivePoint<BLS12377Curve> {
     /// Returns 𝜙(P) = (𝑥, 𝑦) ⇒ (𝛽𝑥, 𝑦), where 𝛽 is the Cube Root of Unity in the base prime field.
@@ -98,10 +85,10 @@ impl ShortWeierstrassProjectivePoint<BLS12377Curve> {
     /// 𝜙(P) = −𝑢²P.
     /// See <https://eprint.iacr.org/2022/352.pdf> Section 4.3 Prop. 4.
     pub fn is_in_subgroup(&self) -> bool {
-        self.operate_with_self(MILLER_LOOP_CONSTANT)
-            .operate_with_self(MILLER_LOOP_CONSTANT)
-            .neg()
-            == self.phi()
+        if self.is_neutral_element() {
+            return true;
+        }
+        self.operate_with_self(MILLER_LOOP_CONSTANT_SQ).neg() == self.phi()
     }
 }
 
@@ -120,7 +107,7 @@ impl ShortWeierstrassProjectivePoint<BLS12377TwistCurve> {
         let [x, y, z] = self.coordinates();
         // SAFETY:
         // - `conjugate()` preserves the validity of the field element.
-        // - `ENDO_U` and `ENDO_V` are precomputed constants that ensure the
+        // - `GAMMA_12` and `GAMMA_13` are precomputed constants that ensure the
         //   resulting point satisfies the curve equation.
         // - `unwrap()` is safe because the transformation follows
         //   **a known valid isomorphism** between the twist and E.
@@ -143,7 +130,11 @@ impl ShortWeierstrassProjectivePoint<BLS12377TwistCurve> {
 mod tests {
     use super::*;
     use crate::{
-        cyclic_group::IsGroup, elliptic_curve::traits::EllipticCurveError,
+        cyclic_group::IsGroup,
+        elliptic_curve::{
+            short_weierstrass::curves::bls12_377::field_extension::Degree2ExtensionField,
+            traits::EllipticCurveError,
+        },
         field::element::FieldElement,
     };
 

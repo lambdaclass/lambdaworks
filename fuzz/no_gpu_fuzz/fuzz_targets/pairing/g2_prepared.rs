@@ -58,8 +58,8 @@ fuzz_target!(|data: (u64, u64, u64, u64)| {
     );
 
     // ===== TEST 2: Full pairing with prepared points =====
-    let standard_pairing = final_exponentiation(&standard_result);
-    let prepared_pairing = final_exponentiation(&prepared_result);
+    let standard_pairing = final_exponentiation(&standard_result).unwrap();
+    let prepared_pairing = final_exponentiation(&prepared_result).unwrap();
 
     assert_eq!(
         standard_pairing, prepared_pairing,
@@ -74,11 +74,11 @@ fuzz_target!(|data: (u64, u64, u64, u64)| {
         let bq_prepared = G2Prepared::from_g2_affine(&bq);
 
         let f1 = miller_with_prepared(&bq_prepared, &ap);
-        let result1 = final_exponentiation(&f1);
+        let result1 = final_exponentiation(&f1).unwrap();
 
         // e(P, Q)^(ab)
         let pq_miller = miller(&g2.to_affine(), &g1.to_affine());
-        let pq_pairing = final_exponentiation(&pq_miller);
+        let pq_pairing = final_exponentiation(&pq_miller).unwrap();
         let result2 = pq_pairing.pow(scalar_a as u64 * scalar_b as u64);
 
         assert_eq!(result1, result2, "Bilinearity failed with prepared points");
@@ -169,12 +169,12 @@ fuzz_target!(|data: (u64, u64, u64, u64)| {
 
         // e(P1 + P2, Q)
         let left = miller_with_prepared(&q_prepared, &p_sum);
-        let left_final = final_exponentiation(&left);
+        let left_final = final_exponentiation(&left).unwrap();
 
         // e(P1, Q) * e(P2, Q)
         let m1 = miller_with_prepared(&q_prepared, &p1_point);
         let m2 = miller_with_prepared(&q_prepared, &p2_point);
-        let right_final = final_exponentiation(&(&m1 * &m2));
+        let right_final = final_exponentiation(&(&m1 * &m2)).unwrap();
 
         assert_eq!(
             left_final, right_final,

@@ -2,6 +2,321 @@ use super::element::UnsignedInteger;
 
 pub struct MontgomeryAlgorithms;
 
+// ============================================================================
+// Shared pure-Rust helpers used by both aarch64 and x86_64 assembly modules.
+// These contain the u128-based CIOS logic, comparison, subtraction, and
+// modular add/sub routines that were previously duplicated in each arch module.
+// ============================================================================
+
+#[cfg(feature = "asm")]
+type LimbOp4 = fn(&[u64; 4], &[u64; 4]) -> ([u64; 4], bool);
+
+#[cfg(feature = "asm")]
+type LimbOp6 = fn(&[u64; 6], &[u64; 6]) -> ([u64; 6], bool);
+
+/// Greater-than-or-equal comparison for 4-limb arrays (big-endian limb order).
+#[cfg(feature = "asm")]
+#[inline(always)]
+fn const_ge_4(a: &[u64; 4], b: &[u64; 4]) -> bool {
+    let mut i = 0;
+    while i < 4 {
+        if a[i] > b[i] {
+            return true;
+        }
+        if a[i] < b[i] {
+            return false;
+        }
+        i += 1;
+    }
+    true // equal
+}
+
+/// Greater-than-or-equal comparison for 6-limb arrays (big-endian limb order).
+#[cfg(feature = "asm")]
+#[inline(always)]
+fn const_ge_6(a: &[u64; 6], b: &[u64; 6]) -> bool {
+    let mut i = 0;
+    while i < 6 {
+        if a[i] > b[i] {
+            return true;
+        }
+        if a[i] < b[i] {
+            return false;
+        }
+        i += 1;
+    }
+    true // equal
+}
+
+/// In-place subtraction for 4-limb arrays using the provided sub function.
+#[cfg(feature = "asm")]
+#[inline(always)]
+fn sub_with_4(a: &mut [u64; 4], b: &[u64; 4], sub_fn: LimbOp4) {
+    let (result, _) = sub_fn(a, b);
+    *a = result;
+}
+
+/// In-place subtraction for 6-limb arrays using the provided sub function.
+#[cfg(feature = "asm")]
+#[inline(always)]
+fn sub_with_6(a: &mut [u64; 6], b: &[u64; 6], sub_fn: LimbOp6) {
+    let (result, _) = sub_fn(a, b);
+    *a = result;
+}
+
+/// Standard CIOS Montgomery multiplication for 4 limbs (with overflow tracking).
+/// Pure Rust u128 implementation — LLVM generates efficient native code.
+#[cfg(feature = "asm")]
+#[inline(always)]
+fn cios_4_limbs_rust(
+    a: &[u64; 4],
+    b: &[u64; 4],
+    q: &[u64; 4],
+    mu: u64,
+    sub_fn: LimbOp4,
+) -> [u64; 4] {
+    const N: usize = 4;
+    let mut t = [0u64; N];
+    let mut t_extra = [0u64; 2];
+
+    for i in (0..N).rev() {
+        let mut c: u128 = 0;
+        for j in (0..N).rev() {
+            let cs = t[j] as u128 + (a[j] as u128) * (b[i] as u128) + c;
+            c = cs >> 64;
+            t[j] = cs as u64;
+        }
+        let cs = (t_extra[1] as u128) + c;
+        t_extra[0] = (cs >> 64) as u64;
+        t_extra[1] = cs as u64;
+
+        let m = t[N - 1].wrapping_mul(mu) as u128;
+
+        let mut c: u128 = (t[N - 1] as u128 + m * (q[N - 1] as u128)) >> 64;
+        for j in (0..N - 1).rev() {
+            let cs = t[j] as u128 + m * (q[j] as u128) + c;
+            c = cs >> 64;
+            t[j + 1] = cs as u64;
+        }
+        let cs = (t_extra[1] as u128) + c;
+        c = cs >> 64;
+        t[0] = cs as u64;
+        t_extra[1] = t_extra[0] + c as u64;
+        t_extra[0] = 0;
+    }
+
+    let overflow = t_extra[1] > 0;
+    if overflow || const_ge_4(&t, q) {
+        sub_with_4(&mut t, q, sub_fn);
+    }
+    t
+}
+
+/// Standard CIOS Montgomery multiplication for 6 limbs (with overflow tracking).
+#[cfg(feature = "asm")]
+#[inline(always)]
+fn cios_6_limbs_rust(
+    a: &[u64; 6],
+    b: &[u64; 6],
+    q: &[u64; 6],
+    mu: u64,
+    sub_fn: LimbOp6,
+) -> [u64; 6] {
+    const N: usize = 6;
+    let mut t = [0u64; N];
+    let mut t_extra = [0u64; 2];
+
+    for i in (0..N).rev() {
+        let mut c: u128 = 0;
+        for j in (0..N).rev() {
+            let cs = t[j] as u128 + (a[j] as u128) * (b[i] as u128) + c;
+            c = cs >> 64;
+            t[j] = cs as u64;
+        }
+        let cs = (t_extra[1] as u128) + c;
+        t_extra[0] = (cs >> 64) as u64;
+        t_extra[1] = cs as u64;
+
+        let m = t[N - 1].wrapping_mul(mu) as u128;
+
+        let mut c: u128 = (t[N - 1] as u128 + m * (q[N - 1] as u128)) >> 64;
+        for j in (0..N - 1).rev() {
+            let cs = t[j] as u128 + m * (q[j] as u128) + c;
+            c = cs >> 64;
+            t[j + 1] = cs as u64;
+        }
+        let cs = (t_extra[1] as u128) + c;
+        c = cs >> 64;
+        t[0] = cs as u64;
+        t_extra[1] = t_extra[0] + c as u64;
+        t_extra[0] = 0;
+    }
+
+    let overflow = t_extra[1] > 0;
+    if overflow || const_ge_6(&t, q) {
+        sub_with_6(&mut t, q, sub_fn);
+    }
+    t
+}
+
+/// Spare-bit optimized CIOS Montgomery multiplication for 4 limbs.
+/// For moduli where the high limb is < 2^63 - 1.
+#[cfg(feature = "asm")]
+#[inline(always)]
+fn cios_4_limbs_optimized_rust(
+    a: &[u64; 4],
+    b: &[u64; 4],
+    q: &[u64; 4],
+    mu: u64,
+    sub_fn: LimbOp4,
+) -> [u64; 4] {
+    const N: usize = 4;
+    let mut t = [0u64; N];
+
+    for i in (0..N).rev() {
+        let mut c: u128 = 0;
+        for j in (0..N).rev() {
+            let cs = t[j] as u128 + (a[j] as u128) * (b[i] as u128) + c;
+            c = cs >> 64;
+            t[j] = cs as u64;
+        }
+        let t_extra = c as u64;
+
+        let m = t[N - 1].wrapping_mul(mu) as u128;
+
+        let mut c: u128 = (t[N - 1] as u128 + m * (q[N - 1] as u128)) >> 64;
+        for j in (0..N - 1).rev() {
+            let cs = t[j] as u128 + m * (q[j] as u128) + c;
+            c = cs >> 64;
+            t[j + 1] = cs as u64;
+        }
+        let cs = (t_extra as u128) + c;
+        t[0] = cs as u64;
+    }
+
+    if const_ge_4(&t, q) {
+        sub_with_4(&mut t, q, sub_fn);
+    }
+    t
+}
+
+/// Spare-bit optimized CIOS Montgomery multiplication for 6 limbs.
+#[cfg(feature = "asm")]
+#[inline(always)]
+fn cios_6_limbs_optimized_rust(
+    a: &[u64; 6],
+    b: &[u64; 6],
+    q: &[u64; 6],
+    mu: u64,
+    sub_fn: LimbOp6,
+) -> [u64; 6] {
+    const N: usize = 6;
+    let mut t = [0u64; N];
+
+    for i in (0..N).rev() {
+        let mut c: u128 = 0;
+        for j in (0..N).rev() {
+            let cs = t[j] as u128 + (a[j] as u128) * (b[i] as u128) + c;
+            c = cs >> 64;
+            t[j] = cs as u64;
+        }
+        let t_extra = c as u64;
+
+        let m = t[N - 1].wrapping_mul(mu) as u128;
+
+        let mut c: u128 = (t[N - 1] as u128 + m * (q[N - 1] as u128)) >> 64;
+        for j in (0..N - 1).rev() {
+            let cs = t[j] as u128 + m * (q[j] as u128) + c;
+            c = cs >> 64;
+            t[j + 1] = cs as u64;
+        }
+        let cs = (t_extra as u128) + c;
+        t[0] = cs as u64;
+    }
+
+    if const_ge_6(&t, q) {
+        sub_with_6(&mut t, q, sub_fn);
+    }
+    t
+}
+
+/// Modular addition: r = (a + b) mod q.
+/// Uses the provided arch-specific add/sub functions for carry-chain efficiency.
+#[cfg(feature = "asm")]
+#[inline(always)]
+fn mod_add_4_limbs(
+    a: &[u64; 4],
+    b: &[u64; 4],
+    q: &[u64; 4],
+    add_fn: LimbOp4,
+    sub_fn: LimbOp4,
+) -> [u64; 4] {
+    let (sum, overflow) = add_fn(a, b);
+    if overflow || const_ge_4(&sum, q) {
+        let (reduced, _) = sub_fn(&sum, q);
+        reduced
+    } else {
+        sum
+    }
+}
+
+/// Modular subtraction: r = (a - b) mod q.
+#[cfg(feature = "asm")]
+#[inline(always)]
+fn mod_sub_4_limbs(
+    a: &[u64; 4],
+    b: &[u64; 4],
+    q: &[u64; 4],
+    add_fn: LimbOp4,
+    sub_fn: LimbOp4,
+) -> [u64; 4] {
+    let (diff, borrow) = sub_fn(a, b);
+    if borrow {
+        let (result, _) = add_fn(&diff, q);
+        result
+    } else {
+        diff
+    }
+}
+
+/// Modular addition: r = (a + b) mod q (6 limbs).
+#[cfg(feature = "asm")]
+#[inline(always)]
+fn mod_add_6_limbs(
+    a: &[u64; 6],
+    b: &[u64; 6],
+    q: &[u64; 6],
+    add_fn: LimbOp6,
+    sub_fn: LimbOp6,
+) -> [u64; 6] {
+    let (sum, overflow) = add_fn(a, b);
+    if overflow || const_ge_6(&sum, q) {
+        let (reduced, _) = sub_fn(&sum, q);
+        reduced
+    } else {
+        sum
+    }
+}
+
+/// Modular subtraction: r = (a - b) mod q (6 limbs).
+#[cfg(feature = "asm")]
+#[inline(always)]
+fn mod_sub_6_limbs(
+    a: &[u64; 6],
+    b: &[u64; 6],
+    q: &[u64; 6],
+    add_fn: LimbOp6,
+    sub_fn: LimbOp6,
+) -> [u64; 6] {
+    let (diff, borrow) = sub_fn(a, b);
+    if borrow {
+        let (result, _) = add_fn(&diff, q);
+        result
+    } else {
+        diff
+    }
+}
+
 // ARM64 assembly implementations for Montgomery multiplication
 #[cfg(all(target_arch = "aarch64", feature = "asm"))]
 mod aarch64_asm {
@@ -170,224 +485,43 @@ mod aarch64_asm {
         (r, no_borrow == 0)
     }
 
-    /// ARM64 optimized CIOS Montgomery multiplication for 4 limbs (256-bit)
-    /// Uses pure Rust with u128 arithmetic which LLVM optimizes well for ARM64
-    /// Note: lambdaworks uses big-endian limb order (limbs[0] = MSB)
+    /// Standard CIOS Montgomery multiplication for 4 limbs.
+    /// Delegates to shared pure-Rust u128 implementation with ARM64 asm subtraction.
     #[inline(always)]
     pub fn cios_4_limbs(a: &[u64; 4], b: &[u64; 4], q: &[u64; 4], mu: u64) -> [u64; 4] {
-        // Use the same algorithm as the generic CIOS but specialized for 4 limbs
-        // LLVM generates efficient ARM64 code with MUL/UMULH for u128 operations
-        const N: usize = 4;
-        let mut t = [0u64; N];
-        let mut t_extra = [0u64; 2];
-
-        // Iterate from LSB to MSB (i = N-1 down to 0)
-        for i in (0..N).rev() {
-            // t += a * b[i]
-            let mut c: u128 = 0;
-            for j in (0..N).rev() {
-                let cs = t[j] as u128 + (a[j] as u128) * (b[i] as u128) + c;
-                c = cs >> 64;
-                t[j] = cs as u64;
-            }
-            let cs = (t_extra[1] as u128) + c;
-            t_extra[0] = (cs >> 64) as u64;
-            t_extra[1] = cs as u64;
-
-            // m := t[N-1] * mu mod 2^64
-            let m = t[N - 1].wrapping_mul(mu) as u128;
-
-            // t += m * q, then shift right by 64
-            let mut c: u128 = (t[N - 1] as u128 + m * (q[N - 1] as u128)) >> 64;
-            for j in (0..N - 1).rev() {
-                let cs = t[j] as u128 + m * (q[j] as u128) + c;
-                c = cs >> 64;
-                t[j + 1] = cs as u64;
-            }
-            let cs = (t_extra[1] as u128) + c;
-            c = cs >> 64;
-            t[0] = cs as u64;
-            t_extra[1] = t_extra[0] + c as u64;
-            t_extra[0] = 0;
-        }
-
-        // Final reduction
-        let overflow = t_extra[1] > 0;
-        if overflow || const_ge_4(&t, q) {
-            sub_4(&mut t, q);
-        }
-        t
+        super::cios_4_limbs_rust(a, b, q, mu, sub_4_limbs_asm)
     }
 
-    /// ARM64 optimized CIOS Montgomery multiplication for 6 limbs (384-bit)
+    /// Standard CIOS Montgomery multiplication for 6 limbs.
     #[inline(always)]
     pub fn cios_6_limbs(a: &[u64; 6], b: &[u64; 6], q: &[u64; 6], mu: u64) -> [u64; 6] {
-        const N: usize = 6;
-        let mut t = [0u64; N];
-        let mut t_extra = [0u64; 2];
-
-        for i in (0..N).rev() {
-            // t += a * b[i]
-            let mut c: u128 = 0;
-            for j in (0..N).rev() {
-                let cs = t[j] as u128 + (a[j] as u128) * (b[i] as u128) + c;
-                c = cs >> 64;
-                t[j] = cs as u64;
-            }
-            let cs = (t_extra[1] as u128) + c;
-            t_extra[0] = (cs >> 64) as u64;
-            t_extra[1] = cs as u64;
-
-            // m := t[N-1] * mu mod 2^64
-            let m = t[N - 1].wrapping_mul(mu) as u128;
-
-            // t += m * q, then shift right by 64
-            let mut c: u128 = (t[N - 1] as u128 + m * (q[N - 1] as u128)) >> 64;
-            for j in (0..N - 1).rev() {
-                let cs = t[j] as u128 + m * (q[j] as u128) + c;
-                c = cs >> 64;
-                t[j + 1] = cs as u64;
-            }
-            let cs = (t_extra[1] as u128) + c;
-            c = cs >> 64;
-            t[0] = cs as u64;
-            t_extra[1] = t_extra[0] + c as u64;
-            t_extra[0] = 0;
-        }
-
-        // Final reduction
-        let overflow = t_extra[1] > 0;
-        if overflow || const_ge_6(&t, q) {
-            sub_6(&mut t, q);
-        }
-        t
+        super::cios_6_limbs_rust(a, b, q, mu, sub_6_limbs_asm)
     }
 
-    #[inline(always)]
-    fn const_ge_4(a: &[u64; 4], b: &[u64; 4]) -> bool {
-        for i in 0..4 {
-            if a[i] > b[i] {
-                return true;
-            }
-            if a[i] < b[i] {
-                return false;
-            }
-        }
-        true // equal
-    }
-
-    #[inline(always)]
-    fn const_ge_6(a: &[u64; 6], b: &[u64; 6]) -> bool {
-        for i in 0..6 {
-            if a[i] > b[i] {
-                return true;
-            }
-            if a[i] < b[i] {
-                return false;
-            }
-        }
-        true // equal
-    }
-
-    #[inline(always)]
-    fn sub_4(a: &mut [u64; 4], b: &[u64; 4]) {
-        let (result, _) = sub_4_limbs_asm(a, b);
-        *a = result;
-    }
-
-    #[inline(always)]
-    fn sub_6(a: &mut [u64; 6], b: &[u64; 6]) {
-        let (result, _) = sub_6_limbs_asm(a, b);
-        *a = result;
-    }
-
-    /// Modular addition for 4 limbs: r = (a + b) mod q
-    /// Uses conditional subtraction for reduction
     #[inline(always)]
     pub fn mod_add_4_limbs(a: &[u64; 4], b: &[u64; 4], q: &[u64; 4]) -> [u64; 4] {
-        let (sum, overflow) = add_4_limbs_asm(a, b);
-        if overflow || const_ge_4(&sum, q) {
-            let (reduced, _) = sub_4_limbs_asm(&sum, q);
-            reduced
-        } else {
-            sum
-        }
+        super::mod_add_4_limbs(a, b, q, add_4_limbs_asm, sub_4_limbs_asm)
     }
 
-    /// Modular subtraction for 4 limbs: r = (a - b) mod q
-    /// Adds modulus if borrow occurs
     #[inline(always)]
     pub fn mod_sub_4_limbs(a: &[u64; 4], b: &[u64; 4], q: &[u64; 4]) -> [u64; 4] {
-        let (diff, borrow) = sub_4_limbs_asm(a, b);
-        if borrow {
-            let (result, _) = add_4_limbs_asm(&diff, q);
-            result
-        } else {
-            diff
-        }
+        super::mod_sub_4_limbs(a, b, q, add_4_limbs_asm, sub_4_limbs_asm)
     }
 
-    /// Modular addition for 6 limbs: r = (a + b) mod q
     #[inline(always)]
     pub fn mod_add_6_limbs(a: &[u64; 6], b: &[u64; 6], q: &[u64; 6]) -> [u64; 6] {
-        let (sum, overflow) = add_6_limbs_asm(a, b);
-        if overflow || const_ge_6(&sum, q) {
-            let (reduced, _) = sub_6_limbs_asm(&sum, q);
-            reduced
-        } else {
-            sum
-        }
+        super::mod_add_6_limbs(a, b, q, add_6_limbs_asm, sub_6_limbs_asm)
     }
 
-    /// Modular subtraction for 6 limbs: r = (a - b) mod q
     #[inline(always)]
     pub fn mod_sub_6_limbs(a: &[u64; 6], b: &[u64; 6], q: &[u64; 6]) -> [u64; 6] {
-        let (diff, borrow) = sub_6_limbs_asm(a, b);
-        if borrow {
-            let (result, _) = add_6_limbs_asm(&diff, q);
-            result
-        } else {
-            diff
-        }
+        super::mod_sub_6_limbs(a, b, q, add_6_limbs_asm, sub_6_limbs_asm)
     }
 
-    /// ARM64 optimized CIOS for 4 limbs with spare bit optimization (EdMSM Algorithm 2)
-    /// For moduli where the high limb is < 2^63 - 1
-    /// Uses pure Rust with u128 (LLVM generates good ARM64 code)
+    /// Spare-bit optimized CIOS for 4 limbs.
     #[inline(always)]
     pub fn cios_4_limbs_optimized(a: &[u64; 4], b: &[u64; 4], q: &[u64; 4], mu: u64) -> [u64; 4] {
-        const N: usize = 4;
-        let mut t = [0u64; N];
-
-        for i in (0..N).rev() {
-            // t += a * b[i]
-            let mut c: u128 = 0;
-            for j in (0..N).rev() {
-                let cs = t[j] as u128 + (a[j] as u128) * (b[i] as u128) + c;
-                c = cs >> 64;
-                t[j] = cs as u64;
-            }
-            let t_extra = c as u64;
-
-            // m := t[N-1] * mu mod 2^64
-            let m = t[N - 1].wrapping_mul(mu) as u128;
-
-            // t += m * q, then shift right by 64
-            let mut c: u128 = (t[N - 1] as u128 + m * (q[N - 1] as u128)) >> 64;
-            for j in (0..N - 1).rev() {
-                let cs = t[j] as u128 + m * (q[j] as u128) + c;
-                c = cs >> 64;
-                t[j + 1] = cs as u64;
-            }
-            let cs = (t_extra as u128) + c;
-            t[0] = cs as u64;
-        }
-
-        // Final reduction (no overflow possible with spare bit)
-        if const_ge_4(&t, q) {
-            sub_4(&mut t, q);
-        }
-        t
+        super::cios_4_limbs_optimized_rust(a, b, q, mu, sub_4_limbs_asm)
     }
 
     /// ARM64 inline assembly CIOS for 4 limbs with spare bit optimization
@@ -723,42 +857,10 @@ mod aarch64_asm {
         t
     }
 
-    /// ARM64 optimized CIOS for 6 limbs with spare bit optimization (EdMSM Algorithm 2)
-    /// Uses pure Rust with u128 (LLVM generates good ARM64 code)
+    /// Spare-bit optimized CIOS for 6 limbs.
     #[inline(always)]
     pub fn cios_6_limbs_optimized(a: &[u64; 6], b: &[u64; 6], q: &[u64; 6], mu: u64) -> [u64; 6] {
-        const N: usize = 6;
-        let mut t = [0u64; N];
-
-        for i in (0..N).rev() {
-            // t += a * b[i]
-            let mut c: u128 = 0;
-            for j in (0..N).rev() {
-                let cs = t[j] as u128 + (a[j] as u128) * (b[i] as u128) + c;
-                c = cs >> 64;
-                t[j] = cs as u64;
-            }
-            let t_extra = c as u64;
-
-            // m := t[N-1] * mu mod 2^64
-            let m = t[N - 1].wrapping_mul(mu) as u128;
-
-            // t += m * q, then shift right by 64
-            let mut c: u128 = (t[N - 1] as u128 + m * (q[N - 1] as u128)) >> 64;
-            for j in (0..N - 1).rev() {
-                let cs = t[j] as u128 + m * (q[j] as u128) + c;
-                c = cs >> 64;
-                t[j + 1] = cs as u64;
-            }
-            let cs = (t_extra as u128) + c;
-            t[0] = cs as u64;
-        }
-
-        // Final reduction (no overflow possible with spare bit)
-        if const_ge_6(&t, q) {
-            sub_6(&mut t, q);
-        }
-        t
+        super::cios_6_limbs_optimized_rust(a, b, q, mu, sub_6_limbs_asm)
     }
 
     /// ARM64 inline assembly CIOS for 6 limbs with spare bit optimization
@@ -1786,268 +1888,49 @@ mod x86_64_asm {
         (r, borrow != 0)
     }
 
-    #[inline(always)]
-    fn const_ge_4(a: &[u64; 4], b: &[u64; 4]) -> bool {
-        for i in 0..4 {
-            if a[i] > b[i] {
-                return true;
-            }
-            if a[i] < b[i] {
-                return false;
-            }
-        }
-        true // equal
-    }
-
-    #[inline(always)]
-    fn const_ge_6(a: &[u64; 6], b: &[u64; 6]) -> bool {
-        for i in 0..6 {
-            if a[i] > b[i] {
-                return true;
-            }
-            if a[i] < b[i] {
-                return false;
-            }
-        }
-        true // equal
-    }
-
-    #[inline(always)]
-    fn sub_4(a: &mut [u64; 4], b: &[u64; 4]) {
-        let (result, _) = sub_4_limbs_asm(a, b);
-        *a = result;
-    }
-
-    #[inline(always)]
-    fn sub_6(a: &mut [u64; 6], b: &[u64; 6]) {
-        let (result, _) = sub_6_limbs_asm(a, b);
-        *a = result;
-    }
-
-    /// Modular addition for 4 limbs: r = (a + b) mod q
-    #[inline(always)]
-    pub fn mod_add_4_limbs(a: &[u64; 4], b: &[u64; 4], q: &[u64; 4]) -> [u64; 4] {
-        let (sum, overflow) = add_4_limbs_asm(a, b);
-        if overflow || const_ge_4(&sum, q) {
-            let (reduced, _) = sub_4_limbs_asm(&sum, q);
-            reduced
-        } else {
-            sum
-        }
-    }
-
-    /// Modular subtraction for 4 limbs: r = (a - b) mod q
-    #[inline(always)]
-    pub fn mod_sub_4_limbs(a: &[u64; 4], b: &[u64; 4], q: &[u64; 4]) -> [u64; 4] {
-        let (diff, borrow) = sub_4_limbs_asm(a, b);
-        if borrow {
-            let (result, _) = add_4_limbs_asm(&diff, q);
-            result
-        } else {
-            diff
-        }
-    }
-
-    /// Modular addition for 6 limbs: r = (a + b) mod q
-    #[inline(always)]
-    pub fn mod_add_6_limbs(a: &[u64; 6], b: &[u64; 6], q: &[u64; 6]) -> [u64; 6] {
-        let (sum, overflow) = add_6_limbs_asm(a, b);
-        if overflow || const_ge_6(&sum, q) {
-            let (reduced, _) = sub_6_limbs_asm(&sum, q);
-            reduced
-        } else {
-            sum
-        }
-    }
-
-    /// Modular subtraction for 6 limbs: r = (a - b) mod q
-    #[inline(always)]
-    pub fn mod_sub_6_limbs(a: &[u64; 6], b: &[u64; 6], q: &[u64; 6]) -> [u64; 6] {
-        let (diff, borrow) = sub_6_limbs_asm(a, b);
-        if borrow {
-            let (result, _) = add_6_limbs_asm(&diff, q);
-            result
-        } else {
-            diff
-        }
-    }
-
-    /// x86-64 optimized CIOS Montgomery multiplication for 4 limbs (256-bit)
-    ///
-    /// # Design Note
-    /// This implementation uses Rust u128 arithmetic for the multiply-accumulate
-    /// operations rather than full inline assembly. LLVM optimizes u128 arithmetic
-    /// to efficient MUL/MULX instructions on x86-64. This approach provides:
-    /// - Significantly simpler code (~40 lines vs ~400 lines of full asm)
-    /// - Easier maintenance and verification
-    /// - Good performance (LLVM generates near-optimal code)
-    ///
-    /// The critical add/sub operations with carry chains DO use inline assembly
-    /// for optimal performance. This hybrid approach balances performance and
-    /// maintainability, similar to the aarch64 implementation strategy.
-    ///
-    /// Note: lambdaworks uses big-endian limb order (limbs[0] = MSB)
+    /// Standard CIOS Montgomery multiplication for 4 limbs.
+    /// Delegates to shared pure-Rust u128 implementation with x86-64 asm subtraction.
     #[inline(always)]
     pub fn cios_4_limbs(a: &[u64; 4], b: &[u64; 4], q: &[u64; 4], mu: u64) -> [u64; 4] {
-        const N: usize = 4;
-        let mut t = [0u64; N];
-        let mut t_extra = [0u64; 2];
-
-        // Iterate from LSB to MSB (i = N-1 down to 0)
-        for i in (0..N).rev() {
-            // t += a * b[i]
-            let mut c: u128 = 0;
-            for j in (0..N).rev() {
-                let cs = t[j] as u128 + (a[j] as u128) * (b[i] as u128) + c;
-                c = cs >> 64;
-                t[j] = cs as u64;
-            }
-            let cs = (t_extra[1] as u128) + c;
-            t_extra[0] = (cs >> 64) as u64;
-            t_extra[1] = cs as u64;
-
-            // m := t[N-1] * mu mod 2^64
-            let m = t[N - 1].wrapping_mul(mu) as u128;
-
-            // t += m * q, then shift right by 64
-            let mut c: u128 = (t[N - 1] as u128 + m * (q[N - 1] as u128)) >> 64;
-            for j in (0..N - 1).rev() {
-                let cs = t[j] as u128 + m * (q[j] as u128) + c;
-                c = cs >> 64;
-                t[j + 1] = cs as u64;
-            }
-            let cs = (t_extra[1] as u128) + c;
-            c = cs >> 64;
-            t[0] = cs as u64;
-            t_extra[1] = t_extra[0] + c as u64;
-            t_extra[0] = 0;
-        }
-
-        // Final reduction
-        let overflow = t_extra[1] > 0;
-        if overflow || const_ge_4(&t, q) {
-            sub_4(&mut t, q);
-        }
-        t
+        super::cios_4_limbs_rust(a, b, q, mu, sub_4_limbs_asm)
     }
 
-    /// x86-64 optimized CIOS Montgomery multiplication for 6 limbs (384-bit)
+    /// Standard CIOS Montgomery multiplication for 6 limbs.
     #[inline(always)]
     pub fn cios_6_limbs(a: &[u64; 6], b: &[u64; 6], q: &[u64; 6], mu: u64) -> [u64; 6] {
-        const N: usize = 6;
-        let mut t = [0u64; N];
-        let mut t_extra = [0u64; 2];
-
-        for i in (0..N).rev() {
-            // t += a * b[i]
-            let mut c: u128 = 0;
-            for j in (0..N).rev() {
-                let cs = t[j] as u128 + (a[j] as u128) * (b[i] as u128) + c;
-                c = cs >> 64;
-                t[j] = cs as u64;
-            }
-            let cs = (t_extra[1] as u128) + c;
-            t_extra[0] = (cs >> 64) as u64;
-            t_extra[1] = cs as u64;
-
-            // m := t[N-1] * mu mod 2^64
-            let m = t[N - 1].wrapping_mul(mu) as u128;
-
-            // t += m * q, then shift right by 64
-            let mut c: u128 = (t[N - 1] as u128 + m * (q[N - 1] as u128)) >> 64;
-            for j in (0..N - 1).rev() {
-                let cs = t[j] as u128 + m * (q[j] as u128) + c;
-                c = cs >> 64;
-                t[j + 1] = cs as u64;
-            }
-            let cs = (t_extra[1] as u128) + c;
-            c = cs >> 64;
-            t[0] = cs as u64;
-            t_extra[1] = t_extra[0] + c as u64;
-            t_extra[0] = 0;
-        }
-
-        // Final reduction
-        let overflow = t_extra[1] > 0;
-        if overflow || const_ge_6(&t, q) {
-            sub_6(&mut t, q);
-        }
-        t
+        super::cios_6_limbs_rust(a, b, q, mu, sub_6_limbs_asm)
     }
 
-    /// x86-64 optimized CIOS for 4 limbs with spare bit optimization (EdMSM Algorithm 2)
-    /// For moduli where the high limb is < 2^63 - 1
+    #[inline(always)]
+    pub fn mod_add_4_limbs(a: &[u64; 4], b: &[u64; 4], q: &[u64; 4]) -> [u64; 4] {
+        super::mod_add_4_limbs(a, b, q, add_4_limbs_asm, sub_4_limbs_asm)
+    }
+
+    #[inline(always)]
+    pub fn mod_sub_4_limbs(a: &[u64; 4], b: &[u64; 4], q: &[u64; 4]) -> [u64; 4] {
+        super::mod_sub_4_limbs(a, b, q, add_4_limbs_asm, sub_4_limbs_asm)
+    }
+
+    #[inline(always)]
+    pub fn mod_add_6_limbs(a: &[u64; 6], b: &[u64; 6], q: &[u64; 6]) -> [u64; 6] {
+        super::mod_add_6_limbs(a, b, q, add_6_limbs_asm, sub_6_limbs_asm)
+    }
+
+    #[inline(always)]
+    pub fn mod_sub_6_limbs(a: &[u64; 6], b: &[u64; 6], q: &[u64; 6]) -> [u64; 6] {
+        super::mod_sub_6_limbs(a, b, q, add_6_limbs_asm, sub_6_limbs_asm)
+    }
+
+    /// Spare-bit optimized CIOS for 4 limbs.
     #[inline(always)]
     pub fn cios_4_limbs_optimized(a: &[u64; 4], b: &[u64; 4], q: &[u64; 4], mu: u64) -> [u64; 4] {
-        const N: usize = 4;
-        let mut t = [0u64; N];
-
-        for i in (0..N).rev() {
-            // t += a * b[i]
-            let mut c: u128 = 0;
-            for j in (0..N).rev() {
-                let cs = t[j] as u128 + (a[j] as u128) * (b[i] as u128) + c;
-                c = cs >> 64;
-                t[j] = cs as u64;
-            }
-            let t_extra = c as u64;
-
-            // m := t[N-1] * mu mod 2^64
-            let m = t[N - 1].wrapping_mul(mu) as u128;
-
-            // t += m * q, then shift right by 64
-            let mut c: u128 = (t[N - 1] as u128 + m * (q[N - 1] as u128)) >> 64;
-            for j in (0..N - 1).rev() {
-                let cs = t[j] as u128 + m * (q[j] as u128) + c;
-                c = cs >> 64;
-                t[j + 1] = cs as u64;
-            }
-            let cs = (t_extra as u128) + c;
-            t[0] = cs as u64;
-        }
-
-        // Final reduction (no overflow possible with spare bit)
-        if const_ge_4(&t, q) {
-            sub_4(&mut t, q);
-        }
-        t
+        super::cios_4_limbs_optimized_rust(a, b, q, mu, sub_4_limbs_asm)
     }
 
-    /// x86-64 optimized CIOS for 6 limbs with spare bit optimization
+    /// Spare-bit optimized CIOS for 6 limbs.
     #[inline(always)]
     pub fn cios_6_limbs_optimized(a: &[u64; 6], b: &[u64; 6], q: &[u64; 6], mu: u64) -> [u64; 6] {
-        const N: usize = 6;
-        let mut t = [0u64; N];
-
-        for i in (0..N).rev() {
-            // t += a * b[i]
-            let mut c: u128 = 0;
-            for j in (0..N).rev() {
-                let cs = t[j] as u128 + (a[j] as u128) * (b[i] as u128) + c;
-                c = cs >> 64;
-                t[j] = cs as u64;
-            }
-            let t_extra = c as u64;
-
-            // m := t[N-1] * mu mod 2^64
-            let m = t[N - 1].wrapping_mul(mu) as u128;
-
-            // t += m * q, then shift right by 64
-            let mut c: u128 = (t[N - 1] as u128 + m * (q[N - 1] as u128)) >> 64;
-            for j in (0..N - 1).rev() {
-                let cs = t[j] as u128 + m * (q[j] as u128) + c;
-                c = cs >> 64;
-                t[j + 1] = cs as u64;
-            }
-            let cs = (t_extra as u128) + c;
-            t[0] = cs as u64;
-        }
-
-        // Final reduction (no overflow possible with spare bit)
-        if const_ge_6(&t, q) {
-            sub_6(&mut t, q);
-        }
-        t
+        super::cios_6_limbs_optimized_rust(a, b, q, mu, sub_6_limbs_asm)
     }
 
     /// MULX-based CIOS Montgomery multiplication for 4 limbs (256-bit)
@@ -2193,8 +2076,8 @@ mod x86_64_asm {
         }
 
         // Final reduction
-        if t_extra > 0 || const_ge_4(&t, q) {
-            sub_4(&mut t, q);
+        if t_extra > 0 || super::const_ge_4(&t, q) {
+            super::sub_with_4(&mut t, q, sub_4_limbs_asm);
         }
         t
     }
@@ -2267,8 +2150,8 @@ mod x86_64_asm {
 
         // Final reduction
         let overflow = t_extra[1] > 0;
-        if overflow || const_ge_6(&t, q) {
-            sub_6(&mut t, q);
+        if overflow || super::const_ge_6(&t, q) {
+            super::sub_with_6(&mut t, q, sub_6_limbs_asm);
         }
         t
     }
