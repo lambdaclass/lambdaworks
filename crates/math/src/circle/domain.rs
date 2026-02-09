@@ -1,18 +1,18 @@
 extern crate alloc;
 use crate::circle::cosets::Coset;
 use crate::circle::point::CirclePoint;
-use crate::field::fields::mersenne31::field::Mersenne31Field;
+use crate::circle::traits::IsCircleFriField;
 #[cfg(feature = "alloc")]
 use alloc::vec::Vec;
 
 /// A circle domain is a coset of a circle subgroup, used as an evaluation domain.
 /// It wraps `Coset` and adds domain-level operations needed for Circle FRI.
 #[derive(Debug, Clone)]
-pub struct CircleDomain {
-    pub coset: Coset,
+pub struct CircleDomain<F: IsCircleFriField> {
+    pub coset: Coset<F>,
 }
 
-impl CircleDomain {
+impl<F: IsCircleFriField> CircleDomain<F> {
     /// Creates a standard domain of size 2^log_2_size.
     /// This is the coset g_{2n} + <g_n>.
     pub fn new_standard(log_2_size: u32) -> Self {
@@ -21,7 +21,7 @@ impl CircleDomain {
         }
     }
 
-    pub fn new(coset: Coset) -> Self {
+    pub fn new(coset: Coset<F>) -> Self {
         Self { coset }
     }
 
@@ -35,13 +35,13 @@ impl CircleDomain {
 
     /// Returns all points in the domain.
     #[cfg(feature = "alloc")]
-    pub fn get_points(&self) -> Vec<CirclePoint<Mersenne31Field>> {
+    pub fn get_points(&self) -> Vec<CirclePoint<F>> {
         Coset::get_coset_points(&self.coset)
     }
 
     /// After the first fold (y-fold), the domain projects to x-coordinates.
     /// The resulting domain for subsequent folds is the half-coset with the same shift.
-    pub fn fold_y(&self) -> CircleDomain {
+    pub fn fold_y(&self) -> CircleDomain<F> {
         CircleDomain {
             coset: Coset::half_coset(self.coset.clone()),
         }
@@ -49,7 +49,7 @@ impl CircleDomain {
 
     /// After an x-fold, the domain maps via x -> t = 2x^2 - 1.
     /// The resulting domain is a standard coset of half the current size.
-    pub fn fold_x(&self) -> CircleDomain {
+    pub fn fold_x(&self) -> CircleDomain<F> {
         CircleDomain {
             coset: Coset::new_standard(self.coset.log_2_size - 1),
         }
@@ -59,30 +59,33 @@ impl CircleDomain {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::field::fields::mersenne31::field::Mersenne31Field;
+
+    type TestDomain = CircleDomain<Mersenne31Field>;
 
     #[test]
     fn standard_domain_has_correct_size() {
-        let domain = CircleDomain::new_standard(4);
+        let domain = TestDomain::new_standard(4);
         assert_eq!(domain.size(), 16);
     }
 
     #[test]
     fn fold_y_halves_domain() {
-        let domain = CircleDomain::new_standard(4);
+        let domain = TestDomain::new_standard(4);
         let folded = domain.fold_y();
         assert_eq!(folded.size(), 8);
     }
 
     #[test]
     fn fold_x_halves_domain_again() {
-        let domain = CircleDomain::new_standard(4);
+        let domain = TestDomain::new_standard(4);
         let folded = domain.fold_y().fold_x();
         assert_eq!(folded.size(), 4);
     }
 
     #[test]
     fn repeated_folds_reduce_to_one() {
-        let domain = CircleDomain::new_standard(3); // 8 points
+        let domain = TestDomain::new_standard(3); // 8 points
         let d1 = domain.fold_y(); // 4 points
         assert_eq!(d1.size(), 4);
         let d2 = d1.fold_x(); // 2 points
@@ -95,7 +98,7 @@ mod tests {
     fn standard_coset_conjugate_pairing() {
         // In a standard coset of size n, the conjugate of point[i] is point[n-1-i].
         // Conjugate pairs share the same x-coordinate and have opposite y-coordinates.
-        let domain = CircleDomain::new_standard(3);
+        let domain = TestDomain::new_standard(3);
         let points = domain.get_points();
         let n = points.len();
 
@@ -119,7 +122,7 @@ mod tests {
 
     #[test]
     fn standard_coset_conjugate_pairing_16() {
-        let domain = CircleDomain::new_standard(4);
+        let domain = TestDomain::new_standard(4);
         let points = domain.get_points();
         let n = points.len();
 
@@ -133,7 +136,7 @@ mod tests {
     fn standard_coset_antipode_pairing() {
         // In a standard coset of size n, point[i] and point[i+n/2] are antipodes:
         // (-x, -y) relationship. This is used for x-fold pairing.
-        let domain = CircleDomain::new_standard(3);
+        let domain = TestDomain::new_standard(3);
         let points = domain.get_points();
         let n = points.len();
         let half = n / 2;

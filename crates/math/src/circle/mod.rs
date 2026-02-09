@@ -5,4 +5,5 @@ pub mod errors;
 pub mod fold;
 pub mod point;
 pub mod polynomial;
+pub mod traits;
 pub mod twiddles;

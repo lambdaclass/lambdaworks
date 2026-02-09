@@ -1,15 +1,12 @@
 extern crate alloc;
-use crate::field::{element::FieldElement, fields::mersenne31::field::Mersenne31Field};
+use crate::field::{element::FieldElement, traits::IsField};
 use alloc::vec;
 use alloc::vec::Vec;
 
 #[cfg(feature = "alloc")]
 /// fft in place algorithm used to evaluate a polynomial of degree 2^n - 1 in 2^n points.
 /// Input must be of size 2^n for some n.
-pub fn cfft(
-    input: &mut [FieldElement<Mersenne31Field>],
-    twiddles: Vec<Vec<FieldElement<Mersenne31Field>>>,
-) {
+pub fn cfft<F: IsField>(input: &mut [FieldElement<F>], twiddles: Vec<Vec<FieldElement<F>>>) {
     // If the input size is 2^n, then log_2_size is n.
     let log_2_size = input.len().trailing_zeros();
 
@@ -28,8 +25,8 @@ pub fn cfft(
                 .zip(low_part)
                 .enumerate()
                 .for_each(|(j, (hi, low))| {
-                    let temp = *low * twiddles[i as usize][j];
-                    *low = *hi - temp;
+                    let temp = low.clone() * twiddles[i as usize][j].clone();
+                    *low = hi.clone() - temp.clone();
                     *hi += temp
                 });
         });
@@ -39,10 +36,7 @@ pub fn cfft(
 #[cfg(feature = "alloc")]
 /// The inverse fft algorithm used to interpolate 2^n points.
 /// Input must be of size 2^n for some n.
-pub fn icfft(
-    input: &mut [FieldElement<Mersenne31Field>],
-    twiddles: Vec<Vec<FieldElement<Mersenne31Field>>>,
-) {
+pub fn icfft<F: IsField>(input: &mut [FieldElement<F>], twiddles: Vec<Vec<FieldElement<F>>>) {
     // If the input size is 2^n, then log_2_size is n.
     let log_2_size = input.len().trailing_zeros();
 
@@ -61,8 +55,8 @@ pub fn icfft(
                 .zip(low_part)
                 .enumerate()
                 .for_each(|(j, (hi, low))| {
-                    let temp = *hi + *low;
-                    *low = (*hi - *low) * twiddles[i as usize][j];
+                    let temp = hi.clone() + low.clone();
+                    *low = (hi.clone() - low.clone()) * twiddles[i as usize][j].clone();
                     *hi = temp;
                 });
         });
@@ -78,14 +72,12 @@ pub fn icfft(
 /// where the even indices are found first in ascending order and then the odd indices in descending order.
 /// This function permutes the slice [0, 2, 4, 6, 7, 5, 3, 1] into [0, 1, 2, 3, 4, 5, 6, 7].
 #[deprecated(note = "Use order_cfft_result_in_place for better performance")]
-pub fn order_cfft_result_naive(
-    input: &[FieldElement<Mersenne31Field>],
-) -> Vec<FieldElement<Mersenne31Field>> {
+pub fn order_cfft_result_naive<F: IsField>(input: &[FieldElement<F>]) -> Vec<FieldElement<F>> {
     let mut result = Vec::new();
     let length = input.len();
     for i in 0..length / 2 {
-        result.push(input[i]); // We push the left index.
-        result.push(input[length - i - 1]); // We push the right index.
+        result.push(input[i].clone()); // We push the left index.
+        result.push(input[length - i - 1].clone()); // We push the right index.
     }
     result
 }
@@ -111,7 +103,7 @@ pub fn order_cfft_result_naive(
 ///   where `src_for_dst(dst) = dst/2` if dst is even, `src_for_dst(dst) = n-1-dst/2` if dst is odd.
 ///
 /// We follow cycles to perform swaps in-place, using a bitvector to track visited positions.
-pub fn order_cfft_result_in_place(input: &mut [FieldElement<Mersenne31Field>]) {
+pub fn order_cfft_result_in_place<F: IsField>(input: &mut [FieldElement<F>]) {
     let n = input.len();
     if n <= 2 {
         return;
@@ -143,24 +135,19 @@ pub fn order_cfft_result_in_place(input: &mut [FieldElement<Mersenne31Field>]) {
             continue;
         }
 
-        // For cycle following with a permutation where we know the SOURCE for each destination,
-        // we need to follow the chain: dst <- src_for_dst(dst) <- src_for_dst(src_for_dst(dst)) <- ...
-        // Save the original value at `start`, then pull values from their sources
         let mut dst = start;
-        let temp = input[dst];
+        let temp = input[dst].clone();
 
         loop {
             mark_visited(&mut visited, dst);
             let src = src_for_dst(dst);
 
             if src == start {
-                // Cycle complete, place the saved value
                 input[dst] = temp;
                 break;
             }
 
-            // Pull the value from source to destination
-            input[dst] = input[src];
+            input[dst] = input[src].clone();
             dst = src;
         }
     }
@@ -172,19 +159,17 @@ pub fn order_cfft_result_in_place(input: &mut [FieldElement<Mersenne31Field>]) {
 /// where the even indices are found first in ascending order and then the odd indices in descending order.
 /// This function permutes the slice [0, 1, 2, 3, 4, 5, 6, 7] into [0, 2, 4, 6, 7, 5, 3, 1].
 #[deprecated(note = "Use order_icfft_input_in_place for better performance")]
-pub fn order_icfft_input_naive(
-    input: &mut [FieldElement<Mersenne31Field>],
-) -> Vec<FieldElement<Mersenne31Field>> {
+pub fn order_icfft_input_naive<F: IsField>(input: &mut [FieldElement<F>]) -> Vec<FieldElement<F>> {
     let mut result = Vec::new();
 
     // We push the even indices.
     (0..input.len()).step_by(2).for_each(|i| {
-        result.push(input[i]);
+        result.push(input[i].clone());
     });
 
     // We push the odd indices.
     (1..input.len()).step_by(2).rev().for_each(|i| {
-        result.push(input[i]);
+        result.push(input[i].clone());
     });
     result
 }
@@ -210,7 +195,7 @@ pub fn order_icfft_input_naive(
 /// - If `dst >= n/2`: `output[dst] = input[2*(n-1-dst)+1]`
 ///
 /// We follow cycles to perform swaps in-place, using a bitvector to track visited positions.
-pub fn order_icfft_input_in_place(input: &mut [FieldElement<Mersenne31Field>]) {
+pub fn order_icfft_input_in_place<F: IsField>(input: &mut [FieldElement<F>]) {
     let n = input.len();
     if n <= 2 {
         return;
@@ -244,24 +229,19 @@ pub fn order_icfft_input_in_place(input: &mut [FieldElement<Mersenne31Field>]) {
             continue;
         }
 
-        // For cycle following with a permutation where we know the SOURCE for each destination,
-        // we need to follow the chain: dst <- src_for_dst(dst) <- src_for_dst(src_for_dst(dst)) <- ...
-        // Save the original value at `start`, then pull values from their sources
         let mut dst = start;
-        let temp = input[dst];
+        let temp = input[dst].clone();
 
         loop {
             mark_visited(&mut visited, dst);
             let src = src_for_dst(dst);
 
             if src == start {
-                // Cycle complete, place the saved value
                 input[dst] = temp;
                 break;
             }
 
-            // Pull the value from source to destination
-            input[dst] = input[src];
+            input[dst] = input[src].clone();
             dst = src;
         }
     }
@@ -270,6 +250,8 @@ pub fn order_icfft_input_in_place(input: &mut [FieldElement<Mersenne31Field>]) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::field::fields::mersenne31::field::Mersenne31Field;
+
     type FE = FieldElement<Mersenne31Field>;
 
     #[test]

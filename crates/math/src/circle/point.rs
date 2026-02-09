@@ -1,4 +1,5 @@
 use super::errors::CircleError;
+use super::traits::IsCircleFriField;
 use crate::field::traits::IsField;
 use crate::field::{
     element::FieldElement,
@@ -71,13 +72,15 @@ impl<F: IsField + HasCircleParams<F>> CirclePoint<F> {
         y: F::CIRCLE_GENERATOR_Y,
     };
 
-    /// Returns the generator of the subgroup of order n = 2^log_2_size.
-    /// We are using that 2^k * g is a generator of the subgroup of order 2^{31 - k}.
-    pub fn get_generator_of_subgroup(log_2_size: u32) -> Self {
-        Self::GENERATOR.repeated_double(31 - log_2_size)
-    }
-
     pub const ORDER: u128 = F::ORDER;
+}
+
+impl<F: IsCircleFriField> CirclePoint<F> {
+    /// Returns the generator of the subgroup of order n = 2^log_2_size.
+    /// We are using that 2^k * g is a generator of the subgroup of order 2^{LOG_MAX_SUBGROUP_ORDER - k}.
+    pub fn get_generator_of_subgroup(log_2_size: u32) -> Self {
+        Self::GENERATOR.repeated_double(F::LOG_MAX_SUBGROUP_ORDER - log_2_size)
+    }
 }
 
 /// Parameters of the base field that we'll need to define its Circle.

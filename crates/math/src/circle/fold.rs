@@ -2,16 +2,9 @@ extern crate alloc;
 #[cfg(feature = "alloc")]
 use crate::circle::cfft::order_icfft_input_in_place;
 #[cfg(feature = "alloc")]
-use crate::field::{element::FieldElement, fields::mersenne31::field::Mersenne31Field};
+use crate::field::{element::FieldElement, traits::IsField};
 #[cfg(feature = "alloc")]
 use alloc::vec::Vec;
-
-#[cfg(feature = "alloc")]
-type FE = FieldElement<Mersenne31Field>;
-
-/// Inverse of 2 in Mersenne31: 2^{-1} mod (2^31 - 1) = 2^30 = 1073741824.
-#[cfg(feature = "alloc")]
-const INV_TWO: u32 = 1_073_741_824;
 
 /// Folds evaluations in butterfly order using one layer of inverse twiddles
 /// and a random challenge.
@@ -30,20 +23,25 @@ const INV_TWO: u32 = 1_073_741_824;
 ///   For the y-fold: 1/y_i. For x-folds: 1/x_i.
 /// * `alpha` - Random folding challenge
 #[cfg(feature = "alloc")]
-pub fn fold(evaluations: &[FE], inv_twiddles: &[FE], alpha: &FE) -> Vec<FE> {
+pub fn fold<F: IsField>(
+    evaluations: &[FieldElement<F>],
+    inv_twiddles: &[FieldElement<F>],
+    alpha: &FieldElement<F>,
+) -> Vec<FieldElement<F>> {
     let half = evaluations.len() / 2;
     debug_assert_eq!(evaluations.len(), 2 * half);
     debug_assert_eq!(inv_twiddles.len(), half);
 
-    let inv_two = FE::from(&INV_TWO);
+    // 2 is always invertible in fields of odd characteristic.
+    let inv_two = FieldElement::<F>::from(2u64).inv().unwrap();
 
     let mut result = Vec::with_capacity(half);
     for i in 0..half {
         let f_hi = &evaluations[i];
         let f_lo = &evaluations[i + half];
         let sum = f_hi + f_lo;
-        let diff = (f_hi - f_lo) * inv_twiddles[i];
-        result.push((sum + alpha * diff) * inv_two);
+        let diff = (f_hi - f_lo) * inv_twiddles[i].clone();
+        result.push((sum + alpha * diff) * inv_two.clone());
     }
     result
 }
@@ -59,10 +57,16 @@ pub fn fold(evaluations: &[FE], inv_twiddles: &[FE], alpha: &FE) -> Vec<FE> {
 /// * `inv_twiddle` - Inverse twiddle factor for this pair (1/y_i or 1/x_i)
 /// * `alpha` - Random folding challenge
 #[cfg(feature = "alloc")]
-pub fn fold_pair(f_hi: &FE, f_lo: &FE, inv_twiddle: &FE, alpha: &FE) -> FE {
-    let inv_two = FE::from(&INV_TWO);
+pub fn fold_pair<F: IsField>(
+    f_hi: &FieldElement<F>,
+    f_lo: &FieldElement<F>,
+    inv_twiddle: &FieldElement<F>,
+    alpha: &FieldElement<F>,
+) -> FieldElement<F> {
+    // 2 is always invertible in fields of odd characteristic.
+    let inv_two = FieldElement::<F>::from(2u64).inv().unwrap();
     let sum = f_hi + f_lo;
-    let diff = (f_hi - f_lo) * inv_twiddle;
+    let diff = (f_hi - f_lo) * inv_twiddle.clone();
     (sum + alpha * diff) * inv_two
 }
 
@@ -89,7 +93,7 @@ pub fn natural_to_butterfly(natural_idx: usize, n: usize) -> usize {
 ///   - Even-indexed evaluations first (ascending): eval[0], eval[2], eval[4], ...
 ///   - Odd-indexed evaluations second (descending): ..., eval[3], eval[1]
 #[cfg(feature = "alloc")]
-pub fn reorder_natural_to_butterfly(evaluations: &mut [FE]) {
+pub fn reorder_natural_to_butterfly<F: IsField>(evaluations: &mut [FieldElement<F>]) {
     order_icfft_input_in_place(evaluations);
 }
 
@@ -99,11 +103,14 @@ mod tests {
     use crate::circle::cosets::Coset;
     use crate::circle::polynomial::{evaluate_cfft, interpolate_cfft};
     use crate::circle::twiddles::{get_twiddles, TwiddlesConfig};
+    use crate::field::fields::mersenne31::field::Mersenne31Field;
     use alloc::vec;
+
+    type FE = FieldElement<Mersenne31Field>;
 
     /// Helper: get interpolation twiddles for a standard domain of given log_2_size.
     fn get_fold_twiddles(log_2_size: u32) -> Vec<Vec<FE>> {
-        let coset = Coset::new_standard(log_2_size);
+        let coset = Coset::<Mersenne31Field>::new_standard(log_2_size);
         get_twiddles(coset, TwiddlesConfig::Interpolation)
     }
 
