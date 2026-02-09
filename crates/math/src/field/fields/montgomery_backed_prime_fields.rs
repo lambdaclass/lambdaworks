@@ -516,6 +516,8 @@ mod tests_u384_prime_fields {
     use crate::traits::ByteConversion;
     use crate::unsigned_integer::element::U384;
     use crate::unsigned_integer::element::{UnsignedInteger, U256};
+    #[cfg(feature = "alloc")]
+    use alloc::format;
 
     use rand::Rng;
     use rand_chacha::{rand_core::SeedableRng, ChaCha20Rng};
@@ -941,6 +943,39 @@ mod tests_u384_prime_fields {
         assert_eq!(
             U384FP2Element::from_bytes_le(&bytes).unwrap().to_bytes_le(),
             bytes
+        );
+    }
+
+    #[test]
+    #[cfg(feature = "alloc")]
+    fn from_hex_value_equal_to_modulus_is_error() {
+        // Test the fixed bug: from_hex was using > instead of >=, accepting MODULUS
+        let modulus_hex = format!("{:x}", U384Modulus23::MODULUS);
+        assert!(
+            U384F23Element::from_hex(&modulus_hex).is_err(),
+            "from_hex should reject value equal to MODULUS"
+        );
+    }
+
+    #[test]
+    #[cfg(feature = "alloc")]
+    fn from_hex_value_one_less_than_modulus_succeeds() {
+        let modulus_minus_one = U384Modulus23::MODULUS - UnsignedInteger::from(1u64);
+        let hex = format!("{:x}", modulus_minus_one);
+        assert!(
+            U384F23Element::from_hex(&hex).is_ok(),
+            "from_hex should accept MODULUS - 1"
+        );
+    }
+
+    #[test]
+    #[cfg(feature = "alloc")]
+    fn from_hex_value_greater_than_modulus_is_error() {
+        let modulus_plus_one = U384Modulus23::MODULUS + UnsignedInteger::from(1u64);
+        let hex = format!("{:x}", modulus_plus_one);
+        assert!(
+            U384F23Element::from_hex(&hex).is_err(),
+            "from_hex should reject value greater than MODULUS"
         );
     }
 }

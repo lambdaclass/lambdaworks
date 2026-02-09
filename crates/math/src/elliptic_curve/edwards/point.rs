@@ -35,6 +35,12 @@ impl<E: IsEllipticCurve + IsEdwards> EdwardsProjectivePoint<E> {
         }
     }
 
+    /// Creates a point without validating it lies on the curve.
+    /// Only use when the caller guarantees the coordinates are valid.
+    pub fn new_unchecked(value: [FieldElement<E::BaseField>; 3]) -> Self {
+        Self(ProjectivePoint::new(value))
+    }
+
     /// Returns the `x` coordinate of the point.
     pub fn x(&self) -> &FieldElement<E::BaseField> {
         self.0.x()
@@ -114,10 +120,11 @@ impl<E: IsEllipticCurve + IsEdwards> EdwardsProjectivePoint<E> {
                 let [x, y, _z] = point.coordinates();
                 let x_affine = x * z_inv;
                 let y_affine = y * z_inv;
-                // SAFETY: Point is valid and z_inv is computed correctly from a valid Z coordinate
-                let affine_point = Self::new([x_affine, y_affine, FieldElement::one()])
-                    .expect("batch_to_affine: affine conversion of valid point must succeed");
-                result.push(affine_point);
+                result.push(Self::new_unchecked([
+                    x_affine,
+                    y_affine,
+                    FieldElement::one(),
+                ]));
                 inv_idx += 1;
             }
         }
@@ -170,55 +177,66 @@ impl<E: IsEdwards> IsGroup for EdwardsProjectivePoint<E> {
         px == &FieldElement::zero() && py == pz
     }
 
-    /// Computes the addition of `self` and `other` using the Edwards curve addition formula.
-    ///
-    /// This implementation follows Equation (5.38) from "Moonmath" (page 97).
-    ///
-    /// # Safety
-    ///
-    /// - The function assumes both `self` and `other` are valid points on the curve.
-    /// - The resulting coordinates are computed using a well-defined formula that
-    ///   maintains the elliptic curve invariants.
-    /// - `unwrap()` is safe because the formula guarantees the result is valid.
+    /// Computes the addition of `self` and `other` using inversion-free projective
+    /// twisted Edwards addition (add-2008-bbjlp).
+    /// Cost: 10M + 1S + 1*d + 1*a (vs 2 inversions + 6M for affine).
+    /// From https://hyperelliptic.org/EFD/g1p/auto-twisted-projective.html#addition-add-2008-bbjlp
     fn operate_with(&self, other: &Self) -> Self {
-        // This avoids dropping, which in turn saves us from having to clone the coordinates.
-        let (s_affine, o_affine) = (self.to_affine(), other.to_affine());
+        if self.is_neutral_element() {
+            return other.clone();
+        }
+        if other.is_neutral_element() {
+            return self.clone();
+        }
 
-        let [x1, y1, _] = s_affine.coordinates();
-        let [x2, y2, _] = o_affine.coordinates();
+        let [x1, y1, z1] = self.coordinates();
+        let [x2, y2, z2] = other.coordinates();
 
-        let one = FieldElement::one();
-        let (x1y2, y1x2) = (x1 * y2, y1 * x2);
-        let (x1x2, y1y2) = (x1 * x2, y1 * y2);
-        let dx1x2y1y2 = E::d() * &x1x2 * &y1y2;
+        let a_coeff = E::a();
+        let big_a = z1 * z2;
+        let big_b = big_a.square();
+        let big_c = x1 * x2;
+        let big_d = y1 * y2;
+        let big_e = E::d() * &big_c * &big_d;
+        let big_f = &big_b - &big_e;
+        let big_g = &big_b + &big_e;
 
-        let num_s1 = &x1y2 + &y1x2;
-        let den_s1 = &one + &dx1x2y1y2;
+        let x3 = &big_a * &big_f * &((x1 + y1) * (x2 + y2) - &big_c - &big_d);
+        let y3 = &big_a * &big_g * (big_d - a_coeff * big_c);
+        let z3 = big_f * big_g;
 
-        let num_s2 = &y1y2 - E::a() * &x1x2;
-        let den_s2 = &one - &dx1x2y1y2;
-        // SAFETY: The creation of the result point is safe because the inputs are always points that belong to the curve.
-        // We are using that den_s1 and den_s2 aren't zero.
-        // See Theorem 3.3 from https://eprint.iacr.org/2007/286.pdf.
-        let x_coord = (&num_s1 / &den_s1).unwrap();
-        let y_coord = (&num_s2 / &den_s2).unwrap();
-        let point = Self::new([x_coord, y_coord, one]);
-        point.unwrap()
+        Self::new_unchecked([x3, y3, z3])
+    }
+
+    /// Point doubling using inversion-free projective formula (dbl-2008-bbjlp).
+    /// Cost: 3M + 4S + 1*a (vs 2 inversions for affine doubling via operate_with).
+    /// From https://hyperelliptic.org/EFD/g1p/auto-twisted-projective.html#doubling-dbl-2008-bbjlp
+    fn double(&self) -> Self {
+        if self.is_neutral_element() {
+            return self.clone();
+        }
+
+        let [x1, y1, z1] = self.coordinates();
+
+        let big_b = (x1 + y1).square();
+        let big_c = x1.square();
+        let big_d = y1.square();
+        let big_e = E::a() * &big_c;
+        let big_f = &big_e + &big_d;
+        let big_h = z1.square();
+        let big_j = &big_f - big_h.double();
+
+        let x3 = (&big_b - &big_c - &big_d) * &big_j;
+        let y3 = &big_f * (big_e - big_d);
+        let z3 = big_f * big_j;
+
+        Self::new_unchecked([x3, y3, z3])
     }
 
     /// Returns the additive inverse of the projective point `p`
-    ///  
-    /// # Safety
-    ///
-    /// - Negating the x-coordinate of a valid Edwards point results in another valid point.
-    /// - `unwrap()` is safe because negation does not break the curve equation.
     fn neg(&self) -> Self {
         let [px, py, pz] = self.coordinates();
-        // SAFETY:
-        // - The negation formula for Edwards curves is well-defined.
-        // - The result remains a valid curve point.
-        let point = Self::new([-px, py.clone(), pz.clone()]);
-        point.unwrap()
+        Self::new_unchecked([-px, py.clone(), pz.clone()])
     }
 }
 

@@ -17,6 +17,7 @@ objc = { version = "0.2", optional = true }
 [dev-dependencies]
 proptest = "1.1.0"
 rand = "0.8.5"
+lambdaworks-math = { path = "../math" }
 
 [build-dependencies]
 walkdir = { version = "2.3.3", optional = true }

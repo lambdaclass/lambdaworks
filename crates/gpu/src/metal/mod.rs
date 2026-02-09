@@ -18,6 +18,7 @@
 //! - Twiddle factor generation
 //! - Bit-reverse permutation
 //! - Merkle tree construction with Poseidon hash
+//! - Multi-Scalar Multiplication (MSM) using Pippenger's algorithm
 //! - Support for 256-bit fields (Stark252)
 //!
 //! # Usage
@@ -30,3 +31,4 @@
 //! ```
 
 pub mod abstractions;
+pub mod msm;

@@ -43,7 +43,24 @@ use super::fields::montgomery_backed_prime_fields::{IsModulus, MontgomeryBackend
 use super::traits::{IsPrimeField, IsSubFieldOf, LegendreSymbol};
 
 /// A field element with operations algorithms defined in `F`
+///
+/// # Security Considerations
+///
+/// **WARNING**: This implementation is for educational and research purposes.
+/// For production cryptographic use, be aware:
+///
+/// - **Timing attacks**: Field operations are NOT constant-time. Operations on
+///   secret data (private keys, nonces) may leak information through timing
+///   side-channels.
+/// - **Zeroization**: When the `alloc` feature is enabled, use the `Zeroize` trait
+///   to clear sensitive field elements from memory when done. Stack-based copies
+///   are NOT automatically zeroized.
+/// - **Side-channel resistance**: No protection against power analysis, cache
+///   timing, or other side-channel attacks.
+///
+/// See GitHub issue for constant-time operation implementation plan (to be created).
 #[allow(clippy::derived_hash_with_manual_eq)]
+#[repr(transparent)]
 #[derive(Debug, Clone, Hash, Copy)]
 pub struct FieldElement<F: IsField> {
     value: F::BaseType,
@@ -744,7 +761,7 @@ where
                     }
                 }
                 let value = value.ok_or_else(|| de::Error::missing_field("value"))?;
-                let val = F::BaseType::from_bytes_be(&value).map_err(|e| de::Error::custom(e))?;
+                let val = F::BaseType::from_bytes_be(&value).map_err(de::Error::custom)?;
                 Ok(FieldElement::from_raw(val))
             }
 
@@ -760,7 +777,7 @@ where
                     value = Some(val);
                 }
                 let value = value.ok_or_else(|| de::Error::missing_field("value"))?;
-                let val = F::BaseType::from_bytes_be(&value).map_err(|e| de::Error::custom(e))?;
+                let val = F::BaseType::from_bytes_be(&value).map_err(de::Error::custom)?;
                 Ok(FieldElement::from_raw(val))
             }
         }
@@ -862,6 +879,17 @@ where
                 &MontgomeryBackendPrimeField::<M, NUM_LIMBS>::MU,
             ),
         }
+    }
+}
+
+#[cfg(feature = "alloc")]
+impl<F> zeroize::Zeroize for FieldElement<F>
+where
+    F: IsField,
+    F::BaseType: zeroize::Zeroize,
+{
+    fn zeroize(&mut self) {
+        self.value.zeroize();
     }
 }
 
