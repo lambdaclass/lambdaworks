@@ -50,7 +50,113 @@ fn compile_cuda_shaders() {
     });
 }
 
+/// Compiles Metal shaders (.metal) to a Metal library (.metallib)
+/// Uses xcrun to invoke the Metal compiler toolchain.
+///
+/// This function is only called on macOS where xcrun is guaranteed to be available
+/// when Xcode Command Line Tools are installed. Panics are acceptable here because
+/// build scripts should fail fast if the toolchain is misconfigured.
+#[cfg(feature = "metal")]
+fn compile_metal_shaders() {
+    use std::env;
+    use std::path::Path;
+    use std::process::Command;
+
+    let source_dir = "../math/src/gpu/metal";
+    let source_file = format!("{}/all.metal", source_dir);
+    let out_dir = env::var("OUT_DIR").expect("OUT_DIR not set");
+    let output_file = format!("{}/lib.metallib", out_dir);
+
+    // Tell cargo to invalidate the built crate whenever the source changes
+    println!("cargo:rerun-if-changed={source_dir}");
+
+    if !cfg!(target_os = "macos") {
+        println!("cargo:warning=Metal shaders are only compiled on macOS; MetalState will not be available");
+        return;
+    }
+
+    // Check if source file exists - skip compilation if shaders haven't been created yet
+    if !Path::new(&source_file).exists() {
+        println!("cargo:warning=Metal source file not found: {}", source_file);
+        println!(
+            "cargo:warning=Skipping Metal shader compilation - MetalState will not be available"
+        );
+        return;
+    }
+
+    println!(
+        "cargo:warning=Compiling Metal shaders: '{}' -> '{}'",
+        source_file, output_file
+    );
+
+    // Compile .metal to .air (intermediate representation)
+    let air_file = format!("{}/all.air", out_dir);
+    let metal_compile = Command::new("xcrun")
+        .args([
+            "-sdk",
+            "macosx",
+            "metal",
+            "-c",
+            &source_file,
+            "-o",
+            &air_file,
+        ])
+        .output();
+
+    let metal_compile = match metal_compile {
+        Ok(output) => output,
+        Err(e) => {
+            std::fs::write(&output_file, []).expect("failed to write placeholder metallib");
+            println!(
+                "cargo:warning=Metal compiler not available ({}), using empty metallib",
+                e
+            );
+            println!("cargo:warning=Install Xcode (not just Command Line Tools) to compile Metal shaders");
+            return;
+        }
+    };
+
+    if !metal_compile.status.success() {
+        let stderr = String::from_utf8_lossy(&metal_compile.stderr);
+        if stderr.contains("unable to find utility") {
+            std::fs::write(&output_file, []).expect("failed to write placeholder metallib");
+            println!("cargo:warning=Metal compiler not found via xcrun, using empty metallib");
+            println!("cargo:warning=Install Xcode (not just Command Line Tools) to compile Metal shaders");
+            return;
+        }
+        eprintln!("Metal compilation failed:\n{}", stderr);
+        panic!("Metal shader compilation failed - check shader syntax");
+    }
+
+    // Link .air to .metallib
+    // Panics are acceptable in build scripts when the toolchain is missing
+    let metallib_link = Command::new("xcrun")
+        .args(["-sdk", "macosx", "metallib", &air_file, "-o", &output_file])
+        .output()
+        .expect("xcrun metallib linker not found - install Xcode Command Line Tools");
+
+    if !metallib_link.status.success() {
+        eprintln!(
+            "Metal linking failed:\n{}",
+            String::from_utf8_lossy(&metallib_link.stderr)
+        );
+        panic!("Metal library linking failed");
+    }
+
+    // Clean up intermediate .air file - ignore errors as this is just cleanup
+    let _ = std::fs::remove_file(&air_file);
+
+    println!("cargo:warning=Metal shaders compiled successfully");
+    println!("cargo:rustc-cfg=metal_shaders_compiled");
+}
+
 fn main() {
+    // Declare the expected cfg for the compiler
+    println!("cargo:rustc-check-cfg=cfg(metal_shaders_compiled)");
+
     #[cfg(feature = "cuda")]
     compile_cuda_shaders();
+
+    #[cfg(feature = "metal")]
+    compile_metal_shaders();
 }

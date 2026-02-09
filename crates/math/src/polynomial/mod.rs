@@ -1,9 +1,9 @@
 use super::field::element::FieldElement;
 use crate::field::traits::{IsField, IsPrimeField, IsSubFieldOf};
 use alloc::string::{String, ToString};
-use alloc::{borrow::ToOwned, format, vec, vec::Vec};
+use alloc::{format, vec, vec::Vec};
 use core::ops::{AddAssign, MulAssign, SubAssign};
-use core::{fmt::Display, ops, slice};
+use core::{ops, slice};
 pub mod dense_multilinear_poly;
 
 /// Re-exports from dense_multilinear_poly module for convenience.
@@ -13,9 +13,11 @@ pub mod dense_multilinear_poly;
 /// - [`eq_eval`]: Evaluates the equality polynomial eq(x, r) = ∏(x_i * r_i + (1-x_i)(1-r_i)).
 /// - [`eq_polynomial`]: Computes the equality polynomial evaluations for sumcheck protocols.
 pub use dense_multilinear_poly::{eq_eval, eq_polynomial, DenseMultilinearPolynomial};
-mod error;
-pub use error::PolynomialError;
+pub mod error;
+pub use error::{InterpolateError, MultilinearError, PolynomialError};
+pub mod sparse;
 pub mod sparse_multilinear_poly;
+pub use sparse::SparsePolynomial;
 
 /// Represents the polynomial c_0 + c_1 * X + c_2 * X^2 + ... + c_n * X^n
 /// as a vector of coefficients `[c_0, c_1, ... , c_n]`
@@ -119,9 +121,7 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
         self.coefficients
             .iter()
             .rev()
-            .fold(FieldElement::zero(), |acc, coeff| {
-                coeff + acc * x.to_owned()
-            })
+            .fold(FieldElement::zero(), |acc, coeff| coeff + &acc * x)
     }
 
     /// Evaluates a polynomial `P(t)` at a slice of points `x`
@@ -313,23 +313,23 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
     }
 
     pub fn mul_with_ref(&self, factor: &Self) -> Self {
+        if self.coefficients.is_empty() || factor.coefficients.is_empty() {
+            return Polynomial::new(&[FieldElement::zero()]);
+        }
+
         let degree = self.degree() + factor.degree();
         let mut coefficients = vec![FieldElement::zero(); degree + 1];
 
-        if self.coefficients.is_empty() || factor.coefficients.is_empty() {
-            Polynomial::new(&[FieldElement::zero()])
-        } else {
-            for i in 0..=factor.degree() {
-                if factor.coefficients[i] != FieldElement::zero() {
-                    for j in 0..=self.degree() {
-                        if self.coefficients[j] != FieldElement::zero() {
-                            coefficients[i + j] += &factor.coefficients[i] * &self.coefficients[j];
-                        }
+        for i in 0..=factor.degree() {
+            if factor.coefficients[i] != FieldElement::zero() {
+                for j in 0..=self.degree() {
+                    if self.coefficients[j] != FieldElement::zero() {
+                        coefficients[i + j] += &factor.coefficients[i] * &self.coefficients[j];
                     }
                 }
             }
-            Polynomial::new(&coefficients)
         }
+        Polynomial::new(&coefficients)
     }
 
     /// Scales the coefficients of a polynomial P by a factor
@@ -483,8 +483,8 @@ impl<F: IsPrimeField> Polynomial<FieldElement<F>> {
             return String::new();
         }
 
-        let mut string = String::new();
         let zero = FieldElement::<F>::zero();
+        let mut terms = Vec::new();
 
         for (i, coeff) in self.coefficients.iter().rev().enumerate() {
             if *coeff == zero {
@@ -492,22 +492,17 @@ impl<F: IsPrimeField> Polynomial<FieldElement<F>> {
             }
 
             let coeff_str = coeff.canonical().to_string();
+            let degree = self.coefficients.len() - 1 - i;
 
-            if i == self.coefficients.len() - 1 {
-                string.push_str(&coeff_str);
-            } else if i == self.coefficients.len() - 2 {
-                string.push_str(&format!("{coeff_str}*{var_name} + "));
-            } else {
-                string.push_str(&format!(
-                    "{}*{}^{} + ",
-                    coeff_str,
-                    var_name,
-                    self.coefficients.len() - 1 - i
-                ));
-            }
+            let term = match degree {
+                0 => coeff_str,
+                1 => format!("{coeff_str}*{var_name}"),
+                d => format!("{coeff_str}*{var_name}^{d}"),
+            };
+            terms.push(term);
         }
 
-        string
+        terms.join(" + ")
     }
 }
 
@@ -537,11 +532,8 @@ pub fn pad_with_zero_coefficients<L: IsField, F: IsSubFieldOf<L>>(
 }
 
 /// Computes the composition of polynomials `P1(t)` and `P2(t)`, that is `P1(P2(t))`
-/// It uses interpolation to determine the evaluation at points `x_i` and evaluates
-/// `P1(P2(x[i]))`. The interpolation theorem ensures that we can reconstruct the polynomial
-/// uniquely by interpolation over a suitable number of points.
-/// This is an inefficient version, for something more efficient, use FFT for evaluation,
-/// provided the field satisfies the necessary traits.
+/// using Horner's method: P1(P2(t)) = c_n * P2^n + ... + c_1 * P2 + c_0
+/// is computed as (...((c_n * P2 + c_{n-1}) * P2 + c_{n-2}) * ... ) * P2 + c_0.
 pub fn compose<F>(
     poly_1: &Polynomial<FieldElement<F>>,
     poly_2: &Polynomial<FieldElement<F>>,
@@ -549,23 +541,13 @@ pub fn compose<F>(
 where
     F: IsField,
 {
-    let max_degree: u64 = (poly_1.degree() * poly_2.degree()) as u64;
-
-    let mut interpolation_points = vec![];
-    for i in 0_u64..max_degree + 1 {
-        interpolation_points.push(FieldElement::<F>::from(i));
-    }
-
-    let values: Vec<_> = interpolation_points
+    poly_1
+        .coefficients
         .iter()
-        .map(|value| {
-            let intermediate_value = poly_2.evaluate(value);
-            poly_1.evaluate(&intermediate_value)
+        .rev()
+        .fold(Polynomial::zero(), |acc, coeff| {
+            acc.mul_with_ref(poly_2) + Polynomial::new(core::slice::from_ref(coeff))
         })
-        .collect();
-
-    Polynomial::interpolate(interpolation_points.as_slice(), values.as_slice())
-        .expect("xs and ys have equal length and xs are unique")
 }
 
 // impl Add
@@ -973,7 +955,7 @@ where
     }
 }
 
-/* Substraction field element at left */
+/* Subtraction field element at left */
 impl<F, L> ops::Sub<&FieldElement<F>> for &Polynomial<FieldElement<L>>
 where
     L: IsField,
@@ -1022,7 +1004,7 @@ where
     }
 }
 
-/* Substraction field element at right */
+/* Subtraction field element at right */
 impl<F, L> ops::Sub<&Polynomial<FieldElement<L>>> for &FieldElement<F>
 where
     L: IsField,
@@ -1107,26 +1089,6 @@ impl<F: IsField> MulAssign<FieldElement<F>> for Polynomial<FieldElement<F>> {
         self.scale_coeffs_mut(&scalar);
     }
 }
-
-#[derive(Debug)]
-pub enum InterpolateError {
-    UnequalLengths(usize, usize),
-    NonUniqueXs,
-}
-
-impl Display for InterpolateError {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        match self {
-            InterpolateError::UnequalLengths(x, y) => {
-                write!(f, "xs and ys must be the same length. Got: {x} != {y}")
-            }
-            InterpolateError::NonUniqueXs => write!(f, "xs values should be unique."),
-        }
-    }
-}
-
-#[cfg(feature = "std")]
-impl std::error::Error for InterpolateError {}
 
 #[cfg(test)]
 mod tests {

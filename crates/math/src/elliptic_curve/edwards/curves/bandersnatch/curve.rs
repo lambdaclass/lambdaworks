@@ -1,146 +1,196 @@
-pub use super::field::FqField;
-use crate::elliptic_curve::edwards::point::EdwardsProjectivePoint;
-use crate::elliptic_curve::traits::IsEllipticCurve;
-use crate::{elliptic_curve::edwards::traits::IsEdwards, field::element::FieldElement};
+//! Bandersnatch curve implementation.
+//!
+//! Bandersnatch is a twisted Edwards curve defined over the scalar field of BLS12-381.
+//! Curve equation: ax² + y² = 1 + dx²y² where a = -5.
+//!
+//! References:
+//! - [Bandersnatch paper](https://eprint.iacr.org/2021/1152)
+//! - [Arkworks implementation](https://github.com/arkworks-rs/curves/tree/master/ed_on_bls12_381_bandersnatch)
 
-pub type BaseBandersnatchFieldElement = FqField;
+use crate::cyclic_group::IsGroup;
+use crate::elliptic_curve::edwards::point::EdwardsProjectivePoint;
+use crate::elliptic_curve::edwards::traits::IsEdwards;
+use crate::elliptic_curve::short_weierstrass::curves::bls12_381::default_types::FrField;
+use crate::elliptic_curve::traits::IsEllipticCurve;
+use crate::field::element::FieldElement;
+use crate::unsigned_integer::element::U256;
+
+/// Bandersnatch base field is BLS12-381's scalar field (Fr).
+pub type BandersnatchBaseField = FrField;
+
+/// The cofactor of the Bandersnatch curve (h = 4).
+pub const BANDERSNATCH_COFACTOR: u64 = 4;
+
+/// The order of the prime-order subgroup.
+/// r = 13108968793781547619861935127046491459309155893440570251786403306729687672801
+pub const BANDERSNATCH_SUBGROUP_ORDER: U256 =
+    U256::from_hex_unchecked("1cfb69d4ca675f520cce760202687600ff8f87007419047174fd06b52876e7e1");
 
 #[derive(Clone, Debug)]
 pub struct BandersnatchCurve;
 
 impl IsEllipticCurve for BandersnatchCurve {
-    type BaseField = BaseBandersnatchFieldElement;
+    type BaseField = BandersnatchBaseField;
     type PointRepresentation = EdwardsProjectivePoint<Self>;
 
-    /// Returns the generator point of the Bandersnatch curve.
-    ///
-    /// The generator point is defined with coordinates `(x, y, 1)`, where `x` and `y`
-    /// are precomputed constants that belong to the curve.
-    ///
-    /// # Safety
-    ///
-    /// - The generator values are taken from the [Arkworks implementation](https://github.com/arkworks-rs/curves/blob/5a41d7f27a703a7ea9c48512a4148443ec6c747e/ed_on_bls12_381_bandersnatch/src/curves/mod.rs#L120)
-    ///   and have been converted to hexadecimal.
-    /// - `unwrap()` does not panic because:
-    ///   - The generator point is **known to be valid** on the curve.
-    ///   - The function only uses **hardcoded** and **verified** constants.
-    /// - This function should **never** be modified unless the new generator is fully verified.
+    /// Generator from [Arkworks](https://github.com/arkworks-rs/curves/blob/master/ed_on_bls12_381_bandersnatch/src/curves/mod.rs).
     fn generator() -> Self::PointRepresentation {
-        // SAFETY:
-        // - The generator point coordinates (x, y) are taken from a well-tested,
-        //   verified implementation.
-        // - The constructor will only fail if the values are invalid, which is
-        //   impossible given that they are constants taken from a trusted source.
-        let point = Self::PointRepresentation::new([
-            FieldElement::<Self::BaseField>::new_base(
+        Self::PointRepresentation::new([
+            FieldElement::new(U256::from_hex_unchecked(
                 "29C132CC2C0B34C5743711777BBE42F32B79C022AD998465E1E71866A252AE18",
-            ),
-            FieldElement::<Self::BaseField>::new_base(
+            )),
+            FieldElement::new(U256::from_hex_unchecked(
                 "2A6C669EDA123E0F157D8B50BADCD586358CAD81EEE464605E3167B6CC974166",
-            ),
+            )),
             FieldElement::one(),
-        ]);
-        point.unwrap()
+        ])
+        .expect("valid generator")
     }
 }
 
 impl IsEdwards for BandersnatchCurve {
+    /// a = -5 (mod p)
     fn a() -> FieldElement<Self::BaseField> {
-        FieldElement::<Self::BaseField>::new_base(
+        FieldElement::new(U256::from_hex_unchecked(
             "73EDA753299D7D483339D80809A1D80553BDA402FFFE5BFEFFFFFFFEFFFFFFFC",
-        )
+        ))
     }
 
     fn d() -> FieldElement<Self::BaseField> {
-        FieldElement::<Self::BaseField>::new_base(
+        FieldElement::new(U256::from_hex_unchecked(
             "6389C12633C267CBC66E3BF86BE3B6D8CB66677177E54F92B369F2F5188D58E7",
-        )
+        ))
+    }
+}
+
+impl EdwardsProjectivePoint<BandersnatchCurve> {
+    /// Checks if the point is in the prime-order subgroup.
+    pub fn is_in_subgroup(&self) -> bool {
+        self.is_neutral_element()
+            || self
+                .operate_with_self(BANDERSNATCH_SUBGROUP_ORDER)
+                .is_neutral_element()
+    }
+
+    /// Clears the cofactor by multiplying by h = 4.
+    pub fn clear_cofactor(&self) -> Self {
+        self.operate_with_self(BANDERSNATCH_COFACTOR)
     }
 }
 
 #[cfg(test)]
 mod tests {
-
     use super::*;
-    use crate::{
-        cyclic_group::IsGroup, elliptic_curve::traits::EllipticCurveError,
-        field::element::FieldElement, unsigned_integer::element::U256,
-    };
-
-    #[allow(clippy::upper_case_acronyms)]
-    type FEE = FieldElement<BaseBandersnatchFieldElement>;
-
-    fn point_1() -> EdwardsProjectivePoint<BandersnatchCurve> {
-        let x = FEE::new_base("29C132CC2C0B34C5743711777BBE42F32B79C022AD998465E1E71866A252AE18");
-        let y = FEE::new_base("2A6C669EDA123E0F157D8B50BADCD586358CAD81EEE464605E3167B6CC974166");
-
-        BandersnatchCurve::create_point_from_affine(x, y).unwrap()
-    }
+    use crate::cyclic_group::IsGroup;
+    use crate::elliptic_curve::traits::EllipticCurveError;
 
     #[test]
-    fn test_scalar_mul() {
+    fn generator_is_valid_and_in_subgroup() {
         let g = BandersnatchCurve::generator();
-        let result1 = g.operate_with_self(5u16);
-
+        // Verify generator satisfies curve equation
+        let g_affine = g.to_affine();
         assert_eq!(
-            result1.x().clone(),
-            FEE::new_base("68CBECE0B8FB55450410CBC058928A567EED293D168FAEF44BFDE25F943AABE0")
+            BandersnatchCurve::defining_equation(g_affine.x(), g_affine.y()),
+            FieldElement::zero()
+        );
+        // Verify generator is in prime-order subgroup
+        assert!(g.is_in_subgroup());
+    }
+
+    #[test]
+    fn scalar_multiplication_produces_correct_results() {
+        let g = BandersnatchCurve::generator();
+
+        // Test small scalar: 5·G
+        let result_5g = g.operate_with_self(5u16);
+        let affine_5g = result_5g.to_affine();
+        assert_eq!(
+            *affine_5g.x(),
+            FieldElement::new(U256::from_hex_unchecked(
+                "68CBECE0B8FB55450410CBC058928A567EED293D168FAEF44BFDE25F943AABE0"
+            ))
         );
 
-        let scalar =
-            U256::from_hex("1CFB69D4CA675F520CCE760202687600FF8F87007419047174FD06B52876E7E6")
-                .unwrap();
-        let result2 = g.operate_with_self(scalar);
-
+        // Test large scalar near subgroup order
+        let large_scalar = U256::from_hex_unchecked(
+            "1CFB69D4CA675F520CCE760202687600FF8F87007419047174FD06B52876E7E6",
+        );
+        let result_large = g.operate_with_self(large_scalar);
+        let affine_large = result_large.to_affine();
         assert_eq!(
-            result2.x().clone(),
-            FEE::new_base("68CBECE0B8FB55450410CBC058928A567EED293D168FAEF44BFDE25F943AABE0")
+            *affine_large.x(),
+            FieldElement::new(U256::from_hex_unchecked(
+                "68CBECE0B8FB55450410CBC058928A567EED293D168FAEF44BFDE25F943AABE0"
+            ))
         );
     }
 
     #[test]
-    fn test_create_valid_point_works() {
-        let p = BandersnatchCurve::generator();
-
-        assert_eq!(p, p.clone());
-    }
-
-    #[test]
-    fn create_valid_point_works() {
-        let p = point_1();
-        assert_eq!(
-            *p.x(),
-            FEE::new_base("29C132CC2C0B34C5743711777BBE42F32B79C022AD998465E1E71866A252AE18")
+    fn invalid_point_is_rejected() {
+        let result = BandersnatchCurve::create_point_from_affine(
+            FieldElement::from(1),
+            FieldElement::from(1),
         );
-        assert_eq!(
-            *p.y(),
-            FEE::new_base("2A6C669EDA123E0F157D8B50BADCD586358CAD81EEE464605E3167B6CC974166")
-        );
-        assert_eq!(*p.z(), FEE::new_base("1"));
+        assert_eq!(result.unwrap_err(), EllipticCurveError::InvalidPoint);
     }
 
     #[test]
-    fn create_invalid_points_panics() {
-        assert_eq!(
-            BandersnatchCurve::create_point_from_affine(FEE::from(1), FEE::from(1)).unwrap_err(),
-            EllipticCurveError::InvalidPoint
-        )
+    fn clear_cofactor_produces_subgroup_point() {
+        let g = BandersnatchCurve::generator();
+
+        // Create arbitrary point (not necessarily in subgroup)
+        let point = g.operate_with_self(2u16);
+
+        // Clear cofactor
+        let cleared = point.clear_cofactor();
+
+        // Result must be in subgroup
+        assert!(cleared.is_in_subgroup());
     }
 
     #[test]
-    fn equality_works() {
+    fn subgroup_order_annihilates_generator() {
+        let g = BandersnatchCurve::generator();
+        let result = g.operate_with_self(BANDERSNATCH_SUBGROUP_ORDER);
+        assert!(result.is_neutral_element());
+    }
+
+    #[test]
+    fn point_addition_matches_scalar_multiplication() {
+        let g = BandersnatchCurve::generator();
+        let computed = g.operate_with(&g).operate_with(&g);
+        let expected = g.operate_with_self(3_u16);
+        assert_eq!(computed, expected);
+    }
+
+    #[test]
+    fn point_construction_from_affine_works() {
+        let x = FieldElement::new(U256::from_hex_unchecked(
+            "29C132CC2C0B34C5743711777BBE42F32B79C022AD998465E1E71866A252AE18",
+        ));
+        let y = FieldElement::new(U256::from_hex_unchecked(
+            "2A6C669EDA123E0F157D8B50BADCD586358CAD81EEE464605E3167B6CC974166",
+        ));
+
+        let point = BandersnatchCurve::create_point_from_affine(x.clone(), y.clone()).unwrap();
+        let affine = point.to_affine();
+        assert_eq!(affine.x(), &x);
+        assert_eq!(affine.y(), &y);
+    }
+
+    #[test]
+    fn neutral_element_is_identity() {
+        let g = BandersnatchCurve::generator();
+        let neutral = EdwardsProjectivePoint::<BandersnatchCurve>::neutral_element();
+        assert_eq!(g.operate_with(&neutral), g);
+    }
+
+    #[test]
+    fn point_equality_works_correctly() {
         let g = BandersnatchCurve::generator();
         let g2 = g.operate_with(&g);
-        assert_ne!(&g2, &g);
-        assert_eq!(&g, &g);
-    }
 
-    #[test]
-    fn operate_with_self_works_1() {
-        let g = BandersnatchCurve::generator();
-        assert_eq!(
-            g.operate_with(&g).operate_with(&g),
-            g.operate_with_self(3_u16)
-        );
+        assert_eq!(g, g.clone());
+        assert_ne!(g, g2);
     }
 }

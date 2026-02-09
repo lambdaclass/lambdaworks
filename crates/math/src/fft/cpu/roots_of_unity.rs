@@ -21,12 +21,16 @@ pub fn get_powers_of_primitive_root<F: IsFFTField>(
 
     let root = match config {
         RootsConfig::Natural | RootsConfig::BitReverse => F::get_primitive_root_of_unity(n)?,
-        _ => F::get_primitive_root_of_unity(n)?.inv().unwrap(),
+        RootsConfig::NaturalInversed | RootsConfig::BitReverseInversed => {
+            F::get_primitive_root_of_unity(n)?
+                .inv()
+                .map_err(|_| FFTError::RootOfUnityError(n))?
+        }
     };
     let up_to = match config {
         RootsConfig::Natural | RootsConfig::NaturalInversed => count,
         // In bit reverse form we could need as many as `(1 << count.bits()) - 1` roots
-        _ => count.next_power_of_two(),
+        RootsConfig::BitReverse | RootsConfig::BitReverseInversed => count.next_power_of_two(),
     };
 
     let mut results = Vec::with_capacity(up_to);
@@ -55,9 +59,15 @@ pub fn get_powers_of_primitive_root_coset<F: IsFFTField>(
     offset: &FieldElement<F>,
 ) -> Result<Vec<FieldElement<F>>, FFTError> {
     let root = F::get_primitive_root_of_unity(n)?;
-    let results = (0..count).map(|i| offset * root.pow(i));
 
-    Ok(results.collect())
+    let mut results = Vec::with_capacity(count);
+    results.extend((0..count).scan(offset.clone(), |state, _| {
+        let res = state.clone();
+        *state = &(*state) * &root;
+        Some(res)
+    }));
+
+    Ok(results)
 }
 
 /// Returns 2^`order` / 2 twiddle factors for FFT in some configuration `config`.

@@ -28,7 +28,7 @@ fn vitalik_w_and_qap() -> Result<(), Groth16Error> {
     let circom_r1cs =
         read_circom_r1cs("./tests/vitalik_example/test.r1cs.json").expect("could not read r1cs");
 
-    let (qap, wtns, pubs) = circom_to_lambda(circom_r1cs, circom_wtns);
+    let (qap, wtns, pubs) = circom_to_lambda(circom_r1cs, circom_wtns)?;
 
     // Freshly generated witness assignment "w" must be in form ["1", "~out", "x", "sym_1"]
     assert_eq!(
@@ -83,16 +83,16 @@ fn vitalik_w_and_qap() -> Result<(), Groth16Error> {
     .map(|matrix| matrix.map(|row| row.map(FrElement::from_hex_unchecked).to_vec()));
 
     let expected_qap =
-        QuadraticArithmeticProgram::from_variable_matrices(pubs.len(), &temp_l, &temp_r, &temp_o);
+        QuadraticArithmeticProgram::from_variable_matrices(pubs.len(), &temp_l, &temp_r, &temp_o)?;
 
     assert_eq!(qap.l, expected_qap.l);
     assert_eq!(qap.r, expected_qap.r);
     assert_eq!(qap.o, expected_qap.o);
 
     // check proofs
-    let (pk, vk) = lambdaworks_groth16::setup(&qap);
+    let (pk, vk) = lambdaworks_groth16::setup(&qap)?;
     let proof = lambdaworks_groth16::Prover::prove(&wtns, &qap, &pk)?;
-    let accept = lambdaworks_groth16::verify(&vk, &proof, &pubs);
+    let accept = lambdaworks_groth16::verify(&vk, &proof, &pubs)?;
     assert!(accept, "proof verification failed");
     Ok(())
 }

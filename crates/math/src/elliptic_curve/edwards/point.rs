@@ -35,6 +35,12 @@ impl<E: IsEllipticCurve + IsEdwards> EdwardsProjectivePoint<E> {
         }
     }
 
+    /// Creates a point without validating it lies on the curve.
+    /// Only use when the caller guarantees the coordinates are valid.
+    pub fn new_unchecked(value: [FieldElement<E::BaseField>; 3]) -> Self {
+        Self(ProjectivePoint::new(value))
+    }
+
     /// Returns the `x` coordinate of the point.
     pub fn x(&self) -> &FieldElement<E::BaseField> {
         self.0.x()
@@ -60,6 +66,70 @@ impl<E: IsEllipticCurve + IsEdwards> EdwardsProjectivePoint<E> {
     /// Panics if `self` is the point at infinity.
     pub fn to_affine(&self) -> Self {
         Self(self.0.to_affine())
+    }
+
+    /// Converts a slice of projective points to affine representation efficiently
+    /// using batch inversion (Montgomery's trick).
+    ///
+    /// This uses only 1 inversion + 3(n-1) multiplications instead of n inversions,
+    /// providing significant speedup for large batches.
+    ///
+    /// # Algorithm
+    ///
+    /// For Edwards curves, the affine coordinates are (x/z, y/z).
+    /// We batch invert all Z coordinates and apply them to get affine form.
+    ///
+    /// # Arguments
+    ///
+    /// * `points` - A slice of projective Edwards points
+    ///
+    /// # Returns
+    ///
+    /// A vector of affine points (Z=1). Neutral elements remain unchanged.
+    #[cfg(feature = "alloc")]
+    pub fn batch_to_affine(points: &[Self]) -> alloc::vec::Vec<Self> {
+        if points.is_empty() {
+            return alloc::vec::Vec::new();
+        }
+
+        // Collect Z coordinates, filtering out neutral elements
+        let mut z_coords: alloc::vec::Vec<FieldElement<E::BaseField>> =
+            alloc::vec::Vec::with_capacity(points.len());
+
+        for point in points.iter() {
+            if !point.is_neutral_element() {
+                z_coords.push(point.z().clone());
+            }
+        }
+
+        // Batch invert all Z coordinates
+        if FieldElement::<E::BaseField>::inplace_batch_inverse(&mut z_coords).is_err() {
+            // If batch inverse fails (e.g., contains zero), fall back to individual conversion
+            return points.iter().map(|p| p.to_affine()).collect();
+        }
+
+        // Build result vector
+        let mut result: alloc::vec::Vec<Self> = alloc::vec::Vec::with_capacity(points.len());
+        let mut inv_idx = 0;
+
+        for point in points.iter() {
+            if point.is_neutral_element() {
+                result.push(Self::neutral_element());
+            } else {
+                let z_inv = &z_coords[inv_idx];
+                let [x, y, _z] = point.coordinates();
+                let x_affine = x * z_inv;
+                let y_affine = y * z_inv;
+                result.push(Self::new_unchecked([
+                    x_affine,
+                    y_affine,
+                    FieldElement::one(),
+                ]));
+                inv_idx += 1;
+            }
+        }
+
+        result
     }
 }
 
@@ -107,55 +177,66 @@ impl<E: IsEdwards> IsGroup for EdwardsProjectivePoint<E> {
         px == &FieldElement::zero() && py == pz
     }
 
-    /// Computes the addition of `self` and `other` using the Edwards curve addition formula.
-    ///
-    /// This implementation follows Equation (5.38) from "Moonmath" (page 97).
-    ///
-    /// # Safety
-    ///
-    /// - The function assumes both `self` and `other` are valid points on the curve.
-    /// - The resulting coordinates are computed using a well-defined formula that
-    ///   maintains the elliptic curve invariants.
-    /// - `unwrap()` is safe because the formula guarantees the result is valid.
+    /// Computes the addition of `self` and `other` using inversion-free projective
+    /// twisted Edwards addition (add-2008-bbjlp).
+    /// Cost: 10M + 1S + 1*d + 1*a (vs 2 inversions + 6M for affine).
+    /// From https://hyperelliptic.org/EFD/g1p/auto-twisted-projective.html#addition-add-2008-bbjlp
     fn operate_with(&self, other: &Self) -> Self {
-        // This avoids dropping, which in turn saves us from having to clone the coordinates.
-        let (s_affine, o_affine) = (self.to_affine(), other.to_affine());
+        if self.is_neutral_element() {
+            return other.clone();
+        }
+        if other.is_neutral_element() {
+            return self.clone();
+        }
 
-        let [x1, y1, _] = s_affine.coordinates();
-        let [x2, y2, _] = o_affine.coordinates();
+        let [x1, y1, z1] = self.coordinates();
+        let [x2, y2, z2] = other.coordinates();
 
-        let one = FieldElement::one();
-        let (x1y2, y1x2) = (x1 * y2, y1 * x2);
-        let (x1x2, y1y2) = (x1 * x2, y1 * y2);
-        let dx1x2y1y2 = E::d() * &x1x2 * &y1y2;
+        let a_coeff = E::a();
+        let big_a = z1 * z2;
+        let big_b = big_a.square();
+        let big_c = x1 * x2;
+        let big_d = y1 * y2;
+        let big_e = E::d() * &big_c * &big_d;
+        let big_f = &big_b - &big_e;
+        let big_g = &big_b + &big_e;
 
-        let num_s1 = &x1y2 + &y1x2;
-        let den_s1 = &one + &dx1x2y1y2;
+        let x3 = &big_a * &big_f * &((x1 + y1) * (x2 + y2) - &big_c - &big_d);
+        let y3 = &big_a * &big_g * (big_d - a_coeff * big_c);
+        let z3 = big_f * big_g;
 
-        let num_s2 = &y1y2 - E::a() * &x1x2;
-        let den_s2 = &one - &dx1x2y1y2;
-        // SAFETY: The creation of the result point is safe because the inputs are always points that belong to the curve.
-        // We are using that den_s1 and den_s2 aren't zero.
-        // See Theorem 3.3 from https://eprint.iacr.org/2007/286.pdf.
-        let x_coord = (&num_s1 / &den_s1).unwrap();
-        let y_coord = (&num_s2 / &den_s2).unwrap();
-        let point = Self::new([x_coord, y_coord, one]);
-        point.unwrap()
+        Self::new_unchecked([x3, y3, z3])
+    }
+
+    /// Point doubling using inversion-free projective formula (dbl-2008-bbjlp).
+    /// Cost: 3M + 4S + 1*a (vs 2 inversions for affine doubling via operate_with).
+    /// From https://hyperelliptic.org/EFD/g1p/auto-twisted-projective.html#doubling-dbl-2008-bbjlp
+    fn double(&self) -> Self {
+        if self.is_neutral_element() {
+            return self.clone();
+        }
+
+        let [x1, y1, z1] = self.coordinates();
+
+        let big_b = (x1 + y1).square();
+        let big_c = x1.square();
+        let big_d = y1.square();
+        let big_e = E::a() * &big_c;
+        let big_f = &big_e + &big_d;
+        let big_h = z1.square();
+        let big_j = &big_f - big_h.double();
+
+        let x3 = (&big_b - &big_c - &big_d) * &big_j;
+        let y3 = &big_f * (big_e - big_d);
+        let z3 = big_f * big_j;
+
+        Self::new_unchecked([x3, y3, z3])
     }
 
     /// Returns the additive inverse of the projective point `p`
-    ///  
-    /// # Safety
-    ///
-    /// - Negating the x-coordinate of a valid Edwards point results in another valid point.
-    /// - `unwrap()` is safe because negation does not break the curve equation.
     fn neg(&self) -> Self {
         let [px, py, pz] = self.coordinates();
-        // SAFETY:
-        // - The negation formula for Edwards curves is well-defined.
-        // - The result remains a valid curve point.
-        let point = Self::new([-px, py.clone(), pz.clone()]);
-        point.unwrap()
+        Self::new_unchecked([-px, py.clone(), pz.clone()])
     }
 }
 
@@ -252,5 +333,76 @@ mod tests {
         assert_eq!(g.operate_with_self(18_u16), create_point(5, 5));
         assert_eq!(g.operate_with_self(19_u16), create_point(1, 11));
         assert_eq!(g.operate_with_self(20_u16), create_point(0, 1));
+    }
+
+    #[cfg(feature = "alloc")]
+    #[test]
+    fn test_batch_to_affine_edwards() {
+        let g = create_point(12, 11);
+
+        // Create multiple points with different Z coordinates (not in affine form)
+        let points: alloc::vec::Vec<_> = (1..=10).map(|i| g.operate_with_self(i as u16)).collect();
+
+        // Convert using batch_to_affine
+        let batch_affine = EdwardsProjectivePoint::<TinyJubJubEdwards>::batch_to_affine(&points);
+
+        // Convert individually and compare
+        for (batch, point) in batch_affine.iter().zip(points.iter()) {
+            let individual = point.to_affine();
+            assert_eq!(
+                batch, &individual,
+                "batch_to_affine should match individual to_affine"
+            );
+            assert_eq!(
+                batch.z(),
+                &FieldElement::one(),
+                "Affine points should have Z=1"
+            );
+        }
+    }
+
+    #[cfg(feature = "alloc")]
+    #[test]
+    fn test_batch_to_affine_edwards_with_neutral_element() {
+        let g = create_point(12, 11);
+        let neutral = EdwardsProjectivePoint::<TinyJubJubEdwards>::neutral_element();
+
+        // Mix regular points with neutral elements
+        let points = alloc::vec![
+            g.clone(),
+            neutral.clone(),
+            g.operate_with_self(2_u16),
+            neutral.clone(),
+            g.operate_with_self(3_u16),
+        ];
+
+        let batch_affine = EdwardsProjectivePoint::<TinyJubJubEdwards>::batch_to_affine(&points);
+
+        assert_eq!(batch_affine.len(), 5);
+        assert_eq!(batch_affine[0], points[0].to_affine());
+        assert!(batch_affine[1].is_neutral_element());
+        assert_eq!(batch_affine[2], points[2].to_affine());
+        assert!(batch_affine[3].is_neutral_element());
+        assert_eq!(batch_affine[4], points[4].to_affine());
+    }
+
+    #[cfg(feature = "alloc")]
+    #[test]
+    fn test_batch_to_affine_edwards_empty() {
+        let points: alloc::vec::Vec<EdwardsProjectivePoint<TinyJubJubEdwards>> =
+            alloc::vec::Vec::new();
+        let result = EdwardsProjectivePoint::<TinyJubJubEdwards>::batch_to_affine(&points);
+        assert!(result.is_empty());
+    }
+
+    #[cfg(feature = "alloc")]
+    #[test]
+    fn test_batch_to_affine_edwards_single_point() {
+        let g = create_point(12, 11);
+        let points = alloc::vec![g.operate_with_self(5_u16)];
+        let batch_result = EdwardsProjectivePoint::<TinyJubJubEdwards>::batch_to_affine(&points);
+
+        assert_eq!(batch_result.len(), 1);
+        assert_eq!(batch_result[0], points[0].to_affine());
     }
 }

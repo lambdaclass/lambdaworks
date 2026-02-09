@@ -153,9 +153,7 @@ pub fn bn_254_elliptic_curve_benchmarks(c: &mut Criterion) {
     // Final Exponentiation
     group.bench_function("Final Exponentiation", |bencher| {
         bencher.iter(|| {
-            black_box(final_exponentiation_optimized(black_box(
-                &miller_loop_output,
-            )))
+            black_box(final_exponentiation_optimized(black_box(&miller_loop_output)).unwrap())
         })
     });
 
@@ -219,4 +217,133 @@ pub fn bn_254_elliptic_curve_benchmarks(c: &mut Criterion) {
             }
         });
     });
+
+    group.finish();
+
+    // Batch operations benchmarks
+    let mut batch_group = c.benchmark_group("BN254 Batch Operations");
+
+    let generator = BN254Curve::generator();
+
+    // Test different batch sizes for batch_to_affine
+    for size in [10, 50, 100, 200].iter() {
+        // Generate test points - convert Jacobian to Projective
+        let points: Vec<G1> = (1..=*size)
+            .map(|i| {
+                let jac_point = generator.operate_with_self(i as u16);
+                let [x, y, z] = jac_point.coordinates();
+                // Convert from Jacobian to Projective: (X, Y, Z) -> (X*Z, Y*Z^2, Z^3)
+                let z_sq = z.square();
+                let z_cu = &z_sq * z;
+                G1::new_unchecked([x * z, y * &z_sq, z_cu])
+            })
+            .collect();
+
+        // Benchmark batch operation
+        batch_group.bench_function(format!("batch_to_affine/{}", size), |bencher| {
+            bencher.iter(|| black_box(G1::batch_to_affine(black_box(&points))));
+        });
+
+        // Benchmark individual operations for comparison
+        batch_group.bench_function(format!("individual_to_affine/{}", size), |bencher| {
+            bencher.iter(|| black_box(points.iter().map(|p| p.to_affine()).collect::<Vec<_>>()));
+        });
+    }
+
+    // Benchmark batch_add_sw (batch addition using mixed addition)
+    for size in [10, 50, 100, 200].iter() {
+        // Create Projective affine points (Z=1) for batch_add_sw
+        let affine_points: Vec<G1> = (1..=*size)
+            .map(|i| {
+                let jac = generator.operate_with_self(i as u16);
+                let [x, y, z] = jac.coordinates();
+                let z_inv = z.inv().unwrap();
+                let z_inv_sq = z_inv.square();
+                let x_affine = x * &z_inv_sq;
+                let y_affine = y * &z_inv_sq * &z_inv;
+                G1::new_unchecked([x_affine, y_affine, FpE::one()])
+            })
+            .collect();
+
+        batch_group.bench_function(format!("batch_add_sw/{}", size), |bencher| {
+            bencher.iter(|| {
+                black_box(lambdaworks_math::elliptic_curve::batch::batch_add_sw::<
+                    BN254Curve,
+                >(black_box(&affine_points)))
+            });
+        });
+
+        // Compare with naive loop
+        batch_group.bench_function(format!("individual_add/{}", size), |bencher| {
+            bencher.iter(|| {
+                let mut acc = G1::neutral_element();
+                for point in &affine_points {
+                    acc = acc.operate_with(black_box(point));
+                }
+                black_box(acc)
+            });
+        });
+    }
+
+    // Benchmark Jacobian batch operations
+    // Note: BN254 uses Projective representation, convert to Jacobian for testing
+    use lambdaworks_math::elliptic_curve::short_weierstrass::point::ShortWeierstrassJacobianPoint;
+    use lambdaworks_math::elliptic_curve::traits::FromAffine;
+    for size in [10, 50, 100, 200].iter() {
+        // Convert from Projective to Jacobian via affine
+        let jac_points: Vec<ShortWeierstrassJacobianPoint<BN254Curve>> = (1..=*size)
+            .map(|i| {
+                let proj = generator.operate_with_self(i as u16);
+                let affine = proj.to_affine();
+                let [x, y, _z] = affine.coordinates();
+                ShortWeierstrassJacobianPoint::from_affine(x.clone(), y.clone()).unwrap()
+            })
+            .collect();
+
+        // batch_normalize_jacobian
+        batch_group.bench_function(format!("batch_normalize_jacobian/{}", size), |bencher| {
+            bencher.iter(|| {
+                black_box(
+                    lambdaworks_math::elliptic_curve::batch::batch_normalize_jacobian::<BN254Curve>(
+                        black_box(&jac_points),
+                    ),
+                )
+            });
+        });
+
+        batch_group.bench_function(
+            format!("individual_jacobian_to_affine/{}", size),
+            |bencher| {
+                bencher.iter(|| {
+                    black_box(jac_points.iter().map(|p| p.to_affine()).collect::<Vec<_>>())
+                });
+            },
+        );
+
+        // batch_add_jacobian
+        let jac_affine_points: Vec<ShortWeierstrassJacobianPoint<BN254Curve>> =
+            jac_points.iter().map(|p| p.to_affine()).collect();
+
+        batch_group.bench_function(format!("batch_add_jacobian/{}", size), |bencher| {
+            bencher.iter(|| {
+                black_box(
+                    lambdaworks_math::elliptic_curve::batch::batch_add_jacobian::<BN254Curve>(
+                        black_box(&jac_affine_points),
+                    ),
+                )
+            });
+        });
+
+        batch_group.bench_function(format!("individual_jacobian_add/{}", size), |bencher| {
+            bencher.iter(|| {
+                let mut acc = ShortWeierstrassJacobianPoint::<BN254Curve>::neutral_element();
+                for point in &jac_affine_points {
+                    acc = acc.operate_with(black_box(point));
+                }
+                black_box(acc)
+            });
+        });
+    }
+
+    batch_group.finish();
 }

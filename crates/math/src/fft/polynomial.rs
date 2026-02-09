@@ -12,7 +12,90 @@ use crate::{
 use alloc::{vec, vec::Vec};
 
 #[cfg(feature = "cuda")]
-use crate::fft::gpu::cuda::polynomial::{evaluate_fft_cuda, interpolate_fft_cuda};
+use crate::fft::gpu::cuda::polynomial::HasCudaFft;
+#[cfg(feature = "cuda")]
+use crate::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;
+#[cfg(feature = "cuda")]
+use crate::field::fields::u64_goldilocks_field::{
+    Degree2GoldilocksExtensionField, Degree3GoldilocksExtensionField, Goldilocks64Field,
+};
+
+/// Attempts CUDA-accelerated FFT evaluation by dispatching to concrete type `T`.
+///
+/// Returns `None` if `E` is not the same type as `T` (detected via `type_name`).
+/// Returns `Some(result)` if `E` matches `T` and the CUDA kernel was invoked.
+///
+/// # Safety rationale
+/// The `unsafe` casts reinterpret `FieldElement<E>` as `FieldElement<T>`. This is sound
+/// because:
+/// - `type_name` comparison within the same binary guarantees `E` and `T` are the
+///   same type (both calls originate from the same compiler invocation).
+/// - Runtime `assert_eq!` on `size_of` and `align_of` provides defense-in-depth,
+///   catching any hypothetical mismatch before the cast executes.
+/// - When `E == T`, `FieldElement<E>` and `FieldElement<T>` are the identical type
+///   with identical layout — the cast is a no-op.
+#[cfg(feature = "cuda")]
+fn try_cuda_evaluate_as<E: IsField, T: HasCudaFft>(
+    coeffs: &[FieldElement<E>],
+) -> Option<Result<Vec<FieldElement<E>>, FFTError>> {
+    if core::any::type_name::<E>() != core::any::type_name::<T>() {
+        return None;
+    }
+    // Defense-in-depth: verify layout compatibility at runtime.
+    // These assertions are zero-cost when E == T (always true), since the
+    // compiler can constant-fold them in monomorphized code.
+    assert_eq!(
+        core::mem::size_of::<FieldElement<E>>(),
+        core::mem::size_of::<FieldElement<T>>(),
+    );
+    assert_eq!(
+        core::mem::align_of::<FieldElement<E>>(),
+        core::mem::align_of::<FieldElement<T>>(),
+    );
+    // SAFETY: E and T are the same type (verified above).
+    let typed: &[FieldElement<T>] =
+        unsafe { core::slice::from_raw_parts(coeffs.as_ptr().cast(), coeffs.len()) };
+    Some(T::cuda_evaluate_fft(typed).map(|v| {
+        // SAFETY: same type, converting Vec<FieldElement<T>> back to Vec<FieldElement<E>>.
+        let mut v = core::mem::ManuallyDrop::new(v);
+        unsafe {
+            Vec::from_raw_parts(
+                v.as_mut_ptr().cast::<FieldElement<E>>(),
+                v.len(),
+                v.capacity(),
+            )
+        }
+    }))
+}
+
+/// Attempts CUDA-accelerated FFT interpolation by dispatching to concrete type `T`.
+/// See [`try_cuda_evaluate_as`] for safety rationale.
+#[cfg(feature = "cuda")]
+fn try_cuda_interpolate_as<E: IsField, T: HasCudaFft>(
+    evals: &[FieldElement<E>],
+) -> Option<Result<Polynomial<FieldElement<E>>, FFTError>> {
+    if core::any::type_name::<E>() != core::any::type_name::<T>() {
+        return None;
+    }
+    assert_eq!(
+        core::mem::size_of::<FieldElement<E>>(),
+        core::mem::size_of::<FieldElement<T>>(),
+    );
+    assert_eq!(
+        core::mem::align_of::<FieldElement<E>>(),
+        core::mem::align_of::<FieldElement<T>>(),
+    );
+    // SAFETY: E and T are the same type (verified above).
+    let typed: &[FieldElement<T>] =
+        unsafe { core::slice::from_raw_parts(evals.as_ptr().cast(), evals.len()) };
+    Some(T::cuda_interpolate_fft(typed).map(|poly| {
+        let src = poly.coefficients();
+        // SAFETY: same type, reinterpreting coefficients back.
+        let reinterpreted: &[FieldElement<E>] =
+            unsafe { core::slice::from_raw_parts(src.as_ptr().cast(), src.len()) };
+        Polynomial::new(reinterpreted)
+    }))
+}
 
 use super::cpu::{ops, roots_of_unity};
 
@@ -41,12 +124,21 @@ impl<E: IsField> Polynomial<FieldElement<E>> {
 
         #[cfg(feature = "cuda")]
         {
-            // TODO: support multiple fields with CUDA
-            if F::field_name() == "stark256" {
-                Ok(evaluate_fft_cuda(&coeffs)?)
-            } else {
-                evaluate_fft_cpu::<F, E>(&coeffs)
+            // Try CUDA dispatch for all known field types via HasCudaFft trait.
+            // Each call checks type_name<E> == type_name<T> and returns None on mismatch.
+            if let Some(r) = try_cuda_evaluate_as::<E, Stark252PrimeField>(&coeffs) {
+                return r;
             }
+            if let Some(r) = try_cuda_evaluate_as::<E, Goldilocks64Field>(&coeffs) {
+                return r;
+            }
+            if let Some(r) = try_cuda_evaluate_as::<E, Degree2GoldilocksExtensionField>(&coeffs) {
+                return r;
+            }
+            if let Some(r) = try_cuda_evaluate_as::<E, Degree3GoldilocksExtensionField>(&coeffs) {
+                return r;
+            }
+            evaluate_fft_cpu::<F, E>(&coeffs)
         }
 
         #[cfg(not(feature = "cuda"))]
@@ -77,11 +169,24 @@ impl<E: IsField> Polynomial<FieldElement<E>> {
     ) -> Result<Self, FFTError> {
         #[cfg(feature = "cuda")]
         {
-            if !F::field_name().is_empty() {
-                Ok(interpolate_fft_cuda(fft_evals)?)
-            } else {
-                interpolate_fft_cpu::<F, E>(fft_evals)
+            // Try CUDA dispatch for all known field types via HasCudaFft trait.
+            if let Some(r) = try_cuda_interpolate_as::<E, Stark252PrimeField>(fft_evals) {
+                return r;
             }
+            if let Some(r) = try_cuda_interpolate_as::<E, Goldilocks64Field>(fft_evals) {
+                return r;
+            }
+            if let Some(r) =
+                try_cuda_interpolate_as::<E, Degree2GoldilocksExtensionField>(fft_evals)
+            {
+                return r;
+            }
+            if let Some(r) =
+                try_cuda_interpolate_as::<E, Degree3GoldilocksExtensionField>(fft_evals)
+            {
+                return r;
+            }
+            interpolate_fft_cpu::<F, E>(fft_evals)
         }
 
         #[cfg(not(feature = "cuda"))]
@@ -131,12 +236,7 @@ impl<E: IsField> Polynomial<FieldElement<E>> {
     ) -> Result<(Self, Self), FFTError> {
         let n = self.degree();
         let m = divisor.degree();
-        if divisor.coefficients.is_empty()
-            || divisor
-                .coefficients
-                .iter()
-                .all(|c| c == &FieldElement::zero())
-        {
+        if divisor.is_zero() {
             return Err(FieldError::DivisionByZero.into());
         }
         if n < m {
@@ -161,9 +261,7 @@ impl<E: IsField> Polynomial<FieldElement<E>> {
         &self,
         k: usize,
     ) -> Result<Self, FFTError> {
-        if self.coefficients.is_empty()
-            || self.coefficients.iter().all(|c| c == &FieldElement::zero())
-        {
+        if self.is_zero() {
             return Err(FieldError::DivisionByZero.into());
         }
         let mut q = Self::new(&[self.coefficients[0].inv()?]);
@@ -189,13 +287,12 @@ impl<E: IsField> Polynomial<FieldElement<E>> {
 pub fn compose_fft<F, E>(
     poly_1: &Polynomial<FieldElement<E>>,
     poly_2: &Polynomial<FieldElement<E>>,
-) -> Polynomial<FieldElement<E>>
+) -> Result<Polynomial<FieldElement<E>>, FFTError>
 where
     F: IsFFTField + IsSubFieldOf<E>,
     E: IsField,
 {
-    let poly_2_evaluations = Polynomial::evaluate_fft::<F>(poly_2, 1, None)
-        .expect("failed to evaluate polynomial via FFT during composition");
+    let poly_2_evaluations = Polynomial::evaluate_fft::<F>(poly_2, 1, None)?;
 
     let values: Vec<_> = poly_2_evaluations
         .iter()
@@ -203,7 +300,6 @@ where
         .collect();
 
     Polynomial::interpolate_fft::<F>(values.as_slice())
-        .expect("failed to interpolate polynomial via FFT during composition")
 }
 
 pub fn evaluate_fft_cpu<F, E>(coeffs: &[FieldElement<E>]) -> Result<Vec<FieldElement<E>>, FFTError>
@@ -350,11 +446,6 @@ mod tests {
             }
         }
         prop_compose! {
-            fn non_power_of_two_sized_field_vec(max_exp: u8)(vec in collection::vec(field_element(), 2..1<<max_exp).prop_filter("Avoid polynomials of size power of two", |vec| !vec.len().is_power_of_two())) -> Vec<FE> {
-                vec
-            }
-        }
-        prop_compose! {
             fn poly(max_exp: u8)(coeffs in field_vec(max_exp)) -> Polynomial<FE> {
                 Polynomial::new(&coeffs)
             }
@@ -364,12 +455,6 @@ mod tests {
                 Polynomial::new(&coeffs)
             }
         }
-        prop_compose! {
-            fn poly_with_non_power_of_two_coeffs(max_exp: u8)(coeffs in non_power_of_two_sized_field_vec(max_exp)) -> Polynomial<FE> {
-                Polynomial::new(&coeffs)
-            }
-        }
-
         proptest! {
             // Property-based test that ensures FFT eval. gives same result as a naive polynomial evaluation.
             #[test]
@@ -439,7 +524,7 @@ mod tests {
             let p = Polynomial::new(&[FE::new(0), FE::new(2)]);
             let q = Polynomial::new(&[FE::new(0), FE::new(0), FE::new(0), FE::new(1)]);
             assert_eq!(
-                compose_fft::<F, F>(&p, &q),
+                compose_fft::<F, F>(&p, &q).unwrap(),
                 Polynomial::new(&[FE::new(0), FE::new(0), FE::new(0), FE::new(2)])
             );
         }
@@ -473,22 +558,12 @@ mod tests {
             }
         }
         prop_compose! {
-            fn non_power_of_two_sized_field_vec(max_exp: u8)(vec in collection::vec(field_element(), 2..1<<max_exp).prop_filter("Avoid polynomials of size power of two", |vec| !vec.len().is_power_of_two())) -> Vec<FE> {
-                vec
-            }
-        }
-        prop_compose! {
             fn poly(max_exp: u8)(coeffs in field_vec(max_exp)) -> Polynomial<FE> {
                 Polynomial::new(&coeffs)
             }
         }
         prop_compose! {
             fn non_zero_poly(max_exp: u8)(coeffs in non_empty_field_vec(max_exp)) -> Polynomial<FE> {
-                Polynomial::new(&coeffs)
-            }
-        }
-        prop_compose! {
-            fn poly_with_non_power_of_two_coeffs(max_exp: u8)(coeffs in non_power_of_two_sized_field_vec(max_exp)) -> Polynomial<FE> {
                 Polynomial::new(&coeffs)
             }
         }
@@ -575,5 +650,176 @@ mod tests {
         let new_poly =
             Polynomial::interpolate_offset_fft::<TF>(&eval, &FieldElement::from(2)).unwrap();
         assert_eq!(poly, new_poly);
+    }
+
+    #[cfg(feature = "cuda")]
+    mod goldilocks_ext_cuda_polynomial_tests {
+        use super::*;
+        use crate::field::fields::u64_goldilocks_field::{
+            Degree2GoldilocksExtensionField, Degree3GoldilocksExtensionField, Goldilocks64Field,
+        };
+
+        type GF = Goldilocks64Field;
+        type GFE = FieldElement<GF>;
+        type Fp2 = Degree2GoldilocksExtensionField;
+        type Fp2E = FieldElement<Fp2>;
+        type Fp3 = Degree3GoldilocksExtensionField;
+        type Fp3E = FieldElement<Fp3>;
+
+        #[test]
+        fn test_cuda_polynomial_evaluate_fft_fp2() {
+            let coeffs: Vec<Fp2E> = (0..4u64)
+                .map(|i| Fp2E::from(&[GFE::from(i + 1), GFE::from(i + 10)]))
+                .collect();
+            let poly = Polynomial::new(&coeffs);
+
+            let eval = Polynomial::evaluate_fft::<GF>(&poly, 1, None).unwrap();
+
+            // Verify by interpolating back
+            let recovered = Polynomial::interpolate_fft::<GF>(&eval).unwrap();
+            assert_eq!(poly, recovered);
+        }
+
+        #[test]
+        fn test_cuda_polynomial_evaluate_fft_fp3() {
+            let coeffs: Vec<Fp3E> = (0..4u64)
+                .map(|i| Fp3E::from(&[GFE::from(i + 1), GFE::from(i + 10), GFE::from(i + 100)]))
+                .collect();
+            let poly = Polynomial::new(&coeffs);
+
+            let eval = Polynomial::evaluate_fft::<GF>(&poly, 1, None).unwrap();
+
+            // Verify by interpolating back
+            let recovered = Polynomial::interpolate_fft::<GF>(&eval).unwrap();
+            assert_eq!(poly, recovered);
+        }
+
+        #[test]
+        fn test_cuda_polynomial_evaluate_fft_fp2_matches_cpu() {
+            let coeffs: Vec<Fp2E> = (0..8u64)
+                .map(|i| Fp2E::from(&[GFE::from(i * 3 + 1), GFE::from(i * 7 + 2)]))
+                .collect();
+            let poly = Polynomial::new(&coeffs);
+
+            // CPU evaluation: get roots of unity from the base field and evaluate naively
+            let len = poly.coeff_len().next_power_of_two();
+            let order = len.trailing_zeros();
+            let twiddles: Vec<GFE> = roots_of_unity::get_powers_of_primitive_root(
+                order.into(),
+                len,
+                RootsConfig::Natural,
+            )
+            .unwrap();
+            // Embed base field roots into extension field for naive evaluation
+            let ext_twiddles: Vec<Fp2E> = twiddles
+                .iter()
+                .map(|t| Fp2E::from(&[t.clone(), GFE::zero()]))
+                .collect();
+            let naive_eval = poly.evaluate_slice(&ext_twiddles);
+
+            // CUDA evaluation via Polynomial::evaluate_fft
+            let cuda_eval = Polynomial::evaluate_fft::<GF>(&poly, 1, None).unwrap();
+
+            assert_eq!(cuda_eval, naive_eval);
+        }
+
+        #[test]
+        fn test_cuda_polynomial_evaluate_fft_fp3_matches_cpu() {
+            let coeffs: Vec<Fp3E> = (0..8u64)
+                .map(|i| {
+                    Fp3E::from(&[
+                        GFE::from(i * 3 + 1),
+                        GFE::from(i * 7 + 2),
+                        GFE::from(i * 11 + 3),
+                    ])
+                })
+                .collect();
+            let poly = Polynomial::new(&coeffs);
+
+            // CPU evaluation: get roots of unity from the base field and evaluate naively
+            let len = poly.coeff_len().next_power_of_two();
+            let order = len.trailing_zeros();
+            let twiddles: Vec<GFE> = roots_of_unity::get_powers_of_primitive_root(
+                order.into(),
+                len,
+                RootsConfig::Natural,
+            )
+            .unwrap();
+            // Embed base field roots into extension field for naive evaluation
+            let ext_twiddles: Vec<Fp3E> = twiddles
+                .iter()
+                .map(|t| Fp3E::from(&[t.clone(), GFE::zero(), GFE::zero()]))
+                .collect();
+            let naive_eval = poly.evaluate_slice(&ext_twiddles);
+
+            // CUDA evaluation via Polynomial::evaluate_fft
+            let cuda_eval = Polynomial::evaluate_fft::<GF>(&poly, 1, None).unwrap();
+
+            assert_eq!(cuda_eval, naive_eval);
+        }
+
+        #[test]
+        fn test_cuda_fft_fp2_matches_cpu_fft() {
+            let coeffs: Vec<Fp2E> = (0..16u64)
+                .map(|i| Fp2E::from(&[GFE::from(i * 5 + 1), GFE::from(i * 13 + 7)]))
+                .collect();
+
+            // CPU FFT path directly
+            let cpu_result = evaluate_fft_cpu::<GF, Fp2>(&coeffs).unwrap();
+
+            // CUDA FFT path: goes through Polynomial::evaluate_fft → try_evaluate_fft_ext_cuda
+            let poly = Polynomial::new(&coeffs);
+            let cuda_result = Polynomial::evaluate_fft::<GF>(&poly, 1, None).unwrap();
+
+            assert_eq!(cuda_result, cpu_result);
+        }
+
+        #[test]
+        fn test_cuda_fft_fp3_matches_cpu_fft() {
+            let coeffs: Vec<Fp3E> = (0..16u64)
+                .map(|i| {
+                    Fp3E::from(&[
+                        GFE::from(i * 5 + 1),
+                        GFE::from(i * 13 + 7),
+                        GFE::from(i * 17 + 3),
+                    ])
+                })
+                .collect();
+
+            // CPU FFT path directly
+            let cpu_result = evaluate_fft_cpu::<GF, Fp3>(&coeffs).unwrap();
+
+            // CUDA FFT path: goes through Polynomial::evaluate_fft → try_evaluate_fft_ext_cuda
+            let poly = Polynomial::new(&coeffs);
+            let cuda_result = Polynomial::evaluate_fft::<GF>(&poly, 1, None).unwrap();
+
+            assert_eq!(cuda_result, cpu_result);
+        }
+
+        #[test]
+        fn test_cuda_polynomial_roundtrip_fp2_large() {
+            let coeffs: Vec<Fp2E> = (0..256u64)
+                .map(|i| Fp2E::from(&[GFE::from(i + 1), GFE::from(i * 2 + 1)]))
+                .collect();
+            let poly = Polynomial::new(&coeffs);
+
+            let eval = Polynomial::evaluate_fft::<GF>(&poly, 1, None).unwrap();
+            let recovered = Polynomial::interpolate_fft::<GF>(&eval).unwrap();
+            assert_eq!(poly, recovered);
+        }
+
+        #[test]
+        fn test_cuda_polynomial_roundtrip_fp3_large() {
+            let coeffs: Vec<Fp3E> = (0..256u64)
+                .map(|i| {
+                    Fp3E::from(&[GFE::from(i + 1), GFE::from(i * 2 + 1), GFE::from(i * 3 + 1)])
+                })
+                .collect();
+            let poly = Polynomial::new(&coeffs);
+
+            let eval = Polynomial::evaluate_fft::<GF>(&poly, 1, None).unwrap();
+            let recovered = Polynomial::interpolate_fft::<GF>(&eval).unwrap();
+            assert_eq!(poly, recovered);
+        }
     }
 }

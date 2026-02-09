@@ -83,7 +83,7 @@ mod tests {
     type Level0FE = FieldElement<BN254PrimeField>;
     type Level1FE = FieldElement<Degree2ExtensionField>;
 
-    #[cfg(feature = "alloc")]
+    #[cfg(feature = "std")]
     use crate::elliptic_curve::short_weierstrass::point::{
         Endianness, PointFormat, ShortWeierstrassProjectivePoint,
     };
