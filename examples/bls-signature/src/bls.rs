@@ -332,7 +332,7 @@ pub fn batch_verify(
         let f = miller(&h.to_affine(), &pk.pk.to_affine());
         lhs *= f;
     }
-    let lhs = final_exponentiation(&lhs);
+    let lhs = final_exponentiation(&lhs).map_err(|_| BlsError::PairingError)?;
 
     // Compute e(G1, sig_sum)
     let rhs = BLS12381AtePairing::compute_batch(&[(&g1.to_affine(), &sig_sum.to_affine())])

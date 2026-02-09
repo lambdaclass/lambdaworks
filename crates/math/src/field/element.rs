@@ -60,6 +60,7 @@ use super::traits::{IsPrimeField, IsSubFieldOf, LegendreSymbol};
 ///
 /// See GitHub issue for constant-time operation implementation plan (to be created).
 #[allow(clippy::derived_hash_with_manual_eq)]
+#[repr(transparent)]
 #[derive(Debug, Clone, Hash, Copy)]
 pub struct FieldElement<F: IsField> {
     value: F::BaseType,
