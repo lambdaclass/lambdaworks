@@ -12,6 +12,7 @@ use lambdaworks_math::{
         },
         traits::{IsEllipticCurve, IsPairing},
     },
+    unsigned_integer::element::U256,
 };
 use rand::{rngs::StdRng, Rng, SeedableRng};
 
@@ -50,6 +51,11 @@ pub fn bls12_381_elliptic_curve_benchmarks(c: &mut Criterion) {
     // Operate_with_self G2
     group.bench_function("Operate_with_self_G2", |bencher| {
         bencher.iter(|| black_box(black_box(&a_g2).operate_with_self(black_box(b_val))));
+    });
+
+    // GLS scalar multiplication G2 (optimized)
+    group.bench_function("GLS_mul_G2", |bencher| {
+        bencher.iter(|| black_box(black_box(&a_g2).gls_mul(black_box(&b_val.into()))));
     });
 
     // Double G1
@@ -109,6 +115,45 @@ pub fn bls12_381_elliptic_curve_benchmarks(c: &mut Criterion) {
     });
 
     group.finish();
+
+    // GLS scalar multiplication comparison benchmarks
+    let mut gls_group = c.benchmark_group("BLS12-381 G2 Scalar Multiplication");
+    gls_group.significance_level(0.1).sample_size(10000);
+
+    let g2 = BLS12381TwistCurve::generator();
+
+    // Test scalars of different sizes
+    let scalar_128 = U256::from_hex_unchecked("123456789ABCDEF0123456789ABCDEF0");
+    let scalar_192 = U256::from_hex_unchecked("123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0");
+    let scalar_256 = U256::from_hex_unchecked("73eda753299d7d483339d80809a1d80553bda402fffe5bfefffffffe00000000");
+
+    // Baseline: operate_with_self (standard double-and-add)
+    gls_group.bench_function("Baseline 128-bit", |bencher| {
+        bencher.iter(|| black_box(g2.operate_with_self(black_box(scalar_128))));
+    });
+
+    gls_group.bench_function("Baseline 192-bit", |bencher| {
+        bencher.iter(|| black_box(g2.operate_with_self(black_box(scalar_192))));
+    });
+
+    gls_group.bench_function("Baseline 256-bit", |bencher| {
+        bencher.iter(|| black_box(g2.operate_with_self(black_box(scalar_256))));
+    });
+
+    // GLS optimized
+    gls_group.bench_function("GLS 128-bit", |bencher| {
+        bencher.iter(|| black_box(g2.gls_mul(black_box(&scalar_128))));
+    });
+
+    gls_group.bench_function("GLS 192-bit", |bencher| {
+        bencher.iter(|| black_box(g2.gls_mul(black_box(&scalar_192))));
+    });
+
+    gls_group.bench_function("GLS 256-bit", |bencher| {
+        bencher.iter(|| black_box(g2.gls_mul(black_box(&scalar_256))));
+    });
+
+    gls_group.finish();
 
     // Batch operations benchmarks
     let mut batch_group = c.benchmark_group("BLS12-381 Batch Operations");
