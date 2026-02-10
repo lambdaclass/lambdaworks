@@ -12,7 +12,7 @@ use lambdaworks_math::{
 };
 use lambdaworks_sumcheck::{
     prove, prove_batched, prove_blendy, prove_fast, prove_memory_efficient, prove_optimized,
-    prove_parallel, prove_small_field, sum_product_over_suffix, verify,
+    prove_parallel, prove_small_field, verify,
 };
 use std::env;
 use std::time::Instant;
@@ -92,11 +92,6 @@ fn bench_multilinear_fix_variable(num_vars: usize) {
     let _ = poly.fix_first_variable(&r);
 }
 
-fn bench_sum_product(num_vars: usize) {
-    let poly = rand_dense_multilinear_poly(num_vars, 42);
-    let _ = sum_product_over_suffix(&[poly], &[]).unwrap();
-}
-
 fn bench_prover_small_field(num_vars: usize) {
     let poly = rand_dense_multilinear_poly(num_vars, 42);
     let _ = prove_small_field(poly).unwrap();
@@ -140,7 +135,6 @@ fn main() {
         eprintln!("  verifier           - Verify sumcheck proof");
         eprintln!("  multilinear-eval   - Evaluate multilinear polynomial at point");
         eprintln!("  multilinear-fix    - Fix first variable of multilinear polynomial");
-        eprintln!("  sum-product        - Sum product over hypercube (current bottleneck)");
         eprintln!();
         eprintln!("Example:");
         eprintln!("  hyperfine './target/release/examples/benchmark prover-linear 12' \\");
@@ -167,7 +161,6 @@ fn main() {
         "verifier" => bench_verifier_linear(num_vars),
         "multilinear-eval" => bench_multilinear_evaluate(num_vars),
         "multilinear-fix" => bench_multilinear_fix_variable(num_vars),
-        "sum-product" => bench_sum_product(num_vars),
         "all" => {
             println!(
                 "Running all benchmarks with {} variables (2^{} = {} evals)...",
@@ -204,10 +197,6 @@ fn main() {
             let start = Instant::now();
             bench_multilinear_fix_variable(num_vars);
             println!("multilinear-fix:    {:?}", start.elapsed());
-
-            let start = Instant::now();
-            bench_sum_product(num_vars);
-            println!("sum-product:        {:?}", start.elapsed());
         }
         "compare" => {
             println!(

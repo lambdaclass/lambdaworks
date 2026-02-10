@@ -37,6 +37,6 @@ impl<F: IsField> From<&FieldElement<F>> for CUDAFieldElement<F> {
 
 impl<F: IsField> From<CUDAFieldElement<F>> for FieldElement<F> {
     fn from(elem: CUDAFieldElement<F>) -> Self {
-        Self::from_raw(elem.value())
+        Self::from_raw(elem.value().clone())
     }
 }

@@ -67,7 +67,7 @@ where
         let num_vars = validate_factors(&factors)?;
 
         let factor_evals: Vec<Vec<FieldElement<F>>> =
-            factors.iter().map(|f| f.evals().clone()).collect();
+            factors.iter().map(|f| f.evals().to_vec()).collect();
 
         Ok(Self {
             num_vars,

@@ -5,8 +5,7 @@ use lambdaworks_math::{
     polynomial::dense_multilinear_poly::DenseMultilinearPolynomial,
 };
 use lambdaworks_sumcheck::{
-    evaluate_product_at_point, prove, prove_fast, prove_optimized, prove_parallel,
-    sum_product_over_suffix, verify, Prover,
+    evaluate_product_at_point, prove, prove_fast, prove_optimized, prove_parallel, verify, Prover,
 };
 use rand::Rng;
 
@@ -290,36 +289,13 @@ pub fn multilinear_benchmarks(c: &mut Criterion) {
     group.finish();
 }
 
-/// Benchmarks for sum_product helper functions (identifies bottlenecks)
-pub fn sum_product_benchmarks(c: &mut Criterion) {
-    let mut group = c.benchmark_group("Sum Product Helpers");
+/// Benchmarks for evaluation helper functions (identifies bottlenecks)
+pub fn evaluation_benchmarks(c: &mut Criterion) {
+    let mut group = c.benchmark_group("Evaluation Helpers");
 
     for num_vars in [6, 8, 10, 12] {
         let size = 1u64 << num_vars;
         group.throughput(Throughput::Elements(size));
-
-        // sum_product_over_suffix with empty prefix (full sum)
-        group.bench_with_input(
-            BenchmarkId::new("full_sum_linear", num_vars),
-            &num_vars,
-            |bench, &num_vars| {
-                let poly = rand_dense_multilinear_poly(num_vars);
-                let factors = vec![poly];
-                bench.iter(|| sum_product_over_suffix(black_box(&factors), black_box(&[])));
-            },
-        );
-
-        // sum_product_over_suffix with half prefix
-        group.bench_with_input(
-            BenchmarkId::new("half_prefix_linear", num_vars),
-            &num_vars,
-            |bench, &num_vars| {
-                let poly = rand_dense_multilinear_poly(num_vars);
-                let factors = vec![poly];
-                let prefix = rand_field_elements(num_vars / 2);
-                bench.iter(|| sum_product_over_suffix(black_box(&factors), black_box(&prefix)));
-            },
-        );
 
         // evaluate_product_at_point for two polynomials
         group.bench_with_input(

@@ -1,0 +1,38 @@
+[package]
+name = "metal_fuzz"
+version.workspace = true
+edition.workspace = true
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+lambdaworks-math = { workspace = true, features = ["metal"] }
+lambdaworks-gpu = { workspace = true, features = ["metal"] }
+lambdaworks-crypto = { path = "../../crates/crypto", features = ["metal"] }
+libfuzzer-sys = "0.4"
+arbitrary = { version = "1", features = ["derive"] }
+
+[[bin]]
+name = "metal_fft_stark252"
+path = "fuzz_targets/metal_fft_stark252.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "metal_fft_goldilocks"
+path = "fuzz_targets/metal_fft_goldilocks.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "metal_twiddles_diff"
+path = "fuzz_targets/metal_twiddles_diff.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "metal_merkle_tree"
+path = "fuzz_targets/metal_merkle_tree.rs"
+test = false
+doc = false

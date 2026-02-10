@@ -1,6 +1,7 @@
 use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::traits::IsField;
 use lambdaworks_math::polynomial::dense_multilinear_poly::DenseMultilinearPolynomial;
+use thiserror::Error;
 
 /// A type of a gate in the Circuit.
 #[derive(Copy, Clone, PartialEq, Eq)]
@@ -56,11 +57,15 @@ impl CircuitLayer {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Error)]
 pub enum CircuitError {
+    #[error("Number of inputs must be a power of two")]
     InputsNotPowerOfTwo,
+    #[error("Layer {0} does not have a power of two number of gates")]
     LayerNotPowerOfTwo(usize),
+    #[error("Gate inputs at layer {0} reference invalid indices")]
     GateInputsError(usize),
+    #[error("Circuit cannot be empty")]
     EmptyCircuitError,
 }
 

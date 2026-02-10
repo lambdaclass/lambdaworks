@@ -202,7 +202,7 @@ where
     /// Creates a new small-field optimized prover.
     pub fn new(poly: DenseMultilinearPolynomial<F>) -> Result<Self, ProverError> {
         let num_vars = poly.num_vars();
-        let evals = poly.evals().clone();
+        let evals = poly.evals().to_vec();
 
         Ok(Self {
             num_vars,

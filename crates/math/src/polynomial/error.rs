@@ -1,4 +1,4 @@
-use core::fmt::Display;
+use core::fmt::{self, Display};
 
 /// Errors that can occur during polynomial operations.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -9,8 +9,8 @@ pub enum PolynomialError {
     XgcdBothZero,
 }
 
-impl Display for PolynomialError {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+impl fmt::Display for PolynomialError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             PolynomialError::DivisionByZero => {
                 write!(f, "Cannot divide by the zero polynomial")
@@ -25,22 +25,32 @@ impl Display for PolynomialError {
 #[cfg(feature = "std")]
 impl std::error::Error for PolynomialError {}
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum MultilinearError {
     InvalidMergeLength,
-    IncorrectNumberofEvaluationPoints(usize, usize),
+    IncorrectNumberOfEvaluationPoints(usize, usize),
     ChisAndEvalsLengthMismatch(usize, usize),
 }
 
-impl Display for MultilinearError {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+impl fmt::Display for MultilinearError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            MultilinearError::InvalidMergeLength => write!(f, "Invalid Merge Length"),
-            MultilinearError::IncorrectNumberofEvaluationPoints(x, y) => {
-                write!(f, "points: {x}, vars: {y}")
+            MultilinearError::InvalidMergeLength => {
+                write!(f, "Invalid merge length for multilinear polynomial")
             }
-            MultilinearError::ChisAndEvalsLengthMismatch(x, y) => {
-                write!(f, "chis: {x}, evals: {y}")
+            MultilinearError::IncorrectNumberOfEvaluationPoints(points, vars) => {
+                write!(
+                    f,
+                    "Incorrect number of evaluation points: got {} points, expected {} variables",
+                    points, vars
+                )
+            }
+            MultilinearError::ChisAndEvalsLengthMismatch(chis, evals) => {
+                write!(
+                    f,
+                    "Chis and evals length mismatch: chis has {} elements, evals has {} elements",
+                    chis, evals
+                )
             }
         }
     }
@@ -48,3 +58,27 @@ impl Display for MultilinearError {
 
 #[cfg(feature = "std")]
 impl std::error::Error for MultilinearError {}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum InterpolateError {
+    UnequalLengths(usize, usize),
+    NonUniqueXs,
+}
+
+impl Display for InterpolateError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            InterpolateError::UnequalLengths(x, y) => {
+                write!(
+                    f,
+                    "xs and ys must be the same length: got {} xs and {} ys",
+                    x, y
+                )
+            }
+            InterpolateError::NonUniqueXs => write!(f, "xs values must be unique"),
+        }
+    }
+}
+
+#[cfg(feature = "std")]
+impl std::error::Error for InterpolateError {}

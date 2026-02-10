@@ -88,7 +88,7 @@ where
         }
 
         let rounds_per_stage = num_vars.div_ceil(num_stages);
-        let original_evals = poly.evals().clone();
+        let original_evals = poly.evals().to_vec();
         let stage_table =
             Self::compute_stage_table(&original_evals, num_vars, 0, rounds_per_stage, &[]);
 

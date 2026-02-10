@@ -37,12 +37,12 @@ fn pinocchio_paper_example() -> Result<(), Groth16Error> {
 
     let lambda_cs = arkworks_cs_to_lambda_cs(&cs);
 
-    let qap = QuadraticArithmeticProgram::from_r1cs(lambda_cs.constraints);
+    let qap = QuadraticArithmeticProgram::from_r1cs(lambda_cs.constraints)?;
 
-    let (pk, vk) = setup(&qap);
+    let (pk, vk) = setup(&qap)?;
 
     let proof = Prover::prove(&lambda_cs.witness, &qap, &pk)?;
-    let accept = verify(&vk, &proof, &lambda_cs.witness[..qap.num_of_public_inputs]);
+    let accept = verify(&vk, &proof, &lambda_cs.witness[..qap.num_of_public_inputs])?;
     assert!(accept);
     Ok(())
 }
@@ -90,12 +90,12 @@ fn vitalik_example() -> Result<(), Groth16Error> {
 
     let lambda_cs = arkworks_cs_to_lambda_cs(&cs);
 
-    let qap = QuadraticArithmeticProgram::from_r1cs(lambda_cs.constraints);
+    let qap = QuadraticArithmeticProgram::from_r1cs(lambda_cs.constraints)?;
 
-    let (pk, vk) = setup(&qap);
+    let (pk, vk) = setup(&qap)?;
 
     let proof = Prover::prove(&lambda_cs.witness, &qap, &pk)?;
-    let accept = verify(&vk, &proof, &lambda_cs.witness[..qap.num_of_public_inputs]);
+    let accept = verify(&vk, &proof, &lambda_cs.witness[..qap.num_of_public_inputs])?;
     assert!(accept);
     Ok(())
 }
@@ -135,12 +135,12 @@ fn failing_vitalik() -> Result<(), Groth16Error> {
 
     let lambda_cs = arkworks_cs_to_lambda_cs(&cs);
 
-    let qap = QuadraticArithmeticProgram::from_r1cs(lambda_cs.constraints);
+    let qap = QuadraticArithmeticProgram::from_r1cs(lambda_cs.constraints)?;
 
-    let (pk, vk) = setup(&qap);
+    let (pk, vk) = setup(&qap)?;
 
     let proof = Prover::prove(&lambda_cs.witness, &qap, &pk)?;
-    let accept = verify(&vk, &proof, &lambda_cs.witness[..qap.num_of_public_inputs]);
+    let accept = verify(&vk, &proof, &lambda_cs.witness[..qap.num_of_public_inputs])?;
     assert!(!accept);
     Ok(())
 }
@@ -177,14 +177,14 @@ fn exponentiation_example() -> Result<(), Groth16Error> {
 
     let lambda_cs = arkworks_cs_to_lambda_cs(&cs);
 
-    let qap = QuadraticArithmeticProgram::from_r1cs(lambda_cs.constraints);
+    let qap = QuadraticArithmeticProgram::from_r1cs(lambda_cs.constraints)?;
 
-    let (pk, vk) = setup(&qap);
+    let (pk, vk) = setup(&qap)?;
 
     let proof = Prover::prove(&lambda_cs.witness, &qap, &pk)?;
 
     let public_inputs = &lambda_cs.witness[..qap.num_of_public_inputs];
-    let accept = verify(&vk, &proof, public_inputs);
+    let accept = verify(&vk, &proof, public_inputs)?;
     assert!(accept);
     Ok(())
 }

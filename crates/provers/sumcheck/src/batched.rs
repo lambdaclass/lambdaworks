@@ -415,7 +415,7 @@ where
         for factor in instance {
             let factor_eval = factor
                 .evaluate(challenges.clone())
-                .map_err(|e| VerifierError::OracleEvaluationError(format!("{:?}", e)))?;
+                .map_err(|e| VerifierError::OracleEvaluationError(e.into()))?;
             instance_eval *= factor_eval;
         }
         combined_eval += &rho_power * &instance_eval;
@@ -423,7 +423,7 @@ where
     }
 
     if combined_eval != expected_sum {
-        return Err(VerifierError::OracleEvaluationError(format!(
+        return Err(VerifierError::InvalidState(format!(
             "Combined evaluation mismatch: expected {:?}, got {:?}",
             expected_sum, combined_eval
         )));
@@ -482,8 +482,10 @@ where
         }
 
         let num_instances = polynomials.len();
-        let instance_evals: Vec<Vec<FieldElement<F>>> =
-            polynomials.into_iter().map(|p| p.evals().clone()).collect();
+        let instance_evals: Vec<Vec<FieldElement<F>>> = polynomials
+            .into_iter()
+            .map(|p| p.evals().to_vec())
+            .collect();
 
         Ok(Self {
             num_vars,

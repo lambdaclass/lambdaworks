@@ -34,6 +34,7 @@ fn r1cs_from_arkworks_cs<F: PrimeField>(cs: &ConstraintSystemRef<F>) -> R1CS {
         ark_to_lambda_matrix(&r1cs_matrices.c, total_variables),
         num_pub_vars,
     )
+    .expect("arkworks matrices should have consistent dimensions")
 }
 
 #[inline]
