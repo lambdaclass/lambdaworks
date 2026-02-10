@@ -274,6 +274,12 @@ impl ShortWeierstrassJacobianPoint<BLS12381TwistCurve> {
     ///
     /// Since x is 64 bits, k₂ ≈ 192 bits and k₁ ≤ 64 bits, giving ~25% speedup
     /// by reducing iterations from 256 to ~192.
+    ///
+    /// # Security Note
+    ///
+    /// This implementation is **not constant-time** and may be vulnerable to
+    /// timing side-channel attacks. Do not use with secret scalars in applications
+    /// requiring side-channel resistance.
     pub fn gls_mul(&self, k: &U256) -> Self {
         if self.is_neutral_element() {
             return self.clone();
