@@ -1,5 +1,6 @@
 extern crate alloc;
 use crate::circle::cosets::Coset;
+#[cfg(feature = "alloc")]
 use crate::circle::point::CirclePoint;
 use crate::circle::traits::IsCircleFriField;
 #[cfg(feature = "alloc")]

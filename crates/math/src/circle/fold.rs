@@ -1,7 +1,6 @@
 extern crate alloc;
 #[cfg(feature = "alloc")]
 use crate::circle::cfft::order_icfft_input_in_place;
-#[cfg(feature = "alloc")]
 use crate::field::{element::FieldElement, traits::IsField};
 #[cfg(feature = "alloc")]
 use alloc::vec::Vec;
