@@ -125,7 +125,9 @@ pub fn bls12_381_elliptic_curve_benchmarks(c: &mut Criterion) {
     // Test scalars of different sizes
     let scalar_128 = U256::from_hex_unchecked("123456789ABCDEF0123456789ABCDEF0");
     let scalar_192 = U256::from_hex_unchecked("123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0");
-    let scalar_256 = U256::from_hex_unchecked("73eda753299d7d483339d80809a1d80553bda402fffe5bfefffffffe00000000");
+    let scalar_256 = U256::from_hex_unchecked(
+        "73eda753299d7d483339d80809a1d80553bda402fffe5bfefffffffe00000000",
+    );
 
     // Baseline: operate_with_self (standard double-and-add)
     gls_group.bench_function("Baseline 128-bit", |bencher| {
