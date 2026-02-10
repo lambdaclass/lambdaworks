@@ -53,7 +53,7 @@ where
         transition_coefficients: &[FieldElement<FieldExtension>],
         boundary_coefficients: &[FieldElement<FieldExtension>],
         rap_challenges: &[FieldElement<FieldExtension>],
-    ) -> Vec<FieldElement<FieldExtension>> {
+    ) -> Result<Vec<FieldElement<FieldExtension>>, crate::prover::ProvingError> {
         let boundary_constraints = &self.boundary_constraints;
 
         // Optimization: Cache boundary zerofiers by step.
@@ -68,7 +68,8 @@ where
         let mut zerofier_cache: HashMap<usize, Vec<FieldElement<Field>>> = HashMap::new();
 
         for bc in boundary_constraints.constraints.iter() {
-            zerofier_cache.entry(bc.step).or_insert_with(|| {
+            if let std::collections::hash_map::Entry::Vacant(entry) = zerofier_cache.entry(bc.step)
+            {
                 let point = domain.trace_primitive_root.pow(bc.step as u64);
                 let mut evals: Vec<FieldElement<Field>> = domain
                     .lde_roots_of_unity_coset
@@ -76,9 +77,9 @@ where
                     .map(|v| v - &point)
                     .collect();
                 FieldElement::inplace_batch_inverse(&mut evals)
-                    .expect("boundary zerofier evaluations are non-zero because trace domain and LDE coset are disjoint");
-                evals
-            });
+                    .map_err(|_| crate::prover::ProvingError::BatchInversionFailed)?;
+                entry.insert(evals);
+            }
         }
 
         // Pre-build Vec of references to avoid HashMap lookup in the hot loop
@@ -109,8 +110,7 @@ where
                     &domain.coset_offset,
                 )
             })
-            .collect::<Result<Vec<Vec<FieldElement<Field>>>, FFTError>>()
-            .expect("failed to evaluate periodic column polynomials on LDE domain");
+            .collect::<Result<Vec<Vec<FieldElement<Field>>>, FFTError>>()?;
 
         #[cfg(feature = "instruments")]
         println!(
@@ -300,6 +300,6 @@ where
             timer.elapsed()
         );
 
-        evaluations_t
+        Ok(evaluations_t)
     }
 }

@@ -180,7 +180,7 @@ where
         )
     }
 
-    pub fn compute_trace_polys_main<S>(&self) -> Vec<Polynomial<FieldElement<F>>>
+    pub fn compute_trace_polys_main<S>(&self) -> Result<Vec<Polynomial<FieldElement<F>>>, FFTError>
     where
         S: IsFFTField + IsSubFieldOf<F>,
         FieldElement<F>: Send + Sync,
@@ -193,10 +193,9 @@ where
 
         iter.map(|col| Polynomial::interpolate_fft::<S>(col))
             .collect::<Result<Vec<Polynomial<FieldElement<F>>>, FFTError>>()
-            .expect("FFT interpolation failed: trace column length must be power of 2")
     }
 
-    pub fn compute_trace_polys_aux<S>(&self) -> Vec<Polynomial<FieldElement<E>>>
+    pub fn compute_trace_polys_aux<S>(&self) -> Result<Vec<Polynomial<FieldElement<E>>>, FFTError>
     where
         S: IsFFTField + IsSubFieldOf<F>,
         FieldElement<E>: Send + Sync,
@@ -209,7 +208,6 @@ where
 
         iter.map(|col| Polynomial::interpolate_fft::<F>(col))
             .collect::<Result<Vec<Polynomial<FieldElement<E>>>, FFTError>>()
-            .expect("FFT interpolation failed: aux trace column length must be power of 2")
     }
 
     pub fn get_column_main(&self, col_idx: usize) -> Vec<FieldElement<F>> {
@@ -424,4 +422,27 @@ where
                 .collect()
         })
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use lambdaworks_math::field::element::FieldElement;
+    use lambdaworks_math::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;
+
+    type FE = FieldElement<Stark252PrimeField>;
+
+    #[test]
+    fn test_compute_trace_polys_main_non_power_of_2_returns_error() {
+        let non_pow2_column = vec![FE::one(); 7]; // 7 is not a power of 2
+        let trace = TraceTable::<Stark252PrimeField, Stark252PrimeField>::from_columns_main(
+            vec![non_pow2_column],
+            1,
+        );
+        let result = trace.compute_trace_polys_main::<Stark252PrimeField>();
+        assert!(
+            result.is_err(),
+            "Expected FFTError for non-power-of-2 trace length"
+        );
+    }
 }
