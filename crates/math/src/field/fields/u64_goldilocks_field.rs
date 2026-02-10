@@ -11,9 +11,9 @@
 use core::fmt::{self, Display};
 
 use crate::errors::CreationError;
+use crate::field::traits::HasDefaultTranscript;
 use crate::field::traits::{IsFFTField, IsField, IsPrimeField, IsSubFieldOf};
 use crate::field::{element::FieldElement, errors::FieldError};
-use crate::field::traits::HasDefaultTranscript;
 #[cfg(feature = "alloc")]
 use crate::traits::AsBytes;
 use crate::traits::ByteConversion;
