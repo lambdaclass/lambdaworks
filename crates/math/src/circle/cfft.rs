@@ -22,7 +22,7 @@
 //! ```
 
 extern crate alloc;
-use crate::field::{element::FieldElement, fields::mersenne31::field::Mersenne31Field};
+use crate::field::{element::FieldElement, traits::IsField};
 use alloc::vec;
 use alloc::vec::Vec;
 
@@ -40,10 +40,7 @@ use alloc::vec::Vec;
 /// Panics in debug builds if:
 /// - `input.len()` is not a power of two
 /// - `twiddles.len()` doesn't match `log_2(input.len())`
-pub fn cfft(
-    input: &mut [FieldElement<Mersenne31Field>],
-    twiddles: &[Vec<FieldElement<Mersenne31Field>>],
-) {
+pub fn cfft<F: IsField>(input: &mut [FieldElement<F>], twiddles: &[Vec<FieldElement<F>>]) {
     // If the input size is 2^n, then log_2_size is n.
     let log_2_size = input.len().trailing_zeros();
 
@@ -76,8 +73,8 @@ pub fn cfft(
                 .zip(low_part)
                 .enumerate()
                 .for_each(|(j, (hi, low))| {
-                    let temp = *low * twiddles[i as usize][j];
-                    *low = *hi - temp;
+                    let temp = low.clone() * twiddles[i as usize][j].clone();
+                    *low = hi.clone() - temp.clone();
                     *hi += temp
                 });
         });
@@ -98,10 +95,7 @@ pub fn cfft(
 /// Panics in debug builds if:
 /// - `input.len()` is not a power of two
 /// - `twiddles.len()` doesn't match `log_2(input.len())`
-pub fn icfft(
-    input: &mut [FieldElement<Mersenne31Field>],
-    twiddles: &[Vec<FieldElement<Mersenne31Field>>],
-) {
+pub fn icfft<F: IsField>(input: &mut [FieldElement<F>], twiddles: &[Vec<FieldElement<F>>]) {
     // If the input size is 2^n, then log_2_size is n.
     let log_2_size = input.len().trailing_zeros();
 
@@ -134,8 +128,8 @@ pub fn icfft(
                 .zip(low_part)
                 .enumerate()
                 .for_each(|(j, (hi, low))| {
-                    let temp = *hi + *low;
-                    *low = (*hi - *low) * twiddles[i as usize][j];
+                    let temp = hi.clone() + low.clone();
+                    *low = (hi.clone() - low.clone()) * twiddles[i as usize][j].clone();
                     *hi = temp;
                 });
         });
@@ -151,14 +145,12 @@ pub fn icfft(
 /// where the even indices are found first in ascending order and then the odd indices in descending order.
 /// This function permutes the slice [0, 2, 4, 6, 7, 5, 3, 1] into [0, 1, 2, 3, 4, 5, 6, 7].
 #[deprecated(note = "Use order_cfft_result_in_place for better performance")]
-pub fn order_cfft_result_naive(
-    input: &[FieldElement<Mersenne31Field>],
-) -> Vec<FieldElement<Mersenne31Field>> {
+pub fn order_cfft_result_naive<F: IsField>(input: &[FieldElement<F>]) -> Vec<FieldElement<F>> {
     let mut result = Vec::with_capacity(input.len());
     let length = input.len();
     for i in 0..length / 2 {
-        result.push(input[i]); // We push the left index.
-        result.push(input[length - i - 1]); // We push the right index.
+        result.push(input[i].clone()); // We push the left index.
+        result.push(input[length - i - 1].clone()); // We push the right index.
     }
     result
 }
@@ -167,8 +159,8 @@ pub fn order_cfft_result_naive(
 ///
 /// For each destination index `dst`, `src_for_dst(dst)` returns the source index
 /// whose value should end up at `dst`. Uses a bitvector to track visited positions.
-fn permute_in_place(
-    input: &mut [FieldElement<Mersenne31Field>],
+fn permute_in_place<F: IsField>(
+    input: &mut [FieldElement<F>],
     src_for_dst: impl Fn(usize) -> usize,
 ) {
     let n = input.len();
@@ -190,7 +182,7 @@ fn permute_in_place(
         }
 
         let mut dst = start;
-        let temp = input[dst];
+        let temp = input[dst].clone();
 
         loop {
             mark_visited(&mut visited, dst);
@@ -201,7 +193,7 @@ fn permute_in_place(
                 break;
             }
 
-            input[dst] = input[src];
+            input[dst] = input[src].clone();
             dst = src;
         }
     }
@@ -215,7 +207,7 @@ fn permute_in_place(
 /// This function permutes them to natural order: `[P(x0), P(x1), P(x2), ..., P(x_{n-1})]`.
 ///
 /// For each destination `dst`: source is `dst/2` if even, `n-1-dst/2` if odd.
-pub fn order_cfft_result_in_place(input: &mut [FieldElement<Mersenne31Field>]) {
+pub fn order_cfft_result_in_place<F: IsField>(input: &mut [FieldElement<F>]) {
     let n = input.len();
     permute_in_place(input, |dst| {
         if dst % 2 == 0 {
@@ -232,19 +224,17 @@ pub fn order_cfft_result_in_place(input: &mut [FieldElement<Mersenne31Field>]) {
 /// where the even indices are found first in ascending order and then the odd indices in descending order.
 /// This function permutes the slice [0, 1, 2, 3, 4, 5, 6, 7] into [0, 2, 4, 6, 7, 5, 3, 1].
 #[deprecated(note = "Use order_icfft_input_in_place for better performance")]
-pub fn order_icfft_input_naive(
-    input: &mut [FieldElement<Mersenne31Field>],
-) -> Vec<FieldElement<Mersenne31Field>> {
+pub fn order_icfft_input_naive<F: IsField>(input: &mut [FieldElement<F>]) -> Vec<FieldElement<F>> {
     let mut result = Vec::with_capacity(input.len());
 
     // We push the even indices.
     (0..input.len()).step_by(2).for_each(|i| {
-        result.push(input[i]);
+        result.push(input[i].clone());
     });
 
     // We push the odd indices.
     (1..input.len()).step_by(2).rev().for_each(|i| {
-        result.push(input[i]);
+        result.push(input[i].clone());
     });
     result
 }
@@ -259,7 +249,7 @@ pub fn order_icfft_input_naive(
 /// This is the inverse of `order_cfft_result_in_place`:
 /// - `dst < n/2`: source is `2*dst`
 /// - `dst >= n/2`: source is `2*(n-1-dst)+1`
-pub fn order_icfft_input_in_place(input: &mut [FieldElement<Mersenne31Field>]) {
+pub fn order_icfft_input_in_place<F: IsField>(input: &mut [FieldElement<F>]) {
     let n = input.len();
     let half = n / 2;
     permute_in_place(input, |dst| {
@@ -274,6 +264,8 @@ pub fn order_icfft_input_in_place(input: &mut [FieldElement<Mersenne31Field>]) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::field::fields::mersenne31::field::Mersenne31Field;
+
     type FE = FieldElement<Mersenne31Field>;
 
     #[test]
