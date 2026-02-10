@@ -96,7 +96,11 @@ where
         current_evals = fold(&current_evals, inv_twiddle_layer, &alpha);
     }
 
-    assert_eq!(current_evals.len(), 1);
+    if current_evals.len() != 1 {
+        return Err(CircleFriError::InconsistentProof(
+            "fold did not reduce to a single value",
+        ));
+    }
     let final_value = current_evals[0].clone();
 
     // Send final value to transcript
