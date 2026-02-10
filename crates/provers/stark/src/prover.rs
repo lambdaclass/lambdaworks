@@ -1828,4 +1828,19 @@ mod tests {
             _ => panic!("Expected FieldOperationError variant"),
         }
     }
+
+    #[test]
+    fn test_proving_error_display_nonce_not_found() {
+        let error = ProvingError::NonceNotFound(32);
+        let msg = format!("{}", error);
+        assert!(msg.contains("Nonce not found"));
+        assert!(msg.contains("32"));
+    }
+
+    #[test]
+    fn test_proving_error_display_batch_inversion_failed() {
+        let error = ProvingError::BatchInversionFailed;
+        let msg = format!("{}", error);
+        assert!(msg.contains("Batch inversion failed"));
+    }
 }
