@@ -15,10 +15,17 @@ template <
 class Fp256 {
 public:
   Fp256() = default;
-  __device__ constexpr Fp256(unsigned long v) : inner(v) {}
+  __device__ constexpr Fp256(unsigned long v) : inner(static_cast<uint64_t>(v)) {}
   __device__ constexpr Fp256(u256 v) : inner(v) {}
 
   __device__ constexpr explicit operator u256() const { return inner; }
+
+  /// Convert a raw integer to Montgomery form: from_int(v) = v * R mod N.
+  __device__ static Fp256 from_int(uint64_t v) {
+    Fp256 tmp;
+    tmp.inner = tmp.mul(u256(v), R_SQUARED);
+    return tmp;
+  }
 
   __device__ constexpr Fp256 operator+(const Fp256 rhs) const {
     return Fp256(add(inner, rhs.inner));

@@ -10,7 +10,7 @@ license.workspace = true
 [dependencies]
 thiserror = { version = "1.0", optional = true }
 lambdaworks-math = { workspace = true, features = ["alloc"] }
-lambdaworks-gpu = { path = "../gpu", optional = true }
+lambdaworks-gpu = { workspace = true, optional = true }
 digest = "0.10.7"
 sha3 = { version = "0.10.8", default-features = false }
 sha2 = { version = "0.10", default-features = false }
@@ -23,6 +23,8 @@ serde = { version = "1.0", default-features = false, features = [
 rayon = { version = "1.8.0", optional = true }
 rand = { version = "0.8.5", default-features = false }
 rand_chacha = { version = "0.3.1", default-features = false }
+# CUDA
+cudarc = { version = "0.9.7", optional = true }
 
 [dev-dependencies]
 criterion = "0.4"
@@ -39,6 +41,7 @@ serde = ["dep:serde"]
 test_fiat_shamir = []
 parallel = ["dep:rayon"]
 alloc = []
+cuda = ["dep:cudarc", "dep:lambdaworks-gpu", "lambdaworks-gpu/cuda"]
 metal = ["dep:metal", "dep:lambdaworks-gpu", "lambdaworks-gpu/metal"]
 
 [[bench]]
@@ -56,3 +59,8 @@ harness = false
 [[bench]]
 name = "criterion_pedersen"
 harness = false
+
+[[bench]]
+name = "criterion_merkle_cuda"
+harness = false
+required-features = ["cuda"]
