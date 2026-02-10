@@ -1,8 +1,11 @@
 pub mod cfft;
 pub mod cosets;
+pub mod domain;
 pub mod errors;
+pub mod fold;
 #[cfg(feature = "metal")]
 pub mod gpu;
 pub mod point;
 pub mod polynomial;
+pub mod traits;
 pub mod twiddles;
