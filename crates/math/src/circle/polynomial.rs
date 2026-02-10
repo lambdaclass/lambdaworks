@@ -20,6 +20,10 @@ use alloc::vec::Vec;
 pub fn evaluate_cfft(
     mut coeff: Vec<FieldElement<Mersenne31Field>>,
 ) -> Vec<FieldElement<Mersenne31Field>> {
+    if coeff.is_empty() {
+        return Vec::new();
+    }
+
     // We get the twiddles for the Evaluation.
     let domain_log_2_size: u32 = coeff.len().trailing_zeros();
     let coset = Coset::new_standard(domain_log_2_size);
