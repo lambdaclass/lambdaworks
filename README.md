@@ -44,7 +44,7 @@ Below is a list of examples to understand lambdaworks and learn what you can bui
 
 ## Why we built lambdaworks
 
-Zero-Knowledge and Validity Proofs have attracted significant attention over the last few years. We strongly believe in this potential, and that is why we decided to start working in this challenging ecosystem, where math, cryptography, and distributed systems meet. The main barrier at the beginning was not cryptography or math, but the lack of good, performant, developer-friendly libraries. There are some exceptions, though, like gnark or Halo 2. Some have nice APIs and are easy to work with, but they are not written in Rust; others are written in Rust but have poor programming and engineering practices. Most of them don't support CUDA, Metal, WebGPU, or distributed FFT calculations using schedulers like Dask.
+Zero-Knowledge and Validity Proofs have attracted significant attention over the last few years. We strongly believe in this potential, which is why we decided to start working in this challenging ecosystem where math, cryptography, and distributed systems meet. The main barrier at the beginning was not cryptography or math, but the lack of good, performant, developer-friendly libraries. There are some exceptions, though, like gnark or Halo 2. Some have nice APIs and are easy to work with, but they are not written in Rust; others are written in Rust but have poor programming and engineering practices. Most of them don't support CUDA, Metal, WebGPU, or distributed FFT calculations using schedulers like Dask.
 
 So, we decided to build our library with performance in mind, providing clear documentation and a developer-focused approach. Our core team is a group of passionate people from diverse backgrounds and strengths; we believe the whole is greater than the sum of its parts. We don't want to be a compilation of every research result in the ZK space. We want this to be a library that can be used in production, not just in academic research. We want to offer developers the main building blocks and proof systems so that they can build their applications on top of this library.
 
@@ -152,7 +152,7 @@ For more examples, see the [examples directory](./examples/) and the [math crate
 
 Most of the math and crypto crates support no-std without allocation with `no-default-features`. A few functions and modules require the `alloc` feature.
 
-Both Math and Crypto support wasm with target `wasm32-unknown-unknown`. To see an example of how to use this to deploy a verifier in a browser, check the Cairo Prover wasm-pack verifier.
+Both Math and Crypto support wasm with the target `wasm32-unknown-unknown`. To see an example of how to use this to deploy a verifier in a browser, check the Cairo Prover wasm-pack verifier.
 
 ## Exercises and Challenges
 
@@ -193,7 +193,7 @@ List of symbols:
 | **ZK friendly Hash function** | **Lambdaworks**    | **Arkworks**       | **Plonky3**        | **gnark** | **Constantine** | **Halo2**          |
 | Poseidon                      | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :x:       | :x:             | :heavy_check_mark: |
 | Pedersen                      | 🏗️                 | :heavy_check_mark: | :x:                | :x:       | :x:             | :heavy_check_mark: | 
-| Rescue Prime XLIX             | :x:                | :x:                | :heavy_check_mark: | :x:       | :x:             | :x:                |
+| Rescue Prime XLIX             | :heavy_check_mark: | :x:                | :heavy_check_mark: | :x:       | :x:             | :x:                |
 | **Elliptic Curves** | **Lambdaworks**    | **Arkworks**       | **Plonky3** | **gnark**          | **Constantine**    | **Halo2**          |
 | BLS12-381           | :heavy_check_mark: | :heavy_check_mark: | :x:         | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | 
 | BLS12-377           | :heavy_check_mark: | :heavy_check_mark: | :x:         | :heavy_check_mark: | :heavy_check_mark: | :x:                | 
@@ -213,7 +213,7 @@ List of symbols:
 | GKR        | :heavy_check_mark: | :heavy_check_mark: | :x:         | :heavy_check_mark: | :x:             | :x:                |
 | **Polynomial Commitment Schemes** | **Lambdaworks**    | **Arkworks**       | **Plonky3**        | **gnark**          | **Constantine**    | **Halo2**          |
 | KZG10                             | :heavy_check_mark: | :heavy_check_mark: | :x:                | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | 
-| FRI                               | 🏗️                 | :x:                | :heavy_check_mark: | :heavy_check_mark: | :x:                | :x:                |
+| FRI                               | :heavy_check_mark: | :x:                | :heavy_check_mark: | :heavy_check_mark: | :x:                | :x:                |
 | Binius                            | :x:                | :x:                | :x:                | :x:                | :x:                | :x:                |
 | Circle FRI                        | 🏗️                 | :x:                | :heavy_check_mark: | :x:                | :x:                | :x:                |
 
@@ -229,7 +229,7 @@ Additionally, provers are compatible with the following frontends and VMs:
 | Stark   | Winterfell | :heavy_check_mark: |
 | Stark   | Miden | :heavy_check_mark: |
 
-This can be used in a multi-prover setting for extra security, or as a standalone to be used with Rust.
+This can be used in a multi-prover setting for extra security, or as a standalone with Rust.
 
 ## Additional tooling usage
 
@@ -256,7 +256,7 @@ The list of fuzzers can be found in `fuzz/no_gpu_fuzz`
 Fuzzers for FTT in Cuda can be run with `make run-cuda-fuzzer`
 
 
-Run a specific fuzzer from the ones contained in **fuzz/fuzz_targets/** folder with`cargo`, for example to run the one for the target `field_from_hex`:
+Run a specific fuzzer from the ones contained in **fuzz/fuzz_targets/** folder with`cargo`, for example, to run the one for the target `field_from_hex`:
 
 ```bash
 make run-fuzzer FUZZER=field_from_hex
@@ -276,7 +276,7 @@ If you want to learn about proof systems/cryptography, we have a list of resourc
 
 ## 📚 References and acknowledgements
 
-The following links, repos, companies and projects have been important in the development of this library and we want to thank and acknowledge them.
+The following links, repos, companies, and projects have been important in the development of this library, and we want to thank and acknowledge them.
 
 - [Starkware](https://starkware.co/)
 - [Polygon](https://polygon.technology/)
