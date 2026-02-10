@@ -390,7 +390,7 @@ pub trait IsStarkProver<
 
         let rap_challenges = air.build_rap_challenges(transcript);
         let (aux, aux_evaluations) = if air.has_trace_interaction() {
-            air.build_auxiliary_trace(trace, &rap_challenges);
+            air.build_auxiliary_trace(trace, &rap_challenges)?;
             let Some((
                 aux_trace_polys,
                 aux_trace_polys_evaluations,

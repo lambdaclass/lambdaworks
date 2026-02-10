@@ -60,7 +60,7 @@ use lambdaworks_math::{
     polynomial::Polynomial,
 };
 
-use crate::{constraints::transition::TransitionConstraint, domain::Domain};
+use crate::{constraints::transition::TransitionConstraint, domain::Domain, prover::ProvingError};
 
 use super::{
     constraints::boundary::BoundaryConstraints, context::AirContext, frame::Frame,
@@ -249,7 +249,8 @@ pub trait AIR: Send + Sync {
         &self,
         _main_trace: &mut TraceTable<Self::Field, Self::FieldExtension>,
         _rap_challenges: &[FieldElement<Self::FieldExtension>],
-    ) {
+    ) -> Result<(), ProvingError> {
+        Ok(())
     }
 
     fn build_rap_challenges(

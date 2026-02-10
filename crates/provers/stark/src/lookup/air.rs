@@ -13,6 +13,7 @@ use crate::{
     },
     context::AirContext,
     proof::options::ProofOptions,
+    prover::ProvingError,
     trace::TraceTable,
     traits::AIR,
 };
@@ -155,10 +156,10 @@ where
         &self,
         trace: &mut TraceTable<Self::Field, Self::FieldExtension>,
         challenges: &[FieldElement<Self::FieldExtension>],
-    ) {
+    ) -> Result<(), ProvingError> {
         let num_interactions = self.interactions.len();
         if num_interactions == 0 {
-            return;
+            return Ok(());
         }
 
         // Allocate aux table if dimensions don't match
@@ -169,12 +170,14 @@ where
 
         // Build term columns
         for (i, interaction) in self.interactions.iter().enumerate() {
-            build_logup_term_column(i, interaction, trace, challenges);
+            build_logup_term_column(i, interaction, trace, challenges)?;
         }
 
         // Build accumulated column
         let acc_col_idx = num_interactions;
         build_accumulated_column(acc_col_idx, num_interactions, trace);
+
+        Ok(())
     }
 
     fn boundary_constraints(
@@ -456,7 +459,8 @@ mod tests {
         ];
 
         let mut check_trace = trace.clone();
-        air.build_auxiliary_trace(&mut check_trace, &challenges);
+        air.build_auxiliary_trace(&mut check_trace, &challenges)
+            .expect("aux trace build failed");
 
         // The accumulated column should end at 0 for a balanced bus where
         // sender and receiver have identical values with multiplicity 1

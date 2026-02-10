@@ -128,6 +128,13 @@ impl BusValue {
 // =============================================================================
 
 /// Specifies how to compute the multiplicity for a bus interaction.
+///
+/// **Important**: The LogUp module reads multiplicity values from the main trace
+/// but does NOT constrain them. Your main AIR must include transition or boundary
+/// constraints that ensure multiplicity columns contain correct values (e.g.,
+/// range checks, boolean checks, or consistency with actual occurrence counts).
+/// Without these constraints, a malicious prover could set arbitrary multiplicities
+/// and break bus balance soundness.
 #[derive(Clone, Debug)]
 pub enum Multiplicity {
     /// Constant multiplicity of 1 for all rows.

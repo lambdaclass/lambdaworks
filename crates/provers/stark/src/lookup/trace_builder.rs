@@ -3,7 +3,7 @@ use lambdaworks_math::field::{
     traits::{IsFFTField, IsField, IsSubFieldOf},
 };
 
-use crate::trace::TraceTable;
+use crate::{prover::ProvingError, trace::TraceTable};
 
 use super::types::{
     BusInteraction, LinearTerm, Multiplicity, LOGUP_CHALLENGE_ALPHA, LOGUP_CHALLENGE_Z,
@@ -16,12 +16,16 @@ use super::types::{
 /// where:
 /// - `fingerprint[i] = z - (bus_id*α^0 + v[0]*α^1 + v[1]*α^2 + ...)`
 /// - `sign = +1` for senders, `-1` for receivers
+///
+/// Returns an error if any fingerprint evaluates to zero (astronomically
+/// unlikely for randomly sampled challenges, probability ≈ N/|F|).
 pub fn build_logup_term_column<F, E>(
     aux_column_idx: usize,
     interaction: &BusInteraction,
     trace: &mut TraceTable<F, E>,
     challenges: &[FieldElement<E>],
-) where
+) -> Result<(), ProvingError>
+where
     F: IsFFTField + IsSubFieldOf<E> + Send + Sync,
     E: IsField + Send + Sync,
 {
@@ -65,14 +69,19 @@ pub fn build_logup_term_column<F, E>(
         let fingerprint = z - &linear_combination;
 
         // term = sign * multiplicity / fingerprint
-        let term = multiplicity
-            * &sign
-            * fingerprint
-                .inv()
-                .expect("fingerprint is zero - probability of sampling zero is negligible");
+        let fingerprint_inv = fingerprint.inv().map_err(|_| {
+            ProvingError::WrongParameter(format!(
+                "LogUp: zero fingerprint at row {row} for bus_id {}. \
+                 Try re-proving — this is astronomically unlikely (≈ 1/|F|).",
+                interaction.bus_id,
+            ))
+        })?;
 
+        let term = multiplicity * &sign * fingerprint_inv;
         trace.set_aux(row, aux_column_idx, term);
     }
+
+    Ok(())
 }
 
 /// Builds the accumulated column that sums all term columns across rows.
