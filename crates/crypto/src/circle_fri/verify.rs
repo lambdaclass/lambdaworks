@@ -51,6 +51,9 @@ where
     // Precompute inverse twiddles (same as the prover)
     let inv_twiddles = get_twiddles(domain.coset.clone(), TwiddlesConfig::Interpolation);
 
+    // Precompute inv(2) once for all fold_pair calls
+    let inv_two = FieldElement::<F>::from(2u64).inv().unwrap();
+
     // Reconstruct challenges from transcript (same sequence as prover)
     let mut challenges = Vec::with_capacity(num_layers);
     for layer_idx in 0..num_layers {
@@ -138,6 +141,7 @@ where
                 f_lo,
                 &inv_twiddles[layer_idx][pair_idx],
                 &challenges[layer_idx],
+                &inv_two,
             );
 
             // Move to next layer

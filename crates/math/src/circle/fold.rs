@@ -56,18 +56,17 @@ pub fn fold<F: IsField>(
 /// * `f_lo` - Evaluation in the second half (index >= half)
 /// * `inv_twiddle` - Inverse twiddle factor for this pair (1/y_i or 1/x_i)
 /// * `alpha` - Random folding challenge
-#[cfg(feature = "alloc")]
+/// * `inv_two` - Precomputed inverse of 2 in the field
 pub fn fold_pair<F: IsField>(
     f_hi: &FieldElement<F>,
     f_lo: &FieldElement<F>,
     inv_twiddle: &FieldElement<F>,
     alpha: &FieldElement<F>,
+    inv_two: &FieldElement<F>,
 ) -> FieldElement<F> {
-    // 2 is always invertible in fields of odd characteristic.
-    let inv_two = FieldElement::<F>::from(2u64).inv().unwrap();
     let sum = f_hi + f_lo;
     let diff = (f_hi - f_lo) * inv_twiddle.clone();
-    (sum + alpha * diff) * inv_two
+    (sum + alpha * diff) * inv_two.clone()
 }
 
 /// Converts a natural-order index to its position in butterfly (CFFT) order.
