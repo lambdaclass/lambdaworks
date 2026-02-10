@@ -15,21 +15,19 @@ use alloc::vec::Vec;
 /// returns the evaluation of the polynomial on the points of the standard coset of size 2^n.
 /// Note that coeff has to be a vector with length a power of two 2^n.
 #[cfg(feature = "alloc")]
-pub fn evaluate_cfft<F: IsCircleFriField>(coeff: Vec<FieldElement<F>>) -> Vec<FieldElement<F>> {
-    let mut coeff = coeff;
-
+pub fn evaluate_cfft<F: IsCircleFriField>(
+    mut coeff: Vec<FieldElement<F>>,
+) -> Vec<FieldElement<F>> {
     // We get the twiddles for the Evaluation.
     let domain_log_2_size: u32 = coeff.len().trailing_zeros();
     let coset = Coset::new_standard(domain_log_2_size);
-    let config = TwiddlesConfig::Evaluation;
-    let twiddles = get_twiddles(coset, config);
+    let twiddles = get_twiddles(coset, TwiddlesConfig::Evaluation);
 
     // For our algorithm to work, we must give as input the coefficients in bit reverse order.
     in_place_bit_reverse_permute::<FieldElement<F>>(&mut coeff);
-    cfft(&mut coeff, twiddles);
+    cfft(&mut coeff, &twiddles);
 
     // The cfft returns the evaluations in a certain order, so we permute them to get the natural order.
-    // This is now done in-place without allocating a new vector.
     order_cfft_result_in_place(&mut coeff);
     coeff
 }
@@ -39,24 +37,21 @@ pub fn evaluate_cfft<F: IsCircleFriField>(coeff: Vec<FieldElement<F>>) -> Vec<Fi
 /// Note that eval has to be a vector of length a power of two 2^n.
 /// If the vector of evaluations is empty, it returns an empty vector.
 #[cfg(feature = "alloc")]
-pub fn interpolate_cfft<F: IsCircleFriField>(eval: Vec<FieldElement<F>>) -> Vec<FieldElement<F>> {
-    let mut eval = eval;
-
+pub fn interpolate_cfft<F: IsCircleFriField>(
+    mut eval: Vec<FieldElement<F>>,
+) -> Vec<FieldElement<F>> {
     if eval.is_empty() {
-        let poly: Vec<FieldElement<F>> = Vec::new();
-        return poly;
+        return Vec::new();
     }
 
     // We get the twiddles for the interpolation.
     let domain_log_2_size: u32 = eval.len().trailing_zeros();
     let coset = Coset::new_standard(domain_log_2_size);
-    let config = TwiddlesConfig::Interpolation;
-    let twiddles = get_twiddles(coset, config);
+    let twiddles = get_twiddles(coset, TwiddlesConfig::Interpolation);
 
     // For our algorithm to work, we must give as input the evaluations ordered in a certain way.
-    // This is now done in-place without allocating a new vector.
     order_icfft_input_in_place(&mut eval);
-    icfft(&mut eval, twiddles);
+    icfft(&mut eval, &twiddles);
 
     // The icfft returns the polynomial coefficients in bit reverse order. So we permute it to get the natural order.
     in_place_bit_reverse_permute::<FieldElement<F>>(&mut eval);
@@ -132,19 +127,16 @@ mod tests {
 
         // We create the coset points and evaluate the polynomial with the naive function.
         let coset = Coset::<Mersenne31Field>::new_standard(2);
-        let points = Coset::get_coset_points(&coset);
-        let mut expected_result: Vec<FE> = Vec::new();
-        for point in points {
-            let point_eval = evaluate_poly_4(&input, point.x, point.y);
-            expected_result.push(point_eval);
-        }
+        let points = coset.get_coset_points();
+        let expected_result: Vec<FE> = points
+            .iter()
+            .map(|p| evaluate_poly_4(&input, p.x, p.y))
+            .collect();
 
-        let input_vec = input.to_vec();
         // We evaluate the polynomial using now the cfft.
-        let result = evaluate_cfft(input_vec);
-        let slice_result: &[FE] = &result;
+        let result = evaluate_cfft(input.to_vec());
 
-        assert_eq!(slice_result, expected_result);
+        assert_eq!(result, expected_result);
     }
 
     #[test]
@@ -164,18 +156,16 @@ mod tests {
 
         // We create the coset points and evaluate them without the fft.
         let coset = Coset::<Mersenne31Field>::new_standard(3);
-        let points = Coset::get_coset_points(&coset);
-        let mut expected_result: Vec<FE> = Vec::new();
-        for point in points {
-            let point_eval = evaluate_poly_8(&input, point.x, point.y);
-            expected_result.push(point_eval);
-        }
+        let points = coset.get_coset_points();
+        let expected_result: Vec<FE> = points
+            .iter()
+            .map(|p| evaluate_poly_8(&input, p.x, p.y))
+            .collect();
 
         // We evaluate the polynomial using now the cfft.
         let result = evaluate_cfft(input.to_vec());
-        let slice_result: &[FE] = &result;
 
-        assert_eq!(slice_result, expected_result);
+        assert_eq!(result, expected_result);
     }
 
     #[test]
@@ -203,18 +193,16 @@ mod tests {
 
         // We create the coset points and evaluate them without the fft.
         let coset = Coset::<Mersenne31Field>::new_standard(4);
-        let points = Coset::get_coset_points(&coset);
-        let mut expected_result: Vec<FE> = Vec::new();
-        for point in points {
-            let point_eval = evaluate_poly_16(&input, point.x, point.y);
-            expected_result.push(point_eval);
-        }
+        let points = coset.get_coset_points();
+        let expected_result: Vec<FE> = points
+            .iter()
+            .map(|p| evaluate_poly_16(&input, p.x, p.y))
+            .collect();
 
         // We evaluate the polynomial using now the cfft.
         let result = evaluate_cfft(input.to_vec());
-        let slice_result: &[FE] = &result;
 
-        assert_eq!(slice_result, expected_result);
+        assert_eq!(result, expected_result);
     }
 
     #[test]

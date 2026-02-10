@@ -36,14 +36,14 @@ impl<F: IsCircleFriField> CircleDomain<F> {
     /// Returns all points in the domain.
     #[cfg(feature = "alloc")]
     pub fn get_points(&self) -> Vec<CirclePoint<F>> {
-        Coset::get_coset_points(&self.coset)
+        self.coset.get_coset_points()
     }
 
     /// After the first fold (y-fold), the domain projects to x-coordinates.
     /// The resulting domain for subsequent folds is the half-coset with the same shift.
     pub fn fold_y(&self) -> CircleDomain<F> {
         CircleDomain {
-            coset: Coset::half_coset(self.coset.clone()),
+            coset: self.coset.half_coset(),
         }
     }
 
