@@ -14,6 +14,8 @@ use super::errors::CircleFriError;
 /// Decommitment for a single query across all FRI layers.
 #[derive(Debug, Clone)]
 pub struct CircleFriDecommitment<F: IsCircleFriField> {
+    /// The evaluation at the queried position in the first committed layer.
+    pub eval_at_query: FieldElement<F>,
     /// For each layer: the evaluation at the query's fold-partner position.
     pub layer_sibling_evals: Vec<FieldElement<F>>,
     /// For each layer: Merkle authentication paths for both the query position
@@ -58,6 +60,9 @@ where
         // Convert natural-order query index to butterfly-order index
         let mut idx = natural_to_butterfly(nat_idx, domain_size);
 
+        // Store the evaluation at the queried position in the first layer
+        let eval_at_query = commitment.layers[0].evaluations[idx].clone();
+
         for layer in &commitment.layers {
             let layer_size = layer.evaluations.len();
             let half = layer_size / 2;
@@ -87,6 +92,7 @@ where
         }
 
         decommitments.push(CircleFriDecommitment {
+            eval_at_query,
             layer_sibling_evals: sibling_evals,
             layer_auth_paths_own: auth_paths_own,
             layer_auth_paths_sibling: auth_paths_sibling,

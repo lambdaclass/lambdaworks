@@ -23,47 +23,30 @@ pub struct CircleFriProof<F: IsCircleFriField> {
     pub final_value: FieldElement<F>,
     /// Decommitments for each query.
     pub decommitments: Vec<CircleFriDecommitment<F>>,
-    /// The queried indices in natural order.
-    pub query_indices: Vec<usize>,
-    /// The evaluation at each queried index in the original domain.
-    pub query_evaluations: Vec<FieldElement<F>>,
 }
 
 /// Verifies a Circle FRI proof.
 ///
+/// The verifier derives query indices from the Fiat-Shamir transcript
+/// (after absorbing all Merkle roots and the final value), ensuring
+/// the prover cannot choose favorable query positions.
+///
 /// # Arguments
-/// * `proof`      - The Circle FRI proof to verify
-/// * `domain`     - The original evaluation domain
-/// * `transcript` - Fiat-Shamir transcript (must be seeded identically to the prover)
+/// * `proof`       - The Circle FRI proof to verify
+/// * `domain`      - The original evaluation domain
+/// * `num_queries` - Number of queries to sample from the transcript
+/// * `transcript`  - Fiat-Shamir transcript (must be seeded identically to the prover)
 pub fn circle_fri_verify<F: IsCircleFriField>(
     proof: &CircleFriProof<F>,
     domain: &CircleDomain<F>,
+    num_queries: usize,
     transcript: &mut impl IsTranscript<F>,
 ) -> Result<bool, CircleFriError>
 where
     FieldElement<F>: AsBytes,
 {
     let num_layers = proof.layer_merkle_roots.len();
-
-    if proof.query_indices.len() != proof.decommitments.len() {
-        return Err(CircleFriError::InconsistentProof(
-            "query_indices and decommitments have different lengths",
-        ));
-    }
-    if proof.query_indices.len() != proof.query_evaluations.len() {
-        return Err(CircleFriError::InconsistentProof(
-            "query_indices and query_evaluations have different lengths",
-        ));
-    }
     let domain_size = domain.size();
-    for &idx in &proof.query_indices {
-        if idx >= domain_size {
-            return Err(CircleFriError::QueryIndexOutOfBounds {
-                index: idx,
-                domain_size,
-            });
-        }
-    }
 
     // Precompute inverse twiddles (same as the prover)
     let inv_twiddles = get_twiddles(domain.coset.clone(), TwiddlesConfig::Interpolation);
@@ -77,20 +60,33 @@ where
     }
     transcript.append_field_element(&proof.final_value);
 
-    let domain_size = domain.size();
+    // Derive query indices from transcript (same as the prover)
+    let query_indices: Vec<usize> = (0..num_queries)
+        .map(|_| transcript.sample_u64(domain_size as u64) as usize)
+        .collect();
+
+    if proof.decommitments.len() != num_queries {
+        return Err(CircleFriError::InconsistentProof(
+            "number of decommitments does not match num_queries",
+        ));
+    }
 
     // Verify each query's decommitment chain
-    for (q_pos, decommitment) in proof.query_indices.iter().zip(&proof.decommitments) {
-        let nat_idx = *q_pos;
+    for (&nat_idx, decommitment) in query_indices.iter().zip(&proof.decommitments) {
         let mut idx = natural_to_butterfly(nat_idx, domain_size);
 
-        // The initial evaluation at the query point
-        let q_eval_pos = proof
-            .query_indices
-            .iter()
-            .position(|&x| x == nat_idx)
-            .expect("query index must be present in proof.query_indices");
-        let mut current_eval = proof.query_evaluations[q_eval_pos].clone();
+        if decommitment.layer_sibling_evals.len() != num_layers
+            || decommitment.layer_auth_paths_own.len() != num_layers
+            || decommitment.layer_auth_paths_sibling.len() != num_layers
+        {
+            return Err(CircleFriError::InconsistentProof(
+                "decommitment layer count does not match number of committed layers",
+            ));
+        }
+
+        // The initial evaluation at the query point (provided by the prover,
+        // verified against the Merkle commitment below)
+        let mut current_eval = decommitment.eval_at_query.clone();
 
         let mut layer_size = domain_size;
 
@@ -181,17 +177,16 @@ mod tests {
         let commitment = circle_fri_commit(&evals, &domain, &mut prover_transcript)
             .expect("commit should succeed");
 
-        // Prover: sample query indices from transcript
+        // Prover: sample query indices from transcript (must happen in same order as verifier)
         let query_indices: Vec<usize> = (0..num_queries)
             .map(|_| prover_transcript.sample_u64(n as u64) as usize)
             .collect();
-        let query_evaluations: Vec<FE> = query_indices.iter().map(|&i| evals[i]).collect();
 
         // Prover: query phase
         let decommitments =
             circle_fri_query(&commitment, &query_indices, n).expect("query should succeed");
 
-        // Build proof
+        // Build proof (query_indices are NOT included — verifier derives them)
         let proof = CircleFriProof {
             layer_merkle_roots: commitment
                 .layers
@@ -200,13 +195,11 @@ mod tests {
                 .collect(),
             final_value: commitment.final_value,
             decommitments,
-            query_indices: query_indices.clone(),
-            query_evaluations,
         };
 
         // Verifier: reconstruct transcript and verify
         let mut verifier_transcript = DefaultTranscript::<Mersenne31Field>::new(&seed);
-        let result = circle_fri_verify(&proof, &domain, &mut verifier_transcript);
+        let result = circle_fri_verify(&proof, &domain, num_queries, &mut verifier_transcript);
         assert!(result.is_ok(), "Verification failed: {:?}", result.err());
         assert!(result.expect("already checked is_ok"));
     }
@@ -234,6 +227,7 @@ mod tests {
     #[test]
     fn circle_fri_rejects_tampered_final_value() {
         let n = 16usize;
+        let num_queries = 3;
         let coeffs: Vec<FE> = (1..=n).map(|i| FE::from(i as u64)).collect();
         let evals = evaluate_cfft(coeffs);
         let domain = CircleDomain::new_standard(4);
@@ -243,8 +237,9 @@ mod tests {
         let commitment = circle_fri_commit(&evals, &domain, &mut prover_transcript)
             .expect("commit should succeed");
 
-        let query_indices = vec![0, 3];
-        let query_evaluations: Vec<FE> = query_indices.iter().map(|&i| evals[i]).collect();
+        let query_indices: Vec<usize> = (0..num_queries)
+            .map(|_| prover_transcript.sample_u64(n as u64) as usize)
+            .collect();
         let decommitments =
             circle_fri_query(&commitment, &query_indices, n).expect("query should succeed");
 
@@ -257,18 +252,17 @@ mod tests {
                 .collect(),
             final_value: commitment.final_value + FE::from(1u64),
             decommitments,
-            query_indices,
-            query_evaluations,
         };
 
         let mut verifier_transcript = DefaultTranscript::<Mersenne31Field>::new(&seed);
-        let result = circle_fri_verify(&proof, &domain, &mut verifier_transcript);
+        let result = circle_fri_verify(&proof, &domain, num_queries, &mut verifier_transcript);
         assert!(result.is_err());
     }
 
     #[test]
     fn circle_fri_rejects_tampered_evaluation() {
         let n = 8usize;
+        let num_queries = 1;
         let coeffs: Vec<FE> = (1..=n).map(|i| FE::from(i as u64)).collect();
         let evals = evaluate_cfft(coeffs);
         let domain = CircleDomain::new_standard(3);
@@ -278,13 +272,14 @@ mod tests {
         let commitment = circle_fri_commit(&evals, &domain, &mut prover_transcript)
             .expect("commit should succeed");
 
-        let query_indices = vec![1];
-        let mut query_evaluations: Vec<FE> = query_indices.iter().map(|&i| evals[i]).collect();
-        let decommitments =
+        let query_indices: Vec<usize> = (0..num_queries)
+            .map(|_| prover_transcript.sample_u64(n as u64) as usize)
+            .collect();
+        let mut decommitments =
             circle_fri_query(&commitment, &query_indices, n).expect("query should succeed");
 
         // Tamper with the claimed evaluation
-        query_evaluations[0] += FE::from(1u64);
+        decommitments[0].eval_at_query += FE::from(1u64);
 
         let proof = CircleFriProof {
             layer_merkle_roots: commitment
@@ -294,12 +289,10 @@ mod tests {
                 .collect(),
             final_value: commitment.final_value,
             decommitments,
-            query_indices,
-            query_evaluations,
         };
 
         let mut verifier_transcript = DefaultTranscript::<Mersenne31Field>::new(&seed);
-        let result = circle_fri_verify(&proof, &domain, &mut verifier_transcript);
+        let result = circle_fri_verify(&proof, &domain, num_queries, &mut verifier_transcript);
         // Should fail - either Merkle proof fails or final value mismatch
         assert!(result.is_err());
     }
