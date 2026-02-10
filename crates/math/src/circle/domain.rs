@@ -38,22 +38,6 @@ impl<F: IsCircleFriField> CircleDomain<F> {
     pub fn get_points(&self) -> Vec<CirclePoint<F>> {
         self.coset.get_coset_points()
     }
-
-    /// After the first fold (y-fold), the domain projects to x-coordinates.
-    /// The resulting domain for subsequent folds is the half-coset with the same shift.
-    pub fn fold_y(&self) -> CircleDomain<F> {
-        CircleDomain {
-            coset: self.coset.half_coset(),
-        }
-    }
-
-    /// After an x-fold, the domain maps via x -> t = 2x^2 - 1.
-    /// The resulting domain is a standard coset of half the current size.
-    pub fn fold_x(&self) -> CircleDomain<F> {
-        CircleDomain {
-            coset: Coset::new_standard(self.coset.log_2_size - 1),
-        }
-    }
 }
 
 #[cfg(test)]
@@ -67,31 +51,6 @@ mod tests {
     fn standard_domain_has_correct_size() {
         let domain = TestDomain::new_standard(4);
         assert_eq!(domain.size(), 16);
-    }
-
-    #[test]
-    fn fold_y_halves_domain() {
-        let domain = TestDomain::new_standard(4);
-        let folded = domain.fold_y();
-        assert_eq!(folded.size(), 8);
-    }
-
-    #[test]
-    fn fold_x_halves_domain_again() {
-        let domain = TestDomain::new_standard(4);
-        let folded = domain.fold_y().fold_x();
-        assert_eq!(folded.size(), 4);
-    }
-
-    #[test]
-    fn repeated_folds_reduce_to_one() {
-        let domain = TestDomain::new_standard(3); // 8 points
-        let d1 = domain.fold_y(); // 4 points
-        assert_eq!(d1.size(), 4);
-        let d2 = d1.fold_x(); // 2 points
-        assert_eq!(d2.size(), 2);
-        let d3 = d2.fold_x(); // 1 point
-        assert_eq!(d3.size(), 1);
     }
 
     #[test]
