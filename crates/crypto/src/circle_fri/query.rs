@@ -50,6 +50,12 @@ where
         }
     }
 
+    if !commitment.layers.is_empty() && domain_size != commitment.layers[0].evaluations.len() {
+        return Err(CircleFriError::InconsistentProof(
+            "domain_size does not match first layer size",
+        ));
+    }
+
     let mut decommitments = Vec::with_capacity(query_indices.len());
 
     for &nat_idx in query_indices {

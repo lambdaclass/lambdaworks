@@ -51,6 +51,12 @@ where
     // Precompute inverse twiddles (same as the prover)
     let inv_twiddles = get_twiddles(domain.coset.clone(), TwiddlesConfig::Interpolation);
 
+    if num_layers != inv_twiddles.len() {
+        return Err(CircleFriError::InconsistentProof(
+            "proof layer count does not match expected fold depth",
+        ));
+    }
+
     // Precompute inv(2) once for all fold_pair calls
     let inv_two = FieldElement::<F>::from(2u64).inv().unwrap();
 
