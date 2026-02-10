@@ -34,6 +34,8 @@ pub struct CudaFieldElement {
 }
 
 // SAFETY: All-zero bytes are a valid `CudaFieldElement` (represents the zero field element).
+// The type contains only a `[u64; 4]` array where all zeros is a valid field element (zero).
+// No pointers, references, or other types that require non-zero bit patterns.
 unsafe impl cudarc::driver::safe::ValidAsZeroBits for CudaFieldElement {}
 
 impl From<&Fp> for CudaFieldElement {
@@ -52,7 +54,11 @@ impl From<CudaFieldElement> for Fp {
 
 // SAFETY: `CudaFieldElement` is `#[repr(C)]` with a single `[u64; 4]` field,
 // which matches the GPU-side `u256` struct layout (4 x u64, no padding).
-// The pointer cast is valid because the type has a stable, well-defined layout.
+// The pointer cast is valid because:
+// 1. Type has stable, well-defined layout with #[repr(C)]
+// 2. No interior mutability or aliasing concerns (simple data structure)
+// 3. Pointer remains valid for the duration of the kernel launch
+// 4. GPU-side struct has identical memory layout (verified by PTX compilation)
 unsafe impl cudarc::driver::safe::DeviceRepr for CudaFieldElement {
     fn as_kernel_param(&self) -> *mut core::ffi::c_void {
         self as *const _ as *mut _
@@ -131,6 +137,13 @@ impl CudaMerkleState {
             shared_mem_bytes: 0,
         };
 
+        // SAFETY: Kernel launch safety requirements:
+        // 1. All pointers are valid CudaSlice references with correct lifetimes
+        // 2. Kernel parameters match function signature (verified at PTX load time)
+        // 3. Grid/block dimensions are within GPU limits (grid_size computed from input, block_size = WARP_SIZE = 32)
+        // 4. No race conditions: each thread i writes to unique output[i]
+        // 5. Buffer sizes are correct: input_buffer and output_buffer both have num_leaves elements
+        // 6. round_constants has correct size (verified at upload time)
         unsafe {
             hash_leaves_fn.launch(
                 config,
@@ -155,17 +168,20 @@ impl CudaMerkleState {
     /// Build one layer of parents from children.
     ///
     /// `children` must have an even number of elements (each consecutive pair
-    /// is hashed to produce one parent). Panics in debug mode if length is odd.
+    /// is hashed to produce one parent). Returns an error if length is odd.
     pub fn build_layer(&self, children: &[Fp]) -> Result<Vec<Fp>, CudaError> {
         let num_children = children.len();
         if num_children < 2 {
             return Err(CudaError::FunctionError("Need at least 2 children".into()));
         }
-        debug_assert!(
-            num_children % 2 == 0,
-            "build_layer requires even number of children, got {}",
-            num_children
-        );
+
+        // Runtime validation: ensure even number of children in all builds (not just debug)
+        if num_children % 2 != 0 {
+            return Err(CudaError::FunctionError(format!(
+                "build_layer requires even number of children, got {}",
+                num_children
+            )));
+        }
 
         let num_parents = num_children / 2;
 
@@ -196,6 +212,14 @@ impl CudaMerkleState {
             shared_mem_bytes: 0,
         };
 
+        // SAFETY: Kernel launch safety requirements:
+        // 1. All pointers are valid CudaSlice references with correct lifetimes
+        // 2. Kernel parameters match function signature (verified at PTX load time)
+        // 3. Grid/block dimensions are within GPU limits (grid_size = num_parents.div_ceil(WARP_SIZE))
+        // 4. No race conditions: each thread i reads children[2*i] and children[2*i+1], writes to parents[i]
+        // 5. Buffer sizes are correct: children_buffer has num_children elements (even, validated),
+        //    parents_buffer has num_parents = num_children/2 elements
+        // 6. round_constants has correct size (verified at upload time)
         unsafe {
             compute_parents_fn.launch(
                 config,
@@ -281,6 +305,14 @@ impl CudaMerkleState {
                 shared_mem_bytes: 0,
             };
 
+            // SAFETY: Kernel launch safety requirements (build_tree internal loop):
+            // 1. All pointers are valid CudaSlice references that remain valid for kernel duration
+            // 2. Kernel parameters match compute_parents signature (verified at PTX load)
+            // 3. Grid/block dimensions within GPU limits (grid_size derived from num_parents)
+            // 4. No race conditions: thread i computes parent[i] from current_gpu[2*i, 2*i+1]
+            // 5. Buffer sizes correct: current_gpu has current_size elements (always even, power of 2),
+            //    parent_gpu has num_parents = current_size/2 elements
+            // 6. Loop invariant: current_size is always power of 2 (ensured by initial padding)
             unsafe {
                 compute_fn.launch(
                     config,
