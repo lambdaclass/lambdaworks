@@ -40,10 +40,7 @@ use alloc::vec::Vec;
 /// Panics in debug builds if:
 /// - `input.len()` is not a power of two
 /// - `twiddles.len()` doesn't match `log_2(input.len())`
-pub fn cfft<F: IsField>(
-    input: &mut [FieldElement<F>],
-    twiddles: &[Vec<FieldElement<F>>],
-) {
+pub fn cfft<F: IsField>(input: &mut [FieldElement<F>], twiddles: &[Vec<FieldElement<F>>]) {
     // If the input size is 2^n, then log_2_size is n.
     let log_2_size = input.len().trailing_zeros();
 
@@ -98,10 +95,7 @@ pub fn cfft<F: IsField>(
 /// Panics in debug builds if:
 /// - `input.len()` is not a power of two
 /// - `twiddles.len()` doesn't match `log_2(input.len())`
-pub fn icfft<F: IsField>(
-    input: &mut [FieldElement<F>],
-    twiddles: &[Vec<FieldElement<F>>],
-) {
+pub fn icfft<F: IsField>(input: &mut [FieldElement<F>], twiddles: &[Vec<FieldElement<F>>]) {
     // If the input size is 2^n, then log_2_size is n.
     let log_2_size = input.len().trailing_zeros();
 

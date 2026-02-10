@@ -15,9 +15,7 @@ use alloc::vec::Vec;
 /// returns the evaluation of the polynomial on the points of the standard coset of size 2^n.
 /// Note that coeff has to be a vector with length a power of two 2^n.
 #[cfg(feature = "alloc")]
-pub fn evaluate_cfft<F: IsCircleFriField>(
-    mut coeff: Vec<FieldElement<F>>,
-) -> Vec<FieldElement<F>> {
+pub fn evaluate_cfft<F: IsCircleFriField>(mut coeff: Vec<FieldElement<F>>) -> Vec<FieldElement<F>> {
     // We get the twiddles for the Evaluation.
     let domain_log_2_size: u32 = coeff.len().trailing_zeros();
     let coset = Coset::new_standard(domain_log_2_size);

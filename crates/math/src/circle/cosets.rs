@@ -107,7 +107,7 @@ mod tests {
     #[test]
     #[should_panic(expected = "Cannot halve a coset of size 1")]
     fn half_coset_panics_on_size_one() {
-        let coset = Coset::new(0, CirclePoint::GENERATOR);
+        let coset = Coset::<Mersenne31Field>::new(0, CirclePoint::GENERATOR);
         let _ = coset.half_coset(); // Should panic
     }
 }
