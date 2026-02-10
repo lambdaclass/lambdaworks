@@ -1,5 +1,4 @@
 use std::marker::PhantomData;
-use std::sync::Mutex;
 
 use lambdaworks_crypto::fiat_shamir::is_transcript::IsStarkTranscript;
 use lambdaworks_math::field::{
@@ -21,7 +20,7 @@ use crate::{
 use super::{
     constraints::{LookupAccumulatedConstraint, LookupTermConstraint},
     trace_builder::{build_accumulated_column, build_logup_term_column},
-    types::{BoundaryConstraintBuilder, BusInteraction, BusPublicInputs},
+    types::{BoundaryConstraintBuilder, BusInteraction},
 };
 
 /// AIR with LogUp lookup argument support.
@@ -45,7 +44,6 @@ where
     trace_layout: (usize, usize),
     transition_constraints: Vec<Box<dyn TransitionConstraint<F, E>>>,
     interactions: Vec<BusInteraction>,
-    bus_public_inputs: Mutex<Option<BusPublicInputs<E>>>,
     trace_length: usize,
     pub_inputs: PI,
     _phantom: PhantomData<(F, B)>,
@@ -110,7 +108,6 @@ where
             trace_layout,
             transition_constraints,
             interactions,
-            bus_public_inputs: Mutex::new(None),
             trace_length,
             pub_inputs,
             _phantom: PhantomData,
@@ -164,9 +161,9 @@ where
             return;
         }
 
-        // Allocate aux table if needed
+        // Allocate aux table if dimensions don't match
         let (_, num_aux_columns) = self.trace_layout;
-        if num_aux_columns > 0 && trace.num_aux_columns == 0 {
+        if num_aux_columns > 0 && trace.num_aux_columns != num_aux_columns {
             trace.allocate_aux_table(num_aux_columns);
         }
 
@@ -178,17 +175,6 @@ where
         // Build accumulated column
         let acc_col_idx = num_interactions;
         build_accumulated_column(acc_col_idx, num_interactions, trace);
-
-        // Store public inputs for boundary constraints
-        let last_row = trace.num_rows() - 1;
-        let bus_pi = BusPublicInputs {
-            initial_value: trace.get_aux(0, acc_col_idx).clone(),
-            final_accumulated: trace.get_aux(last_row, acc_col_idx).clone(),
-        };
-        *self
-            .bus_public_inputs
-            .lock()
-            .expect("bus_public_inputs mutex poisoned") = Some(bus_pi);
     }
 
     fn boundary_constraints(
@@ -197,25 +183,17 @@ where
     ) -> BoundaryConstraints<Self::FieldExtension> {
         let mut constraints = vec![];
 
-        // LogUp boundary constraints for the accumulated column
-        let bus_pi = self
-            .bus_public_inputs
-            .lock()
-            .expect("bus_public_inputs mutex poisoned");
-        if let Some(ref acc) = *bus_pi {
+        // LogUp boundary constraint: accumulated column must equal zero at last row.
+        // This enforces bus balance (total senders = total receivers).
+        // The accumulated transition constraint has end_exemptions = 0, so the
+        // wrap-around at the last row gives: acc[0] = acc[N-1] + Σ terms[0],
+        // which pins acc[0] when combined with this boundary constraint.
+        if !self.interactions.is_empty() {
             let acc_col_idx = self.interactions.len();
-
-            // Row 0: accumulated column starts at initial_value
-            constraints.push(BoundaryConstraint::new_aux(
-                acc_col_idx,
-                0,
-                acc.initial_value.clone(),
-            ));
-            // Last row: accumulated column ends at final_accumulated
             constraints.push(BoundaryConstraint::new_aux(
                 acc_col_idx,
                 self.trace_length - 1,
-                acc.final_accumulated.clone(),
+                FieldElement::<Self::FieldExtension>::zero(),
             ));
         }
 
