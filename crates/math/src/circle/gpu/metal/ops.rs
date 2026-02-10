@@ -151,6 +151,10 @@ pub fn icfft_gpu(
 ///
 /// Matches the CPU implementation in circle/polynomial.rs evaluate_cfft().
 pub fn evaluate_cfft_gpu(mut coeff: Vec<FE>, state: &MetalState) -> Result<Vec<FE>, MetalError> {
+    if coeff.is_empty() {
+        return Ok(Vec::new());
+    }
+
     let domain_log_2_size: u32 = coeff.len().trailing_zeros();
     let coset = Coset::new_standard(domain_log_2_size);
     let twiddles = get_twiddles(coset, TwiddlesConfig::Evaluation);

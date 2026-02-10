@@ -16,6 +16,9 @@ use alloc::vec::Vec;
 /// Note that coeff has to be a vector with length a power of two 2^n.
 #[cfg(feature = "alloc")]
 pub fn evaluate_cfft<F: IsCircleFriField>(mut coeff: Vec<FieldElement<F>>) -> Vec<FieldElement<F>> {
+    if coeff.is_empty() {
+        return Vec::new();
+    }
     // We get the twiddles for the Evaluation.
     let domain_log_2_size: u32 = coeff.len().trailing_zeros();
     let coset = Coset::new_standard(domain_log_2_size);

@@ -25,6 +25,8 @@ constant uint64_t GOLDILOCKS_PRIME = 0xFFFFFFFF00000001;
 /// Uses the special structure of p = 2^64 - 2^32 + 1 for fast arithmetic.
 class Fp64Goldilocks {
 public:
+    using raw_type = uint64_t;
+
     Fp64Goldilocks() = default;
     constexpr Fp64Goldilocks(uint64_t v) : inner(v) {}
 

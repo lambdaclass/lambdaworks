@@ -15,22 +15,26 @@ template <typename Fp>
     uint lid                 [[thread_position_in_threadgroup]],
     uint tg_size             [[threads_per_threadgroup]]
 ) {
-    threadgroup Fp shared_mem[1024];
+    // Use raw_type for threadgroup array since Metal cannot default-construct
+    // user-defined template types in threadgroup address space.
+    using Raw = typename Fp::raw_type;
+    threadgroup Raw shared_mem[1024];
 
-    // Load into shared memory
-    shared_mem[lid] = (lid < count) ? data[lid] : Fp::zero();
+    // Load into shared memory (copy from device to thread for explicit operator)
+    Fp val = (lid < count) ? data[lid] : Fp::zero();
+    shared_mem[lid] = Raw(val);
     threadgroup_barrier(mem_flags::mem_threadgroup);
 
     // Tree reduction
     for (uint s = tg_size / 2; s > 0; s >>= 1) {
         if (lid < s) {
-            shared_mem[lid] = shared_mem[lid] + shared_mem[lid + s];
+            shared_mem[lid] = Raw(Fp(shared_mem[lid]) + Fp(shared_mem[lid + s]));
         }
         threadgroup_barrier(mem_flags::mem_threadgroup);
     }
 
     if (lid == 0) {
-        data[0] = shared_mem[0];
+        data[0] = Fp(shared_mem[0]);
     }
 }
 
