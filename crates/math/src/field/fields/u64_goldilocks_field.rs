@@ -14,7 +14,9 @@ use crate::errors::CreationError;
 use crate::field::traits::{IsFFTField, IsField, IsPrimeField, IsSubFieldOf};
 use crate::field::{element::FieldElement, errors::FieldError};
 use crate::field::traits::HasDefaultTranscript;
-use crate::traits::{AsBytes, ByteConversion};
+#[cfg(feature = "alloc")]
+use crate::traits::AsBytes;
+use crate::traits::ByteConversion;
 
 // =====================================================
 // CONSTANTS
