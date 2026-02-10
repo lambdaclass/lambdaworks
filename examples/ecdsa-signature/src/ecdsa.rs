@@ -10,6 +10,7 @@
 //! - Operations are NOT constant-time (vulnerable to timing attacks)
 //! - Nonce generation is the caller's responsibility (must use RFC 6979 or CSPRNG)
 //! - No protection against fault attacks
+//! - Private keys and nonces are not zeroized after use (use `zeroize` crate in production)
 //!
 //! For production use, consider well-audited libraries like `k256` or `secp256k1`.
 

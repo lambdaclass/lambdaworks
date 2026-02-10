@@ -1,7 +1,7 @@
 use crate::evaluate_product_at_point;
 use crate::Channel;
+use crate::EvaluationError;
 use lambdaworks_crypto::fiat_shamir::default_transcript::DefaultTranscript;
-use lambdaworks_crypto::fiat_shamir::is_transcript::IsTranscript;
 use lambdaworks_math::{
     field::{
         element::FieldElement,
@@ -11,7 +11,7 @@ use lambdaworks_math::{
     traits::ByteConversion,
 };
 use std::ops::Mul;
-use std::vec::Vec;
+use thiserror::Error;
 
 /// Represents the result of a single round of verification.
 #[derive(Debug)]
@@ -21,31 +21,31 @@ pub enum VerifierRoundResult<F: IsField> {
     Final(bool),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum VerifierError<F: IsField>
 where
     F::BaseType: Send + Sync,
 {
-    /// The sum check g(0) + g(1) == expected failed.
+    #[error("Inconsistent sum at round {round}: g({round})(0)+g({round})(1) = {s0:?}+{s1:?}, expected {expected:?}")]
     InconsistentSum {
         round: usize,
         s0: FieldElement<F>,
         s1: FieldElement<F>,
         expected: FieldElement<F>,
     },
-    /// Error evaluating the product of oracle polynomials at the claimed point.
-    OracleEvaluationError(String),
-    /// The degree of the polynomial sent by the prover is invalid for the current round.
+    #[error("Oracle evaluation error: {0}")]
+    OracleEvaluationError(EvaluationError),
+    #[error("Invalid degree at round {round}: got {actual_degree}, max allowed {max_allowed}")]
     InvalidDegree {
         round: usize,
         actual_degree: usize,
         max_allowed: usize,
     },
-    /// The proof contains an incorrect number of polynomials.
+    #[error("Incorrect proof length: expected {expected}, got {actual}")]
     IncorrectProofLength { expected: usize, actual: usize },
-    /// The list of oracle factors provided was empty.
+    #[error("Missing oracle: at least one polynomial factor is required")]
     MissingOracle,
-    /// Error indicating the Verifier is in an invalid state (e.g., inconsistent factors, unexpected round result).
+    #[error("Invalid verifier state: {0}")]
     InvalidState(String),
 }
 
@@ -172,7 +172,6 @@ where
     F::BaseType: Send + Sync,
     FieldElement<F>: Clone + Mul<Output = FieldElement<F>> + ByteConversion,
 {
-    // ensure the number of polynomials matches the number of variables.
     if proof_polys.len() != num_vars {
         return Err(VerifierError::IncorrectProofLength {
             expected: num_vars,
@@ -180,43 +179,21 @@ where
         });
     }
 
-    let mut verifier = Verifier::new(num_vars, oracle_factors.clone(), claimed_sum.clone())?;
-
+    let num_factors = oracle_factors.len();
     let mut transcript = DefaultTranscript::<F>::default();
-    transcript.append_bytes(b"initial_sum");
-    transcript.append_felt(&FieldElement::from(num_vars as u64));
-    transcript.append_felt(&FieldElement::from(oracle_factors.len() as u64));
-    transcript.append_felt(&claimed_sum);
+    crate::init_transcript(&mut transcript, num_vars, num_factors, &claimed_sum);
 
-    // Process each round polynomial from the proof.
+    let mut verifier = Verifier::new(num_vars, oracle_factors, claimed_sum)?;
+
     for (j, g_j) in proof_polys.into_iter().enumerate() {
-        // Reconstruct the transcript state before drawing the challenge.
-        let round_label = format!("round_{j}_poly");
-        transcript.append_bytes(round_label.as_bytes());
-
-        let coeffs = g_j.coefficients();
-        transcript.append_bytes(&(coeffs.len() as u64).to_be_bytes());
-        if coeffs.is_empty() {
-            transcript.append_felt(&FieldElement::zero());
-        } else {
-            for coeff in coeffs {
-                transcript.append_felt(coeff);
-            }
-        }
+        crate::append_round_poly(&mut transcript, j, &g_j);
 
         match verifier.do_round(g_j, &mut transcript)? {
-            VerifierRoundResult::NextRound(_) => {
-                // Consistency checks passed, challenge r_j generated and stored.
-                // Continue to the next round.
-                continue;
-            }
+            VerifierRoundResult::NextRound(_) => continue,
             VerifierRoundResult::Final(result) => {
-                // This was the last round (j == num_vars - 1).
                 if j == num_vars - 1 {
-                    // Return the final result from the last round check.
                     return Ok(result);
                 } else {
-                    // Should not get Final result before the last round.
                     return Err(VerifierError::InvalidState(
                         "Final result obtained before the last round.".to_string(),
                     ));

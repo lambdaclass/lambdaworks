@@ -1,3 +1,26 @@
+//! Circle FFT operations for polynomial evaluation and interpolation.
+//!
+//! # Example
+//! ```
+//! use lambdaworks_math::circle::cfft::{cfft, order_cfft_result_in_place};
+//! use lambdaworks_math::circle::cosets::Coset;
+//! use lambdaworks_math::circle::twiddles::{get_twiddles, TwiddlesConfig};
+//! use lambdaworks_math::field::element::FieldElement;
+//! use lambdaworks_math::field::fields::mersenne31::field::Mersenne31Field;
+//!
+//! // Prepare input: 8 coefficients (2^3)
+//! let mut coeffs: Vec<FieldElement<Mersenne31Field>> =
+//!     (1..=8).map(FieldElement::from).collect();
+//!
+//! // Get twiddles for matching coset size
+//! let coset = Coset::new_standard(3); // log_2_size = 3
+//! let twiddles = get_twiddles(coset, TwiddlesConfig::Evaluation);
+//!
+//! // Perform FFT (twiddles length matches input size)
+//! cfft(&mut coeffs, &twiddles);
+//! order_cfft_result_in_place(&mut coeffs);
+//! ```
+
 extern crate alloc;
 use crate::field::{element::FieldElement, fields::mersenne31::field::Mersenne31Field};
 use alloc::vec;
@@ -6,12 +29,37 @@ use alloc::vec::Vec;
 #[cfg(feature = "alloc")]
 /// fft in place algorithm used to evaluate a polynomial of degree 2^n - 1 in 2^n points.
 /// Input must be of size 2^n for some n.
+///
+/// # Parameters
+/// * `input` - Mutable slice of field elements with length that is a power of two.
+/// * `twiddles` - Pre-computed twiddle factors from `get_twiddles()`.
+///   Must contain exactly `log_2(input.len())` layers, where each layer
+///   is a vector of twiddle factors for that FFT stage.
+///
+/// # Panics
+/// Panics in debug builds if:
+/// - `input.len()` is not a power of two
+/// - `twiddles.len()` doesn't match `log_2(input.len())`
 pub fn cfft(
     input: &mut [FieldElement<Mersenne31Field>],
-    twiddles: Vec<Vec<FieldElement<Mersenne31Field>>>,
+    twiddles: &[Vec<FieldElement<Mersenne31Field>>],
 ) {
     // If the input size is 2^n, then log_2_size is n.
     let log_2_size = input.len().trailing_zeros();
+
+    debug_assert!(
+        input.len().is_power_of_two(),
+        "cfft input length must be a power of two, got {}",
+        input.len()
+    );
+    debug_assert_eq!(
+        twiddles.len(),
+        log_2_size as usize,
+        "cfft expects {} twiddle layers for input size {}, got {}",
+        log_2_size,
+        input.len(),
+        twiddles.len()
+    );
 
     // The cfft has n layers.
     (0..log_2_size).for_each(|i| {
@@ -39,12 +87,37 @@ pub fn cfft(
 #[cfg(feature = "alloc")]
 /// The inverse fft algorithm used to interpolate 2^n points.
 /// Input must be of size 2^n for some n.
+///
+/// # Parameters
+/// * `input` - Mutable slice of field elements with length that is a power of two.
+/// * `twiddles` - Pre-computed twiddle factors from `get_twiddles()`.
+///   Must contain exactly `log_2(input.len())` layers, where each layer
+///   is a vector of twiddle factors for that FFT stage.
+///
+/// # Panics
+/// Panics in debug builds if:
+/// - `input.len()` is not a power of two
+/// - `twiddles.len()` doesn't match `log_2(input.len())`
 pub fn icfft(
     input: &mut [FieldElement<Mersenne31Field>],
-    twiddles: Vec<Vec<FieldElement<Mersenne31Field>>>,
+    twiddles: &[Vec<FieldElement<Mersenne31Field>>],
 ) {
     // If the input size is 2^n, then log_2_size is n.
     let log_2_size = input.len().trailing_zeros();
+
+    debug_assert!(
+        input.len().is_power_of_two(),
+        "icfft input length must be a power of two, got {}",
+        input.len()
+    );
+    debug_assert_eq!(
+        twiddles.len(),
+        log_2_size as usize,
+        "icfft expects {} twiddle layers for input size {}, got {}",
+        log_2_size,
+        input.len(),
+        twiddles.len()
+    );
 
     // The icfft has n layers.
     (0..log_2_size).for_each(|i| {
@@ -81,7 +154,7 @@ pub fn icfft(
 pub fn order_cfft_result_naive(
     input: &[FieldElement<Mersenne31Field>],
 ) -> Vec<FieldElement<Mersenne31Field>> {
-    let mut result = Vec::new();
+    let mut result = Vec::with_capacity(input.len());
     let length = input.len();
     for i in 0..length / 2 {
         result.push(input[i]); // We push the left index.
@@ -90,46 +163,19 @@ pub fn order_cfft_result_naive(
     result
 }
 
-/// In-place permutation to order the result of the cfft in the natural way.
+/// Applies an in-place permutation defined by `src_for_dst` using cycle-following.
 ///
-/// This is an optimized version of `order_cfft_result_naive` that performs the permutation
-/// in-place without allocating a new vector (only a small bitvector for tracking visited elements).
-///
-/// The cfft returns evaluations in this order: `[P(x0), P(x2), P(x4), ..., P(x_{n-1}), ..., P(x3), P(x1)]`
-/// (even indices ascending, then odd indices descending).
-///
-/// This function permutes them to natural order: `[P(x0), P(x1), P(x2), ..., P(x_{n-1})]`.
-///
-/// # Algorithm
-///
-/// The permutation can be described as:
-/// - `output[2*i] = input[i]` for `i < n/2`
-/// - `output[2*i+1] = input[n-1-i]` for `i < n/2`
-///
-/// Equivalently, for each destination position `dst`:
-/// - `output[dst] = input[src_for_dst(dst)]`
-///   where `src_for_dst(dst) = dst/2` if dst is even, `src_for_dst(dst) = n-1-dst/2` if dst is odd.
-///
-/// We follow cycles to perform swaps in-place, using a bitvector to track visited positions.
-pub fn order_cfft_result_in_place(input: &mut [FieldElement<Mersenne31Field>]) {
+/// For each destination index `dst`, `src_for_dst(dst)` returns the source index
+/// whose value should end up at `dst`. Uses a bitvector to track visited positions.
+fn permute_in_place(
+    input: &mut [FieldElement<Mersenne31Field>],
+    src_for_dst: impl Fn(usize) -> usize,
+) {
     let n = input.len();
     if n <= 2 {
         return;
     }
 
-    // Compute source index for a destination position:
-    // The value at `output[dst]` comes from `input[src_for_dst(dst)]`
-    // dst even: output[dst] = input[dst/2]
-    // dst odd:  output[dst] = input[n-1-dst/2]
-    let src_for_dst = |dst: usize| -> usize {
-        if dst.is_multiple_of(2) {
-            dst / 2
-        } else {
-            n - 1 - dst / 2
-        }
-    };
-
-    // Track visited positions with a bitvector (n bits = n/64 u64s, much smaller than n field elements)
     let mut visited = vec![0u64; n.div_ceil(64)];
 
     let is_visited = |visited: &[u64], i: usize| -> bool { (visited[i / 64] >> (i % 64)) & 1 == 1 };
@@ -143,9 +189,6 @@ pub fn order_cfft_result_in_place(input: &mut [FieldElement<Mersenne31Field>]) {
             continue;
         }
 
-        // For cycle following with a permutation where we know the SOURCE for each destination,
-        // we need to follow the chain: dst <- src_for_dst(dst) <- src_for_dst(src_for_dst(dst)) <- ...
-        // Save the original value at `start`, then pull values from their sources
         let mut dst = start;
         let temp = input[dst];
 
@@ -154,16 +197,33 @@ pub fn order_cfft_result_in_place(input: &mut [FieldElement<Mersenne31Field>]) {
             let src = src_for_dst(dst);
 
             if src == start {
-                // Cycle complete, place the saved value
                 input[dst] = temp;
                 break;
             }
 
-            // Pull the value from source to destination
             input[dst] = input[src];
             dst = src;
         }
     }
+}
+
+/// In-place permutation to order the result of the cfft in the natural way.
+///
+/// The cfft returns evaluations in this order: `[P(x0), P(x2), P(x4), ..., P(x_{n-1}), ..., P(x3), P(x1)]`
+/// (even indices ascending, then odd indices descending).
+///
+/// This function permutes them to natural order: `[P(x0), P(x1), P(x2), ..., P(x_{n-1})]`.
+///
+/// For each destination `dst`: source is `dst/2` if even, `n-1-dst/2` if odd.
+pub fn order_cfft_result_in_place(input: &mut [FieldElement<Mersenne31Field>]) {
+    let n = input.len();
+    permute_in_place(input, |dst| {
+        if dst % 2 == 0 {
+            dst / 2
+        } else {
+            n - 1 - dst / 2
+        }
+    });
 }
 
 /// This function permutes a slice of field elements to order the input of the icfft in a specific way.
@@ -175,7 +235,7 @@ pub fn order_cfft_result_in_place(input: &mut [FieldElement<Mersenne31Field>]) {
 pub fn order_icfft_input_naive(
     input: &mut [FieldElement<Mersenne31Field>],
 ) -> Vec<FieldElement<Mersenne31Field>> {
-    let mut result = Vec::new();
+    let mut result = Vec::with_capacity(input.len());
 
     // We push the even indices.
     (0..input.len()).step_by(2).for_each(|i| {
@@ -191,80 +251,24 @@ pub fn order_icfft_input_naive(
 
 /// In-place permutation to order the input for icfft.
 ///
-/// This is an optimized version of `order_icfft_input_naive` that performs the permutation
-/// in-place without allocating a new vector (only a small bitvector for tracking visited elements).
-///
 /// Natural order input: `[P(x0), P(x1), P(x2), ..., P(x_{n-1})]`
 ///
 /// Output for icfft: `[P(x0), P(x2), P(x4), ..., P(x_{n-1}), ..., P(x3), P(x1)]`
 /// (even indices ascending, then odd indices descending).
 ///
-/// # Algorithm
-///
-/// The permutation is the inverse of `order_cfft_result_in_place`:
-/// - `output[i] = input[2*i]` for `i < n/2`
-/// - `output[n-1-i] = input[2*i+1]` for `i < n/2`
-///
-/// Equivalently, for each destination position `dst`:
-/// - If `dst < n/2`: `output[dst] = input[2*dst]`
-/// - If `dst >= n/2`: `output[dst] = input[2*(n-1-dst)+1]`
-///
-/// We follow cycles to perform swaps in-place, using a bitvector to track visited positions.
+/// This is the inverse of `order_cfft_result_in_place`:
+/// - `dst < n/2`: source is `2*dst`
+/// - `dst >= n/2`: source is `2*(n-1-dst)+1`
 pub fn order_icfft_input_in_place(input: &mut [FieldElement<Mersenne31Field>]) {
     let n = input.len();
-    if n <= 2 {
-        return;
-    }
-
     let half = n / 2;
-
-    // Compute source index for a destination position:
-    // The value at `output[dst]` comes from `input[src_for_dst(dst)]`
-    // dst < n/2:  output[dst] = input[2*dst]
-    // dst >= n/2: output[dst] = input[2*(n-1-dst)+1]
-    let src_for_dst = |dst: usize| -> usize {
+    permute_in_place(input, |dst| {
         if dst < half {
             2 * dst
         } else {
             2 * (n - 1 - dst) + 1
         }
-    };
-
-    // Track visited positions with a bitvector
-    let mut visited = vec![0u64; n.div_ceil(64)];
-
-    let is_visited = |visited: &[u64], i: usize| -> bool { (visited[i / 64] >> (i % 64)) & 1 == 1 };
-
-    let mark_visited = |visited: &mut [u64], i: usize| {
-        visited[i / 64] |= 1u64 << (i % 64);
-    };
-
-    for start in 0..n {
-        if is_visited(&visited, start) {
-            continue;
-        }
-
-        // For cycle following with a permutation where we know the SOURCE for each destination,
-        // we need to follow the chain: dst <- src_for_dst(dst) <- src_for_dst(src_for_dst(dst)) <- ...
-        // Save the original value at `start`, then pull values from their sources
-        let mut dst = start;
-        let temp = input[dst];
-
-        loop {
-            mark_visited(&mut visited, dst);
-            let src = src_for_dst(dst);
-
-            if src == start {
-                // Cycle complete, place the saved value
-                input[dst] = temp;
-                break;
-            }
-
-            // Pull the value from source to destination
-            input[dst] = input[src];
-            dst = src;
-        }
-    }
+    });
 }
 
 #[cfg(test)]
@@ -651,5 +655,43 @@ mod tests {
         order_icfft_input_in_place(&mut slice2);
         // Natural [0, 1] -> ICFFT order [0, 1]
         assert_eq!(slice2, [FE::from(0), FE::from(1)]);
+    }
+
+    #[test]
+    #[should_panic(expected = "cfft expects 3 twiddle layers")]
+    fn cfft_panics_with_mismatched_twiddle_count() {
+        use crate::circle::{
+            cosets::Coset,
+            twiddles::{get_twiddles, TwiddlesConfig},
+        };
+
+        // Input size: 2^3 = 8 elements (expects 3 twiddle layers)
+        let mut input = vec![FE::from(1); 8];
+
+        // Twiddles for wrong size: 2^2 = 4 (only 2 layers)
+        let coset = Coset::new_standard(2);
+        let twiddles = get_twiddles(coset, TwiddlesConfig::Evaluation);
+
+        // Should panic: twiddle count mismatch (2 vs 3)
+        cfft(&mut input, &twiddles);
+    }
+
+    #[test]
+    #[should_panic(expected = "icfft expects 4 twiddle layers")]
+    fn icfft_panics_with_mismatched_twiddle_count() {
+        use crate::circle::{
+            cosets::Coset,
+            twiddles::{get_twiddles, TwiddlesConfig},
+        };
+
+        // Input size: 2^4 = 16 elements (expects 4 twiddle layers)
+        let mut input = vec![FE::from(1); 16];
+
+        // Twiddles for wrong size: 2^3 = 8 (only 3 layers)
+        let coset = Coset::new_standard(3);
+        let twiddles = get_twiddles(coset, TwiddlesConfig::Interpolation);
+
+        // Should panic: twiddle count mismatch (3 vs 4)
+        icfft(&mut input, &twiddles);
     }
 }

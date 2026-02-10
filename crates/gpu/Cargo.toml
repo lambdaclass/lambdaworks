@@ -10,15 +10,21 @@ license.workspace = true
 [dependencies]
 thiserror = "1.0.38"
 
+# Metal dependencies (macOS only)
+metal = { version = "0.29", optional = true }
+objc = { version = "0.2", optional = true }
+
 [dev-dependencies]
 proptest = "1.1.0"
 rand = "0.8.5"
+lambdaworks-math = { path = "../math" }
 
 [build-dependencies]
 walkdir = { version = "2.3.3", optional = true }
 
 [features]
 cuda = ["dep:walkdir"]
+metal = ["dep:metal", "dep:objc", "dep:walkdir"]
 
 # Some features activate compilation of code which isn't
 # supported in all machines (e.g. metal, cuda), so we won't

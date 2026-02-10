@@ -40,7 +40,6 @@ use alloc::vec::Vec;
 use crate::cyclic_group::IsGroup;
 use crate::elliptic_curve::short_weierstrass::point::ShortWeierstrassProjectivePoint;
 use crate::elliptic_curve::short_weierstrass::traits::IsShortWeierstrass;
-use crate::field::element::FieldElement;
 
 /// Batch normalize (convert to affine) multiple Short Weierstrass projective points.
 ///
@@ -155,80 +154,14 @@ pub fn batch_add_sw<E: IsShortWeierstrass>(
 /// For Jacobian coordinates `(X : Y : Z)`, affine coordinates are `(X/Z^2, Y/Z^3)`.
 /// This function efficiently computes these conversions using batch inversion.
 ///
-/// # Algorithm
-///
-/// 1. Compute `Z^2` and `Z^3` for each point
-/// 2. Batch invert all `Z^3` values (we only need Z^3 since Z^2 = Z^3 * Z^{-1})
-/// 3. Apply inversions:
-///    - `x_affine = X * (Z^3)^{-1} * Z = X * Z^{-2}`
-///    - `y_affine = Y * (Z^3)^{-1}`
-///
-/// # Arguments
-///
-/// * `points` - A slice of Jacobian points
-///
-/// # Returns
-///
-/// A vector of affine points (Z=1). Points at infinity remain unchanged.
+/// Delegates to `ShortWeierstrassJacobianPoint::batch_to_affine`.
 #[cfg(feature = "alloc")]
 pub fn batch_normalize_jacobian<E: IsShortWeierstrass>(
     points: &[crate::elliptic_curve::short_weierstrass::point::ShortWeierstrassJacobianPoint<E>],
 ) -> Vec<crate::elliptic_curve::short_weierstrass::point::ShortWeierstrassJacobianPoint<E>> {
-    use crate::elliptic_curve::short_weierstrass::point::ShortWeierstrassJacobianPoint;
-
-    if points.is_empty() {
-        return Vec::new();
-    }
-
-    // Collect Z^3 values for non-infinity points
-    let mut z_cubes: Vec<FieldElement<E::BaseField>> = Vec::with_capacity(points.len());
-    let mut z_values: Vec<FieldElement<E::BaseField>> = Vec::with_capacity(points.len());
-
-    for point in points.iter() {
-        if !point.is_neutral_element() {
-            let z = point.z();
-            let z_sq = z.square();
-            let z_cu = &z_sq * z;
-            z_cubes.push(z_cu);
-            z_values.push(z.clone());
-        }
-    }
-
-    // Batch invert all Z^3 values
-    if FieldElement::<E::BaseField>::inplace_batch_inverse(&mut z_cubes).is_err() {
-        // Fall back to individual conversion
-        return points.iter().map(|p| p.to_affine()).collect();
-    }
-
-    // Build result vector
-    let mut result: Vec<ShortWeierstrassJacobianPoint<E>> = Vec::with_capacity(points.len());
-    let mut inv_idx = 0;
-
-    for point in points.iter() {
-        if point.is_neutral_element() {
-            result.push(ShortWeierstrassJacobianPoint::neutral_element());
-        } else {
-            // z_inv_cubed = 1/Z^3
-            // z_inv_squared = z_inv_cubed * Z = 1/Z^2
-            let z_inv_cubed = &z_cubes[inv_idx];
-            let z_inv_squared = z_inv_cubed * &z_values[inv_idx];
-
-            let [x, y, _z] = point.coordinates();
-            // x_affine = X * Z^{-2}
-            let x_affine = x * &z_inv_squared;
-            // y_affine = Y * Z^{-3}
-            let y_affine = y * z_inv_cubed;
-
-            result.push(ShortWeierstrassJacobianPoint::new_unchecked([
-                x_affine,
-                y_affine,
-                FieldElement::one(),
-            ]));
-            inv_idx += 1;
-        }
-    }
-
-    result
+    crate::elliptic_curve::short_weierstrass::point::ShortWeierstrassJacobianPoint::batch_to_affine(
+        points,
+    )
 }
 
 /// Batch add for Jacobian points using mixed addition.

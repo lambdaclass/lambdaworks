@@ -175,20 +175,14 @@ where
     #[inline(always)]
     fn mul(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
         if Self::MODULUS_HAS_ONE_SPARE_BIT {
-            // Use optimized CIOS for moduli with spare bit (EdMSM paper Algorithm 2)
-            #[cfg(all(target_arch = "aarch64", feature = "asm"))]
+            #[cfg(all(any(target_arch = "aarch64", target_arch = "x86_64"), feature = "asm"))]
             {
                 MontgomeryAlgorithms::cios_asm_optimized(a, b, &M::MODULUS, &Self::MU)
             }
 
-            #[cfg(all(target_arch = "x86_64", feature = "asm"))]
-            {
-                MontgomeryAlgorithms::cios_asm_optimized(a, b, &M::MODULUS, &Self::MU)
-            }
-
-            #[cfg(not(any(
-                all(target_arch = "aarch64", feature = "asm"),
-                all(target_arch = "x86_64", feature = "asm")
+            #[cfg(not(all(
+                any(target_arch = "aarch64", target_arch = "x86_64"),
+                feature = "asm"
             )))]
             {
                 MontgomeryAlgorithms::cios_optimized_for_moduli_with_one_spare_bit(
@@ -199,20 +193,14 @@ where
                 )
             }
         } else {
-            // For moduli without spare bit, use assembly when available
-            #[cfg(all(target_arch = "aarch64", feature = "asm"))]
+            #[cfg(all(any(target_arch = "aarch64", target_arch = "x86_64"), feature = "asm"))]
             {
                 MontgomeryAlgorithms::cios_asm(a, b, &M::MODULUS, &Self::MU)
             }
 
-            #[cfg(all(target_arch = "x86_64", feature = "asm"))]
-            {
-                MontgomeryAlgorithms::cios_asm(a, b, &M::MODULUS, &Self::MU)
-            }
-
-            #[cfg(not(any(
-                all(target_arch = "aarch64", feature = "asm"),
-                all(target_arch = "x86_64", feature = "asm")
+            #[cfg(not(all(
+                any(target_arch = "aarch64", target_arch = "x86_64"),
+                feature = "asm"
             )))]
             {
                 MontgomeryAlgorithms::cios(a, b, &M::MODULUS, &Self::MU)
@@ -266,7 +254,7 @@ where
     #[inline(always)]
     fn neg(a: &Self::BaseType) -> Self::BaseType {
         if a == &Self::ZERO {
-            *a
+            Self::ZERO
         } else {
             M::MODULUS - a
         }
@@ -282,10 +270,9 @@ where
             // Cryptography
             // Algorithm 16 (BEA for Inversion in Fp)
 
-            //These can be done with const  functions
             let one: UnsignedInteger<NUM_LIMBS> = UnsignedInteger::from_u64(1);
             let modulus: UnsignedInteger<NUM_LIMBS> = M::MODULUS;
-            let modulus_has_spare_bits = M::MODULUS.limbs[0] >> 63 == 0;
+            let modulus_has_spare_bits = Self::MODULUS_HAS_ONE_SPARE_BIT;
 
             let mut u: UnsignedInteger<NUM_LIMBS> = *a;
             let mut v = M::MODULUS;
@@ -408,15 +395,15 @@ where
 
     fn from_hex(hex_string: &str) -> Result<Self::BaseType, CreationError> {
         let integer = Self::BaseType::from_hex(hex_string)?;
-        if integer > M::MODULUS {
+        if integer >= M::MODULUS {
             return Err(CreationError::CanonicalValueOutOfRange);
         }
 
         Ok(MontgomeryAlgorithms::cios(
             &integer,
-            &MontgomeryBackendPrimeField::<M, NUM_LIMBS>::R2,
+            &Self::R2,
             &M::MODULUS,
-            &MontgomeryBackendPrimeField::<M, NUM_LIMBS>::MU,
+            &Self::MU,
         ))
     }
 
@@ -426,11 +413,6 @@ where
     }
 }
 
-impl<M, const NUM_LIMBS: usize> FieldElement<MontgomeryBackendPrimeField<M, NUM_LIMBS>> where
-    M: IsModulus<UnsignedInteger<NUM_LIMBS>> + Clone + Debug
-{
-}
-
 impl<M, const NUM_LIMBS: usize> ByteConversion
     for FieldElement<MontgomeryBackendPrimeField<M, NUM_LIMBS>>
 where
@@ -438,24 +420,12 @@ where
 {
     #[cfg(feature = "alloc")]
     fn to_bytes_be(&self) -> alloc::vec::Vec<u8> {
-        MontgomeryAlgorithms::cios(
-            self.value(),
-            &UnsignedInteger::from_u64(1),
-            &M::MODULUS,
-            &MontgomeryBackendPrimeField::<M, NUM_LIMBS>::MU,
-        )
-        .to_bytes_be()
+        MontgomeryBackendPrimeField::<M, NUM_LIMBS>::canonical(self.value()).to_bytes_be()
     }
 
     #[cfg(feature = "alloc")]
     fn to_bytes_le(&self) -> alloc::vec::Vec<u8> {
-        MontgomeryAlgorithms::cios(
-            self.value(),
-            &UnsignedInteger::from_u64(1),
-            &M::MODULUS,
-            &MontgomeryBackendPrimeField::<M, NUM_LIMBS>::MU,
-        )
-        .to_bytes_le()
+        MontgomeryBackendPrimeField::<M, NUM_LIMBS>::canonical(self.value()).to_bytes_le()
     }
 
     fn from_bytes_be(bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError> {
@@ -546,6 +516,8 @@ mod tests_u384_prime_fields {
     use crate::traits::ByteConversion;
     use crate::unsigned_integer::element::U384;
     use crate::unsigned_integer::element::{UnsignedInteger, U256};
+    #[cfg(feature = "alloc")]
+    use alloc::format;
 
     use rand::Rng;
     use rand_chacha::{rand_core::SeedableRng, ChaCha20Rng};
@@ -971,6 +943,39 @@ mod tests_u384_prime_fields {
         assert_eq!(
             U384FP2Element::from_bytes_le(&bytes).unwrap().to_bytes_le(),
             bytes
+        );
+    }
+
+    #[test]
+    #[cfg(feature = "alloc")]
+    fn from_hex_value_equal_to_modulus_is_error() {
+        // Test the fixed bug: from_hex was using > instead of >=, accepting MODULUS
+        let modulus_hex = format!("{:x}", U384Modulus23::MODULUS);
+        assert!(
+            U384F23Element::from_hex(&modulus_hex).is_err(),
+            "from_hex should reject value equal to MODULUS"
+        );
+    }
+
+    #[test]
+    #[cfg(feature = "alloc")]
+    fn from_hex_value_one_less_than_modulus_succeeds() {
+        let modulus_minus_one = U384Modulus23::MODULUS - UnsignedInteger::from(1u64);
+        let hex = format!("{:x}", modulus_minus_one);
+        assert!(
+            U384F23Element::from_hex(&hex).is_ok(),
+            "from_hex should accept MODULUS - 1"
+        );
+    }
+
+    #[test]
+    #[cfg(feature = "alloc")]
+    fn from_hex_value_greater_than_modulus_is_error() {
+        let modulus_plus_one = U384Modulus23::MODULUS + UnsignedInteger::from(1u64);
+        let hex = format!("{:x}", modulus_plus_one);
+        assert!(
+            U384F23Element::from_hex(&hex).is_err(),
+            "from_hex should reject value greater than MODULUS"
         );
     }
 }

@@ -5,7 +5,7 @@ use core::fmt::Debug;
 
 /// Represents different configurations that powers of roots of unity can be in. Some of these may
 /// be necessary for FFT (as twiddle factors).
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum RootsConfig {
     Natural,            // w^0, w^1, w^2...
     NaturalInversed,    // w^0, w^-1, w^-2...
@@ -253,11 +253,12 @@ pub trait IsPrimeField: IsField {
             q >>= 1;
         }
 
+        let one = Self::one();
         let mut c = {
             // Calculate a non residue:
             let mut non_qr = Self::from_u64(2);
             while Self::legendre_symbol(&non_qr) != LegendreSymbol::MinusOne {
-                non_qr = Self::add(&non_qr, &Self::one());
+                non_qr = Self::add(&non_qr, &one);
             }
 
             Self::pow(&non_qr, q)
@@ -267,22 +268,21 @@ pub trait IsPrimeField: IsField {
         let mut t = Self::pow(a, q);
         let mut m = s;
 
-        let one = Self::one();
+        let minus_one = Self::neg(&one);
         while !Self::eq(&t, &one) {
             let i = {
                 let mut i = 0;
                 let mut t = t.clone();
-                let minus_one = Self::neg(&Self::one());
                 while !Self::eq(&t, &minus_one) {
                     i += 1;
-                    t = Self::mul(&t, &t);
+                    t = Self::square(&t);
                 }
                 i + 1
             };
 
             let b = (0..(m - i - 1)).fold(c, |acc, _| Self::square(&acc));
 
-            c = Self::mul(&b, &b);
+            c = Self::square(&b);
             x = Self::mul(&x, &b);
             t = Self::mul(&t, &c);
             m = i;
