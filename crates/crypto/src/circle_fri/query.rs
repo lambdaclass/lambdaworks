@@ -39,6 +39,15 @@ pub fn circle_fri_query<F: IsCircleFriField>(
 where
     FieldElement<F>: AsBytes,
 {
+    for &idx in query_indices {
+        if idx >= domain_size {
+            return Err(CircleFriError::QueryIndexOutOfBounds {
+                index: idx,
+                domain_size,
+            });
+        }
+    }
+
     let mut decommitments = Vec::with_capacity(query_indices.len());
 
     for &nat_idx in query_indices {

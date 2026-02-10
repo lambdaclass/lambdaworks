@@ -45,6 +45,26 @@ where
 {
     let num_layers = proof.layer_merkle_roots.len();
 
+    if proof.query_indices.len() != proof.decommitments.len() {
+        return Err(CircleFriError::InconsistentProof(
+            "query_indices and decommitments have different lengths",
+        ));
+    }
+    if proof.query_indices.len() != proof.query_evaluations.len() {
+        return Err(CircleFriError::InconsistentProof(
+            "query_indices and query_evaluations have different lengths",
+        ));
+    }
+    let domain_size = domain.size();
+    for &idx in &proof.query_indices {
+        if idx >= domain_size {
+            return Err(CircleFriError::QueryIndexOutOfBounds {
+                index: idx,
+                domain_size,
+            });
+        }
+    }
+
     // Precompute inverse twiddles (same as the prover)
     let inv_twiddles = get_twiddles(domain.coset.clone(), TwiddlesConfig::Interpolation);
 
