@@ -85,15 +85,16 @@ where
                 combined.to_extension()
             }));
 
-            // Compute fingerprint
-            let coeffs: Vec<FieldElement<B>> =
-                (0..bus_elements.len()).map(|i| alpha.pow(i)).collect();
-
-            let fingerprint: FieldElement<B> = z - bus_elements
-                .iter()
-                .zip(coeffs.iter())
-                .map(|(v, coeff)| v * coeff)
-                .sum::<FieldElement<B>>();
+            // Compute fingerprint = z - (v₀·α⁰ + v₁·α¹ + v₂·α² + ...)
+            // Uses iterative multiplication instead of pow() to avoid
+            // recomputing powers on every row of the LDE domain.
+            let mut linear_combination = FieldElement::<B>::zero();
+            let mut alpha_power = FieldElement::<B>::one();
+            for v in &bus_elements {
+                linear_combination += v * &alpha_power;
+                alpha_power = &alpha_power * alpha;
+            }
+            let fingerprint = z - linear_combination;
 
             // Sign: +1 for senders, -1 for receivers
             let sign = if interaction.is_sender {
