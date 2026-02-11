@@ -23,15 +23,15 @@ For example, let's say Alice wants to send Bob a message, and Bob wants to be su
 
 ### Signer
 - Choose a private key $k \in \mathbb{F}_p$.
-- Compute the public key $h = g^{-k}$.
-- Sample a random $ \ell \in \mathbb{F}_p$. This element can't be reused and must be sampled every time a new message 
+- Compute the public key $h = g^{k}$.
+- Sample a random $\ell \in \mathbb{F}_p$. This element can't be reused and must be sampled every time a new message 
 - Compute $r = g^\ell \in G$
 - Compute $e = H(r || M) \in \mathbb{F}_p$, where $M$ is the message.
 - Compute $s = \ell + k \cdot e \in \mathbb{F}_p$.
 - Sends $M$ with the signature $(s, e)$.
 
 ### Verifier
-- Compute $r_v = g^s \cdot h^e \in G$.
+- Compute $r_v = g^s \cdot h^{- e} \in G$.
 - Compute $e_v = H(r_v || M) \in \mathbb{F}_p$.
 - Check $e_v = e$.
 
