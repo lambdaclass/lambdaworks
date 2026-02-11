@@ -129,3 +129,13 @@ harness = false
 [[bench]]
 name = "criterion_external_comparisons"
 harness = false
+
+[[bench]]
+name = "metal_fft"
+harness = false
+required-features = ["metal"]
+
+[[bench]]
+name = "metal_cfft"
+harness = false
+required-features = ["metal"]
