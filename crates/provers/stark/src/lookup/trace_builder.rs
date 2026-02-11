@@ -22,6 +22,7 @@ use super::types::{
 pub fn build_logup_term_column<F, E>(
     aux_column_idx: usize,
     interaction: &BusInteraction,
+    main_segment_cols: &[Vec<FieldElement<F>>],
     trace: &mut TraceTable<F, E>,
     challenges: &[FieldElement<E>],
 ) -> Result<(), ProvingError>
@@ -29,7 +30,6 @@ where
     F: IsFFTField + IsSubFieldOf<E> + Send + Sync,
     E: IsField + Send + Sync,
 {
-    let main_segment_cols = trace.columns_main();
     let trace_len = trace.num_rows();
 
     let z = &challenges[LOGUP_CHALLENGE_Z];
@@ -48,7 +48,7 @@ where
     for row in 0..trace_len {
         // Compute multiplicity
         let multiplicity: FieldElement<F> =
-            compute_trace_multiplicity(&main_segment_cols, row, &interaction.multiplicity);
+            compute_trace_multiplicity(main_segment_cols, row, &interaction.multiplicity);
 
         // Bus elements: [bus_id, ...values...]
         let mut bus_elements: Vec<FieldElement<E>> = vec![FieldElement::from(interaction.bus_id)];

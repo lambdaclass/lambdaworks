@@ -169,8 +169,9 @@ where
         }
 
         // Build term columns
+        let main_segment_cols = trace.columns_main();
         for (i, interaction) in self.interactions.iter().enumerate() {
-            build_logup_term_column(i, interaction, trace, challenges)?;
+            build_logup_term_column(i, interaction, &main_segment_cols, trace, challenges)?;
         }
 
         // Build accumulated column
