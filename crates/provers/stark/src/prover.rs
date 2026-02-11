@@ -776,10 +776,9 @@ pub trait IsStarkProver<
         h_terms + trace_terms
     }
 
-    // FIXME: FIX THIS DOCS!
-    /// Adds to `accumulator` the term corresponding to the trace polynomial `t_j` of the Deep
-    /// composition polynomial. That is, returns `accumulator + \sum_i \gamma_i \frac{ t_j - t_j(zg^i) }{ X - zg^i }`,
-    /// where `i` ranges from `T * j` to `T * j + T - 1`, where `T` is the number of offsets in every frame.
+    /// Computes the Deep composition polynomial trace term for a single trace column.
+    /// Returns `accumulator + \sum_i \gamma_i \frac{ t_j(X) - t_j(z * g^i) }{ X - z * g^i }`,
+    /// where the sum ranges over all frame offsets for the column.
     fn compute_trace_term(
         accumulator: &Polynomial<FieldElement<FieldExtension>>,
         trace_term_poly: &Polynomial<FieldElement<FieldExtension>>,
