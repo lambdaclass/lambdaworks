@@ -65,13 +65,6 @@ pub struct BoundaryConstraints<F: IsField> {
 }
 
 impl<F: IsField> BoundaryConstraints<F> {
-    #[allow(dead_code)]
-    pub fn new() -> Self {
-        Self {
-            constraints: Vec::<BoundaryConstraint<F>>::new(),
-        }
-    }
-
     /// To instantiate from a vector of BoundaryConstraint elements
     pub fn from_constraints(constraints: Vec<BoundaryConstraint<F>>) -> Self {
         Self { constraints }

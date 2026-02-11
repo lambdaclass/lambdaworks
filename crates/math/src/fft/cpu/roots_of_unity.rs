@@ -8,6 +8,13 @@ use crate::fft::errors::FFTError;
 
 use super::bit_reversing::in_place_bit_reverse_permute;
 
+/// Maximum supported FFT order to prevent integer overflow.
+/// With order 63, n = 2^63 which is the largest power of 2 that fits in usize on 64-bit.
+#[cfg(target_pointer_width = "64")]
+const MAX_FFT_ORDER: u64 = 63;
+#[cfg(target_pointer_width = "32")]
+const MAX_FFT_ORDER: u64 = 31;
+
 /// Returns a `Vec` of the powers of a `2^n`th primitive root of unity in some configuration
 /// `config`. For example, in a `Natural` config this would yield: w^0, w^1, w^2...
 pub fn get_powers_of_primitive_root<F: IsFFTField>(
@@ -77,7 +84,7 @@ pub fn get_twiddles<F: IsFFTField>(
     order: u64,
     config: RootsConfig,
 ) -> Result<Vec<FieldElement<F>>, FFTError> {
-    if order > 63 {
+    if order > MAX_FFT_ORDER {
         return Err(FFTError::OrderError(order));
     }
 
