@@ -149,6 +149,9 @@ fn compute_trace_multiplicity<F: IsField>(
                             result = result - FieldElement::<F>::from((-*value) as u64);
                         }
                     }
+                    LinearTerm::ConstantUnsigned(value) => {
+                        result += FieldElement::<F>::from(*value);
+                    }
                 }
             }
             result

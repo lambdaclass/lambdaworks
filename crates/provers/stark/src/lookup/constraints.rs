@@ -265,6 +265,9 @@ fn compute_multiplicity<A: IsSubFieldOf<B>, B: IsField>(
                             result = result - FieldElement::<A>::from((-*value) as u64);
                         }
                     }
+                    LinearTerm::ConstantUnsigned(value) => {
+                        result += FieldElement::<A>::from(*value);
+                    }
                 }
             }
             result

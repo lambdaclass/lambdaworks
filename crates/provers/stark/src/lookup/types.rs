@@ -43,6 +43,8 @@ pub enum LinearTerm {
     },
     /// A constant value to add (signed to support subtraction)
     Constant(i64),
+    /// A constant value to add (unsigned, for large values that don't fit in i64)
+    ConstantUnsigned(u64),
 }
 
 /// A value that contributes to the bus fingerprint.
@@ -61,7 +63,7 @@ pub enum BusValue {
 impl BusValue {
     /// Creates a constant value (no columns).
     pub fn constant(value: u64) -> Self {
-        BusValue::Linear(vec![LinearTerm::Constant(value as i64)])
+        BusValue::Linear(vec![LinearTerm::ConstantUnsigned(value)])
     }
 
     /// Creates a single column value.
@@ -114,6 +116,9 @@ impl BusValue {
                             } else {
                                 result = result - FieldElement::<E>::from((-*value) as u64);
                             }
+                        }
+                        LinearTerm::ConstantUnsigned(value) => {
+                            result += FieldElement::<E>::from(*value);
                         }
                     }
                 }
