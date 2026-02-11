@@ -4,6 +4,19 @@
 //! bandwidth utilization, identifies GPU/CPU crossover points, and prints a
 //! detailed report with improvement suggestions.
 //!
+//! # Purpose
+//!
+//! This profiler is designed for **performance measurement and optimization only**.
+//! It generates random data for benchmarking purposes and should NOT be used with
+//! sensitive or production data. The profiling operations (including sorting and
+//! statistical analysis) are not designed to be constant-time and may leak timing
+//! information.
+//!
+//! For production cryptographic operations, use the library's standard APIs with
+//! appropriate security considerations.
+//!
+//! # Usage
+//!
 //! Run with: cargo run -p lambdaworks-math --features metal --example metal_profile --release
 
 #![allow(dead_code)]
@@ -537,7 +550,17 @@ mod profiler {
 
         print_device_info(&state);
 
-        let orders = vec![12, 14, 16, 18, 20, 22];
+        // Input size variations for profiling:
+        // - Includes power-of-2 sizes (12, 14, 16, ...) for standard benchmarking
+        // - Adds intermediate sizes (13, 15, 17, ...) for finer-grained crossover analysis
+        // - Smaller sizes (10, 11) help identify CPU/GPU threshold (typically around 2^14)
+        // - Larger sizes (20, 21, 22) demonstrate GPU advantages at scale
+        //
+        // Order N corresponds to 2^N elements:
+        //   10 → 1K,  11 → 2K,  12 → 4K,  13 → 8K,  14 → 16K (GPU threshold),
+        //   15 → 32K, 16 → 64K, 17 → 128K, 18 → 256K, 19 → 512K,
+        //   20 → 1M,  21 → 2M,  22 → 4M
+        let orders = vec![10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22];
 
         println!("\n{}", "=".repeat(100));
         println!("  PROFILING STARK252 FIELD FFT/IFFT");
