@@ -675,9 +675,7 @@ mod proptest_tests {
     }
 
     fn make_fp3_arrays(c0: [u64; 4], c1: [u64; 4], c2: [u64; 4]) -> [Fp3E; FP3_WIDTH] {
-        core::array::from_fn(|i| {
-            Fp3E::new([FpE::from(c0[i]), FpE::from(c1[i]), FpE::from(c2[i])])
-        })
+        core::array::from_fn(|i| Fp3E::new([FpE::from(c0[i]), FpE::from(c1[i]), FpE::from(c2[i])]))
     }
 
     proptest! {
