@@ -250,6 +250,11 @@ impl HasDefaultTranscript for Mersenne31Field {
     }
 }
 
+impl crate::circle::traits::IsCircleFriField for Mersenne31Field {
+    /// The circle group over Mersenne31 has order 2^31.
+    const LOG_MAX_SUBGROUP_ORDER: u32 = 31;
+}
+
 impl Display for FieldElement<Mersenne31Field> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{:x}", self.canonical())
