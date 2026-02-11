@@ -504,4 +504,185 @@ mod tests {
             assert_eq!(elem, FieldElement::zero());
         }
     }
+
+    #[test]
+    fn test_avx2_sub_underflow() {
+        // 0 - 1 should give p - 1
+        let zero = PackedGoldilocksAVX2::from_u64_array([0, 0, 0, 0]);
+        let one = PackedGoldilocksAVX2::from_u64_array([1, 1, 1, 1]);
+        let result = zero - one;
+        let p_minus_1 = FieldElement::<Goldilocks64Field>::from(GOLDILOCKS_PRIME - 1);
+        for elem in result.to_array() {
+            assert_eq!(elem, p_minus_1, "0 - 1 should equal p - 1");
+        }
+
+        // 1 - 2 should give p - 1
+        let one = PackedGoldilocksAVX2::from_u64_array([1, 1, 1, 1]);
+        let two = PackedGoldilocksAVX2::from_u64_array([2, 2, 2, 2]);
+        let result = one - two;
+        for elem in result.to_array() {
+            assert_eq!(elem, p_minus_1, "1 - 2 should equal p - 1");
+        }
+    }
+
+    #[test]
+    fn test_avx2_neg() {
+        // -0 = 0
+        let zero = PackedGoldilocksAVX2::from_u64_array([0, 0, 0, 0]);
+        let result = -zero;
+        for elem in result.to_array() {
+            assert_eq!(elem, FieldElement::zero(), "-0 should be 0");
+        }
+
+        // -(p-1) = 1
+        let p_minus_1 = GOLDILOCKS_PRIME - 1;
+        let a = PackedGoldilocksAVX2::from_u64_array([p_minus_1; WIDTH]);
+        let result = -a;
+        for elem in result.to_array() {
+            assert_eq!(elem, FieldElement::one(), "-(p-1) should be 1");
+        }
+
+        // -1 = p-1
+        let one = PackedGoldilocksAVX2::from_u64_array([1; WIDTH]);
+        let result = -one;
+        let expected = FieldElement::<Goldilocks64Field>::from(p_minus_1);
+        for elem in result.to_array() {
+            assert_eq!(elem, expected, "-1 should be p-1");
+        }
+    }
+
+    #[test]
+    fn test_avx2_mul_near_modulus() {
+        // (p-1) * (p-1) should equal 1 (since (p-1) = -1, and (-1)*(-1) = 1)
+        let p_minus_1 = GOLDILOCKS_PRIME - 1;
+        let a = PackedGoldilocksAVX2::from_u64_array([p_minus_1; WIDTH]);
+        let result = a * a;
+        for elem in result.to_array() {
+            assert_eq!(elem, FieldElement::one(), "(p-1)*(p-1) should be 1");
+        }
+
+        // (p-1) * 2 should equal p-2
+        let two = PackedGoldilocksAVX2::from_u64_array([2; WIDTH]);
+        let result = a * two;
+        let expected = FieldElement::<Goldilocks64Field>::from(GOLDILOCKS_PRIME - 2);
+        for elem in result.to_array() {
+            assert_eq!(elem, expected, "(p-1)*2 should be p-2");
+        }
+    }
+
+    #[test]
+    fn test_avx2_identity_operations() {
+        let vals = [0x1234_5678_9abc_def0, GOLDILOCKS_PRIME - 1, EPSILON, 42];
+        let a = PackedGoldilocksAVX2::from_u64_array(vals);
+        let zero = PackedGoldilocksAVX2::zero();
+        let one = PackedGoldilocksAVX2::one();
+
+        // x + 0 = x
+        let result = a + zero;
+        for i in 0..WIDTH {
+            assert_eq!(
+                result.to_array()[i],
+                a.to_array()[i],
+                "x + 0 should be x at lane {i}"
+            );
+        }
+
+        // x - 0 = x
+        let result = a - zero;
+        for i in 0..WIDTH {
+            assert_eq!(
+                result.to_array()[i],
+                a.to_array()[i],
+                "x - 0 should be x at lane {i}"
+            );
+        }
+
+        // x * 1 = x
+        let result = a * one;
+        for i in 0..WIDTH {
+            assert_eq!(
+                result.to_array()[i],
+                a.to_array()[i],
+                "x * 1 should be x at lane {i}"
+            );
+        }
+
+        // x * 0 = 0
+        let result = a * zero;
+        for elem in result.to_array() {
+            assert_eq!(elem, FieldElement::zero(), "x * 0 should be 0");
+        }
+
+        // x - x = 0
+        let result = a - a;
+        for elem in result.to_array() {
+            assert_eq!(elem, FieldElement::zero(), "x - x should be 0");
+        }
+    }
+
+    #[test]
+    fn test_avx2_mixed_lanes_matches_scalar() {
+        use crate::field::fields::u64_goldilocks_field::Goldilocks64Field;
+
+        // Different edge cases in each lane simultaneously
+        let vals_a = [0u64, GOLDILOCKS_PRIME - 1, EPSILON, 1];
+        let vals_b = [1u64, 1, GOLDILOCKS_PRIME - 1, GOLDILOCKS_PRIME - 1];
+
+        let packed_a = PackedGoldilocksAVX2::from_u64_array(vals_a);
+        let packed_b = PackedGoldilocksAVX2::from_u64_array(vals_b);
+
+        // Test all operations against scalar
+        let packed_add = packed_a + packed_b;
+        let packed_sub = packed_a - packed_b;
+        let packed_mul = packed_a * packed_b;
+        let packed_neg = -packed_a;
+
+        for i in 0..WIDTH {
+            let sa = FieldElement::<Goldilocks64Field>::from(vals_a[i]);
+            let sb = FieldElement::<Goldilocks64Field>::from(vals_b[i]);
+
+            assert_eq!(
+                packed_add.to_array()[i],
+                sa + sb,
+                "add mismatch at lane {i}"
+            );
+            assert_eq!(
+                packed_sub.to_array()[i],
+                sa - sb,
+                "sub mismatch at lane {i}"
+            );
+            assert_eq!(
+                packed_mul.to_array()[i],
+                sa * sb,
+                "mul mismatch at lane {i}"
+            );
+            assert_eq!(packed_neg.to_array()[i], -sa, "neg mismatch at lane {i}");
+        }
+    }
+
+    #[test]
+    fn test_avx2_square_matches_mul() {
+        use crate::field::fields::u64_goldilocks_field::Goldilocks64Field;
+
+        let vals = [GOLDILOCKS_PRIME - 1, EPSILON, 0x1234_5678_9abc_def0, 0];
+        let a = PackedGoldilocksAVX2::from_u64_array(vals);
+
+        let squared = a.square();
+        let mul_self = a * a;
+
+        for i in 0..WIDTH {
+            assert_eq!(
+                squared.to_array()[i],
+                mul_self.to_array()[i],
+                "square should equal x*x at lane {i}"
+            );
+            // Also verify against scalar
+            let scalar = FieldElement::<Goldilocks64Field>::from(vals[i]);
+            assert_eq!(
+                squared.to_array()[i],
+                scalar * scalar,
+                "square should match scalar at lane {i}"
+            );
+        }
+    }
 }

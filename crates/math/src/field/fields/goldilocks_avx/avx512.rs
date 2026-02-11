@@ -488,4 +488,186 @@ mod tests {
             assert_eq!(elem, FieldElement::zero());
         }
     }
+
+    #[test]
+    fn test_avx512_sub_underflow() {
+        let zero = PackedGoldilocksAVX512::from_u64_array([0; WIDTH]);
+        let one = PackedGoldilocksAVX512::from_u64_array([1; WIDTH]);
+        let result = zero - one;
+        let p_minus_1 = FieldElement::<Goldilocks64Field>::from(GOLDILOCKS_PRIME - 1);
+        for elem in result.to_array() {
+            assert_eq!(elem, p_minus_1, "0 - 1 should equal p - 1");
+        }
+    }
+
+    #[test]
+    fn test_avx512_neg() {
+        // -0 = 0
+        let zero = PackedGoldilocksAVX512::from_u64_array([0; WIDTH]);
+        let result = -zero;
+        for elem in result.to_array() {
+            assert_eq!(elem, FieldElement::zero(), "-0 should be 0");
+        }
+
+        // -(p-1) = 1
+        let a = PackedGoldilocksAVX512::from_u64_array([GOLDILOCKS_PRIME - 1; WIDTH]);
+        let result = -a;
+        for elem in result.to_array() {
+            assert_eq!(elem, FieldElement::one(), "-(p-1) should be 1");
+        }
+
+        // -1 = p-1
+        let one = PackedGoldilocksAVX512::from_u64_array([1; WIDTH]);
+        let result = -one;
+        let expected = FieldElement::<Goldilocks64Field>::from(GOLDILOCKS_PRIME - 1);
+        for elem in result.to_array() {
+            assert_eq!(elem, expected, "-1 should be p-1");
+        }
+    }
+
+    #[test]
+    fn test_avx512_mul_near_modulus() {
+        // (p-1) * (p-1) = 1
+        let a = PackedGoldilocksAVX512::from_u64_array([GOLDILOCKS_PRIME - 1; WIDTH]);
+        let result = a * a;
+        for elem in result.to_array() {
+            assert_eq!(elem, FieldElement::one(), "(p-1)*(p-1) should be 1");
+        }
+
+        // (p-1) * 2 = p-2
+        let two = PackedGoldilocksAVX512::from_u64_array([2; WIDTH]);
+        let result = a * two;
+        let expected = FieldElement::<Goldilocks64Field>::from(GOLDILOCKS_PRIME - 2);
+        for elem in result.to_array() {
+            assert_eq!(elem, expected, "(p-1)*2 should be p-2");
+        }
+    }
+
+    #[test]
+    fn test_avx512_identity_operations() {
+        let vals = [
+            0x1234_5678_9abc_def0,
+            GOLDILOCKS_PRIME - 1,
+            EPSILON,
+            42,
+            0xfedc_ba98_7654_3210,
+            1,
+            0,
+            GOLDILOCKS_PRIME - 2,
+        ];
+        let a = PackedGoldilocksAVX512::from_u64_array(vals);
+        let zero = PackedGoldilocksAVX512::from_u64_array([0; WIDTH]);
+        let one = PackedGoldilocksAVX512::from_u64_array([1; WIDTH]);
+
+        // x + 0 = x
+        let result = a + zero;
+        for i in 0..WIDTH {
+            assert_eq!(result.to_array()[i], a.to_array()[i], "x + 0 at lane {i}");
+        }
+
+        // x * 1 = x
+        let result = a * one;
+        for i in 0..WIDTH {
+            assert_eq!(result.to_array()[i], a.to_array()[i], "x * 1 at lane {i}");
+        }
+
+        // x * 0 = 0
+        let result = a * zero;
+        for elem in result.to_array() {
+            assert_eq!(elem, FieldElement::zero(), "x * 0 should be 0");
+        }
+
+        // x - x = 0
+        let result = a - a;
+        for elem in result.to_array() {
+            assert_eq!(elem, FieldElement::zero(), "x - x should be 0");
+        }
+    }
+
+    #[test]
+    fn test_avx512_mixed_lanes_matches_scalar() {
+        // Different edge cases per lane
+        let vals_a = [
+            0,
+            GOLDILOCKS_PRIME - 1,
+            EPSILON,
+            1,
+            GOLDILOCKS_PRIME - 2,
+            42,
+            0,
+            0xffff_ffff,
+        ];
+        let vals_b = [
+            1,
+            1,
+            GOLDILOCKS_PRIME - 1,
+            GOLDILOCKS_PRIME - 1,
+            3,
+            0,
+            42,
+            EPSILON,
+        ];
+
+        let packed_a = PackedGoldilocksAVX512::from_u64_array(vals_a);
+        let packed_b = PackedGoldilocksAVX512::from_u64_array(vals_b);
+
+        let packed_add = packed_a + packed_b;
+        let packed_sub = packed_a - packed_b;
+        let packed_mul = packed_a * packed_b;
+        let packed_neg = -packed_a;
+
+        for i in 0..WIDTH {
+            let sa = FieldElement::<Goldilocks64Field>::from(vals_a[i]);
+            let sb = FieldElement::<Goldilocks64Field>::from(vals_b[i]);
+
+            assert_eq!(
+                packed_add.to_array()[i],
+                sa + sb,
+                "add mismatch at lane {i}"
+            );
+            assert_eq!(
+                packed_sub.to_array()[i],
+                sa - sb,
+                "sub mismatch at lane {i}"
+            );
+            assert_eq!(
+                packed_mul.to_array()[i],
+                sa * sb,
+                "mul mismatch at lane {i}"
+            );
+            assert_eq!(packed_neg.to_array()[i], -sa, "neg mismatch at lane {i}");
+        }
+    }
+
+    #[test]
+    fn test_avx512_square_matches_mul() {
+        let vals = [
+            GOLDILOCKS_PRIME - 1,
+            EPSILON,
+            0x1234_5678_9abc_def0,
+            0,
+            1,
+            2,
+            GOLDILOCKS_PRIME - 2,
+            0xfedc_ba98_7654_3210,
+        ];
+        let a = PackedGoldilocksAVX512::from_u64_array(vals);
+
+        let squared = a.square();
+        let mul_self = a * a;
+
+        for i in 0..WIDTH {
+            assert_eq!(
+                squared.to_array()[i],
+                mul_self.to_array()[i],
+                "square vs x*x at lane {i}"
+            );
+            let scalar = FieldElement::<Goldilocks64Field>::from(vals[i]);
+            assert_eq!(
+                squared.to_array()[i],
+                scalar * scalar,
+                "square vs scalar at lane {i}"
+            );
+        }
+    }
 }

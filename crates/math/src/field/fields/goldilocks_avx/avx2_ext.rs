@@ -502,4 +502,165 @@ mod tests {
             assert_eq!(result[i], scalar_prod, "Fp3 multiplication mismatch at {i}");
         }
     }
+
+    // ============================================================
+    // Edge Case Tests
+    // ============================================================
+
+    const P: u64 = 0xFFFF_FFFF_0000_0001; // Goldilocks prime
+
+    #[test]
+    fn test_fp2_near_modulus_matches_scalar() {
+        let vals_a = [
+            Fp2E::new([FpE::from(P - 1), FpE::from(P - 1)]),
+            Fp2E::new([FpE::from(0u64), FpE::from(P - 1)]),
+            Fp2E::new([FpE::from(P - 1), FpE::from(0u64)]),
+            Fp2E::new([FpE::from(0xFFFF_FFFFu64), FpE::from(0xFFFF_FFFFu64)]),
+        ];
+        let vals_b = [
+            Fp2E::new([FpE::from(P - 1), FpE::from(P - 1)]),
+            Fp2E::new([FpE::from(1u64), FpE::from(1u64)]),
+            Fp2E::new([FpE::from(P - 1), FpE::from(P - 1)]),
+            Fp2E::new([FpE::from(P - 1), FpE::from(2u64)]),
+        ];
+
+        let packed_a = PackedGoldilocksFp2AVX2::from_fp2_array(vals_a);
+        let packed_b = PackedGoldilocksFp2AVX2::from_fp2_array(vals_b);
+
+        // mul
+        let packed_prod = packed_a * packed_b;
+        let result = packed_prod.to_fp2_array();
+        for i in 0..FP2_WIDTH {
+            let expected = vals_a[i] * vals_b[i];
+            assert_eq!(result[i], expected, "Fp2 near-modulus mul mismatch at {i}");
+        }
+
+        // add
+        let packed_sum = packed_a + packed_b;
+        let result = packed_sum.to_fp2_array();
+        for i in 0..FP2_WIDTH {
+            let expected = vals_a[i] + vals_b[i];
+            assert_eq!(result[i], expected, "Fp2 near-modulus add mismatch at {i}");
+        }
+
+        // sub
+        let packed_diff = packed_a - packed_b;
+        let result = packed_diff.to_fp2_array();
+        for i in 0..FP2_WIDTH {
+            let expected = vals_a[i] - vals_b[i];
+            assert_eq!(result[i], expected, "Fp2 near-modulus sub mismatch at {i}");
+        }
+    }
+
+    #[test]
+    fn test_fp2_zero_one_identities() {
+        let vals = [
+            Fp2E::new([FpE::from(P - 1), FpE::from(42u64)]),
+            Fp2E::new([FpE::from(0u64), FpE::from(P - 1)]),
+            Fp2E::new([FpE::from(123u64), FpE::from(456u64)]),
+            Fp2E::new([FpE::from(0xFFFF_FFFFu64), FpE::from(1u64)]),
+        ];
+        let packed = PackedGoldilocksFp2AVX2::from_fp2_array(vals);
+        let zero = PackedGoldilocksFp2AVX2::zero();
+        let one = PackedGoldilocksFp2AVX2::one();
+
+        // x + 0 = x
+        let result = (packed + zero).to_fp2_array();
+        for i in 0..FP2_WIDTH {
+            assert_eq!(result[i], vals[i], "Fp2 x + 0 at lane {i}");
+        }
+
+        // x * 1 = x
+        let result = (packed * one).to_fp2_array();
+        for i in 0..FP2_WIDTH {
+            assert_eq!(result[i], vals[i], "Fp2 x * 1 at lane {i}");
+        }
+
+        // x - x = 0
+        let result = (packed - packed).to_fp2_array();
+        let zero_fp2 = Fp2E::new([FpE::from(0u64), FpE::from(0u64)]);
+        for i in 0..FP2_WIDTH {
+            assert_eq!(result[i], zero_fp2, "Fp2 x - x at lane {i}");
+        }
+
+        // x * 0 = 0
+        let result = (packed * zero).to_fp2_array();
+        for i in 0..FP2_WIDTH {
+            assert_eq!(result[i], zero_fp2, "Fp2 x * 0 at lane {i}");
+        }
+    }
+
+    #[test]
+    fn test_fp3_near_modulus_matches_scalar() {
+        let vals_a = [
+            Fp3E::new([FpE::from(P - 1), FpE::from(P - 1), FpE::from(P - 1)]),
+            Fp3E::new([FpE::from(0u64), FpE::from(P - 1), FpE::from(0u64)]),
+            Fp3E::new([FpE::from(P - 1), FpE::from(0u64), FpE::from(P - 1)]),
+            Fp3E::new([FpE::from(0xFFFF_FFFFu64), FpE::from(1u64), FpE::from(P - 2)]),
+        ];
+        let vals_b = [
+            Fp3E::new([FpE::from(P - 1), FpE::from(P - 1), FpE::from(P - 1)]),
+            Fp3E::new([FpE::from(1u64), FpE::from(1u64), FpE::from(1u64)]),
+            Fp3E::new([FpE::from(2u64), FpE::from(P - 1), FpE::from(3u64)]),
+            Fp3E::new([FpE::from(P - 1), FpE::from(P - 1), FpE::from(2u64)]),
+        ];
+
+        let packed_a = PackedGoldilocksFp3AVX2::from_fp3_array(vals_a);
+        let packed_b = PackedGoldilocksFp3AVX2::from_fp3_array(vals_b);
+
+        // mul
+        let result = (packed_a * packed_b).to_fp3_array();
+        for i in 0..FP3_WIDTH {
+            let expected = vals_a[i] * vals_b[i];
+            assert_eq!(result[i], expected, "Fp3 near-modulus mul mismatch at {i}");
+        }
+
+        // add
+        let result = (packed_a + packed_b).to_fp3_array();
+        for i in 0..FP3_WIDTH {
+            let expected = vals_a[i] + vals_b[i];
+            assert_eq!(result[i], expected, "Fp3 near-modulus add mismatch at {i}");
+        }
+
+        // sub
+        let result = (packed_a - packed_b).to_fp3_array();
+        for i in 0..FP3_WIDTH {
+            let expected = vals_a[i] - vals_b[i];
+            assert_eq!(result[i], expected, "Fp3 near-modulus sub mismatch at {i}");
+        }
+    }
+
+    #[test]
+    fn test_fp3_add_all_lanes() {
+        let a = PackedGoldilocksFp3AVX2::from_fp3_array([
+            Fp3E::new([FpE::from(1u64), FpE::from(2u64), FpE::from(3u64)]),
+            Fp3E::new([FpE::from(4u64), FpE::from(5u64), FpE::from(6u64)]),
+            Fp3E::new([FpE::from(7u64), FpE::from(8u64), FpE::from(9u64)]),
+            Fp3E::new([FpE::from(10u64), FpE::from(11u64), FpE::from(12u64)]),
+        ]);
+        let b = PackedGoldilocksFp3AVX2::from_fp3_array([
+            Fp3E::new([FpE::from(100u64), FpE::from(200u64), FpE::from(300u64)]),
+            Fp3E::new([FpE::from(400u64), FpE::from(500u64), FpE::from(600u64)]),
+            Fp3E::new([FpE::from(700u64), FpE::from(800u64), FpE::from(900u64)]),
+            Fp3E::new([FpE::from(1000u64), FpE::from(1100u64), FpE::from(1200u64)]),
+        ]);
+        let result = (a + b).to_fp3_array();
+
+        assert_eq!(
+            result[0],
+            Fp3E::new([FpE::from(101u64), FpE::from(202u64), FpE::from(303u64)])
+        );
+        assert_eq!(
+            result[1],
+            Fp3E::new([FpE::from(404u64), FpE::from(505u64), FpE::from(606u64)])
+        );
+        assert_eq!(
+            result[2],
+            Fp3E::new([FpE::from(707u64), FpE::from(808u64), FpE::from(909u64)])
+        );
+        assert_eq!(
+            result[3],
+            Fp3E::new([FpE::from(1010u64), FpE::from(1111u64), FpE::from(1212u64)])
+        );
+    }
 }
