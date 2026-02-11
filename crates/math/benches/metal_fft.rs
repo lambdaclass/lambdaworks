@@ -26,6 +26,18 @@ type GoldilocksFE = FieldElement<GoldilocksF>;
 
 const LOG_SIZES: [u64; 6] = [10, 12, 14, 16, 18, 20];
 
+/// Creates a Metal state or returns None if Metal device is unavailable.
+/// Prints error message and returns None to skip GPU benchmarks gracefully.
+fn create_metal_state_or_skip() -> Option<MetalState> {
+    match MetalState::new(None) {
+        Ok(state) => Some(state),
+        Err(_) => {
+            eprintln!("Metal device not available, skipping GPU benchmarks");
+            None
+        }
+    }
+}
+
 fn rand_stark_elements(order: u64) -> Vec<StarkFE> {
     (0..1u64 << order)
         .map(|_| StarkFE::new(UnsignedInteger { limbs: random() }))
@@ -135,12 +147,9 @@ fn validate_bitrev_permutation(state: &MetalState) {
 // ============================================
 
 fn bench_stark252_fft(c: &mut Criterion) {
-    let state = match MetalState::new(None) {
-        Ok(s) => s,
-        Err(_) => {
-            eprintln!("Metal device not available, skipping GPU benchmarks");
-            return;
-        }
+    let state = match create_metal_state_or_skip() {
+        Some(s) => s,
+        None => return,
     };
 
     // Validate GPU implementation correctness before benchmarking
@@ -187,9 +196,9 @@ fn bench_stark252_fft(c: &mut Criterion) {
 // ============================================
 
 fn bench_goldilocks_fft(c: &mut Criterion) {
-    let state = match MetalState::new(None) {
-        Ok(s) => s,
-        Err(_) => return,
+    let state = match create_metal_state_or_skip() {
+        Some(s) => s,
+        None => return,
     };
 
     // Validate GPU implementation correctness before benchmarking
@@ -236,9 +245,9 @@ fn bench_goldilocks_fft(c: &mut Criterion) {
 // ============================================
 
 fn bench_twiddle_generation(c: &mut Criterion) {
-    let state = match MetalState::new(None) {
-        Ok(s) => s,
-        Err(_) => return,
+    let state = match create_metal_state_or_skip() {
+        Some(s) => s,
+        None => return,
     };
 
     // Validate GPU implementation correctness before benchmarking
@@ -288,9 +297,9 @@ fn bench_twiddle_generation(c: &mut Criterion) {
 // ============================================
 
 fn bench_bitrev_permutation(c: &mut Criterion) {
-    let state = match MetalState::new(None) {
-        Ok(s) => s,
-        Err(_) => return,
+    let state = match create_metal_state_or_skip() {
+        Some(s) => s,
+        None => return,
     };
 
     // Validate GPU implementation correctness before benchmarking

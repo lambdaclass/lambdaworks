@@ -23,6 +23,18 @@ type FE = FieldElement<Mersenne31Field>;
 const SEED: u64 = 0xCAFE;
 const LOG_SIZES: [u32; 6] = [10, 12, 14, 16, 18, 20];
 
+/// Creates a Metal state or returns None if Metal device is unavailable.
+/// Prints error message and returns None to skip GPU benchmarks gracefully.
+fn create_metal_state_or_skip() -> Option<MetalState> {
+    match MetalState::new(None) {
+        Ok(state) => Some(state),
+        Err(_) => {
+            eprintln!("Metal device not available, skipping GPU benchmarks");
+            None
+        }
+    }
+}
+
 fn rand_mersenne31_elements(log_size: u32) -> Vec<FE> {
     let mut rng = StdRng::seed_from_u64(SEED + log_size as u64);
     (0..1u32 << log_size)
@@ -124,12 +136,9 @@ fn validate_interpolate_cfft_gpu(state: &MetalState) {
 // ============================================
 
 fn bench_cfft_butterflies(c: &mut Criterion) {
-    let state = match MetalState::new(None) {
-        Ok(s) => s,
-        Err(_) => {
-            eprintln!("Metal device not available, skipping GPU benchmarks");
-            return;
-        }
+    let state = match create_metal_state_or_skip() {
+        Some(s) => s,
+        None => return,
     };
 
     // Validate GPU implementation correctness before benchmarking
@@ -186,9 +195,9 @@ fn bench_cfft_butterflies(c: &mut Criterion) {
 // ============================================
 
 fn bench_icfft_butterflies(c: &mut Criterion) {
-    let state = match MetalState::new(None) {
-        Ok(s) => s,
-        Err(_) => return,
+    let state = match create_metal_state_or_skip() {
+        Some(s) => s,
+        None => return,
     };
 
     // Validate GPU implementation correctness before benchmarking
@@ -245,9 +254,9 @@ fn bench_icfft_butterflies(c: &mut Criterion) {
 // ============================================
 
 fn bench_evaluate_cfft(c: &mut Criterion) {
-    let state = match MetalState::new(None) {
-        Ok(s) => s,
-        Err(_) => return,
+    let state = match create_metal_state_or_skip() {
+        Some(s) => s,
+        None => return,
     };
 
     // Validate GPU implementation correctness before benchmarking
@@ -284,9 +293,9 @@ fn bench_evaluate_cfft(c: &mut Criterion) {
 }
 
 fn bench_interpolate_cfft(c: &mut Criterion) {
-    let state = match MetalState::new(None) {
-        Ok(s) => s,
-        Err(_) => return,
+    let state = match create_metal_state_or_skip() {
+        Some(s) => s,
+        None => return,
     };
 
     // Validate GPU implementation correctness before benchmarking
