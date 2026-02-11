@@ -7,6 +7,9 @@ use lambdaworks_math::traits::{
 };
 use std::marker::PhantomData;
 
+#[cfg(feature = "parallel")]
+use rayon::prelude::*;
+
 use crate::setup::{
     new_strong_fiat_shamir_transcript, CommonPreprocessedInput, VerificationKey, Witness,
 };
@@ -265,11 +268,11 @@ struct Round5Result<F: IsField, Hiding> {
 
 impl<F, CS, R> Prover<F, CS, R>
 where
-    F: IsField + IsFFTField + HasDefaultTranscript,
-    CS: IsCommitmentScheme<F>,
+    F: IsField + IsFFTField + HasDefaultTranscript + Sync,
+    CS: IsCommitmentScheme<F> + Sync,
     FieldElement<F>: ByteConversion,
-    CS::Commitment: AsBytes,
-    R: IsRandomFieldElementGenerator<F>,
+    CS::Commitment: AsBytes + Send + Sync,
+    R: IsRandomFieldElementGenerator<F> + Sync,
 {
     pub fn new(commitment_scheme: CS, random_generator: R) -> Self {
         Self {
@@ -312,9 +315,25 @@ where
         let p_b = self.blind_polynomial(&p_b, &z_h, 2);
         let p_c = self.blind_polynomial(&p_c, &z_h, 2);
 
-        let a_1 = self.commitment_scheme.commit(&p_a);
-        let b_1 = self.commitment_scheme.commit(&p_b);
-        let c_1 = self.commitment_scheme.commit(&p_c);
+        #[cfg(feature = "parallel")]
+        let (a_1, b_1, c_1) = {
+            let (a_1, (b_1, c_1)) = rayon::join(
+                || self.commitment_scheme.commit(&p_a),
+                || {
+                    rayon::join(
+                        || self.commitment_scheme.commit(&p_b),
+                        || self.commitment_scheme.commit(&p_c),
+                    )
+                },
+            );
+            (a_1, b_1, c_1)
+        };
+        #[cfg(not(feature = "parallel"))]
+        let (a_1, b_1, c_1) = (
+            self.commitment_scheme.commit(&p_a),
+            self.commitment_scheme.commit(&p_b),
+            self.commitment_scheme.commit(&p_c),
+        );
 
         Round1Result {
             a_1,
@@ -421,29 +440,53 @@ where
         // TODO: check a factor of 4 is a sensible upper bound
         let degree = 4 * cpi.n;
         let offset = &cpi.k1;
-        let p_a_eval = Polynomial::evaluate_offset_fft(p_a, 1, Some(degree), offset)
-            .expect("FFT evaluation of p_a must be within field's two-adicity limit");
-        let p_b_eval = Polynomial::evaluate_offset_fft(p_b, 1, Some(degree), offset)
-            .expect("FFT evaluation of p_b must be within field's two-adicity limit");
-        let p_c_eval = Polynomial::evaluate_offset_fft(p_c, 1, Some(degree), offset)
-            .expect("FFT evaluation of p_c must be within field's two-adicity limit");
-        let ql_eval = Polynomial::evaluate_offset_fft(&cpi.ql, 1, Some(degree), offset)
-            .expect("FFT evaluation of ql must be within field's two-adicity limit");
-        let qr_eval = Polynomial::evaluate_offset_fft(&cpi.qr, 1, Some(degree), offset)
-            .expect("FFT evaluation of qr must be within field's two-adicity limit");
-        let qm_eval = Polynomial::evaluate_offset_fft(&cpi.qm, 1, Some(degree), offset)
-            .expect("FFT evaluation of qm must be within field's two-adicity limit");
-        let qo_eval = Polynomial::evaluate_offset_fft(&cpi.qo, 1, Some(degree), offset)
-            .expect("FFT evaluation of qo must be within field's two-adicity limit");
-        let qc_eval = Polynomial::evaluate_offset_fft(&cpi.qc, 1, Some(degree), offset)
-            .expect("FFT evaluation of qc must be within field's two-adicity limit");
-        let p_pi_eval = Polynomial::evaluate_offset_fft(&p_pi, 1, Some(degree), offset)
-            .expect("FFT evaluation of p_pi must be within field's two-adicity limit");
+        // All 15 polynomials need coset FFT evaluation at the same degree/offset.
+        // These evaluations are completely independent and can run in parallel.
+        let polys_to_eval: Vec<&Polynomial<FieldElement<F>>> = vec![
+            p_a, p_b, p_c, // 0-2: wire polynomials
+            &cpi.ql, &cpi.qr, &cpi.qm, &cpi.qo, &cpi.qc, // 3-7: gate polynomials
+            &p_pi,   // 8: public input
+            p_z, &z_x_omega, // 9-10: permutation
+            &cpi.s1, &cpi.s2, &cpi.s3, // 11-13: sigma polynomials
+            &l1,     // 14: L1 polynomial
+        ];
 
-        // Optimization: p_x = X (identity polynomial), so p_x(offset * ω^i) = offset * ω^i.
+        #[cfg(feature = "parallel")]
+        let evals: Vec<Vec<FieldElement<F>>> = polys_to_eval
+            .par_iter()
+            .map(|poly| {
+                Polynomial::evaluate_offset_fft(poly, 1, Some(degree), offset)
+                    .expect("FFT evaluation must be within field's two-adicity limit")
+            })
+            .collect();
+
+        #[cfg(not(feature = "parallel"))]
+        let evals: Vec<Vec<FieldElement<F>>> = polys_to_eval
+            .iter()
+            .map(|poly| {
+                Polynomial::evaluate_offset_fft(poly, 1, Some(degree), offset)
+                    .expect("FFT evaluation must be within field's two-adicity limit")
+            })
+            .collect();
+
+        let p_a_eval = &evals[0];
+        let p_b_eval = &evals[1];
+        let p_c_eval = &evals[2];
+        let ql_eval = &evals[3];
+        let qr_eval = &evals[4];
+        let qm_eval = &evals[5];
+        let qo_eval = &evals[6];
+        let qc_eval = &evals[7];
+        let p_pi_eval = &evals[8];
+        let p_z_eval = &evals[9];
+        let p_z_x_omega_eval = &evals[10];
+        let p_s1_eval = &evals[11];
+        let p_s2_eval = &evals[12];
+        let p_s3_eval = &evals[13];
+        let l1_eval = &evals[14];
+
+        // p_x = X (identity polynomial), so p_x(offset * ω^i) = offset * ω^i.
         // Generate the coset directly instead of using FFT.
-        // Note: This uses the same primitive root that evaluate_offset_fft uses internally,
-        // since both derive it from F::get_primitive_root_of_unity for the same domain size.
         let omega = F::get_primitive_root_of_unity(degree.trailing_zeros() as u64)
             .expect("primitive root exists for degree");
         let p_x_eval: Vec<_> = (0..degree)
@@ -458,18 +501,6 @@ where
             p_a_eval.len(),
             "p_x_eval length must match FFT evaluation length"
         );
-        let p_z_eval = Polynomial::evaluate_offset_fft(p_z, 1, Some(degree), offset)
-            .expect("FFT evaluation of p_z must be within field's two-adicity limit");
-        let p_z_x_omega_eval = Polynomial::evaluate_offset_fft(&z_x_omega, 1, Some(degree), offset)
-            .expect("FFT evaluation of z_x_omega must be within field's two-adicity limit");
-        let p_s1_eval = Polynomial::evaluate_offset_fft(&cpi.s1, 1, Some(degree), offset)
-            .expect("FFT evaluation of s1 must be within field's two-adicity limit");
-        let p_s2_eval = Polynomial::evaluate_offset_fft(&cpi.s2, 1, Some(degree), offset)
-            .expect("FFT evaluation of s2 must be within field's two-adicity limit");
-        let p_s3_eval = Polynomial::evaluate_offset_fft(&cpi.s3, 1, Some(degree), offset)
-            .expect("FFT evaluation of s3 must be within field's two-adicity limit");
-        let l1_eval = Polynomial::evaluate_offset_fft(&l1, 1, Some(degree), offset)
-            .expect("FFT evaluation of l1 must be within field's two-adicity limit");
 
         let p_constraints_eval: Vec<_> = p_a_eval
             .iter()
@@ -584,9 +615,25 @@ where
             &p_t_mid - b_0 + &b_1 * Polynomial::new_monomial(FieldElement::one(), cpi.n + 2);
         let p_t_hi = &p_t_hi - b_1;
 
-        let t_lo_1 = self.commitment_scheme.commit(&p_t_lo);
-        let t_mid_1 = self.commitment_scheme.commit(&p_t_mid);
-        let t_hi_1 = self.commitment_scheme.commit(&p_t_hi);
+        #[cfg(feature = "parallel")]
+        let (t_lo_1, t_mid_1, t_hi_1) = {
+            let (t_lo_1, (t_mid_1, t_hi_1)) = rayon::join(
+                || self.commitment_scheme.commit(&p_t_lo),
+                || {
+                    rayon::join(
+                        || self.commitment_scheme.commit(&p_t_mid),
+                        || self.commitment_scheme.commit(&p_t_hi),
+                    )
+                },
+            );
+            (t_lo_1, t_mid_1, t_hi_1)
+        };
+        #[cfg(not(feature = "parallel"))]
+        let (t_lo_1, t_mid_1, t_hi_1) = (
+            self.commitment_scheme.commit(&p_t_lo),
+            self.commitment_scheme.commit(&p_t_mid),
+            self.commitment_scheme.commit(&p_t_hi),
+        );
 
         Round3Result {
             t_lo_1,
@@ -686,13 +733,31 @@ where
             cpi.s2.clone(),
         ];
         let ys: Vec<FieldElement<F>> = polynomials.iter().map(|p| p.evaluate(&r4.zeta)).collect();
-        let w_zeta_1 = self
-            .commitment_scheme
-            .open_batch(&r4.zeta, &ys, &polynomials, &upsilon);
 
-        let w_zeta_omega_1 =
-            self.commitment_scheme
-                .open(&(&r4.zeta * &cpi.omega), &r4.z_zeta_omega, &r2.p_z);
+        #[cfg(feature = "parallel")]
+        let (w_zeta_1, w_zeta_omega_1) = {
+            let zeta_omega = &r4.zeta * &cpi.omega;
+            rayon::join(
+                || {
+                    self.commitment_scheme
+                        .open_batch(&r4.zeta, &ys, &polynomials, &upsilon)
+                },
+                || {
+                    self.commitment_scheme
+                        .open(&zeta_omega, &r4.z_zeta_omega, &r2.p_z)
+                },
+            )
+        };
+        #[cfg(not(feature = "parallel"))]
+        let (w_zeta_1, w_zeta_omega_1) = {
+            let w_zeta_1 = self
+                .commitment_scheme
+                .open_batch(&r4.zeta, &ys, &polynomials, &upsilon);
+            let w_zeta_omega_1 =
+                self.commitment_scheme
+                    .open(&(&r4.zeta * &cpi.omega), &r4.z_zeta_omega, &r2.p_z);
+            (w_zeta_1, w_zeta_omega_1)
+        };
 
         Round5Result {
             w_zeta_1,

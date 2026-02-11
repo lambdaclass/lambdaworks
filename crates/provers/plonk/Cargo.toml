@@ -9,8 +9,19 @@ edition = "2021"
 thiserror = "1.0"
 lambdaworks-math.workspace = true
 lambdaworks-crypto.workspace = true
+rayon = { version = "1.8.0", optional = true }
 
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 sha3 = { version = "0.10.8", default-features = false }
 sha2 = { version = "0.10", default-features = false }
+
+[dev-dependencies]
+criterion = "0.5"
+
+[features]
+parallel = ["dep:rayon", "lambdaworks-math/parallel", "lambdaworks-crypto/parallel"]
+
+[[bench]]
+name = "criterion_prover"
+harness = false
