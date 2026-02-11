@@ -283,7 +283,6 @@ impl IsPairing for BLS12381AtePairing {
 /// Implements the miller loop for the ate pairing of the BLS12 381 curve.
 /// Based on algorithm 9.2, page 212 of the book
 /// "Topics in computational number theory" by W. Bons and K. Lenstra
-#[allow(unused)]
 pub fn miller(
     q: &ShortWeierstrassJacobianPoint<BLS12381TwistCurve>,
     p: &ShortWeierstrassJacobianPoint<BLS12381Curve>,
