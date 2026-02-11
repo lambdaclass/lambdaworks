@@ -39,6 +39,98 @@ fn rand_goldilocks_elements(order: u64) -> Vec<GoldilocksFE> {
 }
 
 // ============================================
+// CORRECTNESS VALIDATION
+// ============================================
+
+/// Validates that GPU FFT produces the same results as CPU FFT for Stark252
+fn validate_stark252_fft(state: &MetalState) {
+    const TEST_ORDER: u64 = 10;
+    let input = rand_stark_elements(TEST_ORDER);
+    let twiddles = get_twiddles::<StarkF>(TEST_ORDER, RootsConfig::BitReverse)
+        .expect("Failed to generate twiddles");
+
+    // CPU reference
+    let cpu_result = lambdaworks_math::fft::cpu::ops::fft(&input, &twiddles)
+        .expect("CPU FFT failed during validation");
+
+    // GPU result
+    let gpu_result = lambdaworks_math::fft::gpu::metal::ops::fft(&input, &twiddles, state)
+        .expect("GPU FFT failed during validation");
+
+    assert_eq!(
+        cpu_result, gpu_result,
+        "GPU Stark252 FFT results do not match CPU implementation"
+    );
+    println!("✓ Stark252 FFT validation passed");
+}
+
+/// Validates that GPU FFT produces the same results as CPU FFT for Goldilocks
+fn validate_goldilocks_fft(state: &MetalState) {
+    const TEST_ORDER: u64 = 10;
+    let input = rand_goldilocks_elements(TEST_ORDER);
+    let twiddles = get_twiddles::<GoldilocksF>(TEST_ORDER, RootsConfig::BitReverse)
+        .expect("Failed to generate twiddles");
+
+    // CPU reference
+    let cpu_result = lambdaworks_math::fft::cpu::ops::fft(&input, &twiddles)
+        .expect("CPU FFT failed during validation");
+
+    // GPU result
+    let gpu_result = lambdaworks_math::fft::gpu::metal::ops::fft(&input, &twiddles, state)
+        .expect("GPU FFT failed during validation");
+
+    assert_eq!(
+        cpu_result, gpu_result,
+        "GPU Goldilocks FFT results do not match CPU implementation"
+    );
+    println!("✓ Goldilocks FFT validation passed");
+}
+
+/// Validates that GPU twiddle generation produces the same results as CPU
+fn validate_twiddle_generation(state: &MetalState) {
+    const TEST_ORDER: u64 = 10;
+
+    // CPU reference
+    let cpu_twiddles = get_twiddles::<StarkF>(TEST_ORDER, RootsConfig::BitReverse)
+        .expect("CPU twiddle generation failed during validation");
+
+    // GPU result
+    let gpu_twiddles = lambdaworks_math::fft::gpu::metal::ops::gen_twiddles::<StarkF>(
+        TEST_ORDER,
+        RootsConfig::BitReverse,
+        state,
+    )
+    .expect("GPU twiddle generation failed during validation");
+
+    assert_eq!(
+        cpu_twiddles, gpu_twiddles,
+        "GPU twiddle generation results do not match CPU implementation"
+    );
+    println!("✓ Twiddle generation validation passed");
+}
+
+/// Validates that GPU bit-reverse permutation produces the same results as CPU
+fn validate_bitrev_permutation(state: &MetalState) {
+    const TEST_ORDER: u64 = 10;
+    let input = rand_stark_elements(TEST_ORDER);
+
+    // CPU reference
+    let mut cpu_result = input.clone();
+    lambdaworks_math::fft::cpu::bit_reversing::in_place_bit_reverse_permute(&mut cpu_result);
+
+    // GPU result
+    let gpu_result =
+        lambdaworks_math::fft::gpu::metal::ops::bitrev_permutation::<StarkF, _>(&input, state)
+            .expect("GPU bit-reverse permutation failed during validation");
+
+    assert_eq!(
+        cpu_result, gpu_result,
+        "GPU bit-reverse permutation results do not match CPU implementation"
+    );
+    println!("✓ Bit-reverse permutation validation passed");
+}
+
+// ============================================
 // STARK252 FFT: GPU vs CPU
 // ============================================
 
@@ -50,6 +142,9 @@ fn bench_stark252_fft(c: &mut Criterion) {
             return;
         }
     };
+
+    // Validate GPU implementation correctness before benchmarking
+    validate_stark252_fft(&state);
 
     let mut group = c.benchmark_group("Stark252 FFT");
 
@@ -97,6 +192,9 @@ fn bench_goldilocks_fft(c: &mut Criterion) {
         Err(_) => return,
     };
 
+    // Validate GPU implementation correctness before benchmarking
+    validate_goldilocks_fft(&state);
+
     let mut group = c.benchmark_group("Goldilocks FFT");
 
     for &order in &LOG_SIZES {
@@ -142,6 +240,9 @@ fn bench_twiddle_generation(c: &mut Criterion) {
         Ok(s) => s,
         Err(_) => return,
     };
+
+    // Validate GPU implementation correctness before benchmarking
+    validate_twiddle_generation(&state);
 
     let mut group = c.benchmark_group("Twiddle generation");
 
@@ -191,6 +292,9 @@ fn bench_bitrev_permutation(c: &mut Criterion) {
         Ok(s) => s,
         Err(_) => return,
     };
+
+    // Validate GPU implementation correctness before benchmarking
+    validate_bitrev_permutation(&state);
 
     let mut group = c.benchmark_group("Bit-reverse permutation");
 

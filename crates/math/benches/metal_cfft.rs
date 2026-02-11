@@ -31,6 +31,95 @@ fn rand_mersenne31_elements(log_size: u32) -> Vec<FE> {
 }
 
 // ============================================
+// CORRECTNESS VALIDATION
+// ============================================
+
+/// Validates that GPU cfft_gpu produces the same results as CPU cfft
+fn validate_cfft_gpu(state: &MetalState) {
+    const TEST_LOG_SIZE: u32 = 10;
+    let input = rand_mersenne31_elements(TEST_LOG_SIZE);
+    let coset = Coset::new_standard(TEST_LOG_SIZE);
+    let twiddles = get_twiddles(coset, TwiddlesConfig::Evaluation);
+
+    // CPU reference
+    let mut cpu_result = input.clone();
+    lambdaworks_math::circle::cfft::cfft(&mut cpu_result, &twiddles);
+
+    // GPU result
+    let gpu_result = lambdaworks_math::circle::gpu::metal::ops::cfft_gpu(&input, &twiddles, state)
+        .expect("GPU cfft_gpu failed during validation");
+
+    assert_eq!(
+        cpu_result, gpu_result,
+        "GPU cfft_gpu results do not match CPU implementation"
+    );
+    println!("✓ cfft_gpu validation passed");
+}
+
+/// Validates that GPU icfft_gpu produces the same results as CPU icfft
+fn validate_icfft_gpu(state: &MetalState) {
+    const TEST_LOG_SIZE: u32 = 10;
+    let input = rand_mersenne31_elements(TEST_LOG_SIZE);
+    let coset = Coset::new_standard(TEST_LOG_SIZE);
+    let twiddles = get_twiddles(coset, TwiddlesConfig::Interpolation);
+
+    // CPU reference
+    let mut cpu_result = input.clone();
+    lambdaworks_math::circle::cfft::icfft(&mut cpu_result, &twiddles);
+
+    // GPU result
+    let gpu_result = lambdaworks_math::circle::gpu::metal::ops::icfft_gpu(&input, &twiddles, state)
+        .expect("GPU icfft_gpu failed during validation");
+
+    assert_eq!(
+        cpu_result, gpu_result,
+        "GPU icfft_gpu results do not match CPU implementation"
+    );
+    println!("✓ icfft_gpu validation passed");
+}
+
+/// Validates that GPU evaluate_cfft_gpu produces the same results as CPU evaluate_cfft
+fn validate_evaluate_cfft_gpu(state: &MetalState) {
+    const TEST_LOG_SIZE: u32 = 10;
+    let input = rand_mersenne31_elements(TEST_LOG_SIZE);
+
+    // CPU reference
+    let cpu_result = evaluate_cfft(input.clone());
+
+    // GPU result
+    let gpu_result =
+        lambdaworks_math::circle::gpu::metal::ops::evaluate_cfft_gpu(input.clone(), state)
+            .expect("GPU evaluate_cfft_gpu failed during validation");
+
+    assert_eq!(
+        cpu_result, gpu_result,
+        "GPU evaluate_cfft_gpu results do not match CPU implementation"
+    );
+    println!("✓ evaluate_cfft_gpu validation passed");
+}
+
+/// Validates that GPU interpolate_cfft_gpu produces the same results as CPU interpolate_cfft
+fn validate_interpolate_cfft_gpu(state: &MetalState) {
+    const TEST_LOG_SIZE: u32 = 10;
+    let coeffs = rand_mersenne31_elements(TEST_LOG_SIZE);
+    let evals = evaluate_cfft(coeffs);
+
+    // CPU reference
+    let cpu_result = interpolate_cfft(evals.clone());
+
+    // GPU result
+    let gpu_result =
+        lambdaworks_math::circle::gpu::metal::ops::interpolate_cfft_gpu(evals.clone(), state)
+            .expect("GPU interpolate_cfft_gpu failed during validation");
+
+    assert_eq!(
+        cpu_result, gpu_result,
+        "GPU interpolate_cfft_gpu results do not match CPU implementation"
+    );
+    println!("✓ interpolate_cfft_gpu validation passed");
+}
+
+// ============================================
 // RAW CFFT BUTTERFLIES: GPU vs CPU
 // ============================================
 
@@ -42,6 +131,9 @@ fn bench_cfft_butterflies(c: &mut Criterion) {
             return;
         }
     };
+
+    // Validate GPU implementation correctness before benchmarking
+    validate_cfft_gpu(&state);
 
     let mut group = c.benchmark_group("Mersenne31 CFFT butterflies");
 
@@ -99,6 +191,9 @@ fn bench_icfft_butterflies(c: &mut Criterion) {
         Err(_) => return,
     };
 
+    // Validate GPU implementation correctness before benchmarking
+    validate_icfft_gpu(&state);
+
     let mut group = c.benchmark_group("Mersenne31 ICFFT butterflies");
 
     for &log_size in &LOG_SIZES {
@@ -155,6 +250,9 @@ fn bench_evaluate_cfft(c: &mut Criterion) {
         Err(_) => return,
     };
 
+    // Validate GPU implementation correctness before benchmarking
+    validate_evaluate_cfft_gpu(&state);
+
     let mut group = c.benchmark_group("Mersenne31 evaluate_cfft");
 
     for &log_size in &LOG_SIZES {
@@ -190,6 +288,9 @@ fn bench_interpolate_cfft(c: &mut Criterion) {
         Ok(s) => s,
         Err(_) => return,
     };
+
+    // Validate GPU implementation correctness before benchmarking
+    validate_interpolate_cfft_gpu(&state);
 
     let mut group = c.benchmark_group("Mersenne31 interpolate_cfft");
 
