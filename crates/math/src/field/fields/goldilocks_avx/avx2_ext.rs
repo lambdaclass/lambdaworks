@@ -664,3 +664,113 @@ mod tests {
         );
     }
 }
+
+#[cfg(test)]
+mod proptest_tests {
+    use super::*;
+    use proptest::prelude::*;
+
+    fn make_fp2_arrays(c0: [u64; 4], c1: [u64; 4]) -> [Fp2E; FP2_WIDTH] {
+        core::array::from_fn(|i| Fp2E::new([FpE::from(c0[i]), FpE::from(c1[i])]))
+    }
+
+    fn make_fp3_arrays(c0: [u64; 4], c1: [u64; 4], c2: [u64; 4]) -> [Fp3E; FP3_WIDTH] {
+        core::array::from_fn(|i| {
+            Fp3E::new([FpE::from(c0[i]), FpE::from(c1[i]), FpE::from(c2[i])])
+        })
+    }
+
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(10000))]
+
+        #[test]
+        fn fp2_add_matches_scalar(
+            a0 in any::<[u64; 4]>(), a1 in any::<[u64; 4]>(),
+            b0 in any::<[u64; 4]>(), b1 in any::<[u64; 4]>(),
+        ) {
+            let vals_a = make_fp2_arrays(a0, a1);
+            let vals_b = make_fp2_arrays(b0, b1);
+            let packed_a = PackedGoldilocksFp2AVX2::from_fp2_array(vals_a);
+            let packed_b = PackedGoldilocksFp2AVX2::from_fp2_array(vals_b);
+            let result = (packed_a + packed_b).to_fp2_array();
+            for i in 0..FP2_WIDTH {
+                prop_assert_eq!(result[i], vals_a[i] + vals_b[i], "Fp2 add mismatch at {}", i);
+            }
+        }
+
+        #[test]
+        fn fp2_sub_matches_scalar(
+            a0 in any::<[u64; 4]>(), a1 in any::<[u64; 4]>(),
+            b0 in any::<[u64; 4]>(), b1 in any::<[u64; 4]>(),
+        ) {
+            let vals_a = make_fp2_arrays(a0, a1);
+            let vals_b = make_fp2_arrays(b0, b1);
+            let packed_a = PackedGoldilocksFp2AVX2::from_fp2_array(vals_a);
+            let packed_b = PackedGoldilocksFp2AVX2::from_fp2_array(vals_b);
+            let result = (packed_a - packed_b).to_fp2_array();
+            for i in 0..FP2_WIDTH {
+                prop_assert_eq!(result[i], vals_a[i] - vals_b[i], "Fp2 sub mismatch at {}", i);
+            }
+        }
+
+        #[test]
+        fn fp2_mul_matches_scalar(
+            a0 in any::<[u64; 4]>(), a1 in any::<[u64; 4]>(),
+            b0 in any::<[u64; 4]>(), b1 in any::<[u64; 4]>(),
+        ) {
+            let vals_a = make_fp2_arrays(a0, a1);
+            let vals_b = make_fp2_arrays(b0, b1);
+            let packed_a = PackedGoldilocksFp2AVX2::from_fp2_array(vals_a);
+            let packed_b = PackedGoldilocksFp2AVX2::from_fp2_array(vals_b);
+            let result = (packed_a * packed_b).to_fp2_array();
+            for i in 0..FP2_WIDTH {
+                prop_assert_eq!(result[i], vals_a[i] * vals_b[i], "Fp2 mul mismatch at {}", i);
+            }
+        }
+
+        #[test]
+        fn fp3_add_matches_scalar(
+            a0 in any::<[u64; 4]>(), a1 in any::<[u64; 4]>(), a2 in any::<[u64; 4]>(),
+            b0 in any::<[u64; 4]>(), b1 in any::<[u64; 4]>(), b2 in any::<[u64; 4]>(),
+        ) {
+            let vals_a = make_fp3_arrays(a0, a1, a2);
+            let vals_b = make_fp3_arrays(b0, b1, b2);
+            let packed_a = PackedGoldilocksFp3AVX2::from_fp3_array(vals_a);
+            let packed_b = PackedGoldilocksFp3AVX2::from_fp3_array(vals_b);
+            let result = (packed_a + packed_b).to_fp3_array();
+            for i in 0..FP3_WIDTH {
+                prop_assert_eq!(result[i], vals_a[i] + vals_b[i], "Fp3 add mismatch at {}", i);
+            }
+        }
+
+        #[test]
+        fn fp3_sub_matches_scalar(
+            a0 in any::<[u64; 4]>(), a1 in any::<[u64; 4]>(), a2 in any::<[u64; 4]>(),
+            b0 in any::<[u64; 4]>(), b1 in any::<[u64; 4]>(), b2 in any::<[u64; 4]>(),
+        ) {
+            let vals_a = make_fp3_arrays(a0, a1, a2);
+            let vals_b = make_fp3_arrays(b0, b1, b2);
+            let packed_a = PackedGoldilocksFp3AVX2::from_fp3_array(vals_a);
+            let packed_b = PackedGoldilocksFp3AVX2::from_fp3_array(vals_b);
+            let result = (packed_a - packed_b).to_fp3_array();
+            for i in 0..FP3_WIDTH {
+                prop_assert_eq!(result[i], vals_a[i] - vals_b[i], "Fp3 sub mismatch at {}", i);
+            }
+        }
+
+        #[test]
+        fn fp3_mul_matches_scalar(
+            a0 in any::<[u64; 4]>(), a1 in any::<[u64; 4]>(), a2 in any::<[u64; 4]>(),
+            b0 in any::<[u64; 4]>(), b1 in any::<[u64; 4]>(), b2 in any::<[u64; 4]>(),
+        ) {
+            let vals_a = make_fp3_arrays(a0, a1, a2);
+            let vals_b = make_fp3_arrays(b0, b1, b2);
+            let packed_a = PackedGoldilocksFp3AVX2::from_fp3_array(vals_a);
+            let packed_b = PackedGoldilocksFp3AVX2::from_fp3_array(vals_b);
+            let result = (packed_a * packed_b).to_fp3_array();
+            for i in 0..FP3_WIDTH {
+                prop_assert_eq!(result[i], vals_a[i] * vals_b[i], "Fp3 mul mismatch at {}", i);
+            }
+        }
+    }
+}

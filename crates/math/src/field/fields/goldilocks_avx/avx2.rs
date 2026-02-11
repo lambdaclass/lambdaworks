@@ -686,3 +686,70 @@ mod tests {
         }
     }
 }
+
+#[cfg(test)]
+mod proptest_tests {
+    use super::*;
+    use crate::field::fields::u64_goldilocks_field::Goldilocks64Field;
+    use proptest::prelude::*;
+
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(10000))]
+
+        #[test]
+        fn add_matches_scalar(a in any::<[u64; 4]>(), b in any::<[u64; 4]>()) {
+            let packed_a = PackedGoldilocksAVX2::from_u64_array(a);
+            let packed_b = PackedGoldilocksAVX2::from_u64_array(b);
+            let result = (packed_a + packed_b).to_array();
+            for i in 0..WIDTH {
+                let expected = FieldElement::<Goldilocks64Field>::from(a[i])
+                    + FieldElement::<Goldilocks64Field>::from(b[i]);
+                prop_assert_eq!(result[i], expected, "add mismatch at lane {}", i);
+            }
+        }
+
+        #[test]
+        fn sub_matches_scalar(a in any::<[u64; 4]>(), b in any::<[u64; 4]>()) {
+            let packed_a = PackedGoldilocksAVX2::from_u64_array(a);
+            let packed_b = PackedGoldilocksAVX2::from_u64_array(b);
+            let result = (packed_a - packed_b).to_array();
+            for i in 0..WIDTH {
+                let expected = FieldElement::<Goldilocks64Field>::from(a[i])
+                    - FieldElement::<Goldilocks64Field>::from(b[i]);
+                prop_assert_eq!(result[i], expected, "sub mismatch at lane {}", i);
+            }
+        }
+
+        #[test]
+        fn mul_matches_scalar(a in any::<[u64; 4]>(), b in any::<[u64; 4]>()) {
+            let packed_a = PackedGoldilocksAVX2::from_u64_array(a);
+            let packed_b = PackedGoldilocksAVX2::from_u64_array(b);
+            let result = (packed_a * packed_b).to_array();
+            for i in 0..WIDTH {
+                let expected = FieldElement::<Goldilocks64Field>::from(a[i])
+                    * FieldElement::<Goldilocks64Field>::from(b[i]);
+                prop_assert_eq!(result[i], expected, "mul mismatch at lane {}", i);
+            }
+        }
+
+        #[test]
+        fn neg_matches_scalar(a in any::<[u64; 4]>()) {
+            let packed_a = PackedGoldilocksAVX2::from_u64_array(a);
+            let result = (-packed_a).to_array();
+            for i in 0..WIDTH {
+                let expected = -FieldElement::<Goldilocks64Field>::from(a[i]);
+                prop_assert_eq!(result[i], expected, "neg mismatch at lane {}", i);
+            }
+        }
+
+        #[test]
+        fn square_matches_scalar(a in any::<[u64; 4]>()) {
+            let packed_a = PackedGoldilocksAVX2::from_u64_array(a);
+            let result = packed_a.square().to_array();
+            for i in 0..WIDTH {
+                let s = FieldElement::<Goldilocks64Field>::from(a[i]);
+                prop_assert_eq!(result[i], s * s, "square mismatch at lane {}", i);
+            }
+        }
+    }
+}
