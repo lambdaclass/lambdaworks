@@ -460,7 +460,6 @@ pub trait IsStarkProver<
             return None;
         }
 
-        // TODO: Remove clones
         let mut lde_composition_poly_evaluations = Vec::with_capacity(lde_len);
         for i in 0..lde_len {
             let mut row = Vec::with_capacity(lde_composition_poly_parts_evaluations.len());
@@ -472,11 +471,10 @@ pub trait IsStarkProver<
 
         in_place_bit_reverse_permute(&mut lde_composition_poly_evaluations);
 
-        // Pre-allocate merged vector
         let mut lde_composition_poly_evaluations_merged = Vec::with_capacity(lde_len / 2);
-        for chunk in lde_composition_poly_evaluations.chunks(2) {
-            let (mut chunk0, chunk1) = (chunk[0].clone(), &chunk[1]);
-            chunk0.extend_from_slice(chunk1);
+        let mut iter = lde_composition_poly_evaluations.into_iter();
+        while let (Some(mut chunk0), Some(chunk1)) = (iter.next(), iter.next()) {
+            chunk0.extend(chunk1);
             lde_composition_poly_evaluations_merged.push(chunk0);
         }
 
