@@ -95,11 +95,11 @@ where
             return one_poly;
         }
         let period = self.period();
-        // FIXME: CHECK IF WE NEED TO CHANGE THE NEW MONOMIAL'S ARGUMENTS TO trace_root^(offset * trace_length / period) INSTEAD OF ONE!!!!
+        let offset = self.offset();
         (1..=self.end_exemptions())
-            .map(|exemption| trace_primitive_root.pow(trace_length - exemption * period))
-            .fold(one_poly, |acc, offset| {
-                acc * (Polynomial::new_monomial(FieldElement::<F>::one(), 1) - offset)
+            .map(|exemption| trace_primitive_root.pow(offset + trace_length - exemption * period))
+            .fold(one_poly, |acc, root| {
+                acc * (Polynomial::new_monomial(FieldElement::<F>::one(), 1) - root)
             })
     }
 
@@ -252,5 +252,142 @@ where
         .inv()
         .expect("zerofier inverse failed: z should not equal primitive root power")
             * end_exemptions_poly.evaluate(z)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::traits::TransitionEvaluationContext;
+    use lambdaworks_math::field::fields::fft_friendly::stark_252_prime_field::Stark252PrimeField;
+
+    type F = Stark252PrimeField;
+    type FE = FieldElement<F>;
+
+    /// A test constraint with configurable period, offset, and end_exemptions.
+    struct TestConstraint {
+        period: usize,
+        offset: usize,
+        end_exemptions: usize,
+    }
+
+    impl TransitionConstraint<F, F> for TestConstraint {
+        fn degree(&self) -> usize {
+            1
+        }
+        fn constraint_idx(&self) -> usize {
+            0
+        }
+        fn end_exemptions(&self) -> usize {
+            self.end_exemptions
+        }
+        fn period(&self) -> usize {
+            self.period
+        }
+        fn offset(&self) -> usize {
+            self.offset
+        }
+        fn evaluate(&self, _ctx: &TransitionEvaluationContext<F, F>, _evals: &mut [FE]) {
+            // Not needed for zerofier tests
+        }
+    }
+
+    #[test]
+    fn end_exemptions_poly_with_zero_offset_exempts_last_rows() {
+        // Constraint with period=1, offset=0, end_exemptions=2
+        // Applies at rows: 0, 1, 2, ..., 7
+        // End exemptions should remove rows 6 and 7
+        let trace_length = 8;
+        let omega = F::get_primitive_root_of_unity(3).unwrap(); // 8th root of unity
+
+        let constraint = TestConstraint {
+            period: 1,
+            offset: 0,
+            end_exemptions: 2,
+        };
+
+        let poly = constraint.end_exemptions_poly(&omega, trace_length);
+
+        // Should have roots at ω^7 and ω^6 (the last 2 rows)
+        let root_7 = omega.pow(7u64);
+        let root_6 = omega.pow(6u64);
+        assert_eq!(poly.evaluate(&root_7), FE::zero());
+        assert_eq!(poly.evaluate(&root_6), FE::zero());
+
+        // Should NOT have a root at ω^5
+        let root_5 = omega.pow(5u64);
+        assert_ne!(poly.evaluate(&root_5), FE::zero());
+    }
+
+    #[test]
+    fn end_exemptions_poly_with_nonzero_offset_exempts_correct_rows() {
+        // Constraint with period=2, offset=1, end_exemptions=1
+        // Applies at rows: 1, 3, 5, 7 (for trace_length=8)
+        // End exemptions should remove row 7 (the last applicable row)
+        let trace_length = 8;
+        let omega = F::get_primitive_root_of_unity(3).unwrap(); // 8th root of unity
+
+        let constraint = TestConstraint {
+            period: 2,
+            offset: 1,
+            end_exemptions: 1,
+        };
+
+        let poly = constraint.end_exemptions_poly(&omega, trace_length);
+
+        // Should have a root at ω^7 (= ω^(offset + n - 1*period) = ω^(1+8-2) = ω^7)
+        let root_7 = omega.pow(7u64);
+        assert_eq!(poly.evaluate(&root_7), FE::zero());
+
+        // Should NOT have a root at ω^6 (which is NOT an applicable row)
+        let root_6 = omega.pow(6u64);
+        assert_ne!(poly.evaluate(&root_6), FE::zero());
+
+        // Should NOT have a root at ω^5 (applicable row, but not exempted)
+        let root_5 = omega.pow(5u64);
+        assert_ne!(poly.evaluate(&root_5), FE::zero());
+    }
+
+    #[test]
+    fn end_exemptions_poly_with_offset_and_multiple_exemptions() {
+        // Constraint with period=2, offset=1, end_exemptions=2
+        // Applies at rows: 1, 3, 5, 7 (for trace_length=8)
+        // End exemptions should remove rows 5 and 7
+        let trace_length = 8;
+        let omega = F::get_primitive_root_of_unity(3).unwrap();
+
+        let constraint = TestConstraint {
+            period: 2,
+            offset: 1,
+            end_exemptions: 2,
+        };
+
+        let poly = constraint.end_exemptions_poly(&omega, trace_length);
+
+        // Exempted rows: ω^(1+8-2) = ω^7 and ω^(1+8-4) = ω^5
+        assert_eq!(poly.evaluate(&omega.pow(7u64)), FE::zero());
+        assert_eq!(poly.evaluate(&omega.pow(5u64)), FE::zero());
+
+        // Non-exempted applicable rows should NOT be roots
+        assert_ne!(poly.evaluate(&omega.pow(1u64)), FE::zero());
+        assert_ne!(poly.evaluate(&omega.pow(3u64)), FE::zero());
+    }
+
+    #[test]
+    fn end_exemptions_poly_zero_exemptions_returns_one() {
+        let trace_length = 8;
+        let omega = F::get_primitive_root_of_unity(3).unwrap();
+
+        let constraint = TestConstraint {
+            period: 1,
+            offset: 0,
+            end_exemptions: 0,
+        };
+
+        let poly = constraint.end_exemptions_poly(&omega, trace_length);
+
+        // Should be the constant polynomial 1
+        assert_eq!(poly.evaluate(&omega.pow(3u64)), FE::one());
+        assert_eq!(poly.evaluate(&FE::from(42u64)), FE::one());
     }
 }
