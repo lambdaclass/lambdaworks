@@ -83,10 +83,7 @@ mod profiler {
         elapsed.as_secs_f64() * 1000.0 / n_runs as f64
     }
 
-    fn time_cpu_stark_fft<F: Fn(&[StarkFE]) -> Vec<StarkFE>>(
-        input: &[StarkFE],
-        cpu_fn: F,
-    ) -> f64 {
+    fn time_cpu_stark_fft<F: Fn(&[StarkFE]) -> Vec<StarkFE>>(input: &[StarkFE], cpu_fn: F) -> f64 {
         // Warmup
         for _ in 0..2 {
             let _ = cpu_fn(input);
@@ -241,8 +238,9 @@ mod profiler {
 
     fn profile_goldilocks_fft(state: &MetalState, order: u32) -> TimingResult {
         let n = 1 << order;
-        let input: Vec<GoldilocksFE> =
-            (0..n).map(|_| GoldilocksFE::from(random::<u64>())).collect();
+        let input: Vec<GoldilocksFE> = (0..n)
+            .map(|_| GoldilocksFE::from(random::<u64>()))
+            .collect();
 
         let twiddles_cpu = get_fft_twiddles(n, RootsConfig::Natural).unwrap();
         let cpu_fn = |input: &[GoldilocksFE]| {
@@ -271,8 +269,9 @@ mod profiler {
 
     fn profile_goldilocks_ifft(state: &MetalState, order: u32) -> TimingResult {
         let n = 1 << order;
-        let input: Vec<GoldilocksFE> =
-            (0..n).map(|_| GoldilocksFE::from(random::<u64>())).collect();
+        let input: Vec<GoldilocksFE> = (0..n)
+            .map(|_| GoldilocksFE::from(random::<u64>()))
+            .collect();
 
         let twiddles_cpu = get_fft_twiddles(n, RootsConfig::Natural).unwrap();
         let cpu_fn = |input: &[GoldilocksFE]| {
@@ -522,8 +521,14 @@ mod profiler {
 
         let device = state.device();
         println!("  Device name:             {}", device.name());
-        println!("  Max threads per group:   {}", device.max_threads_per_threadgroup().width);
-        println!("  Max buffer length:       {} bytes", device.max_buffer_length());
+        println!(
+            "  Max threads per group:   {}",
+            device.max_threads_per_threadgroup().width
+        );
+        println!(
+            "  Max buffer length:       {} bytes",
+            device.max_buffer_length()
+        );
         println!("  Unified memory:          {}", device.has_unified_memory());
     }
 
