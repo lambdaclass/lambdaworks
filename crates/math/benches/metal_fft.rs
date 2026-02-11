@@ -24,6 +24,9 @@ type StarkFE = FieldElement<StarkF>;
 type GoldilocksF = Goldilocks64Field;
 type GoldilocksFE = FieldElement<GoldilocksF>;
 
+/// Array of log2 sizes to benchmark: [10, 12, 14, 16, 18, 20].
+/// These correspond to input sizes of [1024, 4096, 16384, 65536, 262144, 1048576] elements.
+/// Covers range from small (CPU-optimal) to large (GPU-optimal) workloads to identify crossover points.
 const LOG_SIZES: [u64; 6] = [10, 12, 14, 16, 18, 20];
 
 /// Creates a Metal state or returns None if Metal device is unavailable.
