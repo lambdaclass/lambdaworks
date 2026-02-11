@@ -99,7 +99,7 @@ impl BusValue {
                             let coeff = if *coefficient >= 0 {
                                 FieldElement::<E>::from(*coefficient as u64)
                             } else {
-                                -FieldElement::<E>::from((-*coefficient) as u64)
+                                -FieldElement::<E>::from(coefficient.unsigned_abs())
                             };
                             result += get_column(*column) * coeff;
                         }
@@ -114,7 +114,7 @@ impl BusValue {
                             if *value >= 0 {
                                 result += FieldElement::<E>::from(*value as u64);
                             } else {
-                                result = result - FieldElement::<E>::from((-*value) as u64);
+                                result = result - FieldElement::<E>::from(value.unsigned_abs());
                             }
                         }
                         LinearTerm::ConstantUnsigned(value) => {

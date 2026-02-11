@@ -131,7 +131,7 @@ fn compute_trace_multiplicity<F: IsField>(
                         let coeff = if *coefficient >= 0 {
                             FieldElement::<F>::from(*coefficient as u64)
                         } else {
-                            -FieldElement::<F>::from((-*coefficient) as u64)
+                            -FieldElement::<F>::from(coefficient.unsigned_abs())
                         };
                         result += &main_cols[*column][row] * coeff;
                     }
@@ -146,7 +146,7 @@ fn compute_trace_multiplicity<F: IsField>(
                         if *value >= 0 {
                             result += FieldElement::<F>::from(*value as u64);
                         } else {
-                            result = result - FieldElement::<F>::from((-*value) as u64);
+                            result = result - FieldElement::<F>::from(value.unsigned_abs());
                         }
                     }
                     LinearTerm::ConstantUnsigned(value) => {

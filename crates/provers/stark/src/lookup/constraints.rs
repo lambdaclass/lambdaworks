@@ -247,7 +247,7 @@ fn compute_multiplicity<A: IsSubFieldOf<B>, B: IsField>(
                         let coeff = if *coefficient >= 0 {
                             FieldElement::<A>::from(*coefficient as u64)
                         } else {
-                            -FieldElement::<A>::from((-*coefficient) as u64)
+                            -FieldElement::<A>::from(coefficient.unsigned_abs())
                         };
                         result += step.get_main_evaluation_element(0, *column) * coeff;
                     }
@@ -262,7 +262,7 @@ fn compute_multiplicity<A: IsSubFieldOf<B>, B: IsField>(
                         if *value >= 0 {
                             result += FieldElement::<A>::from(*value as u64);
                         } else {
-                            result = result - FieldElement::<A>::from((-*value) as u64);
+                            result = result - FieldElement::<A>::from(value.unsigned_abs());
                         }
                     }
                     LinearTerm::ConstantUnsigned(value) => {
