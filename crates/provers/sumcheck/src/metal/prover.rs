@@ -250,13 +250,13 @@ impl MetalState {
             return false;
         }
 
-        let device = self.device.as_ref();
-        let command_queue = self.command_queue.as_ref();
-        let pipeline = self.apply_challenge_pipeline.as_ref();
-
-        if device.is_none() || command_queue.is_none() || pipeline.is_none() {
+        let (Some(_device), Some(command_queue), Some(pipeline)) = (
+            self.device.as_ref(),
+            self.command_queue.as_ref(),
+            self.apply_challenge_pipeline.as_ref(),
+        ) else {
             return false;
-        }
+        };
 
         let input_buffer = match self.create_buffer(data) {
             Some(b) => b,
@@ -279,9 +279,6 @@ impl MetalState {
             Some(b) => b,
             None => return false,
         };
-
-        let command_queue = command_queue.unwrap();
-        let pipeline = pipeline.unwrap();
 
         let command_buffer = command_queue.new_command_buffer();
         let encoder = command_buffer.new_compute_command_encoder();

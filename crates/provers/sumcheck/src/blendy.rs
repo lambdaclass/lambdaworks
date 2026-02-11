@@ -46,8 +46,6 @@ where
     F::BaseType: Send + Sync,
 {
     num_vars: usize,
-    #[allow(dead_code)]
-    num_stages: usize,
     /// Original polynomial evaluations (read-only reference)
     original_evals: Vec<FieldElement<F>>,
     /// Precomputed table for current stage
@@ -94,7 +92,6 @@ where
 
         Ok(Self {
             num_vars,
-            num_stages,
             original_evals,
             stage_table,
             current_stage: 0,
@@ -120,7 +117,9 @@ where
     /// Computes the stage table for a given stage.
     ///
     /// The stage table contains partial sums that allow computing round polynomials
-    /// efficiently within the stage.
+    /// efficiently within the stage. For each assignment of stage variables, we sum
+    /// over all prefix and suffix variable assignments, weighting prefix assignments
+    /// by the equality polynomial eq(prefix, challenges).
     #[allow(clippy::needless_range_loop)]
     fn compute_stage_table(
         original_evals: &[FieldElement<F>],
@@ -133,29 +132,25 @@ where
         let stage_end_round = std::cmp::min((stage + 1) * rounds_per_stage, num_vars);
         let stage_vars = stage_end_round - stage_start_round;
 
-        // Variables before this stage (already fixed by challenges)
-        let _prefix_vars = stage_start_round;
-        // Variables after this stage
+        let prefix_vars = stage_start_round;
         let suffix_vars = num_vars - stage_end_round;
 
         let table_size = 1 << stage_vars;
+        let prefix_size = 1 << prefix_vars;
         let suffix_size = 1 << suffix_vars;
 
         let mut table = vec![FieldElement::zero(); table_size];
 
-        // For each entry in the stage table
+        // For each entry in the stage table (assignment of stage variables)
         for stage_idx in 0..table_size {
             let mut sum = FieldElement::zero();
 
-            // Sum over all suffix combinations
-            for suffix in 0..suffix_size {
-                // Compute full index
-                let full_idx = (stage_idx << suffix_vars) | suffix;
-
-                // Apply prefix challenges (eq polynomial evaluation)
+            // Sum over all prefix combinations (already-fixed variables)
+            for prefix in 0..prefix_size {
+                // Compute eq(prefix, challenges) — the equality polynomial
                 let mut eq_factor = FieldElement::one();
                 for (i, challenge) in challenges.iter().enumerate() {
-                    let bit = (full_idx >> (num_vars - 1 - i)) & 1;
+                    let bit = (prefix >> (prefix_vars - 1 - i)) & 1;
                     if bit == 1 {
                         eq_factor *= challenge.clone();
                     } else {
@@ -163,9 +158,14 @@ where
                     }
                 }
 
-                // Add contribution weighted by eq polynomial
-                let eval_idx = full_idx % original_evals.len();
-                sum += eq_factor * original_evals[eval_idx].clone();
+                // Sum over all suffix combinations
+                for suffix in 0..suffix_size {
+                    // Full index: prefix bits | stage bits | suffix bits
+                    let full_idx = (prefix << (stage_vars + suffix_vars))
+                        | (stage_idx << suffix_vars)
+                        | suffix;
+                    sum += eq_factor.clone() * original_evals[full_idx].clone();
+                }
             }
 
             table[stage_idx] = sum;
@@ -361,11 +361,30 @@ mod tests {
             FE::from(7),
             FE::from(8),
         ]);
+        let num_vars = poly.num_vars();
 
-        let (blendy_sum, _) = prove_blendy(poly.clone(), 2).unwrap();
-        let (optimized_sum, _) = crate::prove_optimized(vec![poly]).unwrap();
+        let (blendy_sum, blendy_polys) = prove_blendy(poly.clone(), 2).unwrap();
+        let (optimized_sum, _) = crate::prove_optimized(vec![poly.clone()]).unwrap();
 
         assert_eq!(blendy_sum, optimized_sum);
+
+        let result = crate::verify(num_vars, blendy_sum, blendy_polys, vec![poly]);
+        assert!(result.unwrap_or(false), "Blendy proof should verify");
+    }
+
+    #[test]
+    fn test_blendy_larger_polynomial() {
+        // Test with 6 variables (64 evaluations) and 3 stages
+        let evals: Vec<FE> = (0..64).map(|i| FE::from(i as u64)).collect();
+        let poly = DenseMultilinearPolynomial::new(evals);
+        let num_vars = poly.num_vars();
+
+        let (claimed_sum, proof_polys) = prove_blendy(poly.clone(), 3).unwrap();
+        let result = crate::verify(num_vars, claimed_sum, proof_polys, vec![poly]);
+        assert!(
+            result.unwrap_or(false),
+            "Blendy proof with 3 stages should verify"
+        );
     }
 
     #[test]
@@ -376,15 +395,17 @@ mod tests {
             FE::from(7),
             FE::from(11),
         ]);
+        let num_vars = poly.num_vars();
 
-        // Verify the claimed sum is correct
-        let (claimed_sum, _proof_polys) = prove_memory_efficient(poly.clone()).unwrap();
+        let (claimed_sum, proof_polys) = prove_memory_efficient(poly.clone()).unwrap();
 
         // Sum should be 3 + 5 + 7 + 11 = 26
         assert_eq!(claimed_sum, FE::from(26));
 
-        // Note: Full verification requires fixing the stage table algorithm
-        // The memory-efficient approach is working, but the proof generation
-        // needs further debugging to produce valid proofs.
+        let result = crate::verify(num_vars, claimed_sum, proof_polys, vec![poly]);
+        assert!(
+            result.unwrap_or(false),
+            "Memory-efficient proof should verify"
+        );
     }
 }

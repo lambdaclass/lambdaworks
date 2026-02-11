@@ -37,11 +37,6 @@ use lambdaworks_math::{
 };
 use std::ops::Mul;
 
-// Parallel support can be added for large batched polynomials
-#[cfg(feature = "parallel")]
-#[allow(unused_imports)]
-use rayon::prelude::*;
-
 /// Batched Sumcheck Prover.
 ///
 /// Efficiently proves multiple sumcheck instances by batching them
@@ -57,9 +52,6 @@ where
     combined_evals: Vec<FieldElement<F>>,
     /// Individual claimed sums (before batching)
     individual_sums: Vec<FieldElement<F>>,
-    /// Batching coefficient
-    #[allow(dead_code)]
-    batching_coeff: FieldElement<F>,
     /// Batched claimed sum
     batched_sum: FieldElement<F>,
     /// Current round
@@ -157,7 +149,6 @@ where
             num_instances,
             combined_evals,
             individual_sums,
-            batching_coeff,
             batched_sum,
             current_round: 0,
         })
@@ -394,16 +385,9 @@ where
             transcript.append_felt(coeff);
         }
 
-        if j < num_vars - 1 {
-            let r_j: FieldElement<F> = transcript.draw_felt();
-            expected_sum = g_j.evaluate(&r_j);
-            challenges.push(r_j);
-        } else {
-            // Final round - sample final challenge for oracle check
-            let r_j: FieldElement<F> = transcript.draw_felt();
-            expected_sum = g_j.evaluate(&r_j);
-            challenges.push(r_j);
-        }
+        let r_j: FieldElement<F> = transcript.draw_felt();
+        expected_sum = g_j.evaluate(&r_j);
+        challenges.push(r_j);
     }
 
     // Oracle check: verify the final evaluation against combined polynomial
@@ -441,8 +425,6 @@ where
     F::BaseType: Send + Sync,
 {
     num_vars: usize,
-    #[allow(dead_code)]
-    num_instances: usize,
     /// Evaluations for each instance
     instance_evals: Vec<Vec<FieldElement<F>>>,
     /// Batching coefficient
@@ -481,7 +463,6 @@ where
             }
         }
 
-        let num_instances = polynomials.len();
         let instance_evals: Vec<Vec<FieldElement<F>>> = polynomials
             .into_iter()
             .map(|p| p.evals().to_vec())
@@ -489,7 +470,6 @@ where
 
         Ok(Self {
             num_vars,
-            num_instances,
             instance_evals,
             batching_coeff,
             current_round: 0,
@@ -642,8 +622,11 @@ mod tests {
     }
 
     #[test]
-    fn test_batched_prover_product_instances() {
-        // Two instances, each with two factors
+    fn test_batched_prover_product_instances_sums() {
+        // Verify that the prover correctly computes individual sums for product instances.
+        // Note: The batched prover pre-computes point-wise products, so verification
+        // via verify_batched requires single-factor instances. For product instances,
+        // the oracle check would need access to the pre-computed product polynomial.
         let poly_a1 = DenseMultilinearPolynomial::new(vec![FE::from(1), FE::from(2)]);
         let poly_b1 = DenseMultilinearPolynomial::new(vec![FE::from(3), FE::from(4)]);
 
@@ -661,15 +644,16 @@ mod tests {
         // Second instance: 5*7 + 6*8 = 35 + 48 = 83
         assert_eq!(proof.individual_sums[1], FE::from(83));
 
-        let result = verify_batched(1, instances, &proof);
-        // Note: Product instances verification requires more complex handling
-        // The batched prover for single-factor instances is verified to work correctly
-        // Product instances may have different batching requirements
-        if result.is_err() {
-            println!("Note: Product batched verification not yet fully implemented");
-        } else {
-            assert!(result.unwrap_or(false));
+        // Round polynomial consistency: g(0) + g(1) = batched_sum
+        let mut batched_sum = FE::zero();
+        let mut rho_power = FE::one();
+        for sum in &proof.individual_sums {
+            batched_sum += &rho_power * sum;
+            rho_power *= proof.batching_coeff.clone();
         }
+        let g0_at_0 = proof.proof_polys[0].evaluate(&FE::zero());
+        let g0_at_1 = proof.proof_polys[0].evaluate(&FE::one());
+        assert_eq!(g0_at_0 + g0_at_1, batched_sum);
     }
 
     #[test]

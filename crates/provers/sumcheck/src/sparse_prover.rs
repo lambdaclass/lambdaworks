@@ -45,10 +45,6 @@ use lambdaworks_math::{
 use std::collections::HashMap;
 use std::ops::Mul;
 
-#[cfg(feature = "parallel")]
-#[allow(unused_imports)]
-use rayon::prelude::*;
-
 /// A sparse entry representing a non-zero evaluation at index `idx` with value `val`.
 #[derive(Clone, Debug)]
 pub struct SparseEntry<F: IsField>
@@ -316,13 +312,9 @@ pub struct SparseMultiFactorProver<F: IsField>
 where
     F::BaseType: Send + Sync,
 {
-    #[allow(dead_code)]
-    remaining_vars: usize,
     total_vars: usize,
     /// Sparse entries for each factor
     factor_entries: Vec<Vec<SparseEntry<F>>>,
-    #[allow(dead_code)]
-    current_round: usize,
 }
 
 impl<F: IsField> SparseMultiFactorProver<F>
@@ -353,10 +345,8 @@ where
             .collect();
 
         Ok(Self {
-            remaining_vars: num_vars,
             total_vars: num_vars,
             factor_entries,
-            current_round: 0,
         })
     }
 
