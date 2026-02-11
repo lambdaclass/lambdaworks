@@ -63,10 +63,36 @@ impl HasMetalExtensionKernel for Degree3GoldilocksExtensionField {
     }
 }
 
+/// Minimum log2 size for GPU to be faster than CPU for standard FFT.
+/// Below this threshold, fft() falls back to CPU implementation.
+const FFT_GPU_MIN_LOG_SIZE: u32 = 14;
+
+/// Number of butterfly stages fused into a single GPU kernel dispatch.
+/// Must match FFT_FUSED_STAGES in fft.h.metal.
+const FFT_FUSED_STAGES: u32 = 4;
+
+/// Block size for the fused kernel (2^FFT_FUSED_STAGES elements per threadgroup).
+const FFT_FUSED_BLOCK_SIZE: u32 = 1 << FFT_FUSED_STAGES;
+
+/// Threadgroup memory budget in bytes for twiddle caching.
+const FFT_TG_MEM_BUDGET: usize = 32768;
+
+/// Threadgroup size for kernels that use threadgroup memory.
+const FFT_TG_THREADGROUP_SIZE: u64 = 256;
+
 /// Executes parallel ordered FFT over a slice of field elements using Metal GPU.
 ///
 /// "Ordered" means that the input is in natural order, and the output will be
 /// in natural order too. Twiddle factors must be in bit-reverse order.
+///
+/// Falls back to CPU for inputs smaller than 2^FFT_GPU_MIN_LOG_SIZE where
+/// GPU dispatch overhead exceeds computation time.
+///
+/// Uses three kernel variants for optimal performance:
+/// 1. **Basic kernel**: per-stage dispatch for stages with too many twiddles to cache.
+/// 2. **Threadgroup-cached kernel**: twiddles loaded into shared memory for early stages.
+/// 3. **Fused kernel**: last FFT_FUSED_STAGES stages processed in a single dispatch
+///    using threadgroup memory for the data block.
 ///
 /// # Type Parameters
 ///
@@ -97,26 +123,91 @@ where
         return Err(MetalError::InputError(input.len()));
     }
 
-    let pipeline = state.setup_pipeline(&format!("radix2_dit_butterfly_{}", F::field_name()))?;
+    // Fall back to CPU for small inputs where GPU overhead dominates
+    let order = input.len().trailing_zeros();
+    if order < FFT_GPU_MIN_LOG_SIZE {
+        return crate::fft::cpu::ops::fft(input, twiddles)
+            .map_err(|e| MetalError::FunctionError(format!("{}", e)));
+    }
+
+    let field_name = F::field_name();
+    let pipeline_basic = state.setup_pipeline(&format!("radix2_dit_butterfly_{}", field_name))?;
+    let pipeline_tg = state.setup_pipeline(&format!("radix2_dit_butterfly_tg_{}", field_name))?;
+    let pipeline_fused =
+        state.setup_pipeline(&format!("radix2_dit_butterfly_fused_{}", field_name))?;
+
+    let tw_elem_size = mem::size_of::<F::BaseType>();
+    let input_elem_size = mem::size_of::<E::BaseType>();
+    let max_tg_twiddles = FFT_TG_MEM_BUDGET / tw_elem_size;
 
     let input_buffer = state.alloc_buffer_data(input);
     let twiddles_buffer = state.alloc_buffer_data(twiddles);
 
+    let n = input.len();
+
     objc::rc::autoreleasepool(|| {
         let (command_buffer, command_encoder) = state.setup_command(
-            &pipeline,
+            &pipeline_basic,
             Some(&[(0, &input_buffer), (1, &twiddles_buffer)]),
         );
 
-        let order = input.len().trailing_zeros();
-        for stage in 0..order {
-            command_encoder.set_bytes(2, mem::size_of_val(&stage) as u64, void_ptr(&stage));
+        // Determine how many per-stage dispatches before the fused tail
+        let per_stage_count = if order >= FFT_FUSED_STAGES {
+            order - FFT_FUSED_STAGES
+        } else {
+            order
+        };
 
-            let grid_size = MTLSize::new(input.len() as u64 / 2, 1, 1);
-            let threadgroup_size = MTLSize::new(pipeline.thread_execution_width(), 1, 1);
+        // Phase 1: Per-stage dispatches for early stages (large strides)
+        for stage in 0..per_stage_count {
+            let tw_count: u32 = 1u32 << stage; // 2^stage groups at this stage
 
-            command_encoder.dispatch_threads(grid_size, threadgroup_size);
+            if (tw_count as usize) <= max_tg_twiddles {
+                // Threadgroup-cached variant
+                command_encoder.set_compute_pipeline_state(&pipeline_tg);
+                command_encoder.set_bytes(2, mem::size_of::<u32>() as u64, void_ptr(&stage));
+                command_encoder.set_bytes(3, mem::size_of::<u32>() as u64, void_ptr(&tw_count));
+
+                let tg_mem_bytes = tw_count as u64 * tw_elem_size as u64;
+                command_encoder.set_threadgroup_memory_length(0, tg_mem_bytes);
+
+                let grid_size = MTLSize::new(n as u64 / 2, 1, 1);
+                let threadgroup_size = MTLSize::new(
+                    FFT_TG_THREADGROUP_SIZE.min(pipeline_tg.max_total_threads_per_threadgroup()),
+                    1,
+                    1,
+                );
+                command_encoder.dispatch_threads(grid_size, threadgroup_size);
+            } else {
+                // Basic variant
+                command_encoder.set_compute_pipeline_state(&pipeline_basic);
+                command_encoder.set_bytes(2, mem::size_of_val(&stage) as u64, void_ptr(&stage));
+
+                let grid_size = MTLSize::new(n as u64 / 2, 1, 1);
+                let threadgroup_size = MTLSize::new(pipeline_basic.thread_execution_width(), 1, 1);
+                command_encoder.dispatch_threads(grid_size, threadgroup_size);
+            }
         }
+
+        // Phase 2: Fused tail — last FFT_FUSED_STAGES stages in one dispatch
+        if order >= FFT_FUSED_STAGES {
+            command_encoder.set_compute_pipeline_state(&pipeline_fused);
+
+            let start_stage: u32 = order - FFT_FUSED_STAGES;
+            command_encoder.set_bytes(2, mem::size_of::<u32>() as u64, void_ptr(&start_stage));
+
+            let tg_mem_bytes = FFT_FUSED_BLOCK_SIZE as u64 * input_elem_size as u64;
+            command_encoder.set_threadgroup_memory_length(0, tg_mem_bytes);
+
+            let thread_groups = MTLSize::new(n as u64 / FFT_FUSED_BLOCK_SIZE as u64, 1, 1);
+            let threads_per_tg = MTLSize::new(
+                FFT_TG_THREADGROUP_SIZE.min(pipeline_fused.max_total_threads_per_threadgroup()),
+                1,
+                1,
+            );
+            command_encoder.dispatch_thread_groups(thread_groups, threads_per_tg);
+        }
+
         command_encoder.end_encoding();
 
         command_buffer.commit();

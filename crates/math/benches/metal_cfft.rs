@@ -26,7 +26,7 @@ const LOG_SIZES: [u32; 6] = [10, 12, 14, 16, 18, 20];
 fn rand_mersenne31_elements(log_size: u32) -> Vec<FE> {
     let mut rng = StdRng::seed_from_u64(SEED + log_size as u64);
     (0..1u32 << log_size)
-        .map(|_| FE::from(rng.gen::<u32>() % ((1 << 31) - 1)))
+        .map(|_| FE::from(&rng.gen::<u32>()))
         .collect()
 }
 

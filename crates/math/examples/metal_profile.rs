@@ -22,7 +22,7 @@ use lambdaworks_math::field::fields::mersenne31::field::Mersenne31Field;
 use lambdaworks_math::field::fields::u64_goldilocks_field::Goldilocks64Field;
 use lambdaworks_math::field::traits::RootsConfig;
 use lambdaworks_math::unsigned_integer::element::UnsignedInteger;
-use rand::random;
+use rand::{random, rngs::StdRng, Rng, SeedableRng};
 
 type StarkF = Stark252PrimeField;
 type StarkFE = FieldElement<StarkF>;
@@ -186,9 +186,8 @@ fn profile_mersenne31_cfft(state: &MetalState) -> Vec<TimingResult> {
 
     for &order in &orders {
         let n = 1usize << order;
-        let input: Vec<M31FE> = (0..n)
-            .map(|i| M31FE::from(&((i as u32) % ((1 << 31) - 1))))
-            .collect();
+        let mut rng = StdRng::seed_from_u64(0xCAFE + order as u64);
+        let input: Vec<M31FE> = (0..n).map(|_| M31FE::from(&rng.gen::<u32>())).collect();
 
         // Warmup
         for _ in 0..WARMUP_ITERS {
@@ -233,9 +232,8 @@ fn profile_mersenne31_icfft(state: &MetalState) -> Vec<TimingResult> {
 
     for &order in &orders {
         let n = 1usize << order;
-        let coeffs: Vec<M31FE> = (0..n)
-            .map(|i| M31FE::from(&((i as u32) % ((1 << 31) - 1))))
-            .collect();
+        let mut rng = StdRng::seed_from_u64(0xCAFE + order as u64);
+        let coeffs: Vec<M31FE> = (0..n).map(|_| M31FE::from(&rng.gen::<u32>())).collect();
         let evals = evaluate_cfft(coeffs);
 
         // Warmup
@@ -285,9 +283,8 @@ fn profile_raw_cfft_butterflies(state: &MetalState) -> Vec<TimingResult> {
 
     for &order in &orders {
         let n = 1usize << order;
-        let input: Vec<M31FE> = (0..n)
-            .map(|i| M31FE::from(&((i as u32) % ((1 << 31) - 1))))
-            .collect();
+        let mut rng = StdRng::seed_from_u64(0xCAFE + order as u64);
+        let input: Vec<M31FE> = (0..n).map(|_| M31FE::from(&rng.gen::<u32>())).collect();
         let coset = Coset::new_standard(order);
         let twiddles = get_twiddles(coset, TwiddlesConfig::Evaluation);
 

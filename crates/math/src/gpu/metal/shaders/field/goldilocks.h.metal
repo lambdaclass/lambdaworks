@@ -66,3 +66,29 @@ template [[ host_name("bitrev_permutation_Goldilocks") ]]
     uint,
     uint
 );
+
+// Threadgroup-cached radix-2 DIT butterfly for Goldilocks
+template [[ host_name("radix2_dit_butterfly_tg_Goldilocks") ]]
+[[kernel]] void radix2_dit_butterfly_tg<FpGoldilocks>(
+    device FpGoldilocks*,
+    constant FpGoldilocks*,
+    constant uint32_t&,
+    constant uint32_t&,
+    uint32_t,
+    uint32_t,
+    uint32_t,
+    uint32_t,
+    threadgroup FpGoldilocks*
+);
+
+// Fused multi-stage radix-2 DIT butterfly for Goldilocks
+template [[ host_name("radix2_dit_butterfly_fused_Goldilocks") ]]
+[[kernel]] void radix2_dit_butterfly_fused<FpGoldilocks>(
+    device FpGoldilocks*,
+    constant FpGoldilocks*,
+    constant uint32_t&,
+    uint32_t,
+    uint32_t,
+    uint32_t,
+    threadgroup FpGoldilocks*
+);
