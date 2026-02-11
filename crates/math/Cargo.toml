@@ -71,7 +71,7 @@ asm = []
 
 
 # gpu
-cuda = ["dep:cudarc", "dep:lambdaworks-gpu"]
+cuda = ["dep:cudarc", "dep:lambdaworks-gpu", "lambdaworks-gpu/cuda"]
 metal = ["dep:metal", "dep:objc", "lambdaworks-gpu/metal"]
 
 [target.wasm32-unknown-unknown.dependencies]
