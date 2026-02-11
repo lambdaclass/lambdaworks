@@ -172,6 +172,16 @@ impl CudaMSM {
             return Err(CudaError::FunctionError("Empty input".to_string()));
         }
 
+        // TODO: Remove this guard once bucket accumulation race condition is fixed
+        // (sorting-based approach or per-thread local buckets with tree reduction)
+        if num_scalars > 1 {
+            return Err(CudaError::FunctionError(
+                "Multi-point MSM not yet supported: bucket accumulation has a known \
+                 race condition. Use single-point MSM or CPU pippenger for multiple points."
+                    .to_string(),
+            ));
+        }
+
         // Step 1: Recode scalars to signed digits (CPU)
         let signed_digits = self.recode_scalars_signed(scalars, num_scalars);
 
