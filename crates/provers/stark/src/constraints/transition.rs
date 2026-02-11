@@ -85,6 +85,8 @@ where
     ///
     /// This polynomial is used to compute zerofiers of the constraint, and the default
     /// implementation should normally not be changed.
+    ///
+    /// For constraints with non-zero offset, exemption roots include the offset to match actual applicable rows.
     fn end_exemptions_poly(
         &self,
         trace_primitive_root: &FieldElement<F>,
@@ -97,7 +99,10 @@ where
         let period = self.period();
         let offset = self.offset();
         (1..=self.end_exemptions())
-            .map(|exemption| trace_primitive_root.pow(offset + trace_length - exemption * period))
+            .map(|exemption| {
+                // offset accounts for constraints that don't start at row 0
+                trace_primitive_root.pow(offset + trace_length - exemption * period)
+            })
             .fold(one_poly, |acc, root| {
                 acc * (Polynomial::new_monomial(FieldElement::<F>::one(), 1) - root)
             })
