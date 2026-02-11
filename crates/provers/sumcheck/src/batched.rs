@@ -648,8 +648,8 @@ mod tests {
         let mut batched_sum = FE::zero();
         let mut rho_power = FE::one();
         for sum in &proof.individual_sums {
-            batched_sum += &rho_power * sum;
-            rho_power *= proof.batching_coeff.clone();
+            batched_sum += rho_power * sum;
+            rho_power *= proof.batching_coeff;
         }
         let g0_at_0 = proof.proof_polys[0].evaluate(&FE::zero());
         let g0_at_1 = proof.proof_polys[0].evaluate(&FE::one());
