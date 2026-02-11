@@ -22,8 +22,7 @@ mod profiler {
     use lambdaworks_math::field::fields::mersenne31::field::Mersenne31Field;
     use lambdaworks_math::field::fields::u64_goldilocks_field::Goldilocks64Field;
     use lambdaworks_math::field::traits::RootsConfig;
-    use lambdaworks_math::unsigned_integer::element::UnsignedInteger;
-    use rand::{random, rngs::StdRng, Rng, SeedableRng};
+    use rand::random;
 
     type StarkF = Stark252PrimeField;
     type StarkFE = FieldElement<StarkF>;
@@ -35,6 +34,7 @@ mod profiler {
     // TIMING HELPERS
     // ============================================
 
+    #[derive(Clone)]
     pub(crate) struct TimingResult {
         label: String,
         order: u32,
@@ -182,25 +182,25 @@ mod profiler {
         let n = 1 << order;
         let input: Vec<StarkFE> = (0..n).map(|_| StarkFE::from(random::<u64>())).collect();
 
-        let twiddles_cpu = get_fft_twiddles(n, RootsConfig::Natural).unwrap();
+        let twiddles_cpu = get_fft_twiddles::<StarkF>(n, RootsConfig::Natural).unwrap();
         let cpu_fn = |input: &[StarkFE]| {
             use lambdaworks_math::fft::cpu::ops as fft_ops;
             let mut result = input.to_vec();
-            fft_ops::fft(&mut result, &twiddles_cpu, 1, 1).unwrap();
+            result = fft_ops::fft(&result, &twiddles_cpu).unwrap();
             result
         };
         let cpu_ms = time_cpu_stark_fft(&input, cpu_fn);
 
         let gpu_fn = |state: &MetalState, input: &[StarkFE]| {
             use lambdaworks_math::fft::gpu::metal::ops as metal_ops;
-            metal_ops::evaluate_fft_over_domain(state, input, true).unwrap()
+            metal_ops::fft(input, &twiddles_cpu, state).unwrap()
         };
         let gpu_ms = time_gpu_stark_fft(state, &input, gpu_fn);
 
         TimingResult {
             label: "Stark252 FFT".to_string(),
             order,
-            n_elements: n,
+            n_elements: n as usize,
             cpu_ms,
             gpu_ms,
             element_size_bytes: 32,
@@ -211,25 +211,25 @@ mod profiler {
         let n = 1 << order;
         let input: Vec<StarkFE> = (0..n).map(|_| StarkFE::from(random::<u64>())).collect();
 
-        let twiddles_cpu = get_fft_twiddles(n, RootsConfig::Natural).unwrap();
+        let twiddles_cpu = get_fft_twiddles::<StarkF>(n, RootsConfig::NaturalInversed).unwrap();
         let cpu_fn = |input: &[StarkFE]| {
             use lambdaworks_math::fft::cpu::ops as fft_ops;
             let mut result = input.to_vec();
-            fft_ops::fft(&mut result, &twiddles_cpu, 1, 1).unwrap();
+            result = fft_ops::fft(&result, &twiddles_cpu).unwrap();
             result
         };
         let cpu_ms = time_cpu_stark_fft(&input, cpu_fn);
 
         let gpu_fn = |state: &MetalState, input: &[StarkFE]| {
             use lambdaworks_math::fft::gpu::metal::ops as metal_ops;
-            metal_ops::evaluate_fft_over_domain(state, input, false).unwrap()
+            metal_ops::fft(input, &twiddles_cpu, state).unwrap()
         };
         let gpu_ms = time_gpu_stark_fft(state, &input, gpu_fn);
 
         TimingResult {
             label: "Stark252 IFFT".to_string(),
             order,
-            n_elements: n,
+            n_elements: n as usize,
             cpu_ms,
             gpu_ms,
             element_size_bytes: 32,
@@ -242,25 +242,25 @@ mod profiler {
             .map(|_| GoldilocksFE::from(random::<u64>()))
             .collect();
 
-        let twiddles_cpu = get_fft_twiddles(n, RootsConfig::Natural).unwrap();
+        let twiddles_cpu = get_fft_twiddles::<GoldilocksF>(n, RootsConfig::Natural).unwrap();
         let cpu_fn = |input: &[GoldilocksFE]| {
             use lambdaworks_math::fft::cpu::ops as fft_ops;
             let mut result = input.to_vec();
-            fft_ops::fft(&mut result, &twiddles_cpu, 1, 1).unwrap();
+            result = fft_ops::fft(&result, &twiddles_cpu).unwrap();
             result
         };
         let cpu_ms = time_cpu_goldilocks_fft(&input, cpu_fn);
 
         let gpu_fn = |state: &MetalState, input: &[GoldilocksFE]| {
             use lambdaworks_math::fft::gpu::metal::ops as metal_ops;
-            metal_ops::evaluate_fft_over_domain(state, input, true).unwrap()
+            metal_ops::fft(input, &twiddles_cpu, state).unwrap()
         };
         let gpu_ms = time_gpu_goldilocks_fft(state, &input, gpu_fn);
 
         TimingResult {
             label: "Goldilocks FFT".to_string(),
             order,
-            n_elements: n,
+            n_elements: n as usize,
             cpu_ms,
             gpu_ms,
             element_size_bytes: 8,
@@ -273,25 +273,26 @@ mod profiler {
             .map(|_| GoldilocksFE::from(random::<u64>()))
             .collect();
 
-        let twiddles_cpu = get_fft_twiddles(n, RootsConfig::Natural).unwrap();
+        let twiddles_cpu =
+            get_fft_twiddles::<GoldilocksF>(n, RootsConfig::NaturalInversed).unwrap();
         let cpu_fn = |input: &[GoldilocksFE]| {
             use lambdaworks_math::fft::cpu::ops as fft_ops;
             let mut result = input.to_vec();
-            fft_ops::fft(&mut result, &twiddles_cpu, 1, 1).unwrap();
+            result = fft_ops::fft(&result, &twiddles_cpu).unwrap();
             result
         };
         let cpu_ms = time_cpu_goldilocks_fft(&input, cpu_fn);
 
         let gpu_fn = |state: &MetalState, input: &[GoldilocksFE]| {
             use lambdaworks_math::fft::gpu::metal::ops as metal_ops;
-            metal_ops::evaluate_fft_over_domain(state, input, false).unwrap()
+            metal_ops::fft(input, &twiddles_cpu, state).unwrap()
         };
         let gpu_ms = time_gpu_goldilocks_fft(state, &input, gpu_fn);
 
         TimingResult {
             label: "Goldilocks IFFT".to_string(),
             order,
-            n_elements: n,
+            n_elements: n as usize,
             cpu_ms,
             gpu_ms,
             element_size_bytes: 8,
@@ -304,24 +305,20 @@ mod profiler {
 
     fn profile_m31_cfft(state: &MetalState, order: u32) -> TimingResult {
         let coset_size = 1 << order;
-        let mut rng = StdRng::seed_from_u64(42);
-        let x_value: u32 = rng.gen();
-        let y_value: u32 = rng.gen();
-        let coset = Coset::new(x_value, y_value);
+        let _coset = Coset::<Mersenne31Field>::new_standard(order);
         let input: Vec<M31FE> = (0..coset_size)
-            .map(|_| M31FE::from(random::<u32>()))
+            .map(|_| M31FE::from(&random::<u32>()))
             .collect();
 
-        let twiddles = get_twiddles(coset_size, coset, TwiddlesConfig::Natural).unwrap();
         let cpu_fn = |input: &[M31FE]| {
-            let result = evaluate_cfft(&input.to_vec(), &twiddles).unwrap();
+            let result = evaluate_cfft(input.to_vec());
             result
         };
         let cpu_ms = time_cpu_m31_cfft(&input, cpu_fn);
 
         let gpu_fn = |state: &MetalState, input: &[M31FE]| {
             use lambdaworks_math::circle::gpu::metal::ops as metal_ops;
-            metal_ops::evaluate_cfft(state, &input.to_vec(), &twiddles).unwrap()
+            metal_ops::evaluate_cfft_gpu(input.to_vec(), state).unwrap()
         };
         let gpu_ms = time_gpu_m31_cfft(state, &input, gpu_fn);
 
@@ -337,24 +334,20 @@ mod profiler {
 
     fn profile_m31_icfft(state: &MetalState, order: u32) -> TimingResult {
         let coset_size = 1 << order;
-        let mut rng = StdRng::seed_from_u64(42);
-        let x_value: u32 = rng.gen();
-        let y_value: u32 = rng.gen();
-        let coset = Coset::new(x_value, y_value);
+        let _coset = Coset::<Mersenne31Field>::new_standard(order);
         let input: Vec<M31FE> = (0..coset_size)
-            .map(|_| M31FE::from(random::<u32>()))
+            .map(|_| M31FE::from(&random::<u32>()))
             .collect();
 
-        let twiddles = get_twiddles(coset_size, coset, TwiddlesConfig::Natural).unwrap();
         let cpu_fn = |input: &[M31FE]| {
-            let result = interpolate_cfft(&input.to_vec(), &twiddles).unwrap();
+            let result = interpolate_cfft(input.to_vec());
             result
         };
         let cpu_ms = time_cpu_m31_cfft(&input, cpu_fn);
 
         let gpu_fn = |state: &MetalState, input: &[M31FE]| {
             use lambdaworks_math::circle::gpu::metal::ops as metal_ops;
-            metal_ops::interpolate_cfft(state, &input.to_vec(), &twiddles).unwrap()
+            metal_ops::interpolate_cfft_gpu(input.to_vec(), state).unwrap()
         };
         let gpu_ms = time_gpu_m31_cfft(state, &input, gpu_fn);
 
@@ -374,30 +367,27 @@ mod profiler {
 
     fn profile_m31_butterfly(state: &MetalState, order: u32) -> TimingResult {
         let n = 1 << order;
-        let input: Vec<M31FE> = (0..n).map(|_| M31FE::from(random::<u32>())).collect();
+        let input: Vec<M31FE> = (0..n).map(|_| M31FE::from(&random::<u32>())).collect();
+        let coset = Coset::new_standard(order);
+        let twiddles = get_twiddles(coset, TwiddlesConfig::Evaluation);
 
-        // CPU: single butterfly operation
+        // CPU: CFFT butterflies
         let cpu_fn = |input: &[M31FE]| {
             let mut result = input.to_vec();
-            for i in 0..(n / 2) {
-                let a = result[i];
-                let b = result[i + n / 2];
-                result[i] = a + b;
-                result[i + n / 2] = a - b;
-            }
+            lambdaworks_math::circle::cfft::cfft(&mut result, &twiddles);
             result
         };
         let cpu_ms = time_cpu_m31_cfft(&input, cpu_fn);
 
-        // GPU: butterfly kernel
+        // GPU: CFFT butterflies (raw GPU kernel without full pipeline)
         let gpu_fn = |state: &MetalState, input: &[M31FE]| {
-            use lambdaworks_math::circle::gpu::metal::ops::butterfly;
-            butterfly(state, &input.to_vec(), 0).unwrap()
+            use lambdaworks_math::circle::gpu::metal::ops as metal_ops;
+            metal_ops::cfft_gpu(input, &twiddles, state).unwrap()
         };
         let gpu_ms = time_gpu_m31_cfft(state, &input, gpu_fn);
 
         TimingResult {
-            label: "Mersenne31 Butterfly".to_string(),
+            label: "Mersenne31 CFFT Butterflies".to_string(),
             order,
             n_elements: n,
             cpu_ms,
@@ -519,7 +509,7 @@ mod profiler {
         println!("  METAL DEVICE INFO");
         println!("{}", "=".repeat(100));
 
-        let device = state.device();
+        let device = &state.device;
         println!("  Device name:             {}", device.name());
         println!(
             "  Max threads per group:   {}",
