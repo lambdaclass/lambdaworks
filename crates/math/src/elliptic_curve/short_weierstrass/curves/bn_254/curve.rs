@@ -85,8 +85,10 @@ impl ShortWeierstrassProjectivePoint<BN254TwistCurve> {
         let q_times_x_plus_1 = &self.operate_with(q_times_x);
         let q_times_2x = q_times_x.double();
 
-        // (x+1)Q + phi(xQ) + phi(phi(xQ)) == phi(phi(phi(2xQ)))
-        q_times_x_plus_1.operate_with(&q_times_x.phi().operate_with(&q_times_x.phi().phi()))
+        // (x+1)Q + phi(xQ) + phi^2(xQ) == phi^3(2xQ)
+        let phi_xq = q_times_x.phi();
+        let phi2_xq = phi_xq.phi();
+        q_times_x_plus_1.operate_with(&phi_xq.operate_with(&phi2_xq))
             == q_times_2x.phi().phi().phi()
     }
 }

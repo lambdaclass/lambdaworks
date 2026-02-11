@@ -29,21 +29,26 @@ pub struct Degree2ExtensionField;
 
 impl IsField for Degree2ExtensionField {
     type BaseType = [FieldElement<BLS12377PrimeField>; 2];
+
     /// Returns the component wise addition of `a` and `b`
+    #[inline]
     fn add(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
         [&a[0] + &b[0], &a[1] + &b[1]]
     }
 
-    /// Returns the multiplication of `a` and `b` using the following
-    /// equation:
-    /// (a0 + a1 * t) * (b0 + b1 * t) = a0 * b0 + a1 * b1 * Self::residue() + (a0 * b1 + a1 * b0) * t
-    /// where `t.pow(2)` equals `Q::residue()`.
+    /// Returns the multiplication of `a` and `b` using Karatsuba:
+    /// (a0 + a1 * t) * (b0 + b1 * t) = a0 * b0 + a1 * b1 * residue + (z - a0b0 - a1b1) * t
+    /// where z = (a0 + a1) * (b0 + b1) and t^2 = residue.
+    /// Uses 3 base field multiplications instead of 4.
+    #[inline]
     fn mul(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
         let a0b0 = &a[0] * &b[0];
         let a1b1 = &a[1] * &b[1];
-        [&a0b0 + &a1b1 * &FP2_RESIDUE, &a[0] * &b[1] + &a[1] * &b[0]]
+        let z = (&a[0] + &a[1]) * (&b[0] + &b[1]);
+        [&a0b0 + &a1b1 * &FP2_RESIDUE, z - a0b0 - a1b1]
     }
 
+    #[inline]
     fn square(a: &Self::BaseType) -> Self::BaseType {
         let [a0, a1] = a;
         let v0 = a0 * a1;
@@ -51,53 +56,61 @@ impl IsField for Degree2ExtensionField {
         let c1 = &v0 + &v0;
         [c0, c1]
     }
+
     /// Returns the component wise subtraction of `a` and `b`
+    #[inline]
     fn sub(a: &Self::BaseType, b: &Self::BaseType) -> Self::BaseType {
         [&a[0] - &b[0], &a[1] - &b[1]]
     }
 
     /// Returns the component wise negation of `a`
+    #[inline]
     fn neg(a: &Self::BaseType) -> Self::BaseType {
         [-&a[0], -&a[1]]
     }
 
     /// Returns the multiplicative inverse of `a`
     /// This uses the equality `(a0 + a1 * t) * (a0 - a1 * t) = a0.pow(2) - a1.pow(2) * Q::residue()`
+    #[inline]
     fn inv(a: &Self::BaseType) -> Result<Self::BaseType, FieldError> {
         let inv_norm = (a[0].square() - FP2_RESIDUE * a[1].square()).inv()?;
         Ok([&a[0] * &inv_norm, -&a[1] * inv_norm])
     }
 
     /// Returns the division of `a` and `b`
+    #[inline]
     fn div(a: &Self::BaseType, b: &Self::BaseType) -> Result<Self::BaseType, FieldError> {
         let b_inv = &Self::inv(b).map_err(|_| FieldError::DivisionByZero)?;
         Ok(<Self as IsField>::mul(a, b_inv))
     }
 
     /// Returns a boolean indicating whether `a` and `b` are equal component wise.
+    #[inline]
     fn eq(a: &Self::BaseType, b: &Self::BaseType) -> bool {
         a[0] == b[0] && a[1] == b[1]
     }
 
     /// Returns the additive neutral element of the field extension.
+    #[inline]
     fn zero() -> Self::BaseType {
         [FieldElement::zero(), FieldElement::zero()]
     }
 
     /// Returns the multiplicative neutral element of the field extension.
+    #[inline]
     fn one() -> Self::BaseType {
         [FieldElement::one(), FieldElement::zero()]
     }
 
     /// Returns the element `x * 1` where 1 is the multiplicative neutral element.
+    #[inline]
     fn from_u64(x: u64) -> Self::BaseType {
         [FieldElement::from(x), FieldElement::zero()]
     }
 
     /// Takes as input an element of BaseType and returns the internal representation
     /// of that element in the field.
-    /// Note: for this case this is simply the identity, because the components
-    /// already have correct representations.
+    #[inline]
     fn from_base_type(x: Self::BaseType) -> Self::BaseType {
         x
     }
