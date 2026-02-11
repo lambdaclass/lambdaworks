@@ -77,7 +77,7 @@ fn bench_stark252_fft(c: &mut Criterion) {
                 b.iter(|| {
                     black_box(
                         lambdaworks_math::fft::gpu::metal::ops::fft(input, twiddles, &state)
-                            .unwrap(),
+                            .expect("GPU operation failed - check Metal device availability"),
                     )
                 })
             },
@@ -123,7 +123,7 @@ fn bench_goldilocks_fft(c: &mut Criterion) {
                 b.iter(|| {
                     black_box(
                         lambdaworks_math::fft::gpu::metal::ops::fft(input, twiddles, &state)
-                            .unwrap(),
+                            .expect("GPU operation failed - check Metal device availability"),
                     )
                 })
             },
@@ -172,7 +172,7 @@ fn bench_twiddle_generation(c: &mut Criterion) {
                             RootsConfig::BitReverse,
                             &state,
                         )
-                        .unwrap(),
+                        .expect("GPU operation failed - check Metal device availability"),
                     )
                 })
             },
@@ -230,7 +230,7 @@ fn bench_bitrev_permutation(c: &mut Criterion) {
                         lambdaworks_math::fft::gpu::metal::ops::bitrev_permutation::<StarkF, _>(
                             raw, &state,
                         )
-                        .unwrap(),
+                        .expect("GPU operation failed - check Metal device availability"),
                     )
                 })
             },

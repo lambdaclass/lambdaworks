@@ -79,7 +79,7 @@ fn bench_cfft_butterflies(c: &mut Criterion) {
                         lambdaworks_math::circle::gpu::metal::ops::cfft_gpu(
                             input, twiddles, &state,
                         )
-                        .unwrap(),
+                        .expect("GPU operation failed - check Metal device availability"),
                     )
                 })
             },
@@ -135,7 +135,7 @@ fn bench_icfft_butterflies(c: &mut Criterion) {
                         lambdaworks_math::circle::gpu::metal::ops::icfft_gpu(
                             input, twiddles, &state,
                         )
-                        .unwrap(),
+                        .expect("GPU operation failed - check Metal device availability"),
                     )
                 })
             },
@@ -176,7 +176,7 @@ fn bench_evaluate_cfft(c: &mut Criterion) {
                         input.clone(),
                         &state,
                     )
-                    .unwrap(),
+                    .expect("GPU operation failed - check Metal device availability"),
                 )
             })
         });
@@ -213,7 +213,7 @@ fn bench_interpolate_cfft(c: &mut Criterion) {
                         evals.clone(),
                         &state,
                     )
-                    .unwrap(),
+                    .expect("GPU operation failed - check Metal device availability"),
                 )
             })
         });
