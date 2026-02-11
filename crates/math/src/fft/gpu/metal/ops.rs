@@ -67,18 +67,24 @@ impl HasMetalExtensionKernel for Degree3GoldilocksExtensionField {
 /// Below this threshold, fft() falls back to CPU implementation.
 const FFT_GPU_MIN_LOG_SIZE: u32 = 14;
 
-/// Number of butterfly stages fused into a single GPU kernel dispatch.
-/// Must match FFT_FUSED_STAGES in fft.h.metal.
-const FFT_FUSED_STAGES: u32 = 4;
-
-/// Block size for the fused kernel (2^FFT_FUSED_STAGES elements per threadgroup).
-const FFT_FUSED_BLOCK_SIZE: u32 = 1 << FFT_FUSED_STAGES;
-
-/// Threadgroup memory budget in bytes for twiddle caching.
+/// Threadgroup memory budget in bytes (32KB).
 const FFT_TG_MEM_BUDGET: usize = 32768;
 
 /// Threadgroup size for kernels that use threadgroup memory.
 const FFT_TG_THREADGROUP_SIZE: u64 = 256;
+
+/// Maximum fused stages cap (avoids excessive register pressure).
+const FFT_MAX_FUSED_STAGES: u32 = 12;
+
+/// Computes the optimal number of fused stages based on field element size
+/// and the 32KB threadgroup memory budget.
+///
+/// Returns the number of stages to fuse (min of budget-derived max, order, and cap).
+fn optimal_fused_stages(input_elem_size: usize, order: u32) -> u32 {
+    let max_block = FFT_TG_MEM_BUDGET / input_elem_size;
+    let max_fused = (max_block as f64).log2() as u32;
+    max_fused.min(order).min(FFT_MAX_FUSED_STAGES)
+}
 
 /// Executes parallel ordered FFT over a slice of field elements using Metal GPU.
 ///
@@ -135,15 +141,21 @@ where
     let pipeline_tg = state.setup_pipeline(&format!("radix2_dit_butterfly_tg_{}", field_name))?;
     let pipeline_fused =
         state.setup_pipeline(&format!("radix2_dit_butterfly_fused_{}", field_name))?;
+    let pipeline_bitrev = state.setup_pipeline(&format!("bitrev_permutation_{}", field_name))?;
 
     let tw_elem_size = mem::size_of::<F::BaseType>();
     let input_elem_size = mem::size_of::<E::BaseType>();
     let max_tg_twiddles = FFT_TG_MEM_BUDGET / tw_elem_size;
 
-    let input_buffer = state.alloc_buffer_data(input);
-    let twiddles_buffer = state.alloc_buffer_data(twiddles);
+    // Compute optimal fused stage count based on element size and memory budget
+    let fused_stages = optimal_fused_stages(input_elem_size, order);
+    let fused_block_size: u32 = 1 << fused_stages;
 
     let n = input.len();
+
+    let input_buffer = state.alloc_buffer_data(input);
+    let twiddles_buffer = state.alloc_buffer_data(twiddles);
+    let result_buffer = state.alloc_buffer::<E::BaseType>(n);
 
     objc::rc::autoreleasepool(|| {
         let (command_buffer, command_encoder) = state.setup_command(
@@ -152,8 +164,8 @@ where
         );
 
         // Determine how many per-stage dispatches before the fused tail
-        let per_stage_count = if order >= FFT_FUSED_STAGES {
-            order - FFT_FUSED_STAGES
+        let per_stage_count = if order >= fused_stages {
+            order - fused_stages
         } else {
             order
         };
@@ -189,17 +201,18 @@ where
             }
         }
 
-        // Phase 2: Fused tail — last FFT_FUSED_STAGES stages in one dispatch
-        if order >= FFT_FUSED_STAGES {
+        // Phase 2: Fused tail — last fused_stages stages in one dispatch
+        if order >= fused_stages {
             command_encoder.set_compute_pipeline_state(&pipeline_fused);
 
-            let start_stage: u32 = order - FFT_FUSED_STAGES;
+            let start_stage: u32 = order - fused_stages;
             command_encoder.set_bytes(2, mem::size_of::<u32>() as u64, void_ptr(&start_stage));
+            command_encoder.set_bytes(3, mem::size_of::<u32>() as u64, void_ptr(&fused_stages));
 
-            let tg_mem_bytes = FFT_FUSED_BLOCK_SIZE as u64 * input_elem_size as u64;
+            let tg_mem_bytes = fused_block_size as u64 * input_elem_size as u64;
             command_encoder.set_threadgroup_memory_length(0, tg_mem_bytes);
 
-            let thread_groups = MTLSize::new(n as u64 / FFT_FUSED_BLOCK_SIZE as u64, 1, 1);
+            let thread_groups = MTLSize::new(n as u64 / fused_block_size as u64, 1, 1);
             let threads_per_tg = MTLSize::new(
                 FFT_TG_THREADGROUP_SIZE.min(pipeline_fused.max_total_threads_per_threadgroup()),
                 1,
@@ -208,14 +221,24 @@ where
             command_encoder.dispatch_thread_groups(thread_groups, threads_per_tg);
         }
 
+        // Phase 3: Bit-reverse permutation in the same command buffer
+        // Avoids an extra GPU roundtrip and intermediate CPU memcpy.
+        command_encoder.set_compute_pipeline_state(&pipeline_bitrev);
+        command_encoder.set_buffer(0, Some(&input_buffer), 0);
+        command_encoder.set_buffer(1, Some(&result_buffer), 0);
+        let grid_size = MTLSize::new(n as u64, 1, 1);
+        let threadgroup_size =
+            MTLSize::new(pipeline_bitrev.max_total_threads_per_threadgroup(), 1, 1);
+        command_encoder.dispatch_threads(grid_size, threadgroup_size);
+
         command_encoder.end_encoding();
 
         command_buffer.commit();
         command_buffer.wait_until_completed();
     });
 
-    let result = MetalState::retrieve_contents(&input_buffer);
-    let result = bitrev_permutation::<F, _>(&result, state)?;
+    // Single retrieve — no intermediate copy
+    let result = MetalState::retrieve_contents(&result_buffer);
     Ok(result.into_iter().map(FieldElement::from_raw).collect())
 }
 

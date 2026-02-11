@@ -46,13 +46,10 @@ template<typename Fp>
     Fp a = input[i];
     Fp b = input[i + half_group_size];
 
-    // Butterfly computation
-    Fp res_1 = a + w*b;
-    Fp res_2 = a - w*b;
-
-    // Store results
-    input[i]                    = res_1; // --\/--
-    input[i + half_group_size]  = res_2; // --/\--
+    // Butterfly computation: store w*b to avoid redundant multiplication
+    Fp wb = w * b;
+    input[i]                    = a + wb;
+    input[i + half_group_size]  = a - wb;
 }
 
 // ===========================================================================
@@ -95,43 +92,47 @@ template<typename Fp>
     Fp a = input[i];
     Fp b = input[i + half_group_size];
 
-    input[i]                    = a + w*b;
-    input[i + half_group_size]  = a - w*b;
+    Fp wb = w * b;
+    input[i]                    = a + wb;
+    input[i + half_group_size]  = a - wb;
 }
 
 // ===========================================================================
-// Fused multi-stage kernel: processes FFT_FUSED_STAGES consecutive butterfly
+// Fused multi-stage kernel: processes num_stages consecutive butterfly
 // stages (the LAST K stages of the FFT) in a single dispatch using
 // threadgroup memory for the data block.
 // ===========================================================================
 
-/// Number of butterfly stages fused into a single kernel dispatch.
-constant constexpr uint32_t FFT_FUSED_STAGES = 4;
-
-/// Fused radix-2 DIT butterfly: processes the last FFT_FUSED_STAGES stages
+/// Fused radix-2 DIT butterfly: processes num_stages consecutive stages
 /// in shared memory.
 ///
-/// Each threadgroup handles a contiguous block of (1 << FFT_FUSED_STAGES)
+/// Each threadgroup handles a contiguous block of (1 << num_stages)
 /// elements. At the fused stages, the butterfly stride (half_group_size)
 /// is small enough that all pairs fall within the same block.
+///
+/// The number of fused stages is a runtime parameter, allowing the Rust
+/// dispatch code to compute the optimal value based on field element size
+/// and the 32KB threadgroup memory budget.
 ///
 /// Parameters:
 /// - input: Array of field elements (modified in-place)
 /// - twiddles: Pre-computed twiddle factors in bit-reversed order
-/// - start_stage: The first stage to process (fuses start_stage .. start_stage + FFT_FUSED_STAGES)
+/// - start_stage: The first stage to process (fuses start_stage .. start_stage + num_stages)
+/// - num_stages: Number of butterfly stages to fuse in this dispatch
 template<typename Fp>
 [[kernel]] void radix2_dit_butterfly_fused(
     device Fp* input              [[ buffer(0) ]],
     constant Fp* twiddles         [[ buffer(1) ]],
     constant uint32_t& start_stage [[ buffer(2) ]],
+    constant uint32_t& num_stages  [[ buffer(3) ]],
     uint32_t tg_id                [[ threadgroup_position_in_grid ]],
     uint32_t tg_pos               [[ thread_position_in_threadgroup ]],
     uint32_t tg_size              [[ threads_per_threadgroup ]],
     threadgroup Fp* shared_data   [[ threadgroup(0) ]]
 )
 {
-    const uint32_t BLOCK_SIZE = 1u << FFT_FUSED_STAGES; // 16
-    const uint32_t HALF_BLOCK = BLOCK_SIZE >> 1;          // 8
+    const uint32_t BLOCK_SIZE = 1u << num_stages;
+    const uint32_t HALF_BLOCK = BLOCK_SIZE >> 1;
 
     uint32_t block_start = tg_id * BLOCK_SIZE;
 
@@ -141,13 +142,13 @@ template<typename Fp>
     }
     threadgroup_barrier(metal::mem_flags::mem_threadgroup);
 
-    // Process FFT_FUSED_STAGES butterfly stages locally.
+    // Process num_stages butterfly stages locally.
     // For sub-stage k, the local half_group_size decreases:
-    //   k=0: half_group_size = HALF_BLOCK (= 8)
-    //   k=1: half_group_size = 4
+    //   k=0: half_group_size = HALF_BLOCK
+    //   k=1: half_group_size = HALF_BLOCK/2
     //   k=K-1: half_group_size = 1
-    for (uint32_t k = 0; k < FFT_FUSED_STAGES; k++) {
-        uint32_t local_hgs_shift = (FFT_FUSED_STAGES - 1) - k;
+    for (uint32_t k = 0; k < num_stages; k++) {
+        uint32_t local_hgs_shift = (num_stages - 1) - k;
         uint32_t local_hgs = 1u << local_hgs_shift;
 
         for (uint32_t t = tg_pos; t < HALF_BLOCK; t += tg_size) {
@@ -166,8 +167,9 @@ template<typename Fp>
             Fp a = shared_data[local_i];
             Fp b = shared_data[local_j];
 
-            shared_data[local_i] = a + w * b;
-            shared_data[local_j] = a - w * b;
+            Fp wb = w * b;
+            shared_data[local_i] = a + wb;
+            shared_data[local_j] = a - wb;
         }
         threadgroup_barrier(metal::mem_flags::mem_threadgroup);
     }

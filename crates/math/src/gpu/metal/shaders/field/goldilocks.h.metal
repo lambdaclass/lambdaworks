@@ -87,6 +87,7 @@ template [[ host_name("radix2_dit_butterfly_fused_Goldilocks") ]]
     device FpGoldilocks*,
     constant FpGoldilocks*,
     constant uint32_t&,
+    constant uint32_t&,
     uint32_t,
     uint32_t,
     uint32_t,

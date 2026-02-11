@@ -101,6 +101,7 @@ template [[ host_name("radix2_dit_butterfly_fused_stark256") ]]
     device FpStark256*,
     constant FpStark256*,
     constant uint32_t&,
+    constant uint32_t&,
     uint32_t,
     uint32_t,
     uint32_t,
