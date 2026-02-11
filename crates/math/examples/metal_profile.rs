@@ -187,7 +187,7 @@ fn profile_mersenne31_cfft(state: &MetalState) -> Vec<TimingResult> {
     for &order in &orders {
         let n = 1usize << order;
         let input: Vec<M31FE> = (0..n)
-            .map(|i| M31FE::from((i as u32) % ((1 << 31) - 1)))
+            .map(|i| M31FE::from(&((i as u32) % ((1 << 31) - 1))))
             .collect();
 
         // Warmup
@@ -234,7 +234,7 @@ fn profile_mersenne31_icfft(state: &MetalState) -> Vec<TimingResult> {
     for &order in &orders {
         let n = 1usize << order;
         let coeffs: Vec<M31FE> = (0..n)
-            .map(|i| M31FE::from((i as u32) % ((1 << 31) - 1)))
+            .map(|i| M31FE::from(&((i as u32) % ((1 << 31) - 1))))
             .collect();
         let evals = evaluate_cfft(coeffs);
 
@@ -286,7 +286,7 @@ fn profile_raw_cfft_butterflies(state: &MetalState) -> Vec<TimingResult> {
     for &order in &orders {
         let n = 1usize << order;
         let input: Vec<M31FE> = (0..n)
-            .map(|i| M31FE::from((i as u32) % ((1 << 31) - 1)))
+            .map(|i| M31FE::from(&((i as u32) % ((1 << 31) - 1))))
             .collect();
         let coset = Coset::new_standard(order);
         let twiddles = get_twiddles(coset, TwiddlesConfig::Evaluation);
