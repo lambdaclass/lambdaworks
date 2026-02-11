@@ -238,18 +238,8 @@ where
             });
         } else {
             for block_start in (0..n).step_by(block_size) {
-                for j in 0..half_block {
-                    let i0 = block_start + j;
-                    let i1 = i0 + half_block;
-                    let w = &twiddles[j];
-
-                    let sum = &input[i0] + &input[i1];
-                    let diff = &input[i0] - &input[i1];
-                    let diff_w = w * &diff;
-
-                    input[i0] = sum;
-                    input[i1] = diff_w;
-                }
+                let block = &mut input[block_start..block_start + block_size];
+                process_single_layer_block(block, twiddles, half_block);
             }
         }
         layer += 1;
@@ -259,7 +249,10 @@ where
 }
 
 /// Process a single block with 2-layer fusion (DIF butterfly).
-#[cfg(all(feature = "alloc", feature = "parallel"))]
+///
+/// Performs two layers of Bowers FFT butterflies in a single pass over the block,
+/// keeping intermediate values in registers to reduce memory traffic.
+#[cfg(feature = "alloc")]
 #[inline]
 fn process_fused_block<F, E>(
     block: &mut [FieldElement<E>],
@@ -308,8 +301,8 @@ fn process_fused_block<F, E>(
     }
 }
 
-/// Process a single layer block (used for remaining odd layer).
-#[cfg(all(feature = "alloc", feature = "parallel"))]
+/// Process a single-layer DIF butterfly on a block.
+#[cfg(feature = "alloc")]
 #[inline]
 fn process_single_layer_block<F, E>(
     block: &mut [FieldElement<E>],
@@ -515,18 +508,8 @@ where
             let twiddles = layer_twiddles.get_layer(layer);
 
             for block_start in (0..n).step_by(block_size) {
-                for j in 0..half_block {
-                    let i0 = block_start + j;
-                    let i1 = i0 + half_block;
-                    let w = &twiddles[j];
-
-                    let sum = &input[i0] + &input[i1];
-                    let diff = &input[i0] - &input[i1];
-                    let diff_w = w * &diff;
-
-                    input[i0] = sum;
-                    input[i1] = diff_w;
-                }
+                let block = &mut input[block_start..block_start + block_size];
+                process_single_layer_block(block, twiddles, half_block);
             }
         }
         return Ok(());
@@ -543,43 +526,8 @@ where
             let twiddles_l1 = layer_twiddles.get_layer(layer + 1);
 
             for block_start in (0..n).step_by(block_size) {
-                let quarter = block_size >> 2;
                 let block = &mut input[block_start..block_start + block_size];
-
-                for j in 0..quarter {
-                    let i0 = j;
-                    let i1 = j + quarter;
-                    let i2 = j + 2 * quarter;
-                    let i3 = j + 3 * quarter;
-
-                    let w0 = &twiddles_l0[j];
-                    let w1 = &twiddles_l0[j + quarter];
-
-                    // First layer butterflies
-                    let sum_02 = &block[i0] + &block[i2];
-                    let diff_02 = &block[i0] - &block[i2];
-                    let diff_02_w = w0 * &diff_02;
-
-                    let sum_13 = &block[i1] + &block[i3];
-                    let diff_13 = &block[i1] - &block[i3];
-                    let diff_13_w = w1 * &diff_13;
-
-                    let w2 = &twiddles_l1[j];
-
-                    // Second layer butterflies
-                    let final_0 = &sum_02 + &sum_13;
-                    let diff_sums = &sum_02 - &sum_13;
-                    let final_1 = w2 * &diff_sums;
-
-                    let final_2 = &diff_02_w + &diff_13_w;
-                    let diff_diffs = &diff_02_w - &diff_13_w;
-                    let final_3 = w2 * &diff_diffs;
-
-                    block[i0] = final_0;
-                    block[i1] = final_1;
-                    block[i2] = final_2;
-                    block[i3] = final_3;
-                }
+                process_fused_block(block, twiddles_l0, twiddles_l1);
             }
             layer += 2;
         } else {
@@ -594,18 +542,8 @@ where
         let twiddles = layer_twiddles.get_layer(layer);
 
         for block_start in (0..n).step_by(block_size) {
-            for j in 0..half_block {
-                let i0 = block_start + j;
-                let i1 = i0 + half_block;
-                let w = &twiddles[j];
-
-                let sum = &input[i0] + &input[i1];
-                let diff = &input[i0] - &input[i1];
-                let diff_w = w * &diff;
-
-                input[i0] = sum;
-                input[i1] = diff_w;
-            }
+            let block = &mut input[block_start..block_start + block_size];
+            process_single_layer_block(block, twiddles, half_block);
         }
         layer += 1;
     }
@@ -654,10 +592,10 @@ mod tests {
     use alloc::vec::Vec;
     use proptest::{collection, prelude::*};
 
-    type F = Goldilocks64Field;
-    type FE = FieldElement<F>;
+    pub(super) type F = Goldilocks64Field;
+    pub(super) type FE = FieldElement<F>;
 
-    fn naive_dft(input: &[FE]) -> Vec<FE> {
+    pub(super) fn naive_dft(input: &[FE]) -> Vec<FE> {
         let n = input.len();
         let root = F::get_primitive_root_of_unity(n.trailing_zeros() as u64).unwrap();
         let mut result = vec![FE::zero(); n];
@@ -907,26 +845,11 @@ mod tests {
 mod parallel_tests {
     use super::*;
     use crate::fft::cpu::bit_reversing::in_place_bit_reverse_permute;
-    use crate::field::fields::u64_goldilocks_field::Goldilocks64Field;
-    use alloc::vec;
     use alloc::vec::Vec;
 
-    type F = Goldilocks64Field;
-    type FE = FieldElement<F>;
+    use super::tests::{naive_dft, FE};
 
-    fn naive_dft(input: &[FE]) -> Vec<FE> {
-        let n = input.len();
-        let root = F::get_primitive_root_of_unity(n.trailing_zeros() as u64).unwrap();
-        let mut result = vec![FE::zero(); n];
-
-        for (k, res) in result.iter_mut().enumerate() {
-            for (j, inp) in input.iter().enumerate() {
-                *res += *inp * root.pow((j * k) as u64);
-            }
-        }
-
-        result
-    }
+    type F = super::tests::F;
 
     #[test]
     fn test_bowers_fft_opt_fused_parallel_small() {

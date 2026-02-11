@@ -377,11 +377,10 @@ fn line_naive(p: &G1Point, t: &G2Point, q: &G2Point) -> Fp12E {
 /// See <https://github.com/arkworks-rs/algebra/blob/master/ec/src/models/bn/g2.rs#L25>.
 /// See <https://eprint.iacr.org/2013/722.pdf> (Page 13, Equations 11 and 13).
 #[inline]
-#[allow(clippy::ptr_eq)]
 fn line_optimized(p: &G1Point, t: &G2Point, q: &G2Point) -> (G2Point, Fp12E) {
     let [x_p, y_p, _] = p.coordinates();
 
-    if t as *const G2Point == q as *const G2Point || t == q {
+    if core::ptr::eq(t, q) || t == q {
         let a = TWO_INV * t.x() * t.y();
         let b = t.y().square();
         let c = t.z().square();
@@ -530,7 +529,6 @@ pub fn final_exponentiation_optimized(
     let t13 = cyclotomic_square(&t12);
     let t14 = &t13 * y0;
     let t03 = t13 * y1;
-    //let t04 = cyclotomic_square(&t03) * t14;
 
     Ok(cyclotomic_square(&t03) * t14)
 }
