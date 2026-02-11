@@ -18,6 +18,8 @@
 template <uint32_t P, uint32_t MU, uint32_t R2, uint32_t ONE_MONT>
 class Fp32 {
 public:
+    using raw_type = uint32_t;
+
     Fp32() = default;
     constexpr Fp32(uint32_t v) : inner(v) {}
 
