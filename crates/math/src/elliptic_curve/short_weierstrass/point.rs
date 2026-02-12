@@ -1206,14 +1206,6 @@ mod tests {
     #[allow(clippy::upper_case_acronyms)]
     type FEE = FieldElement<BLS12381PrimeField>;
 
-    #[cfg(feature = "alloc")]
-    #[allow(dead_code)]
-    fn point() -> ShortWeierstrassJacobianPoint<BLS12381Curve> {
-        let x = FEE::new_base("36bb494facde72d0da5c770c4b16d9b2d45cfdc27604a25a1a80b020798e5b0dbd4c6d939a8f8820f042a29ce552ee5");
-        let y = FEE::new_base("7acf6e49cc000ff53b06ee1d27056734019c0a1edfa16684da41ebb0c56750f73bc1b0eae4c6c241808a5e485af0ba0");
-        BLS12381Curve::create_point_from_affine(x, y).unwrap()
-    }
-
     // Helper function for projective point serialization tests
     #[cfg(feature = "alloc")]
     fn point_projective() -> ShortWeierstrassProjectivePoint<BLS12381Curve> {

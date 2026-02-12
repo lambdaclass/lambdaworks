@@ -65,6 +65,8 @@ pub enum ProvingError {
     FFTError(FFTError),
     #[error("Failed to get primitive root of unity for order {0}")]
     PrimitiveRootNotFound(u64),
+    #[error("Nonce not found for grinding factor {0}")]
+    NonceNotFound(u8),
     #[error("Batch inversion failed, likely due to zero element")]
     BatchInversionFailed,
     #[error("Merkle tree operation failed: {0}")]
@@ -256,34 +258,38 @@ pub trait IsStarkProver<
         trace: &TraceTable<Field, FieldExtension>,
         domain: &Domain<Field>,
         transcript: &mut impl IsStarkTranscript<FieldExtension, Field>,
-    ) -> Option<(
-        Vec<Polynomial<FieldElement<Field>>>,
-        Vec<Vec<FieldElement<Field>>>,
-        BatchedMerkleTree<Field>,
-        Commitment,
-    )>
+    ) -> Result<
+        (
+            Vec<Polynomial<FieldElement<Field>>>,
+            Vec<Vec<FieldElement<Field>>>,
+            BatchedMerkleTree<Field>,
+            Commitment,
+        ),
+        ProvingError,
+    >
     where
         FieldElement<Field>: AsBytes,
         FieldElement<FieldExtension>: AsBytes,
         Field: IsSubFieldOf<FieldExtension>,
     {
         // Interpolate columns of `trace`.
-        let trace_polys = trace.compute_trace_polys_main::<Field>();
+        let trace_polys = trace.compute_trace_polys_main::<Field>()?;
 
         // Evaluate those polynomials t_j on the large domain D_LDE.
         let lde_trace_evaluations =
-            Self::compute_lde_trace_evaluations::<Field>(&trace_polys, domain).ok()?;
+            Self::compute_lde_trace_evaluations::<Field>(&trace_polys, domain)?;
 
         // Compute commitment using fused bit-reverse + transpose (avoids cloning)
         let lde_trace_permuted_rows = columns2rows_bit_reversed(&lde_trace_evaluations);
 
         let (lde_trace_merkle_tree, lde_trace_merkle_root) =
-            Self::batch_commit_main(&lde_trace_permuted_rows)?;
+            Self::batch_commit_main(&lde_trace_permuted_rows)
+                .ok_or(ProvingError::EmptyCommitment)?;
 
         // >>>> Send commitment.
         transcript.append_bytes(&lde_trace_merkle_root);
 
-        Some((
+        Ok((
             trace_polys,
             lde_trace_evaluations,
             lde_trace_merkle_tree,
@@ -303,34 +309,37 @@ pub trait IsStarkProver<
         trace: &TraceTable<Field, FieldExtension>,
         domain: &Domain<Field>,
         transcript: &mut impl IsStarkTranscript<FieldExtension, Field>,
-    ) -> Option<(
-        Vec<Polynomial<FieldElement<FieldExtension>>>,
-        Vec<Vec<FieldElement<FieldExtension>>>,
-        BatchedMerkleTree<FieldExtension>,
-        Commitment,
-    )>
+    ) -> Result<
+        (
+            Vec<Polynomial<FieldElement<FieldExtension>>>,
+            Vec<Vec<FieldElement<FieldExtension>>>,
+            BatchedMerkleTree<FieldExtension>,
+            Commitment,
+        ),
+        ProvingError,
+    >
     where
         FieldElement<Field>: AsBytes,
         FieldElement<FieldExtension>: AsBytes,
         Field: IsSubFieldOf<FieldExtension> + IsFFTField,
     {
         // Interpolate columns of `trace`.
-        let trace_polys = trace.compute_trace_polys_aux::<Field>();
+        let trace_polys = trace.compute_trace_polys_aux::<Field>()?;
 
         // Evaluate those polynomials t_j on the large domain D_LDE.
-        let lde_trace_evaluations =
-            Self::compute_lde_trace_evaluations(&trace_polys, domain).ok()?;
+        let lde_trace_evaluations = Self::compute_lde_trace_evaluations(&trace_polys, domain)?;
 
         // Compute commitment using fused bit-reverse + transpose (avoids cloning)
         let lde_trace_permuted_rows = columns2rows_bit_reversed(&lde_trace_evaluations);
 
         let (lde_trace_merkle_tree, lde_trace_merkle_root) =
-            Self::batch_commit_extension(&lde_trace_permuted_rows)?;
+            Self::batch_commit_extension(&lde_trace_permuted_rows)
+                .ok_or(ProvingError::EmptyCommitment)?;
 
         // >>>> Send commitment.
         transcript.append_bytes(&lde_trace_merkle_root);
 
-        Some((
+        Ok((
             trace_polys,
             lde_trace_evaluations,
             lde_trace_merkle_tree,
@@ -376,11 +385,8 @@ pub trait IsStarkProver<
         FieldElement<Field>: AsBytes,
         FieldElement<FieldExtension>: AsBytes,
     {
-        let Some((trace_polys, evaluations, main_merkle_tree, main_merkle_root)) =
-            Self::interpolate_and_commit_main(trace, domain, transcript)
-        else {
-            return Err(ProvingError::EmptyCommitment);
-        };
+        let (trace_polys, evaluations, main_merkle_tree, main_merkle_root) =
+            Self::interpolate_and_commit_main(trace, domain, transcript)?;
 
         let main = Round1CommitmentData::<Field> {
             trace_polys,
@@ -391,15 +397,8 @@ pub trait IsStarkProver<
         let rap_challenges = air.build_rap_challenges(transcript);
         let (aux, aux_evaluations) = if air.has_trace_interaction() {
             air.build_auxiliary_trace(trace, &rap_challenges);
-            let Some((
-                aux_trace_polys,
-                aux_trace_polys_evaluations,
-                aux_merkle_tree,
-                aux_merkle_root,
-            )) = Self::interpolate_and_commit_aux(trace, domain, transcript)
-            else {
-                return Err(ProvingError::EmptyCommitment);
-            };
+            let (aux_trace_polys, aux_trace_polys_evaluations, aux_merkle_tree, aux_merkle_root) =
+                Self::interpolate_and_commit_aux(trace, domain, transcript)?;
             let aux_evaluations = aux_trace_polys_evaluations;
             let aux = Some(Round1CommitmentData::<FieldExtension> {
                 trace_polys: aux_trace_polys,
@@ -461,7 +460,6 @@ pub trait IsStarkProver<
             return None;
         }
 
-        // TODO: Remove clones
         let mut lde_composition_poly_evaluations = Vec::with_capacity(lde_len);
         for i in 0..lde_len {
             let mut row = Vec::with_capacity(lde_composition_poly_parts_evaluations.len());
@@ -473,11 +471,10 @@ pub trait IsStarkProver<
 
         in_place_bit_reverse_permute(&mut lde_composition_poly_evaluations);
 
-        // Pre-allocate merged vector
         let mut lde_composition_poly_evaluations_merged = Vec::with_capacity(lde_len / 2);
-        for chunk in lde_composition_poly_evaluations.chunks(2) {
-            let (mut chunk0, chunk1) = (chunk[0].clone(), &chunk[1]);
-            chunk0.extend_from_slice(chunk1);
+        let mut iter = lde_composition_poly_evaluations.into_iter();
+        while let (Some(mut chunk0), Some(chunk1)) = (iter.next(), iter.next()) {
+            chunk0.extend(chunk1);
             lde_composition_poly_evaluations_merged.push(chunk0);
         }
 
@@ -505,7 +502,7 @@ pub trait IsStarkProver<
             transition_coefficients,
             boundary_coefficients,
             &round_1_result.rap_challenges,
-        );
+        )?;
 
         // Get coefficients of the composition poly H
         let composition_poly =
@@ -659,7 +656,7 @@ pub trait IsStarkProver<
         let mut nonce = None;
         if security_bits > 0 {
             let nonce_value = grinding::generate_nonce(&transcript.state(), security_bits)
-                .expect("nonce not found");
+                .ok_or(ProvingError::NonceNotFound(security_bits))?;
             transcript.append_bytes(&nonce_value.to_be_bytes());
             nonce = Some(nonce_value);
         }
@@ -779,10 +776,9 @@ pub trait IsStarkProver<
         h_terms + trace_terms
     }
 
-    // FIXME: FIX THIS DOCS!
-    /// Adds to `accumulator` the term corresponding to the trace polynomial `t_j` of the Deep
-    /// composition polynomial. That is, returns `accumulator + \sum_i \gamma_i \frac{ t_j - t_j(zg^i) }{ X - zg^i }`,
-    /// where `i` ranges from `T * j` to `T * j + T - 1`, where `T` is the number of offsets in every frame.
+    /// Computes the Deep composition polynomial trace term for a single trace column.
+    /// Returns `accumulator + \sum_i \gamma_i \frac{ t_j(X) - t_j(z * g^i) }{ X - z * g^i }`,
+    /// where the sum ranges over all frame offsets for the column.
     fn compute_trace_term(
         accumulator: &Polynomial<FieldElement<FieldExtension>>,
         trace_term_poly: &Polynomial<FieldElement<FieldExtension>>,
@@ -938,7 +934,6 @@ pub trait IsStarkProver<
         Ok(openings)
     }
 
-    // FIXME remove unwrap() calls and return errors
     /// Generates a STARK proof for the trace `main_trace` with public inputs `pub_inputs`.
     /// Warning: the transcript must be safely initializated before passing it to this method.
     fn prove(
@@ -1231,7 +1226,9 @@ mod tests {
 
         let trace_length = trace.num_rows();
 
-        let trace_polys = trace.compute_trace_polys_main::<Stark252PrimeField>();
+        let trace_polys = trace
+            .compute_trace_polys_main::<Stark252PrimeField>()
+            .unwrap();
         let coset_offset = Felt252::from(3);
         let blowup_factor: usize = 2;
         let domain_size = 8;
@@ -1827,5 +1824,20 @@ mod tests {
             }
             _ => panic!("Expected FieldOperationError variant"),
         }
+    }
+
+    #[test]
+    fn test_proving_error_display_nonce_not_found() {
+        let error = ProvingError::NonceNotFound(32);
+        let msg = format!("{}", error);
+        assert!(msg.contains("Nonce not found"));
+        assert!(msg.contains("32"));
+    }
+
+    #[test]
+    fn test_proving_error_display_batch_inversion_failed() {
+        let error = ProvingError::BatchInversionFailed;
+        let msg = format!("{}", error);
+        assert!(msg.contains("Batch inversion failed"));
     }
 }
