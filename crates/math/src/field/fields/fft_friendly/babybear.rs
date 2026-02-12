@@ -16,7 +16,7 @@ pub type Babybear31PrimeField = U32MontgomeryBackendPrimeField<2013265921>;
 impl IsFFTField for Babybear31PrimeField {
     const TWO_ADICITY: u64 = 24;
 
-    const TWO_ADIC_PRIMITVE_ROOT_OF_UNITY: Self::BaseType = 21;
+    const TWO_ADIC_PRIMITIVE_ROOT_OF_UNITY: Self::BaseType = 21;
 
     fn field_name() -> &'static str {
         "babybear31"

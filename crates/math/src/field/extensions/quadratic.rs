@@ -45,26 +45,36 @@ where
 {
     #[cfg(feature = "alloc")]
     fn to_bytes_be(&self) -> alloc::vec::Vec<u8> {
-        unimplemented!()
+        let mut bytes = self[0].value().to_bytes_be();
+        bytes.extend(self[1].value().to_bytes_be());
+        bytes
     }
 
     #[cfg(feature = "alloc")]
     fn to_bytes_le(&self) -> alloc::vec::Vec<u8> {
-        unimplemented!()
+        let mut bytes = self[0].value().to_bytes_le();
+        bytes.extend(self[1].value().to_bytes_le());
+        bytes
     }
 
-    fn from_bytes_be(_bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError>
+    fn from_bytes_be(bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError>
     where
         Self: Sized,
     {
-        unimplemented!()
+        let element_size = bytes.len() / 2;
+        let x0 = FieldElement::new(F::BaseType::from_bytes_be(&bytes[..element_size])?);
+        let x1 = FieldElement::new(F::BaseType::from_bytes_be(&bytes[element_size..])?);
+        Ok([x0, x1])
     }
 
-    fn from_bytes_le(_bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError>
+    fn from_bytes_le(bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError>
     where
         Self: Sized,
     {
-        unimplemented!()
+        let element_size = bytes.len() / 2;
+        let x0 = FieldElement::new(F::BaseType::from_bytes_le(&bytes[..element_size])?);
+        let x1 = FieldElement::new(F::BaseType::from_bytes_le(&bytes[element_size..])?);
+        Ok([x0, x1])
     }
 }
 

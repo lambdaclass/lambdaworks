@@ -69,7 +69,7 @@ where
 /// any other root of unity we need to perform FFT.
 pub trait IsFFTField: IsField {
     const TWO_ADICITY: u64;
-    const TWO_ADIC_PRIMITVE_ROOT_OF_UNITY: Self::BaseType;
+    const TWO_ADIC_PRIMITIVE_ROOT_OF_UNITY: Self::BaseType;
 
     /// Used for searching this field's implementation in other languages, e.g in MSL
     /// for executing parallel operations with the Metal API.
@@ -82,7 +82,7 @@ pub trait IsFFTField: IsField {
     /// w^k <> 1 modulo p for k not congruent to 2^order
     fn get_primitive_root_of_unity(order: u64) -> Result<FieldElement<Self>, FieldError> {
         let two_adic_primitive_root_of_unity =
-            FieldElement::new(Self::TWO_ADIC_PRIMITVE_ROOT_OF_UNITY);
+            FieldElement::new(Self::TWO_ADIC_PRIMITIVE_ROOT_OF_UNITY);
         if order == 0 {
             return Ok(FieldElement::one());
         }
