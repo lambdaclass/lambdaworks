@@ -140,11 +140,10 @@ pub fn miller(p: &G1Point, q: &G2Point) -> Fp12E {
     });
     f
 }
-#[allow(clippy::ptr_eq)]
 fn line(p: &G1Point, t: &G2Point, q: &G2Point) -> (G2Point, Fp12E) {
     let [x_p, y_p, _] = p.coordinates();
 
-    if t as *const G2Point == q as *const G2Point || t == q {
+    if core::ptr::eq(t, q) || t == q {
         let a = TWO_INV * t.x() * t.y();
         let b = t.y().square();
         let c = t.z().square();
