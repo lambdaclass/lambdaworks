@@ -143,6 +143,15 @@ where
 /// Constraint for the accumulated column.
 ///
 /// Verifies: `acc[i+1] - acc[i] - Σ terms[i+1] = 0`
+///
+/// Uses `end_exemptions = 1` so the constraint is not checked at the last row.
+/// With degree 1, this is required for soundness: a degree-1 constraint with
+/// zero exemptions has a zerofier of degree N, but the constraint polynomial
+/// has degree N-1, making the quotient trivially zero (vacuous constraint).
+/// With one exemption, the zerofier has degree N-1, yielding a meaningful
+/// constant quotient that the verifier can check.
+///
+/// The boundary constraint `acc[N-1] = final_sum` pins the accumulated column.
 pub(crate) struct LookupAccumulatedConstraint {
     constraint_idx: usize,
     num_term_columns: usize,
@@ -173,7 +182,7 @@ where
     }
 
     fn end_exemptions(&self) -> usize {
-        0
+        1
     }
 
     fn evaluate(

@@ -1,4 +1,5 @@
 use std::marker::PhantomData;
+use std::sync::RwLock;
 
 use lambdaworks_crypto::fiat_shamir::is_transcript::IsStarkTranscript;
 use lambdaworks_math::field::{
@@ -47,6 +48,10 @@ where
     interactions: Vec<BusInteraction>,
     trace_length: usize,
     pub_inputs: PI,
+    /// Stores the computed final accumulated value after `build_auxiliary_trace()`.
+    /// Used by `boundary_constraints()` — equals 0 for balanced buses, non-zero
+    /// for partial tables in multi-table systems.
+    acc_boundary_value: RwLock<FieldElement<E>>,
     _phantom: PhantomData<(F, B)>,
 }
 
@@ -111,6 +116,7 @@ where
             interactions,
             trace_length,
             pub_inputs,
+            acc_boundary_value: RwLock::new(FieldElement::<E>::zero()),
             _phantom: PhantomData,
         }
     }
@@ -178,6 +184,11 @@ where
         let acc_col_idx = num_interactions;
         build_accumulated_column(acc_col_idx, num_interactions, trace);
 
+        // Store the final accumulated value for the boundary constraint.
+        // For a balanced bus this is 0; for a partial table it's the partial sum.
+        let final_acc = trace.get_aux(trace.num_rows() - 1, acc_col_idx).clone();
+        *self.acc_boundary_value.write().unwrap() = final_acc;
+
         Ok(())
     }
 
@@ -187,17 +198,17 @@ where
     ) -> BoundaryConstraints<Self::FieldExtension> {
         let mut constraints = vec![];
 
-        // LogUp boundary constraint: accumulated column must equal zero at last row.
-        // This enforces bus balance (total senders = total receivers).
-        // The accumulated transition constraint has end_exemptions = 0, so the
-        // wrap-around at the last row gives: acc[0] = acc[N-1] + Σ terms[0],
-        // which pins acc[0] when combined with this boundary constraint.
+        // LogUp boundary constraint: accumulated column's final value equals the
+        // total bus sum. For a balanced single-table bus this is 0; for partial
+        // tables in a multi-table system it may be non-zero (the global balance
+        // check is the caller's responsibility).
         if !self.interactions.is_empty() {
             let acc_col_idx = self.interactions.len();
+            let final_value = self.acc_boundary_value.read().unwrap().clone();
             constraints.push(BoundaryConstraint::new_aux(
                 acc_col_idx,
                 self.trace_length - 1,
-                FieldElement::<Self::FieldExtension>::zero(),
+                final_value,
             ));
         }
 
