@@ -464,10 +464,10 @@ mod tests {
             14285409611125725709,
         ];
 
-        for i in 0..WIDTH {
+        for (i, &exp) in expected.iter().enumerate() {
             assert_eq!(
                 *hasher.state[i].value(),
-                expected[i],
+                exp,
                 "Mismatch at index {} for zeros input",
                 i
             );
@@ -477,8 +477,8 @@ mod tests {
     #[test]
     fn test_poseidon2_plonky3_vector_sequential() {
         let mut hasher = Poseidon2::new();
-        for i in 0..WIDTH {
-            hasher.state[i] = Fp::from(i as u64);
+        for (i, state_elem) in hasher.state.iter_mut().enumerate() {
+            *state_elem = Fp::from(i as u64);
         }
 
         hasher.permute();
@@ -494,10 +494,10 @@ mod tests {
             12047415603622314780,
         ];
 
-        for i in 0..WIDTH {
+        for (i, &exp) in expected.iter().enumerate() {
             assert_eq!(
                 *hasher.state[i].value(),
-                expected[i],
+                exp,
                 "Mismatch at index {} for sequential input",
                 i
             );
@@ -518,8 +518,8 @@ mod tests {
         ];
 
         let mut hasher = Poseidon2::new();
-        for i in 0..WIDTH {
-            hasher.state[i] = Fp::from(input[i]);
+        for (i, &inp) in input.iter().enumerate() {
+            hasher.state[i] = Fp::from(inp);
         }
 
         hasher.permute();
@@ -535,10 +535,10 @@ mod tests {
             6973971209430822232,
         ];
 
-        for i in 0..WIDTH {
+        for (i, &exp) in expected.iter().enumerate() {
             assert_eq!(
                 *hasher.state[i].value(),
-                expected[i],
+                exp,
                 "Mismatch at index {} for random input",
                 i
             );

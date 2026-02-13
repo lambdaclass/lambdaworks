@@ -120,9 +120,9 @@ mod tests {
         let values: Vec<Fp> = (1..=8).map(|i| Fp::from(i as u64)).collect();
         let merkle_tree = MerkleTree::<Poseidon2Backend>::build(&values).unwrap();
 
-        for i in 0..8 {
+        for (i, val) in values.iter().enumerate() {
             let proof = merkle_tree.get_proof_by_pos(i).unwrap();
-            assert!(proof.verify::<Poseidon2Backend>(&merkle_tree.root, i, &values[i]));
+            assert!(proof.verify::<Poseidon2Backend>(&merkle_tree.root, i, val));
         }
     }
 
