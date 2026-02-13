@@ -48,10 +48,8 @@ where
     interactions: Vec<BusInteraction>,
     trace_length: usize,
     pub_inputs: PI,
-    /// Stores the computed final accumulated value after `build_auxiliary_trace()`.
-    /// Used by `boundary_constraints()` — equals 0 for balanced buses, non-zero
-    /// for partial tables in multi-table systems.
-    acc_boundary_value: RwLock<FieldElement<E>>,
+    /// Stores the computed final accumulated value (last row) after `build_auxiliary_trace()`.
+    acc_final_value: RwLock<FieldElement<E>>,
     _phantom: PhantomData<(F, B)>,
 }
 
@@ -116,7 +114,7 @@ where
             interactions,
             trace_length,
             pub_inputs,
-            acc_boundary_value: RwLock::new(FieldElement::<E>::zero()),
+            acc_final_value: RwLock::new(FieldElement::<E>::zero()),
             _phantom: PhantomData,
         }
     }
@@ -184,10 +182,10 @@ where
         let acc_col_idx = num_interactions;
         build_accumulated_column(acc_col_idx, num_interactions, trace);
 
-        // Store the final accumulated value for the boundary constraint.
-        // For a balanced bus this is 0; for a partial table it's the partial sum.
+        // Store final accumulated value for boundary constraint.
+        // (Initial value is always 0, hardcoded in boundary_constraints().)
         let final_acc = trace.get_aux(trace.num_rows() - 1, acc_col_idx).clone();
-        *self.acc_boundary_value.write().unwrap() = final_acc;
+        *self.acc_final_value.write().unwrap() = final_acc;
 
         Ok(())
     }
@@ -198,13 +196,20 @@ where
     ) -> BoundaryConstraints<Self::FieldExtension> {
         let mut constraints = vec![];
 
-        // LogUp boundary constraint: accumulated column's final value equals the
-        // total bus sum. For a balanced single-table bus this is 0; for partial
-        // tables in a multi-table system it may be non-zero (the global balance
-        // check is the caller's responsibility).
+        // LogUp boundary constraints: pin acc[0] = 0 and acc[N-1] = final_sum.
+        // acc[0] = 0 is a verifier-known constant (not prover-derived), which
+        // eliminates the prover's ability to inject offsets. For multi-table
+        // systems the caller verifies Σ acc[N-1]_i across all tables equals 0.
         if !self.interactions.is_empty() {
             let acc_col_idx = self.interactions.len();
-            let final_value = self.acc_boundary_value.read().unwrap().clone();
+
+            constraints.push(BoundaryConstraint::new_aux(
+                acc_col_idx,
+                0,
+                FieldElement::<Self::FieldExtension>::zero(),
+            ));
+
+            let final_value = self.acc_final_value.read().unwrap().clone();
             constraints.push(BoundaryConstraint::new_aux(
                 acc_col_idx,
                 self.trace_length - 1,

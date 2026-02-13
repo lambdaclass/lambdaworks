@@ -220,11 +220,15 @@ impl BusInteraction {
 // =============================================================================
 
 /// Public inputs for a table's accumulated LogUp column.
+///
+/// Note: `initial_value` is always zero (hardcoded verifier-known constant).
+/// It is kept here for documentation purposes; in practice only
+/// `final_accumulated` is needed for the cross-table bus balance check.
 #[derive(Debug, Clone)]
 pub struct BusPublicInputs<E: IsField> {
-    /// Accumulated column value at row 0
+    /// Accumulated column value at row 0 (always zero — verifier-known constant).
     pub initial_value: FieldElement<E>,
-    /// Accumulated column value at last row
+    /// Accumulated column value at last row.
     pub final_accumulated: FieldElement<E>,
 }
 
