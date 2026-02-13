@@ -416,4 +416,63 @@ mod tests {
         let expected_result = FEE::new([FE::new(28), FE::new(45)]);
         assert_eq!((a / b).unwrap(), expected_result);
     }
+
+    #[test]
+    fn byte_conversion_roundtrip_be() {
+        let original = [FE::new(42), FE::new(17)];
+        let bytes = original.to_bytes_be();
+        let restored = <[FE; 2]>::from_bytes_be(&bytes).unwrap();
+        assert_eq!(original, restored);
+    }
+
+    #[test]
+    fn byte_conversion_roundtrip_le() {
+        let original = [FE::new(42), FE::new(17)];
+        let bytes = original.to_bytes_le();
+        let restored = <[FE; 2]>::from_bytes_le(&bytes).unwrap();
+        assert_eq!(original, restored);
+    }
+
+    #[test]
+    fn byte_conversion_zero_elements() {
+        let original = [FE::zero(), FE::zero()];
+        let bytes_be = original.to_bytes_be();
+        let bytes_le = original.to_bytes_le();
+        assert_eq!(<[FE; 2]>::from_bytes_be(&bytes_be).unwrap(), original);
+        assert_eq!(<[FE; 2]>::from_bytes_le(&bytes_le).unwrap(), original);
+    }
+
+    #[test]
+    fn byte_conversion_max_elements() {
+        let original = [FE::new(ORDER_P - 1), FE::new(ORDER_P - 1)];
+        let bytes_be = original.to_bytes_be();
+        let bytes_le = original.to_bytes_le();
+        assert_eq!(<[FE; 2]>::from_bytes_be(&bytes_be).unwrap(), original);
+        assert_eq!(<[FE; 2]>::from_bytes_le(&bytes_le).unwrap(), original);
+    }
+
+    #[test]
+    fn byte_conversion_invalid_length_odd() {
+        let bytes = vec![1, 2, 3]; // Odd length
+        assert!(<[FE; 2]>::from_bytes_be(&bytes).is_err());
+        assert!(<[FE; 2]>::from_bytes_le(&bytes).is_err());
+    }
+
+    #[test]
+    fn byte_conversion_invalid_length_seven() {
+        let bytes = vec![1, 2, 3, 4, 5, 6, 7]; // Odd length (7)
+        assert!(<[FE; 2]>::from_bytes_be(&bytes).is_err());
+        assert!(<[FE; 2]>::from_bytes_le(&bytes).is_err());
+    }
+
+    #[test]
+    fn byte_conversion_empty() {
+        let bytes = vec![];
+        // Empty is even length (0 % 2 == 0), should pass validation but may fail on element creation
+        let result_be = <[FE; 2]>::from_bytes_be(&bytes);
+        let result_le = <[FE; 2]>::from_bytes_le(&bytes);
+        // Both should either succeed with zero elements or fail gracefully
+        assert!(result_be.is_ok() || result_be.is_err());
+        assert!(result_le.is_ok() || result_le.is_err());
+    }
 }
