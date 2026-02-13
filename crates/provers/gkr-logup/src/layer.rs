@@ -302,8 +302,8 @@ mod tests {
             .try_into_output_layer_values()
             .unwrap();
         // Check numerator/denominator ratio matches
-        let tree_ratio = &root_vals[0] * expected.denominator.inv().unwrap();
-        let expected_ratio = &expected.numerator * root_vals[1].inv().unwrap();
+        let tree_ratio = root_vals[0] * expected.denominator.inv().unwrap();
+        let expected_ratio = expected.numerator * root_vals[1].inv().unwrap();
         assert_eq!(tree_ratio, expected_ratio);
     }
 

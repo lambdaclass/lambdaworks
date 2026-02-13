@@ -5,6 +5,8 @@ use lambdaworks_math::traits::ByteConversion;
 
 use lambdaworks_crypto::fiat_shamir::is_transcript::IsTranscript;
 
+use crate::utils::random_linear_combination;
+
 /// Max degree of polynomials the verifier accepts in each sumcheck round.
 pub const MAX_DEGREE: usize = 3;
 
@@ -57,6 +59,118 @@ impl<F: IsField> core::fmt::Display for SumcheckError<F> {
             }
         }
     }
+}
+
+/// Proves a batch of sumcheck instances with a single shared proof.
+///
+/// Combines multiple oracles into one via random linear combination with `alpha`.
+/// Oracles can have different numbers of variables — smaller ones are scaled by a
+/// "doubling factor" `2^(max_vars - oracle_vars)` and produce a constant polynomial
+/// `claim / 2` until their variables begin.
+///
+/// Returns `(proof, assignment, constant_oracles, final_claims)`.
+#[allow(clippy::type_complexity)]
+pub fn prove_batch<F, O, T>(
+    mut claims: Vec<FieldElement<F>>,
+    mut oracles: Vec<O>,
+    alpha: &FieldElement<F>,
+    channel: &mut T,
+) -> (
+    SumcheckProof<F>,
+    Vec<FieldElement<F>>,
+    Vec<O>,
+    Vec<FieldElement<F>>,
+)
+where
+    F: IsField + HasDefaultTranscript,
+    FieldElement<F>: ByteConversion,
+    O: SumcheckOracle<F>,
+    T: IsTranscript<F>,
+{
+    let n_variables = oracles.iter().map(|o| o.n_variables()).max().unwrap();
+    assert_eq!(claims.len(), oracles.len());
+
+    let mut round_polys = Vec::new();
+    let mut assignment = Vec::new();
+
+    // Scale claims by doubling factor for smaller instances.
+    let two = &FieldElement::<F>::one() + &FieldElement::<F>::one();
+    for (claim, oracle) in claims.iter_mut().zip(oracles.iter()) {
+        let n_unused = n_variables - oracle.n_variables();
+        for _ in 0..n_unused {
+            *claim = &*claim * &two;
+        }
+    }
+
+    for round in 0..n_variables {
+        let n_remaining = n_variables - round;
+
+        // Compute per-oracle round polynomials.
+        let this_round_polys: Vec<Polynomial<FieldElement<F>>> = oracles
+            .iter()
+            .zip(claims.iter())
+            .map(|(oracle, claim)| {
+                if n_remaining == oracle.n_variables() {
+                    oracle.sum_as_poly_in_first_variable(claim)
+                } else {
+                    // Oracle hasn't started yet: constant polynomial = claim / 2.
+                    let half_claim = claim * two.inv().unwrap();
+                    Polynomial::new(&[half_claim])
+                }
+            })
+            .collect();
+
+        // Combine with alpha via random linear combination of polynomials.
+        let combined = poly_random_linear_combination(&this_round_polys, alpha);
+
+        // Sanity check.
+        debug_assert_eq!(
+            combined.evaluate(&FieldElement::<F>::zero())
+                + combined.evaluate(&FieldElement::<F>::one()),
+            random_linear_combination(&claims, alpha)
+        );
+        debug_assert!(combined.degree() <= MAX_DEGREE);
+
+        // Send combined polynomial to verifier.
+        for coeff in combined.coefficients() {
+            channel.append_field_element(coeff);
+        }
+        let challenge: FieldElement<F> = channel.sample_field_element();
+
+        // Update per-oracle claims.
+        claims = this_round_polys
+            .iter()
+            .map(|p| p.evaluate(&challenge))
+            .collect();
+
+        // Fix first variable on active oracles.
+        oracles = oracles
+            .into_iter()
+            .map(|oracle| {
+                if n_remaining != oracle.n_variables() {
+                    return oracle;
+                }
+                oracle.fix_first_variable(&challenge)
+            })
+            .collect();
+
+        round_polys.push(combined);
+        assignment.push(challenge);
+    }
+
+    let proof = SumcheckProof { round_polys };
+    (proof, assignment, oracles, claims)
+}
+
+/// Random linear combination of polynomials: `p_0 + alpha * p_1 + ... + alpha^(n-1) * p_{n-1}`.
+fn poly_random_linear_combination<F: IsField>(
+    polys: &[Polynomial<FieldElement<F>>],
+    alpha: &FieldElement<F>,
+) -> Polynomial<FieldElement<F>> {
+    polys.iter().rev().fold(
+        Polynomial::new(&[FieldElement::<F>::zero()]),
+        |acc, poly| acc * Polynomial::new(std::slice::from_ref(alpha)) + poly.clone(),
+    )
 }
 
 /// Proves `sum_{x in {0,1}^n} g(x) = claim` using the sumcheck protocol.
@@ -174,12 +288,12 @@ mod tests {
         fn sum_as_poly_in_first_variable(&self, _claim: &FE) -> Polynomial<FE> {
             let n = self.mle.n_variables();
             if n == 0 {
-                return Polynomial::new(&[self.mle[0].clone()]);
+                return Polynomial::new(&[self.mle[0]]);
             }
             let half = self.mle.len() / 2;
-            let sum_at_0: FE = (0..half).map(|j| self.mle[j].clone()).sum();
-            let sum_at_1: FE = (half..self.mle.len()).map(|j| self.mle[j].clone()).sum();
-            let diff = &sum_at_1 - &sum_at_0;
+            let sum_at_0: FE = (0..half).map(|j| self.mle[j]).sum();
+            let sum_at_1: FE = (half..self.mle.len()).map(|j| self.mle[j]).sum();
+            let diff = sum_at_1 - sum_at_0;
             Polynomial::new(&[sum_at_0, diff])
         }
 
@@ -198,8 +312,7 @@ mod tests {
         };
 
         let mut prover_channel = DefaultTranscript::<F>::new(&[]);
-        let (proof, assignment, _constant_oracle) =
-            prove(claim.clone(), oracle, &mut prover_channel);
+        let (proof, assignment, _constant_oracle) = prove(claim, oracle, &mut prover_channel);
 
         assert_eq!(proof.round_polys.len(), 3);
         assert_eq!(assignment.len(), 3);
@@ -221,12 +334,105 @@ mod tests {
         };
 
         let mut prover_channel = DefaultTranscript::<F>::new(&[]);
-        let (mut proof, _, _) = prove(claim.clone(), oracle, &mut prover_channel);
+        let (mut proof, _, _) = prove(claim, oracle, &mut prover_channel);
 
         proof.round_polys[0] = Polynomial::new(&[FE::from(999), FE::from(1)]);
 
         let mut verifier_channel = DefaultTranscript::<F>::new(&[]);
         let result = partially_verify(claim, &proof, &mut verifier_channel);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn prove_batch_single_oracle_roundtrip() {
+        let evals: Vec<FE> = (1u64..=8).map(FE::from).collect();
+        let claim: FE = evals.iter().cloned().sum();
+        let oracle = TestMleOracle {
+            mle: Mle::new(evals),
+        };
+        let alpha = FE::from(7);
+
+        let mut prover_channel = DefaultTranscript::<F>::new(&[]);
+        let (proof, assignment, _constant_oracles, _final_claims) =
+            prove_batch(vec![claim], vec![oracle], &alpha, &mut prover_channel);
+
+        assert_eq!(proof.round_polys.len(), 3);
+        assert_eq!(assignment.len(), 3);
+
+        // Verify: for a single oracle, the combined claim equals the original claim.
+        let mut verifier_channel = DefaultTranscript::<F>::new(&[]);
+        let result = partially_verify(claim, &proof, &mut verifier_channel);
+        assert!(result.is_ok());
+
+        let (v_assignment, _) = result.unwrap();
+        assert_eq!(v_assignment, assignment);
+    }
+
+    #[test]
+    fn prove_batch_two_oracles_same_size() {
+        let evals0: Vec<FE> = (1u64..=8).map(FE::from).collect();
+        let evals1: Vec<FE> = (11u64..=18).map(FE::from).collect();
+        let claim0: FE = evals0.iter().cloned().sum();
+        let claim1: FE = evals1.iter().cloned().sum();
+        let alpha = FE::from(13);
+
+        let oracle0 = TestMleOracle {
+            mle: Mle::new(evals0),
+        };
+        let oracle1 = TestMleOracle {
+            mle: Mle::new(evals1),
+        };
+
+        let mut prover_channel = DefaultTranscript::<F>::new(&[]);
+        let (proof, _assignment, _constant_oracles, _final_claims) = prove_batch(
+            vec![claim0, claim1],
+            vec![oracle0, oracle1],
+            &alpha,
+            &mut prover_channel,
+        );
+
+        assert_eq!(proof.round_polys.len(), 3);
+
+        // Combined claim = claim0 + alpha * claim1
+        let combined_claim = claim0 + (alpha * claim1);
+        let mut verifier_channel = DefaultTranscript::<F>::new(&[]);
+        let result = partially_verify(combined_claim, &proof, &mut verifier_channel);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn prove_batch_different_sizes() {
+        // oracle0 has 3 variables (8 evals), oracle1 has 2 variables (4 evals)
+        let evals0: Vec<FE> = (1u64..=8).map(FE::from).collect();
+        let evals1: Vec<FE> = (1u64..=4).map(FE::from).collect();
+        let claim0: FE = evals0.iter().cloned().sum();
+        let claim1: FE = evals1.iter().cloned().sum();
+        let alpha = FE::from(5);
+
+        let oracle0 = TestMleOracle {
+            mle: Mle::new(evals0),
+        };
+        let oracle1 = TestMleOracle {
+            mle: Mle::new(evals1),
+        };
+
+        let mut prover_channel = DefaultTranscript::<F>::new(&[]);
+        let (proof, assignment, _constant_oracles, _final_claims) = prove_batch(
+            vec![claim0, claim1],
+            vec![oracle0, oracle1],
+            &alpha,
+            &mut prover_channel,
+        );
+
+        // Max variables = 3, so 3 rounds.
+        assert_eq!(proof.round_polys.len(), 3);
+        assert_eq!(assignment.len(), 3);
+
+        // Doubling factor for oracle1: 2^(3-2) = 2
+        let two = FE::from(2);
+        let combined_claim = claim0 + (alpha * (claim1 * two));
+        let mut verifier_channel = DefaultTranscript::<F>::new(&[]);
+        let result = partially_verify(combined_claim, &proof, &mut verifier_channel);
+        assert!(result.is_ok());
     }
 }

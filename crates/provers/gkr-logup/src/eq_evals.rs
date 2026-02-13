@@ -106,10 +106,10 @@ mod tests {
         let one = FE::one();
 
         // Check eq(x, y) * v for all x in {0,1}^2 in lexicographic order
-        assert_eq!(evals[0], eq_eval(&[zero, zero], &y) * &v); // x=(0,0)
-        assert_eq!(evals[1], eq_eval(&[zero, one.clone()], &y) * &v); // x=(0,1)
-        assert_eq!(evals[2], eq_eval(&[one.clone(), zero], &y) * &v); // x=(1,0)
-        assert_eq!(evals[3], eq_eval(&[one.clone(), one], &y) * &v); // x=(1,1)
+        assert_eq!(evals[0], eq_eval(&[zero, zero], &y) * v); // x=(0,0)
+        assert_eq!(evals[1], eq_eval(&[zero, one], &y) * v); // x=(0,1)
+        assert_eq!(evals[2], eq_eval(&[one, zero], &y) * v); // x=(1,0)
+        assert_eq!(evals[3], eq_eval(&[one, one], &y) * v); // x=(1,1)
     }
 
     #[test]
@@ -124,16 +124,11 @@ mod tests {
         // eq((0, x1, x2), (y0, y1, y2)) = eq(0, y0) * eq(x1, y1) * eq(x2, y2)
         assert_eq!(eq_e.evals().len(), 4);
 
-        for (idx, (x1, x2)) in [
-            (zero.clone(), zero.clone()),
-            (zero.clone(), one.clone()),
-            (one.clone(), zero.clone()),
-            (one.clone(), one.clone()),
-        ]
-        .iter()
-        .enumerate()
+        for (idx, (x1, x2)) in [(zero, zero), (zero, one), (one, zero), (one, one)]
+            .iter()
+            .enumerate()
         {
-            let expected = eq_eval(&[zero.clone(), x1.clone(), x2.clone()], &y);
+            let expected = eq_eval(&[zero, *x1, *x2], &y);
             assert_eq!(eq_e[idx], expected, "mismatch at index {idx}");
         }
     }

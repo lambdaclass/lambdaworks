@@ -401,6 +401,152 @@ where
     (proof, artifact)
 }
 
+/// Proves multiple GKR instances simultaneously with a single shared sumcheck per layer.
+///
+/// Instances can have different numbers of variables (different sizes). Smaller instances
+/// are scaled by a "doubling factor" so they participate in the same sumcheck round.
+///
+/// Returns a `BatchProof` and `BatchVerificationResult` containing the shared OOD point
+/// and per-instance claims to verify against input layer MLEs.
+pub fn prove_batch<F, T>(
+    channel: &mut T,
+    input_layers: Vec<Layer<F>>,
+) -> (
+    crate::verifier::BatchProof<F>,
+    crate::verifier::BatchVerificationResult<F>,
+)
+where
+    F: IsField + HasDefaultTranscript,
+    FieldElement<F>: ByteConversion,
+    T: IsTranscript<F>,
+{
+    let n_instances = input_layers.len();
+    let n_layers_by_instance: Vec<usize> = input_layers.iter().map(|l| l.n_variables()).collect();
+    let n_layers = *n_layers_by_instance.iter().max().unwrap();
+
+    // Generate all layers per instance and reverse for output-to-input traversal.
+    let mut layers_by_instance: Vec<std::iter::Rev<std::vec::IntoIter<Layer<F>>>> = input_layers
+        .into_iter()
+        .map(|input_layer| gen_layers(input_layer).into_iter().rev())
+        .collect();
+
+    let mut output_claims_by_instance: Vec<Option<Vec<FieldElement<F>>>> = vec![None; n_instances];
+    let mut layer_masks_by_instance: Vec<Vec<LayerMask<F>>> =
+        (0..n_instances).map(|_| Vec::new()).collect();
+    let mut sumcheck_proofs = Vec::new();
+
+    let mut ood_point: Vec<FieldElement<F>> = Vec::new();
+    let mut claims_to_verify_by_instance: Vec<Option<Vec<FieldElement<F>>>> =
+        vec![None; n_instances];
+
+    for layer in 0..n_layers {
+        let n_remaining_layers = n_layers - layer;
+
+        // Detect output layers for each instance.
+        for (instance, layers) in layers_by_instance.iter_mut().enumerate() {
+            if n_layers_by_instance[instance] == n_remaining_layers {
+                let output_layer = layers.next().unwrap();
+                let output_layer_values = output_layer
+                    .try_into_output_layer_values()
+                    .expect("should be output layer");
+                claims_to_verify_by_instance[instance] = Some(output_layer_values.clone());
+                output_claims_by_instance[instance] = Some(output_layer_values);
+            }
+        }
+
+        // Seed channel with active claims.
+        for claims in claims_to_verify_by_instance.iter().flatten() {
+            for claim in claims {
+                channel.append_field_element(claim);
+            }
+        }
+
+        // Generate shared eq_evals and sample randomness.
+        let eq_evals = EqEvaluations::generate(&ood_point);
+        let sumcheck_alpha: FieldElement<F> = channel.sample_field_element();
+        let lambda: FieldElement<F> = channel.sample_field_element();
+
+        let mut sumcheck_oracles = Vec::new();
+        let mut sumcheck_claims = Vec::new();
+        let mut sumcheck_instances = Vec::new();
+
+        // Create oracles for active instances.
+        for (instance, claims) in claims_to_verify_by_instance.iter().enumerate() {
+            if let Some(claims) = claims {
+                let next_layer = layers_by_instance[instance].next().unwrap();
+                let oracle = LayerOracle {
+                    eq_evals: eq_evals.clone(),
+                    input_layer: next_layer,
+                    eq_fixed_var_correction: FieldElement::one(),
+                    lambda: lambda.clone(),
+                };
+                let claim = random_linear_combination(claims, &lambda);
+                sumcheck_oracles.push(oracle);
+                sumcheck_claims.push(claim);
+                sumcheck_instances.push(instance);
+            }
+        }
+
+        // Run batch sumcheck.
+        let (sumcheck_proof, sumcheck_ood_point, constant_oracles, _final_claims) =
+            sumcheck::prove_batch(sumcheck_claims, sumcheck_oracles, &sumcheck_alpha, channel);
+
+        sumcheck_proofs.push(sumcheck_proof);
+
+        // Extract masks from constant oracles and seed channel.
+        let masks: Vec<LayerMask<F>> = constant_oracles
+            .into_iter()
+            .map(|oracle| {
+                oracle
+                    .try_into_mask()
+                    .expect("oracle should be constant after sumcheck")
+            })
+            .collect();
+
+        for (&instance, mask) in sumcheck_instances.iter().zip(masks.iter()) {
+            for col in mask.columns() {
+                channel.append_field_element(&col[0]);
+                channel.append_field_element(&col[1]);
+            }
+            layer_masks_by_instance[instance].push(mask.clone());
+        }
+
+        // Sample challenge and update OOD point.
+        let challenge: FieldElement<F> = channel.sample_field_element();
+        ood_point = sumcheck_ood_point;
+        ood_point.push(challenge.clone());
+
+        // Reduce masks to get claims for next layer.
+        for (instance, mask) in sumcheck_instances.into_iter().zip(masks) {
+            claims_to_verify_by_instance[instance] = Some(mask.reduce_at_point(&challenge));
+        }
+    }
+
+    let output_claims_by_instance: Vec<Vec<FieldElement<F>>> = output_claims_by_instance
+        .into_iter()
+        .map(|o| o.expect("all instances should have output claims"))
+        .collect();
+
+    let claims_to_verify_by_instance: Vec<Vec<FieldElement<F>>> = claims_to_verify_by_instance
+        .into_iter()
+        .map(|c| c.expect("all instances should have claims"))
+        .collect();
+
+    let proof = crate::verifier::BatchProof {
+        sumcheck_proofs,
+        layer_masks_by_instance,
+        output_claims_by_instance,
+    };
+
+    let artifact = crate::verifier::BatchVerificationResult {
+        ood_point,
+        claims_to_verify_by_instance,
+        n_variables_by_instance: n_layers_by_instance,
+    };
+
+    (proof, artifact)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -458,7 +604,7 @@ mod tests {
         let expected: Fraction<F> = numerators
             .iter()
             .zip(denominators.iter())
-            .map(|(n, d)| Fraction::new(n.clone(), d.clone()))
+            .map(|(n, d)| Fraction::new(*n, *d))
             .sum();
 
         let input_layer = Layer::LogUpGeneric {
@@ -469,8 +615,8 @@ mod tests {
         let (proof, _artifact) = prove(&mut channel, input_layer);
 
         assert_eq!(proof.output_claims.len(), 2);
-        let out_ratio = &proof.output_claims[0] * expected.denominator.inv().unwrap();
-        let exp_ratio = &expected.numerator * proof.output_claims[1].inv().unwrap();
+        let out_ratio = proof.output_claims[0] * expected.denominator.inv().unwrap();
+        let exp_ratio = expected.numerator * proof.output_claims[1].inv().unwrap();
         assert_eq!(out_ratio, exp_ratio);
     }
 
@@ -625,5 +771,319 @@ mod tests {
         let mut verifier_channel = DefaultTranscript::<F>::new(&[]);
         let result = verifier::verify(Gate::LogUp, &proof, &mut verifier_channel);
         assert!(result.is_err());
+    }
+
+    // ---- Batch prove + verify tests ----
+
+    /// Helper: batch prove and verify, returning the batch artifact.
+    fn prove_and_verify_batch(
+        gates: Vec<Gate>,
+        input_layers: Vec<Layer<F>>,
+    ) -> verifier::BatchVerificationResult<F> {
+        let mut prover_channel = DefaultTranscript::<F>::new(&[]);
+        let (proof, _artifact) = prove_batch(&mut prover_channel, input_layers);
+
+        let mut verifier_channel = DefaultTranscript::<F>::new(&[]);
+        verifier::verify_batch(&gates, &proof, &mut verifier_channel)
+            .expect("batch verification should succeed")
+    }
+
+    #[test]
+    fn batch_two_grand_products_same_size() {
+        let values0: Vec<FE> = (1u64..=8).map(FE::from).collect();
+        let values1: Vec<FE> = (11u64..=18).map(FE::from).collect();
+
+        let artifact = prove_and_verify_batch(
+            vec![Gate::GrandProduct, Gate::GrandProduct],
+            vec![
+                Layer::GrandProduct(Mle::new(values0)),
+                Layer::GrandProduct(Mle::new(values1)),
+            ],
+        );
+
+        assert_eq!(artifact.n_variables_by_instance, vec![3, 3]);
+        assert_eq!(artifact.claims_to_verify_by_instance.len(), 2);
+        assert_eq!(artifact.claims_to_verify_by_instance[0].len(), 1);
+        assert_eq!(artifact.claims_to_verify_by_instance[1].len(), 1);
+    }
+
+    #[test]
+    fn batch_two_grand_products_different_sizes() {
+        // Instance 0: 2^5 = 32 elements (5 variables)
+        let values0: Vec<FE> = (1u64..=32).map(FE::from).collect();
+        // Instance 1: 2^3 = 8 elements (3 variables)
+        let values1: Vec<FE> = (1u64..=8).map(FE::from).collect();
+
+        let artifact = prove_and_verify_batch(
+            vec![Gate::GrandProduct, Gate::GrandProduct],
+            vec![
+                Layer::GrandProduct(Mle::new(values0)),
+                Layer::GrandProduct(Mle::new(values1)),
+            ],
+        );
+
+        assert_eq!(artifact.n_variables_by_instance, vec![5, 3]);
+        assert_eq!(artifact.claims_to_verify_by_instance.len(), 2);
+    }
+
+    #[test]
+    fn batch_grand_product_and_logup() {
+        let gp_values: Vec<FE> = (1u64..=8).map(FE::from).collect();
+        let logup_nums: Vec<FE> = vec![FE::from(1), FE::from(2), FE::from(3), FE::from(4)];
+        let logup_dens: Vec<FE> = vec![FE::from(5), FE::from(6), FE::from(7), FE::from(8)];
+
+        let artifact = prove_and_verify_batch(
+            vec![Gate::GrandProduct, Gate::LogUp],
+            vec![
+                Layer::GrandProduct(Mle::new(gp_values)),
+                Layer::LogUpGeneric {
+                    numerators: Mle::new(logup_nums),
+                    denominators: Mle::new(logup_dens),
+                },
+            ],
+        );
+
+        assert_eq!(artifact.n_variables_by_instance, vec![3, 2]);
+        // GrandProduct has 1 column, LogUp has 2 columns
+        assert_eq!(artifact.claims_to_verify_by_instance[0].len(), 1);
+        assert_eq!(artifact.claims_to_verify_by_instance[1].len(), 2);
+    }
+
+    #[test]
+    fn batch_three_instances_mixed() {
+        let gp_values: Vec<FE> = (1u64..=16).map(FE::from).collect();
+        let logup_nums: Vec<FE> = (1u64..=8).map(FE::from).collect();
+        let logup_dens: Vec<FE> = (11u64..=18).map(FE::from).collect();
+        let singles_dens: Vec<FE> = vec![FE::from(2), FE::from(3), FE::from(5), FE::from(7)];
+
+        let artifact = prove_and_verify_batch(
+            vec![Gate::GrandProduct, Gate::LogUp, Gate::LogUp],
+            vec![
+                Layer::GrandProduct(Mle::new(gp_values)),
+                Layer::LogUpGeneric {
+                    numerators: Mle::new(logup_nums),
+                    denominators: Mle::new(logup_dens),
+                },
+                Layer::LogUpSingles {
+                    denominators: Mle::new(singles_dens),
+                },
+            ],
+        );
+
+        assert_eq!(artifact.n_variables_by_instance, vec![4, 3, 2]);
+        assert_eq!(artifact.claims_to_verify_by_instance.len(), 3);
+    }
+
+    #[test]
+    fn batch_single_instance_matches_single_prove() {
+        let values: Vec<FE> = (1u64..=8).map(FE::from).collect();
+        let input_layer = Layer::GrandProduct(Mle::new(values.clone()));
+
+        // Single prove + verify
+        let mut p_ch = DefaultTranscript::<F>::new(&[]);
+        let (single_proof, _) = prove(&mut p_ch, input_layer.clone());
+        let mut v_ch = DefaultTranscript::<F>::new(&[]);
+        let single_result = verifier::verify(Gate::GrandProduct, &single_proof, &mut v_ch)
+            .expect("single verification should succeed");
+
+        // Batch prove + verify with 1 instance
+        let batch_result = prove_and_verify_batch(
+            vec![Gate::GrandProduct],
+            vec![Layer::GrandProduct(Mle::new(values))],
+        );
+
+        assert_eq!(
+            single_result.n_variables,
+            batch_result.n_variables_by_instance[0]
+        );
+        assert_eq!(
+            single_result.claims_to_verify.len(),
+            batch_result.claims_to_verify_by_instance[0].len()
+        );
+    }
+
+    // ---- Batch negative tests ----
+
+    #[test]
+    fn batch_corrupt_output_claims_rejected() {
+        let values0: Vec<FE> = (1u64..=8).map(FE::from).collect();
+        let values1: Vec<FE> = (11u64..=18).map(FE::from).collect();
+
+        let mut prover_channel = DefaultTranscript::<F>::new(&[]);
+        let (mut proof, _) = prove_batch(
+            &mut prover_channel,
+            vec![
+                Layer::GrandProduct(Mle::new(values0)),
+                Layer::GrandProduct(Mle::new(values1)),
+            ],
+        );
+
+        proof.output_claims_by_instance[0][0] = FE::from(999);
+
+        let mut verifier_channel = DefaultTranscript::<F>::new(&[]);
+        let result = verifier::verify_batch(
+            &[Gate::GrandProduct, Gate::GrandProduct],
+            &proof,
+            &mut verifier_channel,
+        );
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn batch_corrupt_sumcheck_proof_rejected() {
+        let values0: Vec<FE> = (1u64..=8).map(FE::from).collect();
+        let values1: Vec<FE> = (11u64..=18).map(FE::from).collect();
+
+        let mut prover_channel = DefaultTranscript::<F>::new(&[]);
+        let (mut proof, _) = prove_batch(
+            &mut prover_channel,
+            vec![
+                Layer::GrandProduct(Mle::new(values0)),
+                Layer::GrandProduct(Mle::new(values1)),
+            ],
+        );
+
+        let idx = proof
+            .sumcheck_proofs
+            .iter()
+            .position(|p| !p.round_polys.is_empty())
+            .expect("should have at least one non-trivial sumcheck");
+        proof.sumcheck_proofs[idx].round_polys[0] = Polynomial::new(&[FE::from(1), FE::from(2)]);
+
+        let mut verifier_channel = DefaultTranscript::<F>::new(&[]);
+        let result = verifier::verify_batch(
+            &[Gate::GrandProduct, Gate::GrandProduct],
+            &proof,
+            &mut verifier_channel,
+        );
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn batch_corrupt_mask_rejected() {
+        let values0: Vec<FE> = (1u64..=4).map(FE::from).collect();
+        let values1: Vec<FE> = (11u64..=14).map(FE::from).collect();
+
+        let mut prover_channel = DefaultTranscript::<F>::new(&[]);
+        let (mut proof, _) = prove_batch(
+            &mut prover_channel,
+            vec![
+                Layer::GrandProduct(Mle::new(values0)),
+                Layer::GrandProduct(Mle::new(values1)),
+            ],
+        );
+
+        proof.layer_masks_by_instance[0][0] = LayerMask::new(vec![[FE::from(42), FE::from(43)]]);
+
+        let mut verifier_channel = DefaultTranscript::<F>::new(&[]);
+        let result = verifier::verify_batch(
+            &[Gate::GrandProduct, Gate::GrandProduct],
+            &proof,
+            &mut verifier_channel,
+        );
+        assert!(result.is_err());
+    }
+
+    // ---- Read-only memory tests using LogUp-GKR ----
+
+    /// Builds a read-only memory check using batch LogUp-GKR.
+    ///
+    /// ROM table: [10, 20, 30, 40]
+    /// Accesses:  [20, 10, 20, 30, 10, 20, 40, 30]
+    ///
+    /// The identity to prove is:
+    ///   ∑ 1/(z - a_i) = ∑ m_j/(z - t_j)
+    ///
+    /// where z is a random challenge, a_i are the accesses, t_j are the table entries,
+    /// and m_j are the access multiplicities for each table entry.
+    #[test]
+    fn read_only_memory_valid_accesses() {
+        let z = FE::from(100);
+
+        // Table: values [10, 20, 30, 40], multiplicities [2, 3, 2, 1]
+        let table_values: Vec<u64> = vec![10, 20, 30, 40];
+        let multiplicities: Vec<u64> = vec![2, 3, 2, 1];
+
+        // Accesses: [20, 10, 20, 30, 10, 20, 40, 30]
+        let accesses: Vec<u64> = vec![20, 10, 20, 30, 10, 20, 40, 30];
+
+        // Denominators = z - value
+        let access_dens: Vec<FE> = accesses.iter().map(|&a| z - FE::from(a)).collect();
+        let table_dens: Vec<FE> = table_values.iter().map(|&t| z - FE::from(t)).collect();
+        let table_mults: Vec<FE> = multiplicities.iter().map(|&m| FE::from(m)).collect();
+
+        // Access side: LogUpSingles (8 elements, 3 variables)
+        // Each access contributes 1/(z - a_i)
+        let access_layer = Layer::LogUpSingles {
+            denominators: Mle::new(access_dens),
+        };
+
+        // Table side: LogUpMultiplicities (4 elements, 2 variables)
+        // Each entry contributes m_j/(z - t_j)
+        let table_layer = Layer::LogUpMultiplicities {
+            numerators: Mle::new(table_mults),
+            denominators: Mle::new(table_dens),
+        };
+
+        // Batch prove both instances
+        let mut prover_channel = DefaultTranscript::<F>::new(&[]);
+        let (proof, _artifact) = prove_batch(&mut prover_channel, vec![access_layer, table_layer]);
+
+        // Batch verify
+        let mut verifier_channel = DefaultTranscript::<F>::new(&[]);
+        let result =
+            verifier::verify_batch(&[Gate::LogUp, Gate::LogUp], &proof, &mut verifier_channel);
+        assert!(result.is_ok(), "batch verification failed");
+
+        // Check that both instances produce the same fraction:
+        // access_num/access_den == table_num/table_den
+        // i.e. access_num * table_den == table_num * access_den
+        let access_output = &proof.output_claims_by_instance[0]; // [num, den]
+        let table_output = &proof.output_claims_by_instance[1]; // [num, den]
+        let lhs = access_output[0] * table_output[1];
+        let rhs = table_output[0] * access_output[1];
+        assert_eq!(lhs, rhs, "ROM check: fractions should be equal");
+    }
+
+    /// Same ROM table but with an invalid access (value 50 not in table).
+    /// The output fractions should NOT match.
+    #[test]
+    fn read_only_memory_invalid_access_detected() {
+        let z = FE::from(100);
+
+        // Table: [10, 20, 30, 40], multiplicities [2, 3, 2, 1]
+        let table_values: Vec<u64> = vec![10, 20, 30, 40];
+        let multiplicities: Vec<u64> = vec![2, 3, 2, 1];
+
+        // Accesses: one invalid access (50 instead of 40)
+        let accesses: Vec<u64> = vec![20, 10, 20, 30, 10, 20, 50, 30];
+
+        let access_dens: Vec<FE> = accesses.iter().map(|&a| z - FE::from(a)).collect();
+        let table_dens: Vec<FE> = table_values.iter().map(|&t| z - FE::from(t)).collect();
+        let table_mults: Vec<FE> = multiplicities.iter().map(|&m| FE::from(m)).collect();
+
+        let access_layer = Layer::LogUpSingles {
+            denominators: Mle::new(access_dens),
+        };
+        let table_layer = Layer::LogUpMultiplicities {
+            numerators: Mle::new(table_mults),
+            denominators: Mle::new(table_dens),
+        };
+
+        let mut prover_channel = DefaultTranscript::<F>::new(&[]);
+        let (proof, _artifact) = prove_batch(&mut prover_channel, vec![access_layer, table_layer]);
+
+        // GKR itself verifies fine (each instance is internally consistent)
+        let mut verifier_channel = DefaultTranscript::<F>::new(&[]);
+        let result =
+            verifier::verify_batch(&[Gate::LogUp, Gate::LogUp], &proof, &mut verifier_channel);
+        assert!(result.is_ok(), "GKR verification should still pass");
+
+        // But the ROM check fails: fractions don't match
+        let access_output = &proof.output_claims_by_instance[0];
+        let table_output = &proof.output_claims_by_instance[1];
+        let lhs = access_output[0] * table_output[1];
+        let rhs = table_output[0] * access_output[1];
+        assert_ne!(lhs, rhs, "ROM check should fail for invalid access");
     }
 }

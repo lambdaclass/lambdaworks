@@ -6,7 +6,7 @@ pub fn horner_eval<F: IsField>(coeffs: &[FieldElement<F>], x: &FieldElement<F>) 
     coeffs
         .iter()
         .rev()
-        .fold(FieldElement::zero(), |acc, coeff| &acc * x + coeff)
+        .fold(FieldElement::zero(), |acc, coeff| acc * x + coeff)
 }
 
 /// Evaluates the eq polynomial: `eq(x, y) = prod_i (x_i * y_i + (1 - x_i) * (1 - y_i))`.
@@ -56,7 +56,7 @@ mod tests {
         let coeffs = vec![FE::from(9), FE::from(2), FE::from(3)];
         let x = FE::from(7);
         let result = horner_eval(&coeffs, &x);
-        let expected = FE::from(9) + FE::from(2) * &x + FE::from(3) * &x * &x;
+        let expected = FE::from(9) + FE::from(2) * x + FE::from(3) * x * x;
         assert_eq!(result, expected);
     }
 
@@ -64,14 +64,8 @@ mod tests {
     fn eq_on_boolean_hypercube() {
         let one = FE::one();
         let zero = FE::zero();
-        assert_eq!(
-            eq(&[one.clone(), zero.clone()], &[one.clone(), zero.clone()]),
-            FE::one()
-        );
-        assert_eq!(
-            eq(&[one.clone(), zero.clone()], &[zero.clone(), one.clone()]),
-            FE::zero()
-        );
+        assert_eq!(eq(&[one, zero], &[one, zero]), FE::one());
+        assert_eq!(eq(&[one, zero], &[zero, one]), FE::zero());
     }
 
     #[test]

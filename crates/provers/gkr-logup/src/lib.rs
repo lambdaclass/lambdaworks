@@ -9,5 +9,7 @@ pub mod verifier;
 
 pub use fraction::Fraction;
 pub use layer::Layer;
-pub use prover::prove;
-pub use verifier::{verify, Gate, Proof, VerificationResult};
+pub use prover::{prove, prove_batch};
+pub use verifier::{
+    verify, verify_batch, BatchProof, BatchVerificationResult, Gate, Proof, VerificationResult,
+};
