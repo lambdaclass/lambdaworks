@@ -74,16 +74,21 @@ impl MSMConfig {
     /// Maximum supported window size (limited by i32 signed digit representation).
     pub const MAX_WINDOW_SIZE: usize = 30;
 
-    /// Returns the number of windows needed.
-    ///
-    /// # Panics
-    /// Panics if `window_size` is 0 or exceeds `MAX_WINDOW_SIZE`.
-    pub fn num_windows(&self) -> usize {
+    /// Validates that `window_size` is in the allowed range.
+    fn validate_window_size(&self) {
         assert!(
             self.window_size > 0 && self.window_size <= Self::MAX_WINDOW_SIZE,
             "window_size must be in 1..={}",
             Self::MAX_WINDOW_SIZE
         );
+    }
+
+    /// Returns the number of windows needed.
+    ///
+    /// # Panics
+    /// Panics if `window_size` is 0 or exceeds `MAX_WINDOW_SIZE`.
+    pub fn num_windows(&self) -> usize {
+        self.validate_window_size();
         let total_bits = self.num_limbs * self.bits_per_limb;
         total_bits.div_ceil(self.window_size)
     }
@@ -93,11 +98,7 @@ impl MSMConfig {
     /// # Panics
     /// Panics if `window_size` is 0 or exceeds `MAX_WINDOW_SIZE`.
     pub fn num_buckets(&self) -> usize {
-        assert!(
-            self.window_size > 0 && self.window_size <= Self::MAX_WINDOW_SIZE,
-            "window_size must be in 1..={}",
-            Self::MAX_WINDOW_SIZE
-        );
+        self.validate_window_size();
         1 << (self.window_size - 1)
     }
 }
