@@ -131,16 +131,16 @@ impl Poseidon2 {
     }
 
     /// Apply the S-box (x^7) to a single element
-    #[inline]
+    #[inline(always)]
     fn sbox(x: &Fp) -> Fp {
-        // x^7 = x^4 * x^2 * x
-        let x2 = x * x;
-        let x4 = &x2 * &x2;
+        let x2 = x.square();
+        let x4 = x2.square();
         let x6 = &x4 * &x2;
         &x6 * x
     }
 
     /// External round: AddRoundConstants + S-box (all elements) + External Linear Layer
+    #[inline]
     fn external_round(&mut self, round_constants: &[Fp; WIDTH]) {
         // Add round constants
         for (state_elem, rc) in self.state.iter_mut().zip(round_constants.iter()) {
@@ -157,6 +157,7 @@ impl Poseidon2 {
     }
 
     /// Internal round: AddRoundConstant (first element only) + S-box (first element only) + Internal Linear Layer
+    #[inline]
     fn internal_round(&mut self, round_constant: &Fp) {
         // Add round constant to first element only
         self.state[0] = &self.state[0] + round_constant;
@@ -200,17 +201,12 @@ impl Poseidon2 {
 
     /// External linear layer using Horizen Labs 4x4 MDS matrix applied to two halves
     /// For width 8: apply 4x4 MDS to state[0..4] and state[4..8], then diffuse
+    #[inline]
     fn external_linear_layer(&mut self) {
-        // Apply HL M4 to each 4-element chunk
-        let mut first_half: [Fp; 4] = core::array::from_fn(|i| self.state[i]);
-        let mut second_half: [Fp; 4] = core::array::from_fn(|i| self.state[i + 4]);
-
-        Self::apply_hl_mat4(&mut first_half);
-        Self::apply_hl_mat4(&mut second_half);
-
-        // Copy results back
-        self.state[..4].copy_from_slice(&first_half);
-        self.state[4..8].copy_from_slice(&second_half);
+        // Apply HL M4 to each 4-element chunk in-place
+        let (first, second) = self.state.split_at_mut(4);
+        Self::apply_hl_mat4(first.try_into().unwrap());
+        Self::apply_hl_mat4(second.try_into().unwrap());
 
         // Diffuse across blocks: add column sums back to each element
         for i in 0..4 {
@@ -223,6 +219,7 @@ impl Poseidon2 {
     /// Internal linear layer using diagonal matrix
     /// The matrix is: M_internal = diag(MATRIX_DIAG) + all-ones matrix
     /// Equivalently: y_i = diag_i * x_i + sum(x_j)
+    #[inline]
     fn internal_linear_layer(&mut self) {
         // Compute sum of all elements
         let mut sum = Fp::zero();
@@ -281,23 +278,14 @@ impl Poseidon2 {
         let mut hasher = Self::new();
 
         // Process complete chunks directly from input (no allocation)
-        let complete_chunks = inputs.len() / RATE;
-        for chunk in inputs.chunks_exact(RATE).take(complete_chunks) {
+        let chunks = inputs.chunks_exact(RATE);
+        let remainder = chunks.remainder();
+        for chunk in chunks {
             for (i, val) in chunk.iter().enumerate() {
                 hasher.state[i] = &hasher.state[i] + val;
             }
             hasher.permute();
         }
-
-        // Handle final partial chunk + 10* padding
-        let remainder = &inputs[complete_chunks * RATE..];
-
-        debug_assert!(
-            remainder.len() < RATE,
-            "remainder length {} must be < RATE ({})",
-            remainder.len(),
-            RATE
-        );
 
         // Absorb remaining elements
         for (i, val) in remainder.iter().enumerate() {
