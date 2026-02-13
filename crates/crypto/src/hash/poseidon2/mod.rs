@@ -325,6 +325,8 @@ impl Poseidon2 {
 
 #[cfg(test)]
 mod tests {
+    use alloc::vec::Vec;
+
     use super::goldilocks::MATRIX_DIAG_8;
     use super::*;
 
