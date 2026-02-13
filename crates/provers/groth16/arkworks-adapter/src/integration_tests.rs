@@ -163,7 +163,7 @@ fn exponentiation_example() -> Result<(), Groth16Error> {
     let mut acc = Fr::from(x);
     let mut _acc = cs.new_witness_variable(|| Ok(x)).unwrap();
 
-    for _ in 0..exp - 1 {
+    for _ in 0..exp.saturating_sub(1) {
         acc *= x;
         let _new_acc = cs.new_witness_variable(|| Ok(acc)).unwrap();
         cs.enforce_constraint(lc!() + _acc, lc!() + _x, lc!() + _new_acc)
