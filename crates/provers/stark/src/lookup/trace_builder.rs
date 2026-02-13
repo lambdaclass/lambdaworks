@@ -86,8 +86,14 @@ where
 
 /// Builds the accumulated column that sums all term columns across rows.
 ///
-/// `acc[0] = Σ term_columns[0]`
-/// `acc[i] = acc[i-1] + Σ term_columns[i]`
+/// `acc[0] = 0`  (verifier-known constant — no prover degree of freedom)
+/// `acc[i] = acc[i-1] + Σ term_columns[i-1]`  for i > 0
+///
+/// This means `acc[N-1] = Σ_{r=0}^{N-2} Σ_j terms_j[r]`, i.e. terms from
+/// rows 0..N-2 are folded into the accumulator. Row N-1 terms are NOT
+/// included in the chain (they are constrained by the degree-2 term
+/// constraint which has `end_exemptions = 0`). For correctness, padding
+/// rows must have zero multiplicity so their terms are zero.
 pub fn build_accumulated_column<F, E>(
     acc_column_idx: usize,
     num_term_columns: usize,
@@ -97,12 +103,16 @@ pub fn build_accumulated_column<F, E>(
     E: IsField + Send + Sync,
 {
     let trace_len = trace.num_rows();
-    let mut accumulated = FieldElement::<E>::zero();
 
-    for row in 0..trace_len {
+    // acc[0] = 0 (hardcoded, matches verifier boundary constraint)
+    trace.set_aux(0, acc_column_idx, FieldElement::<E>::zero());
+
+    let mut accumulated = FieldElement::<E>::zero();
+    for row in 1..trace_len {
+        // Sum terms from the *previous* row
         let mut row_sum = FieldElement::<E>::zero();
         for term_col in 0..num_term_columns {
-            row_sum += trace.get_aux(row, term_col).clone();
+            row_sum += trace.get_aux(row - 1, term_col).clone();
         }
         accumulated += row_sum;
         trace.set_aux(row, acc_column_idx, accumulated.clone());
