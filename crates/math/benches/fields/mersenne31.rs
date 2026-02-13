@@ -14,20 +14,25 @@ pub type F = FieldElement<Mersenne31Field>;
 pub type Fp2E = FieldElement<Degree2ExtensionField>;
 pub type Fp4E = FieldElement<Degree4ExtensionField>;
 
+/// Generates random Mersenne31 field elements for benchmarking.
+/// This function creates pairs of random field elements using the same pattern
+/// as other benchmark functions in the codebase.
 #[inline(never)]
 #[export_name = "util::rand_mersenne31_field_elements"]
 pub fn rand_field_elements(num: usize) -> Vec<(F, F)> {
     let mut result = Vec::with_capacity(num);
-    for _ in 0..result.capacity() {
+    for _ in 0..num {
         result.push((F::new(random()), F::new(random())));
     }
     result
 }
 
-//TODO: Check if this is the correct way to bench.
+/// Generates random Fp4E field elements for benchmarking.
+/// This function creates pairs of random Fp4E elements using the same pattern
+/// as other benchmark functions in the codebase.
 pub fn rand_fp4e(num: usize) -> Vec<(Fp4E, Fp4E)> {
     let mut result = Vec::with_capacity(num);
-    for _ in 0..result.capacity() {
+    for _ in 0..num {
         result.push((
             Fp4E::new([
                 Fp2E::new([F::new(random()), F::new(random())]),
