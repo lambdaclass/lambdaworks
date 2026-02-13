@@ -117,7 +117,7 @@ impl Poseidon2 {
         }
 
         // Internal rounds
-        for &round_constant in INTERNAL_ROUND_CONSTANTS.iter().take(INTERNAL_ROUNDS) {
+        for round_constant in INTERNAL_ROUND_CONSTANTS.iter().take(INTERNAL_ROUNDS) {
             self.internal_round(round_constant);
         }
 
@@ -141,10 +141,10 @@ impl Poseidon2 {
     }
 
     /// External round: AddRoundConstants + S-box (all elements) + External Linear Layer
-    fn external_round(&mut self, round_constants: &[u64; WIDTH]) {
+    fn external_round(&mut self, round_constants: &[Fp; WIDTH]) {
         // Add round constants
-        for (state_elem, &rc) in self.state.iter_mut().zip(round_constants.iter()) {
-            *state_elem = &*state_elem + &Fp::from(rc);
+        for (state_elem, rc) in self.state.iter_mut().zip(round_constants.iter()) {
+            *state_elem = &*state_elem + rc;
         }
 
         // Apply S-box to all elements
@@ -157,9 +157,9 @@ impl Poseidon2 {
     }
 
     /// Internal round: AddRoundConstant (first element only) + S-box (first element only) + Internal Linear Layer
-    fn internal_round(&mut self, round_constant: u64) {
+    fn internal_round(&mut self, round_constant: &Fp) {
         // Add round constant to first element only
-        self.state[0] = &self.state[0] + &Fp::from(round_constant);
+        self.state[0] = &self.state[0] + round_constant;
 
         // Apply S-box to first element only
         self.state[0] = Self::sbox(&self.state[0]);
@@ -230,10 +230,9 @@ impl Poseidon2 {
             sum = &sum + state_elem;
         }
 
-        // Apply: y_i = (diag_i - 1) * x_i + sum
-        for (state_elem, &diag_val) in self.state.iter_mut().zip(MATRIX_DIAG_8.iter()) {
-            let diag = Fp::from(diag_val);
-            *state_elem = &(&diag * &*state_elem) + &sum;
+        // Apply: y_i = diag_i * x_i + sum(all x_j)
+        for (state_elem, diag) in self.state.iter_mut().zip(MATRIX_DIAG_8.iter()) {
+            *state_elem = &(diag * &*state_elem) + &sum;
         }
     }
 
@@ -593,8 +592,7 @@ mod tests {
         hasher.state[0] = Fp::from(1u64);
         hasher.internal_linear_layer();
 
-        let diag0 = Fp::from(MATRIX_DIAG_8[0]);
-        let expected0 = &diag0 + &Fp::from(1u64);
+        let expected0 = &MATRIX_DIAG_8[0] + &Fp::from(1u64);
         assert_eq!(hasher.state[0], expected0, "ILL state[0]");
         assert_eq!(hasher.state[1], Fp::from(1u64), "ILL state[1]");
     }
