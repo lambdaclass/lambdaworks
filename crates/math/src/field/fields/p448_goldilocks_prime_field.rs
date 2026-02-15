@@ -250,7 +250,7 @@ impl IsPrimeField for P448GoldilocksPrimeField {
         Self::strong_reduce(&mut a);
 
         let mut r = U448::from_u64(0);
-        for i in (0..7).rev() {
+        for i in (0..8).rev() {
             r = r << 56;
             r = r + U448::from_u64(a.limbs[i]);
         }
