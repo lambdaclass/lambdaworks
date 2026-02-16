@@ -65,7 +65,6 @@ impl<const NUM_LIMBS: usize> Ord for UnsignedInteger<NUM_LIMBS> {
     }
 }
 
-/// impl from u128 for UnSignedInteger
 impl<const NUM_LIMBS: usize> From<u128> for UnsignedInteger<NUM_LIMBS> {
     fn from(value: u128) -> Self {
         let mut limbs = [0u64; NUM_LIMBS];
@@ -75,14 +74,12 @@ impl<const NUM_LIMBS: usize> From<u128> for UnsignedInteger<NUM_LIMBS> {
     }
 }
 
-/// impl from u64 for UnSignedInteger
 impl<const NUM_LIMBS: usize> From<u64> for UnsignedInteger<NUM_LIMBS> {
     fn from(value: u64) -> Self {
         Self::from_u64(value)
     }
 }
 
-/// impl from u16 for UnSignedInteger
 impl<const NUM_LIMBS: usize> From<u16> for UnsignedInteger<NUM_LIMBS> {
     fn from(value: u16) -> Self {
         let mut limbs = [0u64; NUM_LIMBS];
@@ -144,8 +141,6 @@ impl<const NUM_LIMBS: usize> UpperHex for UnsignedInteger<NUM_LIMBS> {
     }
 }
 
-// impl Add for both references and variables
-
 impl<const NUM_LIMBS: usize> Add<&UnsignedInteger<NUM_LIMBS>> for &UnsignedInteger<NUM_LIMBS> {
     type Output = UnsignedInteger<NUM_LIMBS>;
 
@@ -179,8 +174,6 @@ impl<const NUM_LIMBS: usize> Add<UnsignedInteger<NUM_LIMBS>> for &UnsignedIntege
         self + &other
     }
 }
-
-// impl Sub
 
 impl<const NUM_LIMBS: usize> Sub<&UnsignedInteger<NUM_LIMBS>> for &UnsignedInteger<NUM_LIMBS> {
     type Output = UnsignedInteger<NUM_LIMBS>;
@@ -339,8 +332,6 @@ impl<const NUM_LIMBS: usize> Shl<usize> for UnsignedInteger<NUM_LIMBS> {
     }
 }
 
-// impl Shr
-
 impl<const NUM_LIMBS: usize> Shr<usize> for &UnsignedInteger<NUM_LIMBS> {
     type Output = UnsignedInteger<NUM_LIMBS>;
     #[inline(always)]
@@ -381,7 +372,6 @@ impl<const NUM_LIMBS: usize> ShrAssign<usize> for UnsignedInteger<NUM_LIMBS> {
     }
 }
 
-/// Impl BitAnd
 impl<const NUM_LIMBS: usize> BitAnd for UnsignedInteger<NUM_LIMBS> {
     type Output = Self;
 
@@ -401,7 +391,6 @@ impl<const NUM_LIMBS: usize> BitAndAssign for UnsignedInteger<NUM_LIMBS> {
     }
 }
 
-/// Impl BitOr
 impl<const NUM_LIMBS: usize> BitOr for UnsignedInteger<NUM_LIMBS> {
     type Output = Self;
 
@@ -422,7 +411,6 @@ impl<const NUM_LIMBS: usize> BitOrAssign for UnsignedInteger<NUM_LIMBS> {
     }
 }
 
-/// Impl BitXor
 impl<const NUM_LIMBS: usize> BitXor for UnsignedInteger<NUM_LIMBS> {
     type Output = Self;
 
@@ -496,8 +484,6 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
             return Err(CreationError::InvalidHexString);
         }
 
-        // Limbs are of 64 bits - 8 bytes
-        // We have 16 nibbles per bytes
         let max_amount_of_hex_chars = NUM_LIMBS * 16;
         if string.len() > max_amount_of_hex_chars {
             return Err(CreationError::HexStringIsTooBig);
@@ -516,8 +502,6 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
         let mut shift = 0;
 
         let value_bytes = value.as_bytes();
-
-        // Remove "0x" if it's at the beginning of the string
         let mut i = 0;
         if value_bytes.len() > 2 && value_bytes[0] == b'0' && value_bytes[1] == b'x' {
             i = 2;
@@ -678,22 +662,15 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
         b: &UnsignedInteger<NUM_LIMBS>,
     ) -> (UnsignedInteger<NUM_LIMBS>, bool) {
         let mut limbs = [0u64; NUM_LIMBS];
-        // 1.
         let mut carry = false;
-        // 2.
         let mut i: usize = NUM_LIMBS;
         while i > 0 {
             i -= 1;
             let (x, cb) = a.limbs[i].overflowing_sub(b.limbs[i]);
             let (x, cc) = x.overflowing_sub(carry as u64);
-            // Casting i128 to u64 drops the most significant bits of i128,
-            // which effectively computes residue modulo 2^{64}
-            // 2.1
             limbs[i] = x;
-            // 2.2
             carry = cb | cc;
         }
-        // 3.
         (Self { limbs }, carry)
     }
 
@@ -706,17 +683,11 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
         // 1.
         let mut hi = [0u64; NUM_LIMBS];
         let mut lo = [0u64; NUM_LIMBS];
-        // Const functions don't support for loops so we use whiles
-        // this is equivalent to:
-        // for i in (0..NUM_LIMBS).rev()
-        // 2.
         let mut i = NUM_LIMBS;
         while i > 0 {
             i -= 1;
-            // 2.1
             let mut carry = 0u128;
             let mut j = NUM_LIMBS;
-            // 2.2
             while j > 0 {
                 j -= 1;
                 let mut k = i + j;
@@ -724,20 +695,16 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
                     k -= NUM_LIMBS - 1;
                     let uv = (lo[k] as u128) + (a.limbs[j] as u128) * (b.limbs[i] as u128) + carry;
                     carry = uv >> 64;
-                    // Casting u128 to u64 takes modulo 2^{64}
                     lo[k] = uv as u64;
                 } else {
                     let uv =
                         (hi[k + 1] as u128) + (a.limbs[j] as u128) * (b.limbs[i] as u128) + carry;
                     carry = uv >> 64;
-                    // Casting u128 to u64 takes modulo 2^{64}
                     hi[k + 1] = uv as u64;
                 }
             }
-            // 2.3
             hi[i] = carry as u64;
         }
-        // 3.
         (Self { limbs: hi }, Self { limbs: lo })
     }
 
