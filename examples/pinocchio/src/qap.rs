@@ -1,6 +1,5 @@
 use crate::{common::*, r1cs::R1CS};
 use lambdaworks_math::polynomial::Polynomial;
-use std::convert::From;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 /// QAP Representation of the circuits
@@ -58,80 +57,67 @@ impl QuadraticArithmeticProgram {
 
     /// Receives C elements of a solution of the circuit.
     /// Returns p polynomial.
-    // This along the polynomial execution should be migrated with a better
-    // representation of the circuit.
     pub fn p_polynomial(&self, cs: &[FE]) -> Polynomial<FE> {
-        let v: Polynomial<FE> = self.vs[0].clone()
-            + self.vs[1..]
-                .iter()
-                .zip(cs)
-                .map(|(v, c)| v.mul_with_ref(&Polynomial::new_monomial(c.clone(), 0)))
-                .reduce(|x, y| x + y)
-                .unwrap();
+        let eval = |polys: &[Polynomial<FE>]| -> Polynomial<FE> {
+            polys[0].clone()
+                + polys[1..]
+                    .iter()
+                    .zip(cs)
+                    .map(|(p, c)| p.mul_with_ref(&Polynomial::new_monomial(c.clone(), 0)))
+                    .reduce(|a, b| a + b)
+                    .unwrap()
+        };
 
-        let w: Polynomial<FE> = self.ws[0].clone()
-            + self.ws[1..]
-                .iter()
-                .zip(cs)
-                .map(|(w, c)| w.mul_with_ref(&Polynomial::new_monomial(c.clone(), 0)))
-                .reduce(|x, y| x + y)
-                .unwrap();
-
-        let y: Polynomial<FE> = self.ys[0].clone()
-            + self.ys[1..]
-                .iter()
-                .zip(cs)
-                .map(|(y, c)| y.mul_with_ref(&Polynomial::new_monomial(c.clone(), 0)))
-                .reduce(|x, y| x + y)
-                .unwrap();
-
+        let v = eval(&self.vs);
+        let w = eval(&self.ws);
+        let y = eval(&self.ys);
         v * w - y
     }
 
-    pub fn v_mid(&'_ self) -> &[Polynomial<FE>] {
+    pub fn v_mid(&self) -> &[Polynomial<FE>] {
         &self.vs[self.number_of_inputs + 1..(self.vs.len() - self.number_of_outputs)]
     }
 
-    pub fn w_mid(&'_ self) -> &[Polynomial<FE>] {
+    pub fn w_mid(&self) -> &[Polynomial<FE>] {
         &self.ws[self.number_of_inputs + 1..(self.ws.len() - self.number_of_outputs)]
     }
 
-    pub fn y_mid(&'_ self) -> &[Polynomial<FE>] {
+    pub fn y_mid(&self) -> &[Polynomial<FE>] {
         &self.ys[self.number_of_inputs + 1..(self.ys.len() - self.number_of_outputs)]
     }
 
-    pub fn v_input(&'_ self) -> &[Polynomial<FE>] {
+    pub fn v_input(&self) -> &[Polynomial<FE>] {
         &self.vs[1..self.number_of_inputs + 1]
     }
 
-    pub fn w_input(&'_ self) -> &[Polynomial<FE>] {
+    pub fn w_input(&self) -> &[Polynomial<FE>] {
         &self.ws[1..self.number_of_inputs + 1]
     }
 
-    pub fn y_input(&'_ self) -> &[Polynomial<FE>] {
+    pub fn y_input(&self) -> &[Polynomial<FE>] {
         &self.ys[1..self.number_of_inputs + 1]
     }
 
-    pub fn v0(&'_ self) -> &Polynomial<FE> {
+    pub fn v0(&self) -> &Polynomial<FE> {
         &self.vs[0]
     }
 
-    pub fn w0(&'_ self) -> &Polynomial<FE> {
+    pub fn w0(&self) -> &Polynomial<FE> {
         &self.ws[0]
     }
 
-    pub fn y0(&'_ self) -> &Polynomial<FE> {
+    pub fn y0(&self) -> &Polynomial<FE> {
         &self.ys[0]
     }
 
-    pub fn v_output(&'_ self) -> &[Polynomial<FE>] {
+    pub fn v_output(&self) -> &[Polynomial<FE>] {
         &self.vs[(self.vs.len() - self.number_of_outputs)..]
     }
-    pub fn w_output(&'_ self) -> &[Polynomial<FE>] {
+    pub fn w_output(&self) -> &[Polynomial<FE>] {
         &self.ws[(self.ws.len() - self.number_of_outputs)..]
     }
 
-    pub fn y_output(&'_ self) -> &[Polynomial<FE>] {
+    pub fn y_output(&self) -> &[Polynomial<FE>] {
         &self.ys[(self.ys.len() - self.number_of_outputs)..]
     }
 }

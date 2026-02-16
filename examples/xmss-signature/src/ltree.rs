@@ -42,7 +42,7 @@ pub fn ltree<H: XmssHasher>(
     while nodes.len() > 1 {
         address.set_tree_height(height);
 
-        let mut parent_nodes = Vec::new();
+        let mut parent_nodes = Vec::with_capacity((nodes.len() + 1) / 2);
         let mut i = 0;
 
         // Hash pairs of nodes

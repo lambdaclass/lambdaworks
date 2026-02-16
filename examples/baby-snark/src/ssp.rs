@@ -87,19 +87,15 @@ impl SquareSpanProgram {
     }
 
     pub fn check_valid(&self, input: &[FrElement]) -> bool {
-        for row in &self.matrix {
+        self.matrix.iter().all(|row| {
             let coef = row
                 .iter()
                 .zip(input)
                 .map(|(a, b)| a * b)
                 .reduce(|a, b| a + b)
                 .unwrap();
-
-            if (&coef * &coef).ne(&FrElement::one()) {
-                return false;
-            }
-        }
-        true
+            &coef * &coef == FrElement::one()
+        })
     }
 }
 
@@ -127,8 +123,7 @@ fn calculate_h_coefficients(
         .coefficients()
         .to_vec();
 
-    let pad = vec![FrElement::zero(); degree - h_coefficients.len()];
-    h_coefficients.extend(pad);
+    h_coefficients.resize(degree, FrElement::zero());
 
     h_coefficients
 }
