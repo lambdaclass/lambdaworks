@@ -46,42 +46,34 @@ impl Sha3Hasher {
         let dst_prime: Vec<u8> = [dst, &Self::i2osp(dst.len() as u64, 1)].concat();
         let z_pad = Self::i2osp(0, 64);
         let l_i_b_str = Self::i2osp(len_in_bytes, 2);
-        let msg_prime = [
-            z_pad,
-            msg.to_vec(),
-            l_i_b_str,
-            Self::i2osp(0, 1),
-            dst_prime.clone(),
-        ]
-        .concat();
-        let b_0: Vec<u8> = Sha3_256::digest(msg_prime).to_vec();
-        let a = [b_0.clone(), Self::i2osp(1, 1), dst_prime.clone()].concat();
-        let b_1 = Sha3_256::digest(a).to_vec();
+        let msg_prime = [&z_pad[..], msg, &l_i_b_str, &Self::i2osp(0, 1), &dst_prime].concat();
+        let b_0: Vec<u8> = Sha3_256::digest(&msg_prime).to_vec();
+        let b_1 = Sha3_256::digest([&b_0[..], &Self::i2osp(1, 1), &dst_prime].concat()).to_vec();
 
         let mut b_vals = Vec::<Vec<u8>>::with_capacity(ell as usize);
         b_vals.push(b_1);
         for idx in 1..ell {
             let aux = Self::strxor(&b_0, &b_vals[idx as usize - 1]);
-            let b_i = [aux, Self::i2osp(idx, 1), dst_prime.clone()].concat();
-            b_vals.push(Sha3_256::digest(b_i).to_vec());
+            let b_i = [&aux[..], &Self::i2osp(idx, 1), &dst_prime].concat();
+            b_vals.push(Sha3_256::digest(&b_i).to_vec());
         }
 
-        let mut b_vals = b_vals.concat();
-        b_vals.truncate(len_in_bytes as usize);
+        let mut result = b_vals.concat();
+        result.truncate(len_in_bytes as usize);
 
-        Ok(b_vals)
+        Ok(result)
     }
 
     fn i2osp(x: u64, length: u64) -> Vec<u8> {
-        let mut x_aux = x;
-        let mut digits = Vec::new();
-        while x_aux != 0 {
-            digits.push((x_aux % 256) as u8);
-            x_aux /= 256;
+        let bytes = x.to_be_bytes();
+        let len = length as usize;
+        if len >= 8 {
+            let mut result = vec![0u8; len - 8];
+            result.extend_from_slice(&bytes);
+            result
+        } else {
+            bytes[8 - len..].to_vec()
         }
-        digits.resize(length as usize, 0);
-        digits.reverse();
-        digits
     }
 
     fn strxor(a: &[u8], b: &[u8]) -> Vec<u8> {
