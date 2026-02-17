@@ -114,11 +114,13 @@ impl<F: IsFFTField + IsSubFieldOf<F>, const N: usize> PolynomialRingElement<F, N
     /// modulo X^N + 1.
     ///
     /// This is faster than schoolbook for large N but requires F to be FFT-friendly.
-    /// The field must have sufficient two-adicity for the FFT size needed
-    /// (at least 2 * N coefficients).
-    pub fn mul_ntt(&self, other: &Self) -> Result<Self, crate::fft::errors::FFTError> {
-        let product = self.poly.fast_fft_multiplication::<F>(other.poly())?;
-        Ok(Self::from_poly(product))
+    /// If the field does not have sufficient two-adicity for the required FFT size,
+    /// falls back to schoolbook multiplication.
+    pub fn mul_ntt(&self, other: &Self) -> Self {
+        match self.poly.fast_fft_multiplication::<F>(other.poly()) {
+            Ok(product) => Self::from_poly(product),
+            Err(_) => self.mul_schoolbook(other),
+        }
     }
 }
 
@@ -379,7 +381,7 @@ mod tests {
         let b = R256::new(&[fe(1), fe(4)]);
 
         let school = a.mul_schoolbook(&b);
-        let ntt = a.mul_ntt(&b).unwrap();
+        let ntt = a.mul_ntt(&b);
         assert_eq!(school, ntt);
     }
 
@@ -468,7 +470,7 @@ mod tests {
         let b = R256::new(&b_coeffs);
 
         let school = a.mul_schoolbook(&b);
-        let ntt = a.mul_ntt(&b).unwrap();
+        let ntt = a.mul_ntt(&b);
         assert_eq!(school, ntt);
     }
 
@@ -495,7 +497,7 @@ mod tests {
             #[test]
             fn prop_ntt_matches_schoolbook(a in ring_element(), b in ring_element()) {
                 let school = a.mul_schoolbook(&b);
-                let ntt = a.mul_ntt(&b).unwrap();
+                let ntt = a.mul_ntt(&b);
                 prop_assert_eq!(school, ntt);
             }
 

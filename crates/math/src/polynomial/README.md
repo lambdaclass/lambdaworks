@@ -91,6 +91,33 @@ Sparse polynomials support arithmetic operations (add, subtract, multiply) and c
 - R1CS constraint systems
 - Custom gates in PLONK-like systems
 
+## Quotient Ring Polynomials
+
+For lattice-based cryptography, we need to work in polynomial quotient rings of the form `Zq[X]/(X^N + 1)`. The [`PolynomialRingElement<F, N>`](./quotient_ring.rs) type provides this, wrapping a `Polynomial<FieldElement<F>>` with automatic reduction modulo `X^N + 1`.
+
+In the quotient ring, `X^N ≡ -1`: any polynomial of degree ≥ N wraps around with a sign flip on its coefficients. This negacyclic structure is central to schemes like Dilithium and Kyber.
+
+```rust
+use lambdaworks_math::field::element::FieldElement;
+use lambdaworks_math::field::fields::fft_friendly::dilithium_prime::DilithiumField;
+use lambdaworks_math::polynomial::quotient_ring::PolynomialRingElement;
+
+type FE = FieldElement<DilithiumField>;
+type R256 = PolynomialRingElement<DilithiumField, 256>;
+
+let a = R256::new(&[FE::from(1u64), FE::from(2u64)]);
+let b = R256::new(&[FE::from(3u64), FE::from(4u64)]);
+
+// Schoolbook multiplication with automatic reduction mod X^256 + 1
+let product = a.mul_schoolbook(&b);
+
+// FFT-based multiplication (faster for large N, requires FFT-friendly field)
+let product_ntt = a.mul_ntt(&b);
+assert_eq!(product, product_ntt);
+```
+
+The type also provides `infinity_norm()`, `centered_coefficient()`, and `is_small(bound)` for working with short vectors, which are central to lattice-based security. See the [lattice cryptography README](../../../crypto/src/lattice/README.md) for full mathematical background.
+
 ## Multilinear polynomials
 
 Multilinear polynomials are useful to define multilinear extensions of functions, which then play an important role in proof systems involving the [sumcheck protocol](../../../provers/sumcheck/README.md). There are two ways to define multilinear polynomials:
