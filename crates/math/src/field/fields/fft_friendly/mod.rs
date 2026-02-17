@@ -1,5 +1,7 @@
 /// Implementation of the Babybear Prime Field p = 2^31 - 2^27 + 1 using u32
 pub mod babybear;
+/// Implementation of the Dilithium Prime Field q = 8380417 = 2^13 * 1023 + 1
+pub mod dilithium_prime;
 /// Implementation of the KoalaBear Prime Field p = 2^31 - 2^24 + 1 using u32
 pub mod koalabear;
 /// Implementation of the extension of degree 4 of the babybear field
