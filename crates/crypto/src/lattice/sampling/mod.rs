@@ -21,7 +21,7 @@ const Q: u64 = 8380417;
 /// Each entry A[i][j] is a polynomial in Rq = Zq[X]/(X^N + 1) sampled
 /// by rejection from a SHAKE-128 stream seeded with (seed || j || i).
 ///
-/// Based on FIPS 204, Algorithm 30 (ExpandA).
+/// Based on FIPS 204 (final), Algorithm 32 (ExpandA).
 pub fn expand_a<const N: usize>(
     seed: &[u8],
     k: usize,
@@ -49,7 +49,7 @@ pub fn expand_a<const N: usize>(
 /// Each polynomial is sampled from a SHAKE-256 stream seeded with
 /// (seed || nonce), where nonce is the polynomial index.
 ///
-/// Based on FIPS 204, Algorithm 31 (ExpandS).
+/// Based on FIPS 204 (final), Algorithm 33 (ExpandS).
 pub fn expand_s<const N: usize>(
     seed: &[u8],
     eta: u32,
@@ -62,7 +62,7 @@ pub fn expand_s<const N: usize>(
         // 2-byte little-endian nonce
         shake.update(&(nonce as u16).to_le_bytes());
         let mut reader = shake.finalize_xof();
-        let poly = sample_cbd::<N>(&mut reader, eta);
+        let poly = sample_bounded_poly::<N>(&mut reader, eta);
         polys.push(poly);
     }
     polys
@@ -70,10 +70,11 @@ pub fn expand_s<const N: usize>(
 
 /// Samples a single polynomial with uniform coefficients in [0, q) via rejection.
 ///
-/// Reads 3 bytes at a time from the XOF stream, forms a 24-bit value,
-/// and rejects values >= q.
+/// Reads 3 bytes at a time from the XOF stream, forms a 23-bit value
+/// (masking the top bit of the third byte), and rejects values >= q.
 ///
-/// Based on FIPS 204, Algorithm 14 (RejNTTPol).
+/// Based on FIPS 204 (final), Algorithm 30 (RejNTTPoly), which calls
+/// Algorithm 14 (CoefFromThreeBytes) for each 3-byte chunk.
 fn sample_ntt_poly<const N: usize>(
     reader: &mut impl XofReader,
 ) -> PolynomialRingElement<DilithiumField, N> {
@@ -88,9 +89,9 @@ fn sample_ntt_poly<const N: usize>(
 
 /// Rejection sampling: reads 3 bytes and returns a value in [0, q) or None.
 ///
-/// Based on FIPS 204, Algorithm 14 (CoeffFromThreeBytes).
-/// Reads 3 bytes, forms a 24-bit integer with the top bit of the third byte
-/// masked off (giving a 23-bit value), and rejects if >= q.
+/// Based on FIPS 204 (final), Algorithm 14 (CoefFromThreeBytes).
+/// Reads 3 bytes, masks the top bit of the third byte to form a 23-bit
+/// candidate, and rejects if >= q.
 pub fn sample_uniform(reader: &mut impl XofReader) -> Option<u64> {
     let mut buf = [0u8; 3];
     reader.read(&mut buf);
@@ -102,13 +103,15 @@ pub fn sample_uniform(reader: &mut impl XofReader) -> Option<u64> {
     }
 }
 
-/// Samples a polynomial with coefficients in [-eta, eta] using centered binomial distribution.
+/// Samples a polynomial with small coefficients in [-eta, eta] via rejection
+/// over half-bytes (nibbles).
 ///
-/// For eta = 2: reads 1 byte per 2 coefficients.
-/// For eta = 4: reads 1 byte per coefficient (4 bits each half).
+/// For eta = 2: reads 1 byte per 2 coefficients, each nibble mapped to [-2, 2].
+/// For eta = 4: reads 1 byte per coefficient, each nibble mapped to [-4, 4].
 ///
-/// Based on FIPS 204, Algorithm 15 (RejBoundedPoly / CBD).
-fn sample_cbd<const N: usize>(
+/// Based on FIPS 204 (final), Algorithm 31 (RejBoundedPoly), which calls
+/// Algorithm 15 (CoefFromHalfByte) for each nibble.
+fn sample_bounded_poly<const N: usize>(
     reader: &mut impl XofReader,
     eta: u32,
 ) -> PolynomialRingElement<DilithiumField, N> {
@@ -158,7 +161,7 @@ fn sample_cbd<const N: usize>(
 /// For gamma1 = 2^17: 18-bit encoding (9 bytes per 4 coefficients).
 /// For gamma1 = 2^19: 20-bit encoding (5 bytes per 2 coefficients).
 ///
-/// Based on FIPS 204, Algorithm 34 (ExpandMask).
+/// Based on FIPS 204 (final), Algorithm 34 (ExpandMask).
 pub fn sample_mask<const N: usize>(
     seed: &[u8],
     gamma1: u32,
@@ -226,7 +229,7 @@ pub fn sample_mask<const N: usize>(
 /// Samples the challenge polynomial c with exactly tau non-zero coefficients,
 /// each being +1 or -1.
 ///
-/// Based on FIPS 204, Algorithm 16 (SampleInBall).
+/// Based on FIPS 204 (final), Algorithm 29 (SampleInBall).
 /// The Hamming weight of the result is exactly tau.
 pub fn sample_challenge<const N: usize>(
     seed: &[u8],
@@ -247,7 +250,7 @@ pub fn sample_challenge<const N: usize>(
         // Sample j uniformly from [0, i]
         let j = sample_index(&mut reader, i + 1);
 
-        // c[i] ← c[j], then c[j] ← ±1 (per FIPS 204 Algorithm 16)
+        // c[i] ← c[j], then c[j] ← ±1 (per FIPS 204 Algorithm 29)
         coeffs[i] = coeffs[j];
 
         let bit_index = i - (N - tau);
