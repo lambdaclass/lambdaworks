@@ -5,6 +5,7 @@
 ///
 /// This module is designed for lattice-based cryptography (Dilithium, Kyber)
 /// where the ring Rq = Zq[X]/(X^n + 1) is fundamental.
+use crate::fft::errors::FFTError;
 use crate::field::element::FieldElement;
 use crate::field::traits::{IsFFTField, IsField, IsPrimeField, IsSubFieldOf};
 use crate::polynomial::Polynomial;
@@ -119,6 +120,80 @@ impl<F: IsFFTField + IsSubFieldOf<F>, const N: usize> PolynomialRingElement<F, N
     pub fn mul_ntt(&self, other: &Self) -> Self {
         match self.poly.fast_fft_multiplication::<F>(other.poly()) {
             Ok(product) => Self::from_poly(product),
+            Err(_) => self.mul_schoolbook(other),
+        }
+    }
+
+    /// Negacyclic NTT multiplication: uses size-N NTT instead of size-2N,
+    /// giving ~2x speedup over standard FFT multiplication.
+    ///
+    /// Pre-multiplies coefficients by powers of psi (a 2N-th root of unity),
+    /// performs size-N NTT, pointwise multiplies, inverse NTT, then
+    /// post-multiplies by psi^(-i). The result is already reduced mod X^N + 1.
+    ///
+    /// Falls back to schoolbook if the field lacks sufficient two-adicity.
+    pub fn mul_negacyclic_ntt(&self, other: &Self) -> Self {
+        let neg_ntt = || -> Result<Self, FFTError> {
+            // psi = primitive 2N-th root of unity
+            let order = (2 * N).trailing_zeros() as u64; // log2(2N)
+            let psi: FieldElement<F> = F::get_primitive_root_of_unity(order)
+                .map_err(|_| FFTError::RootOfUnityError(order))?;
+
+            // Pad to N coefficients
+            let a_coeffs = self.padded_coefficients();
+            let b_coeffs = other.padded_coefficients();
+
+            // Twist: multiply a[i] and b[i] by psi^i
+            let mut a_twisted = Vec::with_capacity(N);
+            let mut b_twisted = Vec::with_capacity(N);
+            let mut psi_pow = FieldElement::one();
+            for i in 0..N {
+                a_twisted.push(&a_coeffs[i] * &psi_pow);
+                b_twisted.push(&b_coeffs[i] * &psi_pow);
+                if i < N - 1 {
+                    psi_pow = &psi_pow * &psi;
+                }
+            }
+
+            // Forward NTT of size N
+            let a_poly = Polynomial::new(&a_twisted);
+            let b_poly = Polynomial::new(&b_twisted);
+            let a_evals = Polynomial::evaluate_fft::<F>(&a_poly, 1, Some(N))?;
+            let b_evals = Polynomial::evaluate_fft::<F>(&b_poly, 1, Some(N))?;
+
+            // Pointwise multiply
+            let c_evals: Vec<_> = a_evals
+                .iter()
+                .zip(b_evals.iter())
+                .map(|(a, b)| a * b)
+                .collect();
+
+            // Inverse NTT of size N
+            let c_poly = Polynomial::interpolate_fft::<F>(&c_evals)?;
+
+            // Untwist: multiply c[i] by psi^(-i)
+            let psi_inv = psi.inv().map_err(|_| FFTError::InverseOfZero)?;
+            let mut psi_inv_pow = FieldElement::one();
+            let c_coeffs = c_poly.coefficients();
+            let mut result = Vec::with_capacity(N);
+            for i in 0..N {
+                if i < c_coeffs.len() {
+                    result.push(&c_coeffs[i] * &psi_inv_pow);
+                } else {
+                    result.push(FieldElement::zero());
+                }
+                if i < N - 1 {
+                    psi_inv_pow = &psi_inv_pow * &psi_inv;
+                }
+            }
+
+            Ok(Self {
+                poly: Polynomial::new(&result),
+            })
+        };
+
+        match neg_ntt() {
+            Ok(product) => product,
             Err(_) => self.mul_schoolbook(other),
         }
     }
@@ -474,6 +549,45 @@ mod tests {
         assert_eq!(school, ntt);
     }
 
+    #[test]
+    fn negacyclic_ntt_matches_schoolbook() {
+        // Small polynomials: (2 + 3X + X²) * (1 + 4X)
+        let a = R256::new(&[fe(2), fe(3), fe(1)]);
+        let b = R256::new(&[fe(1), fe(4)]);
+
+        let school = a.mul_schoolbook(&b);
+        let neg_ntt = a.mul_negacyclic_ntt(&b);
+        assert_eq!(school, neg_ntt);
+    }
+
+    #[test]
+    fn negacyclic_ntt_matches_schoolbook_random_like() {
+        // 64-coeff deterministic polynomials
+        let a_coeffs: Vec<FE> = (0..64).map(|i| fe((i * 7 + 13) % Q)).collect();
+        let b_coeffs: Vec<FE> = (0..64).map(|i| fe((i * 11 + 37) % Q)).collect();
+
+        let a = R256::new(&a_coeffs);
+        let b = R256::new(&b_coeffs);
+
+        let school = a.mul_schoolbook(&b);
+        let neg_ntt = a.mul_negacyclic_ntt(&b);
+        assert_eq!(school, neg_ntt);
+    }
+
+    #[test]
+    fn negacyclic_ntt_matches_standard_fft() {
+        // Verify negacyclic matches the old FFT+reduce approach
+        let a_coeffs: Vec<FE> = (0..128).map(|i| fe((i * 13 + 5) % Q)).collect();
+        let b_coeffs: Vec<FE> = (0..128).map(|i| fe((i * 17 + 11) % Q)).collect();
+
+        let a = R256::new(&a_coeffs);
+        let b = R256::new(&b_coeffs);
+
+        let standard = a.mul_ntt(&b);
+        let neg_ntt = a.mul_negacyclic_ntt(&b);
+        assert_eq!(standard, neg_ntt);
+    }
+
     #[cfg(feature = "std")]
     mod proptests {
         use super::*;
@@ -499,6 +613,13 @@ mod tests {
                 let school = a.mul_schoolbook(&b);
                 let ntt = a.mul_ntt(&b);
                 prop_assert_eq!(school, ntt);
+            }
+
+            #[test]
+            fn prop_negacyclic_ntt_matches_schoolbook(a in ring_element(), b in ring_element()) {
+                let school = a.mul_schoolbook(&b);
+                let neg_ntt = a.mul_negacyclic_ntt(&b);
+                prop_assert_eq!(school, neg_ntt);
             }
 
             #[test]
