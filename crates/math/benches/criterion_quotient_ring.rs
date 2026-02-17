@@ -1,7 +1,7 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::fields::fft_friendly::dilithium_prime::DilithiumField;
-use lambdaworks_math::polynomial::quotient_ring::PolynomialRingElement;
+use lambdaworks_math::polynomial::quotient_ring::{NegacyclicTwistFactors, PolynomialRingElement};
 
 type FE = FieldElement<DilithiumField>;
 type R256 = PolynomialRingElement<DilithiumField, 256>;
@@ -21,17 +21,18 @@ fn quotient_ring_benchmarks(c: &mut Criterion) {
 
     let a = make_ring_element(7);
     let b = make_ring_element(13);
+    let factors = NegacyclicTwistFactors::<DilithiumField, 256>::new().unwrap();
 
     group.bench_function("schoolbook", |bench| {
         bench.iter(|| black_box(&a).mul_schoolbook(black_box(&b)))
     });
 
-    group.bench_function("ntt_standard", |bench| {
+    group.bench_function("negacyclic_ntt", |bench| {
         bench.iter(|| black_box(&a).mul_ntt(black_box(&b)))
     });
 
-    group.bench_function("negacyclic_ntt", |bench| {
-        bench.iter(|| black_box(&a).mul_negacyclic_ntt(black_box(&b)))
+    group.bench_function("negacyclic_ntt_precomputed", |bench| {
+        bench.iter(|| black_box(&a).mul_ntt_with_factors(black_box(&b), black_box(&factors)))
     });
 
     group.finish();
