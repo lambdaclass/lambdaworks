@@ -378,9 +378,383 @@ mod tests {
         let col1: Vec<FpE> = (0..8).map(|i| FpE::from(i as u64)).collect();
         let col2: Vec<FpE> = (0..8).map(|i| FpE::from(i as u64 + 100)).collect();
         let (tree, root) = cpu_batch_commit(&[col1, col2]).unwrap();
-        // Root should be non-zero
         assert_ne!(root, [0u8; 32]);
-        // Tree should have leaves
         assert!(tree.root != [0u8; 32]);
+    }
+}
+
+#[cfg(all(test, target_os = "macos", feature = "metal"))]
+mod gpu_tests {
+    use super::*;
+    use lambdaworks_math::field::element::FieldElement;
+    use lambdaworks_math::field::fields::u64_goldilocks_field::Goldilocks64Field;
+    use lambdaworks_math::traits::AsBytes;
+    use sha3::{Digest, Keccak256};
+    use stark_platinum_prover::trace::columns2rows_bit_reversed;
+
+    type FpE = FieldElement<Goldilocks64Field>;
+
+    // =========================================================================
+    // Task 4: GPU Keccak256 differential tests
+    // =========================================================================
+
+    /// Helper: compute CPU Keccak256 hash of a row of field elements
+    fn cpu_hash_row(row: &[FpE]) -> [u8; 32] {
+        let mut hasher = Keccak256::new();
+        for element in row.iter() {
+            hasher.update(element.as_bytes());
+        }
+        let mut result = [0u8; 32];
+        result.copy_from_slice(&hasher.finalize());
+        result
+    }
+
+    /// Helper: compute CPU Keccak256 hash of two 32-byte children
+    fn cpu_hash_pair(left: &[u8; 32], right: &[u8; 32]) -> [u8; 32] {
+        let mut hasher = Keccak256::new();
+        hasher.update(left);
+        hasher.update(right);
+        let mut result = [0u8; 32];
+        result.copy_from_slice(&hasher.finalize());
+        result
+    }
+
+    #[test]
+    fn gpu_keccak256_leaf_hashes_match_cpu() {
+        let keccak_state = GpuKeccakMerkleState::new().unwrap();
+
+        // 3 columns × 256 rows of field elements
+        let num_cols = 3;
+        let num_rows = 256;
+        let rows: Vec<Vec<FpE>> = (0..num_rows)
+            .map(|r| {
+                (0..num_cols)
+                    .map(|c| FpE::from((r * num_cols + c + 1) as u64))
+                    .collect()
+            })
+            .collect();
+
+        let gpu_hashes = gpu_hash_leaves_goldilocks(&rows, &keccak_state).unwrap();
+        assert_eq!(gpu_hashes.len(), num_rows);
+
+        for (i, row) in rows.iter().enumerate() {
+            let cpu_hash = cpu_hash_row(row);
+            assert_eq!(
+                gpu_hashes[i], cpu_hash,
+                "Leaf hash mismatch at row {i}: GPU={:?} CPU={:?}",
+                &gpu_hashes[i][..4],
+                &cpu_hash[..4]
+            );
+        }
+    }
+
+    #[test]
+    fn gpu_keccak256_leaf_hashes_single_column() {
+        let keccak_state = GpuKeccakMerkleState::new().unwrap();
+
+        // 1 column × 128 rows
+        let rows: Vec<Vec<FpE>> = (0..128)
+            .map(|r| vec![FpE::from(r as u64 + 42)])
+            .collect();
+
+        let gpu_hashes = gpu_hash_leaves_goldilocks(&rows, &keccak_state).unwrap();
+
+        for (i, row) in rows.iter().enumerate() {
+            let cpu_hash = cpu_hash_row(row);
+            assert_eq!(
+                gpu_hashes[i], cpu_hash,
+                "Single-column leaf hash mismatch at row {i}"
+            );
+        }
+    }
+
+    #[test]
+    fn gpu_keccak256_leaf_hashes_wide_rows() {
+        let keccak_state = GpuKeccakMerkleState::new().unwrap();
+
+        // 8 columns × 64 rows (simulating composition poly with paired rows)
+        let num_cols = 8;
+        let num_rows = 64;
+        let rows: Vec<Vec<FpE>> = (0..num_rows)
+            .map(|r| {
+                (0..num_cols)
+                    .map(|c| FpE::from((r * 1000 + c * 7 + 13) as u64))
+                    .collect()
+            })
+            .collect();
+
+        let gpu_hashes = gpu_hash_leaves_goldilocks(&rows, &keccak_state).unwrap();
+
+        for (i, row) in rows.iter().enumerate() {
+            let cpu_hash = cpu_hash_row(row);
+            assert_eq!(
+                gpu_hashes[i], cpu_hash,
+                "Wide-row leaf hash mismatch at row {i}"
+            );
+        }
+    }
+
+    #[test]
+    fn gpu_keccak256_pair_hashes_match_cpu() {
+        let keccak_state = GpuKeccakMerkleState::new().unwrap();
+
+        // Create 256 random-ish hashes (enough to exercise GPU path, threshold is 64)
+        let children: Vec<[u8; 32]> = (0..256)
+            .map(|i| {
+                let mut hash = [0u8; 32];
+                // Fill with deterministic pattern
+                for (j, byte) in hash.iter_mut().enumerate() {
+                    *byte = ((i * 31 + j * 7 + 13) % 256) as u8;
+                }
+                hash
+            })
+            .collect();
+
+        let gpu_parents = gpu_hash_tree_level(&children, &keccak_state).unwrap();
+        assert_eq!(gpu_parents.len(), 128);
+
+        for i in 0..128 {
+            let cpu_parent = cpu_hash_pair(&children[2 * i], &children[2 * i + 1]);
+            assert_eq!(
+                gpu_parents[i], cpu_parent,
+                "Pair hash mismatch at index {i}"
+            );
+        }
+    }
+
+    #[test]
+    fn gpu_keccak256_full_tree_matches_cpu_batch_commit() {
+        let keccak_state = GpuKeccakMerkleState::new().unwrap();
+
+        // 3 columns × 256 rows (typical LDE data)
+        let num_cols = 3;
+        let num_rows = 256;
+        let columns: Vec<Vec<FpE>> = (0..num_cols)
+            .map(|c| {
+                (0..num_rows)
+                    .map(|r| FpE::from((c * num_rows + r + 1) as u64))
+                    .collect()
+            })
+            .collect();
+
+        // CPU path: columns2rows_bit_reversed + cpu_batch_commit
+        let cpu_rows = columns2rows_bit_reversed(&columns);
+        let (cpu_tree, cpu_root) = cpu_batch_commit(&cpu_rows).unwrap();
+
+        // GPU path: gpu_batch_commit_goldilocks
+        let (gpu_tree, gpu_root) =
+            gpu_batch_commit_goldilocks(&columns, &keccak_state).unwrap();
+
+        // Roots must match
+        assert_eq!(
+            gpu_root, cpu_root,
+            "Merkle root mismatch: GPU={:?} CPU={:?}",
+            &gpu_root[..8],
+            &cpu_root[..8]
+        );
+
+        // Verify proof extraction compatibility: proofs at multiple positions must match
+        for pos in [0, 1, num_rows / 2, num_rows - 1] {
+            let cpu_proof = cpu_tree.get_proof_by_pos(pos);
+            let gpu_proof = gpu_tree.get_proof_by_pos(pos);
+            assert_eq!(
+                cpu_proof.is_some(),
+                gpu_proof.is_some(),
+                "Proof availability mismatch at pos {pos}"
+            );
+            if let (Some(cp), Some(gp)) = (cpu_proof, gpu_proof) {
+                assert_eq!(
+                    cp.merkle_path, gp.merkle_path,
+                    "Proof path mismatch at pos {pos}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn gpu_keccak256_tree_non_power_of_two_leaves() {
+        let keccak_state = GpuKeccakMerkleState::new().unwrap();
+
+        // 2 columns × 200 rows (non-power-of-two, triggers padding)
+        let num_cols = 2;
+        let num_rows = 200;
+        let columns: Vec<Vec<FpE>> = (0..num_cols)
+            .map(|c| {
+                (0..num_rows)
+                    .map(|r| FpE::from((c * 1000 + r + 1) as u64))
+                    .collect()
+            })
+            .collect();
+
+        let cpu_rows = columns2rows_bit_reversed(&columns);
+        let (_, cpu_root) = cpu_batch_commit(&cpu_rows).unwrap();
+
+        // For non-power-of-two, gpu_transpose_bitrev requires power-of-two rows.
+        // So we use the CPU transpose + GPU hashing path instead.
+        let leaf_hashes = gpu_hash_leaves_goldilocks(&cpu_rows, &keccak_state).unwrap();
+        let (_, gpu_root) = gpu_build_merkle_tree(&leaf_hashes, &keccak_state).unwrap();
+
+        assert_eq!(
+            gpu_root, cpu_root,
+            "Non-power-of-two tree root mismatch"
+        );
+    }
+
+    // =========================================================================
+    // Task 5: GPU transpose + bit-reverse differential tests
+    // =========================================================================
+
+    #[test]
+    fn gpu_transpose_bitrev_matches_cpu() {
+        let keccak_state = GpuKeccakMerkleState::new().unwrap();
+
+        // 3 columns × 256 rows (power of two)
+        let num_cols = 3;
+        let num_rows = 256;
+        let columns: Vec<Vec<FpE>> = (0..num_cols)
+            .map(|c| {
+                (0..num_rows)
+                    .map(|r| FpE::from((c * num_rows + r + 1) as u64))
+                    .collect()
+            })
+            .collect();
+
+        let cpu_rows = columns2rows_bit_reversed(&columns);
+        let gpu_rows = gpu_transpose_bitrev(&columns, &keccak_state).unwrap();
+
+        assert_eq!(gpu_rows.len(), cpu_rows.len(), "Row count mismatch");
+        for (i, (gpu_row, cpu_row)) in gpu_rows.iter().zip(cpu_rows.iter()).enumerate() {
+            assert_eq!(
+                gpu_row.len(),
+                cpu_row.len(),
+                "Row {i} column count mismatch"
+            );
+            for (j, (g, c)) in gpu_row.iter().zip(cpu_row.iter()).enumerate() {
+                assert_eq!(g, c, "Mismatch at row {i}, col {j}");
+            }
+        }
+    }
+
+    #[test]
+    fn gpu_transpose_bitrev_small() {
+        let keccak_state = GpuKeccakMerkleState::new().unwrap();
+
+        // 2 columns × 8 rows (small case)
+        let columns: Vec<Vec<FpE>> = vec![
+            (0..8).map(|i| FpE::from(i as u64)).collect(),
+            (0..8).map(|i| FpE::from(i as u64 + 100)).collect(),
+        ];
+
+        let cpu_rows = columns2rows_bit_reversed(&columns);
+        let gpu_rows = gpu_transpose_bitrev(&columns, &keccak_state).unwrap();
+
+        assert_eq!(gpu_rows.len(), cpu_rows.len());
+        for (i, (gpu_row, cpu_row)) in gpu_rows.iter().zip(cpu_rows.iter()).enumerate() {
+            for (j, (g, c)) in gpu_row.iter().zip(cpu_row.iter()).enumerate() {
+                assert_eq!(g, c, "Mismatch at row {i}, col {j}");
+            }
+        }
+    }
+
+    // =========================================================================
+    // Task 6: Integrated gpu_batch_commit differential test
+    // =========================================================================
+
+    #[test]
+    fn gpu_batch_commit_matches_cpu() {
+        let keccak_state = GpuKeccakMerkleState::new().unwrap();
+
+        // Simulate realistic LDE data: 3 columns × 512 rows
+        let num_cols = 3;
+        let num_rows = 512;
+        let columns: Vec<Vec<FpE>> = (0..num_cols)
+            .map(|c| {
+                (0..num_rows)
+                    .map(|r| FpE::from((c * num_rows + r + 1) as u64))
+                    .collect()
+            })
+            .collect();
+
+        // CPU path
+        let cpu_rows = columns2rows_bit_reversed(&columns);
+        let (cpu_tree, cpu_root) = cpu_batch_commit(&cpu_rows).unwrap();
+
+        // GPU path
+        let (gpu_tree, gpu_root) =
+            gpu_batch_commit_goldilocks(&columns, &keccak_state).unwrap();
+
+        assert_eq!(gpu_root, cpu_root, "Batch commit root mismatch");
+
+        // Verify proof compatibility at multiple positions
+        for pos in [0, 1, num_rows / 4, num_rows / 2, num_rows - 1] {
+            let cpu_proof = cpu_tree.get_proof_by_pos(pos);
+            let gpu_proof = gpu_tree.get_proof_by_pos(pos);
+            assert_eq!(
+                cpu_proof.is_some(),
+                gpu_proof.is_some(),
+                "Batch commit proof availability mismatch at pos {pos}"
+            );
+            if let (Some(cp), Some(gp)) = (cpu_proof, gpu_proof) {
+                assert_eq!(
+                    cp.merkle_path, gp.merkle_path,
+                    "Batch commit proof path mismatch at pos {pos}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn gpu_batch_commit_paired_matches_cpu() {
+        let keccak_state = GpuKeccakMerkleState::new().unwrap();
+
+        use lambdaworks_math::fft::cpu::bit_reversing::in_place_bit_reverse_permute;
+
+        // Simulate composition poly LDE: 2 parts × 128 evaluations
+        let num_parts = 2;
+        let lde_len = 128;
+        let lde_evaluations: Vec<Vec<FpE>> = (0..num_parts)
+            .map(|p| {
+                (0..lde_len)
+                    .map(|i| FpE::from((p * lde_len + i + 1) as u64))
+                    .collect()
+            })
+            .collect();
+
+        // CPU path: transpose + bit-reverse + pair + commit
+        let mut cpu_rows: Vec<Vec<FpE>> = (0..lde_len)
+            .map(|i| lde_evaluations.iter().map(|col| col[i].clone()).collect())
+            .collect();
+        in_place_bit_reverse_permute(&mut cpu_rows);
+        let mut merged_rows = Vec::with_capacity(lde_len / 2);
+        let mut iter = cpu_rows.into_iter();
+        while let (Some(mut chunk0), Some(chunk1)) = (iter.next(), iter.next()) {
+            chunk0.extend(chunk1);
+            merged_rows.push(chunk0);
+        }
+        let (cpu_tree, cpu_root) = cpu_batch_commit(&merged_rows).unwrap();
+
+        // GPU path
+        let (gpu_tree, gpu_root) =
+            gpu_batch_commit_paired_goldilocks(&lde_evaluations, &keccak_state).unwrap();
+
+        assert_eq!(gpu_root, cpu_root, "Paired commit root mismatch");
+
+        // Verify proof compatibility
+        let num_leaves = lde_len / 2;
+        for pos in [0, 1, num_leaves / 2, num_leaves - 1] {
+            let cpu_proof = cpu_tree.get_proof_by_pos(pos);
+            let gpu_proof = gpu_tree.get_proof_by_pos(pos);
+            assert_eq!(
+                cpu_proof.is_some(),
+                gpu_proof.is_some(),
+                "Paired commit proof availability mismatch at pos {pos}"
+            );
+            if let (Some(cp), Some(gp)) = (cpu_proof, gpu_proof) {
+                assert_eq!(
+                    cp.merkle_path, gp.merkle_path,
+                    "Paired commit proof path mismatch at pos {pos}"
+                );
+            }
+        }
     }
 }
