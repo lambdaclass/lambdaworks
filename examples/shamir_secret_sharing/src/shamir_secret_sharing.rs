@@ -24,34 +24,24 @@ impl<F: IsField> ShamirSecretSharing<F> {
     where
         Standard: Distribution<<F as IsField>::BaseType>,
     {
-        let mut coefficients = Vec::new();
-        coefficients.push(self.secret.clone());
-        for _ in 0..self.k - 1 {
-            coefficients.push(FieldElement::<F>::new(random()));
-        }
-
-        let polynomial = Polynomial::new(coefficients.as_slice());
-        polynomial
+        let coefficients: Vec<_> = std::iter::once(self.secret.clone())
+            .chain((0..self.k - 1).map(|_| FieldElement::<F>::new(random())))
+            .collect();
+        Polynomial::new(&coefficients)
     }
 
     pub fn generating_shares(&self, polynomial: Polynomial<FieldElement<F>>) -> Shares<F>
     where
         Standard: Distribution<<F as IsField>::BaseType>,
     {
-        let mut shares_x: Vec<FieldElement<F>> = Vec::new();
-        let mut shares_y: Vec<FieldElement<F>> = Vec::new();
-
-        for _ in 0..self.n {
-            let x = FieldElement::<F>::new(random());
-            let y = polynomial.evaluate(&x);
-            shares_x.push(x);
-            shares_y.push(y);
-        }
-
-        Shares {
-            x: shares_x,
-            y: shares_y,
-        }
+        let (x, y): (Vec<_>, Vec<_>) = (0..self.n)
+            .map(|_| {
+                let x = FieldElement::<F>::new(random());
+                let y = polynomial.evaluate(&x);
+                (x, y)
+            })
+            .unzip();
+        Shares { x, y }
     }
 
     pub fn reconstructing(

@@ -204,25 +204,23 @@ impl RescuePrimeOptimized {
     /// Hashes an input sequence of field elements.
     pub fn hash(&self, input_sequence: &[Fp]) -> Vec<Fp> {
         let mut state = vec![Fp::zero(); self.m];
-        let input_len = input_sequence.len();
-        if !input_len.is_multiple_of(self.rate) {
+        if !input_sequence.len().is_multiple_of(self.rate) {
             state[0] = Fp::one();
         }
-        let num_full_chunks = input_len / self.rate;
-        for i in 0..num_full_chunks {
-            let chunk = &input_sequence[i * self.rate..(i + 1) * self.rate];
-            state[self.capacity..(self.rate + self.capacity)].copy_from_slice(&chunk[..self.rate]);
+
+        let absorb_range = self.capacity..self.capacity + self.rate;
+
+        for chunk in input_sequence.chunks_exact(self.rate) {
+            state[absorb_range.clone()].copy_from_slice(chunk);
             self.permutation(&mut state);
         }
-        let last_chunk_size = input_len % self.rate;
-        if last_chunk_size != 0 {
+
+        let remainder = &input_sequence[input_sequence.len() / self.rate * self.rate..];
+        if !remainder.is_empty() {
             let mut last_chunk = vec![Fp::zero(); self.rate];
-            for j in 0..last_chunk_size {
-                last_chunk[j] = input_sequence[num_full_chunks * self.rate + j];
-            }
-            last_chunk[last_chunk_size] = Fp::one();
-            state[self.capacity..(self.rate + self.capacity)]
-                .copy_from_slice(&last_chunk[..self.rate]);
+            last_chunk[..remainder.len()].copy_from_slice(remainder);
+            last_chunk[remainder.len()] = Fp::one();
+            state[absorb_range.clone()].copy_from_slice(&last_chunk);
             self.permutation(&mut state);
         }
 
