@@ -7,6 +7,8 @@ use lambdaworks_math::field::fields::fft_friendly::{
     babybear::Babybear31PrimeField, quartic_babybear::Degree4BabyBearExtensionField,
 };
 
+use lambdaworks_math::field::fields::u64_goldilocks_field::Goldilocks64Field;
+
 use crate::traits::AIR;
 use crate::{
     examples::{
@@ -322,5 +324,44 @@ fn test_prove_log_read_only_memory() {
         &proof,
         &air,
         &mut DefaultTranscript::<Degree4BabyBearExtensionField>::new(&[]),
+    ));
+}
+
+#[test_log::test]
+fn test_prove_verify_fibonacci_rap_goldilocks() {
+    let steps = 16;
+    let mut trace = fibonacci_rap_trace(
+        [
+            FieldElement::<Goldilocks64Field>::one(),
+            FieldElement::<Goldilocks64Field>::one(),
+        ],
+        steps,
+    );
+
+    let proof_options = ProofOptions::default_test_options();
+
+    let pub_inputs = FibonacciRAPPublicInputs {
+        steps,
+        a0: FieldElement::<Goldilocks64Field>::one(),
+        a1: FieldElement::<Goldilocks64Field>::one(),
+    };
+
+    let air = FibonacciRAP::<Goldilocks64Field>::new(
+        trace.num_rows(),
+        &pub_inputs,
+        &proof_options,
+    );
+
+    let proof = Prover::prove(
+        &air,
+        &mut trace,
+        &mut DefaultTranscript::<Goldilocks64Field>::new(&[]),
+    )
+    .unwrap();
+
+    assert!(Verifier::verify(
+        &proof,
+        &air,
+        &mut DefaultTranscript::<Goldilocks64Field>::new(&[]),
     ));
 }
