@@ -6,7 +6,6 @@
 pub mod eq_evals;
 pub mod fraction;
 pub mod layer;
-pub mod mle;
 pub mod prover;
 pub mod utils;
 pub mod verifier;

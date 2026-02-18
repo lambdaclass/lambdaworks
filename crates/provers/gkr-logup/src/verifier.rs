@@ -6,7 +6,9 @@ use lambdaworks_math::traits::ByteConversion;
 use lambdaworks_crypto::fiat_shamir::is_transcript::IsTranscript;
 
 use crate::fraction::Fraction;
-use crate::utils::{eq, fold_mle_evals, random_linear_combination};
+use lambdaworks_math::polynomial::eq_eval;
+
+use crate::utils::{fold_mle_evals, random_linear_combination};
 
 /// Proof for the sumcheck protocol: one round polynomial per variable.
 #[derive(Debug, Clone)]
@@ -183,11 +185,13 @@ where
         let mask = &layer_masks[layer];
         let gate_output = gate.eval(mask)?;
 
-        // Compute eq(ood_point, sumcheck_ood_point)
+        // Compute eq_eval(ood_point, sumcheck_ood_point)
         let eq_eval = if ood_point.is_empty() {
             FieldElement::<F>::one()
+        } else if sumcheck_ood_point.len() < ood_point.len() {
+            return Err(VerifierError::MalformedProof);
         } else {
-            eq(&ood_point, &sumcheck_ood_point[..ood_point.len()])
+            eq_eval(&ood_point, &sumcheck_ood_point[..ood_point.len()])
         };
 
         // Expected evaluation: eq_eval * random_linear_combination(gate_output, lambda)
@@ -289,6 +293,14 @@ where
     let mut claims_to_verify_by_instance: Vec<Option<Vec<FieldElement<F>>>> =
         vec![None; n_instances];
 
+    // Handle zero-layer instances (size-1 inputs: no sumcheck layers).
+    for instance in 0..n_instances {
+        if instance_n_layers(instance) == 0 {
+            claims_to_verify_by_instance[instance] =
+                Some(output_claims_by_instance[instance].clone());
+        }
+    }
+
     for (layer, sumcheck_proof) in sumcheck_proofs.iter().enumerate() {
         let n_remaining_layers = n_layers - layer;
 
@@ -314,9 +326,12 @@ where
         let mut sumcheck_claims = Vec::new();
         let mut sumcheck_instances = Vec::new();
 
-        // Compute per-instance claims with doubling factor.
+        // Compute per-instance claims with doubling factor (skip zero-layer instances).
         for (instance, claims) in claims_to_verify_by_instance.iter().enumerate() {
             if let Some(claims) = claims {
+                if instance_n_layers(instance) == 0 {
+                    continue;
+                }
                 let n_unused = n_layers - instance_n_layers(instance);
                 let mut doubling_factor = FieldElement::<F>::one();
                 for _ in 0..n_unused {
@@ -348,8 +363,10 @@ where
             // eq evaluation uses the relevant suffix of the OOD point.
             let eq_eval = if ood_point.len() <= n_unused {
                 FieldElement::<F>::one()
+            } else if sumcheck_ood_point.len() < ood_point.len() {
+                return Err(VerifierError::MalformedProof);
             } else {
-                eq(
+                eq_eval(
                     &ood_point[n_unused..],
                     &sumcheck_ood_point[n_unused..ood_point.len()],
                 )
@@ -393,8 +410,8 @@ where
 
     let claims_to_verify_by_instance: Vec<Vec<FieldElement<F>>> = claims_to_verify_by_instance
         .into_iter()
-        .map(|c| c.expect("all instances should have claims"))
-        .collect();
+        .collect::<Option<Vec<_>>>()
+        .ok_or(VerifierError::MalformedProof)?;
 
     Ok(BatchVerificationResult {
         ood_point,

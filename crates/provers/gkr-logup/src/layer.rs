@@ -1,38 +1,46 @@
 use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::traits::IsField;
+use lambdaworks_math::polynomial::DenseMultilinearPolynomial;
 
 use crate::fraction::{Fraction, Reciprocal};
-use crate::mle::Mle;
 
 /// A layer in a binary-tree-structured GKR circuit.
 ///
 /// Each layer has half the size of the layer below it. The leaves (input layer)
 /// are at the bottom, and the root (output layer) has a single element.
 #[derive(Debug, Clone)]
-pub enum Layer<F: IsField> {
+pub enum Layer<F: IsField>
+where
+    F::BaseType: Send + Sync,
+{
     /// Product gate: `output[j] = input[2j] * input[2j+1]`.
-    GrandProduct(Mle<F>),
+    GrandProduct(DenseMultilinearPolynomial<F>),
     /// LogUp fraction gate with separate numerator/denominator columns.
     LogUpGeneric {
-        numerators: Mle<F>,
-        denominators: Mle<F>,
+        numerators: DenseMultilinearPolynomial<F>,
+        denominators: DenseMultilinearPolynomial<F>,
     },
     /// LogUp with base-field multiplicities that convert to Generic after first fix.
     LogUpMultiplicities {
-        numerators: Mle<F>,
-        denominators: Mle<F>,
+        numerators: DenseMultilinearPolynomial<F>,
+        denominators: DenseMultilinearPolynomial<F>,
     },
     /// LogUp where all numerators are implicitly 1.
-    LogUpSingles { denominators: Mle<F> },
+    LogUpSingles {
+        denominators: DenseMultilinearPolynomial<F>,
+    },
 }
 
-impl<F: IsField> Layer<F> {
+impl<F: IsField> Layer<F>
+where
+    F::BaseType: Send + Sync,
+{
     /// Number of variables used to interpolate the layer's gate values.
     pub fn n_variables(&self) -> usize {
         match self {
-            Self::GrandProduct(mle) | Self::LogUpSingles { denominators: mle } => mle.n_variables(),
+            Self::GrandProduct(mle) | Self::LogUpSingles { denominators: mle } => mle.num_vars(),
             Self::LogUpGeneric { denominators, .. }
-            | Self::LogUpMultiplicities { denominators, .. } => denominators.n_variables(),
+            | Self::LogUpMultiplicities { denominators, .. } => denominators.num_vars(),
         }
     }
 
@@ -69,17 +77,17 @@ impl<F: IsField> Layer<F> {
             return None;
         }
         Some(match self {
-            Layer::GrandProduct(col) => vec![col.at(0)],
+            Layer::GrandProduct(col) => vec![col[0].clone()],
             Layer::LogUpGeneric {
                 numerators,
                 denominators,
-            } => vec![numerators.at(0), denominators.at(0)],
+            } => vec![numerators[0].clone(), denominators[0].clone()],
             Layer::LogUpMultiplicities {
                 numerators,
                 denominators,
-            } => vec![numerators.at(0), denominators.at(0)],
+            } => vec![numerators[0].clone(), denominators[0].clone()],
             Layer::LogUpSingles { denominators } => {
-                vec![FieldElement::one(), denominators.at(0)]
+                vec![FieldElement::one(), denominators[0].clone()]
             }
         })
     }
@@ -90,43 +98,36 @@ impl<F: IsField> Layer<F> {
     /// since the numerator field extends.
     pub fn fix_first_variable(self, x0: &FieldElement<F>) -> Self {
         match self {
-            Self::GrandProduct(mut mle) => {
-                mle.fix_first_variable(x0);
-                Self::GrandProduct(mle)
-            }
+            Self::GrandProduct(mle) => Self::GrandProduct(mle.fix_first_variable(x0)),
             Self::LogUpGeneric {
-                mut numerators,
-                mut denominators,
-            } => {
-                numerators.fix_first_variable(x0);
-                denominators.fix_first_variable(x0);
-                Self::LogUpGeneric {
-                    numerators,
-                    denominators,
-                }
-            }
+                numerators,
+                denominators,
+            } => Self::LogUpGeneric {
+                numerators: numerators.fix_first_variable(x0),
+                denominators: denominators.fix_first_variable(x0),
+            },
             Self::LogUpMultiplicities {
-                mut numerators,
-                mut denominators,
+                numerators,
+                denominators,
             } => {
-                numerators.fix_first_variable(x0);
-                denominators.fix_first_variable(x0);
                 // Convert to Generic after first variable fix
                 Self::LogUpGeneric {
-                    numerators,
-                    denominators,
+                    numerators: numerators.fix_first_variable(x0),
+                    denominators: denominators.fix_first_variable(x0),
                 }
             }
-            Self::LogUpSingles { mut denominators } => {
-                denominators.fix_first_variable(x0);
-                Self::LogUpSingles { denominators }
-            }
+            Self::LogUpSingles { denominators } => Self::LogUpSingles {
+                denominators: denominators.fix_first_variable(x0),
+            },
         }
     }
 }
 
 /// Generates all layers from the input (leaves) to the output (root).
-pub fn gen_layers<F: IsField>(input_layer: Layer<F>) -> Vec<Layer<F>> {
+pub fn gen_layers<F: IsField>(input_layer: Layer<F>) -> Vec<Layer<F>>
+where
+    F::BaseType: Send + Sync,
+{
     let n_variables = input_layer.n_variables();
     let mut layers = vec![input_layer];
     while let Some(next) = layers.last().unwrap().next_layer() {
@@ -137,18 +138,27 @@ pub fn gen_layers<F: IsField>(input_layer: Layer<F>) -> Vec<Layer<F>> {
 }
 
 /// GrandProduct: `output[j] = input[2j] * input[2j+1]`.
-fn next_grand_product_layer<F: IsField>(layer: &Mle<F>) -> Layer<F> {
+fn next_grand_product_layer<F: IsField>(layer: &DenseMultilinearPolynomial<F>) -> Layer<F>
+where
+    F::BaseType: Send + Sync,
+{
     let half_n = layer.len() / 2;
     let mut res = Vec::with_capacity(half_n);
     for j in 0..half_n {
         res.push(&layer[j * 2] * &layer[j * 2 + 1]);
     }
-    Layer::GrandProduct(Mle::new(res))
+    Layer::GrandProduct(DenseMultilinearPolynomial::new(res))
 }
 
 /// LogUp fraction addition: `num[j]/den[j] + num[j+1]/den[j+1]`.
 /// If `numerators` is `None`, all numerators are implicitly 1 (singles case).
-fn next_logup_layer<F: IsField>(numerators: Option<&Mle<F>>, denominators: &Mle<F>) -> Layer<F> {
+fn next_logup_layer<F: IsField>(
+    numerators: Option<&DenseMultilinearPolynomial<F>>,
+    denominators: &DenseMultilinearPolynomial<F>,
+) -> Layer<F>
+where
+    F::BaseType: Send + Sync,
+{
     let half_n = denominators.len() / 2;
     let mut next_numerators = Vec::with_capacity(half_n);
     let mut next_denominators = Vec::with_capacity(half_n);
@@ -171,15 +181,14 @@ fn next_logup_layer<F: IsField>(numerators: Option<&Mle<F>>, denominators: &Mle<
     }
 
     Layer::LogUpGeneric {
-        numerators: Mle::new(next_numerators),
-        denominators: Mle::new(next_denominators),
+        numerators: DenseMultilinearPolynomial::new(next_numerators),
+        denominators: DenseMultilinearPolynomial::new(next_denominators),
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::mle::Mle;
     use lambdaworks_math::field::element::FieldElement;
     use lambdaworks_math::field::fields::u64_prime_field::U64PrimeField;
 
@@ -192,7 +201,7 @@ mod tests {
         // Input: [2, 3, 5, 7]
         // Next:  [2*3, 5*7] = [6, 35]
         // Next:  [6*35] = [210] = 210 mod 101 = 8
-        let input = Layer::GrandProduct(Mle::new(vec![
+        let input = Layer::GrandProduct(DenseMultilinearPolynomial::new(vec![
             FE::from(2),
             FE::from(3),
             FE::from(5),
@@ -223,7 +232,7 @@ mod tests {
 
     #[test]
     fn grand_product_gen_layers() {
-        let input = Layer::GrandProduct(Mle::new(vec![
+        let input = Layer::GrandProduct(DenseMultilinearPolynomial::new(vec![
             FE::from(2),
             FE::from(3),
             FE::from(5),
@@ -242,8 +251,8 @@ mod tests {
     fn logup_generic_next_layer() {
         // Fractions: 1/2, 3/4 → (1*4 + 2*3)/(2*4) = 10/8
         let input = Layer::<F>::LogUpGeneric {
-            numerators: Mle::new(vec![FE::from(1), FE::from(3)]),
-            denominators: Mle::new(vec![FE::from(2), FE::from(4)]),
+            numerators: DenseMultilinearPolynomial::new(vec![FE::from(1), FE::from(3)]),
+            denominators: DenseMultilinearPolynomial::new(vec![FE::from(2), FE::from(4)]),
         };
 
         let next = input.next_layer().unwrap();
@@ -264,7 +273,7 @@ mod tests {
     fn logup_singles_next_layer() {
         // 1/2 + 1/3 = (2+3)/(2*3) = 5/6
         let input = Layer::<F>::LogUpSingles {
-            denominators: Mle::new(vec![FE::from(2), FE::from(3)]),
+            denominators: DenseMultilinearPolynomial::new(vec![FE::from(2), FE::from(3)]),
         };
 
         let next = input.next_layer().unwrap();
@@ -285,7 +294,12 @@ mod tests {
         // 4 fractions: 1/2, 1/3, 1/5, 1/7
         // Sum = 1/2 + 1/3 + 1/5 + 1/7
         let input = Layer::<F>::LogUpSingles {
-            denominators: Mle::new(vec![FE::from(2), FE::from(3), FE::from(5), FE::from(7)]),
+            denominators: DenseMultilinearPolynomial::new(vec![
+                FE::from(2),
+                FE::from(3),
+                FE::from(5),
+                FE::from(7),
+            ]),
         };
         let layers = gen_layers(input);
 
@@ -309,7 +323,7 @@ mod tests {
 
     #[test]
     fn fix_first_variable_consistency() {
-        let input = Layer::GrandProduct(Mle::new(vec![
+        let input = Layer::GrandProduct(DenseMultilinearPolynomial::new(vec![
             FE::from(1),
             FE::from(2),
             FE::from(3),
@@ -339,8 +353,8 @@ mod tests {
     #[test]
     fn multiplicities_converts_to_generic_on_fix() {
         let input = Layer::<F>::LogUpMultiplicities {
-            numerators: Mle::new(vec![FE::from(1), FE::from(2)]),
-            denominators: Mle::new(vec![FE::from(3), FE::from(4)]),
+            numerators: DenseMultilinearPolynomial::new(vec![FE::from(1), FE::from(2)]),
+            denominators: DenseMultilinearPolynomial::new(vec![FE::from(3), FE::from(4)]),
         };
         let r = FE::from(5);
         let fixed = input.fix_first_variable(&r);

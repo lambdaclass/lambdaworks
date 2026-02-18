@@ -14,7 +14,8 @@ use lambdaworks_crypto::fiat_shamir::default_transcript::DefaultTranscript;
 use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::fields::u64_prime_field::U64PrimeField;
 
-use lambdaworks_gkr_logup::mle::Mle;
+use lambdaworks_math::polynomial::DenseMultilinearPolynomial;
+
 use lambdaworks_gkr_logup::{prove_batch, verify_batch, Gate, Layer};
 
 const MODULUS: u64 = 2013265921;
@@ -32,7 +33,7 @@ fn range_check(values: &[u64], n_bits: u32, label: &str) -> bool {
     // --- Access side: each value v_i contributes 1/(z - v_i) ---
     let access_dens: Vec<FE> = values.iter().map(|&v| z - FE::from(v)).collect();
     let access_layer = Layer::LogUpSingles {
-        denominators: Mle::new(access_dens),
+        denominators: DenseMultilinearPolynomial::new(access_dens),
     };
 
     // --- Table side: range table 0..2^n with multiplicities ---
@@ -41,8 +42,8 @@ fn range_check(values: &[u64], n_bits: u32, label: &str) -> bool {
         .collect();
     let table_dens: Vec<FE> = (0..range_size).map(|j| z - FE::from(j)).collect();
     let table_layer = Layer::LogUpMultiplicities {
-        numerators: Mle::new(multiplicities),
-        denominators: Mle::new(table_dens),
+        numerators: DenseMultilinearPolynomial::new(multiplicities),
+        denominators: DenseMultilinearPolynomial::new(table_dens),
     };
 
     println!(

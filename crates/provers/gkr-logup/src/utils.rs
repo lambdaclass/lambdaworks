@@ -9,18 +9,6 @@ pub fn horner_eval<F: IsField>(coeffs: &[FieldElement<F>], x: &FieldElement<F>) 
         .fold(FieldElement::zero(), |acc, coeff| acc * x + coeff)
 }
 
-/// Evaluates the eq polynomial: `eq(x, y) = prod_i (x_i * y_i + (1 - x_i) * (1 - y_i))`.
-pub fn eq<F: IsField>(x: &[FieldElement<F>], y: &[FieldElement<F>]) -> FieldElement<F> {
-    assert_eq!(x.len(), y.len());
-    x.iter()
-        .zip(y.iter())
-        .map(|(xi, yi)| {
-            let one = FieldElement::<F>::one();
-            xi * yi + (&one - xi) * (&one - yi)
-        })
-        .fold(FieldElement::<F>::one(), |acc, term| acc * term)
-}
-
 /// Linearly interpolates between two MLE evaluations:
 /// `fold_mle_evals(r, v0, v1) = v0 + r * (v1 - v0)`.
 ///
@@ -58,14 +46,6 @@ mod tests {
         let result = horner_eval(&coeffs, &x);
         let expected = FE::from(9) + FE::from(2) * x + FE::from(3) * x * x;
         assert_eq!(result, expected);
-    }
-
-    #[test]
-    fn eq_on_boolean_hypercube() {
-        let one = FE::one();
-        let zero = FE::zero();
-        assert_eq!(eq(&[one, zero], &[one, zero]), FE::one());
-        assert_eq!(eq(&[one, zero], &[zero, one]), FE::zero());
     }
 
     #[test]

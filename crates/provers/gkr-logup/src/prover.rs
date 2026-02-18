@@ -11,26 +11,35 @@ use lambdaworks_sumcheck::common::run_sumcheck_with_channel;
 use lambdaworks_sumcheck::common::SumcheckProver;
 use lambdaworks_sumcheck::ProverError;
 
+use lambdaworks_math::polynomial::DenseMultilinearPolynomial;
+
 use crate::eq_evals::EqEvaluations;
 use crate::fraction::{Fraction, Reciprocal};
 use crate::layer::{gen_layers, Layer};
-use crate::mle::Mle;
-use crate::utils::{eq, random_linear_combination};
+use lambdaworks_math::polynomial::eq_eval;
+
+use crate::utils::random_linear_combination;
 use crate::verifier::{LayerMask, Proof, SumcheckProof, VerificationResult};
 
 /// Multivariate polynomial oracle for the GKR protocol.
 ///
-/// Represents `P(x) = eq(x, y) * gate_output(x)` where gate_output depends on the layer type:
+/// Represents `P(x) = eq_eval(x, y) * gate_output(x)` where gate_output depends on the layer type:
 /// - GrandProduct: `inp(x, 0) * inp(x, 1)`
 /// - LogUp: `(num(x,0)*den(x,1) + num(x,1)*den(x,0)) + lambda * den(x,0)*den(x,1)`
-pub struct LayerOracle<F: IsField> {
+pub struct LayerOracle<F: IsField>
+where
+    F::BaseType: Send + Sync,
+{
     pub eq_evals: EqEvaluations<F>,
     pub input_layer: Layer<F>,
     pub eq_fixed_var_correction: FieldElement<F>,
     pub lambda: FieldElement<F>,
 }
 
-impl<F: IsField> LayerOracle<F> {
+impl<F: IsField> LayerOracle<F>
+where
+    F::BaseType: Send + Sync,
+{
     fn is_constant(&self) -> bool {
         self.n_variables() == 0
     }
@@ -95,7 +104,7 @@ impl<F: IsField> LayerOracle<F> {
         let y = self.eq_evals.y();
         let z0 = &y[y.len() - self.n_variables()];
         let eq_fixed_var_correction = &self.eq_fixed_var_correction
-            * &eq(std::slice::from_ref(challenge), std::slice::from_ref(z0));
+            * &eq_eval(std::slice::from_ref(challenge), std::slice::from_ref(z0));
 
         Self {
             eq_evals: self.eq_evals,
@@ -113,25 +122,30 @@ impl<F: IsField> LayerOracle<F> {
 
         let columns = match self.input_layer {
             Layer::GrandProduct(mle) => {
-                vec![[mle.at(0), mle.at(1)]]
+                vec![[mle[0].clone(), mle[1].clone()]]
             }
             Layer::LogUpGeneric {
                 numerators,
                 denominators,
             } => {
                 vec![
-                    [numerators.at(0), numerators.at(1)],
-                    [denominators.at(0), denominators.at(1)],
+                    [numerators[0].clone(), numerators[1].clone()],
+                    [denominators[0].clone(), denominators[1].clone()],
                 ]
             }
-            Layer::LogUpMultiplicities { .. } => {
-                // Should never happen: Multiplicities converts to Generic on first fix
-                unreachable!("LogUpMultiplicities should have been converted to LogUpGeneric")
+            Layer::LogUpMultiplicities {
+                numerators,
+                denominators,
+            } => {
+                vec![
+                    [numerators[0].clone(), numerators[1].clone()],
+                    [denominators[0].clone(), denominators[1].clone()],
+                ]
             }
             Layer::LogUpSingles { denominators } => {
                 vec![
                     [FieldElement::one(), FieldElement::one()],
-                    [denominators.at(0), denominators.at(1)],
+                    [denominators[0].clone(), denominators[1].clone()],
                 ]
             }
         };
@@ -140,12 +154,15 @@ impl<F: IsField> LayerOracle<F> {
     }
 }
 
-/// Evaluates `sum_x eq((0^|r|, 0, x), y) * inp(r, t, x, 0) * inp(r, t, x, 1)` at t=0 and t=2.
+/// Evaluates `sum_x eq_eval((0^|r|, 0, x), y) * inp(r, t, x, 0) * inp(r, t, x, 1)` at t=0 and t=2.
 fn eval_grand_product_sum<F: IsField>(
     eq_evals: &EqEvaluations<F>,
-    input_layer: &Mle<F>,
+    input_layer: &DenseMultilinearPolynomial<F>,
     n_terms: usize,
-) -> (FieldElement<F>, FieldElement<F>) {
+) -> (FieldElement<F>, FieldElement<F>)
+where
+    F::BaseType: Send + Sync,
+{
     let mut eval_at_0 = FieldElement::<F>::zero();
     let mut eval_at_2 = FieldElement::<F>::zero();
 
@@ -174,11 +191,14 @@ fn eval_grand_product_sum<F: IsField>(
 /// Evaluates the LogUp sum at t=0 and t=2 for layers with explicit numerators.
 fn eval_logup_sum<F: IsField>(
     eq_evals: &EqEvaluations<F>,
-    input_numerators: Option<&Mle<F>>,
-    input_denominators: &Mle<F>,
+    input_numerators: Option<&DenseMultilinearPolynomial<F>>,
+    input_denominators: &DenseMultilinearPolynomial<F>,
     n_terms: usize,
     lambda: &FieldElement<F>,
-) -> (FieldElement<F>, FieldElement<F>) {
+) -> (FieldElement<F>, FieldElement<F>)
+where
+    F::BaseType: Send + Sync,
+{
     let mut eval_at_0 = FieldElement::<F>::zero();
     let mut eval_at_2 = FieldElement::<F>::zero();
 
@@ -224,10 +244,13 @@ fn eval_logup_sum<F: IsField>(
 /// Evaluates the LogUp singles sum at t=0 and t=2 (numerators are all 1).
 fn eval_logup_singles_sum<F: IsField>(
     eq_evals: &EqEvaluations<F>,
-    input_denominators: &Mle<F>,
+    input_denominators: &DenseMultilinearPolynomial<F>,
     n_terms: usize,
     lambda: &FieldElement<F>,
-) -> (FieldElement<F>, FieldElement<F>) {
+) -> (FieldElement<F>, FieldElement<F>)
+where
+    F::BaseType: Send + Sync,
+{
     let mut eval_at_0 = FieldElement::<F>::zero();
     let mut eval_at_2 = FieldElement::<F>::zero();
 
@@ -254,11 +277,11 @@ fn eval_logup_singles_sum<F: IsField>(
     (eval_at_0, eval_at_2)
 }
 
-/// Computes `r(t) = sum_x eq((t, x), y[-k:]) * p(t, x)` from evaluations of
-/// `f(t) = sum_x eq(({0}^(n - k), 0, x), y) * p(t, x)`.
+/// Computes `r(t) = sum_x eq_eval((t, x), y[-k:]) * p(t, x)` from evaluations of
+/// `f(t) = sum_x eq_eval(({0}^(n - k), 0, x), y) * p(t, x)`.
 ///
 /// Uses 4-point Lagrange interpolation at {0, 1, 2, b} where b is the root
-/// of eq(t, y[n-k]).
+/// of eq_eval(t, y[n-k]).
 ///
 /// See <https://ia.cr/2024/108> (section 3.2).
 fn correct_sum_as_poly_in_first_variable<F: IsField>(
@@ -272,12 +295,12 @@ fn correct_sum_as_poly_in_first_variable<F: IsField>(
     let n = y.len();
     assert!(k <= n);
 
-    // a_const = 1 / eq((0^(n-k+1)), y[..n-k+1])
+    // a_const = 1 / eq_eval((0^(n-k+1)), y[..n-k+1])
     let zeros: Vec<FieldElement<F>> = vec![FieldElement::zero(); n - k + 1];
-    let a_const = eq(&zeros, &y[..n - k + 1]).inv().unwrap();
+    let a_const = eq_eval(&zeros, &y[..n - k + 1]).inv().unwrap();
 
-    // Find the root of eq(t, y[n-k]):
-    //   eq(t, y[n-k]) = t * y[n-k] + (1-t)*(1-y[n-k])
+    // Find the root of eq_eval(t, y[n-k]):
+    //   eq_eval(t, y[n-k]) = t * y[n-k] + (1-t)*(1-y[n-k])
     //   0 = 1 - y[n-k] - t*(1 - 2*y[n-k])
     //   t = (1 - y[n-k]) / (1 - 2*y[n-k])
     let one = FieldElement::<F>::one();
@@ -285,19 +308,19 @@ fn correct_sum_as_poly_in_first_variable<F: IsField>(
     let y_nk = &y[n - k];
     let b_const = (&one - y_nk) * (&one - &(&two * y_nk)).inv().unwrap();
 
-    // r(0) = f(0) * eq(0, y[n-k]) * a_const
+    // r(0) = f(0) * eq_eval(0, y[n-k]) * a_const
     let zero = FieldElement::<F>::zero();
-    let eq_at_0 = eq(std::slice::from_ref(&zero), std::slice::from_ref(y_nk));
+    let eq_at_0 = eq_eval(std::slice::from_ref(&zero), std::slice::from_ref(y_nk));
     let r_at_0 = &f_at_0 * &eq_at_0 * &a_const;
 
     // r(1) = claim - r(0) (since claim = r(0) + r(1))
     let r_at_1 = claim - &r_at_0;
 
-    // r(2) = f(2) * eq(2, y[n-k]) * a_const
-    let eq_at_2 = eq(std::slice::from_ref(&two), std::slice::from_ref(y_nk));
+    // r(2) = f(2) * eq_eval(2, y[n-k]) * a_const
+    let eq_at_2 = eq_eval(std::slice::from_ref(&two), std::slice::from_ref(y_nk));
     let r_at_2 = &f_at_2 * &eq_at_2 * &a_const;
 
-    // r(b) = 0 (b is the root of eq(t, y[n-k]))
+    // r(b) = 0 (b is the root of eq_eval(t, y[n-k]))
     let r_at_b = FieldElement::zero();
 
     // Interpolate degree-3 polynomial through (0, r(0)), (1, r(1)), (2, r(2)), (b, 0)
@@ -314,13 +337,19 @@ const MAX_DEGREE: usize = 3;
 /// Adapter that wraps a [`LayerOracle`] to implement the sumcheck crate's
 /// [`SumcheckProver`] trait, allowing the GKR prover to use
 /// [`run_sumcheck_with_channel`] for its per-layer sumcheck.
-struct LayerSumcheckProver<F: IsField> {
+struct LayerSumcheckProver<F: IsField>
+where
+    F::BaseType: Send + Sync,
+{
     oracle: Option<LayerOracle<F>>,
     claim: FieldElement<F>,
     last_round_poly: Option<Polynomial<FieldElement<F>>>,
 }
 
-impl<F: IsField> LayerSumcheckProver<F> {
+impl<F: IsField> LayerSumcheckProver<F>
+where
+    F::BaseType: Send + Sync,
+{
     fn new(oracle: LayerOracle<F>, claim: FieldElement<F>) -> Self {
         Self {
             oracle: Some(oracle),
@@ -334,7 +363,7 @@ impl<F: IsField> LayerSumcheckProver<F> {
     /// During `run_sumcheck_with_channel`, the adapter fixes one variable per round
     /// except the first, so the last challenge needs to be applied here.
     fn into_oracle(self, final_challenge: Option<&FieldElement<F>>) -> LayerOracle<F> {
-        let mut oracle = self.oracle.expect("oracle was consumed unexpectedly");
+        let mut oracle = self.oracle.expect("oracle must be present after sumcheck");
         if let Some(r) = final_challenge {
             oracle = oracle.fix_first_variable(r);
         }
@@ -348,7 +377,11 @@ where
     FieldElement<F>: Clone + Mul<Output = FieldElement<F>>,
 {
     fn num_vars(&self) -> usize {
-        self.oracle.as_ref().unwrap().n_variables()
+        // The oracle is always present during sumcheck rounds.
+        self.oracle
+            .as_ref()
+            .expect("oracle must be present during sumcheck")
+            .n_variables()
     }
 
     fn num_factors(&self) -> usize {
@@ -364,14 +397,21 @@ where
         r_prev: Option<&FieldElement<F>>,
     ) -> Result<Polynomial<FieldElement<F>>, ProverError> {
         if let Some(r) = r_prev {
-            self.claim = self.last_round_poly.as_ref().unwrap().evaluate(r);
-            let oracle = self.oracle.take().unwrap();
+            self.claim = self
+                .last_round_poly
+                .as_ref()
+                .expect("last_round_poly must be set after first round")
+                .evaluate(r);
+            let oracle = self
+                .oracle
+                .take()
+                .expect("oracle must be present during sumcheck");
             self.oracle = Some(oracle.fix_first_variable(r));
         }
         let poly = self
             .oracle
             .as_ref()
-            .unwrap()
+            .expect("oracle must be present during sumcheck")
             .sum_as_poly_in_first_variable(&self.claim);
         self.last_round_poly = Some(poly.clone());
         Ok(poly)
@@ -411,11 +451,16 @@ fn prove_batch_sumcheck<F, T>(
 )
 where
     F: IsField + HasDefaultTranscript,
+    F::BaseType: Send + Sync,
     FieldElement<F>: ByteConversion,
     T: IsTranscript<F>,
 {
-    let n_variables = oracles.iter().map(|o| o.n_variables()).max().unwrap();
     assert_eq!(claims.len(), oracles.len());
+    let n_variables = oracles
+        .iter()
+        .map(|o| o.n_variables())
+        .max()
+        .expect("prove_batch_sumcheck requires at least one oracle");
 
     let mut round_polys = Vec::new();
     let mut assignment = Vec::new();
@@ -551,14 +596,14 @@ where
         let mut layer_prover = LayerSumcheckProver::new(oracle, claim);
         let (round_polys, sumcheck_ood_point) =
             run_sumcheck_with_channel(&mut layer_prover, channel)
-                .expect("LayerOracle sumcheck cannot fail");
+                .expect("sumcheck round returned a valid polynomial");
         let constant_oracle = layer_prover.into_oracle(sumcheck_ood_point.last());
         let sumcheck_proof = SumcheckProof { round_polys };
 
         // Extract mask from the constant oracle
         let mask = constant_oracle
             .try_into_mask()
-            .expect("oracle should be constant after sumcheck");
+            .expect("oracle is constant after all sumcheck rounds");
 
         // Append mask to channel
         for col in mask.columns() {
@@ -611,12 +656,27 @@ pub fn prove_batch<F, T>(
 )
 where
     F: IsField + HasDefaultTranscript,
+    F::BaseType: Send + Sync,
     FieldElement<F>: ByteConversion,
     T: IsTranscript<F>,
 {
     let n_instances = input_layers.len();
+    if n_instances == 0 {
+        return (
+            crate::verifier::BatchProof {
+                sumcheck_proofs: Vec::new(),
+                layer_masks_by_instance: Vec::new(),
+                output_claims_by_instance: Vec::new(),
+            },
+            crate::verifier::BatchVerificationResult {
+                ood_point: Vec::new(),
+                claims_to_verify_by_instance: Vec::new(),
+                n_variables_by_instance: Vec::new(),
+            },
+        );
+    }
     let n_layers_by_instance: Vec<usize> = input_layers.iter().map(|l| l.n_variables()).collect();
-    let n_layers = *n_layers_by_instance.iter().max().unwrap();
+    let n_layers = *n_layers_by_instance.iter().max().expect("n_instances > 0");
 
     // Generate all layers per instance and reverse for output-to-input traversal.
     let mut layers_by_instance: Vec<std::iter::Rev<std::vec::IntoIter<Layer<F>>>> = input_layers
@@ -632,6 +692,18 @@ where
     let mut ood_point: Vec<FieldElement<F>> = Vec::new();
     let mut claims_to_verify_by_instance: Vec<Option<Vec<FieldElement<F>>>> =
         vec![None; n_instances];
+
+    // Handle zero-layer instances (size-1 inputs: already at output, no sumcheck needed).
+    for (instance, layers) in layers_by_instance.iter_mut().enumerate() {
+        if n_layers_by_instance[instance] == 0 {
+            let output_layer = layers.next().unwrap();
+            let output_values = output_layer
+                .try_into_output_layer_values()
+                .expect("should be output layer");
+            claims_to_verify_by_instance[instance] = Some(output_values.clone());
+            output_claims_by_instance[instance] = Some(output_values);
+        }
+    }
 
     for layer in 0..n_layers {
         let n_remaining_layers = n_layers - layer;
@@ -664,9 +736,12 @@ where
         let mut sumcheck_claims = Vec::new();
         let mut sumcheck_instances = Vec::new();
 
-        // Create oracles for active instances.
+        // Create oracles for active instances (skip zero-layer instances).
         for (instance, claims) in claims_to_verify_by_instance.iter().enumerate() {
             if let Some(claims) = claims {
+                if n_layers_by_instance[instance] == 0 {
+                    continue;
+                }
                 let next_layer = layers_by_instance[instance].next().unwrap();
                 let oracle = LayerOracle {
                     eq_evals: eq_evals.clone(),
@@ -744,7 +819,6 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::mle::Mle;
     use crate::verifier::{self, Gate, LayerMask};
     use lambdaworks_crypto::fiat_shamir::default_transcript::DefaultTranscript;
     use lambdaworks_math::field::fields::u64_prime_field::U64PrimeField;
@@ -755,7 +829,7 @@ mod tests {
 
     /// Helper: prove and verify a GrandProduct layer, returning the artifact.
     fn prove_and_verify_grand_product(values: Vec<FE>) -> VerificationResult<F> {
-        let input_layer = Layer::GrandProduct(Mle::new(values));
+        let input_layer = Layer::GrandProduct(DenseMultilinearPolynomial::new(values));
 
         let mut prover_channel = DefaultTranscript::<F>::new(&[]);
         let (proof, _artifact) = prove(&mut prover_channel, input_layer);
@@ -780,7 +854,7 @@ mod tests {
         let values: Vec<FE> = (1u64..=8).map(FE::from).collect();
         let product: FE = values.iter().cloned().reduce(|a, b| a * b).unwrap();
 
-        let input_layer = Layer::GrandProduct(Mle::new(values));
+        let input_layer = Layer::GrandProduct(DenseMultilinearPolynomial::new(values));
         let mut channel = DefaultTranscript::<F>::new(&[]);
         let (proof, artifact) = prove(&mut channel, input_layer);
 
@@ -802,8 +876,8 @@ mod tests {
             .sum();
 
         let input_layer = Layer::LogUpGeneric {
-            numerators: Mle::new(numerators),
-            denominators: Mle::new(denominators),
+            numerators: DenseMultilinearPolynomial::new(numerators),
+            denominators: DenseMultilinearPolynomial::new(denominators),
         };
         let mut channel = DefaultTranscript::<F>::new(&[]);
         let (proof, _artifact) = prove(&mut channel, input_layer);
@@ -845,8 +919,8 @@ mod tests {
         let numerators: Vec<FE> = vec![FE::from(1), FE::from(2), FE::from(3), FE::from(4)];
         let denominators: Vec<FE> = vec![FE::from(5), FE::from(6), FE::from(7), FE::from(8)];
         let input_layer = Layer::LogUpGeneric {
-            numerators: Mle::new(numerators),
-            denominators: Mle::new(denominators),
+            numerators: DenseMultilinearPolynomial::new(numerators),
+            denominators: DenseMultilinearPolynomial::new(denominators),
         };
         let artifact = prove_and_verify_logup(input_layer);
         assert_eq!(artifact.n_variables, 2);
@@ -857,7 +931,7 @@ mod tests {
     fn logup_singles_prove_verify_roundtrip() {
         let denominators: Vec<FE> = vec![FE::from(2), FE::from(3), FE::from(5), FE::from(7)];
         let input_layer = Layer::LogUpSingles {
-            denominators: Mle::new(denominators),
+            denominators: DenseMultilinearPolynomial::new(denominators),
         };
         let artifact = prove_and_verify_logup(input_layer);
         assert_eq!(artifact.n_variables, 2);
@@ -869,8 +943,8 @@ mod tests {
         let numerators: Vec<FE> = vec![FE::from(3), FE::from(1), FE::from(2), FE::from(1)];
         let denominators: Vec<FE> = vec![FE::from(10), FE::from(20), FE::from(30), FE::from(40)];
         let input_layer = Layer::LogUpMultiplicities {
-            numerators: Mle::new(numerators),
-            denominators: Mle::new(denominators),
+            numerators: DenseMultilinearPolynomial::new(numerators),
+            denominators: DenseMultilinearPolynomial::new(denominators),
         };
         let artifact = prove_and_verify_logup(input_layer);
         assert_eq!(artifact.n_variables, 2);
@@ -880,7 +954,7 @@ mod tests {
     fn logup_singles_prove_verify_size_8() {
         let denominators: Vec<FE> = (2u64..=9).map(FE::from).collect();
         let input_layer = Layer::LogUpSingles {
-            denominators: Mle::new(denominators),
+            denominators: DenseMultilinearPolynomial::new(denominators),
         };
         let artifact = prove_and_verify_logup(input_layer);
         assert_eq!(artifact.n_variables, 3);
@@ -891,8 +965,8 @@ mod tests {
         let numerators: Vec<FE> = (1u64..=8).map(FE::from).collect();
         let denominators: Vec<FE> = (11u64..=18).map(FE::from).collect();
         let input_layer = Layer::LogUpGeneric {
-            numerators: Mle::new(numerators),
-            denominators: Mle::new(denominators),
+            numerators: DenseMultilinearPolynomial::new(numerators),
+            denominators: DenseMultilinearPolynomial::new(denominators),
         };
         let artifact = prove_and_verify_logup(input_layer);
         assert_eq!(artifact.n_variables, 3);
@@ -903,7 +977,7 @@ mod tests {
     #[test]
     fn corrupt_output_claims_rejected() {
         let values: Vec<FE> = (1u64..=4).map(FE::from).collect();
-        let input_layer = Layer::GrandProduct(Mle::new(values));
+        let input_layer = Layer::GrandProduct(DenseMultilinearPolynomial::new(values));
 
         let mut prover_channel = DefaultTranscript::<F>::new(&[]);
         let (mut proof, _) = prove(&mut prover_channel, input_layer);
@@ -919,7 +993,7 @@ mod tests {
     #[test]
     fn corrupt_sumcheck_proof_rejected() {
         let values: Vec<FE> = (1u64..=8).map(FE::from).collect();
-        let input_layer = Layer::GrandProduct(Mle::new(values));
+        let input_layer = Layer::GrandProduct(DenseMultilinearPolynomial::new(values));
 
         let mut prover_channel = DefaultTranscript::<F>::new(&[]);
         let (mut proof, _) = prove(&mut prover_channel, input_layer);
@@ -940,7 +1014,7 @@ mod tests {
     #[test]
     fn corrupt_mask_rejected() {
         let values: Vec<FE> = (1u64..=4).map(FE::from).collect();
-        let input_layer = Layer::GrandProduct(Mle::new(values));
+        let input_layer = Layer::GrandProduct(DenseMultilinearPolynomial::new(values));
 
         let mut prover_channel = DefaultTranscript::<F>::new(&[]);
         let (mut proof, _) = prove(&mut prover_channel, input_layer);
@@ -957,7 +1031,7 @@ mod tests {
     fn wrong_gate_type_rejected() {
         // Prove with GrandProduct but verify with LogUp gate
         let values: Vec<FE> = (1u64..=4).map(FE::from).collect();
-        let input_layer = Layer::GrandProduct(Mle::new(values));
+        let input_layer = Layer::GrandProduct(DenseMultilinearPolynomial::new(values));
 
         let mut prover_channel = DefaultTranscript::<F>::new(&[]);
         let (proof, _) = prove(&mut prover_channel, input_layer);
@@ -990,8 +1064,8 @@ mod tests {
         let artifact = prove_and_verify_batch(
             vec![Gate::GrandProduct, Gate::GrandProduct],
             vec![
-                Layer::GrandProduct(Mle::new(values0)),
-                Layer::GrandProduct(Mle::new(values1)),
+                Layer::GrandProduct(DenseMultilinearPolynomial::new(values0)),
+                Layer::GrandProduct(DenseMultilinearPolynomial::new(values1)),
             ],
         );
 
@@ -1011,8 +1085,8 @@ mod tests {
         let artifact = prove_and_verify_batch(
             vec![Gate::GrandProduct, Gate::GrandProduct],
             vec![
-                Layer::GrandProduct(Mle::new(values0)),
-                Layer::GrandProduct(Mle::new(values1)),
+                Layer::GrandProduct(DenseMultilinearPolynomial::new(values0)),
+                Layer::GrandProduct(DenseMultilinearPolynomial::new(values1)),
             ],
         );
 
@@ -1029,10 +1103,10 @@ mod tests {
         let artifact = prove_and_verify_batch(
             vec![Gate::GrandProduct, Gate::LogUp],
             vec![
-                Layer::GrandProduct(Mle::new(gp_values)),
+                Layer::GrandProduct(DenseMultilinearPolynomial::new(gp_values)),
                 Layer::LogUpGeneric {
-                    numerators: Mle::new(logup_nums),
-                    denominators: Mle::new(logup_dens),
+                    numerators: DenseMultilinearPolynomial::new(logup_nums),
+                    denominators: DenseMultilinearPolynomial::new(logup_dens),
                 },
             ],
         );
@@ -1053,13 +1127,13 @@ mod tests {
         let artifact = prove_and_verify_batch(
             vec![Gate::GrandProduct, Gate::LogUp, Gate::LogUp],
             vec![
-                Layer::GrandProduct(Mle::new(gp_values)),
+                Layer::GrandProduct(DenseMultilinearPolynomial::new(gp_values)),
                 Layer::LogUpGeneric {
-                    numerators: Mle::new(logup_nums),
-                    denominators: Mle::new(logup_dens),
+                    numerators: DenseMultilinearPolynomial::new(logup_nums),
+                    denominators: DenseMultilinearPolynomial::new(logup_dens),
                 },
                 Layer::LogUpSingles {
-                    denominators: Mle::new(singles_dens),
+                    denominators: DenseMultilinearPolynomial::new(singles_dens),
                 },
             ],
         );
@@ -1071,7 +1145,7 @@ mod tests {
     #[test]
     fn batch_single_instance_matches_single_prove() {
         let values: Vec<FE> = (1u64..=8).map(FE::from).collect();
-        let input_layer = Layer::GrandProduct(Mle::new(values.clone()));
+        let input_layer = Layer::GrandProduct(DenseMultilinearPolynomial::new(values.clone()));
 
         // Single prove + verify
         let mut p_ch = DefaultTranscript::<F>::new(&[]);
@@ -1083,7 +1157,7 @@ mod tests {
         // Batch prove + verify with 1 instance
         let batch_result = prove_and_verify_batch(
             vec![Gate::GrandProduct],
-            vec![Layer::GrandProduct(Mle::new(values))],
+            vec![Layer::GrandProduct(DenseMultilinearPolynomial::new(values))],
         );
 
         assert_eq!(
@@ -1107,8 +1181,8 @@ mod tests {
         let (mut proof, _) = prove_batch(
             &mut prover_channel,
             vec![
-                Layer::GrandProduct(Mle::new(values0)),
-                Layer::GrandProduct(Mle::new(values1)),
+                Layer::GrandProduct(DenseMultilinearPolynomial::new(values0)),
+                Layer::GrandProduct(DenseMultilinearPolynomial::new(values1)),
             ],
         );
 
@@ -1132,8 +1206,8 @@ mod tests {
         let (mut proof, _) = prove_batch(
             &mut prover_channel,
             vec![
-                Layer::GrandProduct(Mle::new(values0)),
-                Layer::GrandProduct(Mle::new(values1)),
+                Layer::GrandProduct(DenseMultilinearPolynomial::new(values0)),
+                Layer::GrandProduct(DenseMultilinearPolynomial::new(values1)),
             ],
         );
 
@@ -1162,8 +1236,8 @@ mod tests {
         let (mut proof, _) = prove_batch(
             &mut prover_channel,
             vec![
-                Layer::GrandProduct(Mle::new(values0)),
-                Layer::GrandProduct(Mle::new(values1)),
+                Layer::GrandProduct(DenseMultilinearPolynomial::new(values0)),
+                Layer::GrandProduct(DenseMultilinearPolynomial::new(values1)),
             ],
         );
 
@@ -1209,14 +1283,14 @@ mod tests {
         // Access side: LogUpSingles (8 elements, 3 variables)
         // Each access contributes 1/(z - a_i)
         let access_layer = Layer::LogUpSingles {
-            denominators: Mle::new(access_dens),
+            denominators: DenseMultilinearPolynomial::new(access_dens),
         };
 
         // Table side: LogUpMultiplicities (4 elements, 2 variables)
         // Each entry contributes m_j/(z - t_j)
         let table_layer = Layer::LogUpMultiplicities {
-            numerators: Mle::new(table_mults),
-            denominators: Mle::new(table_dens),
+            numerators: DenseMultilinearPolynomial::new(table_mults),
+            denominators: DenseMultilinearPolynomial::new(table_dens),
         };
 
         // Batch prove both instances
@@ -1257,11 +1331,11 @@ mod tests {
         let table_mults: Vec<FE> = multiplicities.iter().map(|&m| FE::from(m)).collect();
 
         let access_layer = Layer::LogUpSingles {
-            denominators: Mle::new(access_dens),
+            denominators: DenseMultilinearPolynomial::new(access_dens),
         };
         let table_layer = Layer::LogUpMultiplicities {
-            numerators: Mle::new(table_mults),
-            denominators: Mle::new(table_dens),
+            numerators: DenseMultilinearPolynomial::new(table_mults),
+            denominators: DenseMultilinearPolynomial::new(table_dens),
         };
 
         let mut prover_channel = DefaultTranscript::<F>::new(&[]);
@@ -1279,5 +1353,76 @@ mod tests {
         let lhs = access_output[0] * table_output[1];
         let rhs = table_output[0] * access_output[1];
         assert_ne!(lhs, rhs, "ROM check should fail for invalid access");
+    }
+
+    // ---- Malformed proof tests (should return errors, not panic) ----
+
+    #[test]
+    fn verify_malformed_proof_too_few_sumcheck_rounds() {
+        // Issue 1: crafted proof where a layer has too few sumcheck rounds
+        // should return MalformedProof, not panic on OOD slice.
+        let values: Vec<FE> = (1u64..=8).map(FE::from).collect();
+        let input_layer = Layer::GrandProduct(DenseMultilinearPolynomial::new(values));
+
+        let mut prover_channel = DefaultTranscript::<F>::new(&[]);
+        let (mut proof, _) = prove(&mut prover_channel, input_layer);
+
+        // Remove round polynomials from the second layer to make sumcheck_ood_point too short.
+        if proof.sumcheck_proofs.len() > 1 && !proof.sumcheck_proofs[1].round_polys.is_empty() {
+            proof.sumcheck_proofs[1].round_polys.clear();
+        }
+
+        let mut verifier_channel = DefaultTranscript::<F>::new(&[]);
+        let result = verifier::verify(Gate::GrandProduct, &proof, &mut verifier_channel);
+        assert!(result.is_err(), "should return error, not panic");
+    }
+
+    #[test]
+    fn batch_single_element_instance_does_not_panic() {
+        // Issue 2: size-1 instance (0 variables, 0 layers) should not panic.
+        let single = Layer::GrandProduct(DenseMultilinearPolynomial::new(vec![FE::from(42)]));
+
+        let mut prover_channel = DefaultTranscript::<F>::new(&[]);
+        let (proof, artifact) = prove_batch(&mut prover_channel, vec![single]);
+
+        assert_eq!(artifact.n_variables_by_instance, vec![0]);
+        assert_eq!(artifact.claims_to_verify_by_instance[0], vec![FE::from(42)]);
+
+        let mut verifier_channel = DefaultTranscript::<F>::new(&[]);
+        let result = verifier::verify_batch(&[Gate::GrandProduct], &proof, &mut verifier_channel);
+        assert!(
+            result.is_ok(),
+            "batch verification of size-1 instance should succeed"
+        );
+    }
+
+    #[test]
+    fn batch_mixed_with_zero_layer_instance() {
+        // Mix a size-1 instance with a normal one.
+        let single = Layer::GrandProduct(DenseMultilinearPolynomial::new(vec![FE::from(7)]));
+        let normal: Vec<FE> = (1u64..=8).map(FE::from).collect();
+        let normal_layer = Layer::GrandProduct(DenseMultilinearPolynomial::new(normal));
+
+        let artifact = prove_and_verify_batch(
+            vec![Gate::GrandProduct, Gate::GrandProduct],
+            vec![single, normal_layer],
+        );
+
+        assert_eq!(artifact.n_variables_by_instance, vec![0, 3]);
+        assert_eq!(artifact.claims_to_verify_by_instance[0], vec![FE::from(7)]);
+    }
+
+    #[test]
+    fn logup_multiplicities_two_elements_does_not_panic() {
+        // 2-element LogUpMultiplicities (1 variable) — the oracle is already constant,
+        // so fix_first_variable is never called to convert to LogUpGeneric.
+        // try_into_mask must handle LogUpMultiplicities directly.
+        let input_layer = Layer::LogUpMultiplicities {
+            numerators: DenseMultilinearPolynomial::new(vec![FE::from(3), FE::from(1)]),
+            denominators: DenseMultilinearPolynomial::new(vec![FE::from(10), FE::from(20)]),
+        };
+        let artifact = prove_and_verify_logup(input_layer);
+        assert_eq!(artifact.n_variables, 1);
+        assert_eq!(artifact.claims_to_verify.len(), 2);
     }
 }

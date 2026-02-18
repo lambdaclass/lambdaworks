@@ -9,7 +9,8 @@ use lambdaworks_crypto::fiat_shamir::default_transcript::DefaultTranscript;
 use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::fields::u64_prime_field::U64PrimeField;
 
-use lambdaworks_gkr_logup::mle::Mle;
+use lambdaworks_math::polynomial::DenseMultilinearPolynomial;
+
 use lambdaworks_gkr_logup::{prove_batch, verify_batch, Gate, Layer};
 
 const MODULUS: u64 = 2013265921;
@@ -47,7 +48,7 @@ fn main() {
     // This is LogUpSingles (all numerators = 1).
     let access_denominators: Vec<FE> = accesses.iter().map(|&a| z - FE::from(a)).collect();
     let access_layer = Layer::LogUpSingles {
-        denominators: Mle::new(access_denominators),
+        denominators: DenseMultilinearPolynomial::new(access_denominators),
     };
 
     // Table side: each entry t_j contributes m_j/(z - t_j)
@@ -55,8 +56,8 @@ fn main() {
     let table_denominators: Vec<FE> = table_values.iter().map(|&t| z - FE::from(t)).collect();
     let table_multiplicities: Vec<FE> = multiplicities.iter().map(|&m| FE::from(m)).collect();
     let table_layer = Layer::LogUpMultiplicities {
-        numerators: Mle::new(table_multiplicities),
-        denominators: Mle::new(table_denominators),
+        numerators: DenseMultilinearPolynomial::new(table_multiplicities),
+        denominators: DenseMultilinearPolynomial::new(table_denominators),
     };
 
     println!(
@@ -138,15 +139,15 @@ fn main() {
 
     let bad_access_dens: Vec<FE> = bad_accesses.iter().map(|&a| z - FE::from(a)).collect();
     let bad_access_layer = Layer::LogUpSingles {
-        denominators: Mle::new(bad_access_dens),
+        denominators: DenseMultilinearPolynomial::new(bad_access_dens),
     };
 
     // Table side stays the same (same multiplicities as before for the "expected" pattern)
     let table_dens2: Vec<FE> = table_values.iter().map(|&t| z - FE::from(t)).collect();
     let table_mults2: Vec<FE> = multiplicities.iter().map(|&m| FE::from(m)).collect();
     let table_layer2 = Layer::LogUpMultiplicities {
-        numerators: Mle::new(table_mults2),
-        denominators: Mle::new(table_dens2),
+        numerators: DenseMultilinearPolynomial::new(table_mults2),
+        denominators: DenseMultilinearPolynomial::new(table_dens2),
     };
 
     let mut p_ch = DefaultTranscript::<F>::new(&[]);
