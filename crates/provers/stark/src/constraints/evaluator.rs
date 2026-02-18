@@ -45,7 +45,7 @@ where
         }
     }
 
-    pub(crate) fn evaluate(
+    pub fn evaluate(
         &self,
         air: &dyn AIR<Field = Field, FieldExtension = FieldExtension, PublicInputs = PI>,
         lde_trace: &LDETraceTable<Field, FieldExtension>,
