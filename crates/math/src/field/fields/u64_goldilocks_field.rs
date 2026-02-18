@@ -299,6 +299,32 @@ impl ByteConversion for FieldElement<Goldilocks64Field> {
     }
 }
 
+#[cfg(feature = "alloc")]
+impl crate::traits::AsBytes for FieldElement<Goldilocks64Field> {
+    fn as_bytes(&self) -> alloc::vec::Vec<u8> {
+        self.to_bytes_be()
+    }
+}
+
+#[cfg(feature = "alloc")]
+impl crate::traits::AsBytes for FieldElement<Degree2GoldilocksExtensionField> {
+    fn as_bytes(&self) -> alloc::vec::Vec<u8> {
+        let mut bytes = ByteConversion::to_bytes_be(&self.value()[0]);
+        bytes.extend(ByteConversion::to_bytes_be(&self.value()[1]));
+        bytes
+    }
+}
+
+#[cfg(feature = "alloc")]
+impl crate::traits::AsBytes for FieldElement<Degree3GoldilocksExtensionField> {
+    fn as_bytes(&self) -> alloc::vec::Vec<u8> {
+        let mut bytes = ByteConversion::to_bytes_be(&self.value()[0]);
+        bytes.extend(ByteConversion::to_bytes_be(&self.value()[1]));
+        bytes.extend(ByteConversion::to_bytes_be(&self.value()[2]));
+        bytes
+    }
+}
+
 // =====================================================
 // x86-64 ASSEMBLY OPTIMIZATIONS
 // =====================================================
@@ -1100,6 +1126,32 @@ mod tests {
     fn to_hex_test() {
         let num = Goldilocks64Field::from_hex("B").unwrap();
         assert_eq!(Goldilocks64Field::to_hex(&num), "B");
+    }
+
+    #[test]
+    fn goldilocks_as_bytes_roundtrip() {
+        use crate::traits::AsBytes;
+        let fe = FpE::from(12345u64);
+        let bytes = fe.as_bytes();
+        assert_eq!(bytes.len(), 8);
+        let recovered = FpE::from_bytes_be(&bytes).unwrap();
+        assert_eq!(fe, recovered);
+    }
+
+    #[test]
+    fn goldilocks_fp2_as_bytes_roundtrip() {
+        use crate::traits::AsBytes;
+        let fe = Fp2E::new([FpE::from(1u64), FpE::from(2u64)]);
+        let bytes = fe.as_bytes();
+        assert_eq!(bytes.len(), 16);
+    }
+
+    #[test]
+    fn goldilocks_fp3_as_bytes_roundtrip() {
+        use crate::traits::AsBytes;
+        let fe = Fp3E::new([FpE::from(1u64), FpE::from(2u64), FpE::from(3u64)]);
+        let bytes = fe.as_bytes();
+        assert_eq!(bytes.len(), 24);
     }
 }
 
