@@ -22,6 +22,11 @@ use crate::metal::merkle::cpu_batch_commit;
 #[cfg(all(target_os = "macos", feature = "metal"))]
 use crate::metal::state::StarkMetalState;
 
+#[cfg(all(target_os = "macos", feature = "metal"))]
+use crate::metal::merkle::{gpu_batch_commit_goldilocks, GpuKeccakMerkleState};
+#[cfg(all(target_os = "macos", feature = "metal"))]
+use lambdaworks_math::field::fields::u64_goldilocks_field::Goldilocks64Field;
+
 /// Result of GPU Phase 1 (RAP round).
 ///
 /// This is the GPU equivalent of `Round1<Field, FieldExtension>` from the CPU
@@ -142,6 +147,73 @@ where
             // Append auxiliary root to transcript
             transcript.append_bytes(&aux_root);
 
+            (aux_polys, aux_lde_evals, Some(aux_tree), Some(aux_root))
+        } else {
+            (Vec::new(), Vec::new(), None, None)
+        };
+
+    Ok(GpuRound1Result {
+        main_trace_polys,
+        main_lde_evaluations,
+        main_merkle_tree,
+        main_merkle_root,
+        aux_trace_polys,
+        aux_lde_evaluations,
+        aux_merkle_tree,
+        aux_merkle_root,
+        rap_challenges,
+    })
+}
+
+/// GPU-optimized Phase 1 for Goldilocks field with GPU Merkle commit.
+///
+/// This is a concrete version of [`gpu_round_1`] that uses the GPU Keccak256
+/// shader for Merkle tree construction instead of CPU hashing.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+pub fn gpu_round_1_goldilocks<A>(
+    air: &A,
+    trace: &mut TraceTable<Goldilocks64Field, Goldilocks64Field>,
+    _domain: &Domain<Goldilocks64Field>,
+    transcript: &mut impl IsStarkTranscript<Goldilocks64Field, Goldilocks64Field>,
+    state: &StarkMetalState,
+    keccak_state: &GpuKeccakMerkleState,
+) -> Result<GpuRound1Result<Goldilocks64Field>, ProvingError>
+where
+    A: AIR<Field = Goldilocks64Field, FieldExtension = Goldilocks64Field>,
+{
+    // --- Main trace ---
+
+    let main_columns = trace.columns_main();
+    let main_trace_polys = interpolate_columns_gpu(&main_columns, state)?;
+
+    let blowup_factor = air.blowup_factor() as usize;
+    let coset_offset = air.coset_offset();
+    let main_lde_evaluations =
+        evaluate_polys_on_lde_gpu(&main_trace_polys, blowup_factor, &coset_offset, state)?;
+
+    // GPU Merkle commit: transpose + bit-reverse + hash all on GPU
+    let (main_merkle_tree, main_merkle_root) =
+        gpu_batch_commit_goldilocks(&main_lde_evaluations, keccak_state)
+            .ok_or(ProvingError::EmptyCommitment)?;
+
+    transcript.append_bytes(&main_merkle_root);
+    let rap_challenges = air.build_rap_challenges(transcript);
+
+    // --- Auxiliary trace (if RAP) ---
+    let (aux_trace_polys, aux_lde_evaluations, aux_merkle_tree, aux_merkle_root) =
+        if air.has_trace_interaction() {
+            air.build_auxiliary_trace(trace, &rap_challenges);
+            let aux_columns = trace.columns_aux();
+            let aux_polys = interpolate_columns_gpu(&aux_columns, state)?;
+            let aux_lde_evals =
+                evaluate_polys_on_lde_gpu(&aux_polys, blowup_factor, &coset_offset, state)?;
+
+            // GPU Merkle commit for auxiliary trace
+            let (aux_tree, aux_root) =
+                gpu_batch_commit_goldilocks(&aux_lde_evals, keccak_state)
+                    .ok_or(ProvingError::EmptyCommitment)?;
+
+            transcript.append_bytes(&aux_root);
             (aux_polys, aux_lde_evals, Some(aux_tree), Some(aux_root))
         } else {
             (Vec::new(), Vec::new(), None, None)

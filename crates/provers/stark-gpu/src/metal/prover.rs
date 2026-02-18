@@ -18,7 +18,7 @@ use stark_platinum_prover::traits::AIR;
 #[cfg(all(target_os = "macos", feature = "metal"))]
 use crate::metal::phases::composition::gpu_round_2;
 #[cfg(all(target_os = "macos", feature = "metal"))]
-use crate::metal::phases::composition::gpu_round_2_goldilocks;
+use crate::metal::phases::composition::gpu_round_2_goldilocks_merkle;
 #[cfg(all(target_os = "macos", feature = "metal"))]
 use crate::metal::phases::fri::gpu_round_4;
 #[cfg(all(target_os = "macos", feature = "metal"))]
@@ -26,7 +26,9 @@ use crate::metal::phases::fri::gpu_round_4_goldilocks;
 #[cfg(all(target_os = "macos", feature = "metal"))]
 use crate::metal::phases::ood::gpu_round_3;
 #[cfg(all(target_os = "macos", feature = "metal"))]
-use crate::metal::phases::rap::gpu_round_1;
+use crate::metal::phases::rap::{gpu_round_1, gpu_round_1_goldilocks};
+#[cfg(all(target_os = "macos", feature = "metal"))]
+use crate::metal::merkle::GpuKeccakMerkleState;
 #[cfg(all(target_os = "macos", feature = "metal"))]
 use crate::metal::state::StarkMetalState;
 
@@ -128,18 +130,21 @@ where
         .map_err(|e| ProvingError::FieldOperationError(format!("Constraint shader: {e}")))?;
     let deep_comp_state = DeepCompositionState::new()
         .map_err(|e| ProvingError::FieldOperationError(format!("DEEP composition shader: {e}")))?;
+    let keccak_state = GpuKeccakMerkleState::new()
+        .map_err(|e| ProvingError::FieldOperationError(format!("Keccak256 shader: {e}")))?;
 
-    // Phase 1: RAP (trace interpolation + LDE + Merkle commit) - GPU FFT
-    let round_1 = gpu_round_1(air, trace, &domain, transcript, &state)?;
+    // Phase 1: RAP (trace interpolation + LDE + GPU Merkle commit)
+    let round_1 = gpu_round_1_goldilocks(air, trace, &domain, transcript, &state, &keccak_state)?;
 
-    // Phase 2: Composition polynomial - GPU constraint eval + GPU FFT LDE
-    let round_2 = gpu_round_2_goldilocks(
+    // Phase 2: Composition polynomial - GPU constraint eval + GPU FFT LDE + GPU Merkle commit
+    let round_2 = gpu_round_2_goldilocks_merkle(
         air,
         &domain,
         &round_1,
         transcript,
         &state,
         Some(&constraint_state),
+        &keccak_state,
     )?;
 
     // Phase 3: OOD evaluations (CPU)
