@@ -1,9 +1,21 @@
+pub mod batched;
+pub mod blendy;
+pub mod common;
 pub mod prover;
 pub mod prover_optimized;
+pub mod prover_parallel;
+pub mod small_field;
+pub mod sparse_prover;
 pub mod verifier;
 
 #[cfg(feature = "metal")]
 pub mod gpu;
+
+#[cfg(feature = "metal")]
+pub mod metal;
+
+#[cfg(test)]
+mod correctness_tests;
 
 use lambdaworks_crypto::fiat_shamir::default_transcript::DefaultTranscript;
 use lambdaworks_crypto::fiat_shamir::is_transcript::IsTranscript;
@@ -16,10 +28,24 @@ use lambdaworks_math::traits::ByteConversion;
 use std::ops::Mul;
 use thiserror::Error;
 
+pub use batched::{
+    prove_batched, verify_batched, BatchedProofOutput, BatchedProver, StructuredBatchedProver,
+};
+pub use blendy::{prove_blendy, prove_memory_efficient, BlendyProver};
+pub use common::SumcheckProver;
 pub use prover::ProverOutput;
 pub use prover::{prove, Prover, ProverError};
 pub use prover_optimized::{prove_optimized, OptimizedProver, OptimizedProverError};
+pub use prover_parallel::{prove_fast, prove_parallel, FastProver, ParallelProver};
+pub use small_field::{prove_small_field, SmallFieldProver};
+pub use sparse_prover::{prove_sparse, SparseEntry, SparseMultiFactorProver, SparseProver};
 pub use verifier::{verify, Verifier, VerifierError, VerifierRoundResult};
+
+#[cfg(feature = "metal")]
+pub use metal::{prove_metal, prove_metal_multi, MetalMultiFactorProver, MetalProver, MetalState};
+
+#[cfg(all(target_os = "macos", feature = "metal"))]
+pub use metal::GoldilocksMetalProver;
 
 /// Error type for evaluation operations in sumcheck
 #[derive(Debug, Error)]
