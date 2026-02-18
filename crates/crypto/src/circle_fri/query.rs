@@ -59,9 +59,10 @@ where
     let mut decommitments = Vec::with_capacity(query_indices.len());
 
     for &nat_idx in query_indices {
-        let mut sibling_evals = Vec::new();
-        let mut auth_paths_own = Vec::new();
-        let mut auth_paths_sibling = Vec::new();
+        let num_layers = commitment.layers.len();
+        let mut sibling_evals = Vec::with_capacity(num_layers);
+        let mut auth_paths_own = Vec::with_capacity(num_layers);
+        let mut auth_paths_sibling = Vec::with_capacity(num_layers);
 
         // Convert natural-order query index to butterfly-order index
         let mut idx = natural_to_butterfly(nat_idx, domain_size);

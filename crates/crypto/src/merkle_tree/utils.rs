@@ -20,29 +20,13 @@ pub fn parent_index(node_index: usize) -> usize {
     }
 }
 
-/// Pads the list of values to a power of two length.
-///
-/// NOTE: This implementation repeats the last value for padding, which means
-/// that trees with different original lengths could potentially produce the
-/// same root if the padding results in identical leaf sets. For applications
-/// requiring commitment to the exact leaf count, consider:
-/// 1. Including the leaf count as an additional leaf or in the root computation
-/// 2. Using a distinct padding value (e.g., hash of empty string or zero)
-/// 3. Using a domain-separated padding scheme
+/// Pads the list of values to a power of two length by repeating the last value.
 pub fn complete_until_power_of_two<T: Clone>(mut values: Vec<T>) -> Vec<T> {
-    while !is_power_of_two(values.len()) {
-        values.push(values[values.len() - 1].clone());
+    let target = values.len().next_power_of_two();
+    if let Some(last) = values.last().cloned() {
+        values.resize(target, last);
     }
     values
-}
-
-// ! NOTE !
-// In this function we say 2^0 = 1 is a power of two.
-// In turn, this makes the smallest tree of one leaf, possible.
-// The function is private and is only used to ensure the tree
-// has a power of 2 number of leaves.
-fn is_power_of_two(x: usize) -> bool {
-    (x & (x - 1)) == 0
 }
 
 // ! CAUTION !

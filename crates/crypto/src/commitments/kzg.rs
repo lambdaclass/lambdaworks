@@ -57,28 +57,15 @@ where
     /// Serialize SRS
     fn as_bytes(&self) -> Vec<u8> {
         let mut serialized_data: Vec<u8> = Vec::new();
-        // First 4 bytes encodes protocol version
-        let protocol_version: [u8; 4] = [0; 4];
+        // First 4 bytes: protocol version
+        serialized_data.extend(&[0u8; 4]);
 
-        serialized_data.extend(&protocol_version);
+        // Next 8 bytes: number of G1 elements as u64 LE
+        serialized_data.extend(&(self.powers_main_group.len() as u64).to_le_bytes());
 
-        // Second 8 bytes store the amount of G1 elements to be stored, this is more than can be indexed with a 64-bit architecture, and some millions of terabytes of data if the points were compressed
-        let mut main_group_len_bytes: Vec<u8> = self.powers_main_group.len().to_le_bytes().to_vec();
-
-        // For architectures with less than 64 bits for pointers
-        // We add extra zeros at the end
-        while main_group_len_bytes.len() < 8 {
-            main_group_len_bytes.push(0)
-        }
-
-        serialized_data.extend(&main_group_len_bytes);
-
-        // G1 elements
         for point in &self.powers_main_group {
             serialized_data.extend(point.as_bytes());
         }
-
-        // G2 elements
         for point in &self.powers_secondary_group {
             serialized_data.extend(point.as_bytes());
         }
@@ -107,37 +94,38 @@ where
         let main_group_len = usize::try_from(main_group_len_u64)
             .map_err(|_| DeserializationError::PointerSizeError)?;
 
-        let mut main_group: Vec<G1Point> = Vec::new();
-        let mut secondary_group: Vec<G2Point> = Vec::new();
-
         let size_g1_point = mem::size_of::<G1Point>();
         let size_g2_point = mem::size_of::<G2Point>();
 
-        for i in 0..main_group_len {
-            let start = i * size_g1_point + MAIN_GROUP_OFFSET;
-            let end = start + size_g1_point;
-            let point_bytes = bytes
-                .get(start..end)
-                .ok_or(DeserializationError::InvalidAmountOfBytes)?;
-            let point = G1Point::deserialize(point_bytes)?;
-            main_group.push(point);
-        }
+        let main_group: Vec<G1Point> = (0..main_group_len)
+            .map(|i| {
+                let start = i * size_g1_point + MAIN_GROUP_OFFSET;
+                let end = start + size_g1_point;
+                let point_bytes = bytes
+                    .get(start..end)
+                    .ok_or(DeserializationError::InvalidAmountOfBytes)?;
+                G1Point::deserialize(point_bytes)
+            })
+            .collect::<Result<_, _>>()?;
 
-        let g2s_offset = size_g1_point * main_group_len + 12;
-        for i in 0..2 {
-            let start = i * size_g2_point + g2s_offset;
-            let end = start + size_g2_point;
-            let point_bytes = bytes
-                .get(start..end)
-                .ok_or(DeserializationError::InvalidAmountOfBytes)?;
-            let point = G2Point::deserialize(point_bytes)?;
-            secondary_group.push(point);
-        }
+        let g2s_offset = size_g1_point * main_group_len + MAIN_GROUP_OFFSET;
+        let secondary_group: Vec<G2Point> = (0..2)
+            .map(|i| {
+                let start = i * size_g2_point + g2s_offset;
+                let end = start + size_g2_point;
+                let point_bytes = bytes
+                    .get(start..end)
+                    .ok_or(DeserializationError::InvalidAmountOfBytes)?;
+                G2Point::deserialize(point_bytes)
+            })
+            .collect::<Result<_, _>>()?;
 
         let secondary_group_slice = [secondary_group[0].clone(), secondary_group[1].clone()];
 
-        let srs = StructuredReferenceString::new(&main_group, &secondary_group_slice);
-        Ok(srs)
+        Ok(StructuredReferenceString::new(
+            &main_group,
+            &secondary_group_slice,
+        ))
     }
 }
 
