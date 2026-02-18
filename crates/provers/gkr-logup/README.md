@@ -58,10 +58,10 @@ After processing all layers, the verifier obtains an out-of-domain point and cla
 
 ```rust
 use lambdaworks_gkr_logup::{prove, verify, Gate, Layer};
-use lambdaworks_gkr_logup::mle::Mle;
+use lambdaworks_math::polynomial::DenseMultilinearPolynomial;
 
 // Build a GrandProduct layer: proves that product = 1*2*3*4 = 24
-let input = Layer::GrandProduct(Mle::new(vec![
+let input = Layer::GrandProduct(DenseMultilinearPolynomial::new(vec![
     FE::from(1), FE::from(2), FE::from(3), FE::from(4),
 ]));
 
@@ -79,11 +79,12 @@ let result = verify(Gate::GrandProduct, &proof, &mut verifier_channel)?;
 
 ```rust
 use lambdaworks_gkr_logup::{prove_batch, verify_batch, Gate, Layer};
+use lambdaworks_math::polynomial::DenseMultilinearPolynomial;
 
 // Two instances can have different sizes
 let layers = vec![
-    Layer::GrandProduct(Mle::new(values_a)),  // 2^5 elements
-    Layer::LogUpSingles { denominators: Mle::new(dens_b) },  // 2^3 elements
+    Layer::GrandProduct(DenseMultilinearPolynomial::new(values_a)),  // 2^5 elements
+    Layer::LogUpSingles { denominators: DenseMultilinearPolynomial::new(dens_b) },  // 2^3 elements
 ];
 
 let mut prover_channel = DefaultTranscript::<F>::new(&[]);
