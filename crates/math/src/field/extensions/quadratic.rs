@@ -233,6 +233,7 @@ where
 #[cfg(test)]
 mod tests {
     use crate::field::fields::u64_prime_field::{U64FieldElement, U64PrimeField};
+    use alloc::vec;
 
     const ORDER_P: u64 = 59;
 
