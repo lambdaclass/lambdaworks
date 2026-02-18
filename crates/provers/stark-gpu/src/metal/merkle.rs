@@ -562,6 +562,33 @@ fn gpu_hash_and_build_tree(
     Ok((nodes, root))
 }
 
+/// Build a FRI-compatible Merkle tree from bit-reversed evaluations using GPU.
+///
+/// The evaluations are already bit-reversed. Groups consecutive pairs as leaves
+/// (matching the CPU `new_fri_layer` layout) and builds the Merkle tree on GPU.
+///
+/// Returns `(MerkleTree, root)` compatible with `FriLayer` and `query_phase`.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+pub fn gpu_fri_layer_commit(
+    evaluation: &[FieldElement<Goldilocks64Field>],
+    keccak_state: &GpuKeccakMerkleState,
+) -> Result<(BatchedMerkleTree<Goldilocks64Field>, Commitment), MetalError> {
+    let num_leaves = evaluation.len() / 2;
+    let num_cols = 2;
+
+    // Convert evaluations to flat u64 — natural order maps to paired rows:
+    // leaf[i] = [eval[2*i], eval[2*i+1]]
+    let flat_data: Vec<u64> = evaluation
+        .iter()
+        .map(|fe| Goldilocks64Field::canonical(fe.value()))
+        .collect();
+
+    let (nodes, root) = gpu_hash_and_build_tree(&flat_data, num_leaves, num_cols, keccak_state)?;
+    let tree = BatchedMerkleTree::<Goldilocks64Field>::from_nodes(nodes)
+        .ok_or_else(|| MetalError::ExecutionError("Failed to build FRI Merkle tree".into()))?;
+    Ok((tree, root))
+}
+
 /// Top-level GPU Merkle commit for Goldilocks field.
 ///
 /// Replaces the CPU path of `columns2rows_bit_reversed() + cpu_batch_commit()`.

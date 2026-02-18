@@ -150,7 +150,7 @@ where
     // Phase 3: OOD evaluations (CPU)
     let round_3 = gpu_round_3(air, &domain, &round_1, &round_2, transcript)?;
 
-    // Phase 4: DEEP composition (GPU) + FRI + queries
+    // Phase 4: DEEP composition (GPU) + FRI (GPU FFT + GPU Merkle) + queries
     let round_4 = gpu_round_4_goldilocks(
         air,
         &domain,
@@ -160,6 +160,7 @@ where
         transcript,
         &state,
         Some(&deep_comp_state),
+        &keccak_state,
     )?;
 
     // Assemble proof

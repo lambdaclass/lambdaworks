@@ -152,6 +152,7 @@ fn profile_gpu_optimized(
         &mut transcript,
         &state,
         Some(&deep_comp_state),
+        &keccak_state,
     )
     .unwrap();
     let phase4_time = t.elapsed();
@@ -561,19 +562,22 @@ fn profile_phase4(
     .unwrap();
     println!("  GPU DEEP comp:     {:>10.2?}", t.elapsed());
 
-    // Step 3: FRI commit phase
+    // Step 3: FRI commit phase (GPU FFT + GPU Keccak256 Merkle)
+    use lambdaworks_stark_gpu::metal::phases::fri::gpu_fri_commit_phase_goldilocks;
     let domain_size = domain.lde_roots_of_unity_coset.len();
     let t = Instant::now();
-    let (fri_last_value, fri_layers) = stark_platinum_prover::fri::commit_phase::<F, F>(
+    let (fri_last_value, fri_layers) = gpu_fri_commit_phase_goldilocks(
         domain.root_order as usize,
         deep_poly,
         &mut transcript,
         &domain.coset_offset,
         domain_size,
+        &state,
+        &keccak_state,
     )
     .unwrap();
     println!(
-        "  FRI commit:        {:>10.2?}  ({} layers)",
+        "  FRI commit (GPU):  {:>10.2?}  ({} layers)",
         t.elapsed(),
         fri_layers.len()
     );

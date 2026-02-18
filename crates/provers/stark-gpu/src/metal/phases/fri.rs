@@ -4,8 +4,10 @@
 //! from the CPU STARK prover. It computes the DEEP composition polynomial, runs FRI
 //! commit and query phases, performs grinding, and extracts Merkle opening proofs.
 //!
-//! All operations currently run on CPU. GPU acceleration of FRI folding and DEEP
-//! composition comes in later tasks.
+//! GPU acceleration is used for:
+//! - DEEP composition polynomial (Metal shader)
+//! - FRI layer FFT evaluation (Metal FFT)
+//! - FRI layer Merkle commit (Metal Keccak256)
 
 use lambdaworks_math::fft::cpu::bit_reversing::reverse_index;
 use lambdaworks_math::field::element::FieldElement;
@@ -15,9 +17,10 @@ use lambdaworks_math::traits::AsBytes;
 
 use lambdaworks_crypto::fiat_shamir::is_transcript::IsStarkTranscript;
 
-use stark_platinum_prover::config::{BatchedMerkleTree, Commitment};
+use stark_platinum_prover::config::{BatchedMerkleTree, BatchedMerkleTreeBackend, Commitment};
 use stark_platinum_prover::domain::Domain;
 use stark_platinum_prover::fri;
+use stark_platinum_prover::fri::fri_commitment::FriLayer;
 use stark_platinum_prover::fri::fri_decommit::FriDecommitment;
 use stark_platinum_prover::grinding;
 use stark_platinum_prover::proof::stark::{DeepPolynomialOpening, PolynomialOpenings};
@@ -32,7 +35,13 @@ use crate::metal::phases::rap::GpuRound1Result;
 #[cfg(all(target_os = "macos", feature = "metal"))]
 use crate::metal::deep_composition::{gpu_compute_deep_composition_poly, DeepCompositionState};
 #[cfg(all(target_os = "macos", feature = "metal"))]
+use crate::metal::fft::gpu_evaluate_offset_fft;
+#[cfg(all(target_os = "macos", feature = "metal"))]
+use crate::metal::merkle::{gpu_fri_layer_commit, GpuKeccakMerkleState};
+#[cfg(all(target_os = "macos", feature = "metal"))]
 use crate::metal::state::StarkMetalState;
+#[cfg(all(target_os = "macos", feature = "metal"))]
+use lambdaworks_math::fft::cpu::bit_reversing::in_place_bit_reverse_permute;
 #[cfg(all(target_os = "macos", feature = "metal"))]
 use lambdaworks_math::field::fields::u64_goldilocks_field::Goldilocks64Field;
 
@@ -408,10 +417,118 @@ where
     Ok(openings)
 }
 
+/// Minimum evaluation size to use GPU for FRI layers.
+/// Below this threshold, CPU is faster due to GPU dispatch overhead.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+const GPU_FRI_THRESHOLD: usize = 4096;
+
+/// Create a single FRI layer using GPU FFT + GPU Keccak256 Merkle.
+///
+/// Uses `gpu_evaluate_offset_fft` for the FFT evaluation and
+/// `gpu_fri_layer_commit` for the Merkle tree construction.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+fn gpu_new_fri_layer(
+    poly: &Polynomial<FieldElement<Goldilocks64Field>>,
+    coset_offset: &FieldElement<Goldilocks64Field>,
+    domain_size: usize,
+    gpu_state: &StarkMetalState,
+    keccak_state: &GpuKeccakMerkleState,
+) -> Result<FriLayer<Goldilocks64Field, BatchedMerkleTreeBackend<Goldilocks64Field>>, ProvingError>
+{
+    // GPU FFT: pad coefficients to domain_size, evaluate with blowup=1
+    let coefficients = poly.coefficients();
+    let mut padded_coeffs = coefficients.to_vec();
+    padded_coeffs.resize(domain_size, FieldElement::zero());
+
+    let mut evaluation =
+        gpu_evaluate_offset_fft(&padded_coeffs, 1, coset_offset, gpu_state.inner())
+            .map_err(|e| ProvingError::FieldOperationError(format!("GPU FFT in FRI: {e}")))?;
+
+    in_place_bit_reverse_permute(&mut evaluation);
+
+    // GPU Merkle: build paired tree from bit-reversed evaluations
+    let (merkle_tree, _root) = gpu_fri_layer_commit(&evaluation, keccak_state)
+        .map_err(|e| ProvingError::MerkleTreeError(format!("GPU Merkle in FRI: {e}")))?;
+
+    Ok(FriLayer::new(
+        &evaluation,
+        merkle_tree,
+        *coset_offset,
+        domain_size,
+    ))
+}
+
+/// GPU-accelerated FRI commit phase for Goldilocks field.
+///
+/// Replaces `fri::commit_phase` with GPU FFT + GPU Keccak256 Merkle for
+/// large layers (>= `GPU_FRI_THRESHOLD` evaluations), falling back to CPU
+/// for small layers where GPU dispatch overhead dominates.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+#[allow(clippy::type_complexity)]
+pub fn gpu_fri_commit_phase_goldilocks(
+    number_layers: usize,
+    p_0: Polynomial<FieldElement<Goldilocks64Field>>,
+    transcript: &mut impl IsStarkTranscript<Goldilocks64Field, Goldilocks64Field>,
+    coset_offset: &FieldElement<Goldilocks64Field>,
+    domain_size: usize,
+    gpu_state: &StarkMetalState,
+    keccak_state: &GpuKeccakMerkleState,
+) -> Result<
+    (
+        FieldElement<Goldilocks64Field>,
+        Vec<FriLayer<Goldilocks64Field, BatchedMerkleTreeBackend<Goldilocks64Field>>>,
+    ),
+    ProvingError,
+> {
+    use stark_platinum_prover::fri::fri_functions::fold_polynomial;
+
+    type F = Goldilocks64Field;
+
+    let mut domain_size = domain_size;
+    let mut fri_layer_list = Vec::with_capacity(number_layers);
+    let mut current_poly = p_0;
+    let mut coset_offset = *coset_offset;
+
+    for _ in 1..number_layers {
+        let zeta = transcript.sample_field_element();
+        coset_offset = coset_offset.square();
+        domain_size /= 2;
+
+        current_poly = FieldElement::<F>::from(2) * fold_polynomial(&current_poly, &zeta);
+
+        let current_layer = if domain_size >= GPU_FRI_THRESHOLD {
+            gpu_new_fri_layer(
+                &current_poly,
+                &coset_offset,
+                domain_size,
+                gpu_state,
+                keccak_state,
+            )?
+        } else {
+            fri::new_fri_layer(&current_poly, &coset_offset, domain_size)?
+        };
+
+        let commitment = current_layer.merkle_tree.root;
+        fri_layer_list.push(current_layer);
+        transcript.append_bytes(&commitment);
+    }
+
+    let zeta = transcript.sample_field_element();
+    let last_poly = FieldElement::<F>::from(2) * fold_polynomial(&current_poly, &zeta);
+    let last_value = *last_poly
+        .coefficients()
+        .first()
+        .unwrap_or(&FieldElement::zero());
+    transcript.append_field_element(&last_value);
+
+    Ok((last_value, fri_layer_list))
+}
+
 /// GPU-optimized Phase 4 for Goldilocks field with GPU DEEP composition.
 ///
 /// This is a concrete version of [`gpu_round_4`] that uses the Metal GPU shader
 /// for DEEP composition polynomial computation instead of CPU Ruffini division.
+/// Also uses GPU FFT + GPU Keccak256 for FRI layer construction.
 ///
 /// If `precompiled_deep` is `Some`, uses the pre-compiled shader state.
 #[cfg(all(target_os = "macos", feature = "metal"))]
@@ -425,12 +542,11 @@ pub fn gpu_round_4_goldilocks<A>(
     transcript: &mut impl IsStarkTranscript<Goldilocks64Field, Goldilocks64Field>,
     gpu_state: &StarkMetalState,
     precompiled_deep: Option<&DeepCompositionState>,
+    keccak_state: &GpuKeccakMerkleState,
 ) -> Result<GpuRound4Result<Goldilocks64Field>, ProvingError>
 where
     A: AIR<Field = Goldilocks64Field, FieldExtension = Goldilocks64Field>,
 {
-    type F = Goldilocks64Field;
-
     // Step 1: Sample gamma and compute deep composition coefficients.
     let gamma = transcript.sample_field_element();
 
@@ -464,14 +580,16 @@ where
         precompiled_deep,
     )?;
 
-    // Step 3: Run FRI commit phase.
+    // Step 3: Run FRI commit phase (GPU FFT + GPU Keccak256 Merkle for large layers).
     let domain_size = domain.lde_roots_of_unity_coset.len();
-    let (fri_last_value, fri_layers) = fri::commit_phase::<F, F>(
+    let (fri_last_value, fri_layers) = gpu_fri_commit_phase_goldilocks(
         domain.root_order as usize,
         deep_composition_poly,
         transcript,
         &domain.coset_offset,
         domain_size,
+        gpu_state,
+        keccak_state,
     )?;
 
     // Step 4: Grinding.
