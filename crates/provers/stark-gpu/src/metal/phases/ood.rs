@@ -173,8 +173,7 @@ mod tests {
 
         // trace_ood_evaluations should have rows = number of evaluation points
         // (transition_offsets.len() * step_size)
-        let expected_rows =
-            air.context().transition_offsets.len() * air.step_size();
+        let expected_rows = air.context().transition_offsets.len() * air.step_size();
         assert_eq!(round_3.trace_ood_evaluations.height, expected_rows);
 
         // All composition poly part OOD evaluations should be non-zero

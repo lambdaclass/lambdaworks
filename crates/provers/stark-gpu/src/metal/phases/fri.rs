@@ -170,12 +170,8 @@ where
         .collect();
 
     // Step 8: Open deep composition poly (Merkle proofs for trace + composition poly).
-    let deep_poly_openings = open_deep_composition_poly(
-        domain,
-        round_1_result,
-        round_2_result,
-        &iotas,
-    )?;
+    let deep_poly_openings =
+        open_deep_composition_poly(domain, round_1_result, round_2_result, &iotas)?;
 
     Ok(GpuRound4Result {
         fri_last_value,
