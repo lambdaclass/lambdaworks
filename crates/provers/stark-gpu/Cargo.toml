@@ -19,6 +19,11 @@ objc = { version = "0.2", optional = true }
 
 [dev-dependencies]
 rand = "0.8.5"
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[[bench]]
+name = "gpu_vs_cpu"
+harness = false
 
 [features]
 metal = ["dep:metal", "dep:objc", "dep:lambdaworks-gpu", "lambdaworks-gpu/metal", "lambdaworks-math/metal"]
