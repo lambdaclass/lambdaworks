@@ -2,6 +2,8 @@
 //!
 //! Based on "Improving logarithmic derivative lookups using GKR"
 //! by Shahar Papini and Ulrich Haböck (<https://eprint.iacr.org/2023/1284>).
+//!
+//! Implementation inspired by [stwo](https://github.com/starkware-libs/stwo/tree/dev/crates/stwo/src/prover/lookups).
 
 pub mod eq_evals;
 pub mod fraction;
