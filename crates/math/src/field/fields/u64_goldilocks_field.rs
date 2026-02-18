@@ -11,7 +11,7 @@
 use core::fmt::{self, Display};
 
 use crate::errors::CreationError;
-use crate::field::traits::{IsFFTField, IsField, IsPrimeField, IsSubFieldOf};
+use crate::field::traits::{HasDefaultTranscript, IsFFTField, IsField, IsPrimeField, IsSubFieldOf};
 use crate::field::{element::FieldElement, errors::FieldError};
 use crate::traits::ByteConversion;
 
@@ -322,6 +322,38 @@ impl crate::traits::AsBytes for FieldElement<Degree3GoldilocksExtensionField> {
         bytes.extend(ByteConversion::to_bytes_be(&self.value()[1]));
         bytes.extend(ByteConversion::to_bytes_be(&self.value()[2]));
         bytes
+    }
+}
+
+// =====================================================
+// HasDefaultTranscript (Fiat-Shamir support)
+// =====================================================
+
+impl HasDefaultTranscript for Goldilocks64Field {
+    fn get_random_field_element_from_rng(rng: &mut impl rand::Rng) -> FieldElement<Self> {
+        // Goldilocks modulus: 0xFFFF_FFFF_0000_0001
+        // leading_zeros() == 0, so mask = u64::MAX (all bits).
+        // Rejection sample: draw a full u64 and reject if >= MODULUS.
+        let mut sample = [0u8; 8];
+        let field;
+        loop {
+            rng.fill(&mut sample);
+            let value = u64::from_be_bytes(sample);
+            if value < GOLDILOCKS_PRIME {
+                field = FieldElement::from(value);
+                break;
+            }
+        }
+        field
+    }
+}
+
+impl HasDefaultTranscript for Degree3GoldilocksExtensionField {
+    fn get_random_field_element_from_rng(rng: &mut impl rand::Rng) -> FieldElement<Self> {
+        let c0 = Goldilocks64Field::get_random_field_element_from_rng(rng);
+        let c1 = Goldilocks64Field::get_random_field_element_from_rng(rng);
+        let c2 = Goldilocks64Field::get_random_field_element_from_rng(rng);
+        FieldElement::new([c0, c1, c2])
     }
 }
 
@@ -1152,6 +1184,26 @@ mod tests {
         let fe = Fp3E::new([FpE::from(1u64), FpE::from(2u64), FpE::from(3u64)]);
         let bytes = fe.as_bytes();
         assert_eq!(bytes.len(), 24);
+    }
+
+    #[test]
+    fn goldilocks_default_transcript_sampling() {
+        use crate::field::traits::HasDefaultTranscript;
+        use rand::SeedableRng;
+        let mut rng = rand::rngs::StdRng::seed_from_u64(42);
+        let fe1 = Goldilocks64Field::get_random_field_element_from_rng(&mut rng);
+        let fe2 = Goldilocks64Field::get_random_field_element_from_rng(&mut rng);
+        // Different samples should give different values
+        assert_ne!(fe1, fe2);
+    }
+
+    #[test]
+    fn goldilocks_fp3_default_transcript_sampling() {
+        use crate::field::traits::HasDefaultTranscript;
+        use rand::SeedableRng;
+        let mut rng = rand::rngs::StdRng::seed_from_u64(42);
+        let fe = Degree3GoldilocksExtensionField::get_random_field_element_from_rng(&mut rng);
+        let _ = fe; // Just check it compiles and runs
     }
 }
 
