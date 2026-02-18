@@ -103,11 +103,23 @@ pub fn sample_uniform(reader: &mut impl XofReader) -> Option<u64> {
     }
 }
 
-/// Samples a polynomial with small coefficients in [-eta, eta] via rejection
-/// over half-bytes (nibbles).
+/// Maps a half-byte (nibble) to a coefficient in [-eta, eta] or rejects.
 ///
-/// For eta = 2: reads 1 byte per 2 coefficients, each nibble mapped to [-2, 2].
-/// For eta = 4: reads 1 byte per coefficient, each nibble mapped to [-4, 4].
+/// Based on FIPS 204 (final), Algorithm 15 (CoefFromHalfByte).
+fn coef_from_half_byte(b: u8, eta: u32) -> Option<i32> {
+    match eta {
+        2 if b < 5 => Some(2 - b as i32),
+        4 if b < 9 => Some(4 - b as i32),
+        _ => None,
+    }
+}
+
+/// Samples a polynomial with coefficients uniformly distributed in [-eta, eta]
+/// via rejection over half-bytes (nibbles).
+///
+/// Reads bytes from the XOF stream, splits each into two nibbles, and maps
+/// each nibble to a coefficient using CoefFromHalfByte. Nibble values that
+/// don't map to valid coefficients are rejected.
 ///
 /// Based on FIPS 204 (final), Algorithm 31 (RejBoundedPoly), which calls
 /// Algorithm 15 (CoefFromHalfByte) for each nibble.
@@ -115,43 +127,35 @@ fn sample_bounded_poly<const N: usize>(
     reader: &mut impl XofReader,
     eta: u32,
 ) -> PolynomialRingElement<DilithiumField, N> {
+    assert!(
+        eta == 2 || eta == 4,
+        "unsupported eta value: {eta} (expected 2 or 4)"
+    );
+
     let mut coeffs = Vec::with_capacity(N);
 
-    match eta {
-        2 => {
-            // For eta=2, read N/2 bytes (each byte gives 2 coefficients)
-            let num_bytes = N / 2;
-            let mut buf = vec![0u8; num_bytes];
-            reader.read(&mut buf);
+    while coeffs.len() < N {
+        let mut buf = [0u8; 1];
+        reader.read(&mut buf);
+        let byte = buf[0];
 
-            for &byte in &buf {
-                // First coefficient from low 4 bits
-                let a0 = (byte & 1) + ((byte >> 1) & 1);
-                let b0 = ((byte >> 2) & 1) + ((byte >> 3) & 1);
-                coeffs.push(centered_to_fe(a0 as i32 - b0 as i32));
-
-                // Second coefficient from high 4 bits
-                let a1 = ((byte >> 4) & 1) + ((byte >> 5) & 1);
-                let b1 = ((byte >> 6) & 1) + ((byte >> 7) & 1);
-                coeffs.push(centered_to_fe(a1 as i32 - b1 as i32));
+        // Low nibble
+        let z0 = byte & 0x0F;
+        if let Some(c) = coef_from_half_byte(z0, eta) {
+            if coeffs.len() < N {
+                coeffs.push(centered_to_fe(c));
             }
         }
-        4 => {
-            // For eta=4, read N bytes (each byte gives 1 coefficient)
-            let mut buf = vec![0u8; N];
-            reader.read(&mut buf);
 
-            for &byte in &buf {
-                let a = (byte & 1) + ((byte >> 1) & 1) + ((byte >> 2) & 1) + ((byte >> 3) & 1);
-                let b =
-                    ((byte >> 4) & 1) + ((byte >> 5) & 1) + ((byte >> 6) & 1) + ((byte >> 7) & 1);
-                coeffs.push(centered_to_fe(a as i32 - b as i32));
+        // High nibble
+        let z1 = byte >> 4;
+        if let Some(c) = coef_from_half_byte(z1, eta) {
+            if coeffs.len() < N {
+                coeffs.push(centered_to_fe(c));
             }
         }
-        _ => panic!("unsupported eta value: {eta} (expected 2 or 4)"),
     }
 
-    coeffs.truncate(N);
     PolynomialRingElement::new(&coeffs)
 }
 
@@ -235,6 +239,12 @@ pub fn sample_challenge<const N: usize>(
     seed: &[u8],
     tau: usize,
 ) -> PolynomialRingElement<DilithiumField, N> {
+    assert!(tau <= N, "tau ({tau}) must be <= N ({N})");
+    assert!(
+        tau <= 64,
+        "tau ({tau}) must be <= 64 (sign bits fit in u64)"
+    );
+
     let mut shake = Shake256::default();
     shake.update(seed);
     let mut reader = shake.finalize_xof();
@@ -266,19 +276,22 @@ pub fn sample_challenge<const N: usize>(
 }
 
 /// Samples a uniform index in [0, bound) by rejection from byte stream.
+///
+/// Uses 1-byte reads for bound <= 256, 2-byte reads for bound > 256.
 fn sample_index(reader: &mut impl XofReader, bound: usize) -> usize {
+    assert!(bound > 0, "bound must be > 0");
     loop {
-        let mut buf = [0u8; 1];
-        reader.read(&mut buf);
-        let val = buf[0] as usize;
-        if val < bound {
-            return val;
-        }
-        // For bounds > 256, read more bytes
-        if bound > 256 {
-            let mut buf2 = [0u8; 2];
-            reader.read(&mut buf2);
-            let val = u16::from_le_bytes(buf2) as usize;
+        if bound <= 256 {
+            let mut buf = [0u8; 1];
+            reader.read(&mut buf);
+            let val = buf[0] as usize;
+            if val < bound {
+                return val;
+            }
+        } else {
+            let mut buf = [0u8; 2];
+            reader.read(&mut buf);
+            let val = u16::from_le_bytes(buf) as usize;
             if val < bound {
                 return val;
             }
@@ -502,5 +515,94 @@ mod tests {
         // Zero
         let fe_zero = centered_to_fe(0);
         assert_eq!(centered_mod::<DilithiumField>(&fe_zero), 0);
+    }
+
+    #[test]
+    fn coef_from_half_byte_eta_2() {
+        // b < 5 maps to 2 - b
+        assert_eq!(coef_from_half_byte(0, 2), Some(2));
+        assert_eq!(coef_from_half_byte(1, 2), Some(1));
+        assert_eq!(coef_from_half_byte(2, 2), Some(0));
+        assert_eq!(coef_from_half_byte(3, 2), Some(-1));
+        assert_eq!(coef_from_half_byte(4, 2), Some(-2));
+        // b >= 5 rejected
+        for b in 5..=15 {
+            assert_eq!(coef_from_half_byte(b, 2), None);
+        }
+    }
+
+    #[test]
+    fn coef_from_half_byte_eta_4() {
+        // b < 9 maps to 4 - b
+        for b in 0..=8u8 {
+            assert_eq!(coef_from_half_byte(b, 4), Some(4 - b as i32));
+        }
+        // b >= 9 rejected
+        for b in 9..=15 {
+            assert_eq!(coef_from_half_byte(b, 4), None);
+        }
+    }
+
+    #[test]
+    fn expand_s_eta_2_uniform_distribution() {
+        // Sample many coefficients and check approximate uniformity.
+        // FIPS 204 rejection sampling gives uniform distribution over [-eta, eta].
+        let seed = [7u8; 32];
+        let polys = expand_s::<256>(&seed, 2, 40); // 40 * 256 = 10240 coefficients
+
+        let mut counts = [0u64; 5]; // indices 0..4 map to values -2..2
+        for poly in &polys {
+            for c in poly.coefficients() {
+                let centered = centered_mod::<DilithiumField>(c);
+                let idx = (centered + 2) as usize;
+                counts[idx] += 1;
+            }
+        }
+
+        let total: u64 = counts.iter().sum();
+        let expected = total as f64 / 5.0;
+        // Each bucket should be within 10% of expected (uniform)
+        for (i, &count) in counts.iter().enumerate() {
+            let val = i as i64 - 2;
+            let ratio = count as f64 / expected;
+            assert!(
+                (0.85..=1.15).contains(&ratio),
+                "value {val}: count={count}, expected~{expected:.0}, ratio={ratio:.3} — not uniform"
+            );
+        }
+    }
+
+    #[test]
+    #[should_panic(expected = "tau (257) must be <= N (256)")]
+    fn sample_challenge_panics_tau_exceeds_n() {
+        let seed = [0u8; 32];
+        sample_challenge::<256>(&seed, 257);
+    }
+
+    #[test]
+    #[should_panic(expected = "tau (65) must be <= 64")]
+    fn sample_challenge_panics_tau_exceeds_64() {
+        let seed = [0u8; 32];
+        sample_challenge::<256>(&seed, 65);
+    }
+
+    #[test]
+    fn sample_index_covers_full_range() {
+        // For bound = 256, all indices [0, 256) should be reachable.
+        let mut shake = Shake256::default();
+        shake.update(b"sample_index_test");
+        let mut reader = shake.finalize_xof();
+
+        let mut seen = [false; 256];
+        for _ in 0..10000 {
+            let idx = sample_index(&mut reader, 256);
+            assert!(idx < 256);
+            seen[idx] = true;
+        }
+        let covered = seen.iter().filter(|&&s| s).count();
+        assert!(
+            covered > 240,
+            "only {covered}/256 indices seen — sampling may be biased"
+        );
     }
 }
