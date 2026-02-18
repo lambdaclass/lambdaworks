@@ -27,6 +27,14 @@ pub enum Gate {
 }
 
 impl Gate {
+    /// Number of columns expected for this gate type.
+    pub fn n_columns(&self) -> usize {
+        match self {
+            Self::GrandProduct => 1,
+            Self::LogUp => 2,
+        }
+    }
+
     /// Evaluates the gate on the given mask values, returning the output column values.
     pub fn eval<F: IsField>(
         &self,
@@ -154,6 +162,11 @@ where
 
     let n_layers = sumcheck_proofs.len();
     if layer_masks.len() != n_layers {
+        return Err(VerifierError::MalformedProof);
+    }
+
+    // Validate output claims match gate arity.
+    if output_claims.len() != gate.n_columns() {
         return Err(VerifierError::MalformedProof);
     }
 
@@ -286,6 +299,13 @@ where
 
     if n_layers != sumcheck_proofs.len() {
         return Err(VerifierError::MalformedProof);
+    }
+
+    // Validate output claims match gate arity for each instance.
+    for (instance, claims) in output_claims_by_instance.iter().enumerate() {
+        if claims.len() != gates[instance].n_columns() {
+            return Err(VerifierError::MalformedProof);
+        }
     }
 
     let two = &FieldElement::<F>::one() + &FieldElement::<F>::one();

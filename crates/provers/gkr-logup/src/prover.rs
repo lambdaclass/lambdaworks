@@ -1425,4 +1425,36 @@ mod tests {
         assert_eq!(artifact.n_variables, 1);
         assert_eq!(artifact.claims_to_verify.len(), 2);
     }
+
+    #[test]
+    fn single_element_wrong_gate_rejected() {
+        // A size-1 GrandProduct verified with LogUp gate should fail.
+        let input = Layer::GrandProduct(DenseMultilinearPolynomial::new(vec![FE::from(42)]));
+
+        let mut prover_channel = DefaultTranscript::<F>::new(&[]);
+        let (proof, _) = prove(&mut prover_channel, input);
+
+        let mut verifier_channel = DefaultTranscript::<F>::new(&[]);
+        let result = verifier::verify(Gate::LogUp, &proof, &mut verifier_channel);
+        assert!(
+            result.is_err(),
+            "wrong gate on 0-layer instance should be rejected"
+        );
+    }
+
+    #[test]
+    fn batch_single_element_wrong_gate_rejected() {
+        // A size-1 GrandProduct in batch verified with LogUp gate should fail.
+        let single = Layer::GrandProduct(DenseMultilinearPolynomial::new(vec![FE::from(42)]));
+
+        let mut prover_channel = DefaultTranscript::<F>::new(&[]);
+        let (proof, _) = prove_batch(&mut prover_channel, vec![single]);
+
+        let mut verifier_channel = DefaultTranscript::<F>::new(&[]);
+        let result = verifier::verify_batch(&[Gate::LogUp], &proof, &mut verifier_channel);
+        assert!(
+            result.is_err(),
+            "wrong gate on 0-layer batch instance should be rejected"
+        );
+    }
 }
