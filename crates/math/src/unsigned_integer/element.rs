@@ -680,7 +680,6 @@ impl<const NUM_LIMBS: usize> UnsignedInteger<NUM_LIMBS> {
         a: &UnsignedInteger<NUM_LIMBS>,
         b: &UnsignedInteger<NUM_LIMBS>,
     ) -> (UnsignedInteger<NUM_LIMBS>, UnsignedInteger<NUM_LIMBS>) {
-        // 1.
         let mut hi = [0u64; NUM_LIMBS];
         let mut lo = [0u64; NUM_LIMBS];
         let mut i = NUM_LIMBS;
