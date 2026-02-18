@@ -90,6 +90,50 @@ where
     ) -> Result<Polynomial<FieldElement<F>>, ProverError>;
 }
 
+/// Runs the sumcheck protocol using an external transcript/channel.
+///
+/// Unlike [`run_sumcheck_protocol`], this function does NOT create or initialize
+/// a transcript. The caller is responsible for managing the channel state.
+/// This is useful when the sumcheck is part of a larger protocol (e.g., GKR)
+/// that needs a shared transcript across multiple sumcheck instances.
+///
+/// Returns `(round_polys, assignment)` where:
+/// - `round_polys`: the univariate polynomial sent in each round
+/// - `assignment`: the challenge sampled after each round
+#[allow(clippy::type_complexity)]
+pub fn run_sumcheck_with_channel<F, P, T>(
+    prover: &mut P,
+    channel: &mut T,
+) -> Result<(Vec<Polynomial<FieldElement<F>>>, Vec<FieldElement<F>>), ProverError>
+where
+    F: IsField,
+    F::BaseType: Send + Sync,
+    FieldElement<F>: Clone + Mul<Output = FieldElement<F>>,
+    P: SumcheckProver<F>,
+    T: IsTranscript<F>,
+{
+    let num_vars = prover.num_vars();
+    let mut round_polys = Vec::with_capacity(num_vars);
+    let mut assignment = Vec::with_capacity(num_vars);
+    let mut current_challenge: Option<FieldElement<F>> = None;
+
+    for _j in 0..num_vars {
+        let g_j = prover.round(current_challenge.as_ref())?;
+
+        for coeff in g_j.coefficients() {
+            channel.append_field_element(coeff);
+        }
+
+        round_polys.push(g_j);
+
+        let challenge = channel.sample_field_element();
+        assignment.push(challenge.clone());
+        current_challenge = Some(challenge);
+    }
+
+    Ok((round_polys, assignment))
+}
+
 /// Runs the sumcheck protocol using the provided prover and returns the proof.
 ///
 /// This function handles all transcript operations, eliminating duplicate code

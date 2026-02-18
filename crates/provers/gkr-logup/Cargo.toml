@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 lambdaworks-math = { workspace = true }
 lambdaworks-crypto = { workspace = true }
+lambdaworks-sumcheck = { path = "../sumcheck" }
 
 [lib]
 name = "lambdaworks_gkr_logup"

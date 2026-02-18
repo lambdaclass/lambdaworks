@@ -1,17 +1,22 @@
+use std::ops::Mul;
+
 use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::traits::{HasDefaultTranscript, IsField};
+use lambdaworks_math::polynomial::Polynomial;
 use lambdaworks_math::traits::ByteConversion;
 
 use lambdaworks_crypto::fiat_shamir::is_transcript::IsTranscript;
+
+use lambdaworks_sumcheck::common::run_sumcheck_with_channel;
+use lambdaworks_sumcheck::common::SumcheckProver;
+use lambdaworks_sumcheck::ProverError;
 
 use crate::eq_evals::EqEvaluations;
 use crate::fraction::{Fraction, Reciprocal};
 use crate::layer::{gen_layers, Layer};
 use crate::mle::Mle;
-use crate::sumcheck::{self, SumcheckOracle};
 use crate::utils::{eq, random_linear_combination};
-use crate::verifier::{LayerMask, Proof, VerificationResult};
-use lambdaworks_math::polynomial::Polynomial;
+use crate::verifier::{LayerMask, Proof, SumcheckProof, VerificationResult};
 
 /// Multivariate polynomial oracle for the GKR protocol.
 ///
@@ -30,47 +35,15 @@ impl<F: IsField> LayerOracle<F> {
         self.n_variables() == 0
     }
 
-    /// Extracts the mask (column values at the two endpoints) from a constant oracle.
-    pub fn try_into_mask(self) -> Option<LayerMask<F>> {
-        if !self.is_constant() {
-            return None;
-        }
-
-        let columns = match self.input_layer {
-            Layer::GrandProduct(mle) => {
-                vec![[mle.at(0), mle.at(1)]]
-            }
-            Layer::LogUpGeneric {
-                numerators,
-                denominators,
-            } => {
-                vec![
-                    [numerators.at(0), numerators.at(1)],
-                    [denominators.at(0), denominators.at(1)],
-                ]
-            }
-            Layer::LogUpMultiplicities { .. } => {
-                // Should never happen: Multiplicities converts to Generic on first fix
-                unreachable!("LogUpMultiplicities should have been converted to LogUpGeneric")
-            }
-            Layer::LogUpSingles { denominators } => {
-                vec![
-                    [FieldElement::one(), FieldElement::one()],
-                    [denominators.at(0), denominators.at(1)],
-                ]
-            }
-        };
-
-        Some(LayerMask::new(columns))
-    }
-}
-
-impl<F: IsField> SumcheckOracle<F> for LayerOracle<F> {
-    fn n_variables(&self) -> usize {
+    /// Number of remaining variables.
+    pub fn n_variables(&self) -> usize {
         self.input_layer.n_variables() - 1
     }
 
-    fn sum_as_poly_in_first_variable(
+    /// Computes the univariate polynomial `f(t) = sum_x g(t, x)` for all `x` in `{0,1}^(n-1)`.
+    ///
+    /// `claim` equals `f(0) + f(1)`, which can be used to derive `f(1)` from `f(0)`.
+    pub fn sum_as_poly_in_first_variable(
         &self,
         claim: &FieldElement<F>,
     ) -> Polynomial<FieldElement<F>> {
@@ -113,7 +86,8 @@ impl<F: IsField> SumcheckOracle<F> for LayerOracle<F> {
         correct_sum_as_poly_in_first_variable(eval_at_0, eval_at_2, claim, y, n_variables)
     }
 
-    fn fix_first_variable(self, challenge: &FieldElement<F>) -> Self {
+    /// Fixes the first variable to `challenge`, returning a new oracle with one fewer variable.
+    pub fn fix_first_variable(self, challenge: &FieldElement<F>) -> Self {
         if self.is_constant() {
             return self;
         }
@@ -129,6 +103,40 @@ impl<F: IsField> SumcheckOracle<F> for LayerOracle<F> {
             input_layer: self.input_layer.fix_first_variable(challenge),
             lambda: self.lambda,
         }
+    }
+
+    /// Extracts the mask (column values at the two endpoints) from a constant oracle.
+    pub fn try_into_mask(self) -> Option<LayerMask<F>> {
+        if !self.is_constant() {
+            return None;
+        }
+
+        let columns = match self.input_layer {
+            Layer::GrandProduct(mle) => {
+                vec![[mle.at(0), mle.at(1)]]
+            }
+            Layer::LogUpGeneric {
+                numerators,
+                denominators,
+            } => {
+                vec![
+                    [numerators.at(0), numerators.at(1)],
+                    [denominators.at(0), denominators.at(1)],
+                ]
+            }
+            Layer::LogUpMultiplicities { .. } => {
+                // Should never happen: Multiplicities converts to Generic on first fix
+                unreachable!("LogUpMultiplicities should have been converted to LogUpGeneric")
+            }
+            Layer::LogUpSingles { denominators } => {
+                vec![
+                    [FieldElement::one(), FieldElement::one()],
+                    [denominators.at(0), denominators.at(1)],
+                ]
+            }
+        };
+
+        Some(LayerMask::new(columns))
     }
 }
 
@@ -300,6 +308,187 @@ fn correct_sum_as_poly_in_first_variable<F: IsField>(
     .expect("interpolation points are distinct")
 }
 
+/// Max degree of round polynomials in the GKR sumcheck.
+const MAX_DEGREE: usize = 3;
+
+/// Adapter that wraps a [`LayerOracle`] to implement the sumcheck crate's
+/// [`SumcheckProver`] trait, allowing the GKR prover to use
+/// [`run_sumcheck_with_channel`] for its per-layer sumcheck.
+struct LayerSumcheckProver<F: IsField> {
+    oracle: Option<LayerOracle<F>>,
+    claim: FieldElement<F>,
+    last_round_poly: Option<Polynomial<FieldElement<F>>>,
+}
+
+impl<F: IsField> LayerSumcheckProver<F> {
+    fn new(oracle: LayerOracle<F>, claim: FieldElement<F>) -> Self {
+        Self {
+            oracle: Some(oracle),
+            claim,
+            last_round_poly: None,
+        }
+    }
+
+    /// Extracts the oracle, applying the final challenge to make it constant.
+    ///
+    /// During `run_sumcheck_with_channel`, the adapter fixes one variable per round
+    /// except the first, so the last challenge needs to be applied here.
+    fn into_oracle(self, final_challenge: Option<&FieldElement<F>>) -> LayerOracle<F> {
+        let mut oracle = self.oracle.expect("oracle was consumed unexpectedly");
+        if let Some(r) = final_challenge {
+            oracle = oracle.fix_first_variable(r);
+        }
+        oracle
+    }
+}
+
+impl<F: IsField> SumcheckProver<F> for LayerSumcheckProver<F>
+where
+    F::BaseType: Send + Sync,
+    FieldElement<F>: Clone + Mul<Output = FieldElement<F>>,
+{
+    fn num_vars(&self) -> usize {
+        self.oracle.as_ref().unwrap().n_variables()
+    }
+
+    fn num_factors(&self) -> usize {
+        MAX_DEGREE
+    }
+
+    fn compute_initial_sum(&self) -> FieldElement<F> {
+        self.claim.clone()
+    }
+
+    fn round(
+        &mut self,
+        r_prev: Option<&FieldElement<F>>,
+    ) -> Result<Polynomial<FieldElement<F>>, ProverError> {
+        if let Some(r) = r_prev {
+            self.claim = self.last_round_poly.as_ref().unwrap().evaluate(r);
+            let oracle = self.oracle.take().unwrap();
+            self.oracle = Some(oracle.fix_first_variable(r));
+        }
+        let poly = self
+            .oracle
+            .as_ref()
+            .unwrap()
+            .sum_as_poly_in_first_variable(&self.claim);
+        self.last_round_poly = Some(poly.clone());
+        Ok(poly)
+    }
+}
+
+/// Random linear combination of polynomials: `p_0 + alpha * p_1 + ... + alpha^(n-1) * p_{n-1}`.
+fn poly_random_linear_combination<F: IsField>(
+    polys: &[Polynomial<FieldElement<F>>],
+    alpha: &FieldElement<F>,
+) -> Polynomial<FieldElement<F>> {
+    polys.iter().rev().fold(
+        Polynomial::new(&[FieldElement::<F>::zero()]),
+        |acc, poly| acc * Polynomial::new(std::slice::from_ref(alpha)) + poly.clone(),
+    )
+}
+
+/// Proves a batch of sumcheck instances with a single shared proof, using
+/// `LayerOracle` methods directly.
+///
+/// Combines multiple oracles into one via random linear combination with `alpha`.
+/// Oracles can have different numbers of variables — smaller ones are scaled by a
+/// "doubling factor" and produce a constant polynomial until their variables begin.
+///
+/// Returns `(proof, assignment, constant_oracles, final_claims)`.
+#[allow(clippy::type_complexity)]
+fn prove_batch_sumcheck<F, T>(
+    mut claims: Vec<FieldElement<F>>,
+    mut oracles: Vec<LayerOracle<F>>,
+    alpha: &FieldElement<F>,
+    channel: &mut T,
+) -> (
+    SumcheckProof<F>,
+    Vec<FieldElement<F>>,
+    Vec<LayerOracle<F>>,
+    Vec<FieldElement<F>>,
+)
+where
+    F: IsField + HasDefaultTranscript,
+    FieldElement<F>: ByteConversion,
+    T: IsTranscript<F>,
+{
+    let n_variables = oracles.iter().map(|o| o.n_variables()).max().unwrap();
+    assert_eq!(claims.len(), oracles.len());
+
+    let mut round_polys = Vec::new();
+    let mut assignment = Vec::new();
+
+    // Scale claims by doubling factor for smaller instances.
+    let two = &FieldElement::<F>::one() + &FieldElement::<F>::one();
+    for (claim, oracle) in claims.iter_mut().zip(oracles.iter()) {
+        let n_unused = n_variables - oracle.n_variables();
+        for _ in 0..n_unused {
+            *claim = &*claim * &two;
+        }
+    }
+
+    for round in 0..n_variables {
+        let n_remaining = n_variables - round;
+
+        // Compute per-oracle round polynomials.
+        let this_round_polys: Vec<Polynomial<FieldElement<F>>> = oracles
+            .iter()
+            .zip(claims.iter())
+            .map(|(oracle, claim)| {
+                if n_remaining == oracle.n_variables() {
+                    oracle.sum_as_poly_in_first_variable(claim)
+                } else {
+                    // Oracle hasn't started yet: constant polynomial = claim / 2.
+                    let half_claim = claim * two.inv().unwrap();
+                    Polynomial::new(&[half_claim])
+                }
+            })
+            .collect();
+
+        // Combine with alpha via random linear combination of polynomials.
+        let combined = poly_random_linear_combination(&this_round_polys, alpha);
+
+        // Sanity check.
+        debug_assert_eq!(
+            combined.evaluate(&FieldElement::<F>::zero())
+                + combined.evaluate(&FieldElement::<F>::one()),
+            random_linear_combination(&claims, alpha)
+        );
+        debug_assert!(combined.degree() <= MAX_DEGREE);
+
+        // Send combined polynomial to verifier.
+        for coeff in combined.coefficients() {
+            channel.append_field_element(coeff);
+        }
+        let challenge: FieldElement<F> = channel.sample_field_element();
+
+        // Update per-oracle claims.
+        claims = this_round_polys
+            .iter()
+            .map(|p| p.evaluate(&challenge))
+            .collect();
+
+        // Fix first variable on active oracles.
+        oracles = oracles
+            .into_iter()
+            .map(|oracle| {
+                if n_remaining != oracle.n_variables() {
+                    return oracle;
+                }
+                oracle.fix_first_variable(&challenge)
+            })
+            .collect();
+
+        round_polys.push(combined);
+        assignment.push(challenge);
+    }
+
+    let proof = SumcheckProof { round_polys };
+    (proof, assignment, oracles, claims)
+}
+
 /// Proves a single GKR instance.
 ///
 /// The input layer should be committed to the channel before calling this function.
@@ -309,7 +498,8 @@ fn correct_sum_as_poly_in_first_variable<F: IsField>(
 pub fn prove<F, T>(channel: &mut T, input_layer: Layer<F>) -> (Proof<F>, VerificationResult<F>)
 where
     F: IsField + HasDefaultTranscript,
-    FieldElement<F>: ByteConversion,
+    F::BaseType: Send + Sync,
+    FieldElement<F>: Clone + Mul<Output = FieldElement<F>> + ByteConversion,
     T: IsTranscript<F>,
 {
     // Generate all layers from input (leaves) to output (root)
@@ -357,9 +547,13 @@ where
             lambda: lambda.clone(),
         };
 
-        // Run sumcheck
-        let (sumcheck_proof, sumcheck_ood_point, constant_oracle) =
-            sumcheck::prove(claim, oracle, channel);
+        // Run sumcheck via the adapter
+        let mut layer_prover = LayerSumcheckProver::new(oracle, claim);
+        let (round_polys, sumcheck_ood_point) =
+            run_sumcheck_with_channel(&mut layer_prover, channel)
+                .expect("LayerOracle sumcheck cannot fail");
+        let constant_oracle = layer_prover.into_oracle(sumcheck_ood_point.last());
+        let sumcheck_proof = SumcheckProof { round_polys };
 
         // Extract mask from the constant oracle
         let mask = constant_oracle
@@ -489,7 +683,7 @@ where
 
         // Run batch sumcheck.
         let (sumcheck_proof, sumcheck_ood_point, constant_oracles, _final_claims) =
-            sumcheck::prove_batch(sumcheck_claims, sumcheck_oracles, &sumcheck_alpha, channel);
+            prove_batch_sumcheck(sumcheck_claims, sumcheck_oracles, &sumcheck_alpha, channel);
 
         sumcheck_proofs.push(sumcheck_proof);
 

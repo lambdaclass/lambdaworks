@@ -1,12 +1,21 @@
 use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::traits::{HasDefaultTranscript, IsField};
+use lambdaworks_math::polynomial::Polynomial;
 use lambdaworks_math::traits::ByteConversion;
 
 use lambdaworks_crypto::fiat_shamir::is_transcript::IsTranscript;
 
 use crate::fraction::Fraction;
-use crate::sumcheck::{self, SumcheckProof};
 use crate::utils::{eq, fold_mle_evals, random_linear_combination};
+
+/// Proof for the sumcheck protocol: one round polynomial per variable.
+#[derive(Debug, Clone)]
+pub struct SumcheckProof<F: IsField> {
+    pub round_polys: Vec<Polynomial<FieldElement<F>>>,
+}
+
+/// Max degree of round polynomials the verifier accepts.
+const MAX_DEGREE: usize = 3;
 
 /// Defines how a 2-to-1 gate operates locally on two input rows.
 #[derive(Debug, Clone, Copy)]
@@ -162,9 +171,13 @@ where
         let claim = random_linear_combination(&claims_to_verify, &lambda);
 
         // Partially verify sumcheck
-        let (sumcheck_ood_point, sumcheck_eval) =
-            sumcheck::partially_verify(claim, &sumcheck_proofs[layer], channel)
-                .map_err(|_| VerifierError::SumcheckFailed { layer })?;
+        let (sumcheck_ood_point, sumcheck_eval) = lambdaworks_sumcheck::partially_verify(
+            claim,
+            &sumcheck_proofs[layer].round_polys,
+            MAX_DEGREE,
+            channel,
+        )
+        .map_err(|_| VerifierError::SumcheckFailed { layer })?;
 
         // Evaluate the gate locally using the mask
         let mask = &layer_masks[layer];
@@ -317,9 +330,13 @@ where
 
         // Verify sumcheck with combined claim.
         let combined_claim = random_linear_combination(&sumcheck_claims, &sumcheck_alpha);
-        let (sumcheck_ood_point, sumcheck_eval) =
-            sumcheck::partially_verify(combined_claim, sumcheck_proof, channel)
-                .map_err(|_| VerifierError::SumcheckFailed { layer })?;
+        let (sumcheck_ood_point, sumcheck_eval) = lambdaworks_sumcheck::partially_verify(
+            combined_claim,
+            &sumcheck_proof.round_polys,
+            MAX_DEGREE,
+            channel,
+        )
+        .map_err(|_| VerifierError::SumcheckFailed { layer })?;
 
         // Evaluate gates locally at sumcheck OOD point.
         let mut layer_evals = Vec::new();
