@@ -130,8 +130,7 @@ mod tests {
         let values: Vec<FpE> = (0..8).map(|i| FpE::from(i as u64 + 1)).collect();
 
         let cpu_poly = Polynomial::interpolate_fft::<Goldilocks64Field>(&values).unwrap();
-        let gpu_coeffs =
-            gpu_interpolate_fft::<Goldilocks64Field>(&values, state.inner()).unwrap();
+        let gpu_coeffs = gpu_interpolate_fft::<Goldilocks64Field>(&values, state.inner()).unwrap();
 
         assert_eq!(cpu_poly.coefficients().len(), gpu_coeffs.len());
         for (cpu, gpu) in cpu_poly.coefficients().iter().zip(&gpu_coeffs) {
