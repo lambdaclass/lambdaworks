@@ -290,6 +290,13 @@ impl DynamicMetalState {
         Ok(pipeline.max_total_threads_per_threadgroup())
     }
 
+    /// Get a reference to a previously prepared pipeline.
+    ///
+    /// Returns `None` if the pipeline hasn't been prepared yet.
+    pub fn get_pipeline_ref(&self, function_name: &str) -> Option<&ComputePipelineState> {
+        self.pipelines.get(function_name)
+    }
+
     /// Execute a compute operation with a pre-prepared pipeline.
     ///
     /// Call `prepare_pipeline` first to ensure the pipeline exists.
