@@ -46,6 +46,10 @@ where
 
     /// Number of remaining variables.
     pub fn n_variables(&self) -> usize {
+        debug_assert!(
+            self.input_layer.n_variables() > 0,
+            "LayerOracle must not wrap an output layer"
+        );
         self.input_layer.n_variables() - 1
     }
 
