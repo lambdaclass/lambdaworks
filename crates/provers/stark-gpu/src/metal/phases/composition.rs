@@ -1,8 +1,12 @@
-//! GPU Phase 2: Composition Polynomial with CPU constraint evaluation.
+//! GPU Phase 2: Composition Polynomial.
 //!
 //! This module mirrors `round_2_compute_composition_polynomial` from the CPU
 //! STARK prover but uses Metal GPU FFT for the LDE evaluation of composition
 //! polynomial parts.
+//!
+//! Two variants are provided:
+//! - [`gpu_round_2`]: Generic over field and AIR, uses CPU constraint evaluation.
+//! - [`gpu_round_2_goldilocks`]: Concrete for Goldilocks field, uses GPU constraint evaluation.
 
 use lambdaworks_math::fft::cpu::bit_reversing::in_place_bit_reverse_permute;
 use lambdaworks_math::field::element::FieldElement;
@@ -25,6 +29,11 @@ use crate::metal::merkle::cpu_batch_commit;
 use crate::metal::phases::rap::GpuRound1Result;
 #[cfg(all(target_os = "macos", feature = "metal"))]
 use crate::metal::state::StarkMetalState;
+
+#[cfg(all(target_os = "macos", feature = "metal"))]
+use lambdaworks_math::field::fields::u64_goldilocks_field::Goldilocks64Field;
+#[cfg(all(target_os = "macos", feature = "metal"))]
+use crate::metal::constraint_eval::{gpu_evaluate_fibonacci_rap_constraints, FibRapConstraintState};
 
 /// Result of GPU Phase 2 (composition polynomial round).
 ///
@@ -165,6 +174,183 @@ where
     }
 
     // Batch commit
+    let (tree, root) = cpu_batch_commit(&merged_rows).ok_or(ProvingError::EmptyCommitment)?;
+
+    Ok(GpuRound2Result {
+        composition_poly_parts,
+        lde_composition_poly_evaluations: lde_evaluations,
+        composition_poly_merkle_tree: tree,
+        composition_poly_root: root,
+    })
+}
+
+/// GPU-optimized Phase 2 for Goldilocks field with GPU constraint evaluation.
+///
+/// This is a concrete version of [`gpu_round_2`] that uses the Metal GPU shader
+/// for constraint evaluation instead of the CPU `ConstraintEvaluator`. Boundary
+/// evaluations are pre-computed on CPU and passed to the GPU shader.
+///
+/// If `precompiled_constraint` is `Some`, uses the pre-compiled shader state.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+#[allow(clippy::too_many_arguments)]
+pub fn gpu_round_2_goldilocks<A>(
+    air: &A,
+    domain: &Domain<Goldilocks64Field>,
+    round_1_result: &GpuRound1Result<Goldilocks64Field>,
+    transcript: &mut impl IsStarkTranscript<Goldilocks64Field, Goldilocks64Field>,
+    state: &StarkMetalState,
+    precompiled_constraint: Option<&FibRapConstraintState>,
+) -> Result<GpuRound2Result<Goldilocks64Field>, ProvingError>
+where
+    A: AIR<Field = Goldilocks64Field, FieldExtension = Goldilocks64Field>,
+{
+    type F = Goldilocks64Field;
+    type FpE = FieldElement<F>;
+
+    // Step 1: Sample beta and compute transition/boundary coefficients.
+    let beta: FpE = transcript.sample_field_element();
+    let num_boundary = air
+        .boundary_constraints(&round_1_result.rap_challenges)
+        .constraints
+        .len();
+    let num_transition = air.context().num_transition_constraints;
+
+    let mut coefficients: Vec<FpE> =
+        core::iter::successors(Some(FpE::one()), |x| Some(x * &beta))
+            .take(num_boundary + num_transition)
+            .collect();
+    let transition_coefficients: Vec<FpE> = coefficients.drain(..num_transition).collect();
+    let boundary_coefficients = coefficients;
+
+    // Step 2: Build LDETraceTable from GPU round 1 result.
+    let blowup_factor = air.blowup_factor() as usize;
+    let lde_trace = LDETraceTable::from_columns(
+        round_1_result.main_lde_evaluations.clone(),
+        round_1_result.aux_lde_evaluations.clone(),
+        air.step_size(),
+        blowup_factor,
+    );
+    let num_lde_rows = lde_trace.num_rows();
+
+    // Step 3a: Pre-compute boundary evaluations on CPU.
+    let boundary_constraints = air.boundary_constraints(&round_1_result.rap_challenges);
+    let mut zerofier_cache: std::collections::HashMap<usize, Vec<FpE>> =
+        std::collections::HashMap::new();
+    for bc in &boundary_constraints.constraints {
+        zerofier_cache.entry(bc.step).or_insert_with(|| {
+            let point = domain.trace_primitive_root.pow(bc.step as u64);
+            let mut evals: Vec<FpE> = domain
+                .lde_roots_of_unity_coset
+                .iter()
+                .map(|v| v - &point)
+                .collect();
+            FpE::inplace_batch_inverse(&mut evals).unwrap();
+            evals
+        });
+    }
+    let boundary_zerofiers_refs: Vec<&Vec<FpE>> = boundary_constraints
+        .constraints
+        .iter()
+        .map(|bc| zerofier_cache.get(&bc.step).unwrap())
+        .collect();
+    let boundary_poly_evals: Vec<Vec<FpE>> = boundary_constraints
+        .constraints
+        .iter()
+        .map(|constraint| {
+            if constraint.is_aux {
+                (0..num_lde_rows)
+                    .map(|row| lde_trace.get_aux(row, constraint.col) - &constraint.value)
+                    .collect()
+            } else {
+                (0..num_lde_rows)
+                    .map(|row| lde_trace.get_main(row, constraint.col) - &constraint.value)
+                    .collect()
+            }
+        })
+        .collect();
+    let boundary_evals: Vec<FpE> = (0..num_lde_rows)
+        .map(|i| {
+            boundary_zerofiers_refs
+                .iter()
+                .zip(boundary_poly_evals.iter())
+                .zip(boundary_coefficients.iter())
+                .fold(FpE::zero(), |acc, ((z, bp), coeff)| {
+                    acc + &z[i] * coeff * &bp[i]
+                })
+        })
+        .collect();
+
+    // Step 3b: Extract LDE trace columns for GPU.
+    let main_col_0: Vec<FpE> = (0..num_lde_rows)
+        .map(|r| lde_trace.get_main(r, 0).clone())
+        .collect();
+    let main_col_1: Vec<FpE> = (0..num_lde_rows)
+        .map(|r| lde_trace.get_main(r, 1).clone())
+        .collect();
+    let aux_col_0: Vec<FpE> = (0..num_lde_rows)
+        .map(|r| lde_trace.get_aux(r, 0).clone())
+        .collect();
+
+    // Step 3c: Evaluate constraints on GPU.
+    let zerofier_evals = air.transition_zerofier_evaluations(domain);
+    let lde_step_size = air.step_size() * blowup_factor;
+    let constraint_evaluations = gpu_evaluate_fibonacci_rap_constraints(
+        &main_col_0,
+        &main_col_1,
+        &aux_col_0,
+        &zerofier_evals,
+        &boundary_evals,
+        &round_1_result.rap_challenges[0],
+        &transition_coefficients,
+        lde_step_size,
+        precompiled_constraint,
+    )
+    .map_err(|e| ProvingError::FieldOperationError(format!("GPU constraint eval error: {e}")))?;
+
+    // Step 4: Interpolate constraint evaluations to get composition polynomial.
+    let coset_offset = air.coset_offset();
+    let composition_poly =
+        Polynomial::interpolate_offset_fft(&constraint_evaluations, &coset_offset)?;
+
+    // Step 5: Break into parts.
+    let number_of_parts = air.composition_poly_degree_bound() / air.trace_length();
+    if number_of_parts == 0 {
+        return Err(ProvingError::WrongParameter(
+            "composition_poly_degree_bound must be >= trace_length".to_string(),
+        ));
+    }
+    let composition_poly_parts = composition_poly.break_in_parts(number_of_parts);
+
+    // Step 6: Evaluate each part on the LDE domain using GPU FFT.
+    let lde_evaluations: Vec<Vec<FpE>> = composition_poly_parts
+        .iter()
+        .map(|part| {
+            gpu_evaluate_offset_fft::<F>(
+                part.coefficients(),
+                blowup_factor,
+                &coset_offset,
+                state.inner(),
+            )
+            .map_err(|e| ProvingError::FieldOperationError(format!("GPU LDE FFT error: {e}")))
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+
+    // Step 7: Commit composition poly parts with the special layout.
+    let lde_len = lde_evaluations[0].len();
+
+    let mut rows: Vec<Vec<FpE>> = (0..lde_len)
+        .map(|i| lde_evaluations.iter().map(|col| col[i].clone()).collect())
+        .collect();
+
+    in_place_bit_reverse_permute(&mut rows);
+
+    let mut merged_rows = Vec::with_capacity(lde_len / 2);
+    let mut iter = rows.into_iter();
+    while let (Some(mut chunk0), Some(chunk1)) = (iter.next(), iter.next()) {
+        chunk0.extend(chunk1);
+        merged_rows.push(chunk0);
+    }
+
     let (tree, root) = cpu_batch_commit(&merged_rows).ok_or(ProvingError::EmptyCommitment)?;
 
     Ok(GpuRound2Result {

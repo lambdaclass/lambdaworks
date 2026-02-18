@@ -29,6 +29,13 @@ use crate::metal::phases::composition::GpuRound2Result;
 use crate::metal::phases::ood::GpuRound3Result;
 use crate::metal::phases::rap::GpuRound1Result;
 
+#[cfg(all(target_os = "macos", feature = "metal"))]
+use lambdaworks_math::field::fields::u64_goldilocks_field::Goldilocks64Field;
+#[cfg(all(target_os = "macos", feature = "metal"))]
+use crate::metal::deep_composition::{gpu_compute_deep_composition_poly, DeepCompositionState};
+#[cfg(all(target_os = "macos", feature = "metal"))]
+use crate::metal::state::StarkMetalState;
+
 /// Type alias matching the CPU prover's deep polynomial openings type.
 pub type DeepPolynomialOpenings<F, E> = Vec<DeepPolynomialOpening<F, E>>;
 
@@ -399,6 +406,110 @@ where
     }
 
     Ok(openings)
+}
+
+/// GPU-optimized Phase 4 for Goldilocks field with GPU DEEP composition.
+///
+/// This is a concrete version of [`gpu_round_4`] that uses the Metal GPU shader
+/// for DEEP composition polynomial computation instead of CPU Ruffini division.
+///
+/// If `precompiled_deep` is `Some`, uses the pre-compiled shader state.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+pub fn gpu_round_4_goldilocks<A>(
+    air: &A,
+    domain: &Domain<Goldilocks64Field>,
+    round_1_result: &GpuRound1Result<Goldilocks64Field>,
+    round_2_result: &GpuRound2Result<Goldilocks64Field>,
+    round_3_result: &GpuRound3Result<Goldilocks64Field>,
+    transcript: &mut impl IsStarkTranscript<Goldilocks64Field, Goldilocks64Field>,
+    gpu_state: &StarkMetalState,
+    precompiled_deep: Option<&DeepCompositionState>,
+) -> Result<GpuRound4Result<Goldilocks64Field>, ProvingError>
+where
+    A: AIR<Field = Goldilocks64Field, FieldExtension = Goldilocks64Field>,
+{
+    type F = Goldilocks64Field;
+
+    // Step 1: Sample gamma and compute deep composition coefficients.
+    let gamma = transcript.sample_field_element();
+
+    let n_terms_composition_poly = round_2_result.lde_composition_poly_evaluations.len();
+    let num_terms_trace =
+        air.context().transition_offsets.len() * air.step_size() * air.context().trace_columns;
+
+    let mut deep_composition_coefficients: Vec<_> =
+        core::iter::successors(Some(FieldElement::one()), |x| Some(x * &gamma))
+            .take(n_terms_composition_poly + num_terms_trace)
+            .collect();
+
+    let trace_term_coeffs: Vec<_> = deep_composition_coefficients
+        .drain(..num_terms_trace)
+        .collect::<Vec<_>>()
+        .chunks(air.context().transition_offsets.len() * air.step_size())
+        .map(|chunk| chunk.to_vec())
+        .collect();
+
+    let composition_gammas = deep_composition_coefficients;
+
+    // Step 2: Compute DEEP composition polynomial on GPU.
+    let deep_composition_poly = gpu_compute_deep_composition_poly(
+        round_1_result,
+        round_2_result,
+        round_3_result,
+        domain,
+        &composition_gammas,
+        &trace_term_coeffs,
+        gpu_state,
+        precompiled_deep,
+    )?;
+
+    // Step 3: Run FRI commit phase.
+    let domain_size = domain.lde_roots_of_unity_coset.len();
+    let (fri_last_value, fri_layers) = fri::commit_phase::<F, F>(
+        domain.root_order as usize,
+        deep_composition_poly,
+        transcript,
+        &domain.coset_offset,
+        domain_size,
+    )?;
+
+    // Step 4: Grinding.
+    let security_bits = air.context().proof_options.grinding_factor;
+    let mut nonce = None;
+    if security_bits > 0 {
+        let nonce_value = grinding::generate_nonce(&transcript.state(), security_bits)
+            .ok_or(ProvingError::NonceNotFound(security_bits))?;
+        transcript.append_bytes(&nonce_value.to_be_bytes());
+        nonce = Some(nonce_value);
+    }
+
+    // Step 5: Sample query indexes.
+    let number_of_queries = air.options().fri_number_of_queries;
+    let domain_size_u64 = domain_size as u64;
+    let iotas: Vec<usize> = (0..number_of_queries)
+        .map(|_| transcript.sample_u64(domain_size_u64 >> 1) as usize)
+        .collect();
+
+    // Step 6: Run FRI query phase.
+    let query_list = fri::query_phase(&fri_layers, &iotas)?;
+
+    // Step 7: Extract FRI Merkle roots from layers.
+    let fri_layers_merkle_roots: Vec<_> = fri_layers
+        .iter()
+        .map(|layer| layer.merkle_tree.root)
+        .collect();
+
+    // Step 8: Open deep composition poly (Merkle proofs for trace + composition poly).
+    let deep_poly_openings =
+        open_deep_composition_poly(domain, round_1_result, round_2_result, &iotas)?;
+
+    Ok(GpuRound4Result {
+        fri_last_value,
+        fri_layers_merkle_roots,
+        deep_poly_openings,
+        query_list,
+        nonce,
+    })
 }
 
 #[cfg(all(test, target_os = "macos", feature = "metal"))]
