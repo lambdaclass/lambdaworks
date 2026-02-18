@@ -327,6 +327,8 @@ impl Poseidon2 {
 mod tests {
     use super::goldilocks::MATRIX_DIAG_8;
     use super::*;
+    #[allow(unused_imports)]
+    use alloc::vec::Vec;
 
     #[test]
     fn test_poseidon2_permutation_deterministic() {
