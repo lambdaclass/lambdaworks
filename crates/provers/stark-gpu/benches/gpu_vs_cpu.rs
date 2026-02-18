@@ -16,7 +16,7 @@ use stark_platinum_prover::{
 };
 
 #[cfg(all(target_os = "macos", feature = "metal"))]
-use lambdaworks_stark_gpu::metal::prover::prove_gpu;
+use lambdaworks_stark_gpu::metal::prover::{prove_gpu, prove_gpu_optimized};
 
 type F = Goldilocks64Field;
 type FpE = FieldElement<F>;
@@ -49,7 +49,7 @@ fn bench_proving(c: &mut Criterion) {
             },
         );
 
-        // GPU benchmark
+        // GPU benchmark (generic - CPU constraints + CPU DEEP)
         #[cfg(all(target_os = "macos", feature = "metal"))]
         group.bench_with_input(
             BenchmarkId::new("gpu", format!("2^{log_trace_len}")),
@@ -60,6 +60,21 @@ fn bench_proving(c: &mut Criterion) {
                     let air = FibonacciRAP::new(trace.num_rows(), &pub_inputs, &proof_options);
                     let mut transcript = DefaultTranscript::<F>::new(&[]);
                     prove_gpu(&air, &mut trace, &mut transcript).unwrap();
+                });
+            },
+        );
+
+        // GPU optimized benchmark (GPU constraints + GPU DEEP)
+        #[cfg(all(target_os = "macos", feature = "metal"))]
+        group.bench_with_input(
+            BenchmarkId::new("gpu_optimized", format!("2^{log_trace_len}")),
+            &trace_length,
+            |b, &trace_len| {
+                b.iter(|| {
+                    let mut trace = fibonacci_rap_trace::<F>([FpE::one(), FpE::one()], trace_len);
+                    let air = FibonacciRAP::new(trace.num_rows(), &pub_inputs, &proof_options);
+                    let mut transcript = DefaultTranscript::<F>::new(&[]);
+                    prove_gpu_optimized(&air, &mut trace, &mut transcript).unwrap();
                 });
             },
         );

@@ -18,7 +18,11 @@ use stark_platinum_prover::traits::AIR;
 #[cfg(all(target_os = "macos", feature = "metal"))]
 use crate::metal::phases::composition::gpu_round_2;
 #[cfg(all(target_os = "macos", feature = "metal"))]
+use crate::metal::phases::composition::gpu_round_2_goldilocks;
+#[cfg(all(target_os = "macos", feature = "metal"))]
 use crate::metal::phases::fri::gpu_round_4;
+#[cfg(all(target_os = "macos", feature = "metal"))]
+use crate::metal::phases::fri::gpu_round_4_goldilocks;
 #[cfg(all(target_os = "macos", feature = "metal"))]
 use crate::metal::phases::ood::gpu_round_3;
 #[cfg(all(target_os = "macos", feature = "metal"))]
@@ -64,6 +68,96 @@ where
     let round_4 = gpu_round_4(air, &domain, &round_1, &round_2, &round_3, transcript)?;
 
     // Assemble proof (same structure as the CPU prover)
+    Ok(StarkProof {
+        trace_length: air.trace_length(),
+        lde_trace_main_merkle_root: round_1.main_merkle_root,
+        lde_trace_aux_merkle_root: round_1.aux_merkle_root,
+        trace_ood_evaluations: round_3.trace_ood_evaluations,
+        composition_poly_root: round_2.composition_poly_root,
+        composition_poly_parts_ood_evaluation: round_3.composition_poly_parts_ood_evaluation,
+        fri_layers_merkle_roots: round_4.fri_layers_merkle_roots,
+        fri_last_value: round_4.fri_last_value,
+        query_list: round_4.query_list,
+        deep_poly_openings: round_4.deep_poly_openings,
+        nonce: round_4.nonce,
+    })
+}
+
+/// Prove a STARK using fully GPU-optimized pipeline for Goldilocks field.
+///
+/// This is a concrete version of [`prove_gpu`] that uses GPU Metal shaders for:
+/// - FFT (interpolation + LDE) via `MetalState`
+/// - Constraint evaluation via `fibonacci_rap_constraints.metal`
+/// - DEEP composition polynomial via `deep_composition.metal`
+///
+/// Metal shaders are compiled once at the start and reused across all phases,
+/// avoiding per-phase recompilation overhead.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+pub fn prove_gpu_optimized<A>(
+    air: &A,
+    trace: &mut TraceTable<
+        lambdaworks_math::field::fields::u64_goldilocks_field::Goldilocks64Field,
+        lambdaworks_math::field::fields::u64_goldilocks_field::Goldilocks64Field,
+    >,
+    transcript: &mut impl IsStarkTranscript<
+        lambdaworks_math::field::fields::u64_goldilocks_field::Goldilocks64Field,
+        lambdaworks_math::field::fields::u64_goldilocks_field::Goldilocks64Field,
+    >,
+) -> Result<
+    StarkProof<
+        lambdaworks_math::field::fields::u64_goldilocks_field::Goldilocks64Field,
+        lambdaworks_math::field::fields::u64_goldilocks_field::Goldilocks64Field,
+    >,
+    ProvingError,
+>
+where
+    A: AIR<
+        Field = lambdaworks_math::field::fields::u64_goldilocks_field::Goldilocks64Field,
+        FieldExtension = lambdaworks_math::field::fields::u64_goldilocks_field::Goldilocks64Field,
+    >,
+{
+    use crate::metal::constraint_eval::FibRapConstraintState;
+    use crate::metal::deep_composition::DeepCompositionState;
+
+    let state =
+        StarkMetalState::new().map_err(|e| ProvingError::FieldOperationError(e.to_string()))?;
+    let domain = Domain::new(air);
+
+    // Pre-compile GPU shaders once for the entire prove call.
+    let constraint_state = FibRapConstraintState::new()
+        .map_err(|e| ProvingError::FieldOperationError(format!("Constraint shader: {e}")))?;
+    let deep_comp_state = DeepCompositionState::new()
+        .map_err(|e| ProvingError::FieldOperationError(format!("DEEP composition shader: {e}")))?;
+
+    // Phase 1: RAP (trace interpolation + LDE + Merkle commit) - GPU FFT
+    let round_1 = gpu_round_1(air, trace, &domain, transcript, &state)?;
+
+    // Phase 2: Composition polynomial - GPU constraint eval + GPU FFT LDE
+    let round_2 = gpu_round_2_goldilocks(
+        air,
+        &domain,
+        &round_1,
+        transcript,
+        &state,
+        Some(&constraint_state),
+    )?;
+
+    // Phase 3: OOD evaluations (CPU)
+    let round_3 = gpu_round_3(air, &domain, &round_1, &round_2, transcript)?;
+
+    // Phase 4: DEEP composition (GPU) + FRI + queries
+    let round_4 = gpu_round_4_goldilocks(
+        air,
+        &domain,
+        &round_1,
+        &round_2,
+        &round_3,
+        transcript,
+        &state,
+        Some(&deep_comp_state),
+    )?;
+
+    // Assemble proof
     Ok(StarkProof {
         trace_length: air.trace_length(),
         lde_trace_main_merkle_root: round_1.main_merkle_root,
@@ -174,5 +268,77 @@ mod tests {
             gpu_proof.deep_poly_openings.len(),
             "deep poly openings count mismatch"
         );
+    }
+
+    /// Test that the optimized GPU prover produces a valid proof.
+    #[test]
+    fn gpu_optimized_proof_verifies_with_cpu_verifier() {
+        let trace_length = 16;
+        let pub_inputs = FibonacciRAPPublicInputs {
+            steps: trace_length,
+            a0: FpE::one(),
+            a1: FpE::one(),
+        };
+        let proof_options = ProofOptions::default_test_options();
+        let mut trace = fibonacci_rap_trace::<F>([FpE::one(), FpE::one()], trace_length);
+        let air = FibonacciRAP::new(trace.num_rows(), &pub_inputs, &proof_options);
+
+        let mut prover_transcript = DefaultTranscript::<F>::new(&[]);
+        let proof = prove_gpu_optimized(&air, &mut trace, &mut prover_transcript).unwrap();
+
+        let mut verifier_transcript = DefaultTranscript::<F>::new(&[]);
+        let result = Verifier::<F, F, _>::verify(&proof, &air, &mut verifier_transcript);
+        assert!(
+            result,
+            "GPU optimized proof must be verified by the CPU verifier"
+        );
+    }
+
+    /// Test that the optimized GPU prover matches the CPU prover.
+    #[test]
+    fn gpu_optimized_proof_matches_cpu_proof() {
+        let trace_length = 16;
+        let pub_inputs = FibonacciRAPPublicInputs {
+            steps: trace_length,
+            a0: FpE::one(),
+            a1: FpE::one(),
+        };
+        let proof_options = ProofOptions::default_test_options();
+
+        // CPU proof
+        let mut cpu_trace = fibonacci_rap_trace::<F>([FpE::one(), FpE::one()], trace_length);
+        let air = FibonacciRAP::new(cpu_trace.num_rows(), &pub_inputs, &proof_options);
+        let mut cpu_transcript = DefaultTranscript::<F>::new(&[]);
+        let cpu_proof =
+            Prover::<F, F, _>::prove(&air, &mut cpu_trace, &mut cpu_transcript).unwrap();
+
+        // GPU optimized proof
+        let mut gpu_trace = fibonacci_rap_trace::<F>([FpE::one(), FpE::one()], trace_length);
+        let air = FibonacciRAP::new(gpu_trace.num_rows(), &pub_inputs, &proof_options);
+        let mut gpu_transcript = DefaultTranscript::<F>::new(&[]);
+        let gpu_proof =
+            prove_gpu_optimized(&air, &mut gpu_trace, &mut gpu_transcript).unwrap();
+
+        assert_eq!(
+            cpu_proof.trace_length, gpu_proof.trace_length,
+            "trace_length mismatch"
+        );
+        assert_eq!(
+            cpu_proof.lde_trace_main_merkle_root, gpu_proof.lde_trace_main_merkle_root,
+            "main merkle root mismatch"
+        );
+        assert_eq!(
+            cpu_proof.composition_poly_root, gpu_proof.composition_poly_root,
+            "composition poly root mismatch"
+        );
+        assert_eq!(
+            cpu_proof.fri_layers_merkle_roots, gpu_proof.fri_layers_merkle_roots,
+            "FRI merkle roots mismatch"
+        );
+        assert_eq!(
+            cpu_proof.fri_last_value, gpu_proof.fri_last_value,
+            "FRI last value mismatch"
+        );
+        assert_eq!(cpu_proof.nonce, gpu_proof.nonce, "nonce mismatch");
     }
 }
