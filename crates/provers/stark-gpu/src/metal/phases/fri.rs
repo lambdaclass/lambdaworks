@@ -30,11 +30,11 @@ use crate::metal::phases::ood::GpuRound3Result;
 use crate::metal::phases::rap::GpuRound1Result;
 
 #[cfg(all(target_os = "macos", feature = "metal"))]
-use lambdaworks_math::field::fields::u64_goldilocks_field::Goldilocks64Field;
-#[cfg(all(target_os = "macos", feature = "metal"))]
 use crate::metal::deep_composition::{gpu_compute_deep_composition_poly, DeepCompositionState};
 #[cfg(all(target_os = "macos", feature = "metal"))]
 use crate::metal::state::StarkMetalState;
+#[cfg(all(target_os = "macos", feature = "metal"))]
+use lambdaworks_math::field::fields::u64_goldilocks_field::Goldilocks64Field;
 
 /// Type alias matching the CPU prover's deep polynomial openings type.
 pub type DeepPolynomialOpenings<F, E> = Vec<DeepPolynomialOpening<F, E>>;
@@ -218,7 +218,7 @@ where
     for (i, part) in composition_poly_parts.iter().enumerate() {
         let h_i_eval = &composition_poly_ood_evaluations[i];
         let h_i_term = &composition_gammas[i] * (part - h_i_eval);
-        h_terms = h_terms + h_i_term;
+        h_terms += h_i_term;
     }
     debug_assert_eq!(h_terms.evaluate(&z_power), FieldElement::zero());
     h_terms.ruffini_division_inplace(&z_power);
@@ -415,6 +415,7 @@ where
 ///
 /// If `precompiled_deep` is `Some`, uses the pre-compiled shader state.
 #[cfg(all(target_os = "macos", feature = "metal"))]
+#[allow(clippy::too_many_arguments)]
 pub fn gpu_round_4_goldilocks<A>(
     air: &A,
     domain: &Domain<Goldilocks64Field>,
@@ -438,7 +439,7 @@ where
         air.context().transition_offsets.len() * air.step_size() * air.context().trace_columns;
 
     let mut deep_composition_coefficients: Vec<_> =
-        core::iter::successors(Some(FieldElement::one()), |x| Some(x * &gamma))
+        core::iter::successors(Some(FieldElement::one()), |x| Some(x * gamma))
             .take(n_terms_composition_poly + num_terms_trace)
             .collect();
 
@@ -623,7 +624,7 @@ mod tests {
         let n_terms_composition_poly = round_2.lde_composition_poly_evaluations.len();
 
         let composition_gammas: Vec<_> =
-            core::iter::successors(Some(FieldElement::one()), |x| Some(x * &gamma))
+            core::iter::successors(Some(FieldElement::one()), |x| Some(x * gamma))
                 .take(n_terms_composition_poly)
                 .collect();
 
@@ -633,7 +634,7 @@ mod tests {
         for (i, part) in round_2.composition_poly_parts.iter().enumerate() {
             let h_i_eval = &round_3.composition_poly_parts_ood_evaluation[i];
             let h_i_term = &composition_gammas[i] * (part - h_i_eval);
-            h_terms = h_terms + h_i_term;
+            h_terms += h_i_term;
         }
         assert_eq!(
             h_terms.evaluate(&z_power),

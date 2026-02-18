@@ -209,9 +209,8 @@ where
                 evaluate_polys_on_lde_gpu(&aux_polys, blowup_factor, &coset_offset, state)?;
 
             // GPU Merkle commit for auxiliary trace
-            let (aux_tree, aux_root) =
-                gpu_batch_commit_goldilocks(&aux_lde_evals, keccak_state)
-                    .ok_or(ProvingError::EmptyCommitment)?;
+            let (aux_tree, aux_root) = gpu_batch_commit_goldilocks(&aux_lde_evals, keccak_state)
+                .ok_or(ProvingError::EmptyCommitment)?;
 
             transcript.append_bytes(&aux_root);
             (aux_polys, aux_lde_evals, Some(aux_tree), Some(aux_root))

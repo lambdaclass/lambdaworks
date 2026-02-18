@@ -16,7 +16,10 @@ type F = Goldilocks64Field;
 type FpE = FieldElement<F>;
 
 fn main() {
-    println!("{:<8} {:>12} {:>12} {:>12} {:>10} {:>10}", "Trace", "CPU", "GPU", "GPU_opt", "GPU/CPU", "opt/CPU");
+    println!(
+        "{:<8} {:>12} {:>12} {:>12} {:>10} {:>10}",
+        "Trace", "CPU", "GPU", "GPU_opt", "GPU/CPU", "opt/CPU"
+    );
     println!("{}", "-".repeat(76));
 
     for log_len in [10, 12, 14, 16, 18] {

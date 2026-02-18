@@ -31,11 +31,13 @@ use crate::metal::phases::rap::GpuRound1Result;
 use crate::metal::state::StarkMetalState;
 
 #[cfg(all(target_os = "macos", feature = "metal"))]
-use lambdaworks_math::field::fields::u64_goldilocks_field::Goldilocks64Field;
+use crate::metal::constraint_eval::{
+    gpu_evaluate_fibonacci_rap_constraints, FibRapConstraintState,
+};
 #[cfg(all(target_os = "macos", feature = "metal"))]
 use crate::metal::merkle::{gpu_batch_commit_paired_goldilocks, GpuKeccakMerkleState};
 #[cfg(all(target_os = "macos", feature = "metal"))]
-use crate::metal::constraint_eval::{gpu_evaluate_fibonacci_rap_constraints, FibRapConstraintState};
+use lambdaworks_math::field::fields::u64_goldilocks_field::Goldilocks64Field;
 
 /// Result of GPU Phase 2 (composition polynomial round).
 ///
@@ -217,10 +219,9 @@ where
         .len();
     let num_transition = air.context().num_transition_constraints;
 
-    let mut coefficients: Vec<FpE> =
-        core::iter::successors(Some(FpE::one()), |x| Some(x * &beta))
-            .take(num_boundary + num_transition)
-            .collect();
+    let mut coefficients: Vec<FpE> = core::iter::successors(Some(FpE::one()), |x| Some(x * beta))
+        .take(num_boundary + num_transition)
+        .collect();
     let transition_coefficients: Vec<FpE> = coefficients.drain(..num_transition).collect();
     let boundary_coefficients = coefficients;
 
@@ -244,7 +245,7 @@ where
             let mut evals: Vec<FpE> = domain
                 .lde_roots_of_unity_coset
                 .iter()
-                .map(|v| v - &point)
+                .map(|v| v - point)
                 .collect();
             FpE::inplace_batch_inverse(&mut evals).unwrap();
             evals
@@ -261,11 +262,11 @@ where
         .map(|constraint| {
             if constraint.is_aux {
                 (0..num_lde_rows)
-                    .map(|row| lde_trace.get_aux(row, constraint.col) - &constraint.value)
+                    .map(|row| lde_trace.get_aux(row, constraint.col) - constraint.value)
                     .collect()
             } else {
                 (0..num_lde_rows)
-                    .map(|row| lde_trace.get_main(row, constraint.col) - &constraint.value)
+                    .map(|row| lde_trace.get_main(row, constraint.col) - constraint.value)
                     .collect()
             }
         })
@@ -277,20 +278,20 @@ where
                 .zip(boundary_poly_evals.iter())
                 .zip(boundary_coefficients.iter())
                 .fold(FpE::zero(), |acc, ((z, bp), coeff)| {
-                    acc + &z[i] * coeff * &bp[i]
+                    acc + z[i] * coeff * bp[i]
                 })
         })
         .collect();
 
     // Step 3b: Extract LDE trace columns for GPU.
     let main_col_0: Vec<FpE> = (0..num_lde_rows)
-        .map(|r| lde_trace.get_main(r, 0).clone())
+        .map(|r| *lde_trace.get_main(r, 0))
         .collect();
     let main_col_1: Vec<FpE> = (0..num_lde_rows)
-        .map(|r| lde_trace.get_main(r, 1).clone())
+        .map(|r| *lde_trace.get_main(r, 1))
         .collect();
     let aux_col_0: Vec<FpE> = (0..num_lde_rows)
-        .map(|r| lde_trace.get_aux(r, 0).clone())
+        .map(|r| *lde_trace.get_aux(r, 0))
         .collect();
 
     // Step 3c: Evaluate constraints on GPU.
@@ -341,7 +342,7 @@ where
     let lde_len = lde_evaluations[0].len();
 
     let mut rows: Vec<Vec<FpE>> = (0..lde_len)
-        .map(|i| lde_evaluations.iter().map(|col| col[i].clone()).collect())
+        .map(|i| lde_evaluations.iter().map(|col| col[i]).collect())
         .collect();
 
     in_place_bit_reverse_permute(&mut rows);
@@ -392,10 +393,9 @@ where
         .len();
     let num_transition = air.context().num_transition_constraints;
 
-    let mut coefficients: Vec<FpE> =
-        core::iter::successors(Some(FpE::one()), |x| Some(x * &beta))
-            .take(num_boundary + num_transition)
-            .collect();
+    let mut coefficients: Vec<FpE> = core::iter::successors(Some(FpE::one()), |x| Some(x * beta))
+        .take(num_boundary + num_transition)
+        .collect();
     let transition_coefficients: Vec<FpE> = coefficients.drain(..num_transition).collect();
     let boundary_coefficients = coefficients;
 
@@ -418,7 +418,7 @@ where
             let mut evals: Vec<FpE> = domain
                 .lde_roots_of_unity_coset
                 .iter()
-                .map(|v| v - &point)
+                .map(|v| v - point)
                 .collect();
             FpE::inplace_batch_inverse(&mut evals).unwrap();
             evals
@@ -435,11 +435,11 @@ where
         .map(|constraint| {
             if constraint.is_aux {
                 (0..num_lde_rows)
-                    .map(|row| lde_trace.get_aux(row, constraint.col) - &constraint.value)
+                    .map(|row| lde_trace.get_aux(row, constraint.col) - constraint.value)
                     .collect()
             } else {
                 (0..num_lde_rows)
-                    .map(|row| lde_trace.get_main(row, constraint.col) - &constraint.value)
+                    .map(|row| lde_trace.get_main(row, constraint.col) - constraint.value)
                     .collect()
             }
         })
@@ -451,19 +451,19 @@ where
                 .zip(boundary_poly_evals.iter())
                 .zip(boundary_coefficients.iter())
                 .fold(FpE::zero(), |acc, ((z, bp), coeff)| {
-                    acc + &z[i] * coeff * &bp[i]
+                    acc + z[i] * coeff * bp[i]
                 })
         })
         .collect();
 
     let main_col_0: Vec<FpE> = (0..num_lde_rows)
-        .map(|r| lde_trace.get_main(r, 0).clone())
+        .map(|r| *lde_trace.get_main(r, 0))
         .collect();
     let main_col_1: Vec<FpE> = (0..num_lde_rows)
-        .map(|r| lde_trace.get_main(r, 1).clone())
+        .map(|r| *lde_trace.get_main(r, 1))
         .collect();
     let aux_col_0: Vec<FpE> = (0..num_lde_rows)
-        .map(|r| lde_trace.get_aux(r, 0).clone())
+        .map(|r| *lde_trace.get_aux(r, 0))
         .collect();
 
     let zerofier_evals = air.transition_zerofier_evaluations(domain);

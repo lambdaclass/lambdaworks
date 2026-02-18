@@ -12,9 +12,7 @@
 use lambdaworks_gpu::metal::abstractions::state::DynamicMetalState;
 #[cfg(all(target_os = "macos", feature = "metal"))]
 use lambdaworks_math::field::{
-    element::FieldElement,
-    fields::u64_goldilocks_field::Goldilocks64Field,
-    traits::IsPrimeField,
+    element::FieldElement, fields::u64_goldilocks_field::Goldilocks64Field, traits::IsPrimeField,
 };
 #[cfg(all(target_os = "macos", feature = "metal"))]
 use lambdaworks_math::polynomial::Polynomial;
@@ -86,10 +84,8 @@ pub fn gpu_compute_deep_composition_poly(
     trace_term_coeffs: &[Vec<FieldElement<Goldilocks64Field>>],
     _gpu_state: &crate::metal::state::StarkMetalState,
     precompiled: Option<&DeepCompositionState>,
-) -> Result<
-    Polynomial<FieldElement<Goldilocks64Field>>,
-    stark_platinum_prover::prover::ProvingError,
-> {
+) -> Result<Polynomial<FieldElement<Goldilocks64Field>>, stark_platinum_prover::prover::ProvingError>
+{
     type F = Goldilocks64Field;
     type FpE = FieldElement<F>;
 
@@ -293,8 +289,7 @@ pub fn gpu_compute_deep_composition_poly(
 
     // --- IFFT to get polynomial coefficients ---
     // The evaluations are on the LDE coset {offset * w^i}, so we use coset IFFT.
-    let deep_poly =
-        Polynomial::interpolate_offset_fft(&deep_poly_evals, &domain.coset_offset)?;
+    let deep_poly = Polynomial::interpolate_offset_fft(&deep_poly_evals, &domain.coset_offset)?;
 
     Ok(deep_poly)
 }
@@ -348,9 +343,8 @@ mod tests {
         // Sample gamma the same way as gpu_round_4
         let gamma: FpE = transcript.sample_field_element();
         let n_terms_composition_poly = round_2.lde_composition_poly_evaluations.len();
-        let num_terms_trace = air.context().transition_offsets.len()
-            * air.step_size()
-            * air.context().trace_columns;
+        let num_terms_trace =
+            air.context().transition_offsets.len() * air.step_size() * air.context().trace_columns;
 
         let mut deep_composition_coefficients: Vec<_> =
             core::iter::successors(Some(FpE::one()), |x| Some(x * &gamma))

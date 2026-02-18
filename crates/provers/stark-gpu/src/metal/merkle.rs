@@ -86,9 +86,7 @@ pub fn gpu_hash_leaves_goldilocks(
         .collect();
 
     let buf_data = keccak_state.state.alloc_buffer_with_data(&flat_data)?;
-    let buf_output = keccak_state
-        .state
-        .alloc_buffer(num_rows * 32)?;
+    let buf_output = keccak_state.state.alloc_buffer(num_rows * 32)?;
     let num_cols_u32 = num_cols as u32;
     let num_rows_u32 = num_rows as u32;
     let buf_num_cols = keccak_state
@@ -140,8 +138,8 @@ pub fn gpu_hash_tree_level(
         let parents: Vec<[u8; 32]> = (0..num_pairs)
             .map(|i| {
                 let mut hasher = Keccak256::new();
-                hasher.update(&children[2 * i]);
-                hasher.update(&children[2 * i + 1]);
+                hasher.update(children[2 * i]);
+                hasher.update(children[2 * i + 1]);
                 let mut result = [0u8; 32];
                 result.copy_from_slice(&hasher.finalize());
                 result
@@ -284,8 +282,11 @@ pub fn gpu_transpose_bitrev(
     )?;
 
     // Read back row-major data
-    let raw_rows: Vec<u64> =
-        unsafe { keccak_state.state.read_buffer(&buf_rows, num_rows * num_cols) };
+    let raw_rows: Vec<u64> = unsafe {
+        keccak_state
+            .state
+            .read_buffer(&buf_rows, num_rows * num_cols)
+    };
 
     // Convert back to Vec<Vec<FieldElement>>
     let rows: Vec<Vec<FieldElement<Goldilocks64Field>>> = raw_rows
@@ -335,12 +336,7 @@ pub fn gpu_batch_commit_paired_goldilocks(
 
     // Transpose: column-major to row-major
     let mut rows: Vec<Vec<FieldElement<Goldilocks64Field>>> = (0..lde_len)
-        .map(|i| {
-            lde_evaluations
-                .iter()
-                .map(|col| col[i].clone())
-                .collect()
-        })
+        .map(|i| lde_evaluations.iter().map(|col| col[i]).collect())
         .collect();
 
     // Bit-reverse permute
@@ -440,7 +436,8 @@ mod gpu_tests {
         for (i, row) in rows.iter().enumerate() {
             let cpu_hash = cpu_hash_row(row);
             assert_eq!(
-                gpu_hashes[i], cpu_hash,
+                gpu_hashes[i],
+                cpu_hash,
                 "Leaf hash mismatch at row {i}: GPU={:?} CPU={:?}",
                 &gpu_hashes[i][..4],
                 &cpu_hash[..4]
@@ -453,9 +450,7 @@ mod gpu_tests {
         let keccak_state = GpuKeccakMerkleState::new().unwrap();
 
         // 1 column × 128 rows
-        let rows: Vec<Vec<FpE>> = (0..128)
-            .map(|r| vec![FpE::from(r as u64 + 42)])
-            .collect();
+        let rows: Vec<Vec<FpE>> = (0..128).map(|r| vec![FpE::from(r as u64 + 42)]).collect();
 
         let gpu_hashes = gpu_hash_leaves_goldilocks(&rows, &keccak_state).unwrap();
 
@@ -542,12 +537,12 @@ mod gpu_tests {
         let (cpu_tree, cpu_root) = cpu_batch_commit(&cpu_rows).unwrap();
 
         // GPU path: gpu_batch_commit_goldilocks
-        let (gpu_tree, gpu_root) =
-            gpu_batch_commit_goldilocks(&columns, &keccak_state).unwrap();
+        let (gpu_tree, gpu_root) = gpu_batch_commit_goldilocks(&columns, &keccak_state).unwrap();
 
         // Roots must match
         assert_eq!(
-            gpu_root, cpu_root,
+            gpu_root,
+            cpu_root,
             "Merkle root mismatch: GPU={:?} CPU={:?}",
             &gpu_root[..8],
             &cpu_root[..8]
@@ -594,10 +589,7 @@ mod gpu_tests {
         let leaf_hashes = gpu_hash_leaves_goldilocks(&cpu_rows, &keccak_state).unwrap();
         let (_, gpu_root) = gpu_build_merkle_tree(&leaf_hashes, &keccak_state).unwrap();
 
-        assert_eq!(
-            gpu_root, cpu_root,
-            "Non-power-of-two tree root mismatch"
-        );
+        assert_eq!(gpu_root, cpu_root, "Non-power-of-two tree root mismatch");
     }
 
     // =========================================================================
@@ -680,8 +672,7 @@ mod gpu_tests {
         let (cpu_tree, cpu_root) = cpu_batch_commit(&cpu_rows).unwrap();
 
         // GPU path
-        let (gpu_tree, gpu_root) =
-            gpu_batch_commit_goldilocks(&columns, &keccak_state).unwrap();
+        let (gpu_tree, gpu_root) = gpu_batch_commit_goldilocks(&columns, &keccak_state).unwrap();
 
         assert_eq!(gpu_root, cpu_root, "Batch commit root mismatch");
 

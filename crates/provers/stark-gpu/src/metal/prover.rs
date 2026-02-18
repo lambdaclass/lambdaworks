@@ -16,6 +16,8 @@ use stark_platinum_prover::trace::TraceTable;
 use stark_platinum_prover::traits::AIR;
 
 #[cfg(all(target_os = "macos", feature = "metal"))]
+use crate::metal::merkle::GpuKeccakMerkleState;
+#[cfg(all(target_os = "macos", feature = "metal"))]
 use crate::metal::phases::composition::gpu_round_2;
 #[cfg(all(target_os = "macos", feature = "metal"))]
 use crate::metal::phases::composition::gpu_round_2_goldilocks_merkle;
@@ -27,8 +29,6 @@ use crate::metal::phases::fri::gpu_round_4_goldilocks;
 use crate::metal::phases::ood::gpu_round_3;
 #[cfg(all(target_os = "macos", feature = "metal"))]
 use crate::metal::phases::rap::{gpu_round_1, gpu_round_1_goldilocks};
-#[cfg(all(target_os = "macos", feature = "metal"))]
-use crate::metal::merkle::GpuKeccakMerkleState;
 #[cfg(all(target_os = "macos", feature = "metal"))]
 use crate::metal::state::StarkMetalState;
 
@@ -321,8 +321,7 @@ mod tests {
         let mut gpu_trace = fibonacci_rap_trace::<F>([FpE::one(), FpE::one()], trace_length);
         let air = FibonacciRAP::new(gpu_trace.num_rows(), &pub_inputs, &proof_options);
         let mut gpu_transcript = DefaultTranscript::<F>::new(&[]);
-        let gpu_proof =
-            prove_gpu_optimized(&air, &mut gpu_trace, &mut gpu_transcript).unwrap();
+        let gpu_proof = prove_gpu_optimized(&air, &mut gpu_trace, &mut gpu_transcript).unwrap();
 
         assert_eq!(
             cpu_proof.trace_length, gpu_proof.trace_length,
