@@ -88,7 +88,7 @@ impl<const WIDTH: usize, const NUM_FULL_ROUNDS: usize> MonolithMersenne31<WIDTH,
         ((tmp >> 6) | (tmp << 1)) & 0x7F
     }
 
-    pub fn permutation(&self, state: &mut Vec<u32>) {
+    pub fn permutation(&self, state: &mut [u32]) {
         self.concrete(state);
         for round in 0..NUM_FULL_ROUNDS {
             self.bars(state);
@@ -102,8 +102,8 @@ impl<const WIDTH: usize, const NUM_FULL_ROUNDS: usize> MonolithMersenne31<WIDTH,
     }
 
     // MDS matrix
-    fn concrete(&self, state: &mut Vec<u32>) {
-        *state = if WIDTH == 16 {
+    fn concrete(&self, state: &mut [u32]) {
+        let new_state = if WIDTH == 16 {
             Self::apply_circulant(&mut MATRIX_CIRC_MDS_16_MERSENNE31_MONOLITH.clone(), state)
         } else {
             let mut shake = Shake128::default();
@@ -115,6 +115,7 @@ impl<const WIDTH: usize, const NUM_FULL_ROUNDS: usize> MonolithMersenne31<WIDTH,
             let mut shake_finalized = shake.finalize_xof();
             Self::apply_cauchy_mds_matrix(&mut shake_finalized, state)
         };
+        state.copy_from_slice(&new_state);
     }
 
     // S-box lookups
