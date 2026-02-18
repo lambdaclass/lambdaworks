@@ -9,7 +9,7 @@ use lambdaworks_gpu::metal::abstractions::{errors::MetalError, state::MetalState
 
 #[cfg(all(target_os = "macos", feature = "metal"))]
 use lambdaworks_math::{
-    fft::gpu::metal::ops::{fft, gen_twiddles},
+    fft::gpu::metal::ops::{fft, fft_to_buffer, gen_twiddles, gen_twiddles_to_buffer},
     field::{
         element::FieldElement,
         traits::{IsFFTField, IsSubFieldOf, RootsConfig},
@@ -113,6 +113,51 @@ where
     let order = domain_size.trailing_zeros() as u64;
     let twiddles = gen_twiddles::<F>(order, RootsConfig::BitReverse, state)?;
     fft(&shifted, &twiddles, state)
+}
+
+/// Evaluates a polynomial on an offset coset domain, returning a GPU Metal Buffer.
+///
+/// Like [`gpu_evaluate_offset_fft`] but keeps the result on GPU for direct use by
+/// downstream GPU operations (e.g., Merkle tree hashing) without CPU readback.
+///
+/// The returned buffer contains `F::BaseType` elements in bit-reversed order
+/// (natural FFT output order after bit-reverse permutation).
+///
+/// # Returns
+///
+/// A tuple of (Metal Buffer, element count) where the buffer contains the
+/// bit-reversed FFT evaluations.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+pub fn gpu_evaluate_offset_fft_to_buffer<F>(
+    coefficients: &[FieldElement<F>],
+    blowup_factor: usize,
+    offset: &FieldElement<F>,
+    state: &MetalState,
+) -> Result<(metal::Buffer, usize), MetalError>
+where
+    F: IsFFTField + IsSubFieldOf<F>,
+    F::BaseType: Copy,
+{
+    let domain_size = coefficients.len() * blowup_factor;
+
+    // Step 1: Multiply coefficient k by offset^k (coset shift)
+    let mut shifted = Vec::with_capacity(domain_size);
+    let mut offset_power = FieldElement::<F>::one();
+    for coeff in coefficients {
+        shifted.push(coeff * &offset_power);
+        offset_power = &offset_power * offset;
+    }
+
+    // Step 2: Zero-pad to domain_size
+    shifted.resize(domain_size, FieldElement::zero());
+
+    // Step 3: Generate twiddles directly as GPU buffer (no CPU download)
+    let order = domain_size.trailing_zeros() as u64;
+    let twiddles_buffer = gen_twiddles_to_buffer::<F>(order, RootsConfig::BitReverse, state)?;
+
+    // Step 4: FFT with result staying on GPU
+    let result_buffer = fft_to_buffer::<F>(&shifted, &twiddles_buffer, state)?;
+    Ok((result_buffer, domain_size))
 }
 
 #[cfg(all(test, target_os = "macos", feature = "metal"))]
