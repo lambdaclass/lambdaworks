@@ -5,7 +5,9 @@
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 
 use lambdaworks_crypto::fiat_shamir::default_transcript::DefaultTranscript;
-use lambdaworks_math::field::{element::FieldElement, fields::u64_goldilocks_field::Goldilocks64Field};
+use lambdaworks_math::field::{
+    element::FieldElement, fields::u64_goldilocks_field::Goldilocks64Field,
+};
 use stark_platinum_prover::{
     examples::fibonacci_rap::{fibonacci_rap_trace, FibonacciRAP, FibonacciRAPPublicInputs},
     proof::options::ProofOptions,
