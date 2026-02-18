@@ -15,6 +15,7 @@ pub mod dense_multilinear_poly;
 pub use dense_multilinear_poly::{eq_eval, eq_polynomial, DenseMultilinearPolynomial};
 pub mod error;
 pub use error::{InterpolateError, MultilinearError, PolynomialError};
+pub mod quotient_ring;
 pub mod sparse;
 pub mod sparse_multilinear_poly;
 pub use sparse::SparsePolynomial;

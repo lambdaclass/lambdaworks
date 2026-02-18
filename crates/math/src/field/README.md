@@ -8,6 +8,7 @@ This folder contains the different field backends, including field extensions. T
 - [Goldilocks-448](./fields/p448_goldilocks_prime_field.rs)
 - [Mersenne-31](./fields/mersenne31/): $2^{31} - 1$ and its [quadratic extension](./fields/mersenne31/extensions.rs)
 - [Baby Bear](./fields/fft_friendly/babybear.rs) and its [quartic extension](./fields/fft_friendly/quartic_babybear.rs): FFT-friendly, $2^{31} - 2^{27} + 1$.
+- [Dilithium](./fields/fft_friendly/dilithium_prime.rs): the prime field used in ML-DSA (Dilithium), $q = 8380417 = 2^{13} \times 1023 + 1$. FFT-friendly.
 - [Scalar field of BN-254](../elliptic_curve/short_weierstrass/curves/bn_254/default_types.rs), and its quadratic extension, quartic, sextic and twelth degree extensions. This coincides with the base field of [Grumpkin](../elliptic_curve/short_weierstrass/curves/grumpkin/curve.rs)
 - [Base field of BN-254](../elliptic_curve/short_weierstrass/curves/bn_254/field_extension.rs) and its quadratic extension. The base field coincides with the scalar field of [Grumpkin](../elliptic_curve/short_weierstrass/curves/grumpkin/curve.rs)
 - [Scalar field of BLS12-381](../elliptic_curve/short_weierstrass/curves/bls12_381/default_types.rs), and its quadratic, sextic and twelth degree extensions. FFT-friendly.

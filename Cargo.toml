@@ -27,6 +27,8 @@ members = [
     "examples/xmss-signature",
     "examples/reed-solomon-codes",
     "examples/bls-signature",
+    "examples/lwe",
+    "examples/ring-lwe",
 ]
 exclude = ["ensure-no_std"]
 resolver = "2"
