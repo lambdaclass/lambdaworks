@@ -41,6 +41,30 @@ struct DeepCompParams {
     num_comp_parts: u32,
 }
 
+/// Pre-compiled Metal state for DEEP composition polynomial evaluation.
+///
+/// Create once and reuse across multiple calls to avoid shader recompilation.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+pub struct DeepCompositionState {
+    state: DynamicMetalState,
+    max_threads: u64,
+}
+
+#[cfg(all(target_os = "macos", feature = "metal"))]
+impl DeepCompositionState {
+    /// Compile the DEEP composition shader and prepare the pipeline.
+    ///
+    /// # Errors
+    ///
+    /// Returns `MetalError` if the shader fails to compile or the pipeline cannot be created.
+    pub fn new() -> Result<Self, lambdaworks_gpu::metal::abstractions::errors::MetalError> {
+        let mut state = DynamicMetalState::new()?;
+        state.load_library(DEEP_COMPOSITION_SHADER)?;
+        let max_threads = state.prepare_pipeline("deep_composition_eval")?;
+        Ok(Self { state, max_threads })
+    }
+}
+
 /// Compute the DEEP composition polynomial using GPU for the evaluation-domain computation.
 ///
 /// This is a GPU-accelerated alternative to the CPU `compute_deep_composition_poly()`.
@@ -49,7 +73,8 @@ struct DeepCompParams {
 /// 2. Evaluates the DEEP composition at each LDE domain point on GPU (embarrassingly parallel)
 /// 3. IFFTs back to coefficient form using CPU FFT
 ///
-/// This is specific to Fibonacci RAP on the Goldilocks field.
+/// If `precompiled` is `Some`, uses the pre-compiled shader state to avoid
+/// recompiling the Metal shader on each call.
 #[cfg(all(target_os = "macos", feature = "metal"))]
 #[allow(clippy::too_many_arguments)]
 pub fn gpu_compute_deep_composition_poly(
@@ -60,6 +85,7 @@ pub fn gpu_compute_deep_composition_poly(
     composition_gammas: &[FieldElement<Goldilocks64Field>],
     trace_term_coeffs: &[Vec<FieldElement<Goldilocks64Field>>],
     _gpu_state: &crate::metal::state::StarkMetalState,
+    precompiled: Option<&DeepCompositionState>,
 ) -> Result<
     Polynomial<FieldElement<Goldilocks64Field>>,
     stark_platinum_prover::prover::ProvingError,
@@ -166,71 +192,79 @@ pub fn gpu_compute_deep_composition_poly(
     };
 
     // --- Dispatch Metal kernel ---
-    let mut state = DynamicMetalState::new().map_err(|e| {
-        stark_platinum_prover::prover::ProvingError::FieldOperationError(e.to_string())
-    })?;
-    state.load_library(DEEP_COMPOSITION_SHADER).map_err(|e| {
-        stark_platinum_prover::prover::ProvingError::FieldOperationError(e.to_string())
-    })?;
+    let mut owned_state;
+    let (dyn_state, max_threads) = match precompiled {
+        Some(pre) => (&pre.state, pre.max_threads),
+        None => {
+            owned_state = DynamicMetalState::new().map_err(|e| {
+                stark_platinum_prover::prover::ProvingError::FieldOperationError(e.to_string())
+            })?;
+            owned_state
+                .load_library(DEEP_COMPOSITION_SHADER)
+                .map_err(|e| {
+                    stark_platinum_prover::prover::ProvingError::FieldOperationError(e.to_string())
+                })?;
+            let mt = owned_state
+                .prepare_pipeline("deep_composition_eval")
+                .map_err(|e| {
+                    stark_platinum_prover::prover::ProvingError::FieldOperationError(e.to_string())
+                })?;
+            (&owned_state, mt)
+        }
+    };
 
-    let buf_trace_0 = state
+    let buf_trace_0 = dyn_state
         .alloc_buffer_with_data(&trace_raw[0])
         .map_err(|e| {
             stark_platinum_prover::prover::ProvingError::FieldOperationError(e.to_string())
         })?;
-    let buf_trace_1 = state
+    let buf_trace_1 = dyn_state
         .alloc_buffer_with_data(&trace_raw[1])
         .map_err(|e| {
             stark_platinum_prover::prover::ProvingError::FieldOperationError(e.to_string())
         })?;
-    let buf_trace_2 = state
+    let buf_trace_2 = dyn_state
         .alloc_buffer_with_data(&trace_raw[2])
         .map_err(|e| {
             stark_platinum_prover::prover::ProvingError::FieldOperationError(e.to_string())
         })?;
-    let buf_comp_0 = state
+    let buf_comp_0 = dyn_state
         .alloc_buffer_with_data(&comp_raw[0])
         .map_err(|e| {
             stark_platinum_prover::prover::ProvingError::FieldOperationError(e.to_string())
         })?;
-    let buf_inv_zp = state.alloc_buffer_with_data(&inv_zp_raw).map_err(|e| {
+    let buf_inv_zp = dyn_state.alloc_buffer_with_data(&inv_zp_raw).map_err(|e| {
         stark_platinum_prover::prover::ProvingError::FieldOperationError(e.to_string())
     })?;
-    let buf_inv_zs0 = state
+    let buf_inv_zs0 = dyn_state
         .alloc_buffer_with_data(&inv_zs_raw[0])
         .map_err(|e| {
             stark_platinum_prover::prover::ProvingError::FieldOperationError(e.to_string())
         })?;
-    let buf_inv_zs1 = state
+    let buf_inv_zs1 = dyn_state
         .alloc_buffer_with_data(&inv_zs_raw[1])
         .map_err(|e| {
             stark_platinum_prover::prover::ProvingError::FieldOperationError(e.to_string())
         })?;
-    let buf_inv_zs2 = state
+    let buf_inv_zs2 = dyn_state
         .alloc_buffer_with_data(&inv_zs_raw[2])
         .map_err(|e| {
             stark_platinum_prover::prover::ProvingError::FieldOperationError(e.to_string())
         })?;
-    let buf_scalars = state.alloc_buffer_with_data(&scalars).map_err(|e| {
+    let buf_scalars = dyn_state.alloc_buffer_with_data(&scalars).map_err(|e| {
         stark_platinum_prover::prover::ProvingError::FieldOperationError(e.to_string())
     })?;
-    let buf_params = state
+    let buf_params = dyn_state
         .alloc_buffer_with_data(std::slice::from_ref(&params))
         .map_err(|e| {
             stark_platinum_prover::prover::ProvingError::FieldOperationError(e.to_string())
         })?;
-    let buf_output = state
+    let buf_output = dyn_state
         .alloc_buffer(num_rows * std::mem::size_of::<u64>())
         .map_err(|e| {
             stark_platinum_prover::prover::ProvingError::FieldOperationError(e.to_string())
         })?;
-
-    let max_threads = state
-        .prepare_pipeline("deep_composition_eval")
-        .map_err(|e| {
-            stark_platinum_prover::prover::ProvingError::FieldOperationError(e.to_string())
-        })?;
-    state
+    dyn_state
         .execute_compute(
             "deep_composition_eval",
             &[
@@ -254,7 +288,7 @@ pub fn gpu_compute_deep_composition_poly(
         })?;
 
     // --- Read GPU results ---
-    let output_raw: Vec<u64> = unsafe { state.read_buffer(&buf_output, num_rows) };
+    let output_raw: Vec<u64> = unsafe { dyn_state.read_buffer(&buf_output, num_rows) };
     let deep_poly_evals: Vec<FpE> = output_raw.into_iter().map(FpE::from).collect();
 
     // --- IFFT to get polynomial coefficients ---
@@ -384,6 +418,7 @@ mod tests {
             &composition_gammas,
             &trace_term_coeffs,
             &state,
+            None,
         )
         .unwrap();
 
