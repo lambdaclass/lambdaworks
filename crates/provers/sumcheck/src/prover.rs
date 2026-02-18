@@ -86,7 +86,9 @@ where
             .map(|j| {
                 self.tables
                     .iter()
-                    .fold(FieldElement::<F>::one(), |acc, table| acc * table[j].clone())
+                    .fold(FieldElement::<F>::one(), |acc, table| {
+                        acc * table[j].clone()
+                    })
             })
             .fold(FieldElement::<F>::zero(), |acc, product| acc + product);
         Ok(sum)
