@@ -1009,7 +1009,7 @@ where
     let num_transition = air.context().num_transition_constraints;
 
     let mut coefficients: Vec<Fp3E> =
-        core::iter::successors(Some(Fp3E::one()), |x| Some(x * &beta))
+        core::iter::successors(Some(Fp3E::one()), |x| Some(x * beta))
             .take(num_boundary + num_transition)
             .collect();
     let transition_coefficients: Vec<Fp3E> = coefficients.drain(..num_transition).collect();
@@ -1081,7 +1081,7 @@ where
         .map(|i| {
             lde_evaluations
                 .iter()
-                .map(|col| col[i].clone())
+                .map(|col| col[i])
                 .collect()
         })
         .collect();

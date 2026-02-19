@@ -1389,7 +1389,7 @@ where
         * air.context().trace_columns;
 
     let mut deep_composition_coefficients: Vec<Fp3E> =
-        core::iter::successors(Some(Fp3E::one()), |x| Some(x * &gamma))
+        core::iter::successors(Some(Fp3E::one()), |x| Some(x * gamma))
             .take(n_terms_composition_poly + num_terms_trace)
             .collect();
 
@@ -1502,7 +1502,7 @@ fn compute_deep_composition_poly_fp3(
     let mut h_terms = Polynomial::zero();
     for (i, part) in composition_poly_parts.iter().enumerate() {
         let h_i_eval = &composition_poly_ood_evaluations[i];
-        let h_i_term = &composition_gammas[i] * (part - h_i_eval);
+        let h_i_term = composition_gammas[i] * (part - h_i_eval);
         h_terms += h_i_term;
     }
     debug_assert_eq!(h_terms.evaluate(&z_power), Fp3E::zero());
@@ -1573,11 +1573,11 @@ fn open_trace_polys_extension(
 
     let evaluations: Vec<_> = lde_evaluations
         .iter()
-        .map(|col| col[actual_index].clone())
+        .map(|col| col[actual_index])
         .collect();
     let evaluations_sym: Vec<_> = lde_evaluations
         .iter()
-        .map(|col| col[actual_index_sym].clone())
+        .map(|col| col[actual_index_sym])
         .collect();
 
     Ok(PolynomialOpenings {
@@ -1760,7 +1760,7 @@ mod tests {
         let mut h_terms = Polynomial::zero();
         for (i, part) in round_2.composition_poly_parts.iter().enumerate() {
             let h_i_eval = &round_3.composition_poly_parts_ood_evaluation[i];
-            let h_i_term = &composition_gammas[i] * (part - h_i_eval);
+            let h_i_term = composition_gammas[i] * (part - h_i_eval);
             h_terms += h_i_term;
         }
         assert_eq!(
