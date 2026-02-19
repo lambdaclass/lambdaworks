@@ -19,6 +19,7 @@ use metal::{
 };
 #[cfg(metal_shaders_compiled)]
 use metal::{CommandBufferRef, ComputeCommandEncoderRef};
+use std::cell::RefCell;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, MutexGuard};
@@ -54,6 +55,9 @@ pub struct MetalState {
     pub library: Library,
     /// Command queue for submitting work to the GPU.
     pub queue: CommandQueue,
+    /// Cached compute pipelines by kernel function name.
+    /// Uses interior mutability so `get_pipeline` can work with `&self`.
+    pipeline_cache: RefCell<HashMap<String, ComputePipelineState>>,
 }
 
 #[cfg(metal_shaders_compiled)]
@@ -82,6 +86,7 @@ impl MetalState {
             device,
             library,
             queue,
+            pipeline_cache: RefCell::new(HashMap::new()),
         })
     }
 
@@ -102,6 +107,23 @@ impl MetalState {
         self.device
             .new_compute_pipeline_state_with_function(&kernel)
             .map_err(|e| MetalError::PipelineError(e.to_string()))
+    }
+
+    /// Returns a cached compute pipeline, creating it on first access.
+    ///
+    /// Unlike `setup_pipeline` which creates a new pipeline every call,
+    /// this method caches pipelines by name and clones the cached handle
+    /// on subsequent calls. Metal pipeline handles are reference-counted,
+    /// so the clone is cheap (an Objective-C retain).
+    pub fn get_pipeline(&self, kernel_name: &str) -> Result<ComputePipelineState, MetalError> {
+        if let Some(pipeline) = self.pipeline_cache.borrow().get(kernel_name) {
+            return Ok(pipeline.clone());
+        }
+        let pipeline = self.setup_pipeline(kernel_name)?;
+        self.pipeline_cache
+            .borrow_mut()
+            .insert(kernel_name.to_string(), pipeline.clone());
+        Ok(pipeline)
     }
 
     /// Allocates `length` elements of type `T` in shared memory between CPU and GPU.
