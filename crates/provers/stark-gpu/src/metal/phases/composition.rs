@@ -24,7 +24,7 @@ use stark_platinum_prover::trace::LDETraceTable;
 use stark_platinum_prover::traits::AIR;
 
 #[cfg(all(target_os = "macos", feature = "metal"))]
-use crate::metal::fft::gpu_evaluate_offset_fft;
+use crate::metal::fft::{gpu_evaluate_offset_fft, gpu_evaluate_offset_fft_to_buffer};
 use crate::metal::merkle::cpu_batch_commit;
 use crate::metal::phases::rap::GpuRound1Result;
 #[cfg(all(target_os = "macos", feature = "metal"))]
@@ -35,7 +35,9 @@ use crate::metal::constraint_eval::{
     gpu_evaluate_fibonacci_rap_constraints, FibRapConstraintState,
 };
 #[cfg(all(target_os = "macos", feature = "metal"))]
-use crate::metal::merkle::{gpu_batch_commit_paired_goldilocks, GpuKeccakMerkleState};
+use crate::metal::merkle::{gpu_batch_commit_paired_from_column_buffers, GpuKeccakMerkleState};
+#[cfg(all(target_os = "macos", feature = "metal"))]
+use lambdaworks_gpu::metal::abstractions::state::MetalState;
 #[cfg(all(target_os = "macos", feature = "metal"))]
 use lambdaworks_math::field::fields::u64_goldilocks_field::Goldilocks64Field;
 
@@ -493,22 +495,35 @@ where
     }
     let composition_poly_parts = composition_poly.break_in_parts(number_of_parts);
 
-    let lde_evaluations: Vec<Vec<FpE>> = composition_poly_parts
-        .iter()
-        .map(|part| {
-            gpu_evaluate_offset_fft::<F>(
-                part.coefficients(),
-                blowup_factor,
-                &coset_offset,
-                state.inner(),
-            )
-            .map_err(|e| ProvingError::FieldOperationError(format!("GPU LDE FFT error: {e}")))
-        })
-        .collect::<Result<Vec<_>, _>>()?;
+    // Evaluate each part on LDE domain, keeping FFT results as GPU buffers
+    let mut lde_evaluations: Vec<Vec<FpE>> = Vec::with_capacity(composition_poly_parts.len());
+    let mut lde_buffers: Vec<metal::Buffer> = Vec::with_capacity(composition_poly_parts.len());
 
-    // Step 7: GPU Merkle commit with paired-row layout
-    let (tree, root) = gpu_batch_commit_paired_goldilocks(&lde_evaluations, keccak_state)
-        .ok_or(ProvingError::EmptyCommitment)?;
+    for part in &composition_poly_parts {
+        let (buffer, _domain_size) = gpu_evaluate_offset_fft_to_buffer(
+            part.coefficients(),
+            blowup_factor,
+            &coset_offset,
+            state.inner(),
+        )
+        .map_err(|e| ProvingError::FieldOperationError(format!("GPU LDE FFT error: {e}")))?;
+
+        // Read buffer to CPU Vec for later phases (OOD, queries)
+        let raw: Vec<u64> = MetalState::retrieve_contents(&buffer);
+        let elements: Vec<FpE> = raw.into_iter().map(FieldElement::from_raw).collect();
+
+        lde_evaluations.push(elements);
+        lde_buffers.push(buffer);
+    }
+
+    // Step 7: GPU Merkle commit with paired-row layout directly from FFT buffers
+    let buffer_refs: Vec<&metal::Buffer> = lde_buffers.iter().collect();
+    let (tree, root) = gpu_batch_commit_paired_from_column_buffers(
+        &buffer_refs,
+        lde_evaluations[0].len(),
+        keccak_state,
+    )
+    .ok_or(ProvingError::EmptyCommitment)?;
 
     Ok(GpuRound2Result {
         composition_poly_parts,

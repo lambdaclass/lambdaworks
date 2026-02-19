@@ -17,13 +17,17 @@ use stark_platinum_prover::trace::{columns2rows_bit_reversed, TraceTable};
 use stark_platinum_prover::traits::AIR;
 
 #[cfg(all(target_os = "macos", feature = "metal"))]
-use crate::metal::fft::{gpu_evaluate_offset_fft, gpu_interpolate_fft};
+use crate::metal::fft::{
+    gpu_evaluate_offset_fft, gpu_evaluate_offset_fft_to_buffer, gpu_interpolate_fft,
+};
 use crate::metal::merkle::cpu_batch_commit;
 #[cfg(all(target_os = "macos", feature = "metal"))]
 use crate::metal::state::StarkMetalState;
 
 #[cfg(all(target_os = "macos", feature = "metal"))]
-use crate::metal::merkle::{gpu_batch_commit_goldilocks, GpuKeccakMerkleState};
+use crate::metal::merkle::{gpu_batch_commit_from_column_buffers, GpuKeccakMerkleState};
+#[cfg(all(target_os = "macos", feature = "metal"))]
+use lambdaworks_gpu::metal::abstractions::state::MetalState;
 #[cfg(all(target_os = "macos", feature = "metal"))]
 use lambdaworks_math::field::fields::u64_goldilocks_field::Goldilocks64Field;
 
@@ -169,6 +173,10 @@ where
 ///
 /// This is a concrete version of [`gpu_round_1`] that uses the GPU Keccak256
 /// shader for Merkle tree construction instead of CPU hashing.
+///
+/// Uses the buffer pipeline: FFT results stay in GPU buffers and are read
+/// directly for the Merkle commit (via unified memory), avoiding an extra
+/// memcpy per column compared to the Vec-based path.
 #[cfg(all(target_os = "macos", feature = "metal"))]
 pub fn gpu_round_1_goldilocks<A>(
     air: &A,
@@ -188,13 +196,23 @@ where
 
     let blowup_factor = air.blowup_factor() as usize;
     let coset_offset = air.coset_offset();
-    let main_lde_evaluations =
-        evaluate_polys_on_lde_gpu(&main_trace_polys, blowup_factor, &coset_offset, state)?;
 
-    // GPU Merkle commit: transpose + bit-reverse + hash all on GPU
-    let (main_merkle_tree, main_merkle_root) =
-        gpu_batch_commit_goldilocks(&main_lde_evaluations, keccak_state)
-            .ok_or(ProvingError::EmptyCommitment)?;
+    // Evaluate on LDE domain, keeping FFT results as GPU buffers
+    let (main_lde_evaluations, main_lde_buffers) = evaluate_polys_on_lde_gpu_to_buffers(
+        &main_trace_polys,
+        blowup_factor,
+        &coset_offset,
+        state,
+    )?;
+
+    // GPU Merkle commit directly from FFT output buffers (no extra memcpy)
+    let buffer_refs: Vec<&metal::Buffer> = main_lde_buffers.iter().collect();
+    let (main_merkle_tree, main_merkle_root) = gpu_batch_commit_from_column_buffers(
+        &buffer_refs,
+        main_lde_evaluations[0].len(),
+        keccak_state,
+    )
+    .ok_or(ProvingError::EmptyCommitment)?;
 
     transcript.append_bytes(&main_merkle_root);
     let rap_challenges = air.build_rap_challenges(transcript);
@@ -205,12 +223,22 @@ where
             air.build_auxiliary_trace(trace, &rap_challenges);
             let aux_columns = trace.columns_aux();
             let aux_polys = interpolate_columns_gpu(&aux_columns, state)?;
-            let aux_lde_evals =
-                evaluate_polys_on_lde_gpu(&aux_polys, blowup_factor, &coset_offset, state)?;
 
-            // GPU Merkle commit for auxiliary trace
-            let (aux_tree, aux_root) = gpu_batch_commit_goldilocks(&aux_lde_evals, keccak_state)
-                .ok_or(ProvingError::EmptyCommitment)?;
+            let (aux_lde_evals, aux_lde_buffers) = evaluate_polys_on_lde_gpu_to_buffers(
+                &aux_polys,
+                blowup_factor,
+                &coset_offset,
+                state,
+            )?;
+
+            // GPU Merkle commit from auxiliary trace FFT buffers
+            let buf_refs: Vec<&metal::Buffer> = aux_lde_buffers.iter().collect();
+            let (aux_tree, aux_root) = gpu_batch_commit_from_column_buffers(
+                &buf_refs,
+                aux_lde_evals[0].len(),
+                keccak_state,
+            )
+            .ok_or(ProvingError::EmptyCommitment)?;
 
             transcript.append_bytes(&aux_root);
             (aux_polys, aux_lde_evals, Some(aux_tree), Some(aux_root))
@@ -278,6 +306,56 @@ where
                 .map_err(|e| ProvingError::FieldOperationError(format!("GPU LDE FFT error: {e}")))
         })
         .collect()
+}
+
+/// Evaluates polynomials on the LDE coset domain, returning both CPU Vecs and GPU Buffers.
+///
+/// Like [`evaluate_polys_on_lde_gpu`] but keeps FFT results as GPU Metal Buffers
+/// alongside CPU Vecs. The Buffers can be passed directly to
+/// [`gpu_batch_commit_from_column_buffers`] for zero-copy Merkle commit, while
+/// the CPU Vecs are used by later prover phases (constraint evaluation, OOD, queries).
+///
+/// Twiddle factors are generated once and reused for all columns.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+fn evaluate_polys_on_lde_gpu_to_buffers(
+    polys: &[Polynomial<FieldElement<Goldilocks64Field>>],
+    blowup_factor: usize,
+    offset: &FieldElement<Goldilocks64Field>,
+    state: &StarkMetalState,
+) -> Result<
+    (
+        Vec<Vec<FieldElement<Goldilocks64Field>>>,
+        Vec<metal::Buffer>,
+    ),
+    ProvingError,
+> {
+    if polys.is_empty() {
+        return Ok((Vec::new(), Vec::new()));
+    }
+
+    let mut cpu_results = Vec::with_capacity(polys.len());
+    let mut gpu_buffers = Vec::with_capacity(polys.len());
+
+    for poly in polys {
+        // Use the buffer-returning FFT wrapper
+        let (buffer, _domain_size) = gpu_evaluate_offset_fft_to_buffer(
+            poly.coefficients(),
+            blowup_factor,
+            offset,
+            state.inner(),
+        )
+        .map_err(|e| ProvingError::FieldOperationError(format!("GPU LDE FFT error: {e}")))?;
+
+        // Read buffer contents to CPU Vec for later phases
+        let raw: Vec<u64> = MetalState::retrieve_contents(&buffer);
+        let elements: Vec<FieldElement<Goldilocks64Field>> =
+            raw.into_iter().map(FieldElement::from_raw).collect();
+
+        cpu_results.push(elements);
+        gpu_buffers.push(buffer);
+    }
+
+    Ok((cpu_results, gpu_buffers))
 }
 
 #[cfg(all(test, target_os = "macos", feature = "metal"))]

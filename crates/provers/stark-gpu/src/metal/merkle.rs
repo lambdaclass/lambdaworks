@@ -718,20 +718,16 @@ fn gpu_hash_and_build_tree_from_buffer(
     Ok((nodes, root))
 }
 
-/// GPU Merkle commit from a GPU buffer containing column-major LDE evaluations.
+/// GPU Merkle commit from column GPU buffers (FFT output).
 ///
-/// Takes a Metal Buffer of FFT output (bit-reversed, `F::BaseType` layout) plus
-/// the number of columns, and builds a Merkle tree without any intermediate CPU
-/// copy of the evaluation data.
+/// Takes per-column Metal Buffers from `fft_to_buffer` (natural-order u64 layout)
+/// and builds a Merkle tree by transposing + bit-reversing row indices directly
+/// from the buffers via unified memory, then hashing on GPU.
 ///
-/// The buffer must contain `num_rows * num_cols` u64 values, where the FFT output
-/// has already been bit-reversed and is laid out column-major
-/// (col0[0..num_rows], col1[0..num_rows], ...).
-///
-/// This function performs the transpose+hash on GPU: each leaf corresponds to one
-/// row after column-to-row transposition.
+/// This avoids the FFT→CPU Vec→GPU Buffer round-trip: the FFT result buffers
+/// are read directly for the Merkle commit.
 #[cfg(all(target_os = "macos", feature = "metal"))]
-pub fn gpu_batch_commit_from_columns_buffer(
+pub fn gpu_batch_commit_from_column_buffers(
     column_buffers: &[&metal::Buffer],
     num_rows: usize,
     keccak_state: &GpuKeccakMerkleState,
@@ -743,30 +739,84 @@ pub fn gpu_batch_commit_from_columns_buffer(
     }
 
     let num_cols = column_buffers.len();
+    let log_n = num_rows.trailing_zeros();
 
-    // Create a flat row-major buffer on GPU by reading columns from their buffers.
-    // Each column buffer has num_rows u64 values (bit-reversed FFT output).
-    // We need row-major: row[i] = [col0[i], col1[i], ...]
+    // Build flat row-major buffer with bit-reversed row ordering:
+    // row[i] = [col0[bitrev(i)], col1[bitrev(i)], ...]
+    // Reads directly from FFT output buffers via unified memory (zero-copy).
     let flat_size = num_rows * num_cols * std::mem::size_of::<u64>();
     let flat_buf = keccak_state.state.device().new_buffer(
         flat_size as u64,
         MTLResourceOptions::StorageModeShared,
     );
 
-    // Copy column data into row-major layout on CPU
-    // (This is a transpose, but the data is already on CPU-accessible unified memory)
     unsafe {
         let dst = flat_buf.contents() as *mut u64;
-        for (col_idx, col_buf) in column_buffers.iter().enumerate() {
-            let src = col_buf.contents() as *const u64;
-            for row in 0..num_rows {
-                *dst.add(row * num_cols + col_idx) = *src.add(row);
+        for row in 0..num_rows {
+            let src_row = row.reverse_bits() >> (usize::BITS - log_n);
+            for (col_idx, col_buf) in column_buffers.iter().enumerate() {
+                let src = col_buf.contents() as *const u64;
+                *dst.add(row * num_cols + col_idx) = *src.add(src_row);
             }
         }
     }
 
     let (nodes, root) =
         gpu_hash_and_build_tree_from_buffer(&flat_buf, num_rows, num_cols, keccak_state).ok()?;
+
+    let tree = BatchedMerkleTree::<Goldilocks64Field>::from_nodes(nodes)?;
+    Some((tree, root))
+}
+
+/// GPU Merkle commit from column GPU buffers with paired-row layout (composition poly).
+///
+/// Like [`gpu_batch_commit_from_column_buffers`] but merges consecutive bit-reversed
+/// rows into paired leaves, matching the composition polynomial commit layout.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+pub fn gpu_batch_commit_paired_from_column_buffers(
+    column_buffers: &[&metal::Buffer],
+    lde_len: usize,
+    keccak_state: &GpuKeccakMerkleState,
+) -> Option<(BatchedMerkleTree<Goldilocks64Field>, Commitment)> {
+    use metal::MTLResourceOptions;
+
+    if column_buffers.is_empty() || lde_len == 0 {
+        return None;
+    }
+
+    let num_cols = column_buffers.len();
+    let num_merged_rows = lde_len / 2;
+    let cols_per_merged_row = 2 * num_cols;
+    let log_n = lde_len.trailing_zeros();
+
+    // Build flat paired-row buffer: merged_row[i] = row[bitrev(2i)] ++ row[bitrev(2i+1)]
+    let flat_size = num_merged_rows * cols_per_merged_row * std::mem::size_of::<u64>();
+    let flat_buf = keccak_state.state.device().new_buffer(
+        flat_size as u64,
+        MTLResourceOptions::StorageModeShared,
+    );
+
+    unsafe {
+        let dst = flat_buf.contents() as *mut u64;
+        for i in 0..num_merged_rows {
+            let idx0 = (2 * i).reverse_bits() >> (usize::BITS - log_n);
+            let idx1 = (2 * i + 1).reverse_bits() >> (usize::BITS - log_n);
+            let base = i * cols_per_merged_row;
+            for (col_idx, col_buf) in column_buffers.iter().enumerate() {
+                let src = col_buf.contents() as *const u64;
+                *dst.add(base + col_idx) = *src.add(idx0);
+                *dst.add(base + num_cols + col_idx) = *src.add(idx1);
+            }
+        }
+    }
+
+    let (nodes, root) = gpu_hash_and_build_tree_from_buffer(
+        &flat_buf,
+        num_merged_rows,
+        cols_per_merged_row,
+        keccak_state,
+    )
+    .ok()?;
 
     let tree = BatchedMerkleTree::<Goldilocks64Field>::from_nodes(nodes)?;
     Some((tree, root))
