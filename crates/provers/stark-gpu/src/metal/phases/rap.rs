@@ -207,8 +207,7 @@ where
     let blowup_factor = air.blowup_factor() as usize;
     let coset_offset = air.coset_offset();
 
-    // Evaluate on LDE domain, keeping FFT results as GPU buffers.
-    // After LDE, coefficient polys are no longer needed (barycentric OOD uses LDE data).
+    // Evaluate on LDE domain, keeping FFT results as GPU buffers
     let t = std::time::Instant::now();
     let (main_lde_evaluations, main_lde_buffers) = evaluate_polys_on_lde_gpu_to_buffers(
         &main_trace_polys,
@@ -216,7 +215,6 @@ where
         &coset_offset,
         state,
     )?;
-    drop(main_trace_polys);
     eprintln!("    1b main LDE+read:  {:>10.2?}", t.elapsed());
 
     // GPU Merkle commit directly from FFT output buffers (no extra memcpy)
@@ -235,7 +233,7 @@ where
 
     // --- Auxiliary trace (if RAP) ---
     let t = std::time::Instant::now();
-    let (aux_lde_evaluations, aux_merkle_tree, aux_merkle_root, aux_gpu_bufs) =
+    let (aux_trace_polys, aux_lde_evaluations, aux_merkle_tree, aux_merkle_root, aux_gpu_bufs) =
         if air.has_trace_interaction() {
             air.build_auxiliary_trace(trace, &rap_challenges);
             let aux_columns = trace.columns_aux();
@@ -247,7 +245,6 @@ where
                 &coset_offset,
                 state,
             )?;
-            drop(aux_polys);
 
             // GPU Merkle commit from auxiliary trace FFT buffers
             let buf_refs: Vec<&metal::Buffer> = aux_lde_buffers.iter().collect();
@@ -259,18 +256,18 @@ where
             .ok_or(ProvingError::EmptyCommitment)?;
 
             transcript.append_bytes(&aux_root);
-            (aux_lde_evals, Some(aux_tree), Some(aux_root), Some(aux_lde_buffers))
+            (aux_polys, aux_lde_evals, Some(aux_tree), Some(aux_root), Some(aux_lde_buffers))
         } else {
-            (Vec::new(), None, None, None)
+            (Vec::new(), Vec::new(), None, None, None)
         };
     eprintln!("    1d aux all:        {:>10.2?}", t.elapsed());
 
     Ok(GpuRound1Result {
-        main_trace_polys: Vec::new(),
+        main_trace_polys,
         main_lde_evaluations,
         main_merkle_tree,
         main_merkle_root,
-        aux_trace_polys: Vec::new(),
+        aux_trace_polys,
         aux_lde_evaluations,
         aux_merkle_tree,
         aux_merkle_root,

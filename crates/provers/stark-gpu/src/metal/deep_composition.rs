@@ -91,7 +91,7 @@ pub fn gpu_compute_deep_composition_poly(
 
     let num_rows = domain.lde_roots_of_unity_coset.len();
     let num_offsets = round_3_result.trace_ood_evaluations.height; // 3 for Fibonacci RAP
-    let num_comp_parts = round_2_result.lde_composition_poly_evaluations.len(); // 1 for Fibonacci RAP
+    let num_comp_parts = round_2_result.composition_poly_parts.len(); // 1 for Fibonacci RAP
 
     // Combine main + aux trace LDE evaluations (column-major).
     let mut all_trace_lde = round_1_result.main_lde_evaluations.clone();
@@ -322,7 +322,7 @@ pub fn gpu_compute_deep_composition_poly_to_buffer(
 
     let num_rows = domain.lde_roots_of_unity_coset.len();
     let num_offsets = round_3_result.trace_ood_evaluations.height;
-    let num_comp_parts = round_2_result.lde_composition_poly_evaluations.len();
+    let num_comp_parts = round_2_result.composition_poly_parts.len();
     let num_trace_polys = round_1_result.main_lde_evaluations.len()
         + round_1_result.aux_lde_evaluations.len();
 
