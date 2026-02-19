@@ -143,7 +143,9 @@ mod tests {
         let vk = setup(&common, &kzg);
         let rng = TestRandomFieldGenerator {};
         let prover = Prover::new(kzg.clone(), rng);
-        let proof = prover.prove(&witness, &public_input, &common, &vk);
+        let proof = prover
+            .prove(&witness, &public_input, &common, &vk)
+            .expect("Proof generation should succeed");
         let verifier = Verifier::new(kzg);
         assert!(verifier.verify(&proof, &public_input, &common, &vk));
     }
@@ -162,7 +164,9 @@ mod tests {
         let vk = setup(&common, &kzg);
         let rng = TestRandomFieldGenerator {};
         let prover = Prover::new(kzg.clone(), rng);
-        let proof = prover.prove(&witness, &public_input, &common, &vk);
+        let proof = prover
+            .prove(&witness, &public_input, &common, &vk)
+            .expect("Proof generation should succeed");
         let verifier = Verifier::new(kzg);
         assert!(verifier.verify(&proof, &public_input, &common, &vk));
     }
@@ -181,7 +185,9 @@ mod tests {
         let vk = setup(&common, &kzg);
         let rng = TestRandomFieldGenerator {};
         let prover = Prover::new(kzg.clone(), rng);
-        let proof = prover.prove(&witness, &public_input, &common, &vk);
+        let proof = prover
+            .prove(&witness, &public_input, &common, &vk)
+            .expect("Proof generation should succeed");
         let verifier = Verifier::new(kzg);
         assert!(verifier.verify(&proof, &public_input, &common, &vk));
     }
@@ -200,7 +206,9 @@ mod tests {
         let vk = setup(&common, &kzg);
         let rng = TestRandomFieldGenerator {};
         let prover = Prover::new(kzg.clone(), rng);
-        let proof = prover.prove(&witness, &public_input, &common, &vk);
+        let proof = prover
+            .prove(&witness, &public_input, &common, &vk)
+            .expect("Proof generation should succeed");
         let verifier = Verifier::new(kzg);
         assert!(verifier.verify(&proof, &public_input, &common, &vk));
     }
@@ -219,7 +227,9 @@ mod tests {
         let vk = setup(&common, &kzg);
         let rng = TestRandomFieldGenerator {};
         let prover = Prover::new(kzg.clone(), rng);
-        let proof = prover.prove(&witness, &public_input, &common, &vk);
+        let proof = prover
+            .prove(&witness, &public_input, &common, &vk)
+            .expect("Proof generation should succeed");
         let verifier = Verifier::new(kzg);
         assert!(verifier.verify(&proof, &public_input, &common, &vk));
     }

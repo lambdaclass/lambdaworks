@@ -37,7 +37,7 @@ fn bench_plonk_prover(c: &mut Criterion) {
 
         group.bench_with_input(BenchmarkId::from_parameter(n), &n, |b, _| {
             b.iter(|| {
-                black_box(prover.prove(&witness, &public_input, &cpi, &vk));
+                let _ = black_box(prover.prove(&witness, &public_input, &cpi, &vk));
             });
         });
     }
