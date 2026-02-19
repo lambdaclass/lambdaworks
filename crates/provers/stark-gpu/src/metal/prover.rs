@@ -204,12 +204,13 @@ where
     })
 }
 
-/// Prove a STARK using CPU prover with Goldilocks base field and Fp3 extension.
+/// Prove a STARK using GPU-accelerated pipeline for Goldilocks + Fp3 extension.
 ///
-/// This validates the Fp3 extension field infrastructure end-to-end.
-/// All phases use the CPU prover's generic F != E path.
-/// Future work: replace individual phases with GPU-accelerated versions
-/// using the Fp3 Metal shaders (DEEP composition, FRI fold).
+/// Hybrid GPU/CPU prover:
+/// - Phase 1 (RAP): GPU FFT + GPU Merkle for main trace, CPU FFT + CPU Merkle for aux trace
+/// - Phase 2 (Composition): CPU constraint evaluation + CPU FFT + CPU Merkle
+/// - Phase 3 (OOD): CPU scalar evaluations
+/// - Phase 4 (DEEP + FRI): CPU DEEP composition + GPU FRI fold + CPU Merkle
 #[cfg(all(target_os = "macos", feature = "metal"))]
 pub fn prove_gpu_fp3<A>(
     air: &A,
@@ -234,12 +235,66 @@ where
         FieldExtension = lambdaworks_math::field::fields::u64_goldilocks_field::Degree3GoldilocksExtensionField,
     >,
 {
-    use stark_platinum_prover::prover::{IsStarkProver, Prover};
-    type GF = lambdaworks_math::field::fields::u64_goldilocks_field::Goldilocks64Field;
-    type Fp3 =
-        lambdaworks_math::field::fields::u64_goldilocks_field::Degree3GoldilocksExtensionField;
+    use crate::metal::phases::composition::gpu_round_2_fp3;
+    use crate::metal::phases::fri::{gpu_round_4_fp3, FriFoldFp3State};
+    use crate::metal::phases::ood::gpu_round_3_fp3;
+    use crate::metal::phases::rap::gpu_round_1_fp3;
 
-    Prover::<GF, Fp3, _>::prove(air, trace, transcript)
+    let state =
+        StarkMetalState::new().map_err(|e| ProvingError::FieldOperationError(e.to_string()))?;
+    let domain = Domain::new(air);
+
+    // Pre-compile GPU shaders.
+    let keccak_state = GpuKeccakMerkleState::new()
+        .map_err(|e| ProvingError::FieldOperationError(format!("Keccak256 shader: {e}")))?;
+    let fri_fold_state = FriFoldFp3State::from_device_and_queue(
+        &state.inner().device,
+        &state.inner().queue,
+    )
+    .map_err(|e| ProvingError::FieldOperationError(format!("FRI fold Fp3 shader: {e}")))?;
+
+    // Phase 1: RAP (GPU main trace + CPU aux trace)
+    let t = std::time::Instant::now();
+    let round_1 = gpu_round_1_fp3(air, trace, &domain, transcript, &state, &keccak_state)?;
+    eprintln!("  Phase 1 (RAP):         {:>10.2?}", t.elapsed());
+
+    // Phase 2: Composition polynomial (CPU constraint eval + CPU FFT)
+    let t = std::time::Instant::now();
+    let round_2 = gpu_round_2_fp3(air, &domain, &round_1, transcript)?;
+    eprintln!("  Phase 2 (Composition): {:>10.2?}", t.elapsed());
+
+    // Phase 3: OOD evaluations (CPU)
+    let t = std::time::Instant::now();
+    let round_3 = gpu_round_3_fp3(air, &domain, &round_1, &round_2, transcript)?;
+    eprintln!("  Phase 3 (OOD):         {:>10.2?}", t.elapsed());
+
+    // Phase 4: CPU DEEP composition + GPU FRI fold + queries
+    let t = std::time::Instant::now();
+    let round_4 = gpu_round_4_fp3(
+        air,
+        &domain,
+        &round_1,
+        &round_2,
+        &round_3,
+        transcript,
+        &fri_fold_state,
+    )?;
+    eprintln!("  Phase 4 (FRI):         {:>10.2?}", t.elapsed());
+
+    // Assemble proof
+    Ok(StarkProof {
+        trace_length: air.trace_length(),
+        lde_trace_main_merkle_root: round_1.main_merkle_root,
+        lde_trace_aux_merkle_root: round_1.aux_merkle_root,
+        trace_ood_evaluations: round_3.trace_ood_evaluations,
+        composition_poly_root: round_2.composition_poly_root,
+        composition_poly_parts_ood_evaluation: round_3.composition_poly_parts_ood_evaluation,
+        fri_layers_merkle_roots: round_4.fri_layers_merkle_roots,
+        fri_last_value: round_4.fri_last_value,
+        query_list: round_4.query_list,
+        deep_poly_openings: round_4.deep_poly_openings,
+        nonce: round_4.nonce,
+    })
 }
 
 #[cfg(all(test, target_os = "macos", feature = "metal"))]
