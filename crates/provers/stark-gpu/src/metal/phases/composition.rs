@@ -973,6 +973,141 @@ where
     })
 }
 
+/// CPU Phase 2 for Fp3 extension field proofs.
+///
+/// Composition polynomial construction for F != E. Uses the CPU `ConstraintEvaluator`
+/// for constraint evaluation and CPU FFT for all polynomial operations, since no
+/// Fp3 GPU constraint evaluation shader exists.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+#[allow(clippy::too_many_arguments)]
+pub fn gpu_round_2_fp3<A>(
+    air: &A,
+    domain: &Domain<Goldilocks64Field>,
+    round_1_result: &crate::metal::phases::fp3_types::GpuRound1ResultFp3,
+    transcript: &mut impl IsStarkTranscript<
+        lambdaworks_math::field::fields::u64_goldilocks_field::Degree3GoldilocksExtensionField,
+        Goldilocks64Field,
+    >,
+) -> Result<crate::metal::phases::fp3_types::GpuRound2ResultFp3, ProvingError>
+where
+    A: AIR<
+        Field = Goldilocks64Field,
+        FieldExtension = lambdaworks_math::field::fields::u64_goldilocks_field::Degree3GoldilocksExtensionField,
+    >,
+{
+    use lambdaworks_math::field::fields::u64_goldilocks_field::Degree3GoldilocksExtensionField;
+    type F = Goldilocks64Field;
+    type Fp3 = Degree3GoldilocksExtensionField;
+    type Fp3E = FieldElement<Fp3>;
+
+    // Step 1: Sample beta and compute transition/boundary coefficients (in Fp3).
+    let beta: Fp3E = transcript.sample_field_element();
+    let num_boundary = air
+        .boundary_constraints(&round_1_result.rap_challenges)
+        .constraints
+        .len();
+    let num_transition = air.context().num_transition_constraints;
+
+    let mut coefficients: Vec<Fp3E> =
+        core::iter::successors(Some(Fp3E::one()), |x| Some(x * &beta))
+            .take(num_boundary + num_transition)
+            .collect();
+    let transition_coefficients: Vec<Fp3E> = coefficients.drain(..num_transition).collect();
+    let boundary_coefficients = coefficients;
+
+    // Step 2: Build LDETraceTable from round 1 result (F main, Fp3 aux).
+    let blowup_factor = air.blowup_factor() as usize;
+    let lde_trace = stark_platinum_prover::trace::LDETraceTable::from_columns_ref(
+        &round_1_result.main_lde_evaluations,
+        &round_1_result.aux_lde_evaluations,
+        air.step_size(),
+        blowup_factor,
+    );
+
+    // Step 3: Evaluate constraints on CPU.
+    let evaluator =
+        ConstraintEvaluator::<F, Fp3, A::PublicInputs>::new(air, &round_1_result.rap_challenges);
+    let constraint_evaluations = evaluator.evaluate(
+        air,
+        &lde_trace,
+        domain,
+        &transition_coefficients,
+        &boundary_coefficients,
+        &round_1_result.rap_challenges,
+    )?;
+
+    // Step 4: CPU IFFT → composition polynomial coefficients (in Fp3).
+    let coset_offset = air.coset_offset();
+    let composition_poly =
+        Polynomial::interpolate_offset_fft(&constraint_evaluations, &coset_offset)?;
+
+    // Step 5: Break into parts.
+    let number_of_parts = air.composition_poly_degree_bound() / air.trace_length();
+    if number_of_parts == 0 {
+        return Err(ProvingError::WrongParameter(
+            "composition_poly_degree_bound must be >= trace_length".to_string(),
+        ));
+    }
+    let composition_poly_parts = composition_poly.break_in_parts(number_of_parts);
+
+    // Step 6: CPU FFT LDE each part.
+    let lde_evaluations: Vec<Vec<Fp3E>> = composition_poly_parts
+        .iter()
+        .map(|part| {
+            Polynomial::evaluate_offset_fft::<F>(
+                part,
+                blowup_factor,
+                Some(domain.interpolation_domain_size),
+                &coset_offset,
+            )
+            .map(|evals| {
+                let target_len = domain.interpolation_domain_size * blowup_factor;
+                let step = evals.len() / target_len;
+                if step <= 1 {
+                    evals
+                } else {
+                    evals.into_iter().step_by(step).collect()
+                }
+            })
+        })
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| ProvingError::FieldOperationError(format!("CPU composition LDE: {e}")))?;
+
+    // Step 7: Commit composition poly parts with the special paired-row layout.
+    let lde_len = lde_evaluations[0].len();
+
+    // Transpose: column-major to row-major
+    let mut rows: Vec<Vec<Fp3E>> = (0..lde_len)
+        .map(|i| {
+            lde_evaluations
+                .iter()
+                .map(|col| col[i].clone())
+                .collect()
+        })
+        .collect();
+
+    // Bit-reverse permute
+    in_place_bit_reverse_permute(&mut rows);
+
+    // Pair consecutive rows
+    let mut merged_rows = Vec::with_capacity(lde_len / 2);
+    let mut iter = rows.into_iter();
+    while let (Some(mut chunk0), Some(chunk1)) = (iter.next(), iter.next()) {
+        chunk0.extend(chunk1);
+        merged_rows.push(chunk0);
+    }
+
+    // CPU Merkle commit (Fp3)
+    let (tree, root) = cpu_batch_commit(&merged_rows).ok_or(ProvingError::EmptyCommitment)?;
+
+    Ok(crate::metal::phases::fp3_types::GpuRound2ResultFp3 {
+        composition_poly_parts,
+        lde_composition_poly_evaluations: lde_evaluations,
+        composition_poly_merkle_tree: tree,
+        composition_poly_root: root,
+    })
+}
+
 #[cfg(all(test, target_os = "macos", feature = "metal"))]
 mod tests {
     use super::*;
