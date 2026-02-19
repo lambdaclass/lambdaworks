@@ -61,12 +61,14 @@ where
     let inv_two = FieldElement::<F>::from(2u64).inv().unwrap();
 
     // Reconstruct challenges from transcript (same sequence as prover)
-    let mut challenges = Vec::with_capacity(num_layers);
-    for layer_idx in 0..num_layers {
-        transcript.append_bytes(&proof.layer_merkle_roots[layer_idx]);
-        let challenge: FieldElement<F> = transcript.sample_field_element();
-        challenges.push(challenge);
-    }
+    let challenges: Vec<FieldElement<F>> = proof
+        .layer_merkle_roots
+        .iter()
+        .map(|root| {
+            transcript.append_bytes(root);
+            transcript.sample_field_element()
+        })
+        .collect();
     transcript.append_field_element(&proof.final_value);
 
     // Derive query indices from transcript (same as the prover)
