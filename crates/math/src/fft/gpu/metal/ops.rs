@@ -82,7 +82,7 @@ const FFT_MAX_FUSED_STAGES: u32 = 12;
 /// Returns the number of stages to fuse (min of budget-derived max, order, and cap).
 fn optimal_fused_stages(input_elem_size: usize, order: u32) -> u32 {
     let max_block = FFT_TG_MEM_BUDGET / input_elem_size;
-    let max_fused = (max_block as f64).log2() as u32;
+    let max_fused = max_block.ilog2();
     max_fused.min(order).min(FFT_MAX_FUSED_STAGES)
 }
 
