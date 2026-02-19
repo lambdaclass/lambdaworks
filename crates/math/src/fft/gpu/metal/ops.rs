@@ -534,6 +534,101 @@ where
     Ok(result_buffer)
 }
 
+/// Executes FFT on data already residing in a GPU Buffer, returning a new result Buffer.
+///
+/// Unlike [`fft_to_buffer`] which uploads input from CPU, this function operates on data
+/// that is already on the GPU. This avoids a CPU-to-GPU transfer when the input was
+/// produced by a prior GPU operation (e.g., polynomial evaluation or interpolation).
+///
+/// The input buffer is NOT modified. A working copy is made internally so that the
+/// in-place butterfly stages do not destroy the caller's data.
+///
+/// # Type Parameters
+///
+/// - `F`: The FFT-compatible field (provides primitive roots of unity)
+///
+/// # Arguments
+///
+/// - `input_buffer`: Metal buffer containing `input_len` raw `F::BaseType` elements
+/// - `input_len`: Number of field elements in the buffer (must be power of 2)
+/// - `twiddles_buffer`: Pre-computed twiddle factors on GPU (bit-reverse order)
+/// - `state`: Metal state containing device and shader library
+///
+/// # Errors
+///
+/// Returns `MetalError::InputError` if `input_len` is not a power of two.
+/// Returns `MetalError::PipelineError` if kernel setup fails.
+pub fn fft_buffer_to_buffer<F>(
+    input_buffer: &Buffer,
+    input_len: usize,
+    twiddles_buffer: &Buffer,
+    state: &MetalState,
+) -> Result<Buffer, MetalError>
+where
+    F: IsFFTField + IsSubFieldOf<F>,
+    F::BaseType: Copy,
+{
+    if !input_len.is_power_of_two() {
+        return Err(MetalError::InputError(input_len));
+    }
+
+    let butterfly_pipeline =
+        state.setup_pipeline(&format!("radix2_dit_butterfly_{}", F::field_name()))?;
+    let bitrev_pipeline =
+        state.setup_pipeline(&format!("bitrev_permutation_{}", F::field_name()))?;
+
+    let working_buffer = state.alloc_buffer::<F::BaseType>(input_len);
+    let result_buffer = state.alloc_buffer::<F::BaseType>(input_len);
+
+    objc::rc::autoreleasepool(|| {
+        let command_buffer = state.queue.new_command_buffer();
+
+        // Copy input to working buffer so butterfly stages don't modify caller's data
+        {
+            let blit_encoder = command_buffer.new_blit_command_encoder();
+            blit_encoder.copy_from_buffer(input_buffer, 0, &working_buffer, 0, input_buffer.length());
+            blit_encoder.end_encoding();
+        }
+
+        // Encoder 1: Butterfly stages (in-place on working_buffer)
+        {
+            let encoder = command_buffer.new_compute_command_encoder();
+            encoder.set_compute_pipeline_state(&butterfly_pipeline);
+            encoder.set_buffer(0, Some(&working_buffer), 0);
+            encoder.set_buffer(1, Some(twiddles_buffer), 0);
+
+            let order = input_len.trailing_zeros();
+            for stage in 0..order {
+                encoder.set_bytes(2, mem::size_of_val(&stage) as u64, void_ptr(&stage));
+                let grid_size = MTLSize::new(input_len as u64 / 2, 1, 1);
+                let threadgroup_size =
+                    MTLSize::new(butterfly_pipeline.thread_execution_width(), 1, 1);
+                encoder.dispatch_threads(grid_size, threadgroup_size);
+            }
+            encoder.end_encoding();
+        }
+
+        // Encoder 2: Bit-reverse permutation (working_buffer -> result_buffer)
+        {
+            let encoder = command_buffer.new_compute_command_encoder();
+            encoder.set_compute_pipeline_state(&bitrev_pipeline);
+            encoder.set_buffer(0, Some(&working_buffer), 0);
+            encoder.set_buffer(1, Some(&result_buffer), 0);
+
+            let grid_size = MTLSize::new(input_len as u64, 1, 1);
+            let threadgroup_size =
+                MTLSize::new(bitrev_pipeline.max_total_threads_per_threadgroup(), 1, 1);
+            encoder.dispatch_threads(grid_size, threadgroup_size);
+            encoder.end_encoding();
+        }
+
+        command_buffer.commit();
+        command_buffer.wait_until_completed();
+    });
+
+    Ok(result_buffer)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1043,5 +1138,50 @@ mod tests {
         };
 
         assert_eq!(metal_result, cpu_result);
+    }
+
+    // ==================== Buffer-to-Buffer FFT Tests ====================
+
+    #[test]
+    fn test_fft_buffer_to_buffer_matches_fft_to_buffer() {
+        let state = MetalState::new(None).expect("Metal device required for GPU tests");
+
+        // Create input data: 2^4 = 16 elements
+        let input: Vec<GoldilocksFE> = (1..=16).map(|i| GoldilocksFE::from(i as u64)).collect();
+        let order = input.len().trailing_zeros();
+
+        // Generate twiddles on GPU
+        let twiddles_buffer =
+            gen_twiddles_to_buffer::<GoldilocksF>(order.into(), RootsConfig::BitReverse, &state)
+                .expect("Twiddle generation should succeed");
+
+        // Reference: fft_to_buffer (uploads from CPU)
+        let reference_buffer = fft_to_buffer(&input, &twiddles_buffer, &state)
+            .expect("fft_to_buffer should succeed");
+
+        // Test: upload input manually, then call fft_buffer_to_buffer
+        let input_buffer = state.alloc_buffer_data(&input);
+        let result_buffer =
+            fft_buffer_to_buffer::<GoldilocksF>(&input_buffer, input.len(), &twiddles_buffer, &state)
+                .expect("fft_buffer_to_buffer should succeed");
+
+        // Read both buffers back and compare
+        let reference_result =
+            MetalState::retrieve_contents::<<GoldilocksF as IsField>::BaseType>(&reference_buffer);
+        let test_result =
+            MetalState::retrieve_contents::<<GoldilocksF as IsField>::BaseType>(&result_buffer);
+
+        assert_eq!(
+            reference_result.len(),
+            test_result.len(),
+            "Result lengths should match"
+        );
+        for (i, (r, t)) in reference_result.iter().zip(test_result.iter()).enumerate() {
+            assert_eq!(
+                r, t,
+                "Mismatch at element {}: reference={:?}, buffer_to_buffer={:?}",
+                i, r, t
+            );
+        }
     }
 }

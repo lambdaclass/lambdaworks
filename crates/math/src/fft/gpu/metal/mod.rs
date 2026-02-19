@@ -52,6 +52,6 @@
 pub mod ops;
 
 pub use ops::{
-    bitrev_permutation, bitrev_permutation_extension, fft, fft_extension, fft_to_buffer,
-    gen_twiddles, gen_twiddles_to_buffer, HasMetalExtensionKernel,
+    bitrev_permutation, bitrev_permutation_extension, fft, fft_buffer_to_buffer, fft_extension,
+    fft_to_buffer, gen_twiddles, gen_twiddles_to_buffer, HasMetalExtensionKernel,
 };
