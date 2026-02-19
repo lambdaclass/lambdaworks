@@ -30,6 +30,9 @@ use lambdaworks_math::field::traits::IsPrimeField;
 #[cfg(all(target_os = "macos", feature = "metal"))]
 const KECCAK256_SHADER: &str = include_str!("shaders/keccak256.metal");
 
+#[cfg(all(target_os = "macos", feature = "metal"))]
+const TRANSPOSE_BITREV_SHADER: &str = include_str!("shaders/transpose_bitrev.metal");
+
 /// Pre-compiled Metal state for Keccak256 Merkle tree operations.
 ///
 /// Caches compiled pipelines for both leaf hashing and pair hashing kernels.
@@ -40,6 +43,8 @@ pub struct GpuKeccakMerkleState {
     hash_leaves_max_threads: u64,
     hash_pairs_max_threads: u64,
     transpose_max_threads: u64,
+    /// Cached transpose+bitrev state for buffer-based operations.
+    transpose_bitrev_state: Option<TransposeBitrevState>,
 }
 
 #[cfg(all(target_os = "macos", feature = "metal"))]
@@ -51,13 +56,240 @@ impl GpuKeccakMerkleState {
         let hash_leaves_max_threads = state.prepare_pipeline("keccak256_hash_leaves")?;
         let hash_pairs_max_threads = state.prepare_pipeline("keccak256_hash_pairs")?;
         let transpose_max_threads = state.prepare_pipeline("transpose_bitrev_goldilocks")?;
+
+        // Also compile the standalone transpose+bitrev shader for buffer-based ops
+        let transpose_bitrev_state = TransposeBitrevState::new().ok();
+
         Ok(Self {
             state,
             hash_leaves_max_threads,
             hash_pairs_max_threads,
             transpose_max_threads,
+            transpose_bitrev_state,
         })
     }
+
+    /// Get a reference to the transpose state (if initialized).
+    pub fn transpose_state(&self) -> Option<&TransposeBitrevState> {
+        self.transpose_bitrev_state.as_ref()
+    }
+}
+
+/// Pre-compiled Metal state for the transpose+bit-reverse kernel.
+///
+/// This shader doesn't need the Goldilocks header — it operates on raw `ulong` values.
+/// Contains pipelines for both unpaired and paired transpose variants.
+/// Create once and reuse across the entire prove call.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+pub struct TransposeBitrevState {
+    pub(crate) state: DynamicMetalState,
+    unpaired_max_threads: u64,
+    paired_max_threads: u64,
+}
+
+#[cfg(all(target_os = "macos", feature = "metal"))]
+impl TransposeBitrevState {
+    /// Compile the transpose+bit-reverse shader and prepare pipelines.
+    pub fn new() -> Result<Self, MetalError> {
+        let mut state = DynamicMetalState::new()?;
+        state.load_library(TRANSPOSE_BITREV_SHADER)?;
+        let unpaired_max_threads = state.prepare_pipeline("transpose_bitrev")?;
+        let paired_max_threads = state.prepare_pipeline("transpose_bitrev_paired")?;
+        Ok(Self {
+            state,
+            unpaired_max_threads,
+            paired_max_threads,
+        })
+    }
+}
+
+/// Transpose column GPU buffers to a single row-major buffer with bit-reversed row ordering.
+///
+/// Takes per-column Metal Buffers (e.g. FFT output) and produces a single flat buffer
+/// laid out as `[row_br(0), row_br(1), ...]` where `br(i) = bit_reverse(i, log2(num_rows))`.
+///
+/// Steps:
+/// 1. Concatenate column buffers into a flat column-major buffer using Metal blit copies
+/// 2. Dispatch the `transpose_bitrev` compute kernel
+/// 3. Return the row-major output buffer
+#[cfg(all(target_os = "macos", feature = "metal"))]
+pub fn gpu_transpose_bitrev_to_buffer(
+    column_buffers: &[&metal::Buffer],
+    num_rows: usize,
+    transpose_state: &TransposeBitrevState,
+) -> Result<metal::Buffer, MetalError> {
+    use metal::{MTLCommandBufferStatus, MTLResourceOptions, MTLSize};
+
+    let num_cols = column_buffers.len();
+    let log_n = num_rows.trailing_zeros() as u32;
+
+    // Allocate flat column-major input buffer
+    let flat_cols_size = (num_rows * num_cols * std::mem::size_of::<u64>()) as u64;
+    let flat_cols = transpose_state
+        .state
+        .device()
+        .new_buffer(flat_cols_size, MTLResourceOptions::StorageModeShared);
+
+    // Concatenate column buffers via blit encoder
+    let command_buffer = transpose_state.state.command_queue().new_command_buffer();
+    let blit = command_buffer.new_blit_command_encoder();
+    for (i, col_buf) in column_buffers.iter().enumerate() {
+        blit.copy_from_buffer(
+            col_buf,
+            0,
+            &flat_cols,
+            (i * num_rows * std::mem::size_of::<u64>()) as u64,
+            col_buf.length(),
+        );
+    }
+    blit.end_encoding();
+
+    // Allocate output buffer (row-major)
+    let output_size = flat_cols_size;
+    let output_buf = transpose_state
+        .state
+        .device()
+        .new_buffer(output_size, MTLResourceOptions::StorageModeShared);
+
+    // Parameter buffers
+    let num_cols_u32 = num_cols as u32;
+    let num_rows_u32 = num_rows as u32;
+    let buf_num_cols = transpose_state
+        .state
+        .alloc_buffer_with_data(std::slice::from_ref(&num_cols_u32))?;
+    let buf_num_rows = transpose_state
+        .state
+        .alloc_buffer_with_data(std::slice::from_ref(&num_rows_u32))?;
+    let buf_log_n = transpose_state
+        .state
+        .alloc_buffer_with_data(std::slice::from_ref(&log_n))?;
+
+    // Dispatch transpose_bitrev kernel
+    let pipeline = transpose_state
+        .state
+        .get_pipeline_ref("transpose_bitrev")
+        .ok_or_else(|| MetalError::FunctionError("transpose_bitrev".to_string()))?;
+
+    let threads_per_group = transpose_state.unpaired_max_threads.min(256);
+    let thread_groups = (num_rows as u64).div_ceil(threads_per_group);
+
+    let encoder = command_buffer.new_compute_command_encoder();
+    encoder.set_compute_pipeline_state(pipeline);
+    encoder.set_buffer(0, Some(&flat_cols), 0);
+    encoder.set_buffer(1, Some(&output_buf), 0);
+    encoder.set_buffer(2, Some(&buf_num_cols), 0);
+    encoder.set_buffer(3, Some(&buf_num_rows), 0);
+    encoder.set_buffer(4, Some(&buf_log_n), 0);
+    encoder.dispatch_thread_groups(
+        MTLSize::new(thread_groups, 1, 1),
+        MTLSize::new(threads_per_group, 1, 1),
+    );
+    encoder.end_encoding();
+
+    command_buffer.commit();
+    command_buffer.wait_until_completed();
+
+    if command_buffer.status() == MTLCommandBufferStatus::Error {
+        return Err(MetalError::ExecutionError(
+            "GPU transpose_bitrev command error".to_string(),
+        ));
+    }
+
+    Ok(output_buf)
+}
+
+/// Transpose column GPU buffers to a paired-row-major buffer with bit-reversed row ordering.
+///
+/// Like [`gpu_transpose_bitrev_to_buffer`] but merges consecutive bit-reversed rows:
+///   `merged_row[i] = row[br(2*i)] ++ row[br(2*i+1)]`
+///
+/// Output has `num_rows / 2` merged rows, each with `2 * num_cols` elements.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+pub fn gpu_transpose_bitrev_paired_to_buffer(
+    column_buffers: &[&metal::Buffer],
+    num_rows: usize,
+    transpose_state: &TransposeBitrevState,
+) -> Result<metal::Buffer, MetalError> {
+    use metal::{MTLCommandBufferStatus, MTLResourceOptions, MTLSize};
+
+    let num_cols = column_buffers.len();
+    let log_n = num_rows.trailing_zeros() as u32;
+
+    // Allocate flat column-major input buffer
+    let flat_cols_size = (num_rows * num_cols * std::mem::size_of::<u64>()) as u64;
+    let flat_cols = transpose_state
+        .state
+        .device()
+        .new_buffer(flat_cols_size, MTLResourceOptions::StorageModeShared);
+
+    // Concatenate column buffers via blit encoder
+    let command_buffer = transpose_state.state.command_queue().new_command_buffer();
+    let blit = command_buffer.new_blit_command_encoder();
+    for (i, col_buf) in column_buffers.iter().enumerate() {
+        blit.copy_from_buffer(
+            col_buf,
+            0,
+            &flat_cols,
+            (i * num_rows * std::mem::size_of::<u64>()) as u64,
+            col_buf.length(),
+        );
+    }
+    blit.end_encoding();
+
+    // Allocate output buffer: (num_rows / 2) merged rows × (2 * num_cols) elements
+    let num_merged_rows = num_rows / 2;
+    let cols_per_merged_row = 2 * num_cols;
+    let output_size = (num_merged_rows * cols_per_merged_row * std::mem::size_of::<u64>()) as u64;
+    let output_buf = transpose_state
+        .state
+        .device()
+        .new_buffer(output_size, MTLResourceOptions::StorageModeShared);
+
+    // Parameter buffers
+    let num_cols_u32 = num_cols as u32;
+    let num_rows_u32 = num_rows as u32;
+    let buf_num_cols = transpose_state
+        .state
+        .alloc_buffer_with_data(std::slice::from_ref(&num_cols_u32))?;
+    let buf_num_rows = transpose_state
+        .state
+        .alloc_buffer_with_data(std::slice::from_ref(&num_rows_u32))?;
+    let buf_log_n = transpose_state
+        .state
+        .alloc_buffer_with_data(std::slice::from_ref(&log_n))?;
+
+    // Dispatch transpose_bitrev_paired kernel
+    let pipeline = transpose_state
+        .state
+        .get_pipeline_ref("transpose_bitrev_paired")
+        .ok_or_else(|| MetalError::FunctionError("transpose_bitrev_paired".to_string()))?;
+
+    let threads_per_group = transpose_state.paired_max_threads.min(256);
+    let thread_groups = (num_merged_rows as u64).div_ceil(threads_per_group);
+
+    let encoder = command_buffer.new_compute_command_encoder();
+    encoder.set_compute_pipeline_state(pipeline);
+    encoder.set_buffer(0, Some(&flat_cols), 0);
+    encoder.set_buffer(1, Some(&output_buf), 0);
+    encoder.set_buffer(2, Some(&buf_num_cols), 0);
+    encoder.set_buffer(3, Some(&buf_num_rows), 0);
+    encoder.set_buffer(4, Some(&buf_log_n), 0);
+    encoder.dispatch_thread_groups(
+        MTLSize::new(thread_groups, 1, 1),
+        MTLSize::new(threads_per_group, 1, 1),
+    );
+    encoder.end_encoding();
+
+    command_buffer.commit();
+    command_buffer.wait_until_completed();
+
+    if command_buffer.status() == MTLCommandBufferStatus::Error {
+        return Err(MetalError::ExecutionError(
+            "GPU transpose_bitrev_paired command error".to_string(),
+        ));
+    }
+
+    Ok(output_buf)
 }
 
 /// Hash row-major Goldilocks field element data into 32-byte leaf digests on GPU.
@@ -721,45 +953,28 @@ fn gpu_hash_and_build_tree_from_buffer(
 /// GPU Merkle commit from column GPU buffers (FFT output).
 ///
 /// Takes per-column Metal Buffers from `fft_to_buffer` (natural-order u64 layout)
-/// and builds a Merkle tree by transposing + bit-reversing row indices directly
-/// from the buffers via unified memory, then hashing on GPU.
+/// and builds a Merkle tree by transposing + bit-reversing row indices on GPU,
+/// then hashing on GPU.
 ///
 /// This avoids the FFT→CPU Vec→GPU Buffer round-trip: the FFT result buffers
-/// are read directly for the Merkle commit.
+/// are transposed entirely on the GPU via the `transpose_bitrev` Metal kernel,
+/// eliminating the CPU pointer-arithmetic loop.
 #[cfg(all(target_os = "macos", feature = "metal"))]
 pub fn gpu_batch_commit_from_column_buffers(
     column_buffers: &[&metal::Buffer],
     num_rows: usize,
     keccak_state: &GpuKeccakMerkleState,
 ) -> Option<(BatchedMerkleTree<Goldilocks64Field>, Commitment)> {
-    use metal::MTLResourceOptions;
-
     if column_buffers.is_empty() || num_rows == 0 {
         return None;
     }
 
     let num_cols = column_buffers.len();
-    let log_n = num_rows.trailing_zeros();
 
-    // Build flat row-major buffer with bit-reversed row ordering:
-    // row[i] = [col0[bitrev(i)], col1[bitrev(i)], ...]
-    // Reads directly from FFT output buffers via unified memory (zero-copy).
-    let flat_size = num_rows * num_cols * std::mem::size_of::<u64>();
-    let flat_buf = keccak_state.state.device().new_buffer(
-        flat_size as u64,
-        MTLResourceOptions::StorageModeShared,
-    );
-
-    unsafe {
-        let dst = flat_buf.contents() as *mut u64;
-        for row in 0..num_rows {
-            let src_row = row.reverse_bits() >> (usize::BITS - log_n);
-            for (col_idx, col_buf) in column_buffers.iter().enumerate() {
-                let src = col_buf.contents() as *const u64;
-                *dst.add(row * num_cols + col_idx) = *src.add(src_row);
-            }
-        }
-    }
+    // Transpose column buffers to row-major with bit-reversed row ordering on GPU
+    let transpose_state = keccak_state.transpose_state()?;
+    let flat_buf =
+        gpu_transpose_bitrev_to_buffer(column_buffers, num_rows, transpose_state).ok()?;
 
     let (nodes, root) =
         gpu_hash_and_build_tree_from_buffer(&flat_buf, num_rows, num_cols, keccak_state).ok()?;
@@ -772,14 +987,14 @@ pub fn gpu_batch_commit_from_column_buffers(
 ///
 /// Like [`gpu_batch_commit_from_column_buffers`] but merges consecutive bit-reversed
 /// rows into paired leaves, matching the composition polynomial commit layout.
+/// Uses the `transpose_bitrev_paired` Metal kernel to perform the transpose + pairing
+/// entirely on GPU.
 #[cfg(all(target_os = "macos", feature = "metal"))]
 pub fn gpu_batch_commit_paired_from_column_buffers(
     column_buffers: &[&metal::Buffer],
     lde_len: usize,
     keccak_state: &GpuKeccakMerkleState,
 ) -> Option<(BatchedMerkleTree<Goldilocks64Field>, Commitment)> {
-    use metal::MTLResourceOptions;
-
     if column_buffers.is_empty() || lde_len == 0 {
         return None;
     }
@@ -787,28 +1002,11 @@ pub fn gpu_batch_commit_paired_from_column_buffers(
     let num_cols = column_buffers.len();
     let num_merged_rows = lde_len / 2;
     let cols_per_merged_row = 2 * num_cols;
-    let log_n = lde_len.trailing_zeros();
 
-    // Build flat paired-row buffer: merged_row[i] = row[bitrev(2i)] ++ row[bitrev(2i+1)]
-    let flat_size = num_merged_rows * cols_per_merged_row * std::mem::size_of::<u64>();
-    let flat_buf = keccak_state.state.device().new_buffer(
-        flat_size as u64,
-        MTLResourceOptions::StorageModeShared,
-    );
-
-    unsafe {
-        let dst = flat_buf.contents() as *mut u64;
-        for i in 0..num_merged_rows {
-            let idx0 = (2 * i).reverse_bits() >> (usize::BITS - log_n);
-            let idx1 = (2 * i + 1).reverse_bits() >> (usize::BITS - log_n);
-            let base = i * cols_per_merged_row;
-            for (col_idx, col_buf) in column_buffers.iter().enumerate() {
-                let src = col_buf.contents() as *const u64;
-                *dst.add(base + col_idx) = *src.add(idx0);
-                *dst.add(base + num_cols + col_idx) = *src.add(idx1);
-            }
-        }
-    }
+    // Transpose + pair column buffers on GPU
+    let transpose_state = keccak_state.transpose_state()?;
+    let flat_buf =
+        gpu_transpose_bitrev_paired_to_buffer(column_buffers, lde_len, transpose_state).ok()?;
 
     let (nodes, root) = gpu_hash_and_build_tree_from_buffer(
         &flat_buf,
@@ -1231,6 +1429,205 @@ mod gpu_tests {
         for (i, (gpu_row, cpu_row)) in gpu_rows.iter().zip(cpu_rows.iter()).enumerate() {
             for (j, (g, c)) in gpu_row.iter().zip(cpu_row.iter()).enumerate() {
                 assert_eq!(g, c, "Mismatch at row {i}, col {j}");
+            }
+        }
+    }
+
+    // =========================================================================
+    // Task 5b: GPU transpose+bitrev from Metal buffers differential tests
+    // =========================================================================
+
+    #[test]
+    fn gpu_transpose_bitrev_buffer_matches_cpu() {
+        use lambdaworks_math::field::traits::IsPrimeField;
+        use metal::MTLResourceOptions;
+
+        let keccak_state = GpuKeccakMerkleState::new().unwrap();
+        let transpose_state = keccak_state.transpose_state().expect("transpose state");
+
+        // 3 columns x 256 rows (power of two)
+        let num_cols = 3;
+        let num_rows: usize = 256;
+        let columns: Vec<Vec<FpE>> = (0..num_cols)
+            .map(|c| {
+                (0..num_rows)
+                    .map(|r| FpE::from((c * num_rows + r + 1) as u64))
+                    .collect()
+            })
+            .collect();
+
+        // CPU reference: columns2rows_bit_reversed
+        let cpu_rows = columns2rows_bit_reversed(&columns);
+
+        // Create Metal buffers for each column (simulating FFT output)
+        let device = transpose_state.state.device();
+        let col_buffers: Vec<metal::Buffer> = columns
+            .iter()
+            .map(|col| {
+                let data: Vec<u64> = col
+                    .iter()
+                    .map(|fe| Goldilocks64Field::canonical(fe.value()))
+                    .collect();
+                device.new_buffer_with_data(
+                    data.as_ptr() as *const _,
+                    (data.len() * std::mem::size_of::<u64>()) as u64,
+                    MTLResourceOptions::StorageModeShared,
+                )
+            })
+            .collect();
+        let col_buf_refs: Vec<&metal::Buffer> = col_buffers.iter().collect();
+
+        // GPU transpose from buffers
+        let result_buf =
+            gpu_transpose_bitrev_to_buffer(&col_buf_refs, num_rows, transpose_state).unwrap();
+
+        // Read back result
+        let gpu_raw: Vec<u64> = unsafe {
+            let ptr = result_buf.contents() as *const u64;
+            std::slice::from_raw_parts(ptr, num_rows * num_cols).to_vec()
+        };
+
+        // Compare with CPU reference
+        for (row_idx, cpu_row) in cpu_rows.iter().enumerate() {
+            for (col_idx, cpu_val) in cpu_row.iter().enumerate() {
+                let gpu_val = gpu_raw[row_idx * num_cols + col_idx];
+                let expected = Goldilocks64Field::canonical(cpu_val.value());
+                assert_eq!(
+                    gpu_val, expected,
+                    "Buffer transpose mismatch at row {row_idx}, col {col_idx}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn gpu_transpose_bitrev_paired_buffer_matches_cpu() {
+        use lambdaworks_math::fft::cpu::bit_reversing::in_place_bit_reverse_permute;
+        use lambdaworks_math::field::traits::IsPrimeField;
+        use metal::MTLResourceOptions;
+
+        let keccak_state = GpuKeccakMerkleState::new().unwrap();
+        let transpose_state = keccak_state.transpose_state().expect("transpose state");
+
+        // 2 columns x 128 rows
+        let num_cols = 2;
+        let num_rows: usize = 128;
+        let columns: Vec<Vec<FpE>> = (0..num_cols)
+            .map(|c| {
+                (0..num_rows)
+                    .map(|r| FpE::from((c * num_rows + r + 1) as u64))
+                    .collect()
+            })
+            .collect();
+
+        // CPU reference: transpose + bit-reverse + pair
+        let mut cpu_rows: Vec<Vec<FpE>> = (0..num_rows)
+            .map(|i| columns.iter().map(|col| col[i].clone()).collect())
+            .collect();
+        in_place_bit_reverse_permute(&mut cpu_rows);
+        let mut merged_rows = Vec::with_capacity(num_rows / 2);
+        let mut iter = cpu_rows.into_iter();
+        while let (Some(mut chunk0), Some(chunk1)) = (iter.next(), iter.next()) {
+            chunk0.extend(chunk1);
+            merged_rows.push(chunk0);
+        }
+
+        // Create Metal buffers for each column
+        let device = transpose_state.state.device();
+        let col_buffers: Vec<metal::Buffer> = columns
+            .iter()
+            .map(|col| {
+                let data: Vec<u64> = col
+                    .iter()
+                    .map(|fe| Goldilocks64Field::canonical(fe.value()))
+                    .collect();
+                device.new_buffer_with_data(
+                    data.as_ptr() as *const _,
+                    (data.len() * std::mem::size_of::<u64>()) as u64,
+                    MTLResourceOptions::StorageModeShared,
+                )
+            })
+            .collect();
+        let col_buf_refs: Vec<&metal::Buffer> = col_buffers.iter().collect();
+
+        // GPU paired transpose from buffers
+        let result_buf =
+            gpu_transpose_bitrev_paired_to_buffer(&col_buf_refs, num_rows, transpose_state)
+                .unwrap();
+
+        // Read back result
+        let num_merged_rows = num_rows / 2;
+        let cols_per_merged = 2 * num_cols;
+        let gpu_raw: Vec<u64> = unsafe {
+            let ptr = result_buf.contents() as *const u64;
+            std::slice::from_raw_parts(ptr, num_merged_rows * cols_per_merged).to_vec()
+        };
+
+        // Compare with CPU reference
+        for (row_idx, cpu_row) in merged_rows.iter().enumerate() {
+            for (col_idx, cpu_val) in cpu_row.iter().enumerate() {
+                let gpu_val = gpu_raw[row_idx * cols_per_merged + col_idx];
+                let expected = Goldilocks64Field::canonical(cpu_val.value());
+                assert_eq!(
+                    gpu_val, expected,
+                    "Paired buffer transpose mismatch at row {row_idx}, col {col_idx}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn gpu_transpose_bitrev_buffer_small() {
+        use lambdaworks_math::field::traits::IsPrimeField;
+        use metal::MTLResourceOptions;
+
+        let keccak_state = GpuKeccakMerkleState::new().unwrap();
+        let transpose_state = keccak_state.transpose_state().expect("transpose state");
+
+        // 2 columns x 8 rows (small case)
+        let columns: Vec<Vec<FpE>> = vec![
+            (0..8).map(|i| FpE::from(i as u64)).collect(),
+            (0..8).map(|i| FpE::from(i as u64 + 100)).collect(),
+        ];
+
+        let cpu_rows = columns2rows_bit_reversed(&columns);
+
+        // Create Metal buffers
+        let device = transpose_state.state.device();
+        let col_buffers: Vec<metal::Buffer> = columns
+            .iter()
+            .map(|col| {
+                let data: Vec<u64> = col
+                    .iter()
+                    .map(|fe| Goldilocks64Field::canonical(fe.value()))
+                    .collect();
+                device.new_buffer_with_data(
+                    data.as_ptr() as *const _,
+                    (data.len() * std::mem::size_of::<u64>()) as u64,
+                    MTLResourceOptions::StorageModeShared,
+                )
+            })
+            .collect();
+        let col_buf_refs: Vec<&metal::Buffer> = col_buffers.iter().collect();
+
+        let result_buf =
+            gpu_transpose_bitrev_to_buffer(&col_buf_refs, 8, transpose_state).unwrap();
+
+        let num_cols = 2;
+        let num_rows = 8;
+        let gpu_raw: Vec<u64> = unsafe {
+            let ptr = result_buf.contents() as *const u64;
+            std::slice::from_raw_parts(ptr, num_rows * num_cols).to_vec()
+        };
+
+        for (row_idx, cpu_row) in cpu_rows.iter().enumerate() {
+            for (col_idx, cpu_val) in cpu_row.iter().enumerate() {
+                let gpu_val = gpu_raw[row_idx * num_cols + col_idx];
+                let expected = Goldilocks64Field::canonical(cpu_val.value());
+                assert_eq!(
+                    gpu_val, expected,
+                    "Small buffer transpose mismatch at row {row_idx}, col {col_idx}"
+                );
             }
         }
     }
