@@ -142,7 +142,9 @@ fn main() {
         eprintln!("  compare             - Run all modes and print comparison");
         eprintln!();
         eprintln!("Example:");
-        eprintln!("  cargo bench -p lambdaworks-gkr-logup --bench batch_vs_individual -- compare 14 4");
+        eprintln!(
+            "  cargo bench -p lambdaworks-gkr-logup --bench batch_vs_individual -- compare 14 4"
+        );
         std::process::exit(1);
     }
 
