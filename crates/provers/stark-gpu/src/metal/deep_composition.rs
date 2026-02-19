@@ -294,6 +294,200 @@ pub fn gpu_compute_deep_composition_poly(
     Ok(deep_poly)
 }
 
+/// Compute the DEEP composition polynomial on GPU, returning coefficients as a Metal Buffer.
+///
+/// Like [`gpu_compute_deep_composition_poly`] but keeps everything on GPU:
+/// - The DEEP composition evaluations stay on a GPU buffer (no CPU readback)
+/// - The coset IFFT runs on GPU via `gpu_interpolate_offset_fft_buffer_to_buffer`
+/// - Returns `(metal::Buffer, usize)` instead of `Polynomial`
+///
+/// This eliminates the largest CPU↔GPU transfer in the prover: the full LDE-sized
+/// evaluation vector that was previously read back to CPU for IFFT.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+#[allow(clippy::too_many_arguments)]
+pub fn gpu_compute_deep_composition_poly_to_buffer(
+    round_1_result: &GpuRound1Result<Goldilocks64Field>,
+    round_2_result: &GpuRound2Result<Goldilocks64Field>,
+    round_3_result: &GpuRound3Result<Goldilocks64Field>,
+    domain: &stark_platinum_prover::domain::Domain<Goldilocks64Field>,
+    composition_gammas: &[FieldElement<Goldilocks64Field>],
+    trace_term_coeffs: &[Vec<FieldElement<Goldilocks64Field>>],
+    _gpu_state: &crate::metal::state::StarkMetalState,
+    precompiled: Option<&DeepCompositionState>,
+    coset_state: &crate::metal::fft::CosetShiftState,
+) -> Result<(metal::Buffer, usize), stark_platinum_prover::prover::ProvingError>
+{
+    type F = Goldilocks64Field;
+    type FpE = FieldElement<F>;
+
+    let num_rows = domain.lde_roots_of_unity_coset.len();
+    let num_offsets = round_3_result.trace_ood_evaluations.height;
+    let num_comp_parts = round_2_result.composition_poly_parts.len();
+
+    // Combine main + aux trace LDE evaluations (column-major).
+    let mut all_trace_lde = round_1_result.main_lde_evaluations.clone();
+    all_trace_lde.extend(round_1_result.aux_lde_evaluations.iter().cloned());
+    let num_trace_polys = all_trace_lde.len();
+
+    // --- Pre-compute batch inversions on CPU ---
+    let z_power = round_3_result.z.pow(num_comp_parts);
+    let primitive_root = &domain.trace_primitive_root;
+
+    let mut inv_z_power_vec: Vec<FpE> = domain
+        .lde_roots_of_unity_coset
+        .iter()
+        .map(|x| x - &z_power)
+        .collect();
+    FieldElement::inplace_batch_inverse(&mut inv_z_power_vec)
+        .map_err(|_| stark_platinum_prover::prover::ProvingError::BatchInversionFailed)?;
+
+    let z_shifted_values: Vec<FpE> = (0..num_offsets)
+        .map(|k| primitive_root.pow(k) * &round_3_result.z)
+        .collect();
+
+    let mut inv_z_shifted_vecs: Vec<Vec<FpE>> = z_shifted_values
+        .iter()
+        .map(|z_shifted| {
+            domain
+                .lde_roots_of_unity_coset
+                .iter()
+                .map(|x| x - z_shifted)
+                .collect()
+        })
+        .collect();
+    for inv_vec in &mut inv_z_shifted_vecs {
+        FieldElement::inplace_batch_inverse(inv_vec)
+            .map_err(|_| stark_platinum_prover::prover::ProvingError::BatchInversionFailed)?;
+    }
+
+    // --- Pack scalar data ---
+    let trace_ood_columns = round_3_result.trace_ood_evaluations.columns();
+    let mut scalars: Vec<u64> = Vec::new();
+    for gamma in composition_gammas.iter().take(num_comp_parts) {
+        scalars.push(F::canonical(gamma.value()));
+    }
+    for gammas in trace_term_coeffs.iter() {
+        for g in gammas.iter() {
+            scalars.push(F::canonical(g.value()));
+        }
+    }
+    for eval in round_3_result.composition_poly_parts_ood_evaluation.iter() {
+        scalars.push(F::canonical(eval.value()));
+    }
+    for col in trace_ood_columns.iter() {
+        for eval in col.iter() {
+            scalars.push(F::canonical(eval.value()));
+        }
+    }
+
+    // --- Convert to raw u64 ---
+    let trace_raw: Vec<Vec<u64>> = all_trace_lde
+        .iter()
+        .map(|col| col.iter().map(|fe| F::canonical(fe.value())).collect())
+        .collect();
+    let comp_raw: Vec<Vec<u64>> = round_2_result
+        .lde_composition_poly_evaluations
+        .iter()
+        .map(|col| col.iter().map(|fe| F::canonical(fe.value())).collect())
+        .collect();
+    let inv_zp_raw: Vec<u64> = inv_z_power_vec
+        .iter()
+        .map(|fe| F::canonical(fe.value()))
+        .collect();
+    let inv_zs_raw: Vec<Vec<u64>> = inv_z_shifted_vecs
+        .iter()
+        .map(|v| v.iter().map(|fe| F::canonical(fe.value())).collect())
+        .collect();
+
+    let params = DeepCompParams {
+        num_rows: num_rows as u32,
+        num_trace_polys: num_trace_polys as u32,
+        num_offsets: num_offsets as u32,
+        num_comp_parts: num_comp_parts as u32,
+    };
+
+    // --- Dispatch Metal kernel ---
+    let mut owned_state;
+    let (dyn_state, max_threads) = match precompiled {
+        Some(pre) => (&pre.state, pre.max_threads),
+        None => {
+            owned_state = DynamicMetalState::new().map_err(|e| {
+                stark_platinum_prover::prover::ProvingError::FieldOperationError(e.to_string())
+            })?;
+            owned_state
+                .load_library(DEEP_COMPOSITION_SHADER)
+                .map_err(|e| {
+                    stark_platinum_prover::prover::ProvingError::FieldOperationError(e.to_string())
+                })?;
+            let mt = owned_state
+                .prepare_pipeline("deep_composition_eval")
+                .map_err(|e| {
+                    stark_platinum_prover::prover::ProvingError::FieldOperationError(e.to_string())
+                })?;
+            (&owned_state, mt)
+        }
+    };
+
+    let alloc_err = |e: lambdaworks_gpu::metal::abstractions::errors::MetalError| {
+        stark_platinum_prover::prover::ProvingError::FieldOperationError(e.to_string())
+    };
+
+    let buf_trace_0 = dyn_state.alloc_buffer_with_data(&trace_raw[0]).map_err(alloc_err)?;
+    let buf_trace_1 = dyn_state.alloc_buffer_with_data(&trace_raw[1]).map_err(alloc_err)?;
+    let buf_trace_2 = dyn_state.alloc_buffer_with_data(&trace_raw[2]).map_err(alloc_err)?;
+    let buf_comp_0 = dyn_state.alloc_buffer_with_data(&comp_raw[0]).map_err(alloc_err)?;
+    let buf_inv_zp = dyn_state.alloc_buffer_with_data(&inv_zp_raw).map_err(alloc_err)?;
+    let buf_inv_zs0 = dyn_state.alloc_buffer_with_data(&inv_zs_raw[0]).map_err(alloc_err)?;
+    let buf_inv_zs1 = dyn_state.alloc_buffer_with_data(&inv_zs_raw[1]).map_err(alloc_err)?;
+    let buf_inv_zs2 = dyn_state.alloc_buffer_with_data(&inv_zs_raw[2]).map_err(alloc_err)?;
+    let buf_scalars = dyn_state.alloc_buffer_with_data(&scalars).map_err(alloc_err)?;
+    let buf_params = dyn_state
+        .alloc_buffer_with_data(std::slice::from_ref(&params))
+        .map_err(alloc_err)?;
+    let buf_output = dyn_state
+        .alloc_buffer(num_rows * std::mem::size_of::<u64>())
+        .map_err(alloc_err)?;
+
+    dyn_state
+        .execute_compute(
+            "deep_composition_eval",
+            &[
+                &buf_trace_0,
+                &buf_trace_1,
+                &buf_trace_2,
+                &buf_comp_0,
+                &buf_inv_zp,
+                &buf_inv_zs0,
+                &buf_inv_zs1,
+                &buf_inv_zs2,
+                &buf_scalars,
+                &buf_params,
+                &buf_output,
+            ],
+            num_rows as u64,
+            max_threads,
+        )
+        .map_err(|e| {
+            stark_platinum_prover::prover::ProvingError::FieldOperationError(e.to_string())
+        })?;
+
+    // --- GPU IFFT: keep evaluations on GPU, IFFT to coefficients on GPU ---
+    let coeffs_buffer = crate::metal::fft::gpu_interpolate_offset_fft_buffer_to_buffer(
+        &buf_output,
+        num_rows,
+        &domain.coset_offset,
+        coset_state,
+        _gpu_state.inner(),
+    )
+    .map_err(|e| {
+        stark_platinum_prover::prover::ProvingError::FieldOperationError(
+            format!("GPU IFFT in deep composition: {e}"),
+        )
+    })?;
+
+    Ok((coeffs_buffer, num_rows))
+}
+
 #[cfg(all(test, target_os = "macos", feature = "metal"))]
 mod tests {
     use super::*;

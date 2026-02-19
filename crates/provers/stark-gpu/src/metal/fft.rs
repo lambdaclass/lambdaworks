@@ -625,6 +625,53 @@ pub fn gpu_interpolate_offset_fft_to_buffer(
     Ok(result)
 }
 
+/// Coset IFFT on a GPU buffer: recovers polynomial coefficients from evaluations already on GPU.
+///
+/// Like [`gpu_interpolate_offset_fft_to_buffer`] but reads from an existing Metal Buffer
+/// instead of a CPU slice, avoiding a CPU-to-GPU transfer when the evaluations were
+/// produced by a prior GPU operation (e.g., the DEEP composition kernel).
+///
+/// # Algorithm
+///
+/// 1. Generate inverse twiddles on GPU
+/// 2. `fft_buffer_to_buffer` with inverse twiddles
+/// 3. Normalize by `1/n` via `gpu_scale_buffer`
+/// 4. Apply inverse coset shift via `gpu_coset_shift_buffer_to_buffer`
+#[cfg(all(target_os = "macos", feature = "metal"))]
+pub fn gpu_interpolate_offset_fft_buffer_to_buffer(
+    eval_buffer: &metal::Buffer,
+    len: usize,
+    coset_offset: &FieldElement<Goldilocks64Field>,
+    coset_state: &CosetShiftState,
+    metal_state: &MetalState,
+) -> Result<metal::Buffer, MetalError> {
+    type FpE = FieldElement<Goldilocks64Field>;
+
+    let order = len.trailing_zeros() as u64;
+
+    // Step 1: Generate inverse twiddle factors on GPU
+    let inv_twiddles =
+        gen_twiddles_to_buffer::<Goldilocks64Field>(order, RootsConfig::BitReverseInversed, metal_state)?;
+
+    // Step 2: FFT with inverse twiddles (buffer-to-buffer)
+    let result_buffer =
+        fft_buffer_to_buffer::<Goldilocks64Field>(eval_buffer, len, &inv_twiddles, metal_state)?;
+
+    // Step 3: Normalize by 1/n
+    let n_inv = FpE::from(len as u64)
+        .inv()
+        .expect("Power-of-two length is always invertible in an FFT field");
+    let normalized = gpu_scale_buffer(&result_buffer, len, &n_inv, coset_state)?;
+
+    // Step 4: Inverse coset shift: coeff[k] *= offset_inv^k
+    let offset_inv = coset_offset
+        .inv()
+        .expect("Coset offset must be invertible");
+    let result = gpu_coset_shift_buffer_to_buffer(&normalized, len, &offset_inv, len, coset_state)?;
+
+    Ok(result)
+}
+
 #[cfg(all(test, target_os = "macos", feature = "metal"))]
 mod tests {
     use super::*;

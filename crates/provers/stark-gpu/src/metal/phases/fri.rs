@@ -33,7 +33,9 @@ use crate::metal::phases::ood::GpuRound3Result;
 use crate::metal::phases::rap::GpuRound1Result;
 
 #[cfg(all(target_os = "macos", feature = "metal"))]
-use crate::metal::deep_composition::{gpu_compute_deep_composition_poly, DeepCompositionState};
+use crate::metal::deep_composition::{
+    gpu_compute_deep_composition_poly_to_buffer, DeepCompositionState,
+};
 #[cfg(all(target_os = "macos", feature = "metal"))]
 use crate::metal::fft::gpu_evaluate_offset_fft;
 #[cfg(all(target_os = "macos", feature = "metal"))]
@@ -847,6 +849,91 @@ pub fn gpu_fri_commit_phase_goldilocks(
     Ok((last_value, fri_layer_list))
 }
 
+/// GPU-accelerated FRI commit phase starting from a GPU buffer.
+///
+/// Like [`gpu_fri_commit_phase_goldilocks`] but the initial polynomial coefficients
+/// are already on a Metal buffer (e.g., from `gpu_compute_deep_composition_poly_to_buffer`),
+/// so no CPU-to-GPU upload is needed for the first fold.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+#[allow(clippy::type_complexity)]
+pub fn gpu_fri_commit_phase_goldilocks_from_buffer(
+    number_layers: usize,
+    p_0_buffer: metal::Buffer,
+    p_0_len: usize,
+    transcript: &mut impl IsStarkTranscript<Goldilocks64Field, Goldilocks64Field>,
+    coset_offset: &FieldElement<Goldilocks64Field>,
+    domain_size: usize,
+    gpu_state: &StarkMetalState,
+    keccak_state: &GpuKeccakMerkleState,
+    coset_state: &CosetShiftState,
+    fri_fold_state: &FriFoldState,
+) -> Result<
+    (
+        FieldElement<Goldilocks64Field>,
+        Vec<FriLayer<Goldilocks64Field, BatchedMerkleTreeBackend<Goldilocks64Field>>>,
+    ),
+    ProvingError,
+> {
+    type F = Goldilocks64Field;
+    type FpE = FieldElement<F>;
+
+    let mut domain_size = domain_size;
+    let mut fri_layer_list = Vec::with_capacity(number_layers);
+    let mut coset_offset = *coset_offset;
+    let mut current_buffer: (metal::Buffer, usize) = (p_0_buffer, p_0_len);
+
+    for _ in 1..number_layers {
+        let zeta = transcript.sample_field_element();
+        coset_offset = coset_offset.square();
+        domain_size /= 2;
+
+        // Fold polynomial on GPU from existing buffer
+        let (buf, len) = current_buffer;
+        let (folded_buf, folded_len) = gpu_fold_polynomial(&buf, len, &zeta, fri_fold_state)
+            .map_err(|e| ProvingError::FieldOperationError(format!("GPU FRI fold: {e}")))?;
+
+        // Build FRI layer
+        let current_layer = if domain_size >= GPU_FRI_THRESHOLD {
+            gpu_new_fri_layer_fused(
+                &folded_buf,
+                folded_len,
+                &coset_offset,
+                domain_size,
+                gpu_state,
+                keccak_state,
+                coset_state,
+            )?
+        } else {
+            // Small layers: read back from GPU and use CPU path
+            let coeffs_u64: Vec<u64> = MetalState::retrieve_contents(&folded_buf);
+            let coeffs: Vec<FpE> = coeffs_u64.into_iter().map(FpE::from).collect();
+            let poly = Polynomial::new(&coeffs);
+            fri::new_fri_layer(&poly, &coset_offset, domain_size)?
+        };
+
+        current_buffer = (folded_buf, folded_len);
+        let commitment = current_layer.merkle_tree.root;
+        fri_layer_list.push(current_layer);
+        transcript.append_bytes(&commitment);
+    }
+
+    // Final fold to get the last value
+    let zeta = transcript.sample_field_element();
+    let (buf, len) = current_buffer;
+    let (last_buf, _last_len) = gpu_fold_polynomial(&buf, len, &zeta, fri_fold_state)
+        .map_err(|e| ProvingError::FieldOperationError(format!("GPU FRI fold: {e}")))?;
+
+    let last_u64: Vec<u64> = MetalState::retrieve_contents(&last_buf);
+    let last_value = if last_u64.is_empty() {
+        FpE::zero()
+    } else {
+        FpE::from(last_u64[0])
+    };
+    transcript.append_field_element(&last_value);
+
+    Ok((last_value, fri_layer_list))
+}
+
 /// GPU-optimized Phase 4 for Goldilocks field with GPU DEEP composition.
 ///
 /// This is a concrete version of [`gpu_round_4`] that uses the Metal GPU shader
@@ -893,8 +980,8 @@ where
 
     let composition_gammas = deep_composition_coefficients;
 
-    // Step 2: Compute DEEP composition polynomial on GPU.
-    let deep_composition_poly = gpu_compute_deep_composition_poly(
+    // Step 2: Compute DEEP composition polynomial on GPU, keep coefficients on GPU buffer.
+    let (deep_comp_buffer, deep_comp_len) = gpu_compute_deep_composition_poly_to_buffer(
         round_1_result,
         round_2_result,
         round_3_result,
@@ -903,13 +990,15 @@ where
         &trace_term_coeffs,
         gpu_state,
         precompiled_deep,
+        coset_state,
     )?;
 
-    // Step 3: Run FRI commit phase (GPU FFT + GPU Keccak256 Merkle for large layers).
+    // Step 3: Run FRI commit phase starting from GPU buffer (no CPU↔GPU transfer).
     let domain_size = domain.lde_roots_of_unity_coset.len();
-    let (fri_last_value, fri_layers) = gpu_fri_commit_phase_goldilocks(
+    let (fri_last_value, fri_layers) = gpu_fri_commit_phase_goldilocks_from_buffer(
         domain.root_order as usize,
-        deep_composition_poly,
+        deep_comp_buffer,
+        deep_comp_len,
         transcript,
         &domain.coset_offset,
         domain_size,
