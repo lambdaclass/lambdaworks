@@ -41,7 +41,7 @@ use crate::metal::fft::gpu_evaluate_offset_fft;
 #[cfg(all(target_os = "macos", feature = "metal"))]
 use crate::metal::fft::{CosetShiftState, gpu_coset_shift_buffer_to_buffer};
 #[cfg(all(target_os = "macos", feature = "metal"))]
-use crate::metal::merkle::{gpu_fri_layer_commit, gpu_fri_layer_commit_from_buffer, GpuKeccakMerkleState};
+use crate::metal::merkle::{gpu_fri_layer_commit, gpu_fri_layer_commit_from_buffer, gpu_generate_nonce, GpuKeccakMerkleState};
 #[cfg(all(target_os = "macos", feature = "metal"))]
 use crate::metal::state::StarkMetalState;
 #[cfg(all(target_os = "macos", feature = "metal"))]
@@ -1008,11 +1008,11 @@ where
         fri_fold_state,
     )?;
 
-    // Step 4: Grinding.
+    // Step 4: Grinding (GPU-accelerated).
     let security_bits = air.context().proof_options.grinding_factor;
     let mut nonce = None;
     if security_bits > 0 {
-        let nonce_value = grinding::generate_nonce(&transcript.state(), security_bits)
+        let nonce_value = gpu_generate_nonce(&transcript.state(), security_bits, keccak_state)
             .ok_or(ProvingError::NonceNotFound(security_bits))?;
         transcript.append_bytes(&nonce_value.to_be_bytes());
         nonce = Some(nonce_value);

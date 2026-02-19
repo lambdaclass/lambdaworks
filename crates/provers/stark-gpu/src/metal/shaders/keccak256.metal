@@ -339,7 +339,82 @@ inline void keccak_squeeze_local(thread uint64_t* state, thread uchar* out) {
 }
 
 // =============================================================================
-// Kernel 3: Column-to-row transpose with bit-reversal
+// Kernel 3: Grinding nonce search
+//
+// Each thread tests one nonce candidate: nonce = batch_offset + gid
+// Computes Keccak256(inner_hash[32] || nonce_be[8]) and checks if
+// the first 8 bytes (big-endian u64) < limit.
+//
+// Result buffer: single atomic_uint initialized to UINT_MAX.
+// Valid threads write atomic_min(result, gid) to find the smallest valid
+// nonce in the batch. Nonce = batch_offset + result[0].
+// =============================================================================
+
+[[kernel]] void keccak256_grind_nonce(
+    device const uchar*   inner_hash    [[ buffer(0) ]],  // 32 bytes
+    device atomic_uint*   result        [[ buffer(1) ]],   // min valid gid (UINT_MAX = none)
+    constant ulong&       limit         [[ buffer(2) ]],
+    constant ulong&       batch_offset  [[ buffer(3) ]],
+    uint gid                            [[ thread_position_in_grid ]]
+) {
+    ulong nonce = batch_offset + (ulong)gid;
+
+    // Initialize Keccak state
+    uint64_t state[25] = {0};
+
+    // Absorb 40 bytes: inner_hash[32] || nonce_be[8]
+    // All fits in one rate block (40 < 136), so no intermediate permutation.
+
+    // Pack inner_hash[0..32] into lanes 0..3 (little-endian)
+    for (uint i = 0; i < 4; i++) {
+        uint64_t lane = 0;
+        for (uint b = 0; b < 8; b++) {
+            lane |= (uint64_t)inner_hash[i * 8 + b] << (b * 8);
+        }
+        state[i] ^= lane;
+    }
+
+    // Pack nonce as 8 bytes big-endian into lane 4
+    uchar nonce_bytes[8];
+    nonce_bytes[0] = (uchar)(nonce >> 56);
+    nonce_bytes[1] = (uchar)(nonce >> 48);
+    nonce_bytes[2] = (uchar)(nonce >> 40);
+    nonce_bytes[3] = (uchar)(nonce >> 32);
+    nonce_bytes[4] = (uchar)(nonce >> 24);
+    nonce_bytes[5] = (uchar)(nonce >> 16);
+    nonce_bytes[6] = (uchar)(nonce >> 8);
+    nonce_bytes[7] = (uchar)(nonce);
+    {
+        uint64_t lane = 0;
+        for (uint b = 0; b < 8; b++) {
+            lane |= (uint64_t)nonce_bytes[b] << (b * 8);
+        }
+        state[4] ^= lane;
+    }
+
+    // Padding at byte 40: multi-rate padding 0x01 ... 0x80
+    state[5] ^= (uint64_t)0x01;  // lane 5, byte 0 = position 40
+    // Last byte of rate block (position 135 = lane 16, byte 7)
+    state[16] ^= (uint64_t)0x80 << 56;
+
+    keccak_f1600(state);
+
+    // Extract first 8 bytes of digest as big-endian u64
+    // state[0] contains bytes 0..7 in little-endian lane format
+    uint64_t first_lane = state[0];
+    ulong digest_head = 0;
+    for (uint b = 0; b < 8; b++) {
+        digest_head = (digest_head << 8) | ((first_lane >> (b * 8)) & 0xFF);
+    }
+
+    if (digest_head < limit) {
+        // Atomically track the minimum valid gid in this batch
+        atomic_fetch_min_explicit(&result[0], gid, memory_order_relaxed);
+    }
+}
+
+// =============================================================================
+// Kernel 4: Column-to-row transpose with bit-reversal
 //
 // Converts column-major LDE data to row-major bit-reversed layout.
 // Input: flat column-major: col0[0..M], col1[0..M], ... (N columns, M rows)

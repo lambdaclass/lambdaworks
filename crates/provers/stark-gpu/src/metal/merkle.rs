@@ -43,6 +43,7 @@ pub struct GpuKeccakMerkleState {
     hash_leaves_max_threads: u64,
     hash_pairs_max_threads: u64,
     transpose_max_threads: u64,
+    grind_max_threads: u64,
     /// Cached transpose+bitrev state for buffer-based operations.
     transpose_bitrev_state: Option<TransposeBitrevState>,
 }
@@ -56,6 +57,7 @@ impl GpuKeccakMerkleState {
         let hash_leaves_max_threads = state.prepare_pipeline("keccak256_hash_leaves")?;
         let hash_pairs_max_threads = state.prepare_pipeline("keccak256_hash_pairs")?;
         let transpose_max_threads = state.prepare_pipeline("transpose_bitrev_goldilocks")?;
+        let grind_max_threads = state.prepare_pipeline("keccak256_grind_nonce")?;
 
         // Also compile the standalone transpose+bitrev shader for buffer-based ops
         let transpose_bitrev_state = TransposeBitrevState::new().ok();
@@ -65,6 +67,7 @@ impl GpuKeccakMerkleState {
             hash_leaves_max_threads,
             hash_pairs_max_threads,
             transpose_max_threads,
+            grind_max_threads,
             transpose_bitrev_state,
         })
     }
@@ -1146,6 +1149,87 @@ pub fn gpu_batch_commit_paired_goldilocks(
     Some((tree, root))
 }
 
+// =============================================================================
+// GPU Grinding: parallel nonce search using Keccak256
+// =============================================================================
+
+/// Search for a valid grinding nonce on the GPU.
+///
+/// Equivalent to `grinding::generate_nonce()` but runs massively parallel
+/// on the Metal GPU. Each thread tests one nonce candidate.
+///
+/// The `inner_hash` is pre-computed on CPU as `Keccak256(PREFIX || seed || grinding_factor)`.
+/// Each GPU thread computes `Keccak256(inner_hash || nonce_be)` and checks
+/// if the first 8 bytes (big-endian u64) < `limit`.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+pub fn gpu_generate_nonce(
+    seed: &[u8; 32],
+    grinding_factor: u8,
+    keccak_state: &GpuKeccakMerkleState,
+) -> Option<u64> {
+    use lambdaworks_gpu::metal::abstractions::state::MetalState;
+    use sha3::{Digest, Keccak256};
+
+    if grinding_factor == 0 {
+        return Some(0);
+    }
+
+    // Step 1: Compute inner_hash on CPU (single hash, not worth GPU)
+    let prefix: [u8; 8] = [0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xed];
+    let mut inner_data = [0u8; 41];
+    inner_data[0..8].copy_from_slice(&prefix);
+    inner_data[8..40].copy_from_slice(seed);
+    inner_data[40] = grinding_factor;
+    let digest = Keccak256::digest(inner_data);
+    let inner_hash: [u8; 32] = digest[..32].try_into().unwrap();
+
+    let limit: u64 = 1u64 << (64 - grinding_factor);
+
+    // Step 2: Prepare GPU buffers
+    let inner_hash_buf = keccak_state.state.alloc_buffer_with_data(&inner_hash).ok()?;
+    let limit_buf = keccak_state.state.alloc_buffer_with_data(&[limit]).ok()?;
+
+    // Dispatch in batches of 2^20 (1M) threads per dispatch.
+    // For grinding_factor=20, expected ~1M attempts on average.
+    let batch_size: u64 = 1 << 20;
+
+    let mut batch_offset: u64 = 0;
+    loop {
+        // Result = single u32 initialized to UINT_MAX (no valid nonce found).
+        // The kernel uses atomic_fetch_min to track the smallest valid gid.
+        let result_buf = keccak_state
+            .state
+            .alloc_buffer_with_data(&[u32::MAX])
+            .ok()?;
+        let offset_buf = keccak_state
+            .state
+            .alloc_buffer_with_data(&[batch_offset])
+            .ok()?;
+
+        keccak_state
+            .state
+            .execute_compute(
+                "keccak256_grind_nonce",
+                &[&inner_hash_buf, &result_buf, &limit_buf, &offset_buf],
+                batch_size,
+                keccak_state.grind_max_threads,
+            )
+            .ok()?;
+
+        // Check if any thread found a valid nonce
+        let result: Vec<u32> = MetalState::retrieve_contents(&result_buf);
+        let min_gid = result[0];
+        if min_gid != u32::MAX {
+            return Some(batch_offset + min_gid as u64);
+        }
+
+        batch_offset += batch_size;
+        if batch_offset >= u64::MAX - batch_size {
+            return None; // Exhausted search space
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1731,5 +1815,46 @@ mod gpu_tests {
                 );
             }
         }
+    }
+
+    // =========================================================================
+    // GPU grinding differential tests
+    // =========================================================================
+
+    #[test]
+    fn gpu_grinding_matches_cpu() {
+        use stark_platinum_prover::grinding;
+
+        let keccak_state = GpuKeccakMerkleState::new().unwrap();
+
+        // Test with known seeds and grinding factors from the CPU test suite
+        let seed1 = [
+            37, 68, 26, 150, 139, 142, 66, 175, 33, 47, 199, 160, 9, 109, 79, 234, 135, 254, 39,
+            11, 225, 219, 206, 108, 224, 165, 25, 72, 189, 96, 218, 95,
+        ];
+
+        // grinding_factor=0: should return Some(0)
+        assert_eq!(gpu_generate_nonce(&seed1, 0, &keccak_state), Some(0));
+
+        // grinding_factor=1: very easy, first valid nonce should match CPU
+        let cpu_nonce = grinding::generate_nonce(&seed1, 1).unwrap();
+        let gpu_nonce = gpu_generate_nonce(&seed1, 1, &keccak_state).unwrap();
+        assert_eq!(gpu_nonce, cpu_nonce, "grinding_factor=1 mismatch");
+        assert!(grinding::is_valid_nonce(&seed1, gpu_nonce, 1));
+
+        // grinding_factor=10: known valid nonce is 0x5ba
+        let cpu_nonce = grinding::generate_nonce(&seed1, 10).unwrap();
+        let gpu_nonce = gpu_generate_nonce(&seed1, 10, &keccak_state).unwrap();
+        assert_eq!(gpu_nonce, cpu_nonce, "grinding_factor=10 mismatch");
+        assert!(grinding::is_valid_nonce(&seed1, gpu_nonce, 10));
+
+        // Test with a different seed
+        let seed2 = [
+            174, 187, 26, 134, 6, 43, 222, 151, 140, 48, 52, 67, 69, 181, 177, 165, 111, 222,
+            148, 92, 130, 241, 171, 2, 62, 34, 95, 159, 37, 116, 155, 217,
+        ];
+        let cpu_nonce = grinding::generate_nonce(&seed2, 1).unwrap();
+        let gpu_nonce = gpu_generate_nonce(&seed2, 1, &keccak_state).unwrap();
+        assert_eq!(gpu_nonce, cpu_nonce, "seed2 grinding_factor=1 mismatch");
     }
 }
