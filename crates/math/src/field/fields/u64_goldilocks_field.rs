@@ -174,7 +174,21 @@ impl IsField for Goldilocks64Field {
         if canonical == 0 {
             return Err(FieldError::InvZeroError);
         }
-        Ok(inv_addition_chain(canonical))
+
+        // Addition chain for computing a^{-1} = a^{ORDER-2}
+        // ORDER - 2 = 2^64 - 2^32 - 1
+        let a = &canonical;
+        let t2 = <Self as IsField>::mul(&<Self as IsField>::square(a), a);
+        let t3 = <Self as IsField>::mul(&<Self as IsField>::square(&t2), a);
+        let t6 = exp_acc::<3>(&t3, &t3);
+        let t60 = <Self as IsField>::square(&t6);
+        let t7 = <Self as IsField>::mul(&t60, a);
+        let t12 = exp_acc::<5>(&t60, &t6);
+        let t24 = exp_acc::<12>(&t12, &t12);
+        let t31 = exp_acc::<7>(&t24, &t7);
+        let t63 = exp_acc::<32>(&t31, &t31);
+
+        Ok(<Self as IsField>::mul(&<Self as IsField>::square(&t63), a))
     }
 
     /// Returns the division of `a` and `b`.
@@ -258,7 +272,7 @@ impl IsFFTField for Goldilocks64Field {
 
     /// Primitive 2^32-th root of unity.
     /// This is the same value used in Plonky3.
-    const TWO_ADIC_PRIMITVE_ROOT_OF_UNITY: u64 = 1753635133440165772;
+    const TWO_ADIC_PRIMITIVE_ROOT_OF_UNITY: u64 = 1753635133440165772;
 
     fn field_name() -> &'static str {
         "Goldilocks"
@@ -640,46 +654,20 @@ fn canonicalize(x: u64) -> u64 {
     }
 }
 
-/// Inversion using optimized addition chain for a^(p-2).
-/// p - 2 = 0xFFFFFFFE_FFFFFFFF = 2^64 - 2^32 - 1
-#[inline(never)]
-fn inv_addition_chain(base: u64) -> u64 {
-    #[inline(always)]
-    fn square(a: u64) -> u64 {
-        <Goldilocks64Field as IsField>::square(&a)
+/// Square `base` N times, then multiply by `tail`.
+#[inline(always)]
+fn exp_acc<const N: usize>(base: &u64, tail: &u64) -> u64 {
+    <Goldilocks64Field as IsField>::mul(&exp_power_of_2::<N>(base), tail)
+}
+
+/// Square `base` POWER_LOG times.
+#[inline(always)]
+fn exp_power_of_2<const POWER_LOG: usize>(base: &u64) -> u64 {
+    let mut res = *base;
+    for _ in 0..POWER_LOG {
+        res = <Goldilocks64Field as IsField>::square(&res);
     }
-
-    #[inline(always)]
-    fn mul(a: u64, b: u64) -> u64 {
-        <Goldilocks64Field as IsField>::mul(&a, &b)
-    }
-
-    #[inline(always)]
-    fn exp_acc(base: u64, tail: u64, n: u32) -> u64 {
-        let mut result = base;
-        for _ in 0..n {
-            result = square(result);
-        }
-        mul(result, tail)
-    }
-
-    let x = base;
-    let x2 = square(x);
-    let x3 = mul(x2, x);
-    let x7 = exp_acc(x3, x, 1);
-    let x63 = exp_acc(x7, x7, 3);
-    let x12m1 = exp_acc(x63, x63, 6);
-    let x24m1 = exp_acc(x12m1, x12m1, 12);
-    let x30m1 = exp_acc(x24m1, x63, 6);
-    let x31m1 = exp_acc(x30m1, x, 1);
-    let x32m1 = exp_acc(x31m1, x, 1);
-
-    let mut t = x31m1;
-    for _ in 0..33 {
-        t = square(t);
-    }
-
-    mul(t, x32m1)
+    res
 }
 
 /// Multiply a field element by 7 (the quadratic non-residue).
@@ -1115,14 +1103,14 @@ mod fft_tests {
 
     #[test]
     fn primitive_root_of_unity_has_correct_order() {
-        let root = FpE::new(F::TWO_ADIC_PRIMITVE_ROOT_OF_UNITY);
+        let root = FpE::new(F::TWO_ADIC_PRIMITIVE_ROOT_OF_UNITY);
         let order = 1u64 << 32;
         assert_eq!(root.pow(order), FpE::one());
     }
 
     #[test]
     fn primitive_root_is_not_lower_order() {
-        let root = FpE::new(F::TWO_ADIC_PRIMITVE_ROOT_OF_UNITY);
+        let root = FpE::new(F::TWO_ADIC_PRIMITIVE_ROOT_OF_UNITY);
         let half_order = 1u64 << 31;
         assert_ne!(root.pow(half_order), FpE::one());
     }

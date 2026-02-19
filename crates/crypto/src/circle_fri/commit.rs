@@ -73,7 +73,7 @@ where
     let mut current_evals = evaluations.to_vec();
     reorder_natural_to_butterfly(&mut current_evals);
 
-    let mut layers = Vec::new();
+    let mut layers = Vec::with_capacity(inv_twiddles.len());
 
     // Fold through all layers until we reach a single value
     for inv_twiddle_layer in &inv_twiddles {

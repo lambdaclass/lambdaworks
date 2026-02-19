@@ -12,7 +12,7 @@ use rand::{Rng, SeedableRng};
 
 // Lambdaworks
 use lambdaworks_math::field::element::FieldElement;
-use lambdaworks_math::field::fields::u64_goldilocks_hybrid_field::Goldilocks64HybridField;
+use lambdaworks_math::field::fields::u64_goldilocks_field::Goldilocks64Field;
 use lambdaworks_math::polynomial::Polynomial;
 
 // Plonky3
@@ -22,7 +22,7 @@ use p3_goldilocks::Goldilocks as P3Goldilocks;
 const SEED: u64 = 0xBEEF;
 const SIZES: [usize; 4] = [1 << 12, 1 << 14, 1 << 16, 1 << 18];
 
-type LwF = Goldilocks64HybridField;
+type LwF = Goldilocks64Field;
 type LwFE = FieldElement<LwF>;
 
 // ============================================

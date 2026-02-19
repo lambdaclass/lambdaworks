@@ -19,7 +19,7 @@ pub type Stark101PrimeField = U64PrimeField<MontgomeryConfigStark101PrimeField>;
 impl IsFFTField for Stark101PrimeField {
     const TWO_ADICITY: u64 = 30;
 
-    const TWO_ADIC_PRIMITVE_ROOT_OF_UNITY: U64 = UnsignedInteger::from_hex_unchecked("bb6e79d");
+    const TWO_ADIC_PRIMITIVE_ROOT_OF_UNITY: U64 = UnsignedInteger::from_hex_unchecked("bb6e79d");
 
     fn field_name() -> &'static str {
         "stark101"
@@ -62,7 +62,7 @@ mod test_stark101_prime_field {
     #[test]
     fn two_adic_order() {
         let w = FieldElement::<Stark101PrimeField>::from(
-            Stark101PrimeField::TWO_ADIC_PRIMITVE_ROOT_OF_UNITY.limbs[0],
+            Stark101PrimeField::TWO_ADIC_PRIMITIVE_ROOT_OF_UNITY.limbs[0],
         );
 
         assert_eq!(
