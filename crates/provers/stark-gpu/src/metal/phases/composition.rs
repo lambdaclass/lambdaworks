@@ -32,8 +32,8 @@ use crate::metal::state::StarkMetalState;
 
 #[cfg(all(target_os = "macos", feature = "metal"))]
 use crate::metal::constraint_eval::{
-    gpu_evaluate_fibonacci_rap_constraints, gpu_evaluate_fibonacci_rap_constraints_to_buffer,
-    FibRapConstraintState,
+    gpu_evaluate_fibonacci_rap_constraints, gpu_evaluate_fibonacci_rap_constraints_from_buffers,
+    gpu_evaluate_fibonacci_rap_constraints_to_buffer, FibRapConstraintState,
 };
 #[cfg(all(target_os = "macos", feature = "metal"))]
 use crate::metal::fft::{gpu_interpolate_offset_fft_buffer_to_buffer, CosetShiftState};
@@ -469,20 +469,50 @@ where
         })
         .collect();
 
-    let main_col_0: Vec<FpE> = (0..num_lde_rows)
-        .map(|r| *lde_trace.get_main(r, 0))
-        .collect();
-    let main_col_1: Vec<FpE> = (0..num_lde_rows)
-        .map(|r| *lde_trace.get_main(r, 1))
-        .collect();
-    let aux_col_0: Vec<FpE> = (0..num_lde_rows)
-        .map(|r| *lde_trace.get_aux(r, 0))
-        .collect();
-
     // Step 3b: Evaluate constraints on GPU, keeping result as Metal buffer (no readback).
     let zerofier_evals = air.transition_zerofier_evaluations(domain);
     let lde_step_size = air.step_size() * blowup_factor;
-    let (constraint_eval_buffer, constraint_eval_len) =
+
+    // Check if we have retained GPU buffers from Phase 1 (avoids column extraction + u64 conversion + re-upload).
+    let has_gpu_bufs = round_1_result
+        .main_lde_gpu_buffers
+        .as_ref()
+        .is_some_and(|b| b.len() >= 2)
+        && round_1_result
+            .aux_lde_gpu_buffers
+            .as_ref()
+            .is_some_and(|b| !b.is_empty());
+
+    let (constraint_eval_buffer, constraint_eval_len) = if has_gpu_bufs {
+        // Fast path: pass retained GPU buffers directly to the constraint eval shader.
+        let main_bufs = round_1_result.main_lde_gpu_buffers.as_ref().unwrap();
+        let aux_bufs = round_1_result.aux_lde_gpu_buffers.as_ref().unwrap();
+        gpu_evaluate_fibonacci_rap_constraints_from_buffers(
+            &main_bufs[0],
+            &main_bufs[1],
+            &aux_bufs[0],
+            num_lde_rows,
+            &zerofier_evals,
+            &boundary_evals,
+            &round_1_result.rap_challenges[0],
+            &transition_coefficients,
+            lde_step_size,
+            precompiled_constraint,
+        )
+        .map_err(|e| {
+            ProvingError::FieldOperationError(format!("GPU constraint eval error: {e}"))
+        })?
+    } else {
+        // Fallback: extract columns from CPU LDE trace, convert to u64, upload to GPU.
+        let main_col_0: Vec<FpE> = (0..num_lde_rows)
+            .map(|r| *lde_trace.get_main(r, 0))
+            .collect();
+        let main_col_1: Vec<FpE> = (0..num_lde_rows)
+            .map(|r| *lde_trace.get_main(r, 1))
+            .collect();
+        let aux_col_0: Vec<FpE> = (0..num_lde_rows)
+            .map(|r| *lde_trace.get_aux(r, 0))
+            .collect();
         gpu_evaluate_fibonacci_rap_constraints_to_buffer(
             &main_col_0,
             &main_col_1,
@@ -496,7 +526,8 @@ where
         )
         .map_err(|e| {
             ProvingError::FieldOperationError(format!("GPU constraint eval error: {e}"))
-        })?;
+        })?
+    };
 
     // Step 4: GPU coset IFFT — interpolate constraint evaluations entirely on GPU.
     let coset_offset = air.coset_offset();
