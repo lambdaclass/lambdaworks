@@ -12,7 +12,9 @@ use lambdaworks_gpu::metal::abstractions::{
 
 #[cfg(all(target_os = "macos", feature = "metal"))]
 use lambdaworks_math::{
-    fft::gpu::metal::ops::{fft, fft_to_buffer, gen_twiddles, gen_twiddles_to_buffer},
+    fft::gpu::metal::ops::{
+        fft, fft_buffer_to_buffer, fft_to_buffer, gen_twiddles, gen_twiddles_to_buffer,
+    },
     field::{
         element::FieldElement,
         fields::u64_goldilocks_field::Goldilocks64Field,
@@ -421,6 +423,190 @@ pub fn gpu_scale_buffer(
     Ok(buf_output)
 }
 
+/// Perform coset shift on data already in a GPU buffer: output[k] = input[k] * offset^k,
+/// zero-padded to `output_len`.
+///
+/// Like [`gpu_coset_shift_to_buffer`] but reads from a Metal Buffer instead of a CPU slice.
+/// This avoids a CPU-to-GPU transfer when the input was produced by a prior GPU operation.
+///
+/// # Arguments
+///
+/// - `input_buffer`: Metal buffer containing `input_len` Goldilocks u64 values
+/// - `input_len`: Number of field elements in the input buffer
+/// - `offset`: The coset offset element
+/// - `output_len`: Total output length (includes zero-padding if larger than `input_len`)
+/// - `state`: Pre-compiled coset shift Metal state
+///
+/// # Returns
+///
+/// A Metal Buffer containing `output_len` u64 values (coset-shifted + zero-padded).
+#[cfg(all(target_os = "macos", feature = "metal"))]
+pub fn gpu_coset_shift_buffer_to_buffer(
+    input_buffer: &metal::Buffer,
+    input_len: usize,
+    offset: &FieldElement<Goldilocks64Field>,
+    output_len: usize,
+    state: &CosetShiftState,
+) -> Result<metal::Buffer, MetalError> {
+    use metal::MTLSize;
+
+    let offset_u64 = Goldilocks64Field::canonical(offset.value());
+
+    // Allocate GPU buffers
+    let buf_output = state
+        .state
+        .alloc_buffer(output_len * std::mem::size_of::<u64>())?;
+    let buf_offset = state
+        .state
+        .alloc_buffer_with_data(std::slice::from_ref(&offset_u64))?;
+    let input_len_u32 = input_len as u32;
+    let output_len_u32 = output_len as u32;
+    let buf_input_len = state
+        .state
+        .alloc_buffer_with_data(std::slice::from_ref(&input_len_u32))?;
+    let buf_output_len = state
+        .state
+        .alloc_buffer_with_data(std::slice::from_ref(&output_len_u32))?;
+
+    // Dispatch the coset shift kernel
+    let pipeline = state
+        .state
+        .get_pipeline_ref("goldilocks_coset_shift")
+        .ok_or_else(|| MetalError::FunctionError("goldilocks_coset_shift".to_string()))?;
+
+    let threads_per_group = state.coset_shift_max_threads.min(256);
+    let thread_groups = (output_len as u64).div_ceil(threads_per_group);
+
+    let command_buffer = state.state.command_queue().new_command_buffer();
+    let encoder = command_buffer.new_compute_command_encoder();
+    encoder.set_compute_pipeline_state(pipeline);
+    encoder.set_buffer(0, Some(input_buffer), 0);
+    encoder.set_buffer(1, Some(&buf_output), 0);
+    encoder.set_buffer(2, Some(&buf_offset), 0);
+    encoder.set_buffer(3, Some(&buf_input_len), 0);
+    encoder.set_buffer(4, Some(&buf_output_len), 0);
+
+    encoder.dispatch_thread_groups(
+        MTLSize::new(thread_groups, 1, 1),
+        MTLSize::new(threads_per_group, 1, 1),
+    );
+    encoder.end_encoding();
+
+    command_buffer.commit();
+    command_buffer.wait_until_completed();
+
+    if command_buffer.status() == metal::MTLCommandBufferStatus::Error {
+        return Err(MetalError::ExecutionError(
+            "GPU coset shift (buffer-to-buffer) command buffer error".to_string(),
+        ));
+    }
+
+    Ok(buf_output)
+}
+
+/// GPU inverse FFT that returns a Metal Buffer.
+///
+/// Given evaluations at roots of unity, this computes polynomial coefficients via inverse
+/// FFT entirely on the GPU and returns the result as a Metal Buffer (no CPU readback).
+///
+/// # Algorithm
+///
+/// 1. Generate inverse twiddle factors with `RootsConfig::BitReverseInversed`
+/// 2. Upload evaluations as u64 to a GPU buffer
+/// 3. Run `fft_buffer_to_buffer` with inverse twiddles
+/// 4. Normalize by multiplying each element by `1/n` via `gpu_scale_buffer`
+///
+/// # Arguments
+///
+/// - `evaluations`: Field element evaluations at roots of unity (power-of-two length)
+/// - `coset_state`: Pre-compiled coset shift Metal state (for the scale kernel)
+/// - `metal_state`: Metal state containing the FFT shader library
+///
+/// # Returns
+///
+/// A Metal Buffer containing the polynomial coefficients as Goldilocks u64 values.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+pub fn gpu_ifft_to_buffer(
+    evaluations: &[FieldElement<Goldilocks64Field>],
+    coset_state: &CosetShiftState,
+    metal_state: &MetalState,
+) -> Result<metal::Buffer, MetalError> {
+    type FpE = FieldElement<Goldilocks64Field>;
+
+    let len = evaluations.len();
+    let order = len.trailing_zeros() as u64;
+
+    // Step 1: Generate inverse twiddle factors on GPU
+    let inv_twiddles =
+        gen_twiddles_to_buffer::<Goldilocks64Field>(order, RootsConfig::BitReverseInversed, metal_state)?;
+
+    // Step 2: Upload evaluations as u64 to a GPU buffer
+    let evals_u64: Vec<u64> = evaluations
+        .iter()
+        .map(|fe| Goldilocks64Field::canonical(fe.value()))
+        .collect();
+    let eval_buffer = metal_state.alloc_buffer_data(&evals_u64);
+
+    // Step 3: Run FFT with inverse twiddles (buffer-to-buffer)
+    let result_buffer =
+        fft_buffer_to_buffer::<Goldilocks64Field>(&eval_buffer, len, &inv_twiddles, metal_state)?;
+
+    // Step 4: Normalize by 1/n
+    let n_inv = FpE::from(len as u64)
+        .inv()
+        .expect("Power-of-two length is always invertible in an FFT field");
+    let normalized = gpu_scale_buffer(&result_buffer, len, &n_inv, coset_state)?;
+
+    Ok(normalized)
+}
+
+/// Coset IFFT on GPU: recovers polynomial coefficients from evaluations on a coset domain.
+///
+/// Given evaluations on `{offset * w^i}`, this computes the polynomial coefficients
+/// by first performing an inverse FFT and then applying the inverse coset shift:
+/// `coeff[k] = ifft_result[k] * offset_inv^k`.
+///
+/// The entire computation stays on GPU and the result is returned as a Metal Buffer.
+///
+/// # Algorithm
+///
+/// 1. Inverse FFT via [`gpu_ifft_to_buffer`]
+/// 2. Compute `offset_inv = 1 / offset`
+/// 3. Apply coset shift with `offset_inv` via [`gpu_coset_shift_buffer_to_buffer`]
+///
+/// # Arguments
+///
+/// - `evaluations`: Evaluations on the coset domain `{offset * w^i}`
+/// - `coset_offset`: The coset offset element
+/// - `coset_state`: Pre-compiled coset shift Metal state
+/// - `metal_state`: Metal state containing the FFT shader library
+///
+/// # Returns
+///
+/// A Metal Buffer containing the polynomial coefficients as Goldilocks u64 values.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+pub fn gpu_interpolate_offset_fft_to_buffer(
+    evaluations: &[FieldElement<Goldilocks64Field>],
+    coset_offset: &FieldElement<Goldilocks64Field>,
+    coset_state: &CosetShiftState,
+    metal_state: &MetalState,
+) -> Result<metal::Buffer, MetalError> {
+    let len = evaluations.len();
+
+    // Step 1: Inverse FFT to get coefficients buffer
+    let coeffs_buffer = gpu_ifft_to_buffer(evaluations, coset_state, metal_state)?;
+
+    // Step 2: Compute inverse of the coset offset
+    let offset_inv = coset_offset
+        .inv()
+        .expect("Coset offset must be invertible");
+
+    // Step 3: Apply coset shift with offset_inv: coeff[k] *= offset_inv^k
+    let result = gpu_coset_shift_buffer_to_buffer(&coeffs_buffer, len, &offset_inv, len, coset_state)?;
+
+    Ok(result)
+}
+
 #[cfg(all(test, target_os = "macos", feature = "metal"))]
 mod tests {
     use super::*;
@@ -625,6 +811,83 @@ mod tests {
         assert_eq!(cpu_scaled.len(), gpu_scaled.len());
         for (i, (cpu, gpu)) in cpu_scaled.iter().zip(&gpu_scaled).enumerate() {
             assert_eq!(cpu, gpu, "Scale mismatch at index {i}");
+        }
+    }
+
+    // =========================================================================
+    // GPU IFFT + Coset IFFT differential tests
+    // =========================================================================
+
+    #[test]
+    fn gpu_ifft_matches_cpu() {
+        let metal_state = crate::metal::state::StarkMetalState::new().unwrap();
+        let coset_state = CosetShiftState::new().unwrap();
+
+        let values: Vec<FpE> = (0..16).map(|i| FpE::from(i as u64 + 1)).collect();
+
+        // CPU inverse FFT (returns Vec)
+        let cpu_coeffs =
+            gpu_interpolate_fft::<Goldilocks64Field>(&values, metal_state.inner()).unwrap();
+
+        // GPU inverse FFT (returns buffer)
+        let gpu_buffer =
+            gpu_ifft_to_buffer(&values, &coset_state, metal_state.inner()).unwrap();
+
+        // Read back GPU result
+        let gpu_u64: Vec<u64> =
+            unsafe { coset_state.state.read_buffer(&gpu_buffer, values.len()) };
+        let gpu_coeffs: Vec<FpE> = gpu_u64.iter().map(|&v| FpE::from(v)).collect();
+
+        assert_eq!(cpu_coeffs.len(), gpu_coeffs.len());
+        for (i, (cpu, gpu)) in cpu_coeffs.iter().zip(&gpu_coeffs).enumerate() {
+            assert_eq!(
+                cpu, gpu,
+                "IFFT coefficient mismatch at index {i}: CPU={:?} GPU={:?}",
+                cpu, gpu
+            );
+        }
+    }
+
+    #[test]
+    fn gpu_interpolate_offset_fft_matches_cpu() {
+        let metal_state = crate::metal::state::StarkMetalState::new().unwrap();
+        let coset_state = CosetShiftState::new().unwrap();
+
+        // Create a polynomial with known coefficients
+        let original_coeffs: Vec<FpE> = (0..16).map(|i| FpE::from(i as u64 + 1)).collect();
+        let offset = FpE::from(7u64);
+        let blowup_factor = 1;
+
+        // Evaluate the polynomial on the coset domain using GPU FFT
+        let evals = gpu_evaluate_offset_fft::<Goldilocks64Field>(
+            &original_coeffs,
+            blowup_factor,
+            &offset,
+            metal_state.inner(),
+        )
+        .unwrap();
+
+        // Recover coefficients via GPU coset IFFT
+        let gpu_buffer = gpu_interpolate_offset_fft_to_buffer(
+            &evals,
+            &offset,
+            &coset_state,
+            metal_state.inner(),
+        )
+        .unwrap();
+
+        // Read back GPU result
+        let gpu_u64: Vec<u64> =
+            unsafe { coset_state.state.read_buffer(&gpu_buffer, original_coeffs.len()) };
+        let recovered_coeffs: Vec<FpE> = gpu_u64.iter().map(|&v| FpE::from(v)).collect();
+
+        assert_eq!(original_coeffs.len(), recovered_coeffs.len());
+        for (i, (orig, recov)) in original_coeffs.iter().zip(&recovered_coeffs).enumerate() {
+            assert_eq!(
+                orig, recov,
+                "Coset IFFT roundtrip mismatch at index {i}: original={:?} recovered={:?}",
+                orig, recov
+            );
         }
     }
 }
