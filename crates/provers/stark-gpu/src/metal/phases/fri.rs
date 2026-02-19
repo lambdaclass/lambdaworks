@@ -44,6 +44,164 @@ use crate::metal::state::StarkMetalState;
 use lambdaworks_math::fft::cpu::bit_reversing::in_place_bit_reverse_permute;
 #[cfg(all(target_os = "macos", feature = "metal"))]
 use lambdaworks_math::field::fields::u64_goldilocks_field::Goldilocks64Field;
+#[cfg(all(target_os = "macos", feature = "metal"))]
+use lambdaworks_math::field::traits::IsPrimeField;
+
+#[cfg(all(target_os = "macos", feature = "metal"))]
+use lambdaworks_gpu::metal::abstractions::{errors::MetalError, state::DynamicMetalState};
+
+// =============================================================================
+// GPU FRI Fold kernel (Goldilocks-specific)
+// =============================================================================
+
+/// Source code for the Goldilocks field header (fp_u64.h.metal).
+/// Prepended to the FRI fold shader at runtime to resolve the Fp64Goldilocks class.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+const FRI_GOLDILOCKS_FIELD_HEADER: &str =
+    include_str!("../../../../../math/src/gpu/metal/shaders/field/fp_u64.h.metal");
+
+/// Source code for the FRI fold Metal kernel.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+const FRI_FOLD_SHADER: &str = include_str!("../shaders/fri_fold.metal");
+
+/// Pre-compiled Metal state for the FRI fold kernel.
+///
+/// Caches the compiled pipeline for `goldilocks_fri_fold`.
+/// Create once and reuse across all FRI folding rounds.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+pub struct FriFoldState {
+    state: DynamicMetalState,
+    fri_fold_max_threads: u64,
+}
+
+#[cfg(all(target_os = "macos", feature = "metal"))]
+impl FriFoldState {
+    /// Compile the FRI fold shader and prepare the pipeline.
+    pub fn new() -> Result<Self, MetalError> {
+        // Concatenate the Goldilocks field header with the FRI fold shader
+        // since runtime compilation via new_library_with_source does not support
+        // file-system #include directives.
+        let combined_source = format!("{}\n{}", FRI_GOLDILOCKS_FIELD_HEADER, FRI_FOLD_SHADER);
+
+        let mut state = DynamicMetalState::new()?;
+        state.load_library(&combined_source)?;
+        let fri_fold_max_threads = state.prepare_pipeline("goldilocks_fri_fold")?;
+        Ok(Self {
+            state,
+            fri_fold_max_threads,
+        })
+    }
+}
+
+/// Perform FRI fold on GPU from an existing Metal buffer.
+///
+/// Dispatches the `goldilocks_fri_fold` kernel: `result[k] = 2 * (coeffs[2k] + beta * coeffs[2k+1])`.
+///
+/// # Arguments
+///
+/// - `coeffs_buffer`: Input Metal buffer containing `num_coeffs` Goldilocks u64 values
+/// - `num_coeffs`: Number of coefficients (must be even)
+/// - `beta`: The FRI folding challenge
+/// - `state`: Pre-compiled FRI fold Metal state
+///
+/// # Returns
+///
+/// A tuple of (Metal Buffer, half_len) where the buffer contains the folded polynomial
+/// coefficients and half_len = num_coeffs / 2.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+pub fn gpu_fold_polynomial(
+    coeffs_buffer: &metal::Buffer,
+    num_coeffs: usize,
+    beta: &FieldElement<Goldilocks64Field>,
+    state: &FriFoldState,
+) -> Result<(metal::Buffer, usize), MetalError> {
+    use metal::MTLSize;
+
+    let half_len = num_coeffs / 2;
+
+    let beta_u64 = Goldilocks64Field::canonical(beta.value());
+
+    // Allocate output buffer and parameter buffers
+    let buf_output = state
+        .state
+        .alloc_buffer(half_len * std::mem::size_of::<u64>())?;
+    let buf_beta = state
+        .state
+        .alloc_buffer_with_data(std::slice::from_ref(&beta_u64))?;
+    let half_len_u32 = half_len as u32;
+    let buf_half_len = state
+        .state
+        .alloc_buffer_with_data(std::slice::from_ref(&half_len_u32))?;
+
+    // Dispatch the FRI fold kernel
+    let pipeline = state
+        .state
+        .get_pipeline_ref("goldilocks_fri_fold")
+        .ok_or_else(|| MetalError::FunctionError("goldilocks_fri_fold".to_string()))?;
+
+    let threads_per_group = state.fri_fold_max_threads.min(256);
+    let thread_groups = (half_len as u64).div_ceil(threads_per_group);
+
+    let command_buffer = state.state.command_queue().new_command_buffer();
+    let encoder = command_buffer.new_compute_command_encoder();
+    encoder.set_compute_pipeline_state(pipeline);
+    encoder.set_buffer(0, Some(coeffs_buffer), 0);
+    encoder.set_buffer(1, Some(&buf_output), 0);
+    encoder.set_buffer(2, Some(&buf_beta), 0);
+    encoder.set_buffer(3, Some(&buf_half_len), 0);
+
+    encoder.dispatch_thread_groups(
+        MTLSize::new(thread_groups, 1, 1),
+        MTLSize::new(threads_per_group, 1, 1),
+    );
+    encoder.end_encoding();
+
+    command_buffer.commit();
+    command_buffer.wait_until_completed();
+
+    if command_buffer.status() == metal::MTLCommandBufferStatus::Error {
+        return Err(MetalError::ExecutionError(
+            "GPU FRI fold command buffer error".to_string(),
+        ));
+    }
+
+    Ok((buf_output, half_len))
+}
+
+/// Perform FRI fold on GPU from CPU polynomial data.
+///
+/// Converts polynomial coefficients to u64, uploads them to the GPU, and dispatches
+/// the `goldilocks_fri_fold` kernel.
+///
+/// # Arguments
+///
+/// - `poly`: The polynomial to fold
+/// - `beta`: The FRI folding challenge
+/// - `state`: Pre-compiled FRI fold Metal state
+///
+/// # Returns
+///
+/// A tuple of (Metal Buffer, half_len) where the buffer contains the folded polynomial
+/// coefficients and half_len = num_coeffs / 2.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+pub fn gpu_fold_polynomial_from_cpu(
+    poly: &Polynomial<FieldElement<Goldilocks64Field>>,
+    beta: &FieldElement<Goldilocks64Field>,
+    state: &FriFoldState,
+) -> Result<(metal::Buffer, usize), MetalError> {
+    let coeffs = poly.coefficients();
+    let num_coeffs = coeffs.len();
+
+    // Convert coefficients to canonical u64 representation for GPU upload
+    let coeffs_u64: Vec<u64> = coeffs
+        .iter()
+        .map(|fe| Goldilocks64Field::canonical(fe.value()))
+        .collect();
+
+    let buf_input = state.state.alloc_buffer_with_data(&coeffs_u64)?;
+
+    gpu_fold_polynomial(&buf_input, num_coeffs, beta, state)
+}
 
 /// Type alias matching the CPU prover's deep polynomial openings type.
 pub type DeepPolynomialOpenings<F, E> = Vec<DeepPolynomialOpening<F, E>>;
@@ -759,5 +917,89 @@ mod tests {
             FieldElement::zero(),
             "H terms must vanish at z^N before Ruffini division"
         );
+    }
+
+    // =========================================================================
+    // GPU FRI Fold differential tests
+    // =========================================================================
+
+    #[test]
+    fn gpu_fold_matches_cpu() {
+        use stark_platinum_prover::fri::fri_functions::fold_polynomial;
+
+        let fri_state = FriFoldState::new().unwrap();
+
+        // Create a polynomial with 64 coefficients
+        let coeffs: Vec<FpE> = (0..64).map(|i| FpE::from(i as u64 * 31 + 17)).collect();
+        let poly = Polynomial::new(&coeffs);
+        let beta = FpE::from(42u64);
+
+        // CPU: fold_polynomial returns (even + beta*odd), then multiply by 2
+        let cpu_folded = FpE::from(2u64) * fold_polynomial(&poly, &beta);
+
+        // GPU: gpu_fold_polynomial_from_cpu computes 2*(even + beta*odd) in one kernel
+        let (gpu_buffer, gpu_len) =
+            gpu_fold_polynomial_from_cpu(&poly, &beta, &fri_state).unwrap();
+
+        assert_eq!(gpu_len, 32, "Folded polynomial should have half the coefficients");
+
+        // Read back GPU result
+        let gpu_u64: Vec<u64> = unsafe { fri_state.state.read_buffer(&gpu_buffer, gpu_len) };
+        let gpu_coeffs: Vec<FpE> = gpu_u64.iter().map(|&v| FpE::from(v)).collect();
+
+        let cpu_coeffs = cpu_folded.coefficients();
+        assert_eq!(
+            cpu_coeffs.len(),
+            gpu_coeffs.len(),
+            "CPU and GPU folded polynomials should have the same length"
+        );
+        for (i, (cpu, gpu)) in cpu_coeffs.iter().zip(&gpu_coeffs).enumerate() {
+            assert_eq!(
+                cpu, gpu,
+                "FRI fold mismatch at index {i}: CPU={:?} GPU={:?}",
+                cpu, gpu
+            );
+        }
+    }
+
+    #[test]
+    fn gpu_fold_matches_cpu_chained() {
+        use stark_platinum_prover::fri::fri_functions::fold_polynomial;
+
+        let fri_state = FriFoldState::new().unwrap();
+
+        // Create a polynomial with 128 coefficients
+        let coeffs: Vec<FpE> = (0..128).map(|i| FpE::from(i as u64 * 7 + 3)).collect();
+        let poly = Polynomial::new(&coeffs);
+        let beta1 = FpE::from(13u64);
+        let beta2 = FpE::from(99u64);
+
+        // CPU: two rounds of folding
+        let cpu_fold1 = FpE::from(2u64) * fold_polynomial(&poly, &beta1);
+        let cpu_fold2 = FpE::from(2u64) * fold_polynomial(&cpu_fold1, &beta2);
+
+        // GPU: first fold from CPU data
+        let (gpu_buffer1, gpu_len1) =
+            gpu_fold_polynomial_from_cpu(&poly, &beta1, &fri_state).unwrap();
+        assert_eq!(gpu_len1, 64);
+
+        // GPU: second fold from existing GPU buffer
+        let (gpu_buffer2, gpu_len2) =
+            gpu_fold_polynomial(&gpu_buffer1, gpu_len1, &beta2, &fri_state).unwrap();
+        assert_eq!(gpu_len2, 32);
+
+        // Read back and compare
+        let gpu_u64: Vec<u64> = unsafe { fri_state.state.read_buffer(&gpu_buffer2, gpu_len2) };
+        let gpu_coeffs: Vec<FpE> = gpu_u64.iter().map(|&v| FpE::from(v)).collect();
+
+        let cpu_coeffs = cpu_fold2.coefficients();
+        assert_eq!(cpu_coeffs.len(), gpu_coeffs.len());
+        for (i, (cpu, gpu)) in cpu_coeffs.iter().zip(&gpu_coeffs).enumerate() {
+            assert_eq!(
+                cpu, gpu,
+                "Chained FRI fold mismatch at index {i}: CPU={:?} GPU={:?}",
+                cpu, gpu
+            );
+        }
     }
 }
