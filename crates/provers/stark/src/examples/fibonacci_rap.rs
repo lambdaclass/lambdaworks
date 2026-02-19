@@ -208,7 +208,7 @@ where
         &self,
         trace: &mut TraceTable<Self::Field, Self::FieldExtension>,
         challenges: &[FieldElement<F>],
-    ) {
+    ) -> Result<(), crate::prover::ProvingError> {
         let main_segment_cols = trace.columns_main();
         let not_perm = &main_segment_cols[0];
         let perm = &main_segment_cols[1];
@@ -233,6 +233,7 @@ where
         for (i, aux_elem) in aux_col.iter().enumerate().take(trace.num_rows()) {
             trace.set_aux(i, 0, aux_elem.clone())
         }
+        Ok(())
     }
 
     fn build_rap_challenges(

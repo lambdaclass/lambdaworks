@@ -396,7 +396,7 @@ pub trait IsStarkProver<
 
         let rap_challenges = air.build_rap_challenges(transcript);
         let (aux, aux_evaluations) = if air.has_trace_interaction() {
-            air.build_auxiliary_trace(trace, &rap_challenges);
+            air.build_auxiliary_trace(trace, &rap_challenges)?;
             let (aux_trace_polys, aux_trace_polys_evaluations, aux_merkle_tree, aux_merkle_root) =
                 Self::interpolate_and_commit_aux(trace, domain, transcript)?;
             let aux_evaluations = aux_trace_polys_evaluations;
