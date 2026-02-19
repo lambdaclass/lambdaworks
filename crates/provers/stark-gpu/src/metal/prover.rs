@@ -148,9 +148,12 @@ where
     .map_err(|e| ProvingError::FieldOperationError(format!("FRI fold shader: {e}")))?;
 
     // Phase 1: RAP (trace interpolation + LDE + GPU Merkle commit)
+    let t = std::time::Instant::now();
     let round_1 = gpu_round_1_goldilocks(air, trace, &domain, transcript, &state, &keccak_state)?;
+    eprintln!("  Phase 1 (RAP):         {:>10.2?}", t.elapsed());
 
     // Phase 2: Composition polynomial - GPU constraint eval + GPU IFFT + GPU FFT LDE + GPU Merkle commit
+    let t = std::time::Instant::now();
     let round_2 = gpu_round_2_goldilocks_merkle(
         air,
         &domain,
@@ -161,11 +164,15 @@ where
         &keccak_state,
         &coset_state,
     )?;
+    eprintln!("  Phase 2 (Composition): {:>10.2?}", t.elapsed());
 
     // Phase 3: OOD evaluations (CPU)
+    let t = std::time::Instant::now();
     let round_3 = gpu_round_3(air, &domain, &round_1, &round_2, transcript)?;
+    eprintln!("  Phase 3 (OOD):         {:>10.2?}", t.elapsed());
 
     // Phase 4: DEEP composition (GPU) + FRI (GPU FFT + GPU Merkle) + queries
+    let t = std::time::Instant::now();
     let round_4 = gpu_round_4_goldilocks(
         air,
         &domain,
@@ -179,6 +186,7 @@ where
         &coset_state,
         &fri_fold_state,
     )?;
+    eprintln!("  Phase 4 (FRI):         {:>10.2?}", t.elapsed());
 
     // Assemble proof
     Ok(StarkProof {

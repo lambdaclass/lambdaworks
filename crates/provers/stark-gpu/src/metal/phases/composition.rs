@@ -422,6 +422,7 @@ where
     let num_lde_rows = lde_trace.num_rows();
 
     // Step 3a: Pre-compute boundary evaluations on CPU.
+    let t_boundary = std::time::Instant::now();
     let boundary_constraints = air.boundary_constraints(&round_1_result.rap_challenges);
     let mut zerofier_cache: std::collections::HashMap<usize, Vec<FpE>> =
         std::collections::HashMap::new();
@@ -468,9 +469,12 @@ where
                 })
         })
         .collect();
+    eprintln!("    2a boundary eval:  {:>10.2?}", t_boundary.elapsed());
 
     // Step 3b: Evaluate constraints on GPU, keeping result as Metal buffer (no readback).
+    let t_zerofier = std::time::Instant::now();
     let zerofier_evals = air.transition_zerofier_evaluations(domain);
+    eprintln!("    2b zerofier eval:  {:>10.2?}", t_zerofier.elapsed());
     let lde_step_size = air.step_size() * blowup_factor;
 
     // Check if we have retained GPU buffers from Phase 1 (avoids column extraction + u64 conversion + re-upload).
@@ -483,6 +487,7 @@ where
             .as_ref()
             .is_some_and(|b| !b.is_empty());
 
+    let t_constraint = std::time::Instant::now();
     let (constraint_eval_buffer, constraint_eval_len) = if has_gpu_bufs {
         // Fast path: pass retained GPU buffers directly to the constraint eval shader.
         let main_bufs = round_1_result.main_lde_gpu_buffers.as_ref().unwrap();
@@ -529,7 +534,10 @@ where
         })?
     };
 
+    eprintln!("    2c constraint GPU: {:>10.2?}", t_constraint.elapsed());
+
     // Step 4: GPU coset IFFT — interpolate constraint evaluations entirely on GPU.
+    let t_ifft = std::time::Instant::now();
     let coset_offset = air.coset_offset();
     let coeffs_buffer = gpu_interpolate_offset_fft_buffer_to_buffer(
         &constraint_eval_buffer,
@@ -542,7 +550,10 @@ where
         ProvingError::FieldOperationError(format!("GPU composition IFFT error: {e}"))
     })?;
 
+    eprintln!("    2d GPU IFFT:       {:>10.2?}", t_ifft.elapsed());
+
     // Step 4b: Read back coefficients to CPU for break_in_parts + OOD eval.
+    let t_readback = std::time::Instant::now();
     let coeffs_u64: Vec<u64> = MetalState::retrieve_contents(&coeffs_buffer);
     let coeffs_fe: Vec<FpE> = coeffs_u64.into_iter().map(FieldElement::from).collect();
     let composition_poly = Polynomial::new(&coeffs_fe);
@@ -556,7 +567,10 @@ where
     }
     let composition_poly_parts = composition_poly.break_in_parts(number_of_parts);
 
+    eprintln!("    2e readback+break: {:>10.2?}", t_readback.elapsed());
+
     // Step 6: Evaluate each part on LDE domain with shared twiddles, keeping FFT buffers.
+    let t_lde = std::time::Instant::now();
     let coeff_slices: Vec<&[FpE]> = composition_poly_parts
         .iter()
         .map(|p| p.coefficients())
@@ -581,7 +595,10 @@ where
         lde_buffers.push(buffer);
     }
 
+    eprintln!("    2f LDE FFT+read:   {:>10.2?}", t_lde.elapsed());
+
     // Step 7: GPU Merkle commit with paired-row layout directly from FFT buffers.
+    let t_commit = std::time::Instant::now();
     let buffer_refs: Vec<&metal::Buffer> = lde_buffers.iter().collect();
     let (tree, root) = gpu_batch_commit_paired_from_column_buffers(
         &buffer_refs,
@@ -589,6 +606,8 @@ where
         keccak_state,
     )
     .ok_or(ProvingError::EmptyCommitment)?;
+
+    eprintln!("    2g Merkle commit:  {:>10.2?}", t_commit.elapsed());
 
     Ok(GpuRound2Result {
         composition_poly_parts,

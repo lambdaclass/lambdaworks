@@ -22,7 +22,11 @@ fn main() {
     );
     println!("{}", "-".repeat(76));
 
-    for log_len in [10, 12, 14, 16, 18, 20] {
+    let sizes: Vec<usize> = std::env::args()
+        .nth(1)
+        .map(|s| s.split(',').filter_map(|x| x.parse().ok()).collect())
+        .unwrap_or_else(|| vec![10, 12, 14, 16, 18, 20, 22]);
+    for log_len in sizes {
         let trace_length: usize = 1 << log_len;
         let pub_inputs = FibonacciRAPPublicInputs {
             steps: trace_length,

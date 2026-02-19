@@ -199,21 +199,26 @@ where
 {
     // --- Main trace ---
 
+    let t = std::time::Instant::now();
     let main_columns = trace.columns_main();
     let main_trace_polys = interpolate_columns_gpu(&main_columns, state)?;
+    eprintln!("    1a main interp:    {:>10.2?}", t.elapsed());
 
     let blowup_factor = air.blowup_factor() as usize;
     let coset_offset = air.coset_offset();
 
     // Evaluate on LDE domain, keeping FFT results as GPU buffers
+    let t = std::time::Instant::now();
     let (main_lde_evaluations, main_lde_buffers) = evaluate_polys_on_lde_gpu_to_buffers(
         &main_trace_polys,
         blowup_factor,
         &coset_offset,
         state,
     )?;
+    eprintln!("    1b main LDE+read:  {:>10.2?}", t.elapsed());
 
     // GPU Merkle commit directly from FFT output buffers (no extra memcpy)
+    let t = std::time::Instant::now();
     let buffer_refs: Vec<&metal::Buffer> = main_lde_buffers.iter().collect();
     let (main_merkle_tree, main_merkle_root) = gpu_batch_commit_from_column_buffers(
         &buffer_refs,
@@ -221,11 +226,13 @@ where
         keccak_state,
     )
     .ok_or(ProvingError::EmptyCommitment)?;
+    eprintln!("    1c main Merkle:    {:>10.2?}", t.elapsed());
 
     transcript.append_bytes(&main_merkle_root);
     let rap_challenges = air.build_rap_challenges(transcript);
 
     // --- Auxiliary trace (if RAP) ---
+    let t = std::time::Instant::now();
     let (aux_trace_polys, aux_lde_evaluations, aux_merkle_tree, aux_merkle_root, aux_gpu_bufs) =
         if air.has_trace_interaction() {
             air.build_auxiliary_trace(trace, &rap_challenges);
@@ -253,6 +260,7 @@ where
         } else {
             (Vec::new(), Vec::new(), None, None, None)
         };
+    eprintln!("    1d aux all:        {:>10.2?}", t.elapsed());
 
     Ok(GpuRound1Result {
         main_trace_polys,
