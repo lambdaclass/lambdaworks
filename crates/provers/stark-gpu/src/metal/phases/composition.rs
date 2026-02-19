@@ -24,11 +24,16 @@ use stark_platinum_prover::trace::LDETraceTable;
 use stark_platinum_prover::traits::AIR;
 
 #[cfg(all(target_os = "macos", feature = "metal"))]
-use crate::metal::fft::{gpu_evaluate_offset_fft, gpu_evaluate_offset_fft_to_buffers_batch};
+use crate::metal::fft::{
+    gpu_break_in_parts_buffer_to_buffers, gpu_evaluate_offset_fft,
+    gpu_evaluate_offset_fft_buffer_to_buffers_batch,
+};
 use crate::metal::merkle::cpu_batch_commit;
 use crate::metal::phases::rap::GpuRound1Result;
 #[cfg(all(target_os = "macos", feature = "metal"))]
 use crate::metal::state::StarkMetalState;
+#[cfg(all(target_os = "macos", feature = "metal"))]
+use std::collections::HashMap;
 
 #[cfg(all(target_os = "macos", feature = "metal"))]
 use crate::metal::constraint_eval::{
@@ -43,6 +48,296 @@ use crate::metal::merkle::{gpu_batch_commit_paired_from_column_buffers, GpuKecca
 use lambdaworks_gpu::metal::abstractions::state::MetalState;
 #[cfg(all(target_os = "macos", feature = "metal"))]
 use lambdaworks_math::field::fields::u64_goldilocks_field::Goldilocks64Field;
+
+/// GPU-accelerated transition zerofier evaluation for Goldilocks field.
+///
+/// Mirrors `AIR::transition_zerofier_evaluations` from the CPU prover but uses
+/// GPU FFT for the expensive end-exemptions polynomial evaluation (the main
+/// bottleneck at large trace sizes). The base zerofier is computed on CPU since
+/// it only has `blowup_factor * period` elements (typically 4).
+#[cfg(all(target_os = "macos", feature = "metal"))]
+fn gpu_transition_zerofier_evaluations<A>(
+    air: &A,
+    domain: &Domain<Goldilocks64Field>,
+    state: &StarkMetalState,
+) -> Vec<Vec<FieldElement<Goldilocks64Field>>>
+where
+    A: AIR<Field = Goldilocks64Field, FieldExtension = Goldilocks64Field>,
+{
+    type F = Goldilocks64Field;
+
+    let constraints = air.transition_constraints();
+    let blowup_factor = domain.blowup_factor;
+    let trace_length = domain.trace_roots_of_unity.len();
+    let trace_primitive_root = &domain.trace_primitive_root;
+    let coset_offset = &domain.coset_offset;
+    let lde_root_order = u64::from((blowup_factor * trace_length).trailing_zeros());
+    let lde_root = F::get_primitive_root_of_unity(lde_root_order)
+        .expect("primitive root of unity must exist for LDE domain size");
+
+    // Step 1: Collect unique keys (same as CPU)
+    type BaseZerofierKey = (usize, usize, Option<usize>, Option<usize>);
+    type EndExemptionsKey = (usize, usize);
+
+    let mut unique_base_keys: Vec<BaseZerofierKey> = Vec::new();
+    let mut unique_end_exemptions_keys: Vec<EndExemptionsKey> = Vec::new();
+
+    for c in constraints.iter() {
+        let base_key: BaseZerofierKey = (
+            c.period(),
+            c.offset(),
+            c.exemptions_period(),
+            c.periodic_exemptions_offset(),
+        );
+        if !unique_base_keys.contains(&base_key) {
+            unique_base_keys.push(base_key);
+        }
+
+        let end_key: EndExemptionsKey = (c.end_exemptions(), c.period());
+        if !unique_end_exemptions_keys.contains(&end_key) {
+            unique_end_exemptions_keys.push(end_key);
+        }
+    }
+
+    // Step 2: Compute base zerofiers on CPU (trivial: only blowup_factor * period elements)
+    let base_zerofiers: Vec<_> = unique_base_keys
+        .iter()
+        .map(
+            |&(period, offset, exemptions_period, periodic_exemptions_offset)| {
+                compute_base_zerofier_goldilocks(
+                    period,
+                    offset,
+                    exemptions_period,
+                    periodic_exemptions_offset,
+                    blowup_factor,
+                    trace_length,
+                    trace_primitive_root,
+                    coset_offset,
+                    &lde_root,
+                )
+            },
+        )
+        .collect();
+
+    let base_zerofier_map: HashMap<BaseZerofierKey, Vec<FieldElement<F>>> =
+        unique_base_keys.into_iter().zip(base_zerofiers).collect();
+
+    // Step 3: Compute end exemptions polynomial evaluations using GPU FFT
+    let end_exemptions_evals: Vec<_> = unique_end_exemptions_keys
+        .iter()
+        .map(|&(end_exemptions, period)| {
+            gpu_compute_end_exemptions_evals(
+                end_exemptions,
+                period,
+                blowup_factor,
+                trace_length,
+                trace_primitive_root,
+                coset_offset,
+                domain.interpolation_domain_size,
+                state,
+            )
+        })
+        .collect();
+
+    let end_exemptions_map: HashMap<EndExemptionsKey, Vec<FieldElement<F>>> =
+        unique_end_exemptions_keys
+            .into_iter()
+            .zip(end_exemptions_evals)
+            .collect();
+
+    // Step 4: Build final zerofiers by combining base + end_exemptions (same as CPU)
+    type ZerofierGroupKey = (usize, usize, Option<usize>, Option<usize>, usize);
+    let mut evals = vec![Vec::new(); air.num_transition_constraints()];
+    let mut full_zerofier_cache: HashMap<ZerofierGroupKey, Vec<FieldElement<F>>> = HashMap::new();
+
+    for c in constraints.iter() {
+        let period = c.period();
+        let offset = c.offset();
+        let exemptions_period = c.exemptions_period();
+        let periodic_exemptions_offset = c.periodic_exemptions_offset();
+        let end_exemptions = c.end_exemptions();
+
+        let full_key = (
+            period,
+            offset,
+            exemptions_period,
+            periodic_exemptions_offset,
+            end_exemptions,
+        );
+
+        if let Some(cached) = full_zerofier_cache.get(&full_key) {
+            evals[c.constraint_idx()] = cached.clone();
+            continue;
+        }
+
+        let base_key: BaseZerofierKey = (
+            period,
+            offset,
+            exemptions_period,
+            periodic_exemptions_offset,
+        );
+        let end_key: EndExemptionsKey = (end_exemptions, period);
+
+        let base_zerofier = base_zerofier_map
+            .get(&base_key)
+            .expect("base_key was inserted into map in previous step");
+        let end_exemptions_evals = end_exemptions_map
+            .get(&end_key)
+            .expect("end_key was inserted into map in previous step");
+
+        let cycled_base = base_zerofier
+            .iter()
+            .cycle()
+            .take(end_exemptions_evals.len());
+
+        let final_zerofier: Vec<_> = std::iter::zip(cycled_base, end_exemptions_evals.iter())
+            .map(|(base, exemption)| base * exemption)
+            .collect();
+
+        full_zerofier_cache.insert(full_key, final_zerofier.clone());
+        evals[c.constraint_idx()] = final_zerofier;
+    }
+
+    evals
+}
+
+/// Compute base zerofier evaluations (without end exemptions) for Goldilocks field.
+///
+/// This is a copy of `compute_base_zerofier` from traits.rs, made concrete for Goldilocks.
+/// Only computes `blowup_factor * period` elements (typically 4), so no GPU needed.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+#[allow(clippy::too_many_arguments)]
+fn compute_base_zerofier_goldilocks(
+    period: usize,
+    offset: usize,
+    exemptions_period: Option<usize>,
+    periodic_exemptions_offset: Option<usize>,
+    blowup_factor: usize,
+    trace_length: usize,
+    trace_primitive_root: &FieldElement<Goldilocks64Field>,
+    coset_offset: &FieldElement<Goldilocks64Field>,
+    lde_root: &FieldElement<Goldilocks64Field>,
+) -> Vec<FieldElement<Goldilocks64Field>> {
+    type FpE = FieldElement<Goldilocks64Field>;
+
+    if let Some(exemptions_period_val) = exemptions_period {
+        let last_exponent = blowup_factor * exemptions_period_val;
+        (0..last_exponent)
+            .map(|exponent| {
+                let x = lde_root.pow(exponent);
+                let offset_times_x = coset_offset * x;
+                let offset_exponent = trace_length
+                    * periodic_exemptions_offset.expect(
+                        "periodic_exemptions_offset must be Some when exemptions_period is Some",
+                    )
+                    / exemptions_period_val;
+
+                let numerator = offset_times_x.pow(trace_length / exemptions_period_val)
+                    - trace_primitive_root.pow(offset_exponent);
+                let denominator = offset_times_x.pow(trace_length / period)
+                    - trace_primitive_root.pow(offset * trace_length / period);
+
+                use std::ops::Div;
+                numerator.div(denominator).expect(
+                    "zerofier denominator should be non-zero: coset offset ensures disjoint domains",
+                )
+            })
+            .collect()
+    } else {
+        let last_exponent = blowup_factor * period;
+        let mut evaluations: Vec<FpE> = (0..last_exponent)
+            .map(|exponent| {
+                let x = lde_root.pow(exponent);
+                (coset_offset * x).pow(trace_length / period)
+                    - trace_primitive_root.pow(offset * trace_length / period)
+            })
+            .collect();
+
+        FpE::inplace_batch_inverse(&mut evaluations)
+            .expect("batch inverse failed: zerofier evaluation contains zero element");
+        evaluations
+    }
+}
+
+/// Compute end exemptions polynomial evaluations using GPU FFT.
+///
+/// Builds the end exemptions polynomial on CPU (small, degree = `end_exemptions`),
+/// then evaluates it on the LDE domain using GPU FFT instead of CPU FFT.
+/// Falls back to CPU FFT if the GPU evaluation fails.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+#[allow(clippy::too_many_arguments)]
+fn gpu_compute_end_exemptions_evals(
+    end_exemptions: usize,
+    period: usize,
+    blowup_factor: usize,
+    trace_length: usize,
+    trace_primitive_root: &FieldElement<Goldilocks64Field>,
+    coset_offset: &FieldElement<Goldilocks64Field>,
+    interpolation_domain_size: usize,
+    state: &StarkMetalState,
+) -> Vec<FieldElement<Goldilocks64Field>> {
+    type F = Goldilocks64Field;
+    type FpE = FieldElement<F>;
+
+    // Build end exemptions polynomial on CPU (small: degree = end_exemptions)
+    let one_poly = Polynomial::new_monomial(FpE::one(), 0);
+    let end_exemptions_poly = if end_exemptions == 0 {
+        one_poly
+    } else {
+        (1..=end_exemptions)
+            .map(|exemption| trace_primitive_root.pow(trace_length - exemption * period))
+            .fold(one_poly, |acc, offset| {
+                acc * (Polynomial::new_monomial(FpE::one(), 1) - offset)
+            })
+    };
+
+    // Evaluate on LDE domain using GPU FFT.
+    // We need blowup_factor * interpolation_domain_size evaluation points.
+    // gpu_evaluate_offset_fft uses coefficients.len() * blowup_factor as the domain size,
+    // so we pad the coefficient vector to interpolation_domain_size.
+    let eval_domain_size = blowup_factor * interpolation_domain_size;
+    let coeffs = end_exemptions_poly.coefficients();
+
+    // If polynomial is constant (end_exemptions == 0), return constant expansion
+    if coeffs.len() <= 1 {
+        let val = if coeffs.is_empty() {
+            FpE::zero()
+        } else {
+            coeffs[0]
+        };
+        return vec![val; eval_domain_size];
+    }
+
+    // Pad coefficients to interpolation_domain_size so GPU FFT evaluates on the
+    // correct domain (blowup_factor * interpolation_domain_size points).
+    let mut padded_coeffs = coeffs.to_vec();
+    padded_coeffs.resize(interpolation_domain_size, FpE::zero());
+
+    // Try GPU FFT, fall back to CPU on failure
+    match gpu_evaluate_offset_fft::<F>(&padded_coeffs, blowup_factor, coset_offset, state.inner())
+    {
+        Ok(evaluations) => {
+            // The GPU FFT should produce exactly eval_domain_size elements.
+            // Subsample if larger (shouldn't happen with correct padding).
+            let step = evaluations.len() / eval_domain_size;
+            if step <= 1 {
+                evaluations
+            } else {
+                evaluations.into_iter().step_by(step).collect()
+            }
+        }
+        Err(_) => {
+            // Fallback: CPU FFT
+            Polynomial::evaluate_offset_fft(
+                &end_exemptions_poly,
+                blowup_factor,
+                Some(interpolation_domain_size),
+                coset_offset,
+            )
+            .expect("CPU FFT evaluation of end exemptions polynomial must succeed")
+        }
+    }
+}
 
 /// Result of GPU Phase 2 (composition polynomial round).
 ///
@@ -421,63 +716,15 @@ where
     );
     let num_lde_rows = lde_trace.num_rows();
 
-    // Step 3a: Pre-compute boundary evaluations on CPU.
-    let t_boundary = std::time::Instant::now();
-    let boundary_constraints = air.boundary_constraints(&round_1_result.rap_challenges);
-    let mut zerofier_cache: std::collections::HashMap<usize, Vec<FpE>> =
-        std::collections::HashMap::new();
-    for bc in &boundary_constraints.constraints {
-        zerofier_cache.entry(bc.step).or_insert_with(|| {
-            let point = domain.trace_primitive_root.pow(bc.step as u64);
-            let mut evals: Vec<FpE> = domain
-                .lde_roots_of_unity_coset
-                .iter()
-                .map(|v| v - point)
-                .collect();
-            FpE::inplace_batch_inverse(&mut evals).unwrap();
-            evals
-        });
-    }
-    let boundary_zerofiers_refs: Vec<&Vec<FpE>> = boundary_constraints
-        .constraints
-        .iter()
-        .map(|bc| zerofier_cache.get(&bc.step).unwrap())
-        .collect();
-    let boundary_poly_evals: Vec<Vec<FpE>> = boundary_constraints
-        .constraints
-        .iter()
-        .map(|constraint| {
-            if constraint.is_aux {
-                (0..num_lde_rows)
-                    .map(|row| lde_trace.get_aux(row, constraint.col) - constraint.value)
-                    .collect()
-            } else {
-                (0..num_lde_rows)
-                    .map(|row| lde_trace.get_main(row, constraint.col) - constraint.value)
-                    .collect()
-            }
-        })
-        .collect();
-    let boundary_evals: Vec<FpE> = (0..num_lde_rows)
-        .map(|i| {
-            boundary_zerofiers_refs
-                .iter()
-                .zip(boundary_poly_evals.iter())
-                .zip(boundary_coefficients.iter())
-                .fold(FpE::zero(), |acc, ((z, bp), coeff)| {
-                    acc + z[i] * coeff * bp[i]
-                })
-        })
-        .collect();
-    eprintln!("    2a boundary eval:  {:>10.2?}", t_boundary.elapsed());
-
-    // Step 3b: Evaluate constraints on GPU, keeping result as Metal buffer (no readback).
+    // Step 3a+3b: Zerofier + boundary + constraint evaluation.
     let t_zerofier = std::time::Instant::now();
-    let zerofier_evals = air.transition_zerofier_evaluations(domain);
+    let zerofier_evals = gpu_transition_zerofier_evaluations(air, domain, state);
     eprintln!("    2b zerofier eval:  {:>10.2?}", t_zerofier.elapsed());
     let lde_step_size = air.step_size() * blowup_factor;
 
-    // Check if we have retained GPU buffers from Phase 1 (avoids column extraction + u64 conversion + re-upload).
+    let boundary_constraints = air.boundary_constraints(&round_1_result.rap_challenges);
+
+    // Check if we have retained GPU buffers from Phase 1.
     let has_gpu_bufs = round_1_result
         .main_lde_gpu_buffers
         .as_ref()
@@ -487,11 +734,48 @@ where
             .as_ref()
             .is_some_and(|b| !b.is_empty());
 
+    let t_boundary = std::time::Instant::now();
     let t_constraint = std::time::Instant::now();
     let (constraint_eval_buffer, constraint_eval_len) = if has_gpu_bufs {
-        // Fast path: pass retained GPU buffers directly to the constraint eval shader.
-        let main_bufs = round_1_result.main_lde_gpu_buffers.as_ref().unwrap();
-        let aux_bufs = round_1_result.aux_lde_gpu_buffers.as_ref().unwrap();
+        // Fast path: GPU boundary eval + GPU constraint eval with retained buffers.
+        let main_bufs = round_1_result.main_lde_gpu_buffers.as_ref().expect(
+            "main_lde_gpu_buffers must be Some in fast path (checked by has_gpu_bufs)",
+        );
+        let aux_bufs = round_1_result.aux_lde_gpu_buffers.as_ref().expect(
+            "aux_lde_gpu_buffers must be Some in fast path (checked by has_gpu_bufs)",
+        );
+
+        // GPU boundary evaluation: per-element inverse via addition chain.
+        let bc_descriptors: Vec<(usize, usize, FpE)> = boundary_constraints
+            .constraints
+            .iter()
+            .map(|bc| {
+                let col_idx = if bc.is_aux { 2 } else { bc.col };
+                (col_idx, bc.step, bc.value)
+            })
+            .collect();
+
+        let (boundary_buf, _) = crate::metal::constraint_eval::gpu_evaluate_boundary_constraints(
+            &domain.lde_roots_of_unity_coset,
+            &main_bufs[0],
+            &main_bufs[1],
+            &aux_bufs[0],
+            &bc_descriptors,
+            &boundary_coefficients,
+            &domain.trace_primitive_root,
+            num_lde_rows,
+            None,
+        )
+        .map_err(|e| {
+            ProvingError::FieldOperationError(format!("GPU boundary eval error: {e}"))
+        })?;
+
+        eprintln!("    2a boundary GPU:   {:>10.2?}", t_boundary.elapsed());
+
+        // Read back boundary buffer for the constraint eval shader.
+        let boundary_raw: Vec<u64> = MetalState::retrieve_contents(&boundary_buf);
+        let boundary_evals: Vec<FpE> = boundary_raw.into_iter().map(FieldElement::from).collect();
+
         gpu_evaluate_fibonacci_rap_constraints_from_buffers(
             &main_bufs[0],
             &main_bufs[1],
@@ -508,7 +792,59 @@ where
             ProvingError::FieldOperationError(format!("GPU constraint eval error: {e}"))
         })?
     } else {
-        // Fallback: extract columns from CPU LDE trace, convert to u64, upload to GPU.
+        // Fallback: CPU boundary eval + GPU constraint eval with column re-upload.
+        let mut zerofier_cache: HashMap<usize, Vec<FpE>> = HashMap::new();
+        for bc in &boundary_constraints.constraints {
+            zerofier_cache.entry(bc.step).or_insert_with(|| {
+                let point = domain.trace_primitive_root.pow(bc.step as u64);
+                let mut evals: Vec<FpE> = domain
+                    .lde_roots_of_unity_coset
+                    .iter()
+                    .map(|v| v - point)
+                    .collect();
+                FpE::inplace_batch_inverse(&mut evals).expect(
+                    "batch inverse must succeed: coset offset ensures no zeros in zerofier",
+                );
+                evals
+            });
+        }
+        let boundary_zerofiers_refs: Vec<&Vec<FpE>> = boundary_constraints
+            .constraints
+            .iter()
+            .map(|bc| {
+                zerofier_cache
+                    .get(&bc.step)
+                    .expect("step was inserted into zerofier_cache in previous loop")
+            })
+            .collect();
+        let boundary_poly_evals: Vec<Vec<FpE>> = boundary_constraints
+            .constraints
+            .iter()
+            .map(|constraint| {
+                if constraint.is_aux {
+                    (0..num_lde_rows)
+                        .map(|row| lde_trace.get_aux(row, constraint.col) - constraint.value)
+                        .collect()
+                } else {
+                    (0..num_lde_rows)
+                        .map(|row| lde_trace.get_main(row, constraint.col) - constraint.value)
+                        .collect()
+                }
+            })
+            .collect();
+        let boundary_evals: Vec<FpE> = (0..num_lde_rows)
+            .map(|i| {
+                boundary_zerofiers_refs
+                    .iter()
+                    .zip(boundary_poly_evals.iter())
+                    .zip(boundary_coefficients.iter())
+                    .fold(FpE::zero(), |acc, ((z, bp), coeff)| {
+                        acc + z[i] * coeff * bp[i]
+                    })
+            })
+            .collect();
+        eprintln!("    2a boundary CPU:   {:>10.2?}", t_boundary.elapsed());
+
         let main_col_0: Vec<FpE> = (0..num_lde_rows)
             .map(|r| *lde_trace.get_main(r, 0))
             .collect();
@@ -552,12 +888,6 @@ where
 
     eprintln!("    2d GPU IFFT:       {:>10.2?}", t_ifft.elapsed());
 
-    // Step 4b: Read back coefficients to CPU for break_in_parts + OOD eval.
-    let t_readback = std::time::Instant::now();
-    let coeffs_u64: Vec<u64> = MetalState::retrieve_contents(&coeffs_buffer);
-    let coeffs_fe: Vec<FpE> = coeffs_u64.into_iter().map(FieldElement::from).collect();
-    let composition_poly = Polynomial::new(&coeffs_fe);
-
     // Step 5: Break into parts.
     let number_of_parts = air.composition_poly_degree_bound() / air.trace_length();
     if number_of_parts == 0 {
@@ -565,27 +895,52 @@ where
             "composition_poly_degree_bound must be >= trace_length".to_string(),
         ));
     }
+
+    // Step 5a: GPU stride — break coefficients into parts entirely on GPU.
+    // IMPORTANT: Stride only the first `composition_poly_degree_bound` coefficients,
+    // not the full IFFT output. The IFFT produces `constraint_eval_len` values, but
+    // the composition polynomial has degree < `composition_poly_degree_bound`, so the
+    // trailing coefficients are zeros. Striding over the full buffer would produce parts
+    // with extra zeros, leading to a larger FFT domain and different Merkle root.
+    let t_stride = std::time::Instant::now();
+    let meaningful_coeffs = air.composition_poly_degree_bound();
+    let part_buffers = gpu_break_in_parts_buffer_to_buffers(
+        &coeffs_buffer,
+        meaningful_coeffs,
+        number_of_parts,
+        state.inner(),
+    )
+    .map_err(|e| {
+        ProvingError::FieldOperationError(format!("GPU stride (break_in_parts) error: {e}"))
+    })?;
+
+    eprintln!("    2e GPU stride:     {:>10.2?}", t_stride.elapsed());
+
+    // Step 5b: Read back coefficients to CPU for OOD eval in Phase 3.
+    // (Barycentric evaluation in Phase B will eliminate this readback.)
+    let t_readback = std::time::Instant::now();
+    let coeffs_u64: Vec<u64> = MetalState::retrieve_contents(&coeffs_buffer);
+    let coeffs_fe: Vec<FpE> = coeffs_u64.into_iter().map(FieldElement::from).collect();
+    let composition_poly = Polynomial::new(&coeffs_fe);
     let composition_poly_parts = composition_poly.break_in_parts(number_of_parts);
 
-    eprintln!("    2e readback+break: {:>10.2?}", t_readback.elapsed());
+    eprintln!("    2e' OOD readback:  {:>10.2?}", t_readback.elapsed());
 
-    // Step 6: Evaluate each part on LDE domain with shared twiddles, keeping FFT buffers.
+    // Step 6: Evaluate each part on LDE domain via GPU buffer-to-buffer FFT.
     let t_lde = std::time::Instant::now();
-    let coeff_slices: Vec<&[FpE]> = composition_poly_parts
-        .iter()
-        .map(|p| p.coefficients())
-        .collect();
-
-    let buffer_results = gpu_evaluate_offset_fft_to_buffers_batch(
-        &coeff_slices,
+    let part_len = meaningful_coeffs / number_of_parts;
+    let buffer_results = gpu_evaluate_offset_fft_buffer_to_buffers_batch(
+        &part_buffers,
+        part_len,
         blowup_factor,
         &coset_offset,
+        coset_state,
         state.inner(),
     )
     .map_err(|e| ProvingError::FieldOperationError(format!("GPU LDE FFT error: {e}")))?;
 
-    let mut lde_evaluations: Vec<Vec<FpE>> = Vec::with_capacity(composition_poly_parts.len());
-    let mut lde_buffers: Vec<metal::Buffer> = Vec::with_capacity(composition_poly_parts.len());
+    let mut lde_evaluations: Vec<Vec<FpE>> = Vec::with_capacity(number_of_parts);
+    let mut lde_buffers: Vec<metal::Buffer> = Vec::with_capacity(number_of_parts);
 
     for (buffer, _domain_size) in buffer_results {
         let raw: Vec<u64> = MetalState::retrieve_contents(&buffer);
@@ -632,6 +987,51 @@ mod tests {
 
     type F = Goldilocks64Field;
     type FpE = FieldElement<F>;
+
+    /// Differential test: GPU zerofier evaluations must match CPU zerofier evaluations.
+    #[test]
+    fn gpu_zerofier_matches_cpu_zerofier() {
+        for trace_length in [16, 32, 64, 128] {
+            let pub_inputs = FibonacciRAPPublicInputs {
+                steps: trace_length - 1,
+                a0: FpE::one(),
+                a1: FpE::one(),
+            };
+            let proof_options = ProofOptions::default_test_options();
+            let trace = fibonacci_rap_trace::<F>([FpE::one(), FpE::one()], trace_length);
+            let air = FibonacciRAP::new(trace.num_rows(), &pub_inputs, &proof_options);
+            let domain = Domain::new(&air);
+            let state = StarkMetalState::new().unwrap();
+
+            // CPU path
+            let cpu_zerofier = air.transition_zerofier_evaluations(&domain);
+
+            // GPU path
+            let gpu_zerofier = gpu_transition_zerofier_evaluations(&air, &domain, &state);
+
+            assert_eq!(
+                cpu_zerofier.len(),
+                gpu_zerofier.len(),
+                "trace_length={trace_length}: number of zerofier vectors mismatch"
+            );
+
+            for (c_idx, (cpu_z, gpu_z)) in
+                cpu_zerofier.iter().zip(gpu_zerofier.iter()).enumerate()
+            {
+                assert_eq!(
+                    cpu_z.len(),
+                    gpu_z.len(),
+                    "trace_length={trace_length}, constraint {c_idx}: zerofier length mismatch"
+                );
+                for (i, (c, g)) in cpu_z.iter().zip(gpu_z.iter()).enumerate() {
+                    assert_eq!(
+                        c, g,
+                        "trace_length={trace_length}, constraint {c_idx}, point {i}: value mismatch"
+                    );
+                }
+            }
+        }
+    }
 
     #[test]
     fn gpu_round_2_fibonacci_rap_goldilocks() {

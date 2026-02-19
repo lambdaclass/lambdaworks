@@ -37,7 +37,38 @@ struct GlFp {
         return reduce128(lo, hi);
     }
 
+    // Modular inverse via Fermat's little theorem: a^(-1) = a^(p-2) mod p.
+    // Uses an optimized addition chain for p-2 = 0xFFFFFFFE_FFFFFFFF.
+    // Adapted from the Fp64Goldilocks::inverse() in fp_u64.h.metal.
+    GlFp inv() const {
+        GlFp x = *this;
+        GlFp x2 = x * x;
+        GlFp x3 = x2 * x;
+        GlFp x7 = exp_acc(x3, x, 1);
+        GlFp x63 = exp_acc(x7, x7, 3);
+        GlFp x12m1 = exp_acc(x63, x63, 6);
+        GlFp x24m1 = exp_acc(x12m1, x12m1, 12);
+        GlFp x30m1 = exp_acc(x24m1, x63, 6);
+        GlFp x31m1 = exp_acc(x30m1, x, 1);
+        GlFp x32m1 = exp_acc(x31m1, x, 1);
+
+        GlFp t = x31m1;
+        for (int i = 0; i < 33; i++) {
+            t = t * t;
+        }
+        return t * x32m1;
+    }
+
 private:
+    // Helper: square `base` n times, then multiply by `tail`.
+    static GlFp exp_acc(GlFp base, GlFp tail, uint32_t n) {
+        GlFp result = base;
+        for (uint32_t i = 0; i < n; i++) {
+            result = result * result;
+        }
+        return result * tail;
+    }
+
     static GlFp reduce128(uint64_t lo, uint64_t hi) {
         // Reduce a 128-bit product (hi:lo) modulo the Goldilocks prime.
         // p = 2^64 - 2^32 + 1, so 2^64 = 2^32 - 1 + p (mod p)
@@ -107,4 +138,59 @@ struct FibRapParams {
 
     // Add pre-computed boundary evaluations (computed on CPU)
     output[tid] = acc + boundary_evals[tid];
+}
+
+// Parameters for a single boundary constraint
+struct BoundaryConstraintParam {
+    GlFp g_pow_step;    // g^step (trace primitive root raised to the step)
+    GlFp value;         // expected trace value at that step
+    GlFp coefficient;   // alpha_k (random coefficient)
+    uint32_t col;       // which trace column (0=main_col_0, 1=main_col_1, 2=aux_col_0)
+    uint32_t _pad;      // alignment padding
+};
+
+struct BoundaryEvalParams {
+    uint32_t num_rows;           // total LDE domain points
+    uint32_t num_constraints;    // number of boundary constraints
+};
+
+// GPU boundary evaluation kernel.
+//
+// For each LDE point x_i, computes:
+//   sum_k coeff_k * (trace_col_k[i] - value_k) / (x_i - g^step_k)
+//
+// The inverse 1/(x_i - g^step_k) is computed per-thread via Fermat's little theorem.
+[[kernel]] void goldilocks_boundary_eval(
+    device const GlFp* lde_coset_points  [[ buffer(0) ]],  // x_i for each LDE point
+    device const GlFp* main_col_0       [[ buffer(1) ]],  // main trace column 0
+    device const GlFp* main_col_1       [[ buffer(2) ]],  // main trace column 1
+    device const GlFp* aux_col_0        [[ buffer(3) ]],  // aux trace column 0
+    device const BoundaryConstraintParam* constraints [[ buffer(4) ]],
+    constant BoundaryEvalParams& params  [[ buffer(5) ]],
+    device GlFp* output                 [[ buffer(6) ]],
+    uint tid                            [[ thread_position_in_grid ]]
+) {
+    if (tid >= params.num_rows) return;
+
+    GlFp x_i = lde_coset_points[tid];
+    GlFp acc = GlFp::zero();
+
+    for (uint k = 0; k < params.num_constraints; k++) {
+        BoundaryConstraintParam bc = constraints[k];
+
+        // Compute zerofier inverse: 1 / (x_i - g^step)
+        GlFp denom = x_i - bc.g_pow_step;
+        GlFp inv_denom = denom.inv();
+
+        // Read trace value at this point from the appropriate column
+        GlFp trace_val;
+        if (bc.col == 0)      trace_val = main_col_0[tid];
+        else if (bc.col == 1) trace_val = main_col_1[tid];
+        else                  trace_val = aux_col_0[tid];
+
+        // Accumulate: coeff * (trace_val - value) * inv(x_i - g^step)
+        acc = acc + bc.coefficient * (trace_val - bc.value) * inv_denom;
+    }
+
+    output[tid] = acc;
 }

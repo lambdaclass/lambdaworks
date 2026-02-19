@@ -215,6 +215,61 @@ where
     Ok(results)
 }
 
+/// Batch-evaluates multiple polynomials from GPU coefficient buffers on a coset domain.
+///
+/// Like [`gpu_evaluate_offset_fft_to_buffers_batch`] but reads coefficients from existing
+/// Metal Buffers (e.g., produced by [`gpu_break_in_parts_buffer_to_buffers`]) instead of
+/// CPU slices. The entire pipeline stays on GPU: coset shift → zero-pad → FFT.
+///
+/// # Arguments
+///
+/// - `coeff_buffers`: GPU buffers, each containing `part_len` Goldilocks u64 coefficients
+/// - `part_len`: Number of coefficients per part
+/// - `blowup_factor`: LDE blowup factor (domain_size = part_len * blowup_factor)
+/// - `offset`: Coset offset element
+/// - `coset_state`: Pre-compiled coset shift Metal state
+/// - `metal_state`: Metal state for FFT
+///
+/// # Returns
+///
+/// A vector of (Metal Buffer, element count) pairs, one per polynomial.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+pub fn gpu_evaluate_offset_fft_buffer_to_buffers_batch(
+    coeff_buffers: &[metal::Buffer],
+    part_len: usize,
+    blowup_factor: usize,
+    offset: &FieldElement<Goldilocks64Field>,
+    coset_state: &CosetShiftState,
+    metal_state: &MetalState,
+) -> Result<Vec<(metal::Buffer, usize)>, MetalError> {
+    if coeff_buffers.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let domain_size = part_len * blowup_factor;
+    let order = domain_size.trailing_zeros() as u64;
+
+    // Generate twiddles ONCE for the shared domain
+    let twiddles_buffer =
+        gen_twiddles_to_buffer::<Goldilocks64Field>(order, RootsConfig::BitReverse, metal_state)?;
+
+    let mut results = Vec::with_capacity(coeff_buffers.len());
+
+    for coeff_buf in coeff_buffers {
+        // Step 1: GPU coset shift + zero-pad to domain_size
+        let shifted_buffer =
+            gpu_coset_shift_buffer_to_buffer(coeff_buf, part_len, offset, domain_size, coset_state)?;
+
+        // Step 2: FFT with shared twiddles, result stays on GPU
+        let result_buffer =
+            fft_buffer_to_buffer::<Goldilocks64Field>(&shifted_buffer, domain_size, &twiddles_buffer, metal_state)?;
+
+        results.push((result_buffer, domain_size));
+    }
+
+    Ok(results)
+}
+
 // =============================================================================
 // GPU Coset Shift + Scale kernels (Goldilocks-specific)
 // =============================================================================
@@ -672,6 +727,75 @@ pub fn gpu_interpolate_offset_fft_buffer_to_buffer(
     Ok(result)
 }
 
+/// Embedded Metal shader source for the coefficient striding kernel.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+const STRIDE_SHADER: &str = include_str!("shaders/stride.metal");
+
+/// Parameters matching the Metal `StrideParams` struct.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+#[repr(C)]
+#[derive(Copy, Clone)]
+struct StrideParams {
+    num_coeffs: u32,
+    num_parts: u32,
+}
+
+/// GPU coefficient striding: break_in_parts on GPU.
+///
+/// Given a GPU buffer containing N coefficients (output of IFFT), produces
+/// `num_parts` GPU buffers where part `i` contains coefficients at indices
+/// `[i, i+k, i+2k, ...]` (same as `Polynomial::break_in_parts`).
+///
+/// This avoids CPU readback → break_in_parts → re-upload for the LDE FFT path.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+pub fn gpu_break_in_parts_buffer_to_buffers(
+    coeffs_buffer: &metal::Buffer,
+    num_coeffs: usize,
+    num_parts: usize,
+    state: &MetalState,
+) -> Result<Vec<metal::Buffer>, MetalError> {
+    assert!(
+        num_parts > 0 && num_coeffs % num_parts == 0,
+        "num_coeffs ({num_coeffs}) must be divisible by num_parts ({num_parts})"
+    );
+
+    let part_len = num_coeffs / num_parts;
+    let params = StrideParams {
+        num_coeffs: num_coeffs as u32,
+        num_parts: num_parts as u32,
+    };
+
+    // Create a single output buffer for all parts concatenated
+    let mut dyn_state = DynamicMetalState::new()?;
+    dyn_state.load_library(STRIDE_SHADER)?;
+    let max_threads = dyn_state.prepare_pipeline("goldilocks_stride_coefficients")?;
+
+    let buf_params = dyn_state.alloc_buffer_with_data(std::slice::from_ref(&params))?;
+    let buf_output = dyn_state.alloc_buffer(num_coeffs * std::mem::size_of::<u64>())?;
+
+    dyn_state.execute_compute(
+        "goldilocks_stride_coefficients",
+        &[coeffs_buffer, &buf_output, &buf_params],
+        num_coeffs as u64,
+        max_threads,
+    )?;
+
+    // Read back the concatenated output and split into separate buffers per part.
+    // Each part needs its own buffer for independent GPU FFT.
+    let all_raw: Vec<u64> = MetalState::retrieve_contents(&buf_output);
+
+    let mut part_buffers = Vec::with_capacity(num_parts);
+    for i in 0..num_parts {
+        let start = i * part_len;
+        let end = start + part_len;
+        let part_data = &all_raw[start..end];
+        let part_buf = state.alloc_buffer_data(part_data);
+        part_buffers.push(part_buf);
+    }
+
+    Ok(part_buffers)
+}
+
 #[cfg(all(test, target_os = "macos", feature = "metal"))]
 mod tests {
     use super::*;
@@ -910,6 +1034,117 @@ mod tests {
                 "IFFT coefficient mismatch at index {i}: CPU={:?} GPU={:?}",
                 cpu, gpu
             );
+        }
+    }
+
+    /// Differential test: GPU stride (break_in_parts) matches CPU Polynomial::break_in_parts.
+    #[test]
+    fn gpu_stride_matches_cpu_break_in_parts() {
+        let state = crate::metal::state::StarkMetalState::new().expect("Metal init failed");
+
+        // 16 coefficients, break into 4 parts of 4 each
+        let coeffs: Vec<FpE> = (0..16).map(|i| FpE::from(i as u64 + 100)).collect();
+        let poly = Polynomial::new(&coeffs);
+        let cpu_parts = poly.break_in_parts(4);
+
+        // Upload coefficients to GPU
+        let coeffs_u64: Vec<u64> = coeffs
+            .iter()
+            .map(|fe| Goldilocks64Field::canonical(fe.value()))
+            .collect();
+        let gpu_buffer = state.inner().alloc_buffer_data(&coeffs_u64);
+
+        // GPU stride
+        let gpu_part_buffers =
+            gpu_break_in_parts_buffer_to_buffers(&gpu_buffer, 16, 4, state.inner())
+                .expect("GPU stride failed");
+
+        assert_eq!(gpu_part_buffers.len(), 4, "expected 4 parts");
+
+        for (part_idx, (cpu_part, gpu_buf)) in
+            cpu_parts.iter().zip(&gpu_part_buffers).enumerate()
+        {
+            let gpu_raw: Vec<u64> = MetalState::retrieve_contents(gpu_buf);
+            let gpu_elements: Vec<FpE> = gpu_raw.into_iter().map(FieldElement::from).collect();
+            let cpu_coeffs = cpu_part.coefficients();
+            assert_eq!(
+                cpu_coeffs.len(),
+                gpu_elements.len(),
+                "part {part_idx}: length mismatch"
+            );
+            for (i, (cpu_val, gpu_val)) in cpu_coeffs.iter().zip(&gpu_elements).enumerate() {
+                assert_eq!(
+                    cpu_val, gpu_val,
+                    "part {part_idx}, index {i}: CPU={cpu_val:?} GPU={gpu_val:?}"
+                );
+            }
+        }
+    }
+
+    /// Differential test: GPU stride + GPU buffer-to-buffer FFT matches CPU break_in_parts + CPU FFT.
+    #[test]
+    fn gpu_stride_fft_matches_cpu_break_in_parts_fft() {
+        let state = crate::metal::state::StarkMetalState::new().expect("Metal init failed");
+        let coset_state = CosetShiftState::new().expect("CosetShiftState init failed");
+
+        // 32 coefficients, break into 2 parts, blowup_factor = 4
+        let coeffs: Vec<FpE> = (0..32).map(|i| FpE::from(i as u64 + 1)).collect();
+        let poly = Polynomial::new(&coeffs);
+        let offset = FpE::from(7u64);
+        let blowup_factor = 4;
+        let num_parts = 2;
+
+        // CPU path: break_in_parts + evaluate_offset_fft
+        let cpu_parts = poly.break_in_parts(num_parts);
+        let cpu_evals: Vec<Vec<FpE>> = cpu_parts
+            .iter()
+            .map(|p| {
+                Polynomial::evaluate_offset_fft::<Goldilocks64Field>(p, blowup_factor, None, &offset)
+                    .expect("CPU FFT failed")
+            })
+            .collect();
+
+        // GPU path: stride + buffer-to-buffer batch FFT
+        let coeffs_u64: Vec<u64> = coeffs
+            .iter()
+            .map(|fe| Goldilocks64Field::canonical(fe.value()))
+            .collect();
+        let gpu_buffer = state.inner().alloc_buffer_data(&coeffs_u64);
+
+        let part_buffers =
+            gpu_break_in_parts_buffer_to_buffers(&gpu_buffer, 32, num_parts, state.inner())
+                .expect("GPU stride failed");
+
+        let part_len = 32 / num_parts;
+        let buffer_results = gpu_evaluate_offset_fft_buffer_to_buffers_batch(
+            &part_buffers,
+            part_len,
+            blowup_factor,
+            &offset,
+            &coset_state,
+            state.inner(),
+        )
+        .expect("GPU buffer-to-buffer FFT failed");
+
+        assert_eq!(buffer_results.len(), num_parts, "expected 2 FFT results");
+
+        for (part_idx, ((gpu_buf, _domain_size), cpu_eval)) in
+            buffer_results.iter().zip(&cpu_evals).enumerate()
+        {
+            let gpu_raw: Vec<u64> = MetalState::retrieve_contents(gpu_buf);
+            let gpu_elements: Vec<FpE> =
+                gpu_raw.into_iter().map(FieldElement::from_raw).collect();
+            assert_eq!(
+                cpu_eval.len(),
+                gpu_elements.len(),
+                "part {part_idx}: length mismatch"
+            );
+            for (i, (cpu_val, gpu_val)) in cpu_eval.iter().zip(&gpu_elements).enumerate() {
+                assert_eq!(
+                    cpu_val, gpu_val,
+                    "part {part_idx}, index {i}: CPU={cpu_val:?} GPU={gpu_val:?}"
+                );
+            }
         }
     }
 
