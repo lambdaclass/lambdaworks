@@ -81,7 +81,11 @@ fn bench_batch_logup(num_vars: usize, n_instances: usize) {
 /// Prove N instances with mixed sizes (half at num_vars, half at num_vars-2).
 fn bench_individual_mixed_sizes(num_vars: usize, n_instances: usize) {
     for i in 0..n_instances {
-        let vars = if i % 2 == 0 { num_vars } else { num_vars.saturating_sub(2).max(1) };
+        let vars = if i % 2 == 0 {
+            num_vars
+        } else {
+            num_vars.saturating_sub(2).max(1)
+        };
         let layer = make_grand_product_layer(vars, 42 + i as u64 * 100);
         let mut channel = DefaultTranscript::<F>::new(&[]);
         let _ = prove(&mut channel, layer);
@@ -92,7 +96,11 @@ fn bench_individual_mixed_sizes(num_vars: usize, n_instances: usize) {
 fn bench_batch_mixed_sizes(num_vars: usize, n_instances: usize) {
     let layers: Vec<Layer<F>> = (0..n_instances)
         .map(|i| {
-            let vars = if i % 2 == 0 { num_vars } else { num_vars.saturating_sub(2).max(1) };
+            let vars = if i % 2 == 0 {
+                num_vars
+            } else {
+                num_vars.saturating_sub(2).max(1)
+            };
             make_grand_product_layer(vars, 42 + i as u64 * 100)
         })
         .collect();
@@ -133,11 +141,8 @@ fn main() {
         eprintln!("  batch-mixed         - Prove N mixed-size instances in a batch");
         eprintln!("  compare             - Run all modes and print comparison");
         eprintln!();
-        eprintln!("Examples:");
-        eprintln!("  cargo run --release -p lambdaworks-gkr-logup --example benchmark -- compare 14 4");
-        eprintln!("  hyperfine \\");
-        eprintln!("    './target/release/examples/benchmark individual 14 4' \\");
-        eprintln!("    './target/release/examples/benchmark batch 14 4'");
+        eprintln!("Example:");
+        eprintln!("  cargo bench -p lambdaworks-gkr-logup --bench batch_vs_individual -- compare 14 4");
         std::process::exit(1);
     }
 
