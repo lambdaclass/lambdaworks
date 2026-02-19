@@ -61,6 +61,12 @@ where
     pub aux_merkle_root: Option<Commitment>,
     /// RAP challenges sampled from the transcript.
     pub rap_challenges: Vec<FieldElement<F>>,
+    /// Retained GPU buffers for main trace LDE (used by DEEP composition to avoid re-upload).
+    #[cfg(all(target_os = "macos", feature = "metal"))]
+    pub main_lde_gpu_buffers: Option<Vec<metal::Buffer>>,
+    /// Retained GPU buffers for auxiliary trace LDE (used by DEEP composition to avoid re-upload).
+    #[cfg(all(target_os = "macos", feature = "metal"))]
+    pub aux_lde_gpu_buffers: Option<Vec<metal::Buffer>>,
 }
 
 /// Executes GPU Phase 1 of the STARK prover: RAP (trace interpolation + LDE + commit).
@@ -166,6 +172,8 @@ where
         aux_merkle_tree,
         aux_merkle_root,
         rap_challenges,
+        main_lde_gpu_buffers: None,
+        aux_lde_gpu_buffers: None,
     })
 }
 
@@ -218,7 +226,7 @@ where
     let rap_challenges = air.build_rap_challenges(transcript);
 
     // --- Auxiliary trace (if RAP) ---
-    let (aux_trace_polys, aux_lde_evaluations, aux_merkle_tree, aux_merkle_root) =
+    let (aux_trace_polys, aux_lde_evaluations, aux_merkle_tree, aux_merkle_root, aux_gpu_bufs) =
         if air.has_trace_interaction() {
             air.build_auxiliary_trace(trace, &rap_challenges);
             let aux_columns = trace.columns_aux();
@@ -241,9 +249,9 @@ where
             .ok_or(ProvingError::EmptyCommitment)?;
 
             transcript.append_bytes(&aux_root);
-            (aux_polys, aux_lde_evals, Some(aux_tree), Some(aux_root))
+            (aux_polys, aux_lde_evals, Some(aux_tree), Some(aux_root), Some(aux_lde_buffers))
         } else {
-            (Vec::new(), Vec::new(), None, None)
+            (Vec::new(), Vec::new(), None, None, None)
         };
 
     Ok(GpuRound1Result {
@@ -256,6 +264,8 @@ where
         aux_merkle_tree,
         aux_merkle_root,
         rap_challenges,
+        main_lde_gpu_buffers: Some(main_lde_buffers),
+        aux_lde_gpu_buffers: aux_gpu_bufs,
     })
 }
 

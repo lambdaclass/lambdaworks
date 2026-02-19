@@ -323,11 +323,8 @@ pub fn gpu_compute_deep_composition_poly_to_buffer(
     let num_rows = domain.lde_roots_of_unity_coset.len();
     let num_offsets = round_3_result.trace_ood_evaluations.height;
     let num_comp_parts = round_2_result.composition_poly_parts.len();
-
-    // Combine main + aux trace LDE evaluations (column-major).
-    let mut all_trace_lde = round_1_result.main_lde_evaluations.clone();
-    all_trace_lde.extend(round_1_result.aux_lde_evaluations.iter().cloned());
-    let num_trace_polys = all_trace_lde.len();
+    let num_trace_polys = round_1_result.main_lde_evaluations.len()
+        + round_1_result.aux_lde_evaluations.len();
 
     // --- Pre-compute batch inversions on CPU ---
     let z_power = round_3_result.z.pow(num_comp_parts);
@@ -380,25 +377,6 @@ pub fn gpu_compute_deep_composition_poly_to_buffer(
         }
     }
 
-    // --- Convert to raw u64 ---
-    let trace_raw: Vec<Vec<u64>> = all_trace_lde
-        .iter()
-        .map(|col| col.iter().map(|fe| F::canonical(fe.value())).collect())
-        .collect();
-    let comp_raw: Vec<Vec<u64>> = round_2_result
-        .lde_composition_poly_evaluations
-        .iter()
-        .map(|col| col.iter().map(|fe| F::canonical(fe.value())).collect())
-        .collect();
-    let inv_zp_raw: Vec<u64> = inv_z_power_vec
-        .iter()
-        .map(|fe| F::canonical(fe.value()))
-        .collect();
-    let inv_zs_raw: Vec<Vec<u64>> = inv_z_shifted_vecs
-        .iter()
-        .map(|v| v.iter().map(|fe| F::canonical(fe.value())).collect())
-        .collect();
-
     let params = DeepCompParams {
         num_rows: num_rows as u32,
         num_trace_polys: num_trace_polys as u32,
@@ -432,10 +410,56 @@ pub fn gpu_compute_deep_composition_poly_to_buffer(
         stark_platinum_prover::prover::ProvingError::FieldOperationError(e.to_string())
     };
 
-    let buf_trace_0 = dyn_state.alloc_buffer_with_data(&trace_raw[0]).map_err(alloc_err)?;
-    let buf_trace_1 = dyn_state.alloc_buffer_with_data(&trace_raw[1]).map_err(alloc_err)?;
-    let buf_trace_2 = dyn_state.alloc_buffer_with_data(&trace_raw[2]).map_err(alloc_err)?;
-    let buf_comp_0 = dyn_state.alloc_buffer_with_data(&comp_raw[0]).map_err(alloc_err)?;
+    // --- Allocate trace + composition buffers ---
+    // Use retained GPU buffers from Phase 1/Phase 2 when available (zero-copy),
+    // otherwise fall back to clone + convert + upload.
+    let has_gpu_trace_bufs = round_1_result.main_lde_gpu_buffers.as_ref().is_some_and(|b| b.len() >= 2)
+        && round_1_result.aux_lde_gpu_buffers.as_ref().is_some_and(|b| !b.is_empty());
+    let has_gpu_comp_bufs = round_2_result.lde_composition_gpu_buffers.as_ref().is_some_and(|b| !b.is_empty());
+
+    // Owned buffers to keep alive for the fallback path (dropped at end of scope).
+    let mut _owned_trace_bufs: Vec<metal::Buffer> = Vec::new();
+    let mut _owned_comp_bufs: Vec<metal::Buffer> = Vec::new();
+
+    let (trace_buf_0, trace_buf_1, trace_buf_2, comp_buf_0) = if has_gpu_trace_bufs && has_gpu_comp_bufs {
+        // Fast path: use retained GPU buffers directly (no clone, no convert, no upload).
+        let main_bufs = round_1_result.main_lde_gpu_buffers.as_ref().unwrap();
+        let aux_bufs = round_1_result.aux_lde_gpu_buffers.as_ref().unwrap();
+        let comp_bufs = round_2_result.lde_composition_gpu_buffers.as_ref().unwrap();
+        (&main_bufs[0], &main_bufs[1], &aux_bufs[0], &comp_bufs[0])
+    } else {
+        // Fallback: clone LDE data, convert to u64, upload to GPU.
+        let mut all_trace_lde = round_1_result.main_lde_evaluations.clone();
+        all_trace_lde.extend(round_1_result.aux_lde_evaluations.iter().cloned());
+
+        let trace_raw: Vec<Vec<u64>> = all_trace_lde
+            .iter()
+            .map(|col| col.iter().map(|fe| F::canonical(fe.value())).collect())
+            .collect();
+        let comp_raw: Vec<Vec<u64>> = round_2_result
+            .lde_composition_poly_evaluations
+            .iter()
+            .map(|col| col.iter().map(|fe| F::canonical(fe.value())).collect())
+            .collect();
+
+        _owned_trace_bufs.push(dyn_state.alloc_buffer_with_data(&trace_raw[0]).map_err(alloc_err)?);
+        _owned_trace_bufs.push(dyn_state.alloc_buffer_with_data(&trace_raw[1]).map_err(alloc_err)?);
+        _owned_trace_bufs.push(dyn_state.alloc_buffer_with_data(&trace_raw[2]).map_err(alloc_err)?);
+        _owned_comp_bufs.push(dyn_state.alloc_buffer_with_data(&comp_raw[0]).map_err(alloc_err)?);
+
+        (&_owned_trace_bufs[0], &_owned_trace_bufs[1], &_owned_trace_bufs[2], &_owned_comp_bufs[0])
+    };
+
+    // --- Inversions always computed fresh (different per z) ---
+    let inv_zp_raw: Vec<u64> = inv_z_power_vec
+        .iter()
+        .map(|fe| F::canonical(fe.value()))
+        .collect();
+    let inv_zs_raw: Vec<Vec<u64>> = inv_z_shifted_vecs
+        .iter()
+        .map(|v| v.iter().map(|fe| F::canonical(fe.value())).collect())
+        .collect();
+
     let buf_inv_zp = dyn_state.alloc_buffer_with_data(&inv_zp_raw).map_err(alloc_err)?;
     let buf_inv_zs0 = dyn_state.alloc_buffer_with_data(&inv_zs_raw[0]).map_err(alloc_err)?;
     let buf_inv_zs1 = dyn_state.alloc_buffer_with_data(&inv_zs_raw[1]).map_err(alloc_err)?;
@@ -452,10 +476,10 @@ pub fn gpu_compute_deep_composition_poly_to_buffer(
         .execute_compute(
             "deep_composition_eval",
             &[
-                &buf_trace_0,
-                &buf_trace_1,
-                &buf_trace_2,
-                &buf_comp_0,
+                trace_buf_0,
+                trace_buf_1,
+                trace_buf_2,
+                comp_buf_0,
                 &buf_inv_zp,
                 &buf_inv_zs0,
                 &buf_inv_zs1,

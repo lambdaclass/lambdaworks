@@ -61,6 +61,9 @@ where
     pub composition_poly_merkle_tree: BatchedMerkleTree<F>,
     /// Commitment root.
     pub composition_poly_root: Commitment,
+    /// Retained GPU buffers for composition poly LDE (used by DEEP composition to avoid re-upload).
+    #[cfg(all(target_os = "macos", feature = "metal"))]
+    pub lde_composition_gpu_buffers: Option<Vec<metal::Buffer>>,
 }
 
 /// Executes GPU Phase 2 of the STARK prover: composition polynomial computation.
@@ -190,6 +193,7 @@ where
         lde_composition_poly_evaluations: lde_evaluations,
         composition_poly_merkle_tree: tree,
         composition_poly_root: root,
+        lde_composition_gpu_buffers: None,
     })
 }
 
@@ -366,6 +370,7 @@ where
         lde_composition_poly_evaluations: lde_evaluations,
         composition_poly_merkle_tree: tree,
         composition_poly_root: root,
+        lde_composition_gpu_buffers: None,
     })
 }
 
@@ -559,6 +564,7 @@ where
         lde_composition_poly_evaluations: lde_evaluations,
         composition_poly_merkle_tree: tree,
         composition_poly_root: root,
+        lde_composition_gpu_buffers: Some(lde_buffers),
     })
 }
 
