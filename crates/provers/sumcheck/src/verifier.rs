@@ -2,6 +2,7 @@ use crate::evaluate_product_at_point;
 use crate::Channel;
 use crate::EvaluationError;
 use lambdaworks_crypto::fiat_shamir::default_transcript::DefaultTranscript;
+use lambdaworks_crypto::fiat_shamir::is_transcript::IsTranscript;
 use lambdaworks_math::{
     field::{
         element::FieldElement,
@@ -205,4 +206,99 @@ where
     Err(VerifierError::InvalidState(
         "Verification loop finished unexpectedly.".to_string(),
     ))
+}
+
+/// Error from partial sumcheck verification (without oracle evaluation).
+#[derive(Debug)]
+pub enum PartialVerifyError<F: IsField> {
+    /// Polynomial degree exceeds the allowed maximum.
+    InvalidDegree {
+        round: usize,
+        actual_degree: usize,
+        max_allowed: usize,
+    },
+    /// `g(0) + g(1) != claim` at the given round.
+    InconsistentSum {
+        round: usize,
+        s0: FieldElement<F>,
+        s1: FieldElement<F>,
+        expected: FieldElement<F>,
+    },
+}
+
+impl<F: IsField> core::fmt::Display for PartialVerifyError<F> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Self::InvalidDegree {
+                round,
+                actual_degree,
+                max_allowed,
+            } => {
+                write!(
+                    f,
+                    "invalid degree at round {round}: got {actual_degree}, max allowed {max_allowed}"
+                )
+            }
+            Self::InconsistentSum { round, .. } => {
+                write!(f, "inconsistent sum at round {round}")
+            }
+        }
+    }
+}
+
+/// Partially verifies a sumcheck proof using an external transcript/channel.
+///
+/// Checks round consistency (degree and sum) but does NOT perform an oracle
+/// evaluation at the end. Returns `(assignment, final_eval)` — the caller
+/// is responsible for checking that `final_eval` matches the expected gate
+/// computation.
+///
+/// This is useful when the sumcheck is embedded in a larger protocol (e.g., GKR)
+/// where the final check is protocol-specific.
+#[allow(clippy::type_complexity)]
+pub fn partially_verify<F, T>(
+    mut claim: FieldElement<F>,
+    round_polys: &[Polynomial<FieldElement<F>>],
+    max_degree: usize,
+    channel: &mut T,
+) -> Result<(Vec<FieldElement<F>>, FieldElement<F>), PartialVerifyError<F>>
+where
+    F: IsField,
+    FieldElement<F>: Clone + Mul<Output = FieldElement<F>>,
+    T: IsTranscript<F>,
+{
+    let mut assignment = Vec::with_capacity(round_polys.len());
+
+    for (round, round_poly) in round_polys.iter().enumerate() {
+        if round_poly.degree() > max_degree {
+            return Err(PartialVerifyError::InvalidDegree {
+                round,
+                actual_degree: round_poly.degree(),
+                max_allowed: max_degree,
+            });
+        }
+
+        let s0 = round_poly.evaluate(&FieldElement::<F>::zero());
+        let s1 = round_poly.evaluate(&FieldElement::<F>::one());
+        let sum = s0.clone() + s1.clone();
+
+        if sum != claim {
+            return Err(PartialVerifyError::InconsistentSum {
+                round,
+                s0,
+                s1,
+                expected: claim,
+            });
+        }
+
+        for coeff in round_poly.coefficients() {
+            channel.append_field_element(coeff);
+        }
+
+        let challenge = channel.sample_field_element();
+        claim = round_poly.evaluate(&challenge);
+        assignment.push(challenge);
+    }
+
+    Ok((assignment, claim))
 }

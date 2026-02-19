@@ -1,0 +1,17 @@
+[package]
+name = "lambdaworks-gkr-logup"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+lambdaworks-math = { workspace = true }
+lambdaworks-crypto = { workspace = true }
+lambdaworks-sumcheck = { path = "../sumcheck" }
+
+[lib]
+name = "lambdaworks_gkr_logup"
+path = "src/lib.rs"
+
+[[bench]]
+name = "batch_vs_individual"
+harness = false

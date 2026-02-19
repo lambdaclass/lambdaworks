@@ -32,14 +32,16 @@ pub use batched::{
     prove_batched, verify_batched, BatchedProofOutput, BatchedProver, StructuredBatchedProver,
 };
 pub use blendy::{prove_blendy, prove_memory_efficient, BlendyProver};
-pub use common::SumcheckProver;
+pub use common::{run_sumcheck_with_channel, SumcheckProver};
 pub use prover::ProverOutput;
 pub use prover::{prove, Prover, ProverError};
 pub use prover_optimized::{prove_optimized, OptimizedProver, OptimizedProverError};
 pub use prover_parallel::{prove_fast, prove_parallel, FastProver, ParallelProver};
 pub use small_field::{prove_small_field, SmallFieldProver};
 pub use sparse_prover::{prove_sparse, SparseEntry, SparseMultiFactorProver, SparseProver};
-pub use verifier::{verify, Verifier, VerifierError, VerifierRoundResult};
+pub use verifier::{
+    partially_verify, verify, PartialVerifyError, Verifier, VerifierError, VerifierRoundResult,
+};
 
 #[cfg(feature = "metal")]
 pub use metal::{prove_metal, prove_metal_multi, MetalMultiFactorProver, MetalProver, MetalState};
