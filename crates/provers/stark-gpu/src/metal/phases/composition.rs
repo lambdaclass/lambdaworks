@@ -916,15 +916,7 @@ where
 
     eprintln!("    2e GPU stride:     {:>10.2?}", t_stride.elapsed());
 
-    // Step 5b: Read back coefficients to CPU for OOD eval in Phase 3.
-    // (Barycentric evaluation in Phase B will eliminate this readback.)
-    let t_readback = std::time::Instant::now();
-    let coeffs_u64: Vec<u64> = MetalState::retrieve_contents(&coeffs_buffer);
-    let coeffs_fe: Vec<FpE> = coeffs_u64.into_iter().map(FieldElement::from).collect();
-    let composition_poly = Polynomial::new(&coeffs_fe);
-    let composition_poly_parts = composition_poly.break_in_parts(number_of_parts);
-
-    eprintln!("    2e' OOD readback:  {:>10.2?}", t_readback.elapsed());
+    // Composition poly coefficients no longer needed: barycentric OOD uses LDE data.
 
     // Step 6: Evaluate each part on LDE domain via GPU buffer-to-buffer FFT.
     let t_lde = std::time::Instant::now();
@@ -965,7 +957,7 @@ where
     eprintln!("    2g Merkle commit:  {:>10.2?}", t_commit.elapsed());
 
     Ok(GpuRound2Result {
-        composition_poly_parts,
+        composition_poly_parts: Vec::new(),
         lde_composition_poly_evaluations: lde_evaluations,
         composition_poly_merkle_tree: tree,
         composition_poly_root: root,
