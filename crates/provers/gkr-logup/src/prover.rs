@@ -440,6 +440,26 @@ fn poly_random_linear_combination<F: IsField>(
 /// Oracles can have different numbers of variables — smaller ones are scaled by a
 /// "doubling factor" and produce a constant polynomial until their variables begin.
 ///
+/// # Doubling factor correctness
+///
+/// When an oracle P has k variables but the batch sumcheck runs for n > k rounds,
+/// we treat P as a polynomial P' over n variables that ignores the first n-k:
+///
+/// `P'(x_1, ..., x_n) = P(x_{n-k+1}, ..., x_n)`
+///
+/// Summing over the Boolean hypercube:
+///
+/// `Σ P'(x) = 2^{n-k} · Σ P(x)`    (over `x ∈ {0,1}^n` and `x ∈ {0,1}^k`)
+///
+/// because each of the `2^{n-k}` assignments to the unused variables contributes
+/// the same inner sum. This is why we multiply the claimed sum by `2^{n-k}`.
+///
+/// During the first n-k rounds, P' does not depend on the current variable,
+/// so its round polynomial is the constant `claim / 2`: evaluating at 0 and 1
+/// both give `claim / 2`, and `claim/2 + claim/2 = claim` satisfies the
+/// sumcheck relation. After n-k rounds the claim has been halved n-k times
+/// back to the original sum, and the oracle begins its real computation.
+///
 /// Returns `(proof, assignment, constant_oracles, final_claims)`.
 #[allow(clippy::type_complexity)]
 fn prove_batch_sumcheck<F, T>(
@@ -665,6 +685,13 @@ where
     T: IsTranscript<F>,
 {
     let n_instances = input_layers.len();
+
+    // Domain separation: commit the batch protocol tag and instance count so the
+    // transcript is structurally distinct from single-instance proofs and from
+    // batches of different sizes (prevents proof malleability across modes).
+    channel.append_bytes(b"gkr_batch");
+    channel.append_bytes(&(n_instances as u64).to_le_bytes());
+
     if n_instances == 0 {
         return (
             crate::verifier::BatchProof {
@@ -747,6 +774,7 @@ where
                     continue;
                 }
                 let next_layer = layers_by_instance[instance].next().unwrap();
+                // TODO: eq_evals is read-only during sumcheck — share via Arc instead of cloning.
                 let oracle = LayerOracle {
                     eq_evals: eq_evals.clone(),
                     input_layer: next_layer,
@@ -1460,5 +1488,72 @@ mod tests {
             result.is_err(),
             "wrong gate on 0-layer batch instance should be rejected"
         );
+    }
+
+    // ---- Edge case: empty and minimal inputs ----
+
+    #[test]
+    fn batch_empty_instances() {
+        // Zero instances: prove_batch returns empty proof, verify_batch accepts it.
+        let mut prover_channel = DefaultTranscript::<F>::new(&[]);
+        let (proof, artifact) = prove_batch(&mut prover_channel, vec![]);
+
+        assert!(proof.sumcheck_proofs.is_empty());
+        assert!(proof.layer_masks_by_instance.is_empty());
+        assert!(proof.output_claims_by_instance.is_empty());
+        assert!(artifact.ood_point.is_empty());
+        assert!(artifact.claims_to_verify_by_instance.is_empty());
+
+        let mut verifier_channel = DefaultTranscript::<F>::new(&[]);
+        let result = verifier::verify_batch(&[], &proof, &mut verifier_channel);
+        assert!(result.is_ok(), "empty batch should verify successfully");
+
+        let vr = result.unwrap();
+        assert!(vr.claims_to_verify_by_instance.is_empty());
+    }
+
+    #[test]
+    fn single_element_prove_verify_roundtrip() {
+        // Size-1 input (0 variables, 0 sumcheck layers) for single prove/verify.
+        let input = Layer::GrandProduct(DenseMultilinearPolynomial::new(vec![FE::from(42)]));
+
+        let mut prover_channel = DefaultTranscript::<F>::new(&[]);
+        let (proof, artifact) = prove(&mut prover_channel, input);
+
+        assert_eq!(proof.output_claims, vec![FE::from(42)]);
+        assert!(proof.sumcheck_proofs.is_empty());
+        assert!(proof.layer_masks.is_empty());
+        assert_eq!(artifact.n_variables, 0);
+        assert!(artifact.ood_point.is_empty());
+        assert_eq!(artifact.claims_to_verify, vec![FE::from(42)]);
+
+        let mut verifier_channel = DefaultTranscript::<F>::new(&[]);
+        let result = verifier::verify(Gate::GrandProduct, &proof, &mut verifier_channel);
+        assert!(result.is_ok(), "size-1 single prove should verify");
+
+        let vr = result.unwrap();
+        assert_eq!(vr.n_variables, 0);
+        assert_eq!(vr.claims_to_verify, vec![FE::from(42)]);
+    }
+
+    #[test]
+    fn batch_multiple_zero_layer_instances() {
+        // Multiple size-1 instances batched together (all have 0 sumcheck layers).
+        let a = Layer::GrandProduct(DenseMultilinearPolynomial::new(vec![FE::from(7)]));
+        let b = Layer::GrandProduct(DenseMultilinearPolynomial::new(vec![FE::from(13)]));
+        let c = Layer::LogUpGeneric {
+            numerators: DenseMultilinearPolynomial::new(vec![FE::from(3)]),
+            denominators: DenseMultilinearPolynomial::new(vec![FE::from(5)]),
+        };
+
+        let artifact = prove_and_verify_batch(
+            vec![Gate::GrandProduct, Gate::GrandProduct, Gate::LogUp],
+            vec![a, b, c],
+        );
+
+        assert_eq!(artifact.n_variables_by_instance, vec![0, 0, 0]);
+        assert_eq!(artifact.claims_to_verify_by_instance[0], vec![FE::from(7)]);
+        assert_eq!(artifact.claims_to_verify_by_instance[1], vec![FE::from(13)]);
+        assert_eq!(artifact.claims_to_verify_by_instance[2].len(), 2);
     }
 }

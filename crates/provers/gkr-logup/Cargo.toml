@@ -11,3 +11,7 @@ lambdaworks-sumcheck = { path = "../sumcheck" }
 [lib]
 name = "lambdaworks_gkr_logup"
 path = "src/lib.rs"
+
+[[bench]]
+name = "batch_vs_individual"
+harness = false

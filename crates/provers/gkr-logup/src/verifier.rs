@@ -294,6 +294,10 @@ where
         return Err(VerifierError::MalformedProof);
     }
 
+    // Domain separation: must match prover (see prove_batch).
+    channel.append_bytes(b"gkr_batch");
+    channel.append_bytes(&(n_instances as u64).to_le_bytes());
+
     let instance_n_layers = |instance: usize| layer_masks_by_instance[instance].len();
     let n_layers = (0..n_instances).map(instance_n_layers).max().unwrap_or(0);
 
@@ -347,6 +351,9 @@ where
         let mut sumcheck_instances = Vec::new();
 
         // Compute per-instance claims with doubling factor (skip zero-layer instances).
+        // Instances with fewer variables are conceptually padded to max_vars by
+        // ignoring the first n_unused variables. This multiplies the sum over the
+        // Boolean hypercube by 2^n_unused (see prove_batch_sumcheck for details).
         for (instance, claims) in claims_to_verify_by_instance.iter().enumerate() {
             if let Some(claims) = claims {
                 if instance_n_layers(instance) == 0 {
