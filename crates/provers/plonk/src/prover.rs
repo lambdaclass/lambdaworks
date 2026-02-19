@@ -519,7 +519,7 @@ where
                 Some(val)
             })
             .collect();
-        debug_assert_eq!(
+        assert_eq!(
             p_x_eval.len(),
             p_a_eval.len(),
             "p_x_eval length must match FFT evaluation length"
@@ -592,7 +592,7 @@ where
         //
         // SAFETY: This optimization assumes degree == 4 * n. If degree changes (see TODO above),
         // this optimization must be revisited.
-        debug_assert_eq!(
+        assert_eq!(
             degree,
             4 * cpi.n,
             "Z_H optimization requires degree == 4n; if degree formula changes, update this code"
