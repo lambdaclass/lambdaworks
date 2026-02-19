@@ -122,6 +122,88 @@ where
     })
 }
 
+/// CPU Phase 3 for Fp3 extension field proofs: OOD evaluations.
+///
+/// Evaluates trace polynomials and composition polynomial parts at an
+/// out-of-domain point `z` (in Fp3). Main trace polys are in F, aux trace
+/// and composition polys are in Fp3.
+pub fn gpu_round_3_fp3<A>(
+    air: &A,
+    domain: &Domain<
+        lambdaworks_math::field::fields::u64_goldilocks_field::Goldilocks64Field,
+    >,
+    round_1_result: &crate::metal::phases::fp3_types::GpuRound1ResultFp3,
+    round_2_result: &crate::metal::phases::fp3_types::GpuRound2ResultFp3,
+    transcript: &mut impl IsStarkTranscript<
+        lambdaworks_math::field::fields::u64_goldilocks_field::Degree3GoldilocksExtensionField,
+        lambdaworks_math::field::fields::u64_goldilocks_field::Goldilocks64Field,
+    >,
+) -> Result<crate::metal::phases::fp3_types::GpuRound3ResultFp3, ProvingError>
+where
+    A: AIR<
+        Field = lambdaworks_math::field::fields::u64_goldilocks_field::Goldilocks64Field,
+        FieldExtension = lambdaworks_math::field::fields::u64_goldilocks_field::Degree3GoldilocksExtensionField,
+    >,
+{
+    use lambdaworks_math::field::fields::u64_goldilocks_field::{
+        Degree3GoldilocksExtensionField, Goldilocks64Field,
+    };
+    type F = Goldilocks64Field;
+    type Fp3 = Degree3GoldilocksExtensionField;
+    type Fp3E = FieldElement<Fp3>;
+
+    // Step 1: Append composition poly root to transcript.
+    transcript.append_bytes(&round_2_result.composition_poly_root);
+
+    // Step 2: Sample z from transcript (in Fp3).
+    let z: Fp3E = transcript.sample_z_ood(
+        &domain.lde_roots_of_unity_coset,
+        &domain.trace_roots_of_unity,
+    );
+
+    // Step 3: Compute z^N where N is the number of composition poly parts.
+    let z_power = z.pow(round_2_result.composition_poly_parts.len());
+
+    // Step 4: Evaluate each composition poly part H_i at z^N.
+    let composition_poly_parts_ood_evaluation: Vec<Fp3E> = round_2_result
+        .composition_poly_parts
+        .iter()
+        .map(|part| part.evaluate(&z_power))
+        .collect();
+
+    // Step 5: Evaluate trace polynomials at z*g^k.
+    // get_trace_evaluations::<F, Fp3> handles the mixed types:
+    // - main trace polys are Polynomial<FieldElement<F>>, evaluated at z (Fp3) → Fp3
+    // - aux trace polys are Polynomial<FieldElement<Fp3>>, evaluated at z (Fp3) → Fp3
+    let trace_ood_evaluations = get_trace_evaluations::<F, Fp3>(
+        &round_1_result.main_trace_polys,
+        &round_1_result.aux_trace_polys,
+        &z,
+        &air.context().transition_offsets,
+        &domain.trace_primitive_root,
+        air.step_size(),
+    );
+
+    // Step 6: Append trace OOD evaluations to transcript (column by column).
+    let trace_ood_columns = trace_ood_evaluations.columns();
+    for col in trace_ood_columns.iter() {
+        for elem in col.iter() {
+            transcript.append_field_element(elem);
+        }
+    }
+
+    // Step 7: Append composition poly OOD evaluations to transcript.
+    for element in composition_poly_parts_ood_evaluation.iter() {
+        transcript.append_field_element(element);
+    }
+
+    Ok(crate::metal::phases::fp3_types::GpuRound3ResultFp3 {
+        trace_ood_evaluations,
+        composition_poly_parts_ood_evaluation,
+        z,
+    })
+}
+
 #[cfg(all(test, target_os = "macos", feature = "metal"))]
 mod tests {
     use super::*;
