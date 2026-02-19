@@ -198,7 +198,7 @@ pub fn generate_evaluation_key(
             .map(|yk| g1.operate_with_self((ry * alpha_y * yk.evaluate(s)).canonical()))
             .collect(),
         g2_s_i: (0..degree)
-            .map(|i| g2.operate_with_self((s.pow(i)).canonical()))
+            .map(|i| g2.operate_with_self(s.pow(i).canonical()))
             .collect(),
         g1_beta: v_mid
             .iter()

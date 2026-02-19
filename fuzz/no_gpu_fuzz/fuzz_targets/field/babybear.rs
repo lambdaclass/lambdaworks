@@ -212,7 +212,7 @@ fuzz_target!(|data: (u32, u32, u32, u8)| {
     // Verify the two-adic root of unity
     if op_selector == 0 {
         // Only test once per fuzz input
-        let omega = FE::from(Babybear31PrimeField::TWO_ADIC_PRIMITVE_ROOT_OF_UNITY as u64);
+        let omega = FE::from(Babybear31PrimeField::TWO_ADIC_PRIMITIVE_ROOT_OF_UNITY as u64);
         let two_adicity = Babybear31PrimeField::TWO_ADICITY;
 
         // omega^(2^n) = 1 where n is two-adicity (24 for BabyBear)

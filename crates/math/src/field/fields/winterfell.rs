@@ -20,7 +20,7 @@ use winter_math::{ExtensionOf, FieldElement as IsWinterfellFieldElement, StarkFi
 
 impl IsFFTField for Felt {
     const TWO_ADICITY: u64 = <Felt as StarkField>::TWO_ADICITY as u64;
-    const TWO_ADIC_PRIMITVE_ROOT_OF_UNITY: Self::BaseType = Felt::TWO_ADIC_ROOT_OF_UNITY;
+    const TWO_ADIC_PRIMITIVE_ROOT_OF_UNITY: Self::BaseType = Felt::TWO_ADIC_ROOT_OF_UNITY;
 }
 
 impl IsPrimeField for Felt {

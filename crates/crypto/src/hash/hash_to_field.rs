@@ -114,4 +114,76 @@ mod tests {
         let got = super::os2ip::<U64, 1>(&input);
         assert_eq!(got, expected);
     }
+
+    // RFC 9380 compliance tests for expand_message
+    #[test]
+    fn test_expand_message_output_length() {
+        // Verify expand_message produces exactly the requested length
+        for len in [32, 48, 64, 128, 256] {
+            let result = Sha3Hasher::expand_message(b"test", b"QUUX-V01-CS02", len).unwrap();
+            assert_eq!(
+                result.len(),
+                len as usize,
+                "Output length must match requested length"
+            );
+        }
+    }
+
+    #[test]
+    fn test_expand_message_dst_separation() {
+        // Different DSTs must produce different outputs (domain separation)
+        let msg = b"test message";
+        let output1 = Sha3Hasher::expand_message(msg, b"DST1", 32).unwrap();
+        let output2 = Sha3Hasher::expand_message(msg, b"DST2", 32).unwrap();
+        assert_ne!(
+            output1, output2,
+            "Different DSTs must produce different outputs"
+        );
+    }
+
+    #[test]
+    fn test_expand_message_deterministic() {
+        // Same inputs must always produce same output (determinism)
+        let msg = b"deterministic test";
+        let dst = b"QUUX-V01-CS02-with-expander-SHA3-256";
+        let output1 = Sha3Hasher::expand_message(msg, dst, 128).unwrap();
+        let output2 = Sha3Hasher::expand_message(msg, dst, 128).unwrap();
+        assert_eq!(output1, output2, "expand_message must be deterministic");
+    }
+
+    #[test]
+    fn test_expand_message_empty_input() {
+        // Empty message should work (RFC 9380 test case)
+        let result = Sha3Hasher::expand_message(b"", b"QUUX-V01-CS02", 32);
+        assert!(result.is_ok(), "expand_message should handle empty input");
+        assert_eq!(result.unwrap().len(), 32);
+    }
+
+    #[test]
+    fn test_expand_message_long_output() {
+        // Test with output length requiring multiple blocks (exercises the loop)
+        // With b=32 (SHA3-256 output), requesting 128 bytes needs ell=4 blocks
+        let result = Sha3Hasher::expand_message(b"long output test", b"DST", 128).unwrap();
+        assert_eq!(result.len(), 128);
+
+        // Verify different parts of output are different (not just repeated)
+        let first_32 = &result[0..32];
+        let second_32 = &result[32..64];
+        assert_ne!(
+            first_32, second_32,
+            "Different blocks should produce different output"
+        );
+    }
+
+    #[test]
+    fn test_expand_message_msg_independence() {
+        // Different messages must produce different outputs
+        let dst = b"QUUX-V01-CS02";
+        let output1 = Sha3Hasher::expand_message(b"message1", dst, 64).unwrap();
+        let output2 = Sha3Hasher::expand_message(b"message2", dst, 64).unwrap();
+        assert_ne!(
+            output1, output2,
+            "Different messages must produce different outputs"
+        );
+    }
 }

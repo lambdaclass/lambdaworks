@@ -40,18 +40,14 @@ where
         for element in input.iter() {
             hasher.update(element.as_bytes());
         }
-        let mut result_hash = [0_u8; NUM_BYTES];
-        result_hash.copy_from_slice(&hasher.finalize());
-        result_hash
+        hasher.finalize().into()
     }
 
     fn hash_new_parent(left: &[u8; NUM_BYTES], right: &[u8; NUM_BYTES]) -> [u8; NUM_BYTES] {
         let mut hasher = D::new();
         hasher.update(left);
         hasher.update(right);
-        let mut result_hash = [0_u8; NUM_BYTES];
-        result_hash.copy_from_slice(&hasher.finalize());
-        result_hash
+        hasher.finalize().into()
     }
 }
 

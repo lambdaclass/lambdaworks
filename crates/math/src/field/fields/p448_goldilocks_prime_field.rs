@@ -250,7 +250,7 @@ impl IsPrimeField for P448GoldilocksPrimeField {
         Self::strong_reduce(&mut a);
 
         let mut r = U448::from_u64(0);
-        for i in (0..7).rev() {
+        for i in (0..8).rev() {
             r = r << 56;
             r = r + U448::from_u64(a.limbs[i]);
         }
@@ -419,6 +419,58 @@ mod tests {
         let num = U56x8::from_hex("ffffffffffffffffffffffffffffffffffffffffffffffffffffffff00000000000000000000000000000000000000000000000000000029").unwrap();
         let r = P448GoldilocksPrimeField::canonical(&num);
         assert_eq!(r, U448::from_u64(42));
+    }
+
+    #[test]
+    fn canonical_test_all_limbs() {
+        // Test with distinct non-zero values in all 8 limbs to verify the fix
+        // for the off-by-one bug (was 0..7, now correctly 0..8)
+        let mut num = U56x8 { limbs: [0; 8] };
+
+        // Set distinct values in each limb (using small values to avoid overflow)
+        num.limbs[0] = 0x01;
+        num.limbs[1] = 0x02;
+        num.limbs[2] = 0x03;
+        num.limbs[3] = 0x04;
+        num.limbs[4] = 0x05;
+        num.limbs[5] = 0x06;
+        num.limbs[6] = 0x07;
+        num.limbs[7] = 0x08; // MSB limb - this was being skipped in the bug
+
+        let r = P448GoldilocksPrimeField::canonical(&num);
+
+        // Manually calculate expected value:
+        // canonical() does: for i in (0..8).rev() { r = r << 56; r = r + limbs[i]; }
+        // So: r = ((...((0 << 56 + limbs[7]) << 56 + limbs[6]) << 56 + ...) << 56 + limbs[0]
+        // Which gives: limbs[7] * 2^(56*7) + limbs[6] * 2^(56*6) + ... + limbs[0]
+
+        // Calculate: 0x08 * 2^392 + 0x07 * 2^336 + 0x06 * 2^280 + 0x05 * 2^224 +
+        //            0x04 * 2^168 + 0x03 * 2^112 + 0x02 * 2^56 + 0x01
+        // In hex (448 bits = 112 hex digits):
+        // 0x0800000000000007000000000000060000000000000500000000000004000000000000030000000000000200000000000001
+        let expected = U448::from_hex("0800000000000007000000000000060000000000000500000000000004000000000000030000000000000200000000000001").unwrap();
+        assert_eq!(
+            r, expected,
+            "canonical() must include all 8 limbs including MSB"
+        );
+    }
+
+    #[test]
+    fn canonical_test_msb_limb() {
+        // Specific test for MSB limb (limb 7) to ensure it's not being dropped
+        let mut num = U56x8 { limbs: [0; 8] };
+        num.limbs[7] = 0xFF; // Only MSB limb is non-zero
+
+        let r = P448GoldilocksPrimeField::canonical(&num);
+
+        // The result should have the MSB limb contribution
+        // If the bug existed (0..7 instead of 0..8), this would be zero
+        assert_ne!(r, U448::from_u64(0), "MSB limb must not be dropped");
+
+        // Verify it equals exactly: 0xFF << (56 * 7) bits = 0xFF * 2^392
+        // In 448-bit hex: 0xFF followed by 56*7/4 = 98 hex zeros
+        let expected = U448::from_hex("ff00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000").unwrap();
+        assert_eq!(r, expected, "MSB limb value must be correctly positioned");
     }
 
     #[test]

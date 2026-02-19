@@ -88,9 +88,10 @@ impl Prover {
             .num_vars_at(layer_idx + 1)
             .ok_or(ProverError::CircuitError)?;
 
-        let mut w_sum_evals: Vec<FieldElement<F>> = Vec::new();
-        let mut w_mul_evals: Vec<FieldElement<F>> = Vec::new();
         let next_layer_size = 1 << num_vars_next;
+        let total_pairs = next_layer_size * next_layer_size;
+        let mut w_sum_evals: Vec<FieldElement<F>> = Vec::with_capacity(total_pairs);
+        let mut w_mul_evals: Vec<FieldElement<F>> = Vec::with_capacity(total_pairs);
 
         for c_idx in 0..next_layer_size {
             for b_idx in 0..next_layer_size {
@@ -128,22 +129,21 @@ impl Prover {
         F: IsField,
         <F as IsField>::BaseType: Send + Sync + Copy,
     {
-        let mut domain_points_x = Vec::new();
-        let mut evaluation_values_y = Vec::new();
         let w_next_poly = DenseMultilinearPolynomial::new(w_next_evals);
-        for i in 0..3 {
-            let eval_point_x = FieldElement::from(i as u64);
-            let line_at_eval_point = crate::line(b, c, &eval_point_x);
-            let q_at_eval_point = w_next_poly
-                .evaluate(line_at_eval_point)
-                .map_err(|_| ProverError::MultilinearPolynomialEvaluationError)?;
-
-            domain_points_x.push(eval_point_x);
-            evaluation_values_y.push(q_at_eval_point);
-        }
-        let poly_q = Polynomial::interpolate(&domain_points_x, &evaluation_values_y)
-            .map_err(|_| ProverError::InterpolationError)?;
-        Ok(poly_q)
+        let (domain_points_x, evaluation_values_y): (Vec<_>, Vec<_>) = (0..3u64)
+            .map(|i| {
+                let eval_point_x = FieldElement::from(i);
+                let line_at_eval_point = crate::line(b, c, &eval_point_x);
+                let q_at_eval_point = w_next_poly
+                    .evaluate(line_at_eval_point)
+                    .map_err(|_| ProverError::MultilinearPolynomialEvaluationError);
+                q_at_eval_point.map(|y| (eval_point_x, y))
+            })
+            .collect::<Result<Vec<_>, _>>()?
+            .into_iter()
+            .unzip();
+        Polynomial::interpolate(&domain_points_x, &evaluation_values_y)
+            .map_err(|_| ProverError::InterpolationError)
     }
 
     /// Generate a GKR proof.
