@@ -49,9 +49,18 @@ use lambdaworks_math::fft::cpu::bit_reversing::in_place_bit_reverse_permute;
 #[cfg(all(target_os = "macos", feature = "metal"))]
 use lambdaworks_math::fft::gpu::metal::ops::{fft_buffer_to_buffer, gen_twiddles_to_buffer};
 #[cfg(all(target_os = "macos", feature = "metal"))]
-use lambdaworks_math::field::fields::u64_goldilocks_field::Goldilocks64Field;
+use lambdaworks_math::field::fields::u64_goldilocks_field::{
+    Degree3GoldilocksExtensionField, Goldilocks64Field,
+};
 #[cfg(all(target_os = "macos", feature = "metal"))]
 use lambdaworks_math::field::traits::{IsPrimeField, RootsConfig};
+
+/// Fp3 extension field type alias.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+type Fp3 = Degree3GoldilocksExtensionField;
+/// Fp3 field element type alias.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+type Fp3E = FieldElement<Fp3>;
 
 #[cfg(all(target_os = "macos", feature = "metal"))]
 use lambdaworks_gpu::metal::abstractions::{errors::MetalError, state::{DynamicMetalState, MetalState}};
@@ -270,6 +279,310 @@ pub fn gpu_fold_polynomial_from_cpu(
     let buf_input = state.state.alloc_buffer_with_data(&coeffs_u64)?;
 
     gpu_fold_polynomial(&buf_input, num_coeffs, beta, state)
+}
+
+// =============================================================================
+// GPU FRI Fold kernel for Fp3 (Goldilocks degree-3 extension)
+// =============================================================================
+
+/// Source code for the Fp3 FRI fold Metal kernel.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+const FRI_FOLD_FP3_SHADER: &str = include_str!("../shaders/fri_fold_fp3.metal");
+
+/// Pre-compiled Metal state for the Fp3 FRI fold kernel.
+///
+/// Caches the compiled pipeline for `goldilocks_fp3_fri_fold`.
+/// Create once and reuse across all Fp3 FRI folding rounds.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+pub struct FriFoldFp3State {
+    state: DynamicMetalState,
+    fri_fold_max_threads: u64,
+}
+
+#[cfg(all(target_os = "macos", feature = "metal"))]
+impl FriFoldFp3State {
+    /// Compile the Fp3 FRI fold shader and prepare the pipeline.
+    pub fn new() -> Result<Self, MetalError> {
+        let combined_source =
+            crate::metal::fp3::combined_fp3_source(FRI_FOLD_FP3_SHADER);
+
+        let mut state = DynamicMetalState::new()?;
+        state.load_library(&combined_source)?;
+        let fri_fold_max_threads = state.prepare_pipeline("goldilocks_fp3_fri_fold")?;
+        Ok(Self {
+            state,
+            fri_fold_max_threads,
+        })
+    }
+
+    /// Compile the Fp3 FRI fold shader sharing a device and queue with an existing Metal state.
+    pub fn from_device_and_queue(
+        device: &metal::Device,
+        queue: &metal::CommandQueue,
+    ) -> Result<Self, MetalError> {
+        let combined_source =
+            crate::metal::fp3::combined_fp3_source(FRI_FOLD_FP3_SHADER);
+
+        let mut state = DynamicMetalState::from_device_and_queue(device, queue);
+        state.load_library(&combined_source)?;
+        let fri_fold_max_threads = state.prepare_pipeline("goldilocks_fp3_fri_fold")?;
+        Ok(Self {
+            state,
+            fri_fold_max_threads,
+        })
+    }
+}
+
+/// Perform Fp3 FRI fold on GPU from an existing Metal buffer.
+///
+/// Dispatches the `goldilocks_fp3_fri_fold` kernel:
+/// `result[k] = 2 * (coeffs[2k] + beta * coeffs[2k+1])` in Fp3 arithmetic.
+///
+/// # Arguments
+///
+/// - `coeffs_buffer`: Input Metal buffer containing `num_coeffs` Fp3 elements (3 u64s each)
+/// - `num_coeffs`: Number of Fp3 coefficients
+/// - `beta`: The FRI folding challenge (Fp3)
+/// - `state`: Pre-compiled Fp3 FRI fold Metal state
+///
+/// # Returns
+///
+/// A tuple of (Metal Buffer, half_len) where the buffer contains the folded Fp3
+/// coefficients (3 u64s each) and half_len = num_coeffs / 2.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+pub fn gpu_fold_polynomial_fp3(
+    coeffs_buffer: &metal::Buffer,
+    num_coeffs: usize,
+    beta: &Fp3E,
+    state: &FriFoldFp3State,
+) -> Result<(metal::Buffer, usize), MetalError> {
+    use metal::MTLSize;
+
+    if num_coeffs <= 1 {
+        // Edge case: 0 or 1 Fp3 coefficients.
+        let val: [u64; 3] = if num_coeffs == 1 {
+            let vals: Vec<u64> = MetalState::retrieve_contents(coeffs_buffer);
+            let c0 = FieldElement::<Goldilocks64Field>::from(vals.first().copied().unwrap_or(0));
+            let c1 = FieldElement::<Goldilocks64Field>::from(vals.get(1).copied().unwrap_or(0));
+            let c2 = FieldElement::<Goldilocks64Field>::from(vals.get(2).copied().unwrap_or(0));
+            let fe = Fp3E::new([c0, c1, c2]);
+            let result = fe + fe; // 2 * fe
+            let comps = result.value();
+            [
+                Goldilocks64Field::canonical(comps[0].value()),
+                Goldilocks64Field::canonical(comps[1].value()),
+                Goldilocks64Field::canonical(comps[2].value()),
+            ]
+        } else {
+            [0u64; 3]
+        };
+        let buf = state.state.alloc_buffer_with_data(&val)?;
+        return Ok((buf, 1));
+    }
+
+    // Pad to even if needed
+    let (input_buf_owned, input_ref, padded_len) = if num_coeffs % 2 != 0 {
+        let padded_len = num_coeffs + 1;
+        // Each Fp3 element is 3 u64s
+        let buf_padded = state
+            .state
+            .alloc_buffer(padded_len * 3 * std::mem::size_of::<u64>())?;
+        let cmd = state.state.command_queue().new_command_buffer();
+        let blit = cmd.new_blit_command_encoder();
+        blit.copy_from_buffer(
+            coeffs_buffer,
+            0,
+            &buf_padded,
+            0,
+            (num_coeffs * 3 * std::mem::size_of::<u64>()) as u64,
+        );
+        blit.end_encoding();
+        cmd.commit();
+        cmd.wait_until_completed();
+        (Some(buf_padded), None, padded_len)
+    } else {
+        (None, Some(coeffs_buffer), num_coeffs)
+    };
+
+    let actual_input: &metal::Buffer = match (&input_buf_owned, input_ref) {
+        (Some(buf), _) => buf,
+        (_, Some(buf)) => buf,
+        _ => unreachable!(),
+    };
+
+    let half_len = padded_len / 2;
+
+    // Pack beta as 3 u64s
+    let beta_comps = beta.value();
+    let beta_u64: [u64; 3] = [
+        Goldilocks64Field::canonical(beta_comps[0].value()),
+        Goldilocks64Field::canonical(beta_comps[1].value()),
+        Goldilocks64Field::canonical(beta_comps[2].value()),
+    ];
+
+    let buf_output = state
+        .state
+        .alloc_buffer(half_len * 3 * std::mem::size_of::<u64>())?;
+    let buf_beta = state.state.alloc_buffer_with_data(&beta_u64)?;
+    let half_len_u32 = half_len as u32;
+    let buf_half_len = state
+        .state
+        .alloc_buffer_with_data(std::slice::from_ref(&half_len_u32))?;
+
+    let pipeline = state
+        .state
+        .get_pipeline_ref("goldilocks_fp3_fri_fold")
+        .ok_or_else(|| MetalError::FunctionError("goldilocks_fp3_fri_fold".to_string()))?;
+
+    let threads_per_group = state.fri_fold_max_threads.min(256);
+    let thread_groups = (half_len as u64).div_ceil(threads_per_group);
+
+    let command_buffer = state.state.command_queue().new_command_buffer();
+    let encoder = command_buffer.new_compute_command_encoder();
+    encoder.set_compute_pipeline_state(pipeline);
+    encoder.set_buffer(0, Some(actual_input), 0);
+    encoder.set_buffer(1, Some(&buf_output), 0);
+    encoder.set_buffer(2, Some(&buf_beta), 0);
+    encoder.set_buffer(3, Some(&buf_half_len), 0);
+
+    encoder.dispatch_thread_groups(
+        MTLSize::new(thread_groups, 1, 1),
+        MTLSize::new(threads_per_group, 1, 1),
+    );
+    encoder.end_encoding();
+
+    command_buffer.commit();
+    command_buffer.wait_until_completed();
+
+    if command_buffer.status() == metal::MTLCommandBufferStatus::Error {
+        return Err(MetalError::ExecutionError(
+            "GPU Fp3 FRI fold command buffer error".to_string(),
+        ));
+    }
+
+    Ok((buf_output, half_len))
+}
+
+/// Perform Fp3 FRI fold on GPU from CPU polynomial data.
+///
+/// Converts Fp3 polynomial coefficients to flat u64 triples, uploads to GPU,
+/// and dispatches the `goldilocks_fp3_fri_fold` kernel.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+pub fn gpu_fold_polynomial_fp3_from_cpu(
+    poly: &Polynomial<Fp3E>,
+    beta: &Fp3E,
+    state: &FriFoldFp3State,
+) -> Result<(metal::Buffer, usize), MetalError> {
+    let coeffs = poly.coefficients();
+    let num_coeffs = coeffs.len();
+
+    // Convert Fp3 coefficients to flat u64 triples
+    let coeffs_u64: Vec<u64> = coeffs
+        .iter()
+        .flat_map(|fe| {
+            let comps = fe.value();
+            [
+                Goldilocks64Field::canonical(comps[0].value()),
+                Goldilocks64Field::canonical(comps[1].value()),
+                Goldilocks64Field::canonical(comps[2].value()),
+            ]
+        })
+        .collect();
+
+    let buf_input = state.state.alloc_buffer_with_data(&coeffs_u64)?;
+    gpu_fold_polynomial_fp3(&buf_input, num_coeffs, beta, state)
+}
+
+/// GPU-accelerated FRI commit phase for Fp3 (degree-3 Goldilocks extension).
+///
+/// Replaces `fri::commit_phase` with GPU fold for Fp3 polynomials. Uses CPU
+/// FFT via `fft_extension` for layer evaluation and CPU Merkle commit for now.
+///
+/// Polynomial Fp3 coefficients stay on GPU Metal buffers between fold rounds.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+#[allow(clippy::too_many_arguments)]
+#[allow(clippy::type_complexity)]
+pub fn gpu_fri_commit_phase_fp3(
+    number_layers: usize,
+    p_0: Polynomial<Fp3E>,
+    transcript: &mut impl IsStarkTranscript<Fp3, Goldilocks64Field>,
+    coset_offset: &FieldElement<Goldilocks64Field>,
+    domain_size: usize,
+    fri_fold_state: &FriFoldFp3State,
+) -> Result<
+    (
+        Fp3E,
+        Vec<FriLayer<Fp3, BatchedMerkleTreeBackend<Fp3>>>,
+    ),
+    ProvingError,
+> {
+    let mut domain_size = domain_size;
+    let mut fri_layer_list = Vec::with_capacity(number_layers);
+    let mut coset_offset = *coset_offset;
+
+    let mut current_buffer: Option<(metal::Buffer, usize)> = None;
+    let mut current_poly_cpu: Option<Polynomial<Fp3E>> = Some(p_0);
+
+    for _ in 1..number_layers {
+        let zeta: Fp3E = transcript.sample_field_element();
+        coset_offset = coset_offset.square();
+        domain_size /= 2;
+
+        // Fold polynomial on GPU
+        let (folded_buf, folded_len) = if let Some(poly) = current_poly_cpu.take() {
+            gpu_fold_polynomial_fp3_from_cpu(&poly, &zeta, fri_fold_state)
+                .map_err(|e| ProvingError::FieldOperationError(format!("GPU Fp3 FRI fold: {e}")))?
+        } else {
+            let (buf, len) = current_buffer.take().unwrap();
+            gpu_fold_polynomial_fp3(&buf, len, &zeta, fri_fold_state)
+                .map_err(|e| ProvingError::FieldOperationError(format!("GPU Fp3 FRI fold: {e}")))?
+        };
+
+        // Read back Fp3 coefficients from GPU for FFT + Merkle (CPU path for now)
+        let coeffs_u64: Vec<u64> = MetalState::retrieve_contents(&folded_buf);
+        let coeffs: Vec<Fp3E> = coeffs_u64
+            .chunks(3)
+            .map(|chunk| {
+                Fp3E::new([
+                    FieldElement::<Goldilocks64Field>::from(chunk[0]),
+                    FieldElement::<Goldilocks64Field>::from(chunk[1]),
+                    FieldElement::<Goldilocks64Field>::from(chunk[2]),
+                ])
+            })
+            .collect();
+        let poly = Polynomial::new(&coeffs);
+        let current_layer = fri::new_fri_layer(&poly, &coset_offset, domain_size)?;
+
+        current_buffer = Some((folded_buf, folded_len));
+        let commitment = current_layer.merkle_tree.root;
+        fri_layer_list.push(current_layer);
+        transcript.append_bytes(&commitment);
+    }
+
+    // Final fold to get the last value
+    let zeta: Fp3E = transcript.sample_field_element();
+    let (last_buf, _last_len) = if let Some(poly) = current_poly_cpu.take() {
+        gpu_fold_polynomial_fp3_from_cpu(&poly, &zeta, fri_fold_state)
+            .map_err(|e| ProvingError::FieldOperationError(format!("GPU Fp3 FRI fold: {e}")))?
+    } else {
+        let (buf, len) = current_buffer.take().unwrap();
+        gpu_fold_polynomial_fp3(&buf, len, &zeta, fri_fold_state)
+            .map_err(|e| ProvingError::FieldOperationError(format!("GPU Fp3 FRI fold: {e}")))?
+    };
+
+    let last_u64: Vec<u64> = MetalState::retrieve_contents(&last_buf);
+    let last_value = if last_u64.len() >= 3 {
+        Fp3E::new([
+            FieldElement::<Goldilocks64Field>::from(last_u64[0]),
+            FieldElement::<Goldilocks64Field>::from(last_u64[1]),
+            FieldElement::<Goldilocks64Field>::from(last_u64[2]),
+        ])
+    } else {
+        Fp3E::zero()
+    };
+    transcript.append_field_element(&last_value);
+
+    Ok((last_value, fri_layer_list))
 }
 
 /// Type alias matching the CPU prover's deep polynomial openings type.
@@ -1257,6 +1570,134 @@ mod tests {
                 cpu, gpu,
                 "Chained FRI fold mismatch at index {i}: CPU={:?} GPU={:?}",
                 cpu, gpu
+            );
+        }
+    }
+
+    // =========================================================================
+    // GPU Fp3 FRI Fold differential tests
+    // =========================================================================
+
+    type Fp3 = lambdaworks_math::field::fields::u64_goldilocks_field::Degree3GoldilocksExtensionField;
+    type Fp3E = FieldElement<Fp3>;
+
+    /// Helper: create an Fp3 element from 3 u64 values.
+    fn fp3(a: u64, b: u64, c: u64) -> Fp3E {
+        Fp3E::new([FpE::from(a), FpE::from(b), FpE::from(c)])
+    }
+
+    /// Helper: extract 3 u64 components from an Fp3 element.
+    fn fp3_to_u64s(e: &Fp3E) -> [u64; 3] {
+        let comps = e.value();
+        [
+            *comps[0].value(),
+            *comps[1].value(),
+            *comps[2].value(),
+        ]
+    }
+
+    #[test]
+    fn gpu_fp3_fold_matches_cpu() {
+        use stark_platinum_prover::fri::fri_functions::fold_polynomial;
+
+        let fri_state = FriFoldFp3State::new().unwrap();
+
+        // Create a polynomial with 64 Fp3 coefficients
+        let coeffs: Vec<Fp3E> = (0..64)
+            .map(|i| fp3(i as u64 * 31 + 17, i as u64 * 7 + 3, i as u64 * 13 + 5))
+            .collect();
+        let poly = Polynomial::new(&coeffs);
+        let beta = fp3(42, 7, 99);
+
+        // CPU: fold_polynomial returns (even + beta*odd), then multiply by 2
+        let two = fp3(2, 0, 0);
+        let cpu_folded = two * fold_polynomial(&poly, &beta);
+
+        // GPU: gpu_fold_polynomial_fp3_from_cpu
+        let (gpu_buffer, gpu_len) =
+            gpu_fold_polynomial_fp3_from_cpu(&poly, &beta, &fri_state).unwrap();
+
+        assert_eq!(gpu_len, 32, "Folded polynomial should have half the coefficients");
+
+        // Read back GPU result (3 u64s per Fp3 element)
+        let gpu_u64: Vec<u64> = MetalState::retrieve_contents(&gpu_buffer);
+        let gpu_coeffs: Vec<Fp3E> = gpu_u64
+            .chunks(3)
+            .map(|chunk| {
+                Fp3E::new([
+                    FieldElement::from_raw(chunk[0]),
+                    FieldElement::from_raw(chunk[1]),
+                    FieldElement::from_raw(chunk[2]),
+                ])
+            })
+            .collect();
+
+        let cpu_coeffs = cpu_folded.coefficients();
+        assert_eq!(
+            cpu_coeffs.len(),
+            gpu_coeffs.len(),
+            "CPU and GPU folded Fp3 polynomials should have the same length"
+        );
+        for (i, (cpu, gpu)) in cpu_coeffs.iter().zip(&gpu_coeffs).enumerate() {
+            assert_eq!(
+                cpu, gpu,
+                "Fp3 FRI fold mismatch at index {i}: CPU={:?} GPU={:?}",
+                fp3_to_u64s(cpu),
+                fp3_to_u64s(gpu)
+            );
+        }
+    }
+
+    #[test]
+    fn gpu_fp3_fold_matches_cpu_chained() {
+        use stark_platinum_prover::fri::fri_functions::fold_polynomial;
+
+        let fri_state = FriFoldFp3State::new().unwrap();
+
+        // Create a polynomial with 128 Fp3 coefficients
+        let coeffs: Vec<Fp3E> = (0..128)
+            .map(|i| fp3(i as u64 * 7 + 3, i as u64 * 11 + 2, i as u64 * 3 + 1))
+            .collect();
+        let poly = Polynomial::new(&coeffs);
+        let beta1 = fp3(13, 0, 5);
+        let beta2 = fp3(99, 77, 0);
+        let two = fp3(2, 0, 0);
+
+        // CPU: two rounds of folding
+        let cpu_fold1 = two * fold_polynomial(&poly, &beta1);
+        let cpu_fold2 = two * fold_polynomial(&cpu_fold1, &beta2);
+
+        // GPU: first fold from CPU data
+        let (gpu_buffer1, gpu_len1) =
+            gpu_fold_polynomial_fp3_from_cpu(&poly, &beta1, &fri_state).unwrap();
+        assert_eq!(gpu_len1, 64);
+
+        // GPU: second fold from existing GPU buffer
+        let (gpu_buffer2, gpu_len2) =
+            gpu_fold_polynomial_fp3(&gpu_buffer1, gpu_len1, &beta2, &fri_state).unwrap();
+        assert_eq!(gpu_len2, 32);
+
+        // Read back and compare
+        let gpu_u64: Vec<u64> = MetalState::retrieve_contents(&gpu_buffer2);
+        let gpu_coeffs: Vec<Fp3E> = gpu_u64
+            .chunks(3)
+            .map(|chunk| {
+                Fp3E::new([
+                    FieldElement::from_raw(chunk[0]),
+                    FieldElement::from_raw(chunk[1]),
+                    FieldElement::from_raw(chunk[2]),
+                ])
+            })
+            .collect();
+
+        let cpu_coeffs = cpu_fold2.coefficients();
+        assert_eq!(cpu_coeffs.len(), gpu_coeffs.len());
+        for (i, (cpu, gpu)) in cpu_coeffs.iter().zip(&gpu_coeffs).enumerate() {
+            assert_eq!(
+                cpu, gpu,
+                "Chained Fp3 FRI fold mismatch at index {i}: CPU={:?} GPU={:?}",
+                fp3_to_u64s(cpu),
+                fp3_to_u64s(gpu)
             );
         }
     }
