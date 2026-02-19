@@ -1360,6 +1360,286 @@ where
     })
 }
 
+/// GPU-accelerated Phase 4 for Fp3 extension field proofs.
+///
+/// Uses CPU DEEP composition (the Fp3 DEEP shader expects base-field trace data,
+/// but aux trace in F!=E is in Fp3) and GPU FRI fold.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+#[allow(clippy::too_many_arguments)]
+pub fn gpu_round_4_fp3<A>(
+    air: &A,
+    domain: &Domain<Goldilocks64Field>,
+    round_1_result: &crate::metal::phases::fp3_types::GpuRound1ResultFp3,
+    round_2_result: &crate::metal::phases::fp3_types::GpuRound2ResultFp3,
+    round_3_result: &crate::metal::phases::fp3_types::GpuRound3ResultFp3,
+    transcript: &mut impl IsStarkTranscript<Fp3, Goldilocks64Field>,
+    fri_fold_state: &FriFoldFp3State,
+) -> Result<crate::metal::phases::fp3_types::GpuRound4ResultFp3, ProvingError>
+where
+    A: AIR<Field = Goldilocks64Field, FieldExtension = Fp3>,
+{
+    type F = Goldilocks64Field;
+
+    // Step 1: Sample gamma and compute deep composition coefficients (all Fp3).
+    let gamma: Fp3E = transcript.sample_field_element();
+
+    let n_terms_composition_poly = round_2_result.lde_composition_poly_evaluations.len();
+    let num_terms_trace = air.context().transition_offsets.len()
+        * air.step_size()
+        * air.context().trace_columns;
+
+    let mut deep_composition_coefficients: Vec<Fp3E> =
+        core::iter::successors(Some(Fp3E::one()), |x| Some(x * &gamma))
+            .take(n_terms_composition_poly + num_terms_trace)
+            .collect();
+
+    let trace_term_coeffs: Vec<Vec<Fp3E>> = deep_composition_coefficients
+        .drain(..num_terms_trace)
+        .collect::<Vec<_>>()
+        .chunks(air.context().transition_offsets.len() * air.step_size())
+        .map(|chunk| chunk.to_vec())
+        .collect();
+    let composition_gammas = deep_composition_coefficients;
+
+    // Step 2: CPU DEEP composition polynomial (Fp3).
+    // Convert main trace polys (F) to Fp3 by embedding, combine with aux trace polys (Fp3).
+    let mut all_trace_polys: Vec<Polynomial<Fp3E>> = round_1_result
+        .main_trace_polys
+        .iter()
+        .map(|poly| {
+            let fp3_coeffs: Vec<Fp3E> = poly
+                .coefficients()
+                .iter()
+                .map(|c| c.to_extension::<Fp3>())
+                .collect();
+            Polynomial::new(&fp3_coeffs)
+        })
+        .collect();
+    all_trace_polys.extend(round_1_result.aux_trace_polys.iter().cloned());
+
+    let deep_composition_poly = compute_deep_composition_poly_fp3(
+        &all_trace_polys,
+        &round_2_result.composition_poly_parts,
+        &round_3_result.trace_ood_evaluations,
+        &round_3_result.composition_poly_parts_ood_evaluation,
+        &round_3_result.z,
+        &domain.trace_primitive_root,
+        &composition_gammas,
+        &trace_term_coeffs,
+    );
+
+    // Step 3: GPU FRI commit phase (Fp3 fold kernel).
+    let domain_size = domain.lde_roots_of_unity_coset.len();
+    let coset_offset_u64 = air.context().proof_options.coset_offset;
+    let coset_offset = FieldElement::<F>::from(coset_offset_u64);
+
+    let (fri_last_value, fri_layers) = gpu_fri_commit_phase_fp3(
+        domain.root_order as usize,
+        deep_composition_poly,
+        transcript,
+        &coset_offset,
+        domain_size,
+        fri_fold_state,
+    )?;
+
+    // Step 4: Grinding (CPU).
+    let security_bits = air.context().proof_options.grinding_factor;
+    let mut nonce = None;
+    if security_bits > 0 {
+        let nonce_value = grinding::generate_nonce(&transcript.state(), security_bits)
+            .ok_or(ProvingError::NonceNotFound(security_bits))?;
+        transcript.append_bytes(&nonce_value.to_be_bytes());
+        nonce = Some(nonce_value);
+    }
+
+    // Step 5: Sample query indexes.
+    let number_of_queries = air.options().fri_number_of_queries;
+    let domain_size_u64 = domain_size as u64;
+    let iotas: Vec<usize> = (0..number_of_queries)
+        .map(|_| transcript.sample_u64(domain_size_u64 >> 1) as usize)
+        .collect();
+
+    // Step 6: FRI query phase (CPU).
+    let query_list = fri::query_phase(&fri_layers, &iotas)?;
+
+    // Step 7: Extract FRI Merkle roots.
+    let fri_layers_merkle_roots: Vec<Commitment> = fri_layers
+        .iter()
+        .map(|layer| layer.merkle_tree.root)
+        .collect();
+
+    // Step 8: Open deep composition poly (Merkle proofs for trace + composition poly).
+    let deep_poly_openings =
+        open_deep_composition_poly_fp3(domain, round_1_result, round_2_result, &iotas)?;
+
+    Ok(crate::metal::phases::fp3_types::GpuRound4ResultFp3 {
+        fri_last_value,
+        fri_layers_merkle_roots,
+        deep_poly_openings,
+        query_list,
+        nonce,
+    })
+}
+
+/// CPU DEEP composition polynomial for Fp3.
+///
+/// Mirrors `compute_deep_composition_poly` from the CPU prover but with
+/// all operations in Fp3 extension field.
+#[allow(clippy::too_many_arguments)]
+fn compute_deep_composition_poly_fp3(
+    trace_polys: &[Polynomial<Fp3E>],
+    composition_poly_parts: &[Polynomial<Fp3E>],
+    trace_ood_evaluations: &Table<Fp3>,
+    composition_poly_ood_evaluations: &[Fp3E],
+    z: &Fp3E,
+    primitive_root: &FieldElement<Goldilocks64Field>,
+    composition_gammas: &[Fp3E],
+    trace_term_coeffs: &[Vec<Fp3E>],
+) -> Polynomial<Fp3E> {
+    let z_power = z.pow(composition_poly_parts.len());
+
+    // H terms: sum_i gamma_i * (H_i(X) - H_i(z^N)) / (X - z^N)
+    let mut h_terms = Polynomial::zero();
+    for (i, part) in composition_poly_parts.iter().enumerate() {
+        let h_i_eval = &composition_poly_ood_evaluations[i];
+        let h_i_term = &composition_gammas[i] * (part - h_i_eval);
+        h_terms += h_i_term;
+    }
+    debug_assert_eq!(h_terms.evaluate(&z_power), Fp3E::zero());
+    h_terms.ruffini_division_inplace(&z_power);
+
+    // Trace terms
+    let trace_evaluations_columns = trace_ood_evaluations.columns();
+    let num_offsets = trace_ood_evaluations.height;
+    let z_shifted_values: Vec<Fp3E> = (0..num_offsets)
+        .map(|offset| primitive_root.pow(offset) * z)
+        .collect();
+
+    let trace_terms =
+        trace_polys
+            .iter()
+            .enumerate()
+            .fold(Polynomial::zero(), |accumulator, (i, t_j)| {
+                let gammas_i = &trace_term_coeffs[i];
+                let trace_evaluations_i = &trace_evaluations_columns[i];
+
+                let trace_int = trace_evaluations_i
+                    .iter()
+                    .zip(&z_shifted_values)
+                    .zip(gammas_i)
+                    .fold(
+                        Polynomial::zero(),
+                        |trace_agg, ((trace_term_poly_evaluation, z_shifted), trace_gamma)| {
+                            let mut poly = t_j - trace_term_poly_evaluation;
+                            poly.ruffini_division_inplace(z_shifted);
+                            trace_agg + poly * trace_gamma
+                        },
+                    );
+                accumulator + trace_int
+            });
+
+    h_terms + trace_terms
+}
+
+/// Opens trace polynomials at a given query index for Fp3 proofs (base field openings).
+fn open_trace_polys_base_field(
+    domain_size: usize,
+    tree: &BatchedMerkleTree<Goldilocks64Field>,
+    lde_evaluations: &[Vec<FieldElement<Goldilocks64Field>>],
+    challenge: usize,
+) -> Result<PolynomialOpenings<Goldilocks64Field>, ProvingError> {
+    open_trace_polys(domain_size, tree, lde_evaluations, challenge)
+}
+
+/// Opens trace polynomials at a given query index for Fp3 proofs (extension field openings).
+fn open_trace_polys_extension(
+    domain_size: usize,
+    tree: &BatchedMerkleTree<Fp3>,
+    lde_evaluations: &[Vec<Fp3E>],
+    challenge: usize,
+) -> Result<PolynomialOpenings<Fp3>, ProvingError> {
+    let index = challenge * 2;
+    let index_sym = challenge * 2 + 1;
+
+    let proof = tree.get_proof_by_pos(index).ok_or_else(|| {
+        ProvingError::MerkleTreeError(format!("Failed to get proof at position {}", index))
+    })?;
+    let proof_sym = tree.get_proof_by_pos(index_sym).ok_or_else(|| {
+        ProvingError::MerkleTreeError(format!("Failed to get proof at position {}", index_sym))
+    })?;
+
+    let actual_index = reverse_index(index, domain_size as u64);
+    let actual_index_sym = reverse_index(index_sym, domain_size as u64);
+
+    let evaluations: Vec<_> = lde_evaluations
+        .iter()
+        .map(|col| col[actual_index].clone())
+        .collect();
+    let evaluations_sym: Vec<_> = lde_evaluations
+        .iter()
+        .map(|col| col[actual_index_sym].clone())
+        .collect();
+
+    Ok(PolynomialOpenings {
+        proof,
+        proof_sym,
+        evaluations,
+        evaluations_sym,
+    })
+}
+
+/// Opens the deep composition polynomial at query indexes for Fp3 proofs.
+///
+/// Main trace openings are in F (base field), composition and aux trace openings are in Fp3.
+fn open_deep_composition_poly_fp3(
+    domain: &Domain<Goldilocks64Field>,
+    round_1_result: &crate::metal::phases::fp3_types::GpuRound1ResultFp3,
+    round_2_result: &crate::metal::phases::fp3_types::GpuRound2ResultFp3,
+    indexes_to_open: &[usize],
+) -> Result<Vec<DeepPolynomialOpening<Goldilocks64Field, Fp3>>, ProvingError> {
+    let domain_size = domain.lde_roots_of_unity_coset.len();
+    let mut openings = Vec::new();
+
+    for index in indexes_to_open.iter() {
+        // Open main trace (base field)
+        let main_trace_opening = open_trace_polys_base_field(
+            domain_size,
+            &round_1_result.main_merkle_tree,
+            &round_1_result.main_lde_evaluations,
+            *index,
+        )?;
+
+        // Open composition polynomial (Fp3)
+        let composition_openings = open_composition_poly(
+            &round_2_result.composition_poly_merkle_tree,
+            &round_2_result.lde_composition_poly_evaluations,
+            *index,
+        )?;
+
+        // Open auxiliary trace (Fp3)
+        let aux_trace_polys = match (
+            round_1_result.aux_merkle_tree.as_ref(),
+            round_1_result.aux_lde_evaluations.is_empty(),
+        ) {
+            (Some(aux_tree), false) => Some(open_trace_polys_extension(
+                domain_size,
+                aux_tree,
+                &round_1_result.aux_lde_evaluations,
+                *index,
+            )?),
+            _ => None,
+        };
+
+        openings.push(DeepPolynomialOpening {
+            composition_poly: composition_openings,
+            main_trace_polys: main_trace_opening,
+            aux_trace_polys,
+        });
+    }
+
+    Ok(openings)
+}
+
 #[cfg(all(test, target_os = "macos", feature = "metal"))]
 mod tests {
     use super::*;
