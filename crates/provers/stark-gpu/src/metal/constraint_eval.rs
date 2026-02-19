@@ -179,6 +179,115 @@ pub fn gpu_evaluate_fibonacci_rap_constraints(
     Ok(result)
 }
 
+/// Evaluates Fibonacci RAP constraints on the GPU, returning the result as a Metal buffer.
+///
+/// Like [`gpu_evaluate_fibonacci_rap_constraints`] but keeps the result on GPU,
+/// avoiding the GPU→CPU readback. Use this when the constraint evaluations will
+/// be consumed by another GPU operation (e.g., GPU coset IFFT).
+#[cfg(all(target_os = "macos", feature = "metal"))]
+#[allow(clippy::too_many_arguments)]
+pub fn gpu_evaluate_fibonacci_rap_constraints_to_buffer(
+    main_col_0: &[FieldElement<Goldilocks64Field>],
+    main_col_1: &[FieldElement<Goldilocks64Field>],
+    aux_col_0: &[FieldElement<Goldilocks64Field>],
+    zerofier_evals: &[Vec<FieldElement<Goldilocks64Field>>],
+    boundary_evals: &[FieldElement<Goldilocks64Field>],
+    gamma: &FieldElement<Goldilocks64Field>,
+    transition_coefficients: &[FieldElement<Goldilocks64Field>],
+    lde_step_size: usize,
+    precompiled: Option<&FibRapConstraintState>,
+) -> Result<(metal::Buffer, usize), MetalError> {
+    let num_rows = main_col_0.len();
+    assert_eq!(main_col_1.len(), num_rows, "main_col_1 length mismatch");
+    assert_eq!(aux_col_0.len(), num_rows, "aux_col_0 length mismatch");
+    assert_eq!(
+        boundary_evals.len(),
+        num_rows,
+        "boundary_evals length mismatch"
+    );
+    assert!(
+        zerofier_evals.len() >= 2,
+        "need at least 2 zerofier evaluation vectors"
+    );
+    assert!(
+        transition_coefficients.len() >= 2,
+        "need at least 2 transition coefficients"
+    );
+
+    let col0_raw: Vec<u64> = main_col_0
+        .iter()
+        .map(|fe| Goldilocks64Field::canonical(fe.value()))
+        .collect();
+    let col1_raw: Vec<u64> = main_col_1
+        .iter()
+        .map(|fe| Goldilocks64Field::canonical(fe.value()))
+        .collect();
+    let aux0_raw: Vec<u64> = aux_col_0
+        .iter()
+        .map(|fe| Goldilocks64Field::canonical(fe.value()))
+        .collect();
+    let z0_raw: Vec<u64> = zerofier_evals[0]
+        .iter()
+        .map(|fe| Goldilocks64Field::canonical(fe.value()))
+        .collect();
+    let z1_raw: Vec<u64> = zerofier_evals[1]
+        .iter()
+        .map(|fe| Goldilocks64Field::canonical(fe.value()))
+        .collect();
+    let boundary_raw: Vec<u64> = boundary_evals
+        .iter()
+        .map(|fe| Goldilocks64Field::canonical(fe.value()))
+        .collect();
+
+    let params = FibRapParams {
+        lde_step_size: lde_step_size as u32,
+        num_rows: num_rows as u32,
+        zerofier_0_len: zerofier_evals[0].len() as u32,
+        zerofier_1_len: zerofier_evals[1].len() as u32,
+        gamma: Goldilocks64Field::canonical(gamma.value()),
+        transition_coeff_0: Goldilocks64Field::canonical(transition_coefficients[0].value()),
+        transition_coeff_1: Goldilocks64Field::canonical(transition_coefficients[1].value()),
+    };
+
+    let mut owned_state;
+    let (dyn_state, max_threads) = match precompiled {
+        Some(pre) => (&pre.state, pre.max_threads),
+        None => {
+            owned_state = DynamicMetalState::new()?;
+            owned_state.load_library(FIBONACCI_RAP_SHADER)?;
+            let mt = owned_state.prepare_pipeline("fibonacci_rap_constraint_eval")?;
+            (&owned_state, mt)
+        }
+    };
+
+    let buf_col0 = dyn_state.alloc_buffer_with_data(&col0_raw)?;
+    let buf_col1 = dyn_state.alloc_buffer_with_data(&col1_raw)?;
+    let buf_aux0 = dyn_state.alloc_buffer_with_data(&aux0_raw)?;
+    let buf_z0 = dyn_state.alloc_buffer_with_data(&z0_raw)?;
+    let buf_z1 = dyn_state.alloc_buffer_with_data(&z1_raw)?;
+    let buf_params = dyn_state.alloc_buffer_with_data(std::slice::from_ref(&params))?;
+    let buf_boundary = dyn_state.alloc_buffer_with_data(&boundary_raw)?;
+    let buf_output = dyn_state.alloc_buffer(num_rows * std::mem::size_of::<u64>())?;
+
+    dyn_state.execute_compute(
+        "fibonacci_rap_constraint_eval",
+        &[
+            &buf_col0,
+            &buf_col1,
+            &buf_aux0,
+            &buf_z0,
+            &buf_z1,
+            &buf_params,
+            &buf_boundary,
+            &buf_output,
+        ],
+        num_rows as u64,
+        max_threads,
+    )?;
+
+    Ok((buf_output, num_rows))
+}
+
 #[cfg(all(test, target_os = "macos", feature = "metal"))]
 mod tests {
     use super::*;

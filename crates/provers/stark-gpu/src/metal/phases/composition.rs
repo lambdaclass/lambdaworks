@@ -32,8 +32,11 @@ use crate::metal::state::StarkMetalState;
 
 #[cfg(all(target_os = "macos", feature = "metal"))]
 use crate::metal::constraint_eval::{
-    gpu_evaluate_fibonacci_rap_constraints, FibRapConstraintState,
+    gpu_evaluate_fibonacci_rap_constraints, gpu_evaluate_fibonacci_rap_constraints_to_buffer,
+    FibRapConstraintState,
 };
+#[cfg(all(target_os = "macos", feature = "metal"))]
+use crate::metal::fft::{gpu_interpolate_offset_fft_buffer_to_buffer, CosetShiftState};
 #[cfg(all(target_os = "macos", feature = "metal"))]
 use crate::metal::merkle::{gpu_batch_commit_paired_from_column_buffers, GpuKeccakMerkleState};
 #[cfg(all(target_os = "macos", feature = "metal"))]
@@ -366,10 +369,12 @@ where
     })
 }
 
-/// GPU-optimized Phase 2 for Goldilocks field with GPU constraint eval AND GPU Merkle commit.
+/// GPU-optimized Phase 2 for Goldilocks field with GPU constraint eval, GPU IFFT, and GPU Merkle commit.
 ///
-/// This extends [`gpu_round_2_goldilocks`] by also using the GPU Keccak256 shader
-/// for the composition polynomial Merkle tree commit (paired-row layout).
+/// This extends [`gpu_round_2_goldilocks`] by:
+/// - Keeping constraint evaluations on GPU (no readback)
+/// - Running the composition polynomial IFFT on GPU
+/// - Using the GPU Keccak256 shader for Merkle tree commit (paired-row layout)
 #[cfg(all(target_os = "macos", feature = "metal"))]
 #[allow(clippy::too_many_arguments)]
 pub fn gpu_round_2_goldilocks_merkle<A>(
@@ -380,6 +385,7 @@ pub fn gpu_round_2_goldilocks_merkle<A>(
     state: &StarkMetalState,
     precompiled_constraint: Option<&FibRapConstraintState>,
     keccak_state: &GpuKeccakMerkleState,
+    coset_state: &CosetShiftState,
 ) -> Result<GpuRound2Result<Goldilocks64Field>, ProvingError>
 where
     A: AIR<Field = Goldilocks64Field, FieldExtension = Goldilocks64Field>,
@@ -387,7 +393,7 @@ where
     type F = Goldilocks64Field;
     type FpE = FieldElement<F>;
 
-    // Steps 1-6 are identical to gpu_round_2_goldilocks
+    // Step 1: Sample beta and compute transition/boundary coefficients.
     let beta: FpE = transcript.sample_field_element();
     let num_boundary = air
         .boundary_constraints(&round_1_result.rap_challenges)
@@ -410,7 +416,7 @@ where
     );
     let num_lde_rows = lde_trace.num_rows();
 
-    // Boundary evaluations on CPU
+    // Step 3a: Pre-compute boundary evaluations on CPU.
     let boundary_constraints = air.boundary_constraints(&round_1_result.rap_challenges);
     let mut zerofier_cache: std::collections::HashMap<usize, Vec<FpE>> =
         std::collections::HashMap::new();
@@ -468,25 +474,44 @@ where
         .map(|r| *lde_trace.get_aux(r, 0))
         .collect();
 
+    // Step 3b: Evaluate constraints on GPU, keeping result as Metal buffer (no readback).
     let zerofier_evals = air.transition_zerofier_evaluations(domain);
     let lde_step_size = air.step_size() * blowup_factor;
-    let constraint_evaluations = gpu_evaluate_fibonacci_rap_constraints(
-        &main_col_0,
-        &main_col_1,
-        &aux_col_0,
-        &zerofier_evals,
-        &boundary_evals,
-        &round_1_result.rap_challenges[0],
-        &transition_coefficients,
-        lde_step_size,
-        precompiled_constraint,
-    )
-    .map_err(|e| ProvingError::FieldOperationError(format!("GPU constraint eval error: {e}")))?;
+    let (constraint_eval_buffer, constraint_eval_len) =
+        gpu_evaluate_fibonacci_rap_constraints_to_buffer(
+            &main_col_0,
+            &main_col_1,
+            &aux_col_0,
+            &zerofier_evals,
+            &boundary_evals,
+            &round_1_result.rap_challenges[0],
+            &transition_coefficients,
+            lde_step_size,
+            precompiled_constraint,
+        )
+        .map_err(|e| {
+            ProvingError::FieldOperationError(format!("GPU constraint eval error: {e}"))
+        })?;
 
+    // Step 4: GPU coset IFFT — interpolate constraint evaluations entirely on GPU.
     let coset_offset = air.coset_offset();
-    let composition_poly =
-        Polynomial::interpolate_offset_fft(&constraint_evaluations, &coset_offset)?;
+    let coeffs_buffer = gpu_interpolate_offset_fft_buffer_to_buffer(
+        &constraint_eval_buffer,
+        constraint_eval_len,
+        &coset_offset,
+        coset_state,
+        state.inner(),
+    )
+    .map_err(|e| {
+        ProvingError::FieldOperationError(format!("GPU composition IFFT error: {e}"))
+    })?;
 
+    // Step 4b: Read back coefficients to CPU for break_in_parts + OOD eval.
+    let coeffs_u64: Vec<u64> = MetalState::retrieve_contents(&coeffs_buffer);
+    let coeffs_fe: Vec<FpE> = coeffs_u64.into_iter().map(FieldElement::from).collect();
+    let composition_poly = Polynomial::new(&coeffs_fe);
+
+    // Step 5: Break into parts.
     let number_of_parts = air.composition_poly_degree_bound() / air.trace_length();
     if number_of_parts == 0 {
         return Err(ProvingError::WrongParameter(
@@ -495,7 +520,7 @@ where
     }
     let composition_poly_parts = composition_poly.break_in_parts(number_of_parts);
 
-    // Evaluate each part on LDE domain with shared twiddles, keeping FFT buffers
+    // Step 6: Evaluate each part on LDE domain with shared twiddles, keeping FFT buffers.
     let coeff_slices: Vec<&[FpE]> = composition_poly_parts
         .iter()
         .map(|p| p.coefficients())
@@ -513,7 +538,6 @@ where
     let mut lde_buffers: Vec<metal::Buffer> = Vec::with_capacity(composition_poly_parts.len());
 
     for (buffer, _domain_size) in buffer_results {
-        // Read buffer to CPU Vec for later phases (OOD, queries)
         let raw: Vec<u64> = MetalState::retrieve_contents(&buffer);
         let elements: Vec<FpE> = raw.into_iter().map(FieldElement::from_raw).collect();
 
@@ -521,7 +545,7 @@ where
         lde_buffers.push(buffer);
     }
 
-    // Step 7: GPU Merkle commit with paired-row layout directly from FFT buffers
+    // Step 7: GPU Merkle commit with paired-row layout directly from FFT buffers.
     let buffer_refs: Vec<&metal::Buffer> = lde_buffers.iter().collect();
     let (tree, root) = gpu_batch_commit_paired_from_column_buffers(
         &buffer_refs,

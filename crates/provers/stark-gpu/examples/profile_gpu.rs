@@ -133,6 +133,7 @@ fn profile_gpu_optimized(
         &state,
         Some(&constraint_state),
         &keccak_state,
+        &coset_state,
     )
     .unwrap();
     let phase2_time = t.elapsed();
@@ -534,6 +535,7 @@ fn profile_phase4(
         &state,
         Some(&constraint_state),
         &keccak_state,
+        &coset_state,
     )
     .unwrap();
     let round_3 = gpu_round_3(&air, &domain, &round_1, &round_2, &mut transcript).unwrap();

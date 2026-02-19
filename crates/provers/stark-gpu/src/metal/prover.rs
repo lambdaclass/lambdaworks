@@ -150,7 +150,7 @@ where
     // Phase 1: RAP (trace interpolation + LDE + GPU Merkle commit)
     let round_1 = gpu_round_1_goldilocks(air, trace, &domain, transcript, &state, &keccak_state)?;
 
-    // Phase 2: Composition polynomial - GPU constraint eval + GPU FFT LDE + GPU Merkle commit
+    // Phase 2: Composition polynomial - GPU constraint eval + GPU IFFT + GPU FFT LDE + GPU Merkle commit
     let round_2 = gpu_round_2_goldilocks_merkle(
         air,
         &domain,
@@ -159,6 +159,7 @@ where
         &state,
         Some(&constraint_state),
         &keccak_state,
+        &coset_state,
     )?;
 
     // Phase 3: OOD evaluations (CPU)
