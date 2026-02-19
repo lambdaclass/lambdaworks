@@ -142,17 +142,15 @@ where
 
 /// Constraint for the accumulated column.
 ///
-/// Verifies: `acc[i+1] - acc[i] - Σ terms[i] = 0`
+/// Verifies: `acc[i+1] - acc[i] - Σ terms[i+1] = 0`
 ///
-/// Note: reads terms from the *current* row (row i), not the next row.
-/// Combined with the boundary constraint `acc[0] = 0` (verifier-known),
-/// this ensures every term row 0..N-2 is connected to the accumulation
-/// chain, eliminating the prover's ability to inject arbitrary offsets.
+/// Reads terms from the *next* row (row i+1). Combined with boundary
+/// constraints `term[k][0] = initial_terms[k]` and `acc[0] = Σ initial_terms`,
+/// this ensures all rows 0..N-1 are covered by the accumulation chain.
 ///
 /// Uses `end_exemptions = 1` so the constraint covers rows 0..N-2.
-/// Terms at row N-1 are not in the chain but are still constrained by the
-/// degree-2 term constraint (which has `end_exemptions = 0`). Padding rows
-/// must have zero multiplicity.
+/// The transition connects terms at rows 1..N-1; row 0 terms are pinned
+/// by boundary constraints on the term columns.
 ///
 /// The boundary constraint `acc[N-1] = final_sum` pins the accumulated column.
 pub(crate) struct LookupAccumulatedConstraint {
@@ -203,7 +201,7 @@ where
             let acc_next = second_step.get_aux_evaluation_element(0, acc_column_idx);
 
             let terms_sum: FieldElement<B> = (0..num_term_columns)
-                .map(|i| first_step.get_aux_evaluation_element(0, i).clone())
+                .map(|i| second_step.get_aux_evaluation_element(0, i).clone())
                 .sum();
 
             acc_next - acc_curr - terms_sum

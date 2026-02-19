@@ -221,13 +221,13 @@ impl BusInteraction {
 
 /// Public inputs for a table's accumulated LogUp column.
 ///
-/// Note: `initial_value` is always zero (hardcoded verifier-known constant).
-/// It is kept here for documentation purposes; in practice only
-/// `final_accumulated` is needed for the cross-table bus balance check.
+/// Contains the initial term values (for row-0 boundary constraints) and the
+/// final accumulated value (for cross-table bus balance check).
 #[derive(Debug, Clone)]
 pub struct BusPublicInputs<E: IsField> {
-    /// Accumulated column value at row 0 (always zero — verifier-known constant).
-    pub initial_value: FieldElement<E>,
+    /// Term column values at row 0 (one per interaction).
+    /// Used for boundary constraints that enforce `term_i(0) = initial_terms[i]`.
+    pub initial_terms: Vec<FieldElement<E>>,
     /// Accumulated column value at last row.
     pub final_accumulated: FieldElement<E>,
 }

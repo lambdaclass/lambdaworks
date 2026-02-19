@@ -48,6 +48,8 @@ where
     interactions: Vec<BusInteraction>,
     trace_length: usize,
     pub_inputs: PI,
+    /// Stores the computed initial term values (row 0) after `build_auxiliary_trace()`.
+    initial_terms: RwLock<Vec<FieldElement<E>>>,
     /// Stores the computed final accumulated value (last row) after `build_auxiliary_trace()`.
     acc_final_value: RwLock<FieldElement<E>>,
     _phantom: PhantomData<(F, B)>,
@@ -114,6 +116,7 @@ where
             interactions,
             trace_length,
             pub_inputs,
+            initial_terms: RwLock::new(Vec::new()),
             acc_final_value: RwLock::new(FieldElement::<E>::zero()),
             _phantom: PhantomData,
         }
@@ -178,12 +181,17 @@ where
             build_logup_term_column(i, interaction, &main_segment_cols, trace, challenges)?;
         }
 
+        // Store initial term values (row 0) for boundary constraints.
+        let terms: Vec<FieldElement<E>> = (0..num_interactions)
+            .map(|i| trace.get_aux(0, i).clone())
+            .collect();
+        *self.initial_terms.write().unwrap() = terms;
+
         // Build accumulated column
         let acc_col_idx = num_interactions;
         build_accumulated_column(acc_col_idx, num_interactions, trace);
 
         // Store final accumulated value for boundary constraint.
-        // (Initial value is always 0, hardcoded in boundary_constraints().)
         let final_acc = trace.get_aux(trace.num_rows() - 1, acc_col_idx).clone();
         *self.acc_final_value.write().unwrap() = final_acc;
 
@@ -196,19 +204,35 @@ where
     ) -> BoundaryConstraints<Self::FieldExtension> {
         let mut constraints = vec![];
 
-        // LogUp boundary constraints: pin acc[0] = 0 and acc[N-1] = final_sum.
-        // acc[0] = 0 is a verifier-known constant (not prover-derived), which
-        // eliminates the prover's ability to inject offsets. For multi-table
-        // systems the caller verifies Σ acc[N-1]_i across all tables equals 0.
+        // LogUp boundary constraints:
+        // 1. Pin each term column at row 0: term[k](0) = initial_terms[k]
+        // 2. Pin acc[0] = Σ initial_terms
+        // 3. Pin acc[N-1] = final_accumulated
+        //
+        // Pinning row-0 terms prevents the prover from injecting offsets
+        // into acc[0]. For multi-table systems the caller verifies
+        // Σ final_accumulated across all tables equals 0.
         if !self.interactions.is_empty() {
             let acc_col_idx = self.interactions.len();
+            let initial_terms = self.initial_terms.read().unwrap();
 
-            constraints.push(BoundaryConstraint::new_aux(
-                acc_col_idx,
-                0,
-                FieldElement::<Self::FieldExtension>::zero(),
-            ));
+            // Boundary constraint per term column at row 0.
+            // Iterate over acc_col_idx (= num_interactions) rather than
+            // initial_terms.len() so that missing entries default to zero.
+            for i in 0..acc_col_idx {
+                let expected = initial_terms
+                    .get(i)
+                    .cloned()
+                    .unwrap_or_else(FieldElement::<Self::FieldExtension>::zero);
+                constraints.push(BoundaryConstraint::new_aux(i, 0, expected));
+            }
 
+            // acc[0] = Σ initial_terms
+            let initial_acc: FieldElement<Self::FieldExtension> =
+                initial_terms.iter().cloned().sum();
+            constraints.push(BoundaryConstraint::new_aux(acc_col_idx, 0, initial_acc));
+
+            // acc[N-1] = final_accumulated
             let final_value = self.acc_final_value.read().unwrap().clone();
             constraints.push(BoundaryConstraint::new_aux(
                 acc_col_idx,
@@ -495,5 +519,84 @@ mod tests {
             &air,
             &mut DefaultTranscript::<E>::new(&[]),
         ));
+    }
+
+    /// Cross-table bus test: Table A only sends, Table B only receives.
+    /// Neither table balances individually (acc[N-1] != 0), but
+    /// final_acc_A + final_acc_B = 0 (global bus balance).
+    #[test]
+    fn test_logup_cross_table_bus_balance() {
+        let trace_length = 8usize;
+        let challenges = vec![FE::from(123u64), FE::from(456u64)];
+
+        let values: Vec<FE> = (1..=8).map(|i| FE::from(i as u64)).collect();
+
+        // --- Table A: sender only ---
+        let main_a = vec![values.clone()];
+        let aux_zero = vec![FieldElement::<E>::zero(); trace_length];
+        let trace_aux_a = vec![aux_zero.clone(), aux_zero.clone()]; // 1 term + 1 acc
+        let mut trace_a = TraceTable::from_columns(main_a, trace_aux_a, 1);
+
+        let interactions_a = vec![BusInteraction::sender(
+            0u64,
+            Multiplicity::One,
+            vec![BusValue::column(0)],
+        )];
+
+        let proof_options = ProofOptions::default_test_options();
+
+        let air_a = AirWithLogUp::<F, E, NullBoundaryConstraintBuilder, ()>::new(
+            trace_length,
+            (),
+            1,
+            interactions_a,
+            &proof_options,
+            1,
+            vec![],
+        );
+
+        air_a
+            .build_auxiliary_trace(&mut trace_a, &challenges)
+            .unwrap();
+
+        let final_acc_a = *trace_a.get_aux(trace_length - 1, 1); // acc column at idx 1
+                                                                 // Sender-only table should NOT balance individually
+        assert_ne!(final_acc_a, FieldElement::<E>::zero());
+
+        // --- Table B: receiver only (same values) ---
+        let main_b = vec![values];
+        let trace_aux_b = vec![aux_zero.clone(), aux_zero];
+        let mut trace_b = TraceTable::from_columns(main_b, trace_aux_b, 1);
+
+        let interactions_b = vec![BusInteraction::receiver(
+            0u64,
+            Multiplicity::One,
+            vec![BusValue::column(0)],
+        )];
+
+        let air_b = AirWithLogUp::<F, E, NullBoundaryConstraintBuilder, ()>::new(
+            trace_length,
+            (),
+            1,
+            interactions_b,
+            &proof_options,
+            1,
+            vec![],
+        );
+
+        air_b
+            .build_auxiliary_trace(&mut trace_b, &challenges)
+            .unwrap();
+
+        let final_acc_b = *trace_b.get_aux(trace_length - 1, 1);
+        // Receiver-only table should NOT balance individually
+        assert_ne!(final_acc_b, FieldElement::<E>::zero());
+
+        // --- Cross-table check: Σ final_accumulated = 0 ---
+        assert_eq!(
+            final_acc_a + final_acc_b,
+            FieldElement::<E>::zero(),
+            "Cross-table bus balance failed: sender + receiver should sum to zero"
+        );
     }
 }
