@@ -259,8 +259,18 @@ where
         trace_step_size: usize,
         blowup_factor: usize,
     ) -> Self {
-        let main_table = Table::from_columns(main_columns);
-        let aux_table = Table::from_columns(aux_columns);
+        Self::from_columns_ref(&main_columns, &aux_columns, trace_step_size, blowup_factor)
+    }
+
+    /// Creates an LDETraceTable from borrowed column slices, avoiding cloning the input data.
+    pub fn from_columns_ref(
+        main_columns: &[Vec<FieldElement<F>>],
+        aux_columns: &[Vec<FieldElement<E>>],
+        trace_step_size: usize,
+        blowup_factor: usize,
+    ) -> Self {
+        let main_table = Table::from_columns_ref(main_columns);
+        let aux_table = Table::from_columns_ref(aux_columns);
         let lde_step_size = trace_step_size * blowup_factor;
 
         Self {

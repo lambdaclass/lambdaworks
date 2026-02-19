@@ -42,6 +42,11 @@ impl<'t, F: IsField> Table<F> {
 
     /// Creates a Table instance from a vector of the intended columns.
     pub fn from_columns(columns: Vec<Vec<FieldElement<F>>>) -> Self {
+        Self::from_columns_ref(&columns)
+    }
+
+    /// Creates a Table instance from borrowed column slices, avoiding ownership transfer.
+    pub fn from_columns_ref(columns: &[Vec<FieldElement<F>>]) -> Self {
         if columns.is_empty() {
             return Self::new(Vec::new(), 0);
         }

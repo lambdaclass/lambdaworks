@@ -110,11 +110,11 @@ where
     let transition_coefficients: Vec<_> = coefficients.drain(..num_transition).collect();
     let boundary_coefficients = coefficients;
 
-    // Step 2: Build LDETraceTable from GPU round 1 result.
+    // Step 2: Build LDETraceTable from GPU round 1 result (borrow, no clone).
     let blowup_factor = air.blowup_factor() as usize;
-    let lde_trace = LDETraceTable::from_columns(
-        round_1_result.main_lde_evaluations.clone(),
-        round_1_result.aux_lde_evaluations.clone(),
+    let lde_trace = LDETraceTable::from_columns_ref(
+        &round_1_result.main_lde_evaluations,
+        &round_1_result.aux_lde_evaluations,
         air.step_size(),
         blowup_factor,
     );
@@ -227,11 +227,11 @@ where
     let transition_coefficients: Vec<FpE> = coefficients.drain(..num_transition).collect();
     let boundary_coefficients = coefficients;
 
-    // Step 2: Build LDETraceTable from GPU round 1 result.
+    // Step 2: Build LDETraceTable from GPU round 1 result (borrow, no clone).
     let blowup_factor = air.blowup_factor() as usize;
-    let lde_trace = LDETraceTable::from_columns(
-        round_1_result.main_lde_evaluations.clone(),
-        round_1_result.aux_lde_evaluations.clone(),
+    let lde_trace = LDETraceTable::from_columns_ref(
+        &round_1_result.main_lde_evaluations,
+        &round_1_result.aux_lde_evaluations,
         air.step_size(),
         blowup_factor,
     );
@@ -402,9 +402,9 @@ where
     let boundary_coefficients = coefficients;
 
     let blowup_factor = air.blowup_factor() as usize;
-    let lde_trace = stark_platinum_prover::trace::LDETraceTable::from_columns(
-        round_1_result.main_lde_evaluations.clone(),
-        round_1_result.aux_lde_evaluations.clone(),
+    let lde_trace = stark_platinum_prover::trace::LDETraceTable::from_columns_ref(
+        &round_1_result.main_lde_evaluations,
+        &round_1_result.aux_lde_evaluations,
         air.step_size(),
         blowup_factor,
     );
