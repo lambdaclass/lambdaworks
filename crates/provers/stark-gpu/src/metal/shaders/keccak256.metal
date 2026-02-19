@@ -2,15 +2,11 @@
 using namespace metal;
 
 // =============================================================================
-// Keccak-256 implementation for Metal GPU
+// Keccak-256 implementation for Metal GPU (optimized for register pressure)
 //
-// Implements the full Keccak sponge construction matching the Rust sha3::Keccak256
-// crate (which uses Keccak-256 with NIST padding variant: 0x01 ... 0x80).
-//
-// Three components:
-// 1. keccak_f1600() - The Keccak-f[1600] permutation (24 rounds)
-// 2. keccak256_hash_leaves - Kernel: hash field element rows into 32-byte digests
-// 3. keccak256_hash_pairs - Kernel: hash pairs of 32-byte children into parent nodes
+// Uses scalar state variables instead of arrays to avoid register spills
+// on Apple Silicon GPUs. The keccak_f1600 permutation is fully unrolled
+// with combined ρ+π+χ steps to minimize live variable count.
 // =============================================================================
 
 // Keccak-f[1600] round constants (iota step)
@@ -29,173 +25,147 @@ constant uint64_t KECCAK_RC[24] = {
     0x0000000080000001UL, 0x8000000080008008UL
 };
 
-// Keccak rotation offsets for rho step
-constant uint ROT_OFFSETS[25] = {
-     0,  1, 62, 28, 27,
-    36, 44,  6, 55, 20,
-     3, 10, 43, 25, 39,
-    41, 45, 15, 21,  8,
-    18,  2, 61, 56, 14
-};
-
-// Pi step permutation indices
-constant uint PI_INDICES[25] = {
-     0, 10, 20,  5, 15,
-    16,  1, 11, 21,  6,
-     7, 17,  2, 12, 22,
-    23,  8, 18,  3, 13,
-    14, 24,  9, 19,  4
-};
-
-// Rotate left for uint64_t
 inline uint64_t rotl64(uint64_t x, uint n) {
     return (x << n) | (x >> (64 - n));
 }
 
-// Keccak-f[1600] permutation: 24 rounds on a 5x5 state of uint64_t
-inline void keccak_f1600(thread uint64_t* state) {
+// Byte-swap u64 for big-endian ↔ little-endian conversion.
+// Goldilocks as_bytes() is big-endian; Keccak lanes are little-endian.
+inline uint64_t bswap64(uint64_t x) {
+    x = ((x & 0x00FF00FF00FF00FFULL) << 8) | ((x >> 8) & 0x00FF00FF00FF00FFULL);
+    x = ((x & 0x0000FFFF0000FFFFULL) << 16) | ((x >> 16) & 0x0000FFFF0000FFFFULL);
+    return (x << 32) | (x >> 32);
+}
+
+// Keccak-f[1600] permutation: 24 rounds on a 5x5 state of uint64_t.
+// Uses scalar variables to help the Metal compiler keep state in registers.
+//
+// PI mapping (source index → B destination index):
+//   PI_INDICES = [0, 10, 20, 5, 15, 16, 1, 11, 21, 6,
+//                 7, 17,  2, 12, 22, 23,  8, 18,  3, 13,
+//                14, 24,  9, 19,  4]
+// ROT_OFFSETS = [0,  1, 62, 28, 27, 36, 44,  6, 55, 20,
+//                3, 10, 43, 25, 39, 41, 45, 15, 21,  8,
+//               18,  2, 61, 56, 14]
+inline void keccak_f1600(thread uint64_t* s) {
+    uint64_t s00=s[0],  s01=s[1],  s02=s[2],  s03=s[3],  s04=s[4];
+    uint64_t s05=s[5],  s06=s[6],  s07=s[7],  s08=s[8],  s09=s[9];
+    uint64_t s10=s[10], s11=s[11], s12=s[12], s13=s[13], s14=s[14];
+    uint64_t s15=s[15], s16=s[16], s17=s[17], s18=s[18], s19=s[19];
+    uint64_t s20=s[20], s21=s[21], s22=s[22], s23=s[23], s24=s[24];
+
     for (uint round = 0; round < 24; round++) {
-        // θ (theta) step
-        uint64_t C[5];
-        for (uint x = 0; x < 5; x++) {
-            C[x] = state[x] ^ state[x + 5] ^ state[x + 10] ^ state[x + 15] ^ state[x + 20];
-        }
-        uint64_t D[5];
-        for (uint x = 0; x < 5; x++) {
-            D[x] = C[(x + 4) % 5] ^ rotl64(C[(x + 1) % 5], 1);
-        }
-        for (uint i = 0; i < 25; i++) {
-            state[i] ^= D[i % 5];
-        }
+        // θ (theta)
+        uint64_t c0 = s00 ^ s05 ^ s10 ^ s15 ^ s20;
+        uint64_t c1 = s01 ^ s06 ^ s11 ^ s16 ^ s21;
+        uint64_t c2 = s02 ^ s07 ^ s12 ^ s17 ^ s22;
+        uint64_t c3 = s03 ^ s08 ^ s13 ^ s18 ^ s23;
+        uint64_t c4 = s04 ^ s09 ^ s14 ^ s19 ^ s24;
 
-        // ρ (rho) and π (pi) steps (combined)
-        uint64_t B[25];
-        for (uint i = 0; i < 25; i++) {
-            B[PI_INDICES[i]] = rotl64(state[i], ROT_OFFSETS[i]);
-        }
+        uint64_t d0 = c4 ^ rotl64(c1, 1);
+        uint64_t d1 = c0 ^ rotl64(c2, 1);
+        uint64_t d2 = c1 ^ rotl64(c3, 1);
+        uint64_t d3 = c2 ^ rotl64(c4, 1);
+        uint64_t d4 = c3 ^ rotl64(c0, 1);
 
-        // χ (chi) step
-        for (uint y = 0; y < 5; y++) {
-            for (uint x = 0; x < 5; x++) {
-                state[y * 5 + x] = B[y * 5 + x] ^ ((~B[y * 5 + (x + 1) % 5]) & B[y * 5 + (x + 2) % 5]);
-            }
-        }
+        s00 ^= d0; s01 ^= d1; s02 ^= d2; s03 ^= d3; s04 ^= d4;
+        s05 ^= d0; s06 ^= d1; s07 ^= d2; s08 ^= d3; s09 ^= d4;
+        s10 ^= d0; s11 ^= d1; s12 ^= d2; s13 ^= d3; s14 ^= d4;
+        s15 ^= d0; s16 ^= d1; s17 ^= d2; s18 ^= d3; s19 ^= d4;
+        s20 ^= d0; s21 ^= d1; s22 ^= d2; s23 ^= d3; s24 ^= d4;
 
-        // ι (iota) step
-        state[0] ^= KECCAK_RC[round];
-    }
-}
+        // ρ+π+χ combined, row by row.
+        // Each row reads from the post-θ state via ρ+π, then writes χ output.
+        // Since χ output overwrites state variables that later rows need,
+        // we save conflicting values before each row's writes.
 
-// Absorb bytes into the Keccak sponge state.
-// `data` points to the input bytes, `len` is the total byte count.
-// `state` is the 25 x uint64_t Keccak state (modified in-place).
-// Uses rate = 136 bytes (17 uint64_t lanes) for Keccak-256.
-inline void keccak_absorb(thread uint64_t* state, const device uchar* data, uint len) {
-    const uint RATE_BYTES = 136;  // 1088 bits = 17 lanes
-    const uint RATE_LANES = 17;
+        // Save values that Row 0 will overwrite (s00..s04)
+        uint64_t t01 = s01; // Row 2 needs A[1]
+        uint64_t t02 = s02; // Row 4 needs A[2]
+        uint64_t t03 = s03; // Row 1 needs A[3]
+        uint64_t t04 = s04; // Row 3 needs A[4]
 
-    uint offset = 0;
+        // Row 0: B[0,1,2,3,4] ← A[0], A[6], A[12], A[18], A[24]
+        uint64_t b0 = s00;
+        uint64_t b1 = rotl64(s06, 44);
+        uint64_t b2 = rotl64(s12, 43);
+        uint64_t b3 = rotl64(s18, 21);
+        uint64_t b4 = rotl64(s24, 14);
+        s00 = b0 ^ ((~b1) & b2);
+        s01 = b1 ^ ((~b2) & b3);
+        s02 = b2 ^ ((~b3) & b4);
+        s03 = b3 ^ ((~b4) & b0);
+        s04 = b4 ^ ((~b0) & b1);
 
-    // Process full blocks
-    while (offset + RATE_BYTES <= len) {
-        for (uint i = 0; i < RATE_LANES; i++) {
-            uint64_t lane = 0;
-            for (uint b = 0; b < 8; b++) {
-                lane |= (uint64_t)data[offset + i * 8 + b] << (b * 8);
-            }
-            state[i] ^= lane;
-        }
-        keccak_f1600(state);
-        offset += RATE_BYTES;
-    }
+        // Save values that Row 1 will overwrite (s05..s09)
+        uint64_t t05 = s05; // Row 3 needs A[5]
+        uint64_t t07 = s07; // Row 2 needs A[7]
+        uint64_t t08 = s08; // Row 4 needs A[8]
 
-    // Process remaining bytes (partial block)
-    uint remaining = len - offset;
-    // XOR remaining bytes into state (little-endian lane packing)
-    for (uint i = 0; i < remaining; i++) {
-        uint lane_idx = i / 8;
-        uint byte_idx = i % 8;
-        state[lane_idx] ^= (uint64_t)data[offset + i] << (byte_idx * 8);
-    }
+        // Row 1: B[5,6,7,8,9] ← A[3], A[9], A[10], A[16], A[22]
+        b0 = rotl64(t03, 28);
+        b1 = rotl64(s09, 20);
+        b2 = rotl64(s10, 3);
+        b3 = rotl64(s16, 45);
+        b4 = rotl64(s22, 61);
+        s05 = b0 ^ ((~b1) & b2);
+        s06 = b1 ^ ((~b2) & b3);
+        s07 = b2 ^ ((~b3) & b4);
+        s08 = b3 ^ ((~b4) & b0);
+        s09 = b4 ^ ((~b0) & b1);
 
-    // Multi-rate padding: pad byte = 0x01, last byte of block = 0x80
-    // For Keccak-256 (not SHA3-256): domain separation byte is 0x01
-    uint pad_pos = remaining;
-    uint pad_lane = pad_pos / 8;
-    uint pad_byte = pad_pos % 8;
-    state[pad_lane] ^= (uint64_t)0x01 << (pad_byte * 8);
+        // Save values that Row 2 will overwrite (s10..s14)
+        uint64_t t11 = s11; // Row 3 needs A[11]
+        uint64_t t14 = s14; // Row 4 needs A[14]
 
-    // Set the last bit of the rate block
-    uint last_pos = RATE_BYTES - 1;
-    uint last_lane = last_pos / 8;
-    uint last_byte = last_pos % 8;
-    state[last_lane] ^= (uint64_t)0x80 << (last_byte * 8);
+        // Row 2: B[10,11,12,13,14] ← A[1], A[7], A[13], A[19], A[20]
+        b0 = rotl64(t01, 1);
+        b1 = rotl64(t07, 6);
+        b2 = rotl64(s13, 25);
+        b3 = rotl64(s19, 8);
+        b4 = rotl64(s20, 18);
+        s10 = b0 ^ ((~b1) & b2);
+        s11 = b1 ^ ((~b2) & b3);
+        s12 = b2 ^ ((~b3) & b4);
+        s13 = b3 ^ ((~b4) & b0);
+        s14 = b4 ^ ((~b0) & b1);
 
-    // Final permutation
-    keccak_f1600(state);
-}
+        // Save values that Row 3 will overwrite (s15..s19)
+        uint64_t t15 = s15; // Row 4 needs A[15]
 
-// Squeeze 32 bytes (256 bits) from the sponge state (little-endian lane extraction).
-inline void keccak_squeeze(thread uint64_t* state, device uchar* out) {
-    for (uint i = 0; i < 4; i++) {  // 4 lanes * 8 bytes = 32 bytes
-        uint64_t lane = state[i];
-        for (uint b = 0; b < 8; b++) {
-            out[i * 8 + b] = (uchar)(lane >> (b * 8));
-        }
-    }
-}
+        // Row 3: B[15,16,17,18,19] ← A[4], A[5], A[11], A[17], A[23]
+        b0 = rotl64(t04, 27);
+        b1 = rotl64(t05, 36);
+        b2 = rotl64(t11, 10);
+        b3 = rotl64(s17, 15);
+        b4 = rotl64(s23, 56);
+        s15 = b0 ^ ((~b1) & b2);
+        s16 = b1 ^ ((~b2) & b3);
+        s17 = b2 ^ ((~b3) & b4);
+        s18 = b3 ^ ((~b4) & b0);
+        s19 = b4 ^ ((~b0) & b1);
 
-// =============================================================================
-// Variant: absorb from a thread-local buffer (for leaf hashing where we
-// first serialize field elements into a thread-local byte array)
-// =============================================================================
+        // Row 4: B[20,21,22,23,24] ← A[2], A[8], A[14], A[15], A[21]
+        b0 = rotl64(t02, 62);
+        b1 = rotl64(t08, 55);
+        b2 = rotl64(t14, 39);
+        b3 = rotl64(t15, 41);
+        b4 = rotl64(s21, 2);
+        s20 = b0 ^ ((~b1) & b2);
+        s21 = b1 ^ ((~b2) & b3);
+        s22 = b2 ^ ((~b3) & b4);
+        s23 = b3 ^ ((~b4) & b0);
+        s24 = b4 ^ ((~b0) & b1);
 
-inline void keccak_absorb_local(thread uint64_t* state, thread const uchar* data, uint len) {
-    const uint RATE_BYTES = 136;
-    const uint RATE_LANES = 17;
-
-    uint offset = 0;
-
-    while (offset + RATE_BYTES <= len) {
-        for (uint i = 0; i < RATE_LANES; i++) {
-            uint64_t lane = 0;
-            for (uint b = 0; b < 8; b++) {
-                lane |= (uint64_t)data[offset + i * 8 + b] << (b * 8);
-            }
-            state[i] ^= lane;
-        }
-        keccak_f1600(state);
-        offset += RATE_BYTES;
+        // ι (iota)
+        s00 ^= KECCAK_RC[round];
     }
 
-    uint remaining = len - offset;
-    for (uint i = 0; i < remaining; i++) {
-        uint lane_idx = i / 8;
-        uint byte_idx = i % 8;
-        state[lane_idx] ^= (uint64_t)data[offset + i] << (byte_idx * 8);
-    }
-
-    uint pad_pos = remaining;
-    uint pad_lane = pad_pos / 8;
-    uint pad_byte = pad_pos % 8;
-    state[pad_lane] ^= (uint64_t)0x01 << (pad_byte * 8);
-
-    uint last_pos = RATE_BYTES - 1;
-    uint last_lane = last_pos / 8;
-    uint last_byte = last_pos % 8;
-    state[last_lane] ^= (uint64_t)0x80 << (last_byte * 8);
-
-    keccak_f1600(state);
-}
-
-// Squeeze to thread-local buffer
-inline void keccak_squeeze_local(thread uint64_t* state, thread uchar* out) {
-    for (uint i = 0; i < 4; i++) {
-        uint64_t lane = state[i];
-        for (uint b = 0; b < 8; b++) {
-            out[i * 8 + b] = (uchar)(lane >> (b * 8));
-        }
-    }
+    s[0]=s00; s[1]=s01; s[2]=s02; s[3]=s03; s[4]=s04;
+    s[5]=s05; s[6]=s06; s[7]=s07; s[8]=s08; s[9]=s09;
+    s[10]=s10; s[11]=s11; s[12]=s12; s[13]=s13; s[14]=s14;
+    s[15]=s15; s[16]=s16; s[17]=s17; s[18]=s18; s[19]=s19;
+    s[20]=s20; s[21]=s21; s[22]=s22; s[23]=s23; s[24]=s24;
 }
 
 // =============================================================================
@@ -205,6 +175,9 @@ inline void keccak_squeeze_local(thread uint64_t* state, thread uchar* out) {
 // Input: flat row-major u64 array, where row i starts at lde_data[i * num_cols]
 // Each u64 is serialized as 8 bytes big-endian (matching Goldilocks as_bytes())
 // Output: 32 bytes per leaf at output[gid * 32]
+//
+// Optimized: since each field element is exactly one Keccak lane (8 bytes),
+// we pack lanes directly using bswap64 instead of byte-by-byte absorption.
 // =============================================================================
 
 [[kernel]] void keccak256_hash_leaves(
@@ -216,73 +189,44 @@ inline void keccak_squeeze_local(thread uint64_t* state, thread uchar* out) {
 ) {
     if (gid >= num_rows) return;
 
-    // Initialize Keccak state to zero
     uint64_t state[25] = {0};
-
-    // Serialize field elements to bytes in a thread-local buffer.
-    // Max supported: 256 columns * 8 bytes = 2048 bytes.
-    // For larger inputs, we absorb in chunks.
-    const uint RATE_BYTES = 136;
-    const uint RATE_LANES = 17;
-
-    uint total_bytes = num_cols * 8;
     uint data_offset = gid * num_cols;
 
-    // We process the data by absorbing it directly into the sponge
-    // without materializing the full byte array. We build lanes on-the-fly.
+    // Each u64 field element = 8 big-endian bytes = 1 Keccak lane (byte-swapped).
+    // Rate = 17 lanes (136 bytes). Process in chunks of 17 columns.
 
-    // Track position within the current rate block
-    uint block_pos = 0;  // byte position within current block
+    uint col = 0;
 
-    for (uint col = 0; col < num_cols; col++) {
-        uint64_t val = lde_data[data_offset + col];
-
-        // Serialize as big-endian 8 bytes
-        uchar bytes[8];
-        bytes[0] = (uchar)(val >> 56);
-        bytes[1] = (uchar)(val >> 48);
-        bytes[2] = (uchar)(val >> 40);
-        bytes[3] = (uchar)(val >> 32);
-        bytes[4] = (uchar)(val >> 24);
-        bytes[5] = (uchar)(val >> 16);
-        bytes[6] = (uchar)(val >> 8);
-        bytes[7] = (uchar)(val);
-
-        // XOR each byte into the appropriate lane in the state
-        for (uint b = 0; b < 8; b++) {
-            uint lane_idx = block_pos / 8;
-            uint byte_idx = block_pos % 8;
-            state[lane_idx] ^= (uint64_t)bytes[b] << (byte_idx * 8);
-            block_pos++;
-
-            if (block_pos == RATE_BYTES) {
-                keccak_f1600(state);
-                block_pos = 0;
-            }
+    // Full rate blocks (17 columns per block)
+    while (col + 17 <= num_cols) {
+        for (uint i = 0; i < 17; i++) {
+            state[i] ^= bswap64(lde_data[data_offset + col + i]);
         }
+        keccak_f1600(state);
+        col += 17;
     }
 
-    // Padding
-    // Multi-rate padding: 0x01 at current position, 0x80 at last byte of block
-    uint pad_lane = block_pos / 8;
-    uint pad_byte = block_pos % 8;
-    state[pad_lane] ^= (uint64_t)0x01 << (pad_byte * 8);
+    // Remaining columns (partial block, always < 17)
+    uint remaining = num_cols - col;
+    for (uint i = 0; i < remaining; i++) {
+        state[i] ^= bswap64(lde_data[data_offset + col + i]);
+    }
 
-    uint last_pos = RATE_BYTES - 1;
-    uint last_lane = last_pos / 8;
-    uint last_byte_pos = last_pos % 8;
-    state[last_lane] ^= (uint64_t)0x80 << (last_byte_pos * 8);
+    // Padding at byte position remaining * 8
+    // Since remaining < 17, pad_lane = remaining, pad_byte = 0
+    state[remaining] ^= (uint64_t)0x01;  // 0x01 at byte (remaining * 8)
+
+    // Last byte of rate block (byte 135 = lane 16, byte 7)
+    state[16] ^= (uint64_t)0x80 << 56;
 
     keccak_f1600(state);
 
-    // Squeeze 32 bytes
-    device uchar* out = output + gid * 32;
-    for (uint i = 0; i < 4; i++) {
-        uint64_t lane = state[i];
-        for (uint b = 0; b < 8; b++) {
-            out[i * 8 + b] = (uchar)(lane >> (b * 8));
-        }
-    }
+    // Squeeze 32 bytes: write 4 lanes as little-endian uint64_t
+    device ulong* out64 = (device ulong*)(output + gid * 32);
+    out64[0] = state[0];
+    out64[1] = state[1];
+    out64[2] = state[2];
+    out64[3] = state[3];
 }
 
 // =============================================================================
@@ -290,6 +234,9 @@ inline void keccak_squeeze_local(thread uint64_t* state, thread uchar* out) {
 //
 // Each thread takes two consecutive 32-byte child hashes and produces
 // one 32-byte parent hash: parent[gid] = Keccak256(child[2*gid] || child[2*gid+1])
+//
+// Optimized: children hashes are in Keccak lane format (little-endian u64),
+// so we load them as uint64_t directly without byte-by-byte packing.
 // =============================================================================
 
 [[kernel]] void keccak256_hash_pairs(
@@ -300,128 +247,77 @@ inline void keccak_squeeze_local(thread uint64_t* state, thread uchar* out) {
 ) {
     if (gid >= num_pairs) return;
 
-    // Read 64 bytes (two 32-byte children) from device memory
-    device const uchar* input = children + gid * 64;
+    // Load 64 bytes (8 lanes) directly as uint64_t
+    device const ulong* in64 = (device const ulong*)(children + gid * 64);
 
-    // Initialize Keccak state
     uint64_t state[25] = {0};
+    state[0] = in64[0];
+    state[1] = in64[1];
+    state[2] = in64[2];
+    state[3] = in64[3];
+    state[4] = in64[4];
+    state[5] = in64[5];
+    state[6] = in64[6];
+    state[7] = in64[7];
 
-    // Absorb 64 bytes (less than rate=136, so single block)
-    // Pack bytes into lanes (little-endian)
-    for (uint i = 0; i < 8; i++) {  // 8 lanes = 64 bytes
-        uint64_t lane = 0;
-        for (uint b = 0; b < 8; b++) {
-            lane |= (uint64_t)input[i * 8 + b] << (b * 8);
-        }
-        state[i] ^= lane;
-    }
+    // Padding at byte 64 (lane 8, byte 0)
+    state[8] ^= (uint64_t)0x01;
 
-    // Padding at byte 64
-    uint pad_lane = 64 / 8;  // lane 8
-    uint pad_byte = 64 % 8;  // byte 0
-    state[pad_lane] ^= (uint64_t)0x01 << (pad_byte * 8);
-
-    uint last_pos = 135;  // RATE_BYTES - 1
-    uint last_lane = last_pos / 8;  // lane 16
-    uint last_byte_pos = last_pos % 8;  // byte 7
-    state[last_lane] ^= (uint64_t)0x80 << (last_byte_pos * 8);
+    // Last byte of rate block (byte 135 = lane 16, byte 7)
+    state[16] ^= (uint64_t)0x80 << 56;
 
     keccak_f1600(state);
 
-    // Squeeze 32 bytes
-    device uchar* out = parents + gid * 32;
-    for (uint i = 0; i < 4; i++) {
-        uint64_t lane = state[i];
-        for (uint b = 0; b < 8; b++) {
-            out[i * 8 + b] = (uchar)(lane >> (b * 8));
-        }
-    }
+    // Squeeze 32 bytes as 4 uint64_t lanes
+    device ulong* out64 = (device ulong*)(parents + gid * 32);
+    out64[0] = state[0];
+    out64[1] = state[1];
+    out64[2] = state[2];
+    out64[3] = state[3];
 }
 
 // =============================================================================
 // Kernel 3: Grinding nonce search
-//
-// Each thread tests one nonce candidate: nonce = batch_offset + gid
-// Computes Keccak256(inner_hash[32] || nonce_be[8]) and checks if
-// the first 8 bytes (big-endian u64) < limit.
-//
-// Result buffer: single atomic_uint initialized to UINT_MAX.
-// Valid threads write atomic_min(result, gid) to find the smallest valid
-// nonce in the batch. Nonce = batch_offset + result[0].
 // =============================================================================
 
 [[kernel]] void keccak256_grind_nonce(
-    device const uchar*   inner_hash    [[ buffer(0) ]],  // 32 bytes
-    device atomic_uint*   result        [[ buffer(1) ]],   // min valid gid (UINT_MAX = none)
+    device const uchar*   inner_hash    [[ buffer(0) ]],
+    device atomic_uint*   result        [[ buffer(1) ]],
     constant ulong&       limit         [[ buffer(2) ]],
     constant ulong&       batch_offset  [[ buffer(3) ]],
     uint gid                            [[ thread_position_in_grid ]]
 ) {
     ulong nonce = batch_offset + (ulong)gid;
 
-    // Initialize Keccak state
     uint64_t state[25] = {0};
 
-    // Absorb 40 bytes: inner_hash[32] || nonce_be[8]
-    // All fits in one rate block (40 < 136), so no intermediate permutation.
+    // Absorb inner_hash[32] as 4 lanes
+    device const ulong* ih64 = (device const ulong*)inner_hash;
+    state[0] = ih64[0];
+    state[1] = ih64[1];
+    state[2] = ih64[2];
+    state[3] = ih64[3];
 
-    // Pack inner_hash[0..32] into lanes 0..3 (little-endian)
-    for (uint i = 0; i < 4; i++) {
-        uint64_t lane = 0;
-        for (uint b = 0; b < 8; b++) {
-            lane |= (uint64_t)inner_hash[i * 8 + b] << (b * 8);
-        }
-        state[i] ^= lane;
-    }
+    // Nonce as 8 bytes big-endian → 1 lane byte-swapped
+    state[4] ^= bswap64(nonce);
 
-    // Pack nonce as 8 bytes big-endian into lane 4
-    uchar nonce_bytes[8];
-    nonce_bytes[0] = (uchar)(nonce >> 56);
-    nonce_bytes[1] = (uchar)(nonce >> 48);
-    nonce_bytes[2] = (uchar)(nonce >> 40);
-    nonce_bytes[3] = (uchar)(nonce >> 32);
-    nonce_bytes[4] = (uchar)(nonce >> 24);
-    nonce_bytes[5] = (uchar)(nonce >> 16);
-    nonce_bytes[6] = (uchar)(nonce >> 8);
-    nonce_bytes[7] = (uchar)(nonce);
-    {
-        uint64_t lane = 0;
-        for (uint b = 0; b < 8; b++) {
-            lane |= (uint64_t)nonce_bytes[b] << (b * 8);
-        }
-        state[4] ^= lane;
-    }
-
-    // Padding at byte 40: multi-rate padding 0x01 ... 0x80
-    state[5] ^= (uint64_t)0x01;  // lane 5, byte 0 = position 40
-    // Last byte of rate block (position 135 = lane 16, byte 7)
+    // Padding at byte 40 (lane 5, byte 0)
+    state[5] ^= (uint64_t)0x01;
+    // Last byte of rate block (byte 135 = lane 16, byte 7)
     state[16] ^= (uint64_t)0x80 << 56;
 
     keccak_f1600(state);
 
     // Extract first 8 bytes of digest as big-endian u64
-    // state[0] contains bytes 0..7 in little-endian lane format
-    uint64_t first_lane = state[0];
-    ulong digest_head = 0;
-    for (uint b = 0; b < 8; b++) {
-        digest_head = (digest_head << 8) | ((first_lane >> (b * 8)) & 0xFF);
-    }
+    ulong digest_head = bswap64(state[0]);
 
     if (digest_head < limit) {
-        // Atomically track the minimum valid gid in this batch
         atomic_fetch_min_explicit(&result[0], gid, memory_order_relaxed);
     }
 }
 
 // =============================================================================
 // Kernel 4: Column-to-row transpose with bit-reversal
-//
-// Converts column-major LDE data to row-major bit-reversed layout.
-// Input: flat column-major: col0[0..M], col1[0..M], ... (N columns, M rows)
-// Output: flat row-major: row_br(0)[0..N], row_br(1)[0..N], ...
-// where br(i) = bit_reverse(i, log2(M))
-//
-// Thread gid = output row index.
 // =============================================================================
 
 [[kernel]] void transpose_bitrev_goldilocks(
@@ -433,7 +329,7 @@ inline void keccak_squeeze_local(thread uint64_t* state, thread uchar* out) {
 ) {
     if (gid >= num_rows) return;
 
-    // Compute log2(num_rows) - num_rows must be power of two
+    // Compute log2(num_rows)
     uint log2_n = 0;
     {
         uint tmp = num_rows;
@@ -450,8 +346,6 @@ inline void keccak_squeeze_local(thread uint64_t* state, thread uchar* out) {
         }
     }
 
-    // Copy N elements: for each column c, read columns[c * num_rows + src_row]
-    // and write to rows[gid * num_cols + c]
     uint out_base = gid * num_cols;
     for (uint c = 0; c < num_cols; c++) {
         rows[out_base + c] = columns[c * num_rows + src_row];
