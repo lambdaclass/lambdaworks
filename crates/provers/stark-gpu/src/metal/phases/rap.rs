@@ -18,7 +18,7 @@ use stark_platinum_prover::traits::AIR;
 
 #[cfg(all(target_os = "macos", feature = "metal"))]
 use crate::metal::fft::{
-    gpu_evaluate_offset_fft, gpu_evaluate_offset_fft_to_buffer, gpu_interpolate_fft,
+    gpu_evaluate_offset_fft, gpu_evaluate_offset_fft_to_buffers_batch, gpu_interpolate_fft,
 };
 use crate::metal::merkle::cpu_batch_commit;
 #[cfg(all(target_os = "macos", feature = "metal"))]
@@ -315,8 +315,9 @@ where
 /// [`gpu_batch_commit_from_column_buffers`] for zero-copy Merkle commit, while
 /// the CPU Vecs are used by later prover phases (constraint evaluation, OOD, queries).
 ///
-/// Twiddle factors are generated once and reused for all columns.
+/// Twiddle factors are generated once and reused for all columns (batch FFT).
 #[cfg(all(target_os = "macos", feature = "metal"))]
+#[allow(clippy::type_complexity)]
 fn evaluate_polys_on_lde_gpu_to_buffers(
     polys: &[Polynomial<FieldElement<Goldilocks64Field>>],
     blowup_factor: usize,
@@ -333,19 +334,18 @@ fn evaluate_polys_on_lde_gpu_to_buffers(
         return Ok((Vec::new(), Vec::new()));
     }
 
+    // Collect coefficient slices for batch FFT (shared twiddles)
+    let coeff_slices: Vec<&[FieldElement<Goldilocks64Field>]> =
+        polys.iter().map(|p| p.coefficients()).collect();
+
+    let buffer_results =
+        gpu_evaluate_offset_fft_to_buffers_batch(&coeff_slices, blowup_factor, offset, state.inner())
+            .map_err(|e| ProvingError::FieldOperationError(format!("GPU LDE FFT error: {e}")))?;
+
     let mut cpu_results = Vec::with_capacity(polys.len());
     let mut gpu_buffers = Vec::with_capacity(polys.len());
 
-    for poly in polys {
-        // Use the buffer-returning FFT wrapper
-        let (buffer, _domain_size) = gpu_evaluate_offset_fft_to_buffer(
-            poly.coefficients(),
-            blowup_factor,
-            offset,
-            state.inner(),
-        )
-        .map_err(|e| ProvingError::FieldOperationError(format!("GPU LDE FFT error: {e}")))?;
-
+    for (buffer, _domain_size) in buffer_results {
         // Read buffer contents to CPU Vec for later phases
         let raw: Vec<u64> = MetalState::retrieve_contents(&buffer);
         let elements: Vec<FieldElement<Goldilocks64Field>> =

@@ -24,7 +24,7 @@ use stark_platinum_prover::trace::LDETraceTable;
 use stark_platinum_prover::traits::AIR;
 
 #[cfg(all(target_os = "macos", feature = "metal"))]
-use crate::metal::fft::{gpu_evaluate_offset_fft, gpu_evaluate_offset_fft_to_buffer};
+use crate::metal::fft::{gpu_evaluate_offset_fft, gpu_evaluate_offset_fft_to_buffers_batch};
 use crate::metal::merkle::cpu_batch_commit;
 use crate::metal::phases::rap::GpuRound1Result;
 #[cfg(all(target_os = "macos", feature = "metal"))]
@@ -495,19 +495,24 @@ where
     }
     let composition_poly_parts = composition_poly.break_in_parts(number_of_parts);
 
-    // Evaluate each part on LDE domain, keeping FFT results as GPU buffers
+    // Evaluate each part on LDE domain with shared twiddles, keeping FFT buffers
+    let coeff_slices: Vec<&[FpE]> = composition_poly_parts
+        .iter()
+        .map(|p| p.coefficients())
+        .collect();
+
+    let buffer_results = gpu_evaluate_offset_fft_to_buffers_batch(
+        &coeff_slices,
+        blowup_factor,
+        &coset_offset,
+        state.inner(),
+    )
+    .map_err(|e| ProvingError::FieldOperationError(format!("GPU LDE FFT error: {e}")))?;
+
     let mut lde_evaluations: Vec<Vec<FpE>> = Vec::with_capacity(composition_poly_parts.len());
     let mut lde_buffers: Vec<metal::Buffer> = Vec::with_capacity(composition_poly_parts.len());
 
-    for part in &composition_poly_parts {
-        let (buffer, _domain_size) = gpu_evaluate_offset_fft_to_buffer(
-            part.coefficients(),
-            blowup_factor,
-            &coset_offset,
-            state.inner(),
-        )
-        .map_err(|e| ProvingError::FieldOperationError(format!("GPU LDE FFT error: {e}")))?;
-
+    for (buffer, _domain_size) in buffer_results {
         // Read buffer to CPU Vec for later phases (OOD, queries)
         let raw: Vec<u64> = MetalState::retrieve_contents(&buffer);
         let elements: Vec<FpE> = raw.into_iter().map(FieldElement::from_raw).collect();

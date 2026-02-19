@@ -160,6 +160,55 @@ where
     Ok((result_buffer, domain_size))
 }
 
+/// Batch-evaluates multiple polynomials on the same offset coset domain, returning GPU Buffers.
+///
+/// Like calling [`gpu_evaluate_offset_fft_to_buffer`] for each polynomial but generates
+/// twiddle factors only once and reuses them for all polynomials in the batch.
+///
+/// Returns a vector of (Metal Buffer, element count) pairs, one per polynomial.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+pub fn gpu_evaluate_offset_fft_to_buffers_batch<F>(
+    polynomials: &[&[FieldElement<F>]],
+    blowup_factor: usize,
+    offset: &FieldElement<F>,
+    state: &MetalState,
+) -> Result<Vec<(metal::Buffer, usize)>, MetalError>
+where
+    F: IsFFTField + IsSubFieldOf<F>,
+    F::BaseType: Copy,
+{
+    if polynomials.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let domain_size = polynomials[0].len() * blowup_factor;
+    let order = domain_size.trailing_zeros() as u64;
+
+    // Generate twiddles ONCE for the shared domain
+    let twiddles_buffer = gen_twiddles_to_buffer::<F>(order, RootsConfig::BitReverse, state)?;
+
+    let mut results = Vec::with_capacity(polynomials.len());
+
+    for coefficients in polynomials {
+        let poly_domain_size = coefficients.len() * blowup_factor;
+
+        // Coset shift: multiply coefficient k by offset^k
+        let mut shifted = Vec::with_capacity(poly_domain_size);
+        let mut offset_power = FieldElement::<F>::one();
+        for coeff in *coefficients {
+            shifted.push(coeff * &offset_power);
+            offset_power = &offset_power * offset;
+        }
+        shifted.resize(poly_domain_size, FieldElement::zero());
+
+        // FFT with shared twiddles, result stays on GPU
+        let result_buffer = fft_to_buffer::<F>(&shifted, &twiddles_buffer, state)?;
+        results.push((result_buffer, poly_domain_size));
+    }
+
+    Ok(results)
+}
+
 #[cfg(all(test, target_os = "macos", feature = "metal"))]
 mod tests {
     use super::*;
