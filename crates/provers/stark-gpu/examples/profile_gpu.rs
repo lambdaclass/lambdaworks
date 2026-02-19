@@ -85,9 +85,10 @@ fn profile_gpu_optimized(
 ) {
     use lambdaworks_stark_gpu::metal::constraint_eval::FibRapConstraintState;
     use lambdaworks_stark_gpu::metal::deep_composition::DeepCompositionState;
+    use lambdaworks_stark_gpu::metal::fft::CosetShiftState;
     use lambdaworks_stark_gpu::metal::merkle::GpuKeccakMerkleState;
     use lambdaworks_stark_gpu::metal::phases::composition::gpu_round_2_goldilocks_merkle;
-    use lambdaworks_stark_gpu::metal::phases::fri::gpu_round_4_goldilocks;
+    use lambdaworks_stark_gpu::metal::phases::fri::{gpu_round_4_goldilocks, FriFoldState};
     use lambdaworks_stark_gpu::metal::phases::ood::gpu_round_3;
     use lambdaworks_stark_gpu::metal::phases::rap::gpu_round_1_goldilocks;
     use lambdaworks_stark_gpu::metal::state::StarkMetalState;
@@ -103,6 +104,8 @@ fn profile_gpu_optimized(
     let constraint_state = FibRapConstraintState::new().unwrap();
     let deep_comp_state = DeepCompositionState::new().unwrap();
     let keccak_state = GpuKeccakMerkleState::new().unwrap();
+    let coset_state = CosetShiftState::new().unwrap();
+    let fri_fold_state = FriFoldState::new().unwrap();
     let domain = Domain::new(&air);
     println!("  Setup (shaders):   {:>10.2?}", t.elapsed());
 
@@ -153,6 +156,8 @@ fn profile_gpu_optimized(
         &state,
         Some(&deep_comp_state),
         &keccak_state,
+        &coset_state,
+        &fri_fold_state,
     )
     .unwrap();
     let phase4_time = t.elapsed();
@@ -491,8 +496,10 @@ fn profile_phase4(
     use lambdaworks_stark_gpu::metal::deep_composition::{
         gpu_compute_deep_composition_poly, DeepCompositionState,
     };
+    use lambdaworks_stark_gpu::metal::fft::CosetShiftState;
     use lambdaworks_stark_gpu::metal::merkle::GpuKeccakMerkleState;
     use lambdaworks_stark_gpu::metal::phases::composition::gpu_round_2_goldilocks_merkle;
+    use lambdaworks_stark_gpu::metal::phases::fri::FriFoldState;
     use lambdaworks_stark_gpu::metal::phases::ood::gpu_round_3;
     use lambdaworks_stark_gpu::metal::phases::rap::gpu_round_1_goldilocks;
     use lambdaworks_stark_gpu::metal::state::StarkMetalState;
@@ -505,6 +512,8 @@ fn profile_phase4(
     let constraint_state = FibRapConstraintState::new().unwrap();
     let deep_comp_state = DeepCompositionState::new().unwrap();
     let keccak_state = GpuKeccakMerkleState::new().unwrap();
+    let coset_state = CosetShiftState::new().unwrap();
+    let fri_fold_state = FriFoldState::new().unwrap();
     let domain = Domain::new(&air);
     let mut transcript = DefaultTranscript::<F>::new(&[]);
 
@@ -574,6 +583,8 @@ fn profile_phase4(
         domain_size,
         &state,
         &keccak_state,
+        &coset_state,
+        &fri_fold_state,
     )
     .unwrap();
     println!(

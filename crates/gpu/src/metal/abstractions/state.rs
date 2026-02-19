@@ -207,6 +207,20 @@ impl DynamicMetalState {
         })
     }
 
+    /// Create a new dynamic Metal state sharing a device and command queue with an existing state.
+    ///
+    /// Reuses the same Metal device and command queue, only maintaining a separate
+    /// pipeline cache and shader library. This avoids exhausting GPU resources when
+    /// many shader states coexist.
+    pub fn from_device_and_queue(device: &Device, queue: &CommandQueue) -> Self {
+        Self {
+            device: device.clone(),
+            command_queue: queue.clone(),
+            pipelines: HashMap::new(),
+            library: None,
+        }
+    }
+
     /// Get a reference to the Metal device.
     pub fn device(&self) -> &Device {
         &self.device

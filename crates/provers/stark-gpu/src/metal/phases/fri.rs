@@ -37,18 +37,22 @@ use crate::metal::deep_composition::{gpu_compute_deep_composition_poly, DeepComp
 #[cfg(all(target_os = "macos", feature = "metal"))]
 use crate::metal::fft::gpu_evaluate_offset_fft;
 #[cfg(all(target_os = "macos", feature = "metal"))]
-use crate::metal::merkle::{gpu_fri_layer_commit, GpuKeccakMerkleState};
+use crate::metal::fft::{CosetShiftState, gpu_coset_shift_buffer_to_buffer};
+#[cfg(all(target_os = "macos", feature = "metal"))]
+use crate::metal::merkle::{gpu_fri_layer_commit, gpu_fri_layer_commit_from_buffer, GpuKeccakMerkleState};
 #[cfg(all(target_os = "macos", feature = "metal"))]
 use crate::metal::state::StarkMetalState;
 #[cfg(all(target_os = "macos", feature = "metal"))]
 use lambdaworks_math::fft::cpu::bit_reversing::in_place_bit_reverse_permute;
 #[cfg(all(target_os = "macos", feature = "metal"))]
+use lambdaworks_math::fft::gpu::metal::ops::{fft_buffer_to_buffer, gen_twiddles_to_buffer};
+#[cfg(all(target_os = "macos", feature = "metal"))]
 use lambdaworks_math::field::fields::u64_goldilocks_field::Goldilocks64Field;
 #[cfg(all(target_os = "macos", feature = "metal"))]
-use lambdaworks_math::field::traits::IsPrimeField;
+use lambdaworks_math::field::traits::{IsPrimeField, RootsConfig};
 
 #[cfg(all(target_os = "macos", feature = "metal"))]
-use lambdaworks_gpu::metal::abstractions::{errors::MetalError, state::DynamicMetalState};
+use lambdaworks_gpu::metal::abstractions::{errors::MetalError, state::{DynamicMetalState, MetalState}};
 
 // =============================================================================
 // GPU FRI Fold kernel (Goldilocks-specific)
@@ -91,6 +95,22 @@ impl FriFoldState {
             fri_fold_max_threads,
         })
     }
+
+    /// Compile the FRI fold shader sharing a device and queue with an existing Metal state.
+    ///
+    /// This avoids creating new Metal device/queue pairs, reducing GPU resource usage
+    /// when many shader states coexist.
+    pub fn from_device_and_queue(device: &metal::Device, queue: &metal::CommandQueue) -> Result<Self, MetalError> {
+        let combined_source = format!("{}\n{}", FRI_GOLDILOCKS_FIELD_HEADER, FRI_FOLD_SHADER);
+
+        let mut state = DynamicMetalState::from_device_and_queue(device, queue);
+        state.load_library(&combined_source)?;
+        let fri_fold_max_threads = state.prepare_pipeline("goldilocks_fri_fold")?;
+        Ok(Self {
+            state,
+            fri_fold_max_threads,
+        })
+    }
 }
 
 /// Perform FRI fold on GPU from an existing Metal buffer.
@@ -117,7 +137,54 @@ pub fn gpu_fold_polynomial(
 ) -> Result<(metal::Buffer, usize), MetalError> {
     use metal::MTLSize;
 
-    let half_len = num_coeffs / 2;
+    // Handle edge case: 0 or 1 coefficients.
+    // The GPU kernel requires at least 2 coefficients (one even/odd pair).
+    if num_coeffs <= 1 {
+        let val: u64 = if num_coeffs == 1 {
+            // Fold of a single coefficient: result = 2 * coeffs[0] (even part, no odd part).
+            let vals: Vec<u64> = MetalState::retrieve_contents(coeffs_buffer);
+            let c0 = vals.first().copied().unwrap_or(0);
+            let fe = FieldElement::<Goldilocks64Field>::from(c0);
+            let result = FieldElement::<Goldilocks64Field>::from(2u64) * &fe;
+            Goldilocks64Field::canonical(result.value())
+        } else {
+            0u64
+        };
+        let buf = state.state.alloc_buffer_with_data(std::slice::from_ref(&val))?;
+        return Ok((buf, 1));
+    }
+
+    // If odd number of coefficients, pad to even by copying into a new buffer with a trailing zero.
+    // The GPU kernel processes pairs: result[k] = 2 * (coeffs[2k] + beta * coeffs[2k+1]).
+    let (input_buf_owned, input_ref, padded_len) = if num_coeffs % 2 != 0 {
+        let padded_len = num_coeffs + 1;
+        let buf_padded = state.state.alloc_buffer(padded_len * std::mem::size_of::<u64>())?;
+        // Blit copy original data; trailing element is zero from alloc_buffer.
+        let cmd = state.state.command_queue().new_command_buffer();
+        let blit = cmd.new_blit_command_encoder();
+        blit.copy_from_buffer(
+            coeffs_buffer,
+            0,
+            &buf_padded,
+            0,
+            (num_coeffs * std::mem::size_of::<u64>()) as u64,
+        );
+        blit.end_encoding();
+        cmd.commit();
+        cmd.wait_until_completed();
+        // We keep ownership and pass reference below
+        (Some(buf_padded), None, padded_len)
+    } else {
+        (None, Some(coeffs_buffer), num_coeffs)
+    };
+
+    let actual_input: &metal::Buffer = match (&input_buf_owned, input_ref) {
+        (Some(buf), _) => buf,
+        (_, Some(buf)) => buf,
+        _ => unreachable!(),
+    };
+
+    let half_len = padded_len / 2;
 
     let beta_u64 = Goldilocks64Field::canonical(beta.value());
 
@@ -145,7 +212,7 @@ pub fn gpu_fold_polynomial(
     let command_buffer = state.state.command_queue().new_command_buffer();
     let encoder = command_buffer.new_compute_command_encoder();
     encoder.set_compute_pipeline_state(pipeline);
-    encoder.set_buffer(0, Some(coeffs_buffer), 0);
+    encoder.set_buffer(0, Some(actual_input), 0);
     encoder.set_buffer(1, Some(&buf_output), 0);
     encoder.set_buffer(2, Some(&buf_beta), 0);
     encoder.set_buffer(3, Some(&buf_half_len), 0);
@@ -584,7 +651,10 @@ const GPU_FRI_THRESHOLD: usize = 4096;
 ///
 /// Uses `gpu_evaluate_offset_fft` for the FFT evaluation and
 /// `gpu_fri_layer_commit` for the Merkle tree construction.
+///
+/// Retained for fallback/testing; the fused path uses `gpu_new_fri_layer_fused`.
 #[cfg(all(target_os = "macos", feature = "metal"))]
+#[allow(dead_code)]
 fn gpu_new_fri_layer(
     poly: &Polynomial<FieldElement<Goldilocks64Field>>,
     coset_offset: &FieldElement<Goldilocks64Field>,
@@ -616,11 +686,73 @@ fn gpu_new_fri_layer(
     ))
 }
 
+/// Create a FRI layer entirely on GPU from coefficients already in a Metal buffer.
+///
+/// Pipeline: coset shift -> FFT -> Merkle hash, all on GPU.
+/// Only reads back evaluations at the end (needed for FriLayer query data).
+#[cfg(all(target_os = "macos", feature = "metal"))]
+fn gpu_new_fri_layer_fused(
+    coeffs_buffer: &metal::Buffer,
+    num_coeffs: usize,
+    coset_offset: &FieldElement<Goldilocks64Field>,
+    domain_size: usize,
+    gpu_state: &StarkMetalState,
+    keccak_state: &GpuKeccakMerkleState,
+    coset_state: &CosetShiftState,
+) -> Result<FriLayer<Goldilocks64Field, BatchedMerkleTreeBackend<Goldilocks64Field>>, ProvingError>
+{
+    // Step 1: Coset shift + zero-pad on GPU: output[k] = coeffs[k] * offset^k
+    let shifted_buffer = gpu_coset_shift_buffer_to_buffer(
+        coeffs_buffer,
+        num_coeffs,
+        coset_offset,
+        domain_size,
+        coset_state,
+    )
+    .map_err(|e| ProvingError::FieldOperationError(format!("GPU coset shift in FRI: {e}")))?;
+
+    // Step 2: Generate twiddles on GPU
+    let order = domain_size.trailing_zeros() as u64;
+    let twiddles_buffer = gen_twiddles_to_buffer::<Goldilocks64Field>(
+        order,
+        RootsConfig::BitReverse,
+        gpu_state.inner(),
+    )
+    .map_err(|e| ProvingError::FieldOperationError(format!("GPU twiddle gen in FRI: {e}")))?;
+
+    // Step 3: FFT on GPU (buffer-to-buffer, no CPU transfer)
+    let eval_buffer = fft_buffer_to_buffer::<Goldilocks64Field>(
+        &shifted_buffer,
+        domain_size,
+        &twiddles_buffer,
+        gpu_state.inner(),
+    )
+    .map_err(|e| ProvingError::FieldOperationError(format!("GPU FFT in FRI: {e}")))?;
+
+    // Step 4: Merkle commit directly from GPU buffer
+    let (merkle_tree, _root) = gpu_fri_layer_commit_from_buffer(&eval_buffer, domain_size, keccak_state)
+        .map_err(|e| ProvingError::MerkleTreeError(format!("GPU Merkle in FRI: {e}")))?;
+
+    // Step 5: Read back evaluations for FriLayer (needed for query phase)
+    let eval_u64: Vec<u64> = MetalState::retrieve_contents(&eval_buffer);
+    let evaluation: Vec<FieldElement<Goldilocks64Field>> = eval_u64.into_iter().map(FieldElement::from).collect();
+
+    Ok(FriLayer::new(
+        &evaluation,
+        merkle_tree,
+        *coset_offset,
+        domain_size,
+    ))
+}
+
 /// GPU-accelerated FRI commit phase for Goldilocks field.
 ///
-/// Replaces `fri::commit_phase` with GPU FFT + GPU Keccak256 Merkle for
+/// Replaces `fri::commit_phase` with GPU fold + GPU FFT + GPU Keccak256 Merkle for
 /// large layers (>= `GPU_FRI_THRESHOLD` evaluations), falling back to CPU
 /// for small layers where GPU dispatch overhead dominates.
+///
+/// Polynomial coefficients stay on GPU Metal buffers throughout, avoiding
+/// CPU-GPU bouncing between FRI layers.
 #[cfg(all(target_os = "macos", feature = "metal"))]
 #[allow(clippy::type_complexity)]
 pub fn gpu_fri_commit_phase_goldilocks(
@@ -631,6 +763,8 @@ pub fn gpu_fri_commit_phase_goldilocks(
     domain_size: usize,
     gpu_state: &StarkMetalState,
     keccak_state: &GpuKeccakMerkleState,
+    coset_state: &CosetShiftState,
+    fri_fold_state: &FriFoldState,
 ) -> Result<
     (
         FieldElement<Goldilocks64Field>,
@@ -638,45 +772,76 @@ pub fn gpu_fri_commit_phase_goldilocks(
     ),
     ProvingError,
 > {
-    use stark_platinum_prover::fri::fri_functions::fold_polynomial;
-
     type F = Goldilocks64Field;
+    type FpE = FieldElement<F>;
 
     let mut domain_size = domain_size;
     let mut fri_layer_list = Vec::with_capacity(number_layers);
-    let mut current_poly = p_0;
     let mut coset_offset = *coset_offset;
+
+    // Track current polynomial as GPU buffer. On first fold, upload from CPU.
+    let mut current_buffer: Option<(metal::Buffer, usize)> = None;
+    let mut current_poly_cpu: Option<Polynomial<FpE>> = Some(p_0);
 
     for _ in 1..number_layers {
         let zeta = transcript.sample_field_element();
         coset_offset = coset_offset.square();
         domain_size /= 2;
 
-        current_poly = FieldElement::<F>::from(2) * fold_polynomial(&current_poly, &zeta);
+        // Fold polynomial on GPU
+        let (folded_buf, folded_len) = if let Some(poly) = current_poly_cpu.take() {
+            // First iteration: upload CPU polynomial and fold
+            gpu_fold_polynomial_from_cpu(&poly, &zeta, fri_fold_state)
+                .map_err(|e| ProvingError::FieldOperationError(format!("GPU FRI fold: {e}")))?
+        } else {
+            // Subsequent iterations: fold from existing GPU buffer
+            let (buf, len) = current_buffer.take().unwrap();
+            gpu_fold_polynomial(&buf, len, &zeta, fri_fold_state)
+                .map_err(|e| ProvingError::FieldOperationError(format!("GPU FRI fold: {e}")))?
+        };
 
+        // Build FRI layer
         let current_layer = if domain_size >= GPU_FRI_THRESHOLD {
-            gpu_new_fri_layer(
-                &current_poly,
+            gpu_new_fri_layer_fused(
+                &folded_buf,
+                folded_len,
                 &coset_offset,
                 domain_size,
                 gpu_state,
                 keccak_state,
+                coset_state,
             )?
         } else {
-            fri::new_fri_layer(&current_poly, &coset_offset, domain_size)?
+            // Small layers: read back from GPU and use CPU path
+            let coeffs_u64: Vec<u64> = MetalState::retrieve_contents(&folded_buf);
+            let coeffs: Vec<FpE> = coeffs_u64.into_iter().map(FpE::from).collect();
+            let poly = Polynomial::new(&coeffs);
+            fri::new_fri_layer(&poly, &coset_offset, domain_size)?
         };
 
+        current_buffer = Some((folded_buf, folded_len));
         let commitment = current_layer.merkle_tree.root;
         fri_layer_list.push(current_layer);
         transcript.append_bytes(&commitment);
     }
 
+    // Final fold to get the last value
     let zeta = transcript.sample_field_element();
-    let last_poly = FieldElement::<F>::from(2) * fold_polynomial(&current_poly, &zeta);
-    let last_value = *last_poly
-        .coefficients()
-        .first()
-        .unwrap_or(&FieldElement::zero());
+    let (last_buf, _last_len) = if let Some(poly) = current_poly_cpu.take() {
+        gpu_fold_polynomial_from_cpu(&poly, &zeta, fri_fold_state)
+            .map_err(|e| ProvingError::FieldOperationError(format!("GPU FRI fold: {e}")))?
+    } else {
+        let (buf, len) = current_buffer.take().unwrap();
+        gpu_fold_polynomial(&buf, len, &zeta, fri_fold_state)
+            .map_err(|e| ProvingError::FieldOperationError(format!("GPU FRI fold: {e}")))?
+    };
+
+    let last_u64: Vec<u64> = MetalState::retrieve_contents(&last_buf);
+    let last_value = if last_u64.is_empty() {
+        FpE::zero()
+    } else {
+        FpE::from(last_u64[0])
+    };
     transcript.append_field_element(&last_value);
 
     Ok((last_value, fri_layer_list))
@@ -701,6 +866,8 @@ pub fn gpu_round_4_goldilocks<A>(
     gpu_state: &StarkMetalState,
     precompiled_deep: Option<&DeepCompositionState>,
     keccak_state: &GpuKeccakMerkleState,
+    coset_state: &CosetShiftState,
+    fri_fold_state: &FriFoldState,
 ) -> Result<GpuRound4Result<Goldilocks64Field>, ProvingError>
 where
     A: AIR<Field = Goldilocks64Field, FieldExtension = Goldilocks64Field>,
@@ -748,6 +915,8 @@ where
         domain_size,
         gpu_state,
         keccak_state,
+        coset_state,
+        fri_fold_state,
     )?;
 
     // Step 4: Grinding.

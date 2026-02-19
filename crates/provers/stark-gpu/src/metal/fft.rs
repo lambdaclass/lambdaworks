@@ -259,6 +259,24 @@ impl CosetShiftState {
             scale_max_threads,
         })
     }
+
+    /// Compile the coset shift shader sharing a device and queue with an existing Metal state.
+    ///
+    /// This avoids creating new Metal device/queue pairs, reducing GPU resource usage
+    /// when many shader states coexist.
+    pub fn from_device_and_queue(device: &metal::Device, queue: &metal::CommandQueue) -> Result<Self, MetalError> {
+        let combined_source = format!("{}\n{}", GOLDILOCKS_FIELD_HEADER, COSET_SHIFT_SHADER);
+
+        let mut state = DynamicMetalState::from_device_and_queue(device, queue);
+        state.load_library(&combined_source)?;
+        let coset_shift_max_threads = state.prepare_pipeline("goldilocks_coset_shift")?;
+        let scale_max_threads = state.prepare_pipeline("goldilocks_scale")?;
+        Ok(Self {
+            state,
+            coset_shift_max_threads,
+            scale_max_threads,
+        })
+    }
 }
 
 /// Perform coset shift on GPU: output[k] = coeffs[k] * offset^k, zero-padded to output_len.

@@ -120,6 +120,8 @@ where
 {
     use crate::metal::constraint_eval::FibRapConstraintState;
     use crate::metal::deep_composition::DeepCompositionState;
+    use crate::metal::fft::CosetShiftState;
+    use crate::metal::phases::fri::FriFoldState;
 
     let state =
         StarkMetalState::new().map_err(|e| ProvingError::FieldOperationError(e.to_string()))?;
@@ -132,6 +134,18 @@ where
         .map_err(|e| ProvingError::FieldOperationError(format!("DEEP composition shader: {e}")))?;
     let keccak_state = GpuKeccakMerkleState::new()
         .map_err(|e| ProvingError::FieldOperationError(format!("Keccak256 shader: {e}")))?;
+    // Coset shift and FRI fold states share the device/queue from StarkMetalState
+    // to avoid exceeding Metal resource limits (command queues).
+    let coset_state = CosetShiftState::from_device_and_queue(
+        &state.inner().device,
+        &state.inner().queue,
+    )
+    .map_err(|e| ProvingError::FieldOperationError(format!("Coset shift shader: {e}")))?;
+    let fri_fold_state = FriFoldState::from_device_and_queue(
+        &state.inner().device,
+        &state.inner().queue,
+    )
+    .map_err(|e| ProvingError::FieldOperationError(format!("FRI fold shader: {e}")))?;
 
     // Phase 1: RAP (trace interpolation + LDE + GPU Merkle commit)
     let round_1 = gpu_round_1_goldilocks(air, trace, &domain, transcript, &state, &keccak_state)?;
@@ -161,6 +175,8 @@ where
         &state,
         Some(&deep_comp_state),
         &keccak_state,
+        &coset_state,
+        &fri_fold_state,
     )?;
 
     // Assemble proof
