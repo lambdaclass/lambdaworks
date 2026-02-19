@@ -460,14 +460,16 @@ pub trait IsStarkProver<
             return None;
         }
 
-        let mut lde_composition_poly_evaluations = Vec::with_capacity(lde_len);
-        for i in 0..lde_len {
-            let mut row = Vec::with_capacity(lde_composition_poly_parts_evaluations.len());
-            for evaluation in lde_composition_poly_parts_evaluations.iter() {
-                row.push(evaluation[i].clone());
-            }
-            lde_composition_poly_evaluations.push(row);
-        }
+        let num_parts = lde_composition_poly_parts_evaluations.len();
+        let mut lde_composition_poly_evaluations: Vec<Vec<_>> = (0..lde_len)
+            .map(|i| {
+                let mut row = Vec::with_capacity(num_parts);
+                for evaluation in lde_composition_poly_parts_evaluations.iter() {
+                    row.push(evaluation[i].clone());
+                }
+                row
+            })
+            .collect();
 
         in_place_bit_reverse_permute(&mut lde_composition_poly_evaluations);
 
@@ -824,29 +826,18 @@ pub trait IsStarkProver<
                 ProvingError::MerkleTreeError(format!("Failed to get proof at position {}", index))
             })?;
 
-        let lde_composition_poly_parts_evaluation: Vec<_> = lde_composition_poly_evaluations
-            .iter()
-            .flat_map(|part| {
-                vec![
-                    part[reverse_index(index * 2, part.len() as u64)].clone(),
-                    part[reverse_index(index * 2 + 1, part.len() as u64)].clone(),
-                ]
-            })
-            .collect();
+        let mut evaluations = Vec::with_capacity(lde_composition_poly_evaluations.len());
+        let mut evaluations_sym = Vec::with_capacity(lde_composition_poly_evaluations.len());
+        for part in lde_composition_poly_evaluations.iter() {
+            evaluations.push(part[reverse_index(index * 2, part.len() as u64)].clone());
+            evaluations_sym.push(part[reverse_index(index * 2 + 1, part.len() as u64)].clone());
+        }
 
         Ok(PolynomialOpenings {
             proof: proof.clone(),
             proof_sym: proof,
-            evaluations: lde_composition_poly_parts_evaluation
-                .clone()
-                .into_iter()
-                .step_by(2)
-                .collect(),
-            evaluations_sym: lde_composition_poly_parts_evaluation
-                .into_iter()
-                .skip(1)
-                .step_by(2)
-                .collect(),
+            evaluations,
+            evaluations_sym,
         })
     }
 
