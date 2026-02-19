@@ -1,7 +1,7 @@
 //! External comparison benchmarks: Lambdaworks vs Plonky3 (Goldilocks field)
 //!
 //! Compares:
-//! - Lambdaworks Goldilocks64HybridField
+//! - Lambdaworks Goldilocks64Field
 //! - Plonky3 Goldilocks
 //!
 //! Operations: add, sub, mul, square, inv, pow
@@ -12,7 +12,7 @@ use rand::{Rng, SeedableRng};
 
 // Lambdaworks
 use lambdaworks_math::field::element::FieldElement;
-use lambdaworks_math::field::fields::u64_goldilocks_hybrid_field::Goldilocks64HybridField;
+use lambdaworks_math::field::fields::u64_goldilocks_field::Goldilocks64Field;
 
 // Plonky3
 use p3_field::{Field as P3Field, PrimeCharacteristicRing};
@@ -27,7 +27,7 @@ const SIZES: [usize; 3] = [100, 1000, 10000];
 
 pub fn bench_lambdaworks(c: &mut Criterion) {
     let mut group = c.benchmark_group("Goldilocks Lambdaworks");
-    type F = Goldilocks64HybridField;
+    type F = Goldilocks64Field;
     type FE = FieldElement<F>;
 
     let mut rng = StdRng::seed_from_u64(SEED);
