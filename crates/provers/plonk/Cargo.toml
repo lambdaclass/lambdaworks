@@ -15,13 +15,19 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 sha3 = { version = "0.10.8", default-features = false }
 sha2 = { version = "0.10", default-features = false }
+rand = "0.8"
+hex = "0.4"
 
 [dev-dependencies]
 criterion = "0.5"
+rand_chacha = "0.3.1"
 
 [features]
 parallel = ["dep:rayon", "lambdaworks-math/parallel", "lambdaworks-crypto/parallel"]
 
 [[bench]]
 name = "criterion_prover"
+
+[[bench]]
+name = "plonk_prover"
 harness = false

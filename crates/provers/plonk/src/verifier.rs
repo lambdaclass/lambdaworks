@@ -530,12 +530,14 @@ mod tests {
         let random_generator = TestRandomFieldGenerator {};
 
         let prover = Prover::new(kzg.clone(), random_generator);
-        let proof = prover.prove(
-            &witness,
-            &public_input,
-            &common_preprocessed_input,
-            &verifying_key,
-        );
+        let proof = prover
+            .prove(
+                &witness,
+                &public_input,
+                &common_preprocessed_input,
+                &verifying_key,
+            )
+            .unwrap();
 
         let verifier = Verifier::new(kzg);
         assert!(verifier.verify(
@@ -567,12 +569,14 @@ mod tests {
         let random_generator = TestRandomFieldGenerator {};
 
         let prover = Prover::new(kzg.clone(), random_generator);
-        let proof = prover.prove(
-            &witness,
-            &public_input,
-            &common_preprocessed_input,
-            &verifying_key,
-        );
+        let proof = prover
+            .prove(
+                &witness,
+                &public_input,
+                &common_preprocessed_input,
+                &verifying_key,
+            )
+            .unwrap();
 
         let verifier = Verifier::new(kzg);
         assert!(verifier.verify(
@@ -666,12 +670,14 @@ mod tests {
         let random_generator = TestRandomFieldGenerator {};
 
         let prover = Prover::new(kzg.clone(), random_generator);
-        let proof = prover.prove(
-            &witness,
-            &public_input,
-            &common_preprocessed_input,
-            &verifying_key,
-        );
+        let proof = prover
+            .prove(
+                &witness,
+                &public_input,
+                &common_preprocessed_input,
+                &verifying_key,
+            )
+            .unwrap();
 
         let verifier = Verifier::new(kzg);
         assert!(verifier.verify(
@@ -703,12 +709,14 @@ mod tests {
         let random_generator = TestRandomFieldGenerator {};
 
         let prover = Prover::new(kzg.clone(), random_generator);
-        let proof = prover.prove(
-            &witness,
-            &public_input,
-            &common_preprocessed_input,
-            &verifying_key,
-        );
+        let proof = prover
+            .prove(
+                &witness,
+                &public_input,
+                &common_preprocessed_input,
+                &verifying_key,
+            )
+            .unwrap();
 
         let serialized_proof = proof.as_bytes();
         let deserialized_proof = Proof::deserialize(&serialized_proof).unwrap();
@@ -744,12 +752,14 @@ mod tests {
         let random_generator = TestRandomFieldGenerator {};
 
         let prover = Prover::new(kzg.clone(), random_generator);
-        let proof = prover.prove(
-            &witness,
-            &public_input,
-            &common_preprocessed_input,
-            &verifying_key,
-        );
+        let proof = prover
+            .prove(
+                &witness,
+                &public_input,
+                &common_preprocessed_input,
+                &verifying_key,
+            )
+            .unwrap();
 
         // Validation should pass for a legitimately generated proof
         let validation_result = Verifier::<_, KZG>::validate_proof_elements(&proof);
@@ -777,12 +787,14 @@ mod tests {
         let random_generator = TestRandomFieldGenerator {};
 
         let prover = Prover::new(kzg.clone(), random_generator);
-        let proof = prover.prove(
-            &witness,
-            &public_input,
-            &common_preprocessed_input,
-            &verifying_key,
-        );
+        let proof = prover
+            .prove(
+                &witness,
+                &public_input,
+                &common_preprocessed_input,
+                &verifying_key,
+            )
+            .unwrap();
 
         let verifier = Verifier::new(kzg);
         let result = verifier.verify_with_validation(
@@ -919,12 +931,14 @@ mod tests {
         let random_generator = TestRandomFieldGenerator {};
 
         let prover = Prover::new(kzg.clone(), random_generator);
-        let proof = prover.prove(
-            &witness,
-            &public_input,
-            &common_preprocessed_input,
-            &verifying_key,
-        );
+        let proof = prover
+            .prove(
+                &witness,
+                &public_input,
+                &common_preprocessed_input,
+                &verifying_key,
+            )
+            .unwrap();
 
         let verifier = Verifier::new(kzg);
 
