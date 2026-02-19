@@ -102,14 +102,13 @@ where
 
     /// A dummy constraint meant to be used as padding.
     fn padding_constraint(&self) -> Constraint<F> {
-        let zero = FieldElement::zero();
         Constraint {
             constraint_type: ConstraintType {
-                ql: zero.clone(),
-                qr: zero.clone(),
-                qm: zero.clone(),
-                qo: zero.clone(),
-                qc: zero,
+                ql: FieldElement::zero(),
+                qr: FieldElement::zero(),
+                qm: FieldElement::zero(),
+                qo: FieldElement::zero(),
+                qc: FieldElement::zero(),
             },
             hint: None,
             l: self.null_variable(),
@@ -121,26 +120,23 @@ where
     /// Returns the public input header used in PLONK to prove the usage of the
     /// public input values.
     fn public_input_header(&self) -> Vec<Constraint<F>> {
-        let zero = FieldElement::zero();
         let minus_one = -FieldElement::one();
-        let mut public_input_constraints = Vec::new();
-        for public_input in self.public_input_variables.iter() {
-            let public_input_constraint = Constraint {
+        self.public_input_variables
+            .iter()
+            .map(|&public_input| Constraint {
                 constraint_type: ConstraintType {
                     ql: minus_one.clone(),
-                    qr: zero.clone(),
-                    qm: zero.clone(),
-                    qo: zero.clone(),
-                    qc: zero.clone(),
+                    qr: FieldElement::zero(),
+                    qm: FieldElement::zero(),
+                    qo: FieldElement::zero(),
+                    qc: FieldElement::zero(),
                 },
                 hint: None,
-                l: *public_input,
+                l: public_input,
                 r: self.null_variable(),
                 o: self.null_variable(),
-            };
-            public_input_constraints.push(public_input_constraint);
-        }
-        public_input_constraints
+            })
+            .collect()
     }
 
     /// Returns the `LRO` and `Q` matrices. Each matrix has one row per constraint.
@@ -193,13 +189,10 @@ where
         &self,
         values: &HashMap<Variable, FieldElement<F>>,
     ) -> Vec<FieldElement<F>> {
-        let mut public_inputs = Vec::new();
-        for key in &self.public_input_variables {
-            if let Some(value) = values.get(key) {
-                public_inputs.push(value.clone());
-            }
-        }
-        public_inputs
+        self.public_input_variables
+            .iter()
+            .filter_map(|key| values.get(key).cloned())
+            .collect()
     }
 }
 
@@ -218,8 +211,8 @@ pub fn get_permutation(lro: &[Variable]) -> Vec<usize> {
 
     for _ in 0..2 {
         for (index, variable) in lro.iter().enumerate() {
-            if last_usage.contains_key(variable) {
-                permutation[index] = last_usage[variable];
+            if let Some(&prev) = last_usage.get(variable) {
+                permutation[index] = prev;
             }
             last_usage.insert(*variable, index);
         }

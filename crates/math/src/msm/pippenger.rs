@@ -57,68 +57,46 @@ pub fn msm_with<const NUM_LIMBS: usize, G>(
 where
     G: IsGroup,
 {
-    // When input is small enough, windows of length 2 seem faster than 1.
     const MIN_WINDOW_SIZE: usize = 2;
     const MAX_WINDOW_SIZE: usize = 32;
 
     let window_size = window_size.clamp(MIN_WINDOW_SIZE, MAX_WINDOW_SIZE);
-
-    // The number of windows of size `s` is ceil(lambda/s).
     let num_windows = (64 * NUM_LIMBS - 1) / window_size + 1;
 
-    // We define `buckets` outside of the loop so we only have to allocate once, and reuse it.
-    //
-    // This line forces a heap allocation which might be undesired. We can define this buckets
-    // variable in the Pippenger struct to only allocate once, but use a bit of extra memory.
-    // If we accept a const window_size, we could make it an array instaed of a vector
-    // avoiding the heap allocation. We should be aware if that might be too agressive for
-    // the stack and cause a potential stack overflow.
     let n_buckets = (1 << window_size) - 1;
     let mut buckets = vec![G::neutral_element(); n_buckets];
 
     (0..num_windows)
         .rev()
         .map(|window_idx| {
-            // Put in the right bucket the corresponding ps[i] for the current window.
             cs.iter().zip(points).for_each(|(k, p)| {
-                // We truncate the number to the least significative limb.
-                // This is ok because window_size < usize::BITS.
+                // Truncate to least significant limb (safe because window_size < usize::BITS).
                 let window_unmasked = (k >> (window_idx * window_size)).limbs[NUM_LIMBS - 1];
                 let m_ij = window_unmasked & n_buckets as u64;
                 if m_ij != 0 {
-                    let idx = (m_ij - 1) as usize;
-                    buckets[idx] = buckets[idx].operate_with(p);
+                    buckets[(m_ij - 1) as usize] = buckets[(m_ij - 1) as usize].operate_with(p);
                 }
             });
 
-            // Do the reduction step for the buckets.
+            // Bucket reduction: sum weighted buckets so bucket_i gets weight (i+1).
             buckets
                 .iter_mut()
-                // This first part iterates buckets in descending order, generating an iterator with the sum of
-                // each bucket and all that came before as its items; i.e: (b_n, b_n + b_n-1, ..., b_n + ... + b_0)
                 .rev()
                 .scan(G::neutral_element(), |m, b| {
-                    *m = m.operate_with(b); // Reduction step.
-                    *b = G::neutral_element(); // Cleanup bucket slot to reuse in the next window.
+                    *m = m.operate_with(b);
+                    *b = G::neutral_element();
                     Some(m.clone())
                 })
-                // This next part sums all elements of the iterator: (b_n) + (b_n + b_n-1) + ...
-                // This results in: (n + 1) * b_n + n * b_n-1 + ... + b_0
                 .reduce(|g, m| g.operate_with(&m))
                 .unwrap_or_else(G::neutral_element)
         })
-        // NOTE: this operation is non-associative and strictly sequential
         .reduce(|t, g| t.operate_with_self(1_u64 << window_size).operate_with(&g))
         .unwrap_or_else(G::neutral_element)
 }
 
 /// Recode scalars to signed digits for Pippenger's algorithm.
-/// Returns a flat vector of signed digits, stored contiguously to avoid
-/// per-scalar heap allocations. Uses signed representation to halve the
-/// bucket count from 2^c - 1 to 2^(c-1).
-///
-/// The flat layout stores all digits for scalar i at indices:
-///   [i * total_windows, i * total_windows + total_windows)
+/// Uses signed representation to halve the bucket count from 2^c - 1 to 2^(c-1).
+/// Returns a flat vector: digits for scalar i at `[i * total_windows .. (i+1) * total_windows)`.
 fn recode_scalars_signed<const NUM_LIMBS: usize>(
     scalars: &[UnsignedInteger<NUM_LIMBS>],
     window_size: usize,
@@ -130,7 +108,6 @@ fn recode_scalars_signed<const NUM_LIMBS: usize>(
     let mask = (1u64 << window_size) - 1;
     let n_scalars = scalars.len();
 
-    // Single allocation for all digits: n_scalars * total_windows
     let mut digits = vec![0i64; n_scalars * total_windows];
 
     for (i, scalar) in scalars.iter().enumerate() {
@@ -138,7 +115,6 @@ fn recode_scalars_signed<const NUM_LIMBS: usize>(
         let base_idx = i * total_windows;
 
         for window_idx in 0..num_windows {
-            // Extract window value
             let shift = window_idx * window_size;
             let raw_val = if shift < 64 * NUM_LIMBS {
                 (scalar >> shift).limbs[NUM_LIMBS - 1] & mask
@@ -147,7 +123,6 @@ fn recode_scalars_signed<const NUM_LIMBS: usize>(
             };
             let window_val = raw_val as i64 + carry;
 
-            // Convert to signed representation
             if window_val >= half_bucket {
                 digits[base_idx + window_idx] = window_val - full_bucket;
                 carry = 1;
@@ -156,14 +131,12 @@ fn recode_scalars_signed<const NUM_LIMBS: usize>(
                 carry = 0;
             }
         }
-        // Handle final carry
-        digits[base_idx + num_windows] = carry; // carry is 0 if no carry, already padded
+        digits[base_idx + num_windows] = carry;
     }
 
     digits
 }
 
-/// Get the digit for scalar `scalar_idx` at window `window_idx` from flat storage.
 #[inline(always)]
 fn get_digit(
     flat_digits: &[i64],
@@ -192,20 +165,14 @@ where
     // +1 to handle potential carry from signed recoding
     let total_windows = num_windows + 1;
 
-    // Half the buckets compared to unsigned version!
     let n_buckets = (1 << (window_size - 1)) as usize;
-
-    // Precompute signed digits for all scalars (flat allocation)
     let signed_digits = recode_scalars_signed(cs, window_size, num_windows, total_windows);
 
     (0..total_windows)
         .rev()
         .map(|window_idx| {
-            // Fresh buckets for each window (simpler and avoids clearing bugs)
             let mut buckets = vec![G::neutral_element(); n_buckets];
 
-            // Accumulate points into buckets based on signed digits
-            // Use .take(cs.len()) to prevent out-of-bounds access when points.len() > cs.len()
             for (scalar_idx, p) in points.iter().take(cs.len()).enumerate() {
                 let digit = get_digit(&signed_digits, total_windows, scalar_idx, window_idx);
                 if digit > 0 {
@@ -213,13 +180,10 @@ where
                     buckets[idx] = buckets[idx].operate_with(p);
                 } else if digit < 0 {
                     let idx = (-digit) as usize - 1;
-                    // For negative digits, add the negated point
                     buckets[idx] = buckets[idx].operate_with(&p.neg());
                 }
-                // digit == 0: skip (contributes nothing)
             }
 
-            // Bucket reduction
             let mut m = G::neutral_element();
             buckets
                 .into_iter()
@@ -257,17 +221,13 @@ where
     let total_windows = num_windows + 1;
     let n_buckets = (1 << (window_size - 1)) as usize;
 
-    // Precompute signed digits for all scalars (flat allocation, sequential but fast)
     let signed_digits = recode_scalars_signed(cs, window_size, num_windows, total_windows);
 
-    // Process windows in parallel
     (0..total_windows)
         .into_par_iter()
         .map(|window_idx| {
             let mut buckets = vec![G::neutral_element(); n_buckets];
 
-            // Accumulate points into buckets using flat digit storage
-            // Use .take(cs.len()) to prevent out-of-bounds access when points.len() > cs.len()
             for (scalar_idx, p) in points.iter().take(cs.len()).enumerate() {
                 let digit = get_digit(&signed_digits, total_windows, scalar_idx, window_idx);
                 if digit > 0 {
@@ -279,7 +239,6 @@ where
                 }
             }
 
-            // Bucket reduction
             let mut m = G::neutral_element();
             let window_item = buckets
                 .into_iter()
@@ -291,7 +250,6 @@ where
                 .reduce(|g, m| g.operate_with(&m))
                 .unwrap_or_else(G::neutral_element);
 
-            // Scale by 2^(window_idx * window_size)
             let shift = window_idx * window_size;
             if shift < 64 * NUM_LIMBS {
                 window_item.operate_with_self(UnsignedInteger::<NUM_LIMBS>::from_u64(1) << shift)
@@ -305,9 +263,6 @@ where
 }
 
 #[cfg(feature = "parallel")]
-// It has the following differences with the sequential one:
-//  1. It uses one vec per thread to store buckets.
-//  2. It reduces all window results via a different method.
 pub fn parallel_msm_with<const NUM_LIMBS: usize, G>(
     cs: &[UnsignedInteger<NUM_LIMBS>],
     points: &[G],
@@ -318,40 +273,30 @@ where
 {
     use rayon::prelude::*;
 
-    assert!(window_size < usize::BITS as usize); // Program would go OOM anyways
+    assert!(window_size < usize::BITS as usize);
 
-    // The number of windows of size `s` is ceil(lambda/s).
     let num_windows = (64 * NUM_LIMBS - 1) / window_size + 1;
     let n_buckets = (1 << window_size) - 1;
 
-    // TODO: limit the number of threads, and reuse vecs
     (0..num_windows)
         .into_par_iter()
         .map(|window_idx| {
             let mut buckets = vec![G::neutral_element(); n_buckets];
-            // Put in the right bucket the corresponding ps[i] for the current window.
             let shift = window_idx * window_size;
             cs.iter().zip(points).for_each(|(k, p)| {
-                // We truncate the number to the least significative limb.
-                // This is ok because window_size < usize::BITS.
                 let window_unmasked = (k >> shift).limbs[NUM_LIMBS - 1];
                 let m_ij = window_unmasked & n_buckets as u64;
                 if m_ij != 0 {
-                    let idx = (m_ij - 1) as usize;
-                    buckets[idx] = buckets[idx].operate_with(p);
+                    buckets[(m_ij - 1) as usize] = buckets[(m_ij - 1) as usize].operate_with(p);
                 }
             });
 
             let mut m = G::neutral_element();
-
-            // Do the reduction step for the buckets.
             let window_item = buckets
-                // NOTE: changing this into a parallel iter drops performance, because of the
-                //  need to use multiplication in the `map` step
                 .into_iter()
                 .rev()
                 .map(|b| {
-                    m = m.operate_with(&b); // Reduction step.
+                    m = m.operate_with(&b);
                     m.clone()
                 })
                 .reduce(|g, m| g.operate_with(&m))

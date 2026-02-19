@@ -1,4 +1,5 @@
 use super::errors::CircleError;
+use super::traits::IsCircleFriField;
 use crate::field::traits::IsField;
 use crate::field::{
     element::FieldElement,
@@ -27,17 +28,18 @@ impl<F: IsField + HasCircleParams<F>> CirclePoint<F> {
 
     /// Neutral element of the Circle group (with additive notation).
     pub fn zero() -> Self {
-        Self::new(FieldElement::one(), FieldElement::zero())
-            .expect("neutral element (1, 0) must satisfy circle equation: 1^2 + 0^2 = 1")
+        Self {
+            x: FieldElement::one(),
+            y: FieldElement::zero(),
+        }
     }
 
     /// Computes 2(x, y) = (2x^2 - 1, 2xy).
     pub fn double(&self) -> Self {
-        Self::new(
-            self.x.square().double() - FieldElement::one(),
-            self.x.double() * self.y.clone(),
-        )
-        .expect("doubling a point on the circle must yield a point on the circle")
+        Self {
+            x: self.x.square().double() - FieldElement::one(),
+            y: self.x.double() * &self.y,
+        }
     }
 
     /// Computes 2^n * (x, y).
@@ -71,13 +73,15 @@ impl<F: IsField + HasCircleParams<F>> CirclePoint<F> {
         y: F::CIRCLE_GENERATOR_Y,
     };
 
-    /// Returns the generator of the subgroup of order n = 2^log_2_size.
-    /// We are using that 2^k * g is a generator of the subgroup of order 2^{31 - k}.
-    pub fn get_generator_of_subgroup(log_2_size: u32) -> Self {
-        Self::GENERATOR.repeated_double(31 - log_2_size)
-    }
-
     pub const ORDER: u128 = F::ORDER;
+}
+
+impl<F: IsCircleFriField> CirclePoint<F> {
+    /// Returns the generator of the subgroup of order n = 2^log_2_size.
+    /// We are using that 2^k * g is a generator of the subgroup of order 2^{LOG_MAX_SUBGROUP_ORDER - k}.
+    pub fn get_generator_of_subgroup(log_2_size: u32) -> Self {
+        Self::GENERATOR.repeated_double(F::LOG_MAX_SUBGROUP_ORDER - log_2_size)
+    }
 }
 
 /// Parameters of the base field that we'll need to define its Circle.
@@ -101,7 +105,7 @@ impl HasCircleParams<Mersenne31Field> for Mersenne31Field {
     const CIRCLE_GENERATOR_Y: Self::FE = Self::FE::const_from_raw(1268011823);
 
     /// ORDER = 2^31
-    const ORDER: u128 = 2147483648;
+    const ORDER: u128 = 1u128 << 31;
 }
 
 impl HasCircleParams<Degree4ExtensionField> for Degree4ExtensionField {
@@ -119,12 +123,14 @@ impl HasCircleParams<Degree4ExtensionField> for Degree4ExtensionField {
     const ORDER: u128 = 21267647892944572736998860269687930880;
 }
 
-/// Equality between two cricle points.
+/// Equality between two circle points.
 impl<F: IsField + HasCircleParams<F>> PartialEq for CirclePoint<F> {
     fn eq(&self, other: &Self) -> bool {
         self.x == other.x && self.y == other.y
     }
 }
+
+impl<F: IsField + HasCircleParams<F>> Eq for CirclePoint<F> {}
 
 /// Addition (i.e. group operation) between two points:
 /// (a, b) + (c, d) = (a * c - b * d, a * d + b * c)
@@ -192,18 +198,7 @@ impl<F: IsField + HasCircleParams<F>> Mul<u128> for CirclePoint<F> {
 }
 impl<F: IsField + HasCircleParams<F>> MulAssign<u128> for CirclePoint<F> {
     fn mul_assign(&mut self, scalar: u128) {
-        let mut scalar = scalar;
-        let mut res = CirclePoint::<F>::zero();
-        loop {
-            if scalar == 0 {
-                *self = res.clone();
-            }
-            if scalar & 1 == 1 {
-                res += &*self;
-            }
-            *self = self.double();
-            scalar >>= 1;
-        }
+        *self = &*self * scalar;
     }
 }
 

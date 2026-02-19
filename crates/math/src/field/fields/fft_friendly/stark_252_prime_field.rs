@@ -19,7 +19,7 @@ pub type Stark252PrimeField = U256PrimeField<MontgomeryConfigStark252PrimeField>
 impl IsFFTField for Stark252PrimeField {
     const TWO_ADICITY: u64 = 192;
     // Change this line for a new function like `from_limbs`.
-    const TWO_ADIC_PRIMITVE_ROOT_OF_UNITY: U256 = UnsignedInteger::from_hex_unchecked(
+    const TWO_ADIC_PRIMITIVE_ROOT_OF_UNITY: U256 = UnsignedInteger::from_hex_unchecked(
         "5282db87529cfa3f0464519c8b0fa5ad187148e11a61616070024f42f8ef94",
     );
 
@@ -37,11 +37,7 @@ impl FieldElement<Stark252PrimeField> {
         let mut bytes: [u8; 32] = [0; 32];
 
         for i in (0..4).rev() {
-            let limb_bytes = limbs[i].to_le_bytes();
-            for j in 0..8 {
-                // i = 3 ->
-                bytes[(3 - i) * 8 + j] = limb_bytes[j]
-            }
+            bytes[(3 - i) * 8..(3 - i) * 8 + 8].copy_from_slice(&limbs[i].to_le_bytes());
         }
         bytes
     }
@@ -74,10 +70,7 @@ impl FieldElement<Stark252PrimeField> {
         let mut bytes: [u8; 32] = [0; 32];
 
         for i in 0..4 {
-            let limb_bytes = limbs[i].to_be_bytes();
-            for j in 0..8 {
-                bytes[i * 8 + j] = limb_bytes[j]
-            }
+            bytes[i * 8..i * 8 + 8].copy_from_slice(&limbs[i].to_be_bytes());
         }
         bytes
     }

@@ -238,18 +238,8 @@ where
             });
         } else {
             for block_start in (0..n).step_by(block_size) {
-                for j in 0..half_block {
-                    let i0 = block_start + j;
-                    let i1 = i0 + half_block;
-                    let w = &twiddles[j];
-
-                    let sum = &input[i0] + &input[i1];
-                    let diff = &input[i0] - &input[i1];
-                    let diff_w = w * &diff;
-
-                    input[i0] = sum;
-                    input[i1] = diff_w;
-                }
+                let block = &mut input[block_start..block_start + block_size];
+                process_single_layer_block(block, twiddles, half_block);
             }
         }
         layer += 1;
@@ -259,7 +249,15 @@ where
 }
 
 /// Process a single block with 2-layer fusion (DIF butterfly).
-#[cfg(all(feature = "alloc", feature = "parallel"))]
+///
+/// Performs two layers of Bowers FFT butterflies in a single pass over the block,
+/// keeping intermediate values in registers to reduce memory traffic.
+///
+/// The first iteration (j=0) skips 3 of 4 multiplications because twiddles_l0[0]=1
+/// and twiddles_l1[0]=1 by construction (they are powers of the root starting at w^0=1).
+/// This "twiddle-free" optimization saves ~2/log_n of all multiplications across the
+/// full FFT (~10% for 2^20, ~12% for 2^16).
+#[cfg(feature = "alloc")]
 #[inline]
 fn process_fused_block<F, E>(
     block: &mut [FieldElement<E>],
@@ -272,7 +270,31 @@ fn process_fused_block<F, E>(
     let block_size = block.len();
     let quarter = block_size >> 2;
 
-    for j in 0..quarter {
+    // First iteration (j=0): twiddles_l0[0]=1 and twiddles_l1[0]=1,
+    // so skip 3 multiplications (w0*diff, w2*diff_sums, w2*diff_diffs).
+    {
+        let i1 = quarter;
+        let i2 = 2 * quarter;
+        let i3 = 3 * quarter;
+
+        let w1 = &twiddles_l0[quarter];
+
+        // First layer butterflies (w0=1, skip multiply on diff_02)
+        let sum_02 = &block[0] + &block[i2];
+        let diff_02 = &block[0] - &block[i2];
+
+        let sum_13 = &block[i1] + &block[i3];
+        let diff_13 = &block[i1] - &block[i3];
+        let diff_13_w = w1 * &diff_13;
+
+        // Second layer butterflies (w2=1, skip multiply on diff_sums and diff_diffs)
+        block[0] = &sum_02 + &sum_13;
+        block[i1] = &sum_02 - &sum_13;
+        block[i2] = &diff_02 + &diff_13_w;
+        block[i3] = &diff_02 - &diff_13_w;
+    }
+
+    for j in 1..quarter {
         let i0 = j;
         let i1 = j + quarter;
         let i2 = j + 2 * quarter;
@@ -308,8 +330,10 @@ fn process_fused_block<F, E>(
     }
 }
 
-/// Process a single layer block (used for remaining odd layer).
-#[cfg(all(feature = "alloc", feature = "parallel"))]
+/// Process a single-layer DIF butterfly on a block.
+///
+/// The first butterfly (j=0) skips the twiddle multiplication since twiddles[0]=1.
+#[cfg(feature = "alloc")]
 #[inline]
 fn process_single_layer_block<F, E>(
     block: &mut [FieldElement<E>],
@@ -319,7 +343,15 @@ fn process_single_layer_block<F, E>(
     F: IsFFTField + IsSubFieldOf<E>,
     E: IsField,
 {
-    for j in 0..half_block {
+    // First butterfly: twiddle is 1, skip multiplication
+    if half_block > 0 {
+        let sum = &block[0] + &block[half_block];
+        let diff = &block[0] - &block[half_block];
+        block[0] = sum;
+        block[half_block] = diff;
+    }
+
+    for j in 1..half_block {
         let w = &twiddles[j];
 
         let sum = &block[j] + &block[j + half_block];
@@ -395,6 +427,40 @@ impl<F: IsFFTField> LayerTwiddles<F> {
 
         let n = 1usize << order;
         let root = F::get_primitive_root_of_unity(order).ok()?;
+
+        let mut layers = Vec::with_capacity(order as usize);
+
+        for layer in 0..order as usize {
+            let stride = 1usize << layer;
+            let count = n >> (layer + 1);
+
+            let mut layer_twiddles = Vec::with_capacity(count);
+            let w_stride = root.pow(stride as u64);
+            let mut current = FieldElement::<F>::one();
+
+            for _ in 0..count {
+                layer_twiddles.push(current.clone());
+                current *= &w_stride;
+            }
+
+            layers.push(layer_twiddles);
+        }
+
+        Some(Self { layers })
+    }
+
+    /// Compute layer-specific inverse twiddles for IFFT.
+    ///
+    /// Same as `new()` but uses the inverse root of unity (w^{-1}).
+    /// IFFT can be computed as: forward Bowers FFT with inverse twiddles,
+    /// followed by bit-reverse permutation and scaling by 1/N.
+    pub fn new_inverse(order: u64) -> Option<Self> {
+        if order > MAX_FFT_ORDER {
+            return None;
+        }
+
+        let n = 1usize << order;
+        let root = F::get_primitive_root_of_unity(order).ok()?.inv().ok()?;
 
         let mut layers = Vec::with_capacity(order as usize);
 
@@ -515,18 +581,8 @@ where
             let twiddles = layer_twiddles.get_layer(layer);
 
             for block_start in (0..n).step_by(block_size) {
-                for j in 0..half_block {
-                    let i0 = block_start + j;
-                    let i1 = i0 + half_block;
-                    let w = &twiddles[j];
-
-                    let sum = &input[i0] + &input[i1];
-                    let diff = &input[i0] - &input[i1];
-                    let diff_w = w * &diff;
-
-                    input[i0] = sum;
-                    input[i1] = diff_w;
-                }
+                let block = &mut input[block_start..block_start + block_size];
+                process_single_layer_block(block, twiddles, half_block);
             }
         }
         return Ok(());
@@ -543,43 +599,8 @@ where
             let twiddles_l1 = layer_twiddles.get_layer(layer + 1);
 
             for block_start in (0..n).step_by(block_size) {
-                let quarter = block_size >> 2;
                 let block = &mut input[block_start..block_start + block_size];
-
-                for j in 0..quarter {
-                    let i0 = j;
-                    let i1 = j + quarter;
-                    let i2 = j + 2 * quarter;
-                    let i3 = j + 3 * quarter;
-
-                    let w0 = &twiddles_l0[j];
-                    let w1 = &twiddles_l0[j + quarter];
-
-                    // First layer butterflies
-                    let sum_02 = &block[i0] + &block[i2];
-                    let diff_02 = &block[i0] - &block[i2];
-                    let diff_02_w = w0 * &diff_02;
-
-                    let sum_13 = &block[i1] + &block[i3];
-                    let diff_13 = &block[i1] - &block[i3];
-                    let diff_13_w = w1 * &diff_13;
-
-                    let w2 = &twiddles_l1[j];
-
-                    // Second layer butterflies
-                    let final_0 = &sum_02 + &sum_13;
-                    let diff_sums = &sum_02 - &sum_13;
-                    let final_1 = w2 * &diff_sums;
-
-                    let final_2 = &diff_02_w + &diff_13_w;
-                    let diff_diffs = &diff_02_w - &diff_13_w;
-                    let final_3 = w2 * &diff_diffs;
-
-                    block[i0] = final_0;
-                    block[i1] = final_1;
-                    block[i2] = final_2;
-                    block[i3] = final_3;
-                }
+                process_fused_block(block, twiddles_l0, twiddles_l1);
             }
             layer += 2;
         } else {
@@ -594,18 +615,8 @@ where
         let twiddles = layer_twiddles.get_layer(layer);
 
         for block_start in (0..n).step_by(block_size) {
-            for j in 0..half_block {
-                let i0 = block_start + j;
-                let i1 = i0 + half_block;
-                let w = &twiddles[j];
-
-                let sum = &input[i0] + &input[i1];
-                let diff = &input[i0] - &input[i1];
-                let diff_w = w * &diff;
-
-                input[i0] = sum;
-                input[i1] = diff_w;
-            }
+            let block = &mut input[block_start..block_start + block_size];
+            process_single_layer_block(block, twiddles, half_block);
         }
         layer += 1;
     }
@@ -639,6 +650,41 @@ where
     Ok(())
 }
 
+/// Parallel batch FFT using optimized Bowers algorithm with LayerTwiddles.
+///
+/// Processes each polynomial independently in parallel using rayon's `par_chunks_mut`.
+///
+/// # Errors
+/// Returns `FFTError::InputError` if polynomial width is not a power of two.
+#[cfg(all(feature = "alloc", feature = "parallel"))]
+pub fn bowers_batch_fft_opt_parallel<F, E>(
+    matrix: &mut FftMatrix<E>,
+    layer_twiddles: &LayerTwiddles<F>,
+) -> Result<(), FFTError>
+where
+    F: IsFFTField + IsSubFieldOf<E>,
+    E: IsField + Send + Sync,
+    FieldElement<F>: Send + Sync,
+    FieldElement<E>: Send + Sync,
+{
+    use rayon::prelude::*;
+
+    if matrix.height == 0 || matrix.width <= 1 {
+        return Ok(());
+    }
+
+    let width = matrix.width;
+    if !width.is_power_of_two() {
+        return Err(FFTError::InputError(width));
+    }
+
+    matrix.data.par_chunks_mut(width).try_for_each(|poly| {
+        bowers_fft_opt_fused(poly, layer_twiddles)?;
+        in_place_bit_reverse_permute(poly);
+        Ok(())
+    })
+}
+
 // =====================================================
 // TESTS
 // =====================================================
@@ -654,10 +700,10 @@ mod tests {
     use alloc::vec::Vec;
     use proptest::{collection, prelude::*};
 
-    type F = Goldilocks64Field;
-    type FE = FieldElement<F>;
+    pub(super) type F = Goldilocks64Field;
+    pub(super) type FE = FieldElement<F>;
 
-    fn naive_dft(input: &[FE]) -> Vec<FE> {
+    pub(super) fn naive_dft(input: &[FE]) -> Vec<FE> {
         let n = input.len();
         let root = F::get_primitive_root_of_unity(n.trailing_zeros() as u64).unwrap();
         let mut result = vec![FE::zero(); n];
@@ -750,23 +796,56 @@ mod tests {
     }
 
     #[test]
-    fn test_bowers_ifft_opt() {
-        let input: Vec<FE> = (0..64).map(|i| FE::from(i as u64)).collect();
-        let layer_twiddles = LayerTwiddles::<F>::new(6).unwrap();
+    fn test_bowers_ifft_roundtrip() {
+        // IFFT(X) = (1/N) * FFT(X, w^{-1})
+        // We reuse the forward Bowers DIF with inverse twiddles.
+        let order = 6u64;
+        let n = 1usize << order;
+        let input: Vec<FE> = (0..n).map(|i| FE::from(i as u64)).collect();
+
+        let forward_twiddles = LayerTwiddles::<F>::new(order).unwrap();
+        let inverse_twiddles = LayerTwiddles::<F>::new_inverse(order).unwrap();
 
         // Forward FFT
         let mut transformed = input.clone();
-        bowers_fft_opt_fused(&mut transformed, &layer_twiddles).unwrap();
+        bowers_fft_opt_fused(&mut transformed, &forward_twiddles).unwrap();
         in_place_bit_reverse_permute(&mut transformed);
 
-        // Inverse FFT needs inverse twiddles (conjugate for roots of unity)
-        // For proper inverse, we need twiddles from inverse root
-        // This test just verifies the function runs without error
-        let mut recovered = transformed.clone();
+        // Inverse FFT = forward Bowers with inverse twiddles + bit-reverse + scale by 1/N
+        let mut recovered = transformed;
+        bowers_fft_opt_fused(&mut recovered, &inverse_twiddles).unwrap();
         in_place_bit_reverse_permute(&mut recovered);
-        bowers_ifft_opt(&mut recovered, &layer_twiddles).unwrap();
+        let scale = FE::from(n as u64).inv().unwrap();
+        for v in recovered.iter_mut() {
+            *v *= &scale;
+        }
 
-        // Note: Full inverse requires scaling by 1/n and using inverse twiddles
+        assert_eq!(recovered, input);
+    }
+
+    #[test]
+    fn test_bowers_ifft_roundtrip_various_sizes() {
+        for order in 1..=10u64 {
+            let n = 1usize << order;
+            let input: Vec<FE> = (0..n).map(|i| FE::from(i as u64)).collect();
+
+            let forward_twiddles = LayerTwiddles::<F>::new(order).unwrap();
+            let inverse_twiddles = LayerTwiddles::<F>::new_inverse(order).unwrap();
+
+            let mut transformed = input.clone();
+            bowers_fft_opt_fused(&mut transformed, &forward_twiddles).unwrap();
+            in_place_bit_reverse_permute(&mut transformed);
+
+            let mut recovered = transformed;
+            bowers_fft_opt_fused(&mut recovered, &inverse_twiddles).unwrap();
+            in_place_bit_reverse_permute(&mut recovered);
+            let scale = FE::from(n as u64).inv().unwrap();
+            for v in recovered.iter_mut() {
+                *v *= &scale;
+            }
+
+            assert_eq!(recovered, input, "Roundtrip failed for order {order}");
+        }
     }
 
     #[test]
@@ -907,26 +986,11 @@ mod tests {
 mod parallel_tests {
     use super::*;
     use crate::fft::cpu::bit_reversing::in_place_bit_reverse_permute;
-    use crate::field::fields::u64_goldilocks_field::Goldilocks64Field;
-    use alloc::vec;
     use alloc::vec::Vec;
 
-    type F = Goldilocks64Field;
-    type FE = FieldElement<F>;
+    use super::tests::{naive_dft, FE};
 
-    fn naive_dft(input: &[FE]) -> Vec<FE> {
-        let n = input.len();
-        let root = F::get_primitive_root_of_unity(n.trailing_zeros() as u64).unwrap();
-        let mut result = vec![FE::zero(); n];
-
-        for (k, res) in result.iter_mut().enumerate() {
-            for (j, inp) in input.iter().enumerate() {
-                *res += *inp * root.pow((j * k) as u64);
-            }
-        }
-
-        result
-    }
+    type F = super::tests::F;
 
     #[test]
     fn test_bowers_fft_opt_fused_parallel_small() {
@@ -986,5 +1050,28 @@ mod parallel_tests {
         in_place_bit_reverse_permute(&mut result_par);
 
         assert_eq!(result_seq, result_par);
+    }
+
+    #[test]
+    fn test_parallel_batch_matches_sequential_batch() {
+        let polys: Vec<Vec<FE>> = (0..8)
+            .map(|offset| {
+                (0..256)
+                    .map(|i| FE::from((offset * 256 + i) as u64))
+                    .collect()
+            })
+            .collect();
+
+        let layer_twiddles = LayerTwiddles::<F>::new(8).unwrap();
+
+        // Sequential batch
+        let mut matrix_seq = FftMatrix::from_polynomials(polys.clone());
+        bowers_batch_fft_opt(&mut matrix_seq, &layer_twiddles).unwrap();
+
+        // Parallel batch
+        let mut matrix_par = FftMatrix::from_polynomials(polys);
+        bowers_batch_fft_opt_parallel(&mut matrix_par, &layer_twiddles).unwrap();
+
+        assert_eq!(matrix_seq.data, matrix_par.data);
     }
 }

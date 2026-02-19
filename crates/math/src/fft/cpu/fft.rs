@@ -68,7 +68,6 @@ where
 /// - DIT: decimation in time
 ///
 /// It supports values in a field E and domain in a subfield F.
-#[allow(dead_code)]
 pub fn in_place_rn_2radix_fft<F>(input: &mut [FieldElement<F>], twiddles: &[FieldElement<F>])
 where
     F: IsFFTField,

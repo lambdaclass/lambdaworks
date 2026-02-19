@@ -9,11 +9,10 @@ use super::{
 use crate::{cyclic_group::IsGroup, elliptic_curve::traits::IsPairing, errors::PairingError};
 use crate::{
     elliptic_curve::short_weierstrass::{
-        curves::bls12_381::field_extension::{Degree6ExtensionField, LevelTwoResidue},
-        point::ShortWeierstrassJacobianPoint,
-        traits::IsShortWeierstrass,
+        curves::bls12_381::field_extension::Degree6ExtensionField,
+        point::ShortWeierstrassJacobianPoint, traits::IsShortWeierstrass,
     },
-    field::{element::FieldElement, extensions::cubic::HasCubicNonResidue},
+    field::element::FieldElement,
     unsigned_integer::element::U256,
 };
 #[cfg(feature = "alloc")]
@@ -86,15 +85,14 @@ fn precompute_double_line(
     t: &mut ShortWeierstrassJacobianPoint<BLS12381TwistCurve>,
 ) -> (Fp2E, Fp2E, Fp2E) {
     let [x1, y1, z1] = t.coordinates();
-    let two_inv = FieldElement::<Degree2ExtensionField>::new_base("d0088f51cbff34d258dd3db21a5d66bb23ba5c279c2895fb39869507b587b120f55ffff58a9ffffdcff7fffffffd556");
 
-    let a = &two_inv * x1 * y1;
+    let a = &TWO_INV * x1 * y1;
     let b = y1.square();
     let c = z1.square();
     let d = triple_fp2(&c);
     let e = BLS12381TwistCurve::b() * &d;
     let f = triple_fp2(&e);
-    let g = &two_inv * (&b + &f);
+    let g = &TWO_INV * (&b + &f);
     let h = (y1 + z1).square() - (&b + &c);
 
     let x3 = &a * (&b - &f);
@@ -105,12 +103,10 @@ fn precompute_double_line(
     // Compute line coefficients (P-independent parts)
     let x1_sq = x1.square();
     let x1_sq_3 = triple_fp2(&x1_sq);
-    let [x1_sq_30, x1_sq_31] = x1_sq_3.value();
-    let [h0, h1] = h.value();
 
     let b0 = &e - &b; // Fully computed
-    let b2_scale = Fp2E::new([x1_sq_30.clone(), x1_sq_31.clone()]); // Will be multiplied by px
-    let b3_scale = Fp2E::new([-h0.clone(), -h1.clone()]); // Will be multiplied by py
+    let b2_scale = x1_sq_3; // Will be multiplied by px
+    let b3_scale = -&h; // Will be multiplied by py
 
     // Update T
     t.set_unchecked([x3, y3, z3]);
@@ -143,12 +139,9 @@ fn precompute_add_line(
     let z3 = z1 * &e;
 
     // Compute line coefficients
-    let [lambda0, lambda1] = lambda.value();
-    let [theta0, theta1] = theta.value();
-
     let b0 = -&lambda * y2 + &theta * x2;
-    let b2_scale = Fp2E::new([-theta0.clone(), -theta1.clone()]);
-    let b3_scale = Fp2E::new([lambda0.clone(), lambda1.clone()]);
+    let b2_scale = -&theta;
+    let b3_scale = lambda;
 
     // Update T
     t.set_unchecked([x3, y3, z3]);
@@ -168,7 +161,6 @@ pub fn miller_with_prepared(
     }
 
     let [px, py, _] = p.coordinates();
-    let residue = LevelTwoResidue::residue();
     let mut f = FieldElement::<Degree12ExtensionField>::one();
     let mut coeff_idx = 0;
 
@@ -183,24 +175,7 @@ pub fn miller_with_prepared(
         let b2 = Fp2E::new([b2_0 * px, b2_1 * px]);
         let b3 = Fp2E::new([b3_0 * py, b3_1 * py]);
 
-        // Sparse multiplication
-        let f_sq = f.square();
-        let [x, y] = f_sq.value();
-        let [a0, a2, a4] = x.value();
-        let [a1, a3, a5] = y.value();
-
-        f = FieldElement::new([
-            FieldElement::new([
-                a0 * b0 + &residue * (a3 * &b3 + a4 * &b2),
-                a2 * b0 + &residue * a5 * &b3 + a0 * &b2,
-                a4 * b0 + a1 * &b3 + a2 * &b2,
-            ]),
-            FieldElement::new([
-                a1 * b0 + &residue * (a4 * &b3 + a5 * &b2),
-                a3 * b0 + a0 * &b3 + a1 * &b2,
-                a5 * b0 + a2 * &b3 + a3 * &b2,
-            ]),
-        ]);
+        f = sparse_fp12_mul_by_line(&f.square(), b0, &b2, &b3);
 
         if *bit {
             // Use precomputed addition coefficients
@@ -212,22 +187,7 @@ pub fn miller_with_prepared(
             let b2 = Fp2E::new([b2_0 * px, b2_1 * px]);
             let b3 = Fp2E::new([b3_0 * py, b3_1 * py]);
 
-            let [x, y] = f.value();
-            let [a0, a2, a4] = x.value();
-            let [a1, a3, a5] = y.value();
-
-            f = FieldElement::new([
-                FieldElement::new([
-                    a0 * b0 + &residue * (a3 * &b3 + a4 * &b2),
-                    a2 * b0 + &residue * a5 * &b3 + a0 * &b2,
-                    a4 * b0 + a1 * &b3 + a2 * &b2,
-                ]),
-                FieldElement::new([
-                    a1 * b0 + &residue * (a4 * &b3 + a5 * &b2),
-                    a3 * b0 + a0 * &b3 + a1 * &b2,
-                    a5 * b0 + a2 * &b3 + a3 * &b2,
-                ]),
-            ]);
+            f = sparse_fp12_mul_by_line(&f, b0, &b2, &b3);
         }
     }
 
@@ -316,14 +276,13 @@ impl IsPairing for BLS12381AtePairing {
                 result *= miller(&q, &p);
             }
         }
-        Ok(final_exponentiation(&result))
+        final_exponentiation(&result)
     }
 }
 
 /// Implements the miller loop for the ate pairing of the BLS12 381 curve.
 /// Based on algorithm 9.2, page 212 of the book
 /// "Topics in computational number theory" by W. Bons and K. Lenstra
-#[allow(unused)]
 pub fn miller(
     q: &ShortWeierstrassJacobianPoint<BLS12381TwistCurve>,
     p: &ShortWeierstrassJacobianPoint<BLS12381Curve>,
@@ -345,10 +304,45 @@ pub fn miller(
     f.conjugate()
 }
 
+/// The multiplicative inverse of 2 in Fp2.
+const TWO_INV: Fp2E = Fp2E::const_from_raw([
+    FpE::from_hex_unchecked("d0088f51cbff34d258dd3db21a5d66bb23ba5c279c2895fb39869507b587b120f55ffff58a9ffffdcff7fffffffd556"),
+    FpE::from_hex_unchecked("0"),
+]);
+
 /// Multiplies an Fp2 element by 3 using addition chain: 3x = 2x + x
 #[inline]
 fn triple_fp2(x: &Fp2E) -> Fp2E {
     x.double() + x
+}
+
+/// Sparse Fp12 multiplication by a line evaluation: f * (b0 + b2*w^2 + b3*w^3).
+/// This is specific to BLS12-381 where the line operates at the Fp2 level with
+/// `mul_fp2_by_nonresidue` (different from BN254/BLS12-377's Fp6-level `sparse_fp12_mul`).
+#[inline]
+fn sparse_fp12_mul_by_line(f: &Fp12E, b0: &Fp2E, b2: &Fp2E, b3: &Fp2E) -> Fp12E {
+    let [x, y] = f.value();
+    let [a0, a2, a4] = x.value();
+    let [a1, a3, a5] = y.value();
+
+    let a3b3 = a3 * b3;
+    let a4b2 = a4 * b2;
+    let a5b3 = a5 * b3;
+    let a4b3 = a4 * b3;
+    let a5b2 = a5 * b2;
+
+    Fp12E::new([
+        Fp6E::new([
+            a0 * b0 + mul_fp2_by_nonresidue(&(&a3b3 + &a4b2)),
+            a2 * b0 + mul_fp2_by_nonresidue(&a5b3) + a0 * b2,
+            a4 * b0 + a1 * b3 + a2 * b2,
+        ]),
+        Fp6E::new([
+            a1 * b0 + mul_fp2_by_nonresidue(&(&a4b3 + &a5b2)),
+            a3 * b0 + a0 * b3 + a1 * b2,
+            a5 * b0 + a2 * b3 + a3 * b2,
+        ]),
+    ])
 }
 
 fn double_accumulate_line(
@@ -358,15 +352,14 @@ fn double_accumulate_line(
 ) {
     let [x1, y1, z1] = t.coordinates();
     let [px, py, _] = p.coordinates();
-    let two_inv = FieldElement::<Degree2ExtensionField>::new_base("d0088f51cbff34d258dd3db21a5d66bb23ba5c279c2895fb39869507b587b120f55ffff58a9ffffdcff7fffffffd556");
 
-    let a = &two_inv * x1 * y1;
+    let a = &TWO_INV * x1 * y1;
     let b = y1.square();
     let c = z1.square();
     let d = triple_fp2(&c); // 3c via addition chain
     let e = BLS12381TwistCurve::b() * d;
     let f = triple_fp2(&e); // 3e via addition chain
-    let g = two_inv * (&b + &f);
+    let g = &TWO_INV * (&b + &f);
     let h = (y1 + z1).square() - (&b + &c);
 
     let x3 = &a * (&b - &f);
@@ -382,39 +375,11 @@ fn double_accumulate_line(
     // SAFETY: The values `x_3, y_3, z_3` are computed correctly to be on the curve.
     t.set_unchecked([x3, y3, z3]);
 
-    // Sparse Fp12 multiplication: accumulator² * line_evaluation
-    // (a0 + a2w2 + a4w4 + a1w + a3w3 + a5w5) * (b0 + b2 w2 + b3 w3) =
-    // (a0b0 + r (a3b3 + a4b2)) w0 + (a1b0 + r (a4b3 + a5b2)) w
-    // (a2b0 + r  a5b3 + a0b2 ) w2 + (a3b0 + a0b3 + a1b2    ) w3
-    // (a4b0 +    a1b3 + a2b2 ) w4 + (a5b0 + a2b3 + a3b2    ) w5
-    // where r = (1+u) is the quadratic non-residue
-    let accumulator_sq = accumulator.square();
-    let [x, y] = accumulator_sq.value();
-    let [a0, a2, a4] = x.value();
-    let [a1, a3, a5] = y.value();
     let b0 = e - b;
     let b2 = Fp2E::new([x1_sq_30 * px, x1_sq_31 * px]);
     let b3 = Fp2E::new([-h0 * py, -h1 * py]);
 
-    // Use mul_fp2_by_nonresidue instead of full Fp2 multiplication by residue
-    let a3b3 = a3 * &b3;
-    let a4b2 = a4 * &b2;
-    let a5b3 = a5 * &b3;
-    let a4b3 = a4 * &b3;
-    let a5b2 = a5 * &b2;
-
-    *accumulator = Fp12E::new([
-        Fp6E::new([
-            a0 * &b0 + mul_fp2_by_nonresidue(&(&a3b3 + &a4b2)), // w0
-            a2 * &b0 + mul_fp2_by_nonresidue(&a5b3) + a0 * &b2, // w2
-            a4 * &b0 + a1 * &b3 + a2 * &b2,                     // w4
-        ]),
-        Fp6E::new([
-            a1 * &b0 + mul_fp2_by_nonresidue(&(&a4b3 + &a5b2)), // w1
-            a3 * &b0 + a0 * &b3 + a1 * &b2,                     // w3
-            a5 * &b0 + a2 * &b3 + a3 * &b2,                     // w5
-        ]),
-    ]);
+    *accumulator = sparse_fp12_mul_by_line(&accumulator.square(), &b0, &b2, &b3);
 }
 
 fn add_accumulate_line(
@@ -449,33 +414,11 @@ fn add_accumulate_line(
     let [lambda0, lambda1] = lambda.value();
     let [theta0, theta1] = theta.value();
 
-    // Sparse Fp12 multiplication: accumulator * line_evaluation
-    let [x, y] = accumulator.value();
-    let [a0, a2, a4] = x.value();
-    let [a1, a3, a5] = y.value();
-    let b0 = -lambda.clone() * y2 + theta.clone() * x2;
+    let b0 = -&lambda * y2 + &theta * x2;
     let b2 = Fp2E::new([-theta0 * px, -theta1 * px]);
     let b3 = Fp2E::new([lambda0 * py, lambda1 * py]);
 
-    // Use mul_fp2_by_nonresidue instead of full Fp2 multiplication by residue
-    let a3b3 = a3 * &b3;
-    let a4b2 = a4 * &b2;
-    let a5b3 = a5 * &b3;
-    let a4b3 = a4 * &b3;
-    let a5b2 = a5 * &b2;
-
-    *accumulator = Fp12E::new([
-        Fp6E::new([
-            a0 * &b0 + mul_fp2_by_nonresidue(&(&a3b3 + &a4b2)), // w0
-            a2 * &b0 + mul_fp2_by_nonresidue(&a5b3) + a0 * &b2, // w2
-            a4 * &b0 + a1 * &b3 + a2 * &b2,                     // w4
-        ]),
-        Fp6E::new([
-            a1 * &b0 + mul_fp2_by_nonresidue(&(&a4b3 + &a5b2)), // w1
-            a3 * &b0 + a0 * &b3 + a1 * &b2,                     // w3
-            a5 * &b0 + a2 * &b3 + a3 * &b2,                     // w5
-        ]),
-    ]);
+    *accumulator = sparse_fp12_mul_by_line(accumulator, &b0, &b2, &b3);
 }
 
 // To understand more about how to reduce the final exponentiation
@@ -483,8 +426,8 @@ fn add_accumulate_line(
 // Pairings over Families of Elliptic Curves" (https://eprint.iacr.org/2020/875.pdf)
 // Hard part from https://eprint.iacr.org/2020/875.pdf p14
 // Same implementation as in Constantine https://github.com/mratsim/constantine/blob/master/constantine/math/pairings/pairings_bls12.nim
-pub fn final_exponentiation(f: &Fp12E) -> Fp12E {
-    let f_easy_aux = f.conjugate() * f.inv().unwrap();
+pub fn final_exponentiation(f: &Fp12E) -> Result<Fp12E, PairingError> {
+    let f_easy_aux = f.conjugate() * f.inv().map_err(|_| PairingError::DivisionByZero)?;
     let mut f_easy = frobenius_square(&f_easy_aux) * &f_easy_aux;
 
     let mut v2 = cyclotomic_square(&f_easy); // v2 = f²
@@ -515,7 +458,7 @@ pub fn final_exponentiation(f: &Fp12E) -> Fp12E {
     v0 *= &v2; // v0 = f^((x-1)².(x+p).(x²+p²-1))
 
     f_easy *= &v0;
-    f_easy
+    Ok(f_easy)
 }
 
 ////////////////// FROBENIUS MORPHISIMS //////////////////
@@ -540,9 +483,7 @@ pub fn frobenius(f: &Fp12E) -> Fp12E {
     Fp12E::new([c1, c2]) //c1 + c2 * w
 }
 
-fn frobenius_square(
-    f: &FieldElement<Degree12ExtensionField>,
-) -> FieldElement<Degree12ExtensionField> {
+fn frobenius_square(f: &Fp12E) -> Fp12E {
     let [a, b] = f.value();
     let [a0, a1, a2] = a.value();
     let [b0, b1, b2] = b.value();
@@ -608,7 +549,6 @@ pub fn cyclotomic_square(a: &Fp12E) -> Fp12E {
     Fp12E::new([Fp6E::new([r00, r01, r02]), Fp6E::new([r10, r11, r12])])
 }
 
-#[allow(clippy::needless_range_loop)]
 pub fn cyclotomic_pow_x(f: &Fp12E) -> Fp12E {
     let mut result = Fp12E::one();
     X_BINARY.iter().for_each(|&bit| {
@@ -644,9 +584,8 @@ impl CompressedCyclotomic {
     /// Compress an Fp12 cyclotomic element to 4 Fp2 elements
     pub fn compress(f: &Fp12E) -> Self {
         let [c0, c1] = f.value();
-        let [g0, g1, g2] = c0.value();
-        let [g3, g4, g5] = c1.value();
-        let _ = (g0, g4); // These are recoverable
+        let [_g0, g1, g2] = c0.value();
+        let [g3, _g4, g5] = c1.value();
         Self {
             g1: g1.clone(),
             g2: g2.clone(),
@@ -673,7 +612,7 @@ impl CompressedCyclotomic {
             // E * g5² where E = (1+u)
             let e_g5_sq = mul_fp2_by_nonresidue(&g5_sq);
             // 3 * g1²
-            let three_g1_sq = &g1_sq + &g1_sq + &g1_sq;
+            let three_g1_sq = triple_fp2(&g1_sq);
             // 2 * g2
             let two_g2 = g2.double();
             // numerator = E * g5² + 3 * g1² - 2 * g2
@@ -696,7 +635,7 @@ impl CompressedCyclotomic {
         let two_g4_sq = g4_sq.double();
         let g3_g5 = g3 * g5;
         let g2_g1 = g2 * g1;
-        let three_g2_g1 = &g2_g1 + &g2_g1 + &g2_g1;
+        let three_g2_g1 = triple_fp2(&g2_g1);
         let inner = &two_g4_sq + &g3_g5 - &three_g2_g1;
         let g0 = mul_fp2_by_nonresidue(&inner) + Fp2E::one();
 
@@ -1005,11 +944,11 @@ mod tests {
         let bq = q.operate_with_self(b);
         let bq_prepared = G2Prepared::from_g2_affine(&bq);
         let f1 = miller_with_prepared(&bq_prepared, &ap);
-        let result1 = final_exponentiation(&f1);
+        let result1 = final_exponentiation(&f1).unwrap();
 
         // Compute e(P, Q)^(ab) using standard
         let f2 = miller(&q.to_affine(), &p.to_affine());
-        let result2 = final_exponentiation(&f2).pow(a * b);
+        let result2 = final_exponentiation(&f2).unwrap().pow(a * b);
 
         assert_eq!(result1, result2);
     }

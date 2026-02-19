@@ -24,6 +24,16 @@
 #include "shaders/field/stark256.h.metal"
 #include "shaders/field/goldilocks.h.metal"
 
+// BabyBear 32-bit prime field
+#include "shaders/field/babybear.h.metal"
+
 // Goldilocks extension field instantiations (for FFT with base field twiddles)
 #include "shaders/field/goldilocks_fp2.h.metal"
 #include "shaders/field/goldilocks_fp3.h.metal"
+
+// Mersenne31 Circle FFT kernels
+#include "shaders/field/mersenne31_cfft.h.metal"
+
+// Sumcheck protocol kernels
+#include "shaders/sumcheck/sumcheck_babybear.h.metal"
+#include "shaders/sumcheck/sumcheck_goldilocks.h.metal"

@@ -1,24 +1,26 @@
 //! External comparison benchmarks: Lambdaworks vs Plonky3 (Batch FFT)
 //!
 //! Compares batch FFT performance (multiple polynomials at once):
-//! - Lambdaworks FftMatrix + bowers_batch_fft_opt
+//! - Lambdaworks Bowers FFT with rayon parallelization
 //! - Plonky3 Radix2Dit::dft_batch
 //!
 //! This is critical for STARK trace commitment where many columns
 //! need to be transformed simultaneously.
 //!
-//! Sizes: 2^12, 2^14, 2^16
-//! Batch sizes: 4, 8, 16, 32 polynomials
+//! Sizes: 2^16, 2^18, 2^20
+//! Batch sizes: 64 polynomials
 
-use criterion::{black_box, BenchmarkId, Criterion, Throughput};
+use criterion::{black_box, BatchSize, BenchmarkId, Criterion, Throughput};
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
+use rayon::prelude::*;
 
 // Lambdaworks
-use lambdaworks_math::fft::cpu::bowers_fft::{bowers_batch_fft_opt, FftMatrix, LayerTwiddles};
+use lambdaworks_math::fft::cpu::bit_reversing::in_place_bit_reverse_permute;
+use lambdaworks_math::fft::cpu::bowers_fft::{bowers_fft_opt_fused, LayerTwiddles};
 use lambdaworks_math::field::element::FieldElement;
 use lambdaworks_math::field::fields::fft_friendly::babybear::Babybear31PrimeField;
-use lambdaworks_math::field::fields::u64_goldilocks_hybrid_field::Goldilocks64HybridField;
+use lambdaworks_math::field::fields::u64_goldilocks_field::Goldilocks64Field;
 
 // Plonky3
 use p3_baby_bear::BabyBear as P3BabyBear;
@@ -27,8 +29,8 @@ use p3_goldilocks::Goldilocks as P3Goldilocks;
 use p3_matrix::dense::RowMajorMatrix;
 
 const SEED: u64 = 0xBEEF;
-const POLY_SIZES: [usize; 3] = [1 << 12, 1 << 14, 1 << 16];
-const BATCH_SIZES: [usize; 4] = [4, 8, 16, 32];
+const POLY_SIZES: [usize; 3] = [1 << 16, 1 << 18, 1 << 20];
+const BATCH_SIZES: [usize; 1] = [64];
 
 // ============================================
 // GOLDILOCKS BATCH FFT BENCHMARKS
@@ -37,7 +39,7 @@ const BATCH_SIZES: [usize; 4] = [4, 8, 16, 32];
 pub fn bench_goldilocks_lambdaworks(c: &mut Criterion) {
     let mut group = c.benchmark_group("Goldilocks Batch FFT Lambdaworks");
 
-    type F = Goldilocks64HybridField;
+    type F = Goldilocks64Field;
     type FE = FieldElement<F>;
 
     let mut rng = StdRng::seed_from_u64(SEED);
@@ -61,11 +63,17 @@ pub fn bench_goldilocks_lambdaworks(c: &mut Criterion) {
                 BenchmarkId::new(&bench_name, poly_size),
                 &(&polys, &twiddles),
                 |b, (ps, tw)| {
-                    b.iter(|| {
-                        let mut matrix = FftMatrix::from_polynomials((*ps).clone());
-                        bowers_batch_fft_opt(&mut matrix, tw).unwrap();
-                        black_box(matrix)
-                    })
+                    b.iter_batched(
+                        || (*ps).clone(),
+                        |mut batch_data| {
+                            batch_data.par_iter_mut().for_each(|poly| {
+                                bowers_fft_opt_fused(poly, tw).unwrap();
+                                in_place_bit_reverse_permute(poly);
+                            });
+                            black_box(batch_data)
+                        },
+                        BatchSize::LargeInput,
+                    )
                 },
             );
         }
@@ -133,11 +141,17 @@ pub fn bench_babybear_lambdaworks(c: &mut Criterion) {
                 BenchmarkId::new(&bench_name, poly_size),
                 &(&polys, &twiddles),
                 |b, (ps, tw)| {
-                    b.iter(|| {
-                        let mut matrix = FftMatrix::from_polynomials((*ps).clone());
-                        bowers_batch_fft_opt(&mut matrix, tw).unwrap();
-                        black_box(matrix)
-                    })
+                    b.iter_batched(
+                        || (*ps).clone(),
+                        |mut batch_data| {
+                            batch_data.par_iter_mut().for_each(|poly| {
+                                bowers_fft_opt_fused(poly, tw).unwrap();
+                                in_place_bit_reverse_permute(poly);
+                            });
+                            black_box(batch_data)
+                        },
+                        BatchSize::LargeInput,
+                    )
                 },
             );
         }

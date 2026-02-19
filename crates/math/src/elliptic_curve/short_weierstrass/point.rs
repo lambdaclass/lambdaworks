@@ -134,51 +134,6 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
         result
     }
 
-    /// Performs the group operation between a point and itself a + a = 2a in
-    /// additive notation
-    pub fn double(&self) -> Self {
-        if self.is_neutral_element() {
-            return self.clone();
-        }
-        let [px, py, pz] = self.coordinates();
-
-        let px_square = px * px;
-        let three_px_square = &px_square + &px_square + &px_square;
-        let w = E::a() * pz * pz + three_px_square;
-        let w_square = &w * &w;
-
-        let s = py * pz;
-        let s_square = &s * &s;
-        let s_cube = &s * &s_square;
-        let two_s_cube = &s_cube + &s_cube;
-        let four_s_cube = &two_s_cube + &two_s_cube;
-        let eight_s_cube = &four_s_cube + &four_s_cube;
-
-        let b = px * py * &s;
-        let two_b = &b + &b;
-        let four_b = &two_b + &two_b;
-        let eight_b = &four_b + &four_b;
-
-        let h = &w_square - eight_b;
-        let hs = &h * &s;
-
-        let pys_square = py * py * s_square;
-        let two_pys_square = &pys_square + &pys_square;
-        let four_pys_square = &two_pys_square + &two_pys_square;
-        let eight_pys_square = &four_pys_square + &four_pys_square;
-
-        let xp = &hs + &hs;
-        let yp = w * (four_b - &h) - eight_pys_square;
-        let zp = eight_s_cube;
-
-        debug_assert_eq!(
-            E::defining_equation_projective(&xp, &yp, &zp),
-            FieldElement::<E::BaseField>::zero()
-        );
-        // SAFETY: The values `x_p, y_p, z_p` are computed correctly to be on the curve.
-        // The assertion above verifies that the resulting point is valid.
-        Self::new_unchecked([xp, yp, zp])
-    }
     // https://hyperelliptic.org/EFD/g1p/data/shortw/projective/addition/madd-1998-cmo
     /// More efficient than operate_with, but must ensure that other is in affine form
     pub fn operate_with_affine(&self, other: &Self) -> Self {
@@ -319,6 +274,47 @@ impl<E: IsShortWeierstrass> IsGroup for ShortWeierstrassProjectivePoint<E> {
         Self::new_unchecked([px.clone(), -py, pz.clone()])
     }
 
+    /// Dedicated projective doubling formula (2a in additive notation).
+    /// Note: No identity check needed — when Z=0, s = py·pz = 0, so zp = 0.
+    fn double(&self) -> Self {
+        let [px, py, pz] = self.coordinates();
+
+        let px_square = px.square();
+        let three_px_square = px_square.double() + &px_square;
+        let w = E::a() * pz.square() + three_px_square;
+        let w_square = &w * &w;
+
+        let s = py * pz;
+        let s_square = &s * &s;
+        let s_cube = &s * &s_square;
+        let two_s_cube = &s_cube + &s_cube;
+        let four_s_cube = &two_s_cube + &two_s_cube;
+        let eight_s_cube = &four_s_cube + &four_s_cube;
+
+        let b = px * py * &s;
+        let two_b = &b + &b;
+        let four_b = &two_b + &two_b;
+        let eight_b = &four_b + &four_b;
+
+        let h = &w_square - eight_b;
+        let hs = &h * &s;
+
+        let pys_square = py * py * s_square;
+        let two_pys_square = &pys_square + &pys_square;
+        let four_pys_square = &two_pys_square + &two_pys_square;
+        let eight_pys_square = &four_pys_square + &four_pys_square;
+
+        let xp = &hs + &hs;
+        let yp = w * (four_b - &h) - eight_pys_square;
+        let zp = eight_s_cube;
+
+        debug_assert_eq!(
+            E::defining_equation_projective(&xp, &yp, &zp),
+            FieldElement::<E::BaseField>::zero()
+        );
+        Self::new_unchecked([xp, yp, zp])
+    }
+
     /// Optimized scalar multiplication for a=0 curves using Jacobian coordinates.
     /// Jacobian doubling is 2M+5S vs projective 7M+5S, providing ~30% speedup.
     /// For a != 0 curves, falls back to the default implementation.
@@ -326,8 +322,8 @@ impl<E: IsShortWeierstrass> IsGroup for ShortWeierstrassProjectivePoint<E> {
         &self,
         mut exponent: T,
     ) -> Self {
-        let zero = T::from(0u16);
-        let one = T::from(1u16);
+        let zero = T::from(0);
+        let one = T::from(1);
 
         if exponent == zero {
             return Self::neutral_element();
@@ -339,12 +335,19 @@ impl<E: IsShortWeierstrass> IsGroup for ShortWeierstrassProjectivePoint<E> {
 
         // Only use Jacobian optimization for a=0 curves
         if E::a() != FieldElement::zero() {
-            // Fall back to default double-and-add with projective coordinates
+            // Fall back to double-and-add with projective coordinates,
+            // using boolean flag to avoid identity detection via field comparison.
             let mut result = Self::neutral_element();
+            let mut result_is_identity = true;
             let mut base = self.clone();
             loop {
                 if exponent & one == one {
-                    result = result.operate_with(&base);
+                    if !result_is_identity {
+                        result = result.operate_with(&base);
+                    } else {
+                        result = base.clone();
+                        result_is_identity = false;
+                    }
                 }
                 exponent >>= 1;
                 if exponent == zero {
@@ -365,19 +368,21 @@ impl<E: IsShortWeierstrass> IsGroup for ShortWeierstrassProjectivePoint<E> {
         let mut result_x = FieldElement::zero();
         let mut result_y = FieldElement::one();
         let mut result_z = FieldElement::zero(); // Neutral element in Jacobian: z=0
+        let mut result_is_identity = true;
 
         loop {
             if exponent & one == one {
-                if result_z == FieldElement::zero() {
-                    // First accumulation - just copy base
-                    result_x = base_x.clone();
-                    result_y = base_y.clone();
-                    result_z = base_z.clone();
-                } else {
+                if !result_is_identity {
                     // Jacobian addition
                     (result_x, result_y, result_z) = Self::jacobian_add_a0(
                         &result_x, &result_y, &result_z, &base_x, &base_y, &base_z,
                     );
+                } else {
+                    // First accumulation - just copy base
+                    result_x = base_x.clone();
+                    result_y = base_y.clone();
+                    result_z = base_z.clone();
+                    result_is_identity = false;
                 }
             }
             exponent >>= 1;
@@ -389,7 +394,7 @@ impl<E: IsShortWeierstrass> IsGroup for ShortWeierstrassProjectivePoint<E> {
         }
 
         // Convert back to projective: X_p = X_j * Z_j, Y_p = Y_j, Z_p = Z_j³
-        if result_z == FieldElement::zero() {
+        if result_is_identity {
             Self::neutral_element()
         } else {
             let z_cubed = &result_z * result_z.square();
@@ -404,7 +409,7 @@ impl<E: IsShortWeierstrass> ShortWeierstrassProjectivePoint<E> {
     /// From http://www.hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-0.html#doubling-dbl-2009-l
     #[inline(always)]
     #[allow(clippy::type_complexity)]
-    fn jacobian_double_a0(
+    pub(crate) fn jacobian_double_a0(
         x: &FieldElement<E::BaseField>,
         y: &FieldElement<E::BaseField>,
         z: &FieldElement<E::BaseField>,
@@ -512,45 +517,34 @@ where
     /// Serialize the points in the given format
     #[cfg(feature = "alloc")]
     pub fn serialize(&self, point_format: PointFormat, endianness: Endianness) -> Vec<u8> {
-        // TODO: Add more compact serialization formats
-        // Uncompressed affine / Compressed
-
-        let mut bytes: Vec<u8> = Vec::new();
-        let x_bytes: Vec<u8>;
-        let y_bytes: Vec<u8>;
-        let z_bytes: Vec<u8>;
-
         match point_format {
             PointFormat::Projective => {
                 let [x, y, z] = self.coordinates();
-                if endianness == Endianness::BigEndian {
-                    x_bytes = x.to_bytes_be();
-                    y_bytes = y.to_bytes_be();
-                    z_bytes = z.to_bytes_be();
+                let (x_bytes, y_bytes, z_bytes) = if endianness == Endianness::BigEndian {
+                    (x.to_bytes_be(), y.to_bytes_be(), z.to_bytes_be())
                 } else {
-                    x_bytes = x.to_bytes_le();
-                    y_bytes = y.to_bytes_le();
-                    z_bytes = z.to_bytes_le();
-                }
+                    (x.to_bytes_le(), y.to_bytes_le(), z.to_bytes_le())
+                };
+                let mut bytes = Vec::with_capacity(x_bytes.len() + y_bytes.len() + z_bytes.len());
                 bytes.extend(&x_bytes);
                 bytes.extend(&y_bytes);
                 bytes.extend(&z_bytes);
+                bytes
             }
             PointFormat::Uncompressed => {
                 let affine_representation = self.to_affine();
                 let [x, y, _z] = affine_representation.coordinates();
-                if endianness == Endianness::BigEndian {
-                    x_bytes = x.to_bytes_be();
-                    y_bytes = y.to_bytes_be();
+                let (x_bytes, y_bytes) = if endianness == Endianness::BigEndian {
+                    (x.to_bytes_be(), y.to_bytes_be())
                 } else {
-                    x_bytes = x.to_bytes_le();
-                    y_bytes = y.to_bytes_le();
-                }
+                    (x.to_bytes_le(), y.to_bytes_le())
+                };
+                let mut bytes = Vec::with_capacity(x_bytes.len() + y_bytes.len());
                 bytes.extend(&x_bytes);
                 bytes.extend(&y_bytes);
+                bytes
             }
         }
-        bytes
     }
 
     pub fn deserialize(
@@ -658,7 +652,7 @@ where
 }
 
 #[derive(Clone, Debug)]
-pub struct ShortWeierstrassJacobianPoint<E: IsEllipticCurve>(pub JacobianPoint<E>);
+pub struct ShortWeierstrassJacobianPoint<E: IsEllipticCurve>(JacobianPoint<E>);
 
 impl<E: IsShortWeierstrass> ShortWeierstrassJacobianPoint<E> {
     /// Creates an elliptic curve point giving the jacobian [x: y: z] coordinates.
@@ -669,9 +663,9 @@ impl<E: IsShortWeierstrass> ShortWeierstrassJacobianPoint<E> {
             && E::defining_equation_jacobian(x, y, z) == FieldElement::<E::BaseField>::zero()
         {
             Ok(Self(JacobianPoint::new(value)))
-        // The point at infinity is (1, 1, 0)
-        // We convert every (x, x, 0) into the infinity.
-        } else if z == &FieldElement::<E::BaseField>::zero() && x == y {
+        // The point at infinity is any (_, _, 0).
+        // We canonicalize every z==0 to (1, 1, 0).
+        } else if z == &FieldElement::<E::BaseField>::zero() {
             Ok(Self(JacobianPoint::new([
                 FieldElement::<E::BaseField>::one(),
                 FieldElement::<E::BaseField>::one(),
@@ -796,57 +790,6 @@ impl<E: IsShortWeierstrass> ShortWeierstrassJacobianPoint<E> {
         }
 
         result
-    }
-
-    /// Applies the group operation between a point and itself
-    pub fn double(&self) -> Self {
-        if self.is_neutral_element() {
-            return self.clone();
-        }
-        let [x1, y1, z1] = self.coordinates();
-        //http://www.hyperelliptic.org/EFD/g1p/data/shortw/jacobian-0/doubling/dbl-2009-l
-
-        if E::a() == FieldElement::zero() {
-            let a = x1.square(); // A = x1^2
-            let b = y1.square(); // B = y1^2
-            let c = b.square(); // C = B^2
-            let x1_plus_b = x1 + &b; // (X1 + B)
-            let x1_plus_b_square = x1_plus_b.square(); // (X1 + B)^2
-            let d = (&x1_plus_b_square - &a - &c).double(); // D = 2 * ((X1 + B)^2 - A - C)
-            let e = &a.double() + &a; // E = 3 * A
-            let f = e.square(); // F = E^2
-            let x3 = &f - &d.double(); // X3 = F - 2 * D
-            let y3 = &e * (&d - &x3) - &c.double().double().double(); // Y3 = E * (D - X3) - 8 * C
-            let z3 = (y1 * z1).double(); // Z3 = 2 * Y1 * Z1
-
-            debug_assert_eq!(
-                E::defining_equation_jacobian(&x3, &y3, &z3),
-                FieldElement::<E::BaseField>::zero()
-            );
-            // SAFETY: The values `x_3, y_3, z_3` are computed correctly to be on the curve.
-            // The assertion above verifies that the resulting point is valid.
-            Self::new_unchecked([x3, y3, z3])
-        } else {
-            // http://www.hyperelliptic.org/EFD/g1p/data/shortw/jacobian-0/doubling/dbl-2009-alnr
-            // http://www.hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-0.html#doubling-dbl-2009-l
-            let xx = x1.square(); // XX = X1^2
-            let yy = y1.square(); // YY = Y1^2
-            let yyyy = yy.square(); // YYYY = YY^2
-            let zz = z1.square(); // ZZ = Z1^2
-            let s = ((x1 + &yy).square() - &xx - &yyyy).double(); // S = 2 * ((X1 + YY)^2 - XX - YYYY)
-            let m = &xx.double() + &xx + &E::a() * &zz.square(); // M = 3 * XX + a * ZZ^2
-            let x3 = m.square() - &s.double(); // X3 = M^2 - 2 * S
-            let y3 = m * (&s - &x3) - &yyyy.double().double().double(); // Y3 = M * (S - X3) - 8 * YYYY
-            let z3 = (y1 + z1).square() - &yy - &zz; // Z3 = (Y1 + Z1)^2 - YY - ZZ
-
-            debug_assert_eq!(
-                E::defining_equation_jacobian(&x3, &y3, &z3),
-                FieldElement::<E::BaseField>::zero()
-            );
-            // SAFETY: The values `x_3, y_3, z_3` are computed correctly to be on the curve.
-            // The assertion above verifies that the resulting point is valid.
-            Self::new_unchecked([x3, y3, z3])
-        }
     }
 
     /// Changes the point coordinates without checking that it satisfies the curve equation.
@@ -1009,6 +952,87 @@ impl<E: IsShortWeierstrass> IsGroup for ShortWeierstrassJacobianPoint<E> {
         // - The result remains a valid curve point.
         Self::new_unchecked([x.clone(), -y, z.clone()])
     }
+
+    /// Optimized scalar multiplication using double-and-add with a boolean flag
+    /// to avoid expensive field comparisons for identity detection in the hot loop.
+    fn operate_with_self<T: crate::unsigned_integer::traits::IsUnsignedInteger>(
+        &self,
+        mut exponent: T,
+    ) -> Self {
+        let zero = T::from(0);
+        let one = T::from(1);
+
+        if exponent == zero || self.is_neutral_element() {
+            return Self::neutral_element();
+        }
+
+        let mut result = Self::neutral_element();
+        let mut result_is_identity = true;
+        let mut base = self.clone();
+
+        loop {
+            if exponent & one == one {
+                if !result_is_identity {
+                    result = result.operate_with(&base);
+                } else {
+                    result = base.clone();
+                    result_is_identity = false;
+                }
+            }
+            exponent >>= 1;
+            if exponent == zero {
+                break;
+            }
+            base = base.double();
+        }
+        result
+    }
+
+    /// Dedicated Jacobian doubling formula. Significantly faster than going through
+    /// `operate_with(self)` which must detect the P==P case first.
+    /// Uses dbl-2009-l for a=0, dbl-2009-alnr for general case.
+    /// Note: No identity check needed — when Z=0 the formulas naturally produce Z=0.
+    fn double(&self) -> Self {
+        let [x1, y1, z1] = self.coordinates();
+
+        if E::a() == FieldElement::zero() {
+            // http://www.hyperelliptic.org/EFD/g1p/data/shortw/jacobian-0/doubling/dbl-2009-l
+            let a = x1.square(); // A = x1^2
+            let b = y1.square(); // B = y1^2
+            let c = b.square(); // C = B^2
+            let x1_plus_b = x1 + &b; // (X1 + B)
+            let x1_plus_b_square = x1_plus_b.square(); // (X1 + B)^2
+            let d = (&x1_plus_b_square - &a - &c).double(); // D = 2 * ((X1 + B)^2 - A - C)
+            let e = &a.double() + &a; // E = 3 * A
+            let f = e.square(); // F = E^2
+            let x3 = &f - &d.double(); // X3 = F - 2 * D
+            let y3 = &e * (&d - &x3) - &c.double().double().double(); // Y3 = E * (D - X3) - 8 * C
+            let z3 = (y1 * z1).double(); // Z3 = 2 * Y1 * Z1
+
+            debug_assert_eq!(
+                E::defining_equation_jacobian(&x3, &y3, &z3),
+                FieldElement::<E::BaseField>::zero()
+            );
+            Self::new_unchecked([x3, y3, z3])
+        } else {
+            // http://www.hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-0.html#doubling-dbl-2009-l
+            let xx = x1.square(); // XX = X1^2
+            let yy = y1.square(); // YY = Y1^2
+            let yyyy = yy.square(); // YYYY = YY^2
+            let zz = z1.square(); // ZZ = Z1^2
+            let s = ((x1 + &yy).square() - &xx - &yyyy).double(); // S = 2 * ((X1 + YY)^2 - XX - YYYY)
+            let m = &xx.double() + &xx + &E::a() * &zz.square(); // M = 3 * XX + a * ZZ^2
+            let x3 = m.square() - &s.double(); // X3 = M^2 - 2 * S
+            let y3 = m * (&s - &x3) - &yyyy.double().double().double(); // Y3 = M * (S - X3) - 8 * YYYY
+            let z3 = (y1 + z1).square() - &yy - &zz; // Z3 = (Y1 + Z1)^2 - YY - ZZ
+
+            debug_assert_eq!(
+                E::defining_equation_jacobian(&x3, &y3, &z3),
+                FieldElement::<E::BaseField>::zero()
+            );
+            Self::new_unchecked([x3, y3, z3])
+        }
+    }
 }
 
 impl<E> ShortWeierstrassJacobianPoint<E>
@@ -1024,43 +1048,37 @@ where
         point_format: PointFormat,
         endianness: Endianness,
     ) -> alloc::vec::Vec<u8> {
-        let mut bytes: alloc::vec::Vec<u8> = alloc::vec::Vec::new();
-        let x_bytes;
-        let y_bytes;
-        let z_bytes;
         match point_format {
             PointFormat::Projective => {
                 // For "projective" format, serialize the raw Jacobian coordinates [x, y, z]
                 let [x, y, z] = self.coordinates();
-                if endianness == Endianness::BigEndian {
-                    x_bytes = x.to_bytes_be();
-                    y_bytes = y.to_bytes_be();
-                    z_bytes = z.to_bytes_be();
+                let (x_bytes, y_bytes, z_bytes) = if endianness == Endianness::BigEndian {
+                    (x.to_bytes_be(), y.to_bytes_be(), z.to_bytes_be())
                 } else {
-                    x_bytes = x.to_bytes_le();
-                    y_bytes = y.to_bytes_le();
-                    z_bytes = z.to_bytes_le();
-                }
+                    (x.to_bytes_le(), y.to_bytes_le(), z.to_bytes_le())
+                };
+                let mut bytes =
+                    alloc::vec::Vec::with_capacity(x_bytes.len() + y_bytes.len() + z_bytes.len());
                 bytes.extend(&x_bytes);
                 bytes.extend(&y_bytes);
                 bytes.extend(&z_bytes);
+                bytes
             }
             PointFormat::Uncompressed => {
                 // Convert to affine: x_affine = x/z^2, y_affine = y/z^3
                 let affine_representation = self.to_affine();
                 let [x, y, _z] = affine_representation.coordinates();
-                if endianness == Endianness::BigEndian {
-                    x_bytes = x.to_bytes_be();
-                    y_bytes = y.to_bytes_be();
+                let (x_bytes, y_bytes) = if endianness == Endianness::BigEndian {
+                    (x.to_bytes_be(), y.to_bytes_be())
                 } else {
-                    x_bytes = x.to_bytes_le();
-                    y_bytes = y.to_bytes_le();
-                }
+                    (x.to_bytes_le(), y.to_bytes_le())
+                };
+                let mut bytes = alloc::vec::Vec::with_capacity(x_bytes.len() + y_bytes.len());
                 bytes.extend(&x_bytes);
                 bytes.extend(&y_bytes);
+                bytes
             }
         }
-        bytes
     }
 
     pub fn deserialize(
@@ -1187,14 +1205,6 @@ mod tests {
     #[cfg(feature = "alloc")]
     #[allow(clippy::upper_case_acronyms)]
     type FEE = FieldElement<BLS12381PrimeField>;
-
-    #[cfg(feature = "alloc")]
-    #[allow(dead_code)]
-    fn point() -> ShortWeierstrassJacobianPoint<BLS12381Curve> {
-        let x = FEE::new_base("36bb494facde72d0da5c770c4b16d9b2d45cfdc27604a25a1a80b020798e5b0dbd4c6d939a8f8820f042a29ce552ee5");
-        let y = FEE::new_base("7acf6e49cc000ff53b06ee1d27056734019c0a1edfa16684da41ebb0c56750f73bc1b0eae4c6c241808a5e485af0ba0");
-        BLS12381Curve::create_point_from_affine(x, y).unwrap()
-    }
 
     // Helper function for projective point serialization tests
     #[cfg(feature = "alloc")]

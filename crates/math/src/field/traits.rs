@@ -69,7 +69,7 @@ where
 /// any other root of unity we need to perform FFT.
 pub trait IsFFTField: IsField {
     const TWO_ADICITY: u64;
-    const TWO_ADIC_PRIMITVE_ROOT_OF_UNITY: Self::BaseType;
+    const TWO_ADIC_PRIMITIVE_ROOT_OF_UNITY: Self::BaseType;
 
     /// Used for searching this field's implementation in other languages, e.g in MSL
     /// for executing parallel operations with the Metal API.
@@ -82,7 +82,7 @@ pub trait IsFFTField: IsField {
     /// w^k <> 1 modulo p for k not congruent to 2^order
     fn get_primitive_root_of_unity(order: u64) -> Result<FieldElement<Self>, FieldError> {
         let two_adic_primitive_root_of_unity =
-            FieldElement::new(Self::TWO_ADIC_PRIMITVE_ROOT_OF_UNITY);
+            FieldElement::new(Self::TWO_ADIC_PRIMITIVE_ROOT_OF_UNITY);
         if order == 0 {
             return Ok(FieldElement::one());
         }
@@ -253,11 +253,12 @@ pub trait IsPrimeField: IsField {
             q >>= 1;
         }
 
+        let one = Self::one();
         let mut c = {
             // Calculate a non residue:
             let mut non_qr = Self::from_u64(2);
             while Self::legendre_symbol(&non_qr) != LegendreSymbol::MinusOne {
-                non_qr = Self::add(&non_qr, &Self::one());
+                non_qr = Self::add(&non_qr, &one);
             }
 
             Self::pow(&non_qr, q)
@@ -267,22 +268,21 @@ pub trait IsPrimeField: IsField {
         let mut t = Self::pow(a, q);
         let mut m = s;
 
-        let one = Self::one();
+        let minus_one = Self::neg(&one);
         while !Self::eq(&t, &one) {
             let i = {
                 let mut i = 0;
                 let mut t = t.clone();
-                let minus_one = Self::neg(&Self::one());
                 while !Self::eq(&t, &minus_one) {
                     i += 1;
-                    t = Self::mul(&t, &t);
+                    t = Self::square(&t);
                 }
                 i + 1
             };
 
             let b = (0..(m - i - 1)).fold(c, |acc, _| Self::square(&acc));
 
-            c = Self::mul(&b, &b);
+            c = Self::square(&b);
             x = Self::mul(&x, &b);
             t = Self::mul(&t, &c);
             m = i;

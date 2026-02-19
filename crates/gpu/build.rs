@@ -71,16 +71,16 @@ fn compile_metal_shaders() {
     println!("cargo:rerun-if-changed={source_dir}");
 
     if !cfg!(target_os = "macos") {
-        std::fs::write(&output_file, []).expect("failed to write placeholder metallib");
-        println!("cargo:warning=Metal shaders are only compiled on macOS; using empty metallib");
+        println!("cargo:warning=Metal shaders are only compiled on macOS; MetalState will not be available");
         return;
     }
 
     // Check if source file exists - skip compilation if shaders haven't been created yet
     if !Path::new(&source_file).exists() {
-        std::fs::write(&output_file, []).expect("failed to write placeholder metallib");
         println!("cargo:warning=Metal source file not found: {}", source_file);
-        println!("cargo:warning=Skipping Metal shader compilation - create shaders first");
+        println!(
+            "cargo:warning=Skipping Metal shader compilation - MetalState will not be available"
+        );
         return;
     }
 
@@ -90,26 +90,42 @@ fn compile_metal_shaders() {
     );
 
     // Compile .metal to .air (intermediate representation)
-    // Panics are acceptable in build scripts when the toolchain is missing
     let air_file = format!("{}/all.air", out_dir);
     let metal_compile = Command::new("xcrun")
         .args([
             "-sdk",
             "macosx",
             "metal",
+            "-O2",
             "-c",
             &source_file,
             "-o",
             &air_file,
         ])
-        .output()
-        .expect("xcrun metal compiler not found - install Xcode Command Line Tools");
+        .output();
+
+    let metal_compile = match metal_compile {
+        Ok(output) => output,
+        Err(e) => {
+            std::fs::write(&output_file, []).expect("failed to write placeholder metallib");
+            println!(
+                "cargo:warning=Metal compiler not available ({}), using empty metallib",
+                e
+            );
+            println!("cargo:warning=Install Xcode (not just Command Line Tools) to compile Metal shaders");
+            return;
+        }
+    };
 
     if !metal_compile.status.success() {
-        eprintln!(
-            "Metal compilation failed:\n{}",
-            String::from_utf8_lossy(&metal_compile.stderr)
-        );
+        let stderr = String::from_utf8_lossy(&metal_compile.stderr);
+        if stderr.contains("unable to find utility") {
+            std::fs::write(&output_file, []).expect("failed to write placeholder metallib");
+            println!("cargo:warning=Metal compiler not found via xcrun, using empty metallib");
+            println!("cargo:warning=Install Xcode (not just Command Line Tools) to compile Metal shaders");
+            return;
+        }
+        eprintln!("Metal compilation failed:\n{}", stderr);
         panic!("Metal shader compilation failed - check shader syntax");
     }
 
@@ -132,9 +148,13 @@ fn compile_metal_shaders() {
     let _ = std::fs::remove_file(&air_file);
 
     println!("cargo:warning=Metal shaders compiled successfully");
+    println!("cargo:rustc-cfg=metal_shaders_compiled");
 }
 
 fn main() {
+    // Declare the expected cfg for the compiler
+    println!("cargo:rustc-check-cfg=cfg(metal_shaders_compiled)");
+
     #[cfg(feature = "cuda")]
     compile_cuda_shaders();
 

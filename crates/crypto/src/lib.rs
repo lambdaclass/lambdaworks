@@ -3,6 +3,7 @@
 #[macro_use]
 extern crate alloc;
 
+pub mod circle_fri;
 pub mod commitments;
 #[cfg(feature = "std")]
 pub mod errors;

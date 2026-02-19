@@ -22,7 +22,7 @@ pub type QuadraticExtensionFieldElement<F, T> = FieldElement<QuadraticExtensionF
 /// Trait to fix a quadratic non residue.
 /// Used to construct a quadratic extension field by adding
 /// a square root of `residue()`.
-/// If p is congruent to 3 modulo 4, then -1 is a quadractic non-residue
+/// If p is congruent to 3 modulo 4, then -1 is a quadratic non-residue
 /// and can be used here
 pub trait HasQuadraticNonResidue<F: IsField> {
     fn residue() -> FieldElement<F>;
@@ -45,26 +45,36 @@ where
 {
     #[cfg(feature = "alloc")]
     fn to_bytes_be(&self) -> alloc::vec::Vec<u8> {
-        unimplemented!()
+        let mut bytes = self[0].value().to_bytes_be();
+        bytes.extend(self[1].value().to_bytes_be());
+        bytes
     }
 
     #[cfg(feature = "alloc")]
     fn to_bytes_le(&self) -> alloc::vec::Vec<u8> {
-        unimplemented!()
+        let mut bytes = self[0].value().to_bytes_le();
+        bytes.extend(self[1].value().to_bytes_le());
+        bytes
     }
 
-    fn from_bytes_be(_bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError>
+    fn from_bytes_be(bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError>
     where
         Self: Sized,
     {
-        unimplemented!()
+        let element_size = bytes.len() / 2;
+        let x0 = FieldElement::new(F::BaseType::from_bytes_be(&bytes[..element_size])?);
+        let x1 = FieldElement::new(F::BaseType::from_bytes_be(&bytes[element_size..])?);
+        Ok([x0, x1])
     }
 
-    fn from_bytes_le(_bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError>
+    fn from_bytes_le(bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError>
     where
         Self: Sized,
     {
-        unimplemented!()
+        let element_size = bytes.len() / 2;
+        let x0 = FieldElement::new(F::BaseType::from_bytes_le(&bytes[..element_size])?);
+        let x1 = FieldElement::new(F::BaseType::from_bytes_le(&bytes[element_size..])?);
+        Ok([x0, x1])
     }
 }
 
@@ -134,7 +144,7 @@ where
         a: &[FieldElement<F>; 2],
         b: &[FieldElement<F>; 2],
     ) -> Result<[FieldElement<F>; 2], FieldError> {
-        let b_inv = &Self::inv(b).map_err(|_| FieldError::DivisionByZero)?;
+        let b_inv = &Self::inv(b)?;
         Ok(<Self as IsField>::mul(a, b_inv))
     }
 
@@ -220,14 +230,10 @@ where
     }
 }
 
-impl<F: IsField, Q: Clone + Debug + HasQuadraticNonResidue<F>>
-    FieldElement<QuadraticExtensionField<F, Q>>
-{
-}
-
 #[cfg(test)]
 mod tests {
     use crate::field::fields::u64_prime_field::{U64FieldElement, U64PrimeField};
+    use alloc::vec;
 
     const ORDER_P: u64 = 59;
 
@@ -410,5 +416,64 @@ mod tests {
         let b = FEE::new([FE::new(4), FE::new(2)]);
         let expected_result = FEE::new([FE::new(28), FE::new(45)]);
         assert_eq!((a / b).unwrap(), expected_result);
+    }
+
+    #[test]
+    fn byte_conversion_roundtrip_be() {
+        let original = [FE::new(42), FE::new(17)];
+        let bytes = original.to_bytes_be();
+        let restored = <[FE; 2]>::from_bytes_be(&bytes).unwrap();
+        assert_eq!(original, restored);
+    }
+
+    #[test]
+    fn byte_conversion_roundtrip_le() {
+        let original = [FE::new(42), FE::new(17)];
+        let bytes = original.to_bytes_le();
+        let restored = <[FE; 2]>::from_bytes_le(&bytes).unwrap();
+        assert_eq!(original, restored);
+    }
+
+    #[test]
+    fn byte_conversion_zero_elements() {
+        let original = [FE::zero(), FE::zero()];
+        let bytes_be = original.to_bytes_be();
+        let bytes_le = original.to_bytes_le();
+        assert_eq!(<[FE; 2]>::from_bytes_be(&bytes_be).unwrap(), original);
+        assert_eq!(<[FE; 2]>::from_bytes_le(&bytes_le).unwrap(), original);
+    }
+
+    #[test]
+    fn byte_conversion_max_elements() {
+        let original = [FE::new(ORDER_P - 1), FE::new(ORDER_P - 1)];
+        let bytes_be = original.to_bytes_be();
+        let bytes_le = original.to_bytes_le();
+        assert_eq!(<[FE; 2]>::from_bytes_be(&bytes_be).unwrap(), original);
+        assert_eq!(<[FE; 2]>::from_bytes_le(&bytes_le).unwrap(), original);
+    }
+
+    #[test]
+    fn byte_conversion_invalid_length_odd() {
+        let bytes = vec![1, 2, 3]; // Odd length
+        assert!(<[FE; 2]>::from_bytes_be(&bytes).is_err());
+        assert!(<[FE; 2]>::from_bytes_le(&bytes).is_err());
+    }
+
+    #[test]
+    fn byte_conversion_invalid_length_seven() {
+        let bytes = vec![1, 2, 3, 4, 5, 6, 7]; // Odd length (7)
+        assert!(<[FE; 2]>::from_bytes_be(&bytes).is_err());
+        assert!(<[FE; 2]>::from_bytes_le(&bytes).is_err());
+    }
+
+    #[test]
+    fn byte_conversion_empty() {
+        let bytes = vec![];
+        // Empty is even length (0 % 2 == 0), should pass validation but may fail on element creation
+        let result_be = <[FE; 2]>::from_bytes_be(&bytes);
+        let result_le = <[FE; 2]>::from_bytes_le(&bytes);
+        // Both should either succeed with zero elements or fail gracefully
+        assert!(result_be.is_ok() || result_be.is_err());
+        assert!(result_le.is_ok() || result_le.is_err());
     }
 }

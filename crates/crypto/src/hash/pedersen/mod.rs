@@ -34,21 +34,37 @@ pub trait Pedersen: PedersenParameters + self::private::Sealed {
     fn lookup_and_accumulate(acc: &mut Point<Self::EC>, bits: &[bool], prep: &[Point<Self::EC>]);
 }
 
-// FIXME: currently we make some assumptions that apply to `Stark252PrimeField`, so only mark the
-// implementation when that's the field.
+/// Constrained to `Stark252PrimeField` because:
+/// - `to_bits_le()` is a concrete method on `FieldElement<Stark252PrimeField>`, not a trait method
+/// - The Starkware Pedersen hash spec splits 252-bit field elements into a 248-bit low part
+///   and a 4-bit high part, matching the lookup table sizes (P1/P3: 930 entries for 62 chunks,
+///   P2/P4: 15 entries for 1 chunk, with CURVE_CONST_BITS = 4)
 impl<P: PedersenParameters<F = Stark252PrimeField>> Pedersen for P {
     // Taken from Jonathan Lei's starknet-rs
     // https://github.com/xJonathanLEI/starknet-rs/blob/4ab2f36872435ce57b1d8f55856702a6a30f270a/starknet-crypto/src/pedersen_hash.rs
 
     fn hash(x: &FE<Self::F>, y: &FE<Self::F>) -> FE<Self::F> {
+        // Stark252PrimeField elements are 252 bits; the low 248 bits and high 4 bits
+        // are processed separately with different precomputed point tables.
+        let field_element_bits: usize = 252;
+        let low_part_bits: usize = field_element_bits - P::CURVE_CONST_BITS;
+
         let x = x.to_bits_le();
         let y = y.to_bits_le();
         let mut acc = P::SHIFT_POINT.clone();
 
-        Self::lookup_and_accumulate(&mut acc, &x[..248], &P::POINTS_P1); // Add a_low * P1
-        Self::lookup_and_accumulate(&mut acc, &x[248..252], &P::POINTS_P2); // Add a_high * P2
-        Self::lookup_and_accumulate(&mut acc, &y[..248], &P::POINTS_P3); // Add b_low * P3
-        Self::lookup_and_accumulate(&mut acc, &y[248..252], &P::POINTS_P4); // Add b_high * P4
+        Self::lookup_and_accumulate(&mut acc, &x[..low_part_bits], &P::POINTS_P1);
+        Self::lookup_and_accumulate(
+            &mut acc,
+            &x[low_part_bits..field_element_bits],
+            &P::POINTS_P2,
+        );
+        Self::lookup_and_accumulate(&mut acc, &y[..low_part_bits], &P::POINTS_P3);
+        Self::lookup_and_accumulate(
+            &mut acc,
+            &y[low_part_bits..field_element_bits],
+            &P::POINTS_P4,
+        );
 
         *acc.to_affine().x()
     }
@@ -68,13 +84,11 @@ impl<P: PedersenParameters<F = Stark252PrimeField>> Pedersen for P {
 
 #[inline]
 fn bools_to_usize_le(bools: &[bool]) -> usize {
-    let mut result: usize = 0;
-    for (ind, bit) in bools.iter().enumerate() {
-        if *bit {
-            result += 1 << ind;
-        }
-    }
-    result
+    bools
+        .iter()
+        .enumerate()
+        .filter(|(_, &bit)| bit)
+        .fold(0, |acc, (i, _)| acc | (1 << i))
 }
 
 #[cfg(test)]

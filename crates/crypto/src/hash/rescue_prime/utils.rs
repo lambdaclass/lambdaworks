@@ -63,16 +63,16 @@ pub fn karatsuba(lhs: &[Fp], rhs: &[Fp]) -> Vec<Fp> {
 
     let mut result = vec![Fp::zero(); 2 * n - 1];
 
-    z0.iter().enumerate().for_each(|(i, &val)| result[i] = val);
-    z2.iter()
-        .enumerate()
-        .for_each(|(i, &val)| result[i + 2 * half] = val);
+    result[..z0.len()].copy_from_slice(&z0);
+    for (i, &val) in z2.iter().enumerate() {
+        result[i + 2 * half] = val;
+    }
 
-    z1.iter().enumerate().for_each(|(i, &val)| {
+    for (i, &val) in z1.iter().enumerate() {
         result[i + half] += val
-            - z0.get(i).cloned().unwrap_or(Fp::zero())
-            - z2.get(i).cloned().unwrap_or(Fp::zero());
-    });
+            - z0.get(i).copied().unwrap_or(Fp::zero())
+            - z2.get(i).copied().unwrap_or(Fp::zero());
+    }
 
     result
 }

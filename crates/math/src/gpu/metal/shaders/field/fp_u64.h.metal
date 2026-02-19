@@ -25,10 +25,18 @@ constant uint64_t GOLDILOCKS_PRIME = 0xFFFFFFFF00000001;
 /// Uses the special structure of p = 2^64 - 2^32 + 1 for fast arithmetic.
 class Fp64Goldilocks {
 public:
+    using raw_type = uint64_t;
+
     Fp64Goldilocks() = default;
     constexpr Fp64Goldilocks(uint64_t v) : inner(v) {}
 
     constexpr explicit operator uint64_t() const { return inner; }
+
+    /// Zero element.
+    static Fp64Goldilocks zero() { return Fp64Goldilocks(0); }
+
+    /// One element.
+    static Fp64Goldilocks one() { return Fp64Goldilocks(1); }
 
     /// Field addition: (a + b) mod p
     /// If overflow occurs, we add EPSILON (since 2^64 ≡ EPSILON mod p)

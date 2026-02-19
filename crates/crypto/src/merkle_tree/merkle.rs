@@ -83,9 +83,8 @@ where
     }
 
     /// Returns the Merkle path for the element/s for the leaf at position pos
-    fn build_merkle_path(&self, pos: usize) -> Result<Vec<B::Node>, Error> {
+    fn build_merkle_path(&self, mut pos: usize) -> Result<Vec<B::Node>, Error> {
         let mut merkle_path = Vec::new();
-        let mut pos = pos;
 
         while pos != ROOT {
             let Some(node) = self.nodes.get(sibling_index(pos)) else {

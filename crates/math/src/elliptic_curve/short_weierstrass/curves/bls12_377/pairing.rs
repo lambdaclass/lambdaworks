@@ -140,11 +140,10 @@ pub fn miller(p: &G1Point, q: &G2Point) -> Fp12E {
     });
     f
 }
-#[allow(clippy::ptr_eq)]
 fn line(p: &G1Point, t: &G2Point, q: &G2Point) -> (G2Point, Fp12E) {
     let [x_p, y_p, _] = p.coordinates();
 
-    if t as *const G2Point == q as *const G2Point || t == q {
+    if core::ptr::eq(t, q) || t == q {
         let a = TWO_INV * t.x() * t.y();
         let b = t.y().square();
         let c = t.z().square();
@@ -335,6 +334,7 @@ pub fn final_exponentiation(f: &Fp12E) -> Result<Fp12E, PairingError> {
     Ok(f_easy)
 }
 
+#[cfg(test)]
 pub fn cyclotomic_pow_x(f: &Fp12E) -> Fp12E {
     let mut result = Fp12E::one();
     X_BINARY.iter().rev().for_each(|&bit| {
@@ -364,9 +364,8 @@ impl CompressedCyclotomic {
     /// Compress an Fp12 cyclotomic element to 4 Fp2 elements
     pub fn compress(f: &Fp12E) -> Self {
         let [c0, c1] = f.value();
-        let [g0, g1, g2] = c0.value();
-        let [g3, g4, g5] = c1.value();
-        let _ = (g0, g4); // These are recoverable
+        let [_g0, g1, g2] = c0.value();
+        let [g3, _g4, g5] = c1.value();
         Self {
             g1: g1.clone(),
             g2: g2.clone(),
