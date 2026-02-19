@@ -27,7 +27,7 @@ use lambdaworks_math::field::errors::FieldError;
 // The number of rounds can be increased to 8 or 9 to achieve a higher level of security at the cost of performance.
 const NUM_FULL_ROUNDS: usize = 7;
 
-pub struct RescuePrimeOptimized {
+pub struct Rpo256 {
     /// State width of the hash function.
     m: usize,
     /// Capacity of the sponge.
@@ -44,14 +44,14 @@ pub struct RescuePrimeOptimized {
     mds_method: MdsMethod,
 }
 
-impl Default for RescuePrimeOptimized {
+impl Default for Rpo256 {
     fn default() -> Self {
         Self::new(SecurityLevel::Sec128, MdsMethod::MatrixMultiplication).unwrap()
     }
 }
 
-impl RescuePrimeOptimized {
-    /// Creates a new instance of `RescuePrimeOptimized` with corresponding Security level and the specified MDS method.
+impl Rpo256 {
+    /// Creates a new instance of `Rpo256` with corresponding Security level and the specified MDS method.
     pub fn new(security_level: SecurityLevel, mds_method: MdsMethod) -> Result<Self, &'static str> {
         let m = get_state_size(&security_level);
         let capacity = get_capacity(&security_level);
@@ -89,6 +89,11 @@ impl RescuePrimeOptimized {
 
     /// Performs MDS matrix-vector multiplication.
     fn mds_matrix_vector_multiplication(&self, state: &[Fp]) -> Vec<Fp> {
+        debug_assert_eq!(
+            state.len(),
+            self.m,
+            "State size must match MDS matrix dimension"
+        );
         let m = state.len();
         let mut new_state = vec![Fp::zero(); m];
 
@@ -190,6 +195,7 @@ impl RescuePrimeOptimized {
 
     /// Performs the full permutation on the state.
     pub fn permutation(&self, state: &mut [Fp]) {
+        debug_assert_eq!(state.len(), self.m, "State size must match state width");
         let num_rounds = NUM_FULL_ROUNDS;
         for round in 0..num_rounds {
             let _ = self.apply_mds(state);
@@ -217,6 +223,10 @@ impl RescuePrimeOptimized {
 
         let remainder = &input_sequence[input_sequence.len() / self.rate * self.rate..];
         if !remainder.is_empty() {
+            debug_assert!(
+                remainder.len() < self.rate,
+                "Remainder must be smaller than rate"
+            );
             let mut last_chunk = vec![Fp::zero(); self.rate];
             last_chunk[..remainder.len()].copy_from_slice(remainder);
             last_chunk[remainder.len()] = Fp::one();
@@ -509,9 +519,7 @@ mod tests {
     #[test]
     fn test_apply_sbox() {
         let mut rng = StdRng::seed_from_u64(1);
-        let rescue =
-            RescuePrimeOptimized::new(SecurityLevel::Sec128, MdsMethod::MatrixMultiplication)
-                .unwrap();
+        let rescue = Rpo256::new(SecurityLevel::Sec128, MdsMethod::MatrixMultiplication).unwrap();
         let mut state: Vec<Fp> = (0..rescue.m)
             .map(|_| rand_field_element(&mut rng))
             .collect();
@@ -519,16 +527,14 @@ mod tests {
         let mut expected = state.clone();
         expected.iter_mut().for_each(|v| *v = v.pow(ALPHA));
 
-        RescuePrimeOptimized::apply_sbox(&mut state);
+        Rpo256::apply_sbox(&mut state);
         assert_eq!(expected, state);
     }
 
     #[test]
     fn test_apply_inverse_sbox() {
         let mut rng = StdRng::seed_from_u64(2);
-        let rescue =
-            RescuePrimeOptimized::new(SecurityLevel::Sec128, MdsMethod::MatrixMultiplication)
-                .unwrap();
+        let rescue = Rpo256::new(SecurityLevel::Sec128, MdsMethod::MatrixMultiplication).unwrap();
         let mut state: Vec<Fp> = (0..rescue.m)
             .map(|_| rand_field_element(&mut rng))
             .collect();
@@ -536,16 +542,14 @@ mod tests {
         let mut expected = state.clone();
         expected.iter_mut().for_each(|v| *v = v.pow(ALPHA_INV));
 
-        RescuePrimeOptimized::apply_inverse_sbox(&mut state);
+        Rpo256::apply_inverse_sbox(&mut state);
         assert_eq!(expected, state);
     }
 
     #[test]
     fn test_mds_matrix_multiplication() {
         let mut rng = StdRng::seed_from_u64(3);
-        let rescue =
-            RescuePrimeOptimized::new(SecurityLevel::Sec128, MdsMethod::MatrixMultiplication)
-                .unwrap();
+        let rescue = Rpo256::new(SecurityLevel::Sec128, MdsMethod::MatrixMultiplication).unwrap();
         let state: Vec<Fp> = (0..rescue.m)
             .map(|_| rand_field_element(&mut rng))
             .collect();
@@ -560,7 +564,7 @@ mod tests {
     #[test]
     fn test_mds_ntt() {
         let mut rng = StdRng::seed_from_u64(4);
-        let rescue_ntt = RescuePrimeOptimized::new(SecurityLevel::Sec128, MdsMethod::Ntt).unwrap();
+        let rescue_ntt = Rpo256::new(SecurityLevel::Sec128, MdsMethod::Ntt).unwrap();
         let state: Vec<Fp> = (0..rescue_ntt.m)
             .map(|_| rand_field_element(&mut rng))
             .collect();
@@ -575,8 +579,7 @@ mod tests {
     #[test]
     fn test_mds_karatsuba() {
         let mut rng = StdRng::seed_from_u64(5);
-        let rescue_karatsuba =
-            RescuePrimeOptimized::new(SecurityLevel::Sec128, MdsMethod::Karatsuba).unwrap();
+        let rescue_karatsuba = Rpo256::new(SecurityLevel::Sec128, MdsMethod::Karatsuba).unwrap();
         let state: Vec<Fp> = (0..rescue_karatsuba.m)
             .map(|_| rand_field_element(&mut rng))
             .collect();
@@ -591,9 +594,7 @@ mod tests {
     #[test]
     fn test_add_round_constants() {
         let mut rng = StdRng::seed_from_u64(6);
-        let rescue =
-            RescuePrimeOptimized::new(SecurityLevel::Sec128, MdsMethod::MatrixMultiplication)
-                .unwrap();
+        let rescue = Rpo256::new(SecurityLevel::Sec128, MdsMethod::MatrixMultiplication).unwrap();
         let mut state: Vec<Fp> = (0..rescue.m)
             .map(|_| rand_field_element(&mut rng))
             .collect();
@@ -613,9 +614,7 @@ mod tests {
     #[test]
     fn test_permutation() {
         let mut rng = StdRng::seed_from_u64(7);
-        let rescue =
-            RescuePrimeOptimized::new(SecurityLevel::Sec128, MdsMethod::MatrixMultiplication)
-                .unwrap();
+        let rescue = Rpo256::new(SecurityLevel::Sec128, MdsMethod::MatrixMultiplication).unwrap();
         let mut state: Vec<Fp> = (0..rescue.m)
             .map(|_| rand_field_element(&mut rng))
             .collect();
@@ -625,10 +624,10 @@ mod tests {
             for round in 0..7 {
                 let _ = rescue.apply_mds(&mut temp_state);
                 rescue.add_round_constants(&mut temp_state, round);
-                RescuePrimeOptimized::apply_sbox(&mut temp_state);
+                Rpo256::apply_sbox(&mut temp_state);
                 let _ = rescue.apply_mds(&mut temp_state);
                 rescue.add_round_constants_second(&mut temp_state, round);
-                RescuePrimeOptimized::apply_inverse_sbox(&mut temp_state);
+                Rpo256::apply_inverse_sbox(&mut temp_state);
             }
             temp_state
         };
@@ -640,9 +639,7 @@ mod tests {
 
     #[test]
     fn test_hash_single_chunk() {
-        let rescue =
-            RescuePrimeOptimized::new(SecurityLevel::Sec128, MdsMethod::MatrixMultiplication)
-                .unwrap();
+        let rescue = Rpo256::new(SecurityLevel::Sec128, MdsMethod::MatrixMultiplication).unwrap();
         let input_sequence: Vec<Fp> = (0..8).map(Fp::from).collect();
         let hash_output = rescue.hash(&input_sequence);
 
@@ -651,9 +648,7 @@ mod tests {
 
     #[test]
     fn test_hash_multiple_chunks() {
-        let rescue =
-            RescuePrimeOptimized::new(SecurityLevel::Sec128, MdsMethod::MatrixMultiplication)
-                .unwrap();
+        let rescue = Rpo256::new(SecurityLevel::Sec128, MdsMethod::MatrixMultiplication).unwrap();
         let input_sequence: Vec<Fp> = (0..16).map(Fp::from).collect(); // Two chunks of size 8
         let hash_output = rescue.hash(&input_sequence);
 
@@ -662,9 +657,7 @@ mod tests {
 
     #[test]
     fn test_hash_with_padding() {
-        let rescue =
-            RescuePrimeOptimized::new(SecurityLevel::Sec128, MdsMethod::MatrixMultiplication)
-                .unwrap();
+        let rescue = Rpo256::new(SecurityLevel::Sec128, MdsMethod::MatrixMultiplication).unwrap();
         let input_sequence: Vec<Fp> = (0..5).map(Fp::from).collect();
         let hash_output = rescue.hash(&input_sequence);
         assert_eq!(hash_output.len(), 4);
@@ -672,9 +665,7 @@ mod tests {
     #[test]
     // test ported from https://github.com/0xPolygonMiden/crypto/blob/main/src/hash/rescue/rpo/tests.rs
     fn hash_padding() {
-        let rescue =
-            RescuePrimeOptimized::new(SecurityLevel::Sec128, MdsMethod::MatrixMultiplication)
-                .unwrap();
+        let rescue = Rpo256::new(SecurityLevel::Sec128, MdsMethod::MatrixMultiplication).unwrap();
 
         let input1 = vec![1u8, 2, 3];
         let input2 = vec![1u8, 2, 3, 0];
@@ -697,9 +688,7 @@ mod tests {
     #[cfg(feature = "std")]
     #[test]
     fn sponge_zeroes_collision() {
-        let rescue =
-            RescuePrimeOptimized::new(SecurityLevel::Sec128, MdsMethod::MatrixMultiplication)
-                .unwrap();
+        let rescue = Rpo256::new(SecurityLevel::Sec128, MdsMethod::MatrixMultiplication).unwrap();
 
         let mut zeroes = Vec::new();
         let mut hashes = std::collections::HashSet::new();
@@ -712,9 +701,7 @@ mod tests {
     }
     #[test]
     fn test_hash_bytes() {
-        let rescue =
-            RescuePrimeOptimized::new(SecurityLevel::Sec128, MdsMethod::MatrixMultiplication)
-                .unwrap();
+        let rescue = Rpo256::new(SecurityLevel::Sec128, MdsMethod::MatrixMultiplication).unwrap();
         let input_bytes = b"Rescue Prime Optimized";
         let hash_output = rescue.hash_bytes(input_bytes);
 
@@ -724,11 +711,9 @@ mod tests {
     #[test]
     fn test_mds_methods_consistency() {
         let rescue_matrix =
-            RescuePrimeOptimized::new(SecurityLevel::Sec128, MdsMethod::MatrixMultiplication)
-                .unwrap();
-        let rescue_ntt = RescuePrimeOptimized::new(SecurityLevel::Sec128, MdsMethod::Ntt).unwrap();
-        let rescue_karatsuba =
-            RescuePrimeOptimized::new(SecurityLevel::Sec128, MdsMethod::Karatsuba).unwrap();
+            Rpo256::new(SecurityLevel::Sec128, MdsMethod::MatrixMultiplication).unwrap();
+        let rescue_ntt = Rpo256::new(SecurityLevel::Sec128, MdsMethod::Ntt).unwrap();
+        let rescue_karatsuba = Rpo256::new(SecurityLevel::Sec128, MdsMethod::Karatsuba).unwrap();
 
         let input = vec![
             Fp::from(1u64),
@@ -752,9 +737,7 @@ mod tests {
 
     #[test]
     fn test_hash_vectors_128() {
-        let rescue =
-            RescuePrimeOptimized::new(SecurityLevel::Sec128, MdsMethod::MatrixMultiplication)
-                .unwrap();
+        let rescue = Rpo256::new(SecurityLevel::Sec128, MdsMethod::MatrixMultiplication).unwrap();
         let elements: Vec<Fp> = (0..19).map(Fp::from).collect();
 
         EXPECTED_128.iter().enumerate().for_each(|(i, expected)| {
@@ -771,9 +754,7 @@ mod tests {
     }
     #[test]
     fn test_hash_vector_160() {
-        let rescue =
-            RescuePrimeOptimized::new(SecurityLevel::Sec160, MdsMethod::MatrixMultiplication)
-                .unwrap();
+        let rescue = Rpo256::new(SecurityLevel::Sec160, MdsMethod::MatrixMultiplication).unwrap();
         let elements: Vec<Fp> = (0..19).map(Fp::from).collect();
 
         EXPECTED_160.iter().enumerate().for_each(|(i, expected)| {
@@ -791,7 +772,7 @@ mod tests {
     #[cfg(feature = "std")]
     #[test]
     fn test_hash_example_and_print() {
-        let rescue = RescuePrimeOptimized::new(SecurityLevel::Sec128, MdsMethod::Ntt).unwrap();
+        let rescue = Rpo256::new(SecurityLevel::Sec128, MdsMethod::Ntt).unwrap();
 
         let input = b"Hello there";
 
