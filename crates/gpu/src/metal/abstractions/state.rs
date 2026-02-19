@@ -112,22 +112,18 @@ impl MetalState {
     /// Returns a cached compute pipeline, creating it on first access.
     ///
     /// Unlike `setup_pipeline` which creates a new pipeline every call,
-    /// this method caches pipelines by name using interior mutability.
-    /// The returned `Ref` borrows from the internal cache.
-    pub fn get_pipeline(
-        &self,
-        kernel_name: &str,
-    ) -> Result<std::cell::Ref<'_, ComputePipelineState>, MetalError> {
-        if !self.pipeline_cache.borrow().contains_key(kernel_name) {
-            let pipeline = self.setup_pipeline(kernel_name)?;
-            self.pipeline_cache
-                .borrow_mut()
-                .insert(kernel_name.to_string(), pipeline);
+    /// this method caches pipelines by name and clones the cached handle
+    /// on subsequent calls. Metal pipeline handles are reference-counted,
+    /// so the clone is cheap (an Objective-C retain).
+    pub fn get_pipeline(&self, kernel_name: &str) -> Result<ComputePipelineState, MetalError> {
+        if let Some(pipeline) = self.pipeline_cache.borrow().get(kernel_name) {
+            return Ok(pipeline.clone());
         }
-
-        Ok(std::cell::Ref::map(self.pipeline_cache.borrow(), |cache| {
-            cache.get(kernel_name).unwrap()
-        }))
+        let pipeline = self.setup_pipeline(kernel_name)?;
+        self.pipeline_cache
+            .borrow_mut()
+            .insert(kernel_name.to_string(), pipeline.clone());
+        Ok(pipeline)
     }
 
     /// Allocates `length` elements of type `T` in shared memory between CPU and GPU.

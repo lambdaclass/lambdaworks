@@ -82,7 +82,7 @@ const FFT_MAX_FUSED_STAGES: u32 = 12;
 /// Returns the number of stages to fuse (min of budget-derived max, order, and cap).
 fn optimal_fused_stages(input_elem_size: usize, order: u32) -> u32 {
     let max_block = FFT_TG_MEM_BUDGET / input_elem_size;
-    let max_fused = (max_block as f64).log2() as u32;
+    let max_fused = max_block.ilog2();
     max_fused.min(order).min(FFT_MAX_FUSED_STAGES)
 }
 
@@ -137,11 +137,11 @@ where
     }
 
     let field_name = F::field_name();
-    let pipeline_basic = state.setup_pipeline(&format!("radix2_dit_butterfly_{}", field_name))?;
-    let pipeline_tg = state.setup_pipeline(&format!("radix2_dit_butterfly_tg_{}", field_name))?;
+    let pipeline_basic = state.get_pipeline(&format!("radix2_dit_butterfly_{}", field_name))?;
+    let pipeline_tg = state.get_pipeline(&format!("radix2_dit_butterfly_tg_{}", field_name))?;
     let pipeline_fused =
-        state.setup_pipeline(&format!("radix2_dit_butterfly_fused_{}", field_name))?;
-    let pipeline_bitrev = state.setup_pipeline(&format!("bitrev_permutation_{}", field_name))?;
+        state.get_pipeline(&format!("radix2_dit_butterfly_fused_{}", field_name))?;
+    let pipeline_bitrev = state.get_pipeline(&format!("bitrev_permutation_{}", field_name))?;
 
     let tw_elem_size = mem::size_of::<F::BaseType>();
     let input_elem_size = mem::size_of::<E::BaseType>();
@@ -305,20 +305,20 @@ where
     let field_name = <E::BaseField>::field_name();
     let ext_suffix = E::extension_kernel_suffix();
 
-    let pipeline_basic = state.setup_pipeline(&format!(
+    let pipeline_basic = state.get_pipeline(&format!(
         "radix2_dit_butterfly_{}_{}",
         field_name, ext_suffix
     ))?;
-    let pipeline_tg = state.setup_pipeline(&format!(
+    let pipeline_tg = state.get_pipeline(&format!(
         "radix2_dit_butterfly_tg_{}_{}",
         field_name, ext_suffix
     ))?;
-    let pipeline_fused = state.setup_pipeline(&format!(
+    let pipeline_fused = state.get_pipeline(&format!(
         "radix2_dit_butterfly_fused_{}_{}",
         field_name, ext_suffix
     ))?;
     let pipeline_bitrev =
-        state.setup_pipeline(&format!("bitrev_permutation_{}_{}", field_name, ext_suffix))?;
+        state.get_pipeline(&format!("bitrev_permutation_{}_{}", field_name, ext_suffix))?;
 
     let tw_elem_size = mem::size_of::<<E::BaseField as IsField>::BaseType>();
     let input_elem_size = mem::size_of::<E::BaseType>();
@@ -1035,6 +1035,55 @@ mod tests {
 
             prop_assert_eq!(&input, &recovered);
         }
+    }
+
+    #[test]
+    fn test_metal_fft_extension_fp2_large_input() {
+        const ORDER: usize = 14; // 2^14 = 16384 elements — minimum size to hit GPU path
+        let input: Vec<Fp2E> = (0..(1 << ORDER))
+            .map(|i| {
+                Fp2E::new([
+                    GoldilocksFE::from(i as u64),
+                    GoldilocksFE::from(i as u64 + 1),
+                ])
+            })
+            .collect();
+
+        let metal_state = MetalState::new(None).expect("Metal device required for GPU tests");
+        let twiddles = get_twiddles::<GoldilocksF>(ORDER as u64, RootsConfig::BitReverse)
+            .expect("Goldilocks supports order 14");
+
+        let metal_result = fft_extension::<GoldilocksFp2>(&input, &twiddles, &metal_state)
+            .expect("Metal Fp2 FFT should succeed");
+        let cpu_result =
+            crate::fft::cpu::ops::fft(&input, &twiddles).expect("CPU FFT should succeed");
+
+        assert_eq!(metal_result, cpu_result);
+    }
+
+    #[test]
+    fn test_metal_fft_extension_fp3_large_input() {
+        const ORDER: usize = 14; // 2^14 = 16384 elements — minimum size to hit GPU path
+        let input: Vec<Fp3E> = (0..(1 << ORDER))
+            .map(|i| {
+                Fp3E::new([
+                    GoldilocksFE::from(i as u64),
+                    GoldilocksFE::from(i as u64 + 1),
+                    GoldilocksFE::from(i as u64 + 2),
+                ])
+            })
+            .collect();
+
+        let metal_state = MetalState::new(None).expect("Metal device required for GPU tests");
+        let twiddles = get_twiddles::<GoldilocksF>(ORDER as u64, RootsConfig::BitReverse)
+            .expect("Goldilocks supports order 14");
+
+        let metal_result = fft_extension::<GoldilocksFp3>(&input, &twiddles, &metal_state)
+            .expect("Metal Fp3 FFT should succeed");
+        let cpu_result =
+            crate::fft::cpu::ops::fft(&input, &twiddles).expect("CPU FFT should succeed");
+
+        assert_eq!(metal_result, cpu_result);
     }
 
     #[test]
