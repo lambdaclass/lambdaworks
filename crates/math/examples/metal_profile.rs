@@ -195,7 +195,8 @@ mod profiler {
         let n = 1usize << order;
         let input: Vec<StarkFE> = (0..n).map(|_| StarkFE::from(random::<u64>())).collect();
 
-        let twiddles_cpu = get_fft_twiddles::<StarkF>(order as u64, RootsConfig::BitReverse).unwrap();
+        let twiddles_cpu =
+            get_fft_twiddles::<StarkF>(order as u64, RootsConfig::BitReverse).unwrap();
         let cpu_fn = |input: &[StarkFE]| {
             use lambdaworks_math::fft::cpu::ops as fft_ops;
             let mut result = input.to_vec();
