@@ -82,14 +82,15 @@ where
     /// Computes the initial claimed sum by scanning the tables once — O(d * 2^n).
     pub fn compute_initial_sum(&self) -> Result<FieldElement<F>, ProverError> {
         let table_len = self.tables[0].len();
-        let mut sum = FieldElement::<F>::zero();
-        for j in 0..table_len {
-            let mut product = FieldElement::<F>::one();
-            for table in &self.tables {
-                product *= table[j].clone();
-            }
-            sum += product;
-        }
+        let sum = (0..table_len)
+            .map(|j| {
+                self.tables
+                    .iter()
+                    .fold(FieldElement::<F>::one(), |acc, table| {
+                        acc * table[j].clone()
+                    })
+            })
+            .fold(FieldElement::<F>::zero(), |acc, product| acc + product);
         Ok(sum)
     }
 
@@ -183,11 +184,7 @@ where
         crate::append_round_poly(&mut transcript, j, &g_j);
         proof_polys.push(g_j);
 
-        if j < num_vars - 1 {
-            current_challenge = Some(transcript.draw_felt());
-        } else {
-            current_challenge = None;
-        }
+        current_challenge = (j < num_vars - 1).then(|| transcript.draw_felt());
     }
 
     Ok((claimed_sum, proof_polys))

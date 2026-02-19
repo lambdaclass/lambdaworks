@@ -59,15 +59,13 @@ impl<P: PermutationParameters> Poseidon for P {
     fn hash(x: &FE<Self::F>, y: &FE<Self::F>) -> FE<Self::F> {
         let mut state: Vec<FE<Self::F>> = vec![x.clone(), y.clone(), FE::from(2)];
         Self::hades_permutation(&mut state);
-        let x = &state[0];
-        x.clone()
+        state[0].clone()
     }
 
     fn hash_single(x: &FE<Self::F>) -> FE<Self::F> {
         let mut state: Vec<FE<Self::F>> = vec![x.clone(), FE::zero(), FE::from(1)];
         Self::hades_permutation(&mut state);
-        let x = &state[0];
-        x.clone()
+        state[0].clone()
     }
 
     fn hash_many(inputs: &[FE<Self::F>]) -> FE<Self::F> {

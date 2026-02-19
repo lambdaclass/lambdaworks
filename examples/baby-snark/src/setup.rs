@@ -64,22 +64,27 @@ pub fn setup(u: &SquareSpanProgram) -> (ProvingKey, VerifyingKey) {
 
     let tw = ToxicWaste::new();
 
-    let u_tau = u.u_polynomials.iter().map(|p| p.evaluate(&tw.tau));
+    let u_tau: Vec<_> = u
+        .u_polynomials
+        .iter()
+        .map(|p| p.evaluate(&tw.tau))
+        .collect();
+    let t_tau = tw.tau.pow(u.number_of_constraints) - FrElement::one();
+
+    let pub_slice = &u_tau[..u.number_of_public_inputs];
+    let priv_end = (u.number_of_constraints + 1).min(u_tau.len());
+    let priv_slice = &u_tau[u.number_of_public_inputs..priv_end];
 
     let vk = VerifyingKey {
-        u_tau_g1: u_tau
-            .clone()
-            .take(u.number_of_public_inputs)
+        u_tau_g1: pub_slice
+            .iter()
             .map(|ui| g1.operate_with_self(ui.canonical()))
             .collect(),
-        u_tau_g2: u_tau
-            .clone()
-            .take(u.number_of_public_inputs)
+        u_tau_g2: pub_slice
+            .iter()
             .map(|ui| g2.operate_with_self(ui.canonical()))
             .collect(),
-        t_tau_g2: g2.operate_with_self(
-            (tw.tau.pow(u.number_of_constraints) - FrElement::one()).canonical(),
-        ),
+        t_tau_g2: g2.operate_with_self(t_tau.canonical()),
         inv_pairing_g1_g2: Pairing::compute(&g1, &g2).unwrap().inv().unwrap(),
         beta_gamma_g1: g1.operate_with_self((&tw.beta * &tw.gamma).canonical()),
         gamma_g2: g2.operate_with_self(tw.gamma.canonical()),
@@ -89,33 +94,21 @@ pub fn setup(u: &SquareSpanProgram) -> (ProvingKey, VerifyingKey) {
         k_powers_of_tau_g1: (0..u.number_of_constraints + 1)
             .map(|k| g1.operate_with_self(tw.tau.pow(k).canonical()))
             .collect(),
-        u_tau_g1: u_tau
-            .clone()
-            .take(u.number_of_constraints + 1)
-            .skip(u.number_of_public_inputs)
+        u_tau_g1: priv_slice
+            .iter()
             .map(|ui| g1.operate_with_self(ui.canonical()))
             .collect(),
-        u_tau_g2: u_tau
-            .clone()
-            .take(u.number_of_constraints + 1)
-            .skip(u.number_of_public_inputs)
+        u_tau_g2: priv_slice
+            .iter()
             .map(|ui| g2.operate_with_self(ui.canonical()))
             .collect(),
-        beta_u_tau_g1: u_tau
-            .clone()
-            .take(u.number_of_constraints + 1)
-            .skip(u.number_of_public_inputs)
-            .map(|ui| g1.operate_with_self((ui * (&tw.beta)).canonical()))
+        beta_u_tau_g1: priv_slice
+            .iter()
+            .map(|ui| g1.operate_with_self((ui * &tw.beta).canonical()))
             .collect(),
-        t_tau_g1: g1.operate_with_self(
-            (tw.tau.pow(u.number_of_constraints) - FrElement::one()).canonical(),
-        ),
-        beta_t_tau_g1: g1.operate_with_self(
-            ((&tw.beta) * (tw.tau.pow(u.number_of_constraints) - FrElement::one())).canonical(),
-        ),
-        t_tau_g2: g2.operate_with_self(
-            (tw.tau.pow(u.number_of_constraints) - FrElement::one()).canonical(),
-        ),
+        t_tau_g1: g1.operate_with_self(t_tau.canonical()),
+        beta_t_tau_g1: g1.operate_with_self((&tw.beta * &t_tau).canonical()),
+        t_tau_g2: g2.operate_with_self(t_tau.canonical()),
     };
 
     (pk, vk)

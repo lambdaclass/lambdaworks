@@ -16,9 +16,5 @@ pub fn i64_vec_to_field(elements: &[i64]) -> Vec<FrElement> {
 }
 
 pub fn i64_matrix_to_field(elements: &[&[i64]]) -> Vec<Vec<FrElement>> {
-    let mut matrix = Vec::new();
-    for f in elements {
-        matrix.push(i64_vec_to_field(f));
-    }
-    matrix
+    elements.iter().map(|f| i64_vec_to_field(f)).collect()
 }
