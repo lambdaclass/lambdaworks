@@ -195,7 +195,7 @@ mod profiler {
         let n = 1 << order;
         let input: Vec<StarkFE> = (0..n).map(|_| StarkFE::from(random::<u64>())).collect();
 
-        let twiddles_cpu = get_fft_twiddles::<StarkF>(n, RootsConfig::Natural).unwrap();
+        let twiddles_cpu = get_fft_twiddles::<StarkF>(order as u64, RootsConfig::Natural).unwrap();
         let cpu_fn = |input: &[StarkFE]| {
             use lambdaworks_math::fft::cpu::ops as fft_ops;
             let mut result = input.to_vec();
@@ -224,7 +224,7 @@ mod profiler {
         let n = 1 << order;
         let input: Vec<StarkFE> = (0..n).map(|_| StarkFE::from(random::<u64>())).collect();
 
-        let twiddles_cpu = get_fft_twiddles::<StarkF>(n, RootsConfig::NaturalInversed).unwrap();
+        let twiddles_cpu = get_fft_twiddles::<StarkF>(order as u64, RootsConfig::NaturalInversed).unwrap();
         let cpu_fn = |input: &[StarkFE]| {
             use lambdaworks_math::fft::cpu::ops as fft_ops;
             let mut result = input.to_vec();
@@ -255,7 +255,7 @@ mod profiler {
             .map(|_| GoldilocksFE::from(random::<u64>()))
             .collect();
 
-        let twiddles_cpu = get_fft_twiddles::<GoldilocksF>(n, RootsConfig::Natural).unwrap();
+        let twiddles_cpu = get_fft_twiddles::<GoldilocksF>(order as u64, RootsConfig::Natural).unwrap();
         let cpu_fn = |input: &[GoldilocksFE]| {
             use lambdaworks_math::fft::cpu::ops as fft_ops;
             let mut result = input.to_vec();
@@ -287,7 +287,7 @@ mod profiler {
             .collect();
 
         let twiddles_cpu =
-            get_fft_twiddles::<GoldilocksF>(n, RootsConfig::NaturalInversed).unwrap();
+            get_fft_twiddles::<GoldilocksF>(order as u64, RootsConfig::NaturalInversed).unwrap();
         let cpu_fn = |input: &[GoldilocksFE]| {
             use lambdaworks_math::fft::cpu::ops as fft_ops;
             let mut result = input.to_vec();
