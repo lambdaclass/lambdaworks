@@ -204,6 +204,44 @@ where
     })
 }
 
+/// Prove a STARK using CPU prover with Goldilocks base field and Fp3 extension.
+///
+/// This validates the Fp3 extension field infrastructure end-to-end.
+/// All phases use the CPU prover's generic F != E path.
+/// Future work: replace individual phases with GPU-accelerated versions
+/// using the Fp3 Metal shaders (DEEP composition, FRI fold).
+#[cfg(all(target_os = "macos", feature = "metal"))]
+pub fn prove_gpu_fp3<A>(
+    air: &A,
+    trace: &mut TraceTable<
+        lambdaworks_math::field::fields::u64_goldilocks_field::Goldilocks64Field,
+        lambdaworks_math::field::fields::u64_goldilocks_field::Degree3GoldilocksExtensionField,
+    >,
+    transcript: &mut impl IsStarkTranscript<
+        lambdaworks_math::field::fields::u64_goldilocks_field::Degree3GoldilocksExtensionField,
+        lambdaworks_math::field::fields::u64_goldilocks_field::Goldilocks64Field,
+    >,
+) -> Result<
+    StarkProof<
+        lambdaworks_math::field::fields::u64_goldilocks_field::Goldilocks64Field,
+        lambdaworks_math::field::fields::u64_goldilocks_field::Degree3GoldilocksExtensionField,
+    >,
+    ProvingError,
+>
+where
+    A: AIR<
+        Field = lambdaworks_math::field::fields::u64_goldilocks_field::Goldilocks64Field,
+        FieldExtension = lambdaworks_math::field::fields::u64_goldilocks_field::Degree3GoldilocksExtensionField,
+    >,
+{
+    use stark_platinum_prover::prover::{IsStarkProver, Prover};
+    type GF = lambdaworks_math::field::fields::u64_goldilocks_field::Goldilocks64Field;
+    type Fp3 =
+        lambdaworks_math::field::fields::u64_goldilocks_field::Degree3GoldilocksExtensionField;
+
+    Prover::<GF, Fp3, _>::prove(air, trace, transcript)
+}
+
 #[cfg(all(test, target_os = "macos", feature = "metal"))]
 mod tests {
     use super::*;
@@ -370,5 +408,290 @@ mod tests {
             "FRI last value mismatch"
         );
         assert_eq!(cpu_proof.nonce, gpu_proof.nonce, "nonce mismatch");
+    }
+
+    // =========================================================================
+    // Fp3 extension field test infrastructure
+    // =========================================================================
+
+    use std::ops::Div;
+
+    use lambdaworks_math::field::fields::u64_goldilocks_field::Degree3GoldilocksExtensionField;
+    use lambdaworks_math::helpers::resize_to_next_power_of_two;
+    use stark_platinum_prover::constraints::boundary::{BoundaryConstraint, BoundaryConstraints};
+    use stark_platinum_prover::constraints::transition::TransitionConstraint;
+    use stark_platinum_prover::context::AirContext;
+    use stark_platinum_prover::traits::TransitionEvaluationContext;
+
+    type Fp3 = Degree3GoldilocksExtensionField;
+    type Fp3E = FieldElement<Fp3>;
+
+    /// Fibonacci transition constraint for Fp3 extension: a[i+2] - a[i+1] - a[i] = 0.
+    #[derive(Clone)]
+    struct FibConstraintFp3;
+
+    impl TransitionConstraint<F, Fp3> for FibConstraintFp3 {
+        fn degree(&self) -> usize {
+            1
+        }
+
+        fn constraint_idx(&self) -> usize {
+            0
+        }
+
+        fn end_exemptions(&self) -> usize {
+            // Hardcoded for steps=16 → padded trace_length=32
+            3 + 32 - 16 - 1
+        }
+
+        fn evaluate(
+            &self,
+            evaluation_context: &TransitionEvaluationContext<F, Fp3>,
+            transition_evaluations: &mut [Fp3E],
+        ) {
+            match evaluation_context {
+                TransitionEvaluationContext::Prover { frame, .. } => {
+                    let s0 = frame.get_evaluation_step(0);
+                    let s1 = frame.get_evaluation_step(1);
+                    let s2 = frame.get_evaluation_step(2);
+                    // Main elements are &FieldElement<F>; compute in F, embed to Fp3
+                    let a0 = s0.get_main_evaluation_element(0, 0);
+                    let a1 = s1.get_main_evaluation_element(0, 0);
+                    let a2 = s2.get_main_evaluation_element(0, 0);
+                    transition_evaluations[0] = (a2 - a1 - a0).to_extension::<Fp3>();
+                }
+                TransitionEvaluationContext::Verifier { frame, .. } => {
+                    let s0 = frame.get_evaluation_step(0);
+                    let s1 = frame.get_evaluation_step(1);
+                    let s2 = frame.get_evaluation_step(2);
+                    // Main elements are &FieldElement<Fp3>
+                    let a0 = s0.get_main_evaluation_element(0, 0);
+                    let a1 = s1.get_main_evaluation_element(0, 0);
+                    let a2 = s2.get_main_evaluation_element(0, 0);
+                    transition_evaluations[0] = a2 - a1 - a0;
+                }
+            }
+        }
+    }
+
+    /// Permutation constraint for Fp3 extension:
+    /// z[i+1] * (b[i] + gamma) - z[i] * (a[i] + gamma) = 0.
+    #[derive(Clone)]
+    struct PermutationConstraintFp3;
+
+    impl TransitionConstraint<F, Fp3> for PermutationConstraintFp3 {
+        fn degree(&self) -> usize {
+            2
+        }
+
+        fn constraint_idx(&self) -> usize {
+            1
+        }
+
+        fn end_exemptions(&self) -> usize {
+            1
+        }
+
+        fn evaluate(
+            &self,
+            evaluation_context: &TransitionEvaluationContext<F, Fp3>,
+            transition_evaluations: &mut [Fp3E],
+        ) {
+            match evaluation_context {
+                TransitionEvaluationContext::Prover {
+                    frame,
+                    rap_challenges,
+                    ..
+                } => {
+                    let s0 = frame.get_evaluation_step(0);
+                    let s1 = frame.get_evaluation_step(1);
+                    let z_i = s0.get_aux_evaluation_element(0, 0);
+                    let z_i_plus_one = s1.get_aux_evaluation_element(0, 0);
+                    let gamma = &rap_challenges[0];
+                    // Main elements are &FieldElement<F>; mixed arithmetic F + Fp3 → Fp3
+                    let a_i = s0.get_main_evaluation_element(0, 0);
+                    let b_i = s0.get_main_evaluation_element(0, 1);
+                    transition_evaluations[1] =
+                        z_i_plus_one * (b_i + gamma) - z_i * (a_i + gamma);
+                }
+                TransitionEvaluationContext::Verifier {
+                    frame,
+                    rap_challenges,
+                    ..
+                } => {
+                    let s0 = frame.get_evaluation_step(0);
+                    let s1 = frame.get_evaluation_step(1);
+                    let z_i = s0.get_aux_evaluation_element(0, 0);
+                    let z_i_plus_one = s1.get_aux_evaluation_element(0, 0);
+                    let gamma = &rap_challenges[0];
+                    let a_i = s0.get_main_evaluation_element(0, 0);
+                    let b_i = s0.get_main_evaluation_element(0, 1);
+                    transition_evaluations[1] =
+                        z_i_plus_one * (b_i + gamma) - z_i * (a_i + gamma);
+                }
+            }
+        }
+    }
+
+    /// FibonacciRAP AIR with Fp3 extension field.
+    struct FibonacciRAPFp3 {
+        context: AirContext,
+        trace_length: usize,
+        pub_inputs: FibonacciRAPPublicInputs<F>,
+        transition_constraints: Vec<Box<dyn TransitionConstraint<F, Fp3>>>,
+    }
+
+    impl AIR for FibonacciRAPFp3 {
+        type Field = F;
+        type FieldExtension = Fp3;
+        type PublicInputs = FibonacciRAPPublicInputs<F>;
+
+        fn step_size(&self) -> usize {
+            1
+        }
+
+        fn new(
+            trace_length: usize,
+            pub_inputs: &Self::PublicInputs,
+            proof_options: &ProofOptions,
+        ) -> Self {
+            let transition_constraints: Vec<Box<dyn TransitionConstraint<F, Fp3>>> = vec![
+                Box::new(FibConstraintFp3),
+                Box::new(PermutationConstraintFp3),
+            ];
+            let context = AirContext {
+                proof_options: proof_options.clone(),
+                trace_columns: 3,
+                transition_offsets: vec![0, 1, 2],
+                num_transition_constraints: transition_constraints.len(),
+            };
+            Self {
+                context,
+                trace_length,
+                pub_inputs: pub_inputs.clone(),
+                transition_constraints,
+            }
+        }
+
+        fn build_auxiliary_trace(
+            &self,
+            trace: &mut TraceTable<F, Fp3>,
+            challenges: &[Fp3E],
+        ) {
+            let main_segment_cols = trace.columns_main();
+            let not_perm = &main_segment_cols[0];
+            let perm = &main_segment_cols[1];
+            let gamma = &challenges[0];
+            let trace_len = trace.num_rows();
+
+            let mut aux_col: Vec<Fp3E> = Vec::new();
+            for i in 0..trace_len {
+                if i == 0 {
+                    aux_col.push(Fp3E::one());
+                } else {
+                    let z_i = &aux_col[i - 1];
+                    // Mixed arithmetic: FieldElement<F> + &FieldElement<Fp3> → FieldElement<Fp3>
+                    let n_p_term = not_perm[i - 1] + gamma;
+                    let p_term = &perm[i - 1] + gamma;
+                    aux_col.push(z_i * n_p_term.div(p_term).unwrap());
+                }
+            }
+            for (i, aux_elem) in aux_col.iter().enumerate().take(trace.num_rows()) {
+                trace.set_aux(i, 0, aux_elem.clone());
+            }
+        }
+
+        fn build_rap_challenges(
+            &self,
+            transcript: &mut dyn IsStarkTranscript<Fp3, F>,
+        ) -> Vec<Fp3E> {
+            vec![transcript.sample_field_element()]
+        }
+
+        fn trace_layout(&self) -> (usize, usize) {
+            (2, 1)
+        }
+
+        fn boundary_constraints(
+            &self,
+            _rap_challenges: &[Fp3E],
+        ) -> BoundaryConstraints<Fp3> {
+            let a0 = BoundaryConstraint::new_simple_main(0, Fp3E::one());
+            let a1 = BoundaryConstraint::new_simple_main(1, Fp3E::one());
+            let a0_aux = BoundaryConstraint::new_aux(0, 0, Fp3E::one());
+            BoundaryConstraints::from_constraints(vec![a0, a1, a0_aux])
+        }
+
+        fn transition_constraints(&self) -> &Vec<Box<dyn TransitionConstraint<F, Fp3>>> {
+            &self.transition_constraints
+        }
+
+        fn context(&self) -> &AirContext {
+            &self.context
+        }
+
+        fn composition_poly_degree_bound(&self) -> usize {
+            self.trace_length()
+        }
+
+        fn trace_length(&self) -> usize {
+            self.trace_length
+        }
+
+        fn pub_inputs(&self) -> &Self::PublicInputs {
+            &self.pub_inputs
+        }
+    }
+
+    /// Generate a Fibonacci RAP trace with Fp3 extension field.
+    ///
+    /// Main columns are in base field (same computation as base-field version).
+    /// Aux column is initialized to Fp3 zeros (filled by build_auxiliary_trace).
+    fn fibonacci_rap_trace_fp3(
+        initial_values: [FpE; 2],
+        trace_length: usize,
+    ) -> TraceTable<F, Fp3> {
+        let mut fib_seq: Vec<FpE> = vec![];
+        fib_seq.push(initial_values[0]);
+        fib_seq.push(initial_values[1]);
+        for i in 2..trace_length {
+            fib_seq.push(fib_seq[i - 1] + fib_seq[i - 2]);
+        }
+
+        let last_value = fib_seq[trace_length - 1];
+        let mut fib_permuted = fib_seq.clone();
+        fib_permuted[0] = last_value;
+        fib_permuted[trace_length - 1] = initial_values[0];
+
+        fib_seq.push(FpE::zero());
+        fib_permuted.push(FpE::zero());
+        let mut trace_cols = vec![fib_seq, fib_permuted];
+        resize_to_next_power_of_two(&mut trace_cols);
+
+        let aux_columns = vec![vec![Fp3E::zero(); trace_cols[0].len()]];
+        TraceTable::from_columns(trace_cols, aux_columns, 1)
+    }
+
+    /// Test that an Fp3 proof generated via CPU prover verifies correctly.
+    #[test]
+    fn gpu_fp3_proof_verifies() {
+        let trace_length = 16;
+        let pub_inputs = FibonacciRAPPublicInputs {
+            steps: trace_length,
+            a0: FpE::one(),
+            a1: FpE::one(),
+        };
+        let proof_options = ProofOptions::default_test_options();
+        let mut trace = fibonacci_rap_trace_fp3([FpE::one(), FpE::one()], trace_length);
+        let air = FibonacciRAPFp3::new(trace.num_rows(), &pub_inputs, &proof_options);
+
+        // Prove with Fp3 extension
+        let mut prover_transcript = DefaultTranscript::<Fp3>::new(&[]);
+        let proof = prove_gpu_fp3(&air, &mut trace, &mut prover_transcript).unwrap();
+
+        // Verify with CPU verifier
+        let mut verifier_transcript = DefaultTranscript::<Fp3>::new(&[]);
+        let result = Verifier::<F, Fp3, _>::verify(&proof, &air, &mut verifier_transcript);
+        assert!(result, "Fp3 proof must be verified by the CPU verifier");
     }
 }

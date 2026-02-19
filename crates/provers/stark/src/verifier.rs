@@ -35,7 +35,7 @@ pub struct Verifier<
 
 impl<
         Field: IsSubFieldOf<FieldExtension> + IsFFTField + Send + Sync,
-        FieldExtension: Send + Sync + IsFFTField,
+        FieldExtension: Send + Sync + IsField,
         PI,
     > IsStarkVerifier<Field, FieldExtension, PI> for Verifier<Field, FieldExtension, PI>
 {

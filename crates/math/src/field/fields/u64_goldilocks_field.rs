@@ -299,6 +299,52 @@ impl ByteConversion for FieldElement<Goldilocks64Field> {
     }
 }
 
+impl ByteConversion for FieldElement<Degree3GoldilocksExtensionField> {
+    #[cfg(feature = "alloc")]
+    fn to_bytes_be(&self) -> alloc::vec::Vec<u8> {
+        let mut bytes = ByteConversion::to_bytes_be(&self.value()[0]);
+        bytes.extend(ByteConversion::to_bytes_be(&self.value()[1]));
+        bytes.extend(ByteConversion::to_bytes_be(&self.value()[2]));
+        bytes
+    }
+
+    #[cfg(feature = "alloc")]
+    fn to_bytes_le(&self) -> alloc::vec::Vec<u8> {
+        let mut bytes = ByteConversion::to_bytes_le(&self.value()[0]);
+        bytes.extend(ByteConversion::to_bytes_le(&self.value()[1]));
+        bytes.extend(ByteConversion::to_bytes_le(&self.value()[2]));
+        bytes
+    }
+
+    fn from_bytes_be(bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError>
+    where
+        Self: Sized,
+    {
+        const CS: usize = 8; // u64 component size
+        if bytes.len() < CS * 3 {
+            return Err(crate::errors::ByteConversionError::FromBEBytesError);
+        }
+        let c0 = FieldElement::<Goldilocks64Field>::from_bytes_be(&bytes[..CS])?;
+        let c1 = FieldElement::<Goldilocks64Field>::from_bytes_be(&bytes[CS..CS * 2])?;
+        let c2 = FieldElement::<Goldilocks64Field>::from_bytes_be(&bytes[CS * 2..CS * 3])?;
+        Ok(Self::new([c0, c1, c2]))
+    }
+
+    fn from_bytes_le(bytes: &[u8]) -> Result<Self, crate::errors::ByteConversionError>
+    where
+        Self: Sized,
+    {
+        const CS: usize = 8; // u64 component size
+        if bytes.len() < CS * 3 {
+            return Err(crate::errors::ByteConversionError::FromLEBytesError);
+        }
+        let c0 = FieldElement::<Goldilocks64Field>::from_bytes_le(&bytes[..CS])?;
+        let c1 = FieldElement::<Goldilocks64Field>::from_bytes_le(&bytes[CS..CS * 2])?;
+        let c2 = FieldElement::<Goldilocks64Field>::from_bytes_le(&bytes[CS * 2..CS * 3])?;
+        Ok(Self::new([c0, c1, c2]))
+    }
+}
+
 #[cfg(feature = "alloc")]
 impl crate::traits::AsBytes for FieldElement<Goldilocks64Field> {
     fn as_bytes(&self) -> alloc::vec::Vec<u8> {
