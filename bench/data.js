@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1771525477731,
+  "lastUpdate": 1771529132200,
   "repoUrl": "https://github.com/lambdaclass/lambdaworks",
   "entries": {
     "Benchmark": [
@@ -53027,6 +53027,378 @@ window.BENCHMARK_DATA = {
             "name": "Polynomial/evaluate_with 10",
             "value": 2,
             "range": "± 0",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "43053772+diegokingston@users.noreply.github.com",
+            "name": "Diego K",
+            "username": "diegokingston"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "f2dba3ca0f6e3b8f186ff89bf13d8ca4e67bce74",
+          "message": "Feat/plonk dsl (#1097)\n\n* fix(stark): Add critical input validation and fix security calculations\n\n**grinding.rs:**\n- Validate grinding_factor is at most 63 to prevent shift overflow\n  (`1 << (64 - grinding_factor)` would overflow for values > 63)\n- Handle grinding_factor = 0 as \"no PoW requirement\" (always valid)\n- Add tests for boundary conditions\n\n**transcript.rs:**\n- Add zero guard for sample_u64 to prevent division by zero panic\n- Implement proper rejection sampling to eliminate modulo bias\n- Use fast masking path for power-of-two bounds\n- Add tests for new validation\n\n**domain.rs:**\n- Validate trace_length is a positive power of two (required for FFT)\n- Return ProvingError::InvalidTraceLength for invalid lengths\n- trailing_zeros() only gives correct log2 for powers of two\n\n**prover.rs:**\n- Add InvalidTraceLength error variant\n- Validate number_of_parts > 0 before breaking composition polynomial\n- Add bounds checking in commit_composition_polynomial:\n  - Check for empty input\n  - Validate all parts have same length\n  - Ensure LDE length is even for chunking\n- Use chunks_exact(2) instead of chunks(2) for safety\n\n**options.rs:**\n- Fix security calculation: use trailing_zeros() (= log2 for powers of 2)\n  instead of leading_zeros() which gave wrong results\n- Add validation that blowup_factor is a power of two >= 2\n- Add InvalidBlowupFactor error variant\n\n* feat(plonk): Add Phase 1 security and API improvements\n\n- Add SubgroupCheck trait and validate_proof_commitments() for subgroup\n  membership validation on all proof commitments (prevents small subgroup attacks)\n- Add verify_with_result() returning detailed VerifierError enum\n- Replace unwrap() with Result-based error handling in prover (prove() now\n  returns Result<Proof, ProverError>)\n- Add validate_coset_generator() ensuring disjoint cosets H, k1·H, k2·H\n- Document quotient polynomial split exponents (n+2, 2n+4) following gnark\n- Add WitnessBuilder API with validation for explicit witness construction\n- Add SecureRandomFieldGenerator using OsRng for production zero-knowledge\n- Add negative tests for verifier (wrong inputs, tampered proofs, etc.)\n\n* feat(plonk): Add Phase 2 production readiness improvements\n\nSerialization:\n- Add VerificationKey serialization with version tagging for forward\n  compatibility (8 G1 commitments: qm, ql, qr, qo, qc, s1, s2, s3)\n- Add CommonPreprocessedInput serialization (domain parameters, selector\n  polynomials, permutation polynomials, Lagrange vectors)\n- Add round-trip tests for all serialization\n\nSRS Management:\n- Add srs.rs module with SRSManager for loading, saving, and validating SRS\n- Add SRSError type for comprehensive error handling\n- Add size validation to ensure SRS is large enough for circuit\n- Add file I/O support for persisting SRS\n\nPublic Input Handling:\n- Add PublicInputLayout struct for named, ordered public inputs\n- Add hash-based layout verification between prover and verifier\n- Add build_inputs() for order-independent input construction\n- Add PublicInputError for validation errors\n\n* feat(plonk): Add Circuit DSL with typed variables and composable gadgets\n\nPhase 3 of PLONK completion - Circuit DSL & Component Library:\n\n- Add typed variable system (FieldVar, BoolVar, U8Var, etc.)\n- Add CircuitBuilder with high-level API for circuit construction\n- Add Gadget trait for composable circuit components\n- Add arithmetic gadgets: RangeCheck, ToBits, FromBits\n- Add comparison gadgets: IsZero, IsEqual, LessThan, GreaterThan, etc.\n- Add Poseidon hash gadget with configurable HADES permutation\n- Add Merkle tree gadgets: MerkleProofVerifier, MerkleRoot, MerkleProofChecker\n\nThe DSL provides a developer-friendly interface for building PLONK circuits\nwith type safety and reusable components.\n\n* test(plonk): Add Phase 4 integration and correctness tests\n\n- Add end-to-end DSL integration tests proving complete circuits\n  - Simple multiplication, addition, subtraction\n  - Boolean constraints, select/mux, logical operations\n  - Chained operations, private computation proofs\n- Add gadget constraint correctness tests\n  - Verify gadget structure and output types\n  - Test error conditions and edge cases\n  - Validate constraint count relationships\n\n8 integration tests pass, 3 ignored (pending witness solver hints).\n16 correctness tests pass.\n\n* perf(plonk): Add prover/verifier benchmarks with criterion\n\nAdd comprehensive benchmarks for PLONK proving system:\n- Prover benchmark: Tests proof generation for 4, 8, 16, 32 constraint circuits\n- Verifier benchmark: Tests proof verification time\n- Setup benchmark: Tests trusted setup time\n- End-to-end benchmark: Tests complete prove+verify cycle\n\nBenchmarks use deterministic RNG for reproducible results.\nRun with: cargo bench -p lambdaworks-plonk\n\n* perf(plonk): Update benchmarks for larger circuit sizes (up to 2^15)\n\nBenchmark prover/verifier/setup with circuit sizes: 64, 256, 1024, 4096, 16384, 32768 constraints.\n\nResults demonstrate PLONK's succinct verification:\n- Prover scales O(n log n): 84ms (64) -> 17.4s (32768)\n- Verifier is O(1): ~15-25ms regardless of circuit size\n\n* style(plonk): Apply cargo fmt and fix clippy warnings\n\n- Fix needless_range_loop in poseidon.rs MDS matrix multiplication\n- Rename PublicInputLayout::add() to with_input() to avoid confusion\n  with std::ops::Add trait\n\n* fix clippy and fmt\n\n* add README\n\n* avoid shift overflow in LessThan gadget\n\n* fix clippy\n\n* fix security issues: replace unwrap() and add warning\n\n* fix fmt\n\n* fix duplicate name detection bug\n\n* docs(plonk/dsl): fix incorrect documentation and comments\n\n- Fix gadgets/mod.rs: remove non-existent MiMC, clarify descriptions\n- Fix dsl/mod.rs example: replace non-existent builder.build() with actual API\n- Fix ToBits doc: correctly document that it includes recomposition constraint\n- Improve FromBits constraint_count() comment to explain the 0 return value\n- Improve comparison gadget constraint_count() comments for clarity\n\n---------\n\nCo-authored-by: jotabulacios <jbulacios@fi.uba.ar>\nCo-authored-by: Nicole <nicole.graus@lambdaclass.com>",
+          "timestamp": "2026-02-19T18:55:06Z",
+          "tree_id": "b8f4e838195467545c5ee4b27146d4b9237168ac",
+          "url": "https://github.com/lambdaclass/lambdaworks/commit/f2dba3ca0f6e3b8f186ff89bf13d8ca4e67bce74"
+        },
+        "date": 1771529128938,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "Ordered FFT/Sequential from NR radix2",
+            "value": 328581753,
+            "range": "± 752428",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Sequential from RN radix2",
+            "value": 367929581,
+            "range": "± 5525974",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Sequential from NR radix4",
+            "value": 279592290,
+            "range": "± 2933443",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Sequential from NR radix2 #2",
+            "value": 691348125,
+            "range": "± 7629876",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Sequential from RN radix2 #2",
+            "value": 782079891,
+            "range": "± 2556623",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Sequential from NR radix2 #3",
+            "value": 1448582802,
+            "range": "± 4584231",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Sequential from RN radix2 #3",
+            "value": 1631757721,
+            "range": "± 7024273",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Sequential from NR radix4 #2",
+            "value": 1231545214,
+            "range": "± 2389133",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Sequential from NR radix2 #4",
+            "value": 3025423027,
+            "range": "± 1792805",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Sequential from RN radix2 #4",
+            "value": 3442286246,
+            "range": "± 15520646",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Sequential from NR radix2 #5",
+            "value": 6331029656,
+            "range": "± 5946374",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Sequential from RN radix2 #5",
+            "value": 7268169463,
+            "range": "± 16394065",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Ordered FFT/Sequential from NR radix4 #3",
+            "value": 5397445702,
+            "range": "± 13606737",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/natural",
+            "value": 7881118,
+            "range": "± 5402",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/natural inversed",
+            "value": 8063636,
+            "range": "± 2724",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/bit-reversed",
+            "value": 10263373,
+            "range": "± 85916",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/bit-reversed inversed",
+            "value": 10537037,
+            "range": "± 324669",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/natural #2",
+            "value": 17413252,
+            "range": "± 24364",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/natural inversed #2",
+            "value": 17532433,
+            "range": "± 820847",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/bit-reversed #2",
+            "value": 29236516,
+            "range": "± 1231750",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/bit-reversed inversed #2",
+            "value": 32529906,
+            "range": "± 1414446",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/natural #3",
+            "value": 34447792,
+            "range": "± 48957",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/natural inversed #3",
+            "value": 35904995,
+            "range": "± 62114",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/bit-reversed #3",
+            "value": 72131956,
+            "range": "± 344502",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/bit-reversed inversed #3",
+            "value": 72900184,
+            "range": "± 943314",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/natural #4",
+            "value": 72277796,
+            "range": "± 145945",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/natural inversed #4",
+            "value": 71897394,
+            "range": "± 283022",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/bit-reversed #4",
+            "value": 148724066,
+            "range": "± 1788928",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/bit-reversed inversed #4",
+            "value": 147113387,
+            "range": "± 1145961",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/natural #5",
+            "value": 137838824,
+            "range": "± 330533",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/natural inversed #5",
+            "value": 137968243,
+            "range": "± 293386",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/bit-reversed #5",
+            "value": 285894029,
+            "range": "± 10114295",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "FFT twiddles generation/bit-reversed inversed #5",
+            "value": 285567302,
+            "range": "± 1868073",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Sequential",
+            "value": 15270548,
+            "range": "± 710736",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Sequential #2",
+            "value": 36610280,
+            "range": "± 724217",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Sequential #3",
+            "value": 73638033,
+            "range": "± 784101",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Sequential #4",
+            "value": 147384680,
+            "range": "± 2292792",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Bit-reverse permutation/Sequential #5",
+            "value": 375794203,
+            "range": "± 2763082",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial evaluation/Sequential FFT",
+            "value": 361371204,
+            "range": "± 1033455",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial evaluation/Sequential FFT #2",
+            "value": 770768564,
+            "range": "± 1530993",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial evaluation/Sequential FFT #3",
+            "value": 1620621234,
+            "range": "± 2615366",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial evaluation/Sequential FFT #4",
+            "value": 3375557275,
+            "range": "± 3600809",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial evaluation/Sequential FFT #5",
+            "value": 7106785415,
+            "range": "± 15650671",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial interpolation/Sequential FFT",
+            "value": 393044856,
+            "range": "± 3047361",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial interpolation/Sequential FFT #2",
+            "value": 816447827,
+            "range": "± 2251698",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial interpolation/Sequential FFT #3",
+            "value": 1709603483,
+            "range": "± 2239021",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial interpolation/Sequential FFT #4",
+            "value": 3533091769,
+            "range": "± 10527833",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial interpolation/Sequential FFT #5",
+            "value": 7425771583,
+            "range": "± 11659663",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate",
+            "value": 4,
+            "range": "± 0",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/evaluate_slice",
+            "value": 14,
+            "range": "± 1",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/add",
+            "value": 29,
+            "range": "± 1",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/neg",
+            "value": 24,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/sub",
+            "value": 28,
+            "range": "± 1",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/mul",
+            "value": 31,
+            "range": "± 3",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/fast_mul big poly",
+            "value": 144743,
+            "range": "± 4695",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/slow mul big poly",
+            "value": 1554028,
+            "range": "± 8270",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/fast div big poly",
+            "value": 809252,
+            "range": "± 772",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "Polynomial/slow div big poly",
+            "value": 1092581,
+            "range": "± 9879",
             "unit": "ns/iter"
           }
         ]
