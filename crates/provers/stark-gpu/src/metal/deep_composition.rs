@@ -512,6 +512,259 @@ pub fn gpu_compute_deep_composition_poly_to_buffer(
     Ok((coeffs_buffer, num_rows))
 }
 
+// =============================================================================
+// Fp3 DEEP Composition (degree-3 Goldilocks extension)
+// =============================================================================
+
+/// Embedded Metal shader source for the Fp3 DEEP composition kernel.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+const DEEP_COMPOSITION_FP3_SHADER: &str = include_str!("shaders/deep_composition_fp3.metal");
+
+/// Parameters struct matching the Metal shader's `DeepCompFp3Params`.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+#[repr(C)]
+#[derive(Copy, Clone)]
+struct DeepCompFp3Params {
+    num_rows: u32,
+    num_trace_polys: u32,
+    num_offsets: u32,
+    num_comp_parts: u32,
+}
+
+/// Pre-compiled Metal state for the Fp3 DEEP composition kernel.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+pub struct DeepCompositionFp3State {
+    state: DynamicMetalState,
+    max_threads: u64,
+}
+
+#[cfg(all(target_os = "macos", feature = "metal"))]
+impl DeepCompositionFp3State {
+    /// Compile the Fp3 DEEP composition shader and prepare the pipeline.
+    pub fn new() -> Result<Self, lambdaworks_gpu::metal::abstractions::errors::MetalError> {
+        let combined_source =
+            crate::metal::fp3::combined_fp3_source(DEEP_COMPOSITION_FP3_SHADER);
+        let mut state = DynamicMetalState::new()?;
+        state.load_library(&combined_source)?;
+        let max_threads = state.prepare_pipeline("deep_composition_fp3_eval")?;
+        Ok(Self { state, max_threads })
+    }
+}
+
+/// Compute the Fp3 DEEP composition polynomial using GPU.
+///
+/// This is the extension-field variant of [`gpu_compute_deep_composition_poly`].
+/// Trace LDE values remain in base field; gammas, z, OOD evals, inversions,
+/// and output are all in Fp3 (degree-3 Goldilocks extension).
+///
+/// Returns the DEEP composition polynomial in Fp3 coefficient form.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+#[allow(clippy::too_many_arguments)]
+pub fn gpu_compute_deep_composition_poly_fp3(
+    round_1_result: &GpuRound1Result<Goldilocks64Field>,
+    round_3_z: &FieldElement<lambdaworks_math::field::fields::u64_goldilocks_field::Degree3GoldilocksExtensionField>,
+    trace_ood_evaluations_fp3: &[Vec<FieldElement<lambdaworks_math::field::fields::u64_goldilocks_field::Degree3GoldilocksExtensionField>>],
+    composition_ood_evaluations_fp3: &[FieldElement<lambdaworks_math::field::fields::u64_goldilocks_field::Degree3GoldilocksExtensionField>],
+    lde_composition_poly_evaluations_fp3: &[Vec<FieldElement<lambdaworks_math::field::fields::u64_goldilocks_field::Degree3GoldilocksExtensionField>>],
+    domain: &stark_platinum_prover::domain::Domain<Goldilocks64Field>,
+    composition_gammas_fp3: &[FieldElement<lambdaworks_math::field::fields::u64_goldilocks_field::Degree3GoldilocksExtensionField>],
+    trace_term_coeffs_fp3: &[Vec<FieldElement<lambdaworks_math::field::fields::u64_goldilocks_field::Degree3GoldilocksExtensionField>>],
+    precompiled: Option<&DeepCompositionFp3State>,
+) -> Result<Vec<FieldElement<lambdaworks_math::field::fields::u64_goldilocks_field::Degree3GoldilocksExtensionField>>, stark_platinum_prover::prover::ProvingError>
+{
+    use lambdaworks_math::field::fields::u64_goldilocks_field::Degree3GoldilocksExtensionField;
+
+    type F = Goldilocks64Field;
+    type Fp3 = Degree3GoldilocksExtensionField;
+    type Fp3E = FieldElement<Fp3>;
+
+    let num_rows = domain.lde_roots_of_unity_coset.len();
+    let num_offsets = trace_ood_evaluations_fp3.len();
+    let num_comp_parts = composition_ood_evaluations_fp3.len();
+    let num_trace_polys = round_1_result.main_lde_evaluations.len()
+        + round_1_result.aux_lde_evaluations.len();
+
+    // Helper to convert Fp3E to 3 raw u64s
+    let fp3_to_u64s = |e: &Fp3E| -> [u64; 3] {
+        let comps = e.value();
+        [*comps[0].value(), *comps[1].value(), *comps[2].value()]
+    };
+
+    // --- Pre-compute batch inversions on CPU (in Fp3) ---
+    let z = round_3_z;
+    let z_power: Fp3E = z.pow(num_comp_parts);
+    let primitive_root = &domain.trace_primitive_root;
+
+    // 1/(x_i - z^N) in Fp3 for each domain point
+    let mut inv_z_power_vec: Vec<Fp3E> = domain
+        .lde_roots_of_unity_coset
+        .iter()
+        .map(|x| x - z_power) // BF - Fp3 → Fp3
+        .collect();
+    FieldElement::inplace_batch_inverse(&mut inv_z_power_vec)
+        .map_err(|_| stark_platinum_prover::prover::ProvingError::BatchInversionFailed)?;
+
+    // z*g^k for each offset k (Fp3 since z is Fp3)
+    let z_shifted_values: Vec<Fp3E> = (0..num_offsets)
+        .map(|k| primitive_root.pow(k) * z) // BF * Fp3 → Fp3
+        .collect();
+
+    // 1/(x_i - z*g^k) in Fp3 for each offset k
+    let mut inv_z_shifted_vecs: Vec<Vec<Fp3E>> = z_shifted_values
+        .iter()
+        .map(|z_shifted| {
+            domain
+                .lde_roots_of_unity_coset
+                .iter()
+                .map(|x| x - z_shifted) // BF - Fp3 → Fp3
+                .collect()
+        })
+        .collect();
+    for inv_vec in &mut inv_z_shifted_vecs {
+        FieldElement::inplace_batch_inverse(inv_vec)
+            .map_err(|_| stark_platinum_prover::prover::ProvingError::BatchInversionFailed)?;
+    }
+
+    // --- Pack scalar data (gammas + OOD evals) as raw u64 triples ---
+    let mut scalars: Vec<u64> = Vec::new();
+    // Composition gammas (Fp3)
+    for gamma in composition_gammas_fp3.iter().take(num_comp_parts) {
+        scalars.extend_from_slice(&fp3_to_u64s(gamma));
+    }
+    // Trace gammas (Fp3): for each trace poly, for each offset
+    for gammas in trace_term_coeffs_fp3.iter() {
+        for g in gammas.iter() {
+            scalars.extend_from_slice(&fp3_to_u64s(g));
+        }
+    }
+    // Composition OOD evaluations (Fp3)
+    for eval in composition_ood_evaluations_fp3.iter() {
+        scalars.extend_from_slice(&fp3_to_u64s(eval));
+    }
+    // Trace OOD evaluations (Fp3): for each trace poly, for each offset
+    for col in trace_ood_evaluations_fp3.iter() {
+        for eval in col.iter() {
+            scalars.extend_from_slice(&fp3_to_u64s(eval));
+        }
+    }
+
+    // --- Convert trace LDE data to raw u64 (base field) ---
+    let mut all_trace_lde = round_1_result.main_lde_evaluations.clone();
+    all_trace_lde.extend(round_1_result.aux_lde_evaluations.iter().cloned());
+    let trace_raw: Vec<Vec<u64>> = all_trace_lde
+        .iter()
+        .map(|col| col.iter().map(|fe| F::canonical(fe.value())).collect())
+        .collect();
+
+    // --- Convert Fp3 composition LDE data to raw u64 triples ---
+    let comp_raw: Vec<Vec<u64>> = lde_composition_poly_evaluations_fp3
+        .iter()
+        .map(|col| {
+            col.iter()
+                .flat_map(fp3_to_u64s)
+                .collect()
+        })
+        .collect();
+
+    // --- Convert inversions to raw u64 triples ---
+    let inv_zp_raw: Vec<u64> = inv_z_power_vec
+        .iter()
+        .flat_map(fp3_to_u64s)
+        .collect();
+    let inv_zs_raw: Vec<Vec<u64>> = inv_z_shifted_vecs
+        .iter()
+        .map(|v| v.iter().flat_map(fp3_to_u64s).collect())
+        .collect();
+
+    let params = DeepCompFp3Params {
+        num_rows: num_rows as u32,
+        num_trace_polys: num_trace_polys as u32,
+        num_offsets: num_offsets as u32,
+        num_comp_parts: num_comp_parts as u32,
+    };
+
+    // --- Dispatch Metal kernel ---
+    let mut owned_state;
+    let (dyn_state, max_threads) = match precompiled {
+        Some(pre) => (&pre.state, pre.max_threads),
+        None => {
+            let combined_source =
+                crate::metal::fp3::combined_fp3_source(DEEP_COMPOSITION_FP3_SHADER);
+            owned_state = DynamicMetalState::new().map_err(|e| {
+                stark_platinum_prover::prover::ProvingError::FieldOperationError(e.to_string())
+            })?;
+            owned_state.load_library(&combined_source).map_err(|e| {
+                stark_platinum_prover::prover::ProvingError::FieldOperationError(e.to_string())
+            })?;
+            let mt = owned_state
+                .prepare_pipeline("deep_composition_fp3_eval")
+                .map_err(|e| {
+                    stark_platinum_prover::prover::ProvingError::FieldOperationError(e.to_string())
+                })?;
+            (&owned_state, mt)
+        }
+    };
+
+    let alloc_err = |e: lambdaworks_gpu::metal::abstractions::errors::MetalError| {
+        stark_platinum_prover::prover::ProvingError::FieldOperationError(e.to_string())
+    };
+
+    let buf_trace_0 = dyn_state.alloc_buffer_with_data(&trace_raw[0]).map_err(alloc_err)?;
+    let buf_trace_1 = dyn_state.alloc_buffer_with_data(&trace_raw[1]).map_err(alloc_err)?;
+    let buf_trace_2 = dyn_state.alloc_buffer_with_data(&trace_raw[2]).map_err(alloc_err)?;
+    let buf_comp_0 = dyn_state.alloc_buffer_with_data(&comp_raw[0]).map_err(alloc_err)?;
+    let buf_inv_zp = dyn_state.alloc_buffer_with_data(&inv_zp_raw).map_err(alloc_err)?;
+    let buf_inv_zs0 = dyn_state.alloc_buffer_with_data(&inv_zs_raw[0]).map_err(alloc_err)?;
+    let buf_inv_zs1 = dyn_state.alloc_buffer_with_data(&inv_zs_raw[1]).map_err(alloc_err)?;
+    let buf_inv_zs2 = dyn_state.alloc_buffer_with_data(&inv_zs_raw[2]).map_err(alloc_err)?;
+    let buf_scalars = dyn_state.alloc_buffer_with_data(&scalars).map_err(alloc_err)?;
+    let buf_params = dyn_state
+        .alloc_buffer_with_data(std::slice::from_ref(&params))
+        .map_err(alloc_err)?;
+    // Output: 3 u64s per point (Fp3)
+    let buf_output = dyn_state
+        .alloc_buffer(num_rows * 3 * std::mem::size_of::<u64>())
+        .map_err(alloc_err)?;
+
+    dyn_state
+        .execute_compute(
+            "deep_composition_fp3_eval",
+            &[
+                &buf_trace_0,
+                &buf_trace_1,
+                &buf_trace_2,
+                &buf_comp_0,
+                &buf_inv_zp,
+                &buf_inv_zs0,
+                &buf_inv_zs1,
+                &buf_inv_zs2,
+                &buf_scalars,
+                &buf_params,
+                &buf_output,
+            ],
+            num_rows as u64,
+            max_threads,
+        )
+        .map_err(|e| {
+            stark_platinum_prover::prover::ProvingError::FieldOperationError(e.to_string())
+        })?;
+
+    // --- Read GPU results (Fp3 evaluations) ---
+    let output_raw: Vec<u64> = lambdaworks_gpu::metal::abstractions::state::MetalState::retrieve_contents(&buf_output);
+    let deep_poly_evals: Vec<Fp3E> = output_raw
+        .chunks_exact(3)
+        .map(|chunk| {
+            Fp3E::new([
+                FieldElement::from_raw(chunk[0]),
+                FieldElement::from_raw(chunk[1]),
+                FieldElement::from_raw(chunk[2]),
+            ])
+        })
+        .collect();
+
+    Ok(deep_poly_evals)
+}
+
 #[cfg(all(test, target_os = "macos", feature = "metal"))]
 mod tests {
     use super::*;
@@ -653,6 +906,184 @@ mod tests {
             assert_eq!(
                 cpu_c, gpu_c,
                 "DEEP composition poly coefficient {i} mismatch: CPU={cpu_c:?} GPU={gpu_c:?}"
+            );
+        }
+    }
+
+    /// Differential test: Fp3 DEEP composition GPU vs CPU.
+    ///
+    /// Uses the same prover rounds 1-3 in base field, then lifts gammas/z/OOD
+    /// to Fp3 and verifies GPU matches a CPU reference computation.
+    #[test]
+    fn gpu_deep_composition_fp3_matches_cpu() {
+        use lambdaworks_math::field::fields::u64_goldilocks_field::Degree3GoldilocksExtensionField;
+        type Fp3 = Degree3GoldilocksExtensionField;
+        type Fp3E = FieldElement<Fp3>;
+
+        let trace_length = 16;
+        let pub_inputs = FibonacciRAPPublicInputs {
+            steps: trace_length - 1,
+            a0: FpE::one(),
+            a1: FpE::one(),
+        };
+        let proof_options = ProofOptions::default_test_options();
+        let mut trace = fibonacci_rap_trace::<F>([FpE::one(), FpE::one()], trace_length);
+        let air = FibonacciRAP::new(trace.num_rows(), &pub_inputs, &proof_options);
+        let domain = Domain::new(&air);
+        let state = StarkMetalState::new().unwrap();
+
+        let mut transcript = DefaultTranscript::<F>::new(&[]);
+        let round_1 = gpu_round_1(&air, &mut trace, &domain, &mut transcript, &state).unwrap();
+        let round_2 = gpu_round_2(&air, &domain, &round_1, &mut transcript, &state).unwrap();
+        let round_3 = gpu_round_3(&air, &domain, &round_1, &round_2, &mut transcript).unwrap();
+
+        // Create Fp3 z by embedding the base-field z and adding a non-trivial extension part.
+        let z_fp3 = Fp3E::new([
+            round_3.z.clone(),
+            FpE::from(7u64),
+            FpE::from(13u64),
+        ]);
+
+        // Generate gammas in Fp3 (embed base field gamma, add extension components).
+        let gamma_base: FpE = transcript.sample_field_element();
+        let gamma_fp3 = Fp3E::new([
+            gamma_base.clone(),
+            FpE::from(3u64),
+            FpE::from(5u64),
+        ]);
+
+        let n_terms_composition_poly = round_2.lde_composition_poly_evaluations.len();
+        let num_offsets = round_3.trace_ood_evaluations.height;
+        let num_trace_polys =
+            round_1.main_lde_evaluations.len() + round_1.aux_lde_evaluations.len();
+        let num_terms_trace = num_offsets * num_trace_polys;
+
+        let mut deep_coeffs_fp3: Vec<Fp3E> =
+            core::iter::successors(Some(Fp3E::one()), |x| Some(x * &gamma_fp3))
+                .take(n_terms_composition_poly + num_terms_trace)
+                .collect();
+
+        let trace_term_coeffs_fp3: Vec<Vec<Fp3E>> = deep_coeffs_fp3
+            .drain(..num_terms_trace)
+            .collect::<Vec<_>>()
+            .chunks(num_offsets)
+            .map(|chunk| chunk.to_vec())
+            .collect();
+        let composition_gammas_fp3 = deep_coeffs_fp3;
+
+        // Create Fp3 OOD evaluations by evaluating trace polys at z_fp3.
+        let primitive_root = &domain.trace_primitive_root;
+        let z_shifted_fp3: Vec<Fp3E> = (0..num_offsets)
+            .map(|k| primitive_root.pow(k) * &z_fp3) // BF * Fp3 → Fp3
+            .collect();
+
+        // Trace OOD: evaluate each trace poly at z*g^k in Fp3.
+        let mut all_trace_polys = round_1.main_trace_polys.clone();
+        all_trace_polys.extend(round_1.aux_trace_polys.iter().cloned());
+
+        // trace_ood_fp3[col][offset] for column-major layout matching the GPU interface.
+        let trace_ood_fp3: Vec<Vec<Fp3E>> = (0..num_trace_polys)
+            .map(|col| {
+                z_shifted_fp3
+                    .iter()
+                    .map(|zs| all_trace_polys[col].evaluate(zs))
+                    .collect()
+            })
+            .collect();
+
+        // Composition OOD: evaluate composition poly parts at z^N in Fp3.
+        let z_power_fp3: Fp3E = z_fp3.pow(round_2.composition_poly_parts.len());
+        let composition_ood_fp3: Vec<Fp3E> = round_2
+            .composition_poly_parts
+            .iter()
+            .map(|part| part.evaluate(&z_power_fp3))
+            .collect();
+
+        // Composition LDE evaluations lifted to Fp3 (embed base field evals).
+        let lde_comp_evals_fp3: Vec<Vec<Fp3E>> = round_2
+            .lde_composition_poly_evaluations
+            .iter()
+            .map(|col| {
+                col.iter()
+                    .map(|fe| Fp3E::new([fe.clone(), FpE::zero(), FpE::zero()]))
+                    .collect()
+            })
+            .collect();
+
+        // --- CPU reference: compute DEEP composition in Fp3 evaluation domain ---
+        let num_rows = domain.lde_roots_of_unity_coset.len();
+
+        // Pre-compute inversions in Fp3
+        let mut inv_z_power: Vec<Fp3E> = domain
+            .lde_roots_of_unity_coset
+            .iter()
+            .map(|x| x - &z_power_fp3)
+            .collect();
+        FieldElement::inplace_batch_inverse(&mut inv_z_power).unwrap();
+
+        let mut inv_z_shifted: Vec<Vec<Fp3E>> = z_shifted_fp3
+            .iter()
+            .map(|zs| {
+                domain
+                    .lde_roots_of_unity_coset
+                    .iter()
+                    .map(|x| x - zs)
+                    .collect()
+            })
+            .collect();
+        for v in &mut inv_z_shifted {
+            FieldElement::inplace_batch_inverse(v).unwrap();
+        }
+
+        let mut all_trace_lde = round_1.main_lde_evaluations.clone();
+        all_trace_lde.extend(round_1.aux_lde_evaluations.iter().cloned());
+
+        let mut cpu_deep_evals: Vec<Fp3E> = vec![Fp3E::zero(); num_rows];
+        for i in 0..num_rows {
+            let mut acc = Fp3E::zero();
+
+            // H terms
+            for (k, comp_eval_col) in lde_comp_evals_fp3.iter().enumerate() {
+                let h_x = &comp_eval_col[i];
+                let h_z = &composition_ood_fp3[k];
+                acc = acc + &composition_gammas_fp3[k] * &(h_x - h_z) * &inv_z_power[i];
+            }
+
+            // Trace terms
+            for (col, trace_col) in all_trace_lde.iter().enumerate() {
+                let t_x_bf = &trace_col[i];
+                for (offset, zs_inv) in inv_z_shifted.iter().enumerate() {
+                    let t_ood = &trace_ood_fp3[col][offset];
+                    let gamma = &trace_term_coeffs_fp3[col][offset];
+                    // t_x in base field, subtract Fp3 OOD eval → Fp3
+                    let diff: Fp3E = t_x_bf - t_ood;
+                    acc = acc + gamma * &diff * &zs_inv[i];
+                }
+            }
+
+            cpu_deep_evals[i] = acc;
+        }
+
+        // --- GPU path ---
+        let gpu_deep_evals = gpu_compute_deep_composition_poly_fp3(
+            &round_1,
+            &z_fp3,
+            &trace_ood_fp3,
+            &composition_ood_fp3,
+            &lde_comp_evals_fp3,
+            &domain,
+            &composition_gammas_fp3,
+            &trace_term_coeffs_fp3,
+            None,
+        )
+        .unwrap();
+
+        // Compare
+        assert_eq!(gpu_deep_evals.len(), cpu_deep_evals.len());
+        for (i, (gpu, cpu)) in gpu_deep_evals.iter().zip(cpu_deep_evals.iter()).enumerate() {
+            assert_eq!(
+                gpu, cpu,
+                "Fp3 DEEP composition eval mismatch at point {i}"
             );
         }
     }
