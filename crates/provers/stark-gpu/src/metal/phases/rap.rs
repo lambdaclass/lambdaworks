@@ -277,6 +277,131 @@ where
     })
 }
 
+/// GPU-accelerated Phase 1 for Fp3 extension field proofs.
+///
+/// Main trace (base field): GPU FFT interpolation + GPU FFT LDE + GPU Keccak Merkle.
+/// Aux trace (Fp3): CPU FFT interpolation + CPU FFT LDE + CPU Merkle commit.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+pub fn gpu_round_1_fp3<A>(
+    air: &A,
+    trace: &mut TraceTable<
+        Goldilocks64Field,
+        lambdaworks_math::field::fields::u64_goldilocks_field::Degree3GoldilocksExtensionField,
+    >,
+    domain: &Domain<Goldilocks64Field>,
+    transcript: &mut impl IsStarkTranscript<
+        lambdaworks_math::field::fields::u64_goldilocks_field::Degree3GoldilocksExtensionField,
+        Goldilocks64Field,
+    >,
+    state: &StarkMetalState,
+    keccak_state: &GpuKeccakMerkleState,
+) -> Result<crate::metal::phases::fp3_types::GpuRound1ResultFp3, ProvingError>
+where
+    A: AIR<
+        Field = Goldilocks64Field,
+        FieldExtension = lambdaworks_math::field::fields::u64_goldilocks_field::Degree3GoldilocksExtensionField,
+    >,
+{
+    use lambdaworks_math::field::fields::u64_goldilocks_field::Degree3GoldilocksExtensionField;
+    type F = Goldilocks64Field;
+    type Fp3 = Degree3GoldilocksExtensionField;
+    type Fp3E = FieldElement<Fp3>;
+
+    // --- Main trace (base field, GPU path) ---
+
+    let t = std::time::Instant::now();
+    let main_columns = trace.columns_main();
+    let main_trace_polys = interpolate_columns_gpu(&main_columns, state)?;
+    eprintln!("    1a main interp:    {:>10.2?}", t.elapsed());
+
+    let blowup_factor = air.blowup_factor() as usize;
+    let coset_offset = air.coset_offset();
+
+    let t = std::time::Instant::now();
+    let (main_lde_evaluations, main_lde_buffers) = evaluate_polys_on_lde_gpu_to_buffers(
+        &main_trace_polys,
+        blowup_factor,
+        &coset_offset,
+        state,
+    )?;
+    eprintln!("    1b main LDE+read:  {:>10.2?}", t.elapsed());
+
+    // GPU Merkle commit directly from FFT output buffers
+    let t = std::time::Instant::now();
+    let buffer_refs: Vec<&metal::Buffer> = main_lde_buffers.iter().collect();
+    let (main_merkle_tree, main_merkle_root) = gpu_batch_commit_from_column_buffers(
+        &buffer_refs,
+        main_lde_evaluations[0].len(),
+        keccak_state,
+    )
+    .ok_or(ProvingError::EmptyCommitment)?;
+    eprintln!("    1c main Merkle:    {:>10.2?}", t.elapsed());
+
+    transcript.append_bytes(&main_merkle_root);
+    let rap_challenges = air.build_rap_challenges(transcript);
+
+    // --- Auxiliary trace (Fp3, CPU path) ---
+    let t = std::time::Instant::now();
+    let (aux_trace_polys, aux_lde_evaluations, aux_merkle_tree, aux_merkle_root) =
+        if air.has_trace_interaction() {
+            air.build_auxiliary_trace(trace, &rap_challenges);
+
+            // CPU FFT interpolation (base-field twiddles on extension-field data)
+            let aux_columns = trace.columns_aux();
+            let aux_polys: Vec<Polynomial<Fp3E>> = aux_columns
+                .iter()
+                .map(|col| Polynomial::interpolate_fft::<F>(col))
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|e| ProvingError::FieldOperationError(format!("CPU aux FFT: {e}")))?;
+
+            // CPU FFT LDE evaluation
+            let aux_lde_evals: Vec<Vec<Fp3E>> = aux_polys
+                .iter()
+                .map(|poly| {
+                    Polynomial::evaluate_offset_fft::<F>(
+                        poly,
+                        blowup_factor,
+                        Some(domain.interpolation_domain_size),
+                        &coset_offset,
+                    )
+                    .map(|evals| {
+                        let target_len = domain.interpolation_domain_size * blowup_factor;
+                        let step = evals.len() / target_len;
+                        if step <= 1 {
+                            evals
+                        } else {
+                            evals.into_iter().step_by(step).collect()
+                        }
+                    })
+                })
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|e| ProvingError::FieldOperationError(format!("CPU aux LDE FFT: {e}")))?;
+
+            // CPU Merkle commit on aux LDE
+            let aux_permuted_rows = columns2rows_bit_reversed(&aux_lde_evals);
+            let (aux_tree, aux_root) =
+                cpu_batch_commit(&aux_permuted_rows).ok_or(ProvingError::EmptyCommitment)?;
+
+            transcript.append_bytes(&aux_root);
+            (aux_polys, aux_lde_evals, Some(aux_tree), Some(aux_root))
+        } else {
+            (Vec::new(), Vec::new(), None, None)
+        };
+    eprintln!("    1d aux all:        {:>10.2?}", t.elapsed());
+
+    Ok(crate::metal::phases::fp3_types::GpuRound1ResultFp3 {
+        main_trace_polys,
+        aux_trace_polys,
+        main_lde_evaluations,
+        aux_lde_evaluations,
+        main_merkle_tree,
+        main_merkle_root,
+        aux_merkle_tree,
+        aux_merkle_root,
+        rap_challenges,
+    })
+}
+
 /// Interpolates a set of evaluation columns into polynomials using GPU FFT.
 ///
 /// Each column is a vector of field element evaluations at roots of unity.
