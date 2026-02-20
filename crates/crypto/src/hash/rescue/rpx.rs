@@ -393,4 +393,34 @@ mod tests {
         let result = cubic_ext_mul(a, identity);
         assert_eq!(result, a, "a * 1 should equal a");
     }
+
+    /// Cross-validation test vectors generated from miden-crypto's Rpx256::apply_permutation.
+    /// Only the raw permutation is compared — sponge layouts differ between implementations
+    /// (our capacity at 0..3, rate at 4..11 vs miden's rate at 0..7, capacity at 8..11).
+    #[test]
+    fn test_permutation_cross_validation_miden() {
+        let rpx = Rpx256::new(MdsMethod::MatrixMultiplication);
+
+        // Input: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+        let mut state: Vec<Fp> = (1..=12).map(|i| Fp::from(i as u64)).collect();
+        rpx.permutation(&mut state);
+        let expected: Vec<Fp> = [
+            5437748534614640079u64, 854874938920055048, 18278654462140408466,
+            17240697175332752171, 7310175166461302633, 18290390891494061033,
+            10686820761628507650, 15328173731076229406, 4281259797668742483,
+            8756723097944267591, 7079891540869279681, 12686994217342534069,
+        ].iter().map(|&v| Fp::from(v)).collect();
+        assert_eq!(state, expected, "permutation mismatch for input [1..12]");
+
+        // Input: [0; 12]
+        let mut state = vec![Fp::zero(); 12];
+        rpx.permutation(&mut state);
+        let expected: Vec<Fp> = [
+            8760086638283468260u64, 18228666152919569253, 4041825754230271128,
+            16906183286731764961, 4664375192219530269, 271590372761485506,
+            5612474514543166805, 8933101171974180471, 1556877437237031065,
+            7026397410864970258, 15101742939622740655, 4524429088483979565,
+        ].iter().map(|&v| Fp::from(v)).collect();
+        assert_eq!(state, expected, "permutation mismatch for input [0;12]");
+    }
 }
