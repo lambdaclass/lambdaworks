@@ -418,8 +418,14 @@ where
     /// Multiplies the polynomial by a scalar.
     pub fn scalar_mul(&self, scalar: &FieldElement<F>) -> Self {
         let mut new_poly = self.clone();
-        new_poly.evals.iter_mut().for_each(|eval| *eval *= scalar);
+        new_poly.scalar_mul_assign(scalar);
         new_poly
+    }
+
+    /// Multiplies the polynomial by a scalar in-place.
+    /// This avoids cloning when you don't need the original polynomial.
+    pub fn scalar_mul_assign(&mut self, scalar: &FieldElement<F>) {
+        self.evals.iter_mut().for_each(|eval| *eval *= scalar);
     }
 
     /// Extends this DenseMultilinearPolynomial by concatenating another polynomial of the same length.

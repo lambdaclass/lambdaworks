@@ -29,17 +29,16 @@ pub struct Polynomial<FE> {
 impl<F: IsField> Polynomial<FieldElement<F>> {
     /// Creates a new polynomial with the given coefficients
     pub fn new(coefficients: &[FieldElement<F>]) -> Self {
-        // Removes trailing zero coefficients at the end
-        let mut unpadded_coefficients = coefficients
+        let last_nonzero = coefficients
             .iter()
-            .rev()
-            .skip_while(|x| **x == FieldElement::zero())
-            .cloned()
-            .collect::<Vec<FieldElement<F>>>();
-        unpadded_coefficients.reverse();
-        Polynomial {
-            coefficients: unpadded_coefficients,
-        }
+            .rposition(|x| *x != FieldElement::zero());
+
+        let coefficients = match last_nonzero {
+            Some(idx) => coefficients[..=idx].to_vec(),
+            None => vec![],
+        };
+
+        Polynomial { coefficients }
     }
 
     /// Creates a new monomial term coefficient*x^degree
@@ -466,8 +465,10 @@ impl<F: IsField> Polynomial<FieldElement<F>> {
         }
     }
     pub fn reverse(&self, d: usize) -> Self {
-        let mut coeffs = self.coefficients.clone();
-        coeffs.resize(d + 1, FieldElement::zero());
+        let new_len = (d + 1).max(self.coefficients.len());
+        let mut coeffs = Vec::with_capacity(new_len);
+        coeffs.extend_from_slice(&self.coefficients);
+        coeffs.resize(new_len, FieldElement::zero());
         coeffs.reverse();
         Self::new(&coeffs)
     }
@@ -866,7 +867,14 @@ where
     type Output = Polynomial<FieldElement<L>>;
 
     fn add(self, other: &FieldElement<F>) -> Polynomial<FieldElement<L>> {
-        Polynomial::new_monomial(other.clone(), 0) + self
+        let mut result = self.coefficients.clone();
+        let other_ext = other.clone().to_extension::<L>();
+        if result.is_empty() {
+            result.push(other_ext);
+        } else {
+            result[0] = &result[0] + &other_ext;
+        }
+        Polynomial::new(&result)
     }
 }
 
@@ -964,7 +972,14 @@ where
     type Output = Polynomial<FieldElement<L>>;
 
     fn sub(self, other: &FieldElement<F>) -> Polynomial<FieldElement<L>> {
-        -Polynomial::new_monomial(other.clone(), 0) + self
+        let mut result = self.coefficients.clone();
+        let other_ext = other.clone().to_extension::<L>();
+        if result.is_empty() {
+            result.push(-other_ext);
+        } else {
+            result[0] = &result[0] - &other_ext;
+        }
+        Polynomial::new(&result)
     }
 }
 
@@ -1013,7 +1028,15 @@ where
     type Output = Polynomial<FieldElement<L>>;
 
     fn sub(self, other: &Polynomial<FieldElement<L>>) -> Polynomial<FieldElement<L>> {
-        Polynomial::new_monomial(self.clone(), 0) - other
+        let mut result = vec![self.clone().to_extension::<L>()];
+        for (i, coeff) in other.coefficients.iter().enumerate() {
+            if i == 0 {
+                result[0] = &result[0] - coeff;
+            } else {
+                result.push(-coeff.clone());
+            }
+        }
+        Polynomial::new(&result)
     }
 }
 

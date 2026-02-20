@@ -220,11 +220,12 @@ impl<E: IsField> Polynomial<FieldElement<E>> {
         other: &Self,
     ) -> Result<Self, FFTError> {
         let domain_size = self.degree() + other.degree() + 1;
-        let p = Polynomial::evaluate_fft::<F>(self, 1, Some(domain_size))?;
+        let mut p = Polynomial::evaluate_fft::<F>(self, 1, Some(domain_size))?;
         let q = Polynomial::evaluate_fft::<F>(other, 1, Some(domain_size))?;
-        let r = p.into_iter().zip(q).map(|(a, b)| a * b).collect::<Vec<_>>();
 
-        Polynomial::interpolate_fft::<F>(&r)
+        p.iter_mut().zip(q.into_iter()).for_each(|(a, b)| *a *= b);
+
+        Polynomial::interpolate_fft::<F>(&p)
     }
 
     /// Divides two polynomials with remainder.

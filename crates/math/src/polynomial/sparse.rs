@@ -50,7 +50,7 @@ use alloc::collections::BTreeMap;
 use alloc::format;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
-use core::ops::{Add, Mul, Neg, Sub};
+use core::ops::{Add, AddAssign, Mul, Neg, Sub, SubAssign};
 
 use super::Polynomial;
 
@@ -326,6 +326,48 @@ impl<F: IsField> SparsePolynomial<F> {
         }
     }
 
+    /// Adds another sparse polynomial to this one in-place.
+    /// This avoids cloning the entire polynomial when you don't need the original.
+    ///
+    /// # Complexity
+    ///
+    /// O(k1 + k2) where k1, k2 are the number of non-zero terms.
+    pub fn add_assign(&mut self, other: &Self) {
+        let zero = FieldElement::zero();
+
+        for (degree, coeff) in &other.coefficients {
+            let entry = self
+                .coefficients
+                .entry(*degree)
+                .or_insert_with(FieldElement::zero);
+            *entry = &*entry + coeff;
+            if *entry == zero {
+                self.coefficients.remove(degree);
+            }
+        }
+    }
+
+    /// Subtracts another sparse polynomial from this one in-place.
+    /// This avoids cloning the entire polynomial when you don't need the original.
+    ///
+    /// # Complexity
+    ///
+    /// O(k1 + k2) where k1, k2 are the number of non-zero terms.
+    pub fn sub_assign(&mut self, other: &Self) {
+        let zero = FieldElement::zero();
+
+        for (degree, coeff) in &other.coefficients {
+            let entry = self
+                .coefficients
+                .entry(*degree)
+                .or_insert_with(FieldElement::zero);
+            *entry = &*entry - coeff;
+            if *entry == zero {
+                self.coefficients.remove(degree);
+            }
+        }
+    }
+
     /// Multiplies this polynomial by another sparse polynomial.
     ///
     /// # Complexity
@@ -581,6 +623,30 @@ impl<F: IsField> Sub<SparsePolynomial<F>> for &SparsePolynomial<F> {
 
     fn sub(self, rhs: SparsePolynomial<F>) -> Self::Output {
         SparsePolynomial::sub(self, &rhs)
+    }
+}
+
+impl<F: IsField> AddAssign for SparsePolynomial<F> {
+    fn add_assign(&mut self, rhs: Self) {
+        SparsePolynomial::add_assign(self, &rhs);
+    }
+}
+
+impl<F: IsField> AddAssign<&SparsePolynomial<F>> for SparsePolynomial<F> {
+    fn add_assign(&mut self, rhs: &SparsePolynomial<F>) {
+        SparsePolynomial::add_assign(self, rhs);
+    }
+}
+
+impl<F: IsField> SubAssign for SparsePolynomial<F> {
+    fn sub_assign(&mut self, rhs: Self) {
+        SparsePolynomial::sub_assign(self, &rhs);
+    }
+}
+
+impl<F: IsField> SubAssign<&SparsePolynomial<F>> for SparsePolynomial<F> {
+    fn sub_assign(&mut self, rhs: &SparsePolynomial<F>) {
+        SparsePolynomial::sub_assign(self, rhs);
     }
 }
 
