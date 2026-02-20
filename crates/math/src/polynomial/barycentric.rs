@@ -77,27 +77,32 @@ where
     // vanishing = z^N - h^N = -(h^N - z^N), using BF - EF → EF via IsSubFieldOf
     let vanishing: FieldElement<E> = -(&h_n - &z_n);
 
-    // Accumulate: sum_{i=0}^{N-1} (omega^i / (z - h*omega^i)) * y_i
+    // Pre-compute all denominators (z - h*omega^i) and batch-invert them.
+    // This replaces N expensive field inversions with a single inversion
+    // plus 3*(N-1) cheap multiplications (Montgomery's trick).
+    let mut denoms: Vec<FieldElement<E>> = Vec::with_capacity(n);
+    {
+        let mut coset_pt = coset_offset.clone();
+        for _ in 0..n {
+            // denom = z - coset_pt = -(coset_pt - z), using BF - EF → EF
+            denoms.push(-(&coset_pt - z));
+            coset_pt = &coset_pt * lde_primitive_root;
+        }
+    }
+    FieldElement::inplace_batch_inverse(&mut denoms)
+        .expect("z should not coincide with any coset point");
+
+    // Accumulate: sum_{i=0}^{N-1} (omega^i * denom_inv_i) * y_i
     //
-    // omega^i and h*omega^i stay in base field. The denom inversion is in EF.
-    // BF × EF multiplications use native IsSubFieldOf operators (cost ~d vs ~d²).
+    // omega^i stays in base field. BF × EF multiplications use native
+    // IsSubFieldOf operators (cost ~d vs ~d²).
     let mut acc = FieldElement::<E>::zero();
     let mut omega_i = FieldElement::<F>::one();
-    let mut coset_point = coset_offset.clone();
 
-    for y_i in evaluations.iter() {
-        // denom = z - coset_point = -(coset_point - z), using BF - EF → EF
-        let denom: FieldElement<E> = -(&coset_point - z);
-        let denom_inv: FieldElement<E> = denom
-            .inv()
-            .expect("z should not coincide with any coset point");
-
-        // BF × EF multiply (omega_i × denom_inv), then EF × EF (result × y_i)
-        let weight_times_inv: FieldElement<E> = &omega_i * &denom_inv;
+    for (y_i, denom_inv) in evaluations.iter().zip(denoms.iter()) {
+        let weight_times_inv: FieldElement<E> = &omega_i * denom_inv;
         acc += &weight_times_inv * y_i;
-
         omega_i = &omega_i * lde_primitive_root;
-        coset_point = &coset_point * lde_primitive_root;
     }
 
     // Final: prefactor * acc = (bf_scalar × vanishing) * acc
@@ -133,12 +138,7 @@ mod tests {
     #[test]
     fn barycentric_matches_horner_degree_3() {
         // P(x) = x^3 + 2x + 1
-        let poly = Polynomial::new(&[
-            FpE::from(1u64),
-            FpE::from(2u64),
-            FpE::zero(),
-            FpE::one(),
-        ]);
+        let poly = Polynomial::new(&[FpE::from(1u64), FpE::from(2u64), FpE::zero(), FpE::one()]);
 
         let coset_offset = FpE::from(7u64);
         let domain_size = 8; // 4 coefficients, blowup = 2

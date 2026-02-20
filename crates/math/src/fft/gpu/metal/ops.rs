@@ -232,11 +232,8 @@ where
             for stage in 0..order {
                 encoder.set_bytes(2, mem::size_of_val(&stage) as u64, void_ptr(&stage));
                 let grid_size = MTLSize::new(input.len() as u64 / 2, 1, 1);
-                let threadgroup_size = MTLSize::new(
-                    butterfly_pipeline.max_total_threads_per_threadgroup(),
-                    1,
-                    1,
-                );
+                let threadgroup_size =
+                    MTLSize::new(butterfly_pipeline.max_total_threads_per_threadgroup(), 1, 1);
                 encoder.dispatch_threads(grid_size, threadgroup_size);
             }
             encoder.end_encoding();
@@ -586,7 +583,13 @@ where
         // Copy input to working buffer so butterfly stages don't modify caller's data
         {
             let blit_encoder = command_buffer.new_blit_command_encoder();
-            blit_encoder.copy_from_buffer(input_buffer, 0, &working_buffer, 0, input_buffer.length());
+            blit_encoder.copy_from_buffer(
+                input_buffer,
+                0,
+                &working_buffer,
+                0,
+                input_buffer.length(),
+            );
             blit_encoder.end_encoding();
         }
 
@@ -1156,14 +1159,18 @@ mod tests {
                 .expect("Twiddle generation should succeed");
 
         // Reference: fft_to_buffer (uploads from CPU)
-        let reference_buffer = fft_to_buffer(&input, &twiddles_buffer, &state)
-            .expect("fft_to_buffer should succeed");
+        let reference_buffer =
+            fft_to_buffer(&input, &twiddles_buffer, &state).expect("fft_to_buffer should succeed");
 
         // Test: upload input manually, then call fft_buffer_to_buffer
         let input_buffer = state.alloc_buffer_data(&input);
-        let result_buffer =
-            fft_buffer_to_buffer::<GoldilocksF>(&input_buffer, input.len(), &twiddles_buffer, &state)
-                .expect("fft_buffer_to_buffer should succeed");
+        let result_buffer = fft_buffer_to_buffer::<GoldilocksF>(
+            &input_buffer,
+            input.len(),
+            &twiddles_buffer,
+            &state,
+        )
+        .expect("fft_buffer_to_buffer should succeed");
 
         // Read both buffers back and compare
         let reference_result =
