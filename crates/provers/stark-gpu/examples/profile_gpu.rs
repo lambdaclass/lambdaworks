@@ -90,7 +90,9 @@ fn profile_gpu_optimized(
     use lambdaworks_stark_gpu::metal::fft::CosetShiftState;
     use lambdaworks_stark_gpu::metal::merkle::GpuKeccakMerkleState;
     use lambdaworks_stark_gpu::metal::phases::composition::gpu_round_2_goldilocks_merkle;
-    use lambdaworks_stark_gpu::metal::phases::fri::{gpu_round_4_goldilocks, FriFoldState};
+    use lambdaworks_stark_gpu::metal::phases::fri::{
+        gpu_round_4_goldilocks, FriDomainInvState, FriFoldEvalState,
+    };
     use lambdaworks_stark_gpu::metal::phases::ood::gpu_round_3;
     use lambdaworks_stark_gpu::metal::phases::rap::gpu_round_1_goldilocks;
     use lambdaworks_stark_gpu::metal::state::StarkMetalState;
@@ -107,7 +109,8 @@ fn profile_gpu_optimized(
     let deep_comp_state = DeepCompositionState::new().unwrap();
     let keccak_state = GpuKeccakMerkleState::new().unwrap();
     let coset_state = CosetShiftState::new().unwrap();
-    let fri_fold_state = FriFoldState::new().unwrap();
+    let fold_eval_state = FriFoldEvalState::new().unwrap();
+    let fri_domain_inv_state = FriDomainInvState::new().unwrap();
     let domain_inv_state = DomainInversionState::new().unwrap();
     let domain = Domain::new(&air);
     println!("  Setup (shaders):   {:>10.2?}", t.elapsed());
@@ -160,8 +163,8 @@ fn profile_gpu_optimized(
         &state,
         Some(&deep_comp_state),
         &keccak_state,
-        &coset_state,
-        &fri_fold_state,
+        &fold_eval_state,
+        &fri_domain_inv_state,
         Some(&domain_inv_state),
     )
     .unwrap();
@@ -499,12 +502,14 @@ fn profile_phase4(
 ) {
     use lambdaworks_stark_gpu::metal::constraint_eval::FibRapConstraintState;
     use lambdaworks_stark_gpu::metal::deep_composition::{
-        gpu_compute_deep_composition_poly, DeepCompositionState,
+        gpu_compute_deep_composition_evals_to_buffer, DeepCompositionState, DomainInversionState,
     };
     use lambdaworks_stark_gpu::metal::fft::CosetShiftState;
     use lambdaworks_stark_gpu::metal::merkle::GpuKeccakMerkleState;
     use lambdaworks_stark_gpu::metal::phases::composition::gpu_round_2_goldilocks_merkle;
-    use lambdaworks_stark_gpu::metal::phases::fri::FriFoldState;
+    use lambdaworks_stark_gpu::metal::phases::fri::{
+        gpu_fri_commit_phase_eval_domain, FriDomainInvState, FriFoldEvalState,
+    };
     use lambdaworks_stark_gpu::metal::phases::ood::gpu_round_3;
     use lambdaworks_stark_gpu::metal::phases::rap::gpu_round_1_goldilocks;
     use lambdaworks_stark_gpu::metal::state::StarkMetalState;
@@ -518,7 +523,9 @@ fn profile_phase4(
     let deep_comp_state = DeepCompositionState::new().unwrap();
     let keccak_state = GpuKeccakMerkleState::new().unwrap();
     let coset_state = CosetShiftState::new().unwrap();
-    let fri_fold_state = FriFoldState::new().unwrap();
+    let fold_eval_state = FriFoldEvalState::new().unwrap();
+    let fri_domain_inv_state = FriDomainInvState::new().unwrap();
+    let domain_inv_state = DomainInversionState::new().unwrap();
     let domain = Domain::new(&air);
     let mut transcript = DefaultTranscript::<F>::new(&[]);
 
@@ -562,39 +569,39 @@ fn profile_phase4(
     let composition_gammas = deep_coeffs;
     println!("  Coefficients:      {:>10.2?}", t.elapsed());
 
-    // Step 2: GPU DEEP composition
+    // Step 2: GPU DEEP composition (eval-domain, no IFFT)
     let t = Instant::now();
-    let deep_poly = gpu_compute_deep_composition_poly(
+    let (deep_evals_buffer, deep_evals_len) = gpu_compute_deep_composition_evals_to_buffer(
         &round_1,
         &round_2,
         &round_3,
         &domain,
         &composition_gammas,
         &trace_term_coeffs,
-        &state,
         Some(&deep_comp_state),
+        Some(&domain_inv_state),
     )
     .unwrap();
-    println!("  GPU DEEP comp:     {:>10.2?}", t.elapsed());
+    println!("  GPU DEEP evals:    {:>10.2?}", t.elapsed());
 
-    // Step 3: FRI commit phase (GPU FFT + GPU Keccak256 Merkle)
-    use lambdaworks_stark_gpu::metal::phases::fri::gpu_fri_commit_phase_goldilocks;
+    // Step 3: FRI commit phase (eval-domain fold + GPU Keccak256 Merkle)
     let domain_size = domain.lde_roots_of_unity_coset.len();
     let t = Instant::now();
-    let (fri_last_value, fri_layers) = gpu_fri_commit_phase_goldilocks(
+    let (fri_last_value, fri_layers) = gpu_fri_commit_phase_eval_domain(
         domain.root_order as usize,
-        deep_poly,
+        deep_evals_buffer,
+        deep_evals_len,
         &mut transcript,
         &domain.coset_offset,
         domain_size,
         &state,
         &keccak_state,
-        &coset_state,
-        &fri_fold_state,
+        &fold_eval_state,
+        &fri_domain_inv_state,
     )
     .unwrap();
     println!(
-        "  FRI commit (GPU):  {:>10.2?}  ({} layers)",
+        "  FRI commit (eval): {:>10.2?}  ({} layers)",
         t.elapsed(),
         fri_layers.len()
     );

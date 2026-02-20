@@ -345,27 +345,22 @@ pub fn gpu_compute_deep_composition_poly(
     Ok(deep_poly)
 }
 
-/// Compute the DEEP composition polynomial on GPU, returning coefficients as a Metal Buffer.
+/// Internal helper: compute DEEP composition evaluations on GPU, returning
+/// the raw evaluations buffer (no IFFT).
 ///
-/// Like [`gpu_compute_deep_composition_poly`] but keeps everything on GPU:
-/// - The DEEP composition evaluations stay on a GPU buffer (no CPU readback)
-/// - The coset IFFT runs on GPU via `gpu_interpolate_offset_fft_buffer_to_buffer`
-/// - Returns `(metal::Buffer, usize)` instead of `Polynomial`
-///
-/// This eliminates the largest CPU↔GPU transfer in the prover: the full LDE-sized
-/// evaluation vector that was previously read back to CPU for IFFT.
+/// This contains all logic shared by `gpu_compute_deep_composition_poly_to_buffer`
+/// (which adds an IFFT) and `gpu_compute_deep_composition_evals_to_buffer` (which
+/// returns evaluations directly for eval-domain FRI).
 #[cfg(all(target_os = "macos", feature = "metal"))]
 #[allow(clippy::too_many_arguments)]
-pub fn gpu_compute_deep_composition_poly_to_buffer(
+fn gpu_compute_deep_composition_evals_internal(
     round_1_result: &GpuRound1Result<Goldilocks64Field>,
     round_2_result: &GpuRound2Result<Goldilocks64Field>,
     round_3_result: &GpuRound3Result<Goldilocks64Field>,
     domain: &stark_platinum_prover::domain::Domain<Goldilocks64Field>,
     composition_gammas: &[FieldElement<Goldilocks64Field>],
     trace_term_coeffs: &[Vec<FieldElement<Goldilocks64Field>>],
-    _gpu_state: &crate::metal::state::StarkMetalState,
     precompiled: Option<&DeepCompositionState>,
-    coset_state: &crate::metal::fft::CosetShiftState,
     domain_inv_state: Option<&DomainInversionState>,
 ) -> Result<(metal::Buffer, usize), stark_platinum_prover::prover::ProvingError> {
     type F = Goldilocks64Field;
@@ -551,13 +546,50 @@ pub fn gpu_compute_deep_composition_poly_to_buffer(
             stark_platinum_prover::prover::ProvingError::FieldOperationError(e.to_string())
         })?;
 
+    Ok((buf_output, num_rows))
+}
+
+/// Compute the DEEP composition polynomial on GPU, returning coefficients as a Metal Buffer.
+///
+/// Like [`gpu_compute_deep_composition_poly`] but keeps everything on GPU:
+/// - The DEEP composition evaluations stay on a GPU buffer (no CPU readback)
+/// - The coset IFFT runs on GPU via `gpu_interpolate_offset_fft_buffer_to_buffer`
+/// - Returns `(metal::Buffer, usize)` instead of `Polynomial`
+///
+/// This eliminates the largest CPU↔GPU transfer in the prover: the full LDE-sized
+/// evaluation vector that was previously read back to CPU for IFFT.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+#[allow(clippy::too_many_arguments)]
+pub fn gpu_compute_deep_composition_poly_to_buffer(
+    round_1_result: &GpuRound1Result<Goldilocks64Field>,
+    round_2_result: &GpuRound2Result<Goldilocks64Field>,
+    round_3_result: &GpuRound3Result<Goldilocks64Field>,
+    domain: &stark_platinum_prover::domain::Domain<Goldilocks64Field>,
+    composition_gammas: &[FieldElement<Goldilocks64Field>],
+    trace_term_coeffs: &[Vec<FieldElement<Goldilocks64Field>>],
+    gpu_state: &crate::metal::state::StarkMetalState,
+    precompiled: Option<&DeepCompositionState>,
+    coset_state: &crate::metal::fft::CosetShiftState,
+    domain_inv_state: Option<&DomainInversionState>,
+) -> Result<(metal::Buffer, usize), stark_platinum_prover::prover::ProvingError> {
+    let (buf_output, num_rows) = gpu_compute_deep_composition_evals_internal(
+        round_1_result,
+        round_2_result,
+        round_3_result,
+        domain,
+        composition_gammas,
+        trace_term_coeffs,
+        precompiled,
+        domain_inv_state,
+    )?;
+
     // --- GPU IFFT: keep evaluations on GPU, IFFT to coefficients on GPU ---
     let coeffs_buffer = crate::metal::fft::gpu_interpolate_offset_fft_buffer_to_buffer(
         &buf_output,
         num_rows,
         &domain.coset_offset,
         coset_state,
-        _gpu_state.inner(),
+        gpu_state.inner(),
     )
     .map_err(|e| {
         stark_platinum_prover::prover::ProvingError::FieldOperationError(format!(
@@ -566,6 +598,35 @@ pub fn gpu_compute_deep_composition_poly_to_buffer(
     })?;
 
     Ok((coeffs_buffer, num_rows))
+}
+
+/// Compute DEEP composition evaluations on GPU, returning raw evaluations as a Metal Buffer.
+///
+/// Like [`gpu_compute_deep_composition_poly_to_buffer`] but skips the IFFT step,
+/// returning the evaluations in natural (LDE coset) order. Used by the eval-domain
+/// FRI path which operates directly on evaluations instead of coefficients.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+#[allow(clippy::too_many_arguments)]
+pub fn gpu_compute_deep_composition_evals_to_buffer(
+    round_1_result: &GpuRound1Result<Goldilocks64Field>,
+    round_2_result: &GpuRound2Result<Goldilocks64Field>,
+    round_3_result: &GpuRound3Result<Goldilocks64Field>,
+    domain: &stark_platinum_prover::domain::Domain<Goldilocks64Field>,
+    composition_gammas: &[FieldElement<Goldilocks64Field>],
+    trace_term_coeffs: &[Vec<FieldElement<Goldilocks64Field>>],
+    precompiled: Option<&DeepCompositionState>,
+    domain_inv_state: Option<&DomainInversionState>,
+) -> Result<(metal::Buffer, usize), stark_platinum_prover::prover::ProvingError> {
+    gpu_compute_deep_composition_evals_internal(
+        round_1_result,
+        round_2_result,
+        round_3_result,
+        domain,
+        composition_gammas,
+        trace_term_coeffs,
+        precompiled,
+        domain_inv_state,
+    )
 }
 
 /// Dispatch the GPU domain inversions kernel for the base field.

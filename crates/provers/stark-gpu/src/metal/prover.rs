@@ -121,7 +121,7 @@ where
     use crate::metal::constraint_eval::FibRapConstraintState;
     use crate::metal::deep_composition::{DeepCompositionState, DomainInversionState};
     use crate::metal::fft::CosetShiftState;
-    use crate::metal::phases::fri::FriFoldState;
+    use crate::metal::phases::fri::{FriDomainInvState, FriFoldEvalState};
 
     let state =
         StarkMetalState::new().map_err(|e| ProvingError::FieldOperationError(e.to_string()))?;
@@ -134,14 +134,19 @@ where
         .map_err(|e| ProvingError::FieldOperationError(format!("DEEP composition shader: {e}")))?;
     let keccak_state = GpuKeccakMerkleState::new()
         .map_err(|e| ProvingError::FieldOperationError(format!("Keccak256 shader: {e}")))?;
-    // Coset shift and FRI fold states share the device/queue from StarkMetalState
-    // to avoid exceeding Metal resource limits (command queues).
+    // Coset shift state still needed for Phase 2 (composition poly LDE).
     let coset_state =
         CosetShiftState::from_device_and_queue(&state.inner().device, &state.inner().queue)
             .map_err(|e| ProvingError::FieldOperationError(format!("Coset shift shader: {e}")))?;
-    let fri_fold_state =
-        FriFoldState::from_device_and_queue(&state.inner().device, &state.inner().queue)
-            .map_err(|e| ProvingError::FieldOperationError(format!("FRI fold shader: {e}")))?;
+    // Eval-domain FRI fold and domain inverse states share device/queue.
+    let fold_eval_state =
+        FriFoldEvalState::from_device_and_queue(&state.inner().device, &state.inner().queue)
+            .map_err(|e| ProvingError::FieldOperationError(format!("FRI fold eval shader: {e}")))?;
+    let fri_domain_inv_state =
+        FriDomainInvState::from_device_and_queue(&state.inner().device, &state.inner().queue)
+            .map_err(|e| {
+                ProvingError::FieldOperationError(format!("FRI domain inv shader: {e}"))
+            })?;
     let domain_inv_state = DomainInversionState::new()
         .map_err(|e| ProvingError::FieldOperationError(format!("Domain inversions shader: {e}")))?;
 
@@ -181,8 +186,8 @@ where
         &state,
         Some(&deep_comp_state),
         &keccak_state,
-        &coset_state,
-        &fri_fold_state,
+        &fold_eval_state,
+        &fri_domain_inv_state,
         Some(&domain_inv_state),
     )?;
     eprintln!("  Phase 4 (FRI):         {:>10.2?}", t.elapsed());
