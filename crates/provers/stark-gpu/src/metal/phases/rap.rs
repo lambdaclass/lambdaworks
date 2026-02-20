@@ -27,8 +27,6 @@ use crate::metal::state::StarkMetalState;
 #[cfg(all(target_os = "macos", feature = "metal"))]
 use crate::metal::merkle::{gpu_batch_commit_from_column_buffers, GpuKeccakMerkleState};
 #[cfg(all(target_os = "macos", feature = "metal"))]
-use lambdaworks_gpu::metal::abstractions::state::MetalState;
-#[cfg(all(target_os = "macos", feature = "metal"))]
 use lambdaworks_math::field::fields::u64_goldilocks_field::Goldilocks64Field;
 
 /// Result of GPU Phase 1 (RAP round).
@@ -207,22 +205,22 @@ where
     let blowup_factor = air.blowup_factor() as usize;
     let coset_offset = air.coset_offset();
 
-    // Evaluate on LDE domain, keeping FFT results as GPU buffers
+    // Evaluate on LDE domain, keeping FFT results as GPU buffers (no CPU readback)
     let t = std::time::Instant::now();
-    let (main_lde_evaluations, main_lde_buffers) = evaluate_polys_on_lde_gpu_to_buffers(
+    let (main_lde_buffers, main_lde_domain_size) = evaluate_polys_on_lde_gpu_to_buffers(
         &main_trace_polys,
         blowup_factor,
         &coset_offset,
         state,
     )?;
-    eprintln!("    1b main LDE+read:  {:>10.2?}", t.elapsed());
+    eprintln!("    1b main LDE:       {:>10.2?}", t.elapsed());
 
     // GPU Merkle commit directly from FFT output buffers (no extra memcpy)
     let t = std::time::Instant::now();
     let buffer_refs: Vec<&metal::Buffer> = main_lde_buffers.iter().collect();
     let (main_merkle_tree, main_merkle_root) = gpu_batch_commit_from_column_buffers(
         &buffer_refs,
-        main_lde_evaluations[0].len(),
+        main_lde_domain_size,
         keccak_state,
     )
     .ok_or(ProvingError::EmptyCommitment)?;
@@ -233,13 +231,13 @@ where
 
     // --- Auxiliary trace (if RAP) ---
     let t = std::time::Instant::now();
-    let (aux_trace_polys, aux_lde_evaluations, aux_merkle_tree, aux_merkle_root, aux_gpu_bufs) =
+    let (aux_trace_polys, aux_merkle_tree, aux_merkle_root, aux_gpu_bufs) =
         if air.has_trace_interaction() {
             air.build_auxiliary_trace(trace, &rap_challenges);
             let aux_columns = trace.columns_aux();
             let aux_polys = interpolate_columns_gpu(&aux_columns, state)?;
 
-            let (aux_lde_evals, aux_lde_buffers) = evaluate_polys_on_lde_gpu_to_buffers(
+            let (aux_lde_buffers, aux_lde_domain_size) = evaluate_polys_on_lde_gpu_to_buffers(
                 &aux_polys,
                 blowup_factor,
                 &coset_offset,
@@ -250,25 +248,25 @@ where
             let buf_refs: Vec<&metal::Buffer> = aux_lde_buffers.iter().collect();
             let (aux_tree, aux_root) = gpu_batch_commit_from_column_buffers(
                 &buf_refs,
-                aux_lde_evals[0].len(),
+                aux_lde_domain_size,
                 keccak_state,
             )
             .ok_or(ProvingError::EmptyCommitment)?;
 
             transcript.append_bytes(&aux_root);
-            (aux_polys, aux_lde_evals, Some(aux_tree), Some(aux_root), Some(aux_lde_buffers))
+            (aux_polys, Some(aux_tree), Some(aux_root), Some(aux_lde_buffers))
         } else {
-            (Vec::new(), Vec::new(), None, None, None)
+            (Vec::new(), None, None, None)
         };
     eprintln!("    1d aux all:        {:>10.2?}", t.elapsed());
 
     Ok(GpuRound1Result {
         main_trace_polys,
-        main_lde_evaluations,
+        main_lde_evaluations: Vec::new(), // Not populated in Goldilocks path; use GPU buffers
         main_merkle_tree,
         main_merkle_root,
         aux_trace_polys,
-        aux_lde_evaluations,
+        aux_lde_evaluations: Vec::new(), // Not populated in Goldilocks path; use GPU buffers
         aux_merkle_tree,
         aux_merkle_root,
         rap_challenges,
@@ -318,12 +316,22 @@ where
     let coset_offset = air.coset_offset();
 
     let t = std::time::Instant::now();
-    let (main_lde_evaluations, main_lde_buffers) = evaluate_polys_on_lde_gpu_to_buffers(
+    let (main_lde_buffers, main_lde_domain_size) = evaluate_polys_on_lde_gpu_to_buffers(
         &main_trace_polys,
         blowup_factor,
         &coset_offset,
         state,
     )?;
+
+    // Fp3 path: reconstruct CPU vecs from GPU buffers via UMA pointer (no intermediate Vec<u64>).
+    let main_lde_evaluations: Vec<Vec<FieldElement<Goldilocks64Field>>> = main_lde_buffers
+        .iter()
+        .map(|buf| {
+            (0..main_lde_domain_size)
+                .map(|i| read_element_from_buffer(buf, i))
+                .collect()
+        })
+        .collect();
     eprintln!("    1b main LDE+read:  {:>10.2?}", t.elapsed());
 
     // GPU Merkle commit directly from FFT output buffers
@@ -331,7 +339,7 @@ where
     let buffer_refs: Vec<&metal::Buffer> = main_lde_buffers.iter().collect();
     let (main_merkle_tree, main_merkle_root) = gpu_batch_commit_from_column_buffers(
         &buffer_refs,
-        main_lde_evaluations[0].len(),
+        main_lde_domain_size,
         keccak_state,
     )
     .ok_or(ProvingError::EmptyCommitment)?;
@@ -451,30 +459,25 @@ where
         .collect()
 }
 
-/// Evaluates polynomials on the LDE coset domain, returning both CPU Vecs and GPU Buffers.
+/// Evaluates polynomials on the LDE coset domain, returning GPU Buffers and domain size.
 ///
 /// Like [`evaluate_polys_on_lde_gpu`] but keeps FFT results as GPU Metal Buffers
-/// alongside CPU Vecs. The Buffers can be passed directly to
-/// [`gpu_batch_commit_from_column_buffers`] for zero-copy Merkle commit, while
-/// the CPU Vecs are used by later prover phases (constraint evaluation, OOD, queries).
+/// without reading them back to CPU. The Buffers can be passed directly to
+/// [`gpu_batch_commit_from_column_buffers`] for zero-copy Merkle commit.
+///
+/// On Apple Silicon UMA, subsequent phases can read individual elements directly
+/// from the Metal buffer's shared memory via [`read_element_from_buffer`].
 ///
 /// Twiddle factors are generated once and reused for all columns (batch FFT).
 #[cfg(all(target_os = "macos", feature = "metal"))]
-#[allow(clippy::type_complexity)]
 fn evaluate_polys_on_lde_gpu_to_buffers(
     polys: &[Polynomial<FieldElement<Goldilocks64Field>>],
     blowup_factor: usize,
     offset: &FieldElement<Goldilocks64Field>,
     state: &StarkMetalState,
-) -> Result<
-    (
-        Vec<Vec<FieldElement<Goldilocks64Field>>>,
-        Vec<metal::Buffer>,
-    ),
-    ProvingError,
-> {
+) -> Result<(Vec<metal::Buffer>, usize), ProvingError> {
     if polys.is_empty() {
-        return Ok((Vec::new(), Vec::new()));
+        return Ok((Vec::new(), 0));
     }
 
     // Collect coefficient slices for batch FFT (shared twiddles)
@@ -485,20 +488,41 @@ fn evaluate_polys_on_lde_gpu_to_buffers(
         gpu_evaluate_offset_fft_to_buffers_batch(&coeff_slices, blowup_factor, offset, state.inner())
             .map_err(|e| ProvingError::FieldOperationError(format!("GPU LDE FFT error: {e}")))?;
 
-    let mut cpu_results = Vec::with_capacity(polys.len());
     let mut gpu_buffers = Vec::with_capacity(polys.len());
+    let mut domain_size = 0;
 
-    for (buffer, _domain_size) in buffer_results {
-        // Read buffer contents to CPU Vec for later phases
-        let raw: Vec<u64> = MetalState::retrieve_contents(&buffer);
-        let elements: Vec<FieldElement<Goldilocks64Field>> =
-            raw.into_iter().map(FieldElement::from_raw).collect();
-
-        cpu_results.push(elements);
+    for (buffer, ds) in buffer_results {
+        domain_size = ds;
         gpu_buffers.push(buffer);
     }
 
-    Ok((cpu_results, gpu_buffers))
+    Ok((gpu_buffers, domain_size))
+}
+
+/// Read a single Goldilocks field element from a Metal buffer at a given index.
+///
+/// On Apple Silicon UMA, `StorageModeShared` buffers share physical memory between
+/// CPU and GPU — this is a direct pointer dereference with no DMA transfer.
+///
+/// # Safety contract
+///
+/// The caller must ensure:
+/// - The buffer contains valid canonical Goldilocks u64 values
+/// - `index` is within bounds
+/// - All GPU commands writing to this buffer have completed
+#[cfg(all(target_os = "macos", feature = "metal"))]
+pub fn read_element_from_buffer(
+    buffer: &metal::Buffer,
+    index: usize,
+) -> FieldElement<Goldilocks64Field> {
+    let ptr = buffer.contents() as *const u64;
+    let len = buffer.length() as usize / std::mem::size_of::<u64>();
+    assert!(
+        index < len,
+        "buffer index {index} out of bounds (len {len})"
+    );
+    let raw = unsafe { *ptr.add(index) };
+    FieldElement::from_raw(raw)
 }
 
 #[cfg(all(test, target_os = "macos", feature = "metal"))]

@@ -780,18 +780,24 @@ pub fn gpu_break_in_parts_buffer_to_buffers(
         max_threads,
     )?;
 
-    // Read back the concatenated output and split into separate buffers per part.
-    // Each part needs its own buffer for independent GPU FFT.
-    let all_raw: Vec<u64> = MetalState::retrieve_contents(&buf_output);
-
+    // Split concatenated GPU buffer into per-part buffers using Metal blit encoder.
+    // This avoids a GPU→CPU→GPU round-trip: data stays on GPU throughout.
     let mut part_buffers = Vec::with_capacity(num_parts);
-    for i in 0..num_parts {
-        let start = i * part_len;
-        let end = start + part_len;
-        let part_data = &all_raw[start..end];
-        let part_buf = state.alloc_buffer_data(part_data);
+    for _ in 0..num_parts {
+        let part_buf = state.alloc_buffer_data(&vec![0u64; part_len]);
         part_buffers.push(part_buf);
     }
+
+    let command_buffer = state.queue.new_command_buffer();
+    let blit_encoder = command_buffer.new_blit_command_encoder();
+    for (i, part_buf) in part_buffers.iter().enumerate() {
+        let src_offset = (i * part_len * std::mem::size_of::<u64>()) as u64;
+        let size = (part_len * std::mem::size_of::<u64>()) as u64;
+        blit_encoder.copy_from_buffer(&buf_output, src_offset, part_buf, 0, size);
+    }
+    blit_encoder.end_encoding();
+    command_buffer.commit();
+    command_buffer.wait_until_completed();
 
     Ok(part_buffers)
 }

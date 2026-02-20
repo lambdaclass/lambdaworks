@@ -898,6 +898,95 @@ where
     })
 }
 
+/// Opens trace polynomials at a given query index using GPU Metal buffers via UMA.
+///
+/// Like [`open_trace_polys`] but reads evaluations directly from GPU buffer shared
+/// memory instead of CPU Vecs. On Apple Silicon UMA, this is a direct pointer
+/// dereference with no data copy.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+fn open_trace_polys_from_buffers(
+    domain_size: usize,
+    tree: &BatchedMerkleTree<Goldilocks64Field>,
+    lde_buffers: &[metal::Buffer],
+    challenge: usize,
+) -> Result<PolynomialOpenings<Goldilocks64Field>, ProvingError> {
+    use crate::metal::phases::rap::read_element_from_buffer;
+
+    let index = challenge * 2;
+    let index_sym = challenge * 2 + 1;
+
+    let proof = tree.get_proof_by_pos(index).ok_or_else(|| {
+        ProvingError::MerkleTreeError(format!("Failed to get proof at position {}", index))
+    })?;
+    let proof_sym = tree.get_proof_by_pos(index_sym).ok_or_else(|| {
+        ProvingError::MerkleTreeError(format!("Failed to get proof at position {}", index_sym))
+    })?;
+
+    let actual_index = reverse_index(index, domain_size as u64);
+    let actual_index_sym = reverse_index(index_sym, domain_size as u64);
+
+    let evaluations: Vec<_> = lde_buffers
+        .iter()
+        .map(|buf| read_element_from_buffer(buf, actual_index))
+        .collect();
+    let evaluations_sym: Vec<_> = lde_buffers
+        .iter()
+        .map(|buf| read_element_from_buffer(buf, actual_index_sym))
+        .collect();
+
+    Ok(PolynomialOpenings {
+        proof,
+        proof_sym,
+        evaluations,
+        evaluations_sym,
+    })
+}
+
+/// Opens composition polynomial at a given query index using GPU Metal buffers via UMA.
+///
+/// Like [`open_composition_poly`] but reads evaluations directly from GPU buffer
+/// shared memory.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+fn open_composition_poly_from_buffers(
+    composition_poly_merkle_tree: &BatchedMerkleTree<Goldilocks64Field>,
+    lde_composition_buffers: &[metal::Buffer],
+    index: usize,
+) -> Result<PolynomialOpenings<Goldilocks64Field>, ProvingError> {
+    use crate::metal::phases::rap::read_element_from_buffer;
+
+    let proof = composition_poly_merkle_tree
+        .get_proof_by_pos(index)
+        .ok_or_else(|| {
+            ProvingError::MerkleTreeError(format!("Failed to get proof at position {}", index))
+        })?;
+
+    let lde_composition_poly_parts_evaluation: Vec<_> = lde_composition_buffers
+        .iter()
+        .flat_map(|buf| {
+            let part_len = buf.length() as usize / std::mem::size_of::<u64>();
+            vec![
+                read_element_from_buffer(buf, reverse_index(index * 2, part_len as u64)),
+                read_element_from_buffer(buf, reverse_index(index * 2 + 1, part_len as u64)),
+            ]
+        })
+        .collect();
+
+    Ok(PolynomialOpenings {
+        proof: proof.clone(),
+        proof_sym: proof,
+        evaluations: lde_composition_poly_parts_evaluation
+            .clone()
+            .into_iter()
+            .step_by(2)
+            .collect(),
+        evaluations_sym: lde_composition_poly_parts_evaluation
+            .into_iter()
+            .skip(1)
+            .step_by(2)
+            .collect(),
+    })
+}
+
 /// Opens the deep composition polynomial at a set of query indexes.
 ///
 /// For each query index, this produces Merkle opening proofs for:
@@ -944,6 +1033,75 @@ where
                 &round_1_result.aux_lde_evaluations,
                 *index,
             )?),
+            _ => None,
+        };
+
+        openings.push(DeepPolynomialOpening {
+            composition_poly: composition_openings,
+            main_trace_polys: main_trace_opening,
+            aux_trace_polys,
+        });
+    }
+
+    Ok(openings)
+}
+
+/// Opens the deep composition polynomial using GPU Metal buffers via UMA zero-copy.
+///
+/// Goldilocks-specific variant of [`open_deep_composition_poly`] that reads evaluations
+/// directly from GPU buffer shared memory instead of CPU Vecs. On Apple Silicon UMA,
+/// this is a direct pointer dereference — no allocation or memcpy.
+///
+/// Requires GPU buffers to be populated in both round 1 and round 2 results.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+fn open_deep_composition_poly_from_buffers(
+    domain: &Domain<Goldilocks64Field>,
+    round_1_result: &GpuRound1Result<Goldilocks64Field>,
+    round_2_result: &GpuRound2Result<Goldilocks64Field>,
+    indexes_to_open: &[usize],
+) -> Result<DeepPolynomialOpenings<Goldilocks64Field, Goldilocks64Field>, ProvingError> {
+    let domain_size = domain.lde_roots_of_unity_coset.len();
+
+    let main_bufs = round_1_result
+        .main_lde_gpu_buffers
+        .as_ref()
+        .expect("open_deep_composition_poly_from_buffers requires main_lde_gpu_buffers");
+    let comp_bufs = round_2_result
+        .lde_composition_gpu_buffers
+        .as_ref()
+        .expect("open_deep_composition_poly_from_buffers requires lde_composition_gpu_buffers");
+
+    let mut openings = Vec::new();
+
+    for index in indexes_to_open.iter() {
+        // Open main trace from GPU buffers
+        let main_trace_opening = open_trace_polys_from_buffers(
+            domain_size,
+            &round_1_result.main_merkle_tree,
+            main_bufs,
+            *index,
+        )?;
+
+        // Open composition polynomial from GPU buffers
+        let composition_openings = open_composition_poly_from_buffers(
+            &round_2_result.composition_poly_merkle_tree,
+            comp_bufs,
+            *index,
+        )?;
+
+        // Open auxiliary trace from GPU buffers (if present)
+        let aux_trace_polys = match (
+            round_1_result.aux_merkle_tree.as_ref(),
+            round_1_result.aux_lde_gpu_buffers.as_ref(),
+        ) {
+            (Some(aux_tree), Some(aux_bufs)) if !aux_bufs.is_empty() => {
+                Some(open_trace_polys_from_buffers(
+                    domain_size,
+                    aux_tree,
+                    aux_bufs,
+                    *index,
+                )?)
+            }
             _ => None,
         };
 
@@ -1275,7 +1433,7 @@ where
     // Step 1: Sample gamma and compute deep composition coefficients.
     let gamma = transcript.sample_field_element();
 
-    let n_terms_composition_poly = round_2_result.lde_composition_poly_evaluations.len();
+    let n_terms_composition_poly = round_2_result.composition_poly_parts.len();
     let num_terms_trace =
         air.context().transition_offsets.len() * air.step_size() * air.context().trace_columns;
 
@@ -1348,8 +1506,14 @@ where
         .collect();
 
     // Step 8: Open deep composition poly (Merkle proofs for trace + composition poly).
-    let deep_poly_openings =
-        open_deep_composition_poly(domain, round_1_result, round_2_result, &iotas)?;
+    // Use buffer-based opening when GPU buffers are available (UMA zero-copy).
+    let has_gpu_bufs = round_1_result.main_lde_gpu_buffers.is_some()
+        && round_2_result.lde_composition_gpu_buffers.is_some();
+    let deep_poly_openings = if has_gpu_bufs {
+        open_deep_composition_poly_from_buffers(domain, round_1_result, round_2_result, &iotas)?
+    } else {
+        open_deep_composition_poly(domain, round_1_result, round_2_result, &iotas)?
+    };
 
     Ok(GpuRound4Result {
         fri_last_value,

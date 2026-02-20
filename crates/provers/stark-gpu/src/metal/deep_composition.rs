@@ -323,8 +323,8 @@ pub fn gpu_compute_deep_composition_poly_to_buffer(
     let num_rows = domain.lde_roots_of_unity_coset.len();
     let num_offsets = round_3_result.trace_ood_evaluations.height;
     let num_comp_parts = round_2_result.composition_poly_parts.len();
-    let num_trace_polys = round_1_result.main_lde_evaluations.len()
-        + round_1_result.aux_lde_evaluations.len();
+    let num_trace_polys = round_1_result.main_trace_polys.len()
+        + round_1_result.aux_trace_polys.len();
 
     // --- Pre-compute batch inversions on CPU ---
     let z_power = round_3_result.z.pow(num_comp_parts);
@@ -581,8 +581,8 @@ pub fn gpu_compute_deep_composition_poly_fp3(
     let num_rows = domain.lde_roots_of_unity_coset.len();
     let num_offsets = trace_ood_evaluations_fp3.len();
     let num_comp_parts = composition_ood_evaluations_fp3.len();
-    let num_trace_polys = round_1_result.main_lde_evaluations.len()
-        + round_1_result.aux_lde_evaluations.len();
+    let num_trace_polys = round_1_result.main_trace_polys.len()
+        + round_1_result.aux_trace_polys.len();
 
     // Helper to convert Fp3E to 3 raw u64s
     let fp3_to_u64s = |e: &Fp3E| -> [u64; 3] {

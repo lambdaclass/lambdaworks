@@ -37,15 +37,13 @@ use std::collections::HashMap;
 
 #[cfg(all(target_os = "macos", feature = "metal"))]
 use crate::metal::constraint_eval::{
-    gpu_evaluate_fibonacci_rap_constraints, gpu_evaluate_fibonacci_rap_constraints_from_buffers,
+    gpu_evaluate_fibonacci_rap_constraints, gpu_evaluate_fibonacci_rap_constraints_all_buffers,
     gpu_evaluate_fibonacci_rap_constraints_to_buffer, FibRapConstraintState,
 };
 #[cfg(all(target_os = "macos", feature = "metal"))]
 use crate::metal::fft::{gpu_interpolate_offset_fft_buffer_to_buffer, CosetShiftState};
 #[cfg(all(target_os = "macos", feature = "metal"))]
 use crate::metal::merkle::{gpu_batch_commit_paired_from_column_buffers, GpuKeccakMerkleState};
-#[cfg(all(target_os = "macos", feature = "metal"))]
-use lambdaworks_gpu::metal::abstractions::state::MetalState;
 #[cfg(all(target_os = "macos", feature = "metal"))]
 use lambdaworks_math::field::fields::u64_goldilocks_field::Goldilocks64Field;
 
@@ -708,13 +706,7 @@ where
     let boundary_coefficients = coefficients;
 
     let blowup_factor = air.blowup_factor() as usize;
-    let lde_trace = stark_platinum_prover::trace::LDETraceTable::from_columns_ref(
-        &round_1_result.main_lde_evaluations,
-        &round_1_result.aux_lde_evaluations,
-        air.step_size(),
-        blowup_factor,
-    );
-    let num_lde_rows = lde_trace.num_rows();
+    let num_lde_rows = domain.lde_roots_of_unity_coset.len();
 
     // Step 3a+3b: Zerofier + boundary + constraint evaluation.
     let t_zerofier = std::time::Instant::now();
@@ -772,17 +764,14 @@ where
 
         eprintln!("    2a boundary GPU:   {:>10.2?}", t_boundary.elapsed());
 
-        // Read back boundary buffer for the constraint eval shader.
-        let boundary_raw: Vec<u64> = MetalState::retrieve_contents(&boundary_buf);
-        let boundary_evals: Vec<FpE> = boundary_raw.into_iter().map(FieldElement::from).collect();
-
-        gpu_evaluate_fibonacci_rap_constraints_from_buffers(
+        // Pass boundary buffer directly to constraint eval (no GPU→CPU→GPU round-trip).
+        gpu_evaluate_fibonacci_rap_constraints_all_buffers(
             &main_bufs[0],
             &main_bufs[1],
             &aux_bufs[0],
+            &boundary_buf,
             num_lde_rows,
             &zerofier_evals,
-            &boundary_evals,
             &round_1_result.rap_challenges[0],
             &transition_coefficients,
             lde_step_size,
@@ -793,6 +782,14 @@ where
         })?
     } else {
         // Fallback: CPU boundary eval + GPU constraint eval with column re-upload.
+        // Build LDE trace table from CPU data (only needed in this fallback path).
+        let lde_trace = stark_platinum_prover::trace::LDETraceTable::from_columns_ref(
+            &round_1_result.main_lde_evaluations,
+            &round_1_result.aux_lde_evaluations,
+            air.step_size(),
+            blowup_factor,
+        );
+
         let mut zerofier_cache: HashMap<usize, Vec<FpE>> = HashMap::new();
         for bc in &boundary_constraints.constraints {
             zerofier_cache.entry(bc.step).or_insert_with(|| {
@@ -917,10 +914,13 @@ where
     eprintln!("    2e GPU stride:     {:>10.2?}", t_stride.elapsed());
 
     // Step 5b: Read back coefficients to CPU for OOD eval in Phase 3.
-    // (Barycentric evaluation in Phase B will eliminate this readback.)
+    // Uses UMA zero-copy: reads directly from Metal buffer shared memory,
+    // avoiding the intermediate Vec<u64> allocation from retrieve_contents.
     let t_readback = std::time::Instant::now();
-    let coeffs_u64: Vec<u64> = MetalState::retrieve_contents(&coeffs_buffer);
-    let coeffs_fe: Vec<FpE> = coeffs_u64.into_iter().map(FieldElement::from).collect();
+    let ptr = coeffs_buffer.contents() as *const u64;
+    let coeffs_fe: Vec<FpE> = (0..meaningful_coeffs)
+        .map(|i| FieldElement::from(unsafe { *ptr.add(i) }))
+        .collect();
     let composition_poly = Polynomial::new(&coeffs_fe);
     let composition_poly_parts = composition_poly.break_in_parts(number_of_parts);
 
@@ -939,25 +939,22 @@ where
     )
     .map_err(|e| ProvingError::FieldOperationError(format!("GPU LDE FFT error: {e}")))?;
 
-    let mut lde_evaluations: Vec<Vec<FpE>> = Vec::with_capacity(number_of_parts);
     let mut lde_buffers: Vec<metal::Buffer> = Vec::with_capacity(number_of_parts);
+    let mut lde_domain_size = 0;
 
-    for (buffer, _domain_size) in buffer_results {
-        let raw: Vec<u64> = MetalState::retrieve_contents(&buffer);
-        let elements: Vec<FpE> = raw.into_iter().map(FieldElement::from_raw).collect();
-
-        lde_evaluations.push(elements);
+    for (buffer, ds) in buffer_results {
+        lde_domain_size = ds;
         lde_buffers.push(buffer);
     }
 
-    eprintln!("    2f LDE FFT+read:   {:>10.2?}", t_lde.elapsed());
+    eprintln!("    2f LDE FFT:        {:>10.2?}", t_lde.elapsed());
 
     // Step 7: GPU Merkle commit with paired-row layout directly from FFT buffers.
     let t_commit = std::time::Instant::now();
     let buffer_refs: Vec<&metal::Buffer> = lde_buffers.iter().collect();
     let (tree, root) = gpu_batch_commit_paired_from_column_buffers(
         &buffer_refs,
-        lde_evaluations[0].len(),
+        lde_domain_size,
         keccak_state,
     )
     .ok_or(ProvingError::EmptyCommitment)?;
@@ -966,7 +963,7 @@ where
 
     Ok(GpuRound2Result {
         composition_poly_parts,
-        lde_composition_poly_evaluations: lde_evaluations,
+        lde_composition_poly_evaluations: Vec::new(), // Not populated; use GPU buffers via UMA
         composition_poly_merkle_tree: tree,
         composition_poly_root: root,
         lde_composition_gpu_buffers: Some(lde_buffers),

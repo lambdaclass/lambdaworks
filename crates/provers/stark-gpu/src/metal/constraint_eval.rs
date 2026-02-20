@@ -384,6 +384,92 @@ pub fn gpu_evaluate_fibonacci_rap_constraints_from_buffers(
     Ok((buf_output, num_rows))
 }
 
+/// Evaluates Fibonacci RAP constraints on the GPU with all large inputs as Metal buffers.
+///
+/// Like [`gpu_evaluate_fibonacci_rap_constraints_from_buffers`] but additionally accepts
+/// the boundary evaluations as a pre-existing Metal buffer (from
+/// [`gpu_evaluate_boundary_constraints`]), eliminating the GPU→CPU→GPU round-trip for
+/// boundary data.
+///
+/// Only zerofier data (small, CPU-computed) is uploaded fresh.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+#[allow(clippy::too_many_arguments)]
+pub fn gpu_evaluate_fibonacci_rap_constraints_all_buffers(
+    main_col_0_buf: &metal::Buffer,
+    main_col_1_buf: &metal::Buffer,
+    aux_col_0_buf: &metal::Buffer,
+    boundary_buf: &metal::Buffer,
+    num_rows: usize,
+    zerofier_evals: &[Vec<FieldElement<Goldilocks64Field>>],
+    gamma: &FieldElement<Goldilocks64Field>,
+    transition_coefficients: &[FieldElement<Goldilocks64Field>],
+    lde_step_size: usize,
+    precompiled: Option<&FibRapConstraintState>,
+) -> Result<(metal::Buffer, usize), MetalError> {
+    assert!(
+        zerofier_evals.len() >= 2,
+        "need at least 2 zerofier evaluation vectors"
+    );
+    assert!(
+        transition_coefficients.len() >= 2,
+        "need at least 2 transition coefficients"
+    );
+
+    // Only convert zerofier data — trace columns and boundary are already on GPU.
+    let z0_raw: Vec<u64> = zerofier_evals[0]
+        .iter()
+        .map(|fe| Goldilocks64Field::canonical(fe.value()))
+        .collect();
+    let z1_raw: Vec<u64> = zerofier_evals[1]
+        .iter()
+        .map(|fe| Goldilocks64Field::canonical(fe.value()))
+        .collect();
+
+    let params = FibRapParams {
+        lde_step_size: lde_step_size as u32,
+        num_rows: num_rows as u32,
+        zerofier_0_len: zerofier_evals[0].len() as u32,
+        zerofier_1_len: zerofier_evals[1].len() as u32,
+        gamma: Goldilocks64Field::canonical(gamma.value()),
+        transition_coeff_0: Goldilocks64Field::canonical(transition_coefficients[0].value()),
+        transition_coeff_1: Goldilocks64Field::canonical(transition_coefficients[1].value()),
+    };
+
+    let mut owned_state;
+    let (dyn_state, max_threads) = match precompiled {
+        Some(pre) => (&pre.state, pre.max_threads),
+        None => {
+            owned_state = DynamicMetalState::new()?;
+            owned_state.load_library(FIBONACCI_RAP_SHADER)?;
+            let mt = owned_state.prepare_pipeline("fibonacci_rap_constraint_eval")?;
+            (&owned_state, mt)
+        }
+    };
+
+    let buf_z0 = dyn_state.alloc_buffer_with_data(&z0_raw)?;
+    let buf_z1 = dyn_state.alloc_buffer_with_data(&z1_raw)?;
+    let buf_params = dyn_state.alloc_buffer_with_data(std::slice::from_ref(&params))?;
+    let buf_output = dyn_state.alloc_buffer(num_rows * std::mem::size_of::<u64>())?;
+
+    dyn_state.execute_compute(
+        "fibonacci_rap_constraint_eval",
+        &[
+            main_col_0_buf,
+            main_col_1_buf,
+            aux_col_0_buf,
+            &buf_z0,
+            &buf_z1,
+            &buf_params,
+            boundary_buf,
+            &buf_output,
+        ],
+        num_rows as u64,
+        max_threads,
+    )?;
+
+    Ok((buf_output, num_rows))
+}
+
 /// Parameters for a single boundary constraint, matching the Metal shader struct.
 #[cfg(all(target_os = "macos", feature = "metal"))]
 #[repr(C)]
