@@ -41,6 +41,11 @@ impl Rpx256 {
         RescueCore::apply_inverse_sbox(state);
     }
 
+    /// Applies an extension round: ARK1 followed by the cubic extension S-box.
+    ///
+    /// Per XHash-12 spec (Section 3.2), E rounds only use ARK1 (offset=0).
+    /// The ARK2 constants for E-round indices (rounds 1, 3, 5) are allocated
+    /// in the round constants array but intentionally unused.
     fn apply_extension_round(&self, state: &mut [Fp], round: usize) {
         self.core.add_round_constants(state, round, 0);
         Self::apply_ext_sbox(state);
