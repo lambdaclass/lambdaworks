@@ -223,6 +223,9 @@ impl Rpx256 {
 
     pub fn hash(&self, input_sequence: &[Fp]) -> Vec<Fp> {
         let mut state = vec![Fp::zero(); self.m];
+        if !input_sequence.len().is_multiple_of(self.rate) {
+            state[0] = Fp::one();
+        }
 
         let absorb_range = self.capacity..self.capacity + self.rate;
 
@@ -425,6 +428,60 @@ mod tests {
 
         assert_eq!(hash_matrix, hash_ntt);
         assert_eq!(hash_ntt, hash_karatsuba);
+    }
+
+    #[test]
+    fn test_padding_collision_prevention() {
+        let rpx = Rpx256::new(MdsMethod::MatrixMultiplication).unwrap();
+        // 7 zeroes gets padding 1 appended → [0,0,0,0,0,0,0,1]
+        // 8 elements [0,0,0,0,0,0,0,1] is rate-aligned, no padding
+        // Without domain separation these would collide
+        let hash_7_zeros = rpx.hash(&vec![Fp::zero(); 7]);
+        let mut eight_elems = vec![Fp::zero(); 7];
+        eight_elems.push(Fp::one());
+        let hash_8_with_one = rpx.hash(&eight_elems);
+        assert_ne!(
+            hash_7_zeros, hash_8_with_one,
+            "hash([0;7]) must differ from hash([0,0,0,0,0,0,0,1])"
+        );
+    }
+
+    #[test]
+    fn hash_padding() {
+        let rpx = Rpx256::new(MdsMethod::MatrixMultiplication).unwrap();
+
+        let input1 = vec![1u8, 2, 3];
+        let input2 = vec![1u8, 2, 3, 0];
+        let hash1 = rpx.hash_bytes(&input1);
+        let hash2 = rpx.hash_bytes(&input2);
+        assert_ne!(hash1, hash2);
+
+        let input1 = vec![1_u8, 2, 3, 4, 5, 6];
+        let input2 = vec![1_u8, 2, 3, 4, 5, 6, 0];
+        let hash1 = rpx.hash_bytes(&input1);
+        let hash2 = rpx.hash_bytes(&input2);
+        assert_ne!(hash1, hash2);
+
+        let input1 = vec![1_u8, 2, 3, 4, 5, 6, 7, 0, 0];
+        let input2 = vec![1_u8, 2, 3, 4, 5, 6, 7, 0, 0, 0, 0];
+        let hash1 = rpx.hash_bytes(&input1);
+        let hash2 = rpx.hash_bytes(&input2);
+        assert_ne!(hash1, hash2);
+    }
+
+    #[cfg(feature = "std")]
+    #[test]
+    fn sponge_zeroes_collision() {
+        let rpx = Rpx256::new(MdsMethod::MatrixMultiplication).unwrap();
+
+        let mut zeroes = Vec::new();
+        let mut hashes = std::collections::HashSet::new();
+
+        for _ in 0..255 {
+            let hash = rpx.hash(&zeroes);
+            assert!(hashes.insert(hash));
+            zeroes.push(Fp::zero());
+        }
     }
 
     #[test]
