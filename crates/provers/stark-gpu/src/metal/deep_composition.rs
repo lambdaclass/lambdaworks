@@ -26,6 +26,10 @@ use crate::metal::phases::rap::GpuRound1Result;
 #[cfg(all(target_os = "macos", feature = "metal"))]
 const DEEP_COMPOSITION_SHADER: &str = include_str!("shaders/deep_composition.metal");
 
+/// Embedded Metal shader source for the GPU domain inversions kernel (base field).
+#[cfg(all(target_os = "macos", feature = "metal"))]
+const DOMAIN_INV_SHADER: &str = include_str!("shaders/domain_inversions.metal");
+
 /// Parameters struct matching the Metal shader's `DeepCompParams`.
 ///
 /// Must be `#[repr(C)]` to match Metal's memory layout exactly.
@@ -61,6 +65,53 @@ impl DeepCompositionState {
         let max_threads = state.prepare_pipeline("deep_composition_eval")?;
         Ok(Self { state, max_threads })
     }
+}
+
+/// Parameters struct matching the Metal shader's `DomainInvParams`.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+#[repr(C)]
+#[derive(Copy, Clone)]
+struct DomainInvParams {
+    num_rows: u32,
+}
+
+/// Pre-compiled Metal state for GPU domain inversions (base field).
+///
+/// Computes `1/(x_i - z^N)` and `1/(x_i - z*g^k)` on GPU using per-element
+/// Fermat inversions instead of CPU batch Montgomery inversions.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+pub struct DomainInversionState {
+    state: DynamicMetalState,
+    max_threads: u64,
+}
+
+#[cfg(all(target_os = "macos", feature = "metal"))]
+impl DomainInversionState {
+    /// Compile the domain inversions shader and prepare the pipeline.
+    pub fn new() -> Result<Self, lambdaworks_gpu::metal::abstractions::errors::MetalError> {
+        let combined_source = build_domain_inv_source();
+        let mut state = DynamicMetalState::new()?;
+        state.load_library(&combined_source)?;
+        let max_threads = state.prepare_pipeline("compute_domain_inversions")?;
+        Ok(Self { state, max_threads })
+    }
+}
+
+/// Build the combined source for the base-field domain inversions shader.
+///
+/// Concatenates `FP_U64_HEADER_SOURCE` (Fp64Goldilocks class) with the shader body
+/// (stripping the `#include` directive that doesn't work with runtime compilation).
+#[cfg(all(target_os = "macos", feature = "metal"))]
+fn build_domain_inv_source() -> String {
+    let shader_clean = DOMAIN_INV_SHADER.replace(
+        "#include <metal_stdlib>\nusing namespace metal;",
+        "// (metal_stdlib included via header)",
+    );
+    format!(
+        "{}\n{}",
+        crate::metal::fp3::FP_U64_HEADER_SOURCE,
+        shader_clean
+    )
 }
 
 /// Compute the DEEP composition polynomial using GPU for the evaluation-domain computation.
@@ -315,47 +366,16 @@ pub fn gpu_compute_deep_composition_poly_to_buffer(
     _gpu_state: &crate::metal::state::StarkMetalState,
     precompiled: Option<&DeepCompositionState>,
     coset_state: &crate::metal::fft::CosetShiftState,
+    domain_inv_state: Option<&DomainInversionState>,
 ) -> Result<(metal::Buffer, usize), stark_platinum_prover::prover::ProvingError>
 {
     type F = Goldilocks64Field;
-    type FpE = FieldElement<F>;
 
     let num_rows = domain.lde_roots_of_unity_coset.len();
     let num_offsets = round_3_result.trace_ood_evaluations.height;
     let num_comp_parts = round_2_result.composition_poly_parts.len();
     let num_trace_polys = round_1_result.main_trace_polys.len()
         + round_1_result.aux_trace_polys.len();
-
-    // --- Pre-compute batch inversions on CPU ---
-    let z_power = round_3_result.z.pow(num_comp_parts);
-    let primitive_root = &domain.trace_primitive_root;
-
-    let mut inv_z_power_vec: Vec<FpE> = domain
-        .lde_roots_of_unity_coset
-        .iter()
-        .map(|x| x - &z_power)
-        .collect();
-    FieldElement::inplace_batch_inverse(&mut inv_z_power_vec)
-        .map_err(|_| stark_platinum_prover::prover::ProvingError::BatchInversionFailed)?;
-
-    let z_shifted_values: Vec<FpE> = (0..num_offsets)
-        .map(|k| primitive_root.pow(k) * &round_3_result.z)
-        .collect();
-
-    let mut inv_z_shifted_vecs: Vec<Vec<FpE>> = z_shifted_values
-        .iter()
-        .map(|z_shifted| {
-            domain
-                .lde_roots_of_unity_coset
-                .iter()
-                .map(|x| x - z_shifted)
-                .collect()
-        })
-        .collect();
-    for inv_vec in &mut inv_z_shifted_vecs {
-        FieldElement::inplace_batch_inverse(inv_vec)
-            .map_err(|_| stark_platinum_prover::prover::ProvingError::BatchInversionFailed)?;
-    }
 
     // --- Pack scalar data ---
     let trace_ood_columns = round_3_result.trace_ood_evaluations.columns();
@@ -450,20 +470,26 @@ pub fn gpu_compute_deep_composition_poly_to_buffer(
         (&_owned_trace_bufs[0], &_owned_trace_bufs[1], &_owned_trace_bufs[2], &_owned_comp_bufs[0])
     };
 
-    // --- Inversions always computed fresh (different per z) ---
-    let inv_zp_raw: Vec<u64> = inv_z_power_vec
-        .iter()
-        .map(|fe| F::canonical(fe.value()))
-        .collect();
-    let inv_zs_raw: Vec<Vec<u64>> = inv_z_shifted_vecs
-        .iter()
-        .map(|v| v.iter().map(|fe| F::canonical(fe.value())).collect())
-        .collect();
+    // --- Compute inversions on GPU ---
+    let z_power = round_3_result.z.pow(num_comp_parts);
+    let primitive_root = &domain.trace_primitive_root;
+    let z_shifted_0 = &round_3_result.z * primitive_root.pow(0usize);
+    let z_shifted_1 = &round_3_result.z * primitive_root.pow(1usize);
+    let z_shifted_2 = &round_3_result.z * primitive_root.pow(2usize);
 
-    let buf_inv_zp = dyn_state.alloc_buffer_with_data(&inv_zp_raw).map_err(alloc_err)?;
-    let buf_inv_zs0 = dyn_state.alloc_buffer_with_data(&inv_zs_raw[0]).map_err(alloc_err)?;
-    let buf_inv_zs1 = dyn_state.alloc_buffer_with_data(&inv_zs_raw[1]).map_err(alloc_err)?;
-    let buf_inv_zs2 = dyn_state.alloc_buffer_with_data(&inv_zs_raw[2]).map_err(alloc_err)?;
+    let (buf_inv_zp, buf_inv_zs0, buf_inv_zs1, buf_inv_zs2) = gpu_compute_domain_inversions_base(
+        domain,
+        &z_power,
+        &z_shifted_0,
+        &z_shifted_1,
+        &z_shifted_2,
+        num_rows,
+        domain_inv_state,
+    )
+    .map_err(|e| {
+        stark_platinum_prover::prover::ProvingError::FieldOperationError(e.to_string())
+    })?;
+
     let buf_scalars = dyn_state.alloc_buffer_with_data(&scalars).map_err(alloc_err)?;
     let buf_params = dyn_state
         .alloc_buffer_with_data(std::slice::from_ref(&params))
@@ -512,6 +538,87 @@ pub fn gpu_compute_deep_composition_poly_to_buffer(
     Ok((coeffs_buffer, num_rows))
 }
 
+/// Dispatch the GPU domain inversions kernel for the base field.
+///
+/// Uploads domain points once, computes 4 inversion vectors on GPU using
+/// per-element Fermat inversions (`a^(p-2)`), and returns 4 Metal Buffers.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+fn gpu_compute_domain_inversions_base(
+    domain: &stark_platinum_prover::domain::Domain<Goldilocks64Field>,
+    z_power: &FieldElement<Goldilocks64Field>,
+    z_shifted_0: &FieldElement<Goldilocks64Field>,
+    z_shifted_1: &FieldElement<Goldilocks64Field>,
+    z_shifted_2: &FieldElement<Goldilocks64Field>,
+    num_rows: usize,
+    precompiled: Option<&DomainInversionState>,
+) -> Result<(metal::Buffer, metal::Buffer, metal::Buffer, metal::Buffer), lambdaworks_gpu::metal::abstractions::errors::MetalError>
+{
+    type F = Goldilocks64Field;
+
+    let mut owned_state;
+    let (inv_state, inv_max_threads) = match precompiled {
+        Some(pre) => (&pre.state, pre.max_threads),
+        None => {
+            let combined_source = build_domain_inv_source();
+            owned_state = DynamicMetalState::new()?;
+            owned_state.load_library(&combined_source)?;
+            let mt = owned_state.prepare_pipeline("compute_domain_inversions")?;
+            (&owned_state, mt)
+        }
+    };
+
+    // Upload domain points as u64
+    let domain_raw: Vec<u64> = domain
+        .lde_roots_of_unity_coset
+        .iter()
+        .map(|fe| F::canonical(fe.value()))
+        .collect();
+    let buf_domain = inv_state.alloc_buffer_with_data(&domain_raw)?;
+
+    // Scalar z-values as u64
+    let zp_raw = F::canonical(z_power.value());
+    let zs0_raw = F::canonical(z_shifted_0.value());
+    let zs1_raw = F::canonical(z_shifted_1.value());
+    let zs2_raw = F::canonical(z_shifted_2.value());
+
+    let buf_zp = inv_state.alloc_buffer_with_data(std::slice::from_ref(&zp_raw))?;
+    let buf_zs0 = inv_state.alloc_buffer_with_data(std::slice::from_ref(&zs0_raw))?;
+    let buf_zs1 = inv_state.alloc_buffer_with_data(std::slice::from_ref(&zs1_raw))?;
+    let buf_zs2 = inv_state.alloc_buffer_with_data(std::slice::from_ref(&zs2_raw))?;
+
+    // Output buffers
+    let buf_size = num_rows * std::mem::size_of::<u64>();
+    let buf_inv_zp = inv_state.alloc_buffer(buf_size)?;
+    let buf_inv_zs0 = inv_state.alloc_buffer(buf_size)?;
+    let buf_inv_zs1 = inv_state.alloc_buffer(buf_size)?;
+    let buf_inv_zs2 = inv_state.alloc_buffer(buf_size)?;
+
+    let inv_params = DomainInvParams {
+        num_rows: num_rows as u32,
+    };
+    let buf_params = inv_state.alloc_buffer_with_data(std::slice::from_ref(&inv_params))?;
+
+    inv_state.execute_compute(
+        "compute_domain_inversions",
+        &[
+            &buf_domain,
+            &buf_zp,
+            &buf_zs0,
+            &buf_zs1,
+            &buf_zs2,
+            &buf_inv_zp,
+            &buf_inv_zs0,
+            &buf_inv_zs1,
+            &buf_inv_zs2,
+            &buf_params,
+        ],
+        num_rows as u64,
+        inv_max_threads,
+    )?;
+
+    Ok((buf_inv_zp, buf_inv_zs0, buf_inv_zs1, buf_inv_zs2))
+}
+
 // =============================================================================
 // Fp3 DEEP Composition (degree-3 Goldilocks extension)
 // =============================================================================
@@ -519,6 +626,38 @@ pub fn gpu_compute_deep_composition_poly_to_buffer(
 /// Embedded Metal shader source for the Fp3 DEEP composition kernel.
 #[cfg(all(target_os = "macos", feature = "metal"))]
 const DEEP_COMPOSITION_FP3_SHADER: &str = include_str!("shaders/deep_composition_fp3.metal");
+
+/// Embedded Metal shader source for GPU domain inversions in Fp3.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+const DOMAIN_INV_FP3_SHADER: &str = include_str!("shaders/domain_inversions_fp3.metal");
+
+/// Parameters struct matching the Metal shader's `DomainInvFp3Params`.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+#[repr(C)]
+#[derive(Copy, Clone)]
+struct DomainInvFp3Params {
+    num_rows: u32,
+}
+
+/// Pre-compiled Metal state for GPU domain inversions (Fp3 extension field).
+#[cfg(all(target_os = "macos", feature = "metal"))]
+pub struct DomainInversionFp3State {
+    state: DynamicMetalState,
+    max_threads: u64,
+}
+
+#[cfg(all(target_os = "macos", feature = "metal"))]
+impl DomainInversionFp3State {
+    /// Compile the Fp3 domain inversions shader and prepare the pipeline.
+    pub fn new() -> Result<Self, lambdaworks_gpu::metal::abstractions::errors::MetalError> {
+        let combined_source =
+            crate::metal::fp3::combined_fp3_source(DOMAIN_INV_FP3_SHADER);
+        let mut state = DynamicMetalState::new()?;
+        state.load_library(&combined_source)?;
+        let max_threads = state.prepare_pipeline("compute_domain_inversions_fp3")?;
+        Ok(Self { state, max_threads })
+    }
+}
 
 /// Parameters struct matching the Metal shader's `DeepCompFp3Params`.
 #[cfg(all(target_os = "macos", feature = "metal"))]
@@ -551,6 +690,96 @@ impl DeepCompositionFp3State {
     }
 }
 
+/// Dispatch the GPU domain inversions kernel for Fp3 extension field.
+///
+/// Domain points are base field (Goldilocks64). Z-values are Fp3.
+/// Computes 4 inversion vectors on GPU using per-element Fp3 inversions
+/// (norm-to-base-field method internally), and returns 4 Metal Buffers.
+/// Each output buffer contains `num_rows * 3` u64s (3 components per Fp3 element).
+#[cfg(all(target_os = "macos", feature = "metal"))]
+fn gpu_compute_domain_inversions_fp3(
+    domain: &stark_platinum_prover::domain::Domain<Goldilocks64Field>,
+    z_power: &FieldElement<lambdaworks_math::field::fields::u64_goldilocks_field::Degree3GoldilocksExtensionField>,
+    z_shifted_0: &FieldElement<lambdaworks_math::field::fields::u64_goldilocks_field::Degree3GoldilocksExtensionField>,
+    z_shifted_1: &FieldElement<lambdaworks_math::field::fields::u64_goldilocks_field::Degree3GoldilocksExtensionField>,
+    z_shifted_2: &FieldElement<lambdaworks_math::field::fields::u64_goldilocks_field::Degree3GoldilocksExtensionField>,
+    num_rows: usize,
+    precompiled: Option<&DomainInversionFp3State>,
+) -> Result<(metal::Buffer, metal::Buffer, metal::Buffer, metal::Buffer), lambdaworks_gpu::metal::abstractions::errors::MetalError>
+{
+    type F = Goldilocks64Field;
+
+    // Helper to convert Fp3E to 3 raw u64s
+    let fp3_to_u64s = |e: &FieldElement<lambdaworks_math::field::fields::u64_goldilocks_field::Degree3GoldilocksExtensionField>| -> [u64; 3] {
+        let comps = e.value();
+        [*comps[0].value(), *comps[1].value(), *comps[2].value()]
+    };
+
+    let mut owned_state;
+    let (inv_state, inv_max_threads) = match precompiled {
+        Some(pre) => (&pre.state, pre.max_threads),
+        None => {
+            let combined_source =
+                crate::metal::fp3::combined_fp3_source(DOMAIN_INV_FP3_SHADER);
+            owned_state = DynamicMetalState::new()?;
+            owned_state.load_library(&combined_source)?;
+            let mt = owned_state.prepare_pipeline("compute_domain_inversions_fp3")?;
+            (&owned_state, mt)
+        }
+    };
+
+    // Upload domain points as u64 (base field)
+    let domain_raw: Vec<u64> = domain
+        .lde_roots_of_unity_coset
+        .iter()
+        .map(|fe| F::canonical(fe.value()))
+        .collect();
+    let buf_domain = inv_state.alloc_buffer_with_data(&domain_raw)?;
+
+    // Fp3 z-values as 3 u64s each
+    let zp_raw = fp3_to_u64s(z_power);
+    let zs0_raw = fp3_to_u64s(z_shifted_0);
+    let zs1_raw = fp3_to_u64s(z_shifted_1);
+    let zs2_raw = fp3_to_u64s(z_shifted_2);
+
+    let buf_zp = inv_state.alloc_buffer_with_data(&zp_raw)?;
+    let buf_zs0 = inv_state.alloc_buffer_with_data(&zs0_raw)?;
+    let buf_zs1 = inv_state.alloc_buffer_with_data(&zs1_raw)?;
+    let buf_zs2 = inv_state.alloc_buffer_with_data(&zs2_raw)?;
+
+    // Output buffers: 3 u64s per element (Fp3)
+    let buf_size = num_rows * 3 * std::mem::size_of::<u64>();
+    let buf_inv_zp = inv_state.alloc_buffer(buf_size)?;
+    let buf_inv_zs0 = inv_state.alloc_buffer(buf_size)?;
+    let buf_inv_zs1 = inv_state.alloc_buffer(buf_size)?;
+    let buf_inv_zs2 = inv_state.alloc_buffer(buf_size)?;
+
+    let inv_params = DomainInvFp3Params {
+        num_rows: num_rows as u32,
+    };
+    let buf_params = inv_state.alloc_buffer_with_data(std::slice::from_ref(&inv_params))?;
+
+    inv_state.execute_compute(
+        "compute_domain_inversions_fp3",
+        &[
+            &buf_domain,
+            &buf_zp,
+            &buf_zs0,
+            &buf_zs1,
+            &buf_zs2,
+            &buf_inv_zp,
+            &buf_inv_zs0,
+            &buf_inv_zs1,
+            &buf_inv_zs2,
+            &buf_params,
+        ],
+        num_rows as u64,
+        inv_max_threads,
+    )?;
+
+    Ok((buf_inv_zp, buf_inv_zs0, buf_inv_zs1, buf_inv_zs2))
+}
+
 /// Compute the Fp3 DEEP composition polynomial using GPU.
 ///
 /// This is the extension-field variant of [`gpu_compute_deep_composition_poly`].
@@ -570,6 +799,7 @@ pub fn gpu_compute_deep_composition_poly_fp3(
     composition_gammas_fp3: &[FieldElement<lambdaworks_math::field::fields::u64_goldilocks_field::Degree3GoldilocksExtensionField>],
     trace_term_coeffs_fp3: &[Vec<FieldElement<lambdaworks_math::field::fields::u64_goldilocks_field::Degree3GoldilocksExtensionField>>],
     precompiled: Option<&DeepCompositionFp3State>,
+    domain_inv_fp3_state: Option<&DomainInversionFp3State>,
 ) -> Result<Vec<FieldElement<lambdaworks_math::field::fields::u64_goldilocks_field::Degree3GoldilocksExtensionField>>, stark_platinum_prover::prover::ProvingError>
 {
     use lambdaworks_math::field::fields::u64_goldilocks_field::Degree3GoldilocksExtensionField;
@@ -590,40 +820,28 @@ pub fn gpu_compute_deep_composition_poly_fp3(
         [*comps[0].value(), *comps[1].value(), *comps[2].value()]
     };
 
-    // --- Pre-compute batch inversions on CPU (in Fp3) ---
+    // --- Compute inversions on GPU (in Fp3) ---
     let z = round_3_z;
     let z_power: Fp3E = z.pow(num_comp_parts);
     let primitive_root = &domain.trace_primitive_root;
 
-    // 1/(x_i - z^N) in Fp3 for each domain point
-    let mut inv_z_power_vec: Vec<Fp3E> = domain
-        .lde_roots_of_unity_coset
-        .iter()
-        .map(|x| x - z_power) // BF - Fp3 → Fp3
-        .collect();
-    FieldElement::inplace_batch_inverse(&mut inv_z_power_vec)
-        .map_err(|_| stark_platinum_prover::prover::ProvingError::BatchInversionFailed)?;
+    let z_shifted_0: Fp3E = primitive_root.pow(0usize) * z;
+    let z_shifted_1: Fp3E = primitive_root.pow(1usize) * z;
+    let z_shifted_2: Fp3E = primitive_root.pow(2usize) * z;
 
-    // z*g^k for each offset k (Fp3 since z is Fp3)
-    let z_shifted_values: Vec<Fp3E> = (0..num_offsets)
-        .map(|k| primitive_root.pow(k) * z) // BF * Fp3 → Fp3
-        .collect();
-
-    // 1/(x_i - z*g^k) in Fp3 for each offset k
-    let mut inv_z_shifted_vecs: Vec<Vec<Fp3E>> = z_shifted_values
-        .iter()
-        .map(|z_shifted| {
-            domain
-                .lde_roots_of_unity_coset
-                .iter()
-                .map(|x| x - z_shifted) // BF - Fp3 → Fp3
-                .collect()
-        })
-        .collect();
-    for inv_vec in &mut inv_z_shifted_vecs {
-        FieldElement::inplace_batch_inverse(inv_vec)
-            .map_err(|_| stark_platinum_prover::prover::ProvingError::BatchInversionFailed)?;
-    }
+    let (buf_inv_zp, buf_inv_zs0, buf_inv_zs1, buf_inv_zs2) =
+        gpu_compute_domain_inversions_fp3(
+            domain,
+            &z_power,
+            &z_shifted_0,
+            &z_shifted_1,
+            &z_shifted_2,
+            num_rows,
+            domain_inv_fp3_state,
+        )
+        .map_err(|e| {
+            stark_platinum_prover::prover::ProvingError::FieldOperationError(e.to_string())
+        })?;
 
     // --- Pack scalar data (gammas + OOD evals) as raw u64 triples ---
     let mut scalars: Vec<u64> = Vec::new();
@@ -666,16 +884,6 @@ pub fn gpu_compute_deep_composition_poly_fp3(
         })
         .collect();
 
-    // --- Convert inversions to raw u64 triples ---
-    let inv_zp_raw: Vec<u64> = inv_z_power_vec
-        .iter()
-        .flat_map(fp3_to_u64s)
-        .collect();
-    let inv_zs_raw: Vec<Vec<u64>> = inv_z_shifted_vecs
-        .iter()
-        .map(|v| v.iter().flat_map(fp3_to_u64s).collect())
-        .collect();
-
     let params = DeepCompFp3Params {
         num_rows: num_rows as u32,
         num_trace_polys: num_trace_polys as u32,
@@ -713,10 +921,6 @@ pub fn gpu_compute_deep_composition_poly_fp3(
     let buf_trace_1 = dyn_state.alloc_buffer_with_data(&trace_raw[1]).map_err(alloc_err)?;
     let buf_trace_2 = dyn_state.alloc_buffer_with_data(&trace_raw[2]).map_err(alloc_err)?;
     let buf_comp_0 = dyn_state.alloc_buffer_with_data(&comp_raw[0]).map_err(alloc_err)?;
-    let buf_inv_zp = dyn_state.alloc_buffer_with_data(&inv_zp_raw).map_err(alloc_err)?;
-    let buf_inv_zs0 = dyn_state.alloc_buffer_with_data(&inv_zs_raw[0]).map_err(alloc_err)?;
-    let buf_inv_zs1 = dyn_state.alloc_buffer_with_data(&inv_zs_raw[1]).map_err(alloc_err)?;
-    let buf_inv_zs2 = dyn_state.alloc_buffer_with_data(&inv_zs_raw[2]).map_err(alloc_err)?;
     let buf_scalars = dyn_state.alloc_buffer_with_data(&scalars).map_err(alloc_err)?;
     let buf_params = dyn_state
         .alloc_buffer_with_data(std::slice::from_ref(&params))
@@ -1074,6 +1278,7 @@ mod tests {
             &domain,
             &composition_gammas_fp3,
             &trace_term_coeffs_fp3,
+            None,
             None,
         )
         .unwrap();

@@ -119,7 +119,7 @@ where
     >,
 {
     use crate::metal::constraint_eval::FibRapConstraintState;
-    use crate::metal::deep_composition::DeepCompositionState;
+    use crate::metal::deep_composition::{DeepCompositionState, DomainInversionState};
     use crate::metal::fft::CosetShiftState;
     use crate::metal::phases::fri::FriFoldState;
 
@@ -146,6 +146,8 @@ where
         &state.inner().queue,
     )
     .map_err(|e| ProvingError::FieldOperationError(format!("FRI fold shader: {e}")))?;
+    let domain_inv_state = DomainInversionState::new()
+        .map_err(|e| ProvingError::FieldOperationError(format!("Domain inversions shader: {e}")))?;
 
     // Phase 1: RAP (trace interpolation + LDE + GPU Merkle commit)
     let t = std::time::Instant::now();
@@ -185,6 +187,7 @@ where
         &keccak_state,
         &coset_state,
         &fri_fold_state,
+        Some(&domain_inv_state),
     )?;
     eprintln!("  Phase 4 (FRI):         {:>10.2?}", t.elapsed());
 

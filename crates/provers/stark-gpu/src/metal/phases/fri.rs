@@ -34,7 +34,7 @@ use crate::metal::phases::rap::GpuRound1Result;
 
 #[cfg(all(target_os = "macos", feature = "metal"))]
 use crate::metal::deep_composition::{
-    gpu_compute_deep_composition_poly_to_buffer, DeepCompositionState,
+    gpu_compute_deep_composition_poly_to_buffer, DeepCompositionState, DomainInversionState,
 };
 #[cfg(all(target_os = "macos", feature = "metal"))]
 use crate::metal::fft::gpu_evaluate_offset_fft;
@@ -1426,6 +1426,7 @@ pub fn gpu_round_4_goldilocks<A>(
     keccak_state: &GpuKeccakMerkleState,
     coset_state: &CosetShiftState,
     fri_fold_state: &FriFoldState,
+    domain_inv_state: Option<&DomainInversionState>,
 ) -> Result<GpuRound4Result<Goldilocks64Field>, ProvingError>
 where
     A: AIR<Field = Goldilocks64Field, FieldExtension = Goldilocks64Field>,
@@ -1462,6 +1463,7 @@ where
         gpu_state,
         precompiled_deep,
         coset_state,
+        domain_inv_state,
     )?;
 
     // Step 3: Run FRI commit phase starting from GPU buffer (no CPU↔GPU transfer).

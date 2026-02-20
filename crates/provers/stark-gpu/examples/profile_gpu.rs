@@ -84,7 +84,7 @@ fn profile_gpu_optimized(
     proof_options: &ProofOptions,
 ) {
     use lambdaworks_stark_gpu::metal::constraint_eval::FibRapConstraintState;
-    use lambdaworks_stark_gpu::metal::deep_composition::DeepCompositionState;
+    use lambdaworks_stark_gpu::metal::deep_composition::{DeepCompositionState, DomainInversionState};
     use lambdaworks_stark_gpu::metal::fft::CosetShiftState;
     use lambdaworks_stark_gpu::metal::merkle::GpuKeccakMerkleState;
     use lambdaworks_stark_gpu::metal::phases::composition::gpu_round_2_goldilocks_merkle;
@@ -106,6 +106,7 @@ fn profile_gpu_optimized(
     let keccak_state = GpuKeccakMerkleState::new().unwrap();
     let coset_state = CosetShiftState::new().unwrap();
     let fri_fold_state = FriFoldState::new().unwrap();
+    let domain_inv_state = DomainInversionState::new().unwrap();
     let domain = Domain::new(&air);
     println!("  Setup (shaders):   {:>10.2?}", t.elapsed());
 
@@ -159,6 +160,7 @@ fn profile_gpu_optimized(
         &keccak_state,
         &coset_state,
         &fri_fold_state,
+        Some(&domain_inv_state),
     )
     .unwrap();
     let phase4_time = t.elapsed();
