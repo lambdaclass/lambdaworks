@@ -3,6 +3,9 @@ name = "lambdaworks-benches"
 version.workspace = true
 edition.workspace = true
 
+[features]
+parallel = ["lambdaworks-math/parallel"]
+
 [dependencies]
 ark-ff = { git = "https://github.com/arkworks-rs/algebra", rev = "ef8f758" }
 ark-test-curves = { git = "https://github.com/arkworks-rs/algebra", rev = "ef8f758" }
@@ -51,4 +54,8 @@ harness = false
 
 [[bench]]
 name = "poseidon"
+harness = false
+
+[[bench]]
+name = "batch_inverse"
 harness = false
