@@ -175,11 +175,7 @@ impl RescueCore {
         state[self.capacity..self.capacity + self.rate / 2].to_vec()
     }
 
-    pub(crate) fn hash_bytes(
-        &self,
-        input: &[u8],
-        permutation: impl Fn(&mut [Fp]),
-    ) -> Vec<Fp> {
+    pub(crate) fn hash_bytes(&self, input: &[u8], permutation: impl Fn(&mut [Fp])) -> Vec<Fp> {
         let field_elements = bytes_to_field_elements(input);
         self.hash(&field_elements, permutation)
     }

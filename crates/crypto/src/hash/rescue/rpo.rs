@@ -540,8 +540,7 @@ mod tests {
 
     #[test]
     fn test_mds_methods_consistency() {
-        let rescue_matrix =
-            Rpo256::new(SecurityLevel::Sec128, MdsMethod::MatrixMultiplication);
+        let rescue_matrix = Rpo256::new(SecurityLevel::Sec128, MdsMethod::MatrixMultiplication);
         let rescue_ntt = Rpo256::new(SecurityLevel::Sec128, MdsMethod::Ntt);
         let rescue_karatsuba = Rpo256::new(SecurityLevel::Sec128, MdsMethod::Karatsuba);
 
