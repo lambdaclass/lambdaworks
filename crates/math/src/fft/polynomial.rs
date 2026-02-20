@@ -223,7 +223,7 @@ impl<E: IsField> Polynomial<FieldElement<E>> {
         let mut p = Polynomial::evaluate_fft::<F>(self, 1, Some(domain_size))?;
         let q = Polynomial::evaluate_fft::<F>(other, 1, Some(domain_size))?;
 
-        p.iter_mut().zip(q.into_iter()).for_each(|(a, b)| *a *= b);
+        p.iter_mut().zip(q).for_each(|(a, b)| *a *= b);
 
         Polynomial::interpolate_fft::<F>(&p)
     }
