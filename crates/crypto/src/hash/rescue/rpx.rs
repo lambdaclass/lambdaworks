@@ -1,9 +1,7 @@
 use super::parameters::*;
-use super::utils::*;
+use super::rescue_core::RescueCore;
 use super::Fp;
-use super::MdsMethod;
 use crate::alloc::vec::Vec;
-use core::iter;
 
 /// Implementation of RPX (Rescue Prime eXtension) hash function.
 ///
@@ -17,17 +15,8 @@ use core::iter;
 /// - FB: Full Block (MDS → add_const → S-box → MDS → add_const → inv_S-box)
 /// - E: Extension round (uses cubic extension field x³ - x - 1)
 /// - M: Middle round (MDS → add_const)
-#[allow(dead_code)]
-const NUM_ROUNDS: usize = 7;
-
 pub struct Rpx256 {
-    m: usize,
-    capacity: usize,
-    rate: usize,
-    round_constants: &'static [Fp],
-    mds_matrix: Vec<Vec<Fp>>,
-    mds_vector: MdsVector,
-    mds_method: MdsMethod,
+    core: RescueCore,
 }
 
 impl Default for Rpx256 {
@@ -38,139 +27,22 @@ impl Default for Rpx256 {
 
 impl Rpx256 {
     pub fn new(mds_method: MdsMethod) -> Self {
-        let security_level = SecurityLevel::Sec128;
-        let m = get_state_size(&security_level);
-        let capacity = get_capacity(&security_level);
-        let rate = m - capacity;
-        let mds_matrix = get_mds_matrix(&security_level);
-        let round_constants = get_round_constants(&security_level);
-        let mds_vector = get_mds_vector(security_level);
-
         Self {
-            m,
-            capacity,
-            rate,
-            round_constants,
-            mds_matrix: match mds_matrix {
-                MdsMatrix::Mds128(matrix) => matrix.iter().map(|&row| row.to_vec()).collect(),
-                MdsMatrix::Mds160(matrix) => matrix.iter().map(|&row| row.to_vec()).collect(),
-            },
-            mds_vector,
-            mds_method,
+            core: RescueCore::new(&SecurityLevel::Sec128, mds_method),
         }
-    }
-
-    pub fn apply_inverse_sbox(state: &mut [Fp]) {
-        for x in state.iter_mut() {
-            *x = x.pow(ALPHA_INV);
-        }
-    }
-
-    pub fn apply_sbox(state: &mut [Fp]) {
-        for x in state.iter_mut() {
-            *x = x.pow(ALPHA);
-        }
-    }
-
-    fn mds_matrix_vector_multiplication(&self, state: &[Fp]) -> Vec<Fp> {
-        debug_assert_eq!(
-            state.len(),
-            self.m,
-            "State size must match MDS matrix dimension"
-        );
-        let m = state.len();
-        let mut new_state = vec![Fp::zero(); m];
-
-        for (i, new_value) in new_state.iter_mut().enumerate() {
-            for (j, state_value) in state.iter().enumerate() {
-                *new_value += self.mds_matrix[i][j] * state_value;
-            }
-        }
-
-        new_state
-    }
-
-    /// Performs MDS using Number Theoretic Transform.
-    fn mds_ntt(&self, state: &[Fp]) -> Vec<Fp> {
-        let m = state.len();
-        let omega = if m == 12 {
-            Fp::from(281474976645120u64)
-        } else {
-            Fp::from(17293822564807737345u64)
-        };
-        let mds_vector = self.mds_vector.as_slice();
-
-        let mds_ntt = ntt(mds_vector, omega);
-        let state_rev: Vec<Fp> = iter::once(state[0])
-            .chain(state[1..].iter().rev().cloned())
-            .collect();
-        let state_ntt = ntt(&state_rev, omega);
-
-        let mut product_ntt = vec![Fp::zero(); m];
-        for i in 0..m {
-            product_ntt[i] = mds_ntt[i] * state_ntt[i];
-        }
-
-        let omega_inv = omega.inv().expect("hardcoded omega is nonzero");
-        let result = intt(&product_ntt, omega_inv);
-
-        iter::once(result[0])
-            .chain(result[1..].iter().rev().cloned())
-            .collect()
-    }
-
-    /// Performs MDS using the Karatsuba algorithm.
-    fn mds_karatsuba(&self, state: &[Fp]) -> Vec<Fp> {
-        let m = state.len();
-        let mds_vector = self.mds_vector.as_slice();
-        let mds_rev: Vec<Fp> = iter::once(mds_vector[0])
-            .chain(mds_vector[1..].iter().rev().cloned())
-            .collect();
-
-        let conv = karatsuba(&mds_rev, state);
-
-        let mut result = vec![Fp::zero(); m];
-        result[..m].copy_from_slice(&conv[..m]);
-        for i in m..conv.len() {
-            result[i - m] += conv[i];
-        }
-
-        result
-    }
-
-    fn apply_mds(&self, state: &mut [Fp]) {
-        let new_state = match self.mds_method {
-            MdsMethod::MatrixMultiplication => self.mds_matrix_vector_multiplication(state),
-            MdsMethod::Ntt => self.mds_ntt(state),
-            MdsMethod::Karatsuba => self.mds_karatsuba(state),
-        };
-        state.copy_from_slice(&new_state);
-    }
-
-    fn add_round_constants(&self, state: &mut [Fp], round: usize, offset: usize) {
-        let m = self.m;
-        let rc = &self.round_constants[round * 2 * m + offset * m..round * 2 * m + offset * m + m];
-
-        state
-            .iter_mut()
-            .zip(rc.iter())
-            .take(m)
-            .for_each(|(state_elem, &constant)| {
-                *state_elem += constant;
-            });
     }
 
     fn apply_full_block(&self, state: &mut [Fp], round: usize) {
-        self.apply_mds(state);
-        self.add_round_constants(state, round, 0);
-        Self::apply_sbox(state);
-        self.apply_mds(state);
-        self.add_round_constants(state, round, 1);
-        Self::apply_inverse_sbox(state);
+        self.core.apply_mds(state);
+        self.core.add_round_constants(state, round, 0);
+        RescueCore::apply_sbox(state);
+        self.core.apply_mds(state);
+        self.core.add_round_constants(state, round, 1);
+        RescueCore::apply_inverse_sbox(state);
     }
 
     fn apply_extension_round(&self, state: &mut [Fp], round: usize) {
-        self.add_round_constants(state, round, 0);
+        self.core.add_round_constants(state, round, 0);
         Self::apply_ext_sbox(state);
     }
 
@@ -204,12 +76,16 @@ impl Rpx256 {
     }
 
     fn apply_middle_round(&self, state: &mut [Fp], round: usize) {
-        self.apply_mds(state);
-        self.add_round_constants(state, round, 0);
+        self.core.apply_mds(state);
+        self.core.add_round_constants(state, round, 0);
     }
 
     pub fn permutation(&self, state: &mut [Fp]) {
-        debug_assert_eq!(state.len(), self.m, "State size must match state width");
+        debug_assert_eq!(
+            state.len(),
+            self.core.m,
+            "State size must match state width"
+        );
         self.apply_full_block(state, 0);
         self.apply_extension_round(state, 1);
         self.apply_full_block(state, 2);
@@ -220,37 +96,11 @@ impl Rpx256 {
     }
 
     pub fn hash(&self, input_sequence: &[Fp]) -> Vec<Fp> {
-        let mut state = vec![Fp::zero(); self.m];
-        if !input_sequence.len().is_multiple_of(self.rate) {
-            state[0] = Fp::one();
-        }
-
-        let absorb_range = self.capacity..self.capacity + self.rate;
-
-        for chunk in input_sequence.chunks_exact(self.rate) {
-            state[absorb_range.clone()].copy_from_slice(chunk);
-            self.permutation(&mut state);
-        }
-
-        let remainder = &input_sequence[input_sequence.len() / self.rate * self.rate..];
-        if !remainder.is_empty() {
-            debug_assert!(
-                remainder.len() < self.rate,
-                "Remainder must be smaller than rate"
-            );
-            let mut last_chunk = vec![Fp::zero(); self.rate];
-            last_chunk[..remainder.len()].copy_from_slice(remainder);
-            last_chunk[remainder.len()] = Fp::one();
-            state[absorb_range.clone()].copy_from_slice(&last_chunk);
-            self.permutation(&mut state);
-        }
-
-        state[self.capacity..self.capacity + self.rate / 2].to_vec()
+        self.core.hash(input_sequence, |s| self.permutation(s))
     }
 
     pub fn hash_bytes(&self, input: &[u8]) -> Vec<Fp> {
-        let field_elements = bytes_to_field_elements(input);
-        self.hash(&field_elements)
+        self.core.hash_bytes(input, |s| self.permutation(s))
     }
 }
 
@@ -324,12 +174,12 @@ mod tests {
     fn test_apply_sbox() {
         let mut rng = StdRng::seed_from_u64(1);
         let rpx = Rpx256::new(MdsMethod::MatrixMultiplication);
-        let mut state: Vec<Fp> = (0..rpx.m).map(|_| rand_field_element(&mut rng)).collect();
+        let mut state: Vec<Fp> = (0..rpx.core.m).map(|_| rand_field_element(&mut rng)).collect();
 
         let mut expected = state.clone();
         expected.iter_mut().for_each(|v| *v = v.pow(ALPHA));
 
-        Rpx256::apply_sbox(&mut state);
+        RescueCore::apply_sbox(&mut state);
         assert_eq!(expected, state);
     }
 
@@ -337,12 +187,12 @@ mod tests {
     fn test_apply_inverse_sbox() {
         let mut rng = StdRng::seed_from_u64(2);
         let rpx = Rpx256::new(MdsMethod::MatrixMultiplication);
-        let mut state: Vec<Fp> = (0..rpx.m).map(|_| rand_field_element(&mut rng)).collect();
+        let mut state: Vec<Fp> = (0..rpx.core.m).map(|_| rand_field_element(&mut rng)).collect();
 
         let mut expected = state.clone();
         expected.iter_mut().for_each(|v| *v = v.pow(ALPHA_INV));
 
-        Rpx256::apply_inverse_sbox(&mut state);
+        RescueCore::apply_inverse_sbox(&mut state);
         assert_eq!(expected, state);
     }
 
@@ -350,7 +200,7 @@ mod tests {
     fn test_permutation() {
         let mut rng = StdRng::seed_from_u64(3);
         let rpx = Rpx256::new(MdsMethod::MatrixMultiplication);
-        let mut state: Vec<Fp> = (0..rpx.m).map(|_| rand_field_element(&mut rng)).collect();
+        let mut state: Vec<Fp> = (0..rpx.core.m).map(|_| rand_field_element(&mut rng)).collect();
 
         let mut expected_state = state.clone();
 
@@ -400,32 +250,6 @@ mod tests {
         let hash_output = rpx.hash_bytes(input_bytes);
 
         assert_eq!(hash_output.len(), 4);
-    }
-
-    #[test]
-    fn test_mds_methods_consistency() {
-        let rpx_matrix = Rpx256::new(MdsMethod::MatrixMultiplication);
-        let rpx_ntt = Rpx256::new(MdsMethod::Ntt);
-        let rpx_karatsuba = Rpx256::new(MdsMethod::Karatsuba);
-
-        let input = vec![
-            Fp::from(1u64),
-            Fp::from(2u64),
-            Fp::from(3u64),
-            Fp::from(4u64),
-            Fp::from(5u64),
-            Fp::from(6u64),
-            Fp::from(7u64),
-            Fp::from(8u64),
-            Fp::from(9u64),
-        ];
-
-        let hash_matrix = rpx_matrix.hash(&input);
-        let hash_ntt = rpx_ntt.hash(&input);
-        let hash_karatsuba = rpx_karatsuba.hash(&input);
-
-        assert_eq!(hash_matrix, hash_ntt);
-        assert_eq!(hash_ntt, hash_karatsuba);
     }
 
     #[test]
@@ -480,6 +304,32 @@ mod tests {
             assert!(hashes.insert(hash));
             zeroes.push(Fp::zero());
         }
+    }
+
+    #[test]
+    fn test_mds_methods_consistency() {
+        let rpx_matrix = Rpx256::new(MdsMethod::MatrixMultiplication);
+        let rpx_ntt = Rpx256::new(MdsMethod::Ntt);
+        let rpx_karatsuba = Rpx256::new(MdsMethod::Karatsuba);
+
+        let input = vec![
+            Fp::from(1u64),
+            Fp::from(2u64),
+            Fp::from(3u64),
+            Fp::from(4u64),
+            Fp::from(5u64),
+            Fp::from(6u64),
+            Fp::from(7u64),
+            Fp::from(8u64),
+            Fp::from(9u64),
+        ];
+
+        let hash_matrix = rpx_matrix.hash(&input);
+        let hash_ntt = rpx_ntt.hash(&input);
+        let hash_karatsuba = rpx_karatsuba.hash(&input);
+
+        assert_eq!(hash_matrix, hash_ntt);
+        assert_eq!(hash_ntt, hash_karatsuba);
     }
 
     #[test]

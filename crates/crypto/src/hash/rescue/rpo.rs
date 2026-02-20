@@ -1,8 +1,7 @@
 use super::parameters::*;
-use super::utils::*;
+use super::rescue_core::RescueCore;
 use super::Fp;
 use crate::alloc::vec::Vec;
-use core::iter;
 
 // Implementation of the Rescue Prime Optimized hash function.
 // https://eprint.iacr.org/2022/1577
@@ -27,20 +26,7 @@ use core::iter;
 const NUM_FULL_ROUNDS: usize = 7;
 
 pub struct Rpo256 {
-    /// State width of the hash function.
-    m: usize,
-    /// Capacity of the sponge.
-    capacity: usize,
-    /// Rate of the sponge.
-    rate: usize,
-    /// Precomputed round constants used in the permutation.
-    round_constants: &'static [Fp],
-    /// MDS matrix used in the permutation.
-    mds_matrix: Vec<Vec<Fp>>,
-    /// MDS vector used for optimizing matrix multiplication.
-    mds_vector: MdsVector,
-    /// Method used for applying the MDS matrix.
-    mds_method: MdsMethod,
+    core: RescueCore,
 }
 
 impl Default for Rpo256 {
@@ -52,204 +38,39 @@ impl Default for Rpo256 {
 impl Rpo256 {
     /// Creates a new instance of `Rpo256` with corresponding Security level and the specified MDS method.
     pub fn new(security_level: SecurityLevel, mds_method: MdsMethod) -> Self {
-        let m = get_state_size(&security_level);
-        let capacity = get_capacity(&security_level);
-        let rate = m - capacity;
-        let mds_matrix = get_mds_matrix(&security_level);
-        let round_constants = get_round_constants(&security_level);
-        let mds_vector = get_mds_vector(security_level);
         Self {
-            m,
-            capacity,
-            rate,
-            round_constants,
-            mds_matrix: match mds_matrix {
-                MdsMatrix::Mds128(matrix) => matrix.iter().map(|&row| row.to_vec()).collect(),
-                MdsMatrix::Mds160(matrix) => matrix.iter().map(|&row| row.to_vec()).collect(),
-            },
-            mds_vector,
-            mds_method,
+            core: RescueCore::new(&security_level, mds_method),
         }
-    }
-
-    /// Applies the inverse S-box to the state.
-    pub fn apply_inverse_sbox(state: &mut [Fp]) {
-        for x in state.iter_mut() {
-            *x = x.pow(ALPHA_INV);
-        }
-    }
-
-    /// Applies the S-box to the state.
-    pub fn apply_sbox(state: &mut [Fp]) {
-        for x in state.iter_mut() {
-            *x = x.pow(ALPHA);
-        }
-    }
-
-    /// Performs MDS matrix-vector multiplication.
-    fn mds_matrix_vector_multiplication(&self, state: &[Fp]) -> Vec<Fp> {
-        debug_assert_eq!(
-            state.len(),
-            self.m,
-            "State size must match MDS matrix dimension"
-        );
-        let m = state.len();
-        let mut new_state = vec![Fp::zero(); m];
-
-        for (i, new_value) in new_state.iter_mut().enumerate() {
-            for (j, state_value) in state.iter().enumerate() {
-                *new_value += self.mds_matrix[i][j] * state_value;
-            }
-        }
-
-        new_state
-    }
-
-    /// Performs MDS using Number Theoretic Transform.
-    fn mds_ntt(&self, state: &[Fp]) -> Vec<Fp> {
-        let m = state.len();
-        let omega = if m == 12 {
-            Fp::from(281474976645120u64)
-        } else {
-            Fp::from(17293822564807737345u64)
-        };
-        let mds_vector = self.mds_vector.as_slice();
-
-        let mds_ntt = ntt(mds_vector, omega);
-        let state_rev: Vec<Fp> = iter::once(state[0])
-            .chain(state[1..].iter().rev().cloned())
-            .collect();
-        let state_ntt = ntt(&state_rev, omega);
-
-        let mut product_ntt = vec![Fp::zero(); m];
-        for i in 0..m {
-            product_ntt[i] = mds_ntt[i] * state_ntt[i];
-        }
-
-        let omega_inv = omega.inv().expect("hardcoded omega is nonzero");
-        let result = intt(&product_ntt, omega_inv);
-
-        iter::once(result[0])
-            .chain(result[1..].iter().rev().cloned())
-            .collect()
-    }
-
-    /// Performs MDS using the Karatsuba algorithm.
-    fn mds_karatsuba(&self, state: &[Fp]) -> Vec<Fp> {
-        let m = state.len();
-        let mds_vector = self.mds_vector.as_slice();
-        let mds_rev: Vec<Fp> = iter::once(mds_vector[0])
-            .chain(mds_vector[1..].iter().rev().cloned())
-            .collect();
-
-        let conv = karatsuba(&mds_rev, state);
-
-        let mut result = vec![Fp::zero(); m];
-        result[..m].copy_from_slice(&conv[..m]);
-        for i in m..conv.len() {
-            result[i - m] += conv[i];
-        }
-
-        result
-    }
-
-    /// Applies the MDS transformation to the state.
-    fn apply_mds(&self, state: &mut [Fp]) {
-        let new_state = match self.mds_method {
-            MdsMethod::MatrixMultiplication => self.mds_matrix_vector_multiplication(state),
-            MdsMethod::Ntt => self.mds_ntt(state),
-            MdsMethod::Karatsuba => self.mds_karatsuba(state),
-        };
-        state.copy_from_slice(&new_state);
-    }
-
-    /// Adds the round constants to the state.
-    fn add_round_constants(&self, state: &mut [Fp], round: usize) {
-        let m = self.m;
-        let round_constants = &self.round_constants[round * 2 * m..];
-
-        state
-            .iter_mut()
-            .zip(round_constants.iter())
-            .take(m)
-            .for_each(|(state_elem, &constant)| {
-                *state_elem += constant;
-            });
-    }
-
-    /// Adds the second set of round constants to the state.
-    fn add_round_constants_second(&self, state: &mut [Fp], round: usize) {
-        let m = self.m;
-        let round_constants = &self.round_constants[round * 2 * m + m..];
-
-        state
-            .iter_mut()
-            .zip(round_constants.iter())
-            .take(m)
-            .for_each(|(state_elem, &constant)| {
-                *state_elem += constant;
-            });
     }
 
     /// Performs the full permutation on the state.
     pub fn permutation(&self, state: &mut [Fp]) {
-        debug_assert_eq!(state.len(), self.m, "State size must match state width");
-        let num_rounds = NUM_FULL_ROUNDS;
-        for round in 0..num_rounds {
-            self.apply_mds(state);
-            self.add_round_constants(state, round);
-            Self::apply_sbox(state);
-            self.apply_mds(state);
-            self.add_round_constants_second(state, round);
-            Self::apply_inverse_sbox(state);
+        debug_assert_eq!(
+            state.len(),
+            self.core.m,
+            "State size must match state width"
+        );
+        for round in 0..NUM_FULL_ROUNDS {
+            self.core.apply_mds(state);
+            self.core.add_round_constants(state, round, 0);
+            RescueCore::apply_sbox(state);
+            self.core.apply_mds(state);
+            self.core.add_round_constants(state, round, 1);
+            RescueCore::apply_inverse_sbox(state);
         }
     }
 
     /// Hashes an input sequence of field elements.
     pub fn hash(&self, input_sequence: &[Fp]) -> Vec<Fp> {
-        let mut state = vec![Fp::zero(); self.m];
-        if !input_sequence.len().is_multiple_of(self.rate) {
-            state[0] = Fp::one();
-        }
-
-        let absorb_range = self.capacity..self.capacity + self.rate;
-
-        for chunk in input_sequence.chunks_exact(self.rate) {
-            state[absorb_range.clone()].copy_from_slice(chunk);
-            self.permutation(&mut state);
-        }
-
-        let remainder = &input_sequence[input_sequence.len() / self.rate * self.rate..];
-        if !remainder.is_empty() {
-            debug_assert!(
-                remainder.len() < self.rate,
-                "Remainder must be smaller than rate"
-            );
-            let mut last_chunk = vec![Fp::zero(); self.rate];
-            last_chunk[..remainder.len()].copy_from_slice(remainder);
-            last_chunk[remainder.len()] = Fp::one();
-            state[absorb_range.clone()].copy_from_slice(&last_chunk);
-            self.permutation(&mut state);
-        }
-
-        state[self.capacity..self.capacity + self.rate / 2].to_vec()
+        self.core.hash(input_sequence, |s| self.permutation(s))
     }
 
     /// Hashes an input sequence of bytes.
     pub fn hash_bytes(&self, input: &[u8]) -> Vec<Fp> {
-        let field_elements = bytes_to_field_elements(input);
-        self.hash(&field_elements)
+        self.core.hash_bytes(input, |s| self.permutation(s))
     }
 }
-#[derive(Clone)]
-pub enum MdsMethod {
-    /// Use standard matrix multiplication.
-    MatrixMultiplication,
-    /// Use Number Theoretic Transform for multiplication.
-    Ntt,
-    /// Use Karatsuba algorithm for multiplication.
-    Karatsuba,
-}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -518,14 +339,14 @@ mod tests {
     fn test_apply_sbox() {
         let mut rng = StdRng::seed_from_u64(1);
         let rescue = Rpo256::new(SecurityLevel::Sec128, MdsMethod::MatrixMultiplication);
-        let mut state: Vec<Fp> = (0..rescue.m)
+        let mut state: Vec<Fp> = (0..rescue.core.m)
             .map(|_| rand_field_element(&mut rng))
             .collect();
 
         let mut expected = state.clone();
         expected.iter_mut().for_each(|v| *v = v.pow(ALPHA));
 
-        Rpo256::apply_sbox(&mut state);
+        RescueCore::apply_sbox(&mut state);
         assert_eq!(expected, state);
     }
 
@@ -533,14 +354,14 @@ mod tests {
     fn test_apply_inverse_sbox() {
         let mut rng = StdRng::seed_from_u64(2);
         let rescue = Rpo256::new(SecurityLevel::Sec128, MdsMethod::MatrixMultiplication);
-        let mut state: Vec<Fp> = (0..rescue.m)
+        let mut state: Vec<Fp> = (0..rescue.core.m)
             .map(|_| rand_field_element(&mut rng))
             .collect();
 
         let mut expected = state.clone();
         expected.iter_mut().for_each(|v| *v = v.pow(ALPHA_INV));
 
-        Rpo256::apply_inverse_sbox(&mut state);
+        RescueCore::apply_inverse_sbox(&mut state);
         assert_eq!(expected, state);
     }
 
@@ -548,52 +369,63 @@ mod tests {
     fn test_mds_matrix_multiplication() {
         let mut rng = StdRng::seed_from_u64(3);
         let rescue = Rpo256::new(SecurityLevel::Sec128, MdsMethod::MatrixMultiplication);
-        let state: Vec<Fp> = (0..rescue.m)
+        let state: Vec<Fp> = (0..rescue.core.m)
             .map(|_| rand_field_element(&mut rng))
             .collect();
 
-        let expected_state = rescue.mds_matrix_vector_multiplication(&state);
-        let mut computed_state = state.clone();
-        rescue.apply_mds(&mut computed_state);
+        let original = state.clone();
+        let mut computed_state = state;
+        rescue.core.apply_mds(&mut computed_state);
 
-        assert_eq!(expected_state, computed_state);
+        // Verify against direct matrix multiplication
+        let rescue2 = Rpo256::new(SecurityLevel::Sec128, MdsMethod::MatrixMultiplication);
+        let mut expected = original;
+        rescue2.core.apply_mds(&mut expected);
+
+        assert_eq!(expected, computed_state);
     }
 
     #[test]
     fn test_mds_ntt() {
         let mut rng = StdRng::seed_from_u64(4);
+        let rescue_matrix = Rpo256::new(SecurityLevel::Sec128, MdsMethod::MatrixMultiplication);
         let rescue_ntt = Rpo256::new(SecurityLevel::Sec128, MdsMethod::Ntt);
-        let state: Vec<Fp> = (0..rescue_ntt.m)
+        let state: Vec<Fp> = (0..rescue_ntt.core.m)
             .map(|_| rand_field_element(&mut rng))
             .collect();
 
-        let expected_state = rescue_ntt.mds_ntt(&state);
-        let mut computed_state = state.clone();
-        rescue_ntt.apply_mds(&mut computed_state);
+        let mut matrix_state = state.clone();
+        rescue_matrix.core.apply_mds(&mut matrix_state);
 
-        assert_eq!(expected_state, computed_state);
+        let mut ntt_state = state;
+        rescue_ntt.core.apply_mds(&mut ntt_state);
+
+        assert_eq!(matrix_state, ntt_state);
     }
 
     #[test]
     fn test_mds_karatsuba() {
         let mut rng = StdRng::seed_from_u64(5);
+        let rescue_matrix = Rpo256::new(SecurityLevel::Sec128, MdsMethod::MatrixMultiplication);
         let rescue_karatsuba = Rpo256::new(SecurityLevel::Sec128, MdsMethod::Karatsuba);
-        let state: Vec<Fp> = (0..rescue_karatsuba.m)
+        let state: Vec<Fp> = (0..rescue_karatsuba.core.m)
             .map(|_| rand_field_element(&mut rng))
             .collect();
 
-        let expected_state = rescue_karatsuba.mds_karatsuba(&state);
-        let mut computed_state = state.clone();
-        rescue_karatsuba.apply_mds(&mut computed_state);
+        let mut matrix_state = state.clone();
+        rescue_matrix.core.apply_mds(&mut matrix_state);
 
-        assert_eq!(expected_state, computed_state);
+        let mut karatsuba_state = state;
+        rescue_karatsuba.core.apply_mds(&mut karatsuba_state);
+
+        assert_eq!(matrix_state, karatsuba_state);
     }
 
     #[test]
     fn test_add_round_constants() {
         let mut rng = StdRng::seed_from_u64(6);
         let rescue = Rpo256::new(SecurityLevel::Sec128, MdsMethod::MatrixMultiplication);
-        let mut state: Vec<Fp> = (0..rescue.m)
+        let mut state: Vec<Fp> = (0..rescue.core.m)
             .map(|_| rand_field_element(&mut rng))
             .collect();
 
@@ -601,10 +433,10 @@ mod tests {
         let expected_state = state
             .iter()
             .enumerate()
-            .map(|(i, &x)| x + rescue.round_constants[round * 2 * rescue.m + i])
+            .map(|(i, &x)| x + rescue.core.round_constants[round * 2 * rescue.core.m + i])
             .collect::<Vec<_>>();
 
-        rescue.add_round_constants(&mut state, round);
+        rescue.core.add_round_constants(&mut state, round, 0);
 
         assert_eq!(expected_state, state);
     }
@@ -613,19 +445,19 @@ mod tests {
     fn test_permutation() {
         let mut rng = StdRng::seed_from_u64(7);
         let rescue = Rpo256::new(SecurityLevel::Sec128, MdsMethod::MatrixMultiplication);
-        let mut state: Vec<Fp> = (0..rescue.m)
+        let mut state: Vec<Fp> = (0..rescue.core.m)
             .map(|_| rand_field_element(&mut rng))
             .collect();
 
         let expected_state = {
             let mut temp_state = state.clone();
             for round in 0..7 {
-                rescue.apply_mds(&mut temp_state);
-                rescue.add_round_constants(&mut temp_state, round);
-                Rpo256::apply_sbox(&mut temp_state);
-                rescue.apply_mds(&mut temp_state);
-                rescue.add_round_constants_second(&mut temp_state, round);
-                Rpo256::apply_inverse_sbox(&mut temp_state);
+                rescue.core.apply_mds(&mut temp_state);
+                rescue.core.add_round_constants(&mut temp_state, round, 0);
+                RescueCore::apply_sbox(&mut temp_state);
+                rescue.core.apply_mds(&mut temp_state);
+                rescue.core.add_round_constants(&mut temp_state, round, 1);
+                RescueCore::apply_inverse_sbox(&mut temp_state);
             }
             temp_state
         };

@@ -907,6 +907,16 @@ pub enum SecurityLevel {
     Sec160,
 }
 
+#[derive(Clone)]
+pub enum MdsMethod {
+    /// Use standard matrix multiplication.
+    MatrixMultiplication,
+    /// Use Number Theoretic Transform for multiplication.
+    Ntt,
+    /// Use Karatsuba algorithm for multiplication.
+    Karatsuba,
+}
+
 pub fn get_state_size(security_level: &SecurityLevel) -> usize {
     match security_level {
         SecurityLevel::Sec128 => 12,
