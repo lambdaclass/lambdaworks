@@ -231,18 +231,27 @@ where
     let (aux_trace_polys, aux_merkle_tree, aux_merkle_root, aux_gpu_bufs) = if air
         .has_trace_interaction()
     {
+        let t_sub = std::time::Instant::now();
         air.build_auxiliary_trace(trace, &rap_challenges);
+        eprintln!("      1d.1 build aux:  {:>10.2?}", t_sub.elapsed());
+
+        let t_sub = std::time::Instant::now();
         let aux_columns = trace.columns_aux();
         let aux_polys = interpolate_columns_gpu(&aux_columns, state)?;
+        eprintln!("      1d.2 aux interp: {:>10.2?}", t_sub.elapsed());
 
+        let t_sub = std::time::Instant::now();
         let (aux_lde_buffers, aux_lde_domain_size) =
             evaluate_polys_on_lde_gpu_to_buffers(&aux_polys, blowup_factor, &coset_offset, state)?;
+        eprintln!("      1d.3 aux LDE:    {:>10.2?}", t_sub.elapsed());
 
         // GPU Merkle commit from auxiliary trace FFT buffers
+        let t_sub = std::time::Instant::now();
         let buf_refs: Vec<&metal::Buffer> = aux_lde_buffers.iter().collect();
         let (aux_tree, aux_root) =
             gpu_batch_commit_from_column_buffers(&buf_refs, aux_lde_domain_size, keccak_state)
                 .ok_or(ProvingError::EmptyCommitment)?;
+        eprintln!("      1d.4 aux Merkle: {:>10.2?}", t_sub.elapsed());
 
         transcript.append_bytes(&aux_root);
         (

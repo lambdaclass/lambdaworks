@@ -346,11 +346,7 @@ fn test_prove_verify_fibonacci_rap_goldilocks() {
         a1: FieldElement::<Goldilocks64Field>::one(),
     };
 
-    let air = FibonacciRAP::<Goldilocks64Field>::new(
-        trace.num_rows(),
-        &pub_inputs,
-        &proof_options,
-    );
+    let air = FibonacciRAP::<Goldilocks64Field>::new(trace.num_rows(), &pub_inputs, &proof_options);
 
     let proof = Prover::prove(
         &air,
