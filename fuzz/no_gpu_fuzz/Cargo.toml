@@ -11,6 +11,8 @@ lambdaworks-math = { workspace = true }
 lambdaworks-gpu = { workspace = true }
 libfuzzer-sys = { workspace = true }
 stark-platinum-prover = { workspace = true }
+lambdaworks-crypto = { path = "../../crates/crypto" }
+arbitrary = { version = "1", features = ["derive"] }
 
 num-traits = "0.2"
 ibig = "0.3.6"
@@ -113,5 +115,11 @@ doc = false
 [[bin]]
 name = "g2_prepared"
 path = "fuzz_targets/pairing/g2_prepared.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "poseidon2"
+path = "fuzz_targets/poseidon2.rs"
 test = false
 doc = false
