@@ -473,9 +473,9 @@ pub fn gpu_compute_deep_composition_poly_to_buffer(
     // --- Compute inversions on GPU ---
     let z_power = round_3_result.z.pow(num_comp_parts);
     let primitive_root = &domain.trace_primitive_root;
-    let z_shifted_0 = &round_3_result.z * primitive_root.pow(0usize);
-    let z_shifted_1 = &round_3_result.z * primitive_root.pow(1usize);
-    let z_shifted_2 = &round_3_result.z * primitive_root.pow(2usize);
+    let z_shifted_0 = round_3_result.z;
+    let z_shifted_1 = round_3_result.z * primitive_root;
+    let z_shifted_2 = round_3_result.z * (primitive_root * primitive_root);
 
     let (buf_inv_zp, buf_inv_zs0, buf_inv_zs1, buf_inv_zs2) = gpu_compute_domain_inversions_base(
         domain,
@@ -825,9 +825,9 @@ pub fn gpu_compute_deep_composition_poly_fp3(
     let z_power: Fp3E = z.pow(num_comp_parts);
     let primitive_root = &domain.trace_primitive_root;
 
-    let z_shifted_0: Fp3E = primitive_root.pow(0usize) * z;
-    let z_shifted_1: Fp3E = primitive_root.pow(1usize) * z;
-    let z_shifted_2: Fp3E = primitive_root.pow(2usize) * z;
+    let z_shifted_0: Fp3E = *z;
+    let z_shifted_1: Fp3E = primitive_root * z;
+    let z_shifted_2: Fp3E = (primitive_root * primitive_root) * z;
 
     let (buf_inv_zp, buf_inv_zs0, buf_inv_zs1, buf_inv_zs2) =
         gpu_compute_domain_inversions_fp3(

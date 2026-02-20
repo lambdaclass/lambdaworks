@@ -124,7 +124,7 @@ pub fn gpu_transpose_bitrev_to_buffer(
     use metal::{MTLCommandBufferStatus, MTLResourceOptions, MTLSize};
 
     let num_cols = column_buffers.len();
-    let log_n = num_rows.trailing_zeros() as u32;
+    let log_n = num_rows.trailing_zeros();
 
     // Allocate flat column-major input buffer
     let flat_cols_size = (num_rows * num_cols * std::mem::size_of::<u64>()) as u64;
@@ -216,7 +216,7 @@ pub fn gpu_transpose_bitrev_paired_to_buffer(
     use metal::{MTLCommandBufferStatus, MTLResourceOptions, MTLSize};
 
     let num_cols = column_buffers.len();
-    let log_n = num_rows.trailing_zeros() as u32;
+    let log_n = num_rows.trailing_zeros();
 
     // Allocate flat column-major input buffer
     let flat_cols_size = (num_rows * num_cols * std::mem::size_of::<u64>()) as u64;
@@ -1020,7 +1020,7 @@ fn gpu_transpose_hash_and_build_tree(
 ) -> Result<(Vec<[u8; 32]>, [u8; 32]), MetalError> {
     use metal::{MTLCommandBufferStatus, MTLResourceOptions, MTLSize};
 
-    let log_n = num_rows.trailing_zeros() as u32;
+    let log_n = num_rows.trailing_zeros();
 
     // Compute effective leaf dimensions
     let (leaf_rows, leaf_cols) = if paired {
