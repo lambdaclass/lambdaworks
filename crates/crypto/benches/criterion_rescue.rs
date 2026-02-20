@@ -13,8 +13,8 @@ fn generate_random_bytes(size: usize) -> Vec<u8> {
 }
 
 fn rescue_benchmarks(c: &mut Criterion) {
-    let rpo = Rpo256::new(SecurityLevel::Sec128, MdsMethod::MatrixMultiplication).unwrap();
-    let rpx = Rpx256::new(MdsMethod::MatrixMultiplication).unwrap();
+    let rpo = Rpo256::new(SecurityLevel::Sec128, MdsMethod::MatrixMultiplication);
+    let rpx = Rpx256::new(MdsMethod::MatrixMultiplication);
 
     let input_8 = generate_random_input(8);
     let input_64 = generate_random_input(64);
@@ -117,10 +117,10 @@ fn rescue_benchmarks(c: &mut Criterion) {
     group.finish();
 
     // MDS method comparison for RPX
-    let rpo_ntt = Rpo256::new(SecurityLevel::Sec128, MdsMethod::Ntt).unwrap();
-    let rpo_karatsuba = Rpo256::new(SecurityLevel::Sec128, MdsMethod::Karatsuba).unwrap();
-    let rpx_ntt = Rpx256::new(MdsMethod::Ntt).unwrap();
-    let rpx_karatsuba = Rpx256::new(MdsMethod::Karatsuba).unwrap();
+    let rpo_ntt = Rpo256::new(SecurityLevel::Sec128, MdsMethod::Ntt);
+    let rpo_karatsuba = Rpo256::new(SecurityLevel::Sec128, MdsMethod::Karatsuba);
+    let rpx_ntt = Rpx256::new(MdsMethod::Ntt);
+    let rpx_karatsuba = Rpx256::new(MdsMethod::Karatsuba);
 
     let mut group = c.benchmark_group("mds_methods_64_elements");
     group.throughput(Throughput::Elements(64));

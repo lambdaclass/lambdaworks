@@ -32,12 +32,12 @@ pub struct Rpx256 {
 
 impl Default for Rpx256 {
     fn default() -> Self {
-        Self::new(MdsMethod::MatrixMultiplication).unwrap()
+        Self::new(MdsMethod::MatrixMultiplication)
     }
 }
 
 impl Rpx256 {
-    pub fn new(mds_method: MdsMethod) -> Result<Self, &'static str> {
+    pub fn new(mds_method: MdsMethod) -> Self {
         let security_level = SecurityLevel::Sec128;
         let m = get_state_size(&security_level);
         let capacity = get_capacity(&security_level);
@@ -46,7 +46,7 @@ impl Rpx256 {
         let round_constants = get_round_constants(&security_level);
         let mds_vector = get_mds_vector(security_level);
 
-        Ok(Self {
+        Self {
             m,
             capacity,
             rate,
@@ -57,7 +57,7 @@ impl Rpx256 {
             },
             mds_vector,
             mds_method,
-        })
+        }
     }
 
     pub fn apply_inverse_sbox(state: &mut [Fp]) {
@@ -323,7 +323,7 @@ mod tests {
     #[test]
     fn test_apply_sbox() {
         let mut rng = StdRng::seed_from_u64(1);
-        let rpx = Rpx256::new(MdsMethod::MatrixMultiplication).unwrap();
+        let rpx = Rpx256::new(MdsMethod::MatrixMultiplication);
         let mut state: Vec<Fp> = (0..rpx.m).map(|_| rand_field_element(&mut rng)).collect();
 
         let mut expected = state.clone();
@@ -336,7 +336,7 @@ mod tests {
     #[test]
     fn test_apply_inverse_sbox() {
         let mut rng = StdRng::seed_from_u64(2);
-        let rpx = Rpx256::new(MdsMethod::MatrixMultiplication).unwrap();
+        let rpx = Rpx256::new(MdsMethod::MatrixMultiplication);
         let mut state: Vec<Fp> = (0..rpx.m).map(|_| rand_field_element(&mut rng)).collect();
 
         let mut expected = state.clone();
@@ -349,7 +349,7 @@ mod tests {
     #[test]
     fn test_permutation() {
         let mut rng = StdRng::seed_from_u64(3);
-        let rpx = Rpx256::new(MdsMethod::MatrixMultiplication).unwrap();
+        let rpx = Rpx256::new(MdsMethod::MatrixMultiplication);
         let mut state: Vec<Fp> = (0..rpx.m).map(|_| rand_field_element(&mut rng)).collect();
 
         let mut expected_state = state.clone();
@@ -369,7 +369,7 @@ mod tests {
 
     #[test]
     fn test_hash_single_chunk() {
-        let rpx = Rpx256::new(MdsMethod::MatrixMultiplication).unwrap();
+        let rpx = Rpx256::new(MdsMethod::MatrixMultiplication);
         let input_sequence: Vec<Fp> = (0..8).map(Fp::from).collect();
         let hash_output = rpx.hash(&input_sequence);
 
@@ -378,7 +378,7 @@ mod tests {
 
     #[test]
     fn test_hash_multiple_chunks() {
-        let rpx = Rpx256::new(MdsMethod::MatrixMultiplication).unwrap();
+        let rpx = Rpx256::new(MdsMethod::MatrixMultiplication);
         let input_sequence: Vec<Fp> = (0..16).map(Fp::from).collect();
         let hash_output = rpx.hash(&input_sequence);
 
@@ -387,7 +387,7 @@ mod tests {
 
     #[test]
     fn test_hash_with_padding() {
-        let rpx = Rpx256::new(MdsMethod::MatrixMultiplication).unwrap();
+        let rpx = Rpx256::new(MdsMethod::MatrixMultiplication);
         let input_sequence: Vec<Fp> = (0..5).map(Fp::from).collect();
         let hash_output = rpx.hash(&input_sequence);
         assert_eq!(hash_output.len(), 4);
@@ -395,7 +395,7 @@ mod tests {
 
     #[test]
     fn test_hash_bytes() {
-        let rpx = Rpx256::new(MdsMethod::MatrixMultiplication).unwrap();
+        let rpx = Rpx256::new(MdsMethod::MatrixMultiplication);
         let input_bytes = b"Rescue Prime XHash";
         let hash_output = rpx.hash_bytes(input_bytes);
 
@@ -404,9 +404,9 @@ mod tests {
 
     #[test]
     fn test_mds_methods_consistency() {
-        let rpx_matrix = Rpx256::new(MdsMethod::MatrixMultiplication).unwrap();
-        let rpx_ntt = Rpx256::new(MdsMethod::Ntt).unwrap();
-        let rpx_karatsuba = Rpx256::new(MdsMethod::Karatsuba).unwrap();
+        let rpx_matrix = Rpx256::new(MdsMethod::MatrixMultiplication);
+        let rpx_ntt = Rpx256::new(MdsMethod::Ntt);
+        let rpx_karatsuba = Rpx256::new(MdsMethod::Karatsuba);
 
         let input = vec![
             Fp::from(1u64),
@@ -430,7 +430,7 @@ mod tests {
 
     #[test]
     fn test_padding_collision_prevention() {
-        let rpx = Rpx256::new(MdsMethod::MatrixMultiplication).unwrap();
+        let rpx = Rpx256::new(MdsMethod::MatrixMultiplication);
         // 7 zeroes gets padding 1 appended → [0,0,0,0,0,0,0,1]
         // 8 elements [0,0,0,0,0,0,0,1] is rate-aligned, no padding
         // Without domain separation these would collide
@@ -446,7 +446,7 @@ mod tests {
 
     #[test]
     fn hash_padding() {
-        let rpx = Rpx256::new(MdsMethod::MatrixMultiplication).unwrap();
+        let rpx = Rpx256::new(MdsMethod::MatrixMultiplication);
 
         let input1 = vec![1u8, 2, 3];
         let input2 = vec![1u8, 2, 3, 0];
@@ -470,7 +470,7 @@ mod tests {
     #[cfg(feature = "std")]
     #[test]
     fn sponge_zeroes_collision() {
-        let rpx = Rpx256::new(MdsMethod::MatrixMultiplication).unwrap();
+        let rpx = Rpx256::new(MdsMethod::MatrixMultiplication);
 
         let mut zeroes = Vec::new();
         let mut hashes = std::collections::HashSet::new();
