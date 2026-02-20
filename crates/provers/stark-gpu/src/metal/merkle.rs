@@ -869,18 +869,10 @@ fn gpu_hash_and_build_tree_from_buffer(
     let threads_per_group = keccak_state.hash_pairs_max_threads.min(256);
     let mut level_begin = leaves_len - 1;
     let mut level_end = 2 * level_begin;
-    let mut cpu_level_begin = level_begin;
-    let mut cpu_level_end = level_end;
 
     while level_begin != level_end {
         let new_level_begin = level_begin / 2;
         let num_pairs = (level_end - level_begin).div_ceil(2);
-
-        if num_pairs < 64 {
-            cpu_level_begin = level_begin;
-            cpu_level_end = level_end;
-            break;
-        }
 
         let children_byte_offset = (level_begin * 32) as u64;
         let parents_byte_offset = (new_level_begin * 32) as u64;
@@ -903,8 +895,6 @@ fn gpu_hash_and_build_tree_from_buffer(
         );
         encoder.end_encoding();
 
-        cpu_level_begin = new_level_begin;
-        cpu_level_end = level_begin - 1;
         level_end = level_begin - 1;
         level_begin = new_level_begin;
     }
@@ -936,19 +926,6 @@ fn gpu_hash_and_build_tree_from_buffer(
         }
     }
 
-    let mut lb = cpu_level_begin;
-    let mut le = cpu_level_end;
-    while lb != le {
-        let new_lb = lb / 2;
-        let children_slice = &nodes[lb..=le];
-        let parents = gpu_hash_tree_level(children_slice, keccak_state)?;
-        for (i, parent) in parents.iter().enumerate() {
-            nodes[new_lb + i] = *parent;
-        }
-        le = lb - 1;
-        lb = new_lb;
-    }
-
     let root = nodes[0];
     Ok((nodes, root))
 }
@@ -959,9 +936,9 @@ fn gpu_hash_and_build_tree_from_buffer(
 /// and builds a Merkle tree by transposing + bit-reversing row indices on GPU,
 /// then hashing on GPU.
 ///
-/// This avoids the FFT→CPU Vec→GPU Buffer round-trip: the FFT result buffers
-/// are transposed entirely on the GPU via the `transpose_bitrev` Metal kernel,
-/// eliminating the CPU pointer-arithmetic loop.
+/// Uses a single Metal command buffer for the entire pipeline (blit + transpose +
+/// hash leaves + hash tree levels) with only ONE `wait_until_completed()` call,
+/// eliminating the sync barrier between transpose and hashing.
 #[cfg(all(target_os = "macos", feature = "metal"))]
 pub fn gpu_batch_commit_from_column_buffers(
     column_buffers: &[&metal::Buffer],
@@ -973,14 +950,17 @@ pub fn gpu_batch_commit_from_column_buffers(
     }
 
     let num_cols = column_buffers.len();
-
-    // Transpose column buffers to row-major with bit-reversed row ordering on GPU
     let transpose_state = keccak_state.transpose_state()?;
-    let flat_buf =
-        gpu_transpose_bitrev_to_buffer(column_buffers, num_rows, transpose_state).ok()?;
 
-    let (nodes, root) =
-        gpu_hash_and_build_tree_from_buffer(&flat_buf, num_rows, num_cols, keccak_state).ok()?;
+    let (nodes, root) = gpu_transpose_hash_and_build_tree(
+        column_buffers,
+        num_rows,
+        num_cols,
+        false, // unpaired
+        keccak_state,
+        transpose_state,
+    )
+    .ok()?;
 
     let tree = BatchedMerkleTree::<Goldilocks64Field>::from_nodes(nodes)?;
     Some((tree, root))
@@ -990,8 +970,7 @@ pub fn gpu_batch_commit_from_column_buffers(
 ///
 /// Like [`gpu_batch_commit_from_column_buffers`] but merges consecutive bit-reversed
 /// rows into paired leaves, matching the composition polynomial commit layout.
-/// Uses the `transpose_bitrev_paired` Metal kernel to perform the transpose + pairing
-/// entirely on GPU.
+/// Uses a single Metal command buffer for the entire pipeline.
 #[cfg(all(target_os = "macos", feature = "metal"))]
 pub fn gpu_batch_commit_paired_from_column_buffers(
     column_buffers: &[&metal::Buffer],
@@ -1003,24 +982,245 @@ pub fn gpu_batch_commit_paired_from_column_buffers(
     }
 
     let num_cols = column_buffers.len();
-    let num_merged_rows = lde_len / 2;
-    let cols_per_merged_row = 2 * num_cols;
-
-    // Transpose + pair column buffers on GPU
     let transpose_state = keccak_state.transpose_state()?;
-    let flat_buf =
-        gpu_transpose_bitrev_paired_to_buffer(column_buffers, lde_len, transpose_state).ok()?;
 
-    let (nodes, root) = gpu_hash_and_build_tree_from_buffer(
-        &flat_buf,
-        num_merged_rows,
-        cols_per_merged_row,
+    let (nodes, root) = gpu_transpose_hash_and_build_tree(
+        column_buffers,
+        lde_len,
+        num_cols,
+        true, // paired
         keccak_state,
+        transpose_state,
     )
     .ok()?;
 
     let tree = BatchedMerkleTree::<Goldilocks64Field>::from_nodes(nodes)?;
     Some((tree, root))
+}
+
+/// Merged single-command-buffer pipeline: blit + transpose + hash leaves + build tree.
+///
+/// Combines the work of `gpu_transpose_bitrev[_paired]_to_buffer` and
+/// `gpu_hash_and_build_tree_from_buffer` into ONE Metal command buffer with
+/// a single `wait_until_completed()` call. This eliminates the CPU-GPU sync
+/// barrier that previously existed between transpose and hashing.
+///
+/// When `paired` is true, uses the `transpose_bitrev_paired` kernel and adjusts
+/// the leaf layout accordingly (num_rows/2 merged rows, 2*num_cols per row).
+///
+/// All tree levels are built on GPU, including small ones (no CPU fallback).
+#[cfg(all(target_os = "macos", feature = "metal"))]
+fn gpu_transpose_hash_and_build_tree(
+    column_buffers: &[&metal::Buffer],
+    num_rows: usize,
+    num_cols: usize,
+    paired: bool,
+    keccak_state: &GpuKeccakMerkleState,
+    transpose_state: &TransposeBitrevState,
+) -> Result<(Vec<[u8; 32]>, [u8; 32]), MetalError> {
+    use metal::{MTLCommandBufferStatus, MTLResourceOptions, MTLSize};
+
+    let log_n = num_rows.trailing_zeros() as u32;
+
+    // Compute effective leaf dimensions
+    let (leaf_rows, leaf_cols) = if paired {
+        (num_rows / 2, 2 * num_cols)
+    } else {
+        (num_rows, num_cols)
+    };
+    let leaves_len = leaf_rows.next_power_of_two();
+    let total_nodes = 2 * leaves_len - 1;
+
+    // Allocate all buffers upfront
+    let flat_cols_size = (num_rows * num_cols * std::mem::size_of::<u64>()) as u64;
+    let flat_cols = keccak_state.state.device().new_buffer(
+        flat_cols_size,
+        MTLResourceOptions::StorageModeShared,
+    );
+    let output_size = if paired {
+        ((num_rows / 2) * 2 * num_cols * std::mem::size_of::<u64>()) as u64
+    } else {
+        flat_cols_size
+    };
+    let transpose_out = keccak_state.state.device().new_buffer(
+        output_size,
+        MTLResourceOptions::StorageModeShared,
+    );
+    let tree_buf = keccak_state.state.device().new_buffer(
+        (total_nodes * 32) as u64,
+        MTLResourceOptions::StorageModeShared,
+    );
+
+    // Parameter buffers
+    let num_cols_u32 = num_cols as u32;
+    let num_rows_u32 = num_rows as u32;
+    let leaf_cols_u32 = leaf_cols as u32;
+    let leaf_rows_u32 = leaf_rows as u32;
+    let buf_num_cols = keccak_state
+        .state
+        .alloc_buffer_with_data(std::slice::from_ref(&num_cols_u32))?;
+    let buf_num_rows = keccak_state
+        .state
+        .alloc_buffer_with_data(std::slice::from_ref(&num_rows_u32))?;
+    let buf_log_n = keccak_state
+        .state
+        .alloc_buffer_with_data(std::slice::from_ref(&log_n))?;
+    let buf_leaf_cols = keccak_state
+        .state
+        .alloc_buffer_with_data(std::slice::from_ref(&leaf_cols_u32))?;
+    let buf_leaf_rows = keccak_state
+        .state
+        .alloc_buffer_with_data(std::slice::from_ref(&leaf_rows_u32))?;
+
+    // Get pipeline references
+    let transpose_kernel_name = if paired {
+        "transpose_bitrev_paired"
+    } else {
+        "transpose_bitrev"
+    };
+    let transpose_pipeline = transpose_state
+        .state
+        .get_pipeline_ref(transpose_kernel_name)
+        .ok_or_else(|| MetalError::FunctionError(transpose_kernel_name.to_string()))?;
+    let leaf_hash_pipeline = keccak_state
+        .state
+        .get_pipeline_ref("keccak256_hash_leaves")
+        .ok_or_else(|| MetalError::FunctionError("keccak256_hash_leaves".to_string()))?;
+    let pair_hash_pipeline = keccak_state
+        .state
+        .get_pipeline_ref("keccak256_hash_pairs")
+        .ok_or_else(|| MetalError::FunctionError("keccak256_hash_pairs".to_string()))?;
+
+    // === ONE command buffer for everything ===
+    let command_buffer = keccak_state.state.command_queue().new_command_buffer();
+
+    // Phase 1: Blit-copy column buffers into flat column-major buffer
+    let blit = command_buffer.new_blit_command_encoder();
+    for (i, col_buf) in column_buffers.iter().enumerate() {
+        blit.copy_from_buffer(
+            col_buf,
+            0,
+            &flat_cols,
+            (i * num_rows * std::mem::size_of::<u64>()) as u64,
+            col_buf.length(),
+        );
+    }
+    blit.end_encoding();
+
+    // Phase 2: Transpose + bit-reverse compute kernel
+    {
+        let transpose_threads = if paired {
+            transpose_state.paired_max_threads
+        } else {
+            transpose_state.unpaired_max_threads
+        };
+        let threads_per_group = transpose_threads.min(256);
+        let dispatch_count = if paired {
+            num_rows as u64 / 2
+        } else {
+            num_rows as u64
+        };
+        let thread_groups = dispatch_count.div_ceil(threads_per_group);
+
+        let encoder = command_buffer.new_compute_command_encoder();
+        encoder.set_compute_pipeline_state(transpose_pipeline);
+        encoder.set_buffer(0, Some(&flat_cols), 0);
+        encoder.set_buffer(1, Some(&transpose_out), 0);
+        encoder.set_buffer(2, Some(&buf_num_cols), 0);
+        encoder.set_buffer(3, Some(&buf_num_rows), 0);
+        encoder.set_buffer(4, Some(&buf_log_n), 0);
+        encoder.dispatch_thread_groups(
+            MTLSize::new(thread_groups, 1, 1),
+            MTLSize::new(threads_per_group, 1, 1),
+        );
+        encoder.end_encoding();
+    }
+
+    // Phase 3: Hash leaves
+    {
+        let leaf_byte_offset = ((leaves_len - 1) * 32) as u64;
+        let threads_per_group = keccak_state.hash_leaves_max_threads.min(256);
+        let thread_groups = (leaf_rows as u64).div_ceil(threads_per_group);
+
+        let encoder = command_buffer.new_compute_command_encoder();
+        encoder.set_compute_pipeline_state(leaf_hash_pipeline);
+        encoder.set_buffer(0, Some(&transpose_out), 0);
+        encoder.set_buffer(1, Some(&tree_buf), leaf_byte_offset);
+        encoder.set_buffer(2, Some(&buf_leaf_cols), 0);
+        encoder.set_buffer(3, Some(&buf_leaf_rows), 0);
+        encoder.dispatch_thread_groups(
+            MTLSize::new(thread_groups, 1, 1),
+            MTLSize::new(threads_per_group, 1, 1),
+        );
+        encoder.end_encoding();
+    }
+
+    // Phase 4: Build tree levels (ALL on GPU, no CPU fallback)
+    let threads_per_group = keccak_state.hash_pairs_max_threads.min(256);
+    let mut level_begin = leaves_len - 1;
+    let mut level_end = 2 * level_begin;
+
+    while level_begin != level_end {
+        let new_level_begin = level_begin / 2;
+        let num_pairs = (level_end - level_begin).div_ceil(2);
+
+        let children_byte_offset = (level_begin * 32) as u64;
+        let parents_byte_offset = (new_level_begin * 32) as u64;
+        let num_pairs_u32 = num_pairs as u32;
+        let param_buf = keccak_state.state.device().new_buffer_with_data(
+            &num_pairs_u32 as *const u32 as *const _,
+            std::mem::size_of::<u32>() as u64,
+            MTLResourceOptions::StorageModeShared,
+        );
+
+        let encoder = command_buffer.new_compute_command_encoder();
+        encoder.set_compute_pipeline_state(pair_hash_pipeline);
+        encoder.set_buffer(0, Some(&tree_buf), children_byte_offset);
+        encoder.set_buffer(1, Some(&tree_buf), parents_byte_offset);
+        encoder.set_buffer(2, Some(&param_buf), 0);
+        let thread_groups_count = (num_pairs as u64).div_ceil(threads_per_group);
+        encoder.dispatch_thread_groups(
+            MTLSize::new(thread_groups_count, 1, 1),
+            MTLSize::new(threads_per_group, 1, 1),
+        );
+        encoder.end_encoding();
+
+        level_end = level_begin - 1;
+        level_begin = new_level_begin;
+    }
+
+    // === ONE sync point ===
+    command_buffer.commit();
+    command_buffer.wait_until_completed();
+
+    if command_buffer.status() == MTLCommandBufferStatus::Error {
+        return Err(MetalError::ExecutionError(
+            "GPU transpose+hash+tree command error".to_string(),
+        ));
+    }
+
+    // Read tree from UMA-shared buffer
+    let mut nodes = vec![[0u8; 32]; total_nodes];
+    unsafe {
+        let ptr = tree_buf.contents() as *const u8;
+        std::ptr::copy_nonoverlapping(ptr, nodes.as_mut_ptr() as *mut u8, total_nodes * 32);
+    }
+
+    // Pad leaf hashes if num_rows is not a power of two
+    if leaf_rows < leaves_len {
+        let last_real = leaves_len - 1 + leaf_rows - 1;
+        let pad_hash = nodes[last_real];
+        for node in nodes
+            .iter_mut()
+            .take(leaves_len - 1 + leaves_len)
+            .skip(last_real + 1)
+        {
+            *node = pad_hash;
+        }
+    }
+
+    let root = nodes[0];
+    Ok((nodes, root))
 }
 
 /// GPU FRI-layer Merkle commit from a GPU buffer.
