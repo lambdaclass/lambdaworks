@@ -4,7 +4,6 @@ use super::Fp;
 use super::MdsMethod;
 use crate::alloc::vec::Vec;
 use core::iter;
-use lambdaworks_math::field::errors::FieldError;
 
 /// Implementation of RPX (Rescue Prime eXtension) hash function.
 ///
@@ -92,7 +91,7 @@ impl Rpx256 {
     }
 
     /// Performs MDS using Number Theoretic Transform.
-    fn mds_ntt(&self, state: &[Fp]) -> Result<Vec<Fp>, FieldError> {
+    fn mds_ntt(&self, state: &[Fp]) -> Vec<Fp> {
         let m = state.len();
         let omega = if m == 12 {
             Fp::from(281474976645120u64)
@@ -112,12 +111,12 @@ impl Rpx256 {
             product_ntt[i] = mds_ntt[i] * state_ntt[i];
         }
 
-        let omega_inv = omega.inv()?;
-        let result = intt(&product_ntt, omega_inv)?;
+        let omega_inv = omega.inv().expect("hardcoded omega is nonzero");
+        let result = intt(&product_ntt, omega_inv);
 
-        Ok(iter::once(result[0])
+        iter::once(result[0])
             .chain(result[1..].iter().rev().cloned())
-            .collect())
+            .collect()
     }
 
     /// Performs MDS using the Karatsuba algorithm.
@@ -139,14 +138,13 @@ impl Rpx256 {
         result
     }
 
-    fn apply_mds(&self, state: &mut [Fp]) -> Result<(), FieldError> {
+    fn apply_mds(&self, state: &mut [Fp]) {
         let new_state = match self.mds_method {
             MdsMethod::MatrixMultiplication => self.mds_matrix_vector_multiplication(state),
-            MdsMethod::Ntt => self.mds_ntt(state)?,
+            MdsMethod::Ntt => self.mds_ntt(state),
             MdsMethod::Karatsuba => self.mds_karatsuba(state),
         };
         state.copy_from_slice(&new_state);
-        Ok(())
     }
 
     fn add_round_constants(&self, state: &mut [Fp], round: usize, offset: usize) {
@@ -163,10 +161,10 @@ impl Rpx256 {
     }
 
     fn apply_full_block(&self, state: &mut [Fp], round: usize) {
-        let _ = self.apply_mds(state);
+        self.apply_mds(state);
         self.add_round_constants(state, round, 0);
         Self::apply_sbox(state);
-        let _ = self.apply_mds(state);
+        self.apply_mds(state);
         self.add_round_constants(state, round, 1);
         Self::apply_inverse_sbox(state);
     }
@@ -206,7 +204,7 @@ impl Rpx256 {
     }
 
     fn apply_middle_round(&self, state: &mut [Fp], round: usize) {
-        let _ = self.apply_mds(state);
+        self.apply_mds(state);
         self.add_round_constants(state, round, 0);
     }
 

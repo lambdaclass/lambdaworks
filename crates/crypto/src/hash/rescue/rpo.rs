@@ -3,7 +3,6 @@ use super::utils::*;
 use super::Fp;
 use crate::alloc::vec::Vec;
 use core::iter;
-use lambdaworks_math::field::errors::FieldError;
 
 // Implementation of the Rescue Prime Optimized hash function.
 // https://eprint.iacr.org/2022/1577
@@ -107,7 +106,7 @@ impl Rpo256 {
     }
 
     /// Performs MDS using Number Theoretic Transform.
-    fn mds_ntt(&self, state: &[Fp]) -> Result<Vec<Fp>, FieldError> {
+    fn mds_ntt(&self, state: &[Fp]) -> Vec<Fp> {
         let m = state.len();
         let omega = if m == 12 {
             Fp::from(281474976645120u64)
@@ -127,12 +126,12 @@ impl Rpo256 {
             product_ntt[i] = mds_ntt[i] * state_ntt[i];
         }
 
-        let omega_inv = omega.inv()?;
-        let result = intt(&product_ntt, omega_inv)?;
+        let omega_inv = omega.inv().expect("hardcoded omega is nonzero");
+        let result = intt(&product_ntt, omega_inv);
 
-        Ok(iter::once(result[0])
+        iter::once(result[0])
             .chain(result[1..].iter().rev().cloned())
-            .collect())
+            .collect()
     }
 
     /// Performs MDS using the Karatsuba algorithm.
@@ -155,14 +154,13 @@ impl Rpo256 {
     }
 
     /// Applies the MDS transformation to the state.
-    fn apply_mds(&self, state: &mut [Fp]) -> Result<(), FieldError> {
+    fn apply_mds(&self, state: &mut [Fp]) {
         let new_state = match self.mds_method {
             MdsMethod::MatrixMultiplication => self.mds_matrix_vector_multiplication(state),
-            MdsMethod::Ntt => self.mds_ntt(state)?,
+            MdsMethod::Ntt => self.mds_ntt(state),
             MdsMethod::Karatsuba => self.mds_karatsuba(state),
         };
         state.copy_from_slice(&new_state);
-        Ok(())
     }
 
     /// Adds the round constants to the state.
@@ -198,10 +196,10 @@ impl Rpo256 {
         debug_assert_eq!(state.len(), self.m, "State size must match state width");
         let num_rounds = NUM_FULL_ROUNDS;
         for round in 0..num_rounds {
-            let _ = self.apply_mds(state);
+            self.apply_mds(state);
             self.add_round_constants(state, round);
             Self::apply_sbox(state);
-            let _ = self.apply_mds(state);
+            self.apply_mds(state);
             self.add_round_constants_second(state, round);
             Self::apply_inverse_sbox(state);
         }
@@ -556,7 +554,7 @@ mod tests {
 
         let expected_state = rescue.mds_matrix_vector_multiplication(&state);
         let mut computed_state = state.clone();
-        let _ = rescue.apply_mds(&mut computed_state);
+        rescue.apply_mds(&mut computed_state);
 
         assert_eq!(expected_state, computed_state);
     }
@@ -569,9 +567,9 @@ mod tests {
             .map(|_| rand_field_element(&mut rng))
             .collect();
 
-        let expected_state = rescue_ntt.mds_ntt(&state).unwrap();
+        let expected_state = rescue_ntt.mds_ntt(&state);
         let mut computed_state = state.clone();
-        let _ = rescue_ntt.apply_mds(&mut computed_state);
+        rescue_ntt.apply_mds(&mut computed_state);
 
         assert_eq!(expected_state, computed_state);
     }
@@ -586,7 +584,7 @@ mod tests {
 
         let expected_state = rescue_karatsuba.mds_karatsuba(&state);
         let mut computed_state = state.clone();
-        let _ = rescue_karatsuba.apply_mds(&mut computed_state);
+        rescue_karatsuba.apply_mds(&mut computed_state);
 
         assert_eq!(expected_state, computed_state);
     }
@@ -622,10 +620,10 @@ mod tests {
         let expected_state = {
             let mut temp_state = state.clone();
             for round in 0..7 {
-                let _ = rescue.apply_mds(&mut temp_state);
+                rescue.apply_mds(&mut temp_state);
                 rescue.add_round_constants(&mut temp_state, round);
                 Rpo256::apply_sbox(&mut temp_state);
-                let _ = rescue.apply_mds(&mut temp_state);
+                rescue.apply_mds(&mut temp_state);
                 rescue.add_round_constants_second(&mut temp_state, round);
                 Rpo256::apply_inverse_sbox(&mut temp_state);
             }
