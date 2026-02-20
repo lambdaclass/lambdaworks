@@ -101,7 +101,7 @@ pub type U64TestField = U64Field<18446744069414584321>;
 // These params correspond to the 18446744069414584321 modulus.
 impl IsFFTField for U64TestField {
     const TWO_ADICITY: u64 = 32;
-    const TWO_ADIC_PRIMITVE_ROOT_OF_UNITY: u64 = 1753635133440165772;
+    const TWO_ADIC_PRIMITIVE_ROOT_OF_UNITY: u64 = 1753635133440165772;
 }
 
 #[derive(Clone, Debug)]

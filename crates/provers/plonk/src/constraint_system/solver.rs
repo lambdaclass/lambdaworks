@@ -19,18 +19,18 @@ where
         mut assignments: HashMap<Variable, FE<F>>,
     ) -> Result<HashMap<Variable, FE<F>>, SolverError> {
         loop {
-            let old_solved = assignments.keys().len();
-            for constraint in self.constraints.iter() {
+            let old_solved = assignments.len();
+            for constraint in &self.constraints {
                 assignments = solve_hint(assignments, constraint);
                 assignments = solve_constraint(assignments, constraint);
             }
-            if old_solved == assignments.keys().len() {
+            if old_solved == assignments.len() {
                 break;
             }
         }
 
         // Check the system is solved
-        for constraint in self.constraints.iter() {
+        for constraint in &self.constraints {
             let a = assignments.get(&constraint.l);
             let b = assignments.get(&constraint.r);
             let c = assignments.get(&constraint.o);
