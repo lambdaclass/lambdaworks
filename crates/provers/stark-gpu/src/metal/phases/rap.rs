@@ -218,12 +218,9 @@ where
     // GPU Merkle commit directly from FFT output buffers (no extra memcpy)
     let t = std::time::Instant::now();
     let buffer_refs: Vec<&metal::Buffer> = main_lde_buffers.iter().collect();
-    let (main_merkle_tree, main_merkle_root) = gpu_batch_commit_from_column_buffers(
-        &buffer_refs,
-        main_lde_domain_size,
-        keccak_state,
-    )
-    .ok_or(ProvingError::EmptyCommitment)?;
+    let (main_merkle_tree, main_merkle_root) =
+        gpu_batch_commit_from_column_buffers(&buffer_refs, main_lde_domain_size, keccak_state)
+            .ok_or(ProvingError::EmptyCommitment)?;
     eprintln!("    1c main Merkle:    {:>10.2?}", t.elapsed());
 
     transcript.append_bytes(&main_merkle_root);
@@ -231,33 +228,32 @@ where
 
     // --- Auxiliary trace (if RAP) ---
     let t = std::time::Instant::now();
-    let (aux_trace_polys, aux_merkle_tree, aux_merkle_root, aux_gpu_bufs) =
-        if air.has_trace_interaction() {
-            air.build_auxiliary_trace(trace, &rap_challenges);
-            let aux_columns = trace.columns_aux();
-            let aux_polys = interpolate_columns_gpu(&aux_columns, state)?;
+    let (aux_trace_polys, aux_merkle_tree, aux_merkle_root, aux_gpu_bufs) = if air
+        .has_trace_interaction()
+    {
+        air.build_auxiliary_trace(trace, &rap_challenges);
+        let aux_columns = trace.columns_aux();
+        let aux_polys = interpolate_columns_gpu(&aux_columns, state)?;
 
-            let (aux_lde_buffers, aux_lde_domain_size) = evaluate_polys_on_lde_gpu_to_buffers(
-                &aux_polys,
-                blowup_factor,
-                &coset_offset,
-                state,
-            )?;
+        let (aux_lde_buffers, aux_lde_domain_size) =
+            evaluate_polys_on_lde_gpu_to_buffers(&aux_polys, blowup_factor, &coset_offset, state)?;
 
-            // GPU Merkle commit from auxiliary trace FFT buffers
-            let buf_refs: Vec<&metal::Buffer> = aux_lde_buffers.iter().collect();
-            let (aux_tree, aux_root) = gpu_batch_commit_from_column_buffers(
-                &buf_refs,
-                aux_lde_domain_size,
-                keccak_state,
-            )
-            .ok_or(ProvingError::EmptyCommitment)?;
+        // GPU Merkle commit from auxiliary trace FFT buffers
+        let buf_refs: Vec<&metal::Buffer> = aux_lde_buffers.iter().collect();
+        let (aux_tree, aux_root) =
+            gpu_batch_commit_from_column_buffers(&buf_refs, aux_lde_domain_size, keccak_state)
+                .ok_or(ProvingError::EmptyCommitment)?;
 
-            transcript.append_bytes(&aux_root);
-            (aux_polys, Some(aux_tree), Some(aux_root), Some(aux_lde_buffers))
-        } else {
-            (Vec::new(), None, None, None)
-        };
+        transcript.append_bytes(&aux_root);
+        (
+            aux_polys,
+            Some(aux_tree),
+            Some(aux_root),
+            Some(aux_lde_buffers),
+        )
+    } else {
+        (Vec::new(), None, None, None)
+    };
     eprintln!("    1d aux all:        {:>10.2?}", t.elapsed());
 
     Ok(GpuRound1Result {
@@ -337,12 +333,9 @@ where
     // GPU Merkle commit directly from FFT output buffers
     let t = std::time::Instant::now();
     let buffer_refs: Vec<&metal::Buffer> = main_lde_buffers.iter().collect();
-    let (main_merkle_tree, main_merkle_root) = gpu_batch_commit_from_column_buffers(
-        &buffer_refs,
-        main_lde_domain_size,
-        keccak_state,
-    )
-    .ok_or(ProvingError::EmptyCommitment)?;
+    let (main_merkle_tree, main_merkle_root) =
+        gpu_batch_commit_from_column_buffers(&buffer_refs, main_lde_domain_size, keccak_state)
+            .ok_or(ProvingError::EmptyCommitment)?;
     eprintln!("    1c main Merkle:    {:>10.2?}", t.elapsed());
 
     transcript.append_bytes(&main_merkle_root);
@@ -484,9 +477,13 @@ fn evaluate_polys_on_lde_gpu_to_buffers(
     let coeff_slices: Vec<&[FieldElement<Goldilocks64Field>]> =
         polys.iter().map(|p| p.coefficients()).collect();
 
-    let buffer_results =
-        gpu_evaluate_offset_fft_to_buffers_batch(&coeff_slices, blowup_factor, offset, state.inner())
-            .map_err(|e| ProvingError::FieldOperationError(format!("GPU LDE FFT error: {e}")))?;
+    let buffer_results = gpu_evaluate_offset_fft_to_buffers_batch(
+        &coeff_slices,
+        blowup_factor,
+        offset,
+        state.inner(),
+    )
+    .map_err(|e| ProvingError::FieldOperationError(format!("GPU LDE FFT error: {e}")))?;
 
     let mut gpu_buffers = Vec::with_capacity(polys.len());
     let mut domain_size = 0;

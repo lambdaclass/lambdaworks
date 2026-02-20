@@ -1033,19 +1033,19 @@ fn gpu_transpose_hash_and_build_tree(
 
     // Allocate all buffers upfront
     let flat_cols_size = (num_rows * num_cols * std::mem::size_of::<u64>()) as u64;
-    let flat_cols = keccak_state.state.device().new_buffer(
-        flat_cols_size,
-        MTLResourceOptions::StorageModeShared,
-    );
+    let flat_cols = keccak_state
+        .state
+        .device()
+        .new_buffer(flat_cols_size, MTLResourceOptions::StorageModeShared);
     let output_size = if paired {
         ((num_rows / 2) * 2 * num_cols * std::mem::size_of::<u64>()) as u64
     } else {
         flat_cols_size
     };
-    let transpose_out = keccak_state.state.device().new_buffer(
-        output_size,
-        MTLResourceOptions::StorageModeShared,
-    );
+    let transpose_out = keccak_state
+        .state
+        .device()
+        .new_buffer(output_size, MTLResourceOptions::StorageModeShared);
     let tree_buf = keccak_state.state.device().new_buffer(
         (total_nodes * 32) as u64,
         MTLResourceOptions::StorageModeShared,
@@ -1386,7 +1386,10 @@ pub fn gpu_generate_nonce(
     let limit: u64 = 1u64 << (64 - grinding_factor);
 
     // Step 2: Prepare GPU buffers
-    let inner_hash_buf = keccak_state.state.alloc_buffer_with_data(&inner_hash).ok()?;
+    let inner_hash_buf = keccak_state
+        .state
+        .alloc_buffer_with_data(&inner_hash)
+        .ok()?;
     let limit_buf = keccak_state.state.alloc_buffer_with_data(&[limit]).ok()?;
 
     // Dispatch in batches of 2^20 (1M) threads per dispatch.
@@ -1894,8 +1897,7 @@ mod gpu_tests {
             .collect();
         let col_buf_refs: Vec<&metal::Buffer> = col_buffers.iter().collect();
 
-        let result_buf =
-            gpu_transpose_bitrev_to_buffer(&col_buf_refs, 8, transpose_state).unwrap();
+        let result_buf = gpu_transpose_bitrev_to_buffer(&col_buf_refs, 8, transpose_state).unwrap();
 
         let num_cols = 2;
         let num_rows = 8;
@@ -2050,8 +2052,8 @@ mod gpu_tests {
 
         // Test with a different seed
         let seed2 = [
-            174, 187, 26, 134, 6, 43, 222, 151, 140, 48, 52, 67, 69, 181, 177, 165, 111, 222,
-            148, 92, 130, 241, 171, 2, 62, 34, 95, 159, 37, 116, 155, 217,
+            174, 187, 26, 134, 6, 43, 222, 151, 140, 48, 52, 67, 69, 181, 177, 165, 111, 222, 148,
+            92, 130, 241, 171, 2, 62, 34, 95, 159, 37, 116, 155, 217,
         ];
         let cpu_nonce = grinding::generate_nonce(&seed2, 1).unwrap();
         let gpu_nonce = gpu_generate_nonce(&seed2, 1, &keccak_state).unwrap();

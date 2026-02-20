@@ -136,16 +136,12 @@ where
         .map_err(|e| ProvingError::FieldOperationError(format!("Keccak256 shader: {e}")))?;
     // Coset shift and FRI fold states share the device/queue from StarkMetalState
     // to avoid exceeding Metal resource limits (command queues).
-    let coset_state = CosetShiftState::from_device_and_queue(
-        &state.inner().device,
-        &state.inner().queue,
-    )
-    .map_err(|e| ProvingError::FieldOperationError(format!("Coset shift shader: {e}")))?;
-    let fri_fold_state = FriFoldState::from_device_and_queue(
-        &state.inner().device,
-        &state.inner().queue,
-    )
-    .map_err(|e| ProvingError::FieldOperationError(format!("FRI fold shader: {e}")))?;
+    let coset_state =
+        CosetShiftState::from_device_and_queue(&state.inner().device, &state.inner().queue)
+            .map_err(|e| ProvingError::FieldOperationError(format!("Coset shift shader: {e}")))?;
+    let fri_fold_state =
+        FriFoldState::from_device_and_queue(&state.inner().device, &state.inner().queue)
+            .map_err(|e| ProvingError::FieldOperationError(format!("FRI fold shader: {e}")))?;
     let domain_inv_state = DomainInversionState::new()
         .map_err(|e| ProvingError::FieldOperationError(format!("Domain inversions shader: {e}")))?;
 
@@ -250,11 +246,9 @@ where
     // Pre-compile GPU shaders.
     let keccak_state = GpuKeccakMerkleState::new()
         .map_err(|e| ProvingError::FieldOperationError(format!("Keccak256 shader: {e}")))?;
-    let fri_fold_state = FriFoldFp3State::from_device_and_queue(
-        &state.inner().device,
-        &state.inner().queue,
-    )
-    .map_err(|e| ProvingError::FieldOperationError(format!("FRI fold Fp3 shader: {e}")))?;
+    let fri_fold_state =
+        FriFoldFp3State::from_device_and_queue(&state.inner().device, &state.inner().queue)
+            .map_err(|e| ProvingError::FieldOperationError(format!("FRI fold Fp3 shader: {e}")))?;
 
     // Phase 1: RAP (GPU main trace + CPU aux trace)
     let t = std::time::Instant::now();
@@ -569,8 +563,7 @@ mod tests {
                     // Main elements are &FieldElement<F>; mixed arithmetic F + Fp3 → Fp3
                     let a_i = s0.get_main_evaluation_element(0, 0);
                     let b_i = s0.get_main_evaluation_element(0, 1);
-                    transition_evaluations[1] =
-                        z_i_plus_one * (b_i + gamma) - z_i * (a_i + gamma);
+                    transition_evaluations[1] = z_i_plus_one * (b_i + gamma) - z_i * (a_i + gamma);
                 }
                 TransitionEvaluationContext::Verifier {
                     frame,
@@ -584,8 +577,7 @@ mod tests {
                     let gamma = &rap_challenges[0];
                     let a_i = s0.get_main_evaluation_element(0, 0);
                     let b_i = s0.get_main_evaluation_element(0, 1);
-                    transition_evaluations[1] =
-                        z_i_plus_one * (b_i + gamma) - z_i * (a_i + gamma);
+                    transition_evaluations[1] = z_i_plus_one * (b_i + gamma) - z_i * (a_i + gamma);
                 }
             }
         }
@@ -631,11 +623,7 @@ mod tests {
             }
         }
 
-        fn build_auxiliary_trace(
-            &self,
-            trace: &mut TraceTable<F, Fp3>,
-            challenges: &[Fp3E],
-        ) {
+        fn build_auxiliary_trace(&self, trace: &mut TraceTable<F, Fp3>, challenges: &[Fp3E]) {
             let main_segment_cols = trace.columns_main();
             let not_perm = &main_segment_cols[0];
             let perm = &main_segment_cols[1];
@@ -670,10 +658,7 @@ mod tests {
             (2, 1)
         }
 
-        fn boundary_constraints(
-            &self,
-            _rap_challenges: &[Fp3E],
-        ) -> BoundaryConstraints<Fp3> {
+        fn boundary_constraints(&self, _rap_challenges: &[Fp3E]) -> BoundaryConstraints<Fp3> {
             let a0 = BoundaryConstraint::new_simple_main(0, Fp3E::one());
             let a1 = BoundaryConstraint::new_simple_main(1, Fp3E::one());
             let a0_aux = BoundaryConstraint::new_aux(0, 0, Fp3E::one());

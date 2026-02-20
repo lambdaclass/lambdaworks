@@ -257,12 +257,21 @@ pub fn gpu_evaluate_offset_fft_buffer_to_buffers_batch(
 
     for coeff_buf in coeff_buffers {
         // Step 1: GPU coset shift + zero-pad to domain_size
-        let shifted_buffer =
-            gpu_coset_shift_buffer_to_buffer(coeff_buf, part_len, offset, domain_size, coset_state)?;
+        let shifted_buffer = gpu_coset_shift_buffer_to_buffer(
+            coeff_buf,
+            part_len,
+            offset,
+            domain_size,
+            coset_state,
+        )?;
 
         // Step 2: FFT with shared twiddles, result stays on GPU
-        let result_buffer =
-            fft_buffer_to_buffer::<Goldilocks64Field>(&shifted_buffer, domain_size, &twiddles_buffer, metal_state)?;
+        let result_buffer = fft_buffer_to_buffer::<Goldilocks64Field>(
+            &shifted_buffer,
+            domain_size,
+            &twiddles_buffer,
+            metal_state,
+        )?;
 
         results.push((result_buffer, domain_size));
     }
@@ -319,7 +328,10 @@ impl CosetShiftState {
     ///
     /// This avoids creating new Metal device/queue pairs, reducing GPU resource usage
     /// when many shader states coexist.
-    pub fn from_device_and_queue(device: &metal::Device, queue: &metal::CommandQueue) -> Result<Self, MetalError> {
+    pub fn from_device_and_queue(
+        device: &metal::Device,
+        queue: &metal::CommandQueue,
+    ) -> Result<Self, MetalError> {
         let combined_source = format!("{}\n{}", GOLDILOCKS_FIELD_HEADER, COSET_SHIFT_SHADER);
 
         let mut state = DynamicMetalState::from_device_and_queue(device, queue);
@@ -610,8 +622,11 @@ pub fn gpu_ifft_to_buffer(
     let order = len.trailing_zeros() as u64;
 
     // Step 1: Generate inverse twiddle factors on GPU
-    let inv_twiddles =
-        gen_twiddles_to_buffer::<Goldilocks64Field>(order, RootsConfig::BitReverseInversed, metal_state)?;
+    let inv_twiddles = gen_twiddles_to_buffer::<Goldilocks64Field>(
+        order,
+        RootsConfig::BitReverseInversed,
+        metal_state,
+    )?;
 
     // Step 2: Upload evaluations as u64 to a GPU buffer
     let evals_u64: Vec<u64> = evaluations
@@ -670,12 +685,11 @@ pub fn gpu_interpolate_offset_fft_to_buffer(
     let coeffs_buffer = gpu_ifft_to_buffer(evaluations, coset_state, metal_state)?;
 
     // Step 2: Compute inverse of the coset offset
-    let offset_inv = coset_offset
-        .inv()
-        .expect("Coset offset must be invertible");
+    let offset_inv = coset_offset.inv().expect("Coset offset must be invertible");
 
     // Step 3: Apply coset shift with offset_inv: coeff[k] *= offset_inv^k
-    let result = gpu_coset_shift_buffer_to_buffer(&coeffs_buffer, len, &offset_inv, len, coset_state)?;
+    let result =
+        gpu_coset_shift_buffer_to_buffer(&coeffs_buffer, len, &offset_inv, len, coset_state)?;
 
     Ok(result)
 }
@@ -705,8 +719,11 @@ pub fn gpu_interpolate_offset_fft_buffer_to_buffer(
     let order = len.trailing_zeros() as u64;
 
     // Step 1: Generate inverse twiddle factors on GPU
-    let inv_twiddles =
-        gen_twiddles_to_buffer::<Goldilocks64Field>(order, RootsConfig::BitReverseInversed, metal_state)?;
+    let inv_twiddles = gen_twiddles_to_buffer::<Goldilocks64Field>(
+        order,
+        RootsConfig::BitReverseInversed,
+        metal_state,
+    )?;
 
     // Step 2: FFT with inverse twiddles (buffer-to-buffer)
     let result_buffer =
@@ -719,9 +736,7 @@ pub fn gpu_interpolate_offset_fft_buffer_to_buffer(
     let normalized = gpu_scale_buffer(&result_buffer, len, &n_inv, coset_state)?;
 
     // Step 4: Inverse coset shift: coeff[k] *= offset_inv^k
-    let offset_inv = coset_offset
-        .inv()
-        .expect("Coset offset must be invertible");
+    let offset_inv = coset_offset.inv().expect("Coset offset must be invertible");
     let result = gpu_coset_shift_buffer_to_buffer(&normalized, len, &offset_inv, len, coset_state)?;
 
     Ok(result)
@@ -755,7 +770,7 @@ pub fn gpu_break_in_parts_buffer_to_buffers(
     state: &MetalState,
 ) -> Result<Vec<metal::Buffer>, MetalError> {
     assert!(
-        num_parts > 0 && num_coeffs % num_parts == 0,
+        num_parts > 0 && num_coeffs.is_multiple_of(num_parts),
         "num_coeffs ({num_coeffs}) must be divisible by num_parts ({num_parts})"
     );
 
@@ -960,13 +975,15 @@ mod tests {
             .iter()
             .map(|fe| Goldilocks64Field::canonical(fe.value()))
             .collect();
-        let input_buffer = coset_state.state.alloc_buffer_with_data(&values_u64).unwrap();
+        let input_buffer = coset_state
+            .state
+            .alloc_buffer_with_data(&values_u64)
+            .unwrap();
         let gpu_buffer =
             gpu_scale_buffer(&input_buffer, values.len(), &scalar, &coset_state).unwrap();
 
         // Read back GPU result
-        let gpu_u64: Vec<u64> =
-            unsafe { coset_state.state.read_buffer(&gpu_buffer, values.len()) };
+        let gpu_u64: Vec<u64> = unsafe { coset_state.state.read_buffer(&gpu_buffer, values.len()) };
         let gpu_scaled: Vec<FpE> = gpu_u64.iter().map(|&v| FpE::from(v)).collect();
 
         assert_eq!(cpu_scaled.len(), gpu_scaled.len());
@@ -995,12 +1012,14 @@ mod tests {
             .iter()
             .map(|fe| Goldilocks64Field::canonical(fe.value()))
             .collect();
-        let input_buffer = coset_state.state.alloc_buffer_with_data(&values_u64).unwrap();
+        let input_buffer = coset_state
+            .state
+            .alloc_buffer_with_data(&values_u64)
+            .unwrap();
         let gpu_buffer =
             gpu_scale_buffer(&input_buffer, values.len(), &scalar, &coset_state).unwrap();
 
-        let gpu_u64: Vec<u64> =
-            unsafe { coset_state.state.read_buffer(&gpu_buffer, values.len()) };
+        let gpu_u64: Vec<u64> = unsafe { coset_state.state.read_buffer(&gpu_buffer, values.len()) };
         let gpu_scaled: Vec<FpE> = gpu_u64.iter().map(|&v| FpE::from(v)).collect();
 
         assert_eq!(cpu_scaled.len(), gpu_scaled.len());
@@ -1025,12 +1044,10 @@ mod tests {
             gpu_interpolate_fft::<Goldilocks64Field>(&values, metal_state.inner()).unwrap();
 
         // GPU inverse FFT (returns buffer)
-        let gpu_buffer =
-            gpu_ifft_to_buffer(&values, &coset_state, metal_state.inner()).unwrap();
+        let gpu_buffer = gpu_ifft_to_buffer(&values, &coset_state, metal_state.inner()).unwrap();
 
         // Read back GPU result
-        let gpu_u64: Vec<u64> =
-            unsafe { coset_state.state.read_buffer(&gpu_buffer, values.len()) };
+        let gpu_u64: Vec<u64> = unsafe { coset_state.state.read_buffer(&gpu_buffer, values.len()) };
         let gpu_coeffs: Vec<FpE> = gpu_u64.iter().map(|&v| FpE::from(v)).collect();
 
         assert_eq!(cpu_coeffs.len(), gpu_coeffs.len());
@@ -1067,9 +1084,7 @@ mod tests {
 
         assert_eq!(gpu_part_buffers.len(), 4, "expected 4 parts");
 
-        for (part_idx, (cpu_part, gpu_buf)) in
-            cpu_parts.iter().zip(&gpu_part_buffers).enumerate()
-        {
+        for (part_idx, (cpu_part, gpu_buf)) in cpu_parts.iter().zip(&gpu_part_buffers).enumerate() {
             let gpu_raw: Vec<u64> = MetalState::retrieve_contents(gpu_buf);
             let gpu_elements: Vec<FpE> = gpu_raw.into_iter().map(FieldElement::from).collect();
             let cpu_coeffs = cpu_part.coefficients();
@@ -1105,8 +1120,13 @@ mod tests {
         let cpu_evals: Vec<Vec<FpE>> = cpu_parts
             .iter()
             .map(|p| {
-                Polynomial::evaluate_offset_fft::<Goldilocks64Field>(p, blowup_factor, None, &offset)
-                    .expect("CPU FFT failed")
+                Polynomial::evaluate_offset_fft::<Goldilocks64Field>(
+                    p,
+                    blowup_factor,
+                    None,
+                    &offset,
+                )
+                .expect("CPU FFT failed")
             })
             .collect();
 
@@ -1138,8 +1158,7 @@ mod tests {
             buffer_results.iter().zip(&cpu_evals).enumerate()
         {
             let gpu_raw: Vec<u64> = MetalState::retrieve_contents(gpu_buf);
-            let gpu_elements: Vec<FpE> =
-                gpu_raw.into_iter().map(FieldElement::from_raw).collect();
+            let gpu_elements: Vec<FpE> = gpu_raw.into_iter().map(FieldElement::from_raw).collect();
             assert_eq!(
                 cpu_eval.len(),
                 gpu_elements.len(),
@@ -1183,8 +1202,11 @@ mod tests {
         .unwrap();
 
         // Read back GPU result
-        let gpu_u64: Vec<u64> =
-            unsafe { coset_state.state.read_buffer(&gpu_buffer, original_coeffs.len()) };
+        let gpu_u64: Vec<u64> = unsafe {
+            coset_state
+                .state
+                .read_buffer(&gpu_buffer, original_coeffs.len())
+        };
         let recovered_coeffs: Vec<FpE> = gpu_u64.iter().map(|&v| FpE::from(v)).collect();
 
         assert_eq!(original_coeffs.len(), recovered_coeffs.len());

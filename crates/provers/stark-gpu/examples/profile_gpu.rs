@@ -84,7 +84,9 @@ fn profile_gpu_optimized(
     proof_options: &ProofOptions,
 ) {
     use lambdaworks_stark_gpu::metal::constraint_eval::FibRapConstraintState;
-    use lambdaworks_stark_gpu::metal::deep_composition::{DeepCompositionState, DomainInversionState};
+    use lambdaworks_stark_gpu::metal::deep_composition::{
+        DeepCompositionState, DomainInversionState,
+    };
     use lambdaworks_stark_gpu::metal::fft::CosetShiftState;
     use lambdaworks_stark_gpu::metal::merkle::GpuKeccakMerkleState;
     use lambdaworks_stark_gpu::metal::phases::composition::gpu_round_2_goldilocks_merkle;

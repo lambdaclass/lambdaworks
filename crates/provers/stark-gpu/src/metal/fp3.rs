@@ -120,11 +120,7 @@ kernel void fp3_test(
 
     /// Create a Fp3E from u64 components via `FpE::from()` (applies modular reduction).
     fn fp3_from_u64s(vals: [u64; 3]) -> Fp3E {
-        FieldElement::new([
-            FpE::from(vals[0]),
-            FpE::from(vals[1]),
-            FpE::from(vals[2]),
-        ])
+        FieldElement::new([FpE::from(vals[0]), FpE::from(vals[1]), FpE::from(vals[2])])
     }
 
     /// Create a Fp3E from raw u64 values (as returned from GPU buffers).

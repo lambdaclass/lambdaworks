@@ -39,9 +39,12 @@ use crate::metal::deep_composition::{
 #[cfg(all(target_os = "macos", feature = "metal"))]
 use crate::metal::fft::gpu_evaluate_offset_fft;
 #[cfg(all(target_os = "macos", feature = "metal"))]
-use crate::metal::fft::{CosetShiftState, gpu_coset_shift_buffer_to_buffer};
+use crate::metal::fft::{gpu_coset_shift_buffer_to_buffer, CosetShiftState};
 #[cfg(all(target_os = "macos", feature = "metal"))]
-use crate::metal::merkle::{gpu_fri_layer_commit, gpu_fri_layer_commit_from_buffer, gpu_generate_nonce, GpuKeccakMerkleState};
+use crate::metal::merkle::{
+    gpu_fri_layer_commit, gpu_fri_layer_commit_from_buffer, gpu_generate_nonce,
+    GpuKeccakMerkleState,
+};
 #[cfg(all(target_os = "macos", feature = "metal"))]
 use crate::metal::state::StarkMetalState;
 #[cfg(all(target_os = "macos", feature = "metal"))]
@@ -63,7 +66,10 @@ type Fp3 = Degree3GoldilocksExtensionField;
 type Fp3E = FieldElement<Fp3>;
 
 #[cfg(all(target_os = "macos", feature = "metal"))]
-use lambdaworks_gpu::metal::abstractions::{errors::MetalError, state::{DynamicMetalState, MetalState}};
+use lambdaworks_gpu::metal::abstractions::{
+    errors::MetalError,
+    state::{DynamicMetalState, MetalState},
+};
 
 // =============================================================================
 // GPU FRI Fold kernel (Goldilocks-specific)
@@ -111,7 +117,10 @@ impl FriFoldState {
     ///
     /// This avoids creating new Metal device/queue pairs, reducing GPU resource usage
     /// when many shader states coexist.
-    pub fn from_device_and_queue(device: &metal::Device, queue: &metal::CommandQueue) -> Result<Self, MetalError> {
+    pub fn from_device_and_queue(
+        device: &metal::Device,
+        queue: &metal::CommandQueue,
+    ) -> Result<Self, MetalError> {
         let combined_source = format!("{}\n{}", FRI_GOLDILOCKS_FIELD_HEADER, FRI_FOLD_SHADER);
 
         let mut state = DynamicMetalState::from_device_and_queue(device, queue);
@@ -156,20 +165,24 @@ pub fn gpu_fold_polynomial(
             let vals: Vec<u64> = MetalState::retrieve_contents(coeffs_buffer);
             let c0 = vals.first().copied().unwrap_or(0);
             let fe = FieldElement::<Goldilocks64Field>::from(c0);
-            let result = FieldElement::<Goldilocks64Field>::from(2u64) * &fe;
+            let result = FieldElement::<Goldilocks64Field>::from(2u64) * fe;
             Goldilocks64Field::canonical(result.value())
         } else {
             0u64
         };
-        let buf = state.state.alloc_buffer_with_data(std::slice::from_ref(&val))?;
+        let buf = state
+            .state
+            .alloc_buffer_with_data(std::slice::from_ref(&val))?;
         return Ok((buf, 1));
     }
 
     // If odd number of coefficients, pad to even by copying into a new buffer with a trailing zero.
     // The GPU kernel processes pairs: result[k] = 2 * (coeffs[2k] + beta * coeffs[2k+1]).
-    let (input_buf_owned, input_ref, padded_len) = if num_coeffs % 2 != 0 {
+    let (input_buf_owned, input_ref, padded_len) = if !num_coeffs.is_multiple_of(2) {
         let padded_len = num_coeffs + 1;
-        let buf_padded = state.state.alloc_buffer(padded_len * std::mem::size_of::<u64>())?;
+        let buf_padded = state
+            .state
+            .alloc_buffer(padded_len * std::mem::size_of::<u64>())?;
         // Blit copy original data; trailing element is zero from alloc_buffer.
         let cmd = state.state.command_queue().new_command_buffer();
         let blit = cmd.new_blit_command_encoder();
@@ -282,6 +295,349 @@ pub fn gpu_fold_polynomial_from_cpu(
 }
 
 // =============================================================================
+// GPU Evaluation-Domain FRI Fold
+// =============================================================================
+
+/// Source code for the eval-domain FRI fold Metal kernel.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+const FRI_FOLD_EVAL_SHADER: &str = include_str!("../shaders/fri_fold_eval.metal");
+
+/// Source code for the FRI domain inverse precomputation Metal kernel.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+const FRI_DOMAIN_INV_SHADER: &str = include_str!("../shaders/fri_domain_inv.metal");
+
+/// Source code for the FRI inverse squaring Metal kernel.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+const FRI_SQUARE_INV_SHADER: &str = include_str!("../shaders/fri_square_inv.metal");
+
+/// Parameters for the eval-domain FRI fold kernel.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+#[repr(C)]
+#[derive(Copy, Clone)]
+struct FriFoldEvalParams {
+    half_len: u32,
+}
+
+/// Parameters for the FRI domain inverse kernel.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+#[repr(C)]
+#[derive(Copy, Clone)]
+struct FriDomainInvParams {
+    half_len: u32,
+    log_half_len: u32,
+}
+
+/// Parameters for the FRI inverse squaring kernel.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+#[repr(C)]
+#[derive(Copy, Clone)]
+struct FriSquareInvParams {
+    len: u32,
+}
+
+/// Pre-compiled Metal state for the eval-domain FRI fold kernel.
+///
+/// Caches the compiled pipeline for `goldilocks_fri_fold_eval`.
+/// Create once and reuse across all FRI folding rounds.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+pub struct FriFoldEvalState {
+    state: DynamicMetalState,
+    max_threads: u64,
+}
+
+#[cfg(all(target_os = "macos", feature = "metal"))]
+impl FriFoldEvalState {
+    pub fn new() -> Result<Self, MetalError> {
+        let combined_source = format!("{}\n{}", FRI_GOLDILOCKS_FIELD_HEADER, FRI_FOLD_EVAL_SHADER);
+        let mut state = DynamicMetalState::new()?;
+        state.load_library(&combined_source)?;
+        let max_threads = state.prepare_pipeline("goldilocks_fri_fold_eval")?;
+        Ok(Self { state, max_threads })
+    }
+
+    pub fn from_device_and_queue(
+        device: &metal::Device,
+        queue: &metal::CommandQueue,
+    ) -> Result<Self, MetalError> {
+        let combined_source = format!("{}\n{}", FRI_GOLDILOCKS_FIELD_HEADER, FRI_FOLD_EVAL_SHADER);
+        let mut state = DynamicMetalState::from_device_and_queue(device, queue);
+        state.load_library(&combined_source)?;
+        let max_threads = state.prepare_pipeline("goldilocks_fri_fold_eval")?;
+        Ok(Self { state, max_threads })
+    }
+}
+
+/// Eval-domain FRI fold on GPU (bit-reversed order).
+///
+/// Given evaluations in bit-reversed order on a coset domain, the paired
+/// elements `(x, -x)` are adjacent at positions `(2i, 2i+1)`. Computes:
+///
+///   result[i] = (evals[2i] + evals[2i+1]) + beta * (evals[2i] - evals[2i+1]) * inv_x[i]
+///
+/// This matches the verifier's convention (includes the factor of 2).
+/// The `inv_x_buffer` must contain precomputed `1/x_i` for i=0..N/2-1,
+/// where `x_i` is the domain point at bit-reversed position `2i`.
+///
+/// Output is in bit-reversed order for the next FRI layer.
+/// Returns `(output_buffer, half_len)`.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+pub fn gpu_fold_evaluations(
+    evals_buffer: &metal::Buffer,
+    num_evals: usize,
+    beta: &FieldElement<Goldilocks64Field>,
+    inv_x_buffer: &metal::Buffer,
+    state: &FriFoldEvalState,
+) -> Result<(metal::Buffer, usize), MetalError> {
+    use metal::MTLSize;
+
+    assert!(
+        num_evals >= 2 && num_evals.is_multiple_of(2),
+        "eval-domain fold requires even number of evaluations"
+    );
+
+    let half_len = num_evals / 2;
+    let beta_u64 = Goldilocks64Field::canonical(beta.value());
+
+    let buf_output = state
+        .state
+        .alloc_buffer(half_len * std::mem::size_of::<u64>())?;
+    let buf_beta = state
+        .state
+        .alloc_buffer_with_data(std::slice::from_ref(&beta_u64))?;
+    let params = FriFoldEvalParams {
+        half_len: half_len as u32,
+    };
+    let buf_params = state
+        .state
+        .alloc_buffer_with_data(std::slice::from_ref(&params))?;
+
+    let pipeline = state
+        .state
+        .get_pipeline_ref("goldilocks_fri_fold_eval")
+        .ok_or_else(|| MetalError::FunctionError("goldilocks_fri_fold_eval".to_string()))?;
+
+    let threads_per_group = state.max_threads.min(256);
+    let thread_groups = (half_len as u64).div_ceil(threads_per_group);
+
+    let command_buffer = state.state.command_queue().new_command_buffer();
+    let encoder = command_buffer.new_compute_command_encoder();
+    encoder.set_compute_pipeline_state(pipeline);
+    encoder.set_buffer(0, Some(evals_buffer), 0);
+    encoder.set_buffer(1, Some(&buf_output), 0);
+    encoder.set_buffer(2, Some(&buf_beta), 0);
+    encoder.set_buffer(3, Some(inv_x_buffer), 0);
+    encoder.set_buffer(4, Some(&buf_params), 0);
+    encoder.dispatch_thread_groups(
+        MTLSize::new(thread_groups, 1, 1),
+        MTLSize::new(threads_per_group, 1, 1),
+    );
+    encoder.end_encoding();
+    command_buffer.commit();
+    command_buffer.wait_until_completed();
+
+    if command_buffer.status() == metal::MTLCommandBufferStatus::Error {
+        return Err(MetalError::ExecutionError(
+            "GPU eval-domain FRI fold error".to_string(),
+        ));
+    }
+
+    Ok((buf_output, half_len))
+}
+
+/// Pre-compiled Metal state for FRI domain inverse precomputation.
+///
+/// Caches the compiled pipeline for `compute_fri_domain_inverses`.
+/// This kernel computes `inv_x[i] = h^{-1} * ω^{-bitrev(i)}` using known constants,
+/// avoiding expensive per-element Fermat inversions.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+pub struct FriDomainInvState {
+    state: DynamicMetalState,
+    max_threads: u64,
+}
+
+#[cfg(all(target_os = "macos", feature = "metal"))]
+impl FriDomainInvState {
+    pub fn new() -> Result<Self, MetalError> {
+        let combined_source = format!("{}\n{}", FRI_GOLDILOCKS_FIELD_HEADER, FRI_DOMAIN_INV_SHADER);
+        let mut state = DynamicMetalState::new()?;
+        state.load_library(&combined_source)?;
+        let max_threads = state.prepare_pipeline("compute_fri_domain_inverses")?;
+        Ok(Self { state, max_threads })
+    }
+
+    pub fn from_device_and_queue(
+        device: &metal::Device,
+        queue: &metal::CommandQueue,
+    ) -> Result<Self, MetalError> {
+        let combined_source = format!("{}\n{}", FRI_GOLDILOCKS_FIELD_HEADER, FRI_DOMAIN_INV_SHADER);
+        let mut state = DynamicMetalState::from_device_and_queue(device, queue);
+        state.load_library(&combined_source)?;
+        let max_threads = state.prepare_pipeline("compute_fri_domain_inverses")?;
+        Ok(Self { state, max_threads })
+    }
+}
+
+/// Compute FRI domain inverses on GPU from known constants.
+///
+/// For a coset domain `{h * ω^i}` in bit-reversed order, computes:
+///   `inv_x[i] = h^{-1} * ω^{-bitrev(i)}`  for i=0..domain_size/2-1
+///
+/// This uses only multiplications (no Fermat inversions), since `h^{-1}`
+/// and `ω^{-1}` are known constants computed on the CPU.
+///
+/// For subsequent FRI layers, use [`gpu_square_fri_inverses`] instead:
+///   `inv_x_next[i] = inv_x[i]^2`  (since `1/x^2 = (1/x)^2`).
+#[cfg(all(target_os = "macos", feature = "metal"))]
+pub fn gpu_compute_fri_domain_inverses(
+    h_inv: &FieldElement<Goldilocks64Field>,
+    omega_inv: &FieldElement<Goldilocks64Field>,
+    domain_size: usize,
+    state: &FriDomainInvState,
+) -> Result<metal::Buffer, MetalError> {
+    use metal::MTLSize;
+
+    let half_len = domain_size / 2;
+    let h_inv_u64 = Goldilocks64Field::canonical(h_inv.value());
+    let omega_inv_u64 = Goldilocks64Field::canonical(omega_inv.value());
+
+    let buf_h_inv = state
+        .state
+        .alloc_buffer_with_data(std::slice::from_ref(&h_inv_u64))?;
+    let buf_omega_inv = state
+        .state
+        .alloc_buffer_with_data(std::slice::from_ref(&omega_inv_u64))?;
+    let buf_output = state
+        .state
+        .alloc_buffer(half_len * std::mem::size_of::<u64>())?;
+    let params = FriDomainInvParams {
+        half_len: half_len as u32,
+        log_half_len: half_len.trailing_zeros(),
+    };
+    let buf_params = state
+        .state
+        .alloc_buffer_with_data(std::slice::from_ref(&params))?;
+
+    let pipeline = state
+        .state
+        .get_pipeline_ref("compute_fri_domain_inverses")
+        .ok_or_else(|| MetalError::FunctionError("compute_fri_domain_inverses".to_string()))?;
+
+    let threads_per_group = state.max_threads.min(256);
+    let thread_groups = (half_len as u64).div_ceil(threads_per_group);
+
+    let command_buffer = state.state.command_queue().new_command_buffer();
+    let encoder = command_buffer.new_compute_command_encoder();
+    encoder.set_compute_pipeline_state(pipeline);
+    encoder.set_buffer(0, Some(&buf_h_inv), 0);
+    encoder.set_buffer(1, Some(&buf_omega_inv), 0);
+    encoder.set_buffer(2, Some(&buf_output), 0);
+    encoder.set_buffer(3, Some(&buf_params), 0);
+    encoder.dispatch_thread_groups(
+        MTLSize::new(thread_groups, 1, 1),
+        MTLSize::new(threads_per_group, 1, 1),
+    );
+    encoder.end_encoding();
+    command_buffer.commit();
+    command_buffer.wait_until_completed();
+
+    if command_buffer.status() == metal::MTLCommandBufferStatus::Error {
+        return Err(MetalError::ExecutionError(
+            "GPU FRI domain inverse error".to_string(),
+        ));
+    }
+
+    Ok(buf_output)
+}
+
+/// Pre-compiled Metal state for FRI inverse squaring.
+///
+/// Caches the compiled pipeline for `fri_square_inverses`.
+/// Used for subsequent FRI layers: `inv_x_next[i] = inv_x[i]^2`.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+pub struct FriSquareInvState {
+    state: DynamicMetalState,
+    max_threads: u64,
+}
+
+#[cfg(all(target_os = "macos", feature = "metal"))]
+impl FriSquareInvState {
+    pub fn new() -> Result<Self, MetalError> {
+        let combined_source =
+            format!("{}\n{}", FRI_GOLDILOCKS_FIELD_HEADER, FRI_SQUARE_INV_SHADER);
+        let mut state = DynamicMetalState::new()?;
+        state.load_library(&combined_source)?;
+        let max_threads = state.prepare_pipeline("fri_square_inverses")?;
+        Ok(Self { state, max_threads })
+    }
+
+    pub fn from_device_and_queue(
+        device: &metal::Device,
+        queue: &metal::CommandQueue,
+    ) -> Result<Self, MetalError> {
+        let combined_source =
+            format!("{}\n{}", FRI_GOLDILOCKS_FIELD_HEADER, FRI_SQUARE_INV_SHADER);
+        let mut state = DynamicMetalState::from_device_and_queue(device, queue);
+        state.load_library(&combined_source)?;
+        let max_threads = state.prepare_pipeline("fri_square_inverses")?;
+        Ok(Self { state, max_threads })
+    }
+}
+
+/// Square FRI domain inverses on GPU for the next FRI layer.
+///
+/// Given `inv_x[i] = 1/x_i` from the previous layer, computes
+/// `inv_x_next[i] = inv_x[i]^2 = 1/(x_i^2)`.
+///
+/// This works because after FRI folding, the next layer's domain points
+/// are `x_i^2`, so their inverses are `(1/x_i)^2`.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+pub fn gpu_square_fri_inverses(
+    inv_x_buffer: &metal::Buffer,
+    len: usize,
+    state: &FriSquareInvState,
+) -> Result<metal::Buffer, MetalError> {
+    use metal::MTLSize;
+
+    let buf_output = state
+        .state
+        .alloc_buffer(len * std::mem::size_of::<u64>())?;
+    let params = FriSquareInvParams { len: len as u32 };
+    let buf_params = state
+        .state
+        .alloc_buffer_with_data(std::slice::from_ref(&params))?;
+
+    let pipeline = state
+        .state
+        .get_pipeline_ref("fri_square_inverses")
+        .ok_or_else(|| MetalError::FunctionError("fri_square_inverses".to_string()))?;
+
+    let threads_per_group = state.max_threads.min(256);
+    let thread_groups = (len as u64).div_ceil(threads_per_group);
+
+    let command_buffer = state.state.command_queue().new_command_buffer();
+    let encoder = command_buffer.new_compute_command_encoder();
+    encoder.set_compute_pipeline_state(pipeline);
+    encoder.set_buffer(0, Some(inv_x_buffer), 0);
+    encoder.set_buffer(1, Some(&buf_output), 0);
+    encoder.set_buffer(2, Some(&buf_params), 0);
+    encoder.dispatch_thread_groups(
+        MTLSize::new(thread_groups, 1, 1),
+        MTLSize::new(threads_per_group, 1, 1),
+    );
+    encoder.end_encoding();
+    command_buffer.commit();
+    command_buffer.wait_until_completed();
+
+    if command_buffer.status() == metal::MTLCommandBufferStatus::Error {
+        return Err(MetalError::ExecutionError(
+            "GPU FRI square inverses error".to_string(),
+        ));
+    }
+
+    Ok(buf_output)
+}
+
+// =============================================================================
 // GPU FRI Fold kernel for Fp3 (Goldilocks degree-3 extension)
 // =============================================================================
 
@@ -303,8 +659,7 @@ pub struct FriFoldFp3State {
 impl FriFoldFp3State {
     /// Compile the Fp3 FRI fold shader and prepare the pipeline.
     pub fn new() -> Result<Self, MetalError> {
-        let combined_source =
-            crate::metal::fp3::combined_fp3_source(FRI_FOLD_FP3_SHADER);
+        let combined_source = crate::metal::fp3::combined_fp3_source(FRI_FOLD_FP3_SHADER);
 
         let mut state = DynamicMetalState::new()?;
         state.load_library(&combined_source)?;
@@ -320,8 +675,7 @@ impl FriFoldFp3State {
         device: &metal::Device,
         queue: &metal::CommandQueue,
     ) -> Result<Self, MetalError> {
-        let combined_source =
-            crate::metal::fp3::combined_fp3_source(FRI_FOLD_FP3_SHADER);
+        let combined_source = crate::metal::fp3::combined_fp3_source(FRI_FOLD_FP3_SHADER);
 
         let mut state = DynamicMetalState::from_device_and_queue(device, queue);
         state.load_library(&combined_source)?;
@@ -381,7 +735,7 @@ pub fn gpu_fold_polynomial_fp3(
     }
 
     // Pad to even if needed
-    let (input_buf_owned, input_ref, padded_len) = if num_coeffs % 2 != 0 {
+    let (input_buf_owned, input_ref, padded_len) = if !num_coeffs.is_multiple_of(2) {
         let padded_len = num_coeffs + 1;
         // Each Fp3 element is 3 u64s
         let buf_padded = state
@@ -509,13 +863,7 @@ pub fn gpu_fri_commit_phase_fp3(
     coset_offset: &FieldElement<Goldilocks64Field>,
     domain_size: usize,
     fri_fold_state: &FriFoldFp3State,
-) -> Result<
-    (
-        Fp3E,
-        Vec<FriLayer<Fp3, BatchedMerkleTreeBackend<Fp3>>>,
-    ),
-    ProvingError,
-> {
+) -> Result<(Fp3E, Vec<FriLayer<Fp3, BatchedMerkleTreeBackend<Fp3>>>), ProvingError> {
     let mut domain_size = domain_size;
     let mut fri_layer_list = Vec::with_capacity(number_layers);
     let mut coset_offset = *coset_offset;
@@ -1094,14 +1442,9 @@ fn open_deep_composition_poly_from_buffers(
             round_1_result.aux_merkle_tree.as_ref(),
             round_1_result.aux_lde_gpu_buffers.as_ref(),
         ) {
-            (Some(aux_tree), Some(aux_bufs)) if !aux_bufs.is_empty() => {
-                Some(open_trace_polys_from_buffers(
-                    domain_size,
-                    aux_tree,
-                    aux_bufs,
-                    *index,
-                )?)
-            }
+            (Some(aux_tree), Some(aux_bufs)) if !aux_bufs.is_empty() => Some(
+                open_trace_polys_from_buffers(domain_size, aux_tree, aux_bufs, *index)?,
+            ),
             _ => None,
         };
 
@@ -1203,12 +1546,14 @@ fn gpu_new_fri_layer_fused(
     .map_err(|e| ProvingError::FieldOperationError(format!("GPU FFT in FRI: {e}")))?;
 
     // Step 4: Merkle commit directly from GPU buffer
-    let (merkle_tree, _root) = gpu_fri_layer_commit_from_buffer(&eval_buffer, domain_size, keccak_state)
-        .map_err(|e| ProvingError::MerkleTreeError(format!("GPU Merkle in FRI: {e}")))?;
+    let (merkle_tree, _root) =
+        gpu_fri_layer_commit_from_buffer(&eval_buffer, domain_size, keccak_state)
+            .map_err(|e| ProvingError::MerkleTreeError(format!("GPU Merkle in FRI: {e}")))?;
 
     // Step 5: Read back evaluations for FriLayer (needed for query phase)
     let eval_u64: Vec<u64> = MetalState::retrieve_contents(&eval_buffer);
-    let evaluation: Vec<FieldElement<Goldilocks64Field>> = eval_u64.into_iter().map(FieldElement::from).collect();
+    let evaluation: Vec<FieldElement<Goldilocks64Field>> =
+        eval_u64.into_iter().map(FieldElement::from).collect();
 
     Ok(FriLayer::new(
         &evaluation,
@@ -1227,7 +1572,7 @@ fn gpu_new_fri_layer_fused(
 /// Polynomial coefficients stay on GPU Metal buffers throughout, avoiding
 /// CPU-GPU bouncing between FRI layers.
 #[cfg(all(target_os = "macos", feature = "metal"))]
-#[allow(clippy::type_complexity)]
+#[allow(clippy::type_complexity, clippy::too_many_arguments)]
 pub fn gpu_fri_commit_phase_goldilocks(
     number_layers: usize,
     p_0: Polynomial<FieldElement<Goldilocks64Field>>,
@@ -1326,7 +1671,7 @@ pub fn gpu_fri_commit_phase_goldilocks(
 /// are already on a Metal buffer (e.g., from `gpu_compute_deep_composition_poly_to_buffer`),
 /// so no CPU-to-GPU upload is needed for the first fold.
 #[cfg(all(target_os = "macos", feature = "metal"))]
-#[allow(clippy::type_complexity)]
+#[allow(clippy::type_complexity, clippy::too_many_arguments)]
 pub fn gpu_fri_commit_phase_goldilocks_from_buffer(
     number_layers: usize,
     p_0_buffer: metal::Buffer,
@@ -1550,9 +1895,8 @@ where
     let gamma: Fp3E = transcript.sample_field_element();
 
     let n_terms_composition_poly = round_2_result.lde_composition_poly_evaluations.len();
-    let num_terms_trace = air.context().transition_offsets.len()
-        * air.step_size()
-        * air.context().trace_columns;
+    let num_terms_trace =
+        air.context().transition_offsets.len() * air.step_size() * air.context().trace_columns;
 
     let mut deep_composition_coefficients: Vec<Fp3E> =
         core::iter::successors(Some(Fp3E::one()), |x| Some(x * gamma))
@@ -1955,10 +2299,12 @@ mod tests {
         let cpu_folded = FpE::from(2u64) * fold_polynomial(&poly, &beta);
 
         // GPU: gpu_fold_polynomial_from_cpu computes 2*(even + beta*odd) in one kernel
-        let (gpu_buffer, gpu_len) =
-            gpu_fold_polynomial_from_cpu(&poly, &beta, &fri_state).unwrap();
+        let (gpu_buffer, gpu_len) = gpu_fold_polynomial_from_cpu(&poly, &beta, &fri_state).unwrap();
 
-        assert_eq!(gpu_len, 32, "Folded polynomial should have half the coefficients");
+        assert_eq!(
+            gpu_len, 32,
+            "Folded polynomial should have half the coefficients"
+        );
 
         // Read back GPU result
         let gpu_u64: Vec<u64> = unsafe { fri_state.state.read_buffer(&gpu_buffer, gpu_len) };
@@ -2024,7 +2370,8 @@ mod tests {
     // GPU Fp3 FRI Fold differential tests
     // =========================================================================
 
-    type Fp3 = lambdaworks_math::field::fields::u64_goldilocks_field::Degree3GoldilocksExtensionField;
+    type Fp3 =
+        lambdaworks_math::field::fields::u64_goldilocks_field::Degree3GoldilocksExtensionField;
     type Fp3E = FieldElement<Fp3>;
 
     /// Helper: create an Fp3 element from 3 u64 values.
@@ -2035,11 +2382,7 @@ mod tests {
     /// Helper: extract 3 u64 components from an Fp3 element.
     fn fp3_to_u64s(e: &Fp3E) -> [u64; 3] {
         let comps = e.value();
-        [
-            *comps[0].value(),
-            *comps[1].value(),
-            *comps[2].value(),
-        ]
+        [*comps[0].value(), *comps[1].value(), *comps[2].value()]
     }
 
     #[test]
@@ -2063,7 +2406,10 @@ mod tests {
         let (gpu_buffer, gpu_len) =
             gpu_fold_polynomial_fp3_from_cpu(&poly, &beta, &fri_state).unwrap();
 
-        assert_eq!(gpu_len, 32, "Folded polynomial should have half the coefficients");
+        assert_eq!(
+            gpu_len, 32,
+            "Folded polynomial should have half the coefficients"
+        );
 
         // Read back GPU result (3 u64s per Fp3 element)
         let gpu_u64: Vec<u64> = MetalState::retrieve_contents(&gpu_buffer);
@@ -2086,7 +2432,8 @@ mod tests {
         );
         for (i, (cpu, gpu)) in cpu_coeffs.iter().zip(&gpu_coeffs).enumerate() {
             assert_eq!(
-                cpu, gpu,
+                cpu,
+                gpu,
                 "Fp3 FRI fold mismatch at index {i}: CPU={:?} GPU={:?}",
                 fp3_to_u64s(cpu),
                 fp3_to_u64s(gpu)
@@ -2140,10 +2487,218 @@ mod tests {
         assert_eq!(cpu_coeffs.len(), gpu_coeffs.len());
         for (i, (cpu, gpu)) in cpu_coeffs.iter().zip(&gpu_coeffs).enumerate() {
             assert_eq!(
-                cpu, gpu,
+                cpu,
+                gpu,
                 "Chained Fp3 FRI fold mismatch at index {i}: CPU={:?} GPU={:?}",
                 fp3_to_u64s(cpu),
                 fp3_to_u64s(gpu)
+            );
+        }
+    }
+
+    // =========================================================================
+    // GPU Evaluation-Domain FRI Fold Tests
+    // =========================================================================
+
+    #[test]
+    #[cfg(all(target_os = "macos", feature = "metal"))]
+    fn test_gpu_fri_domain_inverses_correctness() {
+        use lambdaworks_gpu::metal::abstractions::state::MetalState;
+        use lambdaworks_math::fft::cpu::bit_reversing::reverse_index;
+        use lambdaworks_math::field::element::FieldElement;
+        use lambdaworks_math::field::fields::u64_goldilocks_field::Goldilocks64Field;
+        use lambdaworks_math::field::traits::IsFFTField;
+
+        type F = Goldilocks64Field;
+        type FE = FieldElement<F>;
+
+        let domain_size: usize = 64;
+        let half_len = domain_size / 2;
+        let coset_offset = FE::from(7u64);
+
+        // Compute h_inv and omega_inv
+        let order = domain_size.trailing_zeros() as u64;
+        let omega = F::get_primitive_root_of_unity(order).unwrap();
+        let h_inv = coset_offset.inv().unwrap();
+        let omega_inv = omega.inv().unwrap();
+
+        let state = FriDomainInvState::new().unwrap();
+        let inv_x_buffer =
+            gpu_compute_fri_domain_inverses(&h_inv, &omega_inv, domain_size, &state).unwrap();
+
+        // Read back results
+        let inv_x_u64: Vec<u64> = MetalState::retrieve_contents(&inv_x_buffer);
+        assert_eq!(inv_x_u64.len(), half_len);
+
+        // Verify: inv_x[i] should equal 1/(h * omega^{bitrev(i)})
+        // where bitrev is over log2(half_len) bits
+        for i in 0..half_len {
+            let br_i = reverse_index(i, half_len as u64);
+            let x = &coset_offset * &omega.pow(br_i as u64);
+            let expected = x.inv().unwrap();
+            let expected_u64 = F::canonical(expected.value());
+            assert_eq!(
+                inv_x_u64[i], expected_u64,
+                "Domain inverse mismatch at index {} (bitrev={}): GPU={}, expected={}",
+                i, br_i, inv_x_u64[i], expected_u64
+            );
+        }
+    }
+
+    #[test]
+    #[cfg(all(target_os = "macos", feature = "metal"))]
+    fn test_gpu_square_fri_inverses() {
+        use lambdaworks_gpu::metal::abstractions::state::MetalState;
+        use lambdaworks_math::field::element::FieldElement;
+        use lambdaworks_math::field::fields::u64_goldilocks_field::Goldilocks64Field;
+        use lambdaworks_math::field::traits::IsFFTField;
+
+        type F = Goldilocks64Field;
+        type FE = FieldElement<F>;
+
+        let domain_size: usize = 64;
+        let half_len = domain_size / 2;
+        let coset_offset = FE::from(7u64);
+
+        let order = domain_size.trailing_zeros() as u64;
+        let omega = F::get_primitive_root_of_unity(order).unwrap();
+        let h_inv = coset_offset.inv().unwrap();
+        let omega_inv = omega.inv().unwrap();
+
+        // Compute layer-0 inverses
+        let inv_state = FriDomainInvState::new().unwrap();
+        let inv_x_buffer =
+            gpu_compute_fri_domain_inverses(&h_inv, &omega_inv, domain_size, &inv_state).unwrap();
+
+        // Square them for the next layer
+        let sq_state = FriSquareInvState::new().unwrap();
+        let next_half = half_len / 2;
+        let inv_x_sq_buffer =
+            gpu_square_fri_inverses(&inv_x_buffer, next_half, &sq_state).unwrap();
+
+        let inv_x_sq_u64: Vec<u64> = MetalState::retrieve_contents(&inv_x_sq_buffer);
+        assert_eq!(inv_x_sq_u64.len(), next_half);
+
+        // Verify: inv_x_sq[i] = inv_x[i]^2
+        let inv_x_u64: Vec<u64> = MetalState::retrieve_contents(&inv_x_buffer);
+        for i in 0..next_half {
+            let v = FE::from(inv_x_u64[i]);
+            let expected = &v * &v;
+            let expected_u64 = F::canonical(expected.value());
+            assert_eq!(
+                inv_x_sq_u64[i], expected_u64,
+                "Square inverse mismatch at index {}: GPU={}, expected={}",
+                i, inv_x_sq_u64[i], expected_u64
+            );
+        }
+    }
+
+    #[test]
+    #[cfg(all(target_os = "macos", feature = "metal"))]
+    fn test_gpu_fold_eval_bitrev_matches_coeff_fold() {
+        use lambdaworks_gpu::metal::abstractions::state::MetalState;
+        use lambdaworks_math::fft::cpu::bit_reversing::in_place_bit_reverse_permute;
+        use lambdaworks_math::field::element::FieldElement;
+        use lambdaworks_math::field::fields::u64_goldilocks_field::Goldilocks64Field;
+        use lambdaworks_math::field::traits::{IsFFTField, IsPrimeField};
+        use lambdaworks_math::polynomial::Polynomial;
+
+        type F = Goldilocks64Field;
+        type FE = FieldElement<F>;
+
+        // Create a random-ish polynomial of degree 63
+        let degree = 63;
+        let coeffs: Vec<FE> = (0..=degree)
+            .map(|i| FE::from((i * 17 + 3) as u64))
+            .collect();
+        let poly = Polynomial::new(&coeffs);
+
+        let domain_size: usize = 128;
+        let coset_offset = FE::from(7u64);
+
+        // Generate coset domain in natural order, then bit-reverse
+        let order = domain_size.trailing_zeros() as u64;
+        let omega = F::get_primitive_root_of_unity(order).unwrap();
+        let mut domain_nat = Vec::with_capacity(domain_size);
+        let mut w_i = FE::one();
+        for _ in 0..domain_size {
+            domain_nat.push(&coset_offset * &w_i);
+            w_i = w_i * &omega;
+        }
+
+        // Evaluate polynomial on natural-order domain, then bit-reverse
+        let mut evals: Vec<FE> = domain_nat.iter().map(|x| poly.evaluate(x)).collect();
+        in_place_bit_reverse_permute(&mut evals);
+
+        let beta = FE::from(42u64);
+        let half_domain_size = domain_size / 2;
+
+        // === Path 1: Coefficient-domain fold → evaluate on squared domain → bit-reverse ===
+        let half_degree = (degree + 1) / 2;
+        let mut folded_coeffs = Vec::with_capacity(half_degree);
+        for k in 0..half_degree {
+            let even = &coeffs[2 * k];
+            let odd = if 2 * k + 1 <= degree {
+                &coeffs[2 * k + 1]
+            } else {
+                &FE::zero()
+            };
+            folded_coeffs.push(FE::from(2u64) * (even + &beta * odd));
+        }
+        let folded_poly = Polynomial::new(&folded_coeffs);
+
+        // Evaluate folded polynomial on squared coset domain in natural order, then bit-reverse
+        let folded_offset = &coset_offset * &coset_offset;
+        let omega_half_order = half_domain_size.trailing_zeros() as u64;
+        let omega_half = F::get_primitive_root_of_unity(omega_half_order).unwrap();
+        let mut folded_domain = Vec::with_capacity(half_domain_size);
+        let mut w_j = FE::one();
+        for _ in 0..half_domain_size {
+            folded_domain.push(&folded_offset * &w_j);
+            w_j = w_j * &omega_half;
+        }
+        let mut expected_evals: Vec<FE> = folded_domain
+            .iter()
+            .map(|x| folded_poly.evaluate(x))
+            .collect();
+        in_place_bit_reverse_permute(&mut expected_evals);
+
+        // === Path 2: Eval-domain fold on GPU (bit-reversed) ===
+        let fold_state = FriFoldEvalState::new().unwrap();
+        let inv_state = FriDomainInvState::new().unwrap();
+
+        // Upload bit-reversed evaluations
+        let evals_u64: Vec<u64> = evals.iter().map(|e| F::canonical(e.value())).collect();
+        let evals_buffer = fold_state.state.alloc_buffer_with_data(&evals_u64).unwrap();
+
+        // Compute domain inverses using known constants
+        let h_inv = coset_offset.inv().unwrap();
+        let omega_inv = omega.inv().unwrap();
+        let inv_x_buffer =
+            gpu_compute_fri_domain_inverses(&h_inv, &omega_inv, domain_size, &inv_state).unwrap();
+
+        // Fold evaluations
+        let (result_buffer, result_len) = gpu_fold_evaluations(
+            &evals_buffer,
+            domain_size,
+            &beta,
+            &inv_x_buffer,
+            &fold_state,
+        )
+        .unwrap();
+
+        assert_eq!(result_len, half_domain_size);
+
+        // Read back and compare
+        let result_u64: Vec<u64> = MetalState::retrieve_contents(&result_buffer);
+        assert_eq!(result_u64.len(), half_domain_size);
+
+        for i in 0..half_domain_size {
+            let expected_u64 = F::canonical(expected_evals[i].value());
+            assert_eq!(
+                result_u64[i], expected_u64,
+                "Eval-domain fold mismatch at index {}: GPU={}, expected={}",
+                i, result_u64[i], expected_u64
             );
         }
     }

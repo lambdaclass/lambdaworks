@@ -312,8 +312,7 @@ fn gpu_compute_end_exemptions_evals(
     padded_coeffs.resize(interpolation_domain_size, FpE::zero());
 
     // Try GPU FFT, fall back to CPU on failure
-    match gpu_evaluate_offset_fft::<F>(&padded_coeffs, blowup_factor, coset_offset, state.inner())
-    {
+    match gpu_evaluate_offset_fft::<F>(&padded_coeffs, blowup_factor, coset_offset, state.inner()) {
         Ok(evaluations) => {
             // The GPU FFT should produce exactly eval_domain_size elements.
             // Subsample if larger (shouldn't happen with correct padding).
@@ -730,12 +729,14 @@ where
     let t_constraint = std::time::Instant::now();
     let (constraint_eval_buffer, constraint_eval_len) = if has_gpu_bufs {
         // Fast path: GPU boundary eval + GPU constraint eval with retained buffers.
-        let main_bufs = round_1_result.main_lde_gpu_buffers.as_ref().expect(
-            "main_lde_gpu_buffers must be Some in fast path (checked by has_gpu_bufs)",
-        );
-        let aux_bufs = round_1_result.aux_lde_gpu_buffers.as_ref().expect(
-            "aux_lde_gpu_buffers must be Some in fast path (checked by has_gpu_bufs)",
-        );
+        let main_bufs = round_1_result
+            .main_lde_gpu_buffers
+            .as_ref()
+            .expect("main_lde_gpu_buffers must be Some in fast path (checked by has_gpu_bufs)");
+        let aux_bufs = round_1_result
+            .aux_lde_gpu_buffers
+            .as_ref()
+            .expect("aux_lde_gpu_buffers must be Some in fast path (checked by has_gpu_bufs)");
 
         // GPU boundary evaluation: per-element inverse via addition chain.
         let bc_descriptors: Vec<(usize, usize, FpE)> = boundary_constraints
@@ -758,9 +759,7 @@ where
             num_lde_rows,
             None,
         )
-        .map_err(|e| {
-            ProvingError::FieldOperationError(format!("GPU boundary eval error: {e}"))
-        })?;
+        .map_err(|e| ProvingError::FieldOperationError(format!("GPU boundary eval error: {e}")))?;
 
         eprintln!("    2a boundary GPU:   {:>10.2?}", t_boundary.elapsed());
 
@@ -777,9 +776,7 @@ where
             lde_step_size,
             precompiled_constraint,
         )
-        .map_err(|e| {
-            ProvingError::FieldOperationError(format!("GPU constraint eval error: {e}"))
-        })?
+        .map_err(|e| ProvingError::FieldOperationError(format!("GPU constraint eval error: {e}")))?
     } else {
         // Fallback: CPU boundary eval + GPU constraint eval with column re-upload.
         // Build LDE trace table from CPU data (only needed in this fallback path).
@@ -862,9 +859,7 @@ where
             lde_step_size,
             precompiled_constraint,
         )
-        .map_err(|e| {
-            ProvingError::FieldOperationError(format!("GPU constraint eval error: {e}"))
-        })?
+        .map_err(|e| ProvingError::FieldOperationError(format!("GPU constraint eval error: {e}")))?
     };
 
     eprintln!("    2c constraint GPU: {:>10.2?}", t_constraint.elapsed());
@@ -879,9 +874,7 @@ where
         coset_state,
         state.inner(),
     )
-    .map_err(|e| {
-        ProvingError::FieldOperationError(format!("GPU composition IFFT error: {e}"))
-    })?;
+    .map_err(|e| ProvingError::FieldOperationError(format!("GPU composition IFFT error: {e}")))?;
 
     eprintln!("    2d GPU IFFT:       {:>10.2?}", t_ifft.elapsed());
 
@@ -952,12 +945,9 @@ where
     // Step 7: GPU Merkle commit with paired-row layout directly from FFT buffers.
     let t_commit = std::time::Instant::now();
     let buffer_refs: Vec<&metal::Buffer> = lde_buffers.iter().collect();
-    let (tree, root) = gpu_batch_commit_paired_from_column_buffers(
-        &buffer_refs,
-        lde_domain_size,
-        keccak_state,
-    )
-    .ok_or(ProvingError::EmptyCommitment)?;
+    let (tree, root) =
+        gpu_batch_commit_paired_from_column_buffers(&buffer_refs, lde_domain_size, keccak_state)
+            .ok_or(ProvingError::EmptyCommitment)?;
 
     eprintln!("    2g Merkle commit:  {:>10.2?}", t_commit.elapsed());
 
@@ -1005,10 +995,9 @@ where
         .len();
     let num_transition = air.context().num_transition_constraints;
 
-    let mut coefficients: Vec<Fp3E> =
-        core::iter::successors(Some(Fp3E::one()), |x| Some(x * beta))
-            .take(num_boundary + num_transition)
-            .collect();
+    let mut coefficients: Vec<Fp3E> = core::iter::successors(Some(Fp3E::one()), |x| Some(x * beta))
+        .take(num_boundary + num_transition)
+        .collect();
     let transition_coefficients: Vec<Fp3E> = coefficients.drain(..num_transition).collect();
     let boundary_coefficients = coefficients;
 
@@ -1075,12 +1064,7 @@ where
 
     // Transpose: column-major to row-major
     let mut rows: Vec<Vec<Fp3E>> = (0..lde_len)
-        .map(|i| {
-            lde_evaluations
-                .iter()
-                .map(|col| col[i])
-                .collect()
-        })
+        .map(|i| lde_evaluations.iter().map(|col| col[i]).collect())
         .collect();
 
     // Bit-reverse permute
@@ -1147,8 +1131,7 @@ mod tests {
                 "trace_length={trace_length}: number of zerofier vectors mismatch"
             );
 
-            for (c_idx, (cpu_z, gpu_z)) in
-                cpu_zerofier.iter().zip(gpu_zerofier.iter()).enumerate()
+            for (c_idx, (cpu_z, gpu_z)) in cpu_zerofier.iter().zip(gpu_zerofier.iter()).enumerate()
             {
                 assert_eq!(
                     cpu_z.len(),
