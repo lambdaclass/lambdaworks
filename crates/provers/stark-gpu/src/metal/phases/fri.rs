@@ -2695,15 +2695,15 @@ mod tests {
 
         // Verify: inv_x[i] should equal 1/(h * omega^{bitrev(i)})
         // where bitrev is over log2(half_len) bits
-        for i in 0..half_len {
+        for (i, inv_x_val) in inv_x_u64.iter().enumerate().take(half_len) {
             let br_i = reverse_index(i, half_len as u64);
-            let x = &coset_offset * &omega.pow(br_i as u64);
+            let x = coset_offset * omega.pow(br_i as u64);
             let expected = x.inv().unwrap();
             let expected_u64 = F::canonical(expected.value());
             assert_eq!(
-                inv_x_u64[i], expected_u64,
+                *inv_x_val, expected_u64,
                 "Domain inverse mismatch at index {} (bitrev={}): GPU={}, expected={}",
-                i, br_i, inv_x_u64[i], expected_u64
+                i, br_i, inv_x_val, expected_u64
             );
         }
     }
@@ -2745,7 +2745,7 @@ mod tests {
         let inv_x_u64: Vec<u64> = MetalState::retrieve_contents(&inv_x_buffer);
         for i in 0..next_half {
             let v = FE::from(inv_x_u64[i]);
-            let expected = &v * &v;
+            let expected = v * v;
             let expected_u64 = F::canonical(expected.value());
             assert_eq!(
                 inv_x_sq_u64[i], expected_u64,
@@ -2769,7 +2769,7 @@ mod tests {
         type FE = FieldElement<F>;
 
         // Create a random-ish polynomial of degree 63
-        let degree = 63;
+        let degree: usize = 63;
         let coeffs: Vec<FE> = (0..=degree)
             .map(|i| FE::from((i * 17 + 3) as u64))
             .collect();
@@ -2784,8 +2784,8 @@ mod tests {
         let mut domain_nat = Vec::with_capacity(domain_size);
         let mut w_i = FE::one();
         for _ in 0..domain_size {
-            domain_nat.push(&coset_offset * &w_i);
-            w_i = w_i * &omega;
+            domain_nat.push(coset_offset * w_i);
+            w_i *= omega;
         }
 
         // Evaluate polynomial on natural-order domain, then bit-reverse
@@ -2796,28 +2796,28 @@ mod tests {
         let half_domain_size = domain_size / 2;
 
         // === Path 1: Coefficient-domain fold → evaluate on squared domain → bit-reverse ===
-        let half_degree = (degree + 1) / 2;
+        let half_degree = degree.div_ceil(2);
         let mut folded_coeffs = Vec::with_capacity(half_degree);
         for k in 0..half_degree {
             let even = &coeffs[2 * k];
-            let odd = if 2 * k + 1 <= degree {
+            let odd = if 2 * k < degree {
                 &coeffs[2 * k + 1]
             } else {
                 &FE::zero()
             };
-            folded_coeffs.push(FE::from(2u64) * (even + &beta * odd));
+            folded_coeffs.push(FE::from(2u64) * (even + beta * odd));
         }
         let folded_poly = Polynomial::new(&folded_coeffs);
 
         // Evaluate folded polynomial on squared coset domain in natural order, then bit-reverse
-        let folded_offset = &coset_offset * &coset_offset;
+        let folded_offset = coset_offset * coset_offset;
         let omega_half_order = half_domain_size.trailing_zeros() as u64;
         let omega_half = F::get_primitive_root_of_unity(omega_half_order).unwrap();
         let mut folded_domain = Vec::with_capacity(half_domain_size);
         let mut w_j = FE::one();
         for _ in 0..half_domain_size {
-            folded_domain.push(&folded_offset * &w_j);
-            w_j = w_j * &omega_half;
+            folded_domain.push(folded_offset * w_j);
+            w_j *= omega_half;
         }
         let mut expected_evals: Vec<FE> = folded_domain
             .iter()

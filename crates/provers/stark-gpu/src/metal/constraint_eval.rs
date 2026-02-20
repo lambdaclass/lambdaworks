@@ -689,7 +689,7 @@ mod tests {
         let num_transition = air.context().num_transition_constraints;
 
         let mut coefficients: Vec<FpE> =
-            core::iter::successors(Some(FpE::one()), |x| Some(x * &beta))
+            core::iter::successors(Some(FpE::one()), |x| Some(x * beta))
                 .take(num_boundary + num_transition)
                 .collect();
         let transition_coefficients: Vec<FpE> = coefficients.drain(..num_transition).collect();
@@ -720,13 +720,13 @@ mod tests {
         // Extract LDE trace columns for the GPU. The LDETraceTable stores data column-major.
         let num_lde_rows = lde_trace.num_rows();
         let main_col_0: Vec<FpE> = (0..num_lde_rows)
-            .map(|r| lde_trace.get_main(r, 0).clone())
+            .map(|r| *lde_trace.get_main(r, 0))
             .collect();
         let main_col_1: Vec<FpE> = (0..num_lde_rows)
-            .map(|r| lde_trace.get_main(r, 1).clone())
+            .map(|r| *lde_trace.get_main(r, 1))
             .collect();
         let aux_col_0: Vec<FpE> = (0..num_lde_rows)
-            .map(|r| lde_trace.get_aux(r, 0).clone())
+            .map(|r| *lde_trace.get_aux(r, 0))
             .collect();
 
         // Pre-compute transition zerofier evaluations (same as CPU does internally).
@@ -743,7 +743,7 @@ mod tests {
                 let mut evals: Vec<FpE> = domain
                     .lde_roots_of_unity_coset
                     .iter()
-                    .map(|v| v - &point)
+                    .map(|v| v - point)
                     .collect();
                 FpE::inplace_batch_inverse(&mut evals).unwrap();
                 evals
@@ -760,11 +760,11 @@ mod tests {
             .map(|constraint| {
                 if constraint.is_aux {
                     (0..num_lde_rows)
-                        .map(|row| lde_trace.get_aux(row, constraint.col) - &constraint.value)
+                        .map(|row| lde_trace.get_aux(row, constraint.col) - constraint.value)
                         .collect()
                 } else {
                     (0..num_lde_rows)
-                        .map(|row| lde_trace.get_main(row, constraint.col) - &constraint.value)
+                        .map(|row| lde_trace.get_main(row, constraint.col) - constraint.value)
                         .collect()
                 }
             })
@@ -776,7 +776,7 @@ mod tests {
                     .zip(boundary_poly_evals.iter())
                     .zip(boundary_coefficients.iter())
                     .fold(FpE::zero(), |acc, ((z, bp), beta)| {
-                        acc + &z[i] * beta * &bp[i]
+                        acc + z[i] * beta * bp[i]
                     })
             })
             .collect();

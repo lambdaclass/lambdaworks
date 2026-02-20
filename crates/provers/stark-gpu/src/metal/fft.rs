@@ -302,6 +302,7 @@ pub struct CosetShiftState {
     state: DynamicMetalState,
     coset_shift_max_threads: u64,
     scale_max_threads: u64,
+    cyclic_mul_max_threads: u64,
 }
 
 #[cfg(all(target_os = "macos", feature = "metal"))]
@@ -317,10 +318,12 @@ impl CosetShiftState {
         state.load_library(&combined_source)?;
         let coset_shift_max_threads = state.prepare_pipeline("goldilocks_coset_shift")?;
         let scale_max_threads = state.prepare_pipeline("goldilocks_scale")?;
+        let cyclic_mul_max_threads = state.prepare_pipeline("goldilocks_cyclic_mul")?;
         Ok(Self {
             state,
             coset_shift_max_threads,
             scale_max_threads,
+            cyclic_mul_max_threads,
         })
     }
 
@@ -338,10 +341,12 @@ impl CosetShiftState {
         state.load_library(&combined_source)?;
         let coset_shift_max_threads = state.prepare_pipeline("goldilocks_coset_shift")?;
         let scale_max_threads = state.prepare_pipeline("goldilocks_scale")?;
+        let cyclic_mul_max_threads = state.prepare_pipeline("goldilocks_cyclic_mul")?;
         Ok(Self {
             state,
             coset_shift_max_threads,
             scale_max_threads,
+            cyclic_mul_max_threads,
         })
     }
 }
@@ -589,6 +594,80 @@ pub fn gpu_coset_shift_buffer_to_buffer(
     Ok(buf_output)
 }
 
+/// Element-wise cyclic multiply: output[i] = input[i] * pattern[i % pattern_len].
+///
+/// Used for combining base zerofier (small cyclic pattern) with end-exemptions
+/// evaluations (large buffer), keeping the entire zerofier computation on GPU.
+///
+/// # Arguments
+///
+/// - `input`: Metal buffer containing `len` Goldilocks u64 values
+/// - `len`: Number of elements in the input buffer
+/// - `pattern`: Small cyclic pattern (e.g., base zerofier of length `blowup_factor * period`)
+/// - `state`: Pre-compiled coset shift Metal state (contains the cyclic_mul pipeline)
+///
+/// # Returns
+///
+/// A new Metal Buffer containing `len` u64 values (each multiplied by the cyclic pattern).
+#[cfg(all(target_os = "macos", feature = "metal"))]
+pub fn gpu_cyclic_mul_buffer(
+    input: &metal::Buffer,
+    len: usize,
+    pattern: &[u64],
+    state: &CosetShiftState,
+) -> Result<metal::Buffer, MetalError> {
+    use metal::MTLSize;
+
+    let pattern_len = pattern.len();
+
+    // Allocate GPU buffers
+    let buf_output = state.state.alloc_buffer(len * std::mem::size_of::<u64>())?;
+    let buf_pattern = state.state.alloc_buffer_with_data(pattern)?;
+    let len_u32 = len as u32;
+    let pattern_len_u32 = pattern_len as u32;
+    let buf_len = state
+        .state
+        .alloc_buffer_with_data(std::slice::from_ref(&len_u32))?;
+    let buf_pattern_len = state
+        .state
+        .alloc_buffer_with_data(std::slice::from_ref(&pattern_len_u32))?;
+
+    // Dispatch the cyclic mul kernel
+    let pipeline = state
+        .state
+        .get_pipeline_ref("goldilocks_cyclic_mul")
+        .ok_or_else(|| MetalError::FunctionError("goldilocks_cyclic_mul".to_string()))?;
+
+    let threads_per_group = state.cyclic_mul_max_threads.min(256);
+    let thread_groups = (len as u64).div_ceil(threads_per_group);
+
+    let command_buffer = state.state.command_queue().new_command_buffer();
+    let encoder = command_buffer.new_compute_command_encoder();
+    encoder.set_compute_pipeline_state(pipeline);
+    encoder.set_buffer(0, Some(input), 0);
+    encoder.set_buffer(1, Some(&buf_output), 0);
+    encoder.set_buffer(2, Some(&buf_pattern), 0);
+    encoder.set_buffer(3, Some(&buf_len), 0);
+    encoder.set_buffer(4, Some(&buf_pattern_len), 0);
+
+    encoder.dispatch_thread_groups(
+        MTLSize::new(thread_groups, 1, 1),
+        MTLSize::new(threads_per_group, 1, 1),
+    );
+    encoder.end_encoding();
+
+    command_buffer.commit();
+    command_buffer.wait_until_completed();
+
+    if command_buffer.status() == metal::MTLCommandBufferStatus::Error {
+        return Err(MetalError::ExecutionError(
+            "GPU cyclic mul command buffer error".to_string(),
+        ));
+    }
+
+    Ok(buf_output)
+}
+
 /// GPU inverse FFT that returns a Metal Buffer.
 ///
 /// Given evaluations at roots of unity, this computes polynomial coefficients via inverse
@@ -692,6 +771,120 @@ pub fn gpu_interpolate_offset_fft_to_buffer(
         gpu_coset_shift_buffer_to_buffer(&coeffs_buffer, len, &offset_inv, len, coset_state)?;
 
     Ok(result)
+}
+
+/// Batch-interpolates multiple evaluation columns into coefficient GPU buffers.
+///
+/// Given columns of evaluations at roots of unity (all same length), this computes
+/// the polynomial coefficients for each column entirely on GPU:
+/// 1. Generate inverse twiddles ONCE (shared across all columns)
+/// 2. For each column: upload → IFFT → ÷N normalization
+/// 3. Return `Vec<metal::Buffer>` (coefficient buffers on GPU)
+///
+/// This replaces the per-column `gpu_interpolate_fft` + CPU readback path,
+/// eliminating per-column twiddle generation and CPU ÷N normalization.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+pub fn gpu_interpolate_columns_to_buffers(
+    columns: &[Vec<FieldElement<Goldilocks64Field>>],
+    coset_state: &CosetShiftState,
+    metal_state: &MetalState,
+) -> Result<Vec<metal::Buffer>, MetalError> {
+    type FpE = FieldElement<Goldilocks64Field>;
+
+    if columns.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let len = columns[0].len();
+    let order = len.trailing_zeros() as u64;
+
+    // Generate inverse twiddles ONCE for all columns
+    let inv_twiddles = gen_twiddles_to_buffer::<Goldilocks64Field>(
+        order,
+        RootsConfig::BitReverseInversed,
+        metal_state,
+    )?;
+
+    // Pre-compute 1/n for normalization
+    let n_inv = FpE::from(len as u64)
+        .inv()
+        .expect("Power-of-two length is always invertible in an FFT field");
+
+    let mut coeff_buffers = Vec::with_capacity(columns.len());
+
+    for col in columns {
+        // Upload evaluations as u64 to GPU
+        let evals_u64: Vec<u64> = col
+            .iter()
+            .map(|fe| Goldilocks64Field::canonical(fe.value()))
+            .collect();
+        let eval_buffer = metal_state.alloc_buffer_data(&evals_u64);
+
+        // IFFT with shared inverse twiddles
+        let result_buffer = fft_buffer_to_buffer::<Goldilocks64Field>(
+            &eval_buffer,
+            len,
+            &inv_twiddles,
+            metal_state,
+        )?;
+
+        // Normalize by 1/n via GPU scale kernel
+        let normalized = gpu_scale_buffer(&result_buffer, len, &n_inv, coset_state)?;
+
+        coeff_buffers.push(normalized);
+    }
+
+    Ok(coeff_buffers)
+}
+
+/// Evaluates multiple coefficient GPU buffers on a coset domain, returning GPU Buffers.
+///
+/// Like [`gpu_evaluate_offset_fft_buffer_to_buffers_batch`] but all coefficients have
+/// the same length. Generates twiddles once and shares them.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+pub fn gpu_evaluate_coeff_buffers_on_lde(
+    coeff_buffers: &[metal::Buffer],
+    coeff_len: usize,
+    blowup_factor: usize,
+    offset: &FieldElement<Goldilocks64Field>,
+    coset_state: &CosetShiftState,
+    metal_state: &MetalState,
+) -> Result<(Vec<metal::Buffer>, usize), MetalError> {
+    if coeff_buffers.is_empty() {
+        return Ok((Vec::new(), 0));
+    }
+
+    let domain_size = coeff_len * blowup_factor;
+    let order = domain_size.trailing_zeros() as u64;
+
+    // Generate twiddles ONCE for the shared domain
+    let twiddles_buffer =
+        gen_twiddles_to_buffer::<Goldilocks64Field>(order, RootsConfig::BitReverse, metal_state)?;
+
+    let mut lde_buffers = Vec::with_capacity(coeff_buffers.len());
+
+    for coeff_buf in coeff_buffers {
+        // GPU coset shift + zero-pad to domain_size
+        let shifted_buffer = gpu_coset_shift_buffer_to_buffer(
+            coeff_buf,
+            coeff_len,
+            offset,
+            domain_size,
+            coset_state,
+        )?;
+
+        // FFT with shared twiddles, result stays on GPU
+        let result_buffer = fft_buffer_to_buffer::<Goldilocks64Field>(
+            &shifted_buffer,
+            domain_size,
+            &twiddles_buffer,
+            metal_state,
+        )?;
+
+        lde_buffers.push(result_buffer);
+    }
+
+    Ok((lde_buffers, domain_size))
 }
 
 /// Coset IFFT on a GPU buffer: recovers polynomial coefficients from evaluations already on GPU.
@@ -906,8 +1099,8 @@ mod tests {
         let mut cpu_shifted = Vec::with_capacity(output_len);
         let mut offset_power = FpE::one();
         for coeff in &coeffs {
-            cpu_shifted.push(coeff * &offset_power);
-            offset_power = &offset_power * &offset;
+            cpu_shifted.push(coeff * offset_power);
+            offset_power *= offset;
         }
         cpu_shifted.resize(output_len, FpE::zero());
 
@@ -942,8 +1135,8 @@ mod tests {
         let mut cpu_shifted = Vec::with_capacity(output_len);
         let mut offset_power = FpE::one();
         for coeff in &coeffs {
-            cpu_shifted.push(coeff * &offset_power);
-            offset_power = &offset_power * &offset;
+            cpu_shifted.push(coeff * offset_power);
+            offset_power *= offset;
         }
         cpu_shifted.resize(output_len, FpE::zero());
 
@@ -968,7 +1161,7 @@ mod tests {
         let scalar = FpE::from(13u64);
 
         // CPU scale
-        let cpu_scaled: Vec<FpE> = values.iter().map(|v| v * &scalar).collect();
+        let cpu_scaled: Vec<FpE> = values.iter().map(|v| v * scalar).collect();
 
         // Upload values to GPU, then scale
         let values_u64: Vec<u64> = values
@@ -1005,7 +1198,7 @@ mod tests {
         let scalar = FpE::from(999u64);
 
         // CPU scale
-        let cpu_scaled: Vec<FpE> = values.iter().map(|v| v * &scalar).collect();
+        let cpu_scaled: Vec<FpE> = values.iter().map(|v| v * scalar).collect();
 
         // GPU scale
         let values_u64: Vec<u64> = values

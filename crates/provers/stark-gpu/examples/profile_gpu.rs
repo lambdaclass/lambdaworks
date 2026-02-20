@@ -124,6 +124,7 @@ fn profile_gpu_optimized(
         &mut transcript,
         &state,
         &keccak_state,
+        &coset_state,
     )
     .unwrap();
     let phase1_time = t.elapsed();
@@ -310,7 +311,7 @@ fn profile_phase2(
     use lambdaworks_stark_gpu::metal::constraint_eval::{
         gpu_evaluate_fibonacci_rap_constraints, FibRapConstraintState,
     };
-    use lambdaworks_stark_gpu::metal::fft::gpu_evaluate_offset_fft;
+    use lambdaworks_stark_gpu::metal::fft::{gpu_evaluate_offset_fft, CosetShiftState};
     use lambdaworks_stark_gpu::metal::merkle::GpuKeccakMerkleState;
     use lambdaworks_stark_gpu::metal::phases::rap::gpu_round_1_goldilocks;
     use lambdaworks_stark_gpu::metal::state::StarkMetalState;
@@ -322,6 +323,7 @@ fn profile_phase2(
     let state = StarkMetalState::new().unwrap();
     let constraint_state = FibRapConstraintState::new().unwrap();
     let keccak_state = GpuKeccakMerkleState::new().unwrap();
+    let coset_state = CosetShiftState::new().unwrap();
     let domain = Domain::new(&air);
 
     // Run round 1 to get the input data
@@ -333,6 +335,7 @@ fn profile_phase2(
         &mut transcript,
         &state,
         &keccak_state,
+        &coset_state,
     )
     .unwrap();
 
@@ -536,6 +539,7 @@ fn profile_phase4(
         &mut transcript,
         &state,
         &keccak_state,
+        &coset_state,
     )
     .unwrap();
     let round_2 = gpu_round_2_goldilocks_merkle(

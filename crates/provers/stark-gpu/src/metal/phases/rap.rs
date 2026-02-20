@@ -18,7 +18,9 @@ use stark_platinum_prover::traits::AIR;
 
 #[cfg(all(target_os = "macos", feature = "metal"))]
 use crate::metal::fft::{
-    gpu_evaluate_offset_fft, gpu_evaluate_offset_fft_to_buffers_batch, gpu_interpolate_fft,
+    gpu_evaluate_coeff_buffers_on_lde, gpu_evaluate_offset_fft,
+    gpu_evaluate_offset_fft_to_buffers_batch, gpu_interpolate_columns_to_buffers,
+    gpu_interpolate_fft, CosetShiftState,
 };
 use crate::metal::merkle::cpu_batch_commit;
 #[cfg(all(target_os = "macos", feature = "metal"))]
@@ -65,6 +67,12 @@ where
     /// Retained GPU buffers for auxiliary trace LDE (used by DEEP composition to avoid re-upload).
     #[cfg(all(target_os = "macos", feature = "metal"))]
     pub aux_lde_gpu_buffers: Option<Vec<metal::Buffer>>,
+    /// Retained GPU buffers for main trace coefficient form (used by Phase 3 barycentric OOD).
+    #[cfg(all(target_os = "macos", feature = "metal"))]
+    pub main_coeff_gpu_buffers: Option<Vec<metal::Buffer>>,
+    /// Retained GPU buffers for auxiliary trace coefficient form (used by Phase 3 barycentric OOD).
+    #[cfg(all(target_os = "macos", feature = "metal"))]
+    pub aux_coeff_gpu_buffers: Option<Vec<metal::Buffer>>,
 }
 
 /// Executes GPU Phase 1 of the STARK prover: RAP (trace interpolation + LDE + commit).
@@ -172,6 +180,8 @@ where
         rap_challenges,
         main_lde_gpu_buffers: None,
         aux_lde_gpu_buffers: None,
+        main_coeff_gpu_buffers: None,
+        aux_coeff_gpu_buffers: None,
     })
 }
 
@@ -180,9 +190,9 @@ where
 /// This is a concrete version of [`gpu_round_1`] that uses the GPU Keccak256
 /// shader for Merkle tree construction instead of CPU hashing.
 ///
-/// Uses the buffer pipeline: FFT results stay in GPU buffers and are read
-/// directly for the Merkle commit (via unified memory), avoiding an extra
-/// memcpy per column compared to the Vec-based path.
+/// Uses the buffer pipeline: inverse twiddles are generated once and shared
+/// across all columns; interpolation, ÷N normalization, coset shift, and LDE FFT
+/// all stay on GPU — no CPU readback until Phase 3 (barycentric OOD).
 #[cfg(all(target_os = "macos", feature = "metal"))]
 pub fn gpu_round_1_goldilocks<A>(
     air: &A,
@@ -191,6 +201,7 @@ pub fn gpu_round_1_goldilocks<A>(
     transcript: &mut impl IsStarkTranscript<Goldilocks64Field, Goldilocks64Field>,
     state: &StarkMetalState,
     keccak_state: &GpuKeccakMerkleState,
+    coset_state: &CosetShiftState,
 ) -> Result<GpuRound1Result<Goldilocks64Field>, ProvingError>
 where
     A: AIR<Field = Goldilocks64Field, FieldExtension = Goldilocks64Field>,
@@ -199,20 +210,28 @@ where
 
     let t = std::time::Instant::now();
     let main_columns = trace.columns_main();
-    let main_trace_polys = interpolate_columns_gpu(&main_columns, state)?;
+    // Buffer-to-buffer interpolation: shared inverse twiddles, GPU ÷N normalization
+    let main_coeff_buffers =
+        gpu_interpolate_columns_to_buffers(&main_columns, coset_state, state.inner()).map_err(
+            |e| ProvingError::FieldOperationError(format!("GPU interpolation error: {e}")),
+        )?;
     eprintln!("    1a main interp:    {:>10.2?}", t.elapsed());
 
     let blowup_factor = air.blowup_factor() as usize;
     let coset_offset = air.coset_offset();
+    let trace_length = main_columns[0].len();
 
-    // Evaluate on LDE domain, keeping FFT results as GPU buffers (no CPU readback)
+    // Evaluate on LDE domain from coefficient buffers (no CPU readback)
     let t = std::time::Instant::now();
-    let (main_lde_buffers, main_lde_domain_size) = evaluate_polys_on_lde_gpu_to_buffers(
-        &main_trace_polys,
+    let (main_lde_buffers, main_lde_domain_size) = gpu_evaluate_coeff_buffers_on_lde(
+        &main_coeff_buffers,
+        trace_length,
         blowup_factor,
         &coset_offset,
-        state,
-    )?;
+        coset_state,
+        state.inner(),
+    )
+    .map_err(|e| ProvingError::FieldOperationError(format!("GPU LDE FFT error: {e}")))?;
     eprintln!("    1b main LDE:       {:>10.2?}", t.elapsed());
 
     // GPU Merkle commit directly from FFT output buffers (no extra memcpy)
@@ -228,7 +247,7 @@ where
 
     // --- Auxiliary trace (if RAP) ---
     let t = std::time::Instant::now();
-    let (aux_trace_polys, aux_merkle_tree, aux_merkle_root, aux_gpu_bufs) = if air
+    let (aux_merkle_tree, aux_merkle_root, aux_gpu_bufs, aux_coeff_bufs) = if air
         .has_trace_interaction()
     {
         let t_sub = std::time::Instant::now();
@@ -237,12 +256,23 @@ where
 
         let t_sub = std::time::Instant::now();
         let aux_columns = trace.columns_aux();
-        let aux_polys = interpolate_columns_gpu(&aux_columns, state)?;
+        let aux_coeff_buffers =
+            gpu_interpolate_columns_to_buffers(&aux_columns, coset_state, state.inner()).map_err(
+                |e| ProvingError::FieldOperationError(format!("GPU aux interpolation error: {e}")),
+            )?;
         eprintln!("      1d.2 aux interp: {:>10.2?}", t_sub.elapsed());
 
         let t_sub = std::time::Instant::now();
-        let (aux_lde_buffers, aux_lde_domain_size) =
-            evaluate_polys_on_lde_gpu_to_buffers(&aux_polys, blowup_factor, &coset_offset, state)?;
+        let aux_trace_length = aux_columns[0].len();
+        let (aux_lde_buffers, aux_lde_domain_size) = gpu_evaluate_coeff_buffers_on_lde(
+            &aux_coeff_buffers,
+            aux_trace_length,
+            blowup_factor,
+            &coset_offset,
+            coset_state,
+            state.inner(),
+        )
+        .map_err(|e| ProvingError::FieldOperationError(format!("GPU aux LDE FFT error: {e}")))?;
         eprintln!("      1d.3 aux LDE:    {:>10.2?}", t_sub.elapsed());
 
         // GPU Merkle commit from auxiliary trace FFT buffers
@@ -255,28 +285,30 @@ where
 
         transcript.append_bytes(&aux_root);
         (
-            aux_polys,
             Some(aux_tree),
             Some(aux_root),
             Some(aux_lde_buffers),
+            Some(aux_coeff_buffers),
         )
     } else {
-        (Vec::new(), None, None, None)
+        (None, None, None, None)
     };
     eprintln!("    1d aux all:        {:>10.2?}", t.elapsed());
 
     Ok(GpuRound1Result {
-        main_trace_polys,
+        main_trace_polys: Vec::new(), // Not needed in Goldilocks path; Phase 3 uses barycentric
         main_lde_evaluations: Vec::new(), // Not populated in Goldilocks path; use GPU buffers
         main_merkle_tree,
         main_merkle_root,
-        aux_trace_polys,
+        aux_trace_polys: Vec::new(), // Not needed in Goldilocks path; Phase 3 uses barycentric
         aux_lde_evaluations: Vec::new(), // Not populated in Goldilocks path; use GPU buffers
         aux_merkle_tree,
         aux_merkle_root,
         rap_challenges,
         main_lde_gpu_buffers: Some(main_lde_buffers),
         aux_lde_gpu_buffers: aux_gpu_bufs,
+        main_coeff_gpu_buffers: Some(main_coeff_buffers),
+        aux_coeff_gpu_buffers: aux_coeff_bufs,
     })
 }
 

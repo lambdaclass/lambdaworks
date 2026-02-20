@@ -1153,7 +1153,7 @@ mod tests {
             air.context().transition_offsets.len() * air.step_size() * air.context().trace_columns;
 
         let mut deep_composition_coefficients: Vec<_> =
-            core::iter::successors(Some(FpE::one()), |x| Some(x * &gamma))
+            core::iter::successors(Some(FpE::one()), |x| Some(x * gamma))
                 .take(n_terms_composition_poly + num_terms_trace)
                 .collect();
 
@@ -1175,15 +1175,15 @@ mod tests {
         let mut h_terms = Polynomial::zero();
         for (i, part) in round_2.composition_poly_parts.iter().enumerate() {
             let h_i_eval = &round_3.composition_poly_parts_ood_evaluation[i];
-            let h_i_term = &composition_gammas[i] * (part - h_i_eval);
-            h_terms = h_terms + h_i_term;
+            let h_i_term = composition_gammas[i] * (part - h_i_eval);
+            h_terms += h_i_term;
         }
         h_terms.ruffini_division_inplace(&z_power);
 
         let trace_evaluations_columns = round_3.trace_ood_evaluations.columns();
         let num_offsets = round_3.trace_ood_evaluations.height;
         let z_shifted_values: Vec<FpE> = (0..num_offsets)
-            .map(|offset| primitive_root.pow(offset) * &round_3.z)
+            .map(|offset| primitive_root.pow(offset) * round_3.z)
             .collect();
 
         let trace_terms = all_trace_polys_cpu.iter().enumerate().fold(
@@ -1273,11 +1273,11 @@ mod tests {
         let round_3 = gpu_round_3(&air, &domain, &round_1, &round_2, &mut transcript).unwrap();
 
         // Create Fp3 z by embedding the base-field z and adding a non-trivial extension part.
-        let z_fp3 = Fp3E::new([round_3.z.clone(), FpE::from(7u64), FpE::from(13u64)]);
+        let z_fp3 = Fp3E::new([round_3.z, FpE::from(7u64), FpE::from(13u64)]);
 
         // Generate gammas in Fp3 (embed base field gamma, add extension components).
         let gamma_base: FpE = transcript.sample_field_element();
-        let gamma_fp3 = Fp3E::new([gamma_base.clone(), FpE::from(3u64), FpE::from(5u64)]);
+        let gamma_fp3 = Fp3E::new([gamma_base, FpE::from(3u64), FpE::from(5u64)]);
 
         let n_terms_composition_poly = round_2.lde_composition_poly_evaluations.len();
         let num_offsets = round_3.trace_ood_evaluations.height;
@@ -1286,7 +1286,7 @@ mod tests {
         let num_terms_trace = num_offsets * num_trace_polys;
 
         let mut deep_coeffs_fp3: Vec<Fp3E> =
-            core::iter::successors(Some(Fp3E::one()), |x| Some(x * &gamma_fp3))
+            core::iter::successors(Some(Fp3E::one()), |x| Some(x * gamma_fp3))
                 .take(n_terms_composition_poly + num_terms_trace)
                 .collect();
 
@@ -1301,7 +1301,7 @@ mod tests {
         // Create Fp3 OOD evaluations by evaluating trace polys at z_fp3.
         let primitive_root = &domain.trace_primitive_root;
         let z_shifted_fp3: Vec<Fp3E> = (0..num_offsets)
-            .map(|k| primitive_root.pow(k) * &z_fp3) // BF * Fp3 → Fp3
+            .map(|k| primitive_root.pow(k) * z_fp3) // BF * Fp3 → Fp3
             .collect();
 
         // Trace OOD: evaluate each trace poly at z*g^k in Fp3.
@@ -1332,7 +1332,7 @@ mod tests {
             .iter()
             .map(|col| {
                 col.iter()
-                    .map(|fe| Fp3E::new([fe.clone(), FpE::zero(), FpE::zero()]))
+                    .map(|fe| Fp3E::new([*fe, FpE::zero(), FpE::zero()]))
                     .collect()
             })
             .collect();
@@ -1344,7 +1344,7 @@ mod tests {
         let mut inv_z_power: Vec<Fp3E> = domain
             .lde_roots_of_unity_coset
             .iter()
-            .map(|x| x - &z_power_fp3)
+            .map(|x| x - z_power_fp3)
             .collect();
         FieldElement::inplace_batch_inverse(&mut inv_z_power).unwrap();
 
@@ -1373,7 +1373,7 @@ mod tests {
             for (k, comp_eval_col) in lde_comp_evals_fp3.iter().enumerate() {
                 let h_x = &comp_eval_col[i];
                 let h_z = &composition_ood_fp3[k];
-                acc = acc + &composition_gammas_fp3[k] * &(h_x - h_z) * &inv_z_power[i];
+                acc += composition_gammas_fp3[k] * (h_x - h_z) * inv_z_power[i];
             }
 
             // Trace terms
@@ -1384,7 +1384,7 @@ mod tests {
                     let gamma = &trace_term_coeffs_fp3[col][offset];
                     // t_x in base field, subtract Fp3 OOD eval → Fp3
                     let diff: Fp3E = t_x_bf - t_ood;
-                    acc = acc + gamma * &diff * &zs_inv[i];
+                    acc += gamma * diff * zs_inv[i];
                 }
             }
 

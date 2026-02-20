@@ -1809,7 +1809,7 @@ mod gpu_tests {
 
         // CPU reference: transpose + bit-reverse + pair
         let mut cpu_rows: Vec<Vec<FpE>> = (0..num_rows)
-            .map(|i| columns.iter().map(|col| col[i].clone()).collect())
+            .map(|i| columns.iter().map(|col| col[i]).collect())
             .collect();
         in_place_bit_reverse_permute(&mut cpu_rows);
         let mut merged_rows = Vec::with_capacity(num_rows / 2);
@@ -1983,7 +1983,7 @@ mod gpu_tests {
 
         // CPU path: transpose + bit-reverse + pair + commit
         let mut cpu_rows: Vec<Vec<FpE>> = (0..lde_len)
-            .map(|i| lde_evaluations.iter().map(|col| col[i].clone()).collect())
+            .map(|i| lde_evaluations.iter().map(|col| col[i]).collect())
             .collect();
         in_place_bit_reverse_permute(&mut cpu_rows);
         let mut merged_rows = Vec::with_capacity(lde_len / 2);

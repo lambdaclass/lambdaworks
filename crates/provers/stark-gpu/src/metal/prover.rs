@@ -26,7 +26,7 @@ use crate::metal::phases::fri::gpu_round_4;
 #[cfg(all(target_os = "macos", feature = "metal"))]
 use crate::metal::phases::fri::gpu_round_4_goldilocks;
 #[cfg(all(target_os = "macos", feature = "metal"))]
-use crate::metal::phases::ood::gpu_round_3;
+use crate::metal::phases::ood::{gpu_round_3, gpu_round_3_goldilocks};
 #[cfg(all(target_os = "macos", feature = "metal"))]
 use crate::metal::phases::rap::{gpu_round_1, gpu_round_1_goldilocks};
 #[cfg(all(target_os = "macos", feature = "metal"))]
@@ -152,7 +152,15 @@ where
 
     // Phase 1: RAP (trace interpolation + LDE + GPU Merkle commit)
     let t = std::time::Instant::now();
-    let round_1 = gpu_round_1_goldilocks(air, trace, &domain, transcript, &state, &keccak_state)?;
+    let round_1 = gpu_round_1_goldilocks(
+        air,
+        trace,
+        &domain,
+        transcript,
+        &state,
+        &keccak_state,
+        &coset_state,
+    )?;
     eprintln!("  Phase 1 (RAP):         {:>10.2?}", t.elapsed());
 
     // Phase 2: Composition polynomial - GPU constraint eval + GPU IFFT + GPU FFT LDE + GPU Merkle commit
@@ -169,9 +177,9 @@ where
     )?;
     eprintln!("  Phase 2 (Composition): {:>10.2?}", t.elapsed());
 
-    // Phase 3: OOD evaluations (CPU)
+    // Phase 3: OOD evaluations (Horner from GPU coefficient buffers via UMA)
     let t = std::time::Instant::now();
-    let round_3 = gpu_round_3(air, &domain, &round_1, &round_2, transcript)?;
+    let round_3 = gpu_round_3_goldilocks(air, &domain, &round_1, &round_2, transcript)?;
     eprintln!("  Phase 3 (OOD):         {:>10.2?}", t.elapsed());
 
     // Phase 4: DEEP composition (GPU) + FRI (GPU FFT + GPU Merkle) + queries
@@ -643,12 +651,12 @@ mod tests {
                     let z_i = &aux_col[i - 1];
                     // Mixed arithmetic: FieldElement<F> + &FieldElement<Fp3> → FieldElement<Fp3>
                     let n_p_term = not_perm[i - 1] + gamma;
-                    let p_term = &perm[i - 1] + gamma;
+                    let p_term = perm[i - 1] + gamma;
                     aux_col.push(z_i * n_p_term.div(p_term).unwrap());
                 }
             }
             for (i, aux_elem) in aux_col.iter().enumerate().take(trace.num_rows()) {
-                trace.set_aux(i, 0, aux_elem.clone());
+                trace.set_aux(i, 0, *aux_elem);
             }
         }
 

@@ -242,7 +242,7 @@ kernel void fp3_test(
             assert_eq!(gpu_inv, cpu_inv, "Fp3 inv mismatch at pair {pair_idx}");
 
             // Verify: a * inv(a) == 1
-            let product = a * &gpu_inv;
+            let product = a * gpu_inv;
             assert_eq!(
                 product,
                 Fp3E::one(),

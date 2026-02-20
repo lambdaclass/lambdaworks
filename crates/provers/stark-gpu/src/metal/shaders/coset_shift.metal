@@ -49,3 +49,21 @@ kernel void goldilocks_scale(
     Fp64Goldilocks sc = scalar;
     output[gid] = val * sc;
 }
+
+/// Cyclic multiply: output[i] = input[i] * pattern[i % pattern_len].
+///
+/// Used for combining base zerofier (small cyclic pattern) with end-exemptions
+/// evaluations (large buffer), keeping the entire zerofier computation on GPU.
+kernel void goldilocks_cyclic_mul(
+    device const Fp64Goldilocks* input   [[ buffer(0) ]],
+    device Fp64Goldilocks* output        [[ buffer(1) ]],
+    device const Fp64Goldilocks* pattern [[ buffer(2) ]],
+    constant uint& len                   [[ buffer(3) ]],
+    constant uint& pattern_len           [[ buffer(4) ]],
+    uint gid [[ thread_position_in_grid ]]
+) {
+    if (gid >= len) return;
+    Fp64Goldilocks val = input[gid];
+    Fp64Goldilocks pat = pattern[gid % pattern_len];
+    output[gid] = val * pat;
+}

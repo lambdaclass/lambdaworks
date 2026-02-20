@@ -19,6 +19,9 @@ use stark_platinum_prover::traits::AIR;
 use crate::metal::phases::composition::GpuRound2Result;
 use crate::metal::phases::rap::GpuRound1Result;
 
+#[cfg(all(target_os = "macos", feature = "metal"))]
+use lambdaworks_math::field::fields::u64_goldilocks_field::Goldilocks64Field;
+
 /// Result of GPU Phase 3 (OOD evaluation round).
 ///
 /// This is the GPU equivalent of `Round3<FieldExtension>` from the CPU prover.
@@ -115,6 +118,108 @@ where
     }
 
     // Step 8: Return result.
+    Ok(GpuRound3Result {
+        trace_ood_evaluations,
+        composition_poly_parts_ood_evaluation,
+        z,
+    })
+}
+
+/// OOD evaluations for the Goldilocks optimized path.
+///
+/// Reads coefficient buffers from GPU via UMA (zero-copy on Apple Silicon) and
+/// evaluates trace polynomials at OOD points using Horner's method. This reads
+/// only `trace_length` elements per column (vs `4 * trace_length` for barycentric
+/// on LDE evaluations) and avoids bit-reverse permutation entirely.
+///
+/// Composition poly parts are already `Polynomial` objects from Phase 2, so they
+/// use Horner directly.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+pub fn gpu_round_3_goldilocks<A>(
+    air: &A,
+    domain: &Domain<Goldilocks64Field>,
+    round_1_result: &GpuRound1Result<Goldilocks64Field>,
+    round_2_result: &GpuRound2Result<Goldilocks64Field>,
+    transcript: &mut impl IsStarkTranscript<Goldilocks64Field, Goldilocks64Field>,
+) -> Result<GpuRound3Result<Goldilocks64Field>, ProvingError>
+where
+    A: AIR<Field = Goldilocks64Field, FieldExtension = Goldilocks64Field>,
+{
+    use lambdaworks_math::field::fields::u64_goldilocks_field::Goldilocks64Field;
+    use lambdaworks_math::polynomial::Polynomial;
+
+    type F = Goldilocks64Field;
+    type FpE = FieldElement<F>;
+
+    // Step 1: Append composition poly root to transcript.
+    transcript.append_bytes(&round_2_result.composition_poly_root);
+
+    // Step 2: Sample z from transcript.
+    let z = transcript.sample_z_ood(
+        &domain.lde_roots_of_unity_coset,
+        &domain.trace_roots_of_unity,
+    );
+
+    // Step 3: Compute z^N where N is the number of composition poly parts.
+    let z_power = z.pow(round_2_result.composition_poly_parts.len());
+
+    // Step 4: Evaluate each composition poly part H_i at z^N.
+    let composition_poly_parts_ood_evaluation: Vec<FpE> = round_2_result
+        .composition_poly_parts
+        .iter()
+        .map(|part| part.evaluate(&z_power))
+        .collect();
+
+    // Step 5: Read coefficient buffers from GPU via UMA and construct polynomials.
+    // On Apple Silicon, this is a zero-copy pointer read (no DMA transfer).
+    // We read trace_length coefficients per column — 4× less data than reading LDE buffers.
+    let main_coeff_bufs = round_1_result
+        .main_coeff_gpu_buffers
+        .as_ref()
+        .expect("main_coeff_gpu_buffers must be Some in Goldilocks optimized path");
+    let aux_coeff_bufs = round_1_result.aux_coeff_gpu_buffers.as_ref();
+
+    let read_polys_from_buffers = |buffers: &[metal::Buffer]| -> Vec<Polynomial<FpE>> {
+        buffers
+            .iter()
+            .map(|buf| {
+                let raw: Vec<u64> =
+                    lambdaworks_gpu::metal::abstractions::state::MetalState::retrieve_contents(buf);
+                let coeffs: Vec<FpE> = raw.into_iter().map(FieldElement::from_raw).collect();
+                Polynomial::new(&coeffs)
+            })
+            .collect()
+    };
+
+    let main_trace_polys = read_polys_from_buffers(main_coeff_bufs);
+    let aux_trace_polys = match aux_coeff_bufs {
+        Some(bufs) => read_polys_from_buffers(bufs),
+        None => Vec::new(),
+    };
+
+    // Step 6: Evaluate trace polynomials at OOD points using Horner's method.
+    let trace_ood_evaluations = get_trace_evaluations::<F, F>(
+        &main_trace_polys,
+        &aux_trace_polys,
+        &z,
+        &air.context().transition_offsets,
+        &domain.trace_primitive_root,
+        air.step_size(),
+    );
+
+    // Step 7: Append trace OOD evaluations to transcript (column by column).
+    let trace_ood_columns = trace_ood_evaluations.columns();
+    for col in trace_ood_columns.iter() {
+        for elem in col.iter() {
+            transcript.append_field_element(elem);
+        }
+    }
+
+    // Step 8: Append composition poly OOD evaluations to transcript.
+    for element in composition_poly_parts_ood_evaluation.iter() {
+        transcript.append_field_element(element);
+    }
+
     Ok(GpuRound3Result {
         trace_ood_evaluations,
         composition_poly_parts_ood_evaluation,
