@@ -40,8 +40,7 @@ use crate::metal::fft::gpu_evaluate_offset_fft;
 use crate::metal::fft::{gpu_coset_shift_buffer_to_buffer, CosetShiftState};
 #[cfg(all(target_os = "macos", feature = "metal"))]
 use crate::metal::merkle::{
-    gpu_fri_layer_commit, gpu_fri_layer_commit_from_buffer, gpu_generate_nonce,
-    GpuKeccakMerkleState,
+    gpu_fri_layer_commit, gpu_fri_layer_commit_from_buffer, gpu_generate_nonce, GpuMerkleState,
 };
 #[cfg(all(target_os = "macos", feature = "metal"))]
 use crate::metal::state::StarkMetalState;
@@ -1638,7 +1637,7 @@ fn gpu_new_fri_layer(
     coset_offset: &FieldElement<Goldilocks64Field>,
     domain_size: usize,
     gpu_state: &StarkMetalState,
-    keccak_state: &GpuKeccakMerkleState,
+    keccak_state: &GpuMerkleState,
 ) -> Result<FriLayer<Goldilocks64Field, BatchedMerkleTreeBackend<Goldilocks64Field>>, ProvingError>
 {
     // GPU FFT: pad coefficients to domain_size, evaluate with blowup=1
@@ -1675,7 +1674,7 @@ fn gpu_new_fri_layer_fused(
     coset_offset: &FieldElement<Goldilocks64Field>,
     domain_size: usize,
     gpu_state: &StarkMetalState,
-    keccak_state: &GpuKeccakMerkleState,
+    keccak_state: &GpuMerkleState,
     coset_state: &CosetShiftState,
 ) -> Result<FriLayer<Goldilocks64Field, BatchedMerkleTreeBackend<Goldilocks64Field>>, ProvingError>
 {
@@ -1742,7 +1741,7 @@ pub fn gpu_fri_commit_phase_goldilocks(
     coset_offset: &FieldElement<Goldilocks64Field>,
     domain_size: usize,
     gpu_state: &StarkMetalState,
-    keccak_state: &GpuKeccakMerkleState,
+    keccak_state: &GpuMerkleState,
     coset_state: &CosetShiftState,
     fri_fold_state: &FriFoldState,
 ) -> Result<
@@ -1842,7 +1841,7 @@ pub fn gpu_fri_commit_phase_goldilocks_from_buffer(
     coset_offset: &FieldElement<Goldilocks64Field>,
     domain_size: usize,
     gpu_state: &StarkMetalState,
-    keccak_state: &GpuKeccakMerkleState,
+    keccak_state: &GpuMerkleState,
     coset_state: &CosetShiftState,
     fri_fold_state: &FriFoldState,
 ) -> Result<
@@ -1935,7 +1934,7 @@ pub fn gpu_fri_commit_phase_eval_domain(
     coset_offset: &FieldElement<Goldilocks64Field>,
     domain_size: usize,
     gpu_state: &StarkMetalState,
-    keccak_state: &GpuKeccakMerkleState,
+    keccak_state: &GpuMerkleState,
     fold_eval_state: &FriFoldEvalState,
     domain_inv_state: &FriDomainInvState,
 ) -> Result<
@@ -2060,7 +2059,7 @@ pub fn gpu_round_4_goldilocks<A>(
     transcript: &mut impl IsStarkTranscript<Goldilocks64Field, Goldilocks64Field>,
     gpu_state: &StarkMetalState,
     precompiled_deep: Option<&DeepCompositionState>,
-    keccak_state: &GpuKeccakMerkleState,
+    keccak_state: &GpuMerkleState,
     fold_eval_state: &FriFoldEvalState,
     fri_domain_inv_state: &FriDomainInvState,
     domain_inv_state: Option<&DomainInversionState>,
@@ -2117,11 +2116,12 @@ where
         fri_domain_inv_state,
     )?;
 
-    // Step 4: Grinding (GPU-accelerated).
+    // Step 4: Grinding (GPU if available, CPU fallback for Poseidon backend).
     let security_bits = air.context().proof_options.grinding_factor;
     let mut nonce = None;
     if security_bits > 0 {
         let nonce_value = gpu_generate_nonce(&transcript.state(), security_bits, keccak_state)
+            .or_else(|| grinding::generate_nonce(&transcript.state(), security_bits))
             .ok_or(ProvingError::NonceNotFound(security_bits))?;
         transcript.append_bytes(&nonce_value.to_be_bytes());
         nonce = Some(nonce_value);

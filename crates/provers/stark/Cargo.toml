@@ -56,6 +56,7 @@ parallel = ["dep:rayon", "lambdaworks-crypto/parallel"]
 wasm = ["dep:wasm-bindgen", "dep:serde-wasm-bindgen", "dep:web-sys"]
 winter_compatibility = ["miden-core"]
 dhat-heap = ["dep:dhat"]                                             # Enable dhat heap profiling
+poseidon-goldilocks = []                                             # Use Poseidon hash for Merkle trees instead of Keccak256
 
 [target.'cfg(not(all(target_arch = "wasm32", target_os = "unknown")))'.dev-dependencies]
 proptest = "1.2.0"

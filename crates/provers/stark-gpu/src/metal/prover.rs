@@ -16,7 +16,7 @@ use stark_platinum_prover::trace::TraceTable;
 use stark_platinum_prover::traits::AIR;
 
 #[cfg(all(target_os = "macos", feature = "metal"))]
-use crate::metal::merkle::GpuKeccakMerkleState;
+use crate::metal::merkle::GpuMerkleState;
 #[cfg(all(target_os = "macos", feature = "metal"))]
 use crate::metal::phases::composition::gpu_round_2;
 #[cfg(all(target_os = "macos", feature = "metal"))]
@@ -132,8 +132,12 @@ where
         .map_err(|e| ProvingError::FieldOperationError(format!("Constraint shader: {e}")))?;
     let deep_comp_state = DeepCompositionState::new()
         .map_err(|e| ProvingError::FieldOperationError(format!("DEEP composition shader: {e}")))?;
-    let keccak_state = GpuKeccakMerkleState::new()
+    #[cfg(not(feature = "poseidon-goldilocks"))]
+    let keccak_state = GpuMerkleState::new_keccak()
         .map_err(|e| ProvingError::FieldOperationError(format!("Keccak256 shader: {e}")))?;
+    #[cfg(feature = "poseidon-goldilocks")]
+    let keccak_state = GpuMerkleState::new_poseidon()
+        .map_err(|e| ProvingError::FieldOperationError(format!("Poseidon shader: {e}")))?;
     // Coset shift state still needed for Phase 2 (composition poly LDE).
     let coset_state =
         CosetShiftState::from_device_and_queue(&state.inner().device, &state.inner().queue)
@@ -257,8 +261,12 @@ where
     let domain = Domain::new(air);
 
     // Pre-compile GPU shaders.
-    let keccak_state = GpuKeccakMerkleState::new()
+    #[cfg(not(feature = "poseidon-goldilocks"))]
+    let keccak_state = GpuMerkleState::new_keccak()
         .map_err(|e| ProvingError::FieldOperationError(format!("Keccak256 shader: {e}")))?;
+    #[cfg(feature = "poseidon-goldilocks")]
+    let keccak_state = GpuMerkleState::new_poseidon()
+        .map_err(|e| ProvingError::FieldOperationError(format!("Poseidon shader: {e}")))?;
     let fri_fold_state =
         FriFoldFp3State::from_device_and_queue(&state.inner().device, &state.inner().queue)
             .map_err(|e| ProvingError::FieldOperationError(format!("FRI fold Fp3 shader: {e}")))?;

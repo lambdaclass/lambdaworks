@@ -31,27 +31,67 @@ use lambdaworks_math::field::traits::IsPrimeField;
 const KECCAK256_SHADER: &str = include_str!("shaders/keccak256.metal");
 
 #[cfg(all(target_os = "macos", feature = "metal"))]
+const POSEIDON_SHADER: &str = include_str!("shaders/poseidon_goldilocks.metal");
+
+#[cfg(all(target_os = "macos", feature = "metal"))]
 const TRANSPOSE_BITREV_SHADER: &str = include_str!("shaders/transpose_bitrev.metal");
 
-/// Pre-compiled Metal state for Keccak256 Merkle tree operations.
+/// Pre-compiled Metal state for GPU Merkle tree operations.
 ///
-/// Caches compiled pipelines for both leaf hashing and pair hashing kernels.
+/// Supports both Keccak256 and Poseidon backends via configurable kernel names.
+/// Caches compiled pipelines for leaf hashing, pair hashing, and optional grinding.
 /// Create once and reuse across the entire prove call.
 #[cfg(all(target_os = "macos", feature = "metal"))]
-pub struct GpuKeccakMerkleState {
-    state: DynamicMetalState,
+pub struct GpuMerkleState {
+    pub(crate) state: DynamicMetalState,
     hash_leaves_max_threads: u64,
     hash_pairs_max_threads: u64,
     transpose_max_threads: u64,
     grind_max_threads: u64,
     /// Cached transpose+bitrev state for buffer-based operations.
     transpose_bitrev_state: Option<TransposeBitrevState>,
+    /// Kernel name for leaf hashing.
+    leaf_kernel: &'static str,
+    /// Kernel name for pair hashing.
+    pair_kernel: &'static str,
+    /// Kernel name for nonce grinding (None for backends without GPU grinding).
+    grind_kernel: Option<&'static str>,
+    /// CPU fallback pair hasher for small tree levels.
+    cpu_pair_hasher: fn(&[u8; 32], &[u8; 32]) -> [u8; 32],
+}
+
+/// Backward-compatible type alias.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+pub type GpuKeccakMerkleState = GpuMerkleState;
+
+#[cfg(all(target_os = "macos", feature = "metal"))]
+fn cpu_keccak_pair(left: &[u8; 32], right: &[u8; 32]) -> [u8; 32] {
+    use sha3::{Digest, Keccak256};
+    let mut hasher = Keccak256::new();
+    hasher.update(left);
+    hasher.update(right);
+    let mut result = [0u8; 32];
+    result.copy_from_slice(&hasher.finalize());
+    result
 }
 
 #[cfg(all(target_os = "macos", feature = "metal"))]
-impl GpuKeccakMerkleState {
+fn cpu_poseidon_pair(left: &[u8; 32], right: &[u8; 32]) -> [u8; 32] {
+    use lambdaworks_crypto::merkle_tree::backends::poseidon_goldilocks_bytes::PoseidonGoldilocksBytes32Backend;
+    use lambdaworks_crypto::merkle_tree::traits::IsMerkleTreeBackend;
+    use lambdaworks_math::field::fields::u64_goldilocks_field::Goldilocks64Field;
+    PoseidonGoldilocksBytes32Backend::<Goldilocks64Field>::hash_new_parent(left, right)
+}
+
+#[cfg(all(target_os = "macos", feature = "metal"))]
+impl GpuMerkleState {
     /// Compile the Keccak256 shader and prepare all pipelines.
     pub fn new() -> Result<Self, MetalError> {
+        Self::new_keccak()
+    }
+
+    /// Create a Keccak256-based GPU Merkle state.
+    pub fn new_keccak() -> Result<Self, MetalError> {
         let mut state = DynamicMetalState::new()?;
         state.load_library(KECCAK256_SHADER)?;
         let hash_leaves_max_threads = state.prepare_pipeline("keccak256_hash_leaves")?;
@@ -59,7 +99,6 @@ impl GpuKeccakMerkleState {
         let transpose_max_threads = state.prepare_pipeline("transpose_bitrev_goldilocks")?;
         let grind_max_threads = state.prepare_pipeline("keccak256_grind_nonce")?;
 
-        // Also compile the standalone transpose+bitrev shader for buffer-based ops
         let transpose_bitrev_state = TransposeBitrevState::new().ok();
 
         Ok(Self {
@@ -69,6 +108,37 @@ impl GpuKeccakMerkleState {
             transpose_max_threads,
             grind_max_threads,
             transpose_bitrev_state,
+            leaf_kernel: "keccak256_hash_leaves",
+            pair_kernel: "keccak256_hash_pairs",
+            grind_kernel: Some("keccak256_grind_nonce"),
+            cpu_pair_hasher: cpu_keccak_pair,
+        })
+    }
+
+    /// Create a Poseidon-based GPU Merkle state.
+    pub fn new_poseidon() -> Result<Self, MetalError> {
+        let mut state = DynamicMetalState::new()?;
+        state.load_library(POSEIDON_SHADER)?;
+        let hash_leaves_max_threads = state.prepare_pipeline("poseidon_hash_leaves")?;
+        let hash_pairs_max_threads = state.prepare_pipeline("poseidon_hash_pairs")?;
+        // The Poseidon shader doesn't include transpose_bitrev_goldilocks, so use 0.
+        // Transpose is handled by the separate TransposeBitrevState.
+        let transpose_max_threads = 0;
+        let grind_max_threads = 0;
+
+        let transpose_bitrev_state = TransposeBitrevState::new().ok();
+
+        Ok(Self {
+            state,
+            hash_leaves_max_threads,
+            hash_pairs_max_threads,
+            transpose_max_threads,
+            grind_max_threads,
+            transpose_bitrev_state,
+            leaf_kernel: "poseidon_hash_leaves",
+            pair_kernel: "poseidon_hash_pairs",
+            grind_kernel: None,
+            cpu_pair_hasher: cpu_poseidon_pair,
         })
     }
 
@@ -350,7 +420,7 @@ pub fn gpu_hash_leaves_flat(
         .alloc_buffer_with_data(std::slice::from_ref(&num_rows_u32))?;
 
     keccak_state.state.execute_compute(
-        "keccak256_hash_leaves",
+        keccak_state.leaf_kernel,
         &[&buf_data, &buf_output, &buf_num_cols, &buf_num_rows],
         num_rows as u64,
         keccak_state.hash_leaves_max_threads,
@@ -387,16 +457,9 @@ pub fn gpu_hash_tree_level(
 
     // CPU fallback for small levels
     if num_pairs < 64 {
-        use sha3::{Digest, Keccak256};
+        let hash_pair = keccak_state.cpu_pair_hasher;
         let parents: Vec<[u8; 32]> = (0..num_pairs)
-            .map(|i| {
-                let mut hasher = Keccak256::new();
-                hasher.update(children[2 * i]);
-                hasher.update(children[2 * i + 1]);
-                let mut result = [0u8; 32];
-                result.copy_from_slice(&hasher.finalize());
-                result
-            })
+            .map(|i| hash_pair(&children[2 * i], &children[2 * i + 1]))
             .collect();
         return Ok(parents);
     }
@@ -412,7 +475,7 @@ pub fn gpu_hash_tree_level(
         .alloc_buffer_with_data(std::slice::from_ref(&num_pairs_u32))?;
 
     keccak_state.state.execute_compute(
-        "keccak256_hash_pairs",
+        keccak_state.pair_kernel,
         &[&buf_children, &buf_parents, &buf_num_pairs],
         num_pairs as u64,
         keccak_state.hash_pairs_max_threads,
@@ -482,8 +545,8 @@ pub fn gpu_build_merkle_tree(
     // Get the pipeline for pair hashing
     let pipeline = keccak_state
         .state
-        .get_pipeline_ref("keccak256_hash_pairs")
-        .ok_or_else(|| MetalError::FunctionError("keccak256_hash_pairs".to_string()))?;
+        .get_pipeline_ref(keccak_state.pair_kernel)
+        .ok_or_else(|| MetalError::FunctionError(keccak_state.pair_kernel.to_string()))?;
 
     let threads_per_group = keccak_state.hash_pairs_max_threads.min(256);
 
@@ -673,12 +736,12 @@ fn gpu_hash_and_build_tree(
 
     let leaf_hash_pipeline = keccak_state
         .state
-        .get_pipeline_ref("keccak256_hash_leaves")
-        .ok_or_else(|| MetalError::FunctionError("keccak256_hash_leaves".to_string()))?;
+        .get_pipeline_ref(keccak_state.leaf_kernel)
+        .ok_or_else(|| MetalError::FunctionError(keccak_state.leaf_kernel.to_string()))?;
     let pair_hash_pipeline = keccak_state
         .state
-        .get_pipeline_ref("keccak256_hash_pairs")
-        .ok_or_else(|| MetalError::FunctionError("keccak256_hash_pairs".to_string()))?;
+        .get_pipeline_ref(keccak_state.pair_kernel)
+        .ok_or_else(|| MetalError::FunctionError(keccak_state.pair_kernel.to_string()))?;
 
     let command_buffer = keccak_state.state.command_queue().new_command_buffer();
 
@@ -837,12 +900,12 @@ fn gpu_hash_and_build_tree_from_buffer(
 
     let leaf_hash_pipeline = keccak_state
         .state
-        .get_pipeline_ref("keccak256_hash_leaves")
-        .ok_or_else(|| MetalError::FunctionError("keccak256_hash_leaves".to_string()))?;
+        .get_pipeline_ref(keccak_state.leaf_kernel)
+        .ok_or_else(|| MetalError::FunctionError(keccak_state.leaf_kernel.to_string()))?;
     let pair_hash_pipeline = keccak_state
         .state
-        .get_pipeline_ref("keccak256_hash_pairs")
-        .ok_or_else(|| MetalError::FunctionError("keccak256_hash_pairs".to_string()))?;
+        .get_pipeline_ref(keccak_state.pair_kernel)
+        .ok_or_else(|| MetalError::FunctionError(keccak_state.pair_kernel.to_string()))?;
 
     let command_buffer = keccak_state.state.command_queue().new_command_buffer();
 
@@ -1084,12 +1147,12 @@ fn gpu_transpose_hash_and_build_tree(
         .ok_or_else(|| MetalError::FunctionError(transpose_kernel_name.to_string()))?;
     let leaf_hash_pipeline = keccak_state
         .state
-        .get_pipeline_ref("keccak256_hash_leaves")
-        .ok_or_else(|| MetalError::FunctionError("keccak256_hash_leaves".to_string()))?;
+        .get_pipeline_ref(keccak_state.leaf_kernel)
+        .ok_or_else(|| MetalError::FunctionError(keccak_state.leaf_kernel.to_string()))?;
     let pair_hash_pipeline = keccak_state
         .state
-        .get_pipeline_ref("keccak256_hash_pairs")
-        .ok_or_else(|| MetalError::FunctionError("keccak256_hash_pairs".to_string()))?;
+        .get_pipeline_ref(keccak_state.pair_kernel)
+        .ok_or_else(|| MetalError::FunctionError(keccak_state.pair_kernel.to_string()))?;
 
     // === ONE command buffer for everything ===
     let command_buffer = keccak_state.state.command_queue().new_command_buffer();
@@ -1358,6 +1421,9 @@ pub fn gpu_batch_commit_paired_goldilocks(
 /// Equivalent to `grinding::generate_nonce()` but runs massively parallel
 /// on the Metal GPU. Each thread tests one nonce candidate.
 ///
+/// Returns `None` if the backend has no GPU grind kernel (e.g. Poseidon),
+/// in which case the caller should fall back to CPU grinding.
+///
 /// The `inner_hash` is pre-computed on CPU as `Keccak256(PREFIX || seed || grinding_factor)`.
 /// Each GPU thread computes `Keccak256(inner_hash || nonce_be)` and checks
 /// if the first 8 bytes (big-endian u64) < `limit`.
@@ -1365,7 +1431,7 @@ pub fn gpu_batch_commit_paired_goldilocks(
 pub fn gpu_generate_nonce(
     seed: &[u8; 32],
     grinding_factor: u8,
-    keccak_state: &GpuKeccakMerkleState,
+    keccak_state: &GpuMerkleState,
 ) -> Option<u64> {
     use lambdaworks_gpu::metal::abstractions::state::MetalState;
     use sha3::{Digest, Keccak256};
@@ -1373,6 +1439,9 @@ pub fn gpu_generate_nonce(
     if grinding_factor == 0 {
         return Some(0);
     }
+
+    // If backend has no grind kernel, return None to trigger CPU fallback.
+    let grind_kernel = keccak_state.grind_kernel?;
 
     // Step 1: Compute inner_hash on CPU (single hash, not worth GPU)
     let prefix: [u8; 8] = [0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xed];
@@ -1412,7 +1481,7 @@ pub fn gpu_generate_nonce(
         keccak_state
             .state
             .execute_compute(
-                "keccak256_grind_nonce",
+                grind_kernel,
                 &[&inner_hash_buf, &result_buf, &limit_buf, &offset_buf],
                 batch_size,
                 keccak_state.grind_max_threads,

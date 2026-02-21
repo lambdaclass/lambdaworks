@@ -29,4 +29,5 @@ harness = false
 [features]
 metal = ["dep:metal", "dep:objc", "dep:lambdaworks-gpu", "lambdaworks-gpu/metal", "lambdaworks-math/metal"]
 cuda = ["dep:lambdaworks-gpu", "lambdaworks-gpu/cuda", "lambdaworks-math/cuda"]
+poseidon-goldilocks = ["stark-platinum-prover/poseidon-goldilocks"]
 default = []

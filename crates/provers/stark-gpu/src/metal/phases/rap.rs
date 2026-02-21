@@ -26,7 +26,7 @@ use crate::metal::merkle::cpu_batch_commit;
 use crate::metal::state::StarkMetalState;
 
 #[cfg(all(target_os = "macos", feature = "metal"))]
-use crate::metal::merkle::{gpu_batch_commit_from_column_buffers, GpuKeccakMerkleState};
+use crate::metal::merkle::{gpu_batch_commit_from_column_buffers, GpuMerkleState};
 #[cfg(all(target_os = "macos", feature = "metal"))]
 use lambdaworks_math::field::fields::u64_goldilocks_field::Goldilocks64Field;
 
@@ -199,7 +199,7 @@ pub fn gpu_round_1_goldilocks<A>(
     _domain: &Domain<Goldilocks64Field>,
     transcript: &mut impl IsStarkTranscript<Goldilocks64Field, Goldilocks64Field>,
     state: &StarkMetalState,
-    keccak_state: &GpuKeccakMerkleState,
+    keccak_state: &GpuMerkleState,
     coset_state: &CosetShiftState,
 ) -> Result<GpuRound1Result<Goldilocks64Field>, ProvingError>
 where
@@ -315,7 +315,7 @@ pub fn gpu_round_1_fp3<A>(
         Goldilocks64Field,
     >,
     state: &StarkMetalState,
-    keccak_state: &GpuKeccakMerkleState,
+    keccak_state: &GpuMerkleState,
 ) -> Result<crate::metal::phases::fp3_types::GpuRound1ResultFp3, ProvingError>
 where
     A: AIR<

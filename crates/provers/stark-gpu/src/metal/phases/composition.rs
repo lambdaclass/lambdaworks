@@ -45,7 +45,7 @@ use crate::metal::fft::{
     gpu_cyclic_mul_buffer, gpu_interpolate_offset_fft_buffer_to_buffer, CosetShiftState,
 };
 #[cfg(all(target_os = "macos", feature = "metal"))]
-use crate::metal::merkle::{gpu_batch_commit_paired_from_column_buffers, GpuKeccakMerkleState};
+use crate::metal::merkle::{gpu_batch_commit_paired_from_column_buffers, GpuMerkleState};
 #[cfg(all(target_os = "macos", feature = "metal"))]
 use lambdaworks_math::field::fields::u64_goldilocks_field::Goldilocks64Field;
 
@@ -713,7 +713,7 @@ pub fn gpu_round_2_goldilocks_merkle<A>(
     transcript: &mut impl IsStarkTranscript<Goldilocks64Field, Goldilocks64Field>,
     state: &StarkMetalState,
     precompiled_constraint: Option<&FibRapConstraintState>,
-    keccak_state: &GpuKeccakMerkleState,
+    keccak_state: &GpuMerkleState,
     coset_state: &CosetShiftState,
 ) -> Result<GpuRound2Result<Goldilocks64Field>, ProvingError>
 where
