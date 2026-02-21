@@ -632,6 +632,89 @@ where
     Ok(result_buffer)
 }
 
+/// Like [`fft_buffer_to_buffer`] but takes a caller-owned working buffer instead of
+/// allocating a new one. The working buffer must have capacity for at least `input_len`
+/// elements of `F::BaseType`. This avoids repeated GPU memory allocation when performing
+/// multiple FFTs of the same size (e.g., in batch interpolation or LDE).
+///
+/// The working buffer contents are overwritten. The input buffer is NOT modified.
+pub fn fft_buffer_to_buffer_reuse<F>(
+    input_buffer: &Buffer,
+    input_len: usize,
+    twiddles_buffer: &Buffer,
+    working_buffer: &Buffer,
+    state: &MetalState,
+) -> Result<Buffer, MetalError>
+where
+    F: IsFFTField + IsSubFieldOf<F>,
+    F::BaseType: Copy,
+{
+    if !input_len.is_power_of_two() {
+        return Err(MetalError::InputError(input_len));
+    }
+
+    let butterfly_pipeline =
+        state.setup_pipeline(&format!("radix2_dit_butterfly_{}", F::field_name()))?;
+    let bitrev_pipeline =
+        state.setup_pipeline(&format!("bitrev_permutation_{}", F::field_name()))?;
+
+    let result_buffer = state.alloc_buffer::<F::BaseType>(input_len);
+
+    objc::rc::autoreleasepool(|| {
+        let command_buffer = state.queue.new_command_buffer();
+
+        // Copy input to working buffer so butterfly stages don't modify caller's data
+        {
+            let blit_encoder = command_buffer.new_blit_command_encoder();
+            blit_encoder.copy_from_buffer(
+                input_buffer,
+                0,
+                working_buffer,
+                0,
+                (input_len * mem::size_of::<F::BaseType>()) as u64,
+            );
+            blit_encoder.end_encoding();
+        }
+
+        // Encoder 1: Butterfly stages (in-place on working_buffer)
+        {
+            let encoder = command_buffer.new_compute_command_encoder();
+            encoder.set_compute_pipeline_state(&butterfly_pipeline);
+            encoder.set_buffer(0, Some(working_buffer), 0);
+            encoder.set_buffer(1, Some(twiddles_buffer), 0);
+
+            let order = input_len.trailing_zeros();
+            for stage in 0..order {
+                encoder.set_bytes(2, mem::size_of_val(&stage) as u64, void_ptr(&stage));
+                let grid_size = MTLSize::new(input_len as u64 / 2, 1, 1);
+                let threadgroup_size =
+                    MTLSize::new(butterfly_pipeline.thread_execution_width(), 1, 1);
+                encoder.dispatch_threads(grid_size, threadgroup_size);
+            }
+            encoder.end_encoding();
+        }
+
+        // Encoder 2: Bit-reverse permutation (working_buffer -> result_buffer)
+        {
+            let encoder = command_buffer.new_compute_command_encoder();
+            encoder.set_compute_pipeline_state(&bitrev_pipeline);
+            encoder.set_buffer(0, Some(working_buffer), 0);
+            encoder.set_buffer(1, Some(&result_buffer), 0);
+
+            let grid_size = MTLSize::new(input_len as u64, 1, 1);
+            let threadgroup_size =
+                MTLSize::new(bitrev_pipeline.max_total_threads_per_threadgroup(), 1, 1);
+            encoder.dispatch_threads(grid_size, threadgroup_size);
+            encoder.end_encoding();
+        }
+
+        command_buffer.commit();
+        command_buffer.wait_until_completed();
+    });
+
+    Ok(result_buffer)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

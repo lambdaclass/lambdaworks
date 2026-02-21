@@ -21,6 +21,8 @@ use crate::metal::phases::rap::GpuRound1Result;
 
 #[cfg(all(target_os = "macos", feature = "metal"))]
 use lambdaworks_math::field::fields::u64_goldilocks_field::Goldilocks64Field;
+#[cfg(all(target_os = "macos", feature = "metal"))]
+use lambdaworks_math::polynomial::barycentric::barycentric_evaluate_on_coset;
 
 /// Result of GPU Phase 3 (OOD evaluation round).
 ///
@@ -125,15 +127,14 @@ where
     })
 }
 
-/// OOD evaluations for the Goldilocks optimized path.
+/// OOD evaluations for the Goldilocks optimized path using barycentric interpolation.
 ///
-/// Reads coefficient buffers from GPU via UMA (zero-copy on Apple Silicon) and
-/// evaluates trace polynomials at OOD points using Horner's method. This reads
-/// only `trace_length` elements per column (vs `4 * trace_length` for barycentric
-/// on LDE evaluations) and avoids bit-reverse permutation entirely.
+/// Uses barycentric interpolation on **original trace evaluations** (N points on
+/// the roots-of-unity domain) to evaluate trace polynomials at OOD points. This
+/// avoids reading GPU coefficient buffers entirely and eliminates the need for
+/// coefficient storage after Phase 1.
 ///
-/// Composition poly parts are already `Polynomial` objects from Phase 2, so they
-/// use Horner directly.
+/// Composition poly parts still use Horner on coefficient-form polynomials.
 #[cfg(all(target_os = "macos", feature = "metal"))]
 pub fn gpu_round_3_goldilocks<A>(
     air: &A,
@@ -145,9 +146,6 @@ pub fn gpu_round_3_goldilocks<A>(
 where
     A: AIR<Field = Goldilocks64Field, FieldExtension = Goldilocks64Field>,
 {
-    use lambdaworks_math::field::fields::u64_goldilocks_field::Goldilocks64Field;
-    use lambdaworks_math::polynomial::Polynomial;
-
     type F = Goldilocks64Field;
     type FpE = FieldElement<F>;
 
@@ -170,44 +168,18 @@ where
         .map(|part| part.evaluate(&z_power))
         .collect();
 
-    // Step 5: Read coefficient buffers from GPU via UMA and construct polynomials.
-    // On Apple Silicon, this is a zero-copy pointer read (no DMA transfer).
-    // We read trace_length coefficients per column — 4× less data than reading LDE buffers.
-    let main_coeff_bufs = round_1_result
-        .main_coeff_gpu_buffers
-        .as_ref()
-        .expect("main_coeff_gpu_buffers must be Some in Goldilocks optimized path");
-    let aux_coeff_bufs = round_1_result.aux_coeff_gpu_buffers.as_ref();
-
-    let read_polys_from_buffers = |buffers: &[metal::Buffer]| -> Vec<Polynomial<FpE>> {
-        buffers
-            .iter()
-            .map(|buf| {
-                let raw: Vec<u64> =
-                    lambdaworks_gpu::metal::abstractions::state::MetalState::retrieve_contents(buf);
-                let coeffs: Vec<FpE> = raw.into_iter().map(FieldElement::from_raw).collect();
-                Polynomial::new(&coeffs)
-            })
-            .collect()
-    };
-
-    let main_trace_polys = read_polys_from_buffers(main_coeff_bufs);
-    let aux_trace_polys = match aux_coeff_bufs {
-        Some(bufs) => read_polys_from_buffers(bufs),
-        None => Vec::new(),
-    };
-
-    // Step 6: Evaluate trace polynomials at OOD points using Horner's method.
-    let trace_ood_evaluations = get_trace_evaluations::<F, F>(
-        &main_trace_polys,
-        &aux_trace_polys,
+    // Step 5: Evaluate trace polynomials at OOD points using barycentric interpolation
+    // on the original trace evaluations (roots-of-unity domain, N points).
+    let trace_ood_evaluations = get_trace_evaluations_barycentric(
+        &round_1_result.main_trace_evals,
+        &round_1_result.aux_trace_evals,
         &z,
         &air.context().transition_offsets,
         &domain.trace_primitive_root,
         air.step_size(),
     );
 
-    // Step 7: Append trace OOD evaluations to transcript (column by column).
+    // Step 6: Append trace OOD evaluations to transcript (column by column).
     let trace_ood_columns = trace_ood_evaluations.columns();
     for col in trace_ood_columns.iter() {
         for elem in col.iter() {
@@ -215,7 +187,7 @@ where
         }
     }
 
-    // Step 8: Append composition poly OOD evaluations to transcript.
+    // Step 7: Append composition poly OOD evaluations to transcript.
     for element in composition_poly_parts_ood_evaluation.iter() {
         transcript.append_field_element(element);
     }
@@ -225,6 +197,76 @@ where
         composition_poly_parts_ood_evaluation,
         z,
     })
+}
+
+/// Compute trace OOD evaluations via barycentric interpolation on roots-of-unity domain.
+///
+/// Replaces `get_trace_evaluations` which requires coefficient-form polynomials.
+/// Instead, this takes the original trace evaluations `P(omega^i)` and evaluates at
+/// OOD points using the barycentric formula with coset_offset = 1.
+///
+/// Produces the same `Table<F>` layout as `get_trace_evaluations`.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+fn get_trace_evaluations_barycentric(
+    main_trace_evals: &[Vec<FieldElement<Goldilocks64Field>>],
+    aux_trace_evals: &[Vec<FieldElement<Goldilocks64Field>>],
+    z: &FieldElement<Goldilocks64Field>,
+    frame_offsets: &[usize],
+    primitive_root: &FieldElement<Goldilocks64Field>,
+    step_size: usize,
+) -> Table<Goldilocks64Field> {
+    type F = Goldilocks64Field;
+    type FpE = FieldElement<F>;
+
+    // Compute evaluation points: z * g^(offset * step_size) for each offset
+    let evaluation_points: Vec<FpE> = frame_offsets
+        .iter()
+        .flat_map(|offset| {
+            let start = offset * step_size;
+            let end = (offset + 1) * step_size;
+            (start..end).collect::<Vec<_>>()
+        })
+        .map(|exponent| primitive_root.pow(exponent) * z)
+        .collect();
+
+    let n = if !main_trace_evals.is_empty() {
+        main_trace_evals[0].len()
+    } else if !aux_trace_evals.is_empty() {
+        aux_trace_evals[0].len()
+    } else {
+        return Table::new(Vec::new(), 0);
+    };
+
+    // Primitive root of the trace domain (N-th root of unity).
+    // The trace evaluations are on the standard roots-of-unity domain {omega^i},
+    // which is a coset with offset = 1.
+    let trace_order = n.trailing_zeros() as u64;
+    let omega = F::get_primitive_root_of_unity(trace_order)
+        .expect("primitive root must exist for trace domain size");
+
+    let coset_offset = FpE::one();
+
+    // Build table data in row-major order: [eval_point_0: [col0, col1, ..., aux0, ...], ...]
+    let main_width = main_trace_evals.len();
+    let aux_width = aux_trace_evals.len();
+    let total_width = main_width + aux_width;
+
+    let mut table_data: Vec<FpE> = Vec::with_capacity(evaluation_points.len() * total_width);
+
+    for eval_point in &evaluation_points {
+        for col_evals in main_trace_evals {
+            let val =
+                barycentric_evaluate_on_coset::<F, F>(col_evals, &coset_offset, &omega, eval_point);
+            table_data.push(val);
+        }
+        for col_evals in aux_trace_evals {
+            let val =
+                barycentric_evaluate_on_coset::<F, F>(col_evals, &coset_offset, &omega, eval_point);
+            table_data.push(val);
+        }
+    }
+
+    Table::new(table_data, total_width)
 }
 
 /// CPU Phase 3 for Fp3 extension field proofs: OOD evaluations.

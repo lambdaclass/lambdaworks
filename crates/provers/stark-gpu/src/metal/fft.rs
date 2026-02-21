@@ -13,7 +13,8 @@ use lambdaworks_gpu::metal::abstractions::{
 #[cfg(all(target_os = "macos", feature = "metal"))]
 use lambdaworks_math::{
     fft::gpu::metal::ops::{
-        fft, fft_buffer_to_buffer, fft_to_buffer, gen_twiddles, gen_twiddles_to_buffer,
+        fft, fft_buffer_to_buffer, fft_buffer_to_buffer_reuse, fft_to_buffer, gen_twiddles,
+        gen_twiddles_to_buffer,
     },
     field::{
         element::FieldElement,
@@ -253,6 +254,9 @@ pub fn gpu_evaluate_offset_fft_buffer_to_buffers_batch(
     let twiddles_buffer =
         gen_twiddles_to_buffer::<Goldilocks64Field>(order, RootsConfig::BitReverse, metal_state)?;
 
+    // Pre-allocate a single working buffer for all FFT calls (reused across iterations)
+    let working_buffer = metal_state.alloc_buffer::<u64>(domain_size);
+
     let mut results = Vec::with_capacity(coeff_buffers.len());
 
     for coeff_buf in coeff_buffers {
@@ -265,13 +269,15 @@ pub fn gpu_evaluate_offset_fft_buffer_to_buffers_batch(
             coset_state,
         )?;
 
-        // Step 2: FFT with shared twiddles, result stays on GPU
-        let result_buffer = fft_buffer_to_buffer::<Goldilocks64Field>(
+        // Step 2: FFT with shared twiddles and reused working buffer
+        let result_buffer = fft_buffer_to_buffer_reuse::<Goldilocks64Field>(
             &shifted_buffer,
             domain_size,
             &twiddles_buffer,
+            &working_buffer,
             metal_state,
         )?;
+        drop(shifted_buffer); // Free coset-shifted buffer before next iteration
 
         results.push((result_buffer, domain_size));
     }
@@ -511,6 +517,66 @@ pub fn gpu_scale_buffer(
     }
 
     Ok(buf_output)
+}
+
+/// Scale all elements of a GPU buffer in-place: buffer[k] = buffer[k] * scalar.
+///
+/// Like [`gpu_scale_buffer`] but overwrites the input buffer instead of allocating a new one.
+/// This is safe because the `goldilocks_scale` kernel reads `input[gid]` into a local variable
+/// before writing `output[gid]`, and each thread accesses a unique element.
+///
+/// Saves one buffer allocation (N×8B) per call.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+pub fn gpu_scale_buffer_inplace(
+    buffer: &metal::Buffer,
+    len: usize,
+    scalar: &FieldElement<Goldilocks64Field>,
+    coset_state: &CosetShiftState,
+) -> Result<(), MetalError> {
+    use metal::MTLSize;
+
+    let scalar_u64 = Goldilocks64Field::canonical(scalar.value());
+
+    let buf_scalar = coset_state
+        .state
+        .alloc_buffer_with_data(std::slice::from_ref(&scalar_u64))?;
+    let len_u32 = len as u32;
+    let buf_len = coset_state
+        .state
+        .alloc_buffer_with_data(std::slice::from_ref(&len_u32))?;
+
+    let pipeline = coset_state
+        .state
+        .get_pipeline_ref("goldilocks_scale")
+        .ok_or_else(|| MetalError::FunctionError("goldilocks_scale".to_string()))?;
+
+    let threads_per_group = coset_state.scale_max_threads.min(256);
+    let thread_groups = (len as u64).div_ceil(threads_per_group);
+
+    let command_buffer = coset_state.state.command_queue().new_command_buffer();
+    let encoder = command_buffer.new_compute_command_encoder();
+    encoder.set_compute_pipeline_state(pipeline);
+    encoder.set_buffer(0, Some(buffer), 0); // input = output (same buffer)
+    encoder.set_buffer(1, Some(buffer), 0);
+    encoder.set_buffer(2, Some(&buf_scalar), 0);
+    encoder.set_buffer(3, Some(&buf_len), 0);
+
+    encoder.dispatch_thread_groups(
+        MTLSize::new(thread_groups, 1, 1),
+        MTLSize::new(threads_per_group, 1, 1),
+    );
+    encoder.end_encoding();
+
+    command_buffer.commit();
+    command_buffer.wait_until_completed();
+
+    if command_buffer.status() == metal::MTLCommandBufferStatus::Error {
+        return Err(MetalError::ExecutionError(
+            "GPU scale (in-place) command buffer error".to_string(),
+        ));
+    }
+
+    Ok(())
 }
 
 /// Perform coset shift on data already in a GPU buffer: output[k] = input[k] * offset^k,
@@ -810,6 +876,9 @@ pub fn gpu_interpolate_columns_to_buffers(
         .inv()
         .expect("Power-of-two length is always invertible in an FFT field");
 
+    // Pre-allocate a single working buffer for all IFFT calls (reused across iterations)
+    let working_buffer = metal_state.alloc_buffer::<u64>(len);
+
     let mut coeff_buffers = Vec::with_capacity(columns.len());
 
     for col in columns {
@@ -820,18 +889,20 @@ pub fn gpu_interpolate_columns_to_buffers(
             .collect();
         let eval_buffer = metal_state.alloc_buffer_data(&evals_u64);
 
-        // IFFT with shared inverse twiddles
-        let result_buffer = fft_buffer_to_buffer::<Goldilocks64Field>(
+        // IFFT with shared inverse twiddles and reused working buffer
+        let result_buffer = fft_buffer_to_buffer_reuse::<Goldilocks64Field>(
             &eval_buffer,
             len,
             &inv_twiddles,
+            &working_buffer,
             metal_state,
         )?;
+        drop(eval_buffer); // Free input GPU buffer before scaling
 
-        // Normalize by 1/n via GPU scale kernel
-        let normalized = gpu_scale_buffer(&result_buffer, len, &n_inv, coset_state)?;
+        // Normalize by 1/n in-place (avoids allocating a separate output buffer)
+        gpu_scale_buffer_inplace(&result_buffer, len, &n_inv, coset_state)?;
 
-        coeff_buffers.push(normalized);
+        coeff_buffers.push(result_buffer);
     }
 
     Ok(coeff_buffers)
@@ -861,6 +932,9 @@ pub fn gpu_evaluate_coeff_buffers_on_lde(
     let twiddles_buffer =
         gen_twiddles_to_buffer::<Goldilocks64Field>(order, RootsConfig::BitReverse, metal_state)?;
 
+    // Pre-allocate a single working buffer for all FFT calls (reused across iterations)
+    let working_buffer = metal_state.alloc_buffer::<u64>(domain_size);
+
     let mut lde_buffers = Vec::with_capacity(coeff_buffers.len());
 
     for coeff_buf in coeff_buffers {
@@ -873,15 +947,125 @@ pub fn gpu_evaluate_coeff_buffers_on_lde(
             coset_state,
         )?;
 
-        // FFT with shared twiddles, result stays on GPU
-        let result_buffer = fft_buffer_to_buffer::<Goldilocks64Field>(
+        // FFT with shared twiddles and reused working buffer
+        let result_buffer = fft_buffer_to_buffer_reuse::<Goldilocks64Field>(
             &shifted_buffer,
             domain_size,
             &twiddles_buffer,
+            &working_buffer,
             metal_state,
         )?;
+        drop(shifted_buffer); // Free coset-shifted buffer before next iteration
 
         lde_buffers.push(result_buffer);
+    }
+
+    Ok((lde_buffers, domain_size))
+}
+
+/// Computes LDE directly from trace evaluations, fusing IFFT + coset LDE per column.
+///
+/// Given columns of evaluations at roots of unity (all same length N), this computes
+/// the low-degree extension on the coset `{offset * ω_{4N}^i}` entirely on GPU:
+///
+/// For each column:
+/// 1. Upload evaluations → GPU
+/// 2. IFFT_N (inverse twiddles, shared) → coefficients
+/// 3. ÷N normalization (in-place)
+/// 4. Coset shift + zero-pad: `d[k] = c[k] * offset^k` for k < N, 0 for k ≥ N
+/// 5. FFT_{4N} (forward twiddles, shared) → LDE evaluations
+/// 6. Drop intermediate coefficient and shifted buffers
+///
+/// # Advantages over separate `gpu_interpolate_columns_to_buffers` + `gpu_evaluate_coeff_buffers_on_lde`
+///
+/// - **Lower peak memory**: Only one N-word coefficient buffer exists at a time
+///   (vs all columns' coefficient buffers simultaneously).
+///   At 2^20 with 3 columns, this saves 2 × N × 8B = 16 MiB.
+/// - **Single working buffer**: One 4N-word buffer reused for both IFFT and FFT.
+/// - **No intermediate `Vec<Buffer>`** for coefficient storage.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+pub fn gpu_lde_from_evaluations(
+    columns: &[Vec<FieldElement<Goldilocks64Field>>],
+    blowup_factor: usize,
+    coset_offset: &FieldElement<Goldilocks64Field>,
+    coset_state: &CosetShiftState,
+    metal_state: &MetalState,
+) -> Result<(Vec<metal::Buffer>, usize), MetalError> {
+    type FpE = FieldElement<Goldilocks64Field>;
+
+    if columns.is_empty() {
+        return Ok((Vec::new(), 0));
+    }
+
+    let trace_len = columns[0].len();
+    let domain_size = trace_len * blowup_factor;
+    let ifft_order = trace_len.trailing_zeros() as u64;
+    let fft_order = domain_size.trailing_zeros() as u64;
+
+    // Generate twiddles ONCE for all columns
+    let inv_twiddles = gen_twiddles_to_buffer::<Goldilocks64Field>(
+        ifft_order,
+        RootsConfig::BitReverseInversed,
+        metal_state,
+    )?;
+    let fwd_twiddles = gen_twiddles_to_buffer::<Goldilocks64Field>(
+        fft_order,
+        RootsConfig::BitReverse,
+        metal_state,
+    )?;
+
+    // Pre-compute 1/N for normalization
+    let n_inv = FpE::from(trace_len as u64)
+        .inv()
+        .expect("Power-of-two length is always invertible in an FFT field");
+
+    // Single working buffer sized for the larger FFT (4N), reused for both IFFT and FFT
+    let working_buffer = metal_state.alloc_buffer::<u64>(domain_size);
+
+    let mut lde_buffers = Vec::with_capacity(columns.len());
+
+    for col in columns {
+        // Step 1: Upload evaluations as u64 to GPU
+        let evals_u64: Vec<u64> = col
+            .iter()
+            .map(|fe| Goldilocks64Field::canonical(fe.value()))
+            .collect();
+        let eval_buffer = metal_state.alloc_buffer_data(&evals_u64);
+
+        // Step 2: IFFT with shared inverse twiddles and reused working buffer
+        let coeff_buffer = fft_buffer_to_buffer_reuse::<Goldilocks64Field>(
+            &eval_buffer,
+            trace_len,
+            &inv_twiddles,
+            &working_buffer,
+            metal_state,
+        )?;
+        drop(eval_buffer); // Free input GPU buffer
+
+        // Step 3: Normalize by 1/N in-place
+        gpu_scale_buffer_inplace(&coeff_buffer, trace_len, &n_inv, coset_state)?;
+
+        // Step 4: Coset shift + zero-pad to domain_size
+        let shifted_buffer = gpu_coset_shift_buffer_to_buffer(
+            &coeff_buffer,
+            trace_len,
+            coset_offset,
+            domain_size,
+            coset_state,
+        )?;
+        drop(coeff_buffer); // Free coefficient buffer before FFT
+
+        // Step 5: FFT with shared forward twiddles and reused working buffer
+        let lde_buffer = fft_buffer_to_buffer_reuse::<Goldilocks64Field>(
+            &shifted_buffer,
+            domain_size,
+            &fwd_twiddles,
+            &working_buffer,
+            metal_state,
+        )?;
+        drop(shifted_buffer); // Free shifted buffer
+
+        lde_buffers.push(lde_buffer);
     }
 
     Ok((lde_buffers, domain_size))

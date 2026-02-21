@@ -177,7 +177,7 @@ where
     )?;
     eprintln!("  Phase 2 (Composition): {:>10.2?}", t.elapsed());
 
-    // Phase 3: OOD evaluations (Horner from GPU coefficient buffers via UMA)
+    // Phase 3: OOD evaluations (barycentric on trace domain + Horner for composition parts)
     let t = std::time::Instant::now();
     let round_3 = gpu_round_3_goldilocks(air, &domain, &round_1, &round_2, transcript)?;
     eprintln!("  Phase 3 (OOD):         {:>10.2?}", t.elapsed());

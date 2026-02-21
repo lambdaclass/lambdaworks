@@ -18,9 +18,8 @@ use stark_platinum_prover::traits::AIR;
 
 #[cfg(all(target_os = "macos", feature = "metal"))]
 use crate::metal::fft::{
-    gpu_evaluate_coeff_buffers_on_lde, gpu_evaluate_offset_fft,
-    gpu_evaluate_offset_fft_to_buffers_batch, gpu_interpolate_columns_to_buffers,
-    gpu_interpolate_fft, CosetShiftState,
+    gpu_evaluate_offset_fft, gpu_evaluate_offset_fft_to_buffers_batch, gpu_interpolate_fft,
+    gpu_lde_from_evaluations, CosetShiftState,
 };
 use crate::metal::merkle::cpu_batch_commit;
 #[cfg(all(target_os = "macos", feature = "metal"))]
@@ -61,18 +60,18 @@ where
     pub aux_merkle_root: Option<Commitment>,
     /// RAP challenges sampled from the transcript.
     pub rap_challenges: Vec<FieldElement<F>>,
+    /// Original main trace evaluations on roots-of-unity domain (for barycentric OOD).
+    /// Column-major: one Vec per main trace column.
+    pub main_trace_evals: Vec<Vec<FieldElement<F>>>,
+    /// Original auxiliary trace evaluations on roots-of-unity domain (for barycentric OOD).
+    /// Column-major: one Vec per aux trace column.
+    pub aux_trace_evals: Vec<Vec<FieldElement<F>>>,
     /// Retained GPU buffers for main trace LDE (used by DEEP composition to avoid re-upload).
     #[cfg(all(target_os = "macos", feature = "metal"))]
     pub main_lde_gpu_buffers: Option<Vec<metal::Buffer>>,
     /// Retained GPU buffers for auxiliary trace LDE (used by DEEP composition to avoid re-upload).
     #[cfg(all(target_os = "macos", feature = "metal"))]
     pub aux_lde_gpu_buffers: Option<Vec<metal::Buffer>>,
-    /// Retained GPU buffers for main trace coefficient form (used by Phase 3 barycentric OOD).
-    #[cfg(all(target_os = "macos", feature = "metal"))]
-    pub main_coeff_gpu_buffers: Option<Vec<metal::Buffer>>,
-    /// Retained GPU buffers for auxiliary trace coefficient form (used by Phase 3 barycentric OOD).
-    #[cfg(all(target_os = "macos", feature = "metal"))]
-    pub aux_coeff_gpu_buffers: Option<Vec<metal::Buffer>>,
 }
 
 /// Executes GPU Phase 1 of the STARK prover: RAP (trace interpolation + LDE + commit).
@@ -178,10 +177,10 @@ where
         aux_merkle_tree,
         aux_merkle_root,
         rap_challenges,
+        main_trace_evals: Vec::new(),
+        aux_trace_evals: Vec::new(),
         main_lde_gpu_buffers: None,
         aux_lde_gpu_buffers: None,
-        main_coeff_gpu_buffers: None,
-        aux_coeff_gpu_buffers: None,
     })
 }
 
@@ -210,29 +209,22 @@ where
 
     let t = std::time::Instant::now();
     let main_columns = trace.columns_main();
-    // Buffer-to-buffer interpolation: shared inverse twiddles, GPU ÷N normalization
-    let main_coeff_buffers =
-        gpu_interpolate_columns_to_buffers(&main_columns, coset_state, state.inner()).map_err(
-            |e| ProvingError::FieldOperationError(format!("GPU interpolation error: {e}")),
-        )?;
-    eprintln!("    1a main interp:    {:>10.2?}", t.elapsed());
+    // Store original trace evaluations for barycentric OOD in Phase 3
+    let main_trace_evals: Vec<Vec<FieldElement<Goldilocks64Field>>> = main_columns.clone();
 
     let blowup_factor = air.blowup_factor() as usize;
     let coset_offset = air.coset_offset();
-    let trace_length = main_columns[0].len();
 
-    // Evaluate on LDE domain from coefficient buffers (no CPU readback)
-    let t = std::time::Instant::now();
-    let (main_lde_buffers, main_lde_domain_size) = gpu_evaluate_coeff_buffers_on_lde(
-        &main_coeff_buffers,
-        trace_length,
+    // Fused IFFT → ÷N → coset shift → FFT per column (no intermediate coefficient storage)
+    let (main_lde_buffers, main_lde_domain_size) = gpu_lde_from_evaluations(
+        &main_columns,
         blowup_factor,
         &coset_offset,
         coset_state,
         state.inner(),
     )
-    .map_err(|e| ProvingError::FieldOperationError(format!("GPU LDE FFT error: {e}")))?;
-    eprintln!("    1b main LDE:       {:>10.2?}", t.elapsed());
+    .map_err(|e| ProvingError::FieldOperationError(format!("GPU main LDE error: {e}")))?;
+    eprintln!("    1a main LDE:       {:>10.2?}", t.elapsed());
 
     // GPU Merkle commit directly from FFT output buffers (no extra memcpy)
     let t = std::time::Instant::now();
@@ -247,52 +239,46 @@ where
 
     // --- Auxiliary trace (if RAP) ---
     let t = std::time::Instant::now();
-    let (aux_merkle_tree, aux_merkle_root, aux_gpu_bufs, aux_coeff_bufs) = if air
-        .has_trace_interaction()
-    {
-        let t_sub = std::time::Instant::now();
-        air.build_auxiliary_trace(trace, &rap_challenges);
-        eprintln!("      1d.1 build aux:  {:>10.2?}", t_sub.elapsed());
+    let (aux_merkle_tree, aux_merkle_root, aux_gpu_bufs, aux_trace_evals) =
+        if air.has_trace_interaction() {
+            let t_sub = std::time::Instant::now();
+            air.build_auxiliary_trace(trace, &rap_challenges);
+            eprintln!("      1d.1 build aux:  {:>10.2?}", t_sub.elapsed());
 
-        let t_sub = std::time::Instant::now();
-        let aux_columns = trace.columns_aux();
-        let aux_coeff_buffers =
-            gpu_interpolate_columns_to_buffers(&aux_columns, coset_state, state.inner()).map_err(
-                |e| ProvingError::FieldOperationError(format!("GPU aux interpolation error: {e}")),
-            )?;
-        eprintln!("      1d.2 aux interp: {:>10.2?}", t_sub.elapsed());
+            let t_sub = std::time::Instant::now();
+            let aux_columns = trace.columns_aux();
+            // Store original aux trace evaluations for barycentric OOD
+            let aux_evals: Vec<Vec<FieldElement<Goldilocks64Field>>> = aux_columns.clone();
 
-        let t_sub = std::time::Instant::now();
-        let aux_trace_length = aux_columns[0].len();
-        let (aux_lde_buffers, aux_lde_domain_size) = gpu_evaluate_coeff_buffers_on_lde(
-            &aux_coeff_buffers,
-            aux_trace_length,
-            blowup_factor,
-            &coset_offset,
-            coset_state,
-            state.inner(),
-        )
-        .map_err(|e| ProvingError::FieldOperationError(format!("GPU aux LDE FFT error: {e}")))?;
-        eprintln!("      1d.3 aux LDE:    {:>10.2?}", t_sub.elapsed());
+            // Fused IFFT → ÷N → coset shift → FFT per column (no intermediate coefficient storage)
+            let (aux_lde_buffers, aux_lde_domain_size) = gpu_lde_from_evaluations(
+                &aux_columns,
+                blowup_factor,
+                &coset_offset,
+                coset_state,
+                state.inner(),
+            )
+            .map_err(|e| ProvingError::FieldOperationError(format!("GPU aux LDE error: {e}")))?;
+            eprintln!("      1d.2 aux LDE:    {:>10.2?}", t_sub.elapsed());
 
-        // GPU Merkle commit from auxiliary trace FFT buffers
-        let t_sub = std::time::Instant::now();
-        let buf_refs: Vec<&metal::Buffer> = aux_lde_buffers.iter().collect();
-        let (aux_tree, aux_root) =
-            gpu_batch_commit_from_column_buffers(&buf_refs, aux_lde_domain_size, keccak_state)
-                .ok_or(ProvingError::EmptyCommitment)?;
-        eprintln!("      1d.4 aux Merkle: {:>10.2?}", t_sub.elapsed());
+            // GPU Merkle commit from auxiliary trace FFT buffers
+            let t_sub = std::time::Instant::now();
+            let buf_refs: Vec<&metal::Buffer> = aux_lde_buffers.iter().collect();
+            let (aux_tree, aux_root) =
+                gpu_batch_commit_from_column_buffers(&buf_refs, aux_lde_domain_size, keccak_state)
+                    .ok_or(ProvingError::EmptyCommitment)?;
+            eprintln!("      1d.4 aux Merkle: {:>10.2?}", t_sub.elapsed());
 
-        transcript.append_bytes(&aux_root);
-        (
-            Some(aux_tree),
-            Some(aux_root),
-            Some(aux_lde_buffers),
-            Some(aux_coeff_buffers),
-        )
-    } else {
-        (None, None, None, None)
-    };
+            transcript.append_bytes(&aux_root);
+            (
+                Some(aux_tree),
+                Some(aux_root),
+                Some(aux_lde_buffers),
+                aux_evals,
+            )
+        } else {
+            (None, None, None, Vec::new())
+        };
     eprintln!("    1d aux all:        {:>10.2?}", t.elapsed());
 
     Ok(GpuRound1Result {
@@ -305,10 +291,10 @@ where
         aux_merkle_tree,
         aux_merkle_root,
         rap_challenges,
+        main_trace_evals,
+        aux_trace_evals,
         main_lde_gpu_buffers: Some(main_lde_buffers),
         aux_lde_gpu_buffers: aux_gpu_bufs,
-        main_coeff_gpu_buffers: Some(main_coeff_buffers),
-        aux_coeff_gpu_buffers: aux_coeff_bufs,
     })
 }
 

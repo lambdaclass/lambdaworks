@@ -442,6 +442,131 @@ pub fn gpu_fold_evaluations(
     Ok((buf_output, half_len))
 }
 
+/// Fused domain inverse + eval-domain fold in a single GPU command buffer.
+///
+/// Combines [`gpu_compute_fri_domain_inverses`] and [`gpu_fold_evaluations`] into one
+/// command buffer submission, eliminating one `wait_until_completed()` per FRI layer.
+/// The domain inverse output feeds directly into the fold kernel without CPU sync.
+///
+/// Returns `(folded_buffer, half_len)`.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+pub fn gpu_fold_evaluations_with_domain_inv(
+    evals_buffer: &metal::Buffer,
+    num_evals: usize,
+    beta: &FieldElement<Goldilocks64Field>,
+    h_inv: &FieldElement<Goldilocks64Field>,
+    omega_inv: &FieldElement<Goldilocks64Field>,
+    fold_eval_state: &FriFoldEvalState,
+    domain_inv_state: &FriDomainInvState,
+) -> Result<(metal::Buffer, usize), MetalError> {
+    use metal::MTLSize;
+
+    assert!(
+        num_evals >= 2 && num_evals.is_multiple_of(2),
+        "eval-domain fold requires even number of evaluations"
+    );
+
+    let half_len = num_evals / 2;
+
+    // --- Domain inverse parameters ---
+    let h_inv_u64 = Goldilocks64Field::canonical(h_inv.value());
+    let omega_inv_u64 = Goldilocks64Field::canonical(omega_inv.value());
+
+    let buf_h_inv = domain_inv_state
+        .state
+        .alloc_buffer_with_data(std::slice::from_ref(&h_inv_u64))?;
+    let buf_omega_inv = domain_inv_state
+        .state
+        .alloc_buffer_with_data(std::slice::from_ref(&omega_inv_u64))?;
+    let buf_inv_x = domain_inv_state
+        .state
+        .alloc_buffer(half_len * std::mem::size_of::<u64>())?;
+    let inv_params = FriDomainInvParams {
+        half_len: half_len as u32,
+        log_half_len: half_len.trailing_zeros(),
+    };
+    let buf_inv_params = domain_inv_state
+        .state
+        .alloc_buffer_with_data(std::slice::from_ref(&inv_params))?;
+
+    // --- Fold parameters ---
+    let beta_u64 = Goldilocks64Field::canonical(beta.value());
+    let buf_output = fold_eval_state
+        .state
+        .alloc_buffer(half_len * std::mem::size_of::<u64>())?;
+    let buf_beta = fold_eval_state
+        .state
+        .alloc_buffer_with_data(std::slice::from_ref(&beta_u64))?;
+    let fold_params = FriFoldEvalParams {
+        half_len: half_len as u32,
+    };
+    let buf_fold_params = fold_eval_state
+        .state
+        .alloc_buffer_with_data(std::slice::from_ref(&fold_params))?;
+
+    // --- Get pipelines ---
+    let inv_pipeline = domain_inv_state
+        .state
+        .get_pipeline_ref("compute_fri_domain_inverses")
+        .ok_or_else(|| MetalError::FunctionError("compute_fri_domain_inverses".to_string()))?;
+
+    let fold_pipeline = fold_eval_state
+        .state
+        .get_pipeline_ref("goldilocks_fri_fold_eval")
+        .ok_or_else(|| MetalError::FunctionError("goldilocks_fri_fold_eval".to_string()))?;
+
+    // --- Single command buffer for both dispatches ---
+    let command_buffer = domain_inv_state.state.command_queue().new_command_buffer();
+
+    // Encoder 1: Domain inverses
+    {
+        let inv_threads_per_group = domain_inv_state.max_threads.min(256);
+        let inv_thread_groups = (half_len as u64).div_ceil(inv_threads_per_group);
+
+        let encoder = command_buffer.new_compute_command_encoder();
+        encoder.set_compute_pipeline_state(inv_pipeline);
+        encoder.set_buffer(0, Some(&buf_h_inv), 0);
+        encoder.set_buffer(1, Some(&buf_omega_inv), 0);
+        encoder.set_buffer(2, Some(&buf_inv_x), 0);
+        encoder.set_buffer(3, Some(&buf_inv_params), 0);
+        encoder.dispatch_thread_groups(
+            MTLSize::new(inv_thread_groups, 1, 1),
+            MTLSize::new(inv_threads_per_group, 1, 1),
+        );
+        encoder.end_encoding();
+    }
+
+    // Encoder 2: Fold (reads buf_inv_x written by encoder 1; Metal guarantees ordering)
+    {
+        let fold_threads_per_group = fold_eval_state.max_threads.min(256);
+        let fold_thread_groups = (half_len as u64).div_ceil(fold_threads_per_group);
+
+        let encoder = command_buffer.new_compute_command_encoder();
+        encoder.set_compute_pipeline_state(fold_pipeline);
+        encoder.set_buffer(0, Some(evals_buffer), 0);
+        encoder.set_buffer(1, Some(&buf_output), 0);
+        encoder.set_buffer(2, Some(&buf_beta), 0);
+        encoder.set_buffer(3, Some(&buf_inv_x), 0);
+        encoder.set_buffer(4, Some(&buf_fold_params), 0);
+        encoder.dispatch_thread_groups(
+            MTLSize::new(fold_thread_groups, 1, 1),
+            MTLSize::new(fold_threads_per_group, 1, 1),
+        );
+        encoder.end_encoding();
+    }
+
+    command_buffer.commit();
+    command_buffer.wait_until_completed();
+
+    if command_buffer.status() == metal::MTLCommandBufferStatus::Error {
+        return Err(MetalError::ExecutionError(
+            "GPU fused domain-inv+fold error".to_string(),
+        ));
+    }
+
+    Ok((buf_output, half_len))
+}
+
 /// Pre-compiled Metal state for FRI domain inverse precomputation.
 ///
 /// Caches the compiled pipeline for `compute_fri_domain_inverses`.
@@ -1851,19 +1976,20 @@ pub fn gpu_fri_commit_phase_eval_domain(
         coset_offset = coset_offset.square();
         domain_size /= 2;
 
-        // Compute domain inverses for the current layer.
-        let inv_x =
-            gpu_compute_fri_domain_inverses(&h_inv_k, &omega_inv_k, current_len, domain_inv_state)
-                .map_err(|e| {
-                    ProvingError::FieldOperationError(format!("GPU FRI domain inv: {e}"))
-                })?;
-
-        // Eval-domain fold: produces evaluations on the next (halved) domain.
-        let (folded_buf, folded_len) =
-            gpu_fold_evaluations(&current_evals, current_len, &zeta, &inv_x, fold_eval_state)
-                .map_err(|e| {
-                    ProvingError::FieldOperationError(format!("GPU eval-domain fold: {e}"))
-                })?;
+        // Fused domain inverse + eval-domain fold in a single command buffer.
+        // This eliminates one wait_until_completed() per layer.
+        let (folded_buf, folded_len) = gpu_fold_evaluations_with_domain_inv(
+            &current_evals,
+            current_len,
+            &zeta,
+            &h_inv_k,
+            &omega_inv_k,
+            fold_eval_state,
+            domain_inv_state,
+        )
+        .map_err(|e| {
+            ProvingError::FieldOperationError(format!("GPU fused domain-inv+fold: {e}"))
+        })?;
 
         // Merkle commit from the folded evaluations.
         // The folded evaluations are already in bit-reversed order.
@@ -1889,19 +2015,21 @@ pub fn gpu_fri_commit_phase_eval_domain(
         omega_inv_k = omega_inv_k * omega_inv_k;
     }
 
-    // Final fold to get the last value.
+    // Final fold to get the last value (also fused).
     let zeta = transcript.sample_field_element();
 
-    let inv_x =
-        gpu_compute_fri_domain_inverses(&h_inv_k, &omega_inv_k, current_len, domain_inv_state)
-            .map_err(|e| {
-                ProvingError::FieldOperationError(format!("GPU FRI domain inv (final): {e}"))
-            })?;
-
-    let (last_buf, _last_len) =
-        gpu_fold_evaluations(&current_evals, current_len, &zeta, &inv_x, fold_eval_state).map_err(
-            |e| ProvingError::FieldOperationError(format!("GPU eval-domain fold (final): {e}")),
-        )?;
+    let (last_buf, _last_len) = gpu_fold_evaluations_with_domain_inv(
+        &current_evals,
+        current_len,
+        &zeta,
+        &h_inv_k,
+        &omega_inv_k,
+        fold_eval_state,
+        domain_inv_state,
+    )
+    .map_err(|e| {
+        ProvingError::FieldOperationError(format!("GPU fused domain-inv+fold (final): {e}"))
+    })?;
 
     let last_u64: Vec<u64> = MetalState::retrieve_contents(&last_buf);
     let last_value = if last_u64.is_empty() {
