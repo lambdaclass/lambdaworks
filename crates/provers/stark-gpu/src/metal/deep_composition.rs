@@ -886,14 +886,19 @@ fn gpu_compute_domain_inversions_fp3(
 /// Compute the Fp3 DEEP composition polynomial using GPU.
 ///
 /// This is the extension-field variant of [`gpu_compute_deep_composition_poly`].
-/// Trace LDE values remain in base field; gammas, z, OOD evals, inversions,
-/// and output are all in Fp3 (degree-3 Goldilocks extension).
+/// All trace LDE columns are passed as Fp3 (base-field columns pre-embedded by
+/// the caller as `[value, 0, 0]`). Gammas, z, OOD evals, inversions, and output
+/// are all in Fp3 (degree-3 Goldilocks extension).
 ///
-/// Returns the DEEP composition polynomial in Fp3 coefficient form.
+/// Returns DEEP composition polynomial evaluations on the LDE coset (Fp3).
 #[cfg(all(target_os = "macos", feature = "metal"))]
 #[allow(clippy::too_many_arguments)]
 pub fn gpu_compute_deep_composition_poly_fp3(
-    round_1_result: &GpuRound1Result<Goldilocks64Field>,
+    all_trace_lde_fp3: &[Vec<
+        FieldElement<
+            lambdaworks_math::field::fields::u64_goldilocks_field::Degree3GoldilocksExtensionField,
+        >,
+    >],
     round_3_z: &FieldElement<
         lambdaworks_math::field::fields::u64_goldilocks_field::Degree3GoldilocksExtensionField,
     >,
@@ -931,15 +936,13 @@ pub fn gpu_compute_deep_composition_poly_fp3(
 > {
     use lambdaworks_math::field::fields::u64_goldilocks_field::Degree3GoldilocksExtensionField;
 
-    type F = Goldilocks64Field;
     type Fp3 = Degree3GoldilocksExtensionField;
     type Fp3E = FieldElement<Fp3>;
 
     let num_rows = domain.lde_roots_of_unity_coset.len();
     let num_offsets = trace_ood_evaluations_fp3.len();
     let num_comp_parts = composition_ood_evaluations_fp3.len();
-    let num_trace_polys =
-        round_1_result.main_trace_polys.len() + round_1_result.aux_trace_polys.len();
+    let num_trace_polys = all_trace_lde_fp3.len();
 
     // Helper to convert Fp3E to 3 raw u64s
     let fp3_to_u64s = |e: &Fp3E| -> [u64; 3] {
@@ -990,12 +993,10 @@ pub fn gpu_compute_deep_composition_poly_fp3(
         }
     }
 
-    // --- Convert trace LDE data to raw u64 (base field) ---
-    let mut all_trace_lde = round_1_result.main_lde_evaluations.clone();
-    all_trace_lde.extend(round_1_result.aux_lde_evaluations.iter().cloned());
-    let trace_raw: Vec<Vec<u64>> = all_trace_lde
+    // --- Convert Fp3 trace LDE data to raw u64 triples ---
+    let trace_raw: Vec<Vec<u64>> = all_trace_lde_fp3
         .iter()
-        .map(|col| col.iter().map(|fe| F::canonical(fe.value())).collect())
+        .map(|col| col.iter().flat_map(&fp3_to_u64s).collect())
         .collect();
 
     // --- Convert Fp3 composition LDE data to raw u64 triples ---
@@ -1392,8 +1393,18 @@ mod tests {
         }
 
         // --- GPU path ---
+        // Pre-embed all trace LDE columns to Fp3
+        let all_trace_lde_fp3: Vec<Vec<Fp3E>> = all_trace_lde
+            .iter()
+            .map(|col| {
+                col.iter()
+                    .map(|fe| Fp3E::new([*fe, FpE::zero(), FpE::zero()]))
+                    .collect()
+            })
+            .collect();
+
         let gpu_deep_evals = gpu_compute_deep_composition_poly_fp3(
-            &round_1,
+            &all_trace_lde_fp3,
             &z_fp3,
             &trace_ood_fp3,
             &composition_ood_fp3,

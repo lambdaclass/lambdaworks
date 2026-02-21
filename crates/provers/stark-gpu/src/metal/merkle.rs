@@ -1349,6 +1349,155 @@ pub fn gpu_batch_commit_paired_goldilocks(
     Some((tree, root))
 }
 
+/// GPU Merkle commit for Fp3 extension field columns.
+///
+/// Mirrors [`gpu_batch_commit_goldilocks`] but handles Fp3 elements (3 u64 per element).
+/// Takes column-major LDE evaluations, flattens to row-major bit-reversed u64 data,
+/// then hashes and builds the Merkle tree on GPU.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+pub fn gpu_batch_commit_fp3(
+    lde_columns: &[Vec<
+        FieldElement<
+            lambdaworks_math::field::fields::u64_goldilocks_field::Degree3GoldilocksExtensionField,
+        >,
+    >],
+    keccak_state: &GpuKeccakMerkleState,
+) -> Option<(
+    BatchedMerkleTree<
+        lambdaworks_math::field::fields::u64_goldilocks_field::Degree3GoldilocksExtensionField,
+    >,
+    Commitment,
+)> {
+    let num_fp3_cols = lde_columns.len();
+    let num_rows = lde_columns[0].len();
+    let log_n = num_rows.trailing_zeros();
+    let num_cols_u64 = num_fp3_cols * 3;
+
+    // Build flat u64 data: row[i] = [col0[bitrev(i)] as 3 u64, col1[bitrev(i)] as 3 u64, ...]
+    let mut flat_data: Vec<u64> = Vec::with_capacity(num_rows * num_cols_u64);
+    for i in 0..num_rows {
+        let src_idx = i.reverse_bits() >> (usize::BITS - log_n);
+        for col in lde_columns {
+            let v = col[src_idx].value();
+            flat_data.push(Goldilocks64Field::canonical(v[0].value()));
+            flat_data.push(Goldilocks64Field::canonical(v[1].value()));
+            flat_data.push(Goldilocks64Field::canonical(v[2].value()));
+        }
+    }
+
+    let (nodes, root) =
+        gpu_hash_and_build_tree(&flat_data, num_rows, num_cols_u64, keccak_state).ok()?;
+
+    let tree = BatchedMerkleTree::<
+        lambdaworks_math::field::fields::u64_goldilocks_field::Degree3GoldilocksExtensionField,
+    >::from_nodes(nodes)?;
+    Some((tree, root))
+}
+
+/// GPU Merkle commit for Fp3 composition polynomial (paired rows variant).
+///
+/// Mirrors [`gpu_batch_commit_paired_goldilocks`] but handles Fp3 elements (3 u64 per element).
+/// Transposes, bit-reverses, and pairs consecutive rows before hashing on GPU.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+pub fn gpu_batch_commit_paired_fp3(
+    lde_evaluations: &[Vec<
+        FieldElement<
+            lambdaworks_math::field::fields::u64_goldilocks_field::Degree3GoldilocksExtensionField,
+        >,
+    >],
+    keccak_state: &GpuKeccakMerkleState,
+) -> Option<(
+    BatchedMerkleTree<
+        lambdaworks_math::field::fields::u64_goldilocks_field::Degree3GoldilocksExtensionField,
+    >,
+    Commitment,
+)> {
+    let num_fp3_cols = lde_evaluations.len();
+    let lde_len = lde_evaluations[0].len();
+    let num_merged_rows = lde_len / 2;
+    let cols_per_merged_row = 2 * num_fp3_cols * 3;
+    let log_n = lde_len.trailing_zeros();
+
+    // Build flat u64 data: merged_row[i] = row[bitrev(2i)] ++ row[bitrev(2i+1)]
+    let mut flat_data: Vec<u64> = Vec::with_capacity(num_merged_rows * cols_per_merged_row);
+    for i in 0..num_merged_rows {
+        let idx0 = (2 * i).reverse_bits() >> (usize::BITS - log_n);
+        let idx1 = (2 * i + 1).reverse_bits() >> (usize::BITS - log_n);
+        for col in lde_evaluations {
+            let v = col[idx0].value();
+            flat_data.push(Goldilocks64Field::canonical(v[0].value()));
+            flat_data.push(Goldilocks64Field::canonical(v[1].value()));
+            flat_data.push(Goldilocks64Field::canonical(v[2].value()));
+        }
+        for col in lde_evaluations {
+            let v = col[idx1].value();
+            flat_data.push(Goldilocks64Field::canonical(v[0].value()));
+            flat_data.push(Goldilocks64Field::canonical(v[1].value()));
+            flat_data.push(Goldilocks64Field::canonical(v[2].value()));
+        }
+    }
+
+    let (nodes, root) = gpu_hash_and_build_tree(
+        &flat_data,
+        num_merged_rows,
+        cols_per_merged_row,
+        keccak_state,
+    )
+    .ok()?;
+
+    let tree = BatchedMerkleTree::<
+        lambdaworks_math::field::fields::u64_goldilocks_field::Degree3GoldilocksExtensionField,
+    >::from_nodes(nodes)?;
+    Some((tree, root))
+}
+
+/// GPU FRI-layer Merkle commit for Fp3 evaluations.
+///
+/// Mirrors [`gpu_fri_layer_commit`] but handles Fp3 elements. Takes bit-reversed
+/// Fp3 evaluations and pairs consecutive elements as leaves (2 Fp3 elements = 6 u64s per leaf).
+#[cfg(all(target_os = "macos", feature = "metal"))]
+pub fn gpu_fri_layer_commit_fp3(
+    evaluation: &[FieldElement<
+        lambdaworks_math::field::fields::u64_goldilocks_field::Degree3GoldilocksExtensionField,
+    >],
+    keccak_state: &GpuKeccakMerkleState,
+) -> Result<
+    (
+        BatchedMerkleTree<
+            lambdaworks_math::field::fields::u64_goldilocks_field::Degree3GoldilocksExtensionField,
+        >,
+        Commitment,
+    ),
+    MetalError,
+> {
+    let num_leaves = evaluation.len() / 2;
+    let num_cols = 6; // 2 Fp3 elements × 3 u64 each
+
+    // Flatten: leaf[i] = [eval[2*i] as 3 u64, eval[2*i+1] as 3 u64]
+    let flat_data: Vec<u64> = evaluation
+        .chunks(2)
+        .flat_map(|pair| {
+            let v0 = pair[0].value();
+            let v1 = pair[1].value();
+            [
+                Goldilocks64Field::canonical(v0[0].value()),
+                Goldilocks64Field::canonical(v0[1].value()),
+                Goldilocks64Field::canonical(v0[2].value()),
+                Goldilocks64Field::canonical(v1[0].value()),
+                Goldilocks64Field::canonical(v1[1].value()),
+                Goldilocks64Field::canonical(v1[2].value()),
+            ]
+        })
+        .collect();
+
+    let (nodes, root) = gpu_hash_and_build_tree(&flat_data, num_leaves, num_cols, keccak_state)?;
+    let tree = BatchedMerkleTree::<
+        lambdaworks_math::field::fields::u64_goldilocks_field::Degree3GoldilocksExtensionField,
+    >::from_nodes(nodes)
+    .ok_or_else(|| MetalError::ExecutionError("Failed to build FRI Fp3 Merkle tree".into()))?;
+    Ok((tree, root))
+}
+
 // =============================================================================
 // GPU Grinding: parallel nonce search using Keccak256
 // =============================================================================
@@ -2058,5 +2207,57 @@ mod gpu_tests {
         let cpu_nonce = grinding::generate_nonce(&seed2, 1).unwrap();
         let gpu_nonce = gpu_generate_nonce(&seed2, 1, &keccak_state).unwrap();
         assert_eq!(gpu_nonce, cpu_nonce, "seed2 grinding_factor=1 mismatch");
+    }
+
+    #[test]
+    fn gpu_merkle_fp3_matches_cpu() {
+        use lambdaworks_math::field::fields::u64_goldilocks_field::Degree3GoldilocksExtensionField;
+        type Fp3E = FieldElement<Degree3GoldilocksExtensionField>;
+
+        let keccak_state = GpuKeccakMerkleState::new().unwrap();
+
+        // 3 Fp3 columns × 256 rows
+        let num_cols = 3;
+        let num_rows = 256;
+        let columns: Vec<Vec<Fp3E>> = (0..num_cols)
+            .map(|c| {
+                (0..num_rows)
+                    .map(|r| {
+                        let base = (c * num_rows + r + 1) as u64;
+                        Fp3E::new([
+                            FieldElement::<Goldilocks64Field>::from(base),
+                            FieldElement::<Goldilocks64Field>::from(base + 1000),
+                            FieldElement::<Goldilocks64Field>::from(base + 2000),
+                        ])
+                    })
+                    .collect()
+            })
+            .collect();
+
+        // CPU path
+        let cpu_rows = columns2rows_bit_reversed(&columns);
+        let (cpu_tree, cpu_root) = cpu_batch_commit(&cpu_rows).unwrap();
+
+        // GPU path
+        let (gpu_tree, gpu_root) = gpu_batch_commit_fp3(&columns, &keccak_state).unwrap();
+
+        assert_eq!(gpu_root, cpu_root, "Fp3 batch commit root mismatch");
+
+        // Verify Merkle proofs at several positions
+        for pos in [0, 1, num_rows / 4, num_rows / 2, num_rows - 1] {
+            let cpu_proof = cpu_tree.get_proof_by_pos(pos);
+            let gpu_proof = gpu_tree.get_proof_by_pos(pos);
+            assert_eq!(
+                cpu_proof.is_some(),
+                gpu_proof.is_some(),
+                "Fp3 proof availability mismatch at pos {pos}"
+            );
+            if let (Some(cp), Some(gp)) = (cpu_proof, gpu_proof) {
+                assert_eq!(
+                    cp.merkle_path, gp.merkle_path,
+                    "Fp3 proof path mismatch at pos {pos}"
+                );
+            }
+        }
     }
 }

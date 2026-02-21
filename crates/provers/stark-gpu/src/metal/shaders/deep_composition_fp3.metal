@@ -6,8 +6,8 @@
 // be already defined when this code is compiled.
 //
 // Hardcoded for Fibonacci RAP: 3 trace polys, 3 offsets, 1 composition part.
-// Trace LDE values are in base field (1 u64 each).
-// Inversions, gammas, OOD evals, and output are in Fp3 (3 u64s each).
+// All trace, composition, inversion, gamma, and OOD data are in Fp3 (3 u64s each).
+// Base-field trace columns are pre-embedded to Fp3 on the CPU side.
 
 struct DeepCompFp3Params {
     uint32_t num_rows;           // LDE domain size
@@ -17,9 +17,9 @@ struct DeepCompFp3Params {
 };
 
 // Buffer layout:
-// 0: main_col_0 LDE evals (base field, 1 u64 per point)
-// 1: main_col_1 LDE evals (base field)
-// 2: aux_col_0 LDE evals (base field)
+// 0: trace_col_0 LDE evals (Fp3, 3 u64s per point — pre-embedded from base field or native Fp3)
+// 1: trace_col_1 LDE evals (Fp3, 3 u64s per point)
+// 2: trace_col_2 LDE evals (Fp3, 3 u64s per point)
 // 3: comp_part_0 LDE evals (Fp3, 3 u64s per point)
 // 4: inv_z_power (Fp3, pre-computed 1/(x_i - z^N) for each domain point)
 // 5: inv_z_shifted_0 (Fp3, 1/(x_i - z*g^0) for each domain point)
@@ -94,10 +94,10 @@ struct DeepCompFp3Params {
     Fp3Goldilocks t_ood_21 = read_scalar(18);
     Fp3Goldilocks t_ood_22 = read_scalar(19);
 
-    // Read base field trace LDE values (1 u64 each) and embed to Fp3
-    Fp3Goldilocks tp0 = Fp3Goldilocks(Fp64Goldilocks(trace_poly_0[tid]));
-    Fp3Goldilocks tp1 = Fp3Goldilocks(Fp64Goldilocks(trace_poly_1[tid]));
-    Fp3Goldilocks tp2 = Fp3Goldilocks(Fp64Goldilocks(trace_poly_2[tid]));
+    // Read Fp3 trace LDE values (3 u64s each, pre-embedded from base field or native Fp3)
+    Fp3Goldilocks tp0 = read_fp3(trace_poly_0, tid);
+    Fp3Goldilocks tp1 = read_fp3(trace_poly_1, tid);
+    Fp3Goldilocks tp2 = read_fp3(trace_poly_2, tid);
 
     // Read Fp3 composition LDE value
     Fp3Goldilocks hp0 = read_fp3(comp_part_0, tid);

@@ -26,7 +26,8 @@ use stark_platinum_prover::traits::AIR;
 #[cfg(all(target_os = "macos", feature = "metal"))]
 use crate::metal::fft::{
     gpu_break_in_parts_buffer_to_buffers, gpu_evaluate_offset_fft,
-    gpu_evaluate_offset_fft_buffer_to_buffers_batch,
+    gpu_evaluate_offset_fft_buffer_to_buffers_batch, gpu_evaluate_offset_fft_extension,
+    gpu_interpolate_offset_fft_extension,
 };
 use crate::metal::merkle::cpu_batch_commit;
 use crate::metal::phases::rap::GpuRound1Result;
@@ -1008,6 +1009,8 @@ pub fn gpu_round_2_fp3<A>(
         lambdaworks_math::field::fields::u64_goldilocks_field::Degree3GoldilocksExtensionField,
         Goldilocks64Field,
     >,
+    state: &StarkMetalState,
+    keccak_state: &GpuKeccakMerkleState,
 ) -> Result<crate::metal::phases::fp3_types::GpuRound2ResultFp3, ProvingError>
 where
     A: AIR<
@@ -1044,6 +1047,7 @@ where
     );
 
     // Step 3: Evaluate constraints on CPU.
+    let t = std::time::Instant::now();
     let evaluator =
         ConstraintEvaluator::<F, Fp3, A::PublicInputs>::new(air, &round_1_result.rap_challenges);
     let constraint_evaluations = evaluator.evaluate(
@@ -1054,13 +1058,22 @@ where
         &boundary_coefficients,
         &round_1_result.rap_challenges,
     )?;
+    eprintln!("    2a constraint eval:  {:>10.2?}", t.elapsed());
 
-    // Step 4: CPU IFFT → composition polynomial coefficients (in Fp3).
+    // Step 4: GPU IFFT → composition polynomial coefficients (in Fp3).
+    let t = std::time::Instant::now();
     let coset_offset = air.coset_offset();
-    let composition_poly =
-        Polynomial::interpolate_offset_fft(&constraint_evaluations, &coset_offset)?;
+    let composition_poly_coeffs = gpu_interpolate_offset_fft_extension::<Fp3>(
+        &constraint_evaluations,
+        &coset_offset,
+        state.inner(),
+    )
+    .map_err(|e| ProvingError::FieldOperationError(format!("GPU composition IFFT: {e}")))?;
+    eprintln!("    2b composition IFFT: {:>10.2?}", t.elapsed());
 
-    // Step 5: Break into parts.
+    // Step 5: Truncate to meaningful coefficients and break into parts.
+    let meaningful_coeffs = air.composition_poly_degree_bound();
+    let composition_poly = Polynomial::new(&composition_poly_coeffs[..meaningful_coeffs]);
     let number_of_parts = air.composition_poly_degree_bound() / air.trace_length();
     if number_of_parts == 0 {
         return Err(ProvingError::WrongParameter(
@@ -1069,50 +1082,28 @@ where
     }
     let composition_poly_parts = composition_poly.break_in_parts(number_of_parts);
 
-    // Step 6: CPU FFT LDE each part.
+    // Step 6: GPU FFT LDE each part.
+    let t = std::time::Instant::now();
     let lde_evaluations: Vec<Vec<Fp3E>> = composition_poly_parts
         .iter()
         .map(|part| {
-            Polynomial::evaluate_offset_fft::<F>(
-                part,
+            gpu_evaluate_offset_fft_extension::<Fp3>(
+                part.coefficients(),
                 blowup_factor,
-                Some(domain.interpolation_domain_size),
                 &coset_offset,
+                state.inner(),
             )
-            .map(|evals| {
-                let target_len = domain.interpolation_domain_size * blowup_factor;
-                let step = evals.len() / target_len;
-                if step <= 1 {
-                    evals
-                } else {
-                    evals.into_iter().step_by(step).collect()
-                }
-            })
+            .map_err(|e| ProvingError::FieldOperationError(format!("GPU composition LDE: {e}")))
         })
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(|e| ProvingError::FieldOperationError(format!("CPU composition LDE: {e}")))?;
+        .collect::<Result<Vec<_>, _>>()?;
+    eprintln!("    2c LDE per part:     {:>10.2?}", t.elapsed());
 
-    // Step 7: Commit composition poly parts with the special paired-row layout.
-    let lde_len = lde_evaluations[0].len();
-
-    // Transpose: column-major to row-major
-    let mut rows: Vec<Vec<Fp3E>> = (0..lde_len)
-        .map(|i| lde_evaluations.iter().map(|col| col[i]).collect())
-        .collect();
-
-    // Bit-reverse permute
-    in_place_bit_reverse_permute(&mut rows);
-
-    // Pair consecutive rows
-    let mut merged_rows = Vec::with_capacity(lde_len / 2);
-    let mut iter = rows.into_iter();
-    while let (Some(mut chunk0), Some(chunk1)) = (iter.next(), iter.next()) {
-        chunk0.extend(chunk1);
-        merged_rows.push(chunk0);
-    }
-
-    // CPU Merkle commit (Fp3)
-    let (tree, root) = cpu_batch_commit(&merged_rows).ok_or(ProvingError::EmptyCommitment)?;
+    // Step 7: GPU Merkle commit (paired rows layout).
+    let t = std::time::Instant::now();
+    let (tree, root) =
+        crate::metal::merkle::gpu_batch_commit_paired_fp3(&lde_evaluations, keccak_state)
+            .ok_or(ProvingError::EmptyCommitment)?;
+    eprintln!("    2d Merkle commit:    {:>10.2?}", t.elapsed());
 
     Ok(crate::metal::phases::fp3_types::GpuRound2ResultFp3 {
         composition_poly_parts,

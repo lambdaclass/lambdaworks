@@ -900,6 +900,8 @@ pub fn gpu_fri_commit_phase_fp3(
     coset_offset: &FieldElement<Goldilocks64Field>,
     domain_size: usize,
     fri_fold_state: &FriFoldFp3State,
+    state: &StarkMetalState,
+    keccak_state: &GpuKeccakMerkleState,
 ) -> Result<(Fp3E, Vec<FriLayer<Fp3, BatchedMerkleTreeBackend<Fp3>>>), ProvingError> {
     let mut domain_size = domain_size;
     let mut fri_layer_list = Vec::with_capacity(number_layers);
@@ -923,10 +925,12 @@ pub fn gpu_fri_commit_phase_fp3(
                 .map_err(|e| ProvingError::FieldOperationError(format!("GPU Fp3 FRI fold: {e}")))?
         };
 
-        // Read back Fp3 coefficients from GPU for FFT + Merkle (CPU path for now)
+        // Read back Fp3 coefficients from GPU (truncate to domain_size — buffer
+        // may be larger than the folded polynomial)
         let coeffs_u64: Vec<u64> = MetalState::retrieve_contents(&folded_buf);
-        let coeffs: Vec<Fp3E> = coeffs_u64
+        let mut coeffs: Vec<Fp3E> = coeffs_u64
             .chunks(3)
+            .take(domain_size)
             .map(|chunk| {
                 Fp3E::new([
                     FieldElement::<Goldilocks64Field>::from(chunk[0]),
@@ -935,8 +939,29 @@ pub fn gpu_fri_commit_phase_fp3(
                 ])
             })
             .collect();
-        let poly = Polynomial::new(&coeffs);
-        let current_layer = fri::new_fri_layer(&poly, &coset_offset, domain_size)?;
+        coeffs.resize(domain_size, Fp3E::zero());
+
+        // GPU FFT evaluation + GPU Merkle commit (replaces fri::new_fri_layer)
+        let mut evaluation = crate::metal::fft::gpu_evaluate_offset_fft_extension::<Fp3>(
+            &coeffs,
+            1,
+            &coset_offset,
+            state.inner(),
+        )
+        .map_err(|e| ProvingError::FieldOperationError(format!("GPU Fp3 FRI FFT: {e}")))?;
+        in_place_bit_reverse_permute(&mut evaluation);
+
+        let (merkle_tree, _commitment) =
+            crate::metal::merkle::gpu_fri_layer_commit_fp3(&evaluation, keccak_state).map_err(
+                |e| ProvingError::FieldOperationError(format!("GPU Fp3 FRI Merkle: {e}")),
+            )?;
+
+        let current_layer = FriLayer::new(
+            &evaluation,
+            merkle_tree,
+            coset_offset.to_extension(),
+            domain_size,
+        );
 
         current_buffer = Some((folded_buf, folded_len));
         let commitment = current_layer.merkle_tree.root;
@@ -2036,8 +2061,7 @@ where
 
 /// GPU-accelerated Phase 4 for Fp3 extension field proofs.
 ///
-/// Uses CPU DEEP composition (the Fp3 DEEP shader expects base-field trace data,
-/// but aux trace in F!=E is in Fp3) and GPU FRI fold.
+/// Uses CPU DEEP composition + GPU FRI fold + GPU FRI Merkle.
 #[cfg(all(target_os = "macos", feature = "metal"))]
 #[allow(clippy::too_many_arguments)]
 pub fn gpu_round_4_fp3<A>(
@@ -2048,6 +2072,8 @@ pub fn gpu_round_4_fp3<A>(
     round_3_result: &crate::metal::phases::fp3_types::GpuRound3ResultFp3,
     transcript: &mut impl IsStarkTranscript<Fp3, Goldilocks64Field>,
     fri_fold_state: &FriFoldFp3State,
+    state: &crate::metal::state::StarkMetalState,
+    keccak_state: &crate::metal::merkle::GpuKeccakMerkleState,
 ) -> Result<crate::metal::phases::fp3_types::GpuRound4ResultFp3, ProvingError>
 where
     A: AIR<Field = Goldilocks64Field, FieldExtension = Fp3>,
@@ -2113,6 +2139,8 @@ where
         &coset_offset,
         domain_size,
         fri_fold_state,
+        state,
+        keccak_state,
     )?;
 
     // Step 4: Grinding (CPU).

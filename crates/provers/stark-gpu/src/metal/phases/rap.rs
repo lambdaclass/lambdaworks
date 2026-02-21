@@ -18,9 +18,9 @@ use stark_platinum_prover::traits::AIR;
 
 #[cfg(all(target_os = "macos", feature = "metal"))]
 use crate::metal::fft::{
-    gpu_evaluate_coeff_buffers_on_lde, gpu_evaluate_offset_fft,
+    gpu_evaluate_coeff_buffers_on_lde, gpu_evaluate_offset_fft, gpu_evaluate_offset_fft_extension,
     gpu_evaluate_offset_fft_to_buffers_batch, gpu_interpolate_columns_to_buffers,
-    gpu_interpolate_fft, CosetShiftState,
+    gpu_interpolate_fft, gpu_interpolate_fft_extension, CosetShiftState,
 };
 use crate::metal::merkle::cpu_batch_commit;
 #[cfg(all(target_os = "macos", feature = "metal"))]
@@ -323,7 +323,7 @@ pub fn gpu_round_1_fp3<A>(
         Goldilocks64Field,
         lambdaworks_math::field::fields::u64_goldilocks_field::Degree3GoldilocksExtensionField,
     >,
-    domain: &Domain<Goldilocks64Field>,
+    _domain: &Domain<Goldilocks64Field>,
     transcript: &mut impl IsStarkTranscript<
         lambdaworks_math::field::fields::u64_goldilocks_field::Degree3GoldilocksExtensionField,
         Goldilocks64Field,
@@ -338,7 +338,6 @@ where
     >,
 {
     use lambdaworks_math::field::fields::u64_goldilocks_field::Degree3GoldilocksExtensionField;
-    type F = Goldilocks64Field;
     type Fp3 = Degree3GoldilocksExtensionField;
     type Fp3E = FieldElement<Fp3>;
 
@@ -382,47 +381,49 @@ where
     transcript.append_bytes(&main_merkle_root);
     let rap_challenges = air.build_rap_challenges(transcript);
 
-    // --- Auxiliary trace (Fp3, CPU path) ---
+    // --- Auxiliary trace (Fp3, GPU extension FFT path) ---
     let t = std::time::Instant::now();
     let (aux_trace_polys, aux_lde_evaluations, aux_merkle_tree, aux_merkle_root) =
         if air.has_trace_interaction() {
+            let t_build = std::time::Instant::now();
             air.build_auxiliary_trace(trace, &rap_challenges);
+            eprintln!("      1d.1 build aux:    {:>10.2?}", t_build.elapsed());
 
-            // CPU FFT interpolation (base-field twiddles on extension-field data)
+            // GPU FFT interpolation (base-field twiddles on extension-field data)
+            let t_interp = std::time::Instant::now();
             let aux_columns = trace.columns_aux();
             let aux_polys: Vec<Polynomial<Fp3E>> = aux_columns
                 .iter()
-                .map(|col| Polynomial::interpolate_fft::<F>(col))
+                .map(|col| {
+                    gpu_interpolate_fft_extension::<Fp3>(col, state.inner())
+                        .map(|coeffs| Polynomial::new(&coeffs))
+                })
                 .collect::<Result<Vec<_>, _>>()
-                .map_err(|e| ProvingError::FieldOperationError(format!("CPU aux FFT: {e}")))?;
+                .map_err(|e| ProvingError::FieldOperationError(format!("GPU aux FFT: {e}")))?;
+            eprintln!("      1d.2 aux interp:   {:>10.2?}", t_interp.elapsed());
 
-            // CPU FFT LDE evaluation
+            // GPU FFT LDE evaluation
+            let t_lde = std::time::Instant::now();
             let aux_lde_evals: Vec<Vec<Fp3E>> = aux_polys
                 .iter()
                 .map(|poly| {
-                    Polynomial::evaluate_offset_fft::<F>(
-                        poly,
+                    gpu_evaluate_offset_fft_extension::<Fp3>(
+                        poly.coefficients(),
                         blowup_factor,
-                        Some(domain.interpolation_domain_size),
                         &coset_offset,
+                        state.inner(),
                     )
-                    .map(|evals| {
-                        let target_len = domain.interpolation_domain_size * blowup_factor;
-                        let step = evals.len() / target_len;
-                        if step <= 1 {
-                            evals
-                        } else {
-                            evals.into_iter().step_by(step).collect()
-                        }
-                    })
                 })
                 .collect::<Result<Vec<_>, _>>()
-                .map_err(|e| ProvingError::FieldOperationError(format!("CPU aux LDE FFT: {e}")))?;
+                .map_err(|e| ProvingError::FieldOperationError(format!("GPU aux LDE FFT: {e}")))?;
+            eprintln!("      1d.3 aux LDE:      {:>10.2?}", t_lde.elapsed());
 
-            // CPU Merkle commit on aux LDE
-            let aux_permuted_rows = columns2rows_bit_reversed(&aux_lde_evals);
+            // GPU Merkle commit on aux LDE (Fp3)
+            let t_merkle = std::time::Instant::now();
             let (aux_tree, aux_root) =
-                cpu_batch_commit(&aux_permuted_rows).ok_or(ProvingError::EmptyCommitment)?;
+                crate::metal::merkle::gpu_batch_commit_fp3(&aux_lde_evals, keccak_state)
+                    .ok_or(ProvingError::EmptyCommitment)?;
+            eprintln!("      1d.4 aux Merkle:   {:>10.2?}", t_merkle.elapsed());
 
             transcript.append_bytes(&aux_root);
             (aux_polys, aux_lde_evals, Some(aux_tree), Some(aux_root))

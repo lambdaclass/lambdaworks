@@ -13,12 +13,13 @@ use lambdaworks_gpu::metal::abstractions::{
 #[cfg(all(target_os = "macos", feature = "metal"))]
 use lambdaworks_math::{
     fft::gpu::metal::ops::{
-        fft, fft_buffer_to_buffer, fft_to_buffer, gen_twiddles, gen_twiddles_to_buffer,
+        fft, fft_buffer_to_buffer, fft_extension, fft_to_buffer, gen_twiddles,
+        gen_twiddles_to_buffer, HasMetalExtensionKernel,
     },
     field::{
         element::FieldElement,
         fields::u64_goldilocks_field::Goldilocks64Field,
-        traits::{IsFFTField, IsPrimeField, IsSubFieldOf, RootsConfig},
+        traits::{IsFFTField, IsField, IsPrimeField, IsSubFieldOf, RootsConfig},
     },
 };
 
@@ -119,6 +120,109 @@ where
     let order = domain_size.trailing_zeros() as u64;
     let twiddles = gen_twiddles::<F>(order, RootsConfig::BitReverse, state)?;
     fft(&shifted, &twiddles, state)
+}
+
+/// Interpolates polynomial coefficients from extension field evaluations using GPU FFT.
+///
+/// Like [`gpu_interpolate_fft`] but operates on extension field elements (e.g., Fp3)
+/// using base field twiddle factors. Uses the `fft_extension` kernel.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+pub fn gpu_interpolate_fft_extension<E>(
+    evaluations: &[FieldElement<E>],
+    state: &MetalState,
+) -> Result<Vec<FieldElement<E>>, MetalError>
+where
+    E: IsField + HasMetalExtensionKernel,
+    E::BaseField: IsFFTField + IsSubFieldOf<E> + IsSubFieldOf<E::BaseField>,
+    E::BaseType: Copy,
+    <E::BaseField as IsField>::BaseType: Copy,
+{
+    let order = evaluations.len().trailing_zeros() as u64;
+    let inv_twiddles = gen_twiddles::<E::BaseField>(order, RootsConfig::BitReverseInversed, state)?;
+    let coeffs = fft_extension::<E>(evaluations, &inv_twiddles, state)?;
+
+    let n_inv = FieldElement::<E::BaseField>::from(evaluations.len() as u64)
+        .inv()
+        .expect("Power-of-two length is always invertible in an FFT field");
+    let n_inv_ext =
+        FieldElement::<E>::from_raw(<E::BaseField as IsSubFieldOf<E>>::embed(*n_inv.value()));
+
+    Ok(coeffs.iter().map(|c| c * &n_inv_ext).collect())
+}
+
+/// Evaluates an extension field polynomial on an offset coset domain using GPU FFT.
+///
+/// Like [`gpu_evaluate_offset_fft`] but operates on extension field elements (e.g., Fp3)
+/// using base field twiddle factors. Uses the `fft_extension` kernel.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+pub fn gpu_evaluate_offset_fft_extension<E>(
+    coefficients: &[FieldElement<E>],
+    blowup_factor: usize,
+    offset: &FieldElement<E::BaseField>,
+    state: &MetalState,
+) -> Result<Vec<FieldElement<E>>, MetalError>
+where
+    E: IsField + HasMetalExtensionKernel,
+    E::BaseField: IsFFTField + IsSubFieldOf<E> + IsSubFieldOf<E::BaseField>,
+    E::BaseType: Copy,
+    <E::BaseField as IsField>::BaseType: Copy,
+{
+    let domain_size = coefficients.len() * blowup_factor;
+
+    // Step 1: CPU coset shift — multiply coefficient k by offset^k
+    let offset_in_ext =
+        FieldElement::<E>::from_raw(<E::BaseField as IsSubFieldOf<E>>::embed(*offset.value()));
+    let mut shifted: Vec<FieldElement<E>> = Vec::with_capacity(domain_size);
+    let mut offset_power = FieldElement::<E>::one();
+    for coeff in coefficients {
+        shifted.push(coeff * &offset_power);
+        offset_power = &offset_power * &offset_in_ext;
+    }
+
+    // Step 2: Zero-pad to domain_size
+    shifted.resize(domain_size, FieldElement::zero());
+
+    // Step 3 & 4: Generate base-field forward twiddles and run extension FFT
+    let order = domain_size.trailing_zeros() as u64;
+    let twiddles = gen_twiddles::<E::BaseField>(order, RootsConfig::BitReverse, state)?;
+    fft_extension::<E>(&shifted, &twiddles, state)
+}
+
+/// Recovers extension field polynomial coefficients from coset evaluations using GPU FFT.
+///
+/// This is the inverse of [`gpu_evaluate_offset_fft_extension`]: given evaluations on
+/// `{offset * w^i}`, it recovers the polynomial coefficients.
+///
+/// Algorithm: GPU IFFT → scale coefficient k by offset_inv^k (undo coset shift).
+#[cfg(all(target_os = "macos", feature = "metal"))]
+pub fn gpu_interpolate_offset_fft_extension<E>(
+    evaluations: &[FieldElement<E>],
+    coset_offset: &FieldElement<E::BaseField>,
+    state: &MetalState,
+) -> Result<Vec<FieldElement<E>>, MetalError>
+where
+    E: IsField + HasMetalExtensionKernel,
+    E::BaseField: IsFFTField + IsSubFieldOf<E> + IsSubFieldOf<E::BaseField>,
+    E::BaseType: Copy,
+    <E::BaseField as IsField>::BaseType: Copy,
+{
+    let scaled_coeffs = gpu_interpolate_fft_extension::<E>(evaluations, state)?;
+
+    let offset_inv = coset_offset.inv().expect("Coset offset must be invertible");
+    let offset_inv_ext = FieldElement::<E>::from_raw(<E::BaseField as IsSubFieldOf<E>>::embed(
+        *offset_inv.value(),
+    ));
+
+    let mut power = FieldElement::<E>::one();
+    let result = scaled_coeffs
+        .into_iter()
+        .map(|c| {
+            let val = &c * &power;
+            power = &power * &offset_inv_ext;
+            val
+        })
+        .collect();
+    Ok(result)
 }
 
 /// Evaluates a polynomial on an offset coset domain, returning a GPU Metal Buffer.
@@ -1408,6 +1512,49 @@ mod tests {
                 orig, recov,
                 "Coset IFFT roundtrip mismatch at index {i}: original={:?} recovered={:?}",
                 orig, recov
+            );
+        }
+    }
+
+    #[test]
+    fn gpu_fft_extension_interpolate_offset_roundtrip() {
+        use lambdaworks_math::field::fields::u64_goldilocks_field::Degree3GoldilocksExtensionField;
+        type Fp3 = Degree3GoldilocksExtensionField;
+        type Fp3E = FieldElement<Fp3>;
+
+        let state = crate::metal::state::StarkMetalState::new().unwrap();
+
+        // Create a polynomial with known Fp3 coefficients
+        let original_coeffs: Vec<Fp3E> = (0..16)
+            .map(|i| {
+                Fp3E::new([
+                    FpE::from(i as u64 + 1),
+                    FpE::from(i as u64 * 3 + 7),
+                    FpE::from(i as u64 * 5 + 13),
+                ])
+            })
+            .collect();
+        let offset = FpE::from(7u64);
+        let blowup_factor = 1;
+
+        // GPU evaluate on coset domain
+        let evals = gpu_evaluate_offset_fft_extension::<Fp3>(
+            &original_coeffs,
+            blowup_factor,
+            &offset,
+            state.inner(),
+        )
+        .unwrap();
+
+        // GPU recover coefficients via coset IFFT
+        let recovered_coeffs =
+            gpu_interpolate_offset_fft_extension::<Fp3>(&evals, &offset, state.inner()).unwrap();
+
+        assert_eq!(original_coeffs.len(), recovered_coeffs.len());
+        for (i, (orig, recov)) in original_coeffs.iter().zip(&recovered_coeffs).enumerate() {
+            assert_eq!(
+                orig, recov,
+                "Fp3 coset IFFT roundtrip mismatch at index {i}"
             );
         }
     }

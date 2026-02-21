@@ -270,7 +270,7 @@ where
 
     // Phase 2: Composition polynomial (CPU constraint eval + CPU FFT)
     let t = std::time::Instant::now();
-    let round_2 = gpu_round_2_fp3(air, &domain, &round_1, transcript)?;
+    let round_2 = gpu_round_2_fp3(air, &domain, &round_1, transcript, &state, &keccak_state)?;
     eprintln!("  Phase 2 (Composition): {:>10.2?}", t.elapsed());
 
     // Phase 3: OOD evaluations (CPU)
@@ -288,6 +288,8 @@ where
         &round_3,
         transcript,
         &fri_fold_state,
+        &state,
+        &keccak_state,
     )?;
     eprintln!("  Phase 4 (FRI):         {:>10.2?}", t.elapsed());
 
