@@ -1113,6 +1113,262 @@ where
     })
 }
 
+/// GPU Phase 2 for Fp3 extension field proofs with GPU constraint evaluation.
+///
+/// This is the GPU-accelerated version of [`gpu_round_2_fp3`] that uses the Metal
+/// GPU shader for constraint evaluation instead of the CPU `ConstraintEvaluator`.
+/// This eliminates the 1.18s CPU bottleneck in Phase 2.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+#[allow(clippy::too_many_arguments)]
+pub fn gpu_round_2_fp3_gpu<A>(
+    air: &A,
+    domain: &Domain<Goldilocks64Field>,
+    round_1_result: &crate::metal::phases::fp3_types::GpuRound1ResultFp3,
+    transcript: &mut impl IsStarkTranscript<
+        lambdaworks_math::field::fields::u64_goldilocks_field::Degree3GoldilocksExtensionField,
+        Goldilocks64Field,
+    >,
+    state: &StarkMetalState,
+    keccak_state: &GpuKeccakMerkleState,
+    precompiled_constraint: Option<&crate::metal::constraint_eval::FibRapConstraintFp3State>,
+    precompiled_boundary: Option<&crate::metal::constraint_eval::BoundaryEvalFp3State>,
+) -> Result<crate::metal::phases::fp3_types::GpuRound2ResultFp3, ProvingError>
+where
+    A: AIR<
+        Field = Goldilocks64Field,
+        FieldExtension = lambdaworks_math::field::fields::u64_goldilocks_field::Degree3GoldilocksExtensionField,
+    >,
+{
+    use crate::metal::constraint_eval::gpu_evaluate_fibonacci_rap_constraints_fp3;
+    use lambdaworks_math::field::fields::u64_goldilocks_field::Degree3GoldilocksExtensionField;
+
+    type F = Goldilocks64Field;
+    type FpE = FieldElement<F>;
+    type Fp3 = Degree3GoldilocksExtensionField;
+    type Fp3E = FieldElement<Fp3>;
+
+    // Step 1: Sample beta and compute transition/boundary coefficients (in Fp3).
+    let beta: Fp3E = transcript.sample_field_element();
+    let num_boundary = air
+        .boundary_constraints(&round_1_result.rap_challenges)
+        .constraints
+        .len();
+    let num_transition = air.context().num_transition_constraints;
+
+    let mut coefficients: Vec<Fp3E> = core::iter::successors(Some(Fp3E::one()), |x| Some(x * beta))
+        .take(num_boundary + num_transition)
+        .collect();
+    let transition_coefficients: Vec<Fp3E> = coefficients.drain(..num_transition).collect();
+    let boundary_coefficients = coefficients;
+
+    // Step 2: Build LDETraceTable from round 1 result (F main, Fp3 aux).
+    let blowup_factor = air.blowup_factor() as usize;
+    let lde_trace = stark_platinum_prover::trace::LDETraceTable::from_columns_ref(
+        &round_1_result.main_lde_evaluations,
+        &round_1_result.aux_lde_evaluations,
+        air.step_size(),
+        blowup_factor,
+    );
+    let num_lde_rows = lde_trace.num_rows();
+
+    // Step 3a: Boundary evaluations - use GPU if available, else CPU
+    let t_boundary = std::time::Instant::now();
+    let boundary_constraints = air.boundary_constraints(&round_1_result.rap_challenges);
+    let boundary_evals: Vec<Fp3E>;
+
+    let use_gpu_boundary = precompiled_boundary.is_some();
+
+    if use_gpu_boundary {
+        use crate::metal::constraint_eval::{gpu_evaluate_boundary_fp3, BoundaryConstraintData};
+
+        let main_col_0_vec: Vec<FpE> = (0..num_lde_rows)
+            .map(|r| *lde_trace.get_main(r, 0))
+            .collect();
+        let main_col_1_vec: Vec<FpE> = (0..num_lde_rows)
+            .map(|r| *lde_trace.get_main(r, 1))
+            .collect();
+        let aux_col_0_vec: Vec<Fp3E> = (0..num_lde_rows)
+            .map(|r| Fp3E::from(*lde_trace.get_aux(r, 0)))
+            .collect();
+
+        let trace_primitive_root = domain.trace_primitive_root;
+
+        let boundary_data: Vec<BoundaryConstraintData> = boundary_constraints
+            .constraints
+            .iter()
+            .enumerate()
+            .map(|(i, bc)| {
+                let g_pow = trace_primitive_root.pow(bc.step as u64);
+                let g_pow_fp3 = Fp3E::new([FpE::from(*g_pow.value()), FpE::zero(), FpE::zero()]);
+                BoundaryConstraintData {
+                    g_pow_step: g_pow_fp3,
+                    value: Fp3E::from(bc.value),
+                    coefficient: boundary_coefficients[i].clone(),
+                    col: bc.col as u32,
+                    is_aux: bc.is_aux,
+                }
+            })
+            .collect();
+
+        boundary_evals = gpu_evaluate_boundary_fp3(
+            &domain.lde_roots_of_unity_coset,
+            &main_col_0_vec,
+            &main_col_1_vec,
+            &aux_col_0_vec,
+            &boundary_data,
+            precompiled_boundary,
+        )
+        .map_err(|e| ProvingError::FieldOperationError(format!("GPU boundary eval: {e}")))?;
+    } else {
+        // CPU fallback - compute boundary evaluations on CPU
+        let mut zerofier_cache: std::collections::HashMap<usize, Vec<Fp3E>> =
+            std::collections::HashMap::new();
+        for bc in &boundary_constraints.constraints {
+            zerofier_cache.entry(bc.step).or_insert_with(|| {
+                let point_val = *domain.trace_primitive_root.pow(bc.step as u64).value();
+                let point = Fp3E::new([FpE::from(point_val), FpE::zero(), FpE::zero()]);
+                let mut evals: Vec<Fp3E> = domain
+                    .lde_roots_of_unity_coset
+                    .iter()
+                    .map(|v| {
+                        let embed = [FpE::from(*v.value()), FpE::zero(), FpE::zero()];
+                        Fp3E::new(embed) - point
+                    })
+                    .collect();
+                Fp3E::inplace_batch_inverse(&mut evals).unwrap();
+                evals
+            });
+        }
+        let boundary_zerofiers_refs: Vec<&Vec<Fp3E>> = boundary_constraints
+            .constraints
+            .iter()
+            .map(|bc| zerofier_cache.get(&bc.step).unwrap())
+            .collect();
+        let boundary_poly_evals: Vec<Vec<Fp3E>> = boundary_constraints
+            .constraints
+            .iter()
+            .map(|constraint| {
+                if constraint.is_aux {
+                    (0..num_lde_rows)
+                        .map(|row| {
+                            Fp3E::from(*lde_trace.get_aux(row, constraint.col))
+                                - Fp3E::from(constraint.value)
+                        })
+                        .collect()
+                } else {
+                    (0..num_lde_rows)
+                        .map(|row| {
+                            let main_val = *lde_trace.get_main(row, constraint.col).value();
+                            let embed = [FpE::from(main_val), FpE::zero(), FpE::zero()];
+                            Fp3E::new(embed) - Fp3E::from(constraint.value)
+                        })
+                        .collect()
+                }
+            })
+            .collect();
+        boundary_evals = (0..num_lde_rows)
+            .map(|i| {
+                boundary_zerofiers_refs
+                    .iter()
+                    .zip(boundary_poly_evals.iter())
+                    .zip(boundary_coefficients.iter())
+                    .fold(Fp3E::zero(), |acc, ((z, bp), coeff)| {
+                        acc + z[i] * coeff * bp[i]
+                    })
+            })
+            .collect();
+    }
+    eprintln!(
+        "    2a boundary {}:  {:>10.2?}",
+        if use_gpu_boundary { "GPU" } else { "CPU" },
+        t_boundary.elapsed()
+    );
+
+    // Step 3b: Extract LDE trace columns.
+    // Main columns are base field (F), aux column is extension field (Fp3).
+    let main_col_0: Vec<FpE> = (0..num_lde_rows)
+        .map(|r| *lde_trace.get_main(r, 0))
+        .collect();
+    let main_col_1: Vec<FpE> = (0..num_lde_rows)
+        .map(|r| *lde_trace.get_main(r, 1))
+        .collect();
+    let aux_col_0: Vec<Fp3E> = (0..num_lde_rows)
+        .map(|r| Fp3E::from(*lde_trace.get_aux(r, 0)))
+        .collect();
+
+    // Step 3c: Evaluate constraints on GPU.
+    let t_constraint = std::time::Instant::now();
+    let zerofier_evals = air.transition_zerofier_evaluations(domain);
+    let lde_step_size = air.step_size() * blowup_factor;
+    let constraint_evaluations = gpu_evaluate_fibonacci_rap_constraints_fp3(
+        &main_col_0,
+        &main_col_1,
+        &aux_col_0,
+        &zerofier_evals,
+        &boundary_evals,
+        &round_1_result.rap_challenges[0],
+        &transition_coefficients,
+        lde_step_size,
+        precompiled_constraint,
+    )
+    .map_err(|e| {
+        ProvingError::FieldOperationError(format!("GPU Fp3 constraint eval error: {e}"))
+    })?;
+    eprintln!("    2b constraint GPU: {:>10.2?}", t_constraint.elapsed());
+
+    // Step 4: GPU IFFT → composition polynomial coefficients (in Fp3).
+    let t = std::time::Instant::now();
+    let coset_offset = air.coset_offset();
+    let composition_poly_coeffs = gpu_interpolate_offset_fft_extension::<Fp3>(
+        &constraint_evaluations,
+        &coset_offset,
+        state.inner(),
+    )
+    .map_err(|e| ProvingError::FieldOperationError(format!("GPU composition IFFT: {e}")))?;
+    eprintln!("    2c composition IFFT: {:>10.2?}", t.elapsed());
+
+    // Step 5: Truncate to meaningful coefficients and break into parts.
+    let meaningful_coeffs = air.composition_poly_degree_bound();
+    let composition_poly = Polynomial::new(&composition_poly_coeffs[..meaningful_coeffs]);
+    let number_of_parts = air.composition_poly_degree_bound() / air.trace_length();
+    if number_of_parts == 0 {
+        return Err(ProvingError::WrongParameter(
+            "composition_poly_degree_bound must be >= trace_length".to_string(),
+        ));
+    }
+    let composition_poly_parts = composition_poly.break_in_parts(number_of_parts);
+
+    // Step 6: GPU FFT LDE each part.
+    let t = std::time::Instant::now();
+    let lde_evaluations: Vec<Vec<Fp3E>> = composition_poly_parts
+        .iter()
+        .map(|part| {
+            gpu_evaluate_offset_fft_extension::<Fp3>(
+                part.coefficients(),
+                blowup_factor,
+                &coset_offset,
+                state.inner(),
+            )
+            .map_err(|e| ProvingError::FieldOperationError(format!("GPU composition LDE: {e}")))
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    eprintln!("    2d LDE per part:     {:>10.2?}", t.elapsed());
+
+    // Step 7: GPU Merkle commit (paired rows layout).
+    let t = std::time::Instant::now();
+    let (tree, root) =
+        crate::metal::merkle::gpu_batch_commit_paired_fp3(&lde_evaluations, keccak_state)
+            .ok_or(ProvingError::EmptyCommitment)?;
+    eprintln!("    2e Merkle commit:    {:>10.2?}", t.elapsed());
+
+    Ok(crate::metal::phases::fp3_types::GpuRound2ResultFp3 {
+        composition_poly_parts,
+        lde_composition_poly_evaluations: lde_evaluations,
+        composition_poly_merkle_tree: tree,
+        composition_poly_root: root,
+    })
+}
+
 #[cfg(all(test, target_os = "macos", feature = "metal"))]
 mod tests {
     use super::*;

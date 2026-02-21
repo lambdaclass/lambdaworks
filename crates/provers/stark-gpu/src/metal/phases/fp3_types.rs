@@ -15,6 +15,9 @@ use stark_platinum_prover::fri::fri_decommit::FriDecommitment;
 use stark_platinum_prover::proof::stark::DeepPolynomialOpening;
 use stark_platinum_prover::table::Table;
 
+#[cfg(all(target_os = "macos", feature = "metal"))]
+use metal::Buffer;
+
 type F = Goldilocks64Field;
 type Fp3 = Degree3GoldilocksExtensionField;
 type FE = FieldElement<F>;
@@ -32,6 +35,15 @@ pub struct GpuRound1ResultFp3 {
     pub main_lde_evaluations: Vec<Vec<FE>>,
     /// LDE evaluations of auxiliary trace (column-major, Fp3).
     pub aux_lde_evaluations: Vec<Vec<Fp3E>>,
+    /// GPU buffers for main trace LDE (base field) - kept on GPU for Phase 2/4.
+    #[cfg(all(target_os = "macos", feature = "metal"))]
+    pub main_lde_buffers: Vec<Buffer>,
+    /// GPU buffers for auxiliary trace LDE (Fp3) - kept on GPU for Phase 2/4.
+    #[cfg(all(target_os = "macos", feature = "metal"))]
+    pub aux_lde_buffers: Vec<Buffer>,
+    /// Size of LDE domain (number of elements per column).
+    #[cfg(all(target_os = "macos", feature = "metal"))]
+    pub lde_domain_size: usize,
     /// Merkle tree for main trace LDE (base field).
     pub main_merkle_tree: BatchedMerkleTree<F>,
     /// Merkle root for main trace.

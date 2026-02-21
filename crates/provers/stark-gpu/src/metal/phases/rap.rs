@@ -351,7 +351,6 @@ where
     let blowup_factor = air.blowup_factor() as usize;
     let coset_offset = air.coset_offset();
 
-    let t = std::time::Instant::now();
     let (main_lde_buffers, main_lde_domain_size) = evaluate_polys_on_lde_gpu_to_buffers(
         &main_trace_polys,
         blowup_factor,
@@ -359,7 +358,16 @@ where
         state,
     )?;
 
-    // Fp3 path: reconstruct CPU vecs from GPU buffers via UMA pointer (no intermediate Vec<u64>).
+    // GPU Merkle commit directly from FFT output buffers (keeps buffers alive)
+    let t = std::time::Instant::now();
+    let buffer_refs: Vec<&metal::Buffer> = main_lde_buffers.iter().collect();
+    let (main_merkle_tree, main_merkle_root) =
+        gpu_batch_commit_from_column_buffers(&buffer_refs, main_lde_domain_size, keccak_state)
+            .ok_or(ProvingError::EmptyCommitment)?;
+    eprintln!("    1b main LDE+Merkle: {:>10.2?}", t.elapsed());
+
+    // Read back main trace LDE to CPU for Phase 2/3/4 (needed for OOD and FRI)
+    let t = std::time::Instant::now();
     let main_lde_evaluations: Vec<Vec<FieldElement<Goldilocks64Field>>> = main_lde_buffers
         .iter()
         .map(|buf| {
@@ -368,15 +376,7 @@ where
                 .collect()
         })
         .collect();
-    eprintln!("    1b main LDE+read:  {:>10.2?}", t.elapsed());
-
-    // GPU Merkle commit directly from FFT output buffers
-    let t = std::time::Instant::now();
-    let buffer_refs: Vec<&metal::Buffer> = main_lde_buffers.iter().collect();
-    let (main_merkle_tree, main_merkle_root) =
-        gpu_batch_commit_from_column_buffers(&buffer_refs, main_lde_domain_size, keccak_state)
-            .ok_or(ProvingError::EmptyCommitment)?;
-    eprintln!("    1c main Merkle:    {:>10.2?}", t.elapsed());
+    eprintln!("    1c main readback:  {:>10.2?}", t.elapsed());
 
     transcript.append_bytes(&main_merkle_root);
     let rap_challenges = air.build_rap_challenges(transcript);
@@ -437,6 +437,12 @@ where
         aux_trace_polys,
         main_lde_evaluations,
         aux_lde_evaluations,
+        #[cfg(all(target_os = "macos", feature = "metal"))]
+        main_lde_buffers,
+        #[cfg(all(target_os = "macos", feature = "metal"))]
+        aux_lde_buffers: Vec::new(), // TODO: populate with GPU buffers
+        #[cfg(all(target_os = "macos", feature = "metal"))]
+        lde_domain_size: main_lde_domain_size,
         main_merkle_tree,
         main_merkle_root,
         aux_merkle_tree,

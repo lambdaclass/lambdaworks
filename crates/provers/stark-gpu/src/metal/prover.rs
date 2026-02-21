@@ -247,7 +247,8 @@ where
         FieldExtension = lambdaworks_math::field::fields::u64_goldilocks_field::Degree3GoldilocksExtensionField,
     >,
 {
-    use crate::metal::phases::composition::gpu_round_2_fp3;
+    use crate::metal::constraint_eval::{BoundaryEvalFp3State, FibRapConstraintFp3State};
+    use crate::metal::phases::composition::{gpu_round_2_fp3, gpu_round_2_fp3_gpu};
     use crate::metal::phases::fri::{gpu_round_4_fp3, FriFoldFp3State};
     use crate::metal::phases::ood::gpu_round_3_fp3;
     use crate::metal::phases::rap::gpu_round_1_fp3;
@@ -262,15 +263,28 @@ where
     let fri_fold_state =
         FriFoldFp3State::from_device_and_queue(&state.inner().device, &state.inner().queue)
             .map_err(|e| ProvingError::FieldOperationError(format!("FRI fold Fp3 shader: {e}")))?;
+    let constraint_fp3_state = FibRapConstraintFp3State::new()
+        .map_err(|e| ProvingError::FieldOperationError(format!("Fp3 constraint shader: {e}")))?;
+    let boundary_fp3_state = BoundaryEvalFp3State::new()
+        .map_err(|e| ProvingError::FieldOperationError(format!("Fp3 boundary shader: {e}")))?;
 
     // Phase 1: RAP (GPU main trace + CPU aux trace)
     let t = std::time::Instant::now();
     let round_1 = gpu_round_1_fp3(air, trace, &domain, transcript, &state, &keccak_state)?;
     eprintln!("  Phase 1 (RAP):         {:>10.2?}", t.elapsed());
 
-    // Phase 2: Composition polynomial (CPU constraint eval + CPU FFT)
+    // Phase 2: Composition polynomial (GPU constraint eval + GPU FFT)
     let t = std::time::Instant::now();
-    let round_2 = gpu_round_2_fp3(air, &domain, &round_1, transcript, &state, &keccak_state)?;
+    let round_2 = gpu_round_2_fp3_gpu(
+        air,
+        &domain,
+        &round_1,
+        transcript,
+        &state,
+        &keccak_state,
+        Some(&constraint_fp3_state),
+        Some(&boundary_fp3_state),
+    )?;
     eprintln!("  Phase 2 (Composition): {:>10.2?}", t.elapsed());
 
     // Phase 3: OOD evaluations (CPU)
