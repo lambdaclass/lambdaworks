@@ -104,7 +104,7 @@ fn compute_base_zerofier_goldilocks(
             })
             .collect();
 
-        FpE::inplace_batch_inverse(&mut evaluations)
+        FpE::inplace_batch_inverse_parallel(&mut evaluations)
             .expect("batch inverse failed: zerofier evaluation contains zero element");
         evaluations
     }
@@ -594,7 +594,7 @@ where
                 .iter()
                 .map(|v| v - point)
                 .collect();
-            FpE::inplace_batch_inverse(&mut evals).unwrap();
+            FpE::inplace_batch_inverse_parallel(&mut evals).unwrap();
             evals
         });
     }
@@ -831,7 +831,7 @@ where
                     .iter()
                     .map(|v| v - point)
                     .collect();
-                FpE::inplace_batch_inverse(&mut evals).expect(
+                FpE::inplace_batch_inverse_parallel(&mut evals).expect(
                     "batch inverse must succeed: coset offset ensures no zeros in zerofier",
                 );
                 evals

@@ -383,7 +383,7 @@ fn profile_phase2(
                 .iter()
                 .map(|v| v - point)
                 .collect();
-            FpE::inplace_batch_inverse(&mut evals).unwrap();
+            FpE::inplace_batch_inverse_parallel(&mut evals).unwrap();
             evals
         });
     }

@@ -159,7 +159,7 @@ pub fn gpu_compute_deep_composition_poly(
         .iter()
         .map(|x| x - z_power)
         .collect();
-    FieldElement::inplace_batch_inverse(&mut inv_z_power_vec)
+    FieldElement::inplace_batch_inverse_parallel(&mut inv_z_power_vec)
         .map_err(|_| stark_platinum_prover::prover::ProvingError::BatchInversionFailed)?;
 
     // z*g^k for each offset k
@@ -179,7 +179,7 @@ pub fn gpu_compute_deep_composition_poly(
         })
         .collect();
     for inv_vec in &mut inv_z_shifted_vecs {
-        FieldElement::inplace_batch_inverse(inv_vec)
+        FieldElement::inplace_batch_inverse_parallel(inv_vec)
             .map_err(|_| stark_platinum_prover::prover::ProvingError::BatchInversionFailed)?;
     }
 

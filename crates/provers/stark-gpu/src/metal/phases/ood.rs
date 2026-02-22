@@ -264,44 +264,49 @@ fn get_trace_evaluations_barycentric(
     let aux_width = aux_trace_evals.len();
     let total_width = main_width + aux_width;
 
-    let mut table_data: Vec<FpE> = Vec::with_capacity(evaluation_points.len() * total_width);
+    // Process all evaluation points in parallel (each is independent).
+    use rayon::prelude::*;
 
-    for eval_point in &evaluation_points {
-        // Compute denominators (z_j - omega^i) and batch-invert ONCE per eval_point.
-        let mut denoms: Vec<FpE> = Vec::with_capacity(n);
-        for w_i in &omega_powers {
-            denoms.push(eval_point - w_i);
-        }
-        FieldElement::inplace_batch_inverse(&mut denoms)
-            .expect("z should not coincide with any domain point");
+    let table_data: Vec<FpE> = evaluation_points
+        .par_iter()
+        .flat_map(|eval_point| {
+            // Compute denominators (z_j - omega^i) and batch-invert ONCE per eval_point.
+            let mut denoms: Vec<FpE> = omega_powers.iter().map(|w_i| eval_point - w_i).collect();
+            FieldElement::inplace_batch_inverse_parallel(&mut denoms)
+                .expect("z should not coincide with any domain point");
 
-        // Pre-multiply: weighted_inv[i] = omega^i * denom_inv[i], shared across all columns.
-        let weighted_inv: Vec<FpE> = omega_powers
-            .iter()
-            .zip(denoms.iter())
-            .map(|(w, d)| *w * *d)
-            .collect();
+            // Pre-multiply: weighted_inv[i] = omega^i * denom_inv[i], shared across all columns.
+            let weighted_inv: Vec<FpE> = omega_powers
+                .iter()
+                .zip(denoms.iter())
+                .map(|(w, d)| *w * *d)
+                .collect();
 
-        // Prefactor: (z^N - 1) / N
-        let vanishing = eval_point.pow(n) - FpE::one();
-        let prefactor = n_inv * vanishing;
+            // Prefactor: (z^N - 1) / N
+            let vanishing = eval_point.pow(n) - FpE::one();
+            let prefactor = n_inv * vanishing;
 
-        // Accumulate for each column using the shared weighted inverses.
-        for col_evals in main_trace_evals {
-            let mut acc = FpE::zero();
-            for (wd, yi) in weighted_inv.iter().zip(col_evals.iter()) {
-                acc += *wd * *yi;
+            // Accumulate for each column using the shared weighted inverses.
+            let mut row_data = Vec::with_capacity(total_width);
+            for col_evals in main_trace_evals {
+                let acc: FpE = weighted_inv
+                    .iter()
+                    .zip(col_evals.iter())
+                    .map(|(wd, yi)| *wd * *yi)
+                    .fold(FpE::zero(), |a, b| a + b);
+                row_data.push(prefactor * acc);
             }
-            table_data.push(prefactor * acc);
-        }
-        for col_evals in aux_trace_evals {
-            let mut acc = FpE::zero();
-            for (wd, yi) in weighted_inv.iter().zip(col_evals.iter()) {
-                acc += *wd * *yi;
+            for col_evals in aux_trace_evals {
+                let acc: FpE = weighted_inv
+                    .iter()
+                    .zip(col_evals.iter())
+                    .map(|(wd, yi)| *wd * *yi)
+                    .fold(FpE::zero(), |a, b| a + b);
+                row_data.push(prefactor * acc);
             }
-            table_data.push(prefactor * acc);
-        }
-    }
+            row_data
+        })
+        .collect();
 
     Table::new(table_data, total_width)
 }
