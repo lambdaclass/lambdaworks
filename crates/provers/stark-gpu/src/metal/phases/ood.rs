@@ -83,8 +83,11 @@ where
         &domain.trace_roots_of_unity,
     );
 
-    // Step 3: Compute z^N where N is the number of composition poly parts.
-    let z_power = z.pow(round_2_result.composition_poly_parts.len());
+    // Step 3: Compute z^N where N is the number of composition poly parts (always power of 2).
+    let z_power = crate::metal::exp_power_of_2(
+        &z,
+        round_2_result.composition_poly_parts.len().trailing_zeros(),
+    );
 
     // Step 4: Evaluate each composition poly part H_i at z^N.
     let composition_poly_parts_ood_evaluation: Vec<FieldElement<F>> = round_2_result
@@ -156,8 +159,11 @@ where
         &domain.trace_roots_of_unity,
     );
 
-    // Step 3: Compute z^N where N is the number of composition poly parts.
-    let z_power = z.pow(round_2_result.composition_poly_parts.len());
+    // Step 3: Compute z^N where N is the number of composition poly parts (always power of 2).
+    let z_power = crate::metal::exp_power_of_2(
+        &z,
+        round_2_result.composition_poly_parts.len().trailing_zeros(),
+    );
 
     // Step 4: Evaluate each composition poly part H_i at z^N.
     let composition_poly_parts_ood_evaluation: Vec<FpE> = round_2_result
@@ -220,7 +226,19 @@ fn get_trace_evaluations_barycentric(
     type F = Goldilocks64Field;
     type FpE = FieldElement<F>;
 
-    // Compute evaluation points: z * g^(offset * step_size) for each offset
+    // Compute evaluation points: z * g^(offset * step_size) for each offset.
+    // Uses iterative multiplication instead of pow() since exponents are small sequential values.
+    let max_exponent = frame_offsets
+        .iter()
+        .map(|offset| (offset + 1) * step_size)
+        .max()
+        .unwrap_or(0);
+    let mut g_powers = Vec::with_capacity(max_exponent);
+    let mut g_pow = FpE::one();
+    for _ in 0..max_exponent {
+        g_powers.push(g_pow);
+        g_pow *= primitive_root;
+    }
     let evaluation_points: Vec<FpE> = frame_offsets
         .iter()
         .flat_map(|offset| {
@@ -228,7 +246,7 @@ fn get_trace_evaluations_barycentric(
             let end = (offset + 1) * step_size;
             (start..end).collect::<Vec<_>>()
         })
-        .map(|exponent| primitive_root.pow(exponent) * z)
+        .map(|exponent| g_powers[exponent] * z)
         .collect();
 
     let n = if !main_trace_evals.is_empty() {
@@ -282,8 +300,9 @@ fn get_trace_evaluations_barycentric(
                 .map(|(w, d)| *w * *d)
                 .collect();
 
-            // Prefactor: (z^N - 1) / N
-            let vanishing = eval_point.pow(n) - FpE::one();
+            // Prefactor: (z^N - 1) / N  (N = trace length, always power of 2)
+            let vanishing =
+                crate::metal::exp_power_of_2(eval_point, n.trailing_zeros()) - FpE::one();
             let prefactor = n_inv * vanishing;
 
             // Accumulate for each column using the shared weighted inverses.
@@ -350,8 +369,11 @@ where
         &domain.trace_roots_of_unity,
     );
 
-    // Step 3: Compute z^N where N is the number of composition poly parts.
-    let z_power = z.pow(round_2_result.composition_poly_parts.len());
+    // Step 3: Compute z^N where N is the number of composition poly parts (always power of 2).
+    let z_power = crate::metal::exp_power_of_2(
+        &z,
+        round_2_result.composition_poly_parts.len().trailing_zeros(),
+    );
 
     // Step 4: Evaluate each composition poly part H_i at z^N.
     let composition_poly_parts_ood_evaluation: Vec<Fp3E> = round_2_result

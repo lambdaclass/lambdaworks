@@ -519,7 +519,8 @@ fn profile_phase4(
     use lambdaworks_stark_gpu::metal::merkle::GpuKeccakMerkleState;
     use lambdaworks_stark_gpu::metal::phases::composition::gpu_round_2_goldilocks_merkle;
     use lambdaworks_stark_gpu::metal::phases::fri::{
-        gpu_fri_commit_phase_eval_domain, FriDomainInvState, FriFoldEvalState, FriSquareInvState,
+        gpu_fri_commit_phase_eval_domain, gpu_query_phase, FriDomainInvState, FriFoldEvalState,
+        FriSquareInvState,
     };
     use lambdaworks_stark_gpu::metal::phases::ood::gpu_round_3;
     use lambdaworks_stark_gpu::metal::phases::rap::gpu_round_1_goldilocks;
@@ -595,6 +596,7 @@ fn profile_phase4(
         &trace_term_coeffs,
         Some(&deep_comp_state),
         Some(&domain_inv_state),
+        round_1.lde_coset_gpu_buffer.as_ref(),
     )
     .unwrap();
     println!("  GPU DEEP evals:    {:>10.2?}", t.elapsed());
@@ -653,7 +655,7 @@ fn profile_phase4(
 
     // Step 6: FRI query phase
     let t = Instant::now();
-    let _query_list = stark_platinum_prover::fri::query_phase(&fri_layers, &iotas).unwrap();
+    let _query_list = gpu_query_phase(&fri_layers, &iotas).unwrap();
     println!("  FRI query:         {:>10.2?}", t.elapsed());
 
     // Step 7: Open deep composition poly

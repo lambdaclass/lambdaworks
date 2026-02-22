@@ -159,7 +159,7 @@ pub fn gpu_compute_deep_composition_poly(
     let num_trace_polys = all_trace_lde.len(); // 3 for Fibonacci RAP
 
     // --- Pre-compute batch inversions on CPU ---
-    let z_power = round_3_result.z.pow(num_comp_parts);
+    let z_power = crate::metal::exp_power_of_2(&round_3_result.z, num_comp_parts.trailing_zeros());
     let primitive_root = &domain.trace_primitive_root;
 
     // 1/(x_i - z^N) for each domain point
@@ -171,10 +171,16 @@ pub fn gpu_compute_deep_composition_poly(
     FieldElement::inplace_batch_inverse_parallel(&mut inv_z_power_vec)
         .map_err(|_| stark_platinum_prover::prover::ProvingError::BatchInversionFailed)?;
 
-    // z*g^k for each offset k
-    let z_shifted_values: Vec<FpE> = (0..num_offsets)
-        .map(|k| primitive_root.pow(k) * round_3_result.z)
-        .collect();
+    // z*g^k for each offset k (iterative multiplication, avoids pow() overhead)
+    let z_shifted_values: Vec<FpE> = {
+        let mut vals = Vec::with_capacity(num_offsets);
+        let mut g_pow = FpE::one();
+        for _ in 0..num_offsets {
+            vals.push(g_pow * round_3_result.z);
+            g_pow *= primitive_root;
+        }
+        vals
+    };
 
     // 1/(x_i - z*g^k) for each offset k — compute all offsets in parallel
     use rayon::prelude::*;
@@ -371,6 +377,7 @@ fn gpu_compute_deep_composition_evals_internal(
     trace_term_coeffs: &[Vec<FieldElement<Goldilocks64Field>>],
     precompiled: Option<&DeepCompositionState>,
     domain_inv_state: Option<&DomainInversionState>,
+    lde_coset_buf: Option<&metal::Buffer>,
 ) -> Result<(metal::Buffer, usize), stark_platinum_prover::prover::ProvingError> {
     type F = Goldilocks64Field;
 
@@ -505,7 +512,7 @@ fn gpu_compute_deep_composition_evals_internal(
         };
 
     // --- Compute inversions on GPU ---
-    let z_power = round_3_result.z.pow(num_comp_parts);
+    let z_power = crate::metal::exp_power_of_2(&round_3_result.z, num_comp_parts.trailing_zeros());
     let primitive_root = &domain.trace_primitive_root;
     let z_shifted_0 = round_3_result.z;
     let z_shifted_1 = round_3_result.z * primitive_root;
@@ -519,6 +526,7 @@ fn gpu_compute_deep_composition_evals_internal(
         &z_shifted_2,
         num_rows,
         domain_inv_state,
+        lde_coset_buf,
     )
     .map_err(|e| stark_platinum_prover::prover::ProvingError::FieldOperationError(e.to_string()))?;
 
@@ -580,6 +588,7 @@ pub fn gpu_compute_deep_composition_poly_to_buffer(
     precompiled: Option<&DeepCompositionState>,
     coset_state: &crate::metal::fft::CosetShiftState,
     domain_inv_state: Option<&DomainInversionState>,
+    lde_coset_buf: Option<&metal::Buffer>,
 ) -> Result<(metal::Buffer, usize), stark_platinum_prover::prover::ProvingError> {
     let (buf_output, num_rows) = gpu_compute_deep_composition_evals_internal(
         round_1_result,
@@ -590,6 +599,7 @@ pub fn gpu_compute_deep_composition_poly_to_buffer(
         trace_term_coeffs,
         precompiled,
         domain_inv_state,
+        lde_coset_buf,
     )?;
 
     // --- GPU IFFT: keep evaluations on GPU, IFFT to coefficients on GPU ---
@@ -625,6 +635,7 @@ pub fn gpu_compute_deep_composition_evals_to_buffer(
     trace_term_coeffs: &[Vec<FieldElement<Goldilocks64Field>>],
     precompiled: Option<&DeepCompositionState>,
     domain_inv_state: Option<&DomainInversionState>,
+    lde_coset_buf: Option<&metal::Buffer>,
 ) -> Result<(metal::Buffer, usize), stark_platinum_prover::prover::ProvingError> {
     gpu_compute_deep_composition_evals_internal(
         round_1_result,
@@ -635,6 +646,7 @@ pub fn gpu_compute_deep_composition_evals_to_buffer(
         trace_term_coeffs,
         precompiled,
         domain_inv_state,
+        lde_coset_buf,
     )
 }
 
@@ -646,6 +658,7 @@ pub fn gpu_compute_deep_composition_evals_to_buffer(
 ///
 /// Returns 4 Metal Buffers containing the inversion vectors.
 #[cfg(all(target_os = "macos", feature = "metal"))]
+#[allow(clippy::too_many_arguments)]
 fn gpu_compute_domain_inversions_base(
     domain: &stark_platinum_prover::domain::Domain<Goldilocks64Field>,
     z_power: &FieldElement<Goldilocks64Field>,
@@ -654,6 +667,7 @@ fn gpu_compute_domain_inversions_base(
     z_shifted_2: &FieldElement<Goldilocks64Field>,
     num_rows: usize,
     precompiled: Option<&DomainInversionState>,
+    lde_coset_buf: Option<&metal::Buffer>,
 ) -> Result<
     (metal::Buffer, metal::Buffer, metal::Buffer, metal::Buffer),
     lambdaworks_gpu::metal::abstractions::errors::MetalError,
@@ -672,13 +686,20 @@ fn gpu_compute_domain_inversions_base(
         }
     };
 
-    // Upload domain points as u64
-    let domain_raw: Vec<u64> = domain
-        .lde_roots_of_unity_coset
-        .iter()
-        .map(|fe| F::canonical(fe.value()))
-        .collect();
-    let buf_domain = inv_state.alloc_buffer_with_data(&domain_raw)?;
+    // Use pre-existing LDE coset buffer from Phase 1 when available,
+    // otherwise convert and upload (fallback path).
+    let _owned_domain_buf;
+    let buf_domain: &metal::Buffer = if let Some(buf) = lde_coset_buf {
+        buf
+    } else {
+        let domain_raw: Vec<u64> = domain
+            .lde_roots_of_unity_coset
+            .iter()
+            .map(|fe| F::canonical(fe.value()))
+            .collect();
+        _owned_domain_buf = inv_state.alloc_buffer_with_data(&domain_raw)?;
+        &_owned_domain_buf
+    };
 
     // Pack 4 z-values into a single buffer (consolidated from 4 separate scalar buffers)
     let z_packed: [u64; 4] = [
@@ -708,7 +729,7 @@ fn gpu_compute_domain_inversions_base(
     inv_state.execute_compute(
         "batch_domain_inversions",
         &[
-            &buf_domain,
+            buf_domain,
             &buf_z_values,
             &buf_inv_zp,
             &buf_inv_zs0,
@@ -960,7 +981,7 @@ pub fn gpu_compute_deep_composition_poly_fp3(
 
     // --- Compute inversions on GPU (in Fp3) ---
     let z = round_3_z;
-    let z_power: Fp3E = z.pow(num_comp_parts);
+    let z_power: Fp3E = crate::metal::exp_power_of_2(z, num_comp_parts.trailing_zeros());
     let primitive_root = &domain.trace_primitive_root;
 
     let z_shifted_0: Fp3E = *z;
@@ -1180,7 +1201,10 @@ mod tests {
         let mut all_trace_polys_cpu = round_1.main_trace_polys.clone();
         all_trace_polys_cpu.extend(round_1.aux_trace_polys.iter().cloned());
 
-        let z_power = round_3.z.pow(round_2.composition_poly_parts.len());
+        let z_power = crate::metal::exp_power_of_2(
+            &round_3.z,
+            round_2.composition_poly_parts.len().trailing_zeros(),
+        );
         let primitive_root = &domain.trace_primitive_root;
 
         let mut h_terms = Polynomial::zero();
@@ -1193,9 +1217,15 @@ mod tests {
 
         let trace_evaluations_columns = round_3.trace_ood_evaluations.columns();
         let num_offsets = round_3.trace_ood_evaluations.height;
-        let z_shifted_values: Vec<FpE> = (0..num_offsets)
-            .map(|offset| primitive_root.pow(offset) * round_3.z)
-            .collect();
+        let z_shifted_values: Vec<FpE> = {
+            let mut vals = Vec::with_capacity(num_offsets);
+            let mut g_pow = FpE::one();
+            for _ in 0..num_offsets {
+                vals.push(g_pow * round_3.z);
+                g_pow *= primitive_root;
+            }
+            vals
+        };
 
         let trace_terms = all_trace_polys_cpu.iter().enumerate().fold(
             Polynomial::zero(),
@@ -1311,9 +1341,15 @@ mod tests {
 
         // Create Fp3 OOD evaluations by evaluating trace polys at z_fp3.
         let primitive_root = &domain.trace_primitive_root;
-        let z_shifted_fp3: Vec<Fp3E> = (0..num_offsets)
-            .map(|k| primitive_root.pow(k) * z_fp3) // BF * Fp3 → Fp3
-            .collect();
+        let z_shifted_fp3: Vec<Fp3E> = {
+            let mut vals = Vec::with_capacity(num_offsets);
+            let mut g_pow = FieldElement::<Goldilocks64Field>::one();
+            for _ in 0..num_offsets {
+                vals.push(g_pow * z_fp3);
+                g_pow *= primitive_root;
+            }
+            vals
+        };
 
         // Trace OOD: evaluate each trace poly at z*g^k in Fp3.
         let mut all_trace_polys = round_1.main_trace_polys.clone();
@@ -1330,7 +1366,10 @@ mod tests {
             .collect();
 
         // Composition OOD: evaluate composition poly parts at z^N in Fp3.
-        let z_power_fp3: Fp3E = z_fp3.pow(round_2.composition_poly_parts.len());
+        let z_power_fp3: Fp3E = crate::metal::exp_power_of_2(
+            &z_fp3,
+            round_2.composition_poly_parts.len().trailing_zeros(),
+        );
         let composition_ood_fp3: Vec<Fp3E> = round_2
             .composition_poly_parts
             .iter()

@@ -597,6 +597,7 @@ pub fn gpu_evaluate_boundary_constraints(
     trace_primitive_root: &FieldElement<Goldilocks64Field>,
     num_rows: usize,
     precompiled: Option<&BoundaryEvalState>,
+    lde_coset_buf: Option<&metal::Buffer>,
 ) -> Result<(metal::Buffer, usize), MetalError> {
     // Build constraint parameter array
     let bc_params: Vec<BoundaryConstraintParam> = boundary_constraints
@@ -622,12 +623,6 @@ pub fn gpu_evaluate_boundary_constraints(
         num_constraints: bc_params.len() as u32,
     };
 
-    // Convert LDE coset points to u64
-    let coset_raw: Vec<u64> = lde_coset_points
-        .iter()
-        .map(|fe| Goldilocks64Field::canonical(fe.value()))
-        .collect();
-
     // Use pre-compiled state or create a fresh one
     let mut owned_state;
     let (dyn_state, max_threads) = match precompiled {
@@ -640,7 +635,19 @@ pub fn gpu_evaluate_boundary_constraints(
         }
     };
 
-    let buf_coset = dyn_state.alloc_buffer_with_data(&coset_raw)?;
+    // Use pre-existing LDE coset buffer from Phase 1 when available,
+    // otherwise convert and upload (fallback path).
+    let _owned_coset_buf;
+    let buf_coset: &metal::Buffer = if let Some(buf) = lde_coset_buf {
+        buf
+    } else {
+        let coset_raw: Vec<u64> = lde_coset_points
+            .iter()
+            .map(|fe| Goldilocks64Field::canonical(fe.value()))
+            .collect();
+        _owned_coset_buf = dyn_state.alloc_buffer_with_data(&coset_raw)?;
+        &_owned_coset_buf
+    };
     let buf_bc_params = dyn_state.alloc_buffer_with_data(&bc_params)?;
     let buf_params = dyn_state.alloc_buffer_with_data(std::slice::from_ref(&params))?;
     let buf_output = dyn_state.alloc_buffer(num_rows * std::mem::size_of::<u64>())?;
@@ -648,7 +655,7 @@ pub fn gpu_evaluate_boundary_constraints(
     dyn_state.execute_compute(
         "goldilocks_boundary_eval",
         &[
-            &buf_coset,
+            buf_coset,
             main_col_0_buf,
             main_col_1_buf,
             aux_col_0_buf,
@@ -689,6 +696,7 @@ pub fn gpu_evaluate_boundary_constraints_to_vec(
         trace_primitive_root,
         num_rows,
         precompiled,
+        None,
     )?;
 
     let raw: Vec<u64> =
@@ -779,6 +787,7 @@ pub fn gpu_evaluate_fused_constraints(
     lde_coset_points: &[FieldElement<Goldilocks64Field>],
     trace_primitive_root: &FieldElement<Goldilocks64Field>,
     precompiled: Option<&FusedConstraintState>,
+    lde_coset_buf: Option<&metal::Buffer>,
 ) -> Result<(metal::Buffer, usize), MetalError> {
     assert!(zerofier_bufs.len() >= 2, "need at least 2 zerofier buffers");
     assert!(
@@ -802,12 +811,19 @@ pub fn gpu_evaluate_fused_constraints(
         }
     };
 
-    // Upload LDE coset points to GPU for boundary zerofier computation.
-    let coset_raw: Vec<u64> = lde_coset_points
-        .iter()
-        .map(|fe| Goldilocks64Field::canonical(fe.value()))
-        .collect();
-    let buf_coset = dyn_state.alloc_buffer_with_data(&coset_raw)?;
+    // Use pre-existing LDE coset buffer from Phase 1 when available,
+    // otherwise convert and upload (fallback path).
+    let _owned_coset_buf;
+    let buf_coset: &metal::Buffer = if let Some(buf) = lde_coset_buf {
+        buf
+    } else {
+        let coset_raw: Vec<u64> = lde_coset_points
+            .iter()
+            .map(|fe| Goldilocks64Field::canonical(fe.value()))
+            .collect();
+        _owned_coset_buf = dyn_state.alloc_buffer_with_data(&coset_raw)?;
+        &_owned_coset_buf
+    };
 
     // Build boundary param array with g^step for each constraint.
     let bc_params: Vec<FusedBoundaryParam> = boundary_constraints
@@ -853,7 +869,7 @@ pub fn gpu_evaluate_fused_constraints(
             &zerofier_bufs[1].0,
             &buf_params,
             &buf_bc_params,
-            &buf_coset,
+            buf_coset,
             &buf_output,
         ],
         num_rows as u64,

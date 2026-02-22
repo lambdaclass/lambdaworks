@@ -4,7 +4,7 @@
 //! STARK prover but uses Metal GPU FFT for interpolation and LDE evaluation.
 
 use lambdaworks_math::field::element::FieldElement;
-use lambdaworks_math::field::traits::{IsFFTField, IsField, IsSubFieldOf};
+use lambdaworks_math::field::traits::{IsFFTField, IsField, IsPrimeField, IsSubFieldOf};
 use lambdaworks_math::polynomial::Polynomial;
 use lambdaworks_math::traits::AsBytes;
 
@@ -72,6 +72,11 @@ where
     /// Retained GPU buffers for auxiliary trace LDE (used by DEEP composition to avoid re-upload).
     #[cfg(all(target_os = "macos", feature = "metal"))]
     pub aux_lde_gpu_buffers: Option<Vec<metal::Buffer>>,
+    /// Retained GPU buffer for LDE coset points (canonical u64 values).
+    /// Computed once in Phase 1 and reused in Phase 2 (fused constraint eval)
+    /// and Phase 4 (DEEP domain inversions) to avoid redundant 32MB uploads.
+    #[cfg(all(target_os = "macos", feature = "metal"))]
+    pub lde_coset_gpu_buffer: Option<metal::Buffer>,
 }
 
 /// Executes GPU Phase 1 of the STARK prover: RAP (trace interpolation + LDE + commit).
@@ -181,6 +186,7 @@ where
         aux_trace_evals: Vec::new(),
         main_lde_gpu_buffers: None,
         aux_lde_gpu_buffers: None,
+        lde_coset_gpu_buffer: None,
     })
 }
 
@@ -281,6 +287,22 @@ where
         };
     eprintln!("    1d aux all:        {:>10.2?}", t.elapsed());
 
+    // Pre-compute LDE coset points as a GPU buffer once.
+    // This is reused by Phase 2 (fused constraint eval) and Phase 4 (DEEP domain inversions),
+    // avoiding two redundant 32MB conversions + uploads.
+    let t = std::time::Instant::now();
+    let coset_raw: Vec<u64> = _domain
+        .lde_roots_of_unity_coset
+        .iter()
+        .map(|fe| Goldilocks64Field::canonical(fe.value()))
+        .collect();
+    let lde_coset_gpu_buffer = state.inner().device.new_buffer_with_data(
+        coset_raw.as_ptr().cast(),
+        (coset_raw.len() * std::mem::size_of::<u64>()) as u64,
+        metal::MTLResourceOptions::StorageModeShared,
+    );
+    eprintln!("    1e coset buf:      {:>10.2?}", t.elapsed());
+
     Ok(GpuRound1Result {
         main_trace_polys: Vec::new(), // Not needed in Goldilocks path; Phase 3 uses barycentric
         main_lde_evaluations: Vec::new(), // Not populated in Goldilocks path; use GPU buffers
@@ -295,6 +317,7 @@ where
         aux_trace_evals,
         main_lde_gpu_buffers: Some(main_lde_buffers),
         aux_lde_gpu_buffers: aux_gpu_bufs,
+        lde_coset_gpu_buffer: Some(lde_coset_gpu_buffer),
     })
 }
 

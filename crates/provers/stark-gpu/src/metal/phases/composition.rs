@@ -887,6 +887,7 @@ where
             &domain.lde_roots_of_unity_coset,
             &domain.trace_primitive_root,
             precompiled_fused,
+            round_1_result.lde_coset_gpu_buffer.as_ref(),
         )
         .map_err(|e| ProvingError::FieldOperationError(format!("GPU fused eval error: {e}")))?
     } else {

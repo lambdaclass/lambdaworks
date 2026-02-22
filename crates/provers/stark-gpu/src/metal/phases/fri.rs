@@ -1560,7 +1560,7 @@ fn compute_deep_composition_poly<F>(
 where
     F: IsFFTField + IsSubFieldOf<F>,
 {
-    let z_power = z.pow(composition_poly_parts.len());
+    let z_power = crate::metal::exp_power_of_2(z, composition_poly_parts.len().trailing_zeros());
 
     // H terms: sum_i gamma_i * (H_i(X) - H_i(z^N)) / (X - z^N)
     let mut h_terms = Polynomial::zero();
@@ -1575,11 +1575,17 @@ where
     // Trace terms: sum_jk gamma_jk * (t_j(X) - t_j(z*g^k)) / (X - z*g^k)
     let trace_evaluations_columns = trace_ood_evaluations.columns();
 
-    // Pre-compute z_shifted values: z * g^k for each frame offset
+    // Pre-compute z_shifted values: z * g^k for each frame offset (iterative multiplication)
     let num_offsets = trace_ood_evaluations.height;
-    let z_shifted_values: Vec<FieldElement<F>> = (0..num_offsets)
-        .map(|offset| primitive_root.pow(offset) * z)
-        .collect();
+    let z_shifted_values: Vec<FieldElement<F>> = {
+        let mut vals = Vec::with_capacity(num_offsets);
+        let mut g_pow = FieldElement::<F>::one();
+        for _ in 0..num_offsets {
+            vals.push(g_pow.clone() * z);
+            g_pow *= primitive_root;
+        }
+        vals
+    };
 
     let trace_terms =
         trace_polys
@@ -2202,19 +2208,101 @@ pub fn gpu_fri_commit_phase_goldilocks_from_buffer(
     Ok((last_value, fri_layer_list))
 }
 
+/// GPU-backed FRI layer that stores evaluation data as a Metal buffer instead of `Vec<FpE>`.
+///
+/// On Apple Silicon UMA, the buffer's `contents()` pointer is CPU-accessible, so the
+/// query phase can read individual elements via [`read_element_from_buffer`] without
+/// copying the entire evaluation vector to CPU.
+///
+/// This eliminates `MetalState::retrieve_contents` + `Vec<FpE>` conversion for each
+/// FRI layer (~20 layers), replacing ~4M element conversions with ~600 point reads
+/// (30 queries × 20 layers).
+#[cfg(all(target_os = "macos", feature = "metal"))]
+pub struct GpuFriLayer {
+    /// Metal buffer containing folded evaluations as canonical Goldilocks u64 values.
+    pub evaluation_buffer: metal::Buffer,
+    /// Number of elements in the evaluation buffer.
+    pub evaluation_len: usize,
+    /// Merkle tree committed from paired evaluations.
+    pub merkle_tree: BatchedMerkleTree<Goldilocks64Field>,
+    /// Coset offset for this FRI layer's domain.
+    pub coset_offset: FieldElement<Goldilocks64Field>,
+    /// Domain size for this FRI layer.
+    pub domain_size: usize,
+}
+
+/// Read a single evaluation element from a [`GpuFriLayer`] via UMA pointer access.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+fn gpu_fri_layer_get_evaluation(
+    layer: &GpuFriLayer,
+    index: usize,
+) -> FieldElement<Goldilocks64Field> {
+    use crate::metal::phases::rap::read_element_from_buffer;
+    read_element_from_buffer(&layer.evaluation_buffer, index)
+}
+
+/// GPU-backed FRI query phase using [`GpuFriLayer`] instead of [`FriLayer`].
+///
+/// Mirrors [`fri::query_phase`] but reads evaluation elements directly from Metal
+/// buffers via UMA pointer access, avoiding the need to convert entire evaluation
+/// vectors to `Vec<FieldElement>`.
+#[cfg(all(target_os = "macos", feature = "metal"))]
+pub fn gpu_query_phase(
+    fri_layers: &[GpuFriLayer],
+    iotas: &[usize],
+) -> Result<Vec<FriDecommitment<Goldilocks64Field>>, ProvingError> {
+    if fri_layers.is_empty() {
+        return Ok(vec![]);
+    }
+
+    let mut query_list = Vec::with_capacity(iotas.len());
+
+    for iota_s in iotas {
+        let mut layers_evaluations_sym = Vec::new();
+        let mut layers_auth_paths_sym = Vec::new();
+
+        let mut index = *iota_s;
+        for layer in fri_layers {
+            // symmetric element
+            let evaluation_sym = gpu_fri_layer_get_evaluation(layer, index ^ 1);
+            let auth_path_sym =
+                layer
+                    .merkle_tree
+                    .get_proof_by_pos(index >> 1)
+                    .ok_or_else(|| {
+                        ProvingError::MerkleTreeError(format!(
+                            "Failed to get proof at position {}",
+                            index >> 1
+                        ))
+                    })?;
+            layers_evaluations_sym.push(evaluation_sym);
+            layers_auth_paths_sym.push(auth_path_sym);
+
+            index >>= 1;
+        }
+
+        query_list.push(FriDecommitment {
+            layers_auth_paths: layers_auth_paths_sym,
+            layers_evaluations_sym,
+        });
+    }
+
+    Ok(query_list)
+}
+
 /// GPU-accelerated FRI commit phase using eval-domain fold (no IFFT, no per-layer FFT).
 ///
-/// Takes DEEP composition evaluations in natural order and produces `FriLayer` list
+/// Takes DEEP composition evaluations in natural order and produces [`GpuFriLayer`] list
 /// using eval-domain fold. This eliminates the IFFT and per-layer coset_shift+FFT
-/// that the coefficient-domain path requires.
+/// that the coefficient-domain path requires, and avoids reading back full evaluation
+/// vectors by storing them as GPU Metal buffers.
 ///
 /// The evaluations are first bit-reversed, then for each FRI layer:
 /// 1. Domain inverses are computed from known constants (h_inv, omega_inv)
 /// 2. Merkle tree is committed from current evaluations
 /// 3. Eval-domain fold produces next layer's evaluations
 ///
-/// The output `FriLayer` list is identical to what the coefficient-domain path
-/// produces, so the CPU verifier works unchanged.
+/// The query phase reads individual elements via UMA pointer access.
 #[cfg(all(target_os = "macos", feature = "metal"))]
 #[allow(clippy::type_complexity, clippy::too_many_arguments)]
 pub fn gpu_fri_commit_phase_eval_domain(
@@ -2229,18 +2317,12 @@ pub fn gpu_fri_commit_phase_eval_domain(
     fold_eval_state: &FriFoldEvalState,
     domain_inv_state: &FriDomainInvState,
     square_inv_state: &FriSquareInvState,
-) -> Result<
-    (
-        FieldElement<Goldilocks64Field>,
-        Vec<FriLayer<Goldilocks64Field, BatchedMerkleTreeBackend<Goldilocks64Field>>>,
-    ),
-    ProvingError,
-> {
+) -> Result<(FieldElement<Goldilocks64Field>, Vec<GpuFriLayer>), ProvingError> {
     type F = Goldilocks64Field;
     type FpE = FieldElement<F>;
 
     let mut domain_size = domain_size;
-    let mut fri_layer_list = Vec::with_capacity(number_layers);
+    let mut fri_layer_list: Vec<GpuFriLayer> = Vec::with_capacity(number_layers);
     let mut coset_offset = *coset_offset;
 
     // Step 1: Bit-reverse the evaluations from natural order to bit-reversed order.
@@ -2304,14 +2386,16 @@ pub fn gpu_fri_commit_phase_eval_domain(
             (fb, fl, ix, mt)
         };
 
-        // Read back evaluations for FriLayer (needed for CPU query phase).
-        let eval_u64: Vec<u64> = MetalState::retrieve_contents(&folded_buf);
-        let evaluation: Vec<FpE> = eval_u64.into_iter().map(FpE::from).collect();
-
-        let current_layer = FriLayer::new(&evaluation, merkle_tree, coset_offset, domain_size);
-
-        let commitment = current_layer.merkle_tree.root;
-        fri_layer_list.push(current_layer);
+        // Store the folded buffer directly in a GpuFriLayer (no readback needed).
+        // On UMA, the query phase reads individual elements via pointer access.
+        let commitment = merkle_tree.root;
+        fri_layer_list.push(GpuFriLayer {
+            evaluation_buffer: folded_buf.clone(),
+            evaluation_len: folded_len,
+            merkle_tree,
+            coset_offset,
+            domain_size,
+        });
         transcript.append_bytes(&commitment);
 
         // Update for next layer.
@@ -2422,6 +2506,7 @@ where
             &trace_term_coeffs,
             precompiled_deep,
             domain_inv_state,
+            round_1_result.lde_coset_gpu_buffer.as_ref(),
         )?;
     eprintln!("    4a DEEP comp:      {:>10.2?}", t4_deep.elapsed());
 
@@ -2463,9 +2548,9 @@ where
         .map(|_| transcript.sample_u64(domain_size_u64 >> 1) as usize)
         .collect();
 
-    // Step 6: Run FRI query phase.
+    // Step 6: Run FRI query phase (GPU-backed: reads elements via UMA pointer access).
     let t4_query = std::time::Instant::now();
-    let query_list = fri::query_phase(&fri_layers, &iotas)?;
+    let query_list = gpu_query_phase(&fri_layers, &iotas)?;
     eprintln!("    4d query:          {:>10.2?}", t4_query.elapsed());
 
     // Step 7: Extract FRI Merkle roots from layers.
@@ -2628,7 +2713,7 @@ fn compute_deep_composition_poly_fp3(
     composition_gammas: &[Fp3E],
     trace_term_coeffs: &[Vec<Fp3E>],
 ) -> Polynomial<Fp3E> {
-    let z_power = z.pow(composition_poly_parts.len());
+    let z_power = crate::metal::exp_power_of_2(z, composition_poly_parts.len().trailing_zeros());
 
     // H terms: sum_i gamma_i * (H_i(X) - H_i(z^N)) / (X - z^N)
     let mut h_terms = Polynomial::zero();
@@ -2643,9 +2728,15 @@ fn compute_deep_composition_poly_fp3(
     // Trace terms
     let trace_evaluations_columns = trace_ood_evaluations.columns();
     let num_offsets = trace_ood_evaluations.height;
-    let z_shifted_values: Vec<Fp3E> = (0..num_offsets)
-        .map(|offset| primitive_root.pow(offset) * z)
-        .collect();
+    let z_shifted_values: Vec<Fp3E> = {
+        let mut vals = Vec::with_capacity(num_offsets);
+        let mut g_pow = FieldElement::<Goldilocks64Field>::one();
+        for _ in 0..num_offsets {
+            vals.push(g_pow * z);
+            g_pow *= primitive_root;
+        }
+        vals
+    };
 
     let trace_terms =
         trace_polys
@@ -2888,7 +2979,10 @@ mod tests {
                 .collect();
 
         // Verify that sum_i gamma_i * (H_i(X) - H_i(z^N)) vanishes at z^N
-        let z_power = round_3.z.pow(round_2.composition_poly_parts.len());
+        let z_power = crate::metal::exp_power_of_2(
+            &round_3.z,
+            round_2.composition_poly_parts.len().trailing_zeros(),
+        );
         let mut h_terms = Polynomial::zero();
         for (i, part) in round_2.composition_poly_parts.iter().enumerate() {
             let h_i_eval = &round_3.composition_poly_parts_ood_evaluation[i];
