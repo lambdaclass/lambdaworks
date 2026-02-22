@@ -2089,6 +2089,7 @@ where
     let composition_gammas = deep_composition_coefficients;
 
     // Step 2: Compute DEEP composition EVALUATIONS on GPU (skip IFFT).
+    let t4_deep = std::time::Instant::now();
     let (deep_evals_buffer, deep_evals_len) =
         crate::metal::deep_composition::gpu_compute_deep_composition_evals_to_buffer(
             round_1_result,
@@ -2100,8 +2101,10 @@ where
             precompiled_deep,
             domain_inv_state,
         )?;
+    eprintln!("    4a DEEP comp:      {:>10.2?}", t4_deep.elapsed());
 
     // Step 3: Run eval-domain FRI commit (no IFFT, no per-layer FFT).
+    let t4_fri = std::time::Instant::now();
     let domain_size = domain.lde_roots_of_unity_coset.len();
     let (fri_last_value, fri_layers) = gpu_fri_commit_phase_eval_domain(
         domain.root_order as usize,
@@ -2115,8 +2118,10 @@ where
         fold_eval_state,
         fri_domain_inv_state,
     )?;
+    eprintln!("    4b FRI commit:     {:>10.2?}", t4_fri.elapsed());
 
     // Step 4: Grinding (GPU if available, CPU fallback for Poseidon backend).
+    let t4_grind = std::time::Instant::now();
     let security_bits = air.context().proof_options.grinding_factor;
     let mut nonce = None;
     if security_bits > 0 {
@@ -2126,6 +2131,7 @@ where
         transcript.append_bytes(&nonce_value.to_be_bytes());
         nonce = Some(nonce_value);
     }
+    eprintln!("    4c grind:          {:>10.2?}", t4_grind.elapsed());
 
     // Step 5: Sample query indexes.
     let number_of_queries = air.options().fri_number_of_queries;
@@ -2135,7 +2141,9 @@ where
         .collect();
 
     // Step 6: Run FRI query phase.
+    let t4_query = std::time::Instant::now();
     let query_list = fri::query_phase(&fri_layers, &iotas)?;
+    eprintln!("    4d query:          {:>10.2?}", t4_query.elapsed());
 
     // Step 7: Extract FRI Merkle roots from layers.
     let fri_layers_merkle_roots: Vec<_> = fri_layers

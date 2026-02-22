@@ -167,21 +167,21 @@ pub fn gpu_compute_deep_composition_poly(
         .map(|k| primitive_root.pow(k) * round_3_result.z)
         .collect();
 
-    // 1/(x_i - z*g^k) for each offset k
-    let mut inv_z_shifted_vecs: Vec<Vec<FpE>> = z_shifted_values
-        .iter()
+    // 1/(x_i - z*g^k) for each offset k — compute all offsets in parallel
+    use rayon::prelude::*;
+    let inv_z_shifted_vecs: Vec<Vec<FpE>> = z_shifted_values
+        .par_iter()
         .map(|z_shifted| {
-            domain
+            let mut denoms: Vec<FpE> = domain
                 .lde_roots_of_unity_coset
                 .iter()
                 .map(|x| x - z_shifted)
-                .collect()
+                .collect();
+            FieldElement::inplace_batch_inverse_parallel(&mut denoms)
+                .expect("batch inverse must succeed: coset offset ensures no zeros");
+            denoms
         })
         .collect();
-    for inv_vec in &mut inv_z_shifted_vecs {
-        FieldElement::inplace_batch_inverse_parallel(inv_vec)
-            .map_err(|_| stark_platinum_prover::prover::ProvingError::BatchInversionFailed)?;
-    }
 
     // --- Pack scalar data (gammas + OOD evals) as raw u64 ---
     // Layout: [gamma_h * num_comp_parts,
